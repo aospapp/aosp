@@ -30,7 +30,6 @@ from acts.test_utils.bt.bt_test_utils import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import scan_result
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
-from acts.test_utils.bt.bt_test_utils import log_energy_info
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
@@ -47,14 +46,12 @@ class BeaconSwarmTest(BluetoothBaseTest):
         self.scn_ad = self.android_devices[0]
 
     def setup_test(self):
-        self.log.debug(log_energy_info(self.android_devices, "Start"))
         self.discovered_mac_address_list = []
         for a in self.android_devices:
             a.ed.clear_all_events()
         return True
 
     def teardown_test(self):
-        self.log.debug(log_energy_info(self.android_devices, "End"))
         reset_bluetooth([self.android_devices[0]])
         return True
 
@@ -120,7 +117,7 @@ class BeaconSwarmTest(BluetoothBaseTest):
         threads = []
         for a in self.android_devices:
             d, e = a.droid, a.ed
-            serial_no = d.getBuildSerial()
+            serial_no = a.serial
             if serial_no not in beacon_serials:
                 continue
             thread = threading.Thread(target=self._start_advertisements_thread,
@@ -149,7 +146,7 @@ class BeaconSwarmTest(BluetoothBaseTest):
             self.log.info("Restarting advertisements.")
             for a in self.android_devices:
                 d, e = a.droid, a.ed
-                serial_no = d.getBuildSerial()
+                serial_no = a.serial
                 if serial_no not in beacon_serials:
                     continue
                 thread = threading.Thread(

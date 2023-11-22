@@ -18,10 +18,10 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := compatibility-host-util junit json-prebuilt
+LOCAL_JAVA_LIBRARIES := compatibility-host-util junit-host json-prebuilt tradefed
 
 LOCAL_MODULE := compatibility-host-util-tests
 
 LOCAL_MODULE_TAGS := optional
-
+include cts/error_prone_rules.mk
 include $(BUILD_HOST_JAVA_LIBRARY)

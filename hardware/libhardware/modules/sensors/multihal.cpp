@@ -14,33 +14,30 @@
  * limitations under the License.
  */
 
-#include <hardware/sensors.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <dirent.h>
-#include <math.h>
-#include <poll.h>
-#include <pthread.h>
-#include <cutils/atomic.h>
+#include "SensorEventQueue.h"
+#include "multihal.h"
 
 #define LOG_NDEBUG 1
 #include <cutils/log.h>
+#include <cutils/atomic.h>
+#include <hardware/sensors.h>
 
 #include <vector>
 #include <string>
 #include <fstream>
 #include <map>
-#include <string>
 
-#include <stdio.h>
+#include <dirent.h>
 #include <dlfcn.h>
-#include <SensorEventQueue.h>
-
+#include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
+#include <math.h>
+#include <poll.h>
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-static const char* CONFIG_FILENAME = "/system/etc/sensors/hals.conf";
-static const int MAX_CONF_LINE_LENGTH = 1024;
 
 static pthread_mutex_t init_modules_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t init_sensors_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -155,7 +152,11 @@ void *writerTask(void* ptr) {
         ALOGV("writerTask before poll() - bufferSize = %d", bufferSize);
         eventsPolled = device->poll(device, buffer, bufferSize);
         ALOGV("writerTask poll() got %d events.", eventsPolled);
-        if (eventsPolled == 0) {
+        if (eventsPolled <= 0) {
+            if (eventsPolled < 0) {
+                ALOGV("writerTask ignored error %d from %s", eventsPolled, device->common.module->name);
+                ALOGE("ERROR: Fix %s so it does not return error from poll()", device->common.module->name);
+            }
             continue;
         }
         pthread_mutex_lock(&queue_mutex);
@@ -195,6 +196,7 @@ struct sensors_poll_context_t {
     int poll(sensors_event_t* data, int count);
     int batch(int handle, int flags, int64_t period_ns, int64_t timeout);
     int flush(int handle);
+    int inject_sensor_data(struct sensors_poll_device_1 *dev, const sensors_event_t *data);
     int close();
 
     std::vector<hw_device_t*> sub_hw_devices;
@@ -253,14 +255,19 @@ int sensors_poll_context_t::get_device_version_by_handle(int handle) {
     }
 }
 
-// Android L requires sensor HALs to be either 1_0 or 1_3 compliant
+// Android N and hire require sensor HALs to be at least 1_3 compliant
 #define HAL_VERSION_IS_COMPLIANT(version)  \
-    (version == SENSORS_DEVICE_API_VERSION_1_0 || version >= SENSORS_DEVICE_API_VERSION_1_3)
+    (version >= SENSORS_DEVICE_API_VERSION_1_3)
 
 // Returns true if HAL is compliant, false if HAL is not compliant or if handle is invalid
 static bool halIsCompliant(sensors_poll_context_t *ctx, int handle) {
     int version = ctx->get_device_version_by_handle(handle);
     return version != -1 && HAL_VERSION_IS_COMPLIANT(version);
+}
+
+static bool halIsAPILevelCompliant(sensors_poll_context_t *ctx, int handle, int level) {
+    int version = ctx->get_device_version_by_handle(handle);
+    return version != -1 && (version >= level);
 }
 
 const char *apiNumToStr(int version) {
@@ -273,6 +280,8 @@ const char *apiNumToStr(int version) {
         return "SENSORS_DEVICE_API_VERSION_1_2";
     case SENSORS_DEVICE_API_VERSION_1_3:
         return "SENSORS_DEVICE_API_VERSION_1_3";
+    case SENSORS_DEVICE_API_VERSION_1_4:
+        return "SENSORS_DEVICE_API_VERSION_1_4";
     default:
         return "UNKNOWN";
     }
@@ -399,6 +408,25 @@ int sensors_poll_context_t::flush(int handle) {
     return retval;
 }
 
+int sensors_poll_context_t::inject_sensor_data(struct sensors_poll_device_1 *dev,
+                                               const sensors_event_t *data) {
+    int retval = -EINVAL;
+    ALOGV("inject_sensor_data");
+    // Get handle for the sensor owning the event being injected
+    int local_handle = get_local_handle(data->sensor);
+    sensors_poll_device_1_t* v1 = this->get_v1_device_by_handle(data->sensor);
+    if (halIsAPILevelCompliant(this, data->sensor, SENSORS_DEVICE_API_VERSION_1_4) &&
+            local_handle >= 0 && v1) {
+        retval = v1->inject_sensor_data(dev, data);
+    } else {
+        ALOGE("IGNORED inject_sensor_data(type=%d, handle=%d) call to non-API-compliant sensor",
+                data->type, data->sensor);
+    }
+    ALOGV("retval %d", retval);
+    return retval;
+
+}
+
 int sensors_poll_context_t::close() {
     ALOGV("close");
     for (std::vector<hw_device_t*>::iterator it = this->sub_hw_devices.begin();
@@ -449,6 +477,12 @@ static int device__flush(struct sensors_poll_device_1 *dev, int handle) {
     return ctx->flush(handle);
 }
 
+static int device__inject_sensor_data(struct sensors_poll_device_1 *dev,
+        const sensors_event_t *data) {
+    sensors_poll_context_t* ctx = (sensors_poll_context_t*) dev;
+    return ctx->inject_sensor_data(dev, data);
+}
+
 static int open_sensors(const struct hw_module_t* module, const char* name,
         struct hw_device_t** device);
 
@@ -466,15 +500,32 @@ static bool starts_with(const char* s, const char* prefix) {
  * The vector must not be null.
  */
 static void get_so_paths(std::vector<std::string> *so_paths) {
-    std::string line;
-    std::ifstream conf_file(CONFIG_FILENAME);
+    const std::vector<const char *> config_path_list(
+            { MULTI_HAL_CONFIG_FILE_PATH, DEPRECATED_MULTI_HAL_CONFIG_FILE_PATH });
 
-    if(!conf_file) {
-        ALOGW("No multihal config file found at %s", CONFIG_FILENAME);
+    std::ifstream stream;
+    const char *path = nullptr;
+    for (auto i : config_path_list) {
+        std::ifstream f(i);
+        if (f) {
+            stream = std::move(f);
+            path = i;
+            break;
+        }
+    }
+    if(!stream) {
+        ALOGW("No multihal config file found");
         return;
     }
-    ALOGV("Multihal config file found at %s", CONFIG_FILENAME);
-    while (std::getline(conf_file, line)) {
+
+    ALOGE_IF(strcmp(path, DEPRECATED_MULTI_HAL_CONFIG_FILE_PATH) == 0,
+            "Multihal configuration file path %s is not compatible with Treble "
+            "requirements. Please move it to %s.",
+            path, MULTI_HAL_CONFIG_FILE_PATH);
+
+    ALOGV("Multihal config file found at %s", path);
+    std::string line;
+    while (std::getline(stream, line)) {
         ALOGV("config file line: '%s'", line.c_str());
         so_paths->push_back(line);
     }
@@ -623,6 +674,10 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
     .get_sensors_list = module__get_sensors_list
 };
 
+struct sensors_module_t *get_multi_hal_module_info() {
+    return (&HAL_MODULE_INFO_SYM);
+}
+
 static int open_sensors(const struct hw_module_t* hw_module, const char* name,
         struct hw_device_t** hw_device_out) {
     ALOGV("open_sensors begin...");
@@ -633,7 +688,7 @@ static int open_sensors(const struct hw_module_t* hw_module, const char* name,
     sensors_poll_context_t *dev = new sensors_poll_context_t();
     memset(dev, 0, sizeof(sensors_poll_device_1_t));
     dev->proxy_device.common.tag = HARDWARE_DEVICE_TAG;
-    dev->proxy_device.common.version = SENSORS_DEVICE_API_VERSION_1_3;
+    dev->proxy_device.common.version = SENSORS_DEVICE_API_VERSION_1_4;
     dev->proxy_device.common.module = const_cast<hw_module_t*>(hw_module);
     dev->proxy_device.common.close = device__close;
     dev->proxy_device.activate = device__activate;
@@ -641,6 +696,7 @@ static int open_sensors(const struct hw_module_t* hw_module, const char* name,
     dev->proxy_device.poll = device__poll;
     dev->proxy_device.batch = device__batch;
     dev->proxy_device.flush = device__flush;
+    dev->proxy_device.inject_sensor_data = device__inject_sensor_data;
 
     dev->nextReadIndex = 0;
 
@@ -652,7 +708,7 @@ static int open_sensors(const struct hw_module_t* hw_module, const char* name,
         int sub_open_result = sensors_module->common.methods->open(*it, name, &sub_hw_device);
         if (!sub_open_result) {
             if (!HAL_VERSION_IS_COMPLIANT(sub_hw_device->version)) {
-                ALOGE("SENSORS_DEVICE_API_VERSION_1_3 is required for all sensor HALs");
+                ALOGE("SENSORS_DEVICE_API_VERSION_1_3 or newer is required for all sensor HALs");
                 ALOGE("This HAL reports non-compliant API level : %s",
                         apiNumToStr(sub_hw_device->version));
                 ALOGE("Sensors belonging to this HAL will get ignored !");

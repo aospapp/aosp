@@ -40,6 +40,7 @@ import android.media.ExifInterface;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.ConditionVariable;
+import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -54,8 +55,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
+import java.text.SimpleDateFormat;
 
 import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
 
@@ -243,10 +246,19 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                         previewListener));
                 captureListeners.add(previewListener);
 
+                Date beforeCaptureDate = new Date();
                 Pair<List<Image>, CaptureResult> resultPair = captureSingleRawShot(activeArraySize,
                         captureReaders, /*waitForAe*/false, captureListeners);
+                Date afterCaptureDate = new Date();
                 CameraCharacteristics characteristics = mStaticInfo.getCharacteristics();
 
+                if (VERBOSE) {
+                    Log.v(TAG, "Sensor timestamp (ms): " +
+                            resultPair.second.get(CaptureResult.SENSOR_TIMESTAMP) / 1000000);
+                    Log.v(TAG, "SystemClock.elapsedRealtimeNanos (ms): " +
+                            SystemClock.elapsedRealtimeNanos() / 1000000);
+                    Log.v(TAG, "SystemClock.uptimeMillis(): " + SystemClock.uptimeMillis());
+                }
                 // Test simple writeImage, no header checks
                 DngCreator dngCreator = new DngCreator(characteristics, resultPair.second);
                 Location l = new Location("test");
@@ -264,7 +276,7 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
                 String filePath = DEBUG_FILE_NAME_BASE + "/camera_thumb_" + deviceId + "_" +
                         DEBUG_DNG_FILE;
-                // Write out captured DNG file for the first camera device if setprop is enabled
+                // Write out captured DNG file for the first camera device
                 fileStream = new FileOutputStream(filePath);
                 fileStream.write(outputStream.toByteArray());
                 fileStream.flush();
@@ -291,6 +303,30 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                 assertEquals(ExifInterface.ORIENTATION_FLIP_VERTICAL,
                         exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
                                 ExifInterface.ORIENTATION_UNDEFINED));
+
+                // Verify the date/time
+                final SimpleDateFormat dngDateTimeStampFormat =
+                        new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+                dngDateTimeStampFormat.setLenient(false);
+
+                String dateTimeString =
+                        exifInterface.getAttribute(ExifInterface.TAG_DATETIME);
+                assertTrue(dateTimeString != null);
+
+                Date dateTime = dngDateTimeStampFormat.parse(dateTimeString);
+                long captureTimeMs = dateTime.getTime();
+
+                Log.i(TAG, "DNG DateTime tag: " + dateTimeString);
+                Log.i(TAG, "Before capture time: " + beforeCaptureDate.getTime());
+                Log.i(TAG, "Capture time: " + captureTimeMs);
+                Log.i(TAG, "After capture time: " + afterCaptureDate.getTime());
+
+                // Offset beforeCaptureTime by 1 second to account for rounding down of
+                // DNG tag
+                long beforeCaptureTimeMs = beforeCaptureDate.getTime() - 1000;
+                long afterCaptureTimeMs = afterCaptureDate.getTime();
+                assertTrue(captureTimeMs >= beforeCaptureTimeMs);
+                assertTrue(captureTimeMs <= afterCaptureTimeMs);
 
                 if (!VERBOSE) {
                     // Delete the captured DNG file.

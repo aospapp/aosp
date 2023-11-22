@@ -15,21 +15,39 @@
  */
 package android.transition.cts;
 
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
+import android.transition.Transition;
 import android.transition.TransitionSet;
 
-import java.util.concurrent.TimeUnit;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class TransitionSetTest extends BaseTransitionTest {
-
+    @Test
     public void testTransitionTogether() throws Throwable {
         TransitionSet transitionSet = new TransitionSet();
         Fade fade = new Fade();
-        SimpleTransitionListener fadeListener = new SimpleTransitionListener();
+        final Transition.TransitionListener fadeListener =
+                mock(Transition.TransitionListener.class);
         fade.addListener(fadeListener);
         ChangeBounds changeBounds = new ChangeBounds();
-        SimpleTransitionListener changeBoundsListener = new SimpleTransitionListener();
+        final Transition.TransitionListener changeBoundsListener =
+                mock(Transition.TransitionListener.class);
         changeBounds.addListener(changeBoundsListener);
         transitionSet.addTransition(fade);
         transitionSet.addTransition(changeBounds);
@@ -39,22 +57,22 @@ public class TransitionSetTest extends BaseTransitionTest {
         assertEquals(TransitionSet.ORDERING_TOGETHER, transitionSet.getOrdering());
         enterScene(R.layout.scene1);
         startTransition(R.layout.scene3);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertEquals(0, fadeListener.startLatch.getCount());
-                assertEquals(0, changeBoundsListener.startLatch.getCount());
-            }
+        mActivityRule.runOnUiThread(() -> {
+            verify(fadeListener, times(1)).onTransitionStart(any());
+            verify(changeBoundsListener, times(1)).onTransitionStart(any());
         });
     }
 
+    @Test
     public void testTransitionSequentially() throws Throwable {
         TransitionSet transitionSet = new TransitionSet();
         Fade fade = new Fade();
-        SimpleTransitionListener fadeListener = new SimpleTransitionListener();
+        final Transition.TransitionListener fadeListener =
+                mock(Transition.TransitionListener.class);
         fade.addListener(fadeListener);
         ChangeBounds changeBounds = new ChangeBounds();
-        SimpleTransitionListener changeBoundsListener = new SimpleTransitionListener();
+        final Transition.TransitionListener changeBoundsListener =
+                mock(Transition.TransitionListener.class);
         changeBounds.addListener(changeBoundsListener);
         transitionSet.addTransition(fade);
         transitionSet.addTransition(changeBounds);
@@ -67,22 +85,16 @@ public class TransitionSetTest extends BaseTransitionTest {
 
         enterScene(R.layout.scene1);
         startTransition(R.layout.scene3);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertEquals(0, fadeListener.startLatch.getCount());
-                assertEquals(1, changeBoundsListener.startLatch.getCount());
-            }
+        mActivityRule.runOnUiThread(() -> {
+            verify(fadeListener, times(1)).onTransitionStart(any());
+            verify(changeBoundsListener, never()).onTransitionStart(any());
         });
-        assertTrue(fadeListener.endLatch.await(400, TimeUnit.MILLISECONDS));
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertEquals(0, changeBoundsListener.startLatch.getCount());
-            }
-        });
+        verify(fadeListener, within(400)).onTransitionEnd(any());
+        mActivityRule.runOnUiThread(
+                () -> verify(changeBoundsListener, times(1)).onTransitionStart(any()));
     }
 
+    @Test
     public void testTransitionCount() throws Throwable {
         TransitionSet transitionSet = new TransitionSet();
         assertEquals(0, transitionSet.getTransitionCount());

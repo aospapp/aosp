@@ -6,6 +6,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.graphics import graphics_utils
 
+
 class graphics_KernelMemory(test.test):
     """
     Reads from sysfs to determine kernel gem objects and memory info.
@@ -25,11 +26,14 @@ class graphics_KernelMemory(test.test):
 
         keyvals = self.GSC.get_memory_keyvals()
         for key, val in keyvals.iteritems():
-            self.output_perf_value(description=key, value=val,
-                                   units='bytes', higher_is_better=False)
+            self.output_perf_value(
+                description=key,
+                value=val,
+                units='bytes',
+                higher_is_better=False)
         self.GSC.finalize()
         self.write_perf_keyval(keyvals)
         # We should still be in the login screen and memory use > 0.
         if self.GSC.get_memory_access_errors() > 0:
-            raise error.TestFail('Detected %d errors accessing graphics '
-                                 'memory.' % self.GKM.num_errors)
+            raise error.TestFail('Failed: Detected %d errors accessing graphics'
+                                 ' memory.' % self.GKM.num_errors)

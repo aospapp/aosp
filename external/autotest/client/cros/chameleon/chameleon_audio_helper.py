@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.chameleon import audio_widget
+from autotest_lib.client.cros.chameleon import audio_widget_arc
 from autotest_lib.client.cros.chameleon import audio_widget_link
 from autotest_lib.server.cros.bluetooth import bluetooth_device
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
@@ -159,7 +160,7 @@ class AudioLinkFactory(object):
 
         # There is only one dedicated HDMI cable, just use it.
         if link_type == audio_widget_link.HDMIWidgetLink:
-            link = audio_widget_link.HDMIWidgetLink()
+            link = audio_widget_link.HDMIWidgetLink(self._cros_host)
 
         # Acquires audio bus if there is available bus.
         # Creates a bus of AudioBusLink's subclass that is more
@@ -219,6 +220,12 @@ class AudioWidgetFactory(object):
         _audio_facade: An AudioFacadeRemoteAdapter to access Cros device audio
                        functionality. This is created by the
                        'factory' argument passed to the constructor.
+        _display_facade: A DisplayFacadeRemoteAdapter to access Cros device
+                         display functionality. This is created by the
+                         'factory' argument passed to the constructor.
+        _system_facade: A SystemFacadeRemoteAdapter to access Cros device
+                         system functionality. This is created by the
+                         'factory' argument passed to the constructor.
         _chameleon_board: A ChameleonBoard object to access Chameleon
                           functionality.
         _link_factory: An AudioLinkFactory that creates link for widgets.
@@ -235,16 +242,20 @@ class AudioWidgetFactory(object):
 
         """
         self._audio_facade = factory.create_audio_facade()
+        self._display_facade = factory.create_display_facade()
+        self._system_facade = factory.create_system_facade()
         self._usb_facade = factory.create_usb_facade()
         self._cros_host = cros_host
         self._chameleon_board = cros_host.chameleon
         self._link_factory = AudioLinkFactory(cros_host)
 
 
-    def create_widget(self, port_id):
+    def create_widget(self, port_id, use_arc=False):
         """Creates a AudioWidget given port id string.
 
         @param port_id: A port id string defined in chameleon_audio_ids.
+        @param use_arc: For Cros widget, select if audio path exercises ARC.
+                        Currently only input widget is supported.
 
         @returns: An AudioWidget that is actually a
                   (Chameleon/Cros/Peripheral)(Input/Output)Widget.
@@ -260,8 +271,13 @@ class AudioWidgetFactory(object):
 
             """
             if audio_port.role == 'sink':
-                return audio_widget.ChameleonInputWidgetHandler(
-                        self._chameleon_board, audio_port.interface)
+                if audio_port.port_id == ids.ChameleonIds.HDMI:
+                    return audio_widget.ChameleonHDMIInputWidgetHandler(
+                            self._chameleon_board, audio_port.interface,
+                            self._display_facade)
+                else:
+                    return audio_widget.ChameleonInputWidgetHandler(
+                            self._chameleon_board, audio_port.interface)
             else:
                 if audio_port.port_id == ids.ChameleonIds.LINEOUT:
                     return audio_widget.ChameleonLineOutOutputWidgetHandler(
@@ -282,27 +298,43 @@ class AudioWidgetFactory(object):
             """
             is_usb = audio_port.port_id in [ids.CrosIds.USBIN,
                                             ids.CrosIds.USBOUT]
+            is_audio_jack = audio_port.port_id in [ids.CrosIds.HEADPHONE,
+                                                   ids.CrosIds.EXTERNAL_MIC]
+            is_internal_mic = audio_port.port_id == ids.CrosIds.INTERNAL_MIC
+
+            # Determines the plug handler to be used.
+            # By default, the plug handler is DummyPlugHandler.
+            # If the port uses audio jack, and there is jack plugger available
+            # through audio board, then JackPluggerPlugHandler should be used.
             audio_board = self._chameleon_board.get_audio_board()
             if audio_board:
                 jack_plugger = audio_board.get_jack_plugger()
             else:
                 jack_plugger = None
 
-            if is_usb:
-                plug_handler = audio_widget.USBPlugHandler(self._usb_facade)
-            elif jack_plugger:
+            if jack_plugger and is_audio_jack:
                 plug_handler = audio_widget.JackPluggerPlugHandler(jack_plugger)
             else:
                 plug_handler = audio_widget.DummyPlugHandler()
 
             if audio_port.role == 'sink':
-                if is_usb:
+                if use_arc:
+                    return audio_widget_arc.CrosInputWidgetARCHandler(
+                            self._audio_facade, plug_handler)
+                elif is_usb:
                     return audio_widget.CrosUSBInputWidgetHandler(
                             self._audio_facade, plug_handler)
+                elif is_internal_mic:
+                    return audio_widget.CrosIntMicInputWidgetHandler(
+                            self._audio_facade, plug_handler,
+                            self._system_facade)
                 else:
                     return audio_widget.CrosInputWidgetHandler(
                             self._audio_facade, plug_handler)
             else:
+                if use_arc:
+                    return audio_widget_arc.CrosOutputWidgetARCHandler(
+                            self._audio_facade, plug_handler)
                 return audio_widget.CrosOutputWidgetHandler(self._audio_facade,
                                                             plug_handler)
 
@@ -379,29 +411,6 @@ class AudioWidgetFactory(object):
         return audio_widget_link.WidgetBinderChain(binders)
 
 
-def compare_recorded_result(golden_file, recorder, method, parameters=None):
-    """Check recoded audio in a AudioInputWidget against a golden file.
-
-    Compares recorded data with golden data by cross correlation method.
-    Refer to audio_helper.compare_data for details of comparison.
-
-    @param golden_file: An AudioTestData object that serves as golden data.
-    @param recorder: An AudioInputWidget that has recorded some audio data.
-    @param method: The method to compare recorded result. Currently,
-                   'correlation' and 'frequency' are supported.
-    @param parameters: A dict containing parameters for method.
-
-    @returns: True if the recorded data and golden data are similar enough.
-
-    """
-    logging.info('Comparing recorded data with golden file %s ...',
-                 golden_file.path)
-    return audio_helper.compare_data(
-            golden_file.get_binary(), golden_file.data_format,
-            recorder.get_binary(), recorder.data_format, recorder.channel_map,
-            method, parameters)
-
-
 @contextmanager
 def bind_widgets(binder):
     """Context manager for widget binders.
@@ -410,14 +419,20 @@ def bind_widgets(binder):
     in the end.
 
     @param binder: A WidgetBinder object or a WidgetBinderChain object.
+                   If binder is None, then do nothing. This is for test user's
+                   convenience to reuse test logic among paths using binder
+                   and paths not using binder.
 
     E.g. with bind_widgets(binder):
              do something on widget.
 
     """
-    try:
-        binder.connect()
+    if not binder:
         yield
-    finally:
-        binder.disconnect()
-        binder.release()
+    else:
+        try:
+            binder.connect()
+            yield
+        finally:
+            binder.disconnect()
+            binder.release()

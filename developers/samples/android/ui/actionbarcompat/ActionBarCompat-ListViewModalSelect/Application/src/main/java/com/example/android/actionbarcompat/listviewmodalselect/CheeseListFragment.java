@@ -17,7 +17,7 @@ package com.example.android.actionbarcompat.listviewmodalselect;
 
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.util.SparseBooleanArray;
 import android.view.Menu;
@@ -60,7 +60,7 @@ public class CheeseListFragment extends ListFragment {
         // Attach a MultiSelectionUtil.Controller to the ListView, giving it an instance of
         // ModalChoiceListener (see below)
         mMultiSelectController = MultiSelectionUtil
-                .attachMultiSelectionController(getListView(), (ActionBarActivity) getActivity(),
+                .attachMultiSelectionController(getListView(), (AppCompatActivity) getActivity(),
                         new ModalChoiceListener());
 
         // Allow the Controller to restore itself

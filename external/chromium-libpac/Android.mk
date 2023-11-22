@@ -18,6 +18,7 @@ LOCAL_CFLAGS += \
   -Wno-import \
   -Wno-format \
   -Wno-unused-parameter \
+  -Werror
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/src $(LOCAL_PATH)/../v8
 

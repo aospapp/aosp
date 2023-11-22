@@ -18,10 +18,12 @@
 //#define LOG_NDEBUG 0
 
 #include <AudioPolicyInterface.h>
+#include "policy.h"
 #include "AudioSession.h"
 #include "AudioGain.h"
 #include "TypeConverter.h"
-#include <cutils/log.h>
+
+#include <log/log.h>
 #include <utils/String8.h>
 
 namespace android {
@@ -89,8 +91,10 @@ uint32_t AudioSession::changeActiveCount(int delta)
                 AUDIO_CONFIG_BASE_INITIALIZER;
         const audio_patch_handle_t patchHandle = (provider != NULL) ? provider->getPatchHandle() :
                 AUDIO_PATCH_HANDLE_NONE;
-        mClientInterface->onRecordingConfigurationUpdate(event, mSession, mInputSource,
-                &mConfig, &deviceConfig, patchHandle);
+        if (patchHandle != AUDIO_PATCH_HANDLE_NONE) {
+            mClientInterface->onRecordingConfigurationUpdate(event, mSession, mInputSource,
+                    &mConfig, &deviceConfig, patchHandle);
+        }
     }
 
     return mActiveCount;
@@ -124,9 +128,11 @@ void AudioSession::onSessionInfoUpdate() const
                 AUDIO_CONFIG_BASE_INITIALIZER;
         const audio_patch_handle_t patchHandle = (provider != NULL) ? provider->getPatchHandle() :
                 AUDIO_PATCH_HANDLE_NONE;
-        mClientInterface->onRecordingConfigurationUpdate(RECORD_CONFIG_EVENT_START,
-                mSession, mInputSource,
-                &mConfig, &deviceConfig, patchHandle);
+        if (patchHandle != AUDIO_PATCH_HANDLE_NONE) {
+            mClientInterface->onRecordingConfigurationUpdate(RECORD_CONFIG_EVENT_START,
+                    mSession, mInputSource,
+                    &mConfig, &deviceConfig, patchHandle);
+        }
     }
 }
 
@@ -214,9 +220,20 @@ AudioSessionCollection AudioSessionCollection::getActiveSessions() const
     return activeSessions;
 }
 
+size_t AudioSessionCollection::getActiveSessionCount() const
+{
+    size_t activeCount = 0;
+    for (size_t i = 0; i < size(); i++) {
+        if (valueAt(i)->activeCount() != 0) {
+            activeCount++;
+        }
+    }
+    return activeCount;
+}
+
 bool AudioSessionCollection::hasActiveSession() const
 {
-    return getActiveSessions().size() != 0;
+    return getActiveSessionCount() != 0;
 }
 
 bool AudioSessionCollection::isSourceActive(audio_source_t source) const
@@ -236,13 +253,31 @@ bool AudioSessionCollection::isSourceActive(audio_source_t source) const
     return false;
 }
 
+audio_source_t AudioSessionCollection::getHighestPrioritySource(bool activeOnly) const
+{
+    audio_source_t source = AUDIO_SOURCE_DEFAULT;
+    int32_t priority = -1;
+
+    for (size_t i = 0; i < size(); i++) {
+        const sp<AudioSession>  audioSession = valueAt(i);
+        if (activeOnly && audioSession->activeCount() == 0) {
+            continue;
+        }
+        int32_t curPriority = source_priority(audioSession->inputSource());
+        if (curPriority > priority) {
+            priority = curPriority;
+            source = audioSession->inputSource();
+        }
+    }
+    return source;
+}
+
 void AudioSessionCollection::onSessionInfoUpdate() const
 {
     for (size_t i = 0; i < size(); i++) {
         valueAt(i)->onSessionInfoUpdate();
     }
 }
-
 
 status_t AudioSessionCollection::dump(int fd, int spaces) const
 {

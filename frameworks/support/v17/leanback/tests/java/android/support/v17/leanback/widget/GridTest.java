@@ -15,15 +15,9 @@
  */
 package android.support.v17.leanback.widget;
 
-import android.test.AndroidTestCase;
-
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/**
- * Base class for testing Grid algorithm
- * @hide
- */
 public abstract class GridTest {
 
     static class Provider implements Grid.Provider {
@@ -39,12 +33,17 @@ public abstract class GridTest {
         }
 
         @Override
+        public int getMinIndex() {
+            return 0;
+        }
+
+        @Override
         public int getCount() {
             return mCount;
         }
 
         @Override
-        public int createItem(int index, boolean append, Object[] item) {
+        public int createItem(int index, boolean append, Object[] item, boolean disappearingItem) {
             return mItems[index];
         }
 

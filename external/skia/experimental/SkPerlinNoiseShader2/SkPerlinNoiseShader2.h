@@ -28,9 +28,9 @@ public:
     struct PaintingData;
 
     /**
-     *  About the noise types : the difference between the first 2 is just minor tweaks to the 
-     *  algorithm, they're not 2 entirely different noises. The output looks different, but once the 
-     *  noise is generated in the [1, -1] range, the output is brought back in the [0, 1] range by 
+     *  About the noise types : the difference between the first 2 is just minor tweaks to the
+     *  algorithm, they're not 2 entirely different noises. The output looks different, but once the
+     *  noise is generated in the [1, -1] range, the output is brought back in the [0, 1] range by
      *  doing :
      *  kFractalNoise_Type : noise * 0.5 + 0.5
      *  kTurbulence_Type   : abs(noise)
@@ -61,35 +61,32 @@ public:
      *  the frequencies so that the noise will be tileable for the given tile size. If tileSize
      *  is NULL or an empty size, the frequencies will be used as is without modification.
      */
-    static SkShader* CreateFractalNoise(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
-                                        int numOctaves, SkScalar seed,
-                                        const SkISize* tileSize = NULL);
-    static SkShader* CreateTurbulence(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
-                                     int numOctaves, SkScalar seed,
-                                     const SkISize* tileSize = NULL);
+    static sk_sp<SkShader> MakeFractalNoise(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
+                                            int numOctaves, SkScalar seed,
+                                            const SkISize* tileSize = NULL);
+    static sk_sp<SkShader> MakeTurbulence(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
+                                          int numOctaves, SkScalar seed,
+                                          const SkISize* tileSize = NULL);
     /**
      * Creates an Improved Perlin Noise shader. The z value is roughly equivalent to the seed of the
      * other two types, but minor variations to z will only slightly change the noise.
      */
-    static SkShader* CreateImprovedNoise(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
-                                         int numOctaves, SkScalar z);
+    static sk_sp<SkShader> MakeImprovedNoise(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
+                                             int numOctaves, SkScalar z);
     /**
      * Create alias for CreateTurbulunce until all Skia users changed
      * its code to use the new naming
      */
-    static SkShader* CreateTubulence(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
-                                     int numOctaves, SkScalar seed,
-                                     const SkISize* tileSize = NULL) {
-    return CreateTurbulence(baseFrequencyX, baseFrequencyY, numOctaves, seed, tileSize);
+    static sk_sp<SkShader> MakeTubulence(SkScalar baseFrequencyX, SkScalar baseFrequencyY,
+                                         int numOctaves, SkScalar seed,
+                                         const SkISize* tileSize = NULL) {
+        return MakeTurbulence(baseFrequencyX, baseFrequencyY, numOctaves, seed, tileSize);
     }
-
-
-    size_t contextSize(const ContextRec&) const override;
 
     class PerlinNoiseShaderContext : public SkShader::Context {
     public:
         PerlinNoiseShaderContext(const SkPerlinNoiseShader2& shader, const ContextRec&);
-        virtual ~PerlinNoiseShaderContext();
+        ~PerlinNoiseShaderContext() override;
 
         void shadeSpan(int x, int y, SkPMColor[], int count) override;
 
@@ -109,8 +106,7 @@ public:
     };
 
 #if SK_SUPPORT_GPU
-    const GrFragmentProcessor* asFragmentProcessor(GrContext* context, const SkMatrix& viewM,
-                                                   const SkMatrix*, SkFilterQuality) const override;
+    sk_sp<GrFragmentProcessor> asFragmentProcessor(const AsFPArgs&) const override;
 #endif
 
     SK_TO_STRING_OVERRIDE()
@@ -118,13 +114,13 @@ public:
 
 protected:
     void flatten(SkWriteBuffer&) const override;
-    Context* onCreateContext(const ContextRec&, void* storage) const override;
+    Context* onMakeContext(const ContextRec&, SkArenaAlloc*) const override;
 
 private:
     SkPerlinNoiseShader2(SkPerlinNoiseShader2::Type type, SkScalar baseFrequencyX,
                         SkScalar baseFrequencyY, int numOctaves, SkScalar seed,
                         const SkISize* tileSize);
-    virtual ~SkPerlinNoiseShader2();
+    ~SkPerlinNoiseShader2() override;
 
     const SkPerlinNoiseShader2::Type fType;
     const SkScalar                  fBaseFrequencyX;

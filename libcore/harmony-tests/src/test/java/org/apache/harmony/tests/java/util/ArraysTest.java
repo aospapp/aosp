@@ -4214,6 +4214,7 @@ public class ArraysTest extends junit.framework.TestCase {
         assertTrue(list.spliterator().hasCharacteristics(Spliterator.ORDERED));
 
         SpliteratorTester.runOrderedTests(list);
+        SpliteratorTester.assertSupportsTrySplit(list);
     }
 
     public void test_spliterator_ref() {
@@ -4225,6 +4226,7 @@ public class ArraysTest extends junit.framework.TestCase {
 
         SpliteratorTester.runBasicIterationTests(Arrays.spliterator(elements), expected);
         SpliteratorTester.testSpliteratorNPE(Arrays.spliterator(elements));
+        assertNotNull(Arrays.spliterator(elements).trySplit());
 
         Spliterator<String> sp = Arrays.spliterator(elements);
         assertTrue(sp.hasCharacteristics(Spliterator.ORDERED));
@@ -4249,6 +4251,7 @@ public class ArraysTest extends junit.framework.TestCase {
 
         SpliteratorTester.runBasicIterationTests(Arrays.spliterator(elements, 2, 16), expected);
         SpliteratorTester.testSpliteratorNPE(Arrays.spliterator(elements, 2, 16));
+        assertNotNull(Arrays.spliterator(elements, 2, 16).trySplit());
 
         Spliterator<String> sp = Arrays.spliterator(elements, 2, 16);
         assertTrue(sp.hasCharacteristics(Spliterator.ORDERED));

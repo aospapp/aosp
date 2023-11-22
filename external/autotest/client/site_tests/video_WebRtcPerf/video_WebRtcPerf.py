@@ -92,6 +92,7 @@ class video_WebRtcPerf(test.test):
     WebRTC to performance dashboard.
     """
     version = 1
+    arc_mode = None
 
 
     def start_loopback(self, cr):
@@ -124,18 +125,21 @@ class video_WebRtcPerf(test.test):
         return tab
 
 
-    def run_once(self, decode_time_test=False, cpu_test=False, power_test=False):
+    def run_once(self, decode_time_test=False, cpu_test=False,
+                 power_test=False, arc_mode=None):
         """
         Runs the video_WebRtcPerf test.
 
         @param decode_time_test: Pass True to run decode time test.
         @param cpu_test: Pass True to run CPU usage test.
         @param power_test: Pass True to run power consumption test.
+        @param arc_mode: if 'enabled', run the test with Android enabled.
         """
         # Download test video.
         url = DOWNLOAD_BASE + VIDEO_NAME
         local_path = os.path.join(self.bindir, VIDEO_NAME)
         file_utils.download_file(url, local_path)
+        self.arc_mode = arc_mode
 
         if decode_time_test:
             keyvals = self.test_decode_time(local_path)
@@ -174,7 +178,14 @@ class video_WebRtcPerf(test.test):
         keyvals = {}
         EXTRA_BROWSER_ARGS.append(FAKE_FILE_ARG % local_path)
 
-        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS) as cr:
+        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
+                           arc_mode=self.arc_mode,
+                           init_network_controller=True) as cr:
+            # On daisy, Chrome freezes about 30 seconds after login because of
+            # TPM error. See http://crbug.com/588579.
+            if utils.get_board() == 'daisy':
+              logging.warning('Delay 30s for issue 588579 on daisy')
+              time.sleep(30)
             # Open WebRTC loopback page and start the loopback.
             self.start_loopback(cr)
             result = gather_result(cr)
@@ -193,7 +204,10 @@ class video_WebRtcPerf(test.test):
         # Start chrome with disabled video hardware decode flag.
         with chrome.Chrome(extra_browser_args=
                 DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS +
-                EXTRA_BROWSER_ARGS) as cr:
+                EXTRA_BROWSER_ARGS, arc_mode=self.arc_mode) as cr:
+            if utils.get_board() == 'daisy':
+              logging.warning('Delay 30s for issue 588579 on daisy')
+              time.sleep(30)
             # Open the webrtc loopback page and start the loopback.
             self.start_loopback(cr)
             result = gather_result(cr)

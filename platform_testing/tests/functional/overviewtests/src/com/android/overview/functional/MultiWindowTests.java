@@ -97,6 +97,9 @@ public class MultiWindowTests extends InstrumentationTestCase {
     public void testResizeHandleOnMultiwindow() throws Exception {
         mOverviewHelper.dockAppsToBothMultiwindowAreas(CALCULATOR_PACKAGE, "Calculator",
                 GMAIL_PACKAGE);
+        // Adding a sleep here to make sure the test fetches the bounds of the
+        // elements on the multiwindow screen instead of the home screen.
+        Thread.sleep(TIMEOUT);
         // verify initial bounds for top and bottom
         mDevice.click(mDevice.getDisplayHeight() / 4, mDevice.getDisplayWidth() / 2);
         UiObject2 calcArea = mDevice.wait(Until.findObject

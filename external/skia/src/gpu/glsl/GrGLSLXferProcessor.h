@@ -9,52 +9,56 @@
 #define GrGLSLXferProcessor_DEFINED
 
 #include "glsl/GrGLSLProgramDataManager.h"
-#include "glsl/GrGLSLTextureSampler.h"
+#include "glsl/GrGLSLUniformHandler.h"
 
 class GrXferProcessor;
-class GrGLSLCaps;
-class GrGLSLUniformHandler;
 class GrGLSLXPBuilder;
 class GrGLSLXPFragmentBuilder;
+class GrShaderCaps;
 
 class GrGLSLXferProcessor {
 public:
     GrGLSLXferProcessor() {}
     virtual ~GrGLSLXferProcessor() {}
 
-    typedef GrGLSLTextureSampler::TextureSamplerArray TextureSamplerArray;
+    using SamplerHandle        = GrGLSLUniformHandler::SamplerHandle;
+    using ImageStorageHandle   = GrGLSLUniformHandler::ImageStorageHandle;
+
     struct EmitArgs {
         EmitArgs(GrGLSLXPFragmentBuilder* fragBuilder,
                  GrGLSLUniformHandler* uniformHandler,
-                 const GrGLSLCaps* caps,
+                 const GrShaderCaps* caps,
                  const GrXferProcessor& xp,
                  const char* inputColor,
                  const char* inputCoverage,
                  const char* outputPrimary,
                  const char* outputSecondary,
-                 const TextureSamplerArray& samplers,
-                 const bool usePLSDstRead)
-            : fXPFragBuilder(fragBuilder)
-            , fUniformHandler(uniformHandler)
-            , fGLSLCaps(caps)
-            , fXP(xp)
-            , fInputColor(inputColor)
-            , fInputCoverage(inputCoverage)
-            , fOutputPrimary(outputPrimary)
-            , fOutputSecondary(outputSecondary)
-            , fSamplers(samplers)
-            , fUsePLSDstRead(usePLSDstRead) {}
+                 const SamplerHandle* texSamplers,
+                 const SamplerHandle* bufferSamplers,
+                 const ImageStorageHandle* imageStorages)
+                : fXPFragBuilder(fragBuilder)
+                , fUniformHandler(uniformHandler)
+                , fShaderCaps(caps)
+                , fXP(xp)
+                , fInputColor(inputColor)
+                , fInputCoverage(inputCoverage)
+                , fOutputPrimary(outputPrimary)
+                , fOutputSecondary(outputSecondary)
+                , fTexSamplers(texSamplers)
+                , fBufferSamplers(bufferSamplers)
+                , fImageStorages(imageStorages) {}
 
         GrGLSLXPFragmentBuilder* fXPFragBuilder;
         GrGLSLUniformHandler* fUniformHandler;
-        const GrGLSLCaps* fGLSLCaps;
+        const GrShaderCaps* fShaderCaps;
         const GrXferProcessor& fXP;
         const char* fInputColor;
         const char* fInputCoverage;
         const char* fOutputPrimary;
         const char* fOutputSecondary;
-        const TextureSamplerArray& fSamplers;
-        bool fUsePLSDstRead;
+        const SamplerHandle* fTexSamplers;
+        const SamplerHandle* fBufferSamplers;
+        const ImageStorageHandle* fImageStorages;
     };
     /**
      * This is similar to emitCode() in the base class, except it takes a full shader builder.

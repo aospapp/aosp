@@ -9,7 +9,8 @@ import sys
 from telemetry.core import util
 
 
-def Run(project_config, no_browser=False):
+def Run(project_config, no_browser=False,
+        disable_cloud_storage_io_during_test=False):
   args = sys.argv[1:]
   assert '--top-level-dir' not in args, (
       'Top level directory for running tests should be specified through '
@@ -19,13 +20,16 @@ def Run(project_config, no_browser=False):
       'the instance of telemetry.project_config.ProjectConfig.')
   assert project_config.top_level_dir, 'Must specify top level dir for project'
   args.extend(['--top-level-dir', project_config.top_level_dir])
-  if project_config.client_config:
-    args.extend(['--client-config', project_config.client_config])
+  for c in project_config.client_configs:
+    args.extend(['--client-config', c])
   if no_browser and not '--no-browser' in args:
     args.extend(['--no-browser'])
 
   if project_config.default_chrome_root and not '--chrome-root' in args:
     args.extend(['--chrome-root', project_config.default_chrome_root])
+
+  if disable_cloud_storage_io_during_test:
+    args.extend(['--disable-cloud-storage-io'])
 
   env = os.environ.copy()
   telemetry_dir = util.GetTelemetryDir()

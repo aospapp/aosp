@@ -19,21 +19,22 @@
  */
 #define LOG_TAG "ion"
 
-#include <cutils/log.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/ion.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/types.h>
+#include <unistd.h>
 
-#include <linux/ion.h>
 #include <ion/ion.h>
+#include <log/log.h>
 
 int ion_open()
 {
-    int fd = open("/dev/ion", O_RDWR);
+    int fd = open("/dev/ion", O_RDONLY | O_CLOEXEC);
     if (fd < 0)
         ALOGE("open /dev/ion failed!\n");
     return fd;

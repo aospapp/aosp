@@ -18,6 +18,7 @@ package android.location.cts;
 
 import android.location.GnssStatus;
 
+import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -28,34 +29,51 @@ import java.util.concurrent.TimeUnit;
  */
 class TestGnssStatusCallback extends GnssStatus.Callback {
 
+    private final String mTag;
     private volatile boolean mGpsStatusReceived;
     private GnssStatus mGnssStatus = null;
     // Timeout in sec for count down latch wait
     private static final int TIMEOUT_IN_SEC = 90;
-    private final CountDownLatch mCountDownLatch;
+    private final CountDownLatch mLatchStart;
+    private final CountDownLatch mLatchStatus;
+    private final CountDownLatch mLatchTtff;
+    private final CountDownLatch mLatchStop;
+
     // Store list of Prn for Satellites.
     private List<List<Integer>> mGpsSatellitePrns;
 
-    TestGnssStatusCallback(int gpsStatusCountToCollect) {
-        mCountDownLatch = new CountDownLatch(gpsStatusCountToCollect);
+    TestGnssStatusCallback(String tag, int gpsStatusCountToCollect) {
+        this.mTag = tag;
+        mLatchStart = new CountDownLatch(1);
+        mLatchStatus = new CountDownLatch(gpsStatusCountToCollect);
+        mLatchTtff = new CountDownLatch(1);
+        mLatchStop = new CountDownLatch(1);
         mGpsSatellitePrns = new ArrayList<List<Integer>>();
     }
 
     @Override
     public void onStarted() {
+        Log.i(mTag, "Gnss Status Listener Started");
+        mLatchStart.countDown();
     }
 
     @Override
     public void onStopped() {
+        Log.i(mTag, "Gnss Status Listener Stopped");
+        mLatchStop.countDown();
     }
 
     @Override
     public void onFirstFix(int ttffMillis) {
+        Log.i(mTag, "Gnss Status Listener Received TTFF");
+        mLatchTtff.countDown();
     }
 
     @Override
     public void onSatelliteStatusChanged(GnssStatus status) {
-        mCountDownLatch.countDown();
+        Log.i(mTag, "Gnss Status Listener Received Status Update");
+        mGnssStatus = status;
+        mLatchStatus.countDown();
     }
 
     /**
@@ -86,7 +104,19 @@ class TestGnssStatusCallback extends GnssStatus.Callback {
         return mGnssStatus;
     }
 
-    public boolean await() throws InterruptedException {
-        return TestUtils.waitFor(mCountDownLatch, TIMEOUT_IN_SEC);
+    public boolean awaitStart() throws InterruptedException {
+        return TestUtils.waitFor(mLatchStart, TIMEOUT_IN_SEC);
+    }
+
+    public boolean awaitStatus() throws InterruptedException {
+        return TestUtils.waitFor(mLatchStatus, TIMEOUT_IN_SEC);
+    }
+
+    public boolean awaitTtff() throws InterruptedException {
+        return TestUtils.waitFor(mLatchTtff, TIMEOUT_IN_SEC);
+    }
+
+    public boolean awaitStop() throws InterruptedException {
+        return TestUtils.waitFor(mLatchStop, TIMEOUT_IN_SEC);
     }
 }

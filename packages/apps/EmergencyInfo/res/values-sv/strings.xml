@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"ICE-kontakter"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Lägg till kontakt"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Det gick inte att hitta en kontaktväljare"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Det går inte att visa kontakten"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Vill du ta bort <xliff:g id="CONTACT_NAME">%1$s</xliff:g> från ICE-kontakterna?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Ta bort kontakt"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Det gick inte att läsa kontaktuppgifterna"</string>
     <string name="remove" msgid="1243949503772376064">"Ta bort"</string>
     <string name="cancel" msgid="7401575239009060939">"Avbryt"</string>
     <string name="ok" msgid="163967937451981024">"Ok"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Krisinformation"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Den information som du anger här kan hjälpa räddningspersonal vid en nödsituation. Den finns bara lagrad på enheten och vem som helst kan läsa den från skärmen för nödsamtal utan att låsa upp mobilen."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Fortsätt"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Ingen krisinformation har angetts"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Det finns inga uppgifter om mobilens ägare"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Om det här är din mobil trycker du på pennikonen för att lägga till uppgifter som visas här i nödsituationer"</string>
     <string name="clear_all" msgid="8899013032870561633">"Rensa alla"</string>
     <string name="clear" msgid="3648880442502887163">"Rensa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vill du rensa alla uppgifter och kontakter?"</string>

@@ -16,9 +16,9 @@
 
 static_library("device") {
   sources = [
-    "src/classic/peer.c",
-    "src/controller.c",
-    "src/interop.c",
+    "src/controller.cc",
+    "src/esco_parameters.cc",
+    "src/interop.cc",
   ]
 
   include_dirs = [
@@ -28,13 +28,16 @@ static_library("device") {
     "//include",
     "//stack/include",
   ]
+
+  deps = [
+    "//third_party/libchrome:base",
+  ]
 }
 
 executable("net_test_device") {
   testonly = true
   sources = [
-    "//osi/test/AllocationTestHarness.cpp",
-    "test/classic/peer_test.cpp",
+    "//osi/test/AllocationTestHarness.cc",
   ]
 
   include_dirs = [ "//" ]
@@ -44,6 +47,7 @@ executable("net_test_device") {
     "//btcore",
     "//osi",
     "//third_party/googletest:gtest_main",
+    "//third_party/libchrome:base",
   ]
 
   libs = [

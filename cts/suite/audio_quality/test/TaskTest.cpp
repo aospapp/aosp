@@ -37,7 +37,7 @@ public:
         static int mRunCounter;
         static int mLiveInstanceCounter;
 
-        TestTaskDummy(TaskGeneric::TaskType type)
+        explicit TestTaskDummy(TaskGeneric::TaskType type)
             : TaskGeneric(type) {
             mLiveInstanceCounter++;
 

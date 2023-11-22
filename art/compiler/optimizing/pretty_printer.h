@@ -17,7 +17,8 @@
 #ifndef ART_COMPILER_OPTIMIZING_PRETTY_PRINTER_H_
 #define ART_COMPILER_OPTIMIZING_PRETTY_PRINTER_H_
 
-#include "base/stringprintf.h"
+#include "android-base/stringprintf.h"
+
 #include "nodes.h"
 
 namespace art {
@@ -39,16 +40,17 @@ class HPrettyPrinter : public HGraphVisitor {
   }
 
   void PrintPostInstruction(HInstruction* instruction) {
-    if (instruction->InputCount() != 0) {
+    HConstInputsRef inputs = instruction->GetInputs();
+    if (!inputs.empty()) {
       PrintString("(");
       bool first = true;
-      for (HInputIterator it(instruction); !it.Done(); it.Advance()) {
+      for (const HInstruction* input : inputs) {
         if (first) {
           first = false;
         } else {
           PrintString(", ");
         }
-        PrintInt(it.Current()->GetId());
+        PrintInt(input->GetId());
       }
       PrintString(")");
     }
@@ -107,7 +109,7 @@ class StringPrettyPrinter : public HPrettyPrinter {
       : HPrettyPrinter(graph), str_(""), current_block_(nullptr) { }
 
   void PrintInt(int value) OVERRIDE {
-    str_ += StringPrintf("%d", value);
+    str_ += android::base::StringPrintf("%d", value);
   }
 
   void PrintString(const char* value) OVERRIDE {

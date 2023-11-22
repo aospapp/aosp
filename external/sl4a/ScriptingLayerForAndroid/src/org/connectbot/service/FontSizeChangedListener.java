@@ -18,7 +18,6 @@
 package org.connectbot.service;
 
 /**
- * @author Kenny Root
  *
  */
 public interface FontSizeChangedListener {

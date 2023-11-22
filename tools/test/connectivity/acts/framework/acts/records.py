@@ -13,17 +13,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 """This module is where all the record definitions and record containers live.
 """
 
 import json
+import logging
 import pprint
 
-from acts.signals import TestSignal
-from acts.utils import epoch_to_human_time
-from acts.utils import get_current_epoch_time
+from acts import signals
+from acts import utils
+
 
 class TestResultEnums(object):
     """Enums used for TestResultRecord class.
@@ -44,7 +43,9 @@ class TestResultEnums(object):
     TEST_RESULT_PASS = "PASS"
     TEST_RESULT_FAIL = "FAIL"
     TEST_RESULT_SKIP = "SKIP"
+    TEST_RESULT_BLOCKED = "BLOCKED"
     TEST_RESULT_UNKNOWN = "UNKNOWN"
+
 
 class TestResultRecord(object):
     """A record that holds the information of a test case execution.
@@ -75,7 +76,7 @@ class TestResultRecord(object):
 
         Sets the begin_time of this record.
         """
-        self.begin_time = get_current_epoch_time()
+        self.begin_time = utils.get_current_epoch_time()
 
     def _test_end(self, result, e):
         """Class internal function to signal the end of a test case execution.
@@ -84,11 +85,13 @@ class TestResultRecord(object):
             result: One of the TEST_RESULT enums in TestResultEnums.
             e: A test termination signal (usually an exception object). It can
                 be any exception instance or of any subclass of
-                base_test._TestSignal.
+                acts.signals.TestSignal.
         """
-        self.end_time = get_current_epoch_time()
+        self.end_time = utils.get_current_epoch_time()
         self.result = result
-        if isinstance(e, TestSignal):
+        if self.extra_errors:
+            self.result = TestResultEnums.TEST_RESULT_UNKNOWN
+        if isinstance(e, signals.TestSignal):
             self.details = e.details
             self.extras = e.extras
         elif e:
@@ -122,6 +125,14 @@ class TestResultRecord(object):
         """
         self._test_end(TestResultEnums.TEST_RESULT_SKIP, e)
 
+    def test_blocked(self, e=None):
+        """To mark the test as blocked in this record.
+
+        Args:
+            e: An instance of acts.signals.Test
+        """
+        self._test_end(TestResultEnums.TEST_RESULT_BLOCKED, e)
+
     def test_unknown(self, e=None):
         """To mark the test as unknown in this record.
 
@@ -152,7 +163,7 @@ class TestResultRecord(object):
 
     def __repr__(self):
         """This returns a short string representation of the test record."""
-        t = epoch_to_human_time(self.begin_time)
+        t = utils.epoch_to_human_time(self.begin_time)
         return "%s %s %s" % (t, self.test_name, self.result)
 
     def to_dict(self):
@@ -189,6 +200,7 @@ class TestResultRecord(object):
         """
         return json.dumps(self.to_dict())
 
+
 class TestResult(object):
     """A class that contains metrics of a test run.
 
@@ -210,7 +222,9 @@ class TestResult(object):
         self.executed = []
         self.passed = []
         self.skipped = []
+        self.blocked = []
         self.unknown = []
+        self.controller_info = {}
 
     def __add__(self, r):
         """Overrides '+' operator for TestResult class.
@@ -224,13 +238,32 @@ class TestResult(object):
         Returns:
             A TestResult instance that's the sum of two TestResult instances.
         """
-        assert isinstance(r, TestResult)
+        if not isinstance(r, TestResult):
+            raise TypeError("Operand %s of type %s is not a TestResult." %
+                            (r, type(r)))
         sum_result = TestResult()
         for name in sum_result.__dict__:
-            l_value = list(getattr(self, name))
-            r_value = list(getattr(r, name))
-            setattr(sum_result, name, l_value + r_value)
+            r_value = getattr(r, name)
+            l_value = getattr(self, name)
+            if isinstance(r_value, list):
+                setattr(sum_result, name, l_value + r_value)
+            elif isinstance(r_value, dict):
+                # '+' operator for TestResult is only valid when multiple
+                # TestResult objs were created in the same test run, which means
+                # the controller info would be the same across all of them.
+                # TODO(angli): have a better way to validate this situation.
+                setattr(sum_result, name, l_value)
         return sum_result
+
+    def add_controller_info(self, name, info):
+        try:
+            json.dumps(info)
+        except TypeError:
+            logging.warning(("Controller info for %s is not JSON serializable!"
+                             " Coercing it to string.") % name)
+            self.controller_info[name] = str(info)
+            return
+        self.controller_info[name] = info
 
     def add_record(self, record):
         """Adds a test record to test result.
@@ -240,35 +273,38 @@ class TestResult(object):
         Args:
             record: A test record object to add.
         """
-        self.executed.append(record)
         if record.result == TestResultEnums.TEST_RESULT_FAIL:
+            self.executed.append(record)
             self.failed.append(record)
         elif record.result == TestResultEnums.TEST_RESULT_SKIP:
             self.skipped.append(record)
         elif record.result == TestResultEnums.TEST_RESULT_PASS:
+            self.executed.append(record)
             self.passed.append(record)
+        elif record.result == TestResultEnums.TEST_RESULT_BLOCKED:
+            self.blocked.append(record)
         else:
+            self.executed.append(record)
             self.unknown.append(record)
 
-    def fail_class(self, class_name, e):
-        """Add a record to indicate a test class setup has failed and no test
-        in the class was executed.
+    def add_controller_info(self, name, info):
+        try:
+            json.dumps(info)
+        except TypeError:
+            logging.warning(("Controller info for %s is not JSON serializable!"
+                             " Coercing it to string.") % name)
+            self.controller_info[name] = str(info)
+            return
+        self.controller_info[name] = info
 
-        Args:
-            class_name: A string that is the name of the failed test class.
-            e: An exception object.
-        """
-        record = TestResultRecord("", class_name)
-        record.test_begin()
-        if isinstance(e, TestSignal):
-            new_e = type(e)("setup_class failed for %s: %s" % (
-                            class_name, e.details), e.extras)
-        else:
-            new_e = type(e)("setup_class failed for %s: %s" % (
-                            class_name, str(e)))
-        record.test_fail(new_e)
-        self.executed.append(record)
-        self.failed.append(record)
+    @property
+    def is_all_pass(self):
+        """True if no tests failed or threw errors, False otherwise."""
+        num_of_failures = (
+            len(self.failed) + len(self.unknown) + len(self.blocked))
+        if num_of_failures == 0:
+            return True
+        return False
 
     def json_str(self):
         """Converts this test result to a string in json format.
@@ -287,8 +323,8 @@ class TestResult(object):
             A json-format string representing the test results.
         """
         d = {}
-        executed = [record.to_dict() for record in self.executed]
-        d["Results"] = executed
+        d["ControllerInfo"] = self.controller_info
+        d["Results"] = [record.to_dict() for record in self.executed]
         d["Summary"] = self.summary_dict()
         json_str = json.dumps(d, indent=4, sort_keys=True)
         return json_str
@@ -305,7 +341,7 @@ class TestResult(object):
         Returns:
             A summary string of this test result.
         """
-        l = ["%s %d" % (k, v) for k, v in self.summary_dict().items()]
+        l = ["%s %s" % (k, v) for k, v in self.summary_dict().items()]
         # Sort the list so the order is the same every time.
         msg = ", ".join(sorted(l))
         return msg
@@ -320,10 +356,12 @@ class TestResult(object):
             A dictionary with the stats of this test result.
         """
         d = {}
+        d["ControllerInfo"] = self.controller_info
         d["Requested"] = len(self.requested)
         d["Executed"] = len(self.executed)
         d["Passed"] = len(self.passed)
         d["Failed"] = len(self.failed)
         d["Skipped"] = len(self.skipped)
+        d["Blocked"] = len(self.blocked)
         d["Unknown"] = len(self.unknown)
         return d

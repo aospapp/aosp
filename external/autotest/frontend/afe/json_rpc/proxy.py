@@ -20,6 +20,7 @@
 """
 
 import os
+import socket
 import urllib2
 from autotest_lib.client.common_lib import error as exceptions
 
@@ -99,12 +100,21 @@ class ServiceProxy(object):
         return ServiceProxy(self.__serviceURL, name, self.__headers)
 
     def __call__(self, *args, **kwargs):
+        # Caller can pass in a minimum value of timeout to be used for urlopen
+        # call. Otherwise, the default socket timeout will be used.
+        min_rpc_timeout = kwargs.pop('min_rpc_timeout', None)
         postdata = json_encoder_class().encode({'method': self.__serviceName,
                                                 'params': args + (kwargs,),
                                                 'id': 'jsonrpc'})
         request = urllib2.Request(self.__serviceURL, data=postdata,
                                   headers=self.__headers)
-        respdata = urllib2.urlopen(request).read()
+        default_timeout = socket.getdefaulttimeout()
+        if not default_timeout:
+            # If default timeout is None, socket will never time out.
+            respdata = urllib2.urlopen(request).read()
+        else:
+            timeout = max(min_rpc_timeout, default_timeout)
+            respdata = urllib2.urlopen(request, timeout=timeout).read()
         try:
             resp = decoder.JSONDecoder().decode(respdata)
         except ValueError:

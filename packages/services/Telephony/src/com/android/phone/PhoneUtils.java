@@ -86,9 +86,9 @@ public class PhoneUtils {
     static final String ADD_CALL_MODE_KEY = "add_call_mode";
 
     // Return codes from placeCall()
-    static final int CALL_STATUS_DIALED = 0;  // The number was successfully dialed
-    static final int CALL_STATUS_DIALED_MMI = 1;  // The specified number was an MMI code
-    static final int CALL_STATUS_FAILED = 2;  // The call failed
+    public static final int CALL_STATUS_DIALED = 0;  // The number was successfully dialed
+    public static final int CALL_STATUS_DIALED_MMI = 1;  // The specified number was an MMI code
+    public static final int CALL_STATUS_FAILED = 2;  // The call failed
 
     // State of the Phone's audio modes
     // Each state can move to the other states, but within the state only certain
@@ -787,7 +787,7 @@ public class PhoneUtils {
                                           MmiCode mmiCode,
                                           Message buttonCallbackMessage,
                                           Dialog previousAlert) {
-        if (DBG) log("displayMMIInitiate: " + mmiCode);
+        log("displayMMIInitiate: " + android.telecom.Log.pii(mmiCode.toString()));
         if (previousAlert != null) {
             previousAlert.dismiss();
         }
@@ -824,13 +824,13 @@ public class PhoneUtils {
         boolean isCancelable = (mmiCode != null) && mmiCode.isCancelable();
 
         if (!isCancelable) {
-            if (DBG) log("not a USSD code, displaying status toast.");
+            log("displayMMIInitiate: not a USSD code, displaying status toast.");
             CharSequence text = context.getText(R.string.mmiStarted);
             Toast.makeText(context, text, Toast.LENGTH_SHORT)
                 .show();
             return null;
         } else {
-            if (DBG) log("running USSD code, displaying indeterminate progress.");
+            log("displayMMIInitiate: running USSD code, displaying intermediate progress.");
 
             // create the indeterminate progress dialog and display it.
             ProgressDialog pd = new ProgressDialog(context, THEME);
@@ -862,13 +862,13 @@ public class PhoneUtils {
         int title = 0;  // title for the progress dialog, if needed.
         MmiCode.State state = mmiCode.getState();
 
-        if (DBG) log("displayMMIComplete: state=" + state);
+        log("displayMMIComplete: state=" + state);
 
         switch (state) {
             case PENDING:
                 // USSD code asking for feedback from user.
                 text = mmiCode.getMessage();
-                if (DBG) log("- using text from PENDING MMI message: '" + text + "'");
+                log("displayMMIComplete: using text from PENDING MMI message: '" + text + "'");
                 break;
             case CANCELLED:
                 text = null;
@@ -887,7 +887,7 @@ public class PhoneUtils {
 
             case FAILED:
                 text = mmiCode.getMessage();
-                if (DBG) log("- using text from MMI message: '" + text + "'");
+                log("displayMMIComplete (failed): using text from MMI message: '" + text + "'");
                 break;
             default:
                 throw new IllegalStateException("Unexpected MmiCode state: " + state);
@@ -929,9 +929,9 @@ public class PhoneUtils {
             // A USSD in a pending state means that it is still
             // interacting with the user.
             if (state != MmiCode.State.PENDING) {
-                if (DBG) log("MMI code has finished running.");
+                log("displayMMIComplete: MMI code has finished running.");
 
-                if (DBG) log("Extended NW displayMMIInitiate (" + text + ")");
+                log("displayMMIComplete: Extended NW displayMMIInitiate (" + text + ")");
                 if (text == null || text.length() == 0)
                     return;
 
@@ -966,7 +966,8 @@ public class PhoneUtils {
                 sUssdDialog.setMessage(sUssdMsg.toString());
                 sUssdDialog.show();
             } else {
-                if (DBG) log("USSD code has requested user input. Constructing input dialog.");
+                log("displayMMIComplete: USSD code has requested user input. Constructing input "
+                        + "dialog.");
 
                 // USSD MMI code that is interacting with the user.  The
                 // basic set of steps is this:
@@ -2175,16 +2176,7 @@ public class PhoneUtils {
      */
     /* package */ static boolean isPhoneInEcm(Phone phone) {
         if ((phone != null) && TelephonyCapabilities.supportsEcm(phone)) {
-            // For phones that support ECM, return true iff PROPERTY_INECM_MODE == "true".
-            // TODO: There ought to be a better API for this than just
-            // exposing a system property all the way up to the app layer,
-            // probably a method like "inEcm()" provided by the telephony
-            // layer.
-            String ecmMode =
-                    SystemProperties.get(TelephonyProperties.PROPERTY_INECM_MODE);
-            if (ecmMode != null) {
-                return ecmMode.equals("true");
-            }
+            return phone.isInEcm();
         }
         return false;
     }

@@ -17,7 +17,6 @@
 package com.android.server.telecom.components;
 
 import com.android.server.telecom.CallIntentProcessor;
-import com.android.server.telecom.Log;
 import com.android.server.telecom.R;
 import com.android.server.telecom.TelephonyUtil;
 import com.android.server.telecom.UserUtil;
@@ -32,6 +31,7 @@ import android.net.Uri;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.telecom.DefaultDialerManager;
+import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;

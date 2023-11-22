@@ -14,26 +14,46 @@
      limitations under the License.
 -->
 
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent" >
 
-    <LinearLayout android:id="@+id/edit_text"
+    <LinearLayout
+        android:id="@+id/edit_text"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <EditText
+            android:id="@+id/edittext_simple1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <EditText
+            android:id="@+id/edittext_simple2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
         <EditText android:id="@+id/edittext1"
             style="@android:style/Widget.EditText"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="10dip"
             android:scrollHorizontally="true"
             android:capitalize="sentences"
             android:autoText="false"
             android:maxLines="3"
             android:textColor="#FF0000"
-            android:text="@string/edit_text"
-        />
+            android:text="@string/edit_text" />
+
+        <EditText
+            android:id="@+id/edittext_autosize"
+            android:layout_width="300dp"
+            android:layout_height="400dp"
+            android:text="@string/long_text"
+            android:autoSizeTextType="uniform"
+            android:textSize="50dp"
+            android:autoSizeStepGranularity="2dp" />
     </LinearLayout>
 </ScrollView>

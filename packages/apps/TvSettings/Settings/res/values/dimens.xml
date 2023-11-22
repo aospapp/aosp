@@ -88,14 +88,10 @@
     <dimen name="pin_number_picker_text_view_height">48dp</dimen>
     <dimen name="pin_number_picker_width">48dp</dimen>
     <dimen name="pin_number_picker_height">144dp</dimen>
-    <dimen name="pin_dialog_width">312dp</dimen>
-    <dimen name="pin_dialog_height">216dp</dimen>
     <dimen name="pin_dialog_horizontal_padding">24dp</dimen>
     <dimen name="pin_dialog_bottom_padding">24dp</dimen>
     <dimen name="pin_dialog_top_padding">17dp</dimen>
     <dimen name="pin_dialog_elevation">8dp</dimen>
-    <dimen name="pin_dialog_title_width">216dp</dimen>
-    <dimen name="pin_dialog_title_height">24dp</dimen>
     <dimen name="pin_dialog_title_bottom_margin">7dp</dimen>
     <dimen name="pin_dialog_pin_number_spacing">8dp</dimen>
     <dimen name="pin_dialog_pin_numbers_horizontal_padding">24dp</dimen>
@@ -142,7 +138,7 @@
 
     <dimen name="picker_column_height">192dp</dimen>
     <dimen name="picker_column_horizontal_padding">8dp</dimen>
-    <dimen name="picker_item_height">64dp</dimen>
+    <dimen name="picker_item_height">32dp</dimen>
     <dimen name="picker_start_padding">24dp</dimen>
     <dimen name="picker_separator_horizontal_padding">4dp</dimen>
 
@@ -180,23 +176,26 @@
 
     <item name="setup_title_line_spacing_multiplier" format="float" type="dimen">1.04296</item>
     <dimen name="setup_title_height">235dp</dimen>
+    <dimen name="setup_title_width">448dp</dimen>
 
-    <dimen name="setup_description_margin_start">112dp</dimen>
-    <dimen name="setup_description_width">448dp</dimen>
+    <dimen name="setup_description_padding_start">112dp</dimen>
+    <dimen name="setup_description_padding_end">56dp</dimen>
+    <dimen name="setup_description_width">616dp</dimen>
     <item name="setup_description_line_spacing_multiplier" format="float" type="dimen">1.70667</item>
-    <dimen name="setup_description_margin_top">13dp</dimen>
-    <dimen name="setup_description_text_size">12sp</dimen>
+    <dimen name="setup_description_margin_top">18dp</dimen>
+    <dimen name="setup_description_text_size">14sp</dimen>
 
-    <dimen name="setup_scroll_list_width">237dp</dimen>
+    <dimen name="setup_scroll_list_width">232dp</dimen>
     <item name="setup_scroll_list_window_offset_percent" format="float" type="dimen">68.05556</item>
 
     <dimen name="setup_action_vertical_offset">195dp</dimen>
     <dimen name="setup_action_vertical_offset_bottom">61dp</dimen>
+    <item name="setup_actions_width_weight" format="float" type="string">0.55844155844</item>
 
     <dimen name="setup_list_item_icon_margin_end">16dp</dimen>
     <dimen name="setup_list_item_height">48dp</dimen>
     <dimen name="setup_list_item_padding">16dp</dimen>
-    <dimen name="setup_list_item_container_shadow_padding">5dp</dimen>
+    <dimen name="setup_list_item_margin">8dp</dimen>
     <dimen name="setup_list_item_text_size">14sp</dimen>
     <integer name="setup_list_item_pressed_fade_duration">100</integer>
 
@@ -210,7 +209,10 @@
     <dimen name="activity_progress_title_text_size">36sp</dimen>
     <item name="activity_progress_title_line_spacing" format="float" type="dimen">1.04296</item>
 
+    <dimen name="setup_message_content_margin">112dp</dimen>
     <dimen name="setup_progress_spinner_size">40dp</dimen>
     <dimen name="setup_progress_spinner_margin_top">52dp</dimen>
 
+    <dimen name="setup_guidance_padding_start">112dp</dimen>
+    <dimen name="setup_guidance_padding_end">56dp</dimen>
 </resources>

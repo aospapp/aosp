@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Številke za klic v sili ni mogoče blokirati."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Številka <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> je že blokirana."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Uporaba osebnega klicalnika za klic"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Klic osebe <xliff:g id="CALL_FROM">%2$s</xliff:g> prek aplikacije <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videoklic osebe <xliff:g id="CALL_FROM">%2$s</xliff:g> prek aplikacije <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Če sprejmete, bo končan klic prek aplikacije <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Če sprejmete, bodo končani klici prek aplikacije <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Če sprejmete, bo končan videoklic prek aplikacije <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Če sprejmete, bo končan aktivni klic"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Če sprejmete, bodo končani aktivni klici"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Če sprejmete, bo končan aktivni videoklic"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Sprejmi"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Zavrni"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Klica ni mogoče vzpostaviti zaradi klica prek aplikacije <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Klica ni mogoče vzpostaviti zaradi klicev prek aplikacije <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Klica ni mogoče vzpostaviti zaradi klica prek druge aplikacije."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Dohodni klici"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Neodgovorjeni klici"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Če opravite ta klic, bo končan klic prek aplikacije <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

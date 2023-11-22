@@ -9,6 +9,7 @@ from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server import hosts
 from autotest_lib.server import site_linux_router
+from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros import dnsname_mangler
 from autotest_lib.server.cros.network import attenuator_controller
 from autotest_lib.server.cros.network import wifi_client
@@ -28,7 +29,7 @@ class WiFiTestContextManager(object):
     CMDLINE_CONDUCTIVE_RIG = 'conductive_rig'
     CMDLINE_PACKET_CAPTURE_SNAPLEN = 'capture_snaplen'
     CMDLINE_ROUTER_ADDR = 'router_addr'
-    CMDLINE_ROUTER_PACKET_CAPTURES = 'router_capture'
+    CMDLINE_PACKET_CAPTURES = 'packet_capture'
     CMDLINE_USE_WPA_CLI = 'use_wpa_cli'
 
 
@@ -53,6 +54,18 @@ class WiFiTestContextManager(object):
         return self._router
 
 
+    @property
+    def pcap_host(self):
+        """@return Dedicated packet capture host or None."""
+        return self._pcap_host
+
+
+    @property
+    def capture_host(self):
+        """@return Dedicated pcap_host or the router itself."""
+        return self.pcap_host or self.router
+
+
     def __init__(self, test_name, host, cmdline_args, debug_dir):
         """Construct a WiFiTestContextManager.
 
@@ -69,11 +82,12 @@ class WiFiTestContextManager(object):
         self._cmdline_args = cmdline_args.copy()
         self._client_proxy = wifi_client.WiFiClient(
                 host, debug_dir,
-                self._get_bool_cmdline_value(self.CMDLINE_USE_WPA_CLI, True))
+                self._get_bool_cmdline_value(self.CMDLINE_USE_WPA_CLI, False))
         self._attenuator = None
         self._router = None
+        self._pcap_host = None
         self._enable_client_packet_captures = False
-        self._enable_router_packet_captures = False
+        self._enable_packet_captures = False
         self._packet_capture_snaplen = None
 
 
@@ -165,8 +179,8 @@ class WiFiTestContextManager(object):
         if self._enable_client_packet_captures:
             self.client.start_capture(configuration_parameters.frequency,
                                       snaplen=self._packet_capture_snaplen)
-        if self._enable_router_packet_captures:
-            self.router.start_capture(
+        if self._enable_packet_captures:
+           self.capture_host.start_capture(
                     configuration_parameters.frequency,
                     ht_type=configuration_parameters.ht_packet_capture_mode,
                     snaplen=self._packet_capture_snaplen)
@@ -179,6 +193,13 @@ class WiFiTestContextManager(object):
                 client_hostname=self.client.host.hostname,
                 router_addr=self._cmdline_args.get(self.CMDLINE_ROUTER_ADDR,
                                                    None))
+        ping_helper = ping_runner.PingRunner()
+        pcap_addr = dnsname_mangler.get_pcap_addr(
+                self.client.host.hostname,
+                allow_failure=True)
+        if pcap_addr and ping_helper.simple_ping(pcap_addr):
+            self._pcap_host = site_linux_system.LinuxSystem(
+                              hosts.create_host(pcap_addr),'pcap')
         # The attenuator host gives us the ability to attenuate particular
         # antennas on the router.  Most setups don't have this capability
         # and most tests do not require it.  We use this for RvR
@@ -188,7 +209,6 @@ class WiFiTestContextManager(object):
                 cmdline_override=self._cmdline_args.get(
                         self.CMDLINE_ATTEN_ADDR, None),
                 allow_failure=True)
-        ping_helper = ping_runner.PingRunner()
         if attenuator_addr and ping_helper.simple_ping(attenuator_addr):
             self._attenuator = attenuator_controller.AttenuatorController(
                     hosts.SSHHost(attenuator_addr, port=22))
@@ -196,8 +216,8 @@ class WiFiTestContextManager(object):
         self.client.shill.init_test_network_state()
         if self.CMDLINE_CLIENT_PACKET_CAPTURES in self._cmdline_args:
             self._enable_client_packet_captures = True
-        if self.CMDLINE_ROUTER_PACKET_CAPTURES in self._cmdline_args:
-            self._enable_router_packet_captures = True
+        if self.CMDLINE_PACKET_CAPTURES in self._cmdline_args:
+            self._enable_packet_captures = True
         if self.CMDLINE_PACKET_CAPTURE_SNAPLEN in self._cmdline_args:
             self._packet_capture_snaplen = int(
                     self._cmdline_args[self.CMDLINE_PACKET_CAPTURE_SNAPLEN])
@@ -211,7 +231,7 @@ class WiFiTestContextManager(object):
         """Teardown the state used in a WiFi test."""
         logging.debug('Tearing down the test context.')
         for system in [self._attenuator, self._client_proxy,
-                       self._router]:
+                       self._router, self._pcap_host]:
             if system is not None:
                 system.close()
 

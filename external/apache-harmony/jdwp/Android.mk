@@ -28,32 +28,29 @@ cts_jdwp_test_target_runtime_args += -Djpda.settings.debuggeeJavaPath='$(cts_jdw
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
-LOCAL_JAVA_LIBRARIES := junit-targetdex
+LOCAL_JAVA_LIBRARIES := junit
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := CtsJdwp
 LOCAL_NO_EMMA_INSTRUMENT := true
 LOCAL_NO_EMMA_COMPILE := true
 LOCAL_CTS_TEST_PACKAGE := android.jdwp
 LOCAL_CTS_TARGET_RUNTIME_ARGS := $(cts_jdwp_test_target_runtime_args)
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_CTS_TARGET_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
-LOCAL_JAVA_LIBRARIES := junit-targetdex
+LOCAL_JAVA_LIBRARIES := junit
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE := apache-harmony-jdwp-tests
 LOCAL_NO_EMMA_INSTRUMENT := true
 LOCAL_NO_EMMA_COMPILE := true
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/jdwp
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
-LOCAL_JAVA_LIBRARIES := junit
+LOCAL_JAVA_LIBRARIES := junit-host
 LOCAL_MODULE := apache-harmony-jdwp-tests-host
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_HOST_JAVA_LIBRARY)
 
 ifeq ($(HOST_OS),linux)
@@ -61,7 +58,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_jdwp_test_src_files)
 LOCAL_JAVA_LIBRARIES := junit-hostdex
 LOCAL_MODULE := apache-harmony-jdwp-tests-hostdex
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif  # HOST_OS == linux
 

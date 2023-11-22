@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ******************************************************************************
  * Copyright (C) 1996-2015, International Business Machines Corporation and
@@ -29,10 +31,10 @@ public class IntTrie extends Trie
 
     /**
     * <p>Creates a new Trie with the settings for the trie data.</p>
-    * <p>Unserialize the 32-bit-aligned input stream and use the data for the 
+    * <p>Unserialize the 32-bit-aligned input stream and use the data for the
     * trie.</p>
     * @param bytes file buffer to a ICU data file, containing the trie
-    * @param dataManipulate object which provides methods to parse the char 
+    * @param dataManipulate object which provides methods to parse the char
     *                        data
     * @throws IOException thrown when data reading fails
     */
@@ -121,7 +123,7 @@ public class IntTrie extends Trie
         // fastpath for U+0000..U+D7FF
         if(0 <= ch && ch < UTF16.LEAD_SURROGATE_MIN_VALUE) {
             // copy of getRawOffset()
-            offset = (m_index_[ch >> INDEX_STAGE_1_SHIFT_] << INDEX_STAGE_2_SHIFT_) 
+            offset = (m_index_[ch >> INDEX_STAGE_1_SHIFT_] << INDEX_STAGE_2_SHIFT_)
                     + (ch & INDEX_STAGE_3_MASK_);
             return m_data_[offset];
         }
@@ -201,15 +203,15 @@ public class IntTrie extends Trie
         }
         return m_initialValue_;
     }
-    
+
     /**
      * <p>Gets the latin 1 fast path value.</p>
-     * <p>Note this only works if latin 1 characters have their own linear 
+     * <p>Note this only works if latin 1 characters have their own linear
      * array.</p>
      * @param ch latin 1 characters
      * @return value associated with latin character
      */
-    public final int getLatin1LinearValue(char ch) 
+    public final int getLatin1LinearValue(char ch)
     {
         return m_data_[INDEX_STAGE_3_MASK_ + 1 + ch];
     }
@@ -221,7 +223,8 @@ public class IntTrie extends Trie
      *         otherwise
      */
     ///CLOVER:OFF
-    public boolean equals(Object other) 
+    @Override
+    public boolean equals(Object other)
     {
         boolean result = super.equals(other);
         if (result && other instanceof IntTrie) {
@@ -234,13 +237,14 @@ public class IntTrie extends Trie
         }
         return false;
     }
-    
+
+    @Override
     public int hashCode() {
         assert false : "hashCode not designed";
         return 42;
     }
     ///CLOVER:ON
-    
+
     // protected methods -----------------------------------------------
 
     /**
@@ -248,6 +252,7 @@ public class IntTrie extends Trie
     * data array</p>
     * @param bytes data buffer containing trie data
     */
+    @Override
     protected final void unserialize(ByteBuffer bytes)
     {
         super.unserialize(bytes);
@@ -262,6 +267,7 @@ public class IntTrie extends Trie
     * @param trail trailing surrogate
     * @return offset to data
     */
+    @Override
     protected final int getSurrogateOffset(char lead, char trail)
     {
         if (m_dataManipulate_ == null) {
@@ -280,7 +286,7 @@ public class IntTrie extends Trie
         // value: m_initialValue_
         return -1;
     }
-    
+
     /**
     * Gets the value at the argument index.
     * For use internally in TrieIterator
@@ -288,22 +294,24 @@ public class IntTrie extends Trie
     * @return 32 bit value
     * @see android.icu.impl.TrieIterator
     */
+    @Override
     protected final int getValue(int index)
     {
       return m_data_[index];
     }
-    
+
     /**
     * Gets the default initial value
-    * @return 32 bit value 
+    * @return 32 bit value
     */
+    @Override
     protected final int getInitialValue()
     {
         return m_initialValue_;
     }
 
     // package private methods -----------------------------------------
-    
+
     /**
      * Internal constructor for builder use
      * @param index the index array to be slotted into this trie
@@ -320,7 +328,7 @@ public class IntTrie extends Trie
         m_dataLength_ = m_data_.length;
         m_initialValue_ = initialvalue;
     }
-    
+
     // private data members --------------------------------------------
 
     /**

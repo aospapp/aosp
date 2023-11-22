@@ -21,6 +21,7 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.UriMatcher;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -54,9 +55,6 @@ import java.util.Set;
  * delete() and update() do not allow non-null selection or selectionArgs arguments; the presence
  * of these will result in an UnsupportedOperationException
  *
- * NOTE: When using any operation other than applyBatch, the Uri to be used must be created with
- * MockProvider.uri(yourUri). This guarantees that the operation is sent to MockProvider
- *
  * NOTE: MockProvider only simulates direct storage/retrieval of rows; it does not (and can not)
  * simulate other actions (e.g. creation of ancillary data) that the actual provider might perform
  *
@@ -64,6 +62,7 @@ import java.util.Set;
  **/
 public class TestProvider extends ContentProvider {
     public static final String AUTHORITY = "com.android.mail.mock.provider";
+
     /* package */static final UriMatcher sURIMatcher = new UriMatcher(UriMatcher.NO_MATCH);
 
     /* package */static final int TABLE = 100;
@@ -77,24 +76,15 @@ public class TestProvider extends ContentProvider {
 
     public TestProvider(Context context) {
         this();
-        attachInfo(context, null);
+        ProviderInfo info = new ProviderInfo();
+        info.authority = AUTHORITY;
+        attachInfo(context, info);
     }
 
     // We'll store our values here
     private HashMap<String, ContentValues> mMockStore = new HashMap<String, ContentValues>();
     // And we'll generate new id's from here
     long mMockId = 1;
-
-    /**
-     * Create a Uri for MockProvider from a given Uri
-     *
-     * @param uri the Uri from which the MockProvider Uri will be created
-     * @return a Uri that can be used with MockProvider
-     */
-    public static Uri uri(Uri uri) {
-        return new Uri.Builder().scheme("content").authority(AUTHORITY)
-                .path(uri.getPath().substring(1)).build();
-    }
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
@@ -144,7 +134,7 @@ public class TestProvider extends ContentProvider {
         if (selection != null || selectionArgs != null || sortOrder != null || projection == null) {
             throw new UnsupportedOperationException();
         }
-        final int match = sURIMatcher.match(uri(uri));
+        final int match = sURIMatcher.match(uri);
         ArrayList<ContentValues> valuesList = new ArrayList<ContentValues>();
         switch (match) {
             case TABLE:
@@ -182,7 +172,7 @@ public class TestProvider extends ContentProvider {
         if (selection != null || selectionArgs != null) {
             throw new UnsupportedOperationException();
         }
-        final int match = sURIMatcher.match(uri(uri));
+        final int match = sURIMatcher.match(uri);
         ArrayList<ContentValues> updateValuesList = new ArrayList<ContentValues>();
         String path = uri.getPath();
         switch (match) {

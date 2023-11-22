@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"流動數據"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"流動數據"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"手機服務"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"緊急撥號"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"電話"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"未填留言信箱號碼"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 卡中沒有儲存任何留言信箱號碼。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"新增電話號碼"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"只有主要使用者可以修改留言設定。"</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"您的 SIM 卡已解除封鎖。您的手機正在解除鎖定..."</string>
     <string name="label_ndp" msgid="780479633159517250">"SIM 網絡解除鎖定 PIN"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"解除鎖定"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"正在要求解除網絡鎖定..."</string>
     <string name="unlock_failed" msgid="6490531697031504225">"無法完成解除網絡鎖定的要求"</string>
     <string name="unlock_success" msgid="6770085622238180152">"成功解除網絡鎖定。"</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"這位使用者無法修改流動網絡設定"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"此使用者無法修改流動網絡設定"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM 通話設定"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM 通話設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA 通話設定"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"留言信箱"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"留言信箱 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"留言信箱："</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"通知"</string>
     <string name="networks" msgid="8873030692174541976">"網絡供應商"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"緊急廣播"</string>
     <string name="call_settings" msgid="6112441768261754562">"通話設定"</string>
@@ -90,16 +92,16 @@
     <string name="sum_hide_caller_id" msgid="1071407020290873782">"撥出電話時隱藏本機號碼"</string>
     <string name="sum_show_caller_id" msgid="6768534125447290401">"撥打電話時顯示本機號碼"</string>
     <string name="sum_default_caller_id" msgid="1954518825510901365">"使用預設值，在撥打電話時顯示本機號碼"</string>
-    <string name="labelCW" msgid="6120513814915920200">"來電待接"</string>
+    <string name="labelCW" msgid="6120513814915920200">"來電等候"</string>
     <string name="sum_cw_enabled" msgid="8083061901633671397">"通話時如有來電請通知我"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"通話時如有來電請通知我"</string>
-    <string name="call_forwarding_settings" msgid="3378927671091537173">"來電轉接設定"</string>
+    <string name="call_forwarding_settings" msgid="3378927671091537173">"來電轉駁設定"</string>
     <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"來電轉駁設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="labelCF" msgid="2574386948026924737">"來電轉接"</string>
-    <string name="labelCFU" msgid="8147177368148660600">"轉接全部來電"</string>
+    <string name="labelCF" msgid="2574386948026924737">"來電轉駁"</string>
+    <string name="labelCFU" msgid="8147177368148660600">"全部轉駁"</string>
     <string name="messageCFU" msgid="3560082430662923687">"永遠使用這個號碼"</string>
     <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"轉接所有通話"</string>
-    <string name="sum_cfu_enabled" msgid="2450052502198827927">"將所有來電轉接至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
+    <string name="sum_cfu_enabled" msgid="2450052502198827927">"將所有來電轉駁至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"號碼無法使用"</string>
     <string name="sum_cfu_disabled" msgid="8384177689501334080">"關閉"</string>
     <string name="labelCFB" msgid="6139853033106283172">"線路繁忙時"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"無法接通時"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"無法接通時的轉接號碼"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"轉接至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"已停用"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"關閉"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"您的流動網絡供應商不支援在手機無法接通時停用轉接功能。"</string>
     <string name="updating_title" msgid="6146755386174019046">"通話設定"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"只有管理員可以變更通話設定。"</string>
@@ -145,7 +147,7 @@
     <string name="fw_change_failed" msgid="5298103228470214665">"無法更改轉接號碼。\n如果問題持續發生，請與流動網絡供應商聯絡。"</string>
     <string name="fw_get_in_vm_failed" msgid="8862896836093833973">"無法擷取和儲存目前的轉接號碼設定。\n您仍要轉到新的供應商嗎？"</string>
     <string name="no_change" msgid="3186040086622435212">"沒有更改。"</string>
-    <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"選擇語音信箱服務"</string>
+    <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"選擇留言信箱服務"</string>
     <string name="voicemail_default" msgid="2001233554889016880">"您的流動網絡供應商"</string>
     <string name="vm_change_pin_old_pin" msgid="7295220109886682573">"舊的 PIN"</string>
     <string name="vm_change_pin_new_pin" msgid="5412922262839438097">"新的 PIN"</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"新的 PIN 包含無效字元。"</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"無法變更 PIN"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"不支援的訊息類型，撥打 <xliff:g id="NUMBER">%s</xliff:g> 即可聆聽。"</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"流動網絡設定"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"流動網絡設定"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"流動網絡"</string>
     <string name="label_available" msgid="1181658289009300430">"可用的網絡"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"正在搜尋..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"找不到網絡。"</string>
@@ -237,7 +240,7 @@
     <!-- no translation found for throttle_time_frame_subtext (7732763021560399960) -->
     <skip />
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"若已達資料用量上限，資料傳輸速率會降低至 <xliff:g id="USED">%1$d</xliff:g> Kb/秒"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"更多有關流動網絡供應商流動網絡數據使用政策的資料"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"更多有關流動網絡供應商流動網絡資料使用政策的資訊"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"區域廣播 SMS"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"區域廣播 SMS"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"區域廣播 SMS 已啟用"</string>
@@ -362,7 +365,7 @@
     <string name="enable_fdn_ok" msgid="7215588870329688132">"停用 FDN"</string>
     <string name="disable_fdn_ok" msgid="5727046928930740173">"啟用 FDN"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"管理固定撥號"</string>
-    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"變更 FDN 存取 PIN"</string>
+    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"變更存取 FDN 的 PIN"</string>
     <string name="sum_fdn_manage_list" msgid="8431088265332628316">"管理電話號碼清單"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"語音加密保護"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"已啟用加強型私隱保護模式"</string>
@@ -374,6 +377,7 @@
     <string name="menu_add" msgid="1882023737425114762">"新增聯絡人"</string>
     <string name="menu_edit" msgid="7143003705504672374">"編輯聯絡人"</string>
     <string name="menu_delete" msgid="3977150783449642851">"刪除聯絡人"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"撥號給聯絡人"</string>
     <string name="get_pin2" msgid="8204677063922225311">"輸入 PIN2 碼"</string>
     <string name="name" msgid="7329028332786872378">"名稱"</string>
     <string name="number" msgid="7905950798349903858">"電話號碼"</string>
@@ -388,7 +392,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"正在刪除固定撥號…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"固定撥號已刪除。"</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"您所輸入的 PIN 碼不正確，FDN 未更新。"</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"號碼超過 20 位數上限，FDN 未更新。"</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"號碼空白或超過 20 位數，FDN 未更新。"</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN 無法更新。PIN2 碼不正確或電話號碼被拒。"</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN 操作失敗。"</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"正在從 SIM 卡讀取..."</string>
@@ -396,7 +400,7 @@
     <string name="simContacts_title" msgid="1861472842524839921">"選取要匯入的聯絡人"</string>
     <string name="simContacts_airplaneMode" msgid="5254946758982621072">"關閉飛行模式，並從 SIM 卡匯入聯絡人。"</string>
     <string name="enable_pin" msgid="5422767284133234860">"啟用/停用 SIM PIN"</string>
-    <string name="change_pin" msgid="9174186126330785343">"更改 SIM PIN"</string>
+    <string name="change_pin" msgid="9174186126330785343">"變更 SIM 卡的 PIN"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"SIM PIN："</string>
     <string name="oldPinLabel" msgid="5287773661246368314">"舊 PIN"</string>
     <string name="newPinLabel" msgid="207488227285336897">"新的 PIN"</string>
@@ -445,16 +449,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"沒有可用的留言信箱號碼"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"沒有服務"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"您所選取的網絡 (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) 無法使用"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"關閉飛行模式以撥打電話。"</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"開啟流動網絡、關閉飛行模式或關閉省電模式，以撥打電話。"</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"關閉飛行模式以撥打電話。"</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"關閉飛行模式或連接無線網絡，以撥打電話。"</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"離開緊急回撥模式即可撥打非緊急電話。"</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"未在網絡上完成註冊。"</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"無法連線至流動網絡。"</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"無法使用流動網絡。連接無線網絡，以撥打電話。"</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"無法使用流動網絡。"</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"無法使用流動網絡。請連接無線網絡，以撥打電話。"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"要撥打電話，請輸入有效的號碼。"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"無法接通。"</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"目前無法新增通話。"</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"開始 MMI 序列..."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"不支援的服務"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"無法切換通話。"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"無法分開通話。"</string>
@@ -529,10 +533,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"已進入緊急回撥模式"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"緊急回撥模式"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"數據連線已停用"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other">在接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內沒有數據連線</item>
-      <item quantity="one">接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內沒有數據連線</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"到<xliff:g id="COMPLETETIME">%s</xliff:g> 以前沒有數據連線"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">手機將在 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內處於緊急電話模式。在此模式中，無法使用需要數據連線的應用程式。您要退出嗎？</item>
       <item quantity="one">手機將在 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內處於緊急電話模式。在此模式中，無法使用需要連接數據的應用程式。您要退出嗎？</item>
@@ -556,12 +557,9 @@
     <string name="selectContact" msgid="781975788478987237">"選取聯絡人"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"不支援語音通話"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"撥號"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"震動"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"震動"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Visual Voicemail"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"設定 PIN 碼"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"變更 PIN"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"音效"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"鈴聲與震動"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"內置 SIM 卡"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"開啟視像通話"</string>
@@ -572,22 +570,24 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"只限緊急通話"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM 卡，插槽：<xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"無障礙功能"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Wi-Fi 來電"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wi-Fi 通話來自"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi 通話"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"再次輕按即可開啟"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"為訊息解碼時發生錯誤。"</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM 卡已啟動您的服務，並更新了您的手機漫遊功能。"</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"進行中的通話過多。請先結束或合併現有通話，再重新撥打。"</string>
-    <string name="change_pin_title" msgid="7790232089699034029">"變更語音信箱 PIN 碼"</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"無法連線，請插入有效的 SIM 卡。"</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"已失去 Wi-Fi 連線。通話已結束。"</string>
+    <string name="change_pin_title" msgid="7790232089699034029">"變更留言信箱 PIN"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"繼續"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"取消"</string>
     <string name="change_pin_ok_label" msgid="6204308560844889926">"確認"</string>
     <string name="change_pin_enter_old_pin_header" msgid="419179847657548887">"確認舊 PIN 碼"</string>
-    <string name="change_pin_enter_old_pin_hint" msgid="8579171678763615453">"請輸入您的語音信箱 PIN 碼，然後繼續操作。"</string>
+    <string name="change_pin_enter_old_pin_hint" msgid="8579171678763615453">"請輸入留言信箱 PIN 以繼續操作。"</string>
     <string name="change_pin_enter_new_pin_header" msgid="2611191814590251532">"設定新 PIN 碼"</string>
     <string name="change_pin_enter_new_pin_hint" msgid="2322940054329689309">"PIN 碼長度必須介乎 <xliff:g id="MIN">%1$d</xliff:g>-<xliff:g id="MAX">%2$d</xliff:g> 個數字。"</string>
     <string name="change_pin_confirm_pin_header" msgid="8113764019347322170">"確認 PIN 碼"</string>
     <string name="change_pin_confirm_pins_dont_match" msgid="4795052654904027909">"PIN 碼不符"</string>
-    <string name="change_pin_succeeded" msgid="2022852286442211151">"已更新語音信箱 PIN 碼"</string>
+    <string name="change_pin_succeeded" msgid="2022852286442211151">"已更新留言信箱 PIN"</string>
     <string name="change_pin_system_error" msgid="8308462387154257840">"無法設定 PIN 碼"</string>
 </resources>

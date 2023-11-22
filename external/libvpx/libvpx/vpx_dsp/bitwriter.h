@@ -35,7 +35,7 @@ static INLINE void vpx_write(vpx_writer *br, int bit, int probability) {
   int count = br->count;
   unsigned int range = br->range;
   unsigned int lowvalue = br->lowvalue;
-  register unsigned int shift;
+  register int shift;
 
   split = 1 + (((range - 1) * probability) >> 8);
 
@@ -85,8 +85,7 @@ static INLINE void vpx_write_bit(vpx_writer *w, int bit) {
 static INLINE void vpx_write_literal(vpx_writer *w, int data, int bits) {
   int bit;
 
-  for (bit = bits - 1; bit >= 0; bit--)
-    vpx_write_bit(w, 1 & (data >> bit));
+  for (bit = bits - 1; bit >= 0; bit--) vpx_write_bit(w, 1 & (data >> bit));
 }
 
 #define vpx_write_prob(w, v) vpx_write_literal((w), (v), 8)

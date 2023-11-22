@@ -283,7 +283,7 @@ class parser(base.parser):
         @param reason: The reason string.
 
         """
-        tko_utils.dprint('Unexpected indent regression, aborting')
+        tko_utils.dprint('Unexpected indent: aborting log parse')
         line_buffer.put_back(line)
         abort = parser.make_dummy_abort(
             indent, subdir, subdir, timestamp, reason)
@@ -303,7 +303,14 @@ class parser(base.parser):
         subdir_stack = [None]
         running_test = None
         running_reasons = set()
+        ignored_lines = []
         yield []   # We're ready to start running.
+
+        def print_ignored_lines():
+            tko_utils.dprint('The following lines were ignored:')
+            for line in ignored_lines:
+                tko_utils.dprint(line)
+            tko_utils.dprint('---------------------------------')
 
         # Create a RUNNING SERVER_JOB entry to represent the entire test.
         running_job = test.parse_partial_test(self.job, '----', 'SERVER_JOB',
@@ -314,6 +321,9 @@ class parser(base.parser):
         while True:
             # Are we finished with parsing?
             if buffer.size() == 0 and self.finished:
+                if ignored_lines:
+                    print_ignored_lines()
+                    ignored_lines = []
                 if stack.size() == 0:
                     break
                 # We have status lines left on the stack;
@@ -349,11 +359,13 @@ class parser(base.parser):
 
             # Get the next line.
             raw_line = status_lib.clean_raw_line(buffer.get())
-            tko_utils.dprint('\nSTATUS: ' + raw_line.strip())
             line = status_line.parse_line(raw_line)
             if line is None:
-                tko_utils.dprint('non-status line, ignoring')
+                ignored_lines.append(raw_line)
                 continue
+            elif ignored_lines:
+                print_ignored_lines()
+                ignored_lines = []
 
             # Do an initial sanity check of the indentation.
             expected_indent = stack.size()
@@ -367,7 +379,7 @@ class parser(base.parser):
                 continue
             elif line.indent > expected_indent:
                 # Ignore the log if the indent was unexpectedly high.
-                tko_utils.dprint('unexpected extra indentation, ignoring')
+                tko_utils.dprint('ignoring line because of extra indentation')
                 continue
 
             # Initial line processing.

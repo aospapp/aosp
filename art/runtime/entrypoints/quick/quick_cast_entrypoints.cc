@@ -20,11 +20,19 @@
 namespace art {
 
 // Assignable test for code, won't throw.  Null and equality tests already performed
-extern "C" uint32_t artIsAssignableFromCode(mirror::Class* klass, mirror::Class* ref_class)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+extern "C" size_t artIsAssignableFromCode(mirror::Class* klass, mirror::Class* ref_class)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK(klass != nullptr);
   DCHECK(ref_class != nullptr);
   return klass->IsAssignableFrom(ref_class) ? 1 : 0;
+}
+
+// Is assignable test for code, won't throw.  Null and equality test already performed.
+extern "C" size_t artInstanceOfFromCode(mirror::Object* obj, mirror::Class* ref_class)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK(obj != nullptr);
+  DCHECK(ref_class != nullptr);
+  return obj->InstanceOf(ref_class) ? 1 : 0;
 }
 
 }  // namespace art

@@ -46,8 +46,7 @@ class FirmwareUpdater(object):
         working_shellball = os.path.join(self._temp_path,
                                          'chromeos-firmwareupdate')
         self.os_if.copy_file(original_shellball, working_shellball)
-        self.os_if.run_shell_command(
-            'sh %s --sb_extract %s' % (working_shellball, self._work_path))
+        self.extract_shellball()
 
 
     def cleanup_temp_dir(self):
@@ -95,38 +94,57 @@ class FirmwareUpdater(object):
                              '%s' % os.path.join(self._work_path, 'bios.bin'))
 
 
-    def repack_shellball(self, append):
+    def extract_shellball(self, append=None):
+        """Extract the working shellball.
+
+        Args:
+            append: decide which shellball to use with format
+                chromeos-firmwareupdate-[append]. Use 'chromeos-firmwareupdate'
+                if append is None.
+        """
+        working_shellball = os.path.join(self._temp_path,
+                                         'chromeos-firmwareupdate')
+        if append:
+            working_shellball = working_shellball + '-%s' % append
+
+        self.os_if.run_shell_command('sh %s --sb_extract %s' % (
+                working_shellball, self._work_path))
+
+
+    def repack_shellball(self, append=None):
         """Repack shellball with new fwid.
 
         New fwid follows the rule: [orignal_fwid]-[append].
 
         Args:
-            append: use for new fwid naming.
+            append: save the new shellball with a suffix, for example,
+                chromeos-firmwareupdate-[append]. Use 'chromeos-firmwareupdate'
+                if append is None.
         """
-        self.os_if.copy_file(
-                '/usr/sbin/chromeos-firmwareupdate',
-                os.path.join(self._temp_path,
-                             'chromeos-firmwareupdate-%s' % append))
+        working_shellball = os.path.join(self._temp_path,
+                                         'chromeos-firmwareupdate')
+        if append:
+            self.os_if.copy_file(working_shellball,
+                                 working_shellball + '-%s' % append)
+            working_shellball = working_shellball + '-%s' % append
 
         self.os_if.run_shell_command('sh %s --sb_repack %s' % (
-            os.path.join(self._temp_path,
-                         'chromeos-firmwareupdate-%s' % append),
-            self._work_path))
+                working_shellball, self._work_path))
 
-        args = ['-i']
-        args.append('"s/TARGET_FWID=\\"\\(.*\\)\\"/TARGET_FWID=\\"\\1.%s\\"/g"'
+        if append:
+            args = ['-i']
+            args.append(
+                    '"s/TARGET_FWID=\\"\\(.*\\)\\"/TARGET_FWID=\\"\\1.%s\\"/g"'
                     % append)
-        args.append(os.path.join(self._temp_path,
-                                 'chromeos-firmwareupdate-%s' % append))
-        cmd = 'sed %s' % ' '.join(args)
-        self.os_if.run_shell_command(cmd)
+            args.append(working_shellball)
+            cmd = 'sed %s' % ' '.join(args)
+            self.os_if.run_shell_command(cmd)
 
-        args = ['-i']
-        args.append('"s/TARGET_UNSTABLE=\\".*\\"/TARGET_UNSTABLE=\\"\\"/g"')
-        args.append(os.path.join(self._temp_path,
-                                 'chromeos-firmwareupdate-%s' % append))
-        cmd = 'sed %s' % ' '.join(args)
-        self.os_if.run_shell_command(cmd)
+            args = ['-i']
+            args.append('"s/TARGET_UNSTABLE=\\".*\\"/TARGET_UNSTABLE=\\"\\"/g"')
+            args.append(working_shellball)
+            cmd = 'sed %s' % ' '.join(args)
+            self.os_if.run_shell_command(cmd)
 
 
     def run_firmwareupdate(self, mode, updater_append=None, options=[]):

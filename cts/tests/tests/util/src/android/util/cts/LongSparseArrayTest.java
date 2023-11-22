@@ -16,22 +16,33 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.LongSparseArray;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Tests for {@link LongSparseArray}.
  */
-public class LongSparseArrayTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LongSparseArrayTest {
     private static final long[] KEYS = {12, 23, 4, 6, 8, 1, 3, -12, 0, -3, 11, 14, -23};
     private static final Integer[] VALUES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
     private static final int LENGTH = VALUES.length;
     private static final long NON_EXISTED_KEY = 123;
     private static final Integer VALUE_FOR_NON_EXISTED_KEY = -1;
 
+    @Test
     public void testSparseArrayWithDefaultCapacity() {
-        LongSparseArray<Integer> sparseArray = new LongSparseArray<Integer>();
+        LongSparseArray<Integer> sparseArray = new LongSparseArray<>();
         assertEquals(0, sparseArray.size());
 
         int length = VALUES.length;
@@ -95,8 +106,9 @@ public class LongSparseArrayTest extends TestCase {
         assertEquals(0, sparseArray.size());
     }
 
+    @Test
     public void testSparseArrayWithSpecifiedCapacity() {
-        LongSparseArray<Integer> sparseArray = new LongSparseArray<Integer>(5);
+        LongSparseArray<Integer> sparseArray = new LongSparseArray<>(5);
         assertEquals(0, sparseArray.size());
 
         int length = VALUES.length;
@@ -160,8 +172,9 @@ public class LongSparseArrayTest extends TestCase {
         assertEquals(0, sparseArray.size());
     }
 
+    @Test
     public void testIterationOrder() {
-        LongSparseArray<Long> sparseArray = new LongSparseArray<Long>();
+        LongSparseArray<Long> sparseArray = new LongSparseArray<>();
         // No matter in which order they are inserted.
         sparseArray.put(1L, Long.valueOf(2L));
         sparseArray.put(10L, Long.valueOf(20L));
@@ -178,5 +191,4 @@ public class LongSparseArrayTest extends TestCase {
         assertEquals(20L, sparseArray.valueAt(2).longValue());
         assertEquals(Long.MIN_VALUE, sparseArray.valueAt(3).longValue());
     }
-
 }

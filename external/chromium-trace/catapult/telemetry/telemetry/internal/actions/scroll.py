@@ -1,9 +1,10 @@
 # Copyright 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import os
 
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
+from telemetry.util import js_template
 
 
 class ScrollAction(page_action.PageAction):
@@ -31,13 +32,13 @@ class ScrollAction(page_action.PageAction):
     self._synthetic_gesture_source = ('chrome.gpuBenchmarking.%s_INPUT' %
                                       synthetic_gesture_source)
 
-    self._distance_func = 'null'
+    self._distance_func = js_template.RenderValue(None)
     if distance:
       assert not distance_expr
       distance_expr = str(distance)
     if distance_expr:
-      self._distance_func = ('function() { return 0 + %s; }' %
-                             distance_expr)
+      self._distance_func = js_template.Render(
+          'function() { return 0 + {{ @expr }}; }', expr=distance_expr)
 
   def WillRunAction(self, tab):
     if self._direction in ('downleft', 'downright', 'upleft', 'upright'):
@@ -48,13 +49,12 @@ class ScrollAction(page_action.PageAction):
         raise ValueError('Diagonal scrolling requires Chrome branch number'
                          ' 2332 or later. Found branch number %d' %
                          branch_num)
-    for js_file in ['gesture_common.js', 'scroll.js']:
-      with open(os.path.join(os.path.dirname(__file__), js_file)) as f:
-        js = f.read()
-        tab.ExecuteJavaScript(js)
+    utils.InjectJavaScript(tab, 'gesture_common.js')
+    utils.InjectJavaScript(tab, 'scroll.js')
 
     # Fail if browser doesn't support synthetic scroll gestures.
-    if not tab.EvaluateJavaScript('window.__ScrollAction_SupportedByBrowser()'):
+    if not tab.EvaluateJavaScript(
+        'window.__ScrollAction_SupportedByBrowser()'):
       raise page_action.PageActionNotSupported(
           'Synthetic scroll not supported for this browser')
 
@@ -69,11 +69,12 @@ class ScrollAction(page_action.PageAction):
         raise page_action.PageActionNotSupported(
             'Scroll requires touch on this page but mouse input was requested')
 
-    done_callback = 'function() { window.__scrollActionDone = true; }'
     tab.ExecuteJavaScript("""
         window.__scrollActionDone = false;
-        window.__scrollAction = new __ScrollAction(%s, %s);"""
-        % (done_callback, self._distance_func))
+        window.__scrollAction = new __ScrollAction(
+            {{ @callback }}, {{ @distance }});""",
+        callback='function() { window.__scrollActionDone = true; }',
+        distance=self._distance_func)
 
   def RunAction(self, tab):
     if (self._selector is None and self._text is None and
@@ -84,25 +85,26 @@ class ScrollAction(page_action.PageAction):
     if self._use_touch:
       gesture_source_type = 'chrome.gpuBenchmarking.TOUCH_INPUT'
 
-    code = '''
+    code = js_template.Render('''
         function(element, info) {
           if (!element) {
             throw Error('Cannot find element: ' + info);
           }
           window.__scrollAction.start({
             element: element,
-            left_start_ratio: %s,
-            top_start_ratio: %s,
-            direction: '%s',
-            speed: %s,
-            gesture_source_type: %s
+            left_start_ratio: {{ left_start_ratio }},
+            top_start_ratio: {{ top_start_ratio }},
+            direction: {{ direction }},
+            speed: {{ speed }},
+            gesture_source_type: {{ @gesture_source_type }}
           });
-        }''' % (self._left_start_ratio,
-                self._top_start_ratio,
-                self._direction,
-                self._speed,
-                gesture_source_type)
+        }''',
+        left_start_ratio=self._left_start_ratio,
+        top_start_ratio=self._top_start_ratio,
+        direction=self._direction,
+        speed=self._speed,
+        gesture_source_type=gesture_source_type)
     page_action.EvaluateCallbackWithElement(
         tab, code, selector=self._selector, text=self._text,
         element_function=self._element_function)
-    tab.WaitForJavaScriptExpression('window.__scrollActionDone', 60)
+    tab.WaitForJavaScriptCondition('window.__scrollActionDone', timeout=60)

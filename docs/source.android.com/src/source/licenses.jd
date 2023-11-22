@@ -40,7 +40,7 @@ system exceptions, which can be found on <a href="http://www.kernel.org/pub/linu
 <p>All <em>individual</em> contributors (that is, contributors making contributions
 only on their own behalf) of ideas, code, or documentation to the Android Open
 Source Project will be required to complete, sign, and submit an <a
-href="https://cla.developers.google.com/clas/new?kind=KIND_INDIVIDUAL&domain=DOMAIN_ANDROID">Individual
+href="https://cla.developers.google.com/about/google-individual">Individual
 Contributor License Agreement</a>. The agreement can be executed online through the
 <a href="https://android-review.googlesource.com/#/settings/agreements">code review tool</a>.
 The agreement clearly defines the terms under which intellectual
@@ -50,7 +50,7 @@ project; it does not change your rights to use your own contributions for any
 other purpose.</p>
 <p>For a <em>corporation</em> (or other entity) that has assigned employees to
 work on the Android Open Source Project, a <a
-href="https://cla.developers.google.com/clas/new?kind=KIND_CORPORATE&domain=DOMAIN_ANDROID">Corporate
+href="https://cla.developers.google.com/about/google-corporate">Corporate
 Contributor License Agreement</a> is available.
 This version of the agreement allows a
 corporation to authorize contributions submitted by its designated employees

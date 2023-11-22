@@ -19,6 +19,8 @@
 
 #include "rsAllocation.h"
 
+#include <vector>
+
 // ---------------------------------------------------------------------------
 namespace android {
 namespace renderscript {
@@ -74,7 +76,7 @@ protected:
     virtual ~Sampler();
 
 private:
-    Sampler(Context *);
+    explicit Sampler(Context *);
     Sampler(Context *,
             RsSamplerValue magFilter,
             RsSamplerValue minFilter,
@@ -96,11 +98,11 @@ public:
         }
     }
     // Cache of all existing raster programs.
-    Vector<Sampler *> mAllSamplers;
+    std::vector<Sampler *> mAllSamplers;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif //ANDROID_RS_SAMPLER_H
 
 

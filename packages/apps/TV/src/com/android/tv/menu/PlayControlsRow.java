@@ -20,24 +20,36 @@ import android.content.Context;
 
 import com.android.tv.R;
 import com.android.tv.TimeShiftManager;
+import com.android.tv.ui.TunableTvView;
 
 public class PlayControlsRow extends MenuRow {
     public static final String ID = PlayControlsRow.class.getName();
 
+    private final TunableTvView mTvView;
     private final TimeShiftManager mTimeShiftManager;
 
-    public PlayControlsRow(Context context, Menu menu, TimeShiftManager timeShiftManager) {
+    public PlayControlsRow(Context context, TunableTvView tvView, Menu menu,
+            TimeShiftManager timeShiftManager) {
         super(context, menu, R.string.menu_title_play_controls, R.dimen.play_controls_height);
+        mTvView = tvView;
         mTimeShiftManager = timeShiftManager;
     }
 
     @Override
     public void update() {
+        ((PlayControlsRowView) getMenuRowView()).update();
     }
 
     @Override
     public int getLayoutResId() {
         return R.layout.play_controls;
+    }
+
+    /**
+     * Returns TV view.
+     */
+    public TunableTvView getTvView() {
+        return mTvView;
     }
 
     /**

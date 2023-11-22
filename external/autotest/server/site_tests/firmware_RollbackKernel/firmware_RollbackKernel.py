@@ -76,7 +76,9 @@ class firmware_RollbackKernel(FirmwareTest):
             logging.info("Expected kernel B boot and rollbacks kernel B.")
             self.check_state((self.check_root_part_on_non_recovery, 'b'))
             self.faft_client.kernel.move_version_backward('b')
-            self.switcher.mode_aware_reboot()
+            self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+            self.switcher.bypass_rec_mode()
+            self.switcher.wait_for_client()
 
             logging.info("Expected recovery boot and restores the OS image.")
             self.check_state((self.checkers.crossystem_checker, {

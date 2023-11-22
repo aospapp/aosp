@@ -16,150 +16,165 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
-import android.content.res.Resources;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.cts.R;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
-import android.test.InstrumentationTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class TransitionDrawableTest extends InstrumentationTestCase {
-    private static final int COLOR1 = 0xff0000ff;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private static final int COLOR0 = 0xffff0000;
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class TransitionDrawableTest {
+    private static final int COLOR1 = Color.BLUE;
+
+    private static final int COLOR0 = Color.RED;
 
     private static final int CANVAS_WIDTH = 10;
 
     private static final int CANVAS_HEIGHT = 10;
 
+    private Context mContext;
     private TransitionDrawable mTransitionDrawable;
-
     private Bitmap mBitmap;
-
     private Canvas mCanvas;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mTransitionDrawable = (TransitionDrawable) getInstrumentation().getTargetContext()
-                .getResources().getDrawable(R.drawable.transition_test);
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mTransitionDrawable = (TransitionDrawable) mContext.getDrawable(R.drawable.transition_test);
         mTransitionDrawable.setBounds(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
         mBitmap = Bitmap.createBitmap(CANVAS_WIDTH, CANVAS_HEIGHT, Config.ARGB_8888);
         mCanvas = new Canvas(mBitmap);
     }
 
+    @Test
     public void testConstructor() {
-        Resources resources = getInstrumentation().getTargetContext().getResources();
         Drawable[] drawables = new Drawable[] {
-                resources.getDrawable(R.drawable.testimage),
-                resources.getDrawable(R.drawable.levellistdrawable)
+                mContext.getDrawable(R.drawable.testimage),
+                mContext.getDrawable(R.drawable.levellistdrawable)
         };
         new TransitionDrawable(drawables);
     }
 
+    @Test
     public void testStartTransition() {
-        MockCallBack cb = new MockCallBack();
+        Drawable.Callback cb = mock(Drawable.Callback.class);
         mTransitionDrawable.setCallback(cb);
 
         // start when there is no transition
-        cb.reset();
         mTransitionDrawable.startTransition(2000);
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransition(COLOR0, COLOR1, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransition(COLOR0, COLOR1, 2000);
 
         // start when there is a transition in progress
         makeTransitionInProgress(2000, 1000);
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.startTransition(2000);
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransition(COLOR0, COLOR1, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransition(COLOR0, COLOR1, 2000);
 
         // start when there is a reverse transition in progress
         makeReverseTransitionInProgress(2000, 1000);
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.startTransition(2000);
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransition(COLOR0, COLOR1, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransition(COLOR0, COLOR1, 2000);
 
         // should not accept negative duration
         mTransitionDrawable.startTransition(-1);
     }
 
+    @Test
     public void testResetTransition() {
-        MockCallBack cb = new MockCallBack();
+        Drawable.Callback cb = mock(Drawable.Callback.class);
         mTransitionDrawable.setCallback(cb);
 
         // reset when there is no transition
-        cb.reset();
         mTransitionDrawable.resetTransition();
-        assertTrue(cb.hasCalledInvalidateDrawable());
+        verify(cb, times(1)).invalidateDrawable(any());
 
         // reset when there is a transition in progress
         makeTransitionInProgress(2000, 1000);
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.resetTransition();
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransitionStart(COLOR0);
-        assertTransitionEnd(COLOR0, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransitionStart(COLOR0);
+        verifyTransitionEnd(COLOR0, 2000);
 
         // reset when there is a reverse transition in progress
         makeReverseTransitionInProgress(2000, 1000);
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.resetTransition();
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransitionStart(COLOR0);
-        assertTransitionEnd(COLOR0, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransitionStart(COLOR0);
+        verifyTransitionEnd(COLOR0, 2000);
     }
 
+    @Test
     public void testReverseTransition() {
-        MockCallBack cb = new MockCallBack();
+        Drawable.Callback cb = mock(Drawable.Callback.class);
         mTransitionDrawable.setCallback(cb);
 
         // reverse when there is no transition
-        cb.reset();
         mTransitionDrawable.reverseTransition(2000);
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransition(COLOR0, COLOR1, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransition(COLOR0, COLOR1, 2000);
 
         // reverse after the other transition ends
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.reverseTransition(2000);
-        assertTrue(cb.hasCalledInvalidateDrawable());
-        assertTransition(COLOR1, COLOR0, 2000);
+        verify(cb, times(1)).invalidateDrawable(any());
+        verifyTransition(COLOR1, COLOR0, 2000);
 
         // reverse when there is a transition in progress
         makeTransitionInProgress(2000, 1000);
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.reverseTransition(20000);
-        assertFalse(cb.hasCalledInvalidateDrawable());
+        verify(cb, never()).invalidateDrawable(any());
         int colorFrom = mBitmap.getPixel(0, 0);
-        assertTransition(colorFrom, COLOR0, 1500);
+        verifyTransition(colorFrom, COLOR0, 1500);
 
         // reverse when there is a reverse transition in progress
         makeReverseTransitionInProgress(2000, 1000);
-        cb.reset();
+        reset(cb);
         mTransitionDrawable.reverseTransition(20000);
-        assertFalse(cb.hasCalledInvalidateDrawable());
+        verify(cb, never()).invalidateDrawable(any());
         colorFrom = mBitmap.getPixel(0, 0);
-        assertTransition(colorFrom, COLOR1, 1500);
+        verifyTransition(colorFrom, COLOR1, 1500);
 
         // should not accept negative duration
         mTransitionDrawable.reverseTransition(-1);
     }
 
-    public void testDrawWithNUllCanvas() {
-        try {
-            mTransitionDrawable.draw(null);
-            fail("The method should check whether the canvas is null.");
-        } catch (NullPointerException e) {
-        }
+    @Test(expected=NullPointerException.class)
+    public void testDrawWithNullCanvas() {
+        mTransitionDrawable.draw(null);
     }
 
     //  This boolean takes effect when the drawable is drawn and the effect can not be tested.
+    @Test
     public void testAccessCrossFadeEnabled() {
         assertFalse(mTransitionDrawable.isCrossFadeEnabled());
 
@@ -170,30 +185,30 @@ public class TransitionDrawableTest extends InstrumentationTestCase {
         assertFalse(mTransitionDrawable.isCrossFadeEnabled());
     }
 
-    private void assertTransition(int colorFrom, int colorTo, long delay) {
-        assertTransitionStart(colorFrom);
-        assertTransitionInProgress(colorFrom, colorTo, delay / 2);
-        assertTransitionEnd(colorTo, delay);
+    private void verifyTransition(int colorFrom, int colorTo, long delay) {
+        verifyTransitionStart(colorFrom);
+        verifyTransitionInProgress(colorFrom, colorTo, delay / 2);
+        verifyTransitionEnd(colorTo, delay);
     }
 
-    private void assertTransitionStart(int colorFrom) {
-        mBitmap.eraseColor(0x00000000);
+    private void verifyTransitionStart(int colorFrom) {
+        mBitmap.eraseColor(Color.TRANSPARENT);
         mTransitionDrawable.draw(mCanvas);
-        assertColorFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorFrom);
+        verifyColorFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorFrom);
     }
 
-    private void assertTransitionInProgress(int colorFrom, int colorTo, long delay) {
+    private void verifyTransitionInProgress(int colorFrom, int colorTo, long delay) {
         drawAfterDelaySync(delay);
-        assertColorNotFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorFrom);
-        assertColorNotFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorTo);
+        verifyColorNotFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorFrom);
+        verifyColorNotFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorTo);
     }
 
-    private void assertTransitionEnd(int colorTo, long delay) {
+    private void verifyTransitionEnd(int colorTo, long delay) {
         drawAfterDelaySync(delay);
-        assertColorFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorTo);
+        verifyColorFillRect(mBitmap, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, colorTo);
     }
 
-    private void assertColorFillRect(Bitmap bmp, int x, int y, int w, int h, int color) {
+    private void verifyColorFillRect(Bitmap bmp, int x, int y, int w, int h, int color) {
         for (int i = x; i < x + w; i++) {
             for (int j = y; j < y + h; j++) {
                 assertEquals(color, bmp.getPixel(i, j));
@@ -201,7 +216,7 @@ public class TransitionDrawableTest extends InstrumentationTestCase {
         }
     }
 
-    private void assertColorNotFillRect(Bitmap bmp, int x, int y, int w, int h, int color) {
+    private void verifyColorNotFillRect(Bitmap bmp, int x, int y, int w, int h, int color) {
         for (int i = x; i < x + w; i++) {
             for (int j = y; j < y + h; j++) {
                 assertTrue(color != bmp.getPixel(i, j));
@@ -212,25 +227,23 @@ public class TransitionDrawableTest extends InstrumentationTestCase {
     private void makeReverseTransitionInProgress(int duration, int delay) {
         mTransitionDrawable.resetTransition();
         mTransitionDrawable.startTransition(2000);
-        assertTransition(COLOR0, COLOR1, 2000);
+        verifyTransition(COLOR0, COLOR1, 2000);
         mTransitionDrawable.reverseTransition(duration);
-        assertTransitionStart(COLOR1);
-        assertTransitionInProgress(COLOR1, COLOR0, delay);
+        verifyTransitionStart(COLOR1);
+        verifyTransitionInProgress(COLOR1, COLOR0, delay);
     }
 
     private void makeTransitionInProgress(int duration, int delay) {
         mTransitionDrawable.resetTransition();
         mTransitionDrawable.startTransition(duration);
-        assertTransitionStart(COLOR0);
-        assertTransitionInProgress(COLOR0, COLOR1, delay);
+        verifyTransitionStart(COLOR0);
+        verifyTransitionInProgress(COLOR0, COLOR1, delay);
     }
 
     private void drawAfterDelaySync(long delay) {
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                mBitmap.eraseColor(0x00000000);
-                mTransitionDrawable.draw(mCanvas);
-            }
+        Thread t = new Thread(() -> {
+            mBitmap.eraseColor(Color.TRANSPARENT);
+            mTransitionDrawable.draw(mCanvas);
         });
         try {
             Thread.sleep(delay);
@@ -239,31 +252,6 @@ public class TransitionDrawableTest extends InstrumentationTestCase {
         } catch (InterruptedException e) {
             // catch and fail, because propagating this all the way up is messy
             fail(e.getMessage());
-        }
-    }
-
-    private class MockCallBack implements Drawable.Callback {
-        private boolean mHasCalledInvalidateDrawable;
-
-        public boolean hasCalledInvalidateDrawable() {
-            return mHasCalledInvalidateDrawable;
-        }
-        public void reset() {
-            mHasCalledInvalidateDrawable = false;
-        }
-
-        public void invalidateDrawable(Drawable who) {
-            mHasCalledInvalidateDrawable = true;
-        }
-
-        public void scheduleDrawable(Drawable who, Runnable what, long when) {
-        }
-
-        public void unscheduleDrawable(Drawable who, Runnable what) {
-        }
-
-        public int getResolvedLayoutDirection(Drawable who) {
-            return 0;
         }
     }
 }

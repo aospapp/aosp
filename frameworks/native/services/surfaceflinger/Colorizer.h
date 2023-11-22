@@ -17,6 +17,8 @@
 #ifndef ANDROID_SURFACE_FLINGER_COLORIZER_H
 #define ANDROID_SURFACE_FLINGER_COLORIZER_H
 
+#include <utils/String8.h>
+
 namespace android {
 
 // ---------------------------------------------------------------------------
@@ -34,7 +36,7 @@ public:
         WHITE   = 37
     };
 
-    Colorizer(bool enabled)
+    explicit Colorizer(bool enabled)
         : mEnabled(enabled) {
     }
 

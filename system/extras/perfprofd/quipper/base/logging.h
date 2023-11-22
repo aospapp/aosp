@@ -173,7 +173,7 @@ const LogSeverity LOG_NUM_SEVERITIES = 4;
 // Helper macro which avoids evaluating the arguments to a stream if
 // the condition doesn't hold.
 #define LAZY_STREAM(stream, condition)                                  \
-  !(condition) ? (void) 0 : ::logging::LogMessageVoidify() & (stream)
+  !(condition) ? (void) 0 : ::logging::LogMessageVoidify() & (stream) /* NOLINT */
 
 // We use the preprocessor's merging operator, "##", so that, e.g.,
 // LOG(INFO) becomes the token COMPACT_GOOGLE_LOG_INFO.  There's some funny
@@ -191,7 +191,7 @@ const LogSeverity LOG_NUM_SEVERITIES = 4;
 
 // The VLOG macros log with negative verbosities.
 #define VLOG_STREAM(verbose_level) \
-  logging::LogMessage(__FILE__, __LINE__, -verbose_level).stream()
+  logging::LogMessage(__FILE__, __LINE__, -(verbose_level)).stream()
 
 #define VLOG(verbose_level) \
   LAZY_STREAM(VLOG_STREAM(verbose_level), VLOG_IS_ON(verbose_level))
@@ -215,7 +215,7 @@ const LogSeverity LOG_NUM_SEVERITIES = 4;
 
 // The actual stream used isn't important.
 #define EAT_STREAM_PARAMETERS                                           \
-  true ? (void) 0 : ::logging::LogMessageVoidify() & LOG_STREAM(FATAL)
+  true ? (void) 0 : ::logging::LogMessageVoidify() & LOG_STREAM(FATAL) /* NOLINT */
 
 // CHECK dies with a fatal error if condition is not true.  It is *not*
 // controlled by NDEBUG, so the check will be executed regardless of

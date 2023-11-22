@@ -18,7 +18,6 @@ Fails if kernel doesn't support tracing or monotonic clock for ftrace events
 or the timestamps aren't in the proper order
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

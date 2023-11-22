@@ -62,6 +62,29 @@ jstring newStringPlatform(JNIEnv *env, const char* str)
 }
 #endif
 
+FD
+handleOpen(const char *path, int oflag, int mode) {
+    FD fd;
+    RESTARTABLE(open64(path, oflag, mode), fd);
+    if (fd != -1) {
+        struct stat64 buf64;
+        int result;
+        RESTARTABLE(fstat64(fd, &buf64), result);
+        if (result != -1) {
+            if (S_ISDIR(buf64.st_mode)) {
+                close(fd);
+                errno = EISDIR;
+                fd = -1;
+            }
+        } else {
+            close(fd);
+            fd = -1;
+        }
+    }
+    return fd;
+}
+
+
 void
 fileOpen(JNIEnv *env, jobject this, jstring path, jfieldID fid, int flags)
 {
@@ -74,26 +97,12 @@ fileOpen(JNIEnv *env, jobject this, jstring path, jfieldID fid, int flags)
         while ((p > ps) && (*p == '/'))
             *p-- = '\0';
 #endif
-        fd = JVM_Open(ps, flags, 0666);
-        if (fd >= 0) {
-            // BEGIN android
-            // Posix open(2) fails with EISDIR only if you ask for write permission.
-            // Java disallows reading directories too.
-            struct stat stat;
-            fstat(fd, &stat);
-
-            if (S_ISDIR(stat.st_mode)) {
-              close(fd);
-              errno = EISDIR; // For Exception message
-              throwFileNotFoundException(env, path);
-            } else {
-              // END android
-              SET_FD(this, fd, fid);
-            }
+        fd = handleOpen(ps, flags, 0666);
+        if (fd != -1) {
+            SET_FD(this, fd, fid);
         } else {
             throwFileNotFoundException(env, path);
         }
-
     } END_PLATFORM_STRING(env, ps);
 }
 

@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Obaveštenje o hitnom slučaju"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Emitovanje operatera"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Podešavanja obaveštenja o hitnom slučaju"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Poruke o emitovanju"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Uključi obaveštenja"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Prikaži emitovanja obaveštenja o hitnom slučaju"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Podsetnik za obaveštenja"</string>
@@ -55,9 +56,9 @@
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Prikaži ETWS probna emitovanja"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Prikaži probna emitovanja za sistem upozorenja o zemljotresu i cunamiju"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Prikaži ekstremne opasnosti"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Prikazuje upozorenja o ekstremnoj opasnosti po život i svojinu"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Prikazuje upozorenja o ekstremnoj opasnosti po život i imovinu"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Prikaži ozbiljne pretnje"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Prikazuje upozorenja o ozbiljnoj opasnosti po život i svojinu"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Prikazuje upozorenja o ozbiljnoj opasnosti po život i imovinu"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Prikaži AMBER upozorenja"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Prikazuje vanredne objave u vezi sa otmicom deteta (AMBER upozorenje)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"Prikaži CMAS probna emitovanja"</string>
@@ -77,7 +78,7 @@
     <string name="cmas_category_fire" msgid="3331981591918341119">"Požar"</string>
     <string name="cmas_category_health" msgid="312569774587117324">"Zdravstvena"</string>
     <string name="cmas_category_env" msgid="9213088574227522961">"Ekološka"</string>
-    <string name="cmas_category_transport" msgid="5014901635987361642">"Transport"</string>
+    <string name="cmas_category_transport" msgid="5014901635987361642">"Prevoz"</string>
     <string name="cmas_category_infra" msgid="3558151044446851398">"Infrastruktura"</string>
     <string name="cmas_category_cbrne" msgid="240421557913603971">"Hemijska/biološka/nuklearna/eksplozivna"</string>
     <string name="cmas_category_other" msgid="6158932360790744360">"Drugo"</string>

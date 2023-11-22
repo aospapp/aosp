@@ -118,6 +118,43 @@ public:
   /// Determine whether this Use is the callee operand's Use.
   bool isCallee(const Use *U) const { return getCallee() == U; }
 
+  /// \brief Determine whether the passed iterator points to an argument
+  /// operand.
+  bool isArgOperand(Value::const_user_iterator UI) const {
+    return isArgOperand(&UI.getUse());
+  }
+
+  /// \brief Determine whether the passed use points to an argument operand.
+  bool isArgOperand(const Use *U) const {
+    assert(getInstruction() == U->getUser());
+    return arg_begin() <= U && U < arg_end();
+  }
+
+  /// \brief Determine whether the passed iterator points to a bundle operand.
+  bool isBundleOperand(Value::const_user_iterator UI) const {
+    return isBundleOperand(&UI.getUse());
+  }
+
+  /// \brief Determine whether the passed use points to a bundle operand.
+  bool isBundleOperand(const Use *U) const {
+    assert(getInstruction() == U->getUser());
+    if (!hasOperandBundles())
+      return false;
+    unsigned OperandNo = U - (*this)->op_begin();
+    return getBundleOperandsStartIndex() <= OperandNo &&
+           OperandNo < getBundleOperandsEndIndex();
+  }
+
+  /// \brief Determine whether the passed iterator points to a data operand.
+  bool isDataOperand(Value::const_user_iterator UI) const {
+    return isDataOperand(&UI.getUse());
+  }
+
+  /// \brief Determine whether the passed use points to a data operand.
+  bool isDataOperand(const Use *U) const {
+    return data_operands_begin() <= U && U < data_operands_end();
+  }
+
   ValTy *getArgument(unsigned ArgNo) const {
     assert(arg_begin() + ArgNo < arg_end() && "Argument # out of range!");
     return *(arg_begin() + ArgNo);
@@ -139,8 +176,7 @@ public:
   /// it.
   unsigned getArgumentNo(const Use *U) const {
     assert(getInstruction() && "Not a call or invoke instruction!");
-    assert(arg_begin() <= U && U < arg_end()
-           && "Argument # out of range!");
+    assert(isArgOperand(U) && "Argument # out of range!");
     return U - arg_begin();
   }
 
@@ -153,6 +189,21 @@ public:
   }
   bool arg_empty() const { return arg_end() == arg_begin(); }
   unsigned arg_size() const { return unsigned(arg_end() - arg_begin()); }
+
+  /// Given a value use iterator, returns the data operand that corresponds to
+  /// it.
+  /// Iterator must actually correspond to a data operand.
+  unsigned getDataOperandNo(Value::const_user_iterator UI) const {
+    return getDataOperandNo(&UI.getUse());
+  }
+
+  /// Given a use for a data operand, get the data operand number that
+  /// corresponds to it.
+  unsigned getDataOperandNo(const Use *U) const {
+    assert(getInstruction() && "Not a call or invoke instruction!");
+    assert(isDataOperand(U) && "Data operand # out of range!");
+    return U - data_operands_begin();
+  }
 
   /// Type of iterator to use when looping over data operands at this call site
   /// (see below).
@@ -222,6 +273,10 @@ public:
     CALLSITE_DELEGATE_GETTER(getArgOperand(i));
   }
 
+  ValTy *getReturnedArgOperand() const {
+    CALLSITE_DELEGATE_GETTER(getReturnedArgOperand());
+  }
+
   bool isInlineAsm() const {
     if (isCall())
       return cast<CallInst>(getInstruction())->isInlineAsm();
@@ -254,14 +309,51 @@ public:
     CALLSITE_DELEGATE_SETTER(setAttributes(PAL));
   }
 
+  void addAttribute(unsigned i, Attribute::AttrKind Kind) {
+    CALLSITE_DELEGATE_SETTER(addAttribute(i, Kind));
+  }
+
+  void addAttribute(unsigned i, StringRef Kind, StringRef Value) {
+    CALLSITE_DELEGATE_SETTER(addAttribute(i, Kind, Value));
+  }
+
+  void addAttribute(unsigned i, Attribute Attr) {
+    CALLSITE_DELEGATE_SETTER(addAttribute(i, Attr));
+  }
+
+  void removeAttribute(unsigned i, Attribute::AttrKind Kind) {
+    CALLSITE_DELEGATE_SETTER(removeAttribute(i, Kind));
+  }
+
+  void removeAttribute(unsigned i, StringRef Kind) {
+    CALLSITE_DELEGATE_SETTER(removeAttribute(i, Kind));
+  }
+
+  void removeAttribute(unsigned i, Attribute Attr) {
+    CALLSITE_DELEGATE_SETTER(removeAttribute(i, Attr));
+  }
+
   /// \brief Return true if this function has the given attribute.
-  bool hasFnAttr(Attribute::AttrKind A) const {
-    CALLSITE_DELEGATE_GETTER(hasFnAttr(A));
+  bool hasFnAttr(Attribute::AttrKind Kind) const {
+    CALLSITE_DELEGATE_GETTER(hasFnAttr(Kind));
+  }
+
+  /// \brief Return true if this function has the given attribute.
+  bool hasFnAttr(StringRef Kind) const {
+    CALLSITE_DELEGATE_GETTER(hasFnAttr(Kind));
   }
 
   /// \brief Return true if the call or the callee has the given attribute.
-  bool paramHasAttr(unsigned i, Attribute::AttrKind A) const {
-    CALLSITE_DELEGATE_GETTER(paramHasAttr(i, A));
+  bool paramHasAttr(unsigned i, Attribute::AttrKind Kind) const {
+    CALLSITE_DELEGATE_GETTER(paramHasAttr(i, Kind));
+  }
+
+  Attribute getAttribute(unsigned i, Attribute::AttrKind Kind) const {
+    CALLSITE_DELEGATE_GETTER(getAttribute(i, Kind));
+  }
+
+  Attribute getAttribute(unsigned i, StringRef Kind) const {
+    CALLSITE_DELEGATE_GETTER(getAttribute(i, Kind));
   }
 
   /// \brief Return true if the data operand at index \p i directly or
@@ -271,8 +363,8 @@ public:
   /// in the attribute set attached to this instruction, while operand bundle
   /// operands may have some attributes implied by the type of its containing
   /// operand bundle.
-  bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind A) const {
-    CALLSITE_DELEGATE_GETTER(dataOperandHasImpliedAttr(i, A));
+  bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const {
+    CALLSITE_DELEGATE_GETTER(dataOperandHasImpliedAttr(i, Kind));
   }
 
   /// @brief Extract the alignment for a call or parameter (0=unknown).
@@ -329,6 +421,14 @@ public:
     CALLSITE_DELEGATE_SETTER(setOnlyReadsMemory());
   }
 
+  /// @brief Determine if the call does not access or only writes memory.
+  bool doesNotReadMemory() const {
+    CALLSITE_DELEGATE_GETTER(doesNotReadMemory());
+  }
+  void setDoesNotReadMemory() {
+    CALLSITE_DELEGATE_SETTER(setDoesNotReadMemory());
+  }
+
   /// @brief Determine if the call can access memmory only using pointers based
   /// on its arguments.
   bool onlyAccessesArgMemory() const {
@@ -354,7 +454,26 @@ public:
     CALLSITE_DELEGATE_SETTER(setDoesNotThrow());
   }
 
-  int getNumOperandBundles() const {
+  /// @brief Determine if the call can be duplicated.
+  bool cannotDuplicate() const {
+    CALLSITE_DELEGATE_GETTER(cannotDuplicate());
+  }
+  void setCannotDuplicate() {
+    CALLSITE_DELEGATE_GETTER(setCannotDuplicate());
+  }
+
+  /// @brief Determine if the call is convergent.
+  bool isConvergent() const {
+    CALLSITE_DELEGATE_GETTER(isConvergent());
+  }
+  void setConvergent() {
+    CALLSITE_DELEGATE_SETTER(setConvergent());
+  }
+  void setNotConvergent() {
+    CALLSITE_DELEGATE_SETTER(setNotConvergent());
+  }
+
+  unsigned getNumOperandBundles() const {
     CALLSITE_DELEGATE_GETTER(getNumOperandBundles());
   }
 
@@ -362,7 +481,15 @@ public:
     CALLSITE_DELEGATE_GETTER(hasOperandBundles());
   }
 
-  int getNumTotalBundleOperands() const {
+  unsigned getBundleOperandsStartIndex() const {
+    CALLSITE_DELEGATE_GETTER(getBundleOperandsStartIndex());
+  }
+
+  unsigned getBundleOperandsEndIndex() const {
+    CALLSITE_DELEGATE_GETTER(getBundleOperandsEndIndex());
+  }
+
+  unsigned getNumTotalBundleOperands() const {
     CALLSITE_DELEGATE_GETTER(getNumTotalBundleOperands());
   }
 
@@ -376,6 +503,10 @@ public:
 
   Optional<OperandBundleUse> getOperandBundle(uint32_t ID) const {
     CALLSITE_DELEGATE_GETTER(getOperandBundle(ID));
+  }
+
+  unsigned countOperandBundlesOfType(uint32_t ID) const {
+    CALLSITE_DELEGATE_GETTER(countOperandBundlesOfType(ID));
   }
 
   IterTy arg_begin() const {

@@ -43,6 +43,21 @@ private:
     DISALLOW_EVIL_CONSTRUCTORS(RingBuffer);
 };
 
+struct LockfreeBuffer {
+    LockfreeBuffer(void* buf, size_t size);
+    ~LockfreeBuffer();
+
+    // support single writer
+    void write(const sensors_event_t *ev, size_t size);
+private:
+    sensors_event_t *mData;
+    size_t mSize;
+    size_t mWritePos;
+    int32_t mCounter;
+
+    DISALLOW_EVIL_CONSTRUCTORS(LockfreeBuffer);
+};
+
 }  // namespace android
 
 #endif  // RING_BUFFER_H_

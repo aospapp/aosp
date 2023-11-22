@@ -13,7 +13,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -36,7 +37,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -59,7 +61,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -82,7 +85,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -105,7 +109,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -128,7 +133,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -151,7 +157,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -174,7 +181,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -197,7 +205,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -220,7 +229,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -243,7 +253,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -266,7 +277,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -289,7 +301,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -312,7 +325,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -335,7 +349,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -358,7 +373,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -381,7 +397,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -404,7 +421,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -427,7 +445,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -450,7 +469,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -473,7 +493,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -496,7 +517,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -519,7 +541,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -542,7 +565,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -565,7 +589,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -588,7 +613,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -611,7 +637,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -634,7 +661,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -657,7 +685,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -680,7 +709,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -703,7 +733,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -726,7 +757,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -749,7 +781,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -772,7 +805,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -795,7 +829,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -818,7 +853,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -841,7 +877,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -864,7 +901,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -887,7 +925,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -910,7 +949,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -933,7 +973,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -956,7 +997,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -979,7 +1021,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1002,7 +1045,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1025,7 +1069,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1048,7 +1093,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1071,7 +1117,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1094,7 +1141,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1117,7 +1165,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1140,7 +1189,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1163,7 +1213,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1186,7 +1237,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1209,7 +1261,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1232,7 +1285,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1255,7 +1309,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1278,7 +1333,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1301,7 +1357,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1324,7 +1381,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1347,7 +1405,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1370,7 +1429,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1393,7 +1453,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1416,7 +1477,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1439,7 +1501,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1462,7 +1525,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1485,7 +1549,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1508,7 +1573,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1531,7 +1597,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1554,7 +1621,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1577,7 +1645,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1600,7 +1669,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1623,7 +1693,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1646,7 +1717,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1669,7 +1741,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1692,7 +1765,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1715,7 +1789,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1738,7 +1813,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1761,7 +1837,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1784,7 +1861,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1807,7 +1885,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1830,7 +1909,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1853,7 +1933,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1876,7 +1957,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1899,7 +1981,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1922,7 +2005,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1945,7 +2029,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1968,7 +2053,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -1991,7 +2077,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2014,7 +2101,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2037,7 +2125,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2060,7 +2149,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2083,7 +2173,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2106,7 +2197,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2129,7 +2221,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2152,7 +2245,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2175,7 +2269,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2198,7 +2293,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2221,7 +2317,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2244,7 +2341,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2267,7 +2365,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2290,7 +2389,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2313,7 +2413,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2336,7 +2437,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2359,7 +2461,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2382,7 +2485,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2405,7 +2509,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2428,7 +2533,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2451,7 +2557,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2474,7 +2581,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2497,7 +2605,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2520,7 +2629,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2543,7 +2653,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2566,7 +2677,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2589,7 +2701,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2612,7 +2725,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2635,7 +2749,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2658,7 +2773,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2681,7 +2797,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2704,7 +2821,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2727,7 +2845,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2750,7 +2869,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2773,7 +2893,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2796,7 +2917,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2819,7 +2941,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2842,7 +2965,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2865,7 +2989,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2888,7 +3013,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2911,7 +3037,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2934,7 +3061,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2957,7 +3085,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -2980,7 +3109,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3003,7 +3133,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3026,7 +3157,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3049,7 +3181,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3072,7 +3205,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3095,7 +3229,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3118,7 +3253,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3141,7 +3277,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3164,7 +3301,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3187,7 +3325,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3210,7 +3349,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3233,7 +3373,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3256,7 +3397,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3279,7 +3421,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3302,7 +3445,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3325,7 +3469,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3348,7 +3493,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3371,7 +3517,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3394,7 +3541,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3417,7 +3565,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3440,7 +3589,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3463,7 +3613,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3486,7 +3637,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3509,7 +3661,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3532,7 +3685,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3555,7 +3709,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3578,7 +3733,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3601,7 +3757,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3624,7 +3781,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3647,7 +3805,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3670,7 +3829,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3693,7 +3853,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3716,7 +3877,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3739,7 +3901,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3762,7 +3925,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3785,7 +3949,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3808,7 +3973,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3831,7 +3997,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3854,7 +4021,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3877,7 +4045,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3900,7 +4069,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3923,7 +4093,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3946,7 +4117,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3969,7 +4141,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -3992,7 +4165,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4015,7 +4189,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4038,7 +4213,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4061,7 +4237,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4084,7 +4261,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4107,7 +4285,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4130,7 +4309,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4153,7 +4333,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4176,7 +4357,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4199,7 +4381,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4222,7 +4405,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4245,7 +4429,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4268,7 +4453,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4291,7 +4477,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4314,7 +4501,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4337,7 +4525,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4360,7 +4549,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4383,7 +4573,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4406,7 +4597,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4429,7 +4621,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4452,7 +4645,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4475,7 +4669,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4498,7 +4693,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4521,7 +4717,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4544,7 +4741,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4567,7 +4765,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4590,7 +4789,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4613,7 +4813,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4636,7 +4837,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4659,7 +4861,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4682,7 +4885,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4705,7 +4909,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4728,7 +4933,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4751,7 +4957,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4774,7 +4981,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4797,7 +5005,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4820,7 +5029,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4843,7 +5053,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4866,7 +5077,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4889,7 +5101,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4912,7 +5125,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4935,7 +5149,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4958,7 +5173,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -4981,7 +5197,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5004,7 +5221,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5027,7 +5245,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5050,7 +5269,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5073,7 +5293,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5096,7 +5317,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5119,7 +5341,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5142,7 +5365,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5165,7 +5389,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5188,7 +5413,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5211,7 +5437,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5234,7 +5461,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5257,7 +5485,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5280,7 +5509,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5303,7 +5533,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5326,7 +5557,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5349,7 +5581,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5372,7 +5605,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5395,7 +5629,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5418,7 +5653,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5441,7 +5677,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5464,7 +5701,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5487,7 +5725,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5510,7 +5749,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5533,7 +5773,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5556,7 +5797,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5579,7 +5821,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5602,7 +5845,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5625,7 +5869,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5648,7 +5893,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5671,7 +5917,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5694,7 +5941,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5717,7 +5965,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5740,7 +5989,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5763,7 +6013,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5786,7 +6037,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5809,7 +6061,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5832,7 +6085,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5855,7 +6109,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5878,7 +6133,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5901,7 +6157,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5924,7 +6181,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5947,7 +6205,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5970,7 +6229,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -5993,7 +6253,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6016,7 +6277,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6039,7 +6301,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6062,7 +6325,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6085,7 +6349,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6108,7 +6373,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6131,7 +6397,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6154,7 +6421,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6177,7 +6445,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6200,7 +6469,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6223,7 +6493,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6246,7 +6517,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6269,7 +6541,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6292,7 +6565,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6315,7 +6589,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6338,7 +6613,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6361,7 +6637,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6384,7 +6661,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6407,7 +6685,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6430,7 +6709,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6453,7 +6733,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6476,7 +6757,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6499,7 +6781,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6522,7 +6805,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6545,7 +6829,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6568,7 +6853,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6591,7 +6877,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6614,7 +6901,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6637,7 +6925,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6660,7 +6949,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6683,7 +6973,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6706,7 +6997,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6729,7 +7021,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6752,7 +7045,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6775,7 +7069,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6798,7 +7093,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6821,7 +7117,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6844,7 +7141,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6867,7 +7165,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6890,7 +7189,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6913,7 +7213,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6936,7 +7237,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6959,7 +7261,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -6982,7 +7285,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7005,7 +7309,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7028,7 +7333,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7051,7 +7357,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7074,7 +7381,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7097,7 +7405,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7120,7 +7429,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7143,7 +7453,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7166,7 +7477,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7189,7 +7501,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7212,7 +7525,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7235,7 +7549,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7258,7 +7573,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7281,7 +7597,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7304,7 +7621,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7327,7 +7645,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7350,7 +7669,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7373,7 +7693,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7396,7 +7717,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7419,7 +7741,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 
@@ -7442,7 +7765,8 @@ group vector_swizzles "Vector Swizzles"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 
 			${DECLARATIONS}
 

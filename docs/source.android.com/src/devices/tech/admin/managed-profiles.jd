@@ -29,7 +29,7 @@ href="multi-user.html">user</a> with additional special properties around
 management and visual aesthetic.</p>
 
 <p>The primary goal of a managed profile is to create a segregated and secure
-space for managed data (such as corporate date) to reside. The administrator of
+space for managed data (such as corporate data) to reside. The administrator of
 the profile has full control over scope, ingress, and egress of data as well as
 its lifetime. These policies offer great powers and therefore fall upon the
 managed profile instead of the device administrator.</p>

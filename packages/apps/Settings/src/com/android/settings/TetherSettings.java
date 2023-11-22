@@ -37,10 +37,9 @@ import android.os.Handler;
 import android.os.UserManager;
 import android.support.v14.preference.SwitchPreference;
 import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.util.Log;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.datausage.DataSaverBackend;
 import com.android.settings.wifi.WifiApDialog;
 import com.android.settings.wifi.WifiApEnabler;
@@ -119,7 +118,7 @@ public class TetherSettings extends RestrictedSettingsFragment
     private Preference mDataSaverFooter;
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.TETHER;
     }
 
@@ -132,6 +131,8 @@ public class TetherSettings extends RestrictedSettingsFragment
         super.onCreate(icicle);
 
         addPreferencesFromResource(R.xml.tether_prefs);
+        mFooterPreferenceMixin.createFooterPreference()
+            .setTitle(R.string.tethering_footer_info);
 
         mDataSaverBackend = new DataSaverBackend(getContext());
         mDataSaverEnabled = mDataSaverBackend.isDataSaverEnabled();
@@ -140,7 +141,7 @@ public class TetherSettings extends RestrictedSettingsFragment
         setIfOnlyAvailableForAdmins(true);
         if (isUiRestricted()) {
             mUnavailable = true;
-            setPreferenceScreen(new PreferenceScreen(getPrefContext(), null));
+            getPreferenceScreen().removeAll();
             return;
         }
 
@@ -199,6 +200,13 @@ public class TetherSettings extends RestrictedSettingsFragment
     @Override
     public void onDestroy() {
         mDataSaverBackend.remListener(this);
+
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        BluetoothProfile profile = mBluetoothPan.getAndSet(null);
+        if (profile != null && adapter != null) {
+            adapter.closeProfileProxy(BluetoothProfile.PAN, profile);
+        }
+
         super.onDestroy();
     }
 
@@ -250,6 +258,14 @@ public class TetherSettings extends RestrictedSettingsFragment
         }
 
         return null;
+    }
+
+    @Override
+    public int getDialogMetricsCategory(int dialogId) {
+        if (dialogId == DIALOG_AP_SETTINGS) {
+            return MetricsEvent.DIALOG_AP_SETTINGS;
+        }
+        return 0;
     }
 
     private class TetherChangeReceiver extends BroadcastReceiver {
@@ -509,6 +525,9 @@ public class TetherSettings extends RestrictedSettingsFragment
     private static boolean isIntentAvailable(Context context) {
         String[] provisionApp = context.getResources().getStringArray(
                 com.android.internal.R.array.config_mobile_hotspot_provision_app);
+        if (provisionApp.length < 2) {
+            return false;
+        }
         final PackageManager packageManager = context.getPackageManager();
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setClassName(provisionApp[0], provisionApp[1]);

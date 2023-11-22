@@ -156,12 +156,13 @@ interface IConnectivityManager
     void pendingListenForNetwork(in NetworkCapabilities networkCapabilities,
             in PendingIntent operation);
 
-    void requestLinkProperties(in NetworkRequest networkRequest);
-    void requestNetworkCapabilities(in NetworkRequest networkRequest);
     void releaseNetworkRequest(in NetworkRequest networkRequest);
 
     void setAcceptUnvalidated(in Network network, boolean accept, boolean always);
     void setAvoidUnvalidated(in Network network);
+    void startCaptivePortalApp(in Network network);
+
+    int getMultipathPreference(in Network Network);
 
     int getRestoreDefaultNetworkDelay(int networkType);
 

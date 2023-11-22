@@ -261,6 +261,31 @@ class JournalLogReader(AbstractLogReader):
           yield line
       proc.terminate()
 
+
+class ContinuousLogReader(AbstractLogReader):
+  """Reads log file from where it left over last time.
+
+  Useful when reading a growing log file.
+  """
+  def __init__(self, filename):
+    self._filename = filename
+    # Keeps file offset of last read.
+    self._last_pos = 0
+
+  def read_all_logs(self):
+    try:
+        with open(self._filename, 'r') as f:
+            f.seek(self._last_pos)
+            for line in f:
+                yield line
+            # Notice that _last_pos is recorded only if all lines in the file is
+            # read up. Maybe put this into a context manager so it's always
+            # recorded if needed.
+            self._last_pos = f.tell()
+    except IOError:
+        logging.error('Could not read log file %s', self._filename)
+
+
 def make_system_log_reader():
     """Create a system log reader.
 

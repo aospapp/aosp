@@ -60,7 +60,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
 
-            <android.view.cts.MockTextView
+            <TextView
                     android:id="@+id/mock_textview_left"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -70,7 +70,7 @@
                     android:gravity="left"
                     />
 
-            <android.view.cts.MockTextView
+            <TextView
                     android:id="@+id/mock_textview_right"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -80,7 +80,7 @@
                     android:gravity="right"
                     />
 
-            <android.view.cts.MockTextView
+            <TextView
                     android:id="@+id/mock_textview_center"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

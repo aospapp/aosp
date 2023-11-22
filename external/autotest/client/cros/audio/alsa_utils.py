@@ -16,6 +16,13 @@ DEV_NUM_RE = re.compile('.* \[.*\], device (\d+):.*')
 CONTROL_NAME_RE = re.compile("name='(.*)'")
 SCONTROL_NAME_RE = re.compile("Simple mixer control '(.*)'")
 
+CARD_PREF_RECORD_DEV_IDX = {
+    'bxtda7219max': 3,
+}
+
+CARD_PREF_RECORD_CHANNELS = {
+    'bxtda7219max': [ 4 ],
+}
 
 def _get_format_args(channels, bits, rate):
     args = ['-c', str(channels)]
@@ -141,6 +148,37 @@ def get_default_playback_device():
         return None
     return 'plughw:%d' % card_id
 
+def get_record_card_name(card_idx):
+    '''Gets the recording sound card name for given card idx.
+
+    Returns the card name inside the square brackets of arecord output lines.
+    '''
+    card_name_re = re.compile('card %d: .*?\[(.*?)\]' % card_idx)
+    cmd = ARECORD_PATH + ' -l'
+    p = cmd_utils.popen(shlex.split(cmd), stdout=cmd_utils.PIPE)
+    output, _ = p.communicate()
+    if p.wait() != 0:
+        raise RuntimeError('arecord -l command failed')
+
+    for line in output.splitlines():
+        match = card_name_re.search(line)
+        if match:
+            return match.group(1)
+    return None
+
+def get_card_preferred_record_channels():
+    '''Gets the preferred record channel counts for default sound card.
+
+    Returns the preferred value for default card in CARD_PREF_RECORD_CHANNELS.
+    If preferred value doesn't exist, return None.
+    '''
+    card_id = get_first_soundcard_with_control(cname='Mic Jack', scname='Mic')
+    if card_id is None:
+        return None
+    card_name = get_record_card_name(card_id)
+    if CARD_PREF_RECORD_CHANNELS.has_key(card_name):
+        return CARD_PREF_RECORD_CHANNELS[card_name]
+    return None
 
 def get_default_record_device():
     '''Gets the first record device.
@@ -151,6 +189,10 @@ def get_default_record_device():
     card_id = get_first_soundcard_with_control(cname='Mic Jack', scname='Mic')
     if card_id is None:
         return None
+
+    card_name = get_record_card_name(card_id)
+    if CARD_PREF_RECORD_DEV_IDX.has_key(card_name):
+        return 'plughw:%d,%d' % (card_id, CARD_PREF_RECORD_DEV_IDX[card_name])
 
     # Get first device id of this card.
     cmd = ARECORD_PATH + ' -l'

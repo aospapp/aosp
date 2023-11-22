@@ -104,7 +104,7 @@ class firmware_SelfSignedBoot(FirmwareTest):
         self.check_state((self.checkers.dev_boot_usb_checker, False,
                           'Not internal disk boot, dev_boot_usb misbehaved'))
         self.resignimage_ssdkeys()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.switcher.bypass_dev_boot_usb()
         self.switcher.wait_for_client()
 

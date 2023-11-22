@@ -42,6 +42,7 @@ public class ReleaseEventsDebuggee extends SyncDebuggee {
     static Object waitForStart = new Object();
     static Object waitForFinish = new Object();
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
@@ -66,7 +67,7 @@ public class ReleaseEventsDebuggee extends SyncDebuggee {
         }
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -78,6 +79,7 @@ public class ReleaseEventsDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             synchronized(ReleaseEventsDebuggee.waitForFinish){

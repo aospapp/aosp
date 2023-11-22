@@ -30,6 +30,7 @@ import java.io.IOException;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(JUnit4.class)
 public class FetchDownloadsLoaderTest {
@@ -95,16 +96,20 @@ public class FetchDownloadsLoaderTest {
     }
 
     @Test
-    public void testNewFilesDontCount() throws Exception {
-        // Create an ignored file because its last modified is too new.
-        temporaryFolder.newFile();
-        makeClearableFile();
+    public void testFetchesThumbnailsForImages() throws Exception {
+        File imageFile = temporaryFolder.newFile("test.gif");
+        imageFile.setLastModified(0);
+        String smallestValidGif = "GIF89a\u0001\u0001;";
+        FileWriter fileWriter = new FileWriter(imageFile);
+        fileWriter.write(smallestValidGif);
+        fileWriter.close();
 
         DownloadsResult result =
                 FetchDownloadsLoader.collectFiles(temporaryFolder.getRoot());
         assertNotNull(result);
-        assertEquals(0, result.totalSize);
+        assertEquals(9, result.totalSize);
         assertEquals(1, result.files.size());
+        assertTrue(result.thumbnails.containsKey(imageFile));
     }
 
     private File makeClearableFile() throws IOException {

@@ -16,6 +16,10 @@
 
 package libcore.java.util;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -281,6 +285,43 @@ public class GregorianCalendarTest extends TestCase {
         cal.setMinimalDaysInFirstWeek(4);
         cal.set(2016, Calendar.JANUARY, 10);
         assertEquals(52, cal.getWeeksInWeekYear());
+    }
+
+    public void test_fromZonedDateTime() {
+        ZonedDateTime zdt = ZonedDateTime.parse("2007-12-03T10:15:30+01:00[Europe/Paris]");
+        GregorianCalendar calendar = GregorianCalendar.from(zdt);
+        TimeZone timeZone = TimeZone.getTimeZone("Europe/Paris");
+        assertEquals(timeZone, calendar.getTimeZone());
+        assertEquals(2007, calendar.get(Calendar.YEAR));
+        assertEquals(Calendar.DECEMBER, calendar.get(Calendar.MONTH));
+        assertEquals(3, calendar.get(Calendar.DAY_OF_MONTH));
+        assertEquals(10, calendar.get(Calendar.HOUR_OF_DAY));
+        assertEquals(15, calendar.get(Calendar.MINUTE));
+        assertEquals(3600 * 1000, calendar.getTimeZone().getRawOffset()); // in milliseconds
+    }
+
+    public void test_fromZonedDateTime_invalidValues() {
+        ZoneId gmt = ZoneId.of("GMT");
+        ZonedDateTime[] invalidValues = {
+                ZonedDateTime.of(LocalDateTime.MAX, gmt),
+                ZonedDateTime.ofInstant(Instant.ofEpochMilli(Long.MAX_VALUE).plusMillis(1), gmt),
+                ZonedDateTime.ofInstant(Instant.ofEpochMilli(Long.MIN_VALUE).minusMillis(1), gmt),
+                ZonedDateTime.of(LocalDateTime.MAX, gmt) };
+        for (ZonedDateTime invalidValue : invalidValues) {
+            try {
+                GregorianCalendar.from(invalidValue);
+                fail("GregorianCalendar.from() should have failed with " + invalidValue);
+            } catch (IllegalArgumentException expected) {}
+        }
+    }
+
+    public void test_toZonedDateTime() {
+        TimeZone timeZone = TimeZone.getTimeZone("Europe/Paris");
+        GregorianCalendar calendar = new GregorianCalendar(timeZone);
+        calendar.set(2007, Calendar.DECEMBER, 3, 10, 15, 30);
+        calendar.set(Calendar.MILLISECOND, 0);
+        ZonedDateTime zdt = calendar.toZonedDateTime();
+        assertEquals(ZonedDateTime.parse("2007-12-03T10:15:30+01:00[Europe/Paris]"), zdt);
     }
 
     private long getDstLosAngeles2014(TimeZone timeZone) {

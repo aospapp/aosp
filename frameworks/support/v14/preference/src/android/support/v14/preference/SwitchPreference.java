@@ -16,8 +16,11 @@
 
 package android.support.v14.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.annotation.RestrictTo;
 import android.support.v4.content.res.TypedArrayUtils;
 import android.support.v7.preference.AndroidResources;
 import android.support.v7.preference.PreferenceViewHolder;
@@ -203,6 +206,7 @@ public class SwitchPreference extends TwoStatePreference {
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     protected void performClick(View view) {
         super.performClick(view);

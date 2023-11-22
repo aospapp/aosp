@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"वाई-फ़ाई"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"ईथरनेट"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"स्कैनिंग हमेशा उपलब्ध"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Google की स्थान सेवा और अन्य ऐप्स को नेटवर्क खोजने दें, भले ही वाई-फ़ाई बंद हो"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Google की स्थान सेवा और अन्य ऐप्लिकेशन को नेटवर्क खोजने दें, भले ही Wi-Fi बंद हो"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"वाई-फ़ाई"</string>
     <string name="device_daydream" msgid="3354366974209179614">"स्क्रीन सेवर"</string>
     <string name="device_display" msgid="101455384386372747">"प्रदर्शन"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"बैटरी <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"डिवाइस अयुग्मित हो रहा है…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"कनेक्ट है"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"नाम बदलें"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"इस एक्सेसरी के लिए कोई नया नाम डालें"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"एक्सेसरी की खोज हो रही है…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"अपने ब्लूटूथ उपकरणों को युग्मित करने से पहले, सुनिश्चित करें कि वे युग्मन मोड में हैं"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"एक डिवाइस मिला और वह <xliff:g id="COUNTDOWN">%1$s</xliff:g> सेकंड में अपने आप युग्मित हो जाएगा"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"कीबोर्ड"</string>
     <string name="system_home" msgid="2858989138172296012">"होम स्क्रीन"</string>
     <string name="system_search" msgid="2837264654143247611">"खोज"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"सुरक्षा और प्रतिबंध"</string>
     <string name="system_speech" msgid="8128688499687306982">"बोली"</string>
     <string name="system_inputs" msgid="2413907183796651102">"इनपुट"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"डेवलपर विकल्प"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"कोई नहीं"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"उपयोग और निदान"</string>
+    <string name="tutorials" msgid="3731493987558093244">"ट्यूटोरियल"</string>
     <string name="about_system_update" msgid="7282772247661356586">"सिस्‍टम अपडेट"</string>
     <string name="about_preference" msgid="4131396784531360434">"संक्षिप्त विवरण"</string>
     <string name="device_name" msgid="2670488158531273028">"डिवाइस नाम"</string>
@@ -256,7 +260,7 @@
     <string name="storage_migrate_away" msgid="3410590501311323877">"डेटा को भिन्न मेमोरी में माइग्रेट करें"</string>
     <string name="storage_no_apps" msgid="579118619398668670">"बैक अप लेने के लिए कोई भी ऐप्लिकेशन नहीं है"</string>
     <string name="storage_forget" msgid="8731986045697320463">"इस डिवाइस मेमोरी को भूल जाएं"</string>
-    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"इस डिस्क में शामिल ऐप्स या डेटा का उपयोग करने के लिए, उसे पुनः प्लग करें. वैकल्‍पिक रूप से, डिवाइस के उपलब्‍ध नहीं होने पर आप इस मेमोरी को भूल जाना चुन सकते हैं.\n\nयदि आप भूल जाएं चुनते हैं, तो डिस्क में शामिल सभी डेटा हमेशा के लिए खो जाएगा.\n\nआप बाद में ऐप्स पुनः इंस्टॉल कर सकते हैं, लेकिन इस डिस्क पर संग्रहीत डेटा खो जाएगा."</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"इस डिस्क में शामिल ऐप्स या डेटा का उपयोग करने के लिए, उसे पुनः प्लग करें. वैकल्‍पिक रूप से, डिवाइस के उपलब्‍ध नहीं होने पर आप इस मेमोरी को भूल जाना चुन सकते हैं.\n\nयदि आप भूल जाएं चुनते हैं, तो डिस्क में शामिल सभी डेटा हमेशा के लिए खो जाएगा.\n\nआप बाद में ऐप्स पुनः इंस्टॉल कर सकते हैं, लेकिन इस डिस्क पर संग्रहित डेटा खो जाएगा."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"डिवाइस मेमोरी"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"निकाले जाने योग्‍य मेमोरी"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"रीसेट करें"</string>
@@ -269,7 +273,7 @@
     <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> को फ़ॉर्मेट किया गया है"</string>
     <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g> को फ़ॉर्मेट नहीं किया जा सका"</string>
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"डिवाइस मेमोरी के रूप में फ़ॉर्मेट करें"</string>
-    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"इसके लिए USB डिस्क को सुरक्षित करने हेतु उसे फ़ॉर्मेट करना आवश्यक है. सफलतापूर्वक फ़ॉर्मेट करने के बाद, यह डिस्क केवल इसी डिवाइस के साथ काम करेगी. फ़ॉर्मेट करने से इस डिस्क में वर्तमान में संग्रहीत संपू्र्ण डेटा मिट जाता है. डेटा को खोने से बचाने के लिए, उसका बैकअप लेने पर विचार करें."</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"इसके लिए USB डिस्क को सुरक्षित करने हेतु उसे फ़ॉर्मेट करना आवश्यक है. सफलतापूर्वक फ़ॉर्मेट करने के बाद, यह डिस्क केवल इसी डिवाइस के साथ काम करेगी. फ़ॉर्मेट करने से इस डिस्क में वर्तमान में संग्रहित संपू्र्ण डेटा मिट जाता है. डेटा को खोने से बचाने के लिए, उसका बैकअप लेने पर विचार करें."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"मिटाएं और फ़ॉर्मेट करें"</string>
     <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"फ़ॉर्मेट करने के बाद, आप इस USB डिस्क का उपयोग अन्य डिवाइस में कर सकते हैं. सभी डेटा मिटा दिया जाएगा. सबसे पहले ऐप्स को अन्य डिवाइस मेमोरी पर ले जाकर बैक अप लेने पर विचार करें."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"USB डिस्‍क फ़ॉर्मेट हो रही है…"</string>
@@ -287,8 +291,8 @@
     <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"आप जारी रख सकते हैं, लेकिन इस स्थान पर लाए गए ऐप्स अटक सकते हैं और डेटा ट्रांसफर में अधिक समय लग सकता है. बेहतर प्रदर्शन के लिए अधिक तेज़ डिस्‍क का उपयोग करने पर विचार करें."</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"फ़ॉर्मेट करें"</string>
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"ऐप्‍स का बैक अप लें"</string>
-    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> में संग्रहीत ऐप्स"</string>
-    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"<xliff:g id="NAME">%1$s</xliff:g> में संग्रहीत ऐप्स और डेटा"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> में संग्रहित ऐप्स"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"<xliff:g id="NAME">%1$s</xliff:g> में संग्रहित ऐप्स और डेटा"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> उपलब्ध"</string>
     <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"डिवाइस मेमोरी निकालें"</string>
     <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"इस डिवाइस मेमोरी को निकालने से उस पर मौजूद ऐप्स काम करना बंद कर देंगे. इस USB डिस्क को केवल इसी डिवाइस पर काम करने के लिए फ़ॉर्मेट किया गया है. वह किसी अन्य डिवाइस पर काम नहीं करेगी."</string>
@@ -297,7 +301,7 @@
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g> को ले जाया जा रहा है…"</string>
     <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"ले जाने के दौरान डिस्क को ना निकालें.\nइस डिवाइस में मौजूद <xliff:g id="APPNAME">%1$s</xliff:g> ऐप ले जाने का काम पूर्ण होने तक उपलब्ध नहीं रहेगा."</string>
     <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"डिवाइस मेमोरी को भूल जाएं?"</string>
-    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"\'भूल जाएं\' के साथ इस डिस्क में संग्रहीत आपका सभी डेटा हमेशा के लिए खो जाएगा. क्या आप आगे बढ़ना चाहते हैं?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"\'भूल जाएं\' के साथ इस डिस्क में संग्रहित आपका सभी डेटा हमेशा के लिए खो जाएगा. क्या आप आगे बढ़ना चाहते हैं?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"भूल जाएं"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB डिस्क कनेक्ट है"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"ब्राउज़ करें"</string>
@@ -357,8 +361,8 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"तृतीय पक्ष स्थान सेवाएं"</string>
     <string name="location_reporting" msgid="3054236612250063073">"स्थान रिपोर्टिंग"</string>
     <string name="location_history" msgid="2946680949724247804">"स्‍थान इतिहास"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google इस सुविधा का उपयोग Google नाओ और Google मानचित्र जैसे उत्पादों में करता है. स्थान  रिपोर्टिंग चालू करने से इस सुविधा का उपयोग करने वाले किसी भी Google उत्पाद को आपके Google खाते से संबंधित आपके डिवाइस के सबसे हाल ही के स्थान डेटा को संग्रहीत करने और उसका उपयोग करने की अनुमति मिल जाती है."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"इस खाते के लिए स्थान इतिहास चालू होने पर, Google आपके डिवाइस के स्थान डेटा को आपके ऐप्स द्वारा उपयोग किए जाने के लिए संग्रहीत कर सकता है.\n\nउदाहरण के लिए, Google मानचित्र आपको दिशा-निर्देश दे सकता है और Google नाओ आपको यात्रा ट्रैफ़िक के बारे में सूचित कर सकती है.\n\nआप स्थान इतिहास को कभी भी बंद कर सकते हैं, लेकिन ऐसा करने से वह हटता नहीं है. अपने स्थान इतिहास को देखने और उसे प्रबंधित करने के लिए, maps.google.com/locationhistory पर जाएं."</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google इस सुविधा का उपयोग Google नाओ और Google मानचित्र जैसे उत्पादों में करता है. स्थान  रिपोर्टिंग चालू करने से इस सुविधा का उपयोग करने वाले किसी भी Google उत्पाद को आपके Google खाते से संबंधित आपके डिवाइस के सबसे हाल ही के स्थान डेटा को संग्रहित करने और उसका उपयोग करने की अनुमति मिल जाती है."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"इस खाते के लिए स्थान इतिहास चालू होने पर, Google आपके डिवाइस के स्थान डेटा को आपके ऐप्स द्वारा उपयोग किए जाने के लिए संग्रहित कर सकता है.\n\nउदाहरण के लिए, Google मानचित्र आपको दिशा-निर्देश दे सकता है और Google नाओ आपको यात्रा ट्रैफ़िक के बारे में सूचित कर सकती है.\n\nआप स्थान इतिहास को कभी भी बंद कर सकते हैं, लेकिन ऐसा करने से वह हटता नहीं है. अपने स्थान इतिहास को देखने और उसे प्रबंधित करने के लिए, maps.google.com/locationhistory पर जाएं."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"स्थान इतिहास हटाएं"</string>
     <string name="delete_location_history_desc" msgid="4142806827237093397">"इससे इस डिवाइस पर इस Google खाते के लिए संगृहीत किया गया सभी स्थान इतिहास हट जाएगा. आप इस हटाए जाने को पूर्ववत नहीं कर सकते. Google नाओ सेवा सहित कुछ ऐप्लिकेशन काम करना बंद कर देंगे."</string>
     <string name="system_services" msgid="7230571820151215779">"सेवाएं"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"प्रदर्शन विकल्प"</string>
     <string name="captions_configure" msgid="5537548915977371014">"कॉन्फ़िगर करें"</string>
     <string name="captions_language" msgid="2835554055388996343">"भाषा"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"डिफ़ॉल्ट"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"लेख का आकार"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"कैप्शन की शैली"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"कस्‍टम विकल्प"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"संक्रमण एनिमेशन पैमाना"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"एनिमेटर अवधि पैमाना"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"सख्‍त मोड सक्षम किया गया"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"CPU उपयोग दिखाएं"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"प्रोफ़ाइल GPU रेंडरिंग"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"ट्रेस सक्षम करें"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"गतिविधियों को न रखें"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"सबसे अच्छे से सबसे खराब: नीला, हरा, हल्का लाल, लाल"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"विंडो सतहों के अपडेट होने पर उन सभी को फ़्लैश करें"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"जब ऐप्स  मुख्य थ्रेड पर लंबी कार्यवाही करते हैं, तो स्क्रीन फ़्लैश करें"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"स्‍क्रीन ओवरले वर्तमान CPU उपयोग दिखा रहा है"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"adb shell dumpsys gfxinfo में रें‍डरिंग समय मापें"</string>
     <string name="action_on_title" msgid="6852389884236870765">"चालू करें"</string>
     <string name="action_off_title" msgid="3157728958166559966">"बंद"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"बलपूर्वक रोकें"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"यदि आप किसी ऐप को बलपूर्वक रोकते हैं, तो वह गलत व्यवहार कर सकता है."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"अनइंस्टॉल करें"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"क्‍या आप इस ऐप को अनइंस्‍टॉल करना चाहते हैं?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"नई जानकारी अनइंस्‍टॉल करें"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"इस Android सिस्‍टम ऐप की सभी नई जानकारी अनइंस्‍टॉल कर दी जाएगी."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"अक्षम करें"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"संचय साफ़ करें"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"नोटिफिकेशन"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"अनुमतियां"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"ऐप्लिकेशन अनुपलब्ध है"</string>
     <string name="settings_ok" msgid="3321630456511355983">"ठीक"</string>
     <string name="settings_cancel" msgid="304280412158061225">"अभी नहीं"</string>
     <string name="settings_on" msgid="6892236264945435013">"चालू"</string>
@@ -627,7 +630,7 @@
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"निष्क्रियता के <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> बाद"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"डिवाइस को निष्क्रिय करें"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"निष्क्रियता की इस अवधि के बाद स्क्रीन बंद हो जाती है."</string>
-    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"वर्तमान में कोई भी खाता, बैकअप डेटा संग्रहीत नहीं कर रहा है"</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"वर्तमान में कोई भी खाता, बैकअप डेटा संग्रहित नहीं कर रहा है"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"अपने वाई-फ़ाई पासवर्ड, बुकमार्क, अन्य सेटिंग और ऐप्स डेटा का बैक अप लेना रोकें और Google सर्वर से सभी कॉपी मिटाएं?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"मेरे डेटा का बैकअप लें"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"आपकी सभी निजी जानकारी और डाउनलोड किए गए ऐप्स मिटाएं? आप इस क्रिया को वापस नहीं ला सकते!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"सब कुछ मिटाएं"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"अपने <xliff:g id="DEVICEMODEL">%1$s</xliff:g> के लिए कोई नाम चुनें"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"एक नाम आपके <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को पहचानने में सहायता करेगा, जब आप अन्य डिवाइसों जैसे आपके फ़ोन, टैबलेट या कंप्यूटर से इसे एक्सेस करते हैं."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"अपने <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को एक नाम दें ताकि उसे दूसरे डिवाइस से कास्ट करते समय या कनेक्ट करते समय पहचानने में सहायता मिल सके."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"बैठक कक्ष"</item>
-    <item msgid="3722089849939477581">"मीडिया कक्ष"</item>
-    <item msgid="6108590585438763574">"परिवार कक्ष"</item>
-    <item msgid="2581035245390468625">"भोजन कक्ष"</item>
-    <item msgid="3127487827308695324">"निजी कक्ष"</item>
-    <item msgid="6172018430592195063">"शयनकक्ष"</item>
-    <item msgid="8120010459866284578">"रसोई"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"लिविंग रूम टीवी"</item>
+    <item msgid="8122798759665439456">"फ़ैमिली रूम टीवी"</item>
+    <item msgid="1389347662738182100">"बेडरूम टीवी"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"कस्टम नाम डालें…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"कस्टम नाम डालें…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"इस <xliff:g id="DEVICEMODEL">%1$s</xliff:g> का नाम बदलें"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"इस <xliff:g id="DEVICEMODEL">%1$s</xliff:g> को वर्तमान में \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\" नाम दिया गया है"</string>
     <string name="change_setting" msgid="2047402388786162246">"बदलें"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोड में पुन: बूट करें"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"क्या आप सुरक्षित मोड में पुन: बूट करना चाहते हैं?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"इससे आपके द्वारा इंस्टॉल किए गए सभी तृतीय पक्ष ऐप्लिकेशन अक्षम हो जाएंगे. जब आप पुन: बूट करेंगे तो उन्हें पुनर्स्थापित कर दिया जाएगा."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"बग रिपोर्ट कैप्‍चर की जा रही है"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध वर्चुअल कीबोर्ड"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"कीबोर्ड प्रबंधित करें"</string>
 </resources>

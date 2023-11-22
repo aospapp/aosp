@@ -18,6 +18,7 @@ package com.android.compatibility.tradefed;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.util.FileUtil;
 
 import junit.framework.TestCase;
@@ -34,7 +35,20 @@ public class CtsTradefedTest extends TestCase {
     private static final String SUITE_NAME = "CTS";
     private static final String SUITE_PLAN = "cts";
     private static final String DYNAMIC_CONFIG_URL = "";
-    private static final long START_TIME = 123456L;
+
+    private String mOriginalProperty = null;
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mOriginalProperty = System.getProperty(PROPERTY_NAME);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        System.setProperty(PROPERTY_NAME, mOriginalProperty);
+        super.tearDown();
+    }
 
     public void testSuiteInfoLoad() throws Exception {
         // Test the values in the manifest can be loaded
@@ -45,12 +59,13 @@ public class CtsTradefedTest extends TestCase {
         File tests = new File(base, "testcases");
         tests.mkdirs();
         CompatibilityBuildProvider provider = new CompatibilityBuildProvider();
+        OptionSetter setter = new OptionSetter(provider);
+        setter.setOptionValue("plan", SUITE_PLAN);
+        setter.setOptionValue("dynamic-config-url", DYNAMIC_CONFIG_URL);
         IBuildInfo info = provider.getBuild();
         CompatibilityBuildHelper helper = new CompatibilityBuildHelper(info);
-        helper.init(SUITE_PLAN, DYNAMIC_CONFIG_URL, START_TIME);
         assertEquals("Incorrect suite full name", SUITE_FULL_NAME, helper.getSuiteFullName());
         assertEquals("Incorrect suite name", SUITE_NAME, helper.getSuiteName());
         FileUtil.recursiveDelete(root);
-        System.clearProperty(PROPERTY_NAME);
     }
 }

@@ -69,7 +69,7 @@
     <string name="upload_succ_ok" msgid="7705428476405478828">"Potvrdi"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"Datoteka nije poslata na <xliff:g id="RECIPIENT">%1$s</xliff:g>."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Datoteka: <xliff:g id="FILE">%1$s</xliff:g>"</string>
-    <string name="upload_fail_ok" msgid="5807702461606714296">"Pokušaj ponovo"</string>
+    <string name="upload_fail_ok" msgid="5807702461606714296">"Probaj ponovo"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Zatvori"</string>
     <string name="bt_error_btn_ok" msgid="5965151173011534240">"Potvrdi"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Nepoznata datoteka"</string>
@@ -87,7 +87,7 @@
     <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"Nema dovoljno prostora u USB memoriji da bi se sačuvala datoteka pošiljaoca „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
     <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"Nema dovoljno prostora na SD kartici da bi se sačuvala datoteka pošiljaoca „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Potreban prostor: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Previše zahteva se obrađuje. Pokušajte ponovo kasnije."</string>
+    <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Previše zahteva se obrađuje. Probajte ponovo kasnije."</string>
     <string name="status_pending" msgid="2503691772030877944">"Prenos datoteke još nije počeo."</string>
     <string name="status_running" msgid="6562808920311008696">"Prenos datoteke je u toku."</string>
     <string name="status_success" msgid="239573225847565868">"Prenos datoteke je dovršen."</string>
@@ -101,6 +101,7 @@
     <string name="status_protocol_error" msgid="3245444473429269539">"Nije moguće ispravno obraditi zahtev."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Nepoznata greška."</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"Primljeno preko Bluetooth-a"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"Deljenje preko Bluetooth-a"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Primljeno u celosti."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Slanje je dovršeno."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"Dolazni prenosi"</string>
@@ -132,4 +133,5 @@
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"Nije moguće izabrati nalog. Nema preostalih mesta"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth audio je povezan"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Veza sa Bluetooth audijom je prekinuta"</string>
+    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth audio"</string>
 </resources>

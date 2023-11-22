@@ -20,7 +20,7 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"Paramètres de diffusion cellulaire"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Les paramètres de diffusion cellulaire ne sont pas disponibles pour cet utilisateur"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Il n\'existe aucune alerte active dans votre région. Vous pouvez modifier les paramètres d\'alerte à l\'aide de l\'option de menu « Paramètres »."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"Il n\'y a aucune alerte active dans votre région. Vous pouvez modifier les paramètres d\'alerte à l\'aide de l\'option de menu Paramètres."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Paramètres"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"Supprimer les diffusions"</string>
     <string name="message_options" msgid="3178489901903589574">"Options relatives aux messages"</string>
@@ -46,17 +46,18 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alerte d\'urgence"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Diffusion cellulaire"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Paramètres d\'alerte d\'urgence"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Messages de diffusion"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Activer les notifications"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Afficher les diffusions d\'alerte d\'urgence"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Rappel d\'alerte"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Énoncer le message d\'alerte"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utiliser la synthèse vocale pour énoncer des messages d\'alerte d\'urgence"</string>
+    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utiliser la synthèse vocale pour énoncer les messages d\'alerte d\'urgence"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Paramètres ETWS"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Afficher diffusions test ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Afficher les diffusions test du système d\'avertissement pour tremblements de terre et tsunamis"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Afficher les menaces extrêmes"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Afficher les alertes relatives aux menaces extrêmes à la vie et aux biens"</string>
-    <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Afficher menaces importantes"</string>
+    <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Afficher les menaces importantes"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Afficher les alertes relatives aux menaces importantes à la vie et aux biens"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Afficher les alertes AMBER"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Afficher les bulletins d\'urgence relatifs aux enlèvements d\'enfants (alerte AMBER)"</string>
@@ -67,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Paramètres pour le Brésil"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"Afficher diffusions chaîne 50"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"Au Brésil, les dernières informations locales sont diffusées sur la chaîne 50."</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Options pour les développeurs"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"Options pour les concepteurs"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Catégorie d\'alerte :"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Géophysique"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Météorologie"</string>

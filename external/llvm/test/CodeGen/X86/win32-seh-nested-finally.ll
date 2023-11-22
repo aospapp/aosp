@@ -43,38 +43,42 @@ attributes #3 = { noinline }
 ; CHECK: movl $-1, -[[state:[0-9]+]](%ebp)
 ; CHECK: movl {{.*}}, %fs:0
 ; CHECK: movl $1, -[[state]](%ebp)
-; CHECK: movl $1, (%esp)
+; CHECK: pushl $1
 ; CHECK: calll _f
+; CHECK: addl $4, %esp
 ; CHECK: movl $0, -[[state]](%ebp)
-; CHECK: movl $2, (%esp)
+; CHECK: pushl $2
 ; CHECK: calll _f
+; CHECK: addl $4, %esp
 ; CHECK: movl $-1, -[[state]](%ebp)
-; CHECK: movl $3, (%esp)
+; CHECK: pushl $3
 ; CHECK: calll _f
+; CHECK: addl $4, %esp
 ; CHECK: retl
 
 ; CHECK: LBB0_[[inner:[0-9]+]]: # %ehcleanup
 ; CHECK: pushl %ebp
 ; CHECK: addl $12, %ebp
-; CHECK: movl $0, -[[state]](%ebp)
-; CHECK: movl $2, (%esp)
+; CHECK: pushl $2
 ; CHECK: calll _f
+; CHECK: addl $4, %esp
+; CHECK: addl $4, %esp
 ; CHECK: popl %ebp
 ; CHECK: retl
 
 ; CHECK: LBB0_[[outer:[0-9]+]]: # %ehcleanup.3
 ; CHECK: pushl %ebp
 ; CHECK: addl $12, %ebp
-; CHECK: movl $-1, -[[state]](%ebp)
-; CHECK: movl $3, (%esp)
+; CHECK: pushl $3
 ; CHECK: calll _f
+; CHECK: addl $8, %esp
 ; CHECK: popl %ebp
 ; CHECK: retl
 
 ; CHECK: L__ehtable$nested_finally:
-; CHECK:        .long   -1
-; CHECK:        .long   0
-; CHECK:        .long   LBB0_[[outer]]
-; CHECK:        .long   0
-; CHECK:        .long   0
-; CHECK:        .long   LBB0_[[inner]]
+; CHECK:        .long   -1 # ToState
+; CHECK:        .long   0  # Null
+; CHECK:        .long   "?dtor$[[outer]]@?0?nested_finally@4HA" # FinallyFunclet
+; CHECK:        .long   0  # ToState
+; CHECK:        .long   0  # Null
+; CHECK:        .long   "?dtor$[[inner]]@?0?nested_finally@4HA" # FinallyFunclet

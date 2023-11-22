@@ -16,10 +16,9 @@
 
 package android.text.style.cts;
 
-import android.text.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
+import android.text.cts.R;
 
 /**
  * A Mock application for {@link URLSpan} test.

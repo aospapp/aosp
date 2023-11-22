@@ -19,9 +19,9 @@
 
 #include <gtest/gtest.h>
 
-#include <commands.h>
-#include <globals.h>
-#include <utils.h>
+#include "InstalldNativeService.h"
+#include "globals.h"
+#include "utils.h"
 
 #undef LOG_TAG
 #define LOG_TAG "utils_test"
@@ -29,11 +29,14 @@
 #define TEST_DATA_DIR "/data/"
 #define TEST_APP_DIR "/data/app/"
 #define TEST_APP_PRIVATE_DIR "/data/app-private/"
+#define TEST_APP_EPHEMERAL_DIR "/data/app-ephemeral/"
 #define TEST_ASEC_DIR "/mnt/asec/"
 #define TEST_EXPAND_DIR "/mnt/expand/"
 
 #define TEST_SYSTEM_DIR1 "/system/app/"
 #define TEST_SYSTEM_DIR2 "/vendor/app/"
+
+#define TEST_PROFILE_DIR "/data/misc/profiles"
 
 #define REALLY_LONG_APP_NAME "com.example." \
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa." \
@@ -57,6 +60,9 @@ protected:
         android_app_private_dir.path = (char*) TEST_APP_PRIVATE_DIR;
         android_app_private_dir.len = strlen(TEST_APP_PRIVATE_DIR);
 
+        android_app_ephemeral_dir.path = (char*) TEST_APP_EPHEMERAL_DIR;
+        android_app_ephemeral_dir.len = strlen(TEST_APP_EPHEMERAL_DIR);
+
         android_data_dir.path = (char*) TEST_DATA_DIR;
         android_data_dir.len = strlen(TEST_DATA_DIR);
 
@@ -74,6 +80,9 @@ protected:
 
         android_system_dirs.dirs[1].path = (char*) TEST_SYSTEM_DIR2;
         android_system_dirs.dirs[1].len = strlen(TEST_SYSTEM_DIR2);
+
+        android_profiles_dir.path = (char*) TEST_PROFILE_DIR;
+        android_profiles_dir.len = strlen(TEST_PROFILE_DIR);
     }
 
     virtual void TearDown() {
@@ -85,19 +94,19 @@ TEST_F(UtilsTest, IsValidApkPath_BadPrefix) {
     // Bad prefixes directories
     const char *badprefix1 = "/etc/passwd";
     EXPECT_EQ(-1, validate_apk_path(badprefix1))
-            << badprefix1 << " should be allowed as a valid path";
+            << badprefix1 << " should not be allowed as a valid path";
 
     const char *badprefix2 = "../.." TEST_APP_DIR "../../../blah";
     EXPECT_EQ(-1, validate_apk_path(badprefix2))
-            << badprefix2 << " should be allowed as a valid path";
+            << badprefix2 << " should not be allowed as a valid path";
 
     const char *badprefix3 = "init.rc";
     EXPECT_EQ(-1, validate_apk_path(badprefix3))
-            << badprefix3 << " should be allowed as a valid path";
+            << badprefix3 << " should not be allowed as a valid path";
 
     const char *badprefix4 = "/init.rc";
     EXPECT_EQ(-1, validate_apk_path(badprefix4))
-            << badprefix4 << " should be allowed as a valid path";
+            << badprefix4 << " should not be allowed as a valid path";
 }
 
 TEST_F(UtilsTest, IsValidApkPath_Internal) {
@@ -317,6 +326,7 @@ TEST_F(UtilsTest, CreatePkgPath_LongPkgNameSuccess) {
     size_t pkgnameSize = PKG_NAME_MAX;
     char pkgname[pkgnameSize + 1];
     memset(pkgname, 'a', pkgnameSize);
+    pkgname[1] = '.';
     pkgname[pkgnameSize] = '\0';
 
     EXPECT_EQ(0, create_pkg_path(path, pkgname, "", 0))
@@ -327,19 +337,6 @@ TEST_F(UtilsTest, CreatePkgPath_LongPkgNameSuccess) {
 
     EXPECT_STREQ(pkgname, path + offset)
              << "Package path should be a really long string of a's";
-}
-
-TEST_F(UtilsTest, CreatePkgPath_LongPkgNameFail) {
-    char path[PKG_PATH_MAX];
-
-    // Create long packagename of "aaaaa..."
-    size_t pkgnameSize = PKG_NAME_MAX + 1;
-    char pkgname[pkgnameSize + 1];
-    memset(pkgname, 'a', pkgnameSize);
-    pkgname[pkgnameSize] = '\0';
-
-    EXPECT_EQ(-1, create_pkg_path(path, pkgname, "", 0))
-            << "Should return error because package name is too long.";
 }
 
 TEST_F(UtilsTest, CreatePkgPath_LongPostfixFail) {
@@ -506,6 +503,72 @@ TEST_F(UtilsTest, CreateDataUserPackagePath) {
             create_data_user_ce_package_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 0, "com.example"));
     EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/user/10/com.example",
             create_data_user_ce_package_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 10, "com.example"));
+}
+
+TEST_F(UtilsTest, IsValidPackageName) {
+    EXPECT_EQ(true, is_valid_package_name("android"));
+    EXPECT_EQ(true, is_valid_package_name("com.example"));
+    EXPECT_EQ(true, is_valid_package_name("com.example-1"));
+    EXPECT_EQ(true, is_valid_package_name("com.example-1024"));
+    EXPECT_EQ(true, is_valid_package_name("com.example.foo---KiJFj4a_tePVw95pSrjg=="));
+    EXPECT_EQ(true, is_valid_package_name("really_LONG.a1234.package_name"));
+
+    EXPECT_EQ(false, is_valid_package_name("1234.package"));
+    EXPECT_EQ(false, is_valid_package_name("com.1234.package"));
+    EXPECT_EQ(false, is_valid_package_name(""));
+    EXPECT_EQ(false, is_valid_package_name("."));
+    EXPECT_EQ(false, is_valid_package_name(".."));
+    EXPECT_EQ(false, is_valid_package_name("../"));
+    EXPECT_EQ(false, is_valid_package_name("com.example/../com.evil/"));
+    EXPECT_EQ(false, is_valid_package_name("com.example-1/../com.evil/"));
+    EXPECT_EQ(false, is_valid_package_name("/com.evil"));
+}
+
+TEST_F(UtilsTest, CreateDataUserProfilePath) {
+    EXPECT_EQ("/data/misc/profiles/cur/0", create_primary_cur_profile_dir_path(0));
+    EXPECT_EQ("/data/misc/profiles/cur/1", create_primary_cur_profile_dir_path(1));
+}
+
+TEST_F(UtilsTest, CreateDataUserProfilePackagePath) {
+    EXPECT_EQ("/data/misc/profiles/cur/0/com.example",
+            create_primary_current_profile_package_dir_path(0, "com.example"));
+    EXPECT_EQ("/data/misc/profiles/cur/1/com.example",
+            create_primary_current_profile_package_dir_path(1, "com.example"));
+}
+
+TEST_F(UtilsTest, CreateDataRefProfilePath) {
+    EXPECT_EQ("/data/misc/profiles/ref", create_primary_ref_profile_dir_path());
+}
+
+TEST_F(UtilsTest, CreateDataRefProfilePackagePath) {
+    EXPECT_EQ("/data/misc/profiles/ref/com.example",
+        create_primary_reference_profile_package_dir_path("com.example"));
+}
+
+TEST_F(UtilsTest, CreatePrimaryCurrentProfile) {
+    std::string expected =
+        create_primary_current_profile_package_dir_path(0, "com.example") + "/primary.prof";
+    EXPECT_EQ(expected,
+            create_current_profile_path(/*user*/0, "com.example", /*is_secondary*/false));
+}
+
+TEST_F(UtilsTest, CreatePrimaryReferenceProfile) {
+    std::string expected =
+        create_primary_reference_profile_package_dir_path("com.example") + "/primary.prof";
+    EXPECT_EQ(expected,
+            create_reference_profile_path("com.example", /*is_secondary*/false));
+}
+
+TEST_F(UtilsTest, CreateSecondaryCurrentProfile) {
+    EXPECT_EQ("/data/user/0/com.example/secondary.dex.prof",
+            create_current_profile_path(/*user*/0,
+                    "/data/user/0/com.example/secondary.dex", /*is_secondary*/true));
+}
+
+TEST_F(UtilsTest, CreateSecondaryReferenceProfile) {
+    EXPECT_EQ("/data/user/0/com.example/oat/secondary.dex.prof",
+            create_reference_profile_path(
+                    "/data/user/0/com.example/secondary.dex", /*is_secondary*/true));
 }
 
 }  // namespace installd

@@ -128,65 +128,107 @@ struct stat64 { __STAT64_BODY };
 #define st_mtimensec st_mtim.tv_nsec
 #define st_ctimensec st_ctim.tv_nsec
 
-#ifdef __USE_BSD
+#if defined(__USE_BSD)
 /* Permission macros provided by glibc for compatibility with BSDs. */
 #define ACCESSPERMS (S_IRWXU | S_IRWXG | S_IRWXO) /* 0777 */
 #define ALLPERMS    (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO) /* 07777 */
 #define DEFFILEMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) /* 0666 */
 #endif
 
-extern int chmod(const char*, mode_t);
-extern int fchmod(int, mode_t);
-extern int mkdir(const char*, mode_t);
+#if defined(__USE_BSD) || defined(__USE_GNU)
+#define S_IREAD S_IRUSR
+#define S_IWRITE S_IWUSR
+#define S_IEXEC S_IXUSR
+#endif
 
-extern int fstat(int, struct stat*);
-extern int fstat64(int, struct stat64*);
-extern int fstatat(int, const char*, struct stat*, int);
-extern int fstatat64(int, const char*, struct stat64*, int);
-extern int lstat(const char*, struct stat*);
-extern int lstat64(const char*, struct stat64*);
-extern int stat(const char*, struct stat*);
-extern int stat64(const char*, struct stat64*);
+/* POSIX mandates these, but Linux doesn't implement them as distinct file types. */
+#define S_TYPEISMQ(__sb) 0
+#define S_TYPEISSEM(__sb) 0
+#define S_TYPEISSHM(__sb) 0
+#define S_TYPEISTMO(__sb) 0
 
-extern int mknod(const char*, mode_t, dev_t);
-extern mode_t umask(mode_t);
+int chmod(const char*, mode_t);
+int fchmod(int, mode_t);
+int mkdir(const char*, mode_t);
 
-extern mode_t __umask_chk(mode_t);
-extern mode_t __umask_real(mode_t) __RENAME(umask);
-__errordecl(__umask_invalid_mode, "umask called with invalid mode");
+int fstat(int, struct stat*);
+int fstat64(int, struct stat64*) __INTRODUCED_IN(21);
+int fstatat(int, const char*, struct stat*, int);
+int fstatat64(int, const char*, struct stat64*, int) __INTRODUCED_IN(21);
+int lstat(const char*, struct stat*);
+int lstat64(const char*, struct stat64*) __INTRODUCED_IN(21);
+int stat(const char*, struct stat*);
+int stat64(const char*, struct stat64*) __INTRODUCED_IN(21);
+
+int mknod(const char*, mode_t, dev_t);
+mode_t umask(mode_t) __overloadable __RENAME_CLANG(umask);
+
+mode_t __umask_chk(mode_t) __INTRODUCED_IN(18);
 
 #if defined(__BIONIC_FORTIFY)
+#define __umask_invalid_mode_str "umask called with invalid mode"
+
+#if defined(__clang__)
+
+#if __ANDROID_API__ >= __ANDROID_API_J_MR2__
+/*
+ * Abuse enable_if to make these be seen as overloads of umask, rather than
+ * definitions.
+ */
+__BIONIC_ERROR_FUNCTION_VISIBILITY
+mode_t umask(mode_t mode) __overloadable
+        __enable_if(1, "")
+        __enable_if(mode & ~0777, __umask_invalid_mode_str)
+        __errorattr(__umask_invalid_mode_str);
 
 __BIONIC_FORTIFY_INLINE
+mode_t umask(mode_t mode) __enable_if(1, "") __overloadable {
+  return __umask_chk(mode);
+}
+#endif /* __ANDROID_API__ >= __ANDROID_API_J_MR2__ */
+
+#else /* defined(__clang__) */
+__errordecl(__umask_invalid_mode, __umask_invalid_mode_str);
+extern mode_t __umask_real(mode_t) __RENAME(umask);
+
+#if __ANDROID_API__ >= __ANDROID_API_J_MR2__
+__BIONIC_FORTIFY_INLINE
 mode_t umask(mode_t mode) {
-#if !defined(__clang__)
   if (__builtin_constant_p(mode)) {
     if ((mode & 0777) != mode) {
       __umask_invalid_mode();
     }
     return __umask_real(mode);
   }
-#endif
   return __umask_chk(mode);
 }
+#endif /* __ANDROID_API__ >= __ANDROID_API_J_MR2__ */
+
+#endif /* defined(__clang__) */
+#undef __umask_invalid_mode_str
+
 #endif /* defined(__BIONIC_FORTIFY) */
 
-extern int mkfifo(const char*, mode_t) __INTRODUCED_IN(21);
-extern int mkfifoat(int, const char*, mode_t);
+#if __ANDROID_API__ >= __ANDROID_API_L__
+int mkfifo(const char*, mode_t) __INTRODUCED_IN(21);
+#else
+// Implemented as a static inline before 21.
+#endif
 
-extern int fchmodat(int, const char*, mode_t, int);
-extern int mkdirat(int, const char*, mode_t);
-extern int mknodat(int, const char*, mode_t, dev_t);
+int mkfifoat(int, const char*, mode_t) __INTRODUCED_IN(23);
+
+int fchmodat(int, const char*, mode_t, int);
+int mkdirat(int, const char*, mode_t);
+int mknodat(int, const char*, mode_t, dev_t) __INTRODUCED_IN(21);
 
 #define UTIME_NOW  ((1L << 30) - 1L)
 #define UTIME_OMIT ((1L << 30) - 2L)
-extern int utimensat(int fd, const char *path, const struct timespec times[2], int flags);
-extern int futimens(int fd, const struct timespec times[2]);
-
-#if __ANDROID_API__ < 21
-#include <android/legacy_sys_stat_inlines.h>
-#endif
+int utimensat(int fd, const char* path, const struct timespec times[2], int flags)
+  __INTRODUCED_IN(12);
+int futimens(int fd, const struct timespec times[2]) __INTRODUCED_IN(19);
 
 __END_DECLS
+
+#include <android/legacy_sys_stat_inlines.h>
 
 #endif /* _SYS_STAT_H_ */

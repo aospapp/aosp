@@ -50,10 +50,11 @@ import java.util.ArrayList;
  * </ol>
  *
  * This LayoutManger should be used with {@link CarRecyclerView}.
+ * @hide
  */
 public class CarLayoutManager extends RecyclerView.LayoutManager {
     private static final String TAG = "CarLayoutManager";
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     /**
      * Any fling below the threshold will just scroll to the top fully visible row. The units is
@@ -148,8 +149,11 @@ public class CarLayoutManager extends RecyclerView.LayoutManager {
      * @see #updatePageBreakPositions()
      */
     private int mItemCountDuringLastPageBreakUpdate;
+    // The index of the first item on the current page
     private int mAnchorPageBreakPosition = 0;
+    // The index of the first item on the previous page
     private int mUpperPageBreakPosition = -1;
+    // The index of the first item on the next page
     private int mLowerPageBreakPosition = -1;
     /** Used in the bookkeeping of mario style scrolling to prevent extra calculations. **/
     private int mLastChildPositionToRequestFocus = -1;
@@ -332,6 +336,12 @@ public class CarLayoutManager extends RecyclerView.LayoutManager {
         // We offset by -dy because the views translate in the opposite direction that the
         // list scrolls (think about it.)
         offsetChildrenVertical(-dy);
+
+        // The last item in the layout should never scroll above the viewport
+        View view = getChildAt(getChildCount() - 1);
+        if (view.getTop() < 0) {
+            view.setTop(0);
+        }
 
         // This is the meat of this function. We remove views on the trailing edge of the scroll
         // and add views at the leading edge as necessary.
@@ -1169,7 +1179,7 @@ public class CarLayoutManager extends RecyclerView.LayoutManager {
 
         if (DEBUG) {
             Log.v(TAG, String.format(":: #MID updatePageBreakPositions topMargin:%s, anchorTop:%s"
-                            + "mAnchorPageBreakPosition:%s, mUpperPageBreakPosition:%s, "
+                            + " mAnchorPageBreakPosition:%s, mUpperPageBreakPosition:%s, "
                             + "mLowerPageBreakPosition:%s", topMargin, anchorTop,
                     mAnchorPageBreakPosition, mUpperPageBreakPosition, mLowerPageBreakPosition));
         }
@@ -1247,6 +1257,10 @@ public class CarLayoutManager extends RecyclerView.LayoutManager {
         int referenceViewTop = getDecoratedTop(referenceView) - getParams(referenceView).topMargin;
 
         int nextPagePosition = position;
+
+        // Search for the first child item after the referenceView that didn't fully fit on to the
+        // screen. The next page should start from the item before this child, so that users have
+        // a visual anchoring point of the page change.
         while (position < getItemCount() - 1) {
             nextPagePosition++;
             View child = findViewByPosition(nextPagePosition);
@@ -1257,7 +1271,11 @@ public class CarLayoutManager extends RecyclerView.LayoutManager {
 
             int childBottom = getDecoratedBottom(child) + getParams(child).bottomMargin;
             if (childBottom - referenceViewTop > getHeight() - getPaddingTop()) {
-                return nextPagePosition - 1;
+                // If choosing the previous child causes the view to snap back to the referenceView
+                // position, then skip that and go directly to the child. This avoids the case
+                // where a tall card in the layout causes the view to constantly snap back to
+                // the top when scrolled.
+                return nextPagePosition - 1 == position ? nextPagePosition : nextPagePosition - 1;
             }
         }
         // End of the list.

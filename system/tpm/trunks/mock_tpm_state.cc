@@ -38,6 +38,7 @@ MockTpmState::MockTpmState() {
   ON_CALL(*this, GetLockoutThreshold()).WillByDefault(Return(0));
   ON_CALL(*this, GetLockoutInterval()).WillByDefault(Return(0));
   ON_CALL(*this, GetLockoutRecovery()).WillByDefault(Return(0));
+  ON_CALL(*this, GetMaxNVSize()).WillByDefault(Return(2048));
 }
 
 MockTpmState::~MockTpmState() {}

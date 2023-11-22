@@ -15,26 +15,20 @@
  */
 package android.transition.cts;
 
-import android.support.test.rule.ActivityTestRule;
-import android.test.suitebuilder.annotation.SmallTest;
-import android.transition.Slide;
-import android.transition.TransitionManager;
-import android.view.Gravity;
-import android.view.View;
+import static org.junit.Assert.assertEquals;
 
-import org.junit.Rule;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.transition.Slide;
+import android.view.Gravity;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
 public class SlideDefaultEdgeTest {
     @Test
-    @SmallTest
     public void testDefaultSide() {
         // default to bottom
         Slide slide = new Slide();

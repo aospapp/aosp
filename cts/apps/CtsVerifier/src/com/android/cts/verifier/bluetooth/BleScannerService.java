@@ -23,9 +23,9 @@ import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanSettings;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
@@ -34,11 +34,9 @@ import android.os.ParcelUuid;
 import android.util.Log;
 import android.widget.Toast;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public class BleScannerService extends Service {
 
@@ -144,7 +142,9 @@ public class BleScannerService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mScanner.stopScan(mCallback);
+        if (mScanner != null) {
+            mScanner.stopScan(mCallback);
+        }
     }
 
     private void showMessage(final String msg) {

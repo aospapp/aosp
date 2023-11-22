@@ -1,3 +1,5 @@
+# pylint: disable=missing-docstring
+
 import os, copy, logging, errno, fcntl, time, re, weakref, traceback
 import tarfile
 import cPickle as pickle
@@ -426,6 +428,31 @@ class status_log_entry(object):
     # non-space whitespace is forbidden in any fields
     BAD_CHAR_REGEX = re.compile(r'[\t\n\r\v\f]')
 
+    def _init_message(self, message):
+        """Handle the message which describs event to be recorded.
+
+        Break the message line into a single-line message that goes into the
+        database, and a block of additional lines that goes into the status
+        log but will never be parsed
+        When detecting a bad char in message, replace it with space instead
+        of raising an exception that cannot be parsed by tko parser.
+
+        @param message: the input message.
+
+        @return: filtered message without bad characters.
+        """
+        message_lines = message.splitlines()
+        if message_lines:
+            self.message = message_lines[0]
+            self.extra_message_lines = message_lines[1:]
+        else:
+            self.message = ''
+            self.extra_message_lines = []
+
+        self.message = self.message.replace('\t', ' ' * 8)
+        self.message = self.BAD_CHAR_REGEX.sub(' ', self.message)
+
+
     def __init__(self, status_code, subdir, operation, message, fields,
                  timestamp=None):
         """Construct a status.log entry.
@@ -443,7 +470,6 @@ class status_log_entry(object):
 
         @raise ValueError: if any of the parameters are invalid
         """
-
         if not log.is_valid_status(status_code):
             raise ValueError('status code %r is not valid' % status_code)
         self.status_code = status_code
@@ -456,14 +482,7 @@ class status_log_entry(object):
             raise ValueError('Invalid character in operation string')
         self.operation = operation
 
-        # break the message line into a single-line message that goes into the
-        # database, and a block of additional lines that goes into the status
-        # log but will never be parsed
-        message_lines = message.split('\n')
-        self.message = message_lines[0].replace('\t', ' ' * 8)
-        self.extra_message_lines = message_lines[1:]
-        if self.BAD_CHAR_REGEX.search(self.message):
-            raise ValueError('Invalid character in message %r' % self.message)
+        self._init_message(message)
 
         if not fields:
             self.fields = {}
@@ -885,8 +904,6 @@ class base_job(object):
     @property args: A list of addtional miscellaneous command-line arguments
         provided when starting the job.
 
-    @property last_boot_tag: The label of the kernel from the last reboot.
-        [OPTIONAL,PERSISTENT]
     @property automatic_test_tag: A string which, if set, will be automatically
         added to the test name when running tests.
 
@@ -904,9 +921,6 @@ class base_job(object):
     @property num_tests_failed: The number of tests failed during the job.
         [OPTIONAL]
 
-    @property bootloader: An instance of the boottool class. May not be
-        available on job instances where access to the bootloader is not
-        available (e.g. on the server running a server job). [OPTIONAL]
     @property harness: An instance of the client test harness. Only available
         in contexts where client test execution happens. [OPTIONAL]
     @property logging: An instance of the logging manager associated with the
@@ -959,8 +973,6 @@ class base_job(object):
         '_state', 'default_profile_only', False)
     run_test_cleanup = _job_state.property_factory(
         '_state', 'run_test_cleanup', True)
-    last_boot_tag = _job_state.property_factory(
-        '_state', 'last_boot_tag', None)
     automatic_test_tag = _job_state.property_factory(
         '_state', 'automatic_test_tag', None)
 

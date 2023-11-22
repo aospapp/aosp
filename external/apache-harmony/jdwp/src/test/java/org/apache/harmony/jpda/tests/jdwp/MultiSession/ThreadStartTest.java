@@ -33,7 +33,6 @@ import org.apache.harmony.jpda.tests.framework.jdwp.EventMod;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -125,6 +124,7 @@ public class ThreadStartTest extends JDWPEventTestCase {
         }
     }
 
+    @Override
     protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {

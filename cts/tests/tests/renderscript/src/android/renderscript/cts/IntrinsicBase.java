@@ -41,8 +41,20 @@ public class IntrinsicBase extends RSBaseCompute {
     protected void tearDown() throws Exception {
         if (mVerify != null) {
             mVerify.destroy();
-            mVerify = null;
         }
+
+        if (mAllocSrc != null) {
+            mAllocSrc.destroy();
+        }
+
+        if (mAllocRef != null) {
+            mAllocRef.destroy();
+        }
+
+        if (mAllocDst != null) {
+            mAllocDst.destroy();
+        }
+
         super.tearDown();
     }
 
@@ -81,9 +93,6 @@ public class IntrinsicBase extends RSBaseCompute {
     }
 
     protected void makeSource(int w, int h, Element e) {
-        if (mAllocSrc != null) {
-            mAllocSrc.destroy();
-        }
         mAllocSrc = makeAllocation(w, h, e);
 
         java.util.Random r = new java.util.Random(100);
@@ -118,12 +127,6 @@ public class IntrinsicBase extends RSBaseCompute {
     protected void makeBuffers(int w, int h, Element e) {
         makeSource(w, h, e);
 
-        if (mAllocRef != null) {
-            mAllocRef.destroy();
-        }
-        if (mAllocDst != null) {
-            mAllocDst.destroy();
-        }
         mAllocRef = makeAllocation(w, h, e);
         mAllocDst = makeAllocation(w, h, e);
     }

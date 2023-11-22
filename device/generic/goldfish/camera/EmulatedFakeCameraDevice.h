@@ -77,9 +77,6 @@ public:
     /* Stops the camera device. */
     status_t stopDevice();
 
-    /* Gets current preview fame into provided buffer. */
-    status_t getPreviewFrame(void* buffer);
-
     /***************************************************************************
      * Worker thread management overrides.
      * See declarations of these methods in EmulatedCameraDevice class for
@@ -87,12 +84,8 @@ public:
      **************************************************************************/
 
 protected:
-    /* Implementation of the worker thread routine.
-     * This method simply sleeps for a period of time defined by the FPS property
-     * of the fake camera (simulating frame frequency), and then calls emulated
-     * camera's onNextFrameAvailable method.
-     */
-    bool inWorkerThread();
+    /* Implementation of the frame production routine. */
+    bool produceFrame(void* buffer) override;
 
     /****************************************************************************
      * Fake camera device private API
@@ -100,8 +93,9 @@ protected:
 
 private:
 
-    /* Draws a black and white checker board in the current frame buffer. */
-    void drawCheckerboard();
+    /* Draws a black and white checker board in |buffer| with the assumption
+     * that the size of buffer matches the current frame buffer size. */
+    void drawCheckerboard(void* buffer);
 
     /* Draws a square of the given color in the current frame buffer.
      * Param:
@@ -109,11 +103,11 @@ private:
      *  size - Size of the square's side.
      *  color - Square's color.
      */
-    void drawSquare(int x, int y, int size, const YUVPixel* color);
+    void drawSquare(void* buffer, int x, int y, int size, const YUVPixel* color);
 
 #if EFCD_ROTATE_FRAME
-    void drawSolid(YUVPixel* color);
-    void drawStripes();
+    void drawSolid(void* buffer, YUVPixel* color);
+    void drawStripes(void* buffer);
     int rotateFrame();
 #endif  // EFCD_ROTATE_FRAME
 
@@ -131,6 +125,7 @@ private:
     YUVPixel    mRedYUV;
     YUVPixel    mGreenYUV;
     YUVPixel    mBlueYUV;
+    YUVPixel*   mSquareColor;
 
     /* Last time the frame has been redrawn. */
     nsecs_t     mLastRedrawn;
@@ -140,10 +135,10 @@ private:
      */
 
     /* U pane inside the framebuffer. */
-    uint8_t*    mFrameU;
+    ptrdiff_t   mFrameUOffset;
 
     /* V pane inside the framebuffer. */
-    uint8_t*    mFrameV;
+    ptrdiff_t   mFrameVOffset;
 
     /* Defines byte distance between adjacent U, and V values. */
     int         mUVStep;
@@ -153,24 +148,17 @@ private:
      * number of both, Us and Vs in a single row in the interleaved UV pane. */
     int         mUVInRow;
 
-    /* Total number of each, U, and V elements in the framebuffer. */
-    int         mUVTotalNum;
-
     /*
      * Checkerboard drawing related stuff
      */
+    nsecs_t     mLastColorChange;
 
-    int         mCheckX;
-    int         mCheckY;
-    int         mCcounter;
-
-    /* Emulated FPS (frames per second).
-     * We will emulate 50 FPS. */
-    static const int        mEmulatedFPS = 50;
-
-    /* Defines time (in nanoseconds) between redrawing the checker board.
-     * We will redraw the checker board every 15 milliseconds. */
-    static const nsecs_t    mRedrawAfter = 15000000LL;
+    double      mCheckX;
+    double      mCheckY;
+    double      mSquareX;
+    double      mSquareY;
+    double      mSquareXSpeed;
+    double      mSquareYSpeed;
 
 #if EFCD_ROTATE_FRAME
     /* Frame rotation frequency in nanosec (currently - 3 sec) */

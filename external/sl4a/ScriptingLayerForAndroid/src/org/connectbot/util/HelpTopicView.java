@@ -25,7 +25,6 @@ import android.webkit.WebView;
 import org.connectbot.HelpActivity;
 
 /**
- * @author Kenny Root
  *
  */
 public class HelpTopicView extends WebView {

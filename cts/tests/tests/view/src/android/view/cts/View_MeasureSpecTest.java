@@ -16,23 +16,31 @@
 
 package android.view.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.View.MeasureSpec;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link MeasureSpec}.
  */
-public class View_MeasureSpecTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class View_MeasureSpecTest {
     private static final int MEASURE_SPEC_SIZE = 1;
 
     private int mUnspecifiedMeasureSpec;
     private int mExactlyMeasureSpec;
     private int mAtMostMeasureSpec;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         mUnspecifiedMeasureSpec = View.MeasureSpec.makeMeasureSpec(MEASURE_SPEC_SIZE,
                 View.MeasureSpec.UNSPECIFIED);
         mExactlyMeasureSpec = View.MeasureSpec.makeMeasureSpec(MEASURE_SPEC_SIZE,
@@ -41,9 +49,7 @@ public class View_MeasureSpecTest extends AndroidTestCase {
                 View.MeasureSpec.AT_MOST);
     }
 
-    public void testConstructor() {
-    }
-
+    @Test
     public void testGetSize() {
         assertEquals(MEASURE_SPEC_SIZE,
                 View.MeasureSpec.getSize(mUnspecifiedMeasureSpec));
@@ -53,6 +59,7 @@ public class View_MeasureSpecTest extends AndroidTestCase {
                 View.MeasureSpec.getSize(mAtMostMeasureSpec));
     }
 
+    @Test
     public void testToString() {
         assertEquals("MeasureSpec: UNSPECIFIED " + MEASURE_SPEC_SIZE,
                 View.MeasureSpec.toString(mUnspecifiedMeasureSpec));
@@ -62,6 +69,7 @@ public class View_MeasureSpecTest extends AndroidTestCase {
                 View.MeasureSpec.toString(mAtMostMeasureSpec));
     }
 
+    @Test
     public void testGetMode() {
         assertEquals(View.MeasureSpec.UNSPECIFIED,
                 View.MeasureSpec.getMode(mUnspecifiedMeasureSpec));
@@ -71,6 +79,7 @@ public class View_MeasureSpecTest extends AndroidTestCase {
                 View.MeasureSpec.getMode(mAtMostMeasureSpec));
     }
 
+    @Test
     public void testMakeMeasureSpec() {
         assertEquals(MEASURE_SPEC_SIZE + View.MeasureSpec.UNSPECIFIED,
                 mUnspecifiedMeasureSpec);

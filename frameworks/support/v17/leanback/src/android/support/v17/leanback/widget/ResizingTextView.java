@@ -15,17 +15,15 @@ package android.support.v17.leanback.widget;
 
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.v17.leanback.R;
 import android.text.Layout;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.widget.TextView;
 
-import android.support.v17.leanback.R;
-
 /**
  * <p>A {@link android.widget.TextView} that adjusts text size automatically in response
  * to certain trigger conditions, such as text that wraps over multiple lines.</p>
- * @hide
  */
 class ResizingTextView extends TextView {
 
@@ -231,8 +229,8 @@ class ResizingTextView extends TextView {
                 remeasure = true;
             }
             // Check for other desired adjustments in addition to the text size
-            final float targetLineSpacingExtra = mDefaultLineSpacingExtra +
-                    mDefaultTextSize - mResizedTextSize;
+            final float targetLineSpacingExtra = mDefaultLineSpacingExtra
+                    + mDefaultTextSize - mResizedTextSize;
             if (mMaintainLineSpacing && getLineSpacingExtra() != targetLineSpacingExtra) {
                 setLineSpacing(targetLineSpacingExtra, getLineSpacingMultiplier());
                 remeasure = true;
@@ -253,8 +251,8 @@ class ResizingTextView extends TextView {
                 setLineSpacing(mDefaultLineSpacingExtra, getLineSpacingMultiplier());
                 remeasure = true;
             }
-            if (getPaddingTop() != mDefaultPaddingTop ||
-                    getPaddingBottom() != mDefaultPaddingBottom) {
+            if (getPaddingTop() != mDefaultPaddingTop
+                    || getPaddingBottom() != mDefaultPaddingBottom) {
                 setPaddingTopAndBottom(mDefaultPaddingTop, mDefaultPaddingBottom);
                 remeasure = true;
             }

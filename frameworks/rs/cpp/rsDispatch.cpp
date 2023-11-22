@@ -40,6 +40,8 @@ bool loadSymbols(void* handle, dispatchTable& dispatchTab, int targetApiLevel) {
     dispatchTab.Allocation2DRead = (Allocation2DReadFnPtr)dlsym(handle, "rsAllocation2DRead");
     dispatchTab.Allocation3DData = (Allocation3DDataFnPtr)dlsym(handle, "rsAllocation3DData");
     dispatchTab.Allocation3DRead = (Allocation3DReadFnPtr)dlsym(handle, "rsAllocation3DRead");
+    dispatchTab.AllocationAdapterCreate = (AllocationAdapterCreateFnPtr)dlsym(handle, "rsAllocationAdapterCreate");
+    dispatchTab.AllocationAdapterOffset = (AllocationAdapterOffsetFnPtr)dlsym(handle, "rsAllocationAdapterOffset");
     dispatchTab.AllocationCopy2DRange = (AllocationCopy2DRangeFnPtr)dlsym(handle, "rsAllocationCopy2DRange");
     dispatchTab.AllocationCopy3DRange = (AllocationCopy3DRangeFnPtr)dlsym(handle, "rsAllocationCopy3DRange");
     dispatchTab.AllocationCopyToBitmap = (AllocationCopyToBitmapFnPtr)dlsym(handle, "rsAllocationCopyToBitmap");
@@ -57,6 +59,8 @@ bool loadSymbols(void* handle, dispatchTable& dispatchTab, int targetApiLevel) {
     dispatchTab.AllocationRead = (AllocationReadFnPtr)dlsym(handle, "rsAllocationRead");
     dispatchTab.AllocationResize1D = (AllocationResize1DFnPtr)dlsym(handle, "rsAllocationResize1D");
     dispatchTab.AllocationSetSurface = (AllocationSetSurfaceFnPtr)dlsym(handle, "rsAllocationSetSurface");
+    dispatchTab.AllocationSetupBufferQueue = (AllocationSetupBufferQueueFnPtr)dlsym(handle, "rsAllocationSetupBufferQueue");
+    dispatchTab.AllocationShareBufferQueue = (AllocationShareBufferQueueFnPtr)dlsym(handle, "rsAllocationShareBufferQueue");
     dispatchTab.AllocationSyncAll = (AllocationSyncAllFnPtr)dlsym(handle, "rsAllocationSyncAll");
     dispatchTab.AssignName = (AssignNameFnPtr)dlsym(handle, "rsAssignName");
     dispatchTab.ClosureCreate = (ClosureCreateFnPtr)dlsym(handle, "rsClosureCreate");
@@ -72,6 +76,7 @@ bool loadSymbols(void* handle, dispatchTable& dispatchTab, int targetApiLevel) {
     dispatchTab.ContextPeekMessage = (ContextPeekMessageFnPtr)dlsym(handle, "rsContextPeekMessage");
     dispatchTab.ContextSendMessage = (ContextSendMessageFnPtr)dlsym(handle, "rsContextSendMessage");
     dispatchTab.ContextSetPriority = (ContextSetPriorityFnPtr)dlsym(handle, "rsContextSetPriority");
+    dispatchTab.ContextSetCacheDir = (ContextSetCacheDirFnPtr)dlsym(handle, "rsContextSetCacheDir");
     dispatchTab.DeviceCreate = (DeviceCreateFnPtr)dlsym(handle, "rsDeviceCreate");
     dispatchTab.DeviceDestroy = (DeviceDestroyFnPtr)dlsym(handle, "rsDeviceDestroy");
     dispatchTab.DeviceSetConfig = (DeviceSetConfigFnPtr)dlsym(handle, "rsDeviceSetConfig");
@@ -110,6 +115,39 @@ bool loadSymbols(void* handle, dispatchTable& dispatchTab, int targetApiLevel) {
     dispatchTab.ScriptSetVarVE = (ScriptSetVarVEFnPtr)dlsym(handle, "rsScriptSetVarVE");
     dispatchTab.TypeCreate = (TypeCreateFnPtr)dlsym(handle, "rsTypeCreate");
     dispatchTab.TypeGetNativeData = (TypeGetNativeDataFnPtr)dlsym(handle, "rsaTypeGetNativeData");
+
+    // Load graphics APIs
+    dispatchTab.ContextCreateGL = (ContextCreateGLFnPtr)dlsym(handle, "rsContextCreateGL");
+    dispatchTab.ContextSetSurface = (ContextSetSurfaceFnPtr)dlsym(handle, "rsContextSetSurface");
+    dispatchTab.ContextPause = (ContextPauseFnPtr)dlsym(handle, "rsContextPause");
+    dispatchTab.ContextResume = (ContextResumeFnPtr)dlsym(handle, "rsContextResume");
+    dispatchTab.ContextBindProgramStore = (ContextBindProgramStoreFnPtr)dlsym(handle, "rsContextBindProgramStore");
+    dispatchTab.ContextBindProgramFragment = (ContextBindProgramFragmentFnPtr)dlsym(handle, "rsContextBindProgramFragment");
+    dispatchTab.ContextBindProgramVertex = (ContextBindProgramVertexFnPtr)dlsym(handle, "rsContextBindProgramVertex");
+    dispatchTab.ContextBindProgramRaster = (ContextBindProgramRasterFnPtr)dlsym(handle, "rsContextBindProgramRaster");
+    dispatchTab.ContextBindFont = (ContextBindFontFnPtr)dlsym(handle, "rsContextBindFont");
+    dispatchTab.ContextBindRootScript = (ContextBindRootScriptFnPtr)dlsym(handle, "rsContextBindRootScript");
+
+    dispatchTab.ProgramStoreCreate = (ProgramStoreCreateFnPtr)dlsym(handle, "rsProgramStoreCreate");
+    dispatchTab.ProgramRasterCreate = (ProgramRasterCreateFnPtr)dlsym(handle, "rsProgramRasterCreate");
+    dispatchTab.ProgramBindConstants = (ProgramBindConstantsFnPtr)dlsym(handle, "rsProgramBindConstants");
+    dispatchTab.ProgramBindTexture = (ProgramBindTextureFnPtr)dlsym(handle, "rsProgramBindTexture");
+    dispatchTab.ProgramBindSampler = (ProgramBindSamplerFnPtr)dlsym(handle, "rsProgramBindSampler");
+    dispatchTab.ProgramFragmentCreate = (ProgramFragmentCreateFnPtr)dlsym(handle, "rsProgramFragmentCreate");
+    dispatchTab.ProgramVertexCreate = (ProgramVertexCreateFnPtr)dlsym(handle, "rsProgramVertexCreate");
+    dispatchTab.FontCreateFromFile = (FontCreateFromFileFnPtr)dlsym(handle, "rsFontCreateFromFile");
+    dispatchTab.FontCreateFromMemory = (FontCreateFromMemoryFnPtr)dlsym(handle, "rsFontCreateFromMemory");
+    dispatchTab.MeshCreate = (MeshCreateFnPtr)dlsym(handle, "rsMeshCreate");
+    dispatchTab.MeshGetVertexBufferCount = (MeshGetVertexBufferCountFnPtr)dlsym(handle, "rsaMeshGetVertexBufferCount");
+    dispatchTab.MeshGetIndexCount = (MeshGetIndexCountFnPtr)dlsym(handle, "rsaMeshGetIndexCount");
+    dispatchTab.MeshGetVertices = (MeshGetVerticesFnPtr)dlsym(handle, "rsaMeshGetVertices");
+    dispatchTab.MeshGetIndices = (MeshGetIndicesFnPtr)dlsym(handle, "rsaMeshGetIndices");
+    dispatchTab.FileA3DGetEntryByIndex = (FileA3DGetEntryByIndexFnPtr)dlsym(handle, "rsaFileA3DGetEntryByIndex");
+    dispatchTab.FileA3DGetNumIndexEntries = (FileA3DGetNumIndexEntriesFnPtr)dlsym(handle, "rsaFileA3DGetNumIndexEntries");
+    dispatchTab.FileA3DGetIndexEntries = (FileA3DGetIndexEntriesFnPtr)dlsym(handle, "rsaFileA3DGetIndexEntries");
+    dispatchTab.FileA3DCreateFromMemory = (FileA3DCreateFromMemoryFnPtr)dlsym(handle, "rsaFileA3DCreateFromMemory");
+    dispatchTab.FileA3DCreateFromAsset = (FileA3DCreateFromAssetFnPtr)dlsym(handle, "rsaFileA3DCreateFromAsset");
+    dispatchTab.FileA3DCreateFromFile = (FileA3DCreateFromFileFnPtr)dlsym(handle, "rsaFileA3DCreateFromFile");
 
     // Clear error buffer for later operations.
     dlerror();

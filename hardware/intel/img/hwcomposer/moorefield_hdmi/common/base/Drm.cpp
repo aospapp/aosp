@@ -509,6 +509,10 @@ bool Drm::setDpmsMode(int device, int mode)
 {
     Mutex::Autolock _l(mLock);
 
+#ifdef INTEL_SUPPORT_HDMI_PRIMARY
+    device = IDisplayDevice::DEVICE_EXTERNAL;
+#endif
+
     int output = getOutputIndex(device);
     if (output < 0 ) {
         return false;

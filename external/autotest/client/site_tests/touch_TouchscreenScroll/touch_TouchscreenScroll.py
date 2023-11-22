@@ -32,15 +32,22 @@ class touch_TouchscreenScroll(
         is_vertical = expected == 'up' or expected == 'down'
         is_down_or_right = expected == 'down' or expected == 'right'
 
-        self._set_default_scroll_position(is_vertical)
+        self._events.set_default_scroll_position(is_vertical)
+        start_scroll = self._events.get_scroll_position(is_vertical)
+        self._events.clear_previous_events()
+
         self._playback(filepath, touch_type='touchscreen')
-        self._wait_for_scroll_position_to_settle(is_vertical)
-        delta = self._get_scroll_position(is_vertical) - self._DEFAULT_SCROLL
-        logging.info('Scroll delta was %d', delta)
+
+        self._events.wait_for_events_to_complete()
+        end_scroll = self._events.get_scroll_position(is_vertical)
+        delta = end_scroll - start_scroll
+        logging.info('Scroll delta was %d (%d to %d)',
+                     delta, start_scroll, end_scroll)
 
         # Check if movement occured in correct direction.
         if ((is_down_or_right and delta <= 0) or
             (not is_down_or_right and delta >= 0)):
+            self._events.log_events()
             raise error.TestFail('Page scroll was in wrong direction! '
                                  'Delta=%d' % delta)
 
@@ -71,8 +78,11 @@ class touch_TouchscreenScroll(
             return
 
         # Log in and start test.
-        with chrome.Chrome(autotest_ext=True) as cr:
-            self._open_test_page(cr)
+        with chrome.Chrome(autotest_ext=True,
+                           init_network_controller=True) as cr:
+            self._open_events_page(cr)
+            self._events.expand_page()
+            self._events.set_prevent_defaults(False)
             for direction in self._DIRECTIONS:
                 self._check_scroll_direction(self._filepaths[direction],
                                              self._REVERSES[direction])

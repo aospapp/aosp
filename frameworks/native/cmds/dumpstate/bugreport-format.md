@@ -22,7 +22,7 @@ _bugreport-DATE.zip_ containing a _bugreport-DATE.txt_ entry and sends that
 file as the `ACTION_SEND_MULTIPLE` attachment.
 
 ## Version 1.0 (Android N)
-On _Android N (TBD)_, `dumpstate` generates a zip file directly (unless there
+On _Android N (Nougat)_, `dumpstate` generates a zip file directly (unless there
 is a failure, in which case it reverts to the flat file that is zipped by
 **Shell** and hence the end result is the _v0_ format).
 
@@ -55,6 +55,10 @@ files upon the end user’s request:
 - `title.txt`: whose value is a single-line summary of the problem.
 - `description.txt`: whose value is a multi-line, detailed description of the problem.
 
+## Android O versions
+On _Android O (OhMightyAndroidWhatsYourNextReleaseName?)_, the following changes were made:
+- The ANR traces are added to the `FS` folder, typically under `FS/data/anr` (version `2.0-dev-1`).
+
 ## Intermediate versions
 During development, the versions will be suffixed with _-devX_ or
 _-devX-EXPERIMENTAL_FEATURE_, where _X_ is a number that increases as the
@@ -63,8 +67,8 @@ changes become stable.
 For example, the initial version during _Android N_ development was
 **1.0-dev1**. When `dumpsys` was split in 2 sections but not all tools were
 ready to parse that format, the version was named **1.0-dev2**,
-which had to be passed do `dumpsys` explicitly (i.e., trhough a
-`-V 1.0-dev2` argument). Once that format became stable and tools
+which had to be passed to `dumpsys` explicitly (by setting the `dumpstate.version` system property).
+Once that format became stable and tools
 knew how to parse it, the default version became **1.0-dev2**.
 
 Similarly, if changes in the file format are made after the initial release of

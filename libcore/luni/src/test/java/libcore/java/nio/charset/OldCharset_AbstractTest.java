@@ -177,14 +177,22 @@ public abstract class OldCharset_AbstractTest extends TestCase {
         encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
         decoder.onMalformedInput(CodingErrorAction.REPORT);
         CharBuffer inputCB = CharBuffer.allocate(65536);
-        for (int code = 32; code <= 65533; ++code) {
-            // icu4c seems to accept any surrogate as a sign that "more is coming",
-            // even for charsets like US-ASCII. http://b/10310751
-            if (code >= 0xd800 && code <= 0xdfff) {
+        // Only test most of the Unicode BMP.
+        // Supplementary code points would require use of encoder.canEncode(CharSequence).
+        for (char code = 0x20; code <= 0xfffd; code++) {
+            // Skip surrogates to avoid writing broken UTF-16.
+            // Ignore charsets that do convert surrogate code units.
+            if (code == 0xd800) {
+                code = 0xdfff;
                 continue;
             }
-            if (encoder.canEncode((char) code)) {
-                inputCB.put((char) code);
+            // Ignore the private use area.
+            if (code == 0xe000) {
+                code = 0xf8ff;
+                continue;
+            }
+            if (encoder.canEncode(code)) {
+                inputCB.put(code);
             }
         }
         inputCB.rewind();
@@ -211,7 +219,7 @@ public abstract class OldCharset_AbstractTest extends TestCase {
             actual = actualCB.get();
             if (actual != expected) {
                 String detail = String.format(
-                        "Mismatch at index %d: %d instead of expected %d.\n",
+                        "Mismatch at index %d: U+%04X instead of expected U+%04X.\n",
                         i, (int) actual, (int) expected);
                 match = false;
                 fail(msg + ": " + detail);
@@ -231,8 +239,9 @@ public abstract class OldCharset_AbstractTest extends TestCase {
         for (int i = 0; i < actualCB.length(); ++i) {
             char actual = actualCB.get();
             if (actual != expected[i]) {
-                String detail = String.format("Mismatch at index %d: %d instead of expected %d.\n",
-                                              i, (int) actual, (int) expected[i]);
+                String detail = String.format(
+                        "Mismatch at index %d: U+%04X instead of expected U+%04X.\n",
+                        i, (int) actual, (int) expected[i]);
                 fail(detail);
             }
         }
@@ -251,7 +260,7 @@ public abstract class OldCharset_AbstractTest extends TestCase {
             actual = actualBB.get();
             if (actual != expected[i]) {
                 String detail = String.format(
-                        "Mismatch at index %d: %d instead of expected %d.\n",
+                        "Mismatch at index %d: %02X instead of expected %02X.\n",
                         i, actual & 0xff, expected[i] & 0xff);
                 match = false;
                 fail(msg + ": " + detail);

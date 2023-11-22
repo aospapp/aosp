@@ -55,7 +55,11 @@ class platform_CheckCriticalProcesses(test.test):
         @param process_list: list of process names to check
         """
         processes = self.get_process_list()
-        missing_processes = [ p for p in process_list if p not in processes ]
+        missing_processes = []
+        for p in process_list:
+            processes_names = p.split('|')
+            if set(processes_names).isdisjoint(processes):
+                missing_processes.append(p)
         if missing_processes:
             raise error.TestFail('The following processes are not running: %r.'
                                   % missing_processes)

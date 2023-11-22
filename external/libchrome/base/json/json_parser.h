@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <memory>
 #include <string>
 
 #include "base/base_export.h"
@@ -49,8 +50,10 @@ class BASE_EXPORT JSONParser {
   ~JSONParser();
 
   // Parses the input string according to the set options and returns the
-  // result as a Value owned by the caller.
-  Value* Parse(const StringPiece& input);
+  // result as a Value.
+  // Wrap this in base::FooValue::From() to check the Value is of type Foo and
+  // convert to a FooValue at the same time.
+  std::unique_ptr<Value> Parse(StringPiece input);
 
   // Returns the error code.
   JSONReader::JsonParseError error_code() const;
@@ -133,7 +136,7 @@ class BASE_EXPORT JSONParser {
     size_t length_;
 
     // The copied string representation. NULL until Convert() is called.
-    // Strong. scoped_ptr<T> has too much of an overhead here.
+    // Strong. std::unique_ptr<T> has too much of an overhead here.
     std::string* string_;
   };
 
@@ -218,7 +221,7 @@ class BASE_EXPORT JSONParser {
                                         const std::string& description);
 
   // base::JSONParserOptions that control parsing.
-  int options_;
+  const int options_;
 
   // Pointer to the start of the input data.
   const char* start_pos_;

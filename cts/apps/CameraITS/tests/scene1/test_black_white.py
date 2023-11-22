@@ -16,7 +16,7 @@ import its.image
 import its.caps
 import its.device
 import its.objects
-import pylab
+from matplotlib import pylab
 import os.path
 import matplotlib
 import matplotlib.pyplot
@@ -35,6 +35,14 @@ def main():
         its.caps.skip_unless(its.caps.manual_sensor(props) and
                              its.caps.per_frame_control(props))
 
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
+
         expt_range = props['android.sensor.info.exposureTimeRange']
         sens_range = props['android.sensor.info.sensitivityRange']
 
@@ -43,7 +51,7 @@ def main():
         print "Black shot: sens = %d, exp time = %.4fms" % (
                 sens_range[0], expt_range[0]/1000000.0)
         req = its.objects.manual_capture_request(sens_range[0], expt_range[0])
-        cap = cam.do_capture(req)
+        cap = cam.do_capture(req, fmt)
         img = its.image.convert_capture_to_rgb_image(cap)
         its.image.write_image(img, "%s_black.jpg" % (NAME))
         tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
@@ -58,7 +66,7 @@ def main():
         print "White shot: sens = %d, exp time = %.2fms" % (
                 sens_range[1], expt_range[1]/1000000.0)
         req = its.objects.manual_capture_request(sens_range[1], expt_range[1])
-        cap = cam.do_capture(req)
+        cap = cam.do_capture(req, fmt)
         img = its.image.convert_capture_to_rgb_image(cap)
         its.image.write_image(img, "%s_white.jpg" % (NAME))
         tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)

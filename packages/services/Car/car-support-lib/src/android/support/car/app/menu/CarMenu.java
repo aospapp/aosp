@@ -22,13 +22,13 @@ import android.os.Bundle;
 import android.support.car.app.menu.compat.CarMenuConstantsComapt.MenuItemConstants;
 import android.util.DisplayMetrics;
 import android.widget.RemoteViews;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * CarMenu is used to pass back the menu items of a sublevel to the CarMenu subscriber.
  * Use the {@link Builder} to populate the contents of the sublevel.
+ * @hide
  */
 public class CarMenu {
     private boolean mDetachCalled;

@@ -6,8 +6,7 @@ AUTHOR = 'krisr, wiley, jabele'
 NAME = 'network_WiFi_ChaosConnectDisconnect.open_n'
 TIME = 'LONG'
 TEST_TYPE = 'server'
-ATTRIBUTES = 'suite:wifi_interop'
-SUITE = 'wifi_interop'
+ATTRIBUTES = 'suite:wifi_interop, suite:android_wifi_interop'
 DEPENDENCIES = 'chaos_nightly, chaos_dut'
 
 DOC = """

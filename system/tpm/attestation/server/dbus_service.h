@@ -43,9 +43,7 @@ class DBusService {
   void Register(const CompletionAction& callback);
 
   // Useful for testing.
-  void set_service(AttestationInterface* service) {
-    service_ = service;
-  }
+  void set_service(AttestationInterface* service) { service_ = service; }
 
  private:
   friend class DBusServiceTest;
@@ -57,10 +55,9 @@ class DBusService {
       const CreateGoogleAttestedKeyRequest& request);
 
   // Handles a GetKeyInfo D-Bus call.
-  void HandleGetKeyInfo(
-      std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<
-          const GetKeyInfoReply&>> response,
-      const GetKeyInfoRequest& request);
+  void HandleGetKeyInfo(std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<
+                            const GetKeyInfoReply&>> response,
+                        const GetKeyInfoRequest& request);
 
   // Handles a GetEndorsementInfo D-Bus call.
   void HandleGetEndorsementInfo(
@@ -88,14 +85,14 @@ class DBusService {
 
   // Handles a Decrypt D-Bus call.
   void HandleDecrypt(
-      std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<
-          const DecryptReply&>> response,
+      std::unique_ptr<
+          brillo::dbus_utils::DBusMethodResponse<const DecryptReply&>> response,
       const DecryptRequest& request);
 
   // Handles a Sign D-Bus call.
   void HandleSign(
-      std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<
-          const SignReply&>> response,
+      std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<const SignReply&>>
+          response,
       const SignRequest& request);
 
   // Handles a RegisterKeyWithChapsToken D-Bus call.

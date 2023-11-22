@@ -75,10 +75,9 @@ public class Reflection {
             return true;
         }
 
-        /* ----- BEGIN android -----
-        if (!Modifier.isPublic(getClassAccessFlags(memberClass))) {*/
+        // Android-changed
+        // if (!Modifier.isPublic(getClassAccessFlags(memberClass))) {
         if (!Modifier.isPublic(memberClass.getAccessFlags())) {
-        // ----- END android -----
             isSameClassPackage = isSameClassPackage(currentClass, memberClass);
             gotIsSameClassPackage = true;
             if (!isSameClassPackage) {

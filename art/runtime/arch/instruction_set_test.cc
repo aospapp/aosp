@@ -18,7 +18,7 @@
 
 #include <gtest/gtest.h>
 
-#include "base/stringprintf.h"
+#include "base/enums.h"
 
 namespace art {
 
@@ -44,12 +44,21 @@ TEST(InstructionSetTest, GetInstructionSetString) {
   EXPECT_STREQ("none", GetInstructionSetString(kNone));
 }
 
+TEST(InstructionSetTest, GetInstructionSetInstructionAlignment) {
+  EXPECT_EQ(GetInstructionSetInstructionAlignment(kThumb2), kThumb2InstructionAlignment);
+  EXPECT_EQ(GetInstructionSetInstructionAlignment(kArm64), kArm64InstructionAlignment);
+  EXPECT_EQ(GetInstructionSetInstructionAlignment(kX86), kX86InstructionAlignment);
+  EXPECT_EQ(GetInstructionSetInstructionAlignment(kX86_64), kX86_64InstructionAlignment);
+  EXPECT_EQ(GetInstructionSetInstructionAlignment(kMips), kMipsInstructionAlignment);
+  EXPECT_EQ(GetInstructionSetInstructionAlignment(kMips64), kMips64InstructionAlignment);
+}
+
 TEST(InstructionSetTest, TestRoundTrip) {
   EXPECT_EQ(kRuntimeISA, GetInstructionSetFromString(GetInstructionSetString(kRuntimeISA)));
 }
 
 TEST(InstructionSetTest, PointerSize) {
-  EXPECT_EQ(sizeof(void*), GetInstructionSetPointerSize(kRuntimeISA));
+  EXPECT_EQ(kRuntimePointerSize, GetInstructionSetPointerSize(kRuntimeISA));
 }
 
 }  // namespace art

@@ -16,11 +16,14 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.v7.app.AppCompatDelegate;
 
 import java.lang.ref.WeakReference;
@@ -31,6 +34,7 @@ import java.lang.ref.WeakReference;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class VectorEnabledTintResources extends Resources {
 
     public static boolean shouldBeUsed() {

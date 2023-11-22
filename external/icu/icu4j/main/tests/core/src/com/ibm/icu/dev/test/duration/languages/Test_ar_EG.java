@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007, International Business Machines Corporation and        *
@@ -9,24 +11,13 @@
 
 package com.ibm.icu.dev.test.duration.languages;
 
-import com.ibm.icu.dev.test.duration.LanguageTestRoot;
+import com.ibm.icu.dev.test.duration.LanguageTestFmwk;
 
 
 /**
  * Test cases for ar_EG
  */
-public class Test_ar_EG extends LanguageTestRoot {
-
-  /**
-   * Invoke the tests.
-   */
-  public static void main(String[] args) {
-      new Test_ar_EG().run(args);
-  }
-
-  /**
-   * Constructor.
-   */
+public class Test_ar_EG extends LanguageTestFmwk {
   public Test_ar_EG() {
     super("ar_EG", false);
   }

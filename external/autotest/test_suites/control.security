@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "security"
 PURPOSE = "Test security related functionality."
-CRITERIA = "All tests with SUITE=security must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "Functional"

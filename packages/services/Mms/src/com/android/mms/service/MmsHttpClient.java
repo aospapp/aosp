@@ -498,7 +498,7 @@ public class MmsHttpClient {
     private static String getNai(Context context, Bundle mmsConfig, int subId) {
         final TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(
                 Context.TELEPHONY_SERVICE);
-        String nai = telephonyManager.getNai(SubscriptionManager.getSlotId(subId));
+        String nai = telephonyManager.getNai(SubscriptionManager.getSlotIndex(subId));
         if (LogUtil.isLoggable(Log.VERBOSE)) {
             LogUtil.v("getNai: nai=" + nai);
         }

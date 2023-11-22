@@ -16,21 +16,30 @@
 
 package android.uirendering.cts.testclasses;
 
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Picture;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.NinePatchDrawable;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.ExactComparer;
+import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
+import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
-import android.uirendering.cts.R;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @MediumTest
+@RunWith(AndroidJUnit4.class)
 public class ExactCanvasTests extends ActivityTestBase {
     private final BitmapComparer mExactComparer = new ExactComparer();
 
@@ -138,6 +147,44 @@ public class ExactCanvasTests extends ActivityTestBase {
                 .runWithComparer(mExactComparer);
     }
 
+    private void drawTestTextOnPath(Canvas canvas) {
+        final String testString = "THIS IS A TEST ON A CIRCLE PATH";
+        Path path = new Path();
+        path.addCircle(45, 45, 30, Path.Direction.CW);
+        Paint p = new Paint();
+        p.setColor(Color.BLACK);
+        p.setAntiAlias(true);
+        canvas.drawTextOnPath(testString, path, 0f, 0f, p);
+    }
+
+    @Test
+    public void testTextOnPath() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    drawTestTextOnPath(canvas);
+                })
+                .runWithVerifier(new GoldenImageVerifier(getActivity(),
+                    // HWUI's texts are blurry, so we lower the threshold.
+                    // Note that 0.7 will fail the test.
+                    R.drawable.text_on_path, new MSSIMComparer(0.6)));
+    }
+
+    @Test
+    public void testTextOnPathUsingPicture() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    Picture picture = new Picture();
+                    Canvas pictureCanvas = picture.beginRecording(90, 90);
+                    drawTestTextOnPath(pictureCanvas);
+                    picture.endRecording();
+                    picture.draw(canvas);
+                })
+                .runWithVerifier(new GoldenImageVerifier(getActivity(),
+                    // HWUI's texts are blurry, so we lower the threshold.
+                    // Note that 0.7 will fail the test.
+                    R.drawable.text_on_path, new MSSIMComparer(0.6)));
+    }
+
     @Test
     public void testBasicColorXfermode() {
         createTest()
@@ -158,13 +205,17 @@ public class ExactCanvasTests extends ActivityTestBase {
                 new Rect(10, 10, 80, 80));
 
         createTest()
-                .addCanvasClient((canvas, width, height) -> {
+                // The border of the square is somehow blurred in HWUI OpenGL hardware mode with
+                // picture recording/playback. Maybe this is related to bug:31456967
+                // Hence disable picture mode for now.
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
                     canvas.drawColor(Color.WHITE);
                     Paint p = new Paint();
                     p.setColor(Color.BLUE);
                     canvas.drawRect(10, 10, 80, 80, p);
                 })
-                .addCanvasClient((canvas, width, height) -> ninePatchDrawable.draw(canvas))
+                .addCanvasClientWithoutUsingPicture(
+                        (canvas, width, height) -> ninePatchDrawable.draw(canvas))
                 .addLayout(R.layout.blue_padded_square, null)
                 .runWithVerifier(verifier);
     }

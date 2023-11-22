@@ -99,8 +99,9 @@
     <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"कोई SD कार्ड नहीं. स्थानांतरित फ़ाइलें सहेजने के लिए SD कार्ड डालें."</string>
     <string name="status_connection_error" msgid="947681831523219891">"कनेक्‍शन विफल."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"अनुरोध को सही तरह से प्रबंधित नहीं किया जा सकता."</string>
-    <string name="status_unknown_error" msgid="8156660554237824912">"अज्ञात त्रुटि‍."</string>
+    <string name="status_unknown_error" msgid="8156660554237824912">"अज्ञात गड़बड़ी‍."</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"ब्लूटूथ प्राप्त"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"ब्लूटूथ के ज़रिए साझा"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> प्राप्ति पूर्ण."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> भेजना पूर्ण."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"इनबाउंड स्थानांतरण"</string>
@@ -129,5 +130,6 @@
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ब्लूटूथ संदेश साझाकरण सेटिंग"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"खाता नहीं चुना जा सकता. 0 स्लॉट शेष"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"ब्लूटूथ ऑडियो कनेक्ट किया गया"</string>
-    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ब्लूटूथ ऑडियो डिस्कनेक्ट किया गया"</string>
+    <string name="bluetooth_disconnected" msgid="3318303728981478873">"ब्लूटूथ ऑडियो डिसकनेक्ट किया गया"</string>
+    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ब्लूटूथ ऑडियो"</string>
 </resources>

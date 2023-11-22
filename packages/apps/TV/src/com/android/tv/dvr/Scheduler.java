@@ -20,86 +20,121 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Handler;
+import android.media.tv.TvInputInfo;
+import android.media.tv.TvInputManager.TvInputCallback;
 import android.os.Looper;
-import android.os.Message;
+import android.support.annotation.MainThread;
 import android.support.annotation.VisibleForTesting;
+import android.util.ArrayMap;
 import android.util.Log;
-import android.util.LongSparseArray;
 import android.util.Range;
 
-import com.android.tv.data.Channel;
+import com.android.tv.InputSessionManager;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.ChannelDataManager.Listener;
+import com.android.tv.dvr.DvrDataManager.OnDvrScheduleLoadFinishedListener;
+import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
 import com.android.tv.util.Clock;
+import com.android.tv.util.TvInputManagerHelper;
+import com.android.tv.util.Utils;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
  * The core class to manage schedule and run actual recording.
  */
-@VisibleForTesting
-public class Scheduler implements DvrDataManager.ScheduledRecordingListener {
+@MainThread
+public class Scheduler extends TvInputCallback implements ScheduledRecordingListener {
     private static final String TAG = "Scheduler";
     private static final boolean DEBUG = false;
 
     private final static long SOON_DURATION_IN_MS = TimeUnit.MINUTES.toMillis(5);
     @VisibleForTesting final static long MS_TO_WAKE_BEFORE_START = TimeUnit.MINUTES.toMillis(1);
 
-    /**
-     * Wraps a {@link RecordingTask} removing it from {@link #mPendingRecordings} when it is done.
-     */
-    public final class HandlerWrapper extends Handler {
-        public static final int MESSAGE_REMOVE = 999;
-        private final long mId;
-
-        HandlerWrapper(Looper looper, ScheduledRecording scheduledRecording, RecordingTask recordingTask) {
-            super(looper, recordingTask);
-            mId = scheduledRecording.getId();
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            // The RecordingTask gets a chance first.
-            // It must return false to pass this message to here.
-            if (msg.what == MESSAGE_REMOVE) {
-                if (DEBUG)  Log.d(TAG, "done " + mId);
-                mPendingRecordings.remove(mId);
-            }
-            removeCallbacksAndMessages(null);
-            super.handleMessage(msg);
-        }
-    }
-
-    private final LongSparseArray<HandlerWrapper> mPendingRecordings = new LongSparseArray<>();
     private final Looper mLooper;
-    private final DvrSessionManager mSessionManager;
+    private final InputSessionManager mSessionManager;
     private final WritableDvrDataManager mDataManager;
     private final DvrManager mDvrManager;
     private final ChannelDataManager mChannelDataManager;
+    private final TvInputManagerHelper mInputManager;
     private final Context mContext;
     private final Clock mClock;
     private final AlarmManager mAlarmManager;
 
-    public Scheduler(Looper looper, DvrManager dvrManager, DvrSessionManager sessionManager,
+    private final Map<String, InputTaskScheduler> mInputSchedulerMap = new ArrayMap<>();
+    private long mLastStartTimePendingMs;
+
+    public Scheduler(Looper looper, DvrManager dvrManager, InputSessionManager sessionManager,
             WritableDvrDataManager dataManager, ChannelDataManager channelDataManager,
-            Context context, Clock clock,
+            TvInputManagerHelper inputManager, Context context, Clock clock,
             AlarmManager alarmManager) {
         mLooper = looper;
         mDvrManager = dvrManager;
         mSessionManager = sessionManager;
         mDataManager = dataManager;
         mChannelDataManager = channelDataManager;
+        mInputManager = inputManager;
         mContext = context;
         mClock = clock;
         mAlarmManager = alarmManager;
     }
 
+    /**
+     * Starts the scheduler.
+     */
+    public void start() {
+        mDataManager.addScheduledRecordingListener(this);
+        mInputManager.addCallback(this);
+        if (mDataManager.isDvrScheduleLoadFinished() && mChannelDataManager.isDbLoadFinished()) {
+            updateInternal();
+        } else {
+            if (!mDataManager.isDvrScheduleLoadFinished()) {
+                mDataManager.addDvrScheduleLoadFinishedListener(
+                        new OnDvrScheduleLoadFinishedListener() {
+                            @Override
+                            public void onDvrScheduleLoadFinished() {
+                                mDataManager.removeDvrScheduleLoadFinishedListener(this);
+                                updateInternal();
+                            }
+                        });
+            }
+            if (!mChannelDataManager.isDbLoadFinished()) {
+                mChannelDataManager.addListener(new Listener() {
+                    @Override
+                    public void onLoadFinished() {
+                        mChannelDataManager.removeListener(this);
+                        updateInternal();
+                    }
+
+                    @Override
+                    public void onChannelListUpdated() { }
+
+                    @Override
+                    public void onChannelBrowsableChanged() { }
+                });
+            }
+        }
+    }
+
+    /**
+     * Stops the scheduler.
+     */
+    public void stop() {
+        for (InputTaskScheduler inputTaskScheduler : mInputSchedulerMap.values()) {
+            inputTaskScheduler.stop();
+        }
+        mInputManager.removeCallback(this);
+        mDataManager.removeScheduledRecordingListener(this);
+    }
+
     private void updatePendingRecordings() {
-        List<ScheduledRecording> scheduledRecordings = mDataManager.getRecordingsThatOverlapWith(
-                new Range(mClock.currentTimeMillis(),
-                        mClock.currentTimeMillis() + SOON_DURATION_IN_MS));
-        // TODO(DVR): handle removing and updating exiting recordings.
+        List<ScheduledRecording> scheduledRecordings = mDataManager
+                .getScheduledRecordings(new Range<>(mLastStartTimePendingMs,
+                        mClock.currentTimeMillis() + SOON_DURATION_IN_MS),
+                        ScheduledRecording.STATE_RECORDING_NOT_STARTED);
         for (ScheduledRecording r : scheduledRecordings) {
             scheduleRecordingSoon(r);
         }
@@ -110,70 +145,139 @@ public class Scheduler implements DvrDataManager.ScheduledRecordingListener {
      */
     public void update() {
         if (DEBUG) Log.d(TAG, "update");
-        updatePendingRecordings();
-        updateNextAlarm();
+        updateInternal();
+    }
+
+    private void updateInternal() {
+        if (isInitialized()) {
+            updatePendingRecordings();
+            updateNextAlarm();
+        }
+    }
+
+    private boolean isInitialized() {
+        return mDataManager.isDvrScheduleLoadFinished() && mChannelDataManager.isDbLoadFinished();
     }
 
     @Override
-    public void onScheduledRecordingAdded(ScheduledRecording scheduledRecording) {
-        if (DEBUG) Log.d(TAG, "added " + scheduledRecording);
-        if (startsWithin(scheduledRecording, SOON_DURATION_IN_MS)) {
-            scheduleRecordingSoon(scheduledRecording);
-        } else {
+    public void onScheduledRecordingAdded(ScheduledRecording... schedules) {
+        if (DEBUG) Log.d(TAG, "added " + Arrays.asList(schedules));
+        if (!isInitialized()) {
+            return;
+        }
+        handleScheduleChange(schedules);
+    }
+
+    @Override
+    public void onScheduledRecordingRemoved(ScheduledRecording... schedules) {
+        if (DEBUG) Log.d(TAG, "removed " + Arrays.asList(schedules));
+        if (!isInitialized()) {
+            return;
+        }
+        boolean needToUpdateAlarm = false;
+        for (ScheduledRecording schedule : schedules) {
+            InputTaskScheduler scheduler = mInputSchedulerMap.get(schedule.getInputId());
+            if (scheduler != null) {
+                scheduler.removeSchedule(schedule);
+                needToUpdateAlarm = true;
+            }
+        }
+        if (needToUpdateAlarm) {
             updateNextAlarm();
         }
     }
 
     @Override
-    public void onScheduledRecordingRemoved(ScheduledRecording scheduledRecording) {
-        long id = scheduledRecording.getId();
-        HandlerWrapper wrapper = mPendingRecordings.get(id);
-        if (wrapper != null) {
-            wrapper.removeCallbacksAndMessages(null);
-            mPendingRecordings.remove(id);
-        } else {
+    public void onScheduledRecordingStatusChanged(ScheduledRecording... schedules) {
+        if (DEBUG) Log.d(TAG, "state changed " + Arrays.asList(schedules));
+        if (!isInitialized()) {
+            return;
+        }
+        // Update the recordings.
+        for (ScheduledRecording schedule : schedules) {
+            InputTaskScheduler scheduler = mInputSchedulerMap.get(schedule.getInputId());
+            if (scheduler != null) {
+                scheduler.updateSchedule(schedule);
+            }
+        }
+        handleScheduleChange(schedules);
+    }
+
+    private void handleScheduleChange(ScheduledRecording... schedules) {
+        boolean needToUpdateAlarm = false;
+        for (ScheduledRecording schedule : schedules) {
+            if (schedule.getState() == ScheduledRecording.STATE_RECORDING_NOT_STARTED) {
+                if (startsWithin(schedule, SOON_DURATION_IN_MS)) {
+                    scheduleRecordingSoon(schedule);
+                } else {
+                    needToUpdateAlarm = true;
+                }
+            }
+        }
+        if (needToUpdateAlarm) {
             updateNextAlarm();
         }
     }
 
-    @Override
-    public void onScheduledRecordingStatusChanged(ScheduledRecording scheduledRecording) {
-        //TODO(DVR): implement
-    }
-
-    private void scheduleRecordingSoon(ScheduledRecording scheduledRecording) {
-        Channel channel = mChannelDataManager.getChannel(scheduledRecording.getChannelId());
-        RecordingTask recordingTask = new RecordingTask(scheduledRecording, channel, mDvrManager,
-                mSessionManager, mDataManager, mClock);
-        HandlerWrapper handlerWrapper = new HandlerWrapper(mLooper, scheduledRecording,
-                recordingTask);
-        recordingTask.setHandler(handlerWrapper);
-        mPendingRecordings.put(scheduledRecording.getId(), handlerWrapper);
-        handlerWrapper.sendEmptyMessage(RecordingTask.MESSAGE_INIT);
+    private void scheduleRecordingSoon(ScheduledRecording schedule) {
+        TvInputInfo input = Utils.getTvInputInfoForInputId(mContext, schedule.getInputId());
+        if (input == null) {
+            Log.e(TAG, "Can't find input for " + schedule);
+            mDataManager.changeState(schedule, ScheduledRecording.STATE_RECORDING_FAILED);
+            return;
+        }
+        if (!input.canRecord() || input.getTunerCount() <= 0) {
+            Log.e(TAG, "TV input doesn't support recording: " + input);
+            mDataManager.changeState(schedule, ScheduledRecording.STATE_RECORDING_FAILED);
+            return;
+        }
+        InputTaskScheduler scheduler = mInputSchedulerMap.get(input.getId());
+        if (scheduler == null) {
+            scheduler = new InputTaskScheduler(mContext, input, mLooper, mChannelDataManager,
+                    mDvrManager, mDataManager, mSessionManager, mClock);
+            mInputSchedulerMap.put(input.getId(), scheduler);
+        }
+        scheduler.addSchedule(schedule);
+        if (mLastStartTimePendingMs < schedule.getStartTimeMs()) {
+            mLastStartTimePendingMs = schedule.getStartTimeMs();
+        }
     }
 
     private void updateNextAlarm() {
-        long lastStartTimePending = getLastStartTimePending();
-        long nextStartTime = mDataManager.getNextScheduledStartTimeAfter(lastStartTimePending);
+        long nextStartTime = mDataManager.getNextScheduledStartTimeAfter(
+                Math.max(mLastStartTimePendingMs, mClock.currentTimeMillis()));
         if (nextStartTime != DvrDataManager.NEXT_START_TIME_NOT_FOUND) {
             long wakeAt = nextStartTime - MS_TO_WAKE_BEFORE_START;
             if (DEBUG) Log.d(TAG, "Set alarm to record at " + wakeAt);
             Intent intent = new Intent(mContext, DvrStartRecordingReceiver.class);
             PendingIntent alarmIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
-            //This will cancel the previous alarm.
-            mAlarmManager.set(AlarmManager.RTC_WAKEUP, wakeAt, alarmIntent);
+            // This will cancel the previous alarm.
+            mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeAt, alarmIntent);
         } else {
             if (DEBUG) Log.d(TAG, "No future recording, alarm not set");
         }
     }
 
-    private long getLastStartTimePending() {
-        // TODO(DVR): implement
-        return mClock.currentTimeMillis();
-    }
-
     @VisibleForTesting
     boolean startsWithin(ScheduledRecording scheduledRecording, long durationInMs) {
         return mClock.currentTimeMillis() >= scheduledRecording.getStartTimeMs() - durationInMs;
+    }
+
+    // No need to remove input task scheduler when the input is removed. If the input is removed
+    // temporarily, the scheduler should keep the non-started schedules.
+    @Override
+    public void onInputUpdated(String inputId) {
+        InputTaskScheduler scheduler = mInputSchedulerMap.get(inputId);
+        if (scheduler != null) {
+            scheduler.updateTvInputInfo(Utils.getTvInputInfoForInputId(mContext, inputId));
+        }
+    }
+
+    @Override
+    public void onTvInputInfoUpdated(TvInputInfo input) {
+        InputTaskScheduler scheduler = mInputSchedulerMap.get(input.getId());
+        if (scheduler != null) {
+            scheduler.updateTvInputInfo(input);
+        }
     }
 }

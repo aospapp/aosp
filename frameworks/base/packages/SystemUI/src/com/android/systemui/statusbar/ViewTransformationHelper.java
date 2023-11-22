@@ -23,6 +23,7 @@ import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Interpolator;
 
 import com.android.systemui.Interpolators;
 import com.android.systemui.R;
@@ -116,8 +117,7 @@ public class ViewTransformationHelper implements TransformableView {
                     ownState.transformViewTo(otherState, transformationAmount);
                     otherState.recycle();
                 } else {
-                    // there's no other view available
-                    CrossFadeHelper.fadeOut(mTransformedViews.get(viewType), transformationAmount);
+                    ownState.disappear(transformationAmount, notification);
                 }
                 ownState.recycle();
             }
@@ -174,13 +174,7 @@ public class ViewTransformationHelper implements TransformableView {
                     ownState.transformViewFrom(otherState, transformationAmount);
                     otherState.recycle();
                 } else {
-                    // There's no other view, lets fade us in
-                    // Certain views need to prepare the fade in and make sure its children are
-                    // completely visible. An example is the notification header.
-                    if (transformationAmount == 0.0f) {
-                        ownState.prepareFadeIn();
-                    }
-                    CrossFadeHelper.fadeIn(mTransformedViews.get(viewType), transformationAmount);
+                    ownState.appear(transformationAmount, notification);
                 }
                 ownState.recycle();
             }
@@ -230,9 +224,6 @@ public class ViewTransformationHelper implements TransformableView {
         stack.push(viewRoot);
         while (!stack.isEmpty()) {
             View child = stack.pop();
-            if (child.getVisibility() == View.GONE) {
-                continue;
-            }
             Boolean containsView = (Boolean) child.getTag(TAG_CONTAINS_TRANSFORMED_VIEW);
             if (containsView == null) {
                 // This one is unhandled, let's add it to our list.
@@ -304,6 +295,15 @@ public class ViewTransformationHelper implements TransformableView {
         public boolean customTransformTarget(TransformState ownState,
                 TransformState otherState) {
             return false;
+        }
+
+        /**
+         * Get a custom interpolator for this animation
+         * @param interpolationType the type of the interpolation, i.e TranslationX / TranslationY
+         * @param isFrom true if this transformation from the other view
+         */
+        public Interpolator getCustomInterpolator(int interpolationType, boolean isFrom) {
+            return null;
         }
     }
 }

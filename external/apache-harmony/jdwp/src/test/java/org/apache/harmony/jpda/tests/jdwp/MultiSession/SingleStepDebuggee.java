@@ -27,7 +27,6 @@ package org.apache.harmony.jpda.tests.jdwp.MultiSession;
 
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
-;
 
 /**
  * Debuggee for SingleStepTest unit test.
@@ -45,6 +44,7 @@ public class SingleStepDebuggee extends SyncDebuggee {
         logWriter.println("Line3");
     }
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         

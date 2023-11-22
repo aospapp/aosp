@@ -23,7 +23,7 @@ USE_OPENGL_RENDERER := true
 BOARD_USE_LEGACY_UI := true
 
 # share the same one across all mini-emulators
-BOARD_EGL_CFG := device/generic/goldfish/opengl/system/egl/egl.cfg
+BOARD_EGL_CFG := device/generic/goldfish-opengl/system/egl/egl.cfg
 
 # PDK does not use ext4 image, but it is added here to prevent build break.
 TARGET_USERIMAGES_USE_EXT4 := true

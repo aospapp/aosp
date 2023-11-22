@@ -18,4 +18,3 @@ LOCAL_STEM := fugu/BoardConfigPartial.mk
 -include vendor/broadcom/$(LOCAL_STEM)
 -include vendor/google/$(LOCAL_STEM)
 -include vendor/intel/$(LOCAL_STEM)
--include vendor/widevine/$(LOCAL_STEM)

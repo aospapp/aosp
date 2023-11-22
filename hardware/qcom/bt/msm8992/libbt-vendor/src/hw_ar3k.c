@@ -45,6 +45,7 @@ extern "C" {
 #include <dirent.h>
 #include <ctype.h>
 #include <cutils/properties.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
@@ -434,19 +435,19 @@ static int set_cntrlr_baud(int fd, int speed)
 static int get_ps_type(char *ptr, int index, char *type, char *sub_type)
 {
     int i;
-    int delim = FALSE;
+    int delim = false;
 
     if (index > MAX_PREAMBLE_LEN)
         return -EILSEQ;
 
     for (i = 1; i < index; i++) {
         if (__is_delim(ptr[i])) {
-            delim = TRUE;
+            delim = true;
             continue;
         }
 
         if (isalpha(ptr[i])) {
-            if (delim == FALSE)
+            if (delim == false)
                 (*type) = toupper(ptr[i]);
             else
                 (*sub_type)	= toupper(ptr[i]);
@@ -471,7 +472,7 @@ static int get_input_format(char *buf, struct ps_entry_type *format)
     char sub_type = '\0';
 
     format->type = PS_HEX;
-    format->array = TRUE;
+    format->array = true;
 
     if (strstr(buf, "[") != buf)
         return 0;
@@ -485,10 +486,10 @@ static int get_input_format(char *buf, struct ps_entry_type *format)
 
     /* Check is data type is of array */
     if (type == ARRAY || sub_type == ARRAY)
-        format->array = TRUE;
+        format->array = true;
 
     if (type == STRING || sub_type == STRING)
-        format->array = FALSE;
+        format->array = false;
 
     if (type == DECIMAL || type == BINARY)
         format->type = PS_DEC;
@@ -517,7 +518,7 @@ static unsigned int read_data_in_section(char *buf, struct ps_entry_type type)
         ptr++;
     }
 
-    if (type.type == PS_HEX && type.array != TRUE)
+    if (type.type == PS_HEX && type.array != true)
         return strtol(ptr, NULL, 16);
 
     return UNDEFINED;
@@ -630,7 +631,7 @@ static int ath_parse_ps(FILE *stream)
             read_count = (byte_count > ENTRY_PER_LINE) ?
             ENTRY_PER_LINE : byte_count;
 
-            if (format.type == PS_HEX && format.array == TRUE) {
+            if (format.type == PS_HEX && format.array == true) {
                 while (read_count > 0) {
                     update_tag_data(tag, &status, ptr);
                     read_count -= 2;

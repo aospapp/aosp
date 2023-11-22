@@ -34,7 +34,7 @@ namespace keymaster {
 
 class AccessTimeMap {
   public:
-    AccessTimeMap(uint32_t max_size) : max_size_(max_size) {}
+    explicit AccessTimeMap(uint32_t max_size) : max_size_(max_size) {}
 
     /* If the key is found, returns true and fills \p last_access_time.  If not found returns
      * false. */
@@ -56,7 +56,7 @@ class AccessTimeMap {
 
 class AccessCountMap {
   public:
-    AccessCountMap(uint32_t max_size) : max_size_(max_size) {}
+    explicit AccessCountMap(uint32_t max_size) : max_size_(max_size) {}
 
     /* If the key is found, returns true and fills \p count.  If not found returns
      * false. */
@@ -286,6 +286,15 @@ keymaster_error_t KeymasterEnforcement::AuthorizeBegin(const keymaster_purpose_t
         case KM_TAG_ROOT_OF_TRUST:
         case KM_TAG_APPLICATION_DATA:
         case KM_TAG_ATTESTATION_CHALLENGE:
+        case KM_TAG_ATTESTATION_APPLICATION_ID:
+        case KM_TAG_ATTESTATION_ID_BRAND:
+        case KM_TAG_ATTESTATION_ID_DEVICE:
+        case KM_TAG_ATTESTATION_ID_PRODUCT:
+        case KM_TAG_ATTESTATION_ID_SERIAL:
+        case KM_TAG_ATTESTATION_ID_IMEI:
+        case KM_TAG_ATTESTATION_ID_MEID:
+        case KM_TAG_ATTESTATION_ID_MANUFACTURER:
+        case KM_TAG_ATTESTATION_ID_MODEL:
             return KM_ERROR_INVALID_KEY_BLOB;
 
         /* Tags used for cryptographic parameters in keygen.  Nothing to enforce. */

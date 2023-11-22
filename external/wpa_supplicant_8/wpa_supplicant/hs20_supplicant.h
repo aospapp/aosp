@@ -8,12 +8,11 @@
 #ifndef HS20_SUPPLICANT_H
 #define HS20_SUPPLICANT_H
 
+void hs20_configure_frame_filters(struct wpa_supplicant *wpa_s);
 void wpas_hs20_add_indication(struct wpabuf *buf, int pps_mo_id);
 
 int hs20_anqp_send_req(struct wpa_supplicant *wpa_s, const u8 *dst, u32 stypes,
 		       const u8 *payload, size_t payload_len, int inmem);
-struct wpabuf * hs20_build_anqp_req(u32 stypes, const u8 *payload,
-				    size_t payload_len);
 void hs20_put_anqp_req(u32 stypes, const u8 *payload, size_t payload_len,
 		       struct wpabuf *buf);
 void hs20_parse_rx_hs20_anqp_resp(struct wpa_supplicant *wpa_s,
@@ -32,7 +31,7 @@ void hs20_rx_deauth_imminent_notice(struct wpa_supplicant *wpa_s, u8 code,
 void hs20_free_osu_prov(struct wpa_supplicant *wpa_s);
 void hs20_next_osu_icon(struct wpa_supplicant *wpa_s);
 void hs20_osu_icon_fetch(struct wpa_supplicant *wpa_s);
-int hs20_fetch_osu(struct wpa_supplicant *wpa_s);
+int hs20_fetch_osu(struct wpa_supplicant *wpa_s, int skip_scan);
 void hs20_cancel_fetch_osu(struct wpa_supplicant *wpa_s);
 void hs20_icon_fetch_failed(struct wpa_supplicant *wpa_s);
 void hs20_start_osu_scan(struct wpa_supplicant *wpa_s);

@@ -5,7 +5,6 @@
 AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_DhcpNonAsciiParameter'
 ATTRIBUTES = "suite:network_nightly"
-SUITE = 'network_nightly'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

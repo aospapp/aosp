@@ -17,6 +17,8 @@
 package com.android.tv.common.ui.setup;
 
 import android.os.Bundle;
+import android.support.annotation.Nullable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,15 +30,27 @@ import com.android.tv.common.R;
  * A fragment for channel source info/setup.
  */
 public abstract class SetupMultiPaneFragment extends SetupFragment {
+    private static final String TAG = "SetupMultiPaneFragment";
+    private static final boolean DEBUG = false;
+
     public static final int ACTION_DONE = Integer.MAX_VALUE;
+
+    private static final String CONTENT_FRAGMENT_TAG = "content_fragment";
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+        if (DEBUG) {
+            Log.d(TAG, "onCreateView(" + inflater + ", " + container + ", " + savedInstanceState
+                    + ")");
+        }
         View view = super.onCreateView(inflater, container, savedInstanceState);
-        SetupGuidedStepFragment contentFragment = onCreateContentFragment();
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.guided_step_fragment_container, contentFragment).commit();
+        if (savedInstanceState == null) {
+            SetupGuidedStepFragment contentFragment = onCreateContentFragment();
+            getChildFragmentManager().beginTransaction()
+                    .replace(R.id.guided_step_fragment_container, contentFragment,
+                            CONTENT_FRAGMENT_TAG).commit();
+        }
         if (needsDoneButton()) {
             setOnClickAction(view.findViewById(R.id.button_done), getActionCategory(), ACTION_DONE);
         } else {
@@ -63,6 +77,12 @@ public abstract class SetupMultiPaneFragment extends SetupFragment {
     }
 
     abstract protected SetupGuidedStepFragment onCreateContentFragment();
+
+    @Nullable
+    protected SetupGuidedStepFragment getContentFragment() {
+        return (SetupGuidedStepFragment) getChildFragmentManager()
+                .findFragmentByTag(CONTENT_FRAGMENT_TAG);
+    }
 
     abstract protected String getActionCategory();
 

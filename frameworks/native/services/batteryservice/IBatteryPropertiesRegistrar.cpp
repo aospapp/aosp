@@ -28,7 +28,7 @@ namespace android {
 
 class BpBatteryPropertiesRegistrar : public BpInterface<IBatteryPropertiesRegistrar> {
 public:
-    BpBatteryPropertiesRegistrar(const sp<IBinder>& impl)
+    explicit BpBatteryPropertiesRegistrar(const sp<IBinder>& impl)
         : BpInterface<IBatteryPropertiesRegistrar>(impl) {}
 
         void registerListener(const sp<IBatteryPropertiesListener>& listener) {
@@ -59,6 +59,12 @@ public:
             if (parcelpresent)
                 val->readFromParcel(&reply);
             return ret;
+        }
+
+        void scheduleUpdate() {
+            Parcel data;
+            data.writeInterfaceToken(IBatteryPropertiesRegistrar::getInterfaceDescriptor());
+            remote()->transact(SCHEDULE_UPDATE, data, NULL);
         }
 };
 
@@ -95,6 +101,12 @@ status_t BnBatteryPropertiesRegistrar::onTransact(uint32_t code,
             reply->writeInt32(result);
             reply->writeInt32(1);
             val.writeToParcel(reply);
+            return OK;
+        }
+
+        case SCHEDULE_UPDATE: {
+            CHECK_INTERFACE(IBatteryPropertiesRegistrar, data, reply);
+            scheduleUpdate();
             return OK;
         }
     }

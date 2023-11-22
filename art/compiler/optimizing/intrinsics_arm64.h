@@ -20,10 +20,11 @@
 #include "intrinsics.h"
 
 namespace vixl {
+namespace aarch64 {
 
 class MacroAssembler;
 
-}  // namespace vixl
+}}  // namespace vixl::aarch64
 
 namespace art {
 
@@ -37,11 +38,12 @@ class CodeGeneratorARM64;
 
 class IntrinsicLocationsBuilderARM64 FINAL : public IntrinsicVisitor {
  public:
-  explicit IntrinsicLocationsBuilderARM64(ArenaAllocator* arena) : arena_(arena) {}
+  explicit IntrinsicLocationsBuilderARM64(ArenaAllocator* arena, CodeGeneratorARM64* codegen)
+      : arena_(arena), codegen_(codegen) {}
 
   // Define visitor methods.
 
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
   void Visit ## Name(HInvoke* invoke) OVERRIDE;
 #include "intrinsics_list.h"
 INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
@@ -55,6 +57,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 
  private:
   ArenaAllocator* arena_;
+  CodeGeneratorARM64* codegen_;
 
   DISALLOW_COPY_AND_ASSIGN(IntrinsicLocationsBuilderARM64);
 };
@@ -65,7 +68,7 @@ class IntrinsicCodeGeneratorARM64 FINAL : public IntrinsicVisitor {
 
   // Define visitor methods.
 
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
   void Visit ## Name(HInvoke* invoke) OVERRIDE;
 #include "intrinsics_list.h"
 INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
@@ -73,7 +76,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef OPTIMIZING_INTRINSICS
 
  private:
-  vixl::MacroAssembler* GetVIXLAssembler();
+  vixl::aarch64::MacroAssembler* GetVIXLAssembler();
 
   ArenaAllocator* GetAllocator();
 

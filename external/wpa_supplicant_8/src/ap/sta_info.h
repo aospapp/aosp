@@ -12,10 +12,12 @@
 #ifdef CONFIG_MESH
 /* needed for mesh_plink_state enum */
 #include "common/defs.h"
+#include "common/wpa_common.h"
 #endif /* CONFIG_MESH */
 
 #include "list.h"
 #include "vlan.h"
+#include "common/ieee802_11_defs.h"
 
 /* STA flags */
 #define WLAN_STA_AUTH BIT(0)
@@ -37,6 +39,7 @@
 #define WLAN_STA_WNM_SLEEP_MODE BIT(19)
 #define WLAN_STA_VHT_OPMODE_ENABLED BIT(20)
 #define WLAN_STA_VENDOR_VHT BIT(21)
+#define WLAN_STA_PENDING_FILS_ERP BIT(22)
 #define WLAN_STA_PENDING_DISASSOC_CB BIT(29)
 #define WLAN_STA_PENDING_DEAUTH_CB BIT(30)
 #define WLAN_STA_NONERP BIT(31)
@@ -51,7 +54,6 @@ struct mbo_non_pref_chan_info {
 	u8 op_class;
 	u8 pref;
 	u8 reason_code;
-	u8 reason_detail;
 	u8 num_channels;
 	u8 channels[];
 };
@@ -79,13 +81,22 @@ struct sta_info {
 	enum mesh_plink_state plink_state;
 	u16 peer_lid;
 	u16 my_lid;
+	u16 peer_aid;
 	u16 mpm_close_reason;
 	int mpm_retries;
-	u8 my_nonce[32];
-	u8 peer_nonce[32];
+	u8 my_nonce[WPA_NONCE_LEN];
+	u8 peer_nonce[WPA_NONCE_LEN];
 	u8 aek[32];	/* SHA256 digest length */
-	u8 mtk[16];
-	u8 mgtk[16];
+	u8 mtk[WPA_TK_MAX_LEN];
+	size_t mtk_len;
+	u8 mgtk_rsc[6];
+	u8 mgtk_key_id;
+	u8 mgtk[WPA_TK_MAX_LEN];
+	size_t mgtk_len;
+	u8 igtk_rsc[6];
+	u8 igtk[WPA_TK_MAX_LEN];
+	size_t igtk_len;
+	u16 igtk_key_id;
 	u8 sae_auth_retry;
 #endif /* CONFIG_MESH */
 
@@ -104,6 +115,7 @@ struct sta_info {
 	unsigned int radius_das_match:1;
 	unsigned int ecsa_supported:1;
 	unsigned int added_unassoc:1;
+	unsigned int pending_wds_enable:1;
 
 	u16 auth_alg;
 
@@ -202,6 +214,24 @@ struct sta_info {
 
 	u8 *supp_op_classes; /* Supported Operating Classes element, if
 			      * received, starting from the Length field */
+
+	u8 rrm_enabled_capa[5];
+
+#ifdef CONFIG_TAXONOMY
+	struct wpabuf *probe_ie_taxonomy;
+	struct wpabuf *assoc_ie_taxonomy;
+#endif /* CONFIG_TAXONOMY */
+
+#ifdef CONFIG_FILS
+	u8 fils_snonce[FILS_NONCE_LEN];
+	u8 fils_session[FILS_SESSION_LEN];
+	u8 *fils_pending_assoc_req;
+	size_t fils_pending_assoc_req_len;
+	unsigned int fils_pending_assoc_is_reassoc:1;
+	unsigned int fils_dhcp_rapid_commit_proxy:1;
+	struct wpabuf *fils_hlp_resp;
+	struct wpabuf *hlp_dhcp_discover;
+#endif /* CONFIG_FILS */
 };
 
 
@@ -273,5 +303,9 @@ void ap_sta_clear_disconnect_timeouts(struct hostapd_data *hapd,
 				      struct sta_info *sta);
 
 int ap_sta_flags_txt(u32 flags, char *buf, size_t buflen);
+void ap_sta_delayed_1x_auth_fail_disconnect(struct hostapd_data *hapd,
+					    struct sta_info *sta);
+int ap_sta_pending_delayed_1x_auth_fail_disconnect(struct hostapd_data *hapd,
+						   struct sta_info *sta);
 
 #endif /* STA_INFO_H */

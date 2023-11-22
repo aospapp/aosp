@@ -61,4 +61,11 @@ class CheckForBrokenJciteTag extends BaseModifyCommentScanner {
     }
     return null;
   }
+
+  @Override
+  public String toString() {
+    return "CheckForBrokenJciteTag{" +
+        "publicMembers=" + publicMembers +
+        '}';
+  }
 }

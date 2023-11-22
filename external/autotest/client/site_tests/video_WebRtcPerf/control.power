@@ -12,7 +12,7 @@ TEST_TYPE = "client"
 
 DOC = """
 This test measures the power consumption of WebRTC locally and does not have
-SUITE. The test needs RPM to run on a bot and the control files are in server
+suite. The test needs RPM to run on a bot and the control files are in server
 side.
 """
 

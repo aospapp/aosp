@@ -1,8 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 1996-2016, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 
@@ -18,6 +20,7 @@ import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.Set;
 
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUDebug;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.PatternProps;
@@ -816,7 +819,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
         this.locale = locale;
 
         ICUResourceBundle bundle = (ICUResourceBundle)UResourceBundle.
-            getBundleInstance(ICUResourceBundle.ICU_RBNF_BASE_NAME, locale);
+            getBundleInstance(ICUData.ICU_RBNF_BASE_NAME, locale);
 
         // TODO: determine correct actual/valid locale.  Note ambiguity
         // here -- do actual/valid refer to pattern, DecimalFormatSymbols,
@@ -881,6 +884,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * Duplicates this formatter.
      * @return A RuleBasedNumberFormat that is equal to this one.
      */
+    @Override
     public Object clone() {
         return super.clone();
     }
@@ -890,6 +894,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * @param that The formatter to compare against this one.
      * @return true if the two formatters have identical behavior.
      */
+    @Override
     public boolean equals(Object that) {
         // if the other object isn't a RuleBasedNumberFormat, that's
         // all we need to know
@@ -921,13 +926,14 @@ public class RuleBasedNumberFormat extends NumberFormat {
             return true;
         }
     }
-    
+
     /**
      * Mock implementation of hashCode(). This implementation always returns a constant
      * value. When Java assertion is enabled, this method triggers an assertion failure.
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     public int hashCode() {
         return super.hashCode();
@@ -940,6 +946,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * to the rule set description that was originally passed in, but will produce
      * the same result.
      */
+    @Override
     public String toString() {
 
         // accumulate the descriptions of all the rule sets in a
@@ -1152,6 +1159,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * @param ignore This function doesn't examine or update the field position.
      * @return toAppendTo
      */
+    @Override
     public StringBuffer format(double number,
                                StringBuffer toAppendTo,
                                FieldPosition ignore) {
@@ -1180,6 +1188,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * @param ignore This function doesn't examine or update the field position.
      * @return toAppendTo
      */
+    @Override
     public StringBuffer format(long number,
                                StringBuffer toAppendTo,
                                FieldPosition ignore) {
@@ -1200,6 +1209,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * Implement android.icu.text.NumberFormat:
      * Format a BigInteger.
      */
+    @Override
     public StringBuffer format(BigInteger number,
                                StringBuffer toAppendTo,
                                FieldPosition pos) {
@@ -1211,21 +1221,33 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * Implement android.icu.text.NumberFormat:
      * Format a BigDecimal.
      */
+    @Override
     public StringBuffer format(java.math.BigDecimal number,
                                StringBuffer toAppendTo,
                                FieldPosition pos) {
         return format(new android.icu.math.BigDecimal(number), toAppendTo, pos);
     }
 
+    private static final android.icu.math.BigDecimal MAX_VALUE = android.icu.math.BigDecimal.valueOf(Long.MAX_VALUE);
+    private static final android.icu.math.BigDecimal MIN_VALUE = android.icu.math.BigDecimal.valueOf(Long.MIN_VALUE);
+
     /**
      * <strong style="font-family: helvetica; color: red;">NEW</strong>
      * Implement android.icu.text.NumberFormat:
      * Format a BigDecimal.
      */
+    @Override
     public StringBuffer format(android.icu.math.BigDecimal number,
                                StringBuffer toAppendTo,
                                FieldPosition pos) {
-        // TEMPORARY:
+        if (MIN_VALUE.compareTo(number) >= 0 || MAX_VALUE.compareTo(number) <= 0) {
+            // We're outside of our normal range that this framework can handle.
+            // The DecimalFormat will provide more accurate results.
+            return getDecimalFormat().format(number, toAppendTo, pos);
+        }
+        if (number.scale() == 0) {
+            return format(number.longValue(), toAppendTo, pos);
+        }
         return format(number.doubleValue(), toAppendTo, pos);
     }
 
@@ -1244,6 +1266,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * fractional part.
      * @see #setLenientParseMode
      */
+    @Override
     public Number parse(String text, ParsePosition parsePosition) {
 
         // parsePosition tells us where to start parsing.  We copy the
@@ -1330,7 +1353,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
     }
 
     /**
-     * Sets the provider for the lenient scanner.  If this has not been set, 
+     * Sets the provider for the lenient scanner.  If this has not been set,
      * {@link #setLenientParseMode}
      * has no effect.  This is necessary to decouple collation from format code.
      * @param scannerProvider the provider
@@ -1416,11 +1439,11 @@ public class RuleBasedNumberFormat extends NumberFormat {
         }
         return "";
     }
-    
+
     /**
      * Sets the decimal format symbols used by this formatter. The formatter uses a copy of the
      * provided symbols.
-     * 
+     *
      * @param newSymbols desired DecimalFormatSymbols
      * @see DecimalFormatSymbols
      */
@@ -1448,13 +1471,14 @@ public class RuleBasedNumberFormat extends NumberFormat {
 
     /**
      * <strong>[icu]</strong> Set a particular DisplayContext value in the formatter,
-     * such as CAPITALIZATION_FOR_STANDALONE. Note: For getContext, see 
+     * such as CAPITALIZATION_FOR_STANDALONE. Note: For getContext, see
      * NumberFormat.
-     * 
-     * @param context The DisplayContext value to set. 
+     *
+     * @param context The DisplayContext value to set.
      */
     // Here we override the NumberFormat implementation in order to
-    // lazily initialize relevant items 
+    // lazily initialize relevant items
+    @Override
     public void setContext(DisplayContext context) {
         super.setContext(context);
         if (!capitalizationInfoIsSet &&
@@ -1476,7 +1500,6 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * <code>BigDecimal.ROUND_UNNECESSARY</code>.
      * @see #setRoundingMode
      * @see java.math.BigDecimal
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public int getRoundingMode() {
@@ -1492,7 +1515,6 @@ public class RuleBasedNumberFormat extends NumberFormat {
      * @exception IllegalArgumentException if <code>roundingMode</code> is unrecognized.
      * @see #getRoundingMode
      * @see java.math.BigDecimal
-     * @hide draft / provisional / internal are hidden on Android
      */
     @Override
     public void setRoundingMode(int roundingMode) {
@@ -1804,10 +1826,10 @@ public class RuleBasedNumberFormat extends NumberFormat {
     }
 
     /**
-     * Set capitalizationForListOrMenu, capitalizationForStandAlone 
+     * Set capitalizationForListOrMenu, capitalizationForStandAlone
      */
     private void initCapitalizationContextInfo(ULocale theLocale) {
-        ICUResourceBundle rb = (ICUResourceBundle) UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, theLocale);
+        ICUResourceBundle rb = (ICUResourceBundle) UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, theLocale);
         try {
             ICUResourceBundle rdb = rb.getWithFallback("contextTransforms/number-spellout");
             int[] intVector = rdb.getIntVector();
@@ -1891,7 +1913,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // be built, and pass it to the rule set (along with an insertion
         // position of 0 and the number being formatted) to the rule set
         // for formatting
-        StringBuffer result = new StringBuffer();
+        StringBuilder result = new StringBuilder();
         if (getRoundingMode() != BigDecimal.ROUND_UNNECESSARY) {
             // We convert to a string because BigDecimal insists on excessive precision.
             number = new BigDecimal(Double.toString(number)).setScale(getMaximumFractionDigits(), roundingMode).doubleValue();
@@ -1920,8 +1942,14 @@ public class RuleBasedNumberFormat extends NumberFormat {
         // be built, and pass it to the rule set (along with an insertion
         // position of 0 and the number being formatted) to the rule set
         // for formatting
-        StringBuffer result = new StringBuffer();
-        ruleSet.format(number, result, 0, 0);
+        StringBuilder result = new StringBuilder();
+        if (number == Long.MIN_VALUE) {
+            // We can't handle this value right now. Provide an accurate default value.
+            result.append(getDecimalFormat().format(Long.MIN_VALUE));
+        }
+        else {
+            ruleSet.format(number, result, 0, 0);
+        }
         postProcess(result, ruleSet);
         return result.toString();
     }
@@ -1929,7 +1957,7 @@ public class RuleBasedNumberFormat extends NumberFormat {
     /**
      * Post-process the rules if we have a post-processor.
      */
-    private void postProcess(StringBuffer result, NFRuleSet ruleSet) {
+    private void postProcess(StringBuilder result, NFRuleSet ruleSet) {
         if (postProcessRules != null) {
             if (postProcessor == null) {
                 int ix = postProcessRules.indexOf(";");

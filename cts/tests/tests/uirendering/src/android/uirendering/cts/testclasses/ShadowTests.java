@@ -17,16 +17,18 @@ package android.uirendering.cts.testclasses;
 
 import android.graphics.Color;
 import android.graphics.Point;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
-
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
-
+import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.util.CompareUtils;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @MediumTest
+@RunWith(AndroidJUnit4.class)
 public class ShadowTests extends ActivityTestBase {
 
     private class GrayScaleVerifier extends SamplePointVerifier {
@@ -65,7 +67,7 @@ public class ShadowTests extends ActivityTestBase {
                         Color.rgb(shadowColorValue, shadowColorValue, shadowColorValue),
                         Color.rgb(shadowColorValue, shadowColorValue, shadowColorValue),
                 },
-                48);
+                64);
 
         createTest()
                 .addLayout(R.layout.simple_shadow_layout, null, true/* HW only */)

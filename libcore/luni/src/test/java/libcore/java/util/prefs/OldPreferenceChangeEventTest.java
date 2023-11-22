@@ -130,13 +130,6 @@ public final class OldPreferenceChangeEventTest extends TestCase {
         private boolean addDispatched = false;
         protected boolean result = false;
 
-        public synchronized void waitForEvent() {
-            try {
-                wait(500);
-            } catch (InterruptedException expected) {
-            }
-        }
-
         public synchronized void preferenceChange(PreferenceChangeEvent pce) {
             changed++;
             addDispatched = true;

@@ -21,9 +21,10 @@ import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.ChooseLockSettingsHelper;
 import com.android.settings.R;
+import com.android.settings.Utils;
 import com.android.settings.fingerprint.FingerprintEnrollSidecar.Listener;
 
 /**
@@ -81,9 +82,7 @@ public class FingerprintEnrollFindSensor extends FingerprintEnrollBase {
             @Override
             public void onEnrollmentProgressChange(int steps, int remaining) {
                 mNextClicked = true;
-                if (!mSidecar.cancelEnrollment()) {
-                    proceedToEnrolling();
-                }
+                proceedToEnrolling(true /* cancelEnrollment */);
             }
 
             @Override
@@ -94,7 +93,7 @@ public class FingerprintEnrollFindSensor extends FingerprintEnrollBase {
             public void onEnrollmentError(int errMsgId, CharSequence errString) {
                 if (mNextClicked && errMsgId == FingerprintManager.FINGERPRINT_ERROR_CANCELED) {
                     mNextClicked = false;
-                    proceedToEnrolling();
+                    proceedToEnrolling(false /* cancelEnrollment */);
                 }
             }
         });
@@ -122,15 +121,23 @@ public class FingerprintEnrollFindSensor extends FingerprintEnrollBase {
     @Override
     protected void onNextButtonClick() {
         mNextClicked = true;
-        if (mSidecar == null || (mSidecar != null && !mSidecar.cancelEnrollment())) {
-            proceedToEnrolling();
-        }
+        proceedToEnrolling(true /* cancelEnrollment */);
     }
 
-    private void proceedToEnrolling() {
-        getFragmentManager().beginTransaction().remove(mSidecar).commit();
-        mSidecar = null;
-        startActivityForResult(getEnrollingIntent(), ENROLLING);
+    private void proceedToEnrolling(boolean cancelEnrollment) {
+        if (mSidecar != null) {
+            if (cancelEnrollment) {
+                if (mSidecar.cancelEnrollment()) {
+                    // Enrollment cancel requested. When the cancellation is successful,
+                    // onEnrollmentError will be called with FINGERPRINT_ERROR_CANCELED, calling
+                    // this again.
+                    return;
+                }
+            }
+            getFragmentManager().beginTransaction().remove(mSidecar).commitAllowingStateLoss();
+            mSidecar = null;
+            startActivityForResult(getEnrollingIntent(), ENROLLING);
+        }
     }
 
     @Override
@@ -155,7 +162,7 @@ public class FingerprintEnrollFindSensor extends FingerprintEnrollBase {
                 setResult(RESULT_TIMEOUT);
                 finish();
             } else {
-                FingerprintManager fpm = getSystemService(FingerprintManager.class);
+                FingerprintManager fpm = Utils.getFingerprintManagerOrNull(this);
                 int enrolled = fpm.getEnrolledFingerprints().size();
                 int max = getResources().getInteger(
                         com.android.internal.R.integer.config_fingerprintMaxTemplatesPerUser);
@@ -172,7 +179,7 @@ public class FingerprintEnrollFindSensor extends FingerprintEnrollBase {
     }
 
     private void launchConfirmLock() {
-        long challenge = getSystemService(FingerprintManager.class).preEnroll();
+        long challenge = Utils.getFingerprintManagerOrNull(this).preEnroll();
         ChooseLockSettingsHelper helper = new ChooseLockSettingsHelper(this);
         boolean launchedConfirmationActivity = false;
         if (mUserId == UserHandle.USER_NULL) {
@@ -194,7 +201,7 @@ public class FingerprintEnrollFindSensor extends FingerprintEnrollBase {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.FINGERPRINT_FIND_SENSOR;
     }
 }

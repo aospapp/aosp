@@ -18,9 +18,6 @@
 #define ANDROID_HWUI_GAMMA_FONT_RENDERER_H
 
 #include "FontRenderer.h"
-#include "Program.h"
-
-#include <SkPaint.h>
 
 namespace android {
 namespace uirenderer {
@@ -41,20 +38,34 @@ public:
 
     FontRenderer& getFontRenderer() {
         if (!mRenderer) {
-            mRenderer.reset(new FontRenderer(&mGammaTable[0]));
+            const uint8_t* table = nullptr;
+#ifndef ANDROID_ENABLE_LINEAR_BLENDING
+            table = &mGammaTable[0];
+#endif
+            mRenderer.reset(new FontRenderer(table));
         }
         return *mRenderer;
     }
 
-    uint32_t getFontRendererSize(GLenum format) const {
-        return mRenderer ? mRenderer->getCacheSize(format) : 0;
+    void dumpMemoryUsage(String8& log) const {
+        if (mRenderer) {
+            mRenderer->dumpMemoryUsage(log);
+        } else {
+            log.appendFormat("FontRenderer doesn't exist.\n");
+        }
+    }
+
+    uint32_t getSize() const {
+        return mRenderer ? mRenderer->getSize() : 0;
     }
 
     void endPrecaching();
 
 private:
     std::unique_ptr<FontRenderer> mRenderer;
+#ifndef ANDROID_ENABLE_LINEAR_BLENDING
     uint8_t mGammaTable[256];
+#endif
 };
 
 }; // namespace uirenderer

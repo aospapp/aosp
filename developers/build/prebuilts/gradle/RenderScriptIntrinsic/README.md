@@ -9,9 +9,9 @@ Also shows how to extends RedioButton with StateListDrawable.
 Introduction
 ------------
 
-[RenderScript][1] is a framework for running computationally intensive tasks at high performance on Android. RenderScript is
-primarily oriented for use with data-parallel computation, although serial computationally intensive workloads can
-benefit as well.
+[RenderScript][1] is a framework for running computationally intensive tasks at high performance on
+Android. RenderScript is primarily oriented for use with data-parallel computation, although serial
+computationally intensive workloads can benefit as well.
 
 RenderScript **intrinsics** are built-in functions that perform well-defined operations often seen
 in image processing. Intrinsics provide extremely high-performance implementations of standard
@@ -27,17 +27,18 @@ mScriptMatrix = ScriptIntrinsicColorMatrix.create(mRS,
         Element.U8_4(mRS));
 ```
 
-RenderScript intrinsics will usually be the fastest possible way for a developer to perform these operations. The
-Android team works closely with our partners to ensure that the intrinsics perform as fast as possible on their
-architectures — often far beyond anything that can be achieved in a general-purpose language.
+RenderScript intrinsics will usually be the fastest possible way for a developer to perform these
+operations. The Android team works closely with our partners to ensure that the intrinsics perform
+as fast as possible on their architectures — often far beyond anything that can be achieved in a
+general-purpose language.
 
 [1]: http://developer.android.com/guide/topics/renderscript/compute.html
 
 Pre-requisites
 --------------
 
-- Android SDK 24
-- Android Build Tools v24.0.1
+- Android SDK 25
+- Android Build Tools v25.0.3
 - Android Support Repository
 
 Screenshots
@@ -66,7 +67,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2016 The Android Open Source Project, Inc.
+Copyright 2017 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

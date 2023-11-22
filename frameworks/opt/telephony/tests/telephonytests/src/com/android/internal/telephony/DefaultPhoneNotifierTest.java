@@ -40,6 +40,8 @@ import android.telephony.TelephonyManager;
 import android.telephony.VoLteServiceState;
 import android.telephony.gsm.GsmCellLocation;
 import android.os.Bundle;
+import android.os.Process;
+import android.os.WorkSource;
 import android.test.suitebuilder.annotation.SmallTest;
 
 public class DefaultPhoneNotifierTest extends TelephonyTest {
@@ -264,11 +266,11 @@ public class DefaultPhoneNotifierTest extends TelephonyTest {
 
     @Test @SmallTest
     public void testNotifyOtaspChanged() throws Exception {
-        mDefaultPhoneNotifierUT.notifyOtaspChanged(mPhone, ServiceStateTracker.OTASP_NEEDED);
-        verify(mTelephonyRegisteryMock).notifyOtaspChanged(ServiceStateTracker.OTASP_NEEDED);
+        mDefaultPhoneNotifierUT.notifyOtaspChanged(mPhone, TelephonyManager.OTASP_NEEDED);
+        verify(mTelephonyRegisteryMock).notifyOtaspChanged(TelephonyManager.OTASP_NEEDED);
 
-        mDefaultPhoneNotifierUT.notifyOtaspChanged(mPhone, ServiceStateTracker.OTASP_UNKNOWN);
-        verify(mTelephonyRegisteryMock).notifyOtaspChanged(ServiceStateTracker.OTASP_UNKNOWN);
+        mDefaultPhoneNotifierUT.notifyOtaspChanged(mPhone, TelephonyManager.OTASP_UNKNOWN);
+        verify(mTelephonyRegisteryMock).notifyOtaspChanged(TelephonyManager.OTASP_UNKNOWN);
     }
 
     @Test @SmallTest

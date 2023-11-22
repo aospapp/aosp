@@ -6,22 +6,22 @@
  */
 
 #include "SkColorFilter.h"
-#include "SkXfermode.h"
+#include "SkPM4f.h"
 
 #ifndef SkModeColorFilter_DEFINED
 #define SkModeColorFilter_DEFINED
 
 class SkModeColorFilter : public SkColorFilter {
 public:
-    static SkColorFilter* Create(SkColor color, SkXfermode::Mode mode) {
-        return new SkModeColorFilter(color, mode);
+    static sk_sp<SkColorFilter> Make(SkColor color, SkBlendMode mode) {
+        return sk_sp<SkColorFilter>(new SkModeColorFilter(color, mode));
     }
 
     SkColor getColor() const { return fColor; }
-    SkXfermode::Mode getMode() const { return fMode; }
+    SkBlendMode getMode() const { return fMode; }
     SkPMColor getPMColor() const { return fPMColor; }
 
-    bool asColorMode(SkColor*, SkXfermode::Mode*) const override;
+    bool asColorMode(SkColor*, SkBlendMode*) const override;
     uint32_t getFlags() const override;
     void filterSpan(const SkPMColor shader[], int count, SkPMColor result[]) const override;
     void filterSpan4f(const SkPM4f shader[], int count, SkPM4f result[]) const override;
@@ -31,22 +31,25 @@ public:
 #endif
 
 #if SK_SUPPORT_GPU
-    const GrFragmentProcessor* asFragmentProcessor(GrContext*) const override;
+    sk_sp<GrFragmentProcessor> asFragmentProcessor(GrContext*, SkColorSpace*) const override;
 #endif
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkModeColorFilter)
 
 protected:
-    SkModeColorFilter(SkColor color, SkXfermode::Mode mode) {
+    SkModeColorFilter(SkColor color, SkBlendMode mode) {
         fColor = color;
         fMode = mode;
         this->updateCache();
-    };
+    }
 
     void flatten(SkWriteBuffer&) const override;
 
+    bool onAppendStages(SkRasterPipeline*, SkColorSpace*, SkArenaAlloc*,
+                        bool shaderIsOpaque) const override;
+
 private:
     SkColor             fColor;
-    SkXfermode::Mode    fMode;
+    SkBlendMode         fMode;
     // cache
     SkPMColor           fPMColor;
     SkXfermodeProc      fProc;

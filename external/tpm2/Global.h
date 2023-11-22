@@ -190,6 +190,12 @@ typedef struct
    TPM2B_NAME               name;                    // Name of the object name. Kept here
                                                      // to avoid repeatedly computing it.
 } OBJECT;
+#ifdef EMBEDDED_MODE
+// This build time assert serves as a rudimentary check for changes
+// to the OBJECT structure (which is serialized to NVmem).  Whenever
+// the OBJECT struct changes, NV_FORMAT_VERSION ought to be bumped.
+struct size_check { char a[sizeof(OBJECT) == 1536 ? 1 : -1]; };
+#endif
 //
 //
 //           HASH_OBJECT Structure

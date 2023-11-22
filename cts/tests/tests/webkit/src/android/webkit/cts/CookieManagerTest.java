@@ -16,13 +16,14 @@
 
 package android.webkit.cts;
 
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
 import android.webkit.WebView;
 import android.webkit.ValueCallback;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;

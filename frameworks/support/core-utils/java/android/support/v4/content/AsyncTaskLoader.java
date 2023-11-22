@@ -16,9 +16,12 @@
 
 package android.support.v4.content;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.support.annotation.RestrictTo;
 import android.support.v4.os.OperationCanceledException;
 import android.support.v4.util.TimeUtils;
 import android.util.Log;
@@ -154,6 +157,9 @@ public abstract class AsyncTaskLoader<D> extends Loader<D> {
     protected boolean onCancelLoad() {
         if (DEBUG) Log.v(TAG, "onCancelLoad: mTask=" + mTask);
         if (mTask != null) {
+            if (!mStarted) {
+                mContentChanged = true;
+            }
             if (mCancellingTask != null) {
                 // There was a pending task already waiting for a previous
                 // one being canceled; just drop it.
@@ -331,6 +337,7 @@ public abstract class AsyncTaskLoader<D> extends Loader<D> {
      *
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public void waitForLoader() {
         LoadTask task = mTask;
         if (task != null) {

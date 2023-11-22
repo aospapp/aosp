@@ -32,6 +32,7 @@
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
 
@@ -305,16 +306,21 @@ hi_done:
 }
 
 /**
- * Verifies the RSA signature
+ * Verifies the RSA signature against the pubkey (certificate) in the
+ * BootSignature, and additionally against the pubkey file if provided.
  * @param fd File descriptor to the boot image
  * @param length Length of the boot image without the signature block
  * @param bs The boot signature block
+ * @param pkey The external pubkey file
  */
-static int verify_signature(int fd, uint64_t length, const BootSignature *bs)
+static int verify_signature(int fd, uint64_t length, const BootSignature *bs,
+        const char *pkey)
 {
     int rc = -1;
-    EVP_PKEY *pkey = NULL;
-    RSA *rsa = NULL;
+    EVP_PKEY *pkey_bs = NULL;
+    RSA *rsa_bs = NULL;
+    RSA *rsa_pkey = NULL;
+    BIO *bio_pkey = NULL;
     unsigned char digest[SHA256_DIGEST_LENGTH];
 
     if (!bs) {
@@ -325,31 +331,57 @@ static int verify_signature(int fd, uint64_t length, const BootSignature *bs)
         goto vs_done;
     }
 
-    if ((pkey = X509_get_pubkey(bs->certificate)) == NULL) {
+    if ((pkey_bs = X509_get_pubkey(bs->certificate)) == NULL) {
         ERR_print_errors(g_error);
         goto vs_done;
     }
 
-    if ((rsa = EVP_PKEY_get1_RSA(pkey)) == NULL) {
+    if ((rsa_bs = EVP_PKEY_get1_RSA(pkey_bs)) == NULL) {
         ERR_print_errors(g_error);
         goto vs_done;
     }
 
     if (!RSA_verify(NID_sha256, digest, SHA256_DIGEST_LENGTH,
-                bs->signature->data, bs->signature->length, rsa)) {
+                bs->signature->data, bs->signature->length, rsa_bs)) {
         ERR_print_errors(g_error);
         goto vs_done;
+    }
+
+    if (pkey) {
+        if ((bio_pkey = BIO_new_file(pkey, "r")) == NULL) {
+            ERR_print_errors(g_error);
+            goto vs_done;
+         }
+
+        if ((rsa_pkey = PEM_read_bio_RSA_PUBKEY(bio_pkey, NULL, NULL, NULL)) == NULL) {
+            ERR_print_errors(g_error);
+            goto vs_done;
+        }
+
+        if (!RSA_verify(NID_sha256, digest, SHA256_DIGEST_LENGTH,
+                    bs->signature->data, bs->signature->length, rsa_pkey)) {
+            ERR_print_errors(g_error);
+            goto vs_done;
+        }
     }
 
     rc = 0;
 
 vs_done:
-    if (pkey) {
-        EVP_PKEY_free(pkey);
+    if (pkey_bs) {
+        EVP_PKEY_free(pkey_bs);
     }
 
-    if (rsa) {
-        RSA_free(rsa);
+    if (rsa_bs) {
+        RSA_free(rsa_bs);
+    }
+
+    if (bio_pkey) {
+        BIO_free_all(bio_pkey);
+    }
+
+    if (rsa_pkey) {
+        RSA_free(rsa_pkey);
     }
 
     return rc;
@@ -359,7 +391,7 @@ vs_done:
  * Given the file name of a signed boot image, verifies the signature
  * @param image_file Name of the boot image file
  */
-static int verify(const char *image_file)
+static int verify(const char *image_file, const char *pkey)
 {
     BootSignature *bs = NULL;
     int fd = -1;
@@ -386,7 +418,7 @@ static int verify(const char *image_file)
         goto out;
     }
 
-    if (verify_signature(fd, offset, bs) == -1) {
+    if (verify_signature(fd, offset, bs, pkey) == -1) {
         goto out;
     }
 
@@ -407,12 +439,13 @@ out:
 
 static void usage()
 {
-    printf("Usage: verify_boot_signature <path-to-boot-image>\n");
+    printf("Usage: verify_boot_signature <path-to-boot-image>\n"
+           "       verify_boot_signature <path-to-boot-image> <pubkey>\n");
 }
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
+    if (argc != 2 && argc != 3) {
         usage();
         return 1;
     }
@@ -425,5 +458,7 @@ int main(int argc, char *argv[])
 
     ERR_load_crypto_strings();
 
-    return verify(argv[1]);
+    const char *pkey = (argc == 2) ? NULL : argv[2];
+
+    return verify(argv[1], pkey);
 }

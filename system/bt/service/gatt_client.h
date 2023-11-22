@@ -69,10 +69,9 @@ class GattClientFactory : public BluetoothInstanceFactory,
 
  private:
   // hal::BluetoothGattInterface::ClientObserver override:
-  void RegisterClientCallback(
-      hal::BluetoothGattInterface* gatt_iface,
-      int status, int client_id,
-      const bt_uuid_t& app_uuid) override;
+  void RegisterClientCallback(hal::BluetoothGattInterface* gatt_iface,
+                              int status, int client_id,
+                              const bt_uuid_t& app_uuid) override;
 
   // Map of pending calls to register.
   std::mutex pending_calls_lock_;

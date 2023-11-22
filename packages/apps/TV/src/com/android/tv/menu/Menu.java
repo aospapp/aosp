@@ -35,10 +35,10 @@ import com.android.tv.analytics.DurationTimer;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.TvCommonUtils;
 import com.android.tv.common.WeakHandler;
-import com.android.tv.data.Channel;
 import com.android.tv.menu.MenuRowFactory.PartnerRow;
 import com.android.tv.menu.MenuRowFactory.PipOptionsRow;
 import com.android.tv.menu.MenuRowFactory.TvOptionsRow;
+import com.android.tv.ui.TunableTvView;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -56,7 +56,7 @@ public class Menu {
     @IntDef({REASON_NONE, REASON_GUIDE, REASON_PLAY_CONTROLS_PLAY, REASON_PLAY_CONTROLS_PAUSE,
         REASON_PLAY_CONTROLS_PLAY_PAUSE, REASON_PLAY_CONTROLS_REWIND,
         REASON_PLAY_CONTROLS_FAST_FORWARD, REASON_PLAY_CONTROLS_JUMP_TO_PREVIOUS,
-        REASON_PLAY_CONTROLS_JUMP_TO_NEXT, REASON_RECORDING_PLAYBACK})
+        REASON_PLAY_CONTROLS_JUMP_TO_NEXT})
     public @interface MenuShowReason {}
     public static final int REASON_NONE = 0;
     public static final int REASON_GUIDE = 1;
@@ -67,20 +67,18 @@ public class Menu {
     public static final int REASON_PLAY_CONTROLS_FAST_FORWARD = 6;
     public static final int REASON_PLAY_CONTROLS_JUMP_TO_PREVIOUS = 7;
     public static final int REASON_PLAY_CONTROLS_JUMP_TO_NEXT = 8;
-    public static final int REASON_RECORDING_PLAYBACK = 9;
 
     private static final List<String> sRowIdListForReason = new ArrayList<>();
     static {
-        sRowIdListForReason.add(null);  // REASON_NONE
-        sRowIdListForReason.add(ChannelsRow.ID);  // REASON_GUIDE
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_PLAY
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_PAUSE
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_PLAY_PAUSE
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_REWIND
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_FAST_FORWARD
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_JUMP_TO_PREVIOUS
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_PLAY_CONTROLS_JUMP_TO_NEXT
-        sRowIdListForReason.add(PlayControlsRow.ID);  // REASON_RECORDING_PLAYBACK
+        sRowIdListForReason.add(null); // REASON_NONE
+        sRowIdListForReason.add(ChannelsRow.ID); // REASON_GUIDE
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_PLAY
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_PAUSE
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_PLAY_PAUSE
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_REWIND
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_FAST_FORWARD
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_JUMP_TO_PREVIOUS
+        sRowIdListForReason.add(PlayControlsRow.ID); // REASON_PLAY_CONTROLS_JUMP_TO_NEXT
     }
 
     private static final String SCREEN_NAME = "Menu";
@@ -94,37 +92,26 @@ public class Menu {
     private final OnMenuVisibilityChangeListener mOnMenuVisibilityChangeListener;
     private final WeakHandler<Menu> mHandler = new MenuWeakHandler(this, Looper.getMainLooper());
 
-    private final ChannelTuner.Listener mChannelTunerListener = new ChannelTuner.Listener() {
-        @Override
-        public void onLoadFinished() {}
-
-        @Override
-        public void onBrowsableChannelListChanged() {
-            mMenuView.update(isActive());
-        }
-
-        @Override
-        public void onCurrentChannelUnavailable(Channel channel) {}
-
-        @Override
-        public void onChannelChanged(Channel previousChannel, Channel currentChannel) {}
-    };
-
+    private final MenuUpdater mMenuUpdater;
     private final List<MenuRow> mMenuRows = new ArrayList<>();
     private final Animator mShowAnimator;
     private final Animator mHideAnimator;
 
-    private ChannelTuner mChannelTuner;
     private boolean mKeepVisible;
     private boolean mAnimationDisabledForTest;
 
-    /**
-     * A constructor.
-     */
-    public Menu(Context context, IMenuView menuView, MenuRowFactory menuRowFactory,
-                OnMenuVisibilityChangeListener onMenuVisibilityChangeListener) {
+    @VisibleForTesting
+    Menu(Context context, IMenuView menuView, MenuRowFactory menuRowFactory,
+            OnMenuVisibilityChangeListener onMenuVisibilityChangeListener) {
+        this(context, null, menuView, menuRowFactory, onMenuVisibilityChangeListener);
+    }
+
+    public Menu(Context context, TunableTvView tvView, IMenuView menuView,
+            MenuRowFactory menuRowFactory,
+            OnMenuVisibilityChangeListener onMenuVisibilityChangeListener) {
         mMenuView = menuView;
         mTracker = TvApplication.getSingletons(context).getTracker();
+        mMenuUpdater = new MenuUpdater(context, tvView, this);
         Resources res = context.getResources();
         mShowDurationMillis = res.getInteger(R.integer.menu_show_duration);
         mOnMenuVisibilityChangeListener = onMenuVisibilityChangeListener;
@@ -152,14 +139,7 @@ public class Menu {
      * or not available any more.
      */
     public void setChannelTuner(ChannelTuner channelTuner) {
-        if (mChannelTuner != null) {
-            mChannelTuner.removeListener(mChannelTunerListener);
-        }
-        mChannelTuner = channelTuner;
-        if (mChannelTuner != null) {
-            mChannelTuner.addListener(mChannelTunerListener);
-        }
-        mMenuView.update(isActive());
+        mMenuUpdater.setChannelTuner(channelTuner);
     }
 
     private void addMenuRow(MenuRow row) {
@@ -172,7 +152,7 @@ public class Menu {
      * Call this method to end the lifetime of the menu.
      */
     public void release() {
-        setChannelTuner(null);
+        mMenuUpdater.release();
         for (MenuRow row : mMenuRows) {
             row.release();
         }
@@ -199,7 +179,9 @@ public class Menu {
         mMenuView.onShow(reason, rowIdToSelect, mAnimationDisabledForTest ? null : new Runnable() {
             @Override
             public void run() {
-                mShowAnimator.start();
+                if (isActive()) {
+                    mShowAnimator.start();
+                }
             }
         });
         scheduleHide();
@@ -209,6 +191,9 @@ public class Menu {
      * Closes the menu.
      */
     public void hide(boolean withAnimation) {
+        if (mShowAnimator.isStarted()) {
+            mShowAnimator.cancel();
+        }
         if (!isActive()) {
             return;
         }
@@ -281,6 +266,16 @@ public class Menu {
     public boolean update() {
         if (DEBUG) Log.d(TAG, "update main menu");
         return mMenuView.update(isActive());
+    }
+
+    /**
+     * Updates the menu row.
+     *
+     * <p>Returns <@code true> if the contents have been changed, otherwise {@code false}.
+     */
+    public boolean update(String rowId) {
+        if (DEBUG) Log.d(TAG, "update main menu");
+        return mMenuView.update(rowId, isActive());
     }
 
     /**

@@ -139,7 +139,7 @@ func extractComment(lines []string, lineNo int) (comment []string, rest []string
 }
 
 func extractDecl(lines []string, lineNo int) (decl string, rest []string, restLineNo int, err error) {
-	if len(lines) == 0 {
+	if len(lines) == 0 || len(lines[0]) == 0 {
 		return "", lines, lineNo, nil
 	}
 
@@ -203,15 +203,28 @@ func getNameFromDecl(decl string) (string, bool) {
 	for strings.HasPrefix(decl, "#if") || strings.HasPrefix(decl, "#elif") {
 		decl = skipLine(decl)
 	}
-	if strings.HasPrefix(decl, "struct ") {
+
+	if strings.HasPrefix(decl, "typedef ") {
 		return "", false
 	}
-	if strings.HasPrefix(decl, "#define ") {
-		// This is a preprocessor #define. The name is the next symbol.
-		decl = strings.TrimPrefix(decl, "#define ")
+
+	for _, prefix := range []string{"struct ", "enum ", "#define "} {
+		if !strings.HasPrefix(decl, prefix) {
+			continue
+		}
+
+		decl = strings.TrimPrefix(decl, prefix)
+
 		for len(decl) > 0 && decl[0] == ' ' {
 			decl = decl[1:]
 		}
+
+		// struct and enum types can be the return type of a
+		// function.
+		if prefix[0] != '#' && strings.Index(decl, "{") == -1 {
+			break
+		}
+
 		i := strings.IndexAny(decl, "( ")
 		if i < 0 {
 			return "", false
@@ -261,13 +274,12 @@ func (config *Config) parseHeader(path string) (*HeaderFile, error) {
 		return nil, err
 	}
 
-	lineNo := 0
+	lineNo := 1
 	found := false
 	for i, line := range lines {
-		lineNo++
 		if line == cppGuard {
 			lines = lines[i+1:]
-			lineNo++
+			lineNo += i + 1
 			found = true
 			break
 		}
@@ -289,9 +301,9 @@ func (config *Config) parseHeader(path string) (*HeaderFile, error) {
 	}
 
 	for i, line := range lines {
-		lineNo++
 		if len(line) > 0 {
 			lines = lines[i:]
+			lineNo += i
 			break
 		}
 	}
@@ -377,6 +389,7 @@ func (config *Config) parseHeader(path string) (*HeaderFile, error) {
 			if len(lines) == 0 {
 				return nil, errors.New("expected decl at EOF")
 			}
+			declLineNo := lineNo
 			decl, lines, lineNo, err = extractDecl(lines, lineNo)
 			if err != nil {
 				return nil, err
@@ -396,10 +409,12 @@ func (config *Config) parseHeader(path string) (*HeaderFile, error) {
 				// detected by starting with “The” or “These”.
 				if len(comment) > 0 &&
 					!strings.HasPrefix(comment[0], name) &&
+					!strings.HasPrefix(comment[0], "A "+name) &&
+					!strings.HasPrefix(comment[0], "An "+name) &&
 					!strings.HasPrefix(decl, "#define ") &&
 					!strings.HasPrefix(comment[0], "The ") &&
 					!strings.HasPrefix(comment[0], "These ") {
-					return nil, fmt.Errorf("Comment for %q doesn't seem to match just above %s:%d\n", name, path, lineNo)
+					return nil, fmt.Errorf("Comment for %q doesn't seem to match line %s:%d\n", name, path, declLineNo)
 				}
 				anchor := sanitizeAnchor(name)
 				// TODO(davidben): Enforce uniqueness. This is
@@ -529,7 +544,10 @@ func generate(outPath string, config *Config) (map[string]string, error) {
 
   <body>
     <div id="main">
-    <h2>{{.Name}}</h2>
+    <div class="title">
+      <h2>{{.Name}}</h2>
+      <a href="headers.html">All headers</a>
+    </div>
 
     {{range .Preamble}}<p>{{. | html | markupPipeWords}}</p>{{end}}
 
@@ -622,6 +640,9 @@ func generateIndex(outPath string, config *Config, headerDescriptions map[string
 
   <body>
     <div id="main">
+      <div class="title">
+        <h2>BoringSSL Headers</h2>
+      </div>
       <table>
         {{range .Sections}}
 	  <tr class="header"><td colspan="2">{{.Name}}</td></tr>

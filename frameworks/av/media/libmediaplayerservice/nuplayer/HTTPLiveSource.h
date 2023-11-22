@@ -34,10 +34,15 @@ struct NuPlayer::HTTPLiveSource : public NuPlayer::Source {
             const char *url,
             const KeyedVector<String8, String8> *headers);
 
+    virtual status_t getDefaultBufferingSettings(
+            BufferingSettings* buffering /* nonnull */) override;
+    virtual status_t setBufferingSettings(const BufferingSettings& buffering) override;
+
     virtual void prepareAsync();
     virtual void start();
 
     virtual status_t dequeueAccessUnit(bool audio, sp<ABuffer> *accessUnit);
+    virtual sp<MetaData> getFormatMeta(bool audio);
     virtual sp<AMessage> getFormat(bool audio);
 
     virtual status_t feedMoreTSData();
@@ -46,7 +51,9 @@ struct NuPlayer::HTTPLiveSource : public NuPlayer::Source {
     virtual sp<AMessage> getTrackInfo(size_t trackIndex) const;
     virtual ssize_t getSelectedTrack(media_track_type /* type */) const;
     virtual status_t selectTrack(size_t trackIndex, bool select, int64_t timeUs);
-    virtual status_t seekTo(int64_t seekTimeUs);
+    virtual status_t seekTo(
+            int64_t seekTimeUs,
+            MediaPlayerSeekMode mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC) override;
 
 protected:
     virtual ~HTTPLiveSource();
@@ -77,6 +84,7 @@ private:
     int32_t mFetchMetaDataGeneration;
     bool mHasMetadata;
     bool mMetadataSelected;
+    BufferingSettings mBufferingSettings;
 
     void onSessionNotify(const sp<AMessage> &msg);
     void pollForRawData(

@@ -16,11 +16,23 @@
 
 package android.graphics.drawable.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.res.Resources.Theme;
 import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 import android.graphics.cts.R;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Context;
@@ -39,8 +51,11 @@ import android.graphics.Shader.TileMode;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.test.InstrumentationTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
+import android.util.LayoutDirection;
 import android.util.Xml;
 import android.view.Gravity;
 
@@ -50,7 +65,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class BitmapDrawableTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BitmapDrawableTest {
     // A small value is actually making sure that the values are matching
     // exactly with the golden image.
     // We can increase the threshold if the Skia is drawing with some variance
@@ -64,13 +81,13 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
     // The target context.
     private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testConstructor() {
         // TODO: should default paint flags be left as an untested implementation detail?
         final int defaultPaintFlags = Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG |
@@ -108,6 +125,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         new BitmapDrawable((InputStream) null);
     }
 
+    @Test
     public void testAccessGravity() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -124,6 +142,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertEquals(Integer.MAX_VALUE, bitmapDrawable.getGravity());
     }
 
+    @Test
     public void testAccessMipMap() {
         Bitmap source = BitmapFactory.decodeResource(mContext.getResources(), R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -135,6 +154,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertFalse(source.hasMipMap());
     }
 
+    @Test
     public void testSetAntiAlias() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -148,6 +168,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertFalse(bitmapDrawable.getPaint().isAntiAlias());
     }
 
+    @Test
     public void testSetFilterBitmap() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -161,6 +182,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertTrue(bitmapDrawable.getPaint().isFilterBitmap());
     }
 
+    @Test
     public void testIsFilterBitmap() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -177,6 +199,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertEquals(bitmapDrawable.isFilterBitmap(), bitmapDrawable.getPaint().isFilterBitmap());
     }
 
+    @Test
     public void testSetDither() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -191,6 +214,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
 
     }
 
+    @Test
     public void testAccessTileMode() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -231,6 +255,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertNotSame(oldShader, bitmapDrawable.getPaint().getShader());
     }
 
+    @Test
     public void testGetChangingConfigurations() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -244,12 +269,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertEquals(2, bitmapDrawable.getChangingConfigurations());
     }
 
-    public void testOnBoundsChange() {
-        // Do not test this API. it is callbacks which:
-        // 1. The callback machanism has been tested in super class
-        // 2. The functionality is implmentation details, no need to test
-    }
-
+    @Test
     public void testSetAlpha() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -270,6 +290,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertEquals(0, bitmapDrawable.getPaint().getAlpha());
     }
 
+    @Test
     public void testSetColorFilter() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -284,6 +305,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertNull(bitmapDrawable.getPaint().getColorFilter());
     }
 
+    @Test
     public void testSetTint() {
         final InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         final BitmapDrawable d = new BitmapDrawable(source);
@@ -296,6 +318,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         d.setTintMode(null);
     }
 
+    @Test
     public void testGetOpacity() {
         BitmapDrawable bitmapDrawable = new BitmapDrawable();
         assertEquals(Gravity.FILL, bitmapDrawable.getGravity());
@@ -316,6 +339,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         assertEquals(PixelFormat.TRANSLUCENT, bitmapDrawable.getOpacity());
     }
 
+    @Test
     public void testGetConstantState() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -330,6 +354,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetIntrinsicSize() {
         BitmapDrawable bitmapDrawable = new BitmapDrawable();
         assertEquals(0, bitmapDrawable.getIntrinsicWidth());
@@ -349,6 +374,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testSetTargetDensity() {
         int sourceWidth, targetWidth;
         int sourceHeight, targetHeight;
@@ -402,6 +428,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testInflate() throws IOException, XmlPullParserException {
         BitmapDrawable bitmapDrawable = new BitmapDrawable();
 
@@ -464,6 +491,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testDraw() {
         InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
         BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
@@ -479,26 +507,34 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testMutate() {
         Resources resources = mContext.getResources();
         BitmapDrawable d1 = (BitmapDrawable) resources.getDrawable(R.drawable.testimage);
         BitmapDrawable d2 = (BitmapDrawable) resources.getDrawable(R.drawable.testimage);
         BitmapDrawable d3 = (BitmapDrawable) resources.getDrawable(R.drawable.testimage);
+        int restoreAlpha = d1.getAlpha();
 
-        d1.setAlpha(100);
-        assertEquals(100, d1.getPaint().getAlpha());
-        assertEquals(100, d2.getPaint().getAlpha());
-        assertEquals(100, d3.getPaint().getAlpha());
+        try {
+            // verify bad behavior - modify before mutate pollutes other drawables
+            d1.setAlpha(100);
+            assertEquals(100, d1.getPaint().getAlpha());
+            assertEquals(100, d2.getPaint().getAlpha());
+            assertEquals(100, d3.getPaint().getAlpha());
 
-        d1.mutate();
-        d1.setAlpha(200);
-        assertEquals(200, d1.getPaint().getAlpha());
-        assertEquals(100, d2.getPaint().getAlpha());
-        assertEquals(100, d3.getPaint().getAlpha());
-        d2.setAlpha(50);
-        assertEquals(200, d1.getPaint().getAlpha());
-        assertEquals(50, d2.getPaint().getAlpha());
-        assertEquals(50, d3.getPaint().getAlpha());
+            d1.mutate();
+            d1.setAlpha(200);
+            assertEquals(200, d1.getPaint().getAlpha());
+            assertEquals(100, d2.getPaint().getAlpha());
+            assertEquals(100, d3.getPaint().getAlpha());
+            d2.setAlpha(50);
+            assertEquals(200, d1.getPaint().getAlpha());
+            assertEquals(50, d2.getPaint().getAlpha());
+            assertEquals(50, d3.getPaint().getAlpha());
+        } finally {
+            // restore externally visible state, since other tests may use the drawable
+            resources.getDrawable(R.drawable.testimage).setAlpha(restoreAlpha);
+        }
     }
 
     private static final int[] DENSITY_VALUES = new int[] {
@@ -506,29 +542,26 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
     };
 
     private static final int[] DENSITY_IMAGES = new int[] {
-            R.drawable.bitmap_density
+            R.drawable.bitmap_density,
+            R.drawable.bitmap_shader_density,
+            R.drawable.bitmap_shader_am_density,
     };
 
-    private static final int[][] DENSITY_GOLDEN_IMAGES = new int[][] {
-            {
-                    R.drawable.bitmap_density_golden_160,
-                    R.drawable.bitmap_density_golden_80,
-                    R.drawable.bitmap_density_golden_320,
-            }
-    };
-
+    @Test
     public void testPreloadDensity() throws XmlPullParserException, IOException {
         final Resources res = mContext.getResources();
         final int densityDpi = res.getConfiguration().densityDpi;
         try {
-            testPreloadDensityInner(res, DENSITY_IMAGES[0], DENSITY_VALUES, DENSITY_GOLDEN_IMAGES[0]);
+            for (int i = 0; i < DENSITY_IMAGES.length; i++) {
+                verifyPreloadDensityInner(res, DENSITY_IMAGES[i], DENSITY_VALUES);
+            }
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
     }
 
-    private void testPreloadDensityInner(Resources res, int sourceResId, int[] densities,
-            int[] goldenResIds) throws XmlPullParserException, IOException {
+    private void verifyPreloadDensityInner(Resources res, int sourceResId, int[] densities)
+            throws XmlPullParserException, IOException {
         final Rect tempPadding = new Rect();
 
         // Capture initial state at preload density.
@@ -544,7 +577,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         final int origHeight = preloadedDrawable.getIntrinsicHeight();
         assertFalse(preloadedDrawable.getPadding(tempPadding));
 
-        compareOrSave(preloadedDrawable, preloadDensityDpi, sourceResId, goldenResIds[0]);
+        compareOrSave(preloadedDrawable, preloadDensityDpi, sourceResId);
 
         for (int i = 1; i < densities.length; i++) {
             final int scaledDensityDpi = densities[i];
@@ -553,6 +586,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
 
             final BitmapDrawable scaledDrawable =
                     (BitmapDrawable) preloadedConstantState.newDrawable(res);
+            scaledDrawable.setLayoutDirection(LayoutDirection.RTL);
 
             // Sizes are rounded.
             assertEquals(Math.round(origWidth * scale), scaledDrawable.getIntrinsicWidth());
@@ -561,7 +595,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
             // Bitmaps have no padding.
             assertFalse(scaledDrawable.getPadding(tempPadding));
 
-            compareOrSave(scaledDrawable, scaledDensityDpi, sourceResId, goldenResIds[i]);
+            compareOrSave(scaledDrawable, scaledDensityDpi, sourceResId);
 
             // Ensure theme density is applied correctly. Unlike most
             // drawables, we don't have any loss of accuracy because density
@@ -576,7 +610,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         }
     }
 
-    private void compareOrSave(Drawable dr, int densityDpi, int sourceResId, int goldenResId) {
+    private void compareOrSave(Drawable dr, int densityDpi, int sourceResId) {
         final int width = dr.getIntrinsicWidth();
         final int height = dr.getIntrinsicHeight();
         final Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -589,6 +623,7 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         if (DBG_DUMP_PNG) {
             saveGoldenImage(bitmap, sourceResId, densityDpi);
         } else {
+            final int goldenResId = getGoldenImageResId(sourceResId, densityDpi);
             final Bitmap golden = BitmapFactory.decodeResource(
                     mContext.getResources(), goldenResId);
             DrawableTestUtils.compareImages(densityDpi + " dpi", golden, bitmap,
@@ -596,28 +631,32 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
         }
     }
 
+    private int getGoldenImageResId(int sourceResId, int densityDpi) {
+        final String name = getGoldenImageName(sourceResId, densityDpi);
+        return mContext.getResources().getIdentifier(name, "drawable", mContext.getPackageName());
+    }
+
+    private String getGoldenImageName(int sourceResId, int densityDpi) {
+        return mContext.getResources().getResourceEntryName(sourceResId) + "_golden_" + densityDpi;
+    }
+
     private void saveGoldenImage(Bitmap bitmap, int sourceResId, int densityDpi) {
         // Save the image to the disk.
         FileOutputStream out = null;
 
         try {
-            final String outputFolder = "/sdcard/temp/";
-            final File folder = new File(outputFolder);
-            if (!folder.exists()) {
-                folder.mkdir();
+            final File outputFolder = new File("/sdcard/temp/");
+            if (!outputFolder.exists()) {
+                outputFolder.mkdir();
             }
 
-            final String sourceFilename = new File(
-                    mContext.getResources().getString(sourceResId)).getName();
-            final String sourceTitle = sourceFilename.substring(0, sourceFilename.lastIndexOf("."));
-            final String outputTitle = sourceTitle + "_golden_" + densityDpi;
-            final String outputFilename = outputFolder + outputTitle + ".png";
-            final File outputFile = new File(outputFilename);
-            if (!outputFile.exists()) {
-                outputFile.createNewFile();
+            final String goldenFilename = getGoldenImageName(sourceResId, densityDpi) + ".png";
+            final File goldenFile = new File(outputFolder, goldenFilename);
+            if (!goldenFile.exists()) {
+                goldenFile.createNewFile();
             }
 
-            out = new FileOutputStream(outputFile, false);
+            out = new FileOutputStream(goldenFile, false);
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
         } catch (Exception e) {
             e.printStackTrace();

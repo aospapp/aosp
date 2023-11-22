@@ -258,9 +258,9 @@ class NightlyTest(TimedEventTestBase):
         self.doTestDeadlineUpdate(days_to_jump=0, hours_to_jump=1)
 
 
-    def testGetBranchBuilds(self):
-        """Ensure Nightly gets most recent builds in last day."""
-        self.doTestGetBranchBuilds(days=1)
+    #def testGetBranchBuilds(self):
+    #    """Ensure Nightly gets most recent builds in last day."""
+    #    self.doTestGetBranchBuilds(days=1)
 
 
     def testFilterTasks(self):
@@ -391,9 +391,9 @@ class WeeklyTest(TimedEventTestBase):
         self.doTestDeadlineUpdate(days_to_jump=1)
 
 
-    def testGetBranchBuilds(self):
-        """Ensure Weekly gets most recent builds in last 7 days."""
-        self.doTestGetBranchBuilds(days=7)
+    #def testGetBranchBuilds(self):
+    #    """Ensure Weekly gets most recent builds in last 7 days."""
+    #    self.doTestGetBranchBuilds(days=7)
 
 
     def testFilterTasks(self):

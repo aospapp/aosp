@@ -199,7 +199,7 @@ public class NoBandChannelHelperTest {
      * {@link com.android.server.wifi.scanner.NoBandChannelHelper.NoBandChannelCollection}.
      */
     @SmallTest
-    public static class KnownBandsChannelCollectionTest {
+    public static class NoBandsChannelCollectionTest {
         ChannelHelper.ChannelCollection mChannelCollection;
 
         /**
@@ -221,10 +221,11 @@ public class NoBandChannelHelperTest {
             assertThat(bucketSettings, channelsAre());
 
             assertEquals(Collections.<Integer>emptySet(),
-                    mChannelCollection.getSupplicantScanFreqs());
+                    mChannelCollection.getScanFreqs());
 
             assertTrue(mChannelCollection.isEmpty());
             assertFalse(mChannelCollection.containsChannel(2400));
+            assertFalse(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -240,10 +241,11 @@ public class NoBandChannelHelperTest {
             assertThat(bucketSettings, channelsAre());
 
             assertEquals(Collections.<Integer>emptySet(),
-                    mChannelCollection.getSupplicantScanFreqs());
+                    mChannelCollection.getScanFreqs());
 
             assertTrue(mChannelCollection.isEmpty());
             assertFalse(mChannelCollection.containsChannel(2400));
+            assertFalse(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -257,11 +259,12 @@ public class NoBandChannelHelperTest {
             mChannelCollection.fillBucketSettings(bucketSettings, Integer.MAX_VALUE);
             assertThat(bucketSettings, bandIs(ALL_BANDS));
 
-            assertNull(mChannelCollection.getSupplicantScanFreqs());
+            assertNull(mChannelCollection.getScanFreqs());
 
             assertFalse(mChannelCollection.isEmpty());
             assertTrue(mChannelCollection.containsChannel(2400));
             assertTrue(mChannelCollection.containsChannel(5150));
+            assertTrue(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -276,11 +279,12 @@ public class NoBandChannelHelperTest {
             assertThat(bucketSettings, channelsAre(2400));
 
             assertEquals(new HashSet<Integer>(Arrays.asList(2400)),
-                    mChannelCollection.getSupplicantScanFreqs());
+                    mChannelCollection.getScanFreqs());
 
             assertFalse(mChannelCollection.isEmpty());
             assertTrue(mChannelCollection.containsChannel(2400));
             assertFalse(mChannelCollection.containsChannel(5150));
+            assertFalse(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -296,11 +300,12 @@ public class NoBandChannelHelperTest {
             assertThat(bucketSettings, channelsAre(2400, 2450));
 
             assertEquals(new HashSet<Integer>(Arrays.asList(2400, 2450)),
-                    mChannelCollection.getSupplicantScanFreqs());
+                    mChannelCollection.getScanFreqs());
 
             assertFalse(mChannelCollection.isEmpty());
             assertTrue(mChannelCollection.containsChannel(2400));
             assertFalse(mChannelCollection.containsChannel(5150));
+            assertFalse(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -315,11 +320,12 @@ public class NoBandChannelHelperTest {
             mChannelCollection.fillBucketSettings(bucketSettings, Integer.MAX_VALUE);
             assertThat(bucketSettings, bandIs(ALL_BANDS));
 
-            assertNull(mChannelCollection.getSupplicantScanFreqs());
+            assertNull(mChannelCollection.getScanFreqs());
 
             assertFalse(mChannelCollection.isEmpty());
             assertTrue(mChannelCollection.containsChannel(2400));
             assertTrue(mChannelCollection.containsChannel(5150));
+            assertTrue(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -334,11 +340,12 @@ public class NoBandChannelHelperTest {
             mChannelCollection.fillBucketSettings(bucketSettings, Integer.MAX_VALUE);
             assertThat(bucketSettings, bandIs(ALL_BANDS));
 
-            assertNull(mChannelCollection.getSupplicantScanFreqs());
+            assertNull(mChannelCollection.getScanFreqs());
 
             assertFalse(mChannelCollection.isEmpty());
             assertTrue(mChannelCollection.containsChannel(2400));
             assertTrue(mChannelCollection.containsChannel(5150));
+            assertTrue(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -353,12 +360,13 @@ public class NoBandChannelHelperTest {
             mChannelCollection.fillBucketSettings(bucketSettings, Integer.MAX_VALUE);
             assertThat(bucketSettings, bandIs(WifiScanner.WIFI_BAND_BOTH_WITH_DFS));
 
-            assertNull(mChannelCollection.getSupplicantScanFreqs());
+            assertNull(mChannelCollection.getScanFreqs());
 
             assertFalse(mChannelCollection.isEmpty());
             assertTrue(mChannelCollection.containsChannel(2400));
             assertTrue(mChannelCollection.containsChannel(5150));
             assertTrue(mChannelCollection.containsChannel(5600));
+            assertTrue(mChannelCollection.isAllChannels());
         }
 
         /**
@@ -373,6 +381,7 @@ public class NoBandChannelHelperTest {
             WifiNative.BucketSettings bucketSettings = new WifiNative.BucketSettings();
             mChannelCollection.fillBucketSettings(bucketSettings, 2);
             assertThat(bucketSettings, bandIs(ALL_BANDS));
+            assertFalse(mChannelCollection.isAllChannels()); // can't determine from just channels
         }
 
         /**
@@ -387,6 +396,7 @@ public class NoBandChannelHelperTest {
             WifiNative.BucketSettings bucketSettings = new WifiNative.BucketSettings();
             mChannelCollection.fillBucketSettings(bucketSettings, 2);
             assertThat(bucketSettings, bandIs(ALL_BANDS));
+            assertFalse(mChannelCollection.isAllChannels()); // can't determine from just channels
         }
     }
 }

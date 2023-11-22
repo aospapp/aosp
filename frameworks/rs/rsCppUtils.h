@@ -17,42 +17,35 @@
 #ifndef ANDROID_RS_CPP_UTILS_H
 #define ANDROID_RS_CPP_UTILS_H
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include <utils/Log.h>
-#include <utils/String8.h>
-#include <utils/Vector.h>
-#include <cutils/atomic.h>
-#endif
-
 #include <stdint.h>
-
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
-
 #include <math.h>
-
-#ifdef RS_COMPATIBILITY_LIB
-#include <android/log.h>
-#endif
-
-#if defined(RS_SERVER) || defined(RS_COMPATIBILITY_LIB)
-
-#define ATRACE_TAG
-#define ATRACE_CALL(...)
 
 #include <string>
 #include <vector>
 #include <algorithm>
 
+#include <android/log.h>
+#include <sys/system_properties.h>
+
+#ifndef ALOGE
 #define ALOGE(...) \
     __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__);
+#endif
+#ifndef ALOGW
 #define ALOGW(...) \
     __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__);
+#endif
+#ifndef ALOGD
 #define ALOGD(...) \
     __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__);
+#endif
+#ifndef ALOGV
 #define ALOGV(...) \
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, __VA_ARGS__);
+#endif
 
 #if defined(_WIN32)
 #define OS_PATH_SEPARATOR '\\'
@@ -60,95 +53,9 @@
 #define OS_PATH_SEPARATOR '/'
 #endif
 
+
 namespace android {
-
-    // server has no Vector or String8 classes; implement on top of STL
-    class String8: public std::string {
-    public:
-    String8(const char *ptr) : std::string(ptr) {
-
-        }
-    String8(const char *ptr, size_t len) : std::string(ptr, len) {
-
-        }
-    String8() : std::string() {
-
-        }
-
-        const char* string() const {
-            return this->c_str();
-        }
-
-        void setTo(const char* str, ssize_t len) {
-            this->assign(str, len);
-        }
-        void setTo(const char* str) {
-            this->assign(str);
-        }
-        String8 getPathDir(void) const {
-            const char* cp;
-            const char*const str = this->c_str();
-
-            cp = strrchr(str, OS_PATH_SEPARATOR);
-            if (cp == NULL)
-                return String8("");
-            else
-                return String8(str, cp - str);
-        }
-    };
-
-    template <class T> class Vector: public std::vector<T> {
-    public:
-        void push(T obj) {
-            this->push_back(obj);
-        }
-        void removeAt(uint32_t index) {
-            this->erase(this->begin() + index);
-        }
-        ssize_t add(const T& obj) {
-            this->push_back(obj);
-            return this->size() - 1;
-        }
-        void setCapacity(ssize_t capacity) {
-            this->resize(capacity);
-        }
-
-        T* editArray() {
-            return (T*)(this->begin());
-        }
-
-        const T* array() {
-            return this->data();
-        }
-
-    };
-
-    template<> class Vector<bool>: public std::vector<char> {
-    public:
-        void push(bool obj) {
-            this->push_back(obj);
-        }
-        void removeAt(uint32_t index) {
-            this->erase(this->begin() + index);
-        }
-        ssize_t add(const bool& obj) {
-            this->push_back(obj);
-            return this->size() - 1;
-        }
-        void setCapacity(ssize_t capacity) {
-            this->resize(capacity);
-        }
-
-        bool* editArray() {
-            return (bool*)(&*this->begin());
-        }
-
-        const bool* array() {
-            return (const bool*)(&*this->begin());
-        }
-    };
-
-}
+namespace renderscript {
 
 typedef int64_t nsecs_t;  // nano-seconds
 
@@ -185,14 +92,6 @@ static inline nsecs_t nanoseconds_to_milliseconds(nsecs_t secs)
 {
     return secs/1000000;
 }
-
-#endif // RS_SERVER || RS_COMPATIBILITY_LIB
-
-namespace android {
-namespace renderscript {
-
-const char * rsuCopyString(const char *name);
-const char * rsuCopyString(const char *name, size_t len);
 
 #if 1
 #define rsAssert(v) do {if(!(v)) ALOGE("rsAssert failed: %s, in %s at %i", #v, __FILE__, __LINE__);} while (0)
@@ -287,6 +186,8 @@ static inline uint32_t rsBoxFilter8888(uint32_t i1, uint32_t i2, uint32_t i3, ui
     return (r >> 2) | ((g >> 2) << 8) | ((b >> 2) << 16) | ((a >> 2) << 24);
 }
 
+const char * rsuCopyString(const char *name);
+const char * rsuCopyString(const char *name, size_t len);
 const char* rsuJoinStrings(int n, const char* const* strs);
 
 #ifndef RS_COMPATIBILITY_LIB
@@ -297,9 +198,10 @@ const char* rsuJoinStrings(int n, const char* const* strs);
 bool rsuExecuteCommand(const char *exe, int nArgs, const char * const *args);
 #endif
 
+int property_get(const char *key, char *value, const char *default_value);
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif //ANDROID_RS_OBJECT_BASE_H
 

@@ -1,7 +1,9 @@
 include_rules = [
-  '+core/include',
-  '+javascript/IJavaScript.h',
+  '+core',
   '+public',
   '+v8',
-  '+xfa/include',
-]
+  '+xfa/fwl',
+  '+xfa/fxbarcode',
+  '+xfa/fxfa',
+  '+xfa/fxgraphics',
+  ]

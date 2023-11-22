@@ -88,7 +88,7 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
         showUserMessage(String.format("Please connect an external sensor to device in %d seconds.",
                     CONNECTION_TIMEOUT_SEC));
 
-        Assert.assertTrue("Cannot detect sensor connection.", mCallback.waitForConnection());
+        Assert.assertTrue("Cannot detect sensor connection.", mCallback.waitForConnection(null));
         mSensorConnected = true;
         mSensorId = mCallback.getSensorId();
         return "OnConnect: Success";
@@ -143,7 +143,8 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
 
         showUserMessage(String.format("Please connect the same sensor that was previously " +
                     "connected in %d seconds", CONNECTION_TIMEOUT_SEC));
-        Assert.assertTrue("Cannot detect sensor reconnection.", mCallback.waitForConnection());
+        Assert.assertTrue("Cannot detect sensor reconnection.",
+                mCallback.waitForConnection(mSensorId));
 
         Integer sensorId = mCallback.getSensorId();
         boolean match = mSensorId != null && sensorId != null &&
@@ -155,16 +156,19 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
     private class Callback extends SensorManager.DynamicSensorCallback {
 
         private Sensor mSensor = null;
+        private Integer mExpectSensorId = null;
         private CountDownLatch mConnectLatch;
         private CountDownLatch mDisconnectLatch;
 
         @Override
         public void onDynamicSensorConnected(Sensor sensor) {
-            mSensor = sensor;
-            Log.d(TAG, "Sensor Connected: " + mSensor);
+            Log.d(TAG, "Sensor Connected: " + sensor);
 
-            if (mConnectLatch != null) {
-                mConnectLatch.countDown();
+            if (mExpectSensorId == null || mExpectSensorId == sensor.getId()) {
+                mSensor = sensor;
+                if (mConnectLatch != null) {
+                    mConnectLatch.countDown();
+                }
             }
         }
 
@@ -178,8 +182,9 @@ public class DynamicSensorDiscoveryTestActivity extends SensorCtsVerifierTestAct
             }
         }
 
-        public boolean waitForConnection() {
+        public boolean waitForConnection(Integer sensorId) {
             boolean ret;
+            mExpectSensorId = sensorId;
             mConnectLatch = new CountDownLatch(1);
             try {
                 ret = mConnectLatch.await(CONNECTION_TIMEOUT_SEC, TimeUnit.SECONDS);

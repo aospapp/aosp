@@ -5,7 +5,6 @@
 AUTHOR = "gwendal"
 NAME = "StorageQualTrim.quick"
 ATTRIBUTES = "suite:kernel_weekly_regression, suite:storage_qual_quick"
-SUITE = "storage_qual_quick, kernel_weekly_regression"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
@@ -31,7 +30,7 @@ SERVER_SEQUENCES = [
     sequence.SequenceJob(
             'hardware_StorageQualTrimStress',
             {'tag': 'suspend', 'power_command': 'suspend'},
-            iteration=2, duration=250),
+            iteration=2, duration=sequence.HOUR_IN_SECS / 2),
     sequence.SequenceJob(
             'hardware_StorageQualBase',
             {'tag': 'after', 'client_tag': 'after', 'crypto_runtime': 30}),

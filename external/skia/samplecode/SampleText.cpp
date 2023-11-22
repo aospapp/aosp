@@ -12,7 +12,6 @@
 #include "SkWriteBuffer.h"
 #include "SkGradientShader.h"
 #include "SkGraphics.h"
-#include "SkImageDecoder.h"
 #include "SkPath.h"
 #include "SkRandom.h"
 #include "SkRegion.h"
@@ -22,10 +21,7 @@
 #include "SkColorFilter.h"
 #include "SkTime.h"
 #include "SkTypeface.h"
-#include "SkXfermode.h"
-
 #include "SkStream.h"
-#include "SkXMLParser.h"
 
 static const struct {
     const char* fName;
@@ -49,7 +45,8 @@ static void DrawTheText(SkCanvas* canvas, const char text[], size_t length, SkSc
         SkScalar xpos = x;
         SkASSERT(length <= SK_ARRAY_COUNT(pts));
         for (size_t i = 0; i < length; i++) {
-            pts[i].set(xpos, y), xpos += paint.getTextSize();
+            pts[i].set(xpos, y);
+            xpos += paint.getTextSize();
         }
         canvas->drawPosText(text, length, pts, paint);
     }
@@ -124,7 +121,7 @@ protected:
 
   //      canvas->drawText(style, strlen(style), SkIntToScalar(20), SkIntToScalar(20), paint);
 
-        SkSafeUnref(paint.setTypeface(SkTypeface::CreateFromFile("/skimages/samplefont.ttf")));
+        paint.setTypeface(SkTypeface::MakeFromFile("/skimages/samplefont.ttf"));
         paint.setAntiAlias(true);
         paint.setFlags(paint.getFlags() | gHints[index].fFlags);
 

@@ -5,7 +5,6 @@
 AUTHOR = 'quiche'
 NAME = 'platform_LogNonKernelKmsg'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

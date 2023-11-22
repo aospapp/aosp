@@ -46,9 +46,9 @@ final class ColorCutQuantizer {
     private static final String LOG_TAG = "ColorCutQuantizer";
     private static final boolean LOG_TIMINGS = false;
 
-    private static final int COMPONENT_RED = -3;
-    private static final int COMPONENT_GREEN = -2;
-    private static final int COMPONENT_BLUE = -1;
+    static final int COMPONENT_RED = -3;
+    static final int COMPONENT_GREEN = -2;
+    static final int COMPONENT_BLUE = -1;
 
     private static final int QUANTIZE_WORD_WIDTH = 5;
     private static final int QUANTIZE_WORD_MASK = (1 << QUANTIZE_WORD_WIDTH) - 1;
@@ -289,7 +289,7 @@ final class ColorCutQuantizer {
         }
 
         /**
-         * Split this color box at the mid-point along it's longest dimension
+         * Split this color box at the mid-point along its longest dimension
          *
          * @return the new ColorBox
          */
@@ -343,7 +343,7 @@ final class ColorCutQuantizer {
 
             // We need to sort the colors in this box based on the longest color dimension.
             // As we can't use a Comparator to define the sort logic, we modify each color so that
-            // it's most significant is the desired dimension
+            // its most significant is the desired dimension
             modifySignificantOctet(colors, longestDimension, mLowerIndex, mUpperIndex);
 
             // Now sort... Arrays.sort uses a exclusive toIndex so we need to add 1
@@ -356,7 +356,9 @@ final class ColorCutQuantizer {
             for (int i = mLowerIndex, count = 0; i <= mUpperIndex; i++)  {
                 count += hist[colors[i]];
                 if (count >= midPoint) {
-                    return i;
+                    // we never want to split on the upperIndex, as this will result in the same
+                    // box
+                    return Math.min(mUpperIndex - 1, i);
                 }
             }
 
@@ -398,7 +400,7 @@ final class ColorCutQuantizer {
      *
      * @see Vbox#findSplitPoint()
      */
-    private static void modifySignificantOctet(final int[] a, final int dimension,
+    static void modifySignificantOctet(final int[] a, final int dimension,
             final int lower, final int upper) {
         switch (dimension) {
             case COMPONENT_RED:
@@ -469,7 +471,7 @@ final class ColorCutQuantizer {
     /**
      * Quantized RGB888 values to have a word width of {@value #QUANTIZE_WORD_WIDTH}.
      */
-    private static int approximateToRgb888(int r, int g, int b) {
+    static int approximateToRgb888(int r, int g, int b) {
         return Color.rgb(modifyWordWidth(r, QUANTIZE_WORD_WIDTH, 8),
                 modifyWordWidth(g, QUANTIZE_WORD_WIDTH, 8),
                 modifyWordWidth(b, QUANTIZE_WORD_WIDTH, 8));
@@ -482,30 +484,29 @@ final class ColorCutQuantizer {
     /**
      * @return red component of the quantized color
      */
-    private static int quantizedRed(int color) {
+    static int quantizedRed(int color) {
         return (color >> (QUANTIZE_WORD_WIDTH + QUANTIZE_WORD_WIDTH)) & QUANTIZE_WORD_MASK;
     }
 
     /**
      * @return green component of a quantized color
      */
-    private static int quantizedGreen(int color) {
+    static int quantizedGreen(int color) {
         return (color >> QUANTIZE_WORD_WIDTH) & QUANTIZE_WORD_MASK;
     }
 
     /**
      * @return blue component of a quantized color
      */
-    private static int quantizedBlue(int color) {
+    static int quantizedBlue(int color) {
         return color & QUANTIZE_WORD_MASK;
     }
 
     private static int modifyWordWidth(int value, int currentWidth, int targetWidth) {
         final int newValue;
         if (targetWidth > currentWidth) {
-            // If we're approximating up in word width, we'll use scaling to approximate the
-            // new value
-            newValue = value * ((1 << targetWidth) - 1) / ((1 << currentWidth) - 1);
+            // If we're approximating up in word width, we'll shift up
+            newValue = value << (targetWidth - currentWidth);
         } else {
             // Else, we will just shift and keep the MSB
             newValue = value >> (currentWidth - targetWidth);

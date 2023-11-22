@@ -19,36 +19,46 @@
 
 #include <sysutils/FrameworkListener.h>
 
-#include "NetworkController.h"
-#include "TetherController.h"
-#include "NatController.h"
-#include "PppController.h"
-#include "SoftapController.h"
 #include "BandwidthController.h"
+#include "ClatdController.h"
+#include "EventReporter.h"
+#include "FirewallController.h"
 #include "IdletimerController.h"
 #include "InterfaceController.h"
+#include "IptablesRestoreController.h"
+#include "NatController.h"
+#include "NetworkController.h"
+#include "PppController.h"
 #include "ResolverController.h"
-#include "FirewallController.h"
-#include "ClatdController.h"
 #include "StrictController.h"
+#include "TetherController.h"
+#include "XfrmController.h"
 
 namespace android {
 namespace net {
 
-struct Controllers {
+class Controllers {
+public:
     Controllers();
 
     NetworkController netCtrl;
     TetherController tetherCtrl;
     NatController natCtrl;
     PppController pppCtrl;
-    SoftapController softapCtrl;
     BandwidthController bandwidthCtrl;
     IdletimerController idletimerCtrl;
     ResolverController resolverCtrl;
     FirewallController firewallCtrl;
     ClatdController clatdCtrl;
     StrictController strictCtrl;
+    EventReporter eventReporter;
+    IptablesRestoreController iptablesRestoreCtrl;
+    XfrmController xfrmCtrl;
+
+    void init();
+
+private:
+    void initIptablesRules();
 };
 
 extern Controllers* gCtls;

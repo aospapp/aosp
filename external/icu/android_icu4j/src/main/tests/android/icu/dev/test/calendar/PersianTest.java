@@ -1,29 +1,26 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2012, International Business Machines Corporation and         *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2012-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package android.icu.dev.test.calendar;
 import java.util.Date;
 
+import org.junit.Test;
+
 import android.icu.util.Calendar;
 import android.icu.util.PersianCalendar;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
-public class PersianTest extends CalendarTest {
-
-    public static void main(String args[]) throws Exception {
-        new PersianTest().run(args);
-    }
-
+public class PersianTest extends CalendarTestFmwk {
     /**
      * Test basic mapping to and from Gregorian.
      */
+    @Test
     public void TestMapping() {
         final int[] DATA = {
             // (Note: months are 1-based)

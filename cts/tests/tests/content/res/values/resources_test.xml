@@ -22,6 +22,10 @@
           will be displayed in the app launcher and elsewhere. -->
      <dimen name="app_icon_size">48px</dimen>
      <dimen name="toast_y_offset">64dip</dimen>
+    <dimen name="pos_dimen_149">1.49px</dimen>
+    <dimen name="pos_dimen_151">1.51px</dimen>
+    <dimen name="neg_dimen_149">-1.49px</dimen>
+    <dimen name="neg_dimen_151">-1.51px</dimen>
      <plurals name="plurals_test">
         <item quantity="one">A dog</item>
         <item quantity="other">Some dogs</item>

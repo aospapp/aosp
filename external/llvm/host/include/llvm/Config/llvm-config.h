@@ -27,7 +27,11 @@
 #define LLVM_DATADIR "/opt/llvm-android/share/llvm"
 
 /* Target triple LLVM will generate code for by default */
+#if defined(__APPLE__)
+#define LLVM_DEFAULT_TARGET_TRIPLE "x86_64-apple-darwin"
+#else
 #define LLVM_DEFAULT_TARGET_TRIPLE "x86_64-unknown-linux"
+#endif
 
 /* Installation directory for documentation */
 #define LLVM_DOCSDIR "/opt/llvm-android/share/doc/llvm"
@@ -102,10 +106,10 @@
 #define LLVM_VERSION_MINOR 8
 
 /* Patch version of the LLVM API */
-#define LLVM_VERSION_PATCH 256229
+#define LLVM_VERSION_PATCH 275480
 
 /* LLVM version string */
-#define LLVM_VERSION_STRING "3.8.256229"
+#define LLVM_VERSION_STRING "3.8.275480"
 
 #include "llvm/Config/llvm-platform-config.h"
 

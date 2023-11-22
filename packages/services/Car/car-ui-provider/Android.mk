@@ -27,8 +27,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CarUiProvider
 LOCAL_PROGUARD_ENABLED := disabled
-
-LOCAL_SDK_VERSION := current
+LOCAL_DEX_PREOPT := nostripping
 
 include packages/services/Car/car-support-lib/car-support.mk
 

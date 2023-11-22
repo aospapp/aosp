@@ -59,34 +59,21 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.hosts import servo_host
+from autotest_lib.server.lib import status_history
 from autotest_lib.site_utils import gmail_lib
-from autotest_lib.site_utils import status_history
 from autotest_lib.site_utils.suite_scheduler import constants
 
 
-# The pools in the Lab that are actually of interest.
-#
-# These are general purpose pools of DUTs that are considered
-# identical for purposes of testing.  That is, a device in one of
-# these pools can be shifted to another pool at will for purposes
-# of supplying test demand.
-#
-# Devices in these pools are not allowed to have special-purpose
-# attachments, or to be part of in any kind of custom fixture.
-# Devices in these pools are also required to reside in areas
-# managed by the Platforms team (i.e. at the time of this writing,
-# only in "Atlantis" or "Destiny").
-#
-# _CRITICAL_POOLS - Pools that must be kept fully supplied in order
-#     to guarantee timely completion of tests from builders.
-# _SPARE_POOL - A low priority pool that is allowed to provide
-#     spares to replace broken devices in the critical pools.
-# _MANAGED_POOLS - The set of all the general purpose pools
-#     monitored by this script.
+CRITICAL_POOLS = constants.Pools.CRITICAL_POOLS
+SPARE_POOL = constants.Pools.SPARE_POOL
+MANAGED_POOLS = constants.Pools.MANAGED_POOLS
 
-_CRITICAL_POOLS = ['bvt', 'cq', 'continuous']
-_SPARE_POOL = 'suites'
-_MANAGED_POOLS = _CRITICAL_POOLS + [_SPARE_POOL]
+# _EXCLUDED_LABELS - A set of labels that disqualify a DUT from
+#     monitoring by this script.  Currently, we're excluding any
+#     'adb' host, because we're not ready to monitor Android or
+#     Brillo hosts.
+
+_EXCLUDED_LABELS = set(['adb'])
 
 # _DEFAULT_DURATION:
 #     Default value used for the --duration command line option.
@@ -121,6 +108,10 @@ _LOG_FORMAT = '%(asctime)s | %(levelname)-10s | %(message)s'
 _HOSTNAME_PATTERN = re.compile(
         r'(chromeos\d+)-row(\d+)-rack(\d+)-host(\d+)')
 
+# Default entry for managed pools.
+
+_MANAGED_POOL_DEFAULT = 'all_pools'
+
 
 class _PoolCounts(object):
     """Maintains a set of `HostJobHistory` objects for a pool.
@@ -135,16 +126,18 @@ class _PoolCounts(object):
       * `get_working_list()`
       * `get_broken()`
       * `get_broken_list()`
+      * `get_idle()`
+      * `get_idle_list()`
     The first time any one of these methods is called, it causes
     multiple RPC calls with a relatively expensive set of database
     queries.  However, the results of the queries are cached in the
     individual `HostJobHistory` objects, so only the first call
     actually pays the full cost.
 
-    Additionally, `get_working_list()` and `get_broken_list()` both
-    cache their return values to avoid recalculating lists at every
-    call; this caching is separate from the caching of RPC results
-    described above.
+    Additionally, `get_working_list()`, `get_broken_list()` and
+    `get_idle_list()` cache their return values to avoid recalculating
+    lists at every call; this caching is separate from the caching of RPC
+    results described above.
 
     This class is deliberately constructed to delay the RPC cost
     until the accessor methods are called (rather than to query in
@@ -158,6 +151,7 @@ class _PoolCounts(object):
         self._histories = []
         self._working_list = None
         self._broken_list = None
+        self._idle_list = None
 
 
     def record_host(self, host_history):
@@ -169,6 +163,7 @@ class _PoolCounts(object):
         """
         self._working_list = None
         self._broken_list = None
+        self._idle_list = None
         self._histories.append(host_history)
 
 
@@ -198,7 +193,7 @@ class _PoolCounts(object):
         """Return a list of all broken DUTs in the pool.
 
         Filter `self._histories` for histories where the last
-        diagnosis is not `WORKING`.
+        diagnosis is `BROKEN`.
 
         Cache the result so that we only cacluate it once.
 
@@ -207,13 +202,36 @@ class _PoolCounts(object):
         """
         if self._broken_list is None:
             self._broken_list = [h for h in self._histories
-                    if h.last_diagnosis()[0] != status_history.WORKING]
+                    if h.last_diagnosis()[0] == status_history.BROKEN]
         return self._broken_list
 
 
     def get_broken(self):
         """Return the number of broken DUTs in the pool."""
         return len(self.get_broken_list())
+
+
+    def get_idle_list(self):
+        """Return a list of all idle DUTs in the pool.
+
+        Filter `self._histories` for histories where the last
+        diagnosis is `UNUSED` or `UNKNOWN`.
+
+        Cache the result so that we only cacluate it once.
+
+        @return A list of HostJobHistory objects.
+
+        """
+        idle_list = [status_history.UNUSED, status_history.UNKNOWN]
+        if self._idle_list is None:
+            self._idle_list = [h for h in self._histories
+                    if h.last_diagnosis()[0] in idle_list]
+        return self._idle_list
+
+
+    def get_idle(self):
+        """Return the number of idle DUTs in the pool."""
+        return len(self.get_idle_list())
 
 
     def get_total(self):
@@ -241,7 +259,7 @@ class _BoardCounts(object):
 
     def __init__(self):
         self._pools = {
-            pool: _PoolCounts() for pool in _MANAGED_POOLS
+            pool: _PoolCounts() for pool in MANAGED_POOLS
         }
 
     def record_host(self, host_history):
@@ -305,8 +323,7 @@ class _BoardCounts(object):
         """Return a list of all broken DUTs for the board.
 
         Go through all HostJobHistory objects in the board's pools,
-        selecting the ones where the last diagnosis is not
-        `WORKING`.
+        selecting the ones where the last diagnosis is `BROKEN`.
 
         @return A list of HostJobHistory objects.
 
@@ -328,6 +345,38 @@ class _BoardCounts(object):
         return self._count_pool(_PoolCounts.get_broken, pool)
 
 
+    def get_idle_list(self, pool=None):
+        """Return a list of all idle DUTs for the board.
+
+        Go through all HostJobHistory objects in the board's pools,
+        selecting the ones where the last diagnosis is `UNUSED` or `UNKNOWN`.
+
+        @param pool: The pool to be counted. If `None`, return the total list
+                     across all pools.
+
+        @return A list of HostJobHistory objects.
+
+        """
+        if pool is None:
+            l = []
+            for p in self._pools.values():
+                l.extend(p.get_idle_list())
+            return l
+        else:
+            return _PoolCounts.get_idle_list(self._pools[pool])
+
+
+    def get_idle(self, pool=None):
+        """Return the number of idle DUTs in a pool.
+
+        @param pool: The pool to be counted. If `None`, return the total
+                     across all pools.
+
+        @return The total number of idle DUTs in the selected pool(s).
+        """
+        return self._count_pool(_PoolCounts.get_idle, pool)
+
+
     def get_spares_buffer(self):
         """Return the the nominal number of working spares.
 
@@ -339,7 +388,7 @@ class _BoardCounts(object):
         @return The total number DUTs in the spares pool, less the total
                 number of broken DUTs in all pools.
         """
-        return self.get_total(_SPARE_POOL) - self.get_broken()
+        return self.get_total(SPARE_POOL) - self.get_broken()
 
 
     def get_total(self, pool=None):
@@ -364,12 +413,24 @@ class _LabInventory(dict):
 
     """
 
+    @staticmethod
+    def _eligible_host(afehost):
+        """Return whether this host is eligible for monitoring.
+
+        Hosts with any label that's in `_EXCLUDED_LABELS` aren't
+        eligible.
+
+        @param afehost  The host to be tested for eligibility.
+        """
+        return not len(_EXCLUDED_LABELS.intersection(afehost.labels))
+
+
     @classmethod
     def create_inventory(cls, afe, start_time, end_time, boardlist=[]):
         """Return a Lab inventory with specified parameters.
 
         By default, gathers inventory from `HostJobHistory` objects
-        for all DUTs in the `_MANAGED_POOLS` list.  If `boardlist`
+        for all DUTs in the `MANAGED_POOLS` list.  If `boardlist`
         is supplied, the inventory will be restricted to only the
         given boards.
 
@@ -385,9 +446,12 @@ class _LabInventory(dict):
 
         """
         label_list = [constants.Labels.POOL_PREFIX + l
-                          for l in _MANAGED_POOLS]
+                          for l in MANAGED_POOLS]
         afehosts = afe.get_hosts(labels__name__in=label_list)
         if boardlist:
+            # We're deliberately not checking host eligibility in this
+            # code path.  This is a debug path, not used in production;
+            # it may be useful to include ineligible hosts here.
             boardhosts = []
             for board in boardlist:
                 board_label = constants.Labels.BOARD_PREFIX + board
@@ -395,6 +459,8 @@ class _LabInventory(dict):
                                   if board_label in h.labels]
                 boardhosts.extend(host_list)
             afehosts = boardhosts
+        else:
+            afehosts = [h for h in afehosts if cls._eligible_host(h)]
         create = lambda host: (
                 status_history.HostJobHistory(afe, host,
                                               start_time, end_time))
@@ -414,12 +480,12 @@ class _LabInventory(dict):
         initval = { board: _BoardCounts() for board in boards }
         super(_LabInventory, self).__init__(initval)
         self._dut_count = len(histories)
-        self._managed_boards = None
+        self._managed_boards = {}
         for h in histories:
             self[h.host_board].record_host(h)
 
 
-    def get_managed_boards(self):
+    def get_managed_boards(self, pool=_MANAGED_POOL_DEFAULT):
         """Return the set of "managed" boards.
 
         Operationally, saying a board is "managed" means that the
@@ -432,17 +498,25 @@ class _LabInventory(dict):
         has DUTs in both the spare and a non-spare (i.e. critical)
         pool.
 
+        @param pool: The specified pool for managed boards.
         @return A set of all the boards that have both spare and
-                non-spare pools.
+                non-spare pools, unless the pool is specified,
+                then the set of boards in that pool.
         """
-        if self._managed_boards is None:
-            self._managed_boards = set()
+        if self._managed_boards.get(pool, None) is None:
+            self._managed_boards[pool] = set()
             for board, counts in self.items():
-                spares = counts.get_total(_SPARE_POOL)
-                total = counts.get_total()
-                if spares != 0 and spares != total:
-                    self._managed_boards.add(board)
-        return self._managed_boards
+                # Get the counts for all pools, otherwise get it for the
+                # specified pool.
+                if pool == _MANAGED_POOL_DEFAULT:
+                    spares = counts.get_total(SPARE_POOL)
+                    total = counts.get_total()
+                    if spares != 0 and spares != total:
+                        self._managed_boards[pool].add(board)
+                else:
+                    if counts.get_total(pool) != 0:
+                        self._managed_boards[pool].add(board)
+        return self._managed_boards[pool]
 
 
     def get_num_duts(self):
@@ -604,17 +678,19 @@ def _generate_repair_recommendation(inventory, num_recommend):
         if recommendation is None or lab_score > best_score:
             recommendation = lab_slice
             best_score = lab_score
+    # N.B. The trailing space here is manadatory:  Without it, Gmail
+    # will parse the URL wrong.  Don't ask.  If you simply _must_
+    # know more, go try it yourself...
+    line_fmt = '%-30s %-16s %-6s\n    %s '
     message = ['Repair recommendations:\n',
-               '%-30s %-16s %s' % (
-                       'Hostname', 'Board', 'Servo instructions')]
+               line_fmt % ( 'Hostname', 'Board', 'Servo?', 'Logs URL')]
     for h in recommendation:
         servo_name = servo_host.make_servo_hostname(h.host.hostname)
-        if utils.host_is_in_lab_zone(servo_name):
-            servo_message = 'Repair servo first'
-        else:
-            servo_message = 'No servo present'
-        line = '%-30s %-16s %s' % (
-                h.host.hostname, h.host_board, servo_message)
+        servo_present = utils.host_is_in_lab_zone(servo_name)
+        _, event = h.last_diagnosis()
+        line = line_fmt % (
+                h.host.hostname, h.host_board,
+                'Yes' if servo_present else 'No', event.job_url)
         message.append(line)
     return '\n'.join(message)
 
@@ -641,46 +717,54 @@ def _generate_board_inventory_message(inventory):
     logging.debug('Creating board inventory')
     nworking = 0
     nbroken = 0
+    nidle = 0
     nbroken_boards = 0
+    ntotal_boards = 0
     summaries = []
     for board in inventory.get_managed_boards():
-        logging.debug('Counting board inventory for %s', board)
         counts = inventory[board]
+        logging.debug('Counting %2d DUTS for board %s',
+                      counts.get_total(), board)
         # Summary elements laid out in the same order as the text
         # headers:
-        #     Board Avail   Bad  Good Spare Total
-        #      e[0]  e[1]  e[2]  e[3]  e[4]  e[5]
+        #     Board Avail   Bad  Idle  Good  Spare Total
+        #      e[0]  e[1]  e[2]  e[3]  e[4]  e[5]  e[6]
         element = (board,
                    counts.get_spares_buffer(),
                    counts.get_broken(),
+                   counts.get_idle(),
                    counts.get_working(),
-                   counts.get_total(_SPARE_POOL),
+                   counts.get_total(SPARE_POOL),
                    counts.get_total())
-        summaries.append(element)
-        nbroken += element[2]
-        nworking += element[3]
         if element[2]:
+            summaries.append(element)
             nbroken_boards += 1
-    ntotal = nworking + nbroken
+        ntotal_boards += 1
+        nbroken += element[2]
+        nidle += element[3]
+        nworking += element[4]
+    ntotal = nworking + nbroken + nidle
     summaries = sorted(summaries, key=lambda e: (e[1], -e[2]))
     broken_percent = int(round(100.0 * nbroken / ntotal))
-    working_percent = 100 - broken_percent
+    idle_percent = int(round(100.0 * nidle / ntotal))
+    working_percent = 100 - broken_percent - idle_percent
     message = ['Summary of DUTs in inventory:',
-               '%10s %10s %6s' % ('Bad', 'Good', 'Total'),
-               '%5d %3d%% %5d %3d%% %6d' % (
+               '%10s %10s %10s %6s' % ('Bad', 'Idle', 'Good', 'Total'),
+               '%5d %3d%% %5d %3d%% %5d %3d%% %6d' % (
                    nbroken, broken_percent,
+                   nidle, idle_percent,
                    nworking, working_percent,
                    ntotal),
                '',
                'Boards with failures: %d' % nbroken_boards,
-               'Boards in inventory:  %d' % len(summaries),
+               'Boards in inventory:  %d' % ntotal_boards,
                '', '',
                'Full board inventory:\n',
-               '%-22s %5s %5s %5s %5s %5s' % (
-                   'Board', 'Avail', 'Bad', 'Good',
+               '%-22s %5s %5s %5s %5s %5s %5s' % (
+                   'Board', 'Avail', 'Bad', 'Idle', 'Good',
                    'Spare', 'Total')]
     message.extend(
-            ['%-22s %5d %5d %5d %5d %5d' % e for e in summaries])
+            ['%-22s %5d %5d %5d %5d %5d %5d' % e for e in summaries])
     return '\n'.join(message)
 
 
@@ -712,29 +796,71 @@ def _generate_pool_inventory_message(inventory):
     logging.debug('Creating pool inventory')
     message = [_POOL_INVENTORY_HEADER]
     newline = ''
-    for pool in _CRITICAL_POOLS:
+    for pool in CRITICAL_POOLS:
         message.append(
             '%sStatus for pool:%s, by board:' % (newline, pool))
         message.append(
-            '%-20s   %5s %5s %5s' % (
-                'Board', 'Bad', 'Good', 'Total'))
+            '%-20s   %5s %5s %5s %5s' % (
+                'Board', 'Bad', 'Idle', 'Good', 'Total'))
         data_list = []
         for board, counts in inventory.items():
-            logging.debug('Counting inventory for %s, %s',
-                          board, pool)
+            logging.debug('Counting %2d DUTs for %s, %s',
+                          counts.get_total(pool), board, pool)
             broken = counts.get_broken(pool)
-            if broken == 0:
+            idle = counts.get_idle(pool)
+            # boards at full strength are not reported
+            if broken == 0 and idle == 0:
                 continue
             working = counts.get_working(pool)
             total = counts.get_total(pool)
-            data_list.append((board, broken, working, total))
+            data_list.append((board, broken, idle, working, total))
         if data_list:
             data_list = sorted(data_list, key=lambda d: -d[1])
             message.extend(
-                ['%-20s   %5d %5d %5d' % t for t in data_list])
+                ['%-20s   %5d %5d %5d %5d' % t for t in data_list])
         else:
             message.append('(All boards at full strength)')
         newline = '\n'
+    return '\n'.join(message)
+
+
+_IDLE_INVENTORY_HEADER = '''\
+Notice to Infrastructure deputies:  The hosts shown below haven't
+run any jobs for at least 24 hours. Please check each host; locked
+hosts should normally be unlocked; stuck jobs should normally be
+aborted.
+'''
+
+
+def _generate_idle_inventory_message(inventory):
+    """Generate the "idle inventory" e-mail message.
+
+    The idle inventory is a host list with corresponding pool and board,
+    where the hosts are idle (`UNKWOWN` or `UNUSED`).
+
+    N.B. For sample output text format as users can expect to
+    see it in e-mail and log files, refer to the unit tests.
+
+    @param inventory  _LabInventory object with the inventory to
+                      be reported on.
+    @return String with the inventory message to be sent.
+
+    """
+    logging.debug('Creating idle inventory')
+    message = [_IDLE_INVENTORY_HEADER]
+    message.append('Idle Host List:')
+    message.append('%-30s %-20s %s' % ('Hostname', 'Board', 'Pool'))
+    data_list = []
+    for pool in MANAGED_POOLS:
+        for board, counts in inventory.items():
+            logging.debug('Counting %2d DUTs for %s, %s',
+                          counts.get_total(pool), board, pool)
+            data_list.extend([(dut.host.hostname, board, pool)
+                                  for dut in counts.get_idle_list(pool)])
+    if data_list:
+        message.extend(['%-30s %-20s %s' % t for t in data_list])
+    else:
+        message.append('(No idle DUTs)')
     return '\n'.join(message)
 
 
@@ -913,6 +1039,8 @@ def _configure_logging(arguments):
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter())
     else:
+        if not os.path.exists(arguments.logdir):
+            os.mkdir(arguments.logdir)
         root_logger.setLevel(logging.DEBUG)
         logfile = os.path.join(arguments.logdir, _LOGFILE)
         handler = logging.handlers.TimedRotatingFileHandler(
@@ -1011,11 +1139,13 @@ def main(argv):
                         recommend_message + board_message)
 
         if arguments.pool_notify:
+            pool_message = _generate_pool_inventory_message(inventory)
+            idle_message = _generate_idle_inventory_message(inventory)
             _send_email(arguments,
                         'pools-%s.txt' % timestamp,
                         'DUT pool inventory %s' % timestamp,
                         arguments.pool_notify,
-                        _generate_pool_inventory_message(inventory))
+                        pool_message + '\n\n\n' + idle_message)
     except KeyboardInterrupt:
         pass
     except EnvironmentError as e:
@@ -1024,12 +1154,14 @@ def main(argv):
         logging.exception('Unexpected exception: %s', e)
 
 
-def get_managed_boards(afe):
+def get_inventory(afe):
     end_time = int(time.time())
     start_time = end_time - 24 * 60 * 60
-    inventory = _LabInventory.create_inventory(
-            afe, start_time, end_time)
-    return inventory.get_managed_boards()
+    return _LabInventory.create_inventory(afe, start_time, end_time)
+
+
+def get_managed_boards(afe):
+    return get_inventory(afe).get_managed_boards()
 
 
 if __name__ == '__main__':

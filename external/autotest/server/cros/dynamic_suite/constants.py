@@ -17,6 +17,10 @@ RETRY_ORIGINAL_JOB_ID = 'retry_original_job_id'
 # Job keyval indicating the minimum duts required by the suite
 SUITE_MIN_DUTS_KEY = 'suite_min_duts'
 
+# Job keyval indicating the scheduled tests
+SCHEDULED_TEST_COUNT_KEY = 'scheduled_test_count'
+SCHEDULED_TEST_NAMES_KEY = 'scheduled_test_names'
+
 # Job attribute and label names
 EXPERIMENTAL_PREFIX = 'experimental_'
 FWRW_BUILD = 'fwrw_build'
@@ -24,6 +28,7 @@ FWRO_BUILD = 'fwro_build'
 JOB_REPO_URL = 'job_repo_url'
 VERSION_PREFIX = 'cros-version:'
 BOARD_PREFIX = 'board:'
+OS_PREFIX = 'os'
 
 # Bug filing
 ISSUE_OPEN = 'open'

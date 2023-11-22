@@ -32,10 +32,16 @@ public:
     virtual ~FrameSequence_webp();
 
     virtual int getWidth() const {
+        if (!mDemux) {
+            return 0;
+        }
         return WebPDemuxGetI(mDemux, WEBP_FF_CANVAS_WIDTH);
     }
 
     virtual int getHeight() const {
+        if (!mDemux) {
+            return 0;
+        }
         return WebPDemuxGetI(mDemux, WEBP_FF_CANVAS_HEIGHT);
     }
 
@@ -44,6 +50,9 @@ public:
     }
 
     virtual int getFrameCount() const {
+        if (!mDemux) {
+            return 0;
+        }
         return WebPDemuxGetI(mDemux, WEBP_FF_FRAME_COUNT);
     }
 
@@ -70,7 +79,7 @@ private:
     uint32_t mFormatFlags;
     // mIsKeyFrame[i] is true if ith canvas can be constructed without decoding any prior frames.
     bool* mIsKeyFrame;
-    jobject mRawByteBuffer;
+    jobject mRawByteBuffer = nullptr;
 };
 
 // Produces frames of a possibly-animated WebP file for display.

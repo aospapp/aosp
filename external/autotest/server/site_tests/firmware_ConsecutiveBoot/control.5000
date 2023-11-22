@@ -1,4 +1,4 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -9,8 +9,7 @@ NAME = "firmware_ConsecutiveBoot"
 PURPOSE = "Servo based consecutive boot test (5000 iterations)"
 CRITERIA = "This test will fail if DUT fails to boot from power-off"
 ATTRIBUTES = "suite:faft_stress"
-SUITE = "faft_stress"
-TIME = "SHORT"
+TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"

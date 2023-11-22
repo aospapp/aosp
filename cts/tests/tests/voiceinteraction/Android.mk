@@ -21,7 +21,7 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := CtsVoiceInteractionCommon ctstestrunner ctsdeviceutil
+LOCAL_STATIC_JAVA_LIBRARIES := CtsVoiceInteractionCommon ctstestrunner compatibility-device-util
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -30,7 +30,6 @@ LOCAL_PACKAGE_NAME := CtsVoiceInteractionTestCases
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
 
 LOCAL_SDK_VERSION := current
 

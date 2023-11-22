@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "moblab"
 PURPOSE = "Test critical moblab functionality."
-CRITERIA = "All tests with SUITE=moblab must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "General"

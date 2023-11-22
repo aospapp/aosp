@@ -44,6 +44,7 @@ public class SetValues002Test extends JDWPSyncTestCase {
     static final String thisCommandName = "ClassType::SetValues command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ClassType/SetValues002Debuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ClassType.SetValues002Debuggee";
     }

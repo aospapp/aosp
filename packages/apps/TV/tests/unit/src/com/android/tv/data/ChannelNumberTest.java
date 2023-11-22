@@ -17,7 +17,7 @@ package com.android.tv.data;
 
 import static com.android.tv.data.ChannelNumber.parseChannelNumber;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.tv.testing.ComparableTester;
 

@@ -80,7 +80,7 @@
     <!-- Title for always scan wifi. [CHAR LIMIT=50] -->
     <string name="wifi_setting_always_scan">Scanning always available</string>
     <!-- Context help for always scan wifi. [CHAR LIMIT=200] -->
-    <string name="wifi_setting_always_scan_context">Let google\'s location service and other apps scan for networks, even when Wi-Fi is off</string>
+    <string name="wifi_setting_always_scan_context">Let Google\'s location service and other apps scan for networks, even when Wi-Fi is off</string>
     <!-- Title for enable wifi. [CHAR LIMIT=50] -->
     <string name="wifi_setting_enable_wifi">Wi-Fi</string>
 
@@ -143,6 +143,10 @@
     <string name="accessory_unpairing">Unpairing device&#8230;</string>
     <!-- Description for Connected accessory[CHAR LIMIT=50] -->
     <string name="accessory_connected">Connected</string>
+    <!-- Title of preference item for renaming the bluetooth accessory [CHAR LIMIT=50] -->
+    <string name="accessory_change_name">Change name</string>
+    <!-- Title of dialog for renaming the bluetooth accessory [CHAR LIMIT=100] -->
+    <string name="accessory_change_name_title">Enter a new name for this accessory</string>
 
     <!-- Remote and Accessories -->
     <skip />
@@ -189,6 +193,8 @@
     <string name="system_home">Home screen</string>
     <!-- Preference which manages search and google now settings. [CHAR LIMIT=50] -->
     <string name="system_search">Search</string>
+    <!-- Preference which manages google and assistant settings. [CHAR LIMIT=50] -->
+    <string name="system_google">Google</string>
     <!-- Preference which manages security settings. [CHAR LIMIT=50] -->
     <string name="system_security">Security &amp; restrictions</string>
     <!-- Preference which manages speech recognition settings. [CHAR LIMIT=50] -->
@@ -206,6 +212,8 @@
 
     <!-- About -->
     <skip />
+    <!-- Preference which shows feature tutorial tours for this device. [CHAR LIMIT=50] -->
+    <string name="tutorials">Tutorials</string>
     <!-- Preference which shows system update status. [CHAR LIMIT=50] -->
     <string name="about_system_update">System update</string>
     <!-- Preference which shows about screen with legal info, model, etc. [CHAR LIMIT=50] -->
@@ -807,6 +815,8 @@
     <string name="captions_configure">Configure</string>
     <!-- Title for captions language setting [CHAR LIMIT=50] -->
     <string name="captions_language">Language</string>
+    <!-- Entry for "default" selection for captions language [CHAR LIMOIT=50] -->
+    <string name="captions_language_default">Default</string>
     <!-- Title for captions text size setting [CHAR LIMIT=50] -->
     <string name="captions_textsize">Text size</string>
     <!-- Title for captions style setting [CHAR LIMIT=50] -->
@@ -962,8 +972,6 @@
     <string name="system_animator_duration_scale">Animator duration scale</string>
     <!-- Title for Set Strict mode enabled in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_strict_mode_enabled">Strict mode enabled</string>
-    <!-- Title for Set Show CPU usage in System Settings Developer options [CHAR LIMIT=50] -->
-    <string name="system_show_cpu_usage">Show CPU usage</string>
     <!-- Title for Set Profile GPU rendering in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_profile_gpu_rendering">Profile GPU rendering</string>
     <!-- Title for Set Enable traces in System Settings Developer options [CHAR LIMIT=50] -->
@@ -999,8 +1007,6 @@
     <string name="system_desc_show_surface_updates">Flash entire window surfaces when they update</string>
     <!-- Description for strict mode enabled in System Settings Developer options [CHAR LIMIT=100] -->
     <string name="system_desc_strict_mode_enabled">Flash screen when apps do long operations on main thread</string>
-    <!-- Description for show cpu usage in System Settings Developer options [CHAR LIMIT=100] -->
-    <string name="system_desc_show_cpu_usage">Screen overlay showing current CPU usage</string>
     <!-- Description for profile GPU rendering in System Settings Developer options [CHAR LIMIT=100] -->
     <string name="system_desc_profile_gpu_rendering">Measure rendering time in adb shell dumpsys gfxinfo</string>
 
@@ -1304,8 +1310,6 @@
     <string name="device_apps_app_management_force_stop_desc">If you force stop an app, it may misbehave.</string>
     <!-- Application management choice for uninstalling the application [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_uninstall">Uninstall</string>
-    <!-- Application management description for uninstalling the application [CHAR LIMIT=NONE] -->
-    <string name="device_apps_app_management_uninstall_desc">Do you want to uninstall this app?</string>
     <!-- Application management choice for uninstalling updates for the application [CHAR_LIMIT=40] -->
     <string name="device_apps_app_management_uninstall_updates">Uninstall updates</string>
     <!-- Application management description for uninstalling updates for the application [CHAR_LIMIT=NONE] -->
@@ -1338,6 +1342,8 @@
     <string name="device_apps_app_management_notifications">Notifications</string>
     <!-- Application management choice for displaying the application's permissions [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_permissions">Permissions</string>
+    <!-- Application management toast message when an app cannot be launched [CHAR LIMIT=100]-->
+    <string name="device_apps_app_management_not_available">Application unavailable</string>
     <!-- General settings choice for agreeing to the displayed action [CHAR LIMIT=40] -->
     <string name="settings_ok">OK</string>
     <!-- General settings choice for disagreeing with the displayed action [CHAR LIMIT=40] -->
@@ -1387,26 +1393,20 @@
     <!-- Title for screen where user selects a name for their device [CHAR LIMIT=NONE] -->
     <string name="select_device_name_title">Choose a name for your <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g></string>
     <!-- Description for screen where user selects a name for their device [CHAR LIMIT=NONE] -->
-    <string name="select_device_name_description">A name will help identify your <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g> when accessing it from other devices like your phone, tablet, or computer.</string>
+    <string name="select_device_name_description">Give your <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g> a name to help identify it when casting or connecting to it from other devices.</string>
     <!-- Rooms where a user's device might be placed [CHAR LIMIT=40] -->
     <string-array name="rooms">
         <!-- [CHAR LIMIT=40] -->
-        <item>Living Room</item>
+        <item>Android TV</item>
         <!-- [CHAR LIMIT=40] -->
-        <item>Media Room</item>
+        <item>Living Room TV</item>
         <!-- [CHAR LIMIT=40] -->
-        <item>Family Room</item>
+        <item>Family Room TV</item>
         <!-- [CHAR LIMIT=40] -->
-        <item>Dining Room</item>
-        <!-- [CHAR LIMIT=40] -->
-        <item>Den</item>
-        <!-- [CHAR LIMIT=40] -->
-        <item>Bedroom</item>
-        <!-- [CHAR LIMIT=40] -->
-        <item>Kitchen</item>
+        <item>Bedroom TV</item>
     </string-array>
     <!-- String displayed for option where user will type in a room name rather than selecting from the list of defaults [CHAR LIMIT=40] -->
-    <string name="custom_room">Enter Custom Name&#8230;</string>
+    <string name="custom_room">Enter custom name&#8230;</string>
     <!-- Title of settings summary/status screen [CHAR LIMIT=100] -->
     <string name="device_rename_title">Rename this <xliff:g id="devicemodel" example="Nexus Player">%1$s</xliff:g></string>
     <!-- Description on summary/status screen that tells you what the name of your device is [CHAR LIMIT=NONE] -->
@@ -1444,4 +1444,11 @@
     <!-- Shutdown Confirmation Dialog. Detailed message in the confirmation dialog when the user asks to reboot into safe mode [CHAR LIMIT=NONE] -->
     <string name="reboot_safemode_desc">This will disable all third party applications you have installed. They will be restored when you reboot again.</string>
 
+    <!-- Toast shown when the user triggers the capture of a bugreport [CHAR LIMIT=50] -->
+    <string name="capturing_bugreport">Capturing bug report</string>
+
+    <!-- Title for the 'available virtual keyboards' preference sub-screen. [CHAR LIMIT=50] -->
+    <string name="available_virtual_keyboard_category">Available virtual keyboards</string>
+    <!-- Title for the preference entry for managing keyboards [CHAR LIMIT=50] -->
+    <string name="manage_keyboards">Manage keyboards</string>
 </resources>

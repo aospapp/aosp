@@ -16,40 +16,78 @@
 
 package com.android.managedprovisioning.model;
 
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLOR;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ORGANIZATION_NAME;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_CONSENT;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_USER_SETUP;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SUPPORT_URL;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
 import static com.android.internal.util.Preconditions.checkArgument;
 import static com.android.internal.util.Preconditions.checkNotNull;
-
+import static com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences.DEFAULT_PROVISIONING_ID;
+import static com.android.managedprovisioning.common.StoreUtils.accountToPersistableBundle;
+import static com.android.managedprovisioning.common.StoreUtils.getIntegerAttrFromPersistableBundle;
+import static com.android.managedprovisioning.common.StoreUtils.getObjectAttrFromPersistableBundle;
+import static com.android.managedprovisioning.common.StoreUtils.getStringAttrFromPersistableBundle;
+import static com.android.managedprovisioning.common.StoreUtils.putIntegerIfNotNull;
+import static com.android.managedprovisioning.common.StoreUtils.putPersistableBundlableIfNotNull;
 
 import android.accounts.Account;
-import android.content.Context;
 import android.content.ComponentName;
+import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.support.annotation.Nullable;
-import android.text.TextUtils;
-
-import java.util.Arrays;
+import android.util.Xml;
+import com.android.internal.util.FastXmlSerializer;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.PersistableBundlable;
+import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.StoreUtils;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.Set;
-
-import com.android.internal.annotations.Immutable;
-import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
-import com.android.managedprovisioning.common.Utils;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
 
 /**
  * Provisioning parameters for Device Owner and Profile Owner provisioning.
  */
-public final class ProvisioningParams implements Parcelable {
+public final class ProvisioningParams extends PersistableBundlable {
     public static final long DEFAULT_LOCAL_TIME = -1;
     public static final Integer DEFAULT_MAIN_COLOR = null;
     public static final boolean DEFAULT_STARTED_BY_TRUSTED_SOURCE = false;
     public static final boolean DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED = false;
     public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION = false;
+    public static final boolean DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT = false;
+    public static final boolean DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED = false;
     public static final boolean DEFAULT_SKIP_USER_SETUP = true;
     // Intent extra used internally for passing data between activities and service.
     public static final String EXTRA_PROVISIONING_PARAMS = "provisioningParams";
+
+    private static final String TAG_PROVISIONING_ID = "provisioning-id";
+    private static final String TAG_PROVISIONING_PARAMS = "provisioning-params";
+    private static final String TAG_WIFI_INFO = "wifi-info";
+    private static final String TAG_PACKAGE_DOWNLOAD_INFO = "download-info";
+    private static final String TAG_STARTED_BY_TRUSTED_SOURCE = "started-by-trusted-source";
+    private static final String TAG_PROVISIONING_ACTION = "provisioning-action";
 
     public static final Parcelable.Creator<ProvisioningParams> CREATOR
             = new Parcelable.Creator<ProvisioningParams>() {
@@ -63,6 +101,8 @@ public final class ProvisioningParams implements Parcelable {
             return new ProvisioningParams[size];
         }
     };
+
+    public final long provisioningId;
 
     @Nullable
     public final String timeZone;
@@ -93,9 +133,17 @@ public final class ProvisioningParams implements Parcelable {
      */
     public final ComponentName deviceAdminComponentName;
 
+    public final String deviceAdminLabel;
+    public final String organizationName;
+    public final String supportUrl;
+    public final String deviceAdminIconFilePath;
+
     /** {@link Account} that should be migrated to the managed profile. */
     @Nullable
     public final Account accountToMigrate;
+
+    /** True if the account will not be removed from the calling user after it is migrated. */
+    public final boolean keepAccountMigrated;
 
     /** Provisioning action comes along with the provisioning data. */
     public final String provisioningAction;
@@ -111,6 +159,10 @@ public final class ProvisioningParams implements Parcelable {
     /** The download information of device admin package. */
     @Nullable
     public final PackageDownloadInfo deviceAdminDownloadInfo;
+
+    /** List of disclaimers */
+    @Nullable
+    public final DisclaimersParam disclaimersParam;
 
     /**
      * Custom key-value pairs from enterprise mobility management which are passed to device admin
@@ -135,29 +187,23 @@ public final class ProvisioningParams implements Parcelable {
     /** True if user setup can be skipped. */
     public final boolean skipUserSetup;
 
-    // TODO (stevenckng): This shouldn't belong here. Remove this logic from ProvisioningParams.
-    private ComponentName inferedDeviceAdminComponentName;
+    /** True if user consent page in pre-provisioning can be skipped. */
+    public final boolean skipUserConsent;
 
-    private final Utils mUtils = new Utils();
-
-    public String inferDeviceAdminPackageName() {
+    public static String inferStaticDeviceAdminPackageName(ComponentName deviceAdminComponentName,
+            String deviceAdminPackageName) {
         if (deviceAdminComponentName != null) {
             return deviceAdminComponentName.getPackageName();
         }
         return deviceAdminPackageName;
     }
 
-    // This should not be called if the app has not been installed yet.
-    public ComponentName inferDeviceAdminComponentName(Context c)
-            throws IllegalProvisioningArgumentException {
-        if (inferedDeviceAdminComponentName == null) {
-            inferedDeviceAdminComponentName = mUtils.findDeviceAdmin(
-                    deviceAdminPackageName, deviceAdminComponentName, c);
-        }
-        return inferedDeviceAdminComponentName;
+    public String inferDeviceAdminPackageName() {
+        return inferStaticDeviceAdminPackageName(deviceAdminComponentName, deviceAdminPackageName);
     }
 
     private ProvisioningParams(Builder builder) {
+        provisioningId = builder.mProvisioningId;
         timeZone = builder.mTimeZone;
         localTime = builder.mLocalTime;
         locale = builder.mLocale;
@@ -166,8 +212,13 @@ public final class ProvisioningParams implements Parcelable {
 
         deviceAdminComponentName = builder.mDeviceAdminComponentName;
         deviceAdminPackageName = builder.mDeviceAdminPackageName;
+        deviceAdminLabel = builder.mDeviceAdminLabel;
+        organizationName = builder.mOrganizationName;
+        supportUrl = builder.mSupportUrl;
+        deviceAdminIconFilePath = builder.mDeviceAdminIconFilePath;
 
         deviceAdminDownloadInfo = builder.mDeviceAdminDownloadInfo;
+        disclaimersParam = builder.mDisclaimersParam;
 
         adminExtrasBundle = builder.mAdminExtrasBundle;
 
@@ -177,40 +228,16 @@ public final class ProvisioningParams implements Parcelable {
         accountToMigrate = builder.mAccountToMigrate;
         provisioningAction = checkNotNull(builder.mProvisioningAction);
         mainColor = builder.mMainColor;
+        skipUserConsent = builder.mSkipUserConsent;
         skipUserSetup = builder.mSkipUserSetup;
+        keepAccountMigrated = builder.mKeepAccountMigrated;
 
         validateFields();
     }
 
     private ProvisioningParams(Parcel in) {
-        timeZone = in.readString();
-        localTime = in.readLong();
-        locale = (Locale) in.readSerializable();
-
-        wifiInfo = (WifiInfo) in.readParcelable(WifiInfo.class.getClassLoader());
-
-        deviceAdminPackageName = in.readString();
-        deviceAdminComponentName = (ComponentName)
-                in.readParcelable(null /* use default classloader */);
-
-        deviceAdminDownloadInfo =
-                (PackageDownloadInfo) in.readParcelable(PackageDownloadInfo.class.getClassLoader());
-
-        adminExtrasBundle = in.readParcelable(null /* use default classloader */);
-
-        startedByTrustedSource = in.readInt() == 1;
-        leaveAllSystemAppsEnabled = in.readInt() == 1;
-        skipEncryption = in.readInt() == 1;
-        accountToMigrate = (Account) in.readParcelable(null /* use default classloader */);
-        provisioningAction = checkNotNull(in.readString());
-        if (in.readInt() != 0) {
-            mainColor = in.readInt();
-        } else {
-            mainColor = null;
-        }
-        skipUserSetup = in.readInt() == 1;
-
-        validateFields();
+        this(createBuilderFromPersistableBundle(
+                PersistableBundlable.getPersistableBundleFromParcel(in)));
     }
 
     private void validateFields() {
@@ -218,132 +245,186 @@ public final class ProvisioningParams implements Parcelable {
     }
 
     @Override
-    public int describeContents() {
-        return 0;
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle bundle = new PersistableBundle();
+
+        bundle.putLong(TAG_PROVISIONING_ID, provisioningId);
+        bundle.putString(EXTRA_PROVISIONING_TIME_ZONE, timeZone);
+        bundle.putLong(EXTRA_PROVISIONING_LOCAL_TIME, localTime);
+        bundle.putString(EXTRA_PROVISIONING_LOCALE, StoreUtils.localeToString(locale));
+        putPersistableBundlableIfNotNull(bundle, TAG_WIFI_INFO, wifiInfo);
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME, deviceAdminPackageName);
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
+                StoreUtils.componentNameToString(deviceAdminComponentName));
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL, deviceAdminLabel);
+        bundle.putString(EXTRA_PROVISIONING_ORGANIZATION_NAME, organizationName);
+        bundle.putString(EXTRA_PROVISIONING_SUPPORT_URL, supportUrl);
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI, deviceAdminIconFilePath);
+        bundle.putPersistableBundle(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, accountToMigrate == null
+                ? null : accountToPersistableBundle(accountToMigrate));
+        bundle.putString(TAG_PROVISIONING_ACTION, provisioningAction);
+        putIntegerIfNotNull(bundle, EXTRA_PROVISIONING_MAIN_COLOR, mainColor);
+        putPersistableBundlableIfNotNull(bundle, TAG_PACKAGE_DOWNLOAD_INFO,
+                deviceAdminDownloadInfo);
+        putPersistableBundlableIfNotNull(bundle, EXTRA_PROVISIONING_DISCLAIMERS,
+                disclaimersParam);
+        bundle.putPersistableBundle(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, adminExtrasBundle);
+        bundle.putBoolean(TAG_STARTED_BY_TRUSTED_SOURCE, startedByTrustedSource);
+        bundle.putBoolean(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED,
+                leaveAllSystemAppsEnabled);
+        bundle.putBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION, skipEncryption);
+        bundle.putBoolean(EXTRA_PROVISIONING_SKIP_USER_SETUP, skipUserSetup);
+        bundle.putBoolean(EXTRA_PROVISIONING_SKIP_USER_CONSENT, skipUserConsent);
+        bundle.putBoolean(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, keepAccountMigrated);
+        return bundle;
+    }
+
+    /* package */ static ProvisioningParams fromPersistableBundle(PersistableBundle bundle) {
+        return createBuilderFromPersistableBundle(bundle).build();
+    }
+
+    private static Builder createBuilderFromPersistableBundle(PersistableBundle bundle) {
+        Builder builder = new Builder();
+        builder.setProvisioningId(bundle.getLong(TAG_PROVISIONING_ID, DEFAULT_PROVISIONING_ID));
+        builder.setTimeZone(bundle.getString(EXTRA_PROVISIONING_TIME_ZONE));
+        builder.setLocalTime(bundle.getLong(EXTRA_PROVISIONING_LOCAL_TIME));
+        builder.setLocale(getStringAttrFromPersistableBundle(bundle,
+                EXTRA_PROVISIONING_LOCALE, StoreUtils::stringToLocale));
+        builder.setWifiInfo(getObjectAttrFromPersistableBundle(bundle,
+                TAG_WIFI_INFO, WifiInfo::fromPersistableBundle));
+        builder.setDeviceAdminPackageName(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME));
+        builder.setDeviceAdminComponentName(getStringAttrFromPersistableBundle(bundle,
+                EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, StoreUtils::stringToComponentName));
+        builder.setDeviceAdminLabel(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_LABEL));
+        builder.setOrganizationName(bundle.getString(EXTRA_PROVISIONING_ORGANIZATION_NAME));
+        builder.setSupportUrl(bundle.getString(EXTRA_PROVISIONING_SUPPORT_URL));
+        builder.setDeviceAdminIconFilePath(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_ICON_URI));
+        builder.setAccountToMigrate(getObjectAttrFromPersistableBundle(bundle,
+                EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE, StoreUtils::persistableBundleToAccount));
+        builder.setProvisioningAction(bundle.getString(TAG_PROVISIONING_ACTION));
+        builder.setMainColor(getIntegerAttrFromPersistableBundle(bundle,
+                EXTRA_PROVISIONING_MAIN_COLOR));
+        builder.setDeviceAdminDownloadInfo(getObjectAttrFromPersistableBundle(bundle,
+                TAG_PACKAGE_DOWNLOAD_INFO, PackageDownloadInfo::fromPersistableBundle));
+        builder.setDisclaimersParam(getObjectAttrFromPersistableBundle(bundle,
+                EXTRA_PROVISIONING_DISCLAIMERS, DisclaimersParam::fromPersistableBundle));
+        builder.setAdminExtrasBundle(bundle.getPersistableBundle(
+                EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE));
+        builder.setStartedByTrustedSource(bundle.getBoolean(TAG_STARTED_BY_TRUSTED_SOURCE));
+        builder.setSkipEncryption(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_ENCRYPTION));
+        builder.setLeaveAllSystemAppsEnabled(bundle.getBoolean(
+                EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED));
+        builder.setSkipUserSetup(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_USER_SETUP));
+        builder.setSkipUserConsent(bundle.getBoolean(EXTRA_PROVISIONING_SKIP_USER_CONSENT));
+        builder.setKeepAccountMigrated(bundle.getBoolean(
+                EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION));
+        return builder;
     }
 
     @Override
-    public void writeToParcel(Parcel out, int flags) {
-        out.writeString(timeZone);
-        out.writeLong(localTime);
-        out.writeSerializable(locale);
-
-        out.writeParcelable(wifiInfo, 0 /* default */ );
-
-        out.writeString(deviceAdminPackageName);
-        out.writeParcelable(deviceAdminComponentName, 0 /* default */);
-
-        out.writeParcelable(deviceAdminDownloadInfo, 0 /* default */);
-
-        out.writeParcelable(adminExtrasBundle, 0 /* default */);
-
-        out.writeInt(startedByTrustedSource ? 1 : 0);
-        out.writeInt(leaveAllSystemAppsEnabled ? 1 : 0);
-        out.writeInt(skipEncryption ? 1 : 0);
-        out.writeParcelable(accountToMigrate, 0 /* default */);
-        out.writeString(provisioningAction);
-        if (mainColor != null) {
-            out.writeInt(1);
-            out.writeInt(mainColor);
-        } else {
-            out.writeInt(0);
-        }
-        out.writeInt(skipUserSetup ? 1 : 0);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ProvisioningParams that = (ProvisioningParams) o;
-        return localTime == that.localTime
-                && startedByTrustedSource == that.startedByTrustedSource
-                && leaveAllSystemAppsEnabled == that.leaveAllSystemAppsEnabled
-                && skipEncryption == that.skipEncryption
-                && skipUserSetup == that.skipUserSetup
-                && Objects.equals(timeZone, that.timeZone)
-                && Objects.equals(locale, that.locale)
-                && Objects.equals(wifiInfo, that.wifiInfo)
-                && Objects.equals(deviceAdminPackageName, that.deviceAdminPackageName)
-                && Objects.equals(deviceAdminComponentName, that.deviceAdminComponentName)
-                && Objects.equals(accountToMigrate, that.accountToMigrate)
-                && Objects.equals(provisioningAction, that.provisioningAction)
-                && Objects.equals(mainColor, that.mainColor)
-                && Objects.equals(deviceAdminDownloadInfo, that.deviceAdminDownloadInfo)
-                && isPersistableBundleEquals(adminExtrasBundle, that.adminExtrasBundle)
-                && Objects.equals(
-                        inferedDeviceAdminComponentName, that.inferedDeviceAdminComponentName);
+    public String toString() {
+        return "ProvisioningParams values: " + toPersistableBundle().toString();
     }
 
     /**
-     * Compares two {@link PersistableBundle} objects are equals.
+     * Saves the ProvisioningParams to the specified file.
      */
-    private static boolean isPersistableBundleEquals(
-            PersistableBundle obj1, PersistableBundle obj2) {
-        if (obj1 == obj2) {
-            return true;
+    public void save(File file) {
+        ProvisionLogger.logd("Saving ProvisioningParams to " + file);
+        try (FileOutputStream stream = new FileOutputStream(file)) {
+            XmlSerializer serializer = new FastXmlSerializer();
+            serializer.setOutput(stream, StandardCharsets.UTF_8.name());
+            serializer.startDocument(null, true);
+            serializer.startTag(null, TAG_PROVISIONING_PARAMS);
+            toPersistableBundle().saveToXml(serializer);
+            serializer.endTag(null, TAG_PROVISIONING_PARAMS);
+            serializer.endDocument();
+        } catch (IOException | XmlPullParserException e) {
+            ProvisionLogger.loge("Caught exception while trying to save Provisioning Params to "
+                    + " file " + file, e);
+            file.delete();
         }
-        if (obj1 == null || obj2 == null || obj1.size() != obj2.size()) {
-            return false;
+    }
+
+    public void cleanUp() {
+        if (disclaimersParam != null) {
+            disclaimersParam.cleanUp();
         }
-        Set<String> keys = obj1.keySet();
-        for (String key : keys) {
-            Object val1 = obj1.get(key);
-            Object val2 = obj2.get(key);
-            if (!isPersistableBundleSupportedValueEquals(val1, val2)) {
-                return false;
-            }
+        if (deviceAdminIconFilePath != null) {
+            new File(deviceAdminIconFilePath).delete();
         }
-        return true;
     }
 
     /**
-     * Compares two values which type is supported by {@link PersistableBundle}.
-     *
-     * <p>If the type isn't supported. The equality is done by {@link Object#equals(Object)}.
+     * Loads the ProvisioningParams From the specified file.
      */
-    private static boolean isPersistableBundleSupportedValueEquals(Object val1, Object val2) {
-        if (val1 == val2) {
-            return true;
-        } else if (val1 == null || val2 == null || !val1.getClass().equals(val2.getClass())) {
-            return false;
-        } else if (val1 instanceof PersistableBundle && val2 instanceof PersistableBundle) {
-            return isPersistableBundleEquals((PersistableBundle) val1, (PersistableBundle) val2);
-        } else if (val1 instanceof int[]) {
-            return Arrays.equals((int[]) val1, (int[]) val2);
-        } else if (val1 instanceof long[]) {
-            return Arrays.equals((long[]) val1, (long[]) val2);
-        } else if (val1 instanceof double[]) {
-            return Arrays.equals((double[]) val1, (double[]) val2);
-        } else if (val1 instanceof boolean[]) {
-            return Arrays.equals((boolean[]) val1, (boolean[]) val2);
-        } else if (val1 instanceof String[]) {
-            return Arrays.equals((String[]) val1, (String[]) val2);
-        } else {
-            return Objects.equals(val1, val2);
+    public static ProvisioningParams load(File file) {
+        if (!file.exists()) {
+            return null;
         }
+        ProvisionLogger.logd("Loading ProvisioningParams from " + file);
+        try (FileInputStream stream = new FileInputStream(file)) {
+            XmlPullParser parser = Xml.newPullParser();
+            parser.setInput(stream, null);
+            return load(parser);
+        } catch (IOException | XmlPullParserException e) {
+            ProvisionLogger.loge("Caught exception while trying to load the provisioning params"
+                    + " from file " + file, e);
+            return null;
+        }
+    }
+
+    private static ProvisioningParams load(XmlPullParser parser) throws XmlPullParserException,
+            IOException {
+        int type;
+        int outerDepth = parser.getDepth();
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
+             if (type == XmlPullParser.END_TAG || type == XmlPullParser.TEXT) {
+                 continue;
+             }
+             String tag = parser.getName();
+             switch (tag) {
+                 case TAG_PROVISIONING_PARAMS:
+                     return createBuilderFromPersistableBundle(
+                             PersistableBundle.restoreFromXml(parser)).build();
+             }
+        }
+        return new Builder().build();
     }
 
     public final static class Builder {
+        private long mProvisioningId;
         private String mTimeZone;
         private long mLocalTime = DEFAULT_LOCAL_TIME;
         private Locale mLocale;
         private WifiInfo mWifiInfo;
         private String mDeviceAdminPackageName;
         private ComponentName mDeviceAdminComponentName;
+        private String mDeviceAdminLabel;
+        private String mOrganizationName;
+        private String mSupportUrl;
+        private String mDeviceAdminIconFilePath;
         private Account mAccountToMigrate;
         private String mProvisioningAction;
         private Integer mMainColor = DEFAULT_MAIN_COLOR;
         private PackageDownloadInfo mDeviceAdminDownloadInfo;
+        private DisclaimersParam mDisclaimersParam;
         private PersistableBundle mAdminExtrasBundle;
         private boolean mStartedByTrustedSource = DEFAULT_STARTED_BY_TRUSTED_SOURCE;
         private boolean mLeaveAllSystemAppsEnabled = DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED;
         private boolean mSkipEncryption = DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION;
+        private boolean mSkipUserConsent = DEFAULT_EXTRA_PROVISIONING_SKIP_USER_CONSENT;
         private boolean mSkipUserSetup = DEFAULT_SKIP_USER_SETUP;
+        private boolean mKeepAccountMigrated = DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED;
+
+        public Builder setProvisioningId(long provisioningId) {
+            mProvisioningId = provisioningId;
+            return this;
+        }
 
         public Builder setTimeZone(String timeZone) {
             mTimeZone = timeZone;
@@ -376,6 +457,26 @@ public final class ProvisioningParams implements Parcelable {
             return this;
         }
 
+        public Builder setDeviceAdminLabel(String deviceAdminLabel) {
+            mDeviceAdminLabel = deviceAdminLabel;
+            return this;
+        }
+
+        public Builder setOrganizationName(String organizationName) {
+            mOrganizationName = organizationName;
+            return this;
+        }
+
+        public Builder setSupportUrl(String supportUrl) {
+            mSupportUrl = supportUrl;
+            return this;
+        }
+
+        public Builder setDeviceAdminIconFilePath(String deviceAdminIconFilePath) {
+            mDeviceAdminIconFilePath = deviceAdminIconFilePath;
+            return this;
+        }
+
         public Builder setAccountToMigrate(Account accountToMigrate) {
             mAccountToMigrate = accountToMigrate;
             return this;
@@ -393,6 +494,11 @@ public final class ProvisioningParams implements Parcelable {
 
         public Builder setDeviceAdminDownloadInfo(PackageDownloadInfo deviceAdminDownloadInfo) {
             mDeviceAdminDownloadInfo = deviceAdminDownloadInfo;
+            return this;
+        }
+
+        public Builder setDisclaimersParam(DisclaimersParam disclaimersParam) {
+            mDisclaimersParam = disclaimersParam;
             return this;
         }
 
@@ -416,8 +522,18 @@ public final class ProvisioningParams implements Parcelable {
             return this;
         }
 
+        public Builder setSkipUserConsent(boolean skipUserConsent) {
+            mSkipUserConsent = skipUserConsent;
+            return this;
+        }
+
         public Builder setSkipUserSetup(boolean skipUserSetup) {
             mSkipUserSetup = skipUserSetup;
+            return this;
+        }
+
+        public Builder setKeepAccountMigrated(boolean keepAccountMigrated) {
+            mKeepAccountMigrated = keepAccountMigrated;
             return this;
         }
 

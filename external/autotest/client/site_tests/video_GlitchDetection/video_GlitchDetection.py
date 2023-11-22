@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import datetime, logging, os, time
+import datetime, logging, os, time, shutil
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
@@ -37,10 +37,14 @@ class video_GlitchDetection(test.test):
 
         board = utils.get_current_board()
 
+        shutil.copy2(constants.VIDEO_HTML_FILEPATH, self.bindir)
+
         file_utils.make_leaf_dir(constants.TEST_DIR)
 
-        with chrome.Chrome(extension_paths = [
-            cros_constants.MULTIMEDIA_TEST_EXTENSION], autotest_ext = True) as cr:
+        with chrome.Chrome(
+                extension_paths = [cros_constants.MULTIMEDIA_TEST_EXTENSION],
+                autotest_ext=True,
+                init_network_controller=True) as cr:
 
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             html_fullpath = os.path.join(self.bindir, 'video.html')
@@ -59,8 +63,15 @@ class video_GlitchDetection(test.test):
             finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
 
+            ports = finder.find_all_ports().connected
+
+            logging.debug(finder)
+
+            if not ports:
+                raise error.TestError(finder)
+
             capturer = chameleon_video_capturer.ChameleonVideoCapturer(
-                finder.find_port(interface = 'hdmi'), display_facade)
+                    ports[0], display_facade)
 
             with capturer:
                 player.load_video()

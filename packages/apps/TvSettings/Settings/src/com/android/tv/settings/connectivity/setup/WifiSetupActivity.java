@@ -17,6 +17,7 @@
 package com.android.tv.settings.connectivity.setup;
 
 import android.animation.Animator;
+import android.animation.AnimatorInflater;
 import android.animation.ObjectAnimator;
 import android.app.Fragment;
 import android.app.FragmentManager;
@@ -30,10 +31,11 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
+import android.os.HandlerThread;
+import android.os.Process;
 import android.text.TextUtils;
 import android.util.Pair;
+import android.view.accessibility.AccessibilityEvent;
 
 import com.android.settingslib.wifi.WifiTracker;
 import com.android.tv.settings.R;
@@ -53,7 +55,6 @@ import com.android.tv.settings.util.ThemeHelper;
 import com.android.tv.settings.util.TransitionUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -69,13 +70,18 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
     private static final String EXTRA_SHOW_SUMMARY = "extra_show_summary";
     private static final String EXTRA_SHOW_SKIP_NETWORK = "extra_show_skip_network";
     private static final String EXTRA_SHOW_WPS_AT_TOP = "extra_show_wps_at_top";
+    private static final String EXTRA_MOVING_FORWARD = "movingForward";
     // If you change this constant, make sure to change the constant in setup wizard
     private static final int RESULT_NETWORK_SKIPPED = 3;
 
+    private boolean mResultOk = false;
+    private boolean mShowFirstFragmentBackwards;
     private boolean mShowSkipNetwork;
     private boolean mShowWpsAtTop;
     private AdvancedWifiOptionsFlow mAdvancedWifiOptionsFlow;
     private WifiTracker mWifiTracker;
+    private HandlerThread mBgThread;
+
     private WifiConfiguration mConfiguration;
     private String mConnectedNetwork;
     private WifiSecurity mWifiSecurity;
@@ -91,8 +97,6 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setTheme(ThemeHelper.getThemeResource(getIntent()));
-
         mConfiguration = new WifiConfiguration();
 
         WifiTracker.WifiListener wifiListener = new WifiTracker.WifiListener() {
@@ -112,7 +116,9 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                 }
             }
         };
-        mWifiTracker = new WifiTracker(this, wifiListener, true, true);
+        mBgThread = new HandlerThread(TAG, Process.THREAD_PRIORITY_BACKGROUND);
+        mBgThread.start();
+        mWifiTracker = new WifiTracker(this, wifiListener, mBgThread.getLooper(), true, true);
         mNextNetworkRefreshTime = System.currentTimeMillis() + NETWORK_REFRESH_BUFFER_DURATION;
 
         mUserActivityListener = new FormPageDisplayer.UserActivityListener() {
@@ -126,6 +132,9 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
         boolean showSummary = getIntent().getBooleanExtra(EXTRA_SHOW_SUMMARY, false);
         mShowSkipNetwork = getIntent().getBooleanExtra(EXTRA_SHOW_SKIP_NETWORK, false);
         mShowWpsAtTop = getIntent().getBooleanExtra(EXTRA_SHOW_WPS_AT_TOP, false);
+        // If we are not moving forwards during the setup flow, we need to show the first fragment
+        // with the reverse animation.
+        mShowFirstFragmentBackwards = !getIntent().getBooleanExtra(EXTRA_MOVING_FORWARD, true);
 
         if (showSummary) {
             addSummaryPage();
@@ -156,9 +165,18 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
 
     @Override
     public void finish() {
-        // fade out and really finish when we're done
-        ObjectAnimator animator = TransitionUtils.createActivityFadeOutAnimator(getResources(),
-                true);
+        Animator animator;
+
+        // Choose finish animation based on whether we are in Setup or Settings and really
+        // finish this activity when the animation is complete.
+        if (ThemeHelper.fromSetupWizard(getIntent())) {
+            animator = mResultOk
+                    ? AnimatorInflater.loadAnimator(this, R.anim.setup_fragment_open_out)
+                    : AnimatorInflater.loadAnimator(this, R.anim.setup_fragment_close_out);
+        } else {
+            animator = TransitionUtils.createActivityFadeOutAnimator(getResources(), true);
+        }
+
         animator.setTarget(getContentView());
         animator.addListener(new Animator.AnimatorListener() {
 
@@ -180,6 +198,12 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
             }
         });
         animator.start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mBgThread.quit();
     }
 
     @Override
@@ -236,6 +260,10 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
             case ENTER_SSID:
                 mSsidPage = formPage;
                 String ssid = formPage.getDataSummary();
+                if (mPasswordPage != null
+                        && !TextUtils.equals(mConfiguration.getPrintableSsid(), ssid)) {
+                    mPasswordPage.clearData();
+                }
                 WifiConfigHelper.setConfigSsid(mConfiguration, ssid);
                 addPage(WifiFormPageType.CHOOSE_SECURITY);
                 break;
@@ -313,24 +341,24 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                 break;
             case SUMMARY_CONNECTED_WIFI:
                 if (choiceChosen(formPage, R.string.wifi_action_dont_change_network)) {
-                    setResult(RESULT_OK);
+                    setResultOk();
                     finish();
                 } else if (choiceChosen(formPage, R.string.wifi_action_change_network)) {
                     addPage(WifiFormPageType.CHOOSE_NETWORK);
                 }
                 break;
             case SUMMARY_CONNECTED_NON_WIFI:
-                setResult(RESULT_OK);
+                setResultOk();
                 finish();
                 break;
             case SUMMARY_NOT_CONNECTED:
                 addPage(WifiFormPageType.CHOOSE_NETWORK);
                 break;
             case SUCCESS:
-                setResult(RESULT_OK);
+                setResultOk();
                 break;
             case WPS:
-                setResult(RESULT_OK);
+                setResultOk();
                 break;
             default:
                 if (mAdvancedWifiOptionsFlow != null) {
@@ -353,6 +381,15 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
     protected void displayPage(FormPage formPage, FormPageResultListener listener,
             boolean forward) {
         WifiFormPageType formPageType = getFormPageType(formPage);
+
+        if (mShowFirstFragmentBackwards) {
+            // We entered this activity by moving backwards in setup, so set the forward boolean
+            // to false in order to show the first fragment with backwards animation.
+            forward = false;
+
+            // Reset the flag to false so that following fragments are handled normally.
+            mShowFirstFragmentBackwards = false;
+        }
 
         if (formPageType == WifiFormPageType.CONNECT) {
             mConnectPage = formPage;
@@ -381,6 +418,9 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
                 mNetworkListFragment = (SelectFromListWizardFragment) fragment;
                 mWifiTracker.resumeScanning();
             }
+        }
+        if (ThemeHelper.fromSetupWizard(getIntent())) {
+            updateTitle(formPageType);
         }
     }
 
@@ -531,5 +571,45 @@ public class WifiSetupActivity extends WifiMultiPagedFormActivity
         } else {
             addPage(WifiFormPageType.SUMMARY_NOT_CONNECTED);
         }
+    }
+
+    private void updateTitle(WifiFormPageType pageType) {
+        switch (pageType) {
+            // Fall through for all pageTypes that require the SSID of the network for
+            // the title.
+            case ADVANCED_OPTIONS:
+            case CONNECT:
+            case CONNECT_FAILED:
+            case CONNECT_TIMEOUT:
+            case KNOWN_NETWORK:
+            case SAVE:
+            case SAVE_FAILED:
+                setTitle(getResources().getString(pageType.getTitleResourceId(),
+                        mConfiguration.getPrintableSsid()));
+                break;
+            case WPS:
+                // Delegate title to the WPSConnectionActivity. Use blank string to prevent
+                // talkback from announcing a misplaced title.
+                setTitle("");
+                return;
+            case ENTER_PASSWORD:
+                // IME screen; Let the IME handle announcements.
+                setTitle("");
+                return;
+            case ENTER_SSID:
+                // IME screen; Let the IME handle announcements.
+                setTitle("");
+                return;
+            default:
+                setTitle(getResources().getString(pageType.getTitleResourceId()));
+                break;
+        }
+        getWindow().getDecorView()
+                .sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+    }
+
+    private void setResultOk() {
+        setResult(RESULT_OK);
+        mResultOk = true;
     }
 }

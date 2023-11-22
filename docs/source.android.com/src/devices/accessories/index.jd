@@ -27,8 +27,8 @@ that extend Android capabilities in a wide range of Android-powered devices.
         <p>Android supports local on-device audio and remote off-device audio
         over a wired 3.5 mm headset jack, USB connection, or Bluetooth.
         Manufacturers should see the <a
-        href="headset/specification.html">wired audio headset
-        specification</a>, while users can learn how to <a
+        href="headset/index.html">headset
+        specifications</a>, while users can learn how to <a
         href="https://support.google.com/nexus/answer/6127700">record and play
         back audio using USB host mode</a>.</p>
         <p><a href="audio.html">&raquo; Audio Accessories</a></p>

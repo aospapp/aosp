@@ -1,17 +1,20 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
-Version: 4.11
-Release: 2%{?dist}
+Version: 4.16
+Release: 1%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
 Source: http://downloads.sourceforge.net/strace/%{name}-%{version}.tar.xz
-BuildRequires: time
+%if 0%{?fedora} >= 20 || 0%{?centos} >= 8 || 0%{?rhel} >= 8 || 0%{?suse_version} >= 1300
+%define buildrequires_libunwind_devel BuildRequires: libunwind-devel
+%endif
 %ifarch x86_64
 # for experimental -k option
-BuildRequires: libunwind-devel
+%{?buildrequires_libunwind_devel}
 %endif
 %define strace64_arches ppc64 sparc64
+%{?!buildroot:BuildRoot: %_tmppath/buildroot-%name-%version-%release}
 
 %description
 The strace program intercepts and records the system calls called and
@@ -44,8 +47,19 @@ The `strace' program in the `strace' package is for 32-bit processes.
 
 %prep
 %setup -q
+echo -n %version-%release > .tarball-version
 
 %build
+echo 'BEGIN OF BUILD ENVIRONMENT INFORMATION'
+uname -a |head -1
+libc="$(ldd /bin/sh |sed -n 's|^[^/]*\(/[^ ]*/libc\.so[^ ]*\).*|\1|p' |head -1)"
+$libc |head -1
+file -L /bin/sh
+gcc --version |head -1
+kver="$(echo -e '#include <linux/version.h>\nLINUX_VERSION_CODE' | gcc -E -P -)"
+printf 'kernel-headers %%s.%%s.%%s\n' $(($kver/65536)) $(($kver/256%%256)) $(($kver%%256))
+echo 'END OF BUILD ENVIRONMENT INFORMATION'
+
 %configure
 make %{?_smp_mflags}
 
@@ -67,9 +81,13 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %endif
 
 %check
-make -k check VERBOSE=1
+make %{?_smp_mflags} -k check VERBOSE=1
+echo 'BEGIN OF TEST SUITE INFORMATION'
+tail -n 99999 -- tests*/test-suite.log tests*/ksysent.log
+echo 'END OF TEST SUITE INFORMATION'
 
 %files
+%{?suse_version:%defattr(-,root,root)}
 %doc CREDITS ChangeLog ChangeLog-CVS COPYING NEWS README
 %{_bindir}/strace
 %{_bindir}/strace-log-merge
@@ -77,10 +95,39 @@ make -k check VERBOSE=1
 
 %ifarch %{strace64_arches}
 %files -n strace64
+%{?suse_version:%defattr(-,root,root)}
 %{_bindir}/strace64
 %endif
 
 %changelog
+* Wed Feb 15 2017 strace-devel@lists.sourceforge.net - 4.16-1
+- strace 4.16 snapshot.
+
+* Wed Dec 14 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.15-1
+- v4.14-100-g622af42 -> v4.15.
+
+* Wed Nov 16 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.14.0.100.622a-1
+- v4.14 -> v4.14-100-g622af42:
+  + implemented syscall fault injection.
+
+* Tue Oct 04 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.14-1
+- v4.13 -> v4.14:
+  + added printing of the mode argument of open and openat syscalls
+    when O_TMPFILE flag is set (#1377846).
+
+* Tue Jul 26 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.13-1
+- v4.12 -> v4.13.
+
+* Tue May 31 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.12-1
+- v4.11-163-g972018f -> v4.12.
+
+* Fri Feb 05 2016 Fedora Release Engineering <releng@fedoraproject.org> - 4.11.0.163.9720-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Fri Jan 15 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.11.0.163.9720-1
+- New upstream snapshot v4.11-163-g972018f:
+  + fixed decoding of syscalls unknown to the kernel on s390/s390x (#1298294).
+
 * Wed Dec 23 2015 Dmitry V. Levin <ldv@altlinux.org> - 4.11-2
 - Enabled experimental -k option on x86_64 (#1170296).
 

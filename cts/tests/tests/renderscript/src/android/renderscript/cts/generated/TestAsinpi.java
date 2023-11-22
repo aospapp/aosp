@@ -37,17 +37,25 @@ public class TestAsinpi extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestAsinpiRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkAsinpiFloatFloat() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xe541a30dl, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xe82042a5e541a30dl, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testAsinpiFloatFloat(inV, out);
             verifyResultsAsinpiFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiFloatFloat(inV, out);
             verifyResultsAsinpiFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -112,11 +122,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiFloat2Float2() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x9b8ce9c9l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x90dc157b9b8ce9c9l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testAsinpiFloat2Float2(inV, out);
             verifyResultsAsinpiFloat2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloat2Float2: " + e.toString());
         }
@@ -124,9 +135,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiFloat2Float2(inV, out);
             verifyResultsAsinpiFloat2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloat2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiFloat2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -181,11 +194,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiFloat3Float3() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x91a80aa7l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x90ddde9691a80aa7l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testAsinpiFloat3Float3(inV, out);
             verifyResultsAsinpiFloat3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloat3Float3: " + e.toString());
         }
@@ -193,9 +207,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiFloat3Float3(inV, out);
             verifyResultsAsinpiFloat3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloat3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiFloat3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -250,11 +266,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiFloat4Float4() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x87c32b85l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x90dfa7b187c32b85l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testAsinpiFloat4Float4(inV, out);
             verifyResultsAsinpiFloat4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloat4Float4: " + e.toString());
         }
@@ -262,9 +279,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiFloat4Float4(inV, out);
             verifyResultsAsinpiFloat4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiFloat4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiFloat4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -325,11 +344,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiHalfHalf() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x63399e5fl, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x49797df163399e5fl, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testAsinpiHalfHalf(inV, out);
             verifyResultsAsinpiHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalfHalf: " + e.toString());
         }
@@ -337,9 +357,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiHalfHalf(inV, out);
             verifyResultsAsinpiHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -398,11 +420,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiHalf2Half2() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x525fea49l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xae7db459525fea49l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testAsinpiHalf2Half2(inV, out);
             verifyResultsAsinpiHalf2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalf2Half2: " + e.toString());
         }
@@ -410,9 +433,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiHalf2Half2(inV, out);
             verifyResultsAsinpiHalf2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalf2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -471,11 +496,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiHalf3Half3() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb167af3dl, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xae7dbefab167af3dl, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testAsinpiHalf3Half3(inV, out);
             verifyResultsAsinpiHalf3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalf3Half3: " + e.toString());
         }
@@ -483,9 +509,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiHalf3Half3(inV, out);
             verifyResultsAsinpiHalf3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalf3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -544,11 +572,12 @@ public class TestAsinpi extends RSBaseCompute {
     }
 
     private void checkAsinpiHalf4Half4() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x106f7431l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xae7dc99c106f7431l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testAsinpiHalf4Half4(inV, out);
             verifyResultsAsinpiHalf4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalf4Half4: " + e.toString());
         }
@@ -556,9 +585,11 @@ public class TestAsinpi extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testAsinpiHalf4Half4(inV, out);
             verifyResultsAsinpiHalf4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAsinpiHalf4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsAsinpiHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {

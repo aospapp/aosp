@@ -14,13 +14,15 @@
  * the License.
  */
 
-#include <tinyxml.h>
+#include <tinyxml2.h>
 
-#include <UniquePtr.h>
+#include <memory>
 
 #include "Log.h"
 #include "GenericFactory.h"
 #include "task/ModelBuilder.h"
+
+using namespace tinyxml2;
 
 static const int MAX_NO_CHILDREN = 8;
 static const ModelBuilder::ChildInfo CASE_TABLE[] = {
@@ -83,12 +85,13 @@ ModelBuilder::~ModelBuilder()
 TaskGeneric* ModelBuilder::parseTestDescriptionXml(const android::String8& xmlFileName,
         bool caseOnly)
 {
-    TiXmlDocument doc(xmlFileName.string());
-    if (!doc.LoadFile()) {
-        LOGE("ModelBuilder::parseTestDescriptionXml cannot load file %s", xmlFileName.string());
+    XMLDocument doc;
+    int error = doc.LoadFile(xmlFileName.string());
+    if (error != XML_NO_ERROR) {
+        LOGE("ModelBuilder::parseTestDescriptionXml cannot load file %s: %d", xmlFileName.string(), error);
         return NULL;
     }
-    const TiXmlElement* root;
+    const XMLElement* root;
     if ((root = doc.FirstChildElement("case")) != NULL) {
         return parseCase(*root);
     } else if (!caseOnly && ((root = doc.FirstChildElement("batch")) != NULL)) {
@@ -99,11 +102,11 @@ TaskGeneric* ModelBuilder::parseTestDescriptionXml(const android::String8& xmlFi
     }
 }
 
-TaskGeneric* ModelBuilder::parseGeneric(const TiXmlElement& self, int tableIndex)
+TaskGeneric* ModelBuilder::parseGeneric(const XMLElement& self, int tableIndex)
 {
     TaskGeneric::TaskType typeSelf(mParsingTable[tableIndex].type);
     int Nchildren = mParsingTable[tableIndex].Nchildren;
-    UniquePtr<TaskGeneric> taskSelf(mFactory->createTask(typeSelf));
+    std::unique_ptr<TaskGeneric> taskSelf(mFactory->createTask(typeSelf));
     if (taskSelf.get() == NULL) {
         return NULL;
     }
@@ -118,7 +121,7 @@ TaskGeneric* ModelBuilder::parseGeneric(const TiXmlElement& self, int tableIndex
     }
 
     // handle children
-    const TiXmlElement* child = self.FirstChildElement();
+    const XMLElement* child = self.FirstChildElement();
     while (child != NULL) {
         TaskGeneric::TaskType childType(TaskGeneric::ETaskInvalid);
         int i;
@@ -148,7 +151,7 @@ TaskGeneric* ModelBuilder::parseGeneric(const TiXmlElement& self, int tableIndex
                     typeSelf);
             return NULL;
         }
-        UniquePtr<TaskGeneric> taskChild(parseGeneric(*child, i));
+        std::unique_ptr<TaskGeneric> taskChild(parseGeneric(*child, i));
         if (taskChild.get() == NULL) {
             LOGE("ModelBuilder::parseGeneric failed in parsing child type %d for type %d",
                     childType, typeSelf);
@@ -175,16 +178,16 @@ TaskGeneric* ModelBuilder::parseGeneric(const TiXmlElement& self, int tableIndex
 }
 
 
-TaskCase* ModelBuilder::parseCase(const TiXmlElement& root)
+TaskCase* ModelBuilder::parseCase(const XMLElement& root)
 {
     // position 0 of mParsingTable should be "case"
     return reinterpret_cast<TaskCase*>(parseGeneric(root, 0));
 }
 
 
-TaskBatch* ModelBuilder::parseBatch(const TiXmlElement& root, const android::String8& xmlFileName)
+TaskBatch* ModelBuilder::parseBatch(const XMLElement& root, const android::String8& xmlFileName)
 {
-    UniquePtr<TaskBatch> batch(
+    std::unique_ptr<TaskBatch> batch(
             reinterpret_cast<TaskBatch*>(mFactory->createTask(TaskGeneric::ETaskBatch)));
     if (batch.get() == NULL) {
         LOGE("ModelBuilder::handleBatch cannot create TaskBatch");
@@ -194,14 +197,14 @@ TaskBatch* ModelBuilder::parseBatch(const TiXmlElement& root, const android::Str
         return NULL;
     }
 
-    const TiXmlElement* inc = root.FirstChildElement("include");
+    const XMLElement* inc = root.FirstChildElement("include");
     if (inc == NULL) {
         LOGE("ModelBuilder::handleBatch no include inside batch");
         return NULL;
     }
     android::String8 path = xmlFileName.getPathDir();
 
-    UniquePtr<TaskCase> testCase;
+    std::unique_ptr<TaskCase> testCase;
     int i = 0;
     while (1) {
         if (inc == NULL) {
@@ -231,7 +234,7 @@ TaskBatch* ModelBuilder::parseBatch(const TiXmlElement& root, const android::Str
     return batch.release();
 }
 
-TaskCase* ModelBuilder::parseInclude(const TiXmlElement& elem, const android::String8& path)
+TaskCase* ModelBuilder::parseInclude(const XMLElement& elem, const android::String8& path)
 {
     const char* fileName = elem.Attribute("file");
     if (fileName == NULL) {
@@ -245,9 +248,9 @@ TaskCase* ModelBuilder::parseInclude(const TiXmlElement& elem, const android::St
     return reinterpret_cast<TaskCase*>(parseTestDescriptionXml(incFile, true));
 }
 
-bool ModelBuilder::parseAttributes(const TiXmlElement& elem, TaskGeneric& task)
+bool ModelBuilder::parseAttributes(const XMLElement& elem, TaskGeneric& task)
 {
-    const TiXmlAttribute* attr = elem.FirstAttribute();
+    const XMLAttribute* attr = elem.FirstAttribute();
     while (1) {
         if (attr == NULL) {
             break;

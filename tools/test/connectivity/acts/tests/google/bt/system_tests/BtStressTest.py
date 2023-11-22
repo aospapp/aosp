@@ -19,35 +19,27 @@ Basic Bluetooth Classic stress tests.
 
 import time
 from acts.base_test import BaseTestClass
-from acts.test_utils.bt.bt_test_utils import log_energy_info
+from acts.test_decorators import test_tracker_info
+from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
+from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
 from acts.test_utils.bt.bt_test_utils import pair_pri_to_sec
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 
 
-class BtStressTest(BaseTestClass):
-    default_timeout = 10
+class BtStressTest(BluetoothBaseTest):
+    default_timeout = 20
+    iterations = 100
 
     def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
-
-    def setup_class(self):
-        return setup_multiple_devices_for_bt_test(self.android_devices)
-
-    def setup_test(self):
-        return reset_bluetooth(self.android_devices)
-
-    def setup_test(self):
-        setup_result = reset_bluetooth(self.android_devices)
-        self.log.debug(log_energy_info(self.android_devices, "Start"))
-        for a in self.android_devices:
-            a.ed.clear_all_events()
-        return setup_result
+        BluetoothBaseTest.__init__(self, controllers)
 
     def teardown_test(self):
-        self.log.debug(log_energy_info(self.android_devices, "End"))
+        super(BluetoothBaseTest, self).teardown_test()
+        self.log_stats()
         return True
 
+    @test_tracker_info(uuid='bbe050f8-7970-42b3-9104-a2cd8f09579c')
     def test_toggle_bluetooth(self):
         """Stress test toggling bluetooth on and off.
 
@@ -69,31 +61,27 @@ class BtStressTest(BaseTestClass):
         TAGS: Classic, Stress
         Priority: 1
         """
-        test_result = True
-        test_result_list = []
-        for n in range(100):
+        for n in range(self.iterations):
             self.log.info("Toggling bluetooth iteration {}.".format(n + 1))
-            test_result = reset_bluetooth([self.android_devices[0]])
-            test_result_list.append(test_result)
-            if not test_result:
-                self.log.debug("Failure to reset Bluetooth... continuing")
-        self.log.info("Toggling Bluetooth failed {}/100 times".format(len(
-            test_result_list)))
-        if False in test_result_list:
-            return False
-        return test_result
+            if not reset_bluetooth([self.android_devices[0]]):
+                self.log.error("Failure to reset Bluetooth")
+                return False
+        return True
 
+    @test_tracker_info(uuid='a6fac426-d068-4a86-9d55-00dbe51b2ff0')
     def test_pair_bluetooth_stress(self):
         """Stress test for pairing BT devices.
 
         Test the integrity of Bluetooth pairing.
 
-        Steps:
-        1. Pair two Android devices
-        2. Verify both devices are paired
-        3. Unpair devices.
-        4. Verify devices unpaired.
-        5. Repeat steps 1-4 100 times.
+        1. Primary device discover the secondary device
+        2. Primary device tries to pair to secondary device
+        3. Pair two devices after verifying pin number on both devices are equal
+        4. Verify both devices are paired
+        5. Unpair devices.
+        6. Verify devices unpaired.
+        7. Repeat steps 1-6 100 times.
+
 
         Expected Result:
         Each iteration of toggling Bluetooth pairing and unpairing
@@ -106,18 +94,25 @@ class BtStressTest(BaseTestClass):
         TAGS: Classic, Stress
         Priority: 1
         """
-        for n in range(100):
+        for n in range(self.iterations):
             self.log.info("Pair bluetooth iteration {}.".format(n + 1))
-            if (pair_pri_to_sec(self.android_devices[0].droid,
-                                self.android_devices[1].droid) == False):
+            self.start_timer()
+            if (not pair_pri_to_sec(
+                    self.android_devices[0],
+                    self.android_devices[1],
+                    attempts=1,
+                    auto_confirm=False)):
                 self.log.error("Failed to bond devices.")
                 return False
+            self.log.info("Total time (ms): {}".format(self.end_timer()))
+            # A device bond will trigger a number of system routines that need
+            # to settle before unbond
+            time.sleep(2)
             for ad in self.android_devices:
-                bonded_devices = ad.droid.bluetoothGetBondedDevices()
-                for b in bonded_devices:
-                    ad.droid.bluetoothUnbond(b['address'])
-                #Necessary sleep time for entries to update unbonded state
-                time.sleep(1)
+                if not clear_bonded_devices(ad):
+                    return False
+                # Necessary sleep time for entries to update unbonded state
+                time.sleep(2)
                 bonded_devices = ad.droid.bluetoothGetBondedDevices()
                 if len(bonded_devices) > 0:
                     self.log.error("Failed to unbond devices: {}".format(

@@ -34,8 +34,8 @@ public class NotificationBundlingTests extends InstrumentationTestCase {
     private static final int SHORT_TIMEOUT = 200;
     private static final int LONG_TIMEOUT = 2000;
     private static final int GROUP_NOTIFICATION_ID = 1;
-    private static final int CHILD_NOTIFICATION_ID = 100;
-    private static final int SECOND_CHILD_NOTIFICATION_ID = 101;
+    private static final int CHILD_NOTIFICATION_ID = 500;
+    private static final int SECOND_CHILD_NOTIFICATION_ID = 501;
     private static final String BUNDLE_GROUP_KEY = "group_key ";
     private NotificationManager mNotificationManager;
     private UiDevice mDevice = null;

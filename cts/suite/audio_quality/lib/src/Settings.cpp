@@ -34,7 +34,7 @@ void Settings::Finalize()
 }
 
 
-void Settings::addSetting(SettingType type, const android::String8 setting)
+void Settings::addSetting(SettingType type, const android::String8& setting)
 {
     mSettings[type] = setting;
 }

@@ -44,25 +44,25 @@ class TpmNvramDBusProxyTest : public testing::Test {
   TpmNvramDBusProxy proxy_;
 };
 
-TEST_F(TpmNvramDBusProxyTest, DefineNvram) {
+TEST_F(TpmNvramDBusProxyTest, DefineSpace) {
   uint32_t nvram_index = 5;
-  size_t nvram_length = 32;
-  auto fake_dbus_call = [nvram_index, nvram_length](
+  size_t nvram_size = 32;
+  auto fake_dbus_call = [nvram_index, nvram_size](
       dbus::MethodCall* method_call,
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    DefineNvramRequest request;
+    DefineSpaceRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
     EXPECT_TRUE(request.has_index());
     EXPECT_EQ(nvram_index, request.index());
-    EXPECT_TRUE(request.has_length());
-    EXPECT_EQ(nvram_length, request.length());
+    EXPECT_TRUE(request.has_size());
+    EXPECT_EQ(nvram_size, request.size());
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    DefineNvramReply reply;
-    reply.set_status(STATUS_SUCCESS);
+    DefineSpaceReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
   };
@@ -70,33 +70,33 @@ TEST_F(TpmNvramDBusProxyTest, DefineNvram) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count](const DefineNvramReply& reply) {
+  auto callback = [&callback_count](const DefineSpaceReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  DefineNvramRequest request;
+  DefineSpaceRequest request;
   request.set_index(nvram_index);
-  request.set_length(nvram_length);
-  proxy_.DefineNvram(request, base::Bind(callback));
+  request.set_size(nvram_size);
+  proxy_.DefineSpace(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
 
-TEST_F(TpmNvramDBusProxyTest, DestroyNvram) {
+TEST_F(TpmNvramDBusProxyTest, DestroySpaceRequest) {
   uint32_t nvram_index = 5;
   auto fake_dbus_call = [nvram_index](
       dbus::MethodCall* method_call,
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    DestroyNvramRequest request;
+    DestroySpaceRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
     EXPECT_TRUE(request.has_index());
     EXPECT_EQ(nvram_index, request.index());
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    DestroyNvramReply reply;
-    reply.set_status(STATUS_SUCCESS);
+    DestroySpaceReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
   };
@@ -104,16 +104,16 @@ TEST_F(TpmNvramDBusProxyTest, DestroyNvram) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count](const DestroyNvramReply& reply) {
+  auto callback = [&callback_count](const DestroySpaceReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  DestroyNvramRequest request;
+  DestroySpaceRequest request;
   request.set_index(nvram_index);
-  proxy_.DestroyNvram(request, base::Bind(callback));
+  proxy_.DestroySpace(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
-TEST_F(TpmNvramDBusProxyTest, WriteNvram) {
+TEST_F(TpmNvramDBusProxyTest, WriteSpace) {
   uint32_t nvram_index = 5;
   std::string nvram_data("nvram_data");
   auto fake_dbus_call = [nvram_index, nvram_data](
@@ -121,7 +121,7 @@ TEST_F(TpmNvramDBusProxyTest, WriteNvram) {
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    WriteNvramRequest request;
+    WriteSpaceRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
     EXPECT_TRUE(request.has_index());
     EXPECT_EQ(nvram_index, request.index());
@@ -130,8 +130,8 @@ TEST_F(TpmNvramDBusProxyTest, WriteNvram) {
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    WriteNvramReply reply;
-    reply.set_status(STATUS_SUCCESS);
+    WriteSpaceReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
   };
@@ -139,18 +139,18 @@ TEST_F(TpmNvramDBusProxyTest, WriteNvram) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count](const WriteNvramReply& reply) {
+  auto callback = [&callback_count](const WriteSpaceReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  WriteNvramRequest request;
+  WriteSpaceRequest request;
   request.set_index(nvram_index);
   request.set_data(nvram_data);
-  proxy_.WriteNvram(request, base::Bind(callback));
+  proxy_.WriteSpace(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
 
-TEST_F(TpmNvramDBusProxyTest, ReadNvram) {
+TEST_F(TpmNvramDBusProxyTest, ReadSpace) {
   uint32_t nvram_index = 5;
   std::string nvram_data("nvram_data");
   auto fake_dbus_call = [nvram_index, nvram_data](
@@ -158,15 +158,15 @@ TEST_F(TpmNvramDBusProxyTest, ReadNvram) {
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    ReadNvramRequest request;
+    ReadSpaceRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
     EXPECT_TRUE(request.has_index());
     EXPECT_EQ(nvram_index, request.index());
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    ReadNvramReply reply;
-    reply.set_status(STATUS_SUCCESS);
+    ReadSpaceReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
     reply.set_data(nvram_data);
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
@@ -175,36 +175,34 @@ TEST_F(TpmNvramDBusProxyTest, ReadNvram) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count, nvram_data](const ReadNvramReply& reply) {
+  auto callback = [&callback_count, nvram_data](const ReadSpaceReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
     EXPECT_TRUE(reply.has_data());
     EXPECT_EQ(nvram_data, reply.data());
   };
-  ReadNvramRequest request;
+  ReadSpaceRequest request;
   request.set_index(nvram_index);
-  proxy_.ReadNvram(request, base::Bind(callback));
+  proxy_.ReadSpace(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
 
-TEST_F(TpmNvramDBusProxyTest, IsNvramDefined) {
+TEST_F(TpmNvramDBusProxyTest, LockSpace) {
   uint32_t nvram_index = 5;
-  bool nvram_defined = true;
-  auto fake_dbus_call = [nvram_index, nvram_defined](
+  auto fake_dbus_call = [nvram_index](
       dbus::MethodCall* method_call,
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    IsNvramDefinedRequest request;
+    LockSpaceRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
     EXPECT_TRUE(request.has_index());
     EXPECT_EQ(nvram_index, request.index());
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    IsNvramDefinedReply reply;
-    reply.set_status(STATUS_SUCCESS);
-    reply.set_is_defined(nvram_defined);
+    LockSpaceReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
   };
@@ -212,37 +210,33 @@ TEST_F(TpmNvramDBusProxyTest, IsNvramDefined) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count, nvram_defined](
-      const IsNvramDefinedReply& reply) {
+  auto callback = [&callback_count](const LockSpaceReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_TRUE(reply.has_is_defined());
-    EXPECT_EQ(nvram_defined, reply.is_defined());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  IsNvramDefinedRequest request;
+  LockSpaceRequest request;
   request.set_index(nvram_index);
-  proxy_.IsNvramDefined(request, base::Bind(callback));
+  proxy_.LockSpace(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
 
-TEST_F(TpmNvramDBusProxyTest, IsNvramLocked) {
-  uint32_t nvram_index = 5;
-  bool nvram_locked = true;
-  auto fake_dbus_call = [nvram_index, nvram_locked](
+TEST_F(TpmNvramDBusProxyTest, ListSpaces) {
+  constexpr uint32_t nvram_index_list[] = {3, 4, 5};
+  auto fake_dbus_call = [nvram_index_list](
       dbus::MethodCall* method_call,
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    IsNvramLockedRequest request;
+    ListSpacesRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
-    EXPECT_TRUE(request.has_index());
-    EXPECT_EQ(nvram_index, request.index());
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    IsNvramLockedReply reply;
-    reply.set_status(STATUS_SUCCESS);
-    reply.set_is_locked(nvram_locked);
+    ListSpacesReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
+    for (auto index : nvram_index_list) {
+      reply.add_index_list(index);
+    }
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
   };
@@ -250,20 +244,21 @@ TEST_F(TpmNvramDBusProxyTest, IsNvramLocked) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count, nvram_locked](
-      const IsNvramLockedReply& reply) {
+  auto callback = [&callback_count,
+                   nvram_index_list](const ListSpacesReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_TRUE(reply.has_is_locked());
-    EXPECT_EQ(nvram_locked, reply.is_locked());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
+    EXPECT_EQ(arraysize(nvram_index_list), reply.index_list_size());
+    for (size_t i = 0; i < 3; i++) {
+      EXPECT_EQ(nvram_index_list[i], reply.index_list(i));
+    }
   };
-  IsNvramLockedRequest request;
-  request.set_index(nvram_index);
-  proxy_.IsNvramLocked(request, base::Bind(callback));
+  ListSpacesRequest request;
+  proxy_.ListSpaces(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
 
-TEST_F(TpmNvramDBusProxyTest, GetNvramSize) {
+TEST_F(TpmNvramDBusProxyTest, GetSpaceInfo) {
   uint32_t nvram_index = 5;
   size_t nvram_size = 32;
   auto fake_dbus_call = [nvram_index, nvram_size](
@@ -271,15 +266,15 @@ TEST_F(TpmNvramDBusProxyTest, GetNvramSize) {
       const dbus::MockObjectProxy::ResponseCallback& response_callback) {
     // Verify request protobuf.
     dbus::MessageReader reader(method_call);
-    GetNvramSizeRequest request;
+    GetSpaceInfoRequest request;
     EXPECT_TRUE(reader.PopArrayOfBytesAsProto(&request));
     EXPECT_TRUE(request.has_index());
     EXPECT_EQ(nvram_index, request.index());
     // Create reply protobuf.
     auto response = dbus::Response::CreateEmpty();
     dbus::MessageWriter writer(response.get());
-    GetNvramSizeReply reply;
-    reply.set_status(STATUS_SUCCESS);
+    GetSpaceInfoReply reply;
+    reply.set_result(NVRAM_RESULT_SUCCESS);
     reply.set_size(nvram_size);
     writer.AppendProtoAsArrayOfBytes(reply);
     response_callback.Run(response.release());
@@ -288,16 +283,16 @@ TEST_F(TpmNvramDBusProxyTest, GetNvramSize) {
       .WillOnce(WithArgs<0, 2>(Invoke(fake_dbus_call)));
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count, nvram_size](
-      const GetNvramSizeReply& reply) {
+  auto callback = [&callback_count,
+                   nvram_size](const GetSpaceInfoReply& reply) {
     callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
     EXPECT_TRUE(reply.has_size());
     EXPECT_EQ(nvram_size, reply.size());
   };
-  GetNvramSizeRequest request;
+  GetSpaceInfoRequest request;
   request.set_index(nvram_index);
-  proxy_.GetNvramSize(request, base::Bind(callback));
+  proxy_.GetSpaceInfo(request, base::Bind(callback));
   EXPECT_EQ(1, callback_count);
 }
 

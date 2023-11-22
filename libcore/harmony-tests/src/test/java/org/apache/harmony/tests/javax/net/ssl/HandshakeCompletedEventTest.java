@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.util.Base64;
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.KeyManager;
@@ -39,7 +40,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.cert.X509Certificate;
 import junit.framework.TestCase;
-import libcore.io.Base64;
 import org.apache.harmony.xnet.tests.support.mySSLSession;
 
 /**
@@ -535,7 +535,7 @@ public class HandshakeCompletedEventTest extends TestCase {
      * for the result.
      */
     private KeyManager[] getKeyManagers(String keys) throws Exception {
-        byte[] bytes = Base64.decode(keys.getBytes());
+        byte[] bytes = Base64.getDecoder().decode(keys.getBytes());
         InputStream inputStream = new ByteArrayInputStream(bytes);
 
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());

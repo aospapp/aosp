@@ -16,11 +16,13 @@
 
 package android.widget;
 
+import android.annotation.NonNull;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.Cea708CaptionRenderer;
 import android.media.ClosedCaptionRenderer;
@@ -67,22 +69,33 @@ import java.util.Vector;
  * {@link android.app.Activity#onRestoreInstanceState}.<p>
  * Also note that the audio session id (from {@link #getAudioSessionId}) may
  * change from its previously returned value when the VideoView is restored.
+ * <p>
+ * By default, VideoView requests audio focus with {@link AudioManager#AUDIOFOCUS_GAIN}. Use
+ * {@link #setAudioFocusRequest(int)} to change this behavior.
+ * <p>
+ * The default {@link AudioAttributes} used during playback have a usage of
+ * {@link AudioAttributes#USAGE_MEDIA} and a content type of
+ * {@link AudioAttributes#CONTENT_TYPE_MOVIE}, use {@link #setAudioAttributes(AudioAttributes)} to
+ * modify them.
  */
 public class VideoView extends SurfaceView
         implements MediaPlayerControl, SubtitleController.Anchor {
-    private String TAG = "VideoView";
-    // settable by the client
-    private Uri         mUri;
-    private Map<String, String> mHeaders;
+    private static final String TAG = "VideoView";
 
     // all possible internal states
-    private static final int STATE_ERROR              = -1;
-    private static final int STATE_IDLE               = 0;
-    private static final int STATE_PREPARING          = 1;
-    private static final int STATE_PREPARED           = 2;
-    private static final int STATE_PLAYING            = 3;
-    private static final int STATE_PAUSED             = 4;
+    private static final int STATE_ERROR = -1;
+    private static final int STATE_IDLE = 0;
+    private static final int STATE_PREPARING = 1;
+    private static final int STATE_PREPARED = 2;
+    private static final int STATE_PLAYING = 3;
+    private static final int STATE_PAUSED = 4;
     private static final int STATE_PLAYBACK_COMPLETED = 5;
+
+    private final Vector<Pair<InputStream, MediaFormat>> mPendingSubtitleTracks = new Vector<>();
+
+    // settable by the client
+    private Uri mUri;
+    private Map<String, String> mHeaders;
 
     // mCurrentState is a VideoView object's current state.
     // mTargetState is the state that a method caller intends to reach.
@@ -90,26 +103,29 @@ public class VideoView extends SurfaceView
     // calling pause() intends to bring the object to a target state
     // of STATE_PAUSED.
     private int mCurrentState = STATE_IDLE;
-    private int mTargetState  = STATE_IDLE;
+    private int mTargetState = STATE_IDLE;
 
     // All the stuff we need for playing and showing a video
     private SurfaceHolder mSurfaceHolder = null;
     private MediaPlayer mMediaPlayer = null;
-    private int         mAudioSession;
-    private int         mVideoWidth;
-    private int         mVideoHeight;
-    private int         mSurfaceWidth;
-    private int         mSurfaceHeight;
+    private int mAudioSession;
+    private int mVideoWidth;
+    private int mVideoHeight;
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
     private MediaController mMediaController;
     private OnCompletionListener mOnCompletionListener;
     private MediaPlayer.OnPreparedListener mOnPreparedListener;
-    private int         mCurrentBufferPercentage;
+    private int mCurrentBufferPercentage;
     private OnErrorListener mOnErrorListener;
-    private OnInfoListener  mOnInfoListener;
-    private int         mSeekWhenPrepared;  // recording the seek position while preparing
-    private boolean     mCanPause;
-    private boolean     mCanSeekBack;
-    private boolean     mCanSeekForward;
+    private OnInfoListener mOnInfoListener;
+    private int mSeekWhenPrepared;  // recording the seek position while preparing
+    private boolean mCanPause;
+    private boolean mCanSeekBack;
+    private boolean mCanSeekForward;
+    private AudioManager mAudioManager;
+    private int mAudioFocusType = AudioManager.AUDIOFOCUS_GAIN; // legacy focus gain
+    private AudioAttributes mAudioAttributes;
 
     /** Subtitle rendering widget overlaid on top of the video. */
     private RenderingWidget mSubtitleWidget;
@@ -118,13 +134,11 @@ public class VideoView extends SurfaceView
     private RenderingWidget.OnChangedListener mSubtitlesChangedListener;
 
     public VideoView(Context context) {
-        super(context);
-        initVideoView();
+        this(context, null);
     }
 
     public VideoView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
-        initVideoView();
     }
 
     public VideoView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -133,7 +147,23 @@ public class VideoView extends SurfaceView
 
     public VideoView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        initVideoView();
+
+        mVideoWidth = 0;
+        mVideoHeight = 0;
+
+        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        mAudioAttributes = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE).build();
+
+        getHolder().addCallback(mSHCallback);
+        getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+
+        setFocusable(true);
+        setFocusableInTouchMode(true);
+        requestFocus();
+
+        mCurrentState = STATE_IDLE;
+        mTargetState = STATE_IDLE;
     }
 
     @Override
@@ -209,19 +239,6 @@ public class VideoView extends SurfaceView
         return getDefaultSize(desiredSize, measureSpec);
     }
 
-    private void initVideoView() {
-        mVideoWidth = 0;
-        mVideoHeight = 0;
-        getHolder().addCallback(mSHCallback);
-        getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        setFocusable(true);
-        setFocusableInTouchMode(true);
-        requestFocus();
-        mPendingSubtitleTracks = new Vector<Pair<InputStream, MediaFormat>>();
-        mCurrentState = STATE_IDLE;
-        mTargetState  = STATE_IDLE;
-    }
-
     /**
      * Sets video path.
      *
@@ -260,6 +277,41 @@ public class VideoView extends SurfaceView
     }
 
     /**
+     * Sets which type of audio focus will be requested during the playback, or configures playback
+     * to not request audio focus. Valid values for focus requests are
+     * {@link AudioManager#AUDIOFOCUS_GAIN}, {@link AudioManager#AUDIOFOCUS_GAIN_TRANSIENT},
+     * {@link AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK}, and
+     * {@link AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE}. Or use
+     * {@link AudioManager#AUDIOFOCUS_NONE} to express that audio focus should not be
+     * requested when playback starts. You can for instance use this when playing a silent animation
+     * through this class, and you don't want to affect other audio applications playing in the
+     * background.
+     * @param focusGain the type of audio focus gain that will be requested, or
+     *    {@link AudioManager#AUDIOFOCUS_NONE} to disable the use audio focus during playback.
+     */
+    public void setAudioFocusRequest(int focusGain) {
+        if (focusGain != AudioManager.AUDIOFOCUS_NONE
+                && focusGain != AudioManager.AUDIOFOCUS_GAIN
+                && focusGain != AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                && focusGain != AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+                && focusGain != AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE) {
+            throw new IllegalArgumentException("Illegal audio focus type " + focusGain);
+        }
+        mAudioFocusType = focusGain;
+    }
+
+    /**
+     * Sets the {@link AudioAttributes} to be used during the playback of the video.
+     * @param attributes non-null <code>AudioAttributes</code>.
+     */
+    public void setAudioAttributes(@NonNull AudioAttributes attributes) {
+        if (attributes == null) {
+            throw new IllegalArgumentException("Illegal null AudioAttributes");
+        }
+        mAudioAttributes = attributes;
+    }
+
+    /**
      * Adds an external subtitle source file (from the provided input stream.)
      *
      * Note that a single external subtitle source may contain multiple or no
@@ -294,8 +346,6 @@ public class VideoView extends SurfaceView
         }
     }
 
-    private Vector<Pair<InputStream, MediaFormat>> mPendingSubtitleTracks;
-
     public void stopPlayback() {
         if (mMediaPlayer != null) {
             mMediaPlayer.stop();
@@ -303,8 +353,7 @@ public class VideoView extends SurfaceView
             mMediaPlayer = null;
             mCurrentState = STATE_IDLE;
             mTargetState  = STATE_IDLE;
-            AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-            am.abandonAudioFocus(null);
+            mAudioManager.abandonAudioFocus(null);
         }
     }
 
@@ -317,8 +366,10 @@ public class VideoView extends SurfaceView
         // called start() previously
         release(false);
 
-        AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-        am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+        if (mAudioFocusType != AudioManager.AUDIOFOCUS_NONE) {
+            // TODO this should have a focus listener
+            mAudioManager.requestAudioFocus(null, mAudioAttributes, mAudioFocusType, 0 /*flags*/);
+        }
 
         try {
             mMediaPlayer = new MediaPlayer();
@@ -347,7 +398,7 @@ public class VideoView extends SurfaceView
             mCurrentBufferPercentage = 0;
             mMediaPlayer.setDataSource(mContext, mUri, mHeaders);
             mMediaPlayer.setDisplay(mSurfaceHolder);
-            mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+            mMediaPlayer.setAudioAttributes(mAudioAttributes);
             mMediaPlayer.setScreenOnWhilePlaying(true);
             mMediaPlayer.prepareAsync();
 
@@ -483,6 +534,9 @@ public class VideoView extends SurfaceView
             }
             if (mOnCompletionListener != null) {
                 mOnCompletionListener.onCompletion(mMediaPlayer);
+            }
+            if (mAudioFocusType != AudioManager.AUDIOFOCUS_NONE) {
+                mAudioManager.abandonAudioFocus(null);
             }
         }
     };
@@ -646,25 +700,28 @@ public class VideoView extends SurfaceView
             if (cleartargetstate) {
                 mTargetState  = STATE_IDLE;
             }
-            AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-            am.abandonAudioFocus(null);
+            if (mAudioFocusType != AudioManager.AUDIOFOCUS_NONE) {
+                mAudioManager.abandonAudioFocus(null);
+            }
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent ev) {
-        if (isInPlaybackState() && mMediaController != null) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN
+                && isInPlaybackState() && mMediaController != null) {
             toggleMediaControlsVisiblity();
         }
-        return false;
+        return super.onTouchEvent(ev);
     }
 
     @Override
     public boolean onTrackballEvent(MotionEvent ev) {
-        if (isInPlaybackState() && mMediaController != null) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN
+                && isInPlaybackState() && mMediaController != null) {
             toggleMediaControlsVisiblity();
         }
-        return false;
+        return super.onTrackballEvent(ev);
     }
 
     @Override

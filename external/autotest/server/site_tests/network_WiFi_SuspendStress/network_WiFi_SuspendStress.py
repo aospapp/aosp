@@ -57,6 +57,11 @@ class network_WiFi_SuspendStress(wifi_cell_test_base.WiFiCellTestBase):
 
     def stress_wifi_suspend(self):
         """Perform the suspend stress."""
+
+        # servo might be taking time to come up; wait a bit
+        if not self._host.servo:
+           time.sleep(10)
+
         if self._host.servo.get('lid_open') == 'not_applicable':
             self.context.client.do_suspend(10)
         else:

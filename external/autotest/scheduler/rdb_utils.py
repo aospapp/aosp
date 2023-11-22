@@ -10,8 +10,14 @@ Do not import rdb or autotest modules here to avoid cyclic dependencies.
 import collections
 
 import common
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.client.common_lib import priorities
+from autotest_lib.client.common_lib import utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
 
 RDB_STATS_KEY = 'rdb'
 
@@ -99,7 +105,8 @@ class RequestAccountant(object):
     get_rest requests, it will not be fullfilled anyway.
     """
 
-    _gauge = autotest_stats.Gauge(RDB_STATS_KEY)
+    _host_ratio_metric = metrics.Float(
+            'chromeos/autotest/scheduler/rdb/host_acquisition_ratio')
 
 
     def __init__(self, host_requests):
@@ -174,5 +181,4 @@ class RequestAccountant(object):
             priority =  priorities.Priority.get_string(host_request.priority)
         except ValueError:
             return
-        key = ('min_duts_acquisition_rate.%s') % priority
-        cls._gauge.send(key, acquired_host_count/float(hosts_required))
+        cls._host_ratio_metric.set(acquired_host_count/float(hosts_required))

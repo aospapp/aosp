@@ -6,17 +6,15 @@ Mostly test if the serialized object has the expected content.
 
 """
 
-import common
 import datetime
-import os
-import re
 import tempfile
 import time
+import unittest
 
+import common
 from autotest_lib.tko import tko_pb2
 from autotest_lib.tko import job_serializer
 from autotest_lib.tko import models
-from autotest_lib.client.common_lib.test_utils import unittest
 
 NamedTemporaryFile = tempfile.NamedTemporaryFile
 datetime = datetime.datetime
@@ -36,6 +34,11 @@ class JobSerializerUnittest(unittest.TestCase):
         tko_job = models.job('/tmp/', 'autotest', 'test', 'My Computer',
                              tko_time, tko_time, tko_time, 'root',
                              'www', 'No one', tko_time, {'1+1':2})
+        tko_job.afe_parent_job_id = '111'
+        tko_job.build_version = 'R1-1.0.0'
+        tko_job.suite = 'bvt'
+        tko_job.board = 'alex'
+        tko_job.index = 2
 
         tko_iteration = models.iteration(0, {'2+2':4, '3+3':6},
                                    {'4+4':8, '5+5':10, '6+6':12})
@@ -49,7 +52,7 @@ class JobSerializerUnittest(unittest.TestCase):
                                tko_time, [tko_iteration,
                                tko_iteration, tko_iteration],
                                {'abc':'def'}, [], tko_labels)
-
+        tko_test.test_idx = 3
         self.tko_job = tko_job
         self.tko_job.tests = [tko_test, tko_test, tko_test]
 
@@ -62,10 +65,12 @@ class JobSerializerUnittest(unittest.TestCase):
 
 
     def test_tag(self):
+        """Test serializing tag field."""
         self.assertEqual(self.tag, self.pb_job.tag)
 
 
     def test_afe_job_id(self):
+        """Test serializing afe_job_id field."""
         self.assertEqual(self.expected_afe_job_id,
                          self.pb_job.afe_job_id)
 
@@ -137,6 +142,7 @@ class JobSerializerUnittest(unittest.TestCase):
 
 
     def test_aborted_on(self):
+        """Test serializing aborted_on field."""
         self.check_time(self.tko_job.aborted_on,
                         self.pb_job.aborted_on)
 
@@ -149,6 +155,36 @@ class JobSerializerUnittest(unittest.TestCase):
         self.check_dict(self.tko_job.keyval_dict,
                         self.convert_keyval_to_dict(self.pb_job,
                         'keyval_dict'))
+
+
+    def test_job_idx(self):
+        """Test serializing job_idx field."""
+        self.assertEqual(self.tko_job.index,
+                        self.pb_job.job_idx)
+
+
+    def test_afe_parent_job_id(self):
+        """Test serializing afe_parent_job_id field."""
+        self.assertEqual(self.tko_job.afe_parent_job_id,
+                        self.pb_job.afe_parent_job_id)
+
+
+    def test_build_version(self):
+        """Test serializing build_version field."""
+        self.assertEqual(self.tko_job.build_version,
+                        self.pb_job.build_version)
+
+
+    def test_suite(self):
+        """Test serializing suite field."""
+        self.assertEqual(self.tko_job.suite,
+                        self.pb_job.suite)
+
+
+    def test_board(self):
+        """Test serializing board field."""
+        self.assertEqual(self.tko_job.board,
+                        self.pb_job.board)
 
 
     def test_tests(self):
@@ -164,6 +200,7 @@ class JobSerializerUnittest(unittest.TestCase):
             self.assertEqual(test.reason, newtest.reason)
             self.assertEqual(test.machine, newtest.machine)
             self.assertEqual(test.labels, newtest.labels)
+            self.assertEqual(test.test_idx, newtest.test_idx)
 
             self.check_time(test.started_time, newtest.started_time)
             self.check_time(test.finished_time, newtest.finished_time)
@@ -180,6 +217,9 @@ class JobSerializerUnittest(unittest.TestCase):
     def check_time(self, dTime, stime):
         """Check if the datetime object contains the same time value
         in microseconds.
+
+        @param dTime: The datetime.
+        @param stime: The original time.
         """
         t = mktime(dTime.timetuple()) + 1e-6 * dTime.microsecond
         self.assertEqual(long(t), stime/1000)
@@ -187,6 +227,9 @@ class JobSerializerUnittest(unittest.TestCase):
 
     def check_iteration(self, tko_iterations, pb_iterations):
         """Check if the iteration objects are the same.
+
+        @param tko_iterations: The list of iterations.
+        @param pb_iterations: The proto iterations.
         """
         for tko_iteration, pb_iteration in zip(tko_iterations,
                                                pb_iterations):
@@ -205,6 +248,9 @@ class JobSerializerUnittest(unittest.TestCase):
     def convert_keyval_to_dict(self, var, attr):
         """Convert a protocol buffer repeated keyval object into a
         python dict.
+
+        @param var: The variable name.
+        @param attr: The attribute name.
         """
 
         return dict((keyval.name, keyval.value) for keyval in
@@ -214,6 +260,9 @@ class JobSerializerUnittest(unittest.TestCase):
     def check_dict(self, dictionary, keyval):
         """Check if the contents of the dictionary are the same as a
         repeated keyval pair.
+
+        @param dictionary: The dict object.
+        @param keyval: The keyval object.
         """
         for key, value in dictionary.iteritems():
             self.assertTrue(key in keyval);
@@ -222,6 +271,9 @@ class JobSerializerUnittest(unittest.TestCase):
 
     def check_kernel(self, kernel, newkernel):
         """Check if the kernels are the same.
+
+        @param kernel: The kernel object.
+        @param newkernel: The proto kernel object.
         """
         self.assertEqual(kernel.base, newkernel.base)
         self.assertEqual(kernel.kernel_hash, newkernel.kernel_hash)
@@ -233,6 +285,7 @@ class ReadBackTest(JobSerializerUnittest):
     """
 
     def setUp(self):
+        """Setup the test."""
         super(ReadBackTest, self).setUp()
 
         out_binary = NamedTemporaryFile(mode='wb')

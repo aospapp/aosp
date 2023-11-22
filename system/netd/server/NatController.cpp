@@ -28,12 +28,16 @@
 #include <cutils/properties.h>
 
 #define LOG_TAG "NatController"
+#include <android-base/stringprintf.h>
 #include <cutils/log.h>
 #include <logwrap/logwrap.h>
 
+#include "NetdConstants.h"
 #include "NatController.h"
 #include "NetdConstants.h"
 #include "RouteController.h"
+
+using android::base::StringPrintf;
 
 const char* NatController::LOCAL_FORWARD = "natctrl_FORWARD";
 const char* NatController::LOCAL_MANGLE_FORWARD = "natctrl_mangle_FORWARD";
@@ -42,6 +46,7 @@ const char* NatController::LOCAL_RAW_PREROUTING = "natctrl_raw_PREROUTING";
 const char* NatController::LOCAL_TETHER_COUNTERS_CHAIN = "natctrl_tether_counters";
 
 auto NatController::execFunction = android_fork_execvp;
+auto NatController::iptablesRestoreFunction = execIptablesRestore;
 
 NatController::NatController() {
 }
@@ -85,60 +90,61 @@ int NatController::setupIptablesHooks() {
         return res;
     }
 
-    struct CommandsAndArgs defaultCommands[] = {
-        /*
-         * This is for tethering counters.
-         * This chain is reached via --goto, and then RETURNS.
-         */
-        {{IPTABLES_PATH, "-w", "-F", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
-        {{IP6TABLES_PATH, "-w", "-F", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
-        {{IPTABLES_PATH, "-w", "-X", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
-        {{IP6TABLES_PATH, "-w", "-X", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
-        {{IPTABLES_PATH, "-w", "-N", LOCAL_TETHER_COUNTERS_CHAIN,}, 1},
-        {{IP6TABLES_PATH, "-w", "-N", LOCAL_TETHER_COUNTERS_CHAIN,}, 1},
+    // Used to limit downstream mss to the upstream pmtu so we don't end up fragmenting every large
+    // packet tethered devices send. This is IPv4-only, because in IPv6 we send the MTU in the RA.
+    // This is no longer optional and tethering will fail to start if it fails.
+    std::string mssRewriteCommand = StringPrintf(
+        "*mangle\n"
+        "-A %s -p tcp --tcp-flags SYN SYN -j TCPMSS --clamp-mss-to-pmtu\n"
+        "COMMIT\n", LOCAL_MANGLE_FORWARD);
 
-        /*
-         * Second chain is used to limit downstream mss to the upstream pmtu
-         * so we don't end up fragmenting every large packet tethered devices
-         * send.  Note this feature requires kernel support with flag
-         * CONFIG_NETFILTER_XT_TARGET_TCPMSS=y, which not all builds will have,
-         * so the final rule is allowed to fail.
-         * Bug 17629786 asks to make the failure more obvious, or even fatal
-         * so that all builds eventually gain the performance improvement.
-         */
-        {{IPTABLES_PATH, "-w", "-t", "mangle", "-A", LOCAL_MANGLE_FORWARD, "-p", "tcp",
-                "--tcp-flags", "SYN", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu"}, 0},
-    };
-    for (unsigned int cmdNum = 0; cmdNum < ARRAY_SIZE(defaultCommands); cmdNum++) {
-        if (runCmd(ARRAY_SIZE(defaultCommands[cmdNum].cmd), defaultCommands[cmdNum].cmd) &&
-            defaultCommands[cmdNum].checkRes) {
-                return -1;
-        }
+    // This is for tethering counters. This chain is reached via --goto, and then RETURNS.
+    std::string defaultCommands = StringPrintf(
+        "*filter\n"
+        ":%s -\n"
+        "COMMIT\n", LOCAL_TETHER_COUNTERS_CHAIN);
+
+    res = iptablesRestoreFunction(V4, mssRewriteCommand);
+    if (res < 0) {
+        return res;
     }
+
+    res = iptablesRestoreFunction(V4V6, defaultCommands);
+    if (res < 0) {
+        return res;
+    }
+
     ifacePairList.clear();
 
     return 0;
 }
 
 int NatController::setDefaults() {
-    /*
-     * The following only works because:
-     *  - the defaultsCommands[].cmd array is padded with NULL, and
-     *  - the 1st argc of runCmd() will just be the max for the CommandsAndArgs[].cmd, and
-     *  - internally it will be memcopied to an array and terminated with a NULL.
-     */
-    struct CommandsAndArgs defaultCommands[] = {
-        {{IPTABLES_PATH, "-w", "-F", LOCAL_FORWARD,}, 1},
-        {{IP6TABLES_PATH, "-w", "-F", LOCAL_FORWARD,}, 1},
-        {{IPTABLES_PATH, "-w", "-A", LOCAL_FORWARD, "-j", "DROP"}, 1},
-        {{IPTABLES_PATH, "-w", "-t", "nat", "-F", LOCAL_NAT_POSTROUTING}, 1},
-        {{IP6TABLES_PATH, "-w", "-t", "raw", "-F", LOCAL_RAW_PREROUTING}, 1},
-    };
-    for (unsigned int cmdNum = 0; cmdNum < ARRAY_SIZE(defaultCommands); cmdNum++) {
-        if (runCmd(ARRAY_SIZE(defaultCommands[cmdNum].cmd), defaultCommands[cmdNum].cmd) &&
-            defaultCommands[cmdNum].checkRes) {
-                return -1;
-        }
+    std::string v4Cmd = StringPrintf(
+        "*filter\n"
+        ":%s -\n"
+        "-A %s -j DROP\n"
+        "COMMIT\n"
+        "*nat\n"
+        ":%s -\n"
+        "COMMIT\n", LOCAL_FORWARD, LOCAL_FORWARD, LOCAL_NAT_POSTROUTING);
+
+    std::string v6Cmd = StringPrintf(
+        "*filter\n"
+        ":%s -\n"
+        "COMMIT\n"
+        "*raw\n"
+        ":%s -\n"
+        "COMMIT\n", LOCAL_FORWARD, LOCAL_RAW_PREROUTING);
+
+    int res = iptablesRestoreFunction(V4, v4Cmd);
+    if (res < 0) {
+        return res;
+    }
+
+    res = iptablesRestoreFunction(V6, v6Cmd);
+    if (res < 0) {
+        return res;
     }
 
     natCount = 0;
@@ -376,8 +382,7 @@ int NatController::setForwardRules(bool add, const char *intIface, const char *e
         goto err_return;
     }
 
-    // STOPSHIP: Make this an error.
-    if (runCmd(ARRAY_SIZE(cmd4), cmd4) && add && false /* STOPSHIP */) {
+    if (runCmd(ARRAY_SIZE(cmd4), cmd4) && add) {
         rc = -1;
         goto err_rpfilter;
     }

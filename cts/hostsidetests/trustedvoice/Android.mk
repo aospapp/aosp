@@ -23,7 +23,7 @@ LOCAL_MODULE_TAGS := optional
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsTrustedVoiceHostTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed ddmlib-prebuilt tradefed-prebuilt
+LOCAL_JAVA_LIBRARIES := cts-tradefed ddmlib-prebuilt tradefed
 
 LOCAL_CTS_TEST_PACKAGE := android.host.trustedvoice
 

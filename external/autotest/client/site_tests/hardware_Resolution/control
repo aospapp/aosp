@@ -11,7 +11,6 @@ Screen resolutions supported:
   - 1366x768
 """
 ATTRIBUTES = "suite:hwqual"
-SUITE = "hwqual"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "hardware"

@@ -17,6 +17,8 @@
 #ifndef _LOGD_LOG_AUDIT_H__
 #define _LOGD_LOG_AUDIT_H__
 
+#include <queue>
+
 #include <sysutils/SocketListener.h>
 
 #include "LogBuffer.h"
@@ -24,23 +26,32 @@
 class LogReader;
 
 class LogAudit : public SocketListener {
-    LogBuffer *logbuf;
-    LogReader *reader;
-    int fdDmesg;
+    LogBuffer* logbuf;
+    LogReader* reader;
+    int fdDmesg;  // fdDmesg >= 0 is functionally bool dmesg
+    bool main;
+    bool events;
     bool initialized;
 
-public:
-    LogAudit(LogBuffer *buf, LogReader *reader, int fdDmesg);
-    int log(char *buf, size_t len);
-    bool isMonotonic() { return logbuf->isMonotonic(); }
+    bool tooFast;
+    int mSock;
+    std::queue<log_time> bucket;
+    void checkRateLimit();
 
-protected:
-    virtual bool onDataAvailable(SocketClient *cli);
+   public:
+    LogAudit(LogBuffer* buf, LogReader* reader, int fdDmesg);
+    int log(char* buf, size_t len);
+    bool isMonotonic() {
+        return logbuf->isMonotonic();
+    }
 
-private:
+   protected:
+    virtual bool onDataAvailable(SocketClient* cli);
+
+   private:
     static int getLogSocket();
-    int logPrint(const char *fmt, ...)
-        __attribute__ ((__format__ (__printf__, 2, 3)));
+    int logPrint(const char* fmt, ...)
+        __attribute__((__format__(__printf__, 2, 3)));
 };
 
 #endif

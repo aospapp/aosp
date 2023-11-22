@@ -17,10 +17,11 @@
 #include "bcinfo/Wrap/bitcode_wrapperer.h"
 
 #define LOG_TAG "bcinfo"
-#include <cutils/log.h>
 
 #include <stdio.h>
 #include <sys/stat.h>
+
+#include <log/log.h>
 
 using std::vector;
 

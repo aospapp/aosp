@@ -11,17 +11,44 @@ This is the core infrastructure. Derived from the client side job.py
 Copyright Martin J. Bligh, Andy Whitcroft 2007
 """
 
-import getpass, os, sys, re, tempfile, time, select, platform
-import traceback, shutil, warnings, fcntl, pickle, logging, itertools, errno
+import errno
+import fcntl
+import getpass
+import itertools
+import logging
+import os
+import pickle
+import platform
+import re
+import select
+import shutil
+import sys
+import tempfile
+import time
+import traceback
+import warnings
+
 from autotest_lib.client.bin import sysinfo
-from autotest_lib.client.common_lib import base_job, global_config
-from autotest_lib.client.common_lib import error, utils, packages
+from autotest_lib.client.common_lib import base_job
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import logging_manager
-from autotest_lib.server import test, subcommand, profilers
+from autotest_lib.client.common_lib import packages
+from autotest_lib.client.common_lib import utils
+from autotest_lib.server import profilers
+from autotest_lib.server import subcommand
+from autotest_lib.server import test
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
-from autotest_lib.server.hosts import abstract_ssh, factory as host_factory
-from autotest_lib.tko import db as tko_db, status_lib, utils as tko_utils
+from autotest_lib.server.hosts import abstract_ssh
+from autotest_lib.server.hosts import afe_store
+from autotest_lib.server.hosts import factory as host_factory
+from autotest_lib.server.hosts import host_info
+from autotest_lib.tko import db as tko_db
+from autotest_lib.tko import models as tko_models
+from autotest_lib.tko import status_lib
+from autotest_lib.tko import parser_lib
+from autotest_lib.tko import utils as tko_utils
 
 
 INCREMENTAL_TKO_PARSING = global_config.global_config.get_config_value(
@@ -47,10 +74,39 @@ REPAIR_CONTROL_FILE = _control_segment_path('repair')
 PROVISION_CONTROL_FILE = _control_segment_path('provision')
 VERIFY_JOB_REPO_URL_CONTROL_FILE = _control_segment_path('verify_job_repo_url')
 RESET_CONTROL_FILE = _control_segment_path('reset')
+GET_NETWORK_STATS_CONTROL_FILE = _control_segment_path('get_network_stats')
 
 # by default provide a stub that generates no site data
 def _get_site_job_data_dummy(job):
     return {}
+
+
+def get_machine_dicts(machine_names, in_lab, host_attributes=None):
+    """Converts a list of machine names to list of dicts.
+
+    @param machine_names: A list of machine names.
+    @param in_lab: A boolean indicating whether we're running in lab.
+    @param host_attributes: Optional list of host attributes to add for each
+            host.
+    @returns: A list of dicts. Each dict has the following keys:
+            'hostname': Name of the machine originally in machine_names (str).
+            'afe_host': A frontend.Host object for the machine, or a stub if
+                    in_lab is false.
+            'host_info_store': A host_info.CachingHostInfoStore object to obtain
+                    host information. A stub if in_lab is False.
+    """
+    if host_attributes is None:
+        host_attributes = dict()
+    machine_dict_list = []
+    for machine in machine_names:
+        afe_host = _create_afe_host(machine, in_lab)
+        afe_host.attributes.update(host_attributes)
+        machine_dict_list.append({
+                'hostname' : machine,
+                'afe_host' : afe_host,
+                'host_info_store': _create_host_info_store(machine, in_lab),
+        })
+    return machine_dict_list
 
 
 class status_indenter(base_job.status_indenter):
@@ -219,7 +275,6 @@ class base_server_job(base_job.base_job):
         self._ssh_verbosity_flag = ssh_verbosity_flag
         self._ssh_options = ssh_options
         self.tag = tag
-        self.last_boot_tag = None
         self.hosts = set()
         self.drop_caches = False
         self.drop_caches_between_iterations = False
@@ -260,10 +315,6 @@ class base_server_job(base_job.base_job):
 
         self._register_subcommand_hooks()
 
-        # these components aren't usable on the server
-        self.bootloader = None
-        self.harness = None
-
         # set up the status logger
         self._indenter = status_indenter()
         self._logger = base_job.status_logger(
@@ -276,16 +327,16 @@ class base_server_job(base_job.base_job):
 
         self.parent_job_id = parent_job_id
         self.in_lab = in_lab
-        afe = frontend_wrappers.RetryingAFE(timeout_min=5, delay_sec=10)
-        self.machine_dict_list = []
-        for machine in self.machines:
-            host_attributes = host_attributes or {}
-            if self.in_lab:
-                host = afe.get_hosts(hostname=machine)[0]
-                host_attributes.update(host.attributes)
-            self.machine_dict_list.append(
-                    {'hostname' : machine,
-                     'host_attributes' : host_attributes})
+        self.machine_dict_list = get_machine_dicts(
+                self.machines, self.in_lab, host_attributes)
+
+        # TODO(jrbarnette) The harness attribute is only relevant to
+        # client jobs, but it's required to be present, or we will fail
+        # server job unit tests.  Yes, really.
+        #
+        # TODO(jrbarnette) The utility of the 'harness' attribute even
+        # to client jobs is suspect.  Probably, we should remove it.
+        self.harness = None
 
 
     @classmethod
@@ -356,7 +407,7 @@ class base_server_job(base_job.base_job):
         tko_utils.redirect_parser_debugging(parse_log)
         # create a job model object and set up the db
         self.results_db = tko_db.db(autocommit=True)
-        self.parser = status_lib.parser(self._STATUS_VERSION)
+        self.parser = parser_lib.parser(self._STATUS_VERSION)
         self.job_model = self.parser.make_job(self.resultdir)
         self.parser.start(self.job_model)
         # check if a job already exists in the db and insert it if
@@ -592,6 +643,70 @@ class base_server_job(base_job.base_job):
         return success_machines
 
 
+    def _has_failed_tests(self):
+        """Parse status log for failed tests.
+
+        This checks the current working directory and is intended only for use
+        by the run() method.
+
+        @return boolean
+        """
+        path = os.getcwd()
+
+        # TODO(ayatane): Copied from tko/parse.py.  Needs extensive refactor to
+        # make code reuse plausible.
+        job_keyval = tko_models.job.read_keyval(path)
+        status_version = job_keyval.get("status_version", 0)
+
+        # parse out the job
+        parser = parser_lib.parser(status_version)
+        job = parser.make_job(path)
+        status_log = os.path.join(path, "status.log")
+        if not os.path.exists(status_log):
+            status_log = os.path.join(path, "status")
+        if not os.path.exists(status_log):
+            logging.warning("! Unable to parse job, no status file")
+            return True
+
+        # parse the status logs
+        status_lines = open(status_log).readlines()
+        parser.start(job)
+        tests = parser.end(status_lines)
+
+        # parser.end can return the same object multiple times, so filter out
+        # dups
+        job.tests = []
+        already_added = set()
+        for test in tests:
+            if test not in already_added:
+                already_added.add(test)
+                job.tests.append(test)
+
+        failed = False
+        for test in job.tests:
+            # The current job is still running and shouldn't count as failed.
+            # The parser will fail to parse the exit status of the job since it
+            # hasn't exited yet (this running right now is the job).
+            failed = failed or (test.status != 'GOOD'
+                                and not _is_current_server_job(test))
+        return failed
+
+
+    def _collect_crashes(self, namespace, collect_crashinfo):
+        """Collect crashes.
+
+        @param namespace: namespace dict.
+        @param collect_crashinfo: whether to collect crashinfo in addition to
+                dumps
+        """
+        if collect_crashinfo:
+            # includes crashdumps
+            crash_control_file = CRASHINFO_CONTROL_FILE
+        else:
+            crash_control_file = CRASHDUMPS_CONTROL_FILE
+        self._execute_code(crash_control_file, namespace)
+
+
     _USE_TEMP_DIR = object()
     def run(self, install_before=False, install_after=False,
             collect_crashdumps=True, namespace={}, control=None,
@@ -642,6 +757,8 @@ class base_server_job(base_job.base_job):
         temp_control_file_dir = None
         try:
             try:
+                namespace['network_stats_label'] = 'at-start'
+                self._execute_code(GET_NETWORK_STATS_CONTROL_FILE, namespace)
                 if install_before and machines:
                     self._execute_code(INSTALL_CONTROL_FILE, namespace)
 
@@ -707,20 +824,23 @@ class base_server_job(base_job.base_job):
                                  temp_control_file_dir, e)
 
             if machines and (collect_crashdumps or collect_crashinfo):
-                namespace['test_start_time'] = test_start_time
                 if skip_crash_collection:
                     logging.info('Skipping crash dump/info collection '
                                  'as requested.')
-                elif collect_crashinfo:
-                    # includes crashdumps
-                    self._execute_code(CRASHINFO_CONTROL_FILE, namespace)
                 else:
-                    self._execute_code(CRASHDUMPS_CONTROL_FILE, namespace)
+                    namespace['test_start_time'] = test_start_time
+                    # Remove crash files for passing tests.
+                    # TODO(ayatane): Tests that create crash files should be
+                    # reported.
+                    namespace['has_failed_tests'] = self._has_failed_tests()
+                    self._collect_crashes(namespace, collect_crashinfo)
             self.disable_external_logging()
             if self._uncollected_log_file and created_uncollected_logs:
                 os.remove(self._uncollected_log_file)
             if install_after and machines:
                 self._execute_code(INSTALL_CONTROL_FILE, namespace)
+            namespace['network_stats_label'] = 'at-end'
+            self._execute_code(GET_NETWORK_STATS_CONTROL_FILE, namespace)
 
 
     def run_test(self, url, *args, **dargs):
@@ -1114,7 +1234,7 @@ class base_server_job(base_job.base_job):
                         # more concrete API with less surprises on '*' imports.
                         warnings.warn('%s (%r) being imported from %s for use '
                                       'in server control files is not the '
-                                      'first occurrance of that import.' %
+                                      'first occurrence of that import.' %
                                       (name, namespace[name], module_name))
 
                 namespace[name] = getattr(module, name)
@@ -1124,8 +1244,7 @@ class base_server_job(base_job.base_job):
         # the front of the control script.
         namespace.update(os=os, sys=sys, logging=logging)
         _import_names('autotest_lib.server',
-                ('hosts', 'autotest', 'kvm', 'git', 'standalone_profiler',
-                 'source_kernel', 'rpm_kernel', 'deb_kernel', 'git_kernel'))
+                ('hosts', 'autotest', 'standalone_profiler'))
         _import_names('autotest_lib.server.subcommand',
                       ('parallel', 'parallel_simple', 'subcommand'))
         _import_names('autotest_lib.server.utils',
@@ -1297,6 +1416,51 @@ class warning_manager(object):
         intervals = self.disabled_warnings.get(warning_type, [])
         if intervals and intervals[-1][1] is None:
             intervals[-1] = (intervals[-1][0], int(current_time_func()))
+
+
+def _is_current_server_job(test):
+    """Return True if parsed test is the currently running job.
+
+    @param test: test instance from tko parser.
+    """
+    return test.testname == 'SERVER_JOB'
+
+
+def _create_afe_host(hostname, in_lab):
+    """Create a real or stub frontend.Host object.
+
+    @param hostname: Name of the host for which we want the Host object.
+    @param in_lab: (bool) whether we have access to the AFE.
+    @returns: An object of type frontend.AFE
+    """
+    if not in_lab:
+        return server_utils.EmptyAFEHost()
+
+    afe = frontend_wrappers.RetryingAFE(timeout_min=5, delay_sec=10)
+    hosts = afe.get_hosts(hostname=hostname)
+    if not hosts:
+        raise error.AutoservError('No hosts named %s found' % hostname)
+
+    return hosts[0]
+
+
+def _create_host_info_store(hostname, in_lab):
+    """Create a real or stub afe_store.AfeStore object.
+
+    @param hostname: Name of the host for which we want the store.
+    @param in_lab: (bool) whether we have access to the AFE.
+    @returns: An object of type afe_store.AfeStore
+    """
+    if not in_lab:
+        return host_info.InMemoryHostInfoStore()
+
+    host_info_store = afe_store.AfeStore(hostname)
+    try:
+        host_info_store.get(force_refresh=True)
+    except host_info.StoreError:
+        raise error.AutoservError('Could not obtain HostInfo for hostname %s' %
+                                  hostname)
+    return host_info_store
 
 
 # load up site-specific code for generating site-specific job data

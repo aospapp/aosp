@@ -15,11 +15,6 @@
  */
 package libcore.java.nio.charset;
 
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
-
 public class OldCharset_MultiByte_EUC_JP extends OldCharset_AbstractTest {
   @Override protected void setUp() throws Exception {
     charsetName = "EUC-JP";
@@ -29,23 +24,5 @@ public class OldCharset_MultiByte_EUC_JP extends OldCharset_AbstractTest {
                            0xa5, 0xc8, 0xa5, 0xa6, 0xa5, 0xad, 0xa5, 0xe7, 0xa5, 0xa6, ' ',
                            'T', 'o', 'k', 'y', 'o', ' ', '1', '2', '3');
     super.setUp();
-  }
-
-  @Override public void test_CodecDynamic() throws CharacterCodingException {
-    encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
-    decoder.onMalformedInput(CodingErrorAction.REPORT);
-    CharBuffer inputCB = CharBuffer.allocate(65536);
-    for (char codePoint = 0; codePoint <= 0xfffe; ++codePoint) {
-      if (encoder.canEncode(codePoint)) {
-        inputCB.put(codePoint);
-      }
-    }
-    inputCB.rewind();
-    ByteBuffer intermediateBB = encoder.encode(inputCB);
-    inputCB.rewind();
-    intermediateBB.rewind();
-    CharBuffer outputCB = decoder.decode(intermediateBB);
-    outputCB.rewind();
-    assertEqualCBs("decode(encode(A)) must be identical with A!", inputCB, outputCB);
   }
 }

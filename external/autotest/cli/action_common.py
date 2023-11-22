@@ -184,7 +184,7 @@ class atest_delete(atest_create_or_delete):
 
 #
 # Adding or Removing things (users, hosts or labels) from a topic
-# (ACL, Label or AtomicGroup)
+# (ACL or Label)
 #
 class atest_add_or_remove(topic_common.atest):
     """atest <topic> [add|remove]

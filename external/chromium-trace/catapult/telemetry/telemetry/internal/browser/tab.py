@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from telemetry.internal.actions import action_runner
 from telemetry.internal.browser import web_contents
 from telemetry.internal.image_processing import video
 
@@ -23,11 +24,16 @@ class Tab(web_contents.WebContents):
     super(Tab, self).__init__(inspector_backend)
     self._tab_list_backend = tab_list_backend
     self._browser = browser
+    self._action_runner = action_runner.ActionRunner(self)
 
   @property
   def browser(self):
     """The browser in which this tab resides."""
     return self._browser
+
+  @property
+  def action_runner(self):
+    return self._action_runner
 
   @property
   def url(self):
@@ -127,26 +133,29 @@ class Tab(web_contents.WebContents):
       exceptions.TimeoutException
       exceptions.DevtoolsTargetCrashException
     """
+    screen_save = 'window.__telemetry_screen_%d' % int(color)
     self.ExecuteJavaScript("""
-      (function() {
-        var screen = document.createElement('div');
-        screen.style.background = 'rgba(%d, %d, %d, %d)';
-        screen.style.position = 'fixed';
-        screen.style.top = '0';
-        screen.style.left = '0';
-        screen.style.width = '100%%';
-        screen.style.height = '100%%';
-        screen.style.zIndex = '2147483638';
-        document.body.appendChild(screen);
-        requestAnimationFrame(function() {
+        (function() {
+          var screen = document.createElement('div');
+          screen.style.background = {{ color }};
+          screen.style.position = 'fixed';
+          screen.style.top = '0';
+          screen.style.left = '0';
+          screen.style.width = '100%';
+          screen.style.height = '100%';
+          screen.style.zIndex = '2147483638';
+          document.body.appendChild(screen);
           requestAnimationFrame(function() {
-            window.__telemetry_screen_%d = screen;
+            requestAnimationFrame(function() {
+              {{ @screen_save }} = screen;
+            });
           });
-        });
-      })();
-    """ % (color.r, color.g, color.b, color.a, int(color)))
-    self.WaitForJavaScriptExpression(
-        '!!window.__telemetry_screen_%d' % int(color), 5)
+        })();
+        """,
+        color='rgba(%d, %d, %d, %d)' % (color.r, color.g, color.b, color.a),
+        screen_save=screen_save)
+    self.WaitForJavaScriptCondition(
+        '!!{{ @screen_save }}', screen_save=screen_save, timeout=5)
 
   def ClearHighlight(self, color):
     """Clears a highlight of the given bitmap.RgbaColor.
@@ -157,20 +166,21 @@ class Tab(web_contents.WebContents):
       exceptions.TimeoutException
       exceptions.DevtoolsTargetCrashException
     """
+    screen_save = 'window.__telemetry_screen_%d' % int(color)
     self.ExecuteJavaScript("""
-      (function() {
-        document.body.removeChild(window.__telemetry_screen_%d);
-        requestAnimationFrame(function() {
+        (function() {
+          document.body.removeChild({{ @screen_save }});
           requestAnimationFrame(function() {
-            window.__telemetry_screen_%d = null;
-            console.time('__ClearHighlight.video_capture_start');
-            console.timeEnd('__ClearHighlight.video_capture_start');
+            requestAnimationFrame(function() {
+              {{ @screen_save }} = null;
+              console.time('__ClearHighlight.video_capture_start');
+              console.timeEnd('__ClearHighlight.video_capture_start');
+            });
           });
-        });
-      })();
-    """ % (int(color), int(color)))
-    self.WaitForJavaScriptExpression(
-        '!window.__telemetry_screen_%d' % int(color), 5)
+        })();
+        """, screen_save=screen_save)
+    self.WaitForJavaScriptCondition(
+        '!{{ @screen_save }}', screen_save=screen_save, timeout=5)
 
   def StartVideoCapture(self, min_bitrate_mbps,
                         highlight_bitmap=video.HIGHLIGHT_ORANGE_FRAME):

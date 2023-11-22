@@ -24,7 +24,6 @@ import com.google.currysrc.api.process.Rule;
 import com.google.currysrc.processors.ReplaceTextCommentScanner;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 
 import static com.android.icu4j.srcgen.Icu4jTransformRules.createOptionalRule;
@@ -89,10 +88,6 @@ public class Icu4jTestsTransform {
     private static List<Rule> createTransformRules() {
       List<Rule> rules =
               Lists.newArrayList(Icu4jTransform.Icu4jRules.getRepackagingRules());
-
-      // Annotate test files, ones that extend TestFmwk and TestFmwk.TestGroup with appropriate
-      // @RunWith annotation. This must run after those rules that repackage the classes.
-      rules.add(createOptionalRule(new RunWithAnnotator()));
 
       // Switch all embedded comment references from com.ibm.icu to android.icu.
       rules.add(

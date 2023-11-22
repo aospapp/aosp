@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007-2016, International Business Machines Corporation and
@@ -52,7 +54,7 @@ import com.ibm.icu.util.ULocale;
  * <p>
  * Examples:
  * </p>
- * 
+ *
  * <pre>
  * &quot;one: n is 1; few: n in 2..4&quot;
  * </pre>
@@ -62,7 +64,7 @@ import com.ibm.icu.util.ULocale;
  * between 2 and 4 inclusive - and be an integer - for this condition to pass. All other numbers are assigned the
  * keyword "other" by the default rule.
  * </p>
- * 
+ *
  * <pre>
  * &quot;zero: n is 0; one: n is 1; zero: n mod 100 in 1..19&quot;
  * </pre>
@@ -71,7 +73,7 @@ import com.ibm.icu.util.ULocale;
  * keyword whose condition passes is the one returned. Also notes that a modulus is applied to n in the last rule. Thus
  * its condition holds for 119, 219, 319...
  * </p>
- * 
+ *
  * <pre>
  * &quot;one: n is 1; few: n mod 10 in 2..4 and n mod 100 not in 12..14&quot;
  * </pre>
@@ -162,7 +164,7 @@ import com.ibm.icu.util.ULocale;
  * includes all values. Using 'within' with a range_list consisting entirely of values is the same as using 'in' (it's
  * not an error).
  * </p>
- * 
+ *
  * @stable ICU 3.8
  */
 public class PluralRules implements Serializable {
@@ -190,7 +192,7 @@ public class PluralRules implements Serializable {
 
     /**
      * Provides a factory for returning plural rules
-     * 
+     *
      * @internal
      * @deprecated This API is ICU internal only.
      */
@@ -207,11 +209,11 @@ public class PluralRules implements Serializable {
 
         /**
          * Provides access to the predefined <code>PluralRules</code> for a given locale and the plural type.
-         * 
+         *
          * <p>
          * ICU defines plural rules for many locales based on CLDR <i>Language Plural Rules</i>. For these predefined
          * rules, see CLDR page at http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
-         * 
+         *
          * @param locale
          *            The locale for which a <code>PluralRules</code> object is returned.
          * @param type
@@ -239,7 +241,7 @@ public class PluralRules implements Serializable {
 
         /**
          * Returns the locales for which there is plurals data.
-         * 
+         *
          * @internal
          * @deprecated This API is ICU internal only.
          */
@@ -252,7 +254,7 @@ public class PluralRules implements Serializable {
          * All locales with the same functionally equivalent locale have plural rules that behave the same. This is not
          * exaustive; there may be other locales whose plural rules behave the same that do not have the same equivalent
          * locale.
-         * 
+         *
          * @param locale
          *            the locale to check
          * @param isAvailable
@@ -353,21 +355,24 @@ public class PluralRules implements Serializable {
     private static final Constraint NO_CONSTRAINT = new Constraint() {
         private static final long serialVersionUID = 9163464945387899416L;
 
+        @Override
         public boolean isFulfilled(FixedDecimal n) {
             return true;
         }
 
+        @Override
         public boolean isLimited(SampleType sampleType) {
             return false;
         }
 
+        @Override
         public String toString() {
             return "";
         }
     };
 
     /**
-     * 
+     *
      */
     private static final Rule DEFAULT_RULE = new Rule("other", NO_CONSTRAINT, null, null);
 
@@ -572,12 +577,12 @@ public class PluralRules implements Serializable {
             source = isNegative ? -n : n;
             visibleDecimalDigitCount = v;
             decimalDigits = f;
-            integerValue = n > MAX 
-                    ? MAX 
+            integerValue = n > MAX
+                    ? MAX
                             : (long)n;
             hasIntegerValue = source == integerValue;
             // check values. TODO make into unit test.
-            //            
+            //
             //            long visiblePower = (int) Math.pow(10, v);
             //            if (fractionalDigits > visiblePower) {
             //                throw new IllegalArgumentException();
@@ -652,7 +657,7 @@ public class PluralRules implements Serializable {
          * Returns 0 for infinities and nans.
          * @internal
          * @deprecated This API is ICU internal only.
-         * 
+         *
          */
         @Deprecated
         public static int decimals(double n) {
@@ -691,7 +696,7 @@ public class PluralRules implements Serializable {
                     if (buf.charAt(i) != '0') {
                         break;
                     }
-                    --numFractionDigits; 
+                    --numFractionDigits;
                 }
                 return numFractionDigits;
             }
@@ -747,6 +752,7 @@ public class PluralRules implements Serializable {
          * @internal
          * @deprecated This API is ICU internal only.
          */
+        @Override
         @Deprecated
         public int compareTo(FixedDecimal other) {
             if (integerValue != other.integerValue) {
@@ -1005,7 +1011,7 @@ public class PluralRules implements Serializable {
                 }
                 String[] rangeParts = TILDE_SEPARATED.split(range);
                 switch (rangeParts.length) {
-                case 1: 
+                case 1:
                     FixedDecimal sample = new FixedDecimal(rangeParts[0]);
                     checkDecimal(sampleType2, sample);
                     samples2.add(new FixedDecimalRange(sample, sample));
@@ -1025,7 +1031,7 @@ public class PluralRules implements Serializable {
 
         private static void checkDecimal(SampleType sampleType2, FixedDecimal sample) {
             if ((sampleType2 == SampleType.INTEGER) != (sample.getVisibleDecimalDigitCount() == 0)) {
-                throw new IllegalArgumentException("Ill-formed number range: " + sample);    
+                throw new IllegalArgumentException("Ill-formed number range: " + sample);
             }
         }
 
@@ -1253,7 +1259,7 @@ public class PluralRules implements Serializable {
                                     if (!t.equals(",")) { // adjacent number: 1 2
                                         // no separator, fail
                                         throw unexpected(t, condition);
-                                    }                                
+                                    }
                                 }
                             } else if (!t.equals(",")) { // adjacent number: 1 2
                                 // no separator, fail
@@ -1371,7 +1377,7 @@ public class PluralRules implements Serializable {
         FixedDecimalSamples integerSamples = null, decimalSamples = null;
         switch (constraintOrSamples.length) {
         case 1: break;
-        case 2: 
+        case 2:
             integerSamples = FixedDecimalSamples.parse(constraintOrSamples[1]);
             if (integerSamples.sampleType == SampleType.DECIMAL) {
                 decimalSamples = integerSamples;
@@ -1385,7 +1391,7 @@ public class PluralRules implements Serializable {
                 throw new IllegalArgumentException("Must have @integer then @decimal in " + description);
             }
             break;
-        default: 
+        default:
             throw new IllegalArgumentException("Too many samples in " + description);
         }
         if (sampleFailure) {
@@ -1417,7 +1423,7 @@ public class PluralRules implements Serializable {
             throws ParseException {
         RuleList result = new RuleList();
         // remove trailing ;
-        if (description.endsWith(";")) { 
+        if (description.endsWith(";")) {
             description = description.substring(0,description.length()-1);
         }
         String[] rules = SEMI_SEPARATED.split(description);
@@ -1456,6 +1462,7 @@ public class PluralRules implements Serializable {
             this.operand = operand;
         }
 
+        @Override
         public boolean isFulfilled(FixedDecimal number) {
             double n = number.get(operand);
             if ((integersOnly && (n - (long)n) != 0.0
@@ -1475,27 +1482,29 @@ public class PluralRules implements Serializable {
             return inRange == test;
         }
 
+        @Override
         public boolean isLimited(SampleType sampleType) {
             boolean valueIsZero = lowerBound == upperBound && lowerBound == 0d;
-            boolean hasDecimals = 
+            boolean hasDecimals =
                     (operand == Operand.v || operand == Operand.w || operand == Operand.f || operand == Operand.t)
                     && inRange != valueIsZero; // either NOT f = zero or f = non-zero
             switch (sampleType) {
-            case INTEGER: 
+            case INTEGER:
                 return hasDecimals // will be empty
                         || (operand == Operand.n || operand == Operand.i || operand == Operand.j)
-                        && mod == 0 
+                        && mod == 0
                         && inRange;
 
             case DECIMAL:
                 return  (!hasDecimals || operand == Operand.n || operand == Operand.j)
                         && (integersOnly || lowerBound == upperBound)
-                        && mod == 0 
+                        && mod == 0
                         && inRange;
             }
             return false;
         }
 
+        @Override
         public String toString() {
             StringBuilder result = new StringBuilder();
             result.append(operand);
@@ -1506,7 +1515,7 @@ public class PluralRules implements Serializable {
             result.append(
                     !isList ? (inRange ? " = " : " != ")
                             : integersOnly ? (inRange ? " = " : " != ")
-                                    : (inRange ? " within " : " not within ") 
+                                    : (inRange ? " within " : " not within ")
                     );
             if (range_list != null) {
                 for (int i = 0; i < range_list.length; i += 2) {
@@ -1556,18 +1565,21 @@ public class PluralRules implements Serializable {
             super(a, b);
         }
 
+        @Override
         public boolean isFulfilled(FixedDecimal n) {
-            return a.isFulfilled(n) 
+            return a.isFulfilled(n)
                     && b.isFulfilled(n);
         }
 
+        @Override
         public boolean isLimited(SampleType sampleType) {
             // we ignore the case where both a and b are unlimited but no values
             // satisfy both-- we still consider this 'unlimited'
-            return a.isLimited(sampleType) 
+            return a.isLimited(sampleType)
                     || b.isLimited(sampleType);
         }
 
+        @Override
         public String toString() {
             return a.toString() + " and " + b.toString();
         }
@@ -1581,16 +1593,19 @@ public class PluralRules implements Serializable {
             super(a, b);
         }
 
+        @Override
         public boolean isFulfilled(FixedDecimal n) {
-            return a.isFulfilled(n) 
+            return a.isFulfilled(n)
                     || b.isFulfilled(n);
         }
 
+        @Override
         public boolean isLimited(SampleType sampleType) {
-            return a.isLimited(sampleType) 
+            return a.isLimited(sampleType)
                     && b.isLimited(sampleType);
         }
 
+        @Override
         public String toString() {
             return a.toString() + " or " + b.toString();
         }
@@ -1601,6 +1616,8 @@ public class PluralRules implements Serializable {
      * Provides 'and' and 'or' to combine constraints.  Immutable.
      */
     private static class Rule implements Serializable {
+        // TODO - Findbugs: Class com.ibm.icu.text.PluralRules$Rule defines non-transient
+        // non-serializable instance field integerSamples. See ticket#10494.
         private static final long serialVersionUID = 1;
         private final String keyword;
         private final Constraint constraint;
@@ -1636,8 +1653,9 @@ public class PluralRules implements Serializable {
             return constraint.isLimited(sampleType);
         }
 
+        @Override
         public String toString() {
-            return keyword + ": " + constraint.toString() 
+            return keyword + ": " + constraint.toString()
                     + (integerSamples == null ? "" : " " + integerSamples.toString())
                     + (decimalSamples == null ? "" : " " + decimalSamples.toString());
         }
@@ -1741,6 +1759,7 @@ public class PluralRules implements Serializable {
             return result;
         }
 
+        @Override
         public String toString() {
             StringBuilder builder = new StringBuilder();
             for (Rule rule : rules) {
@@ -2015,7 +2034,7 @@ public class PluralRules implements Serializable {
      * @param type the type of samples requested, INTEGER or DECIMAL
      * @return the values that trigger this keyword, or null.  The returned collection
      * is immutable. It will be empty if the keyword is not defined.
-     * 
+     *
      * @internal
      * @deprecated This API is ICU internal only.
      */
@@ -2162,6 +2181,7 @@ public class PluralRules implements Serializable {
      * {@inheritDoc}
      * @stable ICU 3.8
      */
+    @Override
     public String toString() {
         return rules.toString();
     }
@@ -2170,6 +2190,7 @@ public class PluralRules implements Serializable {
      * {@inheritDoc}
      * @stable ICU 3.8
      */
+    @Override
     public boolean equals(Object rhs) {
         return rhs instanceof PluralRules && equals((PluralRules)rhs);
     }
@@ -2187,42 +2208,42 @@ public class PluralRules implements Serializable {
 
     /**
      * Status of the keyword for the rules, given a set of explicit values.
-     * 
+     *
      * @draft ICU 50
      * @provisional This API might change or be removed in a future release.
      */
     public enum KeywordStatus {
         /**
          * The keyword is not valid for the rules.
-         * 
+         *
          * @draft ICU 50
          * @provisional This API might change or be removed in a future release.
          */
         INVALID,
         /**
          * The keyword is valid, but unused (it is covered by the explicit values, OR has no values for the given {@link SampleType}).
-         * 
+         *
          * @draft ICU 50
          * @provisional This API might change or be removed in a future release.
          */
         SUPPRESSED,
         /**
          * The keyword is valid, used, and has a single possible value (before considering explicit values).
-         * 
+         *
          * @draft ICU 50
          * @provisional This API might change or be removed in a future release.
          */
         UNIQUE,
         /**
          * The keyword is valid, used, not unique, and has a finite set of values.
-         * 
+         *
          * @draft ICU 50
          * @provisional This API might change or be removed in a future release.
          */
         BOUNDED,
         /**
          * The keyword is valid but not bounded; there indefinitely many matching values.
-         * 
+         *
          * @draft ICU 50
          * @provisional This API might change or be removed in a future release.
          */
@@ -2231,7 +2252,7 @@ public class PluralRules implements Serializable {
 
     /**
      * Find the status for the keyword, given a certain set of explicit values.
-     * 
+     *
      * @param keyword
      *            the particular keyword (call rules.getKeywords() to get the valid ones)
      * @param offset
@@ -2251,7 +2272,7 @@ public class PluralRules implements Serializable {
     }
     /**
      * Find the status for the keyword, given a certain set of explicit values.
-     * 
+     *
      * @param keyword
      *            the particular keyword (call rules.getKeywords() to get the valid ones)
      * @param offset

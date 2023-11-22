@@ -89,21 +89,25 @@ if [ $? -ne 0 ]; then
     exit 0
 fi
 
+# nobody's uid. Static compilation of the capsh binary can disable pwd
+# info discovery.
+nouid=$(/usr/bin/id nobody -u)
+
 pass_capsh --secbits=42 --print
 fail_capsh --secbits=32 --keep=1 --keep=0 --print
 pass_capsh --secbits=10 --keep=0 --keep=1 --print
-fail_capsh --secbits=47 -- -c "./tcapsh --user=nobody"
+fail_capsh --secbits=47 -- -c "./tcapsh --uid=$nouid"
 
 rm -f tcapsh
 
 # Suppress uid=0 privilege
-fail_capsh --secbits=47 --print -- -c "./capsh --user=nobody"
+fail_capsh --secbits=47 --print -- -c "./capsh --uid=$nouid"
 
 # suppress uid=0 privilege and test this privileged
-pass_capsh --secbits=0x2f --print -- -c "./privileged --user=nobody"
+pass_capsh --secbits=0x2f --print -- -c "./privileged --uid=$nouid"
 
 # observe that the bounding set can be used to suppress this forced capability
-fail_capsh --drop=cap_setuid --secbits=0x2f --print -- -c "./privileged --user=nobody"
+fail_capsh --drop=cap_setuid --secbits=0x2f --print -- -c "./privileged --uid=$nouid"
 
 # change the way the capability is obtained (make it inheritable)
 ./setcap cap_setuid,cap_setgid=ei ./privileged
@@ -111,15 +115,16 @@ fail_capsh --drop=cap_setuid --secbits=0x2f --print -- -c "./privileged --user=n
 # Note, the bounding set (edited with --drop) only limits p
 # capabilities, not i's.
 pass_capsh --secbits=47 --inh=cap_setuid,cap_setgid --drop=cap_setuid \
-    --uid=500 --print -- -c "./privileged --user=nobody"
+    --uid=500 --print -- -c "./privileged --uid=$nouid"
 
 rm -f ./privileged
 
 # test that we do not support capabilities on setuid shell-scripts
 cat > hack.sh <<EOF
 #!/bin/bash
+/usr/bin/id
 mypid=\$\$
-caps=\$(./getpcaps \$mypid 2>&1 | cut -d: -f2)
+caps=\$(./getpcaps \$mypid 2>&1 | /usr/bin/cut -d: -f2)
 if [ "\$caps" != " =" ]; then
   echo "Shell script got [\$caps] - you should upgrade your kernel"
   exit 1
@@ -139,7 +144,7 @@ if [ $status -ne 0 ]; then
 fi
 
 # Max lockdown
-pass_capsh --keep=1 --user=nobody --caps=cap_setpcap=ep \
+pass_capsh --keep=1 --uid=$nouid --caps=cap_setpcap=ep \
     --drop=all --secbits=0x2f --caps= --print
 
 # Verify we can chroot

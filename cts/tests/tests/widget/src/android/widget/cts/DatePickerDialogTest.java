@@ -16,33 +16,41 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
-import android.content.Context;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link DatePickerDialog}.
  */
-public class DatePickerDialogTest extends
-        ActivityInstrumentationTestCase2<DatePickerDialogCtsActivity> {
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class DatePickerDialogTest {
     private Activity mActivity;
 
-    public DatePickerDialogTest() {
-        super(DatePickerDialogCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<DatePickerDialogCtsActivity> mActivityRule =
+            new ActivityTestRule<>(DatePickerDialogCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
-    @SuppressWarnings("deprecation")
+    @Test
     public void testConstructor() {
         new DatePickerDialog(mActivity, null, 1970, 1, 1);
 
@@ -52,39 +60,29 @@ public class DatePickerDialogTest extends
 
         new DatePickerDialog(mActivity,
                 android.R.style.Theme_Material_Dialog_Alert, null, 1970, 1, 1);
-
-        try {
-            new DatePickerDialog(null, null, 1970, 1, 1);
-            fail("should throw NullPointerException");
-        } catch (Exception e) {
-        }
     }
 
     @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext() {
+        new DatePickerDialog(null, null, 1970, 1, 1);
+    }
+
+    @UiThreadTest
+    @Test
     public void testShowDismiss() {
-        DatePickerDialog d = createDatePickerDialog();
+        final DatePickerDialog datePickerDialog = new DatePickerDialog(mActivity, null, 1970, 1, 1);
 
-        d.show();
-        assertTrue("Showing date picker", d.isShowing());
+        datePickerDialog.show();
+        assertTrue("Showing date picker", datePickerDialog.isShowing());
 
-        d.show();
-        assertTrue("Date picker still showing", d.isShowing());
+        datePickerDialog.show();
+        assertTrue("Date picker still showing", datePickerDialog.isShowing());
 
-        d.dismiss();
-        assertFalse("Dismissed date picker", d.isShowing());
+        datePickerDialog.dismiss();
+        assertFalse("Dismissed date picker", datePickerDialog.isShowing());
 
-        d.dismiss();
-        assertFalse("Date picker still dismissed", d.isShowing());
-    }
-
-    private MockDatePickerDialog createDatePickerDialog() {
-        return new MockDatePickerDialog(mActivity, null, 1970, 1, 1);
-    }
-
-    private class MockDatePickerDialog extends DatePickerDialog {
-        public MockDatePickerDialog(Context context, OnDateSetListener callBack,
-                int year, int monthOfYear, int dayOfMonth) {
-            super(context, callBack, year, monthOfYear, dayOfMonth);
-        }
+        datePickerDialog.dismiss();
+        assertFalse("Date picker still dismissed", datePickerDialog.isShowing());
     }
 }

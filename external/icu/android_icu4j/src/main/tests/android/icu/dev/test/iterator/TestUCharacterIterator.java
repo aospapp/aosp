@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -10,12 +12,12 @@ package android.icu.dev.test.iterator;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.ReplaceableString;
 import android.icu.text.UCharacterIterator;
 import android.icu.text.UTF16;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @author ram
@@ -25,7 +27,6 @@ import android.icu.junit.IcuTestFmwkRunner;
  * To enable and disable the creation of type comments go to
  * Window>Preferences>Java>Code Generation.
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TestUCharacterIterator extends TestFmwk{
 
     // constructor -----------------------------------------------------
@@ -42,6 +43,7 @@ public class TestUCharacterIterator extends TestFmwk{
     /**
     * Testing cloning
     */
+    @Test
     public void TestClone() throws CloneNotSupportedException
     {
          UCharacterIterator iterator = UCharacterIterator.getInstance("testing");
@@ -73,6 +75,7 @@ public class TestUCharacterIterator extends TestFmwk{
     /**
      * Testing iteration
      */
+    @Test
     public void TestIteration()
     {
         UCharacterIterator iterator  = UCharacterIterator.getInstance(
@@ -133,20 +136,8 @@ public class TestUCharacterIterator extends TestFmwk{
         }
     }
     
-    public static void main(String[] arg)
-    {
-        try
-        {
-            TestUCharacterIterator test = new TestUCharacterIterator();
-            test.run(arg);
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-    }
-    
     //Tests for new API for utf-16 support 
+    @Test
     public void TestIterationUChar32() {
         String text="\u0061\u0062\ud841\udc02\u20ac\ud7ff\ud842\udc06\ud801\udc00\u0061";
         int c;
@@ -268,6 +259,7 @@ public class TestUCharacterIterator extends TestFmwk{
         private int[] s;
         private int length, i;
     }
+    @Test
     public void TestPreviousNext(){
         // src and expect strings
         char src[]={
@@ -394,6 +386,7 @@ public class TestUCharacterIterator extends TestFmwk{
             }
         }
     }
+    @Test
     public void TestUCharacterIteratorWrapper(){
         String source ="asdfasdfjoiuyoiuy2341235679886765";
         UCharacterIterator it = UCharacterIterator.getInstance(source);
@@ -465,6 +458,7 @@ public class TestUCharacterIterator extends TestFmwk{
                                         "Testing 1 2 3 \ud800\udc00 456";
     private static final int ITERATION_SUPPLEMENTARY_INDEX = 14;
     
+    @Test
     public void TestJitterbug1952(){
         //test previous code point
         char[] src = new char[]{ '\uDC00','\uD800','\uDC01','\uD802','\uDC02','\uDC03'};

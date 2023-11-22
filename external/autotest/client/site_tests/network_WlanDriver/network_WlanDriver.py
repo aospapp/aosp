@@ -28,7 +28,8 @@ class network_WlanDriver(test.test):
             'Intel 7260': {
                     '3.8': 'wireless/iwl7000/iwlwifi/iwlwifi.ko',
                     '3.10': 'wireless-3.8/iwl7000/iwlwifi/iwlwifi.ko',
-                    '3.14': 'wireless-3.8/iwl7000/iwlwifi/iwlwifi.ko'
+                    '3.14': 'wireless-3.8/iwl7000/iwlwifi/iwlwifi.ko',
+                    '4.4': 'wireless/iwl7000/iwlwifi/iwlwifi.ko'
             },
             'Intel 7265': {
                     '3.8': 'wireless/iwl7000/iwlwifi/iwlwifi.ko',
@@ -39,6 +40,14 @@ class network_WlanDriver(test.test):
             'Atheros AR9462': {
                     '3.4': 'wireless/ath/ath9k_btcoex/ath9k_btcoex.ko',
                     '3.8': 'wireless-3.4/ath/ath9k_btcoex/ath9k_btcoex.ko'
+            },
+            'Qualcomm Atheros QCA6174': {
+                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_core.ko',
+                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko'
+            },
+            'Qualcomm Atheros NFA344A/QCA6174': {
+                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_core.ko',
+                    '3.18': 'wireless/ar10k/ath/ath10k/ath10k_pci.ko'
             },
             'Marvell 88W8797 SDIO': {
                     '3.4': 'wireless/mwifiex/mwifiex_sdio.ko',
@@ -54,7 +63,8 @@ class network_WlanDriver(test.test):
             'Marvell 88W8897 SDIO': {
                      '3.8': 'wireless/mwifiex/mwifiex_sdio.ko',
                      '3.10': 'wireless-3.8/mwifiex/mwifiex_sdio.ko',
-                     '3.14': 'wireless-3.8/mwifiex/mwifiex_sdio.ko'
+                     '3.14': 'wireless-3.8/mwifiex/mwifiex_sdio.ko',
+                     '3.18': 'wireless/mwifiex/mwifiex_sdio.ko'
             },
             'Broadcom BCM4354 SDIO': {
                      '3.8': 'wireless/brcm80211/brcmfmac/brcmfmac.ko',
@@ -62,6 +72,9 @@ class network_WlanDriver(test.test):
             },
             'Broadcom BCM4356 PCIE': {
                      '3.10': 'wireless-3.8/brcm80211/brcmfmac/brcmfmac.ko'
+            },
+            'Marvell 88W8997 PCIE': {
+                     '4.4': 'wireless/marvell/mwifiex/mwifiex_pcie.ko',
             },
     }
 

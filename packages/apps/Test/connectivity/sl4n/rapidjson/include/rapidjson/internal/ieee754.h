@@ -23,8 +23,8 @@ namespace internal {
 class Double {
 public:
     Double() {}
-    Double(double d) : d_(d) {}
-    Double(uint64_t u) : u_(u) {}
+    explicit Double(double d) : d_(d) {}
+    explicit Double(uint64_t u) : u_(u) {}
 
     double Value() const { return d_; }
     uint64_t Uint64Value() const { return u_; }

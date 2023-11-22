@@ -19,6 +19,9 @@
 
 #include "Network.h"
 
+namespace android {
+namespace net {
+
 class LocalNetwork : public Network {
 public:
     explicit LocalNetwork(unsigned netId);
@@ -29,5 +32,8 @@ private:
     int addInterface(const std::string& interface) override WARN_UNUSED_RESULT;
     int removeInterface(const std::string& interface) override WARN_UNUSED_RESULT;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_LOCAL_NETWORK_H

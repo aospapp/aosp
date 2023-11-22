@@ -21,9 +21,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE := CtsHostsideNetworkTests
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
-
-LOCAL_STATIC_JAVA_LIBRARIES := cts-migration-lib
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed
 
 LOCAL_CTS_TEST_PACKAGE := android.net.hostsidenetwork
 

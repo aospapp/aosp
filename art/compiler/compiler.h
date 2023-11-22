@@ -18,6 +18,7 @@
 #define ART_COMPILER_COMPILER_H_
 
 #include "dex_file.h"
+#include "base/mutex.h"
 #include "os.h"
 
 namespace art {
@@ -25,17 +26,29 @@ namespace art {
 namespace jit {
   class JitCodeCache;
 }
+namespace mirror {
+  class ClassLoader;
+  class DexCache;
+}
 
 class ArtMethod;
 class CompilerDriver;
 class CompiledMethod;
+template<class T> class Handle;
 class OatWriter;
+class Thread;
 
 class Compiler {
  public:
   enum Kind {
     kQuick,
     kOptimizing
+  };
+
+  enum JniOptimizationFlags {
+    kNone                       = 0x0,
+    kFastNative                 = 0x1,
+    kCriticalNative             = 0x2,
   };
 
   static Compiler* Create(CompilerDriver* driver, Kind kind);
@@ -51,24 +64,25 @@ class Compiler {
                                   InvokeType invoke_type,
                                   uint16_t class_def_idx,
                                   uint32_t method_idx,
-                                  jobject class_loader,
+                                  Handle<mirror::ClassLoader> class_loader,
                                   const DexFile& dex_file,
                                   Handle<mirror::DexCache> dex_cache) const = 0;
 
   virtual CompiledMethod* JniCompile(uint32_t access_flags,
                                      uint32_t method_idx,
-                                     const DexFile& dex_file) const = 0;
+                                     const DexFile& dex_file,
+                                     JniOptimizationFlags optimization_flags) const = 0;
 
   virtual bool JitCompile(Thread* self ATTRIBUTE_UNUSED,
                           jit::JitCodeCache* code_cache ATTRIBUTE_UNUSED,
                           ArtMethod* method ATTRIBUTE_UNUSED,
                           bool osr ATTRIBUTE_UNUSED)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     return false;
   }
 
   virtual uintptr_t GetEntryPointOf(ArtMethod* method) const
-     SHARED_REQUIRES(Locks::mutator_lock_) = 0;
+     REQUIRES_SHARED(Locks::mutator_lock_) = 0;
 
   uint64_t GetMaximumCompilationTimeBeforeWarning() const {
     return maximum_compilation_time_before_warning_;

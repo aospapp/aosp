@@ -19,8 +19,12 @@
 
 #include "base/mutex.h"
 #include "jni.h"
+#include "obj_ptr.h"
 
 namespace art {
+
+class ArtMethod;
+
 namespace mirror {
 class Class;
 }  // namespace mirror
@@ -35,15 +39,19 @@ struct WellKnownClasses {
  public:
   static void Init(JNIEnv* env);  // Run before native methods are registered.
   static void LateInit(JNIEnv* env);  // Run after native methods are registered.
-  static jmethodID StringInitToStringFactoryMethodID(jmethodID string_init);
+  static ArtMethod* StringInitToStringFactory(ArtMethod* method);
+  static uint32_t StringInitToEntryPoint(ArtMethod* method);
 
-  static mirror::Class* ToClass(jclass global_jclass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  static ObjPtr<mirror::Class> ToClass(jclass global_jclass) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static jclass com_android_dex_Dex;
+  static jclass dalvik_annotation_optimization_CriticalNative;
+  static jclass dalvik_annotation_optimization_FastNative;
+  static jclass dalvik_system_BaseDexClassLoader;
+  static jclass dalvik_system_DexClassLoader;
   static jclass dalvik_system_DexFile;
   static jclass dalvik_system_DexPathList;
   static jclass dalvik_system_DexPathList__Element;
+  static jclass dalvik_system_EmulatedStackFrame;
   static jclass dalvik_system_PathClassLoader;
   static jclass dalvik_system_VMRuntime;
   static jclass java_lang_annotation_Annotation__array;
@@ -52,15 +60,17 @@ struct WellKnownClasses {
   static jclass java_lang_ClassNotFoundException;
   static jclass java_lang_Daemons;
   static jclass java_lang_Error;
-  static jclass java_lang_ExceptionInInitializerError;
   static jclass java_lang_IllegalAccessError;
+  static jclass java_lang_invoke_MethodHandle;
   static jclass java_lang_NoClassDefFoundError;
   static jclass java_lang_Object;
   static jclass java_lang_OutOfMemoryError;
-  static jclass java_lang_reflect_AbstractMethod;
   static jclass java_lang_reflect_Constructor;
+  static jclass java_lang_reflect_Executable;
   static jclass java_lang_reflect_Field;
   static jclass java_lang_reflect_Method;
+  static jclass java_lang_reflect_Parameter;
+  static jclass java_lang_reflect_Parameter__array;
   static jclass java_lang_reflect_Proxy;
   static jclass java_lang_RuntimeException;
   static jclass java_lang_StackOverflowError;
@@ -69,7 +79,6 @@ struct WellKnownClasses {
   static jclass java_lang_System;
   static jclass java_lang_Thread;
   static jclass java_lang_ThreadGroup;
-  static jclass java_lang_Thread__UncaughtExceptionHandler;
   static jclass java_lang_Throwable;
   static jclass java_util_ArrayList;
   static jclass java_util_Collections;
@@ -80,7 +89,6 @@ struct WellKnownClasses {
   static jclass org_apache_harmony_dalvik_ddmc_Chunk;
   static jclass org_apache_harmony_dalvik_ddmc_DdmServer;
 
-  static jmethodID com_android_dex_Dex_create;
   static jmethodID dalvik_system_VMRuntime_runFinalization;
   static jmethodID java_lang_Boolean_valueOf;
   static jmethodID java_lang_Byte_valueOf;
@@ -93,48 +101,20 @@ struct WellKnownClasses {
   static jmethodID java_lang_Double_valueOf;
   static jmethodID java_lang_Float_valueOf;
   static jmethodID java_lang_Integer_valueOf;
+  static jmethodID java_lang_invoke_MethodHandle_invoke;
+  static jmethodID java_lang_invoke_MethodHandle_invokeExact;
   static jmethodID java_lang_Long_valueOf;
   static jmethodID java_lang_ref_FinalizerReference_add;
   static jmethodID java_lang_ref_ReferenceQueue_add;
+  static jmethodID java_lang_reflect_Parameter_init;
   static jmethodID java_lang_reflect_Proxy_invoke;
   static jmethodID java_lang_Runtime_nativeLoad;
   static jmethodID java_lang_Short_valueOf;
-  static jmethodID java_lang_String_init;
-  static jmethodID java_lang_String_init_B;
-  static jmethodID java_lang_String_init_BI;
-  static jmethodID java_lang_String_init_BII;
-  static jmethodID java_lang_String_init_BIII;
-  static jmethodID java_lang_String_init_BIIString;
-  static jmethodID java_lang_String_init_BString;
-  static jmethodID java_lang_String_init_BIICharset;
-  static jmethodID java_lang_String_init_BCharset;
-  static jmethodID java_lang_String_init_C;
-  static jmethodID java_lang_String_init_CII;
-  static jmethodID java_lang_String_init_IIC;
-  static jmethodID java_lang_String_init_String;
-  static jmethodID java_lang_String_init_StringBuffer;
-  static jmethodID java_lang_String_init_III;
-  static jmethodID java_lang_String_init_StringBuilder;
-  static jmethodID java_lang_StringFactory_newEmptyString;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_B;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BI;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BII;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BIII;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BIIString;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BString;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BIICharset;
-  static jmethodID java_lang_StringFactory_newStringFromBytes_BCharset;
-  static jmethodID java_lang_StringFactory_newStringFromChars_C;
-  static jmethodID java_lang_StringFactory_newStringFromChars_CII;
-  static jmethodID java_lang_StringFactory_newStringFromChars_IIC;
-  static jmethodID java_lang_StringFactory_newStringFromString;
-  static jmethodID java_lang_StringFactory_newStringFromStringBuffer;
-  static jmethodID java_lang_StringFactory_newStringFromCodePoints;
-  static jmethodID java_lang_StringFactory_newStringFromStringBuilder;
+  static jmethodID java_lang_String_charAt;
   static jmethodID java_lang_System_runFinalization;
+  static jmethodID java_lang_Thread_dispatchUncaughtException;
   static jmethodID java_lang_Thread_init;
   static jmethodID java_lang_Thread_run;
-  static jmethodID java_lang_Thread__UncaughtExceptionHandler_uncaughtException;
   static jmethodID java_lang_ThreadGroup_removeThread;
   static jmethodID java_nio_DirectByteBuffer_init;
   static jmethodID libcore_reflect_AnnotationFactory_createAnnotation;
@@ -142,19 +122,18 @@ struct WellKnownClasses {
   static jmethodID org_apache_harmony_dalvik_ddmc_DdmServer_broadcast;
   static jmethodID org_apache_harmony_dalvik_ddmc_DdmServer_dispatch;
 
+  static jfieldID dalvik_system_BaseDexClassLoader_pathList;
   static jfieldID dalvik_system_DexFile_cookie;
   static jfieldID dalvik_system_DexFile_fileName;
   static jfieldID dalvik_system_DexPathList_dexElements;
   static jfieldID dalvik_system_DexPathList__Element_dexFile;
-  static jfieldID dalvik_system_PathClassLoader_pathList;
-  static jfieldID java_lang_reflect_AbstractMethod_artMethod;
+  static jfieldID java_lang_reflect_Executable_artMethod;
   static jfieldID java_lang_reflect_Proxy_h;
   static jfieldID java_lang_Thread_daemon;
   static jfieldID java_lang_Thread_group;
   static jfieldID java_lang_Thread_lock;
   static jfieldID java_lang_Thread_name;
   static jfieldID java_lang_Thread_priority;
-  static jfieldID java_lang_Thread_uncaughtHandler;
   static jfieldID java_lang_Thread_nativePeer;
   static jfieldID java_lang_ThreadGroup_groups;
   static jfieldID java_lang_ThreadGroup_ngroups;
@@ -177,6 +156,9 @@ struct WellKnownClasses {
   static jfieldID org_apache_harmony_dalvik_ddmc_Chunk_length;
   static jfieldID org_apache_harmony_dalvik_ddmc_Chunk_offset;
   static jfieldID org_apache_harmony_dalvik_ddmc_Chunk_type;
+
+ private:
+  static void InitStringInit(JNIEnv* env);
 };
 
 }  // namespace art

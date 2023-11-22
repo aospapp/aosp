@@ -30,13 +30,17 @@ import static org.mockito.Mockito.when;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
+import android.net.wifi.IWificond;
 import android.net.wifi.RttManager;
 import android.net.wifi.RttManager.ParcelableRttParams;
 import android.net.wifi.RttManager.ResponderConfig;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Message;
+import android.os.test.TestLooper;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.internal.util.test.BidirectionalAsyncChannel;
 
 import org.junit.After;
 import org.junit.Before;
@@ -60,7 +64,11 @@ public class RttServiceTest {
     Context mContext;
     @Mock
     WifiNative mWifiNative;
-    MockLooper mLooper;
+    TestLooper mLooper;
+    @Mock
+    WifiInjector mWifiInjector;
+    @Mock
+    IWificond mWificond;
 
     RttService.RttServiceImpl mRttServiceImpl;
     ArgumentCaptor<BroadcastReceiver> mBroadcastReceiverCaptor = ArgumentCaptor
@@ -69,9 +77,11 @@ public class RttServiceTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        TestUtil.installWlanWifiNative(mWifiNative);
-        mLooper = new MockLooper();
-        mRttServiceImpl = new RttService.RttServiceImpl(mContext, mLooper.getLooper());
+        mLooper = new TestLooper();
+        when(mWifiInjector.makeWificond()).thenReturn(mWificond);
+        when(mWifiInjector.getWifiNative()).thenReturn(mWifiNative);
+        mRttServiceImpl = new RttService.RttServiceImpl(mContext, mLooper.getLooper(),
+                mWifiInjector);
         mRttServiceImpl.startService();
     }
 

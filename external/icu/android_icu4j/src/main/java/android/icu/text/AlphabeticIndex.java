@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2008-2016, Google Inc, International Business Machines Corporation
@@ -56,18 +58,18 @@ import android.icu.util.ULocale;
  * <h2>Direct Use</h2>
  * <p>The following shows an example of building an index directly.
  *  The "show..." methods below are just to illustrate usage.
- * 
+ *
  * <pre>
  * // Create a simple index where the values for the strings are Integers, and add the strings
- * 
+ *
  * AlphabeticIndex&lt;Integer&gt; index = new AlphabeticIndex&lt;Integer&gt;(desiredLocale).addLabels(additionalLocale);
  * int counter = 0;
  * for (String item : test) {
- *     index.addRecord(item, counter++); 
+ *     index.addRecord(item, counter++);
  * }
  * ...
  * // Show index at top. We could skip or gray out empty buckets
- * 
+ *
  * for (AlphabeticIndex.Bucket&lt;Integer&gt; bucket : index) {
  *     if (showAll || bucket.size() != 0) {
  *         showLabelAtTop(UI, bucket.getLabel());
@@ -75,7 +77,7 @@ import android.icu.util.ULocale;
  * }
  *  ...
  * // Show the buckets with their contents, skipping empty buckets
- * 
+ *
  * for (AlphabeticIndex.Bucket&lt;Integer&gt; bucket : index) {
  *     if (bucket.size() != 0) {
  *         showLabelInList(UI, bucket.getLabel());
@@ -138,6 +140,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     // Comparator for records, so that the Record class can be static.
     private final Comparator<Record<V>> recordComparator = new Comparator<Record<V>>() {
+        @Override
         public int compare(Record<V> o1, Record<V> o2) {
             return collatorOriginal.compare(o1.name, o2.name);
         }
@@ -211,6 +214,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
         /**
          * {@inheritDoc}
          */
+        @Override
         public Iterator<Bucket<V>> iterator() {
             return buckets.iterator();
         }
@@ -218,7 +222,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Create the index object.
-     * 
+     *
      * @param locale
      *            The locale for the index.
      */
@@ -228,7 +232,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Create the index object.
-     * 
+     *
      * @param locale
      *            The locale for the index.
      */
@@ -236,16 +240,16 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
         this(ULocale.forLocale(locale), null);
     }
 
-    /** 
+    /**
      * Create an AlphabeticIndex that uses a specific collator.
-     * 
+     *
      * <p>The index will be created with no labels; the addLabels() function must be called
      * after creation to add the desired labels to the index.
-     * 
-     * <p>The index will work directly with the supplied collator. If the caller will need to 
+     *
+     * <p>The index will work directly with the supplied collator. If the caller will need to
      * continue working with the collator it should be cloned first, so that the
      * collator provided to the AlphabeticIndex remains unchanged after creation of the index.
-     * 
+     *
      * @param collator The collator to use to order the contents of this index.
      */
     public AlphabeticIndex(RuleBasedCollator collator) {
@@ -339,7 +343,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Get the default label used in the IndexCharacters' locale for underflow, eg the last item in: X Y Z ...
-     * 
+     *
      * @return underflow label
      */
     public String getUnderflowLabel() {
@@ -360,7 +364,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Get the default label used in the IndexCharacters' locale for overflow, eg the first item in: ... A B C
-     * 
+     *
      * @return overflow label
      */
     public String getOverflowLabel() {
@@ -382,7 +386,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
     /**
      * Get the default label used for abbreviated buckets <i>between</i> other labels. For example, consider the labels
      * for Latin and Greek are used: X Y Z ... &#x0391; &#x0392; &#x0393;.
-     * 
+     *
      * @return inflow label
      */
     public String getInflowLabel() {
@@ -392,7 +396,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Get the limit on the number of labels in the index. The number of buckets can be slightly larger: see getBucketCount().
-     * 
+     *
      * @return maxLabelCount maximum number of labels.
      */
     public int getMaxLabelCount() {
@@ -610,7 +614,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Get the labels.
-     * 
+     *
      * @return The list of bucket labels, after processing.
      */
     public List<String> getBucketLabels() {
@@ -628,7 +632,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
      * <p>
      * <b><i>Don't use this method across threads if you are changing the settings on the collator, at least not without
      * synchronizing.</i></b>
-     * 
+     *
      * @return a clone of the collator used internally
      */
     public RuleBasedCollator getCollator() {
@@ -647,7 +651,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
      * Add a record (name and data) to the index. The name will be used to sort the items into buckets, and to sort
      * within the bucket. Two records may have the same name. When they do, the sort order is according to the order added:
      * the first added comes first.
-     * 
+     *
      * @param name
      *            Name, such as a name
      * @param data
@@ -673,7 +677,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
      * <p>
      * Note that the bucket number (and sort key) are only valid for the settings of the current AlphabeticIndex; if
      * those are changed, then the bucket number and sort key must be regenerated.
-     * 
+     *
      * @param name
      *            Name, such as a name
      * @return the bucket index for the name
@@ -685,7 +689,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Clear the index.
-     * 
+     *
      * @return this, for chaining
      */
     public AlphabeticIndex<V> clearRecords() {
@@ -698,7 +702,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Return the number of buckets in the index. This will be the same as the number of labels, plus buckets for the underflow, overflow, and inflow(s).
-     * 
+     *
      * @return number of buckets
      */
     public int getBucketCount() {
@@ -708,7 +712,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Return the number of records in the index: that is, the total number of distinct &lt;name,data&gt; pairs added with addRecord(...), over all the buckets.
-     * 
+     *
      * @return total number of records in buckets
      */
     public int getRecordCount() {
@@ -717,9 +721,10 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
     /**
      * Return an iterator over the buckets.
-     * 
+     *
      * @return iterator over buckets.
      */
+    @Override
     public Iterator<Bucket<V>> iterator() {
         initBuckets();
         return buckets.iterator();
@@ -821,7 +826,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
         /**
          * Get the name
-         * 
+         *
          * @return the name
          */
         public CharSequence getName() {
@@ -830,7 +835,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
         /**
          * Get the data
-         * 
+         *
          * @return the data
          */
         public V getData() {
@@ -840,6 +845,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
         /**
          * Standard toString()
          */
+        @Override
         public String toString() {
             return name + "=" + data;
         }
@@ -852,7 +858,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
      * returned by {@link AlphabeticIndex.ImmutableIndex#getBucket(int)},
      * and {@link AlphabeticIndex#addRecord(CharSequence, Object)} adds a record
      * into a bucket according to the record's name.
-     * 
+     *
      * @param <V>
      *            Data type
      */
@@ -888,7 +894,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
         /**
          * Set up the bucket.
-         * 
+         *
          * @param label
          *            label for the bucket
          * @param labelType
@@ -902,7 +908,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
         /**
          * Get the label
-         * 
+         *
          * @return label for the bucket
          */
         public String getLabel() {
@@ -911,7 +917,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
         /**
          * Is a normal, underflow, overflow, or inflow bucket
-         * 
+         *
          * @return is an underflow, overflow, or inflow bucket
          */
         public LabelType getLabelType() {
@@ -920,7 +926,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
 
         /**
          * Get the number of records in the bucket.
-         * 
+         *
          * @return number of records in bucket
          */
         public int size() {
@@ -930,6 +936,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
         /**
          * Iterator over the records in the bucket
          */
+        @Override
         public Iterator<Record<V>> iterator() {
             if (records == null) {
                 return Collections.<Record<V>>emptyList().iterator();
@@ -1140,6 +1147,7 @@ public final class AlphabeticIndex<V> implements Iterable<Bucket<V>> {
         /**
          * Iterator over just the visible buckets.
          */
+        @Override
         public Iterator<Bucket<V>> iterator() {
             return immutableVisibleList.iterator(); // use immutable list to prevent remove().
         }

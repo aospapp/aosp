@@ -20,9 +20,9 @@ import android.annotation.UserIdInt;
 import android.content.pm.PackageInfo;
 import android.util.Slog;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.backup.BackupUtils;
 
-import libcore.io.Base64;
 import libcore.util.HexEncoding;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -32,6 +32,7 @@ import org.xmlpull.v1.XmlSerializer;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Base64;
 
 /**
  * Package information used by {@link android.content.pm.ShortcutManager} for backup / restore.
@@ -89,6 +90,7 @@ class ShortcutPackageInfo {
         return mLastUpdateTime;
     }
 
+    /** Set {@link #mVersionCode} and {@link #mLastUpdateTime} from a {@link PackageInfo}. */
     public void updateVersionInfo(@NonNull PackageInfo pi) {
         if (pi != null) {
             mVersionCode = pi.versionCode;
@@ -119,7 +121,8 @@ class ShortcutPackageInfo {
         return true;
     }
 
-    public static ShortcutPackageInfo generateForInstalledPackage(
+    @VisibleForTesting
+    public static ShortcutPackageInfo generateForInstalledPackageForTest(
             ShortcutService s, String packageName, @UserIdInt int packageUserId) {
         final PackageInfo pi = s.getPackageInfoWithSignatures(packageName, packageUserId);
         if (pi.signatures == null || pi.signatures.length == 0) {
@@ -132,7 +135,7 @@ class ShortcutPackageInfo {
         return ret;
     }
 
-    public void refresh(ShortcutService s, ShortcutPackageItem pkg) {
+    public void refreshSignature(ShortcutService s, ShortcutPackageItem pkg) {
         if (mIsShadow) {
             s.wtf("Attempted to refresh package info for shadow package " + pkg.getPackageName()
                     + ", user=" + pkg.getOwnerUserId());
@@ -145,8 +148,6 @@ class ShortcutPackageInfo {
             Slog.w(TAG, "Package not found: " + pkg.getPackageName());
             return;
         }
-        mVersionCode = pi.versionCode;
-        mLastUpdateTime = pi.lastUpdateTime;
         mSigHashes = BackupUtils.hashSignatureArray(pi.signatures);
     }
 
@@ -160,7 +161,8 @@ class ShortcutPackageInfo {
 
         for (int i = 0; i < mSigHashes.size(); i++) {
             out.startTag(null, TAG_SIGNATURE);
-            ShortcutService.writeAttr(out, ATTR_SIGNATURE_HASH, Base64.encode(mSigHashes.get(i)));
+            final String encoded = Base64.getEncoder().encodeToString(mSigHashes.get(i));
+            ShortcutService.writeAttr(out, ATTR_SIGNATURE_HASH, encoded);
             out.endTag(null, TAG_SIGNATURE);
         }
         out.endTag(null, TAG_ROOT);
@@ -195,7 +197,9 @@ class ShortcutPackageInfo {
                     case TAG_SIGNATURE: {
                         final String hash = ShortcutService.parseStringAttribute(
                                 parser, ATTR_SIGNATURE_HASH);
-                        hashes.add(Base64.decode(hash.getBytes()));
+                        // Throws IllegalArgumentException if hash is invalid base64 data
+                        final byte[] decoded = Base64.getDecoder().decode(hash);
+                        hashes.add(decoded);
                         continue;
                     }
                 }

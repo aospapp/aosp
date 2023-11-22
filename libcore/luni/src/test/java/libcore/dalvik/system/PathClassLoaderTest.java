@@ -16,6 +16,7 @@
 
 package libcore.dalvik.system;
 
+import dalvik.system.BlockGuard;
 import dalvik.system.PathClassLoader;
 import java.lang.reflect.Method;
 import java.io.File;
@@ -64,17 +65,23 @@ public final class PathClassLoaderTest extends TestCase {
         return result;
     }
 
-    public void testAppUseOfPathClassLoader() throws Exception {
+    private static File extractResourceJar(String name) throws Exception {
         // Extract loading-test.jar from the resource.
         ClassLoader pcl = PathClassLoaderTest.class.getClassLoader();
-        File jar = File.createTempFile("loading-test", ".jar");
+        File jar = File.createTempFile(name, ".jar");
         try (InputStream in = pcl.getResourceAsStream("dalvik/system/loading-test.jar");
              FileOutputStream out = new FileOutputStream(jar)) {
-          Streams.copy(in, out);
+            Streams.copy(in, out);
         }
 
+        return jar;
+    }
+
+    public void testAppUseOfPathClassLoader() throws Exception {
+        File jar = extractResourceJar("loading-test");
+
         // Execute code from the jar file using a PathClassLoader.
-        PathClassLoader cl = new PathClassLoader(jar.getPath(), pcl);
+        PathClassLoader cl = new PathClassLoader(jar.getPath(), Object.class.getClassLoader());
         Class c = cl.loadClass("test.Test1");
         Method m = c.getMethod("test", (Class[]) null);
         String result = (String) m.invoke(null, (Object[]) null);
@@ -111,6 +118,59 @@ public final class PathClassLoaderTest extends TestCase {
         } finally {
             jarFile.close();
         }
+    }
+
+    public void test_classLoader_exceptionDuringLoading() throws Exception {
+        final File jar = extractResourceJar("loading-test");
+
+        final PathClassLoader pcl = new PathClassLoader(jar.getAbsolutePath(),
+                Object.class.getClassLoader());
+
+
+        BlockGuard.Policy policy = BlockGuard.getThreadPolicy();
+        BlockGuard.setThreadPolicy(new BlockGuard.Policy() {
+            @Override
+            public void onWriteToDisk() {
+                throw new RuntimeException("onWriteToDisk");
+            }
+
+            @Override
+            public void onReadFromDisk() {
+                throw new RuntimeException("onReadFromDisk");
+            }
+
+            @Override
+            public void onNetwork() {
+                throw new RuntimeException("onNetwork");
+            }
+
+            @Override
+            public void onUnbufferedIO() {
+                throw new RuntimeException("onUnbufferedIO");
+            }
+
+            @Override
+            public int getPolicyMask() {
+                return 0;
+            }
+        });
+
+        try {
+            try {
+                // Resource loading involves a blocking operation and will throw a RuntimeException
+                // here.
+                pcl.getResource("test/Resource1.txt");
+                fail();
+            } catch (RuntimeException expected) {
+            }
+        } finally {
+            BlockGuard.setThreadPolicy(policy);
+        }
+
+        // Assert that the ClassLoader recovers after the failure above when the BlockGuard is
+        // removed. This also simulates the ClassLoader being used from another thread with a
+        // different BlockGuard policy.
+        assertNotNull(pcl.getResource("test/Resource1.txt"));
     }
 
     @Override protected void setUp() throws Exception {

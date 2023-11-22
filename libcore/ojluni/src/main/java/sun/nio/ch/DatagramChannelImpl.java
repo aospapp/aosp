@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 2001, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,15 +28,35 @@ package sun.nio.ch;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.PortUnreachableException;
+import java.net.ProtocolFamily;
+import java.net.SocketAddress;
+import java.net.SocketOption;
+import java.net.StandardProtocolFamily;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
-import java.nio.channels.*;
-import java.nio.channels.spi.*;
-import java.util.*;
+import java.nio.channels.AlreadyBoundException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.MembershipKey;
+import java.nio.channels.NotYetConnectedException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.UnsupportedAddressTypeException;
+import java.nio.channels.spi.SelectorProvider;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import dalvik.system.BlockGuard;
+import dalvik.system.CloseGuard;
+import sun.net.ExtendedOptionsImpl;
 import sun.net.ResourceManager;
-
 
 /**
  * An implementation of DatagramChannels.
@@ -96,6 +116,9 @@ class DatagramChannelImpl
     // Our socket adaptor, if any
     private DatagramSocket socket;
 
+    // Multicast support
+    private MembershipRegistry registry;
+
     // set true when socket is bound and SO_REUSEADDRESS is emulated
     private boolean reuseAddressEmulated;
 
@@ -104,6 +127,8 @@ class DatagramChannelImpl
 
     // -- End of fields protected by stateLock
 
+    // Android-changed: Add CloseGuard support.
+    private final CloseGuard guard = CloseGuard.get();
 
     public DatagramChannelImpl(SelectorProvider sp)
         throws IOException
@@ -116,6 +141,11 @@ class DatagramChannelImpl
             this.fd = Net.socket(family, false);
             this.fdVal = IOUtil.fdVal(fd);
             this.state = ST_UNCONNECTED;
+            // Android-changed: Add CloseGuard support.
+            // Net#socket will set |fd| if it succeeds.
+            if (fd != null && fd.valid()) {
+                guard.open("close");
+            }
         } catch (IOException ioe) {
             ResourceManager.afterUdpClose();
             throw ioe;
@@ -143,6 +173,11 @@ class DatagramChannelImpl
         this.fd = Net.socket(family, false);
         this.fdVal = IOUtil.fdVal(fd);
         this.state = ST_UNCONNECTED;
+        // Android-changed: Add CloseGuard support.
+        // Net#socket will set |fd| if it succeeds.
+        if (fd != null && fd.valid()) {
+            guard.open("close");
+        }
     }
 
     public DatagramChannelImpl(SelectorProvider sp, FileDescriptor fd)
@@ -155,6 +190,10 @@ class DatagramChannelImpl
         this.fdVal = IOUtil.fdVal(fd);
         this.state = ST_UNCONNECTED;
         this.localAddress = Net.localAddress(fd);
+        // Android-changed: Add CloseGuard support.
+        if (fd != null && fd.valid()) {
+            guard.open("close");
+        }
     }
 
     public DatagramSocket socket() {
@@ -165,10 +204,12 @@ class DatagramChannelImpl
         }
     }
 
+    @Override
     public SocketAddress getLocalAddress() throws IOException {
         synchronized (stateLock) {
             if (!isOpen())
                 throw new ClosedChannelException();
+            // Perform security check before returning address
             return Net.getRevealedLocalAddress(localAddress);
         }
     }
@@ -194,15 +235,8 @@ class DatagramChannelImpl
         synchronized (stateLock) {
             ensureOpen();
 
-            if (name == StandardSocketOptions.IP_TOS) {
-                // IPv4 only; no-op for IPv6
-                if (family == StandardProtocolFamily.INET) {
-                    Net.setSocketOption(fd, family, name, value);
-                }
-                return this;
-            }
-
-            if (name == StandardSocketOptions.IP_MULTICAST_TTL ||
+            if (name == StandardSocketOptions.IP_TOS ||
+                name == StandardSocketOptions.IP_MULTICAST_TTL ||
                 name == StandardSocketOptions.IP_MULTICAST_LOOP)
             {
                 // options are protocol dependent
@@ -242,6 +276,7 @@ class DatagramChannelImpl
         }
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public <T> T getOption(SocketOption<T> name)
         throws IOException
@@ -254,16 +289,8 @@ class DatagramChannelImpl
         synchronized (stateLock) {
             ensureOpen();
 
-            if (name == StandardSocketOptions.IP_TOS) {
-                // IPv4 only; always return 0 on IPv6
-                if (family == StandardProtocolFamily.INET) {
-                    return (T) Net.getSocketOption(fd, family, name);
-                } else {
-                    return (T) Integer.valueOf(0);
-                }
-            }
-
-            if (name == StandardSocketOptions.IP_MULTICAST_TTL ||
+            if (name == StandardSocketOptions.IP_TOS ||
+                name == StandardSocketOptions.IP_MULTICAST_TTL ||
                 name == StandardSocketOptions.IP_MULTICAST_LOOP)
             {
                 return (T) Net.getSocketOption(fd, family, name);
@@ -316,10 +343,14 @@ class DatagramChannelImpl
             set.add(StandardSocketOptions.IP_MULTICAST_IF);
             set.add(StandardSocketOptions.IP_MULTICAST_TTL);
             set.add(StandardSocketOptions.IP_MULTICAST_LOOP);
+            if (ExtendedOptionsImpl.flowSupported()) {
+                set.add(jdk.net.ExtendedSocketOptions.SO_FLOW_SLA);
+            }
             return Collections.unmodifiableSet(set);
         }
     }
 
+    @Override
     public final Set<SocketOption<?>> supportedOptions() {
         return DefaultOptionsHolder.defaultOptions;
     }
@@ -336,7 +367,7 @@ class DatagramChannelImpl
             throw new IllegalArgumentException("Read-only buffer");
         if (dst == null)
             throw new NullPointerException();
-        // Android-changed : Do not attempt to bind to 0 (or 0.0.0.0) if there hasn't been
+        // Android-changed: Do not attempt to bind to 0 (or 0.0.0.0) if there hasn't been
         // an explicit call to bind() yet. Fail fast and return null.
         if (localAddress == null)
             return null;
@@ -757,6 +788,26 @@ class DatagramChannelImpl
 
                     // set or refresh local address
                     localAddress = Net.localAddress(fd);
+
+                    // flush any packets already received.
+                    boolean blocking = false;
+                    synchronized (blockingLock()) {
+                        try {
+                            blocking = isBlocking();
+                            // remainder of each packet thrown away
+                            ByteBuffer tmpBuf = ByteBuffer.allocate(1);
+                            if (blocking) {
+                                configureBlocking(false);
+                            }
+                            do {
+                                tmpBuf.clear();
+                            } while (receive(tmpBuf) != null);
+                        } finally {
+                            if (blocking) {
+                                configureBlocking(true);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -787,11 +838,229 @@ class DatagramChannelImpl
         return this;
     }
 
+    /**
+     * Joins channel's socket to the given group/interface and
+     * optional source address.
+     */
+    private MembershipKey innerJoin(InetAddress group,
+                                    NetworkInterface interf,
+                                    InetAddress source)
+        throws IOException
+    {
+        if (!group.isMulticastAddress())
+            throw new IllegalArgumentException("Group not a multicast address");
+
+        // check multicast address is compatible with this socket
+        if (group instanceof Inet4Address) {
+            if (family == StandardProtocolFamily.INET6 && !Net.canIPv6SocketJoinIPv4Group())
+                throw new IllegalArgumentException("IPv6 socket cannot join IPv4 multicast group");
+        } else if (group instanceof Inet6Address) {
+            if (family != StandardProtocolFamily.INET6)
+                throw new IllegalArgumentException("Only IPv6 sockets can join IPv6 multicast group");
+        } else {
+            throw new IllegalArgumentException("Address type not supported");
+        }
+
+        // check source address
+        if (source != null) {
+            if (source.isAnyLocalAddress())
+                throw new IllegalArgumentException("Source address is a wildcard address");
+            if (source.isMulticastAddress())
+                throw new IllegalArgumentException("Source address is multicast address");
+            if (source.getClass() != group.getClass())
+                throw new IllegalArgumentException("Source address is different type to group");
+        }
+
+        SecurityManager sm = System.getSecurityManager();
+        if (sm != null)
+            sm.checkMulticast(group);
+
+        synchronized (stateLock) {
+            if (!isOpen())
+                throw new ClosedChannelException();
+
+            // check the registry to see if we are already a member of the group
+            if (registry == null) {
+                registry = new MembershipRegistry();
+            } else {
+                // return existing membership key
+                MembershipKey key = registry.checkMembership(group, interf, source);
+                if (key != null)
+                    return key;
+            }
+
+            MembershipKeyImpl key;
+            if ((family == StandardProtocolFamily.INET6) &&
+                ((group instanceof Inet6Address) || Net.canJoin6WithIPv4Group()))
+            {
+                int index = interf.getIndex();
+                if (index == -1)
+                    throw new IOException("Network interface cannot be identified");
+
+                // need multicast and source address as byte arrays
+                byte[] groupAddress = Net.inet6AsByteArray(group);
+                byte[] sourceAddress = (source == null) ? null :
+                    Net.inet6AsByteArray(source);
+
+                // join the group
+                int n = Net.join6(fd, groupAddress, index, sourceAddress);
+                if (n == IOStatus.UNAVAILABLE)
+                    throw new UnsupportedOperationException();
+
+                key = new MembershipKeyImpl.Type6(this, group, interf, source,
+                                                  groupAddress, index, sourceAddress);
+
+            } else {
+                // need IPv4 address to identify interface
+                Inet4Address target = Net.anyInet4Address(interf);
+                if (target == null)
+                    throw new IOException("Network interface not configured for IPv4");
+
+                int groupAddress = Net.inet4AsInt(group);
+                int targetAddress = Net.inet4AsInt(target);
+                int sourceAddress = (source == null) ? 0 : Net.inet4AsInt(source);
+
+                // join the group
+                int n = Net.join4(fd, groupAddress, targetAddress, sourceAddress);
+                if (n == IOStatus.UNAVAILABLE)
+                    throw new UnsupportedOperationException();
+
+                key = new MembershipKeyImpl.Type4(this, group, interf, source,
+                                                  groupAddress, targetAddress, sourceAddress);
+            }
+
+            registry.add(key);
+            return key;
+        }
+    }
+
+    @Override
+    public MembershipKey join(InetAddress group,
+                              NetworkInterface interf)
+        throws IOException
+    {
+        return innerJoin(group, interf, null);
+    }
+
+    @Override
+    public MembershipKey join(InetAddress group,
+                              NetworkInterface interf,
+                              InetAddress source)
+        throws IOException
+    {
+        if (source == null)
+            throw new NullPointerException("source address is null");
+        return innerJoin(group, interf, source);
+    }
+
+    // package-private
+    void drop(MembershipKeyImpl key) {
+        assert key.channel() == this;
+
+        synchronized (stateLock) {
+            if (!key.isValid())
+                return;
+
+            try {
+                if (key instanceof MembershipKeyImpl.Type6) {
+                    MembershipKeyImpl.Type6 key6 =
+                        (MembershipKeyImpl.Type6)key;
+                    Net.drop6(fd, key6.groupAddress(), key6.index(), key6.source());
+                } else {
+                    MembershipKeyImpl.Type4 key4 = (MembershipKeyImpl.Type4)key;
+                    Net.drop4(fd, key4.groupAddress(), key4.interfaceAddress(),
+                        key4.source());
+                }
+            } catch (IOException ioe) {
+                // should not happen
+                throw new AssertionError(ioe);
+            }
+
+            key.invalidate();
+            registry.remove(key);
+        }
+    }
+
+    /**
+     * Block datagrams from given source if a memory to receive all
+     * datagrams.
+     */
+    void block(MembershipKeyImpl key, InetAddress source)
+        throws IOException
+    {
+        assert key.channel() == this;
+        assert key.sourceAddress() == null;
+
+        synchronized (stateLock) {
+            if (!key.isValid())
+                throw new IllegalStateException("key is no longer valid");
+            if (source.isAnyLocalAddress())
+                throw new IllegalArgumentException("Source address is a wildcard address");
+            if (source.isMulticastAddress())
+                throw new IllegalArgumentException("Source address is multicast address");
+            if (source.getClass() != key.group().getClass())
+                throw new IllegalArgumentException("Source address is different type to group");
+
+            int n;
+            if (key instanceof MembershipKeyImpl.Type6) {
+                 MembershipKeyImpl.Type6 key6 =
+                    (MembershipKeyImpl.Type6)key;
+                n = Net.block6(fd, key6.groupAddress(), key6.index(),
+                               Net.inet6AsByteArray(source));
+            } else {
+                MembershipKeyImpl.Type4 key4 =
+                    (MembershipKeyImpl.Type4)key;
+                n = Net.block4(fd, key4.groupAddress(), key4.interfaceAddress(),
+                               Net.inet4AsInt(source));
+            }
+            if (n == IOStatus.UNAVAILABLE) {
+                // ancient kernel
+                throw new UnsupportedOperationException();
+            }
+        }
+    }
+
+    /**
+     * Unblock given source.
+     */
+    void unblock(MembershipKeyImpl key, InetAddress source) {
+        assert key.channel() == this;
+        assert key.sourceAddress() == null;
+
+        synchronized (stateLock) {
+            if (!key.isValid())
+                throw new IllegalStateException("key is no longer valid");
+
+            try {
+                if (key instanceof MembershipKeyImpl.Type6) {
+                    MembershipKeyImpl.Type6 key6 =
+                        (MembershipKeyImpl.Type6)key;
+                    Net.unblock6(fd, key6.groupAddress(), key6.index(),
+                                 Net.inet6AsByteArray(source));
+                } else {
+                    MembershipKeyImpl.Type4 key4 =
+                        (MembershipKeyImpl.Type4)key;
+                    Net.unblock4(fd, key4.groupAddress(), key4.interfaceAddress(),
+                                 Net.inet4AsInt(source));
+                }
+            } catch (IOException ioe) {
+                // should not happen
+                throw new AssertionError(ioe);
+            }
+        }
+    }
+
     protected void implCloseSelectableChannel() throws IOException {
         synchronized (stateLock) {
+            // Android-changed: Add CloseGuard support.
+            guard.close();
             if (state != ST_KILLED)
                 nd.preClose(fd);
             ResourceManager.afterUdpClose();
+
+            // if member of mulitcast group then invalidate all keys
+            if (registry != null)
+                registry.invalidateAll();
 
             long th;
             if ((th = readerThread) != 0)
@@ -817,10 +1086,18 @@ class DatagramChannelImpl
         }
     }
 
-    protected void finalize() throws IOException {
-        // fd is null if constructor threw exception
-        if (fd != null)
-            close();
+    protected void finalize() throws Throwable {
+        try {
+            // Android-changed: Add CloseGuard support.
+            if (guard != null) {
+                guard.warnIfOpen();
+            }
+            // fd is null if constructor threw exception
+            if (fd != null)
+                close();
+        } finally {
+            super.finalize();
+        }
     }
 
     /**
@@ -832,25 +1109,24 @@ class DatagramChannelImpl
         int oldOps = sk.nioReadyOps();
         int newOps = initialOps;
 
-        if ((ops & PollArrayWrapper.POLLNVAL) != 0) {
+        if ((ops & Net.POLLNVAL) != 0) {
             // This should only happen if this channel is pre-closed while a
             // selection operation is in progress
             // ## Throw an error if this channel has not been pre-closed
             return false;
         }
 
-        if ((ops & (PollArrayWrapper.POLLERR
-                    | PollArrayWrapper.POLLHUP)) != 0) {
+        if ((ops & (Net.POLLERR | Net.POLLHUP)) != 0) {
             newOps = intOps;
             sk.nioReadyOps(newOps);
             return (newOps & ~oldOps) != 0;
         }
 
-        if (((ops & PollArrayWrapper.POLLIN) != 0) &&
+        if (((ops & Net.POLLIN) != 0) &&
             ((intOps & SelectionKey.OP_READ) != 0))
             newOps |= SelectionKey.OP_READ;
 
-        if (((ops & PollArrayWrapper.POLLOUT) != 0) &&
+        if (((ops & Net.POLLOUT) != 0) &&
             ((intOps & SelectionKey.OP_WRITE) != 0))
             newOps |= SelectionKey.OP_WRITE;
 
@@ -866,6 +1142,28 @@ class DatagramChannelImpl
         return translateReadyOps(ops, 0, sk);
     }
 
+    // package-private
+    int poll(int events, long timeout) throws IOException {
+        assert Thread.holdsLock(blockingLock()) && !isBlocking();
+
+        synchronized (readLock) {
+            int n = 0;
+            try {
+                begin();
+                synchronized (stateLock) {
+                    if (!isOpen())
+                        return 0;
+                    readerThread = NativeThread.current();
+                }
+                n = Net.poll(fd, events, timeout);
+            } finally {
+                readerThread = 0;
+                end(n > 0);
+            }
+            return n;
+        }
+    }
+
     /**
      * Translates an interest operation set into a native poll event set
      */
@@ -873,11 +1171,11 @@ class DatagramChannelImpl
         int newOps = 0;
 
         if ((ops & SelectionKey.OP_READ) != 0)
-            newOps |= PollArrayWrapper.POLLIN;
+            newOps |= Net.POLLIN;
         if ((ops & SelectionKey.OP_WRITE) != 0)
-            newOps |= PollArrayWrapper.POLLOUT;
+            newOps |= Net.POLLOUT;
         if ((ops & SelectionKey.OP_CONNECT) != 0)
-            newOps |= PollArrayWrapper.POLLIN;
+            newOps |= Net.POLLIN;
         sk.selector.putEventOps(sk, newOps);
     }
 

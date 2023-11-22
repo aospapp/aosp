@@ -7,7 +7,6 @@ NAME = "power_Resume"
 PURPOSE = "Measure the amount of time it takes to resume from suspend."
 CRITERIA = "This test is a benchmark."
 ATTRIBUTES = "suite:crosbolt_perf_perbuild"
-SUITE = "crosbolt_perf_perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Logging"
 TEST_CLASS = "power"
@@ -21,4 +20,4 @@ how many seconds it took to resume. As a precaution it will ensure your
 network interface is UP after it has resumed.
 """
 
-job.run_test('power_Resume')
+job.run_test('power_Resume', ignore_kernel_warns=True)

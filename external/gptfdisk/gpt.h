@@ -72,6 +72,7 @@ protected:
    uint64_t diskSize; // size of device, in blocks
    GPTValidity state; // is GPT valid?
    int justLooking; // Set to 1 if program launched with "-l" or if read-only
+   bool syncing; // Set to true if we should sync and reload the partition table
    int mainCrcOk;
    int secondCrcOk;
    int mainPartsCrcOk;
@@ -189,6 +190,7 @@ public:
    uint32_t ComputeAlignment(void); // Set alignment based on current partitions
    uint32_t GetAlignment(void) {return sectorAlignment;}
    void JustLooking(int i = 1) {justLooking = i;}
+   void TurnOffSyncing() {syncing = 0;}
    void BeQuiet(int i = 1) {beQuiet = i;}
    WhichToUse WhichWasUsed(void) {return whichWasUsed;}
 

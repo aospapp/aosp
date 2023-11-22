@@ -905,7 +905,7 @@ Move<VkImage> TimestampTestInstance::createImage2DAndBindMemory(VkFormat        
 		// Remove storage usage if the optimal tiling feature does not support it
 		usage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
 	}
-	
+
 	const VkImageCreateInfo colorImageParams =
 	{
 		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,                                        // VkStructureType      sType;
@@ -1367,7 +1367,8 @@ void AdvGraphicsTest::initPrograms(SourceCollections& programCollection) const
 	BasicGraphicsTest::initPrograms(programCollection);
 
 	programCollection.glslSources.add("dummy_geo") << glu::GeometrySource(
-		"#version 450 \n"
+		"#version 310 es\n"
+		"#extension GL_EXT_geometry_shader : enable\n"
 		"layout(triangles) in;\n"
 		"layout(triangle_strip, max_vertices = 3) out;\n"
 		"layout(location = 0) in highp vec4 in_vtxColor[];\n"
@@ -1384,7 +1385,8 @@ void AdvGraphicsTest::initPrograms(SourceCollections& programCollection) const
 		"}\n");
 
 	programCollection.glslSources.add("basic_tcs") << glu::TessellationControlSource(
-		"#version 450 \n"
+		"#version 310 es\n"
+		"#extension GL_EXT_tessellation_shader : enable\n"
 		"layout(vertices = 3) out;\n"
 		"layout(location = 0) in highp vec4 color[];\n"
 		"layout(location = 0) out highp vec4 vtxColor[];\n"
@@ -1399,7 +1401,8 @@ void AdvGraphicsTest::initPrograms(SourceCollections& programCollection) const
 		"}\n");
 
 	programCollection.glslSources.add("basic_tes") << glu::TessellationEvaluationSource(
-		"#version 450 \n"
+		"#version 310 es\n"
+		"#extension GL_EXT_tessellation_shader : enable\n"
 		"layout(triangles, fractional_even_spacing, ccw) in;\n"
 		"layout(location = 0) in highp vec4 colors[];\n"
 		"layout(location = 0) out highp vec4 vtxColor;\n"
@@ -2013,7 +2016,7 @@ void TransferTestInstance::configCommandBuffer(void)
 				const VkBufferImageCopy bufImageCopy =
 				{
 					0u,                                     // VkDeviceSize            bufferOffset;
-					(deUint32)m_bufSize,                    // deUint32                bufferRowLength;
+					(deUint32)m_imageWidth,                 // deUint32                bufferRowLength;
 					(deUint32)m_imageHeight,                // deUint32                bufferImageHeight;
 					imgSubResCopy,                          // VkImageSubresourceCopy  imageSubresource;
 					nullOffset,                             // VkOffset3D              imageOffset;
@@ -2027,7 +2030,7 @@ void TransferTestInstance::configCommandBuffer(void)
 				const VkBufferImageCopy imgBufferCopy =
 				{
 					0u,                                     // VkDeviceSize            bufferOffset;
-					(deUint32)m_bufSize,                    // deUint32                bufferRowLength;
+					(deUint32)m_imageWidth,                 // deUint32                bufferRowLength;
 					(deUint32)m_imageHeight,                // deUint32                bufferImageHeight;
 					imgSubResCopy,                          // VkImageSubresourceCopy  imageSubresource;
 					nullOffset,                             // VkOffset3D              imageOffset;
@@ -2137,7 +2140,7 @@ void TransferTestInstance::initialImageTransition (VkCommandBuffer cmdBuffer, Vk
 		subRange                                // VkImageSubresourceRange  subresourceRange;
 	};
 
-	vk.cmdPipelineBarrier(cmdBuffer, 0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, DE_NULL, 0, DE_NULL, 1, &imageMemBarrier);
+	vk.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, DE_NULL, 0, DE_NULL, 1, &imageMemBarrier);
 }
 
 } // anonymous

@@ -162,10 +162,13 @@ tcpdump_src_files := \
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(tcpdump_src_files)
+LOCAL_CFLAGS += -D_BSD_SOURCE
 LOCAL_CFLAGS += -DHAVE_CONFIG_H
 LOCAL_CFLAGS += -D_U_="__attribute__((unused))"
-LOCAL_SHARED_LIBRARIES += libssl libcrypto
-LOCAL_STATIC_LIBRARIES += libpcap
+LOCAL_CFLAGS += -Werror
+# http://b/33566695
+LOCAL_CFLAGS += -Wno-address-of-packed-member
+LOCAL_SHARED_LIBRARIES += libssl libcrypto libpcap
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := tcpdump

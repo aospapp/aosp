@@ -14,32 +14,25 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from subprocess import Popen, PIPE
+from acts.libs.proc import job
 
-def exe_cmd(*cmds):
-    """Executes commands in a new shell. Directing stderr to PIPE.
+import logging
 
-    This is fastboot's own exe_cmd because of its peculiar way of writing
-    non-error info to stderr.
-
-    Args:
-        cmds: A sequence of commands and arguments.
-
-    Returns:
-        The output of the command run.
-
-    Raises:
-        Exception is raised if an error occurred during the command execution.
-    """
-    cmd = ' '.join(cmds)
-    proc = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
-    (out, err) = proc.communicate()
-    if not err:
-        return out
-    return err
 
 class FastbootError(Exception):
     """Raised when there is an error in fastboot operations."""
+
+    def __init__(self, cmd, stdout, stderr, ret_code):
+        self.cmd = cmd
+        self.stdout = stdout
+        self.stderr = stderr
+        self.ret_code = ret_code
+
+    def __str__(self):
+        return ("Error executing fastboot cmd '%s'. ret: %d, stdout: %s,"
+                " stderr: %s") % (self.cmd, self.ret_code, self.stdout,
+                                  self.stderr)
+
 
 class FastbootProxy():
     """Proxy class for fastboot.
@@ -49,22 +42,45 @@ class FastbootProxy():
     >> fb = FastbootProxy(<serial>)
     >> fb.devices() # will return the console output of "fastboot devices".
     """
-    def __init__(self, serial=""):
+
+    def __init__(self, serial="", ssh_connection=None):
         self.serial = serial
         if serial:
             self.fastboot_str = "fastboot -s {}".format(serial)
         else:
             self.fastboot_str = "fastboot"
+        self.ssh_connection = ssh_connection
 
-    def _exec_fastboot_cmd(self, name, arg_str):
-        return exe_cmd(' '.join((self.fastboot_str, name, arg_str)))
+    def _exec_fastboot_cmd(self,
+                           name,
+                           arg_str,
+                           ignore_status=False,
+                           timeout=60):
+        command = ' '.join((self.fastboot_str, name, arg_str))
+        if self.ssh_connection:
+            result = self.connection.run(command,
+                                         ignore_status=True,
+                                         timeout=timeout)
+        else:
+            result = job.run(command, ignore_status=True, timeout=timeout)
+        ret, out, err = result.exit_status, result.stdout, result.stderr
+        # TODO: This is only a temporary workaround for b/34815412.
+        # fastboot getvar outputs to stderr instead of stdout
+        if "getvar" in command:
+            out = err
+        if ret == 0 or ignore_status:
+            return out
+        else:
+            raise FastbootError(
+                cmd=command, stdout=out, stderr=err, ret_code=ret)
 
-    def args(self, *args):
-        return exe_cmd(' '.join((self.fastboot_str,) + args))
+    def args(self, *args, **kwargs):
+        return job.run(' '.join((self.fastboot_str, ) + args), **kwargs).stdout
 
     def __getattr__(self, name):
-        def fastboot_call(*args):
+        def fastboot_call(*args, **kwargs):
             clean_name = name.replace('_', '-')
             arg_str = ' '.join(str(elem) for elem in args)
-            return self._exec_fastboot_cmd(clean_name, arg_str)
+            return self._exec_fastboot_cmd(clean_name, arg_str, **kwargs)
+
         return fastboot_call

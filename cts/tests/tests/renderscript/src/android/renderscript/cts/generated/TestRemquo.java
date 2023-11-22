@@ -37,6 +37,13 @@ public class TestRemquo extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestRemquoRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatIntFloat {
         public float inNumerator;
         public float inDenominator;
@@ -45,8 +52,8 @@ public class TestRemquo extends RSBaseCompute {
     }
 
     private void checkRemquoFloatFloatIntFloat() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xedd4ff2al, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x2eb19f93l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xcd5efc69edd4ff2al, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x4ff0c9312eb19f93l, false);
         try {
             Allocation outQuotient = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 1), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
@@ -54,6 +61,8 @@ public class TestRemquo extends RSBaseCompute {
             script.set_gAllocOutQuotient(outQuotient);
             script.forEach_testRemquoFloatFloatIntFloat(inNumerator, out);
             verifyResultsRemquoFloatFloatIntFloat(inNumerator, inDenominator, outQuotient, out, false);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloatFloatIntFloat: " + e.toString());
         }
@@ -64,9 +73,13 @@ public class TestRemquo extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutQuotient(outQuotient);
             scriptRelaxed.forEach_testRemquoFloatFloatIntFloat(inNumerator, out);
             verifyResultsRemquoFloatFloatIntFloat(inNumerator, inDenominator, outQuotient, out, true);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloatFloatIntFloat: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsRemquoFloatFloatIntFloat(Allocation inNumerator, Allocation inDenominator, Allocation outQuotient, Allocation out, boolean relaxed) {
@@ -128,8 +141,8 @@ public class TestRemquo extends RSBaseCompute {
     }
 
     private void checkRemquoFloat2Float2Int2Float2() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x3a27171al, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x6ba08403l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x28c14abc3a27171al, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x58f8799a6ba08403l, false);
         try {
             Allocation outQuotient = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 2), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
@@ -137,6 +150,8 @@ public class TestRemquo extends RSBaseCompute {
             script.set_gAllocOutQuotient(outQuotient);
             script.forEach_testRemquoFloat2Float2Int2Float2(inNumerator, out);
             verifyResultsRemquoFloat2Float2Int2Float2(inNumerator, inDenominator, outQuotient, out, false);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloat2Float2Int2Float2: " + e.toString());
         }
@@ -147,9 +162,13 @@ public class TestRemquo extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutQuotient(outQuotient);
             scriptRelaxed.forEach_testRemquoFloat2Float2Int2Float2(inNumerator, out);
             verifyResultsRemquoFloat2Float2Int2Float2(inNumerator, inDenominator, outQuotient, out, true);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloat2Float2Int2Float2: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsRemquoFloat2Float2Int2Float2(Allocation inNumerator, Allocation inDenominator, Allocation outQuotient, Allocation out, boolean relaxed) {
@@ -211,8 +230,8 @@ public class TestRemquo extends RSBaseCompute {
     }
 
     private void checkRemquoFloat3Float3Int3Float3() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x96052526l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xf273f8afl, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xf60211df96052526l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xd1d6c7fcf273f8afl, false);
         try {
             Allocation outQuotient = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 3), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
@@ -220,6 +239,8 @@ public class TestRemquo extends RSBaseCompute {
             script.set_gAllocOutQuotient(outQuotient);
             script.forEach_testRemquoFloat3Float3Int3Float3(inNumerator, out);
             verifyResultsRemquoFloat3Float3Int3Float3(inNumerator, inDenominator, outQuotient, out, false);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloat3Float3Int3Float3: " + e.toString());
         }
@@ -230,9 +251,13 @@ public class TestRemquo extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutQuotient(outQuotient);
             scriptRelaxed.forEach_testRemquoFloat3Float3Int3Float3(inNumerator, out);
             verifyResultsRemquoFloat3Float3Int3Float3(inNumerator, inDenominator, outQuotient, out, true);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloat3Float3Int3Float3: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsRemquoFloat3Float3Int3Float3(Allocation inNumerator, Allocation inDenominator, Allocation outQuotient, Allocation out, boolean relaxed) {
@@ -294,8 +319,8 @@ public class TestRemquo extends RSBaseCompute {
     }
 
     private void checkRemquoFloat4Float4Int4Float4() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xf1e33332l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x79476d5bl, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xc342d902f1e33332l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x4ab5165f79476d5bl, false);
         try {
             Allocation outQuotient = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 4), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
@@ -303,6 +328,8 @@ public class TestRemquo extends RSBaseCompute {
             script.set_gAllocOutQuotient(outQuotient);
             script.forEach_testRemquoFloat4Float4Int4Float4(inNumerator, out);
             verifyResultsRemquoFloat4Float4Int4Float4(inNumerator, inDenominator, outQuotient, out, false);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloat4Float4Int4Float4: " + e.toString());
         }
@@ -313,9 +340,13 @@ public class TestRemquo extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutQuotient(outQuotient);
             scriptRelaxed.forEach_testRemquoFloat4Float4Int4Float4(inNumerator, out);
             verifyResultsRemquoFloat4Float4Int4Float4(inNumerator, inDenominator, outQuotient, out, true);
+            outQuotient.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testRemquoFloat4Float4Int4Float4: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsRemquoFloat4Float4Int4Float4(Allocation inNumerator, Allocation inDenominator, Allocation outQuotient, Allocation out, boolean relaxed) {

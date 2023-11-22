@@ -79,10 +79,6 @@ public abstract class ListScenario extends Activity {
         return mListView;
     }
 
-    protected int getScreenHeight() {
-        return mScreenHeight;
-    }
-
     /**
      * Return whether the item at position is selectable (i.e is a separator).
      * (external users can access this info using the adapter)
@@ -288,15 +284,6 @@ public abstract class ListScenario extends Activity {
         setClickedPosition(position);
     }
 
-    /**
-     * Override this if you want to know when something has been long clicked (perhaps
-     * more importantly, that {@link android.widget.AdapterView.OnItemLongClickListener} has
-     * been triggered).
-     */
-    protected void positionLongClicked(int position) {
-        setLongClickedPosition(position);
-    }
-
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
@@ -353,11 +340,13 @@ public abstract class ListScenario extends Activity {
             }
         });
 
-        mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            public void onItemClick(AdapterView parent, View v, int position, long id) {
-                positionClicked(position);
-            }
-        });
+        if (shouldRegisterItemClickListener()) {
+            mListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                public void onItemClick(AdapterView parent, View v, int position, long id) {
+                    positionClicked(position);
+                }
+            });
+        }
 
         // set the fading edge length porportionally to the screen
         // height for test stability
@@ -404,25 +393,11 @@ public abstract class ListScenario extends Activity {
     }
 
     /**
-     * Returns the LinearLayout containing the ListView in this scenario.
-     *
-     * @return The LinearLayout in which the ListView is held.
+     * Override to return false if you don't want the activity to register a default item click
+     * listener that redirects clicks to {@link #positionClicked(int)}.
      */
-    protected LinearLayout getListViewContainer() {
-        return mLinearLayout;
-    }
-
-    /**
-     * Attaches a long press listener. You can find out which views were clicked by calling
-     * {@link #getLongClickedPosition()}.
-     */
-    public void enableLongPress() {
-        mListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
-            public boolean onItemLongClick(AdapterView parent, View v, int position, long id) {
-                positionLongClicked(position);
-                return true;
-            }
-        });
+    protected boolean shouldRegisterItemClickListener() {
+        return true;
     }
 
     /**

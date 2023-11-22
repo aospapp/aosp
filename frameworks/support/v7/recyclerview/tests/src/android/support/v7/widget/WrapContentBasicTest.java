@@ -16,35 +16,26 @@
 
 package android.support.v7.widget;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import android.content.Context;
-import android.support.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.view.Display;
-import android.view.View;
-import android.view.ViewGroup;
-
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.view.View;
+import android.view.ViewGroup;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @MediumTest
 @RunWith(AndroidJUnit4.class)
-public class WrapContentBasicTest extends AndroidTestCase {
-
+public class WrapContentBasicTest {
+    private Context mContext;
     private WrapContentLayoutManager mLayoutManager;
     private RecyclerView mRecyclerView;
     private WrapAdapter mAdapter;
@@ -54,24 +45,14 @@ public class WrapContentBasicTest extends AndroidTestCase {
             .makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
 
     @Before
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        setContext(InstrumentationRegistry.getContext());
-        RecyclerView rv = new RecyclerView(getContext());
-        mRecyclerView = spy(rv);
+    public void setup() throws Exception {
+        mContext = InstrumentationRegistry.getContext();
+        mRecyclerView = new RecyclerView(mContext);
         mLayoutManager = spy(new WrapContentLayoutManager());
         // working around a mockito issue
-        rv.mLayout = mLayoutManager;
-        mAdapter = spy(new WrapAdapter());
         mRecyclerView.setLayoutManager(mLayoutManager);
+        mAdapter = spy(new WrapAdapter());
         mRecyclerView.setAdapter(mAdapter);
-    }
-
-    @After
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
     }
 
     @Test
@@ -153,11 +134,11 @@ public class WrapContentBasicTest extends AndroidTestCase {
         children[0].layout(0, 0, 100, 100);
         children[1].layout(-5, 0, 100, 100);
         children[2].layout(-5, -10, 100, 100);
-        when(mRecyclerView.getMinimumWidth()).thenReturn(250);
+        mRecyclerView.setMinimumWidth(250);
         mLayoutManager.setMeasuredDimensionFromChildren(UNSPECIFIED, UNSPECIFIED);
         verify(mLayoutManager).setMeasuredDimension(250, 110);
 
-        when(mRecyclerView.getMinimumWidth()).thenReturn(5);
+        mRecyclerView.setMinimumWidth(5);
         mLayoutManager.setMeasuredDimensionFromChildren(UNSPECIFIED, UNSPECIFIED);
         verify(mLayoutManager).setMeasuredDimension(105, 110);
     }
@@ -169,11 +150,11 @@ public class WrapContentBasicTest extends AndroidTestCase {
         children[0].layout(0, 0, 100, 100);
         children[1].layout(-5, 0, 100, 100);
         children[2].layout(-5, -10, 100, 100);
-        when(mRecyclerView.getMinimumHeight()).thenReturn(250);
+        mRecyclerView.setMinimumHeight(250);
         mLayoutManager.setMeasuredDimensionFromChildren(UNSPECIFIED, UNSPECIFIED);
         verify(mLayoutManager).setMeasuredDimension(105, 250);
 
-        when(mRecyclerView.getMinimumHeight()).thenReturn(50);
+        mRecyclerView.setMinimumHeight(50);
         mLayoutManager.setMeasuredDimensionFromChildren(UNSPECIFIED, UNSPECIFIED);
         verify(mLayoutManager).setMeasuredDimension(105, 110);
     }
@@ -181,7 +162,7 @@ public class WrapContentBasicTest extends AndroidTestCase {
     private View[] createMockChildren(int count) {
         View[] views = new View[count];
         for (int i = 0; i < count; i++) {
-            View v = new View(getContext());
+            View v = new View(mContext);
             v.setLayoutParams(new RecyclerView.LayoutParams(1, 1));
             views[i] = v;
             when(mLayoutManager.getChildAt(i)).thenReturn(v);
@@ -202,6 +183,68 @@ public class WrapContentBasicTest extends AndroidTestCase {
             return new RecyclerView.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT);
         }
+
+        // START MOCKITO OVERRIDES
+        // We override package protected methods to make them public. This is necessary to run
+        // mockito on Kitkat
+        @Override
+        public void setRecyclerView(RecyclerView recyclerView) {
+            super.setRecyclerView(recyclerView);
+        }
+
+        @Override
+        public void dispatchAttachedToWindow(RecyclerView view) {
+            super.dispatchAttachedToWindow(view);
+        }
+
+        @Override
+        public void dispatchDetachedFromWindow(RecyclerView view, RecyclerView.Recycler recycler) {
+            super.dispatchDetachedFromWindow(view, recycler);
+        }
+
+        @Override
+        public void setExactMeasureSpecsFrom(RecyclerView recyclerView) {
+            super.setExactMeasureSpecsFrom(recyclerView);
+        }
+
+        @Override
+        public void setMeasureSpecs(int wSpec, int hSpec) {
+            super.setMeasureSpecs(wSpec, hSpec);
+        }
+
+        @Override
+        public void setMeasuredDimensionFromChildren(int widthSpec, int heightSpec) {
+            super.setMeasuredDimensionFromChildren(widthSpec, heightSpec);
+        }
+
+        @Override
+        public boolean shouldReMeasureChild(View child, int widthSpec, int heightSpec,
+                RecyclerView.LayoutParams lp) {
+            return super.shouldReMeasureChild(child, widthSpec, heightSpec, lp);
+        }
+
+        @Override
+        public boolean shouldMeasureChild(View child, int widthSpec, int heightSpec,
+                RecyclerView.LayoutParams lp) {
+            return super.shouldMeasureChild(child, widthSpec, heightSpec, lp);
+        }
+
+        @Override
+        public void removeAndRecycleScrapInt(RecyclerView.Recycler recycler) {
+            super.removeAndRecycleScrapInt(recycler);
+        }
+
+        @Override
+        public void stopSmoothScroller() {
+            super.stopSmoothScroller();
+        }
+
+        @Override
+        public boolean shouldMeasureTwice() {
+            return super.shouldMeasureTwice();
+        }
+
+        // END MOCKITO OVERRIDES
     }
 
     public class WrapAdapter extends RecyclerView.Adapter {

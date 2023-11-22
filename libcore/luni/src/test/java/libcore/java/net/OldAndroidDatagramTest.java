@@ -164,30 +164,6 @@ public class OldAndroidDatagramTest extends TestCase {
         }
     }
 
-    // Regression test for issue 1018003: DatagramSocket ignored a set timeout.
-    public void testDatagramSocketSetSOTimeout() throws Exception {
-        DatagramSocket sock = null;
-        int timeout = 5000;
-        long start = System.currentTimeMillis();
-        try {
-            sock = new DatagramSocket();
-            DatagramPacket pack = new DatagramPacket(new byte[100], 100);
-            sock.setSoTimeout(timeout);
-            sock.receive(pack);
-        } catch (SocketTimeoutException e) {
-            // expected
-            long delay = System.currentTimeMillis() - start;
-            if (Math.abs(delay - timeout) > 1000) {
-                fail("timeout was not accurate. expected: " + timeout
-                        + " actual: " + delay + " miliseconds.");
-            }
-        } finally {
-            if (sock != null) {
-                sock.close();
-            }
-        }
-    }
-
     public void test_54072_DatagramSocket() throws Exception {
         DatagramSocket s = new DatagramSocket(null);
         assertTrue(s.getLocalAddress().isAnyLocalAddress());

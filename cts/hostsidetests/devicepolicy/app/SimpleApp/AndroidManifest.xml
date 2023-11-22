@@ -33,6 +33,7 @@
         <activity android:name=".NonLauncherActivity">
             android:exported="true">
         </activity>
+        <activity android:name=".SimpleActivityStartService" android:exported="true" />
         <activity android:name=".SimpleActivityImmediateExit" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -45,6 +46,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name=".SimpleService" android:exported="true">
+        </service>
+        <service android:name=".SimpleService2" android:exported="true" android:process=":other">
+        </service>
+        <receiver android:name=".SimpleReceiverStartService" android:exported="true">
+        </receiver>
+        <receiver android:name=".SimpleReceiver" android:exported="true">
+        </receiver>
+        <receiver android:name=".SimpleRemoteReceiver" android:process=":receiver"
+                  android:exported="true">
+        </receiver>
     </application>
 
 </manifest>

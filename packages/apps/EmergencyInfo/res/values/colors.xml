@@ -21,8 +21,7 @@
     <color name="white_with_alpha">#B2FFFFFF</color>
     <color name="hint_text_color">#36000000</color>
 
-    <color name="primary_color">@color/material_blue_grey_900</color>
-    <color name="primary_dark_color">@color/material_blue_grey_950</color>
+    <color name="primary_dark_color">@color/material_grey_300</color>
     <color name="accent_color_light">@color/accent_material_light</color>
     <color name="accent_color_dark">@color/accent_material_dark</color>
 </resources>

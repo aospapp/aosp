@@ -47,9 +47,14 @@ void android_fs_config(fs_config_func_t fs_config_func, const char *path, struct
         const char *target_out_path, uint64_t *capabilities) {
     // filesystem_config does not preserve file type bits
     mode_t stat_file_type_mask = stat->st_mode & S_IFMT;
-    if (fs_config_func)
+    unsigned int uid = 0, gid = 0, mode = 0;
+    if (fs_config_func) {
         fs_config_func(path, S_ISDIR(stat->st_mode), target_out_path,
-                  &stat->st_uid, &stat->st_gid, &stat->st_mode, capabilities);
+                  &uid, &gid, &mode, capabilities);
+        stat->st_uid = uid;
+        stat->st_gid = gid;
+        stat->st_mode = mode;
+    }
     stat->st_mode |= stat_file_type_mask;
 }
 

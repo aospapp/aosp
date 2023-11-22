@@ -1,13 +1,14 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 import logging
 import math
-import os
 
 from telemetry import decorators
 from telemetry.internal.actions import drag
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
 from telemetry.testing import tab_test_case
 
 
@@ -16,14 +17,13 @@ class DragActionTest(tab_test_case.TabTestCase):
     error_range = abs(expected * error_ratio)
     return abs(value - expected) <= error_range
 
-  @decorators.Disabled('chromeos')  # crbug.com/483212
+  # https://github.com/catapult-project/catapult/issues/3099 (Android)
+  # crbug.com/483212 (CrOS)
+  @decorators.Disabled('android', 'chromeos')
   def testDragAction(self):
     self.Navigate('draggable.html')
 
-    with open(os.path.join(os.path.dirname(__file__),
-                           'gesture_common.js')) as f:
-      js = f.read()
-      self._tab.ExecuteJavaScript(js)
+    utils.InjectJavaScript(self._tab, 'gesture_common.js')
 
     div_width = self._tab.EvaluateJavaScript(
         '__GestureCommon_GetBoundingVisibleRect(document.body).width')

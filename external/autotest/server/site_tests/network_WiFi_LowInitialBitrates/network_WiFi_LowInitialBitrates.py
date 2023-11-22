@@ -87,14 +87,14 @@ class network_WiFi_LowInitialBitrates(wifi_cell_test_base.WiFiCellTestBase):
                 n_capabilities=caps)
         for ap_config in (g_config, n_config):
             self.context.configure(ap_config)
-            self.context.router.start_capture(
+            self.context.capture_host.start_capture(
                     ap_config.frequency,
                     ht_type=ap_config.ht_packet_capture_mode)
             assoc_params = xmlrpc_datatypes.AssociationParameters(
                     ssid=self.context.router.get_ssid())
             self.context.assert_connect_wifi(assoc_params)
             self.context.assert_ping_from_dut()
-            results = self.context.router.stop_capture()
+            results = self.context.capture_host.stop_capture()
             if len(results) != 1:
                 raise error.TestError('Expected to generate one packet '
                                       'capture but got %d captures instead.' %

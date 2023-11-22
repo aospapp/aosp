@@ -1,13 +1,12 @@
 #!/usr/bin/python
+# pylint: disable=missing-docstring
 
-import datetime
 import unittest
+
 import common
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
-from autotest_lib.frontend.afe import models, model_attributes, model_logic
-from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import control_data
+from autotest_lib.frontend.afe import models, model_logic
 
 
 class AclGroupTest(unittest.TestCase,
@@ -65,6 +64,19 @@ class HostTest(unittest.TestCase,
         host2 = models.Host.add_object(hostname='othost')
         self.assertEquals(host2.id, host.id)
         self.assertEquals(host2.status, models.Host.Status.RUNNING)
+
+
+    def test_check_board_labels_allowed(self):
+        host = models.Host.create_one_time_host('othost')
+        # First check with host with no board label.
+        self.assertEqual(host.check_board_labels_allowed([host]), None)
+
+        # Second check with host with board label
+        label = models.Label.add_object(name='board:test')
+        label.host_set.add(host)
+        self.assertRaises(model_logic.ValidationError,
+                          host.check_board_labels_allowed, [host],
+                          ['board:new_board'])
 
 
 class SpecialTaskUnittest(unittest.TestCase,
@@ -214,95 +226,6 @@ class ModelWithInvalidTest(unittest.TestCase,
 
         models.Job.objects.all().delete()
         self.assertEqual(0, models.Job.objects.all().count())
-
-
-class KernelTest(unittest.TestCase, frontend_test_utils.FrontendTestMixin):
-    def setUp(self):
-        self._frontend_common_setup()
-
-
-    def tearDown(self):
-        self._frontend_common_teardown()
-
-
-    def test_create_kernels_none(self):
-        self.assertEqual(None, models.Kernel.create_kernels(None))
-
-
-    def test_create_kernels(self):
-        self.god.stub_function(models.Kernel, '_create')
-
-        num_kernels = 3
-        kernel_list = [object() for _ in range(num_kernels)]
-        result = [object() for _ in range(num_kernels)]
-
-        for kernel, response in zip(kernel_list, result):
-            models.Kernel._create.expect_call(kernel).and_return(response)
-        self.assertEqual(result, models.Kernel.create_kernels(kernel_list))
-        self.god.check_playback()
-
-
-    def test_create(self):
-        kernel = models.Kernel._create({'version': 'version'})
-        self.assertEqual(kernel.version, 'version')
-        self.assertEqual(kernel.cmdline, '')
-        self.assertEqual(kernel, models.Kernel._create({'version': 'version'}))
-
-
-class ParameterizedJobTest(unittest.TestCase,
-                           frontend_test_utils.FrontendTestMixin):
-    def setUp(self):
-        self._frontend_common_setup()
-
-
-    def tearDown(self):
-        self._frontend_common_teardown()
-
-
-    def test_job(self):
-        global_config.global_config.override_config_value(
-                'AUTOTEST_WEB', 'parameterized_jobs', 'True')
-
-        test = models.Test.objects.create(
-                name='name', author='author', test_class='class',
-                test_category='category',
-                test_type=control_data.CONTROL_TYPE.SERVER, path='path')
-        parameterized_job = models.ParameterizedJob.objects.create(test=test)
-        job = self._create_job(hosts=[1], control_file=None,
-                               parameterized_job=parameterized_job)
-
-        self.assertEqual(job, parameterized_job.job())
-
-
-class JobTest(unittest.TestCase, frontend_test_utils.FrontendTestMixin):
-    def setUp(self):
-        self._frontend_common_setup()
-
-
-    def tearDown(self):
-        self._frontend_common_teardown()
-
-
-    def test_check_parameterized_jobs_no_args(self):
-        self.assertRaises(Exception, models.Job.check_parameterized_job,
-                          control_file=None, parameterized_job=None)
-
-
-    def test_check_parameterized_jobs_both_args(self):
-        self.assertRaises(Exception, models.Job.check_parameterized_job,
-                          control_file=object(), parameterized_job=object())
-
-
-    def test_check_parameterized_jobs_disabled(self):
-        self.assertRaises(Exception, models.Job.check_parameterized_job,
-                          control_file=None, parameterized_job=object())
-
-
-    def test_check_parameterized_jobs_enabled(self):
-        global_config.global_config.override_config_value(
-                'AUTOTEST_WEB', 'parameterized_jobs', 'True')
-        self.assertRaises(Exception, models.Job.check_parameterized_job,
-                          control_file=object(), parameterized_job=None)
 
 
 class SerializationTest(unittest.TestCase,

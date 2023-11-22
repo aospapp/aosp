@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2002-2015, International Business Machines Corporation and
+ * Copyright (C) 2002-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -32,11 +34,13 @@ import android.icu.util.ULocale;
  */
 final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim {
 
+    @Override
     public Object registerInstance(BreakIterator iter, ULocale locale, int kind) {
         iter.setText(new java.text.StringCharacterIterator(""));
         return service.registerObject(iter, locale, kind);
     }
 
+    @Override
     public boolean unregister(Object key) {
         if (service.isDefault()) {
             return false;
@@ -44,6 +48,7 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
         return service.unregisterFactory((Factory)key);
     }
 
+    @Override
     public Locale[] getAvailableLocales() {
         if (service == null) {
             return ICUResourceBundle.getAvailableLocales();
@@ -52,6 +57,7 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
         }
     }
 
+    @Override
     public ULocale[] getAvailableULocales() {
         if (service == null) {
             return ICUResourceBundle.getAvailableULocales();
@@ -60,6 +66,7 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
         }
     }
 
+    @Override
     public BreakIterator createBreakIterator(ULocale locale, int kind) {
     // TODO: convert to ULocale when service switches over
         if (service.isDefault()) {
@@ -76,6 +83,7 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
             super("BreakIterator");
 
             class RBBreakIteratorFactory extends ICUResourceBundleFactory {
+                @Override
                 protected Object handleCreate(ULocale loc, int kind, ICUService srvc) {
                     return createBreakInstance(loc, kind);
                 }
@@ -114,8 +122,8 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
     private static BreakIterator createBreakInstance(ULocale locale, int kind) {
 
         RuleBasedBreakIterator    iter = null;
-        ICUResourceBundle rb           = (ICUResourceBundle)ICUResourceBundle.
-                getBundleInstance(ICUResourceBundle.ICU_BRKITR_BASE_NAME, locale,
+        ICUResourceBundle rb           = ICUResourceBundle.
+                getBundleInstance(ICUData.ICU_BRKITR_BASE_NAME, locale,
                         ICUResourceBundle.OpenType.LOCALE_ROOT);
 
         //
@@ -129,6 +137,7 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
                 typeKeyExt = "_" + lbKeyValue;
             }
         }
+
         try {
             String         typeKey       = (typeKeyExt == null)? KIND_NAMES[kind]: KIND_NAMES[kind] + typeKeyExt;
             String         brkfname      = rb.getStringWithFallback("boundaries/" + typeKey);
@@ -154,6 +163,15 @@ final class BreakIteratorFactory extends BreakIterator.BreakIteratorServiceShim 
         ULocale uloc = ULocale.forLocale(rb.getLocale());
         iter.setLocale(uloc, uloc);
         iter.setBreakType(kind);
+
+        // filtered break
+        if (kind == BreakIterator.KIND_SENTENCE) {
+            final String ssKeyword = locale.getKeywordValue("ss");
+            if (ssKeyword != null && ssKeyword.equals("standard")) {
+                final ULocale base = new ULocale(locale.getBaseName());
+                return FilteredBreakIteratorBuilder.createInstance(base).build(iter);
+            }
+        }
 
         return iter;
 

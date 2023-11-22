@@ -35,15 +35,14 @@ class PossibleCrOSBrowser(possible_browser.PossibleBrowser):
     pass
 
   def Create(self, finder_options):
-    if finder_options.output_profile_path:
+    if finder_options.browser_options.output_profile_path:
       raise NotImplementedError(
           'Profile generation is not yet supported on CrOS.')
 
     browser_options = finder_options.browser_options
     browser_backend = cros_browser_backend.CrOSBrowserBackend(
-        self._platform_backend,
-        browser_options, self._platform_backend.cri, self._is_guest,
-        extensions_to_load=finder_options.extensions_to_load)
+        self._platform_backend, browser_options, self._platform_backend.cri,
+        self._is_guest)
     if browser_options.create_browser_with_oobe:
       return cros_browser_with_oobe.CrOSBrowserWithOOBE(
           browser_backend,
@@ -52,10 +51,8 @@ class PossibleCrOSBrowser(possible_browser.PossibleBrowser):
     return browser.Browser(
         browser_backend, self._platform_backend, self._credentials_path)
 
-  def SupportsOptions(self, finder_options):
-    if (len(finder_options.extensions_to_load) != 0) and self._is_guest:
-      return False
-    return True
+  def SupportsOptions(self, browser_options):
+    return (len(browser_options.extensions_to_load) == 0) or not self._is_guest
 
   def UpdateExecutableIfNeeded(self):
     pass
@@ -96,18 +93,7 @@ def FindAllAvailableBrowsers(finder_options, device):
 
   # Check ssh
   try:
-    # Retries required because of DNS issue in the lab documented in
-    # http://crbug/484726
-    retries = 0
-    while True:
-      try:
-        platform = platform_module.GetPlatformForDevice(device, finder_options)
-        break
-      except cros_interface.DNSFailureException, ex:
-        logging.warn('DNS Failure: %s', str(ex))
-        retries += 1
-        if retries > 1:
-          raise ex
+    platform = platform_module.GetPlatformForDevice(device, finder_options)
   except cros_interface.LoginException, ex:
     if isinstance(ex, cros_interface.KeylessLoginRequiredException):
       logging.warn('Could not ssh into %s. Your device must be configured',

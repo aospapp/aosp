@@ -115,7 +115,9 @@ public class Main {
     // 'incoming' must have a use only at the first loop's back edge.
     for (long i = System.nanoTime(); i < 42; ++i) {
       System.out.println(incoming);
-      for (long j = System.currentTimeMillis(); j != 42; ++j) {}
+      for (long j = System.currentTimeMillis(); j != 42; ++j) {
+        System.out.print(j);  // non-empty body
+      }
     }
   }
 
@@ -162,6 +164,12 @@ public class Main {
     }
   }
 
+
+  static boolean $opt$noinline$ensureSideEffects() {
+    if (doThrow) throw new Error("");
+    return true;
+  }
+
   /// CHECK-START: void Main.loop9() liveness (after)
   /// CHECK:         <<Arg:z\d+>>  StaticFieldGet  liveness:<<ArgLiv:\d+>> ranges:{[<<ArgLiv>>,<<ArgLoopUse:\d+>>)} uses:[<<ArgUse:\d+>>,<<ArgLoopUse>>]
   /// CHECK:                       If [<<Arg>>]    liveness:<<IfLiv:\d+>>
@@ -176,7 +184,7 @@ public class Main {
     // Add some code at entry to avoid having the entry block be a pre header.
     // This avoids having to create a synthesized block.
     System.out.println("Enter");
-    while (Runtime.getRuntime() != null) {
+    while ($opt$noinline$ensureSideEffects()) {
       // 'incoming' must only have a use in the inner loop.
       boolean incoming = field;
       while (incoming) {}
@@ -187,4 +195,5 @@ public class Main {
   }
 
   static boolean field;
+  static boolean doThrow = false;
 }

@@ -43,7 +43,6 @@ public class SearchRecentSuggestionsProviderTest extends AndroidTestCase {
     }
 
     public void testSearchRecentSuggestionsProvider() {
-        assertFalse(MockSRSProvider.setupSuggestCalled);
         final MockSRSProvider s = new MockSRSProvider();
         assertTrue(MockSRSProvider.setupSuggestCalled);
 

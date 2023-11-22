@@ -16,6 +16,8 @@
 
 package android.support.v4.app;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
@@ -24,6 +26,7 @@ import android.os.Bundle;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleRes;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -45,6 +48,7 @@ public class DialogFragment extends Fragment
         implements DialogInterface.OnCancelListener, DialogInterface.OnDismissListener {
 
     /** @hide */
+    @RestrictTo(LIBRARY_GROUP)
     @IntDef({STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT})
     @Retention(RetentionPolicy.SOURCE)
     private @interface DialogStyle {}
@@ -202,7 +206,7 @@ public class DialogFragment extends Fragment
             }
         }
     }
-    
+
     public Dialog getDialog() {
         return mDialog;
     }
@@ -297,11 +301,10 @@ public class DialogFragment extends Fragment
         }
     }
 
-    /** @hide */
     @Override
-    public LayoutInflater getLayoutInflater(Bundle savedInstanceState) {
+    public LayoutInflater onGetLayoutInflater(Bundle savedInstanceState) {
         if (!mShowsDialog) {
-            return super.getLayoutInflater(savedInstanceState);
+            return super.onGetLayoutInflater(savedInstanceState);
         }
 
         mDialog = onCreateDialog(savedInstanceState);
@@ -317,6 +320,7 @@ public class DialogFragment extends Fragment
     }
 
     /** @hide */
+    @RestrictTo(LIBRARY_GROUP)
     public void setupDialog(Dialog dialog, int style) {
         switch (style) {
             case STYLE_NO_INPUT:
@@ -329,27 +333,27 @@ public class DialogFragment extends Fragment
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         }
     }
-    
+
     /**
      * Override to build your own custom Dialog container.  This is typically
      * used to show an AlertDialog instead of a generic Dialog; when doing so,
      * {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)} does not need
      * to be implemented since the AlertDialog takes care of its own content.
-     * 
+     *
      * <p>This method will be called after {@link #onCreate(Bundle)} and
      * before {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)}.  The
      * default implementation simply instantiates and returns a {@link Dialog}
      * class.
-     * 
+     *
      * <p><em>Note: DialogFragment own the {@link Dialog#setOnCancelListener
      * Dialog.setOnCancelListener} and {@link Dialog#setOnDismissListener
      * Dialog.setOnDismissListener} callbacks.  You must not set them yourself.</em>
      * To find out about these events, override {@link #onCancel(DialogInterface)}
      * and {@link #onDismiss(DialogInterface)}.</p>
-     * 
+     *
      * @param savedInstanceState The last saved instance state of the Fragment,
      * or null if this is a freshly created Fragment.
-     * 
+     *
      * @return Return a new Dialog instance to be displayed by the Fragment.
      */
     @NonNull

@@ -24,6 +24,8 @@ package org.apache.harmony.security.tests.java.security;
 
 import java.security.KeyStore;
 import java.security.cert.Certificate;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.harmony.security.tests.support.cert.MyCertificate;
 
@@ -61,6 +63,20 @@ public class KSTrustedCertificateEntryTest extends TestCase {
     }
 
     /**
+     * Test for <code>SecretKeyEntry(SecretKey secretKey, Set<Attribute> attributes)</code>
+     * constructor
+     * Assertion: throws NullPointerException when attributes is null
+     */
+    public void testSecretKeyEntry_nullAttributes() {
+        Certificate cert = new MyCertificate("TEST", new byte[10]);
+        try {
+            new KeyStore.TrustedCertificateEntry(cert, null /* attributes */);
+            fail("NullPointerException must be thrown when attributes is null");
+        } catch(NullPointerException expected) {
+        }
+    }
+
+    /**
      * Test for <codfe>getTrustedCertificate()</code> method
      * Assertion: returns trusted Certificate from goven entry
      */
@@ -69,6 +85,41 @@ public class KSTrustedCertificateEntryTest extends TestCase {
         KeyStore.TrustedCertificateEntry ksTCE =
                 new KeyStore.TrustedCertificateEntry(cert);
         assertEquals("Incorrect certificate", cert, ksTCE.getTrustedCertificate());
+    }
+
+    /**
+     * Test for <code>getAttributes()</code> method
+     * Assertion: returns the attributes specified in the constructor, as an unmodifiable set
+     */
+    public void testGetAttributes() {
+        Certificate cert = new MyCertificate("TEST", new byte[10]);
+        final String attributeName = "theAttributeName";
+        KeyStore.Entry.Attribute myAttribute = new KeyStore.Entry.Attribute() {
+            @Override
+            public String getName() {
+                return attributeName;
+            }
+
+            @Override
+            public String getValue() {
+                return null;
+            }
+        };
+        Set<KeyStore.Entry.Attribute> attributeSet = new HashSet<KeyStore.Entry.Attribute>();
+        attributeSet.add(myAttribute);
+
+        KeyStore.TrustedCertificateEntry ksTCE =
+                new KeyStore.TrustedCertificateEntry(cert, attributeSet);
+        Set<KeyStore.Entry.Attribute> returnedAttributeSet = ksTCE.getAttributes();
+        assertEquals(attributeSet, returnedAttributeSet);
+        // Adding an element to the original set is OK.
+        attributeSet.add(myAttribute);
+        // The returned set is unmodifiabled.
+        try {
+            returnedAttributeSet.add(myAttribute);
+            fail("The returned set of attributed should be unmodifiable");
+        } catch (UnsupportedOperationException expected) {
+        }
     }
 
     /**

@@ -16,15 +16,22 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Color;
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.BackgroundColorSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class BackgroundColorSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BackgroundColorSpanTest {
+    @Test
     public void testConstructor() {
         BackgroundColorSpan b = new BackgroundColorSpan(Color.GREEN);
 
@@ -38,6 +45,7 @@ public class BackgroundColorSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateDrawState() {
         BackgroundColorSpan backgroundColorSpan = new BackgroundColorSpan(Color.BLACK);
 
@@ -48,15 +56,16 @@ public class BackgroundColorSpanTest extends TestCase {
         backgroundColorSpan = new BackgroundColorSpan(Color.BLUE);
         backgroundColorSpan.updateDrawState(tp);
         assertEquals(Color.BLUE, tp.bgColor);
-
-        try {
-            backgroundColorSpan.updateDrawState(null);
-            fail("did not throw NullPointerException when TextPaint is null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        BackgroundColorSpan backgroundColorSpan = new BackgroundColorSpan(Color.BLACK);
+
+        backgroundColorSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testGetBackgroundColor() {
         BackgroundColorSpan backgroundColorSpan = new BackgroundColorSpan(Color.CYAN);
         assertEquals(Color.CYAN, backgroundColorSpan.getBackgroundColor());
@@ -65,16 +74,19 @@ public class BackgroundColorSpanTest extends TestCase {
         assertEquals(Color.GRAY, backgroundColorSpan.getBackgroundColor());
     }
 
+    @Test
     public void testDescribeContents() {
         BackgroundColorSpan backgroundColorSpan = new BackgroundColorSpan(Color.RED);
         backgroundColorSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         BackgroundColorSpan backgroundColorSpan = new BackgroundColorSpan(Color.RED);
         backgroundColorSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

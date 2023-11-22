@@ -13,38 +13,57 @@
  */
 package android.support.v17.leanback.widget;
 
+import android.app.Activity;
+import android.graphics.Matrix;
 import android.os.Handler;
+import android.support.v17.leanback.transition.TransitionHelper;
+import android.support.v17.leanback.transition.TransitionListener;
+import android.support.v17.leanback.widget.DetailsOverviewRowPresenter.ViewHolder;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.SharedElementCallback;
 import android.support.v4.view.ViewCompat;
-import android.support.v17.leanback.R;
-import android.support.v17.leanback.transition.TransitionListener;
-import android.support.v17.leanback.transition.TransitionHelper;
-import android.support.v17.leanback.widget.DetailsOverviewRowPresenter.ViewHolder;
-import android.app.Activity;
-import android.content.Intent;
-import android.graphics.Matrix;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.View.MeasureSpec;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 final class DetailsOverviewSharedElementHelper extends SharedElementCallback {
 
-    private static final String TAG = "DetailsOverviewSharedElementHelper";
-    private static final boolean DEBUG = false;
+    static final String TAG = "DetailsTransitionHelper";
+    static final boolean DEBUG = false;
 
-    private ViewHolder mViewHolder;
-    private Activity mActivityToRunTransition;
-    private boolean mStartedPostpone;
-    private String mSharedElementName;
-    private int mRightPanelWidth;
-    private int mRightPanelHeight;
+    static class TransitionTimeOutRunnable implements Runnable {
+        WeakReference<DetailsOverviewSharedElementHelper> mHelperRef;
+
+        TransitionTimeOutRunnable(DetailsOverviewSharedElementHelper helper) {
+            mHelperRef = new WeakReference<DetailsOverviewSharedElementHelper>(helper);
+        }
+
+        @Override
+        public void run() {
+            DetailsOverviewSharedElementHelper helper = mHelperRef.get();
+            if (helper == null) {
+                return;
+            }
+            if (DEBUG) {
+                Log.d(TAG, "timeout " + helper.mActivityToRunTransition);
+            }
+            helper.startPostponedEnterTransition();
+        }
+    }
+
+    ViewHolder mViewHolder;
+    Activity mActivityToRunTransition;
+    boolean mStartedPostpone;
+    String mSharedElementName;
+    int mRightPanelWidth;
+    int mRightPanelHeight;
 
     private ScaleType mSavedScaleType;
     private Matrix mSavedMatrix;
@@ -163,12 +182,12 @@ final class DetailsOverviewSharedElementHelper extends SharedElementCallback {
 
     void setSharedElementEnterTransition(Activity activity, String sharedElementName,
             long timeoutMs) {
-        if (activity == null && !TextUtils.isEmpty(sharedElementName) ||
-                activity != null && TextUtils.isEmpty(sharedElementName)) {
+        if ((activity == null && !TextUtils.isEmpty(sharedElementName))
+                || (activity != null && TextUtils.isEmpty(sharedElementName))) {
             throw new IllegalArgumentException();
         }
-        if (activity == mActivityToRunTransition &&
-                TextUtils.equals(sharedElementName, mSharedElementName)) {
+        if (activity == mActivityToRunTransition
+                && TextUtils.equals(sharedElementName, mSharedElementName)) {
             return;
         }
         if (mActivityToRunTransition != null) {
@@ -182,18 +201,7 @@ final class DetailsOverviewSharedElementHelper extends SharedElementCallback {
         ActivityCompat.setEnterSharedElementCallback(mActivityToRunTransition, this);
         ActivityCompat.postponeEnterTransition(mActivityToRunTransition);
         if (timeoutMs > 0) {
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (mStartedPostpone) {
-                        return;
-                    }
-                    if (DEBUG) {
-                        Log.d(TAG, "timeout " + mActivityToRunTransition);
-                    }
-                    startPostponedEnterTransition();
-                }
-            }, timeoutMs);
+            new Handler().postDelayed(new TransitionTimeOutRunnable(this), timeoutMs);
         }
     }
 
@@ -255,7 +263,7 @@ final class DetailsOverviewSharedElementHelper extends SharedElementCallback {
         });
     }
 
-    private void startPostponedEnterTransition() {
+    void startPostponedEnterTransition() {
         if (!mStartedPostpone) {
             if (DEBUG) {
                 Log.d(TAG, "startPostponedEnterTransition " + mActivityToRunTransition);

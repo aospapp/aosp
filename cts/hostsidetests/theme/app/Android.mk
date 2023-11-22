@@ -30,9 +30,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-#Flags to tell the Android Asset Packaging Tool not to strip for some densities
-LOCAL_AAPT_FLAGS = -c land -c xx_YY -c cs -c small -c normal -c large -c xlarge \
- -c 640dpi -c 560dpi -c 480dpi -c 400dpi -c 320dpi -c 240dpi -c 213dpi -c 160dpi -c 120dpi
+#Flag to tell the Android Asset Packaging Tool not to strip for some densities
+LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 
 LOCAL_PACKAGE_NAME := CtsThemeDeviceApp
 

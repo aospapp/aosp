@@ -32,8 +32,8 @@ public class MockConference extends Conference {
 
     private RemoteConference mRemoteConference = null;
     private String mDtmfString = "";
-    public BaseTelecomTestWithMockServices.InvokeCounter mOnExtrasChanged =
-            new BaseTelecomTestWithMockServices.InvokeCounter("onExtrasChanged");
+    public TestUtils.InvokeCounter mOnExtrasChanged =
+            new TestUtils.InvokeCounter("onExtrasChanged");
 
     public MockConference(PhoneAccountHandle phoneAccount) {
         super(phoneAccount);
@@ -143,6 +143,10 @@ public class MockConference extends Conference {
 
     public void setRemoteConference(RemoteConference remoteConference) {
         mRemoteConference = remoteConference;
+        Bundle bundle = remoteConference.getExtras();
+        if (bundle != null) {
+            this.putExtras(bundle);
+        }
     }
 
     public RemoteConference getRemoteConference() {
@@ -155,6 +159,7 @@ public class MockConference extends Conference {
 
     @Override
     public void onExtrasChanged(Bundle extras) {
+        setExtras(extras);
         mOnExtrasChanged.invoke(extras);
     }
 }

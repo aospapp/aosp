@@ -8,6 +8,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := PicoTts
+LOCAL_MULTILIB := 32
 
 LOCAL_SRC_FILES := \
     $(call all-java-files-under, src) \

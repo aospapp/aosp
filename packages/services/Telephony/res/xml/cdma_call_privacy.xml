@@ -3,7 +3,7 @@
         xmlns:settings="http://schemas.android.com/apk/res/com.android.phone"
         android:title="@string/additional_cdma_call_settings">
 
-    <com.android.phone.CdmaVoicePrivacyCheckBoxPreference
+    <com.android.phone.CdmaVoicePrivacySwitchPreference
         android:key="button_voice_privacy_key"
         android:title="@string/voice_privacy"
         android:persistent="false"

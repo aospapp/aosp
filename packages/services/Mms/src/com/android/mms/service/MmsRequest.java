@@ -147,7 +147,7 @@ public abstract class MmsRequest {
             result = SmsManager.MMS_ERROR_IO_ERROR;
         } else { // Execute
             long retryDelaySecs = 2;
-            // Try multiple times of MMS HTTP request
+            // Try multiple times of MMS HTTP request, depending on the error.
             for (int i = 0; i < RETRY_TIMES; i++) {
                 try {
                     networkManager.acquireNetwork(requestId);
@@ -173,7 +173,7 @@ public abstract class MmsRequest {
                         // Success
                         break;
                     } finally {
-                        networkManager.releaseNetwork(requestId);
+                        networkManager.releaseNetwork(requestId, this instanceof DownloadRequest);
                     }
                 } catch (ApnException e) {
                     LogUtil.e(requestId, "APN failure", e);
@@ -182,7 +182,7 @@ public abstract class MmsRequest {
                 } catch (MmsNetworkException e) {
                     LogUtil.e(requestId, "MMS network acquiring failure", e);
                     result = SmsManager.MMS_ERROR_UNABLE_CONNECT_MMS;
-                    // Retry
+                    break;
                 } catch (MmsHttpException e) {
                     LogUtil.e(requestId, "HTTP or network I/O failure", e);
                     result = SmsManager.MMS_ERROR_HTTP_FAILURE;

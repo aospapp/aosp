@@ -16,4 +16,9 @@
  ***
  ****************************************************************************
  ****************************************************************************/
-#include <asm-generic/auxvec.h>
+#ifndef __ASM_AUXVEC_H
+#define __ASM_AUXVEC_H
+#define AT_SYSINFO_EHDR 33
+#define AT_VECTOR_SIZE_ARCH 1
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#endif

@@ -19,11 +19,19 @@ package com.android.packageinstaller.permission.ui.wear;
 import android.Manifest;
 import android.app.Activity;
 import android.app.Fragment;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.wearable.view.WearableListView;
+import android.os.UserHandle;
+import android.preference.Preference;
+import android.preference.PreferenceFragment;
+import android.preference.PreferenceScreen;
+import android.preference.SwitchPreference;
+import android.support.wearable.view.WearableDialogHelper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -33,25 +41,21 @@ import android.widget.Toast;
 import com.android.packageinstaller.R;
 import com.android.packageinstaller.permission.model.AppPermissionGroup;
 import com.android.packageinstaller.permission.model.AppPermissions;
-import com.android.packageinstaller.permission.ui.wear.settings.PermissionsSettingsAdapter;
-import com.android.packageinstaller.permission.ui.wear.settings.SettingsAdapter;
+import com.android.packageinstaller.permission.model.Permission;
+import com.android.packageinstaller.permission.utils.ArrayUtils;
 import com.android.packageinstaller.permission.utils.LocationUtils;
 import com.android.packageinstaller.permission.utils.SafetyNetLogger;
 import com.android.packageinstaller.permission.utils.Utils;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public final class AppPermissionsFragmentWear extends TitledSettingsFragment {
+public final class AppPermissionsFragmentWear extends PreferenceFragment {
+    private static final String LOG_TAG = "AppPermFragWear";
 
-    private static final String LOG_TAG = "ManagePermsFragment";
-
-    private static final int WARNING_CONFIRMATION_REQUEST = 252;
-    private List<AppPermissionGroup> mToggledGroups;
-    private AppPermissions mAppPermissions;
-    private PermissionsSettingsAdapter mAdapter;
-
-    private boolean mHasConfirmedRevoke;
+    private static final String KEY_NO_PERMISSIONS = "no_permissions";
 
     public static AppPermissionsFragmentWear newInstance(String packageName) {
         return setPackageName(new AppPermissionsFragmentWear(), packageName);
@@ -64,17 +68,53 @@ public final class AppPermissionsFragmentWear extends TitledSettingsFragment {
         return fragment;
     }
 
+    private PackageManager mPackageManager;
+    private List<AppPermissionGroup> mToggledGroups;
+    private AppPermissions mAppPermissions;
+
+    private boolean mHasConfirmedRevoke;
+
+    /**
+     * Provides click behavior for disabled preferences.
+     * We can't use {@link PreferenceFragment#onPreferenceTreeClick}, as the base
+     * {@link SwitchPreference} doesn't delegate to that method if the preference is disabled.
+     */
+    private static class PermissionSwitchPreference extends SwitchPreference {
+
+        private final Activity mActivity;
+
+        public PermissionSwitchPreference(Activity activity) {
+            super(activity);
+            this.mActivity = activity;
+        }
+
+        @Override
+        public void performClick(PreferenceScreen preferenceScreen) {
+            super.performClick(preferenceScreen);
+            if (!isEnabled()) {
+                // If setting the permission is disabled, it must have been locked
+                // by the device or profile owner. So get that info and pass it to
+                // the support details dialog.
+                EnforcedAdmin deviceOrProfileOwner = RestrictedLockUtils.getProfileOrDeviceOwner(
+                    mActivity, UserHandle.myUserId());
+                RestrictedLockUtils.sendShowAdminSupportDetailsIntent(
+                    mActivity, deviceOrProfileOwner);
+            }
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         String packageName = getArguments().getString(Intent.EXTRA_PACKAGE_NAME);
         Activity activity = getActivity();
-        PackageManager pm = activity.getPackageManager();
+        mPackageManager = activity.getPackageManager();
+
         PackageInfo packageInfo;
 
         try {
-            packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
+            packageInfo = mPackageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
         } catch (PackageManager.NameNotFoundException e) {
             Log.i(LOG_TAG, "No package:" + activity.getCallingPackage(), e);
             packageInfo = null;
@@ -86,22 +126,11 @@ public final class AppPermissionsFragmentWear extends TitledSettingsFragment {
             return;
         }
 
-        mAppPermissions = new AppPermissions(activity, packageInfo, null, true, new Runnable() {
-            @Override
-            public void run() {
-                getActivity().finish();
-            }
-        });
+        mAppPermissions = new AppPermissions(
+                activity, packageInfo, null, true, () -> getActivity().finish());
 
-        mAdapter = new PermissionsSettingsAdapter(getContext());
-
+        addPreferencesFromResource(R.xml.watch_permissions);
         initializePermissionGroupList();
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.settings, container, false);
     }
 
     @Override
@@ -110,63 +139,15 @@ public final class AppPermissionsFragmentWear extends TitledSettingsFragment {
         mAppPermissions.refresh();
 
         // Also refresh the UI
-        final int count = mAdapter.getItemCount();
-        for (int i = 0; i < count; ++i) {
-            updatePermissionGroupSetting(i);
-        }
-    }
-
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        if (mAppPermissions != null) {
-            initializeLayout(mAdapter);
-            mHeader.setText(R.string.app_permissions);
-            mDetails.setText(R.string.no_permissions);
-            if (mAdapter.getItemCount() == 0) {
-                mDetails.setVisibility(View.VISIBLE);
-                mWheel.setVisibility(View.GONE);
+        for (final AppPermissionGroup group : mAppPermissions.getPermissionGroups()) {
+            if (Utils.areGroupPermissionsIndividuallyControlled(getContext(), group.getName())) {
+                for (PermissionInfo perm : getPermissionInfosFromGroup(group)) {
+                    setPreferenceCheckedIfPresent(perm.name,
+                            group.areRuntimePermissionsGranted(new String[]{ perm.name }));
+                }
             } else {
-                mDetails.setVisibility(View.GONE);
-                mWheel.setVisibility(View.VISIBLE);
+                setPreferenceCheckedIfPresent(group.getName(), group.areRuntimePermissionsGranted());
             }
-        }
-    }
-
-    private void initializePermissionGroupList() {
-        final String packageName = mAppPermissions.getPackageInfo().packageName;
-        List<AppPermissionGroup> groups = mAppPermissions.getPermissionGroups();
-        List<SettingsAdapter.Setting<AppPermissionGroup>> nonSystemGroups = new ArrayList<>();
-
-        final int count = groups.size();
-        for (int i = 0; i < count; ++i) {
-            final AppPermissionGroup group = groups.get(i);
-            if (!Utils.shouldShowPermission(group, packageName)) {
-                continue;
-            }
-
-            boolean isPlatform = group.getDeclaringPackage().equals(Utils.OS_PKG);
-
-            SettingsAdapter.Setting<AppPermissionGroup> setting =
-                    new SettingsAdapter.Setting<AppPermissionGroup>(
-                            group.getLabel(),
-                            getPermissionGroupIcon(group),
-                            i);
-            setting.data = group;
-
-            // The UI shows System settings first, then non-system settings
-            if (isPlatform) {
-                mAdapter.addSetting(setting);
-            } else {
-                nonSystemGroups.add(setting);
-            }
-        }
-
-        // Now add the non-system settings to the end of the list
-        final int nonSystemCount = nonSystemGroups.size();
-        for (int i = 0; i < nonSystemCount; ++i) {
-            final SettingsAdapter.Setting<AppPermissionGroup> setting = nonSystemGroups.get(i);
-            mAdapter.addSetting(setting);
         }
     }
 
@@ -176,82 +157,217 @@ public final class AppPermissionsFragmentWear extends TitledSettingsFragment {
         logAndClearToggledGroups();
     }
 
-    @Override
-    public void onClick(WearableListView.ViewHolder view) {
-        final int index = view.getPosition();
-        SettingsAdapter.Setting<AppPermissionGroup> setting = mAdapter.get(index);
-        final AppPermissionGroup group = setting.data;
+    private void initializePermissionGroupList() {
+        final String packageName = mAppPermissions.getPackageInfo().packageName;
+        List<AppPermissionGroup> groups = mAppPermissions.getPermissionGroups();
+        List<SwitchPreference> nonSystemPreferences = new ArrayList<>();
 
-        if (group == null) {
-            Log.e(LOG_TAG, "Error: AppPermissionGroup is null");
-            return;
+        if (!groups.isEmpty()) {
+            getPreferenceScreen().removePreference(findPreference(KEY_NO_PERMISSIONS));
         }
 
-        // The way WearableListView is designed, there is no way to avoid this click handler
-        // Since the policy is fixed, ignore the click as the user is not able to change the state
-        // of this permission group
+        for (final AppPermissionGroup group : groups) {
+            if (!Utils.shouldShowPermission(group, packageName)) {
+                continue;
+            }
+
+            boolean isPlatform = group.getDeclaringPackage().equals(Utils.OS_PKG);
+
+            if (Utils.areGroupPermissionsIndividuallyControlled(getContext(), group.getName())) {
+                // If permission is controlled individually, we show all requested permission
+                // inside this group.
+                for (PermissionInfo perm : getPermissionInfosFromGroup(group)) {
+                    final SwitchPreference pref = createSwitchPreferenceForPermission(group, perm);
+                    showOrAddToNonSystemPreferences(pref, nonSystemPreferences, isPlatform);
+                }
+            } else {
+                final SwitchPreference pref = createSwitchPreferenceForGroup(group);
+                showOrAddToNonSystemPreferences(pref, nonSystemPreferences, isPlatform);
+            }
+        }
+
+        // Now add the non-system settings to the end of the list
+        for (SwitchPreference nonSystemPreference : nonSystemPreferences) {
+            getPreferenceScreen().addPreference(nonSystemPreference);
+        }
+    }
+
+    private void showOrAddToNonSystemPreferences(SwitchPreference pref,
+            List<SwitchPreference> nonSystemPreferences, // Mutate
+            boolean isPlatform) {
+        // The UI shows System settings first, then non-system settings
+        if (isPlatform) {
+            getPreferenceScreen().addPreference(pref);
+        } else {
+            nonSystemPreferences.add(pref);
+        }
+    }
+
+    private SwitchPreference createSwitchPreferenceForPermission(AppPermissionGroup group,
+            PermissionInfo perm) {
+        final SwitchPreference pref = new PermissionSwitchPreference(getActivity());
+        pref.setKey(perm.name);
+        pref.setTitle(perm.loadLabel(mPackageManager));
+        pref.setChecked(group.areRuntimePermissionsGranted(new String[]{ perm.name }));
+        pref.setOnPreferenceChangeListener((p, newVal) -> {
+            if((Boolean) newVal) {
+                group.grantRuntimePermissions(false, new String[]{ perm.name });
+
+                if (Utils.areGroupPermissionsIndividuallyControlled(getContext(), group.getName())
+                        && group.doesSupportRuntimePermissions()) {
+                    // We are granting a permission from a group but since this is an
+                    // individual permission control other permissions in the group may
+                    // be revoked, hence we need to mark them user fixed to prevent the
+                    // app from requesting a non-granted permission and it being granted
+                    // because another permission in the group is granted. This applies
+                    // only to apps that support runtime permissions.
+                    String[] revokedPermissionsToFix = null;
+                    final int permissionCount = group.getPermissions().size();
+
+                    for (int i = 0; i < permissionCount; i++) {
+                        Permission current = group.getPermissions().get(i);
+                        if (!current.isGranted() && !current.isUserFixed()) {
+                            revokedPermissionsToFix = ArrayUtils.appendString(
+                                    revokedPermissionsToFix, current.getName());
+                        }
+                    }
+
+                    if (revokedPermissionsToFix != null) {
+                        // If some permissions were not granted then they should be fixed.
+                        group.revokeRuntimePermissions(true, revokedPermissionsToFix);
+                    }
+                }
+            } else {
+                final Permission appPerm = getPermissionFromGroup(group, perm.name);
+                if (appPerm == null) {
+                    return false;
+                }
+
+                final boolean grantedByDefault = appPerm.isGrantedByDefault();
+                if (grantedByDefault
+                        || (!group.doesSupportRuntimePermissions() && !mHasConfirmedRevoke)) {
+                    showRevocationWarningDialog(
+                            (dialog, which) -> {
+                                revokePermissionInGroup(group, perm.name);
+                                pref.setChecked(false);
+                                if (!appPerm.isGrantedByDefault()) {
+                                    mHasConfirmedRevoke = true;
+                                }
+                            },
+                            grantedByDefault
+                                    ? R.string.system_warning
+                                    : R.string.old_sdk_deny_warning);
+                    return false;
+                } else {
+                    revokePermissionInGroup(group, perm.name);
+                }
+            }
+
+            return true;
+        });
+        return pref;
+    }
+
+    private void showRevocationWarningDialog(
+            DialogInterface.OnClickListener confirmListener,
+            int warningMessageId) {
+        new WearableDialogHelper.DialogBuilder(getContext())
+                .setNegativeIcon(R.drawable.confirm_button)
+                .setPositiveIcon(R.drawable.cancel_button)
+                .setNegativeButton(R.string.grant_dialog_button_deny_anyway, confirmListener)
+                .setPositiveButton(R.string.cancel, null)
+                .setMessage(warningMessageId)
+                .show();
+    }
+
+    private static Permission getPermissionFromGroup(AppPermissionGroup group, String permName) {
+        final int permissionCount = group.getPermissions().size();
+
+        for (int i = 0; i < permissionCount; i++) {
+            Permission currentPerm = group.getPermissions().get(i);
+            if(currentPerm.getName().equals(permName)) {
+                return currentPerm;
+            };
+        }
+
+        if ("user".equals(Build.TYPE)) {
+            Log.e(LOG_TAG, String.format("The impossible happens, permission %s is not in group %s.",
+                    permName, group.getName()));
+            return null;
+        } else {
+            // This is impossible, throw a fatal error in non-user build.
+            throw new IllegalArgumentException(
+                    String.format("Permission %s is not in group %s", permName, group.getName()));
+        }
+    }
+
+    private void revokePermissionInGroup(AppPermissionGroup group, String permName) {
+        group.revokeRuntimePermissions(true, new String[]{ permName });
+
+        if (Utils.areGroupPermissionsIndividuallyControlled(getContext(), group.getName())
+                && group.doesSupportRuntimePermissions()
+                && !group.areRuntimePermissionsGranted()) {
+            // If we just revoked the last permission we need to clear
+            // the user fixed state as now the app should be able to
+            // request them at runtime if supported.
+            group.revokeRuntimePermissions(false);
+        }
+    }
+
+    private SwitchPreference createSwitchPreferenceForGroup(AppPermissionGroup group) {
+        final SwitchPreference pref = new PermissionSwitchPreference(getActivity());
+
+        pref.setKey(group.getName());
+        pref.setTitle(group.getLabel());
+        pref.setChecked(group.areRuntimePermissionsGranted());
+
         if (group.isPolicyFixed()) {
-            return;
+            pref.setEnabled(false);
+        } else {
+            pref.setOnPreferenceChangeListener((p, newVal) -> {
+                if (LocationUtils.isLocationGroupAndProvider(
+                        group.getName(), group.getApp().packageName)) {
+                    LocationUtils.showLocationDialog(
+                            getContext(), mAppPermissions.getAppLabel());
+                    return false;
+                }
+
+                if ((Boolean) newVal) {
+                    setPermission(group, pref, true);
+                } else {
+                    final boolean grantedByDefault = group.hasGrantedByDefaultPermission();
+                    if (grantedByDefault
+                            || (!group.doesSupportRuntimePermissions() && !mHasConfirmedRevoke)) {
+                        showRevocationWarningDialog(
+                                (dialog, which) -> {
+                                    setPermission(group, pref, false);
+                                    if (!group.hasGrantedByDefaultPermission()) {
+                                        mHasConfirmedRevoke = true;
+                                    }
+                                },
+                                grantedByDefault
+                                        ? R.string.system_warning
+                                        : R.string.old_sdk_deny_warning);
+                        return false;
+                    } else {
+                        setPermission(group, pref, false);
+                    }
+                }
+
+                return true;
+            });
         }
+        return pref;
+    }
 
-        addToggledGroup(group);
-
-        if (LocationUtils.isLocationGroupAndProvider(group.getName(), group.getApp().packageName)) {
-            LocationUtils.showLocationDialog(getContext(), mAppPermissions.getAppLabel());
-            return;
-        }
-
-        if (!group.areRuntimePermissionsGranted()) {
+    private void setPermission(AppPermissionGroup group, SwitchPreference pref, boolean grant) {
+        if (grant) {
             group.grantRuntimePermissions(false);
         } else {
-            final boolean grantedByDefault = group.hasGrantedByDefaultPermission();
-            if (grantedByDefault || (!group.hasRuntimePermission() && !mHasConfirmedRevoke)) {
-                Intent intent = new Intent(getActivity(), WarningConfirmationActivity.class);
-                intent.putExtra(WarningConfirmationActivity.EXTRA_WARNING_MESSAGE,
-                        getString(grantedByDefault ?
-                                R.string.system_warning : R.string.old_sdk_deny_warning));
-                intent.putExtra(WarningConfirmationActivity.EXTRA_INDEX, index);
-                startActivityForResult(intent, WARNING_CONFIRMATION_REQUEST);
-            } else {
-                group.revokeRuntimePermissions(false);
-            }
+            group.revokeRuntimePermissions(false);
         }
-
-        updatePermissionGroupSetting(index);
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == WARNING_CONFIRMATION_REQUEST) {
-            if (resultCode == Activity.RESULT_OK) {
-                int index = data.getIntExtra(WarningConfirmationActivity.EXTRA_INDEX, -1);
-                if (index == -1) {
-                    Log.e(LOG_TAG, "Warning confirmation request came back with no index.");
-                    return;
-                }
-
-                SettingsAdapter.Setting<AppPermissionGroup> setting = mAdapter.get(index);
-                final AppPermissionGroup group = setting.data;
-                group.revokeRuntimePermissions(false);
-                if (!group.hasGrantedByDefaultPermission()) {
-                    mHasConfirmedRevoke = true;
-                }
-
-                updatePermissionGroupSetting(index);
-            }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data);
-        }
-    }
-
-    private void updatePermissionGroupSetting(int index) {
-        SettingsAdapter.Setting<AppPermissionGroup> setting = mAdapter.get(index);
-        AppPermissionGroup group = setting.data;
-        mAdapter.updateSetting(
-                index,
-                group.getLabel(),
-                getPermissionGroupIcon(group),
-                group);
+        addToggledGroup(group);
+        pref.setChecked(grant);
     }
 
     private void addToggledGroup(AppPermissionGroup group) {
@@ -274,53 +390,22 @@ public final class AppPermissionsFragmentWear extends TitledSettingsFragment {
         }
     }
 
-    private int getPermissionGroupIcon(AppPermissionGroup group) {
-        String groupName = group.getName();
-        boolean isEnabled = group.areRuntimePermissionsGranted();
-        int resId;
-
-        switch (groupName) {
-            case Manifest.permission_group.CALENDAR:
-                resId = isEnabled ? R.drawable.ic_permission_calendar
-                        : R.drawable.ic_permission_calendardisable;
-                break;
-            case Manifest.permission_group.CAMERA:
-                resId = isEnabled ? R.drawable.ic_permission_camera
-                        : R.drawable.ic_permission_cameradisable;
-                break;
-            case Manifest.permission_group.CONTACTS:
-                resId = isEnabled ? R.drawable.ic_permission_contact
-                        : R.drawable.ic_permission_contactdisable;
-                break;
-            case Manifest.permission_group.LOCATION:
-                resId = isEnabled ? R.drawable.ic_permission_location
-                        : R.drawable.ic_permission_locationdisable;
-                break;
-            case Manifest.permission_group.MICROPHONE:
-                resId = isEnabled ? R.drawable.ic_permission_mic
-                        : R.drawable.ic_permission_micdisable;
-                break;
-            case Manifest.permission_group.PHONE:
-                resId = isEnabled ? R.drawable.ic_permission_call
-                        : R.drawable.ic_permission_calldisable;
-                break;
-            case Manifest.permission_group.SENSORS:
-                resId = isEnabled ? R.drawable.ic_permission_sensor
-                        : R.drawable.ic_permission_sensordisable;
-                break;
-            case Manifest.permission_group.SMS:
-                resId = isEnabled ? R.drawable.ic_permission_sms
-                        : R.drawable.ic_permission_smsdisable;
-                break;
-            case Manifest.permission_group.STORAGE:
-                resId = isEnabled ? R.drawable.ic_permission_storage
-                        : R.drawable.ic_permission_storagedisable;
-                break;
-            default:
-                resId = isEnabled ? R.drawable.ic_permission_shield
-                        : R.drawable.ic_permission_shielddisable;
+    private List<PermissionInfo> getPermissionInfosFromGroup(AppPermissionGroup group) {
+        ArrayList<PermissionInfo> permInfos = new ArrayList<>(group.getPermissions().size());
+        for(Permission perm : group.getPermissions()) {
+            try {
+                permInfos.add(mPackageManager.getPermissionInfo(perm.getName(), 0));
+            } catch (PackageManager.NameNotFoundException e) {
+                Log.w(LOG_TAG, "No permission:" + perm.getName());
+            }
         }
+        return permInfos;
+    }
 
-        return resId;
+    private void setPreferenceCheckedIfPresent(String preferenceKey, boolean checked) {
+        Preference pref = findPreference(preferenceKey);
+        if (pref instanceof SwitchPreference) {
+            ((SwitchPreference) pref).setChecked(checked);
+        }
     }
 }

@@ -295,6 +295,7 @@ public class TrustManagerFactory1Test extends TestCase {
         for (String validValue : getValidValues()) {
             try {
                 TrustManagerFactory.getInstance(validValue, (Provider) null);
+                fail();
             } catch (IllegalArgumentException expected) {
             }
         }

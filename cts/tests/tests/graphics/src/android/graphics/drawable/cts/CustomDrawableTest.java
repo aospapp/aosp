@@ -16,10 +16,8 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
@@ -28,16 +26,27 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.PixelFormat;
+import android.graphics.cts.R;
 import android.graphics.drawable.Drawable;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
-public class CustomDrawableTest extends AndroidTestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class CustomDrawableTest {
+    @Test
     public void testInflation() {
-        Drawable dr = getContext().getDrawable(R.drawable.custom_drawable);
+        Drawable dr = InstrumentationRegistry.getTargetContext().getDrawable(
+                R.drawable.custom_drawable);
         assertTrue(dr instanceof CustomDrawable);
         assertEquals(Color.RED, ((CustomDrawable) dr).getColor());
     }

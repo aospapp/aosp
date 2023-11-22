@@ -16,21 +16,28 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DiscretePathEffect;
 import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PorterDuffXfermode;
-import android.graphics.Bitmap.Config;
 import android.graphics.Paint.Style;
+import android.graphics.Path;
 import android.graphics.PorterDuff.Mode;
+import android.graphics.PorterDuffXfermode;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class DiscretePathEffectTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DiscretePathEffectTest {
     private static final int BITMAP_WIDTH = 200;
     private static final int BITMAP_HEIGHT = 100;
     private static final int START_X = 10;
@@ -39,6 +46,7 @@ public class DiscretePathEffectTest extends TestCase {
     private static final int SEGMENT_LENGTH = 10; // must be < BITMAP_WIDTH
     private static final int DEVIATION = 10; // must be < BITMAP_HEIGHT
 
+    @Test
     public void testDiscretePathEffect() {
         DiscretePathEffect effect = new DiscretePathEffect(SEGMENT_LENGTH, DEVIATION);
 

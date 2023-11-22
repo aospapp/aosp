@@ -20,6 +20,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE := cts-tradefed-tests
 LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LIBRARIES := tradefed-prebuilt cts-tradefed
+LOCAL_JAVA_LIBRARIES := tradefed cts-tradefed
+# We ship the Deqp Runner tests with the CTS one to validate them.
+LOCAL_STATIC_JAVA_LIBRARIES := CtsDeqpRunnerTests
 
 include $(BUILD_HOST_JAVA_LIBRARY)

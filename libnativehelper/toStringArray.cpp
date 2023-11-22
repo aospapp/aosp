@@ -23,7 +23,7 @@ jobjectArray newStringArray(JNIEnv* env, size_t count) {
 
 struct ArrayCounter {
     const char* const* strings;
-    ArrayCounter(const char* const* strings) : strings(strings) {}
+    explicit ArrayCounter(const char* const* strings) : strings(strings) {}
     size_t operator()() {
         size_t count = 0;
         while (strings[count] != NULL) {
@@ -35,7 +35,7 @@ struct ArrayCounter {
 
 struct ArrayGetter {
     const char* const* strings;
-    ArrayGetter(const char* const* strings) : strings(strings) {}
+    explicit ArrayGetter(const char* const* strings) : strings(strings) {}
     const char* operator()(size_t i) {
         return strings[i];
     }

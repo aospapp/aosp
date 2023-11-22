@@ -16,6 +16,7 @@
 
 package libcore.javax.net.ssl;
 
+import java.io.Closeable;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
@@ -28,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
-import libcore.io.IoUtils;
 import libcore.java.security.StandardNames;
 import javax.net.ServerSocketFactory;
 import javax.net.SocketFactory;
@@ -57,6 +57,7 @@ public class SSLContextTest extends TestCase {
         assertNotNull(sslContext);
         try {
             sslContext.init(null, null, null);
+            fail();
         } catch (KeyManagementException expected) {
         }
     }
@@ -64,6 +65,7 @@ public class SSLContextTest extends TestCase {
     public void test_SSLContext_setDefault() throws Exception {
         try {
             SSLContext.setDefault(null);
+            fail();
         } catch (NullPointerException expected) {
         }
 
@@ -188,7 +190,7 @@ public class SSLContextTest extends TestCase {
             assertContentsInOrder(
                     expectedCipherSuites, sslSocket.getSSLParameters().getCipherSuites());
         } finally {
-            IoUtils.closeQuietly(sslSocket);
+            closeQuietly(sslSocket);
         }
 
         SSLServerSocket sslServerSocket =
@@ -197,7 +199,7 @@ public class SSLContextTest extends TestCase {
             assertContentsInOrder(
                     expectedCipherSuites, sslServerSocket.getEnabledCipherSuites());
         } finally {
-            IoUtils.closeQuietly(sslSocket);
+            closeQuietly(sslSocket);
         }
     }
 
@@ -580,6 +582,14 @@ public class SSLContextTest extends TestCase {
         testContext.close();
     }
 
+    public void test_SSLContext_SSLv3Unsupported() throws Exception {
+        try {
+            SSLContext context = SSLContext.getInstance("SSLv3");
+            fail("SSLv3 should not be supported");
+        } catch (NoSuchAlgorithmException expected) {
+        }
+    }
+
     private static void assertContentsInOrder(List<String> expected, String... actual) {
         if (expected.size() != actual.length) {
             fail("Unexpected length. Expected len <" + expected.size()
@@ -589,6 +599,15 @@ public class SSLContextTest extends TestCase {
         if (!expected.equals(Arrays.asList(actual))) {
             fail("Unexpected element(s). Expected <" + expected
                     + ">, actual <" + Arrays.asList(actual) + ">" );
+        }
+    }
+
+    private static final void closeQuietly(Closeable socket) {
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (Exception ignored) {
+            }
         }
     }
 }

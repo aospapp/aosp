@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"緊急連絡先"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"連絡先の追加"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"連絡先選択ツールが見つかりませんでした"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"連絡先を表示できません"</string>
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> を緊急連絡先から削除しますか？"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"連絡先を削除"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"連絡先情報を正しく読み取れませんでした"</string>
     <string name="remove" msgid="1243949503772376064">"削除"</string>
     <string name="cancel" msgid="7401575239009060939">"キャンセル"</string>
     <string name="ok" msgid="163967937451981024">"はい"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"緊急情報"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"ここで入力する情報は緊急時の初期対応に役立てられます。この情報が保存されるのはお使いのスマートフォンのみです。スマートフォンをロック解除しなくても緊急通報から誰でも閲覧することができます。"</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"続行"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"緊急情報はありません"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"スマートフォンの所有者に関する情報はありません"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"あなたがこのスマートフォンを所有している場合は、鉛筆アイコンをタップして、緊急時にここに表示される情報を追加してください"</string>
     <string name="clear_all" msgid="8899013032870561633">"すべて消去"</string>
     <string name="clear" msgid="3648880442502887163">"消去"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"すべての情報と連絡先を消去しますか？"</string>

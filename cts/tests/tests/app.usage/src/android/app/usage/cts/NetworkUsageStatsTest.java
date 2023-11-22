@@ -26,6 +26,9 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkRequest;
+import android.net.TrafficStats;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
@@ -53,9 +56,17 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     private static final long MINUTE = 1000 * 60;
     private static final int TIMEOUT_MILLIS = 15000;
 
+    private static final String CHECK_CONNECTIVITY_URL = "http://www.265.com/";
+    private static final String CHECK_CALLBACK_URL = CHECK_CONNECTIVITY_URL;
+
+    private static final int NETWORK_TAG = 0xf00d;
+    private static final long THRESHOLD_BYTES = 2 * 1024 * 1024;  // 2 MB
+
     private interface NetworkInterfaceToTest {
         int getNetworkType();
         int getTransportType();
+        boolean getMetered();
+        void setMetered(boolean metered);
         String getSystemFeature();
         String getErrorMessage();
     }
@@ -63,6 +74,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     private static final NetworkInterfaceToTest[] sNetworkInterfacesToTest =
             new NetworkInterfaceToTest[] {
                     new NetworkInterfaceToTest() {
+                        private boolean metered = false;
+
                         @Override
                         public int getNetworkType() {
                             return ConnectivityManager.TYPE_WIFI;
@@ -71,6 +84,16 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                         @Override
                         public int getTransportType() {
                             return NetworkCapabilities.TRANSPORT_WIFI;
+                        }
+
+                        @Override
+                        public boolean getMetered() {
+                            return metered;
+                        }
+
+                        @Override
+                        public void setMetered(boolean metered) {
+                            this.metered = metered;
                         }
 
                         @Override
@@ -84,6 +107,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                         }
                     },
                     new NetworkInterfaceToTest() {
+                        private boolean metered = false;
                         @Override
                         public int getNetworkType() {
                             return ConnectivityManager.TYPE_MOBILE;
@@ -94,6 +118,15 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                             return NetworkCapabilities.TRANSPORT_CELLULAR;
                         }
 
+                        @Override
+                        public boolean getMetered() {
+                            return metered;
+                        }
+
+                        @Override
+                        public void setMetered(boolean metered) {
+                            this.metered = metered;
+                        }
                         @Override
                         public String getSystemFeature() {
                             return PackageManager.FEATURE_TELEPHONY;
@@ -119,7 +152,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
     private String mWriteSettingsMode;
     private String mUsageStatsMode;
 
-    private void exerciseRemoteHost(Network network) throws Exception {
+    private void exerciseRemoteHost(Network network, URL url) throws Exception {
         NetworkInfo networkInfo = mCm.getNetworkInfo(network);
         if (networkInfo == null) {
             Log.w(LOG_TAG, "Network info is null");
@@ -131,8 +164,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
         String originalKeepAlive = System.getProperty("http.keepAlive");
         System.setProperty("http.keepAlive", "false");
         try {
-            urlc = (HttpURLConnection) network.openConnection(new URL(
-                    "http://www.265.com/"));
+            TrafficStats.setThreadStatsTag(NETWORK_TAG);
+            urlc = (HttpURLConnection) network.openConnection(url);
             urlc.setConnectTimeout(TIMEOUT_MILLIS);
             urlc.setUseCaches(false);
             urlc.connect();
@@ -147,6 +180,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
         } catch (Exception e) {
             Log.i(LOG_TAG, "Badness during exercising remote server: " + e);
         } finally {
+            TrafficStats.clearThreadStatsTag();
             if (in != null) {
                 try {
                     in.close();
@@ -229,20 +263,25 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
 
     private class NetworkCallback extends ConnectivityManager.NetworkCallback {
         private long mTolerance;
+        private URL mUrl;
         public boolean success;
+        public boolean metered;
 
-        NetworkCallback(long tolerance) {
+        NetworkCallback(long tolerance, URL url) {
             mTolerance = tolerance;
+            mUrl = url;
             success = false;
+            metered = false;
         }
 
         @Override
         public void onAvailable(Network network) {
             try {
                 mStartTime = System.currentTimeMillis() - mTolerance;
-                exerciseRemoteHost(network);
+                exerciseRemoteHost(network, mUrl);
                 mEndTime = System.currentTimeMillis() + mTolerance;
                 success = true;
+                metered = mCm.getNetworkInfo(network).isMetered();
                 synchronized(NetworkUsageStatsTest.this) {
                     NetworkUsageStatsTest.this.notify();
                 }
@@ -260,7 +299,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
         if (!hasFeature) {
             return false;
         }
-        NetworkCallback callback = new NetworkCallback(tolerance);
+        NetworkCallback callback = new NetworkCallback(tolerance, new URL(CHECK_CONNECTIVITY_URL));
         mCm.requestNetwork(new NetworkRequest.Builder()
                 .addTransportType(sNetworkInterfacesToTest[networkTypeIndex].getTransportType())
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -272,6 +311,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             }
         }
         if (callback.success) {
+            sNetworkInterfacesToTest[networkTypeIndex].setMetered(callback.metered);
             return true;
         }
 
@@ -312,6 +352,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             assertTimestamps(bucket);
             assertEquals(bucket.getState(), NetworkStats.Bucket.STATE_ALL);
             assertEquals(bucket.getUid(), NetworkStats.Bucket.UID_ALL);
+            assertEquals(bucket.getMetered(), NetworkStats.Bucket.METERED_ALL);
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 bucket = mNsm.querySummaryForDevice(
@@ -344,6 +385,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
             assertTimestamps(bucket);
             assertEquals(bucket.getState(), NetworkStats.Bucket.STATE_ALL);
             assertEquals(bucket.getUid(), NetworkStats.Bucket.UID_ALL);
+            assertEquals(bucket.getMetered(), NetworkStats.Bucket.METERED_ALL);
             setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
             try {
                 bucket = mNsm.querySummaryForUser(
@@ -375,9 +417,13 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                 long totalRxPackets = 0;
                 long totalTxBytes = 0;
                 long totalRxBytes = 0;
+                boolean hasCorrectMetering = false;
+                int expectedMetering = sNetworkInterfacesToTest[i].getMetered() ?
+                        NetworkStats.Bucket.METERED_YES : NetworkStats.Bucket.METERED_NO;
                 while (result.hasNextBucket()) {
                     assertTrue(result.getNextBucket(bucket));
                     assertTimestamps(bucket);
+                    hasCorrectMetering |= bucket.getMetered() == expectedMetering;
                     if (bucket.getUid() == Process.myUid()) {
                         totalTxPackets += bucket.getTxPackets();
                         totalRxPackets += bucket.getRxPackets();
@@ -386,6 +432,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                     }
                 }
                 assertFalse(result.getNextBucket(bucket));
+                assertTrue("Incorrect metering for NetworkType: " +
+                        sNetworkInterfacesToTest[i].getNetworkType(), hasCorrectMetering);
                 assertTrue("No Rx bytes usage for uid " + Process.myUid(), totalRxBytes > 0);
                 assertTrue("No Rx packets usage for uid " + Process.myUid(), totalRxPackets > 0);
                 assertTrue("No Tx bytes usage for uid " + Process.myUid(), totalTxBytes > 0);
@@ -433,6 +481,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                     assertTrue(result.getNextBucket(bucket));
                     assertTimestamps(bucket);
                     assertEquals(bucket.getState(), NetworkStats.Bucket.STATE_ALL);
+                    assertEquals(bucket.getMetered(), NetworkStats.Bucket.METERED_ALL);
                     if (bucket.getUid() == Process.myUid()) {
                         totalTxPackets += bucket.getTxPackets();
                         totalRxPackets += bucket.getRxPackets();
@@ -488,6 +537,7 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
                     assertTrue(result.getNextBucket(bucket));
                     assertTimestamps(bucket);
                     assertEquals(bucket.getState(), NetworkStats.Bucket.STATE_ALL);
+                    assertEquals(bucket.getMetered(), NetworkStats.Bucket.METERED_ALL);
                     assertEquals(bucket.getUid(), Process.myUid());
                     totalTxPackets += bucket.getTxPackets();
                     totalRxPackets += bucket.getRxPackets();
@@ -520,10 +570,100 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
         }
     }
 
+    public void testTagDetails() throws Exception {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
+            // Relatively large tolerance to accommodate for history bucket size.
+            if (!shouldTestThisNetworkType(i, MINUTE * 120)) {
+                continue;
+            }
+            setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "allow");
+            NetworkStats result = null;
+            try {
+                result = mNsm.queryDetailsForUidTag(
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
+                        mStartTime, mEndTime, Process.myUid(), NETWORK_TAG);
+                assertTrue(result != null);
+                NetworkStats.Bucket bucket = new NetworkStats.Bucket();
+                long totalTxPackets = 0;
+                long totalRxPackets = 0;
+                long totalTxBytes = 0;
+                long totalRxBytes = 0;
+                while (result.hasNextBucket()) {
+                    assertTrue(result.getNextBucket(bucket));
+                    assertTimestamps(bucket);
+                    assertEquals(bucket.getState(), NetworkStats.Bucket.STATE_ALL);
+                    assertEquals(bucket.getMetered(), NetworkStats.Bucket.METERED_ALL);
+                    assertEquals(bucket.getUid(), Process.myUid());
+                    if (bucket.getTag() == NETWORK_TAG) {
+                        totalTxPackets += bucket.getTxPackets();
+                        totalRxPackets += bucket.getRxPackets();
+                        totalTxBytes += bucket.getTxBytes();
+                        totalRxBytes += bucket.getRxBytes();
+                    }
+                }
+                assertTrue("No Rx bytes tagged with 0x" + Integer.toHexString(NETWORK_TAG)
+                        + " for uid " + Process.myUid(), totalRxBytes > 0);
+                assertTrue("No Rx packets tagged with " + Integer.toHexString(NETWORK_TAG)
+                        + " for uid " + Process.myUid(), totalRxPackets > 0);
+                assertTrue("No Tx bytes tagged with 0x" + Integer.toHexString(NETWORK_TAG)
+                        + " for uid " + Process.myUid(), totalTxBytes > 0);
+                assertTrue("No Tx packets tagged with 0x" + Integer.toHexString(NETWORK_TAG)
+                        + " for uid " + Process.myUid(), totalTxPackets > 0);
+            } catch (SecurityException e) {
+                fail("testUidDetails fails with exception: " + e.toString());
+            } finally {
+                if (result != null) {
+                    result.close();
+                }
+            }
+            setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "deny");
+            try {
+                result = mNsm.queryDetailsForUidTag(
+                        sNetworkInterfacesToTest[i].getNetworkType(), getSubscriberId(i),
+                        mStartTime, mEndTime, Process.myUid(), NETWORK_TAG);
+                fail("negative testUidDetails fails: no exception thrown.");
+            } catch (SecurityException e) {
+                // expected outcome
+            }
+        }
+    }
+
+    public void testCallback() throws Exception {
+        for (int i = 0; i < sNetworkInterfacesToTest.length; ++i) {
+            // Relatively large tolerance to accommodate for history bucket size.
+            if (!shouldTestThisNetworkType(i, MINUTE/2)) {
+                continue;
+            }
+            setAppOpsMode(AppOpsManager.OPSTR_GET_USAGE_STATS, "allow");
+
+            TestUsageCallback usageCallback = new TestUsageCallback();
+            HandlerThread thread = new HandlerThread("callback-thread");
+            thread.start();
+            Handler handler = new Handler(thread.getLooper());
+            mNsm.registerUsageCallback(sNetworkInterfacesToTest[i].getNetworkType(),
+                    getSubscriberId(i), THRESHOLD_BYTES, usageCallback, handler);
+
+            // TODO: Force traffic and check whether the callback is invoked.
+            // Right now the test only covers whether the callback can be registered, but not
+            // whether it is invoked upon data usage since we don't have a scalable way of
+            // storing files of >2MB in CTS.
+
+            mNsm.unregisterUsageCallback(usageCallback);
+        }
+    }
+
     private void assertTimestamps(final NetworkStats.Bucket bucket) {
         assertTrue("Start timestamp " + bucket.getStartTimeStamp() + " is less than " +
                 mStartTime, bucket.getStartTimeStamp() >= mStartTime);
         assertTrue("End timestamp " + bucket.getEndTimeStamp() + " is greater than " +
                 mEndTime, bucket.getEndTimeStamp() <= mEndTime);
+    }
+
+    private static class TestUsageCallback extends NetworkStatsManager.UsageCallback {
+        @Override
+        public void onThresholdReached(int networkType, String subscriberId) {
+            Log.v(LOG_TAG, "Called onThresholdReached for networkType=" + networkType
+                    + " subscriberId=" + subscriberId);
+        }
     }
 }

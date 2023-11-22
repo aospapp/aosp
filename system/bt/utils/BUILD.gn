@@ -16,7 +16,7 @@
 
 static_library("utils") {
   sources = [
-    "src/bt_utils.c",
+    "src/bt_utils.cc",
   ]
 
   include_dirs = [

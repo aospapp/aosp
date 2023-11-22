@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <head>
 <title>Android 6.0 Compatibility Definition</title>
-<link rel="stylesheet" type="text/css" href="source/android-cdd.css"/>
+<link rel="stylesheet" type="text/css" href="android-cdd.css"/>
 </head>
 
 <body>
+<h1>Android 6.0 Compatibility Definition</h1>
 
 <h6>Table of Contents</h6>
 
@@ -776,14 +777,15 @@ MUST NOT be null or the empty string ("").</td>
  </tr>
  <tr>
     <td>SECURITY_PATCH</td>
-    <td>An value indicating the security patch level of a build. It MUST signify that the
+    <td>A value indicating the security patch level of a build. It MUST signify that the
 build includes all security patches issued up through the designated Android Public
-Security Bulletin. It MUST be in the format, [YYYY-MM-DD], matching the Public Security
-Bulletin's broadcast date, for example [2015-10-01].</td>
+Security Bulletin. It MUST be in the format, [YYYY-MM-DD], matching one of the Android
+Security Patch Level strings of the <a href="source.android.com/security/bulletin"> Public
+Security Bulletins</a>, for example "2015-11-01".</td>
  </tr>
  <tr>
     <td>BASE_OS</td>
-    <td>An value representing the FINGERPRINT parameter of the build that is otherwise
+    <td>A value representing the FINGERPRINT parameter of the build that is otherwise
       identical to this build except for the patches provided in the Android Public
       Security Bulletin. It MUST report the correct value and if such a build does not
       exist, report an emtpy string ("").</td>
@@ -999,8 +1001,10 @@ symbols must be present, only the corresponding functions for OpenGL ES
 versions and extensions actually supported by the device must be fully
 implemented.</p>
 
-<p>Device implementations MUST NOT include a native library with the
-name libvulkan.so.</p>
+<p>Device implementations, if including a native library with the name libvulkan.so,
+MUST export function symbols and provide an implementation of the Vulkan 1.0 API
+and the VK_KHR_surface, VK_KHR_swapchain, and VK_KHR_android_surface extensions
+as defined by the Khronos Group and passing the Khronos conformance tests.</p>
 
 <p>Native code compatibility is challenging. For this reason, device implementers
 are <strong>STRONGLY RECOMMENDED</strong> to use the implementations of the libraries listed above from the upstream
@@ -1843,6 +1847,9 @@ android.software.live_tv.</p>
 installed TV application (TV App). The Android Open Source Project provides an implementation of the TV
 App.</p>
 
+The default TV app must provide accesss to channels from installed inputs and third-party inputs.
+Note that the installed inputs encompass all the inputs provided by default, whether they are TIF-based or not.
+
 <p>The TV App MUST provide facilities to install and use TV Channels
 [<a href="http://developer.android.com/reference/android/media/tv/TvContract.Channels.html">Resources, 56</a>]
  and meet the following requirements:</p>
@@ -2300,7 +2307,7 @@ encoding profiles.</p>
 <p>Device implementations MUST support dynamic video resolution and frame rate
 switching through the standard Android APIs within the same stream for all VP8,
 VP9, H.264, and H.265 codecs in real time and up to the maximum resolution
-supported on the device.</p>
+supported by each codec on the device.</p>
 
 <p>Android device implementations with H.263 decoders, MUST support Baseline
 Profile Level 30.</p>
@@ -2345,7 +2352,7 @@ Level 4.2 and the HD 1080p decoding profile.</p>
 
 
 <p class="table_footnote">1 REQUIRED for when the height as reported by the
-Display.getSupportedModes() method is not smaller than the video resolution.</p>
+Display.getSupportedModes() method is equal or greater than the video resolution.</p>
 
 <p class="table_footnote">2 REQUIRED for Android Television device implementations.</p>
 
@@ -2384,7 +2391,7 @@ decoding profile.  </p>
 </table>
 
 <p class="table_footnote">1 REQUIRED for when the height as reported by the
-Display.getSupportedModes() method is not smaller than the video resolution.</p>
+Display.getSupportedModes() method is equal or greater than the video resolution.</p>
 
 <p class="table_footnote">2 REQUIRED for Android Television device implementations.</p>
 
@@ -2423,7 +2430,7 @@ color depth and SHOULD support VP9 Profile 2 (10-bit).</p>
     <td>600 Kbps</td>
     <td>1.6 Mbps</td>
     <td>4 Mbps</td>
-    <td>10 Mbps</td>
+    <td>5 Mbps</td>
     <td>20 Mbps</td>
  </tr>
 </table>
@@ -2435,11 +2442,14 @@ devices only when supported by hardware.</p>
 <p class="table_footnote">2 STRONGLY RECOMMENDED for existing Android Television device implementations when
 supported by hardware.</p>
 
-<p>Android device implementations, when supporting H.265 codec as described in <a href="#5_1_3_video_codecs">section 5.1.3</a>, MUST support the Main Profile Level 3 Main tier and the following SD video
-decoding profiles and SHOULD support the HD decoding profiles. Android
-Television devices MUST support the Main Profile Level 4.1 Main tier and the HD
-1080p decoding profile and SHOULD support Main10 Level 5 Main Tier profile and
-the UHD decoding profile.</p>
+<p>Android device implementations, when supporting H.265 codec as described in
+<a href="#5_1_3_video_codecs">section 5.1.3</a>, MUST support the Main Profile
+Level 3 Main tier and the following SD video decoding profiles and SHOULD
+support the HD decoding profiles.
+Android Television devices MUST support the Main Profile Level 4.1 Main tier and
+the HD 1080p decoding profile and is STRONGLY RECOMMENDED to support the UHD
+decoding profile. If UHD decoding is supported, then it MUST support Main10
+Level 5 Main Tier profile.</p>
 <table>
  <tr>
     <th></th>
@@ -2488,8 +2498,8 @@ for existing Android Television device implementations when supported by hardwar
 <p>While some of the requirements outlined in this section are stated as SHOULD
 since Android 4.3, the Compatibility Definition for a future version is planned
 to change these to MUST. Existing and new Android devices are <strong>STRONGLY RECOMMENDED</strong>
-to meet these requirements, or they will not be able to attain Android compatibility when upgraded
-to the future version.</p>
+to meet these requirements that are stated as SHOULD, or they will not be able to attain
+Android compatibility when upgraded to the future version.</p>
 
 <h3 id="5_4_1_raw_audio_capture">5.4.1. Raw Audio Capture</h3>
 
@@ -2752,7 +2762,7 @@ supported path.
 <li>
 If the device includes a 4 conductor 3.5mm audio jack,
 the continuous round-trip audio latency MUST be 20 milliseconds or less over the audio jack path,
-and SHOULD be 10 milliseconds or less over at the audio jack path.
+and SHOULD be 10 milliseconds or less over the audio jack path.
 </li>
 
 <li>
@@ -3243,7 +3253,7 @@ unless hidden together with other navigation functions.</p>
 
 <p>Android device implementations with the support of the Assist action [<a
 href="http://developer.android.com/reference/android/content/Intent.html#ACTION_ASSIST">Resources,
-30</a>] MUST make this accessisble with a single action (e.g. tap, double-click,
+30</a>] MUST make this accessible with a single action (e.g. tap, double-click,
 or gesture) when other navigation keys are visible, and are STRONGLY RECOMMENDED to
 use the long-press on the Home button or software key as the single action.</p>
 
@@ -3850,10 +3860,11 @@ third-party developers, it:</p>
 [<a href="https://developer.android.com/reference/android/hardware/fingerprint/package-summary.html">Resources, 95</a>].
   </li>
   <li>MUST have a false acceptance rate not higher than 0.002%.</li>
-  <li>Is STRONGLY RECOMMENDED to have a false rejection rate not higher than 10%, and a
-    latency from when the fingerprint sensor is touched until the screen is unlocked below
-    1 second, for 1 enrolled finger.</li>
-  <li>MUST rate limit attempts for at least 30 seconds after 5 false trials for fingerprint
+  <li>Is STRONGLY RECOMMENDED to have a false rejection rate of less than 10%, as measured
+    on the device</li>
+  <li>Is STRONGLY RECOMMENDED to have a latency below 1 second, measured from when the fingerprint
+sensor is touched until the screen is unlocked, for one enrolled finger.</li>
+  <li>MUST rate limit attempts for at least 30 seconds after five false trials for fingerprint
     verification.</li>
   <li>MUST have a hardware-backed keystore implementation, and perform the fingerprint matching
     in a Trusted Execution Environment (TEE) or on a chip with a secure channel to the TEE.
@@ -3978,8 +3989,9 @@ device implementations MUST support Bluetooth and Bluetooth LE. </p>
   <li>MUST declare the hardware feature android.hardware.bluetooth_le.</li>
   <li>MUST enable the GATT (generic attribute profile) based Bluetooth APIs as
 described in the SDK documentation and [<a href="http://developer.android.com/reference/android/bluetooth/package-summary.html">Resources, 100</a>].</li>
-  <li>MUST implement a Resolvable Private Address (RPA) timeout no longer than
-15 minutes, and rotate the address at timeout to protect user privacy.</li>
+  <li>are STRONGLY RECOMMMENDED to implement a Resolvable Private Address (RPA)
+timeout no longer than 15 minutes and rotate the address at timeout to protect
+user privacy.</li>
   <li>SHOULD support offloading of the filtering logic to the bluetooth chipset when
 implementing the ScanFilter API [<a href="https://developer.android.com/reference/android/bluetooth/le/ScanFilter.html">Resources, 101</a>], and MUST report the correct value of where the filtering logic is implemented whenever queried via the
 android.bluetooth.BluetoothAdapter.isOffloadedFilteringSupported() method.</li>
@@ -4455,8 +4467,9 @@ separately purchased.</li>
 storage as shared storage for apps as included in the upstream Android Open
 Source Project; device implementations SHOULD use this configuration and
 software implementation. If a device implementation uses internal
-(non-removable) storage to satisfy the shared storage requirement, that storage
-MUST be 1GB in size or larger and mounted on /sdcard (or /sdcard MUST be a
+(non-removable) storage to satisfy the shared storage requirement, while that
+storage MAY share space with the application private data, it MUST be at least
+1GB in size and mounted on /sdcard (or /sdcard MUST be a
 symbolic link to the physical location if it is mounted elsewhere).</p>
 
 <p>Device implementations MUST enforce as documented the
@@ -4465,11 +4478,15 @@ Shared storage MUST otherwise be writable by any application that obtains that
 permission.</p>
 
 <p>Device implementations that include multiple shared storage paths (such as both
-an SD card slot and shared internal storage) MUST NOT allow Android
-applications to write to the secondary external storage, except for their
-package-specific directories on the secondary external storage, but SHOULD
-expose content from both storage paths transparently through Android&rsquo;s media
-scanner service and android.provider.MediaStore.</p>
+an SD card slot and shared internal storage) MUST allow only pre-installed &amp;
+privileged Android applications with the WRITE_EXTERNAL_STORAGE permission to
+write to the secondary external storage, except when writing to their
+package-specific directories or within the <code>URI</code> returned by firing
+the <code>ACTION_OPEN_DOCUMENT_TREE</code> intent.</p>
+
+<p>However, device implementations SHOULD expose content from
+both storage paths transparently through Android&rsquo;s media scanner service
+and android.provider.MediaStore.</p>
 
 <p>Regardless of the form of shared storage used, if the device implementation
 has a USB port with USB peripheral mode support, it MUST provide some mechanism
@@ -4511,22 +4528,25 @@ USB host mode.</p>
 <ul>
   <li>The port MUST be connectable to a USB host that has a standard type-A or type
 -C USB port.</li>
-  <li>The port SHOULD use micro-A, micro-AB or type-C USB form factor. Existing and
-new Android devices are <strong>STRONGLY RECOMMENDED to meet these requirements</strong> so they will be able to upgrade to the future platform releases.</li>
-  <li>The port SHOULD be centered in the middle of an edge. Device implementations
-SHOULD either locate the port on the bottom of the device (according to natural
+  <li>The port SHOULD use micro-B, micro-AB or Type-C USB form factor. Existing and
+new Android devices are <strong>STRONGLY RECOMMENDED to meet these requirements</strong>
+so they will be able to upgrade to future platform releases.</li>
+  <li>The port SHOULD either be located on the bottom of the device (according to natural
 orientation) or enable software screen rotation for all apps (including home
 screen), so that the display draws correctly when the device is oriented with
-the port at bottom. Existing and new Android devices are <strong>STRONGLY RECOMMENDED to meet these requirements</strong> so they will be able to upgrade to future platform releases.</li>
-  <li>It MUST allow a USB host connected with the Android device to access the
-contents of the shared storage volume using either USB mass storage or Media
-Transfer Protocol.</li>
+the port at bottom. Existing and new Android devices are <strong>STRONGLY RECOMMENDED
+to meet these requirements</strong> so they will be able to upgrade to future platform
+releases.</li>
   <li>It SHOULD implement the Android Open Accessory (AOA) API and specification as
 documented in the Android SDK documentation, and if it is an Android Handheld
 device it MUST implement the AOA API. Device implementations implementing the
 AOA specification:
   <ul>
     <li>MUST declare support for the hardware feature android.hardware.usb.accessory [<a href="http://developer.android.com/guide/topics/connectivity/usb/accessory.html">Resources, 118</a>].</li>
+    <li>MUST support establishing an
+<a href="http://source.android.com/devices/accessories/aoa.html">AOA protocol based communication</a>
+on first time connection with a USB host machine that acts as an accessory, without the need for the
+user to change the default USB mode.</li>
     <li>MUST implement the USB audio class as documented in the Android SDK
 documentation [<a href="http://developer.android.com/reference/android/hardware/usb/UsbConstants.html#USB_CLASS_AUDIO">Resources, 119</a>].</li>
     <li>And also the USB mass storage class, MUST include the string "android"
@@ -4535,7 +4555,8 @@ USB mass storage</li>
   </ul>
   </li>
   <li>It SHOULD implement support to draw 1.5 A current during HS chirp and traffic
-as specified in the USB battery charging specification [<a href="http://www.usb.org/developers/docs/devclass_docs/USB_Battery_Charging_1.2.pdf">Resources, 120</a>]. Existing and new Android devices are <strong>STRONGLY RECOMMENDED to meet these requirements</strong> so they will be able to upgrade to the future platform releases.</li>
+as specified in the USB Battery Charging Specification, Revision 1.2 [<a href="http://www.usb.org/developers/docs/devclass_docs/BCv1.2_070312.zip">Resources, 120</a>]. Existing and new Android devices are <strong>STRONGLY RECOMMENDED to meet these requirements</strong> so they will be able to upgrade to the future platform releases.</li>
+the Type-C resistor standard.</li>
   <li>The value of iSerialNumber in USB standard device descriptor MUST be equal to
 the value of android.os.Build.SERIAL.</li>
 </ul>
@@ -4553,7 +4574,7 @@ documentation [<a href="http://developer.android.com/reference/android/hardware/
   <li>MUST implement the Android USB host API as documented in the Android SDK, and
 MUST declare support for the hardware feature android.hardware.usb.host [<a href="http://developer.android.com/guide/topics/connectivity/usb/host.html">Resources, 121</a>].</li>
   <li>SHOULD support the Charging Downstream Port output current range of 1.5 A ~ 5 A
-as specified in the USB Battery Charging Specifications [<a href="http://www.usb.org/developers/docs/devclass_docs/USB_Battery_Charging_1.2.pdf">Resources, 120</a>].</li>
+as specified in the USB Battery Charging Specification, Revision 1.2 [<a href="http://www.usb.org/developers/docs/devclass_docs/BCv1.2_070312.zip">Resources, 120</a>].</li>
 </ul>
 
 <h2 id="7_8_audio">7.8. Audio</h2>
@@ -4883,8 +4904,8 @@ ensure that applications owned by and running on behalf a given user cannot
 list, read, or write to data owned by any other user. Note that removable
 media, such as SD card slots, can allow one user to access another&rsquo;s data by
 means of a host PC. For this reason, device implementations that use removable
-media for the external storage APIs MUST encrypt the contents of the SD card if
-multiuser is enabled using a key stored only on non-removable media accessible
+media for the primary external storage APIs MUST encrypt the contents of the SD
+card if multiuser is enabled using a key stored only on non-removable media accessible
 only to the system. As this will make the media unreadable by a host PC, device
 implementations will be required to switch to MTP or a similar system to
 provide host PCs with access to the current user&rsquo;s data. Accordingly, device
@@ -5069,10 +5090,12 @@ than 8,192 keys to be imported.</li>
 <h2 id="9_12_data_deletion">9.12. Data Deletion</h2>
 
 <p>Devices MUST provide users with a mechanism to perform a "Factory Data Reset"
-that allows logical and physical deletion of all data. This MUST satisfy relevant
-industry standards for data deletion such as NIST SP800-88. This MUST be used for
-the implementation of the wipeData() API (part of the Android Device Administration API)
-described in <a href="#3_9_device_administration">section 3.9 Device Administration</a>.</p>
+that allows logical and physical deletion of all data except for the system image
+and data in other partitions that can be regarded as part of the sytem image.
+This MUST satisfy relevant industry standards for data deletion such as NIST SP800-88.
+This MUST be used for the implementation of the wipeData() API (part of the Android Device
+Administration API) described in <a href="#3_9_device_administration">section 3.9 Device
+Administration</a>.</p>
 
 <p>Devices MAY provide a fast data wipe that conducts a logical data erase.</p>
 
@@ -5620,7 +5643,7 @@ Android source code, at dalvik/docs</p>
 
 <p>119. Android USB Audio: <a href="http://developer.android.com/reference/android/hardware/usb/UsbConstants.html#USB_CLASS_AUDIO">http://developer.android.com/reference/android/hardware/usb/UsbConstants.html#USB_CLASS_AUDIO</a></p>
 
-<p>120. USB Charging Specification: <a href="http://www.usb.org/developers/docs/devclass_docs/USB_Battery_Charging_1.2.pdf">http://www.usb.org/developers/docs/devclass_docs/USB_Battery_Charging_1.2.pdf</a></p>
+<p>120. USB Battery Charging Specification, Revision 1.2: <a href="http://www.usb.org/developers/docs/devclass_docs/BCv1.2_070312.zip">http://www.usb.org/developers/docs/devclass_docs/BCv1.2_070312.zip</a></p>
 
 <p>121. USB Host API:<a href="http://developer.android.com/guide/topics/connectivity/usb/host.html"> http://developer.android.com/guide/topics/connectivity/usb/host.html</a></p>
 

@@ -16,8 +16,18 @@
 
 package android.widget.cts;
 
+import static android.widget.GridLayout.spec;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.app.Activity;
 import android.content.Context;
-import android.test.ActivityInstrumentationTestCase;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.Gravity;
@@ -27,16 +37,19 @@ import android.widget.AbsoluteLayout;
 import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.TextView;
-import android.widget.cts.R;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 
-import static android.view.ViewGroup.LAYOUT_MODE_OPTICAL_BOUNDS;
-import static android.widget.GridLayout.spec;
-
 /**
- * Test {@link android.widget.GridLayout}.
+ * Test {@link GridLayout}.
  */
-public class GridLayoutTest extends ActivityInstrumentationTestCase<GridLayoutCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class GridLayoutTest {
 
     // The size of the off-screen test container in which we we will testing layout.
     public static final int MAX_X = 2000;
@@ -114,56 +127,58 @@ public class GridLayoutTest extends ActivityInstrumentationTestCase<GridLayoutCt
             }
     };
 
-    private Context mContext;
+    private Activity mActivity;
+    private GridLayout mGridLayout;
 
-    public GridLayoutTest() {
-        super("android.widget.cts", GridLayoutCtsActivity.class);
+    @Rule
+    public ActivityTestRule<GridLayoutCtsActivity> mActivityRule =
+            new ActivityTestRule<>(GridLayoutCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mGridLayout = (GridLayout) mActivity.findViewById(R.id.gridlayout);
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
-    }
-
+    @Test
     public void testConstructor() {
-        new GridLayout(mContext);
+        new GridLayout(mActivity);
 
-        new GridLayout(mContext, null);
+        new GridLayout(mActivity, null);
 
-        XmlPullParser parser = mContext.getResources().getXml(R.layout.gridlayout_layout);
+        XmlPullParser parser = mActivity.getResources().getXml(R.layout.gridlayout_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
-        new GridLayout(mContext, attrs);
-
-        try {
-            new GridLayout(null, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
+        new GridLayout(mActivity, attrs);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext() {
+        new GridLayout(null, null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testCheckLayoutParams() {
-        GridLayout gridLayout = new GridLayout(mContext);
+        mGridLayout.addView(new TextView(mActivity),
+                new AbsoluteLayout.LayoutParams(0, 0, 0, 0));
 
-        gridLayout.addView(new TextView(mContext), new AbsoluteLayout.LayoutParams(0, 0, 0, 0));
-
-        gridLayout.addView(new TextView(mContext), new GridLayout.LayoutParams(
-                GridLayout.spec(0),
-                GridLayout.spec(0)));
-
+        mGridLayout.addView(new TextView(mActivity),
+                new GridLayout.LayoutParams(GridLayout.spec(0), GridLayout.spec(0)));
     }
 
+    @UiThreadTest
+    @Test
     public void testGenerateDefaultLayoutParams() {
-        GridLayout gridLayout = new GridLayout(mContext);
-        ViewGroup.LayoutParams lp = gridLayout.generateLayoutParams(null);
+        ViewGroup.LayoutParams lp = mGridLayout.generateLayoutParams(null);
         assertNotNull(lp);
         assertTrue(lp instanceof GridLayout.LayoutParams);
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, lp.width);
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, lp.height);
     }
 
+    @Test
     public void testGenerateLayoutParamsFromMarginParams() {
-        MyGridLayout gridLayout = new MyGridLayout(mContext);
+        MyGridLayout gridLayout = new MyGridLayout(mActivity);
         ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(3, 5);
         lp.leftMargin = 1;
         lp.topMargin = 2;
@@ -234,7 +249,8 @@ public class GridLayoutTest extends ActivityInstrumentationTestCase<GridLayoutCt
         return table;
     }
 
-    private void testAlignment(int row, int col, Alignment a, View v0, View v1, String group) {
+    private void verifyCellAlignment(int row, int col, Alignment a, View v0, View v1,
+            String group) {
         int a0 = a.getValue(v0);
         int a1 = a.getValue(v1);
         assertEquals("View at row " + row + ", column " + col + " was not " + a.name +
@@ -242,7 +258,7 @@ public class GridLayoutTest extends ActivityInstrumentationTestCase<GridLayoutCt
                 a0, a1);
     }
 
-    private void test(GridLayout p, View[][] table) {
+    private void verifyGridAlignment(GridLayout p, View[][] table) {
         p.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         p.layout(0, 0, MAX_X, MAX_Y);
 
@@ -256,7 +272,7 @@ public class GridLayoutTest extends ActivityInstrumentationTestCase<GridLayoutCt
             Alignment alignment = HORIZONTAL_ALIGNMENTS[j];
             for (int i = 0; i < N; i++) {
                 int row = i + 1;
-                testAlignment(row, col, alignment, v0, table[row][col], "column");
+                verifyCellAlignment(row, col, alignment, v0, table[row][col], "column");
             }
         }
 
@@ -267,16 +283,16 @@ public class GridLayoutTest extends ActivityInstrumentationTestCase<GridLayoutCt
             Alignment alignment = VERTICAL_ALIGNMENTS[i];
             for (int j = 0; j < M; j++) {
                 int col = j + 1;
-                testAlignment(row, col, alignment, v0, table[row][col], "row");
+                verifyCellAlignment(row, col, alignment, v0, table[row][col], "row");
             }
         }
     }
+
+    @UiThreadTest
+    @Test
     public void testAlignment() {
-        GridLayout p = new GridLayout(mContext);
-        View[][] table = populate(p);
-        test(p, table);
-        //p.setLayoutMode(ViewGroup.LAYOUT_MODE_OPTICAL_BOUNDS);
-        //test(p, table);
+        View[][] table = populate(mGridLayout);
+        verifyGridAlignment(mGridLayout, table);
     }
 
     private static class MyGridLayout extends GridLayout {

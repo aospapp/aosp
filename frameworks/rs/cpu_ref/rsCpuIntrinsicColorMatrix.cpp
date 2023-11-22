@@ -101,9 +101,6 @@
 
 
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -201,9 +198,6 @@ protected:
     void (*mOptKernel)(void *dst, const void *src, const short *coef, uint32_t count);
 
 };
-
-}
-}
 
 
 Key_t RsdCpuScriptIntrinsicColorMatrix::computeKey(
@@ -315,6 +309,9 @@ Key_t RsdCpuScriptIntrinsicColorMatrix::computeKey(
     //ALOGE("build key %08x, %08x", (int32_t)(key.key >> 32), (int32_t)key.key);
     return key;
 }
+
+} // namespace renderscript
+} // namespace android
 
 #if defined(ARCH_ARM_USE_INTRINSICS) && !defined(ARCH_ARM64_USE_INTRINSICS)
 
@@ -460,6 +457,8 @@ extern void rsdIntrinsicColorMatrix3x3_K(void *dst, const void *src,
 extern void rsdIntrinsicColorMatrix4x4_K(void *dst, const void *src,
                                   const short *coef, uint32_t count);
 
+using android::renderscript::Key_t;
+
 void * selectKernel(Key_t key)
 {
     void * kernel = nullptr;
@@ -477,6 +476,9 @@ void * selectKernel(Key_t key)
     return kernel;
 }
 #endif
+
+namespace android {
+namespace renderscript {
 
 bool RsdCpuScriptIntrinsicColorMatrix::build(Key_t key) {
 #if defined(ARCH_ARM_USE_INTRINSICS) && !defined(ARCH_ARM64_USE_INTRINSICS)
@@ -1039,3 +1041,6 @@ RsdCpuScriptImpl * rsdIntrinsic_ColorMatrix(RsdCpuReferenceImpl *ctx,
 
     return new RsdCpuScriptIntrinsicColorMatrix(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

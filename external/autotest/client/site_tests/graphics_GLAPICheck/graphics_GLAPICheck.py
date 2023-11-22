@@ -134,36 +134,21 @@ class graphics_GLAPICheck(test.test):
     def __check_wflinfo(self):
         # TODO(ihf): Extend this function once gl(es)_APICheck code has
         # been upstreamed to waffle.
-        cmd = graphics_utils.wflinfo_cmd()
-        logging.info('Running %s', cmd)
-        wflinfo = utils.system_output(cmd, retain_output=True,
-                                      ignore_status=False)
-        # OpenGL version string: OpenGL ES 3.0 Mesa 10.5.0-devel
-        version = re.findall(r'OpenGL version string: '
-                             r'OpenGL ES ([0-9]+).([0-9]+)', wflinfo)
-        if version:
-            # GLES version has to be 2.0 or above.
-            version_major = int(version[0][0])
-            version_minor = int(version[0][1])
+        version_major, version_minor = graphics_utils.get_gles_version()
+        if version_major:
             version_info = ('GLES_VERSION = %d.%d' %
                             (version_major, version_minor))
             logging.info(version_info)
+            # GLES version has to be 2.0 or above.
             if version_major < 2:
                 self.error_message = ' %s' % version_info
                 return False
-            cmd = 'eglinfo'
-            eglinfo = utils.system_output(cmd, retain_output=True,
-                                          ignore_status=False)
-            # EGL version string: 1.4 (DRI2)
-            version = re.findall(r'EGL version string: ([0-9]+).([0-9]+)',
-                                 eglinfo)
-            # EGL version has to be 1.3 or above.
-            if version:
-                version_major = int(version[0][0])
-                version_minor = int(version[0][1])
+            version_major, version_minor = graphics_utils.get_egl_version()
+            if version_major:
                 version_info = ('EGL_VERSION = %d.%d' %
                                 (version_major, version_minor))
                 logging.info(version_info)
+                # EGL version has to be 1.3 or above.
                 if (version_major == 1 and version_minor >= 3 or
                     version_major > 1):
                     logging.warning('Please add missing extension check. '
@@ -190,7 +175,7 @@ class graphics_GLAPICheck(test.test):
     def run_once(self):
         if utils.is_freon():
             if not self.__check_wflinfo():
-                raise error.TestFail('GLES API insufficient:' +
+                raise error.TestFail('Failed: GLES API insufficient:' +
                                      self.error_message)
             return
 
@@ -200,11 +185,13 @@ class graphics_GLAPICheck(test.test):
         exist_gl = os.path.isfile(cmd_gl)
         exist_gles = os.path.isfile(cmd_gles)
         if not exist_gl and not exist_gles:
-            raise error.TestFail('Found neither gl_APICheck nor gles_APICheck. '
-                                 'Test setup error.')
+            raise error.TestFail(
+                'Failed: Found neither gl_APICheck nor gles_APICheck. '
+                'Test setup error.')
         elif exist_gl and exist_gles:
-            raise error.TestFail('Found both gl_APICheck and gles_APICheck. '
-                                 'Test setup error.')
+            raise error.TestFail(
+                'Failed: Found both gl_APICheck and gles_APICheck. '
+                'Test setup error.')
         elif exist_gl:
             self.error_message = ''
             result = self.__run_x_cmd(cmd_gl)
@@ -213,10 +200,10 @@ class graphics_GLAPICheck(test.test):
             if not errors and run_through:
                 check_result = self.__check_gl(result)
                 if not check_result:
-                    raise error.TestFail('GL API insufficient:' +
+                    raise error.TestFail('Failed: GL API insufficient:' +
                                          self.error_message)
             else:
-                raise error.TestFail('gl_APICheck error: ' + result)
+                raise error.TestFail('Failed: gl_APICheck error: ' + result)
         else:
             self.error_message = ''
             # TODO(zmo@): smarter mechanism with GLES & EGL library names.
@@ -226,14 +213,14 @@ class graphics_GLAPICheck(test.test):
             if not errors and run_through:
                 check_result = self.__check_gles(result)
                 if not check_result:
-                    raise error.TestFail('GLES API insufficient:' +
+                    raise error.TestFail('Failed: GLES API insufficient:' +
                                          self.error_message)
             else:
-                raise error.TestFail('gles_APICheck error: ' + result)
+                raise error.TestFail('Failed: gles_APICheck error: ' + result)
 
         # Check X11 extensions.
         self.error_message = ''
         check_result = self.__check_x_extensions(result)
         if not check_result:
-            raise error.TestFail('X extensions insufficient:' +
+            raise error.TestFail('Failed: X extensions insufficient:' +
                                  self.error_message)

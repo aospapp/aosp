@@ -26,7 +26,7 @@ namespace slang {
 
 bool RSSpecialFunc::isGraphicsRootRSFunc(unsigned int targetAPI,
                                          const clang::FunctionDecl *FD) {
-  if (FD->hasAttr<clang::KernelAttr>()) {
+  if (FD->hasAttr<clang::RenderScriptKernelAttr>()) {
     return false;
   }
 

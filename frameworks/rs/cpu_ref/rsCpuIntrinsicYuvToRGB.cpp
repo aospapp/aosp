@@ -26,9 +26,6 @@
 #include "hardware/gralloc.h"
 #endif
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -50,9 +47,6 @@ protected:
                        uint32_t xstart, uint32_t xend,
                        uint32_t outstep);
 };
-
-}
-}
 
 
 void RsdCpuScriptIntrinsicYuvToRGB::setGlobalObj(uint32_t slot, ObjectBase *data) {
@@ -220,8 +214,10 @@ void RsdCpuScriptIntrinsicYuvToRGB::invokeFreeChildren() {
     alloc.clear();
 }
 
-
 RsdCpuScriptImpl * rsdIntrinsic_YuvToRGB(RsdCpuReferenceImpl *ctx,
                                          const Script *s, const Element *e) {
     return new RsdCpuScriptIntrinsicYuvToRGB(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

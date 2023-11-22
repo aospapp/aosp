@@ -64,7 +64,7 @@ bool ParseCIDRBlock(const std::string& cidr_literal,
   //   <IPv6-literal> "/" <number of bits>
 
   std::vector<std::string> parts;
-  unsigned int split = cidr_literal.find('/');
+  size_t split = cidr_literal.find('/');
   if (split == std::string::npos)
     return false;
   parts.push_back(cidr_literal.substr(0, split));

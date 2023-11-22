@@ -44,7 +44,7 @@ public:
     // For input, flags is interpreted as audio_input_flags_t.
     // TODO: merge audio_output_flags_t and audio_input_flags_t.
     bool isCompatibleProfile(audio_devices_t device,
-                             String8 address,
+                             const String8& address,
                              uint32_t samplingRate,
                              uint32_t *updatedSamplingRate,
                              audio_format_t format,
@@ -110,13 +110,13 @@ private:
 class InputProfile : public IOProfile
 {
 public:
-    InputProfile(const String8 &name) : IOProfile(name, AUDIO_PORT_ROLE_SINK) {}
+    explicit InputProfile(const String8 &name) : IOProfile(name, AUDIO_PORT_ROLE_SINK) {}
 };
 
 class OutputProfile : public IOProfile
 {
 public:
-    OutputProfile(const String8 &name) : IOProfile(name, AUDIO_PORT_ROLE_SOURCE) {}
+    explicit OutputProfile(const String8 &name) : IOProfile(name, AUDIO_PORT_ROLE_SOURCE) {}
 };
 
 }; // namespace android

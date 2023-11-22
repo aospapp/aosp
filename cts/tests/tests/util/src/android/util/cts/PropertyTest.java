@@ -17,51 +17,62 @@
 package android.util.cts;
 
 import android.graphics.Point;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.FloatProperty;
 import android.util.IntProperty;
 import android.util.Property;
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class PropertyTest extends TestCase {
+import static org.junit.Assert.*;
 
-    float mFloatValue = -1;
-    int mIntValue = -2;
-    Point mPointValue = new Point(-3, -4);
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PropertyTest {
+    private float mFloatValue = -1;
+    private int mIntValue = -2;
+    private Point mPointValue = new Point(-3, -4);
 
+    @Test
     public void testProperty() throws Exception {
         float testFloatValue = 5;
         Point testPointValue = new Point(10, 20);
 
         assertFalse(getFloatProp() == testFloatValue);
         assertFalse(getPointProp().equals(testPointValue));
-        assertEquals(RAW_FLOAT_PROP.get(this), getFloatProp());
-        assertEquals(RAW_POINT_PROP.get(this), getPointProp());
+        assertEquals(getFloatProp(), RAW_FLOAT_PROP.get(this), 0f);
+        assertEquals(getPointProp(), RAW_POINT_PROP.get(this));
 
         RAW_FLOAT_PROP.set(this, testFloatValue);
-        assertEquals(RAW_FLOAT_PROP.get(this), mFloatValue);
+        assertEquals(mFloatValue, RAW_FLOAT_PROP.get(this), 0f);
 
         RAW_POINT_PROP.set(this, testPointValue);
-        assertEquals(RAW_POINT_PROP.get(this), testPointValue);
+        assertEquals(testPointValue, RAW_POINT_PROP.get(this));
     }
 
+    @Test
     public void testFloatProperty() throws Exception {
-        float testFloatValue = 5;
+        assertFalse(getFloatProp() == 5);
+        assertEquals(getFloatProp(), FLOAT_PROP.get(this), 0f);
 
-        assertFalse(getFloatProp() == testFloatValue);
-        assertEquals(FLOAT_PROP.get(this), getFloatProp());
+        FLOAT_PROP.set(this, 5f);
+        assertEquals(5f, FLOAT_PROP.get(this), 0f);
 
-        FLOAT_PROP.set(this, testFloatValue);
-        assertEquals(FLOAT_PROP.get(this), testFloatValue);
+        FLOAT_PROP.setValue(this, 10);
+        assertEquals(10f, FLOAT_PROP.get(this), 0f);
     }
 
+    @Test
     public void testIntProperty() throws Exception {
-        int testIntValue = 5;
+        assertFalse(getIntProp() == 5);
+        assertEquals(getIntProp(), INT_PROP.get(this).intValue());
 
-        assertFalse(getIntProp() == testIntValue);
-        assertEquals(INT_PROP.get(this).intValue(), getIntProp());
+        INT_PROP.set(this, 5);
+        assertEquals(5, INT_PROP.get(this).intValue());
 
-        INT_PROP.set(this, testIntValue);
-        assertEquals(INT_PROP.get(this).intValue(), testIntValue);
+        INT_PROP.setValue(this, 10);
+        assertEquals(10, INT_PROP.get(this).intValue());
     }
 
     // Utility methods to get/set instance values. Used by Property classes below.
@@ -91,9 +102,9 @@ public class PropertyTest extends TestCase {
     }
 
     // Properties. RAW subclass from the generic Property class, the others subclass from
-    // the primtive-friendly IntProperty and FloatProperty subclasses.
+    // the primitive-friendly IntProperty and FloatProperty subclasses.
 
-    public static final Property<PropertyTest, Point> RAW_POINT_PROP =
+    private static final Property<PropertyTest, Point> RAW_POINT_PROP =
             new Property<PropertyTest, Point>(Point.class, "rawPoint") {
                 @Override
                 public void set(PropertyTest object, Point value) {
@@ -106,7 +117,7 @@ public class PropertyTest extends TestCase {
                 }
             };
 
-    public static final Property<PropertyTest, Float> RAW_FLOAT_PROP =
+    private static final Property<PropertyTest, Float> RAW_FLOAT_PROP =
             new Property<PropertyTest, Float>(Float.class, "rawFloat") {
                 @Override
                 public void set(PropertyTest object, Float value) {
@@ -119,7 +130,7 @@ public class PropertyTest extends TestCase {
                 }
             };
 
-    public static final Property<PropertyTest, Float> FLOAT_PROP =
+    private static final FloatProperty<PropertyTest> FLOAT_PROP =
             new FloatProperty<PropertyTest>("float") {
 
                 @Override
@@ -133,7 +144,7 @@ public class PropertyTest extends TestCase {
                 }
             };
 
-    public static final Property<PropertyTest, Integer> INT_PROP =
+    private static final IntProperty<PropertyTest> INT_PROP =
             new IntProperty<PropertyTest>("int") {
 
                 @Override

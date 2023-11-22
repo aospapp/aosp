@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,8 +27,8 @@ package sun.nio.ch;
 
 import java.util.concurrent.*;
 import java.security.AccessController;
+import java.security.PrivilegedAction;
 import sun.security.action.GetPropertyAction;
-import sun.security.action.GetIntegerAction;
 
 /**
  * Encapsulates a thread pool associated with a channel group.
@@ -39,14 +39,6 @@ public class ThreadPool {
         "java.nio.channels.DefaultThreadPool.threadFactory";
     private static final String DEFAULT_THREAD_POOL_INITIAL_SIZE =
         "java.nio.channels.DefaultThreadPool.initialSize";
-    private static final ThreadFactory defaultThreadFactory = new ThreadFactory() {
-         @Override
-         public Thread newThread(Runnable r) {
-             Thread t = new Thread(r);
-             t.setDaemon(true);
-             return t;
-        }
-     };
 
     private final ExecutorService executor;
 
@@ -79,7 +71,23 @@ public class ThreadPool {
     }
 
     static ThreadFactory defaultThreadFactory() {
-        return defaultThreadFactory;
+        // Android-changed: System.getSecurityManager always returns null.
+        // if (System.getSecurityManager() == null) {
+        return (Runnable r) -> {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            return t;
+        };
+        // } else {
+        //    return (Runnable r) -> {
+        //        PrivilegedAction<Thread> action = () -> {
+        //            Thread t = new sun.misc.InnocuousThread(r);
+        //            t.setDaemon(true);
+        //            return t;
+        //       };
+        //       return AccessController.doPrivileged(action);
+        //   };
+        // }
     }
 
     private static class DefaultThreadPoolHolder {
@@ -100,13 +108,9 @@ public class ThreadPool {
         // default to thread factory that creates daemon threads
         ThreadFactory threadFactory = getDefaultThreadPoolThreadFactory();
         if (threadFactory == null)
-            threadFactory = defaultThreadFactory;
+            threadFactory = defaultThreadFactory();
         // create thread pool
-        ExecutorService executor =
-            new ThreadPoolExecutor(0, Integer.MAX_VALUE,
-                                   Long.MAX_VALUE, TimeUnit.MILLISECONDS,
-                                   new SynchronousQueue<Runnable>(),
-                                   threadFactory);
+        ExecutorService executor = Executors.newCachedThreadPool(threadFactory);
         return new ThreadPool(executor, false, initialSize);
     }
 

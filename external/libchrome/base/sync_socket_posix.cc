@@ -105,9 +105,8 @@ SyncSocket::Handle SyncSocket::UnwrapHandle(
   return descriptor.fd;
 }
 
-bool SyncSocket::PrepareTransitDescriptor(
-    ProcessHandle /* peer_process_handle */,
-    TransitDescriptor* descriptor) {
+bool SyncSocket::PrepareTransitDescriptor(ProcessHandle /*peer_process_handle*/,
+                                          TransitDescriptor* descriptor) {
   descriptor->fd = handle();
   descriptor->auto_close = false;
   return descriptor->fd != kInvalidHandle;
@@ -223,7 +222,7 @@ size_t CancelableSyncSocket::Send(const void* buffer, size_t length) {
   DCHECK_LE(length, kMaxMessageLength);
   DCHECK_NE(handle_, kInvalidHandle);
 
-  const long flags = fcntl(handle_, F_GETFL, NULL);
+  const int flags = fcntl(handle_, F_GETFL);
   if (flags != -1 && (flags & O_NONBLOCK) == 0) {
     // Set the socket to non-blocking mode for sending if its original mode
     // is blocking.

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import hashlib, logging, os
+import hashlib, logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -19,9 +19,7 @@ class firmware_TPMExtend(FirmwareTest):
 
     def _check_pcr(self, num, hash_obj):
         """Returns true iff PCR |num| was extended with hashlib |hash_obj|."""
-        pcrs_file='/sys/class/misc/tpm0/device/pcrs'
-        if not os.path.exists(pcrs_file):
-            pcrs_file='/sys/class/tpm/tpm0/device/pcrs'
+        pcrs_file='/sys/class/*/tpm0/device/pcrs'
         pcrs = '\n'.join(self.faft_client.system.run_shell_command_get_output(
                         'cat %s' % pcrs_file))
         logging.debug('Dumping PCRs read from device: \n%s', pcrs)

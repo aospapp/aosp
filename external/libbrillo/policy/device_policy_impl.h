@@ -58,6 +58,10 @@ class DevicePolicyImpl : public DevicePolicy {
   virtual bool GetOwner(std::string* owner) const;
   virtual bool GetHttpDownloadsEnabled(bool* http_downloads_enabled) const;
   virtual bool GetAuP2PEnabled(bool* au_p2p_enabled) const;
+  virtual bool GetAllowKioskAppControlChromeVersion(
+      bool* allow_kiosk_app_control_chrome_version) const;
+  virtual bool GetUsbDetachableWhitelist(
+      std::vector<UsbDeviceId>* usb_whitelist) const;
 
  protected:
   // Verifies that the policy files are owned by root and exist.

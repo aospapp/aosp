@@ -16,13 +16,12 @@
 
 #include "dex_compilation_unit.h"
 
-#include "base/stringprintf.h"
 #include "mirror/dex_cache.h"
 #include "utils.h"
 
 namespace art {
 
-DexCompilationUnit::DexCompilationUnit(jobject class_loader,
+DexCompilationUnit::DexCompilationUnit(Handle<mirror::ClassLoader> class_loader,
                                        ClassLinker* class_linker,
                                        const DexFile& dex_file,
                                        const DexFile::CodeItem* code_item,
@@ -45,7 +44,7 @@ DexCompilationUnit::DexCompilationUnit(jobject class_loader,
 const std::string& DexCompilationUnit::GetSymbol() {
   if (symbol_.empty()) {
     symbol_ = "dex_";
-    symbol_ += MangleForJni(PrettyMethod(dex_method_idx_, *dex_file_));
+    symbol_ += MangleForJni(dex_file_->PrettyMethod(dex_method_idx_));
   }
   return symbol_;
 }

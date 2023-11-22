@@ -84,8 +84,13 @@ OBJS += ../src/ap/pmksa_cache_auth.o
 OBJS += ../src/ap/ieee802_11_shared.o
 OBJS += ../src/ap/beacon.o
 OBJS += ../src/ap/bss_load.o
+OBJS += ../src/ap/neighbor_db.o
+OBJS += ../src/ap/rrm.o
 
-OBJS_c = hostapd_cli.o ../src/common/wpa_ctrl.o ../src/utils/os_$(CONFIG_OS).o
+OBJS_c = hostapd_cli.o
+OBJS_c += ../src/common/wpa_ctrl.o
+OBJS_c += ../src/utils/os_$(CONFIG_OS).o
+OBJS_c += ../src/common/cli.o
 
 NEED_RC4=y
 NEED_AES=y
@@ -94,6 +99,11 @@ NEED_SHA1=y
 
 OBJS += ../src/drivers/drivers.o
 CFLAGS += -DHOSTAPD
+
+ifdef CONFIG_TAXONOMY
+CFLAGS += -DCONFIG_TAXONOMY
+OBJS += ../src/ap/taxonomy.o
+endif
 
 ifdef CONFIG_MODULE_TESTS
 CFLAGS += -DCONFIG_MODULE_TESTS
@@ -280,7 +290,7 @@ NEED_AES_OMAC1=y
 endif
 
 ifdef CONFIG_IEEE80211R
-CFLAGS += -DCONFIG_IEEE80211R
+CFLAGS += -DCONFIG_IEEE80211R -DCONFIG_IEEE80211R_AP
 OBJS += ../src/ap/wpa_auth_ft.o
 NEED_SHA256=y
 NEED_AES_OMAC1=y
@@ -295,6 +305,13 @@ NEED_DH_GROUPS=y
 NEED_AP_MLME=y
 endif
 
+ifdef CONFIG_FILS
+CFLAGS += -DCONFIG_FILS
+OBJS += ../src/ap/fils_hlp.o
+NEED_SHA384=y
+NEED_AES_SIV=y
+endif
+
 ifdef CONFIG_WNM
 CFLAGS += -DCONFIG_WNM
 OBJS += ../src/ap/wnm_ap.o
@@ -306,6 +323,11 @@ endif
 
 ifdef CONFIG_IEEE80211AC
 CFLAGS += -DCONFIG_IEEE80211AC
+endif
+
+ifdef CONFIG_IEEE80211AX
+CFLAGS += -DCONFIG_IEEE80211AX
+OBJS += ../src/ap/ieee802_11_he.o
 endif
 
 ifdef CONFIG_MBO
@@ -767,6 +789,9 @@ ifneq ($(CONFIG_TLS), openssl)
 AESOBJS += ../src/crypto/aes-cbc.o
 endif
 endif
+ifdef NEED_AES_SIV
+AESOBJS += ../src/crypto/aes-siv.o
+endif
 ifdef NEED_AES_DEC
 ifdef CONFIG_INTERNAL_AES
 AESOBJS += ../src/crypto/aes-internal-dec.o
@@ -855,6 +880,9 @@ endif
 endif
 ifdef NEED_SHA384
 CFLAGS += -DCONFIG_SHA384
+ifneq ($(CONFIG_TLS), openssl)
+OBJS += ../src/crypto/sha384.o
+endif
 OBJS += ../src/crypto/sha384-prf.o
 endif
 
@@ -971,6 +999,10 @@ endif
 
 ifdef CONFIG_NO_STDOUT_DEBUG
 CFLAGS += -DCONFIG_NO_STDOUT_DEBUG
+endif
+
+ifdef CONFIG_DEBUG_SYSLOG
+CFLAGS += -DCONFIG_DEBUG_SYSLOG
 endif
 
 ifdef CONFIG_DEBUG_LINUX_TRACING

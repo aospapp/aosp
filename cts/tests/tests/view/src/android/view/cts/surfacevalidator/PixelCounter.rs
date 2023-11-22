@@ -15,22 +15,18 @@
  */
 #pragma version(1)
 #pragma rs java_package_name(android.view.cts.surfacevalidator)
+#pragma rs reduce(countBlackishPixels) accumulator(countBlackishPixelsAccum) combiner(countBlackishPixelsCombiner)
 
-int WIDTH;
 uchar THRESHOLD;
 
-rs_allocation image;
-
-void countBlackishPixels(const int32_t *v_in, int *v_out){
-    int y = v_in[0];
-    v_out[0] = 0;
-
-    for(int i = 0 ; i < WIDTH; i++){
-        uchar4 pixel = rsGetElementAt_uchar4(image, i, y);
-        if (pixel.r < THRESHOLD
-                && pixel.g < THRESHOLD
-                && pixel.b < THRESHOLD) {
-            v_out[0]++;
-        }
+static void countBlackishPixelsAccum(int *accum, uchar4 pixel){
+    if (pixel.r < THRESHOLD
+            && pixel.g < THRESHOLD
+            && pixel.b < THRESHOLD) {
+        *accum += 1;
     }
+}
+
+static void countBlackishPixelsCombiner(int *accum, const int *other){
+    *accum += *other;
 }

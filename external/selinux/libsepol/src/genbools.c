@@ -68,7 +68,6 @@ static int load_booleans(struct policydb *policydb, const char *path,
 {
 	FILE *boolf;
 	char *buffer = NULL;
-	size_t size = 0;
 	char localbools[BUFSIZ];
 	char name[BUFSIZ];
 	int val;
@@ -79,7 +78,7 @@ static int load_booleans(struct policydb *policydb, const char *path,
 	if (boolf == NULL)
 		goto localbool;
 
-#ifdef DARWIN
+#ifdef __APPLE__
         if ((buffer = (char *)malloc(255 * sizeof(char))) == NULL) {
           ERR(NULL, "out of memory");
 	  return -1;
@@ -87,6 +86,7 @@ static int load_booleans(struct policydb *policydb, const char *path,
 
         while(fgets(buffer, 255, boolf) != NULL) {
 #else
+	size_t size = 0;
 	while (getline(&buffer, &size, boolf) > 0) {
 #endif
 		int ret = process_boolean(buffer, name, sizeof(name), &val);
@@ -111,7 +111,7 @@ static int load_booleans(struct policydb *policydb, const char *path,
 	boolf = fopen(localbools, "r");
 	if (boolf != NULL) {
 
-#ifdef DARWIN
+#ifdef __APPLE__
 
 	  while(fgets(buffer, 255, boolf) != NULL) {
 #else

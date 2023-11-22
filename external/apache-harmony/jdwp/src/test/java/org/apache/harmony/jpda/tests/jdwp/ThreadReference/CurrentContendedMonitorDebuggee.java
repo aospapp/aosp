@@ -47,6 +47,7 @@ public class CurrentContendedMonitorDebuggee extends SyncDebuggee {
 
     DebuggeeThread thrd;
 
+    @Override
     public void run() {
         thrd = new DebuggeeThread(TESTED_THREAD, logWriter, synchronizer);
         try {
@@ -73,7 +74,7 @@ public class CurrentContendedMonitorDebuggee extends SyncDebuggee {
         }
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
 
@@ -86,6 +87,7 @@ public class CurrentContendedMonitorDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             synchronized (CurrentContendedMonitorDebuggee.waitForFinish) {

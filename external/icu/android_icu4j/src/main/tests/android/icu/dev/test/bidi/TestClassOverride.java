@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2007-2013, International Business Machines
@@ -8,10 +10,10 @@
 
 package android.icu.dev.test.bidi;
 
+import org.junit.Test;
+
 import android.icu.text.Bidi;
 import android.icu.text.BidiClassifier;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Regression test for Bidi class override.
@@ -19,8 +21,7 @@ import android.icu.junit.IcuTestFmwkRunner;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
-@RunWith(IcuTestFmwkRunner.class)
-public class TestClassOverride extends BidiTest {
+public class TestClassOverride extends BidiFmwk {
 
     private static final int DEF = TestData.DEF;
     private static final int L   = TestData.L;
@@ -112,6 +113,7 @@ public class TestClassOverride extends BidiTest {
 
     CustomClassifier classifier = null;
 
+    @Test
     public void testClassOverride()
     {
         Bidi bidi;
@@ -134,15 +136,5 @@ public class TestClassOverride extends BidiTest {
         assertEquals("Actual and expected output mismatch", textOut, out);
 
         logln("\nExiting TestClassOverride\n");
-    }
-
-
-    public static void main(String[] args) {
-        try {
-            new TestClassOverride().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
     }
 }

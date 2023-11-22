@@ -19,7 +19,6 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.media.tv.TvTrackInfo;
 import android.support.annotation.VisibleForTesting;
-import android.support.v4.os.BuildCompat;
 
 import com.android.tv.Features;
 import com.android.tv.R;
@@ -28,6 +27,7 @@ import com.android.tv.customization.CustomAction;
 import com.android.tv.data.DisplayMode;
 import com.android.tv.ui.TvViewUiManager;
 import com.android.tv.ui.sidepanel.ClosedCaptionFragment;
+import com.android.tv.ui.sidepanel.DeveloperOptionFragment;
 import com.android.tv.ui.sidepanel.DisplayModeFragment;
 import com.android.tv.ui.sidepanel.MultiAudioFragment;
 import com.android.tv.util.PipInputManager;
@@ -39,14 +39,14 @@ import java.util.List;
  * An adapter of options.
  */
 public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
+    private static final boolean ENABLE_IN_APP_PIP = false;
+
     private int mPositionPipAction;
     // If mInAppPipAction is false, system-wide PIP is used.
     private boolean mInAppPipAction = true;
-    private final Context mContext;
 
     public TvOptionsRowAdapter(Context context, List<CustomAction> customActions) {
         super(context, customActions);
-        mContext = context;
     }
 
     @Override
@@ -61,8 +61,9 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
         mPositionPipAction = actionList.size() - 1;
         actionList.add(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION);
         setOptionChangedListener(MenuAction.SELECT_AUDIO_LANGUAGE_ACTION);
-        if (Features.ONBOARDING_PLAY_STORE.isEnabled(getMainActivity())) {
-            actionList.add(MenuAction.MORE_CHANNELS_ACTION);
+        actionList.add(MenuAction.MORE_CHANNELS_ACTION);
+        if (DeveloperOptionFragment.shouldShow()) {
+            actionList.add(MenuAction.DEV_ACTION);
         }
         actionList.add(MenuAction.SETTINGS_ACTION);
 
@@ -109,23 +110,23 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
 
         // Case 1
         PipInputManager pipInputManager = getMainActivity().getPipInputManager();
-        if (pipInputManager.getPipInputSize(false) < 2) {
-            if (mInAppPipAction) {
-                removeAction(mPositionPipAction);
-                mInAppPipAction = false;
-                if (BuildCompat.isAtLeastN()) {
-                    addAction(mPositionPipAction, MenuAction.SYSTEMWIDE_PIP_ACTION);
-                }
-                return true;
-            }
-            return false;
-        } else {
+        if (ENABLE_IN_APP_PIP && pipInputManager.getPipInputSize(false) > 1) {
             if (!mInAppPipAction) {
                 removeAction(mPositionPipAction);
                 addAction(mPositionPipAction, MenuAction.PIP_IN_APP_ACTION);
                 mInAppPipAction = true;
                 changed = true;
             }
+        } else {
+            if (mInAppPipAction) {
+                removeAction(mPositionPipAction);
+                mInAppPipAction = false;
+                if (Features.PICTURE_IN_PICTURE.isEnabled(getMainActivity())) {
+                    addAction(mPositionPipAction, MenuAction.SYSTEMWIDE_PIP_ACTION);
+                }
+                return true;
+            }
+            return false;
         }
 
         // Case 2
@@ -175,12 +176,12 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
     protected void executeBaseAction(int type) {
         switch (type) {
             case TvOptionsManager.OPTION_CLOSED_CAPTIONS:
-                getMainActivity().getOverlayManager().getSideFragmentManager().show(
-                        new ClosedCaptionFragment());
+                getMainActivity().getOverlayManager().getSideFragmentManager()
+                        .show(new ClosedCaptionFragment());
                 break;
             case TvOptionsManager.OPTION_DISPLAY_MODE:
-                getMainActivity().getOverlayManager().getSideFragmentManager().show(
-                        new DisplayModeFragment());
+                getMainActivity().getOverlayManager().getSideFragmentManager()
+                        .show(new DisplayModeFragment());
                 break;
             case TvOptionsManager.OPTION_IN_APP_PIP:
                 getMainActivity().togglePipView();
@@ -189,11 +190,15 @@ public class TvOptionsRowAdapter extends CustomizableOptionsRowAdapter {
                 getMainActivity().enterPictureInPictureMode();
                 break;
             case TvOptionsManager.OPTION_MULTI_AUDIO:
-                getMainActivity().getOverlayManager().getSideFragmentManager().show(
-                        new MultiAudioFragment());
+                getMainActivity().getOverlayManager().getSideFragmentManager()
+                        .show(new MultiAudioFragment());
                 break;
             case TvOptionsManager.OPTION_MORE_CHANNELS:
                 getMainActivity().showMerchantCollection();
+                break;
+            case TvOptionsManager.OPTION_DEVELOPER:
+                getMainActivity().getOverlayManager().getSideFragmentManager()
+                        .show(new DeveloperOptionFragment());
                 break;
             case TvOptionsManager.OPTION_SETTINGS:
                 getMainActivity().showSettingsFragment();

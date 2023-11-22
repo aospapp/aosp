@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2010-2015, International Business Machines Corporation and
@@ -8,6 +10,8 @@ package com.ibm.icu.dev.test.bidi;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.dev.test.TestUtil;
@@ -21,11 +25,9 @@ import com.ibm.icu.text.BidiClassifier;
  * Ported from ICU4C intltest/bidiconf.cpp .
  */
 public class BiDiConformanceTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new BiDiConformanceTest().run(args);
-    }
     public BiDiConformanceTest() {}
 
+    @Test
     public void TestBidiTest() throws IOException {
         BufferedReader bidiTestFile = TestUtil.getDataReader("unicode/BidiTest.txt");
         try {
@@ -161,6 +163,7 @@ outerLoop:
     *
     *******************************************************************************
     */
+    @Test
     public void TestBidiCharacterTest() throws IOException {
         BufferedReader bidiTestFile = TestUtil.getDataReader("unicode/BidiCharacterTest.txt");
         try {

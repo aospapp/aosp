@@ -29,12 +29,12 @@ interface ICarRadio {
     /**
      * Registers the client for updates to radio changes.
      */
-    void registerListener(in ICarRadioEventListener listener) = 1;
+    void registerListener(in ICarRadioEventListener callback) = 1;
 
     /**
      * Unregisters the client for updates to radio changes.
      */
-    void unregisterListener(in ICarRadioEventListener listener) = 2;
+    void unregisterListener(in ICarRadioEventListener callback) = 2;
 
     /**
      * Gets the preset values stored for a particular preset number.

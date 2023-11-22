@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * a class effect.
  */
 public abstract class SingleRun {
-  private AtomicBoolean hasRun = new AtomicBoolean();
+  private final AtomicBoolean hasRun = new AtomicBoolean();
 
   /**
    * Calls {@link #run()} if it is the first time this method is called upon this instance.

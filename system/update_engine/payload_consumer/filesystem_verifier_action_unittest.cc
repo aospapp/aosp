@@ -32,7 +32,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "update_engine/common/fake_boot_control.h"
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
@@ -56,12 +55,9 @@ class FilesystemVerifierActionTest : public ::testing::Test {
   }
 
   // Returns true iff test has completed successfully.
-  bool DoTest(bool terminate_early,
-              bool hash_fail,
-              VerifierMode verifier_mode);
+  bool DoTest(bool terminate_early, bool hash_fail);
 
   brillo::FakeMessageLoop loop_{nullptr};
-  FakeBootControl fake_boot_control_;
 };
 
 class FilesystemVerifierActionTestDelegate : public ActionProcessorDelegate {
@@ -115,23 +111,8 @@ void StartProcessorInRunLoop(ActionProcessor* processor,
   }
 }
 
-// TODO(garnold) Temporarily disabling this test, see chromium-os:31082 for
-// details; still trying to track down the root cause for these rare write
-// failures and whether or not they are due to the test setup or an inherent
-// issue with the chroot environment, library versions we use, etc.
-TEST_F(FilesystemVerifierActionTest, DISABLED_RunAsRootSimpleTest) {
-  ASSERT_EQ(0U, getuid());
-  bool test = DoTest(false, false, VerifierMode::kComputeSourceHash);
-  EXPECT_TRUE(test);
-  if (!test)
-    return;
-  test = DoTest(false, false, VerifierMode::kVerifyTargetHash);
-  EXPECT_TRUE(test);
-}
-
 bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
-                                          bool hash_fail,
-                                          VerifierMode verifier_mode) {
+                                          bool hash_fail) {
   string a_loop_file;
 
   if (!(utils::MakeTempFile("a_loop_file.XXXXXX", &a_loop_file, nullptr))) {
@@ -170,20 +151,14 @@ bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
   install_plan.target_slot = 1;
   InstallPlan::Partition part;
   part.name = "part";
-  if (verifier_mode == VerifierMode::kVerifyTargetHash) {
-    part.target_size = kLoopFileSize - (hash_fail ? 1 : 0);
-    part.target_path = a_dev;
-    fake_boot_control_.SetPartitionDevice(
-        part.name, install_plan.target_slot, a_dev);
-    if (!HashCalculator::RawHashOfData(a_loop_data, &part.target_hash)) {
-      ADD_FAILURE();
-      success = false;
-    }
+  part.target_size = kLoopFileSize - (hash_fail ? 1 : 0);
+  part.target_path = a_dev;
+  if (!HashCalculator::RawHashOfData(a_loop_data, &part.target_hash)) {
+    ADD_FAILURE();
+    success = false;
   }
   part.source_size = kLoopFileSize;
   part.source_path = a_dev;
-  fake_boot_control_.SetPartitionDevice(
-      part.name, install_plan.source_slot, a_dev);
   if (!HashCalculator::RawHashOfData(a_loop_data, &part.source_hash)) {
     ADD_FAILURE();
     success = false;
@@ -193,7 +168,7 @@ bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
   ActionProcessor processor;
 
   ObjectFeederAction<InstallPlan> feeder_action;
-  FilesystemVerifierAction copier_action(&fake_boot_control_, verifier_mode);
+  FilesystemVerifierAction copier_action;
   ObjectCollectorAction<InstallPlan> collector_action;
 
   BondActions(&feeder_action, &copier_action);
@@ -265,8 +240,7 @@ TEST_F(FilesystemVerifierActionTest, MissingInputObjectTest) {
 
   processor.set_delegate(&delegate);
 
-  FilesystemVerifierAction copier_action(&fake_boot_control_,
-                                         VerifierMode::kVerifyTargetHash);
+  FilesystemVerifierAction copier_action;
   ObjectCollectorAction<InstallPlan> collector_action;
 
   BondActions(&copier_action, &collector_action);
@@ -294,8 +268,7 @@ TEST_F(FilesystemVerifierActionTest, NonExistentDriveTest) {
   install_plan.partitions = {part};
 
   feeder_action.set_obj(install_plan);
-  FilesystemVerifierAction verifier_action(&fake_boot_control_,
-                                           VerifierMode::kVerifyTargetHash);
+  FilesystemVerifierAction verifier_action;
   ObjectCollectorAction<InstallPlan> collector_action;
 
   BondActions(&verifier_action, &collector_action);
@@ -311,70 +284,19 @@ TEST_F(FilesystemVerifierActionTest, NonExistentDriveTest) {
 
 TEST_F(FilesystemVerifierActionTest, RunAsRootVerifyHashTest) {
   ASSERT_EQ(0U, getuid());
-  EXPECT_TRUE(DoTest(false, false, VerifierMode::kVerifyTargetHash));
-  EXPECT_TRUE(DoTest(false, false, VerifierMode::kComputeSourceHash));
+  EXPECT_TRUE(DoTest(false, false));
 }
 
 TEST_F(FilesystemVerifierActionTest, RunAsRootVerifyHashFailTest) {
   ASSERT_EQ(0U, getuid());
-  EXPECT_TRUE(DoTest(false, true, VerifierMode::kVerifyTargetHash));
+  EXPECT_TRUE(DoTest(false, true));
 }
 
 TEST_F(FilesystemVerifierActionTest, RunAsRootTerminateEarlyTest) {
   ASSERT_EQ(0U, getuid());
-  EXPECT_TRUE(DoTest(true, false, VerifierMode::kVerifyTargetHash));
+  EXPECT_TRUE(DoTest(true, false));
   // TerminateEarlyTest may leak some null callbacks from the Stream class.
   while (loop_.RunOnce(false)) {}
-}
-
-// Disabled as we switched to minor version 3, so this test is obsolete, will be
-// deleted when we delete the corresponding code in PerformAction().
-// Test that the rootfs and kernel size used for hashing in delta payloads for
-// major version 1 is properly read.
-TEST_F(FilesystemVerifierActionTest,
-       DISABLED_RunAsRootDetermineLegacySizeTest) {
-  string img;
-  EXPECT_TRUE(utils::MakeTempFile("img.XXXXXX", &img, nullptr));
-  ScopedPathUnlinker img_unlinker(img);
-  test_utils::CreateExtImageAtPath(img, nullptr);
-  // Extend the "partition" holding the file system from 10MiB to 20MiB.
-  EXPECT_EQ(0, truncate(img.c_str(), 20 * 1024 * 1024));
-
-  InstallPlan install_plan;
-  install_plan.source_slot = 1;
-
-  fake_boot_control_.SetPartitionDevice(
-      kLegacyPartitionNameRoot, install_plan.source_slot, img);
-  fake_boot_control_.SetPartitionDevice(
-      kLegacyPartitionNameKernel, install_plan.source_slot, img);
-  FilesystemVerifierAction action(&fake_boot_control_,
-                                  VerifierMode::kComputeSourceHash);
-
-  ObjectFeederAction<InstallPlan> feeder_action;
-  feeder_action.set_obj(install_plan);
-
-  ObjectCollectorAction<InstallPlan> collector_action;
-
-  BondActions(&feeder_action, &action);
-  BondActions(&action, &collector_action);
-  ActionProcessor processor;
-  processor.EnqueueAction(&feeder_action);
-  processor.EnqueueAction(&action);
-  processor.EnqueueAction(&collector_action);
-
-  loop_.PostTask(FROM_HERE,
-                 base::Bind([&processor]{ processor.StartProcessing(); }));
-  loop_.Run();
-  install_plan = collector_action.object();
-
-  ASSERT_EQ(2U, install_plan.partitions.size());
-  // When computing the size of the rootfs on legacy delta updates we use the
-  // size of the filesystem, but when updating the kernel we use the whole
-  // partition.
-  EXPECT_EQ(10U << 20, install_plan.partitions[0].source_size);
-  EXPECT_EQ(kLegacyPartitionNameRoot, install_plan.partitions[0].name);
-  EXPECT_EQ(20U << 20, install_plan.partitions[1].source_size);
-  EXPECT_EQ(kLegacyPartitionNameKernel, install_plan.partitions[1].name);
 }
 
 }  // namespace chromeos_update_engine

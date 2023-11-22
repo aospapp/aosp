@@ -5,7 +5,6 @@
 AUTHOR = "cmasone, achuith"
 NAME = "login_ChromeProfileSanitary"
 ATTRIBUTES = "suite:regression"
-SUITE = "regression"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"

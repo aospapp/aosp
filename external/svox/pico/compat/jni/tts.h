@@ -16,6 +16,8 @@
 #ifndef ANDROID_TTS_H
 #define ANDROID_TTS_H
 
+#include <sys/cdefs.h>
+
 // This header defines the interface used by the Android platform
 // to access Text-To-Speech functionality in shared libraries that implement
 // speech synthesis and the management of resources associated with the
@@ -85,6 +87,7 @@ typedef struct {
     android_tts_engine_funcs_t *funcs;
 } android_tts_engine_t;
 
+#if __ANDROID_API__ >= 13
 /* This function must be located in the TTS Engine shared library
  * and must return the address of an android_tts_engine_t library.
  */
@@ -94,6 +97,7 @@ extern android_tts_engine_t *android_getTtsEngine();
  * This should return the same thing as android_getTtsEngine.
  */
 extern "C" android_tts_engine_t *getTtsEngine();
+#endif /* __ANDROID_API__ >= 13 */
 
 // A callback type used to notify the framework of new synthetized
 // audio samples, status will be SYNTH_DONE for the last sample of

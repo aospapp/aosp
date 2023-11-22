@@ -21,8 +21,30 @@
 #include <hardware/hardware.h>
 #include <hardware/sensors.h>
 #include <media/stagefright/foundation/ABase.h>
+#include <utils/RefBase.h>
 
-#include "hubconnection.h"
+#include <memory>
+#include <unordered_set>
+#include <vector>
+
+using android::sp;
+
+namespace android {
+    struct HubConnection;
+} // namespace android
+using android::HubConnection;
+
+namespace android {
+    namespace SensorHalExt {
+        class BaseSensorObject;
+        class DynamicSensorManager;
+        class SensorEventCallback;
+    } // namespace BaseSensorObject
+} // namespace android
+
+using android::SensorHalExt::BaseSensorObject;
+using android::SensorHalExt::DynamicSensorManager;
+using android::SensorHalExt::SensorEventCallback;
 
 struct SensorContext {
     struct sensors_poll_device_1 device;
@@ -31,9 +53,9 @@ struct SensorContext {
 
     bool getHubAlive();
 
+    size_t getSensorList(sensor_t const **list);
+
 private:
-    android::sp<android::HubConnection> mHubConnection;
-    bool mHubAlive;
 
     int close();
     int activate(int handle, int enabled);
@@ -45,6 +67,17 @@ private:
 
     int flush(int handle);
 
+    int register_direct_channel(
+            const struct sensors_direct_mem_t* mem, int channel_handle);
+
+    int config_direct_report(
+            int sensor_handle, int channel_handle, const struct sensors_direct_cfg_t * config);
+
+    int inject_sensor_data(const struct sensors_event_t *event);
+
+    void initializeHalExtension();
+
+    // static wrappers
     static int CloseWrapper(struct hw_device_t *dev);
 
     static int ActivateWrapper(
@@ -64,6 +97,68 @@ private:
             int64_t max_report_latency_ns);
 
     static int FlushWrapper(struct sensors_poll_device_1 *dev, int handle);
+
+    static int RegisterDirectChannelWrapper(struct sensors_poll_device_1 *dev,
+            const struct sensors_direct_mem_t* mem, int channel_handle);
+    static int ConfigDirectReportWrapper(struct sensors_poll_device_1 *dev,
+            int sensor_handle, int channel_handle, const struct sensors_direct_cfg_t * config);
+    static int InjectSensorDataWrapper(struct sensors_poll_device_1 *dev, const sensors_event_t *event);
+
+    class SensorOperation {
+    public:
+        virtual bool owns(int handle) = 0;
+        virtual int activate(int handle, int enabled) = 0;
+        virtual int setDelay(int handle, int64_t delayNs) = 0;
+        virtual int batch(
+                int handle, int64_t sampling_period_ns,
+                int64_t max_report_latency_ns) = 0;
+        virtual int flush(int handle) = 0;
+        virtual ~SensorOperation() {}
+    };
+
+    class HubConnectionOperation : public SensorOperation {
+    public:
+        HubConnectionOperation(sp<HubConnection> hubConnection);
+        virtual bool owns(int handle) override;
+        virtual int activate(int handle, int enabled) override;
+        virtual int setDelay(int handle, int64_t delayNs) override;
+        virtual int batch(
+                int handle, int64_t sampling_period_ns,
+                int64_t max_report_latency_ns) override;
+        virtual int flush(int handle) override;
+        virtual ~HubConnectionOperation() {}
+    private:
+        sp<HubConnection> mHubConnection;
+        std::unordered_set<int> mHandles;
+    };
+
+    std::vector<sensor_t> mSensorList;
+
+    sp<HubConnection> mHubConnection;
+    std::vector<std::unique_ptr<SensorOperation> > mOperationHandler;
+
+#ifdef DYNAMIC_SENSOR_EXT_ENABLED
+private:
+    class DynamicSensorManagerOperation : public SensorOperation {
+    public:
+        DynamicSensorManagerOperation(DynamicSensorManager* manager);
+        virtual bool owns(int handle) override;
+        virtual int activate(int handle, int enabled) override;
+        virtual int setDelay(int handle, int64_t delayNs) override;
+        virtual int batch(
+                int handle, int64_t sampling_period_ns,
+                int64_t max_report_latency_ns) override;
+        virtual int flush(int handle) override;
+        virtual ~DynamicSensorManagerOperation() {}
+    private:
+        std::unique_ptr<DynamicSensorManager> mDynamicSensorManager;
+    };
+
+    static constexpr int32_t kDynamicHandleBase = 0x10000;
+    static constexpr int32_t kMaxDynamicHandleCount = 0xF0000; // ~1M handles, enough before reboot
+
+    std::unique_ptr<SensorEventCallback> mEventCallback;
+#endif //DYNAMIC_SENSOR_EXT_ENABLED
 
     DISALLOW_EVIL_CONSTRUCTORS(SensorContext);
 };

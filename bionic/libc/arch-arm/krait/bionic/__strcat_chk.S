@@ -27,7 +27,6 @@
  */
 
 #include <private/bionic_asm.h>
-#include <private/libc_events.h>
 
     .syntax unified
 
@@ -177,7 +176,9 @@ ENTRY(__strcat_chk)
 .L_strlen_done:
     add     r2, r3, r4
     cmp     r2, lr
-    bhi     .L_strcat_chk_failed
+    itt     hi
+    movhi   r0, lr
+    bhi     __strcat_chk_fail
 
     // Set up the registers for the memcpy code.
     mov     r1, r5
@@ -195,18 +196,4 @@ ENTRY(__strcat_chk)
     .cfi_adjust_cfa_offset 8
     .cfi_rel_offset r4, 0
     .cfi_rel_offset r5, 4
-.L_strcat_chk_failed:
-    ldr     r0, error_message
-    ldr     r1, error_code
-1:
-    add     r0, pc
-    bl      __fortify_chk_fail
-error_code:
-    .word   BIONIC_EVENT_STRCAT_BUFFER_OVERFLOW
-error_message:
-    .word   error_string-(1b+4)
 END(__strcat_chk)
-
-    .data
-error_string:
-    .string "strcat: prevented write past end of buffer"

@@ -67,7 +67,7 @@ void sf_close(SNDFILE *handle);
  * Read interleaved frames
  * \return actual number of frames read
  */
-sf_count_t sf_readf_short(SNDFILE *handle, short *ptr, sf_count_t desired);
+sf_count_t sf_readf_short(SNDFILE *handle, int16_t *ptr, sf_count_t desired);
 sf_count_t sf_readf_float(SNDFILE *handle, float *ptr, sf_count_t desired);
 sf_count_t sf_readf_int(SNDFILE *handle, int *ptr, sf_count_t desired);
 
@@ -75,7 +75,7 @@ sf_count_t sf_readf_int(SNDFILE *handle, int *ptr, sf_count_t desired);
  * Write interleaved frames
  * \return actual number of frames written
  */
-sf_count_t sf_writef_short(SNDFILE *handle, const short *ptr, sf_count_t desired);
+sf_count_t sf_writef_short(SNDFILE *handle, const int16_t *ptr, sf_count_t desired);
 sf_count_t sf_writef_float(SNDFILE *handle, const float *ptr, sf_count_t desired);
 sf_count_t sf_writef_int(SNDFILE *handle, const int *ptr, sf_count_t desired);
 

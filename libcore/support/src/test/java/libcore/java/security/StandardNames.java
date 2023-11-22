@@ -16,6 +16,10 @@
 
 package libcore.java.security;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.security.Security;
 import java.security.spec.DSAPrivateKeySpec;
 import java.security.spec.DSAPublicKeySpec;
@@ -36,7 +40,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.crypto.spec.DHPrivateKeySpec;
 import javax.crypto.spec.DHPublicKeySpec;
-import junit.framework.Assert;
 
 /**
  * This class defines expected string names for protocols, key types,
@@ -63,7 +66,7 @@ import junit.framework.Assert;
  * Java &trade; PKCS#11 Reference Guide
  * </a>.
  */
-public final class StandardNames extends Assert {
+public final class StandardNames {
 
     public static final boolean IS_RI
             = !"Dalvik Core Library".equals(System.getProperty("java.specification.name"));
@@ -107,7 +110,7 @@ public final class StandardNames extends Assert {
     private static void provide(String type, String algorithm) {
         Set<String> algorithms = PROVIDER_ALGORITHMS.get(type);
         if (algorithms == null) {
-            algorithms = new HashSet();
+            algorithms = new HashSet<String>();
             PROVIDER_ALGORITHMS.put(type, algorithms);
         }
         assertTrue("Duplicate " + type + " " + algorithm,
@@ -166,6 +169,26 @@ public final class StandardNames extends Assert {
         provide("AlgorithmParameters", "PBEWithSHA1AndRC2_40");
         provide("AlgorithmParameters", "PSS");
         provide("AlgorithmParameters", "RC2");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA1ANDAES_128");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA1ANDAES_256");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA224ANDAES_128");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA224ANDAES_256");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA256ANDAES_128");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA256ANDAES_256");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA384ANDAES_128");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA384ANDAES_256");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA512ANDAES_128");
+        provide("AlgorithmParameters", "PBEWITHHMACSHA512ANDAES_256");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA1ANDAES_128");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA1ANDAES_256");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA224ANDAES_128");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA224ANDAES_256");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA256ANDAES_128");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA256ANDAES_256");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA384ANDAES_128");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA384ANDAES_256");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA512ANDAES_128");
+        provide("SecretKeyFactory", "PBEWITHHMACSHA512ANDAES_256");
         provide("CertPathBuilder", "PKIX");
         provide("CertPathValidator", "PKIX");
         provide("CertStore", "Collection");
@@ -222,6 +245,10 @@ public final class StandardNames extends Assert {
         provide("Mac", "HmacSHA256");
         provide("Mac", "HmacSHA384");
         provide("Mac", "HmacSHA512");
+        provide("Mac", "PBEWITHHMACSHA224");
+        provide("Mac", "PBEWITHHMACSHA256");
+        provide("Mac", "PBEWITHHMACSHA384");
+        provide("Mac", "PBEWITHHMACSHA512");
         // If adding a new MessageDigest, consider adding it to JarVerifier
         provide("MessageDigest", "MD2");
         provide("MessageDigest", "MD5");
@@ -230,7 +257,10 @@ public final class StandardNames extends Assert {
         provide("MessageDigest", "SHA-384");
         provide("MessageDigest", "SHA-512");
         provide("Policy", "JavaPolicy");
-        provide("SSLContext", "SSLv3");
+        // Android does not support SSLv3
+        if (IS_RI) {
+            provide("SSLContext", "SSLv3");
+        }
         provide("SSLContext", "TLSv1");
         provide("SSLContext", "TLSv1.1");
         provide("SSLContext", "TLSv1.2");
@@ -241,6 +271,10 @@ public final class StandardNames extends Assert {
         provide("SecretKeyFactory", "PBEWithSHA1AndDESede");
         provide("SecretKeyFactory", "PBEWithSHA1AndRC2_40");
         provide("SecretKeyFactory", "PBKDF2WithHmacSHA1");
+        provide("SecretKeyFactory", "PBKDF2WithHmacSHA224");
+        provide("SecretKeyFactory", "PBKDF2WithHmacSHA256");
+        provide("SecretKeyFactory", "PBKDF2WithHmacSHA384");
+        provide("SecretKeyFactory", "PBKDF2WithHmacSHA512");
         provide("SecretKeyFactory", "PBKDF2WithHmacSHA1And8bit");
         provide("SecureRandom", "SHA1PRNG");
         provide("Signature", "MD2withRSA");
@@ -459,6 +493,16 @@ public final class StandardNames extends Assert {
             provide("Cipher", "PBEWITHSHAAND40BITRC2-CBC");
             provide("Cipher", "PBEWITHSHAAND40BITRC4");
             provide("Cipher", "PBEWITHSHAANDTWOFISH-CBC");
+            provide("Cipher", "PBEWithHmacSHA1AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA224AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA256AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA384AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA512AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA1AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA224AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA256AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA384AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA512AndAES_256");
             provide("Mac", "PBEWITHHMACSHA");
             provide("Mac", "PBEWITHHMACSHA1");
             provide("SecretKeyFactory", "PBEWITHHMACSHA1");
@@ -498,6 +542,20 @@ public final class StandardNames extends Assert {
             provide("Cipher", "AES/OFB/NOPADDING");
             provide("Cipher", "AES/OFB/PKCS5PADDING");
             provide("Cipher", "AES/OFB/PKCS7PADDING");
+            provide("Cipher", "AES_128/CBC/NOPADDING");
+            provide("Cipher", "AES_128/CBC/PKCS5PADDING");
+            provide("Cipher", "AES_128/CBC/PKCS7PADDING");
+            provide("Cipher", "AES_128/ECB/NOPADDING");
+            provide("Cipher", "AES_128/ECB/PKCS5PADDING");
+            provide("Cipher", "AES_128/ECB/PKCS7PADDING");
+            provide("Cipher", "AES_128/GCM/NOPADDING");
+            provide("Cipher", "AES_256/CBC/NOPADDING");
+            provide("Cipher", "AES_256/CBC/PKCS5PADDING");
+            provide("Cipher", "AES_256/CBC/PKCS7PADDING");
+            provide("Cipher", "AES_256/ECB/NOPADDING");
+            provide("Cipher", "AES_256/ECB/PKCS5PADDING");
+            provide("Cipher", "AES_256/ECB/PKCS7PADDING");
+            provide("Cipher", "AES_256/GCM/NOPADDING");
             provide("Cipher", "DESEDE/CBC/NOPADDING");
             provide("Cipher", "DESEDE/CBC/PKCS5PADDING");
             provide("Cipher", "DESEDE/CBC/PKCS7PADDING");
@@ -545,7 +603,7 @@ public final class StandardNames extends Assert {
             unprovide("AlgorithmParameters", "PBEWithMD5AndDES"); // 1.2.840.113549.1.5.3
 
             // EC support
-            // provide("AlgorithmParameters", "EC");
+            provide("AlgorithmParameters", "EC");
             provide("KeyAgreement", "ECDH");
             provide("KeyFactory", "EC");
             provide("KeyPairGenerator", "EC");
@@ -580,8 +638,7 @@ public final class StandardNames extends Assert {
             provideSslContextEnabledProtocols("TLSv1.2", TLSVersion.SSLv3, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("Default", TLSVersion.SSLv3, TLSVersion.TLSv1);
         } else {
-            provideSslContextEnabledProtocols("SSL", TLSVersion.SSLv3, TLSVersion.TLSv12);
-            provideSslContextEnabledProtocols("SSLv3", TLSVersion.SSLv3, TLSVersion.TLSv12);
+            provideSslContextEnabledProtocols("SSL", TLSVersion.TLSv1, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("TLS", TLSVersion.TLSv1, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("TLSv1", TLSVersion.TLSv1, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("TLSv1.1", TLSVersion.TLSv1, TLSVersion.TLSv12);
@@ -594,8 +651,6 @@ public final class StandardNames extends Assert {
     public static final Set<String> SSL_CONTEXT_PROTOCOLS = new HashSet<String>(Arrays.asList(
         SSL_CONTEXT_PROTOCOLS_DEFAULT,
         "SSL",
-        // "SSLv2",
-        "SSLv3",
         "TLS",
         "TLSv1",
         "TLSv1.1",
@@ -619,8 +674,6 @@ public final class StandardNames extends Assert {
     }
 
     public static final Set<String> SSL_SOCKET_PROTOCOLS = new HashSet<String>(Arrays.asList(
-        // "SSLv2",
-        "SSLv3",
         "TLSv1",
         "TLSv1.1",
         "TLSv1.2"));
@@ -730,26 +783,16 @@ public final class StandardNames extends Assert {
         addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA");
         addBoth(   "TLS_RSA_WITH_AES_256_CBC_SHA");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_256_CBC_SHA");
         addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA");
         addBoth(   "TLS_RSA_WITH_AES_128_CBC_SHA");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
-        addBoth(   "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA");
-        addBoth(   "TLS_ECDHE_RSA_WITH_RC4_128_SHA");
-        addBoth(   "SSL_RSA_WITH_RC4_128_SHA");
         addBoth(   "SSL_RSA_WITH_3DES_EDE_CBC_SHA");
-        addBoth(   "SSL_RSA_WITH_RC4_128_MD5");
 
         // TLSv1.2 cipher suites
         addBoth(   "TLS_RSA_WITH_AES_128_CBC_SHA256");
         addBoth(   "TLS_RSA_WITH_AES_256_CBC_SHA256");
         addOpenSsl("TLS_RSA_WITH_AES_128_GCM_SHA256");
         addOpenSsl("TLS_RSA_WITH_AES_256_GCM_SHA384");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256");
-        addOpenSsl("TLS_DHE_RSA_WITH_AES_128_GCM_SHA256");
-        addOpenSsl("TLS_DHE_RSA_WITH_AES_256_GCM_SHA384");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384");
         addOpenSsl("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");
@@ -762,7 +805,6 @@ public final class StandardNames extends Assert {
         addOpenSsl("TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256");
 
         // Pre-Shared Key (PSK) cipher suites
-        addOpenSsl("TLS_PSK_WITH_RC4_128_SHA");
         addOpenSsl("TLS_PSK_WITH_AES_128_CBC_SHA");
         addOpenSsl("TLS_PSK_WITH_AES_256_CBC_SHA");
         addOpenSsl("TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA");
@@ -801,12 +843,18 @@ public final class StandardNames extends Assert {
         addRi(     "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256");
         addNeither("TLS_DHE_DSS_WITH_AES_256_GCM_SHA384");
 
+        // Android does not have RC4 support
+        addRi(     "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA");
+        addRi(     "TLS_ECDHE_RSA_WITH_RC4_128_SHA");
+        addRi(     "SSL_RSA_WITH_RC4_128_SHA");
+        addRi(     "SSL_RSA_WITH_RC4_128_MD5");
+
         // Dropped
-        addNeither("SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA");
-        addNeither("SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA");
         addRi(     "SSL_DHE_RSA_WITH_DES_CBC_SHA");
+        addNeither("SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA");
+        addNeither("SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DH_anon_EXPORT_WITH_RC4_40_MD5");
         addRi(     "SSL_DH_anon_WITH_3DES_EDE_CBC_SHA");
@@ -817,6 +865,12 @@ public final class StandardNames extends Assert {
         addRi(     "SSL_RSA_WITH_DES_CBC_SHA");
         addRi(     "SSL_RSA_WITH_NULL_MD5");
         addRi(     "SSL_RSA_WITH_NULL_SHA");
+        addRi(     "TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
+        addRi(     "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256");
+        addNeither("TLS_DHE_RSA_WITH_AES_128_GCM_SHA256");
+        addNeither("TLS_DHE_RSA_WITH_AES_128_GCM_SHA384");
+        addRi(     "TLS_DHE_RSA_WITH_AES_256_CBC_SHA");
+        addRi(     "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256");
         addRi(     "TLS_DH_anon_WITH_AES_128_CBC_SHA");
         addRi(     "TLS_DH_anon_WITH_AES_128_CBC_SHA256");
         addNeither("TLS_DH_anon_WITH_AES_128_GCM_SHA256");
@@ -891,14 +945,10 @@ public final class StandardNames extends Assert {
             "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
             "TLS_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_RSA_WITH_AES_128_CBC_SHA",
@@ -915,14 +965,10 @@ public final class StandardNames extends Assert {
             "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
             "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
             "TLS_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_RSA_WITH_AES_128_CBC_SHA",
@@ -986,6 +1032,14 @@ public final class StandardNames extends Assert {
             "TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA",
             "TLS_PSK_WITH_AES_128_CBC_SHA",
             "TLS_PSK_WITH_AES_256_CBC_SHA"
+            );
+
+    // Should be updated to match BoringSSL's defaults when they change.
+    // https://android.googlesource.com/platform/external/boringssl/+/master/src/ssl/t1_lib.c#305
+    public static final List<String> ELLIPTIC_CURVES_DEFAULT = Arrays.asList(
+            "x25519 (29)",
+            "secp256r1 (23)",
+            "secp384r1 (24)"
             );
 
     private static final Set<String> PERMITTED_DEFAULT_KEY_EXCHANGE_ALGS =
@@ -1152,6 +1206,10 @@ public final class StandardNames extends Assert {
             }
             assertEquals(Collections.EMPTY_LIST, disallowedDefaultCipherSuites);
         }
+    }
+
+    public static void assertDefaultEllipticCurves(String[] curves) {
+        assertEquals(ELLIPTIC_CURVES_DEFAULT, Arrays.asList(curves));
     }
 
     public static void assertSSLContextEnabledProtocols(String version, String[] protocols) {

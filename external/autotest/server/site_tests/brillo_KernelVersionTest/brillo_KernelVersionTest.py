@@ -26,7 +26,7 @@ class brillo_KernelVersionTest(test.test):
         """
         try:
             result = host.run_output('uname -r').strip()
-        except error.AutoservRunError:
+        except error.GenericHostRunError:
             raise error.TestFail('Failed to check kernel version')
 
         if utils.compare_versions(result, min_version) < 0:

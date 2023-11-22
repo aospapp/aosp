@@ -17,7 +17,7 @@
 #define TEST_UTIL_H
 
 #include <stddef.h>
-#include <hardware/qemu_pipe.h>
+#include "qemu_pipe.h"
 
 
 double now_secs(void);

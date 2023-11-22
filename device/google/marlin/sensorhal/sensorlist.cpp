@@ -26,12 +26,14 @@ const int kVersion = 1;
 
 const float kMinSampleRateHzAccel = 6.250f;
 const float kMaxSampleRateHzAccel = 400.0f;
+extern const float kScaleAccel = (8.0f * 9.81f / 32768.0f);
 
 const float kMinSampleRateHzGyro = 6.250f;
 const float kMaxSampleRateHzGyro = 400.0f;
 
 const float kMinSampleRateHzMag = 3.125f;
 const float kMaxSampleRateHzMag = 50.0f;
+extern const float kScaleMag = 0.15f;
 
 const float kMinSampleRateHzPolling = 0.1f;
 const float kMaxSampleRateHzPolling = 25.0f;
@@ -50,6 +52,31 @@ const float kMaxSampleRateHzLight = 5.0;
 
 const float kMinSampleRateHzOrientation = 12.5f;
 const float kMaxSampleRateHzOrientation = 200.0f;
+
+#ifdef DIRECT_REPORT_ENABLED
+constexpr uint32_t kDirectReportFlagAccel = (
+        // support up to rate level fast (nominal 200Hz);
+        (SENSOR_DIRECT_RATE_FAST << SENSOR_FLAG_SHIFT_DIRECT_REPORT)
+        // support ashmem and gralloc direct channel
+        | SENSOR_FLAG_DIRECT_CHANNEL_ASHMEM
+        | SENSOR_FLAG_DIRECT_CHANNEL_GRALLOC);
+constexpr uint32_t kDirectReportFlagGyro = (
+        // support up to rate level fast (nominal 200Hz);
+        (SENSOR_DIRECT_RATE_FAST << SENSOR_FLAG_SHIFT_DIRECT_REPORT)
+        // support ashmem and gralloc direct channel
+        | SENSOR_FLAG_DIRECT_CHANNEL_ASHMEM
+        | SENSOR_FLAG_DIRECT_CHANNEL_GRALLOC);
+constexpr uint32_t kDirectReportFlagMag = (
+        // support up to rate level normal (nominal 50Hz);
+        (SENSOR_DIRECT_RATE_NORMAL << SENSOR_FLAG_SHIFT_DIRECT_REPORT)
+        // support ashmem and gralloc direct channel
+        | SENSOR_FLAG_DIRECT_CHANNEL_ASHMEM
+        | SENSOR_FLAG_DIRECT_CHANNEL_GRALLOC);
+#else
+constexpr uint32_t kDirectReportFlagAccel = 0;
+constexpr uint32_t kDirectReportFlagGyro = 0;
+constexpr uint32_t kDirectReportFlagMag = 0;
+#endif
 
 /*
  * The fowllowing max count is determined by the total number of blocks
@@ -73,6 +100,8 @@ const char SENSOR_STRING_TYPE_DOUBLE_TWIST[] =
     "com.google.sensor.double_twist";
 const char SENSOR_STRING_TYPE_DOUBLE_TAP[] =
     "com.google.sensor.double_tap";
+const char SENSOR_STRING_TYPE_DOUBLE_TOUCH[] =
+    "com.google.sensor.double_touch";
 
 extern const sensor_t kSensorList[] = {
     {
@@ -126,7 +155,7 @@ extern const sensor_t kSensorList[] = {
         SENSOR_STRING_TYPE_ACCELEROMETER,
         "",                                        // requiredPermission
         (long)(1.0E6f / kMinSampleRateHzAccel),    // maxDelay
-        SENSOR_FLAG_CONTINUOUS_MODE,
+        SENSOR_FLAG_CONTINUOUS_MODE | kDirectReportFlagAccel,
         { NULL, NULL }
     },
     {
@@ -144,7 +173,7 @@ extern const sensor_t kSensorList[] = {
         SENSOR_STRING_TYPE_GYROSCOPE,
         "",                                        // requiredPermission
         (long)(1.0E6f / kMinSampleRateHzGyro),     // maxDelay
-        SENSOR_FLAG_CONTINUOUS_MODE,
+        SENSOR_FLAG_CONTINUOUS_MODE | kDirectReportFlagGyro,
         { NULL, NULL }
     },
     {
@@ -180,7 +209,7 @@ extern const sensor_t kSensorList[] = {
         SENSOR_STRING_TYPE_MAGNETIC_FIELD,
         "",                                        // requiredPermission
         (long)(1.0E6f / kMinSampleRateHzMag),      // maxDelay
-        SENSOR_FLAG_CONTINUOUS_MODE,
+        SENSOR_FLAG_CONTINUOUS_MODE | kDirectReportFlagMag,
         { NULL, NULL }
     },
     {
@@ -417,7 +446,6 @@ extern const sensor_t kSensorList[] = {
         SENSOR_FLAG_WAKE_UP | SENSOR_FLAG_SPECIAL_REPORTING_MODE,
         { NULL, NULL }
     },
-    /*
     {
         "Pickup Gesture",
         "Google",
@@ -436,7 +464,6 @@ extern const sensor_t kSensorList[] = {
         SENSOR_FLAG_WAKE_UP | SENSOR_FLAG_ONE_SHOT_MODE,
         { NULL, NULL }
     },
-    */
     {
         "Sensors Sync",
         "Google",
@@ -507,6 +534,42 @@ extern const sensor_t kSensorList[] = {
         "",                                     // requiredPermission
         0,                                      // maxDelay
         SENSOR_FLAG_ON_CHANGE_MODE,
+        { NULL, NULL }
+    },
+    {
+        "Double Touch",
+        "Google",
+        kVersion,
+        COMMS_SENSOR_DOUBLE_TOUCH,
+        SENSOR_TYPE_DOUBLE_TOUCH,
+        1.0f,                                   // maxRange
+        1.0f,                                   // XXX resolution
+        0.0f,                                   // XXX power
+        -1,                                     // minDelay
+        0,                                      // XXX fifoReservedEventCount
+        0,                                      // XXX fifoMaxEventCount
+        SENSOR_STRING_TYPE_DOUBLE_TOUCH,
+        "",                                     // requiredPermission
+        0,                                      // maxDelay
+        SENSOR_FLAG_WAKE_UP | SENSOR_FLAG_ONE_SHOT_MODE,
+        { NULL, NULL }
+    },
+    {
+        "BMI160 accelerometer (uncalibrated)",
+        "Bosch",
+        kVersion,
+        COMMS_SENSOR_ACCEL_UNCALIBRATED,
+        SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED,
+        GRAVITY_EARTH * 8.0f,                      // maxRange
+        GRAVITY_EARTH * 8.0f / 32768.0f,           // resolution
+        0.0f,                                      // XXX power
+        (int32_t)(1.0E6f / kMaxSampleRateHzAccel), // minDelay
+        3000,                                      // XXX fifoReservedEventCount
+        kMaxRawThreeAxisEventCount,                // XXX fifoMaxEventCount
+        SENSOR_STRING_TYPE_ACCELEROMETER_UNCALIBRATED,
+        "",                                        // requiredPermission
+        (long)(1.0E6f / kMinSampleRateHzAccel),    // maxDelay
+        SENSOR_FLAG_CONTINUOUS_MODE,
         { NULL, NULL }
     },
 };

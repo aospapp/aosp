@@ -46,6 +46,9 @@ public class AllocationCreateAllocationsTest extends RSBaseCompute {
         Allocation[] allocArray;
         allocArray = createAllocationsHelper(usage, numAlloc);
         assertTrue("failed to create AllocationQueue", allocArray != null);
+        for (Allocation a : allocArray) {
+            a.destroy();
+        }
     }
 
     public void testCreateAllocations_USAGE_IO_INPUT() {
@@ -61,6 +64,9 @@ public class AllocationCreateAllocationsTest extends RSBaseCompute {
         numAlloc = 10;
         allocArray = createAllocationsHelper(usage, numAlloc);
         assertTrue("failed to create AllocationQueue", allocArray != null);
+        for (Allocation a : allocArray) {
+            a.destroy();
+        }
     }
 
     public void testGetProperties() {
@@ -85,6 +91,9 @@ public class AllocationCreateAllocationsTest extends RSBaseCompute {
             Surface s = allocArray[i].getSurface();
             assertTrue("Surface mismatch between AllocationQueue and Allocation",
                        s.equals(sRef));
+        }
+        for (Allocation a : allocArray) {
+            a.destroy();
         }
     }
 
@@ -112,5 +121,9 @@ public class AllocationCreateAllocationsTest extends RSBaseCompute {
                 assertTrue("IoReceive Failed, Frame: " + i, dataIn[j] == dataOut[j]);
             }
         }
+        for (Allocation a : allocArray) {
+            a.destroy();
+        }
+        inputAlloc.destroy();
     }
 }

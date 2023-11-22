@@ -5,7 +5,6 @@
 AUTHOR = "wonderfly@google.com, adityakali@google.com"
 NAME = "gce-smoke"
 PURPOSE = "Basic tests that are able to run on GCE"
-CRITERIA = "All tests with SUITE=gce-smoke must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

@@ -16,11 +16,9 @@
 
 package com.android.support.car.apitest;
 
-import android.content.ComponentName;
-import android.os.IBinder;
 import android.os.Looper;
 import android.support.car.Car;
-import android.support.car.ServiceConnectionListener;
+import android.support.car.CarConnectionCallback;
 import android.test.AndroidTestCase;
 
 import java.util.concurrent.Semaphore;
@@ -31,8 +29,8 @@ public class CarApiTestBase extends AndroidTestCase {
 
     private Car mCar;
 
-    private final DefaultServiceConnectionListener mConnectionListener =
-            new DefaultServiceConnectionListener();
+    private final DefaultCarConnectionCallback mConnectionCallbacks =
+            new DefaultCarConnectionCallback();
 
     protected void assertMainThread() {
         assertTrue(Looper.getMainLooper().isCurrentThread());
@@ -41,9 +39,9 @@ public class CarApiTestBase extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mCar = Car.createCar(getContext(), mConnectionListener);
+        mCar = Car.createCar(getContext(), mConnectionCallbacks);
         mCar.connect();
-        mConnectionListener.waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
+        mConnectionCallbacks.waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
     }
 
     @Override
@@ -56,30 +54,19 @@ public class CarApiTestBase extends AndroidTestCase {
         return mCar;
     }
 
-    protected class DefaultServiceConnectionListener implements ServiceConnectionListener {
+    protected class DefaultCarConnectionCallback extends CarConnectionCallback {
         private final Semaphore mConnectionWait = new Semaphore(0);
 
         public void waitForConnection(long timeoutMs) throws InterruptedException {
             mConnectionWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
         }
-
         @Override
-        public void onServiceSuspended(int cause) {
+        public void onDisconnected(Car car) {
             assertMainThread();
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName name) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnectionFailed(int cause) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnected(ComponentName name) {
+        public void onConnected(Car car) {
             assertMainThread();
             mConnectionWait.release();
         }

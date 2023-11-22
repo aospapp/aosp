@@ -17,16 +17,19 @@
 #define TRACE_TAG ADB
 
 #include "adb_utils.h"
+#include "adb_unique_fd.h"
 
-#include <libgen.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <vector>
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
@@ -40,10 +43,10 @@
 #  endif
 #  include "windows.h"
 #  include "shlobj.h"
+#else
+#include <pwd.h>
 #endif
 
-ADB_MUTEX_DEFINE(basename_lock);
-ADB_MUTEX_DEFINE(dirname_lock);
 
 #if defined(_WIN32)
 constexpr char kNullFileName[] = "NUL";
@@ -72,7 +75,7 @@ bool getcwd(std::string* s) {
 
 bool directory_exists(const std::string& path) {
   struct stat sb;
-  return lstat(path.c_str(), &sb) != -1 && S_ISDIR(sb.st_mode);
+  return stat(path.c_str(), &sb) != -1 && S_ISDIR(sb.st_mode);
 }
 
 std::string escape_arg(const std::string& s) {
@@ -93,52 +96,6 @@ std::string escape_arg(const std::string& s) {
   // Prefix and suffix the whole string with '.
   result.insert(result.begin(), '\'');
   result.push_back('\'');
-  return result;
-}
-
-std::string adb_basename(const std::string& path) {
-  // Copy path because basename may modify the string passed in.
-  std::string result(path);
-
-  // Use lock because basename() may write to a process global and return a
-  // pointer to that. Note that this locking strategy only works if all other
-  // callers to dirname in the process also grab this same lock.
-  adb_mutex_lock(&basename_lock);
-
-  // Note that if std::string uses copy-on-write strings, &str[0] will cause
-  // the copy to be made, so there is no chance of us accidentally writing to
-  // the storage for 'path'.
-  char* name = basename(&result[0]);
-
-  // In case dirname returned a pointer to a process global, copy that string
-  // before leaving the lock.
-  result.assign(name);
-
-  adb_mutex_unlock(&basename_lock);
-
-  return result;
-}
-
-std::string adb_dirname(const std::string& path) {
-  // Copy path because dirname may modify the string passed in.
-  std::string result(path);
-
-  // Use lock because dirname() may write to a process global and return a
-  // pointer to that. Note that this locking strategy only works if all other
-  // callers to dirname in the process also grab this same lock.
-  adb_mutex_lock(&dirname_lock);
-
-  // Note that if std::string uses copy-on-write strings, &str[0] will cause
-  // the copy to be made, so there is no chance of us accidentally writing to
-  // the storage for 'path'.
-  char* parent = dirname(&result[0]);
-
-  // In case dirname returned a pointer to a process global, copy that string
-  // before leaving the lock.
-  result.assign(parent);
-
-  adb_mutex_unlock(&dirname_lock);
-
   return result;
 }
 
@@ -167,7 +124,7 @@ bool mkdirs(const std::string& path) {
     return true;
   }
 
-  const std::string parent(adb_dirname(path));
+  const std::string parent(android::base::Dirname(path));
 
   // If dirname returned the same path as what we passed in, don't go recursive.
   // This can happen on Windows when walking up the directory hierarchy and not
@@ -239,14 +196,31 @@ bool set_file_block_mode(int fd, bool block) {
 }
 #endif
 
-std::string adb_get_homedir_path(bool check_env_first) {
-#ifdef _WIN32
-    if (check_env_first) {
-        if (const char* const home = getenv("ANDROID_SDK_HOME")) {
-            return home;
+bool forward_targets_are_valid(const std::string& source, const std::string& dest,
+                               std::string* error) {
+    if (android::base::StartsWith(source, "tcp:")) {
+        // The source port may be 0 to allow the system to select an open port.
+        int port;
+        if (!android::base::ParseInt(&source[4], &port) || port < 0) {
+            *error = android::base::StringPrintf("Invalid source port: '%s'", &source[4]);
+            return false;
         }
     }
 
+    if (android::base::StartsWith(dest, "tcp:")) {
+        // The destination port must be > 0.
+        int port;
+        if (!android::base::ParseInt(&dest[4], &port) || port <= 0) {
+            *error = android::base::StringPrintf("Invalid destination port: '%s'", &dest[4]);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::string adb_get_homedir_path() {
+#ifdef _WIN32
     WCHAR path[MAX_PATH];
     const HRESULT hr = SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, 0, path);
     if (FAILED(hr)) {
@@ -262,7 +236,45 @@ std::string adb_get_homedir_path(bool check_env_first) {
     if (const char* const home = getenv("HOME")) {
         return home;
     }
+
+    struct passwd pwent;
+    struct passwd* result;
+    int pwent_max = sysconf(_SC_GETPW_R_SIZE_MAX);
+    std::vector<char> buf(pwent_max);
+    int rc = getpwuid_r(getuid(), &pwent, buf.data(), buf.size(), &result);
+    if (rc == 0 && result) {
+        return result->pw_dir;
+    }
+
+    LOG(FATAL) << "failed to get user home directory";
     return {};
 #endif
 }
 
+std::string adb_get_android_dir_path() {
+    std::string user_dir = adb_get_homedir_path();
+    std::string android_dir = user_dir + OS_PATH_SEPARATOR + ".android";
+    struct stat buf;
+    if (stat(android_dir.c_str(), &buf) == -1) {
+        if (adb_mkdir(android_dir.c_str(), 0750) == -1) {
+            PLOG(FATAL) << "Cannot mkdir '" << android_dir << "'";
+        }
+    }
+    return android_dir;
+}
+
+void AdbCloser::Close(int fd) {
+    adb_close(fd);
+}
+
+int usage(const char* fmt, ...) {
+    fprintf(stderr, "adb: ");
+
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
+    return 1;
+}

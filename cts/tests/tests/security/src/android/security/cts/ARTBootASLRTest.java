@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import android.test.AndroidTestCase;
+import android.platform.test.annotations.SecurityTest;
 
 import junit.framework.TestCase;
 
@@ -28,6 +29,7 @@ import java.nio.charset.Charset;
 /**
  * Verify that the boot.art isn't mapped out of the system partition.
  */
+@SecurityTest
 public class ARTBootASLRTest extends AndroidTestCase {
     public void testARTASLR() throws Exception {
         FileInputStream ins = new FileInputStream("/proc/self/maps");

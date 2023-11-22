@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 
+import contextlib
 import grp
 import httplib
 import json
@@ -14,31 +15,54 @@ import time
 import urllib2
 
 import common
-from autotest_lib.client.common_lib import base_utils
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import host_queue_entry_states
+from autotest_lib.client.common_lib import host_states
+from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import job_status
 
 try:
     from chromite.lib import cros_build_lib
+    from chromite.lib import ts_mon_config
 except ImportError:
-    logging.warn('Unable to import chromite.')
+    logging.warn('Unable to import chromite. Monarch is disabled.')
     # Init the module variable to None. Access to this module can check if it
     # is not None before making calls.
     cros_build_lib = None
+    ts_mon_config = None
 
 
-_SHERIFF_JS = global_config.global_config.get_config_value(
-    'NOTIFICATIONS', 'sheriffs', default='')
-_LAB_SHERIFF_JS = global_config.global_config.get_config_value(
-    'NOTIFICATIONS', 'lab_sheriffs', default='')
-_CHROMIUM_BUILD_URL = global_config.global_config.get_config_value(
-    'NOTIFICATIONS', 'chromium_build_url', default='')
+CONFIG = global_config.global_config
+
+_SHERIFF_JS = CONFIG.get_config_value('NOTIFICATIONS', 'sheriffs', default='')
+_LAB_SHERIFF_JS = CONFIG.get_config_value(
+        'NOTIFICATIONS', 'lab_sheriffs', default='')
+_CHROMIUM_BUILD_URL = CONFIG.get_config_value(
+        'NOTIFICATIONS', 'chromium_build_url', default='')
 
 LAB_GOOD_STATES = ('open', 'throttled')
 
+ENABLE_DRONE_IN_RESTRICTED_SUBNET = CONFIG.get_config_value(
+        'CROS', 'enable_drone_in_restricted_subnet', type=bool,
+        default=False)
+
+# Wait at most 10 mins for duts to go idle.
+IDLE_DUT_WAIT_TIMEOUT = 600
+
+# Mapping between board name and build target. This is for special case handling
+# for certain Android board that the board name and build target name does not
+# match.
+ANDROID_TARGET_TO_BOARD_MAP = {
+        'seed_l8150': 'gm4g_sprout',
+        'bat_land': 'bat'
+        }
+ANDROID_BOARD_TO_TARGET_MAP = {
+        'gm4g_sprout': 'seed_l8150',
+        'bat': 'bat_land'
+        }
 
 class TestLabException(Exception):
     """Exception raised when the Test Lab blocks a test or suite."""
@@ -61,6 +85,21 @@ class Singleton(type):
                     *args, **kwargs)
         return cls._instances[cls]
 
+class EmptyAFEHost(object):
+    """Object to represent an AFE host object when there is no AFE."""
+
+    def __init__(self):
+        """
+        We'll be setting the instance attributes as we use them.  Right now
+        we only use attributes and labels but as time goes by and other
+        attributes are used from an actual AFE Host object (check
+        rpc_interfaces.get_hosts()), we'll add them in here so users won't be
+        perplexed why their host's afe_host object complains that attribute
+        doesn't exist.
+        """
+        self.attributes = {}
+        self.labels = []
+
 
 def ParseBuildName(name):
     """Format a build name, given board, type, milestone, and manifest num.
@@ -76,8 +115,9 @@ def ParseBuildName(name):
                       Will be None for relative build names.
 
     """
-    match = re.match(r'(trybot-)?(?P<board>[\w-]+)-(?P<type>\w+)/'
-                     r'(R(?P<milestone>\d+)-(?P<manifest>[\d.ab-]+)|LATEST)',
+    match = re.match(r'(trybot-)?(?P<board>[\w-]+?)(?:-chrome)?(?:-chromium)?'
+                     r'-(?P<type>\w+)/(R(?P<milestone>\d+)-'
+                     r'(?P<manifest>[\d.ab-]+)|LATEST)',
                      name)
     if match and len(match.groups()) >= 5:
         return (match.group('board'), match.group('type'),
@@ -149,9 +189,15 @@ def get_build_from_afe(hostname, afe):
              were multiple build labels assigned to this host.
 
     """
-    return get_label_from_afe(hostname, constants.VERSION_PREFIX, afe)
+    for prefix in [provision.CROS_VERSION_PREFIX,
+                   provision.ANDROID_BUILD_VERSION_PREFIX]:
+        build = get_label_from_afe(hostname, prefix + ':', afe)
+        if build:
+            return build
+    return None
 
 
+# TODO(fdeng): fix get_sheriffs crbug.com/483254
 def get_sheriffs(lab_only=False):
     """
     Polls the javascript file that holds the identity of the sheriff and
@@ -170,7 +216,7 @@ def get_sheriffs(lab_only=False):
 
     for sheriff_js in sheriff_js_list:
         try:
-            url_content = base_utils.urlopen('%s%s'% (
+            url_content = utils.urlopen('%s%s'% (
                 _CHROMIUM_BUILD_URL, sheriff_js)).read()
         except (ValueError, IOError) as e:
             logging.warning('could not parse sheriff from url %s%s: %s',
@@ -199,7 +245,7 @@ def remote_wget(source_url, dest_path, ssh_cmd):
     """
     wget_cmd = ("wget -O - %s | %s 'cat >%s'" %
                 (source_url, ssh_cmd, dest_path))
-    base_utils.run(wget_cmd)
+    utils.run(wget_cmd)
 
 
 _MAX_LAB_STATUS_ATTEMPTS = 5
@@ -262,8 +308,7 @@ def is_in_lab():
 
     @return: True if the Autotest instance is in lab.
     """
-    test_server_name = global_config.global_config.get_config_value(
-              'SERVER', 'hostname')
+    test_server_name = CONFIG.get_config_value('SERVER', 'hostname')
     return test_server_name.startswith('cautotest')
 
 
@@ -284,8 +329,7 @@ def check_lab_status(build):
         return
 
     # Download the lab status from its home on the web.
-    status_url = global_config.global_config.get_config_value(
-            'CROS', 'lab_status_url')
+    status_url = CONFIG.get_config_value('CROS', 'lab_status_url')
     json_status = _get_lab_status(status_url)
     if json_status is None:
         # We go ahead and say the lab is open if we can't get the status.
@@ -351,47 +395,6 @@ def get_test_views_from_tko(suite_job_id, tko):
         test_views[view['test_name']] = view['status']
 
     return test_views
-
-
-def parse_simple_config(config_file):
-    """Get paths by parsing a simple config file.
-
-    Each line of the config file is a path for a file or directory.
-    Ignore an empty line and a line starting with a hash character ('#').
-    One example of this kind of simple config file is
-    client/common_lib/logs_to_collect.
-
-    @param config_file: Config file path
-    @return: A list of directory strings
-    """
-    dirs = []
-    for l in open(config_file):
-        l = l.strip()
-        if l and not l.startswith('#'):
-            dirs.append(l)
-    return dirs
-
-
-def concat_path_except_last(base, sub):
-    """Concatenate two paths but exclude last entry.
-
-    Take two paths as parameters and return a path string in which
-    the second path becomes under the first path.
-    In addition, remove the last path entry from the concatenated path.
-    This works even when two paths are absolute paths.
-
-    e.g., /usr/local/autotest/results/ + /var/log/ =
-    /usr/local/autotest/results/var
-
-    e.g., /usr/local/autotest/results/ + /var/log/syslog =
-    /usr/local/autotest/results/var/log
-
-    @param base: Beginning path
-    @param sub: The path that is concatenated to base
-    @return: Concatenated path string
-    """
-    dirname = os.path.dirname(sub.rstrip('/'))
-    return os.path.join(base, dirname.strip('/'))
 
 
 def get_data_key(prefix, suite, build, board):
@@ -474,15 +477,13 @@ def is_shard():
 
     @return True, if shard_hostname is set, False otherwise.
     """
-    hostname = global_config.global_config.get_config_value(
-            'SHARD', 'shard_hostname', default=None)
+    hostname = CONFIG.get_config_value('SHARD', 'shard_hostname', default=None)
     return bool(hostname)
 
 
 def get_global_afe_hostname():
     """Read the hostname of the global AFE from the global configuration."""
-    return global_config.global_config.get_config_value(
-            'SERVER', 'global_afe_hostname')
+    return CONFIG.get_config_value('SERVER', 'global_afe_hostname')
 
 
 def is_restricted_user(username):
@@ -497,11 +498,14 @@ def is_restricted_user(username):
     if not username:
         return False
 
-    restricted_groups = global_config.global_config.get_config_value(
+    restricted_groups = CONFIG.get_config_value(
             'AUTOTEST_WEB', 'restricted_groups', default='').split(',')
     for group in restricted_groups:
-        if group and username in grp.getgrnam(group).gr_mem:
-            return True
+        try:
+            if group and username in grp.getgrnam(group).gr_mem:
+                return True
+        except KeyError as e:
+            logging.debug("%s is not a valid group.", group)
     return False
 
 
@@ -611,7 +615,7 @@ def parse_job_name(name):
     Suite job created by run_suite follows the naming convention of:
     [build]-test_suites/control.[suite]
     For example: lumpy-release/R46-7272.0.0-test_suites/control.bvt
-    The naming convention is defined in site_rpc_interface.create_suite_job.
+    The naming convention is defined in rpc_interface.create_suite_job.
 
     Test job created by suite job follows the naming convention of:
     [build]/[suite]/[test name]
@@ -621,6 +625,8 @@ def parse_job_name(name):
 
     Note that pgo and chrome-perf builds will fail the method. Since lab does
     not run test for these builds, they can be ignored.
+    Also, tests for Launch Control builds have different naming convention.
+    The build ID will be used as build_version.
 
     @param name: Name of the job.
 
@@ -632,8 +638,8 @@ def parse_job_name(name):
 
     """
     info = {}
-    suite_job_regex = '([^/]*/[^/]*)-test_suites/control\.(.*)'
-    test_job_regex = '([^/]*/[^/]*)/([^/]+)/.*'
+    suite_job_regex = '([^/]*/[^/]*(?:/\d+)?)-test_suites/control\.(.*)'
+    test_job_regex = '([^/]*/[^/]*(?:/\d+)?)/([^/]+)/.*'
     match = re.match(suite_job_regex, name)
     if not match:
         match = re.match(test_job_regex, name)
@@ -644,7 +650,18 @@ def parse_job_name(name):
         try:
             info['board'], _, _, _ = ParseBuildName(info['build'])
         except ParseBuildNameException:
-            pass
+            # Try to parse it as Launch Control build
+            # Launch Control builds have name format:
+            # branch/build_target-build_type/build_id.
+            try:
+                _, target, build_id = utils.parse_launch_control_build(
+                        info['build'])
+                build_target, _ = utils.parse_launch_control_target(target)
+                if build_target:
+                    info['board'] = build_target
+                    info['build_version'] = build_id
+            except ValueError:
+                pass
     return info
 
 
@@ -691,12 +708,21 @@ def get_hostname_from_machine(machine):
 def get_host_info_from_machine(machine):
     """Lookup host information from a machine string or dict.
 
-    @returns: Tuple of (hostname, host_attributes)
+    @returns: Tuple of (hostname, afe_host)
     """
     if isinstance(machine, dict):
-        return (machine['hostname'], machine['host_attributes'])
+        return (machine['hostname'], machine['afe_host'])
     else:
-        return (machine, {})
+        return (machine, EmptyAFEHost())
+
+
+def get_afe_host_from_machine(machine):
+    """Return the afe_host from the machine dict if possible.
+
+    @returns: AFE host object.
+    """
+    _, afe_host = get_host_info_from_machine(machine)
+    return afe_host
 
 
 def get_creds_abspath(creds_file):
@@ -713,8 +739,7 @@ def get_creds_abspath(creds_file):
         return None
     if os.path.isabs(creds_file):
         return creds_file
-    creds_dir = global_config.global_config.get_config_value(
-            'SERVER', 'creds_dir', default='')
+    creds_dir = CONFIG.get_config_value('SERVER', 'creds_dir', default='')
     if not creds_dir or not os.path.exists(creds_dir):
         creds_dir = common.autotest_dir
     return os.path.join(creds_dir, creds_file)
@@ -730,7 +755,116 @@ def machine_is_testbed(machine):
 
     @return: True if the machine is a testbed, False otherwise.
     """
-    _, attributes = get_host_info_from_machine(machine)
-    if len(attributes.get('serials', '').split(',')) > 1:
+    _, afe_host = get_host_info_from_machine(machine)
+    return len(afe_host.attributes.get('serials', '').split(',')) > 1
+
+
+def SetupTsMonGlobalState(*args, **kwargs):
+    """Import-safe wrap around chromite.lib.ts_mon_config's setup function.
+
+    @param *args: Args to pass through.
+    @param **kwargs: Kwargs to pass through.
+    """
+    if ts_mon_config:
+        try:
+            context = ts_mon_config.SetupTsMonGlobalState(*args, **kwargs)
+            if hasattr(context, '__exit__'):
+                return context
+        except Exception as e:
+            logging.warning('Caught an exception trying to setup ts_mon, '
+                            'monitoring is disabled: %s', e, exc_info=True)
+        return TrivialContextManager()
+    else:
+        return TrivialContextManager()
+
+
+@contextlib.contextmanager
+def TrivialContextManager(*args, **kwargs):
+    """Context manager that does nothing.
+
+    @param *args: Ignored args
+    @param **kwargs: Ignored kwargs.
+    """
+    yield
+
+
+def wait_for_idle_duts(duts, afe, max_wait=IDLE_DUT_WAIT_TIMEOUT):
+    """Wait for the hosts to all go idle.
+
+    @param duts: List of duts to check for idle state.
+    @param afe: afe instance.
+    @param max_wait: Max wait time in seconds.
+
+    @returns Boolean True if all hosts are idle or False if any hosts did not
+            go idle within max_wait.
+    """
+    start_time = time.time()
+    # We make a shallow copy since we're going to be modifying active_dut_list.
+    active_dut_list = duts[:]
+    while active_dut_list:
+        # Let's rate-limit how often we hit the AFE.
+        time.sleep(1)
+
+        # Check if we've waited too long.
+        if (time.time() - start_time) > max_wait:
+            return False
+
+        idle_duts = []
+        # Get the status for the duts and see if they're in the idle state.
+        afe_hosts = afe.get_hosts(active_dut_list)
+        idle_duts = [afe_host.hostname for afe_host in afe_hosts
+                     if afe_host.status in host_states.IDLE_STATES]
+
+        # Take out idle duts so we don't needlessly check them
+        # next time around.
+        for idle_dut in idle_duts:
+            active_dut_list.remove(idle_dut)
+
+        logging.info('still waiting for following duts to go idle: %s',
+                     active_dut_list)
+    return True
+
+
+@contextlib.contextmanager
+def lock_duts_and_wait(duts, afe, lock_msg='default lock message',
+                       max_wait=IDLE_DUT_WAIT_TIMEOUT):
+    """Context manager to lock the duts and wait for them to go idle.
+
+    @param duts: List of duts to lock.
+    @param afe: afe instance.
+
+    @returns Boolean lock_success where True if all duts locked successfully or
+             False if we timed out waiting too long for hosts to go idle.
+    """
+    try:
+        locked_duts = []
+        duts.sort()
+        for dut in duts:
+            if afe.lock_host(dut, lock_msg, fail_if_locked=True):
+                locked_duts.append(dut)
+            else:
+                logging.info('%s already locked', dut)
+        yield wait_for_idle_duts(locked_duts, afe, max_wait)
+    finally:
+        afe.unlock_hosts(locked_duts)
+
+
+def board_labels_allowed(boards):
+    """Check if the list of board labels can be set to a single host.
+
+    The only case multiple board labels can be set to a single host is for
+    testbed, which may have a list of board labels like
+    board:angler-1, board:angler-2, board:angler-3, board:marlin-1'
+
+    @param boards: A list of board labels (may include platform label).
+
+    @returns True if the the list of boards can be set to a single host.
+    """
+    # Filter out any non-board labels
+    boards = [b for b in boards if re.match('board:.*', b)]
+    if len(boards) <= 1:
         return True
-    return False
+    for board in boards:
+        if not re.match('board:[^-]+-\d+', board):
+            return False
+    return True

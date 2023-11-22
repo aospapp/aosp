@@ -16,11 +16,11 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.Chronometer;
+import android.widget.cts.R;
 
 public class ChronometerCtsActivity extends Activity {
 

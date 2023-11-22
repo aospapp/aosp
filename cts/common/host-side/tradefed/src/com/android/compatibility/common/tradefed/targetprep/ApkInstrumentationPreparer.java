@@ -17,14 +17,13 @@
 package com.android.compatibility.common.tradefed.targetprep;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.compatibility.common.tradefed.util.NoOpTestInvocationListener;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
-import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
@@ -33,8 +32,6 @@ import com.android.tradefed.testtype.AndroidJUnitTest;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -57,6 +54,9 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
     @Option(name = "when", description = "When to instrument the apk", mandatory = true)
     protected When mWhen = null;
 
+    @Option(name = "throw-error", description = "Whether to throw error for device test failure")
+    protected boolean mThrowError = true;
+
     protected ConcurrentHashMap<TestIdentifier, Map<String, String>> testMetrics =
             new ConcurrentHashMap<>();
     private ConcurrentHashMap<TestIdentifier, String> testFailures = new ConcurrentHashMap<>();
@@ -72,12 +72,14 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
         }
         try {
             if (instrument(device, buildInfo)) {
-                logInfo("Target preparation successful");
-            } else {
-                throw new TargetSetupError("Not all target preparation steps completed");
+                CLog.d("Target preparation successful");
+            } else if (mThrowError) {
+                throw new TargetSetupError("Not all target preparation steps completed",
+                        device.getDeviceDescriptor());
             }
         } catch (FileNotFoundException e) {
-            throw new TargetSetupError("Couldn't find apk to instrument", e);
+            throw new TargetSetupError("Couldn't find apk to instrument", e,
+                    device.getDeviceDescriptor());
         }
     }
 
@@ -117,7 +119,7 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
             device.uninstallPackage(mPackageName);
         }
 
-        logInfo("Instrumenting package %s:", mPackageName);
+        logInfo("Instrumenting package: %s", mPackageName);
         AndroidJUnitTest instrTest = new AndroidJUnitTest();
         instrTest.setDevice(device);
         instrTest.setInstallFile(apkFile);
@@ -128,13 +130,18 @@ public class ApkInstrumentationPreparer extends PreconditionPreparer implements 
             for (TestIdentifier test : testFailures.keySet()) {
                 success = false;
                 String trace = testFailures.get(test);
-                logError("Target preparation step %s failed.\n%s", test.getTestName(), trace);
+                if (mThrowError) {
+                    logError("Target preparation step %s failed.\n%s", test.getTestName(), trace);
+                } else {
+                    logWarning("Target preparation step %s failed.\n%s", test.getTestName(),
+                            trace);
+                }
             }
         }
         return success;
     }
 
-    public class TargetPreparerListener extends NoOpTestInvocationListener {
+    private class TargetPreparerListener implements ITestInvocationListener {
 
         @Override
         public void testEnded(TestIdentifier test, Map<String, String> metrics) {

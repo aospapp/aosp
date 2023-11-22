@@ -32,7 +32,6 @@ import java.util.Arrays;
  * manipulate the buffer that stores characters and their attributes as well as the regions
  * displayed.
  *
- * @author Matthias L. Jugel, Marcus Meißner
  * @version $Id: VDUBuffer.java 503 2005-10-24 07:34:13Z marcus $
  */
 public class VDUBuffer {

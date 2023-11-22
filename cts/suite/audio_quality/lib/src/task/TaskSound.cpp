@@ -14,7 +14,7 @@
  * the License.
  */
 
-#include <UniquePtr.h>
+#include <memory>
 #include "Log.h"
 #include "audio/AudioSignalFactory.h"
 #include "audio/RemoteAudio.h"
@@ -61,7 +61,7 @@ TaskGeneric::ExecutionResult TaskSound::run()
         LOGE("TaskSound::run %s string not found", STR_TYPE.string());
         return TaskGeneric::EResultError;
     }
-    UniquePtr<std::vector<android::String8> > tokens(StringUtil::split(type, ':'));
+    std::unique_ptr<std::vector<android::String8> > tokens(StringUtil::split(type, ':'));
     if (tokens.get() == NULL) {
         LOGE("alloc failed");
         return TaskGeneric::EResultError;

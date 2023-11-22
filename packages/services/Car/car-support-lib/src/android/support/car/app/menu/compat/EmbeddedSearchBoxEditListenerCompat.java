@@ -17,6 +17,9 @@ package android.support.car.app.menu.compat;
 
 import android.support.car.app.menu.SearchBoxEditListener;
 
+/**
+ * @hide
+ */
 public class EmbeddedSearchBoxEditListenerCompat extends
         android.car.app.menu.SearchBoxEditListener {
     private final SearchBoxEditListener mListener;

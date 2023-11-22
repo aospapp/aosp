@@ -25,6 +25,7 @@ from autotest_lib.site_utils import lxc
 
 
 TEST_JOB_ID = 123
+TEST_JOB_FOLDER = '123-debug_user'
 # Create a temp directory for functional tests. The directory is not under /tmp
 # for Moblab to be able to run the test.
 TEMP_DIR = tempfile.mkdtemp(dir=lxc.DEFAULT_CONTAINER_PATH,
@@ -34,7 +35,7 @@ RESULT_PATH = os.path.join(TEMP_DIR, 'results', str(TEST_JOB_ID))
 # Ideally the test should stage a build on devserver and download the
 # autotest_server_package from devserver. This test is focused on testing
 # container, so it's prefered to avoid dependency on devserver.
-AUTOTEST_SERVER_PKG = ('http://storage.googleapis.com/chromeos-image-archive/'
+AUTOTEST_SERVER_PKG = ('http://storage.googleapis.com/abci-ssp/'
                        'autotest-containers/autotest_server_package.tar.bz2')
 
 # Test log file to be created in result folder, content is `test`.
@@ -43,6 +44,7 @@ TEST_LOG = 'test.log'
 TEST_SCRIPT = 'test.py'
 # Test script to run in container to verify autotest code setup.
 TEST_SCRIPT_CONTENT = """
+import socket
 import sys
 
 # Test import
@@ -54,6 +56,10 @@ from autotest_lib.site_utils import lxc
 with open(sys.argv[1], 'w') as f:
     f.write('test')
 
+# Confirm hostname starts with `test_`
+if not socket.gethostname().startswith('test_'):
+    raise Exception('The container\\\'s hostname must start with `test_`.')
+
 # Test installing packages
 lxc.install_packages(['atop', 'libxslt-dev'], ['selenium', 'numpy'])
 
@@ -61,7 +67,7 @@ lxc.install_packages(['atop', 'libxslt-dev'], ['selenium', 'numpy'])
 # Name of the test control file.
 TEST_CONTROL_FILE = 'attach.1'
 TEST_DUT = '172.27.213.193'
-TEST_RESULT_PATH = lxc.RESULT_DIR_FMT % TEST_JOB_ID
+TEST_RESULT_PATH = lxc.RESULT_DIR_FMT % TEST_JOB_FOLDER
 # Test autoserv command.
 AUTOSERV_COMMAND = (('/usr/bin/python -u /usr/local/autotest/server/autoserv '
                      '-p -r %(result_path)s/%(test_dut)s -m %(test_dut)s '
@@ -121,7 +127,9 @@ def setup_test(bucket, name, skip_cleanup):
     logging.info('Create test container.')
     os.makedirs(RESULT_PATH)
     container = bucket.setup_test(name, TEST_JOB_ID, AUTOTEST_SERVER_PKG,
-                                  RESULT_PATH, skip_cleanup=skip_cleanup)
+                                  RESULT_PATH, skip_cleanup=skip_cleanup,
+                                  job_folder=TEST_JOB_FOLDER,
+                                  dut_name='192.168.0.3')
 
     # Inject "AUTOSERV/testing_mode: True" in shadow config to test autoserv.
     container.attach_run('echo $\'[AUTOSERV]\ntesting_mode: True\' >>'
@@ -140,7 +148,7 @@ def test_share(container):
     with open(host_test_script, 'w') as script:
         script.write(TEST_SCRIPT_CONTENT)
 
-    container_result_path = lxc.RESULT_DIR_FMT % TEST_JOB_ID
+    container_result_path = lxc.RESULT_DIR_FMT % TEST_JOB_FOLDER
     container_test_script = os.path.join(container_result_path, TEST_SCRIPT)
     container_test_script_dest = os.path.join('/usr/local/autotest/utils/',
                                               TEST_SCRIPT)

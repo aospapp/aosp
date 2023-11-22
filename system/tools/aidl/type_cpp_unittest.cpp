@@ -15,14 +15,25 @@
  */
 
 #include <memory>
+#include <string>
 
 #include <gtest/gtest.h>
 
 #include "type_cpp.h"
 
+using std::string;
+using std::unique_ptr;
+
 namespace android {
 namespace aidl {
 namespace cpp {
+
+namespace {
+
+string kParcelableDotName = "Outer.Inner";
+string kParcelableColonName = "Outer::Inner";
+
+}  // namespace
 
 class CppTypeNamespaceTest : public ::testing::Test {
  protected:
@@ -46,6 +57,14 @@ TEST_F(CppTypeNamespaceTest, HasSomeBasicTypes) {
 TEST_F(CppTypeNamespaceTest, SupportsListString) {
   EXPECT_TRUE(
       types_.HasTypeByCanonicalName("java.util.List<java.lang.String>"));
+}
+
+TEST_F(CppTypeNamespaceTest, SupportsNestedParcelableClass) {
+  unique_ptr<AidlParcelable> parcelable(
+      new AidlParcelable(new AidlQualifiedName(kParcelableDotName, ""),
+                         0,
+                         {"a", "goog"}));
+  EXPECT_EQ(parcelable->GetCppName(), kParcelableColonName);
 }
 
 }  // namespace cpp

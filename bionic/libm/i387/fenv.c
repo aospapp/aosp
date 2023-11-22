@@ -28,10 +28,29 @@
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
-#include "npx.h"
 #include "fenv.h"
 
 #define ROUND_MASK   (FE_TONEAREST | FE_DOWNWARD | FE_UPWARD | FE_TOWARDZERO)
+
+/*
+ * The hardware default control word for i387's and later coprocessors is
+ * 0x37F, giving:
+ *
+ *	round to nearest
+ *	64-bit precision
+ *	all exceptions masked.
+ *
+ * We modify the affine mode bit and precision bits in this to give:
+ *
+ *	affine mode for 287's (if they work at all) (1 in bitfield 1<<12)
+ *	53-bit precision (2 in bitfield 3<<8)
+ *
+ * 64-bit precision often gives bad results with high level languages
+ * because it makes the results of calculations depend on whether
+ * intermediate values are stored in memory or in FPU registers.
+ */
+#define	__INITIAL_NPXCW__	0x127F
+#define	__INITIAL_MXCSR__	0x1F80
 
 /*
  * As compared to the x87 control word, the SSE unit's control word
@@ -51,18 +70,18 @@ const fenv_t __fe_dfl_env = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff } /*__other*/
 };
 
-#define __fldcw(__cw)           __asm __volatile("fldcw %0" : : "m" (__cw))
-#define __fldenv(__env)         __asm __volatile("fldenv %0" : : "m" (__env))
-#define __fldenvx(__env)        __asm __volatile("fldenv %0" : : "m" (__env)  \
+#define __fldcw(__cw)           __asm volatile("fldcw %0" : : "m" (__cw))
+#define __fldenv(__env)         __asm volatile("fldenv %0" : : "m" (__env))
+#define __fldenvx(__env)        __asm volatile("fldenv %0" : : "m" (__env)  \
                                 : "st", "st(1)", "st(2)", "st(3)", "st(4)",   \
                                 "st(5)", "st(6)", "st(7)")
-#define __fnclex()              __asm __volatile("fnclex")
-#define __fnstenv(__env)        __asm __volatile("fnstenv %0" : "=m" (*(__env)))
-#define __fnstcw(__cw)          __asm __volatile("fnstcw %0" : "=m" (*(__cw)))
-#define __fnstsw(__sw)          __asm __volatile("fnstsw %0" : "=am" (*(__sw)))
-#define __fwait()               __asm __volatile("fwait")
-#define __ldmxcsr(__csr)        __asm __volatile("ldmxcsr %0" : : "m" (__csr))
-#define __stmxcsr(__csr)        __asm __volatile("stmxcsr %0" : "=m" (*(__csr)))
+#define __fnclex()              __asm volatile("fnclex")
+#define __fnstenv(__env)        __asm volatile("fnstenv %0" : "=m" (*(__env)))
+#define __fnstcw(__cw)          __asm volatile("fnstcw %0" : "=m" (*(__cw)))
+#define __fnstsw(__sw)          __asm volatile("fnstsw %0" : "=am" (*(__sw)))
+#define __fwait()               __asm volatile("fwait")
+#define __ldmxcsr(__csr)        __asm volatile("ldmxcsr %0" : : "m" (__csr))
+#define __stmxcsr(__csr)        __asm volatile("stmxcsr %0" : "=m" (*(__csr)))
 
 /* After testing for SSE support once, we cache the result in __has_sse. */
 enum __sse_support { __SSE_YES, __SSE_NO, __SSE_UNK };
@@ -81,9 +100,9 @@ enum __sse_support __has_sse =
 #endif
 
 #ifndef __SSE__
-#define getfl(x)    __asm __volatile("pushfl\n\tpopl %0" : "=mr" (*(x)))
-#define setfl(x)    __asm __volatile("pushl %0\n\tpopfl" : : "g" (x))
-#define cpuid_dx(x) __asm __volatile("pushl %%ebx\n\tmovl $1, %%eax\n\t"  \
+#define getfl(x)    __asm volatile("pushfl\n\tpopl %0" : "=mr" (*(x)))
+#define setfl(x)    __asm volatile("pushl %0\n\tpopfl" : : "g" (x))
+#define cpuid_dx(x) __asm volatile("pushl %%ebx\n\tmovl $1, %%eax\n\t"  \
                     "cpuid\n\tpopl %%ebx"          \
                     : "=d" (*(x)) : : "eax", "ecx")
 

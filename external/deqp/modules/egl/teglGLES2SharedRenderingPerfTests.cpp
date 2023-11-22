@@ -722,7 +722,6 @@ public:
 
 	void			start			(void);
 	void			join			(void);
-	void			log				(TestLog& log);
 
 	bool			resultOk		(void) { return m_isOk; }
 
@@ -763,12 +762,6 @@ TestThread::TestThread (const vector<TestContext*> contexts)
 TestThread::~TestThread (void)
 {
 	m_contexts.clear();
-}
-
-void TestThread::log (TestLog& testLog)
-{
-	if (!m_isOk)
-		testLog << TestLog::Message << "Thread failed: " << m_errorString << TestLog::EndMessage;
 }
 
 void TestThread::start (void)
@@ -1135,7 +1128,7 @@ void GLES2SharedRenderingPerfTests::init (void)
 				if (threadCount * contextCount != 4 && threadCount * contextCount != 1)
 					continue;
 
-				TestConfig config 				= basicConfig;
+				TestConfig config				= basicConfig;
 				config.threadCount				= threadCount;
 				config.perThreadContextCount	= contextCount;
 				config.sharedContexts			= false;

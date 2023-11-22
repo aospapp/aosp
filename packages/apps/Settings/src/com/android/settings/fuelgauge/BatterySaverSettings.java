@@ -25,6 +25,7 @@ import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
@@ -32,7 +33,7 @@ import android.provider.Settings.Global;
 import android.util.Log;
 import android.widget.Switch;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.SettingsPreferenceFragment;
@@ -64,7 +65,7 @@ public class BatterySaverSettings extends SettingsPreferenceFragment
     private PowerManager mPowerManager;
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.FUELGAUGE_BATTERY_SAVER;
     }
 
@@ -77,7 +78,8 @@ public class BatterySaverSettings extends SettingsPreferenceFragment
         }
         mCreated = true;
         addPreferencesFromResource(R.xml.battery_saver_settings);
-
+        mFooterPreferenceMixin.createFooterPreference()
+                .setTitle(com.android.internal.R.string.battery_saver_description);
         mContext = getActivity();
         mSwitchBar = ((SettingsActivity) mContext).getSwitchBar();
         mSwitch = mSwitchBar.getSwitch();
@@ -186,23 +188,36 @@ public class BatterySaverSettings extends SettingsPreferenceFragment
     };
 
     private final class Receiver extends BroadcastReceiver {
+
         private boolean mRegistered;
 
         @Override
         public void onReceive(Context context, Intent intent) {
             if (DEBUG) Log.d(TAG, "Received " + intent.getAction());
-            mHandler.post(mUpdateSwitch);
+            String action = intent.getAction();
+            if (action.equals(ACTION_POWER_SAVE_MODE_CHANGING)) {
+                mHandler.post(mUpdateSwitch);
+            } else if (action.equals(Intent.ACTION_BATTERY_CHANGED)) {
+                final int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                // disable BSM switch if phone is plugged in or at 100% while plugged in
+                mSwitchBar.setEnabled(
+                        !(status == BatteryManager.BATTERY_STATUS_CHARGING
+                                || status == BatteryManager.BATTERY_STATUS_FULL));
+            }
         }
-
         public void setListening(boolean listening) {
             if (listening && !mRegistered) {
-                mContext.registerReceiver(this, new IntentFilter(ACTION_POWER_SAVE_MODE_CHANGING));
+                final IntentFilter ifilter = new IntentFilter();
+                ifilter.addAction(ACTION_POWER_SAVE_MODE_CHANGING);
+                ifilter.addAction(Intent.ACTION_BATTERY_CHANGED);
+                mContext.registerReceiver(this, ifilter);
                 mRegistered = true;
             } else if (!listening && mRegistered) {
                 mContext.unregisterReceiver(this);
                 mRegistered = false;
             }
         }
+
     }
 
     private final class SettingsObserver extends ContentObserver {

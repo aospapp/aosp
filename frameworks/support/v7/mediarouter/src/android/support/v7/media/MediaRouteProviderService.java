@@ -16,6 +16,36 @@
 
 package android.support.v7.media;
 
+import static android.support.v4.utils.ObjectUtils.objectEquals;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_ROUTE_ID;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_ROUTE_LIBRARY_GROUP;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_UNSELECT_REASON;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_VOLUME;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .CLIENT_MSG_CREATE_ROUTE_CONTROLLER;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_REGISTER;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .CLIENT_MSG_RELEASE_ROUTE_CONTROLLER;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_ROUTE_CONTROL_REQUEST;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_SELECT_ROUTE;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_SET_DISCOVERY_REQUEST;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_SET_ROUTE_VOLUME;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_UNREGISTER;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_UNSELECT_ROUTE;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_UPDATE_ROUTE_VOLUME;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_VERSION_1;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_DATA_ERROR;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .SERVICE_MSG_CONTROL_REQUEST_FAILED;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .SERVICE_MSG_CONTROL_REQUEST_SUCCEEDED;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_DESCRIPTOR_CHANGED;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_GENERIC_FAILURE;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_GENERIC_SUCCESS;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_REGISTERED;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_VERSION_CURRENT;
+import static android.support.v7.media.MediaRouteProviderProtocol.isValidRemoteMessenger;
+
 import android.app.Service;
 import android.content.Intent;
 import android.os.Bundle;
@@ -32,8 +62,6 @@ import android.util.SparseArray;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
-
-import static android.support.v7.media.MediaRouteProviderProtocol.*;
 
 /**
  * Base class for media route provider services.
@@ -62,16 +90,16 @@ import static android.support.v7.media.MediaRouteProviderProtocol.*;
  * </pre>
  */
 public abstract class MediaRouteProviderService extends Service {
-    private static final String TAG = "MediaRouteProviderSrv"; // max. 23 chars
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    static final String TAG = "MediaRouteProviderSrv"; // max. 23 chars
+    static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
     private final ArrayList<ClientRecord> mClients = new ArrayList<ClientRecord>();
     private final ReceiveHandler mReceiveHandler;
     private final Messenger mReceiveMessenger;
-    private final PrivateHandler mPrivateHandler;
+    final PrivateHandler mPrivateHandler;
     private final ProviderCallback mProviderCallback;
 
-    private MediaRouteProvider mProvider;
+    MediaRouteProvider mProvider;
     private MediaRouteDiscoveryRequest mCompositeDiscoveryRequest;
 
     /**
@@ -84,7 +112,7 @@ public abstract class MediaRouteProviderService extends Service {
      * Private messages used internally.  (Yes, you can renumber these.)
      */
 
-    private static final int PRIVATE_MSG_CLIENT_DIED = 1;
+    static final int PRIVATE_MSG_CLIENT_DIED = 1;
 
     /**
      * Creates a media route provider service.
@@ -150,7 +178,7 @@ public abstract class MediaRouteProviderService extends Service {
         return super.onUnbind(intent);
     }
 
-    private boolean onRegisterClient(Messenger messenger, int requestId, int version) {
+    boolean onRegisterClient(Messenger messenger, int requestId, int version) {
         if (version >= CLIENT_VERSION_1) {
             int index = findClient(messenger);
             if (index < 0) {
@@ -173,7 +201,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onUnregisterClient(Messenger messenger, int requestId) {
+    boolean onUnregisterClient(Messenger messenger, int requestId) {
         int index = findClient(messenger);
         if (index >= 0) {
             ClientRecord client = mClients.remove(index);
@@ -187,7 +215,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private void onBinderDied(Messenger messenger) {
+    void onBinderDied(Messenger messenger) {
         int index = findClient(messenger);
         if (index >= 0) {
             ClientRecord client = mClients.remove(index);
@@ -198,7 +226,7 @@ public abstract class MediaRouteProviderService extends Service {
         }
     }
 
-    private boolean onCreateRouteController(Messenger messenger, int requestId,
+    boolean onCreateRouteController(Messenger messenger, int requestId,
             int controllerId, String routeId, String routeGroupId) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -214,7 +242,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onReleaseRouteController(Messenger messenger, int requestId,
+    boolean onReleaseRouteController(Messenger messenger, int requestId,
             int controllerId) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -230,7 +258,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onSelectRoute(Messenger messenger, int requestId,
+    boolean onSelectRoute(Messenger messenger, int requestId,
             int controllerId) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -249,7 +277,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onUnselectRoute(Messenger messenger, int requestId,
+    boolean onUnselectRoute(Messenger messenger, int requestId,
             int controllerId, int reason) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -268,7 +296,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onSetRouteVolume(Messenger messenger, int requestId,
+    boolean onSetRouteVolume(Messenger messenger, int requestId,
             int controllerId, int volume) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -287,7 +315,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onUpdateRouteVolume(Messenger messenger, int requestId,
+    boolean onUpdateRouteVolume(Messenger messenger, int requestId,
             int controllerId, int delta) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -306,7 +334,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onRouteControlRequest(final Messenger messenger, final int requestId,
+    boolean onRouteControlRequest(final Messenger messenger, final int requestId,
             final int controllerId, final Intent intent) {
         final ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -364,7 +392,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private boolean onSetDiscoveryRequest(Messenger messenger, int requestId,
+    boolean onSetDiscoveryRequest(Messenger messenger, int requestId,
             MediaRouteDiscoveryRequest request) {
         ClientRecord client = getClient(messenger);
         if (client != null) {
@@ -380,7 +408,7 @@ public abstract class MediaRouteProviderService extends Service {
         return false;
     }
 
-    private void sendDescriptorChanged(MediaRouteProviderDescriptor descriptor) {
+    void sendDescriptorChanged(MediaRouteProviderDescriptor descriptor) {
         final int count = mClients.size();
         for (int i = 0; i < count; i++) {
             ClientRecord client = mClients.get(i);
@@ -413,7 +441,7 @@ public abstract class MediaRouteProviderService extends Service {
                 .addRoutes(routes).build().asBundle();
     }
 
-    private boolean updateCompositeDiscoveryRequest() {
+    boolean updateCompositeDiscoveryRequest() {
         MediaRouteDiscoveryRequest composite = null;
         MediaRouteSelector.Builder selectorBuilder = null;
         boolean activeScan = false;
@@ -436,9 +464,7 @@ public abstract class MediaRouteProviderService extends Service {
         if (selectorBuilder != null) {
             composite = new MediaRouteDiscoveryRequest(selectorBuilder.build(), activeScan);
         }
-        if (mCompositeDiscoveryRequest != composite
-                && (mCompositeDiscoveryRequest == null
-                        || !mCompositeDiscoveryRequest.equals(composite))) {
+        if (!objectEquals(mCompositeDiscoveryRequest, composite)) {
             mCompositeDiscoveryRequest = composite;
             mProvider.setDiscoveryRequest(composite);
             return true;
@@ -451,7 +477,7 @@ public abstract class MediaRouteProviderService extends Service {
         return index >= 0 ? mClients.get(index) : null;
     }
 
-    private int findClient(Messenger messenger) {
+    int findClient(Messenger messenger) {
         final int count = mClients.size();
         for (int i = 0; i < count; i++) {
             ClientRecord client = mClients.get(i);
@@ -462,7 +488,7 @@ public abstract class MediaRouteProviderService extends Service {
         return -1;
     }
 
-    private static void sendGenericFailure(Messenger messenger, int requestId) {
+    static void sendGenericFailure(Messenger messenger, int requestId) {
         if (requestId != 0) {
             sendReply(messenger, SERVICE_MSG_GENERIC_FAILURE, requestId, 0, null, null);
         }
@@ -474,7 +500,7 @@ public abstract class MediaRouteProviderService extends Service {
         }
     }
 
-    private static void sendReply(Messenger messenger, int what,
+    static void sendReply(Messenger messenger, int what,
             int requestId, int arg, Object obj, Bundle data) {
         Message msg = Message.obtain();
         msg.what = what;
@@ -491,11 +517,14 @@ public abstract class MediaRouteProviderService extends Service {
         }
     }
 
-    private static String getClientId(Messenger messenger) {
+    static String getClientId(Messenger messenger) {
         return "Client connection " + messenger.getBinder().toString();
     }
 
     private final class PrivateHandler extends Handler {
+        PrivateHandler() {
+        }
+
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
@@ -507,6 +536,9 @@ public abstract class MediaRouteProviderService extends Service {
     }
 
     private final class ProviderCallback extends MediaRouteProvider.Callback {
+        ProviderCallback() {
+        }
+
         @Override
         public void onDescriptorChanged(MediaRouteProvider provider,
                 MediaRouteProviderDescriptor descriptor) {
@@ -582,8 +614,7 @@ public abstract class MediaRouteProviderService extends Service {
         }
 
         public boolean setDiscoveryRequest(MediaRouteDiscoveryRequest request) {
-            if (mDiscoveryRequest != request
-                    && (mDiscoveryRequest == null || !mDiscoveryRequest.equals(request))) {
+            if (!objectEquals(mDiscoveryRequest, request)) {
                 mDiscoveryRequest = request;
                 return updateCompositeDiscoveryRequest();
             }
@@ -657,7 +688,7 @@ public abstract class MediaRouteProviderService extends Service {
 
                     case CLIENT_MSG_CREATE_ROUTE_CONTROLLER: {
                         String routeId = data.getString(CLIENT_DATA_ROUTE_ID);
-                        String routeGroupId = data.getString(CLIENT_DATA_ROUTE_GROUP_ID);
+                        String routeGroupId = data.getString(CLIENT_DATA_ROUTE_LIBRARY_GROUP);
                         if (routeId != null) {
                             return service.onCreateRouteController(
                                     messenger, requestId, arg, routeId, routeGroupId);

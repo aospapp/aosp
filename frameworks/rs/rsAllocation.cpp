@@ -18,13 +18,12 @@
 #include "rsAllocation.h"
 #include "rs_hal.h"
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include "system/window.h"
-#include "gui/GLConsumer.h"
+#ifndef RS_COMPATIBILITY_LIB
+#include "rsGrallocConsumer.h"
 #endif
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 Allocation::Allocation(Context *rsc, const Type *type, uint32_t usages,
                        RsAllocationMipmapControl mc, void * ptr)
@@ -152,9 +151,12 @@ void Allocation::updateCache() {
 }
 
 Allocation::~Allocation() {
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-    if (mGrallocConsumer.get()) {
+#ifndef RS_COMPATIBILITY_LIB
+    if (mGrallocConsumer) {
         mGrallocConsumer->releaseIdx(mCurrentIdx);
+        if (!mGrallocConsumer->isActive()) {
+            delete mGrallocConsumer;
+        }
         mGrallocConsumer = nullptr;
     }
 #endif
@@ -195,8 +197,9 @@ void Allocation::data(Context *rsc, uint32_t xoff, uint32_t lod,
 
     if ((count * eSize) != sizeBytes) {
         char buf[1024];
-        sprintf(buf, "Allocation::subData called with mismatched size expected %zu, got %zu",
-                (count * eSize), sizeBytes);
+        snprintf(buf, sizeof(buf),
+                 "Allocation::subData called with mismatched size expected %zu, got %zu",
+                 (count * eSize), sizeBytes);
         rsc->setError(RS_ERROR_BAD_VALUE, buf);
         mHal.state.type->dumpLOGV("type info");
         return;
@@ -225,8 +228,9 @@ void Allocation::read(Context *rsc, uint32_t xoff, uint32_t lod,
 
     if ((count * eSize) != sizeBytes) {
         char buf[1024];
-        sprintf(buf, "Allocation::read called with mismatched size expected %zu, got %zu",
-                (count * eSize), sizeBytes);
+        snprintf(buf, sizeof(buf),
+                 "Allocation::read called with mismatched size expected %zu, got %zu",
+                 (count * eSize), sizeBytes);
         rsc->setError(RS_ERROR_BAD_VALUE, buf);
         mHal.state.type->dumpLOGV("type info");
         return;
@@ -244,7 +248,8 @@ void Allocation::read(Context *rsc, uint32_t xoff, uint32_t yoff, uint32_t lod, 
     } else {
         if ((lineSize * h) != sizeBytes) {
             char buf[1024];
-            sprintf(buf, "Allocation size mismatch, expected %zu, got %zu", (lineSize * h), sizeBytes);
+            snprintf(buf, sizeof(buf), "Allocation size mismatch, expected %zu, got %zu",
+                     (lineSize * h), sizeBytes);
             rsc->setError(RS_ERROR_BAD_VALUE, buf);
             return;
         }
@@ -267,8 +272,6 @@ void Allocation::read(Context *rsc, uint32_t xoff, uint32_t yoff, uint32_t zoff,
 
 void Allocation::elementData(Context *rsc, uint32_t x, uint32_t y, uint32_t z,
                              const void *data, uint32_t cIdx, size_t sizeBytes) {
-    size_t eSize = mHal.state.elementSizeBytes;
-
     if (x >= mHal.drvState.lod[0].dimX) {
         rsc->setError(RS_ERROR_BAD_VALUE, "subElementData X offset out of range.");
         return;
@@ -302,8 +305,6 @@ void Allocation::elementData(Context *rsc, uint32_t x, uint32_t y, uint32_t z,
 
 void Allocation::elementRead(Context *rsc, uint32_t x, uint32_t y, uint32_t z,
                              void *data, uint32_t cIdx, size_t sizeBytes) {
-    size_t eSize = mHal.state.elementSizeBytes;
-
     if (x >= mHal.drvState.lod[0].dimX) {
         rsc->setError(RS_ERROR_BAD_VALUE, "subElementData X offset out of range.");
         return;
@@ -335,13 +336,13 @@ void Allocation::elementRead(Context *rsc, uint32_t x, uint32_t y, uint32_t z,
 }
 
 void Allocation::addProgramToDirty(const Program *p) {
-    mToDirtyList.push(p);
+    mToDirtyList.push_back(p);
 }
 
 void Allocation::removeProgramToDirty(const Program *p) {
     for (size_t ct=0; ct < mToDirtyList.size(); ct++) {
         if (mToDirtyList[ct] == p) {
-            mToDirtyList.removeAt(ct);
+            mToDirtyList.erase(mToDirtyList.begin() + ct);
             return;
         }
     }
@@ -353,7 +354,7 @@ void Allocation::dumpLOGV(const char *prefix) const {
     char buf[1024];
 
     if ((strlen(prefix) + 10) < sizeof(buf)) {
-        sprintf(buf, "%s type ", prefix);
+        snprintf(buf, sizeof(buf), "%s type ", prefix);
         if (mHal.state.type) {
             mHal.state.type->dumpLOGV(buf);
         }
@@ -425,7 +426,6 @@ void Allocation::unpackVec3Allocation(Context *rsc, const void *data, size_t dat
 }
 
 void Allocation::packVec3Allocation(Context *rsc, OStream *stream) const {
-    uint32_t paddedBytes = getType()->getElement()->getSizeBytes();
     uint32_t unpaddedBytes = getType()->getElement()->getSizeBytesUnpadded();
     uint32_t numItems = mHal.state.type->getCellCount();
 
@@ -576,29 +576,6 @@ void Allocation::resize2D(Context *rsc, uint32_t dimX, uint32_t dimY) {
     rsc->setError(RS_ERROR_FATAL_DRIVER, "resize2d not implemented");
 }
 
-#ifndef RS_COMPATIBILITY_LIB
-Allocation::NewBufferListener::NewBufferListener(uint32_t numAlloc) {
-    alloc = new const Allocation *[numAlloc];
-    mNumAlloc = numAlloc;
-    for (uint32_t i = 0; i < numAlloc; i++) {
-        alloc[i] = nullptr;
-    }
-}
-
-Allocation::NewBufferListener::~NewBufferListener() {
-    delete[] alloc;
-}
-
-void Allocation::NewBufferListener::onFrameAvailable(const BufferItem& /* item */) {
-    for (uint32_t i = 0; i < mNumAlloc; i++) {
-        if (alloc[i] != nullptr) {
-            intptr_t ip = (intptr_t)alloc[i];
-            rsc->sendMessageToClient(&ip, RS_MESSAGE_TO_CLIENT_NEW_BUFFER, 0, sizeof(ip), true);
-        }
-    }
-}
-#endif
-
 void Allocation::setupGrallocConsumer(const Context *rsc, uint32_t numAlloc) {
 #ifndef RS_COMPATIBILITY_LIB
     // Configure GrallocConsumer to be in asynchronous mode
@@ -606,17 +583,9 @@ void Allocation::setupGrallocConsumer(const Context *rsc, uint32_t numAlloc) {
         rsc->setError(RS_ERROR_FATAL_DRIVER, "resize2d not implemented");
         return;
     }
-    sp<IGraphicBufferConsumer> bc;
-    BufferQueue::createBufferQueue(&mGraphicBufferProducer, &bc);
-    mGrallocConsumer = new GrallocConsumer(this, bc, mHal.drvState.grallocFlags, numAlloc);
-
-    mBufferListener = new NewBufferListener(numAlloc);
-    mBufferListener->rsc = rsc;
-    mBufferListener->alloc[0] = this;
+    mGrallocConsumer = new GrallocConsumer(rsc, this, numAlloc);
     mCurrentIdx = 0;
     mBufferQueueInited = true;
-
-    mGrallocConsumer->setFrameAvailableListener(mBufferListener);
 #endif
 }
 
@@ -629,12 +598,10 @@ void * Allocation::getSurface(const Context *rsc) {
         // multi-frame case.
         setupGrallocConsumer(rsc, 1);
     }
-    mGraphicBufferProducer->incStrong(nullptr);
-    return mGraphicBufferProducer.get();
+    return mGrallocConsumer->getNativeWindow();
 #else
     return nullptr;
 #endif
-    //return rsc->mHal.funcs.allocation.getSurface(rsc, this);
 }
 
 void Allocation::shareBufferQueue(const Context *rsc, const Allocation *alloc) {
@@ -645,10 +612,6 @@ void Allocation::shareBufferQueue(const Context *rsc, const Allocation *alloc) {
         rsc->setError(RS_ERROR_DRIVER, "Maximum allocations attached to a BufferQueue");
         return;
     }
-
-    mGraphicBufferProducer = alloc->mGraphicBufferProducer;
-    mBufferListener = alloc->mBufferListener;
-    mBufferListener->alloc[mCurrentIdx] = this;
     mBufferQueueInited = true;
 #endif
 }
@@ -668,11 +631,11 @@ void Allocation::ioReceive(const Context *rsc) {
     size_t stride = 0;
 #ifndef RS_COMPATIBILITY_LIB
     if (mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT) {
-        status_t ret = mGrallocConsumer->lockNextBuffer(mCurrentIdx);
+        media_status_t ret = mGrallocConsumer->lockNextBuffer(mCurrentIdx);
 
-        if (ret == OK) {
+        if (ret == AMEDIA_OK) {
             rsc->mHal.funcs.allocation.ioReceive(rsc, this);
-        } else if (ret == BAD_VALUE) {
+        } else if (ret == AMEDIA_IMGREADER_NO_BUFFER_AVAILABLE) {
             // No new frame, don't do anything
         } else {
             rsc->setError(RS_ERROR_DRIVER, "Error receiving IO input buffer.");
@@ -698,9 +661,6 @@ bool Allocation::hasSameDims(const Allocation *other) const {
 
 /////////////////
 //
-
-namespace android {
-namespace renderscript {
 
 void rsi_AllocationSyncAll(Context *rsc, RsAllocation va, RsAllocationUsageType src) {
     Allocation *a = static_cast<Allocation *>(va);
@@ -979,5 +939,5 @@ void rsi_AllocationAdapterOffset(Context *rsc, RsAllocation va, const uint32_t *
 }
 
 
-}
-}
+}  // namespace renderscript
+}  // namespace android

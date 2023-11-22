@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2004-2014, International Business Machines Corporation and
@@ -93,6 +95,7 @@ public final class ICUData {
         URL i = null;
         if (System.getSecurityManager() != null) {
             i = AccessController.doPrivileged(new PrivilegedAction<URL>() {
+                    @Override
                     public URL run() {
                         return ICUData.class.getResource(resourceName);
                     }
@@ -107,6 +110,7 @@ public final class ICUData {
         InputStream i = null;
         if (System.getSecurityManager() != null) {
             i = AccessController.doPrivileged(new PrivilegedAction<InputStream>() {
+                    @Override
                     public InputStream run() {
                         return root.getResourceAsStream(resourceName);
                     }
@@ -129,6 +133,7 @@ public final class ICUData {
         InputStream i = null;
         if (System.getSecurityManager() != null) {
             i = AccessController.doPrivileged(new PrivilegedAction<InputStream>() {
+                    @Override
                     public InputStream run() {
                         return loader.getResourceAsStream(resourceName);
                     }

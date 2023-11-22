@@ -16,18 +16,21 @@
 
 package android.media.cts;
 
-import android.graphics.ImageFormat;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.media.cts.CodecImage;
 import android.media.Image;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecList;
+import android.media.MediaCodec.BufferInfo;
+import android.os.Environment;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.util.ArrayList;
 
 public class CodecUtils  {
     private static final String TAG = "CodecUtils";
@@ -147,84 +150,34 @@ public class CodecUtils  {
 
     public native static float[] Raw2YUVStats(long[] rawStats);
 
-    public static String getImageMD5Checksum(Image image) throws Exception {
-        int format = image.getFormat();
-        if (ImageFormat.YUV_420_888 != format) {
-            Log.w(TAG, "unsupported image format");
-            return "";
-        }
-
-        MessageDigest md = MessageDigest.getInstance("MD5");
-
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
-
-        Image.Plane[] planes = image.getPlanes();
-        for (int i = 0; i < planes.length; ++i) {
-            ByteBuffer buf = planes[i].getBuffer();
-
-            int width, height, rowStride, pixelStride, x, y;
-            rowStride = planes[i].getRowStride();
-            pixelStride = planes[i].getPixelStride();
-            if (i == 0) {
-                width = imageWidth;
-                height = imageHeight;
-            } else {
-                width = imageWidth / 2;
-                height = imageHeight /2;
+    /**
+     * This method reads the binarybar code on the top row of a bitmap. Each 16x16
+     * block is one digit, with black=0 and white=1. LSB is on the left.
+     */
+    public static int readBinaryCounterFromBitmap(Bitmap bitmap) {
+        int numDigits = bitmap.getWidth() / 16;
+        int counter = 0;
+        for (int i = 0; i < numDigits; i++) {
+            int rgb = bitmap.getPixel(i * 16 + 8, 8);
+            if (Color.red(rgb) > 128) {
+                counter |= (1 << i);
             }
-            // local contiguous pixel buffer
-            byte[] bb = new byte[width * height];
-            if (buf.hasArray()) {
-                byte b[] = buf.array();
-                int offs = buf.arrayOffset();
-                if (pixelStride == 1) {
-                    for (y = 0; y < height; ++y) {
-                        System.arraycopy(bb, y * width, b, y * rowStride + offs, width);
-                    }
-                } else {
-                    // do it pixel-by-pixel
-                    for (y = 0; y < height; ++y) {
-                        int lineOffset = offs + y * rowStride;
-                        for (x = 0; x < width; ++x) {
-                            bb[y * width + x] = b[lineOffset + x * pixelStride];
-                        }
-                    }
-                }
-            } else { // almost always ends up here due to direct buffers
-                int pos = buf.position();
-                if (pixelStride == 1) {
-                    for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
-                        buf.get(bb, y * width, width);
-                    }
-                } else {
-                    // local line buffer
-                    byte[] lb = new byte[rowStride];
-                    // do it pixel-by-pixel
-                    for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
-                        // we're only guaranteed to have pixelStride * (width - 1) + 1 bytes
-                        buf.get(lb, 0, pixelStride * (width - 1) + 1);
-                        for (x = 0; x < width; ++x) {
-                            bb[y * width + x] = lb[x * pixelStride];
-                        }
-                    }
-                }
-                buf.position(pos);
-            }
-            md.update(bb, 0, width * height);
         }
-
-        return convertByteArrayToHEXString(md.digest());
+        return counter;
     }
 
-    private static String convertByteArrayToHEXString(byte[] ba) throws Exception {
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < ba.length; i++) {
-            result.append(Integer.toString((ba[i] & 0xff) + 0x100, 16).substring(1));
+    public static void saveBitmapToFile(Bitmap bitmap, String filename) {
+        try {
+            File outputFile = new File(Environment.getExternalStorageDirectory(), filename);
+
+            Log.d(TAG, "Saving bitmap to: " + outputFile);
+            FileOutputStream outputStream = new FileOutputStream(outputFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream);
+            outputStream.flush();
+            outputStream.close();
+        } catch(Exception e) {
+            Log.e(TAG, "Failed to save to file: " + e);
         }
-        return result.toString();
     }
 }
 

@@ -41,14 +41,8 @@ public class DefaultAccessibilityValidator implements Validator {
 
   // Logic from TalkBack
   private static boolean isAccessibilityFocusable(UiElement element) {
-    if (isActionableForAccessibility(element)) {
-      return true;
-    }
-
-    if (isTopLevelScrollItem(element) && (isSpeakingNode(element))) {
-      return true;
-    }
-    return false;
+    return isActionableForAccessibility(element)
+        || (isTopLevelScrollItem(element) && isSpeakingNode(element));
   }
 
   private static boolean isTopLevelScrollItem(UiElement element) {

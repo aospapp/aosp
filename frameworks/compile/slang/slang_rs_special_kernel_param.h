@@ -32,7 +32,7 @@ std::string listSpecialKernelParameters(unsigned int api);
 
 bool processSpecialKernelParameters(
   RSContext *Context,
-  std::function<std::string ()> DiagnosticDescription,
+  const std::function<std::string ()> &DiagnosticDescription,
   const clang::FunctionDecl *FD,
   size_t *IndexOfFirstSpecialParameter,
   unsigned int *SignatureMetadata);

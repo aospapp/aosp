@@ -21,8 +21,6 @@
 #include <utils/String8.h>
 #include <utils/Log.h>
 
-#include <string.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 namespace android {
@@ -44,7 +42,7 @@ void Printer::printFormatLine(const char* format, ...) {
 
     char* formattedString;
 
-#ifndef USE_MINGW
+#ifndef _WIN32
     if (vasprintf(&formattedString, format, arglist) < 0) { // returns -1 on error
         ALOGE("%s: Failed to format string", __FUNCTION__);
         return;
@@ -115,7 +113,7 @@ void FdPrinter::printLine(const char* string) {
         return;
     }
 
-#ifndef USE_MINGW
+#ifndef _WIN32
     dprintf(mFd, mFormatString, mPrefix, string);
 #endif
 }

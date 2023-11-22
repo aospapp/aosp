@@ -7,6 +7,11 @@
 
 #include "build/build_config.h"
 
+#if defined(ANDROID)
+// Prefer Android's libbase definitions to our own.
+#include <android-base/macros.h>
+#endif  // defined(ANDROID)
+
 #if defined(COMPILER_MSVC)
 
 // For _Printf_format_string_.
@@ -186,5 +191,13 @@
 #define UNLIKELY(x) (x)
 #endif  // defined(COMPILER_GCC)
 #endif  // !defined(UNLIKELY)
+
+// Compiler feature-detection.
+// clang.llvm.org/docs/LanguageExtensions.html#has-feature-and-has-extension
+#if defined(__has_feature)
+#define HAS_FEATURE(FEATURE) __has_feature(FEATURE)
+#else
+#define HAS_FEATURE(FEATURE) 0
+#endif
 
 #endif  // BASE_COMPILER_SPECIFIC_H_

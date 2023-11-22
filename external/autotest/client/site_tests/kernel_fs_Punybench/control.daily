@@ -5,7 +5,6 @@
 NAME = 'kernel_fs_Punybench'
 AUTHOR = 'The Chromium OS Authors'
 ATTRIBUTES = "suite:kernel_daily_benchmarks"
-SUITE = "kernel_daily_benchmarks"
 TIME = 'LONG'
 TEST_CLASS = 'kernel'
 TEST_CATEGORY = 'Performance'

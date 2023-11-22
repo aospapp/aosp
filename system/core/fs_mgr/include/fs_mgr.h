@@ -17,8 +17,16 @@
 #ifndef __CORE_FS_MGR_H
 #define __CORE_FS_MGR_H
 
+#include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <linux/dm-ioctl.h>
+
+// C++ only headers
+// TODO: move this into separate header files under include/fs_mgr/*.h
+#ifdef __cplusplus
+#include <string>
+#endif
 
 // Magic number at start of verity metadata
 #define VERITY_METADATA_MAGIC_NUMBER 0xb001b001
@@ -27,9 +35,7 @@
 // turn verity off in userdebug builds.
 #define VERITY_METADATA_MAGIC_DISABLE 0x46464f56 // "VOFF"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 // Verity modes
 enum verity_mode {
@@ -38,6 +44,13 @@ enum verity_mode {
     VERITY_MODE_RESTART = 2,
     VERITY_MODE_LAST = VERITY_MODE_RESTART,
     VERITY_MODE_DEFAULT = VERITY_MODE_RESTART
+};
+
+// Mount modes
+enum mount_mode {
+    MOUNT_MODE_DEFAULT = 0,
+    MOUNT_MODE_EARLY = 1,
+    MOUNT_MODE_LATE = 2
 };
 
 /*
@@ -64,14 +77,21 @@ struct fstab_rec {
     char *label;
     int partnum;
     int swap_prio;
+    int max_comp_streams;
     unsigned int zram_size;
-    unsigned int file_encryption_mode;
+    uint64_t reserved_size;
+    unsigned int file_contents_mode;
+    unsigned int file_names_mode;
+    unsigned int erase_blk_size;
+    unsigned int logical_blk_size;
 };
 
 // Callback function for verity status
 typedef void (*fs_mgr_verity_state_callback)(struct fstab_rec *fstab,
         const char *mount_point, int mode, int status);
 
+struct fstab *fs_mgr_read_fstab_default();
+struct fstab *fs_mgr_read_fstab_dt();
 struct fstab *fs_mgr_read_fstab(const char *fstab_path);
 void fs_mgr_free_fstab(struct fstab *fstab);
 
@@ -81,20 +101,21 @@ void fs_mgr_free_fstab(struct fstab *fstab);
 #define FS_MGR_MNTALL_DEV_MIGHT_BE_ENCRYPTED 2
 #define FS_MGR_MNTALL_DEV_NOT_ENCRYPTED 1
 #define FS_MGR_MNTALL_DEV_NOT_ENCRYPTABLE 0
-#define FS_MGR_MNTALL_FAIL -1
-int fs_mgr_mount_all(struct fstab *fstab);
+#define FS_MGR_MNTALL_FAIL (-1)
+int fs_mgr_mount_all(struct fstab *fstab, int mount_mode);
 
-#define FS_MGR_DOMNT_FAILED -1
-#define FS_MGR_DOMNT_BUSY -2
+#define FS_MGR_DOMNT_FAILED (-1)
+#define FS_MGR_DOMNT_BUSY (-2)
 
-int fs_mgr_do_mount(struct fstab *fstab, char *n_name, char *n_blk_device,
+int fs_mgr_do_mount(struct fstab *fstab, const char *n_name, char *n_blk_device,
                     char *tmp_mount_point);
-int fs_mgr_do_tmpfs_mount(char *n_name);
+int fs_mgr_do_mount_one(struct fstab_rec *rec);
+int fs_mgr_do_tmpfs_mount(const char *n_name);
 int fs_mgr_unmount_all(struct fstab *fstab);
 int fs_mgr_get_crypt_info(struct fstab *fstab, char *key_loc,
                           char *real_blk_device, int size);
-int fs_mgr_load_verity_state(int *mode);
-int fs_mgr_update_verity_state(fs_mgr_verity_state_callback callback);
+bool fs_mgr_load_verity_state(int* mode);
+bool fs_mgr_update_verity_state(fs_mgr_verity_state_callback callback);
 int fs_mgr_add_entry(struct fstab *fstab,
                      const char *mount_point, const char *fs_type,
                      const char *blk_device);
@@ -102,20 +123,36 @@ struct fstab_rec *fs_mgr_get_entry_for_mount_point(struct fstab *fstab, const ch
 int fs_mgr_is_voldmanaged(const struct fstab_rec *fstab);
 int fs_mgr_is_nonremovable(const struct fstab_rec *fstab);
 int fs_mgr_is_verified(const struct fstab_rec *fstab);
+int fs_mgr_is_verifyatboot(const struct fstab_rec *fstab);
+int fs_mgr_is_avb(const struct fstab_rec *fstab);
 int fs_mgr_is_encryptable(const struct fstab_rec *fstab);
 int fs_mgr_is_file_encrypted(const struct fstab_rec *fstab);
-const char* fs_mgr_get_file_encryption_mode(const struct fstab_rec *fstab);
+void fs_mgr_get_file_encryption_modes(const struct fstab_rec *fstab,
+                                      const char **contents_mode_ret,
+                                      const char **filenames_mode_ret);
 int fs_mgr_is_convertible_to_fbe(const struct fstab_rec *fstab);
 int fs_mgr_is_noemulatedsd(const struct fstab_rec *fstab);
 int fs_mgr_is_notrim(struct fstab_rec *fstab);
 int fs_mgr_is_formattable(struct fstab_rec *fstab);
+int fs_mgr_is_slotselect(struct fstab_rec *fstab);
 int fs_mgr_is_nofail(struct fstab_rec *fstab);
+int fs_mgr_is_latemount(struct fstab_rec *fstab);
+int fs_mgr_is_quota(struct fstab_rec *fstab);
 int fs_mgr_swapon_all(struct fstab *fstab);
 
-int fs_mgr_do_format(struct fstab_rec *fstab);
+int fs_mgr_do_format(struct fstab_rec *fstab, bool reserve_footer);
 
+#define FS_MGR_SETUP_VERITY_DISABLED (-2)
+#define FS_MGR_SETUP_VERITY_FAIL (-1)
+#define FS_MGR_SETUP_VERITY_SUCCESS 0
+int fs_mgr_setup_verity(struct fstab_rec *fstab, bool wait_for_verity_dev);
+
+__END_DECLS
+
+// C++ only functions
+// TODO: move this into separate header files under include/fs_mgr/*.h
 #ifdef __cplusplus
-}
+std::string fs_mgr_get_slot_suffix();
 #endif
 
 #endif /* __CORE_FS_MGR_H */

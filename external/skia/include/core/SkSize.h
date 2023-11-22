@@ -21,6 +21,10 @@ template <typename T> struct SkTSize {
         return s;
     }
 
+    static SkTSize MakeEmpty() {
+        return {0, 0};
+    }
+
     void set(T w, T h) {
         fWidth = w;
         fHeight = h;
@@ -82,6 +86,9 @@ struct SkSize : public SkTSize<SkScalar> {
         return s;
     }
 
+    static SkSize Make(const SkISize& src) {
+        return Make(SkIntToScalar(src.width()), SkIntToScalar(src.height()));
+    }
 
     SkSize& operator=(const SkISize& src) {
         this->set(SkIntToScalar(src.fWidth), SkIntToScalar(src.fHeight));

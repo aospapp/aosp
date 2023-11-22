@@ -46,13 +46,12 @@
     <string name="callFailed_dsac_restricted_normal" msgid="266947632344387216">"تماس‌های عادی توسط کنترل دسترسی محدود شده است."</string>
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"شماره نامعتبر است"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"شماره پست صوتی ناشناس است."</string>
-    <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"‏هنگامی که TTY فعال است نمی‌توان تماس ویدیویی برقرار کرد."</string>
+    <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"‏هنگامی که TTY فعال است نمی‌توان تماس ویدئویی برقرار کرد."</string>
     <string name="callEnded_pulled" msgid="437630601519502587">"تماس به دستگاهی دیگر منتقل شد."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"هیچ‌کدام"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"آهنگ زنگ ناشناس"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"همه خط‌های موجود در حال استفاده هستند. برای برقراری تماس، یکی از تماس‌ها را در این دستگاه یا یکی دیگر از دستگاه‌هایتان قطع کنید."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"تماس پایان یافت زیرا داده شبکه تلفن همراه غیرفعال است."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"تماس پایان یافت زیرا به محدودیت داده شبکه تلفن همراه رسیدید."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"به محدودیت داده رسیدید. تماس پایان یافت."</string>
 </resources>

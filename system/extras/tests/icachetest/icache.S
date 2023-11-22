@@ -19,6 +19,14 @@
         mov     r0, r0                 ; \
         mov     r0, r0                 ; \
         mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
+        mov     r0, r0                 ; \
         beq     end_loop               ; \
         mov     r0, r0                 ; \
 
@@ -32,6 +40,14 @@
     .align  5
 
 icache_test:
+        mov     r0, r0
+        mov     r0, r0
+        mov     r0, r0
+        mov     r0, r0
+        mov     r0, r0
+        mov     r0, r0
+        mov     r0, r0
+        mov     r0, r0
         mov     r0, r0
         mov     r0, r0
         mov     r0, r0

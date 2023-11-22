@@ -19,11 +19,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-    ../../lib/nanohub/rsa.c \
-    ../../lib/nanohub/sha2.c \
-    ../../lib/nanohub/nanoapp.c \
     nanoapp_sign.c \
-
 
 LOCAL_CFLAGS := \
     -Wall \
@@ -35,12 +31,11 @@ LOCAL_CFLAGS := \
     -DBOOTLOADER_RO= \
 
 
-LOCAL_C_INCLUDES := \
-    device/google/contexthub/lib/include \
-
 ifneq ($(filter userdebug eng,$(TARGET_BUILD_VARIANT)),)
 LOCAL_CFLAGS += -DDEBUG_KEYS
 endif
+
+LOCAL_STATIC_LIBRARIES := libnanohub_common
 
 LOCAL_MODULE := nanoapp_sign
 

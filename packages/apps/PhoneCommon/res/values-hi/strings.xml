@@ -30,11 +30,11 @@
     <string name="callFailed_number_unreachable" msgid="1243366438388873914">"नंबर पहुंच योग्य नहीं है"</string>
     <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"गलत उपयोगकर्ता नाम या पासवर्ड"</string>
     <string name="callFailed_out_of_network" msgid="6970725831030399542">"नेटवर्क से बाहर का कॉल"</string>
-    <string name="callFailed_server_error" msgid="1391421251190688379">"सर्वर त्रुटि. बाद में पुन: प्रयास करें."</string>
+    <string name="callFailed_server_error" msgid="1391421251190688379">"सर्वर गड़बड़ी. बाद में पुन: प्रयास करें."</string>
     <string name="callFailed_noSignal" msgid="1758972490451048086">"कोई सिग्नल नहीं"</string>
     <string name="callFailed_limitExceeded" msgid="8796663077702587664">"ACM सीमा पार हो गई"</string>
     <string name="callFailed_powerOff" msgid="9179061328562234362">"रेडियो बंद"</string>
-    <string name="callFailed_simError" msgid="3307159523385380486">"कोई SIM नहीं या SIM त्रुटि"</string>
+    <string name="callFailed_simError" msgid="3307159523385380486">"कोई SIM नहीं या SIM गड़बड़ी"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"सेल्युलर नेटवर्क उपलब्‍ध नहीं है"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"आउटगोइंग कॉल FDN द्वारा प्रतिबंधित हैं."</string>
     <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL अनुरोध को USSD अनुरोध में बदल दिया गया है."</string>
@@ -50,9 +50,8 @@
     <string name="callEnded_pulled" msgid="437630601519502587">"कॉल को दूसरे डिवाइस पर स्थानान्तरित किया गया."</string>
     <string name="ringtone_silent" msgid="249805466934178869">"कोई नहीं"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"अज्ञात रिंगटोन"</string>
-    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"सभी उपलब्ध लाइनें उपयोग में हैं. कॉल करने के लिए, इस डिवाइस पर या आपके अन्य किसी डिवाइस पर किसी एक कॉल को डिस्कनेक्ट करें."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_maximum_reached" msgid="4823790040422765056">"सभी उपलब्ध लाइनें उपयोग में हैं. कॉल करने के लिए, इस डिवाइस पर या आपके अन्य किसी डिवाइस पर किसी एक कॉल को डिसकनेक्ट करें."</string>
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"कॉल समाप्त हो गया क्योंकि सेल्यूलर डेटा निष्क्रिय किया गया था."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"कॉल समाप्त हो गया क्योंकि सेल्युलर डेटा तय सीमा पर पहुंच गया."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"डेटा सीमा पर पहुंच गए. कॉल समाप्त हो गया."</string>
 </resources>

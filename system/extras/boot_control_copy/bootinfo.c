@@ -39,13 +39,7 @@
 // that's what's being used.
 static struct fstab *open_fstab(void)
 {
-  char propbuf[PROPERTY_VALUE_MAX];
-  char fstab_name[PROPERTY_VALUE_MAX + 32];
-  struct fstab *fstab;
-
-  property_get("ro.hardware", propbuf, "");
-  snprintf(fstab_name, sizeof(fstab_name), "/fstab.%s", propbuf);
-  fstab = fs_mgr_read_fstab(fstab_name);
+  struct fstab *fstab = fs_mgr_read_fstab_default();
   if (fstab != NULL)
     return fstab;
 
@@ -116,12 +110,12 @@ int boot_info_open_partition(const char *name, uint64_t *out_size, int flags)
   return fd;
 }
 
-// As per struct bootloader_message which is defined in
+// As per struct bootloader_message_ab which is defined in
 // bootable/recovery/bootloader.h we can use the 32 bytes in the
 // bootctrl_suffix field provided that they start with the active slot
 // suffix terminated by NUL. It just so happens that BrilloBootInfo is
 // laid out this way.
-#define BOOTINFO_OFFSET offsetof(struct bootloader_message, slot_suffix)
+#define BOOTINFO_OFFSET offsetof(struct bootloader_message_ab, slot_suffix)
 
 bool boot_info_load(BrilloBootInfo *out_info)
 {

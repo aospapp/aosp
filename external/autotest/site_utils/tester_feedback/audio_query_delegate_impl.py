@@ -10,6 +10,7 @@ import common
 from autotest_lib.client.common_lib import site_utils
 from autotest_lib.client.common_lib.feedback import client
 from autotest_lib.client.common_lib.feedback import tester_feedback_client
+from autotest_lib.server.brillo import audio_utils
 
 import input_handlers
 import query_delegate
@@ -75,7 +76,7 @@ class AudiblePlaybackQueryDelegate(query_delegate.OutputQueryDelegate,
                                    PlaybackMixin):
     """Query delegate for validating audible feedback."""
 
-    def _prepare_impl(self):
+    def _prepare_impl(self, **kwargs):
         """Prepare for audio playback (interface override)."""
         req = sequenced_request.SequencedFeedbackRequest(
                 self.test, self.dut, 'Audible playback')
@@ -119,7 +120,7 @@ class AudiblePlaybackQueryDelegate(query_delegate.OutputQueryDelegate,
 class SilentPlaybackQueryDelegate(query_delegate.OutputQueryDelegate):
     """Query delegate for validating silent feedback."""
 
-    def _prepare_impl(self):
+    def _prepare_impl(self, **kwargs):
         """Prepare for silent playback (interface override)."""
         req = sequenced_request.SequencedFeedbackRequest(
                 self.test, self.dut, 'Silent playback')
@@ -154,8 +155,17 @@ class SilentPlaybackQueryDelegate(query_delegate.OutputQueryDelegate):
 class RecordingQueryDelegate(query_delegate.InputQueryDelegate, PlaybackMixin):
     """Query delegate for validating audible feedback."""
 
-    def _prepare_impl(self):
-        """Prepare for audio recording (interface override)."""
+    def _prepare_impl(self, use_file, sample_width, sample_rate,
+                      num_channels, frequency):
+        """Prepare for audio recording (interface override).
+
+        @param use_file: If a file was used to produce audio. This is necessary
+                         if audio of a particular frequency is being produced.
+        @param sample_width: The recorded sample width.
+        @param sample_rate: The recorded sample rate.
+        @param num_channels: The number of recorded channels.
+        @param frequency: Frequency of audio being produced.
+        """
         req = sequenced_request.SequencedFeedbackRequest(
                 self.test, self.dut, 'Audio recording')
         # TODO(ralphnathan) Lift the restriction regarding recording time once
@@ -166,6 +176,13 @@ class RecordingQueryDelegate(query_delegate.InputQueryDelegate, PlaybackMixin):
                 'continue...',
                 input_handlers.PauseInputHandler())
         self._process_request(req)
+        self._sample_width = sample_width
+        self._sample_rate = sample_rate
+        self._num_channels = num_channels
+        if use_file:
+            self._frequency = frequency
+        else:
+            self._frequency = None
 
 
     def _emit_impl(self):
@@ -179,35 +196,28 @@ class RecordingQueryDelegate(query_delegate.InputQueryDelegate, PlaybackMixin):
         self._process_request(req)
 
 
-    def _validate_impl(self, captured_audio_file, sample_width,
-                       sample_rate=None, num_channels=None, peak_percent_min=1,
-                       peak_percent_max=100):
+    def _validate_impl(self, captured_audio_file):
         """Validate recording (interface override).
 
         @param captured_audio_file: Path to the recorded WAV file.
-        @param sample_width: The recorded sample width.
-        @param sample_rate: The recorded sample rate.
-        @param num_channels: The number of recorded channels.
-        @peak_percent_min: Lower bound on peak recorded volume as percentage of
-                           max molume (0-100). Default is 1%.
-        @peak_percent_max: Upper bound on peak recorded volume as percentage of
-                           max molume (0-100). Default is 100% (no limit).
         """
         # Check the WAV file properties first.
         try:
-            site_utils.check_wav_file(
-                    captured_audio_file, num_channels=num_channels,
-                    sample_rate=sample_rate, sample_width=sample_width)
+            audio_utils.check_wav_file(
+                    captured_audio_file, num_channels=self._num_channels,
+                    sample_rate=self._sample_rate,
+                    sample_width=self._sample_width)
         except ValueError as e:
             return (tester_feedback_client.QUERY_RET_FAIL,
                     'Recorded audio file is invalid: %s' % e)
 
+
         # Verify playback of the recorded audio.
-        props = ['has sample width of %d' % sample_width]
-        if sample_rate is not None:
-            props.append('has sample rate of %d' % sample_rate)
-        if num_channels is not None:
-            props.append('has %d recorded channels' % num_channels)
+        props = ['as sample width of %d' % self._sample_width,
+                 'has sample rate of %d' % self._sample_rate,
+                 'has %d recorded channels' % self._num_channels]
+        if self._frequency is not None:
+            props.append('has frequency of %d Hz' % self._frequency)
         props_str = '%s%s%s' % (', '.join(props[:-1]),
                                 ', and ' if len(props) > 1 else '',
                                 props[-1])

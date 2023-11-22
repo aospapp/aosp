@@ -16,45 +16,51 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := libkeystore-engine
 
-ifneq (,$(wildcard $(TOP)/external/boringssl/flavor.mk))
-	include $(TOP)/external/boringssl/flavor.mk
-else
-	include $(TOP)/external/openssl/flavor.mk
-endif
-ifeq ($(OPENSSL_FLAVOR),BoringSSL)
-  LOCAL_MODULE := libkeystore-engine
-
-  LOCAL_SRC_FILES := \
-	android_engine.cpp
-else
-  LOCAL_MODULE := libkeystore
-
-  LOCAL_MODULE_RELATIVE_PATH := ssl/engines
-
-  LOCAL_SRC_FILES := \
-	eng_keystore.cpp \
-	keyhandle.cpp \
-	ecdsa_meth.cpp \
-	dsa_meth.cpp \
-	rsa_meth.cpp
-
-  LOCAL_C_INCLUDES += \
-	external/openssl/include \
-	external/openssl
-endif
+LOCAL_SRC_FILES := \
+	android_engine.cpp \
+	keystore_backend_binder.cpp
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -fvisibility=hidden -Wall -Werror
 
 LOCAL_SHARED_LIBRARIES += \
-	libcrypto \
-	liblog \
-	libcutils \
-	libutils \
 	libbinder \
-	libkeystore_binder
+	libcrypto \
+	libcutils \
+	libhidlbase \
+	libkeystore_binder \
+	liblog \
+	libutils
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+
+# This builds a variant of libkeystore-engine that uses a HIDL HAL
+# owned by the WiFi user to perform signing operations.
+LOCAL_MODULE := libkeystore-engine-wifi-hidl
+
+LOCAL_SRC_FILES := \
+	android_engine.cpp \
+	keystore_backend_hidl.cpp
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_CFLAGS := -fvisibility=hidden -Wall -Werror -DBACKEND_WIFI_HIDL
+
+LOCAL_SHARED_LIBRARIES += \
+	android.system.wifi.keystore@1.0 \
+	libcrypto \
+	liblog \
+	libhidlbase \
+	libhidltransport \
+	libcutils \
+	libutils
+
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_SHARED_LIBRARY)

@@ -450,6 +450,7 @@ void TestDecToBuffQueue( SLObjectItf sl, const char *path, int fd)
             // issue an error message, but continue the decoding anyway
             perror(outputPath);
         }
+        free(outputPath);
     } else {
         outputFp = NULL;
     }

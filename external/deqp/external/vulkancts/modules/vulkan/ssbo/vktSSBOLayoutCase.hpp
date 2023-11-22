@@ -31,6 +31,7 @@
 
 namespace vkt
 {
+
 namespace ssbo
 {
 
@@ -51,6 +52,12 @@ enum BufferVarFlags
 
 	ACCESS_READ			= (1<<9),	//!< Buffer variable is read in the shader.
 	ACCESS_WRITE		= (1<<10),	//!< Buffer variable is written in the shader.
+};
+
+enum MatrixLoadFlags
+{
+	LOAD_FULL_MATRIX		= 0,
+	LOAD_MATRIX_COMPONENTS	= 1,
 };
 
 class BufferVar
@@ -216,17 +223,18 @@ public:
 		BUFFERMODE_LAST
 	};
 
-								SSBOLayoutCase				(tcu::TestContext& testCtx, const char* name, const char* description, BufferMode bufferMode);
+								SSBOLayoutCase				(tcu::TestContext& testCtx, const char* name, const char* description, BufferMode bufferMode, MatrixLoadFlags matrixLoadFlag);
 	virtual						~SSBOLayoutCase				(void);
 
 	virtual void				initPrograms				(vk::SourceCollections& programCollection) const;
 	virtual TestInstance*		createInstance				(Context& context) const;
 
 protected:
-    void                        init                        (void);
+	void                        init                        (void);
 
 	BufferMode					m_bufferMode;
 	ShaderInterface				m_interface;
+	MatrixLoadFlags				m_matrixLoadFlag;
 
 private:
 								SSBOLayoutCase				(const SSBOLayoutCase&);

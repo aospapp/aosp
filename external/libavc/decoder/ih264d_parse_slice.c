@@ -72,6 +72,7 @@
 #include "ih264d_parse_islice.h"
 #define RET_LAST_SKIP  0x80000000
 
+WORD32 check_app_out_buf_size(dec_struct_t *ps_dec);
 /*!
  **************************************************************************
  * \if Function name : ih264d_form_pred_weight_matrix \endif
@@ -181,6 +182,10 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
 
     H264_MUTEX_LOCK(&ps_dec->process_disp_mutex);
 
+    /* check output buffer size given by the application */
+    if(check_app_out_buf_size(ps_dec) != IV_SUCCESS)
+        return IVD_DISP_FRM_ZERO_OP_BUF_SIZE;
+
     ps_prev_poc->i4_pic_order_cnt_lsb = ps_cur_poc->i4_pic_order_cnt_lsb;
     ps_prev_poc->i4_pic_order_cnt_msb = ps_cur_poc->i4_pic_order_cnt_msb;
     ps_prev_poc->i4_delta_pic_order_cnt_bottom =
@@ -284,10 +289,8 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
 
     {
         dec_err_status_t * ps_err = ps_dec->ps_dec_err_status;
-        if(ps_dec->u1_sl_typ_5_9
-                        && ((ps_cur_slice->u1_slice_type == I_SLICE)
-                                        || (ps_cur_slice->u1_slice_type
-                                                        == SI_SLICE)))
+        if((ps_cur_slice->u1_slice_type == I_SLICE)
+                        || (ps_cur_slice->u1_slice_type == SI_SLICE))
             ps_err->u1_cur_pic_type = PIC_TYPE_I;
         else
             ps_err->u1_cur_pic_type = PIC_TYPE_UNKNOWN;
@@ -436,11 +439,13 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
         ps_cur_pic->pu1_col_zero_flag = (UWORD8 *)ps_col_mv->pv_col_zero_flag;
         ps_cur_pic->ps_mv = (mv_pred_t *)ps_col_mv->pv_mv;
         ps_dec->au1_pic_buf_ref_flag[cur_pic_buf_id] = 0;
-        if(ps_dec->u1_first_slice_in_stream)
+
         {
             /*make first entry of list0 point to cur pic,so that if first Islice is in error, ref pic struct will have valid entries*/
             ps_dec->ps_ref_pic_buf_lx[0] = ps_dec->ps_dpb_mgr->ps_init_dpb[0];
             *(ps_dec->ps_dpb_mgr->ps_init_dpb[0][0]) = *ps_cur_pic;
+            /* Initialize for field reference as well */
+            *(ps_dec->ps_dpb_mgr->ps_init_dpb[0][MAX_REF_BUFS]) = *ps_cur_pic;
         }
 
         if(!ps_dec->ps_cur_pic)
@@ -721,6 +726,7 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
     ps_dec->u4_deblk_mb_y = 0;
     ps_dec->pu4_wt_ofsts = ps_dec->pu4_wts_ofsts_mat;
 
+    ps_dec->u4_first_slice_in_pic = 0;
     H264_MUTEX_UNLOCK(&ps_dec->process_disp_mutex);
     return OK;
 }
@@ -933,15 +939,11 @@ WORD32 ih264d_deblock_display(dec_struct_t *ps_dec)
  **************************************************************************
  */
 
-WORD32 ih264d_end_of_pic(dec_struct_t *ps_dec,
-                       UWORD8 u1_is_idr_slice,
-                       UWORD16 u2_frame_num)
+WORD32 ih264d_end_of_pic(dec_struct_t *ps_dec)
 {
     dec_slice_params_t *ps_cur_slice = ps_dec->ps_cur_slice;
     WORD32 ret;
 
-    ps_dec->u2_mbx = 0xffff;
-    ps_dec->u2_mby = 0;
     {
         dec_err_status_t * ps_err = ps_dec->ps_dec_err_status;
         if(ps_err->u1_err_flag & REJECT_CUR_PIC)
@@ -955,43 +957,10 @@ WORD32 ih264d_end_of_pic(dec_struct_t *ps_dec,
     ret = ih264d_end_of_pic_processing(ps_dec);
     if(ret != OK)
         return ret;
-    ps_dec->u2_total_mbs_coded = 0;
     /*--------------------------------------------------------------------*/
     /* ih264d_decode_pic_order_cnt - calculate the Pic Order Cnt                    */
     /* Needed to detect end of picture                                    */
     /*--------------------------------------------------------------------*/
-    {
-        pocstruct_t *ps_prev_poc = &ps_dec->s_prev_pic_poc;
-        pocstruct_t *ps_cur_poc = &ps_dec->s_cur_pic_poc;
-        if((0 == u1_is_idr_slice) && ps_cur_slice->u1_nal_ref_idc)
-            ps_dec->u2_prev_ref_frame_num = ps_cur_slice->u2_frame_num;
-
-        if(u1_is_idr_slice || ps_cur_slice->u1_mmco_equalto5)
-            ps_dec->u2_prev_ref_frame_num = 0;
-
-        if(ps_dec->ps_cur_sps->u1_gaps_in_frame_num_value_allowed_flag)
-        {
-            ret = ih264d_decode_gaps_in_frame_num(ps_dec, u2_frame_num);
-            if(ret != OK)
-                return ret;
-        }
-
-        ps_prev_poc->i4_prev_frame_num_ofst = ps_cur_poc->i4_prev_frame_num_ofst;
-        ps_prev_poc->u2_frame_num = ps_cur_poc->u2_frame_num;
-        ps_prev_poc->u1_mmco_equalto5 = ps_cur_slice->u1_mmco_equalto5;
-        if(ps_cur_slice->u1_nal_ref_idc)
-        {
-            ps_prev_poc->i4_pic_order_cnt_lsb = ps_cur_poc->i4_pic_order_cnt_lsb;
-            ps_prev_poc->i4_pic_order_cnt_msb = ps_cur_poc->i4_pic_order_cnt_msb;
-            ps_prev_poc->i4_delta_pic_order_cnt_bottom =
-                            ps_cur_poc->i4_delta_pic_order_cnt_bottom;
-            ps_prev_poc->i4_delta_pic_order_cnt[0] =
-                            ps_cur_poc->i4_delta_pic_order_cnt[0];
-            ps_prev_poc->i4_delta_pic_order_cnt[1] =
-                            ps_cur_poc->i4_delta_pic_order_cnt[1];
-            ps_prev_poc->u1_bot_field = ps_cur_poc->u1_bot_field;
-        }
-    }
 
     H264_MUTEX_UNLOCK(&ps_dec->process_disp_mutex);
 
@@ -1054,8 +1023,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
     /*we currently don not support ASO*/
     if(((u2_first_mb_in_slice << ps_cur_slice->u1_mbaff_frame_flag)
-                    <= ps_dec->u2_cur_mb_addr) && (ps_dec->u2_cur_mb_addr != 0)
-                    && (ps_dec->u4_first_slice_in_pic != 0))
+                    <= ps_dec->u2_cur_mb_addr) && (ps_dec->u4_first_slice_in_pic == 0))
     {
         return ERROR_CORRUPTED_SLICE;
     }
@@ -1069,14 +1037,12 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
     u1_slice_type = u4_temp;
     COPYTHECONTEXT("SH: slice_type",(u1_slice_type));
-    ps_dec->u1_sl_typ_5_9 = 0;
     /* Find Out the Slice Type is 5 to 9 or not then Set the Flag   */
     /* u1_sl_typ_5_9 = 1 .Which tells that all the slices in the Pic*/
     /* will be of same type of current                            */
     if(u1_slice_type > 4)
     {
         u1_slice_type -= 5;
-        ps_dec->u1_sl_typ_5_9 = 1;
     }
 
     {
@@ -1137,19 +1103,19 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
     u4_temp = ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
     if(u4_temp & MASK_ERR_PIC_SET_ID)
-        return ERROR_INV_SPS_PPS_T;
+        return ERROR_INV_SLICE_HDR_T;
     /* discard slice if pic param is invalid */
     COPYTHECONTEXT("SH: pic_parameter_set_id", u4_temp);
     ps_pps = &ps_dec->ps_pps[u4_temp];
     if(FALSE == ps_pps->u1_is_valid)
     {
-        return ERROR_INV_SPS_PPS_T;
+        return ERROR_INV_SLICE_HDR_T;
     }
     ps_seq = ps_pps->ps_sps;
     if(!ps_seq)
-        return ERROR_INV_SPS_PPS_T;
+        return ERROR_INV_SLICE_HDR_T;
     if(FALSE == ps_seq->u1_is_valid)
-        return ERROR_INV_SPS_PPS_T;
+        return ERROR_INV_SLICE_HDR_T;
 
     /* Get the frame num */
     u2_frame_num = ih264d_get_bits_h264(ps_bitstrm,
@@ -1158,7 +1124,43 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
     COPYTHECONTEXT("SH: frame_num", u2_frame_num);
 //    H264_DEC_DEBUG_PRINT("Second field: %d frame num: %d prv_frame_num: %d \n", ps_dec->u1_second_field, u2_frame_num, ps_dec->u2_prv_frame_num);
+    if(!ps_dec->u1_first_slice_in_stream && ps_dec->u4_first_slice_in_pic)
+    {
+        pocstruct_t *ps_prev_poc = &ps_dec->s_prev_pic_poc;
+        pocstruct_t *ps_cur_poc = &ps_dec->s_cur_pic_poc;
 
+        ps_dec->u2_mbx = 0xffff;
+        ps_dec->u2_mby = 0;
+
+        if((0 == u1_is_idr_slice) && ps_cur_slice->u1_nal_ref_idc)
+            ps_dec->u2_prev_ref_frame_num = ps_cur_slice->u2_frame_num;
+
+        if(u1_is_idr_slice || ps_cur_slice->u1_mmco_equalto5)
+            ps_dec->u2_prev_ref_frame_num = 0;
+
+        if(ps_dec->ps_cur_sps->u1_gaps_in_frame_num_value_allowed_flag)
+        {
+            ih264d_decode_gaps_in_frame_num(ps_dec, u2_frame_num);
+        }
+
+        ps_prev_poc->i4_prev_frame_num_ofst = ps_cur_poc->i4_prev_frame_num_ofst;
+        ps_prev_poc->u2_frame_num = ps_cur_poc->u2_frame_num;
+        ps_prev_poc->u1_mmco_equalto5 = ps_cur_slice->u1_mmco_equalto5;
+        if(ps_cur_slice->u1_nal_ref_idc)
+        {
+            ps_prev_poc->i4_pic_order_cnt_lsb = ps_cur_poc->i4_pic_order_cnt_lsb;
+            ps_prev_poc->i4_pic_order_cnt_msb = ps_cur_poc->i4_pic_order_cnt_msb;
+            ps_prev_poc->i4_delta_pic_order_cnt_bottom =
+                            ps_cur_poc->i4_delta_pic_order_cnt_bottom;
+            ps_prev_poc->i4_delta_pic_order_cnt[0] =
+                            ps_cur_poc->i4_delta_pic_order_cnt[0];
+            ps_prev_poc->i4_delta_pic_order_cnt[1] =
+                            ps_cur_poc->i4_delta_pic_order_cnt[1];
+            ps_prev_poc->u1_bot_field = ps_cur_poc->u1_bot_field;
+        }
+
+        ps_dec->u2_total_mbs_coded = 0;
+    }
     /* Get the field related flags  */
     if(!ps_seq->u1_frame_mbs_only_flag)
     {
@@ -1190,15 +1192,11 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
     u1_nal_unit_type = SLICE_NAL;
     if(u1_is_idr_slice)
     {
-        if(0 == u1_field_pic_flag)
-        {
-            ps_dec->u1_top_bottom_decoded = TOP_FIELD_ONLY | BOT_FIELD_ONLY;
-        }
         u1_nal_unit_type = IDR_SLICE_NAL;
         u4_idr_pic_id = ih264d_uev(pu4_bitstrm_ofst,
                                    pu4_bitstrm_buf);
         if(u4_idr_pic_id > 65535)
-            return ERROR_INV_SPS_PPS_T;
+            return ERROR_INV_SLICE_HDR_T;
         COPYTHECONTEXT("SH:  ", u4_idr_pic_id);
     }
 
@@ -1213,7 +1211,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
                         ps_bitstrm,
                         ps_seq->u1_log2_max_pic_order_cnt_lsb_minus);
         if(i_temp < 0 || i_temp >= ps_seq->i4_max_pic_order_cntLsb)
-            return ERROR_INV_SPS_PPS_T;
+            return ERROR_INV_SLICE_HDR_T;
         s_tmp_poc.i4_pic_order_cnt_lsb = i_temp;
         COPYTHECONTEXT("SH: pic_order_cnt_lsb", s_tmp_poc.i4_pic_order_cnt_lsb);
 
@@ -1250,7 +1248,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
     {
         u4_temp = ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
         if(u4_temp > MAX_REDUNDANT_PIC_CNT)
-            return ERROR_INV_SPS_PPS_T;
+            return ERROR_INV_SLICE_HDR_T;
         u1_redundant_pic_cnt = u4_temp;
         COPYTHECONTEXT("SH: redundant_pic_cnt", u1_redundant_pic_cnt);
     }
@@ -1258,8 +1256,11 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
     /*--------------------------------------------------------------------*/
     /* Check if the slice is part of new picture                          */
     /*--------------------------------------------------------------------*/
-    i1_is_end_of_poc = 0;
-    if(!ps_dec->u1_first_slice_in_stream)
+    /* First slice of a picture is always considered as part of new picture */
+    i1_is_end_of_poc = 1;
+    ps_dec->ps_dec_err_status->u1_err_flag &= MASK_REJECT_CUR_PIC;
+
+    if(ps_dec->u4_first_slice_in_pic == 0)
     {
         i1_is_end_of_poc = ih264d_is_end_of_pic(u2_frame_num, u1_nal_ref_idc,
                                             &s_tmp_poc, &ps_dec->s_cur_pic_poc,
@@ -1267,23 +1268,12 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
                                             u1_nal_unit_type, u4_idr_pic_id,
                                             u1_field_pic_flag,
                                             u1_bottom_field_flag);
+        if(i1_is_end_of_poc)
+        {
+            ps_dec->u1_first_slice_in_stream = 0;
+            return ERROR_INCOMPLETE_FRAME;
+        }
 
-        /* since we support only Full frame decode, every new process should
-         * process a new pic
-         */
-        if((ps_dec->u4_first_slice_in_pic == 2) && (i1_is_end_of_poc == 0))
-        {
-            /* if it is the first slice is process call ,it should be a new frame. If it is not
-             * reject current pic and dont add it to dpb
-             */
-            ps_dec->ps_dec_err_status->u1_err_flag |= REJECT_CUR_PIC;
-            i1_is_end_of_poc = 1;
-        }
-        else
-        {
-            /* reset REJECT_CUR_PIC */
-            ps_dec->ps_dec_err_status->u1_err_flag &= MASK_REJECT_CUR_PIC;
-        }
     }
 
     /*--------------------------------------------------------------------*/
@@ -1323,7 +1313,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
             u1_is_idr_slice = ps_cur_slice->u1_nal_unit_type == IDR_SLICE_NAL;
         }
-        else if(ps_dec->u4_first_slice_in_pic == 2)
+        else if(ps_dec->u4_first_slice_in_pic)
         {
             if(u2_first_mb_in_slice > 0)
             {
@@ -1342,29 +1332,18 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
                 ps_cur_slice->u1_redundant_pic_cnt = u1_redundant_pic_cnt;
                 ps_cur_slice->u1_nal_ref_idc = u1_nal_ref_idc;
                 ps_cur_slice->u1_pic_order_cnt_type = u1_pic_order_cnt_type;
+                ps_cur_slice->u1_mbaff_frame_flag = ps_seq->u1_mb_aff_flag
+                        && (!u1_field_pic_flag);
             }
         }
         else
         {
-
-            if(ps_dec->u4_first_slice_in_pic)
-            {
-                /* if valid slice header is not decoded do start of pic processing
-                 * since in the current process call, frame num is not updated in the slice structure yet
-                 * ih264d_is_end_of_pic is checked with valid frame num of previous process call,
-                 * although i1_is_end_of_poc is set there could be  more slices in the frame,
-                 * so conceal only till cur slice */
-                prev_slice_err = 1;
-                num_mb_skipped = u2_first_mb_in_slice << u1_mbaff;
-            }
-            else
-            {
-                /* since i1_is_end_of_poc is set ,means new frame num is encountered. so conceal the current frame
-                 * completely */
-                prev_slice_err = 2;
-                num_mb_skipped = (ps_dec->u2_frm_ht_in_mbs * ps_dec->u2_frm_wd_in_mbs)
-                        - ps_dec->u2_total_mbs_coded;
-            }
+            /* since i1_is_end_of_poc is set ,means new frame num is encountered. so conceal the current frame
+             * completely */
+            prev_slice_err = 2;
+            num_mb_skipped = (ps_dec->u2_frm_ht_in_mbs
+                            * ps_dec->u2_frm_wd_in_mbs)
+                            - ps_dec->u2_total_mbs_coded;
             ps_cur_poc = &s_tmp_poc;
         }
     }
@@ -1429,51 +1408,13 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         ps_dec->u2_cur_slice_num++;
     }
 
+    // in the case of single core increment ps_decode_cur_slice
+    if((ps_dec->u1_separate_parse == 0) && (ps_dec->u4_first_slice_in_pic == 0))
+    {
+        ps_dec->ps_decode_cur_slice++;
+    }
     ps_dec->u1_slice_header_done = 0;
 
-    /*--------------------------------------------------------------------*/
-    /* If the slice is part of new picture, do End of Pic processing.     */
-    /*--------------------------------------------------------------------*/
-    if(!ps_dec->u1_first_slice_in_stream)
-    {
-        UWORD8 uc_mbs_exceed = 0;
-
-        if(ps_dec->u2_total_mbs_coded
-                        == (ps_dec->ps_cur_sps->u2_max_mb_addr + 1))
-        {
-            /*u2_total_mbs_coded is forced  to u2_max_mb_addr+ 1 at the end of decode ,so
-             ,if it is first slice in pic dont consider u2_total_mbs_coded to detect new picture */
-            if(ps_dec->u4_first_slice_in_pic == 0)
-                uc_mbs_exceed = 1;
-        }
-
-        if(i1_is_end_of_poc || uc_mbs_exceed)
-        {
-
-            if(1 == ps_dec->u1_last_pic_not_decoded)
-            {
-                ret = ih264d_end_of_pic_dispbuf_mgr(ps_dec);
-
-                if(ret != OK)
-                    return ret;
-
-                ret = ih264d_end_of_pic(ps_dec, u1_is_idr_slice, u2_frame_num);
-                if(ret != OK)
-                    return ret;
-#if WIN32
-                H264_DEC_DEBUG_PRINT(" ------ PIC SKIPPED ------\n");
-#endif
-                return RET_LAST_SKIP;
-            }
-            else
-            {
-                ret = ih264d_end_of_pic(ps_dec, u1_is_idr_slice, u2_frame_num);
-                if(ret != OK)
-                    return ret;
-            }
-
-        }
-    }
 
     if(u1_field_pic_flag)
     {
@@ -1505,7 +1446,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         ps_dec->ps_cur_pic->i4_poc = i4_temp_poc;
         ps_dec->ps_cur_pic->i4_avg_poc = i4_temp_poc;
     }
-    if(ps_dec->u4_first_slice_in_pic == 2)
+    if(ps_dec->u4_first_slice_in_pic)
     {
         ret = ih264d_decode_pic_order_cnt(u1_is_idr_slice, u2_frame_num,
                                           &ps_dec->s_prev_pic_poc,
@@ -1573,7 +1514,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
             ps_dec->pf_mvpred = ih264d_mvpred_nonmbaff;
     }
 
-    if(ps_dec->u4_first_slice_in_pic == 2)
+    if(ps_dec->u4_first_slice_in_pic)
     {
         if(u2_first_mb_in_slice == 0)
         {
@@ -1902,8 +1843,6 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
     if(ps_dec->u1_slice_header_done)
     {
         /* set to zero to indicate a valid slice has been decoded */
-        /* first slice header successfully decoded */
-        ps_dec->u4_first_slice_in_pic = 0;
         ps_dec->u1_first_slice_in_stream = 0;
     }
 

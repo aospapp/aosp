@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_ARCH_INSTRUCTION_SET_FEATURES_H_
 #define ART_RUNTIME_ARCH_INSTRUCTION_SET_FEATURES_H_
 
+#include <memory>
 #include <ostream>
 #include <vector>
 
@@ -36,34 +37,53 @@ class X86_64InstructionSetFeatures;
 class InstructionSetFeatures {
  public:
   // Process a CPU variant string for the given ISA and create an InstructionSetFeatures.
-  static const InstructionSetFeatures* FromVariant(InstructionSet isa,
-                                                   const std::string& variant,
-                                                   std::string* error_msg);
+  static std::unique_ptr<const InstructionSetFeatures> FromVariant(InstructionSet isa,
+                                                                   const std::string& variant,
+                                                                   std::string* error_msg);
 
   // Parse a bitmap for the given isa and create an InstructionSetFeatures.
-  static const InstructionSetFeatures* FromBitmap(InstructionSet isa, uint32_t bitmap);
+  static std::unique_ptr<const InstructionSetFeatures> FromBitmap(InstructionSet isa,
+                                                                  uint32_t bitmap);
 
   // Turn C pre-processor #defines into the equivalent instruction set features for kRuntimeISA.
-  static const InstructionSetFeatures* FromCppDefines();
+  static std::unique_ptr<const InstructionSetFeatures> FromCppDefines();
 
   // Process /proc/cpuinfo and use kRuntimeISA to produce InstructionSetFeatures.
-  static const InstructionSetFeatures* FromCpuInfo();
+  static std::unique_ptr<const InstructionSetFeatures> FromCpuInfo();
 
   // Process the auxiliary vector AT_HWCAP entry and use kRuntimeISA to produce
   // InstructionSetFeatures.
-  static const InstructionSetFeatures* FromHwcap();
+  static std::unique_ptr<const InstructionSetFeatures> FromHwcap();
 
   // Use assembly tests of the current runtime (ie kRuntimeISA) to determine the
   // InstructionSetFeatures. This works around kernel bugs in AT_HWCAP and /proc/cpuinfo.
-  static const InstructionSetFeatures* FromAssembly();
+  static std::unique_ptr<const InstructionSetFeatures> FromAssembly();
 
   // Parse a string of the form "div,-atomic_ldrd_strd" adding and removing these features to
   // create a new InstructionSetFeatures.
-  const InstructionSetFeatures* AddFeaturesFromString(const std::string& feature_list,
-                                                      std::string* error_msg) const WARN_UNUSED;
+  std::unique_ptr<const InstructionSetFeatures> AddFeaturesFromString(
+      const std::string& feature_list, std::string* error_msg) const WARN_UNUSED;
 
   // Are these features the same as the other given features?
   virtual bool Equals(const InstructionSetFeatures* other) const = 0;
+
+  // For testing purposes we want to make sure that the system we run on has at
+  // least the options we claim it has. In this cases Equals() does not
+  // suffice and will cause the test to fail, since the runtime cpu feature
+  // detection claims more capabilities then statically specified from the
+  // build system.
+  //
+  // A good example of this is the armv8 ART test target that declares
+  // "CPU_VARIANT=generic". If the generic target is specified and the code
+  // is run on a platform with enhanced capabilities, the
+  // instruction_set_features test will fail if we resort to using Equals()
+  // between statically defined cpu features and runtime cpu features.
+  //
+  // For now we default this to Equals() in case the architecture does not
+  // provide it.
+  virtual bool HasAtLeast(const InstructionSetFeatures* other) const {
+    return Equals(other);
+  }
 
   // Return the ISA these features relate to.
   virtual InstructionSet GetInstructionSet() const = 0;
@@ -73,11 +93,6 @@ class InstructionSetFeatures {
 
   // Return a string of the form "div,lpae" or "none".
   virtual std::string GetFeatureString() const = 0;
-
-  // Does the instruction set variant require instructions for correctness with SMP?
-  bool IsSmp() const {
-    return smp_;
-  }
 
   // Down cast this ArmInstructionFeatures.
   const ArmInstructionSetFeatures* AsArmInstructionSetFeatures() const;
@@ -100,20 +115,18 @@ class InstructionSetFeatures {
   virtual ~InstructionSetFeatures() {}
 
  protected:
-  explicit InstructionSetFeatures(bool smp) : smp_(smp) {}
+  InstructionSetFeatures() {}
 
   // Returns true if variant appears in the array variants.
   static bool FindVariantInArray(const char* const variants[], size_t num_variants,
                                  const std::string& variant);
 
   // Add architecture specific features in sub-classes.
-  virtual const InstructionSetFeatures*
-      AddFeaturesFromSplitString(bool smp, const std::vector<std::string>& features,
+  virtual std::unique_ptr<const InstructionSetFeatures>
+      AddFeaturesFromSplitString(const std::vector<std::string>& features,
                                  std::string* error_msg) const = 0;
 
  private:
-  const bool smp_;
-
   DISALLOW_COPY_AND_ASSIGN(InstructionSetFeatures);
 };
 std::ostream& operator<<(std::ostream& os, const InstructionSetFeatures& rhs);

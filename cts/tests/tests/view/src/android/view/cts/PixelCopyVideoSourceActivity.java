@@ -17,11 +17,12 @@
 package android.view.cts;
 
 import android.app.Activity;
-import android.cts.util.MediaUtils;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.VideoView;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.util.concurrent.CountDownLatch;
 

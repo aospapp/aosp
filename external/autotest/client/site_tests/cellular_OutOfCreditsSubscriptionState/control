@@ -13,7 +13,6 @@ This test will fail if one of the following conditions occurs:
     transitions to provisioned after being out-of-credits.
 """
 ATTRIBUTES = "suite:network3g_pseudomodem"
-SUITE = "network3g_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

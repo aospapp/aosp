@@ -52,6 +52,7 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
      * Overrides inherited method to launch one debuggee VM, establish JDWP
      * connection, and wait for VM_START event.
      */
+    @Override
     protected void internalSetUp() throws Exception {
         super.internalSetUp();
 
@@ -112,6 +113,7 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
      * Overrides inherited method to stop started debuggee VM and close all
      * connections.
      */
+    @Override
     protected void internalTearDown() {
         if (debuggeeWrapper != null) {
             debuggeeWrapper.stop();

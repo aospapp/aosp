@@ -37,12 +37,11 @@ import com.android.ims.RcsPresence.PublishState;
 import com.android.ims.internal.Logger;
 
 /**
- * Device boot event receiver: automatically starts the RCS service
+ * Device boot event receiver: automatically starts the RCS service. Registered
+ * to receive BOOT_COMPLETED actions.
  */
 public class DeviceBoot extends BroadcastReceiver {
-    /**
-     * The logger
-     */
+
     private Logger logger = Logger.getLogger("PresencePolling",
             this.getClass().getName());
 
@@ -54,15 +53,8 @@ public class DeviceBoot extends BroadcastReceiver {
         logger.debug("onReceive() in PresencePolling, intent: " +
                 intent + ", context: " + context);
 
-        String action = intent.getAction();
-        if (RcsPresence.ACTION_PUBLISH_STATE_CHANGED.equalsIgnoreCase(action)) {
-            int state = intent.getIntExtra(
-                    RcsPresence.EXTRA_PUBLISH_STATE,
-                    RcsPresence.PublishState.PUBLISH_STATE_NOT_PUBLISHED);
-            logger.debug("Publish state: " + state);
-        }
-
-        if (!PollingService.isRcsSupported(context)) {
+        // Don't initialize structures if the device does not support RCS at all.
+        if (!PollingService.isRcsSupportedByDevice()) {
             return;
         }
 

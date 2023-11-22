@@ -16,6 +16,13 @@ add_subdirectory(compute)
 add_subdirectory(image)
 add_subdirectory(wsi)
 add_subdirectory(sparse_resources)
+add_subdirectory(tessellation)
+add_subdirectory(rasterization)
+add_subdirectory(synchronization)
+add_subdirectory(clipping)
+add_subdirectory(fragment_ops)
+add_subdirectory(geometry)
+add_subdirectory(texture)
 
 include_directories(
 	api
@@ -34,6 +41,13 @@ include_directories(
 	image
 	wsi
 	sparse_resources
+	tessellation
+	rasterization
+	synchronization
+	clipping
+	fragment_ops
+	texture
+	geometry
 	)
 
 set(DEQP_VK_COMMON_SRCS
@@ -51,8 +65,6 @@ set(DEQP_VK_COMMON_SRCS
 	vktTestGroupUtil.hpp
 	vktInfoTests.cpp
 	vktInfoTests.hpp
-	vktSynchronization.cpp
-	vktSynchronization.hpp
 	)
 
 set(DEQP_VK_COMMON_LIBS
@@ -75,6 +87,13 @@ set(DEQP_VK_COMMON_LIBS
 	deqp-vk-image
 	deqp-vk-wsi
 	deqp-vk-sparse-resources
+	deqp-vk-tessellation
+	deqp-vk-rasterization
+	deqp-vk-synchronization
+	deqp-vk-clipping
+	deqp-vk-fragment-ops
+	deqp-vk-texture
+	deqp-vk-geometry
 	)
 
 add_library(deqp-vk-common STATIC ${DEQP_VK_COMMON_SRCS})
@@ -87,6 +106,10 @@ set(DEQP_VK_LIBS	deqp-vk-common)
 if (DE_OS_IS_WIN32 OR DE_OS_IS_UNIX OR DE_OS_IS_OSX)
 	add_executable(vk-build-programs vktBuildPrograms.cpp)
 	target_link_libraries(vk-build-programs deqp-vk-common)
+endif ()
+
+if (DE_COMPILER_IS_MSC AND (DE_PTR_SIZE EQUAL 4))
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LARGEADDRESSAWARE")
 endif ()
 
 add_deqp_module(deqp-vk "${DEQP_VK_SRCS}" "${DEQP_VK_LIBS}" vktTestPackageEntry.cpp)

@@ -15,7 +15,7 @@
   ~ limitations under the License.
   -->
 
-<com.android.tv.menu.SetupCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.tv.menu.SimpleCardView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="@dimen/card_layout_width"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -48,4 +48,4 @@
         android:text="@string/channels_item_setup"
         android:textSize="12sp" />
 
-</com.android.tv.menu.SetupCardView>
+</com.android.tv.menu.SimpleCardView>

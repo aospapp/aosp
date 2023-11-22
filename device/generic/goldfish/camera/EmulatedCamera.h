@@ -76,21 +76,17 @@ public:
 
     /* Next frame is available in the camera device.
      * This is a notification callback that is invoked by the camera device when
-     * a new frame is available.
+     * a new frame is available. The captured frame is available through
+     * the |camera_dev| object. Remember to create a
+     * EmulatedCameraDevice::FrameLock instance to lock the frame before
+     * accessing it.
      * Note that most likely this method is called in context of a worker thread
      * that camera device has created for frame capturing.
      * Param:
-     *  frame - Captured frame, or NULL if camera device didn't pull the frame
-     *      yet. If NULL is passed in this parameter use GetCurrentFrame method
-     *      of the camera device class to obtain the next frame. Also note that
-     *      the size of the frame that is passed here (as well as the frame
-     *      returned from the GetCurrentFrame method) is defined by the current
-     *      frame settings (width + height + pixel format) for the camera device.
      * timestamp - Frame's timestamp.
      * camera_dev - Camera device instance that delivered the frame.
      */
-    virtual void onNextFrameAvailable(const void* frame,
-                                      nsecs_t timestamp,
+    virtual void onNextFrameAvailable(nsecs_t timestamp,
                                       EmulatedCameraDevice* camera_dev);
 
     /* Entry point for notifications that occur in camera device.
@@ -98,6 +94,9 @@ public:
      *  err - CAMERA_ERROR_XXX error code.
      */
     virtual void onCameraDeviceError(int err);
+
+    /* Signal to the callback notifier that a pictuer is being taken. */
+    void setTakingPicture(bool takingPicture);
 
     /****************************************************************************
      * Camera API implementation
@@ -117,6 +116,11 @@ public:
      * Camera API implementation.
      * These methods are called from the camera API callback routines.
      ***************************************************************************/
+
+public:
+    /* Signal that a requested auto-focus has completed. This will be called
+     * from the camera device's worker thread. */
+    void autoFocusComplete();
 
 protected:
     /* Actual handler for camera_device_ops_t::set_preview_window callback.
@@ -289,6 +293,10 @@ protected:
 protected:
     /* Cleans up camera when released. */
     virtual status_t cleanupCamera();
+
+private:
+    status_t getConfiguredPixelFormat(uint32_t* pixelFormat) const;
+    status_t getConfiguredFrameSize(int* width, int* height) const;
 
     /****************************************************************************
      * Camera API callbacks as defined by camera_device_ops structure.

@@ -18,6 +18,7 @@
 #define ANDROID_RSD_SHADER_H
 
 #include <string>
+#include <vector>
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -27,8 +28,8 @@ class Element;
 class Context;
 class Program;
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 class RsdShaderCache;
 
@@ -49,7 +50,7 @@ public:
     // Add ability to get all ID's to clean up the cached program objects
     uint32_t getStateBasedIDCount() const { return mStateBasedShaders.size(); }
     uint32_t getStateBasedID(uint32_t index) const {
-        return mStateBasedShaders.itemAt(index)->mShaderID;
+        return mStateBasedShaders.at(index)->mShaderID;
     }
 
     uint32_t getAttribCount() const {return mAttribCount;}
@@ -70,7 +71,7 @@ protected:
 
     class StateBasedKey {
     public:
-        StateBasedKey(uint32_t texCount) : mShaderID(0) {
+        explicit StateBasedKey(uint32_t texCount) : mShaderID(0) {
             mTextureTargets = new uint32_t[texCount];
         }
         ~StateBasedKey() {
@@ -116,9 +117,9 @@ protected:
     std::string *mUniformNames;
     uint32_t *mUniformArraySizes;
 
-    android::Vector<android::String8> mTextureNames;
+    std::vector<std::string> mTextureNames;
 
-    android::Vector<StateBasedKey*> mStateBasedShaders;
+    std::vector<StateBasedKey*> mStateBasedShaders;
 
     int32_t mTextureUniformIndexStart;
 

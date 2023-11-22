@@ -87,7 +87,7 @@ class OperationFactory {
  */
 class Operation {
   public:
-    Operation(keymaster_purpose_t purpose) : purpose_(purpose) {}
+    explicit Operation(keymaster_purpose_t purpose) : purpose_(purpose) {}
     virtual ~Operation() {}
 
     keymaster_purpose_t purpose() const { return purpose_; }

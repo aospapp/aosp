@@ -40,7 +40,7 @@ class platform_MemCheck(test.test):
         # size reported in /sys/block/zram0/disksize is in byte
         swapref = int(utils.read_one_line(self.swap_disksize_file)) / 1024
 
-        less_refs = ['MemTotal', 'MemFree', 'VmallocTotal']
+        less_refs = ['MemTotal', 'VmallocTotal']
         approx_refs = ['SwapTotal']
 
         # read physical HW size from mosys and adjust memref if need
@@ -53,27 +53,15 @@ class platform_MemCheck(test.test):
         phy_size *= 1024
         keyval['PhysicalSize'] = phy_size
         memref = max(memref, phy_size - os_reserve)
-        freeref = memref / 2
-
-        # Special rule for free memory size for parrot and butterfly
-        board = utils.get_board()
-        if board.startswith('parrot'):
-            freeref = 100 * 1024
-        elif board.startswith('butterfly'):
-            freeref = freeref - 400 * 1024
-        elif board.startswith('rambi') or board.startswith('expresso'):
-            logging.info('Skipping test on rambi and expresso, '
-                         'see crbug.com/411401')
-            return
 
         ref = {'MemTotal': memref,
-               'MemFree': freeref,
                'SwapTotal': swapref,
                'VmallocTotal': vmemref,
               }
 
-        logging.info('board: %s, phy_size: %d memref: %d freeref: %d',
-                      board, phy_size, memref, freeref)
+        board = utils.get_board()
+        logging.info('board: %s, phy_size: %d memref: %d',
+                      board, phy_size, memref)
 
         error_list = []
 
@@ -121,8 +109,22 @@ class platform_MemCheck(test.test):
                 error_list += ['speed_dimm_%d' % dimm]
                 errors += 1
 
-        # If self.error is not zero, there were errors.
-        if errors > 0:
+        # Log memory ids
+        cmd = 'mosys memory spd print id'
+        # result example (1 module of memory per result line)
+        # 0 | 1-45: SK Hynix (Hyundai) | 128d057e | HMT425S6CFR6A-PB
+        # 1 | 1-45: SK Hynix (Hyundai) | 121d0581 | HMT425S6CFR6A-PB
+        mem_ids = utils.run(cmd).stdout.split('\n')
+        for dimm, line in enumerate(mem_ids):
+            if not line:
+                continue
+            keyval['memory_id_dimm_%d' % dimm] = line
+
+        if board.startswith('rambi') or board.startswith('expresso'):
+            logging.info('Skipping test on rambi and expresso, '
+                         'see crbug.com/411401')
+        elif errors > 0:
+            # If self.error is not zero, there were errors.
             error_list_str = ', '.join(error_list)
             raise error.TestFail('Found incorrect values: %s' % error_list_str)
 

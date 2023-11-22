@@ -103,6 +103,9 @@ public class IntrinsicConvolve5x5 extends IntrinsicBase {
         test5(sr, si, e, cf1, "test convolve", 1, w, h, sc);
         test5(sr, si, e, cf2, "test convolve", 2, w, h, sc);
         test5(sr, si, e, cf3, "test convolve", 3, w, h, sc);
+
+        si.destroy();
+        sr.destroy();
     }
 
     public void test_U8_4() {
@@ -195,6 +198,8 @@ public class IntrinsicConvolve5x5 extends IntrinsicBase {
         if (fid == null) {
             throw new IllegalStateException("fid must be valid");
         }
+
+        s.destroy();
     }
 
 }

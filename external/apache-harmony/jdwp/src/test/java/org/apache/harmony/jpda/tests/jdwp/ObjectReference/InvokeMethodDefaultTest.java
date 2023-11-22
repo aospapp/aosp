@@ -27,6 +27,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP unit test for ObjectReference.InvokeMethod command.
  */
 public class InvokeMethodDefaultTest extends JDWPSyncTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return InvokeMethodDefaultDebuggee.class.getName();
     }
@@ -124,7 +125,7 @@ public class InvokeMethodDefaultTest extends JDWPSyncTestCase {
         logWriter.println(" Method ID=" + targetMethodID);
 
         // The method argument.
-        Value throwValue = new Value(shouldThrow);
+        Value throwValue = Value.createBoolean(shouldThrow);
         // Invoke method.
         packet = new CommandPacket(
                 JDWPCommands.ObjectReferenceCommandSet.CommandSetID,

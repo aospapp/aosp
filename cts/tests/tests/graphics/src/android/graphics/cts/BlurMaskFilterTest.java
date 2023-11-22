@@ -15,26 +15,32 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.BlurMaskFilter;
+import android.graphics.BlurMaskFilter.Blur;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Bitmap.Config;
-import android.graphics.BlurMaskFilter.Blur;
-import android.util.Log;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class BlurMaskFilterTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BlurMaskFilterTest {
     private static final int OFFSET = 10;
     private static final int RADIUS = 5;
     private static final int BITMAP_WIDTH = 100;
     private static final int BITMAP_HEIGHT = 100;
     private static final int CENTER = BITMAP_HEIGHT / 2;
 
-    public void testBlurMaskFilter(){
+    @Test
+    public void testBlurMaskFilter() {
         BlurMaskFilter filter = new BlurMaskFilter(RADIUS, Blur.NORMAL);
         Paint paint = new Paint();
         paint.setMaskFilter(filter);
@@ -47,33 +53,29 @@ public class BlurMaskFilterTest extends TestCase {
             for (int y = 0; y < CENTER; y++) {
                 if (x < CENTER - OFFSET - RADIUS || y < CENTER - OFFSET - RADIUS) {
                     // check that color didn't bleed (much) beyond radius
-                    checkQuadrants(Color.TRANSPARENT, b, x, y, 5);
+                    verifyQuadrants(Color.TRANSPARENT, b, x, y, 5);
                 } else if (x > CENTER - OFFSET + RADIUS && y > CENTER - OFFSET + RADIUS) {
                     // check that color didn't wash out (much) in the center
-                    checkQuadrants(Color.RED, b, x, y, 5);
+                    verifyQuadrants(Color.RED, b, x, y, 5);
                 } else {
                     // check blur zone, color should remain, alpha varies
-                    checkQuadrants(Color.RED, b, x, y, 255);
+                    verifyQuadrants(Color.RED, b, x, y, 255);
                 }
             }
         }
     }
 
-    private void checkQuadrants(int color, Bitmap bitmap, int x, int y, int alphaTolerance) {
+    private void verifyQuadrants(int color, Bitmap bitmap, int x, int y, int alphaTolerance) {
         int right = bitmap.getWidth() - 1;
         int bottom = bitmap.getHeight() - 1;
-        try {
-            checkColor(color, bitmap.getPixel(x, y), alphaTolerance);
-            checkColor(color, bitmap.getPixel(right - x, y), alphaTolerance);
-            checkColor(color, bitmap.getPixel(x, bottom - y), alphaTolerance);
-            checkColor(color, bitmap.getPixel(right - x, bottom - y), alphaTolerance);
-        } catch (Error e) {
-            Log.w(getClass().getName(), "Failed for coordinates (" + x + ", " + y + ")");
-            throw e;
-        }
+
+        verifyColor(color, bitmap.getPixel(x, y), alphaTolerance);
+        verifyColor(color, bitmap.getPixel(right - x, y), alphaTolerance);
+        verifyColor(color, bitmap.getPixel(x, bottom - y), alphaTolerance);
+        verifyColor(color, bitmap.getPixel(right - x, bottom - y), alphaTolerance);
     }
 
-    private void checkColor(int expected, int actual, int alphaTolerance) {
+    private void verifyColor(int expected, int actual, int alphaTolerance) {
         assertEquals(Color.red(expected), Color.red(actual));
         assertEquals(Color.green(expected), Color.green(actual));
         assertEquals(Color.blue(expected), Color.blue(actual));

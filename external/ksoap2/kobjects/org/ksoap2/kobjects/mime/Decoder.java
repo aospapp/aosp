@@ -22,7 +22,7 @@ package org.ksoap2.kobjects.mime;
 
 import java.io.*;
 import java.util.*;
-import org.ksoap2.kobjects.base64.*;
+import org.ksoap2.kobjects.base64.Base64;
 
 public class Decoder {
 

@@ -14,28 +14,54 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
-    <ProgressBar
-        android:id="@+id/progress_tint"
-        android:progressTint="@android:color/white"
-        android:progressTintMode="src_over"
-        android:progressBackgroundTint="@android:color/white"
-        android:progressBackgroundTintMode="src_over"
-        android:secondaryProgressTint="@android:color/white"
-        android:secondaryProgressTintMode="src_over"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        style="@android:style/Widget.ProgressBar.Horizontal" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
 
-    <ProgressBar
-        android:id="@+id/indeterminate_tint"
-        android:indeterminateTint="@android:color/white"
-        android:indeterminateTintMode="src_over"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        style="@android:style/Widget.ProgressBar.Large" />
+        <ProgressBar
+            style="@android:style/Widget.Material.Light.ProgressBar"
+            android:id="@+id/progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
 
-</LinearLayout>
+        <ProgressBar
+            style="@android:style/Widget.Material.Light.ProgressBar.Horizontal"
+            android:id="@+id/progress_horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <ProgressBar
+            style="@android:style/Widget.Material.Light.ProgressBar.Horizontal"
+            android:id="@+id/progress_tint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:progressTint="@android:color/white"
+            android:progressTintMode="src_over"
+            android:progressBackgroundTint="@android:color/white"
+            android:progressBackgroundTintMode="src_over"
+            android:secondaryProgressTint="@android:color/white"
+            android:secondaryProgressTintMode="src_over" />
+
+        <ProgressBar
+            style="@android:style/Widget.Material.Light.ProgressBar.Large"
+            android:id="@+id/indeterminate_tint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminateTint="@android:color/white"
+            android:indeterminateTintMode="src_over" />
+
+        <view
+            class="android.widget.cts.ProgressBarTest$MockProgressBar"
+            style="@android:style/Widget.Material.Light.ProgressBar"
+            android:id="@+id/progress_custom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+</ScrollView>

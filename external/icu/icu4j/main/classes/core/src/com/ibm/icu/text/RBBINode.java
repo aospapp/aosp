@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 2001-2010, International Business Machines Corporation and
+ * Copyright (c) 2001-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -17,7 +19,7 @@ import com.ibm.icu.impl.Assert;
  */
 class RBBINode {
 
-    
+
  //   enum NodeType {
      static final int    setRef = 0;
      static final int    uset = 1;
@@ -36,7 +38,7 @@ class RBBINode {
      static final int    opReverse = 14;
      static final int    opLParen = 15;
      static final int    nodeTypeLimit = 16;    //  For Assertion checking only.
-     
+
      static final String []  nodeTypeNames = {
          "setRef",
          "uset",
@@ -56,20 +58,20 @@ class RBBINode {
          "opLParen"
      };
 
-//    enum OpPrecedence {      
+//    enum OpPrecedence {
     static final int    precZero   = 0;
     static final int    precStart  = 1;
     static final int    precLParen = 2;
     static final int    precOpOr   = 3;
     static final int    precOpCat  = 4;
-        
+
     int          fType;   // enum NodeType
     RBBINode      fParent;
     RBBINode      fLeftChild;
     RBBINode      fRightChild;
     UnicodeSet    fInputSet;           // For uset nodes only.
     int          fPrecedence = precZero;   // enum OpPrecedence, For binary ops only.
-    
+
     String       fText;                 // Text corresponding to this node.
                                         //   May be lazily evaluated when (if) needed
                                         //   for some node types.
@@ -89,12 +91,17 @@ class RBBINode {
                                         //   state transition table.
 
     boolean      fLookAheadEnd;        // For endMark nodes, set TRUE if
-                                        //   marking the end of a look-ahead rule.
+                                       //   marking the end of a look-ahead rule.
+
+    boolean      fRuleRoot;             // True if this node is the root of a rule.
+    boolean      fChainIn;              // True if chaining into this rule is allowed
+                                        //     (no '^' present).
+
 
     Set<RBBINode> fFirstPosSet;         // See Aho DFA table generation algorithm
-    Set<RBBINode> fLastPosSet;          // See Aho.       
+    Set<RBBINode> fLastPosSet;          // See Aho.
     Set<RBBINode> fFollowPos;           // See Aho.
-    
+
     int           fSerialNum;           //  Debugging aids.  Each node gets a unique serial number.
     static int    gLastSerial;
 
@@ -129,6 +136,8 @@ class RBBINode {
         fLastPos = other.fLastPos;
         fNullable = other.fNullable;
         fVal = other.fVal;
+        fRuleRoot = false;
+        fChainIn = other.fChainIn;
         fFirstPosSet = new HashSet<RBBINode>(other.fFirstPosSet);
         fLastPosSet = new HashSet<RBBINode>(other.fLastPosSet);
         fFollowPos = new HashSet<RBBINode>(other.fFollowPos);
@@ -188,8 +197,9 @@ class RBBINode {
     //-------------------------------------------------------------------------
     RBBINode flattenVariables() {
         if (fType == varRef) {
-            RBBINode retNode = fLeftChild.cloneTree();
-            // delete this;
+            RBBINode retNode  = fLeftChild.cloneTree();
+            retNode.fRuleRoot = this.fRuleRoot;
+            retNode.fChainIn  = this.fChainIn;
             return retNode;
         }
 
@@ -259,8 +269,8 @@ class RBBINode {
         }
     }
 
-    
- 
+
+
     //-------------------------------------------------------------------------
     //
     //        print. Print out a single node, for debugging.
@@ -279,7 +289,7 @@ class RBBINode {
             RBBINode.printInt(n.fRightChild==null? 0 : n.fRightChild.fSerialNum, 12);
             RBBINode.printInt(n.fFirstPos, 12);
             RBBINode.printInt(n.fVal, 7);
-            
+
             if (n.fType == varRef) {
                 System.out.print(" " + n.fText);
             }
@@ -287,7 +297,7 @@ class RBBINode {
         System.out.println("");
     }
     ///CLOVER:ON
- 
+
 
     // Print a String in a fixed field size.
     // Debugging function.
@@ -344,7 +354,7 @@ class RBBINode {
                 if (fLeftChild != null) {
                     fLeftChild.printTree(false);
                 }
-                
+
                 if (fRightChild != null) {
                     fRightChild.printTree(false);
                 }

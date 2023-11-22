@@ -19,7 +19,6 @@ package com.android.tv;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.annotation.UiThread;
 import android.util.ArraySet;
 
 import com.android.tv.data.Channel;
@@ -54,7 +53,6 @@ public final class MainActivityWrapper {
     /**
      * Sets the currently created main activity instance.
      */
-    @UiThread
     public void onMainActivityCreated(@NonNull MainActivity activity) {
         mActivity = activity;
     }
@@ -62,7 +60,6 @@ public final class MainActivityWrapper {
     /**
      * Unsets the main activity instance.
      */
-    @UiThread
     public void onMainActivityDestroyed(@NonNull MainActivity activity) {
         if (mActivity != activity) {
             mActivity = null;
@@ -104,7 +101,6 @@ public final class MainActivityWrapper {
     /**
      * Adds OnCurrentChannelChangeListener.
      */
-    @UiThread
     public void addOnCurrentChannelChangeListener(OnCurrentChannelChangeListener listener) {
         mListeners.add(listener);
     }
@@ -112,7 +108,6 @@ public final class MainActivityWrapper {
     /**
      * Removes OnCurrentChannelChangeListener.
      */
-    @UiThread
     public void removeOnCurrentChannelChangeListener(OnCurrentChannelChangeListener listener) {
         mListeners.remove(listener);
     }

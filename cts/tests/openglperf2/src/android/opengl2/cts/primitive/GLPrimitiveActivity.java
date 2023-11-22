@@ -13,9 +13,10 @@
  */
 package android.opengl2.cts.primitive;
 
+import com.android.compatibility.common.util.WatchDog;
+
 import android.app.Activity;
 import android.content.Intent;
-import android.cts.util.WatchDog;
 import android.opengl2.cts.GLActivityIntentKeys;
 import android.os.Bundle;
 import android.util.Log;

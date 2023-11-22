@@ -21,7 +21,7 @@
 
 class ScopedLocalFrame {
 public:
-    ScopedLocalFrame(JNIEnv* env) : mEnv(env) {
+    explicit ScopedLocalFrame(JNIEnv* env) : mEnv(env) {
         mEnv->PushLocalFrame(128);
     }
 

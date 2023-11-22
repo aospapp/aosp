@@ -16,7 +16,7 @@
 #       src             eg. tests/<test>/src
 #       tmpdir          eg. tmp/<tempname>_<testname.tag>
 
-#pylint: disable-msg=C0111
+#pylint: disable=C0111
 
 import fcntl, json, os, re, sys, shutil, stat, tempfile, time, traceback
 import logging
@@ -141,17 +141,80 @@ class base_test(object):
         description = re.sub(string_regex, replacement, description)
         units = re.sub(string_regex, replacement, units) if units else None
 
-        entry = {
-            'description': description,
-            'value': value,
-            'units': units,
-            'higher_is_better': higher_is_better,
-            'graph': graph
+        charts = {}
+        output_file = os.path.join(self.resultsdir, 'results-chart.json')
+        if os.path.isfile(output_file):
+            with open(output_file, 'r') as fp:
+                contents = fp.read()
+                if contents:
+                     charts = json.loads(contents)
+
+        if graph:
+            first_level = graph
+            second_level = description
+        else:
+            first_level = description
+            second_level = 'summary'
+
+        direction = 'up' if higher_is_better else 'down'
+
+        # All input should be a number - but at times there are strings
+        # representing numbers logged, attempt to convert them to numbers.
+        # If a non number string is logged an exception will be thrown.
+        if isinstance(value, list):
+          value = map(float, value)
+        else:
+          value = float(value)
+
+        result_type = 'scalar'
+        value_key = 'value'
+        result_value = value
+
+        # The chart json spec go/telemetry-json differenciates between a single
+        # value vs a list of values.  Lists of values get extra processing in
+        # the chromeperf dashboard ( mean, standard deviation etc)
+        # Tests can log one or more values for the same metric, to adhere stricly
+        # to the specification the first value logged is a scalar but if another
+        # value is logged the results become a list of scalar.
+        # TODO Figure out if there would be any difference of always using list
+        # of scalar even if there is just one item in the list.
+        if isinstance(value, list):
+            result_type = 'list_of_scalar_values'
+            value_key = 'values'
+            if first_level in charts and second_level in charts[first_level]:
+                if 'values' in charts[first_level][second_level]:
+                    result_value = charts[first_level][second_level]['values']
+                    result_value.extend(value)
+                elif 'value' in charts[first_level][second_level]:
+                    result_value = [charts[first_level][second_level]['value']]
+                    result_value.extend(value)
+            else:
+                result_value = value
+        elif first_level in charts and second_level in charts[first_level]:
+            result_type = 'list_of_scalar_values'
+            value_key = 'values'
+            if 'values' in charts[first_level][second_level]:
+                result_value = charts[first_level][second_level]['values']
+                result_value.append(value)
+            else:
+                result_value = [charts[first_level][second_level]['value'], value]
+
+        test_data = {
+            second_level: {
+                 'type': result_type,
+                 'units': units,
+                 value_key: result_value,
+                 'improvement_direction': direction
+           }
         }
 
-        output_path = os.path.join(self.resultsdir, 'perf_measurements')
-        with open(output_path, 'a') as fp:
-            fp.write(json.dumps(entry, sort_keys=True) + '\n')
+        if first_level in charts:
+            charts[first_level].update(test_data)
+        else:
+            charts.update({first_level: test_data})
+
+        with open(output_file, 'w') as fp:
+            fp.write(json.dumps(charts, indent=2))
 
 
     def write_perf_keyval(self, perf_dict):
@@ -296,8 +359,10 @@ class base_test(object):
                        postprocess_profiled_run, args, dargs):
         self.drop_caches_between_iterations()
         # execute iteration hooks
+        logging.debug('starting before_iteration_hooks')
         for hook in self.before_iteration_hooks:
             hook(self)
+        logging.debug('before_iteration_hooks completed')
 
         try:
             if profile_only:
@@ -310,17 +375,24 @@ class base_test(object):
                                         *args, **dargs)
             else:
                 self.before_run_once()
+                logging.debug('starting test(run_once()), test details follow'
+                              '\n%r', args)
                 self.run_once(*args, **dargs)
+                logging.debug('The test has completed successfully')
                 self.after_run_once()
 
             self.postprocess_iteration()
             self.analyze_perf_constraints(constraints)
         # Catch and re-raise to let after_iteration_hooks see the exception.
-        except:
+        except Exception as e:
+            logging.debug('Test failed due to %s. Exception log follows the '
+                          'after_iteration_hooks.', str(e))
             raise
         finally:
+            logging.debug('starting after_iteration_hooks')
             for hook in reversed(self.after_iteration_hooks):
                 hook(self)
+            logging.debug('after_iteration_hooks completed')
 
 
     def execute(self, iterations=None, test_length=None, profile_only=None,
@@ -539,12 +611,13 @@ class base_test(object):
                 # Save the exception while we run our cleanup() before
                 # reraising it, but log it to so actual time of error is known.
                 exc_info = sys.exc_info()
-                logging.warning('Autotest caught exception when running test:',
+                logging.warning('The test failed with the following exception',
                                 exc_info=True)
 
                 try:
                     try:
                         if run_cleanup:
+                            logging.debug('Running cleanup for test.')
                             _cherry_pick_call(self.cleanup, *args, **dargs)
                     except Exception:
                         logging.error('Ignoring exception during cleanup() '
@@ -554,6 +627,9 @@ class base_test(object):
                                       exc_info[0])
                     self.crash_handler_report()
                 finally:
+                    # Raise exception after running cleanup, reporting crash,
+                    # and restoring job's logging, even if the first two
+                    # actions fail.
                     self.job.logging.restore()
                     try:
                         raise exc_info[0], exc_info[1], exc_info[2]
@@ -829,3 +905,4 @@ def runtest(job, url, tag, args, dargs,
         if after_test_hook:
             after_test_hook(mytest)
         shutil.rmtree(mytest.tmpdir, ignore_errors=True)
+

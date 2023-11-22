@@ -912,7 +912,7 @@ public class BigDecimalTest extends junit.framework.TestCase {
 				((notrailingzerotest.stripTrailingZeros()).scale() == 0)
 				);
 		
-                // BEGIN android-changed: preserve RI compatibility, so BigDecimal.equals (which checks
+                // BEGIN Android-changed: preserve RI compatibility, so BigDecimal.equals (which checks
                 // value *and* scale) continues to work. https://issues.apache.org/jira/browse/HARMONY-4623
 		/* Zero */
 		BigDecimal zerotest = new BigDecimal("0.0000");

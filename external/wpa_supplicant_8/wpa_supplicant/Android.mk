@@ -25,6 +25,9 @@ L_CFLAGS += -DANDROID_LOG_NAME=\"wpa_supplicant\"
 # Disable unused parameter warnings
 L_CFLAGS += -Wno-unused-parameter
 
+# Disable redefined macro warnings
+L_CFLAGS += -Wno-macro-redefined
+
 # Set Android extended P2P functionality
 L_CFLAGS += -DANDROID_P2P
 
@@ -48,6 +51,12 @@ L_CFLAGS += -DCONFIG_WPA_CLI_HISTORY_DIR=\"/data/misc/wifi\"
 ifeq ($(TARGET_ARCH),arm)
 L_CFLAGS += -mabi=aapcs-linux
 endif
+
+# C++ flags for hidl interface
+L_CPPFLAGS := -Wall -Werror
+# TODO: Remove these allowed warnings later.
+L_CPPFLAGS += -Wno-unused-variable -Wno-unused-parameter
+L_CPPFLAGS += -Wno-unused-private-field
 
 INCLUDES = $(LOCAL_PATH)
 INCLUDES += $(LOCAL_PATH)/src
@@ -86,7 +95,10 @@ OBJS += eap_register.c
 OBJS += src/utils/common.c
 OBJS += src/utils/wpa_debug.c
 OBJS += src/utils/wpabuf.c
+OBJS += src/utils/bitfield.c
 OBJS += wmm_ac.c
+OBJS += op_classes.c
+OBJS += rrm.c
 OBJS_p = wpa_passphrase.c
 OBJS_p += src/utils/common.c
 OBJS_p += src/utils/wpa_debug.c
@@ -94,6 +106,7 @@ OBJS_p += src/utils/wpabuf.c
 OBJS_c = wpa_cli.c src/common/wpa_ctrl.c
 OBJS_c += src/utils/wpa_debug.c
 OBJS_c += src/utils/common.c
+OBJS_c += src/common/cli.c
 OBJS_d =
 OBJS_priv =
 
@@ -203,6 +216,10 @@ NEED_SHA256=y
 NEED_AES_OMAC1=y
 endif
 
+ifdef CONFIG_IEEE80211R_AP
+CONFIG_IEEE80211R=y
+endif
+
 ifdef CONFIG_IEEE80211R
 L_CFLAGS += -DCONFIG_IEEE80211R
 OBJS += src/rsn_supp/wpa_ft.c
@@ -231,6 +248,12 @@ NEED_ECC=y
 NEED_DH_GROUPS=y
 endif
 
+ifdef CONFIG_FILS
+L_CFLAGS += -DCONFIG_FILS
+NEED_SHA384=y
+NEED_AES_SIV=y
+endif
+
 ifdef CONFIG_WNM
 L_CFLAGS += -DCONFIG_WNM
 OBJS += wnm_sta.c
@@ -249,6 +272,10 @@ endif
 
 ifdef CONFIG_PEERKEY
 L_CFLAGS += -DCONFIG_PEERKEY
+endif
+
+ifdef CONFIG_PMKSA_CACHE_EXTERNAL
+L_CFLAGS += -DCONFIG_PMKSA_CACHE_EXTERNAL
 endif
 
 ifndef CONFIG_NO_WPA
@@ -287,7 +314,6 @@ OBJS += src/p2p/p2p_invitation.c
 OBJS += src/p2p/p2p_dev_disc.c
 OBJS += src/p2p/p2p_group.c
 OBJS += src/ap/p2p_hostapd.c
-OBJS += src/utils/bitfield.c
 L_CFLAGS += -DCONFIG_P2P
 NEED_GAS=y
 NEED_OFFCHANNEL=y
@@ -797,10 +823,15 @@ OBJS += src/ap/ap_drv_ops.c
 OBJS += src/ap/beacon.c
 OBJS += src/ap/bss_load.c
 OBJS += src/ap/eap_user_db.c
+OBJS += src/ap/neighbor_db.c
+OBJS += src/ap/rrm.c
 ifdef CONFIG_IEEE80211N
 OBJS += src/ap/ieee802_11_ht.c
 ifdef CONFIG_IEEE80211AC
 OBJS += src/ap/ieee802_11_vht.c
+endif
+ifdef CONFIG_IEEE80211AX
+OBJS += src/ap/ieee802_11_he.c
 endif
 endif
 ifdef CONFIG_WNM
@@ -808,6 +839,9 @@ OBJS += src/ap/wnm_ap.c
 endif
 ifdef CONFIG_MBO
 OBJS += src/ap/mbo_ap.c
+endif
+ifdef CONFIG_FILS
+OBJS += src/ap/fils_hlp.c
 endif
 ifdef CONFIG_CTRL_IFACE
 OBJS += src/ap/ctrl_iface_ap.c
@@ -823,11 +857,9 @@ L_CFLAGS += -DCONFIG_IEEE80211N
 ifdef CONFIG_IEEE80211AC
 L_CFLAGS += -DCONFIG_IEEE80211AC
 endif
+ifdef CONFIG_IEEE80211AX
+L_CFLAGS += -DCONFIG_IEEE80211AX
 endif
-
-ifdef CONFIG_MBO
-OBJS += mbo.c
-L_CFLAGS += -DCONFIG_MBO
 endif
 
 ifdef NEED_AP_MLME
@@ -851,13 +883,19 @@ OBJS += src/ap/hs20.c
 endif
 endif
 
+ifdef CONFIG_MBO
+OBJS += mbo.c
+L_CFLAGS += -DCONFIG_MBO
+endif
+
 ifdef NEED_RSN_AUTHENTICATOR
 L_CFLAGS += -DCONFIG_NO_RADIUS
 NEED_AES_WRAP=y
 OBJS += src/ap/wpa_auth.c
 OBJS += src/ap/wpa_auth_ie.c
 OBJS += src/ap/pmksa_cache_auth.c
-ifdef CONFIG_IEEE80211R
+ifdef CONFIG_IEEE80211R_AP
+L_CFLAGS += -DCONFIG_IEEE80211R_AP
 OBJS += src/ap/wpa_auth_ft.c
 endif
 ifdef CONFIG_PEERKEY
@@ -1256,6 +1294,9 @@ OBJS += $(SHA256OBJS)
 endif
 ifdef NEED_SHA384
 L_CFLAGS += -DCONFIG_SHA384
+ifneq ($(CONFIG_TLS), openssl)
+OBJS += src/crypto/sha384.c
+endif
 OBJS += src/crypto/sha384-prf.c
 endif
 
@@ -1346,14 +1387,9 @@ endif
 OBJS += $(DBUS_OBJS)
 L_CFLAGS += $(DBUS_CFLAGS)
 
-ifdef CONFIG_CTRL_IFACE_BINDER
-BINDER=y
-L_CFLAGS += -DCONFIG_BINDER -DCONFIG_CTRL_IFACE_BINDER
-OBJS += binder/binder.cpp binder/binder_manager.cpp
-OBJS += binder/supplicant.cpp binder/iface.cpp
-OBJS += binder/fi/w1/wpa_supplicant/ISupplicant.aidl
-OBJS += binder/fi/w1/wpa_supplicant/ISupplicantCallbacks.aidl
-OBJS += binder/fi/w1/wpa_supplicant/IIface.aidl
+ifdef CONFIG_CTRL_IFACE_HIDL
+WPA_SUPPLICANT_USE_HIDL=y
+L_CFLAGS += -DCONFIG_HIDL -DCONFIG_CTRL_IFACE_HIDL
 endif
 
 ifdef CONFIG_READLINE
@@ -1549,6 +1585,7 @@ endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := wpa_cli
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_TAGS := debug
 LOCAL_SHARED_LIBRARIES := libc libcutils liblog
 LOCAL_CFLAGS := $(L_CFLAGS)
@@ -1559,6 +1596,8 @@ include $(BUILD_EXECUTABLE)
 ########################
 include $(CLEAR_VARS)
 LOCAL_MODULE := wpa_supplicant
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_RELATIVE_PATH := hw
 ifdef CONFIG_DRIVER_CUSTOM
 LOCAL_STATIC_LIBRARIES := libCustomWifi
 endif
@@ -1571,14 +1610,12 @@ LOCAL_STATIC_LIBRARIES += $(LIB_STATIC_EAP_PROXY)
 LOCAL_SHARED_LIBRARIES += $(LIB_SHARED_EAP_PROXY)
 endif
 ifeq ($(CONFIG_TLS), openssl)
-LOCAL_SHARED_LIBRARIES += libcrypto libssl libkeystore_binder
+LOCAL_SHARED_LIBRARIES += libcrypto libssl libkeystore-wifi-hidl
 endif
 
 # With BoringSSL we need libkeystore-engine in order to provide access to
 # keystore keys.
-ifneq (,$(wildcard external/boringssl/flavor.mk))
-LOCAL_SHARED_LIBRARIES += libkeystore-engine
-endif
+LOCAL_SHARED_LIBRARIES += libkeystore-engine-wifi-hidl
 
 ifdef CONFIG_DRIVER_NL80211
 ifneq ($(wildcard external/libnl),)
@@ -1593,9 +1630,10 @@ LOCAL_C_INCLUDES := $(INCLUDES)
 ifeq ($(DBUS), y)
 LOCAL_SHARED_LIBRARIES += libdbus
 endif
-ifeq ($(BINDER), y)
-LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/binder frameworks/native/aidl/binder
-LOCAL_SHARED_LIBRARIES += libutils libbinder
+ifeq ($(WPA_SUPPLICANT_USE_HIDL), y)
+LOCAL_SHARED_LIBRARIES += android.hardware.wifi.supplicant@1.0
+LOCAL_SHARED_LIBRARIES += libhidlbase libhidltransport libhwbinder libutils
+LOCAL_STATIC_LIBRARIES += libwpa_hidl
 endif
 include $(BUILD_EXECUTABLE)
 
@@ -1627,11 +1665,39 @@ include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE = libwpa_client
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_CFLAGS = $(L_CFLAGS)
 LOCAL_SRC_FILES = src/common/wpa_ctrl.c src/utils/os_$(CONFIG_OS).c
 LOCAL_C_INCLUDES = $(INCLUDES)
 LOCAL_SHARED_LIBRARIES := libcutils liblog
-LOCAL_COPY_HEADERS_TO := libwpa_client
-LOCAL_COPY_HEADERS := src/common/wpa_ctrl.h
-LOCAL_COPY_HEADERS += src/common/qca-vendor.h
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/wpa_client_include $(LOCAL_PATH)/wpa_client_include/libwpa_client
 include $(BUILD_SHARED_LIBRARY)
+
+ifeq ($(WPA_SUPPLICANT_USE_HIDL), y)
+### Hidl service library ###
+########################
+include $(CLEAR_VARS)
+LOCAL_MODULE := libwpa_hidl
+LOCAL_CPPFLAGS := $(L_CPPFLAGS)
+LOCAL_CFLAGS := $(L_CFLAGS)
+LOCAL_C_INCLUDES := $(INCLUDES)
+HIDL_INTERFACE_VERSION = 1.0
+LOCAL_SRC_FILES := \
+    hidl/$(HIDL_INTERFACE_VERSION)/hidl.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/hidl_manager.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/iface_config_utils.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/p2p_iface.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/p2p_network.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/sta_iface.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/sta_network.cpp \
+    hidl/$(HIDL_INTERFACE_VERSION)/supplicant.cpp
+LOCAL_SHARED_LIBRARIES := \
+    android.hardware.wifi.supplicant@$(HIDL_INTERFACE_VERSION) \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
+    libutils
+LOCAL_EXPORT_C_INCLUDE_DIRS := \
+    $(LOCAL_PATH)/hidl/$(HIDL_INTERFACE_VERSION)
+include $(BUILD_STATIC_LIBRARY)
+endif # WPA_SUPPLICANT_USE_HIDL == y

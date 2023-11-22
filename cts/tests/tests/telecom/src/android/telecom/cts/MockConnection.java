@@ -25,7 +25,7 @@ import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.RemoteConnection;
 import android.telecom.VideoProfile;
-import android.telecom.cts.BaseTelecomTestWithMockServices.InvokeCounter;
+import android.telecom.cts.TestUtils.InvokeCounter;
 import android.util.SparseArray;
 
 /**

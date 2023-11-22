@@ -17,68 +17,82 @@
 // Set to true to enable a debug build of the libraries.
 // To control what is logged, set the environment variable UNW_DEBUG_LEVEL=x,
 // where x controls the verbosity (from 1 to 20).
-libunwind_debug = ["false"]
+//libunwind_debug = false
 
-libunwind_common_cppflags = [
-    "-Wno-old-style-cast",
-]
+cc_defaults {
+    name: "libunwind_defaults",
+    host_supported: true,
+    vendor_available: true,
 
-libunwind_common_cflags = [
-    "-Wno-unused-parameter",
-    "-Werror",
-]
+    cppflags: [
+        "-Wno-old-style-cast",
+    ],
 
-// gcc 4.8 appears to be overeager declaring that a variable is uninitialized,
-// under certain circumstances. Turn off this warning only for target so that
-// coverage is still present for the host code. When the entire build system
-// is switched to 4.9, then this can be removed.
-libunwind_common_cflags_target = ["-Wno-maybe-uninitialized"]
+    cflags: [
+        "-Werror",
+        "-Wno-#pragma-messages",
+        "-Wno-unused-parameter",
 
-// src/mi/backtrace.c is misdetected as a bogus header guard by clang 3.5
-// src/x86_64/Gstash_frame.c has unnecessary calls to labs.
-libunwind_common_clang_cflags = [
-    "-Wno-header-guard",
-    "-Wno-absolute-value",
-    // The latest clang (r230699) does not allow SP/PC to be declared in inline asm lists.
-    "-Wno-inline-asm",
-]
+        "-DHAVE_CONFIG_H",
+        "-D_GNU_SOURCE",
+        "-DNDEBUG",
+    ],
 
-libunwind_common_cflags += [
-    "-DHAVE_CONFIG_H",
-    "-D_GNU_SOURCE",
-    "-DNDEBUG",
-]
-
-libunwind_common_debug_cflags = [
-    "-UNDEBUG",
-    "-DDEBUG",
-    "-U_FORTIFY_SOURCE",
-]
-
-libunwind_common_c_local_includes = [
-    "src",
-    "include",
-]
-
-libunwind_common_arch_includes = {
-    arm: {
-        local_include_dirs: ["include/tdep-arm"],
+    arch: {
+        arm: {
+            local_include_dirs: ["include/tdep-arm"],
+        },
+        arm64: {
+            local_include_dirs: ["include/tdep-aarch64"],
+        },
+        mips: {
+            local_include_dirs: ["include/tdep-mips"],
+        },
+        mips64: {
+            local_include_dirs: ["include/tdep-mips"],
+        },
+        x86: {
+            local_include_dirs: ["include/tdep-x86"],
+        },
+        x86_64: {
+            local_include_dirs: ["include/tdep-x86_64"],
+        },
     },
-    arm64: {
-        local_include_dirs: ["include/tdep-aarch64"],
+
+    target: {
+        android: {
+            // gcc 4.8 appears to be overeager declaring that a variable is uninitialized,
+            // under certain circumstances. Turn off this warning only for target so that
+            // coverage is still present for the host code. When the entire build system
+            // is switched to 4.9, then this can be removed.
+            cflags: ["-Wno-maybe-uninitialized"],
+        },
+        darwin: {
+            enabled: false,
+        },
     },
-    mips: {
-        local_include_dirs: ["include/tdep-mips"],
+
+    clang_cflags: [
+        // src/mi/backtrace.c is misdetected as a bogus header guard by clang 3.5
+        // src/x86_64/Gstash_frame.c has unnecessary calls to labs.
+        "-Wno-header-guard",
+        "-Wno-absolute-value",
+        // The latest clang (r230699) does not allow SP/PC to be declared in inline asm lists.
+        "-Wno-inline-asm",
+    ],
+
+    debug: {
+        cflags: [
+            "-UNDEBUG",
+            "-DDEBUG",
+            "-U_FORTIFY_SOURCE",
+        ],
     },
-    mips64: {
-        local_include_dirs: ["include/tdep-mips"],
-    },
-    x86: {
-        local_include_dirs: ["include/tdep-x86"],
-    },
-    x86_64: {
-        local_include_dirs: ["include/tdep-x86_64"],
-    },
+
+    local_include_dirs: [
+        "src",
+        "include",
+    ],
 }
 
 //-----------------------------------------------------------------------
@@ -87,7 +101,10 @@ libunwind_common_arch_includes = {
 
 cc_library {
     name: "libunwind",
-    host_supported: true,
+    defaults: ["libunwind_defaults"],
+    sdk_version: "21",
+    stl: "none",
+
     srcs: [
         "src/mi/init.c",
         "src/mi/flush_cache.c",
@@ -156,10 +173,6 @@ cc_library {
         "src/ptrace/_UPT_reg_offset.c",
         "src/ptrace/_UPT_resume.c",
      ],
-
-    cflags: libunwind_common_cflags,
-    clang_cflags: libunwind_common_clang_cflags,
-    local_include_dirs: libunwind_common_c_local_includes,
 
     arch: {
         arm: {
@@ -352,7 +365,7 @@ cc_library {
                 "src/x86_64/setcontext.S",
             ],
         },
-    } + libunwind_common_arch_includes,
+    },
 
     multilib: {
         lib32: {
@@ -366,29 +379,27 @@ cc_library {
     target: {
         android: {
             shared_libs: ["libdl"],
-            cflags: libunwind_common_cflags_target,
         },
-        host: {
+        linux: {
             ldflags: ["-nostdlib"],
             host_ldlibs: [
                 "-lc",
                 "-lpthread",
             ],
         },
-        darwin: {
-            enabled: false,
+        linux_bionic: {
+            enabled: true,
+            shared_libs: ["libdl"],
         },
     },
 
     export_include_dirs: ["include"],
-    stl: "none",
 
     shared_libs: ["liblzma"],
 
-    /*debug: {
-    shared_libs: ["liblog"],
-    cflags: libunwind_common_debug_cflags,
-    },*/
+    debug: {
+        //shared_libs: ["liblog"],
+    },
 }
 
 //-----------------------------------------------------------------------
@@ -396,7 +407,8 @@ cc_library {
 //-----------------------------------------------------------------------
 cc_library_static {
     name: "libunwindbacktrace",
-    host_supported: true,
+    defaults: ["libunwind_defaults"],
+    sdk_version: "21",
     srcs: [
         "src/unwind/BacktraceWrapper.c",
         "src/unwind/DeleteException.c",
@@ -418,55 +430,39 @@ cc_library_static {
         "src/unwind/SetIP.c",
     ],
 
-    cflags: libunwind_common_cflags + [
+    cflags: [
         "-Wno-old-style-declaration",
         "-fvisibility=hidden",
     ],
 
-    clang_cflags: libunwind_common_clang_cflags,
-    local_include_dirs: libunwind_common_c_local_includes,
-
-    arch: libunwind_common_arch_includes,
+    whole_static_libs: ["libunwind"],
 
     target: {
-        android: {
-            cflags: libunwind_common_cflags_target,
-        },
-        darwin: {
-            enabled: false,
+        linux_bionic: {
+            enabled: true,
         },
     },
-
-    whole_static_libs: ["libunwind"],
-    stl: "none",
 }
 
-/*
 //-----------------------------------------------------------------------
 // libunwind testing
 //-----------------------------------------------------------------------
-libunwind-unit-tests_cflags = [
-"-fno-builtin",
-"-O0",
-"-g",
-]
+cc_test {
+    name: "libunwind-unit-tests",
+    srcs: ["android/tests/local_test.cpp"],
+    defaults: ["libunwind_defaults"],
 
-libunwind-unit-tests_c_local_includes = ["include"]
+    cflags: [
+        "-fno-builtin",
+        "-O0",
+        "-g",
+    ],
 
-libunwind-unit-tests_src_files = ["android/tests/local_test.cpp"]
+    local_include_dirs: ["include"],
+    shared_libs: ["libunwind"],
+}
 
-libunwind-unit-tests_shared_libraries = ["libunwind"]
-
-libunwind-unit-tests_multilib = ["both"]
-module = ["libunwind-unit-tests"]
-module_tag = ["optional"]
-build_type = ["target"]
-build_target = ["NATIVE_TEST"]
-// ANDROIDMK TRANSLATION ERROR: unsupported include
-// include $(LOCAL_PATH)/Android.build.mk
-build_type = ["host"]
-// ANDROIDMK TRANSLATION ERROR: unsupported include
-// include $(LOCAL_PATH)/Android.build.mk
+/*
 // Run the unit tests built for x86 or x86_64.
 // ANDROIDMK TRANSLATION ERROR: unsupported conditional
 // ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))

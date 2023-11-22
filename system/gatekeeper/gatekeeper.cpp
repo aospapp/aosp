@@ -181,9 +181,15 @@ bool GateKeeper::CreatePasswordHandle(SizedBuffer *password_handle_buffer, salt_
     password_handle->hardware_backed = IsHardwareBacked();
 
     uint32_t metadata_length = sizeof(user_id) + sizeof(flags) + sizeof(HANDLE_VERSION);
-    uint8_t to_sign[password_length + metadata_length];
-    memcpy(to_sign, password_handle, metadata_length);
-    memcpy(to_sign + metadata_length, password, password_length);
+    const size_t to_sign_size = password_length + metadata_length;
+    UniquePtr<uint8_t> to_sign(new uint8_t[to_sign_size]);
+
+    if (to_sign.get() == nullptr) {
+        return false;
+    }
+
+    memcpy(to_sign.get(), password_handle, metadata_length);
+    memcpy(to_sign.get() + metadata_length, password, password_length);
 
     const uint8_t *password_key = NULL;
     uint32_t password_key_length = 0;
@@ -194,7 +200,7 @@ bool GateKeeper::CreatePasswordHandle(SizedBuffer *password_handle_buffer, salt_
     }
 
     ComputePasswordSignature(password_handle->signature, sizeof(password_handle->signature),
-            password_key, password_key_length, to_sign, sizeof(to_sign), salt);
+            password_key, password_key_length, to_sign.get(), to_sign_size, salt);
     return true;
 }
 

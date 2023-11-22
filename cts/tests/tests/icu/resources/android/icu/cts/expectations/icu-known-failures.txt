@@ -27,12 +27,12 @@
 },
 {
   description: "android.icu.charset package not available in repackaged Android library",
-  name: "android.icu.dev.test.charset.TestAll",
+  names: [
+    "android.icu.dev.test.charset.TestCharset",
+    "android.icu.dev.test.charset.TestConversion",
+    "android.icu.dev.test.charset.TestSelection"
+  ],
   bug: "27373370"
-},
-{
-  description: "A completely empty test case",
-  name: "android.icu.dev.test.duration.PeriodBuilderTest"
 },
 {
   description: "Fails on host and on device in same way before and after packaging",
@@ -65,5 +65,10 @@
     "android.icu.dev.test.collator.G7CollationTest#TestG7Data"
   ],
   bug: "27552651"
+},
+{
+  description: "Unknown Language != Unknown language",
+  name: "android.icu.dev.test.TestLocaleNamePackaging#testLanguageDisplayNames",
+  bug: "33447162"
 }
 ]

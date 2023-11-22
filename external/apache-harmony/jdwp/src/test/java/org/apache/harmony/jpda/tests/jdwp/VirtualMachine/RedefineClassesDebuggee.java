@@ -33,6 +33,7 @@ public class RedefineClassesDebuggee extends SyncDebuggee {
     static RedefineClassesDebuggee redefineClassesDebuggee;
     static RedefineClass_Debuggee redefineClass_DebuggeeObject = null;
 
+    @Override
     public void run() {
         redefineClassesDebuggee = this;
         

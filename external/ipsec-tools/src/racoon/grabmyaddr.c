@@ -86,6 +86,10 @@
 #endif
 #endif
 
+#ifdef ANDROID_CHANGES
+#include "NetdClient.h"
+#endif
+
 #ifndef HAVE_GETIFADDRS
 static unsigned int if_maxindex __P((void));
 #endif
@@ -411,6 +415,11 @@ grab_myaddrs()
 			"my interface: %s (%s)\n",
 			addr1, ifap->ifa_name);
 		q = find_myaddr(old, p);
+#ifdef ANDROID_CHANGES
+		if (q) {
+			protectFromVpn(q->sock);
+		}
+#endif
 		if (q)
 			p->sock = q->sock;
 		else
@@ -457,6 +466,10 @@ grab_myaddrs()
 		exit(1);
 		/*NOTREACHED*/
 	}
+#ifdef ANDROID_CHANGES
+	protectFromVpn(s);
+#endif
+
 	memset(&ifconf, 0, sizeof(ifconf));
 	ifconf.ifc_req = iflist;
 	ifconf.ifc_len = len;
@@ -527,6 +540,11 @@ grab_myaddrs()
 				"my interface: %s (%s)\n",
 				addr1, ifr->ifr_name);
 			q = find_myaddr(old, p);
+#ifdef ANDROID_CHANGES
+			if (q) {
+				protectFromVpn(q->sock);
+			}
+#endif
 			if (q)
 				p->sock = q->sock;
 			else
@@ -592,6 +610,9 @@ suitable_ifaddr6(ifname, ifaddr)
 			"socket(SOCK_DGRAM) failed:%s\n", strerror(errno));
 		return 0;
 	}
+#ifdef ANDROID_CHANGES
+	protectFromVpn(s);
+#endif
 
 	memset(&ifr6, 0, sizeof(ifr6));
 	strncpy(ifr6.ifr_name, ifname, strlen(ifname));

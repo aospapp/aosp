@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if VDA doesn't work for mp4 resolution-changing video.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

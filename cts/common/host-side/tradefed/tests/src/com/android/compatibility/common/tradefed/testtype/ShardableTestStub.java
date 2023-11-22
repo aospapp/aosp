@@ -25,18 +25,17 @@ import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
+import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
 
-import junit.framework.Assert;
-
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildReceiver,
-        IAbiReceiver, IRuntimeHintProvider, ITestCollector, ITestFilterReceiver {
+        IAbiReceiver, IRuntimeHintProvider, ITestCollector, ITestFilterReceiver,
+        IStrictShardableTest {
 
     @Option(name = "module")
     String mModule;
@@ -58,7 +57,7 @@ public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildRec
     }
 
     /**
-     * {@inheritdoc}
+     * {@inheritDoc}
      */
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
@@ -70,8 +69,6 @@ public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildRec
      */
     @Override
     public Collection<IRemoteTest> split() {
-        Assert.assertNotNull(mBuildInfo);
-
         mShards = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             mShards.add(new ShardableTestStub());
@@ -79,9 +76,22 @@ public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildRec
         return mShards;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public IRemoteTest getTestShard(int shardCount, int shardIndex) {
+        return new ShardableTestStub();
+    }
+
     @Override
     public void setAbi(IAbi abi) {
         // Do nothing
+    }
+
+    @Override
+    public IAbi getAbi() {
+        return null;
     }
 
     @Override
@@ -113,5 +123,4 @@ public class ShardableTestStub implements IRemoteTest, IShardableTest, IBuildRec
     public void addAllExcludeFilters(Set<String> filters) {
 
     }
-
 }

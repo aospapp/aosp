@@ -7,6 +7,15 @@ var URLS = new Array();
 
 var ViewGDoc = ('https://docs.google.com/document/d/');
 
+var BBC_AUDIO_URL = 'http://www.bbc.co.uk/radio/player/bbc_world_service';
+
+var PLAY_MUSIC_URL = 'https://play.google.com/music/listen?u=0#/wst/st/a2be2d85-0ac9-3a7a-b038-e221bb63ef71';
+
+function isMP3DecoderPresent() {
+    return window['MediaSource'] &&
+      window['MediaSource'].isTypeSupported('audio/mpeg');
+}
+
 var tasks = [
   {
     // Chrome browser window 1. This window remains open for the entire test.
@@ -30,7 +39,7 @@ var tasks = [
     start: seconds(1),
     duration: minutes(36),
     delay: seconds(60), // A minute on each page
-    timeout: seconds(10),
+    timeout: seconds(30),
     focus: true,
     urls: URLS,
   },
@@ -41,7 +50,7 @@ var tasks = [
     start: minutes(36) + seconds(1),
     duration: minutes(12) - seconds(1),
     delay: minutes(5), // 5 minutes between full gmail refresh
-    timeout: seconds(10),
+    timeout: seconds(30),
     focus: true,
     urls: [
        'http://gmail.com',
@@ -56,13 +65,12 @@ var tasks = [
     start: minutes(36),
     duration: minutes(12),
     delay: minutes(12),
-    timeout: seconds(10),
+    timeout: seconds(30),
     focus: false,
-    urls: [
-      'http://www.bbc.co.uk/worldservice/audioconsole/?stream=live',
-      'http://www.npr.org/templates/player/mediaPlayer.html?action=3&t=live1',
-      'http://www.cbc.ca/radio2/channels/popup.html?stream=classical'
-    ]
+    // Google Play Music requires MP3 decoder for playing music.
+    // Fall back to BBC if the browser does not have MP3 decoder bundle.
+    urls: isMP3DecoderPresent() ? [BBC_AUDIO_URL, BBC_AUDIO_URL] :
+                                  [BBC_AUDIO_URL, BBC_AUDIO_URL]
   },
   {
     // After 48 minutes, play with Google Docs for 6 minutes
@@ -71,7 +79,7 @@ var tasks = [
     start: minutes(48),
     duration: minutes(6),
     delay: minutes(1), // A minute on each page
-    timeout: seconds(10),
+    timeout: seconds(30),
     focus: true,
     urls: [
        ViewGDoc + '1CIvneyASuIHvxxN0WV22zikb08Us1nc93mkU0c5Azr4/edit',
@@ -147,4 +155,3 @@ URLS[u_index++] = 'http://www.toysrus.com';
 URLS[u_index++] = 'http://www.allrecipes.com';
 URLS[u_index++] = 'http://www.overstock.com';
 URLS[u_index++] = 'http://www.comcast.net';
-

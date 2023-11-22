@@ -37,9 +37,11 @@ import java.util.List;
  * registered {@link PathClippingView}s.
  *
  * This a modified version of GoogleSearch/com.google.android.shared.ui/CircularClipAnimation
+ * @hide
  */
-public class CircularClipAnimation implements ValueAnimator.AnimatorUpdateListener, Animator.AnimatorListener {
-    private static final boolean DBG = true;
+public class CircularClipAnimation
+        implements ValueAnimator.AnimatorUpdateListener, Animator.AnimatorListener {
+    private static final boolean DBG = false;
     private static final String TAG = "CircularClipAnimation";
 
     public static final int DURATION_MS = 300;

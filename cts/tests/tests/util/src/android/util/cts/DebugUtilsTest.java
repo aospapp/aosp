@@ -15,10 +15,19 @@
  */
 package android.util.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertFalse;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.DebugUtils;
 
-public class DebugUtilsTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DebugUtilsTest {
+    @Test
     public void testIsObjectSelected(){
         // note: because System.getenv("ANDROID_OBJECT_FILTER") always returns null, can't test
         // the case that the method isObjectSelected return true

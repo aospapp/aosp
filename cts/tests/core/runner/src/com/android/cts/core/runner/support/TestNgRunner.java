@@ -16,7 +16,6 @@
 
 package com.android.cts.core.runner.support;
 
-import android.support.test.internal.util.AndroidRunnerParams;
 import android.util.Log;
 
 import org.junit.runner.Description;
@@ -30,6 +29,7 @@ import org.junit.runner.notification.RunNotifier;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashSet;
+import java.util.Map;
 
 /**
  * A {@link Runner} that can TestNG tests.
@@ -42,23 +42,18 @@ class TestNgRunner extends Runner implements Filterable {
 
   private static final boolean DEBUG = false;
 
-  private static final String TESTNG_TEST = "org.testng.annotations.Test";
-
   private Description mDescription;
   /** Class name for debugging. */
   private String mClassName;
   /** Don't include the same method names twice. */
   private HashSet<String> mMethodSet = new HashSet<>();
-  /** Don't actually run the test if this is true, just report passing. */
-  private final boolean mSkipExecution;
 
   /**
-   * @param runnerParams {@link AndroidRunnerParams} that stores common runner parameters
+   * @param testClass the test class to run
    */
-  TestNgRunner(Class<?> testClass, boolean skipExecution) {
+  TestNgRunner(Class<?> testClass) {
     mDescription = generateTestNgDescription(testClass);
     mClassName = testClass.getName();
-    mSkipExecution = skipExecution;
   }
 
   // Runner implementation
@@ -118,24 +113,44 @@ class TestNgRunner extends Runner implements Filterable {
 
       notifier.fireTestStarted(child);
 
-      // CTS has a phase where it "collects" all the tests first.
-      // Just report that the test passes without actually running it here.
-      if (mSkipExecution) {
-        notifier.fireTestFinished(child);
-        continue;
+      // Avoid looking at all the methods by just using the string method name.
+      SingleTestNgTestExecutor.Result result = SingleTestNgTestExecutor.execute(klass, methodName);
+      if (result.hasFailure()) {
+        // TODO: get the error messages from testng somehow.
+        notifier.fireTestFailure(new Failure(child, extractException(result.getFailures())));
       }
 
-      // Avoid looking at all the methods by just using the string method name.
-      if (!SingleTestNgTestExecutor.execute(klass, methodName)) {
-        // TODO: get the error messages from testng somehow.
-        notifier.fireTestFailure(new Failure(child, new AssertionError()));
-      }
-      else {
-        notifier.fireTestFinished(child);
-      }
+      notifier.fireTestFinished(child);
       // TODO: Check @Test(enabled=false) and invoke #fireTestIgnored instead.
     }
   }
+
+  private Throwable extractException(Map<String, Throwable> failures) {
+    if (failures.isEmpty()) {
+      return new AssertionError();
+    }
+    if (failures.size() == 1) {
+      return failures.values().iterator().next();
+    }
+
+    StringBuilder errorMessage = new StringBuilder("========== Multiple Failures ==========");
+    for (Map.Entry<String, Throwable> failureEntry : failures.entrySet()) {
+      errorMessage.append("\n\n=== "). append(failureEntry.getKey()).append(" ===\n");
+      Throwable throwable = failureEntry.getValue();
+      errorMessage
+              .append(throwable.getClass()).append(": ")
+              .append(throwable.getMessage());
+      for (StackTraceElement e : throwable.getStackTrace()) {
+        if (e.getClassName().equals(getClass().getName())) {
+          break;
+        }
+        errorMessage.append("\n  at ").append(e);
+      }
+    }
+    errorMessage.append("\n=======================================\n\n");
+    return new AssertionError(errorMessage.toString());
+  }
+
 
   /**
    * Recursively (preorder traversal) apply the filter to all the descriptions.

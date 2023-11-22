@@ -31,7 +31,6 @@
     <string name="play_controls_description_skip_previous" msgid="3858447678278021381">"Προηγούμενο"</string>
     <string name="channels_item_program_guide" msgid="2889807207930678418">"Οδηγός προγράμματος"</string>
     <string name="channels_item_setup" msgid="6557412175737379022">"Νέα κανάλια διαθέσιμα"</string>
-    <string name="channels_item_app_link_no_app_link" msgid="1884830234777824408">"Δεν υπάρχει σύνδεσμος"</string>
     <string name="channels_item_app_link_app_launcher" msgid="1395352122187670523">"Ανοίξτε το <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="options_item_closed_caption" msgid="5945274655046367170">"Υπότιτλοι"</string>
     <string name="options_item_display_mode" msgid="7989243076748680140">"Τρόπος εμφάν."</string>
@@ -124,6 +123,7 @@
     <string name="option_subrating_header" msgid="4637961301549615855">"Δευτ. αξιολογήσεις"</string>
     <string name="pin_enter_unlock_channel" msgid="4797922378296393173">"Εισαγάγετε PIN για να δείτε αυτό το κανάλι"</string>
     <string name="pin_enter_unlock_program" msgid="7311628843209871203">"Εισαγάγετε PIN για να δείτε αυτό το πρόγραμμα"</string>
+    <string name="pin_enter_unlock_dvr" msgid="1637468108723176684">"Αυτό το πρόγραμμα αξιολογήθηκε ως <xliff:g id="RATING">%1$s</xliff:g>. Εισαγάγετε το PIN σας για το παρακολουθήσετε"</string>
     <string name="pin_enter_pin" msgid="249314665028035038">"Εισαγάγετε το PIN σας"</string>
     <string name="pin_enter_create_pin" msgid="3385754356793309946">"Για να ορίσετε γονικούς ελέγχους, δημιουργήστε ένα PIN"</string>
     <string name="pin_enter_new_pin" msgid="1739471585849790384">"Εισαγωγή νέου κωδικού PIN"</string>
@@ -144,8 +144,6 @@
     <string name="settings_menu_licenses" msgid="1257646083838406103">"Άδειες λογισμικού ανοικτού κώδικα"</string>
     <string name="dialog_title_licenses" msgid="4471754920475076623">"Άδειες λογισμικού ανοικτού κώδικα"</string>
     <string name="settings_menu_version" msgid="2604030372029921403">"Έκδοση"</string>
-    <string name="about_menu_improve" msgid="3712578027009311401">"Συμβολή στη βελτίωση των Zωντανών καναλιών"</string>
-    <string name="about_menu_improve_summary" msgid="7548489011760588571">"Μοιραστείτε ανώνυμα δεδομένα χρήσης και διαγνωστικών στοιχείων με τη Google για να βελτιώσουμε τα Ζωντανά κανάλια και να αποτρέψουμε προβλήματα όπως διακοπές λειτουργίας και πάγωμα της εφαρμογής."</string>
     <string name="tvview_channel_locked" msgid="6486375335718400728">"Για να παρακολουθήσετε αυτό το κανάλι, πατήστε το δεξιά και εισαγάγετε το PIN σας"</string>
     <string name="tvview_content_locked" msgid="391823084917017730">"Για να παρακολουθήσετε αυτό το πρόγραμμα, πατήστε δεξιά και εισαγάγετε το PIN σας"</string>
     <string name="tvview_content_locked_format" msgid="3741874636031338247">"Αυτό το πρόγραμμα αξιολογήθηκε ως <xliff:g id="RATING">%1$s</xliff:g>.\nΓια να παρακολουθήσετε αυτό το πρόγραμμα, πατήστε δεξιά και εισαγάγετε το PIN σας"</string>
@@ -157,6 +155,10 @@
     <string name="tvview_msg_audio_only" msgid="1356866203687173329">"Μόνο ήχος"</string>
     <string name="tvview_msg_weak_signal" msgid="1095050812622908976">"Ασθενές σήμα"</string>
     <string name="tvview_msg_no_internet_connection" msgid="7655994401188888231">"Δεν υπάρχει σύνδεση στο διαδίκτυο"</string>
+    <plurals name="tvview_msg_input_no_resource" formatted="false" msgid="8581894855153658823">
+      <item quantity="other">Δεν είναι δυνατή η αναπαραγωγή αυτού του καναλιού μέχρι τις <xliff:g id="END_TIME_1">%1$s</xliff:g> επειδή πραγματοποιείται εγγραφή άλλων καναλιών. \n\nΠατήστε το στοιχείο \"Δεξιά\" για να προσαρμόσετε το χρονοδιάγραμμα εγγραφής.</item>
+      <item quantity="one">Δεν είναι δυνατή η αναπαραγωγή αυτού του καναλιού μέχρι τις <xliff:g id="END_TIME_0">%1$s</xliff:g> επειδή πραγματοποιείται εγγραφή κάποιου άλλου καναλιού. \n\nΠατήστε το στοιχείο \"Δεξιά\" για να προσαρμόσετε το χρονοδιάγραμμα εγγραφής.</item>
+    </plurals>
     <string name="channel_banner_no_title" msgid="8660301979190693176">"Χωρίς τίτλο"</string>
     <string name="channel_banner_locked_channel_title" msgid="2006564967318945980">"Το κανάλι αποκλείστηκε"</string>
     <string name="setup_category_new" msgid="2899355289563443627">"Νέα"</string>
@@ -168,8 +170,8 @@
     <string name="setup_input_no_channels" msgid="1669327912393163331">"Δεν υπάρχουν διαθέσιμα κανάλια"</string>
     <string name="setup_input_new" msgid="3337725672277046798">"Νέα"</string>
     <string name="setup_input_setup_now" msgid="1772000402336958967">"Δεν ρυθμίστηκε"</string>
-    <string name="setup_play_store_action_title" msgid="859347291072224673">"Λήψη περισσότερων πηγών"</string>
-    <string name="setup_play_store_action_description" msgid="2472226338824629506">"Περιήγηση σε εφαρμογές που προσφέρουν ζωντανά κανάλια"</string>
+    <string name="setup_store_action_title" msgid="4083402039720973414">"Λήψη περισσότερων πηγών"</string>
+    <string name="setup_store_action_description" msgid="6820482635042445297">"Περιήγηση σε εφαρμογές που προσφέρουν ζωντανά κανάλια"</string>
     <string name="new_sources_title" msgid="3878933676500061895">"Υπάρχουν νέες διαθέσιμες πηγές καναλιών"</string>
     <string name="new_sources_description" msgid="749649005588426813">"Οι νέες πηγές καναλιών προσφέρουν κανάλια.\nΡυθμίστε τες τώρα ή αργότερα μέσω των ρυθμίσεων πηγών καναλιών."</string>
     <string name="new_sources_action_setup" msgid="177693761664016811">"Ρύθμιση τώρα"</string>
@@ -187,8 +189,162 @@
     <string name="msg_all_channels_hidden" msgid="777397634062471936">"Όλα τα κανάλια προέλευσης είναι κρυφά.\nΕπιλέξτε τουλάχιστον ένα κανάλι για να παρακολουθήσετε."</string>
     <string name="msg_channel_unavailable_unknown" msgid="765586450831081871">"Το βίντεο δεν είναι διαθέσιμο απροσδόκητα"</string>
     <string name="msg_back_key_guide" msgid="7404682718828721924">"Το πλήκτρο BACK αφορά τη συνδεδεμένη συσκευή. Πατήστε το πλήκτρο HOME για έξοδο."</string>
-    <string name="msg_not_supported_device" msgid="4469404625040284722">"Τα ζωντανά κανάλια δεν υποστηρίζονται σε αυτήν τη συσκευή με Android Lollipop."</string>
     <string name="msg_read_tv_listing_permission_denied" msgid="8882813301235518909">"Τα ζωντανά κανάλια χρειάζονται άδεια για να διαβάσουν τις τηλεοπτικές καταχωρίσεις."</string>
     <string name="setup_sources_text" msgid="4988039637873759839">"Ρυθμίστε τις πηγές σας"</string>
     <string name="setup_sources_description" msgid="5695518946225445202">"Τα Ζωντανά κανάλια συνδυάζουν την εμπειρία των παραδοσιακών τηλεοπτικών καναλιών με τα κανάλια μετάδοσης ροής που παρέχονται από τις εφαρμογές. \n\nΞεκινήστε με τη ρύθμιση των πηγών καναλιών που είναι ήδη εγκατεστημένα. Εναλλακτικά, περιηγηθείτε στο Google Play Store για να βρείτε περισσότερες εφαρμογές που προσφέρουν ζωντανά κανάλια."</string>
+    <string name="channels_item_dvr" msgid="8911915252648532469">"Εγγραφές και χρονοδιαγράμματα"</string>
+    <string name="recording_start_dialog_10_min_duration" msgid="5739636508245795292">"10 λεπτά"</string>
+    <string name="recording_start_dialog_30_min_duration" msgid="4691127772622189977">"30 λεπτά"</string>
+    <string name="recording_start_dialog_1_hour_duration" msgid="7159533207022355641">"1 ώρα"</string>
+    <string name="recording_start_dialog_3_hours_duration" msgid="295984419320006238">"3 ώρες"</string>
+    <string name="dvr_main_recent" msgid="2553805424822806495">"Πρόσφατα"</string>
+    <string name="dvr_main_scheduled" msgid="7837260963086408492">"Προγραμματισμένα"</string>
+    <string name="dvr_main_series" msgid="8278256687595691676">"Σειρά"</string>
+    <string name="dvr_main_others" msgid="2970835573614038153">"Άλλα"</string>
+    <string name="dvr_msg_cannot_record_channel" msgid="6836291367918532447">"Δεν είναι δυνατή η εγγραφή του καναλιού."</string>
+    <string name="dvr_msg_cannot_record_program" msgid="4184046342810946090">"Δεν είναι δυνατή η εγγραφή του προγράμματος."</string>
+    <string name="dvr_msg_program_scheduled" msgid="3800847542300367572">"Το πρόγραμμα <xliff:g id="PROGRAMNAME">%1$s</xliff:g> έχει προγραμματιστεί για εγγραφή"</string>
+    <string name="dvr_msg_current_program_scheduled" msgid="2505247201782991463">"Εγγραφή του προγράμματος <xliff:g id="PROGRAMNAME">%1$s</xliff:g> από τώρα έως <xliff:g id="ENDTIME">%2$s</xliff:g>"</string>
+    <string name="dvr_full_schedule_card_view_title" msgid="7198521806965950089">"Πλήρες χρονοδιάγραμμα"</string>
+    <plurals name="dvr_full_schedule_card_view_content" formatted="false" msgid="790788122541080768">
+      <item quantity="other">Επόμενες %1$d ημέρες</item>
+      <item quantity="one">Επόμενη %1$d ημέρα</item>
+    </plurals>
+    <plurals name="dvr_program_duration" formatted="false" msgid="6742119148312354741">
+      <item quantity="other">%1$d λεπτά</item>
+      <item quantity="one">%1$d λεπτό</item>
+    </plurals>
+    <plurals name="dvr_count_new_recordings" formatted="false" msgid="3569310208305402815">
+      <item quantity="other">%1$d νέες εγγραφές</item>
+      <item quantity="one">%1$d νέα εγγραφή</item>
+    </plurals>
+    <plurals name="dvr_count_recordings" formatted="false" msgid="7417379223468131391">
+      <item quantity="other">%1$d εγγραφές</item>
+      <item quantity="one">%1$d εγγραφή</item>
+    </plurals>
+    <plurals name="dvr_count_scheduled_recordings" formatted="false" msgid="1650330290765214511">
+      <item quantity="other">%1$d προγραμματ. εγγραφές</item>
+      <item quantity="one">%1$d προγραμματ. εγγραφή</item>
+    </plurals>
+    <string name="dvr_detail_watch" msgid="7085694764364338215">"Παρακολούθηση"</string>
+    <string name="dvr_detail_play_from_beginning" msgid="8475543568260411836">"Αναπαραγωγή από την αρχή"</string>
+    <string name="dvr_detail_resume_play" msgid="875591300274416373">"Συνέχ. αναπαραγωγής"</string>
+    <string name="dvr_detail_delete" msgid="4535881013528321898">"Διαγραφή"</string>
+    <string name="dvr_detail_series_delete" msgid="4831926831670312674">"Διαγραφή εγγραφών"</string>
+    <string name="dvr_detail_series_resume" msgid="6935136228671386246">"Συνέχιση"</string>
+    <string name="dvr_detail_series_season_title" msgid="5474850936497854790">"Σεζόν <xliff:g id="SEASON_NUMBER">%1$s</xliff:g>"</string>
+    <string name="dvr_detail_view_schedule" msgid="7137536927421904426">"Προβ. προγραμμ."</string>
+    <string name="dvr_detail_read_more" msgid="2588920758094498544">"Διαβάστε περισσότερα"</string>
+    <string name="dvr_series_deletion_title" msgid="7672649492494507574">"Διαγραφή εγγραφών"</string>
+    <string name="dvr_series_deletion_description" msgid="994839237906552969">"Επιλέξτε τα επεισόδια που θέλετε να διαγράψετε. Δεν είναι δυνατή η ανάκτησή τους μετά τη διαγραφή."</string>
+    <string name="dvr_series_deletion_no_recordings" msgid="481210819034514">"Δεν υπάρχουν εγγραφές για διαγραφή."</string>
+    <string name="dvr_series_select_watched" msgid="3608122404146716502">"Επιλέξτε επεισόδια που παρακ."</string>
+    <string name="dvr_series_select_all" msgid="5415749261739544048">"Επιλογή όλων των επεισοδίων"</string>
+    <string name="dvr_series_deselect_all" msgid="1680395960166387572">"Αποεπιλογή όλων των επεισοδίων"</string>
+    <string name="dvr_series_watched_info_minutes" msgid="5656926431901526030">"Παρακολούθηση <xliff:g id="WATCHED">%1$d</xliff:g> λεπτών από <xliff:g id="DURATION">%2$d</xliff:g>"</string>
+    <string name="dvr_series_watched_info_seconds" msgid="2667537184197566662">"Παρακολούθηση <xliff:g id="WATCHED">%1$d</xliff:g> δευτερολέπτων από <xliff:g id="DURATION">%2$d</xliff:g>"</string>
+    <string name="dvr_series_never_watched" msgid="6086008065876122655">"Δεν έγινε παρακολούθηση"</string>
+    <plurals name="dvr_msg_episodes_deleted" formatted="false" msgid="5627112959798353905">
+      <item quantity="other">Διαγράφηκαν %1$d επεισόδια από %2$d</item>
+      <item quantity="one">Διαγράφηκε %1$d επεισόδιο από %2$d</item>
+    </plurals>
+    <string name="dvr_series_settings_priority" msgid="5836437092774185710">"Προτεραιότητα"</string>
+    <string name="dvr_series_settings_priority_highest" msgid="1072006447796648382">"Υψηλότερη"</string>
+    <string name="dvr_series_settings_priority_lowest" msgid="6003996497908810225">"Χαμηλότερη"</string>
+    <string name="dvr_series_settings_priority_rank" msgid="667778382820956116">"Όχι. <xliff:g id="RANK">%1$d</xliff:g>"</string>
+    <string name="dvr_series_settings_channels" msgid="3164900110165729909">"Κανάλια"</string>
+    <string name="dvr_series_settings_channels_all" msgid="656434955168572976">"Οποιοδήποτε"</string>
+    <string name="dvr_priority_title" msgid="1537886929061487213">"Επιλέξτε προτεραιότητα"</string>
+    <string name="dvr_priority_description" msgid="8362040921417154645">"Όταν υπάρχουν πολλά προγράμματα για εγγραφή την ίδια ώρα, θα γίνει εγγραφή μόνο των προγραμμάτων με τις υψηλότερες προτεραιότητες."</string>
+    <string name="dvr_priority_button_action_save" msgid="4773524273649733008">"Αποθήκευση"</string>
+    <string name="dvr_priority_action_one_time_recording" msgid="8174297042282719478">"Οι εγγραφές μίας φοράς έχουν την υψηλότερη προτεραιότητα"</string>
+    <string name="dvr_action_cancel" msgid="8094060199570272625">"Ακύρωση"</string>
+    <string name="dvr_action_error_cancel" msgid="6822474458738023531">"Ακύρωση"</string>
+    <string name="dvr_action_error_forget_storage" msgid="5869994565663655638">"Διαγραφή"</string>
+    <string name="dvr_action_stop" msgid="1378723485295471381">"Διακοπή"</string>
+    <string name="dvr_action_view_schedules" msgid="7442990695392774263">"Προβολή προγραμματισ. εγγραφών"</string>
+    <string name="dvr_action_record_episode" msgid="8596182676610326327">"Αυτό το συγκεκριμένο επεισόδιο"</string>
+    <string name="dvr_action_record_episode_from_now_description" msgid="5125122951529985697">"τώρα - <xliff:g id="ENDTIME">%1$s</xliff:g>"</string>
+    <string name="dvr_action_record_series" msgid="8501991316179436899">"Ολόκληρη τη σειρά…"</string>
+    <string name="dvr_action_record_anyway" msgid="991470058034937231">"Να προγραμματιστεί ούτως ή άλλως"</string>
+    <string name="dvr_action_record_instead" msgid="6821164728752215738">"Αντί αυτού, εγγρ. αυτού του πρ."</string>
+    <string name="dvr_action_record_cancel" msgid="8644254745772185288">"Ακύρωση αυτής της εγγραφής"</string>
+    <string name="dvr_action_watch_now" msgid="7181211920959075976">"Προβολή τώρα"</string>
+    <string name="dvr_epg_program_recordable" msgid="609229576209476903">"Με δυνατότητα εγγραφής"</string>
+    <string name="dvr_epg_program_recording_scheduled" msgid="1367741844291055016">"Η εγγραφή προγραμματίστηκε"</string>
+    <string name="dvr_epg_program_recording_conflict" msgid="4827911748865195373">"Διένεξη εγγραφής"</string>
+    <string name="dvr_epg_program_recording_in_progress" msgid="2158340443975313745">"Εγγραφή"</string>
+    <string name="dvr_epg_program_recording_failed" msgid="5589124519442328896">"Αποτυχία εγγραφής"</string>
+    <string name="dvr_schedule_progress_message_reading_programs" msgid="6502513156469172313">"Γίνεται ανάγνωση προγραμμάτων για δημιουργία προγραμματισμών εγγραφής"</string>
+    <string name="dvr_series_schedules_progress_message_reading_programs" msgid="7221275889560136115">"Ανάγνωση προγραμμάτων"</string>
+    <!-- no translation found for dvr_series_schedules_progress_message_updating_programs (6670286486601662465) -->
+    <skip />
+    <string name="dvr_error_small_sized_storage_title" msgid="5020225460011469011">"Το DVR χρειάζεται περισσότερο αποθηκευτικό χώρο"</string>
+    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"Θα μπορείτε να εγγράψετε προγράμματα με το DVR. Ωστόσο, αυτήν τη στιγμή δεν υπάρχει αρκετός αποθηκευτικός χώρος στη συσκευή σας έτσι ώστε να λειτουργήσει το DVR. Συνδέστε έναν εξωτερικό δίσκο με χωρητικότητα <xliff:g id="STORAGE_SIZE">%1$s</xliff:g> GB ή μεγαλύτερη και ακολουθήστε τα βήματα για να τον μορφοποιήσετε και να τον ορίσετε ως αποθηκευτικό χώρο της συσκευής."</string>
+    <string name="dvr_error_missing_storage_title" msgid="691914341845362669">"Ο αποθηκευτικός χώρος λείπει"</string>
+    <string name="dvr_error_missing_storage_description" msgid="1036680750969954236">"Κάποιο τμήμα του αποθηκευτικού χώρου που χρησιμοποιείται από το DVR λείπει. Συνδέστε τον εξωτερικό δίσκο που χρησιμοποιήσατε στο παρελθόν για να ενεργοποιήσετε εκ νέου το DVR. Εναλλακτικά, μπορείτε να επιλέξετε να διαγράψετε τον αποθηκευτικό χώρο αν δεν είναι πλέον διαθέσιμος."</string>
+    <string name="dvr_error_forget_storage_title" msgid="4996547357826788002">"Να διαγραφεί ο αποθηκευτικός χώρος;"</string>
+    <string name="dvr_error_forget_storage_description" msgid="3973761741009546142">"Όλο το εγγεγραμμένο περιεχόμενο και τα χρονοδιαγράμματα θα χαθούν."</string>
+    <string name="dvr_stop_recording_dialog_title" msgid="2587018956502704278">"Να διακοπεί η εγγραφή;"</string>
+    <string name="dvr_stop_recording_dialog_description" msgid="4637830189399967761">"Θα γίνει αποθήκευση του περιεχομένου που έχει εγγραφεί."</string>
+    <!-- no translation found for dvr_stop_recording_dialog_description_on_conflict (7876857267536083760) -->
+    <skip />
+    <string name="dvr_program_conflict_dialog_title" msgid="109323740107060379">"Η εγγραφή προγραμματίστηκε, αλλά έχει διενέξεις"</string>
+    <string name="dvr_channel_conflict_dialog_title" msgid="7461033430572027786">"Η εγγραφή ξεκίνησε αλλά υπάρχουν διενέξεις"</string>
+    <string name="dvr_program_conflict_dialog_description_prefix" msgid="5520062013211648196">"Θα γίνει εγγραφή του προγράμματος <xliff:g id="PROGRAMNAME">%1$s</xliff:g>."</string>
+    <string name="dvr_channel_conflict_dialog_description_prefix" msgid="212344250779878791">"Πραγματοποιείται εγγραφή του καναλιού <xliff:g id="CHANNELNAME">%1$s</xliff:g>."</string>
+    <string name="dvr_program_conflict_dialog_description_1" msgid="2278200346765501164">"Δεν θα γίνει εγγραφή ορισμένων αποσπασμάτων του προγράμματος <xliff:g id="CONFLICTPROGRAMNAME">%1$s</xliff:g>."</string>
+    <string name="dvr_program_conflict_dialog_description_2" msgid="5648524408147235696">"Δεν θα γίνει εγγραφή ορισμένων αποσπασμάτων των προγραμμάτων <xliff:g id="CONFLICTPROGRAMNAME_1">%1$s</xliff:g> και <xliff:g id="CONFLICTPROGRAMNAME_2">%2$s</xliff:g>."</string>
+    <string name="dvr_program_conflict_dialog_description_3" msgid="6879199850098595108">"Δεν θα γίνει εγγραφή ορισμένων αποσπασμάτων των προγραμμάτων <xliff:g id="CONFLICTPROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2">%2$s</xliff:g> και ενός ακόμη προγράμματος."</string>
+    <plurals name="dvr_program_conflict_dialog_description_many" formatted="false" msgid="1008340710252647947">
+      <item quantity="other">Δεν θα γίνει εγγραφή ορισμένων αποσπασμάτων των προγραμμάτων <xliff:g id="CONFLICTPROGRAMNAME_1_2">%1$s</xliff:g> και <xliff:g id="CONFLICTPROGRAMNAME_2_3">%2$s</xliff:g> και %3$d ακόμη χρονοδιαγραμμάτων.</item>
+      <item quantity="one">Δεν θα γίνει εγγραφή ορισμένων αποσπασμάτων των προγραμμάτων <xliff:g id="CONFLICTPROGRAMNAME_1_0">%1$s</xliff:g> και <xliff:g id="CONFLICTPROGRAMNAME_2_1">%2$s</xliff:g> και %3$d ακόμη χρονοδιαγράμματος.</item>
+    </plurals>
+    <string name="dvr_schedule_dialog_title" msgid="5235629824986156058">"Τι θέλετε να κάνετε εγγραφή;"</string>
+    <string name="dvr_channel_record_duration_dialog_title" msgid="4601361040431047918">"Πόση ώρα επιθυμείτε να κρατήσει η εγγραφή;"</string>
+    <string name="dvr_already_scheduled_dialog_title" msgid="4525318291210934311">"Έχει ήδη προγραμματιστεί"</string>
+    <string name="dvr_already_scheduled_dialog_description" msgid="8170126125996414810">"Το ίδιο πρόγραμμα έχει προγραμματιστεί για εγγραφή στις <xliff:g id="PROGRAMSTARTTIME">%1$s</xliff:g>."</string>
+    <string name="dvr_already_recorded_dialog_title" msgid="2760294707162057216">"Έχει ήδη εγγραφεί"</string>
+    <string name="dvr_already_recorded_dialog_description" msgid="8966051583682746434">"Αυτό το πρόγραμμα έχει ήδη εγγραφεί. Είναι διαθέσιμο στη βιβλιοθήκη DVR."</string>
+    <!-- no translation found for dvr_series_recording_dialog_title (3521956660855853797) -->
+    <skip />
+    <!-- no translation found for dvr_series_recording_scheduled_no_conflict (2796926724821316879) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_this_series_conflict (2800805130979023066) -->
+    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_one_conflict (3632394665556633158) -->
+    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_conflict (2331412040101938479) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_one_conflict (5213169239215104024) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_conflict (5159645486201045330) -->
+    <string name="dvr_program_not_found" msgid="3282879532038010202">"Το εγγεγραμμένο πρόγραμμα δεν βρέθηκε."</string>
+    <string name="dvr_playback_related_recordings" msgid="6978658039329924961">"Σχετικές εγγραφές"</string>
+    <string name="dvr_msg_no_program_description" msgid="2521723281247322645">"(Καμία περιγραφή προγράμματος)"</string>
+    <plurals name="dvr_schedules_section_subtitle" formatted="false" msgid="9180744010405976007">
+      <item quantity="other">%1$d εγγραφές</item>
+      <item quantity="one">%1$d εγγραφή</item>
+    </plurals>
+    <string name="dvr_schedules_information_separator" msgid="1669116853379998479">" / "</string>
+    <string name="dvr_schedules_deletion_info" msgid="2837586459900271031">"Το πρόγραμμα <xliff:g id="PROGRAMNAME">%1$s</xliff:g> καταργήθηκε από τις προγραμματισμένες εγγραφές"</string>
+    <string name="dvr_schedules_tuner_conflict_will_be_partially_recorded" msgid="5280490298546908729">"Θα γίνει μερική εγγραφή λόγω διενέξεων δέκτη."</string>
+    <string name="dvr_schedules_tuner_conflict_will_not_be_recorded_info" msgid="5065400564003201095">"Δεν θα γίνει εγγραφή λόγω διενέξεων δέκτη."</string>
+    <string name="dvr_schedules_empty_state" msgid="1291529283469462741">"Προς το παρόν, δεν υπάρχουν προγραμματισμένες εγγραφές.\nΜπορείτε να προγραμματίσετε εγγραφές από τον οδηγό προγράμματος."</string>
+    <plurals name="dvr_series_schedules_header_description" formatted="false" msgid="9077188267856194114">
+      <item quantity="other">%1$d διενέξεις εγγραφής</item>
+      <item quantity="one">%1$d διένεξη εγγραφής</item>
+    </plurals>
+    <string name="dvr_series_schedules_settings" msgid="4868501926847903985">"Ρυθμίσεις σειράς"</string>
+    <string name="dvr_series_schedules_start" msgid="8458768834047133835">"Έναρξη εγγραφής σειράς"</string>
+    <string name="dvr_series_schedules_stop" msgid="3427479298317584961">"Διακοπή εγγραφής σειράς"</string>
+    <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"Διακοπή εγγραφής σειράς;"</string>
+    <string name="dvr_series_schedules_stop_dialog_description" msgid="7547266283366940085">"Τα επεισόδια που έχουν εγγραφεί θα εξακολουθήσουν να είναι διαθέσιμα στη βιβλιοθήκη DVR."</string>
+    <string name="dvr_series_schedules_stop_dialog_action_stop" msgid="2351839914865142478">"Διακοπή"</string>
+    <string name="dvr_series_schedules_empty_state" msgid="3407962945399698707">"Δεν υπάρχουν διαθέσιμα επεισόδια.\nΗ εγγραφή τους θα πραγματοποιηθεί όταν θα είναι διαθέσιμα."</string>
+    <plurals name="dvr_schedules_recording_duration" formatted="false" msgid="3701771573063918552">
+      <item quantity="other">(%1$d λεπτά)</item>
+      <item quantity="one">(%1$d λεπτό) </item>
+    </plurals>
+    <string name="dvr_date_today" msgid="7691050705354303471">"Σήμερα"</string>
+    <string name="dvr_date_tomorrow" msgid="4136735681186981844">"Αύριο"</string>
+    <string name="dvr_date_yesterday" msgid="2127672919053118239">"Χθες"</string>
+    <string name="dvr_date_today_time" msgid="8359696776305244535">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> σήμερα"</string>
+    <string name="dvr_date_tomorrow_time" msgid="8364654556105292594">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> αύριο"</string>
+    <string name="program_guide_critic_score" msgid="340530743913585150">"Μουσική επένδυση"</string>
 </resources>

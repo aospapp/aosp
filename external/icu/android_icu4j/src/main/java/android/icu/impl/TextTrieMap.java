@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  * ********************************************************************************
  * Copyright (C) 2007-2011, International Business Machines Corporation and others.
@@ -26,7 +28,7 @@ public class TextTrieMap<V> {
 
     /**
      * Constructs a TextTrieMap object.
-     * 
+     *
      * @param ignoreCase true to use simple case insensitive match
      */
     public TextTrieMap(boolean ignoreCase) {
@@ -35,7 +37,7 @@ public class TextTrieMap<V> {
 
     /**
      * Adds the text key and its associated object in this object.
-     * 
+     *
      * @param text The text.
      * @param val The value object associated with the text.
      */
@@ -48,7 +50,7 @@ public class TextTrieMap<V> {
     /**
      * Gets an iterator of the objects associated with the
      * longest prefix matching string key.
-     * 
+     *
      * @param text The text to be matched with prefixes.
      * @return An iterator of the objects associated with
      * the longest prefix matching matching key, or null
@@ -60,13 +62,13 @@ public class TextTrieMap<V> {
 
     /**
      * Gets an iterator of the objects associated with the
-     * longest prefix matching string key starting at the 
+     * longest prefix matching string key starting at the
      * specified position.
-     * 
+     *
      * @param text The text to be matched with prefixes.
      * @param start The start index of of the text
      * @return An iterator of the objects associated with the
-     * longest prefix matching matching key, or null if no 
+     * longest prefix matching matching key, or null if no
      * matching entry is found.
      */
     public Iterator<V> get(CharSequence text, int start) {
@@ -85,7 +87,7 @@ public class TextTrieMap<V> {
     public void find(CharSequence text, ResultHandler<V> handler) {
         find(text, 0, handler);
     }
-    
+
     public void find(CharSequence text, int offset, ResultHandler<V> handler) {
         CharIterator chitr = new CharIterator(text, offset, _ignoreCase);
         find(_root, chitr, handler);
@@ -122,6 +124,7 @@ public class TextTrieMap<V> {
         /* (non-Javadoc)
          * @see java.util.Iterator#hasNext()
          */
+        @Override
         public boolean hasNext() {
             if (_nextIdx == _text.length() && _remainingChar == null) {
                 return false;
@@ -132,6 +135,7 @@ public class TextTrieMap<V> {
         /* (non-Javadoc)
          * @see java.util.Iterator#next()
          */
+        @Override
         public Character next() {
             if (_nextIdx == _text.length() && _remainingChar == null) {
                 return null;
@@ -161,6 +165,7 @@ public class TextTrieMap<V> {
         /* (non-Javadoc)
          * @see java.util.Iterator#remove()
          */
+        @Override
         public void remove() {
             throw new UnsupportedOperationException("remove() not supproted");
         }
@@ -184,7 +189,7 @@ public class TextTrieMap<V> {
     public interface ResultHandler<V> {
         /**
          * Handles a prefix key match
-         * 
+         *
          * @param matchLength Matched key's length
          * @param values An iterator of the objects associated with the matched key
          * @return Return true to continue the search in the trie, false to quit.
@@ -196,6 +201,7 @@ public class TextTrieMap<V> {
         private Iterator<V> matches = null;
         private int length = 0;
 
+        @Override
         public boolean handlePrefixMatch(int matchLength, Iterator<V> values) {
             if (matchLength > length) {
                 length = matchLength;

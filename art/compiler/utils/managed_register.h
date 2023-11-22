@@ -17,7 +17,10 @@
 #ifndef ART_COMPILER_UTILS_MANAGED_REGISTER_H_
 #define ART_COMPILER_UTILS_MANAGED_REGISTER_H_
 
+#include <type_traits>
 #include <vector>
+
+#include "base/value_object.h"
 
 namespace art {
 
@@ -42,48 +45,48 @@ namespace x86_64 {
 class X86_64ManagedRegister;
 }
 
-class ManagedRegister {
+class ManagedRegister : public ValueObject {
  public:
   // ManagedRegister is a value class. There exists no method to change the
   // internal state. We therefore allow a copy constructor and an
   // assignment-operator.
-  ManagedRegister(const ManagedRegister& other) : id_(other.id_) { }
+  constexpr ManagedRegister(const ManagedRegister& other) = default;
 
-  ManagedRegister& operator=(const ManagedRegister& other) {
-    id_ = other.id_;
-    return *this;
-  }
+  ManagedRegister& operator=(const ManagedRegister& other) = default;
 
-  arm::ArmManagedRegister AsArm() const;
-  arm64::Arm64ManagedRegister AsArm64() const;
-  mips::MipsManagedRegister AsMips() const;
-  mips64::Mips64ManagedRegister AsMips64() const;
-  x86::X86ManagedRegister AsX86() const;
-  x86_64::X86_64ManagedRegister AsX86_64() const;
+  constexpr arm::ArmManagedRegister AsArm() const;
+  constexpr arm64::Arm64ManagedRegister AsArm64() const;
+  constexpr mips::MipsManagedRegister AsMips() const;
+  constexpr mips64::Mips64ManagedRegister AsMips64() const;
+  constexpr x86::X86ManagedRegister AsX86() const;
+  constexpr x86_64::X86_64ManagedRegister AsX86_64() const;
 
   // It is valid to invoke Equals on and with a NoRegister.
-  bool Equals(const ManagedRegister& other) const {
+  constexpr bool Equals(const ManagedRegister& other) const {
     return id_ == other.id_;
   }
 
-  bool IsNoRegister() const {
+  constexpr bool IsNoRegister() const {
     return id_ == kNoRegister;
   }
 
-  static ManagedRegister NoRegister() {
+  static constexpr ManagedRegister NoRegister() {
     return ManagedRegister();
   }
 
-  int RegId() const { return id_; }
-  explicit ManagedRegister(int reg_id) : id_(reg_id) { }
+  constexpr int RegId() const { return id_; }
+  explicit constexpr ManagedRegister(int reg_id) : id_(reg_id) { }
 
  protected:
   static const int kNoRegister = -1;
 
-  ManagedRegister() : id_(kNoRegister) { }
+  constexpr ManagedRegister() : id_(kNoRegister) { }
 
   int id_;
 };
+
+static_assert(std::is_trivially_copyable<ManagedRegister>::value,
+              "ManagedRegister should be trivially copyable");
 
 class ManagedRegisterSpill : public ManagedRegister {
  public:
@@ -115,18 +118,18 @@ class ManagedRegisterEntrySpills : public std::vector<ManagedRegisterSpill> {
  public:
   // The ManagedRegister does not have information about size and offset.
   // In this case it's size and offset determined by BuildFrame (assembler)
-  void push_back(ManagedRegister __x) {
-    ManagedRegisterSpill spill(__x);
+  void push_back(ManagedRegister x) {
+    ManagedRegisterSpill spill(x);
     std::vector<ManagedRegisterSpill>::push_back(spill);
   }
 
-  void push_back(ManagedRegister __x, int32_t __size) {
-    ManagedRegisterSpill spill(__x, __size);
+  void push_back(ManagedRegister x, int32_t size) {
+    ManagedRegisterSpill spill(x, size);
     std::vector<ManagedRegisterSpill>::push_back(spill);
   }
 
-  void push_back(ManagedRegisterSpill __x) {
-    std::vector<ManagedRegisterSpill>::push_back(__x);
+  void push_back(ManagedRegisterSpill x) {
+    std::vector<ManagedRegisterSpill>::push_back(x);
   }
  private:
 };

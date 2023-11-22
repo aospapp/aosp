@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
-*   Copyright (c) 2001-2011, International Business Machines
+*   Copyright (c) 2001-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -20,8 +22,10 @@ import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.LocaleUtility;
+import com.ibm.icu.impl.Utility;
 import com.ibm.icu.lang.UScript;
 import com.ibm.icu.text.RuleBasedTransliterator.Data;
 import com.ibm.icu.util.CaseInsensitiveString;
@@ -120,7 +124,7 @@ class TransliteratorRegistry {
                 // If 'top' is not a script name, try a locale lookup
                 if (script == UScript.INVALID_CODE) {
                     Locale toploc = LocaleUtility.getLocaleFromName(top);
-                    res  = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_TRANSLIT_BASE_NAME,toploc);
+                    res  = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUData.ICU_TRANSLIT_BASE_NAME,toploc);
                     // Make sure we got the bundle we wanted; otherwise, don't use it
                     if (res!=null && LocaleUtility.isFallbackOf(res.getULocale().toString(), top)) {
                         isSpecLocale = true;
@@ -142,7 +146,7 @@ class TransliteratorRegistry {
         }
 
         public void reset() {
-            if (spec != top) { // [sic] pointer comparison
+            if (!Utility.sameObjects(spec, top)) {
                 spec = top;
                 isSpecLocale = (res != null);
                 setupNext();
@@ -164,7 +168,7 @@ class TransliteratorRegistry {
                 }
             } else {
                 // Fallback to the script, which may be null
-                if (nextSpec != scriptName) {
+                if (!Utility.sameObjects(nextSpec, scriptName)) {
                     nextSpec = scriptName;
                 } else {
                     nextSpec = null;
@@ -217,11 +221,9 @@ class TransliteratorRegistry {
 
     static class ResourceEntry {
         public String resource;
-        public String encoding;
         public int direction;
-        public ResourceEntry(String n, String enc, int d) {
+        public ResourceEntry(String n, int d) {
             resource = n;
-            encoding = enc;
             direction = d;
         }
     }
@@ -340,10 +342,9 @@ class TransliteratorRegistry {
      */
     public void put(String ID,
                     String resourceName,
-                    String encoding,
                     int dir,
                     boolean visible) {
-        registerEntry(ID, new ResourceEntry(resourceName, encoding, dir), visible);
+        registerEntry(ID, new ResourceEntry(resourceName, dir), visible);
     }
 
     /**
@@ -397,10 +398,12 @@ class TransliteratorRegistry {
             en = e;
         }
 
+        @Override
         public boolean hasMoreElements() {
             return en != null && en.hasMoreElements();
         }
 
+        @Override
         public String nextElement() {
             return (en.nextElement()).getString();
         }
@@ -871,10 +874,10 @@ class TransliteratorRegistry {
             TransliteratorParser parser = new TransliteratorParser();
 
             try {
-               
+
                 ResourceEntry re = (ResourceEntry) entry;
                 parser.parse(re.resource, re.direction);
-                
+
             } catch (ClassCastException e) {
                 // If we pull a rule from a locale resource bundle it will
                 // be a LocaleEntry.

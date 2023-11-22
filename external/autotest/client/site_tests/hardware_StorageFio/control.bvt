@@ -8,7 +8,6 @@ PURPOSE = 'Make sure that hardware StorageFio work'
 TIME = 'FAST'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 JOB_RETRIES = 2
 
 DOC = """

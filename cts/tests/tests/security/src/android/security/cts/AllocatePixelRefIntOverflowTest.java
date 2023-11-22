@@ -18,12 +18,14 @@ package android.security.cts;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.InputStream;
 
 import android.security.cts.R;
 
+@SecurityTest
 public class AllocatePixelRefIntOverflowTest extends AndroidTestCase {
 
     /**

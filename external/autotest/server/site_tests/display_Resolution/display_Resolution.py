@@ -31,48 +31,63 @@ class display_Resolution(test.test):
     WAIT_TIME_LID_TRANSITION = 5
 
     DEFAULT_RESOLUTION_LIST = [
-            # Mix DP and HDMI together to test the converter cases.
-            ('DP', 1280, 800),
-            ('DP', 1440, 900),
-            ('DP', 1600, 900),
-            ('DP', 1680, 1050),
-            ('DP', 1920, 1080),
-            ('HDMI', 1280, 720),
-            ('HDMI', 1920, 1080),
+            ('EDIDv1', 1280, 800),
+            ('EDIDv1', 1440, 900),
+            ('EDIDv1', 1600, 900),
+            ('EDIDv1', 1680, 1050),
+            ('EDIDv2', 1280, 720),
+            ('EDIDv2', 1920, 1080),
     ]
+    # These boards are unable to work with servo - crosbug.com/p/27591.
+    INCOMPATIBLE_SERVO_BOARDS = ['daisy', 'falco']
 
     def run_once(self, host, test_mirrored=False, test_suspend_resume=False,
                  test_reboot=False, test_lid_close_open=False,
                  resolution_list=None):
-        # Check the servo object
+
+        # Check the servo object.
         if test_lid_close_open and host.servo is None:
             raise error.TestError('Invalid servo object found on the host.')
         if test_lid_close_open and not host.get_board_type() == 'CHROMEBOOK':
             raise error.TestNAError('DUT is not Chromebook. Test Skipped')
+        if test_mirrored and not host.get_board_type() == 'CHROMEBOOK':
+            raise error.TestNAError('DUT is not Chromebook. Test Skipped')
+
+        # Check for incompatible with servo chromebooks.
+        board_name = host.get_board().split(':')[1]
+        if board_name in self.INCOMPATIBLE_SERVO_BOARDS:
+            raise error.TestNAError(
+                    'DUT is incompatible with servo. Skipping test.')
 
         factory = remote_facade_factory.RemoteFacadeFactory(host)
         display_facade = factory.create_display_facade()
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
 
         errors = []
         if resolution_list is None:
             resolution_list = self.DEFAULT_RESOLUTION_LIST
+        chameleon_supported = True
         for chameleon_port in finder.iterate_all_ports():
             screen_test = chameleon_screen_test.ChameleonScreenTest(
                     chameleon_port, display_facade, self.outputdir)
             chameleon_port_name = chameleon_port.get_connector_type()
             logging.info('Detected %s chameleon port.', chameleon_port_name)
-            for interface, width, height in resolution_list:
-                if not chameleon_port_name.startswith(interface):
-                    continue
+            for label, width, height in resolution_list:
                 test_resolution = (width, height)
-                test_name = "%s_%dx%d" % ((interface,) + test_resolution)
+                test_name = "%s_%dx%d" % ((label,) + test_resolution)
 
-                if not edid.is_edid_supported(host, interface, width, height):
+                # The chameleon DP RX doesn't support 4K resolution.
+                # The max supported resolution is 2560x1600.
+                # See crbug/585900
+                if (chameleon_port_name.startswith('DP') and
+                    test_resolution > (2560,1600)):
+                    chameleon_supported = False
+
+                if not edid.is_edid_supported(host, width, height):
                     logging.info('Skip unsupported EDID: %s', test_name)
                     continue
 
@@ -114,8 +129,8 @@ class display_Resolution(test.test):
                         display_facade.suspend_resume()
                         logging.info('Resumed back')
 
-                    screen_test.test_screen_with_image(
-                            test_resolution, test_mirrored, errors)
+                    screen_test.test_screen_with_image(test_resolution,
+                            test_mirrored, errors, chameleon_supported)
 
         if errors:
             raise error.TestFail('; '.join(set(errors)))

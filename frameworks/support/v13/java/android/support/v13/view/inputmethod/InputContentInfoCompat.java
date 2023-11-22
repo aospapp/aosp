@@ -18,10 +18,16 @@ package android.support.v13.view.inputmethod;
 
 import android.content.ClipDescription;
 import android.net.Uri;
+import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.support.v4.os.BuildCompat;
+import android.support.annotation.RequiresApi;
+import android.view.inputmethod.InputContentInfo;
 
+/**
+ * Helper for accessing features in InputContentInfo introduced after API level 13 in a backwards
+ * compatible fashion.
+ */
 public final class InputContentInfoCompat {
 
     private interface InputContentInfoCompatImpl {
@@ -42,7 +48,7 @@ public final class InputContentInfoCompat {
         void releasePermission();
     }
 
-    private final static class BaseInputContentInfoCompatImpl
+    private static final class InputContentInfoCompatBaseImpl
             implements InputContentInfoCompatImpl {
         @NonNull
         private final Uri mContentUri;
@@ -51,7 +57,7 @@ public final class InputContentInfoCompat {
         @Nullable
         private final Uri mLinkUri;
 
-        public BaseInputContentInfoCompatImpl(@NonNull Uri contentUri,
+        InputContentInfoCompatBaseImpl(@NonNull Uri contentUri,
                 @NonNull ClipDescription description, @Nullable Uri linkUri) {
             mContentUri = contentUri;
             mDescription = description;
@@ -93,36 +99,37 @@ public final class InputContentInfoCompat {
         }
     }
 
-    private final static class Api25InputContentInfoCompatImpl
+    @RequiresApi(25)
+    private static final class InputContentInfoCompatApi25Impl
             implements InputContentInfoCompatImpl {
         @NonNull
-        final Object mObject;
+        final InputContentInfo mObject;
 
-        public Api25InputContentInfoCompatImpl(@NonNull Object inputContentInfo) {
-            mObject = inputContentInfo;
+        InputContentInfoCompatApi25Impl(@NonNull Object inputContentInfo) {
+            mObject = (InputContentInfo) inputContentInfo;
         }
 
-        public Api25InputContentInfoCompatImpl(@NonNull Uri contentUri,
+        InputContentInfoCompatApi25Impl(@NonNull Uri contentUri,
                 @NonNull ClipDescription description, @Nullable Uri linkUri) {
-            mObject = InputContentInfoCompatApi25.create(contentUri, description, linkUri);
+            mObject = new InputContentInfo(contentUri, description, linkUri);
         }
 
         @Override
         @NonNull
         public Uri getContentUri() {
-            return InputContentInfoCompatApi25.getContentUri(mObject);
+            return mObject.getContentUri();
         }
 
         @Override
         @NonNull
         public ClipDescription getDescription() {
-            return InputContentInfoCompatApi25.getDescription(mObject);
+            return mObject.getDescription();
         }
 
         @Override
         @Nullable
         public Uri getLinkUri() {
-            return InputContentInfoCompatApi25.getLinkUri(mObject);
+            return mObject.getLinkUri();
         }
 
         @Override
@@ -133,23 +140,36 @@ public final class InputContentInfoCompat {
 
         @Override
         public void requestPermission() {
-            InputContentInfoCompatApi25.requestPermission(mObject);
+            mObject.requestPermission();
         }
 
         @Override
         public void releasePermission() {
-            InputContentInfoCompatApi25.releasePermission(mObject);
+            mObject.releasePermission();
         }
     }
 
     private final InputContentInfoCompatImpl mImpl;
 
+    /**
+     * Constructs {@link InputContentInfoCompat}.
+     *
+     * @param contentUri content URI to be exported from the input method. This cannot be
+     *                   {@code null}.
+     * @param description a {@link ClipDescription} object that contains the metadata of
+     *                    {@code contentUri} such as MIME type(s). This object cannot be
+     *                    {@code null}. Also {@link ClipDescription#getLabel()} should be describing
+     *                    the content specified by {@code contentUri} for accessibility reasons.
+     * @param linkUri an optional {@code http} or {@code https} URI. The editor author may provide
+     *                a way to navigate the user to the specified web page if this is not
+     *                {@code null}.
+     */
     public InputContentInfoCompat(@NonNull Uri contentUri,
             @NonNull ClipDescription description, @Nullable Uri linkUri) {
-        if (BuildCompat.isAtLeastNMR1()) {
-            mImpl = new Api25InputContentInfoCompatImpl(contentUri, description, linkUri);
+        if (Build.VERSION.SDK_INT >= 25) {
+            mImpl = new InputContentInfoCompatApi25Impl(contentUri, description, linkUri);
         } else {
-            mImpl = new BaseInputContentInfoCompatImpl(contentUri, description, linkUri);
+            mImpl = new InputContentInfoCompatBaseImpl(contentUri, description, linkUri);
         }
     }
 
@@ -198,10 +218,10 @@ public final class InputContentInfoCompat {
         if (inputContentInfo == null) {
             return null;
         }
-        if (!BuildCompat.isAtLeastNMR1()) {
+        if (Build.VERSION.SDK_INT < 25) {
             return null;
         }
-        return new InputContentInfoCompat(new Api25InputContentInfoCompatImpl(inputContentInfo));
+        return new InputContentInfoCompat(new InputContentInfoCompatApi25Impl(inputContentInfo));
     }
 
     /**

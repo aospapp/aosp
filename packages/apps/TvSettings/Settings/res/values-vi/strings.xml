@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Luôn quét"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Hãy để dịch vụ vị trí của Google và các ứng dụng khác quét để tìm mạng ngay cả khi Wi-Fi đang tắt"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Cho phép dịch vụ định vị và các ứng dụng khác của Google quét tìm mạng, ngay cả khi Wi-Fi bị tắt"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Trình bảo vệ màn hình"</string>
     <string name="device_display" msgid="101455384386372747">"Hiển thị"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Mức pin <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Đang bỏ ghép nối thiết bị…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Đã kết nối"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Đổi tên"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Nhập tên mới cho phụ kiện này"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Đang tìm kiếm phụ kiện…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Trước khi ghép nối các thiết bị Bluetooth của bạn, đảm bảo các thiết bị đó đang ở chế độ ghép nối"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Đã tìm thấy một thiết bị và sẽ tự động ghép nối sau <xliff:g id="COUNTDOWN">%1$s</xliff:g> giây nữa"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Bàn phím"</string>
     <string name="system_home" msgid="2858989138172296012">"Màn hình chính"</string>
     <string name="system_search" msgid="2837264654143247611">"Tìm kiếm"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Bảo mật và hạn chế"</string>
     <string name="system_speech" msgid="8128688499687306982">"Giọng nói"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Đầu vào"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Tùy chọn nhà phát triển"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Không có"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Sử dụng và chẩn đoán"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Hướng dẫn"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Bản cập nhật hệ thống"</string>
     <string name="about_preference" msgid="4131396784531360434">"Giới thiệu"</string>
     <string name="device_name" msgid="2670488158531273028">"Tên thiết bị"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Tùy chọn hiển thị"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Định cấu hình"</string>
     <string name="captions_language" msgid="2835554055388996343">"Ngôn ngữ"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Mặc định"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Kích thước văn bản"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Kiểu phụ đề"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Tùy chọn tùy chỉnh"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Tỷ lệ hình động chuyển đổi"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Tỷ lệ thời lượng trình tạo hình động"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Đã bật chế độ nghiêm ngặt"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Hiển thị mức sử dụng CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Kết xuất GPU cấu hình"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Bật theo dõi"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Không tiếp tục các hoạt động"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Từ tốt nhất đến tồi nhất: lam, lục, đỏ tươi, đỏ"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Chuyển nhanh toàn bộ các giao diện cửa sổ khi các giao diện này cập nhật"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Màn hình flash khi ứng dụng thực hiện các hoạt động dài trên chuỗi chính"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Lớp phủ màn hình hiển thị mức sử dụng CPU hiện tại"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Đo thời gian kết xuất trong adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Bật"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Tắt"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Buộc dừng"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Nếu bạn buộc dừng một ứng dụng, ứng dụng đó có thể hoạt động sai."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Gỡ cài đặt"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Bạn có muốn gỡ cài đặt ứng dụng này không?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Gỡ cài đặt bản cập nhật"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Tất cả các bản cập nhật cho ứng dụng hệ thống Android này sẽ được gỡ cài đặt."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Tắt"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Xóa bộ nhớ cache"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Thông báo"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Quyền"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Ứng dụng không khả dụng"</string>
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Hủy"</string>
     <string name="settings_on" msgid="6892236264945435013">"Bật"</string>
@@ -631,24 +634,21 @@
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Dừng sao lưu mật khẩu Wi-Fi, dấu trang, các cài đặt khác và dữ liệu ứng dụng của bạn cũng như xóa tất cả các bản sao trên máy chủ Google?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Sao lưu dữ liệu của tôi"</string>
-    <string name="privacy_backup_account" msgid="9059939814827165020">"Sao lưu tài khoản"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Tài khoản sao lưu"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Tự động khôi phục"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Đặt lại thiết bị"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"Tác vụ này sẽ xóa tất cả dữ liệu khỏi bộ nhớ trong của thiết bị, bao gồm: tài khoản Google, cài đặt và dữ liệu hệ thống cũng như ứng dụng, ứng dụng đã tải xuống"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Xóa tất cả thông tin cá nhân và ứng dụng đã tải xuống của bạn? Bạn không thể hoàn nguyên tác vụ này!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Xóa mọi thứ"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Chọn tên cho <xliff:g id="DEVICEMODEL">%1$s</xliff:g> của bạn"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Tên sẽ giúp xác định <xliff:g id="DEVICEMODEL">%1$s</xliff:g> của bạn khi truy cập thiết bị từ các thiết bị khác như điện thoại, máy tính bảng hoặc máy tính."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Đặt cho <xliff:g id="DEVICEMODEL">%1$s</xliff:g> của bạn một cái tên để giúp xác định thiết bị khi truyền hoặc kết nối với thiết bị này từ các thiết bị khác."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Phòng khách"</item>
-    <item msgid="3722089849939477581">"Phòng truyền thông"</item>
-    <item msgid="6108590585438763574">"Phòng gia đình"</item>
-    <item msgid="2581035245390468625">"Phòng ăn"</item>
-    <item msgid="3127487827308695324">"Phòng nhỏ riêng"</item>
-    <item msgid="6172018430592195063">"Phòng ngủ"</item>
-    <item msgid="8120010459866284578">"Bếp"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV phòng khách"</item>
+    <item msgid="8122798759665439456">"TV phòng gia đình"</item>
+    <item msgid="1389347662738182100">"TV phòng ngủ"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Nhập tên tùy chỉnh…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Nhập tên tùy chỉnh…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Đổi tên <xliff:g id="DEVICEMODEL">%1$s</xliff:g> này"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> này hiện đang có tên là \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Thay đổi"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Khởi động lại ở chế độ an toàn"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Bạn có muốn khởi động lại ở chế độ an toàn không?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Điều này sẽ vô hiệu hóa tất cả ứng dụng bên thứ ba bạn đã cài đặt. Chúng sẽ được khôi phục khi bạn khởi động lại lần nữa."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Đang ghi lại báo cáo lỗi"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Bàn phím ảo có sẵn"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Quản lý bàn phím"</string>
 </resources>

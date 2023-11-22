@@ -42,9 +42,9 @@
     <string name="cert_too_large_error" msgid="8715414972725646285">"Hindi ma-install dahil masyadong malaki ang certificate."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Hindi ma-install dahil hindi mahanap ang file ng certificate."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Hindi mai-install dahil hindi mabasa ang file ng certificate."</string>
-    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"Walang nakitang file ng certificate sa imbakan na USB."</string>
+    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"Walang nakitang file ng certificate sa storage na USB."</string>
     <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"Walang nakitang file ng certificate sa SD card."</string>
-    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"Hindi available imbakan na USB"</string>
+    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"Hindi available storage na USB"</string>
     <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"Wala ang SD card."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"Ang may-ari lang ng device na ito ang maaaring mag-install ng mga certificate."</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"Paggamit ng kredensyal:"</string>

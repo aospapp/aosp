@@ -23,7 +23,6 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -42,10 +41,6 @@ public class ChannelCardView extends BaseCardView<Channel> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
 
-    private final float mCardHeight;
-    private final float mExtendedCardHeight;
-    private final float mProgramNameViewHeight;
-    private final float mExtendedTextViewCardHeight;
     private final int mCardImageWidth;
     private final int mCardImageHeight;
 
@@ -53,11 +48,8 @@ public class ChannelCardView extends BaseCardView<Channel> {
     private View mGradientView;
     private TextView mChannelNumberNameView;
     private ProgressBar mProgressBar;
-    private TextView mMetaViewFocused;
-    private TextView mMetaViewUnfocused;
     private Channel mChannel;
     private Program mProgram;
-    private boolean mExtendViewOnFocus;
     private final MainActivity mMainActivity;
 
     public ChannelCardView(Context context) {
@@ -70,17 +62,8 @@ public class ChannelCardView extends BaseCardView<Channel> {
 
     public ChannelCardView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-
         mCardImageWidth = getResources().getDimensionPixelSize(R.dimen.card_image_layout_width);
         mCardImageHeight = getResources().getDimensionPixelSize(R.dimen.card_image_layout_height);
-        mCardHeight = getResources().getDimensionPixelSize(R.dimen.card_layout_height);
-        mExtendedCardHeight = getResources().getDimensionPixelSize(
-                R.dimen.card_layout_height_extended);
-        mProgramNameViewHeight = getResources().getDimensionPixelSize(
-                R.dimen.card_meta_layout_height);
-        mExtendedTextViewCardHeight = getResources().getDimensionPixelOffset(
-                R.dimen.card_meta_layout_height_extended);
-
         mMainActivity = (MainActivity) context;
     }
 
@@ -90,8 +73,6 @@ public class ChannelCardView extends BaseCardView<Channel> {
         mImageView = (ImageView) findViewById(R.id.image);
         mGradientView = findViewById(R.id.image_gradient);
         mChannelNumberNameView = (TextView) findViewById(R.id.channel_number_and_name);
-        mMetaViewFocused = (TextView) findViewById(R.id.channel_title_focused);
-        mMetaViewUnfocused = (TextView) findViewById(R.id.channel_title_unfocused);
         mProgressBar = (ProgressBar) findViewById(R.id.progress);
     }
 
@@ -103,38 +84,25 @@ public class ChannelCardView extends BaseCardView<Channel> {
         }
         mChannel = channel;
         mProgram = null;
-        if (TextUtils.isEmpty(mChannel.getDisplayName())) {
-            mChannelNumberNameView.setText(mChannel.getDisplayNumber());
-        } else {
-            mChannelNumberNameView.setText(mChannel.getDisplayNumber() + " "
-                    + mChannel.getDisplayName());
-        }
+        mChannelNumberNameView.setText(mChannel.getDisplayText());
         mChannelNumberNameView.setVisibility(VISIBLE);
         mImageView.setImageResource(R.drawable.ic_recent_thumbnail_default);
         mImageView.setBackgroundResource(R.color.channel_card);
         mGradientView.setVisibility(View.GONE);
         mProgressBar.setVisibility(GONE);
 
-        setMetaViewEnabled(true);
+        setTextViewEnabled(true);
         if (mMainActivity.getParentalControlSettings().isParentalControlsEnabled()
                 && mChannel.isLocked()) {
-            setMetaViewText(R.string.program_title_for_blocked_channel);
+            setText(R.string.program_title_for_blocked_channel);
             return;
         } else {
-            setMetaViewText("");
+            setText("");
         }
 
         updateProgramInformation();
-        mMetaViewFocused.measure(
-                MeasureSpec.makeMeasureSpec(mCardImageWidth, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
-        if (mExtendViewOnFocus = mMetaViewFocused.getLineCount() > 1) {
-            setMetaViewFocusedAlpha(selected ? 1f : 0f);
-        } else {
-            setMetaViewFocusedAlpha(1f);
-        }
-
-        // Call super.onBind() at the end in order to make getCardHeight() return a proper value.
+        // Call super.onBind() at the end intentionally. In order to correctly handle extension of
+        // text view, text should be set before calling super.onBind.
         super.onBind(channel, selected);
     }
 
@@ -158,40 +126,16 @@ public class ChannelCardView extends BaseCardView<Channel> {
         mGradientView.setVisibility(View.VISIBLE);
     }
 
-    @Override
-    protected void onFocusAnimationStart(boolean selected) {
-        if (mExtendViewOnFocus) {
-            setMetaViewFocusedAlpha(selected ? 1f : 0f);
-        }
-    }
-
-    @Override
-    protected void onSetFocusAnimatedValue(float animatedValue) {
-        super.onSetFocusAnimatedValue(animatedValue);
-        if (mExtendViewOnFocus) {
-            ViewGroup.LayoutParams params = mMetaViewUnfocused.getLayoutParams();
-            params.height = Math.round(mProgramNameViewHeight
-                    + (mExtendedTextViewCardHeight - mProgramNameViewHeight) * animatedValue);
-            setMetaViewLayoutParams(params);
-            setMetaViewFocusedAlpha(animatedValue);
-        }
-    }
-
-    @Override
-    protected float getCardHeight() {
-        return (mExtendViewOnFocus && isFocused()) ? mExtendedCardHeight : mCardHeight;
-    }
-
     private void updateProgramInformation() {
         if (mChannel == null) {
             return;
         }
         mProgram = mMainActivity.getProgramDataManager().getCurrentProgram(mChannel.getId());
         if (mProgram == null || TextUtils.isEmpty(mProgram.getTitle())) {
-            setMetaViewEnabled(false);
-            setMetaViewText(R.string.program_title_for_no_information);
+            setTextViewEnabled(false);
+            setText(R.string.program_title_for_no_information);
         } else {
-            setMetaViewText(mProgram.getTitle());
+            setText(mProgram.getTitle());
         }
 
         if (mProgram == null) {
@@ -221,30 +165,5 @@ public class ChannelCardView extends BaseCardView<Channel> {
             mProgram.loadPosterArt(getContext(), mCardImageWidth, mCardImageHeight,
                     createProgramPosterArtCallback(this, mProgram));
         }
-    }
-
-    private void setMetaViewLayoutParams(ViewGroup.LayoutParams params) {
-        mMetaViewFocused.setLayoutParams(params);
-        mMetaViewUnfocused.setLayoutParams(params);
-    }
-
-    private void setMetaViewText(String text) {
-        mMetaViewFocused.setText(text);
-        mMetaViewUnfocused.setText(text);
-    }
-
-    private void setMetaViewText(int resId) {
-        mMetaViewFocused.setText(resId);
-        mMetaViewUnfocused.setText(resId);
-    }
-
-    private void setMetaViewEnabled(boolean enabled) {
-        mMetaViewFocused.setEnabled(enabled);
-        mMetaViewUnfocused.setEnabled(enabled);
-    }
-
-    private void setMetaViewFocusedAlpha(float focusedAlpha) {
-        mMetaViewFocused.setAlpha(focusedAlpha);
-        mMetaViewUnfocused.setAlpha(1f - focusedAlpha);
     }
 }

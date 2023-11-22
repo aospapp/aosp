@@ -139,4 +139,12 @@
     <ctl name="Int Spk Switch" value="1"/>
     <ctl name="Headphone Jack Switch" value="1"/>
   </path>
+
+  <path name="speaker-lr-normal">
+    <ctl name="IF2 ADC3 Swap Mux" value="L/R"/>
+  </path>
+
+  <path name="speaker-lr-reverse">
+    <ctl name="IF2 ADC3 Swap Mux" value="R/L"/>
+  </path>
 </mixer>

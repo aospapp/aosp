@@ -22,13 +22,18 @@ import android.util.Log;
 import javax.obex.Authenticator;
 import javax.obex.PasswordAuthentication;
 
+/* ObexAuthentication is a required component for PBAP in order to support backwards compatibility
+ * with PSE devices prior to PBAP 1.2. With profiles prior to 1.2 the actual initiation of
+ * authentication is implementation defined.
+ */
+
+
 class BluetoothPbapObexAuthenticator implements Authenticator {
 
     private final static String TAG = "BluetoothPbapObexAuthenticator";
 
-    private String mSessionKey;
-
-    private boolean mReplied;
+    //Default session key for legacy devices is 0000
+    private String mSessionKey = "0000";
 
     private final Handler mCallback;
 
@@ -36,36 +41,11 @@ class BluetoothPbapObexAuthenticator implements Authenticator {
         mCallback = callback;
     }
 
-    public synchronized void setReply(String key) {
-        Log.d(TAG, "setReply key=" + key);
-
-        mSessionKey = key;
-        mReplied = true;
-
-        notify();
-    }
-
     @Override
     public PasswordAuthentication onAuthenticationChallenge(String description,
             boolean isUserIdRequired, boolean isFullAccess) {
         PasswordAuthentication pa = null;
-
-        mReplied = false;
-
-        Log.d(TAG, "onAuthenticationChallenge: sending request");
-        mCallback.obtainMessage(BluetoothPbapObexSession.OBEX_SESSION_AUTHENTICATION_REQUEST)
-                .sendToTarget();
-
-        synchronized (this) {
-            while (!mReplied) {
-                try {
-                    Log.v(TAG, "onAuthenticationChallenge: waiting for response");
-                    this.wait();
-                } catch (InterruptedException e) {
-                    Log.e(TAG, "Interrupted while waiting for challenge response");
-                }
-            }
-        }
+        Log.v(TAG, "onAuthenticationChallenge: starting");
 
         if (mSessionKey != null && mSessionKey.length() != 0) {
             Log.v(TAG, "onAuthenticationChallenge: mSessionKey=" + mSessionKey);
@@ -79,6 +59,7 @@ class BluetoothPbapObexAuthenticator implements Authenticator {
 
     @Override
     public byte[] onAuthenticationResponse(byte[] userName) {
+        Log.v(TAG, "onAuthenticationResponse: " + userName);
         /* required only in case PCE challenges PSE which we don't do now */
         return null;
     }

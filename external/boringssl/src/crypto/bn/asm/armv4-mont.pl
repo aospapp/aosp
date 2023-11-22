@@ -16,7 +16,7 @@
 # [depending on key length, less for longer keys] on ARM920T, and
 # +115-80% on Intel IXP425. This is compared to pre-bn_mul_mont code
 # base and compiler generated code with in-lined umull and even umlal
-# instructions. The latter means that this code didn't really have an 
+# instructions. The latter means that this code didn't really have an
 # "advantage" of utilizing some "secret" instruction.
 #
 # The code is interoperable with Thumb ISA and is rather compact, less
@@ -39,8 +39,8 @@
 # others outweighs the marginal loss on Cortex-A9.
 
 $flavour = shift;
-if ($flavour=~/^\w[\w\-]*\.\w+$/) { $output=$flavour; undef $flavour; }
-else { while (($output=shift) && ($output!~/^\w[\w\-]*\.\w+$/)) {} }
+if ($flavour=~/\w[\w\-]*\.\w+$/) { $output=$flavour; undef $flavour; }
+else { while (($output=shift) && ($output!~/\w[\w\-]*\.\w+$/)) {} }
 
 if ($flavour && $flavour ne "void") {
     $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
@@ -91,7 +91,6 @@ $code=<<___;
 #endif
 
 .global	bn_mul_mont
-.hidden	bn_mul_mont
 .type	bn_mul_mont,%function
 
 .align	5
@@ -108,7 +107,7 @@ bn_mul_mont:
 #ifdef	__APPLE__
 	ldr	r0,[r0]
 #endif
-	tst	r0,#1			@ NEON available?
+	tst	r0,#ARMV7_NEON		@ NEON available?
 	ldmia	sp, {r0,r2}
 	beq	.Lialu
 	add	sp,sp,#8

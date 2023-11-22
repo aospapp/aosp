@@ -47,6 +47,9 @@
 #include "cil_verify.h"
 #include "cil_symtab.h"
 
+#define GEN_REQUIRE_ATTR "cil_gen_require" /* Also in libsepol/src/module_to_cil.c */
+#define TYPEATTR_INFIX "_typeattr_"        /* Also in libsepol/src/module_to_cil.c */
+
 static int __cil_expr_to_bitmap(struct cil_list *expr, ebitmap_t *out, int max, struct cil_db *db);
 static int __cil_expr_list_to_bitmap(struct cil_list *expr_list, ebitmap_t *out, int max, struct cil_db *db);
 
@@ -426,7 +429,7 @@ static int __cil_post_db_count_helper(struct cil_tree_node *node, uint32_t *fini
 	return SEPOL_OK;
 }
 
-static int __cil_post_db_array_helper(struct cil_tree_node *node, __attribute__((unused)) uint32_t *finished, void *extra_args)
+static int __cil_post_db_array_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
 {
 	struct cil_db *db = extra_args;
 
@@ -862,13 +865,7 @@ static int __evaluate_cat_expression(struct cil_cats *cats, struct cil_db *db)
 
 	ebitmap_destroy(&bitmap);
 	cil_list_destroy(&cats->datum_expr, CIL_FALSE);
-	if (new->head != NULL) { 
-		cats->datum_expr = new;
-	} else {
-		/* empty list */
-		cil_list_destroy(&new, CIL_FALSE);
-		cats->datum_expr = NULL;
-	}
+	cats->datum_expr = new;
 
 	cats->evaluated = CIL_TRUE;
 
@@ -947,6 +944,11 @@ static int __cil_cat_expr_range_to_bitmap_helper(struct cil_list_item *i1, struc
 	if (n2->flavor == CIL_CATALIAS) {
 		struct cil_alias *alias = (struct cil_alias *)d2;
 		c2 = alias->actual;
+	}
+
+	if (c1->value > c2->value) {
+		cil_log(CIL_ERR, "Invalid category range\n");
+		goto exit;
 	}
 
 	for (i = c1->value; i <= c2->value; i++) {
@@ -1186,7 +1188,38 @@ exit:
 	return SEPOL_ERR;
 }
 
-static int __cil_post_db_attr_helper(struct cil_tree_node *node, __attribute__((unused)) uint32_t *finished, void *extra_args)
+static int cil_typeattribute_used(struct cil_typeattribute *attr, struct cil_db *db)
+{
+	if (!attr->used) {
+		return CIL_FALSE;
+	}
+
+	if (attr->used & CIL_ATTR_CONSTRAINT) {
+		return CIL_TRUE;
+	}
+
+	if (db->attrs_expand_generated || attr->used == CIL_ATTR_NEVERALLOW) {
+		if (strcmp(DATUM(attr)->name, GEN_REQUIRE_ATTR) == 0) {
+			return CIL_FALSE;
+		} else if (strstr(DATUM(attr)->name, TYPEATTR_INFIX) != NULL) {
+			return CIL_FALSE;
+		}
+
+		if (attr->used == CIL_ATTR_NEVERALLOW) {
+			return CIL_TRUE;
+		}
+	}
+
+	if (attr->used == CIL_ATTR_AVRULE) {
+		if (ebitmap_cardinality(attr->types) < db->attrs_expand_size) {
+			return CIL_FALSE;
+		}
+	}
+
+	return CIL_TRUE;
+}
+
+static int __cil_post_db_attr_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
 {
 	int rc = SEPOL_ERR;
 	struct cil_db *db = extra_args;
@@ -1209,6 +1242,7 @@ static int __cil_post_db_attr_helper(struct cil_tree_node *node, __attribute__((
 			rc = __evaluate_type_expression(attr, db);
 			if (rc != SEPOL_OK) goto exit;
 		}
+		attr->used = cil_typeattribute_used(attr, db);
 		break;
 	}
 	case CIL_ROLEATTRIBUTE: {
@@ -1286,7 +1320,7 @@ exit:
 	return SEPOL_ERR;
 }
 
-static int __cil_post_db_roletype_helper(struct cil_tree_node *node, __attribute__((unused)) uint32_t *finished, void *extra_args)
+static int __cil_post_db_roletype_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
 {
 	int rc = SEPOL_ERR;
 	struct cil_db *db = extra_args;
@@ -1376,7 +1410,7 @@ exit:
 	return SEPOL_ERR;
 }
 
-static int __cil_post_db_userrole_helper(struct cil_tree_node *node, __attribute__((unused)) uint32_t *finished, void *extra_args)
+static int __cil_post_db_userrole_helper(struct cil_tree_node *node, uint32_t *finished, void *extra_args)
 {
 	int rc = SEPOL_ERR;
 	struct cil_db *db = extra_args;

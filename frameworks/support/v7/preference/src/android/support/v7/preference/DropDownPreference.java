@@ -16,8 +16,11 @@
 
 package android.support.v7.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.AdapterView;
@@ -32,7 +35,7 @@ import android.widget.Spinner;
 public class DropDownPreference extends ListPreference {
 
     private final Context mContext;
-    private final ArrayAdapter<String> mAdapter;
+    private final ArrayAdapter mAdapter;
 
     private Spinner mSpinner;
 
@@ -99,6 +102,7 @@ public class DropDownPreference extends ListPreference {
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public int findSpinnerIndexOfValue(String value) {
         CharSequence[] entryValues = getEntryValues();
         if (value != null && entryValues != null) {

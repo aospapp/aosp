@@ -180,5 +180,18 @@ std::string CurlApi::MultiStrError(CURLMcode code) const {
   return curl_multi_strerror(code);
 }
 
+CURLMcode CurlApi::MultiPerform(CURLM* multi_handle, int* running_handles) {
+  return curl_multi_perform(multi_handle, running_handles);
+}
+
+CURLMcode CurlApi::MultiWait(CURLM* multi_handle,
+                             curl_waitfd extra_fds[],
+                             unsigned int extra_nfds,
+                             int timeout_ms,
+                             int* numfds) {
+  return curl_multi_wait(multi_handle, extra_fds, extra_nfds, timeout_ms,
+                         numfds);
+}
+
 }  // namespace http
 }  // namespace brillo

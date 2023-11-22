@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++98, c++03, libcxxabi-no-exceptions
+
 #include <exception>
 #include <stdlib.h>
 #include <assert.h>

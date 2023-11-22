@@ -27,13 +27,15 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.telecom.CallScreeningService;
+import android.telecom.Log;
 import android.text.TextUtils;
 
 import com.android.internal.telecom.ICallScreeningAdapter;
 import com.android.internal.telecom.ICallScreeningService;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallsManager;
-import com.android.server.telecom.Log;
+import com.android.server.telecom.DefaultDialerCache;
+import com.android.server.telecom.LogUtils;
 import com.android.server.telecom.ParcelableCallUtils;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.TelecomServiceImpl;
@@ -52,7 +54,7 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
             Log.startSession("CSCR.oSC");
             try {
                 synchronized (mTelecomLock) {
-                    Log.event(mCall, Log.Events.SCREENING_BOUND, componentName);
+                    Log.addEvent(mCall, LogUtils.Events.SCREENING_BOUND, componentName);
                     if (!mHasFinished) {
                         onServiceBound(ICallScreeningService.Stub.asInterface(service));
                     }
@@ -136,7 +138,7 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
     private final Context mContext;
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
     private final CallsManager mCallsManager;
-    private final TelecomServiceImpl.DefaultDialerManagerAdapter mDefaultDialerManagerAdapter;
+    private final DefaultDialerCache mDefaultDialerCache;
     private final ParcelableCallUtils.Converter mParcelableCallUtilsConverter;
     private final TelecomSystem.SyncRoot mTelecomLock;
 
@@ -157,13 +159,13 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
             Context context,
             CallsManager callsManager,
             PhoneAccountRegistrar phoneAccountRegistrar,
-            TelecomServiceImpl.DefaultDialerManagerAdapter defaultDialerManagerAdapter,
+            DefaultDialerCache defaultDialerCache,
             ParcelableCallUtils.Converter parcelableCallUtilsConverter,
             TelecomSystem.SyncRoot lock) {
         mContext = context;
         mPhoneAccountRegistrar = phoneAccountRegistrar;
         mCallsManager = callsManager;
-        mDefaultDialerManagerAdapter = defaultDialerManagerAdapter;
+        mDefaultDialerCache = defaultDialerCache;
         mParcelableCallUtilsConverter = parcelableCallUtilsConverter;
         mTelecomLock = lock;
     }
@@ -174,7 +176,7 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
             Log.w(this, "Attempting to reuse CallScreeningServiceFilter. Ignoring.");
             return;
         }
-        Log.event(call, Log.Events.SCREENING_SENT);
+        Log.addEvent(call, LogUtils.Events.SCREENING_SENT);
         mCall = call;
         mCallback = callback;
         if (!bindService()) {
@@ -185,7 +187,7 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
 
     private void finishCallScreening() {
         if (!mHasFinished) {
-            Log.event(mCall, Log.Events.SCREENING_COMPLETED, mResult);
+            Log.addEvent(mCall, LogUtils.Events.SCREENING_COMPLETED, mResult);
             mCallback.onCallFilteringComplete(mCall, mResult);
 
             if (mConnection != null) {
@@ -199,8 +201,8 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
     }
 
     private boolean bindService() {
-        String dialerPackage = mDefaultDialerManagerAdapter
-                .getDefaultDialerApplication(mContext, UserHandle.USER_CURRENT);
+        String dialerPackage = mDefaultDialerCache
+                .getDefaultDialerApplication(UserHandle.USER_CURRENT);
         if (TextUtils.isEmpty(dialerPackage)) {
             Log.i(this, "Default dialer is empty. Not performing call screening.");
             return false;
@@ -230,7 +232,7 @@ public class CallScreeningServiceFilter implements IncomingCallFilter.CallFilter
 
         ComponentName componentName =
                 new ComponentName(entry.serviceInfo.packageName, entry.serviceInfo.name);
-        Log.event(mCall, Log.Events.BIND_SCREENING, componentName);
+        Log.addEvent(mCall, LogUtils.Events.BIND_SCREENING, componentName);
         intent.setComponent(componentName);
         ServiceConnection connection = new CallScreeningServiceConnection();
         if (mContext.bindServiceAsUser(

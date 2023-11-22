@@ -10,8 +10,10 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/media/libstagefright/include \
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
-LOCAL_CLANG := true
-LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow
+LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
+
+LOCAL_SHARED_LIBRARIES := libmedia
 
 LOCAL_MODULE:= libstagefright_matroska
 

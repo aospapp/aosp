@@ -22,7 +22,7 @@ import junit.framework.TestCase;
  */
 public class CollectorUtilTest extends TestCase {
 
-    String UNFORMATTED_JSON = "{"
+    private static final String UNFORMATTED_JSON = "{"
             + "\"stream_name_1\":"
             + "{\"id\":1,\"key1\":\"value1\"},"
             + "\"stream_name_2\":"
@@ -31,7 +31,7 @@ public class CollectorUtilTest extends TestCase {
             + "{\"id\":2,\"key1\":\"value2\"},"
             + "}";
 
-    String REFORMATTED_JSON = "{"
+    private static final String REFORMATTED_JSON = "{"
             + "\"stream_name_2\":"
             + "["
             + "{\"id\":1,\"key1\":\"value3\"}"
@@ -47,5 +47,4 @@ public class CollectorUtilTest extends TestCase {
         String reformattedJson = CollectorUtil.reformatJsonString(UNFORMATTED_JSON);
         assertEquals(reformattedJson, REFORMATTED_JSON);
     }
-
 }

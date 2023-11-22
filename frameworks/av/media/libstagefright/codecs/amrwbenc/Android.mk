@@ -102,7 +102,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/inc
 
 LOCAL_CFLAGS += -Werror
-LOCAL_CLANG := true
 #LOCAL_SANITIZE := signed-integer-overflow
 
 include $(BUILD_STATIC_LIBRARY)
@@ -120,8 +119,8 @@ LOCAL_C_INCLUDES := \
 	frameworks/native/include/media/openmax
 
 LOCAL_CFLAGS += -Werror
-LOCAL_CLANG := true
-LOCAL_SANITIZE := signed-integer-overflow
+LOCAL_SANITIZE := signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_amrwbenc

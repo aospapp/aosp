@@ -7,7 +7,6 @@ NAME = 'buffet_PrivetSetupFlow'
 TIME = 'FAST'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:tendo_experimental"
-SUITE='tendo_experimental'
 DEPENDENCIES = 'wificell'
 
 DOC = """

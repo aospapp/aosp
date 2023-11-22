@@ -37,17 +37,25 @@ public class TestNativeTanh extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeTanhRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkNativeTanhFloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xecfeca2fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x2aa8d7f4ecfeca2fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeTanhFloatFloat(inV, out);
             verifyResultsNativeTanhFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhFloatFloat(inV, out);
             verifyResultsNativeTanhFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -112,11 +122,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhFloat2Float2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x80bc8e5bl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x1d5a7d4a80bc8e5bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testNativeTanhFloat2Float2(inV, out);
             verifyResultsNativeTanhFloat2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloat2Float2: " + e.toString());
         }
@@ -124,9 +135,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhFloat2Float2(inV, out);
             verifyResultsNativeTanhFloat2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloat2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhFloat2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -181,11 +194,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhFloat3Float3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x76d7af39l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x1d5c466576d7af39l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testNativeTanhFloat3Float3(inV, out);
             verifyResultsNativeTanhFloat3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloat3Float3: " + e.toString());
         }
@@ -193,9 +207,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhFloat3Float3(inV, out);
             verifyResultsNativeTanhFloat3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloat3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhFloat3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -250,11 +266,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhFloat4Float4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x6cf2d017l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x1d5e0f806cf2d017l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testNativeTanhFloat4Float4(inV, out);
             verifyResultsNativeTanhFloat4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloat4Float4: " + e.toString());
         }
@@ -262,9 +279,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhFloat4Float4(inV, out);
             verifyResultsNativeTanhFloat4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhFloat4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhFloat4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -325,11 +344,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhHalfHalf() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x51a54c91l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x731042f51a54c91l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeTanhHalfHalf(inV, out);
             verifyResultsNativeTanhHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalfHalf: " + e.toString());
         }
@@ -337,9 +357,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhHalfHalf(inV, out);
             verifyResultsNativeTanhHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -398,11 +420,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhHalf2Half2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x5a1d116bl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xf10649a85a1d116bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testNativeTanhHalf2Half2(inV, out);
             verifyResultsNativeTanhHalf2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalf2Half2: " + e.toString());
         }
@@ -410,9 +433,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhHalf2Half2(inV, out);
             verifyResultsNativeTanhHalf2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalf2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -471,11 +496,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhHalf3Half3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb924d65fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xf1065449b924d65fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testNativeTanhHalf3Half3(inV, out);
             verifyResultsNativeTanhHalf3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalf3Half3: " + e.toString());
         }
@@ -483,9 +509,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhHalf3Half3(inV, out);
             verifyResultsNativeTanhHalf3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalf3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -544,11 +572,12 @@ public class TestNativeTanh extends RSBaseCompute {
     }
 
     private void checkNativeTanhHalf4Half4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x182c9b53l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xf1065eeb182c9b53l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testNativeTanhHalf4Half4(inV, out);
             verifyResultsNativeTanhHalf4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalf4Half4: " + e.toString());
         }
@@ -556,9 +585,11 @@ public class TestNativeTanh extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeTanhHalf4Half4(inV, out);
             verifyResultsNativeTanhHalf4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeTanhHalf4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeTanhHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {

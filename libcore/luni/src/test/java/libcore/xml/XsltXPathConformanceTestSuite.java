@@ -133,7 +133,7 @@ public class XsltXPathConformanceTestSuite {
         }
 
         File catalogXml = new File(args[0]);
-        // TestRunner.run(suite(catalogXml)); android-changed
+        // TestRunner.run(suite(catalogXml)); Android-changed
     }
 
     public static Test suite() throws Exception {

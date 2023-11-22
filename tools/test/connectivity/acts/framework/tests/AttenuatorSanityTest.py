@@ -20,14 +20,12 @@ from acts.base_test import BaseTestClass
 CONSERVATIVE_MAX_ATTEN_VALUE = 10
 MIN_ATTEN_VALUE = 0
 
-class AttenuatorSanityTest(BaseTestClass):
 
+class AttenuatorSanityTest(BaseTestClass):
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
-        self.tests = (
-            "test_attenuator_validation",
-            "test_attenuator_get_max_value",
-        )
+        self.tests = ("test_attenuator_validation",
+                      "test_attenuator_get_max_value", )
         self.number_of_iteration = 2
 
     def test_attenuator_validation(self):
@@ -44,7 +42,8 @@ class AttenuatorSanityTest(BaseTestClass):
 
             atten_value_list = [MIN_ATTEN_VALUE, atten_max_value]
             for i in range(0, self.number_of_iteration):
-                atten_value_list.append(int(random.uniform(0,atten_max_value)))
+                atten_value_list.append(
+                    int(random.uniform(0, atten_max_value)))
 
             for atten_val in atten_value_list:
                 self.log.info("Set atten to {}".format(atten_val))

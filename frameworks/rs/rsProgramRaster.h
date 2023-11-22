@@ -19,6 +19,8 @@
 
 #include "rsProgramBase.h"
 
+#include <vector>
+
 // ---------------------------------------------------------------------------
 namespace android {
 namespace renderscript {
@@ -75,12 +77,12 @@ public:
     ObjectBaseRef<ProgramRaster> mLast;
 
     // Cache of all existing raster programs.
-    Vector<ProgramRaster *> mRasterPrograms;
+    std::vector<ProgramRaster *> mRasterPrograms;
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif
 
 

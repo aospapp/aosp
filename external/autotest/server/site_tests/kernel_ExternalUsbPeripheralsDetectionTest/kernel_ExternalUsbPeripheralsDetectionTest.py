@@ -133,10 +133,10 @@ class kernel_ExternalUsbPeripheralsDetectionTest(test.test):
         # Gets a dict idVendor: dir_path
         vendor_ids = self.get_vendor_id_dict_from_dut(diff_list)
         for vid in vendor_id_dict_control_file.keys():
+            peripheral = vendor_id_dict_control_file[vid]
             if vid not in vendor_ids.keys():
                 raise error.TestFail('%s is not detected at %s dir'
-                                     % (vendor_id_dict_control_file[vid],
-                                     _USB_DIR))
+                                     % (peripheral, _USB_DIR))
             else:
             # Test 3: check driver symlink and dir for each USB device
                 tmp_list = [device_dir for device_dir in
@@ -145,9 +145,8 @@ class kernel_ExternalUsbPeripheralsDetectionTest(test.test):
                             if re.match(r'\d-\d.*:\d\.\d', device_dir)]
                 if not tmp_list:
                     raise error.TestFail('No driver created/loaded for %s'
-                                         % vendor_id_dict_control_file[vid])
-                logging.info('---- Drivers for %s ----',
-                             vendor_id_dict_control_file[vid])
+                                         % peripheral)
+                logging.info('---- Drivers for %s ----', peripheral)
                 flag = False
                 for device_dir in tmp_list:
                     driver_path = os.path.join(vendor_ids[vid],
@@ -160,4 +159,5 @@ class kernel_ExternalUsbPeripheralsDetectionTest(test.test):
                                               .stdout.strip())
                         logging.info('%s', link)
                 if not flag:
-                    raise error.TestFail('Drivers are not loaded - %s', driver_path)
+                    raise error.TestFail('Driver for %s is not loaded - %s'
+                                         % (peripheral, driver_path))

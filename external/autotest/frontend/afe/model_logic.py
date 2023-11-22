@@ -3,14 +3,14 @@ Extensions to Django's model logic.
 """
 
 import django.core.exceptions
-from django.db import backend
 from django.db import connection
 from django.db import connections
 from django.db import models as dbmodels
 from django.db import transaction
 from django.db.models.sql import query
 import django.db.models.sql.where
-from django.utils import datastructures
+# TODO(akeshet): Replace with monarch stats once we know how to instrument rpc
+# handling with ts_mon.
 from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend.afe import rdb_model_extensions
 
@@ -169,7 +169,10 @@ class ExtendedManager(dbmodels.Manager):
         rhs_where.relabel_aliases({rhs_table: alias})
         compiler = join_to_query.query.get_compiler(using=join_to_query.db)
         initial_clause, values = compiler.as_sql()
-        all_clauses = (initial_clause,)
+        # initial_clause is compiled from `join_to_query`, which is a SELECT
+        # query returns at most one record. For it to be used in WHERE clause,
+        # it must be converted to a boolean value using EXISTS.
+        all_clauses = ('EXISTS (%s)' % initial_clause,)
         if hasattr(join_to_query.query, 'extra_where'):
             all_clauses += join_to_query.query.extra_where
         info['where_clause'] = (
@@ -258,19 +261,6 @@ class ExtendedManager(dbmodels.Manager):
                              join_condition_values=info['values'],
                              alias=alias,
                              force_left_join=left_join)
-
-
-    def key_on_joined_table(self, join_to_query):
-        """Get a non-null column on the table joined for the given query.
-
-        This analyzes the join that would be produced if join_to_query were
-        passed to join_custom_field.
-        """
-        relationship_type, field = self.determine_relationship(
-                join_to_query.model)
-        if relationship_type == self.MANY_TO_ONE:
-            return join_to_query.model._meta.pk.column
-        return field.m2m_column_name() # any column on the M2M table will do
 
 
     def add_where(self, query_set, where, values=()):

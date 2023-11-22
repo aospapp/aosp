@@ -16,32 +16,45 @@
 
 package android.text.style.cts;
 
-import android.text.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
 import android.os.Parcel;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.text.cts.R;
 import android.text.style.URLSpan;
 import android.widget.TextView;
 
-public class URLSpanTest extends ActivityInstrumentationTestCase2<URLSpanCtsActivity> {
-    // The scheme of TEST_URL must be "ctstest" to launch MockURLSpanTestActivity
-    private static final String TEST_URL = "ctstest://urlSpan/test";
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class URLSpanTest {
+    // The scheme of TEST_URL must be "ctstesttext" to launch MockURLSpanTestActivity
+    private static final String TEST_URL = "ctstesttext://urlSpan/test";
+
     private Activity mActivity;
 
-    public URLSpanTest() {
-        super("android.text.cts", URLSpanCtsActivity.class);
+    @Rule
+    public ActivityTestRule<URLSpanCtsActivity> mActivityRule =
+            new ActivityTestRule<>(URLSpanCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         URLSpan urlSpan = new URLSpan(TEST_URL);
 
@@ -55,55 +68,49 @@ public class URLSpanTest extends ActivityInstrumentationTestCase2<URLSpanCtsActi
         }
     }
 
+    @Test
     public void testGetURL() {
         URLSpan urlSpan = new URLSpan(TEST_URL);
         assertEquals(TEST_URL, urlSpan.getURL());
     }
 
-    public void testOnClick() {
+    @LargeTest
+    @Test
+    public void testOnClick() throws Throwable {
         final URLSpan urlSpan = new URLSpan(TEST_URL);
         final TextView textView = (TextView) mActivity.findViewById(R.id.url);
 
-        Instrumentation instrumentation = getInstrumentation();
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         ActivityMonitor am = instrumentation.addMonitor(MockURLSpanTestActivity.class.getName(),
                 null, false);
 
-        try {
-            runTestOnUiThread(new Runnable() {
-                public void run() {
-                    urlSpan.onClick(textView);
-                }
-            });
-        } catch (Throwable e) {
-            fail("Exception error!");
-        }
+        mActivityRule.runOnUiThread(() -> urlSpan.onClick(textView));
 
         Activity newActivity = am.waitForActivityWithTimeout(5000);
         assertNotNull(newActivity);
         newActivity.finish();
     }
 
+    @Test(expected=NullPointerException.class)
     public void testOnClickFailure() {
         URLSpan urlSpan = new URLSpan(TEST_URL);
 
-        try {
-            urlSpan.onClick(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+        urlSpan.onClick(null);
     }
 
+    @Test
     public void testDescribeContents() {
         URLSpan urlSpan = new URLSpan(TEST_URL);
         urlSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         URLSpan urlSpan = new URLSpan(TEST_URL);
         urlSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

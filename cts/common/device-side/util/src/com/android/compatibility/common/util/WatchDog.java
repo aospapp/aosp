@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2012 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@ import android.util.Log;
 import junit.framework.Assert;
 
 /**
- * Used to fail a test if a function takes more than a certain amount of time.
+ * class for checking if rendering function is alive or not.
+ * panic if watch-dog is not reset over certain amount of time
  */
 public class WatchDog implements Runnable {
-    private static final String TAG = WatchDog.class.getSimpleName();
+    private static final String TAG = "WatchDog";
     private Thread mThread;
     private Semaphore mSemaphore;
     private volatile boolean mStopRequested;

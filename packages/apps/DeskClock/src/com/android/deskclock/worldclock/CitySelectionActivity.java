@@ -1,23 +1,22 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.android.deskclock.worldclock;
 
 import android.content.Context;
-import android.media.AudioManager;
 import android.os.Bundle;
 import android.support.v7.widget.SearchView;
 import android.text.TextUtils;
@@ -37,14 +36,15 @@ import android.widget.SectionIndexer;
 import android.widget.TextView;
 
 import com.android.deskclock.BaseActivity;
+import com.android.deskclock.DropShadowController;
 import com.android.deskclock.R;
 import com.android.deskclock.Utils;
-import com.android.deskclock.actionbarmenu.AbstractMenuItemController;
-import com.android.deskclock.actionbarmenu.ActionBarMenuManager;
+import com.android.deskclock.actionbarmenu.MenuItemController;
 import com.android.deskclock.actionbarmenu.MenuItemControllerFactory;
 import com.android.deskclock.actionbarmenu.NavUpMenuItemController;
+import com.android.deskclock.actionbarmenu.OptionsMenuManager;
 import com.android.deskclock.actionbarmenu.SearchMenuItemController;
-import com.android.deskclock.actionbarmenu.SettingMenuItemController;
+import com.android.deskclock.actionbarmenu.SettingsMenuItemController;
 import com.android.deskclock.data.City;
 import com.android.deskclock.data.DataModel;
 
@@ -58,62 +58,76 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 
+import static android.view.Menu.NONE;
+
 /**
  * This activity allows the user to alter the cities selected for display.
- *
+ * <p/>
  * Note, it is possible for two instances of this Activity to exist simultaneously:
- *
+ * <p/>
  * <ul>
- *     <li>Clock Tab-> Tap Floating Action Button</li>
- *     <li>Digital Widget -> Tap any city clock</li>
+ * <li>Clock Tab-> Tap Floating Action Button</li>
+ * <li>Digital Widget -> Tap any city clock</li>
  * </ul>
- *
+ * <p/>
  * As a result, {@link #onResume()} conservatively refreshes itself from the backing
  * {@link DataModel} which may have changed since this activity was last displayed.
  */
 public final class CitySelectionActivity extends BaseActivity {
 
-    /** The list of all selected and unselected cities, indexed and possibly filtered. */
+    /**
+     * The list of all selected and unselected cities, indexed and possibly filtered.
+     */
     private ListView mCitiesList;
 
-    /** The adapter that presents all of the selected and unselected cities. */
+    /**
+     * The adapter that presents all of the selected and unselected cities.
+     */
     private CityAdapter mCitiesAdapter;
 
-    /** Manages all action bar menu display and click handling. */
-    private final ActionBarMenuManager mActionBarMenuManager = new ActionBarMenuManager(this);
+    /**
+     * Manages all action bar menu display and click handling.
+     */
+    private final OptionsMenuManager mOptionsMenuManager = new OptionsMenuManager();
 
-    /** Menu item controller for search view. */
+    /**
+     * Menu item controller for search view.
+     */
     private SearchMenuItemController mSearchMenuItemController;
+
+    /**
+     * The controller that shows the drop shadow when content is not scrolled to the top.
+     */
+    private DropShadowController mDropShadowController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setVolumeControlStream(AudioManager.STREAM_ALARM);
 
         setContentView(R.layout.cities_activity);
         mSearchMenuItemController =
-                new SearchMenuItemController(new SearchView.OnQueryTextListener() {
-                    @Override
-                    public boolean onQueryTextSubmit(String query) {
-                        return false;
-                    }
+                new SearchMenuItemController(getSupportActionBar().getThemedContext(),
+                        new SearchView.OnQueryTextListener() {
+                            @Override
+                            public boolean onQueryTextSubmit(String query) {
+                                return false;
+                            }
 
-                    @Override
-                    public boolean onQueryTextChange(String query) {
-                        mCitiesAdapter.filter(query);
-                        updateFastScrolling();
-                        return true;
-                    }
-                }, savedInstanceState);
+                            @Override
+                            public boolean onQueryTextChange(String query) {
+                                mCitiesAdapter.filter(query);
+                                updateFastScrolling();
+                                return true;
+                            }
+                        }, savedInstanceState);
         mCitiesAdapter = new CityAdapter(this, mSearchMenuItemController);
-        mActionBarMenuManager.addMenuItemController(new NavUpMenuItemController(this))
+        mOptionsMenuManager.addMenuItemController(new NavUpMenuItemController(this))
                 .addMenuItemController(mSearchMenuItemController)
                 .addMenuItemController(new SortOrderMenuItemController())
-                .addMenuItemController(new SettingMenuItemController(this))
+                .addMenuItemController(new SettingsMenuItemController(this))
                 .addMenuItemController(MenuItemControllerFactory.getInstance()
                         .buildMenuItemControllers(this));
         mCitiesList = (ListView) findViewById(R.id.cities_list);
-        mCitiesList.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
         mCitiesList.setAdapter(mCitiesAdapter);
 
         updateFastScrolling();
@@ -131,11 +145,16 @@ public final class CitySelectionActivity extends BaseActivity {
 
         // Recompute the contents of the adapter before displaying on screen.
         mCitiesAdapter.refresh();
+
+        final View dropShadow = findViewById(R.id.drop_shadow);
+        mDropShadowController = new DropShadowController(dropShadow, mCitiesList);
     }
 
     @Override
     public void onPause() {
         super.onPause();
+
+        mDropShadowController.stop();
 
         // Save the selected cities.
         DataModel.getDataModel().setSelectedCities(mCitiesAdapter.getSelectedCities());
@@ -143,22 +162,20 @@ public final class CitySelectionActivity extends BaseActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        mActionBarMenuManager.createOptionsMenu(menu, getMenuInflater());
+        mOptionsMenuManager.onCreateOptionsMenu(menu);
         return true;
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        mActionBarMenuManager.prepareShowMenu(menu);
+        mOptionsMenuManager.onPrepareOptionsMenu(menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (mActionBarMenuManager.handleMenuItemClick(item)) {
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
+        return mOptionsMenuManager.onOptionsItemSelected(item)
+                || super.onOptionsItemSelected(item);
     }
 
     /**
@@ -172,7 +189,7 @@ public final class CitySelectionActivity extends BaseActivity {
 
     /**
      * This adapter presents data in 2 possible modes. If selected cities exist the format is:
-     *
+     * <p/>
      * <pre>
      * Selected Cities
      *   City 1 (alphabetically first)
@@ -185,9 +202,9 @@ public final class CitySelectionActivity extends BaseActivity {
      *   City B2 (alphabetically second starting with B)
      *   ...
      * </pre>
-     *
+     * <p/>
      * If selected cities do not exist, that section is removed and all that remains is:
-     *
+     * <p/>
      * <pre>
      * A City A1 (alphabetically first starting with A)
      *   City A2 (alphabetically second starting with A)
@@ -200,44 +217,68 @@ public final class CitySelectionActivity extends BaseActivity {
     private static final class CityAdapter extends BaseAdapter implements View.OnClickListener,
             CompoundButton.OnCheckedChangeListener, SectionIndexer {
 
-        /** The type of the single optional "Selected Cities" header entry. */
+        /**
+         * The type of the single optional "Selected Cities" header entry.
+         */
         private static final int VIEW_TYPE_SELECTED_CITIES_HEADER = 0;
 
-        /** The type of each city entry. */
+        /**
+         * The type of each city entry.
+         */
         private static final int VIEW_TYPE_CITY = 1;
 
         private final Context mContext;
 
         private final LayoutInflater mInflater;
 
-        /** The 12-hour time pattern for the current locale. */
+        /**
+         * The 12-hour time pattern for the current locale.
+         */
         private final String mPattern12;
 
-        /** The 24-hour time pattern for the current locale. */
+        /**
+         * The 24-hour time pattern for the current locale.
+         */
         private final String mPattern24;
 
-        /** {@code true} time should honor {@link #mPattern24}; {@link #mPattern12} otherwise. */
+        /**
+         * {@code true} time should honor {@link #mPattern24}; {@link #mPattern12} otherwise.
+         */
         private boolean mIs24HoursMode;
 
-        /** A calendar used to format time in a particular timezone. */
+        /**
+         * A calendar used to format time in a particular timezone.
+         */
         private final Calendar mCalendar;
 
-        /** The list of cities which may be filtered by a search term. */
+        /**
+         * The list of cities which may be filtered by a search term.
+         */
         private List<City> mFilteredCities = Collections.emptyList();
 
-        /** A mutable set of cities currently selected by the user. */
+        /**
+         * A mutable set of cities currently selected by the user.
+         */
         private final Set<City> mUserSelectedCities = new ArraySet<>();
 
-        /** The number of user selections at the top of the adapter to avoid indexing. */
+        /**
+         * The number of user selections at the top of the adapter to avoid indexing.
+         */
         private int mOriginalUserSelectionCount;
 
-        /** The precomputed section headers. */
+        /**
+         * The precomputed section headers.
+         */
         private String[] mSectionHeaders;
 
-        /** The corresponding location of each precomputed section header. */
+        /**
+         * The corresponding location of each precomputed section header.
+         */
         private Integer[] mSectionHeaderPositions;
 
-        /** Menu item controller for search. Search query is maintained here. */
+        /**
+         * Menu item controller for search. Search query is maintained here.
+         */
         private final SearchMenuItemController mSearchMenuItemController;
 
         public CityAdapter(Context context, SearchMenuItemController searchMenuItemController) {
@@ -289,7 +330,7 @@ public final class CitySelectionActivity extends BaseActivity {
         }
 
         @Override
-        public synchronized View getView(int position, View view, ViewGroup parent) {
+        public View getView(int position, View view, ViewGroup parent) {
             final int itemViewType = getItemViewType(position);
             switch (itemViewType) {
                 case VIEW_TYPE_SELECTED_CITIES_HEADER:
@@ -300,6 +341,9 @@ public final class CitySelectionActivity extends BaseActivity {
 
                 case VIEW_TYPE_CITY:
                     final City city = getItem(position);
+                    if (city == null) {
+                        throw new IllegalStateException("The desired city does not exist");
+                    }
                     final TimeZone timeZone = city.getTimeZone();
 
                     // Inflate a new view if necessary.
@@ -394,6 +438,9 @@ public final class CitySelectionActivity extends BaseActivity {
                     // Add a section if this position should show the section index.
                     if (getShowIndex(position)) {
                         final City city = getItem(position);
+                        if (city == null) {
+                            throw new IllegalStateException("The desired city does not exist");
+                        }
                         switch (getCitySort()) {
                             case NAME:
                                 sections.add(city.getIndexString());
@@ -467,7 +514,7 @@ public final class CitySelectionActivity extends BaseActivity {
          */
         private void filter(String queryText) {
             mSearchMenuItemController.setQueryText(queryText);
-            final String query = queryText.trim().toUpperCase();
+            final String query = City.removeSpecialCharacters(queryText.toUpperCase());
 
             // Compute the filtered list of cities.
             final List<City> filteredCities;
@@ -477,7 +524,7 @@ public final class CitySelectionActivity extends BaseActivity {
                 final List<City> unselected = DataModel.getDataModel().getUnselectedCities();
                 filteredCities = new ArrayList<>(unselected.size());
                 for (City city : unselected) {
-                    if (city.getNameUpperCase().startsWith(query)) {
+                    if (city.matches(query)) {
                         filteredCities.add(city);
                     }
                 }
@@ -492,8 +539,13 @@ public final class CitySelectionActivity extends BaseActivity {
             return !TextUtils.isEmpty(mSearchMenuItemController.getQueryText().trim());
         }
 
-        private Collection<City> getSelectedCities() { return mUserSelectedCities; }
-        private boolean hasHeader() { return !isFiltering() && mOriginalUserSelectionCount > 0; }
+        private Collection<City> getSelectedCities() {
+            return mUserSelectedCities;
+        }
+
+        private boolean hasHeader() {
+            return !isFiltering() && mOriginalUserSelectionCount > 0;
+        }
 
         private DataModel.CitySort getCitySort() {
             return DataModel.getDataModel().getCitySort();
@@ -561,7 +613,7 @@ public final class CitySelectionActivity extends BaseActivity {
         }
     }
 
-    private final class SortOrderMenuItemController extends AbstractMenuItemController {
+    private final class SortOrderMenuItemController implements MenuItemController {
 
         private static final int SORT_MENU_RES_ID = R.id.menu_item_sort;
 
@@ -571,20 +623,19 @@ public final class CitySelectionActivity extends BaseActivity {
         }
 
         @Override
-        public void showMenuItem(Menu menu) {
-            final MenuItem sortMenuItem = menu.findItem(SORT_MENU_RES_ID);
-            final String title;
-            if (DataModel.getDataModel().getCitySort() == DataModel.CitySort.NAME) {
-                title = getString(R.string.menu_item_sort_by_gmt_offset);
-            } else {
-                title = getString(R.string.menu_item_sort_by_name);
-            }
-            sortMenuItem.setTitle(title);
-            sortMenuItem.setVisible(true);
+        public void onCreateOptionsItem(Menu menu) {
+            menu.add(NONE, R.id.menu_item_sort, NONE, R.string.menu_item_sort_by_gmt_offset)
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         }
 
         @Override
-        public boolean handleMenuItemClick(MenuItem item) {
+        public void onPrepareOptionsItem(MenuItem item) {
+            item.setTitle(DataModel.getDataModel().getCitySort() == DataModel.CitySort.NAME
+                    ? R.string.menu_item_sort_by_gmt_offset : R.string.menu_item_sort_by_name);
+        }
+
+        @Override
+        public boolean onOptionsItemSelected(MenuItem item) {
             // Save the new sort order.
             DataModel.getDataModel().toggleCitySort();
 

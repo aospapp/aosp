@@ -18,7 +18,7 @@
 #include "art_method-inl.h"
 #include "jni.h"
 #include "oat_quick_method_header.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "stack.h"
 #include "thread.h"
 
@@ -29,10 +29,10 @@ namespace {
 class TestVisitor : public StackVisitor {
  public:
   TestVisitor(Thread* thread, Context* context)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, context, StackVisitor::StackWalkKind::kIncludeInlinedFrames) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
@@ -64,7 +64,7 @@ class TestVisitor : public StackVisitor {
       CHECK_EQ(value, 1u);
 
       bool success = GetVReg(m, 2, kIntVReg, &value);
-      if (!IsCurrentFrameInInterpreter() && GetCurrentOatQuickMethodHeader()->IsOptimized()) {
+      if (!IsShadowFrame() && GetCurrentOatQuickMethodHeader()->IsOptimized()) {
         CHECK(!success);
       }
 
@@ -139,7 +139,7 @@ extern "C" JNIEXPORT void JNICALL Java_PhiLiveness_regsNativeCallWithParameters(
     JNIEnv*, jclass value ATTRIBUTE_UNUSED, jobject main, jint int_value, jfloat float_value) {
   ScopedObjectAccess soa(Thread::Current());
   std::unique_ptr<Context> context(Context::Create());
-  CHECK(soa.Decode<mirror::Object*>(main) == nullptr);
+  CHECK(soa.Decode<mirror::Object>(main) == nullptr);
   CHECK_EQ(int_value, 0);
   int32_t cast = bit_cast<int32_t, float>(float_value);
   CHECK_EQ(cast, 0);

@@ -27,6 +27,14 @@ public class SendToClient extends RSBaseCompute {
     private static final Semaphore mSync = new Semaphore(0);
     private static Random random = new Random();
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mInAllocation != null) {
+            mInAllocation.destroy();
+        }
+        super.tearDown();
+    }
+
     int outArray[] = new int[4];
     RSMessageHandler mRsMessage = new RSMessageHandler() {
         public void run() {
@@ -88,6 +96,9 @@ public class SendToClient extends RSBaseCompute {
         // TODO Auto-generated catch block
             e.printStackTrace();
         }
+
+        mScript.destroy();
+
         assertEquals(createErrorMsgF(1, Id, outArray[0]), Id, outArray[0]);
     }
 

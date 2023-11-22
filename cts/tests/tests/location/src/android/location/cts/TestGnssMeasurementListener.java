@@ -58,7 +58,9 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
         // Only count measurement events with more than one actual Measurement in them
         // (not just clock)
         if (event.getMeasurements().size() > 0) {
-            mMeasurementsEvents.add(event);
+            synchronized(mMeasurementsEvents) {
+                mMeasurementsEvents.add(event);
+            }
             mCountDownLatch.countDown();
         }
     }
@@ -120,11 +122,15 @@ class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback {
     }
 
     /**
-     * Get list of GPS Measurements Events.
+     * Get the current list of GPS Measurements Events.
      *
-     * @return mMeasurementsEvents list of GPS Measurements Events
+     * @return the current list of GPS Measurements Events
      */
     public List<GnssMeasurementsEvent> getEvents() {
-        return mMeasurementsEvents;
+        synchronized(mMeasurementsEvents) {
+            List<GnssMeasurementsEvent> clone = new ArrayList<>();
+            clone.addAll(mMeasurementsEvents);
+            return clone;
+        }
     }
 }

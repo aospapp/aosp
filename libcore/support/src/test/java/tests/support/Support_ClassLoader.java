@@ -19,8 +19,6 @@ import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
 
-import dalvik.system.DexClassLoader;
-
 /**
  * Support class for creating a file-based ClassLoader. Delegates to either
  * Dalvik's PathClassLoader or the RI's URLClassLoader, but does so by-name.
@@ -34,40 +32,18 @@ public abstract class Support_ClassLoader {
         try {
             Support_ClassLoader factory;
 
+            String packageName = Support_ClassLoader.class.getPackage().getName();
             if ("Dalvik".equals(System.getProperty("java.vm.name"))) {
                 factory = (Support_ClassLoader)Class.forName(
-                    "tests.support.Support_ClassLoader$Dalvik").newInstance();
+                    packageName + ".Support_ClassLoaderDalvik").newInstance();
             } else {
                 factory = (Support_ClassLoader)Class.forName(
-                    "tests.support.Support_ClassLoader$RefImpl").newInstance();
+                    packageName + ".Support_ClassLoader$RefImpl").newInstance();
             }
 
             return factory.getClassLoader(url, parent);
         } catch (Exception ex) {
             throw new RuntimeException("Unable to create ClassLoader", ex);
-        }
-    }
-
-    /**
-     * Implementation for Dalvik. Uses the DexClassLoader, so we can write
-     * temporary DEX files to a special directory. We don't want to spoil the
-     * system's DEX cache with our files. Also, we might not have write access
-     * to the system's DEX cache at all (which is the case when we're running
-     * CTS).
-     */
-    static class Dalvik extends Support_ClassLoader {
-
-        private static File tmp;
-
-        static {
-            tmp = new File(System.getProperty("java.io.tmpdir"), "dex-cache");
-            tmp.mkdirs();
-        }
-
-        @Override
-        public ClassLoader getClassLoader(URL url, ClassLoader parent) {
-            return new DexClassLoader(url.getPath(), tmp.getAbsolutePath(),
-                    null, parent);
         }
     }
 

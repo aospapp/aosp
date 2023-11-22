@@ -64,6 +64,14 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_CFLAGS += -ftrapv
 
+# Disable the following warnings. Fixing is tracked in b/27347470
+LOCAL_CFLAGS += -Wno-conversion \
+	-Wno-unused-parameter \
+	-Wno-missing-field-initializers \
+	-Wno-switch \
+	-Wno-absolute-value \
+	-Werror
+
 include $(BUILD_SHARED_LIBRARY)
 
 # WARNING: this makefile builds a shared library. Do not ever make it build

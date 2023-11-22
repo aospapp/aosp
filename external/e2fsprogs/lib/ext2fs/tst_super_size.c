@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -135,11 +136,13 @@ int main(int argc, char **argv)
 	check_field(s_usr_quota_inum, 4);
 	check_field(s_grp_quota_inum, 4);
 	check_field(s_overhead_blocks, 4);
- 	check_field(s_backup_bgs, 8);
+	check_field(s_backup_bgs, 8);
 	check_field(s_encrypt_algos, 4);
 	check_field(s_encrypt_pw_salt, 16);
 	check_field(s_lpf_ino, 4);
-	check_field(s_reserved, 100 * 4);
+	check_field(s_prj_quota_inum, 4);
+	check_field(s_checksum_seed, 4);
+	check_field(s_reserved, 98 * 4);
 	check_field(s_checksum, 4);
 	do_field("Superblock end", 0, 0, cur_offset, 1024);
 #endif

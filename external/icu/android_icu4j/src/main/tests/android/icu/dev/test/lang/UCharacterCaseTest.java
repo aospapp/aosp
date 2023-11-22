@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
 *******************************************************************************
 * Copyright (C) 1996-2014, International Business Machines Corporation and
@@ -15,17 +17,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UProperty;
 import android.icu.text.BreakIterator;
+import android.icu.text.CaseMap;
+import android.icu.text.Edits;
 import android.icu.text.RuleBasedBreakIterator;
 import android.icu.text.UTF16;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 
 /**
@@ -34,7 +38,6 @@ import android.icu.junit.IcuTestFmwkRunner;
 * @author Syn Wee Quek
 * @since march 14 2002
 */
-@RunWith(IcuTestFmwkRunner.class)
 public final class UCharacterCaseTest extends TestFmwk
 {
     // constructor -----------------------------------------------------------
@@ -48,22 +51,10 @@ public final class UCharacterCaseTest extends TestFmwk
 
     // public methods --------------------------------------------------------
 
-    public static void main(String[] arg)
-    {
-        try
-        {
-            UCharacterCaseTest test = new UCharacterCaseTest();
-            test.run(arg);
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-    }
-
     /**
      * Testing the uppercase and lowercase function of UCharacter
      */
+    @Test
     public void TestCharacter()
     {
         for (int i = 0; i < CHARACTER_LOWER_.length; i ++) {
@@ -110,6 +101,7 @@ public final class UCharacterCaseTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestFolding()
     {
         // test simple case folding
@@ -119,11 +111,11 @@ public final class UCharacterCaseTest extends TestFmwk
                 errln("FAIL: foldCase(\\u" + hex(FOLDING_SIMPLE_[i]) +
                       ", true) should be \\u" + hex(FOLDING_SIMPLE_[i + 1]));
             }
-            if (UCharacter.foldCase(FOLDING_SIMPLE_[i], 
+            if (UCharacter.foldCase(FOLDING_SIMPLE_[i],
                                     UCharacter.FOLD_CASE_DEFAULT) !=
                                                       FOLDING_SIMPLE_[i + 1]) {
                 errln("FAIL: foldCase(\\u" + hex(FOLDING_SIMPLE_[i]) +
-                      ", UCharacter.FOLD_CASE_DEFAULT) should be \\u" 
+                      ", UCharacter.FOLD_CASE_DEFAULT) should be \\u"
                       + hex(FOLDING_SIMPLE_[i + 1]));
             }
             if (UCharacter.foldCase(FOLDING_SIMPLE_[i], false) !=
@@ -131,11 +123,11 @@ public final class UCharacterCaseTest extends TestFmwk
                 errln("FAIL: foldCase(\\u" + hex(FOLDING_SIMPLE_[i]) +
                       ", false) should be \\u" + hex(FOLDING_SIMPLE_[i + 2]));
             }
-            if (UCharacter.foldCase(FOLDING_SIMPLE_[i], 
+            if (UCharacter.foldCase(FOLDING_SIMPLE_[i],
                                     UCharacter.FOLD_CASE_EXCLUDE_SPECIAL_I) !=
                                     FOLDING_SIMPLE_[i + 2]) {
                 errln("FAIL: foldCase(\\u" + hex(FOLDING_SIMPLE_[i]) +
-                      ", UCharacter.FOLD_CASE_EXCLUDE_SPECIAL_I) should be \\u" 
+                      ", UCharacter.FOLD_CASE_EXCLUDE_SPECIAL_I) should be \\u"
                       + hex(FOLDING_SIMPLE_[i + 2]));
             }
         }
@@ -147,7 +139,7 @@ public final class UCharacterCaseTest extends TestFmwk
                   ", true)=" + prettify(UCharacter.foldCase(FOLDING_MIXED_[0], true)) +
                   " should be " + prettify(FOLDING_DEFAULT_[0]));
         }
-        
+
         if (!FOLDING_DEFAULT_[0].equals(UCharacter.foldCase(FOLDING_MIXED_[0], UCharacter.FOLD_CASE_DEFAULT))) {
                     errln("FAIL: foldCase(" + prettify(FOLDING_MIXED_[0]) +
                           ", UCharacter.FOLD_CASE_DEFAULT)=" + prettify(UCharacter.foldCase(FOLDING_MIXED_[0], UCharacter.FOLD_CASE_DEFAULT))
@@ -160,7 +152,7 @@ public final class UCharacterCaseTest extends TestFmwk
                   ", false)=" + prettify(UCharacter.foldCase(FOLDING_MIXED_[0], false))
                   + " should be " + prettify(FOLDING_EXCLUDE_SPECIAL_I_[0]));
         }
-        
+
         if (!FOLDING_EXCLUDE_SPECIAL_I_[0].equals(
                                     UCharacter.foldCase(FOLDING_MIXED_[0], UCharacter.FOLD_CASE_EXCLUDE_SPECIAL_I))) {
             errln("FAIL: foldCase(" + prettify(FOLDING_MIXED_[0]) +
@@ -179,7 +171,7 @@ public final class UCharacterCaseTest extends TestFmwk
                          ", UCharacter.FOLD_CASE_DEFAULT)=" + prettify(UCharacter.foldCase(FOLDING_MIXED_[1], UCharacter.FOLD_CASE_DEFAULT))
                          + " should be " + prettify(FOLDING_DEFAULT_[1]));
         }
-        
+
         // alternate handling for dotted I/dotless i (U+0130, U+0131)
         if (!FOLDING_EXCLUDE_SPECIAL_I_[1].equals(
                         UCharacter.foldCase(FOLDING_MIXED_[1], false))) {
@@ -187,7 +179,7 @@ public final class UCharacterCaseTest extends TestFmwk
                   ", false)=" + prettify(UCharacter.foldCase(FOLDING_MIXED_[1], false))
                   + " should be " + prettify(FOLDING_EXCLUDE_SPECIAL_I_[1]));
         }
-        
+
         if (!FOLDING_EXCLUDE_SPECIAL_I_[1].equals(
                                 UCharacter.foldCase(FOLDING_MIXED_[1], UCharacter.FOLD_CASE_EXCLUDE_SPECIAL_I))) {
             errln("FAIL: foldCase(" + prettify(FOLDING_MIXED_[1]) +
@@ -200,6 +192,7 @@ public final class UCharacterCaseTest extends TestFmwk
     /**
      * Testing the strings case mapping methods
      */
+    @Test
     public void TestUpper()
     {
         // uppercase with root locale and in the same buffer
@@ -256,6 +249,7 @@ public final class UCharacterCaseTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestLower()
     {
         if (!LOWER_ROOT_.equals(UCharacter.toLowerCase(LOWER_BEFORE_))) {
@@ -296,6 +290,7 @@ public final class UCharacterCaseTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestTitleRegression() throws java.io.IOException {
         boolean isIgnorable = UCharacter.hasBinaryProperty('\'', UProperty.CASE_IGNORABLE);
         assertTrue("Case Ignorable check of ASCII apostrophe", isIgnorable);
@@ -304,9 +299,10 @@ public final class UCharacterCaseTest extends TestFmwk
                 UCharacter.toTitleCase(ULocale.ENGLISH, "THE QUICK BROWN FOX CAN'T JUMP OVER THE LAZY DOGS.", null));
     }
 
+    @Test
     public void TestTitle()
     {
-         try{ 
+         try{
             for (int i = 0; i < TITLE_DATA_.length;) {
                 String test = TITLE_DATA_[i++];
                 String expected = TITLE_DATA_[i++];
@@ -348,6 +344,7 @@ public final class UCharacterCaseTest extends TestFmwk
          }
     }
 
+    @Test
     public void TestDutchTitle() {
         ULocale LOC_DUTCH = new ULocale("nl");
         int options = 0;
@@ -378,6 +375,7 @@ public final class UCharacterCaseTest extends TestFmwk
                 UCharacter.toTitleCase(LOC_DUTCH, "ijssel igloo IjMUIdEN iPoD ijenough", iter, options));
     }
 
+    @Test
     public void TestSpecial()
     {
         for (int i = 0; i < SPECIAL_LOCALES_.length; i ++) {
@@ -479,6 +477,7 @@ public final class UCharacterCaseTest extends TestFmwk
      * could set a system property to change the directory path.<br>
      * e.g. java -DUnicodeData="data_dir_path" com.ibm.dev.test.lang.UCharacterTest
      */
+    @Test
     public void TestSpecialCasingTxt()
     {
         try
@@ -606,6 +605,7 @@ public final class UCharacterCaseTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestUpperLower()
     {
         int upper[] = {0x0041, 0x0042, 0x00b2, 0x01c4, 0x01c6, 0x01c9, 0x01c8,
@@ -676,6 +676,224 @@ public final class UCharacterCaseTest extends TestFmwk
             }
         }
         logln("done testing upper Lower");
+    }
+
+    private void assertGreekUpper(String s, String expected) {
+        assertEquals("toUpper/Greek(" + s + ')', expected, UCharacter.toUpperCase(GREEK_LOCALE_, s));
+    }
+
+    @Test
+    public void TestGreekUpper() {
+        // http://bugs.icu-project.org/trac/ticket/5456
+        assertGreekUpper("άδικος, κείμενο, ίριδα", "ΑΔΙΚΟΣ, ΚΕΙΜΕΝΟ, ΙΡΙΔΑ");
+        // https://bugzilla.mozilla.org/show_bug.cgi?id=307039
+        // https://bug307039.bmoattachments.org/attachment.cgi?id=194893
+        assertGreekUpper("Πατάτα", "ΠΑΤΑΤΑ");
+        assertGreekUpper("Αέρας, Μυστήριο, Ωραίο", "ΑΕΡΑΣ, ΜΥΣΤΗΡΙΟ, ΩΡΑΙΟ");
+        assertGreekUpper("Μαΐου, Πόρος, Ρύθμιση", "ΜΑΪΟΥ, ΠΟΡΟΣ, ΡΥΘΜΙΣΗ");
+        assertGreekUpper("ΰ, Τηρώ, Μάιος", "Ϋ, ΤΗΡΩ, ΜΑΪΟΣ");
+        assertGreekUpper("άυλος", "ΑΫΛΟΣ");
+        assertGreekUpper("ΑΫΛΟΣ", "ΑΫΛΟΣ");
+        assertGreekUpper("Άκλιτα ρήματα ή άκλιτες μετοχές", "ΑΚΛΙΤΑ ΡΗΜΑΤΑ Ή ΑΚΛΙΤΕΣ ΜΕΤΟΧΕΣ");
+        // http://www.unicode.org/udhr/d/udhr_ell_monotonic.html
+        assertGreekUpper("Επειδή η αναγνώριση της αξιοπρέπειας", "ΕΠΕΙΔΗ Η ΑΝΑΓΝΩΡΙΣΗ ΤΗΣ ΑΞΙΟΠΡΕΠΕΙΑΣ");
+        assertGreekUpper("νομικού ή διεθνούς", "ΝΟΜΙΚΟΥ Ή ΔΙΕΘΝΟΥΣ");
+        // http://unicode.org/udhr/d/udhr_ell_polytonic.html
+        assertGreekUpper("Ἐπειδὴ ἡ ἀναγνώριση", "ΕΠΕΙΔΗ Η ΑΝΑΓΝΩΡΙΣΗ");
+        assertGreekUpper("νομικοῦ ἢ διεθνοῦς", "ΝΟΜΙΚΟΥ Ή ΔΙΕΘΝΟΥΣ");
+        // From Google bug report
+        assertGreekUpper("Νέο, Δημιουργία", "ΝΕΟ, ΔΗΜΙΟΥΡΓΙΑ");
+        // http://crbug.com/234797
+        assertGreekUpper("Ελάτε να φάτε τα καλύτερα παϊδάκια!", "ΕΛΑΤΕ ΝΑ ΦΑΤΕ ΤΑ ΚΑΛΥΤΕΡΑ ΠΑΪΔΑΚΙΑ!");
+        assertGreekUpper("Μαΐου, τρόλεϊ", "ΜΑΪΟΥ, ΤΡΟΛΕΪ");
+        assertGreekUpper("Το ένα ή το άλλο.", "ΤΟ ΕΝΑ Ή ΤΟ ΑΛΛΟ.");
+        // http://multilingualtypesetting.co.uk/blog/greek-typesetting-tips/
+        assertGreekUpper("ρωμέικα", "ΡΩΜΕΪΚΑ");
+    }
+
+    private static final class EditChange {
+        private boolean change;
+        private int oldLength, newLength;
+        EditChange(boolean change, int oldLength, int newLength) {
+            this.change = change;
+            this.oldLength = oldLength;
+            this.newLength = newLength;
+        }
+    }
+
+    private static void checkEditsIter(
+            String name, Edits.Iterator ei1, Edits.Iterator ei2,  // two equal iterators
+            EditChange[] expected, boolean withUnchanged) {
+        assertFalse(name, ei2.findSourceIndex(-1));
+
+        int expSrcIndex = 0;
+        int expDestIndex = 0;
+        int expReplIndex = 0;
+        for (int expIndex = 0; expIndex < expected.length; ++expIndex) {
+            EditChange expect = expected[expIndex];
+            String msg = name + ' ' + expIndex;
+            if (withUnchanged || expect.change) {
+                assertTrue(msg, ei1.next());
+                assertEquals(msg, expect.change, ei1.hasChange());
+                assertEquals(msg, expect.oldLength, ei1.oldLength());
+                assertEquals(msg, expect.newLength, ei1.newLength());
+                assertEquals(msg, expSrcIndex, ei1.sourceIndex());
+                assertEquals(msg, expDestIndex, ei1.destinationIndex());
+                assertEquals(msg, expReplIndex, ei1.replacementIndex());
+            }
+
+            if (expect.oldLength > 0) {
+                assertTrue(msg, ei2.findSourceIndex(expSrcIndex));
+                assertEquals(msg, expect.change, ei2.hasChange());
+                assertEquals(msg, expect.oldLength, ei2.oldLength());
+                assertEquals(msg, expect.newLength, ei2.newLength());
+                assertEquals(msg, expSrcIndex, ei2.sourceIndex());
+                assertEquals(msg, expDestIndex, ei2.destinationIndex());
+                assertEquals(msg, expReplIndex, ei2.replacementIndex());
+                if (!withUnchanged) {
+                    // For some iterators, move past the current range
+                    // so that findSourceIndex() has to look before the current index.
+                    ei2.next();
+                    ei2.next();
+                }
+            }
+
+            expSrcIndex += expect.oldLength;
+            expDestIndex += expect.newLength;
+            if (expect.change) {
+                expReplIndex += expect.newLength;
+            }
+        }
+        String msg = name + " end";
+        assertFalse(msg, ei1.next());
+        assertFalse(msg, ei1.hasChange());
+        assertEquals(msg, 0, ei1.oldLength());
+        assertEquals(msg, 0, ei1.newLength());
+        assertEquals(msg, expSrcIndex, ei1.sourceIndex());
+        assertEquals(msg, expDestIndex, ei1.destinationIndex());
+        assertEquals(msg, expReplIndex, ei1.replacementIndex());
+
+        assertFalse(name, ei2.findSourceIndex(expSrcIndex));
+    }
+
+    @Test
+    public void TestEdits() {
+        Edits edits = new Edits();
+        assertFalse("new Edits", edits.hasChanges());
+        assertEquals("new Edits", 0, edits.lengthDelta());
+        edits.addUnchanged(1);  // multiple unchanged ranges are combined
+        edits.addUnchanged(10000);  // too long, and they are split
+        edits.addReplace(0, 0);
+        edits.addUnchanged(2);
+        assertFalse("unchanged 10003", edits.hasChanges());
+        assertEquals("unchanged 10003", 0, edits.lengthDelta());
+        edits.addReplace(1, 1);  // multiple short equal-length edits are compressed
+        edits.addUnchanged(0);
+        edits.addReplace(1, 1);
+        edits.addReplace(1, 1);
+        edits.addReplace(0, 10);
+        edits.addReplace(100, 0);
+        edits.addReplace(3000, 4000);  // variable-length encoding
+        edits.addReplace(100000, 100000);
+        assertTrue("some edits", edits.hasChanges());
+        assertEquals("some edits", 10 - 100 + 1000, edits.lengthDelta());
+
+        EditChange[] coarseExpectedChanges = new EditChange[] {
+                new EditChange(false, 10003, 10003),
+                new EditChange(true, 103103, 104013)
+        };
+        checkEditsIter("coarse",
+                edits.getCoarseIterator(), edits.getCoarseIterator(),
+                coarseExpectedChanges, true);
+        checkEditsIter("coarse changes",
+                edits.getCoarseChangesIterator(), edits.getCoarseChangesIterator(),
+                coarseExpectedChanges, false);
+
+        EditChange[] fineExpectedChanges = new EditChange[] {
+                new EditChange(false, 10003, 10003),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 0, 10),
+                new EditChange(true, 100, 0),
+                new EditChange(true, 3000, 4000),
+                new EditChange(true, 100000, 100000)
+        };
+        checkEditsIter("fine",
+                edits.getFineIterator(), edits.getFineIterator(),
+                fineExpectedChanges, true);
+        checkEditsIter("fine changes",
+                edits.getFineChangesIterator(), edits.getFineChangesIterator(),
+                fineExpectedChanges, false);
+
+        edits.reset();
+        assertFalse("reset", edits.hasChanges());
+        assertEquals("reset", 0, edits.lengthDelta());
+        Edits.Iterator ei = edits.getCoarseChangesIterator();
+        assertFalse("reset then iterator", ei.next());
+    }
+
+    @Test
+    public void TestCaseMapWithEdits() {
+        StringBuilder sb = new StringBuilder();
+        Edits edits = new Edits();
+
+        sb = CaseMap.toLower().omitUnchangedText().apply(TURKISH_LOCALE_, "IstanBul", sb, edits);
+        assertEquals("toLower(Istanbul)", "ıb", sb.toString());
+        EditChange[] lowerExpectedChanges = new EditChange[] {
+                new EditChange(true, 1, 1),
+                new EditChange(false, 4, 4),
+                new EditChange(true, 1, 1),
+                new EditChange(false, 2, 2)
+        };
+        checkEditsIter("toLower(Istanbul)",
+                edits.getFineIterator(), edits.getFineIterator(),
+                lowerExpectedChanges, true);
+
+        sb.delete(0, sb.length());
+        edits.reset();
+        sb = CaseMap.toUpper().omitUnchangedText().apply(GREEK_LOCALE_, "Πατάτα", sb, edits);
+        assertEquals("toUpper(Πατάτα)", "ΑΤΑΤΑ", sb.toString());
+        EditChange[] upperExpectedChanges = new EditChange[] {
+                new EditChange(false, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 1)
+        };
+        checkEditsIter("toUpper(Πατάτα)",
+                edits.getFineIterator(), edits.getFineIterator(),
+                upperExpectedChanges, true);
+
+        sb.delete(0, sb.length());
+        edits.reset();
+        sb = CaseMap.toTitle().omitUnchangedText().noBreakAdjustment().noLowercase().apply(
+                new Locale("nl"), null, "IjssEL IglOo", sb, edits);
+        assertEquals("toTitle(IjssEL IglOo)", "J", sb.toString());
+        EditChange[] titleExpectedChanges = new EditChange[] {
+                new EditChange(false, 1, 1),
+                new EditChange(true, 1, 1),
+                new EditChange(false, 10, 10)
+        };
+        checkEditsIter("toTitle(IjssEL IglOo)",
+                edits.getFineIterator(), edits.getFineIterator(),
+                titleExpectedChanges, true);
+
+        sb.delete(0, sb.length());
+        edits.reset();
+        sb = CaseMap.fold().omitUnchangedText().turkic().apply("IßtanBul", sb, edits);
+        assertEquals("fold(IßtanBul)", "ıssb", sb.toString());
+        EditChange[] foldExpectedChanges = new EditChange[] {
+                new EditChange(true, 1, 1),
+                new EditChange(true, 1, 2),
+                new EditChange(false, 3, 3),
+                new EditChange(true, 1, 1),
+                new EditChange(false, 2, 2)
+        };
+        checkEditsIter("fold(IßtanBul)",
+                edits.getFineIterator(), edits.getFineIterator(),
+                foldExpectedChanges, true);
     }
 
     // private data members - test data --------------------------------------
@@ -767,7 +985,7 @@ public final class UCharacterCaseTest extends TestFmwk
                       "\u0061\u0042\u0049\u03a3\u00df\u03a3\u002f\ud93f\udfff";
     private static final String LOWER_ROOT_ =
                       "\u0061\u0062\u0069\u03c3\u00df\u03c2\u002f\ud93f\udfff";
-    private static final String LOWER_TURKISH_ = 
+    private static final String LOWER_TURKISH_ =
                       "\u0061\u0062\u0131\u03c3\u00df\u03c2\u002f\ud93f\udfff";
 
     /**
@@ -800,7 +1018,7 @@ public final class UCharacterCaseTest extends TestFmwk
         "4",
         "",
 
-        "\u01c4\u01c5\u01c6\u01c7\u01c8\u01c9\u01ca\u01cb\u01cc", 
+        "\u01c4\u01c5\u01c6\u01c7\u01c8\u01c9\u01ca\u01cb\u01cc",
         "\u01c5\u01c5\u01c5\u01c8\u01c8\u01c8\u01cb\u01cb\u01cb", // UBRK_CHARACTER
         "",
         "0",
@@ -915,7 +1133,7 @@ public final class UCharacterCaseTest extends TestFmwk
     // private methods -------------------------------------------------------
 
     /**
-     * Converting the hex numbers represented betwee                             n ';' to Unicode strings
+     * Converting the hex numbers represented between ';' to Unicode strings
      * @param str string to break up into Unicode strings
      * @return array of Unicode strings ending with a null
      */

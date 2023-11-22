@@ -24,6 +24,7 @@ import static android.content.pm.PackageManager.INSTALL_FAILED_INVALID_APK;
 import static android.system.OsConstants.O_CREAT;
 import static android.system.OsConstants.O_RDONLY;
 import static android.system.OsConstants.O_WRONLY;
+
 import static com.android.server.pm.PackageInstallerService.prepareExternalStageCid;
 import static com.android.server.pm.PackageInstallerService.prepareStageDir;
 
@@ -44,6 +45,7 @@ import android.content.pm.PackageParser.ApkLite;
 import android.content.pm.PackageParser.PackageLite;
 import android.content.pm.PackageParser.PackageParserException;
 import android.content.pm.Signature;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.FileBridge;
 import android.os.FileUtils;
@@ -53,8 +55,9 @@ import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
-import android.os.SELinux;
+import android.os.RevocableFileDescriptor;
 import android.os.UserHandle;
+import android.os.storage.StorageManager;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -65,17 +68,17 @@ import android.util.ExceptionUtils;
 import android.util.MathUtils;
 import android.util.Slog;
 
-import libcore.io.IoUtils;
-import libcore.io.Libcore;
-
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.content.NativeLibraryHelper;
 import com.android.internal.content.PackageHelper;
-import com.android.internal.os.InstallerConnection.InstallerException;
 import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.internal.util.Preconditions;
+import com.android.server.pm.Installer.InstallerException;
 import com.android.server.pm.PackageInstallerService.PackageInstallObserverAdapter;
+
+import libcore.io.IoUtils;
+import libcore.io.Libcore;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -109,6 +112,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
     final int installerUid;
     final SessionParams params;
     final long createdMillis;
+    final int defaultContainerGid;
 
     /** Staging location where client data is written. */
     final File stageDir;
@@ -143,7 +147,9 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
     private String mFinalMessage;
 
     @GuardedBy("mLock")
-    private ArrayList<FileBridge> mBridges = new ArrayList<>();
+    private final ArrayList<RevocableFileDescriptor> mFds = new ArrayList<>();
+    @GuardedBy("mLock")
+    private final ArrayList<FileBridge> mBridges = new ArrayList<>();
 
     @GuardedBy("mLock")
     private IPackageInstallObserver2 mRemoteObserver;
@@ -199,13 +205,20 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
     private final Handler.Callback mHandlerCallback = new Handler.Callback() {
         @Override
         public boolean handleMessage(Message msg) {
+            // Cache package manager data without the lock held
+            final PackageInfo pkgInfo = mPm.getPackageInfo(
+                    params.appPackageName, PackageManager.GET_SIGNATURES
+                            | PackageManager.MATCH_STATIC_SHARED_LIBRARIES /*flags*/, userId);
+            final ApplicationInfo appInfo = mPm.getApplicationInfo(
+                    params.appPackageName, 0, userId);
+
             synchronized (mLock) {
                 if (msg.obj != null) {
                     mRemoteObserver = (IPackageInstallObserver2) msg.obj;
                 }
 
                 try {
-                    commitLocked();
+                    commitLocked(pkgInfo, appInfo);
                 } catch (PackageManagerException e) {
                     final String completeMsg = ExceptionUtils.getCompleteMessage(e);
                     Slog.e(TAG, "Commit of session " + sessionId + " failed: " + completeMsg);
@@ -264,6 +277,14 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         } else {
             mPermissionsAccepted = false;
         }
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            final int uid = mPm.getPackageUid(PackageManagerService.DEFAULT_CONTAINER_PACKAGE,
+                    PackageManager.MATCH_SYSTEM_ONLY, UserHandle.USER_SYSTEM);
+            defaultContainerGid = UserHandle.getSharedAppGid(uid);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
     }
 
     public SessionInfo generateInfo() {
@@ -278,6 +299,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             info.active = mActiveCount.get() > 0;
 
             info.mode = params.mode;
+            info.installReason = params.installReason;
             info.sizeBytes = params.sizeBytes;
             info.appPackageName = params.appPackageName;
             info.appIcon = params.appIcon;
@@ -410,12 +432,20 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         // Quick sanity check of state, and allocate a pipe for ourselves. We
         // then do heavy disk allocation outside the lock, but this open pipe
         // will block any attempted install transitions.
+        final RevocableFileDescriptor fd;
         final FileBridge bridge;
         synchronized (mLock) {
             assertPreparedAndNotSealed("openWrite");
 
-            bridge = new FileBridge();
-            mBridges.add(bridge);
+            if (PackageInstaller.ENABLE_REVOCABLE_FD) {
+                fd = new RevocableFileDescriptor();
+                bridge = null;
+                mFds.add(fd);
+            } else {
+                fd = null;
+                bridge = new FileBridge();
+                mBridges.add(bridge);
+            }
         }
 
         try {
@@ -423,7 +453,13 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             if (!FileUtils.isValidExtFilename(name)) {
                 throw new IllegalArgumentException("Invalid name: " + name);
             }
-            final File target = new File(resolveStageDir(), name);
+            final File target;
+            final long identity = Binder.clearCallingIdentity();
+            try {
+                target = new File(resolveStageDir(), name);
+            } finally {
+                Binder.restoreCallingIdentity(identity);
+            }
 
             // TODO: this should delegate to DCS so the system process avoids
             // holding open FDs into containers.
@@ -433,23 +469,23 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
             // If caller specified a total length, allocate it for them. Free up
             // cache space to grow, if needed.
-            if (lengthBytes > 0) {
-                final StructStat stat = Libcore.os.fstat(targetFd);
-                final long deltaBytes = lengthBytes - stat.st_size;
-                // Only need to free up space when writing to internal stage
-                if (stageDir != null && deltaBytes > 0) {
-                    mPm.freeStorage(params.volumeUuid, deltaBytes);
-                }
-                Libcore.os.posix_fallocate(targetFd, 0, lengthBytes);
+            if (stageDir != null && lengthBytes > 0) {
+                mContext.getSystemService(StorageManager.class).allocateBytes(targetFd, lengthBytes,
+                        PackageHelper.translateAllocateFlags(params.installFlags));
             }
 
             if (offsetBytes > 0) {
                 Libcore.os.lseek(targetFd, offsetBytes, OsConstants.SEEK_SET);
             }
 
-            bridge.setTargetFile(targetFd);
-            bridge.start();
-            return new ParcelFileDescriptor(bridge.getClientSocket());
+            if (PackageInstaller.ENABLE_REVOCABLE_FD) {
+                fd.init(mContext, targetFd);
+                return fd.getRevocableFileDescriptor();
+            } else {
+                bridge.setTargetFile(targetFd);
+                bridge.start();
+                return new ParcelFileDescriptor(bridge.getClientSocket());
+            }
 
         } catch (ErrnoException e) {
             throw e.rethrowAsIOException();
@@ -491,6 +527,11 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             wasSealed = mSealed;
             if (!mSealed) {
                 // Verify that all writers are hands-off
+                for (RevocableFileDescriptor fd : mFds) {
+                    if (!fd.isRevoked()) {
+                        throw new SecurityException("Files still open");
+                    }
+                }
                 for (FileBridge bridge : mBridges) {
                     if (!bridge.isClosed()) {
                         throw new SecurityException("Files still open");
@@ -520,7 +561,8 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         mHandler.obtainMessage(MSG_COMMIT, adapter.getBinder()).sendToTarget();
     }
 
-    private void commitLocked() throws PackageManagerException {
+    private void commitLocked(PackageInfo pkgInfo, ApplicationInfo appInfo)
+            throws PackageManagerException {
         if (mDestroyed) {
             throw new PackageManagerException(INSTALL_FAILED_INTERNAL_ERROR, "Session destroyed");
         }
@@ -538,7 +580,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         // Verify that stage looks sane with respect to existing application.
         // This currently only ensures packageName, versionCode, and certificate
         // consistency.
-        validateInstallLocked();
+        validateInstallLocked(pkgInfo, appInfo);
 
         Preconditions.checkNotNull(mPackageName);
         Preconditions.checkNotNull(mSignatures);
@@ -650,7 +692,8 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
      * Note that upgrade compatibility is still performed by
      * {@link PackageManagerService}.
      */
-    private void validateInstallLocked() throws PackageManagerException {
+    private void validateInstallLocked(PackageInfo pkgInfo, ApplicationInfo appInfo)
+            throws PackageManagerException {
         mPackageName = null;
         mVersionCode = -1;
         mSignatures = null;
@@ -679,8 +722,11 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         for (File addedFile : addedFiles) {
             final ApkLite apk;
             try {
-                apk = PackageParser.parseApkLite(
-                        addedFile, PackageParser.PARSE_COLLECT_CERTIFICATES);
+                int flags = PackageParser.PARSE_COLLECT_CERTIFICATES;
+                if ((params.installFlags & PackageManager.INSTALL_INSTANT_APP) != 0) {
+                    flags |= PackageParser.PARSE_IS_EPHEMERAL;
+                }
+                apk = PackageParser.parseApkLite(addedFile, flags);
             } catch (PackageParserException e) {
                 throw PackageManagerException.from(e);
             }
@@ -729,10 +775,8 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
         if (removeSplitList.size() > 0) {
             // validate split names marked for removal
-            final int flags = mSignatures == null ? PackageManager.GET_SIGNATURES : 0;
-            final PackageInfo pkg = mPm.getPackageInfo(params.appPackageName, flags, userId);
             for (String splitName : removeSplitList) {
-                if (!ArrayUtils.contains(pkg.splitNames, splitName)) {
+                if (!ArrayUtils.contains(pkgInfo.splitNames, splitName)) {
                     throw new PackageManagerException(INSTALL_FAILED_INVALID_APK,
                             "Split not found: " + splitName);
                 }
@@ -740,11 +784,11 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
             // ensure we've got appropriate package name, version code and signatures
             if (mPackageName == null) {
-                mPackageName = pkg.packageName;
-                mVersionCode = pkg.versionCode;
+                mPackageName = pkgInfo.packageName;
+                mVersionCode = pkgInfo.versionCode;
             }
             if (mSignatures == null) {
-                mSignatures = pkg.signatures;
+                mSignatures = pkgInfo.signatures;
             }
         }
 
@@ -757,8 +801,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
         } else {
             // Partial installs must be consistent with existing install
-            final ApplicationInfo app = mPm.getApplicationInfo(mPackageName, 0, userId);
-            if (app == null) {
+            if (appInfo == null) {
                 throw new PackageManagerException(INSTALL_FAILED_INVALID_APK,
                         "Missing existing base package for " + mPackageName);
             }
@@ -766,8 +809,8 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             final PackageLite existing;
             final ApkLite existingBase;
             try {
-                existing = PackageParser.parsePackageLite(new File(app.getCodePath()), 0);
-                existingBase = PackageParser.parseApkLite(new File(app.getBaseCodePath()),
+                existing = PackageParser.parsePackageLite(new File(appInfo.getCodePath()), 0);
+                existingBase = PackageParser.parseApkLite(new File(appInfo.getBaseCodePath()),
                         PackageParser.PARSE_COLLECT_CERTIFICATES);
             } catch (PackageParserException e) {
                 throw PackageManagerException.from(e);
@@ -777,7 +820,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
             // Inherit base if not overridden
             if (mResolvedBaseFile == null) {
-                mResolvedBaseFile = new File(app.getBaseCodePath());
+                mResolvedBaseFile = new File(appInfo.getBaseCodePath());
                 mResolvedInheritedFiles.add(mResolvedBaseFile);
             }
 
@@ -794,7 +837,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             }
 
             // Inherit compiled oat directory.
-            final File packageInstallDir = (new File(app.getBaseCodePath())).getParentFile();
+            final File packageInstallDir = (new File(appInfo.getBaseCodePath())).getParentFile();
             mInheritedFilesBase = packageInstallDir;
             final File oatDir = new File(packageInstallDir, "oat");
             if (oatDir.exists()) {
@@ -813,8 +856,15 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
                         mResolvedInstructionSets.add(archSubDir.getName());
                         List<File> oatFiles = Arrays.asList(archSubDir.listFiles());
-                        if (!oatFiles.isEmpty()) {
-                            mResolvedInheritedFiles.addAll(oatFiles);
+
+                        // Only add compiled files associated with the base.
+                        // Once b/62269291 is resolved, we can add all compiled files again.
+                        for (File oatFile : oatFiles) {
+                            if (oatFile.getName().equals("base.art")
+                                    || oatFile.getName().equals("base.odex")
+                                    || oatFile.getName().equals("base.vdex")) {
+                                mResolvedInheritedFiles.add(oatFile);
+                            }
                         }
                     }
                 }
@@ -822,7 +872,8 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         }
     }
 
-    private void assertApkConsistent(String tag, ApkLite apk) throws PackageManagerException {
+    private void assertApkConsistent(String tag, ApkLite apk)
+            throws PackageManagerException {
         if (!mPackageName.equals(apk.packageName)) {
             throw new PackageManagerException(INSTALL_FAILED_INVALID_APK, tag + " package "
                     + apk.packageName + " inconsistent with " + mPackageName);
@@ -869,7 +920,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
 
         // This is kind of hacky; we're creating a half-parsed package that is
         // straddled between the inherited and staged APKs.
-        final PackageLite pkg = new PackageLite(null, baseApk, null,
+        final PackageLite pkg = new PackageLite(null, baseApk, null, null, null, null,
                 splitPaths.toArray(new String[splitPaths.size()]), null);
         final boolean isForwardLocked =
                 (params.installFlags & PackageManager.INSTALL_FORWARD_LOCK) != 0;
@@ -1035,10 +1086,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
                     "Failed to finalize container " + cid);
         }
 
-        final int uid = mPm.getPackageUid(PackageManagerService.DEFAULT_CONTAINER_PACKAGE,
-                PackageManager.MATCH_SYSTEM_ONLY, UserHandle.USER_SYSTEM);
-        final int gid = UserHandle.getSharedAppGid(uid);
-        if (!PackageHelper.fixSdPermissions(cid, gid, null)) {
+        if (!PackageHelper.fixSdPermissions(cid, defaultContainerGid, null)) {
             throw new PackageManagerException(INSTALL_FAILED_CONTAINER_ERROR,
                     "Failed to fix permissions on container " + cid);
         }
@@ -1071,7 +1119,12 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
                 if (stageDir != null) {
                     prepareStageDir(stageDir);
                 } else if (stageCid != null) {
-                    prepareExternalStageCid(stageCid, params.sizeBytes);
+                    final long identity = Binder.clearCallingIdentity();
+                    try {
+                        prepareExternalStageCid(stageCid, params.sizeBytes);
+                    } finally {
+                        Binder.restoreCallingIdentity(identity);
+                    }
 
                     // TODO: deliver more granular progress for ASEC allocation
                     mInternalProgress = 0.25f;
@@ -1116,6 +1169,13 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         }
 
         final boolean success = (returnCode == PackageManager.INSTALL_SUCCEEDED);
+
+        // Send broadcast to default launcher only if it's a new install
+        final boolean isNewInstall = extras == null || !extras.getBoolean(Intent.EXTRA_REPLACING);
+        if (success && isNewInstall) {
+            mPm.sendSessionCommitBroadcast(generateInfo(), userId);
+        }
+
         mCallback.onSessionFinished(this, success);
     }
 
@@ -1125,6 +1185,9 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             mDestroyed = true;
 
             // Force shut down all bridges
+            for (RevocableFileDescriptor fd : mFds) {
+                fd.revoke();
+            }
             for (FileBridge bridge : mBridges) {
                 bridge.forceClose();
             }
@@ -1166,6 +1229,7 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
         pw.printPair("mPermissionsAccepted", mPermissionsAccepted);
         pw.printPair("mRelinquished", mRelinquished);
         pw.printPair("mDestroyed", mDestroyed);
+        pw.printPair("mFds", mFds.size());
         pw.printPair("mBridges", mBridges.size());
         pw.printPair("mFinalStatus", mFinalStatus);
         pw.printPair("mFinalMessage", mFinalMessage);

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import dbus, gobject, logging, os, random, re, shutil, string
+import dbus, gobject, logging, os, random, re, shutil, string, time
 from dbus.mainloop.glib import DBusGMainLoop
 
 import common, constants
@@ -13,6 +13,7 @@ from autotest_lib.client.cros.cros_disks import DBusClient
 CRYPTOHOME_CMD = '/usr/sbin/cryptohome'
 GUEST_USER_NAME = '$guest'
 UNAVAILABLE_ACTION = 'Unknown action or no action given.'
+MOUNT_RETRY_COUNT = 20
 
 class ChromiumOSError(error.TestError):
     """Generic error for ChromiumOS-specific exceptions."""
@@ -177,7 +178,7 @@ def remove_vault(user):
     """Remove the given user's vault from the shadow directory."""
     logging.debug('user is %s', user)
     user_hash = get_user_hash(user)
-    logging.debug('Removing vault for user %s with hash %s' % (user, user_hash))
+    logging.debug('Removing vault for user %s with hash %s', user, user_hash)
     cmd = CRYPTOHOME_CMD + ' --action=remove --force --user=%s' % user
     __run_cmd(cmd)
     # Ensure that the vault does not exist.
@@ -193,7 +194,7 @@ def remove_all_vaults():
     for item in os.listdir(constants.SHADOW_ROOT):
         abs_item = os.path.join(constants.SHADOW_ROOT, item)
         if os.path.isdir(os.path.join(abs_item, 'vault')):
-            logging.debug('Removing vault for user with hash %s' % item)
+            logging.debug('Removing vault for user with hash %s', item)
             shutil.rmtree(abs_item)
 
 
@@ -207,12 +208,22 @@ def mount_vault(user, password, create=False):
     # Ensure that the vault exists in the shadow directory.
     user_hash = get_user_hash(user)
     if not os.path.exists(os.path.join(constants.SHADOW_ROOT, user_hash)):
-        raise ChromiumOSError('Cryptohome vault not found after mount.')
+        retry = 0
+        mounted = False
+        while retry < MOUNT_RETRY_COUNT and not mounted:
+            time.sleep(1)
+            logging.info("Retry " + str(retry + 1))
+            __run_cmd(' '.join(args))
+            # TODO: Remove this additional call to get_user_hash(user) when
+            # crbug.com/690994 is fixed
+            user_hash = get_user_hash(user)
+            if os.path.exists(os.path.join(constants.SHADOW_ROOT, user_hash)):
+                mounted = True
+            retry += 1
+        if not mounted:
+            raise ChromiumOSError('Cryptohome vault not found after mount.')
     # Ensure that the vault is mounted.
-    if not is_vault_mounted(
-            user=user,
-            device_regex=constants.CRYPTOHOME_DEV_REGEX_REGULAR_USER,
-            allow_fail=True):
+    if not is_permanent_vault_mounted(user=user, allow_fail=True):
         raise ChromiumOSError('Cryptohome created a vault but did not mount.')
 
 
@@ -247,7 +258,8 @@ def __get_mount_info(mount_point, allow_fail=False):
     """Get information about the active mount at a given mount point."""
     cryptohomed_path = '/proc/$(pgrep cryptohomed)/mounts'
     try:
-        logging.info(utils.system_output('cat %s' % cryptohomed_path))
+        logging.debug("Active cryptohome mounts:\n" +
+                      utils.system_output('cat %s' % cryptohomed_path))
         mount_line = utils.system_output(
             'grep %s %s' % (mount_point, cryptohomed_path),
             ignore_status=allow_fail)
@@ -272,22 +284,59 @@ def __get_user_mount_info(user, allow_fail=False):
             __get_mount_info(mount_point=system_path(user),
                              allow_fail=allow_fail)]
 
-def is_vault_mounted(
-        user,
-        device_regex=constants.CRYPTOHOME_DEV_REGEX_ANY,
-        fs_regex=constants.CRYPTOHOME_FS_REGEX_ANY,
-        allow_fail=False):
+def is_vault_mounted(user, regexes=None, allow_fail=False):
     """Check whether a vault is mounted for the given user.
 
-    If no user is given, the shared mount point is checked, determining whether
-    a vault is mounted for any user.
+    user: If no user is given, the shared mount point is checked, determining
+      whether a vault is mounted for any user.
+    regexes: dictionary of regexes to matches against the mount information.
+      The mount filesystem for the user's user and system mounts point must
+      match one of the keys.
+      The mount source point must match the selected device regex.
+
+    In addition, if mounted over ext4, we check the directory is encrypted.
     """
+    if regexes is None:
+        regexes = {
+            constants.CRYPTOHOME_FS_REGEX_ANY :
+               constants.CRYPTOHOME_DEV_REGEX_ANY
+        }
     user_mount_info = __get_user_mount_info(user=user, allow_fail=allow_fail)
     for mount_info in user_mount_info:
-        if (len(mount_info) < 3 or
-                not re.match(device_regex, mount_info[0]) or
-                not re.match(fs_regex, mount_info[2])):
+        # Look at each /proc/../mount lines that match mount point for a given
+        # user user/system mount (/home/user/.... /home/root/...)
+
+        # We should have at least 3 arguments (source, mount, type of mount)
+        if len(mount_info) < 3:
             return False
+
+        device_regex = None
+        for fs_regex in regexes.keys():
+            if re.match(fs_regex, mount_info[2]):
+                device_regex = regexes[fs_regex]
+                break
+
+        if not device_regex:
+            # The thrid argument in not the expectd mount point type.
+            return False
+
+        # Check if the mount source match the device regex: it can be loose,
+        # (anything) or stricter if we expect guest filesystem.
+        if not re.match(device_regex, mount_info[0]):
+            return False
+
+        if re.match(constants.CRYPTOHOME_FS_REGEX_EXT4, mount_info[2]):
+            # We are using ext4 crypto. Check there is an encryption key for
+            # that directory.
+            find_key_cmd_list = ['e4crypt  get_policy %s' % (mount_info[1]),
+                                 'cut -d \' \' -f 2']
+            key = __run_cmd(' | ' .join(find_key_cmd_list))
+            cmd_list = ['keyctl show @s',
+                        'grep %s' % (key),
+                        'wc -l']
+            out = __run_cmd(' | '.join(cmd_list))
+            if int(out) != 1:
+                return False
     return True
 
 
@@ -295,21 +344,27 @@ def is_guest_vault_mounted(allow_fail=False):
     """Check whether a vault backed by tmpfs is mounted for the guest user."""
     return is_vault_mounted(
         user=GUEST_USER_NAME,
-        device_regex=constants.CRYPTOHOME_DEV_REGEX_GUEST,
-        fs_regex=constants.CRYPTOHOME_FS_REGEX_TMPFS,
+        regexes={
+            constants.CRYPTOHOME_FS_REGEX_TMPFS :
+                constants.CRYPTOHOME_DEV_REGEX_GUEST,
+        },
         allow_fail=allow_fail)
 
+def is_permanent_vault_mounted(user, allow_fail=False):
+    """Check if user is mounted over ecryptfs or ext4 crypto. """
+    return is_vault_mounted(
+        user=user,
+        regexes={
+            constants.CRYPTOHOME_FS_REGEX_ECRYPTFS :
+                constants.CRYPTOHOME_DEV_REGEX_REGULAR_USER_SHADOW,
+            constants.CRYPTOHOME_FS_REGEX_EXT4 :
+                constants.CRYPTOHOME_DEV_REGEX_REGULAR_USER_DEVICE,
+        },
+        allow_fail=allow_fail)
 
-def get_mounted_vault_devices(user, allow_fail=False):
-    """Get the device(s) backing the vault mounted for the given user.
-
-    Returns the devices mounted at the user's user and system mount points. If
-    no user is given, the device mounted at the shared mount point is returned.
-    """
-    return [mount_info[0]
-            for mount_info
-            in __get_user_mount_info(user=user, allow_fail=allow_fail)
-            if len(mount_info)]
+def get_mounted_vault_path(user, allow_fail=False):
+    """Get the path where the decrypted data for the user is located."""
+    return os.path.join(constants.SHADOW_ROOT, get_user_hash(user), 'mount')
 
 
 def canonicalize(credential):

@@ -21,6 +21,13 @@ page.title=Android Audio Headset
 accessory interface. This documentation presents the interface guidelines for the
 Android headset inline remote.</p>
 
+<p>Accessory manufacturers should follow the guidelines in the
+<a href="plug-headset-spec.html">3.5 mm headset specification</a> or
+<a href="usb-headset-spec.html">USB headset specification</a>.
+Device manufacturers should follow the guidelines in the
+<a href="jack-headset-spec.html">3.5 mm headset jack specification</a> or
+<a href="{@docRoot}devices/audio/usb.html">USB digital audio page</a>.</p>
+
 <p>The goal is to maintain certain standards for consistency and design while
 allowing for freedom in design expression. If you choose to implement a
 dedicated Android headset accessory, please follow these guidelines to ensure

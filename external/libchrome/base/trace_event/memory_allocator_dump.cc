@@ -28,7 +28,8 @@ MemoryAllocatorDump::MemoryAllocatorDump(const std::string& absolute_name,
     : absolute_name_(absolute_name),
       process_memory_dump_(process_memory_dump),
       attributes_(new TracedValue),
-      guid_(guid) {
+      guid_(guid),
+      flags_(Flags::DEFAULT) {
   // The |absolute_name| cannot be empty.
   DCHECK(!absolute_name.empty());
 
@@ -79,6 +80,13 @@ void MemoryAllocatorDump::AddScalarF(const char* name,
 void MemoryAllocatorDump::AddString(const char* name,
                                     const char* units,
                                     const std::string& value) {
+  // String attributes are disabled in background mode.
+  if (process_memory_dump_->dump_args().level_of_detail ==
+      MemoryDumpLevelOfDetail::BACKGROUND) {
+    NOTREACHED();
+    return;
+  }
+
   attributes_->BeginDictionary(name);
   attributes_->SetString("type", kTypeString);
   attributes_->SetString("units", units);
@@ -90,6 +98,8 @@ void MemoryAllocatorDump::AsValueInto(TracedValue* value) const {
   value->BeginDictionaryWithCopiedName(absolute_name_);
   value->SetString("guid", guid_.ToString());
   value->SetValue("attrs", *attributes_);
+  if (flags_)
+    value->SetInteger("flags", flags_);
   value->EndDictionary();  // "allocator_name/heap_subheap": { ... }
 }
 

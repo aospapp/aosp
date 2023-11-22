@@ -17,18 +17,33 @@
 #include "dex_cache_array_fixups_arm.h"
 
 #include "base/arena_containers.h"
+#ifdef ART_USE_OLD_ARM_BACKEND
+#include "code_generator_arm.h"
+#include "intrinsics_arm.h"
+#else
+#include "code_generator_arm_vixl.h"
+#include "intrinsics_arm_vixl.h"
+#endif
 #include "utils/dex_cache_arrays_layout-inl.h"
 
 namespace art {
 namespace arm {
+#ifdef ART_USE_OLD_ARM_BACKEND
+typedef CodeGeneratorARM CodeGeneratorARMType;
+typedef IntrinsicLocationsBuilderARM IntrinsicLocationsBuilderARMType;
+#else
+typedef CodeGeneratorARMVIXL CodeGeneratorARMType;
+typedef IntrinsicLocationsBuilderARMVIXL IntrinsicLocationsBuilderARMType;
+#endif
 
 /**
  * Finds instructions that need the dex cache arrays base as an input.
  */
 class DexCacheArrayFixupsVisitor : public HGraphVisitor {
  public:
-  explicit DexCacheArrayFixupsVisitor(HGraph* graph)
+  DexCacheArrayFixupsVisitor(HGraph* graph, CodeGenerator* codegen)
       : HGraphVisitor(graph),
+        codegen_(down_cast<CodeGeneratorARMType*>(codegen)),
         dex_cache_array_bases_(std::less<const DexFile*>(),
                                // Attribute memory use to code generator.
                                graph->GetArena()->Adapter(kArenaAllocCodeGenerator)) {}
@@ -44,53 +59,47 @@ class DexCacheArrayFixupsVisitor : public HGraphVisitor {
   }
 
  private:
-  void VisitLoadString(HLoadString* load_string) OVERRIDE {
-    // If this is a load with PC-relative access to the dex cache methods array,
-    // we need to add the dex cache arrays base as the special input.
-    if (load_string->GetLoadKind() == HLoadString::LoadKind::kDexCachePcRelative) {
-      // Initialize base for target dex file if needed.
-      const DexFile& dex_file = load_string->GetDexFile();
-      HArmDexCacheArraysBase* base = GetOrCreateDexCacheArrayBase(dex_file);
-      // Update the element offset in base.
-      DexCacheArraysLayout layout(kArmPointerSize, &dex_file);
-      base->UpdateElementOffset(layout.StringOffset(load_string->GetStringIndex()));
-      // Add the special argument base to the load.
-      load_string->AddSpecialInput(base);
-    }
-  }
-
   void VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) OVERRIDE {
     // If this is an invoke with PC-relative access to the dex cache methods array,
     // we need to add the dex cache arrays base as the special input.
-    if (invoke->HasPcRelativeDexCache()) {
-      // Initialize base for target method dex file if needed.
-      MethodReference target_method = invoke->GetTargetMethod();
-      HArmDexCacheArraysBase* base = GetOrCreateDexCacheArrayBase(*target_method.dex_file);
+    if (invoke->HasPcRelativeDexCache() &&
+        !IsCallFreeIntrinsic<IntrinsicLocationsBuilderARMType>(invoke, codegen_)) {
+      HArmDexCacheArraysBase* base =
+          GetOrCreateDexCacheArrayBase(invoke, invoke->GetDexFileForPcRelativeDexCache());
       // Update the element offset in base.
-      DexCacheArraysLayout layout(kArmPointerSize, target_method.dex_file);
-      base->UpdateElementOffset(layout.MethodOffset(target_method.dex_method_index));
+      DexCacheArraysLayout layout(kArmPointerSize, &invoke->GetDexFileForPcRelativeDexCache());
+      base->UpdateElementOffset(layout.MethodOffset(invoke->GetDexMethodIndex()));
       // Add the special argument base to the method.
       DCHECK(!invoke->HasCurrentMethodInput());
       invoke->AddSpecialInput(base);
     }
   }
 
-  HArmDexCacheArraysBase* GetOrCreateDexCacheArrayBase(const DexFile& dex_file) {
-    // Ensure we only initialize the pointer once for each dex file.
-    auto lb = dex_cache_array_bases_.lower_bound(&dex_file);
-    if (lb != dex_cache_array_bases_.end() &&
-        !dex_cache_array_bases_.key_comp()(&dex_file, lb->first)) {
-      return lb->second;
-    }
+  HArmDexCacheArraysBase* GetOrCreateDexCacheArrayBase(HInstruction* cursor,
+                                                       const DexFile& dex_file) {
+    if (GetGraph()->HasIrreducibleLoops()) {
+      HArmDexCacheArraysBase* base = new (GetGraph()->GetArena()) HArmDexCacheArraysBase(dex_file);
+      cursor->GetBlock()->InsertInstructionBefore(base, cursor);
+      return base;
+    } else {
+      // Ensure we only initialize the pointer once for each dex file.
+      auto lb = dex_cache_array_bases_.lower_bound(&dex_file);
+      if (lb != dex_cache_array_bases_.end() &&
+          !dex_cache_array_bases_.key_comp()(&dex_file, lb->first)) {
+        return lb->second;
+      }
 
-    // Insert the base at the start of the entry block, move it to a better
-    // position later in MoveBaseIfNeeded().
-    HArmDexCacheArraysBase* base = new (GetGraph()->GetArena()) HArmDexCacheArraysBase(dex_file);
-    HBasicBlock* entry_block = GetGraph()->GetEntryBlock();
-    entry_block->InsertInstructionBefore(base, entry_block->GetFirstInstruction());
-    dex_cache_array_bases_.PutBefore(lb, &dex_file, base);
-    return base;
+      // Insert the base at the start of the entry block, move it to a better
+      // position later in MoveBaseIfNeeded().
+      HArmDexCacheArraysBase* base = new (GetGraph()->GetArena()) HArmDexCacheArraysBase(dex_file);
+      HBasicBlock* entry_block = GetGraph()->GetEntryBlock();
+      entry_block->InsertInstructionBefore(base, entry_block->GetFirstInstruction());
+      dex_cache_array_bases_.PutBefore(lb, &dex_file, base);
+      return base;
+    }
   }
+
+  CodeGeneratorARMType* codegen_;
 
   using DexCacheArraysBaseMap =
       ArenaSafeMap<const DexFile*, HArmDexCacheArraysBase*, std::less<const DexFile*>>;
@@ -98,12 +107,7 @@ class DexCacheArrayFixupsVisitor : public HGraphVisitor {
 };
 
 void DexCacheArrayFixups::Run() {
-  if (graph_->HasIrreducibleLoops()) {
-    // Do not run this optimization, as irreducible loops do not work with an instruction
-    // that can be live-in at the irreducible loop header.
-    return;
-  }
-  DexCacheArrayFixupsVisitor visitor(graph_);
+  DexCacheArrayFixupsVisitor visitor(graph_, codegen_);
   visitor.VisitInsertionOrder();
   visitor.MoveBasesIfNeeded();
 }

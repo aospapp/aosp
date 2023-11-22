@@ -1,5 +1,5 @@
-VIXL: AArch64 Runtime Code Generation Library Version 1.12
-==========================================================
+VIXL: ARMv8 Runtime Code Generation Library, Development Version
+================================================================
 
 Contents:
 
@@ -15,15 +15,15 @@ Overview
 
 VIXL contains three components.
 
- 1. A programmatic **assembler** to generate A64 code at runtime. The assembler
-    abstracts some of the constraints of the A64 ISA; for example, most
+ 1. Programmatic **assemblers** to generate A64, A32 or T32 code at runtime. The
+    assemblers abstract some of the constraints of each ISA; for example, most
     instructions support any immediate.
- 2. A **disassembler** that can print any instruction emitted by the assembler.
- 3. A **simulator** that can simulate any instruction emitted by the assembler.
-    The simulator allows generated code to be run on another architecture
-    without the need for a full ISA model.
+ 2. **Disassemblers** that can print any instruction emitted by the assemblers.
+ 3. A **simulator** that can simulate any instruction emitted by the A64
+    assembler. The simulator allows generated code to be run on another
+    architecture without the need for a full ISA model.
 
-The VIXL git repository can be found [on GitHub][vixl].
+The VIXL git repository can be found [on 'https://git.linaro.org'][vixl].
 
 Changes from previous versions of VIXL can be found in the
 [Changelog](doc/changelog.md).
@@ -49,16 +49,18 @@ A 64-bit host machine is required, implementing an LP64 data model. VIXL has
 been tested using GCC on AArch64 Debian, GCC and Clang on amd64 Ubuntu
 systems.
 
-To run the linter stage of the tests, the following software is also required:
+To run the linter and code formatting stages of the tests, the following
+software is also required:
 
  1. Git
  2. [Google's `cpplint.py`][cpplint]
+ 3. clang-format-3.6
 
 Refer to the 'Usage' section for details.
 
 
-Known Limitations
-=================
+Known Limitations for AArch64 code generation
+=============================================
 
 VIXL was developed for JavaScript engines so a number of features from A64 were
 deemed unnecessary:
@@ -70,12 +72,17 @@ deemed unnecessary:
 
 The VIXL simulator supports only those instructions that the VIXL assembler can
 generate. The `doc` directory contains a
-[list of supported instructions](doc/supported-instructions.md).
+[list of supported A64 instructions](doc/aarch64/supported-instructions-aarch64.md).
 
 The VIXL simulator was developed to run on 64-bit amd64 platforms. Whilst it
 builds and mostly works for 32-bit x86 platforms, there are a number of
 floating-point operations which do not work correctly, and a number of tests
 fail as a result.
+
+VIXL may not build using Clang 3.7, due to a compiler warning. A workaround is
+to disable conversion of warnings to errors, or to delete the offending
+`return` statement reported and rebuild. This problem will be fixed in the next
+release.
 
 Debug Builds
 ------------
@@ -144,44 +151,24 @@ It is possible to tell `tools/test.py` to skip the linter stage by passing
 `--nolint`. This removes the dependency on `cpplint.py` and Git. The `--nolint`
 option is implied if the VIXL project is a snapshot (with no `.git` directory).
 
+Additionally, `tools/test.py` tests code formatting using `clang-format-3.6`.
+If you don't have `clang-format-3.6`, disable the test using the
+`--noclang-format` option.
 
-Building and Running the Benchmarks
------------------------------------
-
-There are three very basic benchmarks provided with VIXL:
-
- 1. bench-dataop, emitting adds
- 2. bench-branch, emitting branches
- 3. bench-branch-link, emitting branch-links
-
-Build these benchmarks using `scons bench-dataop`, `scons bench-branch` and
-`scons bench-branch-link`. This will produce binaries called
-`bench-dataop_sim`, `bench-branch_sim` and `bench-branch-link_sim`. Run these
-with an iteration count argument, for example `./bench-dataop_sim 10000000`. The
-benchmarks do not report a result; time them using the UNIX `time` command.
-
-Build the benchmarks natively for execution on an AArch64 target using `scons
-<benchmark name> simulator=off`. This will produce binaries called
-`bench-dataop`, `bench-branch` and `bench-branch-link`. Run and time these in
-the same way as the simulator versions.
-
+Also note that the tests for the tracing features depend upon external `diff`
+and `sed` tools. If these tools are not available in `PATH`, these tests will
+fail.
 
 Getting Started
 ---------------
 
-A short introduction to using VIXL can be found [here](doc/getting-started.md).
-Example source code is provided in the [examples](examples) directory. You can
-build all the examples with `scons examples` from the root directory, or use
+We have separate guides for introducing VIXL, depending on what architecture you
+are targeting. A guide for working with AArch32 can be found
+[here][getting-started-aarch32], while the AArch64 guide is
+[here][getting-started-aarch64]. Example source code is provided in the
+[examples](examples) directory. You can build examples with either `scons
+aarch32_examples` or `scons aarch64_examples` from the root directory, or use
 `scons --help` to get a detailed list of available build targets.
-
-
-Using VIXL
-----------
-
-In addition to [getting started](doc/getting-started.md) and the
-[examples](examples), you can find documentation and guides on various topics
-that may be helpful [here](doc/topics/index.md).
-
 
 
 
@@ -189,5 +176,11 @@ that may be helpful [here](doc/topics/index.md).
 [cpplint]: http://google-styleguide.googlecode.com/svn/trunk/cpplint/cpplint.py
            "Google's cpplint.py script."
 
-[vixl]: https://github.com/armvixl/vixl
-        "The VIXL repository on GitHub."
+[vixl]: https://git.linaro.org/arm/vixl.git
+        "The VIXL repository at 'https://git.linaro.org'."
+
+[getting-started-aarch32]: doc/aarch32/getting-started-aarch32.md
+                           "Introduction to VIXL for AArch32."
+
+[getting-started-aarch64]: doc/aarch64/getting-started-aarch64.md
+                           "Introduction to VIXL for AArch64."

@@ -12,10 +12,35 @@ cost in lines of code.
 """
 
 from ctypes import *
+import exceptions
 import mmap
 import os
+import subprocess
 
 from PIL import Image
+
+# drmModeConnection enum
+DRM_MODE_CONNECTED         = 1
+DRM_MODE_DISCONNECTED      = 2
+DRM_MODE_UNKNOWNCONNECTION = 3
+
+DRM_MODE_CONNECTOR_Unknown     = 0
+DRM_MODE_CONNECTOR_VGA         = 1
+DRM_MODE_CONNECTOR_DVII        = 2
+DRM_MODE_CONNECTOR_DVID        = 3
+DRM_MODE_CONNECTOR_DVIA        = 4
+DRM_MODE_CONNECTOR_Composite   = 5
+DRM_MODE_CONNECTOR_SVIDEO      = 6
+DRM_MODE_CONNECTOR_LVDS        = 7
+DRM_MODE_CONNECTOR_Component   = 8
+DRM_MODE_CONNECTOR_9PinDIN     = 9
+DRM_MODE_CONNECTOR_DisplayPort = 10
+DRM_MODE_CONNECTOR_HDMIA       = 11
+DRM_MODE_CONNECTOR_HDMIB       = 12
+DRM_MODE_CONNECTOR_TV          = 13
+DRM_MODE_CONNECTOR_eDP         = 14
+DRM_MODE_CONNECTOR_VIRTUAL     = 15
+DRM_MODE_CONNECTOR_DSI         = 16
 
 
 class DrmVersion(Structure):
@@ -38,14 +63,12 @@ class DrmVersion(Structure):
     _l = None
 
     def __repr__(self):
-        return "%s %d.%d.%d (%s) (%s)" % (
-            self.name,
-            self.version_major,
-            self.version_minor,
-            self.version_patchlevel,
-            self.desc,
-            self.date,
-        )
+        return "%s %d.%d.%d (%s) (%s)" % (self.name,
+                                          self.version_major,
+                                          self.version_minor,
+                                          self.version_patchlevel,
+                                          self.desc,
+                                          self.date,)
 
     def __del__(self):
         if self._l:
@@ -82,6 +105,17 @@ class DrmModeResources(Structure):
         if self._l:
             self._l.drmModeFreeResources(self)
 
+    def _wakeup_screen(self):
+        """
+        Send a synchronous dbus message to power on screen.
+        """
+        # Get and process reply to make this synchronous.
+        subprocess.check_output([
+            "dbus-send", "--type=method_call", "--system", "--print-reply",
+            "--dest=org.chromium.PowerManager", "/org/chromium/PowerManager",
+            "org.chromium.PowerManager.HandleUserActivity", "int32:0"
+        ])
+
     def getValidCrtc(self):
         for i in xrange(0, self.count_crtcs):
             crtc_id = self.crtcs[i]
@@ -90,20 +124,49 @@ class DrmModeResources(Structure):
                 return crtc
         return None
 
-    def getCrtc(self, crtc_id=None):
+    def getCrtc(self, crtc_id):
         """
         Obtain the CRTC at a given index.
 
         @param crtc_id: The CRTC to get.
         """
-        crtc = None
         if crtc_id:
-            crtc = self._l.drmModeGetCrtc(self._fd, crtc_id).contents
-        else:
-            crtc = self.getValidCrtc()
-        crtc._fd = self._fd
-        crtc._l = self._l
+            return self._l.drmModeGetCrtc(self._fd, crtc_id).contents
+        return self.getValidCrtc()
+
+    def getCrtcRobust(self, crtc_id=None):
+        crtc = self.getCrtc(crtc_id)
+        if crtc is None:
+            self._wakeup_screen()
+            crtc = self.getCrtc(crtc_id)
+        if crtc is not None:
+            crtc._fd = self._fd
+            crtc._l = self._l
         return crtc
+
+
+class DrmModeModeInfo(Structure):
+    """
+    A DRM modesetting mode info.
+    """
+
+    _fields_ = [
+        ("clock", c_uint),
+        ("hdisplay", c_ushort),
+        ("hsync_start", c_ushort),
+        ("hsync_end", c_ushort),
+        ("htotal", c_ushort),
+        ("hskew", c_ushort),
+        ("vdisplay", c_ushort),
+        ("vsync_start", c_ushort),
+        ("vsync_end", c_ushort),
+        ("vtotal", c_ushort),
+        ("vscan", c_ushort),
+        ("vrefresh", c_uint),
+        ("flags", c_uint),
+        ("type", c_uint),
+        ("name", c_char * 32),
+    ]
 
 
 class DrmModeCrtc(Structure):
@@ -119,7 +182,8 @@ class DrmModeCrtc(Structure):
         ("width", c_uint),
         ("height", c_uint),
         ("mode_valid", c_int),
-        # XXX incomplete struct!
+        ("mode", DrmModeModeInfo),
+        ("gamma_size", c_int),
     ]
 
     _fd = None
@@ -152,6 +216,72 @@ class DrmModeCrtc(Structure):
         else:
             raise RuntimeError("CRTC %d doesn't have a framebuffer!" %
                                self.crtc_id)
+
+
+class DrmModeEncoder(Structure):
+    """
+    A DRM modesetting encoder.
+    """
+
+    _fields_ = [
+        ("encoder_id", c_uint),
+        ("encoder_type", c_uint),
+        ("crtc_id", c_uint),
+        ("possible_crtcs", c_uint),
+        ("possible_clones", c_uint),
+    ]
+
+    _fd = None
+    _l = None
+
+    def __repr__(self):
+        return "<Encoder (%d)>" % self.encoder_id
+
+    def __del__(self):
+        if self._l:
+            self._l.drmModeFreeEncoder(self)
+
+
+class DrmModeConnector(Structure):
+    """
+    A DRM modesetting connector.
+    """
+
+    _fields_ = [
+        ("connector_id", c_uint),
+        ("encoder_id", c_uint),
+        ("connector_type", c_uint),
+        ("connector_type_id", c_uint),
+        ("connection", c_uint), # drmModeConnection enum
+        ("mmWidth", c_uint),
+        ("mmHeight", c_uint),
+        ("subpixel", c_uint), # drmModeSubPixel enum
+        ("count_modes", c_int),
+        ("modes", POINTER(DrmModeModeInfo)),
+        ("count_propts", c_int),
+        ("props", POINTER(c_uint)),
+        ("prop_values", POINTER(c_ulonglong)),
+        ("count_encoders", c_int),
+        ("encoders", POINTER(c_uint)),
+    ]
+
+    _fd = None
+    _l = None
+
+    def __repr__(self):
+        return "<Connector (%d)>" % self.connector_id
+
+    def __del__(self):
+        if self._l:
+            self._l.drmModeFreeConnector(self)
+
+    def isInternal(self):
+        return (self.connector_type == DRM_MODE_CONNECTOR_LVDS or
+                self.connector_type == DRM_MODE_CONNECTOR_eDP or
+                self.connector_type == DRM_MODE_CONNECTOR_DSI)
+
+    def isConnected(self):
+        return self.connection == DRM_MODE_CONNECTED
 
 
 class drm_mode_map_dumb(Structure):
@@ -194,13 +324,11 @@ class DrmModeFB(Structure):
 
     def __repr__(self):
         s = "<Framebuffer (%dx%d (pitch %d bytes), %d bits/pixel, depth %d)"
-        vitals = s % (
-            self.width,
-            self.height,
-            self.pitch,
-            self.bpp,
-            self.depth,
-        )
+        vitals = s % (self.width,
+                      self.height,
+                      self.pitch,
+                      self.bpp,
+                      self.depth,)
         if self._map:
             tail = " (mapped)>"
         else:
@@ -211,7 +339,7 @@ class DrmModeFB(Structure):
         if self._l:
             self._l.drmModeFreeFB(self)
 
-    def map(self):
+    def map(self, size):
         """
         Map the framebuffer.
         """
@@ -227,13 +355,14 @@ class DrmModeFB(Structure):
         if rv:
             raise IOError(rv, os.strerror(rv))
 
-        size = self.pitch * self.height
-
         # mmap.mmap() has a totally different order of arguments in Python
         # compared to C; check the documentation before altering this
         # incantation.
-        self._map = mmap.mmap(self._fd, size, flags=mmap.MAP_SHARED,
-                              prot=mmap.PROT_READ, offset=mapDumb.offset)
+        self._map = mmap.mmap(self._fd,
+                              size,
+                              flags=mmap.MAP_SHARED,
+                              prot=mmap.PROT_READ,
+                              offset=mapDumb.offset)
 
     def unmap(self):
         """
@@ -253,7 +382,12 @@ def loadDRM():
     return types of functions.
     """
 
-    l = cdll.LoadLibrary("libdrm.so")
+    l = None
+
+    try:
+        l = cdll.LoadLibrary("libdrm.so")
+    except OSError:
+        l = cdll.LoadLibrary("libdrm.so.2") # ubuntu doesn't have libdrm.so
 
     l.drmGetVersion.argtypes = [c_int]
     l.drmGetVersion.restype = POINTER(DrmVersion)
@@ -272,6 +406,18 @@ def loadDRM():
 
     l.drmModeFreeCrtc.argtypes = [POINTER(DrmModeCrtc)]
     l.drmModeFreeCrtc.restype = None
+
+    l.drmModeGetEncoder.argtypes = [c_int, c_uint]
+    l.drmModeGetEncoder.restype = POINTER(DrmModeEncoder)
+
+    l.drmModeFreeEncoder.argtypes = [POINTER(DrmModeEncoder)]
+    l.drmModeFreeEncoder.restype = None
+
+    l.drmModeGetConnector.argtypes = [c_int, c_uint]
+    l.drmModeGetConnector.restype = POINTER(DrmModeConnector)
+
+    l.drmModeFreeConnector.argtypes = [POINTER(DrmModeConnector)]
+    l.drmModeFreeConnector.restype = None
 
     l.drmModeGetFB.argtypes = [c_int, c_uint]
     l.drmModeGetFB.restype = POINTER(DrmModeFB)
@@ -334,6 +480,37 @@ class DRM(object):
 
         return None
 
+    def getCrtc(self, crtc_id):
+        c_ptr = self._l.drmModeGetCrtc(self._fd, crtc_id)
+        if c_ptr:
+            c = c_ptr.contents
+            c._fd = self._fd
+            c._l = self._l
+            return c
+
+        return None
+
+    def getEncoder(self, encoder_id):
+        e_ptr = self._l.drmModeGetEncoder(self._fd, encoder_id)
+        if e_ptr:
+            e = e_ptr.contents
+            e._fd = self._fd
+            e._l = self._l
+            return e
+
+        return None
+
+    def getConnector(self, connector_id):
+        c_ptr = self._l.drmModeGetConnector(self._fd, connector_id)
+        if c_ptr:
+            c = c_ptr.contents
+            c._fd = self._fd
+            c._l = self._l
+            return c
+
+        return None
+
+
 
 def drmFromPath(path):
     """
@@ -354,18 +531,42 @@ def _bgrx24(i):
     return r, g, b
 
 
-def _screenshot(image, fb):
-    fb.map()
+def _copyImageBlocklinear(image, fb, unformat):
+    gobPitch = 64
+    gobHeight = 128
+    while gobHeight > 8 and gobHeight >= 2 * fb.height:
+        gobHeight //= 2
+    gobSize = gobPitch * gobHeight
+    gobWidth = gobPitch // (fb.bpp // 8)
+
+    gobCountX = (fb.pitch + gobPitch - 1) // gobPitch
+    gobCountY = (fb.height + gobHeight - 1) // gobHeight
+    fb.map(gobCountX * gobCountY * gobSize)
     m = fb._map
-    lineLength = fb.width * fb.bpp // 8
+
+    offset = 0
+    for gobY in range(gobCountY):
+        gobTop = gobY * gobHeight
+        for gobX in range(gobCountX):
+            m.seek(offset)
+            gob = m.read(gobSize)
+            iterGob = iter(gob)
+            gobLeft = gobX * gobWidth
+            for i in range(gobWidth * gobHeight):
+                rgb = unformat(iterGob)
+                x = gobLeft + (((i >> 3) & 8) | ((i >> 1) & 4) | (i & 3))
+                y = gobTop + ((i >> 7 << 3) | ((i >> 3) & 6) | ((i >> 2) & 1))
+                if x < fb.width and y < fb.height:
+                    image.putpixel((x, y), rgb)
+            offset += gobSize
+    fb.unmap()
+
+
+def _copyImageLinear(image, fb, unformat):
+    fb.map(fb.pitch * fb.height)
+    m = fb._map
     pitch = fb.pitch
-    pixels = []
-
-    if fb.depth == 24:
-        unformat = _bgrx24
-    else:
-        raise RuntimeError("Couldn't unformat FB: %r" % fb)
-
+    lineLength = fb.width * fb.bpp // 8
     for y in range(fb.height):
         offset = y * pitch
         m.seek(offset)
@@ -374,34 +575,113 @@ def _screenshot(image, fb):
         for x in range(fb.width):
             rgb = unformat(ichannels)
             image.putpixel((x, y), rgb)
-
     fb.unmap()
 
-    return pixels
+
+def _screenshot(drm, image, fb):
+    if fb.depth == 24:
+        unformat = _bgrx24
+    else:
+        raise RuntimeError("Couldn't unformat FB: %r" % fb)
+
+    if drm.version().name == "tegra":
+        _copyImageBlocklinear(image, fb, unformat)
+    else:
+        _copyImageLinear(image, fb, unformat)
 
 
 _drm = None
+
 
 def crtcScreenshot(crtc_id=None):
     """
     Take a screenshot, returning an image object.
 
     @param crtc_id: The CRTC to screenshot.
+                    None for first found CRTC with mode set
+                    or "internal" for crtc connected to internal LCD
+                    or "external" for crtc connected to external display
+                    or "usb" "evdi" or "udl" for crtc with valid mode on evdi or
+                    udl display
+                    or DRM integer crtc_id
     """
 
     global _drm
+
     if not _drm:
-        paths = ["/dev/dri/" + n for n in os.listdir("/dev/dri")]
-        for p in paths:
-            d = drmFromPath(p)
-            if d.resources():
-                _drm = d
-                break
+        paths = [
+            "/dev/dri/" + n
+            for n in filter(lambda x: x.startswith("card"),
+                            os.listdir("/dev/dri"))
+        ]
+
+        if crtc_id == "usb" or crtc_id == "evdi" or crtc_id == "udl":
+            for p in paths:
+                d = drmFromPath(p)
+                v = d.version()
+
+                if crtc_id == v.name:
+                    _drm = d
+                    break
+
+                if crtc_id == "usb" and (v.name == "evdi" or v.name == "udl"):
+                    _drm = d
+                    break
+
+        elif crtc_id == "internal" or crtc_id == "external":
+            internal = crtc_id == "internal"
+            for p in paths:
+                d = drmFromPath(p)
+                if d.resources() is None:
+                    continue
+                if d.resources() and d.resources().count_connectors > 0:
+                    for c in xrange(0, d.resources().count_connectors):
+                        connector = d.getConnector(d.resources().connectors[c])
+                        if (internal == connector.isInternal()
+                            and connector.isConnected()
+                            and connector.encoder_id != 0):
+                            e = d.getEncoder(connector.encoder_id)
+                            crtc = d.getCrtc(e.crtc_id)
+                            if crtc.mode_valid:
+                                crtc_id = crtc.crtc_id
+                                _drm = d
+                                break
+                if _drm:
+                    break
+
+        elif crtc_id is None or crtc_id == 0:
+            for p in paths:
+                d = drmFromPath(p)
+                if d.resources() is None:
+                    continue
+                for c in xrange(0, d.resources().count_crtcs):
+                    crtc = d.getCrtc(d.resources().crtcs[c])
+                    if crtc.mode_valid:
+                        crtc_id = d.resources().crtcs[c]
+                        _drm = d
+                        break
+                if _drm:
+                    break
+
+        else:
+            for p in paths:
+                d = drmFromPath(p)
+                if d.resources() is None:
+                    continue
+                for c in xrange(0, d.resources().count_crtcs):
+                    if crtc_id == d.resources().crtcs[c]:
+                        _drm = d
+                        break
+                if _drm:
+                    break
 
     if _drm:
-        fb = _drm.resources().getCrtc(crtc_id).fb()
-        image = Image.new("RGB", (fb.width, fb.height))
-        pixels = _screenshot(image, fb)
-        return image
+        crtc = _drm.resources().getCrtcRobust(crtc_id)
+        if crtc is not None:
+            framebuffer = crtc.fb()
+            image = Image.new("RGB", (framebuffer.width, framebuffer.height))
+            _screenshot(_drm, image, framebuffer)
+            return image
 
-    raise RuntimeError("Couldn't screenshot with DRM devices")
+    raise RuntimeError(
+        "Unable to take screenshot. There may not be anything on the screen.")

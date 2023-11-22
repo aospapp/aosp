@@ -16,24 +16,35 @@
 
 package android.text.method.cts;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.method.HideReturnsTransformationMethod;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link HideReturnsTransformationMethod}.
  */
-public class HideReturnsTransformationMethodTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class HideReturnsTransformationMethodTest {
+    @Test
     public void testConstructor() {
         new HideReturnsTransformationMethod();
     }
 
+    @Test
     public void testGetOriginal() {
         MyHideReturnsTranformationMethod method = new MyHideReturnsTranformationMethod();
-        TextMethodUtils.assertEquals(new char[] { '\r' }, method.getOriginal());
+        assertArrayEquals(new char[] { '\r' }, method.getOriginal());
     }
 
+    @Test
     public void testGetInstance() {
         HideReturnsTransformationMethod method0 = HideReturnsTransformationMethod.getInstance();
         assertNotNull(method0);
@@ -42,9 +53,10 @@ public class HideReturnsTransformationMethodTest extends TestCase {
         assertSame(method0, method1);
     }
 
+    @Test
     public void testGetReplacement() {
         MyHideReturnsTranformationMethod method = new MyHideReturnsTranformationMethod();
-        TextMethodUtils.assertEquals(new char[] { '\uFEFF' }, method.getReplacement());
+        assertArrayEquals(new char[] { '\uFEFF' }, method.getReplacement());
     }
 
     private static class MyHideReturnsTranformationMethod extends HideReturnsTransformationMethod {

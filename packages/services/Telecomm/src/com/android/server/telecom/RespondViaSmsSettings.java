@@ -20,6 +20,7 @@ import android.app.ActionBar;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.telecom.Log;
 import android.os.Bundle;
 import android.preference.EditTextPreference;
 import android.preference.Preference;

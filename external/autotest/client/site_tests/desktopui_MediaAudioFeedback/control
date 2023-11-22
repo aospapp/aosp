@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if media files sound is not audible.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "desktopui"

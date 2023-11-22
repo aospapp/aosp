@@ -15,18 +15,16 @@
 ** limitations under the License.
 */
 
+#define LOG_TAG "CodeCache"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include <cutils/ashmem.h>
-#include <cutils/atomic.h>
-#define LOG_TAG "CodeCache"
-#include <cutils/log.h>
-
+#include <log/log.h>
 
 #include "CodeCache.h"
 
@@ -101,7 +99,7 @@ static mspace getMspace()
 }
 
 Assembly::Assembly(size_t size)
-    : mCount(1), mSize(0)
+    : mCount(0), mSize(0)
 {
     mBase = (uint32_t*)mspace_malloc(getMspace(), size);
     LOG_ALWAYS_FATAL_IF(mBase == NULL,
@@ -117,12 +115,12 @@ Assembly::~Assembly()
 
 void Assembly::incStrong(const void*) const
 {
-    android_atomic_inc(&mCount);
+    mCount.fetch_add(1, std::memory_order_relaxed);
 }
 
 void Assembly::decStrong(const void*) const
 {
-    if (android_atomic_dec(&mCount) == 1) {
+    if (mCount.fetch_sub(1, std::memory_order_acq_rel) == 1) {
         delete this;
     }
 }

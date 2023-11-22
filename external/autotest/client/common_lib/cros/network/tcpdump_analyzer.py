@@ -4,6 +4,7 @@
 
 import logging
 
+from locale import *
 from autotest_lib.client.common_lib import error
 
 PYSHARK_LOAD_TIMEOUT = 2
@@ -20,6 +21,7 @@ WLAN_PROBE_REQ_ACCEPTOR = 'wlan.fc.type_subtype==0x04'
 PYSHARK_BROADCAST_SSID = 'SSID: '
 BROADCAST_SSID = ''
 
+setlocale(LC_ALL, '')
 
 class Frame(object):
     """A frame from a packet capture."""
@@ -135,7 +137,7 @@ def get_frames(local_pcap_path, display_filter, bad_fcs):
     for frame in capture_frames:
         rate = _fetch_frame_field_value(frame, FRAME_FIELD_RADIOTAP_DATARATE)
         if rate:
-            rate = float(rate)
+            rate = atof(rate)
         else:
             logging.debug('Found bad capture frame: %s', frame)
             continue

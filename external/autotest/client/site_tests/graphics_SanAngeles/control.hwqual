@@ -7,13 +7,12 @@ NAME = 'graphics_SanAngeles.hwqual'
 PURPOSE = 'Benchmark OpenGL object rendering.'
 CRITERIA = 'This test is a benchmark. It will fail if it fails to complete.'
 ATTRIBUTES = "suite:hwqual"
-SUITE = 'hwqual'
 TIME='MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "graphics"
 TEST_TYPE = 'client'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

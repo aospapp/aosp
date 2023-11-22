@@ -16,8 +16,6 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
 
@@ -25,9 +23,19 @@ import android.os.Bundle;
  * A Mock application for {@link URLSpan} test.
  */
 public class MockURLSpanTestActivity extends Activity {
+    public static final String KEY_PARAM = "MockURLSpanTestActivity.param";
+
+    private String mParam;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mParam = getIntent().getStringExtra(KEY_PARAM);
         setContentView(R.layout.urlspan_layout);
+    }
+
+    public String getParam() {
+        return mParam;
     }
 }

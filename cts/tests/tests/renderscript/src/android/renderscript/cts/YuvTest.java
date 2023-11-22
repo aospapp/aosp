@@ -31,6 +31,21 @@ public class YuvTest extends RSBaseCompute {
 
     protected ScriptC_verify mVerify;
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (ay != null) {
+            ay.destroy();
+        }
+        if (au != null) {
+            au.destroy();
+        }
+        if (av != null) {
+            av.destroy();
+        }
+        if (mVerify != null) {
+            mVerify.destroy();
+        }
+    }
 
     int getCWidth() {
         return (width + 1) / 2;
@@ -100,7 +115,7 @@ public class YuvTest extends RSBaseCompute {
         ScriptIntrinsicYuvToRGB syuv = ScriptIntrinsicYuvToRGB.create(mRS, Element.U8(mRS));
         syuv.setInput(ta);
         syuv.forEach(aout);
-        
+
         mVerify.set_gAllowedIntError(2); // this will allow for less strict implementation
         ScriptC_yuv script = new ScriptC_yuv(mRS);
         script.invoke_makeRef(ay, au, av, aref);
@@ -110,6 +125,11 @@ public class YuvTest extends RSBaseCompute {
         mRS.finish();
         mVerify.invoke_checkError();
         waitForMessage();
+
+        ta.destroy();
+        syuv.destroy();
+        script.destroy();
+
         checkForErrors();
     }
 
@@ -141,7 +161,7 @@ public class YuvTest extends RSBaseCompute {
         }
         ta.copyFrom(tmp);
         script.invoke_makeRef(ay, au, av, aref);
-        
+
         mVerify.set_gAllowedIntError(2); // this will allow for less strict implementation
         syuv.setInput(ta);
         syuv.forEach(aout);
@@ -154,6 +174,13 @@ public class YuvTest extends RSBaseCompute {
         mRS.finish();
         mVerify.invoke_checkError();
         waitForMessage();
+
+        aout.destroy();
+        aref.destroy();
+        ta.destroy();
+        script.destroy();
+        syuv.destroy();
+
         checkForErrors();
     }
 
@@ -200,6 +227,13 @@ public class YuvTest extends RSBaseCompute {
         mRS.finish();
         mVerify.invoke_checkError();
         waitForMessage();
+
+        aout.destroy();
+        aref.destroy();
+        ta.destroy();
+        script.destroy();
+        syuv.destroy();
+
         checkForErrors();
     }
 
@@ -241,6 +275,12 @@ public class YuvTest extends RSBaseCompute {
         mVerify.set_gAllowedFloatError(0.01f); // this will allow for less strict implementation
         mVerify.invoke_checkError();
         waitForMessage();
+
+        aout.destroy();
+        aref.destroy();
+        ta.destroy();
+        script.destroy();
+
         checkForErrors();
     }
 
@@ -281,6 +321,12 @@ public class YuvTest extends RSBaseCompute {
         mRS.finish();
         mVerify.invoke_checkError();
         waitForMessage();
+
+        aout.destroy();
+        aref.destroy();
+        ta.destroy();
+        script.destroy();
+
         checkForErrors();
     }
 }

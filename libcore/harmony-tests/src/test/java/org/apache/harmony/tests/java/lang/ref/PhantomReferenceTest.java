@@ -49,7 +49,24 @@ public class PhantomReferenceTest extends junit.framework.TestCase {
     /**
      * java.lang.Runtime#gc()
      */
-    public void test_gcInteraction() {
+    public void test_gcInteraction_Runtime() {
+        check_gcInteraction(() -> { Runtime.getRuntime().gc(); } );
+    }
+
+    /**
+     * Checks that the sequence {@link System#gc()}, {@link System#runFinalization()}}
+     * also has the effect as asserted for {@link Runtime#gc()} elsewhere. The
+     * conditions under which System.gc() results in a garbage collection are an
+     * implementation detail not guaranteed by documentation.
+     */
+    public void test_gcInteraction_System() {
+        check_gcInteraction(() -> {
+            System.gc();
+            System.runFinalization();
+        } );
+    }
+
+    private void check_gcInteraction(Runnable gc) {
         class TestPhantomReference<T> extends PhantomReference<T> {
             public TestPhantomReference(T referent,
                     ReferenceQueue<? super T> q) {
@@ -58,7 +75,7 @@ public class PhantomReferenceTest extends junit.framework.TestCase {
             public boolean enqueue() {
                 // Initiate another GC from inside enqueue() to
                 // see if it causes any problems inside the VM.
-                Runtime.getRuntime().gc();
+                gc.run();
                 return super.enqueue();
             }
         }

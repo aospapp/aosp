@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <assert.h>
+
 #define LOG_TAG "hwc-drm-event-listener"
 
 #include "drmeventlistener.h"
@@ -22,6 +24,7 @@
 #include <linux/netlink.h>
 #include <sys/socket.h>
 
+#include <assert.h>
 #include <cutils/log.h>
 #include <xf86drm.h>
 

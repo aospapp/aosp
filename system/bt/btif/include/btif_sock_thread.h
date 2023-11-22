@@ -25,29 +25,34 @@
 #include <hardware/bt_sock.h>
 
 /*******************************************************************************
-**  Constants & Macros
-********************************************************************************/
+ *  Constants & Macros
+ ******************************************************************************/
 
-#define SOCK_THREAD_FD_RD           1        /* BT socket read signal */
-#define SOCK_THREAD_FD_WR           (1 << 1) /* BT socket write signal */
-#define SOCK_THREAD_FD_EXCEPTION    (1 << 2) /* BT socket exception singal */
-#define SOCK_THREAD_ADD_FD_SYNC     (1 << 3) /* Add BT socket fd in current socket
-                                                poll thread context immediately */
+#define SOCK_THREAD_FD_RD 1               /* BT socket read signal */
+#define SOCK_THREAD_FD_WR (1 << 1)        /* BT socket write signal */
+#define SOCK_THREAD_FD_EXCEPTION (1 << 2) /* BT socket exception singal */
+
+/* Add BT socket fd in current socket poll thread context immediately */
+#define SOCK_THREAD_ADD_FD_SYNC (1 << 3)
 
 /*******************************************************************************
-**  Functions
-********************************************************************************/
+ *  Functions
+ ******************************************************************************/
 
-typedef void (*btsock_signaled_cb)(int fd, int type, int flags, uint32_t user_id);
+typedef void (*btsock_signaled_cb)(int fd, int type, int flags,
+                                   uint32_t user_id);
 typedef void (*btsock_cmd_cb)(int cmd_fd, int type, int size, uint32_t user_id);
 
 int btsock_thread_init();
-int btsock_thread_add_fd(int handle, int fd, int type, int flags, uint32_t user_id);
+int btsock_thread_add_fd(int handle, int fd, int type, int flags,
+                         uint32_t user_id);
 bool btsock_thread_remove_fd_and_close(int thread_handle, int fd);
 int btsock_thread_wakeup(int handle);
-int btsock_thread_post_cmd(int handle, int cmd_type, const unsigned char* cmd_data,
-                           int data_size, uint32_t user_id);
-int btsock_thread_create(btsock_signaled_cb callback, btsock_cmd_cb cmd_callback);
+int btsock_thread_post_cmd(int handle, int cmd_type,
+                           const unsigned char* cmd_data, int data_size,
+                           uint32_t user_id);
+int btsock_thread_create(btsock_signaled_cb callback,
+                         btsock_cmd_cb cmd_callback);
 int btsock_thread_exit(int handle);
 
 #endif

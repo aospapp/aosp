@@ -16,8 +16,6 @@
 
 package com.example.android.supportv7.graphics;
 
-import com.example.android.supportv7.R;
-
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -29,6 +27,7 @@ import android.support.v4.app.ListFragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
+import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ResourceCursorAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.graphics.Palette;
@@ -38,6 +37,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ListView;
+
+import com.example.android.supportv7.R;
 
 /**
  * Activity which displays the images from the device's {@link MediaStore}, alongside the generated
@@ -190,12 +191,12 @@ public class PaletteActivity extends AppCompatActivity {
                 ImageView imageView = (ImageView) view.findViewById(R.id.image);
                 imageView.setImageDrawable(null);
 
-                view.findViewById(R.id.text_vibrant).setBackgroundDrawable(null);
-                view.findViewById(R.id.text_muted).setBackgroundDrawable(null);
-                view.findViewById(R.id.text_light_vibrant).setBackgroundDrawable(null);
-                view.findViewById(R.id.text_light_muted).setBackgroundDrawable(null);
-                view.findViewById(R.id.text_dark_vibrant).setBackgroundDrawable(null);
-                view.findViewById(R.id.text_dark_muted).setBackgroundDrawable(null);
+                ViewCompat.setBackground(view.findViewById(R.id.text_vibrant), null);
+                ViewCompat.setBackground(view.findViewById(R.id.text_muted), null);
+                ViewCompat.setBackground(view.findViewById(R.id.text_light_vibrant), null);
+                ViewCompat.setBackground(view.findViewById(R.id.text_light_muted), null);
+                ViewCompat.setBackground(view.findViewById(R.id.text_dark_vibrant), null);
+                ViewCompat.setBackground(view.findViewById(R.id.text_dark_muted), null);
 
                 final long id = cursor.getLong(
                         cursor.getColumnIndexOrThrow(MediaStore.Images.ImageColumns._ID));
@@ -203,7 +204,7 @@ public class PaletteActivity extends AppCompatActivity {
                 ImageLoader.loadMediaStoreThumbnail(imageView, id, new ImageLoader.Listener() {
                     @Override
                     public void onImageLoaded(Bitmap bitmap) {
-                        Palette.generateAsync(bitmap, mNumColors,
+                        new Palette.Builder(bitmap).maximumColorCount(mNumColors).generate(
                                 new Palette.PaletteAsyncListener() {
                                     @Override
                                     public void onGenerated(Palette palette) {

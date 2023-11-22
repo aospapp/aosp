@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if video playback fails in any tab.
 """
 ATTRIBUTES = "suite:experimental"
-SUITE = "experimental"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

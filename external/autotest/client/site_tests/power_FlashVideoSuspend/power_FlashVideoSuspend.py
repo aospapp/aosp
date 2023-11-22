@@ -18,7 +18,7 @@ class power_FlashVideoSuspend(test.test):
 
     def run_once(self, video_url=None):
         utils.verify_flash_installed()
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab = cr.browser.tabs[0]
             tab.Navigate(cr.browser.platform.http_server.UrlOf(
@@ -52,7 +52,8 @@ class power_FlashVideoSuspend(test.test):
         tab.WaitForDocumentReadyStateToBeInteractiveOrBetter()
         logging.info('video url is %s', video_url)
         tab.EvaluateJavaScript('play("%s")' % video_url)
-        tab.WaitForJavaScriptExpression('typeof player != "undefined"', 10)
+        tab.WaitForJavaScriptCondition('typeof player != "undefined"',
+                                       timeout=10)
 
         self.check_video_is_playing(tab)
 

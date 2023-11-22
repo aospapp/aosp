@@ -73,7 +73,7 @@ class CrosDisksFilesystemTester(CrosDisksTester):
 
             if not test_content.verify(actual_mount_path):
                 raise error.TestFail("Failed to verify filesystem test content")
-            self.cros_disks.unmount(device_file, ['force'])
+            self.cros_disks.unmount(device_file, ['lazy'])
 
     def test_using_virtual_filesystem_image(self):
         try:

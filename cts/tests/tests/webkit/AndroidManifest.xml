@@ -56,6 +56,8 @@
             </intent-filter>
         </activity>
 
+        <meta-data android:name="android.webkit.WebView.EnableSafeBrowsing" android:value="false" />
+
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

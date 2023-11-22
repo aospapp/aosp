@@ -40,7 +40,7 @@ class Keymaster1Engine {
      * Create a Keymaster1Engine, wrapping the provided keymaster1_device.  The engine takes
      * ownership of the device, and will close it during destruction.
      */
-    Keymaster1Engine(const keymaster1_device_t* keymaster1_device);
+    explicit Keymaster1Engine(const keymaster1_device_t* keymaster1_device);
     ~Keymaster1Engine();
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,

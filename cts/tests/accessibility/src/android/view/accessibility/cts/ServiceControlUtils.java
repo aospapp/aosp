@@ -39,8 +39,11 @@ public class ServiceControlUtils {
             "android.view.accessibility.cts/.SpeakingAccessibilityService:"
             + "android.view.accessibility.cts/.VibratingAccessibilityService";
 
+    private static final String SETTING_ENABLE_MULTIPLE_FEEDBACK_TYPES_SERVICE =
+            "android.view.accessibility.cts/.SpeakingAndVibratingAccessibilityService";
+
     /**
-     * Enable {@code SpeakingAccessibilityService} and {@code SpeakingAccessibilityService}
+     * Enable {@code SpeakingAccessibilityService} and {@code VibratingAccessibilityService}
      *
      * @param instrumentation A valid instrumentation
      */
@@ -104,6 +107,57 @@ public class ServiceControlUtils {
     }
 
     /**
+     * Enable {@link SpeakingAndVibratingAccessibilityService} for tests requiring a service with
+     * multiple feedback types
+     *
+     * @param instrumentation A valid instrumentation
+     */
+    public static void enableMultipleFeedbackTypesService(Instrumentation instrumentation)
+            throws IOException {
+        Context context = instrumentation.getContext();
+
+        // Get permission to enable accessibility
+        UiAutomation uiAutomation = instrumentation.getUiAutomation();
+
+        // Change the settings to enable the services
+        ContentResolver cr = context.getContentResolver();
+        String alreadyEnabledServices = Settings.Secure.getString(
+                cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        ParcelFileDescriptor fd = uiAutomation.executeShellCommand("settings --user cur put secure "
+                + Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES + " "
+                + alreadyEnabledServices + ":"
+                + SETTING_ENABLE_MULTIPLE_FEEDBACK_TYPES_SERVICE);
+        InputStream in = new FileInputStream(fd.getFileDescriptor());
+        byte[] buffer = new byte[4096];
+        while (in.read(buffer) > 0);
+        uiAutomation.destroy();
+
+        // Wait for the service to be connected
+        long timeoutTimeMillis = SystemClock.uptimeMillis() + TIMEOUT_FOR_SERVICE_ENABLE;
+        boolean multipleFeedbackTypesServiceEnabled = false;
+        while (!multipleFeedbackTypesServiceEnabled && (SystemClock.uptimeMillis()
+                < timeoutTimeMillis)) {
+            synchronized (SpeakingAndVibratingAccessibilityService.sWaitObjectForConnecting) {
+                if (SpeakingAndVibratingAccessibilityService.sConnectedInstance != null) {
+                    multipleFeedbackTypesServiceEnabled = true;
+                    break;
+                }
+                if (!multipleFeedbackTypesServiceEnabled) {
+                    try {
+                        SpeakingAndVibratingAccessibilityService.sWaitObjectForConnecting.wait(
+                                timeoutTimeMillis - SystemClock.uptimeMillis());
+                    } catch (InterruptedException e) {
+                    }
+                }
+            }
+        }
+        if (!multipleFeedbackTypesServiceEnabled) {
+            throw new RuntimeException(
+                    "Multiple feedback types accessibility service not starting");
+        }
+    }
+
+    /**
      * Turn off all accessibility services. Assumes permissions to write settings are already
      * set, which they are in
      * {@link ServiceControlUtils#enableSpeakingAndVibratingServices(Instrumentation)}.
@@ -111,10 +165,18 @@ public class ServiceControlUtils {
      * @param instrumentation A valid instrumentation
      */
     public static void turnAccessibilityOff(Instrumentation instrumentation) {
-        SpeakingAccessibilityService.sConnectedInstance.disableSelf();
-        SpeakingAccessibilityService.sConnectedInstance = null;
-        VibratingAccessibilityService.sConnectedInstance.disableSelf();
-        VibratingAccessibilityService.sConnectedInstance = null;
+        if (SpeakingAccessibilityService.sConnectedInstance != null) {
+            SpeakingAccessibilityService.sConnectedInstance.disableSelf();
+            SpeakingAccessibilityService.sConnectedInstance = null;
+        }
+        if (VibratingAccessibilityService.sConnectedInstance != null) {
+            VibratingAccessibilityService.sConnectedInstance.disableSelf();
+            VibratingAccessibilityService.sConnectedInstance = null;
+        }
+        if (SpeakingAndVibratingAccessibilityService.sConnectedInstance != null) {
+            SpeakingAndVibratingAccessibilityService.sConnectedInstance.disableSelf();
+            SpeakingAndVibratingAccessibilityService.sConnectedInstance = null;
+        }
 
         final Object waitLockForA11yOff = new Object();
         AccessibilityManager manager = (AccessibilityManager) instrumentation

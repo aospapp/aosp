@@ -47,7 +47,7 @@
 #
 # Câmara, D.; Gouvêa, C. P. L.; López, J. & Dahab, R.: Fast Software
 # Polynomial Multiplication on ARM Processors using the NEON Engine.
-# 
+#
 # http://conradoplg.cryptoland.net/files/2010/12/mocrysen13.pdf
 
 # ====================================================================
@@ -72,8 +72,8 @@
 # example...
 
 $flavour = shift;
-if ($flavour=~/^\w[\w\-]*\.\w+$/) { $output=$flavour; undef $flavour; }
-else { while (($output=shift) && ($output!~/^\w[\w\-]*\.\w+$/)) {} }
+if ($flavour=~/\w[\w\-]*\.\w+$/) { $output=$flavour; undef $flavour; }
+else { while (($output=shift) && ($output!~/\w[\w\-]*\.\w+$/)) {} }
 
 if ($flavour && $flavour ne "void") {
     $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
@@ -163,7 +163,6 @@ rem_4bit_get:
 .size	rem_4bit_get,.-rem_4bit_get
 
 .global	gcm_ghash_4bit
-.hidden	gcm_ghash_4bit
 .type	gcm_ghash_4bit,%function
 gcm_ghash_4bit:
 	sub	r12,pc,#8
@@ -260,7 +259,6 @@ $code.=<<___;
 .size	gcm_ghash_4bit,.-gcm_ghash_4bit
 
 .global	gcm_gmult_4bit
-.hidden	gcm_gmult_4bit
 .type	gcm_gmult_4bit,%function
 gcm_gmult_4bit:
 	stmdb	sp!,{r4-r11,lr}
@@ -391,7 +389,6 @@ $code.=<<___;
 .fpu	neon
 
 .global	gcm_init_neon
-.hidden	gcm_init_neon
 .type	gcm_init_neon,%function
 .align	4
 gcm_init_neon:
@@ -413,7 +410,6 @@ gcm_init_neon:
 .size	gcm_init_neon,.-gcm_init_neon
 
 .global	gcm_gmult_neon
-.hidden	gcm_gmult_neon
 .type	gcm_gmult_neon,%function
 .align	4
 gcm_gmult_neon:
@@ -432,7 +428,6 @@ gcm_gmult_neon:
 .size	gcm_gmult_neon,.-gcm_gmult_neon
 
 .global	gcm_ghash_neon
-.hidden	gcm_ghash_neon
 .type	gcm_ghash_neon,%function
 .align	4
 gcm_ghash_neon:
@@ -491,7 +486,7 @@ $code.=<<___;
 #ifdef __ARMEL__
 	vrev64.8	$Xl,$Xl
 #endif
-	sub		$Xi,#16	
+	sub		$Xi,#16
 	vst1.64		$Xl#hi,[$Xi]!		@ write out Xi
 	vst1.64		$Xl#lo,[$Xi]
 

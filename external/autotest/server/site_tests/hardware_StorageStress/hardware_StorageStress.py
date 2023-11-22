@@ -135,42 +135,25 @@ class hardware_StorageStress(test.test):
         """
         self._client.suspend(suspend_time=self._suspend_duration)
 
-    @classmethod
-    def _check_client_test_result(cls, client):
-        """
-        Check result of the client test.
-        Auto test will store results in the file named status.
-        We check that the second to last line in that file begin with 'END GOOD'
-
-        @ raise an error if test fails.
-        """
-        client_result_dir = '%s/results/default' % client.autodir
-        command = 'tail -2 %s/status | head -1' % client_result_dir
-        status = client.run(command).stdout.strip()
-        logging.info(status)
-        if status[:8] != 'END GOOD':
-            raise error.TestFail('client in StorageStress failed.')
-
-
     def _write_data(self):
         """
         Write test data to host using hardware_StorageFio
         """
         logging.info('_write_data')
-        self._client_at.run_test('hardware_StorageFio', disable_sysinfo=True,
-            wait=0, tag='%s_%d' % ('write_data', self._loop_count),
+        self._client_at.run_test('hardware_StorageFio',
+            check_client_result=True, disable_sysinfo=True, wait=0,
+            tag='%s_%d' % ('write_data', self._loop_count),
             requirements=[(self._FIO_REQUIREMENT_FILE, self._FIO_WRITE_FLAGS)])
-        self._check_client_test_result(self._client)
 
     def _verify_data(self):
         """
         Verify test data using hardware_StorageFio
         """
         logging.info(str('_verify_data #%d' % self._loop_count))
-        self._client_at.run_test('hardware_StorageFio', disable_sysinfo=True,
-            wait=0, tag='%s_%d' % ('verify_data', self._loop_count),
+        self._client_at.run_test('hardware_StorageFio',
+            check_client_result=True, disable_sysinfo=True, wait=0,
+            tag='%s_%d' % ('verify_data', self._loop_count),
             requirements=[(self._FIO_REQUIREMENT_FILE, self._FIO_VERIFY_FLAGS)])
-        self._check_client_test_result(self._client)
 
     def _full_disk_write(self):
         """
@@ -182,24 +165,24 @@ class hardware_StorageStress(test.test):
 
         # use the default requirement that write different pattern arround.
         self._client_at.run_test('hardware_StorageFio',
+                                 check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('soak', self._loop_count),
                                  requirements=[('64k_stress', [])],
                                  time_length=self._soak_time)
-        self._check_client_test_result(self._client)
 
         self._client_at.run_test('hardware_StorageFio',
+                                 check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('surf', self._loop_count),
                                  requirements=[('surfing', [])],
                                  time_length=self._soak_time)
-        self._check_client_test_result(self._client)
 
         self._client_at.run_test('hardware_StorageFio',
+                                 check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('integrity', self._loop_count),
                                  wait=0, integrity=True)
-        self._check_client_test_result(self._client)
 
         self._client_at.run_test('hardware_StorageWearoutDetect',
                                  tag='%s_%d' % ('wearout', self._loop_count),

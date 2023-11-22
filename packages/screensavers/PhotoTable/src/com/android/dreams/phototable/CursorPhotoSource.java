@@ -49,6 +49,7 @@ public abstract class CursorPhotoSource extends PhotoSource {
         if (!current.cursor.isAfterLast()) {
             data = unpackImageData(current.cursor, null);
             data.cursor = current.cursor;
+            data.uri = current.uri;
             data.position = current.cursor.getPosition();
         }
         return data;
@@ -66,6 +67,7 @@ public abstract class CursorPhotoSource extends PhotoSource {
         if (!current.cursor.isBeforeFirst()) {
             data = unpackImageData(current.cursor, null);
             data.cursor = current.cursor;
+            data.uri = current.uri;
             data.position = current.cursor.getPosition();
         }
         return data;

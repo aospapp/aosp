@@ -53,11 +53,20 @@ kernel_arch_token_replacements = {
     "x86": {},
     }
 
-# Replace tokens in the output according to this mapping
+# Replace tokens in the output according to this mapping.
 kernel_token_replacements = {
-    "asm": "__asm__",
+    # The kernel's ARG_MAX is actually the "minimum" maximum (see fs/exec.c).
+    "ARG_MAX": "_KERNEL_ARG_MAX",
     # The kernel usage of __unused for unused struct fields conflicts with the macro defined in <sys/cdefs.h>.
     "__unused": "__linux_unused",
+    # The kernel usage of C++ keywords causes problems for C++ code so rename.
+    "private": "__linux_private",
+    "virtual": "__linux_virtual",
+    # The non-64 stuff is legacy; msqid64_ds/ipc64_perm is what userspace wants.
+    "msqid_ds": "__kernel_legacy_msqid_ds",
+    "semid_ds": "__kernel_legacy_semid_ds",
+    "shmid_ds": "__kernel_legacy_shmid_ds",
+    "ipc_perm": "__kernel_legacy_ipc_perm",
     # The kernel's _NSIG/NSIG are one less than the userspace value, so we need to move them aside.
     "_NSIG": "_KERNEL__NSIG",
     "NSIG": "_KERNEL_NSIG",
@@ -66,6 +75,8 @@ kernel_token_replacements = {
     "SIGRTMAX": "__SIGRTMAX",
     # We want to support both BSD and Linux member names in struct udphdr.
     "udphdr": "__kernel_udphdr",
+    # The kernel's struct epoll_event just has __u64 for the data.
+    "epoll_event": "__kernel_uapi_epoll_event",
     }
 
 # this is the set of known static inline functions that we want to keep

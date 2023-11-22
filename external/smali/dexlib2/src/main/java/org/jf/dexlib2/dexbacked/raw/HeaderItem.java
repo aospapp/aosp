@@ -45,11 +45,12 @@ public class HeaderItem {
     /**
      * The magic numbers for dex files.
      *
-     * They are: "dex\n035\0" and "dex\n037\0".
+     * They are: "dex\n035\0", "dex\n037\0", and "dex\n038\0".
      */
     public static final byte[][] MAGIC_VALUES= new byte[][] {
             new byte[]{0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00},
-            new byte[]{0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x37, 0x00}};
+            new byte[]{0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x37, 0x00},
+            new byte[]{0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x38, 0x00}};
 
     public static final int LITTLE_ENDIAN_TAG = 0x12345678;
     public static final int BIG_ENDIAN_TAG = 0x78563412;
@@ -239,9 +240,12 @@ public class HeaderItem {
         if (api < 24) {
             // Prior to Android N we only support dex version 035.
             return HeaderItem.MAGIC_VALUES[0];
-        } else {
+        } else if (api < 26) {
             // On android N and later we support dex version 037.
             return HeaderItem.MAGIC_VALUES[1];
+        } else {
+            // On android O and later we support dex version 038.
+            return HeaderItem.MAGIC_VALUES[2];
         }
     }
 
@@ -261,7 +265,7 @@ public class HeaderItem {
                 }
             }
             if (matches) {
-                return i==0?35:37;
+                return i==0?35:(i==1?37:38);
             }
         }
         return 0;

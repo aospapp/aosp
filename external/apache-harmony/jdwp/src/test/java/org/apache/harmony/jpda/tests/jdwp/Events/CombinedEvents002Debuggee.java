@@ -42,6 +42,7 @@ public class CombinedEvents002Debuggee extends SyncDebuggee {
         runDebuggee(CombinedEvents002Debuggee.class);
     }
     
+    @Override
     public void run() {
         // Force class loading so it is visible by the test.
         new CombinedEvents002Debuggee_TestedClass();

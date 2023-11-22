@@ -17,13 +17,17 @@
 #ifndef RSD_CPU_H
 #define RSD_CPU_H
 
-#include "rsAllocation.h"
+#include "rsInternalDefines.h"
 
 typedef const char* (*RSSelectRTCallback) (const char*, size_t);
 
 namespace android {
 namespace renderscript {
 
+class Allocation;
+class Context;
+class Element;
+class ObjectBase;
 class ScriptC;
 class Script;
 class ScriptGroupBase;
@@ -144,7 +148,7 @@ public:
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif

@@ -24,4 +24,4 @@
     android:popupTheme="@style/ThemeOverlay.AppCompat.Light"
     android:theme="@style/ActionBarThemeOverlay"
     android:titleMarginStart="16dp"
-    android:titleTextColor="@color/tab_text_color" />
+    android:titleTextColor="?attr/textColorActionBar" />

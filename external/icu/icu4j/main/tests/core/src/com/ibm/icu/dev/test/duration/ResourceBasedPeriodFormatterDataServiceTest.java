@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -12,19 +14,14 @@ package com.ibm.icu.dev.test.duration;
 import java.util.Collection;
 import java.util.Iterator;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.duration.impl.PeriodFormatterData;
 import com.ibm.icu.impl.duration.impl.ResourceBasedPeriodFormatterDataService;
 
 public class ResourceBasedPeriodFormatterDataServiceTest extends TestFmwk {
-
-  /**
-   * Invoke the tests.
-   */
-  public static void main(String[] args) {
-      new ResourceBasedPeriodFormatterDataServiceTest().run(args);
-  }
-
+  @Test
   public void testAvailable() {
     ResourceBasedPeriodFormatterDataService service =
         ResourceBasedPeriodFormatterDataService.getInstance();

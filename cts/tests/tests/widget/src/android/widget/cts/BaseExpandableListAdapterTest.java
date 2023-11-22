@@ -16,23 +16,51 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+
 import android.database.DataSetObserver;
-import android.test.InstrumentationTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseExpandableListAdapter;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link BaseExpandableListAdapter}.
  */
-public class BaseExpandableListAdapterTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BaseExpandableListAdapterTest {
+    @Test
+    public void testDefaults() {
+        // Test child type / group type APIs for the default values documented in the method
+        // Javadocs
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        assertEquals(1, adapter.getGroupTypeCount());
+        assertEquals(0, adapter.getGroupType(0));
+        assertEquals(1, adapter.getChildTypeCount());
+        assertEquals(0, adapter.getChildType(0, 0));
+    }
+
+    @Test
     public void testAreAllItemsEnabled() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
         assertTrue(adapter.areAllItemsEnabled());
     }
 
+    @Test
     public void testGetCombinedId() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
 
         long childID = adapter.getCombinedChildId(10, 100);
         long groupID = adapter.getCombinedGroupId(10);
@@ -45,6 +73,7 @@ public class BaseExpandableListAdapterTest extends InstrumentationTestCase {
         assertTrue(childID != groupID);
     }
 
+    @Test
     public void testIsEmpty() {
         MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
         assertTrue(adapter.isEmpty());
@@ -52,81 +81,57 @@ public class BaseExpandableListAdapterTest extends InstrumentationTestCase {
         assertFalse(adapter.isEmpty());
     }
 
+    @Test
     public void testNotifyDataSetChanged() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
-        MockDataSetObserver dataSetObserver = new MockDataSetObserver();
-        adapter.registerDataSetObserver(dataSetObserver);
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
+        adapter.registerDataSetObserver(mockDataSetObserver);
 
-        assertFalse(dataSetObserver.hasCalledOnChanged());
+        verifyZeroInteractions(mockDataSetObserver);
         adapter.notifyDataSetChanged();
-        assertTrue(dataSetObserver.hasCalledOnChanged());
+        verify(mockDataSetObserver, times(1)).onChanged();
     }
 
+    @Test
     public void testNotifyDataSetInvalidated() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
-        MockDataSetObserver dataSetObserver = new MockDataSetObserver();
-        adapter.registerDataSetObserver(dataSetObserver);
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
+        adapter.registerDataSetObserver(mockDataSetObserver);
 
-        assertFalse(dataSetObserver.hasCalledOnInvalidated());
+        verifyZeroInteractions(mockDataSetObserver);
         adapter.notifyDataSetInvalidated();
-        assertTrue(dataSetObserver.hasCalledOnInvalidated());
+        verify(mockDataSetObserver, times(1)).onInvalidated();
     }
 
+    @Test
     public void testOnGroupCollapsed() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
         // this function is non-operation.
         adapter.onGroupCollapsed(0);
     }
 
+    @Test
     public void testOnGroupExpanded() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
         // this function is non-operation.
         adapter.onGroupExpanded(0);
     }
 
+    @Test
     public void testDataSetObserver() {
-        MockBaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
-        MockDataSetObserver dataSetObserver = new MockDataSetObserver();
-        adapter.registerDataSetObserver(dataSetObserver);
+        BaseExpandableListAdapter adapter = new MockBaseExpandableListAdapter();
+        DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
+        adapter.registerDataSetObserver(mockDataSetObserver);
 
-        assertFalse(dataSetObserver.hasCalledOnChanged());
+        verifyZeroInteractions(mockDataSetObserver);
         adapter.notifyDataSetChanged();
-        assertTrue(dataSetObserver.hasCalledOnChanged());
+        verify(mockDataSetObserver, times(1)).onChanged();
 
-        dataSetObserver.reset();
-        assertFalse(dataSetObserver.hasCalledOnChanged());
-        adapter.unregisterDataSetObserver(dataSetObserver);
+        reset(mockDataSetObserver);
+        verifyZeroInteractions(mockDataSetObserver);
+        adapter.unregisterDataSetObserver(mockDataSetObserver);
         adapter.notifyDataSetChanged();
-        assertFalse(dataSetObserver.hasCalledOnChanged());
-    }
-
-    private class MockDataSetObserver extends DataSetObserver {
-        private boolean mCalledOnChanged = false;
-        private boolean mCalledOnInvalidated = false;
-
-        @Override
-        public void onChanged() {
-            super.onChanged();
-            mCalledOnChanged = true;
-        }
-
-        public boolean hasCalledOnChanged() {
-            return mCalledOnChanged;
-        }
-
-        @Override
-        public void onInvalidated() {
-            super.onInvalidated();
-            mCalledOnInvalidated = true;
-        }
-
-        public boolean hasCalledOnInvalidated() {
-            return mCalledOnInvalidated;
-        }
-
-        public void reset() {
-            mCalledOnChanged = false;
-        }
+        verifyZeroInteractions(mockDataSetObserver);
     }
 
     private class MockBaseExpandableListAdapter extends BaseExpandableListAdapter {

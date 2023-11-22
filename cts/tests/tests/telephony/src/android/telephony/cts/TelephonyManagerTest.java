@@ -16,54 +16,72 @@
 
 package android.telephony.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.bluetooth.BluetoothAdapter;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.cts.util.TestThread;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Looper;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
+import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
-import android.test.AndroidTestCase;
+import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.internal.telephony.PhoneConstants;
+import com.android.compatibility.common.util.TestThread;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.regex.Pattern;
 
-public class TelephonyManagerTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class TelephonyManagerTest {
     private TelephonyManager mTelephonyManager;
+    private PackageManager mPackageManager;
     private boolean mOnCellLocationChangedCalled = false;
+    private ServiceState mServiceState;
     private final Object mLock = new Object();
     private static final int TOLERANCE = 1000;
     private PhoneStateListener mListener;
     private static ConnectivityManager mCm;
-    private static final String TAG = "android.telephony.cts.TelephonyManagerTest";
+    private static final String TAG = "TelephonyManagerTest";
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mTelephonyManager =
                 (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
         mCm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        mPackageManager = getContext().getPackageManager();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mListener != null) {
             // unregister the listener
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_NONE);
         }
-        super.tearDown();
     }
 
+    @Test
     public void testListen() throws Throwable {
         if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
             Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
@@ -129,6 +147,7 @@ public class TelephonyManagerTest extends AndroidTestCase {
      * it's no need to get details of these information, just make sure they are in right
      * condition(>0 or not null).
      */
+    @Test
     public void testTelephonyManager() {
         assertTrue(mTelephonyManager.getNetworkType() >= TelephonyManager.NETWORK_TYPE_UNKNOWN);
         assertTrue(mTelephonyManager.getPhoneType() >= TelephonyManager.PHONE_TYPE_NONE);
@@ -137,14 +156,18 @@ public class TelephonyManagerTest extends AndroidTestCase {
         assertTrue(mTelephonyManager.getDataState() >= TelephonyManager.DATA_DISCONNECTED);
         assertTrue(mTelephonyManager.getCallState() >= TelephonyManager.CALL_STATE_IDLE);
 
+        for (int i = 0; i < mTelephonyManager.getPhoneCount(); ++i) {
+            assertTrue(mTelephonyManager.getSimState(i) >= TelephonyManager.SIM_STATE_UNKNOWN);
+        }
+
         // Make sure devices without MMS service won't fail on this
         if (mTelephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_NONE) {
             assertFalse(mTelephonyManager.getMmsUserAgent().isEmpty());
             assertFalse(mTelephonyManager.getMmsUAProfUrl().isEmpty());
         }
 
-        // The following methods may return null. Simply call them to make sure they do not
-        // throw any exceptions.
+        // The following methods may return any value depending on the state of the device. Simply
+        // call them to make sure they do not throw any exceptions.
         mTelephonyManager.getVoiceMailNumber();
         mTelephonyManager.getSimOperatorName();
         mTelephonyManager.getNetworkCountryIso();
@@ -160,21 +183,46 @@ public class TelephonyManagerTest extends AndroidTestCase {
         mTelephonyManager.getNeighboringCellInfo();
         mTelephonyManager.isNetworkRoaming();
         mTelephonyManager.getDeviceId();
-        mTelephonyManager.getDeviceId(mTelephonyManager.getDefaultSim());
+        mTelephonyManager.getDeviceId(mTelephonyManager.getSlotIndex());
         mTelephonyManager.getDeviceSoftwareVersion();
+        mTelephonyManager.getImei();
+        mTelephonyManager.getImei(mTelephonyManager.getSlotIndex());
         mTelephonyManager.getPhoneCount();
-
+        mTelephonyManager.getDataEnabled();
+        mTelephonyManager.getNetworkSpecifier();
         TelecomManager telecomManager = (TelecomManager) getContext()
-            .getSystemService(Context.TELECOM_SERVICE);
+                .getSystemService(Context.TELECOM_SERVICE);
         PhoneAccountHandle defaultAccount = telecomManager
-            .getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL);
+                .getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL);
         mTelephonyManager.getVoicemailRingtoneUri(defaultAccount);
         mTelephonyManager.isVoicemailVibrationEnabled(defaultAccount);
+        mTelephonyManager.getCarrierConfig();
+    }
+
+    @Test
+    public void testCreateForPhoneAccountHandle(){
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
+            return;
+        }
+        TelecomManager telecomManager = getContext().getSystemService(TelecomManager.class);
+        PhoneAccountHandle handle =
+                telecomManager.getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL);
+        TelephonyManager telephonyManager = mTelephonyManager.createForPhoneAccountHandle(handle);
+        assertEquals(mTelephonyManager.getSubscriberId(), telephonyManager.getSubscriberId());
+    }
+
+    @Test
+    public void testCreateForPhoneAccountHandle_InvalidHandle(){
+        PhoneAccountHandle handle =
+                new PhoneAccountHandle(new ComponentName("com.example.foo", "bar"), "baz");
+        assertNull(mTelephonyManager.createForPhoneAccountHandle(handle));
     }
 
     /**
      * Tests that the phone count returned is valid.
      */
+    @Test
     public void testGetPhoneCount() {
         int phoneCount = mTelephonyManager.getPhoneCount();
         int phoneType = mTelephonyManager.getPhoneType();
@@ -192,73 +240,55 @@ public class TelephonyManagerTest extends AndroidTestCase {
     }
 
     /**
-     * Tests that the device properly reports either a valid IMEI if
-     * GSM, a valid MEID or ESN if CDMA, or a valid MAC address if
-     * only a WiFi device.
+     * Tests that the device properly reports either a valid IMEI, MEID/ESN, or a valid MAC address
+     * if only a WiFi device. At least one of them must be valid.
      */
+    @Test
     public void testGetDeviceId() {
-        String deviceId = mTelephonyManager.getDeviceId();
-        verifyDeviceId(deviceId);
+        verifyDeviceId(mTelephonyManager.getDeviceId());
     }
 
     /**
-     * Tests that the device properly reports either a valid IMEI if
-     * GSM, a valid MEID or ESN if CDMA, or a valid MAC address if
-     * only a WiFi device.
+     * Tests that the device properly reports either a valid IMEI, MEID/ESN, or a valid MAC address
+     * if only a WiFi device. At least one of them must be valid.
      */
-    public void testGetDeviceIdForSlotId() {
-        String deviceId = mTelephonyManager.getDeviceId(mTelephonyManager.getDefaultSim());
+    @Test
+    public void testGetDeviceIdForSlot() {
+        String deviceId = mTelephonyManager.getDeviceId(mTelephonyManager.getSlotIndex());
         verifyDeviceId(deviceId);
-        // Also verify that no exception is thrown for any slot id (including invalid ones)
+        // Also verify that no exception is thrown for any slot index (including invalid ones)
         for (int i = -1; i <= mTelephonyManager.getPhoneCount(); i++) {
             mTelephonyManager.getDeviceId(i);
         }
     }
 
     private void verifyDeviceId(String deviceId) {
-        int phoneType = mTelephonyManager.getPhoneType();
-        switch (phoneType) {
-            case TelephonyManager.PHONE_TYPE_GSM:
-                assertGsmDeviceId(deviceId);
-                break;
-
-            case TelephonyManager.PHONE_TYPE_CDMA:
-                // LTE device is using IMEI as device id
-                if (mTelephonyManager.getLteOnCdmaMode() == PhoneConstants.LTE_ON_CDMA_TRUE) {
-                    assertGsmDeviceId(deviceId);
-                } else {
-                    assertCdmaDeviceId(deviceId);
-                }
-                break;
-
-            case TelephonyManager.PHONE_TYPE_NONE:
-                boolean nwSupported = mCm.isNetworkSupported(mCm.TYPE_WIFI);
-                PackageManager packageManager = getContext().getPackageManager();
-                // only check serial number & MAC address if device report wifi feature
-                if (packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
-                    assertSerialNumber();
-                    assertMacAddress(getWifiMacAddress());
-                } else if (mCm.getNetworkInfo(ConnectivityManager.TYPE_BLUETOOTH) != null) {
-                    assertSerialNumber();
-                    assertMacAddress(getBluetoothMacAddress());
-                } else {
-                    assertTrue(mCm.getNetworkInfo(ConnectivityManager.TYPE_ETHERNET) != null);
-                }
-                break;
-
-            default:
-                throw new IllegalArgumentException("Did you add a new phone type? " + phoneType);
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            // Either IMEI or MEID need to be valid.
+            try {
+                assertImei(deviceId);
+            } catch (AssertionError e) {
+                assertMeidEsn(deviceId);
+            }
+        } else if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            assertSerialNumber();
+            assertMacAddress(getWifiMacAddress());
+        } else if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
+            assertSerialNumber();
+            assertMacAddress(getBluetoothMacAddress());
+        } else if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_ETHERNET)) {
+            assertTrue(mCm.getNetworkInfo(ConnectivityManager.TYPE_ETHERNET) != null);
         }
     }
 
-    private static void assertGsmDeviceId(String deviceId) {
+    private static void assertImei(String id) {
         // IMEI may include the check digit
         String imeiPattern = "[0-9]{14,15}";
-        assertTrue("IMEI device id " + deviceId + " does not match pattern " + imeiPattern,
-                Pattern.matches(imeiPattern, deviceId));
-        if (deviceId.length() == 15) {
+        assertTrue("IMEI " + id + " does not match pattern " + imeiPattern,
+                Pattern.matches(imeiPattern, id));
+        if (id.length() == 15) {
             // if the ID is 15 digits, the 15th must be a check digit.
-            assertImeiCheckDigit(deviceId);
+            assertImeiCheckDigit(id);
         }
     }
 
@@ -299,14 +329,14 @@ public class TelephonyManagerTest extends AndroidTestCase {
         return sum == 0 ? 0 : 10 - sum;
     }
 
-    private static void assertCdmaDeviceId(String deviceId) {
+    private static void assertMeidEsn(String id) {
         // CDMA device IDs may either be a 14-hex-digit MEID or an
         // 8-hex-digit ESN.  If it's an ESN, it may not be a
         // pseudo-ESN.
-        if (deviceId.length() == 14) {
-            assertMeidFormat(deviceId);
-        } else if (deviceId.length() == 8) {
-            assertHexadecimalEsnFormat(deviceId);
+        if (id.length() == 14) {
+            assertMeidFormat(id);
+        } else if (id.length() == 8) {
+            assertHexadecimalEsnFormat(id);
         } else {
             fail("device id on CDMA must be 14-digit hex MEID or 8-digit hex ESN.");
         }
@@ -375,10 +405,10 @@ public class TelephonyManagerTest extends AndroidTestCase {
 
     private static final String ISO_COUNTRY_CODE_PATTERN = "[a-z]{2}";
 
+    @Test
     public void testGetNetworkCountryIso() {
-        PackageManager packageManager = getContext().getPackageManager();
         String countryCode = mTelephonyManager.getNetworkCountryIso();
-        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             assertTrue("Country code '" + countryCode + "' did not match "
                     + ISO_COUNTRY_CODE_PATTERN,
                     Pattern.matches(ISO_COUNTRY_CODE_PATTERN, countryCode));
@@ -387,15 +417,189 @@ public class TelephonyManagerTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetSimCountryIso() {
-        PackageManager packageManager = getContext().getPackageManager();
         String countryCode = mTelephonyManager.getSimCountryIso();
-        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             assertTrue("Country code '" + countryCode + "' did not match "
                     + ISO_COUNTRY_CODE_PATTERN,
                     Pattern.matches(ISO_COUNTRY_CODE_PATTERN, countryCode));
         } else {
             // Non-telephony may still have the property defined if it has a SIM.
         }
+    }
+
+    @Test
+    public void testGetServiceState() throws InterruptedException {
+        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
+            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+            return;
+        }
+
+        TestThread t = new TestThread(new Runnable() {
+            public void run() {
+                Looper.prepare();
+
+                mListener = new PhoneStateListener() {
+                    @Override
+                    public void onServiceStateChanged(ServiceState serviceState) {
+                        synchronized (mLock) {
+                            mServiceState = serviceState;
+                            mLock.notify();
+                        }
+                    }
+                };
+                mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_SERVICE_STATE);
+                Looper.loop();
+            }
+        });
+        t.start();
+        synchronized (mLock) {
+            mLock.wait(TOLERANCE);
+        }
+
+        assertEquals(mServiceState, mTelephonyManager.getServiceState());
+    }
+
+    /**
+     * Tests that the device properly reports either a valid IMEI or null.
+     */
+    @Test
+    public void testGetImei() {
+        String imei = mTelephonyManager.getImei();
+
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            if (!TextUtils.isEmpty(imei)) {
+                assertImei(imei);
+            } else {
+                // If IMEI is empty, then MEID must not be empty. A phone should have either a
+                // IMEI or MEID. The validation of MEID will be checked by testGetMeid().
+                assertFalse(TextUtils.isEmpty(mTelephonyManager.getMeid()));
+            }
+        }
+    }
+
+    /**
+     * Tests that the device properly reports either a valid IMEI or null.
+     */
+    @Test
+    public void testGetImeiForSlot() {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        for (int i = 0; i < mTelephonyManager.getPhoneCount(); i++) {
+            String imei = mTelephonyManager.getImei(i);
+            if (!TextUtils.isEmpty(imei)) {
+                assertImei(imei);
+            }
+        }
+
+        // Also verify that no exception is thrown for any slot index (including invalid ones)
+        mTelephonyManager.getImei(-1);
+        mTelephonyManager.getImei(mTelephonyManager.getPhoneCount());
+    }
+
+    /**
+     * Tests that the device properly reports either a valid MEID or null.
+     */
+    @Test
+    public void testGetMeid() {
+        String meid = mTelephonyManager.getMeid();
+
+        if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            if (!TextUtils.isEmpty(meid)) {
+                assertImei(meid);
+            } else {
+                // If MEID is empty, then IMEI must not be empty. A phone should have either a
+                // IMEI or MEID. The validation of IMEI will be checked by testGetImei().
+                assertFalse(TextUtils.isEmpty(mTelephonyManager.getImei()));
+            }
+        }
+    }
+
+    /**
+     * Tests that the device properly reports either a valid MEID or null.
+     */
+    @Test
+    public void testGetMeidForSlot() {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        for (int i = 0; i < mTelephonyManager.getPhoneCount(); i++) {
+            String meid = mTelephonyManager.getMeid(i);
+            if (!TextUtils.isEmpty(meid)) {
+                assertMeidEsn(meid);
+            }
+        }
+
+        // Also verify that no exception is thrown for any slot index (including invalid ones)
+        mTelephonyManager.getMeid(-1);
+        mTelephonyManager.getMeid(mTelephonyManager.getPhoneCount());
+    }
+
+    /**
+     * Tests sendDialerSpecialCode API.
+     * Expects a security exception since the caller does not have carrier privileges or is not the
+     * current default dialer app.
+     */
+    @Test
+    public void testSendDialerSpecialCode() {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
+            return;
+        }
+        try {
+            mTelephonyManager.sendDialerSpecialCode("4636");
+            fail("Expected SecurityException. App does not have carrier privileges or is not the "
+                    + "default dialer app");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    /**
+     * Tests that the device properly reports the contents of EF_FPLMN or null
+     */
+    @Test
+    public void testGetForbiddenPlmns() {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+        String[] plmns = mTelephonyManager.getForbiddenPlmns();
+
+        int phoneType = mTelephonyManager.getPhoneType();
+        switch (phoneType) {
+            case TelephonyManager.PHONE_TYPE_GSM:
+                assertNotNull("Forbidden PLMNs must be valid or an empty list!", plmns);
+            case TelephonyManager.PHONE_TYPE_CDMA:
+            case TelephonyManager.PHONE_TYPE_NONE:
+                if (plmns == null) {
+                    return;
+                }
+        }
+
+        for(String plmn : plmns) {
+            if (plmn.length() > 6 || plmn.length() < 5) {
+                fail("Invalid Length for PLMN-ID, must be 5 or 6: " + plmn);
+            }
+
+            // A record which is written in the SIM but empty will
+            // be all f's
+            if(android.text.TextUtils.isDigitsOnly(plmn)) {
+                assertTrue(
+                        "PLMNs must be strings of digits 0-9,F! " + plmn,
+                        android.text.TextUtils.isDigitsOnly(plmn));
+            } else {
+                for (char c : plmn.toUpperCase().toCharArray()) {
+                    assertTrue("PLMNs must be strings of digits 0-9,F! " + plmn,
+                            Character.toUpperCase(c) == 'F');
+                }
+            }
+        }
+    }
+
+    private static Context getContext() {
+        return InstrumentationRegistry.getContext();
     }
 }

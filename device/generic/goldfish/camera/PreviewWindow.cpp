@@ -31,7 +31,6 @@ namespace android {
 
 PreviewWindow::PreviewWindow()
     : mPreviewWindow(NULL),
-      mLastPreviewed(0),
       mPreviewFrameWidth(0),
       mPreviewFrameHeight(0),
       mPreviewEnabled(false)
@@ -56,18 +55,13 @@ status_t PreviewWindow::setPreviewWindow(struct preview_stream_ops* window,
 
     /* Reset preview info. */
     mPreviewFrameWidth = mPreviewFrameHeight = 0;
-    mPreviewAfter = 0;
-    mLastPreviewed = 0;
 
     if (window != NULL) {
         /* The CPU will write each frame to the preview window buffer.
          * Note that we delay setting preview window buffer geometry until
          * frames start to come in. */
         res = window->set_usage(window, GRALLOC_USAGE_SW_WRITE_OFTEN);
-        if (res == NO_ERROR) {
-            /* Set preview frequency. */
-            mPreviewAfter = 1000000 / preview_fps;
-        } else {
+        if (res != NO_ERROR) {
             window = NULL;
             res = -res; // set_usage returns a negative errno.
             ALOGE("%s: Error setting preview window usage %d -> %s",
@@ -101,14 +95,13 @@ void PreviewWindow::stopPreview()
  * Public API
  ***************************************************************************/
 
-void PreviewWindow::onNextFrameAvailable(const void* frame,
-                                         nsecs_t timestamp,
+void PreviewWindow::onNextFrameAvailable(nsecs_t timestamp,
                                          EmulatedCameraDevice* camera_dev)
 {
     int res;
     Mutex::Autolock locker(&mObjectLock);
 
-    if (!isPreviewEnabled() || mPreviewWindow == NULL || !isPreviewTime()) {
+    if (!isPreviewEnabled() || mPreviewWindow == NULL) {
         return;
     }
 
@@ -199,18 +192,6 @@ bool PreviewWindow::adjustPreviewDimensions(EmulatedCameraDevice* camera_dev)
     mPreviewFrameHeight = camera_dev->getFrameHeight();
 
     return true;
-}
-
-bool PreviewWindow::isPreviewTime()
-{
-    timeval cur_time;
-    gettimeofday(&cur_time, NULL);
-    const uint64_t cur_mks = cur_time.tv_sec * 1000000LL + cur_time.tv_usec;
-    if ((cur_mks - mLastPreviewed) >= mPreviewAfter) {
-        mLastPreviewed = cur_mks;
-        return true;
-    }
-    return false;
 }
 
 }; /* namespace android */

@@ -479,10 +479,10 @@ static void WriteModuleInfo(const Module *M,
     Vals.push_back(GV.hasSection() ? SectionMap[GV.getSection()] : 0);
     if (GV.isThreadLocal() ||
         GV.getVisibility() != GlobalValue::DefaultVisibility ||
-        GV.hasUnnamedAddr()) {
+        GV.getUnnamedAddr() != GlobalValue::UnnamedAddr::None) {
       Vals.push_back(getEncodedVisibility(GV));
       Vals.push_back(GV.isThreadLocal());
-      Vals.push_back(GV.hasUnnamedAddr());
+      Vals.push_back(GV.getUnnamedAddr() != GlobalValue::UnnamedAddr::None);
     } else {
       AbbrevToUse = SimpleGVarAbbrev;
     }
@@ -504,7 +504,7 @@ static void WriteModuleInfo(const Module *M,
     Vals.push_back(F.hasSection() ? SectionMap[F.getSection()] : 0);
     Vals.push_back(getEncodedVisibility(F));
     Vals.push_back(F.hasGC() ? GCMap[F.getGC()] : 0);
-    Vals.push_back(F.hasUnnamedAddr());
+    Vals.push_back(F.getUnnamedAddr() != GlobalValue::UnnamedAddr::None);
 
     unsigned AbbrevToUse = 0;
     Stream.EmitRecord(bitc::MODULE_CODE_FUNCTION, Vals, AbbrevToUse);
@@ -609,7 +609,7 @@ static void WriteModuleMetadata(const Module *M,
   if (VE.hasMDString()) {
     // Abbrev for METADATA_STRING.
     BitCodeAbbrev *Abbv = new BitCodeAbbrev();
-    Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_STRING));
+    Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_STRING_OLD));
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8));
     MDSAbbrev = Stream.EmitAbbrev(Abbv);
@@ -667,7 +667,7 @@ static void WriteModuleMetadata(const Module *M,
     Record.append(MDS->bytes_begin(), MDS->bytes_end());
 
     // Emit the finished record.
-    Stream.EmitRecord(bitc::METADATA_STRING, Record, MDSAbbrev);
+    Stream.EmitRecord(bitc::METADATA_STRING_OLD, Record, MDSAbbrev);
     Record.clear();
   }
 

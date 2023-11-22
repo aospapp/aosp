@@ -35,13 +35,13 @@ class Edimax6475ndAPConfigurator(
             sub_tabs[3].click()
         if page_number == 1:
             # Open the general settings page.
-            self.click_button_by_xpath('//input[@onclick="c_fun(0)" and
-                                        @name="sys"]')
+            self.click_button_by_xpath('//input[@onclick="c_fun(0)" and '
+                                       '@name="sys"]')
             self.wait_for_object_by_xpath('//select[@name="band"]')
         else:
             # Open the security settings page.
-            self.click_button_by_xpath('//input[@onclick="c_fun(1)" and
-                                       @name="sys"]')
+            self.click_button_by_xpath('//input[@onclick="c_fun(1)" and '
+                                       '@name="sys"]')
             self.wait_for_object_by_xpath('//select[@name="method"]')
 
 

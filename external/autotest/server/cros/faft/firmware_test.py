@@ -11,7 +11,6 @@ import re
 import time
 import uuid
 
-from threading import Timer
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
@@ -21,7 +20,6 @@ from autotest_lib.server.cros.faft.rpc_proxy import RPCProxy
 from autotest_lib.server.cros.faft.utils import mode_switcher
 from autotest_lib.server.cros.faft.utils.faft_checkers import FAFTCheckers
 from autotest_lib.server.cros.servo import chrome_ec
-from autotest_lib.server.cros.servo import chrome_usbpd
 
 ConnectionError = mode_switcher.ConnectionError
 
@@ -140,7 +138,7 @@ class FirmwareTest(FAFTBase):
             self.ec = chrome_ec.ChromeEC(self.servo)
         # Check for presence of a USBPD console
         if self.faft_config.chrome_usbpd:
-            self.usbpd = chrome_usbpd.ChromeUSBPD(self.servo)
+            self.usbpd = chrome_ec.ChromeUSBPD(self.servo)
         elif self.faft_config.chrome_ec:
             # If no separate USBPD console, then PD exists on EC console
             self.usbpd = self.ec
@@ -581,9 +579,14 @@ class FirmwareTest(FAFTBase):
 
         @param enable: True if asserting write protect pin. Otherwise, False.
         """
-        self.servo.set('fw_wp_vref', self.faft_config.wp_voltage)
-        self.servo.set('fw_wp_en', 'on')
-        self.servo.set('fw_wp', 'on' if enable else 'off')
+        try:
+            self.servo.set('fw_wp_state', 'force_on' if enable else 'force_off')
+        except:
+            # TODO(waihong): Remove this fallback when all servos have the
+            # above new fw_wp_state control.
+            self.servo.set('fw_wp_vref', self.faft_config.wp_voltage)
+            self.servo.set('fw_wp_en', 'on')
+            self.servo.set('fw_wp', 'on' if enable else 'off')
 
     def set_ec_write_protect_and_reboot(self, enable):
         """Set EC write protect status and reboot to take effect.
@@ -662,8 +665,17 @@ class FirmwareTest(FAFTBase):
         """Setup the CPU/EC/PD UART capture."""
         self.cpu_uart_file = os.path.join(self.resultsdir, 'cpu_uart.txt')
         self.servo.set('cpu_uart_capture', 'on')
+        self.cr50_console_file = None
         self.ec_uart_file = None
         self.usbpd_uart_file = None
+        try:
+            self.servo.set('cr50_console_capture', 'on')
+            self.cr50_console_file = os.path.join(self.resultsdir,
+                                                  'cr50_console.txt')
+            self.cr50 = chrome_ec.ChromeCr50(self.servo)
+        except error.TestFail as e:
+            if 'No control named' in str(e):
+                logging.warn('cr50 console not supported.')
         if self.faft_config.chrome_ec:
             try:
                 self.servo.set('ec_uart_capture', 'on')
@@ -690,6 +702,9 @@ class FirmwareTest(FAFTBase):
         if self.cpu_uart_file:
             with open(self.cpu_uart_file, 'a') as f:
                 f.write(ast.literal_eval(self.servo.get('cpu_uart_stream')))
+        if self.cr50_console_file:
+            with open(self.cr50_console_file, 'a') as f:
+                f.write(ast.literal_eval(self.servo.get('cr50_console_stream')))
         if self.ec_uart_file and self.faft_config.chrome_ec:
             with open(self.ec_uart_file, 'a') as f:
                 f.write(ast.literal_eval(self.servo.get('ec_uart_stream')))
@@ -703,6 +718,8 @@ class FirmwareTest(FAFTBase):
         # Flush the remaining UART output.
         self._record_uart_capture()
         self.servo.set('cpu_uart_capture', 'off')
+        if self.cr50_console_file:
+            self.servo.set('cr50_console_capture', 'off')
         if self.ec_uart_file and self.faft_config.chrome_ec:
             self.servo.set('ec_uart_capture', 'off')
         if (self.usbpd_uart_file and self.faft_config.chrome_ec and
@@ -726,7 +743,7 @@ class FirmwareTest(FAFTBase):
         logging.info('Checking power state "%s" maximum %d times.',
                      power_state, retries)
         while retries > 0:
-            logging.info("try count: %d" % retries)
+            logging.info("try count: %d", retries)
             try:
                 retries = retries - 1
                 ret = self._get_power_state(power_state)
@@ -735,41 +752,11 @@ class FirmwareTest(FAFTBase):
                 pass
         return False
 
-    def delayed(seconds):
-        def decorator(f):
-            def wrapper(*args, **kargs):
-                t = Timer(seconds, f, args, kargs)
-                t.start()
-            return wrapper
-        return decorator
-
-    @delayed(WAKE_DELAY)
-    def wake_by_power_button(self):
-        """Delay by WAKE_DELAY seconds and then wake DUT with power button."""
-        self.servo.power_normal_press()
-
-    @delayed(WAKE_DELAY)
-    def wake_by_lid_switch(self):
-        """Delay by WAKE_DELAY seconds and then wake DUT with lid switch."""
-        self.servo.set('lid_open', 'no')
-        time.sleep(self.LID_DELAY)
-        self.servo.set('lid_open', 'yes')
-
-    def suspend_as_reboot(self, wake_func):
-        """
-        Suspend DUT and also kill FAFT client so that this acts like a reboot.
-
-        Args:
-          wake_func: A function that is called to wake DUT. Note that this
-            function must delay itself so that we don't wake DUT before
-            suspend_as_reboot returns.
-        """
+    def suspend(self):
+        """Suspends the DUT."""
         cmd = '(sleep %d; powerd_dbus_suspend) &' % self.EC_SUSPEND_DELAY
         self.faft_client.system.run_shell_command(cmd)
-        self.faft_client.disconnect()
         time.sleep(self.EC_SUSPEND_DELAY)
-        logging.info("wake function disabled")
-        wake_func()
 
     def _fetch_servo_log(self):
         """Fetch the servo log."""
@@ -1072,7 +1059,7 @@ class FirmwareTest(FAFTBase):
         if not callable(action):
             raise error.TestError('action is not callable!')
 
-        info_msg = 'calling %s' % str(action)
+        info_msg = 'calling %s' % action.__name__
         if args:
             info_msg += ' with args %s' % str(args)
         logging.info(info_msg)
@@ -1084,13 +1071,14 @@ class FirmwareTest(FAFTBase):
         return ret
 
     def run_shutdown_process(self, shutdown_action, pre_power_action=None,
-            run_power_action=True, post_power_action=None, shutdown_timeout=None):
+                             run_power_action=True, post_power_action=None,
+                             shutdown_timeout=None):
         """Run shutdown_action(), which makes DUT shutdown, and power it on.
 
         @param shutdown_action: function which makes DUT shutdown, like
                                 pressing power key.
         @param pre_power_action: function which is called before next power on.
-        @param power_action: power_key press by default, set to None to skip.
+        @param run_power_action: power_key press by default, set to None to skip.
         @param post_power_action: function which is called after next power on.
         @param shutdown_timeout: a timeout to confirm DUT shutdown.
         @raise TestFail: if the shutdown_action() failed to turn DUT off.
@@ -1103,7 +1091,7 @@ class FirmwareTest(FAFTBase):
             self.switcher.wait_for_client(timeout=shutdown_timeout)
             raise error.TestFail(
                     'Should shut the device down after calling %s.' %
-                    str(shutdown_action))
+                    shutdown_action.__name__)
         except ConnectionError:
             logging.info(
                 'DUT is surely shutdown. We are going to power it on again...')
@@ -1243,18 +1231,15 @@ class FirmwareTest(FAFTBase):
         logging.info('Successfully restore firmware.')
 
     def setup_firmwareupdate_shellball(self, shellball=None):
-        """Deside a shellball to use in firmware update test.
+        """Setup a shellball to use in firmware update test.
 
         Check if there is a given shellball, and it is a shell script. Then,
-        send it to the remote host. Otherwise, use
-        /usr/sbin/chromeos-firmwareupdate.
+        send it to the remote host. Otherwise, use the
+        /usr/sbin/chromeos-firmwareupdate in the image and replace its inside
+        BIOS and EC images with the active firmware images.
 
         @param shellball: path of a shellball or default to None.
-
-        @return: Path of shellball in remote host. If use default shellball,
-                 reutrn None.
         """
-        updater_path = None
         if shellball:
             # Determine the firmware file is a shellball or a raw binary.
             is_shellball = (utils.system_output("file %s" % shellball).find(
@@ -1262,15 +1247,24 @@ class FirmwareTest(FAFTBase):
             if is_shellball:
                 logging.info('Device will update firmware with shellball %s',
                              shellball)
-                temp_dir = self.faft_client.system.create_temp_dir(
-                            'shellball_')
-                temp_shellball = os.path.join(temp_dir, 'updater.sh')
-                self._client.send_file(shellball, temp_shellball)
-                updater_path = temp_shellball
+                temp_path = self.faft_client.updater.get_temp_path()
+                working_shellball = os.path.join(temp_path,
+                                                 'chromeos-firmwareupdate')
+                self._client.send_file(shellball, working_shellball)
+                self.faft_client.updater.extract_shellball()
             else:
                 raise error.TestFail(
                     'The given shellball is not a shell script.')
-            return updater_path
+        else:
+            logging.info('No shellball given, use the original shellball and '
+                         'replace its BIOS and EC images.')
+            work_path = self.faft_client.updater.get_work_path()
+            bios_in_work_path = os.path.join(work_path, 'bios.bin')
+            ec_in_work_path = os.path.join(work_path, 'ec.bin')
+            self.faft_client.bios.dump_whole(bios_in_work_path)
+            if self.faft_config.chrome_ec:
+                self.faft_client.ec.dump_firmware(ec_in_work_path)
+            self.faft_client.updater.repack_shellball()
 
     def is_kernel_changed(self):
         """Check if the current kernel is changed, by comparing its SHA1 hash.

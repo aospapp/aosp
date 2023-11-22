@@ -30,7 +30,8 @@ import android.util.Log;
 public class CallLogChangeReceiver extends BroadcastReceiver {
     private static final String TAG = "CallLogChangeReceiver";
     private static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
-    private static final String ACTION_CALL_LOG_CHANGE = "android.intent.action.CALL_LOG_CHANGE";
+    private static final String ACTION_CALL_LOG_CHANGE =
+            "com.android.internal.action.CALL_LOG_CHANGE";
 
     /** ${inheritDoc} */
     @Override

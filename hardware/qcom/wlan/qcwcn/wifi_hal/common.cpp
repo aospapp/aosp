@@ -17,12 +17,12 @@
 #include <stdlib.h>
 #include <linux/pkt_sched.h>
 #include <netlink/object-api.h>
-#include <netlink-types.h>
+#include <netlink-private/object-api.h>
+#include <netlink-private/types.h>
 #include <dlfcn.h>
 
 #include "wifi_hal.h"
 #include "common.h"
-#include <netlink-types.h>
 
 interface_info *getIfaceInfo(wifi_interface_handle handle)
 {

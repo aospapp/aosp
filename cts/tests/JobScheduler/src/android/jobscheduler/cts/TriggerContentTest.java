@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
  */
 @TargetApi(23)
 public class TriggerContentTest extends ConstraintTest {
-    public static final int TRIGGER_CONTENT_JOB_ID = ConnectivityConstraintTest.class.hashCode();
+    public static final int TRIGGER_CONTENT_JOB_ID = TriggerContentTest.class.hashCode();
 
     // The root URI of the media provider, to monitor for generic changes to its content.
     static final Uri MEDIA_URI = Uri.parse("content://" + MediaStore.AUTHORITY + "/");
@@ -120,7 +120,7 @@ public class TriggerContentTest extends ConstraintTest {
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         super.tearDown();
         for (int i=0; i<mActiveFiles.length; i++) {
             cleanupActive(i);
@@ -243,8 +243,8 @@ public class TriggerContentTest extends ConstraintTest {
         JobInfo triggerJob = makeJobInfo(uribase,
                 JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS);
         kTriggerTestEnvironment.setExpectedExecutions(1);
-        kTriggerTestEnvironment.setMode(TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT,
-                triggerJob);
+        kTriggerTestEnvironment.setMode(
+                TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT_RESCHEDULE, triggerJob);
         mJobScheduler.schedule(triggerJob);
 
         // Report changes.
@@ -290,8 +290,8 @@ public class TriggerContentTest extends ConstraintTest {
         // Start watching.
         JobInfo triggerJob = makeJobInfo(uribase, 0);
         kTriggerTestEnvironment.setExpectedExecutions(1);
-        kTriggerTestEnvironment.setMode(TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT,
-                triggerJob);
+        kTriggerTestEnvironment.setMode(
+                TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT_RESCHEDULE, triggerJob);
         mJobScheduler.schedule(triggerJob);
 
         // Report changes.
@@ -327,12 +327,78 @@ public class TriggerContentTest extends ConstraintTest {
         assertEquals(DummyJobContentProvider.AUTHORITY, auths[0]);
     }
 
-    public void testPhotoAdded() throws Exception {
+    public void testPhotoAdded_Reschedule() throws Exception {
         JobInfo triggerJob = makePhotosJobInfo();
 
         kTriggerTestEnvironment.setExpectedExecutions(1);
-        kTriggerTestEnvironment.setMode(TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT,
+        kTriggerTestEnvironment.setMode(
+                TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT_RESCHEDULE, triggerJob);
+        mJobScheduler.schedule(triggerJob);
+
+        // Create a file that our job should see.
+        makeActiveFile(0, new File(DCIM_DIR, PIC_1_NAME),
+                getContext().getResources().getAssets().open("violet.jpg"));
+        assertNotNull(mActiveUris[0]);
+
+        // Wait for the job to wake up with the change and verify it.
+        boolean executed = kTriggerTestEnvironment.awaitExecution();
+        kTriggerTestEnvironment.setExpectedExecutions(1);
+        assertTrue("Timed out waiting for trigger content.", executed);
+        JobParameters params = kTriggerTestEnvironment.getLastJobParameters();
+        Uri[] uris = params.getTriggeredContentUris();
+        assertUriArrayLength(1, uris);
+        assertEquals(mActiveUris[0], uris[0]);
+        String[] auths = params.getTriggeredContentAuthorities();
+        assertEquals(1, auths.length);
+        assertEquals(MediaStore.AUTHORITY, auths[0]);
+
+        // While the job is still running, create another file it should see.
+        // (This tests that it will see changes that happen before the next job
+        // is scheduled.)
+        makeActiveFile(1, new File(DCIM_DIR, PIC_2_NAME),
+                getContext().getResources().getAssets().open("violet.jpg"));
+        assertNotNull(mActiveUris[1]);
+
+        // Wait for the job to wake up and verify it saw the change.
+        executed = kTriggerTestEnvironment.awaitExecution();
+        assertTrue("Timed out waiting for trigger content.", executed);
+        params = kTriggerTestEnvironment.getLastJobParameters();
+        uris = params.getTriggeredContentUris();
+        assertUriArrayLength(1, uris);
+        assertEquals(mActiveUris[1], uris[0]);
+        auths = params.getTriggeredContentAuthorities();
+        assertEquals(1, auths.length);
+        assertEquals(MediaStore.AUTHORITY, auths[0]);
+
+        // Schedule a new job to look at what we see when deleting the files.
+        kTriggerTestEnvironment.setExpectedExecutions(1);
+        kTriggerTestEnvironment.setMode(TriggerContentJobService.TestEnvironment.MODE_ONESHOT,
                 triggerJob);
+        mJobScheduler.schedule(triggerJob);
+
+        // Delete the files.  Note that this will result in a general change, not for specific URIs.
+        cleanupActive(0);
+        cleanupActive(1);
+
+        // Wait for the job to wake up and verify it saw the change.
+        executed = kTriggerTestEnvironment.awaitExecution();
+        assertTrue("Timed out waiting for trigger content.", executed);
+        params = kTriggerTestEnvironment.getLastJobParameters();
+        uris = params.getTriggeredContentUris();
+        assertUriArrayLength(1, uris);
+        assertEquals(MEDIA_EXTERNAL_URI, uris[0]);
+        auths = params.getTriggeredContentAuthorities();
+        assertEquals(1, auths.length);
+        assertEquals(MediaStore.AUTHORITY, auths[0]);
+    }
+
+    // Doesn't work.  Should it?
+    public void xxxtestPhotoAdded_FinishTrue() throws Exception {
+        JobInfo triggerJob = makePhotosJobInfo();
+
+        kTriggerTestEnvironment.setExpectedExecutions(1);
+        kTriggerTestEnvironment.setMode(
+                TriggerContentJobService.TestEnvironment.MODE_ONE_REPEAT_FINISH_TRUE, triggerJob);
         mJobScheduler.schedule(triggerJob);
 
         // Create a file that our job should see.

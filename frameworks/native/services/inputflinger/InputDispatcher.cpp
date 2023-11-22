@@ -45,16 +45,16 @@
 
 #include "InputDispatcher.h"
 
-#include <utils/Trace.h>
-#include <cutils/log.h>
-#include <powermanager/PowerManager.h>
-#include <ui/Region.h>
-
-#include <stddef.h>
-#include <unistd.h>
 #include <errno.h>
 #include <limits.h>
+#include <stddef.h>
 #include <time.h>
+#include <unistd.h>
+
+#include <log/log.h>
+#include <utils/Trace.h>
+#include <powermanager/PowerManager.h>
+#include <ui/Region.h>
 
 #define INDENT "  "
 #define INDENT2 "    "
@@ -902,7 +902,7 @@ void InputDispatcher::logOutboundMotionDetailsLocked(const char* prefix, const M
         ALOGD("  Pointer %d: id=%d, toolType=%d, "
                 "x=%f, y=%f, pressure=%f, size=%f, "
                 "touchMajor=%f, touchMinor=%f, toolMajor=%f, toolMinor=%f, "
-                "orientation=%f, relativeX=%f, relativeY=%f",
+                "orientation=%f",
                 i, entry->pointerProperties[i].id,
                 entry->pointerProperties[i].toolType,
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_X),
@@ -913,9 +913,7 @@ void InputDispatcher::logOutboundMotionDetailsLocked(const char* prefix, const M
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_TOUCH_MINOR),
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_TOOL_MAJOR),
                 entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_TOOL_MINOR),
-                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_ORIENTATION),
-                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X),
-                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y));
+                entry->pointerCoords[i].getAxisValue(AMOTION_EVENT_AXIS_ORIENTATION));
     }
 #endif
 }
@@ -1174,10 +1172,11 @@ int32_t InputDispatcher::findTouchedWindowTargetsLocked(nsecs_t currentTime,
     bool wrongDevice = false;
     if (newGesture) {
         bool down = maskedAction == AMOTION_EVENT_ACTION_DOWN;
-        if (switchedDevice && mTempTouchState.down && !down) {
+        if (switchedDevice && mTempTouchState.down && !down && !isHoverAction) {
 #if DEBUG_FOCUS
             ALOGD("Dropping event because a pointer for a different device is already down.");
 #endif
+            // TODO: test multiple simultaneous input streams.
             injectionResult = INPUT_EVENT_INJECTION_FAILED;
             switchedDevice = false;
             wrongDevice = true;
@@ -1189,6 +1188,15 @@ int32_t InputDispatcher::findTouchedWindowTargetsLocked(nsecs_t currentTime,
         mTempTouchState.source = entry->source;
         mTempTouchState.displayId = displayId;
         isSplit = false;
+    } else if (switchedDevice && maskedAction == AMOTION_EVENT_ACTION_MOVE) {
+#if DEBUG_FOCUS
+        ALOGI("Dropping move event because a pointer for a different device is already active.");
+#endif
+        // TODO: test multiple simultaneous input streams.
+        injectionResult = INPUT_EVENT_INJECTION_PERMISSION_DENIED;
+        switchedDevice = false;
+        wrongDevice = true;
+        goto Failed;
     }
 
     if (newGesture || (isSplit && maskedAction == AMOTION_EVENT_ACTION_POINTER_DOWN)) {
@@ -1224,15 +1232,8 @@ int32_t InputDispatcher::findTouchedWindowTargetsLocked(nsecs_t currentTime,
 
                 if (maskedAction == AMOTION_EVENT_ACTION_DOWN
                         && (flags & InputWindowInfo::FLAG_WATCH_OUTSIDE_TOUCH)) {
-                    int32_t outsideTargetFlags = InputTarget::FLAG_DISPATCH_AS_OUTSIDE;
-                    if (isWindowObscuredAtPointLocked(windowHandle, x, y)) {
-                        outsideTargetFlags |= InputTarget::FLAG_WINDOW_IS_OBSCURED;
-                    } else if (isWindowObscuredLocked(windowHandle)) {
-                        outsideTargetFlags |= InputTarget::FLAG_WINDOW_IS_PARTIALLY_OBSCURED;
-                    }
-
                     mTempTouchState.addOrUpdateWindow(
-                            windowHandle, outsideTargetFlags, BitSet32(0));
+                            windowHandle, InputTarget::FLAG_DISPATCH_AS_OUTSIDE, BitSet32(0));
                 }
             }
         }
@@ -2425,7 +2426,7 @@ void InputDispatcher::notifyKey(const NotifyKeyArgs* args) {
             struct KeyReplacement replacement = {keyCode, args->deviceId};
             mReplacedKeys.add(replacement, newKeyCode);
             keyCode = newKeyCode;
-            metaState &= ~AMETA_META_ON;
+            metaState &= ~(AMETA_META_ON | AMETA_META_LEFT_ON | AMETA_META_RIGHT_ON);
         }
     } else if (args->action == AKEY_EVENT_ACTION_UP) {
         // In order to maintain a consistent stream of up and down events, check to see if the key
@@ -2437,7 +2438,7 @@ void InputDispatcher::notifyKey(const NotifyKeyArgs* args) {
         if (index >= 0) {
             keyCode = mReplacedKeys.valueAt(index);
             mReplacedKeys.removeItemsAt(index);
-            metaState &= ~AMETA_META_ON;
+            metaState &= ~(AMETA_META_ON | AMETA_META_LEFT_ON | AMETA_META_RIGHT_ON);
         }
     }
 

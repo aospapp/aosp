@@ -142,7 +142,7 @@ developers must implement the interfaces specified in IDrmEngine and the
 listener interfaces specified below. The interface definition is available in
 the source tree at:<p/>
 <code>
-&lt;platform_root&gt;/frameworks/base/drm/libdrmframework/plugins/common/include
+&lt;platform_root&gt;/frameworks/av/drm/libdrmframework/plugins/common/include
 </code>
 
 <h3 id="DrmInfo">DRM Info</h3>
@@ -235,11 +235,11 @@ transactions.</li>
 
 <h3 id="source">Source</h3>
 
-<p>The Android DRM framework includes a passthru plug-in as a sample plug-in.
-The implementation for passthru plug-in can be found in the Android source tree
-at:<br/>
+<p>The Android DRM framework includes a couple of samples, a passthru plug-in
+and a forward lock plug-in, which can be found at:<br/>
 <code>
-&lt;platform_root&gt;/frameworks/base/drm/libdrmframework/plugins/passthru
+&lt;platform_root&gt;/frameworks/av/drm/libdrmframework/plugins/passthru<br/>
+&lt;platform_root&gt;/frameworks/av/drm/libdrmframework/plugins/forward-lock
 </code></p>
 
 <h3 id="build">Build and Integration</h3>

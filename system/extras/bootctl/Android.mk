@@ -3,10 +3,13 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := bootctl.c
-LOCAL_SHARED_LIBRARIES := libhardware
+LOCAL_SRC_FILES := bootctl.cpp
 LOCAL_MODULE := bootctl
-LOCAL_C_INCLUDES = hardware/libhardware/include
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_SHARED_LIBRARIES := \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
+    libutils \
+    android.hardware.boot@1.0 \
 
 include $(BUILD_EXECUTABLE)

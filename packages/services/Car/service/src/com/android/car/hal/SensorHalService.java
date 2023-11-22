@@ -16,20 +16,23 @@
 
 package com.android.car.hal;
 
+import static java.lang.Integer.toHexString;
+
+import android.annotation.Nullable;
 import android.car.hardware.CarSensorEvent;
 import android.car.hardware.CarSensorManager;
-import android.os.ServiceSpecificException;
+import android.hardware.automotive.vehicle.V2_0.VehicleGear;
+import android.hardware.automotive.vehicle.V2_0.VehicleIgnitionState;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.util.Log;
-import android.util.SparseArray;
-
+import android.util.SparseIntArray;
 import com.android.car.CarLog;
 import com.android.car.CarSensorEventFactory;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropAccess;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropChangeMode;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropConfig;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
-
 import java.io.PrintWriter;
 import java.util.LinkedList;
 import java.util.List;
@@ -38,54 +41,79 @@ import java.util.List;
  * Sensor HAL implementation for physical sensors in car.
  */
 public class SensorHalService extends SensorHalServiceBase {
-
+    private static final String TAG = CarLog.concatTag(CarLog.TAG_SENSOR, SensorHalService.class);
     private static final boolean DBG_EVENTS = false;
 
-    private static final int SENSOR_TYPE_INVALD = -1;
+    /**
+     * Listener for monitoring sensor event. Only sensor service will implement this.
+     */
+    public interface SensorListener {
+        /**
+         * Sensor events are available.
+         * @param events
+         */
+        void onSensorEvents(List<CarSensorEvent> events);
+    }
 
-    private final VehicleHal mHal;
-    private boolean mIsReady = false;
-    private SensorHalServiceBase.SensorListener mSensorListener;
-    private final SparseArray<VehiclePropConfig> mSensorToHalProperty =
-            new SparseArray<VehiclePropConfig>();
+    // Manager property Id to HAL property Id mapping.
+    private final static ManagerToHalPropIdMap mManagerToHalPropIdMap =
+            ManagerToHalPropIdMap.create(
+                    CarSensorManager.SENSOR_TYPE_CAR_SPEED, VehicleProperty.PERF_VEHICLE_SPEED,
+                    CarSensorManager.SENSOR_TYPE_RPM, VehicleProperty.ENGINE_RPM,
+                    CarSensorManager.SENSOR_TYPE_ODOMETER, VehicleProperty.PERF_ODOMETER,
+                    CarSensorManager.SENSOR_TYPE_GEAR, VehicleProperty.GEAR_SELECTION,
+                    CarSensorManager.SENSOR_TYPE_NIGHT, VehicleProperty.NIGHT_MODE,
+                    CarSensorManager.SENSOR_TYPE_PARKING_BRAKE, VehicleProperty.PARKING_BRAKE_ON,
+                    CarSensorManager.SENSOR_TYPE_DRIVING_STATUS, VehicleProperty.DRIVING_STATUS,
+                    CarSensorManager.SENSOR_TYPE_FUEL_LEVEL, VehicleProperty.FUEL_LEVEL_LOW,
+                    CarSensorManager.SENSOR_TYPE_IGNITION_STATE, VehicleProperty.IGNITION_STATE);
+
+    private final static SparseIntArray mMgrGearToHalMap = initSparseIntArray(
+            VehicleGear.GEAR_NEUTRAL, CarSensorEvent.GEAR_NEUTRAL,
+            VehicleGear.GEAR_REVERSE, CarSensorEvent.GEAR_REVERSE,
+            VehicleGear.GEAR_PARK, CarSensorEvent.GEAR_PARK,
+            VehicleGear.GEAR_DRIVE, CarSensorEvent.GEAR_DRIVE,
+            VehicleGear.GEAR_LOW, CarSensorEvent.GEAR_FIRST, // Also GEAR_1 - the value is the same.
+            VehicleGear.GEAR_2, CarSensorEvent.GEAR_SECOND,
+            VehicleGear.GEAR_3, CarSensorEvent.GEAR_THIRD,
+            VehicleGear.GEAR_4, CarSensorEvent.GEAR_FOURTH,
+            VehicleGear.GEAR_5, CarSensorEvent.GEAR_FIFTH,
+            VehicleGear.GEAR_6, CarSensorEvent.GEAR_SIXTH,
+            VehicleGear.GEAR_7, CarSensorEvent.GEAR_SEVENTH,
+            VehicleGear.GEAR_8, CarSensorEvent.GEAR_EIGHTH,
+            VehicleGear.GEAR_9, CarSensorEvent.GEAR_NINTH);
+
+    private final static SparseIntArray mMgrIgnitionStateToHalMap = initSparseIntArray(
+            VehicleIgnitionState.UNDEFINED, CarSensorEvent.IGNITION_STATE_UNDEFINED,
+            VehicleIgnitionState.LOCK, CarSensorEvent.IGNITION_STATE_LOCK,
+            VehicleIgnitionState.OFF, CarSensorEvent.IGNITION_STATE_OFF,
+            VehicleIgnitionState.ACC, CarSensorEvent.IGNITION_STATE_ACC,
+            VehicleIgnitionState.ON, CarSensorEvent.IGNITION_STATE_ON,
+            VehicleIgnitionState.START, CarSensorEvent.IGNITION_STATE_START);
+
+    private SensorListener mSensorListener;
 
     public SensorHalService(VehicleHal hal) {
-        mHal = hal;
+        super(hal);
+    }
+
+    public synchronized void registerSensorListener(SensorListener listener) {
+        mSensorListener = listener;
     }
 
     @Override
-    public synchronized void init() {
-        //TODO
-        mIsReady = true;
-    }
-
-    @Override
-    public synchronized List<VehiclePropConfig> takeSupportedProperties(
-            List<VehiclePropConfig> allProperties) {
-        LinkedList<VehiclePropConfig> supportedProperties = new LinkedList<VehiclePropConfig>();
-        for (VehiclePropConfig halProperty : allProperties) {
-            int sensor = getSensorTypeFromHalProperty(halProperty.getProp());
-            if (sensor != SENSOR_TYPE_INVALD &&
-                halProperty.getChangeMode() !=
-                    VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_STATIC &&
-                (halProperty.getAccess() == VehiclePropAccess.VEHICLE_PROP_ACCESS_READ
-                    || halProperty.getAccess() ==
-                    VehiclePropAccess.VEHICLE_PROP_ACCESS_WRITE)) {
-                supportedProperties.add(halProperty);
-                mSensorToHalProperty.append(sensor, halProperty);
-            }
+    protected int getTokenForProperty(VehiclePropConfig halProperty) {
+        int sensor = mManagerToHalPropIdMap.getManagerPropId(halProperty.prop);
+        if (sensor != SENSOR_TYPE_INVALID
+            && halProperty.changeMode != VehiclePropertyChangeMode.STATIC
+            && ((halProperty.access & VehiclePropertyAccess.READ) != 0)) {
+            return sensor;
         }
-        return supportedProperties;
+        return SENSOR_TYPE_INVALID;
     }
 
-    @Override
-    public synchronized void release() {
-        mSensorToHalProperty.clear();
-        mIsReady = false;
-    }
-
-    // should be used only insidehandleHalEvents.
-    private final LinkedList<CarSensorEvent> mEventsToDispatch = new LinkedList<CarSensorEvent>();
+    // Should be used only inside handleHalEvents method.
+    private final LinkedList<CarSensorEvent> mEventsToDispatch = new LinkedList<>();
     @Override
     public void handleHalEvents(List<VehiclePropValue> values) {
         for (VehiclePropValue v : values) {
@@ -94,174 +122,121 @@ public class SensorHalService extends SensorHalServiceBase {
                 mEventsToDispatch.add(event);
             }
         }
-        SensorHalServiceBase.SensorListener sensorListener = null;
+        SensorListener sensorListener;
         synchronized (this) {
             sensorListener = mSensorListener;
         }
+        if (DBG_EVENTS) Log.d(TAG, "handleHalEvents, listener: " + sensorListener);
         if (sensorListener != null) {
             sensorListener.onSensorEvents(mEventsToDispatch);
         }
         mEventsToDispatch.clear();
     }
 
+    @Nullable
+    private Integer mapHalEnumValueToMgr(int propId, int halValue) {
+        int mgrValue = halValue;
+
+        switch (propId) {
+            case VehicleProperty.GEAR_SELECTION:
+                mgrValue = mMgrGearToHalMap.get(halValue, -1);
+                break;
+            case VehicleProperty.IGNITION_STATE:
+                mgrValue =  mMgrIgnitionStateToHalMap.get(halValue, -1);
+            default:
+                break; // Do nothing
+        }
+        return mgrValue == -1 ? null : mgrValue;
+    }
+
+    @Nullable
     private CarSensorEvent createCarSensorEvent(VehiclePropValue v) {
-        int property = v.getProp();
-        int sensorType = getSensorTypeFromHalProperty(property);
-        if (sensorType == SENSOR_TYPE_INVALD) {
-            throw new RuntimeException("handleBooleanHalEvent no sensor defined for property " +
-                    property);
+        int property = v.prop;
+        int sensorType = mManagerToHalPropIdMap.getManagerPropId(property);
+        if (sensorType == SENSOR_TYPE_INVALID) {
+            throw new RuntimeException("no sensor defined for property 0x" + toHexString(property));
         }
-        switch (property) {
-            // boolean
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_NIGHT_MODE:
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_PARKING_BRAKE_ON:
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_FUEL_LEVEL_LOW: {
-                if (DBG_EVENTS) {
-                    Log.i(CarLog.TAG_SENSOR, "boolean event, property:" +
-                            Integer.toHexString(property) + " value:" + v.getInt32Values(0));
-                }
-                return CarSensorEventFactory.createBooleanEvent(sensorType, v.getTimestamp(),
-                        v.getInt32Values(0) == 1);
+
+        int dataType = property & VehiclePropertyType.MASK;
+
+        CarSensorEvent event = null;
+        switch (dataType) {
+            case VehiclePropertyType.BOOLEAN:
+                event = CarSensorEventFactory.createBooleanEvent(sensorType, v.timestamp,
+                        v.value.int32Values.get(0) == 1);
+                break;
+            case VehiclePropertyType.INT32:
+                Integer mgrVal = mapHalEnumValueToMgr(property, v.value.int32Values.get(0));
+                event =  mgrVal == null ? null
+                        : CarSensorEventFactory.createIntEvent(sensorType, v.timestamp, mgrVal);
+                break;
+            case VehiclePropertyType.FLOAT: {
+                event = CarSensorEventFactory.createFloatEvent(sensorType, v.timestamp,
+                        v.value.floatValues.get(0));
+                break;
             }
-            // int
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_GEAR_SELECTION:
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_DRIVING_STATUS: {
-                if (DBG_EVENTS) {
-                    Log.i(CarLog.TAG_SENSOR, "int event, property:" +
-                            Integer.toHexString(property) + " value:" + v.getInt32Values(0));
-                }
-                return CarSensorEventFactory.createIntEvent(sensorType, v.getTimestamp(),
-                        v.getInt32Values(0));
-            }
-            // float
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_PERF_VEHICLE_SPEED: {
-                if (DBG_EVENTS) {
-                    Log.i(CarLog.TAG_SENSOR, "float event, property:" +
-                            Integer.toHexString(property) + " value:" + v.getFloatValues(0));
-                }
-                return CarSensorEventFactory.createFloatEvent(sensorType, v.getTimestamp(),
-                        v.getFloatValues(0));
-            }
+            default:
+                Log.w(TAG, "createCarSensorEvent: unsupported type: 0x" + toHexString(dataType));
         }
-        return null;
+        if (DBG_EVENTS) Log.i(TAG, "Sensor event created: " + event);
+        return event;
     }
 
-    @Override
-    public synchronized void registerSensorListener(SensorHalServiceBase.SensorListener listener) {
-        mSensorListener = listener;
-        if (mIsReady) {
-            listener.onSensorHalReady(this);
-        }
-    }
-
-    @Override
-    public synchronized boolean isReady() {
-        return mIsReady;
-    }
-
-    @Override
-    public synchronized int[] getSupportedSensors() {
-        int[] supportedSensors = new int[mSensorToHalProperty.size()];
-        for (int i = 0; i < supportedSensors.length; i++) {
-            supportedSensors[i] = mSensorToHalProperty.keyAt(i);
-        }
-        return supportedSensors;
-    }
-
-    @Override
-    public synchronized boolean requestSensorStart(int sensorType, int rate) {
-        VehiclePropConfig config = mSensorToHalProperty.get(sensorType);
-        if (config == null) {
-            return false;
-        }
-        //TODO calculate sampling rate properly
-        mHal.subscribeProperty(this, config.getProp(), fixSamplingRateForProperty(config, rate));
-        return true;
-    }
-
+    @Nullable
     public CarSensorEvent getCurrentSensorValue(int sensorType) {
-        VehiclePropConfig config;
-        synchronized (this) {
-            config = mSensorToHalProperty.get(sensorType);
-        }
-        if (config == null) {
-            return null;
-        }
-        try {
-            VehiclePropValue value = mHal.getVehicleNetwork().getProperty(config.getProp());
-            return createCarSensorEvent(value);
-        } catch (ServiceSpecificException e) {
-            Log.e(CarLog.TAG_SENSOR, "property not ready 0x" +
-                    Integer.toHexString(config.getProp()), e);
-            return null;
-        }
+        VehiclePropValue propValue = getCurrentSensorVehiclePropValue(sensorType);
+        return (null != propValue) ? createCarSensorEvent(propValue) : null;
     }
 
-    private float fixSamplingRateForProperty(VehiclePropConfig prop, int carSensorManagerRate) {
-        if (prop.getChangeMode() ==  VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_ON_CHANGE) {
-            return 0;
+    @Override
+    protected float fixSamplingRateForProperty(VehiclePropConfig prop, int carSensorManagerRate) {
+        switch (prop.changeMode) {
+            case VehiclePropertyChangeMode.ON_CHANGE:
+            case VehiclePropertyChangeMode.ON_SET:
+                return 0;
         }
         float rate = 1.0f;
         switch (carSensorManagerRate) {
             case CarSensorManager.SENSOR_RATE_FASTEST:
+                rate = prop.maxSampleRate;
+                break;
             case CarSensorManager.SENSOR_RATE_FAST:
-                rate = 10f;
+                rate = 10f;  // every 100ms
                 break;
             case CarSensorManager.SENSOR_RATE_UI:
-                rate = 5f;
+                rate = 5f;   // every 200ms
                 break;
             default: // fall back to default.
                 break;
         }
-        if (rate > prop.getSampleRateMax()) {
-            rate = prop.getSampleRateMax();
+        if (rate > prop.maxSampleRate) {
+            rate = prop.maxSampleRate;
         }
-        if (rate < prop.getSampleRateMin()) {
-            rate = prop.getSampleRateMin();
+        if (rate < prop.minSampleRate) {
+            rate = prop.minSampleRate;
         }
         return rate;
-    }
-
-    @Override
-    public synchronized void requestSensorStop(int sensorType) {
-        VehiclePropConfig config = mSensorToHalProperty.get(sensorType);
-        if (config == null) {
-            return;
-        }
-        mHal.unsubscribeProperty(this, config.getProp());
-    }
-
-    /**
-     * Covert hal property to sensor type. This is also used to check if specific property
-     * is supported by sensor hal or not.
-     * @param halPropertyType
-     * @return
-     */
-    static int getSensorTypeFromHalProperty(int halPropertyType) {
-        switch (halPropertyType) {
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_PERF_VEHICLE_SPEED:
-                return CarSensorManager.SENSOR_TYPE_CAR_SPEED;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_GEAR_SELECTION:
-                return CarSensorManager.SENSOR_TYPE_GEAR;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_NIGHT_MODE:
-                return CarSensorManager.SENSOR_TYPE_NIGHT;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_PARKING_BRAKE_ON:
-                return CarSensorManager.SENSOR_TYPE_PARKING_BRAKE;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_DRIVING_STATUS:
-                return CarSensorManager.SENSOR_TYPE_DRIVING_STATUS;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_FUEL_LEVEL_LOW:
-                return CarSensorManager.SENSOR_TYPE_FUEL_LEVEL;
-            default:
-                return SENSOR_TYPE_INVALD;
-        }
     }
 
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*Sensor HAL*");
         writer.println("**Supported properties**");
-        for (int i = 0; i < mSensorToHalProperty.size(); i++) {
-            writer.println(mSensorToHalProperty.valueAt(i).toString());
+        for (int i = 0; i < mSensorToPropConfig.size(); i++) {
+            writer.println(mSensorToPropConfig.valueAt(i).toString());
         }
+    }
+
+    private static SparseIntArray initSparseIntArray(int... keyValuePairs) {
+        int inputLength = keyValuePairs.length;
+        if (inputLength % 2 != 0) {
+            throw new IllegalArgumentException("Odd number of key-value elements");
+        }
+
+        SparseIntArray map = new SparseIntArray(inputLength / 2);
+        for (int i = 0; i < keyValuePairs.length; i += 2) {
+            map.put(keyValuePairs[i], keyValuePairs[i + 1]);
+        }
+        return map;
     }
 }

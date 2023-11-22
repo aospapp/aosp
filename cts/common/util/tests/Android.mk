@@ -18,10 +18,10 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := junit kxml2-2.3.0 tradefed-prebuilt compatibility-common-util-hostsidelib
+LOCAL_JAVA_LIBRARIES := junit-host kxml2-2.3.0 tradefed compatibility-common-util-hostsidelib
 
 LOCAL_MODULE := compatibility-common-util-tests
 
 LOCAL_MODULE_TAGS := optional
-
+include cts/error_prone_rules.mk
 include $(BUILD_HOST_JAVA_LIBRARY)

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Mobiilidata"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"Tiedonsiirto"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Puhelinpalvelut"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Hätäpuhelut"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Puhelin"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Puhelinvastaajan numero puuttuu"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM-kortille ei ole tallennettu puhelinvastaajan numeroa."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Lisää numero"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"Vain ensisijainen käyttäjä voi muuttaa vastaajan asetuksia."</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"SIM-korttisi esto on purettu. Puhelimen lukitusta poistetaan..."</string>
     <string name="label_ndp" msgid="780479633159517250">"SIM-verkko, PIN-koodin lukituksen poisto"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"Poista lukitus"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"Pyydetään verkon lukituksen poistoa..."</string>
     <string name="unlock_failed" msgid="6490531697031504225">"Verkon lukituksen poistopyyntö epäonnistui."</string>
     <string name="unlock_success" msgid="6770085622238180152">"Verkon lukituksen poisto onnistui."</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Tämä käyttäjä ei saa muuttaa matkapuhelinverkon asetuksia"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"Mobiiliverkkoasetukset eivät ole käytettävissä tälle käyttäjälle"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM-puheluasetukset"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM-puheluasetukset (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA-puheluasetukset"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"Vastaaja"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Puhelinvastaaja (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"Vast.:"</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Ilmoitukset"</string>
     <string name="networks" msgid="8873030692174541976">"Verkko-operaattorit"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Hätätilalähetykset"</string>
     <string name="call_settings" msgid="6112441768261754562">"Puheluasetukset"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"Kun en ole tavoitettavissa"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"Soita, kun numeroon ei saada yhteyttä:"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Puhelu siirretään numeroon <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Pois käytöstä"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Ei käytössä"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Operaattorisi ei tue soitonsiirtojen poistamista käytöstä puhelimesi ollessa saavuttamattomissa."</string>
     <string name="updating_title" msgid="6146755386174019046">"Puheluasetukset"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Vain järjestelmänvalvoja voi muuttaa puheluasetuksia."</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Uusi PIN-koodi sisältää virheellisiä merkkejä."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"PIN-koodin vaihtaminen epäonnistui."</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Viestin tyyppiä ei tueta. Kuuntele soittamalla numeroon <xliff:g id="NUMBER">%s</xliff:g>."</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"Matkapuhelinverkon asetukset"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"Mobiiliverkkoasetukset"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"Mobiiliverkko"</string>
     <string name="label_available" msgid="1181658289009300430">"Käytettävissä olevat verkot"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Haetaan…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Ei verkkoja."</string>
@@ -235,7 +238,7 @@
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"<xliff:g id="USED_0">%1$s</xliff:g> enimmäismäärä ylitetty\nTiedonsiirtonopeus vähennetty nopeuteen<xliff:g id="USED_1">%2$d</xliff:g> kt/s"</string>
     <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"<xliff:g id="USED_0">%1$d</xliff:g>٪ kierrosta valmis\nSeuraava jakso alkaa <xliff:g id="USED_1">%2$d</xliff:g> päivän kuluttua (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Tiedonsiirtonopeus vähennetään nopeuteen <xliff:g id="USED">%1$d</xliff:g> kt/s, jos tiedonkäyttöraja ylitetään"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"Lisätietoja operaattorisi mobiilitiedonsiirtokäytännöstä"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"Lisätietoja operaattorisi mobiiliverkon tietojenkäyttökäytännöstä"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"Cell Broadcast -tekstiviesti"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"Cell Broadcast -tekstiviesti"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"Cell Broadcast -tekstiviestit käytössä"</string>
@@ -372,6 +375,7 @@
     <string name="menu_add" msgid="1882023737425114762">"Lisää yhteystieto"</string>
     <string name="menu_edit" msgid="7143003705504672374">"Muokkaa yhteystietoa"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Poista yhteystieto"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"Soita yhteystiedolle"</string>
     <string name="get_pin2" msgid="8204677063922225311">"Anna PIN2-koodi"</string>
     <string name="name" msgid="7329028332786872378">"Nimi"</string>
     <string name="number" msgid="7905950798349903858">"Numero"</string>
@@ -386,7 +390,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Poistetaan sallittua numeroa…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Sallittu numero poistettu."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"Sallittuja numeroita ei päivitetty, koska annoit väärän PIN-koodin."</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"Sallittuja numeroita ei päivitetty, sillä numerossa voi olla enintään 20 merkkiä."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"Sallittuja numeroita ei päivitetty, sillä numero on tyhjä tai siinä on yli 20 merkkiä."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN-numeroa ei päivitetty. PIN2 on virheellinen tai puhelinnumero hylättiin."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN-toiminto epäonnistui."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Luetaan SIM-korttia…"</string>
@@ -443,16 +447,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Puhelinvastaajan numero tuntematon"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Katvealueella"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Valittu verkko (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) ei käytettävissä."</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"Poista lentokonetila käytöstä, jos haluat soittaa puhelun."</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Ota mobiiliverkko käyttöön tai poista lentokonetila ja virransäästötila käytöstä, jos haluat soittaa puhelun."</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Poista lentokonetila käytöstä, jos haluat soittaa puhelun."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Poista lentokonetila käytöstä tai yhdistä langattomaan verkkoon, jos haluat soittaa puhelun."</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Poistu hätäpuhelujen takaisinsoittotilasta soittaaksesi muun kuin hätäpuhelun."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Ei rekisteröity verkkoon."</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"Matkapuhelinverkko ei ole käytettävissä."</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Matkapuhelinverkko ei ole käytettävissä. Yhdistä langattomaan verkkoon, jos haluat soittaa puhelun."</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"Mobiiliverkko ei käytettävissä."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobiiliverkko ei ole käytettävissä. Yhdistä langattomaan verkkoon, jos haluat soittaa puhelun."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Soita antamalla kelvollinen numero."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Puhelu epäonnistui."</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Puhelua ei voi lisätä juuri nyt."</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Aloitetaan MMI-koodisekvenssiä..."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Palvelua ei tueta"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Puhelua ei voi vaihtaa."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Puhelua ei voi erottaa."</string>
@@ -527,10 +531,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"Käytössä hätäpuhelujen takaisinsoittotila"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"Hätäpuhelujen takaisinsoittotila"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"Verkkoyhteys pois käytöstä"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other">Ei verkkoyhteyttä <xliff:g id="COUNT_1">%s</xliff:g> minuuttiin</item>
-      <item quantity="one">Ei verkkoyhteyttä <xliff:g id="COUNT_0">%s</xliff:g> minuuttiin</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"Datayhteyden voi muodostaa vasta <xliff:g id="COMPLETETIME">%s</xliff:g>."</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">Puhelin siirtyy hätäpuhelujen takaisinsoittotilaan <xliff:g id="COUNT_1">%s</xliff:g> minuutin ajaksi. Et voi käyttää verkkoyhteyttä hyödyntäviä sovelluksia tänä aikana. Haluatko poistua nyt?</item>
       <item quantity="one">Puhelin siirtyy hätäpuhelujen takaisinsoittotilaan <xliff:g id="COUNT_0">%s</xliff:g> minuutin ajaksi. Et voi käyttää verkkoyhteyttä hyödyntäviä sovelluksia tänä aikana. Haluatko poistua nyt?</item>
@@ -554,12 +555,9 @@
     <string name="selectContact" msgid="781975788478987237">"valitse yhteystieto"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Äänipuheluita ei tueta"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"soita"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Värinä"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Värinä"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Visuaalinen puhelinvastaaja"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Aseta PIN-koodi."</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Vaihda PIN-koodi"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Ääni"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Soittoääni ja värinä"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Sisäiset SIM-kortit"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Ota videopuhelut käyttöön"</string>
@@ -570,12 +568,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Vain hätäpuhelut"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM-kortti, paikka: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Esteettömyys"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Saapuva Wi-Fi-puhelu"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wi-Fi-puhelu henkilöltä"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi-puhelu"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Avaa koskettamalla uudelleen."</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Virhe purettaessa viestiä."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM-kortti on aktivoinut palvelusi ja päivittänyt puhelimesi roaming-toiminnot."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Aktiivisia puheluja on liian monta. Lopeta puheluita tai yhdistä niitä ennen uuden puhelun aloittamista."</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Yhdistäminen epäonnistui. Aseta kelvollinen SIM-kortti."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi-yhteys katkesi, ja puhelu lopetettiin."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Vaihda vastaajan PIN-koodi."</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Jatka"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Peruuta"</string>

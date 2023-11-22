@@ -15,29 +15,37 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.CornerPathEffect;
 import android.graphics.Paint;
+import android.graphics.Paint.Style;
 import android.graphics.Path;
 import android.graphics.PathEffect;
+import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
-import android.graphics.Bitmap.Config;
-import android.graphics.Paint.Style;
-import android.graphics.PorterDuff.Mode;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class CornerPathEffectTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class CornerPathEffectTest {
     private static final int BITMAP_WIDTH = 100;
     private static final int BITMAP_HEIGHT = 100;
     private static final int PADDING = 10;
     private static final int RADIUS = 20;
     private static final int TOLERANCE = 5;
 
+    @Test
     public void testCornerPathEffect() {
         Path path = new Path();
         path.moveTo(0, PADDING);

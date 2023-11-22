@@ -486,7 +486,7 @@ page.title=Dalvik bytecode
 <tr>
   <td>23 22c</td>
   <td>new-array vA, vB, type@CCCC</td>
-  <td><code>A:</code> destination register (8 bits)<br/>
+  <td><code>A:</code> destination register (4 bits)<br/>
     <code>B:</code> size register<br/>
     <code>C:</code> type index</td>
   <td>Construct a new array of the indicated type and size. The type
@@ -901,7 +901,15 @@ page.title=Dalvik bytecode
     <code>B:</code> first source register or pair (8 bits)<br/>
     <code>C:</code> second source register or pair (8 bits)</td>
   <td>Perform the identified binary operation on the two source registers,
-    storing the result in the destination register.</td>
+    storing the result in the destination register.
+    <p class="note"><strong>Note:</strong>
+    Contrary to other <code>-long</code> mathematical operations (which
+    take register pairs for both their first and their second source),
+    <code>shl-long</code>, <code>shr-long</code>, and <code>ushr-long</code>
+    take a register pair for their first source (the value to be shifted),
+    but a single register for their second source (the shifting distance).
+    </p>
+</td>
 </tr>
 <tr>
   <td>b0..cf 12x</td>
@@ -943,7 +951,17 @@ page.title=Dalvik bytecode
       (4 bits)<br/>
     <code>B:</code> second source register or pair (4 bits)</td>
   <td>Perform the identified binary operation on the two source registers,
-    storing the result in the first source register.</td>
+    storing the result in the first source register.
+    <p class="note"><strong>Note:</strong>
+    Contrary to other <code>-long/2addr</code> mathematical operations
+    (which take register pairs for both their destination/first source and
+    their second source), <code>shl-long/2addr</code>,
+    <code>shr-long/2addr</code>, and <code>ushr-long/2addr</code> take a
+    register pair for their destination/first source (the value to be
+    shifted), but a single register for their second source (the shifting
+    distance).
+    </p>
+  </td>
 </tr>
 <tr>
   <td>d0..d7 22s</td>
@@ -995,7 +1013,113 @@ page.title=Dalvik bytecode
   </td>
 </tr>
 <tr>
-  <td>e3..ff 10x</td>
+  <td>e3..f9 10x</td>
+  <td><i>(unused)</i></td>
+  <td>&nbsp;</td>
+  <td><i>(unused)</i></td>
+</tr>
+<tr>
+  <td>fa 45cc</td>
+  <td>invoke-polymorphic {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH</td>
+  <td>
+    <code>A:</code> argument word count (4 bits) </br>
+    <code>B:</code> method reference index (16 bits) </br>
+    <code>C:</code> method handle reference to invoke (16 bits) </br>
+    <code>D..G:</code> argument registers (4 bits each) </br>
+    <code>H:</code> prototype reference index (16 bits) </br>
+  </td>
+  <td>
+    Invoke the indicated method handle. The result (if any) may be stored
+    with an appropriate <code>move-result*</code> variant as the immediately
+    subsequent instruction.
+    <p> The method reference must be to <code>java.lang.invoke.MethodHandle.invoke</code>
+        or <code>java.lang.invoke.MethodHandle.invokeExact</code>.
+    <p> The prototype reference describes the argument types provided
+        and the expected return type.
+    <p> The <code>invoke-polymorphic</code> bytecode may raise exceptions when it
+        executes. The exceptions are described in the API documentation
+        for <code>java.lang.invoke.MethodHandle.invoke</code> and
+        <code>java.lang.invoke.MethodHandle.invokeExact</code>.
+    <p> Present in Dex files from version <code>038</code> onwards.
+  </td>
+</tr>
+<tr>
+  <td>fb 4rcc</td>
+  <td>invoke-polymorphic/range {vCCCC .. vNNNN}, meth@BBBB, proto@HHHH</td>
+  <td>
+    <code>A:</code> argument word count (8 bits) </br>
+    <code>B:</code> method reference index (16 bits) </br>
+    <code>C:</code> method handle reference to invoke (16 bits) </br>
+    <code>H:</code> prototype reference index (16 bits) </br>
+    <code>N = A + C - 1</code>
+  </td>
+  <td>
+    Invoke the indicated method handle. See the <code>invoke-polymorphic</code>
+    description above for details.
+    <p> Present in Dex files from version <code>038</code> onwards.
+  </td>
+</tr>
+<tr>
+  <td>fc 35c</td>
+  <td>invoke-custom {vC, vD, vE, vF, vG}, call_site@BBBB</td>
+  <td>
+    <code>A:</code> argument word count (4 bits) <br>
+    <code>B:</code> call site reference index (16 bits) <br>
+    <code>C..G:</code> argument registers (4 bits each)
+  </td>
+  <td> Resolves and invokes the indicated call site.
+    The result from the invocation (if any) may be stored with an
+    appropriate <code>move-result*</code> variant as the immediately
+    subsequent instruction.
+
+    <p> This instruction executes in two phases: call site
+        resolution and call site invocation.
+
+    <p> Call site resolution checks whether the indicated
+      call site has an associated <code>java.lang.invoke.CallSite</code> instance.
+      If not, the bootstrap linker method for the indicated call site is
+      invoked using arguments present in the DEX file
+      (see <a href="dex-format.html#call-site-item">call_site_item</a>). The
+      bootstrap linker method returns
+      a <code>java.lang.invoke.CallSite</code> instance that will then
+      be associated with the indicated call site if no association
+      exists. Another thread may have already made the association first,
+      and if so execution of the instruction continues with the
+      first associated <code>java.lang.invoke.CallSite</code> instance.
+
+    <p> Call site invocation is made on the <code>java.lang.invoke.MethodHandle</code> target of the
+      resolved <code>java.lang.invoke.CallSite</code> instance. The target is invoked as if
+      executing <code>invoke-polymorphic</code> (described above)
+      using the method handle and arguments to
+      the <code>invoke-custom</code> instruction as the arguments to an
+      exact method handle invocation.
+
+    <p> Exceptions raised by the bootstrap linker method are wrapped
+      in a <code>java.lang.BootstrapMethodError</code>.  A <code>BootstrapMethodError</code> is also raised if:
+      <ul>
+        <li>the bootstrap linker method fails to return a <code>java.lang.invoke.CallSite</code> instance.</li>
+        <li>the returned <code>java.lang.invoke.CallSite</code> has a <code>null</code> method handle target.</li>
+        <li>the method handle target is not of the requested type.</li>
+      </ul>
+    <p> Present in Dex files from version <code>038</code> onwards.
+  </td>
+</tr>
+<tr>
+  <td>fd 3rc</td>
+  <td>invoke-custom/range {vCCCC .. vNNNN}, call_site@BBBB</td>
+  <td>
+    <code>A:</code> argument word count (8 bits) <br>
+    <code>B:</code> call site reference index (16 bits) <br>
+    <code>C:</code> first argument register (16-bits) <br>
+    <code>N = A + C - 1</code>
+  </td>
+  <td>
+    Resolve and invoke a call site. See the <code>invoke-custom</code> description above for details.
+    <p> Present in Dex files from version <code>038</code> onwards.
+  </td>
+</tr>
+<tr>
+  <td>fe..ff 10x</td>
   <td><i>(unused)</i></td>
   <td>&nbsp;</td>
   <td><i>(unused)</i></td>
@@ -1469,21 +1593,24 @@ round-to-nearest and gradual underflow, except where stated otherwise.</p>
 </tr>
 <tr>
   <td>shl-long</td>
-  <td>int64 a, b;<br/>
+  <td>int64 a;<br/>
+    int32 b;<br/>
     int64 result = a &lt;&lt; (b &amp; 0x3f);
   </td>
   <td>Bitwise shift left (with masked argument).</td>
 </tr>
 <tr>
   <td>shr-long</td>
-  <td>int64 a, b;<br/>
+  <td>int64 a;<br/>
+    int32 b;<br/>
     int64 result = a &gt;&gt; (b &amp; 0x3f);
   </td>
   <td>Bitwise signed shift right (with masked argument).</td>
 </tr>
 <tr>
   <td>ushr-long</td>
-  <td>uint64 a, b;<br/>
+  <td>uint64 a;<br/>
+    int32 b;<br/>
     int64 result = a &gt;&gt; (b &amp; 0x3f);
   </td>
   <td>Bitwise unsigned shift right (with masked argument).</td>

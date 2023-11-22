@@ -850,6 +850,20 @@ static struct p2p_group_member * p2p_group_get_client(struct p2p_group *group,
 }
 
 
+const u8 * p2p_group_get_client_interface_addr(struct p2p_group *group,
+					       const u8 *dev_addr)
+{
+	struct p2p_group_member *m;
+
+	if (!group)
+		return NULL;
+	m = p2p_group_get_client(group, dev_addr);
+	if (m)
+		return m->addr;
+	return NULL;
+}
+
+
 static struct p2p_group_member * p2p_group_get_client_iface(
 	struct p2p_group *group, const u8 *interface_addr)
 {
@@ -1098,7 +1112,7 @@ int p2p_group_get_common_freqs(struct p2p_group *group, int *common_freqs,
 		struct p2p_device *dev;
 
 		dev = p2p_get_device(group->p2p, m->dev_addr);
-		if (!dev)
+		if (!dev || dev->channels.reg_classes == 0)
 			continue;
 
 		p2p_channels_intersect(&intersect, &dev->channels, &res);

@@ -14,6 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <ImageView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:scaleType="center" />
+    android:layout_width="@dimen/car_list_item_right_icon_size"
+    android:layout_height="@dimen/car_list_item_right_icon_size"
+    android:scaleType="fitCenter" />

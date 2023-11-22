@@ -115,6 +115,9 @@ class AudioStreamIn {
     int               mInputSource;
     int               mReadStatus;
     unsigned int      mFramesIn;
+    nsecs_t           mLastReadFinishedNs;
+    size_t            mLastBytesRead;
+    nsecs_t           mMinAllowedReadTimeNs;
 };
 
 }; // namespace android

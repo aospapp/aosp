@@ -16,8 +16,22 @@
 
 package android.util.cts;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import static android.util.Rational.NEGATIVE_INFINITY;
+import static android.util.Rational.NaN;
+import static android.util.Rational.POSITIVE_INFINITY;
+import static android.util.Rational.ZERO;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Rational;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -28,14 +42,14 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 
-import static android.util.Rational.*;
-
-public class RationalTest extends junit.framework.TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RationalTest {
 
     /** (1,1) */
     private static final Rational UNIT = new Rational(1, 1);
 
-    @SmallTest
+    @Test
     public void testConstructor() {
 
         // Simple case
@@ -74,7 +88,7 @@ public class RationalTest extends junit.framework.TestCase {
         assertEquals(0, r.getDenominator());
     }
 
-    @SmallTest
+    @Test
     public void testEquals() {
         Rational r = new Rational(1, 2);
         assertEquals(1, r.getNumerator());
@@ -145,7 +159,7 @@ public class RationalTest extends junit.framework.TestCase {
         assertFalse(nan.equals(negInf));
     }
 
-    @SmallTest
+    @Test
     public void testReduction() {
         Rational moreComplicated = new Rational(5 * 78, 7 * 78);
         assertEquals(new Rational(5, 7), moreComplicated);
@@ -176,153 +190,153 @@ public class RationalTest extends junit.framework.TestCase {
         assertEquals(2, flipAndReduce.getDenominator());
     }
 
-    @SmallTest
+    @Test
     public void testCompareTo() {
         // unit is equal to itself
-        assertCompareEquals(UNIT, new Rational(1, 1));
+        verifyCompareEquals(UNIT, new Rational(1, 1));
 
         // NaN is greater than anything but NaN
-        assertCompareEquals(NaN, new Rational(0, 0));
-        assertGreaterThan(NaN, UNIT);
-        assertGreaterThan(NaN, POSITIVE_INFINITY);
-        assertGreaterThan(NaN, NEGATIVE_INFINITY);
-        assertGreaterThan(NaN, ZERO);
+        verifyCompareEquals(NaN, new Rational(0, 0));
+        verifyGreaterThan(NaN, UNIT);
+        verifyGreaterThan(NaN, POSITIVE_INFINITY);
+        verifyGreaterThan(NaN, NEGATIVE_INFINITY);
+        verifyGreaterThan(NaN, ZERO);
 
         // Positive infinity is greater than any other non-NaN
-        assertCompareEquals(POSITIVE_INFINITY, new Rational(1, 0));
-        assertGreaterThan(POSITIVE_INFINITY, UNIT);
-        assertGreaterThan(POSITIVE_INFINITY, NEGATIVE_INFINITY);
-        assertGreaterThan(POSITIVE_INFINITY, ZERO);
+        verifyCompareEquals(POSITIVE_INFINITY, new Rational(1, 0));
+        verifyGreaterThan(POSITIVE_INFINITY, UNIT);
+        verifyGreaterThan(POSITIVE_INFINITY, NEGATIVE_INFINITY);
+        verifyGreaterThan(POSITIVE_INFINITY, ZERO);
 
         // Negative infinity is smaller than any other non-NaN
-        assertCompareEquals(NEGATIVE_INFINITY, new Rational(-1, 0));
-        assertLessThan(NEGATIVE_INFINITY, UNIT);
-        assertLessThan(NEGATIVE_INFINITY, POSITIVE_INFINITY);
-        assertLessThan(NEGATIVE_INFINITY, ZERO);
+        verifyCompareEquals(NEGATIVE_INFINITY, new Rational(-1, 0));
+        verifyLessThan(NEGATIVE_INFINITY, UNIT);
+        verifyLessThan(NEGATIVE_INFINITY, POSITIVE_INFINITY);
+        verifyLessThan(NEGATIVE_INFINITY, ZERO);
 
         // A finite number with the same denominator is trivially comparable
-        assertGreaterThan(new Rational(3, 100), new Rational(1, 100));
-        assertGreaterThan(new Rational(3, 100), ZERO);
+        verifyGreaterThan(new Rational(3, 100), new Rational(1, 100));
+        verifyGreaterThan(new Rational(3, 100), ZERO);
 
         // Compare finite numbers with different divisors
-        assertGreaterThan(new Rational(5, 25), new Rational(1, 10));
-        assertGreaterThan(new Rational(5, 25), ZERO);
+        verifyGreaterThan(new Rational(5, 25), new Rational(1, 10));
+        verifyGreaterThan(new Rational(5, 25), ZERO);
 
         // Compare finite numbers with different signs
-        assertGreaterThan(new Rational(5, 25), new Rational(-1, 10));
-        assertLessThan(new Rational(-5, 25), ZERO);
+        verifyGreaterThan(new Rational(5, 25), new Rational(-1, 10));
+        verifyLessThan(new Rational(-5, 25), ZERO);
     }
 
-    @SmallTest
+    @Test
     public void testConvenienceMethods() {
         // isFinite
-        assertFinite(ZERO, true);
-        assertFinite(NaN, false);
-        assertFinite(NEGATIVE_INFINITY, false);
-        assertFinite(POSITIVE_INFINITY, false);
-        assertFinite(UNIT, true);
+        verifyFinite(ZERO, true);
+        verifyFinite(NaN, false);
+        verifyFinite(NEGATIVE_INFINITY, false);
+        verifyFinite(POSITIVE_INFINITY, false);
+        verifyFinite(UNIT, true);
 
         // isInfinite
-        assertInfinite(ZERO, false);
-        assertInfinite(NaN, false);
-        assertInfinite(NEGATIVE_INFINITY, true);
-        assertInfinite(POSITIVE_INFINITY, true);
-        assertInfinite(UNIT, false);
+        verifyInfinite(ZERO, false);
+        verifyInfinite(NaN, false);
+        verifyInfinite(NEGATIVE_INFINITY, true);
+        verifyInfinite(POSITIVE_INFINITY, true);
+        verifyInfinite(UNIT, false);
 
         // isNaN
-        assertNaN(ZERO, false);
-        assertNaN(NaN, true);
-        assertNaN(NEGATIVE_INFINITY, false);
-        assertNaN(POSITIVE_INFINITY, false);
-        assertNaN(UNIT, false);
+        verifyNaN(ZERO, false);
+        verifyNaN(NaN, true);
+        verifyNaN(NEGATIVE_INFINITY, false);
+        verifyNaN(POSITIVE_INFINITY, false);
+        verifyNaN(UNIT, false);
 
         // isZero
-        assertZero(ZERO, true);
-        assertZero(NaN, false);
-        assertZero(NEGATIVE_INFINITY, false);
-        assertZero(POSITIVE_INFINITY, false);
-        assertZero(UNIT, false);
+        verifyZero(ZERO, true);
+        verifyZero(NaN, false);
+        verifyZero(NEGATIVE_INFINITY, false);
+        verifyZero(POSITIVE_INFINITY, false);
+        verifyZero(UNIT, false);
     }
 
-    @SmallTest
+    @Test
     public void testValueConversions() {
         // Unit, simple case
-        assertValueEquals(UNIT, 1.0f);
-        assertValueEquals(UNIT, 1.0);
-        assertValueEquals(UNIT, 1L);
-        assertValueEquals(UNIT, 1);
-        assertValueEquals(UNIT, (short)1);
+        verifyValueEquals(UNIT, 1.0f);
+        verifyValueEquals(UNIT, 1.0);
+        verifyValueEquals(UNIT, 1L);
+        verifyValueEquals(UNIT, 1);
+        verifyValueEquals(UNIT, (short)1);
 
         // Zero, simple case
-        assertValueEquals(ZERO, 0.0f);
-        assertValueEquals(ZERO, 0.0);
-        assertValueEquals(ZERO, 0L);
-        assertValueEquals(ZERO, 0);
-        assertValueEquals(ZERO, (short)0);
+        verifyValueEquals(ZERO, 0.0f);
+        verifyValueEquals(ZERO, 0.0);
+        verifyValueEquals(ZERO, 0L);
+        verifyValueEquals(ZERO, 0);
+        verifyValueEquals(ZERO, (short)0);
 
         // NaN is 0 for integers, not-a-number for floating point
-        assertValueEquals(NaN, Float.NaN);
-        assertValueEquals(NaN, Double.NaN);
-        assertValueEquals(NaN, 0L);
-        assertValueEquals(NaN, 0);
-        assertValueEquals(NaN, (short)0);
+        verifyValueEquals(NaN, Float.NaN);
+        verifyValueEquals(NaN, Double.NaN);
+        verifyValueEquals(NaN, 0L);
+        verifyValueEquals(NaN, 0);
+        verifyValueEquals(NaN, (short)0);
 
         // Positive infinity, saturates upwards for integers
-        assertValueEquals(POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
-        assertValueEquals(POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
-        assertValueEquals(POSITIVE_INFINITY, Long.MAX_VALUE);
-        assertValueEquals(POSITIVE_INFINITY, Integer.MAX_VALUE);
-        assertValueEquals(POSITIVE_INFINITY, (short)-1);
+        verifyValueEquals(POSITIVE_INFINITY, Float.POSITIVE_INFINITY);
+        verifyValueEquals(POSITIVE_INFINITY, Double.POSITIVE_INFINITY);
+        verifyValueEquals(POSITIVE_INFINITY, Long.MAX_VALUE);
+        verifyValueEquals(POSITIVE_INFINITY, Integer.MAX_VALUE);
+        verifyValueEquals(POSITIVE_INFINITY, (short)-1);
 
         // Negative infinity, saturates downwards for integers
-        assertValueEquals(NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
-        assertValueEquals(NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
-        assertValueEquals(NEGATIVE_INFINITY, Long.MIN_VALUE);
-        assertValueEquals(NEGATIVE_INFINITY, Integer.MIN_VALUE);
-        assertValueEquals(NEGATIVE_INFINITY, (short)0);
+        verifyValueEquals(NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
+        verifyValueEquals(NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY);
+        verifyValueEquals(NEGATIVE_INFINITY, Long.MIN_VALUE);
+        verifyValueEquals(NEGATIVE_INFINITY, Integer.MIN_VALUE);
+        verifyValueEquals(NEGATIVE_INFINITY, (short)0);
 
         // Normal finite values, round down for integers
         final Rational oneQuarter = new Rational(1, 4);
-        assertValueEquals(oneQuarter, 1.0f / 4.0f);
-        assertValueEquals(oneQuarter, 1.0 / 4.0);
-        assertValueEquals(oneQuarter, 0L);
-        assertValueEquals(oneQuarter, 0);
-        assertValueEquals(oneQuarter, (short)0);
+        verifyValueEquals(oneQuarter, 1.0f / 4.0f);
+        verifyValueEquals(oneQuarter, 1.0 / 4.0);
+        verifyValueEquals(oneQuarter, 0L);
+        verifyValueEquals(oneQuarter, 0);
+        verifyValueEquals(oneQuarter, (short)0);
 
         final Rational nineFifths = new Rational(9, 5);
-        assertValueEquals(nineFifths, 9.0f / 5.0f);
-        assertValueEquals(nineFifths, 9.0 / 5.0);
-        assertValueEquals(nineFifths, 1L);
-        assertValueEquals(nineFifths, 1);
-        assertValueEquals(nineFifths, (short)1);
+        verifyValueEquals(nineFifths, 9.0f / 5.0f);
+        verifyValueEquals(nineFifths, 9.0 / 5.0);
+        verifyValueEquals(nineFifths, 1L);
+        verifyValueEquals(nineFifths, 1);
+        verifyValueEquals(nineFifths, (short)1);
 
         final Rational negativeHundred = new Rational(-1000, 10);
-        assertValueEquals(negativeHundred, -100.f / 1.f);
-        assertValueEquals(negativeHundred, -100.0 / 1.0);
-        assertValueEquals(negativeHundred, -100L);
-        assertValueEquals(negativeHundred, -100);
-        assertValueEquals(negativeHundred, (short)-100);
+        verifyValueEquals(negativeHundred, -100.f / 1.f);
+        verifyValueEquals(negativeHundred, -100.0 / 1.0);
+        verifyValueEquals(negativeHundred, -100L);
+        verifyValueEquals(negativeHundred, -100);
+        verifyValueEquals(negativeHundred, (short)-100);
 
         // Short truncates if the result is too large
-        assertValueEquals(new Rational(Integer.MAX_VALUE, 1), (short)Integer.MAX_VALUE);
-        assertValueEquals(new Rational(0x00FFFFFF, 1), (short)0x00FFFFFF);
-        assertValueEquals(new Rational(0x00FF00FF, 1), (short)0x00FF00FF);
+        verifyValueEquals(new Rational(Integer.MAX_VALUE, 1), (short)Integer.MAX_VALUE);
+        verifyValueEquals(new Rational(0x00FFFFFF, 1), (short)0x00FFFFFF);
+        verifyValueEquals(new Rational(0x00FF00FF, 1), (short)0x00FF00FF);
     }
 
-    @SmallTest
+    @Test
     public void testSerialize() throws ClassNotFoundException, IOException {
         /*
          * Check correct [de]serialization
          */
-        assertEqualsAfterSerializing(ZERO);
-        assertEqualsAfterSerializing(NaN);
-        assertEqualsAfterSerializing(NEGATIVE_INFINITY);
-        assertEqualsAfterSerializing(POSITIVE_INFINITY);
-        assertEqualsAfterSerializing(UNIT);
-        assertEqualsAfterSerializing(new Rational(100, 200));
-        assertEqualsAfterSerializing(new Rational(-100, 200));
-        assertEqualsAfterSerializing(new Rational(5, 1));
-        assertEqualsAfterSerializing(new Rational(Integer.MAX_VALUE, Integer.MIN_VALUE));
+        verifyEqualsAfterSerializing(ZERO);
+        verifyEqualsAfterSerializing(NaN);
+        verifyEqualsAfterSerializing(NEGATIVE_INFINITY);
+        verifyEqualsAfterSerializing(POSITIVE_INFINITY);
+        verifyEqualsAfterSerializing(UNIT);
+        verifyEqualsAfterSerializing(new Rational(100, 200));
+        verifyEqualsAfterSerializing(new Rational(-100, 200));
+        verifyEqualsAfterSerializing(new Rational(5, 1));
+        verifyEqualsAfterSerializing(new Rational(Integer.MAX_VALUE, Integer.MIN_VALUE));
 
         /*
          * Check bad deserialization fails
@@ -369,69 +383,95 @@ public class RationalTest extends junit.framework.TestCase {
         }
     }
 
-    private static void assertValueEquals(Rational object, float expected) {
+    @Test
+    public void testParseRational() {
+        assertEquals(new Rational(1, 2), Rational.parseRational("3:+6"));
+        assertEquals(new Rational(1, 2), Rational.parseRational("-3:-6"));
+        assertEquals(Rational.NaN, Rational.parseRational("NaN"));
+        assertEquals(Rational.POSITIVE_INFINITY, Rational.parseRational("Infinity"));
+        assertEquals(Rational.NEGATIVE_INFINITY, Rational.parseRational("-Infinity"));
+        assertEquals(Rational.ZERO, Rational.parseRational("0/261"));
+        assertEquals(Rational.NaN, Rational.parseRational("0/-0"));
+        assertEquals(Rational.POSITIVE_INFINITY, Rational.parseRational("1000/+0"));
+        assertEquals(Rational.NEGATIVE_INFINITY, Rational.parseRational("-1000/-0"));
+
+        Rational r = new Rational(10, 15);
+        assertEquals(r, Rational.parseRational(r.toString()));
+    }
+
+    @Test(expected=NumberFormatException.class)
+    public void testParseRationalInvalid1() {
+        Rational.parseRational("1.5");
+    }
+
+    @Test(expected=NumberFormatException.class)
+    public void testParseRationalInvalid2() {
+        Rational.parseRational("239");
+    }
+
+    private static void verifyValueEquals(Rational object, float expected) {
         assertEquals("Checking floatValue() for " + object + ";",
-                expected, object.floatValue());
+                expected, object.floatValue(), 0.0f);
     }
 
-    private static void assertValueEquals(Rational object, double expected) {
+    private static void verifyValueEquals(Rational object, double expected) {
         assertEquals("Checking doubleValue() for " + object + ";",
-                expected, object.doubleValue());
+                expected, object.doubleValue(), 0.0f);
     }
 
-    private static void assertValueEquals(Rational object, long expected) {
+    private static void verifyValueEquals(Rational object, long expected) {
         assertEquals("Checking longValue() for " + object + ";",
                 expected, object.longValue());
     }
 
-    private static void assertValueEquals(Rational object, int expected) {
+    private static void verifyValueEquals(Rational object, int expected) {
         assertEquals("Checking intValue() for " + object + ";",
                 expected, object.intValue());
     }
 
-    private static void assertValueEquals(Rational object, short expected) {
+    private static void verifyValueEquals(Rational object, short expected) {
         assertEquals("Checking shortValue() for " + object + ";",
                 expected, object.shortValue());
     }
 
-    private static void assertFinite(Rational object, boolean expected) {
-        assertAction("finite", object, expected, object.isFinite());
+    private static void verifyFinite(Rational object, boolean expected) {
+        verifyAction("finite", object, expected, object.isFinite());
     }
 
-    private static void assertInfinite(Rational object, boolean expected) {
-        assertAction("infinite", object, expected, object.isInfinite());
+    private static void verifyInfinite(Rational object, boolean expected) {
+        verifyAction("infinite", object, expected, object.isInfinite());
     }
 
-    private static void assertNaN(Rational object, boolean expected) {
-        assertAction("NaN", object, expected, object.isNaN());
+    private static void verifyNaN(Rational object, boolean expected) {
+        verifyAction("NaN", object, expected, object.isNaN());
     }
 
-    private static void assertZero(Rational object, boolean expected) {
-        assertAction("zero", object, expected, object.isZero());
+    private static void verifyZero(Rational object, boolean expected) {
+        verifyAction("zero", object, expected, object.isZero());
     }
 
-    private static <T> void assertAction(String action, T object, boolean expected,
+    private static <T> void verifyAction(String action, T object, boolean expected,
             boolean actual) {
         String expectedMessage = expected ? action : ("not " + action);
         assertEquals("Expected " + object + " to be " + expectedMessage,
                 expected, actual);
     }
 
-    private static <T extends Comparable<? super T>> void assertLessThan(T left, T right) {
+    private static <T extends Comparable<? super T>> void verifyLessThan(T left, T right) {
         assertTrue("Expected (LR) left " + left + " to be less than right " + right,
                 left.compareTo(right) < 0);
         assertTrue("Expected (RL) left " + left + " to be less than right " + right,
                 right.compareTo(left) > 0);
     }
 
-    private static <T extends Comparable<? super T>> void assertGreaterThan(T left, T right) {
+    private static <T extends Comparable<? super T>> void verifyGreaterThan(T left, T right) {
         assertTrue("Expected (LR) left " + left + " to be greater than right " + right,
                 left.compareTo(right) > 0);
         assertTrue("Expected (RL) left " + left + " to be greater than right " + right,
                 right.compareTo(left) < 0);
     }
 
-    private static <T extends Comparable<? super T>> void assertCompareEquals(T left, T right) {
+    private static <T extends Comparable<? super T>> void verifyCompareEquals(T left, T right) {
         assertTrue("Expected (LR) left " + left + " to be compareEquals to right " + right,
                 left.compareTo(right) == 0);
         assertTrue("Expected (RL) left " + left + " to be compareEquals to right " + right,
@@ -463,7 +503,7 @@ public class RationalTest extends junit.framework.TestCase {
         return serialized;
     }
 
-    private static <T extends Serializable> void assertEqualsAfterSerializing(T obj)
+    private static <T extends Serializable> void verifyEqualsAfterSerializing(T obj)
             throws ClassNotFoundException, IOException {
         T serialized = serializeRoundTrip(obj);
         assertEquals("Expected values to be equal after serialization round-trip", obj, serialized);

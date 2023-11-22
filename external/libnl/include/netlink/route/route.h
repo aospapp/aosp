@@ -6,7 +6,7 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
 #ifndef NETLINK_ROUTE_H_
@@ -24,7 +24,12 @@
 extern "C" {
 #endif
 
-/* flags */
+/**
+ * @ingroup route
+ * When passed to rtnl_route_alloc_cache() the cache will
+ * correspond to the contents of the routing cache instead
+ * of the actual routes.
+ */
 #define ROUTE_CACHE_CONTENT	1
 
 struct rtnl_route;
@@ -49,7 +54,6 @@ extern int	rtnl_route_alloc_cache(struct nl_sock *, int, int,
 				       struct nl_cache **);
 
 extern void	rtnl_route_get(struct rtnl_route *);
-extern void	rtnl_route_put(struct rtnl_route *);
 
 extern int	rtnl_route_parse(struct nlmsghdr *, struct rtnl_route **);
 extern int	rtnl_route_build_msg(struct nl_msg *, struct rtnl_route *);

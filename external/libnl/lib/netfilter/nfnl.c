@@ -6,13 +6,13 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  * Copyright (c) 2007 Philip Craig <philipc@snapgear.com>
  * Copyright (c) 2007 Secure Computing Corporation
  */
 
 /**
- * @defgroup nfnl Netfilter Netlink
+ * @defgroup nfnl Netfilter Library (libnl-nf)
  *
  * @par Message Format
  * @code
@@ -61,7 +61,7 @@
  * @{
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/netfilter/nfnl.h>
 

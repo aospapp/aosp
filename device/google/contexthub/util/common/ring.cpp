@@ -104,5 +104,30 @@ ssize_t RingBuffer::read(sensors_event_t *ev, size_t size) {
     return size;
 }
 
+LockfreeBuffer::LockfreeBuffer(void* buf, size_t size)
+        : mData((sensors_event_t *)buf), mSize(size/sizeof(sensors_event_t)),
+        mWritePos(0), mCounter(1) {
+    memset(mData, 0, size);
+}
+
+LockfreeBuffer::~LockfreeBuffer() {
+    memset(mData, 0, mSize*sizeof(sensors_event_t));
+}
+
+void LockfreeBuffer::write(const sensors_event_t *ev, size_t size) {
+    if (!mSize) {
+        return;
+    }
+
+    while(size--) {
+        mData[mWritePos] = *(ev++);
+        mData[mWritePos].reserved0 = mCounter++;
+
+        if (++mWritePos >= mSize) {
+            mWritePos = 0;
+        }
+    }
+}
+
 }  // namespace android
 

@@ -18,17 +18,18 @@
 #define ANDROID_EGL_DISPLAY_H
 
 
-#include <ctype.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stddef.h>
+
+#include <condition_variable>
+#include <mutex>
+#include <string>
+#include <unordered_set>
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
 #include <cutils/compiler.h>
-#include <utils/SortedVector.h>
-#include <utils/threads.h>
-#include <utils/String8.h>
 
 #include "egldefs.h"
 #include "../hooks.h"
@@ -68,20 +69,6 @@ public:
     // add reference to this object. returns true if this is a valid object.
     bool getObject(egl_object_t* object) const;
 
-    // These notifications allow the display to keep track of how many window
-    // surfaces exist, which it uses to decide whether to hibernate the
-    // underlying EGL implementation. They can be called by any thread without
-    // holding a lock, but must be called via egl_display_ptr to ensure
-    // proper hibernate/wakeup sequencing. If a surface destruction triggers
-    // hibernation, hibernation will be delayed at least until the calling
-    // thread's egl_display_ptr is destroyed.
-    void onWindowSurfaceCreated() {
-        mHibernation.incWakeCount(HibernationMachine::STRONG);
-    }
-    void onWindowSurfaceDestroyed() {
-        mHibernation.decWakeCount(HibernationMachine::STRONG);
-    }
-
     static egl_display_t* get(EGLDisplay dpy);
     static EGLDisplay getFromNativeDisplay(EGLNativeDisplayType disp);
 
@@ -94,10 +81,10 @@ public:
     inline bool isValid() const { return magic == '_dpy'; }
     inline bool isAlive() const { return isValid(); }
 
-    char const * getVendorString() const { return mVendorString.string(); }
-    char const * getVersionString() const { return mVersionString.string(); }
-    char const * getClientApiString() const { return mClientApiString.string(); }
-    char const * getExtensionString() const { return mExtensionString.string(); }
+    char const * getVendorString() const { return mVendorString.c_str(); }
+    char const * getVersionString() const { return mVersionString.c_str(); }
+    char const * getClientApiString() const { return mClientApiString.c_str(); }
+    char const * getExtensionString() const { return mExtensionString.c_str(); }
 
     bool haveExtension(const char* name, size_t nameLen = 0) const;
 
@@ -127,59 +114,17 @@ public:
 
 private:
     friend class egl_display_ptr;
-    bool enter() { return mHibernation.incWakeCount(HibernationMachine::WEAK); }
-    void leave() { return mHibernation.decWakeCount(HibernationMachine::WEAK); }
 
             uint32_t                    refs;
             bool                        eglIsInitialized;
-    mutable Mutex                       lock, refLock;
-    mutable Condition                   refCond;
-            SortedVector<egl_object_t*> objects;
-            String8 mVendorString;
-            String8 mVersionString;
-            String8 mClientApiString;
-            String8 mExtensionString;
-
-    // HibernationMachine uses its own internal mutex to protect its own data.
-    // The owning egl_display_t's lock may be but is not required to be held
-    // when calling HibernationMachine methods. As a result, nothing in this
-    // class may call back up to egl_display_t directly or indirectly.
-    class HibernationMachine {
-    public:
-        // STRONG refs cancel (inc) or initiate (dec) a hibernation attempt
-        // the next time the wakecount reaches zero. WEAK refs don't affect
-        // whether a hibernation attempt will be made. Use STRONG refs only
-        // for infrequent/heavy changes that are likely to indicate the
-        // EGLDisplay is entering or leaving a long-term idle state.
-        enum WakeRefStrength {
-            WEAK   = 0,
-            STRONG = 1,
-        };
-
-        HibernationMachine(): mWakeCount(0), mHibernating(false),
-                mAttemptHibernation(false), mDpyValid(false),
-#if BOARD_ALLOW_EGL_HIBERNATION
-                mAllowHibernation(true)
-#else
-                mAllowHibernation(false)
-#endif
-        {}
-        ~HibernationMachine() {}
-
-        bool incWakeCount(WakeRefStrength strenth);
-        void decWakeCount(WakeRefStrength strenth);
-
-        void setDisplayValid(bool valid);
-
-    private:
-        Mutex      mLock;
-        int32_t    mWakeCount;
-        bool       mHibernating;
-        bool       mAttemptHibernation;
-        bool       mDpyValid;
-        const bool mAllowHibernation;
-    };
-    HibernationMachine mHibernation;
+    mutable std::mutex                  lock;
+    mutable std::mutex                  refLock;
+    mutable std::condition_variable     refCond;
+            std::unordered_set<egl_object_t*> objects;
+            std::string mVendorString;
+            std::string mVersionString;
+            std::string mClientApiString;
+            std::string mExtensionString;
 };
 
 // ----------------------------------------------------------------------------
@@ -190,13 +135,7 @@ private:
 // as the egl_display_ptr exists.
 class egl_display_ptr {
 public:
-    explicit egl_display_ptr(egl_display_t* dpy): mDpy(dpy) {
-        if (mDpy) {
-            if (CC_UNLIKELY(!mDpy->enter())) {
-                mDpy = NULL;
-            }
-        }
-    }
+    explicit egl_display_ptr(egl_display_t* dpy): mDpy(dpy) {}
 
     // We only really need a C++11 move constructor, not a copy constructor.
     // A move constructor would save an enter()/leave() pair on every EGL API
@@ -208,17 +147,9 @@ public:
     //     other.mDpy = NULL;
     // }
     //
-    egl_display_ptr(const egl_display_ptr& other): mDpy(other.mDpy) {
-        if (mDpy) {
-            mDpy->enter();
-        }
-    }
+    egl_display_ptr(const egl_display_ptr& other): mDpy(other.mDpy) {}
 
-    ~egl_display_ptr() {
-        if (mDpy) {
-            mDpy->leave();
-        }
-    }
+    ~egl_display_ptr() {}
 
     const egl_display_t* operator->() const { return mDpy; }
           egl_display_t* operator->()       { return mDpy; }

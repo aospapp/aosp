@@ -60,20 +60,22 @@ class SignalingRenderTask : public RenderTask {
 public:
     // Takes ownership of task, caller owns lock and signal
     SignalingRenderTask(RenderTask* task, Mutex* lock, Condition* signal)
-            : mTask(task), mLock(lock), mSignal(signal) {}
+            : mTask(task), mLock(lock), mSignal(signal), mHasRun(false) {}
     virtual void run() override;
+    bool hasRun() const { return mHasRun; }
 
 private:
     RenderTask* mTask;
     Mutex* mLock;
     Condition* mSignal;
+    bool mHasRun;
 };
 
 typedef void* (*RunnableMethod)(void* data);
 
 class MethodInvokeRenderTask : public RenderTask {
 public:
-    MethodInvokeRenderTask(RunnableMethod method)
+    explicit MethodInvokeRenderTask(RunnableMethod method)
         : mMethod(method), mReturnPtr(nullptr) {}
 
     void* payload() { return mData; }

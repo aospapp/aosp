@@ -23,7 +23,7 @@
 
 #include "common_runtime_test.h"
 #include "compiler.h"
-#include "jit/offline_profiling_info.h"
+#include "jit/profile_compilation_info.h"
 #include "oat_file.h"
 
 namespace art {
@@ -34,7 +34,6 @@ namespace mirror {
 class CompilerDriver;
 class CompilerOptions;
 class CumulativeLogger;
-class DexFileToMethodInlinerMap;
 class VerificationResults;
 
 template<class T> class Handle;
@@ -47,12 +46,12 @@ class CommonCompilerTest : public CommonRuntimeTest {
   // Create an OatMethod based on pointers (for unit tests).
   OatFile::OatMethod CreateOatMethod(const void* code);
 
-  void MakeExecutable(ArtMethod* method) SHARED_REQUIRES(Locks::mutator_lock_);
+  void MakeExecutable(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
   static void MakeExecutable(const void* code_start, size_t code_length);
 
-  void MakeExecutable(mirror::ClassLoader* class_loader, const char* class_name)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  void MakeExecutable(ObjPtr<mirror::ClassLoader> class_loader, const char* class_name)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
  protected:
   virtual void SetUp();
@@ -78,20 +77,24 @@ class CommonCompilerTest : public CommonRuntimeTest {
 
   virtual ProfileCompilationInfo* GetProfileCompilationInfo();
 
+  virtual CompilerFilter::Filter GetCompilerFilter() const {
+    return CompilerFilter::kDefaultCompilerFilter;
+  }
+
   virtual void TearDown();
 
   void CompileClass(mirror::ClassLoader* class_loader, const char* class_name)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void CompileMethod(ArtMethod* method) SHARED_REQUIRES(Locks::mutator_lock_);
+  void CompileMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
   void CompileDirectMethod(Handle<mirror::ClassLoader> class_loader, const char* class_name,
                            const char* method_name, const char* signature)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void CompileVirtualMethod(Handle<mirror::ClassLoader> class_loader, const char* class_name,
                             const char* method_name, const char* signature)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void CreateCompilerDriver(Compiler::Kind kind, InstructionSet isa, size_t number_of_threads = 2U);
 
@@ -102,7 +105,6 @@ class CommonCompilerTest : public CommonRuntimeTest {
   Compiler::Kind compiler_kind_ = Compiler::kOptimizing;
   std::unique_ptr<CompilerOptions> compiler_options_;
   std::unique_ptr<VerificationResults> verification_results_;
-  std::unique_ptr<DexFileToMethodInlinerMap> method_inliner_map_;
   std::unique_ptr<CompilerDriver> compiler_driver_;
   std::unique_ptr<CumulativeLogger> timer_;
   std::unique_ptr<const InstructionSetFeatures> instruction_set_features_;
@@ -114,32 +116,6 @@ class CommonCompilerTest : public CommonRuntimeTest {
   // Chunks must not move their storage after being created - use the node-based std::list.
   std::list<std::vector<uint8_t>> header_code_and_maps_chunks_;
 };
-
-// TODO: When read barrier works with all tests, get rid of this.
-#define TEST_DISABLED_FOR_READ_BARRIER() \
-  if (kUseReadBarrier) { \
-    printf("WARNING: TEST DISABLED FOR READ BARRIER\n"); \
-    return; \
-  }
-
-// TODO: When read barrier works with all Optimizing back ends, get rid of this.
-#define TEST_DISABLED_FOR_READ_BARRIER_WITH_OPTIMIZING_FOR_UNSUPPORTED_INSTRUCTION_SETS() \
-  if (kUseReadBarrier && GetCompilerKind() == Compiler::kOptimizing) {                    \
-    switch (GetInstructionSet()) {                                                        \
-      case kArm64:                                                                        \
-      case kThumb2:                                                                       \
-      case kX86:                                                                          \
-      case kX86_64:                                                                       \
-        /* Instruction set has read barrier support. */                                   \
-        break;                                                                            \
-                                                                                          \
-      default:                                                                            \
-        /* Instruction set does not have barrier support. */                              \
-        printf("WARNING: TEST DISABLED FOR READ BARRIER WITH OPTIMIZING "                 \
-               "FOR THIS INSTRUCTION SET\n");                                             \
-        return;                                                                           \
-    }                                                                                     \
-  }
 
 }  // namespace art
 

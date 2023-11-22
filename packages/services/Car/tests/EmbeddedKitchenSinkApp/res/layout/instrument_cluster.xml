@@ -17,8 +17,8 @@
               android:orientation="vertical"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
-              android:layout_marginTop="40dp"
-              android:layout_marginLeft="40dp">
+              android:layout_marginTop="160dp"
+              android:layout_marginStart="40dp">
 
     <LinearLayout
             android:orientation="vertical"
@@ -38,13 +38,5 @@
                     android:text="@string/cluster_stop" android:id="@+id/cluster_stop_button"
                     android:layout_column="0" android:textSize="32sp"/>
         </LinearLayout>
-        <EditText
-                android:layout_width="match_parent"
-                android:layout_height="fill_parent"
-                android:inputType="textMultiLine"
-                android:ems="10"
-                android:id="@+id/cluster_log"
-                android:scrollIndicators="right" android:gravity="top"
-                android:editable="false"/>
     </LinearLayout>
 </LinearLayout>

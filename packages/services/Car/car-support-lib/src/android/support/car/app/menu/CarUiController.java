@@ -21,13 +21,13 @@ import android.os.Bundle;
 import android.support.car.app.CarAppUtil;
 import android.view.View;
 import android.widget.EditText;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
 /**
  * A controller for a {@link android.support.car.app.CarActivity} to manipulate its car UI, and
  * under the hood it talks to a car ui provider.
+ * @hide
  */
 public abstract class CarUiController {
     static final String PROJECTED_UI_CONTROLLER =
@@ -50,14 +50,14 @@ public abstract class CarUiController {
 
     private static CarUiController getProjectedCarUiController(String className,
             CarDrawerActivity activity) {
-        Class uiControllerClass = null;
+        Class<? extends CarUiController> uiControllerClass = null;
         try {
-            uiControllerClass = Class.forName(className);
+            uiControllerClass = Class.forName(className).asSubclass(CarUiController.class);
         } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("Cannot find ProjectedCarUiController:" +
-                    className, e);
+            throw new IllegalArgumentException("Cannot find ProjectedCarUiController:" + className,
+                    e);
         }
-        Constructor<?> ctor;
+        Constructor<? extends CarUiController> ctor;
         try {
             ctor = uiControllerClass.getDeclaredConstructor(CarDrawerActivity.class);
         } catch (NoSuchMethodException e) {
@@ -65,7 +65,7 @@ public abstract class CarUiController {
                     " no constructor: " + className, e);
         }
         try {
-            return (CarUiController) ctor.newInstance(activity);
+            return ctor.newInstance(activity);
         } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
                 | InvocationTargetException e) {
             throw new IllegalArgumentException(

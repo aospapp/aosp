@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <libgen.h>
 
 #include <sepol/module_to_cil.h>
 #include <sepol/policydb/policydb.h>
@@ -258,6 +259,25 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (policy_type != POLICY_BASE && outfile) {
+		char *mod_name = modpolicydb.name;
+		char *out_path = strdup(outfile);
+		if (out_path == NULL) {
+			fprintf(stderr, "%s:  out of memory\n", argv[0]);
+			exit(1);
+		}
+		char *out_name = basename(out_path);
+		char *separator = strrchr(out_name, '.');
+		if (separator) {
+			*separator = '\0';
+		}
+		if (strcmp(mod_name, out_name) != 0) {
+			fprintf(stderr,	"%s:  Module name %s is different than the output base filename %s\n", argv[0], mod_name, out_name);
+			exit(1);
+		}
+		free(out_path);
+	}
+
 	if (modpolicydb.policy_type == POLICY_BASE && !cil) {
 		/* Verify that we can successfully expand the base module. */
 		policydb_t kernpolicydb;
@@ -294,7 +314,7 @@ int main(int argc, char **argv)
 
 		if (!cil) {
 			printf("%s:  writing binary representation (version %d) to %s\n",
-				   argv[0], policyvers, file);
+				   argv[0], policyvers, outfile);
 
 			if (write_binary_policy(&modpolicydb, outfp) != 0) {
 				fprintf(stderr, "%s:  error writing %s\n", argv[0], outfile);

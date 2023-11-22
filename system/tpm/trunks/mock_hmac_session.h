@@ -31,10 +31,10 @@ class MockHmacSession : public HmacSession {
   ~MockHmacSession() override;
 
   MOCK_METHOD0(GetDelegate, AuthorizationDelegate*());
-  MOCK_METHOD3(StartBoundSession, TPM_RC(
-      TPMI_DH_ENTITY bind_entity,
-      const std::string& bind_authorization_value,
-      bool enable_encryption));
+  MOCK_METHOD3(StartBoundSession,
+               TPM_RC(TPMI_DH_ENTITY bind_entity,
+                      const std::string& bind_authorization_value,
+                      bool enable_encryption));
   MOCK_METHOD1(StartUnboundSession, TPM_RC(bool enable_encryption));
   MOCK_METHOD1(SetEntityAuthorizationValue, void(const std::string& value));
   MOCK_METHOD1(SetFutureAuthorizationValue, void(const std::string& value));

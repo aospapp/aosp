@@ -216,6 +216,8 @@ static tag_info_t android_control[ANDROID_CONTROL_END -
     { "postRawSensitivityBoostRange",  TYPE_INT32  },
     [ ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST - ANDROID_CONTROL_START ] =
     { "postRawSensitivityBoost",       TYPE_INT32  },
+    [ ANDROID_CONTROL_ENABLE_ZSL - ANDROID_CONTROL_START ] =
+    { "enableZsl",                     TYPE_BYTE   },
 };
 
 static tag_info_t android_demosaic[ANDROID_DEMOSAIC_END -
@@ -1348,6 +1350,21 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST: {
+            break;
+        }
+        case ANDROID_CONTROL_ENABLE_ZSL: {
+            switch (value) {
+                case ANDROID_CONTROL_ENABLE_ZSL_FALSE:
+                    msg = "FALSE";
+                    ret = 0;
+                    break;
+                case ANDROID_CONTROL_ENABLE_ZSL_TRUE:
+                    msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
             break;
         }
 

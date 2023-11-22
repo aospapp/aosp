@@ -8,6 +8,8 @@ LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := \
         $(call all-java-files-under, src)
 
+LOCAL_STATIC_JAVA_LIBRARIES := legacy-android-test junit
+
 LOCAL_PACKAGE_NAME := Browser2
 
 include $(BUILD_PACKAGE)

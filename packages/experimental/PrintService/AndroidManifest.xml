@@ -1,8 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="foo.bar.printservice" >
 
-    <uses-sdk android:minSdkVersion="19"
-            android:targetSdkVersion="24" />
+    <uses-sdk android:minSdkVersion="19" />
 
     <application
         android:icon="@drawable/ic_launcher"

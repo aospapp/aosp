@@ -42,6 +42,11 @@ API levels and NDK releases provided for convenience:</p>
 <tbody>
 <tr>
 <td>Nougat</td>
+<td>7.1</td>
+<td>API level 25</td>
+</tr>
+<tr>
+<td>Nougat</td>
 <td>7.0</td>
 <td>API level 24</td>
 </tr>
@@ -181,11 +186,569 @@ following table. Factory images and binaries for Nexus devices can be downloaded
 <p><a href="https://developers.google.com/android/nexus/drivers">https://developers.google.com/android/nexus/drivers</a></p>
 <table>
   <thead>
+    <tr>
+      <th>Build</th>
+      <th>Branch</th>
+      <th>Version</th>
+      <th>Supported devices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>N6F26U</td>
+      <td>android-7.1.1_r28</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>NUF26N</td>
+      <td>android-7.1.1_r27</td>
+      <td>Nougat</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>NOF27C</td>
+      <td>android-7.1.1_r26</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NOF27B</td>
+      <td>android-7.1.1_r25</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>N4F26T</td>
+      <td>android-7.1.1_r24</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 6P, Nexus 9 (volantis/volantisg), Pixel C</td>
+    </tr>
+    <tr>
+      <td>NMF27D</td>
+      <td>android-7.1.1_r23</td>
+      <td>Nougat</td>
+      <td>Nexus Player</td>
+    </tr>
+    <tr>
+      <td>NMF26X</td>
+      <td>android-7.1.1_r22</td>
+      <td>Nougat</td>
+      <td>Nexus Player</td>
+    </tr>
+    <tr>
+      <td>NOF26W</td>
+      <td>android-7.1.1_r21</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NOF26V</td>
+      <td>android-7.1.1_r20</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>N6F26R</td>
+      <td>android-7.1.1_r17</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>NUF26K</td>
+      <td>android-7.1.1_r16</td>
+      <td>Nougat</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>N4F26Q</td>
+      <td>android-7.1.1_r15</td>
+      <td>Nougat</td>
+      <td>Nexus 9 (volantis/volantisg)</td>
+    </tr>
+    <tr>
+      <td>N4F26O</td>
+      <td>android-7.1.1_r14</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 6P, Pixel C</td>
+    </tr>
+    <tr>
+      <td>N6F26Q</td>
+      <td>android-7.1.1_r13</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>N4F26M</td>
+      <td>android-7.1.1_r12</td>
+      <td>Nougat</td>
+      <td>Nexus 9 (volantis)</td>
+    </tr>
+    <tr>
+      <td>N4F26J</td>
+      <td>android-7.1.1_r11</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>N4F26I</td>
+      <td>android-7.1.1_r10</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 6P, Pixel C</td>
+    </tr>
+    <tr>
+      <td>NMF26V</td>
+      <td>android-7.1.1_r9</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NMF26U</td>
+      <td>android-7.1.1_r8</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NMF26R</td>
+      <td>android-7.1.1_r7</td>
+      <td>Nougat</td>
+      <td>Nexus Player</td>
+    </tr>
+    <tr>
+      <td>NMF26Q</td>
+      <td>android-7.1.1_r6</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NMF26O</td>
+      <td>android-7.1.1_r4</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NMF26J</td>
+      <td>android-7.1.1_r3</td>
+      <td>Nougat</td>
+      <td>Nexus Player</td>
+    </tr>
+    <tr>
+      <td>NMF26H</td>
+      <td>android-7.1.1_r2</td>
+      <td>Nougat</td>
+      <td>Pixel C</td>
+    </tr>
+    <tr>
+      <td>NMF26F</td>
+      <td>android-7.1.1_r1</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 6P, Nexus 9 (volantis/volantisg)</td>
+    </tr>
+    <tr>
+      <td>NDE63X</td>
+      <td>android-7.1.0_r7</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NDE63V</td>
+      <td>android-7.1.0_r6</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NDE63U</td>
+      <td>android-7.1.0_r5</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NDE63P</td>
+      <td>android-7.1.0_r4</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NDE63L</td>
+      <td>android-7.1.0_r2</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NDE63H</td>
+      <td>android-7.1.0_r1</td>
+      <td>Nougat</td>
+      <td>Pixel XL, Pixel</td>
+    </tr>
+    <tr>
+      <td>NBD92E</td>
+      <td>android-7.0.0_r31</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    <tr>
+    <tr>
+      <td>NBD92D</td>
+      <td>android-7.0.0_r30</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    <tr>
+      <td>NBD91Z</td>
+      <td>android-7.0.0_r29</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    <tr>
+      <td>NBD91Y</td>
+      <td>android-7.0.0_r28</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>NBD91X</td>
+      <td>android-7.0.0_r27</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>NBD91U</td>
+      <td>android-7.0.0_r24</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>N5D91L</td>
+      <td>android-7.0.0_r21</td>
+      <td>Nougat</td>
+      <td>Nexus 5X</td>
+    </tr>
+    <tr>
+      <td>NBD91P</td>
+      <td>android-7.0.0_r19</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>NRD91K</td>
+      <td>android-7.0.0_r17</td>
+      <td>Nougat</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>NRD91N</td>
+      <td>android-7.0.0_r15</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Pixel C, Nexus Player, Nexus 9 (volantis/volantisg)</td>
+    </tr>
+    <tr>
+      <td>NBD90Z</td>
+      <td>android-7.0.0_r14</td>
+      <td>Nougat</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>NBD90X</td>
+      <td>android-7.0.0_r13</td>
+      <td>Nougat</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>NBD90W</td>
+      <td>android-7.0.0_r12</td>
+      <td>Nougat</td>
+      <td>Nexus 5X</td>
+    </tr>
+    <tr>
+      <td>NRD91D</td>
+      <td>android-7.0.0_r7</td>
+      <td>Nougat</td>
+      <td>Pixel C, Nexus Player, Nexus 9 (Wi-Fi)</td>
+    </tr>
+    <tr>
+      <td>NRD90U</td>
+      <td>android-7.0.0_r6</td>
+      <td>Nougat</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>NRD90T</td>
+      <td>android-7.0.0_r5</td>
+      <td>Nougat</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>NRD90S</td>
+      <td>android-7.0.0_r4</td>
+      <td>Nougat</td>
+      <td>Nexus 5X</td>
+    </tr>
+    <tr>
+      <td>NRD90R</td>
+      <td>android-7.0.0_r3</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 9 (volantis), Nexus Player, Pixel C</td>
+    </tr>
+    <tr>
+      <td>NRD90M</td>
+      <td>android-7.0.0_r1</td>
+      <td>Nougat</td>
+      <td>Nexus 5X, Nexus 9 (volantis), Nexus Player, Pixel C</td>
+    </tr>
+    <tr>
+      <td>MOB31T</td>
+      <td>android-6.0.1_r79</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MOB31S</td>
+      <td>android-6.0.1_r78</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>M4B30Z</td>
+      <td>android-6.0.1_r77</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5</td>
+    </tr>
+    <tr>
+      <td>MOB31K</td>
+      <td>android-6.0.1_r74</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MMB31C</td>
+      <td>android-6.0.1_r73</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>M4B30X</td>
+      <td>android-6.0.1_r72</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5</td>
+    </tr>
+    <tr>
+      <td>MOB31H</td>
+      <td>android-6.0.1_r70</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MMB30Y</td>
+      <td>android-6.0.1_r69</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MTC20K</td>
+      <td>android-6.0.1_r67</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5X</td>
+    </tr>
+    <tr>
+      <td>MOB31E</td>
+      <td>android-6.0.1_r66</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5, Nexus 6, Nexus 9 (volantis)</td>
+    </tr>
+    <tr>
+      <td>MMB30W</td>
+      <td>android-6.0.1_r65</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MXC89L</td>
+      <td>android-6.0.1_r63</td>
+      <td>Marshmallow</td>
+      <td>Pixel C</td>
+    </tr>
+    <tr>
+      <td>MTC20F</td>
+      <td>android-6.0.1_r62</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5X, Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>MOB30Y</td>
+      <td>android-6.0.1_r60</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5</td>
+    </tr>
+    <tr>
+      <td>MOB30X</td>
+      <td>android-6.0.1_r59</td>
+      <td>Marshmallow</td>
+      <td>Nexus 7 (flo/deb)</td>
+    </tr>
+    <tr>
+      <td>MOB30W</td>
+      <td>android-6.0.1_r58</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6, Nexus 9 (volantis/volantisg), Nexus Player</td>
+    </tr>
+    <tr>
+      <td>MMB30S</td>
+      <td>android-6.0.1_r57</td>
+      <td>Marshmallow</td>
+      <td>Nexus 7 (deb)</td>
+    </tr>
+    <tr>
+      <td>MMB30R</td>
+      <td>android-6.0.1_r56</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MXC89K</td>
+      <td>android-6.0.1_r55</td>
+      <td>Marshmallow</td>
+      <td>Pixel C</td>
+    </tr>
+    <tr>
+      <td>MTC19Z</td>
+      <td>android-6.0.1_r54</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5X</td>
+    </tr>
+    <tr>
+      <td>MTC19X</td>
+      <td>android-6.0.1_r53</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>MOB30P</td>
+      <td>android-6.0.1_r50</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg), Nexus Player</td>
+    </tr>
+    <tr>
+      <td>MOB30O</td>
+      <td>android-6.0.1_r49</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MMB30M</td>
+      <td>android-6.0.1_r48</td>
+      <td>Marshmallow</td>
+      <td>Nexus 7 (deb)</td>
+    </tr>
+    <tr>
+      <td>MMB30K</td>
+      <td>android-6.0.1_r47</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MOB30M</td>
+      <td>android-6.0.1_r46</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5, Nexus 6, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg), Nexus Player</td>
+    </tr>
+    <tr>
+      <td>MTC19V</td>
+      <td>android-6.0.1_r45</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5X, Nexus 6P</td>
+    </tr>
+    <tr>
+      <td>MOB30J</td>
+      <td>android-6.0.1_r43</td>
+      <td>Marshmallow</td>
+      <td>Nexus 7 (flo/deb)</td>
+    </tr>
+    <tr>
+      <td>MOB30I</td>
+      <td>android-6.0.1_r42</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6</td>
+    </tr>
+    <tr>
+      <td>MOB30H</td>
+      <td>android-6.0.1_r41</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5</td>
+    </tr>
+    <tr>
+      <td>MOB30G</td>
+      <td>android-6.0.1_r40</td>
+      <td>Marshmallow</td>
+      <td>Nexus 9 (volantis/volantisg), Nexus Player</td>
+    </tr>
+    <tr>
+      <td>MXC89H</td>
+      <td>android-6.0.1_r33</td>
+      <td>Marshmallow</td>
+      <td>Pixel C</td>
+    </tr>
+    <tr>
+      <td>MXC89F</td>
+      <td>android-6.0.1_r32</td>
+      <td>Marshmallow</td>
+      <td>Pixel C</td>
+    </tr>
+    <tr>
+      <td>MMB30J</td>
+      <td>android-6.0.1_r28</td>
+      <td>Marshmallow</td>
+      <td>Nexus 6, Nexus 7 (deb)</td>
+    </tr>
+    <tr>
+      <td>MTC19T</td>
+      <td>android-6.0.1_r25</td>
+      <td>Marshmallow</td>
+      <td>Nexus 5X, Nexus 6P</td>
+    </tr>
 <tr>
-  <th>Build</th>
-<th>Branch</th>
-<th>Version</th>
-<th>Supported devices</th>
+  <td>M5C14J</td>
+  <td>android-6.0.1_r31</td>
+  <td>Marshmallow</td>
+  <td>Pixel C</td>
+</tr>
+<tr>
+  <td>MOB30D</td>
+  <td>android-6.0.1_r30</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 6, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg), Nexus Player</td>
+</tr>
+<tr>
+  <td>MHC19Q</td>
+  <td>android-6.0.1_r24</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X, Nexus 6P</td>
+</tr>
+<tr>
+  <td>MHC19J</td>
+  <td>android-6.0.1_r22</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5X</td>
+</tr>
+<tr>
+  <td>MHC19I</td>
+  <td>android-6.0.1_r21</td>
+  <td>Marshmallow</td>
+  <td>Nexus 6P</td>
+</tr>
+<tr>
+  <td>MMB29X</td>
+  <td>android-6.0.1_r20</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 6, Nexus 7 (deb), Nexus 9 (volantisg)</td>
+</tr>
+<tr>
+  <td>MXC14G</td>
+  <td>android-6.0.1_r18</td>
+  <td>Marshmallow</td>
+  <td>Pixel C</td>
+</tr>
+<tr>
+  <td>MMB29V</td>
+  <td>android-6.0.1_r17</td>
+  <td>Marshmallow</td>
+  <td>Nexus 5, Nexus 5X, Nexus 6, Nexus 6P, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg)</td>
 </tr>
 <tr>
   <td>MXB48T</td>
@@ -336,6 +899,30 @@ following table. Factory images and binaries for Nexus devices can be downloaded
   <td>android-6.0.0_r1</td>
   <td>Marshmallow</td>
   <td>Nexus 5, Nexus 6, Nexus 7 (flo/deb), Nexus 9 (volantis/volantisg), Nexus Player</td>
+</tr>
+<tr>
+  <td>LMY49M</td>
+  <td>android-5.1.1_r38</td>
+  <td>Lollipop</td>
+  <td>Nexus 10</td>
+</tr>
+<tr>
+  <td>LMY49J</td>
+  <td>android-5.1.1_r37</td>
+  <td>Lollipop</td>
+  <td>Nexus 10</td>
+</tr>
+<tr>
+  <td>LMY49I</td>
+  <td>android-5.1.1_r36</td>
+  <td>Lollipop</td>
+  <td>Nexus 10</td>
+</tr>
+<tr>
+  <td>LMY49H</td>
+  <td>android-5.1.1_r35</td>
+  <td>Lollipop</td>
+  <td>Nexus 10</td>
 </tr>
 <tr>
   <td>LMY49G</td>
@@ -1069,9 +1656,6 @@ following table. Factory images and binaries for Nexus devices can be downloaded
   <td></td>
   <td></td>
 </tr>
-</thead>
-<tbody>
-
 </tbody>
 </table>
 <p>The branches froyo, gingerbread, ics-mr0, ics-mr1, jb-dev,

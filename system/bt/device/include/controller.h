@@ -32,14 +32,14 @@ static const char CONTROLLER_MODULE[] = "controller_module";
 typedef struct controller_t {
   bool (*get_is_ready)(void);
 
-  const bt_bdaddr_t *(*get_address)(void);
-  const bt_version_t *(*get_bt_version)(void);
+  const bt_bdaddr_t* (*get_address)(void);
+  const bt_version_t* (*get_bt_version)(void);
 
-  const bt_device_features_t *(*get_features_classic)(int index);
+  const bt_device_features_t* (*get_features_classic)(int index);
   uint8_t (*get_last_features_classic_index)(void);
 
-  const bt_device_features_t *(*get_features_ble)(void);
-  const uint8_t *(*get_ble_supported_states)(void);
+  const bt_device_features_t* (*get_features_ble)(void);
+  const uint8_t* (*get_ble_supported_states)(void);
 
   bool (*supports_simple_pairing)(void);
   bool (*supports_secure_connections)(void);
@@ -49,11 +49,17 @@ typedef struct controller_t {
   bool (*supports_rssi_with_inquiry_results)(void);
   bool (*supports_extended_inquiry_response)(void);
   bool (*supports_master_slave_role_switch)(void);
+  bool (*supports_enhanced_setup_synchronous_connection)(void);
+  bool (*supports_enhanced_accept_synchronous_connection)(void);
 
   bool (*supports_ble)(void);
   bool (*supports_ble_packet_extension)(void);
   bool (*supports_ble_connection_parameters_request)(void);
   bool (*supports_ble_privacy)(void);
+  bool (*supports_ble_2m_phy)(void);
+  bool (*supports_ble_coded_phy)(void);
+  bool (*supports_ble_extended_advertising)(void);
+  bool (*supports_ble_periodic_advertising)(void);
 
   // Get the cached acl data sizes for the controller.
   uint16_t (*get_acl_data_size_classic)(void);
@@ -66,6 +72,8 @@ typedef struct controller_t {
   uint16_t (*get_acl_packet_size_ble)(void);
 
   uint16_t (*get_ble_default_data_packet_length)(void);
+  uint16_t (*get_ble_maxium_advertising_data_length)(void);
+  uint8_t (*get_ble_number_of_supported_advertising_sets)(void);
 
   // Get the number of acl packets the controller can buffer.
   uint16_t (*get_acl_buffer_count_classic)(void);
@@ -75,12 +83,14 @@ typedef struct controller_t {
 
   uint8_t (*get_ble_resolving_list_max_size)(void);
   void (*set_ble_resolving_list_max_size)(int resolving_list_max_size);
-  uint8_t *(*get_local_supported_codecs)(uint8_t *number_of_codecs);
+  uint8_t* (*get_local_supported_codecs)(uint8_t* number_of_codecs);
+  uint8_t (*get_le_all_initiating_phys)(void);
+
 } controller_t;
 
-const controller_t *controller_get_interface();
+const controller_t* controller_get_interface();
 
-const controller_t *controller_get_test_interface(
-    const hci_t *hci_interface,
-    const hci_packet_factory_t *packet_factory_interface,
-    const hci_packet_parser_t *packet_parser_interface);
+const controller_t* controller_get_test_interface(
+    const hci_t* hci_interface,
+    const hci_packet_factory_t* packet_factory_interface,
+    const hci_packet_parser_t* packet_parser_interface);

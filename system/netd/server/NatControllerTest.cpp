@@ -38,6 +38,7 @@ class NatControllerTest : public IptablesBaseTest {
 public:
     NatControllerTest() {
         NatController::execFunction = fake_android_fork_exec;
+        NatController::iptablesRestoreFunction = fakeExecIptablesRestore;
     }
 
 protected:
@@ -48,22 +49,42 @@ protected:
     }
 
     const ExpectedIptablesCommands FLUSH_COMMANDS = {
-        { V4V6, "-F natctrl_FORWARD" },
-        { V4,   "-A natctrl_FORWARD -j DROP" },
-        { V4,   "-t nat -F natctrl_nat_POSTROUTING" },
-        { V6,   "-t raw -F natctrl_raw_PREROUTING" },
+        { V4,   "*filter\n"
+                ":natctrl_FORWARD -\n"
+                "-A natctrl_FORWARD -j DROP\n"
+                "COMMIT\n"
+                "*nat\n"
+                ":natctrl_nat_POSTROUTING -\n"
+                "COMMIT\n" },
+        { V6,   "*filter\n"
+                ":natctrl_FORWARD -\n"
+                "COMMIT\n"
+                "*raw\n"
+                ":natctrl_raw_PREROUTING -\n"
+                "COMMIT\n" },
     };
 
     const ExpectedIptablesCommands SETUP_COMMANDS = {
-        { V4V6, "-F natctrl_FORWARD" },
-        { V4,   "-A natctrl_FORWARD -j DROP" },
-        { V4,   "-t nat -F natctrl_nat_POSTROUTING" },
-        { V6,   "-t raw -F natctrl_raw_PREROUTING" },
-        { V4V6, "-F natctrl_tether_counters" },
-        { V4V6, "-X natctrl_tether_counters" },
-        { V4V6, "-N natctrl_tether_counters" },
-        { V4,   "-t mangle -A natctrl_mangle_FORWARD -p tcp --tcp-flags SYN SYN "
-                "-j TCPMSS --clamp-mss-to-pmtu" },
+        { V4,   "*filter\n"
+                ":natctrl_FORWARD -\n"
+                "-A natctrl_FORWARD -j DROP\n"
+                "COMMIT\n"
+                "*nat\n"
+                ":natctrl_nat_POSTROUTING -\n"
+                "COMMIT\n" },
+        { V6,   "*filter\n"
+                ":natctrl_FORWARD -\n"
+                "COMMIT\n"
+                "*raw\n"
+                ":natctrl_raw_PREROUTING -\n"
+                "COMMIT\n" },
+        { V4,   "*mangle\n"
+                "-A natctrl_mangle_FORWARD -p tcp --tcp-flags SYN SYN "
+                    "-j TCPMSS --clamp-mss-to-pmtu\n"
+                "COMMIT\n" },
+        { V4V6, "*filter\n"
+                ":natctrl_tether_counters -\n"
+                "COMMIT\n" },
     };
 
     const ExpectedIptablesCommands TWIDDLE_COMMANDS = {
@@ -111,12 +132,12 @@ protected:
 
 TEST_F(NatControllerTest, TestSetupIptablesHooks) {
     mNatCtrl.setupIptablesHooks();
-    expectIptablesCommands(SETUP_COMMANDS);
+    expectIptablesRestoreCommands(SETUP_COMMANDS);
 }
 
 TEST_F(NatControllerTest, TestSetDefaults) {
     setDefaults();
-    expectIptablesCommands(FLUSH_COMMANDS);
+    expectIptablesRestoreCommands(FLUSH_COMMANDS);
 }
 
 TEST_F(NatControllerTest, TestAddAndRemoveNat) {
@@ -140,10 +161,8 @@ TEST_F(NatControllerTest, TestAddAndRemoveNat) {
     mNatCtrl.disableNat("wlan0", "rmnet0");
     expectIptablesCommands(stopOtherNat);
 
-    std::vector<ExpectedIptablesCommands> stopLastNat = {
-        stopNatCommands("usb0", "rmnet0"),
-        FLUSH_COMMANDS,
-    };
+    ExpectedIptablesCommands stopLastNat = stopNatCommands("usb0", "rmnet0");
     mNatCtrl.disableNat("usb0", "rmnet0");
     expectIptablesCommands(stopLastNat);
+    expectIptablesRestoreCommands(FLUSH_COMMANDS);
 }

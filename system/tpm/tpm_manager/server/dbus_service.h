@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include <brillo/daemons/dbus_daemon.h>
 #include <brillo/dbus/dbus_method_response.h>
 #include <brillo/dbus/dbus_object.h>
 #include <dbus/bus.h>
@@ -29,53 +30,55 @@
 namespace tpm_manager {
 
 using brillo::dbus_utils::DBusMethodResponse;
-using CompletionAction =
-    brillo::dbus_utils::AsyncEventSequencer::CompletionAction;
 
-// Handles D-Bus communtion with the TpmManager daemon.
-class DBusService {
+// Handles D-Bus communication with the TpmManager daemon.
+class DBusService : public brillo::DBusServiceDaemon {
  public:
   // Does not take ownership of |nvram_service| or |ownership_service|. The
-  // services proviced must be initialized, and must remain valid for the
+  // services provided must be initialized, and must remain valid for the
   // lifetime of this instance.
-  DBusService(const scoped_refptr<dbus::Bus>& bus,
+  DBusService(TpmNvramInterface* nvram_service,
+              TpmOwnershipInterface* ownership_service);
+  // Used to inject a mock bus.
+  DBusService(scoped_refptr<dbus::Bus> bus,
               TpmNvramInterface* nvram_service,
               TpmOwnershipInterface* ownership_service);
   virtual ~DBusService() = default;
 
-  // Connects to D-Bus system bus and exports TpmManager methods.
-  void Register(const CompletionAction& callback);
+  // Registers objects exported by this service.
+  void RegisterDBusObjectsAsync(
+      brillo::dbus_utils::AsyncEventSequencer* sequencer) override;
 
  private:
   friend class DBusServiceTest;
 
-  template<typename RequestProtobufType,
-           typename ReplyProtobufType,
-           typename TpmInterface>
-  using HandlerFunction = void(TpmInterface::*)(
+  template <typename RequestProtobufType,
+            typename ReplyProtobufType,
+            typename TpmInterface>
+  using HandlerFunction = void (TpmInterface::*)(
       const RequestProtobufType&,
       const base::Callback<void(const ReplyProtobufType&)>&);
 
   // Templates to handle D-Bus calls.
-  template<typename RequestProtobufType,
-           typename ReplyProtobufType,
-           DBusService::HandlerFunction<RequestProtobufType,
-                                        ReplyProtobufType,
-                                        TpmNvramInterface> func>
+  template <typename RequestProtobufType,
+            typename ReplyProtobufType,
+            DBusService::HandlerFunction<RequestProtobufType,
+                                         ReplyProtobufType,
+                                         TpmNvramInterface> func>
   void HandleNvramDBusMethod(
       std::unique_ptr<DBusMethodResponse<const ReplyProtobufType&>> response,
       const RequestProtobufType& request);
 
-  template<typename RequestProtobufType,
-           typename ReplyProtobufType,
-           DBusService::HandlerFunction<RequestProtobufType,
-                                        ReplyProtobufType,
-                                        TpmOwnershipInterface> func>
+  template <typename RequestProtobufType,
+            typename ReplyProtobufType,
+            DBusService::HandlerFunction<RequestProtobufType,
+                                         ReplyProtobufType,
+                                         TpmOwnershipInterface> func>
   void HandleOwnershipDBusMethod(
       std::unique_ptr<DBusMethodResponse<const ReplyProtobufType&>> response,
       const RequestProtobufType& request);
 
-  brillo::dbus_utils::DBusObject dbus_object_;
+  std::unique_ptr<brillo::dbus_utils::DBusObject> dbus_object_;
   TpmNvramInterface* nvram_service_;
   TpmOwnershipInterface* ownership_service_;
   DISALLOW_COPY_AND_ASSIGN(DBusService);

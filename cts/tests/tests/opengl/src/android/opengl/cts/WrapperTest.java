@@ -190,7 +190,9 @@ public class WrapperTest extends AndroidTestCase {
         // zero out the refcount.
         //
         // Before we can terminate we need to be sure that the display has been initialized
-        // at least once.
+        // at least once. Also includes the 1s sleep to work-around a suspected race condition
+        // where it seems that some earlier tests may not have completed clean-up of all activities.
+        Thread.sleep(1000);
         eglSetup(2, 1, 1);
         for (int i = 0; i < 100; i++) {
             EGL14.eglTerminate(mEGLDisplay);

@@ -49,14 +49,13 @@ bool TrunksDBusProxy::Init() {
   options.bus_type = dbus::Bus::SYSTEM;
   bus_ = new dbus::Bus(options);
   object_proxy_ = bus_->GetObjectProxy(
-      trunks::kTrunksServiceName,
-      dbus::ObjectPath(trunks::kTrunksServicePath));
+      trunks::kTrunksServiceName, dbus::ObjectPath(trunks::kTrunksServicePath));
   origin_thread_id_ = base::PlatformThread::CurrentId();
   return (object_proxy_ != nullptr);
 }
 
 void TrunksDBusProxy::SendCommand(const std::string& command,
-                              const ResponseCallback& callback) {
+                                  const ResponseCallback& callback) {
   if (origin_thread_id_ != base::PlatformThread::CurrentId()) {
     LOG(ERROR) << "Error TrunksDBusProxy cannot be shared by multiple threads.";
     callback.Run(CreateErrorResponse(TRUNKS_RC_IPC_ERROR));
@@ -72,12 +71,8 @@ void TrunksDBusProxy::SendCommand(const std::string& command,
     callback.Run(response.response());
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusMaxTimeout,
-      object_proxy_,
-      trunks::kTrunksInterface,
-      trunks::kSendCommand,
-      base::Bind(on_success),
-      base::Bind(on_error),
+      kDBusMaxTimeout, object_proxy_, trunks::kTrunksInterface,
+      trunks::kSendCommand, base::Bind(on_success), base::Bind(on_error),
       tpm_command_proto);
 }
 
@@ -91,15 +86,12 @@ std::string TrunksDBusProxy::SendCommandAndWait(const std::string& command) {
   brillo::ErrorPtr error;
   std::unique_ptr<dbus::Response> dbus_response =
       brillo::dbus_utils::CallMethodAndBlockWithTimeout(
-          kDBusMaxTimeout,
-          object_proxy_,
-          trunks::kTrunksInterface,
-          trunks::kSendCommand,
-          &error,
-          tpm_command_proto);
+          kDBusMaxTimeout, object_proxy_, trunks::kTrunksInterface,
+          trunks::kSendCommand, &error, tpm_command_proto);
   SendCommandResponse tpm_response_proto;
-  if (dbus_response.get() && brillo::dbus_utils::ExtractMethodCallResults(
-      dbus_response.get(), &error, &tpm_response_proto)) {
+  if (dbus_response.get() &&
+      brillo::dbus_utils::ExtractMethodCallResults(dbus_response.get(), &error,
+                                                   &tpm_response_proto)) {
     return tpm_response_proto.response();
   } else {
     LOG(ERROR) << "TrunksProxy could not parse response: "
@@ -107,6 +99,5 @@ std::string TrunksDBusProxy::SendCommandAndWait(const std::string& command) {
     return CreateErrorResponse(SAPI_RC_MALFORMED_RESPONSE);
   }
 }
-
 
 }  // namespace trunks

@@ -26,8 +26,7 @@ namespace ipc {
 // Implements a Binder based IPCHandler.
 class IPCHandlerBinder : public IPCHandler {
  public:
-  IPCHandlerBinder(bluetooth::Adapter* adapter,
-                   IPCManager::Delegate* delegate);
+  IPCHandlerBinder(bluetooth::Adapter* adapter, IPCManager::Delegate* delegate);
   ~IPCHandlerBinder() override;
 
   // IPCHandler overrides:

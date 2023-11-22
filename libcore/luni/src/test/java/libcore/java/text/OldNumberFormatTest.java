@@ -230,7 +230,7 @@ public class OldNumberFormatTest extends TestCase {
 
         out = nf1.format(5.0);
         assertEquals("Wrong result for for double: " + out, "5", out.toString());
-        // END android-changed
+        // END Android-changed
     }
 
     public void test_formatLlong() {
@@ -258,7 +258,7 @@ public class OldNumberFormatTest extends TestCase {
 
         out = nf1.format(0);
         assertEquals("Wrong result for for double: " + out, "0", out.toString());
-        // END android-changed
+        // END Android-changed
     }
 
     public void test_getAvailableLocales() {
@@ -315,9 +315,9 @@ public class OldNumberFormatTest extends TestCase {
 
         Locale atLocale = new Locale("de", "AT");
         format = NumberFormat.getCurrencyInstance(atLocale);
-        // BEGIN android-changed: ICU uses non-breaking space after the euro sign; the RI uses ' '.
+        // BEGIN Android-changed: ICU uses non-breaking space after the euro sign; the RI uses ' '.
         assertEquals("\u20ac\u00a035,76", format.format(35.76));
-        assertEquals("\u20ac\u00a0123\u00a0456,79", format.format(123456.789));
+        assertEquals("\u20ac\u00a0123.456,79", format.format(123456.789));
         assertEquals("\u20ac\u00a00,10", format.format(0.1));
         assertEquals("\u20ac\u00a01,00", format.format(0.999));
         try {

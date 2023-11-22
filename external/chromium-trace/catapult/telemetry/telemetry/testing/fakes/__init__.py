@@ -10,13 +10,13 @@ underscore are intended to be implementation details, and should not
 be subclassed; however, some, like _FakeBrowser, have public APIs that
 may need to be called in tests.
 """
-
 from telemetry.internal.backends.chrome_inspector import websocket
 from telemetry.internal.browser import browser_options
 from telemetry.internal.platform import system_info
 from telemetry.page import shared_page_state
 from telemetry.util import image_util
 from telemetry.testing.internal import fake_gpu_info
+from types import ModuleType
 
 
 # Classes and functions which are intended to be part of the public
@@ -43,6 +43,9 @@ class FakePlatform(object):
       self._tracing_controller = _FakeTracingController()
     return  self._tracing_controller
 
+  def Initialize(self):
+    pass
+
   def CanMonitorThermalThrottling(self):
     return False
 
@@ -53,18 +56,21 @@ class FakePlatform(object):
     return False
 
   def GetDeviceTypeName(self):
-    raise NotImplementedError
+    return 'FakeDevice'
 
   def GetArchName(self):
     raise NotImplementedError
 
   def GetOSName(self):
-    raise NotImplementedError
+    return 'FakeOS'
 
   def GetOSVersionName(self):
     raise NotImplementedError
 
   def StopAllLocalServers(self):
+    pass
+
+  def WaitForTemperature(self, _):
     pass
 
 
@@ -112,11 +118,14 @@ class FakeHTTPServer(object):
 
 
 class FakePossibleBrowser(object):
-  def __init__(self):
+  def __init__(self, execute_on_startup=None,
+               execute_after_browser_creation=None):
     self._returned_browser = _FakeBrowser(FakeLinuxPlatform())
     self.browser_type = 'linux'
     self.supports_tab_control = False
     self.is_remote = False
+    self.execute_on_startup = execute_on_startup
+    self.execute_after_browser_creation = execute_after_browser_creation
 
   @property
   def returned_browser(self):
@@ -124,7 +133,11 @@ class FakePossibleBrowser(object):
     return self._returned_browser
 
   def Create(self, finder_options):
+    if self.execute_on_startup is not None:
+      self.execute_on_startup()
     del finder_options  # unused
+    if self.execute_after_browser_creation is not None:
+      self.execute_after_browser_creation(self._returned_browser)
     return self.returned_browser
 
   @property
@@ -175,14 +188,21 @@ class FakeSystemInfo(system_info.SystemInfo):
 
 
 class _FakeBrowserFinderOptions(browser_options.BrowserFinderOptions):
-  def __init__(self, *args, **kwargs):
+  def __init__(self, execute_on_startup=None,
+               execute_after_browser_creation=None, *args, **kwargs):
     browser_options.BrowserFinderOptions.__init__(self, *args, **kwargs)
-    self.fake_possible_browser = FakePossibleBrowser()
+    self.fake_possible_browser = \
+      FakePossibleBrowser(
+        execute_on_startup=execute_on_startup,
+        execute_after_browser_creation=execute_after_browser_creation)
 
-
-def CreateBrowserFinderOptions(browser_type=None):
+def CreateBrowserFinderOptions(browser_type=None, execute_on_startup=None,
+                               execute_after_browser_creation=None):
   """Creates fake browser finder options for discovering a browser."""
-  return _FakeBrowserFinderOptions(browser_type=browser_type)
+  return _FakeBrowserFinderOptions(
+    browser_type=browser_type,
+    execute_on_startup=execute_on_startup,
+    execute_after_browser_creation=execute_after_browser_creation)
 
 
 # Internal classes. Note that end users may still need to both call
@@ -192,9 +212,12 @@ def CreateBrowserFinderOptions(browser_type=None):
 class _FakeBrowser(object):
   def __init__(self, platform):
     self._tabs = _FakeTabList(self)
+    # Fake the creation of the first tab.
+    self._tabs.New()
     self._returned_system_info = FakeSystemInfo()
     self._platform = platform
     self._browser_type = 'release'
+    self._is_crashed = False
 
   @property
   def platform(self):
@@ -234,7 +257,7 @@ class _FakeBrowser(object):
     return _FakeCredentials()
 
   def Close(self):
-    pass
+    self._is_crashed = False
 
   @property
   def supports_system_info(self):
@@ -250,6 +273,9 @@ class _FakeBrowser(object):
   @property
   def tabs(self):
     return self._tabs
+
+  def DumpStateUponFailure(self):
+    pass
 
 
 class _FakeCredentials(object):
@@ -276,13 +302,24 @@ class _FakeTracingController(object):
   def ClearStateIfNeeded(self):
     pass
 
+  def IsChromeTracingSupported(self):
+    return True
+
 
 class _FakeNetworkController(object):
   def __init__(self):
     self.wpr_mode = None
     self.extra_wpr_args = None
-    self.is_replay_active = False
+    self.is_initialized = False
     self.is_open = False
+    self.use_live_traffic = None
+
+  def InitializeIfNeeded(self, use_live_traffic=False):
+    self.use_live_traffic = use_live_traffic
+
+  def UpdateTrafficSettings(self, round_trip_latency_ms=None,
+      download_bandwidth_kbps=None, upload_bandwidth_kbps=None):
+    pass
 
   def Open(self, wpr_mode, extra_wpr_args):
     self.wpr_mode = wpr_mode
@@ -292,16 +329,16 @@ class _FakeNetworkController(object):
   def Close(self):
     self.wpr_mode = None
     self.extra_wpr_args = None
-    self.is_replay_active = False
+    self.is_initialized = False
     self.is_open = False
 
   def StartReplay(self, archive_path, make_javascript_deterministic=False):
     del make_javascript_deterministic  # Unused.
     assert self.is_open
-    self.is_replay_active = archive_path is not None
+    self.is_initialized = archive_path is not None
 
   def StopReplay(self):
-    self.is_replay_active = False
+    self.is_initialized = False
 
 
 class _FakeTab(object):
@@ -328,9 +365,15 @@ class _FakeTab(object):
 
   def Navigate(self, url, script_to_evaluate_on_commit=None,
                timeout=0):
-    pass
+    del script_to_evaluate_on_commit, timeout # unused
+    if url == 'chrome://crash':
+      self.browser._is_crashed = True
+      raise Exception
 
   def WaitForDocumentReadyStateToBeInteractiveOrBetter(self, timeout=0):
+    pass
+
+  def WaitForFrameToBeDisplayed(self, timeout=0):
     pass
 
   def IsAlive(self):
@@ -375,7 +418,10 @@ class _FakeTabList(object):
     return len(self._tabs)
 
   def __getitem__(self, index):
-    return self._tabs[index]
+    if self._tabs[index].browser._is_crashed:
+      raise Exception
+    else:
+      return self._tabs[index]
 
   def GetTabById(self, identifier):
     """The identifier of a tab can be accessed with tab.id."""
@@ -457,3 +503,37 @@ class FakeInspectorWebsocket(object):
       callback(response)
     else:
       raise Exception('Unexpected response type')
+
+
+class FakeTimer(object):
+  """ A fake timer to fake out the timing for a module.
+    Args:
+      module: module to fake out the time
+  """
+  def __init__(self, module=None):
+    self._elapsed_time = 0
+    self._module = module
+    self._actual_time = None
+    if module:
+      assert isinstance(module, ModuleType)
+      self._actual_time = module.time
+      self._module.time = self
+
+  def sleep(self, time):
+    self._elapsed_time += time
+
+  def time(self):
+    return self._elapsed_time
+
+  def SetTime(self, time):
+    self._elapsed_time = time
+
+  def __del__(self):
+    self.Restore()
+
+  def Restore(self):
+    if self._module:
+      self._module.time = self._actual_time
+      self._module = None
+      self._actual_time = None
+

@@ -27,7 +27,7 @@ class TaskSequential;
  */
 class TaskAsync: public TaskGeneric {
 public:
-    TaskAsync(TaskType type);
+    explicit TaskAsync(TaskType type);
     virtual ~TaskAsync();
     virtual TaskGeneric::ExecutionResult run();
     virtual bool parseAttribute(const android::String8& name, const android::String8& value);

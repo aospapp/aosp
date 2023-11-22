@@ -195,6 +195,8 @@ class security_OpenFDs(test.test):
                         # for performance reasons.
                         # See crbug.com/452227.
                         r'0500 /usr/share/fonts/.*',
+                        # Zero-copy texture uploads. crbug.com/607632.
+                        r'0700 anon_inode:dmabuf',
                        ])
         try:
             # Renderers have access to DRM vgem device for graphics tile upload.

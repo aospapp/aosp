@@ -35,6 +35,4 @@ LOCAL_PROGUARD_ENABLED := disabled
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-
 include $(BUILD_CTS_SUPPORT_PACKAGE)

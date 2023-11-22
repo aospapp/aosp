@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include "ext4_crypt.h"
+#include "ext4_utils/ext4_crypt.h"
 
+#include <asm/ioctl.h>
 #include <dirent.h>
 #include <errno.h>
-#include <string.h>
-#include <unistd.h>
-
 #include <fcntl.h>
-#include <asm/ioctl.h>
+#include <string.h>
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -40,16 +39,24 @@
 #define EXT4_KEY_DESCRIPTOR_SIZE_HEX 17
 
 struct ext4_encryption_policy {
-    char version;
-    char contents_encryption_mode;
-    char filenames_encryption_mode;
-    char flags;
-    char master_key_descriptor[EXT4_KEY_DESCRIPTOR_SIZE];
+    uint8_t version;
+    uint8_t contents_encryption_mode;
+    uint8_t filenames_encryption_mode;
+    uint8_t flags;
+    uint8_t master_key_descriptor[EXT4_KEY_DESCRIPTOR_SIZE];
 } __attribute__((__packed__));
 
 #define EXT4_ENCRYPTION_MODE_AES_256_XTS    1
 #define EXT4_ENCRYPTION_MODE_AES_256_CTS    4
+#define EXT4_ENCRYPTION_MODE_AES_256_HEH    126
 #define EXT4_ENCRYPTION_MODE_PRIVATE        127
+
+#define EXT4_POLICY_FLAGS_PAD_4         0x00
+#define EXT4_POLICY_FLAGS_PAD_8         0x01
+#define EXT4_POLICY_FLAGS_PAD_16        0x02
+#define EXT4_POLICY_FLAGS_PAD_32        0x03
+#define EXT4_POLICY_FLAGS_PAD_MASK      0x03
+#define EXT4_POLICY_FLAGS_VALID         0x03
 
 // ext4enc:TODO Get value from somewhere sensible
 #define EXT4_IOC_SET_ENCRYPTION_POLICY _IOR('f', 19, struct ext4_encryption_policy)
@@ -101,8 +108,25 @@ static bool is_dir_empty(const char *dirname, bool *is_empty)
     return true;
 }
 
+static uint8_t e4crypt_get_policy_flags(int filenames_encryption_mode) {
+
+    // With HEH, pad filenames with zeroes to the next 16-byte boundary.  This
+    // is not required, but it's more secure (helps hide the length of
+    // filenames), makes the inputs evenly divisible into blocks which is more
+    // efficient for encryption and decryption, and we had the opportunity to
+    // make a breaking change when introducing a new mode anyway.
+    if (filenames_encryption_mode == EXT4_ENCRYPTION_MODE_AES_256_HEH) {
+        return EXT4_POLICY_FLAGS_PAD_16;
+    }
+
+    // Default flags (4-byte padding) for CTS
+    return EXT4_POLICY_FLAGS_PAD_4;
+}
+
 static bool e4crypt_policy_set(const char *directory, const char *policy,
-                               size_t policy_length, int contents_encryption_mode) {
+                               size_t policy_length,
+                               int contents_encryption_mode,
+                               int filenames_encryption_mode) {
     if (policy_length != EXT4_KEY_DESCRIPTOR_SIZE) {
         LOG(ERROR) << "Policy wrong length: " << policy_length;
         return false;
@@ -116,8 +140,8 @@ static bool e4crypt_policy_set(const char *directory, const char *policy,
     ext4_encryption_policy eep;
     eep.version = 0;
     eep.contents_encryption_mode = contents_encryption_mode;
-    eep.filenames_encryption_mode = EXT4_ENCRYPTION_MODE_AES_256_CTS;
-    eep.flags = 0;
+    eep.filenames_encryption_mode = filenames_encryption_mode;
+    eep.flags = e4crypt_get_policy_flags(filenames_encryption_mode);
     memcpy(eep.master_key_descriptor, policy, EXT4_KEY_DESCRIPTOR_SIZE);
     if (ioctl(fd, EXT4_IOC_SET_ENCRYPTION_POLICY, &eep)) {
         PLOG(ERROR) << "Failed to set encryption policy for " << directory;
@@ -133,7 +157,9 @@ static bool e4crypt_policy_set(const char *directory, const char *policy,
 }
 
 static bool e4crypt_policy_get(const char *directory, char *policy,
-                               size_t policy_length, int contents_encryption_mode) {
+                               size_t policy_length,
+                               int contents_encryption_mode,
+                               int filenames_encryption_mode) {
     if (policy_length != EXT4_KEY_DESCRIPTOR_SIZE) {
         LOG(ERROR) << "Policy wrong length: " << policy_length;
         return false;
@@ -150,14 +176,15 @@ static bool e4crypt_policy_get(const char *directory, char *policy,
     if (ioctl(fd, EXT4_IOC_GET_ENCRYPTION_POLICY, &eep) != 0) {
         PLOG(ERROR) << "Failed to get encryption policy for " << directory;
         close(fd);
-        return -1;
+        return false;
     }
     close(fd);
 
     if ((eep.version != 0)
             || (eep.contents_encryption_mode != contents_encryption_mode)
-            || (eep.filenames_encryption_mode != EXT4_ENCRYPTION_MODE_AES_256_CTS)
-            || (eep.flags != 0)) {
+            || (eep.filenames_encryption_mode != filenames_encryption_mode)
+            || (eep.flags !=
+                e4crypt_get_policy_flags(filenames_encryption_mode))) {
         LOG(ERROR) << "Failed to find matching encryption policy for " << directory;
         return false;
     }
@@ -167,14 +194,17 @@ static bool e4crypt_policy_get(const char *directory, char *policy,
 }
 
 static bool e4crypt_policy_check(const char *directory, const char *policy,
-                                 size_t policy_length, int contents_encryption_mode) {
+                                 size_t policy_length,
+                                 int contents_encryption_mode,
+                                 int filenames_encryption_mode) {
     if (policy_length != EXT4_KEY_DESCRIPTOR_SIZE) {
         LOG(ERROR) << "Policy wrong length: " << policy_length;
         return false;
     }
     char existing_policy[EXT4_KEY_DESCRIPTOR_SIZE];
     if (!e4crypt_policy_get(directory, existing_policy, EXT4_KEY_DESCRIPTOR_SIZE,
-                            contents_encryption_mode)) return false;
+                            contents_encryption_mode,
+                            filenames_encryption_mode)) return false;
     char existing_policy_hex[EXT4_KEY_DESCRIPTOR_SIZE_HEX];
 
     policy_to_hex(existing_policy, existing_policy_hex);
@@ -192,14 +222,30 @@ static bool e4crypt_policy_check(const char *directory, const char *policy,
 }
 
 int e4crypt_policy_ensure(const char *directory, const char *policy,
-                          size_t policy_length, const char* contents_encryption_mode) {
-    int mode = 0;
-    if (!strcmp(contents_encryption_mode, "software")) {
-        mode = EXT4_ENCRYPTION_MODE_AES_256_XTS;
+                          size_t policy_length,
+                          const char *contents_encryption_mode,
+                          const char *filenames_encryption_mode) {
+    int contents_mode = 0;
+    int filenames_mode = 0;
+
+    if (!strcmp(contents_encryption_mode, "software") ||
+        !strcmp(contents_encryption_mode, "aes-256-xts")) {
+        contents_mode = EXT4_ENCRYPTION_MODE_AES_256_XTS;
     } else if (!strcmp(contents_encryption_mode, "ice")) {
-        mode = EXT4_ENCRYPTION_MODE_PRIVATE;
+        contents_mode = EXT4_ENCRYPTION_MODE_PRIVATE;
     } else {
-        LOG(ERROR) << "Invalid encryption mode";
+        LOG(ERROR) << "Invalid file contents encryption mode: "
+                   << contents_encryption_mode;
+        return -1;
+    }
+
+    if (!strcmp(filenames_encryption_mode, "aes-256-cts")) {
+        filenames_mode = EXT4_ENCRYPTION_MODE_AES_256_CTS;
+    } else if (!strcmp(filenames_encryption_mode, "aes-256-heh")) {
+        filenames_mode = EXT4_ENCRYPTION_MODE_AES_256_HEH;
+    } else {
+        LOG(ERROR) << "Invalid file names encryption mode: "
+                   << filenames_encryption_mode;
         return -1;
     }
 
@@ -207,10 +253,10 @@ int e4crypt_policy_ensure(const char *directory, const char *policy,
     if (!is_dir_empty(directory, &is_empty)) return -1;
     if (is_empty) {
         if (!e4crypt_policy_set(directory, policy, policy_length,
-                                mode)) return -1;
+                                contents_mode, filenames_mode)) return -1;
     } else {
         if (!e4crypt_policy_check(directory, policy, policy_length,
-                                  mode)) return -1;
+                                  contents_mode, filenames_mode)) return -1;
     }
     return 0;
 }

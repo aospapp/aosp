@@ -53,6 +53,18 @@ class ControlFileGetter(object):
         pass
 
 
+    def get_suite_info(self, suite_name=''):
+        """
+        Gather the control paths and contents of all the control files.
+
+        @param suite_name: The name of a suite we would like control files for.
+        @return the control paths and contents of all the control files
+        specified by the name.
+        @throws SuiteControlFileException if the info cannot be retrieved.
+        """
+        pass
+
+
 class CacheingAndFilteringControlFileGetter(ControlFileGetter):
     """Wraps ControlFileGetter to cache the retrieved control file list and
     filter out unwanted control files."""
@@ -166,7 +178,7 @@ class FileSystemGetter(CacheingAndFilteringControlFileGetter):
             except OSError:
                 # Some directories under results/ like the Chrome Crash
                 # Reports will cause issues when attempted to be searched.
-                logging.error('Unable to search directory %d for control '
+                logging.error('Unable to search directory %s for control '
                               'files.', directory)
                 pass
         if not self._files:
@@ -252,3 +264,42 @@ class DevServerGetter(CacheingAndFilteringControlFileGetter):
             return self._dev_server.get_control_file(self._build, test_path)
         except dev_server.DevServerException as e:
             raise error.ControlFileNotFound(e)
+
+
+    def _list_suite_controls(self, suite_name=''):
+        """
+        Gather a dict {path:content} of all control files from
+        |self._dev_server|.
+
+        Get a dict of contents of all the control files for |self._build| on
+        |self._dev_server|: path is the key, and the control file content is
+        the value.
+
+        @param suite_name: The name of a suite we would like control files for.
+        @return A dict of paths and contents of all control files.
+        @throws NoControlFileList if there is an error while listing.
+        """
+        try:
+            return self._dev_server.list_suite_controls(self._build,
+                                                        suite_name=suite_name)
+        except dev_server.DevServerException as e:
+            raise error.SuiteControlFileException(e)
+
+
+    def get_suite_info(self, suite_name=''):
+        """
+        Gather info of a list of control files from |self._dev_server|.
+
+        The info is a dict: {control_path: control_file_content} for
+        |self._build| on |self._dev_server|.
+
+        @param suite_name: The name of a suite we would like control files for.
+        @return A dict of paths and contents of all control files:
+            {path1: content1, path2: content2, ..., pathX: contentX}
+        """
+        file_contents = self._list_suite_controls(suite_name=suite_name)
+        files = file_contents.keys()
+        for cf_filter in self.CONTROL_FILE_FILTERS:
+            files = filter(lambda path: not path.endswith(cf_filter), files)
+        self._files = files
+        return {f: file_contents[f] for f in files}

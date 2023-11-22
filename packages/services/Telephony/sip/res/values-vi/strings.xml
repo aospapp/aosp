@@ -20,7 +20,7 @@
     <string name="sip_accounts" msgid="85559497282185405">"Tài khoản SIP"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"Tài khoản"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"Nhận cuộc gọi đến"</string>
-    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Sử dụng nhiều thời lượng pin hơn"</string>
+    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Tốn pin hơn"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"Sử dụng tính năng gọi điện SIP"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Sử dụng tính năng gọi điện SIP (chỉ Wi-Fi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Dành cho tất cả các cuộc gọi khi mạng dữ liệu sẵn có"</string>

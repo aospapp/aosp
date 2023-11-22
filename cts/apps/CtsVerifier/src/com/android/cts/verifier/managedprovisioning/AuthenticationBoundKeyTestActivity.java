@@ -208,6 +208,8 @@ public class AuthenticationBoundKeyTestActivity extends DialogTestListActivity {
      */
     private void createKey(int testType) {
         try {
+            KeyStore keyStore = KeyStore.getInstance(KEYSTORE_NAME);
+            keyStore.load(null);
             // Set the alias of the entry in Android KeyStore where the key will appear
             // and the constrains (purposes) in the constructor of the Builder
             KeyGenParameterSpec.Builder builder;
@@ -226,7 +228,8 @@ public class AuthenticationBoundKeyTestActivity extends DialogTestListActivity {
             keyGenerator.init(builder.build());
             keyGenerator.generateKey();
         } catch (NoSuchAlgorithmException | NoSuchProviderException
-                | InvalidAlgorithmParameterException e) {
+                | InvalidAlgorithmParameterException | KeyStoreException
+                | CertificateException | IOException e) {
             throw new RuntimeException("Failed to create a symmetric key", e);
         }
     }

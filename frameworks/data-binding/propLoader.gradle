@@ -14,9 +14,10 @@ def repoBase = databindingProperties.mavenRepoAbsolutePath == "." ? root : datab
 databindingProperties.androidGradlePluginRepoDir = "${root}/../../${databindingProperties.androidGradlePluginOutRepo}"
 databindingProperties.mavenRepoDir = "${databindingProperties.androidGradlePluginRepoDir}"
 databindingProperties.internalPrebuiltsRepoDir = "${root}/${databindingProperties.internalPrebuiltsRepoName}"
-databindingProperties.runProguard = project.hasProperty('runProguard') && project.getProperty('runProguard').equals("true")
 
-databindingProperties.inReleaseBuild = project.ext.hasProperty('release') && project.ext.release
+databindingProperties.inReleaseBuild = project.hasProperty('release') && project.ext.release == "true"
+
+databindingProperties.runProguard = (project.hasProperty('runProguard') && project.getProperty('runProguard').equals("true"))
 // load version from gradle build file
 apply from: "$root/../buildSrc/base/version.gradle"
 databindingProperties.androidPluginVersion=ext.buildVersion

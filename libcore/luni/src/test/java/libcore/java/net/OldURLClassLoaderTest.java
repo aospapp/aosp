@@ -134,6 +134,17 @@ public class OldURLClassLoaderTest extends junit.framework.TestCase {
         }
     }
 
+    // JDK-8057936
+    public void testFindClass() {
+        TestURLClassLoader tucl = new TestURLClassLoader(new URL[0]);
+
+        // Should throw ClassNotFoundException instead of NPE.
+        try {
+            tucl.findClass("foobar");
+            fail();
+        } catch (ClassNotFoundException expected) { }
+    }
+
     public void test_definePackage() throws MalformedURLException {
         Manifest manifest = new Manifest();
         URL[] u = new URL[0];

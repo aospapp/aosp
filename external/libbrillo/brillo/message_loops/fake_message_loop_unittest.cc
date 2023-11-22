@@ -45,13 +45,16 @@ TEST_F(FakeMessageLoopTest, CancelTaskInvalidValuesTest) {
 
 TEST_F(FakeMessageLoopTest, PostDelayedTaskRunsInOrder) {
   vector<int> order;
-  loop_->PostDelayedTask(Bind([&order]() { order.push_back(1); }),
+  auto callback = [](std::vector<int>* order, int value) {
+    order->push_back(value);
+  };
+  loop_->PostDelayedTask(Bind(callback, base::Unretained(&order), 1),
                          TimeDelta::FromSeconds(1));
-  loop_->PostDelayedTask(Bind([&order]() { order.push_back(4); }),
+  loop_->PostDelayedTask(Bind(callback, base::Unretained(&order), 4),
                          TimeDelta::FromSeconds(4));
-  loop_->PostDelayedTask(Bind([&order]() { order.push_back(3); }),
+  loop_->PostDelayedTask(Bind(callback, base::Unretained(&order), 3),
                          TimeDelta::FromSeconds(3));
-  loop_->PostDelayedTask(Bind([&order]() { order.push_back(2); }),
+  loop_->PostDelayedTask(Bind(callback, base::Unretained(&order), 2),
                          TimeDelta::FromSeconds(2));
   // Run until all the tasks are run.
   loop_->Run();
@@ -89,15 +92,18 @@ TEST_F(FakeMessageLoopTest, WatchFileDescriptorWaits) {
   int called = 0;
   TaskId task_id = loop_->WatchFileDescriptor(
       FROM_HERE, fd, MessageLoop::kWatchRead, false,
-      Bind([&called] { called++; }));
+      Bind([](int* called) { (*called)++; }, base::Unretained(&called)));
   EXPECT_NE(MessageLoop::kTaskIdNull, task_id);
 
-  EXPECT_NE(MessageLoop::kTaskIdNull,
-            loop_->PostDelayedTask(Bind([this] { this->loop_->BreakLoop(); }),
-                                   TimeDelta::FromSeconds(10)));
-  EXPECT_NE(MessageLoop::kTaskIdNull,
-            loop_->PostDelayedTask(Bind([this] { this->loop_->BreakLoop(); }),
-                                   TimeDelta::FromSeconds(20)));
+  auto callback = [](FakeMessageLoop* loop) { loop->BreakLoop(); };
+  EXPECT_NE(
+      MessageLoop::kTaskIdNull,
+      loop_->PostDelayedTask(Bind(callback, base::Unretained(loop_.get())),
+                             TimeDelta::FromSeconds(10)));
+  EXPECT_NE(
+      MessageLoop::kTaskIdNull,
+      loop_->PostDelayedTask(Bind(callback, base::Unretained(loop_.get())),
+                             TimeDelta::FromSeconds(20)));
   loop_->Run();
   EXPECT_EQ(0, called);
 

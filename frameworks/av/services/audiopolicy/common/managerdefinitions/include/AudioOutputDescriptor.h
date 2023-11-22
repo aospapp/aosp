@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include "AudioPort.h"
 #include <RoutingStrategy.h>
 #include <utils/Errors.h>
@@ -45,7 +47,7 @@ public:
 
     audio_port_handle_t getId() const;
     virtual audio_devices_t device() const;
-    virtual bool sharesHwModuleWith(const sp<AudioOutputDescriptor> outputDesc);
+    virtual bool sharesHwModuleWith(const sp<AudioOutputDescriptor>& outputDesc);
     virtual audio_devices_t supportedDevices();
     virtual bool isDuplicated() const { return false; }
     virtual uint32_t latency() { return 0; }
@@ -102,7 +104,7 @@ public:
     void setIoHandle(audio_io_handle_t ioHandle);
 
     virtual audio_devices_t device() const;
-    virtual bool sharesHwModuleWith(const sp<AudioOutputDescriptor> outputDesc);
+    virtual bool sharesHwModuleWith(const sp<AudioOutputDescriptor>& outputDesc);
     virtual audio_devices_t supportedDevices();
     virtual uint32_t latency();
     virtual bool isDuplicated() const { return (mOutput1 != NULL && mOutput2 != NULL); }
@@ -128,6 +130,7 @@ public:
     sp<SwAudioOutputDescriptor> mOutput1;    // used by duplicated outputs: first output
     sp<SwAudioOutputDescriptor> mOutput2;    // used by duplicated outputs: second output
     uint32_t mDirectOpenCount; // number of clients using this output (direct outputs only)
+    audio_session_t mDirectClientSession; // session id of the direct output client
     uint32_t mGlobalRefCount;  // non-stream-specific ref count
 };
 

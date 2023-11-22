@@ -345,7 +345,7 @@ class BitcodeReaderValueList {
   ResolveConstantsTy ResolveConstants;
   LLVMContext &Context;
 public:
-  BitcodeReaderValueList(LLVMContext &C) : Context(C) {}
+  explicit BitcodeReaderValueList(LLVMContext &C) : Context(C) {}
   ~BitcodeReaderValueList() {
     assert(ResolveConstants.empty() && "Constants not resolved?");
   }
@@ -397,7 +397,7 @@ class BitcodeReaderMDValueList {
 
   LLVMContext &Context;
 public:
-  BitcodeReaderMDValueList(LLVMContext &C)
+  explicit BitcodeReaderMDValueList(LLVMContext &C)
       : NumFwdRefs(0), AnyFwdRefs(false), Context(C) {}
 
   // vector compatibility methods
@@ -595,14 +595,14 @@ private:
 
 } // end anonymous namespace
 
-static std::error_code Error(DiagnosticHandlerFunction DiagnosticHandler,
+static std::error_code Error(const DiagnosticHandlerFunction &DiagnosticHandler,
                              std::error_code EC, const Twine &Message) {
   BitcodeDiagnosticInfo DI(EC, DS_Error, Message);
   DiagnosticHandler(DI);
   return EC;
 }
 
-static std::error_code Error(DiagnosticHandlerFunction DiagnosticHandler,
+static std::error_code Error(const DiagnosticHandlerFunction &DiagnosticHandler,
                              std::error_code EC) {
   return Error(DiagnosticHandler, EC, EC.message());
 }
@@ -724,6 +724,15 @@ static GlobalVariable::ThreadLocalMode GetDecodedThreadLocalMode(unsigned Val) {
   }
 }
 
+static GlobalVariable::UnnamedAddr getDecodedUnnamedAddrType(unsigned Val) {
+  switch (Val) {
+    default: // Map unknown to UnnamedAddr::None.
+    case 0: return GlobalVariable::UnnamedAddr::None;
+    case 1: return GlobalVariable::UnnamedAddr::Global;
+    case 2: return GlobalVariable::UnnamedAddr::Local;
+  }
+}
+
 static int GetDecodedCastOpcode(unsigned Val) {
   switch (Val) {
   default: return -1;
@@ -784,14 +793,14 @@ static AtomicRMWInst::BinOp GetDecodedRMWOperation(unsigned Val) {
 
 static AtomicOrdering GetDecodedOrdering(unsigned Val) {
   switch (Val) {
-  case bitc::ORDERING_NOTATOMIC: return NotAtomic;
-  case bitc::ORDERING_UNORDERED: return Unordered;
-  case bitc::ORDERING_MONOTONIC: return Monotonic;
-  case bitc::ORDERING_ACQUIRE: return Acquire;
-  case bitc::ORDERING_RELEASE: return Release;
-  case bitc::ORDERING_ACQREL: return AcquireRelease;
+  case bitc::ORDERING_NOTATOMIC: return AtomicOrdering::NotAtomic;
+  case bitc::ORDERING_UNORDERED: return AtomicOrdering::Unordered;
+  case bitc::ORDERING_MONOTONIC: return AtomicOrdering::Monotonic;
+  case bitc::ORDERING_ACQUIRE: return AtomicOrdering::Acquire;
+  case bitc::ORDERING_RELEASE: return AtomicOrdering::Release;
+  case bitc::ORDERING_ACQREL: return AtomicOrdering::AcquireRelease;
   default: // Map unknown orderings to sequentially-consistent.
-  case bitc::ORDERING_SEQCST: return SequentiallyConsistent;
+  case bitc::ORDERING_SEQCST: return AtomicOrdering::SequentiallyConsistent;
   }
 }
 
@@ -1789,9 +1798,12 @@ std::error_code BitcodeReader::ParseMetadata() {
       MDValueList.AssignValue(MDNode::get(Context, Elts), NextMDValueNo++);
       break;
     }
-    case bitc::METADATA_STRING: {
+    case bitc::METADATA_STRING_OLD: {
       std::string String(Record.begin(), Record.end());
-      llvm::UpgradeMDStringConstant(String);
+
+      // Test for upgrading !llvm.loop.
+      mayBeOldLoopAttachmentTag(String);
+
       Metadata *MD = MDString::get(Context, String);
       MDValueList.AssignValue(MD, NextMDValueNo++);
       break;
@@ -2484,9 +2496,9 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
       if (Record.size() > 7)
         TLM = GetDecodedThreadLocalMode(Record[7]);
 
-      bool UnnamedAddr = false;
+      GlobalValue::UnnamedAddr UnnamedAddr = GlobalValue::UnnamedAddr::None;
       if (Record.size() > 8)
-        UnnamedAddr = Record[8];
+        UnnamedAddr = getDecodedUnnamedAddrType(Record[8]);
 
       GlobalVariable *NewGV =
         new GlobalVariable(*TheModule, Ty, isConstant, Linkage, nullptr, "", nullptr,
@@ -2540,9 +2552,9 @@ std::error_code BitcodeReader::ParseModule(bool Resume) {
           return Error("Invalid ID");
         Func->setGC(GCTable[Record[8]-1].c_str());
       }
-      bool UnnamedAddr = false;
+      GlobalValue::UnnamedAddr UnnamedAddr = GlobalValue::UnnamedAddr::None;
       if (Record.size() > 9)
-        UnnamedAddr = Record[9];
+        UnnamedAddr = getDecodedUnnamedAddrType(Record[9]);
       Func->setUnnamedAddr(UnnamedAddr);
       ValueList.push_back(Func);
 
@@ -3403,10 +3415,11 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
         return Error("Invalid record");
 
       AtomicOrdering Ordering = GetDecodedOrdering(Record[OpNum+2]);
-      if (Ordering == NotAtomic || Ordering == Release ||
-          Ordering == AcquireRelease)
+      if (Ordering == AtomicOrdering::NotAtomic ||
+          Ordering == AtomicOrdering::Release ||
+          Ordering == AtomicOrdering::AcquireRelease)
         return Error("Invalid record");
-      if (Ordering != NotAtomic && Record[OpNum] == 0)
+      if (Ordering != AtomicOrdering::NotAtomic && Record[OpNum] == 0)
         return Error("Invalid record");
       SynchronizationScope SynchScope = GetDecodedSynchScope(Record[OpNum+3]);
 
@@ -3428,7 +3441,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       InstructionList.push_back(I);
       break;
     }
-    case bitc::FUNC_CODE_INST_STOREATOMIC: {
+    case bitc::FUNC_CODE_INST_STOREATOMIC_OLD: {
       // STOREATOMIC: [ptrty, ptr, val, align, vol, ordering, synchscope]
       unsigned OpNum = 0;
       Value *Val, *Ptr;
@@ -3439,11 +3452,12 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
         return Error("Invalid record");
 
       AtomicOrdering Ordering = GetDecodedOrdering(Record[OpNum+2]);
-      if (Ordering == NotAtomic || Ordering == Acquire ||
-          Ordering == AcquireRelease)
+      if (Ordering == AtomicOrdering::NotAtomic ||
+          Ordering == AtomicOrdering::Acquire ||
+          Ordering == AtomicOrdering::AcquireRelease)
         return Error("Invalid record");
       SynchronizationScope SynchScope = GetDecodedSynchScope(Record[OpNum+3]);
-      if (Ordering != NotAtomic && Record[OpNum] == 0)
+      if (Ordering != AtomicOrdering::NotAtomic && Record[OpNum] == 0)
         return Error("Invalid record");
 
       I = new StoreInst(Val, Ptr, Record[OpNum+1], (1 << Record[OpNum]) >> 1,
@@ -3451,7 +3465,7 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       InstructionList.push_back(I);
       break;
     }
-    case bitc::FUNC_CODE_INST_CMPXCHG: {
+    case bitc::FUNC_CODE_INST_CMPXCHG_OLD: {
       // CMPXCHG:[ptrty, ptr, cmp, new, vol, ordering, synchscope]
       unsigned OpNum = 0;
       Value *Ptr, *Cmp, *New;
@@ -3463,7 +3477,8 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
           OpNum+3 != Record.size())
         return Error("Invalid record");
       AtomicOrdering Ordering = GetDecodedOrdering(Record[OpNum+1]);
-      if (Ordering == NotAtomic || Ordering == Unordered)
+      if (Ordering == AtomicOrdering::NotAtomic ||
+          Ordering == AtomicOrdering::Unordered)
         return Error("Invalid record");
       SynchronizationScope SynchScope = GetDecodedSynchScope(Record[OpNum+2]);
       I = new AtomicCmpXchgInst(Ptr, Cmp, New, Ordering, Ordering, SynchScope);
@@ -3485,7 +3500,8 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
           Operation > AtomicRMWInst::LAST_BINOP)
         return Error("Invalid record");
       AtomicOrdering Ordering = GetDecodedOrdering(Record[OpNum+2]);
-      if (Ordering == NotAtomic || Ordering == Unordered)
+      if (Ordering == AtomicOrdering::NotAtomic ||
+          Ordering == AtomicOrdering::Unordered)
         return Error("Invalid record");
       SynchronizationScope SynchScope = GetDecodedSynchScope(Record[OpNum+3]);
       I = new AtomicRMWInst(Operation, Ptr, Val, Ordering, SynchScope);
@@ -3497,8 +3513,9 @@ std::error_code BitcodeReader::ParseFunctionBody(Function *F) {
       if (2 != Record.size())
         return Error("Invalid record");
       AtomicOrdering Ordering = GetDecodedOrdering(Record[0]);
-      if (Ordering == NotAtomic || Ordering == Unordered ||
-          Ordering == Monotonic)
+      if (Ordering == AtomicOrdering::NotAtomic ||
+          Ordering == AtomicOrdering::Unordered ||
+          Ordering == AtomicOrdering::Monotonic)
         return Error("Invalid record");
       SynchronizationScope SynchScope = GetDecodedSynchScope(Record[1]);
       I = new FenceInst(Context, Ordering, SynchScope);
@@ -3822,7 +3839,7 @@ const std::error_category &BitcodeReader::BitcodeErrorCategory() {
 static llvm::ErrorOr<llvm::Module *>
 getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
                          LLVMContext &Context, bool WillMaterializeAll,
-                         DiagnosticHandlerFunction DiagnosticHandler) {
+                         const DiagnosticHandlerFunction &DiagnosticHandler) {
   Module *M = new Module(Buffer->getBufferIdentifier(), Context);
   BitcodeReader *R =
       new BitcodeReader(Buffer.get(), Context, DiagnosticHandler);
@@ -3844,7 +3861,7 @@ getLazyBitcodeModuleImpl(std::unique_ptr<MemoryBuffer> &&Buffer,
 llvm::ErrorOr<Module *>
 llvm_3_0::getLazyBitcodeModule(std::unique_ptr<MemoryBuffer> &&Buffer,
                            LLVMContext &Context,
-                           DiagnosticHandlerFunction DiagnosticHandler) {
+                           const DiagnosticHandlerFunction &DiagnosticHandler) {
   return getLazyBitcodeModuleImpl(std::move(Buffer), Context, false,
                                   DiagnosticHandler);
 }
@@ -3853,7 +3870,7 @@ llvm_3_0::getLazyBitcodeModule(std::unique_ptr<MemoryBuffer> &&Buffer,
 /// If an error occurs, return null and fill in *ErrMsg if non-null.
 llvm::ErrorOr<llvm::Module *>
 llvm_3_0::parseBitcodeFile(MemoryBufferRef Buffer, LLVMContext &Context,
-                       DiagnosticHandlerFunction DiagnosticHandler) {
+                       const DiagnosticHandlerFunction &DiagnosticHandler) {
   std::unique_ptr<MemoryBuffer> Buf = MemoryBuffer::getMemBuffer(Buffer, false);
   ErrorOr<Module *> ModuleOrErr = getLazyBitcodeModuleImpl(
       std::move(Buf), Context, true, DiagnosticHandler);

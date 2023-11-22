@@ -68,13 +68,12 @@ final class TelephonyConferenceController {
     /** The known connections. */
     private final List<TelephonyConnection> mTelephonyConnections = new ArrayList<>();
 
-    private final TelephonyConnectionService mConnectionService;
+    private final TelephonyConnectionServiceProxy mConnectionService;
     private boolean mTriggerRecalculate = false;
 
-    public TelephonyConferenceController(TelephonyConnectionService connectionService) {
+    public TelephonyConferenceController(TelephonyConnectionServiceProxy connectionService) {
         mConnectionService = connectionService;
     }
-
     /** The TelephonyConference connection object. */
     private TelephonyConference mTelephonyConference;
 
@@ -89,7 +88,6 @@ final class TelephonyConferenceController {
             Log.w(this, "add - connection already tracked; connection=%s", connection);
             return;
         }
-
         mTelephonyConnections.add(connection);
         connection.addConnectionListener(mConnectionListener);
         recalculate();
@@ -182,13 +180,11 @@ final class TelephonyConferenceController {
         for (TelephonyConnection connection : mTelephonyConnections) {
             com.android.internal.telephony.Connection radioConnection =
                 connection.getOriginalConnection();
-
             if (radioConnection != null) {
                 Call.State state = radioConnection.getState();
                 Call call = radioConnection.getCall();
                 if ((state == Call.State.ACTIVE || state == Call.State.HOLDING) &&
                         (call != null && call.isMultiparty())) {
-
                     numGsmConnections++;
                     conferencedConnections.add(connection);
                 }

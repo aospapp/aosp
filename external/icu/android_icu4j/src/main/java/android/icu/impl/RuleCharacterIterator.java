@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
 * Copyright (c) 2003-2011, International Business Machines
@@ -35,7 +37,7 @@ public class RuleCharacterIterator {
 
     /**
      * Text being iterated.
-     */    
+     */
     private String text;
 
     /**
@@ -80,7 +82,7 @@ public class RuleCharacterIterator {
      * PARSE_ESCAPES) != 0, then an embedded escape sequence will be expanded
      * to its value.  Escapes are parsed using Utility.unescapeAt().
      */
-    public static final int PARSE_ESCAPES   = 2;    
+    public static final int PARSE_ESCAPES   = 2;
 
     /**
      * Bitmask option to enable skipping of whitespace.  If (options &
@@ -110,7 +112,7 @@ public class RuleCharacterIterator {
         this.pos = pos;
         buf = null;
     }
-    
+
     /**
      * Returns true if this iterator has no more characters to return.
      */
@@ -307,6 +309,7 @@ public class RuleCharacterIterator {
      * Position within an expanded variable is <em>not</em> indicated.
      * @return a string representation of this object
      */
+    @Override
     public String toString() {
         int b = pos.getIndex();
         return text.substring(0, b) + '|' + text.substring(b);
@@ -325,7 +328,7 @@ public class RuleCharacterIterator {
             return (i < text.length()) ? UTF16.charAt(text, i) : DONE;
         }
     }
-    
+
     /**
      * Advances the position by the given amount.
      * @param count the number of 16-bit code units to advance past

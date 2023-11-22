@@ -16,20 +16,29 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.SparseLongArray;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Tests for {@link SparseLongArray}.
  */
-public class SparseLongArrayTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SparseLongArrayTest {
     private static final int[] KEYS = {12, 23, 4, 6, 8, 1, 3, -12, 0, -3, 11, 14, -23};
     private static final long[] VALUES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
     private static final int LENGTH = VALUES.length;
     private static final int NON_EXISTED_KEY = 123;
     private static final long VALUE_FOR_NON_EXISTED_KEY = -1;
 
+    @Test
     public void testSparseArrayWithDefaultCapacity() {
         SparseLongArray sparseArray = new SparseLongArray();
         assertEquals(0, sparseArray.size());
@@ -91,6 +100,7 @@ public class SparseLongArrayTest extends TestCase {
         assertEquals(0, sparseArray.size());
     }
 
+    @Test
     public void testSparseArrayWithSpecifiedCapacity() {
         SparseLongArray sparseArray = new SparseLongArray(5);
         assertEquals(0, sparseArray.size());
@@ -152,6 +162,7 @@ public class SparseLongArrayTest extends TestCase {
         assertEquals(0, sparseArray.size());
     }
 
+    @Test
     public void testIterationOrder() {
         SparseLongArray sparseArray = new SparseLongArray();
         // No matter in which order they are inserted.

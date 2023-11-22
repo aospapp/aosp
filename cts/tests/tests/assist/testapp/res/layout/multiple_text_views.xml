@@ -67,6 +67,7 @@
     android:text="@string/text_too_large_to_fit" />
 
   <ScrollView
+    android:background="#80000000"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_weight="1">

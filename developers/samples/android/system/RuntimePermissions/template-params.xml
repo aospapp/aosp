@@ -39,7 +39,7 @@
     <common src="logger"/>
 
     <metadata>
-        <status>DRAFT</status>
+        <status>PUBLISHED</status>
         <categories>System</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

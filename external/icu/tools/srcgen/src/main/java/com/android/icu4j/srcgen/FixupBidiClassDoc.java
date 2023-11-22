@@ -59,4 +59,9 @@ public class FixupBidiClassDoc implements Processor {
       throw new AssertionError(e);
     }
   }
+
+  @Override
+  public String toString() {
+    return "FixupBidiClassDoc{}";
+  }
 }

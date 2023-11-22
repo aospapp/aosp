@@ -127,7 +127,7 @@ int StrictController::enableStrict(void) {
            LOCAL_CLEAR_DETECT, u32, LOCAL_CLEAR_CAUGHT);
 
     CMD_V4V6("-A %s -p udp -j %s", LOCAL_CLEAR_DETECT, LOCAL_CLEAR_CAUGHT);
-    CMD_V4V6("COMMIT\n\x04");
+    CMD_V4V6("COMMIT\n");
 
     res |= execIptablesRestore(V4, android::base::Join(v4, '\n'));
     res |= execIptablesRestore(V6, android::base::Join(v6, '\n'));
@@ -149,7 +149,7 @@ int StrictController::disableStrict(void) {
         CLEAR_CHAIN(LOCAL_PENALTY_REJECT),
         CLEAR_CHAIN(LOCAL_CLEAR_CAUGHT),
         CLEAR_CHAIN(LOCAL_CLEAR_DETECT),
-        "COMMIT\n\x04"
+        "COMMIT\n"
     };
     const std::string commands = android::base::Join(commandList, '\n');
     return execIptablesRestore(V4V6, commands);

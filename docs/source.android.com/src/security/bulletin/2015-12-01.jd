@@ -24,7 +24,7 @@ page.title=Nexus Security Bulletin - December 2015
   </div>
 </div>
 
-<p><em>Published December 07, 2015 | Updated December 22, 2015</em></p>
+<p><em>Published December 07, 2015 | Updated March 7, 2016</em></p>
 
 <p>We have released a security update to Nexus devices through an over-the-air
 (OTA) update as part of our Android Security Bulletin Monthly Release process.
@@ -184,6 +184,7 @@ CVE-2015-6619, CVE-2015-6633, CVE-2015-6634
   <li> Tzu-Yin (Nina) Tai: CVE-2015-6627
   <li> Joaquín Rinaudo (<a href="https://twitter.com/xeroxnir">@xeroxnir</a>) of Programa
  STIC at Fundación Dr. Manuel Sadosky, Buenos Aires, Argentina: CVE-2015-6631
+  <li>Wangtao (neobyte) of Baidu X-Team: CVE-2015-6626
 </ul>
 
 <h2 id="security_vulnerability_details">Security Vulnerability Details</h2>
@@ -668,4 +669,5 @@ manufacturers that include these updates should set the patch string level to:
   <li> December 07, 2015: Originally Published
   <li> December 09, 2015: Bulletin revised to include AOSP links.
   <li> December 22, 2015: Added missing credit to Acknowledgements section.
+  <li> March 07, 2016: Added missing credit to Acknowledgements section.
 </ul>

@@ -26,15 +26,17 @@
 #include <map>
 #include <unordered_set>
 
+#include "android-base/stringprintf.h"
+
+#include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/unix_file/fd_file.h"
-#include "base/stringprintf.h"
 #include "gc/space/image_space.h"
 #include "gc/heap.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "image.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "os.h"
 
 #include "cmdline.h"
@@ -45,6 +47,8 @@
 #include <signal.h>
 
 namespace art {
+
+using android::base::StringPrintf;
 
 class ImgDiagDumper {
  public:
@@ -59,7 +63,7 @@ class ImgDiagDumper {
         image_diff_pid_(image_diff_pid),
         zygote_diff_pid_(zygote_diff_pid) {}
 
-  bool Dump() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool Dump() REQUIRES_SHARED(Locks::mutator_lock_) {
     std::ostream& os = *os_;
     os << "IMAGE LOCATION: " << image_location_ << "\n\n";
 
@@ -89,7 +93,7 @@ class ImgDiagDumper {
 
   // Return suffix of the file path after the last /. (e.g. /foo/bar -> bar, bar -> bar)
   static std::string BaseName(const std::string& str) {
-    size_t idx = str.rfind("/");
+    size_t idx = str.rfind('/');
     if (idx == std::string::npos) {
       return str;
     }
@@ -98,7 +102,7 @@ class ImgDiagDumper {
   }
 
   bool DumpImageDiff(pid_t image_diff_pid, pid_t zygote_diff_pid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     std::ostream& os = *os_;
 
     {
@@ -145,7 +149,7 @@ class ImgDiagDumper {
   }
 
   static std::string PrettyFieldValue(ArtField* field, mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     std::ostringstream oss;
     switch (field->GetTypeAsPrimitiveType()) {
       case Primitive::kPrimNot: {
@@ -217,14 +221,14 @@ class ImgDiagDumper {
 
   void DiffObjectContents(mirror::Object* obj,
                           uint8_t* remote_bytes,
-                          std::ostream& os) SHARED_REQUIRES(Locks::mutator_lock_) {
+                          std::ostream& os) REQUIRES_SHARED(Locks::mutator_lock_) {
     const char* tabs = "    ";
     // Attempt to find fields for all dirty bytes.
     mirror::Class* klass = obj->GetClass();
     if (obj->IsClass()) {
-      os << tabs << "Class " << PrettyClass(obj->AsClass()) << " " << obj << "\n";
+      os << tabs << "Class " << mirror::Class::PrettyClass(obj->AsClass()) << " " << obj << "\n";
     } else {
-      os << tabs << "Instance of " << PrettyClass(klass) << " " << obj << "\n";
+      os << tabs << "Instance of " << mirror::Class::PrettyClass(klass) << " " << obj << "\n";
     }
 
     std::unordered_set<ArtField*> dirty_instance_fields;
@@ -263,7 +267,7 @@ class ImgDiagDumper {
     if (!dirty_instance_fields.empty()) {
       os << tabs << "Dirty instance fields " << dirty_instance_fields.size() << "\n";
       for (ArtField* field : dirty_instance_fields) {
-        os << tabs << PrettyField(field)
+        os << tabs << ArtField::PrettyField(field)
            << " original=" << PrettyFieldValue(field, obj)
            << " remote=" << PrettyFieldValue(field, remote_obj) << "\n";
       }
@@ -271,7 +275,7 @@ class ImgDiagDumper {
     if (!dirty_static_fields.empty()) {
       os << tabs << "Dirty static fields " << dirty_static_fields.size() << "\n";
       for (ArtField* field : dirty_static_fields) {
-        os << tabs << PrettyField(field)
+        os << tabs << ArtField::PrettyField(field)
            << " original=" << PrettyFieldValue(field, obj)
            << " remote=" << PrettyFieldValue(field, remote_obj) << "\n";
       }
@@ -283,9 +287,9 @@ class ImgDiagDumper {
   bool DumpImageDiffMap(pid_t image_diff_pid,
                         pid_t zygote_diff_pid,
                         const backtrace_map_t& boot_map)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
     std::ostream& os = *os_;
-    const size_t pointer_size = InstructionSetPointerSize(
+    const PointerSize pointer_size = InstructionSetPointerSize(
         Runtime::Current()->GetInstructionSet());
 
     std::string file_name =
@@ -516,8 +520,8 @@ class ImgDiagDumper {
 
       // Sanity check that we are reading a real object
       CHECK(obj->GetClass() != nullptr) << "Image object at address " << obj << " has null class";
-      if (kUseBakerOrBrooksReadBarrier) {
-        obj->AssertReadBarrierPointer();
+      if (kUseBakerReadBarrier) {
+        obj->AssertReadBarrierState();
       }
 
       // Iterate every page this object belongs to
@@ -681,7 +685,7 @@ class ImgDiagDumper {
           class_data[klass].dirty_object_byte_count * 1.0f / object_sizes;
       float avg_object_size = object_sizes * 1.0f / dirty_object_count;
       const std::string& descriptor = class_data[klass].descriptor;
-      os << "    " << PrettyClass(klass) << " ("
+      os << "    " << mirror::Class::PrettyClass(klass) << " ("
          << "objects: " << dirty_object_count << ", "
          << "avg dirty bytes: " << avg_dirty_bytes_per_class << ", "
          << "avg object size: " << avg_object_size << ", "
@@ -729,7 +733,7 @@ class ImgDiagDumper {
           os << "        " << reinterpret_cast<void*>(obj) << " ";
           os << "  entryPointFromJni: "
              << reinterpret_cast<const void*>(
-                    art_method->GetEntryPointFromJniPtrSize(pointer_size)) << ", ";
+                    art_method->GetDataPtrSize(pointer_size)) << ", ";
           os << "  entryPointFromQuickCompiledCode: "
              << reinterpret_cast<const void*>(
                     art_method->GetEntryPointFromQuickCompiledCodePtrSize(pointer_size))
@@ -789,7 +793,7 @@ class ImgDiagDumper {
       int object_sizes = class_data[klass].false_dirty_byte_count;
       float avg_object_size = object_sizes * 1.0f / object_count;
       const std::string& descriptor = class_data[klass].descriptor;
-      os << "    " << PrettyClass(klass) << " ("
+      os << "    " << mirror::Class::PrettyClass(klass) << " ("
          << "objects: " << object_count << ", "
          << "avg object size: " << avg_object_size << ", "
          << "total bytes: " << object_sizes << ", "
@@ -810,7 +814,7 @@ class ImgDiagDumper {
           os << "        " << reinterpret_cast<void*>(obj) << " ";
           os << "  entryPointFromJni: "
              << reinterpret_cast<const void*>(
-                    art_method->GetEntryPointFromJniPtrSize(pointer_size)) << ", ";
+                    art_method->GetDataPtrSize(pointer_size)) << ", ";
           os << "  entryPointFromQuickCompiledCode: "
              << reinterpret_cast<const void*>(
                     art_method->GetEntryPointFromQuickCompiledCodePtrSize(pointer_size))
@@ -824,7 +828,7 @@ class ImgDiagDumper {
 
     os << "\n" << "  Clean object count by class:\n";
     for (const auto& vk_pair : clean_object_class_values) {
-      os << "    " << PrettyClass(vk_pair.second) << " (" << vk_pair.first << ")\n";
+      os << "    " << mirror::Class::PrettyClass(vk_pair.second) << " (" << vk_pair.first << ")\n";
     }
 
     return true;
@@ -867,7 +871,7 @@ class ImgDiagDumper {
   }
 
   static std::string GetClassDescriptor(mirror::Class* klass)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
     CHECK(klass != nullptr);
 
     std::string descriptor;

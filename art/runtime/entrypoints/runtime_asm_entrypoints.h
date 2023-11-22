@@ -17,6 +17,8 @@
 #ifndef ART_RUNTIME_ENTRYPOINTS_RUNTIME_ASM_ENTRYPOINTS_H_
 #define ART_RUNTIME_ENTRYPOINTS_RUNTIME_ASM_ENTRYPOINTS_H_
 
+#include "deoptimization_kind.h"
+
 namespace art {
 
 #ifndef BUILDING_LIBART
@@ -38,6 +40,12 @@ static inline const void* GetQuickImtConflictStub() {
 extern "C" void art_quick_to_interpreter_bridge(ArtMethod*);
 static inline const void* GetQuickToInterpreterBridge() {
   return reinterpret_cast<const void*>(art_quick_to_interpreter_bridge);
+}
+
+// Return the address of stub code for attempting to invoke an obsolete method.
+extern "C" void art_invoke_obsolete_method_stub(ArtMethod*);
+static inline const void* GetInvokeObsoleteMethodStub() {
+  return reinterpret_cast<const void*>(art_invoke_obsolete_method_stub);
 }
 
 // Return the address of quick stub code for handling JNI calls.
@@ -71,7 +79,7 @@ static inline const void* GetQuickInstrumentationEntryPoint() {
 }
 
 // Stub to deoptimize from compiled code.
-extern "C" void art_quick_deoptimize_from_compiled_code();
+extern "C" void art_quick_deoptimize_from_compiled_code(DeoptimizationKind);
 
 // The return_pc of instrumentation exit stub.
 extern "C" void art_quick_instrumentation_exit();

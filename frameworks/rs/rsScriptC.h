@@ -31,7 +31,7 @@ public:
     typedef int (*RunScript_t)();
     typedef void (*VoidFunc_t)();
 
-    ScriptC(Context *);
+    explicit ScriptC(Context *);
     virtual ~ScriptC();
 
     void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) override;
@@ -67,6 +67,6 @@ public:
 #endif
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif

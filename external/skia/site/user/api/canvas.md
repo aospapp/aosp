@@ -7,7 +7,7 @@ Skia has multiple backends which receive SkCanvas drawing commands,
 including:
 
 -   [Raster](#raster) - CPU-only.
--   [Ganesh](#ganesh) - Skia's GPU-accelerated backend.
+-   [GPU](#gpu) - Skia's GPU-accelerated backend.
 -   [SkPDF](#skpdf) - PDF document creation.
 -   [SkPicture](#skpicture) - Skia's display list format.
 -   [NullCanvas](#nullcanvas)  - Useful for testing only.
@@ -37,13 +37,13 @@ the memory into which the canvas commands are drawn.
     void raster(int width, int height,
                 void(*draw)(SkCanvas*),
                 const char* path) {
-        SkAutoTUnref<SkSurface> rasterSurface(
-                SkSurface::NewRasterN32Premul(width, height));
+        sk_sp<SkSurface> rasterSurface(
+                SkSurface::MakeRasterN32Premul(width, height));
         SkCanvas* rasterCanvas = rasterSurface->getCanvas();
         draw(rasterCanvas);
-        SkAutoTUnref<SkImage> img(s->newImageSnapshot());
+        sk_sp<SkImage> img(s->newImageSnapshot());
         if (!img) { return; }
-        SkAutoTUnref<SkData> png(img->encode());
+        sk_sp<SkData> png(img->encode());
         if (!png) { return; }
         SkFILEWStream out(path);
         (void)out.write(png->data(), png->size());
@@ -60,46 +60,54 @@ explicitly, instead of asking Skia to manage it.
         size_t rowBytes = info.minRowBytes();
         size_t size = info.getSafeSize(rowBytes);
         std::vector<char> pixelMemory(size);  // allocate memory
-        SkAutoTUnref<SkSurface> surface(
-                SkSurface::NewRasterDirect(
+        sk_sp<SkSurface> surface(
+                SkSurface::MakeRasterDirect(
                         info, &pixelMemory[0], rowBytes));
         SkCanvas* canvas = surface.getCanvas();
         draw(canvas);
         return std::move(pixelMemory);
     }
 
-<span id="ganesh"></span>
-Ganesh
+<span id="gpu"></span>
+GPU
 ------
 
-Ganesh Surfaces must have a `GrContext` object which manages the
-GPU context, and related caches for textures and fonts.  In this
-example, we use a `GrContextFactory` to create a context.
+GPU Surfaces must have a `GrContext` object which manages the
+GPU context, and related caches for textures and fonts. GrContexts
+are matched one to one with OpenGL contexts or Vulkan devices. That is, all
+SkSurfaces that will be rendered to using the same OpenGL context or Vulkan
+device should share a GrContext. Skia does not create a OpenGL context or Vulkan
+device for you. In OpenGL mode it also assumes that the correct OpenGL context
+has been made current to the current thread when Skia calls are made.
 
 <!--?prettify lang=cc?-->
-
-    #include "GrContextFactory.h"
+    #include "GrContext.h"
+    #include "gl/GrGLInterface.h"
     #include "SkData.h"
     #include "SkImage.h"
     #include "SkStream.h"
     #include "SkSurface.h"
-    void ganesh(int width, int height,
-                void(*draw)(SkCanvas*),
-                const char* path) {
-        GrContextFactory grFactory;
-        GrContext* context = grFactory.get(GrContextFactory::kNative_GLContextType);
+
+    void gl_example(int width, int height, void(*draw)(SkCanvas*), const char* path) {
+        // You've already created your OpenGL context and bound it.
+        const GrGLInterface* interface = nullptr;
+        // Leaving interface as null makes Skia extract pointers to OpenGL functions for the current
+        // context in a platform-specific way. Alternatively, you may create your own GrGLInterface and
+        // initialize it however you like to attach to an alternate OpenGL implementation or intercept
+        // Skia's OpenGL calls.
+        GrContext* context = GrContext::Create(kOpenGL_GrBackend, (GrBackendContext) interface);
         SkImageInfo info = SkImageInfo:: MakeN32Premul(width, height);
-        SkAutoTUnref<SkSurface> gpuSurface(
-                SkSurface::NewRenderTarget(context, SkBudgeted::kNo, info));
+        sk_sp<SkSurface> gpuSurface(
+                SkSurface::MakeRenderTarget(context, SkBudgeted::kNo, info));
         if (!gpuSurface) {
-            SkDebugf("SkSurface::NewRenderTarget returned null\n");
+            SkDebugf("SkSurface::MakeRenderTarget returned null\n");
             return;
         }
         SkCanvas* gpuCanvas = gpuSurface->getCanvas();
         draw(gpuCanvas);
-        SkAutoTUnref<SkImage> img(s->newImageSnapshot());
+        sk_sp<SkImage> img(gpuSurface->makeImageSnapshot());
         if (!img) { return; }
-        SkAutoTUnref<SkData> png(img->encode());
+        sk_sp<SkData> png(img->encode());
         if (!png) { return; }
         SkFILEWStream out(path);
         (void)out.write(png->data(), png->size());
@@ -120,7 +128,7 @@ a document must include multiple pages.
                void(*draw)(SkCanvas*),
                const char* path) {
         SkFILEWStream pdfStream(path);
-        SkAutoTUnref<SkDocument> pdfDoc(SkDocument::CreatePDF(&pdfStream));
+        sk_sp<SkDocument> pdfDoc(SkDocument::MakePDF(&pdfStream));
         SkCanvas* pdfCanvas = pdfDoc->beginPage(SkIntToScalar(width),
                                                 SkIntToScalar(height));
         draw(pdfCanvas);
@@ -145,7 +153,7 @@ The SkPicture backend uses SkPictureRecorder instead of SkSurface.
         SkCanvas* recordingCanvas = recorder.beginRecording(SkIntToScalar(width),
                                                             SkIntToScalar(height));
         draw(recordingCanvas);
-        SkAutoTUnref<SkPicture> picture(recorder.endRecordingAsPicture());
+        sk_sp<SkPicture> picture(recorder.finishRecordingAsPicture());
         SkFILEWStream skpStream(path);
         // Open SKP files with `SampleApp --picture SKP_FILE`
         picture->serialize(&skpStream);
@@ -162,7 +170,7 @@ nothing.
 
     #include "SkNullCanvas.h"
     void picture(int, int, void(*draw)(SkCanvas*), const char*) {
-        SkAutoTDelete<SkCanvas> nullCanvas(SkCreateNullCanvas());
+        sk_sp<SkCanvas> nullCanvas(SkCreateNullCanvas());
         draw(nullCanvas);  // NoOp
     }
 
@@ -180,7 +188,7 @@ The (*still experimental*) SkXPS canvas writes into an XPS document.
                void(*draw)(SkCanvas*),
                const char* path) {
         SkFILEWStream xpsStream(path);
-        SkAutoTUnref<SkDocument> xpsDoc(SkDocument::CreateXPS(&pdfStream));
+        sk_sp<SkDocument> xpsDoc(SkDocument::MakeXPS(&pdfStream));
         SkCanvas* xpsCanvas = xpsDoc->beginPage(SkIntToScalar(width),
                                                 SkIntToScalar(height));
         draw(xpsCanvas);
@@ -202,8 +210,9 @@ The (*still experimental*) SkSVG canvas writes into an SVG document.
                void(*draw)(SkCanvas*),
                const char* path) {
         SkFILEWStream svgStream(path);
-        SkAutoTDelete<SkXMLWriter> xmlWriter(new SkXMLStreamWriter(&svgStream));
-        SkAutoTUnref<SkCanvas> svgCanvas(SkSVGCanvas::Create(
+        std::unique_ptr<SkXMLWriter> xmlWriter(
+                new SkXMLStreamWriter(&svgStream));
+        sk_sp<SkCanvas> svgCanvas(SkSVGCanvas::Create(
                 SkRect::MakeWH(SkIntToScalar(src.size().width()),
                                SkIntToScalar(src.size().height())),
                 xmlWriter));

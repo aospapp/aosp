@@ -16,9 +16,6 @@
 
 package com.android.settings.deviceinfo;
 
-import static android.content.Context.CONNECTIVITY_SERVICE;
-import static android.content.Context.WIFI_SERVICE;
-
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -28,7 +25,6 @@ import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -36,9 +32,10 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserManager;
 import android.support.v7.preference.Preference;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.util.ArrayUtils;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
@@ -46,14 +43,9 @@ import com.android.settings.Utils;
 
 import java.lang.ref.WeakReference;
 
-/**
- * Display the following information
- * # Battery Strength  : TODO
- * # Uptime
- * # Awake Time
- * # XMPP/buzz/tickle status : TODO
- *
- */
+import static android.content.Context.CONNECTIVITY_SERVICE;
+import static android.content.Context.WIFI_SERVICE;
+
 public class Status extends SettingsPreferenceFragment {
 
     private static final String KEY_BATTERY_STATUS = "battery_status";
@@ -61,7 +53,6 @@ public class Status extends SettingsPreferenceFragment {
     private static final String KEY_IP_ADDRESS = "wifi_ip_address";
     private static final String KEY_WIFI_MAC_ADDRESS = "wifi_mac_address";
     private static final String KEY_BT_ADDRESS = "bt_address";
-    private static final String KEY_SERIAL_NUMBER = "serial_number";
     private static final String KEY_WIMAX_MAC_ADDRESS = "wimax_mac_address";
     private static final String KEY_SIM_STATUS = "sim_status";
     private static final String KEY_IMEI_INFO = "imei_info";
@@ -83,8 +74,9 @@ public class Status extends SettingsPreferenceFragment {
 
     private Resources mRes;
 
-    private String mUnknown;
     private String mUnavailable;
+
+    private SerialNumberPreferenceController mSerialNumberPreferenceController;
 
     private Preference mUptime;
     private Preference mBatteryStatus;
@@ -93,7 +85,6 @@ public class Status extends SettingsPreferenceFragment {
     private Preference mIpAddress;
     private Preference mWifiMacAddress;
     private Preference mWimaxMacAddress;
-
     private Handler mHandler;
 
     private static class MyHandler extends Handler {
@@ -162,6 +153,7 @@ public class Status extends SettingsPreferenceFragment {
 
         mCM = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         mWifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
+        mSerialNumberPreferenceController = new SerialNumberPreferenceController(getActivity());
 
         addPreferencesFromResource(R.xml.device_info_status);
         mBatteryLevel = findPreference(KEY_BATTERY_LEVEL);
@@ -172,19 +164,18 @@ public class Status extends SettingsPreferenceFragment {
         mIpAddress = findPreference(KEY_IP_ADDRESS);
 
         mRes = getResources();
-        mUnknown = mRes.getString(R.string.device_info_default);
         mUnavailable = mRes.getString(R.string.status_unavailable);
 
         // Note - missing in zaku build, be careful later...
         mUptime = findPreference("up_time");
-
+        final PreferenceScreen screen = getPreferenceScreen();
         if (!hasBluetooth()) {
-            getPreferenceScreen().removePreference(mBtAddress);
+            screen.removePreference(mBtAddress);
             mBtAddress = null;
         }
 
         if (!hasWimax()) {
-            getPreferenceScreen().removePreference(mWimaxMacAddress);
+            screen.removePreference(mWimaxMacAddress);
             mWimaxMacAddress = null;
         }
 
@@ -195,12 +186,7 @@ public class Status extends SettingsPreferenceFragment {
 
         updateConnectivity();
 
-        String serial = Build.SERIAL;
-        if (serial != null && !serial.equals("")) {
-            setSummaryText(KEY_SERIAL_NUMBER, serial);
-        } else {
-            removePreferenceFromScreen(KEY_SERIAL_NUMBER);
-        }
+        mSerialNumberPreferenceController.displayPreference(screen);
 
         // Remove SimStatus and Imei for Secondary user as it access Phone b/19165700
         // Also remove on Wi-Fi only devices.
@@ -213,7 +199,7 @@ public class Status extends SettingsPreferenceFragment {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.DEVICEINFO_STATUS;
     }
 
@@ -247,30 +233,6 @@ public class Status extends SettingsPreferenceFragment {
         }
     }
 
-    /**
-     * @param preference The key for the Preference item
-     * @param property The system property to fetch
-     * @param alt The default value, if the property doesn't exist
-     */
-    private void setSummary(String preference, String property, String alt) {
-        try {
-            findPreference(preference).setSummary(
-                    SystemProperties.get(property, alt));
-        } catch (RuntimeException e) {
-
-        }
-    }
-
-    private void setSummaryText(String preference, String text) {
-            if (TextUtils.isEmpty(text)) {
-               text = mUnknown;
-             }
-             // some preferences may be missing
-             if (findPreference(preference) != null) {
-                 findPreference(preference).setSummary(text);
-             }
-    }
-
     private void setWimaxStatus() {
         if (mWimaxMacAddress != null) {
             String macAddress = SystemProperties.get("net.wimax.mac.address", mUnavailable);
@@ -280,7 +242,8 @@ public class Status extends SettingsPreferenceFragment {
 
     private void setWifiStatus() {
         WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
-        String macAddress = wifiInfo == null ? null : wifiInfo.getMacAddress();
+        boolean hasMacAddress = wifiInfo != null && wifiInfo.hasRealMacAddress();
+        String macAddress = hasMacAddress ? wifiInfo.getMacAddress() : null;
         mWifiMacAddress.setSummary(!TextUtils.isEmpty(macAddress) ? macAddress : mUnavailable);
     }
 

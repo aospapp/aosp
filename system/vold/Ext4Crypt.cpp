@@ -40,13 +40,13 @@
 #include <private/android_filesystem_config.h>
 
 #include "cryptfs.h"
-#include "ext4_crypt.h"
-#include "key_control.h"
 
 #define EMULATED_USES_SELINUX 0
 #define MANAGE_MISC_DIRS 0
 
 #include <cutils/fs.h>
+#include <ext4_utils/ext4_crypt.h>
+#include <ext4_utils/key_control.h>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -60,6 +60,7 @@ static constexpr int FLAG_STORAGE_DE = 1 << 0;
 static constexpr int FLAG_STORAGE_CE = 1 << 1;
 
 namespace {
+
 const std::string device_key_dir = std::string() + DATA_MNT_POINT + e4crypt_unencrypted_folder;
 const std::string device_key_path = device_key_dir + "/key";
 const std::string device_key_temp = device_key_dir + "/temp";
@@ -75,8 +76,7 @@ std::set<userid_t> s_ephemeral_users;
 // Map user ids to key references
 std::map<userid_t, std::string> s_de_key_raw_refs;
 std::map<userid_t, std::string> s_ce_key_raw_refs;
-// TODO abolish this map. Keys should not be long-lived in user memory, only kernel memory.
-// See b/26948053
+// TODO abolish this map, per b/26948053
 std::map<userid_t, std::string> s_ce_keys;
 
 // ext4enc:TODO get this const from somewhere good
@@ -137,7 +137,7 @@ static bool fill_key(const std::string& key, ext4_encryption_key* ext4_key) {
 static std::string keyname(const std::string& raw_ref) {
     std::ostringstream o;
     o << "ext4:";
-    for (auto i : raw_ref) {
+    for (unsigned char i : raw_ref) {
         o << std::hex << std::setw(2) << std::setfill('0') << (int)i;
     }
     return o.str();
@@ -374,9 +374,14 @@ static bool lookup_key_ref(const std::map<userid_t, std::string>& key_map, useri
 }
 
 static bool ensure_policy(const std::string& raw_ref, const std::string& path) {
+    const char *contents_mode;
+    const char *filenames_mode;
+
+    cryptfs_get_file_encryption_modes(&contents_mode, &filenames_mode);
+
     if (e4crypt_policy_ensure(path.c_str(),
                               raw_ref.data(), raw_ref.size(),
-                              cryptfs_get_file_encryption_mode()) != 0) {
+                              contents_mode, filenames_mode) != 0) {
         LOG(ERROR) << "Failed to set policy on: " << path;
         return false;
     }
@@ -435,9 +440,13 @@ bool e4crypt_initialize_global_de() {
         return true;
     }
 
+    const char *contents_mode;
+    const char *filenames_mode;
+    cryptfs_get_file_encryption_modes(&contents_mode, &filenames_mode);
+    std::string modestring = std::string(contents_mode) + ":" + filenames_mode;
+
     std::string mode_filename = std::string("/data") + e4crypt_key_mode;
-    std::string mode = cryptfs_get_file_encryption_mode();
-    if (!android::base::WriteStringToFile(mode, mode_filename)) {
+    if (!android::base::WriteStringToFile(modestring, mode_filename)) {
         PLOG(ERROR) << "Cannot save type";
         return false;
     }
@@ -517,15 +526,45 @@ bool e4crypt_vold_create_user_key(userid_t user_id, int serial, bool ephemeral) 
     return true;
 }
 
+static bool evict_key(const std::string &raw_ref) {
+    auto ref = keyname(raw_ref);
+    key_serial_t device_keyring;
+    if (!e4crypt_keyring(&device_keyring)) return false;
+    auto key_serial = keyctl_search(device_keyring, "logon", ref.c_str(), 0);
+
+    // Unlink the key from the keyring.  Prefer unlinking to revoking or
+    // invalidating, since unlinking is actually no less secure currently, and
+    // it avoids bugs in certain kernel versions where the keyring key is
+    // referenced from places it shouldn't be.
+    if (keyctl_unlink(key_serial, device_keyring) != 0) {
+        PLOG(ERROR) << "Failed to unlink key with serial " << key_serial << " ref " << ref;
+        return false;
+    }
+    LOG(DEBUG) << "Unlinked key with serial " << key_serial << " ref " << ref;
+    return true;
+}
+
+static bool evict_ce_key(userid_t user_id) {
+    s_ce_keys.erase(user_id);
+    bool success = true;
+    std::string raw_ref;
+    // If we haven't loaded the CE key, no need to evict it.
+    if (lookup_key_ref(s_ce_key_raw_refs, user_id, &raw_ref)) {
+        success &= evict_key(raw_ref);
+    }
+    s_ce_key_raw_refs.erase(user_id);
+    return success;
+}
+
 bool e4crypt_destroy_user_key(userid_t user_id) {
     LOG(DEBUG) << "e4crypt_destroy_user_key(" << user_id << ")";
     if (!e4crypt_is_native()) {
         return true;
     }
     bool success = true;
-    s_ce_keys.erase(user_id);
     std::string raw_ref;
-    s_ce_key_raw_refs.erase(user_id);
+    success &= evict_ce_key(user_id);
+    success &= lookup_key_ref(s_de_key_raw_refs, user_id, &raw_ref) && evict_key(raw_ref);
     s_de_key_raw_refs.erase(user_id);
     auto it = s_ephemeral_users.find(user_id);
     if (it != s_ephemeral_users.end()) {
@@ -660,8 +699,9 @@ bool e4crypt_unlock_user_key(userid_t user_id, int serial, const char* token_hex
 
 // TODO: rename to 'evict' for consistency
 bool e4crypt_lock_user_key(userid_t user_id) {
+    LOG(DEBUG) << "e4crypt_lock_user_key " << user_id;
     if (e4crypt_is_native()) {
-        // TODO: remove from kernel keyring
+        return evict_ce_key(user_id);
     } else if (e4crypt_is_emulated()) {
         // When in emulation mode, we just use chmod
         if (!emulated_lock(android::vold::BuildDataSystemCePath(user_id)) ||
@@ -686,7 +726,6 @@ bool e4crypt_prepare_user_storage(const char* volume_uuid, userid_t user_id, int
         auto system_legacy_path = android::vold::BuildDataSystemLegacyPath(user_id);
         auto misc_legacy_path = android::vold::BuildDataMiscLegacyPath(user_id);
         auto profiles_de_path = android::vold::BuildDataProfilesDePath(user_id);
-        auto foreign_de_path = android::vold::BuildDataProfilesForeignDexDePath(user_id);
 
         // DE_n key
         auto system_de_path = android::vold::BuildDataSystemDePath(user_id);
@@ -699,7 +738,6 @@ bool e4crypt_prepare_user_storage(const char* volume_uuid, userid_t user_id, int
                 multiuser_get_uid(user_id, AID_EVERYBODY))) return false;
 #endif
         if (!prepare_dir(profiles_de_path, 0771, AID_SYSTEM, AID_SYSTEM)) return false;
-        if (!prepare_dir(foreign_de_path, 0773, AID_SYSTEM, AID_SYSTEM)) return false;
 
         if (!prepare_dir(system_de_path, 0770, AID_SYSTEM, AID_SYSTEM)) return false;
         if (!prepare_dir(misc_de_path, 01771, AID_SYSTEM, AID_MISC)) return false;
@@ -757,7 +795,6 @@ bool e4crypt_destroy_user_storage(const char* volume_uuid, userid_t user_id, int
         auto system_legacy_path = android::vold::BuildDataSystemLegacyPath(user_id);
         auto misc_legacy_path = android::vold::BuildDataMiscLegacyPath(user_id);
         auto profiles_de_path = android::vold::BuildDataProfilesDePath(user_id);
-        auto foreign_de_path = android::vold::BuildDataProfilesForeignDexDePath(user_id);
 
         // DE_n key
         auto system_de_path = android::vold::BuildDataSystemDePath(user_id);
@@ -770,7 +807,6 @@ bool e4crypt_destroy_user_storage(const char* volume_uuid, userid_t user_id, int
             res &= destroy_dir(misc_legacy_path);
 #endif
             res &= destroy_dir(profiles_de_path);
-            res &= destroy_dir(foreign_de_path);
             res &= destroy_dir(system_de_path);
             res &= destroy_dir(misc_de_path);
         }
@@ -793,4 +829,8 @@ bool e4crypt_destroy_user_storage(const char* volume_uuid, userid_t user_id, int
     }
 
     return res;
+}
+
+bool e4crypt_secdiscard(const char* path) {
+    return android::vold::runSecdiscardSingle(std::string(path));
 }

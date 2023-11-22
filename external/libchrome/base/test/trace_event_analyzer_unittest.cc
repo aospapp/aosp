@@ -2,14 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/test/trace_event_analyzer.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
 #include "base/bind.h"
+#include "base/memory/ptr_util.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/synchronization/waitable_event.h"
-#include "base/test/trace_event_analyzer.h"
 #include "base/threading/platform_thread.h"
 #include "base/trace_event/trace_buffer.h"
+#include "base/trace_event/trace_event_argument.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -56,7 +60,9 @@ void TraceEventAnalyzerTest::BeginTracing() {
 
 void TraceEventAnalyzerTest::EndTracing() {
   base::trace_event::TraceLog::GetInstance()->SetDisabled();
-  base::WaitableEvent flush_complete_event(false, false);
+  base::WaitableEvent flush_complete_event(
+      base::WaitableEvent::ResetPolicy::AUTOMATIC,
+      base::WaitableEvent::InitialState::NOT_SIGNALED);
   base::trace_event::TraceLog::GetInstance()->Flush(
       base::Bind(&TraceEventAnalyzerTest::OnTraceDataCollected,
                  base::Unretained(this),
@@ -74,8 +80,8 @@ TEST_F(TraceEventAnalyzerTest, NoEvents) {
   buffer_.Start();
   buffer_.Finish();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
 
   // Search for all events and verify that nothing is returned.
@@ -97,6 +103,7 @@ TEST_F(TraceEventAnalyzerTest, TraceEvent) {
   event.arg_numbers["int"] = static_cast<double>(int_num);
   event.arg_numbers["double"] = double_num;
   event.arg_strings["string"] = str;
+  event.arg_values["dict"] = WrapUnique(new base::DictionaryValue());
 
   ASSERT_TRUE(event.HasNumberArg("false"));
   ASSERT_TRUE(event.HasNumberArg("true"));
@@ -105,12 +112,18 @@ TEST_F(TraceEventAnalyzerTest, TraceEvent) {
   ASSERT_TRUE(event.HasStringArg("string"));
   ASSERT_FALSE(event.HasNumberArg("notfound"));
   ASSERT_FALSE(event.HasStringArg("notfound"));
+  ASSERT_TRUE(event.HasArg("dict"));
+  ASSERT_FALSE(event.HasArg("notfound"));
 
   EXPECT_FALSE(event.GetKnownArgAsBool("false"));
   EXPECT_TRUE(event.GetKnownArgAsBool("true"));
   EXPECT_EQ(int_num, event.GetKnownArgAsInt("int"));
   EXPECT_EQ(double_num, event.GetKnownArgAsDouble("double"));
   EXPECT_STREQ(str, event.GetKnownArgAsString("string").c_str());
+
+  std::unique_ptr<base::Value> arg;
+  EXPECT_TRUE(event.GetArgAsValue("dict", &arg));
+  EXPECT_EQ(base::Value::TYPE_DICTIONARY, arg->GetType());
 }
 
 TEST_F(TraceEventAnalyzerTest, QueryEventMember) {
@@ -226,8 +239,8 @@ TEST_F(TraceEventAnalyzerTest, BooleanOperators) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer);
   analyzer->SetIgnoreMetadataEvents(true);
 
@@ -317,8 +330,8 @@ TEST_F(TraceEventAnalyzerTest, ArithmeticOperators) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
 
   TraceEventVector found;
@@ -372,8 +385,8 @@ TEST_F(TraceEventAnalyzerTest, StringPattern) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->SetIgnoreMetadataEvents(true);
 
@@ -422,8 +435,8 @@ TEST_F(TraceEventAnalyzerTest, BeginEndDuration) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->AssociateBeginEndEvents();
 
@@ -464,8 +477,8 @@ TEST_F(TraceEventAnalyzerTest, CompleteDuration) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->AssociateBeginEndEvents();
 
@@ -496,8 +509,8 @@ TEST_F(TraceEventAnalyzerTest, BeginEndAssocations) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->AssociateBeginEndEvents();
 
@@ -519,8 +532,8 @@ TEST_F(TraceEventAnalyzerTest, MergeAssociatedEventArgs) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->AssociateBeginEndEvents();
 
@@ -552,8 +565,8 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocations) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->AssociateAsyncBeginEndEvents();
 
@@ -584,8 +597,8 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocationsWithSteps) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
   analyzer->AssociateAsyncBeginEndEvents();
 
@@ -595,15 +608,21 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocationsWithSteps) {
 
   EXPECT_STRCASEEQ("0xb", found[0]->id.c_str());
   EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_PAST, found[0]->other_event->phase);
+  EXPECT_EQ(found[0], found[0]->other_event->prev_event);
   EXPECT_TRUE(found[0]->other_event->other_event);
   EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_END,
             found[0]->other_event->other_event->phase);
+  EXPECT_EQ(found[0]->other_event,
+            found[0]->other_event->other_event->prev_event);
 
   EXPECT_STRCASEEQ("0xc", found[1]->id.c_str());
   EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_INTO, found[1]->other_event->phase);
+  EXPECT_EQ(found[1], found[1]->other_event->prev_event);
   EXPECT_TRUE(found[1]->other_event->other_event);
   EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_INTO,
             found[1]->other_event->other_event->phase);
+  EXPECT_EQ(found[1]->other_event,
+            found[1]->other_event->other_event->prev_event);
   double arg_actual = 0;
   EXPECT_TRUE(found[1]->other_event->other_event->GetArgAsNumber(
                   "a", &arg_actual));
@@ -637,8 +656,8 @@ TEST_F(TraceEventAnalyzerTest, CustomAssociations) {
   }
   EndTracing();
 
-  scoped_ptr<TraceAnalyzer>
-      analyzer(TraceAnalyzer::Create(output_.json_output));
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
 
   // begin, end, and match queries to find proper begin/end pairs.
@@ -711,8 +730,7 @@ TEST_F(TraceEventAnalyzerTest, RateStats) {
   std::vector<TraceEvent> events;
   events.reserve(100);
   TraceEventVector event_ptrs;
-  TraceEvent event;
-  event.timestamp = 0.0;
+  double timestamp = 0.0;
   double little_delta = 1.0;
   double big_delta = 10.0;
   double tiny_delta = 0.1;
@@ -721,8 +739,10 @@ TEST_F(TraceEventAnalyzerTest, RateStats) {
 
   // Insert 10 events, each apart by little_delta.
   for (int i = 0; i < 10; ++i) {
-    event.timestamp += little_delta;
-    events.push_back(event);
+    timestamp += little_delta;
+    TraceEvent event;
+    event.timestamp = timestamp;
+    events.push_back(std::move(event));
     event_ptrs.push_back(&events.back());
   }
 
@@ -733,9 +753,13 @@ TEST_F(TraceEventAnalyzerTest, RateStats) {
   EXPECT_EQ(0.0, stats.standard_deviation_us);
 
   // Add an event apart by big_delta.
-  event.timestamp += big_delta;
-  events.push_back(event);
-  event_ptrs.push_back(&events.back());
+  {
+    timestamp += big_delta;
+    TraceEvent event;
+    event.timestamp = timestamp;
+    events.push_back(std::move(event));
+    event_ptrs.push_back(&events.back());
+  }
 
   ASSERT_TRUE(GetRateStats(event_ptrs, &stats, NULL));
   EXPECT_LT(little_delta, stats.mean_us);
@@ -753,9 +777,13 @@ TEST_F(TraceEventAnalyzerTest, RateStats) {
   EXPECT_EQ(0.0, stats.standard_deviation_us);
 
   // Add an event apart by tiny_delta.
-  event.timestamp += tiny_delta;
-  events.push_back(event);
-  event_ptrs.push_back(&events.back());
+  {
+    timestamp += tiny_delta;
+    TraceEvent event;
+    event.timestamp = timestamp;
+    events.push_back(std::move(event));
+    event_ptrs.push_back(&events.back());
+  }
 
   // Trim off both the biggest and tiniest delta and verify stats.
   options.trim_min = 1;
@@ -767,17 +795,20 @@ TEST_F(TraceEventAnalyzerTest, RateStats) {
   EXPECT_EQ(0.0, stats.standard_deviation_us);
 
   // Verify smallest allowed number of events.
-  TraceEventVector few_event_ptrs;
-  few_event_ptrs.push_back(&event);
-  few_event_ptrs.push_back(&event);
-  ASSERT_FALSE(GetRateStats(few_event_ptrs, &stats, NULL));
-  few_event_ptrs.push_back(&event);
-  ASSERT_TRUE(GetRateStats(few_event_ptrs, &stats, NULL));
+  {
+    TraceEvent event;
+    TraceEventVector few_event_ptrs;
+    few_event_ptrs.push_back(&event);
+    few_event_ptrs.push_back(&event);
+    ASSERT_FALSE(GetRateStats(few_event_ptrs, &stats, NULL));
+    few_event_ptrs.push_back(&event);
+    ASSERT_TRUE(GetRateStats(few_event_ptrs, &stats, NULL));
 
-  // Trim off more than allowed and verify failure.
-  options.trim_min = 0;
-  options.trim_max = 1;
-  ASSERT_FALSE(GetRateStats(few_event_ptrs, &stats, &options));
+    // Trim off more than allowed and verify failure.
+    options.trim_min = 0;
+    options.trim_max = 1;
+    ASSERT_FALSE(GetRateStats(few_event_ptrs, &stats, &options));
+  }
 }
 
 // Test FindFirstOf and FindLastOf.
@@ -894,5 +925,37 @@ TEST_F(TraceEventAnalyzerTest, CountMatches) {
   EXPECT_EQ(num_named, CountMatches(event_ptrs, query_named));
 }
 
+TEST_F(TraceEventAnalyzerTest, ComplexArgument) {
+  ManualSetUp();
+
+  BeginTracing();
+  {
+    std::unique_ptr<base::trace_event::TracedValue> value(
+        new base::trace_event::TracedValue);
+    value->SetString("property", "value");
+    TRACE_EVENT1("cat", "name", "arg", std::move(value));
+  }
+  EndTracing();
+
+  std::unique_ptr<TraceAnalyzer> analyzer(
+      TraceAnalyzer::Create(output_.json_output));
+  ASSERT_TRUE(analyzer.get());
+
+  TraceEventVector events;
+  analyzer->FindEvents(Query::EventName() == Query::String("name"), &events);
+
+  EXPECT_EQ(1u, events.size());
+  EXPECT_EQ("cat", events[0]->category);
+  EXPECT_EQ("name", events[0]->name);
+  EXPECT_TRUE(events[0]->HasArg("arg"));
+
+  std::unique_ptr<base::Value> arg;
+  events[0]->GetArgAsValue("arg", &arg);
+  base::DictionaryValue* arg_dict;
+  EXPECT_TRUE(arg->GetAsDictionary(&arg_dict));
+  std::string property;
+  EXPECT_TRUE(arg_dict->GetString("property", &property));
+  EXPECT_EQ("value", property);
+}
 
 }  // namespace trace_analyzer

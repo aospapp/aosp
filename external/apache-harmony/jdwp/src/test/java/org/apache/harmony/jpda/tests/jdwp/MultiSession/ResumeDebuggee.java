@@ -35,6 +35,7 @@ public class ResumeDebuggee extends SyncDebuggee {
 
     
 
+    @Override
     public void run() {
         logWriter.println("Debuggee is started");
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

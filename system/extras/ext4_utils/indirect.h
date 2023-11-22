@@ -17,7 +17,10 @@
 #ifndef _INDIRECT_H_
 #define _INDIRECT_H_
 
-#include "allocate.h"
+#include "ext4_utils/ext4_utils.h"
+
+struct ext4_inode;
+struct block_allocation;
 
 void inode_allocate_indirect(struct ext4_inode *inode, unsigned long len);
 u8 *inode_allocate_data_indirect(struct ext4_inode *inode, unsigned long len,

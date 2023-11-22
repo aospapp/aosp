@@ -14,6 +14,7 @@
 
 #include <brillo/value_conversion.h>
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <string>
@@ -30,10 +31,8 @@ namespace {
 std::unique_ptr<base::Value> ParseValue(std::string json) {
   std::replace(json.begin(), json.end(), '\'', '"');
   std::string message;
-  std::unique_ptr<base::Value> value{
-      base::JSONReader::ReadAndReturnError(json, base::JSON_PARSE_RFC,nullptr,
-                                           &message)
-          .release()};
+  auto value = base::JSONReader::ReadAndReturnError(json, base::JSON_PARSE_RFC,
+                                                    nullptr, &message);
   CHECK(value) << "Failed to load JSON: " << message << ", " << json;
   return value;
 }

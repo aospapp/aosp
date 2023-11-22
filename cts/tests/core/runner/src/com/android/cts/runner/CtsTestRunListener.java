@@ -16,6 +16,7 @@
 
 package com.android.cts.runner;
 
+import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.KeyguardManager;
 import android.content.Context;
@@ -219,6 +220,13 @@ public class CtsTestRunListener extends InstrumentationRunListener {
             mProperties.setProperty("android.cts.device.multicast",
                     Boolean.toString(pm.hasSystemFeature(PackageManager.FEATURE_WIFI)));
             mDefaultIs24Hour = getDateFormatIs24Hour();
+
+            // There are tests in libcore that should be disabled for low ram devices. They can't
+            // access ActivityManager to call isLowRamDevice, but can read system properties.
+            ActivityManager activityManager =
+                    (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            mProperties.setProperty("android.cts.device.lowram",
+                    Boolean.toString(activityManager.isLowRamDevice()));
         }
 
         void reset() {

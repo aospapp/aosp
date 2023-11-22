@@ -15,8 +15,19 @@
  */
 package android.support.v7.widget;
 
+import static android.support.v7.widget.LinearLayoutManager.HORIZONTAL;
+import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
+
+import static org.junit.Assert.assertEquals;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import android.content.Context;
+import android.graphics.Rect;
 import android.view.View;
+
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -24,14 +35,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-
-import static android.support.v7.widget.LinearLayoutManager.HORIZONTAL;
-import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assert.assertEquals;
-
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
 
 public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
 
@@ -46,7 +49,7 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
     }
 
     public RecyclerView setupBasic(Config config, GridTestAdapter testAdapter) throws Throwable {
-        RecyclerView recyclerView = new RecyclerView(getActivity());
+        RecyclerView recyclerView = new WrappedRecyclerView(getActivity());
         mAdapter = testAdapter;
         mGlm = new WrappedGridLayoutManager(getActivity(), config.mSpanCount, config.mOrientation,
                 config.mReverseLayout);
@@ -126,12 +129,12 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
 
         @Override
         public String toString() {
-            return "Config{" +
-                    "mSpanCount=" + mSpanCount +
-                    ", mOrientation=" + (mOrientation == GridLayoutManager.HORIZONTAL ? "h" : "v") +
-                    ", mItemCount=" + mItemCount +
-                    ", mReverseLayout=" + mReverseLayout +
-                    '}';
+            return "Config{"
+                    + "mSpanCount=" + mSpanCount
+                    + ",mOrientation=" + (mOrientation == GridLayoutManager.HORIZONTAL ? "h" : "v")
+                    + ",mItemCount=" + mItemCount
+                    + ",mReverseLayout=" + mReverseLayout
+                    + '}';
         }
 
         public Config reverseLayout(boolean reverseLayout) {
@@ -148,6 +151,10 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
     class WrappedGridLayoutManager extends GridLayoutManager {
 
         CountDownLatch mLayoutLatch;
+
+        CountDownLatch prefetchLatch;
+
+        OrientationHelper mSecondaryOrientation;
 
         List<GridLayoutManagerTest.Callback>
                 mCallbacks = new ArrayList<GridLayoutManagerTest.Callback>();
@@ -175,6 +182,26 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
                 requestLayoutOnUIThread(mRecyclerView);
             } catch (Throwable throwable) {
                 postExceptionToInstrumentation(throwable);
+            }
+        }
+
+        @Override
+        public void setOrientation(int orientation) {
+            super.setOrientation(orientation);
+            mSecondaryOrientation = null;
+        }
+
+        @Override
+        void ensureLayoutState() {
+            super.ensureLayoutState();
+            if (mSecondaryOrientation == null) {
+                if (getOrientation() == RecyclerView.HORIZONTAL) {
+                    mSecondaryOrientation = OrientationHelper.createOrientationHelper(this,
+                        RecyclerView.VERTICAL);
+                } else {
+                    mSecondaryOrientation = OrientationHelper.createOrientationHelper(this,
+                        RecyclerView.HORIZONTAL);
+                }
             }
         }
 
@@ -210,6 +237,23 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
             };
         }
 
+        Rect getViewBounds(View view) {
+            if (getOrientation() == HORIZONTAL) {
+                return new Rect(
+                    mOrientationHelper.getDecoratedStart(view),
+                    mSecondaryOrientation.getDecoratedStart(view),
+                    mOrientationHelper.getDecoratedEnd(view),
+                    mSecondaryOrientation.getDecoratedEnd(view));
+            } else {
+                return new Rect(
+                    mSecondaryOrientation.getDecoratedStart(view),
+                    mOrientationHelper.getDecoratedStart(view),
+                    mSecondaryOrientation.getDecoratedEnd(view),
+                    mOrientationHelper.getDecoratedEnd(view));
+            }
+
+        }
+
         public void expectLayout(int layoutCount) {
             mLayoutLatch = new CountDownLatch(layoutCount);
         }
@@ -219,6 +263,23 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
             checkForMainThreadException();
             MatcherAssert.assertThat("all layouts should complete on time",
                     mLayoutLatch.getCount(), CoreMatchers.is(0L));
+            // use a runnable to ensure RV layout is finished
+            getInstrumentation().runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                }
+            });
+        }
+
+        public void expectPrefetch(int count) {
+            prefetchLatch = new CountDownLatch(count);
+        }
+
+        public void waitForPrefetch(int seconds) throws Throwable {
+            prefetchLatch.await(seconds * (DEBUG ? 100 : 1), SECONDS);
+            checkForMainThreadException();
+            MatcherAssert.assertThat("all prefetches should complete on time",
+                    prefetchLatch.getCount(), CoreMatchers.is(0L));
             // use a runnable to ensure RV layout is finished
             getInstrumentation().runOnMainSync(new Runnable() {
                 @Override
@@ -254,6 +315,13 @@ public class BaseGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTe
                 public void run() {
                 }
             });
+        }
+
+        @Override
+        public void collectAdjacentPrefetchPositions(int dx, int dy, RecyclerView.State state,
+                LayoutPrefetchRegistry layoutPrefetchRegistry) {
+            if (prefetchLatch != null) prefetchLatch.countDown();
+            super.collectAdjacentPrefetchPositions(dx, dy, state, layoutPrefetchRegistry);
         }
     }
 

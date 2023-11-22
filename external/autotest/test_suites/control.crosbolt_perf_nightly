@@ -5,7 +5,6 @@
 AUTHOR = "rohitbm@chromium.org, chromeos-performance@google.com"
 NAME = "crosbolt_perf_nightly"
 PURPOSE = "Performance tests"
-CRITERIA = "All tests with SUITE=crosbolt_perf_nightly must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "General"
@@ -35,11 +34,10 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 _BUG_TEMPLATE = {
     'labels': ['Type-Bug', 'Cros-Perf-Test'],
     'owner': 'rohitbm@chromium.org',
-    'ccs': ['lafeenstra@chromium.org']
+    'cc': ['lafeenstra@chromium.org']
 }
 
 args_dict['timeout_mins'] = 480
-args_dict['file_bugs'] = False
 args_dict['name'] = 'crosbolt_perf_nightly'
 args_dict['job'] = job
 args_dict['add_experimental'] = True

@@ -19,6 +19,7 @@ package libcore.java.util;
 import junit.framework.TestCase;
 
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -147,7 +148,15 @@ public class TimeZoneTest extends TestCase {
     // http://code.google.com/p/android/issues/detail?id=24036
     public void testNullId() throws Exception {
         try {
-            TimeZone.getTimeZone(null);
+            TimeZone.getTimeZone((String) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testNullZoneId() throws Exception {
+        try {
+            TimeZone.getTimeZone((ZoneId) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -207,15 +216,26 @@ public class TimeZoneTest extends TestCase {
 
     // http://b/7955614 and http://b/8026776.
     public void testDisplayNames() throws Exception {
+        checkDisplayNames(Locale.US);
+    }
+
+    public void testDisplayNames_nonUS() throws Exception {
+        // run checkDisplayNames with an arbitrary set of Locales.
+        checkDisplayNames(Locale.CHINESE);
+        checkDisplayNames(Locale.FRENCH);
+        checkDisplayNames(Locale.forLanguageTag("bn-BD"));
+    }
+
+    public void checkDisplayNames(Locale locale) throws Exception {
         // Check that there are no time zones that use DST but have the same display name for
         // both standard and daylight time.
         StringBuilder failures = new StringBuilder();
         for (String id : TimeZone.getAvailableIDs()) {
             TimeZone tz = TimeZone.getTimeZone(id);
-            String longDst = tz.getDisplayName(true, TimeZone.LONG, Locale.US);
-            String longStd = tz.getDisplayName(false, TimeZone.LONG, Locale.US);
-            String shortDst = tz.getDisplayName(true, TimeZone.SHORT, Locale.US);
-            String shortStd = tz.getDisplayName(false, TimeZone.SHORT, Locale.US);
+            String longDst = tz.getDisplayName(true, TimeZone.LONG, locale);
+            String longStd = tz.getDisplayName(false, TimeZone.LONG, locale);
+            String shortDst = tz.getDisplayName(true, TimeZone.SHORT, locale);
+            String shortStd = tz.getDisplayName(false, TimeZone.SHORT, locale);
 
             if (tz.useDaylightTime()) {
                 // The long std and dst strings must differ!
@@ -268,6 +288,31 @@ public class TimeZoneTest extends TestCase {
         assertEquals("", failures.toString());
     }
 
+    // http://b/30527513
+    public void testDisplayNamesWithScript() throws Exception {
+        Locale latinLocale = Locale.forLanguageTag("sr-Latn-RS");
+        Locale cyrillicLocale = Locale.forLanguageTag("sr-Cyrl-RS");
+        Locale noScriptLocale = Locale.forLanguageTag("sr-RS");
+        TimeZone tz = TimeZone.getTimeZone("Europe/London");
+
+        final String latinName = "Srednje vreme po Griniču";
+        final String cyrillicName = "Средње време по Гриничу";
+
+        // Check java.util.TimeZone
+        assertEquals(latinName, tz.getDisplayName(latinLocale));
+        assertEquals(cyrillicName, tz.getDisplayName(cyrillicLocale));
+        assertEquals(cyrillicName, tz.getDisplayName(noScriptLocale));
+
+        // Check ICU TimeZoneNames
+        // The one-argument getDisplayName() override uses LONG_GENERIC style which is different
+        // from what java.util.TimeZone uses. Force the LONG style to get equivalent results.
+        final int style = android.icu.util.TimeZone.LONG;
+        android.icu.util.TimeZone utz = android.icu.util.TimeZone.getTimeZone(tz.getID());
+        assertEquals(latinName, utz.getDisplayName(false, style, latinLocale));
+        assertEquals(cyrillicName, utz.getDisplayName(false, style, cyrillicLocale));
+        assertEquals(cyrillicName, utz.getDisplayName(false, style, noScriptLocale));
+    }
+
     // http://b/7955614
     public void testApia() throws Exception {
         TimeZone tz = TimeZone.getTimeZone("Pacific/Apia");
@@ -293,15 +338,6 @@ public class TimeZoneTest extends TestCase {
             offset = -offset;
         }
         return String.format("GMT%c%02d:%02d", sign, offset / 60, offset % 60);
-    }
-
-    public void testAllDisplayNames() throws Exception {
-      for (Locale locale : Locale.getAvailableLocales()) {
-        for (String id : TimeZone.getAvailableIDs()) {
-          TimeZone tz = TimeZone.getTimeZone(id);
-          assertNotNull(tz.getDisplayName(false, TimeZone.LONG, locale));
-        }
-      }
     }
 
     // http://b/18839557

@@ -362,8 +362,12 @@ static VAStatus vsp_VPP_CreateContext(
 out:
 	vsp_VPP_DestroyContext(obj_context);
 
-	if (ctx)
-		free(ctx);
+    if (ctx) {
+        if(ctx->intermediate_buf != NULL)
+            free(ctx->intermediate_buf);
+        free(ctx);
+        ctx = NULL;
+    }
 
 	return vaStatus;
 }

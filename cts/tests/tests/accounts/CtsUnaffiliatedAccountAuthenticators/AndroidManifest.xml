@@ -17,6 +17,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.accounts.cts.unaffiliated">
+    <uses-sdk android:minSdkVersion="1"
+          android:targetSdkVersion="26"/>
 
     <!-- Used for AccountManagerService test, don't delete this permission -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
@@ -40,6 +42,16 @@
             </intent-filter>
             <meta-data android:name="android.accounts.AccountAuthenticator"
                        android:resource="@xml/standard_authenticator" />
+        </service>
+
+        <service
+                android:name=".DefaultAccountAuthService"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                       android:resource="@xml/default_authenticator" />
         </service>
 <!--
         <service android:name=".CustomAccountAuthService" android:exported="false">

@@ -18,16 +18,33 @@ package com.android.deskclock.data;
 
 import android.app.Service;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.StringRes;
+import android.view.View;
 
+import com.android.deskclock.Predicate;
+import com.android.deskclock.R;
+import com.android.deskclock.Utils;
+import com.android.deskclock.timer.TimerService;
+
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
+import static android.content.Context.AUDIO_SERVICE;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.media.AudioManager.FLAG_SHOW_UI;
+import static android.media.AudioManager.STREAM_ALARM;
+import static android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS;
+import static android.provider.Settings.ACTION_SOUND_SETTINGS;
 import static com.android.deskclock.Utils.enforceMainLooper;
+import static com.android.deskclock.Utils.enforceNotMainLooper;
 
 /**
  * All application-wide data is accessible through this singleton.
@@ -40,8 +57,105 @@ public final class DataModel {
     /** Indicates the preferred sort order of cities. */
     public enum CitySort {NAME, UTC_OFFSET}
 
-    public static final String ACTION_DIGITAL_WIDGET_CHANGED =
-            "com.android.deskclock.DIGITAL_WIDGET_CHANGED";
+    /** Indicates the preferred behavior of hardware volume buttons when firing alarms. */
+    public enum AlarmVolumeButtonBehavior {NOTHING, SNOOZE, DISMISS}
+
+    /** Indicates the reason alarms may not fire or may fire silently. */
+    public enum SilentSetting {
+        @SuppressWarnings("unchecked")
+        DO_NOT_DISTURB(R.string.alarms_blocked_by_dnd, 0, Predicate.FALSE, null),
+        @SuppressWarnings("unchecked")
+        MUTED_VOLUME(R.string.alarm_volume_muted,
+                R.string.unmute_alarm_volume,
+                Predicate.TRUE,
+                new UnmuteAlarmVolumeListener()),
+        SILENT_RINGTONE(R.string.silent_default_alarm_ringtone,
+                R.string.change_setting_action,
+                new ChangeSoundActionPredicate(),
+                new ChangeSoundSettingsListener()),
+        @SuppressWarnings("unchecked")
+        BLOCKED_NOTIFICATIONS(R.string.app_notifications_blocked,
+                R.string.change_setting_action,
+                Predicate.TRUE,
+                new ChangeAppNotificationSettingsListener());
+
+        private final @StringRes int mLabelResId;
+        private final @StringRes int mActionResId;
+        private final Predicate<Context> mActionEnabled;
+        private final View.OnClickListener mActionListener;
+
+        SilentSetting(int labelResId, int actionResId, Predicate<Context> actionEnabled,
+                View.OnClickListener actionListener) {
+            mLabelResId = labelResId;
+            mActionResId = actionResId;
+            mActionEnabled = actionEnabled;
+            mActionListener = actionListener;
+        }
+
+        public @StringRes int getLabelResId() { return mLabelResId; }
+        public @StringRes int getActionResId() { return mActionResId; }
+        public View.OnClickListener getActionListener() { return mActionListener; }
+        public boolean isActionEnabled(Context context) {
+            return mLabelResId != 0 && mActionEnabled.apply(context);
+        }
+
+        private static class UnmuteAlarmVolumeListener implements View.OnClickListener {
+            @Override
+            public void onClick(View v) {
+                // Set the alarm volume to 11/16th of max and show the slider UI.
+                // 11/16th of max is the initial volume of the alarm stream on a fresh install.
+                final Context context = v.getContext();
+                final AudioManager am = (AudioManager) context.getSystemService(AUDIO_SERVICE);
+                final int index = Math.round(am.getStreamMaxVolume(STREAM_ALARM) * 11f / 16f);
+                am.setStreamVolume(STREAM_ALARM, index, FLAG_SHOW_UI);
+            }
+        }
+
+        private static class ChangeSoundSettingsListener implements View.OnClickListener {
+            @Override
+            public void onClick(View v) {
+                final Context context = v.getContext();
+                context.startActivity(new Intent(ACTION_SOUND_SETTINGS)
+                        .addFlags(FLAG_ACTIVITY_NEW_TASK));
+            }
+        }
+
+        private static class ChangeSoundActionPredicate implements Predicate<Context> {
+            @Override
+            public boolean apply(Context context) {
+                final Intent intent = new Intent(ACTION_SOUND_SETTINGS);
+                return intent.resolveActivity(context.getPackageManager()) != null;
+            }
+        }
+
+        private static class ChangeAppNotificationSettingsListener implements View.OnClickListener {
+            @Override
+            public void onClick(View v) {
+                final Context context = v.getContext();
+                if (Utils.isLOrLater()) {
+                    try {
+                        // Attempt to open the notification settings for this app.
+                        context.startActivity(
+                                new Intent("android.settings.APP_NOTIFICATION_SETTINGS")
+                                .putExtra("app_package", context.getPackageName())
+                                .putExtra("app_uid", context.getApplicationInfo().uid)
+                                .addFlags(FLAG_ACTIVITY_NEW_TASK));
+                        return;
+                    } catch (Exception ignored) {
+                        // best attempt only; recovery code below
+                    }
+                }
+
+                // Fall back to opening the app settings page.
+                context.startActivity(new Intent(ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.fromParts("package", context.getPackageName(), null))
+                        .addFlags(FLAG_ACTIVITY_NEW_TASK));
+            }
+        }
+    }
+
+    public static final String ACTION_WORLD_CITIES_CHANGED =
+            "com.android.deskclock.WORLD_CITIES_CHANGED";
 
     /** The single instance of this data model that exists for the life of the application. */
     private static final DataModel sDataModel = new DataModel();
@@ -62,11 +176,23 @@ public final class DataModel {
     /** The model from which alarm data are fetched. */
     private AlarmModel mAlarmModel;
 
+    /** The model from which widget data are fetched. */
+    private WidgetModel mWidgetModel;
+
+    /** The model from which data about settings that silence alarms are fetched. */
+    private SilentSettingsModel mSilentSettingsModel;
+
     /** The model from which stopwatch data are fetched. */
     private StopwatchModel mStopwatchModel;
 
     /** The model from which notification data are fetched. */
     private NotificationModel mNotificationModel;
+
+    /** The model from which time data are fetched. */
+    private TimeModel mTimeModel;
+
+    /** The model from which ringtone data are fetched. */
+    private RingtoneModel mRingtoneModel;
 
     public static DataModel getDataModel() {
         return sDataModel;
@@ -75,27 +201,59 @@ public final class DataModel {
     private DataModel() {}
 
     /**
-     * The context may be set precisely once during the application life.
+     * Initializes the data model with the context and shared preferences to be used.
      */
-    public void setContext(Context context) {
-        if (mContext != null) {
-            throw new IllegalStateException("context has already been set");
-        }
-        mContext = context.getApplicationContext();
+    public void init(Context context, SharedPreferences prefs) {
+        if (mContext != context) {
+            mContext = context.getApplicationContext();
 
-        mSettingsModel = new SettingsModel(mContext);
-        mNotificationModel = new NotificationModel();
-        mCityModel = new CityModel(mContext, mSettingsModel);
-        mAlarmModel = new AlarmModel(mContext, mSettingsModel);
-        mStopwatchModel = new StopwatchModel(mContext, mNotificationModel);
-        mTimerModel = new TimerModel(mContext, mSettingsModel, mNotificationModel);
+            mTimeModel = new TimeModel(mContext);
+            mWidgetModel = new WidgetModel(prefs);
+            mNotificationModel = new NotificationModel();
+            mRingtoneModel = new RingtoneModel(mContext, prefs);
+            mSettingsModel = new SettingsModel(mContext, prefs, mTimeModel);
+            mCityModel = new CityModel(mContext, prefs, mSettingsModel);
+            mAlarmModel = new AlarmModel(mContext, mSettingsModel);
+            mSilentSettingsModel = new SilentSettingsModel(mContext, mNotificationModel);
+            mStopwatchModel = new StopwatchModel(mContext, prefs, mNotificationModel);
+            mTimerModel = new TimerModel(mContext, prefs, mSettingsModel, mRingtoneModel,
+                    mNotificationModel);
+        }
+    }
+
+    /**
+     * Convenience for {@code run(runnable, 0)}, i.e. waits indefinitely.
+     */
+    public void run(Runnable runnable) {
+        try {
+            run(runnable, 0 /* waitMillis */);
+        } catch (InterruptedException ignored) {
+        }
+    }
+
+    /**
+     * Updates all timers and the stopwatch after the device has shutdown and restarted.
+     */
+    public void updateAfterReboot() {
+        enforceMainLooper();
+        mTimerModel.updateTimersAfterReboot();
+        mStopwatchModel.setStopwatch(getStopwatch().updateAfterReboot());
+    }
+
+    /**
+     * Updates all timers and the stopwatch after the device's time has changed.
+     */
+    public void updateAfterTimeSet() {
+        enforceMainLooper();
+        mTimerModel.updateTimersAfterTimeSet();
+        mStopwatchModel.setStopwatch(getStopwatch().updateAfterTimeSet());
     }
 
     /**
      * Posts a runnable to the main thread and blocks until the runnable executes. Used to access
      * the data model from the main thread.
      */
-    public void run(Runnable runnable) {
+    public void run(Runnable runnable, long waitMillis) throws InterruptedException {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             runnable.run();
             return;
@@ -107,11 +265,7 @@ public final class DataModel {
         // Wait for the data to arrive, if it has not.
         synchronized (er) {
             if (!er.isExecuted()) {
-                try {
-                    er.wait();
-                } catch (InterruptedException ignored) {
-                    // ignore
-                }
+                er.wait(waitMillis);
             }
         }
     }
@@ -141,7 +295,9 @@ public final class DataModel {
 
             // Refresh all notifications in response to a change in app open state.
             mTimerModel.updateNotification();
+            mTimerModel.updateMissedNotification();
             mStopwatchModel.updateNotification();
+            mSilentSettingsModel.updateSilentState();
         }
     }
 
@@ -149,6 +305,7 @@ public final class DataModel {
      * @return {@code true} when the application is open in the foreground; {@code false} otherwise
      */
     public boolean isApplicationInForeground() {
+        enforceMainLooper();
         return mNotificationModel.isApplicationInForeground();
     }
 
@@ -157,7 +314,9 @@ public final class DataModel {
      * be rebuilt. e.g. after upgrading the application
      */
     public void updateAllNotifications() {
+        enforceMainLooper();
         mTimerModel.updateNotification();
+        mTimerModel.updateMissedNotification();
         mStopwatchModel.updateNotification();
     }
 
@@ -171,15 +330,6 @@ public final class DataModel {
     public List<City> getAllCities() {
         enforceMainLooper();
         return mCityModel.getAllCities();
-    }
-
-    /**
-     * @param cityName the case-insensitive city name to search for
-     * @return the city with the given {@code cityName}; {@code null} if no such city exists
-     */
-    public City getCity(String cityName) {
-        enforceMainLooper();
-        return mCityModel.getCity(cityName);
     }
 
     /**
@@ -236,6 +386,22 @@ public final class DataModel {
     public void toggleCitySort() {
         enforceMainLooper();
         mCityModel.toggleCitySort();
+    }
+
+    /**
+     * @param cityListener listener to be notified when the world city list changes
+     */
+    public void addCityListener(CityListener cityListener) {
+        enforceMainLooper();
+        mCityModel.addCityListener(cityListener);
+    }
+
+    /**
+     * @param cityListener listener that no longer needs to be notified of world city list changes
+     */
+    public void removeCityListener(CityListener cityListener) {
+        enforceMainLooper();
+        mCityModel.removeCityListener(cityListener);
     }
 
     //
@@ -315,8 +481,24 @@ public final class DataModel {
      * @param timer the timer to be started
      */
     public void startTimer(Timer timer) {
+        startTimer(null, timer);
+    }
+
+    /**
+     * @param service used to start foreground notifications for expired timers
+     * @param timer the timer to be started
+     */
+    public void startTimer(Service service, Timer timer) {
         enforceMainLooper();
-        mTimerModel.updateTimer(timer.start());
+        final Timer started = timer.start();
+        mTimerModel.updateTimer(started);
+        if (timer.getRemainingTime() <= 0) {
+            if (service != null) {
+                expireTimer(service, started);
+            } else {
+                mContext.startService(TimerService.createTimerExpiredIntent(mContext, started));
+            }
+        }
     }
 
     /**
@@ -337,26 +519,26 @@ public final class DataModel {
     }
 
     /**
+     * @param timer the timer to be reset
+     * @return the reset {@code timer}
+     */
+    public Timer resetTimer(Timer timer) {
+        enforceMainLooper();
+        return mTimerModel.resetTimer(timer, false /* allowDelete */, 0 /* eventLabelId */);
+    }
+
+    /**
      * If the given {@code timer} is expired and marked for deletion after use then this method
      * removes the the timer. The timer is otherwise transitioned to the reset state and continues
      * to exist.
      *
      * @param timer the timer to be reset
      * @param eventLabelId the label of the timer event to send; 0 if no event should be sent
+     * @return the reset {@code timer} or {@code null} if the timer was deleted
      */
-    public void resetOrDeleteTimer(Timer timer, @StringRes int eventLabelId) {
+    public Timer resetOrDeleteTimer(Timer timer, @StringRes int eventLabelId) {
         enforceMainLooper();
-        mTimerModel.resetOrDeleteTimer(timer, eventLabelId);
-    }
-
-    /**
-     * Resets all timers.
-     *
-     * @param eventLabelId the label of the timer event to send; 0 if no event should be sent
-     */
-    public void resetTimers(@StringRes int eventLabelId) {
-        enforceMainLooper();
-        mTimerModel.resetTimers(eventLabelId);
+        return mTimerModel.resetTimer(timer, true /* allowDelete */, eventLabelId);
     }
 
     /**
@@ -380,6 +562,16 @@ public final class DataModel {
     }
 
     /**
+     * Resets all missed timers.
+     *
+     * @param eventLabelId the label of the timer event to send; 0 if no event should be sent
+     */
+    public void resetMissedTimers(@StringRes int eventLabelId) {
+        enforceMainLooper();
+        mTimerModel.resetMissedTimers(eventLabelId);
+    }
+
+    /**
      * @param timer the timer to which a minute should be added to the remaining time
      */
     public void addTimerMinute(Timer timer) {
@@ -394,6 +586,29 @@ public final class DataModel {
     public void setTimerLabel(Timer timer, String label) {
         enforceMainLooper();
         mTimerModel.updateTimer(timer.setLabel(label));
+    }
+
+    /**
+     * @param timer the timer whose {@code length} to change
+     * @param length the new length of the timer in milliseconds
+     */
+    public void setTimerLength(Timer timer, long length) {
+        enforceMainLooper();
+        mTimerModel.updateTimer(timer.setLength(length));
+    }
+
+    /**
+     * @param timer the timer whose {@code remainingTime} to change
+     * @param remainingTime the new remaining time of the timer in milliseconds
+     */
+    public void setRemainingTime(Timer timer, long remainingTime) {
+        enforceMainLooper();
+
+        final Timer updated = timer.setRemainingTime(remainingTime);
+        mTimerModel.updateTimer(updated);
+        if (timer.isRunning() && timer.getRemainingTime() <= 0) {
+            mContext.startService(TimerService.createTimerExpiredIntent(mContext, updated));
+        }
     }
 
     /**
@@ -429,11 +644,44 @@ public final class DataModel {
     }
 
     /**
+     * @param uri the uri of the ringtone to play for all timers
+     */
+    public void setTimerRingtoneUri(Uri uri) {
+        enforceMainLooper();
+        mTimerModel.setTimerRingtoneUri(uri);
+    }
+
+    /**
      * @return the title of the ringtone that is played for all timers
      */
     public String getTimerRingtoneTitle() {
         enforceMainLooper();
         return mTimerModel.getTimerRingtoneTitle();
+    }
+
+    /**
+     * @return the duration, in milliseconds, of the crescendo to apply to timer ringtone playback;
+     *      {@code 0} implies no crescendo should be applied
+     */
+    public long getTimerCrescendoDuration() {
+        enforceMainLooper();
+        return mTimerModel.getTimerCrescendoDuration();
+    }
+
+    /**
+     * @return whether vibrate is enabled for all timers.
+     */
+    public boolean getTimerVibrate() {
+        enforceMainLooper();
+        return mTimerModel.getTimerVibrate();
+    }
+
+    /**
+     * @param enabled whether vibrate is enabled for all timers.
+     */
+    public void setTimerVibrate(boolean enabled) {
+        enforceMainLooper();
+        mTimerModel.setTimerVibrate(enabled);
     }
 
     //
@@ -457,17 +705,55 @@ public final class DataModel {
     }
 
     /**
-     * @param uri the uri of a ringtone
-     * @return the title of the ringtone with the {@code uri}; {@code null} if it cannot be fetched
+     * @return the duration, in milliseconds, of the crescendo to apply to alarm ringtone playback;
+     *      {@code 0} implies no crescendo should be applied
      */
-    public String getAlarmRingtoneTitle(Uri uri) {
+    public long getAlarmCrescendoDuration() {
         enforceMainLooper();
-        return mAlarmModel.getAlarmRingtoneTitle(uri);
+        return mAlarmModel.getAlarmCrescendoDuration();
+    }
+
+    /**
+     * @return the behavior to execute when volume buttons are pressed while firing an alarm
+     */
+    public AlarmVolumeButtonBehavior getAlarmVolumeButtonBehavior() {
+        enforceMainLooper();
+        return mAlarmModel.getAlarmVolumeButtonBehavior();
+    }
+
+    /**
+     * @return the number of minutes an alarm may ring before it has timed out and becomes missed
+     */
+    public int getAlarmTimeout() {
+        return mAlarmModel.getAlarmTimeout();
+    }
+
+    /**
+     * @return the number of minutes an alarm will remain snoozed before it rings again
+     */
+    public int getSnoozeLength() {
+        return mAlarmModel.getSnoozeLength();
     }
 
     //
     // Stopwatch
     //
+
+    /**
+     * @param stopwatchListener to be notified when stopwatch changes or laps are added
+     */
+    public void addStopwatchListener(StopwatchListener stopwatchListener) {
+        enforceMainLooper();
+        mStopwatchModel.addStopwatchListener(stopwatchListener);
+    }
+
+    /**
+     * @param stopwatchListener to no longer be notified when stopwatch changes or laps are added
+     */
+    public void removeStopwatchListener(StopwatchListener stopwatchListener) {
+        enforceMainLooper();
+        mStopwatchModel.removeStopwatchListener(stopwatchListener);
+    }
 
     /**
      * @return the current state of the stopwatch
@@ -518,14 +804,6 @@ public final class DataModel {
     }
 
     /**
-     * Clears the laps recorded for this stopwatch.
-     */
-    public void clearLaps() {
-        enforceMainLooper();
-        mStopwatchModel.clearLaps();
-    }
-
-    /**
      * @return {@code true} iff more laps can be recorded
      */
     public boolean canAddMoreLaps() {
@@ -551,8 +829,143 @@ public final class DataModel {
     }
 
     //
+    // Time
+    // (Time settings/values are accessible from any Thread so no Thread-enforcement exists.)
+    //
+
+    /**
+     * @return the current time in milliseconds
+     */
+    public long currentTimeMillis() {
+        return mTimeModel.currentTimeMillis();
+    }
+
+    /**
+     * @return milliseconds since boot, including time spent in sleep
+     */
+    public long elapsedRealtime() {
+        return mTimeModel.elapsedRealtime();
+    }
+
+    /**
+     * @return {@code true} if 24 hour time format is selected; {@code false} otherwise
+     */
+    public boolean is24HourFormat() {
+        return mTimeModel.is24HourFormat();
+    }
+
+    /**
+     * @return a new calendar object initialized to the {@link #currentTimeMillis()}
+     */
+    public Calendar getCalendar() {
+        return mTimeModel.getCalendar();
+    }
+
+    //
+    // Ringtones
+    //
+
+    /**
+     * Ringtone titles are cached because loading them is expensive. This method
+     * <strong>must</strong> be called on a background thread and is responsible for priming the
+     * cache of ringtone titles to avoid later fetching titles on the main thread.
+     */
+    public void loadRingtoneTitles() {
+        enforceNotMainLooper();
+        mRingtoneModel.loadRingtoneTitles();
+    }
+
+    /**
+     * Recheck the permission to read each custom ringtone.
+     */
+    public void loadRingtonePermissions() {
+        enforceNotMainLooper();
+        mRingtoneModel.loadRingtonePermissions();
+    }
+
+    /**
+     * @param uri the uri of a ringtone
+     * @return the title of the ringtone with the {@code uri}; {@code null} if it cannot be fetched
+     */
+    public String getRingtoneTitle(Uri uri) {
+        enforceMainLooper();
+        return mRingtoneModel.getRingtoneTitle(uri);
+    }
+
+    /**
+     * @param uri the uri of an audio file to use as a ringtone
+     * @param title the title of the audio content at the given {@code uri}
+     * @return the ringtone instance created for the audio file
+     */
+    public CustomRingtone addCustomRingtone(Uri uri, String title) {
+        enforceMainLooper();
+        return mRingtoneModel.addCustomRingtone(uri, title);
+    }
+
+    /**
+     * @param uri identifies the ringtone to remove
+     */
+    public void removeCustomRingtone(Uri uri) {
+        enforceMainLooper();
+        mRingtoneModel.removeCustomRingtone(uri);
+    }
+
+    /**
+     * @return all available custom ringtones
+     */
+    public List<CustomRingtone> getCustomRingtones() {
+        enforceMainLooper();
+        return mRingtoneModel.getCustomRingtones();
+    }
+
+    //
+    // Widgets
+    //
+
+    /**
+     * @param widgetClass indicates the type of widget being counted
+     * @param count the number of widgets of the given type
+     * @param eventCategoryId identifies the category of event to send
+     */
+    public void updateWidgetCount(Class widgetClass, int count, @StringRes int eventCategoryId) {
+        enforceMainLooper();
+        mWidgetModel.updateWidgetCount(widgetClass, count, eventCategoryId);
+    }
+
+    //
     // Settings
     //
+
+    /**
+     * @param silentSettingsListener to be notified when alarm-silencing settings change
+     */
+    public void addSilentSettingsListener(OnSilentSettingsListener silentSettingsListener) {
+        enforceMainLooper();
+        mSilentSettingsModel.addSilentSettingsListener(silentSettingsListener);
+    }
+
+    /**
+     * @param silentSettingsListener to no longer be notified when alarm-silencing settings change
+     */
+    public void removeSilentSettingsListener(OnSilentSettingsListener silentSettingsListener) {
+        enforceMainLooper();
+        mSilentSettingsModel.removeSilentSettingsListener(silentSettingsListener);
+    }
+
+    /**
+     * @return the id used to discriminate relevant AlarmManager callbacks from defunct ones
+     */
+    public int getGlobalIntentId() {
+        return mSettingsModel.getGlobalIntentId();
+    }
+
+    /**
+     * Update the id used to discriminate relevant AlarmManager callbacks from defunct ones
+     */
+    public void updateGlobalIntentId() {
+        enforceMainLooper();
+        mSettingsModel.updateGlobalIntentId();
+    }
 
     /**
      * @return the style of clock to display in the clock application
@@ -560,6 +973,22 @@ public final class DataModel {
     public ClockStyle getClockStyle() {
         enforceMainLooper();
         return mSettingsModel.getClockStyle();
+    }
+
+    /**
+     * @return the style of clock to display in the clock application
+     */
+    public boolean getDisplayClockSeconds() {
+        enforceMainLooper();
+        return mSettingsModel.getDisplayClockSeconds();
+    }
+
+    /**
+     * @param displaySeconds whether or not to display seconds for main clock
+     */
+    public void setDisplayClockSeconds(boolean displaySeconds) {
+        enforceMainLooper();
+        mSettingsModel.setDisplayClockSeconds(displaySeconds);
     }
 
     /**
@@ -571,12 +1000,51 @@ public final class DataModel {
     }
 
     /**
+     * @return {@code true} if the screen saver should be dimmed for lower contrast at night
+     */
+    public boolean getScreensaverNightModeOn() {
+        enforceMainLooper();
+        return mSettingsModel.getScreensaverNightModeOn();
+    }
+
+    /**
      * @return {@code true} if the users wants to automatically show a clock for their home timezone
      *      when they have travelled outside of that timezone
      */
     public boolean getShowHomeClock() {
         enforceMainLooper();
         return mSettingsModel.getShowHomeClock();
+    }
+
+    /**
+     * @return the display order of the weekdays, which can start with {@link Calendar#SATURDAY},
+     *      {@link Calendar#SUNDAY} or {@link Calendar#MONDAY}
+     */
+    public Weekdays.Order getWeekdayOrder() {
+        enforceMainLooper();
+        return mSettingsModel.getWeekdayOrder();
+    }
+
+    /**
+     * @return {@code true} if the restore process (of backup and restore) has completed
+     */
+    public boolean isRestoreBackupFinished() {
+        return mSettingsModel.isRestoreBackupFinished();
+    }
+
+    /**
+     * @param finished {@code true} means the restore process (of backup and restore) has completed
+     */
+    public void setRestoreBackupFinished(boolean finished) {
+        mSettingsModel.setRestoreBackupFinished(finished);
+    }
+
+    /**
+     * @return a description of the time zones available for selection
+     */
+    public TimeZones getTimeZones() {
+        enforceMainLooper();
+        return mSettingsModel.getTimeZones();
     }
 
     /**

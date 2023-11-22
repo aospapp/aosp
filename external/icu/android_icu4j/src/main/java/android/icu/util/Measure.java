@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
 * Copyright (c) 2004-2013, International Business Machines
@@ -29,7 +31,7 @@ package android.icu.util;
  * @author Alan Liu
  */
 public class Measure {
-    
+
     private final Number number;
     private final MeasureUnit unit;
 
@@ -45,11 +47,12 @@ public class Measure {
         this.number = number;
         this.unit = unit;
     }
-    
+
     /**
      * Returns true if the given object is equal to this object.
      * @return true if this object is equal to the given object
      */
+    @Override
     public boolean equals(Object obj) {
         if (obj == this) {
             return true;
@@ -60,7 +63,7 @@ public class Measure {
         Measure m = (Measure) obj;
         return unit.equals(m.unit) && numbersEqual(number, m.number);
     }
-    
+
     /*
      * See if two numbers are identical or have the same double value.
      * @param a A number
@@ -82,6 +85,7 @@ public class Measure {
      * Returns a hashcode for this object.
      * @return a 32-bit hash
      */
+    @Override
     public int hashCode() {
         return 31 * Double.valueOf(number.doubleValue()).hashCode() + unit.hashCode();
     }
@@ -91,6 +95,7 @@ public class Measure {
      * @return a string representation consisting of the ISO currency
      * code together with the numeric amount
      */
+    @Override
     public String toString() {
         return number.toString() + ' ' + unit.toString();
     }

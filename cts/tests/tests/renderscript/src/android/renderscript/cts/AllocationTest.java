@@ -45,7 +45,7 @@ public class AllocationTest extends RSBaseCompute {
                         typeBuilder.setMipmaps(useMips);
                         typeBuilder.setFaces(useFaces);
                         typeBuilder.setX(x).setY(y);
-                        Allocation.createTyped(mRS, typeBuilder.create());
+                        Allocation.createTyped(mRS, typeBuilder.create()).destroy();
                     }
                 }
             }
@@ -58,48 +58,48 @@ public class AllocationTest extends RSBaseCompute {
         Type.Builder typeBuilder = new Type.Builder(mRS, e);
         Allocation.createTyped(mRS, typeBuilder.setX(8).create(),
                                MipmapControl.MIPMAP_NONE,
-                               Allocation.USAGE_GRAPHICS_TEXTURE);
+                               Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
         Allocation.createTyped(mRS, typeBuilder.setY(8).create(),
                                MipmapControl.MIPMAP_NONE,
-                               Allocation.USAGE_GRAPHICS_TEXTURE);
+                               Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
         // No mips graphics and script
         Allocation.createTyped(mRS, typeBuilder.create(),
                                MipmapControl.MIPMAP_NONE,
                                Allocation.USAGE_GRAPHICS_TEXTURE |
-                               Allocation.USAGE_SCRIPT);
+                               Allocation.USAGE_SCRIPT).destroy();
         // With mips
         Allocation.createTyped(mRS, typeBuilder.create(),
                                MipmapControl.MIPMAP_ON_SYNC_TO_TEXTURE,
-                               Allocation.USAGE_GRAPHICS_TEXTURE);
+                               Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
         Allocation.createTyped(mRS, typeBuilder.create(),
                                MipmapControl.MIPMAP_FULL,
                                Allocation.USAGE_GRAPHICS_TEXTURE |
-                               Allocation.USAGE_SCRIPT);
+                               Allocation.USAGE_SCRIPT).destroy();
 
         // Only texture npot
         Allocation.createTyped(mRS, typeBuilder.setX(7).setY(1).create(),
                                MipmapControl.MIPMAP_NONE,
-                               Allocation.USAGE_GRAPHICS_TEXTURE);
+                               Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
         Allocation.createTyped(mRS, typeBuilder.setX(7).setY(3).create(),
                                MipmapControl.MIPMAP_NONE,
-                               Allocation.USAGE_GRAPHICS_TEXTURE);
+                               Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
         Allocation.createTyped(mRS, typeBuilder.setX(7).setY(7).create(),
                                MipmapControl.MIPMAP_NONE,
-                               Allocation.USAGE_GRAPHICS_TEXTURE);
+                               Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
 
         // Script and texture
         Allocation.createTyped(mRS, typeBuilder.setX(7).setY(1).create(),
                                MipmapControl.MIPMAP_NONE,
                                Allocation.USAGE_GRAPHICS_TEXTURE |
-                               Allocation.USAGE_SCRIPT);
+                               Allocation.USAGE_SCRIPT).destroy();
         Allocation.createTyped(mRS, typeBuilder.setX(7).setY(3).create(),
                                MipmapControl.MIPMAP_NONE,
                                Allocation.USAGE_GRAPHICS_TEXTURE |
-                               Allocation.USAGE_SCRIPT);
+                               Allocation.USAGE_SCRIPT).destroy();
         Allocation.createTyped(mRS, typeBuilder.setX(7).setY(7).create(),
                                MipmapControl.MIPMAP_NONE,
                                Allocation.USAGE_GRAPHICS_TEXTURE |
-                               Allocation.USAGE_SCRIPT);
+                               Allocation.USAGE_SCRIPT).destroy();
     }
 
     void createSizedHelper(Element e) {
@@ -107,6 +107,7 @@ public class AllocationTest extends RSBaseCompute {
             Allocation A = Allocation.createSized(mRS, e, i);
             assertEquals(A.getType().getElement(), e);
             assertEquals(A.getType().getX(), i);
+            A.destroy();
         }
     }
 
@@ -205,10 +206,8 @@ public class AllocationTest extends RSBaseCompute {
                         u |= (j * Allocation.USAGE_GRAPHICS_TEXTURE);
                         u |= (k * Allocation.USAGE_GRAPHICS_VERTEX);
                         u |= (l * Allocation.USAGE_GRAPHICS_CONSTANTS);
-                        assertTrue(null !=
-                            Allocation.createFromBitmap(mRS, B, mc, u));
-                        assertTrue(null !=
-                            Allocation.createCubemapFromBitmap(mRS, B, mc, u));
+                        Allocation.createFromBitmap(mRS, B, mc, u).destroy();
+                        Allocation.createCubemapFromBitmap(mRS, B, mc, u).destroy();
                     }
                 }
             }
@@ -217,8 +216,8 @@ public class AllocationTest extends RSBaseCompute {
 
     public void testCreateFromBitmap() {
         Bitmap B = Bitmap.createBitmap(bDimX, bDimY, Bitmap.Config.ARGB_8888);
-        Allocation.createFromBitmap(mRS, B);
-        Allocation.createCubemapFromBitmap(mRS, B);
+        Allocation.createFromBitmap(mRS, B).destroy();
+        Allocation.createCubemapFromBitmap(mRS, B).destroy();
         for (Allocation.MipmapControl mc : Allocation.MipmapControl.values()) {
             helperCreateFromBitmap(B, mc);
         }
@@ -226,7 +225,7 @@ public class AllocationTest extends RSBaseCompute {
         try {
             int invalidUsage = 0x0100;
             Allocation.createFromBitmap(mRS, B,
-                Allocation.MipmapControl.MIPMAP_NONE, invalidUsage);
+                Allocation.MipmapControl.MIPMAP_NONE, invalidUsage).destroy();
             fail("should throw RSIllegalArgumentException.");
         } catch (RSIllegalArgumentException e) {
         }
@@ -235,7 +234,7 @@ public class AllocationTest extends RSBaseCompute {
             // width % 6 != 0
             Bitmap badB = Bitmap.createBitmap(47, 8, Bitmap.Config.ARGB_8888);
             Allocation.createCubemapFromBitmap(mRS, badB,
-                Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
+                Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT).destroy();
             fail("should throw RSIllegalArgumentException.");
         } catch (RSIllegalArgumentException e) {
         }
@@ -244,7 +243,7 @@ public class AllocationTest extends RSBaseCompute {
             // width / 6 != height
             Bitmap badB = Bitmap.createBitmap(48, 4, Bitmap.Config.ARGB_8888);
             Allocation.createCubemapFromBitmap(mRS, badB,
-                Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
+                Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT).destroy();
             fail("should throw RSIllegalArgumentException.");
         } catch (RSIllegalArgumentException e) {
         }
@@ -253,7 +252,7 @@ public class AllocationTest extends RSBaseCompute {
             // height not power of 2
             Bitmap badB = Bitmap.createBitmap(36, 6, Bitmap.Config.ARGB_8888);
             Allocation.createCubemapFromBitmap(mRS, badB,
-                Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
+                Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT).destroy();
             fail("should throw RSIllegalArgumentException.");
         } catch (RSIllegalArgumentException e) {
         }
@@ -273,7 +272,7 @@ public class AllocationTest extends RSBaseCompute {
             Type.Builder b = new Type.Builder(mRS, Element.U8(mRS));
             b.setX(8).setY(8);
             Allocation.createTyped(mRS, b.create(), mc,
-                                   Allocation.USAGE_GRAPHICS_TEXTURE);
+                                   Allocation.USAGE_GRAPHICS_TEXTURE).destroy();
         }
     }
 
@@ -287,6 +286,8 @@ public class AllocationTest extends RSBaseCompute {
         for (Type.CubemapFace cf : Type.CubemapFace.values()) {
             adapter.setFace(cf);
         }
+
+        cubemap.destroy();
     }
 
     /*
@@ -315,6 +316,8 @@ public class AllocationTest extends RSBaseCompute {
         for (int i = 0; i < count; i++) {
             assertEquals(dst[offset + i], src[i]);
         }
+
+        A.destroy();
     }
 
     void helperByteCopy(int nElems, int offset, int count, int copyMode) {
@@ -339,6 +342,8 @@ public class AllocationTest extends RSBaseCompute {
         for (int i = 0; i < count; i++) {
             assertEquals(dst[offset + i], src[i]);
         }
+
+        A.destroy();
     }
 
     // Accept an Element parameter so this helper can test both I16 and F16 elements.
@@ -364,6 +369,8 @@ public class AllocationTest extends RSBaseCompute {
         for (int i = 0; i < count; i++) {
             assertEquals(dst[offset + i], src[i]);
         }
+
+        A.destroy();
     }
 
     void helperIntCopy(int nElems, int offset, int count, int copyMode) {
@@ -388,6 +395,8 @@ public class AllocationTest extends RSBaseCompute {
         for (int i = 0; i < count; i++) {
             assertEquals(dst[offset + i], src[i]);
         }
+
+        A.destroy();
     }
 
     void helperBaseObjCopy(int nElems, int offset, int count, int copyMode) {
@@ -399,6 +408,8 @@ public class AllocationTest extends RSBaseCompute {
         }
 
         A.copyFrom(E);
+
+        A.destroy();
     }
 
     void helperBitmapCopy(int x, int y) {
@@ -427,6 +438,8 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(bSrc.getPixel(i, j), bDst.getPixel(i, j));
             }
         }
+
+        A.destroy();
     }
 
     void helperFloatAllocationCopy(int nElems, int offset, int count) {
@@ -451,6 +464,9 @@ public class AllocationTest extends RSBaseCompute {
         for (int i = 0; i < count; i++) {
             assertEquals(dst[offset + i], src[offset + i]);
         }
+
+        srcA.destroy();
+        dstA.destroy();
     }
 
     void helperByteAllocationCopy(int nElems, int offset, int count) {
@@ -475,6 +491,9 @@ public class AllocationTest extends RSBaseCompute {
         for (int i = 0; i < count; i++) {
             assertEquals(dst[offset + i], src[offset + i]);
         }
+
+        srcA.destroy();
+        dstA.destroy();
     }
 
     void helperFloatCopy2D(int nElemsX, int nElemsY,
@@ -502,6 +521,8 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(dst[y * nElemsX + x], src[sourceCount--]);
             }
         }
+
+        A.destroy();
     }
 
     void helperByteCopy2D(int nElemsX, int nElemsY,
@@ -529,6 +550,8 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(dst[y * nElemsX + x], src[sourceCount--]);
             }
         }
+
+        A.destroy();
     }
 
     // Accept an Element parameter so this helper can test both I16 and F16 elements.
@@ -557,6 +580,8 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(dst[y * nElemsX + x], src[sourceCount--]);
             }
         }
+
+        A.destroy();
     }
 
     void helperIntCopy2D(int nElemsX, int nElemsY,
@@ -584,6 +609,8 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(dst[y * nElemsX + x], src[sourceCount--]);
             }
         }
+
+        A.destroy();
     }
 
     void helperFloatAllocationCopy2D(int nElemsX, int nElemsY,
@@ -610,6 +637,9 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(dst[y * nElemsX + x], src[y * nElemsX + x]);
             }
         }
+
+        srcA.destroy();
+        dstA.destroy();
     }
 
     void helperByteAllocationCopy2D(int nElemsX, int nElemsY,
@@ -636,6 +666,9 @@ public class AllocationTest extends RSBaseCompute {
                 assertEquals(dst[y * nElemsX + x], src[y * nElemsX + x]);
             }
         }
+
+        srcA.destroy();
+        dstA.destroy();
     }
 
     static int elemsToTest = 20;
@@ -740,6 +773,12 @@ public class AllocationTest extends RSBaseCompute {
 
         dstA.copyFrom(srcA);
 
+        srcA.destroy();
+        dstA.destroy();
+        srcB_bad.destroy();
+        srcC_bad.destroy();
+        srcD_bad.destroy();
+        srcE_bad.destroy();
     }
 
     public void testSetElementAt() {
@@ -764,6 +803,10 @@ public class AllocationTest extends RSBaseCompute {
         script.forEach_getCompareResult(singleElement);
         singleElement.copyTo(result);
         assertTrue(result[0] == 2);
+
+        script.destroy();
+        singleElement.destroy();
+        largeArray.destroy();
     }
 
     public void testSetElementAt2D() {
@@ -790,6 +833,10 @@ public class AllocationTest extends RSBaseCompute {
         script.forEach_getCompareResult(singleElement);
         singleElement.copyTo(result);
         assertTrue(result[0] == 2);
+
+        script.destroy();
+        singleElement.destroy();
+        largeArray.destroy();
     }
 
   public void testDimReturnsZero() {
@@ -817,6 +864,7 @@ public class AllocationTest extends RSBaseCompute {
     assertTrue(a.getType().getY() == 0);
     assertTrue(a.getType().getZ() == 0);
     a.destroy();
+
     b = new Type.Builder(mRS, Element.F32(mRS)).setX(102).setY(123);
     a = Allocation.createTyped(mRS, b.create());
 
@@ -824,6 +872,7 @@ public class AllocationTest extends RSBaseCompute {
     assertTrue(a.getType().getY() == 123);
     assertTrue(a.getType().getZ() == 0);
     a.destroy();
+
     b = new Type.Builder(mRS, Element.F32(mRS)).setX(2).setY(33).setZ(23);
     a = Allocation.createTyped(mRS, b.create());
 

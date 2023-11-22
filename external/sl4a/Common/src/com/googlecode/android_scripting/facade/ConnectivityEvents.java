@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,6 +124,30 @@ public class ConnectivityEvents {
         public JSONObject toJSON() throws JSONException {
             JSONObject json = super.toJSON();
             json.put(ConnectivityConstants.NetworkCallbackContainer.RSSI, mRssi);
+            return json;
+        }
+    }
+
+    /**
+     * Specializes NetworkCallbackEventBase to add information for the onCapabilitiesChanged()
+     * callback.
+     */
+    public static class NetworkCallbackEventOnLinkPropertiesChanged extends
+            NetworkCallbackEventBase {
+        private String mInterfaceName;
+
+        public NetworkCallbackEventOnLinkPropertiesChanged(String id, String event,
+                String interfaceName) {
+            super(id, event);
+            mInterfaceName = interfaceName;
+        }
+
+        /**
+         * Create a JSON data-structure.
+         */
+        public JSONObject toJSON() throws JSONException {
+            JSONObject json = super.toJSON();
+            json.put(ConnectivityConstants.NetworkCallbackContainer.INTERFACE_NAME, mInterfaceName);
             return json;
         }
     }

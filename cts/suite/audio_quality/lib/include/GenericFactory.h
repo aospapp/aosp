@@ -26,7 +26,7 @@
  */
 class GenericFactory {
 public:
-
+    virtual ~GenericFactory();
     virtual ClientInterface* createClientInterface();
     virtual TaskGeneric* createTask(TaskGeneric::TaskType type);
 };

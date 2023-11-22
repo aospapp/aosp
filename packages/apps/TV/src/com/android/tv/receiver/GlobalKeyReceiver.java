@@ -35,6 +35,7 @@ public class GlobalKeyReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        TvApplication.setCurrentRunningProcess(context, true);
         if (ACTION_GLOBAL_BUTTON.equals(intent.getAction())) {
             KeyEvent event = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
             if (DEBUG) Log.d(TAG, "onReceive: " + event);

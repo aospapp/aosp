@@ -37,7 +37,6 @@
 /system/bin/ssr_setup
 /system/bin/subsystem_ramdump
 /system/bin/test_diag
-/system/etc/diag/Angler_Radio-general.cfg
 /system/etc/permissions/cneapiclient.xml
 /system/etc/permissions/embms.xml
 /system/etc/permissions/qcrilhook.xml
@@ -45,9 +44,7 @@
 /system/framework/embmslibrary.jar
 /system/framework/qcrilhook.jar
 /system/lib64/libiperf.so
-/system/lib64/libtinyxml.so
 /system/lib/libiperf.so
 /system/lib/libmm-qcamera.so
-/system/lib/libtinyxml.so
 /system/xbin/iperf3
 /IMAGES/vendor.img

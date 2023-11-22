@@ -87,12 +87,10 @@ perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type) {
   // PerfCounter in event_fd.h.
   attr.read_format =
       PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING | PERF_FORMAT_ID;
-  attr.sample_type |=
-      PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME | PERF_SAMPLE_PERIOD | PERF_SAMPLE_CPU;
+  attr.sample_type |= PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME | PERF_SAMPLE_PERIOD |
+      PERF_SAMPLE_CPU | PERF_SAMPLE_ID;
 
   if (attr.type == PERF_TYPE_TRACEPOINT) {
-    attr.sample_freq = 0;
-    attr.sample_period = 1;
     // Tracepoint information are stored in raw data in sample records.
     attr.sample_type |= PERF_SAMPLE_RAW;
   }
@@ -100,12 +98,7 @@ perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type) {
 }
 
 void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent) {
-  std::string event_name = "unknown";
-  const EventType* event_type = FindEventTypeByConfig(attr.type, attr.config);
-  if (event_type != nullptr) {
-    event_name = event_type->name;
-  }
-
+  std::string event_name = GetEventNameByAttr(attr);
   PrintIndented(indent, "event_attr: for event type %s\n", event_name.c_str());
 
   PrintIndented(indent + 1, "type %u, size %u, config %llu\n", attr.type, attr.size, attr.config);
@@ -144,4 +137,106 @@ void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent) {
                 attr.exclude_callchain_kernel, attr.exclude_callchain_user);
   PrintIndented(indent + 1, "sample_regs_user 0x%" PRIx64 "\n", attr.sample_regs_user);
   PrintIndented(indent + 1, "sample_stack_user 0x%" PRIx64 "\n", attr.sample_stack_user);
+}
+
+bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
+                                           size_t* event_id_pos_in_sample_records,
+                                           size_t* event_id_reverse_pos_in_non_sample_records) {
+  // When there are more than one perf_event_attrs, we need to read event id
+  // in each record to decide current record should use which attr. So
+  // we need to determine the event id position in a record here.
+  std::vector<uint64_t> sample_types;
+  for (const auto& attr : attrs) {
+    sample_types.push_back(attr.sample_type);
+  }
+  // First determine event_id_pos_in_sample_records.
+  // If PERF_SAMPLE_IDENTIFIER is enabled, it is just after perf_event_header.
+  // If PERF_SAMPLE_ID is enabled, then PERF_SAMPLE_IDENTIFIER | IP | TID | TIME | ADDR
+  // should also be the same.
+  bool identifier_enabled = true;
+  bool id_enabled = true;
+  uint64_t flags_before_id_mask = PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_IP | PERF_SAMPLE_TID |
+      PERF_SAMPLE_TIME | PERF_SAMPLE_ADDR;
+  uint64_t flags_before_id = sample_types[0] & flags_before_id_mask;
+  bool flags_before_id_are_the_same = true;
+  for (auto type : sample_types) {
+    identifier_enabled &= (type & PERF_SAMPLE_IDENTIFIER) != 0;
+    id_enabled &= (type & PERF_SAMPLE_ID) != 0;
+    flags_before_id_are_the_same &= (type & flags_before_id_mask) == flags_before_id;
+  }
+  if (identifier_enabled) {
+    *event_id_pos_in_sample_records = sizeof(perf_event_header);
+  } else if (id_enabled && flags_before_id_are_the_same) {
+    uint64_t pos = sizeof(perf_event_header);
+    while (flags_before_id != 0) {
+      // Each flags takes 8 bytes in sample records.
+      flags_before_id &= flags_before_id - 1;
+      pos += 8;
+    }
+    *event_id_pos_in_sample_records = pos;
+  } else {
+    LOG(ERROR) << "perf_event_attrs don't have a common event id position in sample records";
+    return false;
+  }
+
+  // Secondly determine event_id_reverse_pos_in_non_sample_record.
+  // If sample_id_all is not enabled, there is no event id in non sample records.
+  // If PERF_SAMPLE_IDENTIFIER is enabled, it is at the last 8 bytes of the record.
+  // If PERF_SAMPLE_ID is enabled, then PERF_SAMPLE_IDENTIFIER | CPU | STREAM_ID should
+  // also be the same.
+  bool sample_id_all_enabled = true;
+  for (const auto& attr : attrs) {
+    if (attr.sample_id_all == 0) {
+      sample_id_all_enabled = false;
+    }
+  }
+  if (!sample_id_all_enabled) {
+    LOG(ERROR) << "there are perf_event_attrs not enabling sample_id_all, so can't determine "
+               << "perf_event_attr for non sample records";
+    return false;
+  }
+  uint64_t flags_after_id_mask = PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_CPU | PERF_SAMPLE_STREAM_ID;
+  uint64_t flags_after_id = sample_types[0] & flags_after_id_mask;
+  bool flags_after_id_are_the_same = true;
+  for (auto type : sample_types) {
+    flags_after_id_are_the_same &= (type & flags_after_id_mask) == flags_after_id;
+  }
+  if (identifier_enabled) {
+    *event_id_reverse_pos_in_non_sample_records = 8;
+  } else if (id_enabled && flags_after_id_are_the_same) {
+    uint64_t pos = 8;
+    while (flags_after_id != 0) {
+      // Each flag takes 8 bytes in sample_id of non sample records.
+      flags_after_id &= flags_after_id - 1;
+      pos += 8;
+    }
+    *event_id_reverse_pos_in_non_sample_records = pos;
+  } else {
+    LOG(ERROR) << "perf_event_attrs don't have a common event id reverse position in non sample records";
+    return false;
+  }
+  return true;
+}
+
+bool IsTimestampSupported(const perf_event_attr& attr) {
+  return attr.sample_id_all && (attr.sample_type & PERF_SAMPLE_TIME);
+}
+
+bool IsCpuSupported(const perf_event_attr& attr) {
+  return attr.sample_id_all && (attr.sample_type & PERF_SAMPLE_CPU);
+}
+
+std::string GetEventNameByAttr(const perf_event_attr& attr) {
+  for (const auto& event_type : GetAllEventTypes()) {
+    if (event_type.type == attr.type && event_type.config == attr.config) {
+      std::string name = event_type.name;
+      if (attr.exclude_user && !attr.exclude_kernel) {
+        name += ":k";
+      } else if (attr.exclude_kernel && !attr.exclude_user) {
+        name += ":u";
+      }
+      return name;
+    }
+  }
+  return "unknown";
 }

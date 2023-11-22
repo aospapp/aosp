@@ -29,7 +29,8 @@
 #include <sys/types.h>
 
 #include <math.h>
-#include <machine/ieee.h>
+
+#include "private/bionic_ieee.h"
 
 // These aren't declared in our <math.h>.
 extern "C" int __isinf(double);
@@ -112,7 +113,7 @@ int __isnormalf(float f) {
 }
 __strong_alias(isnormalf, __isnormalf);
 
-#if __LP64__
+#if defined(__LP64__)
 
 // LP64 uses 128-bit long doubles.
 

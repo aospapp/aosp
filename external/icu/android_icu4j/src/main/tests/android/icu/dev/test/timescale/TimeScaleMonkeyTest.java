@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ****************************************************************************
  * Copyright (C) 2004-2010, International Business Machines Corporation and *
@@ -11,18 +13,17 @@ package android.icu.dev.test.timescale;
 
 import java.util.Random;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.math.BigDecimal;
 import android.icu.util.UniversalTimeScale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * This class tests the UniversalTimeScale class by
  * generating ramdon values in range and making sure
  * that they round-trip correctly.
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TimeScaleMonkeyTest extends TestFmwk
 {
 
@@ -80,6 +81,7 @@ public class TimeScaleMonkeyTest extends TestFmwk
         return value;
     }
     
+    @Test
     public void TestRoundTrip()
     {
         for (int scale = 0; scale < UniversalTimeScale.MAX_SCALE; scale += 1) {
@@ -101,10 +103,5 @@ public class TimeScaleMonkeyTest extends TestFmwk
                 i += 1;
             }
         }
-    }
-
-    public static void main(String[] args)
-    {
-        new TimeScaleMonkeyTest().run(args);
     }
 }

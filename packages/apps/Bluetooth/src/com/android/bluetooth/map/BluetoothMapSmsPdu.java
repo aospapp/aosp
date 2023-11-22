@@ -19,8 +19,6 @@ import static com.android.internal.telephony.SmsConstants.ENCODING_7BIT;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.SimpleDateFormat;
@@ -34,14 +32,11 @@ import android.telephony.SmsMessage;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import com.android.internal.telephony.*;
-/*import com.android.internal.telephony.GsmAlphabet.TextEncodingDetails;
-import com.android.internal.telephony.SmsConstants;*/
+import com.android.internal.telephony.GsmAlphabet;
+import com.android.internal.telephony.SmsConstants;
 import com.android.internal.telephony.SmsHeader;
-import com.android.internal.telephony.SmsMessageBase;
-import com.android.internal.telephony.SmsMessageBase.SubmitPduBase;
-import com.android.internal.telephony.cdma.sms.*;
-import com.android.internal.telephony.gsm.SmsMessage.SubmitPdu;
+import com.android.internal.telephony.cdma.sms.BearerData;
+import com.android.internal.telephony.cdma.sms.UserData;
 
 public class BluetoothMapSmsPdu {
 

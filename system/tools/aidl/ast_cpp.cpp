@@ -157,6 +157,16 @@ void ConstructorDecl::Write(CodeWriter* to) const {
   to->Write(";\n");
 }
 
+MacroDecl::MacroDecl(const std::string& name, ArgList&& arg_list)
+    : name_(name),
+      arguments_(std::move(arg_list)) {}
+
+void MacroDecl::Write(CodeWriter* to) const {
+  to->Write("%s", name_.c_str());
+  arguments_.Write(to);
+  to->Write("\n");
+}
+
 MethodDecl::MethodDecl(const std::string& return_type,
                        const std::string& name,
                        ArgList&& arg_list)
@@ -172,11 +182,15 @@ MethodDecl::MethodDecl(const std::string& return_type,
       is_const_(modifiers & IS_CONST),
       is_virtual_(modifiers & IS_VIRTUAL),
       is_override_(modifiers & IS_OVERRIDE),
-      is_pure_virtual_(modifiers & IS_PURE_VIRTUAL) {}
+      is_pure_virtual_(modifiers & IS_PURE_VIRTUAL),
+      is_static_(modifiers & IS_STATIC) {}
 
 void MethodDecl::Write(CodeWriter* to) const {
   if (is_virtual_)
     to->Write("virtual ");
+
+  if (is_static_)
+    to->Write("static ");
 
   to->Write("%s %s", return_type_.c_str(), name_.c_str());
 
@@ -429,7 +443,7 @@ void CppHeader::Write(CodeWriter* to) const {
   Document::Write(to);
   to->Write("\n");
 
-  to->Write("#endif  // %s", include_guard_.c_str());
+  to->Write("#endif  // %s\n", include_guard_.c_str());
 }
 
 CppSource::CppSource(const std::vector<std::string>& include_list,

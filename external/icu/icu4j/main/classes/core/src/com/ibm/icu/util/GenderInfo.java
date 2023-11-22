@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ********************************************************************************
- * Copyright (C) 2003-2014, Google, International Business Machines Corporation *
- * and others. All Rights Reserved.                                             *
+ * Copyright (C) 2003-2016, Google, International Business Machines Corporation
+ * and others. All Rights Reserved.
  ********************************************************************************
 */
 package com.ibm.icu.util;
@@ -14,6 +16,7 @@ import java.util.Map;
 import java.util.MissingResourceException;
 
 import com.ibm.icu.impl.ICUCache;
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.SimpleCache;
 
@@ -240,7 +243,7 @@ public class GenderInfo {
 
         private static GenderInfo load(ULocale ulocale) {
             UResourceBundle rb = UResourceBundle.getBundleInstance(
-                    ICUResourceBundle.ICU_BASE_NAME,
+                    ICUData.ICU_BASE_NAME,
                     "genderList",
                     ICUResourceBundle.ICU_DATA_CLASS_LOADER, true);
             UResourceBundle genderList = rb.get("genderList");

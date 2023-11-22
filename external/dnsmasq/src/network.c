@@ -369,7 +369,24 @@ struct listener *create_wildcard_listeners(void)
 #endif 
 	  bind(fd, (struct sockaddr *)&addr, sa_len(&addr)) == -1)
 	return NULL;
+
+#ifdef __ANDROID__
+      uint32_t mark = daemon->listen_mark;
+      if (mark != 0 &&
+	  (setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1 ||
+	   setsockopt(tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1 ||
+	   setsockopt(l6->fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1 ||
+	   setsockopt(l6->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1))
+      {
+	my_syslog(LOG_WARNING, _("setsockopt(SO_MARK, 0x%x: %s"), mark, strerror(errno));
+	close(fd);
+	close(tcpfd);
+	close(l6->fd);
+	close(l6->tcpfd);
+	return NULL;
+      }
     }
+#endif /* __ANDROID__ */
   
 #ifdef HAVE_TFTP
   if (daemon->options & OPT_TFTP)
@@ -475,6 +492,12 @@ void create_bound_listener(struct listener **listeners, struct irec *iface)
       prettyprint_addr(&iface->addr, daemon->namebuff);
       die(_("failed to bind listening socket for %s: %s"), daemon->namebuff, EC_BADNET);
     }
+
+    uint32_t mark = daemon->listen_mark;
+    if (mark != 0 &&
+	(setsockopt(new->fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1 ||
+	 setsockopt(new->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) == -1))
+      die(_("failed to set SO_MARK on listen socket: %s"), NULL, EC_BADNET);
 
     if (listen(new->tcpfd, 5) == -1)
       die(_("failed to listen on socket: %s"), NULL, EC_BADNET);
@@ -983,6 +1006,12 @@ void set_interfaces(const char *interfaces)
     }
     strncpy(s, interfaces, sizeof(s));
     while((interface = strsep(&next, SEPARATOR))) {
+        if (!if_nametoindex(interface)) {
+            my_syslog(LOG_ERR,
+                    _("interface given in %s: '%s' has no ifindex; ignoring"),
+                    __FUNCTION__, interface);
+            continue;
+        }
         if_tmp = safe_malloc(sizeof(struct iname));
         memset(if_tmp, 0, sizeof(struct iname));
         if ((if_tmp->name = strdup(interface)) == NULL) {
@@ -992,15 +1021,21 @@ void set_interfaces(const char *interfaces)
         daemon->if_names = if_tmp;
     }
 
+    /*
+     * Enumerate IP addresses (via RTM_GETADDR), adding IP entries to
+     * daemon->interfaces for interface names listed in daemon->if_names.
+     * The sockets are created by the create_bound_listener call below.
+     */
     if (!enumerate_interfaces()) {
         die(_("enumerate interfaces error in set_interfaces: %s"), NULL, EC_BADNET);
     }
 
     for (if_tmp = daemon->if_names; if_tmp; if_tmp = if_tmp->next) {
         if (if_tmp->name && !if_tmp->used) {
-            die(_("unknown interface given %s in set_interfaces: %s"), if_tmp->name, EC_BADNET);
+            my_syslog(LOG_ERR, _("unknown interface given %s in set_interfaces()"), if_tmp->name);
         }
     }
+
     /* success! - setup to free the old */
     /* check for any that have been removed */
     for (old_iface = prev_interfaces; old_iface; old_iface=old_iface->next) {

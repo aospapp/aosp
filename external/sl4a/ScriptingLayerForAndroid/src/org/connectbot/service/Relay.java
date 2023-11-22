@@ -34,7 +34,6 @@ import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 
 /**
- * @author Kenny Root
  */
 public class Relay implements Runnable {
 

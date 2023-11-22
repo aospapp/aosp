@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-
 #include "fault_handler.h"
+
 #include <sys/ucontext.h>
-#include "art_method-inl.h"
+
+#include "art_method.h"
+#include "base/hex_dump.h"
+#include "base/logging.h"
 #include "base/macros.h"
 #include "globals.h"
-#include "base/logging.h"
-#include "base/hex_dump.h"
+#include "quick_method_frame_info_mips64.h"
 #include "registers_mips64.h"
-#include "thread.h"
 #include "thread-inl.h"
 
 extern "C" void art_quick_throw_stack_overflow();
-extern "C" void art_quick_throw_null_pointer_exception();
+extern "C" void art_quick_throw_null_pointer_exception_from_signal();
 
 //
 // Mips64 specific fault handler functions.
@@ -35,16 +36,12 @@ extern "C" void art_quick_throw_null_pointer_exception();
 
 namespace art {
 
-void FaultManager::HandleNestedSignal(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
-                                      void* context ATTRIBUTE_UNUSED) {
-}
-
 void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
                                              ArtMethod** out_method,
                                              uintptr_t* out_return_pc, uintptr_t* out_sp) {
   struct ucontext* uc = reinterpret_cast<struct ucontext*>(context);
   struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
-  *out_sp = static_cast<uintptr_t>(sc->sc_regs[29]);   // SP register
+  *out_sp = static_cast<uintptr_t>(sc->sc_regs[mips64::SP]);
   VLOG(signals) << "sp: " << *out_sp;
   if (*out_sp == 0) {
     return;
@@ -56,7 +53,7 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
   uintptr_t* overflow_addr = reinterpret_cast<uintptr_t*>(
       reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(kMips64));
   if (overflow_addr == fault_addr) {
-    *out_method = reinterpret_cast<ArtMethod*>(sc->sc_regs[4]);  // A0 register
+    *out_method = reinterpret_cast<ArtMethod*>(sc->sc_regs[mips64::A0]);
   } else {
     // The method is at the top of the stack.
     *out_method = *reinterpret_cast<ArtMethod**>(*out_sp);
@@ -71,8 +68,11 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
   *out_return_pc = sc->sc_pc + 4;
 }
 
-bool NullPointerHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
-                                void* context) {
+bool NullPointerHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info, void* context) {
+  if (!IsValidImplicitCheck(info)) {
+    return false;
+  }
+
   // The code that looks for the catch location needs to know the value of the
   // PC at the point of call.  For Null checks we insert a GC map that is immediately after
   // the load/store instruction that might cause the fault.
@@ -80,9 +80,15 @@ bool NullPointerHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIB
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
 
-  sc->sc_regs[31] = sc->sc_pc + 4;      // RA needs to point to gc map location
-  sc->sc_pc = reinterpret_cast<uintptr_t>(art_quick_throw_null_pointer_exception);
-  sc->sc_regs[25] = sc->sc_pc;          // make sure T9 points to the function
+  // Decrement $sp by the frame size of the kSaveEverything method and store
+  // the fault address in the padding right after the ArtMethod*.
+  sc->sc_regs[mips64::SP] -= mips64::Mips64CalleeSaveFrameSize(Runtime::kSaveEverything);
+  uintptr_t* padding = reinterpret_cast<uintptr_t*>(sc->sc_regs[mips64::SP]) + /* ArtMethod* */ 1;
+  *padding = reinterpret_cast<uintptr_t>(info->si_addr);
+
+  sc->sc_regs[mips64::RA] = sc->sc_pc + 4;      // RA needs to point to gc map location
+  sc->sc_pc = reinterpret_cast<uintptr_t>(art_quick_throw_null_pointer_exception_from_signal);
+  // Note: This entrypoint does not rely on T9 pointing to it, so we may as well preserve T9.
   VLOG(signals) << "Generating null pointer exception";
   return true;
 }
@@ -111,7 +117,7 @@ bool StackOverflowHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info, voi
   VLOG(signals) << "stack overflow handler with sp at " << std::hex << &uc;
   VLOG(signals) << "sigcontext: " << std::hex << sc;
 
-  uintptr_t sp = sc->sc_regs[29];  // SP register
+  uintptr_t sp = sc->sc_regs[mips64::SP];
   VLOG(signals) << "sp: " << std::hex << sp;
 
   uintptr_t fault_addr = reinterpret_cast<uintptr_t>(info->si_addr);  // BVA addr
@@ -134,7 +140,7 @@ bool StackOverflowHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info, voi
   // caused this fault.  This will be inserted into a callee save frame by
   // the function to which this handler returns (art_quick_throw_stack_overflow).
   sc->sc_pc = reinterpret_cast<uintptr_t>(art_quick_throw_stack_overflow);
-  sc->sc_regs[25] = sc->sc_pc;          // make sure T9 points to the function
+  sc->sc_regs[mips64::T9] = sc->sc_pc;          // make sure T9 points to the function
 
   // The kernel will now return to the address in sc->arm_pc.
   return true;

@@ -1211,11 +1211,15 @@ public class EnumSetTest extends TestCase {
         }
 
         set.clear();
-        boolean result = set.retainAll(null);
-        assertFalse("Should return false", result);
+        try {
+            set.retainAll(null);
+            fail("Should throw NullPointerException");
+        } catch (NullPointerException e) {
+            // expected
+        }
 
         Collection rawCollection = new ArrayList();
-        result = set.retainAll(rawCollection);
+        boolean result = set.retainAll(rawCollection);
         assertFalse("Should return false", result);
 
         rawCollection.add(EnumFoo.a);
@@ -1305,8 +1309,12 @@ public class EnumSetTest extends TestCase {
         }
 
         hugeSet.clear();
-        result = hugeSet.retainAll(null);
-        assertFalse(result);
+        try {
+            hugeSet.retainAll(null);
+            fail("Should throw NullPointerException");
+        } catch (NullPointerException e) {
+            // expected
+        }
 
         rawCollection = new ArrayList();
         result = hugeSet.retainAll(rawCollection);

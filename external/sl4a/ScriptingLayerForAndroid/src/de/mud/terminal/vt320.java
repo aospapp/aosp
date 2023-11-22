@@ -33,7 +33,6 @@ import java.util.Properties;
  * <B>Maintainer:</B> Marcus Meißner
  *
  * @version $Id: vt320.java 507 2005-10-25 10:14:52Z marcus $
- * @author Matthias L. Jugel, Marcus Meißner
  */
 @SuppressWarnings("unused")
 public abstract class vt320 extends VDUBuffer implements VDUInput {

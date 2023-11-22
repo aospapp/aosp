@@ -30,13 +30,13 @@ public class MockSyncAdapter extends ISyncAdapter.Stub {
 
     private static MockSyncAdapter sSyncAdapter = null;
 
-    private ArrayList<Account> mAccounts = new ArrayList<Account>();
-    private String mAuthority;
-    private Bundle mExtras;
-    private boolean mInitialized;
-    private boolean mStartSync;
-    private boolean mCancelSync;
-    private CountDownLatch mLatch;
+    private volatile ArrayList<Account> mAccounts = new ArrayList<Account>();
+    private volatile String mAuthority;
+    private volatile Bundle mExtras;
+    private volatile boolean mInitialized;
+    private volatile boolean mStartSync;
+    private volatile boolean mCancelSync;
+    private volatile CountDownLatch mLatch;
 
     public ArrayList<Account> getAccounts() {
         return mAccounts;
@@ -93,9 +93,7 @@ public class MockSyncAdapter extends ISyncAdapter.Stub {
             mCancelSync = false;
         }
 
-        if (null != mLatch) {
-            mLatch.countDown();
-        }
+        countDownLatch();
     }
 
     public void cancelSync(ISyncContext syncContext) throws RemoteException {
@@ -107,9 +105,7 @@ public class MockSyncAdapter extends ISyncAdapter.Stub {
         mStartSync = false;
         mCancelSync = true;
 
-        if (null != mLatch) {
-            mLatch.countDown();
-        }
+        countDownLatch();
     }
 
     public void initialize(android.accounts.Account account, java.lang.String authority)
@@ -122,8 +118,13 @@ public class MockSyncAdapter extends ISyncAdapter.Stub {
         mStartSync = false;
         mCancelSync = false;
 
-        if (null != mLatch) {
-            mLatch.countDown();
+        countDownLatch();
+    }
+
+    private void countDownLatch() {
+        final CountDownLatch latch = mLatch;
+        if (latch != null) {
+            latch.countDown();
         }
     }
 

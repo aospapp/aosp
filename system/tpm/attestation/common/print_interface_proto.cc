@@ -78,23 +78,24 @@ std::string GetProtoDebugStringWithIndent(
   }
   if (value.has_key_type()) {
     output += indent + "  key_type: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_type(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_type(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_key_usage()) {
     output += indent + "  key_usage: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_usage(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_usage(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_certificate_profile()) {
     output += indent + "  certificate_profile: ";
-    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
-                                           value.certificate_profile(),
-                                           indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s",
+                        GetProtoDebugStringWithIndent(
+                            value.certificate_profile(), indent_size + 2)
+                            .c_str());
     output += "\n";
   }
   if (value.has_username()) {
@@ -186,45 +187,48 @@ std::string GetProtoDebugStringWithIndent(const GetKeyInfoReply& value,
   }
   if (value.has_key_type()) {
     output += indent + "  key_type: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_type(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_type(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_key_usage()) {
     output += indent + "  key_usage: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_usage(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_usage(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_public_key()) {
     output += indent + "  public_key: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.public_key().data(),
-                                        value.public_key().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.public_key().data(), value.public_key().size())
+            .c_str());
     output += "\n";
   }
   if (value.has_certify_info()) {
     output += indent + "  certify_info: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.certify_info().data(),
-                                        value.certify_info().size()).c_str());
+                                        value.certify_info().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_certify_info_signature()) {
     output += indent + "  certify_info_signature: ";
-    base::StringAppendF(
-        &output, "%s",
-        base::HexEncode(value.certify_info_signature().data(),
-                        value.certify_info_signature().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.certify_info_signature().data(),
+                                        value.certify_info_signature().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_certificate()) {
     output += indent + "  certificate: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.certificate().data(),
-                                        value.certificate().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.certificate().data(), value.certificate().size())
+            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -244,9 +248,9 @@ std::string GetProtoDebugStringWithIndent(
 
   if (value.has_key_type()) {
     output += indent + "  key_type: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_type(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_type(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -274,14 +278,16 @@ std::string GetProtoDebugStringWithIndent(const GetEndorsementInfoReply& value,
     output += indent + "  ek_public_key: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.ek_public_key().data(),
-                                        value.ek_public_key().size()).c_str());
+                                        value.ek_public_key().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_ek_certificate()) {
     output += indent + "  ek_certificate: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.ek_certificate().data(),
-                                        value.ek_certificate().size()).c_str());
+                                        value.ek_certificate().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -301,9 +307,9 @@ std::string GetProtoDebugStringWithIndent(
 
   if (value.has_key_type()) {
     output += indent + "  key_type: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_type(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_type(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -330,38 +336,40 @@ std::string GetProtoDebugStringWithIndent(
   }
   if (value.has_public_key()) {
     output += indent + "  public_key: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.public_key().data(),
-                                        value.public_key().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.public_key().data(), value.public_key().size())
+            .c_str());
     output += "\n";
   }
   if (value.has_public_key_tpm_format()) {
     output += indent + "  public_key_tpm_format: ";
-    base::StringAppendF(
-        &output, "%s",
-        base::HexEncode(value.public_key_tpm_format().data(),
-                        value.public_key_tpm_format().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.public_key_tpm_format().data(),
+                                        value.public_key_tpm_format().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_certificate()) {
     output += indent + "  certificate: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.certificate().data(),
-                                        value.certificate().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.certificate().data(), value.certificate().size())
+            .c_str());
     output += "\n";
   }
   if (value.has_pcr0_quote()) {
     output += indent + "  pcr0_quote: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.pcr0_quote(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.pcr0_quote(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_pcr1_quote()) {
     output += indent + "  pcr1_quote: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.pcr1_quote(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.pcr1_quote(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -381,16 +389,17 @@ std::string GetProtoDebugStringWithIndent(
 
   if (value.has_key_type()) {
     output += indent + "  key_type: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_type(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_type(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_encrypted_certificate()) {
     output += indent + "  encrypted_certificate: ";
-    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
-                                           value.encrypted_certificate(),
-                                           indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s",
+                        GetProtoDebugStringWithIndent(
+                            value.encrypted_certificate(), indent_size + 2)
+                            .c_str());
     output += "\n";
   }
   if (value.has_save_certificate()) {
@@ -423,9 +432,10 @@ std::string GetProtoDebugStringWithIndent(
   }
   if (value.has_certificate()) {
     output += indent + "  certificate: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.certificate().data(),
-                                        value.certificate().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.certificate().data(), value.certificate().size())
+            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -455,16 +465,16 @@ std::string GetProtoDebugStringWithIndent(
   }
   if (value.has_key_type()) {
     output += indent + "  key_type: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_type(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_type(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   if (value.has_key_usage()) {
     output += indent + "  key_usage: ";
-    base::StringAppendF(&output, "%s",
-                        GetProtoDebugStringWithIndent(value.key_usage(),
-                                                      indent_size + 2).c_str());
+    base::StringAppendF(&output, "%s", GetProtoDebugStringWithIndent(
+                                           value.key_usage(), indent_size + 2)
+                                           .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -491,24 +501,26 @@ std::string GetProtoDebugStringWithIndent(
   }
   if (value.has_public_key()) {
     output += indent + "  public_key: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.public_key().data(),
-                                        value.public_key().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.public_key().data(), value.public_key().size())
+            .c_str());
     output += "\n";
   }
   if (value.has_certify_info()) {
     output += indent + "  certify_info: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.certify_info().data(),
-                                        value.certify_info().size()).c_str());
+                                        value.certify_info().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_certify_info_signature()) {
     output += indent + "  certify_info_signature: ";
-    base::StringAppendF(
-        &output, "%s",
-        base::HexEncode(value.certify_info_signature().data(),
-                        value.certify_info_signature().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.certify_info_signature().data(),
+                                        value.certify_info_signature().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -539,7 +551,8 @@ std::string GetProtoDebugStringWithIndent(const DecryptRequest& value,
     output += indent + "  encrypted_data: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.encrypted_data().data(),
-                                        value.encrypted_data().size()).c_str());
+                                        value.encrypted_data().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -567,7 +580,8 @@ std::string GetProtoDebugStringWithIndent(const DecryptReply& value,
     output += indent + "  decrypted_data: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.decrypted_data().data(),
-                                        value.decrypted_data().size()).c_str());
+                                        value.decrypted_data().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -598,7 +612,8 @@ std::string GetProtoDebugStringWithIndent(const SignRequest& value,
     output += indent + "  data_to_sign: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.data_to_sign().data(),
-                                        value.data_to_sign().size()).c_str());
+                                        value.data_to_sign().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -624,9 +639,9 @@ std::string GetProtoDebugStringWithIndent(const SignReply& value,
   }
   if (value.has_signature()) {
     output += indent + "  signature: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.signature().data(),
-                                        value.signature().size()).c_str());
+    base::StringAppendF(&output, "%s", base::HexEncode(value.signature().data(),
+                                                       value.signature().size())
+                                           .c_str());
     output += "\n";
   }
   output += indent + "}\n";

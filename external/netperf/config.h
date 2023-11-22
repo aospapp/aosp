@@ -394,7 +394,7 @@
 /* #undef const */
 
 /* type to use in place of socklen_t if not defined */
-#define netperf_socklen_t unsigned
+#define netperf_socklen_t socklen_t
 
 /* Define to `long int' if <sys/types.h> does not define. */
 /* #undef off_t */

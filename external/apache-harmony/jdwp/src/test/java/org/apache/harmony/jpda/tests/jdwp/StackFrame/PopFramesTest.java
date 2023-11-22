@@ -41,6 +41,7 @@ public class PopFramesTest extends JDWPStackFrameTestCase {
 
     private String methodToPop = "nestledMethod4";
 
+    @Override
     protected String getDebuggeeClassName() {
         return PopFramesDebuggee.class.getName();
     }

@@ -19,6 +19,7 @@ import concurrent.futures
 import datetime
 import json
 import functools
+import logging
 import os
 import random
 import re
@@ -33,6 +34,10 @@ import traceback
 MAX_FILENAME_LEN = 255
 
 
+class ActsUtilsError(Exception):
+    """Generic error raised for exceptions in ACTS utils."""
+
+
 class NexusModelNames:
     # TODO(angli): This will be fixed later by angli.
     ONE = 'sprout'
@@ -43,9 +48,20 @@ class NexusModelNames:
     N6v3 = 'marlin'
     N5v3 = 'sailfish'
 
+
 class DozeModeStatus:
     ACTIVE = "ACTIVE"
     IDLE = "IDLE"
+
+
+class CapablityPerDevice:
+    energy_info_models = [
+        "shamu", "volantis", "volantisg", "angler", "bullhead", "ryu",
+        "marlin", "sailfish"
+    ]
+    tdls_models = [
+        "shamu", "hammerhead", "angler", "bullhead", "marlin", "sailfish"
+    ]
 
 
 ascii_letters_and_digits = string.ascii_letters + string.digits
@@ -183,6 +199,8 @@ def find_files(paths, file_predicate):
         A list of files that match the predicate.
     """
     file_list = []
+    if not isinstance(paths, list):
+        paths = [paths]
     for path in paths:
         p = abs_path(path)
         for dirPath, subdirList, fileList in os.walk(p):
@@ -218,6 +236,20 @@ def load_file_to_base64_str(f_path):
         f_bytes = f.read()
         base64_str = base64.b64encode(f_bytes).decode("utf-8")
         return base64_str
+
+
+def dump_string_to_file(content, file_path, mode='w'):
+    """ Dump content of a string to
+
+    Args:
+        content: content to be dumped to file
+        file_path: full path to the file including the file name.
+        mode: file open mode, 'w' (truncating file) by default
+    :return:
+    """
+    full_path = abs_path(file_path)
+    with open(full_path, mode) as f:
+        f.write(content)
 
 
 def find_field(item_list, cond, comparator, target_field):
@@ -300,10 +332,8 @@ def exe_cmd(*cmds):
         OSError is raised if an error occurred during the command execution.
     """
     cmd = ' '.join(cmds)
-    proc = subprocess.Popen(cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            shell=True)
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     (out, err) = proc.communicate()
     if not err:
         return out
@@ -326,43 +356,76 @@ def require_sl4a(android_devices):
         assert ad.droid, msg
 
 
-def start_standing_subprocess(cmd):
-    """Starts a non-blocking subprocess that is going to continue running after
-    this function returns.
-
-    A subprocess group is actually started by setting sid, so we can kill all
-    the processes spun out from the subprocess when stopping it. This is
-    necessary in case users pass in pipe commands.
+def _assert_subprocess_running(proc):
+    """Checks if a subprocess has terminated on its own.
 
     Args:
-        cmd: Command to start the subprocess with.
+        proc: A subprocess returned by subprocess.Popen.
+
+    Raises:
+        ActsUtilsError is raised if the subprocess has stopped.
+    """
+    ret = proc.poll()
+    if ret is not None:
+        out, err = proc.communicate()
+        raise ActsUtilsError("Process %d has terminated. ret: %d, stderr: %s,"
+                             " stdout: %s" % (proc.pid, ret, err, out))
+
+
+def start_standing_subprocess(cmd, check_health_delay=0):
+    """Starts a long-running subprocess.
+
+    This is not a blocking call and the subprocess started by it should be
+    explicitly terminated with stop_standing_subprocess.
+
+    For short-running commands, you should use exe_cmd, which blocks.
+
+    You can specify a health check after the subprocess is started to make sure
+    it did not stop prematurely.
+
+    Args:
+        cmd: string, the command to start the subprocess with.
+        check_health_delay: float, the number of seconds to wait after the
+                            subprocess starts to check its health. Default is 0,
+                            which means no check.
 
     Returns:
         The subprocess that got started.
     """
-    p = subprocess.Popen(cmd,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE,
-                         shell=True,
-                         preexec_fn=os.setpgrp)
-    return p
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True,
+        preexec_fn=os.setpgrp)
+    logging.debug("Start standing subprocess with cmd: %s", cmd)
+    if check_health_delay > 0:
+        time.sleep(check_health_delay)
+        _assert_subprocess_running(proc)
+    return proc
 
 
-def stop_standing_subprocess(p, kill_signal=signal.SIGTERM):
+def stop_standing_subprocess(proc, kill_signal=signal.SIGTERM):
     """Stops a subprocess started by start_standing_subprocess.
+
+    Before killing the process, we check if the process is running, if it has
+    terminated, ActsUtilsError is raised.
 
     Catches and ignores the PermissionError which only happens on Macs.
 
     Args:
-        p: Subprocess to terminate.
+        proc: Subprocess to terminate.
     """
+    pid = proc.pid
+    logging.debug("Stop standing subprocess %d", pid)
+    _assert_subprocess_running(proc)
     try:
-        os.killpg(p.pid, kill_signal)
+        os.killpg(pid, kill_signal)
     except PermissionError:
         pass
 
 
-def wait_for_standing_subprocess(p, timeout=None):
+def wait_for_standing_subprocess(proc, timeout=None):
     """Waits for a subprocess started by start_standing_subprocess to finish
     or times out.
 
@@ -382,7 +445,7 @@ def wait_for_standing_subprocess(p, timeout=None):
         p: Subprocess to wait for.
         timeout: An integer number of seconds to wait before timing out.
     """
-    p.wait(timeout)
+    proc.wait(timeout)
 
 
 def sync_device_time(ad):
@@ -413,6 +476,9 @@ def _timeout_handler(signum, frame):
 
 def timeout(sec):
     """A decorator used to add time out check to a function.
+
+    This only works in main thread due to its dependency on signal module.
+    Do NOT use it if the decorated funtion does not run in the Main thread.
 
     Args:
         sec: Number of seconds to wait before the function times out.
@@ -496,6 +562,7 @@ def force_airplane_mode(ad, new_state, timeout_value=60):
         wait_for_device_with_timeout(ad)
         ad.adb.shell("settings put global airplane_mode_on {}".format(
             1 if new_state else 0))
+        ad.adb.shell("am broadcast -a android.intent.action.AIRPLANE_MODE")
     except TimeoutError:
         # adb wait for device timeout
         return False
@@ -599,8 +666,8 @@ def set_ambient_display(ad, new_state):
         ad: android device object.
         new_state: new state for "Ambient Display". True or False.
     """
-    ad.adb.shell("settings put secure doze_enabled {}".format(1 if new_state
-                                                              else 0))
+    ad.adb.shell(
+        "settings put secure doze_enabled {}".format(1 if new_state else 0))
 
 
 def set_adaptive_brightness(ad, new_state):
@@ -653,3 +720,90 @@ def set_mobile_data_always_on(ad, new_state):
     """
     ad.adb.shell("settings put global mobile_data_always_on {}".format(
         1 if new_state else 0))
+
+
+def bypass_setup_wizard(ad):
+    """Bypass the setup wizard on an input Android device
+
+    Args:
+        ad: android device object.
+
+    Returns:
+        True if Andorid device successfully bypassed the setup wizard.
+        False if failed.
+    """
+    ad.adb.shell(
+        "am start -n \"com.google.android.setupwizard/.SetupWizardExitActivity\""
+    )
+    # magical sleep to wait for the gservices override broadcast to complete
+    time.sleep(3)
+    provisioned_state = int(
+        ad.adb.shell("settings get global device_provisioned"))
+    if (provisioned_state != 1):
+        logging.error("Failed to bypass setup wizard.")
+        return False
+    return True
+
+def parse_ping_ouput(ad, count, out, loss_tolerance=20):
+    """Ping Parsing util.
+
+    Args:
+        ad: Android Device Object.
+        count: Number of ICMP packets sent
+        out: shell output text of ping operation
+        loss_tolerance: Threshold after which flag test as false
+    Returns:
+        False: if packet loss is more than loss_tolerance%
+        True: if all good
+    """
+    out = out.split('\n')[-3:]
+    stats = out[1].split(',')
+    # For failure case, line of interest becomes the last line
+    if len(stats) != 4:
+        stats = out[2].split(',')
+    packet_loss = float(stats[2].split('%')[0])
+    packet_xmit = int(stats[0].split()[0])
+    packet_rcvd = int(stats[1].split()[0])
+    min_packet_xmit_rcvd = (100 - loss_tolerance) * 0.01
+
+    if (packet_loss >= loss_tolerance or
+            packet_xmit < count * min_packet_xmit_rcvd or
+            packet_rcvd < count * min_packet_xmit_rcvd):
+        ad.log.error(
+            "More than %d %% packet loss seen, Expected Packet_count %d \
+            Packet loss %.2f%% Packets_xmitted %d Packets_rcvd %d",
+            loss_tolerance, count, packet_loss, packet_xmit, packet_rcvd)
+        return False
+    ad.log.info("Pkt_count %d Pkt_loss %.2f%% Pkt_xmit %d Pkt_rcvd %d", count,
+                packet_loss, packet_xmit, packet_rcvd)
+    return True
+
+
+def adb_shell_ping(ad, count=120, dest_ip="www.google.com", timeout=200,
+                   loss_tolerance=20):
+    """Ping utility using adb shell.
+
+    Args:
+        ad: Android Device Object.
+        count: Number of ICMP packets to send
+        dest_ip: hostname or IP address
+                 default www.google.com
+        timeout: timeout for icmp pings to complete.
+    """
+    ping_cmd = "ping -W 1"
+    if count:
+        ping_cmd += " -c %d" % count
+    if dest_ip:
+        ping_cmd += " %s | tee /data/ping.txt" % dest_ip
+    try:
+        ad.log.info("Starting ping test to %s using adb command %s", dest_ip,
+                    ping_cmd)
+        out = ad.adb.shell(ping_cmd, timeout=timeout)
+        if not parse_ping_ouput(ad, count, out, loss_tolerance):
+            return False
+        return True
+    except Exception as e:
+        ad.log.warn("Ping Test to %s failed with exception %s", dest_ip, e)
+        return False
+    finally:
+        ad.adb.shell("rm /data/ping.txt", timeout=10, ignore_status=True)

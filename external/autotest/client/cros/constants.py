@@ -33,7 +33,6 @@ CRASH_REPORTER_RESIDUE_DIR = '/tmp/crash_reporter'
 # LOGS to collect from DUTs
 LOG_CONSOLE_RAMOOPS = '/dev/pstore/console-ramoops'
 LOG_I915_ERROR_STATE = '/sys/kernel/debug/dri/0/i915_error_state'
-PRIOR_LOGS_DIR = '/mnt/stateful_partition/unencrypted/prior_logs'
 
 CREDENTIALS = {
     '$mockowner': ['mockowner.test.account@gmail.com', 'perfsmurf'],
@@ -46,14 +45,22 @@ SHADOW_ROOT = '/home/.shadow'
 
 CRYPTOHOME_DEV_REGEX_ANY = r'.*'
 CRYPTOHOME_DEV_REGEX_REGULAR_USER_SHADOW = r'^/home/\.shadow/.*/vault$'
+CRYPTOHOME_DEV_REGEX_REGULAR_USER_DEVICE = r'^/dev/[^/]*$'
 CRYPTOHOME_DEV_REGEX_REGULAR_USER_EPHEMERAL = r'^ephemeralfs/.*$'
-CRYPTOHOME_DEV_REGEX_REGULAR_USER = r'(%s|%s)' % (
-    CRYPTOHOME_DEV_REGEX_REGULAR_USER_SHADOW,
-    CRYPTOHOME_DEV_REGEX_REGULAR_USER_EPHEMERAL)
+# Ecryptfs-based user home directory mounts the SHADOW encrypted directory,
+# while ext4-crypto based user home is a bind-mount to an encrypted directory
+# part of a ext4 filesystem that mounts the main disk device. Both can be
+# a home directory of a regular user.
+CRYPTOHOME_DEV_REGEX_REGULAR_USER = r'(%s|%s|%s)' % (
+   CRYPTOHOME_DEV_REGEX_REGULAR_USER_SHADOW,
+   CRYPTOHOME_DEV_REGEX_REGULAR_USER_DEVICE,
+   CRYPTOHOME_DEV_REGEX_REGULAR_USER_EPHEMERAL)
 CRYPTOHOME_DEV_REGEX_GUEST = r'^guestfs$'
 
 CRYPTOHOME_FS_REGEX_ANY = r'.*'
 CRYPTOHOME_FS_REGEX_TMPFS = r'^tmpfs$'
+CRYPTOHOME_FS_REGEX_EXT4 = r'^ext4$'
+CRYPTOHOME_FS_REGEX_ECRYPTFS = r'^ecryptfs$'
 
 CRYPTOHOME_MOUNT_PT = USER_DATA_DIR + '/user'
 
@@ -143,13 +150,14 @@ SHILL_XMLRPC_SERVER_COMMAND = (
         './shill_xmlrpc_server.py')
 SHILL_BRILLO_XMLRPC_SERVER_COMMAND = (
         '/system/bin/shill-test-rpc-proxy --port=%s' % SHILL_XMLRPC_SERVER_PORT)
-ANDROID_XMLRPC_SERVER_TARGET_DIR = '/root'
-ANDROID_XMLRPC_SERVER_COMMAND = (
-        'cd %s; '
-        './android_xmlrpc_server.py' % ANDROID_XMLRPC_SERVER_TARGET_DIR)
+# /usr/local/bin is write-accessible on both ChromeOS and test-station platforms
+ANDROID_XMLRPC_SERVER_FMT ='android_xmlrpc_server-%s.py'
+ANDROID_XMLRPC_SERVER_TARGET_DIR = '/usr/local/bin'
+ANDROID_XMLRPC_SERVER_COMMAND_FMT = 'cd %s; ./' + ANDROID_XMLRPC_SERVER_FMT
+ANDROID_XMLRPC_SERVER_CLEANUP_PATTERN = 'android_xmlrpc_server-%s'
+
 SHILL_XMLRPC_SERVER_CLEANUP_PATTERN = 'shill_xmlrpc_server'
 SHILL_BRILLO_XMLRPC_SERVER_CLEANUP_PATTERN = 'shill-test-rpc-proxy'
-ANDROID_XMLRPC_SERVER_CLEANUP_PATTERN = 'android_xmlrpc_server'
 SHILL_XMLRPC_SERVER_READY_METHOD = 'ready'
 
 BLUETOOTH_DEVICE_XMLRPC_SERVER_PORT = 9990
@@ -172,12 +180,10 @@ MULTIMEDIA_XMLRPC_SERVER_PORT = 9991
 MULTIMEDIA_XMLRPC_SERVER_COMMAND = (
         'cd /usr/local/autotest/cros/multimedia; '
         './multimedia_xmlrpc_server.py')
-MULTIMEDIA_XMLRPC_SERVER_RESTART_COMMAND = (
-        'cd /usr/local/autotest/cros/multimedia; '
-        './multimedia_xmlrpc_server.py --restart')
 MULTIMEDIA_XMLRPC_SERVER_CLEANUP_PATTERN = 'multimedia_xmlrpc_server'
 MULTIMEDIA_XMLRPC_SERVER_READY_METHOD = 'ready'
 MULTIMEDIA_XMLRPC_SERVER_LOG_FILE= '/var/log/multimedia_xmlrpc_server.log'
+MULTIMEDIA_XMLRPC_SERVER_REQUEST_TIMEOUT = 180
 
 MULTIMEDIA_TEST_EXTENSION = (
         '/usr/local/autotest/cros/multimedia/multimedia_test_extension')

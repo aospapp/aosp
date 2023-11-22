@@ -41,9 +41,16 @@ namespace brillo {
 const int BaseMessageLoop::kInvalidMinor = -1;
 const int BaseMessageLoop::kUninitializedMinor = -2;
 
+BaseMessageLoop::BaseMessageLoop() {
+  CHECK(!base::MessageLoop::current())
+      << "You can't create a base::MessageLoopForIO when another "
+         "base::MessageLoop is already created for this thread.";
+  owned_base_loop_.reset(new base::MessageLoopForIO);
+  base_loop_ = owned_base_loop_.get();
+}
+
 BaseMessageLoop::BaseMessageLoop(base::MessageLoopForIO* base_loop)
-    : base_loop_(base_loop),
-      weak_ptr_factory_(this) {}
+    : base_loop_(base_loop) {}
 
 BaseMessageLoop::~BaseMessageLoop() {
   for (auto& io_task : io_tasks_) {

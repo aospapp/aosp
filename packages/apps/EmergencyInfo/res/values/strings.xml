@@ -175,12 +175,18 @@
     <string name="emergency_contacts_title">Emergency contacts</string>
     <!-- The title of the add emergency contacts preference. [CHAR_LIMIT=40] -->
     <string name="add_emergency_contact">Add contact</string>
+    <!-- The text shown in a Toast when no contact picker activity could be loaded [CHAR_LIMIT=NONE] -->
+    <string name="fail_load_contact_picker">Couldn\'t find a contact picker</string>
+    <!-- The text shown in a Toast when the contact can't be displayed [CHAR_LIMIT=NONE] -->
+    <string name="fail_display_contact">Can\'t display the contact</string>
     <!-- The message of the dialog shown when removing a contact. [CHAR_LIMIT=140] -->
     <string name="remove_contact">
         Remove <xliff:g id="contact_name" example="John Doe">%1$s</xliff:g> from emergency contacts?
     </string>
     <!-- The description of the remove an emergency contact, for talkback. [CHAR_LIMIT=NONE] -->
     <string name="remove_contact_icon_text">Remove contact</string>
+    <!-- The text shown in a Toast when a contact couldn't be added [CHAR_LIMIT=NONE] -->
+    <string name="fail_add_contact">Unable to read contact information properly</string>
     <!-- Button text for removing a contact. [CHAR_LIMIT=15] -->
     <string name="remove">Remove</string>
     <!-- Button text for canceling an operation. [CHAR_LIMIT=15] -->
@@ -198,7 +204,9 @@
     <!-- Label for button in confirmation dialog when the user clicks on emergency information [CHAR LIMIT=15] -->
     <string name="emergency_info_continue">Continue</string>
     <!-- Message shown when no emergency information has been provided by the user [CHAR LIMIT=NONE] -->
-    <string name="no_info_provided">No emergency information provided</string>
+    <string name="no_info_provided">No information about the phone\'s owner</string>
+    <!-- Extra message to indicate to the user that they can add emergency information [CHAR LIMIT=NONE] -->
+    <string name="tap_pencil">If this is your phone, tap the pencil icon to add information that will be displayed here in case of emergency</string>
     <!-- Label for action item on the menu of the editing screen [CHAR LIMIT=15] -->
     <string name="clear_all">Clear all</string>
     <!-- Label for button of dialog shown to clear all information and contacts [CHAR LIMIT=15] -->

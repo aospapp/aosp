@@ -16,4 +16,6 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$DIR/artrun -Xmx512m org.testng.TestNG -verbose 3 "$DIR/testng.xml"
+TESTNG_FILE=${1-testng.xml}
+
+$DIR/artrun -Xmx512m org.testng.TestNG -verbose 3 "$DIR/$TESTNG_FILE"

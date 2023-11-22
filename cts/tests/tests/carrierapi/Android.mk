@@ -22,7 +22,11 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner ctsdeviceutil
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    ctstestrunner \
+    compatibility-device-util \
+    junit \
+    legacy-android-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

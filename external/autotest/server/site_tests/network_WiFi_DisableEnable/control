@@ -8,7 +8,6 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = ('suite:wifi_matfunc, suite:wifi_matfunc_bcm4371, '
               'suite:wificell-pre-cq')
-SUITE = 'wifi_matfunc, wifi_matfunc_bcm4371, wificell-pre-cq'
 DEPENDENCIES = 'wificell'
 
 DOC = """

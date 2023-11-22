@@ -29,6 +29,7 @@ import com.android.deskclock.R;
 import com.android.deskclock.data.DataModel;
 import com.android.deskclock.data.Lap;
 import com.android.deskclock.data.Stopwatch;
+import com.android.deskclock.uidata.UiDataModel;
 
 import java.text.DecimalFormatSymbols;
 import java.util.List;
@@ -39,6 +40,17 @@ import java.util.List;
  */
 class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
 
+    private static final long TEN_MINUTES = 10 * DateUtils.MINUTE_IN_MILLIS;
+    private static final long HOUR = DateUtils.HOUR_IN_MILLIS;
+    private static final long TEN_HOURS = 10 * HOUR;
+    private static final long HUNDRED_HOURS = 100 * HOUR;
+
+    /** A single space preceded by a zero-width LRM; This groups adjacent chars left-to-right. */
+    private static final String LRM_SPACE = "\u200E ";
+
+    /** Reusable StringBuilder that assembles a formatted time; alleviates memory churn. */
+    private static final StringBuilder sTimeBuilder = new StringBuilder(12);
+
     private final LayoutInflater mInflater;
     private final Context mContext;
 
@@ -48,7 +60,7 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
     /** Used to determine when the time format for the total time column has changed length. */
     private int mLastFormattedAccumulatedTimeLength;
 
-    public LapsAdapter(Context context) {
+    LapsAdapter(Context context) {
         mContext = context;
         mInflater = LayoutInflater.from(context);
         setHasStableIds(true);
@@ -155,8 +167,6 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
      * Remove all recorded laps and update this adapter.
      */
     void clearLaps() {
-        DataModel.getDataModel().clearLaps();
-
         // Clear the computed time lengths related to the old recorded laps.
         mLastFormattedLapTimeLength = 0;
         mLastFormattedAccumulatedTimeLength = 0;
@@ -186,14 +196,22 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
             builder.append("\n");
 
             // Loop through the laps in the order they were recorded; reverse of display order.
+            final String separator = DecimalFormatSymbols.getInstance().getDecimalSeparator() + " ";
             for (int i = laps.size() - 1; i >= 0; i--) {
                 final Lap lap = laps.get(i);
                 builder.append(lap.getLapNumber());
-                builder.append(DecimalFormatSymbols.getInstance().getDecimalSeparator());
-                builder.append(' ');
-                builder.append(formatTime(lap.getLapTime(), lap.getLapTime(), " "));
+                builder.append(separator);
+                final long lapTime = lap.getLapTime();
+                builder.append(formatTime(lapTime, lapTime, " "));
                 builder.append("\n");
             }
+
+            // Append the final lap
+            builder.append(laps.size() + 1);
+            builder.append(separator);
+            final long lapTime = DataModel.getDataModel().getCurrentLapTime(totalTime);
+            builder.append(formatTime(lapTime, lapTime, " "));
+            builder.append("\n");
         }
 
         return builder.toString();
@@ -207,10 +225,10 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
     @VisibleForTesting
     String formatLapNumber(int lapCount, int lapNumber) {
         if (lapCount < 10) {
-            return String.format("# %d", lapNumber);
+            return mContext.getString(R.string.lap_number_single_digit, lapNumber);
+        } else {
+            return mContext.getString(R.string.lap_number_double_digit, lapNumber);
         }
-
-        return String.format("# %02d", lapNumber);
     }
 
     /**
@@ -220,33 +238,54 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
      * @return a formatted version of the time
      */
     @VisibleForTesting
-    String formatTime(long maxTime, long time, String separator) {
-        long hundredths, seconds, minutes, hours;
-        seconds = time / 1000;
-        hundredths = (time - seconds * 1000) / 10;
-        minutes = seconds / 60;
-        seconds = seconds - minutes * 60;
-        hours = minutes / 60;
-        minutes = minutes - hours * 60;
+    static String formatTime(long maxTime, long time, String separator) {
+        final int hours, minutes, seconds, hundredths;
+        if (time <= 0) {
+            // A negative time should be impossible, but is tolerated to avoid crashing the app.
+            hours = minutes = seconds = hundredths = 0;
+        } else {
+            hours = (int) (time / DateUtils.HOUR_IN_MILLIS);
+            int remainder = (int) (time % DateUtils.HOUR_IN_MILLIS);
+
+            minutes = (int) (remainder / DateUtils.MINUTE_IN_MILLIS);
+            remainder = (int) (remainder % DateUtils.MINUTE_IN_MILLIS);
+
+            seconds = (int) (remainder / DateUtils.SECOND_IN_MILLIS);
+            remainder = (int) (remainder % DateUtils.SECOND_IN_MILLIS);
+
+            hundredths = remainder / 10;
+        }
 
         final char decimalSeparator = DecimalFormatSymbols.getInstance().getDecimalSeparator();
 
-        if (maxTime < 10 * DateUtils.MINUTE_IN_MILLIS) {
-            return String.format("%d%s%02d%s%02d",
-                    minutes, separator, seconds, decimalSeparator, hundredths);
-        } else if (maxTime < 60 * DateUtils.MINUTE_IN_MILLIS) {
-            return String.format("%02d%s%02d%s%02d",
-                    minutes, separator, seconds, decimalSeparator, hundredths);
-        } else if (maxTime < 10 * DateUtils.HOUR_IN_MILLIS) {
-            return String.format("%d%s%02d%s%02d%s%02d",
-                    hours, separator, minutes, separator, seconds, decimalSeparator, hundredths);
-        } else if (maxTime < 100 * DateUtils.HOUR_IN_MILLIS) {
-            return String.format("%02d%s%02d%s%02d%s%02d",
-                    hours, separator, minutes, separator, seconds, decimalSeparator, hundredths);
+        sTimeBuilder.setLength(0);
+
+        // The display of hours and minutes varies based on maxTime.
+        if (maxTime < TEN_MINUTES) {
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(minutes, 1));
+        } else if (maxTime < HOUR) {
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(minutes, 2));
+        } else if (maxTime < TEN_HOURS) {
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(hours, 1));
+            sTimeBuilder.append(separator);
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(minutes, 2));
+        } else if (maxTime < HUNDRED_HOURS) {
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(hours, 2));
+            sTimeBuilder.append(separator);
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(minutes, 2));
+        } else {
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(hours, 3));
+            sTimeBuilder.append(separator);
+            sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(minutes, 2));
         }
 
-        return String.format("%03d%s%02d%s%02d%s%02d",
-                hours, separator, minutes, separator, seconds, decimalSeparator, hundredths);
+        // The display of seconds and hundredths-of-a-second is constant.
+        sTimeBuilder.append(separator);
+        sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(seconds, 2));
+        sTimeBuilder.append(decimalSeparator);
+        sTimeBuilder.append(UiDataModel.getUiDataModel().getFormattedNumber(hundredths, 2));
+
+        return sTimeBuilder.toString();
     }
 
     /**
@@ -258,7 +297,7 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
     private String formatLapTime(long lapTime, boolean isBinding) {
         // The longest lap dictates the way the given lapTime must be formatted.
         final long longestLapTime = Math.max(DataModel.getDataModel().getLongestLapTime(), lapTime);
-        final String formattedTime = formatTime(longestLapTime, lapTime, " ");
+        final String formattedTime = formatTime(longestLapTime, lapTime, LRM_SPACE);
 
         // If the newly formatted lap time has altered the format, refresh all laps.
         final int newLength = formattedTime.length();
@@ -279,7 +318,7 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
     private String formatAccumulatedTime(long accumulatedTime, boolean isBinding) {
         final long totalTime = getStopwatch().getTotalTime();
         final long longestAccumulatedTime = Math.max(totalTime, accumulatedTime);
-        final String formattedTime = formatTime(longestAccumulatedTime, accumulatedTime, " ");
+        final String formattedTime = formatTime(longestAccumulatedTime, accumulatedTime, LRM_SPACE);
 
         // If the newly formatted accumulated time has altered the format, refresh all laps.
         final int newLength = formattedTime.length();
@@ -308,7 +347,7 @@ class LapsAdapter extends RecyclerView.Adapter<LapsAdapter.LapItemHolder> {
         private final TextView lapTime;
         private final TextView accumulatedTime;
 
-        public LapItemHolder(View itemView) {
+        LapItemHolder(View itemView) {
             super(itemView);
 
             lapTime = (TextView) itemView.findViewById(R.id.lap_time);

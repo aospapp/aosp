@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import collections
 import os
 import mox
 import types
@@ -223,6 +224,18 @@ class global_config_test(mox.MoxTestBase):
                                                    'wireless_ssid_.*')
         self.assertEquals(configs, {'wireless_ssid_1.2.3.4/24': 'ssid_1',
                                     'wireless_ssid_4.3.2.1/16': 'ssid_2'})
+
+
+    def test_get_section_as_dict(self):
+        """Test get_section_as_dict."""
+        got = self.conf.get_section_as_dict('SECTION_D')
+        self.assertEqual(got, collections.OrderedDict([('value_1', '1')]))
+
+
+    def test_get_section_as_dict_missing(self):
+        """Test get_section_as_dict with missing section."""
+        got = self.conf.get_section_as_dict('FOOBAR')
+        self.assertEqual(got, collections.OrderedDict())
 
 
 # this is so the test can be run in standalone mode

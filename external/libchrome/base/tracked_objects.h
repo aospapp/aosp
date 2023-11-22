@@ -22,7 +22,6 @@
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/process/process_handle.h"
-#include "base/profiler/alternate_timer.h"
 #include "base/profiler/tracked_time.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_checker.h"
@@ -175,7 +174,7 @@ struct TrackingInfo;
 // (worker threads don't have message loops generally, and hence gathering from
 // them will continue to be asynchronous).  We had an implementation of this in
 // the past, but the difficulty is dealing with message loops being terminated.
-// We can *try* to spam the available threads via some message loop proxy to
+// We can *try* to spam the available threads via some task runner to
 // achieve this feat, and it *might* be valuable when we are collecting data
 // for upload via UMA (where correctness of data may be more significant than
 // for a single screen of about:profiler).
@@ -515,7 +514,7 @@ class BASE_EXPORT ThreadData {
 
   // Initializes all statics if needed (this initialization call should be made
   // while we are single threaded).
-  static void Initialize();
+  static void EnsureTlsInitialization();
 
   // Sets internal status_.
   // If |status| is false, then status_ is set to DEACTIVATED.
@@ -537,12 +536,6 @@ class BASE_EXPORT ThreadData {
   // the code).
   static TrackedTime Now();
 
-  // Use the function |now| to provide current times, instead of calling the
-  // TrackedTime::Now() function.  Since this alternate function is being used,
-  // the other time arguments (used for calculating queueing delay) will be
-  // ignored.
-  static void SetAlternateTimeSource(NowFunction* now);
-
   // This function can be called at process termination to validate that thread
   // cleanup routines have been called for at least some number of named
   // threads.
@@ -559,8 +552,10 @@ class BASE_EXPORT ThreadData {
   FRIEND_TEST_ALL_PREFIXES(TrackedObjectsTest, MinimalStartupShutdown);
   FRIEND_TEST_ALL_PREFIXES(TrackedObjectsTest, TinyStartupShutdown);
 
-  typedef std::map<const BirthOnThread*, int> BirthCountMap;
+  // Type for an alternate timer function (testing only).
+  typedef unsigned int NowFunction();
 
+  typedef std::map<const BirthOnThread*, int> BirthCountMap;
   typedef std::vector<std::pair<const Births*, DeathDataPhaseSnapshot>>
       DeathsSnapshot;
 
@@ -635,11 +630,7 @@ class BASE_EXPORT ThreadData {
 
   // When non-null, this specifies an external function that supplies monotone
   // increasing time functcion.
-  static NowFunction* now_function_;
-
-  // If true, now_function_ returns values that can be used to calculate queue
-  // time.
-  static bool now_function_is_time_;
+  static NowFunction* now_function_for_testing_;
 
   // We use thread local store to identify which ThreadData to interact with.
   static base::ThreadLocalStorage::StaticSlot tls_index_;
@@ -804,6 +795,7 @@ class BASE_EXPORT TaskStopwatch {
 struct BASE_EXPORT ProcessDataPhaseSnapshot {
  public:
   ProcessDataPhaseSnapshot();
+  ProcessDataPhaseSnapshot(const ProcessDataPhaseSnapshot& other);
   ~ProcessDataPhaseSnapshot();
 
   std::vector<TaskSnapshot> tasks;
@@ -816,6 +808,7 @@ struct BASE_EXPORT ProcessDataPhaseSnapshot {
 struct BASE_EXPORT ProcessDataSnapshot {
  public:
   ProcessDataSnapshot();
+  ProcessDataSnapshot(const ProcessDataSnapshot& other);
   ~ProcessDataSnapshot();
 
   PhasedProcessDataSnapshotMap phased_snapshots;

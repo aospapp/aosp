@@ -46,7 +46,7 @@
 #endif
 
 #define checkResult(r) do { if ((r) != SL_RESULT_SUCCESS) fprintf(stderr, "error %d at %s:%d\n", \
-    (int) r, __FILE__, __LINE__); } while (0)
+    (int) (r), __FILE__, __LINE__); } while (0)
 
 typedef struct {
     short left;

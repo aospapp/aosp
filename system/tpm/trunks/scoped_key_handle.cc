@@ -29,13 +29,11 @@ const trunks::TPM_HANDLE kInvalidHandle = 0;
 namespace trunks {
 
 ScopedKeyHandle::ScopedKeyHandle(const TrunksFactory& factory)
-    : factory_(factory),
-      handle_(kInvalidHandle) {}
+    : factory_(factory), handle_(kInvalidHandle) {}
 
 ScopedKeyHandle::ScopedKeyHandle(const TrunksFactory& factory,
                                  TPM_HANDLE handle)
-    : factory_(factory),
-      handle_(handle) {}
+    : factory_(factory), handle_(handle) {}
 
 ScopedKeyHandle::~ScopedKeyHandle() {
   if (handle_ != kInvalidHandle) {

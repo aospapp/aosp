@@ -11,7 +11,6 @@ import time
 from contextlib import contextmanager
 from collections import namedtuple
 
-from autotest_lib.client.bin import site_utils as client_site_utils
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import base_utils
 from autotest_lib.client.common_lib import error
@@ -19,10 +18,10 @@ from autotest_lib.client.common_lib.cros.network import interface
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.cros import constants
+from autotest_lib.server import adb_utils
 from autotest_lib.server import autotest
-from autotest_lib.server import frontend
+from autotest_lib.server import constants as server_constants
 from autotest_lib.server import site_linux_system
-from autotest_lib.server import site_utils
 from autotest_lib.server.cros.network import wpa_cli_proxy
 from autotest_lib.server.hosts import adb_host
 
@@ -48,21 +47,29 @@ ConnectTime = namedtuple('ConnectTime', 'state, time')
 XMLRPC_BRINGUP_TIMEOUT_SECONDS = 60
 SHILL_XMLRPC_LOG_PATH = '/var/log/shill_xmlrpc_server.log'
 SHILL_BRILLO_XMLRPC_LOG_PATH = '/data/shill_xmlrpc_server.log'
-ANDROID_XMLRPC_LOG_PATH = '/var/log/android_xmlrpc_server.log'
 ANDROID_XMLRPC_SERVER_AUTOTEST_PATH = (
         '../../../client/cros/networking/android_xmlrpc_server.py')
+# Log dirs/filenames are suffixed with serial number of the DUT
+ANDROID_XMLRPC_DEBUG_DIR_FMT = '/var/log/acts-%s'
+ANDROID_XMLRPC_LOG_FILE_FMT = '/var/log/android_xmlrpc_server-%s.log'
+# Local debug dir name is suffixed by the test name
+ANDROID_LOCAL_DEBUG_DIR_FMT = 'android_debug_%s'
 
-def install_android_xmlrpc_server(host):
+
+def install_android_xmlrpc_server(host, server_port):
     """Install Android XMLRPC server script on |host|.
 
     @param host: host object representing a remote device.
+    @param server_port string of port number to start server on.
 
     """
     current_dir = os.path.dirname(os.path.realpath(__file__))
     xmlrpc_server_script = os.path.join(
             current_dir, ANDROID_XMLRPC_SERVER_AUTOTEST_PATH)
-    host.send_file(
-            xmlrpc_server_script, constants.ANDROID_XMLRPC_SERVER_TARGET_DIR)
+    script_instance = constants.ANDROID_XMLRPC_SERVER_FMT % server_port
+    target_file = (constants.ANDROID_XMLRPC_SERVER_TARGET_DIR + '/'
+                   + script_instance)
+    host.send_file(xmlrpc_server_script, target_file)
 
 
 def get_xmlrpc_proxy(host):
@@ -82,30 +89,45 @@ def get_xmlrpc_proxy(host):
     if host.is_client_install_supported:
         client_at = autotest.Autotest(host)
         client_at.install()
+    # This is the default port for shill xmlrpc server.
+    server_port = constants.SHILL_XMLRPC_SERVER_PORT
+
     if host.get_os_type() == adb_host.OS_TYPE_BRILLO:
         xmlrpc_server_command = constants.SHILL_BRILLO_XMLRPC_SERVER_COMMAND
         log_path = SHILL_BRILLO_XMLRPC_LOG_PATH
         command_name = constants.SHILL_BRILLO_XMLRPC_SERVER_CLEANUP_PATTERN
+        rpc_server_host = host
     elif host.get_os_type() == adb_host.OS_TYPE_ANDROID:
-        xmlrpc_server_command = constants.ANDROID_XMLRPC_SERVER_COMMAND
-        log_path = ANDROID_XMLRPC_LOG_PATH
-        command_name = constants.ANDROID_XMLRPC_SERVER_CLEANUP_PATTERN
-        # If there is more than one device attached to the host, use serial to
-        # identify the DUT.
-        if host.adb_serial:
-            xmlrpc_server_command = (
-                    '%s -s %s' % (xmlrpc_server_command, host.adb_serial))
+        if not host.adb_serial:
+            raise error.TestFail('No serial number detected')
+        debug_dir = ANDROID_XMLRPC_DEBUG_DIR_FMT % host.adb_serial
+        log_path = ANDROID_XMLRPC_LOG_FILE_FMT % host.adb_serial
+        teststation = host.teststation
+        hostname = teststation.hostname.split('.')[0]
+        instance = re.search("(\d+)(?!.*\d)", hostname)
+        val = int(instance.group())
+        server_port = constants.SHILL_XMLRPC_SERVER_PORT + val
+        xmlrpc_server_command = constants.ANDROID_XMLRPC_SERVER_COMMAND_FMT % (
+                constants.ANDROID_XMLRPC_SERVER_TARGET_DIR, server_port)
+        command_name = (constants.ANDROID_XMLRPC_SERVER_CLEANUP_PATTERN %
+                       str(server_port))
+        xmlrpc_server_command = (
+                '%s -s %s -l %s -t %s -p %d' % (
+                xmlrpc_server_command, host.adb_serial, debug_dir,
+                hostname, server_port))
+        install_android_xmlrpc_server(teststation, str(server_port))
         # For android, start the XML RPC server on the accompanying host.
-        host = host.teststation
-        install_android_xmlrpc_server(host)
+        rpc_server_host = teststation
     else:
         xmlrpc_server_command = constants.SHILL_XMLRPC_SERVER_COMMAND
         log_path = SHILL_XMLRPC_LOG_PATH
         command_name = constants.SHILL_XMLRPC_SERVER_CLEANUP_PATTERN
+        rpc_server_host = host
+
     # Start up the XMLRPC proxy on the client
-    proxy = host.rpc_server_tracker.xmlrpc_connect(
+    proxy = rpc_server_host.rpc_server_tracker.xmlrpc_connect(
             xmlrpc_server_command,
-            constants.SHILL_XMLRPC_SERVER_PORT,
+            server_port,
             command_name=command_name,
             ready_test_name=constants.SHILL_XMLRPC_SERVER_READY_METHOD,
             timeout_seconds=XMLRPC_BRINGUP_TIMEOUT_SECONDS,
@@ -114,13 +136,15 @@ def get_xmlrpc_proxy(host):
     return proxy
 
 
-def _is_conductive(hostname):
-    if utils.host_could_be_in_afe(hostname):
-        conductive = site_utils.get_label_from_afe(hostname.split('.')[0],
-                                                  'conductive:',
-                                                   frontend.AFE())
-        if conductive and conductive.lower() == 'true':
-            return True
+def _is_conductive(host):
+    """Determine if the host is conductive based on AFE labels.
+
+    @param host: A Host object.
+    """
+    if utils.host_could_be_in_afe(host.hostname):
+        info = host.host_info_store.get()
+        conductive = info.get_label_value('conductive')
+        return conductive.lower() == 'true'
     return False
 
 
@@ -237,7 +261,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
     def conductive(self):
         """@return True if the rig is conductive; False otherwise."""
         if self._conductive is None:
-            self._conductive = _is_conductive(self._client_hostname)
+            self._conductive = _is_conductive(self.host)
         return self._conductive
 
 
@@ -336,7 +360,6 @@ class WiFiClient(site_linux_system.LinuxSystem):
         self._machine_id = None
         self._result_dir = result_dir
         self._conductive = None
-        self._client_hostname = client_host.hostname
 
         if self.host.get_os_type() == adb_host.OS_TYPE_ANDROID and use_wpa_cli:
             # Look up the WiFi device (and its MAC) on the client.
@@ -355,6 +378,13 @@ class WiFiClient(site_linux_system.LinuxSystem):
                     self.host, self._wifi_if)
             self._wpa_cli_proxy = self._shill_proxy
         else:
+            if self.host.get_os_type() == adb_host.OS_TYPE_ANDROID:
+                adb_utils.install_apk_from_build(
+                        self.host,
+                        server_constants.SL4A_APK,
+                        server_constants.SL4A_ARTIFACT,
+                        package_name=server_constants.SL4A_PACKAGE)
+
             self._shill_proxy = get_xmlrpc_proxy(self.host)
             interfaces = self._shill_proxy.list_controlled_wifi_interfaces()
             if not interfaces:
@@ -370,10 +400,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         logging.debug('WiFi interface is: %r',
                       self._interface.device_description)
         self._firewall_rules = []
-        # Turn off powersave mode by default.
-        self.powersave_switch(False)
         # All tests that use this object assume the interface starts enabled.
         self.set_device_enabled(self._wifi_if, True)
+        # Turn off powersave mode by default.
+        self.powersave_switch(False)
         # Invoke the |capabilities| property defined in the parent |Linuxsystem|
         # to workaround the lazy loading of the capabilities cache and supported
         # frequency list. This is needed for tests that may need access to these
@@ -488,6 +518,31 @@ class WiFiClient(site_linux_system.LinuxSystem):
         self.shill.sync_time_to(epoch_seconds)
 
 
+    def collect_debug_info(self, local_save_dir_prefix):
+        """Collect any debug information needed from the DUT
+
+        This invokes the |collect_debug_info| RPC method to trigger
+        bugreport/logcat collection and then transfers the logs to the
+        server.
+        Only implemented for android DUT's for now.
+
+        @param local_save_dir_prefix Used as a prefix for local save directory.
+        """
+        if self.host.get_os_type() == adb_host.OS_TYPE_ANDROID:
+            # First capture the bugreport to the test station
+            self.shill.collect_debug_info(local_save_dir_prefix)
+            # Now copy the file over from test station to the server.
+            debug_dir = ANDROID_XMLRPC_DEBUG_DIR_FMT % self.host.adb_serial
+            log_file = ANDROID_XMLRPC_LOG_FILE_FMT % self.host.adb_serial
+            local_save_dir = ANDROID_LOCAL_DEBUG_DIR_FMT % local_save_dir_prefix
+            result_dir = os.path.join(self._result_dir, local_save_dir);
+            try:
+                self.host.teststation.get_file(debug_dir, result_dir)
+                self.host.teststation.get_file(log_file, result_dir)
+            except Exception as e:
+                logging.error('Failed to fetch debug info from host: %s', e)
+
+
     def check_iw_link_value(self, iw_link_key, desired_value):
         """Assert that the current wireless link property is |desired_value|.
 
@@ -522,6 +577,8 @@ class WiFiClient(site_linux_system.LinuxSystem):
         mode = 'off'
         if turn_on:
             mode = 'on'
+        # Turn ON interface and set power_save option.
+        self.host.run('ifconfig %s up' % self.wifi_if)
         self.host.run('iw dev %s set power_save %s' % (self.wifi_if, mode))
 
 
@@ -710,10 +767,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return a context manager for the threshold.
 
         """
-        return TemporaryDBusProperty(self._shill_proxy,
-                                     self.wifi_if,
-                                     self.ROAM_THRESHOLD,
-                                     value)
+        return TemporaryDeviceDBusProperty(self._shill_proxy,
+                                           self.wifi_if,
+                                           self.ROAM_THRESHOLD,
+                                           value)
 
 
     def set_device_enabled(self, wifi_interface, value,
@@ -832,10 +889,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return a context manager for the features.
 
         """
-        return TemporaryDBusProperty(self._shill_proxy,
-                                     self.wifi_if,
-                                     self.WAKE_ON_WIFI_FEATURES,
-                                     features)
+        return TemporaryDeviceDBusProperty(self._shill_proxy,
+                                           self.wifi_if,
+                                           self.WAKE_ON_WIFI_FEATURES,
+                                           features)
 
 
     def net_detect_scan_period_seconds(self, period):
@@ -848,10 +905,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return a context manager for the net detect scan period
 
         """
-        return TemporaryDBusProperty(self._shill_proxy,
-                                     self.wifi_if,
-                                     self.NET_DETECT_SCAN_PERIOD,
-                                     period)
+        return TemporaryDeviceDBusProperty(self._shill_proxy,
+                                           self.wifi_if,
+                                           self.NET_DETECT_SCAN_PERIOD,
+                                           period)
 
 
     def wake_to_scan_period_seconds(self, period):
@@ -865,10 +922,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return a context manager for the net detect scan period
 
         """
-        return TemporaryDBusProperty(self._shill_proxy,
-                                     self.wifi_if,
-                                     self.WAKE_TO_SCAN_PERIOD,
-                                     period)
+        return TemporaryDeviceDBusProperty(self._shill_proxy,
+                                           self.wifi_if,
+                                           self.WAKE_TO_SCAN_PERIOD,
+                                           period)
 
 
     def force_wake_to_scan_timer(self, is_forced):
@@ -882,10 +939,10 @@ class WiFiClient(site_linux_system.LinuxSystem):
         @return a context manager for the net detect scan period
 
         """
-        return TemporaryDBusProperty(self._shill_proxy,
-                                     self.wifi_if,
-                                     self.FORCE_WAKE_TO_SCAN_TIMER,
-                                     is_forced)
+        return TemporaryDeviceDBusProperty(self._shill_proxy,
+                                           self.wifi_if,
+                                           self.FORCE_WAKE_TO_SCAN_TIMER,
+                                           is_forced)
 
 
     def request_roam(self, bssid):
@@ -916,6 +973,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         2) There is a BSS with an appropriate ID in our scan results.
 
         @param bssid: string MAC address of bss to roam to.
+        @param interface: interface to use
 
         """
         self._assert_method_supported('request_roam_dbus')
@@ -1097,7 +1155,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
     def get_num_card_resets(self):
         """Get card reset count."""
-        reset_msg = 'mwifiex_sdio_card_reset'
+        reset_msg = '[m]wifiex_sdio_card_reset'
         result = self.host.run('grep -c %s /var/log/messages' % reset_msg,
                                ignore_status=True)
         if result.exit_status == 1:
@@ -1156,7 +1214,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         # Wait for shill to bring down the wifi interface.
         is_interface_down = lambda: not self._interface.is_up
-        client_site_utils.poll_for_condition(
+        utils.poll_for_condition(
                 is_interface_down,
                 timeout=INTERFACE_DOWN_WAIT_TIME_SECONDS,
                 sleep_interval=0.5,
@@ -1280,7 +1338,20 @@ class WiFiClient(site_linux_system.LinuxSystem):
         return True
 
 
-class TemporaryDBusProperty:
+    def set_dhcp_property(self, dhcp_prop_name, dhcp_prop_value):
+        """Sets the given DHCP_Property to the value provided.
+
+        @param dhcp_prop_name: the dhcp_property to be set
+        @param dhcp_prop_value: value to assign to the dhcp_prop_name
+        @return a context manager for the setting
+
+        """
+        return TemporaryManagerDBusProperty(self._shill_proxy,
+                                            dhcp_prop_name,
+                                            dhcp_prop_value)
+
+
+class TemporaryDeviceDBusProperty:
     """Utility class to temporarily change a dbus property for the WiFi device.
 
     Since dbus properties are global and persistent settings, we want
@@ -1290,10 +1361,11 @@ class TemporaryDBusProperty:
     """
 
     def __init__(self, shill_proxy, interface, prop_name, value):
-        """Construct a TemporaryDBusProperty context manager.
+        """Construct a TemporaryDeviceDBusProperty context manager.
+
 
         @param shill_proxy: the shill proxy to use to communicate via dbus
-        @param interface: the name of the interface we are setting the property for
+        @param interface: device whose property to change (e.g. 'wlan0')
         @param prop_name: the name of the property we want to set
         @param value: the desired value of the property
 
@@ -1307,7 +1379,8 @@ class TemporaryDBusProperty:
 
     def __enter__(self):
         logging.info('- Setting property %s on device %s',
-                self._prop_name, self._interface)
+                     self._prop_name,
+                     self._interface)
 
         self._saved_value = self._shill.get_dbus_property_on_device(
                 self._interface, self._prop_name)
@@ -1330,3 +1403,55 @@ class TemporaryDBusProperty:
                                                        self._prop_name,
                                                        self._saved_value):
             raise error.TestFail('Could not reset property')
+
+
+class TemporaryManagerDBusProperty:
+    """Utility class to temporarily change a Manager dbus property.
+
+    Since dbus properties are global and persistent settings, we want
+    to make sure that we change them back to what they were before the test
+    started.
+
+    """
+
+    def __init__(self, shill_proxy, prop_name, value):
+        """Construct a TemporaryManagerDBusProperty context manager.
+
+        @param shill_proxy: the shill proxy to use to communicate via dbus
+        @param prop_name: the name of the property we want to set
+        @param value: the desired value of the property
+
+        """
+        self._shill = shill_proxy
+        self._prop_name = prop_name
+        self._value = value
+        self._saved_value = None
+
+
+    def __enter__(self):
+        logging.info('- Setting Manager property: %s', self._prop_name)
+
+        self._saved_value = self._shill.get_manager_property(
+                self._prop_name)
+        if self._saved_value is None:
+            self._saved_value = ""
+            if not self._shill.set_optional_manager_property(self._prop_name,
+                                                             self._value):
+                raise error.TestFail('Could not set optional manager property.')
+        else:
+            if not self._shill.set_manager_property(self._prop_name, self._value):
+                raise error.TestFail('Could not set manager property')
+
+        logging.info('- Changed value from [%s] to [%s]',
+                     self._saved_value,
+                     self._value)
+
+
+    def __exit__(self, exception, value, traceback):
+        logging.info('- Resetting property %s to [%s]',
+                     self._prop_name,
+                     self._saved_value)
+
+        if not self._shill.set_manager_property(self._prop_name,
+                                                self._saved_value):
+            raise error.TestFail('Could not reset manager property')

@@ -17,7 +17,7 @@
 package com.android.mms.service;
 
 import android.app.Activity;
-import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.content.ContentValues;
@@ -200,7 +200,7 @@ public class DownloadRequest extends MmsRequest {
         // Get a list of currently started users.
         int[] users = null;
         try {
-            users = ActivityManagerNative.getDefault().getRunningUserIds();
+            users = ActivityManager.getService().getRunningUserIds();
         } catch (RemoteException re) {
         }
         if (users == null) {

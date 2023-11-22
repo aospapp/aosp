@@ -39,7 +39,7 @@ LocalityGetAttributes(
               locality_attributes.locFour = SET;
               break;
           default:
-              pAssert(locality < 256 && locality > 31);
+              pAssert(locality > 31);
               *localityAsByte = locality;
               break;
       }

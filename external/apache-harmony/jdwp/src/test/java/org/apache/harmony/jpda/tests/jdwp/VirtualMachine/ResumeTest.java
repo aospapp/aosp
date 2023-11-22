@@ -44,6 +44,7 @@ public class ResumeTest extends JDWPSyncTestCase {
     static final String debuggeeSignature =
         "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/ResumeDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return ResumeDebuggee.class.getName();
     }

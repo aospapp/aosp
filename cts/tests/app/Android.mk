@@ -23,9 +23,18 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_JAVA_LIBRARIES := android.test.runner telephony-common voip-common org.apache.http.legacy
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner ctstestserver mockito-target
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util \
+    ctstestrunner \
+    ctstestserver \
+    mockito-target-minus-junit4 \
+    android-support-test \
+    platform-test-annotations
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := \
+    $(call all-java-files-under, src) \
+    $(call all-java-files-under, app2/src) \
+    $(call all-java-files-under, appSdk25/src) \
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
@@ -33,8 +42,6 @@ LOCAL_COMPATIBILITY_SUITE := cts
 LOCAL_PACKAGE_NAME := CtsAppTestCases
 
 LOCAL_INSTRUMENTATION_FOR := CtsAppTestStubs
-
-LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
 
 LOCAL_SDK_VERSION := test_current
 

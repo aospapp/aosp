@@ -18,8 +18,6 @@ package org.apache.harmony.tests.javax.net.ssl;
 
 import junit.framework.TestCase;
 
-import libcore.io.Base64;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +25,7 @@ import java.net.InetAddress;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -391,7 +390,7 @@ public class SSLServerSocketTest extends TestCase {
      */
     private KeyManager[] getKeyManagers() throws Exception {
         String keys = (useBKS ? SERVER_KEYS_BKS : SERVER_KEYS_JKS);
-        byte[] bytes = Base64.decode(keys.getBytes());
+        byte[] bytes = Base64.getDecoder().decode(keys.getBytes());
         InputStream inputStream = new ByteArrayInputStream(bytes);
 
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());

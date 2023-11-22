@@ -28,9 +28,25 @@
 #include <utils/Thread.h>
 
 #include "activityeventhandler.h"
+#include "directchannel.h"
 #include "eventnums.h"
+#include "halIntf.h"
 #include "hubdefs.h"
 #include "ring.h"
+
+#ifdef USE_SENSORSERVICE_TO_GET_FIFO
+#include <thread>
+#endif
+#include <unordered_map>
+
+#define WAKELOCK_NAME "sensorHal"
+
+#define ACCEL_BIAS_TAG     "accel"
+#define ACCEL_SW_BIAS_TAG  "accel_sw"
+#define GYRO_BIAS_TAG      "gyro"
+#define GYRO_OTC_DATA_TAG  "gyro_otc"
+#define GYRO_SW_BIAS_TAG   "gyro_sw"
+#define MAG_BIAS_TAG       "mag"
 
 namespace android {
 
@@ -57,11 +73,25 @@ struct HubConnection : public Thread {
     void queueFlush(int handle);
     void queueData(int handle, void *data, size_t length);
 
+    void setOperationParameter(const additional_info_event_t &info);
+
+    bool isWakeEvent(int32_t sensor);
+    void releaseWakeLockIfAppropriate();
+    ssize_t getWakeEventCount();
+    ssize_t decrementWakeEventCount();
+
+    //TODO: factor out event ring buffer functionality into a separate class
     ssize_t read(sensors_event_t *ev, size_t size);
+    ssize_t write(const sensors_event_t *ev, size_t n);
 
     void setActivityCallback(ActivityEventHandler *eventHandler);
 
     void saveSensorSettings() const;
+
+    void setRawScale(float scaleAccel, float scaleMag) {
+        mScaleAccel = scaleAccel;
+        mScaleMag = scaleMag;
+    }
 
 protected:
     HubConnection();
@@ -72,6 +102,11 @@ protected:
 private:
     typedef uint32_t rate_q10_t;  // q10 means lower 10 bits are for fractions
 
+    bool mWakelockHeld;
+    int32_t mWakeEventCount;
+
+    void protectIfWakeEvent(int32_t sensor);
+
     static inline uint64_t period_ns_to_frequency_q10(nsecs_t period_ns) {
         return 1024000000000ULL / period_ns;
     }
@@ -81,6 +116,10 @@ private:
             return 1024000000000LL / frequency_q10;
         else
             return (nsecs_t)0;
+    }
+
+    static inline uint64_t frequency_to_frequency_q10(float frequency) {
+        return period_ns_to_frequency_q10(static_cast<nsecs_t>(1e9f/frequency));
     }
 
     enum
@@ -188,6 +227,9 @@ private:
     uint8_t mMagAccuracyRestore;
 
     float mGyroBias[3], mAccelBias[3];
+    GyroOtcData mGyroOtcData;
+
+    float mScaleAccel, mScaleMag;
 
     SensorState mSensorState[NUM_COMMS_SENSORS_PLUS_1];
 
@@ -200,12 +242,19 @@ private:
     int mNumPollFds;
 
     sensors_event_t *initEv(sensors_event_t *ev, uint64_t timestamp, uint32_t type, uint32_t sensor);
-    void magAccuracyUpdate(float x, float y, float z);
+    uint8_t magAccuracyUpdate(sensors_vec_t *sv);
     void processSample(uint64_t timestamp, uint32_t type, uint32_t sensor, struct OneAxisSample *sample, bool highAccuracy);
     void processSample(uint64_t timestamp, uint32_t type, uint32_t sensor, struct RawThreeAxisSample *sample, bool highAccuracy);
     void processSample(uint64_t timestamp, uint32_t type, uint32_t sensor, struct ThreeAxisSample *sample, bool highAccuracy);
     void postOsLog(uint8_t *buf, ssize_t len);
-    ssize_t processBuf(uint8_t *buf, ssize_t len);
+    void processAppData(uint8_t *buf, ssize_t len);
+    ssize_t processBuf(uint8_t *buf, size_t len);
+
+    inline bool isValidHandle(int handle) {
+        return handle >= 0
+            && handle < NUM_COMMS_SENSORS_PLUS_1
+            && mSensorState[handle].sensorType;
+    }
 
     void initConfigCmd(struct ConfigCmd *cmd, int handle);
 
@@ -219,8 +268,11 @@ private:
     void restoreSensorState();
     void sendCalibrationOffsets();
 
+#ifdef USE_SENSORSERVICE_TO_GET_FIFO
     // Enable SCHED_FIFO priority for main thread
-    void enableSchedFifoMode();
+    std::thread mEnableSchedFifoThread;
+#endif
+    static void enableSchedFifoMode(sp<HubConnection> hub);
 
 #ifdef LID_STATE_REPORTING_ENABLED
     int mUinputFd;
@@ -239,6 +291,26 @@ private:
 #ifdef DOUBLE_TOUCH_ENABLED
     int mDoubleTouchPollIndex;
 #endif  // DOUBLE_TOUCH_ENABLED
+
+    // Direct report functions
+public:
+    int addDirectChannel(const struct sensors_direct_mem_t *mem);
+    int removeDirectChannel(int channel_handle);
+    int configDirectReport(int sensor_handle, int channel_handle, int rate_level);
+    bool isDirectReportSupported() const;
+private:
+    void sendDirectReportEvent(const sensors_event_t *nev, size_t n);
+    void mergeDirectReportRequest(struct ConfigCmd *cmd, int handle);
+#ifdef DIRECT_REPORT_ENABLED
+    int stopAllDirectReportOnChannel(
+            int channel_handle, std::vector<int32_t> *unstoppedSensors);
+    Mutex mDirectChannelLock;
+    //sensor_handle=>(channel_handle, rate_level)
+    std::unordered_map<int32_t, std::unordered_map<int32_t, int32_t> > mSensorToChannel;
+    //channel_handle=>ptr of Channel obj
+    std::unordered_map<int32_t, std::unique_ptr<DirectChannelBase>> mDirectChannel;
+    int32_t mDirectChannelHandle;
+#endif
 
     DISALLOW_EVIL_CONSTRUCTORS(HubConnection);
 };

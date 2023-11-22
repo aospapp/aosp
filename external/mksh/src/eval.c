@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/eval.c,v 1.180 2016/01/19 23:12:12 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/eval.c,v 1.194 2016/11/11 23:31:34 tg Exp $");
 
 /*
  * string expansion
@@ -62,7 +62,7 @@ typedef struct {
 #define IFS_WORD	0	/* word has chars (or quotes except "$@") */
 #define IFS_WS		1	/* have seen IFS white-space */
 #define IFS_NWS		2	/* have seen IFS non-white-space */
-#define IFS_IWS		3	/* begin of word, ignore IFS WS */
+#define IFS_IWS		3	/* beginning of word, ignore IFS WS */
 #define IFS_QUOTE	4	/* beg.w/quote, become IFS_WORD unless "$@" */
 
 static int varsub(Expand *, const char *, const char *, int *, int *);
@@ -120,7 +120,7 @@ substitute(const char *cp, int f)
 	s->start = s->str = cp;
 	source = s;
 	if (yylex(ONEWORD) != LWORD)
-		internal_errorf("bad substitution");
+		internal_errorf(Tbadsubst);
 	source = sold;
 	afree(s, ATEMP);
 	return (evalstr(yylval.cp, f));
@@ -186,7 +186,7 @@ evalonestr(const char *cp, int f)
 		rv = (char *) *XPptrv(w);
 		break;
 	default:
-		rv = evalstr(cp, f&~DOGLOB);
+		rv = evalstr(cp, f & ~DOGLOB);
 		break;
 	}
 	XPfree(w);
@@ -198,7 +198,7 @@ typedef struct SubType {
 	struct tbl *var;	/* variable for ${var..} */
 	struct SubType *prev;	/* old type */
 	struct SubType *next;	/* poped type (to avoid re-allocating) */
-	size_t	base;		/* begin position of expanded word */
+	size_t	base;		/* start position of expanded word */
 	short	stype;		/* [=+-?%#] action after expanded word */
 	short	f;		/* saved value of f (DOPAT, etc) */
 	uint8_t	quotep;		/* saved value of quote (for ${..[%#]..}) */
@@ -375,14 +375,15 @@ expand(
  unwind_substsyn:
 					/* restore sp */
 					sp = varname - 2;
-					end = (beg = wdcopy(sp, ATEMP)) +
-					    (wdscan(sp, CSUBST) - sp);
+					beg = wdcopy(sp, ATEMP);
+					end = (wdscan(cstrchr(sp, '\0') + 1,
+					    CSUBST) - sp) + beg;
 					/* ({) the } or x is already skipped */
 					if (end < wdscan(beg, EOS))
 						*end = EOS;
-					str = snptreef(NULL, 64, "%S", beg);
+					str = snptreef(NULL, 64, Tf_S, beg);
 					afree(beg, ATEMP);
-					errorf("%s: %s", str, "bad substitution");
+					errorf(Tf_sD_s, str, Tbadsubst);
 				}
 				if (f & DOBLANK)
 					doblank++;
@@ -403,8 +404,8 @@ expand(
 					st->stype = stype;
 					st->base = Xsavepos(ds, dp);
 					st->f = f;
-					if (x.var == &vtemp) {
-						st->var = tempvar();
+					if (x.var == vtemp) {
+						st->var = tempvar(vtemp->name);
 						st->var->flag &= ~INTEGER;
 						/* can't fail here */
 						setstr(st->var,
@@ -477,12 +478,14 @@ expand(
 						strndupx(x.str, beg, num, ATEMP);
 						goto do_CSUBST;
 					    }
+					case 0x100 | '/':
 					case '/': {
 						char *s, *p, *d, *sbeg, *end;
-						char *pat, *rrep;
+						char *pat = NULL, *rrep = null;
 						char fpat = 0, *tpat1, *tpat2;
+						char *ws, *wpat, *wrep;
 
-						s = wdcopy(sp, ATEMP);
+						s = ws = wdcopy(sp, ATEMP);
 						p = s + (wdscan(sp, ADELIM) - sp);
 						d = s + (wdscan(sp, CSUBST) - sp);
 						p[-2] = EOS;
@@ -491,16 +494,24 @@ expand(
 						else
 							d[-2] = EOS;
 						sp += (d ? d : p) - s - 1;
-						if (!(stype & 0x80) &&
+						if (!(stype & 0x180) &&
 						    s[0] == CHAR &&
 						    (s[1] == '#' || s[1] == '%'))
 							fpat = s[1];
-						pat = evalstr(s + (fpat ? 2 : 0),
-						    DOTILDE | DOSCALAR | DOPAT);
-						rrep = d ? evalstr(p,
-						    DOTILDE | DOSCALAR) : null;
-						afree(s, ATEMP);
+						wpat = s + (fpat ? 2 : 0);
+						wrep = d ? p : NULL;
+						if (!(stype & 0x100)) {
+							rrep = wrep ? evalstr(wrep,
+							    DOTILDE | DOSCALAR) :
+							    null;
+						}
 
+						/* prepare string on which to work */
+						strdupx(s, str_val(st->var), ATEMP);
+						sbeg = s;
+ again_search:
+						pat = evalstr(wpat,
+						    DOTILDE | DOSCALAR | DOPAT);
 						/* check for special cases */
 						if (!*pat && !fpat) {
 							/*
@@ -509,18 +520,14 @@ expand(
 							 */
 							goto no_repl;
 						}
-						if ((stype & 0x80) &&
+						if ((stype & 0x180) &&
 						    gmatchx(null, pat, false)) {
 							/*
 							 * pattern matches empty
 							 * string => don't loop
 							 */
-							stype &= ~0x80;
+							stype &= ~0x180;
 						}
-
-						/* prepare string on which to work */
-						strdupx(s, str_val(st->var), ATEMP);
-						sbeg = s;
 
 						/* first see if we have any match at all */
 						if (fpat == '#') {
@@ -566,13 +573,27 @@ expand(
 									break;
 								p--;
 							}
+						strndupx(end, sbeg, p - sbeg, ATEMP);
+						record_match(end);
+						afree(end, ATEMP);
+						if (stype & 0x100) {
+							if (rrep != null)
+								afree(rrep, ATEMP);
+							rrep = wrep ? evalstr(wrep,
+							    DOTILDE | DOSCALAR) :
+							    null;
+						}
 						strndupx(end, s, sbeg - s, ATEMP);
-						d = shf_smprintf("%s%s%s", end, rrep, p);
+						d = shf_smprintf(Tf_sss, end, rrep, p);
 						afree(end, ATEMP);
 						sbeg = d + (sbeg - s) + strlen(rrep);
 						afree(s, ATEMP);
 						s = d;
-						if (stype & 0x80)
+						if (stype & 0x100) {
+							afree(tpat1, ATEMP);
+							afree(pat, ATEMP);
+							goto again_search;
+						} else if (stype & 0x80)
 							goto again_repl;
  end_repl:
 						afree(tpat1, ATEMP);
@@ -581,6 +602,7 @@ expand(
 						afree(pat, ATEMP);
 						if (rrep != null)
 							afree(rrep, ATEMP);
+						afree(ws, ATEMP);
 						goto do_CSUBST;
 					    }
 					case '#':
@@ -728,10 +750,11 @@ expand(
 				case '?':
 					dp = Xrestpos(ds, dp, st->base);
 
-					errorf("%s: %s", st->var->name,
+					errorf(Tf_sD_s, st->var->name,
 					    debunk(dp, dp, strlen(dp) + 1));
 					break;
 				case '0':
+				case 0x100 | '/':
 				case '/':
 				case 0x100 | '#':
 				case 0x100 | 'Q':
@@ -1060,7 +1083,7 @@ varsub(Expand *xp, const char *sp, const char *word,
 	int c;
 	int state;	/* next state: XBASE, XARG, XSUB, XNULLSUB */
 	int stype;	/* substitution type */
-	int slen;
+	int slen = 0;
 	const char *p;
 	struct tbl *vp;
 	bool zero_ok = false;
@@ -1133,16 +1156,30 @@ varsub(Expand *xp, const char *sp, const char *word,
 			}
 		}
 		if (Flag(FNOUNSET) && c == 0 && !zero_ok)
-			errorf("%s: %s", sp, "parameter not set");
+			errorf(Tf_parm, sp);
 		/* unqualified variable/string substitution */
 		*stypep = 0;
-		xp->str = shf_smprintf("%d", c);
+		xp->str = shf_smprintf(Tf_d, c);
+		return (XSUB);
+	}
+	if (stype == '!' && c != '\0' && *word == CSUBST) {
+		sp++;
+		if ((p = cstrchr(sp, '[')) && (p[1] == '*' || p[1] == '@') &&
+		    p[2] == ']') {
+			c = '!';
+			stype = 0;
+			goto arraynames;
+		}
+		xp->var = global(sp);
+		xp->str = p ? shf_smprintf("%s[%lu]",
+		    xp->var->name, arrayindex(xp->var)) : xp->var->name;
+		*stypep = 0;
 		return (XSUB);
 	}
 
 	/* Check for qualifiers in word part */
 	stype = 0;
-	c = word[slen = 0] == CHAR ? word[1] : 0;
+	c = word[slen + 0] == CHAR ? word[slen + 1] : 0;
 	if (c == ':') {
 		slen += 2;
 		stype = 0x80;
@@ -1151,7 +1188,7 @@ varsub(Expand *xp, const char *sp, const char *word,
 	if (!stype && c == '/') {
 		slen += 2;
 		stype = c;
-		if (word[slen] == ADELIM) {
+		if (word[slen] == ADELIM && word[slen + 1] == c) {
 			slen += 2;
 			stype |= 0x80;
 		}
@@ -1181,8 +1218,6 @@ varsub(Expand *xp, const char *sp, const char *word,
 		return (-1);
 	if (!stype && *word != CSUBST)
 		return (-1);
-	*stypep = stype;
-	*slenp = slen;
 
 	c = sp[0];
 	if (c == '*' || c == '@') {
@@ -1192,7 +1227,9 @@ varsub(Expand *xp, const char *sp, const char *word,
 		/* can't trim a vector (yet) */
 		case '%':
 		case '#':
+		case '?':
 		case '0':
+		case 0x100 | '/':
 		case '/':
 		case 0x100 | '#':
 		case 0x100 | 'Q':
@@ -1211,83 +1248,73 @@ varsub(Expand *xp, const char *sp, const char *word,
 		}
 		/* POSIX 2009? */
 		zero_ok = true;
-	} else {
-		if ((p = cstrchr(sp, '[')) && (p[1] == '*' || p[1] == '@') &&
-		    p[2] == ']') {
-			XPtrV wv;
+	} else if ((p = cstrchr(sp, '[')) && (p[1] == '*' || p[1] == '@') &&
+	    p[2] == ']') {
+		XPtrV wv;
 
-			switch (stype & 0x17F) {
-			/* can't assign to a vector */
-			case '=':
-			/* can't trim a vector (yet) */
-			case '%':
-			case '#':
-			case '?':
-			case '0':
-			case '/':
-			case 0x100 | '#':
-			case 0x100 | 'Q':
-				return (-1);
-			}
-			XPinit(wv, 32);
-			if ((c = sp[0]) == '!')
-				++sp;
-			vp = global(arrayname(sp));
-			for (; vp; vp = vp->u.array) {
-				if (!(vp->flag&ISSET))
-					continue;
-				XPput(wv, c == '!' ? shf_smprintf("%lu",
-				    arrayindex(vp)) :
-				    str_val(vp));
-			}
-			if (XPsize(wv) == 0) {
-				xp->str = null;
-				state = p[1] == '@' ? XNULLSUB : XSUB;
-				XPfree(wv);
-			} else {
-				XPput(wv, 0);
-				xp->u.strv = (const char **)XPptrv(wv);
-				xp->str = *xp->u.strv++;
-				/* ${foo[@]} */
-				xp->split = tobool(p[1] == '@');
-				state = XARG;
-			}
-		} else {
-			/* Can't assign things like $! or $1 */
-			if ((stype & 0x17F) == '=' &&
-			    ctype(*sp, C_VAR1 | C_DIGIT))
-				return (-1);
-			if (*sp == '!' && sp[1]) {
-				++sp;
-				xp->var = global(sp);
-				if (vstrchr(sp, '['))
-					xp->str = shf_smprintf("%s[%lu]",
-					    xp->var->name,
-					    arrayindex(xp->var));
-				else
-					xp->str = xp->var->name;
-			} else {
-				xp->var = global(sp);
-				xp->str = str_val(xp->var);
-			}
-			state = XSUB;
+		switch (stype & 0x17F) {
+		/* can't assign to a vector */
+		case '=':
+		/* can't trim a vector (yet) */
+		case '%':
+		case '#':
+		case '?':
+		case '0':
+		case 0x100 | '/':
+		case '/':
+		case 0x100 | '#':
+		case 0x100 | 'Q':
+			return (-1);
 		}
+		c = 0;
+ arraynames:
+		XPinit(wv, 32);
+		vp = global(arrayname(sp));
+		for (; vp; vp = vp->u.array) {
+			if (!(vp->flag&ISSET))
+				continue;
+			XPput(wv, c == '!' ? shf_smprintf(Tf_lu,
+			    arrayindex(vp)) :
+			    str_val(vp));
+		}
+		if (XPsize(wv) == 0) {
+			xp->str = null;
+			state = p[1] == '@' ? XNULLSUB : XSUB;
+			XPfree(wv);
+		} else {
+			XPput(wv, 0);
+			xp->u.strv = (const char **)XPptrv(wv);
+			xp->str = *xp->u.strv++;
+			/* ${foo[@]} */
+			xp->split = tobool(p[1] == '@');
+			state = XARG;
+		}
+	} else {
+		xp->var = global(sp);
+		xp->str = str_val(xp->var);
+		/* can't assign things like $! or $1 */
+		if ((stype & 0x17F) == '=' && !*xp->str &&
+		    ctype(*sp, C_VAR1 | C_DIGIT))
+			return (-1);
+		state = XSUB;
 	}
 
 	c = stype & 0x7F;
 	/* test the compiler's code generator */
-	if (((stype < 0x100) && (ctype(c, C_SUBOP2) || c == '/' ||
+	if (((stype < 0x100) && (ctype(c, C_SUBOP2) ||
 	    (((stype & 0x80) ? *xp->str == '\0' : xp->str == null) &&
 	    (state != XARG || (ifs0 || xp->split ?
 	    (xp->u.strv[0] == NULL) : !hasnonempty(xp->u.strv))) ?
 	    c == '=' || c == '-' || c == '?' : c == '+'))) ||
 	    stype == (0x80 | '0') || stype == (0x100 | '#') ||
-	    stype == (0x100 | 'Q'))
+	    stype == (0x100 | 'Q') || (stype & 0x7F) == '/')
 		/* expand word instead of variable value */
 		state = XBASE;
 	if (Flag(FNOUNSET) && xp->str == null && !zero_ok &&
 	    (ctype(c, C_SUBOP2) || (state != XBASE && c != '+')))
-		errorf("%s: %s", sp, "parameter not set");
+		errorf(Tf_parm, sp);
+	*stypep = stype;
+	*slenp = slen;
 	return (state);
 }
 
@@ -1323,14 +1350,31 @@ comsub(Expand *xp, const char *cp, int fn MKSH_A_UNUSED)
 		struct ioword *io = *t->ioact;
 		char *name;
 
-		if ((io->ioflag & IOTYPE) != IOREAD)
-			errorf("%s: %s", T_funny_command,
-			    snptreef(NULL, 32, "%R", io));
-		shf = shf_open(name = evalstr(io->ioname, DOTILDE), O_RDONLY,
-			0, SHF_MAPHI | SHF_CLEXEC);
-		if (shf == NULL)
-			warningf(!Flag(FTALKING), "%s: %s %s: %s", name,
-			    "can't open", "$(<...) input", cstrerror(errno));
+		switch (io->ioflag & IOTYPE) {
+		case IOREAD:
+			shf = shf_open(name = evalstr(io->ioname, DOTILDE),
+				O_RDONLY, 0, SHF_MAPHI | SHF_CLEXEC);
+			if (shf == NULL)
+				warningf(!Flag(FTALKING), Tf_sD_s_sD_s,
+				    name, Tcant_open, "$(<...) input",
+				    cstrerror(errno));
+			break;
+		case IOHERE:
+			if (!herein(io, &name)) {
+				xp->str = name;
+				/* as $(…) requires, trim trailing newlines */
+				name += strlen(name);
+				while (name > xp->str && name[-1] == '\n')
+					--name;
+				*name = '\0';
+				return (XSUB);
+			}
+			shf = NULL;
+			break;
+		default:
+			errorf(Tf_sD_s, T_funny_command,
+			    snptreef(NULL, 32, Tft_R, io));
+		}
 	} else if (fn == FUNSUB) {
 		int ofd1;
 		struct temp *tf = NULL;
@@ -1341,8 +1385,8 @@ comsub(Expand *xp, const char *cp, int fn MKSH_A_UNUSED)
 		 */
 		maketemp(ATEMP, TT_FUNSUB, &tf);
 		if (!tf->shf) {
-			errorf("can't %s temporary file %s: %s",
-			    "create", tf->tffn, cstrerror(errno));
+			errorf(Tf_temp,
+			    Tcreate, tf->tffn, cstrerror(errno));
 		}
 		/* extract shf from temporary file, unlink and free it */
 		shf = tf->shf;
@@ -1400,6 +1444,7 @@ trimsub(char *str, char *pat, int how)
 		for (p = str; p <= end; p += utf_ptradj(p)) {
 			c = *p; *p = '\0';
 			if (gmatchx(str, pat, false)) {
+				record_match(str);
 				*p = c;
 				return (p);
 			}
@@ -1411,6 +1456,7 @@ trimsub(char *str, char *pat, int how)
 		for (p = end; p >= str; p--) {
 			c = *p; *p = '\0';
 			if (gmatchx(str, pat, false)) {
+				record_match(str);
 				*p = c;
 				return (p);
 			}
@@ -1438,6 +1484,7 @@ trimsub(char *str, char *pat, int how)
 		for (p = str; p <= end; p++)
 			if (gmatchx(p, pat, false)) {
  trimsub_match:
+				record_match(p);
 				strndupx(end, str, p - str, ATEMP);
 				return (end);
 			}
@@ -1529,7 +1576,7 @@ globit(XString *xs,	/* dest string */
 			 * SunOS 4.1.3 does this...
 			 */
 			if ((check & GF_EXCHECK) && xp > Xstring(*xs, xp) &&
-			    xp[-1] == '/' && !S_ISDIR(lstatb.st_mode) &&
+			    mksh_cdirsep(xp[-1]) && !S_ISDIR(lstatb.st_mode) &&
 			    (!S_ISLNK(lstatb.st_mode) ||
 			    stat_check() < 0 || !S_ISDIR(statb.st_mode)))
 				return;
@@ -1539,7 +1586,7 @@ globit(XString *xs,	/* dest string */
 			 * directory
 			 */
 			if (((check & GF_MARKDIR) && (check & GF_GLOBBED)) &&
-			    xp > Xstring(*xs, xp) && xp[-1] != '/' &&
+			    xp > Xstring(*xs, xp) && !mksh_cdirsep(xp[-1]) &&
 			    (S_ISDIR(lstatb.st_mode) ||
 			    (S_ISLNK(lstatb.st_mode) && stat_check() > 0 &&
 			    S_ISDIR(statb.st_mode)))) {
@@ -1554,11 +1601,11 @@ globit(XString *xs,	/* dest string */
 
 	if (xp > Xstring(*xs, xp))
 		*xp++ = '/';
-	while (*sp == '/') {
+	while (mksh_cdirsep(*sp)) {
 		Xcheck(*xs, xp);
 		*xp++ = *sp++;
 	}
-	np = strchr(sp, '/');
+	np = mksh_sdirsep(sp);
 	if (np != NULL) {
 		se = np;
 		/* don't assume '/', can be multiple kinds */
@@ -1592,7 +1639,7 @@ globit(XString *xs,	/* dest string */
 		/* xp = *xpp;	copy_non_glob() may have re-alloc'd xs */
 		*xp = '\0';
 		prefix_len = Xlength(*xs, xp);
-		dirp = opendir(prefix_len ? Xstring(*xs, xp) : ".");
+		dirp = opendir(prefix_len ? Xstring(*xs, xp) : Tdot);
 		if (dirp == NULL)
 			goto Nodir;
 		while ((d = readdir(dirp)) != NULL) {
@@ -1666,8 +1713,8 @@ maybe_expand_tilde(const char *p, XString *dsp, char **dpp, bool isassign)
 
 	Xinit(ts, tp, 16, ATEMP);
 	/* : only for DOASNTILDE form */
-	while (p[0] == CHAR && p[1] != '/' && (!isassign || p[1] != ':'))
-	{
+	while (p[0] == CHAR && !mksh_cdirsep(p[1]) &&
+	    (!isassign || p[1] != ':')) {
 		Xcheck(ts, tp);
 		*tp++ = p[1];
 		p += 2;
@@ -1694,24 +1741,40 @@ maybe_expand_tilde(const char *p, XString *dsp, char **dpp, bool isassign)
  *
  * based on a version by Arnold Robbins
  */
-
 char *
 do_tilde(char *cp)
 {
 	char *dp = null;
+#ifndef MKSH_NOPWNAM
+	bool do_simplify = true;
+#endif
 
 	if (cp[0] == '\0')
 		dp = str_val(global("HOME"));
 	else if (cp[0] == '+' && cp[1] == '\0')
-		dp = str_val(global("PWD"));
+		dp = str_val(global(TPWD));
 	else if (ksh_isdash(cp))
-		dp = str_val(global("OLDPWD"));
+		dp = str_val(global(TOLDPWD));
 #ifndef MKSH_NOPWNAM
-	else
+	else {
 		dp = homedir(cp);
+		do_simplify = false;
+	}
 #endif
-	/* If HOME, PWD or OLDPWD are not set, don't expand ~ */
-	return (dp == null ? NULL : dp);
+
+	/* if parameters aren't set, don't expand ~ */
+	if (dp == NULL || dp == null)
+		return (NULL);
+
+	/* simplify parameters as if cwd upon entry */
+#ifndef MKSH_NOPWNAM
+	if (do_simplify)
+#endif
+	  {
+		strdupx(dp, dp, ATEMP);
+		simplify_path(dp);
+	}
+	return (dp);
 }
 
 #ifndef MKSH_NOPWNAM

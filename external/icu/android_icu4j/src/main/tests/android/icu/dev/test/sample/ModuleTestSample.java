@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2001-2006, International Business Machines Corporation and    *
@@ -7,17 +9,11 @@
  */
 package android.icu.dev.test.sample;
 
-import android.icu.dev.test.ModuleTest;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
+// TODO(junit) : turned off
 
-@RunWith(IcuTestFmwkRunner.class)
-public class ModuleTestSample extends ModuleTest {
-    public static void main(String[] args) throws Exception {
-    new ModuleTestSample().run(args);
-    }
+public class ModuleTestSample /*extends ModuleTest*/ {
     ModuleTestSample(){
-        super("android/icu/dev/data/testdata/", "Test");
+        //super("com/ibm/icu/dev/data/testdata/", "Test");
     }
 
     // standard loop, settings and cases
@@ -61,18 +57,18 @@ public class ModuleTestSample extends ModuleTest {
 
     // no data, ModuleTest should not allow this to execute by default
     public void Test04() {
-    errln("Test04 should not execute!");
+//    errln("Test04 should not execute!");
     }
 
     // special override of validateMethod allows Test05 
     // to execute even though it has no data in the module
-    protected boolean validateMethod(String methodName) {
-    return methodName.equals("Test05") ? true : super.validateMethod(methodName);
-    }
+//    protected boolean validateMethod(String methodName) {
+//    return methodName.equals("Test05") ? true : super.validateMethod(methodName);
+//    }
 
     // no data, but override of validateMethod allows it to execute
     public void Test05() {
-    logln("Test05 executed.");
+//    logln("Test05 executed.");
     }
 
 //    // The test data contains an error in the third case.  When getInt("Data") is

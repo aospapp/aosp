@@ -16,55 +16,54 @@
 
 package android.view.cts;
 
-import android.content.Context;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
-import android.view.cts.GestureDetectorCtsActivity.MockOnGestureListener;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.GestureDetector;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.GestureDetector.SimpleOnGestureListener;
+import android.view.MotionEvent;
 
-public class GestureDetectorTest extends
-        ActivityInstrumentationTestCase2<GestureDetectorCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class GestureDetectorTest {
 
     private static final float X_3F = 3.0f;
     private static final float Y_4F = 4.0f;
 
-    private GestureDetector mGestureDetector;
     private GestureDetectorCtsActivity mActivity;
-    private MockOnGestureListener mListener;
-    private Context mContext;
+    private GestureDetector mGestureDetector;
+    private GestureDetector.SimpleOnGestureListener mListener;
 
     private long mDownTime;
     private long mEventTime;
     private MotionEvent mButtonPressPrimaryMotionEvent;
     private MotionEvent mButtonPressSecondaryMotionEvent;
 
-    public GestureDetectorTest() {
-        super("android.view.cts", GestureDetectorCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<GestureDetectorCtsActivity> mActivityRule =
+            new ActivityTestRule<>(GestureDetectorCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
         mGestureDetector = mActivity.getGestureDetector();
         mListener = mActivity.getListener();
-        mContext = getInstrumentation().getTargetContext();
-        mActivity.isDown = false;
-        mActivity.isScroll = false;
-        mActivity.isFling = false;
-        mActivity.isSingleTapUp = false;
-        mActivity.onShowPress = false;
-        mActivity.onLongPress = false;
-        mActivity.onDoubleTap = false;
-        mActivity.onDoubleTapEvent = false;
-        mActivity.onSingleTapConfirmed = false;
-        mActivity.onContextClick = false;
 
         mDownTime = SystemClock.uptimeMillis();
         mEventTime = SystemClock.uptimeMillis();
@@ -78,22 +77,22 @@ public class GestureDetectorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
-
         new GestureDetector(
-                mContext, new SimpleOnGestureListener(), new Handler(Looper.getMainLooper()));
-        new GestureDetector(mContext, new SimpleOnGestureListener());
+                mActivity, new SimpleOnGestureListener(), new Handler(Looper.getMainLooper()));
+        new GestureDetector(mActivity, new SimpleOnGestureListener());
         new GestureDetector(new SimpleOnGestureListener(), new Handler(Looper.getMainLooper()));
         new GestureDetector(new SimpleOnGestureListener());
-
-        try {
-            mGestureDetector = new GestureDetector(null);
-            fail("should throw null exception");
-        } catch (RuntimeException e) {
-            // expected
-        }
     }
 
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullListener() {
+        new GestureDetector(null);
+    }
+
+    @Test
     public void testLongpressEnabled() {
         mGestureDetector.setIsLongpressEnabled(true);
         assertTrue(mGestureDetector.isLongpressEnabled());
@@ -101,34 +100,29 @@ public class GestureDetectorTest extends
         assertFalse(mGestureDetector.isLongpressEnabled());
     }
 
+    @Test
     public void testOnSetContextClickListener() {
-        mActivity.onContextClick = false;
         mGestureDetector.setContextClickListener(null);
         mGestureDetector.onGenericMotionEvent(mButtonPressPrimaryMotionEvent);
-        assertFalse(mActivity.onContextClick);
+        verify(mListener, never()).onContextClick(any(MotionEvent.class));
 
         mGestureDetector.setContextClickListener(mListener);
         mGestureDetector.onGenericMotionEvent(mButtonPressPrimaryMotionEvent);
-        assertTrue(mActivity.onContextClick);
-        assertSame(mButtonPressPrimaryMotionEvent, mListener.getPreviousContextClickEvent());
+        verify(mListener, times(1)).onContextClick(mButtonPressPrimaryMotionEvent);
     }
 
+    @Test
     public void testOnContextClick() {
-        mActivity.onContextClick = false;
         mListener.onContextClick(mButtonPressPrimaryMotionEvent);
-        assertTrue(mActivity.onContextClick);
-        assertSame(mButtonPressPrimaryMotionEvent, mListener.getPreviousContextClickEvent());
+        verify(mListener, times(1)).onContextClick(mButtonPressPrimaryMotionEvent);
 
-        mActivity.onContextClick = false;
         mGestureDetector.onGenericMotionEvent(mButtonPressSecondaryMotionEvent);
-        assertTrue(mActivity.onContextClick);
-        assertSame(mButtonPressSecondaryMotionEvent, mListener.getPreviousContextClickEvent());
+        verify(mListener, times(1)).onContextClick(mButtonPressSecondaryMotionEvent);
     }
 
+    @Test
     public void testOnGenericMotionEvent() {
-        mActivity.onContextClick = false;
         mGestureDetector.onGenericMotionEvent(mButtonPressPrimaryMotionEvent);
-        assertTrue(mActivity.onContextClick);
-        assertSame(mButtonPressPrimaryMotionEvent, mListener.getPreviousContextClickEvent());
+        verify(mListener, times(1)).onContextClick(mButtonPressPrimaryMotionEvent);
     }
 }

@@ -17,12 +17,17 @@
 package android.graphics.cts;
 
 import android.graphics.PathEffect;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PathEffectTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PathEffectTest {
+    @Test
     public void testConstructor() {
         new PathEffect();
     }
-
 }

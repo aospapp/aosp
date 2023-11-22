@@ -16,8 +16,8 @@
 
 #include "rsComponent.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 Component::Component() {
     set(RS_TYPE_NONE, RS_KIND_USER, false, 1);
@@ -273,6 +273,5 @@ void Component::loadFromStream(IStream *stream) {
     set(mType, mKind, mNormalized, mVectorSize);
 }
 
-
-
-
+} // namespace renderscript
+} // namespace android

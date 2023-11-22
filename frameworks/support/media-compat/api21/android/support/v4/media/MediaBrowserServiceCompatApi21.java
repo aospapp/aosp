@@ -24,10 +24,12 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.service.media.MediaBrowserService;
+import android.support.annotation.RequiresApi;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@RequiresApi(21)
 class MediaBrowserServiceCompatApi21 {
 
     public static Object createService(Context context, ServiceCompatProxy serviceProxy) {
@@ -66,8 +68,13 @@ class MediaBrowserServiceCompatApi21 {
             if (result instanceof List) {
                 mResultObj.sendResult(parcelListToItemList((List<Parcel>)result));
             } else if (result instanceof Parcel) {
-                mResultObj.sendResult(
-                        MediaBrowser.MediaItem.CREATOR.createFromParcel((Parcel) result));
+                Parcel parcel = (Parcel) result;
+                parcel.setDataPosition(0);
+                mResultObj.sendResult(MediaBrowser.MediaItem.CREATOR.createFromParcel(parcel));
+                parcel.recycle();
+            } else {
+                // The result is null or an invalid instance.
+                mResultObj.sendResult(null);
             }
         }
 
@@ -111,7 +118,7 @@ class MediaBrowserServiceCompatApi21 {
         public MediaBrowserService.BrowserRoot onGetRoot(String clientPackageName, int clientUid,
                 Bundle rootHints) {
             MediaBrowserServiceCompatApi21.BrowserRoot browserRoot = mServiceProxy.onGetRoot(
-                    clientPackageName, clientUid, rootHints);
+                    clientPackageName, clientUid, rootHints == null ? null : new Bundle(rootHints));
             return browserRoot == null ? null : new MediaBrowserService.BrowserRoot(
                     browserRoot.mRootId, browserRoot.mExtras);
         }

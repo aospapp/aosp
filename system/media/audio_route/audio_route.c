@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <tinyalsa/asoundlib.h>
 
@@ -153,17 +153,16 @@ static void path_free(struct audio_route *ar)
     unsigned int i;
 
     for (i = 0; i < ar->num_mixer_paths; i++) {
-        if (ar->mixer_path[i].name)
-            free(ar->mixer_path[i].name);
+        free(ar->mixer_path[i].name);
         if (ar->mixer_path[i].setting) {
-            if (ar->mixer_path[i].setting->value.ptr)
-                free(ar->mixer_path[i].setting->value.ptr);
+            free(ar->mixer_path[i].setting->value.ptr);
             free(ar->mixer_path[i].setting);
         }
     }
     free(ar->mixer_path);
     ar->mixer_path = NULL;
     ar->mixer_path_size = 0;
+    ar->num_mixer_paths = 0;
 }
 
 static struct mixer_path *path_get_by_name(struct audio_route *ar,
@@ -420,13 +419,24 @@ static int path_reset(struct audio_route *ar, struct mixer_path *path)
 static int mixer_enum_string_to_value(struct mixer_ctl *ctl, const char *string)
 {
     unsigned int i;
+    unsigned int num_values = mixer_ctl_get_num_enums(ctl);
+
+    if (string == NULL) {
+        ALOGE("NULL enum value string passed to mixer_enum_string_to_value() for ctl %s",
+              mixer_ctl_get_name(ctl));
+        return 0;
+    }
 
     /* Search the enum strings for a particular one */
-    for (i = 0; i < mixer_ctl_get_num_enums(ctl); i++) {
+    for (i = 0; i < num_values; i++) {
         if (strcmp(mixer_ctl_get_enum_string(ctl, i), string) == 0)
             break;
     }
-
+    if (i == num_values) {
+        ALOGE("unknown enum value string %s for ctl %s",
+              string, mixer_ctl_get_name(ctl));
+        return 0;
+    }
     return i;
 }
 
@@ -467,7 +477,11 @@ static void start_tag(void *data, const XML_Char *tag_name,
             } else {
                 /* nested path */
                 struct mixer_path *sub_path = path_get_by_name(ar, attr_name);
-                path_add_path(ar, state->path, sub_path);
+                if (!sub_path) {
+                    ALOGE("unable to find sub path '%s'", attr_name);
+                } else {
+                    path_add_path(ar, state->path, sub_path);
+                }
             }
         }
     }
@@ -867,7 +881,7 @@ struct audio_route *audio_route_init(unsigned int card, const char *xml_path)
     file = fopen(xml_path, "r");
 
     if (!file) {
-        ALOGE("Failed to open %s", xml_path);
+        ALOGE("Failed to open %s: %s", xml_path, strerror(errno));
         goto err_fopen;
     }
 

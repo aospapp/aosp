@@ -26,6 +26,7 @@ import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.tv.Features;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.parental.ContentRatingsManager;
 import com.android.tv.parental.ParentalControlSettings;
@@ -37,21 +38,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class TvInputManagerHelper {
     private static final String TAG = "TvInputManagerHelper";
     private static final boolean DEBUG = false;
-
-    // Hardcoded list for known bundled inputs not written by OEM/SOCs.
-    // Bundled (system) inputs not in the list will get the high priority
-    // so they and their channels come first in the UI.
-    private static final Set<String> BUNDLED_PACKAGE_SET = new HashSet<>();
-
-    static {
-        BUNDLED_PACKAGE_SET.add("com.android.tv");
-        BUNDLED_PACKAGE_SET.add("com.android.usbtuner");
-    }
+    private static final String[] PARTNER_TUNER_INPUT_PREFIX_BLACKLIST = {
+    };
 
     private final Context mContext;
     private final TvInputManager mTvInputManager;
@@ -62,6 +54,9 @@ public class TvInputManagerHelper {
         @Override
         public void onInputStateChanged(String inputId, int state) {
             if (DEBUG) Log.d(TAG, "onInputStateChanged " + inputId + " state=" + state);
+            if (isInBlackList(inputId)) {
+                return;
+            }
             mInputStateMap.put(inputId, state);
             for (TvInputCallback callback : mCallbacks) {
                 callback.onInputStateChanged(inputId, state);
@@ -71,6 +66,9 @@ public class TvInputManagerHelper {
         @Override
         public void onInputAdded(String inputId) {
             if (DEBUG) Log.d(TAG, "onInputAdded " + inputId);
+            if (isInBlackList(inputId)) {
+                return;
+            }
             TvInputInfo info = mTvInputManager.getTvInputInfo(inputId);
             if (info != null) {
                 mInputMap.put(inputId, info);
@@ -93,16 +91,34 @@ public class TvInputManagerHelper {
             for (TvInputCallback callback : mCallbacks) {
                 callback.onInputRemoved(inputId);
             }
+            ImageCache.getInstance().remove(ImageLoader.LoadTvInputLogoTask.getTvInputLogoKey(
+                    inputId));
         }
 
         @Override
         public void onInputUpdated(String inputId) {
             if (DEBUG) Log.d(TAG, "onInputUpdated " + inputId);
+            if (isInBlackList(inputId)) {
+                return;
+            }
             TvInputInfo info = mTvInputManager.getTvInputInfo(inputId);
             mInputMap.put(inputId, info);
             for (TvInputCallback callback : mCallbacks) {
                 callback.onInputUpdated(inputId);
             }
+            ImageCache.getInstance().remove(ImageLoader.LoadTvInputLogoTask.getTvInputLogoKey(
+                    inputId));
+        }
+
+        @Override
+        public void onTvInputInfoUpdated(TvInputInfo inputInfo) {
+            if (DEBUG) Log.d(TAG, "onTvInputInfoUpdated " + inputInfo);
+            mInputMap.put(inputInfo.getId(), inputInfo);
+            for (TvInputCallback callback : mCallbacks) {
+                callback.onTvInputInfoUpdated(inputInfo);
+            }
+            ImageCache.getInstance().remove(ImageLoader.LoadTvInputLogoTask.getTvInputLogoKey(
+                    inputInfo.getId()));
         }
     };
 
@@ -134,6 +150,9 @@ public class TvInputManagerHelper {
         for (TvInputInfo input : mTvInputManager.getTvInputList()) {
             if (DEBUG) Log.d(TAG, "Input detected " + input);
             String inputId = input.getId();
+            if (isInBlackList(inputId)) {
+                continue;
+            }
             mInputMap.put(inputId, input);
             int state = mTvInputManager.getInputState(inputId);
             mInputStateMap.put(inputId, state);
@@ -204,9 +223,8 @@ public class TvInputManagerHelper {
      * Is the input one known bundled inputs not written by OEM/SOCs.
      */
     public boolean isBundledInput(TvInputInfo inputInfo) {
-        return inputInfo != null 
-               && BUNDLED_PACKAGE_SET.contains(
-                   inputInfo.getServiceInfo().applicationInfo.packageName);
+        return inputInfo != null && Utils.isInBundledPackageSet(inputInfo.getServiceInfo()
+                .applicationInfo.packageName);
     }
 
     /**
@@ -236,10 +254,7 @@ public class TvInputManagerHelper {
     public boolean hasTvInputInfo(String inputId) {
         SoftPreconditions.checkState(mStarted, TAG,
                 "hasTvInputInfo() called before TvInputManagerHelper was started.");
-        if (!mStarted) {
-            return false;
-        }
-        return !TextUtils.isEmpty(inputId) && mInputMap.get(inputId) != null;
+        return mStarted && !TextUtils.isEmpty(inputId) && mInputMap.get(inputId) != null;
     }
 
     public TvInputInfo getTvInputInfo(String inputId) {
@@ -304,6 +319,18 @@ public class TvInputManagerHelper {
      */
     public ContentRatingsManager getContentRatingsManager() {
         return mContentRatingsManager;
+    }
+
+    private boolean isInBlackList(String inputId) {
+        if (!Features.USE_PARTNER_INPUT_BLACKLIST.isEnabled(mContext)) {
+            return false;
+        }
+        for (String disabledTunerInputPrefix : PARTNER_TUNER_INPUT_PREFIX_BLACKLIST) {
+            if (inputId.contains(disabledTunerInputPrefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

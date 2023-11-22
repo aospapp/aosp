@@ -15,9 +15,8 @@
  */
 package com.example.android.supportv7.widget;
 
-import com.example.android.supportv7.R;
-
 import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -25,9 +24,6 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.util.ArrayMap;
-import android.support.v4.view.MenuItemCompat;
-import android.support.v4.view.ViewCompat;
-import android.support.v4.view.ViewPropertyAnimatorListener;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.RecyclerView;
 import android.util.DisplayMetrics;
@@ -39,6 +35,8 @@ import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.TextView;
+
+import com.example.android.supportv7.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +61,7 @@ public class AnimatedRecyclerView extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.animated_recycler_view);
 
-        ViewGroup container = (ViewGroup) findViewById(R.id.container);
+        ViewGroup container = findViewById(R.id.container);
         mRecyclerView = new RecyclerView(this);
         mCachedAnimator = createAnimator();
         mCachedAnimator.setChangeDuration(2000);
@@ -79,7 +77,7 @@ public class AnimatedRecyclerView extends Activity {
         mRecyclerView.setAdapter(mAdapter);
         container.addView(mRecyclerView);
 
-        CheckBox enableAnimations = (CheckBox) findViewById(R.id.enableAnimations);
+        CheckBox enableAnimations = findViewById(R.id.enableAnimations);
         enableAnimations.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -93,7 +91,7 @@ public class AnimatedRecyclerView extends Activity {
         });
 
         CheckBox enablePredictiveAnimations =
-                (CheckBox) findViewById(R.id.enablePredictiveAnimations);
+                findViewById(R.id.enablePredictiveAnimations);
         enablePredictiveAnimations.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -101,7 +99,7 @@ public class AnimatedRecyclerView extends Activity {
             }
         });
 
-        CheckBox enableInPlaceChange = (CheckBox) findViewById(R.id.enableInPlaceChange);
+        CheckBox enableInPlaceChange = findViewById(R.id.enableInPlaceChange);
         enableInPlaceChange.setChecked(mEnableInPlaceChange);
         enableInPlaceChange.setOnCheckedChangeListener(
                 new CompoundButton.OnCheckedChangeListener() {
@@ -130,26 +128,26 @@ public class AnimatedRecyclerView extends Activity {
                 for (int i = mPendingSettleList.size() - 1; i >=0; i--) {
                     final MyViewHolder vh = mPendingSettleList.keyAt(i);
                     final long duration = mPendingSettleList.valueAt(i);
-                    ViewCompat.animate(vh.textView).translationX(0f).alpha(1f)
+                    vh.textView.animate().translationX(0f).alpha(1f)
                             .setDuration(duration).setListener(
-                            new ViewPropertyAnimatorListener() {
-                                @Override
-                                public void onAnimationStart(View view) {
-                                    dispatchAnimationStarted(vh);
-                                }
+                                    new AnimatorListenerAdapter() {
+                                        @Override
+                                        public void onAnimationStart(Animator animator) {
+                                            dispatchAnimationStarted(vh);
+                                        }
 
-                                @Override
-                                public void onAnimationEnd(View view) {
-                                    ViewCompat.setTranslationX(vh.textView, 0f);
-                                    ViewCompat.setAlpha(vh.textView, 1f);
-                                    dispatchAnimationFinished(vh);
-                                }
+                                        @Override
+                                        public void onAnimationEnd(Animator animator) {
+                                            vh.textView.setTranslationX(0f);
+                                            vh.textView.setAlpha(1f);
+                                            dispatchAnimationFinished(vh);
+                                        }
 
-                                @Override
-                                public void onAnimationCancel(View view) {
+                                        @Override
+                                        public void onAnimationCancel(Animator animator) {
 
-                                }
-                            }).start();
+                                        }
+                                    }).start();
                 }
                 mPendingSettleList.clear();
             }
@@ -230,7 +228,7 @@ public class AnimatedRecyclerView extends Activity {
                 if (pre.text.equals(post.text)) {
                     // same content. Just translate back to 0
                     final long duration = (long) (getChangeDuration()
-                            * (ViewCompat.getTranslationX(vh.textView) / vh.textView.getWidth()));
+                            * (vh.textView.getTranslationX() / vh.textView.getWidth()));
                     mPendingSettleList.put(vh, duration);
                     // we set it here because previous endAnimation would set it to other value.
                     vh.textView.setText(finalText);
@@ -274,7 +272,7 @@ public class AnimatedRecyclerView extends Activity {
         public ItemChangeAnimator(MyViewHolder viewHolder, CharSequence finalText, long duration) {
             mViewHolder = viewHolder;
             mMaxX = mViewHolder.itemView.getWidth();
-            mStartRatio = ViewCompat.getTranslationX(mViewHolder.textView) / mMaxX;
+            mStartRatio = mViewHolder.textView.getTranslationX() / mMaxX;
             mFinalText = finalText;
             mValueAnimator = ValueAnimator.ofFloat(0f, 1f);
             mValueAnimator.addUpdateListener(this);
@@ -286,11 +284,11 @@ public class AnimatedRecyclerView extends Activity {
         void setFraction(float fraction) {
             fraction = mStartRatio + (1f - mStartRatio) * fraction;
             if (fraction < .5f) {
-                ViewCompat.setTranslationX(mViewHolder.textView, fraction * mMaxX);
-                ViewCompat.setAlpha(mViewHolder.textView, 1f - fraction);
+                mViewHolder.textView.setTranslationX(fraction * mMaxX);
+                mViewHolder.textView.setAlpha(1f - fraction);
             } else {
-                ViewCompat.setTranslationX(mViewHolder.textView, (1f - fraction) * mMaxX);
-                ViewCompat.setAlpha(mViewHolder.textView, fraction);
+                mViewHolder.textView.setTranslationX((1f - fraction) * mMaxX);
+                mViewHolder.textView.setAlpha(fraction);
                 maybeSetFinalText();
             }
         }
@@ -307,7 +305,7 @@ public class AnimatedRecyclerView extends Activity {
         @Override
         public void onAnimationEnd(Animator animation) {
             maybeSetFinalText();
-            ViewCompat.setAlpha(mViewHolder.textView, 1f);
+            mViewHolder.textView.setAlpha(1f);
         }
 
         public void maybeSetFinalText() {
@@ -341,7 +339,7 @@ public class AnimatedRecyclerView extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         super.onCreateOptionsMenu(menu);
-        MenuItemCompat.setShowAsAction(menu.add("Layout"), MenuItemCompat.SHOW_AS_ACTION_IF_ROOM);
+        menu.add("Layout").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         return true;
     }
 

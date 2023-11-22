@@ -18,6 +18,11 @@
  * Definition of the class representing metadata for international telephone numbers. This class is
  * hand created based on the class file compiled from phonemetadata.proto. Please refer to that file
  * for detailed descriptions of the meaning of each field.
+ *
+ * <p>WARNING: This API isn't stable. It is considered libphonenumber-internal and can change at any
+ * time. We only declare it as public for easy inclusion in our build tools not in this package.
+ * Clients should not refer to this file, we do not commit to support backwards-compatibility or to
+ * warn about breaking changes.
  */
 
 package com.google.i18n.phonenumbers;
@@ -40,6 +45,28 @@ public final class Phonemetadata {
      */
     public static final class Builder extends NumberFormat {
       public NumberFormat build() {
+        return this;
+      }
+
+      public Builder mergeFrom(NumberFormat other) {
+        if (other.hasPattern()) {
+          setPattern(other.getPattern());
+        }
+        if (other.hasFormat()) {
+          setFormat(other.getFormat());
+        }
+        for (int i = 0; i < other.leadingDigitsPatternSize(); i++) {
+          addLeadingDigitsPattern(other.getLeadingDigitsPattern(i));
+        }
+        if (other.hasNationalPrefixFormattingRule()) {
+          setNationalPrefixFormattingRule(other.getNationalPrefixFormattingRule());
+        }
+        if (other.hasDomesticCarrierCodeFormattingRule()) {
+          setDomesticCarrierCodeFormattingRule(other.getDomesticCarrierCodeFormattingRule());
+        }
+        if (other.hasNationalPrefixOptionalWhenFormatting()) {
+          setNationalPrefixOptionalWhenFormatting(other.isNationalPrefixOptionalWhenFormatting());
+        }
         return this;
       }
     }
@@ -129,27 +156,6 @@ public final class Phonemetadata {
       return this;
     }
 
-    public NumberFormat mergeFrom(NumberFormat other) {
-      if (other.hasPattern()) {
-        setPattern(other.getPattern());
-      }
-      if (other.hasFormat()) {
-        setFormat(other.getFormat());
-      }
-      int leadingDigitsPatternSize = other.leadingDigitsPatternSize();
-      for (int i = 0; i < leadingDigitsPatternSize; i++) {
-        addLeadingDigitsPattern(other.getLeadingDigitsPattern(i));
-      }
-      if (other.hasNationalPrefixFormattingRule()) {
-        setNationalPrefixFormattingRule(other.getNationalPrefixFormattingRule());
-      }
-      if (other.hasDomesticCarrierCodeFormattingRule()) {
-        setDomesticCarrierCodeFormattingRule(other.getDomesticCarrierCodeFormattingRule());
-      }
-      setNationalPrefixOptionalWhenFormatting(other.isNationalPrefixOptionalWhenFormatting());
-      return this;
-    }
-
     public void writeExternal(ObjectOutput objectOutput) throws IOException {
       objectOutput.writeUTF(pattern_);
       objectOutput.writeUTF(format_);
@@ -200,7 +206,27 @@ public final class Phonemetadata {
       public PhoneNumberDesc build() {
         return this;
       }
+
+      public Builder mergeFrom(PhoneNumberDesc other) {
+        if (other.hasNationalNumberPattern()) {
+          setNationalNumberPattern(other.getNationalNumberPattern());
+        }
+        if (other.hasPossibleNumberPattern()) {
+          setPossibleNumberPattern(other.getPossibleNumberPattern());
+        }
+        for (int i = 0; i < other.getPossibleLengthCount(); i++) {
+          addPossibleLength(other.getPossibleLength(i));
+        }
+        for (int i = 0; i < other.getPossibleLengthLocalOnlyCount(); i++) {
+          addPossibleLengthLocalOnly(other.getPossibleLengthLocalOnly(i));
+        }
+        if (other.hasExampleNumber()) {
+          setExampleNumber(other.getExampleNumber());
+        }
+        return this;
+      }
     }
+
     public static Builder newBuilder() {
       return new Builder();
     }
@@ -215,6 +241,11 @@ public final class Phonemetadata {
       nationalNumberPattern_ = value;
       return this;
     }
+    public PhoneNumberDesc clearNationalNumberPattern() {
+      hasNationalNumberPattern = false;
+      nationalNumberPattern_ = "";
+      return this;
+    }
 
     // optional string possible_number_pattern = 3;
     private boolean hasPossibleNumberPattern;
@@ -224,6 +255,47 @@ public final class Phonemetadata {
     public PhoneNumberDesc setPossibleNumberPattern(String value) {
       hasPossibleNumberPattern = true;
       possibleNumberPattern_ = value;
+      return this;
+    }
+    public PhoneNumberDesc clearPossibleNumberPattern() {
+      hasPossibleNumberPattern = false;
+      possibleNumberPattern_ = "";
+      return this;
+    }
+
+    // repeated int32 possible_length = 9;
+    private java.util.List<Integer> possibleLength_ = new java.util.ArrayList<Integer>();
+    public java.util.List<Integer> getPossibleLengthList() {
+      return possibleLength_;
+    }
+    public int getPossibleLengthCount() { return possibleLength_.size(); }
+    public int getPossibleLength(int index) {
+      return possibleLength_.get(index);
+    }
+    public PhoneNumberDesc addPossibleLength(int value) {
+      possibleLength_.add(value);
+      return this;
+    }
+    public PhoneNumberDesc clearPossibleLength() {
+      possibleLength_.clear();
+      return this;
+    }
+
+    // repeated int32 possible_length_local_only = 10;
+    private java.util.List<Integer> possibleLengthLocalOnly_ = new java.util.ArrayList<Integer>();
+    public java.util.List<Integer> getPossibleLengthLocalOnlyList() {
+      return possibleLengthLocalOnly_;
+    }
+    public int getPossibleLengthLocalOnlyCount() { return possibleLengthLocalOnly_.size(); }
+    public int getPossibleLengthLocalOnly(int index) {
+      return possibleLengthLocalOnly_.get(index);
+    }
+    public PhoneNumberDesc addPossibleLengthLocalOnly(int value) {
+      possibleLengthLocalOnly_.add(value);
+      return this;
+    }
+    public PhoneNumberDesc clearPossibleLengthLocalOnly() {
+      possibleLengthLocalOnly_.clear();
       return this;
     }
 
@@ -237,23 +309,17 @@ public final class Phonemetadata {
       exampleNumber_ = value;
       return this;
     }
-
-    public PhoneNumberDesc mergeFrom(PhoneNumberDesc other) {
-      if (other.hasNationalNumberPattern()) {
-        setNationalNumberPattern(other.getNationalNumberPattern());
-      }
-      if (other.hasPossibleNumberPattern()) {
-        setPossibleNumberPattern(other.getPossibleNumberPattern());
-      }
-      if (other.hasExampleNumber()) {
-        setExampleNumber(other.getExampleNumber());
-      }
+    public PhoneNumberDesc clearExampleNumber() {
+      hasExampleNumber = false;
+      exampleNumber_ = "";
       return this;
     }
 
     public boolean exactlySameAs(PhoneNumberDesc other) {
       return nationalNumberPattern_.equals(other.nationalNumberPattern_) &&
           possibleNumberPattern_.equals(other.possibleNumberPattern_) &&
+          possibleLength_.equals(other.possibleLength_) &&
+          possibleLengthLocalOnly_.equals(other.possibleLengthLocalOnly_) &&
           exampleNumber_.equals(other.exampleNumber_);
     }
 
@@ -266,6 +332,18 @@ public final class Phonemetadata {
       objectOutput.writeBoolean(hasPossibleNumberPattern);
       if (hasPossibleNumberPattern) {
         objectOutput.writeUTF(possibleNumberPattern_);
+      }
+
+      int possibleLengthSize = getPossibleLengthCount();
+      objectOutput.writeInt(possibleLengthSize);
+      for (int i = 0; i < possibleLengthSize; i++) {
+        objectOutput.writeInt(possibleLength_.get(i));
+      }
+
+      int possibleLengthLocalOnlySize = getPossibleLengthLocalOnlyCount();
+      objectOutput.writeInt(possibleLengthLocalOnlySize);
+      for (int i = 0; i < possibleLengthLocalOnlySize; i++) {
+        objectOutput.writeInt(possibleLengthLocalOnly_.get(i));
       }
 
       objectOutput.writeBoolean(hasExampleNumber);
@@ -281,6 +359,16 @@ public final class Phonemetadata {
 
       if (objectInput.readBoolean()) {
         setPossibleNumberPattern(objectInput.readUTF());
+      }
+
+      int possibleLengthSize = objectInput.readInt();
+      for (int i = 0; i < possibleLengthSize; i++) {
+        possibleLength_.add(objectInput.readInt());
+      }
+
+      int possibleLengthLocalOnlySize = objectInput.readInt();
+      for (int i = 0; i < possibleLengthLocalOnlySize; i++) {
+        possibleLengthLocalOnly_.add(objectInput.readInt());
       }
 
       if (objectInput.readBoolean()) {
@@ -574,6 +662,11 @@ public final class Phonemetadata {
       preferredInternationalPrefix_ = value;
       return this;
     }
+    public PhoneMetadata clearPreferredInternationalPrefix() {
+      hasPreferredInternationalPrefix = false;
+      preferredInternationalPrefix_ = "";
+      return this;
+    }
 
     // optional string national_prefix = 12;
     private boolean hasNationalPrefix;
@@ -585,6 +678,11 @@ public final class Phonemetadata {
       nationalPrefix_ = value;
       return this;
     }
+    public PhoneMetadata clearNationalPrefix() {
+      hasNationalPrefix = false;
+      nationalPrefix_ = "";
+      return this;
+    }
 
     // optional string preferred_extn_prefix = 13;
     private boolean hasPreferredExtnPrefix;
@@ -594,6 +692,11 @@ public final class Phonemetadata {
     public PhoneMetadata setPreferredExtnPrefix(String value) {
       hasPreferredExtnPrefix = true;
       preferredExtnPrefix_ = value;
+      return this;
+    }
+    public PhoneMetadata clearPreferredExtnPrefix() {
+      hasPreferredExtnPrefix = false;
+      preferredExtnPrefix_ = "";
       return this;
     }
 
@@ -618,6 +721,11 @@ public final class Phonemetadata {
       nationalPrefixTransformRule_ = value;
       return this;
     }
+    public PhoneMetadata clearNationalPrefixTransformRule() {
+      hasNationalPrefixTransformRule = false;
+      nationalPrefixTransformRule_ = "";
+      return this;
+    }
 
     // optional bool same_mobile_and_fixed_line_pattern = 18 [default = false];
     private boolean hasSameMobileAndFixedLinePattern;
@@ -627,6 +735,11 @@ public final class Phonemetadata {
     public PhoneMetadata setSameMobileAndFixedLinePattern(boolean value) {
       hasSameMobileAndFixedLinePattern = true;
       sameMobileAndFixedLinePattern_ = value;
+      return this;
+    }
+    public PhoneMetadata clearSameMobileAndFixedLinePattern() {
+      hasSameMobileAndFixedLinePattern = false;
+      sameMobileAndFixedLinePattern_ = false;
       return this;
     }
 
@@ -683,6 +796,11 @@ public final class Phonemetadata {
       mainCountryForCode_ = value;
       return this;
     }
+    public PhoneMetadata clearMainCountryForCode() {
+      hasMainCountryForCode = false;
+      mainCountryForCode_ = false;
+      return this;
+    }
 
     // optional string leading_digits = 23;
     private boolean hasLeadingDigits;
@@ -705,6 +823,11 @@ public final class Phonemetadata {
       leadingZeroPossible_ = value;
       return this;
     }
+    public PhoneMetadata clearLeadingZeroPossible() {
+      hasLeadingZeroPossible = false;
+      leadingZeroPossible_ = false;
+      return this;
+    }
 
     // optional bool mobile_number_portable_region = 32 [default = false];
     private boolean hasMobileNumberPortableRegion;
@@ -714,6 +837,11 @@ public final class Phonemetadata {
     public PhoneMetadata setMobileNumberPortableRegion(boolean value) {
       hasMobileNumberPortableRegion = true;
       mobileNumberPortableRegion_ = value;
+      return this;
+    }
+    public PhoneMetadata clearMobileNumberPortableRegion() {
+      hasMobileNumberPortableRegion = false;
+      mobileNumberPortableRegion_ = false;
       return this;
     }
 

@@ -56,7 +56,7 @@ public class VirtualizerTest extends PostProcTestBase {
 
         Virtualizer eq = null;
         try {
-            eq = new Virtualizer(0, 0);
+            eq = new Virtualizer(0, getSessionId());
             try {
                 assertTrue(" invalid effect ID", (eq.getId() != 0));
             } catch (IllegalStateException e) {
@@ -84,7 +84,7 @@ public class VirtualizerTest extends PostProcTestBase {
             return;
         }
 
-        getVirtualizer(0);
+        getVirtualizer(getSessionId());
         try {
             if (mVirtualizer.getStrengthSupported()) {
                 short strength = mVirtualizer.getRoundedStrength();
@@ -116,7 +116,7 @@ public class VirtualizerTest extends PostProcTestBase {
             return;
         }
 
-        getVirtualizer(0);
+        getVirtualizer(getSessionId());
         try {
             Virtualizer.Settings settings = mVirtualizer.getProperties();
             String str = settings.toString();
@@ -153,7 +153,7 @@ public class VirtualizerTest extends PostProcTestBase {
             return;
         }
 
-        getVirtualizer(0);
+        getVirtualizer(getSessionId());
         mVirtualizer.release();
         try {
             mVirtualizer.setStrength(TEST_STRENGTH);
@@ -174,7 +174,7 @@ public class VirtualizerTest extends PostProcTestBase {
             return;
         }
 
-        getVirtualizer(0);
+        getVirtualizer(getSessionId());
         try {
             mVirtualizer.setEnabled(true);
             assertTrue(" invalid state from getEnabled", mVirtualizer.getEnabled());
@@ -193,7 +193,7 @@ public class VirtualizerTest extends PostProcTestBase {
             return;
         }
 
-        getVirtualizer(0);
+        getVirtualizer(getSessionId());
         mVirtualizer.release();
         try {
             mVirtualizer.setEnabled(true);
@@ -220,7 +220,7 @@ public class VirtualizerTest extends PostProcTestBase {
             createListenerLooper(true, false, false);
             waitForLooperInitialization_l();
 
-            getVirtualizer(0);
+            getVirtualizer(mSession);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
             while (mHasControl && (looperWaitCount-- > 0)) {
                 try {
@@ -247,7 +247,7 @@ public class VirtualizerTest extends PostProcTestBase {
 
             mVirtualizer2.setEnabled(true);
             mIsEnabled = true;
-            getVirtualizer(0);
+            getVirtualizer(mSession);
             mVirtualizer.setEnabled(false);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
             while (mIsEnabled && (looperWaitCount-- > 0)) {
@@ -273,7 +273,7 @@ public class VirtualizerTest extends PostProcTestBase {
             createListenerLooper(false, false, true);
             waitForLooperInitialization_l();
 
-            getVirtualizer(0);
+            getVirtualizer(mSession);
             mChangedParameter = -1;
             mVirtualizer.setStrength(TEST_STRENGTH);
 
@@ -615,7 +615,8 @@ public class VirtualizerTest extends PostProcTestBase {
                 // after we are done with it.
                 mLooper = Looper.myLooper();
 
-                mVirtualizer2 = new Virtualizer(0, 0);
+                mSession = getSessionId();
+                mVirtualizer2 = new Virtualizer(0, mSession);
 
                 synchronized(mLock) {
                     if (mControl) {

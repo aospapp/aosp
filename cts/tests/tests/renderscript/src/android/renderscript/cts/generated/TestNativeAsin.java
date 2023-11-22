@@ -37,17 +37,25 @@ public class TestNativeAsin extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeAsinRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkNativeAsinFloatFloat() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x8d3e5bc7l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x1167d6d8d3e5bc7l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeAsinFloatFloat(inV, out);
             verifyResultsNativeAsinFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinFloatFloat(inV, out);
             verifyResultsNativeAsinFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -112,11 +122,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinFloat2Float2() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xebdf2133l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xdb4aa187ebdf2133l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testNativeAsinFloat2Float2(inV, out);
             verifyResultsNativeAsinFloat2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloat2Float2: " + e.toString());
         }
@@ -124,9 +135,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinFloat2Float2(inV, out);
             verifyResultsNativeAsinFloat2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloat2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinFloat2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -181,11 +194,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinFloat3Float3() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xe1fa4211l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xdb4c6aa2e1fa4211l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testNativeAsinFloat3Float3(inV, out);
             verifyResultsNativeAsinFloat3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloat3Float3: " + e.toString());
         }
@@ -193,9 +207,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinFloat3Float3(inV, out);
             verifyResultsNativeAsinFloat3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloat3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinFloat3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -250,11 +266,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinFloat4Float4() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xd81562efl, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xdb4e33bdd81562efl, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testNativeAsinFloat4Float4(inV, out);
             verifyResultsNativeAsinFloat4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloat4Float4: " + e.toString());
         }
@@ -262,9 +279,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinFloat4Float4(inV, out);
             verifyResultsNativeAsinFloat4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinFloat4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinFloat4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -325,11 +344,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinHalfHalf() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x228512e9l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xd1966c64228512e9l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeAsinHalfHalf(inV, out);
             verifyResultsNativeAsinHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalfHalf: " + e.toString());
         }
@@ -337,9 +357,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinHalfHalf(inV, out);
             verifyResultsNativeAsinHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -398,11 +420,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinHalf2Half2() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xfa5ca303l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xc773ef20fa5ca303l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testNativeAsinHalf2Half2(inV, out);
             verifyResultsNativeAsinHalf2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalf2Half2: " + e.toString());
         }
@@ -410,9 +433,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinHalf2Half2(inV, out);
             verifyResultsNativeAsinHalf2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalf2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -471,11 +496,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinHalf3Half3() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x596467f7l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xc773f9c2596467f7l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testNativeAsinHalf3Half3(inV, out);
             verifyResultsNativeAsinHalf3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalf3Half3: " + e.toString());
         }
@@ -483,9 +509,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinHalf3Half3(inV, out);
             verifyResultsNativeAsinHalf3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalf3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -544,11 +572,12 @@ public class TestNativeAsin extends RSBaseCompute {
     }
 
     private void checkNativeAsinHalf4Half4() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xb86c2cebl, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xc7740463b86c2cebl, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testNativeAsinHalf4Half4(inV, out);
             verifyResultsNativeAsinHalf4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalf4Half4: " + e.toString());
         }
@@ -556,9 +585,11 @@ public class TestNativeAsin extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAsinHalf4Half4(inV, out);
             verifyResultsNativeAsinHalf4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAsinHalf4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAsinHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {

@@ -19,6 +19,7 @@
 
 #include <list>
 #include <stack>
+#include <vector>
 
 #include "clang/AST/StmtVisitor.h"
 
@@ -105,7 +106,7 @@ class RSObjectRefCount : public clang::StmtVisitor<RSObjectRefCount> {
   std::deque<Scope*> mScopeStack;  // A deque used as a stack to store scopes, but also
                                    // accessed through its iterator in read-only mode.
   clang::DeclContext* mCurrentDC;
-  bool RSInitFD;
+  bool RSInitFD;  // TODO: this should be static, since this flag affects all instances.
   unsigned mTempID;  // A unique id that can be used to distinguish temporary variables
 
   // RSSetObjectFD and RSClearObjectFD holds FunctionDecl of rsSetObject()
@@ -164,6 +165,11 @@ class RSObjectRefCount : public clang::StmtVisitor<RSObjectRefCount> {
     }
   }
 
+  // For function parameters and local variables that are or contain RS objects,
+  // e.g., rs_allocation, this method transforms the function body to correctly
+  // adjust reference counts of those objects.
+  void HandleParamsAndLocals(clang::FunctionDecl *FD);
+
   static clang::FunctionDecl *GetRSSetObjectFD(DataType DT) {
     slangAssert(RSExportPrimitiveType::IsRSObjectType(DT));
     if (DT >= 0 && DT < DataTypeMax) {
@@ -191,6 +197,82 @@ class RSObjectRefCount : public clang::StmtVisitor<RSObjectRefCount> {
   static clang::FunctionDecl *GetRSClearObjectFD(const clang::Type *T) {
     return GetRSClearObjectFD(RSExportPrimitiveType::GetRSSpecificType(T));
   }
+
+  // This method creates a "guard" variable for the expression E that is object-
+  // typed or object-containing, e.g., a struct with object-type fields.
+  // It creates one or more rsSetObject() calls to set the value of the guard to E.
+  // This effectively increases the sysRef count of the objects referenced by E
+  // by 1, therefore "guarding" the objects, which might otherwise lose a
+  // reference and get deleted. Statements that declare the new variable and set
+  // the value of the new variable are added to the vector NewStmts.
+  //
+  // Parameters:
+  // C: The clang AST Context.
+  // DC: The DeclContext for any new Decl to add
+  // E: The expression with reference to the objects for which we want to
+  //    increase the sysRef count
+  // VarName: The name to use for the new guard variable
+  // NewStmts: The vector for all statements added to create and set the guard.
+  //
+  // Returns:
+  // An expression consisting of the guard variable
+  //
+  static clang::DeclRefExpr *CreateGuard(clang::ASTContext &C,
+                                         clang::DeclContext *DC,
+                                         clang::Expr *E,
+                                         const llvm::Twine &VarName,
+                                         std::vector<clang::Stmt*> &NewStmts);
+
+  // For any function parameter that is object-typed or object-containing, if it
+  // is overwritten inside the function, a system reference (sysRef) count
+  // would decrement and may reach 0, leading the object to be deleted. This may
+  // create a dangling pointer reference after a call to the function.
+  // For example, the object in parameter a in the function below may be deleted
+  // before the function returns.
+  //   void foo(rs_allocation a) {  // assuming a references obj with sysRef of 1
+  //     rs_allocation b = {};
+  //     a = b;  // decrements sysRef of obj and deletes it
+  //   }
+  //
+  // To avoid this problem, the sysRef counts of objects contained in parameters
+  // --directly for object-typed parameters or indirectly as fields for struct-
+  // typed parameters--are incremented at the beginning of the function, and
+  // decremented at the end and any exiting point of the function. To achieve
+  // these effects, the compiler creates a temporary local variable, and calls
+  // rsSetObject() to set its value to that of the parameter. At the end of the
+  // function and at any exiting point, the compiler adds calls to
+  // rsClearObject() on the parameter. Each rsClearObject() call would decrement
+  // the sysRef count of an incoming object if the parameter is never overwritten
+  // in the function, or it would properly decrement the sysRef count of the new
+  // object that the parameter is updated to in the function, since now the
+  // parameter is going out of scope. For example, the compiler would transform
+  // the previous code example into the following.
+  //   void foo(rs_allocation a) {  // assuming a references obj with sysRef of 1
+  //     rs_allocation .rs.param.a;
+  //     rsSetObject(&.rs.param.a, a);  // sysRef of obj becomes 2
+  //     rs_allocation b = {};
+  //     a = b;  // sysRef of obj becomes 1
+  //     rsClearObject(&a);  // sysRef of obj stays 1. obj stays undeleted.
+  //   }
+  //
+  // This method creates the guard variable for a object-type parameter,
+  // named with the prefix ".rs.param." added to the parameter name. It calls
+  // CreateGuard() to do this. The rsClearObject() call for the parameter as
+  // described above is not added by this function, but by the caller of this
+  // function, i.e., HandleParametersAndLocals().
+  //
+  // Parameters:
+  // C: The clang AST Context.
+  // DC: The DeclContext for any new Decl to add. It should be the FunctionnDecl
+  //     of the function being transformed.
+  // PD: The ParmDecl for the parameter.
+  // NewStmts: The vector for all statements added to create and set the guard.
+  //
+  static void CreateParameterGuard(
+      clang::ASTContext &C,
+      clang::DeclContext *DC,
+      clang::ParmVarDecl *PD,
+      std::vector<clang::Stmt*> &NewStmts);
 
   void SetDeclContext(clang::DeclContext* DC) { mCurrentDC = DC; }
   clang::DeclContext* GetDeclContext() const { return mCurrentDC; }

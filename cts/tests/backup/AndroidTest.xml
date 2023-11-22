@@ -15,12 +15,14 @@
   ~ limitations under the License
   -->
 <configuration description="Config for CTS Backup test cases">
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <option name="config-descriptor:metadata" key="component" value="backup" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsBackupApp.apk" />
         <option name="test-file-name" value="CtsBackupTestCases.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.backup.cts" />
+        <option name="runtime-hint" value="8m20s" />
     </test>
 </configuration>

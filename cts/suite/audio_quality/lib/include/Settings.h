@@ -32,7 +32,7 @@ public:
         ETEST_XML       = 4, // name of test description xml
         EMAX_SETTINGS   = 4  // not real setting
     };
-    void addSetting(SettingType type, const android::String8 setting);
+    void addSetting(SettingType type, const android::String8& setting);
     const android::String8& getSetting(SettingType type);
 private:
     static Settings* mInstance;

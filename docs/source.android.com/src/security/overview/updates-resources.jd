@@ -59,13 +59,53 @@ of the bug and which component of Android is affected. The severity determines
 how the issue is prioritized, and the component determines who fixes the bug,
 who is notified, and how the fix gets deployed to users.</p>
 
+<h3 id=process_types>Process types</h3>
+<p>This table covers the definitions of process types. The process type can be
+defined by the type of application or process or the area in which it runs.
+This table is ordered from least to most privileged.</p>
+<table>
+ <tr>
+    <th>Process type</th>
+    <th>Type definition</th>
+ </tr>
+ <tr>
+    <td>Constrained process</td>
+    <td>A process that runs in a highly limited SELinux domain.<br />
+           OR<br />
+           A process that is significantly more limited than a normal application.</td>
+ </tr>
+ <tr>
+    <td>Unprivileged process</td>
+    <td>A third-party application or process.<br />
+           OR<br />
+          An application or process that runs in the SELinux <code>untrusted_app</code> domain.</td>
+ </tr>
+ <tr>
+    <td>Privileged process</td>
+    <td>An application or process with capabilities that are restricted by SELinux
+        <code>untrusted_app</code> domain.<br />
+         OR<br />
+         An application or process with important privileges that a third-party
+         application cannot obtain.</td>
+ </tr>
+ <tr>
+    <td>Kernel</td>
+    <td>Functionality that is either part of the kernel or runs in the same CPU context
+        as the kernel (like device drivers).</td>
+ </tr>
+ <tr>
+    <td>Trusted Execution Environment (TEE)</td>
+    <td> A component that is designed to be protected from even a hostile kernel.</td>
+ </tr>
+</table>
+
+
 <h3 id=severity>Severity</h3>
+
 
 <p>The severity of a bug generally reflects the potential harm that could occur if
 a bug was successfully exploited. Use the following criteria to determine the
 severity:</p>
-<p class="table-caption" id="severity-criteria">
-  <strong>Table 1.</strong> Severity ratings and associated consequences</p>
 <table>
  <tr>
     <th>Rating</th>
@@ -74,68 +114,70 @@ severity:</p>
  <tr>
     <td><strong>Critical</strong></td>
     <td>
-<ul>
-<li>Remote privileged code execution (execution at a privilege level that
-third-party apps cannot obtain)
-<li>Local permanent device compromise (device cannot be repaired without
-re-flashing the entire operating system, such as a  verified boot or Trusted
-Execution Environment/TEE compromise)
-<li>Remote permanent denial of service (inoperability, either completely permanent
-or requiring re-flashing the device)
-</ul>
-</td>
+          <ul>
+             <li> Remote arbitrary code execution in a privileged process
+             <li> Permanent device compromise (device cannot be repaired without re-flashing the
+                  entire operating system)
+             <li> Unauthorized access to data secured by the TEE
+             <li> Remote permanent denial of service (device inoperability: completely permanent
+                  or requiring re-flashing the entire operating system)
+          </ul>
+    </td>
  </tr>
  <tr>
-    <td><strong>High</strong></td>
-    <td>
-<ul>
-<li>Remote unprivileged code execution (execution at a privilege level that
-third-party apps can obtain through installation)
-<li>Local access to system/signature-level permission data or capabilities without
-permission
-<li>Local permanent denial-of-service (inoperability, either completely permanent
-or requiring re-flashing the device)
-<li>Remote temporary denial-of-service (remote hang or reboot)
-</ul>
-</td>
+     <td><strong>High</strong></td>
+     <td>
+          <ul>
+             <li> Remote arbitrary code execution in an unprivileged process
+             <li> Remote access to protected data (data normally accessible only to locally
+                  installed apps that request permission, or that is limited to a privileged
+                  process)
+             <li> Remote bypass of user interaction requirements (access to functionality that
+                  would normally require either user initiation or user permission)
+             <li> Local arbitrary code execution in a privileged process
+             <li> Local permanent denial of service (device inoperability: completely permanent
+                  or requiring re-flashing the entire operating system)
+             <li> A general bypass for a kernel level defense in depth or exploit mitigation
+                  technology
+             <li> Remote temporary device denial of service (remote hang or reboot)
+             <li> Local bypass of user interaction requirements for any developer or security
+                  settings modifications
+             <li> A general bypass for operating system protections that isolate application data
+                  from other applications
+             <li> Lockscreen bypass
+        </ul>
+    </td>
  </tr>
  <tr>
-    <td><strong>Moderate</strong></td>
-    <td>
-<ul>
-<li>Access to "<a
-href="http://developer.android.com/guide/topics/manifest/permission-element.html#plevel">dangerous</a>"
-level permission data or capabilities without permission with an app installed
-on the device
-<li>Local temporary denial-of-service (can be resolved only through a factory
-reset)
-</ul>
-</td>
+     <td><strong>Moderate</strong></td>
+     <td>
+          <ul>
+             <li> Remote arbitrary code execution in a constrained process
+             <li> Local bypass of user interaction requirements (access to functionality that
+                  would normally require either user initiation or user permission)
+             <li> Local temporary denial of service (device requires a factory reset)
+             <li> A general bypass for a user level defense in depth or exploit mitigation
+                  technology in a privileged process
+             <li> Remote access to unprotected data (data normally accessible to any locally
+                  installed app)
+             <li> Bypass of Device Protection/ Factory Reset Protection
+        </ul>
+    </td>
  </tr>
  <tr>
-    <td><strong>Low</strong></td>
-    <td>
-<ul>
-<li>Access to "<a
-href="http://developer.android.com/guide/topics/manifest/permission-element.html#plevel">normal</a>"
-level permission capabilities without permission with an app installed on the
-device
-<li>Local temporary denial-of-service (can be resolved by booting the device into
-Safe Mode and removing the problem application)
-</ul>
-</td>
+     <td><strong>Low</strong></td>
+     <td>
+          <ul>
+             <li> A general bypass for a user level defense in depth or exploit mitigation
+                  technology in an unprivileged process
+             <li> Local temporary denial of service (can be resolved by booting the device into
+                  Safe Mode and removing the problematic application, or by a factory reset if
+                  the device does not support Safe Mode)
+          </ul>
+     </td>
  </tr>
 </table>
 
-<p>Though there are many types of software bugs outside of the security
-vulnerabilities detailed above, bugs reported are evaluated on a
-case-by-base basis to determine what security impact they have.</p>
-
-<p>The Android security team may also adjust the severity of a vulnerability if it
-is determined the risk to users is higher or lower than the guidelines suggest.
-For example, if a certain piece of data is available only to apps with "system"
-level access but the data itself is not sensitive, the Android security
-team may consider it only a low-severity vulnerability.</p>
 
 <h4 id=local_vs_remote>Local vs. remote</h4>
 
@@ -155,30 +197,24 @@ physical access to the device, for example a bug in a lock screen or one that
 requires plugging in a USB cable. The Android security team also considers
 NFC-based attacks as local.</p>
 
-<h4 id=high_privilege_levels>Severity of vulnerabilities that affect high privilege levels</h4>
+<h3 id=rating_modifiers>Rating modifiers</h3>
+<p>While the severity of security vulnerabilities is often easy to identify,
+ratings may change based on circumstances.  </p>
+<table>
+ <tr>
+    <th>Reason</th>
+    <th>Effect</th>
+ </tr>
+ <tr>
+    <td>Requires running as a privileged process to execute the attack</td>
+    <td>-1 Severity</td>
+ </tr>
+ <tr>
+    <td>Vulnerability-specific details limit the impact of the issue </td>
+    <td>-1 Severity</td>
+ </tr>
+</table>
 
-<p>The Android security team will usually drop the severity rating for a bug that
-already requires executing code at a high privilege level. For example, a bug
-in a kernel driver accessible only from a privileged service that
-requires first compromising the service. In this case, the Android security
-team may drop the severity from "high" to "moderate."</p>
-
-<h4 id=severity_of_kernel_compromises>Severity of kernel compromises</h4>
-
-<p>Whether a vulnerability that compromises the kernel is considered "high" or
-"critical" depends on the device and the version of Android. On devices with a
-TEE (or TrustZone) and <a
-href="{@docRoot}security/verifiedboot/index.html">verified
-boot</a>, a kernel compromise is considered "high" because exploiting it won't
-allow permanently affecting the operation of the device unless a vulnerability is
-discovered in the TEE or verified boot implementation. In general, if the
-result of a compromise can be remediated with a factory reset, it's "high" or
-lower.</p>
-
-<p>However, on older devices without verified boot, a kernel compromise can result
-in permanent device compromise if SELinux is disabled and the system partition
-is modified. On that device, a kernel compromise is considered "critical"
-because remediation requires re-flashing the device's firmware image.</p>
 
 <h3 id=affected_component>Affected component</h3>
 
@@ -201,12 +237,11 @@ Android users as an update from Google Play. </p>
 <h2 id=notifying_partners>Notifying partners</h2>
 
 <p>When a moderate or higher severity security vulnerability in AOSP is fixed,
-we'll notify <a href="http://www.openhandsetalliance.com/">Open Handset
-Alliance</a> members with the details of the issue and provide patches for the
-most recent three Android releases. The Android security team currently
-provides patches for Android versions 4.4 (KitKat), 5.0 (Lollipop), and 5.1
-(Lollipop MR1). This list of backport-supported versions changes with each new
-Android release.</p>
+we'll notify Android partners of issue details and provide patches for a minimum
+of the most recent three Android releases. The Android security team currently
+provides patches for Android versions 4.4 (KitKat), 5.0 (Lollipop), 5.1
+(Lollipop MR1), and 6.0 (Marshmallow). This list of backport-supported versions
+changes with each new Android release.</p>
 
 <h2 id=releasing_code_to_aosp>Releasing code to AOSP</h2>
 
@@ -244,5 +279,35 @@ sites. Good places to start:<br>
 <a href="https://source.android.com/security/index.html">https://source.android.com/security/index.html</a><br>
 <a href="https://developer.android.com/training/articles/security-tips.html">https://developer.android.com/training/articles/security-tips.html</a></p>
 
-<p>Community resource for discussion about Android security: <a
-href="https://groups.google.com/forum/?fromgroups#!forum/android-security-discuss">https://groups.google.com/forum/?fromgroups#!forum/android-security-discuss</a></p>
+<h3 id=reports>Reports</h3>
+<p>Sometimes the Android Security team publishes reports or whitepapers. Here are some of the most recent.</p>
+<ul>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Google_Android_Security_2015_Report_Final.pdf">
+      Android Security 2015 Year In Review</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Google_Android_Security_2014_Report_Final.pdf">
+      Android Security 2014 Year In Review</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android_WhitePaper_Final_02092016.pdf">
+      Android Security white paper</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Google_Android_Security_PHA_classifications.pdf">
+      Classifications for Potentially Harmful Applications</a></li>
+</ul>
+
+<h3 id=slides>Android Bootcamp 2016 slides</h3>
+<p>The Android Security team has published their Android Bootcamp 2016 slides that cover new security features.</p>
+<ul>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-Verified-Boot-and-Encryption.pdf">
+      Verified boot and encryption</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-SafetyNet.pdf">
+      SafetyNet</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-New-App-Lifecycle-for-Encryption.pdf">
+      New app life cycle for encryption</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-Keeping-Google-Play-safe.pdf">
+      Keeping Google Play safe</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-Defense-in-depth-efforts.pdf">
+      Defense in depth efforts</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-Android-Keystore-Attestation.pdf">
+      Keystore attestation</a></li>
+  <li><a href="http://static.googleusercontent.com/media/source.android.com/en//security/reports/Android-Bootcamp-2016-Android-Attack-Team.pdf">
+      Android attack team</a></li>
+</ul>
+

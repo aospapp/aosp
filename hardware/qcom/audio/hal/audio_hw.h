@@ -25,15 +25,17 @@
 #include <tinycompress/tinycompress.h>
 
 #include <audio_route/audio_route.h>
+#include <audio_utils/ErrorLog.h>
+#include <audio_utils/PowerLog.h>
 #include "voice.h"
 
 // dlopen() does not go through default library path search if there is a "/" in the library name.
 #ifdef __LP64__
-#define VISUALIZER_LIBRARY_PATH "/system/lib64/soundfx/libqcomvisualizer.so"
-#define OFFLOAD_EFFECTS_BUNDLE_LIBRARY_PATH "/system/lib64/soundfx/libqcompostprocbundle.so"
+#define VISUALIZER_LIBRARY_PATH "/vendor/lib64/soundfx/libqcomvisualizer.so"
+#define OFFLOAD_EFFECTS_BUNDLE_LIBRARY_PATH "/vendor/lib64/soundfx/libqcompostprocbundle.so"
 #else
-#define VISUALIZER_LIBRARY_PATH "/system/lib/soundfx/libqcomvisualizer.so"
-#define OFFLOAD_EFFECTS_BUNDLE_LIBRARY_PATH "/system/lib/soundfx/libqcompostprocbundle.so"
+#define VISUALIZER_LIBRARY_PATH "/vendor/lib/soundfx/libqcomvisualizer.so"
+#define OFFLOAD_EFFECTS_BUNDLE_LIBRARY_PATH "/vendor/lib/soundfx/libqcompostprocbundle.so"
 #endif
 #define ADM_LIBRARY_PATH "libadm.so"
 
@@ -49,7 +51,22 @@
 #define ACDB_DEV_TYPE_IN 2
 
 #define MAX_SUPPORTED_CHANNEL_MASKS 2
+#define MAX_SUPPORTED_FORMATS 15
+#define MAX_SUPPORTED_SAMPLE_RATES 7
 #define DEFAULT_HDMI_OUT_CHANNELS   2
+
+#define ERROR_LOG_ENTRIES 16
+
+#define POWER_LOG_LINES 40
+#define POWER_LOG_SAMPLING_INTERVAL_MS 50
+#define POWER_LOG_ENTRIES (1 /* minutes */ * 60 /* seconds */ * 1000 /* msec */ \
+                           / POWER_LOG_SAMPLING_INTERVAL_MS)
+
+/* Error types for the error log */
+enum {
+    ERROR_CODE_STANDBY = 1,
+    ERROR_CODE_WRITE,
+};
 
 typedef enum card_status_t {
     CARD_STATUS_OFFLINE,
@@ -69,6 +86,7 @@ enum {
     USECASE_AUDIO_PLAYBACK_OFFLOAD,
     USECASE_AUDIO_PLAYBACK_TTS,
     USECASE_AUDIO_PLAYBACK_ULL,
+    USECASE_AUDIO_PLAYBACK_MMAP,
 
     /* HFP Use case*/
     USECASE_AUDIO_HFP_SCO,
@@ -77,6 +95,7 @@ enum {
     /* Capture usecases */
     USECASE_AUDIO_RECORD,
     USECASE_AUDIO_RECORD_LOW_LATENCY,
+    USECASE_AUDIO_RECORD_MMAP,
 
     /* Voice extension usecases
      *
@@ -185,9 +204,11 @@ struct stream_out {
     int send_new_metadata;
     bool realtime;
     int af_period_multiplier;
-    bool routing_change;
     struct audio_device *dev;
     card_status_t card_status;
+
+    error_log_t *error_log;
+    power_log_t *power_log;
 };
 
 struct stream_in {
@@ -212,13 +233,13 @@ struct stream_in {
     bool is_st_session_active;
     bool realtime;
     int af_period_multiplier;
-    bool routing_change;
     struct audio_device *dev;
     audio_format_t format;
     card_status_t card_status;
+    int capture_started;
 };
 
-typedef enum {
+typedef enum usecase_type_t {
     PCM_PLAYBACK,
     PCM_CAPTURE,
     VOICE_CALL,

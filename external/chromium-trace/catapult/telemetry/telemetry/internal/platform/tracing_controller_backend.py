@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import ast
-import atexit
+from telemetry.internal.util import atexit_with_log
 import contextlib
 import gc
 import logging
@@ -15,11 +15,12 @@ import uuid
 
 from py_trace_event import trace_event
 from telemetry.core import discover
+from telemetry.core import exceptions
 from telemetry.core import util
 from telemetry.internal.platform import tracing_agent
 from telemetry.internal.platform.tracing_agent import chrome_tracing_agent
-from telemetry.timeline import trace_data as trace_data_module
 from telemetry.timeline import tracing_config
+from tracing.trace_data import trace_data as trace_data_module
 
 
 def _IterAllTracingAgentClasses():
@@ -28,10 +29,6 @@ def _IterAllTracingAgentClasses():
   return discover.DiscoverClasses(
       tracing_agent_dir, util.GetTelemetryDir(),
       tracing_agent.TracingAgent).itervalues()
-
-
-class TracingControllerStoppedError(Exception):
-  pass
 
 
 class _TracingState(object):
@@ -64,6 +61,7 @@ class TracingControllerBackend(object):
     self._active_agents_instances = []
     self._trace_log = None
     self._is_tracing_controllable = True
+    self._telemetry_info = None
 
   def StartTracing(self, config, timeout):
     if self.is_tracing_running:
@@ -87,7 +85,11 @@ class TracingControllerBackend(object):
     self.StartAgentTracing(config, timeout)
     for agent_class in self._supported_agents_classes:
       agent = agent_class(self._platform_backend)
-      if agent.StartAgentTracing(config, timeout):
+      with trace_event.trace(
+          'StartAgentTracing',
+          agent=str(agent.__class__.__name__)):
+        started = agent.StartAgentTracing(config, timeout)
+      if started:
         self._active_agents_instances.append(agent)
     return True
 
@@ -110,16 +112,30 @@ class TracingControllerBackend(object):
     raised_exception_messages = []
     for agent in self._active_agents_instances + [self]:
       try:
-        agent.StopAgentTracing(builder)
+        with trace_event.trace(
+            'StopAgentTracing',
+            agent=str(agent.__class__.__name__)):
+          agent.StopAgentTracing()
       except Exception: # pylint: disable=broad-except
         raised_exception_messages.append(
             ''.join(traceback.format_exception(*sys.exc_info())))
 
+    for agent in self._active_agents_instances + [self]:
+      try:
+        with trace_event.trace(
+            'CollectAgentTraceData',
+            agent=str(agent.__class__.__name__)):
+          agent.CollectAgentTraceData(builder)
+      except Exception: # pylint: disable=broad-except
+        raised_exception_messages.append(
+            ''.join(traceback.format_exception(*sys.exc_info())))
+
+    self._telemetry_info = None
     self._active_agents_instances = []
     self._current_state = None
 
     if raised_exception_messages:
-      raise TracingControllerStoppedError(
+      raise exceptions.Error(
           'Exceptions raised when trying to stop tracing:\n' +
           '\n'.join(raised_exception_messages))
 
@@ -134,16 +150,19 @@ class TracingControllerBackend(object):
     for agent in self._active_agents_instances:
       try:
         if agent.SupportsFlushingAgentTracing():
-          agent.FlushAgentTracing(self._current_state.config,
-                                  self._current_state.timeout,
-                                  self._current_state.builder)
+          with trace_event.trace(
+              'FlushAgentTracing',
+              agent=str(agent.__class__.__name__)):
+            agent.FlushAgentTracing(self._current_state.config,
+                                    self._current_state.timeout,
+                                    self._current_state.builder)
       except Exception: # pylint: disable=broad-except
         raised_exception_messages.append(
             ''.join(traceback.format_exception(*sys.exc_info())))
 
     if raised_exception_messages:
-      raise TracingControllerStoppedError(
-          'Exceptions raised when trying to stop tracing:\n' +
+      raise exceptions.Error(
+          'Exceptions raised when trying to flush tracing:\n' +
           '\n'.join(raised_exception_messages))
 
   def StartAgentTracing(self, config, timeout):
@@ -161,25 +180,12 @@ class TracingControllerBackend(object):
     assert trace_event.trace_is_enabled(), 'Tracing didn\'t enable properly.'
     return True
 
-  def StopAgentTracing(self, trace_data_builder):
+  def StopAgentTracing(self):
     if not self._is_tracing_controllable:
       return
     assert trace_event.trace_is_enabled(), 'Tracing not running'
     trace_event.trace_disable()
     assert not trace_event.trace_is_enabled(), 'Tracing didnt disable properly.'
-    with open(self._trace_log, 'r') as fp:
-      data = ast.literal_eval(fp.read() + ']')
-    trace_data_builder.AddEventsTo(trace_data_module.TELEMETRY_PART, data)
-    try:
-      os.remove(self._trace_log)
-      self._trace_log = None
-    except OSError:
-      logging.exception('Error when deleting %s, will try again at exit.',
-                        self._trace_log)
-      def DeleteAtExit(path):
-        os.remove(path)
-      atexit.register(DeleteAtExit, self._trace_log)
-    self._trace_log = None
 
   def SupportsExplicitClockSync(self):
     return True
@@ -199,8 +205,12 @@ class TracingControllerBackend(object):
       for agent in self._active_agents_instances:
         if agent.SupportsExplicitClockSync():
           sync_id = self._GenerateClockSyncId()
-          agent.RecordClockSyncMarker(sync_id,
-                                      self._RecordIssuerClockSyncMarker)
+          with trace_event.trace(
+              'RecordClockSyncMarker',
+              agent=str(agent.__class__.__name__),
+              sync_id=sync_id):
+            agent.RecordClockSyncMarker(sync_id,
+                                        self._RecordIssuerClockSyncMarker)
 
   def IsChromeTracingSupported(self):
     return chrome_tracing_agent.ChromeTracingAgent.IsSupported(
@@ -237,3 +247,47 @@ class TracingControllerBackend(object):
 
   def ClearStateIfNeeded(self):
     chrome_tracing_agent.ClearStarupTracingStateIfNeeded(self._platform_backend)
+
+  @property
+  def telemetry_info(self):
+    return self._telemetry_info
+
+  @telemetry_info.setter
+  def telemetry_info(self, ii):
+    self._telemetry_info = ii
+
+  def CollectAgentTraceData(self, trace_data_builder):
+    if not self._is_tracing_controllable:
+      return
+    assert not trace_event.trace_is_enabled(), 'Stop tracing before collection.'
+    with open(self._trace_log, 'r') as fp:
+      data = ast.literal_eval(fp.read() + ']')
+    trace_data_builder.AddTraceFor(trace_data_module.TELEMETRY_PART, {
+        "traceEvents": data,
+        "metadata": {
+            # TODO(charliea): For right now, we use "TELEMETRY" as the clock
+            # domain to guarantee that Telemetry is given its own clock
+            # domain. Telemetry isn't really a clock domain, though: it's a
+            # system that USES a clock domain like LINUX_CLOCK_MONOTONIC or
+            # WIN_QPC. However, there's a chance that a Telemetry controller
+            # running on Linux (using LINUX_CLOCK_MONOTONIC) is interacting with
+            # an Android phone (also using LINUX_CLOCK_MONOTONIC, but on a
+            # different machine). The current logic collapses clock domains
+            # based solely on the clock domain string, but we really should to
+            # collapse based on some (device ID, clock domain ID) tuple. Giving
+            # Telemetry its own clock domain is a work-around for this.
+            "clock-domain": "TELEMETRY",
+            "telemetry": (self._telemetry_info.AsDict()
+                if self._telemetry_info else {}),
+        }
+    })
+    try:
+      os.remove(self._trace_log)
+      self._trace_log = None
+    except OSError:
+      logging.exception('Error when deleting %s, will try again at exit.',
+                        self._trace_log)
+      def DeleteAtExit(path):
+        os.remove(path)
+      atexit_with_log.Register(DeleteAtExit, self._trace_log)
+    self._trace_log = None

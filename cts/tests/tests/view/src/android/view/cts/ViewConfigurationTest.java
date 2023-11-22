@@ -16,21 +16,23 @@
 
 package android.view.cts;
 
-import android.content.Context;
-import android.test.InstrumentationTestCase;
+import static org.junit.Assert.assertNotNull;
+
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ViewConfiguration;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link ViewConfiguration}.
  */
-public class ViewConfigurationTest extends InstrumentationTestCase {
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    @SuppressWarnings("deprecation")
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ViewConfigurationTest {
+    @Test
     public void testStaticValues() {
         ViewConfiguration.getScrollBarSize();
         ViewConfiguration.getFadingEdgeLength();
@@ -55,14 +57,16 @@ public class ViewConfigurationTest extends InstrumentationTestCase {
         ViewConfiguration.getDefaultActionModeHideDuration();
     }
 
-    @SuppressWarnings("deprecation")
+    @Test
     public void testConstructor() {
         new ViewConfiguration();
     }
 
+    @Test
     public void testInstanceValues() {
-        ViewConfiguration vc = ViewConfiguration.get(getInstrumentation().getTargetContext());
+        ViewConfiguration vc = ViewConfiguration.get(InstrumentationRegistry.getTargetContext());
         assertNotNull(vc);
+
         vc.getScaledDoubleTapSlop();
         vc.getScaledEdgeSlop();
         vc.getScaledFadingEdgeLength();
@@ -73,6 +77,7 @@ public class ViewConfigurationTest extends InstrumentationTestCase {
         vc.getScaledOverscrollDistance();
         vc.getScaledPagingTouchSlop();
         vc.getScaledScrollBarSize();
+        vc.getScaledScrollFactor();
         vc.getScaledTouchSlop();
         vc.getScaledWindowTouchSlop();
         vc.hasPermanentMenuKey();

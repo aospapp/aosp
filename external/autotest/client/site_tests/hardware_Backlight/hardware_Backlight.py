@@ -35,17 +35,17 @@ class hardware_Backlight(test.test):
             logging.info("Assuming no keyboard backlight due to %s", str(e))
 
         if kblight:
-            init_percent = kblight.get()
+            init_percent = kblight.get_percent()
             try:
                 for i in xrange(100, -1, -1):
-                    kblight.set(i)
-                    result = int(kblight.get())
+                    kblight.set_percent(i)
+                    result = int(kblight.get_percent())
                     if i != result:
                         logging.error('keyboard backlight set %d != %d get',
                                       i, result)
                         kblight_errs += 1
             finally:
-                kblight.set(init_percent)
+                kblight.set_percent(init_percent)
 
         if kblight_errs:
             raise error.TestFail("%d errors testing keyboard backlight." % \

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2015, International Business Machines Corporation and
@@ -11,23 +13,19 @@ package android.icu.dev.test.normalizer;
 import java.io.BufferedReader;
 import java.io.IOException;
 
+import org.junit.Ignore;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.text.UTF16;
 import android.icu.text.UnicodeSet;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 
-@RunWith(IcuTestFmwkRunner.class)
 public class UnicodeNormalizerConformanceTest extends TestFmwk {
 
     UnicodeNormalizer normalizer_C, normalizer_D, normalizer_KC, normalizer_KD;
 
-    public static void main(String[] args) throws Exception {
-        new UnicodeNormalizerConformanceTest().run(args);
-    }
-    
     public UnicodeNormalizerConformanceTest() {
         // Doesn't matter what the string and mode are; we'll change
         // them later as needed.
@@ -51,6 +49,7 @@ public class UnicodeNormalizerConformanceTest extends TestFmwk {
      * http://www.unicode.org/unicode/reports/tr15/conformance/Draft-TestSuite.txt.
      * This file must be located at the path specified as TEST_SUITE_FILE.
      */
+    @Test
     public void TestConformance() throws Exception{
         String line = null;
         String[] fields = new String[5];
@@ -257,12 +256,13 @@ public class UnicodeNormalizerConformanceTest extends TestFmwk {
     // taken from the conformance file, but culled out to make
     // debugging easier.  These can be eliminated without affecting
     // coverage.
-
+    @Ignore
+    @Test
     public void _hideTestCase6() throws Exception{
         _testOneLine("0385;0385;00A8 0301;0020 0308 0301;0020 0308 0301;");
     }
 
-    public void _testOneLine(String line) throws Exception{
+    private void _testOneLine(String line) throws Exception{
         String[] fields = new String[5];
         StringBuffer buf = new StringBuffer();
         // Parse out the fields

@@ -16,14 +16,13 @@
 
 package android.ui.cts;
 
-import com.android.compatibility.common.util.AbiUtils;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.MeasureRun;
 import com.android.compatibility.common.util.MeasureTime;
 import com.android.compatibility.common.util.MetricsReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
-import com.android.cts.migration.MigrationHelper;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IBuildInfo;
@@ -32,6 +31,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiUtils;
 
 import java.io.File;
 
@@ -78,7 +78,7 @@ public class InstallTimeTest extends DeviceTestCase implements IAbiReceiver, IBu
                 String.format("%s#%s", getClass().getName(), "testInstallTime"), REPORT_LOG_NAME,
                 streamName);
         final int NUMBER_REPEAT = 10;
-        final IBuildInfo build = mBuild;
+        final CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         final ITestDevice device = mDevice;
         double[] result = MeasureTime.measure(NUMBER_REPEAT, new MeasureRun() {
             @Override
@@ -87,7 +87,7 @@ public class InstallTimeTest extends DeviceTestCase implements IAbiReceiver, IBu
             }
             @Override
             public void run(int i) throws Exception {
-                File app = MigrationHelper.getTestFile(build, APK);
+                File app = buildHelper.getTestFile(APK);
                 String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
                 device.installPackage(app, false, options);
             }

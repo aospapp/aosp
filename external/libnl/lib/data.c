@@ -6,16 +6,28 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
 /**
- * @ingroup core
+ * @ingroup core_types
  * @defgroup data Abstract Data
+ *
+ * Abstract data type representing a binary data blob.
+ *
+ * Related sections in the development guide:
+ * - @core_doc{_abstract_data, Abstract Data}
+ *
  * @{
+ *
+ * Header
+ * ------
+ * ~~~~{.c}
+ * #include <netlink/data.h>
+ * ~~~~
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <linux/socket.h>
@@ -98,9 +110,6 @@ struct nl_data *nl_data_clone(struct nl_data *src)
  */
 int nl_data_append(struct nl_data *data, void *buf, size_t size)
 {
-	if (size < 0)
-		BUG();
-
 	if (size > 0) {
 		data->d_data = realloc(data->d_data, data->d_size + size);
 		if (!data->d_data)

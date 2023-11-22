@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include <UniquePtr.h>
+#include <memory>
 #include <utils/StrongPointer.h>
 
 #include "audio/Buffer.h"
@@ -183,7 +183,7 @@ bool CmdGetDeviceInfo::handleReply(const uint32_t* data, AudioParam* param)
     }
     int len = ntohl(data[2]);
 
-    UniquePtr<char, DefaultDelete<char[]> > infoString(new char[len + 1]);
+    std::unique_ptr<char[]> infoString(new char[len + 1]);
     if (!readData(infoString.get(), len)) {
         return false;
     }

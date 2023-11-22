@@ -15,18 +15,31 @@
  */
 package android.transition.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.Explode;
 import android.transition.TransitionManager;
 import android.view.View;
-import android.widget.RelativeLayout;
-import android.widget.RelativeLayout.LayoutParams;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class ExplodeTest extends BaseTransitionTest {
     Explode mExplode;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
+        super.setup();
         resetTransition();
     }
 
@@ -36,6 +49,7 @@ public class ExplodeTest extends BaseTransitionTest {
         resetListener();
     }
 
+    @Test
     public void testExplode() throws Throwable {
         enterScene(R.layout.scene10);
         final View redSquare = mActivity.findViewById(R.id.redSquare);
@@ -43,18 +57,15 @@ public class ExplodeTest extends BaseTransitionTest {
         final View blueSquare = mActivity.findViewById(R.id.blueSquare);
         final View yellowSquare = mActivity.findViewById(R.id.yellowSquare);
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                TransitionManager.beginDelayedTransition(mSceneRoot, mTransition);
-                redSquare.setVisibility(View.INVISIBLE);
-                greenSquare.setVisibility(View.INVISIBLE);
-                blueSquare.setVisibility(View.INVISIBLE);
-                yellowSquare.setVisibility(View.INVISIBLE);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            TransitionManager.beginDelayedTransition(mSceneRoot, mTransition);
+            redSquare.setVisibility(View.INVISIBLE);
+            greenSquare.setVisibility(View.INVISIBLE);
+            blueSquare.setVisibility(View.INVISIBLE);
+            yellowSquare.setVisibility(View.INVISIBLE);
         });
         waitForStart();
-        assertEquals(1, mListener.endLatch.getCount());
+        verify(mListener, never()).onTransitionEnd(any());
         assertEquals(View.VISIBLE, redSquare.getVisibility());
         assertEquals(View.VISIBLE, greenSquare.getVisibility());
         assertEquals(View.VISIBLE, blueSquare.getVisibility());
@@ -63,24 +74,25 @@ public class ExplodeTest extends BaseTransitionTest {
         float redStartY = redSquare.getTranslationY();
 
         Thread.sleep(100);
-        assertTranslation(redSquare, true, true);
-        assertTranslation(greenSquare, false, true);
-        assertTranslation(blueSquare, false, false);
-        assertTranslation(yellowSquare, true, false);
+        verifyTranslation(redSquare, true, true);
+        verifyTranslation(greenSquare, false, true);
+        verifyTranslation(blueSquare, false, false);
+        verifyTranslation(yellowSquare, true, false);
         assertTrue(redStartX > redSquare.getTranslationX()); // moving left
         assertTrue(redStartY > redSquare.getTranslationY()); // moving up
         waitForEnd(400);
 
-        assertNoTranslation(redSquare);
-        assertNoTranslation(greenSquare);
-        assertNoTranslation(blueSquare);
-        assertNoTranslation(yellowSquare);
+        verifyNoTranslation(redSquare);
+        verifyNoTranslation(greenSquare);
+        verifyNoTranslation(blueSquare);
+        verifyNoTranslation(yellowSquare);
         assertEquals(View.INVISIBLE, redSquare.getVisibility());
         assertEquals(View.INVISIBLE, greenSquare.getVisibility());
         assertEquals(View.INVISIBLE, blueSquare.getVisibility());
         assertEquals(View.INVISIBLE, yellowSquare.getVisibility());
     }
 
+    @Test
     public void testImplode() throws Throwable {
         enterScene(R.layout.scene10);
         final View redSquare = mActivity.findViewById(R.id.redSquare);
@@ -88,26 +100,20 @@ public class ExplodeTest extends BaseTransitionTest {
         final View blueSquare = mActivity.findViewById(R.id.blueSquare);
         final View yellowSquare = mActivity.findViewById(R.id.yellowSquare);
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                redSquare.setVisibility(View.INVISIBLE);
-                greenSquare.setVisibility(View.INVISIBLE);
-                blueSquare.setVisibility(View.INVISIBLE);
-                yellowSquare.setVisibility(View.INVISIBLE);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            redSquare.setVisibility(View.INVISIBLE);
+            greenSquare.setVisibility(View.INVISIBLE);
+            blueSquare.setVisibility(View.INVISIBLE);
+            yellowSquare.setVisibility(View.INVISIBLE);
         });
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                TransitionManager.beginDelayedTransition(mSceneRoot, mTransition);
-                redSquare.setVisibility(View.VISIBLE);
-                greenSquare.setVisibility(View.VISIBLE);
-                blueSquare.setVisibility(View.VISIBLE);
-                yellowSquare.setVisibility(View.VISIBLE);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            TransitionManager.beginDelayedTransition(mSceneRoot, mTransition);
+            redSquare.setVisibility(View.VISIBLE);
+            greenSquare.setVisibility(View.VISIBLE);
+            blueSquare.setVisibility(View.VISIBLE);
+            yellowSquare.setVisibility(View.VISIBLE);
         });
         waitForStart();
 
@@ -119,25 +125,25 @@ public class ExplodeTest extends BaseTransitionTest {
         float redStartY = redSquare.getTranslationY();
 
         Thread.sleep(100);
-        assertTranslation(redSquare, true, true);
-        assertTranslation(greenSquare, false, true);
-        assertTranslation(blueSquare, false, false);
-        assertTranslation(yellowSquare, true, false);
+        verifyTranslation(redSquare, true, true);
+        verifyTranslation(greenSquare, false, true);
+        verifyTranslation(blueSquare, false, false);
+        verifyTranslation(yellowSquare, true, false);
         assertTrue(redStartX < redSquare.getTranslationX()); // moving right
         assertTrue(redStartY < redSquare.getTranslationY()); // moving down
         waitForEnd(400);
 
-        assertNoTranslation(redSquare);
-        assertNoTranslation(greenSquare);
-        assertNoTranslation(blueSquare);
-        assertNoTranslation(yellowSquare);
+        verifyNoTranslation(redSquare);
+        verifyNoTranslation(greenSquare);
+        verifyNoTranslation(blueSquare);
+        verifyNoTranslation(yellowSquare);
         assertEquals(View.VISIBLE, redSquare.getVisibility());
         assertEquals(View.VISIBLE, greenSquare.getVisibility());
         assertEquals(View.VISIBLE, blueSquare.getVisibility());
         assertEquals(View.VISIBLE, yellowSquare.getVisibility());
     }
 
-    private void assertTranslation(View view, boolean goLeft, boolean goUp) {
+    private void verifyTranslation(View view, boolean goLeft, boolean goUp) {
         float translationX = view.getTranslationX();
         float translationY = view.getTranslationY();
 
@@ -154,9 +160,9 @@ public class ExplodeTest extends BaseTransitionTest {
         }
     }
 
-    private void assertNoTranslation(View view) {
-        assertEquals(0f, view.getTranslationX());
-        assertEquals(0f, view.getTranslationY());
+    private void verifyNoTranslation(View view) {
+        assertEquals(0f, view.getTranslationX(), 0.0f);
+        assertEquals(0f, view.getTranslationY(), 0.0f);
     }
 }
 

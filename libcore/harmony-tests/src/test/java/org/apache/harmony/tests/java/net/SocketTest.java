@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ConnectException;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -31,16 +29,20 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketImpl;
-import java.net.SocketImplFactory;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
-import java.security.Permission;
 import java.util.Arrays;
 import java.util.Locale;
-
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 import tests.support.Support_Configuration;
 
-public class SocketTest extends junit.framework.TestCase {
+public class SocketTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
+
     private class ClientThread implements Runnable {
 
         public void run() {
@@ -509,12 +511,10 @@ public class SocketTest extends junit.framework.TestCase {
      * java.net.Socket#Socket(java.lang.String, int)
      */
     public void test_ConstructorLjava_lang_StringI() throws IOException {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server
-                .getLocalPort());
-
-        assertEquals("Failed to create socket", server.getLocalPort(), client
-                .getPort());
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+            assertEquals("Failed to create socket", server.getLocalPort(), client.getPort());
+        }
 
         // Regression for HARMONY-946
         ServerSocket ss = new ServerSocket(0);
@@ -601,10 +601,11 @@ public class SocketTest extends junit.framework.TestCase {
      */
     public void test_ConstructorLjava_net_InetAddressILjava_net_InetAddressI()
             throws IOException {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server
-                .getLocalPort(), InetAddress.getLocalHost(), 0);
-        assertNotSame("Failed to create socket", 0, client.getLocalPort());
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort(),
+                     InetAddress.getLocalHost(), 0)) {
+            assertNotSame("Failed to create socket", 0, client.getLocalPort());
+        }
     }
 
     /**
@@ -612,14 +613,17 @@ public class SocketTest extends junit.framework.TestCase {
      */
     @SuppressWarnings("deprecation")
     public void test_ConstructorLjava_net_InetAddressIZ() throws IOException {
-        ServerSocket server = new ServerSocket(0);
-        int serverPort = server.getLocalPort();
+        try (ServerSocket server = new ServerSocket(0)) {
+            int serverPort = server.getLocalPort();
 
-        Socket client = new Socket(InetAddress.getLocalHost(), serverPort, true);
-        assertEquals("Failed to create socket", serverPort, client.getPort());
+            try (Socket client = new Socket(InetAddress.getLocalHost(), serverPort, true)) {
+                assertEquals("Failed to create socket", serverPort, client.getPort());
+            }
 
-        client = new Socket(InetAddress.getLocalHost(), serverPort, false);
-        client.close();
+            try (Socket client = new Socket(InetAddress.getLocalHost(), serverPort, false)) {
+                assertEquals("Failed to create socket", serverPort, client.getPort());
+            }
+        }
     }
 
     /**
@@ -694,43 +698,40 @@ public class SocketTest extends junit.framework.TestCase {
     }
 
     public void test_getKeepAlive() throws Exception {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort(), null, 0);
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(),
+                     server.getLocalPort(), null, 0)) {
 
-        client.setKeepAlive(true);
-        assertTrue("getKeepAlive false when it should be true", client.getKeepAlive());
+            client.setKeepAlive(true);
+            assertTrue("getKeepAlive false when it should be true", client.getKeepAlive());
 
-        client.setKeepAlive(false);
-        assertFalse("getKeepAlive true when it should be False", client.getKeepAlive());
+            client.setKeepAlive(false);
+            assertFalse("getKeepAlive true when it should be False", client.getKeepAlive());
+        }
     }
 
     public void test_getLocalAddress() throws IOException {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort());
+        try (ServerSocket server = new ServerSocket(0)) {
+            try (Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+                assertTrue("Returned incorrect InetAddress", client.getLocalAddress()
+                        .equals(InetAddress.getLocalHost()));
+            }
 
-        assertTrue("Returned incorrect InetAddress", client.getLocalAddress()
-                .equals(InetAddress.getLocalHost()));
-
-        client = new Socket();
-        client.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0));
-        assertTrue(client.getLocalAddress().isAnyLocalAddress());
-
-        client.close();
-        server.close();
+            try (Socket client = new Socket()) {
+                client.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0));
+                assertTrue(client.getLocalAddress().isAnyLocalAddress());
+            }
+        }
     }
 
     /**
      * java.net.Socket#getLocalPort()
      */
     public void test_getLocalPort() throws IOException {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server
-                .getLocalPort());
-
-        assertNotSame("Returned incorrect port", 0, client.getLocalPort());
-
-        client.close();
-        server.close();
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+            assertNotSame("Returned incorrect port", 0, client.getLocalPort());
+        }
     }
 
     public void test_getLocalSocketAddress() throws IOException {
@@ -776,16 +777,16 @@ public class SocketTest extends junit.framework.TestCase {
     }
 
     public void test_getOOBInline() throws Exception {
-        Socket theSocket = new Socket();
+        try (Socket theSocket = new Socket()) {
+            theSocket.setOOBInline(true);
+            assertTrue("expected OOBIline to be true", theSocket.getOOBInline());
 
-        theSocket.setOOBInline(true);
-        assertTrue("expected OOBIline to be true", theSocket.getOOBInline());
+            theSocket.setOOBInline(false);
+            assertFalse("expected OOBIline to be false", theSocket.getOOBInline());
 
-        theSocket.setOOBInline(false);
-        assertFalse("expected OOBIline to be false", theSocket.getOOBInline());
-
-        theSocket.setOOBInline(false);
-        assertFalse("expected OOBIline to be false", theSocket.getOOBInline());
+            theSocket.setOOBInline(false);
+            assertFalse("expected OOBIline to be false", theSocket.getOOBInline());
+        }
     }
 
     /**
@@ -870,15 +871,16 @@ public class SocketTest extends junit.framework.TestCase {
         sinkServer.close();
 
         // Regression test for HARMONY-873
-        ServerSocket ss2 = new ServerSocket(0);
-        Socket s = new Socket("127.0.0.1", ss2.getLocalPort());
-        ss2.accept();
-        s.shutdownOutput();
-        try {
-            s.getOutputStream();
-            fail("should throw SocketException");
-        } catch (SocketException e) {
-            // expected
+        try (ServerSocket ss2 = new ServerSocket(0);
+             Socket s = new Socket("127.0.0.1", ss2.getLocalPort())) {
+            ss2.accept();
+            s.shutdownOutput();
+            try {
+                s.getOutputStream();
+                fail("should throw SocketException");
+            } catch (SocketException e) {
+                // expected
+            }
         }
     }
 
@@ -938,54 +940,52 @@ public class SocketTest extends junit.framework.TestCase {
     }
 
     public void test_getReuseAddress() throws Exception {
-        Socket theSocket = new Socket();
-        theSocket.setReuseAddress(true);
-        assertTrue("getReuseAddress false when it should be true", theSocket.getReuseAddress());
-        theSocket.setReuseAddress(false);
-        assertFalse("getReuseAddress true when it should be False", theSocket.getReuseAddress());
+        try (Socket theSocket = new Socket()) {
+            theSocket.setReuseAddress(true);
+            assertTrue("getReuseAddress false when it should be true", theSocket.getReuseAddress());
+            theSocket.setReuseAddress(false);
+            assertFalse("getReuseAddress true when it should be False",
+                    theSocket.getReuseAddress());
+        }
     }
 
     public void test_getSendBufferSize() throws Exception {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort());
-        client.setSendBufferSize(134);
-        assertTrue("Incorrect buffer size", client.getSendBufferSize() >= 134);
-        client.close();
-        server.close();
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+            client.setSendBufferSize(134);
+            assertTrue("Incorrect buffer size", client.getSendBufferSize() >= 134);
+        }
     }
 
     public void test_getSoLinger() throws Exception {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort());
-        client.setSoLinger(true, 200);
-        assertEquals("Returned incorrect linger", 200, client.getSoLinger());
-        client.setSoLinger(false, 0);
-        client.close();
-        server.close();
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+            client.setSoLinger(true, 200);
+            assertEquals("Returned incorrect linger", 200, client.getSoLinger());
+            client.setSoLinger(false, 0);
+        }
     }
 
     public void test_getSoTimeout() throws Exception {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort());
-        final int timeoutSet = 100;
-        client.setSoTimeout(timeoutSet);
-        int actualTimeout = client.getSoTimeout();
-        // The kernel can round the requested value based on the HZ setting. We allow up to 10ms.
-        assertTrue("Returned incorrect sotimeout", Math.abs(timeoutSet - actualTimeout) <= 10);
-        client.close();
-        server.close();
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+            final int timeoutSet = 100;
+            client.setSoTimeout(timeoutSet);
+            int actualTimeout = client.getSoTimeout();
+            // The kernel can round the requested value based on the HZ setting. We allow up to 10ms.
+            assertTrue("Returned incorrect sotimeout",
+                    Math.abs(timeoutSet - actualTimeout) <= 10);
+        }
     }
 
     public void test_getTcpNoDelay() throws Exception {
-        ServerSocket server = new ServerSocket(0);
-        Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort());
-
-        boolean bool = !client.getTcpNoDelay();
-        client.setTcpNoDelay(bool);
-        assertTrue("Failed to get no delay setting: " + client.getTcpNoDelay(), client.getTcpNoDelay() == bool);
-
-        client.close();
-        server.close();
+        try (ServerSocket server = new ServerSocket(0);
+             Socket client = new Socket(InetAddress.getLocalHost(), server.getLocalPort())) {
+            boolean bool = !client.getTcpNoDelay();
+            client.setTcpNoDelay(bool);
+            assertTrue("Failed to get no delay setting: " + client.getTcpNoDelay(),
+                    client.getTcpNoDelay() == bool);
+        }
     }
 
     public void test_getTrafficClass() throws Exception {
@@ -994,9 +994,11 @@ public class SocketTest extends junit.framework.TestCase {
          * does not support the option then it may come back unset even
          * though we set it so just get the value to make sure we can get it
          */
-        int trafficClass = new Socket().getTrafficClass();
-        assertTrue(0 <= trafficClass);
-        assertTrue(trafficClass <= 255);
+        try (Socket socket = new Socket()) {
+            int trafficClass = socket.getTrafficClass();
+            assertTrue(0 <= trafficClass);
+            assertTrue(trafficClass <= 255);
+        }
     }
 
     /**
@@ -1422,18 +1424,22 @@ public class SocketTest extends junit.framework.TestCase {
         server.close();
 
         // Regression test for HARMONY-1136
-        new TestSocket(null).setKeepAlive(true);
+        try (TestSocket socket = new TestSocket(null)) {
+            socket.setKeepAlive(true);
+        }
     }
 
     public void test_setOOBInlineZ() throws Exception {
-        Socket theSocket = new Socket();
-        theSocket.setOOBInline(true);
-        assertTrue("expected OOBIline to be true", theSocket.getOOBInline());
+        try (Socket theSocket = new Socket()) {
+            theSocket.setOOBInline(true);
+            assertTrue("expected OOBIline to be true", theSocket.getOOBInline());
+        }
     }
 
     public void test_setPerformancePreference_Int_Int_Int() throws IOException {
-        Socket theSocket = new Socket();
-        theSocket.setPerformancePreferences(1, 1, 1);
+        try (Socket theSocket = new Socket()) {
+            theSocket.setPerformancePreferences(1, 1, 1);
+        }
     }
 
     public void test_setReceiveBufferSizeI() throws Exception {
@@ -1522,26 +1528,27 @@ public class SocketTest extends junit.framework.TestCase {
         int IPTOS_THROUGHPUT = 0x8;
         int IPTOS_LOWDELAY = 0x10;
 
-        Socket theSocket = new Socket();
+        try (Socket theSocket = new Socket()) {
 
-        // validate that value set must be between 0 and 255
-        try {
-            theSocket.setTrafficClass(256);
-            fail("No exception was thrown when traffic class set to 256");
-        } catch (IllegalArgumentException expected) {
+            // validate that value set must be between 0 and 255
+            try {
+                theSocket.setTrafficClass(256);
+                fail("No exception was thrown when traffic class set to 256");
+            } catch (IllegalArgumentException expected) {
+            }
+
+            try {
+                theSocket.setTrafficClass(-1);
+                fail("No exception was thrown when traffic class set to -1");
+            } catch (IllegalArgumentException expected) {
+            }
+
+            // now validate that we can set it to some good values
+            theSocket.setTrafficClass(IPTOS_LOWCOST);
+            theSocket.setTrafficClass(IPTOS_RELIABILTY);
+            theSocket.setTrafficClass(IPTOS_THROUGHPUT);
+            theSocket.setTrafficClass(IPTOS_LOWDELAY);
         }
-
-        try {
-            theSocket.setTrafficClass(-1);
-            fail("No exception was thrown when traffic class set to -1");
-        } catch (IllegalArgumentException expected) {
-        }
-
-        // now validate that we can set it to some good values
-        theSocket.setTrafficClass(IPTOS_LOWCOST);
-        theSocket.setTrafficClass(IPTOS_RELIABILTY);
-        theSocket.setTrafficClass(IPTOS_THROUGHPUT);
-        theSocket.setTrafficClass(IPTOS_LOWDELAY);
     }
 
     @SuppressWarnings("deprecation")

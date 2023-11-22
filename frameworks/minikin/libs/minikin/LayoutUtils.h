@@ -19,6 +19,13 @@
 
 #include <stdint.h>
 
+namespace minikin {
+
+/*
+ * Determine whether the code unit is a word space for the purposes of justification.
+ */
+bool isWordSpace(uint16_t code_unit);
+
 /**
  * Return offset of previous word break. It is either < offset or == 0.
  *
@@ -39,4 +46,5 @@ size_t getPrevWordBreakForCache(
 size_t getNextWordBreakForCache(
         const uint16_t* chars, size_t offset, size_t len);
 
+}  // namespace minikin
 #endif  // MINIKIN_LAYOUT_UTILS_H

@@ -200,8 +200,8 @@ int sample_is_playable(unsigned int card, unsigned int device, unsigned int chan
     can_play = check_param(params, PCM_PARAM_RATE, rate, "Sample rate", "Hz");
     can_play &= check_param(params, PCM_PARAM_CHANNELS, channels, "Sample", " channels");
     can_play &= check_param(params, PCM_PARAM_SAMPLE_BITS, bits, "Bitrate", " bits");
-    can_play &= check_param(params, PCM_PARAM_PERIOD_SIZE, period_size, "Period size", "Hz");
-    can_play &= check_param(params, PCM_PARAM_PERIODS, period_count, "Period count", "Hz");
+    can_play &= check_param(params, PCM_PARAM_PERIOD_SIZE, period_size, "Period size", " frames");
+    can_play &= check_param(params, PCM_PARAM_PERIODS, period_count, "Period count", " periods");
 
     pcm_params_free(params);
 
@@ -225,6 +225,8 @@ void play_sample(FILE *file, unsigned int card, unsigned int device, unsigned in
     config.period_count = period_count;
     if (bits == 32)
         config.format = PCM_FORMAT_S32_LE;
+    else if (bits == 24)
+        config.format = PCM_FORMAT_S24_3LE;
     else if (bits == 16)
         config.format = PCM_FORMAT_S16_LE;
     config.start_threshold = 0;

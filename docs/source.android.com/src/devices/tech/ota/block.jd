@@ -56,7 +56,7 @@ the factory ROM. To generate a block-based OTA for subsequent updates, pass
 the <code>--block</code> option to <code>ota_from_target_files</code>.</p>
 
 <p>For devices that launched with Android 4.4 or earlier, use file OTA
-updates. While is it possible to transition devices by sending a full block
+updates. While it is possible to transition devices by sending a full block
 OTA of Android 5.0 or later, it requires sending out a full OTA that is
 significantly larger than an incremental OTA (and is therefore discouraged).
 </p>

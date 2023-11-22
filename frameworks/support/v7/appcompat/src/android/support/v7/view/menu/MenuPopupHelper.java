@@ -16,6 +16,8 @@
 
 package android.support.v7.view.menu;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -23,6 +25,7 @@ import android.os.Build;
 import android.support.annotation.AttrRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleRes;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.view.ViewCompat;
@@ -38,6 +41,7 @@ import android.widget.PopupWindow.OnDismissListener;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class MenuPopupHelper implements MenuHelper {
     private static final int TOUCH_EPICENTER_SIZE_DP = 48;
 
@@ -222,10 +226,8 @@ public class MenuPopupHelper implements MenuHelper {
 
         if (Build.VERSION.SDK_INT >= 17) {
             display.getRealSize(displaySize);
-        } else if (Build.VERSION.SDK_INT >= 13) {
-            display.getSize(displaySize);
         } else {
-            displaySize.set(display.getWidth(), display.getHeight());
+            display.getSize(displaySize);
         }
 
         final int smallestWidth = Math.min(displaySize.x, displaySize.y);
@@ -266,7 +268,7 @@ public class MenuPopupHelper implements MenuHelper {
             final int hgrav = GravityCompat.getAbsoluteGravity(mDropDownGravity,
                     ViewCompat.getLayoutDirection(mAnchorView)) & Gravity.HORIZONTAL_GRAVITY_MASK;
             if (hgrav == Gravity.RIGHT) {
-                xOffset -= mAnchorView.getWidth();
+                xOffset += mAnchorView.getWidth();
             }
 
             popup.setHorizontalOffset(xOffset);

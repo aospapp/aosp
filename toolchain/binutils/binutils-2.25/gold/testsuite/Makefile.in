@@ -52,7 +52,8 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 	$(am__EXEEXT_28) $(am__EXEEXT_29) $(am__EXEEXT_30) \
 	$(am__EXEEXT_31) $(am__EXEEXT_32) $(am__EXEEXT_33) \
 	$(am__EXEEXT_34) $(am__EXEEXT_35) $(am__EXEEXT_36) \
-	$(am__EXEEXT_37) $(am__EXEEXT_38) $(am__EXEEXT_39)
+	$(am__EXEEXT_37) $(am__EXEEXT_38) $(am__EXEEXT_39) \
+	$(am__EXEEXT_40)
 @NATIVE_OR_CROSS_LINKER_TRUE@am__append_1 = object_unittest \
 @NATIVE_OR_CROSS_LINKER_TRUE@	binary_unittest leb128_unittest
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_2 =  \
@@ -213,19 +214,20 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@STATIC_TLS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_24 = tls_static_test \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@STATIC_TLS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@	tls_static_pic_test
 @FN_PTRS_IN_SO_WITHOUT_PIC_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_25 = tls_shared_nonpic_test
-@DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_26 = i386_mov_to_lea.sh
-@DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_27 = i386_mov_to_lea1.stdout  i386_mov_to_lea2.stdout \
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_26 = pr17704a_test
+@DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_27 = i386_mov_to_lea.sh
+@DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_28 = i386_mov_to_lea1.stdout  i386_mov_to_lea2.stdout \
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	i386_mov_to_lea3.stdout  i386_mov_to_lea4.stdout \
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	i386_mov_to_lea5.stdout i386_mov_to_lea6.stdout \
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	i386_mov_to_lea7.stdout i386_mov_to_lea8.stdout
 
-@DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_28 = i386_mov_to_lea1 i386_mov_to_lea2 i386_mov_to_lea3 \
+@DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_29 = i386_mov_to_lea1 i386_mov_to_lea2 i386_mov_to_lea3 \
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	i386_mov_to_lea4 i386_mov_to_lea5 i386_mov_to_lea6 \
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	i386_mov_to_lea7 i386_mov_to_lea8
 
 
 # Test -o when emitting to a special file (such as something in /dev).
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_29 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_30 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_r_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	initpri1 initpri2 \
@@ -233,10 +235,10 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	flagstest_o_specialfile
 @GCC_FALSE@many_sections_test_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@many_sections_test_DEPENDENCIES =
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_30 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_31 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_define.h \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_check.h
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_31 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_32 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_define.h \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_check.h \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	debug_msg.err \
@@ -267,7 +269,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 
 # Test --dynamic-list, --dynamic-list-data, --dynamic-list-cpp-new,
 # and --dynamic-list-cpp-typeinfo
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_32 = debug_msg.sh \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_33 = debug_msg.sh \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	missing_key_func.sh \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	undef_symbol.sh \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ver_test_1.sh \
@@ -288,12 +290,12 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	dynamic_list.sh
 
 # Create the data files that debug_msg.sh analyzes.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_33 = debug_msg.err \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_34 = debug_msg.err \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	missing_key_func.err
 
 # Check that --detect-odr-violations works with compressed debug sections.
-@GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_34 = debug_msg_cdebug.err
 @GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_35 = debug_msg_cdebug.err
+@GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_36 = debug_msg_cdebug.err
 
 # See if we can also detect problems when we're linking .so's, not .o's.
 
@@ -303,7 +305,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # This version won't be runnable, because there is no way to put the
 # PT_PHDR segment at file offset 0.  We just make sure that we can
 # build it without error.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_36 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_37 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	debug_msg_so.err \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	debug_msg_ndebug.err \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	undef_symbol.err \
@@ -325,7 +327,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	script_test_8.stdout \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	script_test_9.stdout \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	dynamic_list.stdout
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_37 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_38 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	debug_msg_so.err \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	debug_msg_ndebug.err \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	undef_symbol.err \
@@ -354,7 +356,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 
 # The specialfile output has a tricky case when we also compress debug
 # sections, because it requires output-file resizing.
-@GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_38 = flagstest_compress_debug_sections \
+@GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_39 = flagstest_compress_debug_sections \
 @GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	flagstest_o_specialfile_and_compress_debug_sections
 
 # Test -TText and -Tdata.
@@ -364,7 +366,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # Test scripts with a relocatable link.
 # The -g option is necessary to trigger a bug where a section
 # declared in a script file is assigned a non-zero starting address.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_39 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_40 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	flagstest_o_ttext_1 \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ver_test ver_test_2 \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ver_test_6 ver_test_8 \
@@ -399,7 +401,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @TEST_AS_NATIVE_LINKER_FALSE@thin_archive_test_2_DEPENDENCIES =
 
 # Test plugins with -r.
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_40 = plugin_test_1 \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_41 = plugin_test_1 \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_2 \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_3 \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_4 \
@@ -409,7 +411,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_8 \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_10 \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_11
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_41 = plugin_test_1.sh \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_42 = plugin_test_1.sh \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_2.sh \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_3.sh \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_4.sh \
@@ -420,7 +422,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 
 # Test that symbols known in the IR file but not in the replacement file
 # produce an unresolved symbol error.
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_42 = plugin_test_1.err \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_43 = plugin_test_1.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_2.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_3.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_4.err \
@@ -431,7 +433,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_10.sections \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_11.err
 # Make a copy of two_file_test_1.o, which does not define the symbol _Z4t16av.
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_43 = plugin_test_1.err \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_44 = plugin_test_1.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_2.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_3.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_4.a \
@@ -443,16 +445,16 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_10.sections \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_11.err \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_thin.a
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_44 = plugin_test_tls
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_45 = plugin_test_tls.sh
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_46 = plugin_test_tls.err
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_45 = plugin_test_tls
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_46 = plugin_test_tls.sh
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_47 = plugin_test_tls.err
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_48 =  \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__append_48 = plugin_test_tls.err
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_49 =  \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	unused.c \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_final_layout
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_49 = plugin_final_layout.sh
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_50 = plugin_final_layout.stdout plugin_final_layout_readelf.stdout
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_51 =  \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_50 = plugin_final_layout.sh
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_51 = plugin_final_layout.stdout plugin_final_layout_readelf.stdout
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_52 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	exclude_libs_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	local_labels_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	discard_locals_test
@@ -471,7 +473,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # weak reference in a DSO.
 
 # Test that MEMORY region support works.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_52 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_53 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	exclude_libs_test.sh \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	discard_locals_test.sh \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	hidden_test.sh \
@@ -483,7 +485,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 
 # Test INCLUDE directives in linker scripts.
 # The binary isn't runnable, so we just check that we can build it without errors.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_53 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_54 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	exclude_libs_test.syms \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	discard_locals_test.syms \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	discard_locals_relocatable_test1.syms \
@@ -495,7 +497,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	dyn_weak_ref.stdout \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	memory_test.stdout \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	memory_test_2
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_54 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_55 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	exclude_libs_test.syms \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	libexclude_libs_test_1.a \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	libexclude_libs_test_2.a \
@@ -507,6 +509,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	discard_locals_relocatable_test2.out \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	hidden_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	hidden_test.err \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	hidden_test.syms \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	retain_symbols_file_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	retain_symbols_file_test.in \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	retain_symbols_file_test.stdout \
@@ -528,7 +531,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	memory_test_inc_1.t \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	memory_test_inc_2.t \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	memory_test_inc_3.t
-@GCC_TRUE@@MCMODEL_MEDIUM_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_55 = large
+@GCC_TRUE@@MCMODEL_MEDIUM_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_56 = large
 @GCC_FALSE@large_DEPENDENCIES =
 @MCMODEL_MEDIUM_FALSE@large_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@large_DEPENDENCIES =
@@ -537,13 +540,13 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # it will get execute permission.
 
 # Check -l:foo.a
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_56 = permission_test \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_57 = permission_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	searched_file_test
 @GCC_FALSE@searched_file_test_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@searched_file_test_DEPENDENCIES =
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_57 = ifuncmain1static \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_58 = ifuncmain1static \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1picstatic
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_58 =  \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_59 =  \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1 \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1pic \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1vis \
@@ -552,14 +555,14 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1pie \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1vispie \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1staticpie
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_59 = ifuncmain2static \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_60 = ifuncmain2static \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain2picstatic
 @GCC_FALSE@ifuncmain2static_DEPENDENCIES =
 @HAVE_STATIC_FALSE@ifuncmain2static_DEPENDENCIES =
 @IFUNC_FALSE@ifuncmain2static_DEPENDENCIES =
 @IFUNC_STATIC_FALSE@ifuncmain2static_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@ifuncmain2static_DEPENDENCIES =
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_60 =  \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_61 =  \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain2 \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain2pic \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain3
@@ -569,33 +572,33 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @GCC_FALSE@ifuncmain3_DEPENDENCIES =
 @IFUNC_FALSE@ifuncmain3_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@ifuncmain3_DEPENDENCIES =
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_61 = ifuncmain4static \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_62 = ifuncmain4static \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain4picstatic
 @GCC_FALSE@ifuncmain4static_DEPENDENCIES =
 @HAVE_STATIC_FALSE@ifuncmain4static_DEPENDENCIES =
 @IFUNC_FALSE@ifuncmain4static_DEPENDENCIES =
 @IFUNC_STATIC_FALSE@ifuncmain4static_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@ifuncmain4static_DEPENDENCIES =
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_62 = ifuncmain4
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_63 = ifuncmain4
 @GCC_FALSE@ifuncmain4_DEPENDENCIES =
 @IFUNC_FALSE@ifuncmain4_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@ifuncmain4_DEPENDENCIES =
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_63 = ifuncmain5static \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_64 = ifuncmain5static \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5picstatic
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_64 =  \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_65 =  \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5 \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5pic \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5staticpic \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5pie \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain6pie
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_65 = ifuncmain7static \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_66 = ifuncmain7static \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7picstatic
 @GCC_FALSE@ifuncmain7static_DEPENDENCIES =
 @HAVE_STATIC_FALSE@ifuncmain7static_DEPENDENCIES =
 @IFUNC_FALSE@ifuncmain7static_DEPENDENCIES =
 @IFUNC_STATIC_FALSE@ifuncmain7static_DEPENDENCIES =
 @TEST_AS_NATIVE_LINKER_FALSE@ifuncmain7static_DEPENDENCIES =
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_66 =  \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_67 =  \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7 \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7pic \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7pie \
@@ -613,30 +616,30 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # Test that __ehdr_start is defined correctly when used with a linker script.
 
 # Test that __ehdr_start is not overridden when supplied by the user.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_67 = start_lib_test \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_68 = start_lib_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_1 \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_2 \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_3 \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_5
 
 # Test that --gdb-index functions correctly without gcc-generated pubnames.
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_68 = gdb_index_test_1.sh
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_69 = gdb_index_test_1.stdout
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_70 = gdb_index_test_1.stdout gdb_index_test_1
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_69 = gdb_index_test_1.sh
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_70 = gdb_index_test_1.stdout
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_71 = gdb_index_test_1.stdout gdb_index_test_1
 
 # Test that --gdb-index functions correctly with compressed debug sections.
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_71 = gdb_index_test_2.sh
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_72 = gdb_index_test_2.stdout
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_73 = gdb_index_test_2.stdout gdb_index_test_2
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_72 = gdb_index_test_2.sh
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_73 = gdb_index_test_2.stdout
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_74 = gdb_index_test_2.stdout gdb_index_test_2
 
 # Another simple C test (DW_AT_high_pc encoding) for --gdb-index.
 
 # Test that --gdb-index functions correctly with gcc-generated pubnames.
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_74 = gdb_index_test_3.sh \
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_75 = gdb_index_test_3.sh \
 @GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gdb_index_test_4.sh
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_75 = gdb_index_test_3.stdout \
-@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gdb_index_test_4.stdout
 @GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_76 = gdb_index_test_3.stdout \
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gdb_index_test_4.stdout
+@GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_77 = gdb_index_test_3.stdout \
 @GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gdb_index_test_3 \
 @GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gdb_index_test_4.stdout \
 @GCC_TRUE@@HAVE_PUBNAMES_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gdb_index_test_4
@@ -651,13 +654,13 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # appropriately aligned.
 
 # Test that the --defsym option copies the symbol type and visibility.
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_77 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_78 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_4.sh \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	defsym_test.sh
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_78 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_79 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_4.syms \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	defsym_test.syms
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_79 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_80 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_4 \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	defsym_test \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	defsym_test.syms
@@ -666,7 +669,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 
 # Test the --incremental-unchanged flag with an archive library.
 # The second link should not update the library.
-@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_80 = incremental_test_2 \
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_81 = incremental_test_2 \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_3 \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_4 \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_5 \
@@ -675,7 +678,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_common_test_1 \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_comdat_test_1 \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	exception_x86_64_bnd_test
-@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_81 = two_file_test_tmp_2.o \
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__append_82 = two_file_test_tmp_2.o \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	two_file_test_tmp_3.o \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_4.base \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	two_file_test_tmp_4.o \
@@ -685,30 +688,30 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # These tests work with native and cross linkers.
 
 # Test script section order.
-@NATIVE_OR_CROSS_LINKER_TRUE@am__append_82 = script_test_10.sh
-@NATIVE_OR_CROSS_LINKER_TRUE@am__append_83 = script_test_10.stdout
-@NATIVE_OR_CROSS_LINKER_TRUE@am__append_84 = script_test_10
+@NATIVE_OR_CROSS_LINKER_TRUE@am__append_83 = script_test_10.sh
+@NATIVE_OR_CROSS_LINKER_TRUE@am__append_84 = script_test_10.stdout
+@NATIVE_OR_CROSS_LINKER_TRUE@am__append_85 = script_test_10
 
 # These tests work with cross linkers only.
-@DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_85 = split_i386.sh
-@DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_86 = split_i386_1.stdout split_i386_2.stdout \
+@DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_86 = split_i386.sh
+@DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_87 = split_i386_1.stdout split_i386_2.stdout \
 @DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	split_i386_3.stdout split_i386_4.stdout split_i386_r.stdout
 
-@DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_87 = split_i386_1 split_i386_2 split_i386_3 \
+@DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_88 = split_i386_1 split_i386_2 split_i386_3 \
 @DEFAULT_TARGET_I386_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	split_i386_4 split_i386_r
 
-@DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_88 = split_x86_64.sh
-@DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_89 = split_x86_64_1.stdout split_x86_64_2.stdout \
+@DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_89 = split_x86_64.sh
+@DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_90 = split_x86_64_1.stdout split_x86_64_2.stdout \
 @DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	split_x86_64_3.stdout split_x86_64_4.stdout split_x86_64_r.stdout
 
-@DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_90 = split_x86_64_1 split_x86_64_2 split_x86_64_3 \
+@DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_91 = split_x86_64_1 split_x86_64_2 split_x86_64_3 \
 @DEFAULT_TARGET_X86_64_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	split_x86_64_4 split_x86_64_r
 
-@DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_91 = split_x32.sh
-@DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_92 = split_x32_1.stdout split_x32_2.stdout \
+@DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_92 = split_x32.sh
+@DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_93 = split_x32_1.stdout split_x32_2.stdout \
 @DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	split_x32_3.stdout split_x32_4.stdout split_x32_r.stdout
 
-@DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_93 = split_x32_1 split_x32_2 split_x32_3 \
+@DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_94 = split_x32_1 split_x32_2 split_x32_3 \
 @DEFAULT_TARGET_X32_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	split_x32_4 split_x32_r
 
 
@@ -723,7 +726,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 # Check Thumb to Thumb farcall veneers
 
 # Check Thumb to ARM farcall veneers
-@DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_94 = arm_abs_global.sh \
+@DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_95 = arm_abs_global.sh \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_branch_in_range.sh \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_branch_out_of_range.sh \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_fix_v4bx.sh \
@@ -737,7 +740,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_arm_thumb.sh \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_thumb.sh \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_arm.sh
-@DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_95 = arm_abs_global.stdout \
+@DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_96 = arm_abs_global.stdout \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_bl_in_range.stdout \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_bl_out_of_range.stdout \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	thumb_bl_in_range.stdout \
@@ -782,7 +785,7 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_thumb_6m.stdout \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_arm.stdout \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_arm_5t.stdout
-@DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_96 = arm_abs_global \
+@DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@am__append_97 = arm_abs_global \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_bl_in_range \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_bl_out_of_range \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	thumb_bl_in_range \
@@ -825,10 +828,10 @@ check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_thumb_6m \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_arm \
 @DEFAULT_TARGET_ARM_TRUE@@NATIVE_OR_CROSS_LINKER_TRUE@	arm_farcall_thumb_arm_5t
-@DEFAULT_TARGET_X86_64_TRUE@am__append_97 = *.dwo *.dwp
-@DEFAULT_TARGET_X86_64_TRUE@am__append_98 = dwp_test_1.sh \
+@DEFAULT_TARGET_X86_64_TRUE@am__append_98 = *.dwo *.dwp
+@DEFAULT_TARGET_X86_64_TRUE@am__append_99 = dwp_test_1.sh \
 @DEFAULT_TARGET_X86_64_TRUE@	dwp_test_2.sh
-@DEFAULT_TARGET_X86_64_TRUE@am__append_99 = dwp_test_1.stdout \
+@DEFAULT_TARGET_X86_64_TRUE@am__append_100 = dwp_test_1.stdout \
 @DEFAULT_TARGET_X86_64_TRUE@	dwp_test_2.stdout
 subdir = testsuite
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am
@@ -924,15 +927,16 @@ libgoldtest_a_OBJECTS = $(am_libgoldtest_a_OBJECTS)
 @GCC_TRUE@@HAVE_STATIC_TRUE@@STATIC_TLS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__EXEEXT_18 = tls_static_test$(EXEEXT) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@STATIC_TLS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@	tls_static_pic_test$(EXEEXT)
 @FN_PTRS_IN_SO_WITHOUT_PIC_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__EXEEXT_19 = tls_shared_nonpic_test$(EXEEXT)
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_20 = many_sections_test$(EXEEXT) \
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_20 = pr17704a_test$(EXEEXT)
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_21 = many_sections_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	many_sections_r_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	initpri1$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	initpri2$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	initpri3a$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	flagstest_o_specialfile$(EXEEXT)
-@GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_21 = flagstest_compress_debug_sections$(EXEEXT) \
+@GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_22 = flagstest_compress_debug_sections$(EXEEXT) \
 @GCC_TRUE@@HAVE_ZLIB_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	flagstest_o_specialfile_and_compress_debug_sections$(EXEEXT)
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_22 = flagstest_o_ttext_1$(EXEEXT) \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_23 = flagstest_o_ttext_1$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ver_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ver_test_2$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ver_test_6$(EXEEXT) \
@@ -958,7 +962,7 @@ libgoldtest_a_OBJECTS = $(am_libgoldtest_a_OBJECTS)
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	dynamic_list_2$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	thin_archive_test_1$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	thin_archive_test_2$(EXEEXT)
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_23 = plugin_test_1$(EXEEXT) \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_24 = plugin_test_1$(EXEEXT) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_2$(EXEEXT) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_3$(EXEEXT) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_4$(EXEEXT) \
@@ -968,16 +972,16 @@ libgoldtest_a_OBJECTS = $(am_libgoldtest_a_OBJECTS)
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_8$(EXEEXT) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_10$(EXEEXT) \
 @GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	plugin_test_11$(EXEEXT)
-@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__EXEEXT_24 = plugin_test_tls$(EXEEXT)
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_25 = exclude_libs_test$(EXEEXT) \
+@GCC_TRUE@@PLUGINS_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@am__EXEEXT_25 = plugin_test_tls$(EXEEXT)
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_26 = exclude_libs_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	local_labels_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	discard_locals_test$(EXEEXT)
-@GCC_TRUE@@MCMODEL_MEDIUM_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_26 = large$(EXEEXT)
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_27 = permission_test$(EXEEXT) \
+@GCC_TRUE@@MCMODEL_MEDIUM_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_27 = large$(EXEEXT)
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_28 = permission_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	searched_file_test$(EXEEXT)
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_28 = ifuncmain1static$(EXEEXT) \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_29 = ifuncmain1static$(EXEEXT) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1picstatic$(EXEEXT)
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_29 = ifuncmain1$(EXEEXT) \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_30 = ifuncmain1$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1pic$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1vis$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1vispic$(EXEEXT) \
@@ -985,34 +989,34 @@ libgoldtest_a_OBJECTS = $(am_libgoldtest_a_OBJECTS)
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1pie$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1vispie$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain1staticpie$(EXEEXT)
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_30 = ifuncmain2static$(EXEEXT) \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_31 = ifuncmain2static$(EXEEXT) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain2picstatic$(EXEEXT)
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_31 = ifuncmain2$(EXEEXT) \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_32 = ifuncmain2$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain2pic$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain3$(EXEEXT)
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_32 = ifuncmain4static$(EXEEXT) \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_33 = ifuncmain4static$(EXEEXT) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain4picstatic$(EXEEXT)
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_33 = ifuncmain4$(EXEEXT)
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_34 = ifuncmain5static$(EXEEXT) \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_34 = ifuncmain4$(EXEEXT)
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_35 = ifuncmain5static$(EXEEXT) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5picstatic$(EXEEXT)
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_35 = ifuncmain5$(EXEEXT) \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_36 = ifuncmain5$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5pic$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5staticpic$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain5pie$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain6pie$(EXEEXT)
-@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_36 = ifuncmain7static$(EXEEXT) \
+@GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_37 = ifuncmain7static$(EXEEXT) \
 @GCC_TRUE@@HAVE_STATIC_TRUE@@IFUNC_STATIC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7picstatic$(EXEEXT)
-@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_37 = ifuncmain7$(EXEEXT) \
+@GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_38 = ifuncmain7$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7pic$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncmain7pie$(EXEEXT) \
 @GCC_TRUE@@IFUNC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ifuncvar$(EXEEXT)
-@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_38 =  \
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_39 =  \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	start_lib_test$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_1$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_2$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_3$(EXEEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	ehdr_start_test_5$(EXEEXT)
-@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_39 = incremental_test_2$(EXEEXT) \
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am__EXEEXT_40 = incremental_test_2$(EXEEXT) \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_3$(EXEEXT) \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_4$(EXEEXT) \
 @DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	incremental_test_5$(EXEEXT) \
@@ -1567,6 +1571,12 @@ plugin_test_tls_LDADD = $(LDADD)
 plugin_test_tls_DEPENDENCIES = libgoldtest.a ../libgold.a \
 	../../libiberty/libiberty.a $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+pr17704a_test_SOURCES = pr17704a_test.c
+pr17704a_test_OBJECTS = pr17704a_test.$(OBJEXT)
+pr17704a_test_LDADD = $(LDADD)
+pr17704a_test_DEPENDENCIES = libgoldtest.a ../libgold.a \
+	../../libiberty/libiberty.a $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@am_protected_1_OBJECTS = protected_main_1.$(OBJEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	protected_main_2.$(OBJEXT) \
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	protected_main_3.$(OBJEXT)
@@ -1964,11 +1974,12 @@ SOURCES = $(libgoldtest_a_SOURCES) basic_pic_test.c basic_pie_test.c \
 	plugin_test_1.c plugin_test_10.c plugin_test_11.c \
 	plugin_test_2.c plugin_test_3.c plugin_test_4.c \
 	plugin_test_5.c plugin_test_6.c plugin_test_7.c \
-	plugin_test_8.c plugin_test_tls.c $(protected_1_SOURCES) \
-	$(protected_2_SOURCES) $(relro_now_test_SOURCES) \
-	$(relro_script_test_SOURCES) $(relro_strip_test_SOURCES) \
-	$(relro_test_SOURCES) $(script_test_1_SOURCES) \
-	script_test_11.c $(script_test_2_SOURCES) script_test_3.c \
+	plugin_test_8.c plugin_test_tls.c pr17704a_test.c \
+	$(protected_1_SOURCES) $(protected_2_SOURCES) \
+	$(relro_now_test_SOURCES) $(relro_script_test_SOURCES) \
+	$(relro_strip_test_SOURCES) $(relro_test_SOURCES) \
+	$(script_test_1_SOURCES) script_test_11.c \
+	$(script_test_2_SOURCES) script_test_3.c \
 	$(searched_file_test_SOURCES) start_lib_test.c \
 	$(thin_archive_test_1_SOURCES) $(thin_archive_test_2_SOURCES) \
 	$(tls_phdrs_script_test_SOURCES) $(tls_pic_test_SOURCES) \
@@ -2282,31 +2293,31 @@ TEST_AS = $(top_builddir)/../gas/as-new
 # improve on that here.  automake-1.9 info docs say "mostlyclean" is
 # the right choice for files 'make' builds that people rebuild.
 MOSTLYCLEANFILES = *.so *.syms *.stdout $(am__append_4) \
-	$(am__append_17) $(am__append_28) $(am__append_31) \
-	$(am__append_35) $(am__append_37) $(am__append_43) \
-	$(am__append_47) $(am__append_48) $(am__append_54) \
-	$(am__append_70) $(am__append_73) $(am__append_76) \
-	$(am__append_79) $(am__append_81) $(am__append_84) \
-	$(am__append_87) $(am__append_90) $(am__append_93) \
-	$(am__append_96) $(am__append_97)
+	$(am__append_17) $(am__append_29) $(am__append_32) \
+	$(am__append_36) $(am__append_38) $(am__append_44) \
+	$(am__append_48) $(am__append_49) $(am__append_55) \
+	$(am__append_71) $(am__append_74) $(am__append_77) \
+	$(am__append_80) $(am__append_82) $(am__append_85) \
+	$(am__append_88) $(am__append_91) $(am__append_94) \
+	$(am__append_97) $(am__append_98)
 
 # We will add to these later, for each individual test.  Note
 # that we add each test under check_SCRIPTS or check_PROGRAMS;
 # the TESTS variable is automatically populated from these.
-check_SCRIPTS = $(am__append_2) $(am__append_20) $(am__append_26) \
-	$(am__append_32) $(am__append_41) $(am__append_45) \
-	$(am__append_49) $(am__append_52) $(am__append_68) \
-	$(am__append_71) $(am__append_74) $(am__append_77) \
-	$(am__append_82) $(am__append_85) $(am__append_88) \
-	$(am__append_91) $(am__append_94) $(am__append_98)
-check_DATA = $(am__append_3) $(am__append_21) $(am__append_27) \
-	$(am__append_33) $(am__append_34) $(am__append_36) \
-	$(am__append_42) $(am__append_46) $(am__append_50) \
-	$(am__append_53) $(am__append_69) $(am__append_72) \
-	$(am__append_75) $(am__append_78) $(am__append_83) \
-	$(am__append_86) $(am__append_89) $(am__append_92) \
-	$(am__append_95) $(am__append_99)
-BUILT_SOURCES = $(am__append_30)
+check_SCRIPTS = $(am__append_2) $(am__append_20) $(am__append_27) \
+	$(am__append_33) $(am__append_42) $(am__append_46) \
+	$(am__append_50) $(am__append_53) $(am__append_69) \
+	$(am__append_72) $(am__append_75) $(am__append_78) \
+	$(am__append_83) $(am__append_86) $(am__append_89) \
+	$(am__append_92) $(am__append_95) $(am__append_99)
+check_DATA = $(am__append_3) $(am__append_21) $(am__append_28) \
+	$(am__append_34) $(am__append_35) $(am__append_37) \
+	$(am__append_43) $(am__append_47) $(am__append_51) \
+	$(am__append_54) $(am__append_70) $(am__append_73) \
+	$(am__append_76) $(am__append_79) $(am__append_84) \
+	$(am__append_87) $(am__append_90) $(am__append_93) \
+	$(am__append_96) $(am__append_100)
+BUILT_SOURCES = $(am__append_31)
 TESTS = $(check_SCRIPTS) $(check_PROGRAMS)
 
 # ---------------------------------------------------------------------
@@ -3453,6 +3464,15 @@ pie_copyrelocs_test$(EXEEXT): $(pie_copyrelocs_test_OBJECTS) $(pie_copyrelocs_te
 @TLS_FALSE@plugin_test_tls$(EXEEXT): $(plugin_test_tls_OBJECTS) $(plugin_test_tls_DEPENDENCIES) 
 @TLS_FALSE@	@rm -f plugin_test_tls$(EXEEXT)
 @TLS_FALSE@	$(LINK) $(plugin_test_tls_OBJECTS) $(plugin_test_tls_LDADD) $(LIBS)
+@DEFAULT_TARGET_X86_64_FALSE@pr17704a_test$(EXEEXT): $(pr17704a_test_OBJECTS) $(pr17704a_test_DEPENDENCIES) 
+@DEFAULT_TARGET_X86_64_FALSE@	@rm -f pr17704a_test$(EXEEXT)
+@DEFAULT_TARGET_X86_64_FALSE@	$(LINK) $(pr17704a_test_OBJECTS) $(pr17704a_test_LDADD) $(LIBS)
+@GCC_FALSE@pr17704a_test$(EXEEXT): $(pr17704a_test_OBJECTS) $(pr17704a_test_DEPENDENCIES) 
+@GCC_FALSE@	@rm -f pr17704a_test$(EXEEXT)
+@GCC_FALSE@	$(LINK) $(pr17704a_test_OBJECTS) $(pr17704a_test_LDADD) $(LIBS)
+@TEST_AS_NATIVE_LINKER_FALSE@pr17704a_test$(EXEEXT): $(pr17704a_test_OBJECTS) $(pr17704a_test_DEPENDENCIES) 
+@TEST_AS_NATIVE_LINKER_FALSE@	@rm -f pr17704a_test$(EXEEXT)
+@TEST_AS_NATIVE_LINKER_FALSE@	$(LINK) $(pr17704a_test_OBJECTS) $(pr17704a_test_LDADD) $(LIBS)
 protected_1$(EXEEXT): $(protected_1_OBJECTS) $(protected_1_DEPENDENCIES) 
 	@rm -f protected_1$(EXEEXT)
 	$(protected_1_LINK) $(protected_1_OBJECTS) $(protected_1_LDADD) $(LIBS)
@@ -3775,6 +3795,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_test_7.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_test_8.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin_test_tls.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pr17704a_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protected_3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protected_main_1.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/protected_main_2.Po@am__quote@
@@ -4458,6 +4479,8 @@ tls_static_pic_test.log: tls_static_pic_test$(EXEEXT)
 	@p='tls_static_pic_test$(EXEEXT)'; $(am__check_pre) $(LOG_COMPILE) "$$tst" $(am__check_post)
 tls_shared_nonpic_test.log: tls_shared_nonpic_test$(EXEEXT)
 	@p='tls_shared_nonpic_test$(EXEEXT)'; $(am__check_pre) $(LOG_COMPILE) "$$tst" $(am__check_post)
+pr17704a_test.log: pr17704a_test$(EXEEXT)
+	@p='pr17704a_test$(EXEEXT)'; $(am__check_pre) $(LOG_COMPILE) "$$tst" $(am__check_post)
 many_sections_test.log: many_sections_test$(EXEEXT)
 	@p='many_sections_test$(EXEEXT)'; $(am__check_pre) $(LOG_COMPILE) "$$tst" $(am__check_post)
 many_sections_r_test.log: many_sections_r_test$(EXEEXT)
@@ -5144,6 +5167,10 @@ uninstall-am:
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_DESCRIPTORS_TRUE@@TLS_GNU2_DIALECT_TRUE@@TLS_TRUE@	$(CXXLINK) -Bgcctestdir/ -shared tls_test_gnu2.o tls_test_file2_gnu2.o tls_test_c_gnu2.o
 @FN_PTRS_IN_SO_WITHOUT_PIC_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@tls_test_shared_nonpic.so: tls_test.o tls_test_file2.o tls_test_c.o gcctestdir/ld
 @FN_PTRS_IN_SO_WITHOUT_PIC_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@@TLS_TRUE@	$(CXXLINK) -Bgcctestdir/ -shared tls_test.o tls_test_file2.o tls_test_c.o -Wl,-z,notext
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@pr17704a_test.o: pr17704a_test.s
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	$(TEST_AS) --64  -o $@ $<
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@pr17704a_test: pr17704a_test.o gcctestdir/ld
+@DEFAULT_TARGET_X86_64_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	gcctestdir/ld --icf=all -o $@ $<
 
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@i386_mov_to_lea1.o: i386_mov_to_lea1.s
 @DEFAULT_TARGET_I386_TRUE@@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	$(TEST_AS) --32 -o $@ $<
@@ -5624,6 +5651,8 @@ uninstall-am:
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	$(COMPILE) -Bgcctestdir/ -g -shared -fPIC -w -o $@ $(srcdir)/hidden_test_1.c
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@hidden_test: hidden_test_main.o libhidden.so gcctestdir/ld
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	$(LINK) -Bgcctestdir/ -Wl,-R,. hidden_test_main.o libhidden.so 2>hidden_test.err
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@hidden_test.syms: hidden_test
+@GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	$(TEST_NM) -D hidden_test > $@
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@hidden_test.err: hidden_test
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@	@touch hidden_test.err
 @GCC_TRUE@@TEST_AS_NATIVE_LINKER_TRUE@retain_symbols_file_test.so: basic_pic_test.o gcctestdir/ld

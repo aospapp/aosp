@@ -21,6 +21,8 @@
 #include <list>
 #include <string>
 
+#include "NetdConstants.h"
+
 class NatController {
 public:
     NatController();
@@ -52,6 +54,7 @@ private:
     // For testing.
     friend class NatControllerTest;
     static int (*execFunction)(int, char **, int *, bool, bool);
+    static int (*iptablesRestoreFunction)(IptablesTarget, const std::string&);
 };
 
 #endif

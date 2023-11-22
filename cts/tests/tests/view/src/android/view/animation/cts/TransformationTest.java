@@ -16,16 +16,30 @@
 
 package android.view.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+
 import android.graphics.Matrix;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.Transformation;
 
-public class TransformationTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TransformationTest {
+    private static final float COMPARISON_DELTA = 0.001f;
+
+    @Test
     public void testConstructor() {
         new Transformation();
     }
 
+    @Test
     public void testCompose() {
         final Transformation t1 = new Transformation();
         final Transformation t2 = new Transformation();
@@ -40,7 +54,7 @@ public class TransformationTest extends AndroidTestCase {
         Matrix expectedMatrix = new Matrix();
         expectedMatrix.setScale(9, 1);
         assertEquals(expectedMatrix, t2.getMatrix());
-        assertEquals(0.4f * 0.5f, t2.getAlpha());
+        assertEquals(0.4f * 0.5f, t2.getAlpha(), COMPARISON_DELTA);
         assertEquals(Transformation.TYPE_ALPHA, t2.getTransformationType());
 
         t1.setTransformationType(Transformation.TYPE_IDENTITY);
@@ -48,10 +62,11 @@ public class TransformationTest extends AndroidTestCase {
         expectedMatrix = new Matrix();
         expectedMatrix.setScale(27, 1);
         assertEquals(expectedMatrix, t2.getMatrix());
-        assertEquals(0.4f * 0.5f * 0.5f, t2.getAlpha());
+        assertEquals(0.4f * 0.5f * 0.5f, t2.getAlpha(), COMPARISON_DELTA);
         assertEquals(Transformation.TYPE_ALPHA, t2.getTransformationType());
     }
 
+    @Test
     public void testClear() {
         final Transformation t1 = new Transformation();
         final Transformation t2 = new Transformation();
@@ -76,11 +91,12 @@ public class TransformationTest extends AndroidTestCase {
     }
 
     private void assertTransformationEquals(Transformation expected, Transformation actual) {
-        assertEquals(expected.getAlpha(), actual.getAlpha());
+        assertEquals(expected.getAlpha(), actual.getAlpha(), COMPARISON_DELTA);
         assertEquals(expected.getMatrix(), actual.getMatrix());
         assertEquals(expected.getTransformationType(), actual.getTransformationType());
     }
 
+    @Test
     public void testAccessTransformationType() {
         final Transformation transformation = new Transformation();
 
@@ -100,6 +116,7 @@ public class TransformationTest extends AndroidTestCase {
         assertEquals(Transformation.TYPE_BOTH, transformation.getTransformationType());
     }
 
+    @Test
     public void testSet() {
         final Transformation t1 = new Transformation();
         t1.setAlpha(0.0f);
@@ -108,24 +125,27 @@ public class TransformationTest extends AndroidTestCase {
         assertTransformationEquals(t1, t2);
     }
 
+    @Test
     public void testAccessAlpha() {
         final Transformation transformation = new Transformation();
 
         transformation.setAlpha(0.0f);
-        assertEquals(0.0f, transformation.getAlpha());
+        assertEquals(0.0f, transformation.getAlpha(), 0.0f);
 
         transformation.setAlpha(0.5f);
-        assertEquals(0.5f, transformation.getAlpha());
+        assertEquals(0.5f, transformation.getAlpha(), 0.0f);
 
         transformation.setAlpha(1.0f);
-        assertEquals(1.0f, transformation.getAlpha());
+        assertEquals(1.0f, transformation.getAlpha(), 0.0f);
     }
 
+    @Test
     public void testToString() {
         assertNotNull(new Transformation().toString());
         assertNotNull(new Transformation().toShortString());
     }
 
+    @Test
     public void testGetMatrix() {
         final Matrix expected = new Matrix();
         final Transformation transformation = new Transformation();

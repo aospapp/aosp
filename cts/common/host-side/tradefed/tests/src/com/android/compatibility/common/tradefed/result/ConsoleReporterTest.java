@@ -16,29 +16,20 @@
 
 package com.android.compatibility.common.tradefed.result;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.compatibility.common.util.AbiUtils;
-import com.android.compatibility.common.util.ICaseResult;
-import com.android.compatibility.common.util.IInvocationResult;
-import com.android.compatibility.common.util.IModuleResult;
-import com.android.compatibility.common.util.ITestResult;
-import com.android.compatibility.common.util.TestStatus;
 import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.build.BuildInfo;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
-import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.util.AbiUtils;
 
 import junit.framework.TestCase;
 
-import java.io.File;
-import java.io.FileFilter;
 import java.util.HashMap;
-import java.util.List;
 
+/**
+ * Tests for {@link ConsoleReporter}.
+ */
 public class ConsoleReporterTest extends TestCase {
 
-    private static final String TESTCASES = "testcases";
     private static final String NAME = "ModuleName";
     private static final String NAME2 = "ModuleName2";
     private static final String ABI = "mips64";
@@ -48,19 +39,11 @@ public class ConsoleReporterTest extends TestCase {
     private static final String METHOD_1 = "testBlah1";
     private static final String METHOD_2 = "testBlah2";
     private static final String METHOD_3 = "testBlah3";
-    private static final String TEST_1 = String.format("%s#%s", CLASS, METHOD_1);
-    private static final String TEST_2 = String.format("%s#%s", CLASS, METHOD_2);
-    private static final String TEST_3 = String.format("%s#%s", CLASS, METHOD_3);
     private static final String STACK_TRACE = "Something small is not alright\n " +
             "at four.big.insects.Marley.sing(Marley.java:10)";
 
     private ConsoleReporter mReporter;
-    private IBuildInfo mBuildInfo;
-    private CompatibilityBuildHelper mBuildHelper;
-
-    private File mRoot = null;
-    private File mBase = null;
-    private File mTests = null;
+    private IInvocationContext mContext;
 
     @Override
     public void setUp() throws Exception {
@@ -75,7 +58,7 @@ public class ConsoleReporterTest extends TestCase {
     }
 
     public void testResultReporting_singleModule() throws Exception {
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
         mReporter.testRunStarted(ID, 3);
         runTests();
 
@@ -90,7 +73,7 @@ public class ConsoleReporterTest extends TestCase {
     }
 
     public void testResultReporting_multipleModules() throws Exception {
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
         mReporter.testRunStarted(ID, 3);
         runTests();
 
@@ -107,15 +90,6 @@ public class ConsoleReporterTest extends TestCase {
         assertEquals(0, mReporter.getPassedTests());
         assertEquals(0, mReporter.getCurrentTestNum());
         assertEquals(3, mReporter.getTotalTestsInModule());
-
-        runTests();
-        // Same id, should not reset test counters, but aggregate total tests
-        mReporter.testRunStarted(ID2, 5);
-        assertEquals(ID2, mReporter.getModuleId());
-        assertEquals(2, mReporter.getFailedTests());
-        assertEquals(1, mReporter.getPassedTests());
-        assertEquals(3, mReporter.getCurrentTestNum());
-        assertEquals(8, mReporter.getTotalTestsInModule());
     }
 
     /** Run 4 test, but one is ignored */

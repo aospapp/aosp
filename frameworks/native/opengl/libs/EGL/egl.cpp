@@ -14,31 +14,24 @@
  ** limitations under the License.
  */
 
-#include <ctype.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include <hardware/gralloc.h>
-#include <system/window.h>
 
 #include <EGL/egl.h>
-#include <EGL/eglext.h>
 
-#include <cutils/log.h>
-#include <cutils/atomic.h>
 #include <cutils/properties.h>
 
-#include <utils/CallStack.h>
-#include <utils/String8.h>
+#include <log/log.h>
 
 #include "../egl_impl.h"
 
-#include "egl_tls.h"
 #include "egldefs.h"
-#include "Loader.h"
-
+#include "egl_tls.h"
 #include "egl_display.h"
 #include "egl_object.h"
+#include "CallStack.h"
+#include "Loader.h"
 
 typedef __eglMustCastToProperFunctionPointerType EGLFuncPointer;
 
@@ -71,7 +64,7 @@ static int gl_no_context() {
         char value[PROPERTY_VALUE_MAX];
         property_get("debug.egl.callstack", value, "0");
         if (atoi(value)) {
-            CallStack stack(LOG_TAG);
+            CallStack::log(LOG_TAG);
         }
     }
     return 0;
@@ -133,7 +126,7 @@ const GLubyte * egl_get_string_for_current_context(GLenum name) {
     if (name != GL_EXTENSIONS)
         return NULL;
 
-    return (const GLubyte *)c->gl_extensions.string();
+    return (const GLubyte *)c->gl_extensions.c_str();
 }
 
 const GLubyte * egl_get_string_for_current_context(GLenum name, GLuint index) {
@@ -156,7 +149,7 @@ const GLubyte * egl_get_string_for_current_context(GLenum name, GLuint index) {
     if (index >= c->tokenized_gl_extensions.size())
         return NULL;
 
-    return (const GLubyte *)c->tokenized_gl_extensions.itemAt(index).string();
+    return (const GLubyte *)c->tokenized_gl_extensions[index].c_str();
 }
 
 GLint egl_get_num_extensions_for_current_context() {
@@ -213,14 +206,14 @@ EGLBoolean egl_init_drivers() {
 }
 
 static pthread_mutex_t sLogPrintMutex = PTHREAD_MUTEX_INITIALIZER;
-static nsecs_t sLogPrintTime = 0;
-#define NSECS_DURATION 1000000000
+static std::chrono::steady_clock::time_point sLogPrintTime;
+static constexpr std::chrono::seconds DURATION(1);
 
 void gl_unimplemented() {
     bool printLog = false;
-    nsecs_t now = systemTime();
+    auto now = std::chrono::steady_clock::now();
     pthread_mutex_lock(&sLogPrintMutex);
-    if ((now - sLogPrintTime) > NSECS_DURATION) {
+    if ((now - sLogPrintTime) > DURATION) {
         sLogPrintTime = now;
         printLog = true;
     }
@@ -230,7 +223,7 @@ void gl_unimplemented() {
         char value[PROPERTY_VALUE_MAX];
         property_get("debug.egl.callstack", value, "0");
         if (atoi(value)) {
-            CallStack stack(LOG_TAG);
+            CallStack::log(LOG_TAG);
         }
     }
 }

@@ -26,7 +26,6 @@
 #include "TetherController.h"
 #include "NatController.h"
 #include "PppController.h"
-#include "SoftapController.h"
 #include "BandwidthController.h"
 #include "IdletimerController.h"
 #include "InterfaceController.h"
@@ -34,6 +33,9 @@
 #include "FirewallController.h"
 #include "ClatdController.h"
 #include "StrictController.h"
+
+namespace android {
+namespace net {
 
 class CommandListener : public FrameworkListener {
 public:
@@ -45,13 +47,6 @@ private:
     void registerLockingCmd(FrameworkCommand *cmd) {
         registerLockingCmd(cmd, android::net::gBigNetdLock);
     }
-
-    class SoftapCmd : public NetdCommand {
-    public:
-        SoftapCmd();
-        virtual ~SoftapCmd() {}
-        int runCommand(SocketClient *c, int argc, char ** argv);
-    };
 
     class InterfaceCmd : public NetdCommand {
     public:
@@ -163,5 +158,8 @@ private:
         int success(SocketClient* cli);
     };
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif

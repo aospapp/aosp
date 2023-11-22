@@ -12,6 +12,7 @@
 //
 //     Error Returns                     Meaning
 //
+//     TPM_RC_ATTRIBUTES                 If the key is restricted or the key is not a decryption key
 //     TPM_RC_KEY                        keyHandle does not reference a non-restricted decryption ECC key
 //
 TPM_RC
@@ -35,7 +36,7 @@ TPM2_ECDH_KeyGen(
    if(     eccKey->publicArea.objectAttributes.restricted == SET
       ||   eccKey->publicArea.objectAttributes.decrypt != SET
      )
-       return TPM_RC_KEY + RC_ECDH_KeyGen_keyHandle;
+       return TPM_RC_ATTRIBUTES + RC_ECDH_KeyGen_keyHandle;
 
 // Command Output
    do

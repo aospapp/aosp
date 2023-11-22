@@ -26,3 +26,7 @@ static std::unique_ptr<Command> DumpCmd() {
 TEST(cmd_dump, record_file_option) {
   ASSERT_TRUE(DumpCmd()->Run({GetTestData("perf.data")}));
 }
+
+TEST(cmd_dump, dump_data_generated_by_linux_perf) {
+  ASSERT_TRUE(DumpCmd()->Run({GetTestData(PERF_DATA_GENERATED_BY_LINUX_PERF)}));
+}

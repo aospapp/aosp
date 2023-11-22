@@ -67,7 +67,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_IS_HOST_MODULE := true
 include $(LOCAL_PATH)/LibParameter.mk
-LOCAL_SHARED_LIBRARIES += libicuuc-host
+LOCAL_SHARED_LIBRARIES += libicuuc
 LOCAL_LDLIBS := -ldl
 include $(BUILD_HOST_SHARED_LIBRARY)
 

@@ -17,7 +17,7 @@ import its.caps
 import its.device
 import its.objects
 import os.path
-import pylab
+from matplotlib import pylab
 import matplotlib
 import matplotlib.pyplot
 

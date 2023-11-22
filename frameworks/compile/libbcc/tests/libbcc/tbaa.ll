@@ -34,6 +34,12 @@ attributes #0 = { nounwind readnone }
 !\23rs_export_foreach_name = !{!3, !4}
 !\23rs_export_foreach = !{!5, !6}
 
+; The following named metadata would not be present in a bitcode file,
+; but instead synthesized by bcc from the bitcode wrapper.  However,
+; for this test case, we're not running bcc, but instead opt, and so
+; we never get the opportunity to synthesize this named metadata.
+!\23rs_wrapper = !{!7}
+
 !0 = !{!"clang version 3.6 "}
 !1 = !{!"version", !"1"}
 !2 = !{!"java_package_name", !"foo"}
@@ -41,3 +47,4 @@ attributes #0 = { nounwind readnone }
 !4 = !{!"add1"}
 !5 = !{!"0"}
 !6 = !{!"35"}
+!7 = !{!"0", !"3"}

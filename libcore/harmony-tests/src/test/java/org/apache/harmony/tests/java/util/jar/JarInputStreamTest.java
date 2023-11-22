@@ -403,4 +403,35 @@ public class JarInputStreamTest extends junit.framework.TestCase {
             // expected
         }
     }
+
+    /**
+     * hyts_metainf.jar contains an additional entry in META-INF (META-INF/bad_checksum.txt),
+     * that has been altered since jar signing - we expect to detect a mismatching digest.
+     */
+    public void test_metainf_verification() throws Exception {
+        String jarFilename = "hyts_metainf.jar";
+        File resources = Support_Resources.createTempFolder();
+        Support_Resources.copyFile(resources, null, jarFilename);
+        InputStream is = Support_Resources.getStream(jarFilename);
+
+        try (JarInputStream jis = new JarInputStream(is, true)) {
+            JarEntry je = jis.getNextJarEntry();
+            je = jis.getNextJarEntry();
+            je = jis.getNextJarEntry();
+            je = jis.getNextJarEntry();
+
+            if (!je.getName().equals("META-INF/bad_checksum.txt")) {
+                fail("Expected META-INF/bad_checksum.txt as a 4th entry, got:" + je.getName());
+            }
+            byte[] buffer = new byte[1024];
+            int length = 0;
+            try {
+                while (length >= 0) {
+                    length = jis.read(buffer);
+                }
+                fail("SecurityException expected");
+            } catch (SecurityException expected) {}
+        }
+    }
+
 }

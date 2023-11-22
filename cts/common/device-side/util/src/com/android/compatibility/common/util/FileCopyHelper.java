@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2009 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 
 /**
- * FileCopyHelper is used to copy files from resources to the application directory and responsible
- * for deleting the files.
+ * FileCopyHelper is used to copy files from resources to the
+ * application directory and responsible for deleting the files.
  *
  * @see MediaStore_VideoTest
  * @see MediaStore_Images_MediaTest

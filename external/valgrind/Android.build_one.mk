@@ -18,19 +18,19 @@ LOCAL_ARM_MODE := arm
 ifeq ($(vg_build_second_arch),true)
 LOCAL_MULTILIB := 32
 vg_local_arch := $(TARGET_2ND_ARCH)
+vg_local_android_arch := $(TARGET_2ND_ARCH)
 else
 LOCAL_MULTILIB := first
 vg_local_arch  := $(vg_arch)
+vg_local_android_arch := $(TARGET_ARCH)
 endif
 
-# TODO: This workaround is to avoid calling memset from VG(memset)
-# wrapper because of invalid clang optimization; This seems to be
-# limited to amd64/x86 codegen(?);
-ifeq ($(filter $TARGET_ARCH,x86 x86_64),)
-  LOCAL_CLANG := false
-endif
+# Do not call (builtin) memset from VG(memset).
+LOCAL_CLANG_CFLAGS += -fno-builtin-memset
 
 LOCAL_MODULE := $(vg_local_module)-$(vg_local_arch)-linux
+
+LOCAL_MODULE_TARGET_ARCH := $(vg_local_android_arch)
 
 LOCAL_SRC_FILES := $(vg_local_src_files)
 
@@ -74,4 +74,3 @@ ifeq ($(vg_local_no_crt),true)
 endif
 
 include $(BUILD_$(vg_local_target))
-

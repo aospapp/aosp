@@ -26,6 +26,7 @@ import android.util.AttributeSet;
 import android.view.View;
 
 import com.android.deskclock.R;
+import com.android.deskclock.ThemeUtils;
 import com.android.deskclock.Utils;
 import com.android.deskclock.data.DataModel;
 import com.android.deskclock.data.Lap;
@@ -80,8 +81,8 @@ public final class StopwatchCircleView extends View {
         mMarkerStrokeSize = resources.getDimension(R.dimen.circletimer_marker_size);
         mRadiusOffset = Utils.calculateRadiusOffset(mStrokeSize, dotDiameter, mMarkerStrokeSize);
 
-        mRemainderColor = resources.getColor(R.color.clock_white);
-        mCompletedColor = Utils.obtainStyledColor(context, R.attr.colorAccent, Color.RED);
+        mRemainderColor = Color.WHITE;
+        mCompletedColor = ThemeUtils.resolveColor(context, R.attr.colorAccent);
 
         mPaint.setAntiAlias(true);
         mPaint.setStyle(Paint.Style.STROKE);

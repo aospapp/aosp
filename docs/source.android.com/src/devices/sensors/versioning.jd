@@ -165,13 +165,13 @@ href="{@docRoot}devices/sensors/sensor-types.html#tilt_detector">tilt detector</
 <h2>Notes when upgrading from 1_1 or 1_2</h2>
 <ul>
   <li> The <code>batch</code> function now nearly-always succeeds, even for sensors that do not support
-batching, independently of the value of the timeout argument. The only cases
+batching, independent of the value of the timeout argument. The only cases
 where the <code>batch </code>function might fail are internal errors, or a bad
 <code>sensor_handle,</code> or negative <code>sampling_period_ns </code>or
 negative <code>max_report_latency_ns</code>.
   <li> Whether a sensor supports batching is defined by whether it has a
 <code>fifoMaxEventCount </code>greater than 0. (In previous versions, it was
-based on the return value of <code>batch()</code>.
+based on the return value of <code>batch()</code>.)
   <li> Sensors that support batching are always in what we called the “batch
 mode” in previous versions: even if the <code>max_report_latency_ns</code> parameter is 0, the sensor must still be batched, meaning the events must be
 stored in the FIFO when the SoC goes to suspend mode.

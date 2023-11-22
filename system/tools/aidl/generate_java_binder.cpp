@@ -245,17 +245,16 @@ static void generate_create_from_parcel(const Type* t, StatementBlock* addTo,
   t->CreateFromParcel(addTo, v, parcel, cl);
 }
 
-static void generate_read_from_parcel(const Type* t, StatementBlock* addTo,
-                                      Variable* v, Variable* parcel,
-                                      Variable** cl) {
-  t->ReadFromParcel(addTo, v, parcel, cl);
+static void generate_int_constant(const AidlIntConstant& constant,
+                                  Class* interface) {
+  IntConstant* decl = new IntConstant(constant.GetName(), constant.GetValue());
+  interface->elements.push_back(decl);
 }
 
-static void generate_constant(const AidlConstant& constant, Class* interface) {
-  Constant* decl = new Constant;
-  decl->name = constant.GetName();
-  decl->value = constant.GetValue();
-
+static void generate_string_constant(const AidlStringConstant& constant,
+                                     Class* interface) {
+  StringConstant* decl = new StringConstant(constant.GetName(),
+                                            constant.GetValue());
   interface->elements.push_back(decl);
 }
 
@@ -263,7 +262,6 @@ static void generate_method(const AidlMethod& method, Class* interface,
                             StubClass* stubClass, ProxyClass* proxyClass,
                             int index, JavaTypeNamespace* types) {
   int i;
-  bool hasOutParams = false;
 
   const bool oneway = proxyClass->mOneWay || method.IsOneway();
 
@@ -334,6 +332,8 @@ static void generate_method(const AidlMethod& method, Class* interface,
     realCall->arguments.push_back(v);
   }
 
+  cl = NULL;
+
   // the real call
   Variable* _result = NULL;
   if (method.GetType().GetName() == "void") {
@@ -372,7 +372,6 @@ static void generate_method(const AidlMethod& method, Class* interface,
     if (arg->GetDirection() & AidlArgument::OUT_DIR) {
       generate_write_to_parcel(t, c->statements, v, stubClass->transact_reply,
                                Type::PARCELABLE_WRITE_RETURN_VALUE);
-      hasOutParams = true;
     }
   }
 
@@ -443,6 +442,8 @@ static void generate_method(const AidlMethod& method, Class* interface,
       tryStatement->statements->Add(checklen);
     } else if (dir & AidlArgument::IN_DIR) {
       generate_write_to_parcel(t, tryStatement->statements, v, _data, 0);
+    } else {
+      delete v;
     }
   }
 
@@ -470,10 +471,10 @@ static void generate_method(const AidlMethod& method, Class* interface,
     // the out/inout parameters
     for (const std::unique_ptr<AidlArgument>& arg : method.GetArguments()) {
       const Type* t = arg->GetType().GetLanguageType<Type>();
-      Variable* v =
-          new Variable(t, arg->GetName(), arg->GetType().IsArray() ? 1 : 0);
       if (arg->GetDirection() & AidlArgument::OUT_DIR) {
-        generate_read_from_parcel(t, tryStatement->statements, v, _reply, &cl);
+        Variable* v =
+            new Variable(t, arg->GetName(), arg->GetType().IsArray() ? 1 : 0);
+        t->ReadFromParcel(tryStatement->statements, v, _reply, &cl);
       }
     }
 
@@ -533,8 +534,11 @@ Class* generate_binder_interface_class(const AidlInterface* iface,
   generate_interface_descriptors(stub, proxy, types);
 
   // all the declared constants of the interface
-  for (const auto& item : iface->GetConstants()) {
-    generate_constant(*item, interface);
+  for (const auto& item : iface->GetIntConstants()) {
+    generate_int_constant(*item, interface);
+  }
+  for (const auto& item : iface->GetStringConstants()) {
+    generate_string_constant(*item, interface);
   }
 
   // all the declared methods of the interface

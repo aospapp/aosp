@@ -29,14 +29,15 @@ class telemetry_LoginTest(test.test):
         return (is_regular_user, email)
 
 
-    def run_once(self):
+    def run_once(self, arc_mode=None):
         """Test chrome login status.
 
         This test uses telemetry via chrome.py to log in as a regular user,
         and then checks chrome login status via the private extension api
         autotestPrivate.loginStatus.
         """
-        with chrome.Chrome(logged_in=True, autotest_ext=True) as cr:
+        with chrome.Chrome(logged_in=True, autotest_ext=True,
+                           arc_mode=arc_mode) as cr:
             (is_regular_user, email) = self._get_login_status(cr)
             if not is_regular_user:
                 raise error.TestFail('isRegularUser should be True')

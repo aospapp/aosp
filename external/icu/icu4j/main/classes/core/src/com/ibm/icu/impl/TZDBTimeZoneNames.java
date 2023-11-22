@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2014-2015, International Business Machines Corporation and
+ * Copyright (C) 2014-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -24,10 +26,10 @@ import com.ibm.icu.util.UResourceBundle;
  * Yet another TimeZoneNames implementation based on the tz database.
  * This implementation contains only tz abbreviations (short standard
  * and daylight names) for each metazone.
- * 
+ *
  * The data file $ICU4C_ROOT/source/data/zone/tzdbNames.txt contains
  * the metazone - abbreviations mapping data (manually edited).
- * 
+ *
  * Note: The abbreviations in the tz database are not necessarily
  * unique. For example, parsing abbreviation "IST" is ambiguous
  * (can be parsed as India Standard Time or Israel Standard Time).
@@ -38,7 +40,7 @@ import com.ibm.icu.util.UResourceBundle;
 public class TZDBTimeZoneNames extends TimeZoneNames {
     private static final long serialVersionUID = 1L;
 
-    private static final ConcurrentHashMap<String, TZDBNames> TZDB_NAMES_MAP = 
+    private static final ConcurrentHashMap<String, TZDBNames> TZDB_NAMES_MAP =
             new ConcurrentHashMap<String, TZDBNames>();
 
     private static volatile TextTrieMap<TZDBNameInfo> TZDB_NAMES_TRIE = null;
@@ -46,7 +48,7 @@ public class TZDBTimeZoneNames extends TimeZoneNames {
     private static final ICUResourceBundle ZONESTRINGS;
     static {
         UResourceBundle bundle = ICUResourceBundle
-                .getBundleInstance(ICUResourceBundle.ICU_ZONE_BASE_NAME, "tzdbNames");
+                .getBundleInstance(ICUData.ICU_ZONE_BASE_NAME, "tzdbNames");
         ZONESTRINGS = (ICUResourceBundle)bundle.get("zoneStrings");
     }
 
@@ -95,7 +97,7 @@ public class TZDBTimeZoneNames extends TimeZoneNames {
      */
     @Override
     public String getMetaZoneDisplayName(String mzID, NameType type) {
-        if (mzID == null || mzID.length() == 0 || 
+        if (mzID == null || mzID.length() == 0 ||
                 (type != NameType.SHORT_STANDARD && type != NameType.SHORT_DAYLIGHT)) {
             return null;
         }
@@ -212,10 +214,17 @@ public class TZDBTimeZoneNames extends TimeZoneNames {
     }
 
     private static class TZDBNameInfo {
-        String mzID;
-        NameType type;
-        boolean ambiguousType;
-        String[] parseRegions;
+        final String mzID;
+        final NameType type;
+        final boolean ambiguousType;
+        final String[] parseRegions;
+
+        TZDBNameInfo(String mzID, NameType type, boolean ambiguousType, String[] parseRegions) {
+            this.mzID = mzID;
+            this.type = type;
+            this.ambiguousType = ambiguousType;
+            this.parseRegions = parseRegions;
+        }
     }
 
     private static class TZDBNameSearchHandler implements ResultHandler<TZDBNameInfo> {
@@ -233,6 +242,7 @@ public class TZDBTimeZoneNames extends TimeZoneNames {
          * @see com.ibm.icu.impl.TextTrieMap.ResultHandler#handlePrefixMatch(int,
          *      java.util.Iterator)
          */
+        @Override
         public boolean handlePrefixMatch(int matchLength, Iterator<TZDBNameInfo> values) {
             TZDBNameInfo match = null;
             TZDBNameInfo defaultRegionMatch = null;
@@ -358,19 +368,17 @@ public class TZDBTimeZoneNames extends TimeZoneNames {
                         boolean ambiguousType = (std != null && dst != null && std.equals(dst));
 
                         if (std != null) {
-                            TZDBNameInfo stdInf = new TZDBNameInfo();
-                            stdInf.mzID = mzID;
-                            stdInf.type = NameType.SHORT_STANDARD;
-                            stdInf.ambiguousType = ambiguousType;
-                            stdInf.parseRegions = parseRegions;
+                            TZDBNameInfo stdInf = new TZDBNameInfo(mzID,
+                                    NameType.SHORT_STANDARD,
+                                    ambiguousType,
+                                    parseRegions);
                             trie.put(std, stdInf);
                         }
                         if (dst != null) {
-                            TZDBNameInfo dstInf = new TZDBNameInfo();
-                            dstInf.mzID = mzID;
-                            dstInf.type = NameType.SHORT_DAYLIGHT;
-                            dstInf.ambiguousType = ambiguousType;
-                            dstInf.parseRegions = parseRegions;
+                            TZDBNameInfo dstInf = new TZDBNameInfo(mzID,
+                                    NameType.SHORT_DAYLIGHT,
+                                    ambiguousType,
+                                    parseRegions);
                             trie.put(dst, dstInf);
                         }
                     }

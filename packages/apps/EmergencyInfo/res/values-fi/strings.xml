@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Hätäyhteystiedot"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Lisää yhteystieto"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Yhteystietojen valitsinta ei löydy."</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Yhteystietoa ei voi näyttää."</string>
     <string name="remove_contact" msgid="6934983445723096759">"Poistetaanko <xliff:g id="CONTACT_NAME">%1$s</xliff:g> hätäyhteystiedoista?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Poista yhteystieto"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Yhteystietojen lukeminen ei onnistu."</string>
     <string name="remove" msgid="1243949503772376064">"Poista"</string>
     <string name="cancel" msgid="7401575239009060939">"Peruuta"</string>
     <string name="ok" msgid="163967937451981024">"Ok"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Hätätilannetiedot"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Tässä antamasi tiedot voivat auttaa ensiavun antajia hätätilanteessa. Tiedot tallennetaan vain laitteellesi, mutta kuka tahansa voi lukea ne hätäpuhelunäytöltä avaamatta puhelimen lukitusta."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Jatka"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Ei hätätilannetietoja"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Ei tietoja puhelimen omistajasta"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Jos tämä on sinun puhelimesi, kosketa kynäkuvaketta ja anna tietoja, jotka näytetään hätätilanteessa tässä näytössä."</string>
     <string name="clear_all" msgid="8899013032870561633">"Tyhjennä kaikki"</string>
     <string name="clear" msgid="3648880442502887163">"Tyhjennä"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Tyhjennetäänkö kaikki tiedot ja yhteystiedot?"</string>

@@ -31,101 +31,91 @@
 #include "btm_api.h"
 
 /*****************************************************************************
-**  Constants and data types
-*****************************************************************************/
+ *  Constants and data types
+ ****************************************************************************/
 /* status values */
-#define BTA_MCE_SUCCESS             0            /* Successful operation. */
-#define BTA_MCE_FAILURE             1            /* Generic failure. */
-#define BTA_MCE_BUSY                2            /* Temporarily can not handle this request. */
+#define BTA_MCE_SUCCESS 0 /* Successful operation. */
+#define BTA_MCE_FAILURE 1 /* Generic failure. */
+#define BTA_MCE_BUSY 2    /* Temporarily can not handle this request. */
 
-typedef UINT8 tBTA_MCE_STATUS;
+typedef uint8_t tBTA_MCE_STATUS;
 
 /* MCE I/F callback events */
 /* events received by tBTA_MCE_DM_CBACK */
-#define BTA_MCE_ENABLE_EVT               0  /* MCE enabled */
-#define BTA_MCE_MAS_DISCOVERY_COMP_EVT   1  /* SDP MAS discovery complete */
-#define BTA_MCE_MAX_EVT                  2  /* max number of MCE events */
+#define BTA_MCE_ENABLE_EVT 0             /* MCE enabled */
+#define BTA_MCE_MAS_DISCOVERY_COMP_EVT 1 /* SDP MAS discovery complete */
+#define BTA_MCE_MAX_EVT 2                /* max number of MCE events */
 
 #define BTA_MCE_MAX_MAS_INSTANCES 12
 
-typedef UINT16 tBTA_MCE_EVT;
+typedef uint16_t tBTA_MCE_EVT;
 
-typedef struct
-{
-    UINT8   scn;
-    char    *p_srv_name;
-    UINT16  srv_name_len;
-    UINT8   instance_id;
-    UINT8   msg_type;
+typedef struct {
+  uint8_t scn;
+  char* p_srv_name;
+  uint16_t srv_name_len;
+  uint8_t instance_id;
+  uint8_t msg_type;
 } tBTA_MCE_MAS_INFO;
 
 /* data associated with BTA_MCE_MAS_DISCOVERY_COMP_EVT */
-typedef struct
-{
-    tBTA_MCE_STATUS    status;
-    BD_ADDR            remote_addr;
-    int                num_mas;
-    tBTA_MCE_MAS_INFO  mas[BTA_MCE_MAX_MAS_INSTANCES];
+typedef struct {
+  tBTA_MCE_STATUS status;
+  BD_ADDR remote_addr;
+  int num_mas;
+  tBTA_MCE_MAS_INFO mas[BTA_MCE_MAX_MAS_INSTANCES];
 } tBTA_MCE_MAS_DISCOVERY_COMP;
 
 /* union of data associated with MCE callback */
-typedef union
-{
-    tBTA_MCE_STATUS              status;         /* BTA_MCE_ENABLE_EVT */
-    tBTA_MCE_MAS_DISCOVERY_COMP  mas_disc_comp;  /* BTA_MCE_MAS_DISCOVERY_COMP_EVT */
+typedef union {
+  tBTA_MCE_STATUS status; /* BTA_MCE_ENABLE_EVT */
+  tBTA_MCE_MAS_DISCOVERY_COMP
+      mas_disc_comp; /* BTA_MCE_MAS_DISCOVERY_COMP_EVT */
 } tBTA_MCE;
 
 /* MCE DM Interface callback */
-typedef void (tBTA_MCE_DM_CBACK)(tBTA_MCE_EVT event, tBTA_MCE *p_data, void * user_data);
+typedef void(tBTA_MCE_DM_CBACK)(tBTA_MCE_EVT event, tBTA_MCE* p_data,
+                                void* user_data);
 
 /* MCE configuration structure */
-typedef struct
-{
-    UINT16  sdp_db_size;            /* The size of p_sdp_db */
-    tSDP_DISCOVERY_DB   *p_sdp_db;  /* The data buffer to keep SDP database */
+typedef struct {
+  uint16_t sdp_db_size;        /* The size of p_sdp_db */
+  tSDP_DISCOVERY_DB* p_sdp_db; /* The data buffer to keep SDP database */
 } tBTA_MCE_CFG;
 
 /*****************************************************************************
-**  External Function Declarations
-*****************************************************************************/
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+ *  External Function Declarations
+ ****************************************************************************/
 
 /*******************************************************************************
-**
-** Function         BTA_MceEnable
-**
-** Description      Enable the MCE I/F service. When the enable
-**                  operation is complete the callback function will be
-**                  called with a BTA_MCE_ENABLE_EVT. This function must
-**                  be called before other functions in the MCE API are
-**                  called.
-**
-** Returns          BTA_MCE_SUCCESS if successful.
-**                  BTA_MCE_FAIL if internal failure.
-**
-*******************************************************************************/
-extern tBTA_MCE_STATUS BTA_MceEnable(tBTA_MCE_DM_CBACK *p_cback);
+ *
+ * Function         BTA_MceEnable
+ *
+ * Description      Enable the MCE I/F service. When the enable
+ *                  operation is complete the callback function will be
+ *                  called with a BTA_MCE_ENABLE_EVT. This function must
+ *                  be called before other functions in the MCE API are
+ *                  called.
+ *
+ * Returns          BTA_MCE_SUCCESS if successful.
+ *                  BTA_MCE_FAIL if internal failure.
+ *
+ ******************************************************************************/
+extern tBTA_MCE_STATUS BTA_MceEnable(tBTA_MCE_DM_CBACK* p_cback);
 
 /*******************************************************************************
-**
-** Function         BTA_MceGetRemoteMasInstances
-**
-** Description      This function performs service discovery for the MAS service
-**                  by the given peer device. When the operation is completed
-**                  the tBTA_MCE_DM_CBACK callback function will be  called with
-**                  a BTA_MCE_MAS_DISCOVERY_COMP_EVT.
-**
-** Returns          BTA_MCE_SUCCESS, if the request is being processed.
-**                  BTA_MCE_FAILURE, otherwise.
-**
-*******************************************************************************/
+ *
+ * Function         BTA_MceGetRemoteMasInstances
+ *
+ * Description      This function performs service discovery for the MAS service
+ *                  by the given peer device. When the operation is completed
+ *                  the tBTA_MCE_DM_CBACK callback function will be  called with
+ *                  a BTA_MCE_MAS_DISCOVERY_COMP_EVT.
+ *
+ * Returns          BTA_MCE_SUCCESS, if the request is being processed.
+ *                  BTA_MCE_FAILURE, otherwise.
+ *
+ ******************************************************************************/
 extern tBTA_MCE_STATUS BTA_MceGetRemoteMasInstances(BD_ADDR bd_addr);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* BTA_MCE_API_H */

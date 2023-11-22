@@ -33,6 +33,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+# Using EGL_RECORDABLE_ANDROID requires latest
 LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact

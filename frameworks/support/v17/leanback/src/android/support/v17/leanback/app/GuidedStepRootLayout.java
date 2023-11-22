@@ -18,12 +18,10 @@ import android.support.v17.leanback.widget.Util;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.widget.LinearLayout;
 
 /**
  * Utility class used by GuidedStepFragment to disable focus out left/right.
- * @hide
  */
 class GuidedStepRootLayout extends LinearLayout {
 
@@ -53,8 +51,8 @@ class GuidedStepRootLayout extends LinearLayout {
             if (Util.isDescendant(this, newFocus)) {
                 return newFocus;
             }
-            if (getLayoutDirection() == ViewGroup.LAYOUT_DIRECTION_LTR ?
-                    direction == FOCUS_LEFT : direction == FOCUS_RIGHT) {
+            if (getLayoutDirection() == ViewGroup.LAYOUT_DIRECTION_LTR
+                    ? direction == FOCUS_LEFT : direction == FOCUS_RIGHT) {
                 if (!mFocusOutStart) {
                     return focused;
                 }

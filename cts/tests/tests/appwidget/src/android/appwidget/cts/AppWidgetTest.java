@@ -17,7 +17,6 @@
 package android.appwidget.cts;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.same;
 import static org.mockito.Mockito.atLeastOnce;
@@ -27,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 import android.appwidget.AppWidgetHost;
 import android.appwidget.AppWidgetHostView;
@@ -40,44 +40,32 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.appwidget.cts.R;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService.RemoteViewsFactory;
-import libcore.io.IoUtils;
-import libcore.io.Streams;
+
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.mockito.InOrder;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class AppWidgetTest extends InstrumentationTestCase {
+public class AppWidgetTest extends AppWidgetTestCase {
 
     private static final long OPERATION_TIMEOUT = 20 * 1000; // 20 sec
-
-    private static final String FIRST_APP_WIDGET_CONFIGURE_ACTIVITY =
-            "android.appwidget.cts.provider.FirstAppWidgetConfigureActivity";
-
-    private static final String SECOND_APP_WIDGET_CONFIGURE_ACTIVITY =
-            "android.appwidget.cts.provider.SecondAppWidgetConfigureActivity";
 
     private final Object mLock = new Object();
 
@@ -90,16 +78,11 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     private static final String GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND =
-            "appwidget grantbind --package android.cts.appwidget --user 0";
+            "appwidget grantbind --package android.appwidget.cts --user 0";
 
     private static final String REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND =
-            "appwidget revokebind --package android.cts.appwidget --user 0";
+            "appwidget revokebind --package android.appwidget.cts --user 0";
 
-
-    private boolean hasAppWidgets() {
-        return getInstrumentation().getTargetContext().getPackageManager()
-            .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS);
-    }
 
     public void testGetAppInstalledProvidersForCurrentUserLegacy() throws Exception {
         if (!hasAppWidgets()) {
@@ -189,6 +172,38 @@ public class AppWidgetTest extends InstrumentationTestCase {
             host.deleteHost();
             revokeBindAppWidgetPermission();
         }
+    }
+
+    public void testGetAppWidgetIdsForHost() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+        AppWidgetHost host1 = new AppWidgetHost(getInstrumentation().getTargetContext(), 1);
+        AppWidgetHost host2 = new AppWidgetHost(getInstrumentation().getTargetContext(), 2);
+
+        host1.deleteHost();
+        host2.deleteHost();
+
+        assertTrue(Arrays.equals(host1.getAppWidgetIds(), new int[]{}));
+        assertTrue(Arrays.equals(host2.getAppWidgetIds(), new int[]{}));
+
+        int id1 = host1.allocateAppWidgetId();
+        assertTrue(Arrays.equals(host1.getAppWidgetIds(), new int[]{id1}));
+        assertTrue(Arrays.equals(host2.getAppWidgetIds(), new int[]{}));
+
+        int id2 = host1.allocateAppWidgetId();
+        assertTrue(Arrays.equals(host1.getAppWidgetIds(), new int[]{id1, id2}));
+        assertTrue(Arrays.equals(host2.getAppWidgetIds(), new int[]{}));
+
+        int id3 = host2.allocateAppWidgetId();
+        assertTrue(Arrays.equals(host1.getAppWidgetIds(), new int[]{id1, id2}));
+        assertTrue(Arrays.equals(host2.getAppWidgetIds(), new int[]{id3}));
+
+        host1.deleteHost();
+        assertTrue(Arrays.equals(host1.getAppWidgetIds(), new int[]{}));
+        assertTrue(Arrays.equals(host2.getAppWidgetIds(), new int[]{id3}));
+
+        host2.deleteHost();
     }
 
     public void testAppWidgetProviderCallbacks() throws Exception {
@@ -397,7 +412,7 @@ public class AppWidgetTest extends InstrumentationTestCase {
         }
     }
 
-    public void testGetAppWidgetIds() throws Exception {
+    public void testGetAppWidgetIdsForProvider() throws Exception {
         if (!hasAppWidgets()) {
             return;
         }
@@ -1313,117 +1328,25 @@ public class AppWidgetTest extends InstrumentationTestCase {
 
     @SuppressWarnings("deprecation")
     private void assertExpectedInstalledProviders(List<AppWidgetProviderInfo> providers) {
-        boolean firstProviderVerified = false;
-        boolean secondProviderVerified = false;
-
-        ComponentName firstComponentName = new ComponentName(
-                getInstrumentation().getTargetContext().getPackageName(),
-                FirstAppWidgetProvider.class.getName());
-
-        ComponentName secondComponentName = new ComponentName(
-                getInstrumentation().getTargetContext().getPackageName(),
-                SecondAppWidgetProvider.class.getName());
-
-        final int providerCount = providers.size();
-        for (int i = 0; i < providerCount; i++) {
-            AppWidgetProviderInfo provider = providers.get(i);
-
-            if (firstComponentName.equals(provider.provider)
-                    && android.os.Process.myUserHandle().equals(provider.getProfile())) {
-                assertEquals(getNormalizedDimensionResource(R.dimen.first_min_appwidget_size),
-                        provider.minWidth);
-                assertEquals(getNormalizedDimensionResource(R.dimen.first_min_appwidget_size),
-                        provider.minHeight);
-                assertEquals(getNormalizedDimensionResource(
-                        R.dimen.first_min_resize_appwidget_size), provider.minResizeWidth);
-                assertEquals(getNormalizedDimensionResource(
-                        R.dimen.first_min_resize_appwidget_size), provider.minResizeHeight);
-                assertEquals(getIntResource(R.integer.first_update_period_millis),
-                        provider.updatePeriodMillis);
-                assertEquals(getInstrumentation().getTargetContext().getPackageName(),
-                        provider.configure.getPackageName());
-                assertEquals(FIRST_APP_WIDGET_CONFIGURE_ACTIVITY,
-                        provider.configure.getClassName());
-                assertEquals(getIntResource(R.integer.first_resize_mode),
-                        provider.resizeMode);
-                assertEquals(getIntResource(R.integer.first_widget_category),
-                        provider.widgetCategory);
-                assertEquals(R.layout.first_initial_layout,
-                        provider.initialLayout);
-                assertEquals(R.layout.first_initial_keyguard_layout,
-                        provider.initialKeyguardLayout);
-                assertEquals(R.drawable.first_android_icon,
-                        provider.previewImage);
-                assertEquals(R.id.first_auto_advance_view_id,
-                        provider.autoAdvanceViewId);
-                firstProviderVerified = true;
-            } else if (secondComponentName.equals(provider.provider)
-                    && android.os.Process.myUserHandle().equals(provider.getProfile())) {
-                assertEquals(getNormalizedDimensionResource(R.dimen.second_min_appwidget_size),
-                        provider.minWidth);
-                assertEquals(getNormalizedDimensionResource(R.dimen.second_min_appwidget_size),
-                        provider.minHeight);
-                assertEquals(getNormalizedDimensionResource(
-                        R.dimen.second_min_resize_appwidget_size), provider.minResizeWidth);
-                assertEquals(getNormalizedDimensionResource(
-                        R.dimen.second_min_resize_appwidget_size), provider.minResizeHeight);
-                assertEquals(getIntResource(R.integer.second_update_period_millis),
-                        provider.updatePeriodMillis);
-                assertEquals(getInstrumentation().getTargetContext().getPackageName(),
-                        provider.configure.getPackageName());
-                assertEquals(SECOND_APP_WIDGET_CONFIGURE_ACTIVITY,
-                        provider.configure.getClassName());
-                assertEquals(getIntResource(R.integer.second_resize_mode),
-                        provider.resizeMode);
-                assertEquals(getIntResource(R.integer.second_widget_category),
-                        provider.widgetCategory);
-                assertEquals(R.layout.second_initial_layout,
-                        provider.initialLayout);
-                assertEquals(R.layout.second_initial_keyguard_layout,
-                        provider.initialKeyguardLayout);
-                assertEquals(R.drawable.second_android_icon,
-                        provider.previewImage);
-                assertEquals(R.id.second_auto_advance_view_id,
-                        provider.autoAdvanceViewId);
-                secondProviderVerified = true;
-            }
-        }
-
-        assertTrue(firstProviderVerified && secondProviderVerified);
+        boolean[] verifiedWidgets = verifyInstalledProviders(providers);
+        assertTrue(verifiedWidgets[0]);
+        assertTrue(verifiedWidgets[1]);
     }
 
-    private void grantBindAppWidgetPermission() {
-        executeShellCommandIgnoreOutput(GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND);
+    private void grantBindAppWidgetPermission() throws Exception {
+        runShellCommand(GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND);
     }
 
-    private void revokeBindAppWidgetPermission() {
-        executeShellCommandIgnoreOutput(REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND);
-    }
-
-    private void executeShellCommandIgnoreOutput(String command) {
-        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
-                .executeShellCommand(command);
-        try {
-            Streams.readFully(new FileInputStream(pfd.getFileDescriptor()));
-        } catch (IOException ioe) {
-            IoUtils.closeQuietly(pfd);
-        }
+    private void revokeBindAppWidgetPermission() throws Exception {
+        runShellCommand(REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND);
     }
 
     private AppWidgetProviderInfo getFirstAppWidgetProviderInfo() {
-        ComponentName firstComponentName = new ComponentName(
-                getInstrumentation().getTargetContext().getPackageName(),
-                FirstAppWidgetProvider.class.getName());
-
-        return getProviderInfo(firstComponentName);
+        return getProviderInfo(getFirstWidgetComponent());
     }
 
     private AppWidgetProviderInfo getSecondAppWidgetProviderInfo() {
-        ComponentName secondComponentName = new ComponentName(
-                getInstrumentation().getTargetContext().getPackageName(),
-                SecondAppWidgetProvider.class.getName());
-
-        return getProviderInfo(secondComponentName);
+        return getProviderInfo(getSecondWidgetComponent());
     }
 
     private AppWidgetProviderInfo getProviderInfo(ComponentName componentName) {
@@ -1440,15 +1363,6 @@ public class AppWidgetTest extends InstrumentationTestCase {
         }
 
         return null;
-    }
-
-    private int getNormalizedDimensionResource(int resId) {
-        return getInstrumentation().getTargetContext().getResources()
-                .getDimensionPixelSize(resId);
-    }
-
-    private int getIntResource(int resId) {
-        return getInstrumentation().getTargetContext().getResources().getInteger(resId);
     }
 
     private AppWidgetManager getAppWidgetManager() {

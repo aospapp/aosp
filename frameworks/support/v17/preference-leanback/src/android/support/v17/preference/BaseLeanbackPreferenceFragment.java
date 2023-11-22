@@ -16,8 +16,11 @@
 
 package android.support.v17.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Fragment;
 import android.os.Bundle;
+import android.support.annotation.RestrictTo;
 import android.support.v14.preference.PreferenceFragment;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v7.preference.PreferenceRecyclerViewAccessibilityDelegate;
@@ -46,6 +49,7 @@ public abstract class BaseLeanbackPreferenceFragment extends PreferenceFragment 
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     public Fragment getCallbackFragment() {
         return getParentFragment();

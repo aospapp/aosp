@@ -57,7 +57,7 @@ class Iso18033Kdf : public Kdf {
                      size_t output_len) override;
 
   protected:
-    Iso18033Kdf(uint32_t start_counter) : start_counter_(start_counter) {}
+    explicit Iso18033Kdf(uint32_t start_counter) : start_counter_(start_counter) {}
 
   private:
     uint32_t start_counter_;

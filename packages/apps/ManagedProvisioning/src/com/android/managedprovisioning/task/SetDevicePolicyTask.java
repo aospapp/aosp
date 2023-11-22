@@ -16,69 +16,83 @@
 
 package com.android.managedprovisioning.task;
 
-import android.app.AppGlobals;
+import static com.android.internal.util.Preconditions.checkNotNull;
+
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.IPackageManager;
 import android.content.pm.PackageManager;
-import android.os.RemoteException;
-import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.ProvisionLogger;
+import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.model.ProvisioningParams;
 
 /**
- * This tasks sets a given component as the owner of the device.
+ * This tasks sets a given component as the device or profile owner. It also enables the management
+ * app if it's not currently enabled and sets the component as active admin.
  */
-public class SetDevicePolicyTask {
+public class SetDevicePolicyTask extends AbstractProvisioningTask {
 
-    private final Callback mCallback;
-    private final Context mContext;
-    private String mAdminPackage;
-    private ComponentName mAdminComponent;
-    private final String mOwnerName;
-    private final int mUserId;
+    private final PackageManager mPackageManager;
+    private final DevicePolicyManager mDevicePolicyManager;
+    private final Utils mUtils;
 
-    private PackageManager mPackageManager;
-    private DevicePolicyManager mDevicePolicyManager;
-
-    public SetDevicePolicyTask(Context context, String ownerName, Callback callback) {
-        this(context, ownerName, callback, UserHandle.myUserId());
+    public SetDevicePolicyTask(
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        this(new Utils(), context, params, callback);
     }
 
     @VisibleForTesting
-    /* package */ SetDevicePolicyTask(Context context, String ownerName, Callback callback,
-            int userId) {
-        mCallback = callback;
-        mContext = context;
-        mOwnerName = ownerName;
-        mUserId = userId;
+    SetDevicePolicyTask(Utils utils,
+                        Context context,
+                        ProvisioningParams params,
+                        Callback callback) {
+        super(context, params, callback);
 
+        mUtils = checkNotNull(utils);
         mPackageManager = mContext.getPackageManager();
-        mDevicePolicyManager = (DevicePolicyManager) mContext.
-                getSystemService(Context.DEVICE_POLICY_SERVICE);
+        mDevicePolicyManager = (DevicePolicyManager) context.getSystemService(
+                Context.DEVICE_POLICY_SERVICE);
     }
 
-    public void run(ComponentName adminComponent) {
-        boolean success = true;
-        try {
-            mAdminComponent = adminComponent;
-            mAdminPackage = mAdminComponent.getPackageName();
+    @Override
+    public int getStatusMsgId() {
+        return R.string.progress_set_owner;
+    }
 
-            enableDevicePolicyApp(mAdminPackage);
-            setActiveAdmin(mAdminComponent);
-            success = setDeviceOwner(mAdminComponent, mOwnerName);
+    @Override
+    public void run(int userId) {
+        boolean success;
+        try {
+            ComponentName adminComponent = mUtils.findDeviceAdmin(
+                    mProvisioningParams.deviceAdminPackageName,
+                    mProvisioningParams.deviceAdminComponentName, mContext);
+            String adminPackage = adminComponent.getPackageName();
+
+            enableDevicePolicyApp(adminPackage);
+            setActiveAdmin(adminComponent, userId);
+            if (mUtils.isProfileOwnerAction(mProvisioningParams.provisioningAction)) {
+                success = setProfileOwner(adminComponent, userId);
+            } else {
+                success = setDeviceOwner(adminComponent,
+                        mContext.getResources().getString(R.string.default_owned_device_username),
+                        userId);
+            }
         } catch (Exception e) {
             ProvisionLogger.loge("Failure setting device or profile owner", e);
-            mCallback.onError();
+            error(0);
             return;
         }
+
         if (success) {
-            mCallback.onSuccess();
+            success();
         } else {
             ProvisionLogger.loge("Error when setting device or profile owner.");
-            mCallback.onError();
+            error(0);
         }
     }
 
@@ -93,21 +107,25 @@ public class SetDevicePolicyTask {
         }
     }
 
-    private void setActiveAdmin(ComponentName component) {
+    private void setActiveAdmin(ComponentName component, int userId) {
         ProvisionLogger.logd("Setting " + component + " as active admin.");
-        mDevicePolicyManager.setActiveAdmin(component, true, mUserId);
+        mDevicePolicyManager.setActiveAdmin(component, true, userId);
     }
 
-    private boolean setDeviceOwner(ComponentName component, String owner) {
-        ProvisionLogger.logd("Setting " + component + " as device owner " + owner + ".");
+    private boolean setDeviceOwner(ComponentName component, String owner, int userId) {
+        ProvisionLogger.logd("Setting " + component + " as device owner of user " + userId);
         if (!component.equals(mDevicePolicyManager.getDeviceOwnerComponentOnCallingUser())) {
-            return mDevicePolicyManager.setDeviceOwner(component, owner, mUserId);
+            return mDevicePolicyManager.setDeviceOwner(component, owner, userId);
         }
         return true;
     }
 
-    public abstract static class Callback {
-        public abstract void onSuccess();
-        public abstract void onError();
+    private boolean setProfileOwner(ComponentName component, int userId) {
+        ProvisionLogger.logd("Setting " + component + " as profile owner of user " + userId);
+        if (!component.equals(mDevicePolicyManager.getProfileOwnerAsUser(userId))) {
+            return mDevicePolicyManager.setProfileOwner(component, component.getPackageName(),
+                    userId);
+        }
+        return true;
     }
 }

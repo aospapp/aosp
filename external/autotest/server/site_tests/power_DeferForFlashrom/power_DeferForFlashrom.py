@@ -14,7 +14,7 @@ _COMMAND_TIMEOUT = 60
 
 # Lock file created by flashrom to tell powerd not to suspend or shut down the
 # system.
-_LOCK_FILE = '/var/lock/flashrom_powerd.lock'
+_LOCK_FILE = '/run/lock/flashrom_powerd.lock'
 
 # Time in seconds to perform a flashrom write and to wait for the system to
 # suspend and resume.

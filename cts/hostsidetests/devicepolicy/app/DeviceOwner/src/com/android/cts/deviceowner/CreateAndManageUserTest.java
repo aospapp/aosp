@@ -31,13 +31,17 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
-
+import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 import java.lang.reflect.Field;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test {@link DevicePolicyManager#createAndManageUser}.
  */
 public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
+    private static final String TAG = "CreateAndManageUserTest";
 
     private static final String BROADCAST_EXTRA = "broadcastExtra";
     private static final String ACTION_EXTRA = "actionExtra";
@@ -270,6 +274,48 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         assertNotNull(mUserHandle);
 
         boolean removed = mDevicePolicyManager.removeUser(getWho(), mUserHandle);
-        assertFalse(removed);
+        // When the device owner itself has set the user restriction, it should still be allowed
+        // to remove a user.
+        assertTrue(removed);
+    }
+
+    public void testUserAddedOrRemovedBroadcasts() throws InterruptedException {
+        LocalBroadcastReceiver receiver = new LocalBroadcastReceiver();
+        LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(
+                getContext());
+        localBroadcastManager.registerReceiver(receiver, new IntentFilter(ACTION_USER_ADDED));
+        try {
+            mUserHandle = mDevicePolicyManager.createAndManageUser(getWho(), "Test User", getWho(),
+                    null, 0);
+            assertNotNull(mUserHandle);
+            assertEquals(mUserHandle, receiver.waitForBroadcastReceived());
+        } finally {
+            localBroadcastManager.unregisterReceiver(receiver);
+        }
+        localBroadcastManager.registerReceiver(receiver, new IntentFilter(ACTION_USER_REMOVED));
+        try {
+            assertTrue(mDevicePolicyManager.removeUser(getWho(), mUserHandle));
+            assertEquals(mUserHandle, receiver.waitForBroadcastReceived());
+            mUserHandle = null;
+        } finally {
+            localBroadcastManager.unregisterReceiver(receiver);
+        }
+    }
+
+    static class LocalBroadcastReceiver extends BroadcastReceiver {
+        private SynchronousQueue<UserHandle> mQueue = new SynchronousQueue<UserHandle>();
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            UserHandle userHandle = intent.getParcelableExtra(EXTRA_USER_HANDLE);
+            Log.d(TAG, "broadcast receiver received " + intent + " with userHandle "
+                    + userHandle);
+            mQueue.offer(userHandle);
+
+        }
+
+        public UserHandle waitForBroadcastReceived() throws InterruptedException {
+            return mQueue.poll(BROADCAST_TIMEOUT, TimeUnit.MILLISECONDS);
+        }
     }
 }

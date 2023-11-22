@@ -36,12 +36,6 @@ public final class SystemProperties {
             "tv_allow_strict_mode", true);
 
     /**
-     * Allow Strict death penalty for eng builds.
-     */
-    public static final BooleanSystemProperty ALLOW_DEATH_PENALTY = new BooleanSystemProperty(
-            "tv_allow_death_penalty", true);
-
-    /**
      * When true {@link android.view.KeyEvent}s  are logged.  Defaults to false.
      */
     public static final BooleanSystemProperty LOG_KEYEVENT = new BooleanSystemProperty(

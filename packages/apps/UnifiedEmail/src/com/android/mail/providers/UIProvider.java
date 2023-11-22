@@ -1958,7 +1958,8 @@ public class UIProvider {
         AttachmentColumns.SUPPORTS_DOWNLOAD_AGAIN,
         AttachmentColumns.TYPE,
         AttachmentColumns.FLAGS,
-        AttachmentColumns.CONTENT_ID
+        AttachmentColumns.CONTENT_ID,
+        AttachmentColumns.VIRTUAL_MIME_TYPE
     };
     public static final int ATTACHMENT_NAME_COLUMN = 0;
     public static final int ATTACHMENT_SIZE_COLUMN = 1;
@@ -1974,6 +1975,7 @@ public class UIProvider {
     public static final int ATTACHMENT_TYPE_COLUMN = 11;
     public static final int ATTACHMENT_FLAGS_COLUMN = 12;
     public static final int ATTACHMENT_CONTENT_ID_COLUMN = 13;
+    public static final int ATTACHMENT_VIRTUAL_MIME_TYPE_COLUMN = 14;
 
     /** Separates attachment info parts in strings in the database. */
     public static final String ATTACHMENT_INFO_SEPARATOR = "\n"; // use to join
@@ -2159,6 +2161,11 @@ public class UIProvider {
          * possible; otherwise it holds an identifier unique to the parent message.
          */
         public static final String CONTENT_ID = "contentId";
+
+        /**
+         * Holds a streamable mime type for this attachment if it's a virtual file.
+         */
+        public static final String VIRTUAL_MIME_TYPE = "streamableMimeType";
 
         private AttachmentColumns() {}
     }

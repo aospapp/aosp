@@ -1,7 +1,7 @@
-URL: http://code.google.com/p/googletest/
-Version: 1.7.0
+URL: https://github.com/google/googletest
+Version: 1.8.0
 License: BSD
-License File: COPYING
+License File: LICENSE
 
 Description:
 Google's framework for writing C++ tests on a variety of platforms
@@ -12,4 +12,11 @@ failures, various options for running the tests, and XML test report
 generation.
 
 Local Modifications:
-Removed unused declarations of kPathSeparatorString to have warning free build.
+- Remove everything but:
+  googletest-release-1.8.0/googletest/
+   CHANGES
+   CONTRIBUTORS
+   include
+   LICENSE
+   README.md
+   src

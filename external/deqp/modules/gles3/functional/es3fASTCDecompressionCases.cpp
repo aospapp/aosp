@@ -77,7 +77,7 @@ namespace deqp
 
 using gls::TextureTestUtil::TextureRenderer;
 using gls::TextureTestUtil::RandomViewport;
-using gls::TextureTestUtil::ReferenceParams;
+using namespace glu::TextureTestUtil;
 
 namespace gles3
 {
@@ -210,13 +210,13 @@ static inline ASTCSupportLevel getASTCSupportLevel (const glu::ContextInfo& cont
 		const string& ext = extensions[extNdx];
 		if (isES32)
 		{
-			maxLevel = 	de::max(maxLevel, ext == "GL_KHR_texture_compression_astc_hdr"	? ASTCSUPPORTLEVEL_HDR
+			maxLevel =	de::max(maxLevel, ext == "GL_KHR_texture_compression_astc_hdr"	? ASTCSUPPORTLEVEL_HDR
 										: ext == "GL_OES_texture_compression_astc"		? ASTCSUPPORTLEVEL_FULL
 										: ASTCSUPPORTLEVEL_LDR);
 		}
 		else
 		{
-			maxLevel = 	de::max(maxLevel, ext == "GL_KHR_texture_compression_astc_ldr"	? ASTCSUPPORTLEVEL_LDR
+			maxLevel =	de::max(maxLevel, ext == "GL_KHR_texture_compression_astc_ldr"	? ASTCSUPPORTLEVEL_LDR
 										: ext == "GL_KHR_texture_compression_astc_hdr"	? ASTCSUPPORTLEVEL_HDR
 										: ext == "GL_OES_texture_compression_astc"		? ASTCSUPPORTLEVEL_FULL
 										: ASTCSUPPORTLEVEL_NONE);
@@ -331,11 +331,11 @@ void ASTCRenderer2D::render (Surface& referenceDst, Surface& resultDst, const gl
 	const int						textureWidth			= texture.getRefTexture().getWidth();
 	const int						textureHeight			= texture.getRefTexture().getHeight();
 	const RandomViewport			viewport				(renderCtx.getRenderTarget(), textureWidth, textureHeight, m_rnd.getUint32());
-	ReferenceParams					renderParams			(gls::TextureTestUtil::TEXTURETYPE_2D);
+	ReferenceParams					renderParams			(TEXTURETYPE_2D);
 	vector<float>					texCoord;
-	gls::TextureTestUtil::computeQuadTexCoord2D(texCoord, Vec2(0.0f, 0.0f), Vec2(1.0f, 1.0f));
+	computeQuadTexCoord2D(texCoord, Vec2(0.0f, 0.0f), Vec2(1.0f, 1.0f));
 
-	renderParams.samplerType	= gls::TextureTestUtil::getSamplerType(uncompressedFormat);
+	renderParams.samplerType	= getSamplerType(uncompressedFormat);
 	renderParams.sampler		= Sampler(Sampler::CLAMP_TO_EDGE, Sampler::CLAMP_TO_EDGE, Sampler::CLAMP_TO_EDGE, Sampler::NEAREST, Sampler::NEAREST);
 	renderParams.colorScale		= m_colorScale;
 	renderParams.colorBias		= m_colorBias;
@@ -360,7 +360,7 @@ void ASTCRenderer2D::render (Surface& referenceDst, Surface& resultDst, const gl
 	gl.flush();
 
 	// Compute reference.
-	sampleTexture(gls::TextureTestUtil::SurfaceAccess(referenceDst, renderCtx.getRenderTarget().getPixelFormat()), texture.getRefTexture(), &texCoord[0], renderParams);
+	sampleTexture(tcu::SurfaceAccess(referenceDst, renderCtx.getRenderTarget().getPixelFormat()), texture.getRefTexture(), &texCoord[0], renderParams);
 
 	// Read GL-rendered image.
 	glu::readPixels(renderCtx, viewport.x, viewport.y, resultDst.getAccess());
@@ -445,9 +445,12 @@ ASTCBlockCase2D::IterateResult ASTCBlockCase2D::iterate (void)
 
 	// Create texture and render.
 
-	glu::Texture2D	texture			(renderCtx, m_context.getContextInfo(), 1, &compressed, tcu::TexDecompressionParams((m_renderer->getASTCSupport() == ASTCSUPPORTLEVEL_LDR ? tcu::TexDecompressionParams::ASTCMODE_LDR : tcu::TexDecompressionParams::ASTCMODE_HDR)));
-	Surface			renderedFrame	(imageWidth, imageHeight);
-	Surface			referenceFrame	(imageWidth, imageHeight);
+	const tcu::TexDecompressionParams::AstcMode	decompressionMode	= (m_renderer->getASTCSupport() == ASTCSUPPORTLEVEL_LDR || tcu::isAstcSRGBFormat(m_format))
+																	? tcu::TexDecompressionParams::ASTCMODE_LDR
+																	: tcu::TexDecompressionParams::ASTCMODE_HDR;
+	glu::Texture2D								texture				(renderCtx, m_context.getContextInfo(), 1, &compressed, tcu::TexDecompressionParams(decompressionMode));
+	Surface										renderedFrame		(imageWidth, imageHeight);
+	Surface										referenceFrame		(imageWidth, imageHeight);
 
 	m_renderer->render(referenceFrame, renderedFrame, texture, getUncompressedFormat(compressed.getFormat()));
 
@@ -565,9 +568,12 @@ ASTCBlockSizeRemainderCase2D::IterateResult ASTCBlockSizeRemainderCase2D::iterat
 
 	// Create texture and render.
 
-	Surface			renderedFrame	(imageWidth, imageHeight);
-	Surface			referenceFrame	(imageWidth, imageHeight);
-	glu::Texture2D	texture			(renderCtx, m_context.getContextInfo(), 1, &compressed, tcu::TexDecompressionParams(m_renderer->getASTCSupport() == ASTCSUPPORTLEVEL_LDR ? tcu::TexDecompressionParams::ASTCMODE_LDR : tcu::TexDecompressionParams::ASTCMODE_HDR));
+	const tcu::TexDecompressionParams::AstcMode	decompressionMode	= (m_renderer->getASTCSupport() == ASTCSUPPORTLEVEL_LDR || tcu::isAstcSRGBFormat(m_format))
+																	? tcu::TexDecompressionParams::ASTCMODE_LDR
+																	: tcu::TexDecompressionParams::ASTCMODE_HDR;
+	Surface										renderedFrame		(imageWidth, imageHeight);
+	Surface										referenceFrame		(imageWidth, imageHeight);
+	glu::Texture2D								texture				(renderCtx, m_context.getContextInfo(), 1, &compressed, tcu::TexDecompressionParams(decompressionMode));
 
 	m_renderer->render(referenceFrame, renderedFrame, texture, getUncompressedFormat(compressed.getFormat()));
 

@@ -19,6 +19,7 @@
 
 __author__ = 'roozbeh@google.com (Roozbeh Pournader)'
 
+import os
 import sys
 
 from nototools import subset
@@ -42,28 +43,50 @@ BLOCKS_TO_INCLUDE = """
 27C0..27EF; Miscellaneous Mathematical Symbols-A
 27F0..27FF; Supplemental Arrows-A
 2800..28FF; Braille Patterns
+2900..297F; Supplemental Arrows-B
+2980..29FF; Miscellaneous Mathematical Symbols-B
 2A00..2AFF; Supplemental Mathematical Operators
+2B00..2BFF; Miscellaneous Symbols and Arrows
+4DC0..4DFF; Yijing Hexagram Symbols
+10140..1018F; Ancient Greek Numbers
+10190..101CF; Ancient Symbols
+101D0..101FF; Phaistos Disc
+1D000..1D0FF; Byzantine Musical Symbols
+1D100..1D1FF; Musical Symbols
+1D200..1D24F; Ancient Greek Musical Notation
+1D300..1D35F; Tai Xuan Jing Symbols
+1D360..1D37F; Counting Rod Numerals
+1D400..1D7FF; Mathematical Alphanumeric Symbols
+1F000..1F02F; Mahjong Tiles
+1F030..1F09F; Domino Tiles
+1F0A0..1F0FF; Playing Cards
+1F700..1F77F; Alchemical Symbols
 """
 
-# One-off characters to be included, needed for backward compatibility and
-# supporting various character sets, including ARIB sets and black and white
-# emoji
+# One-off characters to be included. At the moment, this is the Bitcoin sign
+# (since it's not supported in Roboto yet, and the Japanese TV symbols of
+# Unicode 9.
 ONE_OFF_ADDITIONS = {
-    0x27D0, # ⟐ WHITE DIAMOND WITH CENTRED DOT
-    0x2934, # ⤴ ARROW POINTING RIGHTWARDS THEN CURVING UPWARDS
-    0x2935, # ⤵ ARROW POINTING RIGHTWARDS THEN CURVING DOWNWARDS
-    0x2985, # ⦅ LEFT WHITE PARENTHESIS
-    0x2986, # ⦆ RIGHT WHITE PARENTHESIS
-    0x2B05, # ⬅ LEFTWARDS BLACK ARROW
-    0x2B06, # ⬆ UPWARDS BLACK ARROW
-    0x2B07, # ⬇ DOWNWARDS BLACK ARROW
-    0x2B24, # ⬤ BLACK LARGE CIRCLE
-    0x2B2E, # ⬮ BLACK VERTICAL ELLIPSE
-    0x2B2F, # ⬯ WHITE VERTICAL ELLIPSE
-    0x2B56, # ⭖ HEAVY OVAL WITH OVAL INSIDE
-    0x2B57, # ⭗ HEAVY CIRCLE WITH CIRCLE INSIDE
-    0x2B58, # ⭘ HEAVY CIRCLE
-    0x2B59, # ⭙ HEAVY CIRCLED SALTIRE
+    0x20BF, # ₿ BITCOIN SIGN
+    0x1F19B, # 🆛 SQUARED THREE D
+    0x1F19C, # 🆜 SQUARED SECOND SCREEN
+    0x1F19D, # 🆝 SQUARED TWO K;So;0;L;;;;;N;;;;;
+    0x1F19E, # 🆞 SQUARED FOUR K;So;0;L;;;;;N;;;;;
+    0x1F19F, # 🆟 SQUARED EIGHT K;So;0;L;;;;;N;;;;;
+    0x1F1A0, # 🆠 SQUARED FIVE POINT ONE;So;0;L;;;;;N;;;;;
+    0x1F1A1, # 🆡 SQUARED SEVEN POINT ONE;So;0;L;;;;;N;;;;;
+    0x1F1A2, # 🆢 SQUARED TWENTY-TWO POINT TWO;So;0;L;;;;;N;;;;;
+    0x1F1A3, # 🆣 SQUARED SIXTY P;So;0;L;;;;;N;;;;;
+    0x1F1A4, # 🆤 SQUARED ONE HUNDRED TWENTY P;So;0;L;;;;;N;;;;;
+    0x1F1A5, # 🆥 SQUARED LATIN SMALL LETTER D;So;0;L;;;;;N;;;;;
+    0x1F1A6, # 🆦 SQUARED HC;So;0;L;;;;;N;;;;;
+    0x1F1A7, # 🆧 SQUARED HDR;So;0;L;;;;;N;;;;;
+    0x1F1A8, # 🆨 SQUARED HI-RES;So;0;L;;;;;N;;;;;
+    0x1F1A9, # 🆩 SQUARED LOSSLESS;So;0;L;;;;;N;;;;;
+    0x1F1AA, # 🆪 SQUARED SHV;So;0;L;;;;;N;;;;;
+    0x1F1AB, # 🆫 SQUARED UHD;So;0;L;;;;;N;;;;;
+    0x1F1AC, # 🆬 SQUARED VOD;So;0;L;;;;;N;;;;;
+    0x1F23B, # 🈻 SQUARED CJK UNIFIED IDEOGRAPH-914D
 }
 
 # letter-based characters, provided by Roboto
@@ -94,88 +117,26 @@ LETTERLIKE_CHARS_IN_ROBOTO = {
     0x214F, # ⅏ SYMBOL FOR SAMARITAN SOURCE
 }
 
-# default emoji characters in the BMP, based on
-# http://www.unicode.org/draft/Public/emoji/1.0/emoji-data.txt
-# We exclude these, so we don't block color emoji.
-BMP_DEFAULT_EMOJI = {
-    0x231A, # ⌚ WATCH
-    0x231B, # ⌛ HOURGLASS
-    0x23E9, # ⏩ BLACK RIGHT-POINTING DOUBLE TRIANGLE
-    0x23EA, # ⏪ BLACK LEFT-POINTING DOUBLE TRIANGLE
-    0x23EB, # ⏫ BLACK UP-POINTING DOUBLE TRIANGLE
-    0x23EC, # ⏬ BLACK DOWN-POINTING DOUBLE TRIANGLE
-    0x23F0, # ⏰ ALARM CLOCK
-    0x23F3, # ⏳ HOURGLASS WITH FLOWING SAND
-    0x25FD, # ◽ WHITE MEDIUM SMALL SQUARE
-    0x25FE, # ◾ BLACK MEDIUM SMALL SQUARE
-    0x2614, # ☔ UMBRELLA WITH RAIN DROPS
-    0x2615, # ☕ HOT BEVERAGE
-    0x2648, # ♈ ARIES
-    0x2649, # ♉ TAURUS
-    0x264A, # ♊ GEMINI
-    0x264B, # ♋ CANCER
-    0x264C, # ♌ LEO
-    0x264D, # ♍ VIRGO
-    0x264E, # ♎ LIBRA
-    0x264F, # ♏ SCORPIUS
-    0x2650, # ♐ SAGITTARIUS
-    0x2651, # ♑ CAPRICORN
-    0x2652, # ♒ AQUARIUS
-    0x2653, # ♓ PISCES
-    0x267F, # ♿ WHEELCHAIR SYMBOL
-    0x2693, # ⚓ ANCHOR
-    0x26A1, # ⚡ HIGH VOLTAGE SIGN
-    0x26AA, # ⚪ MEDIUM WHITE CIRCLE
-    0x26AB, # ⚫ MEDIUM BLACK CIRCLE
-    0x26BD, # ⚽ SOCCER BALL
-    0x26BE, # ⚾ BASEBALL
-    0x26C4, # ⛄ SNOWMAN WITHOUT SNOW
-    0x26C5, # ⛅ SUN BEHIND CLOUD
-    0x26CE, # ⛎ OPHIUCHUS
-    0x26D4, # ⛔ NO ENTRY
-    0x26EA, # ⛪ CHURCH
-    0x26F2, # ⛲ FOUNTAIN
-    0x26F3, # ⛳ FLAG IN HOLE
-    0x26F5, # ⛵ SAILBOAT
-    0x26FA, # ⛺ TENT
-    0x26FD, # ⛽ FUEL PUMP
-    0x2705, # ✅ WHITE HEAVY CHECK MARK
-    0x270A, # ✊ RAISED FIST
-    0x270B, # ✋ RAISED HAND
-    0x2728, # ✨ SPARKLES
-    0x274C, # ❌ CROSS MARK
-    0x274E, # ❎ NEGATIVE SQUARED CROSS MARK
-    0x2753, # ❓ BLACK QUESTION MARK ORNAMENT
-    0x2754, # ❔ WHITE QUESTION MARK ORNAMENT
-    0x2755, # ❕ WHITE EXCLAMATION MARK ORNAMENT
-    0x2757, # ❗ HEAVY EXCLAMATION MARK SYMBOL
-    0x2795, # ➕ HEAVY PLUS SIGN
-    0x2796, # ➖ HEAVY MINUS SIGN
-    0x2797, # ➗ HEAVY DIVISION SIGN
-    0x27B0, # ➰ CURLY LOOP
-    0x27BF, # ➿ DOUBLE CURLY LOOP
-    0x2B1B, # ⬛ BLACK LARGE SQUARE
-    0x2B1C, # ⬜ WHITE LARGE SQUARE
-    0x2B50, # ⭐ WHITE MEDIUM STAR
-    0x2B55, # ⭕ HEAVY LARGE CIRCLE
-}
+DEFAULT_EMOJI = unicode_data.get_presentation_default_emoji()
+
+EMOJI_ADDITIONS_FILE = os.path.join(
+    os.path.dirname(__file__), os.path.pardir, os.path.pardir,
+    'unicode', 'additions', 'emoji-data.txt')
+
 
 # Characters we have decided we are doing as emoji-style in Android,
 # despite UTR#51's recommendation
-ANDROID_EMOJI = {
-    0x2600, # ☀ BLACK SUN WITH RAYS
-    0x2601, # ☁ CLOUD
-    0X260E, # ☎ BLACK TELEPHONE
-    0x261D, # ☝ WHITE UP POINTING INDEX
-    0x263A, # ☺ WHITE SMILING FACE
-    0x2660, # ♠ BLACK SPADE SUIT
-    0x2663, # ♣ BLACK CLUB SUIT
-    0x2665, # ♥ BLACK HEART SUIT
-    0x2666, # ♦ BLACK DIAMOND SUIT
-    0x270C, # ✌ VICTORY HAND
-    0x2744, # ❄ SNOWFLAKE
-    0x2764, # ❤ HEAVY BLACK HEART
-}
+def get_android_emoji():
+    """Return additional Android default emojis."""
+    android_emoji = set()
+    with open(EMOJI_ADDITIONS_FILE) as emoji_additions:
+        data = unicode_data._parse_semicolon_separated_data(
+            emoji_additions.read())
+        for codepoint, prop in data:
+            if prop == 'Emoji_Presentation':
+                android_emoji.add(int(codepoint, 16))
+    return android_emoji
+
 
 def main(argv):
     """Subset the Noto Symbols font.
@@ -194,14 +155,15 @@ def main(argv):
     # Remove characters preferably coming from Roboto
     target_coverage -= LETTERLIKE_CHARS_IN_ROBOTO
     # Remove characters that are supposed to default to emoji
-    target_coverage -= BMP_DEFAULT_EMOJI | ANDROID_EMOJI
+    android_emoji = get_android_emoji()
+    target_coverage -= DEFAULT_EMOJI | android_emoji
 
     # Remove dentistry symbols, as their main use appears to be for CJK:
     # http://www.unicode.org/L2/L2000/00098-n2195.pdf
     target_coverage -= set(range(0x23BE, 0x23CC+1))
 
     # Remove COMBINING ENCLOSING KEYCAP. It's needed for Android's color emoji
-    # mechanism to work properly
+    # mechanism to work properly.
     target_coverage.remove(0x20E3)
 
     source_file_name = argv[1]
@@ -210,6 +172,13 @@ def main(argv):
         source_file_name,
         target_file_name,
         include=target_coverage)
+
+    second_subset_coverage = DEFAULT_EMOJI | android_emoji
+    second_subset_file_name = argv[3]
+    subset.subset_font(
+        source_file_name,
+        second_subset_file_name,
+        include=second_subset_coverage)
 
 
 if __name__ == '__main__':

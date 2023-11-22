@@ -8,8 +8,7 @@ PURPOSE = "Verify that VP9 decode acceleration works for MSE videos in Chrome"
 CRITERIA = """
 This test will fail if VDA doesn't work with Chrome navigating to an MSE webm file.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
-SUITE = "bvt-perbuild, partners"
+ATTRIBUTES = "suite:bvt-cq, suite:partners"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
@@ -26,4 +25,5 @@ This test verifies VP9 decode acceleration works for MSE videos.
 """
 
 video = 'http://crosvideo.appspot.com/?codec=vp9&cycle=true&mute=true'
-job.run_test('video_ChromeHWDecodeUsed', is_mse=1, video_file=video)
+job.run_test('video_ChromeHWDecodeUsed', codec='vp9', is_mse=1,
+             video_file=video)

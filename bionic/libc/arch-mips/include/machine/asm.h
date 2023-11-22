@@ -28,7 +28,7 @@
 #ifndef _MIPS64_ASM_H
 #define _MIPS64_ASM_H
 
-#define __bionic_asm_align 4
+#define __bionic_asm_align 16
 
 #undef __bionic_asm_custom_entry
 #undef __bionic_asm_custom_end
@@ -53,13 +53,9 @@
 	ABICALLS
 #endif
 
-#if !defined(__MIPSEL__) && !defined(__MIPSEB__)
-#error "__MIPSEL__ or __MIPSEB__ must be defined"
-#endif
 /*
  * Define how to access unaligned data word
  */
-#if defined(__MIPSEL__)
 #define LWLO    lwl
 #define LWHI    lwr
 #define	SWLO	swl
@@ -68,17 +64,6 @@
 #define LDHI    ldr
 #define	SDLO	sdl
 #define	SDHI	sdr
-#endif
-#if defined(__MIPSEB__)
-#define LWLO    lwr
-#define LWHI    lwl
-#define	SWLO	swr
-#define	SWHI	swl
-#define LDLO    ldr
-#define LDHI    ldl
-#define	SDLO	sdr
-#define	SDHI	sdl
-#endif
 
 /*
  *  Define programming environment for ABI.

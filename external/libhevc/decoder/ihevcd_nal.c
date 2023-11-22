@@ -114,7 +114,8 @@ WORD32 ihevcd_nal_search_start_code(UWORD8 *pu1_buf, WORD32 bytes_remaining)
         }
 
         zero_byte_cnt++;
-        if((pu1_buf[ofst + 1] == START_CODE_PREFIX_BYTE) &&
+        if((ofst < (bytes_remaining - 1)) &&
+           (pu1_buf[ofst + 1] == START_CODE_PREFIX_BYTE) &&
            (zero_byte_cnt >= NUM_ZEROS_BEFORE_START_CODE))
         {
             /* Found the start code */
@@ -123,7 +124,7 @@ WORD32 ihevcd_nal_search_start_code(UWORD8 *pu1_buf, WORD32 bytes_remaining)
             break;
         }
     }
-    if(0 == start_code_found)
+    if((0 == start_code_found) && (ofst < bytes_remaining))
     {
         if((START_CODE_PREFIX_BYTE == pu1_buf[ofst]) &&
            (zero_byte_cnt >= NUM_ZEROS_BEFORE_START_CODE))
@@ -231,7 +232,7 @@ IHEVCD_ERROR_T ihevcd_nal_remv_emuln_bytes(UWORD8 *pu1_src,
 
     }
 
-    if(0 == start_code_found)
+    if((0 == start_code_found) && (src_cnt < bytes_remaining))
     {
         u1_src = pu1_src[src_cnt++];
         if(zero_byte_cnt >= NUM_ZEROS_BEFORE_START_CODE)
@@ -448,6 +449,16 @@ IHEVCD_ERROR_T ihevcd_nal_unit(codec_t *ps_codec)
             }
             ps_codec->i4_error_code = ret;
             DEBUG_PRINT_NAL_INFO(ps_codec, s_nal.i1_nal_unit_type);
+            break;
+
+        case NAL_PREFIX_SEI:
+        case NAL_SUFFIX_SEI:
+            if(IVD_DECODE_HEADER == ps_codec->i4_header_mode)
+            {
+                return IHEVCD_SLICE_IN_HEADER_MODE;
+            }
+
+            ret = ihevcd_parse_sei(ps_codec, &s_nal);
             break;
 
         case NAL_EOS        :

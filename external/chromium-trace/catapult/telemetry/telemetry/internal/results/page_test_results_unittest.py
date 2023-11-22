@@ -5,17 +5,22 @@
 import os
 import unittest
 
+from telemetry import benchmark
 from telemetry import story
 from telemetry.internal.results import base_test_results_unittest
+from telemetry.internal.results import chart_json_output_formatter
+from telemetry.internal.results import json_output_formatter
 from telemetry.internal.results import page_test_results
 from telemetry import page as page_module
-from telemetry.timeline import trace_data
+from telemetry.testing import stream
 from telemetry.value import failure
 from telemetry.value import histogram
 from telemetry.value import improvement_direction
 from telemetry.value import scalar
 from telemetry.value import skip
 from telemetry.value import trace
+from tracing.trace_data import trace_data
+
 
 class PageTestResultsTest(base_test_results_unittest.BaseTestResultsUnittest):
   def setUp(self):
@@ -88,6 +93,64 @@ class PageTestResultsTest(base_test_results_unittest.BaseTestResultsUnittest):
 
     values = results.FindAllPageSpecificValuesNamed('a')
     assert len(values) == 2
+
+  def testAddValueWithStoryGroupingKeys(self):
+    results = page_test_results.PageTestResults()
+    self.pages[0].grouping_keys['foo'] = 'bar'
+    self.pages[0].grouping_keys['answer'] = '42'
+    results.WillRunPage(self.pages[0])
+    results.AddValue(scalar.ScalarValue(
+        self.pages[0], 'a', 'seconds', 3,
+        improvement_direction=improvement_direction.UP))
+    results.DidRunPage(self.pages[0])
+
+    results.PrintSummary()
+
+    values = results.FindPageSpecificValuesForPage(self.pages[0], 'a')
+    v = values[0]
+    self.assertEquals(v.grouping_keys['foo'], 'bar')
+    self.assertEquals(v.grouping_keys['answer'], '42')
+    self.assertEquals(v.tir_label, '42_bar')
+
+  def testAddValueWithStoryGroupingKeysAndMatchingTirLabel(self):
+    results = page_test_results.PageTestResults()
+    self.pages[0].grouping_keys['foo'] = 'bar'
+    self.pages[0].grouping_keys['answer'] = '42'
+    results.WillRunPage(self.pages[0])
+    results.AddValue(scalar.ScalarValue(
+        self.pages[0], 'a', 'seconds', 3,
+        improvement_direction=improvement_direction.UP,
+        tir_label='42_bar'))
+    results.DidRunPage(self.pages[0])
+
+    results.PrintSummary()
+
+    values = results.FindPageSpecificValuesForPage(self.pages[0], 'a')
+    v = values[0]
+    self.assertEquals(v.grouping_keys['foo'], 'bar')
+    self.assertEquals(v.grouping_keys['answer'], '42')
+    self.assertEquals(v.tir_label, '42_bar')
+
+  def testAddValueWithStoryGroupingKeysAndMismatchingTirLabel(self):
+    results = page_test_results.PageTestResults()
+    self.pages[0].grouping_keys['foo'] = 'bar'
+    self.pages[0].grouping_keys['answer'] = '42'
+    results.WillRunPage(self.pages[0])
+    with self.assertRaises(AssertionError):
+      results.AddValue(scalar.ScalarValue(
+          self.pages[0], 'a', 'seconds', 3,
+          improvement_direction=improvement_direction.UP,
+          tir_label='another_label'))
+
+  def testAddValueWithDuplicateStoryGroupingKeyFails(self):
+    results = page_test_results.PageTestResults()
+    self.pages[0].grouping_keys['foo'] = 'bar'
+    results.WillRunPage(self.pages[0])
+    with self.assertRaises(AssertionError):
+      results.AddValue(scalar.ScalarValue(
+          self.pages[0], 'a', 'seconds', 3,
+          improvement_direction=improvement_direction.UP,
+          grouping_keys={'foo': 'bar'}))
 
   def testUrlIsInvalidValue(self):
     results = page_test_results.PageTestResults()
@@ -251,11 +314,13 @@ class PageTestResultsTest(base_test_results_unittest.BaseTestResultsUnittest):
   def testTraceValue(self):
     results = page_test_results.PageTestResults()
     results.WillRunPage(self.pages[0])
-    results.AddValue(trace.TraceValue(None, trace_data.TraceData({'test' : 1})))
+    results.AddValue(trace.TraceValue(
+        None, trace_data.CreateTraceDataFromRawData([[{'test': 1}]])))
     results.DidRunPage(self.pages[0])
 
     results.WillRunPage(self.pages[1])
-    results.AddValue(trace.TraceValue(None, trace_data.TraceData({'test' : 2})))
+    results.AddValue(trace.TraceValue(
+        None, trace_data.CreateTraceDataFromRawData([[{'test': 2}]])))
     results.DidRunPage(self.pages[1])
 
     results.PrintSummary()
@@ -265,8 +330,10 @@ class PageTestResultsTest(base_test_results_unittest.BaseTestResultsUnittest):
 
   def testCleanUpCleansUpTraceValues(self):
     results = page_test_results.PageTestResults()
-    v0 = trace.TraceValue(None, trace_data.TraceData({'test': 1}))
-    v1 = trace.TraceValue(None, trace_data.TraceData({'test': 2}))
+    v0 = trace.TraceValue(
+        None, trace_data.CreateTraceDataFromRawData([{'test': 1}]))
+    v1 = trace.TraceValue(
+        None, trace_data.CreateTraceDataFromRawData([{'test': 2}]))
 
     results.WillRunPage(self.pages[0])
     results.AddValue(v0)
@@ -282,8 +349,10 @@ class PageTestResultsTest(base_test_results_unittest.BaseTestResultsUnittest):
 
   def testNoTracesLeftAfterCleanUp(self):
     results = page_test_results.PageTestResults()
-    v0 = trace.TraceValue(None, trace_data.TraceData({'test': 1}))
-    v1 = trace.TraceValue(None, trace_data.TraceData({'test': 2}))
+    v0 = trace.TraceValue(None,
+                          trace_data.CreateTraceDataFromRawData([{'test': 1}]))
+    v1 = trace.TraceValue(None,
+                          trace_data.CreateTraceDataFromRawData([{'test': 2}]))
 
     results.WillRunPage(self.pages[0])
     results.AddValue(v0)
@@ -295,6 +364,22 @@ class PageTestResultsTest(base_test_results_unittest.BaseTestResultsUnittest):
 
     results.CleanUp()
     self.assertFalse(results.FindAllTraceValues())
+
+  def testPrintSummaryDisabledResults(self):
+    output_stream = stream.TestOutputStream()
+    output_formatters = []
+    benchmark_metadata = benchmark.BenchmarkMetadata(
+      'benchmark_name', 'benchmark_description')
+    output_formatters.append(
+        chart_json_output_formatter.ChartJsonOutputFormatter(
+            output_stream, benchmark_metadata))
+    output_formatters.append(json_output_formatter.JsonOutputFormatter(
+        output_stream, benchmark_metadata))
+    results = page_test_results.PageTestResults(
+        output_formatters=output_formatters, benchmark_enabled=False)
+    results.PrintSummary()
+    self.assertEquals(output_stream.output_data,
+      "{\n  \"enabled\": false,\n  \"benchmark_name\": \"benchmark_name\"\n}\n")
 
 
 class PageTestResultsFilterTest(unittest.TestCase):

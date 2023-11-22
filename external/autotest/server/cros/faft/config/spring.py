@@ -11,4 +11,5 @@ class Values(object):
     chrome_ec = True
     use_u_boot = True
     ec_capability = (['battery', 'keyboard', 'arm', 'lid'])
+    ec_has_powerbtn_cmd = False
     has_eventlog = False        # No RTC support in firmware

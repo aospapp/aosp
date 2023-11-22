@@ -62,6 +62,7 @@ public final class UserHandle implements Parcelable {
      * @deprecated Consider using either {@link UserHandle#USER_SYSTEM} constant or
      * check the target user's flag {@link android.content.pm.UserInfo#isAdmin}.
      */
+    @Deprecated
     public static final @UserIdInt int USER_OWNER = 0;
 
     /**
@@ -69,6 +70,7 @@ public final class UserHandle implements Parcelable {
      * @deprecated Consider using either {@link UserHandle#SYSTEM} constant or
      * check the target user's flag {@link android.content.pm.UserInfo#isAdmin}.
      */
+    @Deprecated
     public static final UserHandle OWNER = new UserHandle(USER_OWNER);
 
     /** @hide A user id constant to indicate the "system" user of the device */
@@ -213,6 +215,15 @@ public final class UserHandle implements Parcelable {
     }
 
     /**
+     * Returns the cache GID for a given UID or appId.
+     * @hide
+     */
+    public static int getCacheAppGid(int id) {
+        return Process.FIRST_APPLICATION_CACHE_GID + (id % PER_USER_RANGE)
+                - Process.FIRST_APPLICATION_UID;
+    }
+
+    /**
      * Generate a text representation of the uid, breaking out its individual
      * components -- user, app, isolated, etc.
      * @hide
@@ -308,6 +319,7 @@ public final class UserHandle implements Parcelable {
      * {@link android.content.pm.UserInfo#isPrimary()}
      * {@link android.content.pm.UserInfo#isAdmin()} based on your particular use case.
      */
+    @Deprecated
     @SystemApi
     public boolean isOwner() {
         return this.equals(OWNER);
@@ -332,6 +344,7 @@ public final class UserHandle implements Parcelable {
      * @hide
      */
     @SystemApi
+    @TestApi
     public @UserIdInt int getIdentifier() {
         return mHandle;
     }

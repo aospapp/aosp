@@ -94,6 +94,9 @@ public class IntrinsicResize extends IntrinsicBase {
             mVerify.invoke_verify(mAllocDst, mAllocSrc, mAllocSrc);
         }
         mRS.finish();
+
+        si.destroy();
+        sr.destroy();
     }
 
 

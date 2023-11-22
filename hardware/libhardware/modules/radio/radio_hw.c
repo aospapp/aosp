@@ -47,7 +47,7 @@ static const radio_hal_properties_t hw_properties = {
     .bands = {
         {
             .type = RADIO_BAND_FM,
-            .antenna_connected = false,
+            .antenna_connected = true,
             .lower_limit = 87900,
             .upper_limit = 107900,
             .num_spacings = 1,
@@ -189,7 +189,7 @@ static int add_bitmap_metadata(radio_metadata_t **metadata, radio_metadata_key_t
 exit:
     close(fd);
     free(data);
-    ALOGE_IF(ret != 0, "%s error %d", __func__, ret);
+    ALOGE_IF(ret != 0, "%s error %d", __func__, (int)ret);
     return (int)ret;
 }
 
@@ -209,6 +209,7 @@ static int prepare_metadata(struct stub_radio_tuner *tuner,
     *metadata = NULL;
 
     ret = radio_metadata_allocate(metadata, tuner->program.channel, 0);
+
     if (ret != 0)
         return ret;
 
@@ -220,14 +221,14 @@ static int prepare_metadata(struct stub_radio_tuner *tuner,
         if (ret != 0)
             goto exit;
         ret = add_bitmap_metadata(metadata, RADIO_METADATA_KEY_ICON, BITMAP_FILE_PATH);
-        if (ret != 0)
+        if (ret != 0 && ret != -EPIPE)
             goto exit;
         ret = radio_metadata_add_clock(metadata, RADIO_METADATA_KEY_CLOCK, &hw_clock);
         if (ret != 0)
             goto exit;
     } else {
         ret = add_bitmap_metadata(metadata, RADIO_METADATA_KEY_ART, BITMAP_FILE_PATH);
-        if (ret != 0)
+        if (ret != 0 && ret != -EPIPE)
             goto exit;
     }
 
@@ -355,6 +356,7 @@ static void *callback_thread_loop(void *context)
                         tuner->program.stereo = false;
                     else
                         tuner->program.stereo = false;
+                    prepare_metadata(tuner, &tuner->program.metadata, tuner->program.tuned);
 
                     event.type = RADIO_EVENT_TUNED;
                     event.info = tuner->program;
@@ -381,6 +383,7 @@ static void *callback_thread_loop(void *context)
                     else
                         tuner->program.stereo = tuner->config.am.stereo;
                     tuner->program.signal_strength = 50;
+                    prepare_metadata(tuner, &tuner->program.metadata, tuner->program.tuned);
 
                     event.type = RADIO_EVENT_TUNED;
                     event.info = tuner->program;
@@ -393,12 +396,7 @@ static void *callback_thread_loop(void *context)
                                                 (tuner->config.spacings[0] * 5)) % 2;
 
                     if (tuner->program.tuned) {
-                        prepare_metadata(tuner, &tuner->program.metadata, true);
                         send_command_l(tuner, CMD_ANNOUNCEMENTS, 1000, NULL);
-                    } else {
-                        if (tuner->program.metadata != NULL)
-                            radio_metadata_deallocate(tuner->program.metadata);
-                        tuner->program.metadata = NULL;
                     }
                     tuner->program.signal_strength = 100;
                     if (tuner->config.type == RADIO_BAND_FM)
@@ -407,6 +405,8 @@ static void *callback_thread_loop(void *context)
                     else
                         tuner->program.stereo =
                             tuner->program.tuned ? tuner->config.am.stereo : false;
+                    prepare_metadata(tuner, &tuner->program.metadata, tuner->program.tuned);
+
                     event.type = RADIO_EVENT_TUNED;
                     event.info = tuner->program;
                     send_meta_data = true;
@@ -418,7 +418,6 @@ static void *callback_thread_loop(void *context)
                         event.type = RADIO_EVENT_METADATA;
                         event.metadata = metadata;
                     }
-                    send_meta_data = true;
                 } break;
 
                 case CMD_CANCEL: {
@@ -499,6 +498,10 @@ static int tuner_set_configuration(const struct radio_tuner *tuner,
     ALOGI("%s stub_tuner %p", __func__, stub_tuner);
     pthread_mutex_lock(&stub_tuner->lock);
     if (config == NULL) {
+        status = -EINVAL;
+        goto exit;
+    }
+    if (config->lower_limit > config->upper_limit) {
         status = -EINVAL;
         goto exit;
     }
@@ -614,7 +617,12 @@ static int tuner_get_program_information(const struct radio_tuner *tuner,
     metadata = info->metadata;
     *info = stub_tuner->program;
     info->metadata = metadata;
-    if (metadata != NULL && stub_tuner->program.metadata != NULL)
+    if (metadata == NULL) {
+        ALOGE("%s metadata is a nullptr", __func__);
+        status = -EINVAL;
+        goto exit;
+    }
+    if (stub_tuner->program.metadata != NULL)
         radio_metadata_add_metadata(&info->metadata, stub_tuner->program.metadata);
 
 exit:

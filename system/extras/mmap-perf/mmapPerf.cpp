@@ -23,7 +23,7 @@ public:
     int get() { return m_fd; }
     void set(int fd) { m_fd = fd; }
     Fd() {}
-    Fd(int fd) : m_fd{fd} {}
+    explicit Fd(int fd) : m_fd{fd} {}
     ~Fd() {
         if (m_fd >= 0)
             close(m_fd);

@@ -41,8 +41,7 @@
 
 #include "JNIHelp.h"
 
-#define NATIVE_METHOD(className, functionName, signature) \
-{ #functionName, signature, (void*)(className ## _ ## functionName) }
+#include "nativehelper/jni_macros.h"
 
 JNIEXPORT jlong JNICALL
 Runtime_freeMemory(JNIEnv *env, jobject this)
@@ -82,9 +81,9 @@ Runtime_nativeLoad(JNIEnv* env, jclass ignored, jstring javaFilename,
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(Runtime, freeMemory, "!()J"),
-  NATIVE_METHOD(Runtime, totalMemory, "!()J"),
-  NATIVE_METHOD(Runtime, maxMemory, "!()J"),
+  FAST_NATIVE_METHOD(Runtime, freeMemory, "()J"),
+  FAST_NATIVE_METHOD(Runtime, totalMemory, "()J"),
+  FAST_NATIVE_METHOD(Runtime, maxMemory, "()J"),
   NATIVE_METHOD(Runtime, gc, "()V"),
   NATIVE_METHOD(Runtime, nativeExit, "(I)V"),
   NATIVE_METHOD(Runtime, nativeLoad,

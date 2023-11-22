@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2008-2010, International Business Machines
@@ -9,6 +11,8 @@ package com.ibm.icu.dev.test.bidi;
 
 import java.util.Arrays;
 
+import org.junit.Test;
+
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.text.Bidi;
 import com.ibm.icu.text.BidiRun;
@@ -19,7 +23,7 @@ import com.ibm.icu.text.BidiRun;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
-public class TestMultipleParagraphs extends BidiTest {
+public class TestMultipleParagraphs extends BidiFmwk {
 
     private static final String text =
         "__ABC\u001c"                  /* Para #0 offset 0 */
@@ -73,6 +77,7 @@ public class TestMultipleParagraphs extends BidiTest {
         0, 0, 0, 0
     };
 
+    @Test
     public void testMultipleParagraphs()
     {
         byte gotLevel;
@@ -447,16 +452,6 @@ public class TestMultipleParagraphs extends BidiTest {
                       ", expected=" + multiparaTestLevels[i] +
                       ", actual=" + gotLevels[i]);
             }
-        }
-    }
-
-
-    public static void main(String[] args) {
-        try {
-            new TestMultipleParagraphs().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
         }
     }
 }

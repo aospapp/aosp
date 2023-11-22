@@ -29,18 +29,19 @@
 #ifndef _ARPA_INET_H_
 #define _ARPA_INET_H_
 
-#include <stdint.h>
-#include <sys/types.h>
 #include <netinet/in.h>
+#include <stdint.h>
+#include <sys/cdefs.h>
+#include <sys/types.h>
 
 __BEGIN_DECLS
 
 in_addr_t inet_addr(const char*);
 int inet_aton(const char*, struct in_addr*);
-in_addr_t inet_lnaof(struct in_addr);
-struct in_addr inet_makeaddr(in_addr_t, in_addr_t);
-in_addr_t inet_netof(struct in_addr);
-in_addr_t inet_network(const char*);
+in_addr_t inet_lnaof(struct in_addr) __INTRODUCED_IN(21);
+struct in_addr inet_makeaddr(in_addr_t, in_addr_t) __INTRODUCED_IN(21);
+in_addr_t inet_netof(struct in_addr) __INTRODUCED_IN(21);
+in_addr_t inet_network(const char*) __INTRODUCED_IN(21);
 char* inet_ntoa(struct in_addr);
 const char* inet_ntop(int, const void*, char*, socklen_t);
 unsigned int inet_nsap_addr(const char*, unsigned char*, int);

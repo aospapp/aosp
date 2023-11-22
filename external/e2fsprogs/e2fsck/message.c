@@ -86,6 +86,7 @@
  * 	@z	zero-length
  */
 
+#include "config.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -115,17 +116,17 @@ static const char *abbrevs[] = {
 	N_("Bbitmap"),
 	N_("ccompress"),
 	N_("Cconflicts with some other fs @b"),
-	N_("iinode"),
-	N_("Iillegal"),
-	N_("jjournal"),
-	N_("Ddeleted"),
 	N_("ddirectory"),
+	N_("Ddeleted"),
 	N_("eentry"),
 	N_("E@e '%Dn' in %p (%i)"),
 	N_("ffilesystem"),
 	N_("Ffor @i %i (%Q) is"),
 	N_("ggroup"),
 	N_("hHTREE @d @i"),
+	N_("iinode"),
+	N_("Iillegal"),
+	N_("jjournal"),
 	N_("llost+found"),
 	N_("Lis a link"),
 	N_("mmultiply-claimed"),
@@ -225,7 +226,8 @@ static void print_time(FILE *f, time_t t)
 			time_str = getenv("TZ");
 			if (!time_str)
 				time_str = "";
-			do_gmt = !strcmp(time_str, "GMT0");
+			do_gmt = !strcmp(time_str, "GMT") ||
+				!strcmp(time_str, "GMT0");
 		}
 #endif
 		time_str = asctime((do_gmt > 0) ? gmtime(&t) : localtime(&t));
@@ -294,8 +296,7 @@ static _INLINE_ void expand_inode_expression(FILE *f, ext2_filsys fs, char ch,
 		fprintf(f, "%u", large_inode->i_extra_isize);
 		break;
 	case 'b':
-		if (fs->super->s_feature_ro_compat &
-		    EXT4_FEATURE_RO_COMPAT_HUGE_FILE) 
+		if (ext2fs_has_feature_huge_file(fs->super))
 			fprintf(f, "%llu", inode->i_blocks +
 				(((long long) inode->osd2.linux2.l_i_blocks_hi)
 				 << 32));
@@ -372,7 +373,7 @@ static _INLINE_ void expand_dirent_expression(FILE *f, ext2_filsys fs, char ch,
 		fprintf(f, "%u", dirent->inode);
 		break;
 	case 'n':
-		len = dirent->name_len & 0xFF;
+		len = ext2fs_dirent_name_len(dirent);
 		if ((ext2fs_get_rec_len(fs, dirent, &rec_len) == 0) &&
 		    (len > rec_len))
 			len = rec_len;
@@ -383,10 +384,10 @@ static _INLINE_ void expand_dirent_expression(FILE *f, ext2_filsys fs, char ch,
 		fprintf(f, "%u", rec_len);
 		break;
 	case 'l':
-		fprintf(f, "%u", dirent->name_len & 0xFF);
+		fprintf(f, "%u", ext2fs_dirent_name_len(dirent));
 		break;
 	case 't':
-		fprintf(f, "%u", dirent->name_len >> 8);
+		fprintf(f, "%u", ext2fs_dirent_file_type(dirent));
 		break;
 	default:
 	no_dirent:

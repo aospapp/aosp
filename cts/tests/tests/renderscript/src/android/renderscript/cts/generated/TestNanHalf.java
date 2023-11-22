@@ -37,6 +37,13 @@ public class TestNanHalf extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNanHalfRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsHalf {
         public Target.Floaty out;
     }
@@ -46,6 +53,7 @@ public class TestNanHalf extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNanHalfHalf(out);
             verifyResultsNanHalfHalf(out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNanHalfHalf: " + e.toString());
         }
@@ -53,6 +61,7 @@ public class TestNanHalf extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNanHalfHalf(out);
             verifyResultsNanHalfHalf(out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNanHalfHalf: " + e.toString());
         }

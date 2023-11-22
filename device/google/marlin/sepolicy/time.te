@@ -1,6 +1,6 @@
 # Policy for /system/bin/time_daemon
 type time, domain;
-type time_exec, exec_type, file_type;
+type time_exec, exec_type, vendor_file_type, file_type;
 
 init_daemon_domain(time)
 
@@ -16,10 +16,13 @@ r_dir_file(time, sysfs_msm_subsys)
 allow time sysfs_soc:dir search;
 allow time sysfs_soc:file r_file_perms;
 
-# files in /data/time
 allow time time_data_file:file create_file_perms;
 allow time time_data_file:dir rw_dir_perms;
+
 allow time rtc_device:chr_file r_file_perms;
+
+# Set sys.time.set property
+set_prop(time, sys_time_prop)
 
 userdebug_or_eng(`
   allow time  diag_device:chr_file rw_file_perms;

@@ -33,6 +33,8 @@ enum GcCause {
   kGcCauseExplicit,
   // GC triggered for a native allocation.
   kGcCauseForNativeAlloc,
+  // Background GC triggered for a native allocation.
+  kGcCauseForNativeAllocBackground,
   // GC triggered for a collector transition.
   kGcCauseCollectorTransition,
   // Not a real GC cause, used when we disable moving GC (currently for GetPrimitiveArrayCritical).
@@ -43,12 +45,22 @@ enum GcCause {
   kGcCauseInstrumentation,
   // Not a real GC cause, used to add or remove app image spaces.
   kGcCauseAddRemoveAppImageSpace,
+  // Not a real GC cause, used to implement exclusion between GC and debugger.
+  kGcCauseDebugger,
   // GC triggered for background transition when both foreground and background collector are CMS.
   kGcCauseHomogeneousSpaceCompact,
   // Class linker cause, used to guard filling art methods with special values.
   kGcCauseClassLinker,
   // Not a real GC cause, used to implement exclusion between code cache metadata and GC.
   kGcCauseJitCodeCache,
+  // Not a real GC cause, used to add or remove system-weak holders.
+  kGcCauseAddRemoveSystemWeakHolder,
+  // Not a real GC cause, used to prevent hprof running in the middle of GC.
+  kGcCauseHprof,
+  // Not a real GC cause, used to prevent GetObjectsAllocated running in the middle of GC.
+  kGcCauseGetObjectsAllocated,
+  // GC cause for the profile saver.
+  kGcCauseProfileSaver,
 };
 
 const char* PrettyCause(GcCause cause);

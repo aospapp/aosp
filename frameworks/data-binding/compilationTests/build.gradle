@@ -9,9 +9,18 @@ dependencies {
     testCompile 'commons-io:commons-io:2.4'
     testCompile 'commons-codec:commons-codec:1.10'
     testCompile project(':dataBinding:compilerCommon')
+    testCompile project(':dataBinding:compiler')
 }
 
 afterEvaluate {
     tasks['test'].systemProperties['useReleaseVersion'] = dataBindingConfig.inReleaseBuild ? 'true' : 'false'
     tasks['test'].systemProperties['addRemoteRepos'] = dataBindingConfig.addRemoteRepos ? 'true' : 'false'
+}
+
+sourceSets {
+    test {
+        java {
+            srcDirs += "${project.rootProject.getProjectDir().getAbsolutePath()}/compiler/src/test/java/android/databinding/tool/reflection/java"
+        }
+    }
 }

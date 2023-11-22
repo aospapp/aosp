@@ -16,6 +16,8 @@
 
 package android.support.v7.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -26,6 +28,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
@@ -191,6 +194,7 @@ public abstract class PreferenceDialogFragmentCompat extends DialogFragment impl
      * the soft input method brought up automatically.
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected boolean needInputMethod() {
         return false;
     }

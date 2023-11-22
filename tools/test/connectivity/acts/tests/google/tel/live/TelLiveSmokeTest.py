@@ -30,7 +30,7 @@ from acts.test_utils.tel.tel_defines import NETWORK_SERVICE_VOICE
 from acts.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL_FOR_IMS
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts.test_utils.tel.tel_lookup_tables import is_rat_svd_capable
-from acts.test_utils.tel.tel_test_utils import WifiUtils
+from acts.test_utils.tel.tel_test_utils import stop_wifi_tethering
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import ensure_phones_default_state
 from acts.test_utils.tel.tel_test_utils import get_network_rat
@@ -39,6 +39,7 @@ from acts.test_utils.tel.tel_test_utils import multithread_func
 from acts.test_utils.tel.tel_test_utils import sms_send_receive_verify
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.tel.tel_test_utils import wait_for_cell_data_connection
+from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
@@ -51,16 +52,10 @@ from acts.utils import rand_ascii_str
 
 SKIP = 'Skip'
 
+
 class TelLiveSmokeTest(TelephonyBaseTest):
     def __init__(self, controllers):
         TelephonyBaseTest.__init__(self, controllers)
-        self.tests = (
-            "test_smoke_volte_call_data_sms",
-            "test_smoke_csfb_3g_call_data_sms",
-            "test_smoke_3g_call_data_sms",
-            "test_smoke_wfc_call_sms",
-            "test_smoke_data_airplane_mode_network_switch_tethering"
-            )
 
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
         try:
@@ -69,6 +64,7 @@ class TelLiveSmokeTest(TelephonyBaseTest):
             self.wifi_network_pass = None
 
     """ Tests Begin """
+
     @TelephonyBaseTest.tel_test_wrap
     def test_smoke_volte_call_data_sms(self):
         try:
@@ -79,7 +75,8 @@ class TelLiveSmokeTest(TelephonyBaseTest):
             data_incall_result = False
             call_result = False
 
-            self.log.info("--------start test_smoke_volte_call_data_sms--------")
+            self.log.info(
+                "--------start test_smoke_volte_call_data_sms--------")
             ensure_phones_default_state(self.log, ads)
             tasks = [(phone_setup_volte, (self.log, ads[0])),
                      (phone_setup_volte, (self.log, ads[1]))]
@@ -113,8 +110,8 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 return False
 
             self.log.info("4. Verify SMS in call.")
-            sms_incall_result = sms_send_receive_verify(self.log, ads[0], ads[1],
-                                                        [rand_ascii_str(51)])
+            sms_incall_result = sms_send_receive_verify(
+                self.log, ads[0], ads[1], [rand_ascii_str(51)])
 
             self.log.info("5. Verify Data in call.")
             if (wait_for_cell_data_connection(self.log, ads[0], True) and
@@ -135,9 +132,8 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 "Data idle: {}, SMS in call: {}, Data in call: {}, "
                 "Voice Call: {}".format(
                     getattr(self, Config.ikey_testbed_name.value),
-                    sms_idle_result, data_idle_result,
-                    sms_incall_result, data_incall_result,
-                    call_result))
+                    sms_idle_result, data_idle_result, sms_incall_result,
+                    data_incall_result, call_result))
 
     @TelephonyBaseTest.tel_test_wrap
     def test_smoke_csfb_3g_call_data_sms(self):
@@ -149,7 +145,8 @@ class TelLiveSmokeTest(TelephonyBaseTest):
             data_incall_result = False
             call_result = False
 
-            self.log.info("--------start test_smoke_csfb_3g_call_data_sms--------")
+            self.log.info(
+                "--------start test_smoke_csfb_3g_call_data_sms--------")
             ensure_phones_default_state(self.log, ads)
             tasks = [(phone_setup_csfb, (self.log, ads[0])),
                      (phone_setup_csfb, (self.log, ads[1]))]
@@ -171,22 +168,23 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 data_idle_result = True
 
             self.log.info("3. Setup CSFB_3G Call.")
-            if not call_setup_teardown(self.log,
-                                       ads[0],
-                                       ads[1],
-                                       ad_hangup=None,
-                                       verify_caller_func=is_phone_in_call_csfb,
-                                       verify_callee_func=is_phone_in_call_csfb):
+            if not call_setup_teardown(
+                    self.log,
+                    ads[0],
+                    ads[1],
+                    ad_hangup=None,
+                    verify_caller_func=is_phone_in_call_csfb,
+                    verify_callee_func=is_phone_in_call_csfb):
                 self.log.error("Setup CSFB_3G Call Failed.")
                 return False
 
             self.log.info("4. Verify SMS in call.")
-            sms_incall_result = sms_send_receive_verify(self.log, ads[0], ads[1],
-                                                        [rand_ascii_str(51)])
+            sms_incall_result = sms_send_receive_verify(
+                self.log, ads[0], ads[1], [rand_ascii_str(51)])
 
             self.log.info("5. Verify Data in call.")
-            if is_rat_svd_capable(get_network_rat(self.log, ads[0],
-                                                  NETWORK_SERVICE_VOICE)):
+            if is_rat_svd_capable(
+                    get_network_rat(self.log, ads[0], NETWORK_SERVICE_VOICE)):
                 if (wait_for_cell_data_connection(self.log, ads[0], True) and
                         verify_http_connection(self.log, ads[0])):
                     data_incall_result = True
@@ -210,9 +208,8 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 "Data idle: {}, SMS in call: {}, Data in call: {}, "
                 "Voice Call: {}".format(
                     getattr(self, Config.ikey_testbed_name.value),
-                    sms_idle_result, data_idle_result,
-                    sms_incall_result, data_incall_result,
-                    call_result))
+                    sms_idle_result, data_idle_result, sms_incall_result,
+                    data_incall_result, call_result))
 
     @TelephonyBaseTest.tel_test_wrap
     def test_smoke_3g_call_data_sms(self):
@@ -241,22 +238,23 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 data_idle_result = True
 
             self.log.info("3. Setup 3G Call.")
-            if not call_setup_teardown(self.log,
-                                       ads[0],
-                                       ads[1],
-                                       ad_hangup=None,
-                                       verify_caller_func=is_phone_in_call_3g,
-                                       verify_callee_func=is_phone_in_call_3g):
+            if not call_setup_teardown(
+                    self.log,
+                    ads[0],
+                    ads[1],
+                    ad_hangup=None,
+                    verify_caller_func=is_phone_in_call_3g,
+                    verify_callee_func=is_phone_in_call_3g):
                 self.log.error("Setup 3G Call Failed.")
                 return False
 
             self.log.info("4. Verify SMS in call.")
-            sms_incall_result = sms_send_receive_verify(self.log, ads[0], ads[1],
-                                                        [rand_ascii_str(51)])
+            sms_incall_result = sms_send_receive_verify(
+                self.log, ads[0], ads[1], [rand_ascii_str(51)])
 
             self.log.info("5. Verify Data in call.")
-            if is_rat_svd_capable(get_network_rat(self.log, ads[0],
-                                                  NETWORK_SERVICE_VOICE)):
+            if is_rat_svd_capable(
+                    get_network_rat(self.log, ads[0], NETWORK_SERVICE_VOICE)):
                 if (wait_for_cell_data_connection(self.log, ads[0], True) and
                         verify_http_connection(self.log, ads[0])):
                     data_incall_result = True
@@ -280,9 +278,8 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 "Data idle: {}, SMS in call: {}, Data in call: {}, "
                 "Voice Call: {}".format(
                     getattr(self, Config.ikey_testbed_name.value),
-                    sms_idle_result, data_idle_result,
-                    sms_incall_result, data_incall_result,
-                    call_result))
+                    sms_idle_result, data_idle_result, sms_incall_result,
+                    data_incall_result, call_result))
 
     @TelephonyBaseTest.tel_test_wrap
     def test_smoke_wfc_call_sms(self):
@@ -314,12 +311,13 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 sms_idle_result = True
 
             self.log.info("2. Setup WiFi Call.")
-            if not call_setup_teardown(self.log,
-                                       ads[0],
-                                       ads[1],
-                                       ad_hangup=None,
-                                       verify_caller_func=is_phone_in_call_iwlan,
-                                       verify_callee_func=is_phone_in_call_iwlan):
+            if not call_setup_teardown(
+                    self.log,
+                    ads[0],
+                    ads[1],
+                    ad_hangup=None,
+                    verify_caller_func=is_phone_in_call_iwlan,
+                    verify_callee_func=is_phone_in_call_iwlan):
                 self.log.error("Setup WiFi Call Failed.")
                 self.log.info("sms_idle_result:{}".format(sms_idle_result))
                 return False
@@ -341,8 +339,7 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                 "Summary for test run. Testbed:<{}>. <WFC> SMS idle: {}, "
                 "SMS in call: {}, Voice Call: {}".format(
                     getattr(self, Config.ikey_testbed_name.value),
-                    sms_idle_result, sms_incall_result,
-                    call_result))
+                    sms_idle_result, sms_incall_result, call_result))
 
     @TelephonyBaseTest.tel_test_wrap
     def test_smoke_data_airplane_mode_network_switch_tethering(self):
@@ -353,24 +350,24 @@ class TelLiveSmokeTest(TelephonyBaseTest):
             tethering_result = False
 
             self.log.info("--------start test_smoke_data_airplane_mode_network"
-                "_switch_tethering--------")
+                          "_switch_tethering--------")
             ensure_phones_default_state(self.log, ads)
             self.log.info("1. Verify toggle airplane mode.")
             apm_result = airplane_mode_test(self.log, ads[0])
             self.log.info("2. Verify LTE-WiFi network switch.")
-            nw_switch_result = wifi_cell_switching(self.log, ads[0],
-                                                   self.wifi_network_ssid,
-                                                   self.wifi_network_pass, GEN_4G)
+            nw_switch_result = wifi_cell_switching(
+                self.log, ads[0], self.wifi_network_ssid,
+                self.wifi_network_pass, GEN_4G)
             if ads[0].droid.carrierConfigIsTetheringModeAllowed(
-                    TETHERING_MODE_WIFI, MAX_WAIT_TIME_TETHERING_ENTITLEMENT_CHECK):
+                    TETHERING_MODE_WIFI,
+                    MAX_WAIT_TIME_TETHERING_ENTITLEMENT_CHECK):
                 self.log.info("3. Verify WiFi Tethering.")
                 if ads[0].droid.wifiIsApEnabled():
-                    WifiUtils.stop_wifi_tethering(self.log, ads[0])
+                    stop_wifi_tethering(self.log, ads[0])
                 tethering_result = wifi_tethering_setup_teardown(
                     self.log,
-                    ads[0],
-                    [ads[1]],
-                    ap_band=WifiUtils.WIFI_CONFIG_APBAND_2G,
+                    ads[0], [ads[1]],
+                    ap_band=WIFI_CONFIG_APBAND_2G,
                     check_interval=10,
                     check_iteration=4)
                 # check_interval=10, check_iteration=4: in this Smoke test,
@@ -382,13 +379,13 @@ class TelLiveSmokeTest(TelephonyBaseTest):
                               "Tethering not allowed on SIM.")
                 tethering_result = SKIP
 
-            return (apm_result and nw_switch_result and
-                    ((tethering_result is True) or (tethering_result == SKIP)))
+            return (apm_result and nw_switch_result and (
+                (tethering_result is True) or (tethering_result == SKIP)))
         finally:
             self.log.info(
                 "Summary for test run. Testbed:<{}>. <Data> Airplane Mode: {}, "
                 "WiFi-Cell Network Switch: {}, Tethering: {}".format(
-                    getattr(self, Config.ikey_testbed_name.value),
-                    apm_result, nw_switch_result, tethering_result))
+                    getattr(self, Config.ikey_testbed_name.value), apm_result,
+                    nw_switch_result, tethering_result))
 
     """ Tests End """

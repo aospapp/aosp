@@ -17,7 +17,7 @@ import its.caps
 import its.device
 import its.objects
 import its.target
-import pylab
+from matplotlib import pylab
 import os.path
 import matplotlib
 import matplotlib.pyplot
@@ -41,6 +41,14 @@ def main():
                              its.caps.per_frame_control(props))
 
         # Baseline request
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
+
         e, s = its.target.get_target_exposure_combos(cam)["midSensitivity"]
         req = its.objects.manual_capture_request(s, e, 0.0, True, props)
         req["android.colorCorrection.mode"] = 0
@@ -70,7 +78,7 @@ def main():
         for i in range(len(transforms)):
             req["android.colorCorrection.transform"] = transforms[i]
             req["android.colorCorrection.gains"] = gains[i]
-            cap = cam.do_capture(req)
+            cap = cam.do_capture(req, fmt)
             img = its.image.convert_capture_to_rgb_image(cap)
             its.image.write_image(img, "%s_req=%d.jpg" % (NAME, i))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)

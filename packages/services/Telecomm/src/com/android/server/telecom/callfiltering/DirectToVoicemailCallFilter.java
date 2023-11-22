@@ -17,11 +17,14 @@
 package com.android.server.telecom.callfiltering;
 
 import android.net.Uri;
+import android.telecom.Log;
 
 import com.android.internal.telephony.CallerInfo;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallerInfoLookupHelper;
-import com.android.server.telecom.Log;
+import com.android.server.telecom.LogUtils;
+
+import java.util.Objects;
 
 public class DirectToVoicemailCallFilter implements IncomingCallFilter.CallFilter {
     private final CallerInfoLookupHelper mCallerInfoLookupHelper;
@@ -32,15 +35,16 @@ public class DirectToVoicemailCallFilter implements IncomingCallFilter.CallFilte
 
     @Override
     public void startFilterLookup(final Call call, CallFilterResultCallback callback) {
-        Log.event(call, Log.Events.DIRECT_TO_VM_INITIATED);
+        Log.addEvent(call, LogUtils.Events.DIRECT_TO_VM_INITIATED);
         final Uri callHandle = call.getHandle();
+
         mCallerInfoLookupHelper.startLookup(callHandle,
                 new CallerInfoLookupHelper.OnQueryCompleteListener() {
                     @Override
                     public void onCallerInfoQueryComplete(Uri handle, CallerInfo info) {
                         CallFilteringResult result;
-                        if (callHandle.equals(handle)) {
-                            if (info.shouldSendToVoicemail) {
+                        if (Objects.equals(callHandle, handle)) {
+                            if (info != null && info.shouldSendToVoicemail) {
                                 result = new CallFilteringResult(
                                         false, // shouldAllowCall
                                         true, // shouldReject
@@ -55,7 +59,7 @@ public class DirectToVoicemailCallFilter implements IncomingCallFilter.CallFilte
                                         true // shouldShowNotification
                                 );
                             }
-                            Log.event(call, Log.Events.DIRECT_TO_VM_FINISHED, result);
+                            Log.addEvent(call, LogUtils.Events.DIRECT_TO_VM_FINISHED, result);
                             callback.onCallFilteringComplete(call, result);
                         } else {
                             Log.w(this, "CallerInfo lookup returned with a different handle than " +

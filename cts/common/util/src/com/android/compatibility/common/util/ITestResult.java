@@ -121,11 +121,15 @@ public interface ITestResult extends Comparable<ITestResult> {
      * Report that the test was skipped.
      *
      * This means that the test is not considered appropriate for the
-     * current device, and thus is never attempted.  Unlike notExecuted(),
-     * this indicates the run of this test was valid and nothing further
-     * needs to be done.
+     * current device, and thus is never attempted. The test does not require execution,
+     * and nothing more needs to be done.
      */
     void skipped();
+
+    /**
+     * Retrieves whether execution for this test result has been determined unnecessary.
+     */
+    boolean isSkipped();
 
     /**
      * Resets the result.
@@ -142,4 +146,8 @@ public interface ITestResult extends Comparable<ITestResult> {
      */
     boolean isRetry();
 
+    /**
+     * Clear the existing result and default to 'failed'
+     */
+    void removeResult();
 }

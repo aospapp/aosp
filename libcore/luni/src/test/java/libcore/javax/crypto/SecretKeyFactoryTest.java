@@ -16,6 +16,8 @@
 
 package libcore.javax.crypto;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
@@ -171,7 +173,7 @@ public class SecretKeyFactoryTest extends TestCase {
     public void test_PBKDF2_b8312059() throws Exception {
 
         char[] password = "\u0141\u0142".toCharArray();
-        byte[] salt = "salt".getBytes();
+        byte[] salt = "salt".getBytes(UTF_8);
         int iterations = 4096;
         int keyLength = 160;
         byte[] expected_utf8 = new byte[] {

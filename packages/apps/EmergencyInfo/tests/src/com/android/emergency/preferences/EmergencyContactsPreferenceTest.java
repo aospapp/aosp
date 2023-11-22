@@ -63,7 +63,7 @@ public class EmergencyContactsPreferenceTest
                 }
             });
         } catch (Throwable throwable) {
-            fail("Should not fail" + throwable);
+	    fail("Should not throw exception: " + throwable.getMessage());
         }
 
         mContentResolver = getActivity().getContentResolver();
@@ -87,12 +87,12 @@ public class EmergencyContactsPreferenceTest
         final String name = "Jane";
         final String phoneNumber = "456";
 
-        final Uri emergencyContactUri =
+        final Uri phoneUri =
                 ContactTestUtils.createContact(mContentResolver, name, phoneNumber);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mEmergencyContactsPreference.addNewEmergencyContact(emergencyContactUri);
+                mEmergencyContactsPreference.addNewEmergencyContact(phoneUri);
             }
         });
 
@@ -101,7 +101,7 @@ public class EmergencyContactsPreferenceTest
         ContactPreference contactPreference = (ContactPreference)
                 mEmergencyContactsPreference.getPreference(0);
 
-        assertEquals(emergencyContactUri, contactPreference.getContactUri());
+        assertEquals(phoneUri, contactPreference.getPhoneUri());
         assertEquals(name, contactPreference.getTitle());
         assertTrue(((String) contactPreference.getSummary()).contains(phoneNumber));
 
@@ -144,7 +144,7 @@ public class EmergencyContactsPreferenceTest
         assertEquals(2, mEmergencyContactsPreference.getEmergencyContacts().size());
         assertEquals(2, mEmergencyContactsPreference.getPreferenceCount());
 
-        // Delete Jane from other app (e.g. contacts)
+        // Delete Jane from another app (e.g. contacts)
         assertTrue(ContactTestUtils
                 .deleteContact(mContentResolver, nameJane, phoneNumberJane));
         getInstrumentation().waitForIdleSync();
@@ -163,7 +163,7 @@ public class EmergencyContactsPreferenceTest
         assertEquals(1, mEmergencyContactsPreference.getPreferenceCount());
         ContactPreference contactPreference = (ContactPreference)
                 mEmergencyContactsPreference.getPreference(0);
-        assertEquals(emergencyContactJohn, contactPreference.getContactUri());
+        assertEquals(emergencyContactJohn, contactPreference.getPhoneUri());
 
         // Clean up the inserted contact
         assertTrue(ContactTestUtils
@@ -174,12 +174,12 @@ public class EmergencyContactsPreferenceTest
         final String name = "Jane";
         final String phoneNumber = "456";
 
-        final Uri emergencyContactUri =
+        final Uri emergencyPhoneUri =
                 ContactTestUtils.createContact(mContentResolver, name, phoneNumber);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mEmergencyContactsPreference.addNewEmergencyContact(emergencyContactUri);
+                mEmergencyContactsPreference.addNewEmergencyContact(emergencyPhoneUri);
             }
         });
 
@@ -223,12 +223,12 @@ public class EmergencyContactsPreferenceTest
         final String name = "Jane";
         final String phoneNumber = "456";
 
-        final Uri emergencyContactUri =
+        final Uri emergencyPhoneUri =
                 ContactTestUtils.createContact(mContentResolver, name, phoneNumber);
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mEmergencyContactsPreference.addNewEmergencyContact(emergencyContactUri);
+                mEmergencyContactsPreference.addNewEmergencyContact(emergencyPhoneUri);
             }
         });
 

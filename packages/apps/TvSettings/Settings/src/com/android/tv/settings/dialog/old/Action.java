@@ -50,7 +50,6 @@ public class Action implements Parcelable {
     private final String mResourcePackageName;
 
     private final int mDrawableResource;
-    private final Uri mIconUri;
     private boolean mChecked;
     private final boolean mMultilineDescription;
     private final boolean mHasNext;
@@ -68,7 +67,6 @@ public class Action implements Parcelable {
         private Intent mIntent;
         private String mResourcePackageName;
         private int mDrawableResource = NO_DRAWABLE;
-        private Uri mIconUri;
         private boolean mChecked;
         private boolean mMultilineDescription;
         private boolean mHasNext;
@@ -83,7 +81,6 @@ public class Action implements Parcelable {
                     mDescription,
                     mResourcePackageName,
                     mDrawableResource,
-                    mIconUri,
                     mChecked,
                     mMultilineDescription,
                     mHasNext,
@@ -123,11 +120,6 @@ public class Action implements Parcelable {
             return this;
         }
 
-        public Builder iconUri(Uri iconUri) {
-            mIconUri = iconUri;
-            return this;
-        }
-
         public Builder checked(boolean checked) {
             mChecked = checked;
             return this;
@@ -160,14 +152,13 @@ public class Action implements Parcelable {
     }
 
     protected Action(String key, String title, String description, String resourcePackageName,
-            int drawableResource, Uri iconUri, boolean checked, boolean multilineDescription,
+            int drawableResource, boolean checked, boolean multilineDescription,
             boolean hasNext, boolean infoOnly, Intent intent, int checkSetId, boolean enabled) {
         mKey = key;
         mTitle = title;
         mDescription = description;
         mResourcePackageName = resourcePackageName;
         mDrawableResource = drawableResource;
-        mIconUri = iconUri;
         mChecked = checked;
         mMultilineDescription = multilineDescription;
         mHasNext = hasNext;
@@ -240,7 +231,7 @@ public class Action implements Parcelable {
     }
 
     public Uri getIconUri() {
-        return mIconUri;
+        return null;
     }
 
     /**
@@ -331,7 +322,6 @@ public class Action implements Parcelable {
                     .intent((Intent) source.readParcelable(Intent.class.getClassLoader()))
                     .resourcePackageName(source.readString())
                     .drawableResource(source.readInt())
-                    .iconUri((Uri) source.readParcelable(Uri.class.getClassLoader()))
                     .checked(source.readInt() != 0)
                     .multilineDescription(source.readInt() != 0)
                     .checkSetId(source.readInt())
@@ -357,7 +347,6 @@ public class Action implements Parcelable {
         dest.writeParcelable(mIntent, flags);
         dest.writeString(mResourcePackageName);
         dest.writeInt(mDrawableResource);
-        dest.writeParcelable(mIconUri, flags);
         dest.writeInt(mChecked ? 1 : 0);
         dest.writeInt(mMultilineDescription ? 1 : 0);
         dest.writeInt(mCheckSetId);

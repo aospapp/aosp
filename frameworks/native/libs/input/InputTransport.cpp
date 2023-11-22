@@ -19,19 +19,18 @@
 // Log debug messages about touch event resampling
 #define DEBUG_RESAMPLING 0
 
-
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <math.h>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include <cutils/log.h>
 #include <cutils/properties.h>
-#include <input/InputTransport.h>
+#include <log/log.h>
 
+#include <input/InputTransport.h>
 
 namespace android {
 

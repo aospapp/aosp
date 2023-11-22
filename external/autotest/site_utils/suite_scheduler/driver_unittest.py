@@ -38,6 +38,7 @@ class DriverTest(mox.MoxTestBase):
         self.new_build_bvt = task.Task(build_event.NewBuild.KEYWORD, '', '')
 
         self.driver = driver.Driver(self.ds, self.be)
+        driver.Driver._cros_boards.clear()
 
 
     def _CreateMockEvent(self, klass):
@@ -86,15 +87,22 @@ class DriverTest(mox.MoxTestBase):
         self.afe.get_labels(name__startswith=prefix).AndReturn(mocks)
 
 
-    def _ExpectHandle(self, event, group):
+    def _ExpectHandle(self, event, group, launch_control_build_called=False):
         """Make event report that it's handle-able, and expect it to be handle.
 
         @param event: the mock event that expectations will be set on.
         @param group: group to put new expectations in.
+        @param launch_control_build_called: True if event has called method
+                GetLaunchControlBuildsForBoard already, and should not expect
+                to call it again due to the cache of driver.Driver._cros_builds.
+                Default is set to False.
         """
         bbs = {'branch': 'build-string'}
         event.ShouldHandle().InAnyOrder(group).AndReturn(True)
         for board in self._BOARDS:
+            if not launch_control_build_called:
+                event.GetLaunchControlBuildsForBoard(
+                    board).InAnyOrder(group).AndReturn(None)
             event.GetBranchBuildsForBoard(
                 board).InAnyOrder(group).AndReturn(bbs)
             event.Handle(mox.IgnoreArg(), bbs, board).InAnyOrder(group)
@@ -160,8 +168,10 @@ class DriverTest(mox.MoxTestBase):
         """Test that all events being ready is handled correctly."""
         events = self._ExpectSetup()
         self._ExpectEnumeration()
+        launch_control_build_called = False
         for event in events:
-            self._ExpectHandle(event, 'events')
+            self._ExpectHandle(event, 'events', launch_control_build_called)
+            launch_control_build_called = True
         self.mox.ReplayAll()
 
         driver.POOL_SIZE = 1
@@ -196,7 +206,7 @@ class DriverTest(mox.MoxTestBase):
         build = base_event.BuildName(board, type, milestone, manifest)
 
         events[0].Handle(mox.IgnoreArg(), {milestone: [build]}, board,
-                            force=True)
+                         force=True, launch_control_builds=None)
         self.mox.ReplayAll()
 
         self.driver.SetUpEventsAndTasks(self.config, self.mv)

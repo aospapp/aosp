@@ -17,8 +17,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="start|center_vertical"
-    android:paddingBottom="@dimen/setup_list_item_container_shadow_padding"
-    android:paddingEnd="@dimen/setup_list_item_container_shadow_padding"
     android:clipToPadding="false"
     android:clipChildren="false"
     android:focusable="true"

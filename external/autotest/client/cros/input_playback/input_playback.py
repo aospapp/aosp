@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import glob
 import logging
 import os
 import subprocess
@@ -111,7 +112,7 @@ class InputPlayback(object):
 
     def _get_input_events(self):
         """Return a list of all input event nodes."""
-        return utils.run('ls /dev/input/event*').stdout.strip().split()
+        return glob.glob('/dev/input/event*')
 
 
     def emulate(self, input_type='mouse', property_file=None):
@@ -202,7 +203,7 @@ class InputPlayback(object):
             if (props.find('BTN_STYLUS') >= 0 or
                 props.find('BTN_STYLUS2') >= 0 or
                 props.find('BTN_TOOL_PEN') >= 0):
-                return 'tablet'
+                return 'stylus'
             if (props.find('ABS_PRESSURE') >= 0 or
                 props.find('BTN_TOUCH') >= 0):
                 if (props.find('BTN_LEFT') >= 0 or
@@ -235,36 +236,94 @@ class InputPlayback(object):
         return utils.run('cat %s' % filepath).stdout.strip()
 
 
-    def _find_device_ids(self, device_dir, input_type):
+    def _find_input_name(self, device_dir):
+        """Find the associated input* name for the given device directory.
+
+        E.g. given '/dev/input/event4', return 'input3'.
+
+        @param device_dir: the device directory.
+
+        @returns: string of the associated input name.
+
+        """
+        input_names = glob.glob(os.path.join(device_dir, 'input', 'input*'))
+        if len(input_names) != 1:
+            logging.error('Input names found: %s', input_names)
+            raise error.TestError('Could not match input* to this device!')
+        return os.path.basename(input_names[0])
+
+
+    def _find_device_ids_for_styluses(self, device_dir):
+        """Find the fw_id and hw_id for the stylus in the given directory.
+
+        @param device_dir: the device directory.
+
+        @returns: firmware id, hardware id for this device.
+
+        """
+        hw_id = 'wacom' # Wacom styluses don't actually have hwids.
+        fw_id = None
+
+        # Find fw_id for wacom styluses via wacom_flash command.  Arguments
+        # to this command are wacom_flash (dummy placeholder arg) -a (i2c name)
+        # Find i2c name if any /dev/i2c-* link to this device's input event.
+        input_name = self._find_input_name(device_dir)
+        i2c_paths = glob.glob('/dev/i2c-*')
+        for i2c_path in i2c_paths:
+            class_folder = i2c_path.replace('dev', 'sys/class/i2c-adapter')
+            input_folder_path = os.path.join(class_folder, '*', '*',
+                                             'input', input_name)
+            contents_of_input_folder = glob.glob(input_folder_path)
+            if len(contents_of_input_folder) != 0:
+                i2c_name = i2c_path[len('/dev/'):]
+                cmd = 'wacom_flash dummy -a %s' % i2c_name
+                fw_id = utils.run(cmd).stdout.split()[-1]
+                break
+
+        if fw_id == '':
+            fw_id = None
+        return fw_id, hw_id
+
+
+    def _find_device_ids(self, device_dir, input_type, name):
         """Find the fw_id and hw_id for the given device directory.
 
-        Finding fw_id and hw_id applicable only for touchpads and touchscreens.
+        Finding fw_id and hw_id applicable only for touchpads, touchscreens,
+        and styluses.
 
         @param device_dir: the device directory.
         @param input_type: string of input type.
+        @param name: string of input name.
 
         @returns: firmware id, hardware id
 
         """
         fw_id, hw_id = None, None
 
-        if not device_dir or input_type not in ['touchpad', 'touchscreen']:
+        if not device_dir or input_type not in ['touchpad', 'touchscreen',
+                                                'stylus']:
             return fw_id, hw_id
+        if input_type == 'stylus':
+            return self._find_device_ids_for_styluses(device_dir)
 
-        # Touch devices with custom drivers save this info as a file.
+        # Touch devices with custom drivers usually save this info as a file.
         fw_filenames = ['fw_version', 'firmware_version', 'firmware_id']
         for fw_filename in fw_filenames:
             fw_path = os.path.join(device_dir, fw_filename)
             if os.path.exists(fw_path):
+                if fw_id:
+                    logging.warning('Found new potential fw_id when previous '
+                                    'value was %s!', fw_id)
                 fw_id = self._get_contents_of_file(fw_path)
-                break
 
         hw_filenames = ['hw_version', 'product_id', 'board_id']
         for hw_filename in hw_filenames:
             hw_path = os.path.join(device_dir, hw_filename)
             if os.path.exists(hw_path):
+                if hw_id:
+                    logging.warning('Found new potential hw_id when previous '
+                                    'value was %s!', hw_id)
                 hw_id = self._get_contents_of_file(hw_path)
-                break
 
         # Hw_ids for Weida and 2nd gen Synaptics are different.
         if not hw_id:
@@ -274,20 +333,18 @@ class InputPlayback(object):
 
             if os.path.isfile(product_path):
                 product = self._get_contents_of_file(product_path)
-                if input_type == 'touchscreen':
+                if name.startswith('WD'): # Weida ts, e.g. sumo
                     if os.path.isfile(vendor_path):
                         vendor = self._get_contents_of_file(vendor_path)
                         hw_id = vendor + product
-                else:
+                else: # Synaptics tp or ts, e.g. heli, lulu, setzer
                     hw_id = product
 
-        # Fw_ids for 2nd gen Synaptics can only be found via rmi4update.
-        # See if any /dev/hidraw* link to this device's input event.
         if not fw_id:
-            input_name_path = os.path.join(device_dir, 'input')
-            input_name = utils.run('ls %s' % input_name_path,
-                                   ignore_status=True).stdout.strip()
-            hidraws = utils.run('ls /dev/hidraw*').stdout.strip().split()
+            # Fw_ids for 2nd gen Synaptics can only be found via rmi4update.
+            # See if any /dev/hidraw* link to this device's input event.
+            input_name = self._find_input_name(device_dir)
+            hidraws = glob.glob('/dev/hidraw*')
             for hidraw in hidraws:
                 class_folder = hidraw.replace('dev', 'sys/class/hidraw')
                 input_folder_path = os.path.join(class_folder, 'device',
@@ -297,6 +354,7 @@ class InputPlayback(object):
                                       ignore_status=True).stdout.strip()
                     if fw_id == '':
                         fw_id = None
+                    break
 
         return fw_id, hw_id
 
@@ -345,8 +403,8 @@ class InputPlayback(object):
                 device_dir = os.path.join(class_folder, 'device', 'device')
                 if os.path.exists(device_dir):
                     new_device.device_dir = device_dir
-                    fw_id, hw_id = self._find_device_ids(device_dir, input_type)
-                    new_device.fw_id, new_device.hw_id = fw_id, hw_id
+                    new_device.fw_id, new_device.hw_id = self._find_device_ids(
+                            device_dir, input_type, new_device.name)
 
                 if new_device.emulated:
                     self._emulated_device = new_device

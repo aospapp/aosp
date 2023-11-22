@@ -25,9 +25,13 @@
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "intrinsics.h"
 #include "intrinsics_utils.h"
+#include "lock_word.h"
 #include "mirror/array-inl.h"
+#include "mirror/object_array-inl.h"
+#include "mirror/reference.h"
 #include "mirror/string.h"
-#include "thread.h"
+#include "scoped_thread_state_change-inl.h"
+#include "thread-inl.h"
 #include "utils/x86/assembler_x86.h"
 #include "utils/x86/constants_x86.h"
 
@@ -60,19 +64,6 @@ bool IntrinsicLocationsBuilderX86::TryDispatch(HInvoke* invoke) {
   if (res == nullptr) {
     return false;
   }
-  if (kEmitCompilerReadBarrier && res->CanCall()) {
-    // Generating an intrinsic for this HInvoke may produce an
-    // IntrinsicSlowPathX86 slow path.  Currently this approach
-    // does not work when using read barriers, as the emitted
-    // calling sequence will make use of another slow path
-    // (ReadBarrierForRootSlowPathX86 for HInvokeStaticOrDirect,
-    // ReadBarrierSlowPathX86 for HInvokeVirtual).  So we bail
-    // out in this case.
-    //
-    // TODO: Find a way to have intrinsics work with read barriers.
-    invoke->SetLocations(nullptr);
-    return false;
-  }
   return res->Intrinsified();
 }
 
@@ -82,6 +73,105 @@ static void MoveArguments(HInvoke* invoke, CodeGeneratorX86* codegen) {
 }
 
 using IntrinsicSlowPathX86 = IntrinsicSlowPath<InvokeDexCallingConventionVisitorX86>;
+
+// NOLINT on __ macro to suppress wrong warning/fix (misc-macro-parentheses) from clang-tidy.
+#define __ down_cast<X86Assembler*>(codegen->GetAssembler())->  // NOLINT
+
+// Slow path implementing the SystemArrayCopy intrinsic copy loop with read barriers.
+class ReadBarrierSystemArrayCopySlowPathX86 : public SlowPathCode {
+ public:
+  explicit ReadBarrierSystemArrayCopySlowPathX86(HInstruction* instruction)
+      : SlowPathCode(instruction) {
+    DCHECK(kEmitCompilerReadBarrier);
+    DCHECK(kUseBakerReadBarrier);
+  }
+
+  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+    CodeGeneratorX86* x86_codegen = down_cast<CodeGeneratorX86*>(codegen);
+    LocationSummary* locations = instruction_->GetLocations();
+    DCHECK(locations->CanCall());
+    DCHECK(instruction_->IsInvokeStaticOrDirect())
+        << "Unexpected instruction in read barrier arraycopy slow path: "
+        << instruction_->DebugName();
+    DCHECK(instruction_->GetLocations()->Intrinsified());
+    DCHECK_EQ(instruction_->AsInvoke()->GetIntrinsic(), Intrinsics::kSystemArrayCopy);
+
+    int32_t element_size = Primitive::ComponentSize(Primitive::kPrimNot);
+    uint32_t offset = mirror::Array::DataOffset(element_size).Uint32Value();
+
+    Register src = locations->InAt(0).AsRegister<Register>();
+    Location src_pos = locations->InAt(1);
+    Register dest = locations->InAt(2).AsRegister<Register>();
+    Location dest_pos = locations->InAt(3);
+    Location length = locations->InAt(4);
+    Location temp1_loc = locations->GetTemp(0);
+    Register temp1 = temp1_loc.AsRegister<Register>();
+    Register temp2 = locations->GetTemp(1).AsRegister<Register>();
+    Register temp3 = locations->GetTemp(2).AsRegister<Register>();
+
+    __ Bind(GetEntryLabel());
+    // In this code path, registers `temp1`, `temp2`, and `temp3`
+    // (resp.) are not used for the base source address, the base
+    // destination address, and the end source address (resp.), as in
+    // other SystemArrayCopy intrinsic code paths.  Instead they are
+    // (resp.) used for:
+    // - the loop index (`i`);
+    // - the source index (`src_index`) and the loaded (source)
+    //   reference (`value`); and
+    // - the destination index (`dest_index`).
+
+    // i = 0
+    __ xorl(temp1, temp1);
+    NearLabel loop;
+    __ Bind(&loop);
+    // value = src_array[i + src_pos]
+    if (src_pos.IsConstant()) {
+      int32_t constant = src_pos.GetConstant()->AsIntConstant()->GetValue();
+      int32_t adjusted_offset = offset + constant * element_size;
+      __ movl(temp2, Address(src, temp1, ScaleFactor::TIMES_4, adjusted_offset));
+    } else {
+      __ leal(temp2, Address(src_pos.AsRegister<Register>(), temp1, ScaleFactor::TIMES_1, 0));
+      __ movl(temp2, Address(src, temp2, ScaleFactor::TIMES_4, offset));
+    }
+    __ MaybeUnpoisonHeapReference(temp2);
+    // TODO: Inline the mark bit check before calling the runtime?
+    // value = ReadBarrier::Mark(value)
+    // No need to save live registers; it's taken care of by the
+    // entrypoint. Also, there is no need to update the stack mask,
+    // as this runtime call will not trigger a garbage collection.
+    // (See ReadBarrierMarkSlowPathX86::EmitNativeCode for more
+    // explanations.)
+    DCHECK_NE(temp2, ESP);
+    DCHECK(0 <= temp2 && temp2 < kNumberOfCpuRegisters) << temp2;
+    int32_t entry_point_offset =
+        CodeGenerator::GetReadBarrierMarkEntryPointsOffset<kX86PointerSize>(temp2);
+    // This runtime call does not require a stack map.
+    x86_codegen->InvokeRuntimeWithoutRecordingPcInfo(entry_point_offset, instruction_, this);
+    __ MaybePoisonHeapReference(temp2);
+    // dest_array[i + dest_pos] = value
+    if (dest_pos.IsConstant()) {
+      int32_t constant = dest_pos.GetConstant()->AsIntConstant()->GetValue();
+      int32_t adjusted_offset = offset + constant * element_size;
+      __ movl(Address(dest, temp1, ScaleFactor::TIMES_4, adjusted_offset), temp2);
+    } else {
+      __ leal(temp3, Address(dest_pos.AsRegister<Register>(), temp1, ScaleFactor::TIMES_1, 0));
+      __ movl(Address(dest, temp3, ScaleFactor::TIMES_4, offset), temp2);
+    }
+    // ++i
+    __ addl(temp1, Immediate(1));
+    // if (i != length) goto loop
+    x86_codegen->GenerateIntCompare(temp1_loc, length);
+    __ j(kNotEqual, &loop);
+    __ jmp(GetExitLabel());
+  }
+
+  const char* GetDescription() const OVERRIDE { return "ReadBarrierSystemArrayCopySlowPathX86"; }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ReadBarrierSystemArrayCopySlowPathX86);
+};
+
+#undef __
 
 #define __ assembler->
 
@@ -270,23 +360,28 @@ static void CreateFloatToFloat(ArenaAllocator* arena, HInvoke* invoke) {
   }
 }
 
-static void MathAbsFP(LocationSummary* locations,
+static void MathAbsFP(HInvoke* invoke,
                       bool is64bit,
                       X86Assembler* assembler,
                       CodeGeneratorX86* codegen) {
+  LocationSummary* locations = invoke->GetLocations();
   Location output = locations->Out();
 
   DCHECK(output.IsFpuRegister());
   if (locations->GetInputCount() == 2 && locations->InAt(1).IsValid()) {
+    HX86ComputeBaseMethodAddress* method_address =
+        invoke->InputAt(1)->AsX86ComputeBaseMethodAddress();
     DCHECK(locations->InAt(1).IsRegister());
     // We also have a constant area pointer.
     Register constant_area = locations->InAt(1).AsRegister<Register>();
     XmmRegister temp = locations->GetTemp(0).AsFpuRegister<XmmRegister>();
     if (is64bit) {
-      __ movsd(temp, codegen->LiteralInt64Address(INT64_C(0x7FFFFFFFFFFFFFFF), constant_area));
+      __ movsd(temp, codegen->LiteralInt64Address(
+          INT64_C(0x7FFFFFFFFFFFFFFF), method_address, constant_area));
       __ andpd(output.AsFpuRegister<XmmRegister>(), temp);
     } else {
-      __ movss(temp, codegen->LiteralInt32Address(INT32_C(0x7FFFFFFF), constant_area));
+      __ movss(temp, codegen->LiteralInt32Address(
+          INT32_C(0x7FFFFFFF), method_address, constant_area));
       __ andps(output.AsFpuRegister<XmmRegister>(), temp);
     }
   } else {
@@ -310,7 +405,7 @@ void IntrinsicLocationsBuilderX86::VisitMathAbsDouble(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitMathAbsDouble(HInvoke* invoke) {
-  MathAbsFP(invoke->GetLocations(), /* is64bit */ true, GetAssembler(), codegen_);
+  MathAbsFP(invoke, /* is64bit */ true, GetAssembler(), codegen_);
 }
 
 void IntrinsicLocationsBuilderX86::VisitMathAbsFloat(HInvoke* invoke) {
@@ -318,7 +413,7 @@ void IntrinsicLocationsBuilderX86::VisitMathAbsFloat(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitMathAbsFloat(HInvoke* invoke) {
-  MathAbsFP(invoke->GetLocations(), /* is64bit */ false, GetAssembler(), codegen_);
+  MathAbsFP(invoke, /* is64bit */ false, GetAssembler(), codegen_);
 }
 
 static void CreateAbsIntLocation(ArenaAllocator* arena, HInvoke* invoke) {
@@ -400,11 +495,12 @@ void IntrinsicCodeGeneratorX86::VisitMathAbsLong(HInvoke* invoke) {
   GenAbsLong(invoke->GetLocations(), GetAssembler());
 }
 
-static void GenMinMaxFP(LocationSummary* locations,
+static void GenMinMaxFP(HInvoke* invoke,
                         bool is_min,
                         bool is_double,
                         X86Assembler* assembler,
                         CodeGeneratorX86* codegen) {
+  LocationSummary* locations = invoke->GetLocations();
   Location op1_loc = locations->InAt(0);
   Location op2_loc = locations->InAt(1);
   Location out_loc = locations->Out();
@@ -467,12 +563,14 @@ static void GenMinMaxFP(LocationSummary* locations,
   __ Bind(&nan);
   // Do we have a constant area pointer?
   if (locations->GetInputCount() == 3 && locations->InAt(2).IsValid()) {
+    HX86ComputeBaseMethodAddress* method_address =
+        invoke->InputAt(2)->AsX86ComputeBaseMethodAddress();
     DCHECK(locations->InAt(2).IsRegister());
     Register constant_area = locations->InAt(2).AsRegister<Register>();
     if (is_double) {
-      __ movsd(out, codegen->LiteralInt64Address(kDoubleNaN, constant_area));
+      __ movsd(out, codegen->LiteralInt64Address(kDoubleNaN, method_address, constant_area));
     } else {
-      __ movss(out, codegen->LiteralInt32Address(kFloatNaN, constant_area));
+      __ movss(out, codegen->LiteralInt32Address(kFloatNaN, method_address, constant_area));
     }
   } else {
     if (is_double) {
@@ -522,7 +620,7 @@ void IntrinsicLocationsBuilderX86::VisitMathMinDoubleDouble(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitMathMinDoubleDouble(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
+  GenMinMaxFP(invoke,
               /* is_min */ true,
               /* is_double */ true,
               GetAssembler(),
@@ -534,7 +632,7 @@ void IntrinsicLocationsBuilderX86::VisitMathMinFloatFloat(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitMathMinFloatFloat(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
+  GenMinMaxFP(invoke,
               /* is_min */ true,
               /* is_double */ false,
               GetAssembler(),
@@ -546,7 +644,7 @@ void IntrinsicLocationsBuilderX86::VisitMathMaxDoubleDouble(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitMathMaxDoubleDouble(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
+  GenMinMaxFP(invoke,
               /* is_min */ false,
               /* is_double */ true,
               GetAssembler(),
@@ -558,7 +656,7 @@ void IntrinsicLocationsBuilderX86::VisitMathMaxFloatFloat(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitMathMaxFloatFloat(HInvoke* invoke) {
-  GenMinMaxFP(invoke->GetLocations(),
+  GenMinMaxFP(invoke,
               /* is_min */ false,
               /* is_double */ false,
               GetAssembler(),
@@ -719,7 +817,7 @@ static void CreateSSE41FPToFPLocations(ArenaAllocator* arena,
 
   // We have to fall back to a call to the intrinsic.
   LocationSummary* locations = new (arena) LocationSummary(invoke,
-                                                           LocationSummary::kCall);
+                                                           LocationSummary::kCallOnMainOnly);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetFpuRegisterAt(0)));
   locations->SetOut(Location::FpuRegisterLocation(XMM0));
@@ -765,20 +863,20 @@ void IntrinsicCodeGeneratorX86::VisitMathRint(HInvoke* invoke) {
   GenSSE41FPToFPIntrinsic(codegen_, invoke, GetAssembler(), 0);
 }
 
-// Note that 32 bit x86 doesn't have the capability to inline MathRoundDouble,
-// as it needs 64 bit instructions.
 void IntrinsicLocationsBuilderX86::VisitMathRoundFloat(HInvoke* invoke) {
-  // See intrinsics.h.
-  if (!kRoundIsPlusPointFive) {
-    return;
-  }
-
   // Do we have instruction support?
   if (codegen_->GetInstructionSetFeatures().HasSSE4_1()) {
+    HInvokeStaticOrDirect* static_or_direct = invoke->AsInvokeStaticOrDirect();
+    DCHECK(static_or_direct != nullptr);
     LocationSummary* locations = new (arena_) LocationSummary(invoke,
                                                               LocationSummary::kNoCall,
                                                               kIntrinsified);
     locations->SetInAt(0, Location::RequiresFpuRegister());
+    if (static_or_direct->HasSpecialInput() &&
+        invoke->InputAt(
+            static_or_direct->GetSpecialInputIndex())->IsX86ComputeBaseMethodAddress()) {
+      locations->SetInAt(1, Location::RequiresRegister());
+    }
     locations->SetOut(Location::RequiresRegister());
     locations->AddTemp(Location::RequiresFpuRegister());
     locations->AddTemp(Location::RequiresFpuRegister());
@@ -787,7 +885,7 @@ void IntrinsicLocationsBuilderX86::VisitMathRoundFloat(HInvoke* invoke) {
 
   // We have to fall back to a call to the intrinsic.
   LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                           LocationSummary::kCall);
+                                                            LocationSummary::kCallOnMainOnly);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetFpuRegisterAt(0)));
   locations->SetOut(Location::RegisterLocation(EAX));
@@ -797,54 +895,67 @@ void IntrinsicLocationsBuilderX86::VisitMathRoundFloat(HInvoke* invoke) {
 
 void IntrinsicCodeGeneratorX86::VisitMathRoundFloat(HInvoke* invoke) {
   LocationSummary* locations = invoke->GetLocations();
-  if (locations->WillCall()) {
+  if (locations->WillCall()) {  // TODO: can we reach this?
     InvokeOutOfLineIntrinsic(codegen_, invoke);
     return;
   }
 
-  // Implement RoundFloat as t1 = floor(input + 0.5f);  convert to int.
   XmmRegister in = locations->InAt(0).AsFpuRegister<XmmRegister>();
+  XmmRegister t1 = locations->GetTemp(0).AsFpuRegister<XmmRegister>();
+  XmmRegister t2 = locations->GetTemp(1).AsFpuRegister<XmmRegister>();
   Register out = locations->Out().AsRegister<Register>();
-  XmmRegister maxInt = locations->GetTemp(0).AsFpuRegister<XmmRegister>();
-  XmmRegister inPlusPointFive = locations->GetTemp(1).AsFpuRegister<XmmRegister>();
-  NearLabel done, nan;
+  NearLabel skip_incr, done;
   X86Assembler* assembler = GetAssembler();
 
-  // Generate 0.5 into inPlusPointFive.
-  __ movl(out, Immediate(bit_cast<int32_t, float>(0.5f)));
-  __ movd(inPlusPointFive, out);
+  // Since no direct x86 rounding instruction matches the required semantics,
+  // this intrinsic is implemented as follows:
+  //  result = floor(in);
+  //  if (in - result >= 0.5f)
+  //    result = result + 1.0f;
+  __ movss(t2, in);
+  __ roundss(t1, in, Immediate(1));
+  __ subss(t2, t1);
+  if (locations->GetInputCount() == 2 && locations->InAt(1).IsValid()) {
+    // Direct constant area available.
+    HX86ComputeBaseMethodAddress* method_address =
+        invoke->InputAt(1)->AsX86ComputeBaseMethodAddress();
+    Register constant_area = locations->InAt(1).AsRegister<Register>();
+    __ comiss(t2, codegen_->LiteralInt32Address(bit_cast<int32_t, float>(0.5f),
+                                                method_address,
+                                                constant_area));
+    __ j(kBelow, &skip_incr);
+    __ addss(t1, codegen_->LiteralInt32Address(bit_cast<int32_t, float>(1.0f),
+                                               method_address,
+                                               constant_area));
+    __ Bind(&skip_incr);
+  } else {
+    // No constant area: go through stack.
+    __ pushl(Immediate(bit_cast<int32_t, float>(0.5f)));
+    __ pushl(Immediate(bit_cast<int32_t, float>(1.0f)));
+    __ comiss(t2, Address(ESP, 4));
+    __ j(kBelow, &skip_incr);
+    __ addss(t1, Address(ESP, 0));
+    __ Bind(&skip_incr);
+    __ addl(ESP, Immediate(8));
+  }
 
-  // Add in the input.
-  __ addss(inPlusPointFive, in);
-
-  // And truncate to an integer.
-  __ roundss(inPlusPointFive, inPlusPointFive, Immediate(1));
-
+  // Final conversion to an integer. Unfortunately this also does not have a
+  // direct x86 instruction, since NaN should map to 0 and large positive
+  // values need to be clipped to the extreme value.
   __ movl(out, Immediate(kPrimIntMax));
-  // maxInt = int-to-float(out)
-  __ cvtsi2ss(maxInt, out);
-
-  // if inPlusPointFive >= maxInt goto done
-  __ comiss(inPlusPointFive, maxInt);
-  __ j(kAboveEqual, &done);
-
-  // if input == NaN goto nan
-  __ j(kUnordered, &nan);
-
-  // output = float-to-int-truncate(input)
-  __ cvttss2si(out, inPlusPointFive);
-  __ jmp(&done);
-  __ Bind(&nan);
-
-  //  output = 0
-  __ xorl(out, out);
+  __ cvtsi2ss(t2, out);
+  __ comiss(t1, t2);
+  __ j(kAboveEqual, &done);  // clipped to max (already in out), does not jump on unordered
+  __ movl(out, Immediate(0));  // does not change flags
+  __ j(kUnordered, &done);  // NaN mapped to 0 (just moved in out)
+  __ cvttss2si(out, t1);
   __ Bind(&done);
 }
 
 static void CreateFPToFPCallLocations(ArenaAllocator* arena,
                                       HInvoke* invoke) {
   LocationSummary* locations = new (arena) LocationSummary(invoke,
-                                                           LocationSummary::kCall,
+                                                           LocationSummary::kCallOnMainOnly,
                                                            kIntrinsified);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::FpuRegisterLocation(calling_convention.GetFpuRegisterAt(0)));
@@ -870,7 +981,7 @@ static void GenFPToFPCall(HInvoke* invoke, CodeGeneratorX86* codegen, QuickEntry
   }
 
   // Now do the actual call.
-  __ fs()->call(Address::Absolute(GetThreadOffset<kX86WordSize>(entry)));
+  codegen->InvokeRuntime(entry, invoke, invoke->GetDexPc());
 
   // Extract the return value from the FP stack.
   __ fstpl(Address(ESP, 0));
@@ -879,8 +990,6 @@ static void GenFPToFPCall(HInvoke* invoke, CodeGeneratorX86* codegen, QuickEntry
   // And clean up the stack.
   __ addl(ESP, Immediate(16));
   __ cfi().AdjustCFAOffset(-16);
-
-  codegen->RecordPcInfo(invoke, invoke->GetDexPc());
 }
 
 void IntrinsicLocationsBuilderX86::VisitMathCos(HInvoke* invoke) {
@@ -998,7 +1107,7 @@ void IntrinsicCodeGeneratorX86::VisitMathTanh(HInvoke* invoke) {
 static void CreateFPFPToFPCallLocations(ArenaAllocator* arena,
                                         HInvoke* invoke) {
   LocationSummary* locations = new (arena) LocationSummary(invoke,
-                                                           LocationSummary::kCall,
+                                                           LocationSummary::kCallOnMainOnly,
                                                            kIntrinsified);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::FpuRegisterLocation(calling_convention.GetFpuRegisterAt(0)));
@@ -1028,48 +1137,6 @@ void IntrinsicLocationsBuilderX86::VisitMathNextAfter(HInvoke* invoke) {
 
 void IntrinsicCodeGeneratorX86::VisitMathNextAfter(HInvoke* invoke) {
   GenFPToFPCall(invoke, codegen_, kQuickNextAfter);
-}
-
-void IntrinsicLocationsBuilderX86::VisitStringCharAt(HInvoke* invoke) {
-  // The inputs plus one temp.
-  LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCallOnSlowPath,
-                                                            kIntrinsified);
-  locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetInAt(1, Location::RequiresRegister());
-  locations->SetOut(Location::SameAsFirstInput());
-}
-
-void IntrinsicCodeGeneratorX86::VisitStringCharAt(HInvoke* invoke) {
-  LocationSummary* locations = invoke->GetLocations();
-
-  // Location of reference to data array.
-  const int32_t value_offset = mirror::String::ValueOffset().Int32Value();
-  // Location of count.
-  const int32_t count_offset = mirror::String::CountOffset().Int32Value();
-
-  Register obj = locations->InAt(0).AsRegister<Register>();
-  Register idx = locations->InAt(1).AsRegister<Register>();
-  Register out = locations->Out().AsRegister<Register>();
-
-  // TODO: Maybe we can support range check elimination. Overall, though, I think it's not worth
-  //       the cost.
-  // TODO: For simplicity, the index parameter is requested in a register, so different from Quick
-  //       we will not optimize the code for constants (which would save a register).
-
-  SlowPathCode* slow_path = new (GetAllocator()) IntrinsicSlowPathX86(invoke);
-  codegen_->AddSlowPath(slow_path);
-
-  X86Assembler* assembler = GetAssembler();
-
-  __ cmpl(idx, Address(obj, count_offset));
-  codegen_->MaybeRecordImplicitNullCheck(invoke);
-  __ j(kAboveEqual, slow_path->GetEntryLabel());
-
-  // out = out[2*idx].
-  __ movzxw(out, Address(out, idx, ScaleFactor::TIMES_2, value_offset));
-
-  __ Bind(slow_path->GetExitLabel());
 }
 
 void IntrinsicLocationsBuilderX86::VisitSystemArrayCopyChar(HInvoke* invoke) {
@@ -1125,30 +1192,45 @@ void IntrinsicLocationsBuilderX86::VisitSystemArrayCopyChar(HInvoke* invoke) {
 static void CheckPosition(X86Assembler* assembler,
                           Location pos,
                           Register input,
-                          Register length,
+                          Location length,
                           SlowPathCode* slow_path,
-                          Register input_len,
-                          Register temp) {
-  // Where is the length in the String?
+                          Register temp,
+                          bool length_is_input_length = false) {
+  // Where is the length in the Array?
   const uint32_t length_offset = mirror::Array::LengthOffset().Uint32Value();
 
   if (pos.IsConstant()) {
     int32_t pos_const = pos.GetConstant()->AsIntConstant()->GetValue();
     if (pos_const == 0) {
-      // Check that length(input) >= length.
-      __ cmpl(Address(input, length_offset), length);
-      __ j(kLess, slow_path->GetEntryLabel());
+      if (!length_is_input_length) {
+        // Check that length(input) >= length.
+        if (length.IsConstant()) {
+          __ cmpl(Address(input, length_offset),
+                  Immediate(length.GetConstant()->AsIntConstant()->GetValue()));
+        } else {
+          __ cmpl(Address(input, length_offset), length.AsRegister<Register>());
+        }
+        __ j(kLess, slow_path->GetEntryLabel());
+      }
     } else {
       // Check that length(input) >= pos.
-      __ movl(input_len, Address(input, length_offset));
-      __ cmpl(input_len, Immediate(pos_const));
+      __ movl(temp, Address(input, length_offset));
+      __ subl(temp, Immediate(pos_const));
       __ j(kLess, slow_path->GetEntryLabel());
 
       // Check that (length(input) - pos) >= length.
-      __ leal(temp, Address(input_len, -pos_const));
-      __ cmpl(temp, length);
+      if (length.IsConstant()) {
+        __ cmpl(temp, Immediate(length.GetConstant()->AsIntConstant()->GetValue()));
+      } else {
+        __ cmpl(temp, length.AsRegister<Register>());
+      }
       __ j(kLess, slow_path->GetEntryLabel());
     }
+  } else if (length_is_input_length) {
+    // The only way the copy can succeed is if pos is zero.
+    Register pos_reg = pos.AsRegister<Register>();
+    __ testl(pos_reg, pos_reg);
+    __ j(kNotEqual, slow_path->GetEntryLabel());
   } else {
     // Check that pos >= 0.
     Register pos_reg = pos.AsRegister<Register>();
@@ -1162,7 +1244,11 @@ static void CheckPosition(X86Assembler* assembler,
     // Check that (length(input) - pos) >= length.
     __ movl(temp, Address(input, length_offset));
     __ subl(temp, pos_reg);
-    __ cmpl(temp, length);
+    if (length.IsConstant()) {
+      __ cmpl(temp, Immediate(length.GetConstant()->AsIntConstant()->GetValue()));
+    } else {
+      __ cmpl(temp, length.AsRegister<Register>());
+    }
     __ j(kLess, slow_path->GetEntryLabel());
   }
 }
@@ -1214,11 +1300,11 @@ void IntrinsicCodeGeneratorX86::VisitSystemArrayCopyChar(HInvoke* invoke) {
     __ movl(count, length.AsRegister<Register>());
   }
 
-  // Validity checks: source.
-  CheckPosition(assembler, srcPos, src, count, slow_path, src_base, dest_base);
+  // Validity checks: source. Use src_base as a temporary register.
+  CheckPosition(assembler, srcPos, src, Location::RegisterLocation(count), slow_path, src_base);
 
-  // Validity checks: dest.
-  CheckPosition(assembler, destPos, dest, count, slow_path, src_base, dest_base);
+  // Validity checks: dest. Use src_base as a temporary register.
+  CheckPosition(assembler, destPos, dest, Location::RegisterLocation(count), slow_path, src_base);
 
   // Okay, everything checks out.  Finally time to do the copy.
   // Check assumption that sizeof(Char) is 2 (used in scaling below).
@@ -1252,7 +1338,7 @@ void IntrinsicCodeGeneratorX86::VisitSystemArrayCopyChar(HInvoke* invoke) {
 void IntrinsicLocationsBuilderX86::VisitStringCompareTo(HInvoke* invoke) {
   // The inputs plus one temp.
   LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCall,
+                                                            LocationSummary::kCallOnMainAndSlowPath,
                                                             kIntrinsified);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
@@ -1273,7 +1359,7 @@ void IntrinsicCodeGeneratorX86::VisitStringCompareTo(HInvoke* invoke) {
   codegen_->AddSlowPath(slow_path);
   __ j(kEqual, slow_path->GetEntryLabel());
 
-  __ fs()->call(Address::Absolute(QUICK_ENTRYPOINT_OFFSET(kX86WordSize, pStringCompareTo)));
+  codegen_->InvokeRuntime(kQuickStringCompareTo, invoke, invoke->GetDexPc(), slow_path);
   __ Bind(slow_path->GetExitLabel());
 }
 
@@ -1319,11 +1405,11 @@ void IntrinsicCodeGeneratorX86::VisitStringEquals(HInvoke* invoke) {
     __ j(kEqual, &return_false);
   }
 
-  // Instanceof check for the argument by comparing class fields.
-  // All string objects must have the same type since String cannot be subclassed.
-  // Receiver must be a string object, so its class field is equal to all strings' class fields.
-  // If the argument is a string object, its class field must be equal to receiver's class field.
   if (!optimizations.GetArgumentIsString()) {
+    // Instanceof check for the argument by comparing class fields.
+    // All string objects must have the same type since String cannot be subclassed.
+    // Receiver must be a string object, so its class field is equal to all strings' class fields.
+    // If the argument is a string object, its class field must be equal to receiver's class field.
     __ movl(ecx, Address(str, class_offset));
     __ cmpl(ecx, Address(arg, class_offset));
     __ j(kNotEqual, &return_false);
@@ -1333,23 +1419,40 @@ void IntrinsicCodeGeneratorX86::VisitStringEquals(HInvoke* invoke) {
   __ cmpl(str, arg);
   __ j(kEqual, &return_true);
 
-  // Load length of receiver string.
+  // Load length and compression flag of receiver string.
   __ movl(ecx, Address(str, count_offset));
-  // Check if lengths are equal, return false if they're not.
+  // Check if lengths and compression flags are equal, return false if they're not.
+  // Two identical strings will always have same compression style since
+  // compression style is decided on alloc.
   __ cmpl(ecx, Address(arg, count_offset));
   __ j(kNotEqual, &return_false);
-  // Return true if both strings are empty.
+  // Return true if strings are empty. Even with string compression `count == 0` means empty.
+  static_assert(static_cast<uint32_t>(mirror::StringCompressionFlag::kCompressed) == 0u,
+                "Expecting 0=compressed, 1=uncompressed");
   __ jecxz(&return_true);
 
+  if (mirror::kUseStringCompression) {
+    NearLabel string_uncompressed;
+    // Extract length and differentiate between both compressed or both uncompressed.
+    // Different compression style is cut above.
+    __ shrl(ecx, Immediate(1));
+    __ j(kCarrySet, &string_uncompressed);
+    // Divide string length by 2, rounding up, and continue as if uncompressed.
+    __ addl(ecx, Immediate(1));
+    __ shrl(ecx, Immediate(1));
+    __ Bind(&string_uncompressed);
+  }
   // Load starting addresses of string values into ESI/EDI as required for repe_cmpsl instruction.
   __ leal(esi, Address(str, value_offset));
   __ leal(edi, Address(arg, value_offset));
 
-  // Divide string length by 2 to compare characters 2 at a time and adjust for odd lengths.
+  // Divide string length by 2 to compare characters 2 at a time and adjust for lengths not
+  // divisible by 2.
   __ addl(ecx, Immediate(1));
   __ shrl(ecx, Immediate(1));
 
-  // Assertions that must hold in order to compare strings 2 characters at a time.
+  // Assertions that must hold in order to compare strings 2 characters (uncompressed)
+  // or 4 characters (compressed) at a time.
   DCHECK_ALIGNED(value_offset, 4);
   static_assert(IsAligned<4>(kObjectAlignment), "String of odd length is not zero padded");
 
@@ -1393,6 +1496,10 @@ static void CreateStringIndexOfLocations(HInvoke* invoke,
   locations->AddTemp(Location::RegisterLocation(ECX));
   // Need another temporary to be able to compute the result.
   locations->AddTemp(Location::RequiresRegister());
+  if (mirror::kUseStringCompression) {
+    // Need another temporary to be able to save unflagged string length.
+    locations->AddTemp(Location::RequiresRegister());
+  }
 }
 
 static void GenerateStringIndexOf(HInvoke* invoke,
@@ -1410,6 +1517,8 @@ static void GenerateStringIndexOf(HInvoke* invoke,
   Register counter = locations->GetTemp(0).AsRegister<Register>();
   Register string_length = locations->GetTemp(1).AsRegister<Register>();
   Register out = locations->Out().AsRegister<Register>();
+  // Only used when string compression feature is on.
+  Register string_length_flagged;
 
   // Check our assumptions for registers.
   DCHECK_EQ(string_obj, EDI);
@@ -1418,10 +1527,11 @@ static void GenerateStringIndexOf(HInvoke* invoke,
   DCHECK_EQ(out, EDI);
 
   // Check for code points > 0xFFFF. Either a slow-path check when we don't know statically,
-  // or directly dispatch if we have a constant.
+  // or directly dispatch for a large constant, or omit slow-path for a small constant or a char.
   SlowPathCode* slow_path = nullptr;
-  if (invoke->InputAt(1)->IsIntConstant()) {
-    if (static_cast<uint32_t>(invoke->InputAt(1)->AsIntConstant()->GetValue()) >
+  HInstruction* code_point = invoke->InputAt(1);
+  if (code_point->IsIntConstant()) {
+    if (static_cast<uint32_t>(code_point->AsIntConstant()->GetValue()) >
     std::numeric_limits<uint16_t>::max()) {
       // Always needs the slow-path. We could directly dispatch to it, but this case should be
       // rare, so for simplicity just put the full slow-path down and branch unconditionally.
@@ -1431,7 +1541,7 @@ static void GenerateStringIndexOf(HInvoke* invoke,
       __ Bind(slow_path->GetExitLabel());
       return;
     }
-  } else {
+  } else if (code_point->GetType() != Primitive::kPrimChar) {
     __ cmpl(search_value, Immediate(std::numeric_limits<uint16_t>::max()));
     slow_path = new (allocator) IntrinsicSlowPathX86(invoke);
     codegen->AddSlowPath(slow_path);
@@ -1444,14 +1554,23 @@ static void GenerateStringIndexOf(HInvoke* invoke,
   // Location of count within the String object.
   int32_t count_offset = mirror::String::CountOffset().Int32Value();
 
-  // Load string length, i.e., the count field of the string.
+  // Load the count field of the string containing the length and compression flag.
   __ movl(string_length, Address(string_obj, count_offset));
 
-  // Do a zero-length check.
+  // Do a zero-length check. Even with string compression `count == 0` means empty.
+  static_assert(static_cast<uint32_t>(mirror::StringCompressionFlag::kCompressed) == 0u,
+                "Expecting 0=compressed, 1=uncompressed");
   // TODO: Support jecxz.
   NearLabel not_found_label;
   __ testl(string_length, string_length);
   __ j(kEqual, &not_found_label);
+
+  if (mirror::kUseStringCompression) {
+    string_length_flagged = locations->GetTemp(2).AsRegister<Register>();
+    __ movl(string_length_flagged, string_length);
+    // Extract the length and shift out the least significant bit used as compression flag.
+    __ shrl(string_length, Immediate(1));
+  }
 
   if (start_at_zero) {
     // Number of chars to scan is the same as the string length.
@@ -1471,20 +1590,50 @@ static void GenerateStringIndexOf(HInvoke* invoke,
     __ cmpl(start_index, Immediate(0));
     __ cmovl(kGreater, counter, start_index);
 
-    // Move to the start of the string: string_obj + value_offset + 2 * start_index.
-    __ leal(string_obj, Address(string_obj, counter, ScaleFactor::TIMES_2, value_offset));
+    if (mirror::kUseStringCompression) {
+      NearLabel modify_counter, offset_uncompressed_label;
+      __ testl(string_length_flagged, Immediate(1));
+      __ j(kNotZero, &offset_uncompressed_label);
+      // Move to the start of the string: string_obj + value_offset + start_index.
+      __ leal(string_obj, Address(string_obj, counter, ScaleFactor::TIMES_1, value_offset));
+      __ jmp(&modify_counter);
 
-    // Now update ecx (the repne scasw work counter). We have string.length - start_index left to
-    // compare.
+      // Move to the start of the string: string_obj + value_offset + 2 * start_index.
+      __ Bind(&offset_uncompressed_label);
+      __ leal(string_obj, Address(string_obj, counter, ScaleFactor::TIMES_2, value_offset));
+
+      // Now update ecx (the repne scasw work counter). We have string.length - start_index left to
+      // compare.
+      __ Bind(&modify_counter);
+    } else {
+      __ leal(string_obj, Address(string_obj, counter, ScaleFactor::TIMES_2, value_offset));
+    }
     __ negl(counter);
     __ leal(counter, Address(string_length, counter, ScaleFactor::TIMES_1, 0));
   }
 
-  // Everything is set up for repne scasw:
-  //   * Comparison address in EDI.
-  //   * Counter in ECX.
-  __ repne_scasw();
+  if (mirror::kUseStringCompression) {
+    NearLabel uncompressed_string_comparison;
+    NearLabel comparison_done;
+    __ testl(string_length_flagged, Immediate(1));
+    __ j(kNotZero, &uncompressed_string_comparison);
 
+    // Check if EAX (search_value) is ASCII.
+    __ cmpl(search_value, Immediate(127));
+    __ j(kGreater, &not_found_label);
+    // Comparing byte-per-byte.
+    __ repne_scasb();
+    __ jmp(&comparison_done);
+
+    // Everything is set up for repne scasw:
+    //   * Comparison address in EDI.
+    //   * Counter in ECX.
+    __ Bind(&uncompressed_string_comparison);
+    __ repne_scasw();
+    __ Bind(&comparison_done);
+  } else {
+    __ repne_scasw();
+  }
   // Did we find a match?
   __ j(kNotEqual, &not_found_label);
 
@@ -1525,7 +1674,7 @@ void IntrinsicCodeGeneratorX86::VisitStringIndexOfAfter(HInvoke* invoke) {
 
 void IntrinsicLocationsBuilderX86::VisitStringNewStringFromBytes(HInvoke* invoke) {
   LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCall,
+                                                            LocationSummary::kCallOnMainAndSlowPath,
                                                             kIntrinsified);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
@@ -1545,15 +1694,14 @@ void IntrinsicCodeGeneratorX86::VisitStringNewStringFromBytes(HInvoke* invoke) {
   codegen_->AddSlowPath(slow_path);
   __ j(kEqual, slow_path->GetEntryLabel());
 
-  __ fs()->call(Address::Absolute(QUICK_ENTRYPOINT_OFFSET(kX86WordSize, pAllocStringFromBytes)));
+  codegen_->InvokeRuntime(kQuickAllocStringFromBytes, invoke, invoke->GetDexPc());
   CheckEntrypointTypes<kQuickAllocStringFromBytes, void*, void*, int32_t, int32_t, int32_t>();
-  codegen_->RecordPcInfo(invoke, invoke->GetDexPc());
   __ Bind(slow_path->GetExitLabel());
 }
 
 void IntrinsicLocationsBuilderX86::VisitStringNewStringFromChars(HInvoke* invoke) {
   LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCall,
+                                                            LocationSummary::kCallOnMainOnly,
                                                             kIntrinsified);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
@@ -1563,22 +1711,19 @@ void IntrinsicLocationsBuilderX86::VisitStringNewStringFromChars(HInvoke* invoke
 }
 
 void IntrinsicCodeGeneratorX86::VisitStringNewStringFromChars(HInvoke* invoke) {
-  X86Assembler* assembler = GetAssembler();
-
   // No need to emit code checking whether `locations->InAt(2)` is a null
   // pointer, as callers of the native method
   //
   //   java.lang.StringFactory.newStringFromChars(int offset, int charCount, char[] data)
   //
   // all include a null check on `data` before calling that method.
-  __ fs()->call(Address::Absolute(QUICK_ENTRYPOINT_OFFSET(kX86WordSize, pAllocStringFromChars)));
+  codegen_->InvokeRuntime(kQuickAllocStringFromChars, invoke, invoke->GetDexPc());
   CheckEntrypointTypes<kQuickAllocStringFromChars, void*, int32_t, int32_t, void*>();
-  codegen_->RecordPcInfo(invoke, invoke->GetDexPc());
 }
 
 void IntrinsicLocationsBuilderX86::VisitStringNewStringFromString(HInvoke* invoke) {
   LocationSummary* locations = new (arena_) LocationSummary(invoke,
-                                                            LocationSummary::kCall,
+                                                            LocationSummary::kCallOnMainAndSlowPath,
                                                             kIntrinsified);
   InvokeRuntimeCallingConvention calling_convention;
   locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
@@ -1595,9 +1740,8 @@ void IntrinsicCodeGeneratorX86::VisitStringNewStringFromString(HInvoke* invoke) 
   codegen_->AddSlowPath(slow_path);
   __ j(kEqual, slow_path->GetEntryLabel());
 
-  __ fs()->call(Address::Absolute(QUICK_ENTRYPOINT_OFFSET(kX86WordSize, pAllocStringFromString)));
+  codegen_->InvokeRuntime(kQuickAllocStringFromString, invoke, invoke->GetDexPc());
   CheckEntrypointTypes<kQuickAllocStringFromString, void*, void*>();
-  codegen_->RecordPcInfo(invoke, invoke->GetDexPc());
   __ Bind(slow_path->GetExitLabel());
 }
 
@@ -1642,38 +1786,66 @@ void IntrinsicCodeGeneratorX86::VisitStringGetCharsNoCheck(HInvoke* invoke) {
   const size_t char_size = Primitive::ComponentSize(Primitive::kPrimChar);
   DCHECK_EQ(char_size, 2u);
 
-  // Compute the address of the destination buffer.
-  __ leal(EDI, Address(dst, dstBegin, ScaleFactor::TIMES_2, data_offset));
-
-  // Compute the address of the source string.
-  if (srcBegin.IsConstant()) {
-    // Compute the address of the source string by adding the number of chars from
-    // the source beginning to the value offset of a string.
-    __ leal(ESI, Address(obj, srcBegin_value * char_size + value_offset));
-  } else {
-    __ leal(ESI, Address(obj, srcBegin.AsRegister<Register>(),
-                         ScaleFactor::TIMES_2, value_offset));
-  }
-
   // Compute the number of chars (words) to move.
-  // Now is the time to save ECX, since we don't know if it will be used later.
+  // Save ECX, since we don't know if it will be used later.
   __ pushl(ECX);
   int stack_adjust = kX86WordSize;
   __ cfi().AdjustCFAOffset(stack_adjust);
   DCHECK_EQ(srcEnd, ECX);
   if (srcBegin.IsConstant()) {
-    if (srcBegin_value != 0) {
-      __ subl(ECX, Immediate(srcBegin_value));
-    }
+    __ subl(ECX, Immediate(srcBegin_value));
   } else {
     DCHECK(srcBegin.IsRegister());
     __ subl(ECX, srcBegin.AsRegister<Register>());
   }
 
-  // Do the move.
+  NearLabel done;
+  if (mirror::kUseStringCompression) {
+    // Location of count in string
+    const uint32_t count_offset = mirror::String::CountOffset().Uint32Value();
+    const size_t c_char_size = Primitive::ComponentSize(Primitive::kPrimByte);
+    DCHECK_EQ(c_char_size, 1u);
+    __ pushl(EAX);
+    __ cfi().AdjustCFAOffset(stack_adjust);
+
+    NearLabel copy_loop, copy_uncompressed;
+    __ testl(Address(obj, count_offset), Immediate(1));
+    static_assert(static_cast<uint32_t>(mirror::StringCompressionFlag::kCompressed) == 0u,
+                  "Expecting 0=compressed, 1=uncompressed");
+    __ j(kNotZero, &copy_uncompressed);
+    // Compute the address of the source string by adding the number of chars from
+    // the source beginning to the value offset of a string.
+    __ leal(ESI, CodeGeneratorX86::ArrayAddress(obj, srcBegin, TIMES_1, value_offset));
+
+    // Start the loop to copy String's value to Array of Char.
+    __ leal(EDI, Address(dst, dstBegin, ScaleFactor::TIMES_2, data_offset));
+    __ Bind(&copy_loop);
+    __ jecxz(&done);
+    // Use EAX temporary (convert byte from ESI to word).
+    // TODO: Use LODSB/STOSW (not supported by X86Assembler) with AH initialized to 0.
+    __ movzxb(EAX, Address(ESI, 0));
+    __ movw(Address(EDI, 0), EAX);
+    __ leal(EDI, Address(EDI, char_size));
+    __ leal(ESI, Address(ESI, c_char_size));
+    // TODO: Add support for LOOP to X86Assembler.
+    __ subl(ECX, Immediate(1));
+    __ jmp(&copy_loop);
+    __ Bind(&copy_uncompressed);
+  }
+
+  // Do the copy for uncompressed string.
+  // Compute the address of the destination buffer.
+  __ leal(EDI, Address(dst, dstBegin, ScaleFactor::TIMES_2, data_offset));
+  __ leal(ESI, CodeGeneratorX86::ArrayAddress(obj, srcBegin, TIMES_2, value_offset));
   __ rep_movsw();
 
-  // And restore ECX.
+  __ Bind(&done);
+  if (mirror::kUseStringCompression) {
+    // Restore EAX.
+    __ popl(EAX);
+    __ cfi().AdjustCFAOffset(-stack_adjust);
+  }
+  // Restore ECX.
   __ popl(ECX);
   __ cfi().AdjustCFAOffset(-stack_adjust);
 }
@@ -1836,7 +2008,7 @@ void IntrinsicLocationsBuilderX86::VisitThreadCurrentThread(HInvoke* invoke) {
 
 void IntrinsicCodeGeneratorX86::VisitThreadCurrentThread(HInvoke* invoke) {
   Register out = invoke->GetLocations()->Out().AsRegister<Register>();
-  GetAssembler()->fs()->movl(out, Address::Absolute(Thread::PeerOffset<kX86WordSize>()));
+  GetAssembler()->fs()->movl(out, Address::Absolute(Thread::PeerOffset<kX86PointerSize>()));
 }
 
 static void GenUnsafeGet(HInvoke* invoke,
@@ -1862,9 +2034,9 @@ static void GenUnsafeGet(HInvoke* invoke,
       Register output = output_loc.AsRegister<Register>();
       if (kEmitCompilerReadBarrier) {
         if (kUseBakerReadBarrier) {
-          Location temp = locations->GetTemp(0);
-          codegen->GenerateArrayLoadWithBakerReadBarrier(
-              invoke, output_loc, base, 0U, offset_loc, temp, /* needs_null_check */ false);
+          Address src(base, offset, ScaleFactor::TIMES_1, 0);
+          codegen->GenerateReferenceLoadWithBakerReadBarrier(
+              invoke, output_loc, base, src, /* needs_null_check */ false);
         } else {
           __ movl(output, Address(base, offset, ScaleFactor::TIMES_1, 0));
           codegen->GenerateReadBarrierSlow(
@@ -1908,10 +2080,13 @@ static void CreateIntIntIntToIntLocations(ArenaAllocator* arena,
       (invoke->GetIntrinsic() == Intrinsics::kUnsafeGetObject ||
        invoke->GetIntrinsic() == Intrinsics::kUnsafeGetObjectVolatile);
   LocationSummary* locations = new (arena) LocationSummary(invoke,
-                                                           can_call ?
-                                                               LocationSummary::kCallOnSlowPath :
-                                                               LocationSummary::kNoCall,
+                                                           (can_call
+                                                                ? LocationSummary::kCallOnSlowPath
+                                                                : LocationSummary::kNoCall),
                                                            kIntrinsified);
+  if (can_call && kUseBakerReadBarrier) {
+    locations->SetCustomSlowPathCallerSaves(RegisterSet::Empty());  // No caller-save registers.
+  }
   locations->SetInAt(0, Location::NoLocation());        // Unused receiver.
   locations->SetInAt(1, Location::RequiresRegister());
   locations->SetInAt(2, Location::RequiresRegister());
@@ -1919,17 +2094,13 @@ static void CreateIntIntIntToIntLocations(ArenaAllocator* arena,
     if (is_volatile) {
       // Need to use XMM to read volatile.
       locations->AddTemp(Location::RequiresFpuRegister());
-      locations->SetOut(Location::RequiresRegister());
+      locations->SetOut(Location::RequiresRegister(), Location::kNoOutputOverlap);
     } else {
       locations->SetOut(Location::RequiresRegister(), Location::kOutputOverlap);
     }
   } else {
-    locations->SetOut(Location::RequiresRegister());
-  }
-  if (type == Primitive::kPrimNot && kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
-    // We need a temporary register for the read barrier marking slow
-    // path in InstructionCodeGeneratorX86::GenerateArrayLoadWithBakerReadBarrier.
-    locations->AddTemp(Location::RequiresRegister());
+    locations->SetOut(Location::RequiresRegister(),
+                      (can_call ? Location::kOutputOverlap : Location::kNoOutputOverlap));
   }
 }
 
@@ -2108,10 +2279,16 @@ void IntrinsicCodeGeneratorX86::VisitUnsafePutLongVolatile(HInvoke* invoke) {
   GenUnsafePut(invoke->GetLocations(), Primitive::kPrimLong, /* is_volatile */ true, codegen_);
 }
 
-static void CreateIntIntIntIntIntToInt(ArenaAllocator* arena, Primitive::Type type,
+static void CreateIntIntIntIntIntToInt(ArenaAllocator* arena,
+                                       Primitive::Type type,
                                        HInvoke* invoke) {
+  bool can_call = kEmitCompilerReadBarrier &&
+      kUseBakerReadBarrier &&
+      (invoke->GetIntrinsic() == Intrinsics::kUnsafeCASObject);
   LocationSummary* locations = new (arena) LocationSummary(invoke,
-                                                           LocationSummary::kNoCall,
+                                                           (can_call
+                                                                ? LocationSummary::kCallOnSlowPath
+                                                                : LocationSummary::kNoCall),
                                                            kIntrinsified);
   locations->SetInAt(0, Location::NoLocation());        // Unused receiver.
   locations->SetInAt(1, Location::RequiresRegister());
@@ -2131,7 +2308,8 @@ static void CreateIntIntIntIntIntToInt(ArenaAllocator* arena, Primitive::Type ty
   // Force a byte register for the output.
   locations->SetOut(Location::RegisterLocation(EAX));
   if (type == Primitive::kPrimNot) {
-    // Need temp registers for card-marking.
+    // Need temporary registers for card-marking, and possibly for
+    // (Baker) read barrier.
     locations->AddTemp(Location::RequiresRegister());  // Possibly used for reference poisoning too.
     // Need a byte register for marking.
     locations->AddTemp(Location::RegisterLocation(ECX));
@@ -2147,14 +2325,9 @@ void IntrinsicLocationsBuilderX86::VisitUnsafeCASLong(HInvoke* invoke) {
 }
 
 void IntrinsicLocationsBuilderX86::VisitUnsafeCASObject(HInvoke* invoke) {
-  // The UnsafeCASObject intrinsic is missing a read barrier, and
-  // therefore sometimes does not work as expected (b/25883050).
-  // Turn it off temporarily as a quick fix, until the read barrier is
-  // implemented.
-  //
-  // TODO(rpl): Implement a read barrier in GenCAS below and re-enable
-  // this intrinsic.
-  if (kEmitCompilerReadBarrier) {
+  // The only read barrier implementation supporting the
+  // UnsafeCASObject intrinsic is the Baker-style read barriers.
+  if (kEmitCompilerReadBarrier && !kUseBakerReadBarrier) {
     return;
   }
 
@@ -2170,7 +2343,18 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
   Location out = locations->Out();
   DCHECK_EQ(out.AsRegister<Register>(), EAX);
 
+  // The address of the field within the holding object.
+  Address field_addr(base, offset, ScaleFactor::TIMES_1, 0);
+
   if (type == Primitive::kPrimNot) {
+    // The only read barrier implementation supporting the
+    // UnsafeCASObject intrinsic is the Baker-style read barriers.
+    DCHECK(!kEmitCompilerReadBarrier || kUseBakerReadBarrier);
+
+    Location temp1_loc = locations->GetTemp(0);
+    Register temp1 = temp1_loc.AsRegister<Register>();
+    Register temp2 = locations->GetTemp(1).AsRegister<Register>();
+
     Register expected = locations->InAt(3).AsRegister<Register>();
     // Ensure `expected` is in EAX (required by the CMPXCHG instruction).
     DCHECK_EQ(expected, EAX);
@@ -2178,11 +2362,20 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
 
     // Mark card for object assuming new value is stored.
     bool value_can_be_null = true;  // TODO: Worth finding out this information?
-    codegen->MarkGCCard(locations->GetTemp(0).AsRegister<Register>(),
-                        locations->GetTemp(1).AsRegister<Register>(),
-                        base,
-                        value,
-                        value_can_be_null);
+    codegen->MarkGCCard(temp1, temp2, base, value, value_can_be_null);
+
+    if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+      // Need to make sure the reference stored in the field is a to-space
+      // one before attempting the CAS or the CAS could fail incorrectly.
+      codegen->GenerateReferenceLoadWithBakerReadBarrier(
+          invoke,
+          temp1_loc,  // Unused, used only as a "temporary" within the read barrier.
+          base,
+          field_addr,
+          /* needs_null_check */ false,
+          /* always_update_field */ true,
+          &temp2);
+    }
 
     bool base_equals_value = (base == value);
     if (kPoisonHeapReferences) {
@@ -2190,7 +2383,7 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
         // If `base` and `value` are the same register location, move
         // `value` to a temporary register.  This way, poisoning
         // `value` won't invalidate `base`.
-        value = locations->GetTemp(0).AsRegister<Register>();
+        value = temp1;
         __ movl(value, base);
       }
 
@@ -2209,19 +2402,12 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
       __ PoisonHeapReference(value);
     }
 
-    // TODO: Add a read barrier for the reference stored in the object
-    // before attempting the CAS, similar to the one in the
-    // art::Unsafe_compareAndSwapObject JNI implementation.
-    //
-    // Note that this code is not (yet) used when read barriers are
-    // enabled (see IntrinsicLocationsBuilderX86::VisitUnsafeCASObject).
-    DCHECK(!kEmitCompilerReadBarrier);
-    __ LockCmpxchgl(Address(base, offset, TIMES_1, 0), value);
+    __ LockCmpxchgl(field_addr, value);
 
     // LOCK CMPXCHG has full barrier semantics, and we don't need
     // scheduling barriers at this time.
 
-    // Convert ZF into the boolean result.
+    // Convert ZF into the Boolean result.
     __ setb(kZero, out.AsRegister<Register>());
     __ movzxb(out.AsRegister<Register>(), out.AsRegister<ByteRegister>());
 
@@ -2245,8 +2431,7 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
       // Ensure the expected value is in EAX (required by the CMPXCHG
       // instruction).
       DCHECK_EQ(locations->InAt(3).AsRegister<Register>(), EAX);
-      __ LockCmpxchgl(Address(base, offset, TIMES_1, 0),
-                      locations->InAt(4).AsRegister<Register>());
+      __ LockCmpxchgl(field_addr, locations->InAt(4).AsRegister<Register>());
     } else if (type == Primitive::kPrimLong) {
       // Ensure the expected value is in EAX:EDX and that the new
       // value is in EBX:ECX (required by the CMPXCHG8B instruction).
@@ -2254,7 +2439,7 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
       DCHECK_EQ(locations->InAt(3).AsRegisterPairHigh<Register>(), EDX);
       DCHECK_EQ(locations->InAt(4).AsRegisterPairLow<Register>(), EBX);
       DCHECK_EQ(locations->InAt(4).AsRegisterPairHigh<Register>(), ECX);
-      __ LockCmpxchg8b(Address(base, offset, TIMES_1, 0));
+      __ LockCmpxchg8b(field_addr);
     } else {
       LOG(FATAL) << "Unexpected CAS type " << type;
     }
@@ -2262,7 +2447,7 @@ static void GenCAS(Primitive::Type type, HInvoke* invoke, CodeGeneratorX86* code
     // LOCK CMPXCHG/LOCK CMPXCHG8B have full barrier semantics, and we
     // don't need scheduling barriers at this time.
 
-    // Convert ZF into the boolean result.
+    // Convert ZF into the Boolean result.
     __ setb(kZero, out.AsRegister<Register>());
     __ movzxb(out.AsRegister<Register>(), out.AsRegister<ByteRegister>());
   }
@@ -2277,6 +2462,10 @@ void IntrinsicCodeGeneratorX86::VisitUnsafeCASLong(HInvoke* invoke) {
 }
 
 void IntrinsicCodeGeneratorX86::VisitUnsafeCASObject(HInvoke* invoke) {
+  // The only read barrier implementation supporting the
+  // UnsafeCASObject intrinsic is the Baker-style read barriers.
+  DCHECK(!kEmitCompilerReadBarrier || kUseBakerReadBarrier);
+
   GenCAS(Primitive::kPrimNot, invoke, codegen_);
 }
 
@@ -2630,15 +2819,610 @@ void IntrinsicCodeGeneratorX86::VisitLongNumberOfTrailingZeros(HInvoke* invoke) 
   GenTrailingZeros(GetAssembler(), codegen_, invoke, /* is_long */ true);
 }
 
+void IntrinsicLocationsBuilderX86::VisitReferenceGetReferent(HInvoke* invoke) {
+  if (kEmitCompilerReadBarrier) {
+    // Do not intrinsify this call with the read barrier configuration.
+    return;
+  }
+  LocationSummary* locations = new (arena_) LocationSummary(invoke,
+                                                            LocationSummary::kCallOnSlowPath,
+                                                            kIntrinsified);
+  locations->SetInAt(0, Location::RequiresRegister());
+  locations->SetOut(Location::SameAsFirstInput());
+  locations->AddTemp(Location::RequiresRegister());
+}
+
+void IntrinsicCodeGeneratorX86::VisitReferenceGetReferent(HInvoke* invoke) {
+  DCHECK(!kEmitCompilerReadBarrier);
+  LocationSummary* locations = invoke->GetLocations();
+  X86Assembler* assembler = GetAssembler();
+
+  Register obj = locations->InAt(0).AsRegister<Register>();
+  Register out = locations->Out().AsRegister<Register>();
+
+  SlowPathCode* slow_path = new (GetAllocator()) IntrinsicSlowPathX86(invoke);
+  codegen_->AddSlowPath(slow_path);
+
+  // Load ArtMethod first.
+  HInvokeStaticOrDirect* invoke_direct = invoke->AsInvokeStaticOrDirect();
+  DCHECK(invoke_direct != nullptr);
+  Location temp_loc = codegen_->GenerateCalleeMethodStaticOrDirectCall(
+      invoke_direct, locations->GetTemp(0));
+  DCHECK(temp_loc.Equals(locations->GetTemp(0)));
+  Register temp = temp_loc.AsRegister<Register>();
+
+  // Now get declaring class.
+  __ movl(temp, Address(temp, ArtMethod::DeclaringClassOffset().Int32Value()));
+
+  uint32_t slow_path_flag_offset = codegen_->GetReferenceSlowFlagOffset();
+  uint32_t disable_flag_offset = codegen_->GetReferenceDisableFlagOffset();
+  DCHECK_NE(slow_path_flag_offset, 0u);
+  DCHECK_NE(disable_flag_offset, 0u);
+  DCHECK_NE(slow_path_flag_offset, disable_flag_offset);
+
+  // Check static flags preventing us for using intrinsic.
+  if (slow_path_flag_offset == disable_flag_offset + 1) {
+    __ cmpw(Address(temp, disable_flag_offset), Immediate(0));
+    __ j(kNotEqual, slow_path->GetEntryLabel());
+  } else {
+    __ cmpb(Address(temp, disable_flag_offset), Immediate(0));
+    __ j(kNotEqual, slow_path->GetEntryLabel());
+    __ cmpb(Address(temp, slow_path_flag_offset), Immediate(0));
+    __ j(kNotEqual, slow_path->GetEntryLabel());
+  }
+
+  // Fast path.
+  __ movl(out, Address(obj, mirror::Reference::ReferentOffset().Int32Value()));
+  codegen_->MaybeRecordImplicitNullCheck(invoke);
+  __ MaybeUnpoisonHeapReference(out);
+  __ Bind(slow_path->GetExitLabel());
+}
+
+static bool IsSameInput(HInstruction* instruction, size_t input0, size_t input1) {
+  return instruction->InputAt(input0) == instruction->InputAt(input1);
+}
+
+// Compute base address for the System.arraycopy intrinsic in `base`.
+static void GenSystemArrayCopyBaseAddress(X86Assembler* assembler,
+                                          Primitive::Type type,
+                                          const Register& array,
+                                          const Location& pos,
+                                          const Register& base) {
+  // This routine is only used by the SystemArrayCopy intrinsic at the
+  // moment. We can allow Primitive::kPrimNot as `type` to implement
+  // the SystemArrayCopyChar intrinsic.
+  DCHECK_EQ(type, Primitive::kPrimNot);
+  const int32_t element_size = Primitive::ComponentSize(type);
+  const ScaleFactor scale_factor = static_cast<ScaleFactor>(Primitive::ComponentSizeShift(type));
+  const uint32_t data_offset = mirror::Array::DataOffset(element_size).Uint32Value();
+
+  if (pos.IsConstant()) {
+    int32_t constant = pos.GetConstant()->AsIntConstant()->GetValue();
+    __ leal(base, Address(array, element_size * constant + data_offset));
+  } else {
+    __ leal(base, Address(array, pos.AsRegister<Register>(), scale_factor, data_offset));
+  }
+}
+
+// Compute end source address for the System.arraycopy intrinsic in `end`.
+static void GenSystemArrayCopyEndAddress(X86Assembler* assembler,
+                                         Primitive::Type type,
+                                         const Location& copy_length,
+                                         const Register& base,
+                                         const Register& end) {
+  // This routine is only used by the SystemArrayCopy intrinsic at the
+  // moment. We can allow Primitive::kPrimNot as `type` to implement
+  // the SystemArrayCopyChar intrinsic.
+  DCHECK_EQ(type, Primitive::kPrimNot);
+  const int32_t element_size = Primitive::ComponentSize(type);
+  const ScaleFactor scale_factor = static_cast<ScaleFactor>(Primitive::ComponentSizeShift(type));
+
+  if (copy_length.IsConstant()) {
+    int32_t constant = copy_length.GetConstant()->AsIntConstant()->GetValue();
+    __ leal(end, Address(base, element_size * constant));
+  } else {
+    __ leal(end, Address(base, copy_length.AsRegister<Register>(), scale_factor, 0));
+  }
+}
+
+void IntrinsicLocationsBuilderX86::VisitSystemArrayCopy(HInvoke* invoke) {
+  // The only read barrier implementation supporting the
+  // SystemArrayCopy intrinsic is the Baker-style read barriers.
+  if (kEmitCompilerReadBarrier && !kUseBakerReadBarrier) {
+    return;
+  }
+
+  CodeGenerator::CreateSystemArrayCopyLocationSummary(invoke);
+  if (invoke->GetLocations() != nullptr) {
+    // Need a byte register for marking.
+    invoke->GetLocations()->SetTempAt(1, Location::RegisterLocation(ECX));
+
+    static constexpr size_t kSrc = 0;
+    static constexpr size_t kSrcPos = 1;
+    static constexpr size_t kDest = 2;
+    static constexpr size_t kDestPos = 3;
+    static constexpr size_t kLength = 4;
+
+    if (!invoke->InputAt(kSrcPos)->IsIntConstant() &&
+        !invoke->InputAt(kDestPos)->IsIntConstant() &&
+        !invoke->InputAt(kLength)->IsIntConstant()) {
+      if (!IsSameInput(invoke, kSrcPos, kDestPos) &&
+          !IsSameInput(invoke, kSrcPos, kLength) &&
+          !IsSameInput(invoke, kDestPos, kLength) &&
+          !IsSameInput(invoke, kSrc, kDest)) {
+        // Not enough registers, make the length also take a stack slot.
+        invoke->GetLocations()->SetInAt(kLength, Location::Any());
+      }
+    }
+  }
+}
+
+void IntrinsicCodeGeneratorX86::VisitSystemArrayCopy(HInvoke* invoke) {
+  // The only read barrier implementation supporting the
+  // SystemArrayCopy intrinsic is the Baker-style read barriers.
+  DCHECK(!kEmitCompilerReadBarrier || kUseBakerReadBarrier);
+
+  X86Assembler* assembler = GetAssembler();
+  LocationSummary* locations = invoke->GetLocations();
+
+  uint32_t class_offset = mirror::Object::ClassOffset().Int32Value();
+  uint32_t super_offset = mirror::Class::SuperClassOffset().Int32Value();
+  uint32_t component_offset = mirror::Class::ComponentTypeOffset().Int32Value();
+  uint32_t primitive_offset = mirror::Class::PrimitiveTypeOffset().Int32Value();
+  uint32_t monitor_offset = mirror::Object::MonitorOffset().Int32Value();
+
+  Register src = locations->InAt(0).AsRegister<Register>();
+  Location src_pos = locations->InAt(1);
+  Register dest = locations->InAt(2).AsRegister<Register>();
+  Location dest_pos = locations->InAt(3);
+  Location length_arg = locations->InAt(4);
+  Location length = length_arg;
+  Location temp1_loc = locations->GetTemp(0);
+  Register temp1 = temp1_loc.AsRegister<Register>();
+  Location temp2_loc = locations->GetTemp(1);
+  Register temp2 = temp2_loc.AsRegister<Register>();
+
+  SlowPathCode* intrinsic_slow_path = new (GetAllocator()) IntrinsicSlowPathX86(invoke);
+  codegen_->AddSlowPath(intrinsic_slow_path);
+
+  NearLabel conditions_on_positions_validated;
+  SystemArrayCopyOptimizations optimizations(invoke);
+
+  // If source and destination are the same, we go to slow path if we need to do
+  // forward copying.
+  if (src_pos.IsConstant()) {
+    int32_t src_pos_constant = src_pos.GetConstant()->AsIntConstant()->GetValue();
+    if (dest_pos.IsConstant()) {
+      int32_t dest_pos_constant = dest_pos.GetConstant()->AsIntConstant()->GetValue();
+      if (optimizations.GetDestinationIsSource()) {
+        // Checked when building locations.
+        DCHECK_GE(src_pos_constant, dest_pos_constant);
+      } else if (src_pos_constant < dest_pos_constant) {
+        __ cmpl(src, dest);
+        __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+      }
+    } else {
+      if (!optimizations.GetDestinationIsSource()) {
+        __ cmpl(src, dest);
+        __ j(kNotEqual, &conditions_on_positions_validated);
+      }
+      __ cmpl(dest_pos.AsRegister<Register>(), Immediate(src_pos_constant));
+      __ j(kGreater, intrinsic_slow_path->GetEntryLabel());
+    }
+  } else {
+    if (!optimizations.GetDestinationIsSource()) {
+      __ cmpl(src, dest);
+      __ j(kNotEqual, &conditions_on_positions_validated);
+    }
+    if (dest_pos.IsConstant()) {
+      int32_t dest_pos_constant = dest_pos.GetConstant()->AsIntConstant()->GetValue();
+      __ cmpl(src_pos.AsRegister<Register>(), Immediate(dest_pos_constant));
+      __ j(kLess, intrinsic_slow_path->GetEntryLabel());
+    } else {
+      __ cmpl(src_pos.AsRegister<Register>(), dest_pos.AsRegister<Register>());
+      __ j(kLess, intrinsic_slow_path->GetEntryLabel());
+    }
+  }
+
+  __ Bind(&conditions_on_positions_validated);
+
+  if (!optimizations.GetSourceIsNotNull()) {
+    // Bail out if the source is null.
+    __ testl(src, src);
+    __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+  }
+
+  if (!optimizations.GetDestinationIsNotNull() && !optimizations.GetDestinationIsSource()) {
+    // Bail out if the destination is null.
+    __ testl(dest, dest);
+    __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+  }
+
+  Location temp3_loc = locations->GetTemp(2);
+  Register temp3 = temp3_loc.AsRegister<Register>();
+  if (length.IsStackSlot()) {
+    __ movl(temp3, Address(ESP, length.GetStackIndex()));
+    length = Location::RegisterLocation(temp3);
+  }
+
+  // If the length is negative, bail out.
+  // We have already checked in the LocationsBuilder for the constant case.
+  if (!length.IsConstant() &&
+      !optimizations.GetCountIsSourceLength() &&
+      !optimizations.GetCountIsDestinationLength()) {
+    __ testl(length.AsRegister<Register>(), length.AsRegister<Register>());
+    __ j(kLess, intrinsic_slow_path->GetEntryLabel());
+  }
+
+  // Validity checks: source.
+  CheckPosition(assembler,
+                src_pos,
+                src,
+                length,
+                intrinsic_slow_path,
+                temp1,
+                optimizations.GetCountIsSourceLength());
+
+  // Validity checks: dest.
+  CheckPosition(assembler,
+                dest_pos,
+                dest,
+                length,
+                intrinsic_slow_path,
+                temp1,
+                optimizations.GetCountIsDestinationLength());
+
+  if (!optimizations.GetDoesNotNeedTypeCheck()) {
+    // Check whether all elements of the source array are assignable to the component
+    // type of the destination array. We do two checks: the classes are the same,
+    // or the destination is Object[]. If none of these checks succeed, we go to the
+    // slow path.
+
+    if (!optimizations.GetSourceIsNonPrimitiveArray()) {
+      if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+        // /* HeapReference<Class> */ temp1 = src->klass_
+        codegen_->GenerateFieldLoadWithBakerReadBarrier(
+            invoke, temp1_loc, src, class_offset, /* needs_null_check */ false);
+        // Bail out if the source is not a non primitive array.
+        // /* HeapReference<Class> */ temp1 = temp1->component_type_
+        codegen_->GenerateFieldLoadWithBakerReadBarrier(
+            invoke, temp1_loc, temp1, component_offset, /* needs_null_check */ false);
+        __ testl(temp1, temp1);
+        __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+        // If heap poisoning is enabled, `temp1` has been unpoisoned
+        // by the the previous call to GenerateFieldLoadWithBakerReadBarrier.
+      } else {
+        // /* HeapReference<Class> */ temp1 = src->klass_
+        __ movl(temp1, Address(src, class_offset));
+        __ MaybeUnpoisonHeapReference(temp1);
+        // Bail out if the source is not a non primitive array.
+        // /* HeapReference<Class> */ temp1 = temp1->component_type_
+        __ movl(temp1, Address(temp1, component_offset));
+        __ testl(temp1, temp1);
+        __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+        __ MaybeUnpoisonHeapReference(temp1);
+      }
+      __ cmpw(Address(temp1, primitive_offset), Immediate(Primitive::kPrimNot));
+      __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+    }
+
+    if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+      if (length.Equals(Location::RegisterLocation(temp3))) {
+        // When Baker read barriers are enabled, register `temp3`,
+        // which in the present case contains the `length` parameter,
+        // will be overwritten below.  Make the `length` location
+        // reference the original stack location; it will be moved
+        // back to `temp3` later if necessary.
+        DCHECK(length_arg.IsStackSlot());
+        length = length_arg;
+      }
+
+      // /* HeapReference<Class> */ temp1 = dest->klass_
+      codegen_->GenerateFieldLoadWithBakerReadBarrier(
+          invoke, temp1_loc, dest, class_offset, /* needs_null_check */ false);
+
+      if (!optimizations.GetDestinationIsNonPrimitiveArray()) {
+        // Bail out if the destination is not a non primitive array.
+        //
+        // Register `temp1` is not trashed by the read barrier emitted
+        // by GenerateFieldLoadWithBakerReadBarrier below, as that
+        // method produces a call to a ReadBarrierMarkRegX entry point,
+        // which saves all potentially live registers, including
+        // temporaries such a `temp1`.
+        // /* HeapReference<Class> */ temp2 = temp1->component_type_
+        codegen_->GenerateFieldLoadWithBakerReadBarrier(
+            invoke, temp2_loc, temp1, component_offset, /* needs_null_check */ false);
+        __ testl(temp2, temp2);
+        __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+        // If heap poisoning is enabled, `temp2` has been unpoisoned
+        // by the the previous call to GenerateFieldLoadWithBakerReadBarrier.
+        __ cmpw(Address(temp2, primitive_offset), Immediate(Primitive::kPrimNot));
+        __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+      }
+
+      // For the same reason given earlier, `temp1` is not trashed by the
+      // read barrier emitted by GenerateFieldLoadWithBakerReadBarrier below.
+      // /* HeapReference<Class> */ temp2 = src->klass_
+      codegen_->GenerateFieldLoadWithBakerReadBarrier(
+          invoke, temp2_loc, src, class_offset, /* needs_null_check */ false);
+      // Note: if heap poisoning is on, we are comparing two unpoisoned references here.
+      __ cmpl(temp1, temp2);
+
+      if (optimizations.GetDestinationIsTypedObjectArray()) {
+        NearLabel do_copy;
+        __ j(kEqual, &do_copy);
+        // /* HeapReference<Class> */ temp1 = temp1->component_type_
+        codegen_->GenerateFieldLoadWithBakerReadBarrier(
+            invoke, temp1_loc, temp1, component_offset, /* needs_null_check */ false);
+        // We do not need to emit a read barrier for the following
+        // heap reference load, as `temp1` is only used in a
+        // comparison with null below, and this reference is not
+        // kept afterwards.
+        __ cmpl(Address(temp1, super_offset), Immediate(0));
+        __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+        __ Bind(&do_copy);
+      } else {
+        __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+      }
+    } else {
+      // Non read barrier code.
+
+      // /* HeapReference<Class> */ temp1 = dest->klass_
+      __ movl(temp1, Address(dest, class_offset));
+      if (!optimizations.GetDestinationIsNonPrimitiveArray()) {
+        __ MaybeUnpoisonHeapReference(temp1);
+        // Bail out if the destination is not a non primitive array.
+        // /* HeapReference<Class> */ temp2 = temp1->component_type_
+        __ movl(temp2, Address(temp1, component_offset));
+        __ testl(temp2, temp2);
+        __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+        __ MaybeUnpoisonHeapReference(temp2);
+        __ cmpw(Address(temp2, primitive_offset), Immediate(Primitive::kPrimNot));
+        __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+        // Re-poison the heap reference to make the compare instruction below
+        // compare two poisoned references.
+        __ PoisonHeapReference(temp1);
+      }
+
+      // Note: if heap poisoning is on, we are comparing two poisoned references here.
+      __ cmpl(temp1, Address(src, class_offset));
+
+      if (optimizations.GetDestinationIsTypedObjectArray()) {
+        NearLabel do_copy;
+        __ j(kEqual, &do_copy);
+        __ MaybeUnpoisonHeapReference(temp1);
+        // /* HeapReference<Class> */ temp1 = temp1->component_type_
+        __ movl(temp1, Address(temp1, component_offset));
+        __ MaybeUnpoisonHeapReference(temp1);
+        __ cmpl(Address(temp1, super_offset), Immediate(0));
+        __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+        __ Bind(&do_copy);
+      } else {
+        __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+      }
+    }
+  } else if (!optimizations.GetSourceIsNonPrimitiveArray()) {
+    DCHECK(optimizations.GetDestinationIsNonPrimitiveArray());
+    // Bail out if the source is not a non primitive array.
+    if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+      // /* HeapReference<Class> */ temp1 = src->klass_
+      codegen_->GenerateFieldLoadWithBakerReadBarrier(
+          invoke, temp1_loc, src, class_offset, /* needs_null_check */ false);
+      // /* HeapReference<Class> */ temp1 = temp1->component_type_
+      codegen_->GenerateFieldLoadWithBakerReadBarrier(
+          invoke, temp1_loc, temp1, component_offset, /* needs_null_check */ false);
+      __ testl(temp1, temp1);
+      __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+      // If heap poisoning is enabled, `temp1` has been unpoisoned
+      // by the the previous call to GenerateFieldLoadWithBakerReadBarrier.
+    } else {
+      // /* HeapReference<Class> */ temp1 = src->klass_
+      __ movl(temp1, Address(src, class_offset));
+      __ MaybeUnpoisonHeapReference(temp1);
+      // /* HeapReference<Class> */ temp1 = temp1->component_type_
+      __ movl(temp1, Address(temp1, component_offset));
+      __ testl(temp1, temp1);
+      __ j(kEqual, intrinsic_slow_path->GetEntryLabel());
+      __ MaybeUnpoisonHeapReference(temp1);
+    }
+    __ cmpw(Address(temp1, primitive_offset), Immediate(Primitive::kPrimNot));
+    __ j(kNotEqual, intrinsic_slow_path->GetEntryLabel());
+  }
+
+  const Primitive::Type type = Primitive::kPrimNot;
+  const int32_t element_size = Primitive::ComponentSize(type);
+
+  // Compute the base source address in `temp1`.
+  GenSystemArrayCopyBaseAddress(GetAssembler(), type, src, src_pos, temp1);
+
+  if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+    // If it is needed (in the case of the fast-path loop), the base
+    // destination address is computed later, as `temp2` is used for
+    // intermediate computations.
+
+    // Compute the end source address in `temp3`.
+    if (length.IsStackSlot()) {
+      // Location `length` is again pointing at a stack slot, as
+      // register `temp3` (which was containing the length parameter
+      // earlier) has been overwritten; restore it now
+      DCHECK(length.Equals(length_arg));
+      __ movl(temp3, Address(ESP, length.GetStackIndex()));
+      length = Location::RegisterLocation(temp3);
+    }
+    GenSystemArrayCopyEndAddress(GetAssembler(), type, length, temp1, temp3);
+
+    // SystemArrayCopy implementation for Baker read barriers (see
+    // also CodeGeneratorX86::GenerateReferenceLoadWithBakerReadBarrier):
+    //
+    //   if (src_ptr != end_ptr) {
+    //     uint32_t rb_state = Lockword(src->monitor_).ReadBarrierState();
+    //     lfence;  // Load fence or artificial data dependency to prevent load-load reordering
+    //     bool is_gray = (rb_state == ReadBarrier::GrayState());
+    //     if (is_gray) {
+    //       // Slow-path copy.
+    //       for (size_t i = 0; i != length; ++i) {
+    //         dest_array[dest_pos + i] =
+    //             MaybePoison(ReadBarrier::Mark(MaybeUnpoison(src_array[src_pos + i])));
+    //       }
+    //     } else {
+    //       // Fast-path copy.
+    //       do {
+    //         *dest_ptr++ = *src_ptr++;
+    //       } while (src_ptr != end_ptr)
+    //     }
+    //   }
+
+    NearLabel loop, done;
+
+    // Don't enter copy loop if `length == 0`.
+    __ cmpl(temp1, temp3);
+    __ j(kEqual, &done);
+
+    // Given the numeric representation, it's enough to check the low bit of the rb_state.
+    static_assert(ReadBarrier::WhiteState() == 0, "Expecting white to have value 0");
+    static_assert(ReadBarrier::GrayState() == 1, "Expecting gray to have value 1");
+    constexpr uint32_t gray_byte_position = LockWord::kReadBarrierStateShift / kBitsPerByte;
+    constexpr uint32_t gray_bit_position = LockWord::kReadBarrierStateShift % kBitsPerByte;
+    constexpr int32_t test_value = static_cast<int8_t>(1 << gray_bit_position);
+
+    // if (rb_state == ReadBarrier::GrayState())
+    //   goto slow_path;
+    // At this point, just do the "if" and make sure that flags are preserved until the branch.
+    __ testb(Address(src, monitor_offset + gray_byte_position), Immediate(test_value));
+
+    // Load fence to prevent load-load reordering.
+    // Note that this is a no-op, thanks to the x86 memory model.
+    codegen_->GenerateMemoryBarrier(MemBarrierKind::kLoadAny);
+
+    // Slow path used to copy array when `src` is gray.
+    SlowPathCode* read_barrier_slow_path =
+        new (GetAllocator()) ReadBarrierSystemArrayCopySlowPathX86(invoke);
+    codegen_->AddSlowPath(read_barrier_slow_path);
+
+    // We have done the "if" of the gray bit check above, now branch based on the flags.
+    __ j(kNotZero, read_barrier_slow_path->GetEntryLabel());
+
+    // Fast-path copy.
+    // Compute the base destination address in `temp2`.
+    GenSystemArrayCopyBaseAddress(GetAssembler(), type, dest, dest_pos, temp2);
+    // Iterate over the arrays and do a raw copy of the objects. We don't need to
+    // poison/unpoison.
+    __ Bind(&loop);
+    __ pushl(Address(temp1, 0));
+    __ cfi().AdjustCFAOffset(4);
+    __ popl(Address(temp2, 0));
+    __ cfi().AdjustCFAOffset(-4);
+    __ addl(temp1, Immediate(element_size));
+    __ addl(temp2, Immediate(element_size));
+    __ cmpl(temp1, temp3);
+    __ j(kNotEqual, &loop);
+
+    __ Bind(read_barrier_slow_path->GetExitLabel());
+    __ Bind(&done);
+  } else {
+    // Non read barrier code.
+    // Compute the base destination address in `temp2`.
+    GenSystemArrayCopyBaseAddress(GetAssembler(), type, dest, dest_pos, temp2);
+    // Compute the end source address in `temp3`.
+    GenSystemArrayCopyEndAddress(GetAssembler(), type, length, temp1, temp3);
+    // Iterate over the arrays and do a raw copy of the objects. We don't need to
+    // poison/unpoison.
+    NearLabel loop, done;
+    __ cmpl(temp1, temp3);
+    __ j(kEqual, &done);
+    __ Bind(&loop);
+    __ pushl(Address(temp1, 0));
+    __ cfi().AdjustCFAOffset(4);
+    __ popl(Address(temp2, 0));
+    __ cfi().AdjustCFAOffset(-4);
+    __ addl(temp1, Immediate(element_size));
+    __ addl(temp2, Immediate(element_size));
+    __ cmpl(temp1, temp3);
+    __ j(kNotEqual, &loop);
+    __ Bind(&done);
+  }
+
+  // We only need one card marking on the destination array.
+  codegen_->MarkGCCard(temp1, temp2, dest, Register(kNoRegister), /* value_can_be_null */ false);
+
+  __ Bind(intrinsic_slow_path->GetExitLabel());
+}
+
+void IntrinsicLocationsBuilderX86::VisitIntegerValueOf(HInvoke* invoke) {
+  InvokeRuntimeCallingConvention calling_convention;
+  IntrinsicVisitor::ComputeIntegerValueOfLocations(
+      invoke,
+      codegen_,
+      Location::RegisterLocation(EAX),
+      Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
+}
+
+void IntrinsicCodeGeneratorX86::VisitIntegerValueOf(HInvoke* invoke) {
+  IntrinsicVisitor::IntegerValueOfInfo info = IntrinsicVisitor::ComputeIntegerValueOfInfo();
+  LocationSummary* locations = invoke->GetLocations();
+  X86Assembler* assembler = GetAssembler();
+
+  Register out = locations->Out().AsRegister<Register>();
+  InvokeRuntimeCallingConvention calling_convention;
+  if (invoke->InputAt(0)->IsConstant()) {
+    int32_t value = invoke->InputAt(0)->AsIntConstant()->GetValue();
+    if (value >= info.low && value <= info.high) {
+      // Just embed the j.l.Integer in the code.
+      ScopedObjectAccess soa(Thread::Current());
+      mirror::Object* boxed = info.cache->Get(value + (-info.low));
+      DCHECK(boxed != nullptr && Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(boxed));
+      uint32_t address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(boxed));
+      __ movl(out, Immediate(address));
+    } else {
+      // Allocate and initialize a new j.l.Integer.
+      // TODO: If we JIT, we could allocate the j.l.Integer now, and store it in the
+      // JIT object table.
+      uint32_t address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(info.integer));
+      __ movl(calling_convention.GetRegisterAt(0), Immediate(address));
+      codegen_->InvokeRuntime(kQuickAllocObjectInitialized, invoke, invoke->GetDexPc());
+      CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
+      __ movl(Address(out, info.value_offset), Immediate(value));
+    }
+  } else {
+    Register in = locations->InAt(0).AsRegister<Register>();
+    // Check bounds of our cache.
+    __ leal(out, Address(in, -info.low));
+    __ cmpl(out, Immediate(info.high - info.low + 1));
+    NearLabel allocate, done;
+    __ j(kAboveEqual, &allocate);
+    // If the value is within the bounds, load the j.l.Integer directly from the array.
+    uint32_t data_offset = mirror::Array::DataOffset(kHeapReferenceSize).Uint32Value();
+    uint32_t address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(info.cache));
+    __ movl(out, Address(out, TIMES_4, data_offset + address));
+    __ MaybeUnpoisonHeapReference(out);
+    __ jmp(&done);
+    __ Bind(&allocate);
+    // Otherwise allocate and initialize a new j.l.Integer.
+    address = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(info.integer));
+    __ movl(calling_convention.GetRegisterAt(0), Immediate(address));
+    codegen_->InvokeRuntime(kQuickAllocObjectInitialized, invoke, invoke->GetDexPc());
+    CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
+    __ movl(Address(out, info.value_offset), in);
+    __ Bind(&done);
+  }
+}
+
 UNIMPLEMENTED_INTRINSIC(X86, MathRoundDouble)
-UNIMPLEMENTED_INTRINSIC(X86, ReferenceGetReferent)
-UNIMPLEMENTED_INTRINSIC(X86, SystemArrayCopy)
 UNIMPLEMENTED_INTRINSIC(X86, FloatIsInfinite)
 UNIMPLEMENTED_INTRINSIC(X86, DoubleIsInfinite)
 UNIMPLEMENTED_INTRINSIC(X86, IntegerHighestOneBit)
 UNIMPLEMENTED_INTRINSIC(X86, LongHighestOneBit)
 UNIMPLEMENTED_INTRINSIC(X86, IntegerLowestOneBit)
 UNIMPLEMENTED_INTRINSIC(X86, LongLowestOneBit)
+
+UNIMPLEMENTED_INTRINSIC(X86, StringStringIndexOf);
+UNIMPLEMENTED_INTRINSIC(X86, StringStringIndexOfAfter);
+UNIMPLEMENTED_INTRINSIC(X86, StringBufferAppend);
+UNIMPLEMENTED_INTRINSIC(X86, StringBufferLength);
+UNIMPLEMENTED_INTRINSIC(X86, StringBufferToString);
+UNIMPLEMENTED_INTRINSIC(X86, StringBuilderAppend);
+UNIMPLEMENTED_INTRINSIC(X86, StringBuilderLength);
+UNIMPLEMENTED_INTRINSIC(X86, StringBuilderToString);
 
 // 1.8.
 UNIMPLEMENTED_INTRINSIC(X86, UnsafeGetAndAddInt)

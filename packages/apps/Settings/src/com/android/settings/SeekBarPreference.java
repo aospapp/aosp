@@ -20,7 +20,7 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v7.preference.Preference;
+import android.support.v4.content.res.TypedArrayUtils;
 import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
@@ -28,6 +28,7 @@ import android.view.View;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 
+import com.android.settings.widget.DefaultIndicatorSeekBar;
 import com.android.settingslib.RestrictedPreference;
 
 /**
@@ -39,6 +40,11 @@ public class SeekBarPreference extends RestrictedPreference
     private int mProgress;
     private int mMax;
     private boolean mTrackingTouch;
+
+    private boolean mContinuousUpdates;
+    private int mDefaultProgress = -1;
+
+    private SeekBar mSeekBar;
 
     public SeekBarPreference(
             Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
@@ -64,7 +70,9 @@ public class SeekBarPreference extends RestrictedPreference
     }
 
     public SeekBarPreference(Context context, AttributeSet attrs) {
-        this(context, attrs, com.android.internal.R.attr.seekBarPreferenceStyle);
+        this(context, attrs, TypedArrayUtils.getAttr(context,
+                        android.support.v7.preference.R.attr.seekBarPreferenceStyle,
+                        com.android.internal.R.attr.seekBarPreferenceStyle));
     }
 
     public SeekBarPreference(Context context) {
@@ -75,12 +83,15 @@ public class SeekBarPreference extends RestrictedPreference
     public void onBindViewHolder(PreferenceViewHolder view) {
         super.onBindViewHolder(view);
         view.itemView.setOnKeyListener(this);
-        SeekBar seekBar = (SeekBar) view.findViewById(
+        mSeekBar = (SeekBar) view.findViewById(
                 com.android.internal.R.id.seekbar);
-        seekBar.setOnSeekBarChangeListener(this);
-        seekBar.setMax(mMax);
-        seekBar.setProgress(mProgress);
-        seekBar.setEnabled(isEnabled());
+        mSeekBar.setOnSeekBarChangeListener(this);
+        mSeekBar.setMax(mMax);
+        mSeekBar.setProgress(mProgress);
+        mSeekBar.setEnabled(isEnabled());
+        if (mSeekBar instanceof DefaultIndicatorSeekBar) {
+            ((DefaultIndicatorSeekBar) mSeekBar).setDefaultProgress(mDefaultProgress);
+        }
     }
 
     @Override
@@ -123,6 +134,27 @@ public class SeekBarPreference extends RestrictedPreference
         setProgress(progress, true);
     }
 
+    /**
+     * Sets the progress point to draw a single tick mark representing a default value.
+     */
+    public void setDefaultProgress(int defaultProgress) {
+        if (mDefaultProgress != defaultProgress) {
+            mDefaultProgress = defaultProgress;
+            if (mSeekBar instanceof DefaultIndicatorSeekBar) {
+                ((DefaultIndicatorSeekBar) mSeekBar).setDefaultProgress(mDefaultProgress);
+            }
+        }
+    }
+
+    /**
+     * When {@code continuousUpdates} is true, update the persisted setting immediately as the thumb
+     * is dragged along the SeekBar. Otherwise, only update the value of the setting when the thumb
+     * is dropped.
+     */
+    public void setContinuousUpdates(boolean continuousUpdates) {
+        mContinuousUpdates = continuousUpdates;
+    }
+
     private void setProgress(int progress, boolean notifyChanged) {
         if (progress > mMax) {
             progress = mMax;
@@ -161,7 +193,7 @@ public class SeekBarPreference extends RestrictedPreference
     @Override
     public void onProgressChanged(
             SeekBar seekBar, int progress, boolean fromUser) {
-        if (fromUser && !mTrackingTouch) {
+        if (fromUser && (mContinuousUpdates || !mTrackingTouch)) {
             syncProgress(seekBar);
         }
     }

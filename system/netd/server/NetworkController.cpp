@@ -47,6 +47,11 @@
 #include "RouteController.h"
 #include "VirtualNetwork.h"
 
+#define DBG 0
+
+namespace android {
+namespace net {
+
 namespace {
 
 // Keep these in sync with ConnectivityService.java.
@@ -284,11 +289,16 @@ void NetworkController::getNetworkContext(
     Fwmark fwmark;
     fwmark.netId = nc.app_netid;
     fwmark.explicitlySelected = explicitlySelected;
-    fwmark.protectedFromVpn = canProtect(uid);
+    fwmark.protectedFromVpn = explicitlySelected && canProtect(uid);
     fwmark.permission = getPermissionForUser(uid);
     nc.app_mark = fwmark.intValue;
 
     nc.dns_mark = getNetworkForDns(&(nc.dns_netid), uid);
+
+    if (DBG) {
+        ALOGD("app_netid:0x%x app_mark:0x%x dns_netid:0x%x dns_mark:0x%x uid:%d",
+              nc.app_netid, nc.app_mark, nc.dns_netid, nc.dns_mark, uid);
+    }
 
     if (netcontext) {
         *netcontext = nc;
@@ -453,8 +463,6 @@ int NetworkController::setPermissionForNetworks(Permission permission,
             return -EINVAL;
         }
 
-        // TODO: ioctl(SIOCKILLADDR, ...) to kill socets on the network that don't have permission.
-
         if (int ret = static_cast<PhysicalNetwork*>(network)->setPermission(permission)) {
             return ret;
         }
@@ -538,7 +546,14 @@ void NetworkController::dump(DumpWriter& dw) {
     dw.println("Networks:");
     dw.incIndent();
     for (const auto& i : mNetworks) {
-        dw.println(i.second->toString().c_str());
+        Network* network = i.second;
+        dw.println(network->toString().c_str());
+        if (network->getType() == Network::PHYSICAL) {
+            dw.incIndent();
+            Permission permission = reinterpret_cast<PhysicalNetwork*>(network)->getPermission();
+            dw.println("Required permission: %s", permissionToName(permission));
+            dw.decIndent();
+        }
         android::net::gCtls->resolverCtrl.dump(dw, i.first);
         dw.blankline();
     }
@@ -661,3 +676,6 @@ int NetworkController::modifyFallthroughLocked(unsigned vpnNetId, bool add) {
     }
     return 0;
 }
+
+}  // namespace net
+}  // namespace android

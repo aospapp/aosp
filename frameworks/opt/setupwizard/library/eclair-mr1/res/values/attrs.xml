@@ -21,4 +21,9 @@
         <attr name="android:checked" />
     </declare-styleable>
 
+    <declare-styleable name="SuwExpandableSwitchItem">
+        <attr name="suwCollapsedSummary" format="string" localization="suggested" />
+        <attr name="suwExpandedSummary" format="string" localization="suggested" />
+    </declare-styleable>
+
 </resources>

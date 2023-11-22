@@ -57,7 +57,13 @@ public class ApplicationTest extends InstrumentationTestCase {
             }
         });
         instrumentation.waitForIdleSync();
-        assertTrue(mockApp.isOnConfigurationChangedCalled);
+        final boolean isInMultiwindowMode = activity.isInMultiWindowMode();
+        if (activity.isInMultiWindowMode()) {
+            assertFalse("Orientation change should not trigger global configuration change when "
+                    + " in multi-window mode.", mockApp.isOnConfigurationChangedCalled);
+        } else {
+            assertTrue(mockApp.isOnConfigurationChangedCalled);
+        }
     }
 
 }

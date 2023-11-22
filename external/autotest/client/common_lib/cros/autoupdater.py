@@ -3,9 +3,7 @@
 # found in the LICENSE file.
 
 import glob
-import httplib
 import logging
-import multiprocessing
 import os
 import re
 import urlparse
@@ -14,8 +12,13 @@ import urllib2
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error, global_config
 from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.server import utils as server_utils
+from chromite.lib import retry_util
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 # Local stateful update path is relative to the CrOS source directory.
 LOCAL_STATEFUL_UPDATE_PATH = 'src/platform/dev/stateful_update'
@@ -138,7 +141,6 @@ class BaseUpdater(object):
         self.updater_ctrl_bin = updater_ctrl_bin
         self.update_url = update_url
         self.host = host
-        self._update_error_queue = multiprocessing.Queue(2)
 
 
     def check_update_status(self):
@@ -147,44 +149,132 @@ class BaseUpdater(object):
         We use the `update_engine_client -status' command and parse the line
         indicating the update state, e.g. "CURRENT_OP=UPDATE_STATUS_IDLE".
         """
-        update_status = self.host.run(
-            '%s -status 2>&1 | grep CURRENT_OP' % self.updater_ctrl_bin)
+        update_status = self.host.run(command='%s -status | grep CURRENT_OP' %
+                                      self.updater_ctrl_bin)
         return update_status.stdout.strip().split('=')[-1]
+
+
+    def get_last_update_error(self):
+        """Get the last autoupdate error code."""
+        error_msg = self.host.run(
+                 '%s --last_attempt_error' % self.updater_ctrl_bin)
+        error_msg = (error_msg.stdout.strip()).replace('\n', ', ')
+        return error_msg
+
+
+    def _base_update_handler_no_retry(self, run_args):
+        """Base function to handle a remote update ssh call.
+
+        @param run_args: Dictionary of args passed to ssh_host.run function.
+
+        @throws: intercepts and re-throws all exceptions
+        """
+        try:
+            self.host.run(**run_args)
+        except Exception as e:
+            logging.debug('exception in update handler: %s', e)
+            raise e
+
+
+    def _base_update_handler(self, run_args, err_msg_prefix=None):
+        """Handle a remote update ssh call, possibly with retries.
+
+        @param run_args: Dictionary of args passed to ssh_host.run function.
+        @param err_msg_prefix: Prefix of the exception error message.
+        """
+        def exception_handler(e):
+            """Examines exceptions and returns True if the update handler
+            should be retried.
+
+            @param e: the exception intercepted by the retry util.
+            """
+            return (isinstance(e, error.AutoservSSHTimeout) or
+                    (isinstance(e, error.GenericHostRunError) and
+                     hasattr(e, 'description') and
+                     (re.search('ERROR_CODE=37', e.description) or
+                      re.search('generic error .255.', e.description))))
+
+        try:
+            # Try the update twice (arg 2 is max_retry, not including the first
+            # call).  Some exceptions may be caught by the retry handler.
+            retry_util.GenericRetry(exception_handler, 1,
+                                    self._base_update_handler_no_retry,
+                                    run_args)
+        except Exception as e:
+            message = err_msg_prefix + ': ' + str(e)
+            raise RootFSUpdateError(message)
+
+
+    def _wait_for_update_service(self):
+        """Ensure that the update engine daemon is running, possibly
+        by waiting for it a bit in case the DUT just rebooted and the
+        service hasn't started yet.
+        """
+        def handler(e):
+            """Retry exception handler.
+
+            Assumes that the error is due to the update service not having
+            started yet.
+
+            @param e: the exception intercepted by the retry util.
+            """
+            if isinstance(e, error.AutoservRunError):
+                logging.debug('update service check exception: %s\n'
+                              'retrying...', e)
+                return True
+            else:
+                return False
+
+        # Retry at most three times, every 5s.
+        status = retry_util.GenericRetry(handler, 3,
+                                         self.check_update_status,
+                                         sleep=5)
+
+        # Expect the update engine to be idle.
+        if status != UPDATER_IDLE:
+            raise ChromiumOSError('%s is not in an installable state' %
+                                  self.host.hostname)
 
 
     def trigger_update(self):
         """Triggers a background update.
 
-        @raise RootFSUpdateError if anything went wrong.
+        @raise RootFSUpdateError or unknown Exception if anything went wrong.
         """
+        # If this function is called immediately after reboot (which it is at
+        # this time), there is no guarantee that the update service is up and
+        # running yet, so wait for it.
+        self._wait_for_update_service()
+
         autoupdate_cmd = ('%s --check_for_update --omaha_url=%s' %
                           (self.updater_ctrl_bin, self.update_url))
-        err_msg = 'Failed to trigger an update on %s.' % self.host.hostname
+        run_args = {'command': autoupdate_cmd}
+        err_prefix = 'Failed to trigger an update on %s. ' % self.host.hostname
         logging.info('Triggering update via: %s', autoupdate_cmd)
         try:
-            self.host.run(autoupdate_cmd)
-        except (error.AutoservSshPermissionDeniedError,
-                error.AutoservSSHTimeout) as e:
-            err_msg += ' SSH reports an error: %s' % type(e).__name__
-            raise RootFSUpdateError(err_msg)
-        except error.AutoservRunError as e:
-            # Check if the exit code is 255, if so it's probably a generic
-            # SSH error.
-            result = e.args[1]
-            if result.exit_status == 255:
-                err_msg += (' SSH reports a generic error (255), which could '
-                            'indicate a problem with underlying connectivity '
-                            'layers.')
-                raise RootFSUpdateError(err_msg)
+            to_raise = None
+            self._base_update_handler(run_args, err_prefix)
+        except Exception as e:
+            to_raise = e
 
-            # We have ruled out all SSH cases, the error code is from
-            # update_engine_client, though we still don't know why.
-            list_image_dir_contents(self.update_url)
-            err_msg += (' It could be that the devserver is unreachable, the '
-                        'payload unavailable, or there is a bug in the update '
-                        'engine (unlikely). Reported error: %s' %
-                        type(e).__name__)
-            raise RootFSUpdateError(err_msg)
+        build_name = url_to_image_name(self.update_url)
+        try:
+            board, build_type, milestone, _ = server_utils.ParseBuildName(
+                build_name)
+        except server_utils.ParseBuildNameException:
+            logging.warning('Unable to parse build name %s for metrics. '
+                            'Continuing anyway.', build_name)
+            board, build_type, milestone = ('', '', '')
+        c = metrics.Counter('chromeos/autotest/autoupdater/trigger')
+        f = {'dev_server':
+             dev_server.get_hostname(self.update_url),
+             'success': to_raise is None,
+             'board': board,
+             'build_type': build_type,
+             'milestone': milestone}
+        c.increment(fields=f)
+        if to_raise:
+            raise to_raise
 
 
     def _verify_update_completed(self):
@@ -194,35 +284,47 @@ class BaseUpdater(object):
         """
         status = self.check_update_status()
         if status != UPDATER_NEED_REBOOT:
+            error_msg = ''
+            if status == UPDATER_IDLE:
+                error_msg = 'Update error: %s' % self.get_last_update_error()
             raise RootFSUpdateError('Update did not complete with correct '
-                                    'status. Expecting %s, actual %s' %
-                                    (UPDATER_NEED_REBOOT, status))
+                                    'status. Expecting %s, actual %s. %s' %
+                                    (UPDATER_NEED_REBOOT, status, error_msg))
 
 
     def update_image(self):
         """Updates the device image and verifies success."""
+        autoupdate_cmd = ('%s --update --omaha_url=%s' %
+                          (self.updater_ctrl_bin, self.update_url))
+        run_args = {'command': autoupdate_cmd, 'timeout': 3600}
+        err_prefix = ('Failed to install device image using payload at %s '
+                      'on %s. ' % (self.update_url, self.host.hostname))
+        logging.info('Updating image via: %s', autoupdate_cmd)
         try:
-            autoupdate_cmd = ('%s --update --omaha_url=%s 2>&1' %
-                              (self.updater_ctrl_bin, self.update_url))
-            self.host.run(autoupdate_cmd, timeout=3600)
-        except error.AutoservRunError as e:
-            list_image_dir_contents(self.update_url)
-            update_error = RootFSUpdateError(
-                    'Failed to install device image using payload at %s '
-                    'on %s: %s' %
-                    (self.update_url, self.host.hostname, e))
-            self._update_error_queue.put(update_error)
-            raise update_error
+            to_raise = None
+            self._base_update_handler(run_args, err_prefix)
         except Exception as e:
-            # Don't allow other exceptions to not be caught.
-            self._update_error_queue.put(e)
-            raise e
+            to_raise = e
 
+        build_name = url_to_image_name(self.update_url)
         try:
-            self._verify_update_completed()
-        except RootFSUpdateError as e:
-            self._update_error_queue.put(e)
-            raise
+            board, build_type, milestone, _ = server_utils.ParseBuildName(
+                build_name)
+        except server_utils.ParseBuildNameException:
+            logging.warning('Unable to parse build name %s for metrics. '
+                            'Continuing anyway.', build_name)
+            board, build_type, milestone = ('', '', '')
+        c = metrics.Counter('chromeos/autotest/autoupdater/update')
+        f = {'dev_server':
+             dev_server.get_hostname(self.update_url),
+             'success': to_raise is None,
+             'board': board,
+             'build_type': build_type,
+             'milestone': milestone}
+        c.increment(fields=f)
+        if to_raise:
+            raise to_raise
+        self._verify_update_completed()
 
 
 class ChromiumOSUpdater(BaseUpdater):
@@ -238,8 +340,6 @@ class ChromiumOSUpdater(BaseUpdater):
     # Time to wait for new kernel to be marked successful after
     # auto update.
     KERNEL_UPDATE_TIMEOUT = 120
-
-    _timer = autotest_stats.Timer('cros_autoupdater')
 
     def __init__(self, update_url, host=None, local_devserver=False):
         super(ChromiumOSUpdater, self).__init__(self.UPDATER_BIN, update_url,
@@ -258,9 +358,8 @@ class ChromiumOSUpdater(BaseUpdater):
         self._run('stop update-engine || true')
         self._run('start update-engine')
 
-        if self.check_update_status() != UPDATER_IDLE:
-            raise ChromiumOSError('%s is not in an installable state' %
-                                  self.host.hostname)
+        # Wait for update engine to be ready.
+        self._wait_for_update_service()
 
 
     def _run(self, cmd, *args, **kwargs):
@@ -409,13 +508,11 @@ class ChromiumOSUpdater(BaseUpdater):
 
     # TODO(garnold) This is here for backward compatibility and should be
     # deprecated once we shift to using update_image() everywhere.
-    @_timer.decorate
     def update_rootfs(self):
         """Run the standard command to force an update."""
         return self.update_image()
 
 
-    @_timer.decorate
     def update_stateful(self, clobber=True):
         """Updates the stateful partition.
 
@@ -438,15 +535,8 @@ class ChromiumOSUpdater(BaseUpdater):
             update_error = StatefulUpdateError(
                     'Failed to perform stateful update on %s' %
                     self.host.hostname)
-            self._update_error_queue.put(update_error)
             raise update_error
-        except Exception as e:
-            # Don't allow other exceptions to not be caught.
-            self._update_error_queue.put(e)
-            raise e
 
-
-    @_timer.decorate
     def run_update(self, update_root=True):
         """Update the DUT with image of specific version.
 
@@ -459,10 +549,13 @@ class ChromiumOSUpdater(BaseUpdater):
 
         # Check that Dev Server is accepting connections (from autoserv's host).
         # If we can't talk to it, the machine host probably can't either.
-        auserver_host = urlparse.urlparse(self.update_url)[1]
+        auserver_host = 'http://%s' % urlparse.urlparse(self.update_url)[1]
         try:
-            httplib.HTTPConnection(auserver_host).connect()
-        except IOError:
+            if not dev_server.ImageServer.devserver_healthy(auserver_host):
+                raise ChromiumOSError(
+                    'Update server at %s not healthy' % auserver_host)
+        except Exception as e:
+            logging.debug('Error happens in connection to devserver: %r', e)
             raise ChromiumOSError(
                 'Update server at %s not available' % auserver_host)
 
@@ -474,37 +567,31 @@ class ChromiumOSUpdater(BaseUpdater):
         self.reset_stateful_partition()
 
         try:
-            updaters = [
-                multiprocessing.process.Process(target=self.update_rootfs),
-                multiprocessing.process.Process(target=self.update_stateful)
-                ]
-            if not update_root:
-                logging.info('Root update is skipped.')
-                updaters = updaters[1:]
+            try:
+                if not update_root:
+                    logging.info('Root update is skipped.')
+                else:
+                    self.update_rootfs()
 
-            # Run the updaters in parallel.
-            for updater in updaters: updater.start()
-            for updater in updaters: updater.join()
-
-            # Re-raise the first error that occurred.
-            if not self._update_error_queue.empty():
-                update_error = self._update_error_queue.get()
+                self.update_stateful()
+            except:
                 self.revert_boot_partition()
                 self.reset_stateful_partition()
-                raise update_error
+                raise
 
             logging.info('Update complete.')
         except:
             # Collect update engine logs in the event of failure.
             if self.host.job:
-                logging.info('Collecting update engine logs...')
+                logging.info('Collecting update engine logs due to failure...')
                 self.host.get_file(
                         self.UPDATER_LOGS, self.host.job.sysinfo.sysinfodir,
                         preserve_perm=False)
             list_image_dir_contents(self.update_url)
             raise
         finally:
-            self.host.show_update_engine_log()
+            logging.info('Update engine log has downloaded in '
+                         'sysinfo/update_engine dir. Check the lastest.')
 
 
     def check_version(self):

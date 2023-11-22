@@ -18,6 +18,9 @@
 #include "VideoDecoderTrace.h"
 #include <string.h>
 
+#define MAX_PICTURE_WIDTH_MPEG4   1920
+#define MAX_PICTURE_HEIGHT_MPEG4  1088
+
 VideoDecoderMPEG4::VideoDecoderMPEG4(const char *mimeType)
     : VideoDecoderBase(mimeType, VBP_MPEG4),
       mLastVOPTimeIncrement(0),
@@ -45,6 +48,11 @@ Decode_Status VideoDecoderMPEG4::start(VideoConfigBuffer *buffer) {
     vbp_data_mp42 *data = NULL;
     status = VideoDecoderBase::parseBuffer(buffer->data, buffer->size, true, (void**)&data);
     CHECK_STATUS("VideoDecoderBase::parseBuffer");
+
+    if (data->codec_data.video_object_layer_width > MAX_PICTURE_WIDTH_MPEG4 ||
+            data->codec_data.video_object_layer_height > MAX_PICTURE_HEIGHT_MPEG4) {
+        return DECODE_INVALID_DATA;
+    }
 
     status = startVA(data);
     return status;
@@ -79,6 +87,11 @@ Decode_Status VideoDecoderMPEG4::decode(VideoDecodeBuffer *buffer) {
             false,
             (void**)&data);
     CHECK_STATUS("VideoDecoderBase::parseBuffer");
+
+    if (data->codec_data.video_object_layer_width > MAX_PICTURE_WIDTH_MPEG4 ||
+            data->codec_data.video_object_layer_height > MAX_PICTURE_HEIGHT_MPEG4) {
+        return DECODE_INVALID_DATA;
+    }
 
     if (!mVAStarted) {
         status = startVA(data);

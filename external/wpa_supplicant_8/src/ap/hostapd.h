@@ -53,6 +53,7 @@ struct hapd_interfaces {
 #ifndef CONFIG_NO_VLAN
 	struct dynamic_iface *vlan_priv;
 #endif /* CONFIG_NO_VLAN */
+	int eloop_initialized;
 };
 
 enum hostapd_chan_status {
@@ -99,6 +100,17 @@ struct wps_stat {
 	u8 peer_addr[ETH_ALEN];
 };
 
+struct hostapd_neighbor_entry {
+	struct dl_list list;
+	u8 bssid[ETH_ALEN];
+	struct wpa_ssid_value ssid;
+	struct wpabuf *nr;
+	struct wpabuf *lci;
+	struct wpabuf *civic;
+	/* LCI update time */
+	struct os_time lci_date;
+	int stationary;
+};
 
 /**
  * struct hostapd_data - hostapd per-BSS data structure
@@ -248,9 +260,6 @@ struct hostapd_data {
 	int noa_start;
 	int noa_duration;
 #endif /* CONFIG_P2P */
-#ifdef CONFIG_INTERWORKING
-	size_t gas_frag_limit;
-#endif /* CONFIG_INTERWORKING */
 #ifdef CONFIG_PROXYARP
 	struct l2_packet_data *sock_dhcp;
 	struct l2_packet_data *sock_ndisc;
@@ -286,6 +295,16 @@ struct hostapd_data {
 #ifdef CONFIG_MBO
 	unsigned int mbo_assoc_disallow;
 #endif /* CONFIG_MBO */
+
+	struct dl_list nr_db;
+
+	u8 beacon_req_token;
+	u8 lci_req_token;
+	u8 range_req_token;
+	unsigned int lci_req_active:1;
+	unsigned int range_req_active:1;
+
+	int dhcp_sock; /* UDP socket used with the DHCP server */
 };
 
 
@@ -293,6 +312,10 @@ struct hostapd_sta_info {
 	struct dl_list list;
 	u8 addr[ETH_ALEN];
 	struct os_reltime last_seen;
+	int ssi_signal;
+#ifdef CONFIG_TAXONOMY
+	struct wpabuf *probe_ie_taxonomy;
+#endif /* CONFIG_TAXONOMY */
 };
 
 /**
@@ -453,6 +476,7 @@ int hostapd_setup_interface(struct hostapd_iface *iface);
 int hostapd_setup_interface_complete(struct hostapd_iface *iface, int err);
 void hostapd_interface_deinit(struct hostapd_iface *iface);
 void hostapd_interface_free(struct hostapd_iface *iface);
+struct hostapd_iface * hostapd_alloc_iface(void);
 struct hostapd_iface * hostapd_init(struct hapd_interfaces *interfaces,
 				    const char *config_file);
 struct hostapd_iface *

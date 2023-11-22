@@ -9,12 +9,11 @@ CRITERIA = """
 
 """
 ATTRIBUTES = "suite:video_image_comparison_chameleon"
-SUITE = "video_image_comparison_chameleon"
 TIME = "LONG"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "video_glitch_detection, chameleon:hdmi"
+DEPENDENCIES = "video_glitch_detection"
 BUG_TEMPLATE = {
     'owner': 'avkodipelli@chromium.org',
     'cc': ['mussa@chromium.org', 'rohitbm@chromium.org'],

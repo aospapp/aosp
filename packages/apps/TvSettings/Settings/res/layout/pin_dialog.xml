@@ -14,8 +14,8 @@
      limitations under the License.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="@dimen/pin_dialog_width"
-    android:layout_height="@dimen/pin_dialog_height"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:paddingTop="@dimen/pin_dialog_top_padding"
     android:paddingBottom="@dimen/pin_dialog_bottom_padding"
     android:paddingStart="@dimen/pin_dialog_horizontal_padding"
@@ -25,13 +25,13 @@
 
     <TextView
         android:id="@+id/wrong_pin"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:gravity="center"
         android:textSize="@dimen/pin_dialog_wrong_pin_text_size"
         android:textColor="@color/pin_dialog_text_color"
         android:fontFamily="@string/font"
-        android:visibility="invisible" />
+        android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/enter_pin"
@@ -41,8 +41,8 @@
 
         <TextView
             android:id="@+id/title"
-            android:layout_width="@dimen/pin_dialog_title_width"
-            android:layout_height="@dimen/pin_dialog_title_height"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/pin_dialog_title_bottom_margin"
             android:textSize="@dimen/pin_dialog_title_text_size"
             android:textColor="@color/pin_dialog_text_color"

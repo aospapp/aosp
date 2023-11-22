@@ -199,6 +199,10 @@ sup {
     font-size: 10pt;
 }
 
+code {
+    font-family: "Lucida Console";
+  }
+
 /**
 * Table Styles
 */

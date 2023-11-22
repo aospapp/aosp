@@ -19,6 +19,7 @@
 
 #include <utils/RefBase.h>
 #include "Camera3StreamBufferListener.h"
+#include "Camera3StreamBufferFreedListener.h"
 
 struct camera3_stream_buffer;
 
@@ -72,6 +73,11 @@ class Camera3StreamInterface : public virtual RefBase {
     virtual android_dataspace getDataSpace() const = 0;
 
     /**
+     * Get a HAL3 handle for the stream, without starting stream configuration.
+     */
+    virtual camera3_stream* asHalStream() = 0;
+
+    /**
      * Start the stream configuration process. Returns a handle to the stream's
      * information to be passed into the HAL device's configure_streams call.
      *
@@ -104,7 +110,7 @@ class Camera3StreamInterface : public virtual RefBase {
      *   NO_MEMORY in case of an error registering buffers
      *   INVALID_OPERATION in case connecting to the consumer failed
      */
-    virtual status_t finishConfiguration(camera3_device *hal3Device) = 0;
+    virtual status_t finishConfiguration() = 0;
 
     /**
      * Cancels the stream configuration process. This returns the stream to the
@@ -195,12 +201,19 @@ class Camera3StreamInterface : public virtual RefBase {
      * Fill in the camera3_stream_buffer with the next valid buffer for this
      * stream, to hand over to the HAL.
      *
+     * Multiple surfaces could share the same HAL stream, but a request may
+     * be only for a subset of surfaces. In this case, the
+     * Camera3StreamInterface object needs the surface ID information to acquire
+     * buffers for those surfaces. For the case of single surface for a HAL
+     * stream, surface_ids parameter has no effect.
+     *
      * This method may only be called once finishConfiguration has been called.
      * For bidirectional streams, this method applies to the output-side
      * buffers.
      *
      */
-    virtual status_t getBuffer(camera3_stream_buffer *buffer) = 0;
+    virtual status_t getBuffer(camera3_stream_buffer *buffer,
+            const std::vector<size_t>& surface_ids = std::vector<size_t>()) = 0;
 
     /**
      * Return a buffer to the stream after use by the HAL.
@@ -275,6 +288,15 @@ class Camera3StreamInterface : public virtual RefBase {
             wp<Camera3StreamBufferListener> listener) = 0;
     virtual void     removeBufferListener(
             const sp<Camera3StreamBufferListener>& listener) = 0;
+
+    /**
+     * Setting listner will remove previous listener (if exists)
+     * Only allow set listener during stream configuration because stream is guaranteed to be IDLE
+     * at this state, so setBufferFreedListener won't collide with onBufferFreed callbacks.
+     * Client is responsible to keep the listener object alive throughout the lifecycle of this
+     * Camera3Stream.
+     */
+    virtual void setBufferFreedListener(Camera3StreamBufferFreedListener* listener) = 0;
 };
 
 } // namespace camera3

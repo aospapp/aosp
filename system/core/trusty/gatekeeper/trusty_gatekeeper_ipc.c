@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "TrustyGateKeeper"
+
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#define LOG_TAG "TrustyGateKeeper"
-#include <cutils/log.h>
+#include <log/log.h>
 #include <trusty/tipc.h>
 
 #include "trusty_gatekeeper_ipc.h"

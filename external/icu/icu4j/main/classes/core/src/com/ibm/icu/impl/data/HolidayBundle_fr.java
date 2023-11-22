@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2005, International Business Machines Corporation and    *
@@ -39,5 +41,6 @@ public class HolidayBundle_fr extends ListResourceBundle {
         {   "Victory Day",          "F\u00EAte de la Victoire" },
     };
 
+    @Override
     public synchronized Object[][] getContents() { return fContents; }
 }

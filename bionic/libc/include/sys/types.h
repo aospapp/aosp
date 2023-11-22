@@ -25,6 +25,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
 #ifndef _SYS_TYPES_H_
 #define _SYS_TYPES_H_
 
@@ -34,6 +35,8 @@
 
 #include <linux/types.h>
 #include <linux/posix_types.h>
+
+#include <bits/pthread_types.h>
 
 /* gids, uids, and pids are all 32-bit. */
 typedef __kernel_gid32_t __gid_t;
@@ -65,6 +68,8 @@ typedef __key_t key_t;
 
 typedef __kernel_ino_t __ino_t;
 typedef __ino_t ino_t;
+
+typedef uint64_t ino64_t;
 
 typedef uint32_t __nlink_t;
 typedef __nlink_t nlink_t;
@@ -101,20 +106,6 @@ typedef __kernel_loff_t loff_t;
 typedef loff_t off64_t;
 #endif
 
-/* while POSIX wants these in <sys/types.h>, we
- * declare then in <pthread.h> instead */
-#if 0
-typedef  .... pthread_attr_t;
-typedef  .... pthread_cond_t;
-typedef  .... pthread_condattr_t;
-typedef  .... pthread_key_t;
-typedef  .... pthread_mutex_t;
-typedef  .... pthread_once_t;
-typedef  .... pthread_rwlock_t;
-typedef  .... pthread_rwlock_attr_t;
-typedef  .... pthread_t;
-#endif
-
 #if !defined(__LP64__)
 /* This historical accident means that we had a signed socklen_t on 32-bit architectures. */
 typedef int32_t __socklen_t;
@@ -139,7 +130,7 @@ typedef __kernel_ssize_t ssize_t;
 typedef unsigned int        uint_t;
 typedef unsigned int        uint;
 
-#ifdef __BSD_VISIBLE
+#if defined(__USE_BSD) || defined(__BIONIC__) /* Historically bionic exposed these. */
 #include <sys/sysmacros.h>
 
 typedef unsigned char  u_char;

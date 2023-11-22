@@ -1,7 +1,9 @@
 <?xml version="1.0"?>
 <!--
+* © 2016 and later: Unicode, Inc. and others.
+* License & terms of use: http://www.unicode.org/copyright.html#License
 *******************************************************************************
-* Copyright (C) 2010-2015, International Business Machines Corporation and    *
+* Copyright (C) 2010-2016, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 -->
@@ -11,7 +13,7 @@
 
   <groupId>com.ibm.icu</groupId>
   <artifactId>icu4j</artifactId>
-  <version>56.1</version>
+  <version>58.2</version>
 
   <name>ICU4J</name>
   <description>
@@ -22,8 +24,8 @@
   <inceptionYear>2001</inceptionYear>
   <licenses>
     <license>
-      <name>ICU License</name>
-      <url>http://source.icu-project.org/repos/icu/icu/trunk/license.html</url>
+      <name>Unicode/ICU License</name>
+      <url>http://source.icu-project.org/repos/icu/trunk/icu4j/main/shared/licenses/LICENSE</url>
       <distribution>repo</distribution>
     </license>
   </licenses>
@@ -120,9 +122,9 @@
   </mailingLists>
 
   <scm>
-    <connection>scm:svn:http://source.icu-project.org/repos/icu/icu4j/trunk/</connection>
-    <developerConnection>scm:svn:http://source.icu-project.org/repos/icu/icu4j/trunk/</developerConnection>
-    <url>http://source.icu-project.org/repos/icu/icu4j/trunk/</url>
+    <connection>scm:svn:http://source.icu-project.org/repos/icu/trunk/icu4j</connection>
+    <developerConnection>scm:svn:http://source.icu-project.org/repos/icu/turnk/icu4j</developerConnection>
+    <url>http://source.icu-project.org/repos/icu/trunk/icu4j</url>
   </scm>
   <issueManagement>
     <system>Trac</system>

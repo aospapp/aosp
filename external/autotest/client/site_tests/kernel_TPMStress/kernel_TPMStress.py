@@ -14,7 +14,10 @@ class kernel_TPMStress(test.test):
 
     def initialize(self):
         self._services = service_stopper.ServiceStopper(['cryptohomed',
-                                                         'chapsd', 'tcsd'])
+                                                         'chapsd',
+                                                         'attestationd',
+                                                         'tpm_managerd',
+                                                         'tcsd', 'trunksd'])
         self._services.stop_services()
 
 

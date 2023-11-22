@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2015, International Business Machines Corporation and    *
@@ -428,7 +430,7 @@ final class NFRuleSet {
      * @param pos The position in toInsertInto where the result of
      * this operation is to be inserted
      */
-    public void format(long number, StringBuffer toInsertInto, int pos, int recursionCount) {
+    public void format(long number, StringBuilder toInsertInto, int pos, int recursionCount) {
         if (recursionCount >= RECURSION_LIMIT) {
             throw new IllegalStateException("Recursion limit exceeded when applying ruleSet " + name);
         }
@@ -444,7 +446,7 @@ final class NFRuleSet {
      * @param pos The position in toInsertInto where the result of
      * this operation is to be inserted
      */
-    public void format(double number, StringBuffer toInsertInto, int pos, int recursionCount) {
+    public void format(double number, StringBuilder toInsertInto, int pos, int recursionCount) {
         if (recursionCount >= RECURSION_LIMIT) {
             throw new IllegalStateException("Recursion limit exceeded when applying ruleSet " + name);
         }
@@ -491,7 +493,7 @@ final class NFRuleSet {
         }
 
         // if the number isn't an integer, we use one f the fraction rules...
-        if (nonNumericalRules != null && number != Math.floor(number)) {
+        if (number != Math.floor(number)) {
             if (number < 1 && nonNumericalRules[PROPER_FRACTION_RULE_INDEX] != null) {
                 // if the number is between 0 and 1, return the proper
                 // fraction rule
@@ -504,7 +506,7 @@ final class NFRuleSet {
         }
 
         // if there's a master rule, use it to format the number
-        if (nonNumericalRules != null && nonNumericalRules[MASTER_RULE_INDEX] != null) {
+        if (nonNumericalRules[MASTER_RULE_INDEX] != null) {
             return nonNumericalRules[MASTER_RULE_INDEX];
         }
         else {

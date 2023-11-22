@@ -101,7 +101,6 @@ __RCSID("$NetBSD: res_init.c,v 1.8 2006/03/19 03:10:08 christos Exp $");
 #ifdef ANDROID_CHANGES
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/system_properties.h>
 #endif /* ANDROID_CHANGES */
 
 /* ensure that sockaddr_in6 and IN6ADDR_ANY_INIT are declared / defined */
@@ -166,23 +165,23 @@ res_ninit(res_state statp) {
 /* This function has to be reachable by res_data.c but not publicly. */
 int
 __res_vinit(res_state statp, int preinit) {
-#if !defined(__ANDROID__)
+#if !defined(__BIONIC__)
 	register FILE *fp;
 #endif
 	register char *cp, **pp;
-#if !defined(__ANDROID__)
+#if !defined(__BIONIC__)
 	register int n;
 #endif
 	char buf[BUFSIZ];
 	int nserv = 0;    /* number of nameserver records read from file */
-#if !defined(__ANDROID__)
+#if !defined(__BIONIC__)
 	int haveenv = 0;
 #endif
 	int havesearch = 0;
 #ifdef RESOLVSORT
 	int nsort = 0;
 #endif
-#if !defined(__ANDROID__)
+#if !defined(__BIONIC__)
 	char *net;
 #endif
 	int dots;
@@ -243,7 +242,9 @@ __res_vinit(res_state statp, int preinit) {
 	statp->nsort = 0;
 	res_setservers(statp, u, nserv);
 
-#if !defined(__ANDROID__) /* IGNORE THE ENVIRONMENT */
+#if defined(__BIONIC__)
+	/* Ignore the environment. */
+#else
 	/* Allow user to override the local domain definition */
 	if ((cp = getenv("LOCALDOMAIN")) != NULL) {
 		(void)strncpy(statp->defdname, cp, sizeof(statp->defdname) - 1);

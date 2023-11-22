@@ -21,7 +21,7 @@
 
 class MeshNode: public SceneGraphNode {
 public:
-    MeshNode(const Mesh* mesh);
+    explicit MeshNode(const Mesh* mesh);
     virtual ~MeshNode() {};
 protected:
     virtual void before(Program& program, Matrix& model, Matrix& view, Matrix& projection) = 0;

@@ -66,8 +66,9 @@ public class SinceTagger {
       } catch (ApiParseException e) {
         StringWriter stackTraceWriter = new StringWriter();
         e.printStackTrace(new PrintWriter(stackTraceWriter));
-        Errors.error(Errors.BROKEN_SINCE_FILE, null, "Failed to parse " + xmlFile
-                + " for " + versionName + " since data.\n" + stackTraceWriter.toString());
+        Errors.error(Errors.BROKEN_SINCE_FILE, (SourcePositionInfo) null,
+            "Failed to parse " + xmlFile + " for " + versionName + " since data.\n"
+                + stackTraceWriter.toString());
         continue;
       }
 

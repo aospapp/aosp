@@ -16,23 +16,31 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ResourceCursorTreeAdapter;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link ResourceCursorTreeAdapter}.
  */
-public class ResourceCursorTreeAdapterTest extends InstrumentationTestCase {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ResourceCursorTreeAdapterTest {
     private ResourceCursorTreeAdapter mResourceCursorTreeAdapter;
 
     private Context mContext;
@@ -63,16 +71,16 @@ public class ResourceCursorTreeAdapterTest extends InstrumentationTestCase {
 
     private int mLastChildId = R.id.cursorAdapter_item1;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
         LayoutInflater layoutInflater = (LayoutInflater) mContext.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
         mParent = (ViewGroup) layoutInflater.inflate(R.layout.cursoradapter_host, null);
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         mResourceCursorTreeAdapter = new MockResourceCursorTreeAdapter(mContext, null,
                 mGroupLayout, mChildLayout);
@@ -96,8 +104,9 @@ public class ResourceCursorTreeAdapterTest extends InstrumentationTestCase {
         new MockResourceCursorTreeAdapter(mContext, null, -1, -1, -1, -1);
     }
 
-    // The parameters Context and Cursor are never readin the method
+    // The parameters Context and Cursor are never read in the method
     @UiThreadTest
+    @Test
     public void testNewChildView() {
         mResourceCursorTreeAdapter = new MockResourceCursorTreeAdapter(mContext, null,
                 mGroupLayout, mChildLayout);
@@ -118,8 +127,9 @@ public class ResourceCursorTreeAdapterTest extends InstrumentationTestCase {
         assertEquals(mNormalChildId, result.getId());
     }
 
-    // The parameters Context and Cursor are never readin the method
+    // The parameters Context and Cursor are never read in the method
     @UiThreadTest
+    @Test
     public void testNewGroupView() {
         mResourceCursorTreeAdapter = new MockResourceCursorTreeAdapter(mContext, null,
                 mGroupLayout, mChildLayout);

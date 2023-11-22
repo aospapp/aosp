@@ -55,6 +55,7 @@ ifneq ($(filter $(TARGET_BOARD_PLATFORM),$(PLATFORM_SUPPORT_SLICE_HEADER_PARSER)
 endif
 
 LOCAL_SHARED_LIBRARIES := \
+    liblog \
     libcutils \
     libva \
     libva-android \

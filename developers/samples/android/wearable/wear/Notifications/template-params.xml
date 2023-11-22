@@ -18,13 +18,13 @@
 
 
 <sample>
-    <name>Wearable Notifications</name>
+    <name>Notifications</name>
     <group>Wearable</group>
     <package>com.example.android.support.wearable.notifications</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>23</targetSdkVersion>
-    <targetSdkVersionWear>22</targetSdkVersionWear>
+    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>

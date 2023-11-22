@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -10,31 +12,20 @@
 
 package android.icu.dev.test.duration.languages;
 
-import android.icu.dev.test.duration.LanguageTestRoot;
+import org.junit.Test;
+
+import android.icu.dev.test.duration.LanguageTestFmwk;
 import android.icu.impl.duration.TimeUnitConstants;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Test cases for hi
  */
-@RunWith(IcuTestFmwkRunner.class)
-public class Test_hi extends LanguageTestRoot implements TimeUnitConstants {
-
-  /**
-   * Invoke the tests.
-   */
-  public static void main(String[] args) {
-      new Test_hi().run(args);
-  }
-
-  /**
-   * Constructor.
-   */
+public class Test_hi extends LanguageTestFmwk implements TimeUnitConstants {
   public Test_hi() {
     super("hi", false);
   }
 
+  @Test
   public void testMonthNames() {
     // test that month uses the plural form with singular digit
     // in these cases:

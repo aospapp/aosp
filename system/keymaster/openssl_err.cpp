@@ -178,10 +178,10 @@ keymaster_error_t TranslateRsaError(int reason) {
 keymaster_error_t TranslateEvpError(int reason) {
     switch (reason) {
 
+#if !defined(OPENSSL_IS_BORINGSSL)
     case EVP_R_UNKNOWN_DIGEST:
         return KM_ERROR_UNSUPPORTED_DIGEST;
 
-#if !defined(OPENSSL_IS_BORINGSSL)
     case EVP_R_UNSUPPORTED_PRF:
     case EVP_R_UNSUPPORTED_PRIVATE_KEY_ALGORITHM:
     case EVP_R_UNSUPPORTED_KEY_DERIVATION_FUNCTION:
@@ -213,6 +213,7 @@ keymaster_error_t TranslateEvpError(int reason) {
     case EVP_R_BN_PUBKEY_ERROR:
     case EVP_R_CIPHER_PARAMETER_ERROR:
     case EVP_R_ERROR_LOADING_SECTION:
+    case EVP_R_EXPECTING_A_DH_KEY:
     case EVP_R_EXPECTING_A_ECDSA_KEY:
     case EVP_R_EXPECTING_A_EC_KEY:
     case EVP_R_INVALID_DIGEST:
@@ -221,13 +222,12 @@ keymaster_error_t TranslateEvpError(int reason) {
     case EVP_R_PRIVATE_KEY_DECODE_ERROR:
     case EVP_R_PRIVATE_KEY_ENCODE_ERROR:
     case EVP_R_PUBLIC_KEY_NOT_RSA:
+    case EVP_R_WRONG_PUBLIC_KEY_TYPE:
 #endif
     case EVP_R_BUFFER_TOO_SMALL:
     case EVP_R_EXPECTING_AN_RSA_KEY:
-    case EVP_R_EXPECTING_A_DH_KEY:
     case EVP_R_EXPECTING_A_DSA_KEY:
     case EVP_R_MISSING_PARAMETERS:
-    case EVP_R_WRONG_PUBLIC_KEY_TYPE:
         return KM_ERROR_INVALID_KEY_BLOB;
 
 #if !defined(OPENSSL_IS_BORINGSSL)

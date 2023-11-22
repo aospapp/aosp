@@ -76,6 +76,11 @@ void dhcp_init(void)
   if (bind(fd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in)))
     die(_("failed to bind DHCP server socket: %s"), NULL, EC_BADNET);
 
+#ifdef __ANDROID__
+  if (setsockopt(fd, SOL_SOCKET, SO_MARK, &daemon->listen_mark, sizeof(daemon->listen_mark)) == -1)
+    die(_("failed to set DHCP socket mark: %s"), NULL, EC_BADNET);
+#endif /* __ANDROID__ */
+
   daemon->dhcpfd = fd;
 
 #if defined(HAVE_BSD_NETWORK)

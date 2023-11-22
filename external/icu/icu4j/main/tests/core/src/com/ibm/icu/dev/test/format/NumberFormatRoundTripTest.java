@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -14,6 +16,8 @@ package com.ibm.icu.dev.test.format;
 
 import java.util.Locale;
 import java.util.Random;
+
+import org.junit.Test;
 
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.NumberFormat;
@@ -32,10 +36,7 @@ public class NumberFormatRoundTripTest extends com.ibm.icu.dev.test.TestFmwk {
     public boolean DEBUG = false;
     public boolean quick = true;
     
-    public static void main(String[] args) throws Exception {
-        new NumberFormatRoundTripTest().run(args);
-    }
-    
+    @Test
     public void TestNumberFormatRoundTrip() {
     
         NumberFormat fmt = null;
@@ -89,7 +90,7 @@ public class NumberFormatRoundTripTest extends com.ibm.icu.dev.test.TestFmwk {
         return  random.nextDouble() * range;
     } 
     
-    public void _test(NumberFormat fmt) {
+    private void _test(NumberFormat fmt) {
     
         _test(fmt, Double.NaN);
         _test(fmt, Double.POSITIVE_INFINITY);
@@ -141,15 +142,15 @@ public class NumberFormatRoundTripTest extends com.ibm.icu.dev.test.TestFmwk {
         }
     }
     
-    public void _test(NumberFormat fmt, double value) {
+    private void _test(NumberFormat fmt, double value) {
         _test(fmt, new Double(value));
     }
     
-    public void _test(NumberFormat fmt, long value) {
+    private void _test(NumberFormat fmt, long value) {
         _test(fmt, new Long(value));
     }
     
-    public void _test(NumberFormat fmt, Number value) {
+    private void _test(NumberFormat fmt, Number value) {
         logln("test data = " + value);
         fmt.setMaximumFractionDigits(999);
         String s, s2;
@@ -214,7 +215,7 @@ public class NumberFormatRoundTripTest extends com.ibm.icu.dev.test.TestFmwk {
     
     }
         
-    public double proportionalError(Number a, Number b) {
+    private double proportionalError(Number a, Number b) {
         double aa,bb;
         
         if(a.getClass().getName().equalsIgnoreCase("java.lang.Double"))

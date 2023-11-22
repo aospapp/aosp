@@ -16,14 +16,18 @@
 
 #include "utils.h"
 
+#include <stdlib.h>
+
+#include "base/enums.h"
 #include "class_linker-inl.h"
 #include "common_runtime_test.h"
+#include "exec_utils.h"
 #include "mirror/array.h"
 #include "mirror/array-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
 #include "mirror/string.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "handle_scope-inl.h"
 
 #include "base/memory_tool.h"
@@ -106,51 +110,52 @@ TEST_F(UtilsTest, PrettyReturnType) {
 
 TEST_F(UtilsTest, PrettyTypeOf) {
   ScopedObjectAccess soa(Thread::Current());
-  EXPECT_EQ("null", PrettyTypeOf(nullptr));
+  EXPECT_EQ("null", mirror::Object::PrettyTypeOf(nullptr));
 
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::String> s(hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "")));
-  EXPECT_EQ("java.lang.String", PrettyTypeOf(s.Get()));
+  EXPECT_EQ("java.lang.String", mirror::Object::PrettyTypeOf(s.Get()));
 
   Handle<mirror::ShortArray> a(hs.NewHandle(mirror::ShortArray::Alloc(soa.Self(), 2)));
-  EXPECT_EQ("short[]", PrettyTypeOf(a.Get()));
+  EXPECT_EQ("short[]", mirror::Object::PrettyTypeOf(a.Get()));
 
   mirror::Class* c = class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/String;");
   ASSERT_TRUE(c != nullptr);
   mirror::Object* o = mirror::ObjectArray<mirror::String>::Alloc(soa.Self(), c, 0);
-  EXPECT_EQ("java.lang.String[]", PrettyTypeOf(o));
-  EXPECT_EQ("java.lang.Class<java.lang.String[]>", PrettyTypeOf(o->GetClass()));
+  EXPECT_EQ("java.lang.String[]", mirror::Object::PrettyTypeOf(o));
+  EXPECT_EQ("java.lang.Class<java.lang.String[]>", mirror::Object::PrettyTypeOf(o->GetClass()));
 }
 
 TEST_F(UtilsTest, PrettyClass) {
   ScopedObjectAccess soa(Thread::Current());
-  EXPECT_EQ("null", PrettyClass(nullptr));
+  EXPECT_EQ("null", mirror::Class::PrettyClass(nullptr));
   mirror::Class* c = class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/String;");
   ASSERT_TRUE(c != nullptr);
   mirror::Object* o = mirror::ObjectArray<mirror::String>::Alloc(soa.Self(), c, 0);
-  EXPECT_EQ("java.lang.Class<java.lang.String[]>", PrettyClass(o->GetClass()));
+  EXPECT_EQ("java.lang.Class<java.lang.String[]>", mirror::Class::PrettyClass(o->GetClass()));
 }
 
 TEST_F(UtilsTest, PrettyClassAndClassLoader) {
   ScopedObjectAccess soa(Thread::Current());
-  EXPECT_EQ("null", PrettyClassAndClassLoader(nullptr));
+  EXPECT_EQ("null", mirror::Class::PrettyClassAndClassLoader(nullptr));
   mirror::Class* c = class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/String;");
   ASSERT_TRUE(c != nullptr);
   mirror::Object* o = mirror::ObjectArray<mirror::String>::Alloc(soa.Self(), c, 0);
-  EXPECT_EQ("java.lang.Class<java.lang.String[],null>", PrettyClassAndClassLoader(o->GetClass()));
+  EXPECT_EQ("java.lang.Class<java.lang.String[],null>",
+            mirror::Class::PrettyClassAndClassLoader(o->GetClass()));
 }
 
 TEST_F(UtilsTest, PrettyField) {
   ScopedObjectAccess soa(Thread::Current());
-  EXPECT_EQ("null", PrettyField(nullptr));
+  EXPECT_EQ("null", ArtField::PrettyField(nullptr));
 
   mirror::Class* java_lang_String = class_linker_->FindSystemClass(soa.Self(),
                                                                    "Ljava/lang/String;");
 
   ArtField* f;
   f = java_lang_String->FindDeclaredInstanceField("count", "I");
-  EXPECT_EQ("int java.lang.String.count", PrettyField(f));
-  EXPECT_EQ("java.lang.String.count", PrettyField(f, false));
+  EXPECT_EQ("int java.lang.String.count", f->PrettyField());
+  EXPECT_EQ("java.lang.String.count", f->PrettyField(false));
 }
 
 TEST_F(UtilsTest, PrettySize) {
@@ -187,20 +192,20 @@ TEST_F(UtilsTest, JniShortName_JniLongName) {
   ASSERT_TRUE(c != nullptr);
   ArtMethod* m;
 
-  m = c->FindVirtualMethod("charAt", "(I)C", sizeof(void*));
+  m = c->FindVirtualMethod("charAt", "(I)C", kRuntimePointerSize);
   ASSERT_TRUE(m != nullptr);
-  EXPECT_EQ("Java_java_lang_String_charAt", JniShortName(m));
-  EXPECT_EQ("Java_java_lang_String_charAt__I", JniLongName(m));
+  EXPECT_EQ("Java_java_lang_String_charAt", m->JniShortName());
+  EXPECT_EQ("Java_java_lang_String_charAt__I", m->JniLongName());
 
-  m = c->FindVirtualMethod("indexOf", "(Ljava/lang/String;I)I", sizeof(void*));
+  m = c->FindVirtualMethod("indexOf", "(Ljava/lang/String;I)I", kRuntimePointerSize);
   ASSERT_TRUE(m != nullptr);
-  EXPECT_EQ("Java_java_lang_String_indexOf", JniShortName(m));
-  EXPECT_EQ("Java_java_lang_String_indexOf__Ljava_lang_String_2I", JniLongName(m));
+  EXPECT_EQ("Java_java_lang_String_indexOf", m->JniShortName());
+  EXPECT_EQ("Java_java_lang_String_indexOf__Ljava_lang_String_2I", m->JniLongName());
 
-  m = c->FindDirectMethod("copyValueOf", "([CII)Ljava/lang/String;", sizeof(void*));
+  m = c->FindDirectMethod("copyValueOf", "([CII)Ljava/lang/String;", kRuntimePointerSize);
   ASSERT_TRUE(m != nullptr);
-  EXPECT_EQ("Java_java_lang_String_copyValueOf", JniShortName(m));
-  EXPECT_EQ("Java_java_lang_String_copyValueOf___3CII", JniLongName(m));
+  EXPECT_EQ("Java_java_lang_String_copyValueOf", m->JniShortName());
+  EXPECT_EQ("Java_java_lang_String_copyValueOf___3CII", m->JniLongName());
 }
 
 TEST_F(UtilsTest, Split) {
@@ -269,78 +274,30 @@ TEST_F(UtilsTest, Split) {
   EXPECT_EQ(expected, actual);
 }
 
-TEST_F(UtilsTest, Join) {
-  std::vector<std::string> strings;
+TEST_F(UtilsTest, GetDalvikCacheFilename) {
+  std::string name;
+  std::string error;
 
-  strings.clear();
-  EXPECT_EQ("", Join(strings, ':'));
+  EXPECT_TRUE(GetDalvikCacheFilename("/system/app/Foo.apk", "/foo", &name, &error)) << error;
+  EXPECT_EQ("/foo/system@app@Foo.apk@classes.dex", name);
 
-  strings.clear();
-  strings.push_back("foo");
-  EXPECT_EQ("foo", Join(strings, ':'));
+  EXPECT_TRUE(GetDalvikCacheFilename("/data/app/foo-1.apk", "/foo", &name, &error)) << error;
+  EXPECT_EQ("/foo/data@app@foo-1.apk@classes.dex", name);
 
-  strings.clear();
-  strings.push_back("");
-  strings.push_back("foo");
-  EXPECT_EQ(":foo", Join(strings, ':'));
+  EXPECT_TRUE(GetDalvikCacheFilename("/system/framework/core.jar", "/foo", &name, &error)) << error;
+  EXPECT_EQ("/foo/system@framework@core.jar@classes.dex", name);
 
-  strings.clear();
-  strings.push_back("foo");
-  strings.push_back("");
-  EXPECT_EQ("foo:", Join(strings, ':'));
+  EXPECT_TRUE(GetDalvikCacheFilename("/system/framework/boot.art", "/foo", &name, &error)) << error;
+  EXPECT_EQ("/foo/system@framework@boot.art", name);
 
-  strings.clear();
-  strings.push_back("");
-  strings.push_back("foo");
-  strings.push_back("");
-  EXPECT_EQ(":foo:", Join(strings, ':'));
-
-  strings.clear();
-  strings.push_back("foo");
-  strings.push_back("bar");
-  EXPECT_EQ("foo:bar", Join(strings, ':'));
-
-  strings.clear();
-  strings.push_back("foo");
-  strings.push_back("bar");
-  strings.push_back("baz");
-  EXPECT_EQ("foo:bar:baz", Join(strings, ':'));
-}
-
-TEST_F(UtilsTest, StartsWith) {
-  EXPECT_FALSE(StartsWith("foo", "bar"));
-  EXPECT_TRUE(StartsWith("foo", "foo"));
-  EXPECT_TRUE(StartsWith("food", "foo"));
-  EXPECT_FALSE(StartsWith("fo", "foo"));
-}
-
-TEST_F(UtilsTest, EndsWith) {
-  EXPECT_FALSE(EndsWith("foo", "bar"));
-  EXPECT_TRUE(EndsWith("foo", "foo"));
-  EXPECT_TRUE(EndsWith("foofoo", "foo"));
-  EXPECT_FALSE(EndsWith("oo", "foo"));
-}
-
-TEST_F(UtilsTest, GetDalvikCacheFilenameOrDie) {
-  EXPECT_STREQ("/foo/system@app@Foo.apk@classes.dex",
-               GetDalvikCacheFilenameOrDie("/system/app/Foo.apk", "/foo").c_str());
-
-  EXPECT_STREQ("/foo/data@app@foo-1.apk@classes.dex",
-               GetDalvikCacheFilenameOrDie("/data/app/foo-1.apk", "/foo").c_str());
-  EXPECT_STREQ("/foo/system@framework@core.jar@classes.dex",
-               GetDalvikCacheFilenameOrDie("/system/framework/core.jar", "/foo").c_str());
-  EXPECT_STREQ("/foo/system@framework@boot.art",
-               GetDalvikCacheFilenameOrDie("/system/framework/boot.art", "/foo").c_str());
-  EXPECT_STREQ("/foo/system@framework@boot.oat",
-               GetDalvikCacheFilenameOrDie("/system/framework/boot.oat", "/foo").c_str());
+  EXPECT_TRUE(GetDalvikCacheFilename("/system/framework/boot.oat", "/foo", &name, &error)) << error;
+  EXPECT_EQ("/foo/system@framework@boot.oat", name);
 }
 
 TEST_F(UtilsTest, GetDalvikCache) {
-  EXPECT_STREQ("", GetDalvikCache("should-not-exist123", false).c_str());
+  EXPECT_STREQ("", GetDalvikCache("should-not-exist123").c_str());
 
-  EXPECT_STREQ((android_data_ + "/dalvik-cache/.").c_str(), GetDalvikCache(".", false).c_str());
-  EXPECT_STREQ((android_data_ + "/dalvik-cache/should-not-be-there").c_str(),
-               GetDalvikCache("should-not-be-there", true).c_str());
+  EXPECT_STREQ((android_data_ + "/dalvik-cache/.").c_str(), GetDalvikCache(".").c_str());
 }
 
 
@@ -375,8 +332,57 @@ TEST_F(UtilsTest, ExecError) {
   if (!(RUNNING_ON_MEMORY_TOOL && kMemoryToolDetectsLeaks)) {
     // Running on valgrind fails due to some memory that leaks in thread alternate signal stacks.
     EXPECT_FALSE(Exec(command, &error_msg));
-    EXPECT_NE(0U, error_msg.size());
+    EXPECT_FALSE(error_msg.empty());
   }
+}
+
+TEST_F(UtilsTest, EnvSnapshotAdditionsAreNotVisible) {
+  static constexpr const char* kModifiedVariable = "EXEC_SHOULD_NOT_EXPORT_THIS";
+  static constexpr int kOverwrite = 1;
+  // Set an variable in the current environment.
+  EXPECT_EQ(setenv(kModifiedVariable, "NEVER", kOverwrite), 0);
+  // Test that it is not exported.
+  std::vector<std::string> command;
+  if (kIsTargetBuild) {
+    std::string android_root(GetAndroidRoot());
+    command.push_back(android_root + "/bin/printenv");
+  } else {
+    command.push_back("/usr/bin/printenv");
+  }
+  command.push_back(kModifiedVariable);
+  std::string error_msg;
+  if (!(RUNNING_ON_MEMORY_TOOL && kMemoryToolDetectsLeaks)) {
+    // Running on valgrind fails due to some memory that leaks in thread alternate signal stacks.
+    EXPECT_FALSE(Exec(command, &error_msg));
+    EXPECT_NE(0U, error_msg.size()) << error_msg;
+  }
+}
+
+TEST_F(UtilsTest, EnvSnapshotDeletionsAreNotVisible) {
+  static constexpr const char* kDeletedVariable = "PATH";
+  static constexpr int kOverwrite = 1;
+  // Save the variable's value.
+  const char* save_value = getenv(kDeletedVariable);
+  EXPECT_NE(save_value, nullptr);
+  // Delete the variable.
+  EXPECT_EQ(unsetenv(kDeletedVariable), 0);
+  // Test that it is not exported.
+  std::vector<std::string> command;
+  if (kIsTargetBuild) {
+    std::string android_root(GetAndroidRoot());
+    command.push_back(android_root + "/bin/printenv");
+  } else {
+    command.push_back("/usr/bin/printenv");
+  }
+  command.push_back(kDeletedVariable);
+  std::string error_msg;
+  if (!(RUNNING_ON_MEMORY_TOOL && kMemoryToolDetectsLeaks)) {
+    // Running on valgrind fails due to some memory that leaks in thread alternate signal stacks.
+    EXPECT_TRUE(Exec(command, &error_msg));
+    EXPECT_EQ(0U, error_msg.size()) << error_msg;
+  }
+  // Restore the variable's value.
+  EXPECT_EQ(setenv(kDeletedVariable, save_value, kOverwrite), 0);
 }
 
 TEST_F(UtilsTest, IsValidDescriptor) {
@@ -400,6 +406,25 @@ TEST_F(UtilsTest, IsValidDescriptor) {
       { 'L', 'a', '/', 'b', '$', 0xed, 0xb0, 0x80, 0xf0, 0x9f, 0x8f, 0xa0, ';', 0x00 });
   EXPECT_FALSE(
       IsValidDescriptor(reinterpret_cast<char*>(&unpaired_surrogate_with_multibyte_sequence[0])));
+}
+
+TEST_F(UtilsTest, ArrayCount) {
+  int i[64];
+  EXPECT_EQ(ArrayCount(i), 64u);
+  char c[7];
+  EXPECT_EQ(ArrayCount(c), 7u);
+}
+
+TEST_F(UtilsTest, BoundsCheckedCast) {
+  char buffer[64];
+  const char* buffer_end = buffer + ArrayCount(buffer);
+  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(nullptr, buffer, buffer_end), nullptr);
+  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer, buffer, buffer_end),
+            reinterpret_cast<const uint64_t*>(buffer));
+  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer + 56, buffer, buffer_end),
+            reinterpret_cast<const uint64_t*>(buffer + 56));
+  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer - 1, buffer, buffer_end), nullptr);
+  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer + 57, buffer, buffer_end), nullptr);
 }
 
 }  // namespace art

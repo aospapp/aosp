@@ -50,7 +50,7 @@ class LinksysAPConfigurator(
         if page_number == 1:
             url = urlparse.urljoin(self.admin_interface_url, 'wireless.htm')
             self.driver.get(url)
-            xpath = '//input[@name="wsc_smode" and @value=1]'
+            xpath = '//input[@name="wsc_smode" and @value="1"]'
             button = self.driver.find_element_by_xpath(xpath)
             if not button.is_selected():
                 self.click_button_by_xpath(xpath)

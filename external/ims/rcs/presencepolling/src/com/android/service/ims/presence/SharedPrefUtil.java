@@ -37,13 +37,6 @@ public class SharedPrefUtil {
     private static final String CONTACT_CHANGED_PREF_KEY = "timestamp_change";
     private static final String CONTACT_DELETE_PREF_KEY = "timestamp_delete";
     private static final String CONTACT_PROFILE_CHANGED_PREF_KEY = "profile_timestamp_change";
-    public static final String VIDEO_CALLING_GROUP_ID = "video_calling_group_id";
-    public static final String VIDEO_CALLING_WARN_SHOW = "video_calling_warning_alert_show";
-    public static final String VIDEO_CALL_OFF_WARN_SHOW = "video_call_off_alert_show";
-    public static final String MOBILE_DATA_ON_WARN_SHOW = "mobile_data_on_alert_show";
-    public static final String VOLTE_ON_WARN_SHOW = "volte_on_alert_show";
-    public static final String TTY_OFF_WARN_SHOW = "tty_off_alert_show";
-    public static final String VT_ON_WARN_SHOW = "vt_on_alert_show";
 
     public static boolean isInitDone(Context context) {
         SharedPreferences eabPref = context.getSharedPreferences(
@@ -58,9 +51,11 @@ public class SharedPrefUtil {
     }
 
     public static long getLastContactChangedTimestamp(Context context, long time) {
+        long contactModifySyncTime = 0;
         SharedPreferences pref = context.getSharedPreferences(EAB_SHARED_PREF,
                 Context.MODE_PRIVATE);
-        return pref.getLong(CONTACT_CHANGED_PREF_KEY, time);
+        contactModifySyncTime = pref.getLong(CONTACT_CHANGED_PREF_KEY, time);
+        return validateDeviceTimestamp(context, contactModifySyncTime);
     }
 
     public static void saveLastContactChangedTimestamp(Context context, long time) {
@@ -70,9 +65,11 @@ public class SharedPrefUtil {
     }
 
     public static long getLastProfileContactChangedTimestamp(Context context, long time) {
+        long profileModifySyncTime = 0;
         SharedPreferences pref = context.getSharedPreferences(EAB_SHARED_PREF,
                 Context.MODE_PRIVATE);
-        return pref.getLong(CONTACT_PROFILE_CHANGED_PREF_KEY, time);
+        profileModifySyncTime = pref.getLong(CONTACT_PROFILE_CHANGED_PREF_KEY, time);
+        return validateDeviceTimestamp(context, profileModifySyncTime);
     }
 
     public static void saveLastProfileContactChangedTimestamp(Context context, long time) {
@@ -82,9 +79,11 @@ public class SharedPrefUtil {
     }
 
     public static long getLastContactDeletedTimestamp(Context context, long time) {
+        long contactDeleteSyncTime = 0;
         SharedPreferences pref = context.getSharedPreferences(EAB_SHARED_PREF,
                 Context.MODE_PRIVATE);
-        return pref.getLong(CONTACT_DELETE_PREF_KEY, time);
+        contactDeleteSyncTime = pref.getLong(CONTACT_DELETE_PREF_KEY, time);
+        return validateDeviceTimestamp(context, contactDeleteSyncTime);
     }
 
     public static void saveLastContactDeletedTimestamp(Context context, long time) {
@@ -93,90 +92,18 @@ public class SharedPrefUtil {
         eabPref.putLong(CONTACT_DELETE_PREF_KEY, time).commit();
     }
 
-    public static void setVideoCallingGroupId(Context context,
-            long videoCallingGroupId) {
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(
-                EAB_SHARED_PREF, Context.MODE_PRIVATE).edit();
-        eabPref.putLong(VIDEO_CALLING_GROUP_ID, videoCallingGroupId).commit();
-    }
-
-    public static long getVideoCallingGroupId(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(
-                EAB_SHARED_PREF, Context.MODE_PRIVATE);
-        return eabPref.getLong(VIDEO_CALLING_GROUP_ID, 0L);
-    }
-
-    public static void setVideoCallingWarnDisable(Context context,
-            boolean enable) {
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(
-                EAB_SHARED_PREF, Context.MODE_PRIVATE).edit();
-        eabPref.putBoolean(VIDEO_CALLING_WARN_SHOW, enable).apply();
-    }
-
-    public static boolean isVideoCallingWarnDisabled(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(
-                EAB_SHARED_PREF, Context.MODE_PRIVATE);
-        return eabPref.getBoolean(VIDEO_CALLING_WARN_SHOW, false);
-    }
-
-    public static void setVideoCallOffWarnDisable(Context context, boolean enable){
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE).edit();
-        eabPref.putBoolean(VIDEO_CALL_OFF_WARN_SHOW, enable).apply();
-    }
-
-    public static boolean isVideoCallOffWarnDisabled(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE);
-        return eabPref.getBoolean(VIDEO_CALL_OFF_WARN_SHOW, false);
-    }
-
-    public static void setMobileDataOnWarnDisable(Context context, boolean enable){
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE).edit();
-        eabPref.putBoolean(MOBILE_DATA_ON_WARN_SHOW, enable).apply();
-    }
-
-    public static boolean isMobileDataOnWarnDisabled(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE);
-        return eabPref.getBoolean(MOBILE_DATA_ON_WARN_SHOW, false);
-    }
-
-    public static void setVolteOnWarnDisable(Context context, boolean enable){
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE).edit();
-        eabPref.putBoolean(VOLTE_ON_WARN_SHOW, enable).apply();
-    }
-
-    public static boolean isVolteOnWarnDisabled(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE);
-        return eabPref.getBoolean(VOLTE_ON_WARN_SHOW, false);
-    }
-
-    public static void setTtyOffWarnDisable(Context context, boolean enable){
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE).edit();
-        eabPref.putBoolean(TTY_OFF_WARN_SHOW, enable).apply();
-    }
-
-    public static boolean isTtyOffWarnDisabled(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE);
-        return eabPref.getBoolean(TTY_OFF_WARN_SHOW, false);
-    }
-
-    public static void setVTOnWarnDisable(Context context, boolean enable){
-        SharedPreferences.Editor eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE).edit();
-        eabPref.putBoolean(VT_ON_WARN_SHOW, enable).apply();
-    }
-
-    public static boolean isVTOnWarnDisabled(Context context){
-        SharedPreferences eabPref = context.getSharedPreferences(EAB_SHARED_PREF,
-                Context.MODE_PRIVATE);
-        return eabPref.getBoolean(VT_ON_WARN_SHOW, false);
+    private static long validateDeviceTimestamp(Context context, long lastSyncedTimestamp) {
+        long deviceCurrentTimeMillis = System.currentTimeMillis();
+        if((lastSyncedTimestamp != 0) && lastSyncedTimestamp > deviceCurrentTimeMillis) {
+            SharedPreferences.Editor eabPref = context.getSharedPreferences(
+                    EAB_SHARED_PREF, Context.MODE_PRIVATE).edit();
+            eabPref.putLong(CONTACT_CHANGED_PREF_KEY, 0);
+            eabPref.putLong(CONTACT_DELETE_PREF_KEY, 0);
+            eabPref.putLong(CONTACT_PROFILE_CHANGED_PREF_KEY, 0);
+            eabPref.commit();
+            lastSyncedTimestamp = 0;
+        }
+        return lastSyncedTimestamp;
     }
 
     public static void resetEABSharedPref(Context context) {
@@ -186,12 +113,6 @@ public class SharedPrefUtil {
         eabPref.putLong(CONTACT_CHANGED_PREF_KEY, 0);
         eabPref.putLong(CONTACT_DELETE_PREF_KEY, 0);
         eabPref.putLong(CONTACT_PROFILE_CHANGED_PREF_KEY, 0);
-        eabPref.putBoolean(VIDEO_CALLING_WARN_SHOW, false);
-        eabPref.putBoolean(VIDEO_CALL_OFF_WARN_SHOW, false);
-        eabPref.putBoolean(MOBILE_DATA_ON_WARN_SHOW, false);
-        eabPref.putBoolean(VOLTE_ON_WARN_SHOW, false);
-        eabPref.putBoolean(TTY_OFF_WARN_SHOW, false);
-        eabPref.putBoolean(VT_ON_WARN_SHOW, false);
         eabPref.commit();
     }
 }

@@ -32,12 +32,6 @@ namespace tcu
 namespace x11
 {
 
-enum
-{
-	DEFAULT_WINDOW_WIDTH	= 400,
-	DEFAULT_WINDOW_HEIGHT	= 300
-};
-
 EventState::EventState (void)
 	: m_quit(false)
 {
@@ -59,10 +53,26 @@ bool EventState::getQuitFlag (void)
 	return m_quit;
 }
 
-Display::Display (EventState& eventState, const char* name)
-	: m_eventState	(eventState)
-	, m_display		(DE_NULL)
-	, m_deleteAtom	(DE_NULL)
+DisplayBase::DisplayBase (EventState& platform)
+	: m_eventState	(platform)
+{
+}
+
+DisplayBase::~DisplayBase (void)
+{
+}
+
+WindowBase::WindowBase ()
+	: m_visible	(false)
+{
+}
+
+WindowBase::~WindowBase (void)
+{
+}
+
+XlibDisplay::XlibDisplay (EventState& eventState, const char* name)
+	: DisplayBase	(eventState)
 {
 	m_display = XOpenDisplay((char*)name); // Won't modify argument string.
 	if (!m_display)
@@ -71,26 +81,37 @@ Display::Display (EventState& eventState, const char* name)
 	m_deleteAtom	= XInternAtom(m_display, "WM_DELETE_WINDOW", False);
 }
 
-Display::~Display (void)
+XlibDisplay::~XlibDisplay (void)
 {
 	XCloseDisplay(m_display);
 }
 
-void Display::processEvents (void)
+void XlibDisplay::processEvent (XEvent& event)
+{
+	switch (event.type)
+	{
+		case ClientMessage:
+			if ((unsigned)event.xclient.data.l[0] == m_deleteAtom)
+				m_eventState.setQuitFlag(true);
+			break;
+		// note: ConfigureNotify for window is handled in setDimensions()
+		default:
+			break;
+	}
+}
+
+void XlibDisplay::processEvents (void)
 {
 	XEvent	event;
 
 	while (XPending(m_display))
 	{
 		XNextEvent(m_display, &event);
-
-		// \todo [2010-10-27 pyry] Handle ConfigureNotify?
-		if (event.type == ClientMessage && (unsigned)event.xclient.data.l[0] == m_deleteAtom)
-			m_eventState.setQuitFlag(true);
+		processEvent(event);
 	}
 }
 
-bool Display::getVisualInfo (VisualID visualID, XVisualInfo& dst)
+bool XlibDisplay::getVisualInfo (VisualID visualID, XVisualInfo& dst)
 {
 	XVisualInfo		query;
 	query.visualid = visualID;
@@ -111,7 +132,7 @@ bool Display::getVisualInfo (VisualID visualID, XVisualInfo& dst)
 	return succ;
 }
 
-::Visual* Display::getVisual (VisualID visualID)
+::Visual* XlibDisplay::getVisual (VisualID visualID)
 {
 	XVisualInfo		info;
 
@@ -121,11 +142,11 @@ bool Display::getVisualInfo (VisualID visualID, XVisualInfo& dst)
 	return DE_NULL;
 }
 
-Window::Window (Display& display, int width, int height, ::Visual* visual)
-	: m_display		(display)
+XlibWindow::XlibWindow (XlibDisplay& display, int width, int height, ::Visual* visual)
+	: WindowBase	()
+	, m_display		(display)
 	, m_colormap	(None)
 	, m_window		(None)
-	, m_visible		(false)
 {
 	XSetWindowAttributes	swa;
 	::Display* const		dpy					= m_display.getXDisplay();
@@ -173,9 +194,10 @@ Window::Window (Display& display, int width, int height, ::Visual* visual)
 
 	Atom deleteAtom = m_display.getDeleteAtom();
 	XSetWMProtocols(dpy, m_window, &deleteAtom, 1);
+	XSync(dpy,false);
 }
 
-void Window::setVisibility (bool visible)
+void XlibWindow::setVisibility (bool visible)
 {
 	::Display*	dpy			= m_display.getXDisplay();
 	int			eventType	= None;
@@ -200,13 +222,13 @@ void Window::setVisibility (bool visible)
 
 	do
 	{
-		XNextEvent(dpy, &event);
+		XWindowEvent(dpy, m_window, ExposureMask | StructureNotifyMask, &event);
 	} while (event.type != eventType);
 
 	m_visible = visible;
 }
 
-void Window::getDimensions (int* width, int* height) const
+void XlibWindow::getDimensions (int* width, int* height) const
 {
 	int x, y;
 	::Window root;
@@ -219,23 +241,37 @@ void Window::getDimensions (int* width, int* height) const
 		*height = static_cast<int>(height_);
 }
 
-void Window::setDimensions (int width, int height)
+void XlibWindow::setDimensions (int width, int height)
 {
-	const unsigned int	mask = CWWidth | CWHeight;
+	const unsigned int	mask		= CWWidth | CWHeight;
 	XWindowChanges		changes;
-	changes.width		= width;
-	changes.height		= height;
+	::Display*			dpy			= m_display.getXDisplay();
+	XEvent				myevent;
+	changes.width	= width;
+	changes.height	= height;
+	XConfigureWindow(dpy, m_window, mask, &changes);
+	XFlush(dpy);
 
-	XConfigureWindow(m_display.getXDisplay(), m_window, mask, &changes);
+	for(;;)
+	{
+		XNextEvent(dpy, &myevent);
+		if (myevent.type == ConfigureNotify) {
+			XConfigureEvent e = myevent.xconfigure;
+			if (e.width == width && e.height == height)
+				break;
+		}
+		else
+			m_display.processEvent(myevent);
+	}
 }
 
-void Window::processEvents (void)
+void XlibWindow::processEvents (void)
 {
 	// A bit of a hack, since we don't really handle all the events.
 	m_display.processEvents();
 }
 
-Window::~Window (void)
+XlibWindow::~XlibWindow (void)
 {
 	XDestroyWindow(m_display.getXDisplay(), m_window);
 	if (m_colormap != None)

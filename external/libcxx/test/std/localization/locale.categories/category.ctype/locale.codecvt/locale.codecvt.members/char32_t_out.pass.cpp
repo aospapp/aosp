@@ -31,7 +31,7 @@ int main()
     {
         F::intern_type from[9] = {'s', 'o', 'm', 'e', ' ', 't', 'e', 'x', 't'};
         char to[9] = {0};
-        std::mbstate_t mbs = {0};
+        std::mbstate_t mbs = {};
         const F::intern_type* from_next = 0;
         char* to_next = 0;
         F::result r = f.out(mbs, from, from + 9, from_next,
@@ -40,6 +40,6 @@ int main()
         assert(from_next - from == 9);
         assert(to_next - to == 9);
         for (unsigned i = 0; i < 9; ++i)
-            assert(to[i] == from[i]);
+            assert(static_cast<char32_t>(to[i]) == from[i]);
     }
 }

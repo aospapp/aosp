@@ -9,7 +9,6 @@ CRITERIA = """
 This test fails if device fails to obtain dhcp through ethernet.
 """
 ATTRIBUTES = "suite:stress_experimental"
-SUITE = "stress_experimental"
 
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
@@ -23,6 +22,7 @@ DOC = """
 # We want the default number of loops per test run
 # to be 100.
 num_iterations = 100
+interface=None # autodetect interface
 
 # Parse comma-separated args.
 for arg in args:
@@ -30,5 +30,8 @@ for arg in args:
         key, val = item.split('=')
         if key == 'num_iterations':
             num_iterations = int(val)
+        if key == 'interface':
+            interface = val
 
-job.run_test('network_EthernetStressPlug', num_iterations=num_iterations)
+job.run_test('network_EthernetStressPlug', num_iterations=num_iterations,
+    interface=interface)

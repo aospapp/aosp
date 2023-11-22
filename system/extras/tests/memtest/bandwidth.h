@@ -105,9 +105,11 @@ public:
     bool setSize(size_t size) {
         if (_src) {
            free(_src);
+           _src = NULL;
         }
         if (_dst) {
             free(_dst);
+            _dst = NULL;
         }
 
         if (size == 0) {

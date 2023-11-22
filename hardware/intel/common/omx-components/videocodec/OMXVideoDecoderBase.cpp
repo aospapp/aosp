@@ -784,6 +784,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     uint32_t widthCropped = formatInfo->width - formatInfo->cropLeft - formatInfo->cropRight;
     uint32_t heightCropped = formatInfo->height - formatInfo->cropTop - formatInfo->cropBottom;
     if (strcasecmp(formatInfo->mimeType,"video/avc") == 0 ||
+        strcasecmp(formatInfo->mimeType,"video/avc-secure") == 0 ||
         strcasecmp(formatInfo->mimeType,"video/h264") == 0) {
         heightCropped = formatInfo->height;
         widthCropped = formatInfo->width;
@@ -1214,6 +1215,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderOutputCropSpecific(OMX_PTR pStructu
         rectParams->nWidth = formatInfo->width - formatInfo->cropLeft - formatInfo->cropRight;
         rectParams->nHeight = formatInfo->height - formatInfo->cropTop - formatInfo->cropBottom;
         if (strcasecmp(formatInfo->mimeType,"video/avc") == 0 ||
+            strcasecmp(formatInfo->mimeType,"video/avc-secure") == 0 ||
             strcasecmp(formatInfo->mimeType,"video/h264") == 0) {
             rectParams->nHeight = formatInfo->height;
             rectParams->nWidth = formatInfo->width;

@@ -58,16 +58,18 @@ The following registers have fixed assignments:
   s3  rINST     first 16-bit code unit of current instruction
   s4  rIBASE    interpreted instruction base pointer, used for computed goto
   s5  rREFS     base of object references in shadow frame  (ideally, we'll get rid of this later).
+  s6  rPROFILE  jit profile hotness countdown
 */
 
 /* During bringup, we'll use the shadow frame model instead of rFP */
 /* single-purpose registers, given names for clarity */
-#define rPC     s0
-#define rFP     s1
-#define rSELF   s2
-#define rINST   s3
-#define rIBASE  s4
-#define rREFS   s5
+#define rPC      s0
+#define rFP      s1
+#define rSELF    s2
+#define rINST    s3
+#define rIBASE   s4
+#define rREFS    s5
+#define rPROFILE s6
 
 /*
  * This is a #include, not a %include, because we want the C pre-processor
@@ -87,7 +89,7 @@ The following registers have fixed assignments:
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
 #define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
-#define OFF_FP_SHADOWFRAME (-SHADOWFRAME_VREGS_OFFSET)
+#define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 #define MTERP_PROFILE_BRANCHES 1
 #define MTERP_LOGGING 0
@@ -125,6 +127,17 @@ The following registers have fixed assignments:
 /* Advance rPC by some number of code units. */
 .macro ADVANCE count
     daddu   rPC, rPC, (\count) * 2
+.endm
+
+/*
+ * Fetch the next instruction from an offset specified by _reg and advance xPC.
+ * xPC to point to the next instruction.  "_reg" must specify the distance
+ * in bytes, *not* 16-bit code units, and may be a signed value.  Must not set flags.
+ *
+ */
+.macro FETCH_ADVANCE_INST_RB reg
+    daddu   rPC, rPC, \reg
+    FETCH_INST
 .endm
 
 /*
@@ -274,7 +287,8 @@ The following registers have fixed assignments:
 #define STACK_OFFSET_S3 40
 #define STACK_OFFSET_S4 48
 #define STACK_OFFSET_S5 56
-#define STACK_SIZE      64
+#define STACK_OFFSET_S6 64
+#define STACK_SIZE      80    /* needs 16 byte alignment */
 
 /* Constants for float/double_to_int/long conversions */
 #define INT_MIN             0x80000000
@@ -344,6 +358,8 @@ ExecuteMterpImpl:
     .cfi_rel_offset 20, STACK_OFFSET_S4
     sd      s5, STACK_OFFSET_S5(sp)
     .cfi_rel_offset 21, STACK_OFFSET_S5
+    sd      s6, STACK_OFFSET_S6(sp)
+    .cfi_rel_offset 22, STACK_OFFSET_S6
 
     /* Remember the return register */
     sd      a3, SHADOWFRAME_RESULT_REGISTER_OFFSET(a2)
@@ -363,6 +379,12 @@ ExecuteMterpImpl:
 
     /* Starting ibase */
     REFRESH_IBASE
+
+    /* Set up for backwards branches & osr profiling */
+    ld      a0, OFF_FP_METHOD(rFP)
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    jal     MterpSetUpHotnessCountdown
+    move    rPROFILE, v0                # Starting hotness countdown to rPROFILE
 
     /* start executing the instruction at rPC */
     FETCH_INST
@@ -615,7 +637,7 @@ artMterpAsmInstructionStart = .L_op_nop
     jal     MterpThreadFenceForConstructor
     lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     move    a0, rSELF
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and     ra, ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqzc   ra, 1f
     jal     MterpSuspendCheck           # (self)
 1:
@@ -629,7 +651,7 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Return a 32-bit value.
      *
-     * for: return, return-object
+     * for: return (sign-extend), return-object (zero-extend)
      */
     /* op vAA */
     .extern MterpThreadFenceForConstructor
@@ -637,12 +659,12 @@ artMterpAsmInstructionStart = .L_op_nop
     jal     MterpThreadFenceForConstructor
     lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     move    a0, rSELF
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and     ra, ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqzc   ra, 1f
     jal     MterpSuspendCheck           # (self)
 1:
     srl     a2, rINST, 8                # a2 <- AA
-    GET_VREG_U a0, a2                   # a0 <- vAA
+    GET_VREG  a0, a2                      # a0 <- vAA
     b       MterpReturn
 
 /* ------------------------------ */
@@ -659,7 +681,7 @@ artMterpAsmInstructionStart = .L_op_nop
     jal     MterpThreadFenceForConstructor
     lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     move    a0, rSELF
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and     ra, ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqzc   ra, 1f
     jal     MterpSuspendCheck           # (self)
 1:
@@ -675,7 +697,7 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Return a 32-bit value.
      *
-     * for: return, return-object
+     * for: return (sign-extend), return-object (zero-extend)
      */
     /* op vAA */
     .extern MterpThreadFenceForConstructor
@@ -683,12 +705,12 @@ artMterpAsmInstructionStart = .L_op_nop
     jal     MterpThreadFenceForConstructor
     lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     move    a0, rSELF
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and     ra, ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqzc   ra, 1f
     jal     MterpSuspendCheck           # (self)
 1:
     srl     a2, rINST, 8                # a2 <- AA
-    GET_VREG_U a0, a2                   # a0 <- vAA
+    GET_VREG_U  a0, a2                      # a0 <- vAA
     b       MterpReturn
 
 
@@ -1100,24 +1122,9 @@ artMterpAsmInstructionStart = .L_op_nop
      * double to get a byte offset.
      */
     /* goto +AA */
-    .extern MterpProfileBranch
     srl     rINST, rINST, 8
     seb     rINST, rINST                # rINST <- offset (sign-extended AA)
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
-    GET_INST_OPCODE v0                  # extract opcode from rINST
-    GOTO_OPCODE v0                      # jump to next instruction
+    b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1130,23 +1137,8 @@ artMterpAsmInstructionStart = .L_op_nop
      * double to get a byte offset.
      */
     /* goto/16 +AAAA */
-    .extern MterpProfileBranch
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended AAAA)
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
-    GET_INST_OPCODE v0                  # extract opcode from rINST
-    GOTO_OPCODE v0                      # jump to next instruction
+    b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1162,25 +1154,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * our "backward branch" test must be "<=0" instead of "<0".
      */
     /* goto/32 +AAAAAAAA */
-    .extern MterpProfileBranch
     lh      rINST, 2(rPC)               # rINST <- aaaa (low)
     lh      a1, 4(rPC)                  # a1 <- AAAA (high)
     ins     rINST, a1, 16, 16           # rINST <- offset (sign-extended AAAAaaaa)
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    blez    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
-    GET_INST_OPCODE v0                  # extract opcode from rINST
-    GOTO_OPCODE v0                      # jump to next instruction
+    b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1197,7 +1174,6 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, +BBBBBBBB */
     .extern MterpDoPackedSwitch
-    .extern MterpProfileBranch
     lh      a0, 2(rPC)                  # a0 <- bbbb (lo)
     lh      a1, 4(rPC)                  # a1 <- BBBB (hi)
     srl     a3, rINST, 8                # a3 <- AA
@@ -1206,21 +1182,7 @@ artMterpAsmInstructionStart = .L_op_nop
     dlsa    a0, a0, rPC, 1              # a0 <- PC + BBBBbbbb*2
     jal     MterpDoPackedSwitch                       # v0 <- code-unit branch offset
     move    rINST, v0
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    blez    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
-    GET_INST_OPCODE v0                  # extract opcode from rINST
-    GOTO_OPCODE v0                      # jump to next instruction
+    b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1238,7 +1200,6 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, +BBBBBBBB */
     .extern MterpDoSparseSwitch
-    .extern MterpProfileBranch
     lh      a0, 2(rPC)                  # a0 <- bbbb (lo)
     lh      a1, 4(rPC)                  # a1 <- BBBB (hi)
     srl     a3, rINST, 8                # a3 <- AA
@@ -1247,21 +1208,7 @@ artMterpAsmInstructionStart = .L_op_nop
     dlsa    a0, a0, rPC, 1              # a0 <- PC + BBBBbbbb*2
     jal     MterpDoSparseSwitch                       # v0 <- code-unit branch offset
     move    rINST, v0
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    blez    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
-    GET_INST_OPCODE v0                  # extract opcode from rINST
-    GOTO_OPCODE v0                      # jump to next instruction
+    b       MterpCommonTakenBranchNoFlags
 
 
 /* ------------------------------ */
@@ -1447,28 +1394,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
     /* if-cmp vA, vB, +CCCC */
-    .extern MterpProfileBranch
     ext     a2, rINST, 8, 4             # a2 <- A
     ext     a3, rINST, 12, 4            # a3 <- B
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended CCCC)
     GET_VREG a0, a2                     # a0 <- vA
     GET_VREG a1, a3                     # a1 <- vB
-    beqc a0, a1, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    beqc a0, a1, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1486,28 +1420,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
     /* if-cmp vA, vB, +CCCC */
-    .extern MterpProfileBranch
     ext     a2, rINST, 8, 4             # a2 <- A
     ext     a3, rINST, 12, 4            # a3 <- B
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended CCCC)
     GET_VREG a0, a2                     # a0 <- vA
     GET_VREG a1, a3                     # a1 <- vB
-    bnec a0, a1, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bnec a0, a1, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1525,28 +1446,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
     /* if-cmp vA, vB, +CCCC */
-    .extern MterpProfileBranch
     ext     a2, rINST, 8, 4             # a2 <- A
     ext     a3, rINST, 12, 4            # a3 <- B
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended CCCC)
     GET_VREG a0, a2                     # a0 <- vA
     GET_VREG a1, a3                     # a1 <- vB
-    bltc a0, a1, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bltc a0, a1, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1564,28 +1472,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
     /* if-cmp vA, vB, +CCCC */
-    .extern MterpProfileBranch
     ext     a2, rINST, 8, 4             # a2 <- A
     ext     a3, rINST, 12, 4            # a3 <- B
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended CCCC)
     GET_VREG a0, a2                     # a0 <- vA
     GET_VREG a1, a3                     # a1 <- vB
-    bgec a0, a1, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bgec a0, a1, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1603,28 +1498,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
     /* if-cmp vA, vB, +CCCC */
-    .extern MterpProfileBranch
     ext     a2, rINST, 8, 4             # a2 <- A
     ext     a3, rINST, 12, 4            # a3 <- B
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended CCCC)
     GET_VREG a0, a2                     # a0 <- vA
     GET_VREG a1, a3                     # a1 <- vB
-    bgtc a0, a1, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bgtc a0, a1, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1642,28 +1524,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
     /* if-cmp vA, vB, +CCCC */
-    .extern MterpProfileBranch
     ext     a2, rINST, 8, 4             # a2 <- A
     ext     a3, rINST, 12, 4            # a3 <- B
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended CCCC)
     GET_VREG a0, a2                     # a0 <- vA
     GET_VREG a1, a3                     # a1 <- vB
-    blec a0, a1, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    blec a0, a1, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1681,26 +1550,13 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
-    .extern MterpProfileBranch
     srl     a2, rINST, 8                # a2 <- AA
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended BBBB)
     GET_VREG a0, a2                     # a0 <- vAA
-    beqzc a0, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    beqzc a0, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1718,26 +1574,13 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
-    .extern MterpProfileBranch
     srl     a2, rINST, 8                # a2 <- AA
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended BBBB)
     GET_VREG a0, a2                     # a0 <- vAA
-    bnezc a0, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bnezc a0, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1755,26 +1598,13 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
-    .extern MterpProfileBranch
     srl     a2, rINST, 8                # a2 <- AA
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended BBBB)
     GET_VREG a0, a2                     # a0 <- vAA
-    bltzc a0, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bltzc a0, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1792,26 +1622,13 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
-    .extern MterpProfileBranch
     srl     a2, rINST, 8                # a2 <- AA
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended BBBB)
     GET_VREG a0, a2                     # a0 <- vAA
-    bgezc a0, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bgezc a0, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1829,26 +1646,13 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
-    .extern MterpProfileBranch
     srl     a2, rINST, 8                # a2 <- AA
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended BBBB)
     GET_VREG a0, a2                     # a0 <- vAA
-    bgtzc a0, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    bgtzc a0, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -1866,26 +1670,13 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
-    .extern MterpProfileBranch
     srl     a2, rINST, 8                # a2 <- AA
     lh      rINST, 2(rPC)               # rINST <- offset (sign-extended BBBB)
     GET_VREG a0, a2                     # a0 <- vAA
-    blezc a0, 1f
-    li      rINST, 2                    # offset if branch not taken
-1:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC
-    move    a0, rSELF
-    daddu   a1, rFP, OFF_FP_SHADOWFRAME
-    move    a2, rINST
-    jal     MterpProfileBranch          # (self, shadow_frame, offset)
-    bnezc   v0, MterpOnStackReplacement # Note: offset must be in rINST
-#endif
-    dlsa    rPC, rINST, rPC, 1          # rPC <- rPC + offset * 2
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)  # Preload flags for MterpCheckSuspendAndContinue
-    move    a0, rINST                   # a0 <- offset
-    FETCH_INST                          # load rINST
-    bltz    a0, MterpCheckSuspendAndContinue  # suspend check if backwards branch
+    blezc a0, MterpCommonTakenBranchNoFlags
+    li      v0, JIT_CHECK_OSR           # possible OSR re-entry?
+    beqc    rPROFILE, v0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST 2                # advance rPC, load rINST
     GET_INST_OPCODE v0                  # extract opcode from rINST
     GOTO_OPCODE v0                      # jump to next instruction
 
@@ -2794,12 +2585,12 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
     /* op vAA, field//BBBB */
-    .extern artGet32StaticFromCode
+    .extern MterpGet32Static
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGet32StaticFromCode
+    jal     MterpGet32Static
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a2, rINST, 8                # a2 <- AA
     
@@ -2823,12 +2614,12 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      */
     /* sget-wide vAA, field//BBBB */
-    .extern artGet64StaticFromCode
+    .extern MterpGet64Static
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGet64StaticFromCode
+    jal     MterpGet64Static
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a4, rINST, 8                # a4 <- AA
     bnez    a3, MterpException          # bail out
@@ -2848,12 +2639,12 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
     /* op vAA, field//BBBB */
-    .extern artGetObjStaticFromCode
+    .extern MterpGetObjStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGetObjStaticFromCode
+    jal     MterpGetObjStatic
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a2, rINST, 8                # a2 <- AA
     
@@ -2880,12 +2671,12 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
     /* op vAA, field//BBBB */
-    .extern artGetBooleanStaticFromCode
+    .extern MterpGetBooleanStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGetBooleanStaticFromCode
+    jal     MterpGetBooleanStatic
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a2, rINST, 8                # a2 <- AA
     and v0, v0, 0xff
@@ -2912,12 +2703,12 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
     /* op vAA, field//BBBB */
-    .extern artGetByteStaticFromCode
+    .extern MterpGetByteStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGetByteStaticFromCode
+    jal     MterpGetByteStatic
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a2, rINST, 8                # a2 <- AA
     seb v0, v0
@@ -2944,12 +2735,12 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
     /* op vAA, field//BBBB */
-    .extern artGetCharStaticFromCode
+    .extern MterpGetCharStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGetCharStaticFromCode
+    jal     MterpGetCharStatic
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a2, rINST, 8                # a2 <- AA
     and v0, v0, 0xffff
@@ -2976,12 +2767,12 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
     /* op vAA, field//BBBB */
-    .extern artGetShortStaticFromCode
+    .extern MterpGetShortStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     ld      a1, OFF_FP_METHOD(rFP)
     move    a2, rSELF
-    jal     artGetShortStaticFromCode
+    jal     MterpGetShortStatic
     ld      a3, THREAD_EXCEPTION_OFFSET(rSELF)
     srl     a2, rINST, 8                # a2 <- AA
     seh v0, v0
@@ -3007,7 +2798,7 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
     /* op vAA, field//BBBB */
-    .extern artSet32StaticFromCode
+    .extern MterpSet32Static
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     srl     a3, rINST, 8                # a3 <- AA
@@ -3015,7 +2806,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ld      a2, OFF_FP_METHOD(rFP)
     move    a3, rSELF
     PREFETCH_INST 2                     # Get next inst, but don't advance rPC
-    jal     artSet32StaticFromCode
+    jal     MterpSet32Static
     bnezc   v0, MterpException          # 0 on success
     ADVANCE 2                           # Past exception point - now advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
@@ -3030,15 +2821,15 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      */
     /* sput-wide vAA, field//BBBB */
-    .extern artSet64IndirectStaticFromMterp
+    .extern MterpSet64Static
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
-    ld      a1, OFF_FP_METHOD(rFP)
-    srl     a2, rINST, 8                # a2 <- AA
-    dlsa    a2, a2, rFP, 2
+    srl     a1, rINST, 8                # a2 <- AA
+    dlsa    a1, a1, rFP, 2
+    ld      a2, OFF_FP_METHOD(rFP)
     move    a3, rSELF
     PREFETCH_INST 2                     # Get next inst, but don't advance rPC
-    jal     artSet64IndirectStaticFromMterp
+    jal     MterpSet64Static
     bnezc   v0, MterpException          # 0 on success, -1 on failure
     ADVANCE 2                           # Past exception point - now advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
@@ -3071,7 +2862,7 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
     /* op vAA, field//BBBB */
-    .extern artSet8StaticFromCode
+    .extern MterpSetBooleanStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     srl     a3, rINST, 8                # a3 <- AA
@@ -3079,7 +2870,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ld      a2, OFF_FP_METHOD(rFP)
     move    a3, rSELF
     PREFETCH_INST 2                     # Get next inst, but don't advance rPC
-    jal     artSet8StaticFromCode
+    jal     MterpSetBooleanStatic
     bnezc   v0, MterpException          # 0 on success
     ADVANCE 2                           # Past exception point - now advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
@@ -3097,7 +2888,7 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
     /* op vAA, field//BBBB */
-    .extern artSet8StaticFromCode
+    .extern MterpSetByteStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     srl     a3, rINST, 8                # a3 <- AA
@@ -3105,7 +2896,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ld      a2, OFF_FP_METHOD(rFP)
     move    a3, rSELF
     PREFETCH_INST 2                     # Get next inst, but don't advance rPC
-    jal     artSet8StaticFromCode
+    jal     MterpSetByteStatic
     bnezc   v0, MterpException          # 0 on success
     ADVANCE 2                           # Past exception point - now advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
@@ -3123,7 +2914,7 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
     /* op vAA, field//BBBB */
-    .extern artSet16StaticFromCode
+    .extern MterpSetCharStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     srl     a3, rINST, 8                # a3 <- AA
@@ -3131,7 +2922,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ld      a2, OFF_FP_METHOD(rFP)
     move    a3, rSELF
     PREFETCH_INST 2                     # Get next inst, but don't advance rPC
-    jal     artSet16StaticFromCode
+    jal     MterpSetCharStatic
     bnezc   v0, MterpException          # 0 on success
     ADVANCE 2                           # Past exception point - now advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
@@ -3149,7 +2940,7 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
     /* op vAA, field//BBBB */
-    .extern artSet16StaticFromCode
+    .extern MterpSetShortStatic
     EXPORT_PC
     lhu     a0, 2(rPC)                  # a0 <- field ref BBBB
     srl     a3, rINST, 8                # a3 <- AA
@@ -3157,7 +2948,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ld      a2, OFF_FP_METHOD(rFP)
     move    a3, rSELF
     PREFETCH_INST 2                     # Get next inst, but don't advance rPC
-    jal     artSet16StaticFromCode
+    jal     MterpSetShortStatic
     bnezc   v0, MterpException          # 0 on success
     ADVANCE 2                           # Past exception point - now advance rPC
     GET_INST_OPCODE v0                  # extract opcode from rINST
@@ -3322,7 +3113,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .extern MterpSuspendCheck
     lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     move    a0, rSELF
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and     ra, ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqzc   ra, 1f
     jal     MterpSuspendCheck           # (self)
 1:
@@ -7204,9 +6995,14 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_invoke_lambda: /* 0xf3 */
-/* Transfer stub to alternate interpreter */
+.L_op_unused_f3: /* 0xf3 */
+/* File: mips64/op_unused_f3.S */
+/* File: mips64/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
     b       MterpFallback
+
 
 /* ------------------------------ */
     .balign 128
@@ -7221,38 +7017,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_capture_variable: /* 0xf5 */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_create_lambda: /* 0xf6 */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_liberate_variable: /* 0xf7 */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_box_lambda: /* 0xf8 */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unbox_lambda: /* 0xf9 */
-/* Transfer stub to alternate interpreter */
-    b       MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unused_fa: /* 0xfa */
-/* File: mips64/op_unused_fa.S */
+.L_op_unused_f5: /* 0xf5 */
+/* File: mips64/op_unused_f5.S */
 /* File: mips64/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -7262,8 +7028,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fb: /* 0xfb */
-/* File: mips64/op_unused_fb.S */
+.L_op_unused_f6: /* 0xf6 */
+/* File: mips64/op_unused_f6.S */
 /* File: mips64/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -7273,8 +7039,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fc: /* 0xfc */
-/* File: mips64/op_unused_fc.S */
+.L_op_unused_f7: /* 0xf7 */
+/* File: mips64/op_unused_f7.S */
 /* File: mips64/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -7284,14 +7050,49 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fd: /* 0xfd */
-/* File: mips64/op_unused_fd.S */
+.L_op_unused_f8: /* 0xf8 */
+/* File: mips64/op_unused_f8.S */
 /* File: mips64/unused.S */
 /*
  * Bail to reference interpreter to throw.
  */
     b       MterpFallback
 
+
+/* ------------------------------ */
+    .balign 128
+.L_op_unused_f9: /* 0xf9 */
+/* File: mips64/op_unused_f9.S */
+/* File: mips64/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
+    b       MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic: /* 0xfa */
+/* Transfer stub to alternate interpreter */
+    b       MterpFallback
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic_range: /* 0xfb */
+/* Transfer stub to alternate interpreter */
+    b       MterpFallback
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom: /* 0xfc */
+/* Transfer stub to alternate interpreter */
+    b       MterpFallback
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom_range: /* 0xfd */
+/* Transfer stub to alternate interpreter */
+    b       MterpFallback
 
 /* ------------------------------ */
     .balign 128
@@ -7391,14 +7192,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (0 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7410,14 +7211,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (1 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7429,14 +7230,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (2 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7448,14 +7249,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (3 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7467,14 +7268,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (4 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7486,14 +7287,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (5 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7505,14 +7306,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (6 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7524,14 +7325,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (7 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7543,14 +7344,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (8 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7562,14 +7363,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (9 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7581,14 +7382,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (10 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7600,14 +7401,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (11 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7619,14 +7420,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (12 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7638,14 +7439,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (13 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7657,14 +7458,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (14 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7676,14 +7477,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (15 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7695,14 +7496,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (16 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7714,14 +7515,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (17 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7733,14 +7534,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (18 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7752,14 +7553,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (19 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7771,14 +7572,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (20 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7790,14 +7591,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (21 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7809,14 +7610,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (22 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7828,14 +7629,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (23 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7847,14 +7648,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (24 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7866,14 +7667,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (25 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7885,14 +7686,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (26 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7904,14 +7705,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (27 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7923,14 +7724,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (28 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7942,14 +7743,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (29 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7961,14 +7762,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (30 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7980,14 +7781,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (31 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -7999,14 +7800,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (32 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8018,14 +7819,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (33 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8037,14 +7838,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (34 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8056,14 +7857,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (35 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8075,14 +7876,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (36 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8094,14 +7895,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (37 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8113,14 +7914,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (38 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8132,14 +7933,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (39 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8151,14 +7952,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (40 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8170,14 +7971,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (41 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8189,14 +7990,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (42 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8208,14 +8009,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (43 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8227,14 +8028,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (44 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8246,14 +8047,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (45 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8265,14 +8066,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (46 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8284,14 +8085,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (47 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8303,14 +8104,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (48 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8322,14 +8123,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (49 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8341,14 +8142,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (50 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8360,14 +8161,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (51 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8379,14 +8180,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (52 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8398,14 +8199,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (53 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8417,14 +8218,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (54 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8436,14 +8237,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (55 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8455,14 +8256,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (56 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8474,14 +8275,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (57 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8493,14 +8294,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (58 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8512,14 +8313,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (59 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8531,14 +8332,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (60 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8550,14 +8351,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (61 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8569,14 +8370,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (62 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8588,14 +8389,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (63 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8607,14 +8408,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (64 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8626,14 +8427,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (65 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8645,14 +8446,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (66 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8664,14 +8465,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (67 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8683,14 +8484,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (68 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8702,14 +8503,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (69 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8721,14 +8522,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (70 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8740,14 +8541,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (71 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8759,14 +8560,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (72 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8778,14 +8579,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (73 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8797,14 +8598,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (74 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8816,14 +8617,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (75 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8835,14 +8636,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (76 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8854,14 +8655,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (77 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8873,14 +8674,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (78 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8892,14 +8693,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (79 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8911,14 +8712,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (80 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8930,14 +8731,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (81 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8949,14 +8750,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (82 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8968,14 +8769,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (83 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -8987,14 +8788,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (84 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9006,14 +8807,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (85 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9025,14 +8826,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (86 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9044,14 +8845,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (87 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9063,14 +8864,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (88 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9082,14 +8883,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (89 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9101,14 +8902,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (90 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9120,14 +8921,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (91 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9139,14 +8940,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (92 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9158,14 +8959,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (93 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9177,14 +8978,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (94 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9196,14 +8997,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (95 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9215,14 +9016,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (96 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9234,14 +9035,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (97 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9253,14 +9054,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (98 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9272,14 +9073,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (99 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9291,14 +9092,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (100 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9310,14 +9111,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (101 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9329,14 +9130,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (102 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9348,14 +9149,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (103 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9367,14 +9168,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (104 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9386,14 +9187,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (105 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9405,14 +9206,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (106 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9424,14 +9225,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (107 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9443,14 +9244,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (108 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9462,14 +9263,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (109 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9481,14 +9282,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (110 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9500,14 +9301,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (111 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9519,14 +9320,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (112 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9538,14 +9339,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (113 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9557,14 +9358,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (114 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9576,14 +9377,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (115 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9595,14 +9396,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (116 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9614,14 +9415,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (117 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9633,14 +9434,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (118 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9652,14 +9453,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (119 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9671,14 +9472,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (120 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9690,14 +9491,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (121 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9709,14 +9510,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (122 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9728,14 +9529,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (123 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9747,14 +9548,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (124 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9766,14 +9567,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (125 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9785,14 +9586,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (126 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9804,14 +9605,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (127 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9823,14 +9624,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (128 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9842,14 +9643,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (129 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9861,14 +9662,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (130 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9880,14 +9681,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (131 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9899,14 +9700,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (132 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9918,14 +9719,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (133 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9937,14 +9738,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (134 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9956,14 +9757,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (135 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9975,14 +9776,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (136 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -9994,14 +9795,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (137 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10013,14 +9814,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (138 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10032,14 +9833,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (139 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10051,14 +9852,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (140 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10070,14 +9871,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (141 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10089,14 +9890,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (142 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10108,14 +9909,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (143 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10127,14 +9928,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (144 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10146,14 +9947,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (145 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10165,14 +9966,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (146 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10184,14 +9985,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (147 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10203,14 +10004,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (148 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10222,14 +10023,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (149 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10241,14 +10042,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (150 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10260,14 +10061,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (151 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10279,14 +10080,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (152 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10298,14 +10099,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (153 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10317,14 +10118,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (154 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10336,14 +10137,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (155 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10355,14 +10156,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (156 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10374,14 +10175,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (157 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10393,14 +10194,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (158 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10412,14 +10213,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (159 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10431,14 +10232,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (160 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10450,14 +10251,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (161 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10469,14 +10270,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (162 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10488,14 +10289,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (163 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10507,14 +10308,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (164 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10526,14 +10327,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (165 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10545,14 +10346,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (166 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10564,14 +10365,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (167 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10583,14 +10384,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (168 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10602,14 +10403,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (169 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10621,14 +10422,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (170 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10640,14 +10441,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (171 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10659,14 +10460,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (172 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10678,14 +10479,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (173 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10697,14 +10498,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (174 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10716,14 +10517,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (175 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10735,14 +10536,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (176 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10754,14 +10555,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (177 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10773,14 +10574,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (178 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10792,14 +10593,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (179 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10811,14 +10612,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (180 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10830,14 +10631,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (181 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10849,14 +10650,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (182 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10868,14 +10669,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (183 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10887,14 +10688,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (184 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10906,14 +10707,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (185 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10925,14 +10726,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (186 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10944,14 +10745,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (187 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10963,14 +10764,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (188 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -10982,14 +10783,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (189 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11001,14 +10802,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (190 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11020,14 +10821,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (191 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11039,14 +10840,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (192 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11058,14 +10859,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (193 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11077,14 +10878,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (194 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11096,14 +10897,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (195 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11115,14 +10916,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (196 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11134,14 +10935,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (197 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11153,14 +10954,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (198 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11172,14 +10973,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (199 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11191,14 +10992,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (200 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11210,14 +11011,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (201 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11229,14 +11030,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (202 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11248,14 +11049,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (203 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11267,14 +11068,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (204 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11286,14 +11087,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (205 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11305,14 +11106,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (206 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11324,14 +11125,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (207 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11343,14 +11144,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (208 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11362,14 +11163,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (209 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11381,14 +11182,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (210 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11400,14 +11201,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (211 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11419,14 +11220,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (212 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11438,14 +11239,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (213 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11457,14 +11258,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (214 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11476,14 +11277,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (215 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11495,14 +11296,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (216 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11514,14 +11315,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (217 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11533,14 +11334,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (218 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11552,14 +11353,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (219 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11571,14 +11372,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (220 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11590,14 +11391,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (221 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11609,14 +11410,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (222 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11628,14 +11429,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (223 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11647,14 +11448,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (224 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11666,14 +11467,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (225 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11685,14 +11486,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (226 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11704,14 +11505,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (227 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11723,14 +11524,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (228 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11742,14 +11543,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (229 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11761,14 +11562,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (230 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11780,14 +11581,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (231 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11799,14 +11600,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (232 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11818,14 +11619,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (233 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11837,14 +11638,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (234 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11856,14 +11657,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (235 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11875,14 +11676,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (236 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11894,14 +11695,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (237 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11913,14 +11714,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (238 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11932,14 +11733,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (239 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11951,14 +11752,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (240 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11970,14 +11771,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (241 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -11989,18 +11790,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (242 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_invoke_lambda: /* 0xf3 */
+.L_ALT_op_unused_f3: /* 0xf3 */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12008,14 +11809,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (243 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -12027,18 +11828,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (244 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_capture_variable: /* 0xf5 */
+.L_ALT_op_unused_f5: /* 0xf5 */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12046,18 +11847,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (245 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_create_lambda: /* 0xf6 */
+.L_ALT_op_unused_f6: /* 0xf6 */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12065,18 +11866,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (246 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_liberate_variable: /* 0xf7 */
+.L_ALT_op_unused_f7: /* 0xf7 */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12084,18 +11885,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (247 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_box_lambda: /* 0xf8 */
+.L_ALT_op_unused_f8: /* 0xf8 */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12103,18 +11904,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (248 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unbox_lambda: /* 0xf9 */
+.L_ALT_op_unused_f9: /* 0xf9 */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12122,18 +11923,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (249 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fa: /* 0xfa */
+.L_ALT_op_invoke_polymorphic: /* 0xfa */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12141,18 +11942,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (250 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fb: /* 0xfb */
+.L_ALT_op_invoke_polymorphic_range: /* 0xfb */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12160,18 +11961,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (251 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fc: /* 0xfc */
+.L_ALT_op_invoke_custom: /* 0xfc */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12179,18 +11980,18 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (252 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fd: /* 0xfd */
+.L_ALT_op_invoke_custom_range: /* 0xfd */
 /* File: mips64/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12198,14 +11999,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (253 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -12217,14 +12018,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (254 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
 /* ------------------------------ */
     .balign 128
@@ -12236,14 +12037,14 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.  Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
     REFRESH_IBASE
     dla     ra, artMterpAsmInstructionStart
     dla     t9, MterpCheckBefore
     move    a0, rSELF
     daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rPC
     daddu   ra, ra, (255 * 128)            # Addr of primary handler.
-    jalr    zero, t9                            # (self, shadow_frame) Note: tail call.
+    jalr    zero, t9                            # (self, shadow_frame, dex_pc_ptr) Note: tail call.
 
     .balign 128
     .size   artMterpAsmAltInstructionStart, .-artMterpAsmAltInstructionStart
@@ -12323,23 +12124,110 @@ MterpException:
     /* NOTE: no fallthrough */
 
 /*
- * Check for suspend check request.  Assumes rINST already loaded, rPC advanced and
- * still needs to get the opcode and branch to it, and flags are in ra.
+ * Common handling for branches with support for Jit profiling.
+ * On entry:
+ *    rINST          <= signed offset
+ *    rPROFILE       <= signed hotness countdown (expanded to 64 bits)
+ *
+ * We have quite a few different cases for branch profiling, OSR detection and
+ * suspend check support here.
+ *
+ * Taken backward branches:
+ *    If profiling active, do hotness countdown and report if we hit zero.
+ *    If in osr check mode, see if our target is a compiled loop header entry and do OSR if so.
+ *    Is there a pending suspend request?  If so, suspend.
+ *
+ * Taken forward branches and not-taken backward branches:
+ *    If in osr check mode, see if our target is a compiled loop header entry and do OSR if so.
+ *
+ * Our most common case is expected to be a taken backward branch with active jit profiling,
+ * but no full OSR check and no pending suspend request.
+ * Next most common case is not-taken branch with no full OSR check.
+ *
  */
-    .extern MterpSuspendCheck
-MterpCheckSuspendAndContinue:
+MterpCommonTakenBranchNoFlags:
+    bgtzc   rINST, .L_forward_branch    # don't add forward branches to hotness
+/*
+ * We need to subtract 1 from positive values and we should not see 0 here,
+ * so we may use the result of the comparison with -1.
+ */
+    li      v0, JIT_CHECK_OSR
+    beqc    rPROFILE, v0, .L_osr_check
+    bltc    rPROFILE, v0, .L_resume_backward_branch
+    dsubu   rPROFILE, 1
+    beqzc   rPROFILE, .L_add_batch      # counted down to zero - report
+.L_resume_backward_branch:
+    lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     REFRESH_IBASE
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
-    bnez    ra, check1
-    GET_INST_OPCODE v0                              # extract opcode from rINST
-    GOTO_OPCODE v0                                  # jump to next instruction
-check1:
+    daddu   a2, rINST, rINST            # a2<- byte offset
+    FETCH_ADVANCE_INST_RB a2            # update rPC, load rINST
+    and     ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
+    bnezc   ra, .L_suspend_request_pending
+    GET_INST_OPCODE v0                  # extract opcode from rINST
+    GOTO_OPCODE v0                      # jump to next instruction
+
+.L_suspend_request_pending:
     EXPORT_PC
     move    a0, rSELF
-    jal     MterpSuspendCheck                       # (self)
-    bnezc   v0, MterpFallback                       # Something in the environment changed, switch interpreters
-    GET_INST_OPCODE v0                              # extract opcode from rINST
-    GOTO_OPCODE v0                                  # jump to next instruction
+    jal     MterpSuspendCheck           # (self)
+    bnezc   v0, MterpFallback
+    REFRESH_IBASE                       # might have changed during suspend
+    GET_INST_OPCODE v0                  # extract opcode from rINST
+    GOTO_OPCODE v0                      # jump to next instruction
+
+.L_no_count_backwards:
+    li      v0, JIT_CHECK_OSR           # check for possible OSR re-entry
+    bnec    rPROFILE, v0, .L_resume_backward_branch
+.L_osr_check:
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rINST
+    EXPORT_PC
+    jal MterpMaybeDoOnStackReplacement  # (self, shadow_frame, offset)
+    bnezc   v0, MterpOnStackReplacement
+    b       .L_resume_backward_branch
+
+.L_forward_branch:
+    li      v0, JIT_CHECK_OSR           # check for possible OSR re-entry
+    beqc    rPROFILE, v0, .L_check_osr_forward
+.L_resume_forward_branch:
+    daddu   a2, rINST, rINST            # a2<- byte offset
+    FETCH_ADVANCE_INST_RB a2            # update rPC, load rINST
+    GET_INST_OPCODE v0                  # extract opcode from rINST
+    GOTO_OPCODE v0                      # jump to next instruction
+
+.L_check_osr_forward:
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rINST
+    EXPORT_PC
+    jal     MterpMaybeDoOnStackReplacement # (self, shadow_frame, offset)
+    bnezc   v0, MterpOnStackReplacement
+    b       .L_resume_forward_branch
+
+.L_add_batch:
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    sh      rPROFILE, SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET(a1)
+    ld      a0, OFF_FP_METHOD(rFP)
+    move    a2, rSELF
+    jal     MterpAddHotnessBatch        # (method, shadow_frame, self)
+    move    rPROFILE, v0                # restore new hotness countdown to rPROFILE
+    b       .L_no_count_backwards
+
+/*
+ * Entered from the conditional branch handlers when OSR check request active on
+ * not-taken path.  All Dalvik not-taken conditional branch offsets are 2.
+ */
+.L_check_not_taken_osr:
+    move    a0, rSELF
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    li      a2, 2
+    EXPORT_PC
+    jal     MterpMaybeDoOnStackReplacement # (self, shadow_frame, offset)
+    bnezc   v0, MterpOnStackReplacement
+    FETCH_ADVANCE_INST 2 
+    GET_INST_OPCODE v0                  # extract opcode from rINST
+    GOTO_OPCODE v0                      # jump to next instruction
 
 /*
  * On-stack replacement has happened, and now we've returned from the compiled method.
@@ -12382,19 +12270,36 @@ MterpExceptionReturn:
     b       MterpDone
 /*
  * Returned value is expected in a0 and if it's not 64-bit, the 32 most
- * significant bits of a0 must be 0.
+ * significant bits of a0 must be zero-extended or sign-extended
+ * depending on the return type.
  */
 MterpReturn:
     ld      a2, OFF_FP_RESULT_REGISTER(rFP)
-    lw      ra, THREAD_FLAGS_OFFSET(rSELF)
     sd      a0, 0(a2)
-    move    a0, rSELF
-    and     ra, ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
-    beqzc   ra, check2
-    jal     MterpSuspendCheck                       # (self)
-check2:
     li      v0, 1                                   # signal return to caller.
 MterpDone:
+/*
+ * At this point, we expect rPROFILE to be non-zero.  If negative, hotness is disabled or we're
+ * checking for OSR.  If greater than zero, we might have unreported hotness to register
+ * (the difference between the ending rPROFILE and the cached hotness counter).  rPROFILE
+ * should only reach zero immediately after a hotness decrement, and is then reset to either
+ * a negative special state or the new non-zero countdown value.
+ */
+    blez    rPROFILE, .L_pop_and_return # if > 0, we may have some counts to report.
+
+MterpProfileActive:
+    move    rINST, v0                   # stash return value
+    /* Report cached hotness counts */
+    ld      a0, OFF_FP_METHOD(rFP)
+    daddu   a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rSELF
+    sh      rPROFILE, SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET(a1)
+    jal     MterpAddHotnessBatch        # (method, shadow_frame, self)
+    move    v0, rINST                   # restore return value
+
+.L_pop_and_return:
+    ld      s6, STACK_OFFSET_S6(sp)
+    .cfi_restore 22
     ld      s5, STACK_OFFSET_S5(sp)
     .cfi_restore 21
     ld      s4, STACK_OFFSET_S4(sp)
@@ -12421,5 +12326,6 @@ MterpDone:
     .cfi_adjust_cfa_offset -STACK_SIZE
 
     .cfi_endproc
+    .set    reorder
     .size ExecuteMterpImpl, .-ExecuteMterpImpl
 

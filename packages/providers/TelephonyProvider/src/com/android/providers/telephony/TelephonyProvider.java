@@ -47,6 +47,7 @@ import android.util.Log;
 import android.util.Xml;
 
 import com.android.internal.util.XmlUtils;
+import com.android.internal.annotations.VisibleForTesting;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -68,7 +69,7 @@ public class TelephonyProvider extends ContentProvider
     private static final boolean DBG = true;
     private static final boolean VDBG = false; // STOPSHIP if true
 
-    private static final int DATABASE_VERSION = 18 << 16;
+    private static final int DATABASE_VERSION = 19 << 16;
     private static final int URL_UNKNOWN = 0;
     private static final int URL_TELEPHONY = 1;
     private static final int URL_CURRENT = 2;
@@ -150,7 +151,89 @@ public class TelephonyProvider extends ContentProvider
         CARRIERS_UNIQUE_FIELDS.add(MVNO_TYPE);
         CARRIERS_UNIQUE_FIELDS.add(MVNO_MATCH_DATA);
         CARRIERS_UNIQUE_FIELDS.add(PROFILE_ID);
+        CARRIERS_UNIQUE_FIELDS.add(PROTOCOL);
+        CARRIERS_UNIQUE_FIELDS.add(ROAMING_PROTOCOL);
     }
+
+    @VisibleForTesting
+    public static String getStringForCarrierTableCreation(String tableName) {
+        return "CREATE TABLE " + tableName +
+                "(_id INTEGER PRIMARY KEY," +
+                NAME + " TEXT DEFAULT ''," +
+                NUMERIC + " TEXT DEFAULT ''," +
+                MCC + " TEXT DEFAULT ''," +
+                MNC + " TEXT DEFAULT ''," +
+                APN + " TEXT DEFAULT ''," +
+                USER + " TEXT DEFAULT ''," +
+                SERVER + " TEXT DEFAULT ''," +
+                PASSWORD + " TEXT DEFAULT ''," +
+                PROXY + " TEXT DEFAULT ''," +
+                PORT + " TEXT DEFAULT ''," +
+                MMSPROXY + " TEXT DEFAULT ''," +
+                MMSPORT + " TEXT DEFAULT ''," +
+                MMSC + " TEXT DEFAULT ''," +
+                AUTH_TYPE + " INTEGER DEFAULT -1," +
+                TYPE + " TEXT DEFAULT ''," +
+                CURRENT + " INTEGER," +
+                PROTOCOL + " TEXT DEFAULT 'IP'," +
+                ROAMING_PROTOCOL + " TEXT DEFAULT 'IP'," +
+                CARRIER_ENABLED + " BOOLEAN DEFAULT 1," +
+                BEARER + " INTEGER DEFAULT 0," +
+                BEARER_BITMASK + " INTEGER DEFAULT 0," +
+                MVNO_TYPE + " TEXT DEFAULT ''," +
+                MVNO_MATCH_DATA + " TEXT DEFAULT ''," +
+                SUBSCRIPTION_ID + " INTEGER DEFAULT "
+                + SubscriptionManager.INVALID_SUBSCRIPTION_ID + "," +
+                PROFILE_ID + " INTEGER DEFAULT 0," +
+                MODEM_COGNITIVE + " BOOLEAN DEFAULT 0," +
+                MAX_CONNS + " INTEGER DEFAULT 0," +
+                WAIT_TIME + " INTEGER DEFAULT 0," +
+                MAX_CONNS_TIME + " INTEGER DEFAULT 0," +
+                MTU + " INTEGER DEFAULT 0," +
+                EDITED + " INTEGER DEFAULT " + UNEDITED + "," +
+                USER_VISIBLE + " BOOLEAN DEFAULT 1," +
+                // Uniqueness collisions are used to trigger merge code so if a field is listed
+                // here it means we will accept both (user edited + new apn_conf definition)
+                // Columns not included in UNIQUE constraint: name, current, edited,
+                // user, server, password, authtype, type, sub_id, modem_cognitive, max_conns,
+                // wait_time, max_conns_time, mtu, bearer_bitmask, user_visible.
+                "UNIQUE (" + TextUtils.join(", ", CARRIERS_UNIQUE_FIELDS) + "));";
+    }
+
+    @VisibleForTesting
+    public static final String CREATE_SIMINFO_TABLE_STRING = "CREATE TABLE " + SIMINFO_TABLE + "("
+            + SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID
+                + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+            + SubscriptionManager.ICC_ID + " TEXT NOT NULL,"
+            + SubscriptionManager.SIM_SLOT_INDEX
+                + " INTEGER DEFAULT " + SubscriptionManager.SIM_NOT_INSERTED + ","
+            + SubscriptionManager.DISPLAY_NAME + " TEXT,"
+            + SubscriptionManager.CARRIER_NAME + " TEXT,"
+            + SubscriptionManager.NAME_SOURCE
+                + " INTEGER DEFAULT " + SubscriptionManager.NAME_SOURCE_DEFAULT_SOURCE + ","
+            + SubscriptionManager.COLOR + " INTEGER DEFAULT " + SubscriptionManager.COLOR_DEFAULT + ","
+            + SubscriptionManager.NUMBER + " TEXT,"
+            + SubscriptionManager.DISPLAY_NUMBER_FORMAT
+                + " INTEGER NOT NULL DEFAULT " + SubscriptionManager.DISPLAY_NUMBER_DEFAULT + ","
+            + SubscriptionManager.DATA_ROAMING
+                + " INTEGER DEFAULT " + SubscriptionManager.DATA_ROAMING_DEFAULT + ","
+            + SubscriptionManager.MCC + " INTEGER DEFAULT 0,"
+            + SubscriptionManager.MNC + " INTEGER DEFAULT 0,"
+            + SubscriptionManager.SIM_PROVISIONING_STATUS
+                + " INTEGER DEFAULT " + SubscriptionManager.SIM_PROVISIONED + ","
+            + SubscriptionManager.CB_EXTREME_THREAT_ALERT + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_SEVERE_THREAT_ALERT + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_AMBER_ALERT + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_EMERGENCY_ALERT + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_ALERT_SOUND_DURATION + " INTEGER DEFAULT 4,"
+            + SubscriptionManager.CB_ALERT_REMINDER_INTERVAL + " INTEGER DEFAULT 0,"
+            + SubscriptionManager.CB_ALERT_VIBRATE + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_ALERT_SPEECH + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_ETWS_TEST_ALERT + " INTEGER DEFAULT 0,"
+            + SubscriptionManager.CB_CHANNEL_50_ALERT + " INTEGER DEFAULT 1,"
+            + SubscriptionManager.CB_CMAS_TEST_ALERT + " INTEGER DEFAULT 0,"
+            + SubscriptionManager.CB_OPT_OUT_DIALOG + " INTEGER DEFAULT 1"
+            + ");";
 
     static {
         s_urlMatcher.addURI("telephony", "carriers", URL_TELEPHONY);
@@ -248,80 +331,14 @@ public class TelephonyProvider extends ContentProvider
 
         private void createSimInfoTable(SQLiteDatabase db) {
             if (DBG) log("dbh.createSimInfoTable:+");
-            db.execSQL("CREATE TABLE " + SIMINFO_TABLE + "("
-                    + SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + SubscriptionManager.ICC_ID + " TEXT NOT NULL,"
-                    + SubscriptionManager.SIM_SLOT_INDEX + " INTEGER DEFAULT " + SubscriptionManager.SIM_NOT_INSERTED + ","
-                    + SubscriptionManager.DISPLAY_NAME + " TEXT,"
-                    + SubscriptionManager.CARRIER_NAME + " TEXT,"
-                    + SubscriptionManager.NAME_SOURCE + " INTEGER DEFAULT " + SubscriptionManager.NAME_SOURCE_DEFAULT_SOURCE + ","
-                    + SubscriptionManager.COLOR + " INTEGER DEFAULT " + SubscriptionManager.COLOR_DEFAULT + ","
-                    + SubscriptionManager.NUMBER + " TEXT,"
-                    + SubscriptionManager.DISPLAY_NUMBER_FORMAT + " INTEGER NOT NULL DEFAULT " + SubscriptionManager.DISPLAY_NUMBER_DEFAULT + ","
-                    + SubscriptionManager.DATA_ROAMING + " INTEGER DEFAULT " + SubscriptionManager.DATA_ROAMING_DEFAULT + ","
-                    + SubscriptionManager.MCC + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.MNC + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_EXTREME_THREAT_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_SEVERE_THREAT_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_AMBER_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_EMERGENCY_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_ALERT_SOUND_DURATION + " INTEGER DEFAULT 4,"
-                    + SubscriptionManager.CB_ALERT_REMINDER_INTERVAL + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_ALERT_VIBRATE + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_ALERT_SPEECH + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_ETWS_TEST_ALERT + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_CHANNEL_50_ALERT + " INTEGER DEFAULT 1,"
-                    + SubscriptionManager.CB_CMAS_TEST_ALERT + " INTEGER DEFAULT 0,"
-                    + SubscriptionManager.CB_OPT_OUT_DIALOG + " INTEGER DEFAULT 1"
-                    + ");");
+            db.execSQL(CREATE_SIMINFO_TABLE_STRING);
             if (DBG) log("dbh.createSimInfoTable:-");
         }
 
         private void createCarriersTable(SQLiteDatabase db, String tableName) {
             // Set up the database schema
             if (DBG) log("dbh.createCarriersTable: " + tableName);
-            db.execSQL("CREATE TABLE " + tableName +
-                    "(_id INTEGER PRIMARY KEY," +
-                    NAME + " TEXT DEFAULT ''," +
-                    NUMERIC + " TEXT DEFAULT ''," +
-                    MCC + " TEXT DEFAULT ''," +
-                    MNC + " TEXT DEFAULT ''," +
-                    APN + " TEXT DEFAULT ''," +
-                    USER + " TEXT DEFAULT ''," +
-                    SERVER + " TEXT DEFAULT ''," +
-                    PASSWORD + " TEXT DEFAULT ''," +
-                    PROXY + " TEXT DEFAULT ''," +
-                    PORT + " TEXT DEFAULT ''," +
-                    MMSPROXY + " TEXT DEFAULT ''," +
-                    MMSPORT + " TEXT DEFAULT ''," +
-                    MMSC + " TEXT DEFAULT ''," +
-                    AUTH_TYPE + " INTEGER DEFAULT -1," +
-                    TYPE + " TEXT DEFAULT ''," +
-                    CURRENT + " INTEGER," +
-                    PROTOCOL + " TEXT DEFAULT 'IP'," +
-                    ROAMING_PROTOCOL + " TEXT DEFAULT 'IP'," +
-                    CARRIER_ENABLED + " BOOLEAN DEFAULT 1," +
-                    BEARER + " INTEGER DEFAULT 0," +
-                    BEARER_BITMASK + " INTEGER DEFAULT 0," +
-                    MVNO_TYPE + " TEXT DEFAULT ''," +
-                    MVNO_MATCH_DATA + " TEXT DEFAULT ''," +
-                    SUBSCRIPTION_ID + " INTEGER DEFAULT "
-                    + SubscriptionManager.INVALID_SUBSCRIPTION_ID + "," +
-                    PROFILE_ID + " INTEGER DEFAULT 0," +
-                    MODEM_COGNITIVE + " BOOLEAN DEFAULT 0," +
-                    MAX_CONNS + " INTEGER DEFAULT 0," +
-                    WAIT_TIME + " INTEGER DEFAULT 0," +
-                    MAX_CONNS_TIME + " INTEGER DEFAULT 0," +
-                    MTU + " INTEGER DEFAULT 0," +
-                    EDITED + " INTEGER DEFAULT " + UNEDITED + "," +
-                    USER_VISIBLE + " BOOLEAN DEFAULT 1," +
-                    // Uniqueness collisions are used to trigger merge code so if a field is listed
-                    // here it means we will accept both (user edited + new apn_conf definition)
-                    // Columns not included in UNIQUE constraint: name, current, edited,
-                    // user, server, password, authtype, type, protocol, roaming_protocol, sub_id,
-                    // modem_cognitive, max_conns, wait_time, max_conns_time, mtu, bearer_bitmask,
-                    // user_visible
-                    "UNIQUE (" + TextUtils.join(", ", CARRIERS_UNIQUE_FIELDS) + "));");
+            db.execSQL(getStringForCarrierTableCreation(tableName));
             if (DBG) log("dbh.createCarriersTable:-");
         }
 
@@ -725,6 +742,54 @@ public class TelephonyProvider extends ContentProvider
                 }
                 oldVersion = 18 << 16 | 6;
             }
+            if (oldVersion < (19 << 16 | 6)) {
+                // Upgrade steps from version 18 are:
+                // 1. Create a temp table- done in createCarriersTable()
+                // 2. copy over APNs from old table to new table - done in copyDataToTmpTable()
+                // 3. Drop the existing table.
+                // 4. Copy over the tmp table.
+                Cursor c;
+                String[] proj = {"_id"};
+                if (VDBG) {
+                    c = db.query(CARRIERS_TABLE, proj, null, null, null, null, null);
+                    log("dbh.onUpgrade:- before upgrading total number of rows: " + c.getCount());
+                    c.close();
+                }
+
+                c = db.query(CARRIERS_TABLE, null, null, null, null, null, null);
+
+                if (VDBG) {
+                    log("dbh.onUpgrade:- starting data copy of existing rows: " +
+                            + ((c == null) ? 0 : c.getCount()));
+                }
+
+                db.execSQL("DROP TABLE IF EXISTS " + CARRIERS_TABLE_TMP);
+
+                createCarriersTable(db, CARRIERS_TABLE_TMP);
+
+                copyDataToTmpTable(db, c);
+                c.close();
+
+                db.execSQL("DROP TABLE IF EXISTS " + CARRIERS_TABLE);
+
+                db.execSQL("ALTER TABLE " + CARRIERS_TABLE_TMP + " rename to " + CARRIERS_TABLE +
+                        ";");
+
+                if (VDBG) {
+                    c = db.query(CARRIERS_TABLE, proj, null, null, null, null, null);
+                    log("dbh.onUpgrade:- after upgrading total number of rows: " + c.getCount());
+                    c.close();
+                    c = db.query(CARRIERS_TABLE, proj, IS_UNEDITED, null, null, null, null);
+                    log("dbh.onUpgrade:- after upgrading total number of rows with " + IS_UNEDITED +
+                            ": " + c.getCount());
+                    c.close();
+                    c = db.query(CARRIERS_TABLE, proj, IS_EDITED, null, null, null, null);
+                    log("dbh.onUpgrade:- after upgrading total number of rows with " + IS_EDITED +
+                            ": " + c.getCount());
+                    c.close();
+                }
+                oldVersion = 19 << 16 | 6;
+            }
             if (DBG) {
                 log("dbh.onUpgrade:- db=" + db + " oldV=" + oldVersion + " newV=" + newVersion);
             }
@@ -918,6 +983,70 @@ public class TelephonyProvider extends ContentProvider
             db.delete(CARRIERS_TABLE, where, whereArgs);
         }
 
+        private void copyDataToTmpTable(SQLiteDatabase db, Cursor c) {
+            // Move entries from CARRIERS_TABLE to CARRIERS_TABLE_TMP
+            if (c != null) {
+                while (c.moveToNext()) {
+                    ContentValues cv = new ContentValues();
+                    copyApnValuesV17(cv, c);
+                    try {
+                        db.insertWithOnConflict(CARRIERS_TABLE_TMP, null, cv,
+                                SQLiteDatabase.CONFLICT_ABORT);
+                        if (VDBG) {
+                            log("dbh.copyPreservedApnsToNewTable: db.insert returned >= 0; " +
+                                    "insert successful for cv " + cv);
+                        }
+                    } catch (SQLException e) {
+                        if (VDBG)
+                            log("dbh.copyPreservedApnsToNewTable insertWithOnConflict exception " +
+                                    e + " for cv " + cv);
+                    }
+                }
+            }
+        }
+
+        private void copyApnValuesV17(ContentValues cv, Cursor c) {
+            // Include only non-null values in cv so that null values can be replaced
+            // with default if there's a default value for the field
+
+            // String vals
+            getStringValueFromCursor(cv, c, NAME);
+            getStringValueFromCursor(cv, c, NUMERIC);
+            getStringValueFromCursor(cv, c, MCC);
+            getStringValueFromCursor(cv, c, MNC);
+            getStringValueFromCursor(cv, c, APN);
+            getStringValueFromCursor(cv, c, USER);
+            getStringValueFromCursor(cv, c, SERVER);
+            getStringValueFromCursor(cv, c, PASSWORD);
+            getStringValueFromCursor(cv, c, PROXY);
+            getStringValueFromCursor(cv, c, PORT);
+            getStringValueFromCursor(cv, c, MMSPROXY);
+            getStringValueFromCursor(cv, c, MMSPORT);
+            getStringValueFromCursor(cv, c, MMSC);
+            getStringValueFromCursor(cv, c, TYPE);
+            getStringValueFromCursor(cv, c, PROTOCOL);
+            getStringValueFromCursor(cv, c, ROAMING_PROTOCOL);
+            getStringValueFromCursor(cv, c, MVNO_TYPE);
+            getStringValueFromCursor(cv, c, MVNO_MATCH_DATA);
+
+            // bool/int vals
+            getIntValueFromCursor(cv, c, AUTH_TYPE);
+            getIntValueFromCursor(cv, c, CURRENT);
+            getIntValueFromCursor(cv, c, CARRIER_ENABLED);
+            getIntValueFromCursor(cv, c, BEARER);
+            getIntValueFromCursor(cv, c, SUBSCRIPTION_ID);
+            getIntValueFromCursor(cv, c, PROFILE_ID);
+            getIntValueFromCursor(cv, c, MODEM_COGNITIVE);
+            getIntValueFromCursor(cv, c, MAX_CONNS);
+            getIntValueFromCursor(cv, c, WAIT_TIME);
+            getIntValueFromCursor(cv, c, MAX_CONNS_TIME);
+            getIntValueFromCursor(cv, c, MTU);
+            getIntValueFromCursor(cv, c, BEARER_BITMASK);
+            getIntValueFromCursor(cv, c, EDITED);
+            getIntValueFromCursor(cv, c, USER_VISIBLE);
+        }
+
+
         private void copyPreservedApnsToNewTable(SQLiteDatabase db, Cursor c) {
             // Move entries from CARRIERS_TABLE to CARRIERS_TABLE_TMP
             if (c != null) {
@@ -926,43 +1055,10 @@ public class TelephonyProvider extends ContentProvider
                 while (c.moveToNext()) {
                     ContentValues cv = new ContentValues();
                     String val;
-
-                    // Include only non-null values in cv so that null values can be replaced
-                    // with default if there's a default value for the field
-
-                    // String vals
-                    getStringValueFromCursor(cv, c, NAME);
-                    getStringValueFromCursor(cv, c, NUMERIC);
-                    getStringValueFromCursor(cv, c, MCC);
-                    getStringValueFromCursor(cv, c, MNC);
-                    getStringValueFromCursor(cv, c, APN);
-                    getStringValueFromCursor(cv, c, USER);
-                    getStringValueFromCursor(cv, c, SERVER);
-                    getStringValueFromCursor(cv, c, PASSWORD);
-                    getStringValueFromCursor(cv, c, PROXY);
-                    getStringValueFromCursor(cv, c, PORT);
-                    getStringValueFromCursor(cv, c, MMSPROXY);
-                    getStringValueFromCursor(cv, c, MMSPORT);
-                    getStringValueFromCursor(cv, c, MMSC);
-                    getStringValueFromCursor(cv, c, TYPE);
-                    getStringValueFromCursor(cv, c, PROTOCOL);
-                    getStringValueFromCursor(cv, c, ROAMING_PROTOCOL);
-                    getStringValueFromCursor(cv, c, MVNO_TYPE);
-                    getStringValueFromCursor(cv, c, MVNO_MATCH_DATA);
-
-                    // bool/int vals
-                    getIntValueFromCursor(cv, c, AUTH_TYPE);
-                    getIntValueFromCursor(cv, c, CURRENT);
-                    getIntValueFromCursor(cv, c, CARRIER_ENABLED);
-                    getIntValueFromCursor(cv, c, BEARER);
-                    getIntValueFromCursor(cv, c, SUBSCRIPTION_ID);
-                    getIntValueFromCursor(cv, c, PROFILE_ID);
-                    getIntValueFromCursor(cv, c, MODEM_COGNITIVE);
-                    getIntValueFromCursor(cv, c, MAX_CONNS);
-                    getIntValueFromCursor(cv, c, WAIT_TIME);
-                    getIntValueFromCursor(cv, c, MAX_CONNS_TIME);
-                    getIntValueFromCursor(cv, c, MTU);
-
+                    // Using V17 copy function for V15 upgrade. This should be fine since it handles
+                    // columns that may not exist properly (getStringValueFromCursor() and
+                    // getIntValueFromCursor() handle column index -1)
+                    copyApnValuesV17(cv, c);
                     // Change bearer to a bitmask
                     String bearerStr = c.getString(c.getColumnIndex(BEARER));
                     if (!TextUtils.isEmpty(bearerStr)) {
@@ -1029,19 +1125,25 @@ public class TelephonyProvider extends ContentProvider
         }
 
         private void getStringValueFromCursor(ContentValues cv, Cursor c, String key) {
-            String fromCursor = c.getString(c.getColumnIndex(key));
-            if (!TextUtils.isEmpty(fromCursor)) {
-                cv.put(key, fromCursor);
+            int columnIndex = c.getColumnIndex(key);
+            if (columnIndex != -1) {
+                String fromCursor = c.getString(columnIndex);
+                if (!TextUtils.isEmpty(fromCursor)) {
+                    cv.put(key, fromCursor);
+                }
             }
         }
 
         private void getIntValueFromCursor(ContentValues cv, Cursor c, String key) {
-            String fromCursor = c.getString(c.getColumnIndex(key));
-            if (!TextUtils.isEmpty(fromCursor)) {
-                try {
-                    cv.put(key, new Integer(fromCursor));
-                } catch (NumberFormatException nfe) {
-                    // do nothing
+            int columnIndex = c.getColumnIndex(key);
+            if (columnIndex != -1) {
+                String fromCursor = c.getString(columnIndex);
+                if (!TextUtils.isEmpty(fromCursor)) {
+                    try {
+                        cv.put(key, new Integer(fromCursor));
+                    } catch (NumberFormatException nfe) {
+                        // do nothing
+                    }
                 }
             }
         }
@@ -1078,7 +1180,14 @@ public class TelephonyProvider extends ContentProvider
             addStringAttribute(parser, "mmsproxy", map, MMSPROXY);
             addStringAttribute(parser, "mmsport", map, MMSPORT);
             addStringAttribute(parser, "mmsc", map, MMSC);
-            addStringAttribute(parser, "type", map, TYPE);
+
+            String apnType = parser.getAttributeValue(null, "type");
+            if (apnType != null) {
+                // Remove spaces before putting it in the map.
+                apnType = apnType.replaceAll("\\s+", "");
+                map.put(TYPE, apnType);
+            }
+
             addStringAttribute(parser, "protocol", map, PROTOCOL);
             addStringAttribute(parser, "roaming_protocol", map, ROAMING_PROTOCOL);
 
@@ -1452,13 +1561,31 @@ public class TelephonyProvider extends ContentProvider
         }
     }
 
+    /**
+     * These methods can be overridden in a subclass for testing TelephonyProvider using an
+     * in-memory database.
+     */
+    SQLiteDatabase getReadableDatabase() {
+        return mOpenHelper.getReadableDatabase();
+    }
+    SQLiteDatabase getWritableDatabase() {
+        return mOpenHelper.getWritableDatabase();
+    }
+    void initDatabaseWithDatabaseHelper(SQLiteDatabase db) {
+        mOpenHelper.initDatabase(db);
+    }
+    boolean needApnDbUpdate() {
+        return mOpenHelper.apnDbUpdateNeeded();
+    }
+
+
     @Override
     public boolean onCreate() {
         mOpenHelper = new DatabaseHelper(getContext());
 
         // Call getReadableDatabase() to make sure onUpgrade is called
         if (VDBG) log("onCreate: calling getReadableDatabase to trigger onUpgrade");
-        SQLiteDatabase db = mOpenHelper.getReadableDatabase();
+        SQLiteDatabase db = getReadableDatabase();
 
         // Update APN db on build update
         String newBuildId = SystemProperties.get("ro.build.id", null);
@@ -1550,7 +1677,7 @@ public class TelephonyProvider extends ContentProvider
 
     private void setPreferredApn(Long id, int subId) {
         log("setPreferredApn: _id " + id + " subId " + subId);
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
         // query all unique fields from id
         String[] proj = CARRIERS_UNIQUE_FIELDS.toArray(new String[CARRIERS_UNIQUE_FIELDS.size()]);
         Cursor c = db.query(CARRIERS_TABLE, proj, "_id=" + id, null, null, null, null);
@@ -1578,7 +1705,7 @@ public class TelephonyProvider extends ContentProvider
 
     private long getPreferredApnIdFromApn(int subId) {
         log("getPreferredApnIdFromApn: for subId " + subId);
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
         String where = TextUtils.join("=? and ", CARRIERS_UNIQUE_FIELDS) + "=?";
         String[] whereArgs = new String[CARRIERS_UNIQUE_FIELDS.size()];
         SharedPreferences sp = getContext().getSharedPreferences(PREF_FILE_FULL_APN,
@@ -1732,7 +1859,7 @@ public class TelephonyProvider extends ContentProvider
             }
         }
 
-        SQLiteDatabase db = mOpenHelper.getReadableDatabase();
+        SQLiteDatabase db = getReadableDatabase();
         Cursor ret = null;
         try {
             // Exclude entries marked deleted
@@ -1787,7 +1914,7 @@ public class TelephonyProvider extends ContentProvider
 
         checkPermission();
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
         int match = s_urlMatcher.match(url);
         boolean notify = false;
         switch (match)
@@ -1937,7 +2064,7 @@ public class TelephonyProvider extends ContentProvider
 
         checkPermission();
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
         int match = s_urlMatcher.match(url);
         switch (match)
         {
@@ -2072,7 +2199,7 @@ public class TelephonyProvider extends ContentProvider
 
         checkPermission();
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
         int match = s_urlMatcher.match(url);
         switch (match)
         {
@@ -2227,24 +2354,38 @@ public class TelephonyProvider extends ContentProvider
     private DatabaseHelper mOpenHelper;
 
     private void restoreDefaultAPN(int subId) {
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
 
         try {
             db.delete(CARRIERS_TABLE, null, null);
         } catch (SQLException e) {
             loge("got exception when deleting to restore: " + e);
         }
-        setPreferredApnId((long) INVALID_APN_ID, subId);
-        mOpenHelper.initDatabase(db);
+
+        // delete preferred apn ids and preferred apns (both stored in diff SharedPref) for all
+        // subIds
+        SharedPreferences spApnId = getContext().getSharedPreferences(PREF_FILE_APN,
+                Context.MODE_PRIVATE);
+        SharedPreferences.Editor editorApnId = spApnId.edit();
+        editorApnId.clear();
+        editorApnId.apply();
+
+        SharedPreferences spApn = getContext().getSharedPreferences(PREF_FILE_FULL_APN,
+                Context.MODE_PRIVATE);
+        SharedPreferences.Editor editorApn = spApn.edit();
+        editorApn.clear();
+        editorApn.apply();
+
+        initDatabaseWithDatabaseHelper(db);
     }
 
     private synchronized void updateApnDb() {
-        if (!mOpenHelper.apnDbUpdateNeeded()) {
+        if (!needApnDbUpdate()) {
             log("Skipping apn db update since apn-conf has not changed.");
             return;
         }
 
-        SQLiteDatabase db = mOpenHelper.getWritableDatabase();
+        SQLiteDatabase db = getWritableDatabase();
 
         // Delete preferred APN for all subIds
         deletePreferredApnId();
@@ -2257,7 +2398,7 @@ public class TelephonyProvider extends ContentProvider
             loge("got exception when deleting to update: " + e);
         }
 
-        mOpenHelper.initDatabase(db);
+        initDatabaseWithDatabaseHelper(db);
 
         // Notify listereners of DB change since DB has been updated
         getContext().getContentResolver().notifyChange(

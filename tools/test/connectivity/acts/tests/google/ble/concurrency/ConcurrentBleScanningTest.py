@@ -22,6 +22,7 @@ import concurrent
 import time
 
 from queue import Empty
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
 from acts.test_utils.bt.BleEnum import ScanSettingsCallbackType
@@ -53,6 +54,7 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         return reset_bluetooth(self.android_devices)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='e7f68b9b-fb3f-48e9-a272-e41c2a32b4bd')
     def test_max_concurrent_ble_scans(self):
         """Test max LE scans.
 
@@ -139,6 +141,7 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='58b0c45e-1cbc-420a-9e89-901518ffe3d1')
     def test_max_concurrent_ble_scans_then_discover_advertisement(self):
         """Test max LE scans variant.
 
@@ -217,6 +220,7 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='7a45e45c-faf3-4e89-abb7-a52f63e53208')
     def test_max_concurrent_ble_scans_plus_one(self):
         """Test mac LE scans variant.
 
@@ -272,6 +276,7 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='5a91f612-69e5-490f-b9d0-50d58a3db736')
     def test_max_concurrent_ble_scans_verify_scans_stop_independently(self):
         """Test max LE scans variant.
 
@@ -340,13 +345,12 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
                 self.scn_ad.ed.pop_event(expected_scan_event_name,
                                          self.default_timeout)
                 self.log.info(
-                    "Found scan event successfully. Iteration {} successful.".format(
-                        i))
+                    "Found scan event successfully. Iteration {} successful.".
+                    format(i))
                 i += 1
             except Exception:
-                self.log.info(
-                    "Failed to find a scan result for callback {}".format(
-                        scan_callback))
+                self.log.info("Failed to find a scan result for callback {}".
+                              format(scan_callback))
                 return False
             self.scn_ad.droid.bleStopBleScan(callback)
         self.adv_ad.droid.bleStopBleAdvertising(advertise_callback)

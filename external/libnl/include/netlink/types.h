@@ -1,12 +1,12 @@
 /*
- * netlink/netlink-types.h	Netlink Types
+ * netlink/types.h		Definition of public types
  *
  *	This library is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU Lesser General Public
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2006 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
 #ifndef __NETLINK_TYPES_H_
@@ -15,21 +15,20 @@
 #include <stdio.h>
 
 /**
- * Dumping types (dp_type)
  * @ingroup utils
+ * Enumeration of dumping variations (dp_type)
  */
 enum nl_dump_type {
 	NL_DUMP_LINE,		/**< Dump object briefly on one line */
 	NL_DUMP_DETAILS,	/**< Dump all attributes but no statistics */
 	NL_DUMP_STATS,		/**< Dump all attributes including statistics */
-	NL_DUMP_ENV,		/**< Dump all attribtues as env variables */
 	__NL_DUMP_MAX,
 };
 #define NL_DUMP_MAX (__NL_DUMP_MAX - 1)
 
 /**
- * Dumping parameters
  * @ingroup utils
+ * Dumping parameters
  */
 struct nl_dump_params
 {

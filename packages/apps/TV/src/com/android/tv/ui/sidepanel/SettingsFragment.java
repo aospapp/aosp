@@ -65,7 +65,7 @@ public class SettingsFragment extends SideFragment {
         }
     }
 
-   @Override
+    @Override
     protected String getTitle() {
         return getResources().getString(R.string.side_panel_title_settings);
     }
@@ -80,8 +80,8 @@ public class SettingsFragment extends SideFragment {
         List<Item> items = new ArrayList<>();
         final Item customizeChannelListItem = new SubMenuItem(
                 getString(R.string.settings_channel_source_item_customize_channels),
-                getString(R.string.settings_channel_source_item_customize_channels_description),
-                0, getMainActivity().getOverlayManager().getSideFragmentManager()) {
+                getString(R.string.settings_channel_source_item_customize_channels_description), 0,
+                getMainActivity().getOverlayManager().getSideFragmentManager()) {
             @Override
             protected SideFragment getFragment() {
                 return new CustomizeChannelListFragment(mCurrentChannelId);
@@ -102,8 +102,8 @@ public class SettingsFragment extends SideFragment {
         customizeChannelListItem.setEnabled(false);
         items.add(customizeChannelListItem);
         final MainActivity activity = getMainActivity();
-        boolean hasNewInput = SetupUtils.getInstance(activity).hasNewInput(
-                activity.getTvInputManagerHelper());
+        boolean hasNewInput = SetupUtils.getInstance(activity)
+                .hasNewInput(activity.getTvInputManagerHelper());
         items.add(new ActionItem(
                 getString(R.string.settings_channel_source_item_setup),
                 hasNewInput ? getString(R.string.settings_channel_source_item_setup_new_inputs)
@@ -115,8 +115,9 @@ public class SettingsFragment extends SideFragment {
             }
         });
         if (PermissionUtils.hasModifyParentalControls(getMainActivity())) {
-            items.add(new ActionItem(getString(R.string.settings_parental_controls),
-                    getString(activity.getParentalControlSettings().isParentalControlsEnabled()
+            items.add(new ActionItem(
+                    getString(R.string.settings_parental_controls), getString(
+                    activity.getParentalControlSettings().isParentalControlsEnabled()
                             ? R.string.option_toggle_parental_controls_on
                             : R.string.option_toggle_parental_controls_off)) {
                 @Override
@@ -131,16 +132,16 @@ public class SettingsFragment extends SideFragment {
                                 @Override
                                 public void done(boolean success) {
                                     if (success) {
-                                        sideFragmentManager.show(new ParentalControlsFragment(),
-                                                false);
+                                        sideFragmentManager
+                                                .show(new ParentalControlsFragment(), false);
                                         sideFragmentManager.showSidePanel(true);
                                     } else {
                                         sideFragmentManager.hideAll(false);
                                     }
                                 }
                             });
-                    tvActivity.getOverlayManager().showDialogFragment(PinDialogFragment.DIALOG_TAG,
-                            fragment, true);
+                    tvActivity.getOverlayManager()
+                            .showDialogFragment(PinDialogFragment.DIALOG_TAG, fragment, true);
                 }
             });
         } else {

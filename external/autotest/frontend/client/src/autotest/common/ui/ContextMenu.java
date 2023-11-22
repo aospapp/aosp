@@ -13,14 +13,14 @@ public class ContextMenu {
     private  PopupPanel popup = new PopupPanel(true);
     private AutoHideMenu menu = new AutoHideMenu();
     private boolean enabled = true;
-    
+
     private class CommandWrapper implements Command {
         private Command command;
-        
+
         CommandWrapper(Command command) {
             this.command = command;
         }
-        
+
         public void execute() {
             popup.hide();
             command.execute();
@@ -31,8 +31,7 @@ public class ContextMenu {
         public AutoHideMenu() {
             super(true);
         }
-        
-        @Override
+
         public MenuItem addItem(String text, Command cmd) {
             return super.addItem(text, new CommandWrapper(cmd));
         }
@@ -49,7 +48,7 @@ public class ContextMenu {
         setUseHandCursor(true);
         popup.add(menu);
     }
-    
+
     protected void setUseHandCursor(boolean enabled) {
         if (enabled)
             menu.addStyleName("menubar-hand-cursor");

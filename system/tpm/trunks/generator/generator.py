@@ -73,6 +73,7 @@ from __future__ import print_function
 
 import argparse
 import re
+import subprocess
 
 import union_selectors
 
@@ -114,6 +115,7 @@ _HEADER_FILE_INCLUDES = """
 #include "trunks/trunks_export.h"
 """
 _IMPLEMENTATION_FILE_INCLUDES = """
+#include <memory>
 #include <string>
 
 #include <base/bind.h>
@@ -369,7 +371,7 @@ class Constant(object):
     value: The value of the constant (e.g. '7').
   """
 
-  _CONSTANT = 'const %(type)s %(name)s = %(value)s;\n'
+  _CONSTANT = 'constexpr %(type)s %(name)s = %(value)s;\n'
 
   def __init__(self, const_type, name, value):
     """Initializes a Constant instance.
@@ -902,7 +904,8 @@ class Define(object):
       value: The value being assigned to the name.
     """
     self.name = name
-    self.value = value
+    # Prepend 'trunks::' to types.
+    self.value = re.sub(r'(TPM.?_|U?INT[0-9]{2})', r'trunks::\1', value)
 
   def Output(self, out_file):
     """Writes a preprocessor define to |out_file|.
@@ -1251,7 +1254,7 @@ TPM_RC Tpm::SerializeCommand_%(method_name)s(%(method_args)s) {
     %(var_name)s_bytes.replace(2, std::string::npos, tmp);
   }"""
   _HASH_START = """
-  scoped_ptr<crypto::SecureHash> hash(crypto::SecureHash::Create(
+  std::unique_ptr<crypto::SecureHash> hash(crypto::SecureHash::Create(
       crypto::SecureHash::SHA256));"""
   _HASH_UPDATE = """
   hash->Update(%(var_name)s.data(),
@@ -2066,6 +2069,10 @@ def GenerateImplementation(types, structs, typemap, commands):
   out_file.close()
 
 
+def FormatFile(filename):
+    subprocess.call(['clang-format', '-i', '-style=file', filename])
+
+
 def main():
   """A main function.
 
@@ -2086,6 +2093,8 @@ def main():
   commands = command_parser.Parse()
   GenerateHeader(types, constants, structs, defines, typemap, commands)
   GenerateImplementation(types, structs, typemap, commands)
+  FormatFile(_OUTPUT_FILE_H)
+  FormatFile(_OUTPUT_FILE_CC)
   print('Processed %d commands.' % len(commands))
 
 

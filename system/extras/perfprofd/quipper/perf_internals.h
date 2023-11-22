@@ -61,4 +61,17 @@ class PerfSampleCustodian {
 
 typedef perf_event event_t;
 
+//
+// Custom / user-specific records emitted by simpleperf.
+// These need to be kept in sync with the simpleperf sources.
+//
+enum simpleperf_record_type {
+  SIMPLE_PERF_RECORD_TYPE_START = 32768,
+  SIMPLE_PERF_RECORD_KERNEL_SYMBOL,
+  SIMPLE_PERF_RECORD_DSO,
+  SIMPLE_PERF_RECORD_SYMBOL,
+  SIMPLE_PERF_RECORD_SPLIT,
+  SIMPLE_PERF_RECORD_SPLIT_END,
+};
+
 #endif

@@ -282,7 +282,7 @@ TYPED_TEST(MessageLoopTest, DeleteAllPersistenIOTaskFromSelf) {
     task_ids[i] = this->loop_->WatchFileDescriptor(
         FROM_HERE, pipes[i].writer, MessageLoop::kWatchWrite,
         true /* persistent */,
-        Bind([this, kNumTasks, &task_ids] {
+        Bind([this, &task_ids] {
           for (int j = 0; j < kNumTasks; ++j) {
             // Once we cancel all the tasks, none should run, so this code runs
             // only once from one callback.

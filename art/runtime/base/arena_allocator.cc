@@ -15,6 +15,7 @@
  */
 
 #include <algorithm>
+#include <cstddef>
 #include <iomanip>
 #include <numeric>
 
@@ -27,7 +28,7 @@
 
 namespace art {
 
-static constexpr size_t kMemoryToolRedZoneBytes = 8;
+constexpr size_t kMemoryToolRedZoneBytes = 8;
 constexpr size_t Arena::kDefaultSize;
 
 template <bool kCount>
@@ -69,6 +70,7 @@ const char* const ArenaAllocatorStatsImpl<kCount>::kAllocNames[] = {
   "DCE          ",
   "LSE          ",
   "LICM         ",
+  "LoopOpt      ",
   "SsaLiveness  ",
   "SsaPhiElim   ",
   "RefTypeProp  ",
@@ -76,24 +78,28 @@ const char* const ArenaAllocatorStatsImpl<kCount>::kAllocNames[] = {
   "RegAllocator ",
   "RegAllocVldt ",
   "StackMapStm  ",
+  "VectorNode   ",
   "CodeGen      ",
   "Assembler    ",
   "ParallelMove ",
   "GraphChecker ",
   "Verifier     ",
   "CallingConv  ",
+  "CHA          ",
+  "Scheduler    ",
+  "Profile      ",
 };
 
 template <bool kCount>
 ArenaAllocatorStatsImpl<kCount>::ArenaAllocatorStatsImpl()
-    : num_allocations_(0u) {
-  std::fill_n(alloc_stats_, arraysize(alloc_stats_), 0u);
+    : num_allocations_(0u),
+      alloc_stats_(kNumArenaAllocKinds, 0u) {
 }
 
 template <bool kCount>
 void ArenaAllocatorStatsImpl<kCount>::Copy(const ArenaAllocatorStatsImpl& other) {
   num_allocations_ = other.num_allocations_;
-  std::copy(other.alloc_stats_, other.alloc_stats_ + arraysize(alloc_stats_), alloc_stats_);
+  std::copy_n(other.alloc_stats_.begin(), kNumArenaAllocKinds, alloc_stats_.begin());
 }
 
 template <bool kCount>
@@ -110,7 +116,7 @@ size_t ArenaAllocatorStatsImpl<kCount>::NumAllocations() const {
 template <bool kCount>
 size_t ArenaAllocatorStatsImpl<kCount>::BytesAllocated() const {
   const size_t init = 0u;  // Initial value of the correct type.
-  return std::accumulate(alloc_stats_, alloc_stats_ + arraysize(alloc_stats_), init);
+  return std::accumulate(alloc_stats_.begin(), alloc_stats_.end(), init);
 }
 
 template <bool kCount>
@@ -142,8 +148,20 @@ void ArenaAllocatorStatsImpl<kCount>::Dump(std::ostream& os, const Arena* first,
   }
 }
 
-// Explicitly instantiate the used implementation.
-template class ArenaAllocatorStatsImpl<kArenaAllocatorCountAllocations>;
+#pragma GCC diagnostic push
+#if __clang_major__ >= 4
+#pragma GCC diagnostic ignored "-Winstantiation-after-specialization"
+#endif
+// We're going to use ArenaAllocatorStatsImpl<kArenaAllocatorCountAllocations> which needs
+// to be explicitly instantiated if kArenaAllocatorCountAllocations is true. Explicit
+// instantiation of the specialization ArenaAllocatorStatsImpl<false> does not do anything
+// but requires the warning "-Winstantiation-after-specialization" to be turned off.
+//
+// To avoid bit-rot of the ArenaAllocatorStatsImpl<true>, instantiate it also in debug builds
+// (but keep the unnecessary code out of release builds) as we do not usually compile with
+// kArenaAllocatorCountAllocations set to true.
+template class ArenaAllocatorStatsImpl<kArenaAllocatorCountAllocations || kIsDebugBuild>;
+#pragma GCC diagnostic pop
 
 void ArenaAllocatorMemoryTool::DoMakeDefined(void* ptr, size_t size) {
   MEMORY_TOOL_MAKE_DEFINED(ptr, size);
@@ -157,25 +175,78 @@ void ArenaAllocatorMemoryTool::DoMakeInaccessible(void* ptr, size_t size) {
   MEMORY_TOOL_MAKE_NOACCESS(ptr, size);
 }
 
-Arena::Arena() : bytes_allocated_(0), next_(nullptr) {
+Arena::Arena() : bytes_allocated_(0), memory_(nullptr), size_(0), next_(nullptr) {
 }
 
+class MallocArena FINAL : public Arena {
+ public:
+  explicit MallocArena(size_t size = Arena::kDefaultSize);
+  virtual ~MallocArena();
+ private:
+  static constexpr size_t RequiredOverallocation() {
+    return (alignof(std::max_align_t) < ArenaAllocator::kArenaAlignment)
+        ? ArenaAllocator::kArenaAlignment - alignof(std::max_align_t)
+        : 0u;
+  }
+
+  uint8_t* unaligned_memory_;
+};
+
 MallocArena::MallocArena(size_t size) {
-  memory_ = reinterpret_cast<uint8_t*>(calloc(1, size));
-  CHECK(memory_ != nullptr);  // Abort on OOM.
+  // We need to guarantee kArenaAlignment aligned allocation for the new arena.
+  // TODO: Use std::aligned_alloc() when it becomes available with C++17.
+  constexpr size_t overallocation = RequiredOverallocation();
+  unaligned_memory_ = reinterpret_cast<uint8_t*>(calloc(1, size + overallocation));
+  CHECK(unaligned_memory_ != nullptr);  // Abort on OOM.
+  DCHECK_ALIGNED(unaligned_memory_, alignof(std::max_align_t));
+  if (overallocation == 0u) {
+    memory_ = unaligned_memory_;
+  } else {
+    memory_ = AlignUp(unaligned_memory_, ArenaAllocator::kArenaAlignment);
+    if (UNLIKELY(RUNNING_ON_MEMORY_TOOL > 0)) {
+      size_t head = memory_ - unaligned_memory_;
+      size_t tail = overallocation - head;
+      MEMORY_TOOL_MAKE_NOACCESS(unaligned_memory_, head);
+      MEMORY_TOOL_MAKE_NOACCESS(memory_ + size, tail);
+    }
+  }
+  DCHECK_ALIGNED(memory_, ArenaAllocator::kArenaAlignment);
   size_ = size;
 }
 
 MallocArena::~MallocArena() {
-  free(reinterpret_cast<void*>(memory_));
+  constexpr size_t overallocation = RequiredOverallocation();
+  if (overallocation != 0u && UNLIKELY(RUNNING_ON_MEMORY_TOOL > 0)) {
+    size_t head = memory_ - unaligned_memory_;
+    size_t tail = overallocation - head;
+    MEMORY_TOOL_MAKE_UNDEFINED(unaligned_memory_, head);
+    MEMORY_TOOL_MAKE_UNDEFINED(memory_ + size_, tail);
+  }
+  free(reinterpret_cast<void*>(unaligned_memory_));
 }
 
+class MemMapArena FINAL : public Arena {
+ public:
+  MemMapArena(size_t size, bool low_4gb, const char* name);
+  virtual ~MemMapArena();
+  void Release() OVERRIDE;
+
+ private:
+  std::unique_ptr<MemMap> map_;
+};
+
 MemMapArena::MemMapArena(size_t size, bool low_4gb, const char* name) {
+  // Round up to a full page as that's the smallest unit of allocation for mmap()
+  // and we want to be able to use all memory that we actually allocate.
+  size = RoundUp(size, kPageSize);
   std::string error_msg;
   map_.reset(MemMap::MapAnonymous(
       name, nullptr, size, PROT_READ | PROT_WRITE, low_4gb, false, &error_msg));
   CHECK(map_.get() != nullptr) << error_msg;
   memory_ = map_->Begin();
+  static_assert(ArenaAllocator::kArenaAlignment <= kPageSize,
+                "Arena should not need stronger alignment than kPageSize.");
+  DCHECK_ALIGNED(memory_, ArenaAllocator::kArenaAlignment);
   size_ = map_->Size();
 }
 
@@ -323,21 +394,32 @@ void* ArenaAllocator::AllocWithMemoryTool(size_t bytes, ArenaAllocKind kind) {
   ArenaAllocatorStats::RecordAlloc(rounded_bytes, kind);
   uint8_t* ret;
   if (UNLIKELY(rounded_bytes > static_cast<size_t>(end_ - ptr_))) {
-    ret = AllocFromNewArena(rounded_bytes);
-    uint8_t* noaccess_begin = ret + bytes;
-    uint8_t* noaccess_end;
-    if (ret == arena_head_->Begin()) {
-      DCHECK(ptr_ - rounded_bytes == ret);
-      noaccess_end = end_;
-    } else {
-      // We're still using the old arena but `ret` comes from a new one just after it.
-      DCHECK(arena_head_->next_ != nullptr);
-      DCHECK(ret == arena_head_->next_->Begin());
-      DCHECK_EQ(rounded_bytes, arena_head_->next_->GetBytesAllocated());
-      noaccess_end = arena_head_->next_->End();
-    }
-    MEMORY_TOOL_MAKE_NOACCESS(noaccess_begin, noaccess_end - noaccess_begin);
+    ret = AllocFromNewArenaWithMemoryTool(rounded_bytes);
   } else {
+    ret = ptr_;
+    ptr_ += rounded_bytes;
+  }
+  MEMORY_TOOL_MAKE_DEFINED(ret, bytes);
+  // Check that the memory is already zeroed out.
+  DCHECK(std::all_of(ret, ret + bytes, [](uint8_t val) { return val == 0u; }));
+  return ret;
+}
+
+void* ArenaAllocator::AllocWithMemoryToolAlign16(size_t bytes, ArenaAllocKind kind) {
+  // We mark all memory for a newly retrieved arena as inaccessible and then
+  // mark only the actually allocated memory as defined. That leaves red zones
+  // and padding between allocations marked as inaccessible.
+  size_t rounded_bytes = bytes + kMemoryToolRedZoneBytes;
+  DCHECK_ALIGNED(rounded_bytes, 8);  // `bytes` is 16-byte aligned, red zone is 8-byte aligned.
+  uintptr_t padding =
+      ((reinterpret_cast<uintptr_t>(ptr_) + 15u) & 15u) - reinterpret_cast<uintptr_t>(ptr_);
+  ArenaAllocatorStats::RecordAlloc(rounded_bytes, kind);
+  uint8_t* ret;
+  if (UNLIKELY(padding + rounded_bytes > static_cast<size_t>(end_ - ptr_))) {
+    static_assert(kArenaAlignment >= 16, "Expecting sufficient alignment for new Arena.");
+    ret = AllocFromNewArenaWithMemoryTool(rounded_bytes);
+  } else {
+    ptr_ += padding;  // Leave padding inaccessible.
     ret = ptr_;
     ptr_ += rounded_bytes;
   }
@@ -370,10 +452,29 @@ uint8_t* ArenaAllocator::AllocFromNewArena(size_t bytes) {
     arena_head_ = new_arena;
     // Update our internal data structures.
     begin_ = new_arena->Begin();
+    DCHECK_ALIGNED(begin_, kAlignment);
     ptr_ = begin_ + bytes;
     end_ = new_arena->End();
   }
   return new_arena->Begin();
+}
+
+uint8_t* ArenaAllocator::AllocFromNewArenaWithMemoryTool(size_t bytes) {
+  uint8_t* ret = AllocFromNewArena(bytes);
+  uint8_t* noaccess_begin = ret + bytes;
+  uint8_t* noaccess_end;
+  if (ret == arena_head_->Begin()) {
+    DCHECK(ptr_ - bytes == ret);
+    noaccess_end = end_;
+  } else {
+    // We're still using the old arena but `ret` comes from a new one just after it.
+    DCHECK(arena_head_->next_ != nullptr);
+    DCHECK(ret == arena_head_->next_->Begin());
+    DCHECK_EQ(bytes, arena_head_->next_->GetBytesAllocated());
+    noaccess_end = arena_head_->next_->End();
+  }
+  MEMORY_TOOL_MAKE_NOACCESS(noaccess_begin, noaccess_end - noaccess_begin);
+  return ret;
 }
 
 bool ArenaAllocator::Contains(const void* ptr) const {
@@ -388,7 +489,9 @@ bool ArenaAllocator::Contains(const void* ptr) const {
   return false;
 }
 
-MemStats::MemStats(const char* name, const ArenaAllocatorStats* stats, const Arena* first_arena,
+MemStats::MemStats(const char* name,
+                   const ArenaAllocatorStats* stats,
+                   const Arena* first_arena,
                    ssize_t lost_bytes_adjustment)
     : name_(name),
       stats_(stats),

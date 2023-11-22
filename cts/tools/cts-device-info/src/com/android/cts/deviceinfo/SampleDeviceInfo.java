@@ -33,6 +33,7 @@ public class SampleDeviceInfo extends DeviceInfo {
         double[] doubles = {Double.MAX_VALUE, Double.MIN_VALUE};
         int[] ints = {Integer.MAX_VALUE, Integer.MIN_VALUE};
         long[] longs = {Long.MAX_VALUE, Long.MIN_VALUE};
+        float[] floats = {Float.MAX_VALUE, Float.MIN_VALUE, Float.NaN};
 
         // Group Foo
         store.startGroup("foo");
@@ -49,12 +50,16 @@ public class SampleDeviceInfo extends DeviceInfo {
         store.addArrayResult("bar_double", doubles);
         store.addArrayResult("bar_int", ints);
         store.addArrayResult("bar_long", longs);
+        store.addArrayResult("bar_float", floats);
         store.endGroup(); // bar
 
         store.addResult("foo_double", Double.MAX_VALUE);
         store.addResult("foo_int", Integer.MAX_VALUE);
         store.addResult("foo_long", Long.MAX_VALUE);
         store.addResult("foo_string", "foo-string");
+        store.addResult("foo_float_nan", Float.NaN);
+        store.addResult("foo_float_max", Float.MAX_VALUE + 1);
+        store.addResult("foo_float_min", Float.MIN_VALUE - 1);
         store.endGroup(); // foo
     }
 }

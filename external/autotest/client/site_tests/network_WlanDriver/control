@@ -5,7 +5,6 @@
 AUTHOR = 'pstew, quiche, wiley'
 NAME = 'network_WlanDriver'
 ATTRIBUTES = "suite:network_nightly, suite:wifi_matfunc"
-SUITE = 'network_nightly, wifi_matfunc'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

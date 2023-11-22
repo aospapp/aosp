@@ -232,7 +232,37 @@ static void dragon_power_hint(struct power_module *module, power_hint_t hint,
 static int dragon_power_open(const hw_module_t *module, const char *name,
                             hw_device_t **device)
 {
-    return 0;
+    ALOGD("%s: enter; name=%s", __FUNCTION__, name);
+    int retval = 0; /* 0 is ok; -1 is error */
+
+    if (strcmp(name, POWER_HARDWARE_MODULE_ID) == 0) {
+        dragon_power_module *dev = (dragon_power_module *)calloc(1,
+                sizeof(dragon_power_module));
+
+        if (dev) {
+            /* Common hw_device_t fields */
+            dev->base.common.tag = HARDWARE_MODULE_TAG;
+            dev->base.common.module_api_version = POWER_MODULE_API_VERSION_0_2;
+            dev->base.common.hal_api_version = HARDWARE_HAL_API_VERSION;
+
+            dev->base.init = power_init;
+            dev->base.powerHint = dragon_power_hint;
+            dev->base.setInteractive = power_set_interactive;
+            dev->boost_pulse_lock = PTHREAD_MUTEX_INITIALIZER;
+            dev->low_power_lock = PTHREAD_MUTEX_INITIALIZER;
+            dev->boostpulse_fd = -1;
+            dev->boostpulse_warned = 0;
+            dev->gpu_qos_manager = NULL;
+
+            *device = (hw_device_t*)dev;
+        } else
+            retval = -ENOMEM;
+    } else {
+        retval = -EINVAL;
+    }
+
+    ALOGD("%s: exit %d", __FUNCTION__, retval);
+    return retval;
 }
 
 

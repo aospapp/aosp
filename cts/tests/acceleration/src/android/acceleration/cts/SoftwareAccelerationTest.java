@@ -18,6 +18,8 @@ package android.acceleration.cts;
 
 import android.acceleration.SoftwareAcceleratedActivity;
 
+import com.android.compatibility.common.util.VendorInterfaceTest;
+
 /**
  * Test that uses an Activity with hardware acceleration explicitly disabled
  * and makes sure that all views are rendered using software acceleration.
@@ -35,6 +37,7 @@ public class SoftwareAccelerationTest
         mActivity = getActivity();
     }
 
+    @VendorInterfaceTest
     public void testIsHardwareAccelerated() {
         // Both of the views are not attached to a hardware accelerated window
         assertFalse(mHardwareView.isHardwareAccelerated());

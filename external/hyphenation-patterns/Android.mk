@@ -20,6 +20,8 @@ LOCAL_PATH := $(call my-dir)
 pattern_locales := \
     as/as \
     bn/bn \
+    bg/bg \
+    cu/cu \
     cy/cy \
     da/da \
     de/de-1901 \

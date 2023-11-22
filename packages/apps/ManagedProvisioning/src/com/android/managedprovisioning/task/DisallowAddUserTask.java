@@ -16,33 +16,49 @@
 
 package com.android.managedprovisioning.task;
 
-import android.app.admin.DevicePolicyManager;
+import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
 
-import com.android.managedprovisioning.ProvisionLogger;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.model.ProvisioningParams;
 
 /**
  * Disables user addition for all users on the device.
  */
-public class DisallowAddUserTask {
-    private final UserManager mUserManager;
-    private final int mDeviceOwnerUserId;
+public class DisallowAddUserTask extends AbstractProvisioningTask {
     private final boolean mIsSplitSystemUser;
+    private final UserManager mUserManager;
 
-    public DisallowAddUserTask(UserManager userManager, int deviceOwnerUserId,
-            boolean isSplitSystemUser) {
-        mUserManager = userManager;
-        mDeviceOwnerUserId = deviceOwnerUserId;
-        mIsSplitSystemUser = isSplitSystemUser;
+    public DisallowAddUserTask(
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        this(UserManager.isSplitSystemUser(), context, params, callback);
     }
 
-    public void maybeDisallowAddUsers() {
-        if (mIsSplitSystemUser && (mDeviceOwnerUserId == UserHandle.USER_SYSTEM)) {
+    @VisibleForTesting
+    DisallowAddUserTask(boolean splitSystemUser,
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        super(context, params, callback);
+        mIsSplitSystemUser = splitSystemUser;
+        mUserManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
+    }
+
+    @Override
+    public void run(int userId) {
+
+        if (mIsSplitSystemUser && (userId == UserHandle.USER_SYSTEM)) {
             ProvisionLogger.logi("Not setting DISALLOW_ADD_USER as system device-owner detected.");
+            success();
             return;
         }
+
         for (UserInfo userInfo : mUserManager.getUsers()) {
             UserHandle userHandle = userInfo.getUserHandle();
             if (!mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER, userHandle)) {
@@ -50,5 +66,11 @@ public class DisallowAddUserTask {
                 ProvisionLogger.logi("DISALLOW_ADD_USER restriction set on user: " + userInfo.id);
             }
         }
+        success();
+    }
+
+    @Override
+    public int getStatusMsgId() {
+        return R.string.progress_finishing_touches;
     }
 }

@@ -28,15 +28,13 @@
 
 #include <benchmark/benchmark.h>
 
-extern void* __system_property_area__;
-
 // Do not exceed 512, that is about the largest number of properties
 // that can be created with the current property area size.
 #define TEST_NUM_PROPS \
     Arg(1)->Arg(4)->Arg(16)->Arg(64)->Arg(128)->Arg(256)->Arg(512)
 
 struct LocalPropertyTestState {
-  LocalPropertyTestState(int nprops) : nprops(nprops), valid(false) {
+  explicit LocalPropertyTestState(int nprops) : nprops(nprops), valid(false) {
     static const char prop_name_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_.";
 
     const char* android_data = getenv("ANDROID_DATA");
@@ -52,9 +50,6 @@ struct LocalPropertyTestState {
              android_data, strerror(errno));
       return;
     }
-
-    old_pa = __system_property_area__;
-    __system_property_area__ = NULL;
 
     pa_dirname = dirname;
     pa_filename = pa_dirname + "/__properties__";
@@ -111,9 +106,8 @@ struct LocalPropertyTestState {
     if (!valid)
       return;
 
-    __system_property_area__ = old_pa;
-
     __system_property_set_filename(PROP_FILENAME);
+    __system_property_area_init();
     unlink(pa_filename.c_str());
     rmdir(pa_dirname.c_str());
 
@@ -138,11 +132,10 @@ struct LocalPropertyTestState {
  private:
   std::string pa_dirname;
   std::string pa_filename;
-  void* old_pa;
 };
 
 static void BM_property_get(benchmark::State& state) {
-  const size_t nprops = state.range_x();
+  const size_t nprops = state.range(0);
 
   LocalPropertyTestState pa(nprops);
   if (!pa.valid) return;
@@ -155,7 +148,7 @@ static void BM_property_get(benchmark::State& state) {
 BENCHMARK(BM_property_get)->TEST_NUM_PROPS;
 
 static void BM_property_find(benchmark::State& state) {
-  const size_t nprops = state.range_x();
+  const size_t nprops = state.range(0);
 
   LocalPropertyTestState pa(nprops);
   if (!pa.valid) return;
@@ -167,7 +160,7 @@ static void BM_property_find(benchmark::State& state) {
 BENCHMARK(BM_property_find)->TEST_NUM_PROPS;
 
 static void BM_property_read(benchmark::State& state) {
-  const size_t nprops = state.range_x();
+  const size_t nprops = state.range(0);
 
   LocalPropertyTestState pa(nprops);
   if (!pa.valid) return;
@@ -190,7 +183,7 @@ static void BM_property_read(benchmark::State& state) {
 BENCHMARK(BM_property_read)->TEST_NUM_PROPS;
 
 static void BM_property_serial(benchmark::State& state) {
-  const size_t nprops = state.range_x();
+  const size_t nprops = state.range(0);
 
   LocalPropertyTestState pa(nprops);
   if (!pa.valid) return;

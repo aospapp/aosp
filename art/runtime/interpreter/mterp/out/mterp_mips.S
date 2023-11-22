@@ -58,7 +58,11 @@
    s2   rSELF     self (Thread) pointer
    s3   rIBASE    interpreted instruction base pointer, used for computed goto
    s4   rINST     first 16-bit code unit of current instruction
+   s5   rOBJ      object pointer
    s6   rREFS     base of object references in shadow frame (ideally, we'll get rid of this later).
+   s7   rTEMP     used as temp storage that can survive a function call
+   s8   rPROFILE  branch profiling countdown
+
 */
 
 /* single-purpose registers, given names for clarity */
@@ -70,6 +74,7 @@
 #define rOBJ s5
 #define rREFS s6
 #define rTEMP s7
+#define rPROFILE s8
 
 #define rARG0 a0
 #define rARG1 a1
@@ -155,6 +160,58 @@
 #define fcc1   $fcc1
 #endif
 
+#ifdef MIPS32REVGE2
+#define SEB(rd, rt) \
+    seb       rd, rt
+#define SEH(rd, rt) \
+    seh       rd, rt
+#define INSERT_HIGH_HALF(rd_lo, rt_hi) \
+    ins       rd_lo, rt_hi, 16, 16
+#else
+#define SEB(rd, rt) \
+    sll       rd, rt, 24; \
+    sra       rd, rd, 24
+#define SEH(rd, rt) \
+    sll       rd, rt, 16; \
+    sra       rd, rd, 16
+/* Clobbers rt_hi on pre-R2. */
+#define INSERT_HIGH_HALF(rd_lo, rt_hi) \
+    sll       rt_hi, rt_hi, 16; \
+    or        rd_lo, rt_hi
+#endif
+
+#ifdef FPU64
+#define MOVE_TO_FPU_HIGH(r, flo, fhi) \
+    mthc1     r, flo
+#else
+#define MOVE_TO_FPU_HIGH(r, flo, fhi) \
+    mtc1      r, fhi
+#endif
+
+#ifdef MIPS32REVGE6
+#define JR(rt) \
+    jic       rt, 0
+#define LSA(rd, rs, rt, sa) \
+    .if sa; \
+    lsa       rd, rs, rt, sa; \
+    .else; \
+    addu      rd, rs, rt; \
+    .endif
+#else
+#define JR(rt) \
+    jalr      zero, rt
+#define LSA(rd, rs, rt, sa) \
+    .if sa; \
+    .set      push; \
+    .set      noat; \
+    sll       AT, rs, sa; \
+    addu      rd, AT, rt; \
+    .set      pop; \
+    .else; \
+    addu      rd, rs, rt; \
+    .endif
+#endif
+
 /*
  * Instead of holding a pointer to the shadow frame, we keep rFP at the base of the vregs.  So,
  * to access other shadow frame fields, we need to use a backwards offset.  Define those here.
@@ -167,7 +224,7 @@
 #define OFF_FP_RESULT_REGISTER OFF_FP(SHADOWFRAME_RESULT_REGISTER_OFFSET)
 #define OFF_FP_DEX_PC_PTR OFF_FP(SHADOWFRAME_DEX_PC_PTR_OFFSET)
 #define OFF_FP_CODE_ITEM OFF_FP(SHADOWFRAME_CODE_ITEM_OFFSET)
-#define OFF_FP_SHADOWFRAME (-SHADOWFRAME_VREGS_OFFSET)
+#define OFF_FP_SHADOWFRAME OFF_FP(0)
 
 #define MTERP_PROFILE_BRANCHES 1
 #define MTERP_LOGGING 0
@@ -188,12 +245,12 @@
     sw        rPC, OFF_FP_DEX_PC_PTR(rFP)
 
 #define EXPORT_DEX_PC(tmp) \
-    lw   tmp, OFF_FP_CODE_ITEM(rFP) \
-    sw   rPC, OFF_FP_DEX_PC_PTR(rFP) \
-    addu tmp, CODEITEM_INSNS_OFFSET \
-    subu tmp, rPC, tmp \
-    sra  tmp, tmp, 1 \
-    sw   tmp, OFF_FP_DEX_PC(rFP)
+    lw        tmp, OFF_FP_CODE_ITEM(rFP); \
+    sw        rPC, OFF_FP_DEX_PC_PTR(rFP); \
+    addu      tmp, CODEITEM_INSNS_OFFSET; \
+    subu      tmp, rPC, tmp; \
+    sra       tmp, tmp, 1; \
+    sw        tmp, OFF_FP_DEX_PC(rFP)
 
 /*
  * Fetch the next instruction from rPC into rINST.  Does not advance rPC.
@@ -208,16 +265,9 @@
  * exception catch may miss.  (This also implies that it must come after
  * EXPORT_PC().)
  */
-#define FETCH_ADVANCE_INST(_count) lhu rINST, ((_count)*2)(rPC); \
+#define FETCH_ADVANCE_INST(_count) \
+    lhu       rINST, ((_count)*2)(rPC); \
     addu      rPC, rPC, ((_count) * 2)
-
-/*
- * The operation performed here is similar to FETCH_ADVANCE_INST, except the
- * src and dest registers are parameterized (not hard-wired to rPC and rINST).
- */
-#define PREFETCH_ADVANCE_INST(_dreg, _sreg, _count) \
-    lhu       _dreg, ((_count)*2)(_sreg) ;            \
-    addu      _sreg, _sreg, (_count)*2
 
 /*
  * Similar to FETCH_ADVANCE_INST, but does not update rPC.  Used to load
@@ -234,7 +284,8 @@
  * rPC to point to the next instruction.  "rd" must specify the distance
  * in bytes, *not* 16-bit code units, and may be a signed value.
  */
-#define FETCH_ADVANCE_INST_RB(rd) addu rPC, rPC, rd; \
+#define FETCH_ADVANCE_INST_RB(rd) \
+    addu      rPC, rPC, rd; \
     lhu       rINST, (rPC)
 
 /*
@@ -259,38 +310,75 @@
 #define GET_INST_OPCODE(rd) and rd, rINST, 0xFF
 
 /*
- * Put the prefetched instruction's opcode field into the specified register.
+ * Transform opcode into branch target address.
  */
-#define GET_PREFETCHED_OPCODE(dreg, sreg)   andi     dreg, sreg, 255
+#define GET_OPCODE_TARGET(rd) \
+    sll       rd, rd, 7; \
+    addu      rd, rIBASE, rd
 
 /*
  * Begin executing the opcode in rd.
  */
-#define GOTO_OPCODE(rd) sll rd, rd, 7; \
-    addu      rd, rIBASE, rd; \
-    jalr      zero, rd
-
-#define GOTO_OPCODE_BASE(_base, rd)  sll rd, rd, 7; \
-    addu      rd, _base, rd; \
-    jalr      zero, rd
+#define GOTO_OPCODE(rd) \
+    GET_OPCODE_TARGET(rd); \
+    JR(rd)
 
 /*
  * Get/set the 32-bit value from a Dalvik register.
  */
 #define GET_VREG(rd, rix) LOAD_eas2(rd, rFP, rix)
 
-#define GET_VREG_F(rd, rix) EAS2(AT, rFP, rix); \
-    .set noat; l.s rd, (AT); .set at
+#define GET_VREG_F(rd, rix) \
+    .set noat; \
+    EAS2(AT, rFP, rix); \
+    l.s       rd, (AT); \
+    .set at
 
-#define SET_VREG(rd, rix) .set noat; \
+#ifdef MIPS32REVGE6
+#define SET_VREG(rd, rix) \
+    lsa       t8, rix, rFP, 2; \
+    sw        rd, 0(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    sw        zero, 0(t8)
+#else
+#define SET_VREG(rd, rix) \
+    .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rFP, AT; \
     sw        rd, 0(t8); \
     addu      t8, rREFS, AT; \
     .set at; \
     sw        zero, 0(t8)
+#endif
 
-#define SET_VREG64(rlo, rhi, rix) .set noat; \
+#ifdef MIPS32REVGE6
+#define SET_VREG_OBJECT(rd, rix) \
+    lsa       t8, rix, rFP, 2; \
+    sw        rd, 0(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    sw        rd, 0(t8)
+#else
+#define SET_VREG_OBJECT(rd, rix) \
+    .set noat; \
+    sll       AT, rix, 2; \
+    addu      t8, rFP, AT; \
+    sw        rd, 0(t8); \
+    addu      t8, rREFS, AT; \
+    .set at; \
+    sw        rd, 0(t8)
+#endif
+
+#ifdef MIPS32REVGE6
+#define SET_VREG64(rlo, rhi, rix) \
+    lsa       t8, rix, rFP, 2; \
+    sw        rlo, 0(t8); \
+    sw        rhi, 4(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    sw        zero, 0(t8); \
+    sw        zero, 4(t8)
+#else
+#define SET_VREG64(rlo, rhi, rix) \
+    .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rFP, AT; \
     sw        rlo, 0(t8); \
@@ -299,9 +387,39 @@
     .set at; \
     sw        zero, 0(t8); \
     sw        zero, 4(t8)
+#endif
 
-#ifdef FPU64
-#define SET_VREG64_F(rlo, rhi, rix) .set noat; \
+#ifdef MIPS32REVGE6
+#define SET_VREG_F(rd, rix) \
+    lsa       t8, rix, rFP, 2; \
+    s.s       rd, 0(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    sw        zero, 0(t8)
+#else
+#define SET_VREG_F(rd, rix) \
+    .set noat; \
+    sll       AT, rix, 2; \
+    addu      t8, rFP, AT; \
+    s.s       rd, 0(t8); \
+    addu      t8, rREFS, AT; \
+    .set at; \
+    sw        zero, 0(t8)
+#endif
+
+#ifdef MIPS32REVGE6
+#define SET_VREG64_F(rlo, rhi, rix) \
+    lsa       t8, rix, rFP, 2; \
+    .set noat; \
+    mfhc1     AT, rlo; \
+    s.s       rlo, 0(t8); \
+    sw        AT, 4(t8); \
+    .set at; \
+    lsa       t8, rix, rREFS, 2; \
+    sw        zero, 0(t8); \
+    sw        zero, 4(t8)
+#elif defined(FPU64)
+#define SET_VREG64_F(rlo, rhi, rix) \
+    .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rREFS, AT; \
     sw        zero, 0(t8); \
@@ -312,7 +430,8 @@
     .set at; \
     s.s       rlo, 0(t8)
 #else
-#define SET_VREG64_F(rlo, rhi, rix) .set noat; \
+#define SET_VREG64_F(rlo, rhi, rix) \
+    .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rFP, AT; \
     s.s       rlo, 0(t8); \
@@ -323,18 +442,21 @@
     sw        zero, 4(t8)
 #endif
 
-#define SET_VREG_OBJECT(rd, rix) .set noat; \
-    sll       AT, rix, 2; \
-    addu      t8, rFP, AT; \
-    sw        rd, 0(t8); \
-    addu      t8, rREFS, AT; \
-    .set at; \
-    sw        rd, 0(t8)
-
 /* Combination of the SET_VREG and GOTO_OPCODE functions to save 1 instruction */
-#define SET_VREG_GOTO(rd, rix, dst) .set noreorder; \
-    sll       dst, dst, 7; \
-    addu      dst, rIBASE, dst; \
+#ifdef MIPS32REVGE6
+#define SET_VREG_GOTO(rd, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    lsa       t8, rix, rFP, 2; \
+    sw        rd, 0(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    jalr      zero, dst; \
+    sw        zero, 0(t8); \
+    .set reorder
+#else
+#define SET_VREG_GOTO(rd, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
     .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rFP, AT; \
@@ -344,11 +466,51 @@
     jalr      zero, dst; \
     sw        zero, 0(t8); \
     .set reorder
+#endif
+
+/* Combination of the SET_VREG_OBJECT and GOTO_OPCODE functions to save 1 instruction */
+#ifdef MIPS32REVGE6
+#define SET_VREG_OBJECT_GOTO(rd, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    lsa       t8, rix, rFP, 2; \
+    sw        rd, 0(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    jalr      zero, dst; \
+    sw        rd, 0(t8); \
+    .set reorder
+#else
+#define SET_VREG_OBJECT_GOTO(rd, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    .set noat; \
+    sll       AT, rix, 2; \
+    addu      t8, rFP, AT; \
+    sw        rd, 0(t8); \
+    addu      t8, rREFS, AT; \
+    .set at; \
+    jalr      zero, dst; \
+    sw        rd, 0(t8); \
+    .set reorder
+#endif
 
 /* Combination of the SET_VREG64 and GOTO_OPCODE functions to save 1 instruction */
-#define SET_VREG64_GOTO(rlo, rhi, rix, dst) .set noreorder; \
-    sll       dst, dst, 7; \
-    addu      dst, rIBASE, dst; \
+#ifdef MIPS32REVGE6
+#define SET_VREG64_GOTO(rlo, rhi, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    lsa       t8, rix, rFP, 2; \
+    sw        rlo, 0(t8); \
+    sw        rhi, 4(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    sw        zero, 0(t8); \
+    jalr      zero, dst; \
+    sw        zero, 4(t8); \
+    .set reorder
+#else
+#define SET_VREG64_GOTO(rlo, rhi, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
     .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rFP, AT; \
@@ -360,14 +522,82 @@
     jalr      zero, dst; \
     sw        zero, 4(t8); \
     .set reorder
+#endif
 
-#define SET_VREG_F(rd, rix) .set noat; \
+/* Combination of the SET_VREG_F and GOTO_OPCODE functions to save 1 instruction */
+#ifdef MIPS32REVGE6
+#define SET_VREG_F_GOTO(rd, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    lsa       t8, rix, rFP, 2; \
+    s.s       rd, 0(t8); \
+    lsa       t8, rix, rREFS, 2; \
+    jalr      zero, dst; \
+    sw        zero, 0(t8); \
+    .set reorder
+#else
+#define SET_VREG_F_GOTO(rd, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    .set noat; \
     sll       AT, rix, 2; \
     addu      t8, rFP, AT; \
     s.s       rd, 0(t8); \
     addu      t8, rREFS, AT; \
     .set at; \
-    sw        zero, 0(t8)
+    jalr      zero, dst; \
+    sw        zero, 0(t8); \
+    .set reorder
+#endif
+
+/* Combination of the SET_VREG64_F and GOTO_OPCODE functions to save 1 instruction */
+#ifdef MIPS32REVGE6
+#define SET_VREG64_F_GOTO(rlo, rhi, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    lsa       t8, rix, rFP, 2; \
+    .set noat; \
+    mfhc1     AT, rlo; \
+    s.s       rlo, 0(t8); \
+    sw        AT, 4(t8); \
+    .set at; \
+    lsa       t8, rix, rREFS, 2; \
+    sw        zero, 0(t8); \
+    jalr      zero, dst; \
+    sw        zero, 4(t8); \
+    .set reorder
+#elif defined(FPU64)
+#define SET_VREG64_F_GOTO(rlo, rhi, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    .set noat; \
+    sll       AT, rix, 2; \
+    addu      t8, rREFS, AT; \
+    sw        zero, 0(t8); \
+    sw        zero, 4(t8); \
+    addu      t8, rFP, AT; \
+    mfhc1     AT, rlo; \
+    sw        AT, 4(t8); \
+    .set at; \
+    jalr      zero, dst; \
+    s.s       rlo, 0(t8); \
+    .set reorder
+#else
+#define SET_VREG64_F_GOTO(rlo, rhi, rix, dst) \
+    .set noreorder; \
+    GET_OPCODE_TARGET(dst); \
+    .set noat; \
+    sll       AT, rix, 2; \
+    addu      t8, rFP, AT; \
+    s.s       rlo, 0(t8); \
+    s.s       rhi, 4(t8); \
+    addu      t8, rREFS, AT; \
+    .set at; \
+    sw        zero, 0(t8); \
+    jalr      zero, dst; \
+    sw        zero, 4(t8); \
+    .set reorder
+#endif
 
 #define GET_OPA(rd) srl rd, rINST, 8
 #ifdef MIPS32REVGE2
@@ -378,60 +608,60 @@
 #define GET_OPB(rd) srl rd, rINST, 12
 
 /*
- * Form an Effective Address rd = rbase + roff<<n;
- * Uses reg AT
+ * Form an Effective Address rd = rbase + roff<<shift;
+ * Uses reg AT on pre-R6.
  */
-#define EASN(rd, rbase, roff, rshift) .set noat; \
-    sll       AT, roff, rshift; \
-    addu      rd, rbase, AT; \
-    .set at
+#define EASN(rd, rbase, roff, shift) LSA(rd, roff, rbase, shift)
 
 #define EAS1(rd, rbase, roff) EASN(rd, rbase, roff, 1)
 #define EAS2(rd, rbase, roff) EASN(rd, rbase, roff, 2)
 #define EAS3(rd, rbase, roff) EASN(rd, rbase, roff, 3)
 #define EAS4(rd, rbase, roff) EASN(rd, rbase, roff, 4)
 
-/*
- * Form an Effective Shift Right rd = rbase + roff>>n;
- * Uses reg AT
- */
-#define ESRN(rd, rbase, roff, rshift) .set noat; \
-    srl       AT, roff, rshift; \
-    addu      rd, rbase, AT; \
+#define LOAD_eas2(rd, rbase, roff) \
+    .set noat; \
+    EAS2(AT, rbase, roff); \
+    lw        rd, 0(AT); \
     .set at
 
-#define LOAD_eas2(rd, rbase, roff) EAS2(AT, rbase, roff); \
-    .set noat; lw rd, 0(AT); .set at
-
-#define STORE_eas2(rd, rbase, roff) EAS2(AT, rbase, roff); \
-    .set noat; sw rd, 0(AT); .set at
+#define STORE_eas2(rd, rbase, roff) \
+    .set noat; \
+    EAS2(AT, rbase, roff); \
+    sw        rd, 0(AT); \
+    .set at
 
 #define LOAD_RB_OFF(rd, rbase, off) lw rd, off(rbase)
 #define STORE_RB_OFF(rd, rbase, off) sw rd, off(rbase)
 
-#define STORE64_off(rlo, rhi, rbase, off) sw rlo, off(rbase); \
+#define STORE64_off(rlo, rhi, rbase, off) \
+    sw        rlo, off(rbase); \
     sw        rhi, (off+4)(rbase)
-#define LOAD64_off(rlo, rhi, rbase, off) lw rlo, off(rbase); \
+#define LOAD64_off(rlo, rhi, rbase, off) \
+    lw        rlo, off(rbase); \
     lw        rhi, (off+4)(rbase)
 
 #define STORE64(rlo, rhi, rbase) STORE64_off(rlo, rhi, rbase, 0)
 #define LOAD64(rlo, rhi, rbase) LOAD64_off(rlo, rhi, rbase, 0)
 
 #ifdef FPU64
-#define STORE64_off_F(rlo, rhi, rbase, off) s.s rlo, off(rbase); \
+#define STORE64_off_F(rlo, rhi, rbase, off) \
+    s.s       rlo, off(rbase); \
     .set noat; \
     mfhc1     AT, rlo; \
     sw        AT, (off+4)(rbase); \
     .set at
-#define LOAD64_off_F(rlo, rhi, rbase, off) l.s rlo, off(rbase); \
+#define LOAD64_off_F(rlo, rhi, rbase, off) \
+    l.s       rlo, off(rbase); \
     .set noat; \
     lw        AT, (off+4)(rbase); \
     mthc1     AT, rlo; \
     .set at
 #else
-#define STORE64_off_F(rlo, rhi, rbase, off) s.s rlo, off(rbase); \
+#define STORE64_off_F(rlo, rhi, rbase, off) \
+    s.s       rlo, off(rbase); \
     s.s       rhi, (off+4)(rbase)
-#define LOAD64_off_F(rlo, rhi, rbase, off) l.s rlo, off(rbase); \
+#define LOAD64_off_F(rlo, rhi, rbase, off) \
+    l.s       rlo, off(rbase); \
     l.s       rhi, (off+4)(rbase)
 #endif
 
@@ -489,6 +719,17 @@
     STACK_LOAD(s8, 120); \
     STACK_LOAD(ra, 124); \
     DELETE_STACK(STACK_SIZE)
+
+#define REFRESH_IBASE() \
+    lw        rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)
+
+/* Constants for float/double_to_int/long conversions */
+#define INT_MIN                 0x80000000
+#define INT_MIN_AS_FLOAT        0xCF000000
+#define INT_MIN_AS_DOUBLE_HIGH  0xC1E00000
+#define LONG_MIN_HIGH           0x80000000
+#define LONG_MIN_AS_FLOAT       0xDF000000
+#define LONG_MIN_AS_DOUBLE_HIGH 0xC3E00000
 
 /* File: mips/entry.S */
 /*
@@ -553,6 +794,12 @@ ExecuteMterpImpl:
     /* Starting ibase */
     lw      rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)
 
+    /* Set up for backwards branches & osr profiling */
+    lw      a0, OFF_FP_METHOD(rFP)
+    addu    a1, rFP, OFF_FP_SHADOWFRAME
+    JAL(MterpSetUpHotnessCountdown)        # (method, shadow_frame)
+    move    rPROFILE, v0                   # Starting hotness countdown to rPROFILE
+
     /* start executing the instruction at rPC */
     FETCH_INST()                           # load rINST from rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -585,11 +832,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[B]
     GET_INST_OPCODE(t0)                    #  t0 <- opcode from rINST
     .if 0
-    SET_VREG_OBJECT(a2, a0)                #  fp[A] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[A] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[A] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[A] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -603,11 +849,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[BBBB]
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     .if 0
-    SET_VREG_OBJECT(a2, a0)                #  fp[AA] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[AA] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[AA] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[AA] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -621,11 +866,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[BBBB]
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     .if 0
-    SET_VREG_OBJECT(a2, a0)                #  fp[AAAA] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[AAAA] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[AAAA] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[AAAA] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -638,9 +882,8 @@ artMterpAsmInstructionStart = .L_op_nop
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
     LOAD64(a0, a1, a3)                     #  a0/a1 <- fp[B]
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    SET_VREG64(a0, a1, a2)                 #  fp[A] <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a2, t0)        #  fp[A] <- a0/a1
 
 /* ------------------------------ */
     .balign 128
@@ -653,9 +896,8 @@ artMterpAsmInstructionStart = .L_op_nop
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[BBBB]
     LOAD64(a0, a1, a3)                     #  a0/a1 <- fp[BBBB]
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
-    SET_VREG64(a0, a1, a2)                 #  fp[AA] <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a2, t0)        #  fp[AA] <- a0/a1
 
 /* ------------------------------ */
     .balign 128
@@ -668,9 +910,8 @@ artMterpAsmInstructionStart = .L_op_nop
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[BBBB]
     LOAD64(a0, a1, a3)                     #  a0/a1 <- fp[BBBB]
     FETCH_ADVANCE_INST(3)                  #  advance rPC, load rINST
-    SET_VREG64(a0, a1, a2)                 #  fp[AAAA] <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a2, t0)        #  fp[AAAA] <- a0/a1
 
 /* ------------------------------ */
     .balign 128
@@ -685,11 +926,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[B]
     GET_INST_OPCODE(t0)                    #  t0 <- opcode from rINST
     .if 1
-    SET_VREG_OBJECT(a2, a0)                #  fp[A] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[A] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[A] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[A] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -705,11 +945,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[BBBB]
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     .if 1
-    SET_VREG_OBJECT(a2, a0)                #  fp[AA] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[AA] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[AA] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[AA] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -725,11 +964,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[BBBB]
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     .if 1
-    SET_VREG_OBJECT(a2, a0)                #  fp[AAAA] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[AAAA] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[AAAA] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[AAAA] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -744,11 +982,10 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a0, 0(a0)                        #  a0 <- result.i
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     .if 0
-    SET_VREG_OBJECT(a0, a2)                #  fp[AA] <- a0
+    SET_VREG_OBJECT_GOTO(a0, a2, t0)       #  fp[AA] <- a0
     .else
-    SET_VREG(a0, a2)                       #  fp[AA] <- a0
+    SET_VREG_GOTO(a0, a2, t0)              #  fp[AA] <- a0
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -759,9 +996,8 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a3, OFF_FP_RESULT_REGISTER(rFP)  #  get pointer to result JType
     LOAD64(a0, a1, a3)                     #  a0/a1 <- retval.j
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    SET_VREG64(a0, a1, a2)                 #  fp[AA] <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a2, t0)        #  fp[AA] <- a0/a1
 
 /* ------------------------------ */
     .balign 128
@@ -776,11 +1012,10 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a0, 0(a0)                        #  a0 <- result.i
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     .if 1
-    SET_VREG_OBJECT(a0, a2)                #  fp[AA] <- a0
+    SET_VREG_OBJECT_GOTO(a0, a2, t0)       #  fp[AA] <- a0
     .else
-    SET_VREG(a0, a2)                       #  fp[AA] <- a0
+    SET_VREG_GOTO(a0, a2, t0)              #  fp[AA] <- a0
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -791,10 +1026,11 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA(a2)                                 #  a2 <- AA
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)    #  get exception obj
     FETCH_ADVANCE_INST(1)                       #  advance rPC, load rINST
-    SET_VREG_OBJECT(a3, a2)                     #  fp[AA] <- exception obj
     GET_INST_OPCODE(t0)                         #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
+    SET_VREG_OBJECT(a3, a2)                     #  fp[AA] <- exception obj
     sw    zero, THREAD_EXCEPTION_OFFSET(rSELF)  #  clear exception
-    GOTO_OPCODE(t0)                             #  jump to next instruction
+    JR(t0)                                      #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -804,7 +1040,7 @@ artMterpAsmInstructionStart = .L_op_nop
     JAL(MterpThreadFenceForConstructor)
     lw        ra, THREAD_FLAGS_OFFSET(rSELF)
     move      a0, rSELF
-    and       ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and       ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqz      ra, 1f
     JAL(MterpSuspendCheck)                 # (self)
 1:
@@ -826,7 +1062,7 @@ artMterpAsmInstructionStart = .L_op_nop
     JAL(MterpThreadFenceForConstructor)
     lw        ra, THREAD_FLAGS_OFFSET(rSELF)
     move      a0, rSELF
-    and       ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and       ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqz      ra, 1f
     JAL(MterpSuspendCheck)                 # (self)
 1:
@@ -847,7 +1083,7 @@ artMterpAsmInstructionStart = .L_op_nop
     JAL(MterpThreadFenceForConstructor)
     lw        ra, THREAD_FLAGS_OFFSET(rSELF)
     move      a0, rSELF
-    and       ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and       ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqz      ra, 1f
     JAL(MterpSuspendCheck)                 # (self)
 1:
@@ -871,7 +1107,7 @@ artMterpAsmInstructionStart = .L_op_nop
     JAL(MterpThreadFenceForConstructor)
     lw        ra, THREAD_FLAGS_OFFSET(rSELF)
     move      a0, rSELF
-    and       ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and       ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqz      ra, 1f
     JAL(MterpSuspendCheck)                 # (self)
 1:
@@ -885,7 +1121,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_4: /* 0x12 */
 /* File: mips/op_const_4.S */
-    # const/4 vA,                          /* +B */
+    /* const/4 vA, +B */
     sll       a1, rINST, 16                #  a1 <- Bxxx0000
     GET_OPA(a0)                            #  a0 <- A+
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
@@ -898,7 +1134,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_16: /* 0x13 */
 /* File: mips/op_const_16.S */
-    # const/16 vAA,                        /* +BBBB */
+    /* const/16 vAA, +BBBB */
     FETCH_S(a0, 1)                         #  a0 <- ssssBBBB (sign-extended)
     GET_OPA(a3)                            #  a3 <- AA
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
@@ -909,13 +1145,12 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const: /* 0x14 */
 /* File: mips/op_const.S */
-    # const vAA,                           /* +BBBBbbbb */
+    /* const vAA, +BBBBbbbb */
     GET_OPA(a3)                            #  a3 <- AA
     FETCH(a0, 1)                           #  a0 <- bbbb (low)
     FETCH(a1, 2)                           #  a1 <- BBBB (high)
     FETCH_ADVANCE_INST(3)                  #  advance rPC, load rINST
-    sll       a1, a1, 16
-    or        a0, a1, a0                   #  a0 <- BBBBbbbb
+    INSERT_HIGH_HALF(a0, a1)               #  a0 <- BBBBbbbb
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, a3, t0)              #  vAA <- a0
 
@@ -923,7 +1158,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_high16: /* 0x15 */
 /* File: mips/op_const_high16.S */
-    # const/high16 vAA,                    /* +BBBB0000 */
+    /* const/high16 vAA, +BBBB0000 */
     FETCH(a0, 1)                           #  a0 <- 0000BBBB (zero-extended)
     GET_OPA(a3)                            #  a3 <- AA
     sll       a0, a0, 16                   #  a0 <- BBBB0000
@@ -935,69 +1170,62 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_wide_16: /* 0x16 */
 /* File: mips/op_const_wide_16.S */
-    # const-wide/16 vAA,                   /* +BBBB */
+    /* const-wide/16 vAA, +BBBB */
     FETCH_S(a0, 1)                         #  a0 <- ssssBBBB (sign-extended)
     GET_OPA(a3)                            #  a3 <- AA
     sra       a1, a0, 31                   #  a1 <- ssssssss
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, a3)                 #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a3, t0)        #  vAA/vAA+1 <- a0/a1
 
 /* ------------------------------ */
     .balign 128
 .L_op_const_wide_32: /* 0x17 */
 /* File: mips/op_const_wide_32.S */
-    # const-wide/32 vAA,                   /* +BBBBbbbb */
+    /* const-wide/32 vAA, +BBBBbbbb */
     FETCH(a0, 1)                           #  a0 <- 0000bbbb (low)
     GET_OPA(a3)                            #  a3 <- AA
     FETCH_S(a2, 2)                         #  a2 <- ssssBBBB (high)
     FETCH_ADVANCE_INST(3)                  #  advance rPC, load rINST
-    sll       a2, a2, 16
-    or        a0, a0, a2                   #  a0 <- BBBBbbbb
+    INSERT_HIGH_HALF(a0, a2)               #  a0 <- BBBBbbbb
     sra       a1, a0, 31                   #  a1 <- ssssssss
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, a3)                 #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a3, t0)        #  vAA/vAA+1 <- a0/a1
 
 /* ------------------------------ */
     .balign 128
 .L_op_const_wide: /* 0x18 */
 /* File: mips/op_const_wide.S */
-    # const-wide vAA,                      /* +HHHHhhhhBBBBbbbb */
+    /* const-wide vAA, +HHHHhhhhBBBBbbbb */
     FETCH(a0, 1)                           #  a0 <- bbbb (low)
     FETCH(a1, 2)                           #  a1 <- BBBB (low middle)
     FETCH(a2, 3)                           #  a2 <- hhhh (high middle)
-    sll       a1, 16 #
-    or        a0, a1                       #  a0 <- BBBBbbbb (low word)
+    INSERT_HIGH_HALF(a0, a1)               #  a0 <- BBBBbbbb (low word)
     FETCH(a3, 4)                           #  a3 <- HHHH (high)
     GET_OPA(t1)                            #  t1 <- AA
-    sll       a3, 16
-    or        a1, a3, a2                   #  a1 <- HHHHhhhh (high word)
+    INSERT_HIGH_HALF(a2, a3)               #  a2 <- HHHHhhhh (high word)
     FETCH_ADVANCE_INST(5)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, t1)                 #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a2, t1, t0)        #  vAA/vAA+1 <- a0/a2
 
 /* ------------------------------ */
     .balign 128
 .L_op_const_wide_high16: /* 0x19 */
 /* File: mips/op_const_wide_high16.S */
-    # const-wide/high16 vAA,               /* +BBBB000000000000 */
+    /* const-wide/high16 vAA, +BBBB000000000000 */
     FETCH(a1, 1)                           #  a1 <- 0000BBBB (zero-extended)
     GET_OPA(a3)                            #  a3 <- AA
     li        a0, 0                        #  a0 <- 00000000
     sll       a1, 16                       #  a1 <- BBBB0000
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, a3)                 #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a3, t0)        #  vAA/vAA+1 <- a0/a1
 
 /* ------------------------------ */
     .balign 128
 .L_op_const_string: /* 0x1a */
 /* File: mips/op_const_string.S */
-    # const/string vAA, String             /* BBBB */
+    /* const/string vAA, string@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                        # a0 <- BBBB
     GET_OPA(a1)                         # a1 <- AA
@@ -1014,13 +1242,12 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_string_jumbo: /* 0x1b */
 /* File: mips/op_const_string_jumbo.S */
-    # const/string vAA, String          /* BBBBBBBB */
+    /* const/string vAA, string@BBBBBBBB */
     EXPORT_PC()
     FETCH(a0, 1)                        # a0 <- bbbb (low)
     FETCH(a2, 2)                        # a2 <- BBBB (high)
     GET_OPA(a1)                         # a1 <- AA
-    sll    a2, a2, 16
-    or     a0, a0, a2                   # a0 <- BBBBbbbb
+    INSERT_HIGH_HALF(a0, a2)            # a0 <- BBBBbbbb
     addu   a2, rFP, OFF_FP_SHADOWFRAME  # a2 <- shadow frame
     move   a3, rSELF
     JAL(MterpConstString)               # v0 <- Mterp(index, tgt_reg, shadow_frame, self)
@@ -1034,7 +1261,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_const_class: /* 0x1c */
 /* File: mips/op_const_class.S */
-    # const/class vAA, Class               /* BBBB */
+    /* const/class vAA, class@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                        # a0 <- BBBB
     GET_OPA(a1)                         # a1 <- AA
@@ -1094,7 +1321,7 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Check to see if a cast from one class to another is allowed.
      */
-    # check-cast vAA, class                /* BBBB */
+    /* check-cast vAA, class@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                           #  a0 <- BBBB
     GET_OPA(a1)                            #  a1 <- AA
@@ -1118,7 +1345,7 @@ artMterpAsmInstructionStart = .L_op_nop
      * Most common situation is a non-null object, being compared against
      * an already-resolved class.
      */
-    # instance-of vA, vB, class            /* CCCC */
+    /* instance-of vA, vB, class@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -1141,6 +1368,7 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Return the length of an array.
      */
+    /* array-length vA, vB */
     GET_OPB(a1)                            #  a1 <- B
     GET_OPA4(a2)                           #  a2 <- A+
     GET_VREG(a0, a1)                       #  a0 <- vB (object ref)
@@ -1158,7 +1386,7 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Create a new instance of a class.
      */
-    # new-instance vAA, class              /* BBBB */
+    /* new-instance vAA, class@BBBB */
     EXPORT_PC()
     addu   a0, rFP, OFF_FP_SHADOWFRAME
     move   a1, rSELF
@@ -1201,8 +1429,8 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: filled-new-array, filled-new-array/range
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, type       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, type@BBBB */
     .extern MterpFilledNewArray
     EXPORT_PC()
     addu   a0, rFP, OFF_FP_SHADOWFRAME     # a0 <- shadow frame
@@ -1224,8 +1452,8 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: filled-new-array, filled-new-array/range
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, type       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, type@BBBB */
     .extern MterpFilledNewArrayRange
     EXPORT_PC()
     addu   a0, rFP, OFF_FP_SHADOWFRAME     # a0 <- shadow frame
@@ -1244,11 +1472,10 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_fill_array_data.S */
     /* fill-array-data vAA, +BBBBBBBB */
     EXPORT_PC()
-    FETCH(a0, 1)                           #  a0 <- bbbb (lo)
-    FETCH(a1, 2)                           #  a1 <- BBBB (hi)
+    FETCH(a1, 1)                           #  a1 <- bbbb (lo)
+    FETCH(a0, 2)                           #  a0 <- BBBB (hi)
     GET_OPA(a3)                            #  a3 <- AA
-    sll       a1, a1, 16                   #  a1 <- BBBBbbbb
-    or        a1, a0, a1                   #  a1 <- BBBBbbbb
+    INSERT_HIGH_HALF(a1, a0)               #  a1 <- BBBBbbbb
     GET_VREG(a0, a3)                       #  a0 <- vAA (array object)
     EAS1(a1, rPC, a1)                      #  a1 <- PC + BBBBbbbb*2 (array data off.)
     JAL(MterpFillArrayData)                #  v0 <- Mterp(obj, payload)
@@ -1284,37 +1511,9 @@ artMterpAsmInstructionStart = .L_op_nop
      * double to get a byte offset.
      */
     /* goto +AA */
-#if MTERP_PROFILE_BRANCHES
     sll       a0, rINST, 16                #  a0 <- AAxx0000
     sra       rINST, a0, 24                #  rINST <- ssssssAA (sign-extended)
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-    addu      a2, rINST, rINST             #  a2 <- byte offset
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    /* If backwards branch refresh rIBASE */
-    bgez      a2, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#else
-    sll       a0, rINST, 16                #  a0 <- AAxx0000
-    sra       rINST, a0, 24                #  rINST <- ssssssAA (sign-extended)
-    addu      a2, rINST, rINST             #  a2 <- byte offset
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    /* If backwards branch refresh rIBASE */
-    bgez      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#endif
+    b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1327,33 +1526,8 @@ artMterpAsmInstructionStart = .L_op_nop
      * double to get a byte offset.
      */
     /* goto/16 +AAAA */
-#if MTERP_PROFILE_BRANCHES
     FETCH_S(rINST, 1)                      #  rINST <- ssssAAAA (sign-extended)
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-    addu      a1, rINST, rINST             #  a1 <- byte offset, flags set
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#else
-    FETCH_S(rINST, 1)                      #  rINST <- ssssAAAA (sign-extended)
-    addu      a1, rINST, rINST             #  a1 <- byte offset, flags set
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#endif
+    b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1369,39 +1543,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * our "backward branch" test must be "<=0" instead of "<0".
      */
     /* goto/32 +AAAAAAAA */
-#if MTERP_PROFILE_BRANCHES
-    FETCH(a0, 1)                           #  a0 <- aaaa (lo)
+    FETCH(rINST, 1)                        #  rINST <- aaaa (lo)
     FETCH(a1, 2)                           #  a1 <- AAAA (hi)
-    sll       a1, a1, 16
-    or        rINST, a0, a1                #  rINST <- AAAAaaaa
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-    addu      a1, rINST, rINST             #  a1 <- byte offset
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgtz      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#else
-    FETCH(a0, 1)                           #  a0 <- aaaa (lo)
-    FETCH(a1, 2)                           #  a1 <- AAAA (hi)
-    sll       a1, a1, 16
-    or        rINST, a0, a1                #  rINST <- AAAAaaaa
-    addu      a1, rINST, rINST             #  a1 <- byte offset
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgtz      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#endif
+    INSERT_HIGH_HALF(rINST, a1)            #  rINST <- AAAAaaaa
+    b         MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1417,47 +1562,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: packed-switch, sparse-switch
      */
     /* op vAA, +BBBB */
-#if MTERP_PROFILE_BRANCHES
     FETCH(a0, 1)                           #  a0 <- bbbb (lo)
     FETCH(a1, 2)                           #  a1 <- BBBB (hi)
     GET_OPA(a3)                            #  a3 <- AA
-    sll       t0, a1, 16
-    or        a0, a0, t0                   #  a0 <- BBBBbbbb
+    INSERT_HIGH_HALF(a0, a1)               #  a0 <- BBBBbbbb
     GET_VREG(a1, a3)                       #  a1 <- vAA
     EAS1(a0, rPC, a0)                      #  a0 <- PC + BBBBbbbb*2
     JAL(MterpDoPackedSwitch)                             #  a0 <- code-unit branch offset
     move      rINST, v0
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-    addu      a1, rINST, rINST             #  a1 <- byte offset
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgtz      a1, .Lop_packed_switch_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-#else
-    FETCH(a0, 1)                           #  a0 <- bbbb (lo)
-    FETCH(a1, 2)                           #  a1 <- BBBB (hi)
-    GET_OPA(a3)                            #  a3 <- AA
-    sll       t0, a1, 16
-    or        a0, a0, t0                   #  a0 <- BBBBbbbb
-    GET_VREG(a1, a3)                       #  a1 <- vAA
-    EAS1(a0, rPC, a0)                      #  a0 <- PC + BBBBbbbb*2
-    JAL(MterpDoPackedSwitch)                             #  a0 <- code-unit branch offset
-    move      rINST, v0
-    addu      a1, rINST, rINST             #  a1 <- byte offset
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgtz      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#endif
-
+    b         MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
     .balign 128
@@ -1474,47 +1587,15 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: packed-switch, sparse-switch
      */
     /* op vAA, +BBBB */
-#if MTERP_PROFILE_BRANCHES
     FETCH(a0, 1)                           #  a0 <- bbbb (lo)
     FETCH(a1, 2)                           #  a1 <- BBBB (hi)
     GET_OPA(a3)                            #  a3 <- AA
-    sll       t0, a1, 16
-    or        a0, a0, t0                   #  a0 <- BBBBbbbb
+    INSERT_HIGH_HALF(a0, a1)               #  a0 <- BBBBbbbb
     GET_VREG(a1, a3)                       #  a1 <- vAA
     EAS1(a0, rPC, a0)                      #  a0 <- PC + BBBBbbbb*2
     JAL(MterpDoSparseSwitch)                             #  a0 <- code-unit branch offset
     move      rINST, v0
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-    addu      a1, rINST, rINST             #  a1 <- byte offset
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgtz      a1, .Lop_sparse_switch_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-#else
-    FETCH(a0, 1)                           #  a0 <- bbbb (lo)
-    FETCH(a1, 2)                           #  a1 <- BBBB (hi)
-    GET_OPA(a3)                            #  a3 <- AA
-    sll       t0, a1, 16
-    or        a0, a0, t0                   #  a0 <- BBBBbbbb
-    GET_VREG(a1, a3)                       #  a1 <- vAA
-    EAS1(a0, rPC, a0)                      #  a0 <- PC + BBBBbbbb*2
-    JAL(MterpDoSparseSwitch)                             #  a0 <- code-unit branch offset
-    move      rINST, v0
-    addu      a1, rINST, rINST             #  a1 <- byte offset
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgtz      a1, 1f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-1:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-#endif
-
+    b         MterpCommonTakenBranchNoFlags
 
 
 /* ------------------------------ */
@@ -1522,55 +1603,54 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_cmpl_float: /* 0x2d */
 /* File: mips/op_cmpl_float.S */
     /*
-     * Compare two floating-point values.  Puts 0, 1, or -1 into the
-     * destination register rTEMP based on the results of the comparison.
-     *
-     * Provide a "naninst" instruction that puts 1 or -1 into rTEMP depending
-     * on what value we'd like to return when one of the operands is NaN.
-     *
-     * The operation we're implementing is:
-     *   if (x == y)
-     *     return 0;
-     *   else if (x < y)
-     *     return -1;
-     *   else if (x > y)
-     *     return 1;
-     *   else
-     *     return {-1 or 1};  // one or both operands was NaN
+     * Compare two floating-point values. Puts 0(==), 1(>), or -1(<)
+     * into the destination register based on the comparison results.
      *
      * for: cmpl-float, cmpg-float
      */
     /* op vAA, vBB, vCC */
 
-    /* "clasic" form */
     FETCH(a0, 1)                           #  a0 <- CCBB
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8
     GET_VREG_F(ft0, a2)
     GET_VREG_F(ft1, a3)
 #ifdef MIPS32REVGE6
-    cmp.ult.s ft2, ft0, ft1               # Is ft0 < ft1
-    li        rTEMP, -1
-    bc1nez    ft2, .Lop_cmpl_float_finish
-    cmp.ult.s ft2, ft1, ft0
-    li        rTEMP, 1
-    bc1nez    ft2, .Lop_cmpl_float_finish
     cmp.eq.s  ft2, ft0, ft1
     li        rTEMP, 0
-    bc1nez    ft2, .Lop_cmpl_float_finish
-    b         .Lop_cmpl_float_nan
-#else
-    c.olt.s   fcc0, ft0, ft1               # Is ft0 < ft1
+    bc1nez    ft2, 1f                      # done if vBB == vCC (ordered)
+    .if 0
+    cmp.lt.s  ft2, ft0, ft1
     li        rTEMP, -1
-    bc1t      fcc0, .Lop_cmpl_float_finish
-    c.olt.s   fcc0, ft1, ft0
+    bc1nez    ft2, 1f                      # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    cmp.lt.s  ft2, ft1, ft0
     li        rTEMP, 1
-    bc1t      fcc0, .Lop_cmpl_float_finish
+    bc1nez    ft2, 1f                      # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
+#else
     c.eq.s    fcc0, ft0, ft1
     li        rTEMP, 0
-    bc1t      fcc0, .Lop_cmpl_float_finish
-    b         .Lop_cmpl_float_nan
+    bc1t      fcc0, 1f                     # done if vBB == vCC (ordered)
+    .if 0
+    c.olt.s   fcc0, ft0, ft1
+    li        rTEMP, -1
+    bc1t      fcc0, 1f                     # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    c.olt.s   fcc0, ft1, ft0
+    li        rTEMP, 1
+    bc1t      fcc0, 1f                     # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
 #endif
+1:
+    GET_OPA(rOBJ)
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
 
 /* ------------------------------ */
     .balign 128
@@ -1578,55 +1658,54 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_cmpg_float.S */
 /* File: mips/op_cmpl_float.S */
     /*
-     * Compare two floating-point values.  Puts 0, 1, or -1 into the
-     * destination register rTEMP based on the results of the comparison.
-     *
-     * Provide a "naninst" instruction that puts 1 or -1 into rTEMP depending
-     * on what value we'd like to return when one of the operands is NaN.
-     *
-     * The operation we're implementing is:
-     *   if (x == y)
-     *     return 0;
-     *   else if (x < y)
-     *     return -1;
-     *   else if (x > y)
-     *     return 1;
-     *   else
-     *     return {-1 or 1};  // one or both operands was NaN
+     * Compare two floating-point values. Puts 0(==), 1(>), or -1(<)
+     * into the destination register based on the comparison results.
      *
      * for: cmpl-float, cmpg-float
      */
     /* op vAA, vBB, vCC */
 
-    /* "clasic" form */
     FETCH(a0, 1)                           #  a0 <- CCBB
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8
     GET_VREG_F(ft0, a2)
     GET_VREG_F(ft1, a3)
 #ifdef MIPS32REVGE6
-    cmp.ult.s ft2, ft0, ft1               # Is ft0 < ft1
-    li        rTEMP, -1
-    bc1nez    ft2, .Lop_cmpg_float_finish
-    cmp.ult.s ft2, ft1, ft0
-    li        rTEMP, 1
-    bc1nez    ft2, .Lop_cmpg_float_finish
     cmp.eq.s  ft2, ft0, ft1
     li        rTEMP, 0
-    bc1nez    ft2, .Lop_cmpg_float_finish
-    b         .Lop_cmpg_float_nan
-#else
-    c.olt.s   fcc0, ft0, ft1               # Is ft0 < ft1
+    bc1nez    ft2, 1f                      # done if vBB == vCC (ordered)
+    .if 1
+    cmp.lt.s  ft2, ft0, ft1
     li        rTEMP, -1
-    bc1t      fcc0, .Lop_cmpg_float_finish
-    c.olt.s   fcc0, ft1, ft0
+    bc1nez    ft2, 1f                      # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    cmp.lt.s  ft2, ft1, ft0
     li        rTEMP, 1
-    bc1t      fcc0, .Lop_cmpg_float_finish
+    bc1nez    ft2, 1f                      # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
+#else
     c.eq.s    fcc0, ft0, ft1
     li        rTEMP, 0
-    bc1t      fcc0, .Lop_cmpg_float_finish
-    b         .Lop_cmpg_float_nan
+    bc1t      fcc0, 1f                     # done if vBB == vCC (ordered)
+    .if 1
+    c.olt.s   fcc0, ft0, ft1
+    li        rTEMP, -1
+    bc1t      fcc0, 1f                     # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    c.olt.s   fcc0, ft1, ft0
+    li        rTEMP, 1
+    bc1t      fcc0, 1f                     # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
 #endif
+1:
+    GET_OPA(rOBJ)
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
 
 
 /* ------------------------------ */
@@ -1635,47 +1714,55 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_cmpl_double.S */
     /*
      * Compare two floating-point values. Puts 0(==), 1(>), or -1(<)
-     * into the destination register (rTEMP) based on the comparison results.
-     *
-     * Provide a "naninst" instruction that puts 1 or -1 into rTEMP depending
-     * on what value we'd like to return when one of the operands is NaN.
-     *
-     * See op_cmpl_float for more details.
+     * into the destination register based on the comparison results.
      *
      * For: cmpl-double, cmpg-double
      */
     /* op vAA, vBB, vCC */
 
     FETCH(a0, 1)                           #  a0 <- CCBB
-    and       rOBJ, a0, 255                #  s5 <- BB
+    and       rOBJ, a0, 255                #  rOBJ <- BB
     srl       t0, a0, 8                    #  t0 <- CC
-    EAS2(rOBJ, rFP, rOBJ)                  #  s5 <- &fp[BB]
+    EAS2(rOBJ, rFP, rOBJ)                  #  rOBJ <- &fp[BB]
     EAS2(t0, rFP, t0)                      #  t0 <- &fp[CC]
     LOAD64_F(ft0, ft0f, rOBJ)
     LOAD64_F(ft1, ft1f, t0)
 #ifdef MIPS32REVGE6
-    cmp.ult.d ft2, ft0, ft1
-    li        rTEMP, -1
-    bc1nez    ft2, .Lop_cmpl_double_finish
-    cmp.ult.d ft2, ft1, ft0
-    li        rTEMP, 1
-    bc1nez    ft2, .Lop_cmpl_double_finish
     cmp.eq.d  ft2, ft0, ft1
     li        rTEMP, 0
-    bc1nez    ft2, .Lop_cmpl_double_finish
-    b         .Lop_cmpl_double_nan
-#else
-    c.olt.d   fcc0, ft0, ft1
+    bc1nez    ft2, 1f                      # done if vBB == vCC (ordered)
+    .if 0
+    cmp.lt.d  ft2, ft0, ft1
     li        rTEMP, -1
-    bc1t      fcc0, .Lop_cmpl_double_finish
-    c.olt.d   fcc0, ft1, ft0
+    bc1nez    ft2, 1f                      # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    cmp.lt.d  ft2, ft1, ft0
     li        rTEMP, 1
-    bc1t      fcc0, .Lop_cmpl_double_finish
+    bc1nez    ft2, 1f                      # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
+#else
     c.eq.d    fcc0, ft0, ft1
     li        rTEMP, 0
-    bc1t      fcc0, .Lop_cmpl_double_finish
-    b         .Lop_cmpl_double_nan
+    bc1t      fcc0, 1f                     # done if vBB == vCC (ordered)
+    .if 0
+    c.olt.d   fcc0, ft0, ft1
+    li        rTEMP, -1
+    bc1t      fcc0, 1f                     # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    c.olt.d   fcc0, ft1, ft0
+    li        rTEMP, 1
+    bc1t      fcc0, 1f                     # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
 #endif
+1:
+    GET_OPA(rOBJ)
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
 
 /* ------------------------------ */
     .balign 128
@@ -1684,47 +1771,55 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_cmpl_double.S */
     /*
      * Compare two floating-point values. Puts 0(==), 1(>), or -1(<)
-     * into the destination register (rTEMP) based on the comparison results.
-     *
-     * Provide a "naninst" instruction that puts 1 or -1 into rTEMP depending
-     * on what value we'd like to return when one of the operands is NaN.
-     *
-     * See op_cmpl_float for more details.
+     * into the destination register based on the comparison results.
      *
      * For: cmpl-double, cmpg-double
      */
     /* op vAA, vBB, vCC */
 
     FETCH(a0, 1)                           #  a0 <- CCBB
-    and       rOBJ, a0, 255                #  s5 <- BB
+    and       rOBJ, a0, 255                #  rOBJ <- BB
     srl       t0, a0, 8                    #  t0 <- CC
-    EAS2(rOBJ, rFP, rOBJ)                  #  s5 <- &fp[BB]
+    EAS2(rOBJ, rFP, rOBJ)                  #  rOBJ <- &fp[BB]
     EAS2(t0, rFP, t0)                      #  t0 <- &fp[CC]
     LOAD64_F(ft0, ft0f, rOBJ)
     LOAD64_F(ft1, ft1f, t0)
 #ifdef MIPS32REVGE6
-    cmp.ult.d ft2, ft0, ft1
-    li        rTEMP, -1
-    bc1nez    ft2, .Lop_cmpg_double_finish
-    cmp.ult.d ft2, ft1, ft0
-    li        rTEMP, 1
-    bc1nez    ft2, .Lop_cmpg_double_finish
     cmp.eq.d  ft2, ft0, ft1
     li        rTEMP, 0
-    bc1nez    ft2, .Lop_cmpg_double_finish
-    b         .Lop_cmpg_double_nan
-#else
-    c.olt.d   fcc0, ft0, ft1
+    bc1nez    ft2, 1f                      # done if vBB == vCC (ordered)
+    .if 1
+    cmp.lt.d  ft2, ft0, ft1
     li        rTEMP, -1
-    bc1t      fcc0, .Lop_cmpg_double_finish
-    c.olt.d   fcc0, ft1, ft0
+    bc1nez    ft2, 1f                      # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    cmp.lt.d  ft2, ft1, ft0
     li        rTEMP, 1
-    bc1t      fcc0, .Lop_cmpg_double_finish
+    bc1nez    ft2, 1f                      # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
+#else
     c.eq.d    fcc0, ft0, ft1
     li        rTEMP, 0
-    bc1t      fcc0, .Lop_cmpg_double_finish
-    b         .Lop_cmpg_double_nan
+    bc1t      fcc0, 1f                     # done if vBB == vCC (ordered)
+    .if 1
+    c.olt.d   fcc0, ft0, ft1
+    li        rTEMP, -1
+    bc1t      fcc0, 1f                     # done if vBB < vCC (ordered)
+    li        rTEMP, 1                     # vBB > vCC or unordered
+    .else
+    c.olt.d   fcc0, ft1, ft0
+    li        rTEMP, 1
+    bc1t      fcc0, 1f                     # done if vBB > vCC (ordered)
+    li        rTEMP, -1                    # vBB < vCC or unordered
+    .endif
 #endif
+1:
+    GET_OPA(rOBJ)
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
 
 
 /* ------------------------------ */
@@ -1772,9 +1867,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_eq.S */
 /* File: mips/bincmp.S */
     /*
-     * Generic two-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic two-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
@@ -1782,27 +1876,14 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a0)                           #  a0 <- A+
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a3, a1)                       #  a3 <- vB
-    GET_VREG(a2, a0)                       #  a2 <- vA
-    bne a2, a3, 1f                  #  branch to 1 if comparison failed
+    GET_VREG(a0, a0)                       #  a0 <- vA
     FETCH_S(rINST, 1)                      #  rINST<- branch offset, in code units
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a2, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    bgez      a2, .L_op_if_eq_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-
+    beq a0, a3, MterpCommonTakenBranchNoFlags  #  compare (vA, vB)
+    li        t0, JIT_CHECK_OSR
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -1811,9 +1892,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_ne.S */
 /* File: mips/bincmp.S */
     /*
-     * Generic two-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic two-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
@@ -1821,27 +1901,14 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a0)                           #  a0 <- A+
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a3, a1)                       #  a3 <- vB
-    GET_VREG(a2, a0)                       #  a2 <- vA
-    beq a2, a3, 1f                  #  branch to 1 if comparison failed
+    GET_VREG(a0, a0)                       #  a0 <- vA
     FETCH_S(rINST, 1)                      #  rINST<- branch offset, in code units
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a2, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    bgez      a2, .L_op_if_ne_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-
+    bne a0, a3, MterpCommonTakenBranchNoFlags  #  compare (vA, vB)
+    li        t0, JIT_CHECK_OSR
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -1850,9 +1917,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_lt.S */
 /* File: mips/bincmp.S */
     /*
-     * Generic two-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic two-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
@@ -1860,27 +1926,14 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a0)                           #  a0 <- A+
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a3, a1)                       #  a3 <- vB
-    GET_VREG(a2, a0)                       #  a2 <- vA
-    bge a2, a3, 1f                  #  branch to 1 if comparison failed
+    GET_VREG(a0, a0)                       #  a0 <- vA
     FETCH_S(rINST, 1)                      #  rINST<- branch offset, in code units
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a2, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    bgez      a2, .L_op_if_lt_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-
+    blt a0, a3, MterpCommonTakenBranchNoFlags  #  compare (vA, vB)
+    li        t0, JIT_CHECK_OSR
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -1889,9 +1942,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_ge.S */
 /* File: mips/bincmp.S */
     /*
-     * Generic two-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic two-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
@@ -1899,27 +1951,14 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a0)                           #  a0 <- A+
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a3, a1)                       #  a3 <- vB
-    GET_VREG(a2, a0)                       #  a2 <- vA
-    blt a2, a3, 1f                  #  branch to 1 if comparison failed
+    GET_VREG(a0, a0)                       #  a0 <- vA
     FETCH_S(rINST, 1)                      #  rINST<- branch offset, in code units
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a2, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    bgez      a2, .L_op_if_ge_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-
+    bge a0, a3, MterpCommonTakenBranchNoFlags  #  compare (vA, vB)
+    li        t0, JIT_CHECK_OSR
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -1928,9 +1967,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_gt.S */
 /* File: mips/bincmp.S */
     /*
-     * Generic two-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic two-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
@@ -1938,27 +1976,14 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a0)                           #  a0 <- A+
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a3, a1)                       #  a3 <- vB
-    GET_VREG(a2, a0)                       #  a2 <- vA
-    ble a2, a3, 1f                  #  branch to 1 if comparison failed
+    GET_VREG(a0, a0)                       #  a0 <- vA
     FETCH_S(rINST, 1)                      #  rINST<- branch offset, in code units
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a2, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    bgez      a2, .L_op_if_gt_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-
+    bgt a0, a3, MterpCommonTakenBranchNoFlags  #  compare (vA, vB)
+    li        t0, JIT_CHECK_OSR
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -1967,9 +1992,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_le.S */
 /* File: mips/bincmp.S */
     /*
-     * Generic two-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic two-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * For: if-eq, if-ne, if-lt, if-ge, if-gt, if-le
      */
@@ -1977,27 +2001,14 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a0)                           #  a0 <- A+
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a3, a1)                       #  a3 <- vB
-    GET_VREG(a2, a0)                       #  a2 <- vA
-    bgt a2, a3, 1f                  #  branch to 1 if comparison failed
+    GET_VREG(a0, a0)                       #  a0 <- vA
     FETCH_S(rINST, 1)                      #  rINST<- branch offset, in code units
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a2, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a2)              #  update rPC, load rINST
-    bgez      a2, .L_op_if_le_finish
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-
+    ble a0, a3, MterpCommonTakenBranchNoFlags  #  compare (vA, vB)
+    li        t0, JIT_CHECK_OSR
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -2006,35 +2017,19 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_eqz.S */
 /* File: mips/zcmp.S */
     /*
-     * Generic one-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic one-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * for: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
     GET_OPA(a0)                            #  a0 <- AA
-    GET_VREG(a2, a0)                       #  a2 <- vAA
+    GET_VREG(a0, a0)                       #  a0 <- vAA
     FETCH_S(rINST, 1)                      #  rINST <- branch offset, in code units
-    bne a2, zero, 1f                #  branch to 1 if comparison failed
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a1, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 3f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-3:
+    beq a0, zero, MterpCommonTakenBranchNoFlags
+    li        t0, JIT_CHECK_OSR            # possible OSR re-entry?
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     GOTO_OPCODE(t0)                        #  jump to next instruction
 
@@ -2045,35 +2040,19 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_nez.S */
 /* File: mips/zcmp.S */
     /*
-     * Generic one-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic one-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * for: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
     GET_OPA(a0)                            #  a0 <- AA
-    GET_VREG(a2, a0)                       #  a2 <- vAA
+    GET_VREG(a0, a0)                       #  a0 <- vAA
     FETCH_S(rINST, 1)                      #  rINST <- branch offset, in code units
-    beq a2, zero, 1f                #  branch to 1 if comparison failed
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a1, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 3f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-3:
+    bne a0, zero, MterpCommonTakenBranchNoFlags
+    li        t0, JIT_CHECK_OSR            # possible OSR re-entry?
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     GOTO_OPCODE(t0)                        #  jump to next instruction
 
@@ -2084,35 +2063,19 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_ltz.S */
 /* File: mips/zcmp.S */
     /*
-     * Generic one-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic one-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * for: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
     GET_OPA(a0)                            #  a0 <- AA
-    GET_VREG(a2, a0)                       #  a2 <- vAA
+    GET_VREG(a0, a0)                       #  a0 <- vAA
     FETCH_S(rINST, 1)                      #  rINST <- branch offset, in code units
-    bge a2, zero, 1f                #  branch to 1 if comparison failed
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a1, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 3f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-3:
+    blt a0, zero, MterpCommonTakenBranchNoFlags
+    li        t0, JIT_CHECK_OSR            # possible OSR re-entry?
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     GOTO_OPCODE(t0)                        #  jump to next instruction
 
@@ -2123,35 +2086,19 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_gez.S */
 /* File: mips/zcmp.S */
     /*
-     * Generic one-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic one-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * for: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
     GET_OPA(a0)                            #  a0 <- AA
-    GET_VREG(a2, a0)                       #  a2 <- vAA
+    GET_VREG(a0, a0)                       #  a0 <- vAA
     FETCH_S(rINST, 1)                      #  rINST <- branch offset, in code units
-    blt a2, zero, 1f                #  branch to 1 if comparison failed
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a1, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 3f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-3:
+    bge a0, zero, MterpCommonTakenBranchNoFlags
+    li        t0, JIT_CHECK_OSR            # possible OSR re-entry?
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     GOTO_OPCODE(t0)                        #  jump to next instruction
 
@@ -2162,35 +2109,19 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_gtz.S */
 /* File: mips/zcmp.S */
     /*
-     * Generic one-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic one-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * for: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
     GET_OPA(a0)                            #  a0 <- AA
-    GET_VREG(a2, a0)                       #  a2 <- vAA
+    GET_VREG(a0, a0)                       #  a0 <- vAA
     FETCH_S(rINST, 1)                      #  rINST <- branch offset, in code units
-    ble a2, zero, 1f                #  branch to 1 if comparison failed
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a1, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 3f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-3:
+    bgt a0, zero, MterpCommonTakenBranchNoFlags
+    li        t0, JIT_CHECK_OSR            # possible OSR re-entry?
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     GOTO_OPCODE(t0)                        #  jump to next instruction
 
@@ -2201,35 +2132,19 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_if_lez.S */
 /* File: mips/zcmp.S */
     /*
-     * Generic one-operand compare-and-branch operation.  Provide a "revcmp"
-     * fragment that specifies the *reverse* comparison to perform, e.g.
-     * for "if-le" you would use "gt".
+     * Generic one-operand compare-and-branch operation.  Provide a "condition"
+     * fragment that specifies the comparison to perform.
      *
      * for: if-eqz, if-nez, if-ltz, if-gez, if-gtz, if-lez
      */
     /* if-cmp vAA, +BBBB */
     GET_OPA(a0)                            #  a0 <- AA
-    GET_VREG(a2, a0)                       #  a2 <- vAA
+    GET_VREG(a0, a0)                       #  a0 <- vAA
     FETCH_S(rINST, 1)                      #  rINST <- branch offset, in code units
-    bgt a2, zero, 1f                #  branch to 1 if comparison failed
-    b 2f
-1:
-    li        rINST, 2                     #  rINST- BYTE branch dist for not-taken
-2:
-#if MTERP_PROFILE_BRANCHES
-    EXPORT_PC()
-    move      a0, rSELF
-    addu      a1, rFP, OFF_FP_SHADOWFRAME
-    move      a2, rINST
-    JAL(MterpProfileBranch)                #  (self, shadow_frame, offset)
-    bnez      v0, MterpOnStackReplacement  #  Note: offset must be in rINST
-#endif
-    addu      a1, rINST, rINST             #  convert to bytes
-    FETCH_ADVANCE_INST_RB(a1)              #  update rPC, load rINST
-    bgez      a1, 3f
-    lw        ra, THREAD_FLAGS_OFFSET(rSELF)
-    b         MterpCheckSuspendAndContinue
-3:
+    ble a0, zero, MterpCommonTakenBranchNoFlags
+    li        t0, JIT_CHECK_OSR            # possible OSR re-entry?
+    beq       rPROFILE, t0, .L_check_not_taken_osr
+    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     GOTO_OPCODE(t0)                        #  jump to next instruction
 
@@ -2324,11 +2239,7 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 2
     EASN(a0, a0, a1, 2)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     # a1 >= a3; compare unsigned index
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
@@ -2383,10 +2294,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lw   a1, THREAD_EXCEPTION_OFFSET(rSELF)
     PREFETCH_INST(2)                       #  load rINST
     bnez a1, MterpException
-    SET_VREG_OBJECT(v0, rOBJ)              #  vAA <- v0
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_OBJECT_GOTO(v0, rOBJ, t0)     #  vAA <- v0
 
 /* ------------------------------ */
     .balign 128
@@ -2413,11 +2323,7 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 0
     EASN(a0, a0, a1, 0)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     # a1 >= a3; compare unsigned index
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
@@ -2451,11 +2357,7 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 0
     EASN(a0, a0, a1, 0)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     # a1 >= a3; compare unsigned index
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
@@ -2489,11 +2391,7 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 1
     EASN(a0, a0, a1, 1)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     # a1 >= a3; compare unsigned index
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
@@ -2527,11 +2425,7 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 1
     EASN(a0, a0, a1, 1)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     # a1 >= a3; compare unsigned index
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
@@ -2562,17 +2456,14 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 2
     EASN(a0, a0, a1, 2)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_VREG(a2, rOBJ)                     #  a2 <- vAA
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
     sw a2, MIRROR_INT_ARRAY_DATA_OFFSET(a0)            #  vBB[vCC] <- a2
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t0)                                 #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -2580,8 +2471,6 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_aput_wide.S */
     /*
      * Array put, 64 bits.  vBB[vCC] <- vAA.
-     *
-     * Arrays of long/double are 64-bit aligned, so it's okay to use STRD.
      */
     /* aput-wide vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
@@ -2601,8 +2490,9 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     LOAD64(a2, a3, rOBJ)                   #  a2/a3 <- vAA/vAA+1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
     STORE64_off(a2, a3, a0, MIRROR_WIDE_ARRAY_DATA_OFFSET) #  a2/a3 <- vBB[vCC]
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t0)                                 #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
@@ -2646,17 +2536,14 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 0
     EASN(a0, a0, a1, 0)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_VREG(a2, rOBJ)                     #  a2 <- vAA
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
     sb a2, MIRROR_BOOLEAN_ARRAY_DATA_OFFSET(a0)            #  vBB[vCC] <- a2
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t0)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -2682,17 +2569,14 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 0
     EASN(a0, a0, a1, 0)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_VREG(a2, rOBJ)                     #  a2 <- vAA
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
     sb a2, MIRROR_BYTE_ARRAY_DATA_OFFSET(a0)            #  vBB[vCC] <- a2
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t0)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -2718,17 +2602,14 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 1
     EASN(a0, a0, a1, 1)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_VREG(a2, rOBJ)                     #  a2 <- vAA
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
     sh a2, MIRROR_CHAR_ARRAY_DATA_OFFSET(a0)            #  vBB[vCC] <- a2
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t0)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -2754,17 +2635,14 @@ artMterpAsmInstructionStart = .L_op_nop
     # null array object?
     beqz      a0, common_errNullObject     #  yes, bail
     LOAD_base_offMirrorArray_length(a3, a0) #  a3 <- arrayObj->length
-    .if 1
     EASN(a0, a0, a1, 1)               #  a0 <- arrayObj + index*width
-    .else
-    addu      a0, a0, a1
-    .endif
     bgeu      a1, a3, common_errArrayIndex #  index >= length, bail
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_VREG(a2, rOBJ)                     #  a2 <- vAA
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t0)
     sh a2, MIRROR_SHORT_ARRAY_DATA_OFFSET(a0)            #  vBB[vCC] <- a2
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t0)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -2776,6 +2654,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget, iget-object, iget-boolean, iget-byte, iget-char, iget-short
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -2787,14 +2666,13 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez  a3, MterpPossibleException        # bail out
-    .if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[A] <- v0
-    .else
-    SET_VREG(v0, a2)                       # fp[A] <- v0
-    .endif
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    .if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[A] <- v0
+    .else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[A] <- v0
+    .endif
 
 /* ------------------------------ */
     .balign 128
@@ -2805,6 +2683,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget-wide
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field byte offset
     GET_OPB(a1)                            # a1 <- B
@@ -2816,10 +2695,9 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez a3, MterpException                # bail out
-    SET_VREG64(v0, v1, a2)                 # fp[A] <- v0/v1
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+    SET_VREG64_GOTO(v0, v1, a2, t0)        # fp[A] <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -2831,6 +2709,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget, iget-object, iget-boolean, iget-byte, iget-char, iget-short
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -2842,14 +2721,13 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez  a3, MterpPossibleException        # bail out
-    .if 1
-    SET_VREG_OBJECT(v0, a2)                # fp[A] <- v0
-    .else
-    SET_VREG(v0, a2)                       # fp[A] <- v0
-    .endif
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    .if 1
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[A] <- v0
+    .else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[A] <- v0
+    .endif
 
 
 /* ------------------------------ */
@@ -2862,6 +2740,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget, iget-object, iget-boolean, iget-byte, iget-char, iget-short
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -2873,14 +2752,13 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez  a3, MterpPossibleException        # bail out
-    .if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[A] <- v0
-    .else
-    SET_VREG(v0, a2)                       # fp[A] <- v0
-    .endif
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    .if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[A] <- v0
+    .else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[A] <- v0
+    .endif
 
 
 /* ------------------------------ */
@@ -2893,6 +2771,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget, iget-object, iget-boolean, iget-byte, iget-char, iget-short
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -2904,14 +2783,13 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez  a3, MterpPossibleException        # bail out
-    .if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[A] <- v0
-    .else
-    SET_VREG(v0, a2)                       # fp[A] <- v0
-    .endif
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    .if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[A] <- v0
+    .else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[A] <- v0
+    .endif
 
 
 /* ------------------------------ */
@@ -2924,6 +2802,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget, iget-object, iget-boolean, iget-byte, iget-char, iget-short
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -2935,14 +2814,13 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez  a3, MterpPossibleException        # bail out
-    .if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[A] <- v0
-    .else
-    SET_VREG(v0, a2)                       # fp[A] <- v0
-    .endif
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    .if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[A] <- v0
+    .else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[A] <- v0
+    .endif
 
 
 /* ------------------------------ */
@@ -2955,6 +2833,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iget, iget-object, iget-boolean, iget-byte, iget-char, iget-short
      */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
     GET_OPB(a1)                            # a1 <- B
@@ -2966,14 +2845,13 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           # a2<- A+
     PREFETCH_INST(2)                       # load rINST
     bnez  a3, MterpPossibleException        # bail out
-    .if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[A] <- v0
-    .else
-    SET_VREG(v0, a2)                       # fp[A] <- v0
-    .endif
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    .if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[A] <- v0
+    .else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[A] <- v0
+    .endif
 
 
 /* ------------------------------ */
@@ -2985,7 +2863,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iput, iput-boolean, iput-byte, iput-char, iput-short
      */
-    # op vA, vB, field                     /* CCCC */
+    /* op vA, vB, field@CCCC */
     .extern artSet32InstanceFromMterp
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
@@ -3005,7 +2883,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_iput_wide: /* 0x5a */
 /* File: mips/op_iput_wide.S */
-    # iput-wide vA, vB, field              /* CCCC */
+    /* iput-wide vA, vB, field@CCCC */
     .extern artSet64InstanceFromMterp
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
@@ -3030,7 +2908,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iput-object, iput-object-volatile
      */
-    # op vA, vB, field                     /* CCCC */
+    /* op vA, vB, field@CCCC */
     EXPORT_PC()
     addu   a0, rFP, OFF_FP_SHADOWFRAME
     move   a1, rPC
@@ -3052,7 +2930,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iput, iput-boolean, iput-byte, iput-char, iput-short
      */
-    # op vA, vB, field                     /* CCCC */
+    /* op vA, vB, field@CCCC */
     .extern artSet8InstanceFromMterp
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
@@ -3079,7 +2957,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iput, iput-boolean, iput-byte, iput-char, iput-short
      */
-    # op vA, vB, field                     /* CCCC */
+    /* op vA, vB, field@CCCC */
     .extern artSet8InstanceFromMterp
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
@@ -3106,7 +2984,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iput, iput-boolean, iput-byte, iput-char, iput-short
      */
-    # op vA, vB, field                     /* CCCC */
+    /* op vA, vB, field@CCCC */
     .extern artSet16InstanceFromMterp
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
@@ -3133,7 +3011,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: iput, iput-boolean, iput-byte, iput-char, iput-short
      */
-    # op vA, vB, field                     /* CCCC */
+    /* op vA, vB, field@CCCC */
     .extern artSet16InstanceFromMterp
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
@@ -3159,25 +3037,24 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
-    # op vAA, field                        /* BBBB */
-    .extern artGet32StaticFromCode
+    /* op vAA, field@BBBB */
+    .extern MterpGet32Static
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGet32StaticFromCode)
+    JAL(MterpGet32Static)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     GET_OPA(a2)                            # a2 <- AA
     PREFETCH_INST(2)
     bnez  a3, MterpException               # bail out
-.if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[AA] <- v0
-.else
-    SET_VREG(v0, a2)                       # fp[AA] <- v0
-.endif
     ADVANCE(2)
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+.if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[AA] <- v0
+.else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[AA] <- v0
+.endif
 
 /* ------------------------------ */
     .balign 128
@@ -3186,20 +3063,19 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * 64-bit SGET handler.
      */
-    # sget-wide vAA, field                 /* BBBB */
-    .extern artGet64StaticFromCode
+    /* sget-wide vAA, field@BBBB */
+    .extern MterpGet64Static
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGet64StaticFromCode)
+    JAL(MterpGet64Static)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     bnez  a3, MterpException
     GET_OPA(a1)                            # a1 <- AA
     FETCH_ADVANCE_INST(2)                  # advance rPC, load rINST
-    SET_VREG64(v0, v1, a1)                 # vAA/vAA+1 <- v0/v1
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+    SET_VREG64_GOTO(v0, v1, a1, t0)        # vAA/vAA+1 <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -3211,25 +3087,24 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
-    # op vAA, field                        /* BBBB */
-    .extern artGetObjStaticFromCode
+    /* op vAA, field@BBBB */
+    .extern MterpGetObjStatic
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGetObjStaticFromCode)
+    JAL(MterpGetObjStatic)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     GET_OPA(a2)                            # a2 <- AA
     PREFETCH_INST(2)
     bnez  a3, MterpException               # bail out
-.if 1
-    SET_VREG_OBJECT(v0, a2)                # fp[AA] <- v0
-.else
-    SET_VREG(v0, a2)                       # fp[AA] <- v0
-.endif
     ADVANCE(2)
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+.if 1
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[AA] <- v0
+.else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[AA] <- v0
+.endif
 
 
 /* ------------------------------ */
@@ -3242,25 +3117,24 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
-    # op vAA, field                        /* BBBB */
-    .extern artGetBooleanStaticFromCode
+    /* op vAA, field@BBBB */
+    .extern MterpGetBooleanStatic
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGetBooleanStaticFromCode)
+    JAL(MterpGetBooleanStatic)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     GET_OPA(a2)                            # a2 <- AA
     PREFETCH_INST(2)
     bnez  a3, MterpException               # bail out
-.if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[AA] <- v0
-.else
-    SET_VREG(v0, a2)                       # fp[AA] <- v0
-.endif
     ADVANCE(2)
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+.if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[AA] <- v0
+.else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[AA] <- v0
+.endif
 
 
 /* ------------------------------ */
@@ -3273,25 +3147,24 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
-    # op vAA, field                        /* BBBB */
-    .extern artGetByteStaticFromCode
+    /* op vAA, field@BBBB */
+    .extern MterpGetByteStatic
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGetByteStaticFromCode)
+    JAL(MterpGetByteStatic)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     GET_OPA(a2)                            # a2 <- AA
     PREFETCH_INST(2)
     bnez  a3, MterpException               # bail out
-.if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[AA] <- v0
-.else
-    SET_VREG(v0, a2)                       # fp[AA] <- v0
-.endif
     ADVANCE(2)
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+.if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[AA] <- v0
+.else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[AA] <- v0
+.endif
 
 
 /* ------------------------------ */
@@ -3304,25 +3177,24 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
-    # op vAA, field                        /* BBBB */
-    .extern artGetCharStaticFromCode
+    /* op vAA, field@BBBB */
+    .extern MterpGetCharStatic
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGetCharStaticFromCode)
+    JAL(MterpGetCharStatic)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     GET_OPA(a2)                            # a2 <- AA
     PREFETCH_INST(2)
     bnez  a3, MterpException               # bail out
-.if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[AA] <- v0
-.else
-    SET_VREG(v0, a2)                       # fp[AA] <- v0
-.endif
     ADVANCE(2)
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+.if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[AA] <- v0
+.else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[AA] <- v0
+.endif
 
 
 /* ------------------------------ */
@@ -3335,25 +3207,24 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
      */
-    # op vAA, field                        /* BBBB */
-    .extern artGetShortStaticFromCode
+    /* op vAA, field@BBBB */
+    .extern MterpGetShortStatic
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
     move  a2, rSELF                        # a2 <- self
-    JAL(artGetShortStaticFromCode)
+    JAL(MterpGetShortStatic)
     lw    a3, THREAD_EXCEPTION_OFFSET(rSELF)
     GET_OPA(a2)                            # a2 <- AA
     PREFETCH_INST(2)
     bnez  a3, MterpException               # bail out
-.if 0
-    SET_VREG_OBJECT(v0, a2)                # fp[AA] <- v0
-.else
-    SET_VREG(v0, a2)                       # fp[AA] <- v0
-.endif
     ADVANCE(2)
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
-    GOTO_OPCODE(t0)                        # jump to next instruction
+.if 0
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       # fp[AA] <- v0
+.else
+    SET_VREG_GOTO(v0, a2, t0)              # fp[AA] <- v0
+.endif
 
 
 /* ------------------------------ */
@@ -3365,7 +3236,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
-    # op vAA, field                        /* BBBB */
+    /* op vAA, field@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     GET_OPA(a3)                            # a3 <- AA
@@ -3373,7 +3244,7 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a2, OFF_FP_METHOD(rFP)           # a2 <- method
     move  a3, rSELF                        # a3 <- self
     PREFETCH_INST(2)                       # load rINST
-    JAL(artSet32StaticFromCode)
+    JAL(MterpSet32Static)
     bnez  v0, MterpException               # bail out
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -3386,16 +3257,16 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * 64-bit SPUT handler.
      */
-    # sput-wide vAA, field                 /* BBBB */
-    .extern artSet64IndirectStaticFromMterp
+    /* sput-wide vAA, field@BBBB */
+    .extern MterpSet64Static
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref CCCC
-    lw    a1, OFF_FP_METHOD(rFP)           # a1 <- method
-    GET_OPA(a2)                            # a2 <- AA
-    EAS2(a2, rFP, a2)                      # a2 <- &fp[AA]
+    GET_OPA(a1)                            # a1 <- AA
+    EAS2(a1, rFP, a1)                      # a1 <- &fp[AA]
+    lw    a2, OFF_FP_METHOD(rFP)           # a2 <- method
     move  a3, rSELF                        # a3 <- self
     PREFETCH_INST(2)                       # load rINST
-    JAL(artSet64IndirectStaticFromMterp)
+    JAL(MterpSet64Static)
     bnez  v0, MterpException               # bail out
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -3432,7 +3303,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
-    # op vAA, field                        /* BBBB */
+    /* op vAA, field@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     GET_OPA(a3)                            # a3 <- AA
@@ -3440,7 +3311,7 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a2, OFF_FP_METHOD(rFP)           # a2 <- method
     move  a3, rSELF                        # a3 <- self
     PREFETCH_INST(2)                       # load rINST
-    JAL(artSet8StaticFromCode)
+    JAL(MterpSetBooleanStatic)
     bnez  v0, MterpException               # bail out
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -3457,7 +3328,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
-    # op vAA, field                        /* BBBB */
+    /* op vAA, field@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     GET_OPA(a3)                            # a3 <- AA
@@ -3465,7 +3336,7 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a2, OFF_FP_METHOD(rFP)           # a2 <- method
     move  a3, rSELF                        # a3 <- self
     PREFETCH_INST(2)                       # load rINST
-    JAL(artSet8StaticFromCode)
+    JAL(MterpSetByteStatic)
     bnez  v0, MterpException               # bail out
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -3482,7 +3353,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
-    # op vAA, field                        /* BBBB */
+    /* op vAA, field@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     GET_OPA(a3)                            # a3 <- AA
@@ -3490,7 +3361,7 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a2, OFF_FP_METHOD(rFP)           # a2 <- method
     move  a3, rSELF                        # a3 <- self
     PREFETCH_INST(2)                       # load rINST
-    JAL(artSet16StaticFromCode)
+    JAL(MterpSetCharStatic)
     bnez  v0, MterpException               # bail out
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -3507,7 +3378,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      * for: sput, sput-boolean, sput-byte, sput-char, sput-short
      */
-    # op vAA, field                        /* BBBB */
+    /* op vAA, field@BBBB */
     EXPORT_PC()
     FETCH(a0, 1)                           # a0 <- field ref BBBB
     GET_OPA(a3)                            # a3 <- AA
@@ -3515,7 +3386,7 @@ artMterpAsmInstructionStart = .L_op_nop
     lw    a2, OFF_FP_METHOD(rFP)           # a2 <- method
     move  a3, rSELF                        # a3 <- self
     PREFETCH_INST(2)                       # load rINST
-    JAL(artSet16StaticFromCode)
+    JAL(MterpSetShortStatic)
     bnez  v0, MterpException               # bail out
     ADVANCE(2)                             # advance rPC
     GET_INST_OPCODE(t0)                    # extract opcode from rINST
@@ -3530,8 +3401,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeVirtual
     EXPORT_PC()
     move    a0, rSELF
@@ -3555,8 +3426,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeSuper
     EXPORT_PC()
     move    a0, rSELF
@@ -3580,8 +3451,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeDirect
     EXPORT_PC()
     move    a0, rSELF
@@ -3605,8 +3476,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeStatic
     EXPORT_PC()
     move    a0, rSELF
@@ -3630,8 +3501,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeInterface
     EXPORT_PC()
     move    a0, rSELF
@@ -3653,7 +3524,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_return_void_no_barrier.S */
     lw     ra, THREAD_FLAGS_OFFSET(rSELF)
     move   a0, rSELF
-    and    ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    and    ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     beqz   ra, 1f
     JAL(MterpSuspendCheck)                 # (self)
 1:
@@ -3669,8 +3540,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeVirtualRange
     EXPORT_PC()
     move    a0, rSELF
@@ -3694,8 +3565,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeSuperRange
     EXPORT_PC()
     move    a0, rSELF
@@ -3719,8 +3590,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeDirectRange
     EXPORT_PC()
     move    a0, rSELF
@@ -3744,8 +3615,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeStaticRange
     EXPORT_PC()
     move    a0, rSELF
@@ -3769,8 +3640,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeInterfaceRange
     EXPORT_PC()
     move    a0, rSELF
@@ -3815,11 +3686,11 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unop.S */
     /*
      * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * specifies an instruction that performs "result0 = op a0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: neg-int, not-int, neg-float, int-to-float, float-to-int,
-     *      int-to-byte, int-to-char, int-to-short
+     * for: int-to-byte, int-to-char, int-to-short,
+     *      neg-int, not-int, neg-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
@@ -3829,8 +3700,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     negu a0, a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, t0, t1)        #  vAA <- result0
-    /* 9-10 instructions */
+    SET_VREG_GOTO(a0, t0, t1)        #  vA <- result0
 
 
 /* ------------------------------ */
@@ -3840,11 +3710,11 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unop.S */
     /*
      * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * specifies an instruction that performs "result0 = op a0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: neg-int, not-int, neg-float, int-to-float, float-to-int,
-     *      int-to-byte, int-to-char, int-to-short
+     * for: int-to-byte, int-to-char, int-to-short,
+     *      neg-int, not-int, neg-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
@@ -3854,8 +3724,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     not a0, a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, t0, t1)        #  vAA <- result0
-    /* 9-10 instructions */
+    SET_VREG_GOTO(a0, t0, t1)        #  vA <- result0
 
 
 /* ------------------------------ */
@@ -3865,7 +3734,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unopWide.S */
     /*
      * Generic 64-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0/a1".
+     * specifies an instruction that performs "result0/result1 = op a0/a1".
      * This could be MIPS instruction or a function call.
      *
      * For: neg-long, not-long, neg-double,
@@ -3874,14 +3743,12 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
-    LOAD64(a0, a1, a3)                     #  a0/a1 <- vAA
+    LOAD64(a0, a1, a3)                     #  a0/a1 <- vA
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     negu v0, a0                              #  optional op
     negu v1, a1; sltu a0, zero, v0; subu v1, v1, a0                                 #  a0/a1 <- op, a2-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(v0, v1, rOBJ)   #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-13 instructions */
+    SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -3891,7 +3758,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unopWide.S */
     /*
      * Generic 64-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0/a1".
+     * specifies an instruction that performs "result0/result1 = op a0/a1".
      * This could be MIPS instruction or a function call.
      *
      * For: neg-long, not-long, neg-double,
@@ -3900,14 +3767,12 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
-    LOAD64(a0, a1, a3)                     #  a0/a1 <- vAA
+    LOAD64(a0, a1, a3)                     #  a0/a1 <- vA
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     not a0, a0                              #  optional op
     not a1, a1                                 #  a0/a1 <- op, a2-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, rOBJ)   #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-13 instructions */
+    SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -3917,11 +3782,11 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unop.S */
     /*
      * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * specifies an instruction that performs "result0 = op a0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: neg-int, not-int, neg-float, int-to-float, float-to-int,
-     *      int-to-byte, int-to-char, int-to-short
+     * for: int-to-byte, int-to-char, int-to-short,
+     *      neg-int, not-int, neg-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
@@ -3931,8 +3796,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     addu a0, a0, 0x80000000                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, t0, t1)        #  vAA <- result0
-    /* 9-10 instructions */
+    SET_VREG_GOTO(a0, t0, t1)        #  vA <- result0
 
 
 /* ------------------------------ */
@@ -3942,7 +3806,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unopWide.S */
     /*
      * Generic 64-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0/a1".
+     * specifies an instruction that performs "result0/result1 = op a0/a1".
      * This could be MIPS instruction or a function call.
      *
      * For: neg-long, not-long, neg-double,
@@ -3951,14 +3815,12 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
-    LOAD64(a0, a1, a3)                     #  a0/a1 <- vAA
+    LOAD64(a0, a1, a3)                     #  a0/a1 <- vA
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
                                   #  optional op
     addu a1, a1, 0x80000000                                 #  a0/a1 <- op, a2-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, rOBJ)   #  vAA <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-13 instructions */
+    SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -3968,8 +3830,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unopWider.S */
     /*
      * Generic 32bit-to-64bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0", where
-     * "result" is a 64-bit quantity in a0/a1.
+     * that specifies an instruction that performs "result0/result1 = op a0".
      *
      * For: int-to-long
      */
@@ -3981,9 +3842,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     sra a1, a0, 31                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, rOBJ)   #  vA/vA+1 <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 10-11 instructions */
+    SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -3992,23 +3851,20 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_int_to_float.S */
 /* File: mips/funop.S */
     /*
-     * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * Generic 32-bit floating-point unary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = op fa0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: int-to-float, float-to-int
+     * for: int-to-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
-    GET_OPA4(rOBJ)                         #  t0 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG_F(fa0, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     cvt.s.w fv0, fa0
-
-.Lop_int_to_float_set_vreg_f:
-    SET_VREG_F(fv0, rOBJ)
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    GOTO_OPCODE(t1)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t1)         #  vA <- fv0
 
 
 /* ------------------------------ */
@@ -4017,11 +3873,10 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_int_to_double.S */
 /* File: mips/funopWider.S */
     /*
-     * Generic 32bit-to-64bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0", where
-     * "result" is a 64-bit quantity in a0/a1.
+     * Generic 32bit-to-64bit floating-point unary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = op fa0".
      *
-     * For: int-to-double, float-to-long, float-to-double
+     * For: int-to-double, float-to-double
      */
     /* unop vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -4029,11 +3884,8 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG_F(fa0, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     cvt.d.w fv0, fa0
-
-.Lop_int_to_double_set_vreg:
-    SET_VREG64_F(fv0, fv0f, rOBJ)                             #  vA/vA+1 <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0) #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -4050,120 +3902,157 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a2, a1)                       #  a2 <- fp[B]
     GET_INST_OPCODE(t0)                    #  t0 <- opcode from rINST
     .if 0
-    SET_VREG_OBJECT(a2, a0)                #  fp[A] <- a2
+    SET_VREG_OBJECT_GOTO(a2, a0, t0)       #  fp[A] <- a2
     .else
-    SET_VREG(a2, a0)                       #  fp[A] <- a2
+    SET_VREG_GOTO(a2, a0, t0)              #  fp[A] <- a2
     .endif
-    GOTO_OPCODE(t0)                        #  jump to next instruction
 
 
 /* ------------------------------ */
     .balign 128
 .L_op_long_to_float: /* 0x85 */
 /* File: mips/op_long_to_float.S */
-/* File: mips/unopNarrower.S */
     /*
-     * Generic 64bit-to-32bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0/a1", where
-     * "result" is a 32-bit quantity in a0.
-     *
-     * For: long-to-float, double-to-int, double-to-float
-     * If hard floating point support is available, use fa0 as the parameter,
-     * except for long-to-float opcode.
-     * (This would work for long-to-int, but that instruction is actually
-     * an exact match for OP_MOVE.)
+     * long-to-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
+
+#ifdef MIPS32REVGE6
+    LOAD64_F(fv0, fv0f, a3)
+    FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
+    cvt.s.l   fv0, fv0
+#else
     LOAD64(rARG0, rARG1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     JAL(__floatdisf)
+#endif
 
-.Lop_long_to_float_set_vreg_f:
-    SET_VREG_F(fv0, rOBJ)                  #  vA <- result0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- fv0
 
 /* ------------------------------ */
     .balign 128
 .L_op_long_to_double: /* 0x86 */
 /* File: mips/op_long_to_double.S */
-/* File: mips/funopWide.S */
     /*
-     * Generic 64-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0/a1".
-     * This could be a MIPS instruction or a function call.
-     *
-     * long-to-double, double-to-long
+     * long-to-double
      */
     /* unop vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
+
+#ifdef MIPS32REVGE6
+    LOAD64_F(fv0, fv0f, a3)
+    FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
+    cvt.d.l   fv0, fv0
+#else
     LOAD64(rARG0, rARG1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-                                  #  optional op
-    JAL(__floatdidf)                                 #  a0/a1 <- op, a2-a3 changed
+    JAL(__floatdidf)                       #  a0/a1 <- op, a2-a3 changed
+#endif
 
-.Lop_long_to_double_set_vreg:
-    SET_VREG64_F(fv0, fv0f, rOBJ)                             #  vAA <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-13 instructions */
-
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0) #  vA/vA+1 <- result
 
 /* ------------------------------ */
     .balign 128
 .L_op_float_to_int: /* 0x87 */
 /* File: mips/op_float_to_int.S */
-/* File: mips/funop.S */
     /*
-     * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
-     * This could be a MIPS instruction or a function call.
+     * float-to-int
      *
-     * for: int-to-float, float-to-int
+     * We have to clip values to int min/max per the specification.  The
+     * expected common case is a "reasonable" value that converts directly
+     * to modest integer.  The EABI convert function isn't doing this for us.
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
-    GET_OPA4(rOBJ)                         #  t0 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG_F(fa0, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    b f2i_doconv
 
-.Lop_float_to_int_set_vreg_f:
-    SET_VREG_F(fv0, rOBJ)
+    li        t0, INT_MIN_AS_FLOAT
+    mtc1      t0, fa1
+#ifdef MIPS32REVGE6
+    /*
+     * TODO: simplify this when the MIPS64R6 emulator
+     * supports NAN2008=1.
+     */
+    cmp.le.s  ft0, fa1, fa0
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    GOTO_OPCODE(t1)                        #  jump to next instruction
-
+    bc1nez    ft0, 1f                      #  if INT_MIN <= vB, proceed to truncation
+    cmp.eq.s  ft0, fa0, fa0
+    selnez.s  fa0, fa1, ft0                #  fa0 = ordered(vB) ? INT_MIN_AS_FLOAT : 0
+#else
+    c.ole.s   fcc0, fa1, fa0
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    bc1t      fcc0, 1f                     #  if INT_MIN <= vB, proceed to truncation
+    c.eq.s    fcc0, fa0, fa0
+    mtc1      zero, fa0
+    movt.s    fa0, fa1, fcc0               #  fa0 = ordered(vB) ? INT_MIN_AS_FLOAT : 0
+#endif
+1:
+    trunc.w.s fa0, fa0
+    SET_VREG_F_GOTO(fa0, rOBJ, t1)         #  vA <- result
 
 /* ------------------------------ */
     .balign 128
 .L_op_float_to_long: /* 0x88 */
 /* File: mips/op_float_to_long.S */
-/* File: mips/funopWider.S */
     /*
-     * Generic 32bit-to-64bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0", where
-     * "result" is a 64-bit quantity in a0/a1.
+     * float-to-long
      *
-     * For: int-to-double, float-to-long, float-to-double
+     * We have to clip values to long min/max per the specification.  The
+     * expected common case is a "reasonable" value that converts directly
+     * to modest integer.  The EABI convert function isn't doing this for us.
      */
     /* unop vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG_F(fa0, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    b f2l_doconv
 
-.Lop_float_to_long_set_vreg:
-    SET_VREG64(rRESULT0, rRESULT1, rOBJ)                             #  vA/vA+1 <- a0/a1
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+#ifdef MIPS32REVGE6
+    /*
+     * TODO: simplify this when the MIPS64R6 emulator
+     * supports NAN2008=1.
+     */
+    li        t0, LONG_MIN_AS_FLOAT
+    mtc1      t0, fa1
+    cmp.le.s  ft0, fa1, fa0
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    bc1nez    ft0, 1f                      #  if LONG_MIN <= vB, proceed to truncation
+    cmp.eq.s  ft0, fa0, fa0
+    selnez.s  fa0, fa1, ft0                #  fa0 = ordered(vB) ? LONG_MIN_AS_FLOAT : 0
+1:
+    trunc.l.s fa0, fa0
+    SET_VREG64_F_GOTO(fa0, fa0f, rOBJ, t1) #  vA <- result
+#else
+    c.eq.s    fcc0, fa0, fa0
+    li        rRESULT0, 0
+    li        rRESULT1, 0
+    bc1f      fcc0, .Lop_float_to_long_get_opcode
 
+    li        t0, LONG_MIN_AS_FLOAT
+    mtc1      t0, fa1
+    c.ole.s   fcc0, fa0, fa1
+    li        rRESULT1, LONG_MIN_HIGH
+    bc1t      fcc0, .Lop_float_to_long_get_opcode
+
+    neg.s     fa1, fa1
+    c.ole.s   fcc0, fa1, fa0
+    nor       rRESULT0, rRESULT0, zero
+    nor       rRESULT1, rRESULT1, zero
+    bc1t      fcc0, .Lop_float_to_long_get_opcode
+
+    JAL(__fixsfdi)
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    b         .Lop_float_to_long_set_vreg
+#endif
 
 /* ------------------------------ */
     .balign 128
@@ -4171,11 +4060,10 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_float_to_double.S */
 /* File: mips/funopWider.S */
     /*
-     * Generic 32bit-to-64bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0", where
-     * "result" is a 64-bit quantity in a0/a1.
+     * Generic 32bit-to-64bit floating-point unary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = op fa0".
      *
-     * For: int-to-double, float-to-long, float-to-double
+     * For: int-to-double, float-to-double
      */
     /* unop vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -4183,77 +4071,111 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG_F(fa0, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     cvt.d.s fv0, fa0
-
-.Lop_float_to_double_set_vreg:
-    SET_VREG64_F(fv0, fv0f, rOBJ)                             #  vA/vA+1 <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0) #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
     .balign 128
 .L_op_double_to_int: /* 0x8a */
 /* File: mips/op_double_to_int.S */
-/* File: mips/unopNarrower.S */
     /*
-     * Generic 64bit-to-32bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0/a1", where
-     * "result" is a 32-bit quantity in a0.
+     * double-to-int
      *
-     * For: long-to-float, double-to-int, double-to-float
-     * If hard floating point support is available, use fa0 as the parameter,
-     * except for long-to-float opcode.
-     * (This would work for long-to-int, but that instruction is actually
-     * an exact match for OP_MOVE.)
+     * We have to clip values to int min/max per the specification.  The
+     * expected common case is a "reasonable" value that converts directly
+     * to modest integer.  The EABI convert function isn't doing this for us.
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
     LOAD64_F(fa0, fa0f, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    b d2i_doconv
 
-.Lop_double_to_int_set_vreg_f:
-    SET_VREG_F(fv0, rOBJ)                  #  vA <- result0
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/*
- * Convert the double in a0/a1 to an int in a0.
- *
- * We have to clip values to int min/max per the specification.  The
- * expected common case is a "reasonable" value that converts directly
- * to modest integer.  The EABI convert function isn't doing this for us.
- */
+    li        t0, INT_MIN_AS_DOUBLE_HIGH
+    mtc1      zero, fa1
+    MOVE_TO_FPU_HIGH(t0, fa1, fa1f)
+#ifdef MIPS32REVGE6
+    /*
+     * TODO: simplify this when the MIPS64R6 emulator
+     * supports NAN2008=1.
+     */
+    cmp.le.d  ft0, fa1, fa0
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    bc1nez    ft0, 1f                      #  if INT_MIN <= vB, proceed to truncation
+    cmp.eq.d  ft0, fa0, fa0
+    selnez.d  fa0, fa1, ft0                #  fa0 = ordered(vB) ? INT_MIN_AS_DOUBLE : 0
+#else
+    c.ole.d   fcc0, fa1, fa0
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    bc1t      fcc0, 1f                     #  if INT_MIN <= vB, proceed to truncation
+    c.eq.d    fcc0, fa0, fa0
+    mtc1      zero, fa0
+    MOVE_TO_FPU_HIGH(zero, fa0, fa0f)
+    movt.d    fa0, fa1, fcc0               #  fa0 = ordered(vB) ? INT_MIN_AS_DOUBLE : 0
+#endif
+1:
+    trunc.w.d fa0, fa0
+    SET_VREG_F_GOTO(fa0, rOBJ, t1)         #  vA <- result
 
 /* ------------------------------ */
     .balign 128
 .L_op_double_to_long: /* 0x8b */
 /* File: mips/op_double_to_long.S */
-/* File: mips/funopWide.S */
     /*
-     * Generic 64-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0/a1".
-     * This could be a MIPS instruction or a function call.
+     * double-to-long
      *
-     * long-to-double, double-to-long
+     * We have to clip values to long min/max per the specification.  The
+     * expected common case is a "reasonable" value that converts directly
+     * to modest integer.  The EABI convert function isn't doing this for us.
      */
     /* unop vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
     LOAD64_F(fa0, fa0f, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-                                  #  optional op
-    b d2l_doconv                                 #  a0/a1 <- op, a2-a3 changed
 
-.Lop_double_to_long_set_vreg:
-    SET_VREG64(rRESULT0, rRESULT1, rOBJ)                             #  vAA <- a0/a1
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-13 instructions */
+#ifdef MIPS32REVGE6
+    /*
+     * TODO: simplify this when the MIPS64R6 emulator
+     * supports NAN2008=1.
+     */
+    li        t0, LONG_MIN_AS_DOUBLE_HIGH
+    mtc1      zero, fa1
+    mthc1     t0, fa1
+    cmp.le.d  ft0, fa1, fa0
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    bc1nez    ft0, 1f                      #  if LONG_MIN <= vB, proceed to truncation
+    cmp.eq.d  ft0, fa0, fa0
+    selnez.d  fa0, fa1, ft0                #  fa0 = ordered(vB) ? LONG_MIN_AS_DOUBLE : 0
+1:
+    trunc.l.d fa0, fa0
+    SET_VREG64_F_GOTO(fa0, fa0f, rOBJ, t1) #  vA <- result
+#else
+    c.eq.d    fcc0, fa0, fa0
+    li        rRESULT0, 0
+    li        rRESULT1, 0
+    bc1f      fcc0, .Lop_double_to_long_get_opcode
 
+    li        t0, LONG_MIN_AS_DOUBLE_HIGH
+    mtc1      zero, fa1
+    MOVE_TO_FPU_HIGH(t0, fa1, fa1f)
+    c.ole.d   fcc0, fa0, fa1
+    li        rRESULT1, LONG_MIN_HIGH
+    bc1t      fcc0, .Lop_double_to_long_get_opcode
+
+    neg.d     fa1, fa1
+    c.ole.d   fcc0, fa1, fa0
+    nor       rRESULT0, rRESULT0, zero
+    nor       rRESULT1, rRESULT1, zero
+    bc1t      fcc0, .Lop_double_to_long_get_opcode
+
+    JAL(__fixdfdi)
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    b         .Lop_double_to_long_set_vreg
+#endif
 
 /* ------------------------------ */
     .balign 128
@@ -4261,28 +4183,20 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_double_to_float.S */
 /* File: mips/unopNarrower.S */
     /*
-     * Generic 64bit-to-32bit unary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = op a0/a1", where
-     * "result" is a 32-bit quantity in a0.
+     * Generic 64bit-to-32bit floating-point unary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = op fa0".
      *
-     * For: long-to-float, double-to-int, double-to-float
-     * If hard floating point support is available, use fa0 as the parameter,
-     * except for long-to-float opcode.
-     * (This would work for long-to-int, but that instruction is actually
-     * an exact match for OP_MOVE.)
+     * For: double-to-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     EAS2(a3, rFP, a3)                      #  a3 <- &fp[B]
     LOAD64_F(fa0, fa0f, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     cvt.s.d fv0, fa0
-
-.Lop_double_to_float_set_vreg_f:
-    SET_VREG_F(fv0, rOBJ)                  #  vA <- result0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- fv0
 
 
 /* ------------------------------ */
@@ -4292,22 +4206,21 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unop.S */
     /*
      * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * specifies an instruction that performs "result0 = op a0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: neg-int, not-int, neg-float, int-to-float, float-to-int,
-     *      int-to-byte, int-to-char, int-to-short
+     * for: int-to-byte, int-to-char, int-to-short,
+     *      neg-int, not-int, neg-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
     GET_OPA4(t0)                           #  t0 <- A+
     GET_VREG(a0, a3)                       #  a0 <- vB
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    sll a0, a0, 24                              #  optional op
-    sra a0, a0, 24                                 #  a0 <- op, a0-a3 changed
+                                  #  optional op
+    SEB(a0, a0)                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, t0, t1)        #  vAA <- result0
-    /* 9-10 instructions */
+    SET_VREG_GOTO(a0, t0, t1)        #  vA <- result0
 
 
 /* ------------------------------ */
@@ -4317,11 +4230,11 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unop.S */
     /*
      * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * specifies an instruction that performs "result0 = op a0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: neg-int, not-int, neg-float, int-to-float, float-to-int,
-     *      int-to-byte, int-to-char, int-to-short
+     * for: int-to-byte, int-to-char, int-to-short,
+     *      neg-int, not-int, neg-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
@@ -4331,8 +4244,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     and a0, 0xffff                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, t0, t1)        #  vAA <- result0
-    /* 9-10 instructions */
+    SET_VREG_GOTO(a0, t0, t1)        #  vA <- result0
 
 
 /* ------------------------------ */
@@ -4342,22 +4254,21 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/unop.S */
     /*
      * Generic 32-bit unary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = op a0".
+     * specifies an instruction that performs "result0 = op a0".
      * This could be a MIPS instruction or a function call.
      *
-     * for: neg-int, not-int, neg-float, int-to-float, float-to-int,
-     *      int-to-byte, int-to-char, int-to-short
+     * for: int-to-byte, int-to-char, int-to-short,
+     *      neg-int, not-int, neg-float
      */
     /* unop vA, vB */
     GET_OPB(a3)                            #  a3 <- B
     GET_OPA4(t0)                           #  t0 <- A+
     GET_VREG(a0, a3)                       #  a0 <- vB
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
-    sll a0, 16                              #  optional op
-    sra a0, 16                                 #  a0 <- op, a0-a3 changed
+                                  #  optional op
+    SEH(a0, a0)                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, t0, t1)        #  vAA <- result0
-    /* 9-10 instructions */
+    SET_VREG_GOTO(a0, t0, t1)        #  vA <- result0
 
 
 /* ------------------------------ */
@@ -4396,7 +4307,6 @@ artMterpAsmInstructionStart = .L_op_nop
     addu a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4435,7 +4345,6 @@ artMterpAsmInstructionStart = .L_op_nop
     subu a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4474,7 +4383,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mul a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4514,7 +4422,6 @@ artMterpAsmInstructionStart = .L_op_nop
     div a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 #else
 /* File: mips/binop.S */
@@ -4549,7 +4456,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mflo a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 #endif
 
@@ -4590,7 +4496,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mod a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 #else
 /* File: mips/binop.S */
@@ -4625,7 +4530,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mfhi a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 #endif
 
@@ -4665,7 +4569,6 @@ artMterpAsmInstructionStart = .L_op_nop
     and a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4704,7 +4607,6 @@ artMterpAsmInstructionStart = .L_op_nop
     or a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4743,7 +4645,6 @@ artMterpAsmInstructionStart = .L_op_nop
     xor a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4782,7 +4683,6 @@ artMterpAsmInstructionStart = .L_op_nop
     sll a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4821,7 +4721,6 @@ artMterpAsmInstructionStart = .L_op_nop
     sra a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4860,7 +4759,6 @@ artMterpAsmInstructionStart = .L_op_nop
     srl a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 11-14 instructions */
 
 
 /* ------------------------------ */
@@ -4880,10 +4778,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -4909,7 +4807,6 @@ artMterpAsmInstructionStart = .L_op_nop
     addu a1, a3, a1; sltu v1, v0, a2; addu v1, v1, a1                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vAA/vAA+1 <- v0/v1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -4928,10 +4825,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -4957,7 +4854,6 @@ artMterpAsmInstructionStart = .L_op_nop
     subu v1, a1, a3; sltu a0, a0, v0; subu v1, v1, a0                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vAA/vAA+1 <- v0/v1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -5011,10 +4907,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -5040,7 +4936,6 @@ artMterpAsmInstructionStart = .L_op_nop
     JAL(__divdi3)                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vAA/vAA+1 <- v0/v1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -5052,10 +4947,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -5081,7 +4976,6 @@ artMterpAsmInstructionStart = .L_op_nop
     JAL(__moddi3)                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vAA/vAA+1 <- v0/v1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -5093,10 +4987,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -5122,7 +5016,6 @@ artMterpAsmInstructionStart = .L_op_nop
     and a1, a1, a3                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vAA/vAA+1 <- a0/a1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -5134,10 +5027,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -5163,7 +5056,6 @@ artMterpAsmInstructionStart = .L_op_nop
     or a1, a1, a3                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vAA/vAA+1 <- a0/a1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -5175,10 +5067,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit binary operation.  Provide an "instr" line that
      * specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vCC (a2-a3).  Useful for integer division and modulus.
      *
      * for: add-long, sub-long, div-long, rem-long, and-long, or-long,
      *      xor-long
@@ -5204,7 +5096,6 @@ artMterpAsmInstructionStart = .L_op_nop
     xor a1, a1, a3                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vAA/vAA+1 <- a0/a1
-    /* 14-17 instructions */
 
 
 /* ------------------------------ */
@@ -5237,7 +5128,7 @@ artMterpAsmInstructionStart = .L_op_nop
     srl     a0, v1                         #  alo<- alo >> (32-(shift&31))
     sll     v1, a1, a2                     #  rhi<- ahi << (shift&31)
     or      v1, a0                         #  rhi<- rhi | alo
-    SET_VREG64_GOTO(v0, v1, t2, t0)        #  vAA/vAA+1 <- a0/a1
+    SET_VREG64_GOTO(v0, v1, t2, t0)        #  vAA/vAA+1 <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -5268,7 +5159,7 @@ artMterpAsmInstructionStart = .L_op_nop
     sll     a1, 1
     sll     a1, a0                         #  ahi<- ahi << (32-(shift&31))
     or      v0, a1                         #  rlo<- rlo | ahi
-    SET_VREG64_GOTO(v0, v1, t3, t0)        #  vAA/VAA+1 <- v0/v0
+    SET_VREG64_GOTO(v0, v1, t3, t0)        #  vAA/VAA+1 <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -5315,7 +5206,7 @@ artMterpAsmInstructionStart = .L_op_nop
 
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     srl       a3, a0, 8                    #  a3 <- CC
     and       a2, a0, 255                  #  a2 <- BB
     GET_VREG_F(fa1, a3)                    #  a1 <- vCC
@@ -5323,9 +5214,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     add.s fv0, fa0, fa1                                 #  f0 = result
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- fv0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vAA <- fv0
 
 
 /* ------------------------------ */
@@ -5341,7 +5231,7 @@ artMterpAsmInstructionStart = .L_op_nop
 
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     srl       a3, a0, 8                    #  a3 <- CC
     and       a2, a0, 255                  #  a2 <- BB
     GET_VREG_F(fa1, a3)                    #  a1 <- vCC
@@ -5349,9 +5239,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     sub.s fv0, fa0, fa1                                 #  f0 = result
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- fv0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vAA <- fv0
 
 
 /* ------------------------------ */
@@ -5367,7 +5256,7 @@ artMterpAsmInstructionStart = .L_op_nop
 
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     srl       a3, a0, 8                    #  a3 <- CC
     and       a2, a0, 255                  #  a2 <- BB
     GET_VREG_F(fa1, a3)                    #  a1 <- vCC
@@ -5375,9 +5264,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     mul.s fv0, fa0, fa1                                 #  f0 = result
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- fv0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vAA <- fv0
 
 
 /* ------------------------------ */
@@ -5393,7 +5281,7 @@ artMterpAsmInstructionStart = .L_op_nop
 
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     srl       a3, a0, 8                    #  a3 <- CC
     and       a2, a0, 255                  #  a2 <- BB
     GET_VREG_F(fa1, a3)                    #  a1 <- vCC
@@ -5401,9 +5289,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     div.s fv0, fa0, fa1                                 #  f0 = result
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- fv0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vAA <- fv0
 
 
 /* ------------------------------ */
@@ -5419,7 +5306,7 @@ artMterpAsmInstructionStart = .L_op_nop
 
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     srl       a3, a0, 8                    #  a3 <- CC
     and       a2, a0, 255                  #  a2 <- BB
     GET_VREG_F(fa1, a3)                    #  a1 <- vCC
@@ -5427,9 +5314,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     JAL(fmodf)                                 #  f0 = result
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- fv0
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vAA <- fv0
 
 
 /* ------------------------------ */
@@ -5438,8 +5324,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_add_double.S */
 /* File: mips/fbinopWide.S */
     /*
-     * Generic 64-bit binary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point binary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * for: add-double, sub-double, mul-double, div-double,
@@ -5448,7 +5334,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8                    #  a3 <- CC
     EAS2(a2, rFP, a2)                      #  a2 <- &fp[BB]
@@ -5458,8 +5344,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     add.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
-    b         .Lop_add_double_finish
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vAA/vAA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -5468,8 +5354,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_sub_double.S */
 /* File: mips/fbinopWide.S */
     /*
-     * Generic 64-bit binary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point binary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * for: add-double, sub-double, mul-double, div-double,
@@ -5478,7 +5364,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8                    #  a3 <- CC
     EAS2(a2, rFP, a2)                      #  a2 <- &fp[BB]
@@ -5488,8 +5374,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     sub.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
-    b         .Lop_sub_double_finish
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vAA/vAA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -5498,8 +5384,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_mul_double.S */
 /* File: mips/fbinopWide.S */
     /*
-     * Generic 64-bit binary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point binary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * for: add-double, sub-double, mul-double, div-double,
@@ -5508,7 +5394,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8                    #  a3 <- CC
     EAS2(a2, rFP, a2)                      #  a2 <- &fp[BB]
@@ -5518,8 +5404,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     mul.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
-    b         .Lop_mul_double_finish
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vAA/vAA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -5528,8 +5414,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_div_double.S */
 /* File: mips/fbinopWide.S */
     /*
-     * Generic 64-bit binary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point binary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * for: add-double, sub-double, mul-double, div-double,
@@ -5538,7 +5424,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8                    #  a3 <- CC
     EAS2(a2, rFP, a2)                      #  a2 <- &fp[BB]
@@ -5548,8 +5434,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     div.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
-    b         .Lop_div_double_finish
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vAA/vAA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -5558,8 +5444,8 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_rem_double.S */
 /* File: mips/fbinopWide.S */
     /*
-     * Generic 64-bit binary operation.  Provide an "instr" line that
-     * specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point binary operation.  Provide an "instr"
+     * line that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * for: add-double, sub-double, mul-double, div-double,
@@ -5568,7 +5454,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop vAA, vBB, vCC */
     FETCH(a0, 1)                           #  a0 <- CCBB
-    GET_OPA(rOBJ)                          #  s5 <- AA
+    GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a0, 255                  #  a2 <- BB
     srl       a3, a0, 8                    #  a3 <- CC
     EAS2(a2, rFP, a2)                      #  a2 <- &fp[BB]
@@ -5578,8 +5464,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     JAL(fmod)
-    SET_VREG64_F(fv0, fv0f, rOBJ)
-    b         .Lop_rem_double_finish
+    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vAA/vAA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -5613,8 +5499,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     addu a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5648,8 +5533,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     subu a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5683,8 +5567,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     mul a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5719,8 +5602,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     div a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #else
 /* File: mips/binop2addr.S */
@@ -5750,8 +5632,7 @@ artMterpAsmInstructionStart = .L_op_nop
     div zero, a0, a1                              #  optional op
     mflo a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #endif
 
@@ -5787,8 +5668,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     mod a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #else
 /* File: mips/binop2addr.S */
@@ -5818,8 +5698,7 @@ artMterpAsmInstructionStart = .L_op_nop
     div zero, a0, a1                              #  optional op
     mfhi a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #endif
 
@@ -5854,8 +5733,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     and a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5889,8 +5767,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     or a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5924,8 +5801,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     xor a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5959,8 +5835,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     sll a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -5994,8 +5869,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     sra a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -6029,8 +5903,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     srl a0, a0, a1                                  #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -6045,22 +5918,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 0
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6070,9 +5942,7 @@ artMterpAsmInstructionStart = .L_op_nop
     addu v0, a2, a0                              #  optional op
     addu a1, a3, a1; sltu v1, v0, a2; addu v1, v1, a1                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(v0, v1, rOBJ)   #  vAA/vAA+1 <- v0/v1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vA/vA+1 <- v0/v1
 
 
 /* ------------------------------ */
@@ -6087,22 +5957,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 0
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6112,9 +5981,7 @@ artMterpAsmInstructionStart = .L_op_nop
     subu v0, a0, a2                              #  optional op
     subu v1, a1, a3; sltu a0, a0, v0; subu v1, v1, a0                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(v0, v1, rOBJ)   #  vAA/vAA+1 <- v0/v1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vA/vA+1 <- v0/v1
 
 
 /* ------------------------------ */
@@ -6149,9 +6016,7 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t1)                    #  extract opcode from rINST
-    # vAA <- v0 (low)
-    SET_VREG64(v0, v1, rOBJ)               #  vAA+1 <- v1 (high)
-    GOTO_OPCODE(t1)                        #  jump to next instruction
+    SET_VREG64_GOTO(v0, v1, rOBJ, t1)      #  vA/vA+1 <- v0(low)/v1(high)
 
 /* ------------------------------ */
     .balign 128
@@ -6162,22 +6027,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 1
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6187,9 +6051,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     JAL(__divdi3)                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(v0, v1, rOBJ)   #  vAA/vAA+1 <- v0/v1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vA/vA+1 <- v0/v1
 
 
 /* ------------------------------ */
@@ -6201,22 +6063,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 1
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6226,9 +6087,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     JAL(__moddi3)                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(v0, v1, rOBJ)   #  vAA/vAA+1 <- v0/v1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(v0, v1, rOBJ, t0)   #  vA/vA+1 <- v0/v1
 
 
 /* ------------------------------ */
@@ -6240,22 +6099,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 0
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6265,9 +6123,7 @@ artMterpAsmInstructionStart = .L_op_nop
     and a0, a0, a2                              #  optional op
     and a1, a1, a3                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, rOBJ)   #  vAA/vAA+1 <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -6279,22 +6135,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 0
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6304,9 +6159,7 @@ artMterpAsmInstructionStart = .L_op_nop
     or a0, a0, a2                              #  optional op
     or a1, a1, a3                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, rOBJ)   #  vAA/vAA+1 <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -6318,22 +6171,21 @@ artMterpAsmInstructionStart = .L_op_nop
      * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
      * that specifies an instruction that performs "result = a0-a1 op a2-a3".
      * This could be a MIPS instruction or a function call.  (If the result
-     * comes back in a register other than a0, you can override "result".)
+     * comes back in a register pair other than a0-a1, you can override "result".)
      *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
-     * vCC (a1).  Useful for integer division and modulus.
+     * vB (a2-a3).  Useful for integer division and modulus.
      *
      * For: add-long/2addr, sub-long/2addr, div-long/2addr, rem-long/2addr,
      *      and-long/2addr, or-long/2addr, xor-long/2addr
-     *      rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a1)                            #  a1 <- B
     EAS2(a1, rFP, a1)                      #  a1 <- &fp[B]
     EAS2(t0, rFP, rOBJ)                    #  t0 <- &fp[A]
-    LOAD64(a2, a3, a1)               #  a2/a3 <- vBB/vBB+1
-    LOAD64(a0, a1, t0)               #  a0/a1 <- vAA/vAA+1
+    LOAD64(a2, a3, a1)               #  a2/a3 <- vB/vB+1
+    LOAD64(a0, a1, t0)               #  a0/a1 <- vA/vA+1
     .if 0
     or        t0, a2, a3             #  second arg (a2-a3) is zero?
     beqz      t0, common_errDivideByZero
@@ -6343,9 +6195,7 @@ artMterpAsmInstructionStart = .L_op_nop
     xor a0, a0, a2                              #  optional op
     xor a1, a1, a3                                 #  result <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, rOBJ)   #  vAA/vAA+1 <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-    /* 12-15 instructions */
+    SET_VREG64_GOTO(a0, a1, rOBJ, t0)   #  vA/vA+1 <- a0/a1
 
 
 /* ------------------------------ */
@@ -6361,7 +6211,7 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG(a2, a3)                       #  a2 <- vB
     EAS2(t2, rFP, rOBJ)                    #  t2 <- &fp[A]
-    LOAD64(a0, a1, t2)                     #  a0/a1 <- vAA/vAA+1
+    LOAD64(a0, a1, t2)                     #  a0/a1 <- vA/vA+1
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
@@ -6374,7 +6224,7 @@ artMterpAsmInstructionStart = .L_op_nop
     srl     a0, v1                         #  alo<- alo >> (32-(shift&31))
     sll     v1, a1, a2                     #  rhi<- ahi << (shift&31)
     or      v1, a0                         #  rhi<- rhi | alo
-    SET_VREG64_GOTO(v0, v1, rOBJ, t0)      #  vAA/vAA+1 <- a0/a1
+    SET_VREG64_GOTO(v0, v1, rOBJ, t0)      #  vA/vA+1 <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -6389,7 +6239,7 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG(a2, a3)                       #  a2 <- vB
     EAS2(t0, rFP, t2)                      #  t0 <- &fp[A]
-    LOAD64(a0, a1, t0)                     #  a0/a1 <- vAA/vAA+1
+    LOAD64(a0, a1, t0)                     #  a0/a1 <- vA/vA+1
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
 
@@ -6401,7 +6251,7 @@ artMterpAsmInstructionStart = .L_op_nop
     sll     a1, 1
     sll     a1, a0                         #  ahi<- ahi << (32-(shift&31))
     or      v0, a1                         #  rlo<- rlo | ahi
-    SET_VREG64_GOTO(v0, v1, t2, t0)        #  vAA/vAA+1 <- a0/a1
+    SET_VREG64_GOTO(v0, v1, t2, t0)        #  vA/vA+1 <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -6416,7 +6266,7 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG(a2, a3)                       #  a2 <- vB
     EAS2(t0, rFP, t3)                      #  t0 <- &fp[A]
-    LOAD64(a0, a1, t0)                     #  a0/a1 <- vAA/vAA+1
+    LOAD64(a0, a1, t0)                     #  a0/a1 <- vA/vA+1
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
@@ -6429,7 +6279,7 @@ artMterpAsmInstructionStart = .L_op_nop
     sll       a1, 1
     sll       a1, a0                       #  ahi<- ahi << (32-(shift&31))
     or        v0, a1                       #  rlo<- rlo | ahi
-    SET_VREG64_GOTO(v0, v1, t3, t0)        #  vAA/vAA+1 <- a0/a1
+    SET_VREG64_GOTO(v0, v1, t3, t0)        #  vA/vA+1 <- v0/v1
 
 /* ------------------------------ */
     .balign 128
@@ -6438,23 +6288,22 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/fbinop2addr.S */
     /*
      * Generic 32-bit "/2addr" binary operation.  Provide an "instr"
-     * that specifies an instruction that performs "result = a0 op a1".
+     * that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-float/2addr, sub-float/2addr, mul-float/2addr,
-     * div-float/2addr, rem-float/2addr
+     *      div-float/2addr, rem-float/2addr
      */
     /* binop/2addr vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG_F(fa0, rOBJ)
     GET_VREG_F(fa1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
 
     add.s fv0, fa0, fa1
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- result
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- result
 
 
 /* ------------------------------ */
@@ -6464,23 +6313,22 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/fbinop2addr.S */
     /*
      * Generic 32-bit "/2addr" binary operation.  Provide an "instr"
-     * that specifies an instruction that performs "result = a0 op a1".
+     * that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-float/2addr, sub-float/2addr, mul-float/2addr,
-     * div-float/2addr, rem-float/2addr
+     *      div-float/2addr, rem-float/2addr
      */
     /* binop/2addr vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG_F(fa0, rOBJ)
     GET_VREG_F(fa1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
 
     sub.s fv0, fa0, fa1
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- result
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- result
 
 
 /* ------------------------------ */
@@ -6490,23 +6338,22 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/fbinop2addr.S */
     /*
      * Generic 32-bit "/2addr" binary operation.  Provide an "instr"
-     * that specifies an instruction that performs "result = a0 op a1".
+     * that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-float/2addr, sub-float/2addr, mul-float/2addr,
-     * div-float/2addr, rem-float/2addr
+     *      div-float/2addr, rem-float/2addr
      */
     /* binop/2addr vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG_F(fa0, rOBJ)
     GET_VREG_F(fa1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
 
     mul.s fv0, fa0, fa1
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- result
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- result
 
 
 /* ------------------------------ */
@@ -6516,23 +6363,22 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/fbinop2addr.S */
     /*
      * Generic 32-bit "/2addr" binary operation.  Provide an "instr"
-     * that specifies an instruction that performs "result = a0 op a1".
+     * that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-float/2addr, sub-float/2addr, mul-float/2addr,
-     * div-float/2addr, rem-float/2addr
+     *      div-float/2addr, rem-float/2addr
      */
     /* binop/2addr vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG_F(fa0, rOBJ)
     GET_VREG_F(fa1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
 
     div.s fv0, fa0, fa1
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- result
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- result
 
 
 /* ------------------------------ */
@@ -6542,23 +6388,22 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/fbinop2addr.S */
     /*
      * Generic 32-bit "/2addr" binary operation.  Provide an "instr"
-     * that specifies an instruction that performs "result = a0 op a1".
+     * that specifies an instruction that performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-float/2addr, sub-float/2addr, mul-float/2addr,
-     * div-float/2addr, rem-float/2addr
+     *      div-float/2addr, rem-float/2addr
      */
     /* binop/2addr vA, vB */
-    GET_OPA4(rOBJ)                         #  t1 <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_OPB(a3)                            #  a3 <- B
     GET_VREG_F(fa0, rOBJ)
     GET_VREG_F(fa1, a3)
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
 
     JAL(fmodf)
-    SET_VREG_F(fv0, rOBJ)                  #  vAA <- result
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_F_GOTO(fv0, rOBJ, t0)         #  vA <- result
 
 
 /* ------------------------------ */
@@ -6567,12 +6412,13 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_add_double_2addr.S */
 /* File: mips/fbinopWide2addr.S */
     /*
-     * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point "/2addr" binary operation.
+     * Provide an "instr" line that specifies an instruction that
+     * performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-double/2addr, sub-double/2addr, mul-double/2addr,
-     *  div-double/2addr, rem-double/2addr
+     *      div-double/2addr, rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -6584,9 +6430,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     add.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -6595,12 +6440,13 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_sub_double_2addr.S */
 /* File: mips/fbinopWide2addr.S */
     /*
-     * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point "/2addr" binary operation.
+     * Provide an "instr" line that specifies an instruction that
+     * performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-double/2addr, sub-double/2addr, mul-double/2addr,
-     *  div-double/2addr, rem-double/2addr
+     *      div-double/2addr, rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -6612,9 +6458,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     sub.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -6623,12 +6468,13 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_mul_double_2addr.S */
 /* File: mips/fbinopWide2addr.S */
     /*
-     * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point "/2addr" binary operation.
+     * Provide an "instr" line that specifies an instruction that
+     * performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-double/2addr, sub-double/2addr, mul-double/2addr,
-     *  div-double/2addr, rem-double/2addr
+     *      div-double/2addr, rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -6640,9 +6486,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     mul.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -6651,12 +6496,13 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_div_double_2addr.S */
 /* File: mips/fbinopWide2addr.S */
     /*
-     * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point "/2addr" binary operation.
+     * Provide an "instr" line that specifies an instruction that
+     * performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-double/2addr, sub-double/2addr, mul-double/2addr,
-     *  div-double/2addr, rem-double/2addr
+     *      div-double/2addr, rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -6668,9 +6514,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     div.d fv0, fa0, fa1
-    SET_VREG64_F(fv0, fv0f, rOBJ)
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -6679,12 +6524,13 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_rem_double_2addr.S */
 /* File: mips/fbinopWide2addr.S */
     /*
-     * Generic 64-bit "/2addr" binary operation.  Provide an "instr" line
-     * that specifies an instruction that performs "result = a0-a1 op a2-a3".
+     * Generic 64-bit floating-point "/2addr" binary operation.
+     * Provide an "instr" line that specifies an instruction that
+     * performs "fv0 = fa0 op fa1".
      * This could be an MIPS instruction or a function call.
      *
      * For: add-double/2addr, sub-double/2addr, mul-double/2addr,
-     *  div-double/2addr, rem-double/2addr
+     *      div-double/2addr, rem-double/2addr
      */
     /* binop/2addr vA, vB */
     GET_OPA4(rOBJ)                         #  rOBJ <- A+
@@ -6696,9 +6542,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
     FETCH_ADVANCE_INST(1)                  #  advance rPC, load rINST
     JAL(fmod)
-    SET_VREG64_F(fv0, fv0f, rOBJ)
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_F_GOTO(fv0, fv0f, rOBJ, t0)  #  vA/vA+1 <- fv0
 
 
 /* ------------------------------ */
@@ -6718,12 +6563,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 0
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6733,8 +6577,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     addu a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -6755,12 +6598,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 0
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6770,8 +6612,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     subu a0, a1, a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -6791,12 +6632,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 0
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6806,8 +6646,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     mul a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -6828,12 +6667,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 1
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6843,8 +6681,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     div a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #else
 /* File: mips/binopLit16.S */
@@ -6860,12 +6697,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 1
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6875,8 +6711,7 @@ artMterpAsmInstructionStart = .L_op_nop
     div zero, a0, a1                              #  optional op
     mflo a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #endif
 
@@ -6898,12 +6733,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 1
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6913,8 +6747,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     mod a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #else
 /* File: mips/binopLit16.S */
@@ -6930,12 +6763,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 1
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6945,8 +6777,7 @@ artMterpAsmInstructionStart = .L_op_nop
     div zero, a0, a1                              #  optional op
     mfhi a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 #endif
 
@@ -6967,12 +6798,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 0
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -6982,8 +6812,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     and a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -7003,12 +6832,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 0
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -7018,8 +6846,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     or a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -7039,12 +6866,11 @@ artMterpAsmInstructionStart = .L_op_nop
      * For: add-int/lit16, rsub-int, mul-int/lit16, div-int/lit16,
      *      rem-int/lit16, and-int/lit16, or-int/lit16, xor-int/lit16
      */
-    # binop/lit16 vA, vB,                  /* +CCCC */
+    /* binop/lit16 vA, vB, +CCCC */
     FETCH_S(a1, 1)                         #  a1 <- ssssCCCC (sign-extended)
     GET_OPB(a2)                            #  a2 <- B
-    GET_OPA(rOBJ)                          #  rOBJ <- A+
+    GET_OPA4(rOBJ)                         #  rOBJ <- A+
     GET_VREG(a0, a2)                       #  a0 <- vB
-    and       rOBJ, rOBJ, 15
     .if 0
     # cmp a1, 0; is second operand zero?
     beqz      a1, common_errDivideByZero
@@ -7054,8 +6880,7 @@ artMterpAsmInstructionStart = .L_op_nop
                                   #  optional op
     xor a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-13 instructions */
+    SET_VREG_GOTO(a0, rOBJ, t0)       #  vA <- a0
 
 
 /* ------------------------------ */
@@ -7076,7 +6901,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7092,7 +6917,6 @@ artMterpAsmInstructionStart = .L_op_nop
     addu a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7113,7 +6937,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7129,7 +6953,6 @@ artMterpAsmInstructionStart = .L_op_nop
     subu a0, a1, a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7150,7 +6973,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7166,7 +6989,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mul a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7188,7 +7010,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7204,7 +7026,6 @@ artMterpAsmInstructionStart = .L_op_nop
     div a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 #else
 /* File: mips/binopLit8.S */
@@ -7221,7 +7042,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7237,7 +7058,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mflo a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 #endif
 
@@ -7260,7 +7080,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7276,7 +7096,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mod a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 #else
 /* File: mips/binopLit8.S */
@@ -7293,7 +7112,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7309,7 +7128,6 @@ artMterpAsmInstructionStart = .L_op_nop
     mfhi a0                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 #endif
 
@@ -7331,7 +7149,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7347,7 +7165,6 @@ artMterpAsmInstructionStart = .L_op_nop
     and a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7368,7 +7185,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7384,7 +7201,6 @@ artMterpAsmInstructionStart = .L_op_nop
     or a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7405,7 +7221,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7421,7 +7237,6 @@ artMterpAsmInstructionStart = .L_op_nop
     xor a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7442,7 +7257,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7458,7 +7273,6 @@ artMterpAsmInstructionStart = .L_op_nop
     sll a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7479,7 +7293,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7495,7 +7309,6 @@ artMterpAsmInstructionStart = .L_op_nop
     sra a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7516,7 +7329,7 @@ artMterpAsmInstructionStart = .L_op_nop
      *      rem-int/lit8, and-int/lit8, or-int/lit8, xor-int/lit8,
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
-    # binop/lit8 vAA, vBB,                 /* +CC */
+    /* binop/lit8 vAA, vBB, +CC */
     FETCH_S(a3, 1)                         #  a3 <- ssssCCBB (sign-extended for CC)
     GET_OPA(rOBJ)                          #  rOBJ <- AA
     and       a2, a3, 255                  #  a2 <- BB
@@ -7532,7 +7345,6 @@ artMterpAsmInstructionStart = .L_op_nop
     srl a0, a0, a1                                 #  a0 <- op, a0-a3 changed
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
     SET_VREG_GOTO(a0, rOBJ, t0)       #  vAA <- a0
-    /* 10-12 instructions */
 
 
 /* ------------------------------ */
@@ -7540,7 +7352,7 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_iget_quick: /* 0xe3 */
 /* File: mips/op_iget_quick.S */
     /* For: iget-quick, iget-boolean-quick, iget-byte-quick, iget-char-quick, iget-short-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- object we're operating on
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7557,7 +7369,7 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_iget_wide_quick: /* 0xe4 */
 /* File: mips/op_iget_wide_quick.S */
-    # iget-wide-quick vA, vB, offset       /* CCCC */
+    /* iget-wide-quick vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- object we're operating on
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7568,8 +7380,7 @@ artMterpAsmInstructionStart = .L_op_nop
     LOAD64(a0, a1, t0)                     #  a0 <- obj.field (64 bits, aligned)
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(a0, a1, a2)                 #  fp[A] <- a0/a1
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(a0, a1, a2, t0)        #  fp[A] <- a0/a1
 
 /* ------------------------------ */
     .balign 128
@@ -7586,17 +7397,16 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_OPA4(a2)                           #  a2<- A+
     PREFETCH_INST(2)                       #  load rINST
     bnez a3, MterpPossibleException        #  bail out
-    SET_VREG_OBJECT(v0, a2)                #  fp[A] <- v0
     ADVANCE(2)                             #  advance rPC
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG_OBJECT_GOTO(v0, a2, t0)       #  fp[A] <- v0
 
 /* ------------------------------ */
     .balign 128
 .L_op_iput_quick: /* 0xe6 */
 /* File: mips/op_iput_quick.S */
     /* For: iput-quick, iput-object-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- fp[B], the object pointer
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7605,15 +7415,16 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a0, a2)                       #  a0 <- fp[A]
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     addu      t0, a3, a1
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t1)
     sw    a0, 0(t0)                    #  obj.field (8/16/32 bits) <- a0
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t1)                                 #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
 .L_op_iput_wide_quick: /* 0xe7 */
 /* File: mips/op_iput_wide_quick.S */
-    # iput-wide-quick vA, vB, offset       /* CCCC */
+    /* iput-wide-quick vA, vB, offset@CCCC */
     GET_OPA4(a0)                           #  a0 <- A(+)
     GET_OPB(a1)                            #  a1 <- B
     GET_VREG(a2, a1)                       #  a2 <- fp[B], the object pointer
@@ -7624,16 +7435,17 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH(a3, 1)                           #  a3 <- field byte offset
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     addu      a2, a2, a3                   #  obj.field (64 bits, aligned) <- a0/a1
-    STORE64(a0, a1, a2)                    #  obj.field (64 bits, aligned) <- a0/a1
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    GET_OPCODE_TARGET(t0)
+    STORE64(a0, a1, a2)                    #  obj.field (64 bits, aligned) <- a0/a1
+    JR(t0)                                 #  jump to next instruction
 
 /* ------------------------------ */
     .balign 128
 .L_op_iput_object_quick: /* 0xe8 */
 /* File: mips/op_iput_object_quick.S */
     /* For: iput-object-quick */
-    # op vA, vB, offset                 /* CCCC */
+    /* op vA, vB, offset@CCCC */
     EXPORT_PC()
     addu   a0, rFP, OFF_FP_SHADOWFRAME
     move   a1, rPC
@@ -7652,8 +7464,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeVirtualQuick
     EXPORT_PC()
     move    a0, rSELF
@@ -7677,8 +7489,8 @@ artMterpAsmInstructionStart = .L_op_nop
     /*
      * Generic invoke handler wrapper.
      */
-    # op vB, {vD, vE, vF, vG, vA}, class   /* CCCC */
-    # op {vCCCC..v(CCCC+AA-1)}, meth       /* BBBB */
+    /* op vB, {vD, vE, vF, vG, vA}, class@CCCC */
+    /* op {vCCCC..v(CCCC+AA-1)}, meth@BBBB */
     .extern MterpInvokeVirtualQuickRange
     EXPORT_PC()
     move    a0, rSELF
@@ -7700,7 +7512,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iput_boolean_quick.S */
 /* File: mips/op_iput_quick.S */
     /* For: iput-quick, iput-object-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- fp[B], the object pointer
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7709,9 +7521,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a0, a2)                       #  a0 <- fp[A]
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     addu      t0, a3, a1
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t1)
     sb    a0, 0(t0)                    #  obj.field (8/16/32 bits) <- a0
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t1)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -7720,7 +7533,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iput_byte_quick.S */
 /* File: mips/op_iput_quick.S */
     /* For: iput-quick, iput-object-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- fp[B], the object pointer
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7729,9 +7542,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a0, a2)                       #  a0 <- fp[A]
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     addu      t0, a3, a1
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t1)
     sb    a0, 0(t0)                    #  obj.field (8/16/32 bits) <- a0
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t1)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -7740,7 +7554,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iput_char_quick.S */
 /* File: mips/op_iput_quick.S */
     /* For: iput-quick, iput-object-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- fp[B], the object pointer
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7749,9 +7563,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a0, a2)                       #  a0 <- fp[A]
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     addu      t0, a3, a1
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t1)
     sh    a0, 0(t0)                    #  obj.field (8/16/32 bits) <- a0
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t1)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -7760,7 +7575,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iput_short_quick.S */
 /* File: mips/op_iput_quick.S */
     /* For: iput-quick, iput-object-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- fp[B], the object pointer
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7769,9 +7584,10 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG(a0, a2)                       #  a0 <- fp[A]
     FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
     addu      t0, a3, a1
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+    GET_OPCODE_TARGET(t1)
     sh    a0, 0(t0)                    #  obj.field (8/16/32 bits) <- a0
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    JR(t1)                                 #  jump to next instruction
 
 
 /* ------------------------------ */
@@ -7780,7 +7596,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iget_boolean_quick.S */
 /* File: mips/op_iget_quick.S */
     /* For: iget-quick, iget-boolean-quick, iget-byte-quick, iget-char-quick, iget-short-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- object we're operating on
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7800,7 +7616,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iget_byte_quick.S */
 /* File: mips/op_iget_quick.S */
     /* For: iget-quick, iget-boolean-quick, iget-byte-quick, iget-char-quick, iget-short-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- object we're operating on
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7820,7 +7636,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iget_char_quick.S */
 /* File: mips/op_iget_quick.S */
     /* For: iget-quick, iget-boolean-quick, iget-byte-quick, iget-char-quick, iget-short-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- object we're operating on
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7840,7 +7656,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: mips/op_iget_short_quick.S */
 /* File: mips/op_iget_quick.S */
     /* For: iget-quick, iget-boolean-quick, iget-byte-quick, iget-char-quick, iget-short-quick */
-    # op vA, vB, offset                    /* CCCC */
+    /* op vA, vB, offset@CCCC */
     GET_OPB(a2)                            #  a2 <- B
     GET_VREG(a3, a2)                       #  a3 <- object we're operating on
     FETCH(a1, 1)                           #  a1 <- field byte offset
@@ -7856,9 +7672,14 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_invoke_lambda: /* 0xf3 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
+.L_op_unused_f3: /* 0xf3 */
+/* File: mips/op_unused_f3.S */
+/* File: mips/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
+  b MterpFallback
+
 
 /* ------------------------------ */
     .balign 128
@@ -7873,38 +7694,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_capture_variable: /* 0xf5 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_create_lambda: /* 0xf6 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_liberate_variable: /* 0xf7 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_box_lambda: /* 0xf8 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unbox_lambda: /* 0xf9 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unused_fa: /* 0xfa */
-/* File: mips/op_unused_fa.S */
+.L_op_unused_f5: /* 0xf5 */
+/* File: mips/op_unused_f5.S */
 /* File: mips/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -7914,8 +7705,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fb: /* 0xfb */
-/* File: mips/op_unused_fb.S */
+.L_op_unused_f6: /* 0xf6 */
+/* File: mips/op_unused_f6.S */
 /* File: mips/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -7925,8 +7716,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fc: /* 0xfc */
-/* File: mips/op_unused_fc.S */
+.L_op_unused_f7: /* 0xf7 */
+/* File: mips/op_unused_f7.S */
 /* File: mips/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -7936,14 +7727,49 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fd: /* 0xfd */
-/* File: mips/op_unused_fd.S */
+.L_op_unused_f8: /* 0xf8 */
+/* File: mips/op_unused_f8.S */
 /* File: mips/unused.S */
 /*
  * Bail to reference interpreter to throw.
  */
   b MterpFallback
 
+
+/* ------------------------------ */
+    .balign 128
+.L_op_unused_f9: /* 0xf9 */
+/* File: mips/op_unused_f9.S */
+/* File: mips/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
+  b MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic: /* 0xfa */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic_range: /* 0xfb */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom: /* 0xfc */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom_range: /* 0xfd */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
 
 /* ------------------------------ */
     .balign 128
@@ -7983,312 +7809,29 @@ artMterpAsmInstructionEnd:
     .balign 4
 artMterpAsmSisterStart:
 
-/* continuation for op_packed_switch */
-
-.Lop_packed_switch_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_sparse_switch */
-
-.Lop_sparse_switch_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_cmpl_float */
-
-.Lop_cmpl_float_nan:
-    li rTEMP, -1
-
-.Lop_cmpl_float_finish:
-    GET_OPA(rOBJ)
-    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
-
-/* continuation for op_cmpg_float */
-
-.Lop_cmpg_float_nan:
-    li rTEMP, 1
-
-.Lop_cmpg_float_finish:
-    GET_OPA(rOBJ)
-    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
-
-/* continuation for op_cmpl_double */
-
-.Lop_cmpl_double_nan:
-    li rTEMP, -1
-
-.Lop_cmpl_double_finish:
-    GET_OPA(rOBJ)
-    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
-
-/* continuation for op_cmpg_double */
-
-.Lop_cmpg_double_nan:
-    li rTEMP, 1
-
-.Lop_cmpg_double_finish:
-    GET_OPA(rOBJ)
-    FETCH_ADVANCE_INST(2)                  #  advance rPC, load rINST
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG_GOTO(rTEMP, rOBJ, t0)         #  vAA <- rTEMP
-
-/* continuation for op_if_eq */
-
-.L_op_if_eq_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_if_ne */
-
-.L_op_if_ne_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_if_lt */
-
-.L_op_if_lt_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_if_ge */
-
-.L_op_if_ge_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_if_gt */
-
-.L_op_if_gt_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_if_le */
-
-.L_op_if_le_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_float_to_int */
-
-/*
- * Not an entry point as it is used only once !!
- */
-f2i_doconv:
-#ifdef MIPS32REVGE6
-    l.s       fa1, .LFLOAT_TO_INT_max
-    cmp.ule.s ft2, fa1, fa0
-    l.s       fv0, .LFLOAT_TO_INT_ret_max
-    bc1nez    ft2, .Lop_float_to_int_set_vreg_f
-
-    l.s       fa1, .LFLOAT_TO_INT_min
-    cmp.ule.s ft2, fa0, fa1
-    l.s       fv0, .LFLOAT_TO_INT_ret_min
-    bc1nez    ft2, .Lop_float_to_int_set_vreg_f
-
-    mov.s     fa1, fa0
-    cmp.un.s  ft2, fa0, fa1
-    li.s      fv0, 0
-    bc1nez    ft2, .Lop_float_to_int_set_vreg_f
-#else
-    l.s       fa1, .LFLOAT_TO_INT_max
-    c.ole.s   fcc0, fa1, fa0
-    l.s       fv0, .LFLOAT_TO_INT_ret_max
-    bc1t      .Lop_float_to_int_set_vreg_f
-
-    l.s       fa1, .LFLOAT_TO_INT_min
-    c.ole.s   fcc0, fa0, fa1
-    l.s       fv0, .LFLOAT_TO_INT_ret_min
-    bc1t      .Lop_float_to_int_set_vreg_f
-
-    mov.s     fa1, fa0
-    c.un.s    fcc0, fa0, fa1
-    li.s      fv0, 0
-    bc1t      .Lop_float_to_int_set_vreg_f
-#endif
-
-    trunc.w.s  fv0, fa0
-    b         .Lop_float_to_int_set_vreg_f
-
-.LFLOAT_TO_INT_max:
-    .word 0x4f000000
-.LFLOAT_TO_INT_min:
-    .word 0xcf000000
-.LFLOAT_TO_INT_ret_max:
-    .word 0x7fffffff
-.LFLOAT_TO_INT_ret_min:
-    .word 0x80000000
-
 /* continuation for op_float_to_long */
 
-f2l_doconv:
-#ifdef MIPS32REVGE6
-    l.s       fa1, .LLONG_TO_max
-    cmp.ule.s ft2, fa1, fa0
-    li        rRESULT0, ~0
-    li        rRESULT1, ~0x80000000
-    bc1nez    ft2, .Lop_float_to_long_set_vreg
-
-    l.s       fa1, .LLONG_TO_min
-    cmp.ule.s ft2, fa0, fa1
-    li        rRESULT0, 0
-    li        rRESULT1, 0x80000000
-    bc1nez    ft2, .Lop_float_to_long_set_vreg
-
-    mov.s     fa1, fa0
-    cmp.un.s  ft2, fa0, fa1
-    li        rRESULT0, 0
-    li        rRESULT1, 0
-    bc1nez    ft2, .Lop_float_to_long_set_vreg
-#else
-    l.s       fa1, .LLONG_TO_max
-    c.ole.s   fcc0, fa1, fa0
-    li        rRESULT0, ~0
-    li        rRESULT1, ~0x80000000
-    bc1t      .Lop_float_to_long_set_vreg
-
-    l.s       fa1, .LLONG_TO_min
-    c.ole.s   fcc0, fa0, fa1
-    li        rRESULT0, 0
-    li        rRESULT1, 0x80000000
-    bc1t      .Lop_float_to_long_set_vreg
-
-    mov.s     fa1, fa0
-    c.un.s    fcc0, fa0, fa1
-    li        rRESULT0, 0
-    li        rRESULT1, 0
-    bc1t      .Lop_float_to_long_set_vreg
+#ifndef MIPS32REVGE6
+.Lop_float_to_long_get_opcode:
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+.Lop_float_to_long_set_vreg:
+    SET_VREG64_GOTO(rRESULT0, rRESULT1, rOBJ, t1)   #  vA/vA+1 <- v0/v1
 #endif
-
-    JAL(__fixsfdi)
-
-    b         .Lop_float_to_long_set_vreg
-
-.LLONG_TO_max:
-    .word 0x5f000000
-
-.LLONG_TO_min:
-    .word 0xdf000000
-
-/* continuation for op_double_to_int */
-
-d2i_doconv:
-#ifdef MIPS32REVGE6
-    la        t0, .LDOUBLE_TO_INT_max
-    LOAD64_F(fa1, fa1f, t0)
-    cmp.ule.d ft2, fa1, fa0
-    l.s       fv0, .LDOUBLE_TO_INT_maxret
-    bc1nez    ft2, .Lop_double_to_int_set_vreg_f
-
-    la        t0, .LDOUBLE_TO_INT_min
-    LOAD64_F(fa1, fa1f, t0)
-    cmp.ule.d ft2, fa0, fa1
-    l.s       fv0, .LDOUBLE_TO_INT_minret
-    bc1nez    ft2, .Lop_double_to_int_set_vreg_f
-
-    mov.d     fa1, fa0
-    cmp.un.d  ft2, fa0, fa1
-    li.s      fv0, 0
-    bc1nez    ft2, .Lop_double_to_int_set_vreg_f
-#else
-    la        t0, .LDOUBLE_TO_INT_max
-    LOAD64_F(fa1, fa1f, t0)
-    c.ole.d   fcc0, fa1, fa0
-    l.s       fv0, .LDOUBLE_TO_INT_maxret
-    bc1t      .Lop_double_to_int_set_vreg_f
-
-    la        t0, .LDOUBLE_TO_INT_min
-    LOAD64_F(fa1, fa1f, t0)
-    c.ole.d   fcc0, fa0, fa1
-    l.s       fv0, .LDOUBLE_TO_INT_minret
-    bc1t      .Lop_double_to_int_set_vreg_f
-
-    mov.d     fa1, fa0
-    c.un.d    fcc0, fa0, fa1
-    li.s      fv0, 0
-    bc1t      .Lop_double_to_int_set_vreg_f
-#endif
-
-    trunc.w.d  fv0, fa0
-    b         .Lop_double_to_int_set_vreg_f
-
-.LDOUBLE_TO_INT_max:
-    .dword 0x41dfffffffc00000
-.LDOUBLE_TO_INT_min:
-    .dword 0xc1e0000000000000              #  minint, as a double (high word)
-.LDOUBLE_TO_INT_maxret:
-    .word 0x7fffffff
-.LDOUBLE_TO_INT_minret:
-    .word 0x80000000
 
 /* continuation for op_double_to_long */
 
-d2l_doconv:
-#ifdef MIPS32REVGE6
-    la        t0, .LDOUBLE_TO_LONG_max
-    LOAD64_F(fa1, fa1f, t0)
-    cmp.ule.d ft2, fa1, fa0
-    la        t0, .LDOUBLE_TO_LONG_ret_max
-    LOAD64(rRESULT0, rRESULT1, t0)
-    bc1nez    ft2, .Lop_double_to_long_set_vreg
-
-    la        t0, .LDOUBLE_TO_LONG_min
-    LOAD64_F(fa1, fa1f, t0)
-    cmp.ule.d ft2, fa0, fa1
-    la        t0, .LDOUBLE_TO_LONG_ret_min
-    LOAD64(rRESULT0, rRESULT1, t0)
-    bc1nez    ft2, .Lop_double_to_long_set_vreg
-
-    mov.d     fa1, fa0
-    cmp.un.d  ft2, fa0, fa1
-    li        rRESULT0, 0
-    li        rRESULT1, 0
-    bc1nez    ft2, .Lop_double_to_long_set_vreg
-#else
-    la        t0, .LDOUBLE_TO_LONG_max
-    LOAD64_F(fa1, fa1f, t0)
-    c.ole.d   fcc0, fa1, fa0
-    la        t0, .LDOUBLE_TO_LONG_ret_max
-    LOAD64(rRESULT0, rRESULT1, t0)
-    bc1t      .Lop_double_to_long_set_vreg
-
-    la        t0, .LDOUBLE_TO_LONG_min
-    LOAD64_F(fa1, fa1f, t0)
-    c.ole.d   fcc0, fa0, fa1
-    la        t0, .LDOUBLE_TO_LONG_ret_min
-    LOAD64(rRESULT0, rRESULT1, t0)
-    bc1t      .Lop_double_to_long_set_vreg
-
-    mov.d     fa1, fa0
-    c.un.d    fcc0, fa0, fa1
-    li        rRESULT0, 0
-    li        rRESULT1, 0
-    bc1t      .Lop_double_to_long_set_vreg
+#ifndef MIPS32REVGE6
+.Lop_double_to_long_get_opcode:
+    GET_INST_OPCODE(t1)                    #  extract opcode from rINST
+.Lop_double_to_long_set_vreg:
+    SET_VREG64_GOTO(rRESULT0, rRESULT1, rOBJ, t1)   #  vA/vA+1 <- v0/v1
 #endif
-    JAL(__fixdfdi)
-    b         .Lop_double_to_long_set_vreg
-
-.LDOUBLE_TO_LONG_max:
-    .dword 0x43e0000000000000              #  maxlong, as a double (high word)
-.LDOUBLE_TO_LONG_min:
-    .dword 0xc3e0000000000000              #  minlong, as a double (high word)
-.LDOUBLE_TO_LONG_ret_max:
-    .dword 0x7fffffffffffffff
-.LDOUBLE_TO_LONG_ret_min:
-    .dword 0x8000000000000000
 
 /* continuation for op_mul_long */
 
 .Lop_mul_long_finish:
     GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    SET_VREG64(v0, v1, a0)                 #  vAA::vAA+1 <- v0(low) :: v1(high)
-    GOTO_OPCODE(t0)                        #  jump to next instruction
+    SET_VREG64_GOTO(v0, v1, a0, t0)        #  vAA/vAA+1 <- v0(low)/v1(high)
 
 /* continuation for op_shl_long */
 
@@ -8306,51 +7849,21 @@ d2l_doconv:
 .Lop_ushr_long_finish:
     SET_VREG64_GOTO(v1, zero, rOBJ, t0)    #  vAA/vAA+1 <- rlo/rhi
 
-/* continuation for op_add_double */
-
-.Lop_add_double_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_sub_double */
-
-.Lop_sub_double_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_mul_double */
-
-.Lop_mul_double_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_div_double */
-
-.Lop_div_double_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
-/* continuation for op_rem_double */
-
-.Lop_rem_double_finish:
-    GET_INST_OPCODE(t0)                    #  extract opcode from rINST
-    GOTO_OPCODE(t0)                        #  jump to next instruction
-
 /* continuation for op_shl_long_2addr */
 
 .Lop_shl_long_2addr_finish:
-    SET_VREG64_GOTO(zero, v0, rOBJ, t0)    #  vAA/vAA+1 <- rlo/rhi
+    SET_VREG64_GOTO(zero, v0, rOBJ, t0)    #  vA/vA+1 <- rlo/rhi
 
 /* continuation for op_shr_long_2addr */
 
 .Lop_shr_long_2addr_finish:
     sra     a3, a1, 31                     #  a3<- sign(ah)
-    SET_VREG64_GOTO(v1, a3, t2, t0)        #  vAA/vAA+1 <- rlo/rhi
+    SET_VREG64_GOTO(v1, a3, t2, t0)        #  vA/vA+1 <- rlo/rhi
 
 /* continuation for op_ushr_long_2addr */
 
 .Lop_ushr_long_2addr_finish:
-    SET_VREG64_GOTO(v1, zero, t3, t0)      #  vAA/vAA+1 <- rlo/rhi
+    SET_VREG64_GOTO(v1, zero, t3, t0)      #  vA/vA+1 <- rlo/rhi
 
     .size   artMterpAsmSisterStart, .-artMterpAsmSisterStart
     .global artMterpAsmSisterEnd
@@ -8372,13 +7885,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (0 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8390,13 +7903,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (1 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8408,13 +7921,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (2 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8426,13 +7939,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (3 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8444,13 +7957,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (4 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8462,13 +7975,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (5 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8480,13 +7993,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (6 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8498,13 +8011,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (7 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8516,13 +8029,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (8 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8534,13 +8047,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (9 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8552,13 +8065,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (10 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8570,13 +8083,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (11 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8588,13 +8101,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (12 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8606,13 +8119,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (13 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8624,13 +8137,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (14 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8642,13 +8155,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (15 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8660,13 +8173,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (16 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8678,13 +8191,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (17 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8696,13 +8209,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (18 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8714,13 +8227,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (19 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8732,13 +8245,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (20 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8750,13 +8263,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (21 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8768,13 +8281,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (22 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8786,13 +8299,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (23 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8804,13 +8317,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (24 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8822,13 +8335,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (25 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8840,13 +8353,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (26 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8858,13 +8371,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (27 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8876,13 +8389,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (28 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8894,13 +8407,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (29 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8912,13 +8425,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (30 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8930,13 +8443,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (31 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8948,13 +8461,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (32 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8966,13 +8479,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (33 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -8984,13 +8497,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (34 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9002,13 +8515,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (35 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9020,13 +8533,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (36 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9038,13 +8551,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (37 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9056,13 +8569,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (38 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9074,13 +8587,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (39 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9092,13 +8605,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (40 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9110,13 +8623,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (41 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9128,13 +8641,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (42 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9146,13 +8659,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (43 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9164,13 +8677,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (44 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9182,13 +8695,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (45 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9200,13 +8713,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (46 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9218,13 +8731,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (47 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9236,13 +8749,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (48 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9254,13 +8767,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (49 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9272,13 +8785,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (50 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9290,13 +8803,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (51 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9308,13 +8821,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (52 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9326,13 +8839,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (53 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9344,13 +8857,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (54 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9362,13 +8875,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (55 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9380,13 +8893,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (56 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9398,13 +8911,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (57 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9416,13 +8929,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (58 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9434,13 +8947,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (59 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9452,13 +8965,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (60 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9470,13 +8983,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (61 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9488,13 +9001,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (62 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9506,13 +9019,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (63 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9524,13 +9037,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (64 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9542,13 +9055,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (65 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9560,13 +9073,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (66 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9578,13 +9091,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (67 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9596,13 +9109,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (68 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9614,13 +9127,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (69 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9632,13 +9145,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (70 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9650,13 +9163,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (71 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9668,13 +9181,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (72 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9686,13 +9199,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (73 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9704,13 +9217,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (74 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9722,13 +9235,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (75 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9740,13 +9253,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (76 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9758,13 +9271,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (77 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9776,13 +9289,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (78 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9794,13 +9307,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (79 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9812,13 +9325,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (80 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9830,13 +9343,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (81 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9848,13 +9361,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (82 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9866,13 +9379,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (83 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9884,13 +9397,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (84 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9902,13 +9415,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (85 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9920,13 +9433,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (86 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9938,13 +9451,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (87 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9956,13 +9469,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (88 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9974,13 +9487,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (89 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -9992,13 +9505,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (90 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10010,13 +9523,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (91 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10028,13 +9541,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (92 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10046,13 +9559,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (93 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10064,13 +9577,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (94 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10082,13 +9595,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (95 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10100,13 +9613,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (96 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10118,13 +9631,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (97 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10136,13 +9649,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (98 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10154,13 +9667,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (99 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10172,13 +9685,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (100 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10190,13 +9703,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (101 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10208,13 +9721,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (102 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10226,13 +9739,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (103 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10244,13 +9757,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (104 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10262,13 +9775,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (105 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10280,13 +9793,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (106 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10298,13 +9811,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (107 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10316,13 +9829,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (108 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10334,13 +9847,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (109 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10352,13 +9865,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (110 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10370,13 +9883,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (111 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10388,13 +9901,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (112 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10406,13 +9919,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (113 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10424,13 +9937,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (114 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10442,13 +9955,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (115 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10460,13 +9973,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (116 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10478,13 +9991,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (117 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10496,13 +10009,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (118 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10514,13 +10027,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (119 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10532,13 +10045,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (120 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10550,13 +10063,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (121 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10568,13 +10081,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (122 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10586,13 +10099,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (123 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10604,13 +10117,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (124 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10622,13 +10135,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (125 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10640,13 +10153,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (126 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10658,13 +10171,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (127 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10676,13 +10189,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (128 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10694,13 +10207,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (129 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10712,13 +10225,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (130 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10730,13 +10243,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (131 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10748,13 +10261,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (132 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10766,13 +10279,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (133 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10784,13 +10297,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (134 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10802,13 +10315,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (135 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10820,13 +10333,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (136 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10838,13 +10351,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (137 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10856,13 +10369,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (138 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10874,13 +10387,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (139 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10892,13 +10405,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (140 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10910,13 +10423,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (141 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10928,13 +10441,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (142 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10946,13 +10459,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (143 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10964,13 +10477,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (144 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -10982,13 +10495,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (145 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11000,13 +10513,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (146 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11018,13 +10531,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (147 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11036,13 +10549,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (148 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11054,13 +10567,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (149 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11072,13 +10585,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (150 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11090,13 +10603,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (151 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11108,13 +10621,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (152 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11126,13 +10639,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (153 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11144,13 +10657,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (154 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11162,13 +10675,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (155 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11180,13 +10693,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (156 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11198,13 +10711,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (157 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11216,13 +10729,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (158 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11234,13 +10747,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (159 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11252,13 +10765,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (160 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11270,13 +10783,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (161 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11288,13 +10801,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (162 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11306,13 +10819,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (163 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11324,13 +10837,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (164 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11342,13 +10855,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (165 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11360,13 +10873,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (166 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11378,13 +10891,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (167 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11396,13 +10909,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (168 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11414,13 +10927,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (169 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11432,13 +10945,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (170 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11450,13 +10963,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (171 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11468,13 +10981,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (172 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11486,13 +10999,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (173 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11504,13 +11017,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (174 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11522,13 +11035,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (175 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11540,13 +11053,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (176 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11558,13 +11071,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (177 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11576,13 +11089,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (178 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11594,13 +11107,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (179 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11612,13 +11125,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (180 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11630,13 +11143,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (181 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11648,13 +11161,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (182 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11666,13 +11179,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (183 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11684,13 +11197,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (184 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11702,13 +11215,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (185 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11720,13 +11233,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (186 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11738,13 +11251,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (187 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11756,13 +11269,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (188 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11774,13 +11287,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (189 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11792,13 +11305,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (190 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11810,13 +11323,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (191 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11828,13 +11341,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (192 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11846,13 +11359,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (193 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11864,13 +11377,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (194 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11882,13 +11395,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (195 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11900,13 +11413,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (196 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11918,13 +11431,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (197 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11936,13 +11449,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (198 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11954,13 +11467,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (199 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11972,13 +11485,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (200 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -11990,13 +11503,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (201 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12008,13 +11521,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (202 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12026,13 +11539,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (203 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12044,13 +11557,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (204 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12062,13 +11575,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (205 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12080,13 +11593,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (206 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12098,13 +11611,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (207 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12116,13 +11629,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (208 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12134,13 +11647,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (209 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12152,13 +11665,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (210 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12170,13 +11683,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (211 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12188,13 +11701,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (212 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12206,13 +11719,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (213 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12224,13 +11737,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (214 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12242,13 +11755,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (215 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12260,13 +11773,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (216 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12278,13 +11791,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (217 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12296,13 +11809,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (218 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12314,13 +11827,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (219 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12332,13 +11845,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (220 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12350,13 +11863,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (221 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12368,13 +11881,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (222 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12386,13 +11899,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (223 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12404,13 +11917,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (224 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12422,13 +11935,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (225 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12440,13 +11953,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (226 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12458,13 +11971,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (227 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12476,13 +11989,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (228 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12494,13 +12007,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (229 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12512,13 +12025,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (230 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12530,13 +12043,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (231 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12548,13 +12061,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (232 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12566,13 +12079,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (233 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12584,13 +12097,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (234 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12602,13 +12115,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (235 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12620,13 +12133,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (236 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12638,13 +12151,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (237 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12656,13 +12169,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (238 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12674,13 +12187,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (239 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12692,13 +12205,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (240 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12710,13 +12223,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (241 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12728,17 +12241,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (242 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_invoke_lambda: /* 0xf3 */
+.L_ALT_op_unused_f3: /* 0xf3 */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12746,13 +12259,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (243 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12764,17 +12277,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (244 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_capture_variable: /* 0xf5 */
+.L_ALT_op_unused_f5: /* 0xf5 */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12782,17 +12295,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (245 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_create_lambda: /* 0xf6 */
+.L_ALT_op_unused_f6: /* 0xf6 */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12800,17 +12313,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (246 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_liberate_variable: /* 0xf7 */
+.L_ALT_op_unused_f7: /* 0xf7 */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12818,17 +12331,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (247 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_box_lambda: /* 0xf8 */
+.L_ALT_op_unused_f8: /* 0xf8 */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12836,17 +12349,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (248 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unbox_lambda: /* 0xf9 */
+.L_ALT_op_unused_f9: /* 0xf9 */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12854,17 +12367,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (249 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fa: /* 0xfa */
+.L_ALT_op_invoke_polymorphic: /* 0xfa */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12872,17 +12385,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (250 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fb: /* 0xfb */
+.L_ALT_op_invoke_polymorphic_range: /* 0xfb */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12890,17 +12403,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (251 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fc: /* 0xfc */
+.L_ALT_op_invoke_custom: /* 0xfc */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12908,17 +12421,17 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (252 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fd: /* 0xfd */
+.L_ALT_op_invoke_custom_range: /* 0xfd */
 /* File: mips/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12926,13 +12439,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (253 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12944,13 +12457,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (254 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
 /* ------------------------------ */
     .balign 128
@@ -12962,13 +12475,13 @@ artMterpAsmAltInstructionStart = .L_ALT_op_nop
  * handler.    Note that the call to MterpCheckBefore is done as a tail call.
  */
     .extern MterpCheckBefore
-    EXPORT_PC()
     la     ra, artMterpAsmInstructionStart + (255 * 128)   # Addr of primary handler
     lw     rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)           # refresh IBASE
     move   a0, rSELF                    # arg0
     addu   a1, rFP, OFF_FP_SHADOWFRAME  # arg1
-    la     a2, MterpCheckBefore
-    jalr   zero, a2                     # Tail call to Mterp(self, shadow_frame)
+    move   a2, rPC
+    la     t9, MterpCheckBefore
+    jalr   zero, t9                     # Tail call to Mterp(self, shadow_frame, dex_pc_ptr)
 
     .balign 128
     .size   artMterpAsmAltInstructionStart, .-artMterpAsmAltInstructionStart
@@ -13089,20 +12602,110 @@ MterpException:
     /* NOTE: no fallthrough */
 
 /*
- * Check for suspend check request.  Assumes rINST already loaded, rPC advanced and
- * still needs to get the opcode and branch to it, and flags are in lr.
+ * Common handling for branches with support for Jit profiling.
+ * On entry:
+ *    rINST          <= signed offset
+ *    rPROFILE       <= signed hotness countdown (expanded to 32 bits)
+ *
+ * We have quite a few different cases for branch profiling, OSR detection and
+ * suspend check support here.
+ *
+ * Taken backward branches:
+ *    If profiling active, do hotness countdown and report if we hit zero.
+ *    If in osr check mode, see if our target is a compiled loop header entry and do OSR if so.
+ *    Is there a pending suspend request?  If so, suspend.
+ *
+ * Taken forward branches and not-taken backward branches:
+ *    If in osr check mode, see if our target is a compiled loop header entry and do OSR if so.
+ *
+ * Our most common case is expected to be a taken backward branch with active jit profiling,
+ * but no full OSR check and no pending suspend request.
+ * Next most common case is not-taken branch with no full OSR check.
  */
-MterpCheckSuspendAndContinue:
-    lw      rIBASE, THREAD_CURRENT_IBASE_OFFSET(rSELF)  # refresh rIBASE
-    and     ra, (THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
-    bnez    ra, 1f
+MterpCommonTakenBranchNoFlags:
+    bgtz    rINST, .L_forward_branch    # don't add forward branches to hotness
+/*
+ * We need to subtract 1 from positive values and we should not see 0 here,
+ * so we may use the result of the comparison with -1.
+ */
+#if JIT_CHECK_OSR != -1
+#  error "JIT_CHECK_OSR must be -1."
+#endif
+    li      t0, JIT_CHECK_OSR
+    beq     rPROFILE, t0, .L_osr_check
+    blt     rPROFILE, t0, .L_resume_backward_branch
+    subu    rPROFILE, 1
+    beqz    rPROFILE, .L_add_batch      # counted down to zero - report
+.L_resume_backward_branch:
+    lw      ra, THREAD_FLAGS_OFFSET(rSELF)
+    REFRESH_IBASE()
+    addu    a2, rINST, rINST            # a2<- byte offset
+    FETCH_ADVANCE_INST_RB(a2)           # update rPC, load rINST
+    and     ra, THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
+    bnez    ra, .L_suspend_request_pending
     GET_INST_OPCODE(t0)                 # extract opcode from rINST
     GOTO_OPCODE(t0)                     # jump to next instruction
-1:
+
+.L_suspend_request_pending:
     EXPORT_PC()
     move    a0, rSELF
     JAL(MterpSuspendCheck)              # (self)
     bnez    v0, MterpFallback
+    REFRESH_IBASE()                     # might have changed during suspend
+    GET_INST_OPCODE(t0)                 # extract opcode from rINST
+    GOTO_OPCODE(t0)                     # jump to next instruction
+
+.L_no_count_backwards:
+    li      t0, JIT_CHECK_OSR           # check for possible OSR re-entry
+    bne     rPROFILE, t0, .L_resume_backward_branch
+.L_osr_check:
+    move    a0, rSELF
+    addu    a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rINST
+    EXPORT_PC()
+    JAL(MterpMaybeDoOnStackReplacement) # (self, shadow_frame, offset)
+    bnez    v0, MterpOnStackReplacement
+    b       .L_resume_backward_branch
+
+.L_forward_branch:
+    li      t0, JIT_CHECK_OSR           # check for possible OSR re-entry
+    beq     rPROFILE, t0, .L_check_osr_forward
+.L_resume_forward_branch:
+    add     a2, rINST, rINST            # a2<- byte offset
+    FETCH_ADVANCE_INST_RB(a2)           # update rPC, load rINST
+    GET_INST_OPCODE(t0)                 # extract opcode from rINST
+    GOTO_OPCODE(t0)                     # jump to next instruction
+
+.L_check_osr_forward:
+    move    a0, rSELF
+    addu    a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rINST
+    EXPORT_PC()
+    JAL(MterpMaybeDoOnStackReplacement) # (self, shadow_frame, offset)
+    bnez    v0, MterpOnStackReplacement
+    b       .L_resume_forward_branch
+
+.L_add_batch:
+    addu    a1, rFP, OFF_FP_SHADOWFRAME
+    sh      rPROFILE, SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET(a1)
+    lw      a0, OFF_FP_METHOD(rFP)
+    move    a2, rSELF
+    JAL(MterpAddHotnessBatch)           # (method, shadow_frame, self)
+    move    rPROFILE, v0                # restore new hotness countdown to rPROFILE
+    b       .L_no_count_backwards
+
+/*
+ * Entered from the conditional branch handlers when OSR check request active on
+ * not-taken path.  All Dalvik not-taken conditional branch offsets are 2.
+ */
+.L_check_not_taken_osr:
+    move    a0, rSELF
+    addu    a1, rFP, OFF_FP_SHADOWFRAME
+    li      a2, 2
+    EXPORT_PC()
+    JAL(MterpMaybeDoOnStackReplacement) # (self, shadow_frame, offset)
+    bnez    v0, MterpOnStackReplacement
+    FETCH_ADVANCE_INST(2)
     GET_INST_OPCODE(t0)                 # extract opcode from rINST
     GOTO_OPCODE(t0)                     # jump to next instruction
 
@@ -13149,6 +12752,26 @@ MterpReturn:
     sw      v1, 4(a2)
     li      v0, 1                       # signal return to caller.
 MterpDone:
+/*
+ * At this point, we expect rPROFILE to be non-zero.  If negative, hotness is disabled or we're
+ * checking for OSR.  If greater than zero, we might have unreported hotness to register
+ * (the difference between the ending rPROFILE and the cached hotness counter).  rPROFILE
+ * should only reach zero immediately after a hotness decrement, and is then reset to either
+ * a negative special state or the new non-zero countdown value.
+ */
+    blez    rPROFILE, .L_pop_and_return # if > 0, we may have some counts to report.
+
+MterpProfileActive:
+    move    rINST, v0                   # stash return value
+    /* Report cached hotness counts */
+    lw      a0, OFF_FP_METHOD(rFP)
+    addu    a1, rFP, OFF_FP_SHADOWFRAME
+    move    a2, rSELF
+    sh      rPROFILE, SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET(a1)
+    JAL(MterpAddHotnessBatch)           # (method, shadow_frame, self)
+    move    v0, rINST                   # restore return value
+
+.L_pop_and_return:
 /* Restore from the stack and return. Frame size = STACK_SIZE */
     STACK_LOAD_FULL()
     jalr    zero, ra

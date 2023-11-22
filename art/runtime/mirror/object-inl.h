@@ -23,7 +23,7 @@
 #include "art_method.h"
 #include "atomic.h"
 #include "array-inl.h"
-#include "class.h"
+#include "class-inl.h"
 #include "class_flags.h"
 #include "class_linker.h"
 #include "class_loader-inl.h"
@@ -31,6 +31,9 @@
 #include "lock_word-inl.h"
 #include "monitor.h"
 #include "object_array-inl.h"
+#include "object_reference-inl.h"
+#include "object-readbarrier-inl.h"
+#include "obj_ptr-inl.h"
 #include "read_barrier-inl.h"
 #include "reference.h"
 #include "runtime.h"
@@ -40,7 +43,7 @@
 namespace art {
 namespace mirror {
 
-inline uint32_t Object::ClassSize(size_t pointer_size) {
+inline uint32_t Object::ClassSize(PointerSize pointer_size) {
   uint32_t vtable_entries = kVTableLength;
   return Class::ComputeClassSize(true, vtable_entries, 0, 0, 0, 0, 0, pointer_size);
 }
@@ -52,7 +55,7 @@ inline Class* Object::GetClass() {
 }
 
 template<VerifyObjectFlags kVerifyFlags>
-inline void Object::SetClass(Class* new_klass) {
+inline void Object::SetClass(ObjPtr<Class> new_klass) {
   // new_klass may be null prior to class linker initialization.
   // We don't mark the card as this occurs as part of object allocation. Not all objects have
   // backing cards, such as large objects.
@@ -61,14 +64,6 @@ inline void Object::SetClass(Class* new_klass) {
   SetFieldObjectWithoutWriteBarrier<false, false,
       static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis)>(
       OFFSET_OF_OBJECT_MEMBER(Object, klass_), new_klass);
-}
-
-template<VerifyObjectFlags kVerifyFlags>
-inline LockWord Object::GetLockWord(bool as_volatile) {
-  if (as_volatile) {
-    return LockWord(GetField32Volatile<kVerifyFlags>(OFFSET_OF_OBJECT_MEMBER(Object, monitor_)));
-  }
-  return LockWord(GetField32<kVerifyFlags>(OFFSET_OF_OBJECT_MEMBER(Object, monitor_)));
 }
 
 template<VerifyObjectFlags kVerifyFlags>
@@ -89,15 +84,9 @@ inline bool Object::CasLockWordWeakSequentiallyConsistent(LockWord old_val, Lock
       OFFSET_OF_OBJECT_MEMBER(Object, monitor_), old_val.GetValue(), new_val.GetValue());
 }
 
-inline bool Object::CasLockWordWeakRelaxed(LockWord old_val, LockWord new_val) {
+inline bool Object::CasLockWordWeakAcquire(LockWord old_val, LockWord new_val) {
   // Force use of non-transactional mode and do not check.
-  return CasFieldWeakRelaxed32<false, false>(
-      OFFSET_OF_OBJECT_MEMBER(Object, monitor_), old_val.GetValue(), new_val.GetValue());
-}
-
-inline bool Object::CasLockWordWeakRelease(LockWord old_val, LockWord new_val) {
-  // Force use of non-transactional mode and do not check.
-  return CasFieldWeakRelease32<false, false>(
+  return CasFieldWeakAcquire32<false, false>(
       OFFSET_OF_OBJECT_MEMBER(Object, monitor_), old_val.GetValue(), new_val.GetValue());
 }
 
@@ -106,7 +95,11 @@ inline uint32_t Object::GetLockOwnerThreadId() {
 }
 
 inline mirror::Object* Object::MonitorEnter(Thread* self) {
-  return Monitor::MonitorEnter(self, this);
+  return Monitor::MonitorEnter(self, this, /*trylock*/false);
+}
+
+inline mirror::Object* Object::MonitorTryEnter(Thread* self) {
+  return Monitor::MonitorEnter(self, this, /*trylock*/true);
 }
 
 inline bool Object::MonitorExit(Thread* self) {
@@ -129,113 +122,43 @@ inline void Object::Wait(Thread* self, int64_t ms, int32_t ns) {
   Monitor::Wait(self, this, ms, ns, true, kTimedWaiting);
 }
 
-inline Object* Object::GetReadBarrierPointer() {
-#ifdef USE_BAKER_READ_BARRIER
-  DCHECK(kUseBakerReadBarrier);
-  return reinterpret_cast<Object*>(GetLockWord(false).ReadBarrierState());
-#elif USE_BROOKS_READ_BARRIER
-  DCHECK(kUseBrooksReadBarrier);
-  return GetFieldObject<Object, kVerifyNone, kWithoutReadBarrier>(
-      OFFSET_OF_OBJECT_MEMBER(Object, x_rb_ptr_));
+inline uint32_t Object::GetMarkBit() {
+#ifdef USE_READ_BARRIER
+  return GetLockWord(false).MarkBitState();
 #else
   LOG(FATAL) << "Unreachable";
   UNREACHABLE();
 #endif
 }
 
-inline void Object::SetReadBarrierPointer(Object* rb_ptr) {
-#ifdef USE_BAKER_READ_BARRIER
-  DCHECK(kUseBakerReadBarrier);
-  DCHECK_EQ(reinterpret_cast<uint64_t>(rb_ptr) >> 32, 0U);
-  LockWord lw = GetLockWord(false);
-  lw.SetReadBarrierState(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rb_ptr)));
-  SetLockWord(lw, false);
-#elif USE_BROOKS_READ_BARRIER
-  DCHECK(kUseBrooksReadBarrier);
-  // We don't mark the card as this occurs as part of object allocation. Not all objects have
-  // backing cards, such as large objects.
-  SetFieldObjectWithoutWriteBarrier<false, false, kVerifyNone>(
-      OFFSET_OF_OBJECT_MEMBER(Object, x_rb_ptr_), rb_ptr);
-#else
-  LOG(FATAL) << "Unreachable";
-  UNREACHABLE();
-  UNUSED(rb_ptr);
-#endif
-}
-
-template<bool kCasRelease>
-inline bool Object::AtomicSetReadBarrierPointer(Object* expected_rb_ptr, Object* rb_ptr) {
-#ifdef USE_BAKER_READ_BARRIER
-  DCHECK(kUseBakerReadBarrier);
-  DCHECK_EQ(reinterpret_cast<uint64_t>(expected_rb_ptr) >> 32, 0U);
-  DCHECK_EQ(reinterpret_cast<uint64_t>(rb_ptr) >> 32, 0U);
-  LockWord expected_lw;
-  LockWord new_lw;
-  do {
-    LockWord lw = GetLockWord(false);
-    if (UNLIKELY(reinterpret_cast<Object*>(lw.ReadBarrierState()) != expected_rb_ptr)) {
-      // Lost the race.
-      return false;
-    }
-    expected_lw = lw;
-    expected_lw.SetReadBarrierState(
-        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(expected_rb_ptr)));
-    new_lw = lw;
-    new_lw.SetReadBarrierState(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(rb_ptr)));
-    // ConcurrentCopying::ProcessMarkStackRef uses this with kCasRelease == true.
-    // If kCasRelease == true, use a CAS release so that when GC updates all the fields of
-    // an object and then changes the object from gray to black, the field updates (stores) will be
-    // visible (won't be reordered after this CAS.)
-  } while (!(kCasRelease ?
-             CasLockWordWeakRelease(expected_lw, new_lw) :
-             CasLockWordWeakRelaxed(expected_lw, new_lw)));
-  return true;
-#elif USE_BROOKS_READ_BARRIER
-  DCHECK(kUseBrooksReadBarrier);
-  MemberOffset offset = OFFSET_OF_OBJECT_MEMBER(Object, x_rb_ptr_);
-  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + offset.SizeValue();
-  Atomic<uint32_t>* atomic_rb_ptr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
-  HeapReference<Object> expected_ref(HeapReference<Object>::FromMirrorPtr(expected_rb_ptr));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromMirrorPtr(rb_ptr));
-  do {
-    if (UNLIKELY(atomic_rb_ptr->LoadRelaxed() != expected_ref.reference_)) {
-      // Lost the race.
-      return false;
-    }
-  } while (!atomic_rb_ptr->CompareExchangeWeakSequentiallyConsistent(expected_ref.reference_,
-                                                                     new_ref.reference_));
-  return true;
-#else
-  UNUSED(expected_rb_ptr, rb_ptr);
-  LOG(FATAL) << "Unreachable";
-  UNREACHABLE();
-#endif
-}
-
-inline void Object::AssertReadBarrierPointer() const {
-  if (kUseBakerReadBarrier) {
-    Object* obj = const_cast<Object*>(this);
-    DCHECK(obj->GetReadBarrierPointer() == nullptr)
-        << "Bad Baker pointer: obj=" << reinterpret_cast<void*>(obj)
-        << " ptr=" << reinterpret_cast<void*>(obj->GetReadBarrierPointer());
-  } else {
-    CHECK(kUseBrooksReadBarrier);
-    Object* obj = const_cast<Object*>(this);
-    DCHECK_EQ(obj, obj->GetReadBarrierPointer())
-        << "Bad Brooks pointer: obj=" << reinterpret_cast<void*>(obj)
-        << " ptr=" << reinterpret_cast<void*>(obj->GetReadBarrierPointer());
+inline void Object::SetReadBarrierState(uint32_t rb_state) {
+  if (!kUseBakerReadBarrier) {
+    LOG(FATAL) << "Unreachable";
+    UNREACHABLE();
   }
+  DCHECK(ReadBarrier::IsValidReadBarrierState(rb_state)) << rb_state;
+  LockWord lw = GetLockWord(false);
+  lw.SetReadBarrierState(rb_state);
+  SetLockWord(lw, false);
+}
+
+inline void Object::AssertReadBarrierState() const {
+  CHECK(kUseBakerReadBarrier);
+  Object* obj = const_cast<Object*>(this);
+  DCHECK(obj->GetReadBarrierState() == ReadBarrier::WhiteState())
+      << "Bad Baker pointer: obj=" << reinterpret_cast<void*>(obj)
+      << " rb_state" << reinterpret_cast<void*>(obj->GetReadBarrierState());
 }
 
 template<VerifyObjectFlags kVerifyFlags>
-inline bool Object::VerifierInstanceOf(Class* klass) {
+inline bool Object::VerifierInstanceOf(ObjPtr<Class> klass) {
   DCHECK(klass != nullptr);
   DCHECK(GetClass<kVerifyFlags>() != nullptr);
   return klass->IsInterface() || InstanceOf(klass);
 }
 
 template<VerifyObjectFlags kVerifyFlags>
-inline bool Object::InstanceOf(Class* klass) {
+inline bool Object::InstanceOf(ObjPtr<Class> klass) {
   DCHECK(klass != nullptr);
   DCHECK(GetClass<kVerifyNone>() != nullptr);
   return klass->IsAssignableFrom(GetClass<kVerifyFlags>());
@@ -345,8 +268,8 @@ inline ShortArray* Object::AsShortSizedArray() {
 template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
 inline bool Object::IsIntArray() {
   constexpr auto kNewFlags = static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis);
-  mirror::Class* klass = GetClass<kVerifyFlags, kReadBarrierOption>();
-  mirror::Class* component_type = klass->GetComponentType<kVerifyFlags, kReadBarrierOption>();
+  ObjPtr<Class> klass = GetClass<kVerifyFlags, kReadBarrierOption>();
+  ObjPtr<Class> component_type = klass->GetComponentType<kVerifyFlags, kReadBarrierOption>();
   return component_type != nullptr && component_type->template IsPrimitiveInt<kNewFlags>();
 }
 
@@ -359,8 +282,8 @@ inline IntArray* Object::AsIntArray() {
 template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
 inline bool Object::IsLongArray() {
   constexpr auto kNewFlags = static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis);
-  mirror::Class* klass = GetClass<kVerifyFlags, kReadBarrierOption>();
-  mirror::Class* component_type = klass->GetComponentType<kVerifyFlags, kReadBarrierOption>();
+  ObjPtr<Class> klass = GetClass<kVerifyFlags, kReadBarrierOption>();
+  ObjPtr<Class> component_type = klass->GetComponentType<kVerifyFlags, kReadBarrierOption>();
   return component_type != nullptr && component_type->template IsPrimitiveLong<kNewFlags>();
 }
 
@@ -445,8 +368,11 @@ inline bool Object::IsPhantomReferenceInstance() {
   return GetClass<kVerifyFlags>()->IsPhantomReferenceClass();
 }
 
-template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
+template<VerifyObjectFlags kVerifyFlags>
 inline size_t Object::SizeOf() {
+  // Read barrier is never required for SizeOf since objects sizes are constant. Reading from-space
+  // values is OK because of that.
+  static constexpr ReadBarrierOption kReadBarrierOption = kWithoutReadBarrier;
   size_t result;
   constexpr auto kNewFlags = static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis);
   if (IsArrayInstance<kVerifyFlags, kReadBarrierOption>()) {
@@ -463,7 +389,7 @@ inline size_t Object::SizeOf() {
         template GetObjectSize<kNewFlags, kReadBarrierOption>();
   }
   DCHECK_GE(result, sizeof(Object))
-      << " class=" << PrettyTypeOf(GetClass<kNewFlags, kReadBarrierOption>());
+      << " class=" << Class::PrettyClass(GetClass<kNewFlags, kReadBarrierOption>());
   return result;
 }
 
@@ -496,7 +422,7 @@ inline int8_t Object::GetFieldByteVolatile(MemberOffset field_offset) {
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
     bool kIsVolatile>
 inline void Object::SetFieldBoolean(MemberOffset field_offset, uint8_t new_value)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
@@ -514,7 +440,7 @@ inline void Object::SetFieldBoolean(MemberOffset field_offset, uint8_t new_value
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
     bool kIsVolatile>
 inline void Object::SetFieldByte(MemberOffset field_offset, int8_t new_value)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
@@ -613,19 +539,6 @@ inline void Object::SetFieldShortVolatile(MemberOffset field_offset, int16_t new
       field_offset, new_value);
 }
 
-template<VerifyObjectFlags kVerifyFlags, bool kIsVolatile>
-inline int32_t Object::GetField32(MemberOffset field_offset) {
-  if (kVerifyFlags & kVerifyThis) {
-    VerifyObject(this);
-  }
-  return GetField<int32_t, kIsVolatile>(field_offset);
-}
-
-template<VerifyObjectFlags kVerifyFlags>
-inline int32_t Object::GetField32Volatile(MemberOffset field_offset) {
-  return GetField32<kVerifyFlags, true>(field_offset);
-}
-
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
     bool kIsVolatile>
 inline void Object::SetField32(MemberOffset field_offset, int32_t new_value) {
@@ -669,7 +582,7 @@ inline bool Object::CasFieldWeakSequentiallyConsistent32(MemberOffset field_offs
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
-inline bool Object::CasFieldWeakRelaxed32(MemberOffset field_offset,
+inline bool Object::CasFieldWeakAcquire32(MemberOffset field_offset,
                                           int32_t old_value, int32_t new_value) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
@@ -683,7 +596,7 @@ inline bool Object::CasFieldWeakRelaxed32(MemberOffset field_offset,
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   AtomicInteger* atomic_addr = reinterpret_cast<AtomicInteger*>(raw_addr);
 
-  return atomic_addr->CompareExchangeWeakRelaxed(old_value, new_value);
+  return atomic_addr->CompareExchangeWeakAcquire(old_value, new_value);
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
@@ -722,19 +635,6 @@ inline bool Object::CasFieldStrongSequentiallyConsistent32(MemberOffset field_of
   return atomic_addr->CompareExchangeStrongSequentiallyConsistent(old_value, new_value);
 }
 
-template<VerifyObjectFlags kVerifyFlags, bool kIsVolatile>
-inline int64_t Object::GetField64(MemberOffset field_offset) {
-  if (kVerifyFlags & kVerifyThis) {
-    VerifyObject(this);
-  }
-  return GetField<int64_t, kIsVolatile>(field_offset);
-}
-
-template<VerifyObjectFlags kVerifyFlags>
-inline int64_t Object::GetField64Volatile(MemberOffset field_offset) {
-  return GetField64<kVerifyFlags, true>(field_offset);
-}
-
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
     bool kIsVolatile>
 inline void Object::SetField64(MemberOffset field_offset, int64_t new_value) {
@@ -758,26 +658,11 @@ inline void Object::SetField64Volatile(MemberOffset field_offset, int64_t new_va
                                                                                new_value);
 }
 
-template<typename kSize, bool kIsVolatile>
-inline void Object::SetField(MemberOffset field_offset, kSize new_value) {
-  uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
-  kSize* addr = reinterpret_cast<kSize*>(raw_addr);
-  if (kIsVolatile) {
-    reinterpret_cast<Atomic<kSize>*>(addr)->StoreSequentiallyConsistent(new_value);
-  } else {
-    reinterpret_cast<Atomic<kSize>*>(addr)->StoreJavaData(new_value);
-  }
-}
-
-template<typename kSize, bool kIsVolatile>
-inline kSize Object::GetField(MemberOffset field_offset) {
+template<typename kSize>
+inline kSize Object::GetFieldAcquire(MemberOffset field_offset) {
   const uint8_t* raw_addr = reinterpret_cast<const uint8_t*>(this) + field_offset.Int32Value();
   const kSize* addr = reinterpret_cast<const kSize*>(raw_addr);
-  if (kIsVolatile) {
-    return reinterpret_cast<const Atomic<kSize>*>(addr)->LoadSequentiallyConsistent();
-  } else {
-    return reinterpret_cast<const Atomic<kSize>*>(addr)->LoadJavaData();
-  }
+  return reinterpret_cast<const Atomic<kSize>*>(addr)->LoadAcquire();
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
@@ -841,18 +726,18 @@ inline T* Object::GetFieldObjectVolatile(MemberOffset field_offset) {
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
     bool kIsVolatile>
 inline void Object::SetFieldObjectWithoutWriteBarrier(MemberOffset field_offset,
-                                                      Object* new_value) {
+                                                      ObjPtr<Object> new_value) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
   if (kTransactionActive) {
-    mirror::Object* obj;
+    ObjPtr<Object> obj;
     if (kIsVolatile) {
       obj = GetFieldObjectVolatile<Object>(field_offset);
     } else {
       obj = GetFieldObject<Object>(field_offset);
     }
-    Runtime::Current()->RecordWriteFieldReference(this, field_offset, obj, true);
+    Runtime::Current()->RecordWriteFieldReference(this, field_offset, obj.Ptr(), true);
   }
   if (kVerifyFlags & kVerifyThis) {
     VerifyObject(this);
@@ -865,17 +750,17 @@ inline void Object::SetFieldObjectWithoutWriteBarrier(MemberOffset field_offset,
   if (kIsVolatile) {
     // TODO: Refactor to use a SequentiallyConsistent store instead.
     QuasiAtomic::ThreadFenceRelease();  // Ensure that prior accesses are visible before store.
-    objref_addr->Assign(new_value);
+    objref_addr->Assign(new_value.Ptr());
     QuasiAtomic::ThreadFenceSequentiallyConsistent();
                                 // Ensure this store occurs before any volatile loads.
   } else {
-    objref_addr->Assign(new_value);
+    objref_addr->Assign(new_value.Ptr());
   }
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags,
     bool kIsVolatile>
-inline void Object::SetFieldObject(MemberOffset field_offset, Object* new_value) {
+inline void Object::SetFieldObject(MemberOffset field_offset, ObjPtr<Object> new_value) {
   SetFieldObjectWithoutWriteBarrier<kTransactionActive, kCheckTransaction, kVerifyFlags,
       kIsVolatile>(field_offset, new_value);
   if (new_value != nullptr) {
@@ -886,7 +771,7 @@ inline void Object::SetFieldObject(MemberOffset field_offset, Object* new_value)
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
-inline void Object::SetFieldObjectVolatile(MemberOffset field_offset, Object* new_value) {
+inline void Object::SetFieldObjectVolatile(MemberOffset field_offset, ObjPtr<Object> new_value) {
   SetFieldObject<kTransactionActive, kCheckTransaction, kVerifyFlags, true>(field_offset,
                                                                             new_value);
 }
@@ -902,7 +787,8 @@ inline HeapReference<Object>* Object::GetFieldObjectReferenceAddr(MemberOffset f
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline bool Object::CasFieldWeakSequentiallyConsistentObject(MemberOffset field_offset,
-                                                             Object* old_value, Object* new_value) {
+                                                             ObjPtr<Object> old_value,
+                                                             ObjPtr<Object> new_value) {
   bool success = CasFieldWeakSequentiallyConsistentObjectWithoutWriteBarrier<
       kTransactionActive, kCheckTransaction, kVerifyFlags>(field_offset, old_value, new_value);
   if (success) {
@@ -913,7 +799,9 @@ inline bool Object::CasFieldWeakSequentiallyConsistentObject(MemberOffset field_
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline bool Object::CasFieldWeakSequentiallyConsistentObjectWithoutWriteBarrier(
-    MemberOffset field_offset, Object* old_value, Object* new_value) {
+    MemberOffset field_offset,
+    ObjPtr<Object> old_value,
+    ObjPtr<Object> new_value) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
@@ -929,8 +817,8 @@ inline bool Object::CasFieldWeakSequentiallyConsistentObjectWithoutWriteBarrier(
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromMirrorPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromMirrorPtr(new_value));
+  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
+  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
@@ -941,7 +829,8 @@ inline bool Object::CasFieldWeakSequentiallyConsistentObjectWithoutWriteBarrier(
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline bool Object::CasFieldStrongSequentiallyConsistentObject(MemberOffset field_offset,
-                                                               Object* old_value, Object* new_value) {
+                                                               ObjPtr<Object> old_value,
+                                                               ObjPtr<Object> new_value) {
   bool success = CasFieldStrongSequentiallyConsistentObjectWithoutWriteBarrier<
       kTransactionActive, kCheckTransaction, kVerifyFlags>(field_offset, old_value, new_value);
   if (success) {
@@ -952,7 +841,9 @@ inline bool Object::CasFieldStrongSequentiallyConsistentObject(MemberOffset fiel
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline bool Object::CasFieldStrongSequentiallyConsistentObjectWithoutWriteBarrier(
-    MemberOffset field_offset, Object* old_value, Object* new_value) {
+    MemberOffset field_offset,
+    ObjPtr<Object> old_value,
+    ObjPtr<Object> new_value) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
@@ -968,8 +859,8 @@ inline bool Object::CasFieldStrongSequentiallyConsistentObjectWithoutWriteBarrie
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromMirrorPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromMirrorPtr(new_value));
+  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
+  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
@@ -980,7 +871,9 @@ inline bool Object::CasFieldStrongSequentiallyConsistentObjectWithoutWriteBarrie
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
 inline bool Object::CasFieldWeakRelaxedObjectWithoutWriteBarrier(
-    MemberOffset field_offset, Object* old_value, Object* new_value) {
+    MemberOffset field_offset,
+    ObjPtr<Object> old_value,
+    ObjPtr<Object> new_value) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
@@ -996,8 +889,8 @@ inline bool Object::CasFieldWeakRelaxedObjectWithoutWriteBarrier(
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromMirrorPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromMirrorPtr(new_value));
+  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
+  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
@@ -1007,8 +900,10 @@ inline bool Object::CasFieldWeakRelaxedObjectWithoutWriteBarrier(
 }
 
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
-inline bool Object::CasFieldStrongRelaxedObjectWithoutWriteBarrier(
-    MemberOffset field_offset, Object* old_value, Object* new_value) {
+inline bool Object::CasFieldWeakReleaseObjectWithoutWriteBarrier(
+    MemberOffset field_offset,
+    ObjPtr<Object> old_value,
+    ObjPtr<Object> new_value) {
   if (kCheckTransaction) {
     DCHECK_EQ(kTransactionActive, Runtime::Current()->IsActiveTransaction());
   }
@@ -1024,13 +919,13 @@ inline bool Object::CasFieldStrongRelaxedObjectWithoutWriteBarrier(
   if (kTransactionActive) {
     Runtime::Current()->RecordWriteFieldReference(this, field_offset, old_value, true);
   }
-  HeapReference<Object> old_ref(HeapReference<Object>::FromMirrorPtr(old_value));
-  HeapReference<Object> new_ref(HeapReference<Object>::FromMirrorPtr(new_value));
+  HeapReference<Object> old_ref(HeapReference<Object>::FromObjPtr(old_value));
+  HeapReference<Object> new_ref(HeapReference<Object>::FromObjPtr(new_value));
   uint8_t* raw_addr = reinterpret_cast<uint8_t*>(this) + field_offset.Int32Value();
   Atomic<uint32_t>* atomic_addr = reinterpret_cast<Atomic<uint32_t>*>(raw_addr);
 
-  bool success = atomic_addr->CompareExchangeStrongRelaxed(old_ref.reference_,
-                                                           new_ref.reference_);
+  bool success = atomic_addr->CompareExchangeWeakRelease(old_ref.reference_,
+                                                         new_ref.reference_);
   return success;
 }
 
@@ -1053,7 +948,7 @@ inline void Object::VisitFieldsReferences(uint32_t ref_offsets, const Visitor& v
     // There is no reference offset bitmap. In the non-static case, walk up the class
     // inheritance hierarchy and find reference offsets the hard way. In the static case, just
     // consider this class.
-    for (mirror::Class* klass = kIsStatic
+    for (ObjPtr<Class> klass = kIsStatic
             ? AsClass<kVerifyFlags, kReadBarrierOption>()
             : GetClass<kVerifyFlags, kReadBarrierOption>();
         klass != nullptr;
@@ -1082,13 +977,13 @@ inline void Object::VisitFieldsReferences(uint32_t ref_offsets, const Visitor& v
 }
 
 template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption, typename Visitor>
-inline void Object::VisitInstanceFieldsReferences(mirror::Class* klass, const Visitor& visitor) {
+inline void Object::VisitInstanceFieldsReferences(ObjPtr<Class> klass, const Visitor& visitor) {
   VisitFieldsReferences<false, kVerifyFlags, kReadBarrierOption>(
       klass->GetReferenceInstanceOffsets<kVerifyFlags>(), visitor);
 }
 
 template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption, typename Visitor>
-inline void Object::VisitStaticFieldsReferences(mirror::Class* klass, const Visitor& visitor) {
+inline void Object::VisitStaticFieldsReferences(ObjPtr<Class> klass, const Visitor& visitor) {
   DCHECK(!klass->IsTemp());
   klass->VisitFieldsReferences<true, kVerifyFlags, kReadBarrierOption>(0, visitor);
 }
@@ -1115,67 +1010,6 @@ inline mirror::DexCache* Object::AsDexCache() {
   return down_cast<mirror::DexCache*>(this);
 }
 
-template <bool kVisitNativeRoots,
-          VerifyObjectFlags kVerifyFlags,
-          ReadBarrierOption kReadBarrierOption,
-          typename Visitor,
-          typename JavaLangRefVisitor>
-inline void Object::VisitReferences(const Visitor& visitor,
-                                    const JavaLangRefVisitor& ref_visitor) {
-  mirror::Class* klass = GetClass<kVerifyFlags, kReadBarrierOption>();
-  visitor(this, ClassOffset(), false);
-  const uint32_t class_flags = klass->GetClassFlags<kVerifyNone>();
-  if (LIKELY(class_flags == kClassFlagNormal)) {
-    DCHECK((!klass->IsVariableSize<kVerifyFlags, kReadBarrierOption>()));
-    VisitInstanceFieldsReferences<kVerifyFlags, kReadBarrierOption>(klass, visitor);
-    DCHECK((!klass->IsClassClass<kVerifyFlags, kReadBarrierOption>()));
-    DCHECK(!klass->IsStringClass());
-    DCHECK(!klass->IsClassLoaderClass());
-    DCHECK((!klass->IsArrayClass<kVerifyFlags, kReadBarrierOption>()));
-  } else {
-    if ((class_flags & kClassFlagNoReferenceFields) == 0) {
-      DCHECK(!klass->IsStringClass());
-      if (class_flags == kClassFlagClass) {
-        DCHECK((klass->IsClassClass<kVerifyFlags, kReadBarrierOption>()));
-        mirror::Class* as_klass = AsClass<kVerifyNone, kReadBarrierOption>();
-        as_klass->VisitReferences<kVisitNativeRoots, kVerifyFlags, kReadBarrierOption>(klass,
-                                                                                       visitor);
-      } else if (class_flags == kClassFlagObjectArray) {
-        DCHECK((klass->IsObjectArrayClass<kVerifyFlags, kReadBarrierOption>()));
-        AsObjectArray<mirror::Object, kVerifyNone, kReadBarrierOption>()->VisitReferences(visitor);
-      } else if ((class_flags & kClassFlagReference) != 0) {
-        VisitInstanceFieldsReferences<kVerifyFlags, kReadBarrierOption>(klass, visitor);
-        ref_visitor(klass, AsReference<kVerifyFlags, kReadBarrierOption>());
-      } else if (class_flags == kClassFlagDexCache) {
-        mirror::DexCache* const dex_cache = AsDexCache<kVerifyFlags, kReadBarrierOption>();
-        dex_cache->VisitReferences<kVisitNativeRoots,
-                                   kVerifyFlags,
-                                   kReadBarrierOption>(klass, visitor);
-      } else {
-        mirror::ClassLoader* const class_loader = AsClassLoader<kVerifyFlags, kReadBarrierOption>();
-        class_loader->VisitReferences<kVisitNativeRoots,
-                                      kVerifyFlags,
-                                      kReadBarrierOption>(klass, visitor);
-      }
-    } else if (kIsDebugBuild) {
-      CHECK((!klass->IsClassClass<kVerifyFlags, kReadBarrierOption>()));
-      CHECK((!klass->IsObjectArrayClass<kVerifyFlags, kReadBarrierOption>()));
-      // String still has instance fields for reflection purposes but these don't exist in
-      // actual string instances.
-      if (!klass->IsStringClass()) {
-        size_t total_reference_instance_fields = 0;
-        mirror::Class* super_class = klass;
-        do {
-          total_reference_instance_fields += super_class->NumReferenceInstanceFields();
-          super_class = super_class->GetSuperClass<kVerifyFlags, kReadBarrierOption>();
-        } while (super_class != nullptr);
-        // The only reference field should be the object's class. This field is handled at the
-        // beginning of the function.
-        CHECK_EQ(total_reference_instance_fields, 1u);
-      }
-    }
-  }
-}
 }  // namespace mirror
 }  // namespace art
 

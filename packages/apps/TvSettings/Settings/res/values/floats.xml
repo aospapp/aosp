@@ -15,7 +15,7 @@
 -->
 <resources>
     <!-- A float point number denoting the alpha value for focused numbers -->
-    <item name="pin_alpha_for_focused_number" format="float" type="float_type">1.0</item>
+    <item name="pin_alpha_for_focused_number" format="float" type="dimen">1.0</item>
     <!-- A float point number denoting the alpha value for adjacent numbers -->
-    <item name="pin_alpha_for_adjacent_number" format="float" type="float_type">0.3</item>
+    <item name="pin_alpha_for_adjacent_number" format="float" type="dimen">0.3</item>
 </resources>

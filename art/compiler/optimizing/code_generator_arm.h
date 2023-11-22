@@ -17,13 +17,15 @@
 #ifndef ART_COMPILER_OPTIMIZING_CODE_GENERATOR_ARM_H_
 #define ART_COMPILER_OPTIMIZING_CODE_GENERATOR_ARM_H_
 
+#include "base/enums.h"
 #include "code_generator.h"
-#include "dex/compiler_enums.h"
+#include "dex_file_types.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
+#include "string_reference.h"
 #include "parallel_move_resolver.h"
 #include "utils/arm/assembler_thumb2.h"
-#include "utils/string_reference.h"
+#include "utils/type_reference.h"
 
 namespace art {
 namespace arm {
@@ -31,7 +33,7 @@ namespace arm {
 class CodeGeneratorARM;
 
 // Use a local definition to prevent copying mistakes.
-static constexpr size_t kArmWordSize = kArmPointerSize;
+static constexpr size_t kArmWordSize = static_cast<size_t>(kArmPointerSize);
 static constexpr size_t kArmBitsPerWord = kArmWordSize * kBitsPerByte;
 
 static constexpr Register kParameterCoreRegisters[] = { R1, R2, R3 };
@@ -49,6 +51,18 @@ static constexpr SRegister kRuntimeParameterFpuRegisters[] = { S0, S1, S2, S3 };
 static constexpr size_t kRuntimeParameterFpuRegistersLength =
     arraysize(kRuntimeParameterFpuRegisters);
 
+class SlowPathCodeARM : public SlowPathCode {
+ public:
+  explicit SlowPathCodeARM(HInstruction* instruction) : SlowPathCode(instruction) {}
+
+  void SaveLiveRegisters(CodeGenerator* codegen, LocationSummary* locations) FINAL;
+  void RestoreLiveRegisters(CodeGenerator* codegen, LocationSummary* locations) FINAL;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(SlowPathCodeARM);
+};
+
+
 class InvokeRuntimeCallingConvention : public CallingConvention<Register, SRegister> {
  public:
   InvokeRuntimeCallingConvention()
@@ -62,9 +76,9 @@ class InvokeRuntimeCallingConvention : public CallingConvention<Register, SRegis
   DISALLOW_COPY_AND_ASSIGN(InvokeRuntimeCallingConvention);
 };
 
-static constexpr DRegister FromLowSToD(SRegister reg) {
-  return DCHECK_CONSTEXPR(reg % 2 == 0, , D0)
-      static_cast<DRegister>(reg / 2);
+constexpr DRegister FromLowSToD(SRegister reg) {
+  DCHECK_EQ(reg % 2, 0);
+  return static_cast<DRegister>(reg / 2);
 }
 
 
@@ -179,9 +193,10 @@ class LocationsBuilderARM : public HGraphVisitor {
   void HandleFieldSet(HInstruction* instruction, const FieldInfo& field_info);
   void HandleFieldGet(HInstruction* instruction, const FieldInfo& field_info);
 
+  Location ArithmeticZeroOrFpuRegister(HInstruction* input);
   Location ArmEncodableConstantOrRegister(HInstruction* constant, Opcode opcode);
   bool CanEncodeConstantAsImmediate(HConstant* input_cst, Opcode opcode);
-  bool CanEncodeConstantAsImmediate(uint32_t value, Opcode opcode);
+  bool CanEncodeConstantAsImmediate(uint32_t value, Opcode opcode, SetCc set_cc = kCcDontCare);
 
   CodeGeneratorARM* const codegen_;
   InvokeDexCallingConventionVisitorARM parameter_visitor_;
@@ -214,14 +229,15 @@ class InstructionCodeGeneratorARM : public InstructionCodeGenerator {
   // is the block to branch to if the suspend check is not needed, and after
   // the suspend call.
   void GenerateSuspendCheck(HSuspendCheck* check, HBasicBlock* successor);
-  void GenerateClassInitializationCheck(SlowPathCode* slow_path, Register class_reg);
+  void GenerateClassInitializationCheck(SlowPathCodeARM* slow_path, Register class_reg);
   void GenerateAndConst(Register out, Register first, uint32_t value);
   void GenerateOrrConst(Register out, Register first, uint32_t value);
   void GenerateEorConst(Register out, Register first, uint32_t value);
+  void GenerateAddLongConst(Location out, Location first, uint64_t value);
   void HandleBitwiseOperation(HBinaryOperation* operation);
   void HandleCondition(HCondition* condition);
   void HandleIntegerRotate(LocationSummary* locations);
-  void HandleLongRotate(LocationSummary* locations);
+  void HandleLongRotate(HRor* ror);
   void HandleShift(HBinaryOperation* operation);
 
   void GenerateWideAtomicStore(Register addr, uint32_t offset,
@@ -248,7 +264,8 @@ class InstructionCodeGeneratorARM : public InstructionCodeGenerator {
   void GenerateReferenceLoadOneRegister(HInstruction* instruction,
                                         Location out,
                                         uint32_t offset,
-                                        Location maybe_temp);
+                                        Location maybe_temp,
+                                        ReadBarrierOption read_barrier_option);
   // Generate a heap reference load using two different registers
   // `out` and `obj`:
   //
@@ -263,16 +280,18 @@ class InstructionCodeGeneratorARM : public InstructionCodeGenerator {
                                          Location out,
                                          Location obj,
                                          uint32_t offset,
-                                         Location maybe_temp);
+                                         Location maybe_temp,
+                                         ReadBarrierOption read_barrier_option);
   // Generate a GC root reference load:
   //
   //   root <- *(obj + offset)
   //
-  // while honoring read barriers (if any).
+  // while honoring read barriers based on read_barrier_option.
   void GenerateGcRootFieldLoad(HInstruction* instruction,
                                Location root,
                                Register obj,
-                               uint32_t offset);
+                               uint32_t offset,
+                               ReadBarrierOption read_barrier_option);
   void GenerateTestAndBranch(HInstruction* instruction,
                              size_t condition_input_index,
                              Label* true_target,
@@ -280,7 +299,6 @@ class InstructionCodeGeneratorARM : public InstructionCodeGenerator {
   void GenerateCompareTestAndBranch(HCondition* condition,
                                     Label* true_target,
                                     Label* false_target);
-  void GenerateFPJumps(HCondition* cond, Label* true_label, Label* false_label);
   void GenerateLongComparesAndJumps(HCondition* cond, Label* true_label, Label* false_label);
   void DivRemOneOrMinusOne(HBinaryOperation* instruction);
   void DivRemByPowerOfTwo(HBinaryOperation* instruction);
@@ -348,9 +366,6 @@ class CodeGeneratorARM : public CodeGenerator {
   void DumpCoreRegister(std::ostream& stream, int reg) const OVERRIDE;
   void DumpFloatingPointRegister(std::ostream& stream, int reg) const OVERRIDE;
 
-  // Blocks all register pairs made out of blocked core registers.
-  void UpdateBlockedPairRegisters() const;
-
   ParallelMoveResolverARM* GetMoveResolver() OVERRIDE {
     return &move_resolver_;
   }
@@ -364,16 +379,37 @@ class CodeGeneratorARM : public CodeGenerator {
   // Helper method to move a 64bits value between two locations.
   void Move64(Location destination, Location source);
 
+  void LoadOrStoreToOffset(Primitive::Type type,
+                           Location loc,
+                           Register base,
+                           int32_t offset,
+                           bool is_load,
+                           Condition cond = AL);
+
+  void LoadFromShiftedRegOffset(Primitive::Type type,
+                                Location out_loc,
+                                Register base,
+                                Register reg_offset,
+                                Condition cond = AL);
+  void StoreToShiftedRegOffset(Primitive::Type type,
+                               Location out_loc,
+                               Register base,
+                               Register reg_offset,
+                               Condition cond = AL);
+
   // Generate code to invoke a runtime entry point.
   void InvokeRuntime(QuickEntrypointEnum entrypoint,
                      HInstruction* instruction,
                      uint32_t dex_pc,
-                     SlowPathCode* slow_path) OVERRIDE;
+                     SlowPathCode* slow_path = nullptr) OVERRIDE;
 
-  void InvokeRuntime(int32_t offset,
-                     HInstruction* instruction,
-                     uint32_t dex_pc,
-                     SlowPathCode* slow_path);
+  // Generate code to invoke a runtime entry point, but do not record
+  // PC-related information in a stack map.
+  void InvokeRuntimeWithoutRecordingPcInfo(int32_t entry_point_offset,
+                                           HInstruction* instruction,
+                                           SlowPathCode* slow_path);
+
+  void GenerateInvokeRuntime(int32_t entry_point_offset);
 
   // Emit a write barrier.
   void MarkGCCard(Register temp, Register card, Register object, Register value, bool can_be_null);
@@ -383,6 +419,8 @@ class CodeGeneratorARM : public CodeGenerator {
   Label* GetLabelOf(HBasicBlock* block) const {
     return CommonGetLabelOf<Label>(block_labels_, block);
   }
+
+  Label* GetFinalLabel(HInstruction* instruction, Label* final_label);
 
   void Initialize() OVERRIDE {
     block_labels_ = CommonInitializeLabels<Label>();
@@ -407,22 +445,28 @@ class CodeGeneratorARM : public CodeGenerator {
   HLoadString::LoadKind GetSupportedLoadStringKind(
       HLoadString::LoadKind desired_string_load_kind) OVERRIDE;
 
+  // Check if the desired_class_load_kind is supported. If it is, return it,
+  // otherwise return a fall-back kind that should be used instead.
+  HLoadClass::LoadKind GetSupportedLoadClassKind(
+      HLoadClass::LoadKind desired_class_load_kind) OVERRIDE;
+
   // Check if the desired_dispatch_info is supported. If it is, return it,
   // otherwise return a fall-back info that should be used instead.
   HInvokeStaticOrDirect::DispatchInfo GetSupportedInvokeStaticOrDirectDispatch(
       const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
-      MethodReference target_method) OVERRIDE;
+      HInvokeStaticOrDirect* invoke) OVERRIDE;
 
+  Location GenerateCalleeMethodStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp);
   void GenerateStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp) OVERRIDE;
   void GenerateVirtualCall(HInvokeVirtual* invoke, Location temp) OVERRIDE;
 
   void MoveFromReturnRegister(Location trg, Primitive::Type type) OVERRIDE;
 
   // The PcRelativePatchInfo is used for PC-relative addressing of dex cache arrays
-  // and boot image strings. The only difference is the interpretation of the offset_or_index.
-  // The PC-relative address is loaded with three instructions, MOVW+MOVT
-  // to load the offset to base_reg and then ADD base_reg, PC. The offset is
-  // calculated from the ADD's effective PC, i.e. PC+4 on Thumb2. Though we
+  // and boot image strings/types. The only difference is the interpretation of the
+  // offset_or_index. The PC-relative address is loaded with three instructions,
+  // MOVW+MOVT to load the offset to base_reg and then ADD base_reg, PC. The offset
+  // is calculated from the ADD's effective PC, i.e. PC+4 on Thumb2. Though we
   // currently emit these 3 instructions together, instruction scheduling could
   // split this sequence apart, so we keep separate labels for each of them.
   struct PcRelativePatchInfo {
@@ -431,21 +475,33 @@ class CodeGeneratorARM : public CodeGenerator {
     PcRelativePatchInfo(PcRelativePatchInfo&& other) = default;
 
     const DexFile& target_dex_file;
-    // Either the dex cache array element offset or the string index.
+    // Either the dex cache array element offset or the string/type index.
     uint32_t offset_or_index;
     Label movw_label;
     Label movt_label;
     Label add_pc_label;
   };
 
-  PcRelativePatchInfo* NewPcRelativeStringPatch(const DexFile& dex_file, uint32_t string_index);
+  PcRelativePatchInfo* NewPcRelativeStringPatch(const DexFile& dex_file,
+                                                dex::StringIndex string_index);
+  PcRelativePatchInfo* NewPcRelativeTypePatch(const DexFile& dex_file, dex::TypeIndex type_index);
+  PcRelativePatchInfo* NewTypeBssEntryPatch(const DexFile& dex_file, dex::TypeIndex type_index);
   PcRelativePatchInfo* NewPcRelativeDexCacheArrayPatch(const DexFile& dex_file,
                                                        uint32_t element_offset);
-  Literal* DeduplicateBootImageStringLiteral(const DexFile& dex_file, uint32_t string_index);
+  Literal* DeduplicateBootImageStringLiteral(const DexFile& dex_file,
+                                             dex::StringIndex string_index);
+  Literal* DeduplicateBootImageTypeLiteral(const DexFile& dex_file, dex::TypeIndex type_index);
   Literal* DeduplicateBootImageAddressLiteral(uint32_t address);
-  Literal* DeduplicateDexCacheAddressLiteral(uint32_t address);
+  Literal* DeduplicateJitStringLiteral(const DexFile& dex_file,
+                                       dex::StringIndex string_index,
+                                       Handle<mirror::String> handle);
+  Literal* DeduplicateJitClassLiteral(const DexFile& dex_file,
+                                      dex::TypeIndex type_index,
+                                      Handle<mirror::Class> handle);
 
   void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches) OVERRIDE;
+
+  void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) OVERRIDE;
 
   // Fast path implementation of ReadBarrier::Barrier for a heap
   // reference field load when Baker's read barriers are used.
@@ -464,6 +520,36 @@ class CodeGeneratorARM : public CodeGenerator {
                                              Location index,
                                              Location temp,
                                              bool needs_null_check);
+  // Factored implementation, used by GenerateFieldLoadWithBakerReadBarrier,
+  // GenerateArrayLoadWithBakerReadBarrier and some intrinsics.
+  //
+  // Load the object reference located at the address
+  // `obj + offset + (index << scale_factor)`, held by object `obj`, into
+  // `ref`, and mark it if needed.
+  //
+  // If `always_update_field` is true, the value of the reference is
+  // atomically updated in the holder (`obj`).  This operation
+  // requires an extra temporary register, which must be provided as a
+  // non-null pointer (`temp2`).
+  void GenerateReferenceLoadWithBakerReadBarrier(HInstruction* instruction,
+                                                 Location ref,
+                                                 Register obj,
+                                                 uint32_t offset,
+                                                 Location index,
+                                                 ScaleFactor scale_factor,
+                                                 Location temp,
+                                                 bool needs_null_check,
+                                                 bool always_update_field = false,
+                                                 Register* temp2 = nullptr);
+
+  // Generate a heap reference load (with no read barrier).
+  void GenerateRawReferenceLoad(HInstruction* instruction,
+                                Location ref,
+                                Register obj,
+                                uint32_t offset,
+                                Location index,
+                                ScaleFactor scale_factor,
+                                bool needs_null_check);
 
   // Generate a read barrier for a heap reference within `instruction`
   // using a slow path.
@@ -513,37 +599,31 @@ class CodeGeneratorARM : public CodeGenerator {
   // artReadBarrierForRootSlow.
   void GenerateReadBarrierForRootSlow(HInstruction* instruction, Location out, Location root);
 
-  void GenerateNop();
+  void GenerateNop() OVERRIDE;
 
-  void GenerateImplicitNullCheck(HNullCheck* instruction);
-  void GenerateExplicitNullCheck(HNullCheck* instruction);
+  void GenerateImplicitNullCheck(HNullCheck* instruction) OVERRIDE;
+  void GenerateExplicitNullCheck(HNullCheck* instruction) OVERRIDE;
 
  private:
-  // Factored implementation of GenerateFieldLoadWithBakerReadBarrier
-  // and GenerateArrayLoadWithBakerReadBarrier.
-  void GenerateReferenceLoadWithBakerReadBarrier(HInstruction* instruction,
-                                                 Location ref,
-                                                 Register obj,
-                                                 uint32_t offset,
-                                                 Location index,
-                                                 Location temp,
-                                                 bool needs_null_check);
-
   Register GetInvokeStaticOrDirectExtraParameter(HInvokeStaticOrDirect* invoke, Register temp);
 
   using Uint32ToLiteralMap = ArenaSafeMap<uint32_t, Literal*>;
   using MethodToLiteralMap = ArenaSafeMap<MethodReference, Literal*, MethodReferenceComparator>;
-  using BootStringToLiteralMap = ArenaSafeMap<StringReference,
-                                              Literal*,
-                                              StringReferenceValueComparator>;
+  using StringToLiteralMap = ArenaSafeMap<StringReference,
+                                          Literal*,
+                                          StringReferenceValueComparator>;
+  using TypeToLiteralMap = ArenaSafeMap<TypeReference,
+                                        Literal*,
+                                        TypeReferenceValueComparator>;
 
   Literal* DeduplicateUint32Literal(uint32_t value, Uint32ToLiteralMap* map);
   Literal* DeduplicateMethodLiteral(MethodReference target_method, MethodToLiteralMap* map);
-  Literal* DeduplicateMethodAddressLiteral(MethodReference target_method);
-  Literal* DeduplicateMethodCodeLiteral(MethodReference target_method);
   PcRelativePatchInfo* NewPcRelativePatch(const DexFile& dex_file,
                                           uint32_t offset_or_index,
                                           ArenaDeque<PcRelativePatchInfo>* patches);
+  template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
+  static void EmitPcRelativeLinkerPatches(const ArenaDeque<PcRelativePatchInfo>& infos,
+                                          ArenaVector<LinkerPatch>* linker_patches);
 
   // Labels for each block that will be compiled.
   Label* block_labels_;  // Indexed by block id.
@@ -556,20 +636,23 @@ class CodeGeneratorARM : public CodeGenerator {
 
   // Deduplication map for 32-bit literals, used for non-patchable boot image addresses.
   Uint32ToLiteralMap uint32_literals_;
-  // Method patch info, map MethodReference to a literal for method address and method code.
-  MethodToLiteralMap method_patches_;
-  MethodToLiteralMap call_patches_;
-  // Relative call patch info.
-  // Using ArenaDeque<> which retains element addresses on push/emplace_back().
-  ArenaDeque<MethodPatchInfo<Label>> relative_call_patches_;
   // PC-relative patch info for each HArmDexCacheArraysBase.
   ArenaDeque<PcRelativePatchInfo> pc_relative_dex_cache_patches_;
   // Deduplication map for boot string literals for kBootImageLinkTimeAddress.
-  BootStringToLiteralMap boot_image_string_patches_;
-  // PC-relative String patch info.
+  StringToLiteralMap boot_image_string_patches_;
+  // PC-relative String patch info; type depends on configuration (app .bss or boot image PIC).
   ArenaDeque<PcRelativePatchInfo> pc_relative_string_patches_;
-  // Deduplication map for patchable boot image addresses.
-  Uint32ToLiteralMap boot_image_address_patches_;
+  // Deduplication map for boot type literals for kBootImageLinkTimeAddress.
+  TypeToLiteralMap boot_image_type_patches_;
+  // PC-relative type patch info for kBootImageLinkTimePcRelative.
+  ArenaDeque<PcRelativePatchInfo> pc_relative_type_patches_;
+  // PC-relative type patch info for kBssEntry.
+  ArenaDeque<PcRelativePatchInfo> type_bss_entry_patches_;
+
+  // Patches for string literals in JIT compiled code.
+  StringToLiteralMap jit_string_patches_;
+  // Patches for class literals in JIT compiled code.
+  TypeToLiteralMap jit_class_patches_;
 
   DISALLOW_COPY_AND_ASSIGN(CodeGeneratorARM);
 };

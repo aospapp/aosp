@@ -844,7 +844,6 @@ void LocEngReportSv::proc() const {
     if (locEng->mute_session_state != LOC_MUTE_SESS_IN_SESSION)
     {
         if (locEng->gnss_sv_status_cb != NULL) {
-            LOC_LOGE("Calling gnss_sv_status_cb");
             locEng->gnss_sv_status_cb((GnssSvStatus*)&(mSvStatus));
         }
 
@@ -1382,7 +1381,7 @@ struct LocEngSetSystemInfo : public LocMsg {
         locallog();
     }
     inline virtual void proc() const {
-        if (NULL != mLocEng->set_capabilities_cb) {
+        if (NULL != mLocEng->set_system_info_cb) {
             LOC_LOGV("calling set_system_info_cb 0x%x",
                 mLocEng->adapter->mGnssInfo.year_of_hw);
             mLocEng->set_system_info_cb(&(mLocEng->adapter->mGnssInfo));
@@ -2909,6 +2908,38 @@ static int set_sched_policy(int tid, SchedPolicy policy)
 #endif /* USE_GLIB */
 
 /*===========================================================================
+FUNCTION resolve_config_file_path
+
+DESCRIPTION
+   resolve the given config file path into a vaild full path considering that
+   it could be located in vendor partition.
+
+DEPENDENCIES
+   None
+
+RETURN VALUE
+   None
+
+SIDE EFFECTS
+   N/A
+
+===========================================================================*/
+static void resolve_config_file_path(const char* conf_file_name,
+                                     char* resolved_file_path) {
+    FILE *file;
+    if (conf_file_name[0] == '/') {
+        sprintf(resolved_file_path, "/vendor%s", conf_file_name);
+    } else {
+        sprintf(resolved_file_path, "/vendor/%s", conf_file_name);
+    }
+    if ((file = fopen(resolved_file_path, "r")) != NULL) {
+        fclose(file);
+        return;
+    }
+    strcpy(resolved_file_path, conf_file_name);
+}
+
+/*===========================================================================
 FUNCTION    loc_eng_read_config
 
 DESCRIPTION
@@ -2933,8 +2964,11 @@ int loc_eng_read_config(void)
       loc_default_parameters();
       // We only want to parse the conf file once. This is a good place to ensure that.
       // In fact one day the conf file should go into context.
-      UTIL_READ_CONF(GPS_CONF_FILE, gps_conf_table);
-      UTIL_READ_CONF(SAP_CONF_FILE, sap_conf_table);
+      char conf_file_name[256];
+      resolve_config_file_path(GPS_CONF_FILE, conf_file_name);
+      UTIL_READ_CONF(conf_file_name, gps_conf_table);
+      resolve_config_file_path(SAP_CONF_FILE, conf_file_name);
+      UTIL_READ_CONF(conf_file_name, sap_conf_table);
       configAlreadyRead = true;
     } else {
       LOC_LOGV("GPS Config file has already been read\n");

@@ -29,12 +29,18 @@ class ActivityEventHandler {
 
     // Invoked when an activity recognition event has occured.
     //
-    // activityRaw - The activity type generated on the context hub.
+    // activityIndex - The index of the activity sensor.
+    // eventIndex - The event index (enter/exit).
     // whenNs - The timestamp of when the event occured.
-    virtual void OnActivityEvent(int activityRaw, uint64_t whenNs) = 0;
+    virtual void OnActivityEvent(int sensorIndex, uint8_t eventIndex,
+                                 uint64_t whenNs) = 0;
 
     // Invoked when an activity recognition flush is requested.
     virtual void OnFlush() = 0;
+
+    // Invoked when a sensor hub reset has occured. This is used to reset any
+    // internal state.
+    virtual void OnSensorHubReset() = 0;
 };
 
 }  // namespace android

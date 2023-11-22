@@ -30,7 +30,7 @@
 #include <sys/time.h>
 #include <android/multinetwork.h>
 
-#define UNUSED(X) ((void) X)
+#define UNUSED(X) ((void) (X))
 
 static const char kHostname[] = "connectivitycheck.android.com";
 
@@ -88,7 +88,9 @@ JNIEXPORT jint Java_android_net_cts_MultinetworkApiTest_runSetsocknetwork(
     return rval == 0 ? 0 : -saved_errno;
 }
 
-static const int kSockaddrStrLen = INET6_ADDRSTRLEN + strlen("[]:65535");
+// Use sizeof("x") - 1 because we need a compile-time constant, and strlen("x")
+// isn't guaranteed to fold to a constant.
+static const int kSockaddrStrLen = INET6_ADDRSTRLEN + sizeof("[]:65535") - 1;
 
 void sockaddr_ntop(const struct sockaddr *sa, socklen_t salen, char *dst, const size_t size) {
     char addrstr[INET6_ADDRSTRLEN];

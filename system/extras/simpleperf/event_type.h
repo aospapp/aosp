@@ -22,6 +22,14 @@
 #include <string>
 #include <vector>
 
+// A uint32_t value far from 0 is picked, so it is unlikely to conflict with further
+// PERF_TYPE_* events.
+static constexpr uint32_t SIMPLEPERF_TYPE_USER_SPACE_SAMPLERS = 32768;
+
+enum {
+  SIMPLEPERF_CONFIG_INPLACE_SAMPLER,
+};
+
 // EventType represents one type of event, like cpu_cycle_event, cache_misses_event.
 // The user knows one event type by its name, and the kernel knows one event type by its
 // (type, config) pair. EventType connects the two representations, and tells the user if
@@ -41,7 +49,6 @@ struct EventType {
 };
 
 const std::vector<EventType>& GetAllEventTypes();
-const EventType* FindEventTypeByConfig(uint32_t type, uint64_t config);
 const EventType* FindEventTypeByName(const std::string& name);
 
 struct EventTypeAndModifier {

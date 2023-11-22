@@ -25,27 +25,20 @@
 **
 */
 
-
 #define LOG_TAG "MIPS64Assembler"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <cutils/log.h>
+
 #include <cutils/properties.h>
-
-#if defined(WITH_LIB_HARDWARE)
-#include <hardware_legacy/qemu_tracing.h>
-#endif
-
+#include <log/log.h>
 #include <private/pixelflinger/ggl_context.h>
 
 #include "MIPS64Assembler.h"
 #include "CodeCache.h"
 #include "mips64_disassem.h"
 
-
 #define NOT_IMPLEMENTED()  LOG_ALWAYS_FATAL("Arm instruction %s not yet implemented\n", __func__)
-
 
 // ----------------------------------------------------------------------------
 

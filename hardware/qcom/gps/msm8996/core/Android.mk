@@ -9,6 +9,7 @@ LOCAL_MODULE := libloc_core
 LOCAL_MODULE_OWNER := qcom
 
 LOCAL_MODULE_TAGS := optional
+LOCAL_PROPRIETARY_MODULE := true
 
 ifeq ($(TARGET_DEVICE),apq8026_lw)
 LOCAL_CFLAGS += -DPDK_FEATURE_SET
@@ -17,6 +18,7 @@ LOCAL_CFLAGS += -DPDK_FEATURE_SET
 endif
 
 LOCAL_SHARED_LIBRARIES := \
+    liblog \
     libutils \
     libcutils \
     libgps.utils \
@@ -37,22 +39,16 @@ LOCAL_CFLAGS += \
 LOCAL_C_INCLUDES:= \
     $(TARGET_OUT_HEADERS)/gps.utils
 
-LOCAL_COPY_HEADERS_TO:= libloc_core/
-LOCAL_COPY_HEADERS:= \
-    LocApiBase.h \
-    LocAdapterBase.h \
-    ContextBase.h \
-    LocDualContext.h \
-    LBSProxyBase.h \
-    UlpProxyBase.h \
-    gps_extended_c.h \
-    gps_extended.h \
-    loc_core_log.h \
-    LocAdapterProxyBase.h
+LOCAL_HEADER_LIBRARIES := libgps.utils_headers
 
 LOCAL_PRELINK_MODULE := false
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libloc_core_headers
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+include $(BUILD_HEADER_LIBRARY)
 
 endif # not BUILD_TINY_ANDROID
 endif # BOARD_VENDOR_QCOM_GPS_LOC_API_HARDWARE

@@ -2427,6 +2427,10 @@ main(int argc, char** argv)
   if (exe_filename == NULL && files.empty())
     gold_fatal(_("no input files and no executable specified"));
 
+  // If there are no DWO files, there is nothing to do.
+  if (files.empty())
+    return EXIT_SUCCESS;
+
   if (verify_only)
     {
       // Get list of DWO files in the DWP file and compare with

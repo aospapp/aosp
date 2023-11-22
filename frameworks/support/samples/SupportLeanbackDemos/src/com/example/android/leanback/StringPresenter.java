@@ -13,7 +13,9 @@
  */
 package com.example.android.leanback;
 
+import android.content.Context;
 import android.support.v17.leanback.widget.Presenter;
+import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -21,22 +23,26 @@ import android.widget.TextView;
 public class StringPresenter extends Presenter {
     private static final String TAG = "StringPresenter";
 
+    @Override
     public ViewHolder onCreateViewHolder(ViewGroup parent) {
         Log.d(TAG, "onCreateViewHolder");
-        TextView tv = new TextView(parent.getContext());
+        final Context context = parent.getContext();
+        TextView tv = new TextView(context);
         tv.setFocusable(true);
         tv.setFocusableInTouchMode(true);
-        tv.setBackground(
-                parent.getContext().getResources().getDrawable(R.drawable.text_bg));
+        tv.setBackground(ResourcesCompat.getDrawable(context.getResources(), R.drawable.text_bg,
+                context.getTheme()));
         return new ViewHolder(tv);
     }
 
+    @Override
     public void onBindViewHolder(ViewHolder viewHolder, Object item) {
         Log.d(TAG, "onBindViewHolder for " + item.toString());
         ((TextView) viewHolder.view).setText(item.toString());
     }
 
+    @Override
     public void onUnbindViewHolder(ViewHolder viewHolder) {
-        Log.d(TAG, "onUnbindViewHolder"); 
+        Log.d(TAG, "onUnbindViewHolder");
     }
 }

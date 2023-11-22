@@ -99,7 +99,7 @@ function hwuiOutputParser {
 	# Number Slow bitmap uploads: 12
 	# Number Slow draw: 89
 	# use with "stdbuf -o0 " to disable pipe buffering
-	# stdbuf -o0 adb shell /data/hwuitest shadowgrid2 400 | stdbuf -o0 ./hwuitestfilter.sh  | tee t.csv
+	# stdbuf -o0 adb shell /data/local/tmp/hwuimacro shadowgrid2 400 | stdbuf -o0 ./hwuitestfilter.sh  | tee t.csv
 	sed -e 's/ns//' -e 's/[\(\)%]/ /g' | awk '
 	BEGIN { startTime=0; lastTime=0; }
 	/^Stats since:/ {

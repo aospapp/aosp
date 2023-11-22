@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <mutex>
 #include <binder/AppOpsManager.h>
 #include <binder/Binder.h>
 #include <binder/IServiceManager.h>
@@ -21,6 +22,19 @@
 #include <utils/SystemClock.h>
 
 namespace android {
+
+namespace {
+
+#if defined(__BRILLO__)
+// Because Brillo has no application model, security policy is managed
+// statically (at build time) with SELinux controls.
+// As a consequence, it also never runs the AppOpsManager service.
+const int APP_OPS_MANAGER_UNAVAILABLE_MODE = AppOpsManager::MODE_ALLOWED;
+#else
+const int APP_OPS_MANAGER_UNAVAILABLE_MODE = AppOpsManager::MODE_IGNORED;
+#endif  // defined(__BRILLO__)
+
+}  // namespace
 
 static String16 _appops("appops");
 static pthread_mutex_t gTokenMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -39,10 +53,15 @@ AppOpsManager::AppOpsManager()
 {
 }
 
+#if defined(__BRILLO__)
+// There is no AppOpsService on Brillo
+sp<IAppOpsService> AppOpsManager::getService() { return NULL; }
+#else
 sp<IAppOpsService> AppOpsManager::getService()
 {
+
+    std::lock_guard<Mutex> scoped_lock(mLock);
     int64_t startTime = 0;
-    mLock.lock();
     sp<IAppOpsService> service = mService;
     while (service == NULL || !IInterface::asBinder(service)->isBinderAlive()) {
         sp<IBinder> binder = defaultServiceManager()->checkService(_appops);
@@ -53,7 +72,8 @@ sp<IAppOpsService> AppOpsManager::getService()
                 ALOGI("Waiting for app ops service");
             } else if ((uptimeMillis()-startTime) > 10000) {
                 ALOGW("Waiting too long for app ops service, giving up");
-                return NULL;
+                service = NULL;
+                break;
             }
             sleep(1);
         } else {
@@ -61,25 +81,30 @@ sp<IAppOpsService> AppOpsManager::getService()
             mService = service;
         }
     }
-    mLock.unlock();
     return service;
 }
+#endif  // defined(__BRILLO__)
 
 int32_t AppOpsManager::checkOp(int32_t op, int32_t uid, const String16& callingPackage)
 {
     sp<IAppOpsService> service = getService();
-    return service != NULL ? service->checkOperation(op, uid, callingPackage) : MODE_IGNORED;
+    return service != NULL
+            ? service->checkOperation(op, uid, callingPackage)
+            : APP_OPS_MANAGER_UNAVAILABLE_MODE;
 }
 
 int32_t AppOpsManager::noteOp(int32_t op, int32_t uid, const String16& callingPackage) {
     sp<IAppOpsService> service = getService();
-    return service != NULL ? service->noteOperation(op, uid, callingPackage) : MODE_IGNORED;
+    return service != NULL
+            ? service->noteOperation(op, uid, callingPackage)
+            : APP_OPS_MANAGER_UNAVAILABLE_MODE;
 }
 
 int32_t AppOpsManager::startOp(int32_t op, int32_t uid, const String16& callingPackage) {
     sp<IAppOpsService> service = getService();
-    return service != NULL ? service->startOperation(getToken(service), op, uid, callingPackage)
-            : MODE_IGNORED;
+    return service != NULL
+            ? service->startOperation(getToken(service), op, uid, callingPackage)
+            : APP_OPS_MANAGER_UNAVAILABLE_MODE;
 }
 
 void AppOpsManager::finishOp(int32_t op, int32_t uid, const String16& callingPackage) {

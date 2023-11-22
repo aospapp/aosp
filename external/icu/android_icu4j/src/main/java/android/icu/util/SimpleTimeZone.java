@@ -1,6 +1,8 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
  /*
-*   Copyright (C) 1996-2014, International Business Machines
+*   Copyright (C) 1996-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 */
 
@@ -27,7 +29,7 @@ import android.icu.impl.Grego;
  * @see      Calendar
  * @see      GregorianCalendar
  * @see      TimeZone
- * @author   David Goldsmith, Mark Davis, Chen-Lieh Huang, Alan Liu
+ * @author   Deborah Goldsmith, Mark Davis, Chen-Lieh Huang, Alan Liu
  * @hide Only a subset of ICU is exposed in Android
  */
 public class SimpleTimeZone extends BasicTimeZone {
@@ -768,6 +770,7 @@ public class SimpleTimeZone extends BasicTimeZone {
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     public void getOffsetFromLocal(long date,
             int nonExistingTimeOpt, int duplicatedTimeOpt, int[] offsets) {
@@ -939,6 +942,7 @@ public class SimpleTimeZone extends BasicTimeZone {
     /**
      * {@inheritDoc}
      */
+    @Override
     public boolean observesDaylightTime() {
         return useDaylight;
     }
@@ -1384,6 +1388,7 @@ public class SimpleTimeZone extends BasicTimeZone {
     /**
      * {@inheritDoc}
      */
+    @Override
     public boolean isFrozen() {
         return isFrozen;
     }
@@ -1391,6 +1396,7 @@ public class SimpleTimeZone extends BasicTimeZone {
     /**
      * {@inheritDoc}
      */
+    @Override
     public TimeZone freeze() {
         isFrozen = true;
         return this;
@@ -1399,6 +1405,7 @@ public class SimpleTimeZone extends BasicTimeZone {
     /**
      * {@inheritDoc}
      */
+    @Override
     public TimeZone cloneAsThawed() {
         SimpleTimeZone tz = (SimpleTimeZone)super.cloneAsThawed();
         tz.isFrozen = false;

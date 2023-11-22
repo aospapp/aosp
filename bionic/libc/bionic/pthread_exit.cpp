@@ -30,6 +30,7 @@
 
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 #include "pthread_internal.h"
@@ -82,7 +83,7 @@ void pthread_exit(void* return_value) {
   if (thread->alternate_signal_stack != NULL) {
     // Tell the kernel to stop using the alternate signal stack.
     stack_t ss;
-    ss.ss_sp = NULL;
+    memset(&ss, 0, sizeof(ss));
     ss.ss_flags = SS_DISABLE;
     sigaltstack(&ss, NULL);
 
@@ -90,6 +91,10 @@ void pthread_exit(void* return_value) {
     munmap(thread->alternate_signal_stack, SIGNAL_STACK_SIZE);
     thread->alternate_signal_stack = NULL;
   }
+
+  // Unmap the bionic TLS, including guard pages.
+  void* allocation = reinterpret_cast<char*>(thread->bionic_tls) - PAGE_SIZE;
+  munmap(allocation, BIONIC_TLS_SIZE + 2 * PAGE_SIZE);
 
   ThreadJoinState old_state = THREAD_NOT_JOINED;
   while (old_state == THREAD_NOT_JOINED &&

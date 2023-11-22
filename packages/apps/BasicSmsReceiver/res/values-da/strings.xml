@@ -18,5 +18,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="sms_app_name" msgid="3641211328012514267">"Enkel beskedmodtager"</string>
     <string name="sms_message_from_format" msgid="7163240046237558485">"Meddelelse fra <xliff:g id="USERNAME">%1$s</xliff:g>"</string>
-    <string name="sms_done_button" msgid="4063239029747798890">"Færdig"</string>
+    <string name="sms_done_button" msgid="4063239029747798890">"Udfør"</string>
 </resources>

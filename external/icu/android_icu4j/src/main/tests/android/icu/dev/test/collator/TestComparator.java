@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2010, International Business Machines Corporation and    *
@@ -11,8 +13,16 @@ package android.icu.dev.test.collator;
 
 import java.util.Comparator;
 
+import org.junit.Ignore;
+import org.junit.Test;
+
 public class TestComparator {
 
+    // TODO(junit): apparently orphaned - added dummy test to pass ant junit
+    @Ignore
+    @Test
+    public void dummyTest() {}
+    
     // test the symmetry and transitivity
     public void test(Comparator comp, int count) {
         Object c = null;

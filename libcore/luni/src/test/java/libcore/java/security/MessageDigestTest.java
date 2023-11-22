@@ -307,4 +307,10 @@ public final class MessageDigestTest extends TestCase {
 
         assertEquals(Collections.EMPTY_LIST, methodsNotOverridden);
     }
+
+    public void testIsEqual_nullValues() {
+        assertTrue(MessageDigest.isEqual(null, null));
+        assertFalse(MessageDigest.isEqual(null, new byte[1]));
+        assertFalse(MessageDigest.isEqual(new byte[1], null));
+    }
 }

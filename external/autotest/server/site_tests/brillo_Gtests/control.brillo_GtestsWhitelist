@@ -6,8 +6,7 @@ AUTHOR = 'sbasi'
 NAME = 'brillo_WhitelistedGtests'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
-ATTRIBUTES = 'suite:brillo-bvt,suite:brillo-smoke'
-SUITE = 'brillo-bvt,brillo-smoke'
+ATTRIBUTES = 'suite:brillo-bvt,suite:brillo-smoke,suite:brillo-presubmit,suite:brillo-postsubmit'
 
 DOC = """
 This test runs all the whitelisted native gTests found on a Brillo DUT.

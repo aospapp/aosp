@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"usuń"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"pokaż funkcje odwrotne"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"ukryj funkcje odwrotne"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Brak formuły"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Brak wyników"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Liczby i operacje podstawowe"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Operacje zaawansowane"</string>
     <string name="error_nan" msgid="5674077944929888710">"To nie liczba"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Błędne wyrażenie"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Przerwano"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Bez końca?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Nie można dzielić przez zero"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Tekst został skopiowany"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Obliczanie zostało anulowane"</string>
-    <string name="timeout" msgid="802690170415591535">"Upłynął limit czasu. Wartość może być nieskończona lub niezdefiniowana."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Obliczanie zostało anulowane."</string>
+    <string name="timeout" msgid="5461892570729418573">"Wartość może być nieskończona lub niezdefiniowana."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Użyj dłuższych limitów czasu"</string>
     <string name="dismiss" msgid="7872443888515066216">"Zamknij"</string>
     <string name="exact" msgid="2597237880041789948">"(dokładnie)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Odpowiedź z początkowymi cyframi"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Odpowiedź jako ułamek"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Licencje open source"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Historia"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Wyczyść"</string>
+    <string name="title_history" msgid="7820912156315181539">"Historia"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Przejdź wyżej"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Minął czas oczekiwania"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Wyczyścić historię i pamięć?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Bieżące wyrażenie"</string>
+    <string name="no_history" msgid="4331262030447527188">"Brak historii"</string>
 </resources>

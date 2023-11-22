@@ -6,7 +6,6 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFiInvalidParameters'
 PURPOSE = 'Verify shill returns correct errors for invalid WiFi configurations'
 ATTRIBUTES = "suite:bvt-cq, subsystem:network"
-SUITE = 'bvt-cq'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2

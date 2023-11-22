@@ -21,20 +21,21 @@
 namespace art {
 
 CompilerOptions::CompilerOptions()
-    : compiler_filter_(kDefaultCompilerFilter),
+    : compiler_filter_(CompilerFilter::kDefaultCompilerFilter),
       huge_method_threshold_(kDefaultHugeMethodThreshold),
       large_method_threshold_(kDefaultLargeMethodThreshold),
       small_method_threshold_(kDefaultSmallMethodThreshold),
       tiny_method_threshold_(kDefaultTinyMethodThreshold),
       num_dex_methods_threshold_(kDefaultNumDexMethodsThreshold),
-      inline_depth_limit_(kUnsetInlineDepthLimit),
       inline_max_code_units_(kUnsetInlineMaxCodeUnits),
       no_inline_from_(nullptr),
-      include_patch_information_(kDefaultIncludePatchInformation),
+      boot_image_(false),
+      app_image_(false),
       top_k_profile_threshold_(kDefaultTopKProfileThreshold),
       debuggable_(false),
       generate_debug_info_(kDefaultGenerateDebugInfo),
       generate_mini_debug_info_(kDefaultGenerateMiniDebugInfo),
+      generate_build_id_(false),
       implicit_null_checks_(true),
       implicit_so_checks_(true),
       implicit_suspend_checks_(false),
@@ -44,7 +45,9 @@ CompilerOptions::CompilerOptions()
       init_failure_output_(nullptr),
       dump_cfg_file_name_(""),
       dump_cfg_append_(false),
-      force_determinism_(false) {
+      force_determinism_(false),
+      register_allocation_strategy_(RegisterAllocator::kRegisterAllocatorDefault),
+      passes_to_run_(nullptr) {
 }
 
 CompilerOptions::~CompilerOptions() {
@@ -58,10 +61,8 @@ CompilerOptions::CompilerOptions(CompilerFilter::Filter compiler_filter,
                                  size_t small_method_threshold,
                                  size_t tiny_method_threshold,
                                  size_t num_dex_methods_threshold,
-                                 size_t inline_depth_limit,
                                  size_t inline_max_code_units,
                                  const std::vector<const DexFile*>* no_inline_from,
-                                 bool include_patch_information,
                                  double top_k_profile_threshold,
                                  bool debuggable,
                                  bool generate_debug_info,
@@ -74,32 +75,36 @@ CompilerOptions::CompilerOptions(CompilerFilter::Filter compiler_filter,
                                  bool abort_on_hard_verifier_failure,
                                  const std::string& dump_cfg_file_name,
                                  bool dump_cfg_append,
-                                 bool force_determinism
-                                 ) :  // NOLINT(whitespace/parens)
-    compiler_filter_(compiler_filter),
-    huge_method_threshold_(huge_method_threshold),
-    large_method_threshold_(large_method_threshold),
-    small_method_threshold_(small_method_threshold),
-    tiny_method_threshold_(tiny_method_threshold),
-    num_dex_methods_threshold_(num_dex_methods_threshold),
-    inline_depth_limit_(inline_depth_limit),
-    inline_max_code_units_(inline_max_code_units),
-    no_inline_from_(no_inline_from),
-    include_patch_information_(include_patch_information),
-    top_k_profile_threshold_(top_k_profile_threshold),
-    debuggable_(debuggable),
-    generate_debug_info_(generate_debug_info),
-    generate_mini_debug_info_(kDefaultGenerateMiniDebugInfo),
-    implicit_null_checks_(implicit_null_checks),
-    implicit_so_checks_(implicit_so_checks),
-    implicit_suspend_checks_(implicit_suspend_checks),
-    compile_pic_(compile_pic),
-    verbose_methods_(verbose_methods),
-    abort_on_hard_verifier_failure_(abort_on_hard_verifier_failure),
-    init_failure_output_(init_failure_output),
-    dump_cfg_file_name_(dump_cfg_file_name),
-    dump_cfg_append_(dump_cfg_append),
-    force_determinism_(force_determinism) {
+                                 bool force_determinism,
+                                 RegisterAllocator::Strategy regalloc_strategy,
+                                 const std::vector<std::string>* passes_to_run)
+    : compiler_filter_(compiler_filter),
+      huge_method_threshold_(huge_method_threshold),
+      large_method_threshold_(large_method_threshold),
+      small_method_threshold_(small_method_threshold),
+      tiny_method_threshold_(tiny_method_threshold),
+      num_dex_methods_threshold_(num_dex_methods_threshold),
+      inline_max_code_units_(inline_max_code_units),
+      no_inline_from_(no_inline_from),
+      boot_image_(false),
+      app_image_(false),
+      top_k_profile_threshold_(top_k_profile_threshold),
+      debuggable_(debuggable),
+      generate_debug_info_(generate_debug_info),
+      generate_mini_debug_info_(kDefaultGenerateMiniDebugInfo),
+      generate_build_id_(false),
+      implicit_null_checks_(implicit_null_checks),
+      implicit_so_checks_(implicit_so_checks),
+      implicit_suspend_checks_(implicit_suspend_checks),
+      compile_pic_(compile_pic),
+      verbose_methods_(verbose_methods),
+      abort_on_hard_verifier_failure_(abort_on_hard_verifier_failure),
+      init_failure_output_(init_failure_output),
+      dump_cfg_file_name_(dump_cfg_file_name),
+      dump_cfg_append_(dump_cfg_append),
+      force_determinism_(force_determinism),
+      register_allocation_strategy_(regalloc_strategy),
+      passes_to_run_(passes_to_run) {
 }
 
 void CompilerOptions::ParseHugeMethodMax(const StringPiece& option, UsageFn Usage) {
@@ -122,10 +127,6 @@ void CompilerOptions::ParseNumDexMethods(const StringPiece& option, UsageFn Usag
   ParseUintOption(option, "--num-dex-methods", &num_dex_methods_threshold_, Usage);
 }
 
-void CompilerOptions::ParseInlineDepthLimit(const StringPiece& option, UsageFn Usage) {
-  ParseUintOption(option, "--inline-depth-limit", &inline_depth_limit_, Usage);
-}
-
 void CompilerOptions::ParseInlineMaxCodeUnits(const StringPiece& option, UsageFn Usage) {
   ParseUintOption(option, "--inline-max-code-units", &inline_max_code_units_, Usage);
 }
@@ -141,6 +142,19 @@ void CompilerOptions::ParseDumpInitFailures(const StringPiece& option,
     LOG(ERROR) << "Failed to open " << file_name << " for writing the initialization "
                << "failures.";
     init_failure_output_.reset();
+  }
+}
+
+void CompilerOptions::ParseRegisterAllocationStrategy(const StringPiece& option,
+                                                      UsageFn Usage) {
+  DCHECK(option.starts_with("--register-allocation-strategy="));
+  StringPiece choice = option.substr(strlen("--register-allocation-strategy=")).data();
+  if (choice == "linear-scan") {
+    register_allocation_strategy_ = RegisterAllocator::Strategy::kRegisterAllocatorLinearScan;
+  } else if (choice == "graph-color") {
+    register_allocation_strategy_ = RegisterAllocator::Strategy::kRegisterAllocatorGraphColor;
+  } else {
+    Usage("Unrecognized register allocation strategy. Try linear-scan, or graph-color.");
   }
 }
 
@@ -162,8 +176,6 @@ bool CompilerOptions::ParseCompilerOption(const StringPiece& option, UsageFn Usa
     ParseTinyMethodMax(option, Usage);
   } else if (option.starts_with("--num-dex-methods=")) {
     ParseNumDexMethods(option, Usage);
-  } else if (option.starts_with("--inline-depth-limit=")) {
-    ParseInlineDepthLimit(option, Usage);
   } else if (option.starts_with("--inline-max-code-units=")) {
     ParseInlineMaxCodeUnits(option, Usage);
   } else if (option == "--generate-debug-info" || option == "-g") {
@@ -174,14 +186,14 @@ bool CompilerOptions::ParseCompilerOption(const StringPiece& option, UsageFn Usa
     generate_mini_debug_info_ = true;
   } else if (option == "--no-generate-mini-debug-info") {
     generate_mini_debug_info_ = false;
+  } else if (option == "--generate-build-id") {
+    generate_build_id_ = true;
+  } else if (option == "--no-generate-build-id") {
+    generate_build_id_ = false;
   } else if (option == "--debuggable") {
     debuggable_ = true;
   } else if (option.starts_with("--top-k-profile-threshold=")) {
     ParseDouble(option.data(), '=', 0.0, 100.0, &top_k_profile_threshold_, Usage);
-  } else if (option == "--include-patch-information") {
-    include_patch_information_ = true;
-  } else if (option == "--no-include-patch-information") {
-    include_patch_information_ = false;
   } else if (option == "--abort-on-hard-verifier-error") {
     abort_on_hard_verifier_failure_ = true;
   } else if (option.starts_with("--dump-init-failures=")) {
@@ -190,6 +202,8 @@ bool CompilerOptions::ParseCompilerOption(const StringPiece& option, UsageFn Usa
     dump_cfg_file_name_ = option.substr(strlen("--dump-cfg=")).data();
   } else if (option.starts_with("--dump-cfg-append")) {
     dump_cfg_append_ = true;
+  } else if (option.starts_with("--register-allocation-strategy=")) {
+    ParseRegisterAllocationStrategy(option, Usage);
   } else {
     // Option not recognized.
     return false;

@@ -16,15 +16,23 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.graphics.Typeface;
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.StyleSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class StyleSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class StyleSpanTest {
+    @Test
     public void testConstructor() {
         StyleSpan styleSpan = new StyleSpan(2);
 
@@ -40,6 +48,7 @@ public class StyleSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetStyle() {
         StyleSpan styleSpan = new StyleSpan(2);
         assertEquals(2, styleSpan.getStyle());
@@ -48,6 +57,7 @@ public class StyleSpanTest extends TestCase {
         assertEquals(-2, styleSpan.getStyle());
     }
 
+    @Test
     public void testUpdateMeasureState() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
 
@@ -62,15 +72,16 @@ public class StyleSpanTest extends TestCase {
 
         assertNotNull(tp.getTypeface());
         assertEquals(Typeface.BOLD, tp.getTypeface().getStyle());
-
-        try {
-            styleSpan.updateMeasureState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
+
+        styleSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testUpdateDrawState() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
 
@@ -85,24 +96,28 @@ public class StyleSpanTest extends TestCase {
 
         assertNotNull(tp.getTypeface());
         assertEquals(Typeface.BOLD, tp.getTypeface().getStyle());
-
-        try {
-            styleSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
+
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
+
+        styleSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
         styleSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         StyleSpan styleSpan = new StyleSpan(Typeface.BOLD);
         styleSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

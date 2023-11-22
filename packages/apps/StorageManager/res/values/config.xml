@@ -19,4 +19,7 @@
 
     <!-- Whether the automatic storage management job should be scheduled. -->
     <bool name="enable_automatic_storage_management">false</bool>
+
+    <!-- Whether the downloads backup job should be scheduled. -->
+    <bool name="enable_downloads_backup">false</bool>
 </resources>

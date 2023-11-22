@@ -39,6 +39,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.provider.OpenableColumns;
+import android.util.EventLog;
 import android.util.Log;
 
 import java.io.File;
@@ -55,7 +56,6 @@ public class BluetoothOppSendFileInfo {
 
     private static final boolean D = Constants.DEBUG;
 
-    private static final boolean V = Constants.VERBOSE;
 
     /** Reusable SendFileInfo for error status. */
     static final BluetoothOppSendFileInfo SEND_FILE_INFO_ERROR = new BluetoothOppSendFileInfo(
@@ -97,8 +97,8 @@ public class BluetoothOppSendFileInfo {
         mStatus = status;
     }
 
-    public static BluetoothOppSendFileInfo generateFileInfo(Context context, Uri uri,
-            String type) {
+    public static BluetoothOppSendFileInfo generateFileInfo(
+            Context context, Uri uri, String type, boolean fromExternal) {
         ContentResolver contentResolver = context.getContentResolver();
         String scheme = uri.getScheme();
         String fileName = null;
@@ -140,6 +140,16 @@ public class BluetoothOppSendFileInfo {
                 fileName = uri.getLastPathSegment();
             }
         } else if ("file".equals(scheme)) {
+            if (uri.getPath() == null) {
+                Log.e(TAG, "Invalid URI path: " + uri);
+                return SEND_FILE_INFO_ERROR;
+            }
+            if (fromExternal && !BluetoothOppUtility.isInExternalStorageDir(uri)) {
+                EventLog.writeEvent(0x534e4554, "35310991", -1, uri.getPath());
+                Log.e(TAG,
+                        "File based URI not in Environment.getExternalStorageDirectory() is not allowed.");
+                return SEND_FILE_INFO_ERROR;
+            }
             fileName = uri.getLastPathSegment();
             contentType = type;
             File f = new File(uri.getPath());
@@ -212,6 +222,10 @@ public class BluetoothOppSendFileInfo {
         if (length == 0) {
             Log.e(TAG, "Could not determine size of file");
             return SEND_FILE_INFO_ERROR;
+        } else if (length > 0xffffffffL) {
+            String msg = "Files bigger than 4GB can't be transferred";
+            Log.e(TAG, msg);
+            throw new IllegalArgumentException(msg);
         }
 
         return new BluetoothOppSendFileInfo(fileName, contentType, length, is, 0);
@@ -220,8 +234,10 @@ public class BluetoothOppSendFileInfo {
     private static long getStreamSize(FileInputStream is) throws IOException {
         long length = 0;
         byte unused[] = new byte[4096];
-        while (is.available() > 0) {
-            length += is.read(unused, 0, 4096);
+        int bytesRead = is.read(unused, 0, 4096);
+        while (bytesRead != -1) {
+            length += bytesRead;
+            bytesRead = is.read(unused, 0, 4096);
         }
         return length;
     }

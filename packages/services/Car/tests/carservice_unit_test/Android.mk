@@ -34,5 +34,6 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_INSTRUMENTATION_FOR := CarService
 
 LOCAL_JAVA_LIBRARIES := android.car android.test.runner
+LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
 
 include $(BUILD_PACKAGE)

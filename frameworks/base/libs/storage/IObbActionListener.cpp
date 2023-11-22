@@ -26,7 +26,7 @@ enum {
 // This is a stub that real consumers should override.
 class BpObbActionListener: public BpInterface<IObbActionListener> {
 public:
-    BpObbActionListener(const sp<IBinder>& impl)
+    explicit BpObbActionListener(const sp<IBinder>& impl)
         : BpInterface<IObbActionListener>(impl)
     { }
 
@@ -34,7 +34,7 @@ public:
                              const int32_t /* state */) { }
 };
 
-IMPLEMENT_META_INTERFACE(ObbActionListener, "IObbActionListener")
+IMPLEMENT_META_INTERFACE(ObbActionListener, "android.os.storage.IObbActionListener")
 
 // ----------------------------------------------------------------------
 

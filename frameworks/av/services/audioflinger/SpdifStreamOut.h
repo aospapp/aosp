@@ -23,9 +23,7 @@
 
 #include <system/audio.h>
 
-#include "AudioHwDevice.h"
 #include "AudioStreamOut.h"
-#include "SpdifStreamOut.h"
 
 #include <audio_utils/spdif/SPDIFEncoder.h>
 

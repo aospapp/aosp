@@ -5,7 +5,6 @@
 AUTHOR = 'chromeos-lab-infrastructure'
 NAME = 'sanity'
 PURPOSE = 'Sanity check run in buildbot to ensure the build will not break duts'
-CRITERIA = 'None.'
 
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'

@@ -21,11 +21,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.support.v4.os.BuildCompat;
 import android.util.Log;
 
 import com.android.tv.Features;
 import com.android.tv.TvActivity;
+import com.android.tv.TvApplication;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.dvr.DvrRecordingService;
 import com.android.tv.recommendation.NotificationService;
@@ -50,6 +50,7 @@ public class BootCompletedReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (DEBUG) Log.d(TAG, "boot completed " + intent);
+        TvApplication.setCurrentRunningProcess(context, true);
         // Start {@link NotificationService}.
         Intent notificationIntent = new Intent(context, NotificationService.class);
         notificationIntent.setAction(NotificationService.ACTION_SHOW_RECOMMENDATION);
@@ -73,7 +74,7 @@ public class BootCompletedReceiver extends BroadcastReceiver {
             }
         }
 
-        if (CommonFeatures.DVR.isEnabled(context) && BuildCompat.isAtLeastN()) {
+        if (CommonFeatures.DVR.isEnabled(context)) {
             DvrRecordingService.startService(context);
         }
     }

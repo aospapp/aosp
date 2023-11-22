@@ -10,7 +10,6 @@ Fails if the language or keyboard dropdowns in OOBE under a supported region
 configuration do not include the desired values.
 """
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 TIME = 'MEDIUM'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'login'

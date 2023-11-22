@@ -32,7 +32,8 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, libhardware_legacy)/hardware_legacy \
 	external/wpa_supplicant_8/src/drivers \
 	$(TARGET_OUT_HEADERS)/libwpa_client \
-	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
+	$(TARGET_OUT_HEADERS)/cld80211-lib
 
 LOCAL_SRC_FILES := \
 	wifi_hal.cpp \
@@ -53,11 +54,12 @@ LOCAL_SRC_FILES := \
 	wifilogger_diag.cpp \
 	ring_buffer.cpp \
 	rb_wrapper.cpp \
-	rssi_monitor.cpp
+	rssi_monitor.cpp \
+	roam.cpp
 
 LOCAL_MODULE := libwifi-hal-qcom
 LOCAL_CLANG := true
-LOCAL_SHARED_LIBRARIES += libnetutils liblog
+LOCAL_SHARED_LIBRARIES += libnetutils liblog libwpa_client libcld80211
 
 ifneq ($(wildcard external/libnl),)
 LOCAL_SHARED_LIBRARIES += libnl
@@ -88,7 +90,8 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, libhardware_legacy)/hardware_legacy \
 	external/wpa_supplicant_8/src/drivers \
 	$(TARGET_OUT_HEADERS)/libwpa_client \
-	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
+	$(TARGET_OUT_HEADERS)/cld80211-lib
 
 LOCAL_SRC_FILES := \
 	wifi_hal.cpp \
@@ -109,12 +112,14 @@ LOCAL_SRC_FILES := \
 	wifilogger_diag.cpp \
 	ring_buffer.cpp \
 	rb_wrapper.cpp \
-	rssi_monitor.cpp
+	rssi_monitor.cpp \
+	roam.cpp
 
 LOCAL_MODULE := libwifi-hal-qcom
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_CLANG := true
 LOCAL_SHARED_LIBRARIES += libnetutils liblog
-LOCAL_SHARED_LIBRARIES += libdl libhardware_legacy
+LOCAL_SHARED_LIBRARIES += libdl libwpa_client libcld80211
 
 ifneq ($(wildcard external/libnl),)
 LOCAL_SHARED_LIBRARIES += libnl

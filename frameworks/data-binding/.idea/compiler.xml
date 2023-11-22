@@ -18,5 +18,15 @@
         <processorPath useClasspath="true" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="baseLibrary_main" target="1.6" />
+      <module name="baseLibrary_test" target="1.6" />
+      <module name="compilationTests_main" target="1.6" />
+      <module name="compilationTests_test" target="1.6" />
+      <module name="compiler_main" target="1.8" />
+      <module name="compiler_test" target="1.8" />
+      <module name="compilerCommon_main" target="1.8" />
+      <module name="compilerCommon_test" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>

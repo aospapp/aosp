@@ -29,6 +29,7 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.telecom.Connection;
+import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.VideoProfile;
 import android.telephony.PhoneNumberUtils;
@@ -497,6 +498,8 @@ public class BluetoothPhoneServiceImpl {
                 return true;
             }
         } else if (chld == CHLD_TYPE_RELEASEACTIVE_ACCEPTHELD) {
+            if (activeCall == null && ringingCall == null && heldCall == null)
+                return false;
             if (activeCall != null) {
                 mCallsManager.disconnectCall(activeCall);
                 if (ringingCall != null) {
@@ -506,6 +509,12 @@ public class BluetoothPhoneServiceImpl {
                 }
                 return true;
             }
+            if (ringingCall != null) {
+                mCallsManager.answerCall(ringingCall, ringingCall.getVideoState());
+            } else if (heldCall != null) {
+                mCallsManager.unholdCall(heldCall);
+            }
+            return true;
         } else if (chld == CHLD_TYPE_HOLDACTIVE_ACCEPTHELD) {
             if (activeCall != null && activeCall.can(Connection.CAPABILITY_SWAP_CONFERENCE)) {
                 activeCall.swapConference();
@@ -606,6 +615,12 @@ public class BluetoothPhoneServiceImpl {
                     }
                 }
             }
+            if (conferenceCall.getState() == CallState.ON_HOLD &&
+                    conferenceCall.can(Connection.CAPABILITY_MANAGE_CONFERENCE)) {
+                // If the parent IMS CEP conference call is on hold, we should mark this call as
+                // being on hold regardless of what the other children are doing.
+                state = CALL_STATE_HELD;
+            }
         } else if (isConferenceWithNoChildren) {
             // Handle the special case of an IMS conference call without conference event package
             // support.  The call will be marked as a conference, but the conference will not have
@@ -621,7 +636,12 @@ public class BluetoothPhoneServiceImpl {
         } else {
             addressUri = call.getHandle();
         }
+
         String address = addressUri == null ? null : addressUri.getSchemeSpecificPart();
+        if (address != null) {
+            address = PhoneNumberUtils.stripSeparators(address);
+        }
+
         int addressType = address == null ? -1 : PhoneNumberUtils.toaFromString(address);
 
         if (shouldLog) {

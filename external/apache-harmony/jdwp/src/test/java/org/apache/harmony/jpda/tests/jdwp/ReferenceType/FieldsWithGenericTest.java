@@ -42,6 +42,7 @@ public class FieldsWithGenericTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.FieldsWithGeneric command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/FieldsWithGenericDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.FieldsWithGenericDebuggee";
     }

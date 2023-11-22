@@ -33,6 +33,8 @@ except ImportError:
     # Restart the script so python now finds the autotest site-packages.
     sys.exit(os.execv(__file__, sys.argv))
 
+from autotest_lib.client.common_lib import utils
+from autotest_lib.server.hosts import adb_host
 from autotest_lib.site_utils import test_runner_utils
 from autotest_lib.site_utils import tester_feedback
 
@@ -65,9 +67,12 @@ def _parse_arguments_internal(argv):
 
     parser = argparse.ArgumentParser(description='Run remote tests.')
 
-    parser.add_argument('serials', metavar='SERIALS',
+    parser.add_argument('-s', '--serials', metavar='SERIALS',
                         help='Comma separate list of device serials under '
                              'test.')
+    parser.add_argument('-f', '--fastboot_serial', metavar='FB_SERIALS',
+                        help='Comma separate list of fastboot serials under '
+                             'test.', default=None)
     parser.add_argument('-r', '--remote', metavar='REMOTE',
                         default='localhost',
                         help='hostname[:port] if the ADB device is connected '
@@ -88,6 +93,16 @@ def main(argv):
     """
     arguments = _parse_arguments_internal(argv)
 
+    serials = arguments.serials
+    if serials is None:
+        result = utils.run(['adb', 'devices'])
+        devices = adb_host.ADBHost.parse_device_serials(result.stdout)
+        if len(devices) != 1:
+            logging.error('could not detect exactly one device; please select '
+                          'one with -s: %s', devices)
+            return 1
+        serials = devices[0]
+
     results_directory = test_runner_utils.create_results_directory(
             arguments.results_dir)
     arguments.results_dir = results_directory
@@ -97,8 +112,10 @@ def main(argv):
     site_utils_path = os.path.join(autotest_path, 'site_utils')
     realpath = os.path.realpath(__file__)
     site_utils_path = os.path.realpath(site_utils_path)
-    host_attributes = {'serials' : arguments.serials,
+    host_attributes = {'serials' : serials,
                        'os_type' : 'android'}
+    if arguments.fastboot_serial:
+        host_attributes['fastboot_serial'] = arguments.fastboot_serial
 
     fb_service = None
     try:
@@ -121,7 +138,7 @@ def main(argv):
                     results_directory=results_directory,
                     iterations=arguments.iterations,
                     fast_mode=arguments.fast_mode, debug=arguments.debug,
-                    host_attributes=host_attributes)
+                    host_attributes=host_attributes, pretend=arguments.pretend)
     finally:
         if fb_service is not None:
             fb_service.stop()

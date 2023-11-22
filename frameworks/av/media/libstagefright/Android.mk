@@ -4,20 +4,20 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:=                         \
         ACodec.cpp                        \
+        ACodecBufferChannel.cpp           \
         AACExtractor.cpp                  \
         AACWriter.cpp                     \
         AMRExtractor.cpp                  \
         AMRWriter.cpp                     \
         AudioPlayer.cpp                   \
         AudioSource.cpp                   \
+        BufferImpl.cpp                    \
         CallbackDataSource.cpp            \
         CameraSource.cpp                  \
         CameraSourceTimeLapse.cpp         \
-        CodecBase.cpp                     \
         DataConverter.cpp                 \
         DataSource.cpp                    \
         DataURISource.cpp                 \
-        DRMExtractor.cpp                  \
         ESDS.cpp                          \
         FileSource.cpp                    \
         FLACExtractor.cpp                 \
@@ -35,7 +35,6 @@ LOCAL_SRC_FILES:=                         \
         MediaCodecList.cpp                \
         MediaCodecListOverrides.cpp       \
         MediaCodecSource.cpp              \
-        MediaDefs.cpp                     \
         MediaExtractor.cpp                \
         MediaSync.cpp                     \
         MidiExtractor.cpp                 \
@@ -46,7 +45,6 @@ LOCAL_SRC_FILES:=                         \
         NuMediaExtractor.cpp              \
         OMXClient.cpp                     \
         OggExtractor.cpp                  \
-        ProcessInfo.cpp                   \
         SampleIterator.cpp                \
         SampleTable.cpp                   \
         SimpleDecodingSource.cpp          \
@@ -60,7 +58,6 @@ LOCAL_SRC_FILES:=                         \
         VBRISeeker.cpp                    \
         VideoFrameScheduler.cpp           \
         WAVExtractor.cpp                  \
-        WVMExtractor.cpp                  \
         XINGSeeker.cpp                    \
         avc_utils.cpp                     \
 
@@ -72,6 +69,8 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/external/flac/include \
         $(TOP)/external/tremolo \
         $(TOP)/external/libvpx/libwebm \
+        $(TOP)/external/icu/icu4c/source/common \
+        $(TOP)/external/icu/icu4c/source/i18n \
         $(TOP)/system/netd/include \
         $(call include-path-for, audio-utils)
 
@@ -79,28 +78,25 @@ LOCAL_SHARED_LIBRARIES := \
         libaudioutils \
         libbinder \
         libcamera_client \
+        libcrypto \
         libcutils \
         libdl \
         libdrmframework \
         libexpat \
         libgui \
-        libicui18n \
-        libicuuc \
         liblog \
         libmedia \
+        libaudioclient \
+        libmediametrics \
         libmediautils \
         libnetd_client \
-        libopus \
         libsonivox \
-        libssl \
         libstagefright_omx \
-        libstagefright_yuv \
-        libsync \
         libui \
         libutils \
         libvorbisidec \
-        libz \
-        libpowermanager
+        libmediadrm \
+        libnativewindow \
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \
@@ -115,14 +111,20 @@ LOCAL_STATIC_LIBRARIES := \
         libstagefright_mpeg2ts \
         libstagefright_id3 \
         libFLAC \
-        libmedia_helper \
 
 LOCAL_SHARED_LIBRARIES += \
-        libstagefright_enc_common \
-        libstagefright_avc_common \
+        libmedia_helper \
         libstagefright_foundation \
         libdl \
         libRScpp \
+        libhidlbase \
+        libhidlmemory \
+        android.hidl.allocator@1.0 \
+        android.hidl.memory@1.0 \
+        android.hardware.media.omx@1.0 \
+        libstagefright_xmlparser@1.0 \
+
+LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := libmedia
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wno-error=deprecated-declarations -Wall
 
@@ -131,8 +133,8 @@ ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
 LOCAL_CFLAGS += -DENABLE_STAGEFRIGHT_EXPERIMENTS
 endif
 
-LOCAL_CLANG := true
-LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow
+LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 LOCAL_MODULE:= libstagefright
 

@@ -17,11 +17,11 @@
 package android.dram.cts;
 
 import android.content.Context;
-import android.cts.util.CtsAndroidTestCase;
 import android.graphics.Point;
 import android.util.Log;
 import android.view.WindowManager;
 
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
@@ -36,8 +36,9 @@ import com.android.compatibility.common.util.Stat;
 public class BandwidthTest extends CtsAndroidTestCase {
     private static final String TAG = BandwidthTest.class.getSimpleName();
     private static final String REPORT_LOG_NAME = "CtsDramTestCases";
-    private static final int MEMCPY_REPETITION = 10;
-    private static final int MEMSET_REPETITION = 30;
+    // data length is odd to prevent rare cases that all data are rejected.
+    private static final int MEMCPY_REPETITION = 11;
+    private static final int MEMSET_REPETITION = 31;
     private static final int REPEAT_IN_EACH_CALL = 100;
     private static final int KB = 1024;
     private static final int MB = 1024 * 1024;

@@ -29,7 +29,6 @@ import java.util.List;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.Hashtable;
 
 import org.apache.harmony.jpda.tests.framework.LogWriter;
@@ -138,7 +137,7 @@ public class PacketDispatcher extends Thread {
                 // then return it
                 synchronized (eventQueue) {
                     if (!eventQueue.isEmpty()) {
-                        return (EventPacket) eventQueue.remove(0);
+                        return eventQueue.remove(0);
                     }
 
                     // if eventQueue is empty and connection is already closed
@@ -156,7 +155,7 @@ public class PacketDispatcher extends Thread {
                 synchronized (eventQueue) {
                     if (!eventQueue.isEmpty()) {
                         // event received
-                        EventPacket event = (EventPacket) eventQueue.remove(0);
+                        EventPacket event = eventQueue.remove(0);
                         return event;
                     }
 
@@ -233,7 +232,7 @@ public class PacketDispatcher extends Thread {
                 Integer Id = new Integer(replyPacket.getId());
 
                 // obtain the current command packet by command id
-                CommandPacket command = (CommandPacket) commands.remove(Id);
+                CommandPacket command = commands.remove(Id);
                 if (command == null) {
                     // we received reply's id that does not correspond to any
                     // command
@@ -262,6 +261,7 @@ public class PacketDispatcher extends Thread {
          * @param timeout
          *            reply wait timeout
          * @return
+         *            a reply packet
          * @throws TimeoutException
          *             if no reply was received
          */
@@ -313,7 +313,7 @@ public class PacketDispatcher extends Thread {
                 // receive the reply
                 ReplyPacket currentReply = null;
                 synchronized (replies) {
-                    currentReply = (ReplyPacket) replies.remove(Id);
+                    currentReply = replies.remove(Id);
                 }
 
                 // if reply is ok, return it
@@ -403,12 +403,10 @@ public class PacketDispatcher extends Thread {
                 throw connectionException;
 
             // receive the reply
-            ReplyPacket currentReply = null;
             long endTimeMlsecForWait = System.currentTimeMillis() + timeout;
             synchronized (replies) {
                 while (true) {
-                    currentReply = (ReplyPacket) replies.remove(new Integer(
-                            commandId));
+                    ReplyPacket currentReply = replies.remove(new Integer(commandId));
                     // if reply is ok, return it
                     if (currentReply != null) {
                         return currentReply;
@@ -430,15 +428,13 @@ public class PacketDispatcher extends Thread {
         /**
          * This method is called when connection is closed. It notifies all the
          * waiting threads.
-         * 
+         *
          */
         public void terminate() {
 
             synchronized (commands) {
                 // enumerate all waiting commands
-                for (Enumeration en = commands.keys(); en.hasMoreElements();) {
-                    CommandPacket command = (CommandPacket) commands.get(en
-                            .nextElement());
+                for (CommandPacket command : commands.values()) {
                     synchronized (command) {
                         // notify the waiting object
                         command.notifyAll();
@@ -493,6 +489,7 @@ public class PacketDispatcher extends Thread {
      * Reads packets from connection and dispatches them between waiting
      * threads.
      */
+    @Override
     public void run() {
 
         connectionException = null;

@@ -36,6 +36,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -345,13 +348,14 @@ static int read_classes(ebitmap_t *e_classes)
 		cladatum = hashtab_search(policydbp->p_classes.table, id);
 		if (!cladatum) {
 			yyerror2("unknown class %s", id);
+			free(id);
 			return -1;
 		}
+		free(id);
 		if (ebitmap_set_bit(e_classes, cladatum->s.value - 1, TRUE)) {
 			yyerror("Out of memory");
 			return -1;
 		}
-		free(id);
 	}
 	return 0;
 }
@@ -1229,6 +1233,7 @@ int define_typealias(void)
 		free(id);
 		return -1;
 	}
+	free(id);
 	return add_aliases_to_type(t);
 }
 
@@ -1260,6 +1265,7 @@ int define_typeattribute(void)
 		free(id);
 		return -1;
 	}
+	free(id);
 
 	while ((id = queue_remove(id_queue))) {
 		if (!is_id_in_scope(SYM_TYPES, id)) {
@@ -1421,11 +1427,13 @@ int define_type(int alias)
 		if (!attr) {
 			/* treat it as a fatal error */
 			yyerror2("attribute %s is not declared", id);
+			free(id);
 			return -1;
 		}
 
 		if (attr->flavor != TYPE_ATTRIB) {
 			yyerror2("%s is a type, not an attribute", id);
+			free(id);
 			return -1;
 		}
 
@@ -1456,25 +1464,25 @@ static int set_types(type_set_t * set, char *id, int *add, char starallowed)
 	type_datum_t *t;
 
 	if (strcmp(id, "*") == 0) {
+		free(id);
 		if (!starallowed) {
 			yyerror("* not allowed in this type of rule");
 			return -1;
 		}
 		/* set TYPE_STAR flag */
 		set->flags = TYPE_STAR;
-		free(id);
 		*add = 1;
 		return 0;
 	}
 
 	if (strcmp(id, "~") == 0) {
+		free(id);
 		if (!starallowed) {
 			yyerror("~ not allowed in this type of rule");
 			return -1;
 		}
 		/* complement the set */
 		set->flags = TYPE_COMP;
-		free(id);
 		*add = 1;
 		return 0;
 	}
@@ -1567,8 +1575,10 @@ int define_compute_type_helper(int which, avrule_t ** rule)
 						(hashtab_key_t) id);
 	if (!datum || datum->flavor == TYPE_ATTRIB) {
 		yyerror2("unknown type %s", id);
+		free(id);
 		goto bad;
 	}
+	free(id);
 
 	ebitmap_for_each_bit(&tclasses, node, i) {
 		if (ebitmap_node_get_bit(node, i)) {
@@ -1701,11 +1711,11 @@ int define_bool_tunable(int is_tunable)
 	bool_value = (char *)queue_remove(id_queue);
 	if (!bool_value) {
 		yyerror("no default value for bool definition?");
-		free(id);
 		return -1;
 	}
 
 	datum->state = (int)(bool_value[0] == 'T') ? 1 : 0;
+	free(bool_value);
 	return 0;
       cleanup:
 	cond_destroy_bool(id, datum, NULL);
@@ -1975,6 +1985,11 @@ int define_te_avtab_xperms_helper(int which, avrule_t ** rule)
 	while ((id = queue_remove(id_queue))) {
 		if (strcmp(id, "self") == 0) {
 			free(id);
+			if (add == 0) {
+				yyerror("-self is not supported");
+				ret = -1;
+				goto out;
+			}
 			avrule->flags |= RULE_SELF;
 			continue;
 		}
@@ -2381,11 +2396,12 @@ int define_te_avtab_extended_perms(int which)
 
 	id = queue_remove(id_queue);
 	if (strcmp(id,"ioctl") == 0) {
+		free(id);
 		if (define_te_avtab_ioctl(avrule_template))
 			return -1;
-		free(id);
 	} else {
 		yyerror("only ioctl extended permissions are supported");
+		free(id);
 		return -1;
 	}
 	return 0;
@@ -2434,6 +2450,11 @@ int define_te_avtab_helper(int which, avrule_t ** rule)
 	while ((id = queue_remove(id_queue))) {
 		if (strcmp(id, "self") == 0) {
 			free(id);
+			if (add == 0) {
+				yyerror("-self is not supported");
+				ret = -1;
+				goto out;
+			}
 			avrule->flags |= RULE_SELF;
 			continue;
 		}
@@ -2532,6 +2553,10 @@ int define_te_avtab_helper(int which, avrule_t ** rule)
 	*rule = avrule;
 
       out:
+	if (ret) {
+		avrule_destroy(avrule);
+		free(avrule);
+	}
 	return ret;
 
 }
@@ -2611,6 +2636,7 @@ int define_role_types(void)
 		free(id);
 		return -1;
 	}
+	role = get_local_role(id, role->s.value, (role->flavor == ROLE_ATTRIB));
 
 	while ((id = queue_remove(id_queue))) {
 		if (set_types(&role->types, id, &add, 0))
@@ -2712,6 +2738,7 @@ int define_roleattribute(void)
 		free(id);
 		return -1;
 	}
+	free(id);
 
 	while ((id = queue_remove(id_queue))) {
 		if (!is_id_in_scope(SYM_ROLES, id)) {
@@ -3076,13 +3103,16 @@ int define_role_trans(int class_specified)
 	role = hashtab_search(policydbp->p_roles.table, id);
 	if (!role) {
 		yyerror2("unknown role %s used in transition definition", id);
+		free(id);
 		goto bad;
 	}
 
 	if (role->flavor != ROLE_ROLE) {
 		yyerror2("the new role %s must be a regular role", id);
+		free(id);
 		goto bad;
 	}
+	free(id);
 
 	/* This ebitmap business is just to ensure that there are not conflicting role_trans rules */
 	if (role_set_expand(&roles, &e_roles, policydbp, NULL, NULL))
@@ -3206,11 +3236,12 @@ int define_filename_trans(void)
 	ebitmap_t e_tclasses;
 	ebitmap_node_t *snode, *tnode, *cnode;
 	filename_trans_t *ft;
+	filename_trans_datum_t *ftdatum;
 	filename_trans_rule_t *ftr;
 	type_datum_t *typdatum;
 	uint32_t otype;
 	unsigned int c, s, t;
-	int add;
+	int add, rc;
 
 	if (pass == 1) {
 		/* stype */
@@ -3231,22 +3262,24 @@ int define_filename_trans(void)
 		return 0;
 	}
 
+	type_set_init(&stypes);
+	type_set_init(&ttypes);
+	ebitmap_init(&e_stypes);
+	ebitmap_init(&e_ttypes);
+	ebitmap_init(&e_tclasses);
 
 	add = 1;
-	type_set_init(&stypes);
 	while ((id = queue_remove(id_queue))) {
 		if (set_types(&stypes, id, &add, 0))
 			goto bad;
 	}
 
 	add =1;
-	type_set_init(&ttypes);
 	while ((id = queue_remove(id_queue))) {
 		if (set_types(&ttypes, id, &add, 0))
 			goto bad;
 	}
 
-	ebitmap_init(&e_tclasses);
 	if (read_classes(&e_tclasses))
 		goto bad;
 
@@ -3263,6 +3296,7 @@ int define_filename_trans(void)
 	typdatum = hashtab_search(policydbp->p_types.table, id);
 	if (!typdatum) {
 		yyerror2("unknown type %s used in transition definition", id);
+		free(id);
 		goto bad;
 	}
 	free(id);
@@ -3277,11 +3311,9 @@ int define_filename_trans(void)
 	/* We expand the class set into seperate rules.  We expand the types
 	 * just to make sure there are not duplicates.  They will get turned
 	 * into seperate rules later */
-	ebitmap_init(&e_stypes);
 	if (type_set_expand(&stypes, &e_stypes, policydbp, 1))
 		goto bad;
 
-	ebitmap_init(&e_ttypes);
 	if (type_set_expand(&ttypes, &e_ttypes, policydbp, 1))
 		goto bad;
 
@@ -3294,40 +3326,44 @@ int define_filename_trans(void)
 			ebitmap_for_each_bit(&e_ttypes, tnode, t) {
 				if (!ebitmap_node_get_bit(tnode, t))
 					continue;
-	
-				for (ft = policydbp->filename_trans; ft; ft = ft->next) {
-					if (ft->stype == (s + 1) &&
-					    ft->ttype == (t + 1) &&
-					    ft->tclass == (c + 1) &&
-					    !strcmp(ft->name, name)) {
-						yyerror2("duplicate filename transition for: filename_trans %s %s %s:%s",
-							 name, 
-							 policydbp->p_type_val_to_name[s],
-							 policydbp->p_type_val_to_name[t],
-							 policydbp->p_class_val_to_name[c]);
-						goto bad;
-					}
-				}
-	
-				ft = malloc(sizeof(*ft));
+
+				ft = calloc(1, sizeof(*ft));
 				if (!ft) {
 					yyerror("out of memory");
 					goto bad;
 				}
-				memset(ft, 0, sizeof(*ft));
-	
-				ft->next = policydbp->filename_trans;
-				policydbp->filename_trans = ft;
-	
+				ft->stype = s+1;
+				ft->ttype = t+1;
+				ft->tclass = c+1;
 				ft->name = strdup(name);
 				if (!ft->name) {
 					yyerror("out of memory");
 					goto bad;
 				}
-				ft->stype = s + 1;
-				ft->ttype = t + 1;
-				ft->tclass = c + 1;
-				ft->otype = otype;
+
+				ftdatum = hashtab_search(policydbp->filename_trans,
+							 (hashtab_key_t)ft);
+				if (ftdatum) {
+					yyerror2("duplicate filename transition for: filename_trans %s %s %s:%s",
+						 name,
+						 policydbp->p_type_val_to_name[s],
+						 policydbp->p_type_val_to_name[t],
+						 policydbp->p_class_val_to_name[c]);
+					goto bad;
+				}
+
+				ftdatum = calloc(1, sizeof(*ftdatum));
+				if (!ftdatum) {
+					yyerror("out of memory");
+					goto bad;
+				}
+				rc = hashtab_insert(policydbp->filename_trans,
+						    (hashtab_key_t)ft,
+						    ftdatum);
+				if (rc) {
+					yyerror("out of memory");
+					goto bad;
+				}
 			}
 		}
 	
@@ -3357,11 +3393,18 @@ int define_filename_trans(void)
 	ebitmap_destroy(&e_stypes);
 	ebitmap_destroy(&e_ttypes);
 	ebitmap_destroy(&e_tclasses);
+	type_set_destroy(&stypes);
+	type_set_destroy(&ttypes);
 
 	return 0;
 
 bad:
 	free(name);
+	ebitmap_destroy(&e_stypes);
+	ebitmap_destroy(&e_ttypes);
+	ebitmap_destroy(&e_tclasses);
+	type_set_destroy(&stypes);
+	type_set_destroy(&ttypes);
 	return -1;
 }
 
@@ -4876,10 +4919,11 @@ int define_port_context(unsigned int low, unsigned int high)
 		protocol = IPPROTO_TCP;
 	} else if ((strcmp(id, "udp") == 0) || (strcmp(id, "UDP") == 0)) {
 		protocol = IPPROTO_UDP;
+	} else if ((strcmp(id, "dccp") == 0) || (strcmp(id, "DCCP") == 0)) {
+		protocol = IPPROTO_DCCP;
 	} else {
 		yyerror2("unrecognized protocol %s", id);
-		free(newc);
-		return -1;
+		goto bad;
 	}
 
 	newc->u.port.protocol = protocol;
@@ -4888,13 +4932,11 @@ int define_port_context(unsigned int low, unsigned int high)
 
 	if (low > high) {
 		yyerror2("low port %d exceeds high port %d", low, high);
-		free(newc);
-		return -1;
+		goto bad;
 	}
 
 	if (parse_security_context(&newc->context[0])) {
-		free(newc);
-		return -1;
+		goto bad;
 	}
 
 	/* Preserve the matching order specified in the configuration. */
@@ -4924,9 +4966,11 @@ int define_port_context(unsigned int low, unsigned int high)
 	else
 		policydbp->ocontexts[OCON_PORT] = newc;
 
+	free(id);
 	return 0;
 
       bad:
+	free(id);
 	free(newc);
 	return -1;
 }
@@ -5135,7 +5179,7 @@ int define_ipv6_node_context(void)
 
 	memset(newc, 0, sizeof(ocontext_t));
 
-#ifdef DARWIN
+#ifdef __APPLE__
 	memcpy(&newc->u.node6.addr[0], &addr.s6_addr[0], 16);
 	memcpy(&newc->u.node6.mask[0], &mask.s6_addr[0], 16);
 #else
@@ -5262,6 +5306,9 @@ int define_genfs_context_helper(char *fstype, int has_type)
 		else
 			policydbp->genfs = newgenfs;
 		genfs = newgenfs;
+	} else {
+		free(fstype);
+		fstype = NULL;
 	}
 
 	newc = (ocontext_t *) malloc(sizeof(ocontext_t));
@@ -5319,7 +5366,7 @@ int define_genfs_context_helper(char *fstype, int has_type)
 		    (!newc->v.sclass || !c->v.sclass
 		     || newc->v.sclass == c->v.sclass)) {
 			yyerror2("duplicate entry for genfs entry (%s, %s)",
-				 fstype, newc->u.name);
+				 genfs->fstype, newc->u.name);
 			goto fail;
 		}
 		len = strlen(newc->u.name);
@@ -5333,6 +5380,7 @@ int define_genfs_context_helper(char *fstype, int has_type)
 		p->next = newc;
 	else
 		genfs->head = newc;
+	free(type);
 	return 0;
       fail:
 	if (type)

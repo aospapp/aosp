@@ -102,7 +102,7 @@ public class GnssNavigationMessageRegistrationTest extends GnssTestCase {
         List<GnssNavigationMessage> events = mTestGnssNavigationMessageListener.getEvents();
         if (!events.isEmpty()) {
             // Verify mandatory GnssNavigationMessage field values.
-            TestMeasurementUtil.verifyGnssNavMessageMandatoryField(events);
+            TestMeasurementUtil.verifyGnssNavMessageMandatoryField(mTestLocationManager, events);
             // Test passes if we get at least 1 GPS Navigation Message event.
             Log.i(TAG, "Received GPS Navigation Message. Test Pass.");
             return;

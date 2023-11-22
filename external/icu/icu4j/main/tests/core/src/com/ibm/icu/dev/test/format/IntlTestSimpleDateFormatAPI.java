@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*****************************************************************************************
  * (C) Copyright Taligent, Inc. 1996, 1997 - All Rights Reserved
  * (C) Copyright IBM Corp. 1996-2012 - All Rights Reserved
@@ -24,6 +26,8 @@ import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import com.ibm.icu.text.DateFormatSymbols;
 import com.ibm.icu.text.SimpleDateFormat;
 
@@ -33,11 +37,8 @@ import com.ibm.icu.text.SimpleDateFormat;
 */
 public class IntlTestSimpleDateFormatAPI extends com.ibm.icu.dev.test.TestFmwk
 {
-    public static void main(String[] args) throws Exception {
-        new IntlTestSimpleDateFormatAPI().run(args);
-    }
-
     // This test checks various generic API methods in DecimalFormat to achieve 100% API coverage.
+    @Test
     public void TestAPI()
     {
         logln("SimpleDateFormat API test---"); logln("");
@@ -183,6 +184,7 @@ public class IntlTestSimpleDateFormatAPI extends com.ibm.icu.dev.test.TestFmwk
     }
     
     // Jitterbug 4451, for coverage
+    @Test
     public void TestCoverage(){
         class StubDateFormat extends SimpleDateFormat{
             /**

@@ -42,6 +42,7 @@ public class ClassObjectTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.ClassObject command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/ClassObjectDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.ClassObjectDebuggee";
     }

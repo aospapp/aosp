@@ -17,7 +17,6 @@
 package libcore.icu;
 
 import java.text.DateFormat;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import libcore.util.Objects;
@@ -82,10 +81,6 @@ public final class LocaleData {
     // Used by TimePicker. Not currently used by UTS#35.
     public String narrowAm; // "a".
     public String narrowPm; // "p".
-
-    // shortDateFormat, but guaranteed to have 4-digit years.
-    // Used by android.text.format.DateFormat.getDateFormatStringForSetting.
-    public String shortDateFormat4;
 
     // Used by DateFormat to implement 12- and 24-hour SHORT and MEDIUM.
     // The first two are also used directly by frameworks code.
@@ -229,7 +224,6 @@ public final class LocaleData {
             // accidentally eat too much.
             localeData.integerPattern = localeData.numberPattern.replaceAll("\\.[#,]*", "");
         }
-        localeData.shortDateFormat4 = localeData.shortDateFormat.replaceAll("\\byy\\b", "y");
         return localeData;
     }
 }

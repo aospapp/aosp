@@ -24,6 +24,8 @@
 #include "arm/constants_arm.h"
 #include "base/arena_allocator.h"
 #include "base/arena_object.h"
+#include "base/array_ref.h"
+#include "base/enums.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "debug/dwarf/debug_frame_opcode_writer.h"
@@ -311,8 +313,10 @@ class DebugFrameOpCodeWriterForAssembler FINAL
   // Override the last delayed PC. The new PC can be out of order.
   void OverrideDelayedPC(size_t pc) {
     DCHECK(delay_emitting_advance_pc_);
-    DCHECK(!delayed_advance_pcs_.empty());
-    delayed_advance_pcs_.back().pc = pc;
+    if (enabled_) {
+      DCHECK(!delayed_advance_pcs_.empty());
+      delayed_advance_pcs_.back().pc = pc;
+    }
   }
 
   // Return the number of delayed advance PC entries.
@@ -352,17 +356,22 @@ class DebugFrameOpCodeWriterForAssembler FINAL
 
 class Assembler : public DeletableArenaObject<kArenaAllocAssembler> {
  public:
-  static std::unique_ptr<Assembler> Create(
-      ArenaAllocator* arena,
-      InstructionSet instruction_set,
-      const InstructionSetFeatures* instruction_set_features = nullptr);
-
   // Finalize the code; emit slow paths, fixup branches, add literal pool, etc.
   virtual void FinalizeCode() { buffer_.EmitSlowPaths(this); }
 
   // Size of generated code
   virtual size_t CodeSize() const { return buffer_.Size(); }
   virtual const uint8_t* CodeBufferBaseAddress() const { return buffer_.contents(); }
+  // CodePosition() is a non-const method similar to CodeSize(), which is used to
+  // record positions within the code buffer for the purpose of signal handling
+  // (stack overflow checks and implicit null checks may trigger signals and the
+  // signal handlers expect them right before the recorded positions).
+  // On most architectures CodePosition() should be equivalent to CodeSize(), but
+  // the MIPS assembler needs to be aware of this recording, so it doesn't put
+  // the instructions that can trigger signals into branch delay slots. Handling
+  // signals from instructions in delay slots is a bit problematic and should be
+  // avoided.
+  virtual size_t CodePosition() { return CodeSize(); }
 
   // Copy instructions out of assembly buffer into the given region of memory
   virtual void FinalizeInstructions(const MemoryRegion& region) {
@@ -371,140 +380,6 @@ class Assembler : public DeletableArenaObject<kArenaAllocAssembler> {
 
   // TODO: Implement with disassembler.
   virtual void Comment(const char* format ATTRIBUTE_UNUSED, ...) {}
-
-  // Emit code that will create an activation on the stack
-  virtual void BuildFrame(size_t frame_size, ManagedRegister method_reg,
-                          const std::vector<ManagedRegister>& callee_save_regs,
-                          const ManagedRegisterEntrySpills& entry_spills) = 0;
-
-  // Emit code that will remove an activation from the stack
-  virtual void RemoveFrame(size_t frame_size,
-                           const std::vector<ManagedRegister>& callee_save_regs) = 0;
-
-  virtual void IncreaseFrameSize(size_t adjust) = 0;
-  virtual void DecreaseFrameSize(size_t adjust) = 0;
-
-  // Store routines
-  virtual void Store(FrameOffset offs, ManagedRegister src, size_t size) = 0;
-  virtual void StoreRef(FrameOffset dest, ManagedRegister src) = 0;
-  virtual void StoreRawPtr(FrameOffset dest, ManagedRegister src) = 0;
-
-  virtual void StoreImmediateToFrame(FrameOffset dest, uint32_t imm,
-                                     ManagedRegister scratch) = 0;
-
-  virtual void StoreImmediateToThread32(ThreadOffset<4> dest, uint32_t imm,
-                                        ManagedRegister scratch);
-  virtual void StoreImmediateToThread64(ThreadOffset<8> dest, uint32_t imm,
-                                        ManagedRegister scratch);
-
-  virtual void StoreStackOffsetToThread32(ThreadOffset<4> thr_offs,
-                                          FrameOffset fr_offs,
-                                          ManagedRegister scratch);
-  virtual void StoreStackOffsetToThread64(ThreadOffset<8> thr_offs,
-                                          FrameOffset fr_offs,
-                                          ManagedRegister scratch);
-
-  virtual void StoreStackPointerToThread32(ThreadOffset<4> thr_offs);
-  virtual void StoreStackPointerToThread64(ThreadOffset<8> thr_offs);
-
-  virtual void StoreSpanning(FrameOffset dest, ManagedRegister src,
-                             FrameOffset in_off, ManagedRegister scratch) = 0;
-
-  // Load routines
-  virtual void Load(ManagedRegister dest, FrameOffset src, size_t size) = 0;
-
-  virtual void LoadFromThread32(ManagedRegister dest, ThreadOffset<4> src, size_t size);
-  virtual void LoadFromThread64(ManagedRegister dest, ThreadOffset<8> src, size_t size);
-
-  virtual void LoadRef(ManagedRegister dest, FrameOffset src) = 0;
-  // If unpoison_reference is true and kPoisonReference is true, then we negate the read reference.
-  virtual void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
-                       bool unpoison_reference) = 0;
-
-  virtual void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) = 0;
-
-  virtual void LoadRawPtrFromThread32(ManagedRegister dest, ThreadOffset<4> offs);
-  virtual void LoadRawPtrFromThread64(ManagedRegister dest, ThreadOffset<8> offs);
-
-  // Copying routines
-  virtual void Move(ManagedRegister dest, ManagedRegister src, size_t size) = 0;
-
-  virtual void CopyRawPtrFromThread32(FrameOffset fr_offs, ThreadOffset<4> thr_offs,
-                                      ManagedRegister scratch);
-  virtual void CopyRawPtrFromThread64(FrameOffset fr_offs, ThreadOffset<8> thr_offs,
-                                      ManagedRegister scratch);
-
-  virtual void CopyRawPtrToThread32(ThreadOffset<4> thr_offs, FrameOffset fr_offs,
-                                    ManagedRegister scratch);
-  virtual void CopyRawPtrToThread64(ThreadOffset<8> thr_offs, FrameOffset fr_offs,
-                                    ManagedRegister scratch);
-
-  virtual void CopyRef(FrameOffset dest, FrameOffset src,
-                       ManagedRegister scratch) = 0;
-
-  virtual void Copy(FrameOffset dest, FrameOffset src, ManagedRegister scratch, size_t size) = 0;
-
-  virtual void Copy(FrameOffset dest, ManagedRegister src_base, Offset src_offset,
-                    ManagedRegister scratch, size_t size) = 0;
-
-  virtual void Copy(ManagedRegister dest_base, Offset dest_offset, FrameOffset src,
-                    ManagedRegister scratch, size_t size) = 0;
-
-  virtual void Copy(FrameOffset dest, FrameOffset src_base, Offset src_offset,
-                    ManagedRegister scratch, size_t size) = 0;
-
-  virtual void Copy(ManagedRegister dest, Offset dest_offset,
-                    ManagedRegister src, Offset src_offset,
-                    ManagedRegister scratch, size_t size) = 0;
-
-  virtual void Copy(FrameOffset dest, Offset dest_offset, FrameOffset src, Offset src_offset,
-                    ManagedRegister scratch, size_t size) = 0;
-
-  virtual void MemoryBarrier(ManagedRegister scratch) = 0;
-
-  // Sign extension
-  virtual void SignExtend(ManagedRegister mreg, size_t size) = 0;
-
-  // Zero extension
-  virtual void ZeroExtend(ManagedRegister mreg, size_t size) = 0;
-
-  // Exploit fast access in managed code to Thread::Current()
-  virtual void GetCurrentThread(ManagedRegister tr) = 0;
-  virtual void GetCurrentThread(FrameOffset dest_offset,
-                                ManagedRegister scratch) = 0;
-
-  // Set up out_reg to hold a Object** into the handle scope, or to be null if the
-  // value is null and null_allowed. in_reg holds a possibly stale reference
-  // that can be used to avoid loading the handle scope entry to see if the value is
-  // null.
-  virtual void CreateHandleScopeEntry(ManagedRegister out_reg, FrameOffset handlescope_offset,
-                               ManagedRegister in_reg, bool null_allowed) = 0;
-
-  // Set up out_off to hold a Object** into the handle scope, or to be null if the
-  // value is null and null_allowed.
-  virtual void CreateHandleScopeEntry(FrameOffset out_off, FrameOffset handlescope_offset,
-                               ManagedRegister scratch, bool null_allowed) = 0;
-
-  // src holds a handle scope entry (Object**) load this into dst
-  virtual void LoadReferenceFromHandleScope(ManagedRegister dst,
-                                     ManagedRegister src) = 0;
-
-  // Heap::VerifyObject on src. In some cases (such as a reference to this) we
-  // know that src may not be null.
-  virtual void VerifyObject(ManagedRegister src, bool could_be_null) = 0;
-  virtual void VerifyObject(FrameOffset src, bool could_be_null) = 0;
-
-  // Call to address held at [base+offset]
-  virtual void Call(ManagedRegister base, Offset offset,
-                    ManagedRegister scratch) = 0;
-  virtual void Call(FrameOffset base, Offset offset,
-                    ManagedRegister scratch) = 0;
-  virtual void CallFromThread32(ThreadOffset<4> offset, ManagedRegister scratch);
-  virtual void CallFromThread64(ThreadOffset<8> offset, ManagedRegister scratch);
-
-  // Generate code to check if Thread::Current()->exception_ is non-null
-  // and branch to a ExceptionSlowPath if it is.
-  virtual void ExceptionPoll(ManagedRegister scratch, size_t stack_adjust) = 0;
 
   virtual void Bind(Label* label) = 0;
   virtual void Jump(Label* label) = 0;
@@ -517,12 +392,16 @@ class Assembler : public DeletableArenaObject<kArenaAllocAssembler> {
    */
   DebugFrameOpCodeWriterForAssembler& cfi() { return cfi_; }
 
- protected:
-  explicit Assembler(ArenaAllocator* arena) : buffer_(arena), cfi_(this) {}
-
   ArenaAllocator* GetArena() {
     return buffer_.GetArena();
   }
+
+  AssemblerBuffer* GetBuffer() {
+    return &buffer_;
+  }
+
+ protected:
+  explicit Assembler(ArenaAllocator* arena) : buffer_(arena), cfi_(this) {}
 
   AssemblerBuffer buffer_;
 

@@ -8,7 +8,6 @@ LOCAL_SRC_FILES := \
 
 LOCAL_C_INCLUDES += \
     external/libvterm/include \
-    libcore/include \
     frameworks/base/include
 
 LOCAL_SHARED_LIBRARIES := \

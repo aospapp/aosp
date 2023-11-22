@@ -16,10 +16,29 @@
 
 package android.view.cts;
 
-import android.test.InstrumentationTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+
+import android.os.SystemClock;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.Choreographer;
 
-public class ChoreographerTest extends InstrumentationTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ChoreographerTest {
     private static final long NOMINAL_VSYNC_PERIOD = 16;
     private static final long DELAY_PERIOD = NOMINAL_VSYNC_PERIOD * 5;
     private static final long NANOS_PER_MS = 1000000;
@@ -27,17 +46,13 @@ public class ChoreographerTest extends InstrumentationTestCase {
 
     private Choreographer mChoreographer;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mChoreographer = Choreographer.getInstance();
-            }
-        });
+    @UiThreadTest
+    @Before
+    public void setup() {
+        mChoreographer = Choreographer.getInstance();
     }
 
+    @Test
     public void testFrameDelay() {
         assertTrue(Choreographer.getFrameDelay() > 0);
 
@@ -49,10 +64,11 @@ public class ChoreographerTest extends InstrumentationTestCase {
         Choreographer.setFrameDelay(oldFrameDelay);
     }
 
-    public void testPostCallbackWithoutDelayEventuallyRunsCallbacks() {
-        MockRunnable addedCallback1 = new MockRunnable();
-        MockRunnable addedCallback2 = new MockRunnable();
-        MockRunnable removedCallback = new MockRunnable();
+    @Test
+    public void testPostCallbackWithoutDelay() {
+        final Runnable addedCallback1 = mock(Runnable.class);
+        final Runnable addedCallback2 = mock(Runnable.class);
+        final Runnable removedCallback = mock(Runnable.class);
         try {
             // Add and remove a few callbacks.
             mChoreographer.postCallback(
@@ -64,22 +80,18 @@ public class ChoreographerTest extends InstrumentationTestCase {
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, removedCallback, null);
 
-            // Sleep for a couple of frames.
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
-
             // We expect the remaining callbacks to have been invoked once.
-            assertEquals(1, addedCallback1.invocationCount);
-            assertEquals(1, addedCallback2.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(1)).run();
+            verify(addedCallback2, times(1)).run();
+            verifyZeroInteractions(removedCallback);
 
             // If we post a callback again, then it should be invoked again.
             mChoreographer.postCallback(
                     Choreographer.CALLBACK_ANIMATION, addedCallback1, null);
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
 
-            assertEquals(2, addedCallback1.invocationCount);
-            assertEquals(1, addedCallback2.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(2)).run();
+            verify(addedCallback2, times(1)).run();
+            verifyZeroInteractions(removedCallback);
 
             // If the token matches, the the callback should be removed.
             mChoreographer.postCallback(
@@ -88,9 +100,8 @@ public class ChoreographerTest extends InstrumentationTestCase {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, null, TOKEN);
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
-            assertEquals(3, addedCallback1.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(3)).run();
+            verifyZeroInteractions(removedCallback);
 
             // If the action and token matches, then the callback should be removed.
             // If only the token matches, then the callback should not be removed.
@@ -100,9 +111,8 @@ public class ChoreographerTest extends InstrumentationTestCase {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
-            assertEquals(4, addedCallback1.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(4)).run();
+            verifyZeroInteractions(removedCallback);
         } finally {
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, addedCallback1, null);
@@ -113,9 +123,10 @@ public class ChoreographerTest extends InstrumentationTestCase {
         }
     }
 
-    public void testPostCallbackWithDelayEventuallyRunsCallbacksAfterDelay() {
-        MockRunnable addedCallback = new MockRunnable();
-        MockRunnable removedCallback = new MockRunnable();
+    @Test
+    public void testPostCallbackWithDelay() {
+        final Runnable addedCallback = mock(Runnable.class);
+        final Runnable removedCallback = mock(Runnable.class);
         try {
             // Add and remove a few callbacks.
             mChoreographer.postCallbackDelayed(
@@ -126,18 +137,15 @@ public class ChoreographerTest extends InstrumentationTestCase {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, null);
 
             // Sleep for a couple of frames.
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
+            SystemClock.sleep(NOMINAL_VSYNC_PERIOD * 3);
 
             // The callbacks should not have been invoked yet because of the delay.
-            assertEquals(0, addedCallback.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
-
-            // Sleep for the rest of the delay time.
-            sleep(DELAY_PERIOD);
+            verifyZeroInteractions(addedCallback);
+            verifyZeroInteractions(removedCallback);
 
             // We expect the remaining callbacks to have been invoked.
-            assertEquals(1, addedCallback.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback, timeout(DELAY_PERIOD * 3).times(1)).run();
+            verifyZeroInteractions(removedCallback);
 
             // If the token matches, the the callback should be removed.
             mChoreographer.postCallbackDelayed(
@@ -146,9 +154,8 @@ public class ChoreographerTest extends InstrumentationTestCase {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN, DELAY_PERIOD);
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, null, TOKEN);
-            sleep(NOMINAL_VSYNC_PERIOD * 3 + DELAY_PERIOD);
-            assertEquals(2, addedCallback.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback, timeout(DELAY_PERIOD * 3).times(2)).run();
+            verifyZeroInteractions(removedCallback);
 
             // If the action and token matches, then the callback should be removed.
             // If only the token matches, then the callback should not be removed.
@@ -158,9 +165,8 @@ public class ChoreographerTest extends InstrumentationTestCase {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN, DELAY_PERIOD);
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
-            sleep(NOMINAL_VSYNC_PERIOD * 3 + DELAY_PERIOD);
-            assertEquals(3, addedCallback.invocationCount);
-            assertEquals(0, removedCallback.invocationCount);
+            verify(addedCallback, timeout(DELAY_PERIOD * 3).times(3)).run();
+            verifyZeroInteractions(removedCallback);
         } finally {
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, addedCallback, null);
@@ -169,30 +175,25 @@ public class ChoreographerTest extends InstrumentationTestCase {
         }
     }
 
-    public void testPostCallbackThrowsIfRunnableIsNull() {
-        try {
-            mChoreographer.postCallback(
-                    Choreographer.CALLBACK_ANIMATION, null, TOKEN);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException ex) {
-            // expected
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testPostNullCallback() {
+        mChoreographer.postCallback(Choreographer.CALLBACK_ANIMATION, null, TOKEN);
     }
 
-    public void testPostCallbackDelayedThrowsIfRunnableIsNull() {
-        try {
-            mChoreographer.postCallbackDelayed(
-                    Choreographer.CALLBACK_ANIMATION, null, TOKEN, DELAY_PERIOD);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException ex) {
-            // expected
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testPostNullCallbackDelayed() {
+        mChoreographer.postCallbackDelayed( Choreographer.CALLBACK_ANIMATION, null, TOKEN,
+                DELAY_PERIOD);
     }
 
-    public void testPostFrameCallbackWithoutDelayEventuallyRunsFrameCallbacks() {
-        MockFrameCallback addedFrameCallback1 = new MockFrameCallback();
-        MockFrameCallback addedFrameCallback2 = new MockFrameCallback();
-        MockFrameCallback removedFrameCallback = new MockFrameCallback();
+    @Test
+    public void testPostFrameCallbackWithoutDelay() {
+        final Choreographer.FrameCallback addedFrameCallback1 =
+                mock(Choreographer.FrameCallback.class);
+        final Choreographer.FrameCallback addedFrameCallback2 =
+                mock(Choreographer.FrameCallback.class);
+        final Choreographer.FrameCallback removedFrameCallback =
+                mock(Choreographer.FrameCallback.class);
         try {
             // Add and remove a few callbacks.
             long postTimeNanos = System.nanoTime();
@@ -201,30 +202,32 @@ public class ChoreographerTest extends InstrumentationTestCase {
             mChoreographer.postFrameCallback(removedFrameCallback);
             mChoreographer.removeFrameCallback(removedFrameCallback);
 
-            // Sleep for a couple of frames.
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
-
             // We expect the remaining callbacks to have been invoked once.
-            assertEquals(1, addedFrameCallback1.invocationCount);
-            assertEquals(1, addedFrameCallback2.invocationCount);
-            assertEquals(0, removedFrameCallback.invocationCount);
-            assertTimeDeltaLessThan(addedFrameCallback1.frameTimeNanos - postTimeNanos,
-                    NOMINAL_VSYNC_PERIOD * 3 * NANOS_PER_MS);
-            assertTimeDeltaLessThan(addedFrameCallback2.frameTimeNanos - postTimeNanos,
-                    NOMINAL_VSYNC_PERIOD * 3 * NANOS_PER_MS);
-            assertTimeDeltaLessThan(Math.abs(addedFrameCallback2.frameTimeNanos
-                    - addedFrameCallback1.frameTimeNanos), NOMINAL_VSYNC_PERIOD * NANOS_PER_MS);
+            ArgumentCaptor<Long> frameTimeNanosCaptor1 = ArgumentCaptor.forClass(Long.class);
+            ArgumentCaptor<Long> frameTimeNanosCaptor2 = ArgumentCaptor.forClass(Long.class);
+            verify(addedFrameCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(1))
+                    .doFrame(frameTimeNanosCaptor1.capture());
+            verify(addedFrameCallback2, times(1)).doFrame(frameTimeNanosCaptor2.capture());
+            verifyZeroInteractions(removedFrameCallback);
+
+            assertTimeDeltaLessThan(frameTimeNanosCaptor1.getValue() - postTimeNanos,
+                    NOMINAL_VSYNC_PERIOD * 10 * NANOS_PER_MS);
+            assertTimeDeltaLessThan(frameTimeNanosCaptor2.getValue() - postTimeNanos,
+                    NOMINAL_VSYNC_PERIOD * 10 * NANOS_PER_MS);
+            assertTimeDeltaLessThan(
+                    Math.abs(frameTimeNanosCaptor2.getValue() - frameTimeNanosCaptor1.getValue()),
+                    NOMINAL_VSYNC_PERIOD * NANOS_PER_MS);
 
             // If we post a callback again, then it should be invoked again.
             postTimeNanos = System.nanoTime();
             mChoreographer.postFrameCallback(addedFrameCallback1);
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
 
-            assertEquals(2, addedFrameCallback1.invocationCount);
-            assertEquals(1, addedFrameCallback2.invocationCount);
-            assertEquals(0, removedFrameCallback.invocationCount);
-            assertTimeDeltaLessThan(addedFrameCallback1.frameTimeNanos - postTimeNanos,
-                    NOMINAL_VSYNC_PERIOD * 3 * NANOS_PER_MS);
+            verify(addedFrameCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(2))
+                    .doFrame(frameTimeNanosCaptor1.capture());
+            verify(addedFrameCallback2, times(1)).doFrame(frameTimeNanosCaptor2.capture());
+            verifyZeroInteractions(removedFrameCallback);
+            assertTimeDeltaLessThan(frameTimeNanosCaptor1.getAllValues().get(1) - postTimeNanos,
+                    NOMINAL_VSYNC_PERIOD * 10 * NANOS_PER_MS);
         } finally {
             mChoreographer.removeFrameCallback(addedFrameCallback1);
             mChoreographer.removeFrameCallback(addedFrameCallback2);
@@ -232,9 +235,12 @@ public class ChoreographerTest extends InstrumentationTestCase {
         }
     }
 
-    public void testPostFrameCallbackWithDelayEventuallyRunsFrameCallbacksAfterDelay() {
-        MockFrameCallback addedFrameCallback = new MockFrameCallback();
-        MockFrameCallback removedFrameCallback = new MockFrameCallback();
+    @Test
+    public void testPostFrameCallbackWithDelay() {
+        final Choreographer.FrameCallback addedFrameCallback =
+                mock(Choreographer.FrameCallback.class);
+        final Choreographer.FrameCallback removedFrameCallback =
+                mock(Choreographer.FrameCallback.class);
         try {
             // Add and remove a few callbacks.
             long postTimeNanos = System.nanoTime();
@@ -243,20 +249,19 @@ public class ChoreographerTest extends InstrumentationTestCase {
             mChoreographer.removeFrameCallback(removedFrameCallback);
 
             // Sleep for a couple of frames.
-            sleep(NOMINAL_VSYNC_PERIOD * 3);
+            SystemClock.sleep(NOMINAL_VSYNC_PERIOD * 3);
 
             // The callbacks should not have been invoked yet because of the delay.
-            assertEquals(0, addedFrameCallback.invocationCount);
-            assertEquals(0, removedFrameCallback.invocationCount);
-
-            // Sleep for the rest of the delay time.
-            sleep(DELAY_PERIOD);
+            verifyZeroInteractions(addedFrameCallback);
+            verifyZeroInteractions(removedFrameCallback);
 
             // We expect the remaining callbacks to have been invoked.
-            assertEquals(1, addedFrameCallback.invocationCount);
-            assertEquals(0, removedFrameCallback.invocationCount);
-            assertTimeDeltaLessThan(addedFrameCallback.frameTimeNanos - postTimeNanos,
-                    (NOMINAL_VSYNC_PERIOD * 3 + DELAY_PERIOD) * NANOS_PER_MS);
+            ArgumentCaptor<Long> frameTimeNanosCaptor = ArgumentCaptor.forClass(Long.class);
+            verify(addedFrameCallback, timeout(DELAY_PERIOD * 3).times(1))
+                    .doFrame(frameTimeNanosCaptor.capture());
+            verifyZeroInteractions(removedFrameCallback);
+            assertTimeDeltaLessThan(frameTimeNanosCaptor.getValue() - postTimeNanos,
+                    (NOMINAL_VSYNC_PERIOD * 10 + DELAY_PERIOD) * NANOS_PER_MS);
         } finally {
             mChoreographer.removeFrameCallback(addedFrameCallback);
             mChoreographer.removeFrameCallback(removedFrameCallback);
@@ -270,58 +275,18 @@ public class ChoreographerTest extends InstrumentationTestCase {
         }
     }
 
-    public void testPostFrameCallbackThrowsIfCallbackIsNull() {
-        try {
-            mChoreographer.postFrameCallback(null);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException ex) {
-            // expected
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testPostNullFrameCallback() {
+        mChoreographer.postFrameCallback(null);
     }
 
-    public void testPostFrameCallbackDelayedThrowsIfCallbackIsNull() {
-        try {
-            mChoreographer.postFrameCallbackDelayed(null, DELAY_PERIOD);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException ex) {
-            // expected
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testPostNullFrameCallbackDelayed() {
+        mChoreographer.postFrameCallbackDelayed(null, DELAY_PERIOD);
     }
 
-    public void testRemoveFrameCallbackThrowsIfCallbackIsNull() {
-        try {
-            mChoreographer.removeFrameCallback(null);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException ex) {
-            // expected
-        }
-    }
-
-    private void sleep(long time) {
-        try {
-            Thread.sleep(time);
-        } catch (InterruptedException e) {
-            fail(e.getMessage());
-        }
-    }
-
-    private static final class MockRunnable implements Runnable {
-        public int invocationCount;
-
-        @Override
-        public void run() {
-            invocationCount += 1;
-        }
-    }
-
-    private static final class MockFrameCallback implements Choreographer.FrameCallback {
-        public long frameTimeNanos;
-        public int invocationCount;
-
-        @Override
-        public void doFrame(long frameTimeNanos) {
-            this.frameTimeNanos = frameTimeNanos;
-            invocationCount += 1;
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testRemoveNullFrameCallback() {
+        mChoreographer.removeFrameCallback(null);
     }
 }

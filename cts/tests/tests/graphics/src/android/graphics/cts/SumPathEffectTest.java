@@ -17,25 +17,32 @@
 package android.graphics.cts;
 
 
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.CornerPathEffect;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Path.Direction;
 import android.graphics.PathEffect;
 import android.graphics.SumPathEffect;
-import android.graphics.Bitmap.Config;
-import android.graphics.Path.Direction;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class SumPathEffectTest extends TestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SumPathEffectTest {
     private static final int WIDTH = 100;
     private static final int HEIGHT = 100;
 
+    @Test
     public void testSumPathEffect() {
         Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Config.ARGB_8888);
         bitmap.eraseColor(Color.BLACK);

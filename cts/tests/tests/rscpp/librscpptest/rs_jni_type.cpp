@@ -32,7 +32,7 @@
 
 using namespace android::RSC;
 
-static bool testTypeBuilderHelper(sp<RS> mRS, sp<const Element> e) {
+static bool testTypeBuilderHelper(const sp<RS> &mRS, sp<const Element> e) {
     const int min = 1;
     const int max = 8;
 

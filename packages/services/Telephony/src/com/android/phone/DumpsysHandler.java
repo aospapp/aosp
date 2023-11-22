@@ -3,7 +3,7 @@ package com.android.phone;
 
 import android.content.Context;
 
-import com.android.phone.vvm.omtp.utils.VvmDumpHandler;
+import com.android.phone.vvm.VvmDumpHandler;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;

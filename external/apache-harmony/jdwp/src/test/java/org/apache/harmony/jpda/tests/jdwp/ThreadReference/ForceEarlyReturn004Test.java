@@ -31,6 +31,7 @@ public class ForceEarlyReturn004Test extends JDWPSyncTestCase {
 
     static final double EXPECTED_DOUBLE = 2.4;
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ForceEarlyReturnDebuggee";
     }
@@ -79,7 +80,7 @@ public class ForceEarlyReturn004Test extends JDWPSyncTestCase {
                 JDWPCommands.ThreadReferenceCommandSet.CommandSetID,
                 JDWPCommands.ThreadReferenceCommandSet.ForceEarlyReturnCommand);
         forceEarlyReturnPacket.setNextValueAsThreadID(testedThreadID);
-        forceEarlyReturnPacket.setNextValueAsValue(new Value(EXPECTED_DOUBLE));
+        forceEarlyReturnPacket.setNextValueAsValue(Value.createDouble(EXPECTED_DOUBLE));
 
         // Perform the command
         logWriter.println("==> Perform " + thisCommandName);

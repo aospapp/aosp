@@ -310,7 +310,7 @@ public class SSLEngineTest extends TestCase {
         doHandshake();
 
         ByteBuffer bbs = ByteBuffer.wrap(new byte[] {1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,31,2,3,1,2,3,1,2,3,1,2,3});
-        ByteBuffer bbd = ByteBuffer.allocate(100);
+        ByteBuffer bbd = ByteBuffer.allocate(clientEngine.engine.getSession().getApplicationBufferSize());
         try {
             clientEngine.engine.unwrap(bbs, new ByteBuffer[] { bbd }, 0, 1);
             fail("SSLException wasn't thrown");
@@ -895,6 +895,7 @@ public class SSLEngineTest extends TestCase {
 
         try {
             SSLEngineResult result = sse.wrap(bbs, bbd);
+            fail();
         } catch (IllegalStateException expected) {
         }
     }
@@ -992,8 +993,11 @@ public class SSLEngineTest extends TestCase {
         ByteBuffer[] bbA = { ByteBuffer.allocate(5), ByteBuffer.allocate(10), ByteBuffer.allocate(5) };
         SSLEngine sse = getEngine(host, port);
 
-        SSLEngineResult result = sse.wrap(bbA, bb);
-        assertEquals(Status.BUFFER_OVERFLOW, result.getStatus());
+        try {
+            SSLEngineResult result = sse.wrap(bbA, bb);
+            fail();
+        } catch (IllegalStateException expected) {
+        }
     }
 
     /**
@@ -1009,7 +1013,11 @@ public class SSLEngineTest extends TestCase {
 
         SSLEngineResult res = sse.wrap(bbA, bb);
         assertEquals(0, res.bytesConsumed());
-        assertEquals(0, res.bytesProduced());
+        if (res.bytesProduced() == 0) {
+            assertEquals(HandshakeStatus.NEED_WRAP, res.getHandshakeStatus());
+        } else {
+            assertEquals(HandshakeStatus.NEED_UNWRAP, res.getHandshakeStatus());
+        }
     }
 
     private SSLEngine getEngine() throws Exception {

@@ -101,7 +101,6 @@ typedef struct {
 class GScanCommand: public WifiVendorCommand
 {
 private:
-    GScanGetCapabilitiesRspParams       *mGetCapabilitiesRspParams;
     GScanGetCachedResultsRspParams      *mGetCachedResultsRspParams;
     GScanCallbackHandler                mHandler;
     int                                 mRequestId;
@@ -124,8 +123,6 @@ public:
     virtual void setNumChannelsPtr(int *num_channels);
     virtual int allocRspParams(eGScanRspRarams cmd);
     virtual void freeRspParams(eGScanRspRarams cmd);
-    virtual wifi_error getGetCapabilitiesRspParams(
-                    wifi_gscan_capabilities *capabilities);
     virtual wifi_error copyCachedScanResults(int *numResults,
                                              wifi_cached_scan_results *cached_results);
     virtual int gscan_get_cached_results(wifi_cached_scan_results *results,
@@ -135,7 +132,6 @@ public:
             wifi_significant_change_params params);
     virtual int allocCachedResultsTemp(int max,
                                        wifi_cached_scan_results *results);
-    virtual int gscan_parse_capabilities(struct nlattr **tbVendor);
 };
 
 #define GSCAN_BASE_PERIOD_MIN 1

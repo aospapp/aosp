@@ -38,8 +38,6 @@
 struct image {
     /* if true, decode file in place instead of creating a new output file */
     bool inplace;
-    /* if true, use memory mapping instead of copying all input into memory */
-    bool mmap;
     /* if true, assume input is a sparse file */
     bool sparse;
     /* if true, print more verbose information to stderr */
@@ -54,13 +52,13 @@ struct image {
     int rs_n;
     int threads;
     uint32_t fec_size;
+    uint32_t padding;
     uint64_t blocks;
     uint64_t inp_size;
     uint64_t pos;
     uint64_t rounds;
     uint64_t rv;
     uint8_t *fec;
-    uint8_t *fec_mmap_addr;
     uint8_t *input;
     uint8_t *output;
 };
@@ -79,8 +77,7 @@ struct image_proc_ctx {
     void *rs;
 };
 
-extern bool image_load(const std::vector<std::string>& filename, image *ctx,
-        bool output_needed);
+extern bool image_load(const std::vector<std::string>& filename, image *ctx);
 extern bool image_save(const std::string& filename, image *ctx);
 
 extern bool image_ecc_new(const std::string& filename, image *ctx);

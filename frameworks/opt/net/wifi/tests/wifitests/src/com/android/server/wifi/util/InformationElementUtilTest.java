@@ -18,9 +18,13 @@ package com.android.server.wifi.util;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.net.wifi.ScanResult.InformationElement;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.server.wifi.hotspot2.NetworkDetail;
 
 import org.junit.Test;
 
@@ -239,7 +243,7 @@ public class InformationElementUtilTest {
     }
 
     /**
-     * Test Capabilities.buildCapabilities() with a RSN IE.
+     * Test Capabilities.generateCapabilitiesString() with a RSN IE.
      * Expect the function to return a string with the proper security information.
      */
     @Test
@@ -258,13 +262,42 @@ public class InformationElementUtilTest {
         BitSet beaconCap = new BitSet(16);
         beaconCap.set(4);
 
-        String result = InformationElementUtil.Capabilities.buildCapabilities(ies, beaconCap);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
 
-        assertEquals("[WPA2-PSK]", result);
+        assertEquals("[WPA2-PSK-CCMP+TKIP]", result);
     }
 
     /**
-     * Test Capabilities.buildCapabilities() with a WPA type 1 IE.
+     * Test Capabilities.generateCapabilitiesString() with a RSN IE which is malformed.
+     * Expect the function to return a string with empty key management & pairswise cipher security
+     * information.
+     */
+    @Test
+    public void buildCapabilities_malformedRsnElement() {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_RSN;
+        ie.bytes = new byte[] { (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x0F,
+                (byte) 0xAC, (byte) 0x02, (byte) 0x02, (byte) 0x00,
+                (byte) 0x00, (byte) 0x0F, (byte) 0xAC };
+
+        InformationElement[] ies = new InformationElement[] { ie };
+
+        BitSet beaconCap = new BitSet(16);
+        beaconCap.set(4);
+
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
+        assertEquals("[WPA2]", result);
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with a WPA type 1 IE.
      * Expect the function to return a string with the proper security information.
      */
     @Test
@@ -283,14 +316,144 @@ public class InformationElementUtilTest {
 
         BitSet beaconCap = new BitSet(16);
         beaconCap.set(4);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
 
-        String result = InformationElementUtil.Capabilities.buildCapabilities(ies, beaconCap);
-
-        assertEquals("[WPA-PSK]", result);
+        assertEquals("[WPA-PSK-CCMP+TKIP]", result);
     }
 
     /**
-     * Test Capabilities.buildCapabilities() with a vendor specific element which
+     * Test Capabilities.generateCapabilitiesString() with a WPA type 1 IE which is malformed.
+     * Expect the function to return a string with empty key management & pairswise cipher security
+     * information.
+     */
+    @Test
+    public void buildCapabilities_malformedWpa1Element() {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_VSA;
+        ie.bytes = new byte[] { (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x01,
+                (byte) 0x01, (byte) 0x00 };
+
+        InformationElement[] ies = new InformationElement[] { ie };
+
+        BitSet beaconCap = new BitSet(16);
+        beaconCap.set(4);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
+        assertEquals("[WPA]", result);
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with both RSN and WPA1 IE.
+     * Expect the function to return a string with the proper security information.
+     */
+    @Test
+    public void buildCapabilities_rsnAndWpaElement() {
+        InformationElement ieRsn = new InformationElement();
+        ieRsn.id = InformationElement.EID_RSN;
+        ieRsn.bytes = new byte[] { (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x0F,
+                                   (byte) 0xAC, (byte) 0x02, (byte) 0x02, (byte) 0x00,
+                                   (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x04,
+                                   (byte) 0x00, (byte) 0x0F, (byte) 0xAC, (byte) 0x02,
+                                   (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x0F,
+                                   (byte) 0xAC, (byte) 0x02, (byte) 0x00, (byte) 0x00 };
+
+        InformationElement ieWpa = new InformationElement();
+        ieWpa.id = InformationElement.EID_VSA;
+        ieWpa.bytes = new byte[] { (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x01,
+                                   (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x50,
+                                   (byte) 0xF2, (byte) 0x02, (byte) 0x02, (byte) 0x00,
+                                   (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x04,
+                                   (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x02,
+                                   (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x50,
+                                   (byte) 0xF2, (byte) 0x02, (byte) 0x00, (byte) 0x00 };
+
+        InformationElement[] ies = new InformationElement[] { ieWpa, ieRsn };
+
+        BitSet beaconCap = new BitSet(16);
+        beaconCap.set(4);
+
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
+        assertEquals("[WPA-PSK-CCMP+TKIP][WPA2-PSK-CCMP+TKIP]", result);
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with both RSN and WPA1 IE which are malformed.
+     * Expect the function to return a string with empty key management & pairswise cipher security
+     * information.
+     */
+    @Test
+    public void buildCapabilities_malformedRsnAndWpaElement() {
+        InformationElement ieRsn = new InformationElement();
+        ieRsn.id = InformationElement.EID_RSN;
+        ieRsn.bytes = new byte[] { (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x0F,
+                (byte) 0xAC, (byte) 0x02, (byte) 0x02 };
+
+        InformationElement ieWpa = new InformationElement();
+        ieWpa.id = InformationElement.EID_VSA;
+        ieWpa.bytes = new byte[] { (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x01,
+                (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x50,
+                (byte) 0xF2, (byte) 0x02, (byte) 0x02, (byte) 0x00,
+                (byte) 0x00, (byte) 0x50 };
+
+        InformationElement[] ies = new InformationElement[] { ieWpa, ieRsn };
+
+        BitSet beaconCap = new BitSet(16);
+        beaconCap.set(4);
+
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
+        assertEquals("[WPA][WPA2]", result);
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with both WPS and WPA1 IE.
+     * Expect the function to return a string with the proper security information.
+     */
+    @Test
+    public void buildCapabilities_wpaAndWpsElement() {
+        InformationElement ieWpa = new InformationElement();
+        ieWpa.id = InformationElement.EID_VSA;
+        ieWpa.bytes = new byte[] { (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x01,
+                                   (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x50,
+                                   (byte) 0xF2, (byte) 0x02, (byte) 0x02, (byte) 0x00,
+                                   (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x04,
+                                   (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x02,
+                                   (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x50,
+                                   (byte) 0xF2, (byte) 0x02, (byte) 0x00, (byte) 0x00 };
+
+        InformationElement ieWps = new InformationElement();
+        ieWps.id = InformationElement.EID_VSA;
+        ieWps.bytes = new byte[] { (byte) 0x00, (byte) 0x50, (byte) 0xF2, (byte) 0x04 };
+
+        InformationElement[] ies = new InformationElement[] { ieWpa, ieWps };
+
+        BitSet beaconCap = new BitSet(16);
+        beaconCap.set(4);
+
+
+        InformationElementUtil.Capabilities capabilities =
+                 new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
+        assertEquals("[WPA-PSK-CCMP+TKIP][WPS]", result);
+    }
+
+    /**
+     * Test Capabilities.generateCapabilitiesString() with a vendor specific element which
      * is not WPA type 1. Beacon Capability Information field has the Privacy
      * bit set.
      *
@@ -309,13 +472,17 @@ public class InformationElementUtilTest {
         BitSet beaconCap = new BitSet(16);
         beaconCap.set(4);
 
-        String result = InformationElementUtil.Capabilities.buildCapabilities(ies, beaconCap);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
 
         assertEquals("[WEP]", result);
     }
 
     /**
-     * Test Capabilities.buildCapabilities() with a vendor specific element which
+     * Test Capabilities.generateCapabilitiesString() with a vendor specific element which
      * is not WPA type 1. Beacon Capability Information field doesn't have the
      * Privacy bit set.
      *
@@ -334,13 +501,17 @@ public class InformationElementUtilTest {
         BitSet beaconCap = new BitSet(16);
         beaconCap.clear(4);
 
-        String result = InformationElementUtil.Capabilities.buildCapabilities(ies, beaconCap);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
 
         assertEquals("", result);
     }
 
     /**
-     * Test Capabilities.buildCapabilities() with a vendor specific element which
+     * Test Capabilities.generateCapabilitiesString() with a vendor specific element which
      * is not WPA type 1. Beacon Capability Information field has the ESS bit set.
      *
      * Expect the function to return a string with [ESS] there.
@@ -358,13 +529,17 @@ public class InformationElementUtilTest {
         BitSet beaconCap = new BitSet(16);
         beaconCap.set(0);
 
-        String result = InformationElementUtil.Capabilities.buildCapabilities(ies, beaconCap);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
 
         assertEquals("[ESS]", result);
     }
 
     /**
-     * Test Capabilities.buildCapabilities() with a vendor specific element which
+     * Test Capabilities.generateCapabilitiesString() with a vendor specific element which
      * is not WPA type 1. Beacon Capability Information field doesn't have the
      * ESS bit set.
      *
@@ -383,9 +558,68 @@ public class InformationElementUtilTest {
         BitSet beaconCap = new BitSet(16);
         beaconCap.clear(0);
 
-        String result = InformationElementUtil.Capabilities.buildCapabilities(ies, beaconCap);
+        InformationElementUtil.Capabilities capabilities =
+                new InformationElementUtil.Capabilities();
+        capabilities.from(ies, beaconCap);
+        String result = capabilities.generateCapabilitiesString();
+
 
         assertEquals("", result);
+    }
+
+    /**
+     * Verify the expectations when building an ExtendedCapabilites IE from data with no bits set.
+     * Both ExtendedCapabilities#isStrictUtf8() and ExtendedCapabilites#is80211McRTTResponder()
+     * should return false.
+     */
+    @Test
+    public void buildExtendedCapabilities_emptyBitSet() {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_EXTENDED_CAPS;
+        ie.bytes = new byte[8];
+
+        InformationElementUtil.ExtendedCapabilities extendedCap =
+                new InformationElementUtil.ExtendedCapabilities();
+        extendedCap.from(ie);
+        assertFalse(extendedCap.isStrictUtf8());
+        assertFalse(extendedCap.is80211McRTTResponder());
+    }
+
+    /**
+     * Verify the expectations when building an ExtendedCapabilites IE from data with UTF-8 SSID
+     * bit set (bit 48).  ExtendedCapabilities#isStrictUtf8() should return true.
+     */
+    @Test
+    public void buildExtendedCapabilites_strictUtf8() {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_EXTENDED_CAPS;
+        ie.bytes = new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+                                (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00 };
+
+        InformationElementUtil.ExtendedCapabilities extendedCap =
+                new InformationElementUtil.ExtendedCapabilities();
+        extendedCap.from(ie);
+        assertTrue(extendedCap.isStrictUtf8());
+        assertFalse(extendedCap.is80211McRTTResponder());
+    }
+
+    /**
+     * Verify the expectations when building an ExtendedCapabilites IE from data with RTT Response
+     * Enable bit set (bit 70).  ExtendedCapabilities#is80211McRTTResponder() should return true.
+     */
+    @Test
+    public void buildExtendedCapabilites_80211McRTTResponder() {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_EXTENDED_CAPS;
+        ie.bytes = new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+                                (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+                                (byte) 0x40 };
+
+        InformationElementUtil.ExtendedCapabilities extendedCap =
+                new InformationElementUtil.ExtendedCapabilities();
+        extendedCap.from(ie);
+        assertFalse(extendedCap.isStrictUtf8());
+        assertTrue(extendedCap.is80211McRTTResponder());
     }
 
     /**
@@ -436,5 +670,87 @@ public class InformationElementUtilTest {
                 new InformationElementUtil.TrafficIndicationMap();
         trafficIndicationMap.from(ie);
         assertEquals(trafficIndicationMap.isValid(), false);
+    }
+
+    /**
+     * Verify that the expected Roaming Consortium information element is parsed and retrieved
+     * from the list of IEs.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getRoamingConsortiumIE() throws Exception {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_ROAMING_CONSORTIUM;
+        /**
+         * Roaming Consortium Format;
+         * | Number of OIs | OI#1 and OI#2 Lengths | OI #1 | OI #2 (optional) | OI #3 (optional) |
+         *        1                  1              variable     variable           variable
+         */
+        ie.bytes = new byte[] { (byte) 0x01 /* number of OIs */, (byte) 0x03 /* OI Length */,
+                                (byte) 0x11, (byte) 0x22, (byte) 0x33};
+        InformationElementUtil.RoamingConsortium roamingConsortium =
+                InformationElementUtil.getRoamingConsortiumIE(new InformationElement[] {ie});
+        assertEquals(1, roamingConsortium.anqpOICount);
+        assertEquals(1, roamingConsortium.roamingConsortiums.length);
+        assertEquals(0x112233, roamingConsortium.roamingConsortiums[0]);
+    }
+
+    /**
+     * Verify that the expected Hotspot 2.0 Vendor Specific information element is parsed and
+     * retrieved from the list of IEs.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getHS2VendorSpecificIE() throws Exception {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_VSA;
+        /**
+         * Vendor Specific OI Format:
+         * | OI | Type | Hotspot Configuration | PPS MO ID (optional) | ANQP Domain ID (optional)
+         *    3    1              1                    2                        2
+         *
+         * With OI=0x506F9A and Type=0x10 for Hotspot 2.0
+         *
+         * The Format of Hotspot Configuration:
+         *        B0               B1                   B2             B3    B4              B7
+         * | DGAF Disabled | PPS MO ID Flag | ANQP Domain ID Flag | reserved | Release Number |
+         */
+        ie.bytes = new byte[] { (byte) 0x50, (byte) 0x6F, (byte) 0x9A, (byte) 0x10,
+                                (byte) 0x14 /* Hotspot Configuration */, (byte) 0x11, (byte) 0x22};
+        InformationElementUtil.Vsa vsa =
+                InformationElementUtil.getHS2VendorSpecificIE(new InformationElement[] {ie});
+        assertEquals(NetworkDetail.HSRelease.R2, vsa.hsRelease);
+        assertEquals(0x2211, vsa.anqpDomainID);
+    }
+
+    /**
+     * Verify that the expected Interworking information element is parsed and retrieved from the
+     * list of IEs.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void getInterworkingElementIE() throws Exception {
+        InformationElement ie = new InformationElement();
+        ie.id = InformationElement.EID_INTERWORKING;
+        /**
+         * Interworking Format:
+         * | Access Network Option | Venue Info (optional) | HESSID (optional) |
+         *           1                       2                     6
+         *
+         * Access Network Option Format:
+         *
+         * B0                   B3    B4       B5    B6     B7
+         * | Access Network Type | Internet | ASRA | ESR | UESA |
+         */
+        ie.bytes = new byte[] { (byte) 0x10, (byte) 0x11, (byte) 0x22, (byte) 0x33, (byte) 0x44,
+                                (byte) 0x55, (byte) 0x66 };
+        InformationElementUtil.Interworking interworking =
+                InformationElementUtil.getInterworkingIE(new InformationElement[] {ie});
+        assertTrue(interworking.internet);
+        assertEquals(NetworkDetail.Ant.Private, interworking.ant);
+        assertEquals(0x112233445566L, interworking.hessid);
     }
 }

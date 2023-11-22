@@ -36,7 +36,7 @@ function gotLocalStream(stream) {
   remotePeerConnection.onaddstream = gotRemoteStream;
 
   localPeerConnection.addStream(localStream);
-  localPeerConnection.createOffer(gotLocalDescription);
+  localPeerConnection.createOffer(gotLocalDescription, function(error) {});
 }
 
 function gotError(error) {
@@ -50,7 +50,7 @@ function gotRemoteStream(event) {
 function gotLocalDescription(description) {
   localPeerConnection.setLocalDescription(description);
   remotePeerConnection.setRemoteDescription(description);
-  remotePeerConnection.createAnswer(gotRemoteDescription);
+  remotePeerConnection.createAnswer(gotRemoteDescription, function(error) {});
 }
 
 function gotRemoteDescription(description) {

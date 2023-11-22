@@ -20,7 +20,6 @@ package org.apache.commons.codec;
 /**
  * Defines common decoding methods for byte array decoders.
  *
- * @author Apache Software Foundation
  * @version $Id: BinaryDecoder.java 651573 2008-04-25 11:11:21Z niallp $
  */
 public interface BinaryDecoder extends Decoder {

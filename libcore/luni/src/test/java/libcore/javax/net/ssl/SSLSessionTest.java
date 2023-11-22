@@ -242,6 +242,7 @@ public class SSLSessionTest extends TestCase {
         TestSSLSessions s = TestSSLSessions.create();
         try {
             s.invalid.getValue(null);
+            fail();
         } catch (IllegalArgumentException expected) {
         }
         assertNull(s.invalid.getValue("BOGUS"));

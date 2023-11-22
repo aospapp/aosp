@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 1996-2016, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 
@@ -21,6 +23,7 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.Set;
 
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.util.Currency;
 import com.ibm.icu.util.Currency.CurrencyUsage;
@@ -228,8 +231,7 @@ public abstract class NumberFormat extends UFormat {
      * to represent currency, for example "$3.00", using non-accounting style for
      * negative values (e.g. minus sign).
      * Overrides any style specified using -cf- key in locale.
-     * @draft ICU 56
-     * @provisional This API might change or be removed in a future release. 
+     * @stable ICU 56
      */
     public static final int STANDARDCURRENCYSTYLE = 9;
 
@@ -248,7 +250,7 @@ public abstract class NumberFormat extends UFormat {
      * @stable ICU 2.0
      */
     public static final int FRACTION_FIELD = 1;
-    
+
     /**
      * Formats a number and appends the resulting text to the given string buffer.
      * {@icunote} recognizes <code>BigInteger</code>
@@ -399,11 +401,13 @@ public abstract class NumberFormat extends UFormat {
                                StringBuffer toAppendTo,
                                FieldPosition pos) {
         // Default implementation -- subclasses may override
-        Currency save = getCurrency(), curr = currAmt.getCurrency();
-        boolean same = curr.equals(save);
-        if (!same) setCurrency(curr);
-        format(currAmt.getNumber(), toAppendTo, pos);
-        if (!same) setCurrency(save);
+        synchronized(this) {
+            Currency save = getCurrency(), curr = currAmt.getCurrency();
+            boolean same = curr.equals(save);
+            if (!same) setCurrency(curr);
+            format(currAmt.getNumber(), toAppendTo, pos);
+            if (!same) setCurrency(save);
+        }
         return toAppendTo;
     }
 
@@ -525,9 +529,9 @@ public abstract class NumberFormat extends UFormat {
 
     /**
      * {@icu} Set a particular DisplayContext value in the formatter,
-     * such as CAPITALIZATION_FOR_STANDALONE. 
-     * 
-     * @param context The DisplayContext value to set. 
+     * such as CAPITALIZATION_FOR_STANDALONE.
+     *
+     * @param context The DisplayContext value to set.
      * @stable ICU 53
      */
     public void setContext(DisplayContext context) {
@@ -539,7 +543,7 @@ public abstract class NumberFormat extends UFormat {
     /**
      * {@icu} Get the formatter's DisplayContext value for the specified DisplayContext.Type,
      * such as CAPITALIZATION.
-     * 
+     *
      * @param type the DisplayContext.Type whose value to return
      * @return the current DisplayContext setting for the specified type
      * @stable ICU 53
@@ -997,11 +1001,11 @@ public abstract class NumberFormat extends UFormat {
      * {@icu} Registers a new NumberFormatFactory.  The factory is adopted by
      * the service and must not be modified.  The returned object is a
      * key that can be used to unregister this factory.
-     * 
+     *
      * <p>Because ICU may choose to cache NumberFormat objects internally, this must
      * be called at application startup, prior to any calls to
      * NumberFormat.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param factory the factory to register
      * @return a key with which to unregister the factory
      * @stable ICU 2.6
@@ -1255,7 +1259,7 @@ public abstract class NumberFormat extends UFormat {
     public Currency getCurrency() {
         return currency;
     }
-    
+
     /**
      * Returns the currency in effect for this formatter.  Subclasses
      * should override this method as needed.  Unlike getCurrency(),
@@ -1411,7 +1415,7 @@ public abstract class NumberFormat extends UFormat {
                 f.setDecimalSeparatorAlwaysShown(false);
                 f.setParseIntegerOnly(true);
             }
-            
+
             if (choice == CASHCURRENCYSTYLE) {
                 f.setCurrencyUsage(CurrencyUsage.CASH);
             }
@@ -1447,45 +1451,6 @@ public abstract class NumberFormat extends UFormat {
      * @stable ICU 3.2
      */
     protected static String getPattern(ULocale forLocale, int choice) {
-
-        /* The following code takes care of a few cases where the
-         * resource data in the underlying JDK lags the new features
-         * we have added to ICU4J: scientific notation, rounding, and
-         * secondary grouping.
-         *
-         * We detect these cases here and return various hard-coded
-         * resource data.  This is the simplest solution for now, but
-         * it is not a good long-term mechanism.
-         *
-         * We should replace this code with a data-driven mechanism
-         * that reads the bundle com.ibm.icu.impl.data.LocaleElements
-         * and parses an exception table that overrides the standard
-         * data at java.text.resource.LocaleElements*.java.
-         * Alternatively, we should create our own copy of the
-         * resource data, and use that exclusively.
-         */
-
-        // TEMPORARY, until we get scientific patterns into the main
-        // resources:  Retrieve scientific patterns from our resources.
-        //if (choice == SCIENTIFICSTYLE) {
-            // Temporarily hard code; retrieve from resource later
-            /*For ICU compatibility [Richard/GCL]*/
-        //    return "#E0";
-            // return NumberFormat.getBaseStringArray("NumberPatterns")[SCIENTIFICSTYLE];
-        //}
-
-        /* {dlf}
-        // Try the cache first
-        String[] numberPatterns = (String[]) cachedLocaleData.get(forLocale);
-        if (numberPatterns == null) {
-            OverlayBundle resource = new OverlayBundle(new String[]
-                { "com.ibm.icu.impl.data.LocaleElements", RESOURCE_BASE }, forLocale);
-            numberPatterns = resource.getStringArray("NumberPatterns");
-            // Update the cache
-            cachedLocaleData.put(forLocale, numberPatterns);
-        }
-        */
-
         /* for ISOCURRENCYSTYLE and PLURALCURRENCYSTYLE,
          * the pattern is the same as the pattern of CURRENCYSTYLE
          * but by replacing the single currency sign with
@@ -1499,7 +1464,8 @@ public abstract class NumberFormat extends UFormat {
             break;
         case CURRENCYSTYLE:
             String cfKeyValue = forLocale.getKeywordValue("cf");
-            patternKey = (cfKeyValue != null && cfKeyValue.equals("account"))? "accountingFormat": "currencyFormat";
+            patternKey = (cfKeyValue != null && cfKeyValue.equals("account")) ?
+                    "accountingFormat" : "currencyFormat";
             break;
         case CASHCURRENCYSTYLE:
         case ISOCURRENCYSTYLE:
@@ -1523,14 +1489,13 @@ public abstract class NumberFormat extends UFormat {
         }
 
         ICUResourceBundle rb = (ICUResourceBundle)UResourceBundle.
-        getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, forLocale);
+        getBundleInstance(ICUData.ICU_BASE_NAME, forLocale);
         NumberingSystem ns = NumberingSystem.getInstance(forLocale);
 
-        String result = null;
-        try {
-            result = rb.getStringWithFallback("NumberElements/" + ns.getName() + "/patterns/"+ patternKey);
-        } catch ( MissingResourceException ex ) {
-            result = rb.getStringWithFallback("NumberElements/latn/patterns/"+ patternKey);
+        String result = rb.findStringWithFallback(
+                    "NumberElements/" + ns.getName() + "/patterns/" + patternKey);
+        if (result == null) {
+            result = rb.getStringWithFallback("NumberElements/latn/patterns/" + patternKey);
         }
 
         return result;

@@ -6,6 +6,7 @@ import logging
 import time
 
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros import vboot_constants as vboot
 
 
 class firmware_SoftwareSync(FirmwareTest):
@@ -18,6 +19,8 @@ class firmware_SoftwareSync(FirmwareTest):
         # This test tries to corrupt EC firmware. Should disable EC WP.
         super(firmware_SoftwareSync, self).initialize(host, cmdline_args,
                                                       ec_wp=False)
+        # In order to test software sync, it must be enabled.
+        self.clear_set_gbb_flags(vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC, 0)
         self.backup_firmware()
         self.switcher.setup_mode('dev' if dev_mode else 'normal')
         self.setup_usbkey(usbkey=False)

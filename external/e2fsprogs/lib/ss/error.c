@@ -12,6 +12,7 @@
  * express or implied warranty.
  */
 
+#include "config.h"
 #include <stdio.h>
 
 #include "et/com_err.h"

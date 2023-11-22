@@ -30,13 +30,13 @@
 using namespace android;
 
 #define AUDIOEFFECT_SUCCESS                      0
-#define AUDIOEFFECT_ERROR                       -1
-#define AUDIOEFFECT_ERROR_ALREADY_EXISTS        -2
-#define AUDIOEFFECT_ERROR_NO_INIT               -3
-#define AUDIOEFFECT_ERROR_BAD_VALUE             -4
-#define AUDIOEFFECT_ERROR_INVALID_OPERATION     -5
-#define AUDIOEFFECT_ERROR_NO_MEMORY             -6
-#define AUDIOEFFECT_ERROR_DEAD_OBJECT           -7
+#define AUDIOEFFECT_ERROR                       (-1)
+#define AUDIOEFFECT_ERROR_ALREADY_EXISTS        (-2)
+#define AUDIOEFFECT_ERROR_NO_INIT               (-3)
+#define AUDIOEFFECT_ERROR_BAD_VALUE             (-4)
+#define AUDIOEFFECT_ERROR_INVALID_OPERATION     (-5)
+#define AUDIOEFFECT_ERROR_NO_MEMORY             (-6)
+#define AUDIOEFFECT_ERROR_DEAD_OBJECT           (-7)
 
 // ----------------------------------------------------------------------------
 static const char* const kClassPathName = "android/media/audiofx/AudioEffect";
@@ -86,6 +86,7 @@ static jint translateError(int code) {
     case NO_MEMORY:
         return AUDIOEFFECT_ERROR_NO_MEMORY;
     case DEAD_OBJECT:
+    case FAILED_TRANSACTION: // Hidl crash shows as FAILED_TRANSACTION: -2147483646
         return AUDIOEFFECT_ERROR_DEAD_OBJECT;
     default:
         return AUDIOEFFECT_ERROR;
@@ -352,7 +353,7 @@ android_media_AudioEffect_native_setup(JNIEnv *env, jobject thiz, jobject weak_t
                                     effectCallback,
                                     &lpJniStorage->mCallbackData,
                                     (audio_session_t) sessionId,
-                                    0);
+                                    AUDIO_IO_HANDLE_NONE);
     if (lpAudioEffect == 0) {
         ALOGE("Error creating AudioEffect");
         goto setup_failure;

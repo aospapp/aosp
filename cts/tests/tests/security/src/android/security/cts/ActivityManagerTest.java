@@ -16,9 +16,10 @@
 package android.security.cts;
 
 import android.os.IBinder;
-
+import android.platform.test.annotations.SecurityTest;
 import junit.framework.TestCase;
 
+@SecurityTest
 public class ActivityManagerTest extends TestCase {
 
     @Override

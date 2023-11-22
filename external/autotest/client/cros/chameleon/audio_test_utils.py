@@ -10,6 +10,8 @@
 import logging
 import multiprocessing
 import os
+import pprint
+import re
 import time
 from contextlib import contextmanager
 
@@ -17,6 +19,53 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros.audio import audio_analysis
 from autotest_lib.client.cros.audio import audio_data
+from autotest_lib.client.cros.audio import audio_helper
+from autotest_lib.client.cros.audio import audio_quality_measurement
+from autotest_lib.client.cros.chameleon import chameleon_audio_ids
+
+CHAMELEON_AUDIO_IDS_TO_CRAS_NODE_TYPES = {
+       chameleon_audio_ids.CrosIds.HDMI: 'HDMI',
+       chameleon_audio_ids.CrosIds.HEADPHONE: 'HEADPHONE',
+       chameleon_audio_ids.CrosIds.EXTERNAL_MIC: 'MIC',
+       chameleon_audio_ids.CrosIds.SPEAKER: 'INTERNAL_SPEAKER',
+       chameleon_audio_ids.CrosIds.INTERNAL_MIC: 'INTERNAL_MIC',
+       chameleon_audio_ids.CrosIds.BLUETOOTH_HEADPHONE: 'BLUETOOTH',
+       chameleon_audio_ids.CrosIds.BLUETOOTH_MIC: 'BLUETOOTH',
+       chameleon_audio_ids.CrosIds.USBIN: 'USB',
+       chameleon_audio_ids.CrosIds.USBOUT: 'USB',
+}
+
+
+def cros_port_id_to_cras_node_type(port_id):
+    """Gets Cras node type from Cros port id.
+
+    @param port_id: A port id defined in chameleon_audio_ids.CrosIds.
+
+    @returns: A Cras node type defined in cras_utils.CRAS_NODE_TYPES.
+
+    """
+    return CHAMELEON_AUDIO_IDS_TO_CRAS_NODE_TYPES[port_id]
+
+
+def check_output_port(audio_facade, port_id):
+    """Checks selected output node on Cros device is correct for a port.
+
+    @param port_id: A port id defined in chameleon_audio_ids.CrosIds.
+
+    """
+    output_node_type = cros_port_id_to_cras_node_type(port_id)
+    check_audio_nodes(audio_facade, ([output_node_type], None))
+
+
+def check_input_port(audio_facade, port_id):
+    """Checks selected input node on Cros device is correct for a port.
+
+    @param port_id: A port id defined in chameleon_audio_ids.CrosIds.
+
+    """
+    input_node_type = cros_port_id_to_cras_node_type(port_id)
+    check_audio_nodes(audio_facade, (None, [input_node_type]))
+
 
 def check_audio_nodes(audio_facade, audio_nodes):
     """Checks the node selected by Cros device is correct.
@@ -91,29 +140,6 @@ def _get_board_name(host):
     return host.get_board().split(':')[1]
 
 
-def correction_plug_unplug_for_audio(host, port):
-    """Plugs/unplugs several times for Cros device to detect audio.
-
-    For issue crbug.com/450101, Exynos HDMI driver has problem recognizing
-    HDMI audio, while display can be detected. Do several plug/unplug and wait
-    as a workaround. Note that port will be in unplugged state in the end if
-    extra plug/unplug is needed.
-
-    @param host: A CrosHost object.
-    @param port: A ChameleonVideoInput object.
-
-    """
-    board = _get_board_name(host)
-    if board in ['peach_pit', 'peach_pi', 'daisy', 'daisy_spring',
-                 'daisy_skate']:
-        logging.info('Need extra plug/unplug on board %s', board)
-        for _ in xrange(3):
-            port.plug()
-            time.sleep(3)
-            port.unplug()
-            time.sleep(3)
-
-
 def has_internal_speaker(host):
     """Checks if the Cros device has speaker.
 
@@ -140,6 +166,21 @@ def has_internal_microphone(host):
     board_name = _get_board_name(host)
     if host.get_board_type() == 'CHROMEBOX':
         logging.info('Board %s does not have internal microphone.', board_name)
+        return False
+    return True
+
+
+def has_headphone(host):
+    """Checks if the Cros device has headphone.
+
+    @param host: The CrosHost object.
+
+    @returns: True if Cros device has headphone. False otherwise.
+
+    """
+    board_name = _get_board_name(host)
+    if host.get_board_type() == 'CHROMEBIT':
+        logging.info('Board %s does not have headphone.', board_name)
         return False
     return True
 
@@ -196,6 +237,42 @@ def dump_cros_audio_logs(host, audio_facade, directory, suffix=''):
                   get_file_path('multimedia_xmlrpc_server.log'))
 
 
+def examine_audio_diagnostics(path):
+    """Examines audio diagnostic content.
+
+    @param path: Path to audio diagnostic file.
+
+    @returns: Warning messages or ''.
+
+    """
+    warning_msgs = []
+    line_number = 1
+
+    underrun_pattern = re.compile('num_underruns: (\d*)')
+
+    with open(path) as f:
+        for line in f.readlines():
+
+            # Check for number of underruns.
+            search_result = underrun_pattern.search(line)
+            if search_result:
+                num_underruns = int(search_result.group(1))
+                if num_underruns != 0:
+                    warning_msgs.append(
+                            'Found %d underrun at line %d: %s' % (
+                                    num_underruns, line_number, line))
+
+            # TODO(cychiang) add other check like maximum client reply delay.
+            line_number = line_number + 1
+
+    if warning_msgs:
+        return ('Found issue in audio diganostics result : %s' %
+                '\n'.join(warning_msgs))
+
+    logging.info('audio_diagnostic result looks fine')
+    return ''
+
+
 @contextmanager
 def monitor_no_nodes_changed(audio_facade, callback=None):
     """Context manager to monitor nodes changed signal on Cros device.
@@ -230,19 +307,59 @@ def monitor_no_nodes_changed(audio_facade, callback=None):
 
 # The second dominant frequency should have energy less than -26dB of the
 # first dominant frequency in the spectrum.
-DEFAULT_SECOND_PEAK_RATIO = 0.05
+_DEFAULT_SECOND_PEAK_RATIO = 0.05
 
-# Tolerate more for bluetooth audio using HSP.
-HSP_SECOND_PEAK_RATIO = 0.2
+# Tolerate more noise for bluetooth audio using HSP.
+_HSP_SECOND_PEAK_RATIO = 0.2
+
+# Tolerate more noise for speaker.
+_SPEAKER_SECOND_PEAK_RATIO = 0.1
+
+# Tolerate more noise for internal microphone.
+_INTERNAL_MIC_SECOND_PEAK_RATIO = 0.2
+
+# maximum tolerant noise level
+DEFAULT_TOLERANT_NOISE_LEVEL = 0.01
+
+# If relative error of two durations is less than 0.2,
+# they will be considered equivalent.
+DEFAULT_EQUIVALENT_THRESHOLD = 0.2
+
+# The frequency at lower than _DC_FREQ_THRESHOLD should have coefficient
+# smaller than _DC_COEFF_THRESHOLD.
+_DC_FREQ_THRESHOLD = 0.001
+_DC_COEFF_THRESHOLD = 0.01
+
+def get_second_peak_ratio(source_id, recorder_id, is_hsp=False):
+    """Gets the second peak ratio suitable for use case.
+
+    @param source_id: ID defined in chameleon_audio_ids for source widget.
+    @param recorder_id: ID defined in chameleon_audio_ids for recorder widget.
+    @param is_hsp: For bluetooth HSP use case.
+
+    @returns: A float for proper second peak ratio to be used in
+              check_recorded_frequency.
+    """
+    if is_hsp:
+        return _HSP_SECOND_PEAK_RATIO
+    elif source_id == chameleon_audio_ids.CrosIds.SPEAKER:
+        return _SPEAKER_SECOND_PEAK_RATIO
+    elif recorder_id == chameleon_audio_ids.CrosIds.INTERNAL_MIC:
+        return _INTERNAL_MIC_SECOND_PEAK_RATIO
+    else:
+        return _DEFAULT_SECOND_PEAK_RATIO
+
 
 # The deviation of estimated dominant frequency from golden frequency.
 DEFAULT_FREQUENCY_DIFF_THRESHOLD = 5
 
 def check_recorded_frequency(
         golden_file, recorder,
-        second_peak_ratio=DEFAULT_SECOND_PEAK_RATIO,
+        second_peak_ratio=_DEFAULT_SECOND_PEAK_RATIO,
         frequency_diff_threshold=DEFAULT_FREQUENCY_DIFF_THRESHOLD,
-        ignore_frequencies=None, check_anomaly=False):
+        ignore_frequencies=None, check_anomaly=False, check_artifacts=False,
+        mute_durations=None, volume_changes=None,
+        tolerant_noise_level=DEFAULT_TOLERANT_NOISE_LEVEL):
     """Checks if the recorded data contains sine tone of golden frequency.
 
     @param golden_file: An AudioTestData object that serves as golden data.
@@ -261,11 +378,29 @@ def check_recorded_frequency(
                                ignored. The comparison of frequencies uses
                                frequency_diff_threshold as well.
     @param check_anomaly: True to check anomaly in the signal.
+    @param check_artifacts: True to check artifacts in the signal.
+    @param mute_durations: Each duration of mute in seconds in the signal.
+    @param volume_changes: A list containing alternative -1 for decreasing
+                           volume and +1 for increasing volume.
+    @param tolerant_noise_level: The maximum noise level can be tolerated
+
+    @returns: A list containing tuples of (dominant_frequency, coefficient) for
+              valid channels. Coefficient can be a measure of signal magnitude
+              on that dominant frequency. Invalid channels where golden_channel
+              is None are ignored.
 
     @raises error.TestFail if the recorded data does not contain sine tone of
             golden frequency.
 
     """
+    if not ignore_frequencies:
+        ignore_frequencies = []
+
+    # Also ignore harmonics of ignore frequencies.
+    ignore_frequencies_harmonics = []
+    for ignore_freq in ignore_frequencies:
+        ignore_frequencies_harmonics += [ignore_freq * n for n in xrange(1, 4)]
+
     data_format = recorder.data_format
     recorded_data = audio_data.AudioRawData(
             binary=recorder.get_binary(),
@@ -273,6 +408,7 @@ def check_recorded_frequency(
             sample_format=data_format['sample_format'])
 
     errors = []
+    dominant_spectrals = []
 
     for test_channel, golden_channel in enumerate(recorder.channel_map):
         if golden_channel is None:
@@ -282,10 +418,14 @@ def check_recorded_frequency(
         signal = recorded_data.channel_data[test_channel]
         saturate_value = audio_data.get_maximum_value_from_sample_format(
                 data_format['sample_format'])
+        logging.debug('Channel %d max signal: %f', test_channel, max(signal))
         normalized_signal = audio_analysis.normalize_signal(
                 signal, saturate_value)
+        logging.debug('saturate_value: %f', saturate_value)
+        logging.debug('max signal after normalized: %f', max(normalized_signal))
         spectral = audio_analysis.spectral_analysis(
                 normalized_signal, data_format['rate'])
+        logging.debug('spectral: %s', spectral)
 
         if not spectral:
             errors.append(
@@ -318,24 +458,124 @@ def check_recorded_frequency(
                         'Channel %d: Quality is good as there is no anomaly',
                         test_channel)
 
+        if check_artifacts or mute_durations or volume_changes:
+            result = audio_quality_measurement.quality_measurement(
+                                        normalized_signal,
+                                        data_format['rate'],
+                                        dominant_frequency=dominant_frequency)
+            logging.debug('Quality measurement result:\n%s', pprint.pformat(result))
+            if check_artifacts:
+                if len(result['artifacts']['noise_before_playback']) > 0:
+                    errors.append(
+                        'Channel %d: Detects artifacts before playing near'
+                        ' these time and duration: %s' %
+                        (test_channel,
+                         str(result['artifacts']['noise_before_playback'])))
+
+                if len(result['artifacts']['noise_after_playback']) > 0:
+                    errors.append(
+                        'Channel %d: Detects artifacts after playing near'
+                        ' these time and duration: %s' %
+                        (test_channel,
+                         str(result['artifacts']['noise_after_playback'])))
+
+            if mute_durations:
+                delays = result['artifacts']['delay_during_playback']
+                delay_durations = []
+                for x in delays:
+                    delay_durations.append(x[1])
+                mute_matched, delay_matched = longest_common_subsequence(
+                        mute_durations,
+                        delay_durations,
+                        DEFAULT_EQUIVALENT_THRESHOLD)
+
+                # updated delay list
+                new_delays = [delays[i]
+                                for i in delay_matched if not delay_matched[i]]
+
+                result['artifacts']['delay_during_playback'] = new_delays
+
+                unmatched_mutes = [mute_durations[i]
+                                for i in mute_matched if not mute_matched[i]]
+
+                if len(unmatched_mutes) > 0:
+                    errors.append(
+                        'Channel %d: Unmatched mute duration: %s' %
+                        (test_channel, unmatched_mutes))
+
+            if check_artifacts:
+                if len(result['artifacts']['delay_during_playback']) > 0:
+                    errors.append(
+                        'Channel %d: Detects delay during playing near'
+                        ' these time and duration: %s' %
+                        (test_channel,
+                         result['artifacts']['delay_during_playback']))
+
+                if len(result['artifacts']['burst_during_playback']) > 0:
+                    errors.append(
+                        'Channel %d: Detects burst/pop near these time: %s' %
+                        (test_channel,
+                         result['artifacts']['burst_during_playback']))
+
+                if result['equivalent_noise_level'] > tolerant_noise_level:
+                    errors.append(
+                        'Channel %d: noise level is higher than tolerant'
+                        ' noise level: %f > %f' %
+                        (test_channel,
+                         result['equivalent_noise_level'],
+                         tolerant_noise_level))
+
+            if volume_changes:
+                matched = True
+                volume_changing = result['volume_changes']
+                if len(volume_changing) != len(volume_changes):
+                    matched = False
+                else:
+                    for i in xrange(len(volume_changing)):
+                        if volume_changing[i][1] != volume_changes[i]:
+                            matched = False
+                            break
+                if not matched:
+                    errors.append(
+                        'Channel %d: volume changing is not as expected, '
+                        'found changing time and events are: %s while '
+                        'expected changing events are %s'%
+                        (test_channel,
+                         volume_changing,
+                         volume_changes))
+
+        # Filter out the harmonics resulted from imperfect sin wave.
+        # This list is different for different channels.
+        harmonics = [dominant_frequency * n for n in xrange(2, 10)]
 
         def should_be_ignored(frequency):
             """Checks if frequency is close to any frequency in ignore list.
+
+            The ignore list is harmonics of frequency to be ignored
+            (like power noise), plus harmonics of dominant frequencies,
+            plus DC.
 
             @param frequency: The frequency to be tested.
 
             @returns: True if the frequency should be ignored. False otherwise.
 
             """
-            for ignore_frequency in ignore_frequencies:
+            for ignore_frequency in (ignore_frequencies_harmonics + harmonics
+                                     + [0.0]):
                 if (abs(frequency - ignore_frequency) <
                     frequency_diff_threshold):
                     logging.debug('Ignore frequency: %s', frequency)
                     return True
 
+        # Checks DC is small enough.
+        for freq, coeff in spectral:
+            if freq < _DC_FREQ_THRESHOLD and coeff > _DC_COEFF_THRESHOLD:
+                errors.append(
+                        'Channel %d: Found large DC coefficient: '
+                        '(%f Hz, %f)' % (test_channel, freq, coeff))
+
         # Filter out the frequencies to be ignored.
-        if ignore_frequencies:
-            spectral = [x for x in spectral if not should_be_ignored(x[0])]
+        spectral = [x for x in spectral if not should_be_ignored(x[0])]
 
         if len(spectral) > 1:
             first_coeff = spectral[0][1]
@@ -345,5 +585,124 @@ def check_recorded_frequency(
                         'Channel %d: Found large second dominant frequencies: '
                         '%s' % (test_channel, spectral))
 
+        dominant_spectrals.append(spectral[0])
+
     if errors:
         raise error.TestFail(', '.join(errors))
+
+    return dominant_spectrals
+
+
+def longest_common_subsequence(list1, list2, equivalent_threshold):
+    """Finds longest common subsequence of list1 and list2
+
+    Such as list1: [0.3, 0.4],
+            list2: [0.001, 0.299, 0.002, 0.401, 0.001]
+            equivalent_threshold: 0.001
+    it will return matched1: [True, True],
+                   matched2: [False, True, False, True, False]
+
+    @param list1: a list of integer or float value
+    @param list2: a list of integer or float value
+    @param equivalent_threshold: two values are considered equivalent if their
+                                 relative error is less than
+                                 equivalent_threshold.
+
+    @returns: a tuple of list (matched_1, matched_2) indicating each item
+              of list1 and list2 are matched or not.
+
+    """
+    length1, length2 = len(list1), len(list2)
+    matching = [[0] * (length2 + 1)] * (length1 + 1)
+    # matching[i][j] is the maximum number of matched pairs for first i items
+    # in list1 and first j items in list2.
+    for i in xrange(length1):
+        for j in xrange(length2):
+            # Maximum matched pairs may be obtained without
+            # i-th item in list1 or without j-th item in list2
+            matching[i + 1][j + 1] = max(matching[i + 1][j],
+                                         matching[i][j + 1])
+            diff = abs(list1[i] - list2[j])
+            relative_error = diff / list1[i]
+            # If i-th item in list1 can be matched to j-th item in list2
+            if relative_error < equivalent_threshold:
+                matching[i + 1][j + 1] = matching[i][j] + 1
+
+    # Backtracking which item in list1 and list2 are matched
+    matched1 = [False] * length1
+    matched2 = [False] * length2
+    i, j = length1, length2
+    while i > 0 and j > 0:
+        # Maximum number is obtained by matching i-th item in list1
+        # and j-th one in list2.
+        if matching[i][j] == matching[i - 1][j - 1] + 1:
+            matched1[i - 1] = True
+            matched2[j - 1] = True
+            i, j = i - 1, j - 1
+        elif matching[i][j] == matching[i - 1][j]:
+            i -= 1
+        else:
+            j -= 1
+    return (matched1, matched2)
+
+
+def switch_to_hsp(audio_facade):
+    """Switches to HSP profile.
+
+    Selects bluetooth microphone and runs a recording process on Cros device.
+    This triggers bluetooth profile be switched from A2DP to HSP.
+    Note the user can call stop_recording on audio facade to stop the recording
+    process, or let multimedia_xmlrpc_server terminates it in its cleanup.
+
+    """
+    audio_facade.set_chrome_active_node_type(None, 'BLUETOOTH')
+    check_audio_nodes(audio_facade, (None, ['BLUETOOTH']))
+    audio_facade.start_recording(
+            dict(file_type='raw', sample_format='S16_LE', channel=2,
+                 rate=48000))
+
+
+def compare_recorded_correlation(golden_file, recorder, parameters=None):
+    """Checks recorded audio in an AudioInputWidget against a golden file.
+
+    Compares recorded data with golden data by cross correlation method.
+    Refer to audio_helper.compare_data for details of comparison.
+
+    @param golden_file: An AudioTestData object that serves as golden data.
+    @param recorder: An AudioInputWidget that has recorded some audio data.
+    @param parameters: A dict containing parameters for method.
+
+    """
+    logging.info('Comparing recorded data with golden file %s ...',
+                 golden_file.path)
+    audio_helper.compare_data_correlation(
+            golden_file.get_binary(), golden_file.data_format,
+            recorder.get_binary(), recorder.data_format, recorder.channel_map,
+            parameters)
+
+
+def check_and_set_chrome_active_node_types(audio_facade, output_type=None,
+                                           input_type=None):
+   """Check the target types are available, and set them to be active nodes.
+
+   @param audio_facade: An AudioFacadeNative or AudioFacadeAdapter object.
+   @output_type: An output node type defined in cras_utils.CRAS_NODE_TYPES.
+                 None to skip.
+   @input_type: An input node type defined in cras_utils.CRAS_NODE_TYPES.
+                 None to skip.
+
+   @raises: error.TestError if the expected node type is missing. We use
+            error.TestError here because usually this step is not the main
+            purpose of the test, but a setup step.
+
+   """
+   output_types, input_types = audio_facade.get_plugged_node_types()
+   logging.debug('Plugged types: output: %r, input: %r',
+                 output_types, input_types)
+   if output_type and output_type not in output_types:
+       raise error.TestError(
+               'Target output type %s not present' % output_type)
+   if input_type and input_type not in input_types:
+       raise error.TestError(
+               'Target input type %s not present' % input_type)
+   audio_facade.set_chrome_active_node_type(output_type, input_type)

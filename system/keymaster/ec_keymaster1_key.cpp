@@ -67,6 +67,15 @@ keymaster_error_t EcdsaKeymaster1KeyFactory::GenerateKey(const AuthorizationSet&
                                                          AuthorizationSet* sw_enforced) const {
     AuthorizationSet key_params_copy;
     UpdateToWorkAroundUnsupportedDigests(key_description, &key_params_copy);
+
+    keymaster_ec_curve_t ec_curve;
+    uint32_t key_size;
+    keymaster_error_t error = GetCurveAndSize(key_description, &ec_curve, &key_size);
+    if (error != KM_ERROR_OK) {
+        return error;
+    } else if (!key_description.Contains(TAG_KEY_SIZE, key_size)) {
+        key_params_copy.push_back(TAG_KEY_SIZE, key_size);
+    }
     return engine_->GenerateKey(key_params_copy, key_blob, hw_enforced, sw_enforced);
 }
 

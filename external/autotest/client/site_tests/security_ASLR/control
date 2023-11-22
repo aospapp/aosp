@@ -12,7 +12,6 @@ CRITERIA = (" Fail if a process can't restart or has address range starts"
     "for any executable stack, or heap memory map to the same location"
     "after restarting")
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

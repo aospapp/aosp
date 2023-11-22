@@ -106,7 +106,7 @@ class firmware_FMap(FirmwareTest):
         # [{'name': name1, 'offset': offset1, 'size': size1},
         #  {'name': name2, 'offset': offset2, 'size': size2}, ...]
         for line in lines:
-            row = line.split(' | ')
+            row = map(lambda s:s.strip(), line.split('|'))
             self._TARGET_AREA[row[0]].append(
                 dict(zip(FMAP_AREA_NAMES, [row[1], row[2], row[3]])))
 

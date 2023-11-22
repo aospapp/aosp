@@ -37,7 +37,7 @@ typedef char *JniTestFunction(JNIEnv *env);
  * the given name. The function is static, returns a (char *), and
  * takes a (JNIEnv *) named "env".
  */
-#define TEST_DECLARATION(name) static char *test_##name(JNIEnv *env)
+#define TEST_DECLARATION(name) static char *test_##name(JNIEnv *env) /* NOLINT */
     
 /**
  * Logs and returns an error message, passed and formatted in printf()

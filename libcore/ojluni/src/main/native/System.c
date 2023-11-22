@@ -22,19 +22,22 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-#include <string.h>
-#include <stdlib.h>
+#define LOG_TAG "libcore"
 
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#include <log/log.h>
+
+#include "io_util.h"
 #include "jni.h"
 #include "jni_util.h"
 #include "jvm.h"
-#include "io_util.h"
-
 
 #include "openssl/opensslv.h"
 #include "zlib.h"
 #include "JNIHelp.h"
-#include "cutils/log.h"
 #if defined(__ANDROID__)
 void android_get_LD_LIBRARY_PATH(char*, size_t);
 #endif
@@ -77,7 +80,7 @@ void android_get_LD_LIBRARY_PATH(char*, size_t);
 #define GETPROP(props, key, jret) \
     if (1) { \
         jstring jkey = JNU_NewStringPlatform(env, key); \
-        jret = (*env)->CallObjectMethod(env, props, getPropID, jkey); \
+        (jret) = (*env)->CallObjectMethod(env, props, getPropID, jkey); \
         if ((*env)->ExceptionOccurred(env)) return NULL; \
         (*env)->DeleteLocalRef(env, jkey); \
     } else ((void) 0)

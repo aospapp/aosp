@@ -14,23 +14,44 @@
      limitations under the License.
 -->
 
-<TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/table1"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:collapseColumns="0"
-    android:stretchColumns="2">
+    android:orientation="vertical">
 
-    <TableRow>
-        <TextView
-            android:text="@string/table_layout_first"
-            android:padding="3dip" />
-        <TextView
-            android:text="@string/table_layout_second"
-            android:padding="3dip" />
-        <TextView
-            android:text="@string/table_layout_third"
-            android:padding="3dip" />
-    </TableRow>
-</TableLayout>
+    <TableLayout
+        android:id="@+id/table1"
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1.0"
+        android:collapseColumns="0"
+        android:stretchColumns="2">
 
+        <TableRow>
+            <TextView
+                android:text="@string/table_layout_first"
+                android:padding="3dip" />
+            <TextView
+                android:text="@string/table_layout_second"
+                android:padding="3dip" />
+            <TextView
+                android:text="@string/table_layout_third"
+                android:padding="3dip" />
+        </TableRow>
+    </TableLayout>
+
+    <TableLayout
+        android:id="@+id/table_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1.0" />
+
+    <view
+        class="android.widget.cts.TableLayoutTest$MockTableLayout"
+        android:id="@+id/table_custom_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1.0" />
+
+</LinearLayout>

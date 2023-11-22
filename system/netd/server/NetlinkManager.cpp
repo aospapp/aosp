@@ -46,6 +46,9 @@
 
 #include "pcap-netfilter-linux-android.h"
 
+namespace android {
+namespace net {
+
 const int NetlinkManager::NFLOG_QUOTA_GROUP = 1;
 const int NetlinkManager::NETFILTER_STRICT_GROUP = 2;
 
@@ -208,3 +211,6 @@ int NetlinkManager::stop() {
 
     return status;
 }
+
+}  // namespace net
+}  // namespace android

@@ -25,15 +25,10 @@
 static const char BTSNOOP_MODULE[] = "btsnoop_module";
 
 typedef struct btsnoop_t {
-  // Inform btsnoop whether the API desires to log. If |value| is true.
-  // logging will be enabled. Otherwise it defers to the value from the
-  // config file.
-  void (*set_api_wants_to_log)(bool value);
-
   // Capture |packet| and dump it to the btsnoop logs. If |is_received| is
   // true, the packet is marked as incoming. Otherwise, the packet is marked
   // as outgoing.
-  void (*capture)(const BT_HDR *packet, bool is_received);
+  void (*capture)(const BT_HDR* packet, bool is_received);
 } btsnoop_t;
 
-const btsnoop_t *btsnoop_get_interface(void);
+const btsnoop_t* btsnoop_get_interface(void);

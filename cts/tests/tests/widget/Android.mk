@@ -22,10 +22,13 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES += \
-    mockito-target \
+    android-support-test \
+    mockito-target-minus-junit4 \
     android-common \
-    ctsdeviceutil \
-    ctstestrunner
+    compatibility-device-util \
+    ctstestrunner \
+    platform-test-annotations \
+    legacy-android-test
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 

@@ -19,6 +19,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SHARED_LIBRARIES := liblog libcutils
+LOCAL_C_INC := lights_qemu.c
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
 LOCAL_SRC_FILES := lights_qemu.c
 LOCAL_MODULE := lights.goldfish
 LOCAL_CFLAGS += -DLIGHT_BACKLIGHT

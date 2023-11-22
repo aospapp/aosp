@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2010 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2010 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,32 +12,30 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/RootLayoutPadding"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <LinearLayout app:ctsv_layout_box="all"
-             android:orientation="vertical"
-             android:layout_width="match_parent"
-             android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-         <TextView android:id="@+id/fs_warnings"
-                   android:layout_width="wrap_content"
-                   android:layout_height="wrap_content"
-                   android:text="@string/empty"/>
+    <TextView
+        android:id="@+id/fs_warnings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/empty" />
 
-         <ListView android:id="@id/android:list"
-                   android:layout_width="match_parent"
-                   android:layout_height="match_parent"
-                   android:layout_weight="1"
-                   android:drawSelectorOnTop="false"/>
+    <ListView
+        android:id="@id/android:list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:drawSelectorOnTop="false" />
 
-         <TextView android:id="@id/android:empty"
-                   android:layout_width="match_parent"
-                   android:layout_height="match_parent"
-                   android:text="@string/fs_no_data"/>
+    <TextView
+        android:id="@id/android:empty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="@string/fs_no_data" />
 
-        <include layout="@layout/pass_fail_buttons" />
-
-    </LinearLayout>
-</com.android.cts.verifier.BoxInsetLayout>
+    <include layout="@layout/pass_fail_buttons" />
+</LinearLayout>

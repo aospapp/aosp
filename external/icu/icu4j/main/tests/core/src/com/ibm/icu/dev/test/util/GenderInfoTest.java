@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2003-2012, Google, International Business Machines Corporation and    *
@@ -9,25 +11,25 @@ package com.ibm.icu.dev.test.util;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.util.GenderInfo;
 import com.ibm.icu.util.GenderInfo.Gender;
 import com.ibm.icu.util.ULocale;
 
 public class GenderInfoTest extends TestFmwk {
-    public static void main(String[] args) {
-        new GenderInfoTest().run(args);
-    }
-
     public static GenderInfo NEUTRAL_LOCALE = GenderInfo.getInstance(ULocale.ENGLISH);
     public static GenderInfo MIXED_NEUTRAL_LOCALE = GenderInfo.getInstance(new ULocale("is"));
     public static GenderInfo MALE_TAINTS_LOCALE = GenderInfo.getInstance(ULocale.FRENCH);
 
+    @Test
     public void TestEmpty() {
         // Gender of the empty list is always OTHER regardless of gender style.
         check(Gender.OTHER, Gender.OTHER, Gender.OTHER);
     }
 
+    @Test
     public void TestOne() {
         // Gender of single item list is always gender of sole item regardless of
         // gender style.
@@ -36,6 +38,7 @@ public class GenderInfoTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestOther() {
         check(Gender.OTHER, Gender.MALE, Gender.MALE, Gender.MALE, Gender.MALE);
         check(Gender.OTHER, Gender.OTHER, Gender.MALE, Gender.MALE, Gender.FEMALE);
@@ -57,6 +60,7 @@ public class GenderInfoTest extends TestFmwk {
         assertEquals("male taints " + mixed0, taints, MALE_TAINTS_LOCALE.getListGender(mixed0));
     }
     
+    @Test
     public void TestFallback() {
         assertEquals("Strange locale = root", GenderInfo.getInstance(ULocale.ROOT), GenderInfo.getInstance(new ULocale("xxx")));
         assertEquals("Strange locale = root", GenderInfo.getInstance(ULocale.FRANCE), GenderInfo.getInstance(ULocale.CANADA_FRENCH));

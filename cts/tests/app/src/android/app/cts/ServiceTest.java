@@ -16,8 +16,11 @@
 
 package android.app.cts;
 
+import android.app.ActivityManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.stubs.ActivityTestsBase;
 import android.app.stubs.LocalDeniedService;
 import android.app.stubs.LocalForegroundService;
@@ -27,7 +30,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.cts.util.IBinderParcelable;
+import android.support.test.InstrumentationRegistry;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -38,8 +41,14 @@ import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 import android.app.stubs.R;
 
+import com.android.compatibility.common.util.IBinderParcelable;
+import com.android.compatibility.common.util.SystemUtil;
+
+import java.util.List;
+
 public class ServiceTest extends ActivityTestsBase {
     private static final String TAG = "ServiceTest";
+    private static final String NOTIFICATION_CHANNEL_ID = TAG;
     private static final int STATE_START_1 = 0;
     private static final int STATE_START_2 = 1;
     private static final int STATE_START_3 = 2;
@@ -51,6 +60,9 @@ public class ServiceTest extends ActivityTestsBase {
     private static final
         String EXIST_CONN_TO_RECEIVE_SERVICE = "existing connection to receive service";
     private static final String EXIST_CONN_TO_LOSE_SERVICE = "existing connection to lose service";
+    private static final String EXTERNAL_SERVICE_PACKAGE = "com.android.app2";
+    private static final String EXTERNAL_SERVICE_COMPONENT =
+            EXTERNAL_SERVICE_PACKAGE + "/android.app.stubs.LocalService";
     private int mExpectedServiceState;
     private Context mContext;
     private Intent mLocalService;
@@ -59,6 +71,7 @@ public class ServiceTest extends ActivityTestsBase {
     private Intent mLocalGrantedService;
     private Intent mLocalService_ApplicationHasPermission;
     private Intent mLocalService_ApplicationDoesNotHavePermission;
+    private Intent mExternalService;
 
     private IBinder mStateReceiver;
 
@@ -172,8 +185,8 @@ public class ServiceTest extends ActivityTestsBase {
         return notificationManager;
     }
 
-    private void sendNotififcation(int id, String title) {
-        Notification notification = new Notification.Builder(getContext())
+    private void sendNotification(int id, String title) {
+        Notification notification = new Notification.Builder(getContext(), NOTIFICATION_CHANNEL_ID)
             .setContentTitle(title)
             .setSmallIcon(R.drawable.black)
             .build();
@@ -382,6 +395,8 @@ public class ServiceTest extends ActivityTestsBase {
         super.setUp();
         mContext = getContext();
         mLocalService = new Intent(mContext, LocalService.class);
+        mExternalService = new Intent();
+        mExternalService.setComponent(ComponentName.unflattenFromString(EXTERNAL_SERVICE_COMPONENT));
         mLocalForegroundService = new Intent(mContext, LocalForegroundService.class);
         mLocalDeniedService = new Intent(mContext, LocalDeniedService.class);
         mLocalGrantedService = new Intent(mContext, LocalGrantedService.class);
@@ -390,6 +405,19 @@ public class ServiceTest extends ActivityTestsBase {
         mLocalService_ApplicationDoesNotHavePermission = new Intent(
                 LocalService.SERVICE_LOCAL_DENIED, null /*uri*/, mContext, LocalService.class);
         mStateReceiver = new MockBinder();
+        getNotificationManager().createNotificationChannel(new NotificationChannel(
+                NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        getNotificationManager().deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
+        mContext.stopService(mLocalService);
+        mContext.stopService(mLocalForegroundService);
+        mContext.stopService(mLocalGrantedService);
+        mContext.stopService(mLocalService_ApplicationHasPermission);
+        mContext.stopService(mExternalService);
     }
 
     private class MockBinder extends Binder {
@@ -460,14 +488,6 @@ public class ServiceTest extends ActivityTestsBase {
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        mContext.stopService(mLocalService);
-        mContext.stopService(mLocalForegroundService);
-        mContext.stopService(mLocalGrantedService);
-        mContext.stopService(mLocalService_ApplicationHasPermission);
-    }
 
     public void testLocalStartClass() throws Exception {
         startExpectResult(mLocalService);
@@ -482,9 +502,19 @@ public class ServiceTest extends ActivityTestsBase {
         bindExpectResult(mLocalService);
     }
 
+    /* Just the Intent for a foreground service */
+    private Intent foregroundServiceIntent(int command) {
+        return new Intent(mLocalForegroundService)
+                .putExtras(LocalForegroundService.newCommand(mStateReceiver, command));
+    }
+
     private void startForegroundService(int command) {
-        mContext.startService(new Intent(mLocalForegroundService).putExtras(LocalForegroundService
-                .newCommand(mStateReceiver, command)));
+        mContext.startService(foregroundServiceIntent(command));
+    }
+
+    /* Start the service in a way that promises to go into the foreground */
+    private void startRequiredForegroundService(int command) {
+        mContext.startForegroundService(foregroundServiceIntent(command));
     }
 
     @MediumTest
@@ -506,7 +536,7 @@ public class ServiceTest extends ActivityTestsBase {
 
             // Sends another notification reusing the same notification id.
             String newTitle = "YODA I AM";
-            sendNotififcation(1, newTitle);
+            sendNotification(1, newTitle);
             assertNotification(1, newTitle);
 
             // Start service as foreground again - it should kill notification #1 and show #2
@@ -544,12 +574,14 @@ public class ServiceTest extends ActivityTestsBase {
         boolean success = false;
         try {
             // Start service as foreground - it should show notification #1
+            Log.d(TAG, "Expecting first start state...");
             mExpectedServiceState = STATE_START_1;
             startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start first time");
             assertNotification(1, LocalForegroundService.getNotificationTitle(1));
 
             // Stop foreground removing notification
+            Log.d(TAG, "Expecting second start state...");
             mExpectedServiceState = STATE_START_2;
             if (usingFlags) {
                 startForegroundService(LocalForegroundService
@@ -580,6 +612,59 @@ public class ServiceTest extends ActivityTestsBase {
         assertNoNotification(2);
     }
 
+    public void testRunningServices() throws Exception {
+        final int maxReturnedServices = 10;
+        final Bundle bundle = new Bundle();
+        bundle.putParcelable(LocalService.REPORT_OBJ_NAME, new IBinderParcelable(mStateReceiver));
+
+        boolean success = false;
+
+        ActivityManager am = mContext.getSystemService(ActivityManager.class);
+
+        // Put target app on whitelist so we can start its services.
+        SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+                "cmd deviceidle whitelist +" + EXTERNAL_SERVICE_PACKAGE);
+
+        // No services should be reported back at the beginning
+        assertEquals(0, am.getRunningServices(maxReturnedServices).size());
+        try {
+            mExpectedServiceState = STATE_START_1;
+            // Start external service.
+            mContext.startService(new Intent(mExternalService).putExtras(bundle));
+            waitForResultOrThrow(DELAY, "external service to start first time");
+
+            // Ensure we can't see service.
+            assertEquals(0, am.getRunningServices(maxReturnedServices).size());
+
+            // Start local service.
+            mContext.startService(new Intent(mLocalService).putExtras(bundle));
+            waitForResultOrThrow(DELAY, "local service to start first time");
+            success = true;
+
+            // Ensure we can see service and it is ours.
+            List<ActivityManager.RunningServiceInfo> services = am.getRunningServices(maxReturnedServices);
+            assertEquals(1, services.size());
+            assertEquals(android.os.Process.myUid(), services.get(0).uid);
+        } finally {
+            SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+                    "cmd deviceidle whitelist -" + EXTERNAL_SERVICE_PACKAGE);
+            if (!success) {
+                mContext.stopService(mLocalService);
+                mContext.stopService(mExternalService);
+            }
+        }
+        mExpectedServiceState = STATE_DESTROY;
+
+        mContext.stopService(mExternalService);
+        waitForResultOrThrow(DELAY, "external service to be destroyed");
+
+        mContext.stopService(mLocalService);
+        waitForResultOrThrow(DELAY, "local service to be destroyed");
+
+        // Once our service has stopped, make sure we can't see any services.
+        assertEquals(0, am.getRunningServices(maxReturnedServices).size());
+    }
+
     @MediumTest
     public void testForegroundService_detachNotificationOnStop() throws Exception {
         String newTitle = null;
@@ -601,7 +686,7 @@ public class ServiceTest extends ActivityTestsBase {
 
             // Sends another notification reusing the same notification id.
             newTitle = "YODA I AM";
-            sendNotififcation(1, newTitle);
+            sendNotification(1, newTitle);
             assertNotification(1, newTitle);
 
             // Start service as foreground again - it should show notification #2..
@@ -629,6 +714,44 @@ public class ServiceTest extends ActivityTestsBase {
             assertNoNotification(1);
         }
         assertNoNotification(2);
+    }
+
+    class TestSendCallback implements PendingIntent.OnFinished {
+        public volatile int result = -1;
+
+        @Override
+        public void onSendFinished(PendingIntent pendingIntent, Intent intent, int resultCode,
+                String resultData, Bundle resultExtras) {
+            Log.i(TAG, "foreground service PendingIntent callback got " + resultCode);
+            this.result = resultCode;
+        }
+    }
+
+    @MediumTest
+    public void testForegroundService_pendingIntentForeground() throws Exception {
+        boolean success = false;
+
+        PendingIntent pi = PendingIntent.getForegroundService(mContext, 1,
+                foregroundServiceIntent(LocalForegroundService.COMMAND_START_FOREGROUND),
+                PendingIntent.FLAG_CANCEL_CURRENT);
+        TestSendCallback callback = new TestSendCallback();
+
+        try {
+            mExpectedServiceState = STATE_START_1;
+            pi.send(5038, callback, null);
+            waitForResultOrThrow(DELAY, "service to start first time");
+            assertTrue(callback.result > -1);
+
+            success = true;
+        } finally {
+            if (!success) {
+                mContext.stopService(mLocalForegroundService);
+            }
+        }
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "pendingintent service to be destroyed");
     }
 
     @MediumTest

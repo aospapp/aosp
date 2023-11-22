@@ -1,2 +1,11 @@
-Current version:
-svn checkout http://sfntly.googlecode.com/svn/trunk/cpp/src@134 cpp/src
+This project contains only the cpp/src files from upstream.  To update:
+git merge aosp/upstream-master
+If upstream has changes outside the cpp/src directory (likely), it will get
+conflicts on the modified files.  To drop the changes to the unmerged
+directories:
+git rm -rf data
+git rm -rf java
+git rm -rf cpp/data
+git rm -rf cpp/ext
+git rm -rf cpp/tools
+git commit

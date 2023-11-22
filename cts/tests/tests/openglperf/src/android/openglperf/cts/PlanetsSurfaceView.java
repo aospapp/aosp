@@ -16,8 +16,9 @@
 
 package android.openglperf.cts;
 
+import com.android.compatibility.common.util.WatchDog;
+
 import android.content.Context;
-import android.cts.util.WatchDog;
 
 class PlanetsSurfaceView extends GLSurfaceViewCustom {
     private final long RENDERING_TIMEOUT = 1900; // in msec, close to 2 secs

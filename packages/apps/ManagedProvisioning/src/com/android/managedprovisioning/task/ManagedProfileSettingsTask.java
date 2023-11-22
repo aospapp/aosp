@@ -16,25 +16,73 @@
 
 package com.android.managedprovisioning.task;
 
-import android.content.ContentResolver;
+import static com.android.internal.util.Preconditions.checkNotNull;
+
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.provider.Settings;
+import android.os.UserHandle;
+import android.os.UserManager;
 
-import static android.provider.Settings.Secure.MANAGED_PROFILE_CONTACT_REMOTE_SEARCH;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.SettingsFacade;
+import com.android.managedprovisioning.model.ProvisioningParams;
 
-public class ManagedProfileSettingsTask {
+public class ManagedProfileSettingsTask extends AbstractProvisioningTask {
 
-    private final int mUserId;
-    private final ContentResolver mContentResolver;
+    @VisibleForTesting
+    static final boolean DEFAULT_CONTACT_REMOTE_SEARCH = true;
 
-    public ManagedProfileSettingsTask(Context context, int userId) {
-        mContentResolver = context.getContentResolver();
-        mUserId = userId;
+    private final SettingsFacade mSettingsFacade;
+    private final CrossProfileIntentFiltersSetter mCrossProfileIntentFiltersSetter;
+
+    public ManagedProfileSettingsTask(
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        this(new SettingsFacade(), new CrossProfileIntentFiltersSetter(context), context, params,
+                callback);
     }
 
-    public void run() {
+    @VisibleForTesting
+    ManagedProfileSettingsTask(
+            SettingsFacade settingsFacade,
+            CrossProfileIntentFiltersSetter crossProfileIntentFiltersSetter,
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        super(context, params, callback);
+        mSettingsFacade = checkNotNull(settingsFacade);
+        mCrossProfileIntentFiltersSetter = checkNotNull(crossProfileIntentFiltersSetter);
+    }
+
+    @Override
+    public void run(int userId) {
         // Turn on managed profile contacts remote search.
-        Settings.Secure.putIntForUser(mContentResolver, MANAGED_PROFILE_CONTACT_REMOTE_SEARCH,
-                1, mUserId);
+        mSettingsFacade.setProfileContactRemoteSearch(mContext, DEFAULT_CONTACT_REMOTE_SEARCH,
+                userId);
+
+        // Disable managed profile wallpaper access
+        UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+        um.setUserRestriction(UserManager.DISALLOW_WALLPAPER, true, UserHandle.of(userId));
+
+        // Set the main color of managed provisioning from the provisioning params
+        if (mProvisioningParams.mainColor != null) {
+            DevicePolicyManager dpm = (DevicePolicyManager) mContext.getSystemService(
+                    Context.DEVICE_POLICY_SERVICE);
+            dpm.setOrganizationColorForUser(mProvisioningParams.mainColor, userId);
+        }
+
+        mCrossProfileIntentFiltersSetter.setFilters(UserHandle.myUserId(), userId);
+
+        // always mark managed profile setup as completed
+        mSettingsFacade.setUserSetupCompleted(mContext, userId);
+
+        success();
+    }
+
+    @Override
+    public int getStatusMsgId() {
+        return R.string.progress_finishing_touches;
     }
 }

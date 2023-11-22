@@ -24,7 +24,6 @@ import android.widget.LinearLayout;
 
 /**
  * Implements foreground drawable before M and falls back to M's foreground implementation.
- * @hide
  */
 class NonOverlappingLinearLayoutWithForeground extends LinearLayout {
 
@@ -58,6 +57,7 @@ class NonOverlappingLinearLayoutWithForeground extends LinearLayout {
             if (d != null) {
                 setForegroundCompat(d);
             }
+            a.recycle();
         }
     }
 

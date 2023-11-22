@@ -10,7 +10,6 @@ CRITERIA = """
   the getProperties fails to retreive the correct properties once configured.
 """
 ATTRIBUTES = "suite:network_ui"
-SUITE = "network_ui"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

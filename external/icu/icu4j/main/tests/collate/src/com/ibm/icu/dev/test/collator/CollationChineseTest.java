@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2010, International Business Machines Corporation and         *
@@ -14,19 +16,18 @@ package com.ibm.icu.dev.test.collator;
  
 import java.util.Locale;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.Collator;
 import com.ibm.icu.text.RuleBasedCollator;
  
 public class CollationChineseTest extends TestFmwk{
-    public static void main(String[] args) throws Exception{
-        new CollationChineseTest().run(args);
-    }
-    
     public CollationChineseTest() 
     {
     }
     
+    @Test
     public void TestPinYin() 
     {
         String seq[] 

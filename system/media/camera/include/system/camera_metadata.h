@@ -20,7 +20,6 @@
 #include <string.h>
 #include <stdint.h>
 #include <cutils/compiler.h>
-#include <system/camera_vendor_tags.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -279,6 +278,13 @@ ANDROID_API
 camera_metadata_t *copy_camera_metadata(void *dst, size_t dst_size,
         const camera_metadata_t *src);
 
+
+// Non-zero return values for validate_camera_metadata_structure
+enum {
+    CAMERA_METADATA_VALIDATION_ERROR = 1,
+    CAMERA_METADATA_VALIDATION_SHIFTED = 2,
+};
+
 /**
  * Validate that a metadata is structurally sane. That is, its internal
  * state is such that we won't get buffer overflows or run into other
@@ -290,7 +296,11 @@ camera_metadata_t *copy_camera_metadata(void *dst, size_t dst_size,
  *
  * The expected_size argument is optional.
  *
- * Returns 0 on success. A non-0 value is returned on error.
+ * Returns 0: on success
+ *         CAMERA_METADATA_VALIDATION_ERROR: on error
+ *         CAMERA_METADATA_VALIDATION_SHIFTED: when the data is not properly aligned, but can be
+ *                 used as input of clone_camera_metadata and the returned metadata will be valid.
+ *
  */
 ANDROID_API
 int validate_camera_metadata_structure(const camera_metadata_t *metadata,
@@ -446,6 +456,29 @@ const char *get_camera_metadata_tag_name(uint32_t tag);
  */
 ANDROID_API
 int get_camera_metadata_tag_type(uint32_t tag);
+
+/**
+ * Retrieve human-readable name of section the tag is in. Returns NULL if
+ * no such tag is defined.
+ */
+ANDROID_API
+const char *get_local_camera_metadata_section_name(uint32_t tag,
+        const camera_metadata_t *meta);
+
+/**
+ * Retrieve human-readable name of tag (not including section). Returns NULL if
+ * no such tag is defined.
+ */
+ANDROID_API
+const char *get_local_camera_metadata_tag_name(uint32_t tag,
+        const camera_metadata_t *meta);
+
+/**
+ * Retrieve the type of a tag. Returns -1 if no such tag is defined.
+ */
+ANDROID_API
+int get_local_camera_metadata_tag_type(uint32_t tag,
+        const camera_metadata_t *meta);
 
 /**
  * Set up vendor-specific tag query methods. These are needed to properly add

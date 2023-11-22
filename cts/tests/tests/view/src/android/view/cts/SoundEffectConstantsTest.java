@@ -16,20 +16,21 @@
 
 package android.view.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.SoundEffectConstants;
 import android.view.View;
 
-public class SoundEffectConstantsTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-    }
-
-    public void testgetContantForFocusDirection() {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SoundEffectConstantsTest {
+    @Test
+    public void testGetContantForFocusDirection() {
         assertEquals(SoundEffectConstants.NAVIGATION_RIGHT,
                 SoundEffectConstants
                         .getContantForFocusDirection(View.FOCUS_RIGHT));
@@ -45,11 +46,10 @@ public class SoundEffectConstantsTest extends AndroidTestCase {
 
         assertEquals(SoundEffectConstants.NAVIGATION_UP, SoundEffectConstants
                 .getContantForFocusDirection(View.FOCUS_BACKWARD));
-        try {
-            SoundEffectConstants.getContantForFocusDirection(-1);
-            fail("should throw exception");
-        } catch (RuntimeException e) {
+    }
 
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetContantForFocusDirectionInvalid() {
+        SoundEffectConstants.getContantForFocusDirection(-1);
     }
 }

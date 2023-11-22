@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -16,24 +18,19 @@ package android.icu.dev.test.format;
 import java.text.FieldPosition;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.text.DecimalFormat;
 import android.icu.text.DecimalFormatSymbols;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Tests for DecimalFormatSymbols
  **/
-@RunWith(IcuTestFmwkRunner.class)
 public class IntlTestDecimalFormatSymbolsC extends android.icu.dev.test.TestFmwk {
-    
-    public static void main(String[] args) throws Exception {
-        new IntlTestDecimalFormatSymbolsC().run(args);
-    }
-
     /**
      * Test the API of DecimalFormatSymbols; primarily a simple get/set set.
      */
+    @Test
     public void TestSymbols() {    
         DecimalFormatSymbols fr = new DecimalFormatSymbols(Locale.FRENCH);    
         DecimalFormatSymbols en = new DecimalFormatSymbols(Locale.ENGLISH);

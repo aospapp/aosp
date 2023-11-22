@@ -19,27 +19,43 @@
 
 #include "user_state.h"
 
-#include <hardware/keymaster2.h>
+#include <android/hardware/keymaster/3.0/IKeymasterDevice.h>
 
 #include <utils/Vector.h>
 
 #include "blob.h"
+#include "include/keystore/keymaster_tags.h"
 
 typedef struct {
     uint32_t uid;
     const uint8_t* filename;
 } grant_t;
 
+using ::keystore::NullOr;
+
 class KeyStore {
+    typedef ::android::sp<::android::hardware::keymaster::V3_0::IKeymasterDevice> km_device_t;
+
   public:
-    KeyStore(Entropy* entropy, keymaster2_device_t* device, keymaster2_device_t* fallback);
+    KeyStore(Entropy* entropy, const km_device_t& device, const km_device_t& fallback,
+             bool allowNewFallback);
     ~KeyStore();
 
-    keymaster2_device_t* getDevice() const { return mDevice; }
+    km_device_t& getDevice() { return mDevice; }
 
-    keymaster2_device_t* getFallbackDevice() const { return mFallbackDevice; }
+    NullOr<km_device_t&> getFallbackDevice() {
+        // we only return the fallback device if the creation of new fallback key blobs is
+        // allowed. (also see getDevice below)
+        if (mAllowNewFallback) {
+            return mFallbackDevice;
+        } else {
+            return {};
+        }
+    }
 
-    keymaster2_device_t* getDeviceForBlob(const Blob& blob) const {
+    km_device_t& getDevice(const Blob& blob) {
+        // We return a device, based on the nature of the blob to provide backward
+        // compatibility with old key blobs generated using the fallback device.
         return blob.isFallback() ? mFallbackDevice : mDevice;
     }
 
@@ -53,9 +69,11 @@ class KeyStore {
     ResponseCode writeMasterKey(const android::String8& pw, uid_t userId);
     ResponseCode readMasterKey(const android::String8& pw, uid_t userId);
 
-    android::String8 getKeyName(const android::String8& keyName);
-    android::String8 getKeyNameForUid(const android::String8& keyName, uid_t uid);
-    android::String8 getKeyNameForUidWithDir(const android::String8& keyName, uid_t uid);
+    android::String8 getKeyName(const android::String8& keyName, const BlobType type);
+    android::String8 getKeyNameForUid(const android::String8& keyName, uid_t uid,
+                                      const BlobType type);
+    android::String8 getKeyNameForUidWithDir(const android::String8& keyName, uid_t uid,
+                                             const BlobType type);
 
     /*
      * Delete entries owned by userId. If keepUnencryptedEntries is true
@@ -113,8 +131,9 @@ class KeyStore {
     static const android::String16 sRSAKeyType;
     Entropy* mEntropy;
 
-    keymaster2_device_t* mDevice;
-    keymaster2_device_t* mFallbackDevice;
+    km_device_t mDevice;
+    km_device_t mFallbackDevice;
+    bool mAllowNewFallback;
 
     android::Vector<UserState*> mMasterKeys;
 

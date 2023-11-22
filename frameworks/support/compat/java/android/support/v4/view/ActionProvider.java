@@ -16,7 +16,10 @@
 
 package android.support.v4.view;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import android.support.annotation.RestrictTo;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.SubMenu;
@@ -270,6 +273,7 @@ public abstract class ActionProvider {
      *
      * @hide Pending future API approval
      */
+    @RestrictTo(LIBRARY_GROUP)
     public void subUiVisibilityChanged(boolean isVisible) {
         if (mSubUiVisibilityListener != null) {
             mSubUiVisibilityListener.onSubUiVisibilityChanged(isVisible);
@@ -279,6 +283,7 @@ public abstract class ActionProvider {
     /**
      * @hide Internal use only
      */
+    @RestrictTo(LIBRARY_GROUP)
     public void setSubUiVisibilityListener(SubUiVisibilityListener listener) {
         mSubUiVisibilityListener = listener;
     }
@@ -301,6 +306,7 @@ public abstract class ActionProvider {
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public void reset() {
         mVisibilityListener = null;
         mSubUiVisibilityListener = null;
@@ -309,6 +315,7 @@ public abstract class ActionProvider {
     /**
      * @hide Internal use only
      */
+    @RestrictTo(LIBRARY_GROUP)
     public interface SubUiVisibilityListener {
 
         public void onSubUiVisibilityChanged(boolean isVisible);

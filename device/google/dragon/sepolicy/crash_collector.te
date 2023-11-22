@@ -1,4 +1,4 @@
-type crash_collector, domain, domain_deprecated;
+type crash_collector, domain, device_domain_deprecated;
 type crash_collector_exec, exec_type, file_type;
 type crash_reports_data_file, file_type, data_file_type;
 
@@ -6,6 +6,7 @@ type crash_reports_data_file, file_type, data_file_type;
 domain_auto_trans(kernel, crash_collector_exec, crash_collector)
 allow crash_collector kernel:fifo_file read;
 allow crash_collector crash_collector_exec:file execute_no_trans;
+allow crash_collector kernel:fd use;
 
 # To stop being root.
 allow crash_collector self:capability { setuid setgid };

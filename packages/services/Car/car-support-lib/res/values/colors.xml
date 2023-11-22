@@ -21,7 +21,9 @@
     <color name="car_grey_200">#ffeeeeee</color>
     <color name="car_grey_300">#ffe0e0e0</color>
     <color name="car_grey_400">#ffbdbdbd</color>
+    <color name="car_grey_500">#ff9e9e9e</color>
     <color name="car_grey_600">#ff757575</color>
+    <color name="car_grey_650">#ff6B6B6B</color>
     <color name="car_grey_700">#ff616161</color>
     <color name="car_grey_800">#ff424242</color>
     <color name="car_grey_900">#ff212121</color>
@@ -59,6 +61,10 @@
     <color name="car_fab_view_clicked_color">#0026a69a</color>
     <color name="car_keygroup_circle">#ff104343</color>
     <!-- Aliases for material colors that may be used programmatically -->
+    <color name="car_headline0_light">@color/car_grey_100</color>
+    <color name="car_headline0_dark">@color/car_grey_800</color>
+    <color name="car_headline0">@color/car_headline0_dark</color>
+
     <color name="car_headline1_light">@color/car_grey_100</color>
     <color name="car_headline1_dark">@color/car_grey_800</color>
     <color name="car_headline1">@color/car_headline1_dark</color>
@@ -75,13 +81,21 @@
     <color name="car_body1_dark">@color/car_grey_900</color>
     <color name="car_body1">@color/car_body1_dark</color>
 
+    <color name="car_body2_dark">@color/car_grey_650</color>
+    <color name="car_body2_light">@color/car_grey_500</color>
     <color name="car_body2">@color/car_body2_dark</color>
-    <color name="car_body2_dark">@color/car_grey_600</color>
-    <color name="car_body2_light">@color/car_grey_400</color>
 
     <color name="car_caption_light">@color/car_grey_400</color>
     <color name="car_caption_dark">@color/car_grey_700</color>
     <color name="car_caption">@color/car_caption_dark</color>
+
+    <color name="car_key1_light">@color/car_grey_100</color>
+    <color name="car_key1_dark">@color/car_light_blue_700</color>
+    <color name="car_key1">@color/car_key1_dark</color>
+
+    <color name="car_key2_light">@color/car_grey_400</color>
+    <color name="car_key2_dark">@color/car_grey_650</color>
+    <color name="car_key2">@color/car_key2_dark</color>
 
     <color name="car_micro_light">@color/car_grey_100</color>
     <color name="car_micro_dark">@color/car_grey_700</color>

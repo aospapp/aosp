@@ -23,10 +23,11 @@
 #include <vector>
 
 #include "arch/instruction_set.h"
+#include "base/array_ref.h"
 #include "base/bit_utils.h"
 #include "base/length_prefixed_array.h"
+#include "dex_file_types.h"
 #include "method_reference.h"
-#include "utils/array_ref.h"
 
 namespace art {
 
@@ -108,57 +109,6 @@ inline bool operator==(const SrcMapElem& lhs, const SrcMapElem& rhs) {
   return lhs.from_ == rhs.from_ && lhs.to_ == rhs.to_;
 }
 
-template <class Allocator>
-class SrcMap FINAL : public std::vector<SrcMapElem, Allocator> {
- public:
-  using std::vector<SrcMapElem, Allocator>::begin;
-  using typename std::vector<SrcMapElem, Allocator>::const_iterator;
-  using std::vector<SrcMapElem, Allocator>::empty;
-  using std::vector<SrcMapElem, Allocator>::end;
-  using std::vector<SrcMapElem, Allocator>::resize;
-  using std::vector<SrcMapElem, Allocator>::shrink_to_fit;
-  using std::vector<SrcMapElem, Allocator>::size;
-
-  explicit SrcMap() {}
-  explicit SrcMap(const Allocator& alloc) : std::vector<SrcMapElem, Allocator>(alloc) {}
-
-  template <class InputIt>
-  SrcMap(InputIt first, InputIt last, const Allocator& alloc)
-      : std::vector<SrcMapElem, Allocator>(first, last, alloc) {}
-
-  void push_back(const SrcMapElem& elem) {
-    if (!empty()) {
-      // Check that the addresses are inserted in sorted order.
-      DCHECK_GE(elem.from_, this->back().from_);
-      // If two consequitive entries map to the same value, ignore the later.
-      // E.g. for map {{0, 1}, {4, 1}, {8, 2}}, all values in [0,8) map to 1.
-      if (elem.to_ == this->back().to_) {
-        return;
-      }
-    }
-    std::vector<SrcMapElem, Allocator>::push_back(elem);
-  }
-
-  // Returns true and the corresponding "to" value if the mapping is found.
-  // Oterwise returns false and 0.
-  std::pair<bool, int32_t> Find(uint32_t from) const {
-    // Finds first mapping such that lb.from_ >= from.
-    auto lb = std::lower_bound(begin(), end(), SrcMapElem {from, INT32_MIN});
-    if (lb != end() && lb->from_ == from) {
-      // Found exact match.
-      return std::make_pair(true, lb->to_);
-    } else if (lb != begin()) {
-      // The previous mapping is still in effect.
-      return std::make_pair(true, (--lb)->to_);
-    } else {
-      // Not found because 'from' is smaller than first entry in the map.
-      return std::make_pair(false, 0);
-    }
-  }
-};
-
-using DefaultSrcMap = SrcMap<std::allocator<SrcMapElem>>;
-
 class LinkerPatch {
  public:
   // Note: We explicitly specify the underlying type of the enum because GCC
@@ -169,19 +119,18 @@ class LinkerPatch {
   // choose to squeeze the Type into fewer than 8 bits, we'll have to declare
   // patch_type_ as an uintN_t and do explicit static_cast<>s.
   enum class Type : uint8_t {
-    kRecordPosition,   // Just record patch position for patchoat.
     kMethod,
     kCall,
-    kCallRelative,     // NOTE: Actual patching is instruction_set-dependent.
+    kCallRelative,            // NOTE: Actual patching is instruction_set-dependent.
     kType,
+    kTypeRelative,            // NOTE: Actual patching is instruction_set-dependent.
+    kTypeBssEntry,            // NOTE: Actual patching is instruction_set-dependent.
     kString,
-    kStringRelative,   // NOTE: Actual patching is instruction_set-dependent.
-    kDexCacheArray,    // NOTE: Actual patching is instruction_set-dependent.
+    kStringRelative,          // NOTE: Actual patching is instruction_set-dependent.
+    kStringBssEntry,          // NOTE: Actual patching is instruction_set-dependent.
+    kDexCacheArray,           // NOTE: Actual patching is instruction_set-dependent.
+    kBakerReadBarrierBranch,  // NOTE: Actual patching is instruction_set-dependent.
   };
-
-  static LinkerPatch RecordPosition(size_t literal_offset) {
-    return LinkerPatch(literal_offset, Type::kRecordPosition, /* target_dex_file */ nullptr);
-  }
 
   static LinkerPatch MethodPatch(size_t literal_offset,
                                  const DexFile* target_dex_file,
@@ -215,6 +164,26 @@ class LinkerPatch {
     return patch;
   }
 
+  static LinkerPatch RelativeTypePatch(size_t literal_offset,
+                                       const DexFile* target_dex_file,
+                                       uint32_t pc_insn_offset,
+                                       uint32_t target_type_idx) {
+    LinkerPatch patch(literal_offset, Type::kTypeRelative, target_dex_file);
+    patch.type_idx_ = target_type_idx;
+    patch.pc_insn_offset_ = pc_insn_offset;
+    return patch;
+  }
+
+  static LinkerPatch TypeBssEntryPatch(size_t literal_offset,
+                                       const DexFile* target_dex_file,
+                                       uint32_t pc_insn_offset,
+                                       uint32_t target_type_idx) {
+    LinkerPatch patch(literal_offset, Type::kTypeBssEntry, target_dex_file);
+    patch.type_idx_ = target_type_idx;
+    patch.pc_insn_offset_ = pc_insn_offset;
+    return patch;
+  }
+
   static LinkerPatch StringPatch(size_t literal_offset,
                                  const DexFile* target_dex_file,
                                  uint32_t target_string_idx) {
@@ -233,14 +202,32 @@ class LinkerPatch {
     return patch;
   }
 
+  static LinkerPatch StringBssEntryPatch(size_t literal_offset,
+                                         const DexFile* target_dex_file,
+                                         uint32_t pc_insn_offset,
+                                         uint32_t target_string_idx) {
+    LinkerPatch patch(literal_offset, Type::kStringBssEntry, target_dex_file);
+    patch.string_idx_ = target_string_idx;
+    patch.pc_insn_offset_ = pc_insn_offset;
+    return patch;
+  }
+
   static LinkerPatch DexCacheArrayPatch(size_t literal_offset,
                                         const DexFile* target_dex_file,
                                         uint32_t pc_insn_offset,
-                                        size_t element_offset) {
-    DCHECK(IsUint<32>(element_offset));
+                                        uint32_t element_offset) {
     LinkerPatch patch(literal_offset, Type::kDexCacheArray, target_dex_file);
     patch.pc_insn_offset_ = pc_insn_offset;
     patch.element_offset_ = element_offset;
+    return patch;
+  }
+
+  static LinkerPatch BakerReadBarrierBranchPatch(size_t literal_offset,
+                                                 uint32_t custom_value1 = 0u,
+                                                 uint32_t custom_value2 = 0u) {
+    LinkerPatch patch(literal_offset, Type::kBakerReadBarrierBranch, nullptr);
+    patch.baker_custom_value1_ = custom_value1;
+    patch.baker_custom_value2_ = custom_value2;
     return patch;
   }
 
@@ -258,8 +245,12 @@ class LinkerPatch {
   bool IsPcRelative() const {
     switch (GetType()) {
       case Type::kCallRelative:
+      case Type::kTypeRelative:
+      case Type::kTypeBssEntry:
       case Type::kStringRelative:
+      case Type::kStringBssEntry:
       case Type::kDexCacheArray:
+      case Type::kBakerReadBarrierBranch:
         return true;
       default:
         return false;
@@ -274,23 +265,31 @@ class LinkerPatch {
   }
 
   const DexFile* TargetTypeDexFile() const {
-    DCHECK(patch_type_ == Type::kType);
+    DCHECK(patch_type_ == Type::kType ||
+           patch_type_ == Type::kTypeRelative ||
+           patch_type_ == Type::kTypeBssEntry);
     return target_dex_file_;
   }
 
-  uint32_t TargetTypeIndex() const {
-    DCHECK(patch_type_ == Type::kType);
-    return type_idx_;
+  dex::TypeIndex TargetTypeIndex() const {
+    DCHECK(patch_type_ == Type::kType ||
+           patch_type_ == Type::kTypeRelative ||
+           patch_type_ == Type::kTypeBssEntry);
+    return dex::TypeIndex(type_idx_);
   }
 
   const DexFile* TargetStringDexFile() const {
-    DCHECK(patch_type_ == Type::kString || patch_type_ == Type::kStringRelative);
+    DCHECK(patch_type_ == Type::kString ||
+           patch_type_ == Type::kStringRelative ||
+           patch_type_ == Type::kStringBssEntry);
     return target_dex_file_;
   }
 
-  uint32_t TargetStringIndex() const {
-    DCHECK(patch_type_ == Type::kString || patch_type_ == Type::kStringRelative);
-    return string_idx_;
+  dex::StringIndex TargetStringIndex() const {
+    DCHECK(patch_type_ == Type::kString ||
+           patch_type_ == Type::kStringRelative ||
+           patch_type_ == Type::kStringBssEntry);
+    return dex::StringIndex(string_idx_);
   }
 
   const DexFile* TargetDexCacheDexFile() const {
@@ -304,8 +303,22 @@ class LinkerPatch {
   }
 
   uint32_t PcInsnOffset() const {
-    DCHECK(patch_type_ == Type::kStringRelative || patch_type_ == Type::kDexCacheArray);
+    DCHECK(patch_type_ == Type::kTypeRelative ||
+           patch_type_ == Type::kTypeBssEntry ||
+           patch_type_ == Type::kStringRelative ||
+           patch_type_ == Type::kStringBssEntry ||
+           patch_type_ == Type::kDexCacheArray);
     return pc_insn_offset_;
+  }
+
+  uint32_t GetBakerCustomValue1() const {
+    DCHECK(patch_type_ == Type::kBakerReadBarrierBranch);
+    return baker_custom_value1_;
+  }
+
+  uint32_t GetBakerCustomValue2() const {
+    DCHECK(patch_type_ == Type::kBakerReadBarrierBranch);
+    return baker_custom_value2_;
   }
 
  private:
@@ -321,6 +334,7 @@ class LinkerPatch {
   }
 
   const DexFile* target_dex_file_;
+  // TODO: Clean up naming. Some patched locations are literals but others are not.
   uint32_t literal_offset_ : 24;  // Method code size up to 16MiB.
   Type patch_type_ : 8;
   union {
@@ -329,10 +343,12 @@ class LinkerPatch {
     uint32_t type_idx_;         // Type index for Type patches.
     uint32_t string_idx_;       // String index for String patches.
     uint32_t element_offset_;   // Element offset in the dex cache arrays.
+    uint32_t baker_custom_value1_;
     static_assert(sizeof(method_idx_) == sizeof(cmp1_), "needed by relational operators");
     static_assert(sizeof(type_idx_) == sizeof(cmp1_), "needed by relational operators");
     static_assert(sizeof(string_idx_) == sizeof(cmp1_), "needed by relational operators");
     static_assert(sizeof(element_offset_) == sizeof(cmp1_), "needed by relational operators");
+    static_assert(sizeof(baker_custom_value1_) == sizeof(cmp1_), "needed by relational operators");
   };
   union {
     // Note: To avoid uninitialized padding on 64-bit systems, we use `size_t` for `cmp2_`.
@@ -341,7 +357,9 @@ class LinkerPatch {
     // Literal offset of the insn loading PC (same as literal_offset if it's the same insn,
     // may be different if the PC-relative addressing needs multiple insns).
     uint32_t pc_insn_offset_;
+    uint32_t baker_custom_value2_;
     static_assert(sizeof(pc_insn_offset_) <= sizeof(cmp2_), "needed by relational operators");
+    static_assert(sizeof(baker_custom_value2_) <= sizeof(cmp2_), "needed by relational operators");
   };
 
   friend bool operator==(const LinkerPatch& lhs, const LinkerPatch& rhs);
@@ -376,7 +394,7 @@ class CompiledMethod FINAL : public CompiledCode {
                  const size_t frame_size_in_bytes,
                  const uint32_t core_spill_mask,
                  const uint32_t fp_spill_mask,
-                 const ArrayRef<const SrcMapElem>& src_mapping_table,
+                 const ArrayRef<const uint8_t>& method_info,
                  const ArrayRef<const uint8_t>& vmap_table,
                  const ArrayRef<const uint8_t>& cfi_info,
                  const ArrayRef<const LinkerPatch>& patches);
@@ -390,7 +408,7 @@ class CompiledMethod FINAL : public CompiledCode {
       const size_t frame_size_in_bytes,
       const uint32_t core_spill_mask,
       const uint32_t fp_spill_mask,
-      const ArrayRef<const SrcMapElem>& src_mapping_table,
+      const ArrayRef<const uint8_t>& method_info,
       const ArrayRef<const uint8_t>& vmap_table,
       const ArrayRef<const uint8_t>& cfi_info,
       const ArrayRef<const LinkerPatch>& patches);
@@ -409,8 +427,8 @@ class CompiledMethod FINAL : public CompiledCode {
     return fp_spill_mask_;
   }
 
-  ArrayRef<const SrcMapElem> GetSrcMappingTable() const {
-    return GetArray(src_mapping_table_);
+  ArrayRef<const uint8_t> GetMethodInfo() const {
+    return GetArray(method_info_);
   }
 
   ArrayRef<const uint8_t> GetVmapTable() const {
@@ -432,9 +450,9 @@ class CompiledMethod FINAL : public CompiledCode {
   const uint32_t core_spill_mask_;
   // For quick code, a bit mask describing spilled FPR callee-save registers.
   const uint32_t fp_spill_mask_;
-  // For quick code, a set of pairs (PC, DEX) mapping from native PC offset to DEX offset.
-  const LengthPrefixedArray<SrcMapElem>* const src_mapping_table_;
-  // For quick code, a uleb128 encoded map from GPR/FPR register to dex register. Size prefixed.
+  // For quick code, method specific information that is not very dedupe friendly (method indices).
+  const LengthPrefixedArray<uint8_t>* const method_info_;
+  // For quick code, holds code infos which contain stack maps, inline information, and etc.
   const LengthPrefixedArray<uint8_t>* const vmap_table_;
   // For quick code, a FDE entry for the debug_frame section.
   const LengthPrefixedArray<uint8_t>* const cfi_info_;

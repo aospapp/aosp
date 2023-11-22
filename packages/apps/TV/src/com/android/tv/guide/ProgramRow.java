@@ -22,8 +22,7 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewParent;
-import android.view.ViewTreeObserver;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 
 import com.android.tv.data.Channel;
 import com.android.tv.guide.ProgramManager.TableEntry;
@@ -45,24 +44,25 @@ public class ProgramRow extends TimelineGridView {
 
     interface ChildFocusListener {
         /**
-         * Is called after focus is moved. Only children to {@code ProgramRow} will be passed.
+         * Is called after focus is moved. It used {@link ChildFocusListener#isChild} to decide if
+         * old and new focuses are listener's children.
          * See {@code ProgramRow#setChildFocusListener(ChildFocusListener)}.
          */
         void onChildFocus(View oldFocus, View newFocus);
     }
 
-    private final ViewTreeObserver.OnGlobalFocusChangeListener mGlobalFocusChangeListener =
-            new ViewTreeObserver.OnGlobalFocusChangeListener() {
-                @Override
-                public void onGlobalFocusChanged(View oldFocus, View newFocus) {
-                    updateCurrentFocus(oldFocus, newFocus);
-                }
-            };
-
     /**
      * Used only for debugging.
      */
     private Channel mChannel;
+
+    private final OnGlobalLayoutListener mLayoutListener = new OnGlobalLayoutListener() {
+        @Override
+        public void onGlobalLayout() {
+            getViewTreeObserver().removeOnGlobalLayoutListener(this);
+            updateChildVisibleArea();
+        }
+    };
 
     public ProgramRow(Context context) {
         this(context, null);
@@ -84,21 +84,25 @@ public class ProgramRow extends TimelineGridView {
     }
 
     @Override
+    public void onViewAdded(View child) {
+        super.onViewAdded(child);
+        ProgramItemView itemView = (ProgramItemView) child;
+        if (getLeft() <= itemView.getRight() && itemView.getLeft() <= getRight()) {
+            itemView.updateVisibleArea();
+        }
+    }
+
+    @Override
     public void onScrolled(int dx, int dy) {
+        // Remove callback to prevent updateChildVisibleArea being called twice.
+        getViewTreeObserver().removeOnGlobalLayoutListener(mLayoutListener);
         super.onScrolled(dx, dy);
-        int childCount = getChildCount();
         if (DEBUG) {
             Log.d(TAG, "onScrolled by " + dx);
-            Log.d(TAG, "channelId=" + mChannel.getId() + ", childCount=" + childCount);
+            Log.d(TAG, "channelId=" + mChannel.getId() + ", childCount=" + getChildCount());
             Log.d(TAG, "ProgramRow {" + Utils.toRectString(this) + "}");
         }
-        for (int i = 0; i < childCount; ++i) {
-            ProgramItemView child = (ProgramItemView) getChildAt(i);
-            if (getLeft() <= child.getRight() && child.getLeft() <= getRight()) {
-                child.layoutVisibleArea(getLayoutDirection() == LAYOUT_DIRECTION_LTR
-                        ? getLeft() - child.getLeft() : child.getRight() - getRight());
-            }
-        }
+        updateChildVisibleArea();
     }
 
     /**
@@ -109,29 +113,9 @@ public class ProgramRow extends TimelineGridView {
         if (currentProgram == null) {
             currentProgram = getChildAt(0);
         }
-        updateCurrentFocus(null, currentProgram);
-    }
-
-    private void updateCurrentFocus(View oldFocus, View newFocus) {
-        if (mChildFocusListener == null) {
-            return;
+        if (mChildFocusListener != null) {
+            mChildFocusListener.onChildFocus(null, currentProgram);
         }
-
-        mChildFocusListener.onChildFocus(isChild(oldFocus) ? oldFocus : null,
-                isChild(newFocus) ? newFocus : null);
-    }
-
-    private boolean isChild(View view) {
-        if (view == null) {
-            return false;
-        }
-
-        for (ViewParent p = view.getParent(); p != null; p = p.getParent()) {
-            if (p == this) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // Call this API after RTL is resolved. (i.e. View is measured.)
@@ -160,7 +144,7 @@ public class ProgramRow extends TimelineGridView {
                 return focused;
             }
         } else if (isDirectionEnd(direction) || direction == View.FOCUS_FORWARD) {
-            if (focusedEntry.entryEndUtcMillis > toMillis + ONE_HOUR_MILLIS) {
+            if (focusedEntry.entryEndUtcMillis >= toMillis + ONE_HOUR_MILLIS) {
                 // The current entry ends outside of the view; Scroll to the right.
                 scrollByTime(ONE_HOUR_MILLIS);
                 return focused;
@@ -172,7 +156,7 @@ public class ProgramRow extends TimelineGridView {
             if (isDirectionEnd(direction) || direction == View.FOCUS_FORWARD) {
                 if (focusedEntry.entryEndUtcMillis != toMillis) {
                     // The focused entry is the last entry; Align to the right edge.
-                    scrollByTime(focusedEntry.entryEndUtcMillis - mProgramManager.getToUtcMillis());
+                    scrollByTime(focusedEntry.entryEndUtcMillis - toMillis);
                     return focused;
                 }
             }
@@ -208,23 +192,21 @@ public class ProgramRow extends TimelineGridView {
     }
 
     @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        getViewTreeObserver().addOnGlobalFocusChangeListener(mGlobalFocusChangeListener);
-    }
-
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        getViewTreeObserver().removeOnGlobalFocusChangeListener(mGlobalFocusChangeListener);
-    }
-
-    @Override
     public void onChildDetachedFromWindow(View child) {
         if (child.hasFocus()) {
             // Focused view can be detached only if it's updated.
             TableEntry entry = ((ProgramItemView) child).getTableEntry();
-            if (entry.isCurrentProgram()) {
+            if (entry.program == null) {
+                // The focus is lost due to information loaded. Requests focus immediately.
+                // (Because this entry is detached after real entries attached, we can't take
+                // the below approach to resume focus on entry being attached.)
+                post(new Runnable() {
+                    @Override
+                    public void run() {
+                        requestFocus();
+                    }
+                });
+            } else if (entry.isCurrentProgram()) {
                 if (DEBUG) Log.d(TAG, "Keep focus to the current program");
                 // Current program is visible in the guide.
                 // Updated entries including current program's will be attached again soon
@@ -242,13 +224,13 @@ public class ProgramRow extends TimelineGridView {
         if (mKeepFocusToCurrentProgram) {
             TableEntry entry = ((ProgramItemView) child).getTableEntry();
             if (entry.isCurrentProgram()) {
+                mKeepFocusToCurrentProgram = false;
                 post(new Runnable() {
                     @Override
                     public void run() {
                         requestFocus();
                     }
                 });
-                mKeepFocusToCurrentProgram = false;
             }
         }
     }
@@ -316,6 +298,22 @@ public class ProgramRow extends TimelineGridView {
                     mProgramManager.getStartTime(), entry.entryStartUtcMillis) - scrollOffset;
             ((LinearLayoutManager) getLayoutManager())
                     .scrollToPositionWithOffset(position, offset);
+            // Workaround to b/31598505. When a program's duration is too long,
+            // RecyclerView.onScrolled() will not be called after scrollToPositionWithOffset().
+            // Therefore we have to update children's visible areas by ourselves in theis case.
+            // Since scrollToPositionWithOffset() will call requestLayout(), we can listen to this
+            // behavior to ensure program items' visible areas are correctly updated after layouts
+            // are adjusted, i.e., scrolling is over.
+            getViewTreeObserver().addOnGlobalLayoutListener(mLayoutListener);
+        }
+    }
+
+    private void updateChildVisibleArea() {
+        for (int i = 0; i < getChildCount(); ++i) {
+            ProgramItemView child = (ProgramItemView) getChildAt(i);
+            if (getLeft() < child.getRight() && child.getLeft() < getRight()) {
+                child.updateVisibleArea();
+            }
         }
     }
 }

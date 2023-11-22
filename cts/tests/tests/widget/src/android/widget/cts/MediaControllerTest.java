@@ -16,24 +16,33 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.cts.util.PollingCheck;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.widget.MediaController;
 import android.widget.VideoView;
+
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,25 +51,25 @@ import java.io.OutputStream;
 /**
  * Test {@link MediaController}.
  */
-public class MediaControllerTest extends
-        ActivityInstrumentationTestCase2<MediaControllerCtsActivity> {
-    private MediaController mMediaController;
-    private Activity mActivity;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class MediaControllerTest {
     private Instrumentation mInstrumentation;
-    private static final long DEFAULT_TIMEOUT = 3000;
+    private Activity mActivity;
+    private MediaController mMediaController;
 
-    public MediaControllerTest() {
-        super("android.widget.cts", MediaControllerCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<MediaControllerCtsActivity> mActivityRule =
+            new ActivityTestRule<>(MediaControllerCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         new MediaController(mActivity, null);
 
@@ -80,6 +89,7 @@ public class MediaControllerTest extends
      *
      */
     @UiThreadTest
+    @Test
     public void testMediaController() {
         mMediaController = new MediaController(mActivity);
         final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
@@ -109,12 +119,10 @@ public class MediaControllerTest extends
         assertTrue(mMediaController.isShowing());
     }
 
-    public void testShow() {
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mMediaController = new MediaController(mActivity, true);
-            }
-        });
+    @Test
+    public void testShow() throws Throwable {
+        mActivityRule.runOnUiThread(
+                () -> mMediaController = new MediaController(mActivity, true));
         mInstrumentation.waitForIdleSync();
         assertFalse(mMediaController.isShowing());
 
@@ -125,48 +133,29 @@ public class MediaControllerTest extends
                 (VideoView) mActivity.findViewById(R.id.mediacontroller_videoview);
         mMediaController.setAnchorView(videoView);
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mMediaController.show();
-            }
-        });
+        mActivityRule.runOnUiThread(mMediaController::show);
         mInstrumentation.waitForIdleSync();
         assertTrue(mMediaController.isShowing());
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mMediaController.hide();
-            }
-        });
+        mActivityRule.runOnUiThread(mMediaController::hide);
         mInstrumentation.waitForIdleSync();
         assertFalse(mMediaController.isShowing());
 
         final int timeout = 2000;
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mMediaController.show(timeout);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mMediaController.show(timeout));
+
         mInstrumentation.waitForIdleSync();
         assertTrue(mMediaController.isShowing());
 
         // isShowing() should return false, but MediaController still shows, this may be a bug.
-        new PollingCheck(timeout + 500) {
-            @Override
-            protected boolean check() {
-                return mMediaController.isShowing();
-            }
-        }.run();
+        PollingCheck.waitFor(500, mMediaController::isShowing);
     }
 
     private String prepareSampleVideo() {
-        InputStream source = null;
-        OutputStream target = null;
         final String VIDEO_NAME   = "testvideo.3gp";
 
-        try {
-            source = mActivity.getResources().openRawResource(R.raw.testvideo);
-            target = mActivity.openFileOutput(VIDEO_NAME, Context.MODE_PRIVATE);
+        try (InputStream source = mActivity.getResources().openRawResource(R.raw.testvideo);
+             OutputStream target = mActivity.openFileOutput(VIDEO_NAME, Context.MODE_PRIVATE)) {
 
             final byte[] buffer = new byte[1024];
             for (int len = source.read(buffer); len > 0; len = source.read(buffer)) {
@@ -174,28 +163,14 @@ public class MediaControllerTest extends
             }
         } catch (final IOException e) {
             fail(e.getMessage());
-        } finally {
-            try {
-                if (source != null) {
-                    source.close();
-                }
-                if (target != null) {
-                    target.close();
-                }
-            } catch (final IOException ignored) {
-                // Ignore the IOException.
-            }
         }
 
         return mActivity.getFileStreamPath(VIDEO_NAME).getAbsolutePath();
     }
 
-    public void testOnTrackballEvent() {
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mMediaController = new MediaController(mActivity);
-            }
-        });
+    @Test
+    public void testOnTrackballEvent() throws Throwable {
+        mActivityRule.runOnUiThread(() -> mMediaController = new MediaController(mActivity));
         mInstrumentation.waitForIdleSync();
         final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
         mMediaController.setMediaPlayer(mediaPlayerControl);
@@ -203,11 +178,9 @@ public class MediaControllerTest extends
         final VideoView videoView =
                 (VideoView) mActivity.findViewById(R.id.mediacontroller_videoview);
         videoView.setMediaController(mMediaController);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                videoView.setVideoPath(prepareSampleVideo());
-                videoView.requestFocus();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            videoView.setVideoPath(prepareSampleVideo());
+            videoView.requestFocus();
         });
         mInstrumentation.waitForIdleSync();
 
@@ -228,6 +201,7 @@ public class MediaControllerTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testSetEnabled() {
         final View videoView = mActivity.findViewById(R.id.mediacontroller_videoview);
         final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
@@ -236,9 +210,9 @@ public class MediaControllerTest extends
         mMediaController.setAnchorView(videoView);
         mMediaController.setMediaPlayer(mediaPlayerControl);
 
-        final MockOnClickListener next = new MockOnClickListener();
-        final MockOnClickListener prev = new MockOnClickListener();
-        mMediaController.setPrevNextListeners(next, prev);
+        final View.OnClickListener mockNextClickListener = mock(View.OnClickListener.class);
+        final View.OnClickListener mockPrevClickListener = mock(View.OnClickListener.class);
+        mMediaController.setPrevNextListeners(mockNextClickListener, mockPrevClickListener);
 
         mMediaController.show();
 
@@ -250,6 +224,7 @@ public class MediaControllerTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testSetPrevNextListeners() {
         final View videoView = mActivity.findViewById(R.id.mediacontroller_videoview);
         final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
@@ -258,19 +233,14 @@ public class MediaControllerTest extends
         mMediaController.setAnchorView(videoView);
         mMediaController.setMediaPlayer(mediaPlayerControl);
 
-        final MockOnClickListener next = new MockOnClickListener();
-        final MockOnClickListener prev = new MockOnClickListener();
-        mMediaController.setPrevNextListeners(next, prev);
+        final View.OnClickListener mockNextClickListener = mock(View.OnClickListener.class);
+        final View.OnClickListener mockPrevClickListener = mock(View.OnClickListener.class);
+        mMediaController.setPrevNextListeners(mockNextClickListener, mockPrevClickListener);
     }
 
     private static class MockMediaPlayerControl implements MediaController.MediaPlayerControl {
-        private boolean mIsPlayingCalled = false;
         private boolean mIsPlaying = false;
         private int mPosition = 0;
-
-        public boolean hasIsPlayingCalled() {
-            return mIsPlayingCalled;
-        }
 
         public void start() {
             mIsPlaying = true;
@@ -293,7 +263,6 @@ public class MediaControllerTest extends
         }
 
         public boolean isPlaying() {
-            mIsPlayingCalled = true;
             return mIsPlaying;
         }
 
@@ -316,18 +285,6 @@ public class MediaControllerTest extends
         @Override
         public int getAudioSessionId() {
             return 0;
-        }
-    }
-
-    private static class MockOnClickListener implements OnClickListener {
-        private boolean mOnClickCalled = false;
-
-        public boolean hasOnClickCalled() {
-            return mOnClickCalled;
-        }
-
-        public void onClick(View v) {
-            mOnClickCalled = true;
         }
     }
 }

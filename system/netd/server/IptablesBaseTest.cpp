@@ -30,9 +30,12 @@
 #define LOG_TAG "IptablesBaseTest"
 #include <cutils/log.h>
 
+using android::base::StringPrintf;
+
 IptablesBaseTest::IptablesBaseTest() {
     sCmds.clear();
     sRestoreCmds.clear();
+    sReturnValues.clear();
 }
 
 int IptablesBaseTest::fake_android_fork_exec(int argc, char* argv[], int *status, bool, bool) {
@@ -43,10 +46,19 @@ int IptablesBaseTest::fake_android_fork_exec(int argc, char* argv[], int *status
         cmd += argv[i];
     }
     sCmds.push_back(cmd);
-    if (status) {
-        *status = 0;
+
+    int ret;
+    if (sReturnValues.size()) {
+        ret = sReturnValues.front();
+        sReturnValues.pop_front();
+    } else {
+        ret = 0;
     }
-    return 0;
+
+    if (status) {
+        *status = ret;
+    }
+    return ret;
 }
 
 int IptablesBaseTest::fakeExecIptables(IptablesTarget target, ...) {
@@ -77,14 +89,34 @@ FILE *IptablesBaseTest::fake_popen(const char * /* cmd */, const char *type) {
         return NULL;
     }
 
-    std::string realCmd = android::base::StringPrintf("echo '%s'", sPopenContents.front().c_str());
+    std::string realCmd = StringPrintf("echo '%s'", sPopenContents.front().c_str());
     sPopenContents.pop_front();
     return popen(realCmd.c_str(), "r");
 }
 
-int IptablesBaseTest::fakeExecIptablesRestore(IptablesTarget target, const std::string& commands) {
+int IptablesBaseTest::fakeExecIptablesRestoreWithOutput(IptablesTarget target,
+                                                        const std::string& commands,
+                                                        std::string *output) {
     sRestoreCmds.push_back({ target, commands });
+    if (output != nullptr) {
+        *output = sIptablesRestoreOutput.size() ? sIptablesRestoreOutput.front().c_str() : "";
+    }
+    if (sIptablesRestoreOutput.size()) {
+        sIptablesRestoreOutput.pop_front();
+    }
     return 0;
+}
+
+int IptablesBaseTest::fakeExecIptablesRestore(IptablesTarget target, const std::string& commands) {
+    return fakeExecIptablesRestoreWithOutput(target, commands, nullptr);
+}
+
+int IptablesBaseTest::fakeExecIptablesRestoreCommand(IptablesTarget target,
+                                                     const std::string& table,
+                                                     const std::string& command,
+                                                     std::string *output) {
+    std::string fullCmd = StringPrintf("-t %s %s", table.c_str(), command.c_str());
+    return fakeExecIptablesRestoreWithOutput(target, fullCmd, output);
 }
 
 int IptablesBaseTest::expectIptablesCommand(IptablesTarget target, int pos,
@@ -157,6 +189,12 @@ void IptablesBaseTest::expectIptablesRestoreCommands(const ExpectedIptablesComma
     sRestoreCmds.clear();
 }
 
+void IptablesBaseTest::setReturnValues(const std::deque<int>& returnValues) {
+    sReturnValues = returnValues;
+}
+
 std::vector<std::string> IptablesBaseTest::sCmds = {};
 IptablesBaseTest::ExpectedIptablesCommands IptablesBaseTest::sRestoreCmds = {};
 std::deque<std::string> IptablesBaseTest::sPopenContents = {};
+std::deque<std::string> IptablesBaseTest::sIptablesRestoreOutput = {};
+std::deque<int> IptablesBaseTest::sReturnValues = {};

@@ -18,6 +18,7 @@ package android.net.cts;
 
 import static android.net.NetworkCapabilities.NET_CAPABILITY_IMS;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
+import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -44,12 +45,15 @@ import android.util.Log;
 
 import com.android.internal.telephony.PhoneConstants;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
+import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -73,6 +77,17 @@ public class ConnectivityManagerTest extends AndroidTestCase {
             "Host: " + TEST_HOST + "\r\n" +
             "Connection: keep-alive\r\n\r\n";
 
+    // Base path for IPv6 sysctls
+    private static final String IPV6_SYSCTL_DIR = "/proc/sys/net/ipv6/conf";
+
+    // Expected values for MIN|MAX_PLEN.
+    private static final int IPV6_WIFI_ACCEPT_RA_RT_INFO_MIN_PLEN = 48;
+    private static final int IPV6_WIFI_ACCEPT_RA_RT_INFO_MAX_PLEN = 64;
+
+    // Expected values for RFC 7559 router soliciations.
+    // Maximum number of router solicitations to send. -1 means no limit.
+    private static final int IPV6_WIFI_ROUTER_SOLICITATIONS = -1;
+
     // Action sent to ConnectivityActionReceiver when a network callback is sent via PendingIntent.
     private static final String NETWORK_CALLBACK_ACTION =
             "ConnectivityManagerTest.NetworkCallbackAction";
@@ -90,6 +105,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     private PackageManager mPackageManager;
     private final HashMap<Integer, NetworkConfig> mNetworks =
             new HashMap<Integer, NetworkConfig>();
+    boolean mWifiConnectAttempted;
 
     @Override
     protected void setUp() throws Exception {
@@ -98,6 +114,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         mCm = (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         mPackageManager = mContext.getPackageManager();
+        mWifiConnectAttempted = false;
 
         // Get com.android.internal.R.array.networkAttributes
         int resId = mContext.getResources().getIdentifier("networkAttributes", "array", "android");
@@ -113,6 +130,27 @@ public class ConnectivityManagerTest extends AndroidTestCase {
                 mNetworks.put(n.type, n);
             } catch (Exception e) {}
         }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        // Return WiFi to its original disabled state after tests that explicitly connect.
+        if (mWifiConnectAttempted) {
+            disconnectFromWifi(null);
+        }
+    }
+
+    /**
+     * Make sure WiFi is connected to an access point if it is not already. If
+     * WiFi is enabled as a result of this function, it will be disabled
+     * automatically in tearDown().
+     */
+    private Network ensureWifiConnected() {
+        if (mWifiManager.isWifiEnabled()) {
+            return getWifiNetwork();
+        }
+        mWifiConnectAttempted = true;
+        return connectToWifi();
     }
 
     public void testIsNetworkTypeValid() {
@@ -297,14 +335,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         final TestNetworkCallback defaultTrackingCallback = new TestNetworkCallback();
         mCm.registerDefaultNetworkCallback(defaultTrackingCallback);
 
-        final boolean previousWifiEnabledState = mWifiManager.isWifiEnabled();
         Network wifiNetwork = null;
 
         try {
-            // Make sure WiFi is connected to an access point to start with.
-            if (!previousWifiEnabledState) {
-                connectToWifi();
-            }
+            ensureWifiConnected();
 
             // Now we should expect to get a network callback about availability of the wifi
             // network even if it was already connected as a state-based action when the callback
@@ -320,11 +354,6 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         } finally {
             mCm.unregisterNetworkCallback(callback);
             mCm.unregisterNetworkCallback(defaultTrackingCallback);
-
-            // Return WiFi to its original enabled/disabled state.
-            if (!previousWifiEnabledState) {
-                disconnectFromWifi(wifiNetwork);
-            }
         }
     }
 
@@ -356,13 +385,8 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         // We will register for a WIFI network being available or lost.
         mCm.registerNetworkCallback(makeWifiNetworkRequest(), pendingIntent);
 
-        final boolean previousWifiEnabledState = mWifiManager.isWifiEnabled();
-
         try {
-            // Make sure WiFi is connected to an access point to start with.
-            if (!previousWifiEnabledState) {
-                connectToWifi();
-            }
+            ensureWifiConnected();
 
             // Now we expect to get the Intent delivered notifying of the availability of the wifi
             // network even if it was already connected as a state-based action when the callback
@@ -375,10 +399,56 @@ public class ConnectivityManagerTest extends AndroidTestCase {
             mCm.unregisterNetworkCallback(pendingIntent);
             pendingIntent.cancel();
             mContext.unregisterReceiver(receiver);
+        }
+    }
 
-            // Return WiFi to its original enabled/disabled state.
-            if (!previousWifiEnabledState) {
-                disconnectFromWifi(null);
+    /**
+     * Exercises the requestNetwork with NetworkCallback API. This checks to
+     * see if we get a callback for an INTERNET request.
+     */
+    public void testRequestNetworkCallback() {
+        final TestNetworkCallback callback = new TestNetworkCallback();
+        mCm.requestNetwork(new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build(), callback);
+
+        try {
+            // Wait to get callback for availability of internet
+            Network internetNetwork = callback.waitForAvailable();
+            assertNotNull("Did not receive NetworkCallback#onAvailable for INTERNET",
+                    internetNetwork);
+        } catch (InterruptedException e) {
+            fail("NetworkCallback wait was interrupted.");
+        } finally {
+            mCm.unregisterNetworkCallback(callback);
+        }
+    }
+
+    /**
+     * Exercises the requestNetwork with NetworkCallback API with timeout - expected to
+     * fail. Use WIFI and switch Wi-Fi off.
+     */
+    public void testRequestNetworkCallback_onUnavailable() {
+        final boolean previousWifiEnabledState = mWifiManager.isWifiEnabled();
+        if (previousWifiEnabledState) {
+            disconnectFromWifi(null);
+        }
+
+        final TestNetworkCallback callback = new TestNetworkCallback();
+        mCm.requestNetwork(new NetworkRequest.Builder()
+                .addTransportType(TRANSPORT_WIFI)
+                .build(), callback, 100);
+
+        try {
+            // Wait to get callback for unavailability of requested network
+            assertTrue("Did not receive NetworkCallback#onUnavailable",
+                    callback.waitForUnavailable());
+        } catch (InterruptedException e) {
+            fail("NetworkCallback wait was interrupted.");
+        } finally {
+            mCm.unregisterNetworkCallback(callback);
+            if (previousWifiEnabledState) {
+                connectToWifi();
             }
         }
     }
@@ -387,6 +457,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
      * Tests reporting of connectivity changed.
      */
     public void testConnectivityChanged_manifestRequestOnly_shouldNotReceiveIntent() {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_manifestRequestOnly_shouldNotReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
         ConnectivityReceiver.prepare();
 
         toggleWifi();
@@ -400,6 +474,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     }
 
     public void testConnectivityChanged_whenRegistered_shouldReceiveIntent() {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_whenRegistered_shouldReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
         ConnectivityReceiver.prepare();
         ConnectivityReceiver receiver = new ConnectivityReceiver();
         IntentFilter filter = new IntentFilter();
@@ -416,6 +494,10 @@ public class ConnectivityManagerTest extends AndroidTestCase {
 
     public void testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent()
             throws InterruptedException {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
         Intent startIntent = new Intent();
         startIntent.setComponent(new ComponentName("android.net.cts.appForApi23",
                 "android.net.cts.appForApi23.ConnectivityListeningActivity"));
@@ -627,6 +709,7 @@ public class ConnectivityManagerTest extends AndroidTestCase {
     private static class TestNetworkCallback extends ConnectivityManager.NetworkCallback {
         private final CountDownLatch mAvailableLatch = new CountDownLatch(1);
         private final CountDownLatch mLostLatch = new CountDownLatch(1);
+        private final CountDownLatch mUnavailableLatch = new CountDownLatch(1);
 
         public Network currentNetwork;
         public Network lastLostNetwork;
@@ -638,6 +721,11 @@ public class ConnectivityManagerTest extends AndroidTestCase {
         public Network waitForLost() throws InterruptedException {
             return mLostLatch.await(30, TimeUnit.SECONDS) ? lastLostNetwork : null;
         }
+
+        public boolean waitForUnavailable() throws InterruptedException {
+            return mUnavailableLatch.await(2, TimeUnit.SECONDS);
+        }
+
 
         @Override
         public void onAvailable(Network network) {
@@ -652,6 +740,11 @@ public class ConnectivityManagerTest extends AndroidTestCase {
                 currentNetwork = null;
             }
             mLostLatch.countDown();
+        }
+
+        @Override
+        public void onUnavailable() {
+            mUnavailableLatch.countDown();
         }
     }
 
@@ -685,5 +778,59 @@ public class ConnectivityManagerTest extends AndroidTestCase {
             mCm.requestNetwork(request, callback);
             fail("No exception thrown when restricted network requested.");
         } catch (SecurityException expected) {}
+    }
+
+    private Scanner makeWifiSysctlScanner(String key) throws FileNotFoundException {
+        Network network = ensureWifiConnected();
+        String iface = mCm.getLinkProperties(network).getInterfaceName();
+        String path = IPV6_SYSCTL_DIR + "/" + iface + "/" + key;
+        return new Scanner(new File(path));
+    }
+
+    /** Verify that accept_ra_rt_info_min_plen exists and is set to the expected value */
+    public void testAcceptRaRtInfoMinPlen() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
+        Scanner s = makeWifiSysctlScanner("accept_ra_rt_info_min_plen");
+        assertEquals(IPV6_WIFI_ACCEPT_RA_RT_INFO_MIN_PLEN, s.nextInt());
+    }
+
+    /** Verify that accept_ra_rt_info_max_plen exists and is set to the expected value */
+    public void testAcceptRaRtInfoMaxPlen() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
+        Scanner s = makeWifiSysctlScanner("accept_ra_rt_info_max_plen");
+        assertEquals(IPV6_WIFI_ACCEPT_RA_RT_INFO_MAX_PLEN, s.nextInt());
+    }
+
+    /** Verify that router_solicitations exists and is set to the expected value */
+    public void testRouterSolicitations() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
+        Scanner s = makeWifiSysctlScanner("router_solicitations");
+        assertEquals(IPV6_WIFI_ROUTER_SOLICITATIONS, s.nextInt());
+    }
+
+    /** Verify that router_solicitation_max_interval exists and is in an acceptable interval */
+    public void testRouterSolicitationMaxInterval() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            Log.i(TAG, "testConnectivityChanged_manifestRequestOnlyPreN_shouldReceiveIntent cannot execute unless device supports WiFi");
+            return;
+        }
+        Scanner s = makeWifiSysctlScanner("router_solicitation_max_interval");
+        int interval = s.nextInt();
+        // Verify we're in the interval [15 minutes, 60 minutes]. Lower values may adversely
+        // impact battery life and higher values can decrease the probability of detecting
+        // network changes.
+        final int lowerBoundSec = 15 * 60;
+        final int upperBoundSec = 60 * 60;
+        assertTrue(lowerBoundSec <= interval);
+        assertTrue(interval <= upperBoundSec);
     }
 }

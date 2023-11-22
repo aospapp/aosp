@@ -5,8 +5,9 @@
 #include <stdio.h>
 #include <sys/mman.h>
 
+#include <memory>
+
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 
 #include "main.h"
 #include "testbase.h"
@@ -179,7 +180,7 @@ bool YuvToRgbTest::SetupTextures() {
                0, GL_LUMINANCE, GL_UNSIGNED_BYTE, v_plane);
 
   {
-    scoped_ptr<char[]> buf_uv(new char[chroma_size * 2]);
+    std::unique_ptr<char[]> buf_uv(new char[chroma_size * 2]);
     char* buf_uv_ptr = buf_uv.get();
     for (int i = 0; i < chroma_size; i++) {
         *buf_uv_ptr++ = u_plane[i];

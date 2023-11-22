@@ -15,7 +15,6 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:network3g_tmobile, suite:network3g_verizon"
-SUITE = "network3g_tmobile, network3g_verizon"
 DEPENDENCIES = "modem:gobi3k"
 DOC = """
   Tests that 3G modem can connect to the network

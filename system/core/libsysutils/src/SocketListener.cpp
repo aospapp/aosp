@@ -13,19 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdio.h>
+
+#define LOG_TAG "SocketListener"
+
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <unistd.h>
 
-#define LOG_TAG "SocketListener"
-#include <cutils/log.h>
 #include <cutils/sockets.h>
-
+#include <log/log.h>
 #include <sysutils/SocketListener.h>
 #include <sysutils/SocketClient.h>
 
@@ -199,22 +201,12 @@ void SocketListener::runListener() {
             continue;
         }
         if (mListen && FD_ISSET(mSock, &read_fds)) {
-            sockaddr_storage ss;
-            sockaddr* addrp = reinterpret_cast<sockaddr*>(&ss);
-            socklen_t alen;
-            int c;
-
-            do {
-                alen = sizeof(ss);
-                c = accept(mSock, addrp, &alen);
-                SLOGV("%s got %d from accept", mSocketName, c);
-            } while (c < 0 && errno == EINTR);
+            int c = TEMP_FAILURE_RETRY(accept4(mSock, nullptr, nullptr, SOCK_CLOEXEC));
             if (c < 0) {
                 SLOGE("accept failed (%s)", strerror(errno));
                 sleep(1);
                 continue;
             }
-            fcntl(c, F_SETFD, FD_CLOEXEC);
             pthread_mutex_lock(&mClientsLock);
             mClients->push_back(new SocketClient(c, true, mUseCmdNum));
             pthread_mutex_unlock(&mClientsLock);

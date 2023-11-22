@@ -47,22 +47,17 @@
 ** functions in ARMAssemblerInterface.cpp so they could be used as static initializers).
 */
 
-
 #define LOG_TAG "MIPSAssembler"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <cutils/log.h>
+
 #include <cutils/properties.h>
-
-#if defined(WITH_LIB_HARDWARE)
-#include <hardware_legacy/qemu_tracing.h>
-#endif
-
+#include <log/log.h>
 #include <private/pixelflinger/ggl_context.h>
 
-#include "MIPSAssembler.h"
 #include "CodeCache.h"
+#include "MIPSAssembler.h"
 #include "mips_disassem.h"
 
 // Choose MIPS arch variant following gcc flags
@@ -1410,13 +1405,6 @@ int MIPSAssembler::generate(const char* name)
     const int64_t duration = ggl_system_time() - mDuration;
     const char * const format = "generated %s (%d ins) at [%p:%p] in %lld ns\n";
     ALOGI(format, name, int(pc()-base()), base(), pc(), duration);
-
-#if defined(WITH_LIB_HARDWARE)
-    if (__builtin_expect(mQemuTracing, 0)) {
-        int err = qemu_add_mapping(uintptr_t(base()), name);
-        mQemuTracing = (err >= 0);
-    }
-#endif
 
     char value[PROPERTY_VALUE_MAX];
     value[0] = '\0';

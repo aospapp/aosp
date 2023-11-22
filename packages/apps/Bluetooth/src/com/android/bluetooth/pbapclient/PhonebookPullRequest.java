@@ -1,10 +1,25 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.android.bluetooth.pbapclient;
 
 import com.android.vcard.VCardEntry;
 
 import android.accounts.Account;
-import com.android.bluetooth.pbapclient.BluetoothPbapClient;
 import android.content.ContentProviderOperation;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.OperationApplicationException;
 import android.provider.ContactsContract;
@@ -28,8 +43,8 @@ import java.util.HashMap;
 import java.util.List;
 
 public class PhonebookPullRequest extends PullRequest {
-    private static final int MAX_OPS = 200;
-    private static final boolean DBG = true;
+    private static final int MAX_OPS = 250;
+    private static final boolean VDBG = false;
     private static final String TAG = "PbapPhonebookPullRequest";
 
     private final Account mAccount;
@@ -39,146 +54,9 @@ public class PhonebookPullRequest extends PullRequest {
     public PhonebookPullRequest(Context context, Account account) {
         mContext = context;
         mAccount = account;
-        path = BluetoothPbapClient.PB_PATH;
+        path = PbapClientConnectionHandler.PB_PATH;
     }
 
-    private PhonebookEntry fetchContact(String id) {
-        PhonebookEntry entry = new PhonebookEntry();
-        entry.id = id;
-        Cursor c = null;
-        try {
-            c = mContext.getContentResolver().query(
-                    Data.CONTENT_URI,
-                    null,
-                    Data.RAW_CONTACT_ID + " = ?",
-                    new String[] { id },
-                    null);
-            if (c != null) {
-                int mimeTypeIndex = c.getColumnIndex(Data.MIMETYPE);
-                int familyNameIndex = c.getColumnIndex(StructuredName.FAMILY_NAME);
-                int givenNameIndex = c.getColumnIndex(StructuredName.GIVEN_NAME);
-                int middleNameIndex = c.getColumnIndex(StructuredName.MIDDLE_NAME);
-                int prefixIndex = c.getColumnIndex(StructuredName.PREFIX);
-                int suffixIndex = c.getColumnIndex(StructuredName.SUFFIX);
-
-                int phoneTypeIndex = c.getColumnIndex(Phone.TYPE);
-                int phoneNumberIndex = c.getColumnIndex(Phone.NUMBER);
-
-                while (c.moveToNext()) {
-                    String mimeType = c.getString(mimeTypeIndex);
-                    if (mimeType.equals(StructuredName.CONTENT_ITEM_TYPE)) {
-                        entry.name.family = c.getString(familyNameIndex);
-                        entry.name.given = c.getString(givenNameIndex);
-                        entry.name.middle = c.getString(middleNameIndex);
-                        entry.name.prefix = c.getString(prefixIndex);
-                        entry.name.suffix = c.getString(suffixIndex);
-                    } else if (mimeType.equals(Phone.CONTENT_ITEM_TYPE)) {
-                        PhonebookEntry.Phone p = new PhonebookEntry.Phone();
-                        p.type = c.getInt(phoneTypeIndex);
-                        p.number = c.getString(phoneNumberIndex);
-                        entry.phones.add(p);
-                    }
-                }
-            }
-        } finally {
-            if (c != null) {
-                c.close();
-            }
-        }
-        return entry;
-    }
-
-    private HashMap<PhonebookEntry.Name, PhonebookEntry> fetchExistingContacts() {
-        HashMap<PhonebookEntry.Name, PhonebookEntry> entries = new HashMap<>();
-
-        Cursor c = null;
-        try {
-            // First find all the contacts present. Fetch all rows.
-            Uri uri = RawContacts.CONTENT_URI.buildUpon()
-                    .appendQueryParameter(RawContacts.ACCOUNT_NAME, mAccount.name)
-                    .appendQueryParameter(RawContacts.ACCOUNT_TYPE, mAccount.type)
-                    .build();
-            // First get all the raw contact ids.
-            c = mContext.getContentResolver().query(uri,
-                    new String[]  { RawContacts._ID },
-                    null, null, null);
-
-            if (c != null) {
-                while (c.moveToNext()) {
-                    // For each raw contact id, fetch all the data.
-                    PhonebookEntry e = fetchContact(c.getString(0));
-                    entries.put(e.name, e);
-                }
-            }
-        } finally {
-            if (c != null) {
-                c.close();
-            }
-        }
-
-        return entries;
-    }
-
-    private void addContacts(List<PhonebookEntry> entries)
-            throws RemoteException, OperationApplicationException, InterruptedException {
-        ArrayList<ContentProviderOperation> ops = new ArrayList<ContentProviderOperation>();
-        for (PhonebookEntry e : entries) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw new InterruptedException();
-            }
-            int index = ops.size();
-            // Add an entry.
-            ops.add(ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
-                    .withValue(RawContacts.ACCOUNT_TYPE, mAccount.type)
-                    .withValue(RawContacts.ACCOUNT_NAME, mAccount.name)
-                    .build());
-
-            // Populate the name.
-            ops.add(ContentProviderOperation.newInsert(Data.CONTENT_URI)
-                    .withValueBackReference(Data.RAW_CONTACT_ID, index)
-                    .withValue(Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE)
-                    .withValue(StructuredName.FAMILY_NAME , e.name.family)
-                    .withValue(StructuredName.GIVEN_NAME , e.name.given)
-                    .withValue(StructuredName.MIDDLE_NAME , e.name.middle)
-                    .withValue(StructuredName.PREFIX , e.name.prefix)
-                    .withValue(StructuredName.SUFFIX , e.name.suffix)
-                    .build());
-
-            // Populate the phone number(s) if any.
-            for (PhonebookEntry.Phone p : e.phones) {
-                ops.add(ContentProviderOperation.newInsert(Data.CONTENT_URI)
-                        .withValueBackReference(Data.RAW_CONTACT_ID, index)
-                        .withValue(Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE)
-                        .withValue(Phone.NUMBER, p.number)
-                        .withValue(Phone.TYPE, p.type)
-                        .build());
-            }
-
-            // Commit MAX_OPS at a time so that the binder transaction doesn't get too large.
-            if (ops.size() > MAX_OPS) {
-                mContext.getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
-                ops.clear();
-            }
-        }
-
-        if (ops.size() > 0) {
-            // Commit remaining entries.
-            mContext.getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
-        }
-    }
-
-    private void deleteContacts(List<PhonebookEntry> entries)
-            throws RemoteException, OperationApplicationException {
-        ArrayList<ContentProviderOperation> ops = new ArrayList<ContentProviderOperation>();
-        for (PhonebookEntry e : entries) {
-            ops.add(ContentProviderOperation.newDelete(RawContacts.CONTENT_URI.buildUpon()
-                        .appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true")
-                        .build())
-                .withSelection(RawContacts._ID + "=?", new String[] { e.id })
-                .build());
-        }
-        mContext.getContentResolver().applyBatch(ContactsContract.AUTHORITY, ops);
-    }
 
     @Override
     public void onPullComplete() {
@@ -186,51 +64,46 @@ public class PhonebookPullRequest extends PullRequest {
             Log.e(TAG, "onPullComplete entries is null.");
             return;
         }
-
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "onPullComplete with " + mEntries.size() + " count.");
         }
+
         try {
-
-            HashMap<PhonebookEntry.Name, PhonebookEntry> contacts = fetchExistingContacts();
-
-            List<PhonebookEntry> contactsToAdd = new ArrayList<PhonebookEntry>();
-            List<PhonebookEntry> contactsToDelete = new ArrayList<PhonebookEntry>();
-
+            ContentResolver contactsProvider = mContext.getContentResolver();
+            ArrayList<ContentProviderOperation> insertOperations = new ArrayList<>();
+            ArrayList<ContentProviderOperation> currentContactOperations;
+            // Group insert operations together to minimize inter process communication and improve
+            // processing time.
             for (VCardEntry e : mEntries) {
-                PhonebookEntry current = new PhonebookEntry(e);
-                PhonebookEntry.Name key = current.name;
-
-                PhonebookEntry contact = contacts.get(key);
-                if (contact == null) {
-                    contactsToAdd.add(current);
-                } else if (!contact.equals(current)) {
-                    // Instead of trying to figure out what changed on an update, do a delete
-                    // and an add. Sure, it churns contact ids but a contact being updated
-                    // while someone is connected is a low enough frequency event that the
-                    // complexity of doing an update is just not worth it.
-                    contactsToAdd.add(current);
-                    // Don't remove it from the hashmap so it will get deleted.
-                } else {
-                    contacts.remove(key);
+                if (Thread.currentThread().isInterrupted()) {
+                    Log.e(TAG, "Interrupted durring insert.");
+                    break;
+                }
+                int numberOfOperations = insertOperations.size();
+                // Append current vcard to list of insert operations.
+                e.constructInsertOperations(contactsProvider, insertOperations);
+                if (insertOperations.size() >= MAX_OPS) {
+                    // If we have exceded the limit to the insert operation remove the latest vcard
+                    // and submit.
+                    insertOperations.subList(numberOfOperations, insertOperations.size()).clear();
+                    contactsProvider.applyBatch(ContactsContract.AUTHORITY, insertOperations);
+                    insertOperations = e.constructInsertOperations(contactsProvider, null);
+                    if (insertOperations.size() >= MAX_OPS) {
+                        // Current VCard has more than 500 attributes, drop the card.
+                        insertOperations.clear();
+                    }
                 }
             }
-            contactsToDelete.addAll(contacts.values());
-
-            if (!contactsToDelete.isEmpty()) {
-                deleteContacts(contactsToDelete);
+            if (insertOperations.size() > 0) {
+                // Apply any unsubmitted vcards.
+                contactsProvider.applyBatch(ContactsContract.AUTHORITY, insertOperations);
+                insertOperations.clear();
             }
-
-            if (!contactsToAdd.isEmpty()) {
-                addContacts(contactsToAdd);
+            if (VDBG) {
+                Log.d(TAG, "Sync complete: add=" + mEntries.size());
             }
-
-            Log.d(TAG, "Sync complete: add=" + contactsToAdd.size()
-                    + " delete=" + contactsToDelete.size());
         } catch (OperationApplicationException | RemoteException | NumberFormatException e) {
-            Log.d(TAG, "Got exception: ", e);
-        } catch (InterruptedException e) {
-            Log.d(TAG, "Interrupted durring insert.");
+            Log.e(TAG, "Got exception: ", e);
         } finally {
             complete = true;
         }

@@ -16,12 +16,18 @@
 
 package android.view.cts;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.app.Instrumentation;
-import android.graphics.Rect;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.MotionEvent;
 import android.view.TouchDelegate;
 import android.view.View;
@@ -29,78 +35,46 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
-public class TouchDelegateTest extends ActivityInstrumentationTestCase2<MockActivity> {
-    private static final int WRAP_CONTENT = ViewGroup.LayoutParams.WRAP_CONTENT;
-    private static final int ACTION_DOWN = MotionEvent.ACTION_DOWN;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private Activity mActivity;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TouchDelegateTest {
     private Instrumentation mInstrumentation;
+    private Activity mActivity;
     private Button mButton;
-    private Rect mRect;
 
-    private int mXInside;
-    private int mYInside;
+    @Rule
+    public ActivityTestRule<MockActivity> mActivityRule =
+            new ActivityTestRule<>(MockActivity.class);
 
-    private Exception mException;
-
-    public TouchDelegateTest() {
-        super("android.view.cts", MockActivity.class);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setup() throws Throwable {
+        mActivity = mActivityRule.getActivity();
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
 
         mButton = new Button(mActivity);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    mActivity.addContentView(mButton, new LinearLayout.LayoutParams(WRAP_CONTENT,
-                                                                                    WRAP_CONTENT));
-                } catch (Exception e) {
-                    mException = e;
-                }
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mActivity.addContentView(
+                mButton, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)));
         mInstrumentation.waitForIdleSync();
-
-        if(mException != null) {
-            throw mException;
-        }
-
-        int right = mButton.getRight();
-        int bottom = mButton.getBottom();
-        mXInside = (mButton.getLeft() + right) / 3;
-        mYInside = (mButton.getTop() + bottom) / 3;
-
-        mRect = new Rect();
-        mButton.getHitRect(mRect);
     }
 
     @UiThreadTest
+    @Test
     public void testOnTouchEvent() {
         // test callback of onTouchEvent
-        View view = new View(mActivity);
-        MockTouchDelegate touchDelegate = new MockTouchDelegate(mRect, mButton);
+        final View view = new View(mActivity);
+        final TouchDelegate touchDelegate = mock(TouchDelegate.class);
         view.setTouchDelegate(touchDelegate);
-        assertFalse(touchDelegate.mOnTouchEventCalled);
-        view.onTouchEvent(MotionEvent.obtain(0, 0, ACTION_DOWN, mXInside, mYInside, 0));
-        assertTrue(touchDelegate.mOnTouchEventCalled);
-    }
 
-    class MockTouchDelegate extends TouchDelegate {
-        private boolean mOnTouchEventCalled;
+        final int xInside = (mButton.getLeft() + mButton.getRight()) / 3;
+        final int yInside = (mButton.getTop() + mButton.getBottom()) / 3;
 
-        public MockTouchDelegate(Rect bounds, View delegateView) {
-            super(bounds, delegateView);
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
-            mOnTouchEventCalled = true;
-            return true;
-        }
+        view.onTouchEvent(MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, xInside, yInside, 0));
+        verify(touchDelegate, times(1)).onTouchEvent(any(MotionEvent.class));
     }
 }

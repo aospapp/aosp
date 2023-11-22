@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <base/at_exit.h>
 #include <base/run_loop.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -38,7 +39,9 @@ const char kOwnerPassword[] = "owner";
 const char kOwnerDependency[] = "owner_dependency";
 const char kOtherDependency[] = "other_dependency";
 
-}
+base::AtExitManager dummy;
+
+}  // namespace
 
 namespace tpm_manager {
 
@@ -48,37 +51,30 @@ class TpmManagerServiceTest : public testing::Test {
  public:
   ~TpmManagerServiceTest() override = default;
   void SetUp() override {
-    service_.reset(new TpmManagerService(true /*wait_for_ownership*/,
-                                         &mock_local_data_store_,
-                                         &mock_tpm_status_,
-                                         &mock_tpm_initializer_,
-                                         &mock_tpm_nvram_));
+    service_.reset(new TpmManagerService(
+        true /*wait_for_ownership*/, &mock_local_data_store_, &mock_tpm_status_,
+        &mock_tpm_initializer_, &mock_tpm_nvram_));
     SetupService();
   }
 
  protected:
-  void Run() {
-    run_loop_.Run();
-  }
+  void Run() { run_loop_.Run(); }
 
   void RunServiceWorkerAndQuit() {
     // Run out the service worker loop by posting a new command and waiting for
     // the response.
-    auto callback = [this](const GetTpmStatusReply& reply) {
-      Quit();
+    auto callback = [](decltype(this) test, const GetTpmStatusReply& reply) {
+      test->Quit();
     };
     GetTpmStatusRequest request;
-    service_->GetTpmStatus(request, base::Bind(callback));
+    service_->GetTpmStatus(request,
+                           base::Bind(callback, base::Unretained(this)));
     Run();
   }
 
-  void Quit() {
-    run_loop_.Quit();
-  }
+  void Quit() { run_loop_.Quit(); }
 
-  void SetupService() {
-    CHECK(service_->Initialize());
-  }
+  void SetupService() { CHECK(service_->Initialize()); }
 
   NiceMock<MockLocalDataStore> mock_local_data_store_;
   NiceMock<MockTpmInitializer> mock_tpm_initializer_;
@@ -96,11 +92,9 @@ class TpmManagerServiceTest_NoWaitForOwnership : public TpmManagerServiceTest {
  public:
   ~TpmManagerServiceTest_NoWaitForOwnership() override = default;
   void SetUp() override {
-    service_.reset(new TpmManagerService(false /*wait_for_ownership*/,
-                                         &mock_local_data_store_,
-                                         &mock_tpm_status_,
-                                         &mock_tpm_initializer_,
-                                         &mock_tpm_nvram_));
+    service_.reset(new TpmManagerService(
+        false /*wait_for_ownership*/, &mock_local_data_store_,
+        &mock_tpm_status_, &mock_tpm_initializer_, &mock_tpm_nvram_));
   }
 };
 
@@ -129,12 +123,12 @@ TEST_F(TpmManagerServiceTest_NoWaitForOwnership,
        TakeOwnershipAfterAutoInitialize) {
   EXPECT_CALL(mock_tpm_initializer_, InitializeTpm()).Times(AtLeast(2));
   SetupService();
-  auto callback = [this](const TakeOwnershipReply& reply) {
+  auto callback = [](decltype(this) test, const TakeOwnershipReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    Quit();
+    test->Quit();
   };
   TakeOwnershipRequest request;
-  service_->TakeOwnership(request, base::Bind(callback));
+  service_->TakeOwnership(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
@@ -158,7 +152,7 @@ TEST_F(TpmManagerServiceTest, GetTpmStatusSuccess) {
   EXPECT_CALL(mock_local_data_store_, Read(_))
       .WillRepeatedly(DoAll(SetArgPointee<0>(local_data), Return(true)));
 
-  auto callback = [this](const GetTpmStatusReply& reply) {
+  auto callback = [](decltype(this) test, const GetTpmStatusReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
     EXPECT_TRUE(reply.enabled());
     EXPECT_TRUE(reply.owned());
@@ -167,17 +161,16 @@ TEST_F(TpmManagerServiceTest, GetTpmStatusSuccess) {
     EXPECT_EQ(6, reply.dictionary_attack_threshold());
     EXPECT_TRUE(reply.dictionary_attack_lockout_in_effect());
     EXPECT_EQ(7, reply.dictionary_attack_lockout_seconds_remaining());
-    Quit();
+    test->Quit();
   };
   GetTpmStatusRequest request;
-  service_->GetTpmStatus(request, base::Bind(callback));
+  service_->GetTpmStatus(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
 TEST_F(TpmManagerServiceTest, GetTpmStatusLocalDataFailure) {
-  EXPECT_CALL(mock_local_data_store_, Read(_))
-      .WillRepeatedly(Return(false));
-  auto callback = [this](const GetTpmStatusReply& reply) {
+  EXPECT_CALL(mock_local_data_store_, Read(_)).WillRepeatedly(Return(false));
+  auto callback = [](decltype(this) test, const GetTpmStatusReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
     EXPECT_TRUE(reply.enabled());
     EXPECT_TRUE(reply.owned());
@@ -186,10 +179,10 @@ TEST_F(TpmManagerServiceTest, GetTpmStatusLocalDataFailure) {
     EXPECT_TRUE(reply.has_dictionary_attack_threshold());
     EXPECT_TRUE(reply.has_dictionary_attack_lockout_in_effect());
     EXPECT_TRUE(reply.has_dictionary_attack_lockout_seconds_remaining());
-    Quit();
+    test->Quit();
   };
   GetTpmStatusRequest request;
-  service_->GetTpmStatus(request, base::Bind(callback));
+  service_->GetTpmStatus(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
@@ -197,7 +190,7 @@ TEST_F(TpmManagerServiceTest, GetTpmStatusNoTpm) {
   EXPECT_CALL(mock_tpm_status_, IsTpmEnabled()).WillRepeatedly(Return(false));
   EXPECT_CALL(mock_tpm_status_, GetDictionaryAttackInfo(_, _, _, _))
       .WillRepeatedly(Return(false));
-  auto callback = [this](const GetTpmStatusReply& reply) {
+  auto callback = [](decltype(this) test, const GetTpmStatusReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
     EXPECT_FALSE(reply.enabled());
     EXPECT_TRUE(reply.owned());
@@ -206,71 +199,69 @@ TEST_F(TpmManagerServiceTest, GetTpmStatusNoTpm) {
     EXPECT_FALSE(reply.has_dictionary_attack_threshold());
     EXPECT_FALSE(reply.has_dictionary_attack_lockout_in_effect());
     EXPECT_FALSE(reply.has_dictionary_attack_lockout_seconds_remaining());
-    Quit();
+    test->Quit();
   };
   GetTpmStatusRequest request;
-  service_->GetTpmStatus(request, base::Bind(callback));
+  service_->GetTpmStatus(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
 TEST_F(TpmManagerServiceTest, TakeOwnershipSuccess) {
   // Make sure InitializeTpm doesn't get multiple calls.
   EXPECT_CALL(mock_tpm_initializer_, InitializeTpm()).Times(1);
-  auto callback = [this](const TakeOwnershipReply& reply) {
+  auto callback = [](decltype(this) test, const TakeOwnershipReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    Quit();
+    test->Quit();
   };
   TakeOwnershipRequest request;
-  service_->TakeOwnership(request, base::Bind(callback));
+  service_->TakeOwnership(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
 TEST_F(TpmManagerServiceTest, TakeOwnershipFailure) {
   EXPECT_CALL(mock_tpm_initializer_, InitializeTpm())
       .WillRepeatedly(Return(false));
-  auto callback = [this](const TakeOwnershipReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
+  auto callback = [](decltype(this) test, const TakeOwnershipReply& reply) {
+    EXPECT_EQ(STATUS_DEVICE_ERROR, reply.status());
+    test->Quit();
   };
   TakeOwnershipRequest request;
-  service_->TakeOwnership(request, base::Bind(callback));
+  service_->TakeOwnership(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
 TEST_F(TpmManagerServiceTest, TakeOwnershipNoTpm) {
   EXPECT_CALL(mock_tpm_status_, IsTpmEnabled()).WillRepeatedly(Return(false));
-  auto callback = [this](const TakeOwnershipReply& reply) {
+  auto callback = [](decltype(this) test, const TakeOwnershipReply& reply) {
     EXPECT_EQ(STATUS_NOT_AVAILABLE, reply.status());
-    Quit();
+    test->Quit();
   };
   TakeOwnershipRequest request;
-  service_->TakeOwnership(request, base::Bind(callback));
+  service_->TakeOwnership(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
 TEST_F(TpmManagerServiceTest, RemoveOwnerDependencyReadFailure) {
-  EXPECT_CALL(mock_local_data_store_, Read(_))
-    .WillRepeatedly(Return(false));
-  auto callback = [this](const RemoveOwnerDependencyReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
+  EXPECT_CALL(mock_local_data_store_, Read(_)).WillRepeatedly(Return(false));
+  auto callback = [](decltype(this) test, const RemoveOwnerDependencyReply& reply) {
+    EXPECT_EQ(STATUS_DEVICE_ERROR, reply.status());
+    test->Quit();
   };
   RemoveOwnerDependencyRequest request;
   request.set_owner_dependency(kOwnerDependency);
-  service_->RemoveOwnerDependency(request, base::Bind(callback));
+  service_->RemoveOwnerDependency(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
 TEST_F(TpmManagerServiceTest, RemoveOwnerDependencyWriteFailure) {
-  EXPECT_CALL(mock_local_data_store_, Write(_))
-    .WillRepeatedly(Return(false));
-  auto callback = [this](const RemoveOwnerDependencyReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
+  EXPECT_CALL(mock_local_data_store_, Write(_)).WillRepeatedly(Return(false));
+  auto callback = [](decltype(this) test, const RemoveOwnerDependencyReply& reply) {
+    EXPECT_EQ(STATUS_DEVICE_ERROR, reply.status());
+    test->Quit();
   };
   RemoveOwnerDependencyRequest request;
   request.set_owner_dependency(kOwnerDependency);
-  service_->RemoveOwnerDependency(request, base::Bind(callback));
+  service_->RemoveOwnerDependency(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
@@ -280,22 +271,23 @@ TEST_F(TpmManagerServiceTest, RemoveOwnerDependencyNotCleared) {
   local_data.add_owner_dependency(kOwnerDependency);
   local_data.add_owner_dependency(kOtherDependency);
   EXPECT_CALL(mock_local_data_store_, Read(_))
-      .WillOnce(DoAll(SetArgPointee<0>(local_data),
-                      Return(true)));
+      .WillOnce(DoAll(SetArgPointee<0>(local_data), Return(true)));
   EXPECT_CALL(mock_local_data_store_, Write(_))
-      .WillOnce(DoAll(SaveArg<0>(&local_data),
-                      Return(true)));
-  auto callback = [this, &local_data](const RemoveOwnerDependencyReply& reply) {
+      .WillOnce(DoAll(SaveArg<0>(&local_data), Return(true)));
+  auto callback = [](decltype(this) test, LocalData* local_data,
+                     const RemoveOwnerDependencyReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_EQ(1, local_data.owner_dependency_size());
-    EXPECT_EQ(kOtherDependency, local_data.owner_dependency(0));
-    EXPECT_TRUE(local_data.has_owner_password());
-    EXPECT_EQ(kOwnerPassword, local_data.owner_password());
-    Quit();
+    EXPECT_EQ(1, local_data->owner_dependency_size());
+    EXPECT_EQ(kOtherDependency, local_data->owner_dependency(0));
+    EXPECT_TRUE(local_data->has_owner_password());
+    EXPECT_EQ(kOwnerPassword, local_data->owner_password());
+    test->Quit();
   };
   RemoveOwnerDependencyRequest request;
   request.set_owner_dependency(kOwnerDependency);
-  service_->RemoveOwnerDependency(request, base::Bind(callback));
+  service_->RemoveOwnerDependency(request,
+                                  base::Bind(callback, base::Unretained(this),
+                                             base::Unretained(&local_data)));
   Run();
 }
 
@@ -304,20 +296,21 @@ TEST_F(TpmManagerServiceTest, RemoveOwnerDependencyCleared) {
   local_data.set_owner_password(kOwnerPassword);
   local_data.add_owner_dependency(kOwnerDependency);
   EXPECT_CALL(mock_local_data_store_, Read(_))
-      .WillOnce(DoAll(SetArgPointee<0>(local_data),
-                      Return(true)));
+      .WillOnce(DoAll(SetArgPointee<0>(local_data), Return(true)));
   EXPECT_CALL(mock_local_data_store_, Write(_))
-      .WillOnce(DoAll(SaveArg<0>(&local_data),
-                      Return(true)));
-  auto callback = [this, &local_data](const RemoveOwnerDependencyReply& reply) {
+      .WillOnce(DoAll(SaveArg<0>(&local_data), Return(true)));
+  auto callback = [](decltype(this) test, LocalData* local_data,
+                     const RemoveOwnerDependencyReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_EQ(0, local_data.owner_dependency_size());
-    EXPECT_FALSE(local_data.has_owner_password());
-    Quit();
+    EXPECT_EQ(0, local_data->owner_dependency_size());
+    EXPECT_FALSE(local_data->has_owner_password());
+    test->Quit();
   };
   RemoveOwnerDependencyRequest request;
   request.set_owner_dependency(kOwnerDependency);
-  service_->RemoveOwnerDependency(request, base::Bind(callback));
+  service_->RemoveOwnerDependency(request,
+                                  base::Bind(callback, base::Unretained(this),
+                                             base::Unretained(&local_data)));
   Run();
 }
 
@@ -326,234 +319,213 @@ TEST_F(TpmManagerServiceTest, RemoveOwnerDependencyNotPresent) {
   local_data.set_owner_password(kOwnerPassword);
   local_data.add_owner_dependency(kOwnerDependency);
   EXPECT_CALL(mock_local_data_store_, Read(_))
-      .WillOnce(DoAll(SetArgPointee<0>(local_data),
-                      Return(true)));
+      .WillOnce(DoAll(SetArgPointee<0>(local_data), Return(true)));
   EXPECT_CALL(mock_local_data_store_, Write(_))
-      .WillOnce(DoAll(SaveArg<0>(&local_data),
-                      Return(true)));
-  auto callback = [this, &local_data](const RemoveOwnerDependencyReply& reply) {
+      .WillOnce(DoAll(SaveArg<0>(&local_data), Return(true)));
+  auto callback = [](decltype(this) test, const LocalData& local_data,
+                     const RemoveOwnerDependencyReply& reply) {
     EXPECT_EQ(STATUS_SUCCESS, reply.status());
     EXPECT_EQ(1, local_data.owner_dependency_size());
     EXPECT_EQ(kOwnerDependency, local_data.owner_dependency(0));
     EXPECT_TRUE(local_data.has_owner_password());
     EXPECT_EQ(kOwnerPassword, local_data.owner_password());
-    Quit();
+    test->Quit();
   };
   RemoveOwnerDependencyRequest request;
   request.set_owner_dependency(kOtherDependency);
-  service_->RemoveOwnerDependency(request, base::Bind(callback));
+  service_->RemoveOwnerDependency(
+      request, base::Bind(callback, base::Unretained(this), local_data));
   Run();
 }
 
-TEST_F(TpmManagerServiceTest, DefineNvramFailure) {
+TEST_F(TpmManagerServiceTest, DefineSpaceFailure) {
   uint32_t nvram_index = 5;
-  size_t nvram_length = 32;
-  EXPECT_CALL(mock_tpm_nvram_, DefineNvram(nvram_index, nvram_length))
-      .WillRepeatedly(Return(false));
-  auto callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
+  size_t nvram_size = 32;
+  std::vector<NvramSpaceAttribute> attributes{NVRAM_BOOT_WRITE_LOCK};
+  NvramSpacePolicy policy = NVRAM_POLICY_PCR0;
+  std::string auth_value = "1234";
+  EXPECT_CALL(mock_tpm_nvram_, DefineSpace(nvram_index, nvram_size, attributes,
+                                           auth_value, policy))
+      .WillRepeatedly(Return(NVRAM_RESULT_INVALID_PARAMETER));
+  auto callback = [](decltype(this) test, const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_INVALID_PARAMETER, reply.result());
+    test->Quit();
   };
-  DefineNvramRequest request;
+  DefineSpaceRequest request;
   request.set_index(nvram_index);
-  request.set_length(nvram_length);
-  service_->DefineNvram(request, base::Bind(callback));
+  request.set_size(nvram_size);
+  request.add_attributes(NVRAM_BOOT_WRITE_LOCK);
+  request.set_policy(policy);
+  request.set_authorization_value(auth_value);
+  service_->DefineSpace(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
-TEST_F(TpmManagerServiceTest, DefineNvramSuccess) {
+TEST_F(TpmManagerServiceTest, DefineSpaceSuccess) {
   uint32_t nvram_index = 5;
-  uint32_t nvram_length = 32;
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  uint32_t nvram_size = 32;
+  auto define_callback = [](const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto is_defined_callback = [this](const IsNvramDefinedReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_EQ(true, reply.is_defined());
+  auto list_callback = [](uint32_t nvram_index, const ListSpacesReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
+    EXPECT_EQ(1, reply.index_list_size());
+    EXPECT_EQ(nvram_index, reply.index_list(0));
   };
-  auto size_callback = [this, nvram_length](const GetNvramSizeReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_EQ(nvram_length, reply.size());
+  auto info_callback = [](uint32_t nvram_size, const GetSpaceInfoReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
+    EXPECT_EQ(nvram_size, reply.size());
   };
-  DefineNvramRequest define_request;
+  DefineSpaceRequest define_request;
   define_request.set_index(nvram_index);
-  define_request.set_length(nvram_length);
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  IsNvramDefinedRequest is_defined_request;
-  is_defined_request.set_index(nvram_index);
-  service_->IsNvramDefined(is_defined_request, base::Bind(is_defined_callback));
-  GetNvramSizeRequest size_request;
-  size_request.set_index(nvram_index);
-  service_->GetNvramSize(size_request, base::Bind(size_callback));
+  define_request.set_size(nvram_size);
+  service_->DefineSpace(define_request, base::Bind(define_callback));
+  ListSpacesRequest list_request;
+  service_->ListSpaces(list_request, base::Bind(list_callback, nvram_index));
+  GetSpaceInfoRequest info_request;
+  info_request.set_index(nvram_index);
+  service_->GetSpaceInfo(info_request, base::Bind(info_callback, nvram_size));
   RunServiceWorkerAndQuit();
 }
 
 TEST_F(TpmManagerServiceTest, DestroyUnitializedNvram) {
-  auto callback = [this](const DestroyNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
+  auto callback = [](decltype(this) test, const DestroySpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SPACE_DOES_NOT_EXIST, reply.result());
+    test->Quit();
   };
-  DestroyNvramRequest request;
-  service_->DestroyNvram(request, base::Bind(callback));
+  DestroySpaceRequest request;
+  service_->DestroySpace(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
-TEST_F(TpmManagerServiceTest, DestroyNvramSuccess) {
+TEST_F(TpmManagerServiceTest, DestroySpaceSuccess) {
   uint32_t nvram_index = 5;
-  uint32_t nvram_length = 32;
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  uint32_t nvram_size = 32;
+  auto define_callback = [](const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto destroy_callback = [this](const DestroyNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto destroy_callback = [](const DestroySpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  DefineNvramRequest define_request;
+  DefineSpaceRequest define_request;
   define_request.set_index(nvram_index);
-  define_request.set_length(nvram_length);
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  DestroyNvramRequest destroy_request;
+  define_request.set_size(nvram_size);
+  service_->DefineSpace(define_request, base::Bind(define_callback));
+  DestroySpaceRequest destroy_request;
   destroy_request.set_index(nvram_index);
-  service_->DestroyNvram(destroy_request, base::Bind(destroy_callback));
+  service_->DestroySpace(destroy_request, base::Bind(destroy_callback));
   RunServiceWorkerAndQuit();
 }
 
-TEST_F(TpmManagerServiceTest, DoubleDestroyNvram) {
+TEST_F(TpmManagerServiceTest, DoubleDestroySpace) {
   uint32_t nvram_index = 5;
-  uint32_t nvram_length = 32;
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  uint32_t nvram_size = 32;
+  auto define_callback = [](const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto destroy_callback_success = [this](const DestroyNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto destroy_callback_success = [](const DestroySpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto destroy_callback_failure = [this](const DestroyNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
+  auto destroy_callback_failure = [](const DestroySpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SPACE_DOES_NOT_EXIST, reply.result());
   };
-  DefineNvramRequest define_request;
+  DefineSpaceRequest define_request;
   define_request.set_index(nvram_index);
-  define_request.set_length(nvram_length);
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  DestroyNvramRequest destroy_request;
+  define_request.set_size(nvram_size);
+  service_->DefineSpace(define_request, base::Bind(define_callback));
+  DestroySpaceRequest destroy_request;
   destroy_request.set_index(nvram_index);
-  service_->DestroyNvram(destroy_request, base::Bind(destroy_callback_success));
-  service_->DestroyNvram(destroy_request, base::Bind(destroy_callback_failure));
+  service_->DestroySpace(destroy_request, base::Bind(destroy_callback_success));
+  service_->DestroySpace(destroy_request, base::Bind(destroy_callback_failure));
   RunServiceWorkerAndQuit();
 }
 
-TEST_F(TpmManagerServiceTest, WriteUninitializedNvram) {
-  auto callback = [this](const WriteNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
-  };
-  WriteNvramRequest request;
-  service_->WriteNvram(request, base::Bind(callback));
-  Run();
-}
-
-TEST_F(TpmManagerServiceTest, WriteNvramIncorrectSize) {
+TEST_F(TpmManagerServiceTest, WriteSpaceIncorrectSize) {
   uint32_t nvram_index = 5;
   std::string nvram_data("nvram_data");
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto define_callback = [](const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto write_callback = [this](const WriteNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
+  auto write_callback = [](const WriteSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_INVALID_PARAMETER, reply.result());
   };
-  DefineNvramRequest define_request;
+  DefineSpaceRequest define_request;
   define_request.set_index(nvram_index);
-  define_request.set_length(nvram_data.size() - 1);
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  WriteNvramRequest write_request;
+  define_request.set_size(nvram_data.size() - 1);
+  service_->DefineSpace(define_request, base::Bind(define_callback));
+  WriteSpaceRequest write_request;
   write_request.set_index(nvram_index);
   write_request.set_data(nvram_data);
-  service_->WriteNvram(write_request, base::Bind(write_callback));
+  service_->WriteSpace(write_request, base::Bind(write_callback));
   RunServiceWorkerAndQuit();
 }
 
-TEST_F(TpmManagerServiceTest, DoubleWrite) {
+TEST_F(TpmManagerServiceTest, WriteBeforeAfterLock) {
   uint32_t nvram_index = 5;
   std::string nvram_data("nvram_data");
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto define_callback = [](const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto write_callback_success = [this](const WriteNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto write_callback_success = [](const WriteSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto write_callback_failure = [this](const WriteNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
+  auto lock_callback = [](const LockSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  DefineNvramRequest define_request;
+  auto write_callback_failure = [](const WriteSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_OPERATION_DISABLED, reply.result());
+  };
+  DefineSpaceRequest define_request;
   define_request.set_index(nvram_index);
-  define_request.set_length(nvram_data.size());
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  WriteNvramRequest write_request;
+  define_request.set_size(nvram_data.size());
+  service_->DefineSpace(define_request, base::Bind(define_callback));
+  WriteSpaceRequest write_request;
   write_request.set_index(nvram_index);
   write_request.set_data(nvram_data);
-  service_->WriteNvram(write_request, base::Bind(write_callback_success));
-  service_->WriteNvram(write_request, base::Bind(write_callback_failure));
+  service_->WriteSpace(write_request, base::Bind(write_callback_success));
+  LockSpaceRequest lock_request;
+  lock_request.set_index(nvram_index);
+  lock_request.set_lock_write(true);
+  service_->LockSpace(lock_request, base::Bind(lock_callback));
+  service_->WriteSpace(write_request, base::Bind(write_callback_failure));
   RunServiceWorkerAndQuit();
 }
 
 TEST_F(TpmManagerServiceTest, ReadUninitializedNvram) {
-  auto callback = [this](const ReadNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-    Quit();
+  auto callback = [](decltype(this) test, const ReadSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SPACE_DOES_NOT_EXIST, reply.result());
+    test->Quit();
   };
-  ReadNvramRequest request;
-  service_->ReadNvram(request, base::Bind(callback));
+  ReadSpaceRequest request;
+  service_->ReadSpace(request, base::Bind(callback, base::Unretained(this)));
   Run();
 }
 
-TEST_F(TpmManagerServiceTest, ReadUnwrittenNvram) {
-  uint32_t nvram_index = 5;
-  uint32_t nvram_length = 32;
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-  };
-  auto read_callback = [this](const ReadNvramReply& reply) {
-    EXPECT_EQ(STATUS_UNEXPECTED_DEVICE_ERROR, reply.status());
-  };
-  DefineNvramRequest define_request;
-  define_request.set_index(nvram_index);
-  define_request.set_length(nvram_length);
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  ReadNvramRequest read_request;
-  read_request.set_index(nvram_index);
-  service_->ReadNvram(read_request, base::Bind(read_callback));
-  RunServiceWorkerAndQuit();
-}
-
-TEST_F(TpmManagerServiceTest, ReadWriteNvramSuccess) {
+TEST_F(TpmManagerServiceTest, ReadWriteSpaceSuccess) {
   uint32_t nvram_index = 5;
   std::string nvram_data("nvram_data");
-  auto define_callback = [this](const DefineNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto define_callback = [](const DefineSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto write_callback = [this](const WriteNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto write_callback = [](const WriteSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
   };
-  auto read_callback = [this, nvram_data](const ReadNvramReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
+  auto read_callback = [](const std::string& nvram_data,
+                          const ReadSpaceReply& reply) {
+    EXPECT_EQ(NVRAM_RESULT_SUCCESS, reply.result());
     EXPECT_EQ(nvram_data, reply.data());
   };
-  auto locked_callback = [this](const IsNvramLockedReply& reply) {
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-    EXPECT_EQ(true, reply.is_locked());
-  };
-  DefineNvramRequest define_request;
+  DefineSpaceRequest define_request;
   define_request.set_index(nvram_index);
-  define_request.set_length(nvram_data.size());
-  service_->DefineNvram(define_request, base::Bind(define_callback));
-  WriteNvramRequest write_request;
+  define_request.set_size(nvram_data.size());
+  service_->DefineSpace(define_request, base::Bind(define_callback));
+  WriteSpaceRequest write_request;
   write_request.set_index(nvram_index);
   write_request.set_data(nvram_data);
-  service_->WriteNvram(write_request, base::Bind(write_callback));
-  ReadNvramRequest read_request;
+  service_->WriteSpace(write_request, base::Bind(write_callback));
+  ReadSpaceRequest read_request;
   read_request.set_index(nvram_index);
-  service_->ReadNvram(read_request, base::Bind(read_callback));
-  IsNvramLockedRequest locked_request;
-  locked_request.set_index(nvram_index);
-  service_->IsNvramLocked(locked_request, base::Bind(locked_callback));
+  service_->ReadSpace(read_request, base::Bind(read_callback, nvram_data));
   RunServiceWorkerAndQuit();
 }
 

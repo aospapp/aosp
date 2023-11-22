@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
+import android.telecom.Log;
 
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;

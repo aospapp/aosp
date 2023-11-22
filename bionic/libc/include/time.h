@@ -37,9 +37,9 @@ __BEGIN_DECLS
 
 #define CLOCKS_PER_SEC 1000000
 
-extern char* tzname[] __LIBC_ABI_PUBLIC__;
-extern int daylight __LIBC_ABI_PUBLIC__;
-extern long int timezone __LIBC_ABI_PUBLIC__;
+extern char* tzname[];
+extern int daylight;
+extern long int timezone;
 
 struct sigevent;
 
@@ -59,48 +59,53 @@ struct tm {
 
 #define TM_ZONE tm_zone
 
-extern time_t time(time_t*) __LIBC_ABI_PUBLIC__;
-extern int nanosleep(const struct timespec*, struct timespec*) __LIBC_ABI_PUBLIC__;
+time_t time(time_t*);
+int nanosleep(const struct timespec*, struct timespec*);
 
-extern char* asctime(const struct tm*) __LIBC_ABI_PUBLIC__;
-extern char* asctime_r(const struct tm*, char*) __LIBC_ABI_PUBLIC__;
+char* asctime(const struct tm*);
+char* asctime_r(const struct tm*, char*);
 
-extern double difftime(time_t, time_t) __LIBC_ABI_PUBLIC__;
-extern time_t mktime(struct tm*) __LIBC_ABI_PUBLIC__;
+double difftime(time_t, time_t);
+time_t mktime(struct tm*);
 
-extern struct tm* localtime(const time_t*) __LIBC_ABI_PUBLIC__;
-extern struct tm* localtime_r(const time_t*, struct tm*) __LIBC_ABI_PUBLIC__;
+struct tm* localtime(const time_t*);
+struct tm* localtime_r(const time_t*, struct tm*);
 
-extern struct tm* gmtime(const time_t*) __LIBC_ABI_PUBLIC__;
-extern struct tm* gmtime_r(const time_t*, struct tm*) __LIBC_ABI_PUBLIC__;
+struct tm* gmtime(const time_t*);
+struct tm* gmtime_r(const time_t*, struct tm*);
 
-extern char* strptime(const char*, const char*, struct tm*) __LIBC_ABI_PUBLIC__;
-extern size_t strftime(char*, size_t, const char*, const struct tm*) __LIBC_ABI_PUBLIC__;
-extern size_t strftime_l(char *, size_t, const char *, const struct tm *, locale_t) __LIBC_ABI_PUBLIC__;
+char* strptime(const char*, const char*, struct tm*);
+size_t strftime(char*, size_t, const char*, const struct tm*);
 
-extern char* ctime(const time_t*) __LIBC_ABI_PUBLIC__;
-extern char* ctime_r(const time_t*, char*) __LIBC_ABI_PUBLIC__;
+#if __ANDROID_API__ >= __ANDROID_API_L__
+size_t strftime_l(char*, size_t, const char*, const struct tm*, locale_t) __INTRODUCED_IN(21);
+#else
+// Implemented as static inline before 21.
+#endif
 
-extern void tzset(void) __LIBC_ABI_PUBLIC__;
+char* ctime(const time_t*);
+char* ctime_r(const time_t*, char*);
 
-extern clock_t clock(void) __LIBC_ABI_PUBLIC__;
+void tzset(void);
 
-extern int clock_getcpuclockid(pid_t, clockid_t*) __LIBC_ABI_PUBLIC__;
+clock_t clock(void);
 
-extern int clock_getres(clockid_t, struct timespec*) __LIBC_ABI_PUBLIC__;
-extern int clock_gettime(clockid_t, struct timespec*) __LIBC_ABI_PUBLIC__;
-extern int clock_nanosleep(clockid_t, int, const struct timespec*, struct timespec*) __LIBC_ABI_PUBLIC__;
-extern int clock_settime(clockid_t, const struct timespec*) __LIBC_ABI_PUBLIC__;
+int clock_getcpuclockid(pid_t, clockid_t*) __INTRODUCED_IN(23);
 
-extern int timer_create(int, struct sigevent*, timer_t*) __LIBC_ABI_PUBLIC__;
-extern int timer_delete(timer_t) __LIBC_ABI_PUBLIC__;
-extern int timer_settime(timer_t, int, const struct itimerspec*, struct itimerspec*) __LIBC_ABI_PUBLIC__;
-extern int timer_gettime(timer_t, struct itimerspec*) __LIBC_ABI_PUBLIC__;
-extern int timer_getoverrun(timer_t) __LIBC_ABI_PUBLIC__;
+int clock_getres(clockid_t, struct timespec*);
+int clock_gettime(clockid_t, struct timespec*);
+int clock_nanosleep(clockid_t, int, const struct timespec*, struct timespec*);
+int clock_settime(clockid_t, const struct timespec*);
+
+int timer_create(int, struct sigevent*, timer_t*);
+int timer_delete(timer_t);
+int timer_settime(timer_t, int, const struct itimerspec*, struct itimerspec*);
+int timer_gettime(timer_t, struct itimerspec*);
+int timer_getoverrun(timer_t);
 
 /* Non-standard extensions that are in the BSDs and glibc. */
-extern time_t timelocal(struct tm*) __LIBC_ABI_PUBLIC__;
-extern time_t timegm(struct tm*) __LIBC_ABI_PUBLIC__;
+time_t timelocal(struct tm*) __INTRODUCED_IN(12);
+time_t timegm(struct tm*) __INTRODUCED_IN(12);
 
 __END_DECLS
 

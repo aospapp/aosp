@@ -13,7 +13,6 @@ CRITERIA = """
 Fail if there are any files owned by the chronos on the rootfs.
 """
 ATTRIBUTES = "suite:security"
-SUITE = "security"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

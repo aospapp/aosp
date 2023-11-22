@@ -39,6 +39,17 @@ public class ResourceBundleTest extends junit.framework.TestCase {
         assertEquals("[de_CH, de, ]", c.getCandidateLocales("base", new Locale("de", "CH")).toString());
     }
 
+    public void test_getBaseName() {
+        String name = "tests.support.Support_TestResource";
+        ResourceBundle bundle = ResourceBundle.getBundle(name);
+        assertEquals(name, bundle.getBaseBundleName());
+
+        bundle = ResourceBundle.getBundle(name, Locale.getDefault());
+        assertEquals(name, bundle.getBaseBundleName());
+
+        assertNull(new Mock_ResourceBundle().getBaseBundleName());
+    }
+
     /**
      * java.util.ResourceBundle#getBundle(java.lang.String,
      *        java.util.Locale)

@@ -14,30 +14,31 @@
  limitations under the License.
 -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent" >
-
-    <android.support.car.ui.PagedScrollBarView
-        android:id="@+id/paged_scroll_view"
-        android:layout_width="@dimen/car_paged_list_view_pagination_width"
-        android:layout_height="match_parent"
-        android:paddingBottom="16dp"
-        android:paddingTop="16dp"
-        android:visibility="invisible" />
-
+       android:layout_width="match_parent"
+       android:layout_height="match_parent">
     <android.support.car.ui.MaxWidthLayout
-        android:id="@+id/max_width_layout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginStart="@dimen/car_card_margin"
-         >
-
-        <android.support.car.ui.CarRecyclerView
-            android:id="@+id/recycler_view"
+            android:id="@+id/max_width_layout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_gravity="center_horizontal"
-            android:clipChildren="false" />
+            android:layout_marginStart="@dimen/car_drawer_button_container_width">
+        <android.support.car.ui.CarRecyclerView
+                android:id="@+id/recycler_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_horizontal"
+                android:clipChildren="false"/>
     </android.support.car.ui.MaxWidthLayout>
-
+    <!-- The scroll bar should be drawn ontop of the centered recycler view-->
+    <FrameLayout
+            android:layout_width="@dimen/car_drawer_button_container_width"
+            android:layout_height="match_parent">
+        <android.support.car.ui.PagedScrollBarView
+                android:id="@+id/paged_scroll_view"
+                android:layout_width="@dimen/car_paged_list_view_pagination_width"
+                android:layout_height="match_parent"
+                android:paddingBottom="16dp"
+                android:paddingTop="16dp"
+                android:layout_gravity="center_horizontal"
+                android:visibility="invisible"/>
+    </FrameLayout>
 </merge>

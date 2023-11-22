@@ -18,7 +18,6 @@ The test succeeds if all links pointing into "bad destinations" are
 accounted for by the whitelist ('baseline').
 """
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

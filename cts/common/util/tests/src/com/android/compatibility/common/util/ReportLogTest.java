@@ -20,9 +20,6 @@ import com.android.compatibility.common.util.ReportLog.Metric;
 
 import junit.framework.TestCase;
 
-import org.xmlpull.v1.XmlPullParserException;
-
-import java.util.List;
 import java.util.Arrays;
 
 /**
@@ -38,7 +35,8 @@ public class ReportLogTest extends TestCase {
     private static final String SUMMARY_XML =
             HEADER_XML + "\r\n" +
             "<Summary>\r\n" +
-            "  <Metric source=\"com.android.compatibility.common.util.ReportLogTest#%s\" message=\"Sample\" score_type=\"higher_better\" score_unit=\"byte\">\r\n" +
+            "  <Metric source=\"com.android.compatibility.common.util.ReportLogTest#%s\" "
+            + "message=\"Sample\" score_type=\"higher_better\" score_unit=\"byte\">\r\n" +
             "    <Value>1.0</Value>\r\n" +
             "  </Metric>\r\n" +
             "</Summary>";
@@ -66,7 +64,7 @@ public class ReportLogTest extends TestCase {
 
     public void testSerialize_summaryOnly() throws Exception {
         mReportLog.setSummary("Sample", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
-        assertEquals(String.format(SUMMARY_XML, "testSerialize_summaryOnly:68"),
+        assertEquals(String.format(SUMMARY_XML, "testSerialize_summaryOnly:66"),
                 ReportLog.serialize(mReportLog));
     }
 
@@ -78,7 +76,7 @@ public class ReportLogTest extends TestCase {
     public void testSerialize_full() throws Exception {
         mReportLog.setSummary("Sample", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
         mReportLog.addValues("Details", VALUES, ResultType.NEUTRAL, ResultUnit.FPS);
-        assertEquals(String.format(FULL_XML, "testSerialize_full:79"),
+        assertEquals(String.format(FULL_XML, "testSerialize_full:77"),
                 ReportLog.serialize(mReportLog));
     }
 

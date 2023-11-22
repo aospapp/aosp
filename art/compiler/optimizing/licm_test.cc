@@ -28,7 +28,18 @@ namespace art {
  */
 class LICMTest : public CommonCompilerTest {
  public:
-  LICMTest() : pool_(), allocator_(&pool_) {
+  LICMTest()
+      : pool_(),
+        allocator_(&pool_),
+        entry_(nullptr),
+        loop_preheader_(nullptr),
+        loop_header_(nullptr),
+        loop_body_(nullptr),
+        return_(nullptr),
+        exit_(nullptr),
+        parameter_(nullptr),
+        int_constant_(nullptr),
+        float_constant_(nullptr) {
     graph_ = CreateGraph(&allocator_);
   }
 
@@ -63,7 +74,10 @@ class LICMTest : public CommonCompilerTest {
     return_->AddSuccessor(exit_);
 
     // Provide boiler-plate instructions.
-    parameter_ = new (&allocator_) HParameterValue(graph_->GetDexFile(), 0, 0, Primitive::kPrimNot);
+    parameter_ = new (&allocator_) HParameterValue(graph_->GetDexFile(),
+                                                   dex::TypeIndex(0),
+                                                   0,
+                                                   Primitive::kPrimNot);
     entry_->AddInstruction(parameter_);
     int_constant_ = graph_->GetIntConstant(42);
     float_constant_ = graph_->GetFloatConstant(42.0f);
@@ -108,20 +122,19 @@ TEST_F(LICMTest, FieldHoisting) {
   BuildLoop();
 
   // Populate the loop with instructions: set/get field with different types.
-  ScopedNullHandle<mirror::DexCache> dex_cache;
   HInstruction* get_field = new (&allocator_) HInstanceFieldGet(parameter_,
+                                                                nullptr,
                                                                 Primitive::kPrimLong,
                                                                 MemberOffset(10),
                                                                 false,
                                                                 kUnknownFieldIndex,
                                                                 kUnknownClassDefIndex,
                                                                 graph_->GetDexFile(),
-                                                                dex_cache,
                                                                 0);
   loop_body_->InsertInstructionBefore(get_field, loop_body_->GetLastInstruction());
   HInstruction* set_field = new (&allocator_) HInstanceFieldSet(
-      parameter_, int_constant_, Primitive::kPrimInt, MemberOffset(20),
-      false, kUnknownFieldIndex, kUnknownClassDefIndex, graph_->GetDexFile(), dex_cache, 0);
+      parameter_, int_constant_, nullptr, Primitive::kPrimInt, MemberOffset(20),
+      false, kUnknownFieldIndex, kUnknownClassDefIndex, graph_->GetDexFile(), 0);
   loop_body_->InsertInstructionBefore(set_field, loop_body_->GetLastInstruction());
 
   EXPECT_EQ(get_field->GetBlock(), loop_body_);
@@ -137,24 +150,24 @@ TEST_F(LICMTest, NoFieldHoisting) {
   // Populate the loop with instructions: set/get field with same types.
   ScopedNullHandle<mirror::DexCache> dex_cache;
   HInstruction* get_field = new (&allocator_) HInstanceFieldGet(parameter_,
+                                                                nullptr,
                                                                 Primitive::kPrimLong,
                                                                 MemberOffset(10),
                                                                 false,
                                                                 kUnknownFieldIndex,
                                                                 kUnknownClassDefIndex,
                                                                 graph_->GetDexFile(),
-                                                                dex_cache,
                                                                 0);
   loop_body_->InsertInstructionBefore(get_field, loop_body_->GetLastInstruction());
   HInstruction* set_field = new (&allocator_) HInstanceFieldSet(parameter_,
                                                                 get_field,
+                                                                nullptr,
                                                                 Primitive::kPrimLong,
                                                                 MemberOffset(10),
                                                                 false,
                                                                 kUnknownFieldIndex,
                                                                 kUnknownClassDefIndex,
                                                                 graph_->GetDexFile(),
-                                                                dex_cache,
                                                                 0);
   loop_body_->InsertInstructionBefore(set_field, loop_body_->GetLastInstruction());
 
@@ -169,13 +182,11 @@ TEST_F(LICMTest, ArrayHoisting) {
   BuildLoop();
 
   // Populate the loop with instructions: set/get array with different types.
-  // ArrayGet is typed as kPrimByte and ArraySet given a float value in order to
-  // avoid SsaBuilder's typing of ambiguous array operations from reference type info.
   HInstruction* get_array = new (&allocator_) HArrayGet(
-      parameter_, int_constant_, Primitive::kPrimByte, 0);
+      parameter_, int_constant_, Primitive::kPrimInt, 0);
   loop_body_->InsertInstructionBefore(get_array, loop_body_->GetLastInstruction());
   HInstruction* set_array = new (&allocator_) HArraySet(
-      parameter_, int_constant_, float_constant_, Primitive::kPrimShort, 0);
+      parameter_, int_constant_, float_constant_, Primitive::kPrimFloat, 0);
   loop_body_->InsertInstructionBefore(set_array, loop_body_->GetLastInstruction());
 
   EXPECT_EQ(get_array->GetBlock(), loop_body_);
@@ -189,13 +200,11 @@ TEST_F(LICMTest, NoArrayHoisting) {
   BuildLoop();
 
   // Populate the loop with instructions: set/get array with same types.
-  // ArrayGet is typed as kPrimByte and ArraySet given a float value in order to
-  // avoid SsaBuilder's typing of ambiguous array operations from reference type info.
   HInstruction* get_array = new (&allocator_) HArrayGet(
-      parameter_, int_constant_, Primitive::kPrimByte, 0);
+      parameter_, int_constant_, Primitive::kPrimFloat, 0);
   loop_body_->InsertInstructionBefore(get_array, loop_body_->GetLastInstruction());
   HInstruction* set_array = new (&allocator_) HArraySet(
-      parameter_, get_array, float_constant_, Primitive::kPrimByte, 0);
+      parameter_, get_array, float_constant_, Primitive::kPrimFloat, 0);
   loop_body_->InsertInstructionBefore(set_array, loop_body_->GetLastInstruction());
 
   EXPECT_EQ(get_array->GetBlock(), loop_body_);

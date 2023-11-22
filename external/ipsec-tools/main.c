@@ -28,8 +28,6 @@
 
 #ifdef ANDROID_CHANGES
 
-#include <openssl/engine.h>
-
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -126,6 +124,7 @@ const char *android_hook(char **envp)
 #endif
 
 extern void setup(int argc, char **argv);
+extern void shutdown_session();
 
 static int monitors;
 static void (*callbacks[10])(int fd);
@@ -159,22 +158,10 @@ int main(int argc, char **argv)
 {
 #ifdef ANDROID_CHANGES
     int control = android_get_control_and_arguments(&argc, &argv);
-#if !defined(OPENSSL_IS_BORINGSSL)
-    ENGINE *engine;
-#endif
 
     if (control != -1) {
         pname = "%p";
         monitor_fd(control, NULL);
-
-#if !defined(OPENSSL_IS_BORINGSSL)
-        ENGINE_load_dynamic();
-        engine = ENGINE_by_id("keystore");
-        if (!engine || !ENGINE_init(engine)) {
-            do_plog(LLV_ERROR, "ipsec-tools: cannot load keystore engine");
-            exit(1);
-        }
-#endif
     }
 #endif
 
@@ -190,7 +177,6 @@ int main(int argc, char **argv)
 
 #ifdef ANDROID_CHANGES
     shutdown(control, SHUT_WR);
-    setuid(AID_VPN);
 #endif
 
     while (1) {
@@ -202,6 +188,8 @@ int main(int argc, char **argv)
             for (i = 0; i < monitors; ++i) {
                 if (pollfds[i].revents & POLLHUP) {
                     do_plog(LLV_INFO, "Connection is closed\n", pollfds[i].fd);
+                    shutdown_session();
+
                     /* Wait for few seconds to consume late messages. */
                     sleep(5);
                     exit(1);
@@ -213,12 +201,6 @@ int main(int argc, char **argv)
         }
     }
 
-#if !defined(OPENSSL_IS_BORINGSSL)
-    if (engine) {
-        ENGINE_finish(engine);
-        ENGINE_free(engine);
-    }
-#endif
     return 0;
 }
 

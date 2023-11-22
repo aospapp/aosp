@@ -56,6 +56,8 @@ public class MockConnectionService extends ConnectionService {
         final MockConnection connection = new MockConnection();
         connection.setAddress(request.getAddress(), CONNECTION_PRESENTATION);
         connection.setPhoneAccountHandle(connectionManagerPhoneAccount);
+        connection.setConnectionCapabilities(Connection.CAPABILITY_SUPPORT_HOLD |
+                Connection.CAPABILITY_HOLD);
         if (mCreateVideoProvider) {
             connection.createMockVideoProvider();
         } else {
@@ -74,9 +76,10 @@ public class MockConnectionService extends ConnectionService {
             ConnectionRequest request) {
         final MockConnection connection = new MockConnection();
         connection.setAddress(request.getAddress(), CONNECTION_PRESENTATION);
-        connection.setConnectionCapabilities(
-                connection.getConnectionCapabilities() |
-                        Connection.CAPABILITY_CAN_SEND_RESPONSE_VIA_CONNECTION);
+        connection.setConnectionCapabilities(connection.getConnectionCapabilities()
+                | Connection.CAPABILITY_CAN_SEND_RESPONSE_VIA_CONNECTION
+                | Connection.CAPABILITY_SUPPORT_HOLD
+                | Connection.CAPABILITY_HOLD);
         connection.createMockVideoProvider();
         ((Connection) connection).setVideoState(request.getVideoState());
         connection.setRinging();

@@ -16,6 +16,7 @@
 
 package libcore.java.security;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -78,6 +79,7 @@ public class SignatureTest extends TestCase {
 
     public void testSignature_getInstance_SuppliedProviderNotRegistered_Success() throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
             }
@@ -92,6 +94,7 @@ public class SignatureTest extends TestCase {
 
     public void testSignature_getInstance_DoesNotSupportKeyClass_Success() throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
                 put("Signature.FOO SupportedKeyClasses", "None");
@@ -116,6 +119,7 @@ public class SignatureTest extends TestCase {
     public void testSignature_init_DoesNotSupportKeyClass_throwsInvalidKeyException()
             throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
                 put("Signature.FOO SupportedKeyClasses", "None");
@@ -136,6 +140,7 @@ public class SignatureTest extends TestCase {
     public void testSignature_getInstance_OnlyUsesSpecifiedProvider_SameNameAndClass_Success()
             throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
             }
@@ -145,6 +150,7 @@ public class SignatureTest extends TestCase {
         try {
             {
                 Provider mockProvider2 = new MockProvider("MockProvider") {
+                    @Override
                     public void setup() {
                         put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
                     }
@@ -159,18 +165,21 @@ public class SignatureTest extends TestCase {
 
     public void testSignature_getInstance_DelayedInitialization_KeyType() throws Exception {
         Provider mockProviderSpecific = new MockProvider("MockProviderSpecific") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.SpecificKeyTypes.class.getName());
                 put("Signature.FOO SupportedKeyClasses", MockPrivateKey.class.getName());
             }
         };
         Provider mockProviderSpecific2 = new MockProvider("MockProviderSpecific2") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.SpecificKeyTypes2.class.getName());
                 put("Signature.FOO SupportedKeyClasses", MockPrivateKey2.class.getName());
             }
         };
         Provider mockProviderAll = new MockProvider("MockProviderAll") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
             }
@@ -238,32 +247,28 @@ public class SignatureTest extends TestCase {
 
         @Override
         protected void engineInitVerify(PublicKey publicKey) throws InvalidKeyException {
-            throw new UnsupportedOperationException();
         }
 
         @Override
         protected void engineInitSign(PrivateKey privateKey) throws InvalidKeyException {
-            throw new UnsupportedOperationException();
         }
 
         @Override
         protected void engineUpdate(byte b) throws SignatureException {
-            throw new UnsupportedOperationException();
         }
 
         @Override
         protected void engineUpdate(byte[] b, int off, int len) throws SignatureException {
-            throw new UnsupportedOperationException();
         }
 
         @Override
         protected byte[] engineSign() throws SignatureException {
-            throw new UnsupportedOperationException();
+            return new byte[10];
         }
 
         @Override
         protected boolean engineVerify(byte[] sigBytes) throws SignatureException {
-            throw new UnsupportedOperationException();
+            return true;
         }
 
         @Override
@@ -277,8 +282,156 @@ public class SignatureTest extends TestCase {
         }
     }
 
+    public void testSignature_signArray_nullArray_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.sign(null /* outbuf */, 1 /* offset */, 1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_signArray_negativeOffset_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.sign(new byte[4], -1 /* offset */, 1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_signArray_negativeLength_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.sign(new byte[4], 1 /* offset */ , -1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_signArray_invalidLengths_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            // Start at offset 3 with length 2, thus attempting to overread from an array of size 4.
+            s.sign(new byte[4], 3 /* offset */ , 2 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    private static PublicKey createPublicKey() throws Exception {
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(PK_BYTES);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePublic(keySpec);
+    }
+
+    public void testSignature_verifyArray_nullArray_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            s.verify(null /* outbuf */, 1 /* offset */, 1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_verifyArray_negativeOffset_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            s.verify(new byte[4], -1 /* offset */, 1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_verifyArray_negativeLength_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            s.verify(new byte[4], 1 /* offset */ , -1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_verifyArray_invalidLengths_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            // Start at offset 3 with length 2, thus attempting to overread from an array of size 4.
+            s.verify(new byte[4], 3 /* offset */ , 2 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_verifyArray_correctParameters_ok() throws Exception {
+        Signature s = new MySignature("FOO");
+        s.initVerify(createPublicKey());
+        // Start at offset 3 with length 2, thus attempting to overread from an array of size 4.
+        s.verify(new byte[4], 1 /* offset */, 2 /* length */);
+    }
+
+    public void testSignature_updateArray_nullArray_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            s.update(null /* outbuf */, 1 /* offset */, 1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_updateArray_negativeOffset_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            s.update(new byte[4], -1 /* offset */, 1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_updateArray_negativeLength_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            s.update(new byte[4], 1 /* offset */ , -1 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_updateArray_invalidLengths_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.initVerify(createPublicKey());
+            // Start at offset 3 with length 2, thus attempting to overread from an array of size 4.
+            s.update(new byte[4], 3 /* offset */ , 2 /* length */);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testSignature_updateArray_wrongState_throws() throws Exception {
+        try {
+            Signature s = new MySignature("FOO");
+            s.update(new byte[4], 0 /* offset */ , 1 /* length */);
+            fail();
+        } catch (SignatureException expected) {
+        }
+    }
+
+    public void testSignature_updateArray_correctStateAndParameters_ok() throws Exception {
+        Signature s = new MySignature("FOO");
+        s.initVerify(createPublicKey());
+        s.update(new byte[4], 0 /* offset */ , 1 /* length */);
+    }
+
     public void testSignature_getProvider_Subclass() throws Exception {
         Provider mockProviderNonSpi = new MockProvider("MockProviderNonSpi") {
+            @Override
             public void setup() {
                 put("Signature.FOO", MySignature.class.getName());
             }
@@ -2731,7 +2884,8 @@ public class SignatureTest extends TestCase {
         Signature sig = Signature.getInstance("NONEwithRSA");
         sig.initVerify(pubKey);
         sig.update(Vector1Data);
-        assertFalse("Invalid signature must not verify", sig.verify("Invalid".getBytes()));
+        assertFalse("Invalid signature must not verify",
+                sig.verify("Invalid".getBytes(UTF_8)));
     }
 
     public void testSign_NONEwithRSA_Key_DataTooLarge_Failure() throws Exception {
@@ -2830,7 +2984,8 @@ public class SignatureTest extends TestCase {
         sig.initVerify(pubKey);
         sig.update(Vector1Data);
 
-        assertFalse("Invalid signature should not verify", sig.verify("Invalid sig".getBytes()));
+        assertFalse("Invalid signature should not verify",
+                sig.verify("Invalid sig".getBytes(UTF_8)));
     }
 
     public void testVerify_NONEwithRSA_Key_SignatureTooLarge_Failure() throws Exception {
@@ -3156,13 +3311,13 @@ public class SignatureTest extends TestCase {
 
         Signature ecdsaVerify = Signature.getInstance("SHA1withECDSA");
         ecdsaVerify.initVerify(pub);
-        ecdsaVerify.update("Satoshi Nakamoto".getBytes("UTF-8"));
+        ecdsaVerify.update("Satoshi Nakamoto".getBytes(UTF_8));
         boolean result = ecdsaVerify.verify(SIGNATURE);
         assertEquals(true, result);
 
         ecdsaVerify = Signature.getInstance("SHA1withECDSA");
         ecdsaVerify.initVerify(pub);
-        ecdsaVerify.update("Not Satoshi Nakamoto".getBytes("UTF-8"));
+        ecdsaVerify.update("Not Satoshi Nakamoto".getBytes(UTF_8));
         result = ecdsaVerify.verify(SIGNATURE);
         assertEquals(false, result);
     }

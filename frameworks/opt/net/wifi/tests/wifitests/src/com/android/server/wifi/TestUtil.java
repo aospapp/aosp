@@ -16,8 +16,6 @@
 
 package com.android.server.wifi;
 
-import static org.mockito.Mockito.when;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -25,25 +23,12 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 
 /**
  * Utils for wifi tests.
  */
 public class TestUtil {
-
-    /**
-     * Override wifi interface using {@code wifiNative}.
-     */
-    public static void installWlanWifiNative(WifiNative wifiNative) throws Exception {
-        Field field = WifiNative.class.getDeclaredField("wlanNativeInterface");
-        field.setAccessible(true);
-        field.set(null, wifiNative);
-
-        when(wifiNative.getInterfaceName()).thenReturn("mockWlan");
-    }
-
     /**
      * Send {@link WifiManager#NETWORK_STATE_CHANGED_ACTION} broadcast.
      */
@@ -82,6 +67,25 @@ public class TestUtil {
             Context context, int wifiState) {
         Intent intent = new Intent(WifiManager.WIFI_STATE_CHANGED_ACTION);
         intent.putExtra(WifiManager.EXTRA_WIFI_STATE, wifiState);
+        broadcastReceiver.onReceive(context, intent);
+    }
+
+    /**
+     * Send {@link WifiManager#WIFI_AP_STATE_CHANGED} broadcast.
+     */
+    public static void sendWifiApStateChanged(BroadcastReceiver broadcastReceiver,
+            Context context, int apState, int previousState, int error, String ifaceName,
+            int mode) {
+        Intent intent = new Intent(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
+        intent.putExtra(WifiManager.EXTRA_WIFI_AP_STATE, apState);
+        intent.putExtra(WifiManager.EXTRA_PREVIOUS_WIFI_AP_STATE, previousState);
+        if (apState == WifiManager.WIFI_AP_STATE_FAILED) {
+            // only set reason number when softAP start failed
+            intent.putExtra(WifiManager.EXTRA_WIFI_AP_FAILURE_REASON, error);
+        }
+        intent.putExtra(WifiManager.EXTRA_WIFI_AP_INTERFACE_NAME, ifaceName);
+        intent.putExtra(WifiManager.EXTRA_WIFI_AP_MODE, mode);
+
         broadcastReceiver.onReceive(context, intent);
     }
 

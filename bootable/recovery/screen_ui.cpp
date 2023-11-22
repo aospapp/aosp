@@ -29,11 +29,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <string>
 #include <vector>
 
+#include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android-base/stringprintf.h>
-#include <cutils/properties.h>
 
 #include "common.h"
 #include "device.h"
@@ -50,37 +52,34 @@ static double now() {
     return tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-ScreenRecoveryUI::ScreenRecoveryUI() :
-    currentIcon(NONE),
-    locale(nullptr),
-    intro_done(false),
-    current_frame(0),
-    progressBarType(EMPTY),
-    progressScopeStart(0),
-    progressScopeSize(0),
-    progress(0),
-    pagesIdentical(false),
-    text_cols_(0),
-    text_rows_(0),
-    text_(nullptr),
-    text_col_(0),
-    text_row_(0),
-    text_top_(0),
-    show_text(false),
-    show_text_ever(false),
-    menu_(nullptr),
-    show_menu(false),
-    menu_items(0),
-    menu_sel(0),
-    file_viewer_text_(nullptr),
-    intro_frames(0),
-    loop_frames(0),
-    animation_fps(30), // TODO: there's currently no way to infer this.
-    stage(-1),
-    max_stage(-1),
-    updateMutex(PTHREAD_MUTEX_INITIALIZER),
-    rtl_locale(false) {
-}
+ScreenRecoveryUI::ScreenRecoveryUI()
+    : currentIcon(NONE),
+      progressBarType(EMPTY),
+      progressScopeStart(0),
+      progressScopeSize(0),
+      progress(0),
+      pagesIdentical(false),
+      text_cols_(0),
+      text_rows_(0),
+      text_(nullptr),
+      text_col_(0),
+      text_row_(0),
+      text_top_(0),
+      show_text(false),
+      show_text_ever(false),
+      menu_(nullptr),
+      show_menu(false),
+      menu_items(0),
+      menu_sel(0),
+      file_viewer_text_(nullptr),
+      intro_frames(0),
+      loop_frames(0),
+      current_frame(0),
+      intro_done(false),
+      animation_fps(30),  // TODO: there's currently no way to infer this.
+      stage(-1),
+      max_stage(-1),
+      updateMutex(PTHREAD_MUTEX_INITIALIZER) {}
 
 GRSurface* ScreenRecoveryUI::GetCurrentFrame() {
     if (currentIcon == INSTALLING_UPDATE || currentIcon == ERASING) {
@@ -99,7 +98,7 @@ GRSurface* ScreenRecoveryUI::GetCurrentText() {
     }
 }
 
-int ScreenRecoveryUI::PixelsFromDp(int dp) {
+int ScreenRecoveryUI::PixelsFromDp(int dp) const {
     return dp * density_;
 }
 
@@ -174,51 +173,50 @@ void ScreenRecoveryUI::draw_background_locked() {
 // Does not flip pages.
 // Should only be called with updateMutex locked.
 void ScreenRecoveryUI::draw_foreground_locked() {
-    if (currentIcon != NONE) {
-        GRSurface* frame = GetCurrentFrame();
-        int frame_width = gr_get_width(frame);
-        int frame_height = gr_get_height(frame);
-        int frame_x = (gr_fb_width() - frame_width) / 2;
-        int frame_y = GetAnimationBaseline();
-        gr_blit(frame, 0, 0, frame_width, frame_height, frame_x, frame_y);
-    }
+  if (currentIcon != NONE) {
+    GRSurface* frame = GetCurrentFrame();
+    int frame_width = gr_get_width(frame);
+    int frame_height = gr_get_height(frame);
+    int frame_x = (gr_fb_width() - frame_width) / 2;
+    int frame_y = GetAnimationBaseline();
+    gr_blit(frame, 0, 0, frame_width, frame_height, frame_x, frame_y);
+  }
 
-    if (progressBarType != EMPTY) {
-        int width = gr_get_width(progressBarEmpty);
-        int height = gr_get_height(progressBarEmpty);
+  if (progressBarType != EMPTY) {
+    int width = gr_get_width(progressBarEmpty);
+    int height = gr_get_height(progressBarEmpty);
 
-        int progress_x = (gr_fb_width() - width)/2;
-        int progress_y = GetProgressBaseline();
+    int progress_x = (gr_fb_width() - width) / 2;
+    int progress_y = GetProgressBaseline();
 
-        // Erase behind the progress bar (in case this was a progress-only update)
-        gr_color(0, 0, 0, 255);
-        gr_fill(progress_x, progress_y, width, height);
+    // Erase behind the progress bar (in case this was a progress-only update)
+    gr_color(0, 0, 0, 255);
+    gr_fill(progress_x, progress_y, width, height);
 
-        if (progressBarType == DETERMINATE) {
-            float p = progressScopeStart + progress * progressScopeSize;
-            int pos = (int) (p * width);
+    if (progressBarType == DETERMINATE) {
+      float p = progressScopeStart + progress * progressScopeSize;
+      int pos = static_cast<int>(p * width);
 
-            if (rtl_locale) {
-                // Fill the progress bar from right to left.
-                if (pos > 0) {
-                    gr_blit(progressBarFill, width-pos, 0, pos, height,
-                            progress_x+width-pos, progress_y);
-                }
-                if (pos < width-1) {
-                    gr_blit(progressBarEmpty, 0, 0, width-pos, height, progress_x, progress_y);
-                }
-            } else {
-                // Fill the progress bar from left to right.
-                if (pos > 0) {
-                    gr_blit(progressBarFill, 0, 0, pos, height, progress_x, progress_y);
-                }
-                if (pos < width-1) {
-                    gr_blit(progressBarEmpty, pos, 0, width-pos, height,
-                            progress_x+pos, progress_y);
-                }
-            }
+      if (rtl_locale_) {
+        // Fill the progress bar from right to left.
+        if (pos > 0) {
+          gr_blit(progressBarFill, width - pos, 0, pos, height, progress_x + width - pos,
+                  progress_y);
         }
+        if (pos < width - 1) {
+          gr_blit(progressBarEmpty, 0, 0, width - pos, height, progress_x, progress_y);
+        }
+      } else {
+        // Fill the progress bar from left to right.
+        if (pos > 0) {
+          gr_blit(progressBarFill, 0, 0, pos, height, progress_x, progress_y);
+        }
+        if (pos < width - 1) {
+          gr_blit(progressBarEmpty, pos, 0, width - pos, height, progress_x + pos, progress_y);
+        }
+      }
     }
+  }
 }
 
 void ScreenRecoveryUI::SetColor(UIElement e) {
@@ -258,12 +256,12 @@ void ScreenRecoveryUI::DrawHorizontalRule(int* y) {
     *y += 4;
 }
 
-void ScreenRecoveryUI::DrawTextLine(int x, int* y, const char* line, bool bold) {
-    gr_text(x, *y, line, bold);
+void ScreenRecoveryUI::DrawTextLine(int x, int* y, const char* line, bool bold) const {
+    gr_text(gr_sys_font(), x, *y, line, bold);
     *y += char_height_ + 4;
 }
 
-void ScreenRecoveryUI::DrawTextLines(int x, int* y, const char* const* lines) {
+void ScreenRecoveryUI::DrawTextLines(int x, int* y, const char* const* lines) const {
     for (size_t i = 0; lines != nullptr && lines[i] != nullptr; ++i) {
         DrawTextLine(x, y, lines[i], false);
     }
@@ -292,8 +290,8 @@ void ScreenRecoveryUI::draw_screen_locked() {
 
         int y = 0;
         if (show_menu) {
-            char recovery_fingerprint[PROPERTY_VALUE_MAX];
-            property_get("ro.bootimage.build.fingerprint", recovery_fingerprint, "");
+            std::string recovery_fingerprint =
+                    android::base::GetProperty("ro.bootimage.build.fingerprint", "");
 
             SetColor(INFO);
             DrawTextLine(TEXT_INDENT, &y, "Android Recovery", true);
@@ -315,10 +313,10 @@ void ScreenRecoveryUI::draw_screen_locked() {
                     gr_fill(0, y - 2, gr_fb_width(), y + char_height_ + 2);
                     // Bold white text for the selected item.
                     SetColor(MENU_SEL_FG);
-                    gr_text(4, y, menu_[i], true);
+                    gr_text(gr_sys_font(), 4, y, menu_[i], true);
                     SetColor(MENU);
                 } else {
-                    gr_text(4, y, menu_[i], false);
+                    gr_text(gr_sys_font(), 4, y, menu_[i], false);
                 }
                 y += char_height_ + 4;
             }
@@ -334,7 +332,7 @@ void ScreenRecoveryUI::draw_screen_locked() {
         for (int ty = gr_fb_height() - char_height_;
              ty >= y && count < text_rows_;
              ty -= char_height_, ++count) {
-            gr_text(0, ty, text_[row], false);
+            gr_text(gr_sys_font(), 0, ty, text_[row], false);
             --row;
             if (row < 0) row = text_rows_ - 1;
         }
@@ -410,22 +408,22 @@ void ScreenRecoveryUI::ProgressThreadLoop() {
         // minimum of 20ms delay between frames
         double delay = interval - (end-start);
         if (delay < 0.02) delay = 0.02;
-        usleep((long)(delay * 1000000));
+        usleep(static_cast<useconds_t>(delay * 1000000));
     }
 }
 
 void ScreenRecoveryUI::LoadBitmap(const char* filename, GRSurface** surface) {
     int result = res_create_display_surface(filename, surface);
     if (result < 0) {
-        LOGE("couldn't load bitmap %s (error %d)\n", filename, result);
+        LOG(ERROR) << "couldn't load bitmap " << filename << " (error " << result << ")";
     }
 }
 
 void ScreenRecoveryUI::LoadLocalizedBitmap(const char* filename, GRSurface** surface) {
-    int result = res_create_localized_alpha_surface(filename, locale, surface);
-    if (result < 0) {
-        LOGE("couldn't load bitmap %s (error %d)\n", filename, result);
-    }
+  int result = res_create_localized_alpha_surface(filename, locale_.c_str(), surface);
+  if (result < 0) {
+    LOG(ERROR) << "couldn't load bitmap " << filename << " (error " << result << ")";
+  }
 }
 
 static char** Alloc2d(size_t rows, size_t cols) {
@@ -447,102 +445,94 @@ void ScreenRecoveryUI::SetSystemUpdateText(bool security_update) {
     Redraw();
 }
 
-void ScreenRecoveryUI::Init() {
-    gr_init();
+bool ScreenRecoveryUI::InitTextParams() {
+    if (gr_init() < 0) {
+      return false;
+    }
 
-    density_ = static_cast<float>(property_get_int32("ro.sf.lcd_density", 160)) / 160.f;
-
-    // Are we portrait or landscape?
-    layout_ = (gr_fb_width() > gr_fb_height()) ? LANDSCAPE : PORTRAIT;
-    // Are we the large variant of our base layout?
-    if (gr_fb_height() > PixelsFromDp(800)) ++layout_;
-
-    gr_font_size(&char_width_, &char_height_);
+    gr_font_size(gr_sys_font(), &char_width_, &char_height_);
     text_rows_ = gr_fb_height() / char_height_;
     text_cols_ = gr_fb_width() / char_width_;
+    return true;
+}
 
-    text_ = Alloc2d(text_rows_, text_cols_ + 1);
-    file_viewer_text_ = Alloc2d(text_rows_, text_cols_ + 1);
-    menu_ = Alloc2d(text_rows_, text_cols_ + 1);
+bool ScreenRecoveryUI::Init(const std::string& locale) {
+  RecoveryUI::Init(locale);
+  if (!InitTextParams()) {
+    return false;
+  }
 
-    text_col_ = text_row_ = 0;
-    text_top_ = 1;
+  density_ = static_cast<float>(android::base::GetIntProperty("ro.sf.lcd_density", 160)) / 160.f;
 
-    LoadBitmap("icon_error", &error_icon);
+  // Are we portrait or landscape?
+  layout_ = (gr_fb_width() > gr_fb_height()) ? LANDSCAPE : PORTRAIT;
+  // Are we the large variant of our base layout?
+  if (gr_fb_height() > PixelsFromDp(800)) ++layout_;
 
-    LoadBitmap("progress_empty", &progressBarEmpty);
-    LoadBitmap("progress_fill", &progressBarFill);
+  text_ = Alloc2d(text_rows_, text_cols_ + 1);
+  file_viewer_text_ = Alloc2d(text_rows_, text_cols_ + 1);
+  menu_ = Alloc2d(text_rows_, text_cols_ + 1);
 
-    LoadBitmap("stage_empty", &stageMarkerEmpty);
-    LoadBitmap("stage_fill", &stageMarkerFill);
+  text_col_ = text_row_ = 0;
+  text_top_ = 1;
 
-    // Background text for "installing_update" could be "installing update"
-    // or "installing security update". It will be set after UI init according
-    // to commands in BCB.
-    installing_text = nullptr;
-    LoadLocalizedBitmap("erasing_text", &erasing_text);
-    LoadLocalizedBitmap("no_command_text", &no_command_text);
-    LoadLocalizedBitmap("error_text", &error_text);
+  LoadBitmap("icon_error", &error_icon);
 
-    LoadAnimation();
+  LoadBitmap("progress_empty", &progressBarEmpty);
+  LoadBitmap("progress_fill", &progressBarFill);
 
-    pthread_create(&progress_thread_, nullptr, ProgressThreadStartRoutine, this);
+  LoadBitmap("stage_empty", &stageMarkerEmpty);
+  LoadBitmap("stage_fill", &stageMarkerFill);
 
-    RecoveryUI::Init();
+  // Background text for "installing_update" could be "installing update"
+  // or "installing security update". It will be set after UI init according
+  // to commands in BCB.
+  installing_text = nullptr;
+  LoadLocalizedBitmap("erasing_text", &erasing_text);
+  LoadLocalizedBitmap("no_command_text", &no_command_text);
+  LoadLocalizedBitmap("error_text", &error_text);
+
+  LoadAnimation();
+
+  pthread_create(&progress_thread_, nullptr, ProgressThreadStartRoutine, this);
+
+  return true;
 }
 
 void ScreenRecoveryUI::LoadAnimation() {
-    // How many frames of intro and loop do we have?
     std::unique_ptr<DIR, decltype(&closedir)> dir(opendir("/res/images"), closedir);
     dirent* de;
+    std::vector<std::string> intro_frame_names;
+    std::vector<std::string> loop_frame_names;
+
     while ((de = readdir(dir.get())) != nullptr) {
-        int value;
-        if (sscanf(de->d_name, "intro%d", &value) == 1 && intro_frames < (value + 1)) {
-            intro_frames = value + 1;
-        } else if (sscanf(de->d_name, "loop%d", &value) == 1 && loop_frames < (value + 1)) {
-            loop_frames = value + 1;
+        int value, num_chars;
+        if (sscanf(de->d_name, "intro%d%n.png", &value, &num_chars) == 1) {
+            intro_frame_names.emplace_back(de->d_name, num_chars);
+        } else if (sscanf(de->d_name, "loop%d%n.png", &value, &num_chars) == 1) {
+            loop_frame_names.emplace_back(de->d_name, num_chars);
         }
     }
+
+    intro_frames = intro_frame_names.size();
+    loop_frames = loop_frame_names.size();
 
     // It's okay to not have an intro.
     if (intro_frames == 0) intro_done = true;
     // But you must have an animation.
     if (loop_frames == 0) abort();
 
+    std::sort(intro_frame_names.begin(), intro_frame_names.end());
+    std::sort(loop_frame_names.begin(), loop_frame_names.end());
+
     introFrames = new GRSurface*[intro_frames];
-    for (int i = 0; i < intro_frames; ++i) {
-        // TODO: remember the names above, so we don't have to hard-code the number of 0s.
-        LoadBitmap(android::base::StringPrintf("intro%05d", i).c_str(), &introFrames[i]);
+    for (size_t i = 0; i < intro_frames; i++) {
+        LoadBitmap(intro_frame_names.at(i).c_str(), &introFrames[i]);
     }
 
     loopFrames = new GRSurface*[loop_frames];
-    for (int i = 0; i < loop_frames; ++i) {
-        LoadBitmap(android::base::StringPrintf("loop%05d", i).c_str(), &loopFrames[i]);
-    }
-}
-
-void ScreenRecoveryUI::SetLocale(const char* new_locale) {
-    this->locale = new_locale;
-    this->rtl_locale = false;
-
-    if (locale) {
-        char* lang = strdup(locale);
-        for (char* p = lang; *p; ++p) {
-            if (*p == '_') {
-                *p = '\0';
-                break;
-            }
-        }
-
-        // A bit cheesy: keep an explicit list of supported RTL languages.
-        if (strcmp(lang, "ar") == 0 ||   // Arabic
-            strcmp(lang, "fa") == 0 ||   // Persian (Farsi)
-            strcmp(lang, "he") == 0 ||   // Hebrew (new language code)
-            strcmp(lang, "iw") == 0 ||   // Hebrew (old language code)
-            strcmp(lang, "ur") == 0) {   // Urdu
-            rtl_locale = true;
-        }
-        free(lang);
+    for (size_t i = 0; i < loop_frames; i++) {
+        LoadBitmap(loop_frame_names.at(i).c_str(), &loopFrames[i]);
     }
 }
 
@@ -665,8 +655,8 @@ void ScreenRecoveryUI::ClearText() {
 }
 
 void ScreenRecoveryUI::ShowFile(FILE* fp) {
-    std::vector<long> offsets;
-    offsets.push_back(ftell(fp));
+    std::vector<off_t> offsets;
+    offsets.push_back(ftello(fp));
     ClearText();
 
     struct stat sb;
@@ -676,7 +666,7 @@ void ScreenRecoveryUI::ShowFile(FILE* fp) {
     while (true) {
         if (show_prompt) {
             PrintOnScreenOnly("--(%d%% of %d bytes)--",
-                  static_cast<int>(100 * (double(ftell(fp)) / double(sb.st_size))),
+                  static_cast<int>(100 * (double(ftello(fp)) / double(sb.st_size))),
                   static_cast<int>(sb.st_size));
             Redraw();
             while (show_prompt) {
@@ -695,7 +685,7 @@ void ScreenRecoveryUI::ShowFile(FILE* fp) {
                     if (feof(fp)) {
                         return;
                     }
-                    offsets.push_back(ftell(fp));
+                    offsets.push_back(ftello(fp));
                 }
             }
             ClearText();

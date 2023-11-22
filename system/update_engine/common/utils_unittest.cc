@@ -16,30 +16,22 @@
 
 #include "update_engine/common/utils.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <map>
 #include <string>
 #include <vector>
 
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/files/scoped_temp_dir.h>
-#include <base/strings/string_util.h>
-#include <base/strings/stringprintf.h>
-#include <brillo/message_loops/fake_message_loop.h>
-#include <brillo/message_loops/message_loop_utils.h>
 #include <gtest/gtest.h>
 
 #include "update_engine/common/test_utils.h"
 
-using brillo::FakeMessageLoop;
-using std::map;
 using std::string;
 using std::vector;
 
@@ -58,6 +50,21 @@ TEST(UtilsTest, CanParseECVersion) {
 
   // For invalid entries, should return the empty string.
   EXPECT_EQ("", utils::ParseECVersion("b=1231a fw_version a=fasd2"));
+}
+
+TEST(UtilsTest, WriteFileOpenFailure) {
+  EXPECT_FALSE(utils::WriteFile("/this/doesn't/exist", "hello", 5));
+}
+
+TEST(UtilsTest, WriteFileReadFile) {
+  base::FilePath file;
+  EXPECT_TRUE(base::CreateTemporaryFile(&file));
+  ScopedPathUnlinker unlinker(file.value());
+  EXPECT_TRUE(utils::WriteFile(file.value().c_str(), "hello", 5));
+
+  brillo::Blob readback;
+  EXPECT_TRUE(utils::ReadFile(file.value().c_str(), &readback));
+  EXPECT_EQ("hello", string(readback.begin(), readback.end()));
 }
 
 TEST(UtilsTest, ReadFileFailure) {
@@ -91,17 +98,16 @@ TEST(UtilsTest, ErrnoNumberAsStringTest) {
 }
 
 TEST(UtilsTest, IsSymlinkTest) {
-  string temp_dir;
-  EXPECT_TRUE(utils::MakeTempDirectory("symlink-test.XXXXXX", &temp_dir));
-  string temp_file = temp_dir + "/temp-file";
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  string temp_file = temp_dir.path().Append("temp-file").value();
   EXPECT_TRUE(utils::WriteFile(temp_file.c_str(), "", 0));
-  string temp_symlink = temp_dir + "/temp-symlink";
+  string temp_symlink = temp_dir.path().Append("temp-symlink").value();
   EXPECT_EQ(0, symlink(temp_file.c_str(), temp_symlink.c_str()));
-  EXPECT_FALSE(utils::IsSymlink(temp_dir.c_str()));
+  EXPECT_FALSE(utils::IsSymlink(temp_dir.path().value().c_str()));
   EXPECT_FALSE(utils::IsSymlink(temp_file.c_str()));
   EXPECT_TRUE(utils::IsSymlink(temp_symlink.c_str()));
   EXPECT_FALSE(utils::IsSymlink("/non/existent/path"));
-  EXPECT_TRUE(base::DeleteFile(base::FilePath(temp_dir), true));
 }
 
 TEST(UtilsTest, SplitPartitionNameTest) {
@@ -194,90 +200,6 @@ TEST(UtilsTest, FuzzIntTest) {
   }
 }
 
-TEST(UtilsTest, RunAsRootGetFilesystemSizeTest) {
-  string img;
-  EXPECT_TRUE(utils::MakeTempFile("img.XXXXXX", &img, nullptr));
-  ScopedPathUnlinker img_unlinker(img);
-  test_utils::CreateExtImageAtPath(img, nullptr);
-  // Extend the "partition" holding the file system from 10MiB to 20MiB.
-  EXPECT_EQ(0, test_utils::System(base::StringPrintf(
-      "dd if=/dev/zero of=%s seek=20971519 bs=1 count=1 status=none",
-      img.c_str())));
-  EXPECT_EQ(20 * 1024 * 1024, utils::FileSize(img));
-  int block_count = 0;
-  int block_size = 0;
-  EXPECT_TRUE(utils::GetFilesystemSize(img, &block_count, &block_size));
-  EXPECT_EQ(4096, block_size);
-  EXPECT_EQ(10 * 1024 * 1024 / 4096, block_count);
-}
-
-// Squashfs example filesystem, generated with:
-//   echo hola>hola
-//   mksquashfs hola hola.sqfs -noappend -nopad
-//   hexdump hola.sqfs -e '16/1 "%02x, " "\n"'
-const uint8_t kSquashfsFile[] = {
-  0x68, 0x73, 0x71, 0x73, 0x02, 0x00, 0x00, 0x00,  // magic, inodes
-  0x3e, 0x49, 0x61, 0x54, 0x00, 0x00, 0x02, 0x00,
-  0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x11, 0x00,
-  0xc0, 0x00, 0x02, 0x00, 0x04, 0x00, 0x00, 0x00,  // flags, noids, major, minor
-  0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // root_inode
-  0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // bytes_used
-  0xe7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-  0x65, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x93, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0xbd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0xd5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x68, 0x6f, 0x6c, 0x61, 0x0a, 0x2c, 0x00, 0x78,
-  0xda, 0x63, 0x62, 0x58, 0xc2, 0xc8, 0xc0, 0xc0,
-  0xc8, 0xd0, 0x6b, 0x91, 0x18, 0x02, 0x64, 0xa0,
-  0x00, 0x56, 0x06, 0x90, 0xcc, 0x7f, 0xb0, 0xbc,
-  0x9d, 0x67, 0x62, 0x08, 0x13, 0x54, 0x1c, 0x44,
-  0x4b, 0x03, 0x31, 0x33, 0x10, 0x03, 0x00, 0xb5,
-  0x87, 0x04, 0x89, 0x16, 0x00, 0x78, 0xda, 0x63,
-  0x60, 0x80, 0x00, 0x46, 0x28, 0xcd, 0xc4, 0xc0,
-  0xcc, 0x90, 0x91, 0x9f, 0x93, 0x08, 0x00, 0x04,
-  0x70, 0x01, 0xab, 0x10, 0x80, 0x60, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00,
-  0x01, 0x00, 0x00, 0x00, 0x00, 0xab, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x78,
-  0xda, 0x63, 0x60, 0x80, 0x00, 0x05, 0x28, 0x0d,
-  0x00, 0x01, 0x10, 0x00, 0x21, 0xc5, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x80, 0x99,
-  0xcd, 0x02, 0x00, 0x88, 0x13, 0x00, 0x00, 0xdd,
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
-TEST(UtilsTest, GetSquashfs4Size) {
-  uint8_t buffer[sizeof(kSquashfsFile)];
-  memcpy(buffer, kSquashfsFile, sizeof(kSquashfsFile));
-
-  int block_count = -1;
-  int block_size = -1;
-  // Not enough bytes passed.
-  EXPECT_FALSE(utils::GetSquashfs4Size(buffer, 10, nullptr, nullptr));
-
-  // The whole file system is passed, which is enough for parsing.
-  EXPECT_TRUE(utils::GetSquashfs4Size(buffer, sizeof(kSquashfsFile),
-                                      &block_count, &block_size));
-  EXPECT_EQ(4096, block_size);
-  EXPECT_EQ(1, block_count);
-
-  // Modify the major version to 5.
-  uint16_t* s_major = reinterpret_cast<uint16_t*>(buffer + 0x1c);
-  *s_major = 5;
-  EXPECT_FALSE(utils::GetSquashfs4Size(buffer, 10, nullptr, nullptr));
-  memcpy(buffer, kSquashfsFile, sizeof(kSquashfsFile));
-
-  // Modify the bytes_used to have 6 blocks.
-  int64_t* bytes_used = reinterpret_cast<int64_t*>(buffer + 0x28);
-  *bytes_used = 4096 * 5 + 1;  // 6 "blocks".
-  EXPECT_TRUE(utils::GetSquashfs4Size(buffer, sizeof(kSquashfsFile),
-                                      &block_count, &block_size));
-  EXPECT_EQ(4096, block_size);
-  EXPECT_EQ(6, block_count);
-}
-
 namespace {
 void GetFileFormatTester(const string& expected,
                          const vector<uint8_t>& contents) {
@@ -326,17 +248,6 @@ TEST(UtilsTest, GetFileFormatTest) {
                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                       0x02, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00,
                       0xb0, 0x04, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00});
-}
-
-TEST(UtilsTest, ScheduleCrashReporterUploadTest) {
-  // Not much to test. At least this tests for memory leaks, crashes,
-  // log errors.
-  FakeMessageLoop loop(nullptr);
-  loop.SetAsCurrent();
-  utils::ScheduleCrashReporterUpload();
-  // Test that we scheduled one callback from the crash reporter.
-  EXPECT_EQ(1, brillo::MessageLoopRunMaxIterations(&loop, 100));
-  EXPECT_FALSE(loop.PendingTasks());
 }
 
 TEST(UtilsTest, FormatTimeDeltaTest) {
@@ -547,11 +458,11 @@ TEST(UtilsTest, TestMacros) {
   EXPECT_TRUE(BoolMacroTestHelper());
 }
 
-TEST(UtilsTest, UnmountFilesystemFailureTest) {
+TEST(UtilsTest, RunAsRootUnmountFilesystemFailureTest) {
   EXPECT_FALSE(utils::UnmountFilesystem("/path/to/non-existing-dir"));
 }
 
-TEST(UtilsTest, UnmountFilesystemBusyFailureTest) {
+TEST(UtilsTest, RunAsRootUnmountFilesystemBusyFailureTest) {
   string tmp_image;
   EXPECT_TRUE(utils::MakeTempFile("img.XXXXXX", &tmp_image, nullptr));
   ScopedPathUnlinker tmp_image_unlinker(tmp_image);
@@ -567,17 +478,37 @@ TEST(UtilsTest, UnmountFilesystemBusyFailureTest) {
   test_utils::ScopedLoopbackDeviceBinder loop_binder(
       tmp_image, true, &loop_dev);
 
+  EXPECT_FALSE(utils::IsMountpoint(mnt_dir.path().value()));
   // This is the actual test part. While we hold a file descriptor open for the
   // mounted filesystem, umount should still succeed.
   EXPECT_TRUE(utils::MountFilesystem(
       loop_dev, mnt_dir.path().value(), MS_RDONLY, "ext4", ""));
+  // Verify the directory is a mount point now.
+  EXPECT_TRUE(utils::IsMountpoint(mnt_dir.path().value()));
+
   string target_file = mnt_dir.path().Append("empty-file").value();
   int fd = HANDLE_EINTR(open(target_file.c_str(), O_RDONLY));
   EXPECT_GE(fd, 0);
   EXPECT_TRUE(utils::UnmountFilesystem(mnt_dir.path().value()));
+  // The filesystem should be already unmounted at this point.
+  EXPECT_FALSE(utils::IsMountpoint(mnt_dir.path().value()));
   IGNORE_EINTR(close(fd));
   // The filesystem was already unmounted so this call should fail.
   EXPECT_FALSE(utils::UnmountFilesystem(mnt_dir.path().value()));
+}
+
+TEST(UtilsTest, IsMountpointTest) {
+  EXPECT_TRUE(utils::IsMountpoint("/"));
+  EXPECT_FALSE(utils::IsMountpoint("/path/to/nowhere"));
+
+  base::ScopedTempDir mnt_dir;
+  EXPECT_TRUE(mnt_dir.CreateUniqueTempDir());
+  EXPECT_FALSE(utils::IsMountpoint(mnt_dir.path().value()));
+
+  base::FilePath file;
+  EXPECT_TRUE(base::CreateTemporaryFile(&file));
+  ScopedPathUnlinker unlinker(file.value());
+  EXPECT_FALSE(utils::IsMountpoint(file.value()));
 }
 
 }  // namespace chromeos_update_engine

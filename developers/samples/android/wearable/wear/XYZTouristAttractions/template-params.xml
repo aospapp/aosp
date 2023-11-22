@@ -19,24 +19,27 @@
     <group>Wearable</group>
     <package>com.example.android.xyztouristattractions</package>
     <minSdk>18</minSdk>
-    <targetSdkVersion>23</targetSdkVersion>
-    <targetSdkVersionWear>22</targetSdkVersionWear>
+    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
     <dependency>com.google.android.gms:play-services-location</dependency>
+
     <dependency>com.google.maps.android:android-maps-utils:0.3.4</dependency>
     <dependency>com.github.bumptech.glide:glide:3.6.1</dependency>
-    <dependency>com.android.support:appcompat-v7:24.0.0</dependency>
-    <dependency>com.android.support:recyclerview-v7:24.0.0</dependency>
-    <dependency>com.android.support:design:24.0.0</dependency>
-    <dependency_wearable>com.google.android.gms:play-services-location</dependency_wearable>
-    <dependency_shared>com.android.support:support-v13:23.0.0</dependency_shared>
+    <dependency>com.android.support:appcompat-v7:25.3.1</dependency>
+    <dependency>com.android.support:recyclerview-v7:25.3.1</dependency>
+    <dependency>com.android.support:design:25.3.1</dependency>
+    <dependency_wearable>com.google.android.gms:play-services-maps</dependency_wearable>
+    <dependency_shared>com.android.support:support-v13:25.3.1</dependency_shared>
     <dependency_shared>com.google.android.gms:play-services-wearable</dependency_shared>
-    <dependency_shared>com.google.android.gms:play-services-location</dependency_shared>
+    <dependency_shared>com.google.android.gms:play-services-maps</dependency_shared>
     <dependency_shared>com.google.maps.android:android-maps-utils:0.3.4</dependency_shared>
+
+
 
     <strings>
         <intro>

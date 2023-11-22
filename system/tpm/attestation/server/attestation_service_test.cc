@@ -64,9 +64,10 @@ class AttestationServiceTest : public testing::Test {
     service_->set_key_store(&mock_key_store_);
     service_->set_tpm_utility(&mock_tpm_utility_);
     // Setup a fake wrapped EK certificate by default.
-    mock_database_.GetMutableProtobuf()->mutable_credentials()->
-        mutable_default_encrypted_endorsement_credential()->
-            set_wrapping_key_id("default");
+    mock_database_.GetMutableProtobuf()
+        ->mutable_credentials()
+        ->mutable_default_encrypted_endorsement_credential()
+        ->set_wrapping_key_id("default");
     // Setup a fake Attestation CA for success by default.
     SetupFakeCAEnroll(kSuccess);
     SetupFakeCASign(kSuccess);
@@ -79,16 +80,14 @@ class AttestationServiceTest : public testing::Test {
         service_->attestation_ca_origin() + "/enroll",
         brillo::http::request_type::kPost,
         base::Bind(&AttestationServiceTest::FakeCAEnroll,
-                   base::Unretained(this),
-                   state));
+                   base::Unretained(this), state));
   }
 
   void SetupFakeCASign(FakeCAState state) {
     fake_http_transport_->AddHandler(
         service_->attestation_ca_origin() + "/sign",
         brillo::http::request_type::kPost,
-        base::Bind(&AttestationServiceTest::FakeCASign,
-                   base::Unretained(this),
+        base::Bind(&AttestationServiceTest::FakeCASign, base::Unretained(this),
                    state));
   }
 
@@ -116,17 +115,11 @@ class AttestationServiceTest : public testing::Test {
     return request;
   }
 
-  void Run() {
-    run_loop_.Run();
-  }
+  void Run() { run_loop_.Run(); }
 
-  void RunUntilIdle() {
-    run_loop_.RunUntilIdle();
-  }
+  void RunUntilIdle() { run_loop_.RunUntilIdle(); }
 
-  void Quit() {
-    run_loop_.Quit();
-  }
+  void Quit() { run_loop_.Quit(); }
 
   std::shared_ptr<brillo::http::fake::Transport> fake_http_transport_;
   NiceMock<MockCryptoUtility> mock_crypto_utility_;
@@ -153,10 +146,10 @@ class AttestationServiceTest : public testing::Test {
     } else if (state == kSuccess) {
       response_pb.set_status(OK);
       response_pb.set_detail("");
-      response_pb.mutable_encrypted_identity_credential()->
-          set_asym_ca_contents("1234");
-      response_pb.mutable_encrypted_identity_credential()->
-          set_sym_ca_attestation("5678");
+      response_pb.mutable_encrypted_identity_credential()->set_asym_ca_contents(
+          "1234");
+      response_pb.mutable_encrypted_identity_credential()
+          ->set_sym_ca_attestation("5678");
     } else {
       NOTREACHED();
     }
@@ -363,8 +356,7 @@ TEST_F(AttestationServiceTest, CreateGoogleAttestedKeyWithDBFailureNoUser) {
 }
 
 TEST_F(AttestationServiceTest, CreateGoogleAttestedKeyWithKeyWriteFailure) {
-  EXPECT_CALL(mock_key_store_, Write(_, _, _))
-      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_key_store_, Write(_, _, _)).WillRepeatedly(Return(false));
   // Set expectations on the outputs.
   auto callback = [this](const CreateGoogleAttestedKeyReply& reply) {
     EXPECT_NE(STATUS_SUCCESS, reply.status());
@@ -377,8 +369,7 @@ TEST_F(AttestationServiceTest, CreateGoogleAttestedKeyWithKeyWriteFailure) {
 }
 
 TEST_F(AttestationServiceTest, CreateGoogleAttestedKeyWithTpmNotReady) {
-  EXPECT_CALL(mock_tpm_utility_, IsTpmReady())
-      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_tpm_utility_, IsTpmReady()).WillRepeatedly(Return(false));
   // Set expectations on the outputs.
   auto callback = [this](const CreateGoogleAttestedKeyReply& reply) {
     EXPECT_NE(STATUS_SUCCESS, reply.status());
@@ -652,8 +643,8 @@ TEST_F(AttestationServiceTest, GetAttestationKeyInfoSomeInfo) {
 
 TEST_F(AttestationServiceTest, ActivateAttestationKeySuccess) {
   EXPECT_CALL(mock_database_, SaveChanges()).Times(1);
-  EXPECT_CALL(mock_tpm_utility_, ActivateIdentity(_, _, _, "encrypted1",
-                                                  "encrypted2", _))
+  EXPECT_CALL(mock_tpm_utility_,
+              ActivateIdentity(_, _, _, "encrypted1", "encrypted2", _))
       .WillOnce(DoAll(SetArgumentPointee<5>(std::string("certificate")),
                       Return(true)));
   // Set expectations on the outputs.
@@ -674,8 +665,8 @@ TEST_F(AttestationServiceTest, ActivateAttestationKeySuccess) {
 TEST_F(AttestationServiceTest, ActivateAttestationKeySuccessNoSave) {
   EXPECT_CALL(mock_database_, GetMutableProtobuf()).Times(0);
   EXPECT_CALL(mock_database_, SaveChanges()).Times(0);
-  EXPECT_CALL(mock_tpm_utility_, ActivateIdentity(_, _, _, "encrypted1",
-                                                  "encrypted2", _))
+  EXPECT_CALL(mock_tpm_utility_,
+              ActivateIdentity(_, _, _, "encrypted1", "encrypted2", _))
       .WillOnce(DoAll(SetArgumentPointee<5>(std::string("certificate")),
                       Return(true)));
   // Set expectations on the outputs.
@@ -710,8 +701,8 @@ TEST_F(AttestationServiceTest, ActivateAttestationKeySaveFailure) {
 }
 
 TEST_F(AttestationServiceTest, ActivateAttestationKeyActivateFailure) {
-  EXPECT_CALL(mock_tpm_utility_, ActivateIdentity(_, _, _, "encrypted1",
-                                                  "encrypted2", _))
+  EXPECT_CALL(mock_tpm_utility_,
+              ActivateIdentity(_, _, _, "encrypted1", "encrypted2", _))
       .WillRepeatedly(Return(false));
   // Set expectations on the outputs.
   auto callback = [this](const ActivateAttestationKeyReply& reply) {
@@ -729,14 +720,14 @@ TEST_F(AttestationServiceTest, ActivateAttestationKeyActivateFailure) {
 
 TEST_F(AttestationServiceTest, CreateCertifiableKeySuccess) {
   // Configure a fake TPM response.
-  EXPECT_CALL(mock_tpm_utility_, CreateCertifiedKey(KEY_TYPE_ECC,
-                                                    KEY_USAGE_SIGN,
-                                                    _, _, _, _, _, _, _))
-      .WillOnce(DoAll(SetArgumentPointee<5>(std::string("public_key")),
-                      SetArgumentPointee<7>(std::string("certify_info")),
-                      SetArgumentPointee<8>(
-                          std::string("certify_info_signature")),
-                      Return(true)));
+  EXPECT_CALL(
+      mock_tpm_utility_,
+      CreateCertifiedKey(KEY_TYPE_ECC, KEY_USAGE_SIGN, _, _, _, _, _, _, _))
+      .WillOnce(
+          DoAll(SetArgumentPointee<5>(std::string("public_key")),
+                SetArgumentPointee<7>(std::string("certify_info")),
+                SetArgumentPointee<8>(std::string("certify_info_signature")),
+                Return(true)));
   // Expect the key to be written exactly once.
   EXPECT_CALL(mock_key_store_, Write("user", "label", _)).Times(1);
   // Set expectations on the outputs.
@@ -758,14 +749,14 @@ TEST_F(AttestationServiceTest, CreateCertifiableKeySuccess) {
 
 TEST_F(AttestationServiceTest, CreateCertifiableKeySuccessNoUser) {
   // Configure a fake TPM response.
-  EXPECT_CALL(mock_tpm_utility_, CreateCertifiedKey(KEY_TYPE_ECC,
-                                                    KEY_USAGE_SIGN,
-                                                    _, _, _, _, _, _, _))
-      .WillOnce(DoAll(SetArgumentPointee<5>(std::string("public_key")),
-                      SetArgumentPointee<7>(std::string("certify_info")),
-                      SetArgumentPointee<8>(
-                          std::string("certify_info_signature")),
-                      Return(true)));
+  EXPECT_CALL(
+      mock_tpm_utility_,
+      CreateCertifiedKey(KEY_TYPE_ECC, KEY_USAGE_SIGN, _, _, _, _, _, _, _))
+      .WillOnce(
+          DoAll(SetArgumentPointee<5>(std::string("public_key")),
+                SetArgumentPointee<7>(std::string("certify_info")),
+                SetArgumentPointee<8>(std::string("certify_info_signature")),
+                Return(true)));
   // Expect the key to be written exactly once.
   EXPECT_CALL(mock_database_, SaveChanges()).Times(1);
   // Set expectations on the outputs.
@@ -1032,13 +1023,10 @@ TEST_F(AttestationServiceTest, RegisterSuccess) {
       .WillOnce(DoAll(SetArgumentPointee<2>(key_bytes), Return(true)));
   // Cardinality is verified here to verify various steps are performed and to
   // catch performance regressions.
-  EXPECT_CALL(mock_key_store_, Register("user",
-                                        "label",
-                                        KEY_TYPE_RSA,
-                                        KEY_USAGE_SIGN,
-                                        "key_blob",
-                                        "public_key",
-                                        "fake_cert")).Times(1);
+  EXPECT_CALL(mock_key_store_,
+              Register("user", "label", KEY_TYPE_RSA, KEY_USAGE_SIGN,
+                       "key_blob", "public_key", "fake_cert"))
+      .Times(1);
   EXPECT_CALL(mock_key_store_, RegisterCertificate("user", "fake_ca_cert"))
       .Times(1);
   EXPECT_CALL(mock_key_store_, RegisterCertificate("user", "fake_ca_cert2"))
@@ -1069,13 +1057,10 @@ TEST_F(AttestationServiceTest, RegisterSuccessNoUser) {
   key.set_key_usage(KEY_USAGE_SIGN);
   // Cardinality is verified here to verify various steps are performed and to
   // catch performance regressions.
-  EXPECT_CALL(mock_key_store_, Register("",
-                                        "label",
-                                        KEY_TYPE_RSA,
-                                        KEY_USAGE_SIGN,
-                                        "key_blob",
-                                        "public_key",
-                                        "fake_cert")).Times(1);
+  EXPECT_CALL(mock_key_store_,
+              Register("", "label", KEY_TYPE_RSA, KEY_USAGE_SIGN, "key_blob",
+                       "public_key", "fake_cert"))
+      .Times(1);
   EXPECT_CALL(mock_key_store_, RegisterCertificate("", "fake_ca_cert"))
       .Times(1);
   EXPECT_CALL(mock_key_store_, RegisterCertificate("", "fake_ca_cert2"))

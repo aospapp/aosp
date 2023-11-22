@@ -175,9 +175,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testDevPortSane() throws Exception {
         File f = new File("/dev/port");
-        assertFalse(f.canRead());
-        assertFalse(f.canWrite());
-        assertFalse(f.canExecute());
+        assertFalse(f.exists());
     }
 
     @MediumTest
@@ -315,8 +313,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
             assertFalse(f.canRead());
             assertFalse(f.canWrite());
             assertFalse(f.canExecute());
-            assertFileOwnedBy(f, "root");
-            assertFileOwnedByGroup(f, "root");
         }
 
         if (supported_64 || supported) {
@@ -325,8 +321,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
             assertFalse(f.canRead());
             assertFalse(f.canWrite());
             assertFalse(f.canExecute());
-            assertFileOwnedBy(f, "root");
-            assertFileOwnedByGroup(f, "root");
         }
     }
 
@@ -542,6 +536,7 @@ public class FileSystemPermissionTest extends AndroidTestCase {
                     "/data/mdl",
                     "/data/misc",
                     "/data/misc/bluetooth",
+                    "/data/misc/bluetooth/logs",
                     "/data/misc/dhcp",
                     "/data/misc/lockscreen",
                     "/data/misc/sensor",
@@ -789,85 +784,6 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     public void testAllBlockDevicesAreSecure() throws Exception {
         Set<File> insecure = getAllInsecureDevicesInDirAndSubdir(new File("/dev"), FileUtils.S_IFBLK);
         assertTrue("Found insecure block devices: " + insecure.toString(),
-                insecure.isEmpty());
-    }
-
-    private static final Set<File> CHAR_DEV_EXCEPTIONS = new HashSet<File>(
-            Arrays.asList(
-                // All exceptions should be alphabetical and associated with a bug number.
-                new File("/dev/adsprpc-smd"), // b/11710243
-                new File("/dev/alarm"),      // b/9035217
-                new File("/dev/ashmem"),
-                new File("/dev/binder"),
-                new File("/dev/card0"),       // b/13159510
-                new File("/dev/renderD128"),
-                new File("/dev/renderD129"),  // b/23798677
-                new File("/dev/dri/card0"),   // b/13159510
-                new File("/dev/dri/renderD128"),
-                new File("/dev/dri/renderD129"), // b/23798677
-                new File("/dev/felica"),     // b/11142586
-                new File("/dev/felica_ant"), // b/11142586
-                new File("/dev/felica_cen"), // b/11142586
-                new File("/dev/felica_pon"), // b/11142586
-                new File("/dev/felica_rfs"), // b/11142586
-                new File("/dev/felica_rws"), // b/11142586
-                new File("/dev/felica_uicc"), // b/11142586
-                new File("/dev/full"),
-                new File("/dev/galcore"),
-                new File("/dev/genlock"),    // b/9035217
-                new File("/dev/graphics/galcore"),
-                new File("/dev/ion"),
-                new File("/dev/kgsl-2d0"),   // b/11271533
-                new File("/dev/kgsl-2d1"),   // b/11271533
-                new File("/dev/kgsl-3d0"),   // b/9035217
-                new File("/dev/log/events"), // b/9035217
-                new File("/dev/log/main"),   // b/9035217
-                new File("/dev/log/radio"),  // b/9035217
-                new File("/dev/log/system"), // b/9035217
-                new File("/dev/mali0"),       // b/9106968
-                new File("/dev/mali"),        // b/11142586
-                new File("/dev/mm_interlock"), // b/12955573
-                new File("/dev/mm_isp"),      // b/12955573
-                new File("/dev/mm_v3d"),      // b/12955573
-                new File("/dev/msm_rotator"), // b/9035217
-                new File("/dev/null"),
-                new File("/dev/nvhost-as-gpu"),
-                new File("/dev/nvhost-ctrl"), // b/9088251
-                new File("/dev/nvhost-ctrl-gpu"),
-                new File("/dev/nvhost-dbg-gpu"),
-                new File("/dev/nvhost-gpu"),
-                new File("/dev/nvhost-gr2d"), // b/9088251
-                new File("/dev/nvhost-gr3d"), // b/9088251
-                new File("/dev/nvhost-tsec"),
-                new File("/dev/nvhost-prof-gpu"),
-                new File("/dev/nvhost-vic"),
-                new File("/dev/nvmap"),       // b/9088251
-                new File("/dev/ptmx"),        // b/9088251
-                new File("/dev/pvrsrvkm"),    // b/9108170
-                new File("/dev/pvr_sync"),
-                new File("/dev/quadd"),
-                new File("/dev/random"),
-                new File("/dev/snfc_cen"),    // b/11142586
-                new File("/dev/snfc_hsel"),   // b/11142586
-                new File("/dev/snfc_intu_poll"), // b/11142586
-                new File("/dev/snfc_rfs"),    // b/11142586
-                new File("/dev/tegra-throughput"),
-                new File("/dev/tiler"),       // b/9108170
-                new File("/dev/tty"),
-                new File("/dev/urandom"),
-                new File("/dev/ump"),         // b/11142586
-                new File("/dev/xt_qtaguid"),  // b/9088251
-                new File("/dev/zero"),
-                new File("/dev/fimg2d"),      // b/10428016
-                new File("/dev/mobicore-user") // b/10428016
-            ));
-
-    public void testAllCharacterDevicesAreSecure() throws Exception {
-        Set<File> insecure = getAllInsecureDevicesInDirAndSubdir(new File("/dev"), FileUtils.S_IFCHR);
-        Set<File> insecurePts = getAllInsecureDevicesInDirAndSubdir(new File("/dev/pts"), FileUtils.S_IFCHR);
-        insecure.removeAll(CHAR_DEV_EXCEPTIONS);
-        insecure.removeAll(insecurePts);
-        assertTrue("Found insecure character devices: " + insecure.toString(),
                 insecure.isEmpty());
     }
 

@@ -19,27 +19,23 @@ package com.android.bluetooth.hid;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothInputDevice;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.IBluetooth;
 import android.bluetooth.IBluetoothInputDevice;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.os.Handler;
 import android.os.Message;
-import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.provider.Settings;
 import android.util.Log;
+
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.Utils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 
 /**
  * Provides Bluetooth Hid Host profile, as a service in
@@ -101,6 +97,12 @@ public class HidService extends ProfileService {
         }
 
         if(mInputDevices != null) {
+            for (BluetoothDevice device : mInputDevices.keySet()) {
+                int inputDeviceState = getConnectionState(device);
+                if (inputDeviceState != BluetoothProfile.STATE_DISCONNECTED) {
+                    broadcastConnectionState(device, BluetoothProfile.STATE_DISCONNECTED);
+                }
+            }
             mInputDevices.clear();
         }
         clearHidService();
@@ -546,15 +548,8 @@ public class HidService extends ProfileService {
         }
 
         return sendDataNative(Utils.getByteAddress(device), report);
-        /*Message msg = mHandler.obtainMessage(MESSAGE_SEND_DATA);
-        msg.obj = device;
-        Bundle data = new Bundle();
-        data.putString(BluetoothInputDevice.EXTRA_REPORT, report);
-        msg.setData(data);
-        mHandler.sendMessage(msg);
-        return true ;*/
     }
-    
+
     private void onGetProtocolMode(byte[] address, int mode) {
         Message msg = mHandler.obtainMessage(MESSAGE_ON_GET_PROTOCOL_MODE);
         msg.obj = address;
@@ -608,8 +603,6 @@ public class HidService extends ProfileService {
            connection state change, as it was causing a race condition, with the UI not being
            updated with the correct connection state. */
         log("Connection state " + device + ": " + prevState + "->" + newState);
-        notifyProfileConnectionStateChanged(device, BluetoothProfile.INPUT_DEVICE,
-                                            newState, prevState);
         Intent intent = new Intent(BluetoothInputDevice.ACTION_CONNECTION_STATE_CHANGED);
         intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);

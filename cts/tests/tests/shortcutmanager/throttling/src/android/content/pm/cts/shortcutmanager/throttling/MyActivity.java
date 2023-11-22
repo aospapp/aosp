@@ -17,6 +17,7 @@ package android.content.pm.cts.shortcutmanager.throttling;
 
 import android.app.Activity;
 import android.content.pm.cts.shortcutmanager.common.Constants;
+import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
 import android.os.Bundle;
 import android.util.Log;
 

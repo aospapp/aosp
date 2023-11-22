@@ -70,20 +70,49 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="guidedStepBackground">@color/common_tv_background</item>
         <item name="guidedActionsBackground">@color/common_tv_background</item>
+        <item name="guidedActionsSelectorDrawable">@drawable/dvr_selector_background</item>
         <item name="guidanceTitleStyle">@style/TV.Dvr.GuidanceTitleStyle</item>
+        <item name="guidanceBreadcrumbStyle">@style/TV.Dvr.GuidanceBreadcrumbStyle</item>
         <item name="guidanceDescriptionStyle">@style/TV.Dvr.GuidanceDescriptionStyle</item>
+        <item name="guidanceIconStyle">@style/TV.Dvr.GuidanceIconStyle</item>
         <item name="guidedActionsListStyle">@style/TV.Dvr.GuidedActionsListStyle</item>
         <item name="guidedActionItemContainerStyle">@style/TV.Dvr.GuidedActionItemContainerStyle</item>
         <item name="guidedActionContentWidthWeight">@string/lb_guidedactions_width_weight</item>
     </style>
 
-    <style name="Theme.TV.Onboarding" parent="Theme.LeanbackBase">
-        <item name="onboardingHeaderStyle">@style/Widget.Leanback.OnboardingHeaderStyle</item>
-        <item name="onboardingTitleStyle">@style/Widget.Leanback.OnboardingTitleStyle</item>
-        <item name="onboardingDescriptionStyle">@style/Widget.Leanback.OnboardingDescriptionStyle</item>
-        <item name="onboardingNavigatorContainerStyle">@style/Widget.Leanback.OnboardingNavigatorContainerStyle</item>
-        <item name="onboardingPageIndicatorStyle">@style/Widget.Leanback.OnboardingPageIndicatorStyle</item>
-        <item name="onboardingStartButtonStyle">@style/Widget.Leanback.OnboardingStartButtonStyle</item>
-        <item name="onboardingLogoStyle">@style/Widget.Leanback.OnboardingLogoStyle</item>
+    <style name="Theme.TV.Dvr.GuidedStep.Twoline.Action" parent = "Theme.TV.Dvr.GuidedStep">
+        <item name="guidedActionItemContainerStyle">@style/TV.Dvr.GuidedActionItemContainerStyle.Twoline.Action</item>
+    </style>
+
+    <style name="Theme.TV.Dvr.Conflict.GuidedStep" parent="Theme.TV.Dvr.GuidedStep">
+        <item name="guidanceTitleStyle">@style/TV.Dvr.Conflict.GuidanceTitleStyle</item>
+        <item name="guidedActionsListStyle">@style/TV.Dvr.Conflict.GuidedActionsListStyle</item>
+        <item name="guidedStepKeyline">@string/dvr_conflict_guidedstep_keyline</item>
+    </style>
+
+    <style name="Theme.TV.Dvr.Settings.GuidedStep" parent="Theme.TV.GuidedStep">
+        <!-- button actions width and button action item height is programatically implemented
+             in GuidedButtonActionsStylist.java -->
+        <item name="guidedSubActionsListStyle">@style/TV.Dvr.Settings.GuidedSubActionsListStyle</item>
+        <item name="guidedActionsBackgroundDark">@color/setup_sub_actions_background</item>
+        <item name="guidedButtonActionsListStyle">@style/TV.Dvr.Settings.GuidedButtonActionsListStyle</item>
+        <item name="guidedActionContentWidthWeightTwoPanels">@string/dvr_settings_guidedactions_width_weight</item>
+    </style>
+
+    <style name="Theme.TV.Dvr.Settings.Priority.GuidedStep" parent="Theme.TV.Dvr.Settings.GuidedStep">
+        <item name="guidedActionItemContainerStyle">@style/TV.Dvr.Settings.Priority.GuidedActionItemContainerStyle</item>
+    </style>
+
+    <style name="Theme.TV.Dvr.Series.Deletion.GuidedStep" parent="Theme.TV.Dvr.Settings.GuidedStep">
+        <item name="guidedActionItemCheckmarkStyle">@style/TV.Dvr.Series.Deletion.guidedActionItemCheckmarkStyle</item>
+    </style>
+
+    <style name="Theme.TV.Dvr.Series.Settings.GuidedStep" parent="Theme.TV.Dvr.Settings.GuidedStep">
+        <item name="android:windowBackground">@color/setup_background</item>
+        <item name="android:windowIsTranslucent">true</item>
+    </style>
+
+    <style name="Theme.TV.Dvr.Browse.Details" parent="Theme.Leanback.Details">
+        <item name="detailsDescriptionTitleStyle">@style/TV.Dvr.Browse.DetailsDescriptionTitleStyle</item>
     </style>
 </resources>

@@ -20,7 +20,7 @@ import matplotlib
 import numpy
 import os
 import os.path
-import pylab
+from matplotlib import pylab
 
 def main():
     """Test that the android.shading.mode param is applied.

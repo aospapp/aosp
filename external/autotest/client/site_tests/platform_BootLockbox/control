@@ -13,7 +13,6 @@ TEST_TYPE = 'client'
 DEPENDENCIES = 'cleanup-reboot'
 BUG_TEMPLATE = {'owner': 'dkrahn@chromium.org'}
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = 'bvt-perbuild'
 JOB_RETRIES = 2
 
 DOC = """

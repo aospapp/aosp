@@ -36,7 +36,7 @@
 #define DRC_DEFAULT_MOBILE_DRC_CUT   127 /* maximum compression of dynamic range for mobile conf */
 #define DRC_DEFAULT_MOBILE_DRC_BOOST 127 /* maximum compression of dynamic range for mobile conf */
 #define DRC_DEFAULT_MOBILE_DRC_HEAVY 1   /* switch for heavy compression for mobile conf */
-#define DRC_DEFAULT_MOBILE_ENC_LEVEL -1 /* encoder target level; -1 => the value is unknown, otherwise dB step value (e.g. 64 for -16 dB) */
+#define DRC_DEFAULT_MOBILE_ENC_LEVEL (-1) /* encoder target level; -1 => the value is unknown, otherwise dB step value (e.g. 64 for -16 dB) */
 #define MAX_CHANNEL_COUNT            8  /* maximum number of audio channels that can be decoded */
 // names of properties that can be used to override the default DRC settings
 #define PROP_DRC_OVERRIDE_REF_LEVEL  "aac_drc_reference_level"
@@ -62,6 +62,7 @@ static const OMX_U32 kSupportedProfiles[] = {
     OMX_AUDIO_AACObjectHE_PS,
     OMX_AUDIO_AACObjectLD,
     OMX_AUDIO_AACObjectELD,
+    OMX_AUDIO_AACObjectER_Scalable,
 };
 
 SoftAAC2::SoftAAC2(

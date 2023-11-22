@@ -10,6 +10,7 @@
 
 #include "base/bits.h"
 #include "base/json/json_writer.h"
+#include "base/memory/ptr_util.h"
 #include "base/trace_event/trace_event_memory_overhead.h"
 #include "base/values.h"
 
@@ -234,7 +235,8 @@ void TracedValue::EndArray() {
   pickle_.WriteBytes(&kTypeEndArray, 1);
 }
 
-void TracedValue::SetValue(const char* name, scoped_ptr<base::Value> value) {
+void TracedValue::SetValue(const char* name,
+                           std::unique_ptr<base::Value> value) {
   SetBaseValueWithCopiedName(name, *value);
 }
 
@@ -286,7 +288,7 @@ void TracedValue::SetBaseValueWithCopiedName(base::StringPiece name,
       const ListValue* list_value;
       value.GetAsList(&list_value);
       BeginArrayWithCopiedName(name);
-      for (base::Value* base_value : *list_value)
+      for (const auto& base_value : *list_value)
         AppendBaseValue(*base_value);
       EndArray();
     } break;
@@ -340,15 +342,15 @@ void TracedValue::AppendBaseValue(const base::Value& value) {
       const ListValue* list_value;
       value.GetAsList(&list_value);
       BeginArray();
-      for (base::Value* base_value : *list_value)
+      for (const auto& base_value : *list_value)
         AppendBaseValue(*base_value);
       EndArray();
     } break;
   }
 }
 
-scoped_ptr<base::Value> TracedValue::ToBaseValue() const {
-  scoped_ptr<DictionaryValue> root(new DictionaryValue);
+std::unique_ptr<base::Value> TracedValue::ToBaseValue() const {
+  std::unique_ptr<DictionaryValue> root(new DictionaryValue);
   DictionaryValue* cur_dict = root.get();
   ListValue* cur_list = nullptr;
   std::vector<Value*> stack;
@@ -359,14 +361,14 @@ scoped_ptr<base::Value> TracedValue::ToBaseValue() const {
     DCHECK((cur_dict && !cur_list) || (cur_list && !cur_dict));
     switch (*type) {
       case kTypeStartDict: {
-        auto new_dict = new DictionaryValue();
+        auto* new_dict = new DictionaryValue();
         if (cur_dict) {
           cur_dict->SetWithoutPathExpansion(ReadKeyName(it),
-                                            make_scoped_ptr(new_dict));
+                                            WrapUnique(new_dict));
           stack.push_back(cur_dict);
           cur_dict = new_dict;
         } else {
-          cur_list->Append(make_scoped_ptr(new_dict));
+          cur_list->Append(WrapUnique(new_dict));
           stack.push_back(cur_list);
           cur_list = nullptr;
           cur_dict = new_dict;
@@ -384,15 +386,15 @@ scoped_ptr<base::Value> TracedValue::ToBaseValue() const {
       } break;
 
       case kTypeStartArray: {
-        auto new_list = new ListValue();
+        auto* new_list = new ListValue();
         if (cur_dict) {
           cur_dict->SetWithoutPathExpansion(ReadKeyName(it),
-                                            make_scoped_ptr(new_list));
+                                            WrapUnique(new_list));
           stack.push_back(cur_dict);
           cur_dict = nullptr;
           cur_list = new_list;
         } else {
-          cur_list->Append(make_scoped_ptr(new_list));
+          cur_list->Append(WrapUnique(new_list));
           stack.push_back(cur_list);
           cur_list = new_list;
         }
@@ -460,14 +462,11 @@ void TracedValue::AppendAsTraceFormat(std::string* out) const {
 
 void TracedValue::EstimateTraceMemoryOverhead(
     TraceEventMemoryOverhead* overhead) {
-  const size_t kPickleHeapAlign = 4096;  // Must be == Pickle::kPickleHeapAlign.
   overhead->Add("TracedValue",
-
                 /* allocated size */
-                bits::Align(pickle_.GetTotalAllocatedSize(), kPickleHeapAlign),
-
+                pickle_.GetTotalAllocatedSize(),
                 /* resident size */
-                bits::Align(pickle_.size(), kPickleHeapAlign));
+                pickle_.size());
 }
 
 }  // namespace trace_event

@@ -404,6 +404,7 @@ public class PendingIntentTest extends AndroidTestCase {
             CanceledException {
         mIntent = new Intent(MockReceiver.MOCKACTION);
         mIntent.setAction(MockReceiver.MOCKACTION);
+        mIntent.setClass(getContext(), MockReceiver.class);
 
         mPendingIntent = PendingIntent.getBroadcast(mContext, 1, mIntent, 1);
         MockReceiver.prepareReceive(null, 0);

@@ -16,34 +16,54 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.cts.util.MediaUtils;
-import android.cts.util.PollingCheck;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.media.MediaPlayer;
-import android.media.MediaPlayer.OnCompletionListener;
-import android.media.MediaPlayer.OnErrorListener;
-import android.media.MediaPlayer.OnPreparedListener;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.LargeTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.view.View.MeasureSpec;
 import android.widget.MediaController;
 import android.widget.VideoView;
 
+import com.android.compatibility.common.util.MediaUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 
 /**
  * Test {@link VideoView}.
  */
-public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCtsActivity> {
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class VideoViewTest {
     /** Debug TAG. **/
     private static final String TAG = "VideoViewTest";
     /** The maximum time to wait for an operation. */
@@ -57,123 +77,57 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
     /** delta for duration in case user uses different decoders on different
         hardware that report a duration that's different by a few milliseconds */
     private static final int DURATION_DELTA = 100;
+    /** AudioAttributes to be used by this player */
+    private static final AudioAttributes AUDIO_ATTR = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build();
 
-    private VideoView mVideoView;
-    private Activity mActivity;
     private Instrumentation mInstrumentation;
+    private Activity mActivity;
+    private VideoView mVideoView;
     private String mVideoPath;
 
-    private static class MockListener {
-        private boolean mTriggered;
+    @Rule
+    public ActivityTestRule<VideoViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(VideoViewCtsActivity.class);
 
-        MockListener() {
-            mTriggered = false;
-        }
+    @Before
+    public void setup() throws Throwable {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        mVideoView = (VideoView) mActivity.findViewById(R.id.videoview);
 
-        public boolean isTriggered() {
-            return mTriggered;
-        }
-
-        protected void onEvent() {
-            mTriggered = true;
-        }
-    }
-
-    private static class MockOnPreparedListener extends MockListener
-            implements OnPreparedListener {
-        public void onPrepared(MediaPlayer mp) {
-            super.onEvent();
-        }
-    }
-
-    private static class MockOnErrorListener extends MockListener implements OnErrorListener {
-        public boolean onError(MediaPlayer mp, int what, int extra) {
-            super.onEvent();
-            return false;
-        }
-    }
-
-    private static class MockOnCompletionListener extends MockListener
-            implements OnCompletionListener {
-        public void onCompletion(MediaPlayer mp) {
-            super.onEvent();
-        }
+        mVideoPath = prepareSampleVideo();
+        assertNotNull(mVideoPath);
     }
 
     private boolean hasCodec() {
         return MediaUtils.hasCodecsForResource(mActivity, R.raw.testvideo);
     }
 
-    /**
-     * Instantiates a new video view test.
-     */
-    public VideoViewTest() {
-        super("android.widget.cts", VideoViewCtsActivity.class);
-    }
-
-    /**
-     * Find the video view specified by id.
-     *
-     * @param id the id
-     * @return the video view
-     */
-    private VideoView findVideoViewById(int id) {
-        return (VideoView) mActivity.findViewById(id);
-    }
-
     private String prepareSampleVideo() throws IOException {
-        InputStream source = null;
-        OutputStream target = null;
-
-        try {
-            source = mActivity.getResources().openRawResource(R.raw.testvideo);
-            target = mActivity.openFileOutput(VIDEO_NAME, Context.MODE_PRIVATE);
-
+        try (InputStream source = mActivity.getResources().openRawResource(R.raw.testvideo);
+             OutputStream target = mActivity.openFileOutput(VIDEO_NAME, Context.MODE_PRIVATE)) {
             final byte[] buffer = new byte[1024];
             for (int len = source.read(buffer); len > 0; len = source.read(buffer)) {
                 target.write(buffer, 0, len);
-            }
-        } finally {
-            if (source != null) {
-                source.close();
-            }
-            if (target != null) {
-                target.close();
             }
         }
 
         return mActivity.getFileStreamPath(VIDEO_NAME).getAbsolutePath();
     }
 
-    /**
-     * Wait for an asynchronous media operation complete.
-     * @throws InterruptedException
-     */
-    private void waitForOperationComplete() throws InterruptedException {
-        Thread.sleep(OPERATION_INTERVAL);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
-        mVideoPath = prepareSampleVideo();
-        assertNotNull(mVideoPath);
-        mVideoView = findVideoViewById(R.id.videoview);
-    }
-
-    private void makeVideoView() {
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                MediaController mediaController = new MediaController(mActivity);
-                mVideoView.setMediaController(mediaController);
-            }
+    private void makeVideoView() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            MediaController mediaController = new MediaController(mActivity);
+            mVideoView.setMediaController(mediaController);
         });
         mInstrumentation.waitForIdleSync();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         new VideoView(mActivity);
 
@@ -182,7 +136,8 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
         new VideoView(mActivity, null, 0);
     }
 
-    public void testPlayVideo1() throws Throwable {
+    @Test
+    public void testPlayVideo() throws Throwable {
         makeVideoView();
         // Don't run the test if the codec isn't supported.
         if (!hasCodec()) {
@@ -190,60 +145,93 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
             return;
         }
 
-        final MockOnPreparedListener preparedListener = new MockOnPreparedListener();
-        mVideoView.setOnPreparedListener(preparedListener);
-        final MockOnCompletionListener completionListener = new MockOnCompletionListener();
-        mVideoView.setOnCompletionListener(completionListener);
+        final MediaPlayer.OnPreparedListener mockPreparedListener =
+                mock(MediaPlayer.OnPreparedListener.class);
+        mVideoView.setOnPreparedListener(mockPreparedListener);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mVideoView.setVideoPath(mVideoPath);
-            }
-        });
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return preparedListener.isTriggered();
-            }
-        }.run();
-        assertFalse(completionListener.isTriggered());
+        final MediaPlayer.OnCompletionListener mockCompletionListener =
+                mock(MediaPlayer.OnCompletionListener.class);
+        mVideoView.setOnCompletionListener(mockCompletionListener);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mVideoView.start();
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mVideoView.setVideoPath(mVideoPath));
+        verify(mockPreparedListener, within(TIME_OUT)).onPrepared(any(MediaPlayer.class));
+        verify(mockPreparedListener, times(1)).onPrepared(any(MediaPlayer.class));
+        verifyZeroInteractions(mockCompletionListener);
+
+        mActivityRule.runOnUiThread(mVideoView::start);
         // wait time is longer than duration in case system is sluggish
-        new PollingCheck(mVideoView.getDuration() + TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return completionListener.isTriggered();
-            }
-        }.run();
+        verify(mockCompletionListener, within(TIME_OUT)).onCompletion(any(MediaPlayer.class));
+        verify(mockCompletionListener, times(1)).onCompletion(any(MediaPlayer.class));
     }
 
+    private static final class MyPlaybackCallback extends AudioManager.AudioPlaybackCallback {
+        boolean mMatchingPlayerFound = false;
+
+        @Override
+        public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+            for (AudioPlaybackConfiguration apc : configs) {
+                if (apc.getPlayerState() == AudioPlaybackConfiguration.PLAYER_STATE_STARTED
+                        && apc.getAudioAttributes().getUsage() == AUDIO_ATTR.getUsage()
+                        && apc.getAudioAttributes().getContentType()
+                                == AUDIO_ATTR.getContentType()) {
+                    mMatchingPlayerFound = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testAudioAttributes() throws Throwable {
+        makeVideoView();
+        // Don't run the test if the codec isn't supported.
+        if (!hasCodec()) {
+            Log.i(TAG, "SKIPPING testAudioAttributes(): codec is not supported");
+            return;
+        }
+
+        final MediaPlayer.OnCompletionListener mockCompletionListener =
+                mock(MediaPlayer.OnCompletionListener.class);
+        mVideoView.setOnCompletionListener(mockCompletionListener);
+
+        mVideoView.setAudioAttributes(AUDIO_ATTR);
+        mVideoView.setAudioFocusRequest(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+
+        final AudioManager am = new AudioManager(mActivity);
+        final MyPlaybackCallback myCb = new MyPlaybackCallback();
+        mActivityRule.runOnUiThread(() -> am.registerAudioPlaybackCallback(myCb, null));
+        mActivityRule.runOnUiThread(() -> mVideoView.setVideoPath(mVideoPath));
+        mActivityRule.runOnUiThread(mVideoView::start);
+        // wait time is longer than duration in case system is sluggish
+        verify(mockCompletionListener, within(TIME_OUT)).onCompletion(any(MediaPlayer.class));
+        verify(mockCompletionListener, times(1)).onCompletion(any(MediaPlayer.class));
+
+        // TODO is there a more compact way to test this with mockito?
+        assertTrue("Audio playback configuration not found for VideoView",
+                myCb.mMatchingPlayerFound);
+    }
+
+    @Test
     public void testSetOnErrorListener() throws Throwable {
         makeVideoView();
-        final MockOnErrorListener listener = new MockOnErrorListener();
-        mVideoView.setOnErrorListener(listener);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                String path = "unknown path";
-                mVideoView.setVideoPath(path);
-                mVideoView.start();
-            }
+        final MediaPlayer.OnErrorListener mockErrorListener =
+                mock(MediaPlayer.OnErrorListener.class);
+        mVideoView.setOnErrorListener(mockErrorListener);
+
+        mActivityRule.runOnUiThread(() -> {
+            String path = "unknown path";
+            mVideoView.setVideoPath(path);
+            mVideoView.start();
         });
         mInstrumentation.waitForIdleSync();
 
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return listener.isTriggered();
-            }
-        }.run();
+        verify(mockErrorListener, within(TIME_OUT)).onError(
+                any(MediaPlayer.class), anyInt(), anyInt());
+        verify(mockErrorListener, times(1)).onError(any(MediaPlayer.class), anyInt(), anyInt());
     }
 
+    @Test
     public void testGetBufferPercentage() throws Throwable {
         makeVideoView();
         // Don't run the test if the codec isn't supported.
@@ -252,27 +240,21 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
             return;
         }
 
-        final MockOnPreparedListener prepareListener = new MockOnPreparedListener();
-        mVideoView.setOnPreparedListener(prepareListener);
+        final MediaPlayer.OnPreparedListener mockPreparedListener =
+                mock(MediaPlayer.OnPreparedListener.class);
+        mVideoView.setOnPreparedListener(mockPreparedListener);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mVideoView.setVideoPath(mVideoPath);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mVideoView.setVideoPath(mVideoPath));
         mInstrumentation.waitForIdleSync();
 
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return prepareListener.isTriggered();
-            }
-        }.run();
+        verify(mockPreparedListener, within(TIME_OUT)).onPrepared(any(MediaPlayer.class));
+        verify(mockPreparedListener, times(1)).onPrepared(any(MediaPlayer.class));
         int percent = mVideoView.getBufferPercentage();
         assertTrue(percent >= 0 && percent <= 100);
     }
 
     @UiThreadTest
+    @Test
     public void testResolveAdjustedSize() {
         mVideoView = new VideoView(mActivity);
 
@@ -288,6 +270,7 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
         assertEquals(specSize, resolvedSize);
     }
 
+    @Test
     public void testGetDuration() throws Throwable {
         // Don't run the test if the codec isn't supported.
         if (!hasCodec()) {
@@ -295,16 +278,13 @@ public class VideoViewTest extends ActivityInstrumentationTestCase2<VideoViewCts
             return;
         }
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mVideoView.setVideoPath(mVideoPath);
-            }
-        });
-        waitForOperationComplete();
+        mActivityRule.runOnUiThread(() -> mVideoView.setVideoPath(mVideoPath));
+        SystemClock.sleep(OPERATION_INTERVAL);
         assertTrue(Math.abs(mVideoView.getDuration() - TEST_VIDEO_DURATION) < DURATION_DELTA);
     }
 
     @UiThreadTest
+    @Test
     public void testSetMediaController() {
         final MediaController ctlr = new MediaController(mActivity);
         mVideoView.setMediaController(ctlr);

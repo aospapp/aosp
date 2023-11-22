@@ -5,12 +5,13 @@
 import os
 import tempfile
 
-from autotest_lib.client.bin import test
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import alsa_utils, cras_utils
 
 DURATION = 3
 TOLERANT_RATIO = 0.1
+EXCLUSION_BOARDS = ['veyron_mickey']
 
 class audio_Microphone(test.test):
     version = 1
@@ -45,13 +46,18 @@ class audio_Microphone(test.test):
 
     def run_once(self):
         # Mono and stereo capturing should work fine @ 44.1KHz and 48KHz.
-        # Verify recording using ALSA utils.
-        self.verify_alsa_capture(1, 44100)
-        self.verify_alsa_capture(1, 48000)
-        self.verify_alsa_capture(2, 48000)
-        self.verify_alsa_capture(2, 44100)
-        # Verify recording of CRAS.
-        self.verify_cras_capture(1, 44100)
-        self.verify_cras_capture(1, 48000)
-        self.verify_cras_capture(2, 48000)
-        self.verify_cras_capture(2, 44100)
+        if utils.get_board().lower() not in EXCLUSION_BOARDS:
+            # Verify recording using ALSA utils.
+            channels = alsa_utils.get_card_preferred_record_channels()
+            if channels is None:
+                channels = [1, 2]
+
+            for c in channels:
+                self.verify_alsa_capture(c, 44100)
+                self.verify_alsa_capture(c, 48000)
+
+            # Verify recording of CRAS.
+            self.verify_cras_capture(1, 44100)
+            self.verify_cras_capture(1, 48000)
+            self.verify_cras_capture(2, 48000)
+            self.verify_cras_capture(2, 44100)

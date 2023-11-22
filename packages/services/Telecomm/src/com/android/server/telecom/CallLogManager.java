@@ -29,6 +29,7 @@ import android.os.UserHandle;
 import android.os.PersistableBundle;
 import android.provider.CallLog.Calls;
 import android.telecom.DisconnectCause;
+import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
@@ -145,11 +146,13 @@ public final class CallLogManager extends CallsManagerListenerBase {
         // 2) It is a conference call
         // 3) Call was not explicitly canceled
         // 4) Call is not an external call
+        // 5) Call is not a self-managed call
         if (isNewlyDisconnected &&
                 (oldState != CallState.SELECT_PHONE_ACCOUNT &&
                  !call.isConference() &&
                  !isCallCanceled) &&
-                !call.isExternalCall()) {
+                !call.isExternalCall() &&
+                !call.isSelfManaged()) {
             int type;
             if (!call.isIncoming()) {
                 type = Calls.OUTGOING_TYPE;
@@ -172,7 +175,8 @@ public final class CallLogManager extends CallsManagerListenerBase {
                     new LogCallCompletedListener() {
                         @Override
                         public void onLogCompleted(@Nullable Uri uri) {
-                            mMissedCallNotifier.showMissedCallNotification(call);
+                            mMissedCallNotifier.showMissedCallNotification(
+                                    new MissedCallNotifier.CallInfo(call));
                         }
                     });
         } else {
@@ -261,7 +265,8 @@ public final class CallLogManager extends CallsManagerListenerBase {
         boolean okToLogEmergencyNumber = false;
         CarrierConfigManager configManager = (CarrierConfigManager) mContext.getSystemService(
                 Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle configBundle = configManager.getConfig();
+        PersistableBundle configBundle = configManager.getConfigForSubId(
+                mPhoneAccountRegistrar.getSubscriptionIdForPhoneAccount(accountHandle));
         if (configBundle != null) {
             okToLogEmergencyNumber = configBundle.getBoolean(
                     CarrierConfigManager.KEY_ALLOW_EMERGENCY_NUMBERS_IN_CALL_LOG_BOOL);

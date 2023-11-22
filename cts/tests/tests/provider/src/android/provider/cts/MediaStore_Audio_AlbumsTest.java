@@ -21,7 +21,6 @@ import android.provider.cts.R;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.res.AssetFileDescriptor;
-import android.cts.util.FileCopyHelper;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
@@ -31,6 +30,8 @@ import android.provider.MediaStore.Audio.Media;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio1;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio2;
 import android.test.AndroidTestCase;
+
+import com.android.compatibility.common.util.FileCopyHelper;
 
 import java.io.File;
 import java.io.FileNotFoundException;

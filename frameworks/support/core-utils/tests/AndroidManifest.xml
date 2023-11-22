@@ -18,7 +18,7 @@
           xmlns:tools="http://schemas.android.com/tools"
           package="android.support.coreutils.test">
     <uses-sdk
-            android:minSdkVersion="9"
+            android:minSdkVersion="14"
             android:targetSdkVersion="23"
             tools:overrideLibrary="android.support.test, android.app, android.support.test.rule,
                       android.support.test.espresso, android.support.test.espresso.idling"/>
@@ -32,8 +32,9 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application>
-        <uses-library android:name="android.test.runner" />
         <activity android:name="android.support.v4.widget.test.TextViewTestActivity"/>
+        <activity android:name="android.support.v4.app.FrameMetricsActivity"/>
+        <activity android:name="android.support.v4.app.FrameMetricsSubActivity"/>
         <activity android:name="android.support.v4.widget.TestActivity"/>
         <activity android:name="android.support.v4.provider.GrantActivity"
                   android:label="_GrantActivity">
@@ -53,7 +54,4 @@
         </provider>
     </application>
 
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
-                     android:targetPackage="android.support.coreutils.test"
-                     />
 </manifest>

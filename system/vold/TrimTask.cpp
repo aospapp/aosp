@@ -53,7 +53,7 @@ TrimTask::TrimTask(int flags) : mFlags(flags) {
     VolumeManager* vm = VolumeManager::Instance();
     std::list<std::string> privateIds;
     vm->listVolumes(VolumeBase::Type::kPrivate, privateIds);
-    for (auto id : privateIds) {
+    for (const auto& id : privateIds) {
         auto vol = vm->findVolume(id);
         if (vol != nullptr && vol->getState() == VolumeBase::State::kMounted) {
             mPaths.push_back(vol->getPath());
@@ -65,10 +65,10 @@ TrimTask::~TrimTask() {
 }
 
 void TrimTask::addFromFstab() {
-    struct fstab *fstab;
+    std::unique_ptr<fstab, decltype(&fs_mgr_free_fstab)> fstab(fs_mgr_read_fstab_default(),
+                                                               fs_mgr_free_fstab);
     struct fstab_rec *prev_rec = NULL;
 
-    fstab = fs_mgr_read_fstab(android::vold::DefaultFstabPath().c_str());
     for (int i = 0; i < fstab->num_entries; i++) {
         /* Skip raw partitions */
         if (!strcmp(fstab->recs[i].fs_type, "emmc") ||
@@ -96,7 +96,6 @@ void TrimTask::addFromFstab() {
         mPaths.push_back(fstab->recs[i].mount_point);
         prev_rec = &fstab->recs[i];
     }
-    fs_mgr_free_fstab(fstab);
 }
 
 void TrimTask::start() {
@@ -114,7 +113,7 @@ static void notifyResult(const std::string& path, int64_t bytes, int64_t delta) 
 void TrimTask::run() {
     acquire_wake_lock(PARTIAL_WAKE_LOCK, kWakeLock);
 
-    for (auto path : mPaths) {
+    for (const auto& path : mPaths) {
         LOG(DEBUG) << "Starting trim of " << path;
 
         int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);

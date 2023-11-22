@@ -15,18 +15,21 @@
 -->
 
 <resources>
-    <style name="Theme.SettingsBase" parent="@android:style/Theme.Material.Settings">
-        <item name="android:colorPrimary">@color/primary_color</item>
-        <item name="android:colorAccent">@color/accent_color</item>
-    </style>
+    <style name="Theme.SettingsBase" parent="@android:style/Theme.DeviceDefault.Settings" />
 
     <style name="PreferenceTheme" parent="Theme.SettingsBase">
-        <item name="@android:preferenceStyle">@style/Preference</item>
-        <item name="@dropdownPreferenceStyle">@style/Preference.DropDown.Material</item>
+        <item name="android:preferenceStyle">@style/Preference</item>
+        <item name="dropdownPreferenceStyle">@style/Preference.DropDown.Material</item>
     </style>
 
     <style name="StorageManager" parent="Theme.SettingsBase">
         <item name="preferenceTheme">@style/PreferenceTheme</item>
+    </style>
+
+    <style name="TransparentDialog" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar.TranslucentDecor">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowIsTranslucent">true</item>
     </style>
 
 </resources>

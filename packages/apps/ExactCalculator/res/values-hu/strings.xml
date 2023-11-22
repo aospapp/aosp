@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"törlés"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"inverz függvények megjelenítése"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"inverz függvények elrejtése"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Nincs képlet"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Nincs találat"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Számok és alapműveletek"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Speciális műveletek"</string>
     <string name="error_nan" msgid="5674077944929888710">"Nem egy szám"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Hibás kifejezés"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Megszakítva"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Végtelen?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"0-val osztás nincs"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Szöveg átmásolva"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Számítás leállítva"</string>
-    <string name="timeout" msgid="802690170415591535">"Időtúllépés történt. Lehet, hogy az érték végtelen vagy meghatározatlan."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Számítás leállítva."</string>
+    <string name="timeout" msgid="5461892570729418573">"Lehet, hogy az érték végtelen vagy meghatározatlan."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Hosszabb időtúllépés használata"</string>
     <string name="dismiss" msgid="7872443888515066216">"Elvetés"</string>
     <string name="exact" msgid="2597237880041789948">"(pontos)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Elsőtől kezdve"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Törtként"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Nyílt licencek"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Előzmények"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Törlés"</string>
+    <string name="title_history" msgid="7820912156315181539">"Előzmények"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Fel"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Időtúllépés"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Előzmények és memória törlése?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Jelenlegi kifejezés"</string>
+    <string name="no_history" msgid="4331262030447527188">"Nincsenek előzmények"</string>
 </resources>

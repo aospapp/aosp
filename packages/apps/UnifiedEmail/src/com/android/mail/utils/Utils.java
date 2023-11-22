@@ -36,6 +36,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Browser;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -142,6 +143,10 @@ public class Utils {
 
     public static boolean isRunningLOrLater() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
+    }
+
+    public static boolean isRunningNOrLater() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N;
     }
 
     /**
@@ -1069,6 +1074,7 @@ public class Utils {
      * Applies the given appearance on the given subString, and inserts that as a parameter in the
      * given parentString.
      */
+    @VisibleForTesting
     public static Spanned insertStringWithStyle(Context context,
             String entireString, String subString, int appearance) {
         final int index = entireString.indexOf(subString);

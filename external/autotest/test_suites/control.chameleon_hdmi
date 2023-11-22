@@ -5,7 +5,6 @@
 AUTHOR = "chromeos-chameleon"
 NAME = "chameleon_hdmi"
 PURPOSE = "A Chameleon test suite."
-CRITERIA = "All tests with SUITE=chameleon_hdmi must pass."
 
 TIME = "LENGTHY"
 TEST_CATEGORY = "General"
@@ -34,12 +33,13 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 # filing bugs on tests that are a part of this suite. If left unspecified
 # the bug filer will fallback to it's defaults.
 _BUG_TEMPLATE = {
-    'labels': ['OS-Chrome', 'Cr-OS-Kernel-Graphics', 'Chameleon'],
-    'owner': 'yuli@chromium.org',
+    'labels': ['OS-Chrome', 'Chameleon'],
+    'components': ['OS>Kernel>Graphics'],
+    'owner': 'kalin@chromium.org',
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['kalin@chromium.org', 'waihong@chromium.org', 'conradlo@chromium.org']
+    'cc': ['waihong@chromium.org', 'conradlo@chromium.org']
 }
 
 args_dict['suite_dependencies'] = 'chameleon:hdmi'

@@ -6,7 +6,7 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  */
 
 #ifndef NETLINK_ADDR_H_
@@ -27,9 +27,6 @@ extern struct nl_addr *	nl_addr_build(int, void *, size_t);
 extern int		nl_addr_parse(const char *, int, struct nl_addr **);
 extern struct nl_addr *	nl_addr_clone(struct nl_addr *);
 
-/* Destroyage */
-extern void		nl_addr_destroy(struct nl_addr *);
-
 /* Usage Management */
 extern struct nl_addr *	nl_addr_get(struct nl_addr *);
 extern void		nl_addr_put(struct nl_addr *);
@@ -43,7 +40,7 @@ extern int      	nl_addr_guess_family(struct nl_addr *);
 extern int		nl_addr_fill_sockaddr(struct nl_addr *,
 					      struct sockaddr *, socklen_t *);
 extern int		nl_addr_info(struct nl_addr *, struct addrinfo **);
-extern int		nl_addr_resolve(struct nl_addr *addr, char *host, size_t hostlen);
+extern int		nl_addr_resolve(struct nl_addr *, char *, size_t);
 
 /* Access Functions */
 extern void		nl_addr_set_family(struct nl_addr *, int);

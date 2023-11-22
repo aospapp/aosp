@@ -17,7 +17,7 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-CAR_CURRENT_SDK_VERSION := current
+CAR_CURRENT_SDK_VERSION := 23
 CAR_API_CHECK := $(LOCAL_PATH)/apicheck.mk
 api_check_current_msg_file := $(LOCAL_PATH)/apicheck_msg_current.txt
 api_check_last_msg_file := $(LOCAL_PATH)/apicheck_msg_last.txt

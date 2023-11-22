@@ -15,52 +15,52 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+
 import android.graphics.ColorMatrix;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class ColorMatrixTest extends AndroidTestCase {
-    private ColorMatrix mColorMatrix;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private final float[] mSrc = new float[]{
-        0, 1, 2, 3, 4,
-        5, 6, 7, 8, 9,
-        10, 11, 12, 13, 14,
-        15, 16, 17, 18, 19
-    };
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ColorMatrixTest {
     private static final float TOLERANCE = 0.0000001f;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    private static final float[] SOURCE = new float[] {
+            0, 1, 2, 3, 4,
+            5, 6, 7, 8, 9,
+            10, 11, 12, 13, 14,
+            15, 16, 17, 18, 19
+    };
 
-        mColorMatrix = new ColorMatrix(mSrc);
+    private ColorMatrix mColorMatrix;
+
+    @Before
+    public void setup() {
+        mColorMatrix = new ColorMatrix(SOURCE);
     }
 
-    public void testColorMatrix(){
+    @Test
+    public void testColorMatrix() {
         new ColorMatrix();
 
-        ColorMatrix cM1 = new ColorMatrix(mSrc);
+        ColorMatrix cM1 = new ColorMatrix(SOURCE);
         float[] fA1 = cM1.getArray();
-        assertTrue(mSrc.length == fA1.length);
-        int len = mSrc.length;
-
-        for(int i = 0; i < len; i++){
-            assertEquals(mSrc[i], fA1[i]);
-        }
+        assertArrayEquals(SOURCE, fA1, 0.0f);
 
         ColorMatrix cM2 = new ColorMatrix(cM1);
         float[] fA2 = cM2.getArray();
-        assertTrue(fA1.length == fA2.length);
-        len = fA1.length;
-
-        for(int i = 0; i < len; i++){
-            assertEquals(fA1[i], fA2[i]);
-        }
-
+        assertArrayEquals(fA1, fA2, 0.0f);
     }
 
-    public void testReset(){
+    @Test
+    public void testReset() {
         float[] ret = mColorMatrix.getArray();
         preCompare(ret);
 
@@ -68,67 +68,58 @@ public class ColorMatrixTest extends AndroidTestCase {
         ret = mColorMatrix.getArray();
         assertEquals(20, ret.length);
 
-        for(int i = 0; i <= 19; i++){
-            if(0 == i % 6){
-                assertEquals(1.0f, ret[i]);
+        for (int i = 0; i <= 19; i++) {
+            if (0 == i % 6) {
+                assertEquals(1.0f, ret[i], 0.0f);
                 continue;
             }
 
-            assertEquals(0.0f, ret[i]);
+            assertEquals(0.0f, ret[i], 0.0f);
         }
     }
 
-    public void testSet1(){
+    @Test
+    public void testSet1() {
         float[] ret = mColorMatrix.getArray();
         preCompare(ret);
 
-        float[] fArray = new float[]{
-            19, 18, 17, 16, 15,
-            14, 13, 12, 11, 10,
-            9, 8, 7, 6, 5,
-            4, 3, 2, 1, 0
+        float[] fArray = new float[] {
+                19, 18, 17, 16, 15,
+                14, 13, 12, 11, 10,
+                9, 8, 7, 6, 5,
+                4, 3, 2, 1, 0
         };
 
         mColorMatrix.set(fArray);
-
         ret = mColorMatrix.getArray();
-        assertEquals(20, ret.length);
-
-        for(int i = 19; i >= 0; i--){
-            assertEquals((float) i, ret[19 - i]);
-        }
+        assertArrayEquals(fArray, ret, 0.0f);
     }
 
-    public void testSet2(){
+    @Test
+    public void testSet2() {
         float[] ret = mColorMatrix.getArray();
         preCompare(ret);
 
-        float[] fArray = new float[]{
-            19, 18, 17, 16, 15,
-            14, 13, 12, 11, 10,
-            9, 8, 7, 6, 5,
-            4, 3, 2, 1, 0
+        float[] fArray = new float[] {
+                19, 18, 17, 16, 15,
+                14, 13, 12, 11, 10,
+                9, 8, 7, 6, 5,
+                4, 3, 2, 1, 0
         };
 
         mColorMatrix.set(new ColorMatrix(fArray));
-
         ret = mColorMatrix.getArray();
-        assertEquals(20, ret.length);
-
-        for(int i = 19; i >= 0; i--){
-            assertEquals((float) i, ret[19 - i]);
-        }
+        assertArrayEquals(fArray, ret, 0.0f);
     }
 
-    public void testSetRotate(){
+    @Test(expected=RuntimeException.class)
+    public void testSetRotateIllegalAxis() {
         // abnormal case: IllegalArgument axis
-        try{
-            mColorMatrix.setRotate(4, 90);
-            fail("shouldn't come to here");
-        }catch(RuntimeException e){
-            //expected
-        }
+        mColorMatrix.setRotate(4, 90);
+    }
 
+    @Test
+    public void testSetRotate() {
         mColorMatrix.setRotate(0, 180);
         float[] ret = mColorMatrix.getArray();
         assertEquals(-1.0f, ret[6], TOLERANCE);
@@ -149,33 +140,21 @@ public class ColorMatrixTest extends AndroidTestCase {
         assertEquals(0, ret[5], TOLERANCE);
     }
 
-    public void testSetSaturation(){
+    @Test
+    public void testSetSaturation() {
         mColorMatrix.setSaturation(0.5f);
         float[] ret = mColorMatrix.getArray();
 
-        assertEquals(0.6065f, ret[0]);
-        assertEquals(0.3575f, ret[1]);
-        assertEquals(0.036f, ret[2]);
-        assertEquals(0.1065f, ret[5]);
-        assertEquals(0.85749996f, ret[6]);
-        assertEquals(0.036f, ret[7]);
-        assertEquals(0.1065f, ret[10]);
-        assertEquals(0.3575f, ret[11]);
-        assertEquals(0.536f, ret[12]);
-        assertEquals(0.0f, ret[3]);
-        assertEquals(0.0f, ret[4]);
-        assertEquals(0.0f, ret[8]);
-        assertEquals(0.0f, ret[9]);
-        assertEquals(0.0f, ret[13]);
-        assertEquals(0.0f, ret[14]);
-        assertEquals(0.0f, ret[15]);
-        assertEquals(0.0f, ret[16]);
-        assertEquals(0.0f, ret[17]);
-        assertEquals(1.0f, ret[18]);
-        assertEquals(0.0f, ret[19]);
+        assertArrayEquals(new float[] {
+                0.6065f, 0.3575f, 0.036f, 0.0f, 0.0f,
+                0.1065f, 0.85749996f, 0.036f, 0.0f, 0.0f,
+                0.1065f, 0.3575f, 0.536f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+        }, ret, 0.0f);
     }
 
-    public void testSetScale(){
+    @Test
+    public void testSetScale() {
         float[] ret = mColorMatrix.getArray();
         preCompare(ret);
 
@@ -183,137 +162,138 @@ public class ColorMatrixTest extends AndroidTestCase {
         ret = mColorMatrix.getArray();
 
         assertEquals(20, ret.length);
-        assertEquals(2.0f, ret[0]);
-        assertEquals(3.0f, ret[6]);
-        assertEquals(4.0f, ret[12]);
-        assertEquals(5.0f, ret[18]);
+        assertEquals(2.0f, ret[0], 0.0f);
+        assertEquals(3.0f, ret[6], 0.0f);
+        assertEquals(4.0f, ret[12], 0.0f);
+        assertEquals(5.0f, ret[18], 0.0f);
 
-        for(int i = 1; i <= 19; i++){
-            if(0 == i % 6){
+        for (int i = 1; i <= 19; i++) {
+            if (0 == i % 6) {
                 continue;
             }
 
-            assertEquals(0.0f, ret[i]);
+            assertEquals(0.0f, ret[i], 0.0f);
         }
     }
 
-    public void testSetRGB2YUV(){
+    @Test
+    public void testSetRGB2YUV() {
         mColorMatrix.setRGB2YUV();
         float[] ret = mColorMatrix.getArray();
 
-        assertEquals(0.299f, ret[0]);
-        assertEquals(0.587f, ret[1]);
-        assertEquals(0.114f, ret[2]);
-        assertEquals(-0.16874f, ret[5]);
-        assertEquals(-0.33126f, ret[6]);
-        assertEquals(0.5f, ret[7]);
-        assertEquals(0.5f, ret[10]);
-        assertEquals(-0.41869f, ret[11]);
-        assertEquals(-0.08131f, ret[12]);
-        assertEquals(0.0f, ret[3]);
-        assertEquals(0.0f, ret[4]);
-        assertEquals(0.0f, ret[8]);
-        assertEquals(0.0f, ret[9]);
-        assertEquals(0.0f, ret[13]);
-        assertEquals(0.0f, ret[14]);
-        assertEquals(0.0f, ret[15]);
-        assertEquals(0.0f, ret[16]);
-        assertEquals(0.0f, ret[17]);
-        assertEquals(1.0f, ret[18]);
-        assertEquals(0.0f, ret[19]);
+        assertArrayEquals(new float[] {
+                0.299f, 0.587f, 0.114f, 0.0f, 0.0f,
+                -0.16874f, -0.33126f, 0.5f, 0.0f, 0.0f,
+                0.5f, -0.41869f, -0.08131f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+        }, ret, 0.0f);
     }
 
-    public void testSetYUV2RGB(){
+    @Test
+    public void testSetYUV2RGB() {
         mColorMatrix.setYUV2RGB();
         float[] ret = mColorMatrix.getArray();
 
-        assertEquals(1.402f, ret[2]);
-        assertEquals(1.0f, ret[5]);
-        assertEquals(-0.34414f, ret[6]);
-        assertEquals(-0.71414f, ret[7]);
-        assertEquals(1.0f, ret[10]);
-        assertEquals(1.772f, ret[11]);
-        assertEquals(0.0f, ret[12]);
-        assertEquals(1.0f, ret[0]);
-        assertEquals(0.0f, ret[1]);
-        assertEquals(0.0f, ret[3]);
-        assertEquals(0.0f, ret[4]);
-        assertEquals(0.0f, ret[8]);
-        assertEquals(0.0f, ret[9]);
-        assertEquals(0.0f, ret[13]);
-        assertEquals(0.0f, ret[14]);
-        assertEquals(0.0f, ret[15]);
-        assertEquals(0.0f, ret[16]);
-        assertEquals(0.0f, ret[17]);
-        assertEquals(1.0f, ret[18]);
-        assertEquals(0.0f, ret[19]);
+        assertArrayEquals(new float[] {
+                1.0f, 0.0f, 1.402f, 0.0f, 0.0f,
+                1.0f, -0.34414f, -0.71414f, 0.0f, 0.0f,
+                1.0f, 1.772f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+        }, ret, 0.0f);
     }
 
-    public void testPostConcat(){
+    @Test
+    public void testPostConcat() {
         mColorMatrix.postConcat(new ColorMatrix());
 
         float[] ret = mColorMatrix.getArray();
 
-        for(int i = 0; i < 20; i++){
-            assertEquals((float) i, ret[i]);
+        for(int i = 0; i < 20; i++) {
+            assertEquals((float) i, ret[i], 0.0f);
         }
     }
 
-    public void testPreConcat(){
+    @Test
+    public void testPreConcat() {
         mColorMatrix.preConcat(new ColorMatrix());
 
         float[] ret = mColorMatrix.getArray();
 
-        for(int i = 0; i < 20; i++){
-            assertEquals((float) i, ret[i]);
+        for(int i = 0; i < 20; i++) {
+            assertEquals((float) i, ret[i], 0.0f);
         }
     }
 
-    public void testSetConcat(){
-        float[] floatA = new float[]{
-            0, 1, 2, 3, 4,
-            5, 6, 7, 8, 9,
-            9, 8, 7, 6, 5,
-            4, 3, 2, 1, 0,
+    @Test
+    public void testSetConcat() {
+        float[] floatA = new float[] {
+                0, 1, 2, 3, 4,
+                5, 6, 7, 8, 9,
+                9, 8, 7, 6, 5,
+                4, 3, 2, 1, 0,
         };
 
-        float[] floatB = new float[]{
-            1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1,
+        float[] floatB = new float[] {
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
         };
 
         mColorMatrix.setConcat(new ColorMatrix(floatA), new ColorMatrix(floatB));
 
         float[] ret = mColorMatrix.getArray();
-        assertEquals(6.0f, ret[0]);
-        assertEquals(6.0f, ret[1]);
-        assertEquals(6.0f, ret[2]);
-        assertEquals(6.0f, ret[3]);
-        assertEquals(10.0f, ret[4]);
-        assertEquals(26.0f, ret[5]);
-        assertEquals(26.0f, ret[6]);
-        assertEquals(26.0f, ret[7]);
-        assertEquals(26.0f, ret[8]);
-        assertEquals(35.0f, ret[9]);
-        assertEquals(30.0f, ret[10]);
-        assertEquals(30.0f, ret[11]);
-        assertEquals(30.0f, ret[12]);
-        assertEquals(30.0f, ret[13]);
-        assertEquals(35.0f, ret[14]);
-        assertEquals(10.0f, ret[15]);
-        assertEquals(10.0f, ret[16]);
-        assertEquals(10.0f, ret[17]);
-        assertEquals(10.0f, ret[18]);
-        assertEquals(10.0f, ret[19]);
+        assertArrayEquals(new float[] {
+                6.0f, 6.0f, 6.0f, 6.0f, 10.f,
+                26.0f, 26.0f, 26.0f, 26.0f, 35.0f,
+                30.0f, 30.0f, 30.0f, 30.0f, 35.0f,
+                10.0f, 10.0f, 10.0f, 10.0f, 10.0f
+        }, ret, 0.0f);
     }
 
-    private void preCompare(float[] ret){
+    private void preCompare(float[] ret) {
         assertEquals(20, ret.length);
 
-        for(int i = 0; i < 20; i++){
-            assertEquals((float) i, ret[i]);
+        for(int i = 0; i < 20; i++) {
+            assertEquals((float) i, ret[i], 0.0f);
         }
+    }
+
+    @Test
+    public void testEquals() {
+        float[] floatA = new float[] {
+                0, 1, 2, 3, 4,
+                5, 6, 7, 8, 9,
+                9, 8, 7, 6, 5,
+                4, 3, 2, 1, 0,
+        };
+
+        float[] floatB = new float[] {
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+        };
+
+        assertEquals(new ColorMatrix(floatA), new ColorMatrix(floatA));
+        assertEquals(new ColorMatrix(floatB), new ColorMatrix(floatB));
+
+        assertNotEquals(new ColorMatrix(floatA), new ColorMatrix(floatB));
+        assertNotEquals(new ColorMatrix(floatB), new ColorMatrix(floatA));
+
+
+        float[] floatC = new float[] {
+                1, Float.NaN, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+                1, 1, 1, 1, 1,
+        };
+
+        assertNotEquals(new ColorMatrix(floatA), new ColorMatrix(floatC));
+        assertNotEquals(new ColorMatrix(floatB), new ColorMatrix(floatC));
+        assertNotEquals(new ColorMatrix(floatC), new ColorMatrix(floatC));
+
+        ColorMatrix nanMatrix = new ColorMatrix(floatC);
+        assertNotEquals("same instance, still not equals with NaN present", nanMatrix, nanMatrix);
     }
 }

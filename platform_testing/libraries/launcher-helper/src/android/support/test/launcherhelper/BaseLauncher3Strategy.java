@@ -88,7 +88,7 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
             // taps on the "apps" button at the bottom of the screen
             UiObject2 allAppsButton =
                     mDevice.wait(Until.findObject(getAllAppsButtonSelector()), 2000);
-            Assert.assertNotNull("openAllApps: did not find open all apps button.");
+            Assert.assertNotNull("openAllApps: did not find open all apps button.", allAppsButton);
             allAppsButton.click();
             // wait until hotseat disappears, so that we know that we are no longer on home screen
             mDevice.wait(Until.gone(getHotSeatSelector()), 2000);

@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2002-2015, International Business Machines Corporation and
+ * Copyright (C) 2002-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -18,7 +20,11 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.junit.Ignore;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.Utility;
 import android.icu.lang.UScript;
@@ -35,17 +41,8 @@ import android.icu.text.UnicodeSet;
 import android.icu.text.UnicodeSetIterator;
 import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class CollationMiscTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new CollationMiscTest().run(args);
-        // new CollationMiscTest().TestLocaleRuleBasedCollators();
-    }
-
     //private static final int NORM_BUFFER_TEST_LEN_ = 32;
     private static final class Tester
     {
@@ -56,7 +53,7 @@ public class CollationMiscTest extends TestFmwk {
 
     private static final boolean hasCollationElements(Locale locale)
     {
-        ICUResourceBundle rb = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_COLLATION_BASE_NAME,locale);
+        ICUResourceBundle rb = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME,locale);
         if (rb != null) {
             try {
                 String collkey = rb.getStringWithFallback("collations/default");
@@ -70,6 +67,7 @@ public class CollationMiscTest extends TestFmwk {
         return false;
     }
 
+    @Test
     public void TestComposeDecompose()
     {
         Tester t[] = new Tester[0x30000];
@@ -136,6 +134,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestRuleOptions() {
         // values here are hardcoded and are correct for the current UCA when
         // the UCA changes, one might be forced to change these values.
@@ -336,6 +335,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBeforePrefixFailure() {
         String[] rules = {
             "&g <<< a&[before 3]\uff41 <<< x",
@@ -353,6 +353,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestContractionClosure() {
         // Note: This was also ported to the data-driven test, see collationtest.txt.
         String[] rules = {
@@ -369,6 +370,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestPrefixCompose() {
         String rule1 = "&\u30a7<<<\u30ab|\u30fc=\u30ac|\u30fc";
 
@@ -381,6 +383,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestStrCollIdenticalPrefix() {
         String rule = "&\ud9b0\udc70=\ud9b0\udc71";
         String test[] = {
@@ -390,6 +393,7 @@ public class CollationMiscTest extends TestFmwk {
         genericRulesStarterWithResult(rule, test, 0);
     }
 
+    @Test
     public void TestPrefix() {
         String[] rules = {
             "&z <<< z|a",
@@ -407,6 +411,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestNewJapanese() {
 
         String test1[] = {
@@ -603,6 +608,7 @@ public class CollationMiscTest extends TestFmwk {
         genericOrderingTestWithResult(coll, s, -1);
     }
 
+    @Test
     public void TestNonChars() {
         String test[] = {
             "\u0000",  /* ignorable */
@@ -638,6 +644,7 @@ public class CollationMiscTest extends TestFmwk {
         genericOrderingTestWithResult(coll, test, -1);
     }
 
+    @Test
     public void TestExtremeCompression() {
         String[] test = new String[4];
 
@@ -656,6 +663,7 @@ public class CollationMiscTest extends TestFmwk {
     /**
      * Tests surrogate support.
      */
+    @Test
     public void TestSurrogates() {
         String test[] = {"z","\ud900\udc25", "\ud805\udc50", "\ud800\udc00y",
                          "\ud800\udc00r", "\ud800\udc00f", "\ud800\udc00",
@@ -669,6 +677,7 @@ public class CollationMiscTest extends TestFmwk {
         genericRulesStarter(rule, test);
     }
 
+    @Test
     public void TestBocsuCoverage() {
         String test = "\u0041\u0441\u4441\\U00044441\u4441\u0441\u0041";
         Collator coll = Collator.getInstance();
@@ -677,6 +686,7 @@ public class CollationMiscTest extends TestFmwk {
         logln("source:" + key.getSourceString());
     }
 
+    @Test
     public void TestCyrillicTailoring() {
         String test[] = {
             "\u0410b",
@@ -697,6 +707,7 @@ public class CollationMiscTest extends TestFmwk {
         // genericRulesStarter("&Z < \u0410 < \u0410\u0301", test);
     }
 
+    @Test
     public void TestSuppressContractions() {
         String testNoCont2[] = {
             "\u0410\u0302a",
@@ -713,6 +724,7 @@ public class CollationMiscTest extends TestFmwk {
         genericRulesStarter("[suppressContractions [\u0400-\u047f]]", testNoCont2);
     }
 
+    @Test
     public void TestCase() {
         String gRules = "\u0026\u0030\u003C\u0031\u002C\u2460\u003C\u0061\u002C\u0041";
         String[] testCase = {
@@ -837,6 +849,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestIncompleteCnt() {
         String[] cnt1 = {
             "AA",
@@ -899,6 +912,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBlackBird() {
         String[] shifted = {
             "black bird",
@@ -967,6 +981,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestFunkyA() {
         String[] testSourceCases = {
             "\u0041\u0300\u0301",
@@ -1012,6 +1027,7 @@ public class CollationMiscTest extends TestFmwk {
             }
     }
 
+    @Test
     public void TestChMove() {
         String[] chTest = {
             "c",
@@ -1049,6 +1065,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestImplicitTailoring() {
         String rules[] = {
             /* Tailor b and c before U+4E00. */
@@ -1073,6 +1090,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestFCDProblem() {
         String s1 = "\u0430\u0306\u0325";
         String s2 = "\u04D1\u0325";
@@ -1090,6 +1108,7 @@ public class CollationMiscTest extends TestFmwk {
         CollationTest.doTest(this, (RuleBasedCollator)coll, s1, s2, 0);
     }
 
+    @Test
     public void TestEmptyRule() {
         String rulez = "";
         try {
@@ -1102,6 +1121,7 @@ public class CollationMiscTest extends TestFmwk {
 
     /* superseded by TestBeforePinyin, since Chinese collation rules have changed */
     /*
+    @Test
     public void TestJ784() {
         String[] data = {
             "A", "\u0101", "\u00e1", "\u01ce", "\u00e0",
@@ -1115,6 +1135,7 @@ public class CollationMiscTest extends TestFmwk {
     }
     */
 
+    @Test
     public void TestJ815() {
         String data[] = {
             "aa",
@@ -1136,6 +1157,7 @@ public class CollationMiscTest extends TestFmwk {
         genericRulesStarter("[backwards 2]&A<<\u00e6/e<<<\u00c6/E", data);
     }
 
+    @Test
     public void TestJ3087()
     {
         String rule[] = {
@@ -1177,6 +1199,9 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    // TODO(junit): not running before
+    @Ignore
+    @Test
     public void DontTestJ831() { // Latvian does not use upper first
         String[] data = {
             "I",
@@ -1187,6 +1212,7 @@ public class CollationMiscTest extends TestFmwk {
         genericLocaleStarter(new Locale("lv", ""), data);
     }
 
+    @Test
     public void TestBefore() {
         String data[] = {
             "\u0101", "\u00e1", "\u01ce", "\u00e0", "A",
@@ -1205,6 +1231,7 @@ public class CollationMiscTest extends TestFmwk {
                             + "&u<\u01d6<\u01d8<\u01da<\u01dc<\u00fc", data);
     }
 
+    @Test
     public void TestHangulTailoring() {
         String[] koreanData = {
             "\uac00", "\u4f3d", "\u4f73", "\u5047", "\u50f9", "\u52a0", "\u53ef", "\u5475",
@@ -1240,6 +1267,7 @@ public class CollationMiscTest extends TestFmwk {
         // genericLocaleStarter(new Locale("ko__LOTUS", ""), koreanData);
     }
 
+    @Test
     public void TestIncrementalNormalize() {
         Collator        coll = null;
         // logln("Test 1 ....");
@@ -1390,6 +1418,7 @@ public class CollationMiscTest extends TestFmwk {
         */
     }
 
+    @Test
     public void TestContraction() {
         String[] testrules = {
             "&A = AB / B",
@@ -1521,6 +1550,7 @@ public class CollationMiscTest extends TestFmwk {
         } */
     }
 
+    @Test
     public void TestExpansion() {
         String[] testrules = {
             /*
@@ -1557,6 +1587,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestContractionEndCompare()
     {
         String rules = "&b=ch";
@@ -1572,8 +1603,9 @@ public class CollationMiscTest extends TestFmwk {
         CollationTest.doTest(this, (RuleBasedCollator)coll, src, tgt, 1);
     }
 
+    @Test
     public void TestLocaleRuleBasedCollators() {
-        if (getInclusion() < 5) {
+        if (TestFmwk.getExhaustiveness() < 5) {
             // not serious enough to run this
             return;
         }
@@ -1582,7 +1614,7 @@ public class CollationMiscTest extends TestFmwk {
         for (int i = 0; i < locale.length; i ++) {
             Locale l = locale[i];
             try {
-                ICUResourceBundle rb = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_COLLATION_BASE_NAME,l);
+                ICUResourceBundle rb = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME,l);
                 String collkey = rb.getStringWithFallback("collations/default");
                 ICUResourceBundle elements = rb.getWithFallback("collations/" + collkey);
                 if (elements == null) {
@@ -1621,6 +1653,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestOptimize() {
         /* this is not really a test - just trying out
          * whether copying of UCA contents will fail
@@ -1640,6 +1673,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestIdenticalCompare()
     {
         try {
@@ -1654,6 +1688,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestMergeSortKeys()
     {
         String cases[] = {"abc", "abcd", "abcde"};
@@ -1704,6 +1739,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestVariableTop()
     {
         // ICU 53+: The character must be in a supported reordering group,
@@ -1774,6 +1810,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     // ported from cmsccoll.c
+    @Test
     public void TestVariableTopSetting() {
         int varTopOriginal = 0, varTop1, varTop2;
         Collator coll = Collator.getInstance(ULocale.ROOT);
@@ -1856,6 +1893,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     // ported from cmsccoll.c
+    @Test
     public void TestMaxVariable() {
         int oldMax, max;
 
@@ -1931,6 +1969,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestUCARules()
     {
         try {
@@ -1948,13 +1987,16 @@ public class CollationMiscTest extends TestFmwk {
             }
             coll = new RuleBasedCollator(rule);
         } catch (Exception e) {
-            warnln(e.getMessage());
+            // Android patch: Add --omitCollationRules to genrb.
+            logln(e.getMessage());
+            // Android patch end.
         }
     }
 
     /**
      * Jitterbug 2726
      */
+    @Test
     public void TestShifted()
     {
         RuleBasedCollator collator = (RuleBasedCollator) Collator.getInstance();
@@ -1968,6 +2010,7 @@ public class CollationMiscTest extends TestFmwk {
      * Test for CollationElementIterator previous and next for the whole set of
      * unicode characters with normalization on.
      */
+    @Test
     public void TestNumericCollation()
     {
         String basicTestStrings[] = {"hello1", "hello2", "hello123456"};
@@ -2052,6 +2095,7 @@ public class CollationMiscTest extends TestFmwk {
         logln("After set Numeric to default, the setting is: " + coll.getNumericCollation());
     }
 
+    @Test
     public void Test3249()
     {
         String rule = "&x < a &z < a";
@@ -2065,6 +2109,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestTibetanConformance()
     {
         String test[] = {"\u0FB2\u0591\u0F71\u0061", "\u0FB2\u0F71\u0061"};
@@ -2081,6 +2126,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestJ3347()
     {
         try {
@@ -2094,6 +2140,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestPinyinProblem()
     {
         String test[] = { "\u4E56\u4E56\u7761", "\u4E56\u5B69\u5B50" };
@@ -2101,6 +2148,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     /* supercedes TestJ784 */
+    @Test
     public void TestBeforePinyin() {
         String rules =
             "&[before 2]A << \u0101  <<< \u0100 << \u00E1 <<< \u00C1 << \u01CE <<< \u01CD << \u00E0 <<< \u00C0" +
@@ -2160,6 +2208,7 @@ public class CollationMiscTest extends TestFmwk {
         genericLocaleStarter(new Locale("zh","",""), test2);
     }
 
+    @Test
     public void TestUpperFirstQuaternary()
     {
       String tests[] = { "B", "b", "Bb", "bB" };
@@ -2168,6 +2217,7 @@ public class CollationMiscTest extends TestFmwk {
       genericLocaleStarterWithOptions(new Locale("root","",""), tests, att, attVals);
     }
 
+    @Test
     public void TestJ4960()
     {
         String tests[] = { "\\u00e2T", "aT" };
@@ -2187,6 +2237,7 @@ public class CollationMiscTest extends TestFmwk {
         genericRulesStarterWithOptionsAndResult(rule, tests2, att2, attVals2, 0);
     }
 
+    @Test
     public void TestJB5298(){
         ULocale[] locales = Collator.getAvailableULocales();
         logln("Number of collator locales returned : " + locales.length);
@@ -2319,6 +2370,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
 
+    @Test
     public void Test6179()
     {
         String rules[] = {
@@ -2417,6 +2469,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestUCAPrecontext()
     {
         String rules[] = {
@@ -2641,6 +2694,7 @@ public class CollationMiscTest extends TestFmwk {
     };
 
     // Tests the compact list with ASCII codepoints.
+    @Test
     public void TestSameStrengthList() {
         String[] rules = new String[] {
             // Normal
@@ -2655,6 +2709,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestCollation(m_rangeTestCases_, rules);
     }
     
+    @Test
     public void TestSameStrengthListQuoted() {
         String[] rules = new String[] {
             "&'\u0061'<*bcd &b<<*klm &k<<<*xyz &y<*f'\u0067\u0068'e &a=1=2=3",
@@ -2668,6 +2723,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     // Tests the compact list with ASCII codepoints in non-codepoint order.
+    @Test
     public void TestSameStrengthListQwerty() {
         String[] rules = new String[] {
             "&q<w<e<r &w<<t<<y<<u &t<<<i<<<o<<<p &o=a=s=d",   // Normal
@@ -2678,6 +2734,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     // Tests the compact list with supplemental codepoints.
+    @Test
     public void TestSameStrengthListWithSupplementalCharacters() {
         String[] rules = new String[] {
             // ** Rule without compact list syntax **
@@ -2702,6 +2759,7 @@ public class CollationMiscTest extends TestFmwk {
 
 
     // Tests the compact range syntax with ASCII codepoints.
+    @Test
     public void TestSameStrengthListRanges() {
         String[] rules = new String[] {
             // Ranges
@@ -2719,6 +2777,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     // Tests the compact range syntax with supplemental codepoints.
+    @Test
     public void TestSameStrengthListRangesWithSupplementalCharacters() {
         String[] rules = new String[] {
             // \u4e00 <* \ufffb\U00010000  \U00010001
@@ -2732,6 +2791,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     // Tests the compact range syntax with special characters used as syntax characters in rules.
+    @Test
     public void TestSpecialCharacters() {
         String rules[] = new String[] {
                 // Normal
@@ -2759,6 +2819,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestCollation(testCases, rules);
     }
     
+    @Test
     public void TestInvalidListsAndRanges() {
         String[] invalidRules = new String[] {
             // Range not in starred expression
@@ -2794,6 +2855,7 @@ public class CollationMiscTest extends TestFmwk {
 
     // This is the same example above with ' and space added.
     // They work a little different than expected.  Desired rules are commented out.
+    @Test
     public void TestQuoteAndSpace() {
         String rules[] = new String[] {
                 // These are working as expected.
@@ -2831,6 +2893,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Tests the method public boolean equals(Object target) in CollationKey
      */
+    @Test
     public void TestCollationKeyEquals() {
         CollationKey ck = new CollationKey("", (byte[]) null);
 
@@ -2862,6 +2925,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Tests the method public int hashCode() in CollationKey
      */
+    @Test
     public void TestCollationKeyHashCode() {
         CollationKey ck = new CollationKey("", (byte[]) null);
 
@@ -2875,6 +2939,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Tests the method public CollationKey getBound(int boundType, int noOfLevels)
      */
+    @Test
     public void TestGetBound() {
         CollationKey ck = new CollationKey("", (byte[]) null);
 
@@ -2901,6 +2966,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Tests the method public CollationKey merge(CollationKey source)
      */
+    @Test
     public void TestMerge() {
         byte b[] = {};
         CollationKey ck = new CollationKey("", b);
@@ -2919,6 +2985,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     /* Test the method public int compareTo(RawCollationKey rhs) */
+    @Test
     public void TestRawCollationKeyCompareTo(){
         RawCollationKey rck = new RawCollationKey();
         byte[] b = {(byte) 10, (byte) 20};
@@ -2936,6 +3003,7 @@ public class CollationMiscTest extends TestFmwk {
     }
 
     /* Track7223: CollationElementIterator does not return correct order for Hungarian */
+    @Test
     public void TestHungarianTailoring(){
         String rules = new String("&DZ<dzs<<<Dzs<<<DZS" +
                                   "&G<gy<<<Gy<<<GY" +
@@ -2991,6 +3059,7 @@ public class CollationMiscTest extends TestFmwk {
           }
      }
 
+    @Test
     public void TestImport(){
         try{
             RuleBasedCollator vicoll = (RuleBasedCollator)Collator.getInstance(new ULocale("vi"));
@@ -3015,10 +3084,13 @@ public class CollationMiscTest extends TestFmwk {
             }
 
         }catch(Exception e){
-            warnln("ERROR: in creation of rule based collator");
+            // Android patch: Add --omitCollationRules to genrb.
+            logln("ERROR: in creation of rule based collator");
+            // Android patch end.
         }
     }
 
+    @Test
     public void TestImportWithType(){
         try{
             RuleBasedCollator vicoll = (RuleBasedCollator)Collator.getInstance(new ULocale("vi"));
@@ -3043,7 +3115,9 @@ public class CollationMiscTest extends TestFmwk {
             }
 
         }catch(Exception e){
-            warnln("ERROR: in creation of rule based collator");
+            // Android patch: Add --omitCollationRules to genrb.
+            logln("ERROR: in creation of rule based collator");
+            // Android patch end.
         }
     }
 
@@ -3051,6 +3125,7 @@ public class CollationMiscTest extends TestFmwk {
      * This test ensures that characters placed before a character in a different script have the same lead byte
      * in their collation key before and after script reordering.
      */
+    @Test
     public void TestBeforeRuleWithScriptReordering() throws Exception
     {
         /* build collator */
@@ -3104,6 +3179,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Test that in a primary-compressed sort key all bytes except the first one are unchanged under script reordering.
      */
+    @Test
     public void TestNonLeadBytesDuringCollationReordering() throws Exception
     {
         Collator myCollation;
@@ -3152,6 +3228,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Test reordering API.
      */
+    @Test
     public void TestReorderingAPI() throws Exception
     {
         Collator myCollation;
@@ -3246,6 +3323,7 @@ public class CollationMiscTest extends TestFmwk {
     /*
      * Test reordering API.
      */
+    @Test
     public void TestReorderingAPIWithRuleCreatedCollator() throws Exception
     {
         Collator myCollation;
@@ -3294,6 +3372,7 @@ public class CollationMiscTest extends TestFmwk {
         return false;
     }
 
+    @Test
     public void TestEquivalentReorderingScripts() {
         // Beginning with ICU 55, collation reordering moves single scripts
         // rather than groups of scripts,
@@ -3378,6 +3457,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
     
+    @Test
     public void TestGreekFirstReorderCloning() {
         String[] testSourceCases = {
             "\u0041",
@@ -3448,6 +3528,7 @@ public class CollationMiscTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestGreekFirstReorder()
     {
         String[] strRules = {
@@ -3474,6 +3555,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestOneReorderingAPITestCase(privateUseCharacterStrings, apiRules);
     }
 
+    @Test
     public void TestGreekLastReorder()
     {
         String[] strRules = {
@@ -3499,6 +3581,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestOneReorderingAPITestCase(privateUseCharacterStrings, apiRules);
     }
 
+    @Test
     public void TestNonScriptReorder()
     {
         String[] strRules = {
@@ -3526,6 +3609,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestOneReorderingAPITestCase(privateUseCharacterStrings, apiRules);
     }
 
+    @Test
     public void TestHaniReorder()
     {
         String[] strRules = {
@@ -3552,6 +3636,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestOneReorderingAPITestCase(privateUseCharacterStrings, apiRules);
     }
     
+    @Test
     public void TestHaniReorderWithOtherRules()
     {
         String[] strRules = {
@@ -3573,6 +3658,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestCollation(privateUseCharacterStrings, strRules);
     }
     
+    @Test
     public void TestMultipleReorder()
     {
         String[] strRules = {
@@ -3596,6 +3682,7 @@ public class CollationMiscTest extends TestFmwk {
         doTestOneReorderingAPITestCase(collationTestCases, apiRules);
     }
     
+    @Test
     public void TestFrozeness()
     {
         Collator myCollation = Collator.getInstance(ULocale.CANADA);
@@ -3646,6 +3733,7 @@ public class CollationMiscTest extends TestFmwk {
 
     // Test case for Ticket#9409
     // Unknown collation type should be ignored, without printing stack trace
+    @Test
     public void TestUnknownCollationKeyword() {
         Collator coll1 = Collator.getInstance(new ULocale("en_US@collation=bogus"));
         Collator coll2 = Collator.getInstance(new ULocale("en_US"));

@@ -28,7 +28,7 @@ rm -rf ${DEST_RESOURCE_DIR}
 mkdir -p ${DEST_RESOURCE_DIR}
 
 # Generate the source code needed by Android.
-java ${SRCGEN_JAVA_ARGS} -cp ${CLASSPATH} com.android.icu4j.srcgen.Icu4jTransform ${INPUT_DIRS} ${DEST_SRC_DIR}
+${SRCGEN_JAVA_BINARY} ${SRCGEN_JAVA_ARGS} -cp ${CLASSPATH} com.android.icu4j.srcgen.Icu4jTransform ${INPUT_DIRS} ${DEST_SRC_DIR}
 
 # Copy / transform the resources needed by the android_icu4j code.
 for INPUT_DIR in ${INPUT_DIRS}; do
@@ -54,7 +54,7 @@ mkdir -p ${SAMPLE_DEST_DIR}
 
 echo Processing sample code
 # Create the android_icu4j sample code
-java ${SRCGEN_JAVA_ARGS} -cp ${CLASSPATH} com.android.icu4j.srcgen.Icu4jBasicTransform ${SAMPLE_INPUT_FILES} ${SAMPLE_DEST_DIR}
+${SRCGEN_JAVA_BINARY} ${SRCGEN_JAVA_ARGS} -cp ${CLASSPATH} com.android.icu4j.srcgen.Icu4jBasicTransform ${SAMPLE_INPUT_FILES} ${SAMPLE_DEST_DIR}
 
 # Clean out previous generated test code.
 TEST_DEST_DIR=${ANDROID_ICU4J_DIR}/src/main/tests
@@ -72,7 +72,7 @@ unzip ${ICU4J_DIR}/main/shared/data/testdata.jar com/ibm/icu/* -d ${TESTDATA_DIR
 echo Processing test code
 # Create the android_icu4j test code
 ALL_TEST_INPUT_DIRS="${TEST_INPUT_DIRS} ${TESTDATA_DIR}"
-java ${SRCGEN_JAVA_ARGS} -cp ${CLASSPATH} com.android.icu4j.srcgen.Icu4jTestsTransform \
+${SRCGEN_JAVA_BINARY} ${SRCGEN_JAVA_ARGS} -cp ${CLASSPATH} com.android.icu4j.srcgen.Icu4jTestsTransform \
   ${ALL_TEST_INPUT_DIRS} ${TEST_DEST_DIR}
 
 # Copy the data files.

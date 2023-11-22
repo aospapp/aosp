@@ -30,6 +30,14 @@ class TpmInitializer {
   // partially initialized, e.g. the process was previously interrupted, then
   // the process picks up where it left off.
   virtual bool InitializeTpm() = 0;
+
+  // This will be called when the service is initializing. It is an early
+  // opportunity to perform tasks related to verified boot.
+  virtual void VerifiedBootHelper() = 0;
+
+  // Reset the state of TPM dictionary attack protection. Returns true on
+  // success.
+  virtual bool ResetDictionaryAttackLock() = 0;
 };
 
 }  // namespace tpm_manager

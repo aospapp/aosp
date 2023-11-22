@@ -19,6 +19,8 @@ void FunctionRecursiveTwo(int loop) {
 }
 
 int main() {
-  FunctionRecursiveOne(10);
+  while (true) {
+    FunctionRecursiveOne(10);
+  }
   return 0;
 }

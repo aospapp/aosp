@@ -16,15 +16,20 @@
 
 package com.android.tv.common.ui.setup;
 
+import android.os.Bundle;
+
 /**
  * A listener for the action click.
  */
 public interface OnActionClickListener {
     /**
      * Called when the action is clicked.
+     * <p>
+     * The method should return {@code true} if the action is handled, otherwise {@code false}.
      *
-     * @param category action category.
-     * @param id action id.
+     * @param category The action category.
+     * @param id The action id.
+     * @param params The parameter for the action.
      */
-    void onActionClick(String category, int id);
+    boolean onActionClick(String category, int id, Bundle params);
 }

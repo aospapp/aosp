@@ -22,9 +22,9 @@ import android.app.Application;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvInputManager.TvInputCallback;
@@ -32,7 +32,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.support.annotation.Nullable;
-import android.support.v4.os.BuildCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 
@@ -42,37 +42,47 @@ import com.android.tv.analytics.StubAnalytics;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.BuildConfig;
 import com.android.tv.common.SharedPreferencesUtils;
+import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.TvCommonUtils;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.common.ui.setup.animation.SetupAnimationHelper;
+import com.android.tv.config.DefaultConfigManager;
+import com.android.tv.config.RemoteConfig;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrDataManagerImpl;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.DvrRecordingService;
-import com.android.tv.dvr.DvrSessionManager;
+import com.android.tv.dvr.DvrScheduleManager;
+import com.android.tv.dvr.DvrStorageStatusManager;
+import com.android.tv.dvr.DvrWatchedPositionManager;
+import com.android.tv.tuner.TunerPreferences;
+import com.android.tv.tuner.tvinput.TunerTvInputService;
+import com.android.tv.tuner.util.TunerInputInfoUtils;
+import com.android.tv.util.AccountHelper;
 import com.android.tv.util.Clock;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.SystemProperties;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-import com.android.usbtuner.UsbTunerPreferences;
-import com.android.usbtuner.setup.TunerSetupActivity;
-import com.android.usbtuner.tvinput.UsbTunerTvInputService;
 
 import java.util.List;
 
 public class TvApplication extends Application implements ApplicationSingletons {
     private static final String TAG = "TvApplication";
     private static final boolean DEBUG = false;
+    private RemoteConfig mRemoteConfig;
 
     /**
-     * Returns the @{@link ApplicationSingletons} using the application context.
+     * Broadcast Action: The user has updated LC to a new version that supports tuner input.
+     * {@link TunerInputController} will recevice this intent to check the existence of tuner
+     * input when the new version is first launched.
      */
-    public static ApplicationSingletons getSingletons(Context context) {
-        return (ApplicationSingletons) context.getApplicationContext();
-    }
+    public static final String ACTION_APPLICATION_FIRST_LAUNCHED =
+            "com.android.tv.action.APPLICATION_FIRST_LAUNCHED";
+    private static final String PREFERENCE_IS_FIRST_LAUNCH = "is_first_launch";
+
     private String mVersionName = "";
 
     private final MainActivityWrapper mMainActivityWrapper = new MainActivityWrapper();
@@ -84,14 +94,30 @@ public class TvApplication extends Application implements ApplicationSingletons 
     private ChannelDataManager mChannelDataManager;
     private ProgramDataManager mProgramDataManager;
     private DvrManager mDvrManager;
+    private DvrScheduleManager mDvrScheduleManager;
     private DvrDataManager mDvrDataManager;
+    private DvrStorageStatusManager mDvrStorageStatusManager;
+    private DvrWatchedPositionManager mDvrWatchedPositionManager;
     @Nullable
-    private DvrSessionManager mDvrSessionManager;
+    private InputSessionManager mInputSessionManager;
+    private AccountHelper mAccountHelper;
+    // When this variable is null, we don't know in which process TvApplication runs.
+    private Boolean mRunningInMainProcess;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        SharedPreferencesUtils.initialize(this);
+        SharedPreferencesUtils.initialize(this, new Runnable() {
+            @Override
+            public void run() {
+                if (mRunningInMainProcess != null && mRunningInMainProcess) {
+                    checkTunerServiceOnFirstLaunch();
+                }
+            }
+        });
+        // TunerPreferences is used to enable/disable the tuner input even when TUNER feature is
+        // disabled.
+        TunerPreferences.initialize(this);
         try {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
             mVersionName = pInfo.versionName;
@@ -100,17 +126,21 @@ public class TvApplication extends Application implements ApplicationSingletons 
             mVersionName = "";
         }
         Log.i(TAG, "Starting Live TV " + getVersionName());
+
+
         // Only set StrictMode for ENG builds because the build server only produces userdebug
         // builds.
         if (BuildConfig.ENG && SystemProperties.ALLOW_STRICT_MODE.getValue()) {
-            StrictMode.setThreadPolicy(
-                    new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build());
-            StrictMode.VmPolicy.Builder vmPolicyBuilder = new StrictMode.VmPolicy.Builder()
-                    .detectAll().penaltyLog();
-            if (BuildConfig.ENG && SystemProperties.ALLOW_DEATH_PENALTY.getValue() &&
-                    !TvCommonUtils.isRunningInTest()) {
-                // TODO turn on death penalty for tests when they stop leaking MainActivity
+            StrictMode.ThreadPolicy.Builder threadPolicyBuilder =
+                    new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog();
+            StrictMode.VmPolicy.Builder vmPolicyBuilder =
+                    new StrictMode.VmPolicy.Builder().detectAll().penaltyLog();
+            if (!TvCommonUtils.isRunningInTest()) {
+                threadPolicyBuilder.penaltyDialog();
+                // Turn off death penalty for tests b/23355898
+                vmPolicyBuilder.penaltyDeath();
             }
+            StrictMode.setThreadPolicy(threadPolicyBuilder.build());
             StrictMode.setVmPolicy(vmPolicyBuilder.build());
         }
         if (BuildConfig.ENG && !SystemProperties.ALLOW_ANALYTICS_IN_ENG.getValue()) {
@@ -121,27 +151,63 @@ public class TvApplication extends Application implements ApplicationSingletons 
         mTracker = mAnalytics.getDefaultTracker();
         mTvInputManagerHelper = new TvInputManagerHelper(this);
         mTvInputManagerHelper.start();
-        mTvInputManagerHelper.addCallback(new TvInputCallback() {
-            @Override
-            public void onInputAdded(String inputId) {
-                handleInputCountChanged();
-            }
-
-            @Override
-            public void onInputRemoved(String inputId) {
-                handleInputCountChanged();
-            }
-        });
-        if (CommonFeatures.DVR.isEnabled(this) && BuildCompat.isAtLeastN()) {
-            mDvrManager = new DvrManager(this);
-            //NOTE: DvrRecordingService just keeps running.
-            DvrRecordingService.startService(this);
-        }
         // In SetupFragment, transitions are set in the constructor. Because the fragment can be
         // created in Activity.onCreate() by the framework, SetupAnimationHelper should be
         // initialized here before Activity.onCreate() is called.
         SetupAnimationHelper.initialize(this);
-        if (DEBUG) Log.i(TAG, "Started Live TV " + mVersionName);
+        Log.i(TAG, "Started Live TV " + mVersionName);
+    }
+
+    private void setCurrentRunningProcess(boolean isMainProcess) {
+        if (mRunningInMainProcess != null) {
+            SoftPreconditions.checkState(isMainProcess == mRunningInMainProcess);
+            return;
+        }
+        mRunningInMainProcess = isMainProcess;
+        if (CommonFeatures.DVR.isEnabled(this)) {
+            mDvrStorageStatusManager = new DvrStorageStatusManager(this, mRunningInMainProcess);
+        }
+        if (mRunningInMainProcess) {
+            mTvInputManagerHelper.addCallback(new TvInputCallback() {
+                @Override
+                public void onInputAdded(String inputId) {
+                    if (Features.TUNER.isEnabled(TvApplication.this) && TextUtils.equals(inputId,
+                            TunerTvInputService.getInputId(TvApplication.this))) {
+                        TunerInputInfoUtils.updateTunerInputInfo(TvApplication.this);
+                    }
+                    handleInputCountChanged();
+                }
+
+                @Override
+                public void onInputRemoved(String inputId) {
+                    handleInputCountChanged();
+                }
+            });
+            if (Features.TUNER.isEnabled(this)) {
+                // If the tuner input service is added before the app is started, we need to
+                // handle it here.
+                TunerInputInfoUtils.updateTunerInputInfo(this);
+            }
+            if (CommonFeatures.DVR.isEnabled(this)) {
+                mDvrScheduleManager = new DvrScheduleManager(this);
+                mDvrManager = new DvrManager(this);
+                //NOTE: DvrRecordingService just keeps running.
+                DvrRecordingService.startService(this);
+            }
+        }
+    }
+
+    private void checkTunerServiceOnFirstLaunch() {
+        SharedPreferences sharedPreferences = this.getSharedPreferences(
+                SharedPreferencesUtils.SHARED_PREF_FEATURES, Context.MODE_PRIVATE);
+        boolean isFirstLaunch = sharedPreferences.getBoolean(PREFERENCE_IS_FIRST_LAUNCH, true);
+        if (isFirstLaunch) {
+            if (DEBUG) Log.d(TAG, "Congratulations, it's the first launch!");
+            sendBroadcast(new Intent(ACTION_APPLICATION_FIRST_LAUNCHED));
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putBoolean(PREFERENCE_IS_FIRST_LAUNCH, false);
+            editor.apply();
+        }
     }
 
     /**
@@ -152,13 +218,32 @@ public class TvApplication extends Application implements ApplicationSingletons 
         return mDvrManager;
     }
 
+    /**
+     * Returns the {@link DvrScheduleManager}.
+     */
+    @Override
+    public DvrScheduleManager getDvrScheduleManager() {
+        return mDvrScheduleManager;
+    }
+
+    /**
+     * Returns the {@link DvrWatchedPositionManager}.
+     */
+    @Override
+    public DvrWatchedPositionManager getDvrWatchedPositionManager() {
+        if (mDvrWatchedPositionManager == null) {
+            mDvrWatchedPositionManager = new DvrWatchedPositionManager(this);
+        }
+        return mDvrWatchedPositionManager;
+    }
+
     @Override
     @TargetApi(Build.VERSION_CODES.N)
-    public DvrSessionManager getDvrSessionManger() {
-        if (mDvrSessionManager == null) {
-            mDvrSessionManager = new DvrSessionManager(this);
+    public InputSessionManager getInputSessionManager() {
+        if (mInputSessionManager == null) {
+            mInputSessionManager = new InputSessionManager(this);
         }
-        return mDvrSessionManager;
+        return mInputSessionManager;
     }
 
     /**
@@ -176,7 +261,6 @@ public class TvApplication extends Application implements ApplicationSingletons 
     public Tracker getTracker() {
         return mTracker;
     }
-
 
     /**
      * Returns {@link ChannelDataManager}.
@@ -209,11 +293,20 @@ public class TvApplication extends Application implements ApplicationSingletons 
     @Override
     public DvrDataManager getDvrDataManager() {
         if (mDvrDataManager == null) {
-                DvrDataManagerImpl dvrDataManager = new DvrDataManagerImpl(this, Clock.SYSTEM);
-                mDvrDataManager = dvrDataManager;
-                dvrDataManager.start();
+            DvrDataManagerImpl dvrDataManager = new DvrDataManagerImpl(this, Clock.SYSTEM);
+            mDvrDataManager = dvrDataManager;
+            dvrDataManager.start();
         }
         return mDvrDataManager;
+    }
+
+    /**
+     * Returns {@link DvrStorageStatusManager}.
+     */
+    @TargetApi(Build.VERSION_CODES.N)
+    @Override
+    public DvrStorageStatusManager getDvrStorageStatusManager() {
+        return mDvrStorageStatusManager;
     }
 
     /**
@@ -230,6 +323,26 @@ public class TvApplication extends Application implements ApplicationSingletons 
     @Override
     public MainActivityWrapper getMainActivityWrapper() {
         return mMainActivityWrapper;
+    }
+
+    /**
+     * Returns the {@link AccountHelper}.
+     */
+    @Override
+    public AccountHelper getAccountHelper() {
+        if (mAccountHelper == null) {
+            mAccountHelper = new AccountHelper(getApplicationContext());
+        }
+        return mAccountHelper;
+    }
+
+    @Override
+    public RemoteConfig getRemoteConfig() {
+        if (mRemoteConfig == null) {
+            // No need to synchronize this, it does not hurt to create two and throw one away.
+            mRemoteConfig = DefaultConfigManager.createInstance(this).getRemoteConfig();
+        }
+        return mRemoteConfig;
     }
 
     /**
@@ -322,7 +435,7 @@ public class TvApplication extends Application implements ApplicationSingletons 
      * Checks the input counts and enable/disable TvActivity. Also updates the input list in
      * {@link SetupUtils}.
      *
-     * @param calledByTunerServiceChanged true if it is called when UsbTunerTvInputService
+     * @param calledByTunerServiceChanged true if it is called when TunerTvInputService
      *        is enabled or disabled.
      * @param tunerServiceEnabled it's available only when calledByTunerServiceChanged is true.
      * @param dontKillApp when TvActivity is enabled or disabled by this method, the app restarts
@@ -340,7 +453,7 @@ public class TvApplication extends Application implements ApplicationSingletons 
             if (!skipTunerInputCheck) {
                 for (TvInputInfo input : inputs) {
                     if (calledByTunerServiceChanged && !tunerServiceEnabled
-                            && UsbTunerTvInputService.getInputId(this).equals(input.getId())) {
+                            && TunerTvInputService.getInputId(this).equals(input.getId())) {
                         continue;
                     }
                     if (input.getType() == TvInputInfo.TYPE_TUNER) {
@@ -360,5 +473,30 @@ public class TvApplication extends Application implements ApplicationSingletons 
                     dontKillApp ? PackageManager.DONT_KILL_APP : 0);
         }
         SetupUtils.getInstance(TvApplication.this).onInputListUpdated(inputManager);
+    }
+
+    /**
+     * Returns the @{@link ApplicationSingletons} using the application context.
+     */
+    public static ApplicationSingletons getSingletons(Context context) {
+        return (ApplicationSingletons) context.getApplicationContext();
+    }
+
+    /**
+     * Sets true, if TvApplication is running on the main process. If TvApplication runs on
+     * tuner process or other process, it sets false.
+     *
+     * Note: it should be called at the beginning of Service.onCreate Activity.onCreate, or
+     * BroadcastReceiver.onCreate. When it is firstly called after launch, it runs process
+     * specific initializations.
+     */
+    public static void setCurrentRunningProcess(Context context, boolean isMainProcess) {
+        if (context.getApplicationContext() instanceof TvApplication) {
+            TvApplication tvApplication = (TvApplication) context.getApplicationContext();
+            tvApplication.setCurrentRunningProcess(isMainProcess);
+        } else {
+            // Application context can be MockTvApplication.
+            Log.w(TAG, "It is not a context of TvApplication");
+        }
     }
 }

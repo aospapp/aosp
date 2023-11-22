@@ -16,6 +16,8 @@
 
 package com.android.tv.menu;
 
+import android.R.integer;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -33,6 +35,9 @@ public class PlayControlsButton extends FrameLayout {
     private final ImageView mButton;
     private final ImageView mIcon;
     private final TextView mLabel;
+    private final long mFocusAnimationTimeMs;
+    private final int mIconColor;
+    private int mIconFocusedColor;
 
     public PlayControlsButton(Context context) {
         this(context, null);
@@ -53,6 +58,9 @@ public class PlayControlsButton extends FrameLayout {
         mButton = (ImageView) findViewById(R.id.button);
         mIcon = (ImageView) findViewById(R.id.icon);
         mLabel = (TextView) findViewById(R.id.label);
+        mFocusAnimationTimeMs = context.getResources().getInteger(integer.config_shortAnimTime);
+        mIconColor = context.getResources().getColor(R.color.play_controls_icon_color);
+        mIconFocusedColor = mIconColor;
     }
 
     /**
@@ -60,6 +68,9 @@ public class PlayControlsButton extends FrameLayout {
      */
     public void setImageResId(int imageResId) {
         mIcon.setImageResource(imageResId);
+        // Since on foucus changing, icons' color should be switched with animation,
+        // as a result, selectors cannot be used to switch colors in this case.
+        mIcon.getDrawable().setTint(hasFocus() ? mIconFocusedColor : mIconColor);
     }
 
     /**
@@ -72,6 +83,31 @@ public class PlayControlsButton extends FrameLayout {
                 clickAction.run();
             }
         });
+    }
+
+    /**
+     * Sets the icon's color should change to when the button is on focus.
+     */
+    public void setFocusedIconColor(int color) {
+        final ValueAnimator valueAnimator = ValueAnimator.ofArgb(mIconColor, color);
+        valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(final ValueAnimator animator) {
+                mIcon.getDrawable().setTint((int) animator.getAnimatedValue());
+            }
+        });
+        valueAnimator.setDuration(mFocusAnimationTimeMs);
+        mButton.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if (hasFocus) {
+                    valueAnimator.start();
+                } else {
+                    valueAnimator.reverse();
+                }
+            }
+        });
+        mIconFocusedColor = color;
     }
 
     public void setLabel(String label) {
@@ -93,6 +129,7 @@ public class PlayControlsButton extends FrameLayout {
     public void setEnabled(boolean enabled) {
         super.setEnabled(enabled);
         mButton.setEnabled(enabled);
+        mButton.setFocusable(enabled);
         mIcon.setEnabled(enabled);
         mIcon.setAlpha(enabled ? ALPHA_ENABLED : ALPHA_DISABLED);
         mLabel.setEnabled(enabled);

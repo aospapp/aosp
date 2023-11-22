@@ -25,6 +25,7 @@ import android.widget.TextView;
 
 /**
  * ViewHolder for @layout/sdk_car_list_item that is used to handle the various sdk item templates
+ * @hide
  */
 public class CarListItemViewHolder extends RecyclerView.ViewHolder {
     public final FrameLayout iconContainer;

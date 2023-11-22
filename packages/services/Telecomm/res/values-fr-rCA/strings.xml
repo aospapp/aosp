@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Impossible de bloquer le numéro d\'urgence."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Le numéro <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> a déjà été bloqué."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Utilisation du clavier personnel pour faire l\'appel…"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Appel <xliff:g id="CALL_VIA">%1$s</xliff:g> de <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Appel vidéo <xliff:g id="CALL_VIA">%1$s</xliff:g> de <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Si vous répondez, vous mettrez fin à votre appel <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Si vous répondez, vous mettrez fin à vos appels <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Si vous répondez, vous mettrez fin à votre appel vidéo <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Si vous répondez, vous mettrez fin à votre appel en cours"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Si vous répondez, vous mettrez fin à vos appels en cours"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Si vous répondez, vous mettrez fin à l\'appel vidéo en cours"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Répondre"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Refuser"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Impossible de faire l\'appel en raison de votre appel <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Impossible de faire l\'appel en raison de vos appels <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Impossible de faire l\'appel en raison d\'un appel dans une autre application."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Appels entrants"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Appels manqués"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Si vous passez cet appel, vous mettrez fin à l\'appel <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

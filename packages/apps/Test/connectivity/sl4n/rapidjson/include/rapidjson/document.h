@@ -157,7 +157,7 @@ public:
             constructor effectively defines a regular copy-constructor.
             Otherwise, the copy constructor is implicitly defined.
     */
-    GenericMemberIterator(const NonConstIterator & it) : ptr_(it.ptr_) {}
+    GenericMemberIterator(const NonConstIterator & it) : ptr_(it.ptr_) {}  // NOLINT, implicit
 
     //! @name stepping
     //@{
@@ -283,7 +283,7 @@ struct GenericStringRef {
             GenericValue instead.
      */
     template<SizeType N>
-    GenericStringRef(const CharType (&str)[N]) RAPIDJSON_NOEXCEPT
+    GenericStringRef(const CharType (&str)[N]) RAPIDJSON_NOEXCEPT  // NOLINT, implicit
         : s(str), length(N-1) {}
 
     //! Explicitly create string reference from \c const character pointer
@@ -329,7 +329,7 @@ private:
     GenericStringRef operator=(const GenericStringRef&);
     //! Disallow construction from non-const array
     template<SizeType N>
-    GenericStringRef(CharType (&str)[N]) /* = delete */;
+    GenericStringRef(CharType (&str)[N]) /* = delete */;  // NOLINT, implicit
 };
 
 //! Mark a character pointer as constant string
@@ -452,7 +452,7 @@ private:
 #if RAPIDJSON_HAS_CXX11_RVALUE_REFS
     //! Moving from a GenericDocument is not permitted.
     template <typename StackAllocator>
-    GenericValue(GenericDocument<Encoding,Allocator,StackAllocator>&& rhs);
+    explicit GenericValue(GenericDocument<Encoding,Allocator,StackAllocator>&& rhs);
 
     //! Move assignment from a GenericDocument is not permitted.
     template <typename StackAllocator>
@@ -1795,7 +1795,7 @@ public:
         \param stackCapacity    Optional initial capacity of stack in bytes.
         \param stackAllocator   Optional allocator for allocating memory for stack.
     */
-    GenericDocument(Allocator* allocator = 0, size_t stackCapacity = kDefaultStackCapacity, StackAllocator* stackAllocator = 0) : 
+    explicit GenericDocument(Allocator* allocator = 0, size_t stackCapacity = kDefaultStackCapacity, StackAllocator* stackAllocator = 0) :
         allocator_(allocator), ownAllocator_(0), stack_(stackAllocator, stackCapacity), parseResult_()
     {
         if (!allocator_)

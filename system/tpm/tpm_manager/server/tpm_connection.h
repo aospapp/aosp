@@ -27,6 +27,9 @@ namespace tpm_manager {
 class TpmConnection {
  public:
   TpmConnection() = default;
+  // Create a TPM connection and set an |authorization_value| for the TPM object
+  // (e.g. the TPM owner password).
+  explicit TpmConnection(const std::string& authorization_value);
   ~TpmConnection() = default;
 
   // This method returns a handle to the current Tpm context.
@@ -37,15 +40,12 @@ class TpmConnection {
   // This method tries to get a handle to the TPM. Returns 0 on failure.
   TSS_HTPM GetTpm();
 
-  // This method tries to get a handle to the TPM and with the given owner
-  // password. Returns 0 on failure.
-  TSS_HTPM GetTpmWithAuth(const std::string& owner_password);
-
  private:
   // This method connects to the Tpm. Returns true on success.
   bool ConnectContextIfNeeded();
 
   trousers::ScopedTssContext context_;
+  std::string authorization_value_;
 
   DISALLOW_COPY_AND_ASSIGN(TpmConnection);
 };

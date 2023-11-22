@@ -14,25 +14,27 @@
  * limitations under the License.
  */
 
-#include "ext4_utils.h"
-#include "allocate.h"
-#include "indirect.h"
-#include "extent.h"
-#include "sha1.h"
+#include "ext4_utils/ext4_utils.h"
+
+#include <fcntl.h>
+#include <inttypes.h>
+#include <stddef.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <sparse/sparse.h>
+
+#include "allocate.h"
+#include "extent.h"
+#include "indirect.h"
+#include "sha1.h"
+
 #ifdef REAL_UUID
 #include <uuid.h>
 #endif
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <stddef.h>
-#include <string.h>
-
-#ifdef USE_MINGW
+#ifdef _WIN32
 #include <winsock2.h>
 #else
 #include <arpa/inet.h>
@@ -177,7 +179,7 @@ static void block_device_write_sb(int fd)
 	/* write out the backup superblocks */
 	for (i = 1; i < aux_info.groups; i++) {
 		if (ext4_bg_has_super_block(i)) {
-			offset = info.block_size * (aux_info.first_data_block
+			offset = (unsigned long long)info.block_size * (aux_info.first_data_block
 				+ i * info.blocks_per_group);
 			write_sb(fd, offset, aux_info.backup_sb[i]);
 		}
@@ -220,6 +222,9 @@ void ext4_create_fs_aux_info()
 	if (ext4_bg_has_super_block(aux_info.groups - 1))
 		last_header_size += 1 + aux_info.bg_desc_blocks +
 			info.bg_desc_reserve_blocks;
+	if (aux_info.groups <= 1 && last_group_size < last_header_size) {
+		critical_error("filesystem size too small");
+	}
 	if (last_group_size > 0 && last_group_size < last_header_size) {
 		aux_info.groups--;
 		aux_info.len_blocks -= last_group_size;
@@ -350,10 +355,14 @@ void ext4_fill_in_sb(int real_uuid)
 	sb->s_want_extra_isize = sizeof(struct ext4_inode) -
 		EXT4_GOOD_OLD_INODE_SIZE;
 	sb->s_flags = 2;
-	sb->s_raid_stride = 0;
+	sb->s_raid_stride = info.flash_logical_block_size / info.block_size;
+	// stride should be the max of 8kb and logical block size
+	if (info.flash_logical_block_size != 0 && info.flash_logical_block_size < 8192) {
+		sb->s_raid_stride = 8192 / info.block_size;
+	}
 	sb->s_mmp_interval = 0;
 	sb->s_mmp_block = 0;
-	sb->s_raid_stripe_width = 0;
+	sb->s_raid_stripe_width = info.flash_erase_block_size / info.block_size;
 	sb->s_log_groups_per_flex = 0;
 	sb->s_kbytes_written = 0;
 
@@ -537,7 +546,7 @@ u64 get_block_device_size(int fd)
 
 int is_block_device_fd(int fd)
 {
-#ifdef USE_MINGW
+#ifdef _WIN32
 	return 0;
 #else
 	struct stat st;

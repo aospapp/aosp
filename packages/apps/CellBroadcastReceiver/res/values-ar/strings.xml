@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"Cell Broadcasts"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"اعدادات بث الشبكة"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"إعدادات بث الشبكة"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"إعدادات البث الخلوي غير متوفّرة لهذا المستخدم"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"موافق"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"لا تتوفر اشعارات نشطة في منطقتك. يمكنك تغيير إعدادات التنبيه باستخدام خيار قائمة الإعدادات."</string>
@@ -46,8 +46,9 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"تنبيه الطوارئ"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"بث الخلية"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"إعدادات اشعارات الطوارئ"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"رسائل البث"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"تشغيل الإشعارات"</string>
-    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"عرض مجموعات بث اشعارات الطوارئ"</string>
+    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"عرض مجموعات بث إشعارات الطوارئ"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"تذكير التنبيه"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"نطق رسالة التنبيه"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"استخدام ميزة تحويل النص إلى كلام لنطق رسائل اشعارات الطوارئ"</string>
@@ -55,15 +56,15 @@
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"‏عرض نشرات اختبار ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"عرض مجموعات البث التجريبية لنظام التحذير المبكر من موجات تسونامي عقب الزلازل"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"عرض المخاطر القصوى"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"عرض اشعارات الخطورة القصوى على الحياة والممتلكات"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"عرض إشعارات بأشدّ المخاطر على الحياة والممتلكات"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"عرض المخاطر البالغة"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"عرض اشعارات المخاطر البالغة على الحياة والممتلكات"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"‏عرض اشعارات اختطاف الأطفال (AMBER)"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"عرض إشعارات بالمخاطر الكبيرة على الحياة والممتلكات"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"‏عرض إشعارات اختطاف الأطفال (AMBER)"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"‏عرض نشرات طوارئ اختطاف طفل (نظام إنذار اختطاف الأطفال AMBER)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"‏عرض نشرات اختبار CMAS"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"عرض نشرات الاختبار في نظام التنبيه التجاري عبر الجوال"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"اهتزاز"</string>
-    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"اهتزاز عند التنبيه"</string>
+    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"الاهتزاز عند التنبيه"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"إعدادات البرازيل"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"عرض مجموعات بث القناة 50"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"تستخدم القناة 50 في البرازيل للحصول على معلومات تحديث المنطقة"</string>

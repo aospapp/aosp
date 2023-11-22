@@ -23,7 +23,6 @@ package org.apache.commons.codec;
  * Encoder provides this common generic interface whic allows a user to pass a
  * generic Object to any Encoder implementation in the codec package.</p>
  *
- * @author Apache Software Foundation
  * @version $Id: Encoder.java 634915 2008-03-08 09:30:25Z bayard $
  */
 public interface Encoder {

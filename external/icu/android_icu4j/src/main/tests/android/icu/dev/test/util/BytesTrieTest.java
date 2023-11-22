@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2011, International Business Machines
@@ -14,18 +16,14 @@ package android.icu.dev.test.util;
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.BytesTrie;
 import android.icu.util.BytesTrieBuilder;
 import android.icu.util.StringTrieBuilder;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class BytesTrieTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new BytesTrieTest().run(args);
-    }
     public BytesTrieTest() {}
 
     // All test functions have a TestNN prefix where NN is a double-digit number.
@@ -33,6 +31,7 @@ public class BytesTrieTest extends TestFmwk {
     // the simpler ones are run first.
     // If there is a problem, the simpler ones are easier to step through.
 
+    @Test
     public void Test00Builder() {
         builder_.clear();
         try {
@@ -71,6 +70,7 @@ public class BytesTrieTest extends TestFmwk {
     // Find:            \{ (".*", [-0-9xa-fA-F]+) \}
     // Replace with:    new StringAndValue($1)
 
+    @Test
     public void Test10Empty() {
         final StringAndValue[] data={
             new StringAndValue("", 0)
@@ -78,6 +78,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test11_a() {
         final StringAndValue[] data={
             new StringAndValue("a", 1)
@@ -85,6 +86,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test12_a_ab() {
         final StringAndValue[] data={
             new StringAndValue("a", 1),
@@ -93,6 +95,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test20ShortestBranch() {
         final StringAndValue[] data={
             new StringAndValue("a", 1000),
@@ -101,6 +104,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test21Branches() {
         final StringAndValue[] data={
             new StringAndValue("a", 0x10),
@@ -124,6 +128,7 @@ public class BytesTrieTest extends TestFmwk {
         }
     }
 
+    @Test
     public void Test22LongSequence() {
         final StringAndValue[] data={
             new StringAndValue("a", -1),
@@ -141,6 +146,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test23LongBranch() {
         // Split-branch and interesting compact-integer values.
         final StringAndValue[] data={
@@ -169,6 +175,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test24ValuesForState() {
         // Check that saveState() and resetToState() interact properly
         // with next() and current().
@@ -183,6 +190,7 @@ public class BytesTrieTest extends TestFmwk {
         checkData(data);
     }
 
+    @Test
     public void Test30Compact() {
         // Duplicate trailing strings and values provide opportunities for compacting.
         final StringAndValue[] data={
@@ -250,6 +258,7 @@ public class BytesTrieTest extends TestFmwk {
         return buildTrie(data, data.length, buildOption);
     }
 
+    @Test
     public void Test40GetUniqueValue() {
         BytesTrie trie=buildMonthsTrie(StringTrieBuilder.Option.FAST);
         long uniqueValue;
@@ -283,6 +292,7 @@ public class BytesTrieTest extends TestFmwk {
         }
     }
 
+    @Test
     public void Test41GetNextBytes() {
         BytesTrie trie=buildMonthsTrie(StringTrieBuilder.Option.SMALL);
         StringBuilder buffer=new StringBuilder();
@@ -329,6 +339,7 @@ public class BytesTrieTest extends TestFmwk {
         }
     }
 
+    @Test
     public void Test50IteratorFromBranch() {
         BytesTrie trie=buildMonthsTrie(StringTrieBuilder.Option.FAST);
         // Go to a branch node.
@@ -371,6 +382,7 @@ public class BytesTrieTest extends TestFmwk {
         checkIterator(iter.reset(), data);
     }
 
+    @Test
     public void Test51IteratorFromLinearMatch() {
         BytesTrie trie=buildMonthsTrie(StringTrieBuilder.Option.SMALL);
         // Go into a linear-match node.
@@ -392,6 +404,7 @@ public class BytesTrieTest extends TestFmwk {
         checkIterator(iter.reset(), data);
     }
 
+    @Test
     public void Test52TruncatingIteratorFromRoot() {
         BytesTrie trie=buildMonthsTrie(StringTrieBuilder.Option.FAST);
         BytesTrie.Iterator iter=trie.iterator(4);
@@ -431,6 +444,7 @@ public class BytesTrieTest extends TestFmwk {
         checkIterator(iter.reset(), data);
     }
 
+    @Test
     public void Test53TruncatingIteratorFromLinearMatchShort() {
         final StringAndValue[] data={
             new StringAndValue("abcdef", 10),
@@ -452,6 +466,7 @@ public class BytesTrieTest extends TestFmwk {
         checkIterator(iter.reset(), expected);
     }
 
+    @Test
     public void Test54TruncatingIteratorFromLinearMatchLong() {
         final StringAndValue[] data={
             new StringAndValue("abcdef", 10),
@@ -476,6 +491,7 @@ public class BytesTrieTest extends TestFmwk {
         checkIterator(iter.reset(), expected);
     }
 
+    @Test
     public void Test59IteratorFromBytes() {
         final StringAndValue[] data={
             new StringAndValue("mm", 3),

@@ -40,10 +40,10 @@
 #define STRLCAT_SUPPORTED
 #endif
 
-#define KB 1024
-#define SMALL 1*KB
-#define MEDIUM 4*KB
-#define LARGE 64*KB
+constexpr auto KB = 1024;
+constexpr auto SMALL = 1 * KB;
+constexpr auto MEDIUM = 4 * KB;
+constexpr auto LARGE = 64 * KB;
 
 static int signum(int i) {
   if (i < 0) {
@@ -163,7 +163,7 @@ TEST(STRING_TEST, strsignal_concurrent) {
 template<class Character>
 class StringTestState {
  public:
-  StringTestState(size_t MAX_LEN) : MAX_LEN(MAX_LEN), align1_index_(0), align2_index_(0) {
+  explicit StringTestState(size_t MAX_LEN) : MAX_LEN(MAX_LEN), align1_index_(0), align2_index_(0) {
     int max_alignment = 64;
 
     // TODO: fix the tests to not sometimes use twice their specified "MAX_LEN".
@@ -1454,4 +1454,33 @@ TEST(STRING_TEST, memcpy_src_dst_same) {
     g_memcpy_same_buffer[i] = i;
   }
   RunSingleBufferAlignTest(MEDIUM, DoMemcpySameTest);
+}
+
+TEST(STRING_TEST, memmem_strstr_empty_needle) {
+  const char* some_haystack = "haystack";
+  const char* empty_haystack = "";
+
+  ASSERT_EQ(some_haystack, memmem(some_haystack, 8, "", 0));
+  ASSERT_EQ(empty_haystack, memmem(empty_haystack, 0, "", 0));
+
+  ASSERT_EQ(some_haystack, strstr(some_haystack, ""));
+  ASSERT_EQ(empty_haystack, strstr(empty_haystack, ""));
+}
+
+TEST(STRING_TEST, memmem_smoke) {
+  const char haystack[] = "big\0daddy\0giant\0haystacks";
+  ASSERT_EQ(haystack, memmem(haystack, sizeof(haystack), "", 0));
+  ASSERT_EQ(haystack + 3, memmem(haystack, sizeof(haystack), "", 1));
+  ASSERT_EQ(haystack + 0, memmem(haystack, sizeof(haystack), "b", 1));
+  ASSERT_EQ(haystack + 1, memmem(haystack, sizeof(haystack), "i", 1));
+  ASSERT_EQ(haystack + 4, memmem(haystack, sizeof(haystack), "da", 2));
+  ASSERT_EQ(haystack + 8, memmem(haystack, sizeof(haystack), "y\0g", 3));
+}
+
+TEST(STRING_TEST, strstr_smoke) {
+  const char* haystack = "big daddy/giant haystacks";
+  ASSERT_EQ(haystack, strstr(haystack, ""));
+  ASSERT_EQ(haystack + 0, strstr(haystack, "b"));
+  ASSERT_EQ(haystack + 1, strstr(haystack, "i"));
+  ASSERT_EQ(haystack + 4, strstr(haystack, "da"));
 }

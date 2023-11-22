@@ -1,4 +1,4 @@
-type per_mgr, domain, domain_deprecated;
+type per_mgr, domain, device_domain_deprecated;
 type per_mgr_exec, exec_type, file_type;
 init_daemon_domain(per_mgr);
 
@@ -17,3 +17,4 @@ allow per_mgr subsys_modem_device:chr_file r_file_perms;
 
 allow per_mgr self:capability net_raw;
 allow per_mgr self:socket create_socket_perms;
+allowxperm per_mgr self:socket ioctl msm_sock_ipc_ioctls;

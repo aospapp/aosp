@@ -22,7 +22,7 @@
  * converter between YV21, and JPEG formats.
  */
 
-#include "JpegStub.h"
+#include "jpeg-stub/JpegStub.h"
 #include <utils/threads.h>
 
 namespace android {
@@ -50,6 +50,7 @@ public:
      *  image - Raw NV21 image.
      *  width, height - Image dimensions.
      *  quality - JPEG quality.
+     *  exifData - an EXIF data structure to attach to the image, may be null
      * Return:
      *  NO_ERROR on success, or an appropriate error status.
      *
@@ -57,7 +58,8 @@ public:
     status_t compressRawImage(const void* image,
                               int width,
                               int height,
-                              int quality);
+                              int quality,
+                              ExifData* exifData);
 
     /* Get size of the compressed JPEG buffer.
      * This method must be called only after a successful completion of
@@ -79,10 +81,6 @@ public:
     /****************************************************************************
      * Class data
      ***************************************************************************/
-
-protected:
-    /* Strides for Y (the first element), and UV (the second one) panes. */
-    int                     mStrides[2];
 
 private:
     // library handle to dlopen

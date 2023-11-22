@@ -30,6 +30,8 @@
         <activity android:name="android.uirendering.cts.testinfrastructure.DrawActivity"
                   android:theme="@style/WhiteBackgroundTheme"
                   android:resizeableActivity="false" />
+        <activity android:name="android.uirendering.cts.testinfrastructure.MaterialActivity"
+                  android:theme="@android:style/Theme.Material.Light" />
         <uses-library android:name="android.test.runner" />
     </application>
 

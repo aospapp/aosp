@@ -1,6 +1,13 @@
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
+
+DURATION_METRIC = 'chromeos/autotest/autoserv/verify_duration'
 
 
 # A string of the form 'label1,label2:value,label3'.
@@ -10,19 +17,16 @@ labels_list = [l.strip() for l in job_labels.split(',') if l]
 
 def verify(machine):
     print 'Initializing host %s' % machine
-    timer = None
-    # We set try_lab_servo to True to trigger servo verify and
-    # servo update if needed.
-    target = hosts.create_target_machine(machine, initialize=False,
-                                         auto_monitor=False, try_lab_servo=True)
+    job.record('START', None, 'verify')
+    target = hosts.create_target_machine(machine,
+                                         try_lab_servo=True)
+    hostname = utils.get_hostname_from_machine(machine)
     try:
-        job.record('START', None, 'verify')
-        timer = autotest_stats.Timer('verify_time')
-        timer.start()
-
-        target.verify()
-        provision.run_special_task_actions(job, target, labels_list,
-                                           provision.Verify)
+        with metrics.SecondsTimer(DURATION_METRIC,
+                                  fields={'dut_host_name': hostname}):
+            target.verify()
+            provision.run_special_task_actions(job, target, labels_list,
+                                               provision.Verify)
     except Exception as e:
         logging.exception(e)
         job.record('END FAIL', None, 'verify')
@@ -30,11 +34,9 @@ def verify(machine):
         # doing this.
         raise Exception('')
     else:
+        hostname = utils.get_hostname_from_machine(machine)
         job.record('END GOOD', None, 'verify',
-                   '%s verified successfully' % machine)
-    finally:
-        if timer:
-            timer.stop()
+                   '%s verified successfully' % hostname)
 
 
 job.parallel_simple(verify, machines)

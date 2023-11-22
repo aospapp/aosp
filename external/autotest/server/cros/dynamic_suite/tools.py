@@ -14,6 +14,16 @@ from autotest_lib.client.common_lib import global_config
 _CONFIG = global_config.global_config
 
 
+# comments injected into the control file.
+_INJECT_BEGIN = '# INJECT_BEGIN - DO NOT DELETE THIS LINE'
+_INJECT_END = '# INJECT_END - DO NOT DELETE LINE'
+
+
+# The regex for an injected line in the control file with the format:
+# varable_name=varable_value
+_INJECT_VAR_RE = re.compile('^[_A-Za-z]\w*=.+$')
+
+
 def image_url_pattern():
     """Returns image_url_pattern from global_config."""
     return _CONFIG.get_config_value('CROS', 'image_url_pattern', type=str)
@@ -40,9 +50,17 @@ def infrastructure_user():
     return _CONFIG.get_config_value('CROS', 'infrastructure_user', type=str)
 
 
-def package_url_pattern():
-    """Returns package_url_pattern from global_config."""
-    return _CONFIG.get_config_value('CROS', 'package_url_pattern', type=str)
+def package_url_pattern(is_launch_control_build=False):
+    """Returns package_url_pattern from global_config.
+
+    @param is_launch_control_build: True if the package url is for Launch
+            Control build. Default is False.
+    """
+    if is_launch_control_build:
+        return _CONFIG.get_config_value('ANDROID', 'package_url_pattern',
+                                        type=str)
+    else:
+        return _CONFIG.get_config_value('CROS', 'package_url_pattern', type=str)
 
 
 def try_job_timeout_mins():
@@ -62,14 +80,17 @@ def get_package_url(devserver_url, build):
     return package_url_pattern() % (devserver_url, build)
 
 
-def get_devserver_build_from_package_url(package_url):
+def get_devserver_build_from_package_url(package_url,
+                                         is_launch_control_build=False):
     """The inverse method of get_package_url.
 
     @param package_url: a string specifying the package url.
+    @param is_launch_control_build: True if the package url is for Launch
+                Control build. Default is False.
 
     @return tuple containing the devserver_url, build.
     """
-    pattern = package_url_pattern()
+    pattern = package_url_pattern(is_launch_control_build)
     re_pattern = pattern.replace('%s', '(\S+)')
 
     devserver_build_tuple = re.search(re_pattern, package_url).groups()
@@ -133,6 +154,58 @@ def get_random_best_host(afe, host_list, require_usable_hosts=True):
     return None
 
 
+def remove_legacy_injection(control_file_in):
+    """
+    Removes the legacy injection part from a control file.
+
+    @param control_file_in: the contents of a control file to munge.
+
+    @return The modified control file string.
+    """
+    if not control_file_in:
+        return control_file_in
+
+    new_lines = []
+    lines = control_file_in.strip().splitlines()
+    remove_done = False
+    for line in lines:
+        if remove_done:
+            new_lines.append(line)
+        else:
+            if not _INJECT_VAR_RE.match(line):
+                remove_done = True
+                new_lines.append(line)
+    return '\n'.join(new_lines)
+
+
+def remove_injection(control_file_in):
+    """
+    Removes the injection part from a control file.
+
+    @param control_file_in: the contents of a control file to munge.
+
+    @return The modified control file string.
+    """
+    if not control_file_in:
+        return control_file_in
+
+    start = control_file_in.find(_INJECT_BEGIN)
+    if start >=0:
+        end = control_file_in.find(_INJECT_END, start)
+    if start < 0 or end < 0:
+        return remove_legacy_injection(control_file_in)
+
+    end += len(_INJECT_END)
+    ch = control_file_in[end]
+    total_length = len(control_file_in)
+    while end <= total_length and (
+            ch == '\n' or ch == ' ' or ch == '\t'):
+        end += 1
+        if end < total_length:
+          ch = control_file_in[end]
+    return control_file_in[:start] + control_file_in[end:]
+
+
 def inject_vars(vars, control_file_in):
     """
     Inject the contents of |vars| into |control_file_in|.
@@ -142,6 +215,7 @@ def inject_vars(vars, control_file_in):
     @return the modified control file string.
     """
     control_file = ''
+    control_file += _INJECT_BEGIN + '\n'
     for key, value in vars.iteritems():
         # None gets injected as 'None' without this check; same for digits.
         if isinstance(value, str):
@@ -150,7 +224,7 @@ def inject_vars(vars, control_file_in):
             control_file += "%s=%r\n" % (key, value)
 
     args_dict_str = "%s=%s\n" % ('args_dict', repr(vars))
-    return control_file + args_dict_str + control_file_in
+    return control_file + args_dict_str + _INJECT_END + '\n' + control_file_in
 
 
 def is_usable(host):

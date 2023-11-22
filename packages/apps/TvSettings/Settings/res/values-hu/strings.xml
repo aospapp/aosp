@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Mindig keressen hálózatot"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"A Google helyszolgáltatása és más alkalmazások akkor is kereshetnek hálózatokat, ha a Wi-Fi ki van kapcsolva"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"A Google helyszolgáltatása és más alkalmazások akkor is kereshetnek hálózatokat, ha a Wi-Fi ki van kapcsolva"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Képernyővédő"</string>
     <string name="device_display" msgid="101455384386372747">"Képernyő"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Akkumulátor: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Eszköz párosításának törlése..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Kapcsolódva"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Név módosítása"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Adjon nevet a kiegészítőnek"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Tartozékok keresése…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Bluetooth-eszközök párosítása előtt győződjön meg arról, hogy azok párosítási módban vannak"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Eszközt észleltünk, és a párosítás körülbelül <xliff:g id="COUNTDOWN">%1$s</xliff:g> másodpercen belül megtörténik"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Billentyűzet"</string>
     <string name="system_home" msgid="2858989138172296012">"Kezdőképernyő"</string>
     <string name="system_search" msgid="2837264654143247611">"Keresés"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Biztonság és korlátozások"</string>
     <string name="system_speech" msgid="8128688499687306982">"Beszéd"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Csatlakozók"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Fejlesztői beállítások"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Nincs"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Használat és diagnosztika"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Útmutatók"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Rendszerfrissítés"</string>
     <string name="about_preference" msgid="4131396784531360434">"Névjegy"</string>
     <string name="device_name" msgid="2670488158531273028">"Eszköz neve"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Megjelenítési beállítások"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Beállítás"</string>
     <string name="captions_language" msgid="2835554055388996343">"Nyelv"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Alapértelmezett"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Szöveg mérete"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Felirat stílusa"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Egyéni beállítások"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Áttűnési animáció mérete"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Animáció léptéke"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Szigorú mód engedélyezve"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"CPU-használat mutatása"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"GPU-renderelési profil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Nyomkövetés engedélyezése"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Ne tárolja a tevékenységeket"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Legjobbtól lefelé: kék, zöld, halványpiros, piros"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"A teljes ablakfelület villogjon frissítéskor"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Képernyővillogás a fő szál hosszú műveleteinél"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Képernyőfedvény a jelenlegi CPU-használattal"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Renderelésidő mérése ADB shell dumpsys gfxinfoban"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Bekapcsolva"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Kikapcsolva"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Kényszerített leállítás"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ha egy alkalmazást leállásra kényszerít, lehetséges, hogy az hibásan fog működni."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Eltávolítás"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Eltávolítja ezt az alkalmazást?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Frissítések eltávolítása"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Ennek az Android-rendszeralkalmazásnak minden frissítését eltávolítjuk."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Letiltás"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"A gyorsítótár törlése"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Értesítések"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Engedélyek"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Az alkalmazást nem lehet elindítani"</string>
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Mégse"</string>
     <string name="settings_on" msgid="6892236264945435013">"Be"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Törli az összes személyes információt és letöltött alkalmazást? A műveletet nem lehet visszavonni!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Minden adat törlése"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Válasszon nevet <xliff:g id="DEVICEMODEL">%1$s</xliff:g> eszközének"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Egy névvel könnyebben beazonosíthatja <xliff:g id="DEVICEMODEL">%1$s</xliff:g> eszközét, amikor más készülékről – például telefonról, táblagépről vagy számítógépről – próbálja elérni azt."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Adjon nevet <xliff:g id="DEVICEMODEL">%1$s</xliff:g> eszközének, hogy könnyebben megtalálhassa, amikor másik eszközről szeretne tartalmat küldeni rá, vagy kapcsolódni hozzá."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Nappali"</item>
-    <item msgid="3722089849939477581">"Médiaszoba"</item>
-    <item msgid="6108590585438763574">"Családi szoba"</item>
-    <item msgid="2581035245390468625">"Étkező"</item>
-    <item msgid="3127487827308695324">"Dolgozószoba"</item>
-    <item msgid="6172018430592195063">"Hálószoba"</item>
-    <item msgid="8120010459866284578">"Konyha"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Tévé a nappaliban"</item>
+    <item msgid="8122798759665439456">"Tévé a családi szobában"</item>
+    <item msgid="1389347662738182100">"Tévé a hálószobában"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Adjon meg egy egyéni nevet…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Adjon meg egy egyéni nevet…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"A(z) <xliff:g id="DEVICEMODEL">%1$s</xliff:g> átnevezése"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"A(z) <xliff:g id="DEVICEMODEL">%1$s</xliff:g> jelenlegi neve: <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
     <string name="change_setting" msgid="2047402388786162246">"Módosítás"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Újraindítás csökkentett módban"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Újraindítja a rendszert csökkentett módban?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Ezzel letiltja a telepített, harmadik féltől származó alkalmazásokat. Újraindításkor ezek visszaállnak."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Hibajelentés rögzítése"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Rendelkezésre álló virtuális billentyűzetek"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Billentyűzetek kezelése"</string>
 </resources>

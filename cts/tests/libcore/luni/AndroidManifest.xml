@@ -21,7 +21,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="com.android.cts.core.runner.CoreTestRunner"
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.cts"
                      android:label="CTS Libcore test cases" />
 

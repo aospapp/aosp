@@ -16,11 +16,13 @@
 
 package android.media.cts;
 
+
+import android.media.MediaCodec;
 import android.opengl.EGL14;
-import android.opengl.EGLExt;
 import android.opengl.EGLConfig;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
 import android.util.Log;
 import android.view.Surface;
@@ -33,10 +35,8 @@ import android.view.Surface;
  * to create an EGL window surface.  Calls to eglSwapBuffers() cause a frame of data to be sent
  * to the video encoder.
  */
-class InputSurface {
+class InputSurface implements InputSurfaceInterface {
     private static final String TAG = "InputSurface";
-
-    private static final int EGL_RECORDABLE_ANDROID = 0x3142;
 
     private EGLDisplay mEGLDisplay = EGL14.EGL_NO_DISPLAY;
     private EGLContext mEGLContext = EGL14.EGL_NO_CONTEXT;
@@ -80,7 +80,7 @@ class InputSurface {
                 EGL14.EGL_GREEN_SIZE, 8,
                 EGL14.EGL_BLUE_SIZE, 8,
                 EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-                EGL_RECORDABLE_ANDROID, 1,
+                EGLExt.EGL_RECORDABLE_ANDROID, 1,
                 EGL14.EGL_NONE
         };
         int[] numConfigs = new int[1];
@@ -108,6 +108,7 @@ class InputSurface {
         mHeight = getHeight();
     }
 
+    @Override
     public void updateSize(int width, int height) {
         if (width != mWidth || height != mHeight) {
             Log.d(TAG, "re-create EGLSurface");
@@ -140,6 +141,7 @@ class InputSurface {
      * Discard all resources held by this class, notably the EGL context.  Also releases the
      * Surface that was passed to our constructor.
      */
+    @Override
     public void release() {
         if (mEGLDisplay != EGL14.EGL_NO_DISPLAY) {
             EGL14.eglDestroySurface(mEGLDisplay, mEGLSurface);
@@ -160,6 +162,7 @@ class InputSurface {
     /**
      * Makes our EGL context and surface current.
      */
+    @Override
     public void makeCurrent() {
         if (!EGL14.eglMakeCurrent(mEGLDisplay, mEGLSurface, mEGLSurface, mEGLContext)) {
             throw new RuntimeException("eglMakeCurrent failed");
@@ -176,6 +179,7 @@ class InputSurface {
     /**
      * Calls eglSwapBuffers.  Use this to "publish" the current frame.
      */
+    @Override
     public boolean swapBuffers() {
         return EGL14.eglSwapBuffers(mEGLDisplay, mEGLSurface);
     }
@@ -208,6 +212,7 @@ class InputSurface {
     /**
      * Sends the presentation time stamp to EGL.  Time is expressed in nanoseconds.
      */
+    @Override
     public void setPresentationTime(long nsecs) {
         EGLExt.eglPresentationTimeANDROID(mEGLDisplay, mEGLSurface, nsecs);
     }
@@ -221,4 +226,15 @@ class InputSurface {
             throw new RuntimeException(msg + ": EGL error: 0x" + Integer.toHexString(error));
         }
     }
+
+    @Override
+    public void configure(MediaCodec codec) {
+        codec.setInputSurface(mSurface);
+    }
+
+    @Override
+    public void configure(NdkMediaCodec codec) {
+        codec.setInputSurface(mSurface);
+    }
+
 }

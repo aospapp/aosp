@@ -16,27 +16,23 @@
 
 package com.android.notification.functional;
 
-import android.app.AlarmManager;
 import android.app.Instrumentation;
 import android.app.IntentService;
 import android.app.KeyguardManager;
 import android.app.Notification;
-import android.app.Notification.Builder;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.RemoteInput;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.RemoteException;
-import android.os.SystemClock;
 import android.provider.Settings;
 import android.service.notification.StatusBarNotification;
 import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
@@ -57,14 +53,18 @@ import java.lang.InterruptedException;
 import java.util.List;
 import java.util.Map;
 
+
 public class NotificationHelper {
 
     private static final String LOG_TAG = NotificationHelper.class.getSimpleName();
-    private static final int LONG_TIMEOUT = 2000;
+    private static final int LONG_TIMEOUT = 2500;
     private static final int SHORT_TIMEOUT = 200;
     private static final String KEY_QUICK_REPLY_TEXT = "quick_reply";
     private static final UiSelector LIST_VIEW = new UiSelector().className(ListView.class);
     private static final UiSelector LIST_ITEM_VALUE = new UiSelector().className(TextView.class);
+    public static final String FIRST_ACTION = "FIRST ACTION";
+    public static final String SECOND_ACTION = "SECOND ACTION";
+    public static final String CONTENT_TITLE = "THIS IS A NOTIFICATION";
 
     private UiDevice mDevice;
     private Instrumentation mInst;
@@ -107,7 +107,11 @@ public class NotificationHelper {
                 mDevice.pressEnter();
             }
             new UiObject(new UiSelector().text("PIN")).click();
-            clickText("No thanks");
+            // If there's an option to set 'require PIN to start device'
+            // choose 'No thanks', otherwise just skip ahead.
+            if (new UiObject(new UiSelector().text("No thanks")).exists()) {
+                clickText("No thanks");
+            }
             UiObject pinField = new UiObject(new UiSelector().className(EditText.class.getName()));
             pinField.setText(String.format("%04d", pin));
             mDevice.pressEnter();
@@ -164,32 +168,52 @@ public class NotificationHelper {
     }
 
     public void sendNotification(int id, int visibility, String title) throws Exception {
+        sendNotification(id, visibility, title, false);
+    }
+
+    public void sendNotification(int id, int visibility, String title, boolean buzz)
+            throws Exception {
         Log.v(LOG_TAG, "Sending out notification...");
+        PendingIntent emptyIntent = PendingIntent.getBroadcast(mContext, 0,
+                new Intent("an.action.that.nobody.will.be.listening.for"), 0);
         Intent intent = new Intent(Intent.ACTION_VIEW);
         PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
         CharSequence subtitle = String.valueOf(System.currentTimeMillis());
-        Notification notification = new Notification.Builder(mContext)
+        Notification.Builder notification = new Notification.Builder(mContext)
                 .setSmallIcon(R.drawable.stat_notify_email)
-                .setWhen(System.currentTimeMillis()).setContentTitle(title).setContentText(subtitle)
-                .setContentIntent(pendingIntent).setVisibility(visibility)
+                .setWhen(System.currentTimeMillis())
+                .setContentTitle(title)
+                .setContentText(subtitle)
+                .setContentIntent(pendingIntent)
+                .setVisibility(visibility)
                 .setPriority(Notification.PRIORITY_HIGH)
-                .build();
-        mNotificationManager.notify(id, notification);
+                .addAction(new Notification.Action.Builder(R.drawable.stat_notify_email,
+                        FIRST_ACTION, emptyIntent)
+                        .build())
+                .addAction(new Notification.Action.Builder(R.drawable.stat_notify_email,
+                        SECOND_ACTION, emptyIntent)
+                        .build())
+                .setAutoCancel(false);
+        if (buzz) {
+            notification.setDefaults(Notification.DEFAULT_VIBRATE);
+        }
+        mNotificationManager.notify(id, notification.build());
         Thread.sleep(LONG_TIMEOUT);
     }
 
-    public void sendNotifications(Map<Integer, String> lists) throws Exception {
+    public void sendNotifications(Map<Integer, String> lists, boolean withDelay) throws Exception {
         Log.v(LOG_TAG, "Sending out notification...");
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
         CharSequence subtitle = String.valueOf(System.currentTimeMillis());
         for (Map.Entry<Integer, String> l : lists.entrySet()) {
-            Notification notification = new Notification.Builder(mContext)
+            Notification.Builder notification = new Notification.Builder(mContext)
                     .setSmallIcon(R.drawable.stat_notify_email)
                     .setWhen(System.currentTimeMillis()).setContentTitle(l.getValue())
-                    .setContentText(subtitle)
-                    .build();
-            mNotificationManager.notify(l.getKey(), notification);
+                    .setContentTitle(CONTENT_TITLE)
+                    .setContentText(subtitle);
+            mNotificationManager.notify(l.getKey(), notification.build());
+            if (withDelay) {
+                Thread.sleep(SHORT_TIMEOUT);
+            }
         }
         Thread.sleep(LONG_TIMEOUT);
     }
@@ -259,7 +283,7 @@ public class NotificationHelper {
     }
 
     public void swipeUp() throws Exception {
-        mDevice.swipe(mDevice.getDisplayWidth() / 2, mDevice.getDisplayHeight(),
+        mDevice.swipe(mDevice.getDisplayWidth() / 2, mDevice.getDisplayHeight()*3/4,
                 mDevice.getDisplayWidth() / 2, 0, 30);
         Thread.sleep(SHORT_TIMEOUT);
     }
@@ -279,15 +303,11 @@ public class NotificationHelper {
         }
     }
 
-    public void showInstalledAppDetails(Context context, String packageName) throws Exception {
-        Intent intent = new Intent();
+    public void showAppNotificationSettings(Context context) throws Exception {
+        Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        Uri uri = Uri.fromParts("package", packageName, null);
-        intent.setData(uri);
-        intent.setClassName("com.android.settings",
-                "com.android.settings.Settings$AppNotificationSettingsActivity");
-        intent.putExtra("app_package", mContext.getPackageName());
-        intent.putExtra("app_uid", mContext.getApplicationInfo().uid);
+        intent.putExtra(Settings.EXTRA_APP_PACKAGE, mContext.getPackageName());
+        intent.putExtra(Settings.EXTRA_APP_UID, mContext.getApplicationInfo().uid);
         context.startActivity(intent);
         Thread.sleep(LONG_TIMEOUT * 2);
     }
@@ -335,6 +355,10 @@ public class NotificationHelper {
                     .setDefaults(Notification.DEFAULT_VIBRATE);
         }
         mNotificationManager.notify(notificationId, n.build());
+    }
+
+    public NotificationChannel getDefaultChannel() {
+        return mNotificationManager.getNotificationChannel(NotificationChannel.DEFAULT_CHANNEL_ID);
     }
 
     public static class ToastService extends IntentService {

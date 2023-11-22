@@ -19,28 +19,23 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import com.android.bluetooth.map.BluetoothMapAccountItem;
-import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
-
-
-
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.RemoteException;
-import com.android.bluetooth.mapapi.BluetoothMapContract;
 import android.text.format.DateUtils;
 import android.util.Log;
 
+import com.android.bluetooth.map.BluetoothMapAccountItem;
+import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
+import com.android.bluetooth.mapapi.BluetoothMapContract;
 
 public class BluetoothMapAccountLoader {
     private static final String TAG = "BluetoothMapAccountLoader";

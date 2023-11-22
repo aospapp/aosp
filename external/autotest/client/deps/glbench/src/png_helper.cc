@@ -10,7 +10,6 @@
 #include <stdio.h>
 
 #include <base/files/file_util.h>
-#include <base/memory/scoped_ptr.h>
 #include <gflags/gflags.h>
 
 #include "png_helper.h"

@@ -20,7 +20,6 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.retryUntil;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.setDefaultLauncher;
 
-import android.app.ActivityOptions;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -28,8 +27,6 @@ import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import org.junit.internal.runners.statements.ExpectException;
 
 import java.util.List;
 
@@ -45,14 +42,16 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
     }
 
     private List<Intent> launchShortcutAndGetIntents(Context launcher, Context client,
-            String id, int expectedNumIntents) {
-        return launchShortcutAndGetIntents(launcher, client, id, expectedNumIntents, null, null);
+            String id, int expectedNumIntents, String[] expectedActions) {
+        return launchShortcutAndGetIntents(launcher, client, id, expectedNumIntents, null, null,
+                expectedActions);
     }
 
     private List<Intent> launchShortcutAndGetIntents(Context launcher, Context client,
-            String id, int expectedNumIntents, Rect rect, Bundle options) {
+            String id, int expectedNumIntents, Rect rect, Bundle options,
+            String[] expectedActions) {
 
-        ShortcutLaunchedActivity.clearIntents();
+        ShortcutLaunchedActivity.setExpectedOrder(expectedActions);
 
         runWithCaller(launcher, () -> {
             getLauncherApps().startShortcut(client.getPackageName(), id, rect, options,
@@ -65,8 +64,10 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         return ShortcutLaunchedActivity.getIntents();
     }
 
-    private void assertShortcutStarts(Context launcher, Context client, String id) {
-        final List<Intent> launched = launchShortcutAndGetIntents(launcher, client, id, 1);
+    private void assertShortcutStarts(Context launcher, Context client, String id,
+            String[] expectedActions) {
+        final List<Intent> launched = launchShortcutAndGetIntents(launcher, client, id, 1,
+                expectedActions);
         assertTrue(launched.size() > 0);
     }
 
@@ -80,6 +81,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
             });
         });
     }
+
+    private static final String[] EXPECTED_ACTIONS_SINGLE = new String[]{Intent.ACTION_MAIN};
+    private static final String[] EXPECTED_ACTIONS_MULTI = new String[]{"a3", "a2", "a1"};
 
     /**
      * Start a single activity.
@@ -100,7 +104,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         });
 
         List<Intent> launched = launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
-                "s1", 1);
+                "s1", 1, EXPECTED_ACTIONS_SINGLE);
         assertEquals(1, launched.size());
         assertEquals(Intent.ACTION_MAIN, launched.get(0).getAction());
         assertTrue((launched.get(0).getFlags() & Intent.FLAG_ACTIVITY_NO_ANIMATION) != 0);
@@ -132,7 +136,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         });
 
         List<Intent> launched = launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
-                "s1", 3);
+                "s1", 3, EXPECTED_ACTIONS_MULTI);
         assertEquals(3, launched.size());
 
         Intent i = launched.get(2);
@@ -164,7 +168,8 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         setDefaultLauncher(getInstrumentation(), mLauncherContext2);
 
         // L2 can start it.
-        assertShortcutStarts(mLauncherContext2, mPackageContext1, "s1");
+        assertShortcutStarts(mLauncherContext2, mPackageContext1, "s1",
+                EXPECTED_ACTIONS_SINGLE);
 
         // L1 no longer can start it.
         assertShortcutCantStart(mLauncherContext1, mPackageContext1, "s1",
@@ -225,7 +230,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         });
 
         // Should still be launchable.
-        assertShortcutStarts(mLauncherContext1, mPackageContext1, "s1");
+        assertShortcutStarts(mLauncherContext1, mPackageContext1, "s1", EXPECTED_ACTIONS_SINGLE);
     }
 
     public void testPinnedShortcut_differentLauncher() {
@@ -249,7 +254,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         setDefaultLauncher(getInstrumentation(), mLauncherContext2);
 
         // L2 can now launch it.
-        assertShortcutStarts(mLauncherContext2, mPackageContext1, "s1");
+        assertShortcutStarts(mLauncherContext2, mPackageContext1, "s1", EXPECTED_ACTIONS_SINGLE);
 
         // Then remove it.
         runWithCaller(mPackageContext1, () -> {
@@ -261,14 +266,14 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
                 ActivityNotFoundException.class);
 
         // But launcher 1 can still launch it too, because it's pinned by this launcher.
-        assertShortcutStarts(mLauncherContext1, mPackageContext1, "s1");
+        assertShortcutStarts(mLauncherContext1, mPackageContext1, "s1", EXPECTED_ACTIONS_SINGLE);
     }
 
     public void testStartSingleWithOptions() {
         testStartSingle();
 
         List<Intent> launched = launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
-                "s1", 1, new Rect(1, 1, 2, 2), new Bundle());
+                "s1", 1, new Rect(1, 1, 2, 2), new Bundle(), EXPECTED_ACTIONS_SINGLE);
 
         Intent i = launched.get(0);
         assertEquals(1, i.getSourceBounds().left);
@@ -280,7 +285,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         testStartMultiple();
 
         List<Intent> launched = launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
-                "s1", 3, new Rect(1, 1, 2, 2), new Bundle());
+                "s1", 3, new Rect(1, 1, 2, 2), new Bundle(), EXPECTED_ACTIONS_MULTI);
 
         Intent i = launched.get(2);
         assertEquals(1, i.getSourceBounds().left);
@@ -309,7 +314,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         assertExpectException(
                 ActivityNotFoundException.class, "Shortcut could not be started", () -> {
             launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
-                    "s1", 1);
+                    "s1", 1, new String[0]);
         });
     }
 
@@ -334,7 +339,7 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
         assertExpectException(
                 ActivityNotFoundException.class, "Shortcut could not be started", () -> {
                     launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
-                            "s1", 1);
+                            "s1", 1, new String[0]);
                 });
     }
 }

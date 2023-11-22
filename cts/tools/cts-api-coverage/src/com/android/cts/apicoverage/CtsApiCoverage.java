@@ -16,6 +16,19 @@
 
 package com.android.cts.apicoverage;
 
+import com.android.compatibility.common.util.CddTest;
+
+import org.jf.dexlib2.DexFileFactory;
+import org.jf.dexlib2.DexFileFactory.DexFileNotFound;
+import org.jf.dexlib2.DexFileFactory.MultipleDexFilesException;
+import org.jf.dexlib2.Opcodes;
+import org.jf.dexlib2.iface.Annotation;
+import org.jf.dexlib2.iface.AnnotationElement;
+import org.jf.dexlib2.iface.ClassDef;
+import org.jf.dexlib2.iface.DexFile;
+import org.jf.dexlib2.iface.Method;
+import org.jf.dexlib2.iface.value.StringEncodedValue;
+
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
@@ -29,7 +42,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import javax.xml.transform.TransformerException;
 
@@ -52,6 +67,10 @@ public class CtsApiCoverage {
 
     private static final int FORMAT_HTML = 2;
 
+    private static final String CDD_REQUIREMENT_ANNOTATION = "Lcom/android/compatibility/common/util/CddTest;";
+
+    private static final String CDD_REQUIREMENT_ELEMENT_NAME = "requirement";
+
     private static void printUsage() {
         System.out.println("Usage: cts-api-coverage [OPTION]... [APK]...");
         System.out.println();
@@ -70,6 +89,7 @@ public class CtsApiCoverage {
         System.out.println("  -a PATH                path to the API XML file");
         System.out.println("  -p PACKAGENAMEPREFIX   report coverage only for package that start with");
         System.out.println("  -t TITLE               report title");
+        System.out.println("  -a API                 the Android API Level");
         System.out.println();
         System.exit(1);
     }
@@ -82,6 +102,7 @@ public class CtsApiCoverage {
         String apiXmlPath = "";
         PackageFilter packageFilter = new PackageFilter();
         String reportTitle = "CTS API Coverage";
+        int apiLevel = Integer.MAX_VALUE;
 
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("-")) {
@@ -106,6 +127,8 @@ public class CtsApiCoverage {
                     packageFilter.addPrefixToFilter(getExpectedArg(args, ++i));
                 } else if ("-t".equals(args[i])) {
                     reportTitle = getExpectedArg(args, ++i);
+                } else if ("-a".equals(args[i])) {
+                    apiLevel = Integer.parseInt(getExpectedArg(args, ++i));
                 } else {
                     printUsage();
                 }
@@ -131,12 +154,16 @@ public class CtsApiCoverage {
          */
 
         ApiCoverage apiCoverage = getEmptyApiCoverage(apiXmlPath);
+        CddCoverage cddCoverage = getEmptyCddCoverage();
         // Add superclass information into api coverage.
         apiCoverage.resolveSuperClasses();
         for (File testApk : testApks) {
             addApiCoverage(apiCoverage, testApk, dexDeps);
+            addCddCoverage(cddCoverage, testApk, apiLevel);
         }
-        outputCoverageReport(apiCoverage, testApks, outputFile, format, packageFilter, reportTitle);
+
+        outputCoverageReport(apiCoverage, cddCoverage, testApks, outputFile,
+            format, packageFilter, reportTitle);
     }
 
     /** Get the argument or print out the usage and exit. */
@@ -202,8 +229,106 @@ public class CtsApiCoverage {
         }
     }
 
-    private static void outputCoverageReport(ApiCoverage apiCoverage, List<File> testApks,
-            File outputFile, int format, PackageFilter packageFilter, String reportTitle)
+    private static void addCddCoverage(CddCoverage cddCoverage, File testSource, int api)
+            throws IOException {
+
+        if (testSource.getName().endsWith(".apk")) {
+            addCddApkCoverage(cddCoverage, testSource, api);
+        } else if (testSource.getName().endsWith(".jar")) {
+            addCddJarCoverage(cddCoverage, testSource);
+        } else {
+            System.err.println("Unsupported file type for CDD coverage: " + testSource.getPath());
+        }
+    }
+
+    private static void addCddJarCoverage(CddCoverage cddCoverage, File testSource)
+            throws IOException {
+
+        Collection<Class<?>> classes = JarTestFinder.getClasses(testSource);
+        for (Class<?> c : classes) {
+            for (java.lang.reflect.Method m : c.getMethods()) {
+                if (m.isAnnotationPresent(CddTest.class)) {
+                    CddTest cddTest = m.getAnnotation(CddTest.class);
+                    CddCoverage.TestMethod testMethod =
+                            new CddCoverage.TestMethod(
+                                    testSource.getName(), c.getName(), m.getName());
+                    cddCoverage.addCoverage(cddTest.requirement(), testMethod);
+                }
+            }
+        }
+    }
+
+    private static void addCddApkCoverage(
+        CddCoverage cddCoverage, File testSource, int api)
+            throws IOException {
+
+        DexFile dexFile = null;
+        try {
+            dexFile = DexFileFactory.loadDexFile(
+                testSource, null /*dexEntry*/, Opcodes.forApi(api));
+        } catch (IOException | DexFileFactory.DexFileNotFound e) {
+            System.err.println("Unable to load dex file: " + testSource.getPath());
+            return;
+        }
+
+        String moduleName = testSource.getName();
+        for (ClassDef classDef : dexFile.getClasses()) {
+            String className = classDef.getType();
+            handleAnnotations(
+                cddCoverage, moduleName, className, null /*methodName*/,
+                classDef.getAnnotations());
+
+            for (Method method : classDef.getMethods()) {
+                String methodName = method.getName();
+                handleAnnotations(
+                    cddCoverage, moduleName, className, methodName, method.getAnnotations());
+            }
+        }
+    }
+
+    private static void handleAnnotations(
+            CddCoverage cddCoverage, String moduleName, String className,
+                    String methodName, Set<? extends Annotation> annotations) {
+        for (Annotation annotation : annotations) {
+            if (annotation.getType().equals(CDD_REQUIREMENT_ANNOTATION)) {
+                for (AnnotationElement annotationElement : annotation.getElements()) {
+                    if (annotationElement.getName().equals(CDD_REQUIREMENT_ELEMENT_NAME)) {
+                        String cddRequirement =
+                                ((StringEncodedValue) annotationElement.getValue()).getValue();
+                        CddCoverage.TestMethod testMethod =
+                                new CddCoverage.TestMethod(
+                                        moduleName, dexToJavaName(className), methodName);
+                        cddCoverage.addCoverage(cddRequirement, testMethod);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Given a string like Landroid/app/cts/DownloadManagerTest;
+     * return android.app.cts.DownloadManagerTest.
+     */
+    private static String dexToJavaName(String dexName) {
+        if (!dexName.startsWith("L") || !dexName.endsWith(";")) {
+            return dexName;
+        }
+        dexName = dexName.replace('/', '.');
+        if (dexName.length() > 2) {
+            dexName = dexName.substring(1, dexName.length() - 1);
+        }
+        return dexName;
+    }
+
+    private static CddCoverage getEmptyCddCoverage() {
+        CddCoverage cddCoverage = new CddCoverage();
+        // TODO(nicksauer): Read in the valid list of requirements
+        return cddCoverage;
+    }
+
+    private static void outputCoverageReport(ApiCoverage apiCoverage, CddCoverage cddCoverage,
+            List<File> testApks, File outputFile, int format, PackageFilter packageFilter,
+            String reportTitle)
                 throws IOException, TransformerException, InterruptedException {
 
         OutputStream out = outputFile != null
@@ -213,15 +338,17 @@ public class CtsApiCoverage {
         try {
             switch (format) {
                 case FORMAT_TXT:
-                    TextReport.printTextReport(apiCoverage, packageFilter, out);
+                    TextReport.printTextReport(apiCoverage, cddCoverage, packageFilter, out);
                     break;
 
                 case FORMAT_XML:
-                    XmlReport.printXmlReport(testApks, apiCoverage, packageFilter, reportTitle, out);
+                    XmlReport.printXmlReport(testApks, apiCoverage, cddCoverage,
+                        packageFilter, reportTitle, out);
                     break;
 
                 case FORMAT_HTML:
-                    HtmlReport.printHtmlReport(testApks, apiCoverage, packageFilter, reportTitle, out);
+                    HtmlReport.printHtmlReport(testApks, apiCoverage, cddCoverage,
+                        packageFilter, reportTitle, out);
                     break;
             }
         } finally {

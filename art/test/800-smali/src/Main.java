@@ -174,12 +174,14 @@ public class Main {
         testCases.add(new TestCase("b/27799205 (5)", "B27799205Helper", "run5", null,
                 new VerifyError(), null));
         testCases.add(new TestCase("b/27799205 (6)", "B27799205Helper", "run6", null, null, null));
-        testCases.add(new TestCase("b/28187158", "B28187158", "run", new Object[] { null} ,
+        testCases.add(new TestCase("b/28187158", "B28187158", "run", new Object[] { null },
                 new VerifyError(), null));
         testCases.add(new TestCase("b/29778499 (1)", "B29778499_1", "run", null,
                 new IncompatibleClassChangeError(), null));
         testCases.add(new TestCase("b/29778499 (2)", "B29778499_2", "run", null,
                 new IncompatibleClassChangeError(), null));
+        testCases.add(new TestCase("b/30458218", "B30458218", "run", null, null, null));
+        testCases.add(new TestCase("b/31313170", "B31313170", "run", null, null, 0));
     }
 
     public void runTests() {
@@ -227,7 +229,7 @@ public class Main {
                                                             tc.testName);
                 } else if (tc.expectedReturn == null && retValue != null) {
                     errorReturn = new IllegalStateException("Expected a null result in test " +
-                                                            tc.testName);
+                                                            tc.testName + " got " + retValue);
                 } else if (tc.expectedReturn != null &&
                            (retValue == null || !tc.expectedReturn.equals(retValue))) {
                     errorReturn = new IllegalStateException("Expected return " +

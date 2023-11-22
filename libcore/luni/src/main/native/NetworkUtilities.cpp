@@ -140,8 +140,12 @@ static bool inetAddressToSockaddr(JNIEnv* env, jobject inetAddress, int port, so
         jbyte* dst = reinterpret_cast<jbyte*>(&sin6.sin6_addr.s6_addr);
         env->GetByteArrayRegion(addressBytes.get(), 0, 16, dst);
         // ...and set the scope id...
-        static jfieldID scopeFid = env->GetFieldID(JniConstants::inet6AddressClass, "scope_id", "I");
-        sin6.sin6_scope_id = env->GetIntField(inetAddress, scopeFid);
+        static jfieldID holder6Fid = env->GetFieldID(JniConstants::inet6AddressClass,
+                                                     "holder6",
+                                                     "Ljava/net/Inet6Address$Inet6AddressHolder;");
+        ScopedLocalRef<jobject> holder6(env, env->GetObjectField(inetAddress, holder6Fid));
+        static jfieldID scopeFid = env->GetFieldID(JniConstants::inet6AddressHolderClass, "scope_id", "I");
+        sin6.sin6_scope_id = env->GetIntField(holder6.get(), scopeFid);
         sa_len = sizeof(sockaddr_in6);
         return true;
     }

@@ -17,77 +17,91 @@
 package android.support.car.hardware;
 
 import android.Manifest;
-import android.os.Looper;
+import android.support.annotation.IntDef;
 import android.support.annotation.RequiresPermission;
 import android.support.car.Car;
 import android.support.car.CarManagerBase;
 import android.support.car.CarNotConnectedException;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /**
- *  API for monitoring car sensor data.
+ *  Enables applications to monitor car sensor data. Applications register listeners to this
+ *  manager to subscribe to individual sensor streams using the SENSOR_TYPE_* constants as the
+ *  keys. Data points are returned as {@link CarSensorEvent} objects that have translations for
+ *  many built-in data types. For vendor extension streams, interpret data based on
+ *  vendor-provided documentation.
  */
 public abstract class CarSensorManager implements CarManagerBase {
     /**
-     * SENSOR_TYPE_* represents type of sensor supported from the connected car. This sensor
-     * represents the direction of the car as an angle in degree measured clockwise with 0 degree
-     * pointing to north. Sensor data in {@link CarSensorEvent} is a float (floatValues[0]).
+     * Represent the direction of the car as an angle in degrees measured clockwise with 0 degree
+     * pointing North. Sensor data in {@link CarSensorEvent} is a float (floatValues[0]).
      */
     public static final int SENSOR_TYPE_COMPASS = 1;
     /**
-     * This sensor represents vehicle speed in m/s. Sensor data in {@link CarSensorEvent} is a float
-     * which will be >= 0. This requires {@link Car#PERMISSION_SPEED} permission.
+     * Represent vehicle speed in meters per second (m/s). Sensor data in
+     * {@link CarSensorEvent} is a float >= 0. Requires {@link Car#PERMISSION_SPEED} permission.
+     * @hide
      */
     public static final int SENSOR_TYPE_CAR_SPEED = 2;
     /**
-     * Represents engine RPM of the car. Sensor data in {@link CarSensorEvent} is a float.
+     * Represent the engine RPM of the car. Sensor data in {@link CarSensorEvent} is a float.
+     * @hide
      */
     public static final int SENSOR_TYPE_RPM = 3;
     /**
-     * Total travel distance of the car in Kilometer. Sensor data is a float. This requires {@link
-     * Car#PERMISSION_MILEAGE} permission.
+     * Represent the total travel distance of the car in kilometers. Sensor data is a float.
+     * Requires {@link Car#PERMISSION_MILEAGE} permission.
+     * @hide
      */
     public static final int SENSOR_TYPE_ODOMETER = 4;
     /**
-     * Indicates fuel level of the car. In {@link CarSensorEvent}, floatValues[{@link
+     * Represent the fuel level of the car. In {@link CarSensorEvent}, floatValues[{@link
      * CarSensorEvent#INDEX_FUEL_LEVEL_IN_PERCENTILE}] represents fuel level in percentile (0 to
      * 100) while floatValues[{@link CarSensorEvent#INDEX_FUEL_LEVEL_IN_DISTANCE}] represents
-     * estimated range in Kilometer with the remaining fuel. Note that the gas mileage used for the
-     * estimation may not represent the current driving condition. This requires {@link
+     * estimated range in kilometers with the remaining fuel. The gas mileage used for the
+     * estimation may not represent the current driving condition. Requires {@link
      * Car#PERMISSION_FUEL} permission.
+     * @hide
      */
     public static final int SENSOR_TYPE_FUEL_LEVEL = 5;
     /**
-     * Represents the current status of parking brake. Sensor data in {@link CarSensorEvent} is an
-     * intValues[0]. Value of 1 represents parking brake applied while 0 means the other way around.
-     * For this sensor, rate in {@link #registerListener(CarSensorEventListener, int, int)} will be
-     * ignored and all changes will be notified.
+     * Represent the current status of parking brake. Sensor data in {@link CarSensorEvent} is in
+     * intValues[0]. A value of 1 indicates the parking brake is engaged; a value of 0 indicates
+     * the parking brake is not engaged.
+     * For this sensor, rate in {@link #addListener(OnSensorChangedListener, int, int)} is
+     * ignored and all changes are notified.
      */
     public static final int SENSOR_TYPE_PARKING_BRAKE = 6;
     /**
-     * This represents the current position of transmission gear. Sensor data in {@link
-     * CarSensorEvent} is an intValues[0]. For the meaning of the value, check {@link
+     * Represent the current position of transmission gear. Sensor data in {@link
+     * CarSensorEvent} is in intValues[0]. For the meaning of the value, check {@link
      * CarSensorEvent#GEAR_NEUTRAL} and other GEAR_*.
+     * @hide
      */
     public static final int SENSOR_TYPE_GEAR = 7;
 
-    /**@hide*/
+    /** @hide */
     public static final int SENSOR_TYPE_RESERVED8 = 8;
 
     /**
-     * Day/night sensor. Sensor data is intValues[0].
+     * Represent the current status of the day/night sensor. Sensor data is in intValues[0].
      */
     public static final int SENSOR_TYPE_NIGHT = 9;
     /**
-     * Sensor type for location. Sensor data passed in floatValues.
+     * Represent the location. Sensor data is floatValues.
+     * @hide
      */
     public static final int SENSOR_TYPE_LOCATION = 10;
     /**
-     * Represents the current driving status of car. Different user interaction should be used
-     * depending on the current driving status. Driving status is intValues[0].
+     * Represent the current driving status of car. Different user interactions should be used
+     * depending on the current driving status. Driving status is in intValues[0].
      */
     public static final int SENSOR_TYPE_DRIVING_STATUS = 11;
     /**
-     * Environment like temperature and pressure.
+     * Environment (such as temperature and pressure).
+     * @hide
      */
     public static final int SENSOR_TYPE_ENVIRONMENT = 12;
     /** @hide */
@@ -108,125 +122,141 @@ public abstract class CarSensorManager implements CarManagerBase {
     public static final int SENSOR_TYPE_RESERVED20 = 20;
     /** @hide */
     public static final int SENSOR_TYPE_RESERVED21 = 21;
-
-    /**
-     * Sensor type bigger than this is invalid. Always update this after adding a new sensor.
-     */
-    private static final int SENSOR_TYPE_MAX = SENSOR_TYPE_RESERVED21;
+    /** @hide */
+    public static final int SENSOR_TYPE_RESERVED22 = 22;
 
     /**
      * Sensors defined in this range [{@link #SENSOR_TYPE_VENDOR_EXTENSION_START},
-     * {@link #SENSOR_TYPE_VENDOR_EXTENSION_END}] is for each car vendor's to use.
-     * This should be only used for system app to access sensors not defined as standard types.
-     * So the sensor supproted in this range can vary depending on car models / manufacturers.
-     * 3rd party apps should not use sensors in this range as they are not compatible across
-     * different cars. Additionally 3rd party apps trying to access sensor in this range will get
-     * security exception as their access is restricted to system apps.
+     * {@link #SENSOR_TYPE_VENDOR_EXTENSION_END}] are for vendors and should be used only
+     * by the system app to access sensors not defined as standard types.
+     * Sensors supported in this range can vary depending on car models/manufacturers.
+     * Third-party apps should not use sensors in this range as they are not compatible across
+     * all cars; third-party apps that attempt to access a sensor in this range trigger a
+     * security exception (as access is restricted to system apps).
      *
      * @hide
      */
     public static final int SENSOR_TYPE_VENDOR_EXTENSION_START = 0x60000000;
+    /** @hide */
     public static final int SENSOR_TYPE_VENDOR_EXTENSION_END   = 0x6fffffff;
 
-    /** Read sensor in default normal rate set for each sensors. This is default rate. */
+    /** @hide */
+    @IntDef({
+        SENSOR_TYPE_COMPASS,
+        SENSOR_TYPE_CAR_SPEED,
+        SENSOR_TYPE_RPM,
+        SENSOR_TYPE_ODOMETER,
+        SENSOR_TYPE_FUEL_LEVEL,
+        SENSOR_TYPE_PARKING_BRAKE,
+        SENSOR_TYPE_GEAR,
+        SENSOR_TYPE_NIGHT,
+        SENSOR_TYPE_LOCATION,
+        SENSOR_TYPE_DRIVING_STATUS,
+        SENSOR_TYPE_ENVIRONMENT,
+        SENSOR_TYPE_ACCELEROMETER,
+        SENSOR_TYPE_GPS_SATELLITE,
+        SENSOR_TYPE_GYROSCOPE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface SensorType {}
+
+    /** Read sensor at the default normal rate set for each sensors. This is default rate. */
     public static final int SENSOR_RATE_NORMAL  = 3;
+    /**@hide*/
     public static final int SENSOR_RATE_UI = 2;
+    /**@hide*/
     public static final int SENSOR_RATE_FAST = 1;
     /** Read sensor at the maximum rate. Actual rate will be different depending on the sensor. */
     public static final int SENSOR_RATE_FASTEST = 0;
+
+    /** @hide */
+    @IntDef({
+        SENSOR_RATE_NORMAL,
+        SENSOR_RATE_UI,
+        SENSOR_RATE_FAST,
+        SENSOR_RATE_FASTEST
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface SensorRate {}
 
     /**
      * Listener for car sensor data change.
      * Callbacks are called in the Looper context.
      */
-    public interface CarSensorEventListener {
+    public interface OnSensorChangedListener {
         /**
-         * Called when there is a new sensor data from car.
+         * Called when there is new sensor data from car.
+         * @param manager The manager the listener is attached to.  Useful if the app wished to
+         * unregister.
          * @param event Incoming sensor event for the given sensor type.
          */
-        void onSensorChanged(final CarSensorEvent event);
+        void onSensorChanged(final CarSensorManager manager, final CarSensorEvent event);
     }
 
     /**
-     * Give the list of CarSensors available in the connected car.
-     * @return array of all sensor types supported.
-     * @throws CarNotConnectedException
+     * Get the list of CarSensors available in the connected car.
+     * @return Array of all sensor types supported.
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
     public abstract int[] getSupportedSensors() throws CarNotConnectedException;
 
     /**
-     * Tells if given sensor is supported or not.
+     * Indicate support for a given sensor.
      * @param sensorType
-     * @return true if the sensor is supported.
-     * @throws CarNotConnectedException
+     * @return Returns {@code true} if the sensor is supported.
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public abstract boolean isSensorSupported(int sensorType) throws CarNotConnectedException;
+    public abstract boolean isSensorSupported(@SensorType int sensorType)
+            throws CarNotConnectedException;
 
     /**
-     * Check if given sensorList is including the sensorType.
-     * @param sensorList
-     * @param sensorType
-     * @return
-     */
-    public static boolean isSensorSupported(int[] sensorList, int sensorType) {
-        for (int sensorSupported: sensorList) {
-            if (sensorType == sensorSupported) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Register {@link CarSensorEventListener} to get repeated sensor updates. Multiple listeners
-     * can be registered for a single sensor or the same listener can be used for different sensors.
-     * If the same listener is registered again for the same sensor, it will be either ignored or
-     * updated depending on the rate.
+     * Register {@link OnSensorChangedListener} to get repeated sensor updates. Can register
+     * multiple listeners for a single sensor or use the same listener for different
+     * sensors. If the same listener is registered again for the same sensor, it is ignored or
+     * updated (depending on the rate).
      * <p>
-     * Requires {@link android.Manifest.permission#ACCESS_FINE_LOCATION} for
-     * {@link #SENSOR_TYPE_LOCATION}, {@link Car#PERMISSION_SPEED} for
-     * {@link #SENSOR_TYPE_CAR_SPEED}, {@link Car#PERMISSION_MILEAGE} for
-     * {@link #SENSOR_TYPE_ODOMETER}, or {@link Car#PERMISSION_FUEL} for
-     * {@link #SENSOR_TYPE_FUEL_LEVEL}.
+     * The {@link OnSensorChangedListener} is the identifier for the request and the same
+     * instance must be passed into {@link #removeListener(OnSensorChangedListener)}.
+     * <p>
      *
-     * @param listener
-     * @param sensorType sensor type to subscribe.
-     * @param rate how fast the sensor events are delivered. It should be one of
-     *        {@link #SENSOR_RATE_FASTEST} or {@link #SENSOR_RATE_NORMAL}. Rate may not be respected
-     *        especially when the same sensor is registered with different listener with different
-     *        rates.
-     * @return if the sensor was successfully enabled.
-     * @throws CarNotConnectedException
-     * @throws IllegalArgumentException for wrong argument like wrong rate
-     * @throws SecurityException if missing the appropriate permission
+     * @param sensorType Sensor type to subscribe.
+     * @param rate How fast sensor events are delivered. Should be one of
+     *        {@link #SENSOR_RATE_FASTEST} or {@link #SENSOR_RATE_NORMAL}. Rate may not be
+     *        respected, especially when the same sensor is registered with a different listener
+     *        and with different rates.
+     * @return Returns {@code true} if the sensor was successfully enabled.
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     * @throws IllegalArgumentException if wrong argument (such as wrong rate).
+     * @throws SecurityException if missing the appropriate permission.
      */
     @RequiresPermission(anyOf={Manifest.permission.ACCESS_FINE_LOCATION, Car.PERMISSION_SPEED,
             Car.PERMISSION_MILEAGE, Car.PERMISSION_FUEL}, conditional=true)
-    public abstract boolean registerListener(CarSensorEventListener listener, int sensorType,
-            int rate) throws CarNotConnectedException, IllegalArgumentException;
+    public abstract boolean addListener(OnSensorChangedListener listener,
+            @SensorType int sensorType, @SensorRate int rate)
+                    throws CarNotConnectedException, IllegalArgumentException;
 
     /**
-     * Stop getting sensor update for the given listener. If there are multiple registrations for
-     * this listener, all listening will be stopped.
-     * @param listener
+     * Stop getting sensor updates for the given listener. If there are multiple registrations for
+     * this listener, all listening is stopped.
+     * @param listener The listener to remove.
      */
-    public abstract  void unregisterListener(CarSensorEventListener listener)
-            throws CarNotConnectedException;
+    public abstract  void removeListener(OnSensorChangedListener listener);
 
     /**
-     * Stop getting sensor update for the given listener and sensor. If the same listener is used
-     * for other sensors, those subscriptions will not be affected.
-     * @param listener
-     * @param sensorType
+     * Stop getting sensor updates for the given listener and sensor. If the same listener is used
+     * for other sensors, those subscriptions are not affected.
+     * @param listener The listener to remove.
+     * @param sensorType The type to stop receiving notifications for.
      */
-    public abstract  void unregisterListener(CarSensorEventListener listener, int sensorType)
-            throws CarNotConnectedException;
+    public abstract  void removeListener(OnSensorChangedListener listener,
+            @SensorType int sensorType);
 
     /**
      * Get the most recent CarSensorEvent for the given type.
-     * @param type A sensor to request
-     * @return null if there was no sensor update since connected to the car.
-     * @throws CarNotConnectedException
+     * @param type A sensor to request.
+     * @return null if no sensor update since connection to the car.
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public abstract CarSensorEvent getLatestSensorEvent(int type) throws CarNotConnectedException;
+    public abstract CarSensorEvent getLatestSensorEvent(@SensorType int type)
+            throws CarNotConnectedException;
 }

@@ -91,19 +91,19 @@
 //                             UWORD8 *pu1_dst,
 //                             WORD32 src_strd,
 //                             WORD32 dst_strd,
-//                             UWORD8 u1_dx,
-//                             UWORD8 u1_dy,
+//                             WORD32 u1_dx,
+//                             WORD32 u1_dy,
 //                             WORD32 ht,
 //                             WORD32 wd)
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  u1_dx
-//   x5 =>  u1_dy
-//    x6 =>  height
-//    x7 => width
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  u1_dx
+//    w5 =>  u1_dy
+//    w6 =>  height
+//    w7 =>  width
 //
 .text
 .p2align 2
@@ -120,6 +120,12 @@ ih264_inter_pred_chroma_av8:
     // STMFD sp!, {x4-x12, x14}          //store register values to stack
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x2, w2
+    sxtw      x3, w3
+    sxtw      x4, w4
+    sxtw      x5, w5
+    sxtw      x6, w6
+    sxtw      x7, w7
 
 
 

@@ -5,12 +5,12 @@
 AUTHOR = "cmasone, achuith"
 NAME = "login_CryptohomeIncognito"
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
-JOB_RETRIES = 2
+# TODO(crbug.com/631640): Revert to 2 retries.
+JOB_RETRIES = 5
 
 DOC = """
 This test will fail if guest cryptohome is not mounted when logged in as guest,

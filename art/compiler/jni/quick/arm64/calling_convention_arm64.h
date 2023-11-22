@@ -17,17 +17,21 @@
 #ifndef ART_COMPILER_JNI_QUICK_ARM64_CALLING_CONVENTION_ARM64_H_
 #define ART_COMPILER_JNI_QUICK_ARM64_CALLING_CONVENTION_ARM64_H_
 
+#include "base/enums.h"
 #include "jni/quick/calling_convention.h"
 
 namespace art {
 namespace arm64 {
 
-constexpr size_t kFramePointerSize = 8;
+constexpr size_t kFramePointerSize = static_cast<size_t>(PointerSize::k64);
 
 class Arm64ManagedRuntimeCallingConvention FINAL : public ManagedRuntimeCallingConvention {
  public:
   Arm64ManagedRuntimeCallingConvention(bool is_static, bool is_synchronized, const char* shorty)
-      : ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty, kFramePointerSize) {}
+      : ManagedRuntimeCallingConvention(is_static,
+                                        is_synchronized,
+                                        shorty,
+                                        PointerSize::k64) {}
   ~Arm64ManagedRuntimeCallingConvention() OVERRIDE {}
   // Calling convention
   ManagedRegister ReturnRegister() OVERRIDE;
@@ -48,7 +52,10 @@ class Arm64ManagedRuntimeCallingConvention FINAL : public ManagedRuntimeCallingC
 
 class Arm64JniCallingConvention FINAL : public JniCallingConvention {
  public:
-  Arm64JniCallingConvention(bool is_static, bool is_synchronized, const char* shorty);
+  Arm64JniCallingConvention(bool is_static,
+                            bool is_synchronized,
+                            bool is_critical_native,
+                            const char* shorty);
   ~Arm64JniCallingConvention() OVERRIDE {}
   // Calling convention
   ManagedRegister ReturnRegister() OVERRIDE;
@@ -57,9 +64,7 @@ class Arm64JniCallingConvention FINAL : public JniCallingConvention {
   // JNI calling convention
   size_t FrameSize() OVERRIDE;
   size_t OutArgSize() OVERRIDE;
-  const std::vector<ManagedRegister>& CalleeSaveRegisters() const OVERRIDE {
-    return callee_save_regs_;
-  }
+  ArrayRef<const ManagedRegister> CalleeSaveRegisters() const OVERRIDE;
   ManagedRegister ReturnScratchRegister() const OVERRIDE;
   uint32_t CoreSpillMask() const OVERRIDE;
   uint32_t FpSpillMask() const OVERRIDE;
@@ -77,9 +82,6 @@ class Arm64JniCallingConvention FINAL : public JniCallingConvention {
   size_t NumberOfOutgoingStackArgs() OVERRIDE;
 
  private:
-  // TODO: these values aren't unique and can be shared amongst instances
-  std::vector<ManagedRegister> callee_save_regs_;
-
   DISALLOW_COPY_AND_ASSIGN(Arm64JniCallingConvention);
 };
 

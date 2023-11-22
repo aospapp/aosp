@@ -46,7 +46,8 @@ class NetgearR6200APConfigurator(netgear_WNDR_dual_band_configurator.
         return [{'band': ap_spec.BAND_2GHZ,
                  'modes': [ap_spec.MODE_B, ap_spec.MODE_G, ap_spec.MODE_N]},
                 {'band': ap_spec.BAND_5GHZ,
-                 'modes': [ap_spec.MODE_G, ap_spec.MODE_A, ap_spec.MODE_N]}]
+                 'modes': [ap_spec.MODE_A, ap_spec.MODE_N,
+                           ap_spec.MODE_AC]}]
 
 
     def get_supported_bands(self):
@@ -95,16 +96,16 @@ class NetgearR6200APConfigurator(netgear_WNDR_dual_band_configurator.
                 router_mode = 'Up to 300 Mbps'
         elif self.current_band == ap_spec.BAND_5GHZ:
             xpath = '//select[@name="opmode_an"]'
-            if mode == ap_spec.MODE_G:
+            if mode == ap_spec.MODE_A:
                 router_mode = 'Up to 173 Mbps'
-            elif mode == ap_spec.MODE_A:
-                router_mode = 'Up to 400 Mbps'
             elif mode == ap_spec.MODE_N:
+                router_mode = 'Up to 400 Mbps'
+            elif mode == ap_spec.MODE_AC:
                 router_mode = 'Up to 867 Mbps'
         if not router_mode:
             raise RuntimeError('You selected a mode that is not assigned '
                                'to this router. Select either b, g or n '
-                               'for 2.4Ghz or either g, a or n for 5Ghz.')
+                               'for 2.4Ghz or either a, n, or ac for 5Ghz.')
         self.wait_for_object_by_xpath(xpath, wait_time=10)
         self.select_item_from_popup_by_xpath(router_mode, xpath)
 

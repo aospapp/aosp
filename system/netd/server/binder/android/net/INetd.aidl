@@ -170,4 +170,129 @@ interface INetd {
             int prefixLength);
     void interfaceDelAddress(in @utf8InCpp String ifName, in @utf8InCpp String addrString,
             int prefixLength);
+
+    /**
+     * Set and get /proc/sys/net interface configuration parameters.
+     *
+     * @param family One of IPV4/IPV6 integers, indicating the desired address family directory.
+     * @param which One of CONF/NEIGH integers, indicating the desired parameter category directory.
+     * @param ifname The interface name portion of the path; may also be "all" or "default".
+     * @param parameter The parameter name portion of the path.
+     * @param value The value string to be written into the assembled path.
+     */
+
+    const int IPV4  = 4;
+    const int IPV6  = 6;
+    const int CONF  = 1;
+    const int NEIGH = 2;
+    void setProcSysNet(int family, int which, in @utf8InCpp String ifname,
+            in @utf8InCpp String parameter, in @utf8InCpp String value);
+    // TODO: add corresponding getProcSysNet().
+
+    /**
+     * Get/Set metrics reporting level.
+     *
+     * Reporting level is one of:
+     *     0 (NONE)
+     *     1 (METRICS)
+     *     2 (FULL)
+     */
+    int getMetricsReportingLevel();
+    void setMetricsReportingLevel(int level);
+
+   /**
+    * Reserve an SPI from the kernel
+    *
+    * @param transformId a unique identifier for allocated resources
+    * @param direction DIRECTION_IN or DIRECTION_OUT
+    * @param localAddress InetAddress as string for the local endpoint
+    * @param remoteAddress InetAddress as string for the remote endpoint
+    * @param spi a requested 32-bit unique ID or 0 to request random allocation
+    * @return the SPI that was allocated or 0 if failed
+    */
+    int ipSecAllocateSpi(
+            int transformId,
+            int direction,
+            in @utf8InCpp String localAddress,
+            in @utf8InCpp String remoteAddress,
+            int spi);
+
+   /**
+    * Create an IpSec Security Association describing how ip(v6) traffic will be encrypted
+    * or decrypted.
+    *
+    * @param transformId a unique identifier for allocated resources
+    * @param mode either Transport or Tunnel mode
+    * @param direction DIRECTION_IN or DIRECTION_OUT
+    * @param localAddress InetAddress as string for the local endpoint
+    * @param remoteAddress InetAddress as string for the remote endpoint
+    * @param underlyingNetworkHandle the networkHandle of the network to which the SA is applied
+    * @param spi a 32-bit unique ID allocated to the user
+    * @param authAlgo a string identifying the authentication algorithm to be used
+    * @param authKey a byte array containing the authentication key
+    * @param authTruncBits the truncation length of the MAC produced by the authentication algorithm
+    * @param cryptAlgo a string identifying the encryption algorithm to be used
+    * @param cryptKey a byte arrray containing the encryption key
+    * @param cryptTruncBits unused parameter
+    * @param encapType encapsulation type used (if any) for the udp encap socket
+    * @param encapLocalPort the port number on the host to be used in encap packets
+    * @param encapRemotePort the port number of the remote to be used for encap packets
+    * @return the spi that was used to create this SA (should match the SPI paramter)
+    */
+    int ipSecAddSecurityAssociation(
+            int transformId,
+            int mode,
+            int direction,
+            in @utf8InCpp String localAddress,
+            in @utf8InCpp String remoteAddress,
+            long underlyingNetworkHandle,
+            int spi,
+            in @utf8InCpp String authAlgo, in byte[] authKey, in int authTruncBits,
+            in @utf8InCpp String cryptAlgo, in byte[] cryptKey, in int cryptTruncBits,
+            int encapType,
+            int encapLocalPort,
+            int encapRemotePort);
+
+   /**
+    * Delete a previously created security association identified by the provided parameters
+    *
+    * @param transformId a unique identifier for allocated resources
+    * @param direction DIRECTION_IN or DIRECTION_OUT
+    * @param localAddress InetAddress as string for the local endpoint
+    * @param remoteAddress InetAddress as string for the remote endpoint
+    * @param spi a requested 32-bit unique ID allocated to the user
+    */
+    void ipSecDeleteSecurityAssociation(
+            int transformId,
+            int direction,
+            in @utf8InCpp String localAddress,
+            in @utf8InCpp String remoteAddress,
+            int spi);
+
+   /**
+    * Apply a previously created SA to a specified socket, starting IPsec on that socket
+    *
+    * @param socket a user-provided socket that will have IPsec applied
+    * @param transformId a unique identifier for allocated resources
+    * @param direction DIRECTION_IN or DIRECTION_OUT
+    * @param localAddress InetAddress as string for the local endpoint
+    * @param remoteAddress InetAddress as string for the remote endpoint
+    * @param spi a 32-bit unique ID allocated to the user (socket owner)
+    */
+    void ipSecApplyTransportModeTransform(
+            in FileDescriptor socket,
+            int transformId,
+            int direction,
+            in @utf8InCpp String localAddress,
+            in @utf8InCpp String remoteAddress,
+            int spi);
+
+   /**
+    * Remove an IPsec SA from a given socket. This will allow unencrypted traffic to flow
+    * on that socket if a transform had been previously applied.
+    *
+    * @param socket a user-provided socket from which to remove any IPsec configuration
+    */
+    void ipSecRemoveTransportModeTransform(
+            in FileDescriptor socket);
 }

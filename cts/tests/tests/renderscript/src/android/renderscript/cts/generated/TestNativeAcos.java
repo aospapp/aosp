@@ -37,17 +37,25 @@ public class TestNativeAcos extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeAcosRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkNativeAcosFloatFloat() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x657f3d94l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x7749aa14657f3d94l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeAcosFloatFloat(inV, out);
             verifyResultsNativeAcosFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosFloatFloat(inV, out);
             verifyResultsNativeAcosFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -112,11 +122,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosFloat2Float2() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xd87e02d8l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x92e82297d87e02d8l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testNativeAcosFloat2Float2(inV, out);
             verifyResultsNativeAcosFloat2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloat2Float2: " + e.toString());
         }
@@ -124,9 +135,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosFloat2Float2(inV, out);
             verifyResultsNativeAcosFloat2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloat2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosFloat2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -181,11 +194,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosFloat3Float3() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xce9923b6l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x92e9ebb2ce9923b6l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testNativeAcosFloat3Float3(inV, out);
             verifyResultsNativeAcosFloat3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloat3Float3: " + e.toString());
         }
@@ -193,9 +207,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosFloat3Float3(inV, out);
             verifyResultsNativeAcosFloat3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloat3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosFloat3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -250,11 +266,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosFloat4Float4() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xc4b44494l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x92ebb4cdc4b44494l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testNativeAcosFloat4Float4(inV, out);
             verifyResultsNativeAcosFloat4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloat4Float4: " + e.toString());
         }
@@ -262,9 +279,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosFloat4Float4(inV, out);
             verifyResultsNativeAcosFloat4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosFloat4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosFloat4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -325,11 +344,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosHalfHalf() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xde848e1el, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xb6196d85de848e1el, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeAcosHalfHalf(inV, out);
             verifyResultsNativeAcosHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalfHalf: " + e.toString());
         }
@@ -337,9 +357,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosHalfHalf(inV, out);
             verifyResultsNativeAcosHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -398,11 +420,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosHalf2Half2() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xd29d84d0l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x3da71bc7d29d84d0l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testNativeAcosHalf2Half2(inV, out);
             verifyResultsNativeAcosHalf2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalf2Half2: " + e.toString());
         }
@@ -410,9 +433,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosHalf2Half2(inV, out);
             verifyResultsNativeAcosHalf2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalf2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -471,11 +496,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosHalf3Half3() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x31a549c4l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x3da7266931a549c4l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testNativeAcosHalf3Half3(inV, out);
             verifyResultsNativeAcosHalf3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalf3Half3: " + e.toString());
         }
@@ -483,9 +509,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosHalf3Half3(inV, out);
             verifyResultsNativeAcosHalf3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalf3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -544,11 +572,12 @@ public class TestNativeAcos extends RSBaseCompute {
     }
 
     private void checkNativeAcosHalf4Half4() {
-        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x90ad0eb8l, -1, 1);
+        Allocation inV = createRandomFloatAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x3da7310a90ad0eb8l, -1, 1);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testNativeAcosHalf4Half4(inV, out);
             verifyResultsNativeAcosHalf4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalf4Half4: " + e.toString());
         }
@@ -556,9 +585,11 @@ public class TestNativeAcos extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeAcosHalf4Half4(inV, out);
             verifyResultsNativeAcosHalf4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeAcosHalf4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeAcosHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {

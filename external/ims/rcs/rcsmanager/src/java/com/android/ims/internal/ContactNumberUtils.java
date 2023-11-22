@@ -77,6 +77,13 @@ public class ContactNumberUtils {
             return null;
         }
 
+        if(number.startsWith("*67") || number.startsWith("*82")) {
+            number = number.substring(3);
+            if (TextUtils.isEmpty(number)) {
+                return null;
+            }
+        }
+
         number = PhoneNumberUtils.stripSeparators(number);
 
         int len = number.length();
@@ -95,10 +102,22 @@ public class ContactNumberUtils {
             if (number.startsWith("1")) {
                 number = "+" + number;
             }
-        } else if (len >= NUMBER_LENGTH_NORMAL + 4) {
-            if (number.startsWith("011")) {
+        } else if(len >= NUMBER_LENGTH_NORMAL + 2) {
+            if ((len >= NUMBER_LENGTH_NORMAL + 4) && (number.startsWith("011"))) {
                 number = "+" + number.substring(3);
             }
+
+            if (!number.startsWith("+")) {
+                if (number.startsWith("1")) {
+                    number = "+" + number;;
+                } else {
+                    number = "+1" + number;
+                }
+            }
+        }
+
+        if(number.length() > NUMBER_LENGTH_MAX) {
+            return null;
         }
 
         return number;
@@ -126,6 +145,13 @@ public class ContactNumberUtils {
             return NUMBER_INVALID;
         }
 
+        if(number.startsWith("*67") || number.startsWith("*82")) {
+            number = number.substring(3);
+            if (TextUtils.isEmpty(number)) {
+                return NUMBER_INVALID;
+            }
+        }
+
         if(number.contains("*")) {
             return NUMBER_PRELOADED_ENTRY;
         }
@@ -147,16 +173,15 @@ public class ContactNumberUtils {
         }
 
         int len = number.length();
-        if (len > "+1-nnn-nnn-nnnn".length()) {
-            return NUMBER_INVALID;
-        } else if (len < NUMBER_LENGTH_NO_AREA_CODE) {
+        if (len < NUMBER_LENGTH_NORMAL) {
             return NUMBER_INVALID;
         }
 
         number = format(number);
-        if (number.startsWith("+1")) {
+        if (number.startsWith("+")) {
             len = number.length();
-            if (len == NUMBER_LENGTH_NORMAL + 2) {
+            // make sure the number after stripped the national number still be 10 digits
+            if (len >= NUMBER_LENGTH_NORMAL + 2) {
                 return NUMBER_VALID;
             }
         }
@@ -247,8 +272,12 @@ public class ContactNumberUtils {
     /**
      * Contact number length.
      */
-    private static final int NUMBER_LENGTH_NORMAL = 10;
-    private static final int NUMBER_LENGTH_NO_AREA_CODE = 7;
+    // As per E164 the maximum number length should be 15.
+    // But as per implemention of libphonenumber it found longer length in Germany.
+    // So we use the same length as libphonenumber.
+    private int NUMBER_LENGTH_MAX = 17;
+    private int NUMBER_LENGTH_NORMAL = 10;
+    private int NUMBER_LENGTH_NO_AREA_CODE = 7;
 
     /**
      * Save the singleton instance.

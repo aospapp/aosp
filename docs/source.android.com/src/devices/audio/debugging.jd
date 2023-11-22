@@ -46,30 +46,35 @@ done debugging; the tee sink should not be left enabled in production builds.
 </p>
 
 <p>
-The instructions in the remainder of this section are for Android 5.0,
-and may require changes for other versions.
-</p>
+The instructions in the remainder of this section are for Android 5.x and 6.x.
+For Android 7.x, replace <code>/data/misc/media</code> with
+<code>/data/misc/audioserver</code>.
+Additionally, you must use a userdebug or eng build.
+If you use a userdebug build, then disable verity with:</p>
+<pre>
+<code>$ adb root &amp;&amp; adb disable-verity &amp;&amp; adb reboot</code>
+</pre>
 
 <h3 id="compile">Compile-time setup</h3>
 
 <ol>
-<li><code>cd frameworks/av/services/audioflinger</code></li>
+<li><code>$ cd frameworks/av/services/audioflinger</code></li>
 <li>Edit <code>Configuration.h</code>.</li>
 <li>Uncomment <code>#define TEE_SINK</code>.</li>
 <li>Re-build <code>libaudioflinger.so</code>.</li>
-<li><code>adb root</code></li>
-<li><code>adb remount</code></li>
+<li><code>$ adb root</code></li>
+<li><code>$ adb remount</code></li>
 <li>Push or sync the new <code>libaudioflinger.so</code> to the device's <code>/system/lib</code>.</li>
 </ol>
 
 <h3 id="runtime">Run-time setup</h3>
 
 <ol>
-<li><code>adb shell getprop | grep ro.debuggable</code>
+<li><code>$ adb shell getprop | grep ro.debuggable</code>
 <br />Confirm that the output is: <code>[ro.debuggable]: [1]</code>
 </li>
-<li><code>adb shell</code></li>
-<li><code>ls -ld /data/misc/media</code>
+<li><code>$ adb shell</code></li>
+<li><code>$ ls -ld /data/misc/media</code>
 <br />
 <p>
 Confirm that the output is:
@@ -82,15 +87,15 @@ drwx------ media media ... media
 If the directory does not exist, create it as follows:
 </p>
 <pre>
-mkdir /data/misc/media
-chown media:media /data/misc/media
+$ mkdir /data/misc/media
+$ chown media:media /data/misc/media
 </pre>
 </li>
-<li><code>echo af.tee=# &gt; /data/local.prop</code>
+<li><code>$ echo af.tee=# &gt; /data/local.prop</code>
 <br />Where the <code>af.tee</code> value is a number described below.
 </li>
-<li><code>chmod 644 /data/local.prop</code></li>
-<li><code>reboot</code></li>
+<li><code>$ chmod 644 /data/local.prop</code></li>
+<li><code>$ reboot</code></li>
 </ol>
 
 <h4>Values for <code>af.tee</code> property</h4>
@@ -116,12 +121,12 @@ but you can get similar results using "4."
 
 <ol>
 <li>Run your audio test.</li>
-<li><code>adb shell dumpsys media.audio_flinger</code></li>
+<li><code>$ adb shell dumpsys media.audio_flinger</code></li>
 <li>Look for a line in dumpsys output such as this:<br />
 <code>tee copied to /data/misc/media/20131010101147_2.wav</code>
 <br />This is a PCM .wav file.
 </li>
-<li><code>adb pull</code> any <code>/data/misc/media/*.wav</code> files of interest;
+<li>Then <code>adb pull</code> any <code>/data/misc/media/*.wav</code> files of interest;
 note that track-specific dump filenames do not appear in the dumpsys output,
 but are still saved to <code>/data/misc/media</code> upon track closure.
 </li>
@@ -133,7 +138,7 @@ but are still saved to <code>/data/misc/media</code> upon track closure.
 <p>Try these ideas for more useful results:</p>
 
 <ul>
-<li>Disable touch sounds and key clicks.</li>
+<li>Disable touch sounds and key clicks to reduce interruptions in test output.</li>
 <li>Maximize all volumes.</li>
 <li>Disable apps that make sound or record from microphone,
 if they are not of interest to your test.
@@ -161,10 +166,10 @@ Restore your build and device as follows:
 <li>Push or sync the restored <code>libaudioflinger.so</code>
 to the device's <code>/system/lib</code>.
 </li>
-<li><code>adb shell</code></li>
-<li><code>rm /data/local.prop</code></li>
-<li><code>rm /data/misc/media/*.wav</code></li>
-<li><code>reboot</code></li>
+<li><code>$ adb shell</code></li>
+<li><code>$ rm /data/local.prop</code></li>
+<li><code>$ rm /data/misc/media/*.wav</code></li>
+<li><code>$ reboot</code></li>
 </ol>
 
 <h2 id="mediaLog">media.log</h2>
@@ -394,18 +399,18 @@ The full <code>NBLog</code> API is at <code>frameworks/av/include/media/nbaio/NB
 </p>
 
 <pre>
-adb root
-adb shell
-echo ro.test_harness=1 > /data/local.prop
-chmod 644 /data/local.prop
-reboot
+$ adb root
+$ adb shell
+$ echo ro.test_harness=1 > /data/local.prop
+$ chmod 644 /data/local.prop
+$ reboot
 </pre>
 
 <p>
 The connection is lost during reboot, so:
 </p>
 <pre>
-adb shell
+$ adb shell
 </pre>
 
 The command <code>ps media</code> will now show two processes:
@@ -424,7 +429,7 @@ You can manually request a log dump at any time.
 This command shows logs from all the active and recent timelines, and then clears them:
 </p>
 <pre>
-dumpsys media.log
+$ dumpsys media.log
 </pre>
 
 <p>
@@ -440,5 +445,5 @@ the process ID you noted earlier.  You should see a dump from <code>media.log</c
 in the main <code>logcat</code>, showing all the logs leading up to the crash.
 </p>
 <pre>
-dumpsys media.log
+$ dumpsys media.log
 </pre>

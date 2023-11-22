@@ -16,7 +16,10 @@
 
 package libcore.javax.net.ssl;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
@@ -24,19 +27,38 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.reflect.Method;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.InvalidParameterException;
+import java.security.Key;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.security.PrivateKey;
+import java.security.Provider;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.security.Signature;
+import java.security.SignatureException;
+import java.security.SignatureSpi;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECKey;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.RSAKey;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.ECParameterSpec;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,7 +69,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.CipherSpi;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.ShortBufferException;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ServerSocketFactory;
 import javax.net.SocketFactory;
@@ -73,13 +101,13 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
 import junit.framework.TestCase;
-import libcore.io.IoUtils;
-import libcore.io.Streams;
 import libcore.java.security.StandardNames;
 import libcore.java.security.TestKeyStore;
 import libcore.tlswire.handshake.CipherSuite;
 import libcore.tlswire.handshake.ClientHello;
 import libcore.tlswire.handshake.CompressionMethod;
+import libcore.tlswire.handshake.EllipticCurve;
+import libcore.tlswire.handshake.EllipticCurvesHelloExtension;
 import libcore.tlswire.handshake.HandshakeMessage;
 import libcore.tlswire.handshake.HelloExtension;
 import libcore.tlswire.handshake.ServerNameHelloExtension;
@@ -123,14 +151,14 @@ public class SSLSocketTest extends TestCase {
 
         String clientToServerString = "this is sent from the client to the server...";
         String serverToClientString = "... and this from the server to the client";
-        byte[] clientToServer = clientToServerString.getBytes();
-        byte[] serverToClient = serverToClientString.getBytes();
+        byte[] clientToServer = clientToServerString.getBytes(UTF_8);
+        byte[] serverToClient = serverToClientString.getBytes(UTF_8);
 
         KeyManager pskKeyManager = PSKKeyManagerProxy.getConscryptPSKKeyManager(
                 new PSKKeyManagerProxy() {
             @Override
             protected SecretKey getKey(String identityHint, String identity, Socket socket) {
-                return new SecretKeySpec("Just an arbitrary key".getBytes(), "RAW");
+                return new SecretKeySpec("Just an arbitrary key".getBytes(UTF_8), "RAW");
             }
         });
         TestSSLContext c = TestSSLContext.createWithAdditionalKeyManagers(
@@ -181,13 +209,13 @@ public class SSLSocketTest extends TestCase {
                 // Check that the client can read the message sent by the server
                 server.getOutputStream().write(serverToClient);
                 byte[] clientFromServer = new byte[serverToClient.length];
-                Streams.readFully(client.getInputStream(), clientFromServer);
+                readFully(client.getInputStream(), clientFromServer);
                 assertEquals(serverToClientString, new String(clientFromServer));
 
                 // Check that the server can read the message sent by the client
                 client.getOutputStream().write(clientToServer);
                 byte[] serverFromClient = new byte[clientToServer.length];
-                Streams.readFully(server.getInputStream(), serverFromClient);
+                readFully(server.getInputStream(), serverFromClient);
                 assertEquals(clientToServerString, new String(serverFromClient));
 
                 // Check that the server and the client cannot read anything else
@@ -531,6 +559,7 @@ public class SSLSocketTest extends TestCase {
         executor.shutdown();
         final boolean[] handshakeCompletedListenerCalled = new boolean[1];
         client.addHandshakeCompletedListener(new HandshakeCompletedListener() {
+            @Override
             public void handshakeCompleted(HandshakeCompletedEvent event) {
                 try {
                     SSLSession session = event.getSession();
@@ -653,6 +682,7 @@ public class SSLSocketTest extends TestCase {
         });
         executor.shutdown();
         client.addHandshakeCompletedListener(new HandshakeCompletedListener() {
+            @Override
             public void handshakeCompleted(HandshakeCompletedEvent event) {
                 throw expectedException;
             }
@@ -893,6 +923,347 @@ public class SSLSocketTest extends TestCase {
         c.close();
     }
 
+    public void test_SSLSocket_clientAuth_OpaqueKey_RSA() throws Exception {
+        run_SSLSocket_clientAuth_OpaqueKey(TestKeyStore.getClientCertificate());
+    }
+
+    public void test_SSLSocket_clientAuth_OpaqueKey_EC_RSA() throws Exception {
+        run_SSLSocket_clientAuth_OpaqueKey(TestKeyStore.getClientEcRsaCertificate());
+    }
+
+    public void test_SSLSocket_clientAuth_OpaqueKey_EC_EC() throws Exception {
+        run_SSLSocket_clientAuth_OpaqueKey(TestKeyStore.getClientEcEcCertificate());
+    }
+
+    private void run_SSLSocket_clientAuth_OpaqueKey(TestKeyStore keyStore) throws Exception {
+        try {
+            Security.insertProviderAt(new OpaqueProvider(), 1);
+
+            final TestSSLContext c = TestSSLContext.create(keyStore, TestKeyStore.getServer());
+            SSLContext clientContext = SSLContext.getInstance("TLS");
+            final X509KeyManager delegateKeyManager = (X509KeyManager) c.clientKeyManagers[0];
+            X509KeyManager keyManager = new X509KeyManager() {
+                @Override
+                public String chooseClientAlias(String[] keyType, Principal[] issuers,
+                        Socket socket) {
+                    return delegateKeyManager.chooseClientAlias(keyType, issuers, socket);
+                }
+
+                @Override
+                public String chooseServerAlias(String keyType, Principal[] issuers,
+                        Socket socket) {
+                    return delegateKeyManager.chooseServerAlias(keyType, issuers, socket);
+                }
+
+                @Override
+                public X509Certificate[] getCertificateChain(String alias) {
+                    return delegateKeyManager.getCertificateChain(alias);
+                }
+
+                @Override
+                public String[] getClientAliases(String keyType, Principal[] issuers) {
+                    return delegateKeyManager.getClientAliases(keyType, issuers);
+                }
+
+                @Override
+                public String[] getServerAliases(String keyType, Principal[] issuers) {
+                    return delegateKeyManager.getServerAliases(keyType, issuers);
+                }
+
+                @Override
+                public PrivateKey getPrivateKey(String alias) {
+                    PrivateKey privKey = delegateKeyManager.getPrivateKey(alias);
+                    if (privKey instanceof RSAPrivateKey) {
+                        return new OpaqueDelegatingRSAPrivateKey((RSAPrivateKey) privKey);
+                    } else if (privKey instanceof ECPrivateKey) {
+                        return new OpaqueDelegatingECPrivateKey((ECPrivateKey) privKey);
+                    } else {
+                        return null;
+                    }
+                }
+            };
+            clientContext.init(new KeyManager[] {
+                    keyManager
+            }, new TrustManager[] {
+                    c.clientTrustManager
+            }, null);
+            SSLSocket client = (SSLSocket) clientContext.getSocketFactory().createSocket(c.host,
+                    c.port);
+            final SSLSocket server = (SSLSocket) c.serverSocket.accept();
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            Future<Void> future = executor.submit(new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+                    server.setNeedClientAuth(true);
+                    server.startHandshake();
+                    return null;
+                }
+            });
+            executor.shutdown();
+            client.startHandshake();
+            assertNotNull(client.getSession().getLocalCertificates());
+            TestKeyStore.assertChainLength(client.getSession().getLocalCertificates());
+            TestSSLContext.assertClientCertificateChain(c.clientTrustManager,
+                    client.getSession().getLocalCertificates());
+            future.get();
+            client.close();
+            server.close();
+            c.close();
+        } finally {
+            Security.removeProvider(OpaqueProvider.NAME);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    public static class OpaqueProvider extends Provider {
+        public static final String NAME = "OpaqueProvider";
+
+        public OpaqueProvider() {
+            super(NAME, 1.0, "test provider");
+
+            put("Signature.NONEwithRSA", OpaqueSignatureSpi.RSA.class.getName());
+            put("Signature.NONEwithECDSA", OpaqueSignatureSpi.ECDSA.class.getName());
+            put("Cipher.RSA/ECB/NoPadding", OpaqueCipherSpi.class.getName());
+        }
+    }
+
+    protected static class OpaqueSignatureSpi extends SignatureSpi {
+        private final String algorithm;
+
+        private Signature delegate;
+
+        protected OpaqueSignatureSpi(String algorithm) {
+            this.algorithm = algorithm;
+        }
+
+        public final static class RSA extends OpaqueSignatureSpi {
+            public RSA() {
+                super("NONEwithRSA");
+            }
+        }
+
+        public final static class ECDSA extends OpaqueSignatureSpi {
+            public ECDSA() {
+                super("NONEwithECDSA");
+            }
+        }
+
+        @Override
+        protected void engineInitVerify(PublicKey publicKey) throws InvalidKeyException {
+            fail("Cannot verify");
+        }
+
+        @Override
+        protected void engineInitSign(PrivateKey privateKey) throws InvalidKeyException {
+            DelegatingPrivateKey opaqueKey = (DelegatingPrivateKey) privateKey;
+            try {
+                delegate = Signature.getInstance(algorithm);
+            } catch (NoSuchAlgorithmException e) {
+                throw new InvalidKeyException(e);
+            }
+            delegate.initSign(opaqueKey.getDelegate());
+        }
+
+        @Override
+        protected void engineUpdate(byte b) throws SignatureException {
+            delegate.update(b);
+        }
+
+        @Override
+        protected void engineUpdate(byte[] b, int off, int len) throws SignatureException {
+            delegate.update(b, off, len);
+        }
+
+        @Override
+        protected byte[] engineSign() throws SignatureException {
+            return delegate.sign();
+        }
+
+        @Override
+        protected boolean engineVerify(byte[] sigBytes) throws SignatureException {
+            return delegate.verify(sigBytes);
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        protected void engineSetParameter(String param, Object value)
+                throws InvalidParameterException {
+            delegate.setParameter(param, value);
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        protected Object engineGetParameter(String param) throws InvalidParameterException {
+            return delegate.getParameter(param);
+        }
+    }
+
+    public static class OpaqueCipherSpi extends CipherSpi {
+        private Cipher delegate;
+
+        public OpaqueCipherSpi() {
+        }
+
+        @Override
+        protected void engineSetMode(String mode) throws NoSuchAlgorithmException {
+            fail();
+        }
+
+        @Override
+        protected void engineSetPadding(String padding) throws NoSuchPaddingException {
+            fail();
+        }
+
+        @Override
+        protected int engineGetBlockSize() {
+            return delegate.getBlockSize();
+        }
+
+        @Override
+        protected int engineGetOutputSize(int inputLen) {
+            return delegate.getOutputSize(inputLen);
+        }
+
+        @Override
+        protected byte[] engineGetIV() {
+            return delegate.getIV();
+        }
+
+        @Override
+        protected AlgorithmParameters engineGetParameters() {
+            return delegate.getParameters();
+        }
+
+        @Override
+        protected void engineInit(int opmode, Key key, SecureRandom random)
+                throws InvalidKeyException {
+            getCipher();
+            delegate.init(opmode, key, random);
+        }
+
+        protected void getCipher() throws InvalidKeyException {
+            try {
+                delegate = Cipher.getInstance("RSA/ECB/NoPadding");
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+                throw new InvalidKeyException(e);
+            }
+        }
+
+        @Override
+        protected void engineInit(int opmode, Key key, AlgorithmParameterSpec params,
+                SecureRandom random)
+                throws InvalidKeyException, InvalidAlgorithmParameterException {
+            getCipher();
+            delegate.init(opmode, key, params, random);
+        }
+
+        @Override
+        protected void engineInit(int opmode, Key key, AlgorithmParameters params,
+                SecureRandom random)
+                throws InvalidKeyException, InvalidAlgorithmParameterException {
+            getCipher();
+            delegate.init(opmode, key, params, random);
+        }
+
+        @Override
+        protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
+            return delegate.update(input, inputOffset, inputLen);
+        }
+
+        @Override
+        protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output,
+                int outputOffset) throws ShortBufferException {
+            return delegate.update(input, inputOffset, inputLen, output, outputOffset);
+        }
+
+        @Override
+        protected byte[] engineDoFinal(byte[] input, int inputOffset, int inputLen)
+                throws IllegalBlockSizeException, BadPaddingException {
+            return delegate.update(input, inputOffset, inputLen);
+        }
+
+        @Override
+        protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output,
+                int outputOffset)
+                throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
+            return delegate.doFinal(input, inputOffset, inputLen, output, outputOffset);
+        }
+    }
+
+    private interface DelegatingPrivateKey {
+        PrivateKey getDelegate();
+    }
+
+    @SuppressWarnings("serial")
+    private static class OpaqueDelegatingECPrivateKey
+            implements ECKey, PrivateKey, DelegatingPrivateKey {
+        private final ECPrivateKey delegate;
+
+        public OpaqueDelegatingECPrivateKey(ECPrivateKey delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public PrivateKey getDelegate() {
+            return delegate;
+        }
+
+        @Override
+        public String getAlgorithm() {
+            return delegate.getAlgorithm();
+        }
+
+        @Override
+        public String getFormat() {
+            return null;
+        }
+
+        @Override
+        public byte[] getEncoded() {
+            return null;
+        }
+
+        @Override
+        public ECParameterSpec getParams() {
+            return delegate.getParams();
+        }
+    }
+
+    @SuppressWarnings("serial")
+    private static class OpaqueDelegatingRSAPrivateKey
+            implements RSAKey, PrivateKey, DelegatingPrivateKey {
+        private final RSAPrivateKey delegate;
+
+        public OpaqueDelegatingRSAPrivateKey(RSAPrivateKey delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public String getAlgorithm() {
+            return delegate.getAlgorithm();
+        }
+
+        @Override
+        public String getFormat() {
+            return null;
+        }
+
+        @Override
+        public byte[] getEncoded() {
+            return null;
+        }
+
+        @Override
+        public BigInteger getModulus() {
+            return delegate.getModulus();
+        }
+
+        @Override
+        public PrivateKey getDelegate() {
+            return delegate;
+        }
+    }
+
     public void test_SSLSocket_TrustManagerRuntimeException() throws Exception {
         TestSSLContext c = TestSSLContext.create();
         SSLContext clientContext = SSLContext.getInstance("TLS");
@@ -1106,6 +1477,7 @@ public class SSLSocketTest extends TestCase {
 
         // ...so are a lot of other operations...
         HandshakeCompletedListener l = new HandshakeCompletedListener () {
+            @Override
             public void handshakeCompleted(HandshakeCompletedEvent e) {}
         };
         client.addHandshakeCompletedListener(l);
@@ -1383,10 +1755,10 @@ public class SSLSocketTest extends TestCase {
 
         // Reflection is used so this can compile on the RI
         String expectedClassName = "com.android.org.conscrypt.OpenSSLSocketImpl";
-        Class actualClass = client.getClass();
+        Class<?> actualClass = client.getClass();
         assertEquals(expectedClassName, actualClass.getName());
         Method setSoWriteTimeout = actualClass.getMethod("setSoWriteTimeout",
-                                                         new Class[] { Integer.TYPE });
+                                                         new Class<?>[] { Integer.TYPE });
         setSoWriteTimeout.invoke(client, 1);
 
 
@@ -1693,6 +2065,31 @@ public class SSLSocketTest extends TestCase {
         }, getSSLSocketFactoriesToTest());
     }
 
+    public void test_SSLSocket_ClientHello_supportedCurves() throws Exception {
+        ForEachRunner.runNamed(new ForEachRunner.Callback<SSLSocketFactory>() {
+            @Override
+            public void run(SSLSocketFactory sslSocketFactory) throws Exception {
+                ClientHello clientHello = captureTlsHandshakeClientHello(sslSocketFactory);
+
+                EllipticCurvesHelloExtension ecExtension = (EllipticCurvesHelloExtension)
+                        clientHello.findExtensionByType(HelloExtension.TYPE_ELLIPTIC_CURVES);
+                final String[] supportedCurves;
+                if (ecExtension == null) {
+                    supportedCurves = new String[0];
+                } else {
+                    assertTrue(ecExtension.wellFormed);
+                    supportedCurves = new String[ecExtension.supported.size()];
+                    for (int i = 0; i < ecExtension.supported.size(); i++) {
+                        EllipticCurve curve = ecExtension.supported.get(i);
+                        supportedCurves[i] = curve.toString();
+                    }
+                }
+
+                StandardNames.assertDefaultEllipticCurves(supportedCurves);
+            }
+        }, getSSLSocketFactoriesToTest());
+    }
+
     public void test_SSLSocket_ClientHello_clientProtocolVersion() throws Exception {
         ForEachRunner.runNamed(new ForEachRunner.Callback<SSLSocketFactory>() {
             @Override
@@ -1804,7 +2201,7 @@ public class SSLSocketTest extends TestCase {
                                 }
                                 return Arrays.copyOf(buffer, bytesRead);
                             } finally {
-                                IoUtils.closeQuietly(socket);
+                                closeQuietly(socket);
                             }
                         }
                     });
@@ -1832,7 +2229,7 @@ public class SSLSocketTest extends TestCase {
                         } catch (IOException expected) {}
                         return null;
                     } finally {
-                        IoUtils.closeQuietly(client);
+                        closeQuietly(client);
                     }
                 }
             });
@@ -1841,9 +2238,9 @@ public class SSLSocketTest extends TestCase {
             return readFirstReceivedChunkFuture.get(10, TimeUnit.SECONDS);
         } finally {
             executorService.shutdownNow();
-            IoUtils.closeQuietly(listeningSocket);
-            IoUtils.closeQuietly(sockets[0]);
-            IoUtils.closeQuietly(sockets[1]);
+            closeQuietly(listeningSocket);
+            closeQuietly(sockets[0]);
+            closeQuietly(sockets[1]);
             if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
                 fail("Timed out while waiting for the test to shut down");
             }
@@ -1926,6 +2323,7 @@ public class SSLSocketTest extends TestCase {
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         Future<Void> s = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     server.setEnabledProtocols(new String[] { "TLSv1.2" });
                     server.setEnabledCipherSuites(serverCipherSuites);
@@ -1934,6 +2332,7 @@ public class SSLSocketTest extends TestCase {
                 }
             });
         Future<Void> c = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     client.setEnabledProtocols(new String[] { "TLSv1.2" });
                     client.setEnabledCipherSuites(clientCipherSuites);
@@ -1964,15 +2363,17 @@ public class SSLSocketTest extends TestCase {
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         Future<Void> s = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
-                    server.setEnabledProtocols(new String[] { "TLSv1", "SSLv3" });
+                    server.setEnabledProtocols(new String[] { "TLSv1.2", "TLSv1.1" });
                     server.startHandshake();
                     return null;
                 }
             });
         Future<Void> c = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
-                    client.setEnabledProtocols(new String[] { "SSLv3" });
+                    client.setEnabledProtocols(new String[] { "TLSv1.1" });
                     client.startHandshake();
                     return null;
                 }
@@ -2007,8 +2408,9 @@ public class SSLSocketTest extends TestCase {
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         Future<Void> s = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
-                    server.setEnabledProtocols(new String[] { "TLSv1", "SSLv3" });
+                    server.setEnabledProtocols(new String[] { "TLSv1.1", "TLSv1" });
                     server.setEnabledCipherSuites(serverCipherSuites);
                     try {
                         server.startHandshake();
@@ -2022,8 +2424,9 @@ public class SSLSocketTest extends TestCase {
                 }
             });
         Future<Void> c = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
-                    client.setEnabledProtocols(new String[] { "SSLv3" });
+                    client.setEnabledProtocols(new String[] { "TLSv1" });
                     client.setEnabledCipherSuites(clientCipherSuites);
                     try {
                         client.startHandshake();
@@ -2056,6 +2459,7 @@ public class SSLSocketTest extends TestCase {
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         Future<Void> c = executor.submit(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 try {
                     client.startHandshake();
@@ -2068,6 +2472,7 @@ public class SSLSocketTest extends TestCase {
             }
         });
         Future<Void> s = executor.submit(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 // Wait until the client sends something.
                 byte[] scratch = new byte[8192];
@@ -2107,6 +2512,7 @@ public class SSLSocketTest extends TestCase {
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         Future<Void> s = executor.submit(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 try {
                     server.startHandshake();
@@ -2119,6 +2525,7 @@ public class SSLSocketTest extends TestCase {
             }
         });
         Future<Void> c = executor.submit(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 // Send bogus ClientHello:
                 // TLSv1.2 Record Layer: Handshake Protocol: Client Hello
@@ -2192,6 +2599,54 @@ public class SSLSocketTest extends TestCase {
         context.close();
     }
 
+    public void test_SSLSocket_SSLv3Unsupported() throws Exception {
+        TestSSLContext context = TestSSLContext.create();
+
+        final SSLSocket client = (SSLSocket)
+            context.clientContext.getSocketFactory().createSocket();
+
+        // For app compatibility, SSLv3 is stripped out when setting only.
+        client.setEnabledProtocols(new String[] {"SSLv3"});
+        assertEquals(0, client.getEnabledProtocols().length);
+
+        try {
+            client.setEnabledProtocols(new String[] {"SSL"});
+            fail("SSLSocket should not support SSL protocol");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    // We modified the toString() of SSLSocket, and it's based on the output
+    // of Socket.toString(), so we want to make sure that a change in
+    // Socket.toString() doesn't cause us to output nonsense.
+    public void test_SSLSocket_toString() throws Exception {
+        // The actual implementation from a security provider might do something
+        // special for its toString(), so we create our own implementation
+        SSLSocket socket = new SSLSocket() {
+            @Override public String[] getSupportedCipherSuites() { return new String[0]; }
+            @Override public String[] getEnabledCipherSuites() { return new String[0]; }
+            @Override public void setEnabledCipherSuites(String[] strings) { }
+            @Override public String[] getSupportedProtocols() { return new String[0]; }
+            @Override public String[] getEnabledProtocols() { return new String[0]; }
+            @Override public void setEnabledProtocols(String[] strings) { }
+            @Override public SSLSession getSession() { return null; }
+            @Override public void addHandshakeCompletedListener(
+                    HandshakeCompletedListener handshakeCompletedListener) { }
+            @Override public void removeHandshakeCompletedListener(
+                    HandshakeCompletedListener handshakeCompletedListener) { }
+            @Override public void startHandshake() throws IOException { }
+            @Override public void setUseClientMode(boolean b) { }
+            @Override public boolean getUseClientMode() { return false; }
+            @Override public void setNeedClientAuth(boolean b) { }
+            @Override public boolean getNeedClientAuth() { return false; }
+            @Override public void setWantClientAuth(boolean b) { }
+            @Override public boolean getWantClientAuth() { return false; }
+            @Override public void setEnableSessionCreation(boolean b) { }
+            @Override public boolean getEnableSessionCreation() { return false; }
+        };
+        assertTrue(socket.toString().startsWith("SSLSocket["));
+    }
+
     /**
      * Not run by default by JUnit, but can be run by Vogar by
      * specifying it explicitly (or with main method below)
@@ -2214,6 +2669,28 @@ public class SSLSocketTest extends TestCase {
             */
             // test.close();
 
+        }
+    }
+
+    private static final void readFully(InputStream in, byte[] dst) throws IOException {
+        int offset = 0;
+        int byteCount = dst.length;
+        while (byteCount > 0) {
+            int bytesRead = in.read(dst, offset, byteCount);
+            if (bytesRead < 0) {
+                throw new EOFException();
+            }
+            offset += bytesRead;
+            byteCount -= bytesRead;
+        }
+    }
+
+    private static final void closeQuietly(Closeable socket) {
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (Exception ignored) {
+            }
         }
     }
 

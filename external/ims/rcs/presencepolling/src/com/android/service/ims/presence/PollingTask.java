@@ -246,7 +246,7 @@ public class PollingTask {
         for (int i = 0; i < mContacts.size(); i++) {
             sb.append("\n");
             Contacts.Item item = mContacts.get(i);
-            sb.append("Number " + i + ": " + item.number());
+            sb.append("Number " + i + ": " + Logger.hidePhoneNumberPii(item.number()));
         }
         sb.append("\nCompleted: " + mCompleted);
         sb.append(" }");

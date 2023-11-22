@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2009-2012, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2009-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 
@@ -11,10 +13,10 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.MissingResourceException;
 
-import com.ibm.icu.impl.ICUCache;
+import com.ibm.icu.impl.CacheBase;
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
-import com.ibm.icu.impl.SimpleCache;
-import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.impl.SoftCache;
 import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.ULocale.Category;
 import com.ibm.icu.util.UResourceBundle;
@@ -24,7 +26,7 @@ import com.ibm.icu.util.UResourceBundleIterator;
 /**
  * <code>NumberingSystem</code> is the base class for all number
  * systems. This class provides the interface for setting different numbering
- * system types, whether it be a simple alternate digit system such as 
+ * system types, whether it be a simple alternate digit system such as
  * Thai digits or Devanagari digits, or an algorithmic numbering system such
  * as Hebrew numbering or Chinese numbering.
  *
@@ -32,6 +34,7 @@ import com.ibm.icu.util.UResourceBundleIterator;
  * @stable ICU 4.2
  */
 public class NumberingSystem {
+    private static final String[] OTHER_NS_KEYWORDS = { "native", "traditional", "finance" };
 
     /**
      * Default constructor.  Returns a numbering system that uses the Western decimal
@@ -47,7 +50,7 @@ public class NumberingSystem {
 
     /**
      * Factory method for creating a numbering system.
-     * @param radix_in The radix for this numbering system.  ICU currently 
+     * @param radix_in The radix for this numbering system.  ICU currently
      * supports only numbering systems whose radix is 10.
      * @param isAlgorithmic_in Specifies whether the numbering system is algorithmic
      * (true) or numeric (false).
@@ -62,11 +65,11 @@ public class NumberingSystem {
     public static NumberingSystem getInstance(int radix_in, boolean isAlgorithmic_in, String desc_in ) {
         return getInstance(null,radix_in,isAlgorithmic_in,desc_in);
     }
-    
+
     /**
      * Factory method for creating a numbering system.
      * @param name_in The string representing the name of the numbering system.
-     * @param radix_in The radix for this numbering system.  ICU currently 
+     * @param radix_in The radix for this numbering system.  ICU currently
      * supports only numbering systems whose radix is 10.
      * @param isAlgorithmic_in Specifies whether the numbering system is algorithmic
      * (true) or numeric (false).
@@ -78,7 +81,7 @@ public class NumberingSystem {
      * this numbering system.
      * @stable ICU 4.6
      */
-   
+
     private static NumberingSystem getInstance(String name_in, int radix_in, boolean isAlgorithmic_in, String desc_in ) {
         if ( radix_in < 2 ) {
             throw new IllegalArgumentException("Invalid radix for numbering system");
@@ -110,13 +113,8 @@ public class NumberingSystem {
      * @stable ICU 4.2
      */
     public static NumberingSystem getInstance(ULocale locale) {
-        
-        final String[] OTHER_NS_KEYWORDS = { "native", "traditional", "finance" };
- 
-        NumberingSystem ns;
-        Boolean nsResolved = true;
-
         // Check for @numbers
+        boolean nsResolved = true;
         String numbersKeyword = locale.getKeywordValue("numbers");
         if (numbersKeyword != null ) {
             for ( String keyword : OTHER_NS_KEYWORDS ) {
@@ -131,54 +129,72 @@ public class NumberingSystem {
         }
 
         if (nsResolved) {
-            ns = getInstanceByName(numbersKeyword);
-            if ( ns != null ) {
+            NumberingSystem ns = getInstanceByName(numbersKeyword);
+            if (ns != null) {
                 return ns;
-            } else { // if @numbers keyword points to a bogus numbering system name, we return the default for the locale
-                numbersKeyword = "default";
-                nsResolved = false;
             }
+            // If the @numbers keyword points to a bogus numbering system name,
+            // we return the default for the locale.
+            numbersKeyword = "default";
         }
-        
+
         // Attempt to get the numbering system from the cache
         String baseName = locale.getBaseName();
-        ns = cachedLocaleData.get(baseName+"@numbers="+numbersKeyword);
-        if (ns != null ) {
-            return ns;
-        }
-        
-        // Cache miss, create new instance
+        // TODO: Caching by locale+numbersKeyword could yield a large cache.
+        // Try to load for each locale the mappings from OTHER_NS_KEYWORDS and default
+        // to real numbering system names; can we get those from supplemental data?
+        // Then look up those mappings for the locale and resolve the keyword.
+        String key = baseName+"@numbers="+numbersKeyword;
+        LocaleLookupData localeLookupData = new LocaleLookupData(locale, numbersKeyword);
+        return cachedLocaleData.getInstance(key, localeLookupData);
+    }
 
-        String originalNumbersKeyword = numbersKeyword;
+    private static class LocaleLookupData {
+        public final ULocale locale;
+        public final String numbersKeyword;
+
+        LocaleLookupData(ULocale locale, String numbersKeyword) {
+            this.locale = locale;
+            this.numbersKeyword = numbersKeyword;
+        }
+    }
+
+    static NumberingSystem lookupInstanceByLocale(LocaleLookupData localeLookupData) {
+        ULocale locale = localeLookupData.locale;
+        ICUResourceBundle rb;
+        try {
+            rb = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, locale);
+            rb = rb.getWithFallback("NumberElements");
+        } catch (MissingResourceException ex) {
+            return new NumberingSystem();
+        }
+
+        String numbersKeyword = localeLookupData.numbersKeyword;
         String resolvedNumberingSystem = null;
-        while (!nsResolved) {           
+        for (;;) {
             try {
-                ICUResourceBundle rb = (ICUResourceBundle)UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME,locale);
-                rb = rb.getWithFallback("NumberElements");
                 resolvedNumberingSystem = rb.getStringWithFallback(numbersKeyword);
-                nsResolved = true;
+                break;
             } catch (MissingResourceException ex) { // Fall back behavior as defined in TR35
-                 if (numbersKeyword.equals("native") || numbersKeyword.equals("finance")) {
-                     numbersKeyword = "default";
-                 } else if (numbersKeyword.equals("traditional")) {
-                     numbersKeyword = "native";
-                 } else {
-                     nsResolved = true;
-                 }
-            }  
+                if (numbersKeyword.equals("native") || numbersKeyword.equals("finance")) {
+                    numbersKeyword = "default";
+                } else if (numbersKeyword.equals("traditional")) {
+                    numbersKeyword = "native";
+                } else {
+                    break;
+                }
+            }
         }
 
+        NumberingSystem ns = null;
         if (resolvedNumberingSystem != null) {
             ns = getInstanceByName(resolvedNumberingSystem);
         }
-        
-        if ( ns == null ) {
+
+        if (ns == null) {
             ns = new NumberingSystem();
         }
-
-        cachedLocaleData.put(baseName+"@numbers="+originalNumbersKeyword, ns);
         return ns;
-    
     }
 
     /**
@@ -201,18 +217,16 @@ public class NumberingSystem {
      * @stable ICU 4.2
      */
     public static NumberingSystem getInstanceByName(String name) {
+        // Get the numbering system from the cache.
+        return cachedStringData.getInstance(name, null /* unused */);
+    }
+
+    private static NumberingSystem lookupInstanceByName(String name) {
         int radix;
         boolean isAlgorithmic;
         String description;
-        
-        // Get the numbering system from the cache
-        NumberingSystem ns = cachedStringData.get(name);
-        if (ns != null ) {
-            return ns;
-        }        
-        
         try {
-            UResourceBundle numberingSystemsInfo = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, "numberingSystems");
+            UResourceBundle numberingSystemsInfo = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, "numberingSystems");
             UResourceBundle nsCurrent = numberingSystemsInfo.get("numberingSystems");
             UResourceBundle nsTop = nsCurrent.get(name);
 
@@ -228,9 +242,7 @@ public class NumberingSystem {
             return null;
         }
 
-        ns = getInstance(name,radix,isAlgorithmic,description);
-        cachedStringData.put(name, ns);                       
-        return ns;     
+        return getInstance(name, radix, isAlgorithmic, description);
     }
 
     /**
@@ -239,8 +251,8 @@ public class NumberingSystem {
      * @stable ICU 4.2
      */
     public static String [] getAvailableNames() {
-    
-            UResourceBundle numberingSystemsInfo = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, "numberingSystems");
+
+            UResourceBundle numberingSystemsInfo = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, "numberingSystems");
             UResourceBundle nsCurrent = numberingSystemsInfo.get("numberingSystems");
             UResourceBundle temp;
 
@@ -256,29 +268,14 @@ public class NumberingSystem {
     }
 
     /**
-     * Convenience method to determine if a given digit string is valid for use as a 
+     * Convenience method to determine if a given digit string is valid for use as a
      * descriptor of a numeric ( non-algorithmic ) numbering system.  In order for
-     * a digit string to be valid, it must meet the following criteria:
-     * 1. Digits must be in Unicode's basic multilingual plane.
+     * a digit string to be valid, it must contain exactly ten Unicode code points.
      * @stable ICU 4.2
      */
     public static boolean isValidDigitString(String str) {
-
-        int c;
-        int i = 0;
-        UCharacterIterator it = UCharacterIterator.getInstance(str);
-
-        it.setToStart();
-        while ( (c = it.nextCodePoint()) != UCharacterIterator.DONE) {
-            if ( UCharacter.isSupplementary(c)) { // Digits outside the BMP are not currently supported
-                return false;
-            }
-            i++;
-        }
-        if ( i != 10 ) {
-            return false;
-        }
-        return true;
+        int numCodepoints = str.codePointCount(0, str.length());
+        return (numCodepoints == 10);
     }
 
     /**
@@ -314,7 +311,7 @@ public class NumberingSystem {
      * Returns the numbering system's algorithmic status.  If true,
      * the numbering system is algorithmic and uses an RBNF formatter to
      * format numerals.  If false, the numbering system is numeric and
-     * uses a fixed set of digits. 
+     * uses a fixed set of digits.
      * @stable ICU 4.2
      */
     public boolean isAlgorithmic() {
@@ -329,11 +326,22 @@ public class NumberingSystem {
     /**
      * Cache to hold the NumberingSystems by Locale.
      */
-    private static ICUCache<String, NumberingSystem> cachedLocaleData = new SimpleCache<String, NumberingSystem>();
-        
+    private static CacheBase<String, NumberingSystem, LocaleLookupData> cachedLocaleData =
+            new SoftCache<String, NumberingSystem, LocaleLookupData>() {
+        @Override
+        protected NumberingSystem createInstance(String key, LocaleLookupData localeLookupData) {
+            return lookupInstanceByLocale(localeLookupData);
+        }
+    };
+
     /**
      * Cache to hold the NumberingSystems by name.
      */
-    private static ICUCache<String, NumberingSystem> cachedStringData = new SimpleCache<String, NumberingSystem>();
-    
+    private static CacheBase<String, NumberingSystem, Void>  cachedStringData =
+            new SoftCache<String, NumberingSystem, Void>() {
+        @Override
+        protected NumberingSystem createInstance(String key, Void unused) {
+            return lookupInstanceByName(key);
+        }
+    };
 }

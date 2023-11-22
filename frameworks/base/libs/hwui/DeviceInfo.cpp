@@ -13,15 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <DeviceInfo.h>
 
 #include "Extensions.h"
 
-#include <GLES2/gl2.h>
-#include <log/log.h>
-
 #include <thread>
 #include <mutex>
+
+#include <log/log.h>
+
+#include <GLES2/gl2.h>
 
 namespace android {
 namespace uirenderer {
@@ -38,6 +40,13 @@ void DeviceInfo::initialize() {
     std::call_once(sInitializedFlag, []() {
         sDeviceInfo = new DeviceInfo();
         sDeviceInfo->load();
+    });
+}
+
+void DeviceInfo::initialize(int maxTextureSize) {
+    std::call_once(sInitializedFlag, [maxTextureSize]() {
+        sDeviceInfo = new DeviceInfo();
+        sDeviceInfo->mMaxTextureSize = maxTextureSize;
     });
 }
 

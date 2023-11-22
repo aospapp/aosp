@@ -16,9 +16,14 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/file.h>
 #include <android-base/stringprintf.h>
+#include <android-base/test_utils.h>
+
+#include <thread>
 
 #include "command.h"
+#include "environment.h"
 #include "get_test_data.h"
 #include "test_util.h"
 
@@ -26,18 +31,14 @@ static std::unique_ptr<Command> StatCmd() {
   return CreateCommandInstance("stat");
 }
 
-TEST(stat_cmd, no_options) {
-  ASSERT_TRUE(StatCmd()->Run({"sleep", "1"}));
-}
+TEST(stat_cmd, no_options) { ASSERT_TRUE(StatCmd()->Run({"sleep", "1"})); }
 
 TEST(stat_cmd, event_option) {
   ASSERT_TRUE(StatCmd()->Run({"-e", "cpu-clock,task-clock", "sleep", "1"}));
 }
 
 TEST(stat_cmd, system_wide_option) {
-  if (IsRoot()) {
-    ASSERT_TRUE(StatCmd()->Run({"-a", "sleep", "1"}));
-  }
+  TEST_IN_ROOT(ASSERT_TRUE(StatCmd()->Run({"-a", "sleep", "1"})));
 }
 
 TEST(stat_cmd, verbose_option) {
@@ -45,20 +46,27 @@ TEST(stat_cmd, verbose_option) {
 }
 
 TEST(stat_cmd, tracepoint_event) {
-  if (IsRoot()) {
-    ASSERT_TRUE(StatCmd()->Run({"-a", "-e", "sched:sched_switch", "sleep", "1"}));
-  }
+  TEST_IN_ROOT(ASSERT_TRUE(
+      StatCmd()->Run({"-a", "-e", "sched:sched_switch", "sleep", "1"})));
 }
 
 TEST(stat_cmd, event_modifier) {
-  ASSERT_TRUE(StatCmd()->Run({"-e", "cpu-cycles:u,cpu-cycles:k", "sleep", "1"}));
+  ASSERT_TRUE(
+      StatCmd()->Run({"-e", "cpu-cycles:u,cpu-cycles:k", "sleep", "1"}));
 }
 
-void CreateProcesses(size_t count, std::vector<std::unique_ptr<Workload>>* workloads) {
+void CreateProcesses(size_t count,
+                     std::vector<std::unique_ptr<Workload>>* workloads) {
   workloads->clear();
+  // Create workloads run longer than profiling time.
+  auto function = []() {
+    while (true) {
+      for (volatile int i = 0; i < 10000; ++i);
+      usleep(1);
+    }
+  };
   for (size_t i = 0; i < count; ++i) {
-    // Create a workload runs longer than profiling time.
-    auto workload = Workload::CreateWorkload({"sleep", "1000"});
+    auto workload = Workload::CreateWorkload(function);
     ASSERT_TRUE(workload != nullptr);
     ASSERT_TRUE(workload->Start());
     workloads->push_back(std::move(workload));
@@ -68,8 +76,8 @@ void CreateProcesses(size_t count, std::vector<std::unique_ptr<Workload>>* workl
 TEST(stat_cmd, existing_processes) {
   std::vector<std::unique_ptr<Workload>> workloads;
   CreateProcesses(2, &workloads);
-  std::string pid_list =
-      android::base::StringPrintf("%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
+  std::string pid_list = android::base::StringPrintf(
+      "%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
   ASSERT_TRUE(StatCmd()->Run({"-p", pid_list, "sleep", "1"}));
 }
 
@@ -77,18 +85,84 @@ TEST(stat_cmd, existing_threads) {
   std::vector<std::unique_ptr<Workload>> workloads;
   CreateProcesses(2, &workloads);
   // Process id can be used as thread id in linux.
-  std::string tid_list =
-      android::base::StringPrintf("%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
+  std::string tid_list = android::base::StringPrintf(
+      "%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
   ASSERT_TRUE(StatCmd()->Run({"-t", tid_list, "sleep", "1"}));
 }
 
-TEST(stat_cmd, no_monitored_threads) {
-  ASSERT_FALSE(StatCmd()->Run({""}));
+TEST(stat_cmd, no_monitored_threads) { ASSERT_FALSE(StatCmd()->Run({""})); }
+
+TEST(stat_cmd, group_option) {
+  ASSERT_TRUE(
+      StatCmd()->Run({"--group", "cpu-clock,page-faults", "sleep", "1"}));
+  ASSERT_TRUE(StatCmd()->Run({"--group", "cpu-cycles,instructions", "--group",
+                              "cpu-cycles:u,instructions:u", "--group",
+                              "cpu-cycles:k,instructions:k", "sleep", "1"}));
 }
 
-TEST(stat_cmd, cpu_option) {
-  ASSERT_TRUE(StatCmd()->Run({"--cpu", "0", "sleep", "1"}));
-  if (IsRoot()) {
-    ASSERT_TRUE(StatCmd()->Run({"--cpu", "0", "-a", "sleep", "1"}));
+TEST(stat_cmd, auto_generated_summary) {
+  TemporaryFile tmp_file;
+  ASSERT_TRUE(StatCmd()->Run({"--group", "instructions:u,instructions:k", "-o",
+                              tmp_file.path, "sleep", "1"}));
+  std::string s;
+  ASSERT_TRUE(android::base::ReadFileToString(tmp_file.path, &s));
+  size_t pos = s.find("instructions:u");
+  ASSERT_NE(s.npos, pos);
+  pos = s.find("instructions:k", pos);
+  ASSERT_NE(s.npos, pos);
+  pos += strlen("instructions:k");
+  // Check if the summary of instructions is generated.
+  ASSERT_NE(s.npos, s.find("instructions", pos));
+}
+
+TEST(stat_cmd, duration_option) {
+  ASSERT_TRUE(
+      StatCmd()->Run({"--duration", "1.2", "-p", std::to_string(getpid())}));
+  ASSERT_TRUE(StatCmd()->Run({"--duration", "1", "sleep", "2"}));
+}
+
+TEST(stat_cmd, interval_option) {
+  TemporaryFile tmp_file;
+  ASSERT_TRUE(
+    StatCmd()->Run({"--interval", "500.0", "--duration", "1.2", "-o",
+          tmp_file.path, "sleep", "2"}));
+  std::string s;
+  ASSERT_TRUE(android::base::ReadFileToString(tmp_file.path, &s));
+  size_t count = 0;
+  size_t pos = 0;
+  std::string subs = "statistics:";
+  while((pos = s.find(subs, pos)) != s.npos) {
+    pos += subs.size();
+    ++count ;
   }
+  ASSERT_EQ(count, 3UL);
+}
+
+TEST(stat_cmd, no_modifier_for_clock_events) {
+  for (const std::string& e : {"cpu-clock", "task-clock"}) {
+    for (const std::string& m : {"u", "k"}) {
+      ASSERT_FALSE(StatCmd()->Run({"-e", e + ":" + m, "sleep", "0.1"}))
+          << "event " << e << ":" << m;
+    }
+  }
+}
+
+TEST(stat_cmd, handle_SIGHUP) {
+  std::thread thread([]() {
+    sleep(1);
+    kill(getpid(), SIGHUP);
+  });
+  thread.detach();
+  ASSERT_TRUE(StatCmd()->Run({"sleep", "1000000"}));
+}
+
+TEST(stat_cmd, stop_when_no_more_targets) {
+  std::atomic<int> tid(0);
+  std::thread thread([&]() {
+    tid = gettid();
+    sleep(1);
+  });
+  thread.detach();
+  while (tid == 0);
+  ASSERT_TRUE(StatCmd()->Run({"-t", std::to_string(tid)}));
 }

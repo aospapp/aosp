@@ -90,10 +90,10 @@ final class PstnPhoneCapabilitiesNotifier {
     private void handleVideoCapabilitesChanged(AsyncResult ar) {
         try {
             boolean isVideoCapable = (Boolean) ar.result;
-            Log.d(this, "handleVideoCapabilitesChanged. Video capability - " + isVideoCapable);
+            Log.i(this, "handleVideoCapabilitesChanged. Video capability - " + isVideoCapable);
             mListener.onVideoCapabilitiesChanged(isVideoCapable);
         } catch (Exception e) {
-            Log.d(this, "handleVideoCapabilitesChanged. Exception=" + e);
+            Log.w(this, "handleVideoCapabilitesChanged. Exception=" + e);
         }
     }
 

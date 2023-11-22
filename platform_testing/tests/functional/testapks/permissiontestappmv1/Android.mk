@@ -11,4 +11,7 @@ LOCAL_RESOURCE_DIR := \
     $(LOCAL_PATH)/res
 LOCAL_PACKAGE_NAME := PermissionTestAppMV1
 LOCAL_CERTIFICATE := platform
+
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

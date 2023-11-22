@@ -8,39 +8,54 @@
 #ifndef GrGLSLProgramBuilder_DEFINED
 #define GrGLSLProgramBuilder_DEFINED
 
+#include "GrCaps.h"
 #include "GrGeometryProcessor.h"
 #include "GrGpu.h"
+#include "glsl/GrGLSLFragmentProcessor.h"
 #include "glsl/GrGLSLFragmentShaderBuilder.h"
 #include "glsl/GrGLSLGeometryShaderBuilder.h"
 #include "glsl/GrGLSLPrimitiveProcessor.h"
 #include "glsl/GrGLSLProgramDataManager.h"
 #include "glsl/GrGLSLUniformHandler.h"
-#include "glsl/GrGLSLTextureSampler.h"
 #include "glsl/GrGLSLVertexShaderBuilder.h"
 #include "glsl/GrGLSLXferProcessor.h"
 
-class GrGLSLCaps;
-class GrGLSLShaderVar;
+class GrShaderVar;
 class GrGLSLVaryingHandler;
+class GrGLSLExpr4;
+class GrShaderCaps;
 
 typedef SkSTArray<8, GrGLSLFragmentProcessor*, true> GrGLSLFragProcs;
 
 class GrGLSLProgramBuilder {
 public:
-    typedef GrGpu::DrawArgs DrawArgs;
-    typedef GrGLSLUniformHandler::UniformHandle UniformHandle;
+    using UniformHandle      = GrGLSLUniformHandler::UniformHandle;
+    using SamplerHandle      = GrGLSLUniformHandler::SamplerHandle;
+    using ImageStorageHandle = GrGLSLUniformHandler::ImageStorageHandle;
 
     virtual ~GrGLSLProgramBuilder() {}
 
     virtual const GrCaps* caps() const = 0;
-    virtual const GrGLSLCaps* glslCaps() const = 0;
+    const GrShaderCaps* shaderCaps() const { return this->caps()->shaderCaps(); }
 
-    const GrPrimitiveProcessor& primitiveProcessor() const { return *fArgs.fPrimitiveProcessor; }
-    const GrPipeline& pipeline() const { return *fArgs.fPipeline; }
-    const GrProgramDesc& desc() const { return *fArgs.fDesc; }
-    const GrProgramDesc::KeyHeader& header() const { return fArgs.fDesc->header(); }
+    const GrPrimitiveProcessor& primitiveProcessor() const { return fPrimProc; }
+    const GrPipeline& pipeline() const { return fPipeline; }
+    GrProgramDesc* desc() { return fDesc; }
+    const GrProgramDesc::KeyHeader& header() const { return fDesc->header(); }
 
     void appendUniformDecls(GrShaderFlags visibility, SkString*) const;
+
+    const GrShaderVar& samplerVariable(SamplerHandle handle) const {
+        return this->uniformHandler()->samplerVariable(handle);
+    }
+
+    GrSwizzle samplerSwizzle(SamplerHandle handle) const {
+        return this->uniformHandler()->samplerSwizzle(handle);
+    }
+
+    const GrShaderVar& imageStorageVariable(ImageStorageHandle handle) const {
+        return this->uniformHandler()->imageStorageVariable(handle);
+    }
 
     // Handles for program uniforms (other than per-effect uniforms)
     struct BuiltinUniformHandles {
@@ -51,13 +66,9 @@ public:
         UniformHandle       fRTHeightUni;
     };
 
-    // Used to add a uniform in the vertex shader for transforming into normalized device space.
-    void addRTAdjustmentUniform(GrSLPrecision precision, const char* name, const char** outName);
-    const char* rtAdjustment() const { return "rtAdjustment"; }
- 
     // Used to add a uniform for the RenderTarget height (used for frag position) without mangling
     // the name of the uniform inside of a stage.
-    void addRTHeightUniform(const char* name, const char** outName);
+    void addRTHeightUniform(const char* name);
 
     // Generates a name for a variable. The generated string will be name prefixed by the prefix
     // char (unless the prefix is '\0'). It also will mangle the name to be stage-specific unless
@@ -70,8 +81,8 @@ public:
 
     // Used for backend customization of the output color and secondary color variables from the
     // fragment processor. Only used if the outputs are explicitly declared in the shaders
-    virtual void finalizeFragmentOutputColor(GrGLSLShaderVar& outputColor) {}
-    virtual void finalizeFragmentSecondaryColor(GrGLSLShaderVar& outputColor) {}
+    virtual void finalizeFragmentOutputColor(GrShaderVar& outputColor) {}
+    virtual void finalizeFragmentSecondaryColor(GrShaderVar& outputColor) {}
 
     // number of each input/output type in a single allocation block, used by many builders
     static const int kVarsPerBlock;
@@ -82,7 +93,9 @@ public:
 
     int fStageIndex;
 
-    const DrawArgs& fArgs;
+    const GrPipeline&           fPipeline;
+    const GrPrimitiveProcessor& fPrimProc;
+    GrProgramDesc*              fDesc;
 
     BuiltinUniformHandles fUniformHandles;
 
@@ -91,9 +104,13 @@ public:
     GrGLSLFragProcs fFragmentProcessors;
 
 protected:
-    explicit GrGLSLProgramBuilder(const DrawArgs& args);
+    explicit GrGLSLProgramBuilder(const GrPipeline&,
+                                  const GrPrimitiveProcessor&,
+                                  GrProgramDesc*);
 
-    bool emitAndInstallProcs(GrGLSLExpr4* inputColor, GrGLSLExpr4* inputCoverage, int maxTextures);
+    void addFeature(GrShaderFlags shaders, uint32_t featureBit, const char* extensionName);
+
+    bool emitAndInstallProcs(GrGLSLExpr4* inputColor, GrGLSLExpr4* inputCoverage);
 
     void cleanupFragmentProcessors();
 
@@ -105,7 +122,7 @@ private:
     // fragment shader are cleared.
     void reset() {
         this->addStage();
-        fFS.reset();
+        SkDEBUGCODE(fFS.resetVerification();)
     }
     void addStage() { fStageIndex++; }
 
@@ -129,27 +146,41 @@ private:
     void emitAndInstallPrimProc(const GrPrimitiveProcessor&,
                                 GrGLSLExpr4* outputColor,
                                 GrGLSLExpr4* outputCoverage);
-    void emitAndInstallFragProcs(int procOffset, int numProcs, GrGLSLExpr4* inOut);
+    void emitAndInstallFragProcs(GrGLSLExpr4* colorInOut, GrGLSLExpr4* coverageInOut);
     void emitAndInstallFragProc(const GrFragmentProcessor&,
                                 int index,
+                                int transformedCoordVarsIdx,
                                 const GrGLSLExpr4& input,
                                 GrGLSLExpr4* output);
     void emitAndInstallXferProc(const GrXferProcessor&,
                                 const GrGLSLExpr4& colorIn,
-                                const GrGLSLExpr4& coverageIn,
-                                bool ignoresCoverage,
-                                GrPixelLocalStorageState plsState);
+                                const GrGLSLExpr4& coverageIn);
+    void emitSamplersAndImageStorages(const GrProcessor& processor,
+                                      SkTArray<SamplerHandle>* outTexSamplerHandles,
+                                      SkTArray<SamplerHandle>* outBufferSamplerHandles,
+                                      SkTArray<ImageStorageHandle>* outImageStorageHandles);
+    void emitSampler(GrSLType samplerType, GrPixelConfig, const char* name,
+                     GrShaderFlags visibility, SkTArray<SamplerHandle >* outSamplerHandles);
+    void emitImageStorage(const GrProcessor::ImageStorageAccess&,
+                          const char* name,
+                          SkTArray<ImageStorageHandle>* outImageStorageHandles);
     void emitFSOutputSwizzle(bool hasSecondaryOutput);
+    bool checkSamplerCounts();
+    bool checkImageStorageCounts();
 
+#ifdef SK_DEBUG
     void verify(const GrPrimitiveProcessor&);
     void verify(const GrXferProcessor&);
     void verify(const GrFragmentProcessor&);
+#endif
 
-    virtual void emitSamplers(const GrProcessor& processor,
-                              GrGLSLTextureSampler::TextureSamplerArray* outSamplers) = 0;
-
-    GrGLSLPrimitiveProcessor::TransformsIn  fCoordTransforms;
-    GrGLSLPrimitiveProcessor::TransformsOut fOutCoords;
+    int                         fNumVertexSamplers;
+    int                         fNumGeometrySamplers;
+    int                         fNumFragmentSamplers;
+    int                         fNumVertexImageStorages;
+    int                         fNumGeometryImageStorages;
+    int                         fNumFragmentImageStorages;
+    SkSTArray<4, GrShaderVar>   fTransformedCoordVars;
 };
 
 #endif

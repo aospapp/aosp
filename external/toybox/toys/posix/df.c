@@ -16,6 +16,7 @@ config DF
     each filesystem listed on the command line, or all currently mounted
     filesystems.
 
+    -a	Show all (including /proc and friends)
     -P	The SUSv3 "Pedantic" option
     -k	Sets units back to 1024 bytes (the default without -P)
     -h	Human readable output (K=1024)
@@ -202,7 +203,7 @@ void df_main(void)
         if (mt->stat.st_dev == mt2->stat.st_dev) {
           // For --bind mounts, show earliest mount
           if (!strcmp(mt->device, mt2->device)) {
-            if (!toys.optflags & FLAG_a) mt3->stat.st_dev = 0;
+            if (!(toys.optflags & FLAG_a)) mt3->stat.st_dev = 0;
             mt3 = mt2;
           } else mt2->stat.st_dev = 0;
         }

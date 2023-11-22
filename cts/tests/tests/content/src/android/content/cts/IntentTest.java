@@ -38,6 +38,8 @@ import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Xml;
 
+import com.android.content.cts.DummyParcelable;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URISyntaxException;
@@ -1748,6 +1750,49 @@ public class IntentTest extends AndroidTestCase {
         assertEquals("text/plain", Intent.normalizeMimeType("text/plain; charset=UTF-8"));
         assertEquals("text/x-vcard", Intent.normalizeMimeType("text/x-vCard"));
         assertEquals("foo/bar", Intent.normalizeMimeType("   foo/bar    "));
+    }
+
+    public void testRemoveUnsafeExtras() {
+        final Intent intent = new Intent();
+        final DummyParcelable dummyParcelable = new DummyParcelable();
+        intent.removeUnsafeExtras();
+        assertNull(intent.getExtras());
+
+        // Check that removeUnsafeExtras keeps the same bundle if no changes are made.
+        Bundle origExtras = new Bundle();
+        origExtras.putString("foo", "bar");
+        intent.replaceExtras(origExtras);
+        intent.removeUnsafeExtras();
+        Bundle newExtras = intent.getExtras();
+        assertEquals(1, newExtras.size());
+        assertEquals("bar", newExtras.get("foo"));
+
+        // Check that removeUnsafeExtras will strip non-framework parcelables without modifying
+        // the original extras bundle.
+        origExtras.putParcelable("baddy", dummyParcelable);
+        intent.replaceExtras(origExtras);
+        intent.removeUnsafeExtras();
+        newExtras = intent.getExtras();
+        assertEquals(1, newExtras.size());
+        assertEquals("bar", newExtras.get("foo"));
+        assertEquals(2, origExtras.size());
+        assertEquals("bar", origExtras.get("foo"));
+        assertSame(dummyParcelable, origExtras.get("baddy"));
+
+        // Check that nested bad values will be stripped.
+        Bundle origSubExtras = new Bundle();
+        origSubExtras.putParcelable("baddy", dummyParcelable);
+        origExtras.putBundle("baddy", origSubExtras);
+        intent.replaceExtras(origExtras);
+        intent.removeUnsafeExtras();
+        newExtras = intent.getExtras();
+        assertEquals(2, newExtras.size());
+        assertEquals("bar", newExtras.get("foo"));
+        Bundle newSubExtras = newExtras.getBundle("baddy");
+        assertNotSame(origSubExtras, newSubExtras);
+        assertEquals(0, newSubExtras.size());
+        assertEquals(1, origSubExtras.size());
+        assertSame(dummyParcelable, origSubExtras.get("baddy"));
     }
 
     private static class TestSerializable implements Serializable {

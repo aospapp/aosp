@@ -58,6 +58,34 @@ public class AccessibilityWindowReportingTest
         window.recycle();
     }
 
+    public void testUpdatedWindowTitle_generatesEventAndIsReturnedByGetTitle() {
+        final String updatedTitle = "Updated Title";
+        try {
+            mUiAutomation.executeAndWaitForEvent(new Runnable() {
+                @Override
+                public void run() {
+                    getInstrumentation().runOnMainSync(new Runnable() {
+                        @Override
+                        public void run() {
+                            getActivity().setTitle(updatedTitle);
+                        }
+                    });
+                }
+            }, new UiAutomation.AccessibilityEventFilter() {
+                @Override
+                public boolean accept(AccessibilityEvent event) {
+                    return (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED);
+                }
+            }, TIMEOUT_ASYNC_PROCESSING);
+        } catch (TimeoutException exception) {
+            throw new RuntimeException(
+                    "Failed to get windows changed event for title update", exception);
+        }
+        AccessibilityWindowInfo window = findWindowByTitle(updatedTitle);
+        assertNotNull("Updated window title not reported to accessibility", window);
+        window.recycle();
+    }
+
     public void testGetAnchorForDropDownForAutoCompleteTextView_returnsTextViewNode() {
         final AutoCompleteTextView autoCompleteTextView =
                 (AutoCompleteTextView) getActivity().findViewById(R.id.autoCompleteLayout);

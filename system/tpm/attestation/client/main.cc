@@ -147,11 +147,9 @@ class ClientLoop : public ClientLoopBase {
       task = base::Bind(&ClientLoop::CallCreateCertifiableKey,
                         weak_factory_.GetWeakPtr(),
                         command_line->GetSwitchValueASCII("label"),
-                        command_line->GetSwitchValueASCII("user"),
-                        usage);
+                        command_line->GetSwitchValueASCII("user"), usage);
     } else if (args.front() == kInfoCommand) {
-      task = base::Bind(&ClientLoop::CallGetKeyInfo,
-                        weak_factory_.GetWeakPtr(),
+      task = base::Bind(&ClientLoop::CallGetKeyInfo, weak_factory_.GetWeakPtr(),
                         command_line->GetSwitchValueASCII("label"),
                         command_line->GetSwitchValueASCII("user"));
     } else if (args.front() == kEndorsementCommand) {
@@ -171,8 +169,7 @@ class ClientLoop : public ClientLoopBase {
         return EX_NOINPUT;
       }
       task = base::Bind(&ClientLoop::CallActivateAttestationKey,
-                        weak_factory_.GetWeakPtr(),
-                        input);
+                        weak_factory_.GetWeakPtr(), input);
     } else if (args.front() == kEncryptForActivateCommand) {
       if (!command_line->HasSwitch("input") ||
           !command_line->HasSwitch("output")) {
@@ -185,8 +182,7 @@ class ClientLoop : public ClientLoopBase {
         return EX_NOINPUT;
       }
       task = base::Bind(&ClientLoop::EncryptForActivate,
-                        weak_factory_.GetWeakPtr(),
-                        input);
+                        weak_factory_.GetWeakPtr(), input);
     } else if (args.front() == kEncryptCommand) {
       if (!command_line->HasSwitch("input") ||
           !command_line->HasSwitch("output")) {
@@ -198,11 +194,9 @@ class ClientLoop : public ClientLoopBase {
         LOG(ERROR) << "Failed to read file: " << filename.value();
         return EX_NOINPUT;
       }
-      task = base::Bind(&ClientLoop::Encrypt,
-                        weak_factory_.GetWeakPtr(),
+      task = base::Bind(&ClientLoop::Encrypt, weak_factory_.GetWeakPtr(),
                         command_line->GetSwitchValueASCII("label"),
-                        command_line->GetSwitchValueASCII("user"),
-                        input);
+                        command_line->GetSwitchValueASCII("user"), input);
     } else if (args.front() == kDecryptCommand) {
       if (!command_line->HasSwitch("input")) {
         return EX_USAGE;
@@ -213,11 +207,9 @@ class ClientLoop : public ClientLoopBase {
         LOG(ERROR) << "Failed to read file: " << filename.value();
         return EX_NOINPUT;
       }
-      task = base::Bind(&ClientLoop::CallDecrypt,
-                        weak_factory_.GetWeakPtr(),
+      task = base::Bind(&ClientLoop::CallDecrypt, weak_factory_.GetWeakPtr(),
                         command_line->GetSwitchValueASCII("label"),
-                        command_line->GetSwitchValueASCII("user"),
-                        input);
+                        command_line->GetSwitchValueASCII("user"), input);
     } else if (args.front() == kSignCommand) {
       if (!command_line->HasSwitch("input")) {
         return EX_USAGE;
@@ -228,11 +220,9 @@ class ClientLoop : public ClientLoopBase {
         LOG(ERROR) << "Failed to read file: " << filename.value();
         return EX_NOINPUT;
       }
-      task = base::Bind(&ClientLoop::CallSign,
-                        weak_factory_.GetWeakPtr(),
+      task = base::Bind(&ClientLoop::CallSign, weak_factory_.GetWeakPtr(),
                         command_line->GetSwitchValueASCII("label"),
-                        command_line->GetSwitchValueASCII("user"),
-                        input);
+                        command_line->GetSwitchValueASCII("user"), input);
     } else if (args.front() == kVerifyCommand) {
       if (!command_line->HasSwitch("input") ||
           !command_line->HasSwitch("signature")) {
@@ -250,15 +240,12 @@ class ClientLoop : public ClientLoopBase {
         LOG(ERROR) << "Failed to read file: " << filename2.value();
         return EX_NOINPUT;
       }
-      task = base::Bind(&ClientLoop::VerifySignature,
-                        weak_factory_.GetWeakPtr(),
-                        command_line->GetSwitchValueASCII("label"),
-                        command_line->GetSwitchValueASCII("user"),
-                        input,
-                        signature);
+      task = base::Bind(
+          &ClientLoop::VerifySignature, weak_factory_.GetWeakPtr(),
+          command_line->GetSwitchValueASCII("label"),
+          command_line->GetSwitchValueASCII("user"), input, signature);
     } else if (args.front() == kRegisterCommand) {
-      task = base::Bind(&ClientLoop::CallRegister,
-                        weak_factory_.GetWeakPtr(),
+      task = base::Bind(&ClientLoop::CallRegister, weak_factory_.GetWeakPtr(),
                         command_line->GetSwitchValueASCII("label"),
                         command_line->GetSwitchValueASCII("user"));
     } else {
@@ -275,8 +262,8 @@ class ClientLoop : public ClientLoopBase {
   }
 
   void WriteOutput(const std::string& output) {
-    base::FilePath filename(base::CommandLine::ForCurrentProcess()->
-        GetSwitchValueASCII("output"));
+    base::FilePath filename(
+        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII("output"));
     if (base::WriteFile(filename, output.data(), output.size()) !=
         static_cast<int>(output.size())) {
       LOG(ERROR) << "Failed to write file: " << filename.value();
@@ -303,9 +290,8 @@ class ClientLoop : public ClientLoopBase {
     request.set_key_label(label);
     request.set_username(username);
     attestation_->GetKeyInfo(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<GetKeyInfoReply>,
-                   weak_factory_.GetWeakPtr()));
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<GetKeyInfoReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
   void CallGetEndorsementInfo() {
@@ -341,10 +327,8 @@ class ClientLoop : public ClientLoopBase {
     GetEndorsementInfoRequest request;
     request.set_key_type(KEY_TYPE_RSA);
     attestation_->GetEndorsementInfo(
-        request,
-        base::Bind(&ClientLoop::EncryptForActivate2,
-                   weak_factory_.GetWeakPtr(),
-                   input));
+        request, base::Bind(&ClientLoop::EncryptForActivate2,
+                            weak_factory_.GetWeakPtr(), input));
   }
 
   void EncryptForActivate2(const std::string& input,
@@ -356,10 +340,8 @@ class ClientLoop : public ClientLoopBase {
     request.set_key_type(KEY_TYPE_RSA);
     attestation_->GetAttestationKeyInfo(
         request,
-        base::Bind(&ClientLoop::EncryptForActivate3,
-                   weak_factory_.GetWeakPtr(),
-                   input,
-                   endorsement_info));
+        base::Bind(&ClientLoop::EncryptForActivate3, weak_factory_.GetWeakPtr(),
+                   input, endorsement_info));
   }
 
   void EncryptForActivate3(
@@ -372,10 +354,8 @@ class ClientLoop : public ClientLoopBase {
     CryptoUtilityImpl crypto(nullptr);
     EncryptedIdentityCredential encrypted;
     if (!crypto.EncryptIdentityCredential(
-        input,
-        endorsement_info.ek_public_key(),
-        attestation_key_info.public_key_tpm_format(),
-        &encrypted)) {
+            input, endorsement_info.ek_public_key(),
+            attestation_key_info.public_key_tpm_format(), &encrypted)) {
       QuitWithExitCode(EX_SOFTWARE);
     }
     std::string output;
@@ -404,13 +384,12 @@ class ClientLoop : public ClientLoopBase {
     GetKeyInfoRequest request;
     request.set_key_label(label);
     request.set_username(username);
-    attestation_->GetKeyInfo(request, base::Bind(&ClientLoop::Encrypt2,
-                                                 weak_factory_.GetWeakPtr(),
-                                                 input));
+    attestation_->GetKeyInfo(
+        request,
+        base::Bind(&ClientLoop::Encrypt2, weak_factory_.GetWeakPtr(), input));
   }
 
-  void Encrypt2(const std::string& input,
-                const GetKeyInfoReply& key_info) {
+  void Encrypt2(const std::string& input, const GetKeyInfoReply& key_info) {
     CryptoUtilityImpl crypto(nullptr);
     std::string output;
     if (!crypto.EncryptForUnbind(key_info.public_key(), input, &output)) {
@@ -428,9 +407,8 @@ class ClientLoop : public ClientLoopBase {
     request.set_username(username);
     request.set_encrypted_data(input);
     attestation_->Decrypt(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<DecryptReply>,
-                   weak_factory_.GetWeakPtr()));
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<DecryptReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
   void CallSign(const std::string& label,
@@ -459,9 +437,9 @@ class ClientLoop : public ClientLoopBase {
     GetKeyInfoRequest request;
     request.set_key_label(label);
     request.set_username(username);
-    attestation_->GetKeyInfo(request, base::Bind(&ClientLoop::VerifySignature2,
-                                                 weak_factory_.GetWeakPtr(),
-                                                 input, signature));
+    attestation_->GetKeyInfo(
+        request, base::Bind(&ClientLoop::VerifySignature2,
+                            weak_factory_.GetWeakPtr(), input, signature));
   }
 
   void VerifySignature2(const std::string& input,
@@ -480,9 +458,11 @@ class ClientLoop : public ClientLoopBase {
     RegisterKeyWithChapsTokenRequest request;
     request.set_key_label(label);
     request.set_username(username);
-    attestation_->RegisterKeyWithChapsToken(request, base::Bind(
-        &ClientLoop::PrintReplyAndQuit<RegisterKeyWithChapsTokenReply>,
-        weak_factory_.GetWeakPtr()));
+    attestation_->RegisterKeyWithChapsToken(
+        request,
+        base::Bind(
+            &ClientLoop::PrintReplyAndQuit<RegisterKeyWithChapsTokenReply>,
+            weak_factory_.GetWeakPtr()));
   }
 
   std::unique_ptr<attestation::AttestationInterface> attestation_;

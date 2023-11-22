@@ -16,49 +16,77 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.cts.util.PollingCheck;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.widget.AbsSeekBar;
 import android.widget.SeekBar;
+import android.widget.cts.util.TestUtils;
+
+import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+
+import java.util.List;
 
 /**
  * Test {@link AbsSeekBar}.
  */
-public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBarCtsActivity> {
-    public AbsSeekBarTest() {
-        super("android.widget.cts", ProgressBarCtsActivity.class);
-    }
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AbsSeekBarTest {
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Rule
+    public ActivityTestRule<AbsSeekBarCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AbsSeekBarCtsActivity.class);
 
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
+    @Test
     public void testConstructor() {
         new MyAbsSeekBar(mActivity);
 
         new MyAbsSeekBar(mActivity, null);
 
         new MyAbsSeekBar(mActivity, null, android.R.attr.progressBarStyle);
+
+        new MyAbsSeekBar(mActivity, null, 0, android.R.style.Widget_Material_Light_ProgressBar);
     }
 
+    @Test
     public void testAccessThumbOffset() {
         AbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
         final int positive = 5;
@@ -75,58 +103,80 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
         assertEquals(negative, myAbsSeekBar.getThumbOffset());
     }
 
-    public void testSetThumb() {
-        MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
+    @Test
+    public void testAccessThumb() {
+        // Both are pointing to the same object. This works around current limitation in CTS
+        // coverage report tool for properly reporting coverage of base class method calls.
+        final MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
+        final AbsSeekBar absSeekBar = myAbsSeekBar;
+
         Drawable drawable1 = mActivity.getDrawable(R.drawable.scenery);
         Drawable drawable2 = mActivity.getDrawable(R.drawable.pass);
 
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
 
-        myAbsSeekBar.setThumb(drawable1);
-        assertSame(drawable1, myAbsSeekBar.getThumb());
+        absSeekBar.setThumb(drawable1);
+        assertSame(drawable1, absSeekBar.getThumb());
         assertTrue(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
 
-        myAbsSeekBar.setThumb(drawable2);
-        assertSame(drawable2, myAbsSeekBar.getThumb());
+        absSeekBar.setThumb(drawable2);
+        assertSame(drawable2, absSeekBar.getThumb());
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertTrue(myAbsSeekBar.verifyDrawable(drawable2));
     }
 
-    public void testSetTickMark() {
-        MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
+    @Test
+    public void testAccessTickMark() {
+        // Both are pointing to the same object. This works around current limitation in CTS
+        // coverage report tool for properly reporting coverage of base class method calls.
+        final MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
+        final AbsSeekBar absSeekBar = myAbsSeekBar;
+
         Drawable drawable1 = mActivity.getDrawable(R.drawable.black);
         Drawable drawable2 = mActivity.getDrawable(R.drawable.black);
 
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
 
-        myAbsSeekBar.setTickMark(drawable1);
-        assertSame(drawable1, myAbsSeekBar.getTickMark());
+        absSeekBar.setTickMark(drawable1);
+        assertSame(drawable1, absSeekBar.getTickMark());
         assertTrue(myAbsSeekBar.verifyDrawable(drawable1));
         assertFalse(myAbsSeekBar.verifyDrawable(drawable2));
 
-        myAbsSeekBar.setTickMark(drawable2);
-        assertSame(drawable2, myAbsSeekBar.getTickMark());
+        absSeekBar.setTickMark(drawable2);
+        assertSame(drawable2, absSeekBar.getTickMark());
         assertFalse(myAbsSeekBar.verifyDrawable(drawable1));
         assertTrue(myAbsSeekBar.verifyDrawable(drawable2));
     }
 
+    @Test
     public void testDrawableStateChanged() {
         MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
-        MockDrawable drawable = new MockDrawable();
-        myAbsSeekBar.setProgressDrawable(drawable);
+        Drawable mockProgressDrawable = spy(new ColorDrawable(Color.YELLOW));
+        myAbsSeekBar.setProgressDrawable(mockProgressDrawable);
 
+        ArgumentCaptor<Integer> alphaCaptor = ArgumentCaptor.forClass(Integer.class);
         myAbsSeekBar.setEnabled(false);
         myAbsSeekBar.drawableStateChanged();
-        assertEquals(0, drawable.getAlpha());
+        verify(mockProgressDrawable, atLeastOnce()).setAlpha(alphaCaptor.capture());
+        // Verify that the last call to setAlpha was with argument 0x00
+        List<Integer> alphaCaptures = alphaCaptor.getAllValues();
+        assertTrue(!alphaCaptures.isEmpty());
+        assertEquals(Integer.valueOf(0x00), alphaCaptures.get(alphaCaptures.size() - 1));
 
+        alphaCaptor = ArgumentCaptor.forClass(Integer.class);
         myAbsSeekBar.setEnabled(true);
         myAbsSeekBar.drawableStateChanged();
-        assertEquals(0xFF, drawable.getAlpha());
+        verify(mockProgressDrawable, atLeastOnce()).setAlpha(alphaCaptor.capture());
+        // Verify that the last call to setAlpha was with argument 0xFF
+        alphaCaptures = alphaCaptor.getAllValues();
+        assertTrue(!alphaCaptures.isEmpty());
+        assertEquals(Integer.valueOf(0xFF), alphaCaptures.get(alphaCaptures.size() - 1));
     }
 
+    @Test
     public void testVerifyDrawable() {
         MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity);
         Drawable drawable1 = mActivity.getDrawable(R.drawable.scenery);
@@ -160,44 +210,35 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
         assertTrue(myAbsSeekBar.verifyDrawable(drawable4));
     }
 
+    @Test
     public void testAccessKeyProgressIncrement() throws Throwable {
         // AbsSeekBar is an abstract class, use its subclass: SeekBar to do this test.
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.setContentView(R.layout.seekbar_layout);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> mActivity.setContentView(R.layout.seekbar_layout));
+        mInstrumentation.waitForIdleSync();
 
         final SeekBar seekBar = (SeekBar) mActivity.findViewById(R.id.seekBar);
         final int keyProgressIncrement = 2;
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                seekBar.setKeyProgressIncrement(keyProgressIncrement);
-                seekBar.setFocusable(true);
-                seekBar.requestFocus();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            seekBar.setKeyProgressIncrement(keyProgressIncrement);
+            seekBar.setFocusable(true);
+            seekBar.requestFocus();
         });
-        new PollingCheck(1000) {
-            @Override
-            protected boolean check() {
-                return seekBar.hasWindowFocus();
-            }
-        }.run();
+        PollingCheck.waitFor(1000, seekBar::hasWindowFocus);
         assertEquals(keyProgressIncrement, seekBar.getKeyProgressIncrement());
 
         int oldProgress = seekBar.getProgress();
         KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT);
-        getInstrumentation().sendKeySync(keyEvent);
+        mInstrumentation.sendKeySync(keyEvent);
         assertEquals(oldProgress + keyProgressIncrement, seekBar.getProgress());
         oldProgress = seekBar.getProgress();
         keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_LEFT);
-        getInstrumentation().sendKeySync(keyEvent);
+        mInstrumentation.sendKeySync(keyEvent);
         assertEquals(oldProgress - keyProgressIncrement, seekBar.getProgress());
     }
 
-    public void testSetMax() {
-        MyAbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity, null, R.style.TestProgressBar);
+    @Test
+    public void testAccessMax() {
+        AbsSeekBar myAbsSeekBar = new MyAbsSeekBar(mActivity, null, R.style.TestProgressBar);
 
         int progress = 10;
         myAbsSeekBar.setProgress(progress);
@@ -225,59 +266,74 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
     }
 
     @UiThreadTest
+    @Test
     public void testThumbTint() {
-        mActivity.setContentView(R.layout.seekbar_layout);
-
-        SeekBar inflatedView = (SeekBar) mActivity.findViewById(R.id.thumb_tint);
+        AbsSeekBar inflatedView = (AbsSeekBar) mActivity.findViewById(R.id.thumb_tint);
 
         assertEquals("Thumb tint inflated correctly",
                 Color.WHITE, inflatedView.getThumbTintList().getDefaultColor());
         assertEquals("Thumb tint mode inflated correctly",
                 PorterDuff.Mode.SRC_OVER, inflatedView.getThumbTintMode());
 
-        MockDrawable thumb = new MockDrawable();
-        SeekBar view = new SeekBar(mActivity);
+        Drawable mockThumb = spy(new ColorDrawable(Color.BLUE));
 
-        view.setThumb(thumb);
-        assertFalse("No thumb tint applied by default", thumb.hasCalledSetTint());
+        inflatedView.setThumb(mockThumb);
+        verify(mockThumb, times(1)).setTintList(TestUtils.colorStateListOf(Color.WHITE));
 
-        view.setThumbTintList(ColorStateList.valueOf(Color.WHITE));
-        assertTrue("Thumb tint applied when setThumbTintList() called after setThumb()",
-                thumb.hasCalledSetTint());
+        reset(mockThumb);
+        inflatedView.setThumbTintList(ColorStateList.valueOf(Color.RED));
+        verify(mockThumb, times(1)).setTintList(TestUtils.colorStateListOf(Color.RED));
 
-        thumb.reset();
-        view.setThumb(null);
-        view.setThumb(thumb);
-        assertTrue("Thumb tint applied when setThumbTintList() called before setThumb()",
-                thumb.hasCalledSetTint());
+        inflatedView.setThumbTintMode(PorterDuff.Mode.DST_ATOP);
+        assertEquals("Thumb tint mode changed correctly",
+                PorterDuff.Mode.DST_ATOP, inflatedView.getThumbTintMode());
+
+        reset(mockThumb);
+        inflatedView.setThumb(null);
+        inflatedView.setThumb(mockThumb);
+        verify(mockThumb, times(1)).setTintList(TestUtils.colorStateListOf(Color.RED));
     }
 
     @UiThreadTest
+    @Test
     public void testTickMarkTint() {
-        mActivity.setContentView(R.layout.seekbar_layout);
-
-        SeekBar inflatedView = (SeekBar) mActivity.findViewById(R.id.tick_mark_tint);
+        AbsSeekBar inflatedView = (AbsSeekBar) mActivity.findViewById(R.id.tick_mark_tint);
 
         assertEquals("TickMark tint inflated correctly",
                 Color.WHITE, inflatedView.getTickMarkTintList().getDefaultColor());
         assertEquals("TickMark tint mode inflated correctly",
                 PorterDuff.Mode.SRC_OVER, inflatedView.getTickMarkTintMode());
 
-        MockDrawable tickMark = new MockDrawable();
-        SeekBar view = new SeekBar(mActivity);
+        Drawable mockTickMark = spy(new ColorDrawable(Color.BLUE));
 
-        view.setTickMark(tickMark);
-        assertFalse("No tickMark tint applied by default", tickMark.hasCalledSetTint());
+        inflatedView.setTickMark(mockTickMark);
+        verify(mockTickMark, times(1)).setTintList(TestUtils.colorStateListOf(Color.WHITE));
 
-        view.setTickMarkTintList(ColorStateList.valueOf(Color.WHITE));
-        assertTrue("TickMark tint applied when setTickMarkTintList() called after setTickMark()",
-                tickMark.hasCalledSetTint());
+        reset(mockTickMark);
+        inflatedView.setTickMarkTintList(ColorStateList.valueOf(Color.RED));
+        verify(mockTickMark, times(1)).setTintList(TestUtils.colorStateListOf(Color.RED));
 
-        tickMark.reset();
-        view.setTickMark(null);
-        view.setTickMark(tickMark);
-        assertTrue("TickMark tint applied when setTickMarkTintList() called before setTickMark()",
-                tickMark.hasCalledSetTint());
+        inflatedView.setTickMarkTintMode(PorterDuff.Mode.DARKEN);
+        assertEquals("TickMark tint mode changed correctly",
+                PorterDuff.Mode.DARKEN, inflatedView.getTickMarkTintMode());
+
+        reset(mockTickMark);
+        inflatedView.setTickMark(null);
+        inflatedView.setTickMark(mockTickMark);
+        verify(mockTickMark, times(1)).setTintList(TestUtils.colorStateListOf(Color.RED));
+    }
+
+    @Test
+    public void testAccessSplitTrack() throws Throwable {
+        AbsSeekBar inflatedView = (AbsSeekBar) mActivity.findViewById(R.id.tick_mark_tint);
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, inflatedView,
+                () -> inflatedView.setSplitTrack(true));
+        assertTrue(inflatedView.getSplitTrack());
+
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, inflatedView,
+                () -> inflatedView.setSplitTrack(false));
+        assertFalse(inflatedView.getSplitTrack());
     }
 
     private static class MyAbsSeekBar extends AbsSeekBar {
@@ -293,6 +349,10 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
             super(context, attrs, defStyle);
         }
 
+        public MyAbsSeekBar(Context context, AttributeSet attrs, int defStyle, int defStyleRes) {
+            super(context, attrs, defStyle, defStyleRes);
+        }
+
         @Override
         protected void drawableStateChanged() {
             super.drawableStateChanged();
@@ -301,47 +361,6 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
         @Override
         protected boolean verifyDrawable(Drawable who) {
             return super.verifyDrawable(who);
-        }
-    }
-
-    private static class MockDrawable extends Drawable {
-        private int mAlpha;
-        private boolean mCalledDraw = false;
-        private boolean mCalledSetTint = false;
-
-        @Override
-        public void draw(Canvas canvas) { }
-
-        public void reset() {
-            mCalledDraw = false;
-            mCalledSetTint = false;
-        }
-
-        @Override
-        public int getOpacity() {
-            return 0;
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-            mAlpha = alpha;
-        }
-
-        public int getAlpha() {
-            return mAlpha;
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter cf) { }
-
-        @Override
-        public void setTintList(ColorStateList tint) {
-            super.setTintList(tint);
-            mCalledSetTint = true;
-        }
-
-        public boolean hasCalledSetTint() {
-            return mCalledSetTint;
         }
     }
 }

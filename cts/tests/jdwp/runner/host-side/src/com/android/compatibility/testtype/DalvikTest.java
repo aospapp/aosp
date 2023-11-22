@@ -17,7 +17,6 @@
 package com.android.compatibility.testtype;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.compatibility.common.util.AbiUtils;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
@@ -39,6 +38,7 @@ import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFileFilterReceiver;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.TimeVal;
@@ -176,6 +176,14 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
     @Override
     public void setAbi(IAbi abi) {
         mAbi = abi;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public IAbi getAbi() {
+        return mAbi;
     }
 
     /**
@@ -464,6 +472,7 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
         // A DalvikTest to run any tests not contained in packages from TEST_PACKAGES, may be empty
         DalvikTest catchAll = new DalvikTest();
         OptionCopier.copyOptionsNoThrow(this, catchAll);
+        catchAll.mAbi = mAbi;
         shards.add(catchAll);
         // estimate catchAll's runtime to be that of a single package in TEST_PACKAGES
         long runtimeHint = mRuntimeHint / TEST_PACKAGES.size();
@@ -474,7 +483,8 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
             DalvikTest test = new DalvikTest();
             OptionCopier.copyOptionsNoThrow(this, test);
             test.addIncludeFilter(packageName);
-            test.mRuntimeHint = runtimeHint;
+            test.mRuntimeHint = runtimeHint / TEST_PACKAGES.size();
+            test.mAbi = mAbi;
             shards.add(test);
         }
         // return a shard for each package in TEST_PACKAGE, plus a shard for any other tests

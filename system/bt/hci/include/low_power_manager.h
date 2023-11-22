@@ -24,8 +24,9 @@ typedef struct thread_t thread_t;
 typedef struct vendor_t vendor_t;
 
 typedef struct low_power_manager_t {
-  // Initialize the low power manager, and use |post_thread| to synchronize actions.
-  void (*init)(thread_t *post_thread);
+  // Initialize the low power manager, and use |post_thread| to synchronize
+  // actions.
+  void (*init)(thread_t* post_thread);
 
   // Clean up the low power manager and release resources.
   void (*cleanup)(void);
@@ -43,5 +44,6 @@ typedef struct low_power_manager_t {
   void (*transmit_done)(void);
 } low_power_manager_t;
 
-const low_power_manager_t *low_power_manager_get_interface();
-const low_power_manager_t *low_power_manager_get_test_interface(const vendor_t *vendor_interface);
+const low_power_manager_t* low_power_manager_get_interface();
+const low_power_manager_t* low_power_manager_get_test_interface(
+    const vendor_t* vendor_interface);

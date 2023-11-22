@@ -386,6 +386,42 @@ void X86_64Assembler::movaps(XmmRegister dst, XmmRegister src) {
 }
 
 
+void X86_64Assembler::movaps(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x28);
+  EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movups(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x10);
+  EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movaps(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0x29);
+  EmitOperand(src.LowBits(), dst);
+}
+
+
+void X86_64Assembler::movups(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0x11);
+  EmitOperand(src.LowBits(), dst);
+}
+
+
 void X86_64Assembler::movss(XmmRegister dst, const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xF3);
@@ -539,6 +575,42 @@ void X86_64Assembler::divss(XmmRegister dst, const Address& src) {
 }
 
 
+void X86_64Assembler::addps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x58);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::subps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x5C);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::mulps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x59);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::divps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x5E);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
 void X86_64Assembler::flds(const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xD9);
@@ -557,6 +629,56 @@ void X86_64Assembler::fstps(const Address& dst) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xD9);
   EmitOperand(3, dst);
+}
+
+
+void X86_64Assembler::movapd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x28);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movapd(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x28);
+  EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movupd(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x10);
+  EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movapd(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0x29);
+  EmitOperand(src.LowBits(), dst);
+}
+
+
+void X86_64Assembler::movupd(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0x11);
+  EmitOperand(src.LowBits(), dst);
 }
 
 
@@ -667,6 +789,197 @@ void X86_64Assembler::divsd(XmmRegister dst, const Address& src) {
   EmitUint8(0x0F);
   EmitUint8(0x5E);
   EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::addpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x58);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::subpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x5C);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::mulpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x59);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::divpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x5E);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movdqa(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x6F);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movdqa(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x6F);
+  EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movdqu(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x6F);
+  EmitOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::movdqa(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0x7F);
+  EmitOperand(src.LowBits(), dst);
+}
+
+
+void X86_64Assembler::movdqu(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF3);
+  EmitOptionalRex32(src, dst);
+  EmitUint8(0x0F);
+  EmitUint8(0x7F);
+  EmitOperand(src.LowBits(), dst);
+}
+
+
+void X86_64Assembler::paddb(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xFC);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::psubb(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xF8);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::paddw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xFD);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::psubw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xF9);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::pmullw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xD5);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::paddd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xFE);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::psubd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xFA);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::pmulld(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x38);
+  EmitUint8(0x40);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::paddq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xD4);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::psubq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xFB);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
 }
 
 
@@ -840,6 +1153,15 @@ void X86_64Assembler::cvtsd2ss(XmmRegister dst, const Address& src) {
 }
 
 
+void X86_64Assembler::cvtdq2ps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x5B);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
 void X86_64Assembler::cvtdq2pd(XmmRegister dst, XmmRegister src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xF3);
@@ -1008,6 +1330,16 @@ void X86_64Assembler::xorps(XmmRegister dst, XmmRegister src) {
 }
 
 
+void X86_64Assembler::pxor(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xEF);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
 void X86_64Assembler::andpd(XmmRegister dst, const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x66);
@@ -1034,6 +1366,41 @@ void X86_64Assembler::andps(XmmRegister dst, XmmRegister src) {
   EmitXmmRegisterOperand(dst.LowBits(), src);
 }
 
+void X86_64Assembler::pand(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xDB);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::andnpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x55);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::andnps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x55);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pandn(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xDF);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
 void X86_64Assembler::orpd(XmmRegister dst, XmmRegister src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x66);
@@ -1050,6 +1417,275 @@ void X86_64Assembler::orps(XmmRegister dst, XmmRegister src) {
   EmitUint8(0x56);
   EmitXmmRegisterOperand(dst.LowBits(), src);
 }
+
+void X86_64Assembler::por(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xEB);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pavgb(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xE0);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pavgw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xE3);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpeqb(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x74);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpeqw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x75);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpeqd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x76);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpeqq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x38);
+  EmitUint8(0x29);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpgtb(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x64);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpgtw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x65);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpgtd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x66);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::pcmpgtq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x38);
+  EmitUint8(0x37);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+void X86_64Assembler::shufpd(XmmRegister dst, XmmRegister src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xC6);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+  EmitUint8(imm.value());
+}
+
+
+void X86_64Assembler::shufps(XmmRegister dst, XmmRegister src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0xC6);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+  EmitUint8(imm.value());
+}
+
+
+void X86_64Assembler::pshufd(XmmRegister dst, XmmRegister src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x70);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+  EmitUint8(imm.value());
+}
+
+
+void X86_64Assembler::punpcklbw(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x60);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::punpcklwd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x61);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::punpckldq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x62);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::punpcklqdq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex32(dst, src);
+  EmitUint8(0x0F);
+  EmitUint8(0x6C);
+  EmitXmmRegisterOperand(dst.LowBits(), src);
+}
+
+
+void X86_64Assembler::psllw(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x71);
+  EmitXmmRegisterOperand(6, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::pslld(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x72);
+  EmitXmmRegisterOperand(6, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::psllq(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x73);
+  EmitXmmRegisterOperand(6, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::psraw(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x71);
+  EmitXmmRegisterOperand(4, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::psrad(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x72);
+  EmitXmmRegisterOperand(4, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::psrlw(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x71);
+  EmitXmmRegisterOperand(2, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::psrld(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x72);
+  EmitXmmRegisterOperand(2, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86_64Assembler::psrlq(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitOptionalRex(false, false, false, false, reg.NeedsRex());
+  EmitUint8(0x0F);
+  EmitUint8(0x73);
+  EmitXmmRegisterOperand(2, reg);
+  EmitUint8(shift_count.value());
+}
+
 
 void X86_64Assembler::fldl(const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
@@ -1224,6 +1860,16 @@ void X86_64Assembler::xchgl(CpuRegister reg, const Address& address) {
 }
 
 
+void X86_64Assembler::cmpb(const Address& address, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  CHECK(imm.is_int32());
+  EmitOptionalRex32(address);
+  EmitUint8(0x80);
+  EmitOperand(7, address);
+  EmitUint8(imm.value() & 0xFF);
+}
+
+
 void X86_64Assembler::cmpw(const Address& address, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   CHECK(imm.is_int32());
@@ -1376,6 +2022,25 @@ void X86_64Assembler::testq(CpuRegister reg, const Address& address) {
   EmitRex64(reg, address);
   EmitUint8(0x85);
   EmitOperand(reg.LowBits(), address);
+}
+
+
+void X86_64Assembler::testb(const Address& dst, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst);
+  EmitUint8(0xF6);
+  EmitOperand(Register::RAX, dst);
+  CHECK(imm.is_int8());
+  EmitUint8(imm.value() & 0xFF);
+}
+
+
+void X86_64Assembler::testl(const Address& dst, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOptionalRex32(dst);
+  EmitUint8(0xF7);
+  EmitOperand(0, dst);
+  EmitImmediate(imm);
 }
 
 
@@ -2296,13 +2961,18 @@ void X86_64Assembler::popcntq(CpuRegister dst, const Address& src) {
   EmitOperand(dst.LowBits(), src);
 }
 
+void X86_64Assembler::repne_scasb() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF2);
+  EmitUint8(0xAE);
+}
+
 void X86_64Assembler::repne_scasw() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x66);
   EmitUint8(0xF2);
   EmitUint8(0xAF);
 }
-
 
 void X86_64Assembler::repe_cmpsw() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
@@ -2627,543 +3297,6 @@ void X86_64Assembler::EmitOptionalByteRegNormalizingRex32(CpuRegister dst, const
   if (rex != 0) {
     EmitUint8(rex);
   }
-}
-
-static dwarf::Reg DWARFReg(Register reg) {
-  return dwarf::Reg::X86_64Core(static_cast<int>(reg));
-}
-static dwarf::Reg DWARFReg(FloatRegister reg) {
-  return dwarf::Reg::X86_64Fp(static_cast<int>(reg));
-}
-
-constexpr size_t kFramePointerSize = 8;
-
-void X86_64Assembler::BuildFrame(size_t frame_size, ManagedRegister method_reg,
-                                 const std::vector<ManagedRegister>& spill_regs,
-                                 const ManagedRegisterEntrySpills& entry_spills) {
-  DCHECK_EQ(buffer_.Size(), 0U);  // Nothing emitted yet.
-  cfi_.SetCurrentCFAOffset(8);  // Return address on stack.
-  CHECK_ALIGNED(frame_size, kStackAlignment);
-  int gpr_count = 0;
-  for (int i = spill_regs.size() - 1; i >= 0; --i) {
-    x86_64::X86_64ManagedRegister spill = spill_regs.at(i).AsX86_64();
-    if (spill.IsCpuRegister()) {
-      pushq(spill.AsCpuRegister());
-      gpr_count++;
-      cfi_.AdjustCFAOffset(kFramePointerSize);
-      cfi_.RelOffset(DWARFReg(spill.AsCpuRegister().AsRegister()), 0);
-    }
-  }
-  // return address then method on stack.
-  int64_t rest_of_frame = static_cast<int64_t>(frame_size)
-                          - (gpr_count * kFramePointerSize)
-                          - kFramePointerSize /*return address*/;
-  subq(CpuRegister(RSP), Immediate(rest_of_frame));
-  cfi_.AdjustCFAOffset(rest_of_frame);
-
-  // spill xmms
-  int64_t offset = rest_of_frame;
-  for (int i = spill_regs.size() - 1; i >= 0; --i) {
-    x86_64::X86_64ManagedRegister spill = spill_regs.at(i).AsX86_64();
-    if (spill.IsXmmRegister()) {
-      offset -= sizeof(double);
-      movsd(Address(CpuRegister(RSP), offset), spill.AsXmmRegister());
-      cfi_.RelOffset(DWARFReg(spill.AsXmmRegister().AsFloatRegister()), offset);
-    }
-  }
-
-  DCHECK_EQ(kX86_64PointerSize, kFramePointerSize);
-
-  movq(Address(CpuRegister(RSP), 0), method_reg.AsX86_64().AsCpuRegister());
-
-  for (size_t i = 0; i < entry_spills.size(); ++i) {
-    ManagedRegisterSpill spill = entry_spills.at(i);
-    if (spill.AsX86_64().IsCpuRegister()) {
-      if (spill.getSize() == 8) {
-        movq(Address(CpuRegister(RSP), frame_size + spill.getSpillOffset()),
-             spill.AsX86_64().AsCpuRegister());
-      } else {
-        CHECK_EQ(spill.getSize(), 4);
-        movl(Address(CpuRegister(RSP), frame_size + spill.getSpillOffset()), spill.AsX86_64().AsCpuRegister());
-      }
-    } else {
-      if (spill.getSize() == 8) {
-        movsd(Address(CpuRegister(RSP), frame_size + spill.getSpillOffset()), spill.AsX86_64().AsXmmRegister());
-      } else {
-        CHECK_EQ(spill.getSize(), 4);
-        movss(Address(CpuRegister(RSP), frame_size + spill.getSpillOffset()), spill.AsX86_64().AsXmmRegister());
-      }
-    }
-  }
-}
-
-void X86_64Assembler::RemoveFrame(size_t frame_size,
-                            const std::vector<ManagedRegister>& spill_regs) {
-  CHECK_ALIGNED(frame_size, kStackAlignment);
-  cfi_.RememberState();
-  int gpr_count = 0;
-  // unspill xmms
-  int64_t offset = static_cast<int64_t>(frame_size) - (spill_regs.size() * kFramePointerSize) - 2 * kFramePointerSize;
-  for (size_t i = 0; i < spill_regs.size(); ++i) {
-    x86_64::X86_64ManagedRegister spill = spill_regs.at(i).AsX86_64();
-    if (spill.IsXmmRegister()) {
-      offset += sizeof(double);
-      movsd(spill.AsXmmRegister(), Address(CpuRegister(RSP), offset));
-      cfi_.Restore(DWARFReg(spill.AsXmmRegister().AsFloatRegister()));
-    } else {
-      gpr_count++;
-    }
-  }
-  int adjust = static_cast<int>(frame_size) - (gpr_count * kFramePointerSize) - kFramePointerSize;
-  addq(CpuRegister(RSP), Immediate(adjust));
-  cfi_.AdjustCFAOffset(-adjust);
-  for (size_t i = 0; i < spill_regs.size(); ++i) {
-    x86_64::X86_64ManagedRegister spill = spill_regs.at(i).AsX86_64();
-    if (spill.IsCpuRegister()) {
-      popq(spill.AsCpuRegister());
-      cfi_.AdjustCFAOffset(-static_cast<int>(kFramePointerSize));
-      cfi_.Restore(DWARFReg(spill.AsCpuRegister().AsRegister()));
-    }
-  }
-  ret();
-  // The CFI should be restored for any code that follows the exit block.
-  cfi_.RestoreState();
-  cfi_.DefCFAOffset(frame_size);
-}
-
-void X86_64Assembler::IncreaseFrameSize(size_t adjust) {
-  CHECK_ALIGNED(adjust, kStackAlignment);
-  addq(CpuRegister(RSP), Immediate(-static_cast<int64_t>(adjust)));
-  cfi_.AdjustCFAOffset(adjust);
-}
-
-void X86_64Assembler::DecreaseFrameSize(size_t adjust) {
-  CHECK_ALIGNED(adjust, kStackAlignment);
-  addq(CpuRegister(RSP), Immediate(adjust));
-  cfi_.AdjustCFAOffset(-adjust);
-}
-
-void X86_64Assembler::Store(FrameOffset offs, ManagedRegister msrc, size_t size) {
-  X86_64ManagedRegister src = msrc.AsX86_64();
-  if (src.IsNoRegister()) {
-    CHECK_EQ(0u, size);
-  } else if (src.IsCpuRegister()) {
-    if (size == 4) {
-      CHECK_EQ(4u, size);
-      movl(Address(CpuRegister(RSP), offs), src.AsCpuRegister());
-    } else {
-      CHECK_EQ(8u, size);
-      movq(Address(CpuRegister(RSP), offs), src.AsCpuRegister());
-    }
-  } else if (src.IsRegisterPair()) {
-    CHECK_EQ(0u, size);
-    movq(Address(CpuRegister(RSP), offs), src.AsRegisterPairLow());
-    movq(Address(CpuRegister(RSP), FrameOffset(offs.Int32Value()+4)),
-         src.AsRegisterPairHigh());
-  } else if (src.IsX87Register()) {
-    if (size == 4) {
-      fstps(Address(CpuRegister(RSP), offs));
-    } else {
-      fstpl(Address(CpuRegister(RSP), offs));
-    }
-  } else {
-    CHECK(src.IsXmmRegister());
-    if (size == 4) {
-      movss(Address(CpuRegister(RSP), offs), src.AsXmmRegister());
-    } else {
-      movsd(Address(CpuRegister(RSP), offs), src.AsXmmRegister());
-    }
-  }
-}
-
-void X86_64Assembler::StoreRef(FrameOffset dest, ManagedRegister msrc) {
-  X86_64ManagedRegister src = msrc.AsX86_64();
-  CHECK(src.IsCpuRegister());
-  movl(Address(CpuRegister(RSP), dest), src.AsCpuRegister());
-}
-
-void X86_64Assembler::StoreRawPtr(FrameOffset dest, ManagedRegister msrc) {
-  X86_64ManagedRegister src = msrc.AsX86_64();
-  CHECK(src.IsCpuRegister());
-  movq(Address(CpuRegister(RSP), dest), src.AsCpuRegister());
-}
-
-void X86_64Assembler::StoreImmediateToFrame(FrameOffset dest, uint32_t imm,
-                                            ManagedRegister) {
-  movl(Address(CpuRegister(RSP), dest), Immediate(imm));  // TODO(64) movq?
-}
-
-void X86_64Assembler::StoreImmediateToThread64(ThreadOffset<8> dest, uint32_t imm,
-                                               ManagedRegister) {
-  gs()->movl(Address::Absolute(dest, true), Immediate(imm));  // TODO(64) movq?
-}
-
-void X86_64Assembler::StoreStackOffsetToThread64(ThreadOffset<8> thr_offs,
-                                                 FrameOffset fr_offs,
-                                                 ManagedRegister mscratch) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  CHECK(scratch.IsCpuRegister());
-  leaq(scratch.AsCpuRegister(), Address(CpuRegister(RSP), fr_offs));
-  gs()->movq(Address::Absolute(thr_offs, true), scratch.AsCpuRegister());
-}
-
-void X86_64Assembler::StoreStackPointerToThread64(ThreadOffset<8> thr_offs) {
-  gs()->movq(Address::Absolute(thr_offs, true), CpuRegister(RSP));
-}
-
-void X86_64Assembler::StoreSpanning(FrameOffset /*dst*/, ManagedRegister /*src*/,
-                                 FrameOffset /*in_off*/, ManagedRegister /*scratch*/) {
-  UNIMPLEMENTED(FATAL);  // this case only currently exists for ARM
-}
-
-void X86_64Assembler::Load(ManagedRegister mdest, FrameOffset src, size_t size) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  if (dest.IsNoRegister()) {
-    CHECK_EQ(0u, size);
-  } else if (dest.IsCpuRegister()) {
-    if (size == 4) {
-      CHECK_EQ(4u, size);
-      movl(dest.AsCpuRegister(), Address(CpuRegister(RSP), src));
-    } else {
-      CHECK_EQ(8u, size);
-      movq(dest.AsCpuRegister(), Address(CpuRegister(RSP), src));
-    }
-  } else if (dest.IsRegisterPair()) {
-    CHECK_EQ(0u, size);
-    movq(dest.AsRegisterPairLow(), Address(CpuRegister(RSP), src));
-    movq(dest.AsRegisterPairHigh(), Address(CpuRegister(RSP), FrameOffset(src.Int32Value()+4)));
-  } else if (dest.IsX87Register()) {
-    if (size == 4) {
-      flds(Address(CpuRegister(RSP), src));
-    } else {
-      fldl(Address(CpuRegister(RSP), src));
-    }
-  } else {
-    CHECK(dest.IsXmmRegister());
-    if (size == 4) {
-      movss(dest.AsXmmRegister(), Address(CpuRegister(RSP), src));
-    } else {
-      movsd(dest.AsXmmRegister(), Address(CpuRegister(RSP), src));
-    }
-  }
-}
-
-void X86_64Assembler::LoadFromThread64(ManagedRegister mdest, ThreadOffset<8> src, size_t size) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  if (dest.IsNoRegister()) {
-    CHECK_EQ(0u, size);
-  } else if (dest.IsCpuRegister()) {
-    CHECK_EQ(4u, size);
-    gs()->movl(dest.AsCpuRegister(), Address::Absolute(src, true));
-  } else if (dest.IsRegisterPair()) {
-    CHECK_EQ(8u, size);
-    gs()->movq(dest.AsRegisterPairLow(), Address::Absolute(src, true));
-  } else if (dest.IsX87Register()) {
-    if (size == 4) {
-      gs()->flds(Address::Absolute(src, true));
-    } else {
-      gs()->fldl(Address::Absolute(src, true));
-    }
-  } else {
-    CHECK(dest.IsXmmRegister());
-    if (size == 4) {
-      gs()->movss(dest.AsXmmRegister(), Address::Absolute(src, true));
-    } else {
-      gs()->movsd(dest.AsXmmRegister(), Address::Absolute(src, true));
-    }
-  }
-}
-
-void X86_64Assembler::LoadRef(ManagedRegister mdest, FrameOffset src) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  CHECK(dest.IsCpuRegister());
-  movq(dest.AsCpuRegister(), Address(CpuRegister(RSP), src));
-}
-
-void X86_64Assembler::LoadRef(ManagedRegister mdest, ManagedRegister base, MemberOffset offs,
-                              bool unpoison_reference) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  CHECK(dest.IsCpuRegister() && dest.IsCpuRegister());
-  movl(dest.AsCpuRegister(), Address(base.AsX86_64().AsCpuRegister(), offs));
-  if (unpoison_reference) {
-    MaybeUnpoisonHeapReference(dest.AsCpuRegister());
-  }
-}
-
-void X86_64Assembler::LoadRawPtr(ManagedRegister mdest, ManagedRegister base,
-                              Offset offs) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  CHECK(dest.IsCpuRegister() && dest.IsCpuRegister());
-  movq(dest.AsCpuRegister(), Address(base.AsX86_64().AsCpuRegister(), offs));
-}
-
-void X86_64Assembler::LoadRawPtrFromThread64(ManagedRegister mdest, ThreadOffset<8> offs) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  CHECK(dest.IsCpuRegister());
-  gs()->movq(dest.AsCpuRegister(), Address::Absolute(offs, true));
-}
-
-void X86_64Assembler::SignExtend(ManagedRegister mreg, size_t size) {
-  X86_64ManagedRegister reg = mreg.AsX86_64();
-  CHECK(size == 1 || size == 2) << size;
-  CHECK(reg.IsCpuRegister()) << reg;
-  if (size == 1) {
-    movsxb(reg.AsCpuRegister(), reg.AsCpuRegister());
-  } else {
-    movsxw(reg.AsCpuRegister(), reg.AsCpuRegister());
-  }
-}
-
-void X86_64Assembler::ZeroExtend(ManagedRegister mreg, size_t size) {
-  X86_64ManagedRegister reg = mreg.AsX86_64();
-  CHECK(size == 1 || size == 2) << size;
-  CHECK(reg.IsCpuRegister()) << reg;
-  if (size == 1) {
-    movzxb(reg.AsCpuRegister(), reg.AsCpuRegister());
-  } else {
-    movzxw(reg.AsCpuRegister(), reg.AsCpuRegister());
-  }
-}
-
-void X86_64Assembler::Move(ManagedRegister mdest, ManagedRegister msrc, size_t size) {
-  X86_64ManagedRegister dest = mdest.AsX86_64();
-  X86_64ManagedRegister src = msrc.AsX86_64();
-  if (!dest.Equals(src)) {
-    if (dest.IsCpuRegister() && src.IsCpuRegister()) {
-      movq(dest.AsCpuRegister(), src.AsCpuRegister());
-    } else if (src.IsX87Register() && dest.IsXmmRegister()) {
-      // Pass via stack and pop X87 register
-      subl(CpuRegister(RSP), Immediate(16));
-      if (size == 4) {
-        CHECK_EQ(src.AsX87Register(), ST0);
-        fstps(Address(CpuRegister(RSP), 0));
-        movss(dest.AsXmmRegister(), Address(CpuRegister(RSP), 0));
-      } else {
-        CHECK_EQ(src.AsX87Register(), ST0);
-        fstpl(Address(CpuRegister(RSP), 0));
-        movsd(dest.AsXmmRegister(), Address(CpuRegister(RSP), 0));
-      }
-      addq(CpuRegister(RSP), Immediate(16));
-    } else {
-      // TODO: x87, SSE
-      UNIMPLEMENTED(FATAL) << ": Move " << dest << ", " << src;
-    }
-  }
-}
-
-void X86_64Assembler::CopyRef(FrameOffset dest, FrameOffset src, ManagedRegister mscratch) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  CHECK(scratch.IsCpuRegister());
-  movl(scratch.AsCpuRegister(), Address(CpuRegister(RSP), src));
-  movl(Address(CpuRegister(RSP), dest), scratch.AsCpuRegister());
-}
-
-void X86_64Assembler::CopyRawPtrFromThread64(FrameOffset fr_offs,
-                                             ThreadOffset<8> thr_offs,
-                                             ManagedRegister mscratch) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  CHECK(scratch.IsCpuRegister());
-  gs()->movq(scratch.AsCpuRegister(), Address::Absolute(thr_offs, true));
-  Store(fr_offs, scratch, 8);
-}
-
-void X86_64Assembler::CopyRawPtrToThread64(ThreadOffset<8> thr_offs,
-                                           FrameOffset fr_offs,
-                                           ManagedRegister mscratch) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  CHECK(scratch.IsCpuRegister());
-  Load(scratch, fr_offs, 8);
-  gs()->movq(Address::Absolute(thr_offs, true), scratch.AsCpuRegister());
-}
-
-void X86_64Assembler::Copy(FrameOffset dest, FrameOffset src, ManagedRegister mscratch,
-                           size_t size) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  if (scratch.IsCpuRegister() && size == 8) {
-    Load(scratch, src, 4);
-    Store(dest, scratch, 4);
-    Load(scratch, FrameOffset(src.Int32Value() + 4), 4);
-    Store(FrameOffset(dest.Int32Value() + 4), scratch, 4);
-  } else {
-    Load(scratch, src, size);
-    Store(dest, scratch, size);
-  }
-}
-
-void X86_64Assembler::Copy(FrameOffset /*dst*/, ManagedRegister /*src_base*/, Offset /*src_offset*/,
-                        ManagedRegister /*scratch*/, size_t /*size*/) {
-  UNIMPLEMENTED(FATAL);
-}
-
-void X86_64Assembler::Copy(ManagedRegister dest_base, Offset dest_offset, FrameOffset src,
-                        ManagedRegister scratch, size_t size) {
-  CHECK(scratch.IsNoRegister());
-  CHECK_EQ(size, 4u);
-  pushq(Address(CpuRegister(RSP), src));
-  popq(Address(dest_base.AsX86_64().AsCpuRegister(), dest_offset));
-}
-
-void X86_64Assembler::Copy(FrameOffset dest, FrameOffset src_base, Offset src_offset,
-                        ManagedRegister mscratch, size_t size) {
-  CpuRegister scratch = mscratch.AsX86_64().AsCpuRegister();
-  CHECK_EQ(size, 4u);
-  movq(scratch, Address(CpuRegister(RSP), src_base));
-  movq(scratch, Address(scratch, src_offset));
-  movq(Address(CpuRegister(RSP), dest), scratch);
-}
-
-void X86_64Assembler::Copy(ManagedRegister dest, Offset dest_offset,
-                        ManagedRegister src, Offset src_offset,
-                        ManagedRegister scratch, size_t size) {
-  CHECK_EQ(size, 4u);
-  CHECK(scratch.IsNoRegister());
-  pushq(Address(src.AsX86_64().AsCpuRegister(), src_offset));
-  popq(Address(dest.AsX86_64().AsCpuRegister(), dest_offset));
-}
-
-void X86_64Assembler::Copy(FrameOffset dest, Offset dest_offset, FrameOffset src, Offset src_offset,
-                        ManagedRegister mscratch, size_t size) {
-  CpuRegister scratch = mscratch.AsX86_64().AsCpuRegister();
-  CHECK_EQ(size, 4u);
-  CHECK_EQ(dest.Int32Value(), src.Int32Value());
-  movq(scratch, Address(CpuRegister(RSP), src));
-  pushq(Address(scratch, src_offset));
-  popq(Address(scratch, dest_offset));
-}
-
-void X86_64Assembler::MemoryBarrier(ManagedRegister) {
-  mfence();
-}
-
-void X86_64Assembler::CreateHandleScopeEntry(ManagedRegister mout_reg,
-                                   FrameOffset handle_scope_offset,
-                                   ManagedRegister min_reg, bool null_allowed) {
-  X86_64ManagedRegister out_reg = mout_reg.AsX86_64();
-  X86_64ManagedRegister in_reg = min_reg.AsX86_64();
-  if (in_reg.IsNoRegister()) {  // TODO(64): && null_allowed
-    // Use out_reg as indicator of null.
-    in_reg = out_reg;
-    // TODO: movzwl
-    movl(in_reg.AsCpuRegister(), Address(CpuRegister(RSP), handle_scope_offset));
-  }
-  CHECK(in_reg.IsCpuRegister());
-  CHECK(out_reg.IsCpuRegister());
-  VerifyObject(in_reg, null_allowed);
-  if (null_allowed) {
-    Label null_arg;
-    if (!out_reg.Equals(in_reg)) {
-      xorl(out_reg.AsCpuRegister(), out_reg.AsCpuRegister());
-    }
-    testl(in_reg.AsCpuRegister(), in_reg.AsCpuRegister());
-    j(kZero, &null_arg);
-    leaq(out_reg.AsCpuRegister(), Address(CpuRegister(RSP), handle_scope_offset));
-    Bind(&null_arg);
-  } else {
-    leaq(out_reg.AsCpuRegister(), Address(CpuRegister(RSP), handle_scope_offset));
-  }
-}
-
-void X86_64Assembler::CreateHandleScopeEntry(FrameOffset out_off,
-                                   FrameOffset handle_scope_offset,
-                                   ManagedRegister mscratch,
-                                   bool null_allowed) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  CHECK(scratch.IsCpuRegister());
-  if (null_allowed) {
-    Label null_arg;
-    movl(scratch.AsCpuRegister(), Address(CpuRegister(RSP), handle_scope_offset));
-    testl(scratch.AsCpuRegister(), scratch.AsCpuRegister());
-    j(kZero, &null_arg);
-    leaq(scratch.AsCpuRegister(), Address(CpuRegister(RSP), handle_scope_offset));
-    Bind(&null_arg);
-  } else {
-    leaq(scratch.AsCpuRegister(), Address(CpuRegister(RSP), handle_scope_offset));
-  }
-  Store(out_off, scratch, 8);
-}
-
-// Given a handle scope entry, load the associated reference.
-void X86_64Assembler::LoadReferenceFromHandleScope(ManagedRegister mout_reg,
-                                         ManagedRegister min_reg) {
-  X86_64ManagedRegister out_reg = mout_reg.AsX86_64();
-  X86_64ManagedRegister in_reg = min_reg.AsX86_64();
-  CHECK(out_reg.IsCpuRegister());
-  CHECK(in_reg.IsCpuRegister());
-  Label null_arg;
-  if (!out_reg.Equals(in_reg)) {
-    xorl(out_reg.AsCpuRegister(), out_reg.AsCpuRegister());
-  }
-  testl(in_reg.AsCpuRegister(), in_reg.AsCpuRegister());
-  j(kZero, &null_arg);
-  movq(out_reg.AsCpuRegister(), Address(in_reg.AsCpuRegister(), 0));
-  Bind(&null_arg);
-}
-
-void X86_64Assembler::VerifyObject(ManagedRegister /*src*/, bool /*could_be_null*/) {
-  // TODO: not validating references
-}
-
-void X86_64Assembler::VerifyObject(FrameOffset /*src*/, bool /*could_be_null*/) {
-  // TODO: not validating references
-}
-
-void X86_64Assembler::Call(ManagedRegister mbase, Offset offset, ManagedRegister) {
-  X86_64ManagedRegister base = mbase.AsX86_64();
-  CHECK(base.IsCpuRegister());
-  call(Address(base.AsCpuRegister(), offset.Int32Value()));
-  // TODO: place reference map on call
-}
-
-void X86_64Assembler::Call(FrameOffset base, Offset offset, ManagedRegister mscratch) {
-  CpuRegister scratch = mscratch.AsX86_64().AsCpuRegister();
-  movq(scratch, Address(CpuRegister(RSP), base));
-  call(Address(scratch, offset));
-}
-
-void X86_64Assembler::CallFromThread64(ThreadOffset<8> offset, ManagedRegister /*mscratch*/) {
-  gs()->call(Address::Absolute(offset, true));
-}
-
-void X86_64Assembler::GetCurrentThread(ManagedRegister tr) {
-  gs()->movq(tr.AsX86_64().AsCpuRegister(), Address::Absolute(Thread::SelfOffset<8>(), true));
-}
-
-void X86_64Assembler::GetCurrentThread(FrameOffset offset, ManagedRegister mscratch) {
-  X86_64ManagedRegister scratch = mscratch.AsX86_64();
-  gs()->movq(scratch.AsCpuRegister(), Address::Absolute(Thread::SelfOffset<8>(), true));
-  movq(Address(CpuRegister(RSP), offset), scratch.AsCpuRegister());
-}
-
-// Slowpath entered when Thread::Current()->_exception is non-null
-class X86_64ExceptionSlowPath FINAL : public SlowPath {
- public:
-  explicit X86_64ExceptionSlowPath(size_t stack_adjust) : stack_adjust_(stack_adjust) {}
-  virtual void Emit(Assembler *sp_asm) OVERRIDE;
- private:
-  const size_t stack_adjust_;
-};
-
-void X86_64Assembler::ExceptionPoll(ManagedRegister /*scratch*/, size_t stack_adjust) {
-  X86_64ExceptionSlowPath* slow = new (GetArena()) X86_64ExceptionSlowPath(stack_adjust);
-  buffer_.EnqueueSlowPath(slow);
-  gs()->cmpl(Address::Absolute(Thread::ExceptionOffset<8>(), true), Immediate(0));
-  j(kNotEqual, slow->Entry());
-}
-
-void X86_64ExceptionSlowPath::Emit(Assembler *sasm) {
-  X86_64Assembler* sp_asm = down_cast<X86_64Assembler*>(sasm);
-#define __ sp_asm->
-  __ Bind(&entry_);
-  // Note: the return value is dead
-  if (stack_adjust_ != 0) {  // Fix up the frame.
-    __ DecreaseFrameSize(stack_adjust_);
-  }
-  // Pass exception as argument in RDI
-  __ gs()->movq(CpuRegister(RDI), Address::Absolute(Thread::ExceptionOffset<8>(), true));
-  __ gs()->call(Address::Absolute(QUICK_ENTRYPOINT_OFFSET(8, pDeliverException), true));
-  // this call should never return
-  __ int3();
-#undef __
 }
 
 void X86_64Assembler::AddConstantArea() {

@@ -19,6 +19,7 @@ package com.android.server.telecom;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.telecom.Log;
 import android.telecom.TelecomManager;
 
 /**
@@ -59,7 +60,7 @@ public class DialerCodeReceiver extends BroadcastReceiver {
                 // If there is an active call, add the "log mark" for that call; otherwise we will
                 // add a non-call event.
                 Call currentCall = mCallsManager.getActiveCall();
-                Log.event(currentCall, Log.Events.USER_LOG_MARK);
+                Log.addEvent(currentCall, LogUtils.Events.USER_LOG_MARK);
             }
         }
     }

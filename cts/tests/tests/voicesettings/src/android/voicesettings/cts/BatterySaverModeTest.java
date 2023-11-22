@@ -18,8 +18,9 @@ package android.voicesettings.cts;
 
 import static android.provider.Settings.ACTION_VOICE_CONTROL_BATTERY_SAVER_MODE;
 
-import android.cts.util.BroadcastTestBase;
-import android.cts.util.BroadcastUtils;
+import com.android.compatibility.common.util.BroadcastTestBase;
+import com.android.compatibility.common.util.BroadcastUtils;
+
 import android.content.Context;
 import android.os.PowerManager;
 import android.util.Log;

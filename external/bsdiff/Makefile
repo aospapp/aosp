@@ -32,10 +32,12 @@ BSDIFF_OBJS = \
 BSPATCH_LIBS = -lbz2
 BSPATCH_OBJS = \
   bspatch.o \
+  buffer_file.o \
   extents.o \
   extents_file.o \
   file.o \
-  memory_file.o
+  memory_file.o \
+  sink_file.o
 
 UNITTEST_LIBS = -lgmock -lgtest -lpthread
 UNITTEST_OBJS = \
@@ -66,6 +68,7 @@ bspatch.o: bspatch.cc bspatch.h extents.h extents_file.h file_interface.h \
  file.h
 bspatch_main.o: bspatch_main.cc bspatch.h
 bspatch_unittest.o: bspatch_unittest.cc bspatch.h test_utils.h
+buffer_file.o: buffer_file.cc buffer_file.h file_interface.h bspatch.h
 extents.o: extents.cc extents.h extents_file.h file_interface.h
 extents_file.o: extents_file.cc extents_file.h file_interface.h
 extents_file_unittest.o: extents_file_unittest.cc extents_file.h \
@@ -74,6 +77,7 @@ extents_unittest.o: extents_unittest.cc extents.h extents_file.h \
  file_interface.h
 file.o: file.cc file.h file_interface.h
 memory_file.o: memory_file.cc memory_file.h file_interface.h
+sink_file.o: sink_file.cc sink_file.h file_interface.h
 testrunner.o: testrunner.cc
 test_utils.o: test_utils.cc test_utils.h
 

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2004-2010, International Business Machines Corporation and    *
@@ -10,6 +12,8 @@ package com.ibm.icu.dev.test.timescale;
 
 import java.util.Date;
 import java.util.Locale;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.util.GregorianCalendar;
@@ -82,6 +86,7 @@ public class TimeScaleDataTest extends TestFmwk
         }
     }
     
+    @Test
     public void TestEpochOffsets()
     {
         for (int scale = 0; scale < UniversalTimeScale.MAX_SCALE; scale += 1) {
@@ -92,6 +97,7 @@ public class TimeScaleDataTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestFromLimits()
     {
         for (int scale = 0; scale < UniversalTimeScale.MAX_SCALE; scale += 1) {
@@ -103,6 +109,7 @@ public class TimeScaleDataTest extends TestFmwk
         }
     }
     
+    @Test
     public void TestToLimits()
     {
         for (int scale = 0; scale < UniversalTimeScale.MAX_SCALE; scale += 1) {
@@ -203,6 +210,7 @@ public class TimeScaleDataTest extends TestFmwk
      * Proleptic: No Julian/Gregorian switchover, or a switchover before
      * any date that we test, that is, before 0001 AD.
      */
+    @Test
     public void TestDotNet() {
         TimeZone utc;
         final long dayMillis = 86400 * 1000L;    /* 1 day = 86400 seconds */
@@ -250,10 +258,5 @@ public class TimeScaleDataTest extends TestFmwk
                       "-" + dotNetDateTimeTicks[i + kDay] + ").Ticks");
             }
         }
-    }
-
-    public static void main(String[] args)
-    {
-        new TimeScaleDataTest().run(args);
     }
 }

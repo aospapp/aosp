@@ -50,5 +50,9 @@ public class InitTest extends RSBaseCompute {
         }
         mOut.copyTo(out);
         checkArray(ref, out, INPUTSIZE, 1, 1, 0);
+
+        mIn.destroy();
+        mOut.destroy();
+        script.destroy();
     }
 }

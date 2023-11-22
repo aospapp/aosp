@@ -17,11 +17,13 @@
 #define LOG_TAG "AMessage"
 //#define LOG_NDEBUG 0
 //#define DUMP_STATS
-#include <cutils/log.h>
+
+#include <ctype.h>
 
 #include "AMessage.h"
 
-#include <ctype.h>
+#include <binder/Parcel.h>
+#include <log/log.h>
 
 #include "AAtomizer.h"
 #include "ABuffer.h"
@@ -30,7 +32,6 @@
 #include "AHandler.h"
 #include "AString.h"
 
-#include <binder/Parcel.h>
 #include <media/stagefright/foundation/hexdump.h>
 
 namespace android {
@@ -239,6 +240,24 @@ bool AMessage::findAsFloat(const char *name, float *value) const {
     return false;
 }
 
+bool AMessage::findAsInt64(const char *name, int64_t *value) const {
+    size_t i = findItemIndex(name, strlen(name));
+    if (i < mNumItems) {
+        const Item *item = &mItems[i];
+        switch (item->mType) {
+            case kTypeInt64:
+                *value = item->u.int64Value;
+                return true;
+            case kTypeInt32:
+                *value = item->u.int32Value;
+                return true;
+            default:
+                return false;
+        }
+    }
+    return false;
+}
+
 bool AMessage::contains(const char *name) const {
     size_t i = findItemIndex(name, strlen(name));
     return i < mNumItems;
@@ -252,7 +271,8 @@ void AMessage::set##NAME(const char *name, TYPENAME value) {            \
     item->u.FIELDNAME = value;                                          \
 }                                                                       \
                                                                         \
-bool AMessage::find##NAME(const char *name, TYPENAME *value) const {    \
+/* NOLINT added to avoid incorrect warning/fix from clang.tidy */       \
+bool AMessage::find##NAME(const char *name, TYPENAME *value) const {  /* NOLINT */ \
     const Item *item = findItem(name, kType##NAME);                     \
     if (item) {                                                         \
         *value = item->u.FIELDNAME;                                     \

@@ -16,19 +16,27 @@
 
 package android.text.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.LoginFilter.UsernameFilterGeneric;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class LoginFilter_UsernameFilterGenericTest extends TestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LoginFilter_UsernameFilterGenericTest {
+    @Test
     public void testConstructor() {
         new UsernameFilterGeneric();
         new UsernameFilterGeneric(true);
         new UsernameFilterGeneric(false);
     }
 
+    @Test
     public void testIsAllowed() {
         UsernameFilterGeneric usernameFilterGeneric = new UsernameFilterGeneric();
 

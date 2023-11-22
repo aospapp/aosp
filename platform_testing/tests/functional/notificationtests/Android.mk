@@ -21,9 +21,13 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     launcher-helper-lib \
+    metrics-helper-lib \
     ub-uiautomator \
-    services.core
+    services.core \
+    legacy-android-test
 
 #LOCAL_SDK_VERSION := current
+
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 include $(BUILD_PACKAGE)

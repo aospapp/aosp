@@ -3,7 +3,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015
+ *		 2011, 2012, 2013, 2014, 2015, 2016
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -30,7 +30,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.240 2015/10/09 16:11:17 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.249 2016/11/11 23:31:35 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -78,12 +78,12 @@ static int make_path(const char *, const char *, char **, XString *, int *);
 void
 setctypes(const char *s, int t)
 {
-	unsigned int i;
-
 	if (t & C_IFS) {
-		for (i = 0; i < UCHAR_MAX + 1; i++)
+		unsigned int i = 0;
+
+		while (++i <= UCHAR_MAX)
 			chtypes[i] &= ~C_IFS;
-		/* include \0 in C_IFS */
+		/* include '\0' in C_IFS */
 		chtypes[0] |= C_IFS;
 	}
 	while (*s != 0)
@@ -195,6 +195,7 @@ printoptions(bool verbose)
 	if (verbose) {
 		size_t n = 0, len, octs = 0;
 		struct options_info oi;
+		struct columnise_opts co;
 
 		/* verbose version */
 		shf_puts("Current option settings\n", shl_stdout);
@@ -211,8 +212,11 @@ printoptions(bool verbose)
 			}
 			++i;
 		}
-		print_columns(shl_stdout, n, options_fmt_entry, &oi,
-		    octs + 4, oi.opt_width + 4, true);
+		co.shf = shl_stdout;
+		co.linesep = '\n';
+		co.prefcol = co.do_last = true;
+		print_columns(&co, n, options_fmt_entry, &oi,
+		    octs + 4, oi.opt_width + 4);
 	} else {
 		/* short version like AT&T ksh93 */
 		shf_puts(Tset, shl_stdout);
@@ -354,7 +358,7 @@ change_xtrace(unsigned char newval, bool dosnapshot)
  */
 int
 parse_args(const char **argv,
-    /* OF_CMDLINE or OF_SET */
+    /* OF_FIRSTTIME, OF_CMDLINE, or OF_SET */
     int what,
     bool *setargsp)
 {
@@ -387,7 +391,7 @@ parse_args(const char **argv,
 		 */
 		if (*p != '-')
 			for (q = p; *q; )
-				if (*q++ == '/')
+				if (mksh_cdirsep(*q++))
 					p = q;
 		Flag(FLOGIN) = (*p == '-');
 		opts = cmd_opts;
@@ -443,7 +447,8 @@ parse_args(const char **argv,
 			else if ((i != (size_t)-1) && (OFF(i) & what))
 				change_flag((enum sh_flag)i, what, set);
 			else {
-				bi_errorf("%s: %s", go.optarg, "bad option");
+				bi_errorf(Tf_sD_s, go.optarg,
+				    Tunknown_option);
 				return (-1);
 			}
 			break;
@@ -504,7 +509,7 @@ parse_args(const char **argv,
 		if (*array)
 			ccp = skip_varname(array, false);
 		if (!ccp || !(!ccp[0] || (ccp[0] == '+' && !ccp[1]))) {
-			bi_errorf("%s: %s", array, "is not an identifier");
+			bi_errorf(Tf_sD_s, array, Tnot_ident);
 			return (-1);
 		}
 	}
@@ -1038,10 +1043,10 @@ ksh_getopt(const char **argv, Getopt *go, const char *optionsp)
 			go->buf[0] = c;
 			go->optarg = go->buf;
 		} else {
-			warningf(true, "%s%s-%c: %s",
+			warningf(true, Tf_optfoo,
 			    (go->flags & GF_NONAME) ? "" : argv[0],
-			    (go->flags & GF_NONAME) ? "" : ": ", c,
-			    "unknown option");
+			    (go->flags & GF_NONAME) ? "" : Tcolsp,
+			    c, Tunknown_option);
 			if (go->flags & GF_ERROR)
 				bi_errorfz();
 		}
@@ -1066,10 +1071,10 @@ ksh_getopt(const char **argv, Getopt *go, const char *optionsp)
 				go->optarg = go->buf;
 				return (':');
 			}
-			warningf(true, "%s%s-%c: %s",
+			warningf(true, Tf_optfoo,
 			    (go->flags & GF_NONAME) ? "" : argv[0],
-			    (go->flags & GF_NONAME) ? "" : ": ", c,
-			    "requires an argument");
+			    (go->flags & GF_NONAME) ? "" : Tcolsp,
+			    c, Treq_arg);
 			if (go->flags & GF_ERROR)
 				bi_errorfz();
 			return ('?');
@@ -1225,11 +1230,11 @@ print_value_quoted(struct shf *shf, const char *s)
  * the i-th element
  */
 void
-print_columns(struct shf *shf, unsigned int n,
+print_columns(struct columnise_opts *opts, unsigned int n,
     void (*func)(char *, size_t, unsigned int, const void *),
-    const void *arg, size_t max_oct, size_t max_colz, bool prefcol)
+    const void *arg, size_t max_oct, size_t max_colz)
 {
-	unsigned int i, r, c, rows, cols, nspace, max_col;
+	unsigned int i, r = 0, c, rows, cols, nspace, max_col;
 	char *str;
 
 	if (!n)
@@ -1264,16 +1269,18 @@ print_columns(struct shf *shf, unsigned int n,
 
 	/* if we can only print one column anyway, skip the goo */
 	if (cols < 2) {
-		for (i = 0; i < n; ++i) {
-			(*func)(str, max_oct, i, arg);
-			shf_puts(str, shf);
-			shf_putc('\n', shf);
+		goto prcols_easy;
+		while (r < n) {
+			shf_putc(opts->linesep, opts->shf);
+ prcols_easy:
+			(*func)(str, max_oct, r++, arg);
+			shf_puts(str, opts->shf);
 		}
 		goto out;
 	}
 
 	rows = (n + cols - 1) / cols;
-	if (prefcol && cols > rows) {
+	if (opts->prefcol && cols > rows) {
 		cols = rows;
 		rows = (n + cols - 1) / cols;
 	}
@@ -1282,20 +1289,25 @@ print_columns(struct shf *shf, unsigned int n,
 	if (nspace < 2)
 		nspace = 2;
 	max_col = -max_col;
-	for (r = 0; r < rows; r++) {
+	goto prcols_hard;
+	while (r < rows) {
+		shf_putchar(opts->linesep, opts->shf);
+ prcols_hard:
 		for (c = 0; c < cols; c++) {
 			if ((i = c * rows + r) >= n)
 				break;
 			(*func)(str, max_oct, i, arg);
 			if (i + rows >= n)
-				shf_puts(str, shf);
+				shf_puts(str, opts->shf);
 			else
-				shf_fprintf(shf, "%*s%*s",
-				    max_col, str, nspace, null);
+				shf_fprintf(opts->shf, "%*s%*s",
+				    (int)max_col, str, (int)nspace, null);
 		}
-		shf_putchar('\n', shf);
+		++r;
 	}
  out:
+	if (opts->do_last)
+		shf_putchar(opts->linesep, opts->shf);
 	afree(str, ATEMP);
 }
 
@@ -1419,7 +1431,7 @@ do_realpath(const char *upath)
 		/* upath is a relative pathname, prepend cwd */
 		if ((tp = ksh_get_wd()) == NULL || !mksh_abspath(tp))
 			return (NULL);
-		ipath = shf_smprintf("%s%s%s", tp, "/", upath);
+		ipath = shf_smprintf(Tf_sss, tp, "/", upath);
 		afree(tp, ATEMP);
 	}
 
@@ -1431,14 +1443,14 @@ do_realpath(const char *upath)
 
 	while (*ip) {
 		/* skip slashes in input */
-		while (*ip == '/')
+		while (mksh_cdirsep(*ip))
 			++ip;
 		if (!*ip)
 			break;
 
 		/* get next pathname component from input */
 		tp = ip;
-		while (*ip && *ip != '/')
+		while (*ip && !mksh_cdirsep(*ip))
 			++ip;
 		len = ip - tp;
 
@@ -1450,7 +1462,7 @@ do_realpath(const char *upath)
 			else if (len == 2 && tp[1] == '.') {
 				/* strip off last pathname component */
 				while (xp > Xstring(xs, xp))
-					if (*--xp == '/')
+					if (mksh_cdirsep(*--xp))
 						break;
 				/* then continue with the next one */
 				continue;
@@ -1473,7 +1485,7 @@ do_realpath(const char *upath)
 			/* lstat failed */
 			if (errno == ENOENT) {
 				/* because the pathname does not exist */
-				while (*ip == '/')
+				while (mksh_cdirsep(*ip))
 					/* skip any trailing slashes */
 					++ip;
 				/* no more components left? */
@@ -1517,7 +1529,7 @@ do_realpath(const char *upath)
 			 * otherwise continue with currently resolved prefix
 			 */
 			/* append rest of current input path to link target */
-			tp = shf_smprintf("%s%s%s", ldest, *ip ? "/" : "", ip);
+			tp = shf_smprintf(Tf_sss, ldest, *ip ? "/" : "", ip);
 			afree(ipath, ATEMP);
 			ip = ipath = tp;
 			if (!mksh_abspath(ldest)) {
@@ -1533,6 +1545,7 @@ do_realpath(const char *upath)
 				/* assert: xp == xs.beg => start of path */
 
 				/* exactly two leading slashes? (SUSv4 3.266) */
+				/* @komh do NOT use mksh_cdirsep() here */
 				if (ip[1] == '/' && ip[2] != '/') {
 					/* keep them, e.g. for UNC pathnames */
 					Xput(xs, xp, '/');
@@ -1558,7 +1571,7 @@ do_realpath(const char *upath)
 	 * if source path had a trailing slash, check if target path
 	 * is not a non-directory existing file
 	 */
-	if (ip > ipath && ip[-1] == '/') {
+	if (ip > ipath && mksh_cdirsep(ip[-1])) {
 		if (stat(Xstring(xs, xp), &sb)) {
 			if (errno != ENOENT)
 				goto notfound;
@@ -1627,7 +1640,7 @@ make_path(const char *cwd, const char *file,
 
 			if (c == '.')
 				c = file[2];
-			if (c == '/' || c == '\0')
+			if (mksh_cdirsep(c) || c == '\0')
 				use_cdpath = false;
 		}
 
@@ -1649,7 +1662,7 @@ make_path(const char *cwd, const char *file,
 			XcheckN(*xsp, xp, len);
 			memcpy(xp, cwd, len);
 			xp += len;
-			if (cwd[len - 1] != '/')
+			if (!mksh_cdirsep(cwd[len - 1]))
 				Xput(*xsp, xp, '/');
 		}
 		*phys_pathp = Xlength(*xsp, xp);
@@ -1657,7 +1670,7 @@ make_path(const char *cwd, const char *file,
 			XcheckN(*xsp, xp, plen);
 			memcpy(xp, plist, plen);
 			xp += plen;
-			if (plist[plen - 1] != '/')
+			if (!mksh_cdirsep(plist[plen - 1]))
 				Xput(*xsp, xp, '/');
 			rval = 1;
 		}
@@ -1699,9 +1712,14 @@ simplify_path(char *p)
 		return;
 	case '/':
 		/* exactly two leading slashes? (SUSv4 3.266) */
+		/* @komh no mksh_cdirsep() here! */
 		if (p[1] == '/' && p[2] != '/')
 			/* keep them, e.g. for UNC pathnames */
 			++p;
+#ifdef __OS2__
+		/* FALLTHROUGH */
+	case '\\':
+#endif
 		needslash = true;
 		break;
 	default:
@@ -1711,14 +1729,14 @@ simplify_path(char *p)
 
 	while (*ip) {
 		/* skip slashes in input */
-		while (*ip == '/')
+		while (mksh_cdirsep(*ip))
 			++ip;
 		if (!*ip)
 			break;
 
 		/* get next pathname component from input */
 		tp = ip;
-		while (*ip && *ip != '/')
+		while (*ip && !mksh_cdirsep(*ip))
 			++ip;
 		len = ip - tp;
 
@@ -1738,7 +1756,7 @@ simplify_path(char *p)
  strip_last_component:
 					/* strip off last pathname component */
 					while (dp > sp)
-						if (*--dp == '/')
+						if (mksh_cdirsep(*--dp))
 							break;
 				} else {
 					/* relative path, at its beginning */
@@ -1819,12 +1837,12 @@ c_cd(const char **wp)
 	wp += builtin_opt.optind;
 
 	if (Flag(FRESTRICTED)) {
-		bi_errorf("restricted shell - can't cd");
+		bi_errorf(Tcant_cd);
 		return (2);
 	}
 
-	pwd_s = global("PWD");
-	oldpwd_s = global("OLDPWD");
+	pwd_s = global(TPWD);
+	oldpwd_s = global(TOLDPWD);
 
 	if (!wp[0]) {
 		/* No arguments - go home */
@@ -1840,7 +1858,7 @@ c_cd(const char **wp)
 			allocd = NULL;
 			dir = str_val(oldpwd_s);
 			if (dir == null) {
-				bi_errorf("no OLDPWD");
+				bi_errorf(Tno_OLDPWD);
 				return (2);
 			}
 			printpath = true;
@@ -1861,7 +1879,7 @@ c_cd(const char **wp)
 		 * we don't
 		 */
 		if ((cp = strstr(current_wd, wp[0])) == NULL) {
-			bi_errorf("bad substitution");
+			bi_errorf(Tbadsubst);
 			return (2);
 		}
 		/*-
@@ -1880,7 +1898,7 @@ c_cd(const char **wp)
 		memcpy(dir + ilen + nlen, current_wd + ilen + olen, elen);
 		printpath = true;
 	} else {
-		bi_errorf("too many arguments");
+		bi_errorf(Ttoo_many_args);
 		return (2);
 	}
 
@@ -1904,9 +1922,9 @@ c_cd(const char **wp)
 
 	if (rv < 0) {
 		if (cdnode)
-			bi_errorf("%s: %s", dir, "bad directory");
+			bi_errorf(Tf_sD_s, dir, "bad directory");
 		else
-			bi_errorf("%s: %s", tryp, cstrerror(errno));
+			bi_errorf(Tf_sD_s, tryp, cstrerror(errno));
 		afree(allocd, ATEMP);
 		Xfree(xs, xp);
 		return (2);
@@ -1955,7 +1973,7 @@ c_cd(const char **wp)
 			rv = 1;
 	}
 	if (printpath || cdnode)
-		shprintf("%s\n", pwd);
+		shprintf(Tf_sN, pwd);
 
 	afree(allocd, ATEMP);
 	Xfree(xs, xp);
@@ -1990,18 +2008,18 @@ chvt(const Getopt *go)
 				memmove(cp + 1, cp, /* /dev/tty */ 8);
 				dv = cp + 1;
 				if (stat(dv, &sb)) {
-					errorf("%s: %s: %s", "chvt",
+					errorf(Tf_sD_sD_s, "chvt",
 					    "can't find tty", go->optarg);
 				}
 			}
 		}
 		if (!(sb.st_mode & S_IFCHR))
-			errorf("%s: %s: %s", "chvt", "not a char device", dv);
+			errorf(Tf_sD_sD_s, "chvt", "not a char device", dv);
 #ifndef MKSH_DISABLE_REVOKE_WARNING
 #if HAVE_REVOKE
 		if (revoke(dv))
 #endif
-			warningf(false, "%s: %s %s", "chvt",
+			warningf(false, Tf_sD_s_s, "chvt",
 			    "new shell is potentially insecure, can't revoke",
 			    dv);
 #endif
@@ -2010,13 +2028,13 @@ chvt(const Getopt *go)
 	if ((fd = binopen2(dv, O_RDWR)) < 0) {
 		sleep(1);
 		if ((fd = binopen2(dv, O_RDWR)) < 0) {
-			errorf("%s: %s %s", "chvt", "can't open", dv);
+			errorf(Tf_sD_s_s, "chvt", Tcant_open, dv);
 		}
 	}
 	if (go->optarg[0] != '!') {
 		switch (fork()) {
 		case -1:
-			errorf("%s: %s %s", "chvt", "fork", "failed");
+			errorf(Tf_sD_s_s, "chvt", "fork", "failed");
 		case 0:
 			break;
 		default:
@@ -2024,12 +2042,12 @@ chvt(const Getopt *go)
 		}
 	}
 	if (setsid() == -1)
-		errorf("%s: %s %s", "chvt", "setsid", "failed");
+		errorf(Tf_sD_s_s, "chvt", "setsid", "failed");
 	if (go->optarg[0] != '-') {
 		if (ioctl(fd, TIOCSCTTY, NULL) == -1)
-			errorf("%s: %s %s", "chvt", "TIOCSCTTY", "failed");
+			errorf(Tf_sD_s_s, "chvt", "TIOCSCTTY", "failed");
 		if (tcflush(fd, TCIOFLUSH))
-			errorf("%s: %s %s", "chvt", "TCIOFLUSH", "failed");
+			errorf(Tf_sD_s_s, "chvt", "TCIOFLUSH", "failed");
 	}
 	ksh_dup2(fd, 0, false);
 	ksh_dup2(fd, 1, false);

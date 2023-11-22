@@ -29,13 +29,39 @@
 
 #include <vector>
 
+#include "BionicDeathTest.h"
 #include "TemporaryFile.h"
+#include "utils.h"
 
 #if defined(NOFORTIFY)
 #define STDIO_TEST stdio_nofortify
+#define STDIO_DEATHTEST stdio_nofortify_DeathTest
 #else
 #define STDIO_TEST stdio
+#define STDIO_DEATHTEST stdio_DeathTest
 #endif
+
+class stdio_DeathTest : public BionicDeathTest {};
+class stdio_nofortify_DeathTest : public BionicDeathTest {};
+
+static void AssertFileIs(FILE* fp, const char* expected, bool is_fmemopen = false) {
+  rewind(fp);
+
+  char line[1024];
+  memset(line, 0xff, sizeof(line));
+  ASSERT_EQ(line, fgets(line, sizeof(line), fp));
+  ASSERT_STREQ(expected, line);
+
+  if (is_fmemopen) {
+    // fmemopen appends a trailing NUL byte, which probably shouldn't show up as an
+    // extra empty line, but does on every C library I tested...
+    ASSERT_EQ(line, fgets(line, sizeof(line), fp));
+    ASSERT_STREQ("", line);
+  }
+
+  // Make sure there isn't anything else in the file.
+  ASSERT_EQ(nullptr, fgets(line, sizeof(line), fp)) << "junk at end of file: " << line;
+}
 
 TEST(STDIO_TEST, flockfile_18208568_stderr) {
   // Check that we have a _recursive_ mutex for flockfile.
@@ -69,13 +95,7 @@ TEST(STDIO_TEST, tmpfile_fileno_fprintf_rewind_fgets) {
   rc = fprintf(fp, "hello\n");
   ASSERT_EQ(rc, 6);
 
-  rewind(fp);
-
-  char buf[16];
-  char* s = fgets(buf, sizeof(buf), fp);
-  ASSERT_TRUE(s != NULL);
-  ASSERT_STREQ("hello\n", s);
-
+  AssertFileIs(fp, "hello\n");
   fclose(fp);
 }
 
@@ -95,11 +115,7 @@ TEST(STDIO_TEST, dprintf) {
   FILE* tfile = fdopen(tf.fd, "r");
   ASSERT_TRUE(tfile != NULL);
 
-  char buf[7];
-  ASSERT_EQ(buf, fgets(buf, sizeof(buf), tfile));
-  ASSERT_STREQ("hello\n", buf);
-  // Make sure there isn't anything else in the file.
-  ASSERT_EQ(NULL, fgets(buf, sizeof(buf), tfile));
+  AssertFileIs(tfile, "hello\n");
   fclose(tfile);
 }
 
@@ -388,51 +404,135 @@ TEST(STDIO_TEST, snprintf_smoke) {
 }
 
 template <typename T>
-void CheckInfNan(int snprintf_fn(T*, size_t, const T*, ...),
-                 const T* fmt, const T* fmt_plus,
-                 const T* minus_inf, const T* inf_, const T* plus_inf,
-                 const T* minus_nan, const T* nan_, const T* plus_nan) {
+static void CheckInfNan(int snprintf_fn(T*, size_t, const T*, ...),
+                        int sscanf_fn(const T*, const T*, ...),
+                        const T* fmt_string, const T* fmt, const T* fmt_plus,
+                        const T* minus_inf, const T* inf_, const T* plus_inf,
+                        const T* minus_nan, const T* nan_, const T* plus_nan) {
   T buf[BUFSIZ];
+  float f;
 
-  snprintf_fn(buf, sizeof(buf), fmt, nan(""));
+  // NaN.
+
+  snprintf_fn(buf, sizeof(buf), fmt, nanf(""));
   EXPECT_STREQ(nan_, buf) << fmt;
-  snprintf_fn(buf, sizeof(buf), fmt, -nan(""));
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_TRUE(isnan(f));
+
+  snprintf_fn(buf, sizeof(buf), fmt, -nanf(""));
   EXPECT_STREQ(minus_nan, buf) << fmt;
-  snprintf_fn(buf, sizeof(buf), fmt_plus, nan(""));
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_TRUE(isnan(f));
+
+  snprintf_fn(buf, sizeof(buf), fmt_plus, nanf(""));
   EXPECT_STREQ(plus_nan, buf) << fmt_plus;
-  snprintf_fn(buf, sizeof(buf), fmt_plus, -nan(""));
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_TRUE(isnan(f));
+
+  snprintf_fn(buf, sizeof(buf), fmt_plus, -nanf(""));
   EXPECT_STREQ(minus_nan, buf) << fmt_plus;
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_TRUE(isnan(f));
 
-  snprintf_fn(buf, sizeof(buf), fmt, HUGE_VAL);
+  // Inf.
+
+  snprintf_fn(buf, sizeof(buf), fmt, HUGE_VALF);
   EXPECT_STREQ(inf_, buf) << fmt;
-  snprintf_fn(buf, sizeof(buf), fmt, -HUGE_VAL);
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_EQ(HUGE_VALF, f);
+
+  snprintf_fn(buf, sizeof(buf), fmt, -HUGE_VALF);
   EXPECT_STREQ(minus_inf, buf) << fmt;
-  snprintf_fn(buf, sizeof(buf), fmt_plus, HUGE_VAL);
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_EQ(-HUGE_VALF, f);
+
+  snprintf_fn(buf, sizeof(buf), fmt_plus, HUGE_VALF);
   EXPECT_STREQ(plus_inf, buf) << fmt_plus;
-  snprintf_fn(buf, sizeof(buf), fmt_plus, -HUGE_VAL);
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_EQ(HUGE_VALF, f);
+
+  snprintf_fn(buf, sizeof(buf), fmt_plus, -HUGE_VALF);
   EXPECT_STREQ(minus_inf, buf) << fmt_plus;
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f));
+  EXPECT_EQ(-HUGE_VALF, f);
+
+  // Check case-insensitivity.
+  snprintf_fn(buf, sizeof(buf), fmt_string, "[InFiNiTy]");
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f)) << buf;
+  EXPECT_EQ(HUGE_VALF, f);
+  snprintf_fn(buf, sizeof(buf), fmt_string, "[NaN]");
+  EXPECT_EQ(1, sscanf_fn(buf, fmt, &f)) << buf;
+  EXPECT_TRUE(isnan(f));
 }
 
-TEST(STDIO_TEST, snprintf_inf_nan) {
-  CheckInfNan(snprintf, "%a", "%+a", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
-  CheckInfNan(snprintf, "%A", "%+A", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
-  CheckInfNan(snprintf, "%e", "%+e", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
-  CheckInfNan(snprintf, "%E", "%+E", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
-  CheckInfNan(snprintf, "%f", "%+f", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
-  CheckInfNan(snprintf, "%F", "%+F", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
-  CheckInfNan(snprintf, "%g", "%+g", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
-  CheckInfNan(snprintf, "%G", "%+G", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
+TEST(STDIO_TEST, snprintf_sscanf_inf_nan) {
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%a]", "[%+a]",
+              "[-inf]", "[inf]", "[+inf]",
+              "[-nan]", "[nan]", "[+nan]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%A]", "[%+A]",
+              "[-INF]", "[INF]", "[+INF]",
+              "[-NAN]", "[NAN]", "[+NAN]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%e]", "[%+e]",
+              "[-inf]", "[inf]", "[+inf]",
+              "[-nan]", "[nan]", "[+nan]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%E]", "[%+E]",
+              "[-INF]", "[INF]", "[+INF]",
+              "[-NAN]", "[NAN]", "[+NAN]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%f]", "[%+f]",
+              "[-inf]", "[inf]", "[+inf]",
+              "[-nan]", "[nan]", "[+nan]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%F]", "[%+F]",
+              "[-INF]", "[INF]", "[+INF]",
+              "[-NAN]", "[NAN]", "[+NAN]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%g]", "[%+g]",
+              "[-inf]", "[inf]", "[+inf]",
+              "[-nan]", "[nan]", "[+nan]");
+  CheckInfNan(snprintf, sscanf, "%s",
+              "[%G]", "[%+G]",
+              "[-INF]", "[INF]", "[+INF]",
+              "[-NAN]", "[NAN]", "[+NAN]");
 }
 
-TEST(STDIO_TEST, wsprintf_inf_nan) {
-  CheckInfNan(swprintf, L"%a", L"%+a", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
-  CheckInfNan(swprintf, L"%A", L"%+A", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
-  CheckInfNan(swprintf, L"%e", L"%+e", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
-  CheckInfNan(swprintf, L"%E", L"%+E", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
-  CheckInfNan(swprintf, L"%f", L"%+f", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
-  CheckInfNan(swprintf, L"%F", L"%+F", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
-  CheckInfNan(swprintf, L"%g", L"%+g", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
-  CheckInfNan(swprintf, L"%G", L"%+G", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
+TEST(STDIO_TEST, swprintf_swscanf_inf_nan) {
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%a]", L"[%+a]",
+              L"[-inf]", L"[inf]", L"[+inf]",
+              L"[-nan]", L"[nan]", L"[+nan]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%A]", L"[%+A]",
+              L"[-INF]", L"[INF]", L"[+INF]",
+              L"[-NAN]", L"[NAN]", L"[+NAN]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%e]", L"[%+e]",
+              L"[-inf]", L"[inf]", L"[+inf]",
+              L"[-nan]", L"[nan]", L"[+nan]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%E]", L"[%+E]",
+              L"[-INF]", L"[INF]", L"[+INF]",
+              L"[-NAN]", L"[NAN]", L"[+NAN]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%f]", L"[%+f]",
+              L"[-inf]", L"[inf]", L"[+inf]",
+              L"[-nan]", L"[nan]", L"[+nan]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%F]", L"[%+F]",
+              L"[-INF]", L"[INF]", L"[+INF]",
+              L"[-NAN]", L"[NAN]", L"[+NAN]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%g]", L"[%+g]",
+              L"[-inf]", L"[inf]", L"[+inf]",
+              L"[-nan]", L"[nan]", L"[+nan]");
+  CheckInfNan(swprintf, swscanf, L"%s",
+              L"[%G]", L"[%+G]",
+              L"[-INF]", L"[INF]", L"[+INF]",
+              L"[-NAN]", L"[NAN]", L"[+NAN]");
 }
 
 TEST(STDIO_TEST, snprintf_d_INT_MAX) {
@@ -450,7 +550,7 @@ TEST(STDIO_TEST, snprintf_d_INT_MIN) {
 TEST(STDIO_TEST, snprintf_ld_LONG_MAX) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%ld", LONG_MAX);
-#if __LP64__
+#if defined(__LP64__)
   EXPECT_STREQ("9223372036854775807", buf);
 #else
   EXPECT_STREQ("2147483647", buf);
@@ -460,7 +560,7 @@ TEST(STDIO_TEST, snprintf_ld_LONG_MAX) {
 TEST(STDIO_TEST, snprintf_ld_LONG_MIN) {
   char buf[BUFSIZ];
   snprintf(buf, sizeof(buf), "%ld", LONG_MIN);
-#if __LP64__
+#if defined(__LP64__)
   EXPECT_STREQ("-9223372036854775808", buf);
 #else
   EXPECT_STREQ("-2147483648", buf);
@@ -568,6 +668,17 @@ TEST(STDIO_TEST, snprintf_asterisk_overflow) {
   ASSERT_EQ(ENOMEM, errno);
 }
 
+TEST(STDIO_TEST, fprintf) {
+  TemporaryFile tf;
+
+  FILE* tfile = fdopen(tf.fd, "r+");
+  ASSERT_TRUE(tfile != nullptr);
+
+  ASSERT_EQ(7, fprintf(tfile, "%d %s", 123, "abc"));
+  AssertFileIs(tfile, "123 abc");
+  fclose(tfile);
+}
+
 TEST(STDIO_TEST, fprintf_failures_7229520) {
   // http://b/7229520
   FILE* fp;
@@ -621,15 +732,34 @@ TEST(STDIO_TEST, putc) {
   fclose(fp);
 }
 
-TEST(STDIO_TEST, sscanf) {
-  char s1[123];
-  int i1;
-  double d1;
-  char s2[123];
-  ASSERT_EQ(3, sscanf("  hello 123 1.23 ", "%s %i %lf %s", s1, &i1, &d1, s2));
-  ASSERT_STREQ("hello", s1);
-  ASSERT_EQ(123, i1);
-  ASSERT_DOUBLE_EQ(1.23, d1);
+TEST(STDIO_TEST, sscanf_swscanf) {
+  struct stuff {
+    char s1[123];
+    int i1;
+    double d1;
+    float f1;
+    char s2[123];
+
+    void Check() {
+      ASSERT_STREQ("hello", s1);
+      ASSERT_EQ(123, i1);
+      ASSERT_DOUBLE_EQ(1.23, d1);
+      ASSERT_FLOAT_EQ(9.0f, f1);
+      ASSERT_STREQ("world", s2);
+    }
+  } s;
+
+  memset(&s, 0, sizeof(s));
+  ASSERT_EQ(5, sscanf("  hello 123 1.23 0x1.2p3 world",
+                      "%s %i %lf %f %s",
+                      s.s1, &s.i1, &s.d1, &s.f1, s.s2));
+  s.Check();
+
+  memset(&s, 0, sizeof(s));
+  ASSERT_EQ(5, swscanf(L"  hello 123 1.23 0x1.2p3 world",
+                       L"%s %i %lf %f %s",
+                       s.s1, &s.i1, &s.d1, &s.f1, s.s2));
+  s.Check();
 }
 
 TEST(STDIO_TEST, cantwrite_EBADF) {
@@ -806,27 +936,15 @@ TEST(STDIO_TEST, fmemopen) {
 
   ASSERT_STREQ("<abc>\n", buf);
 
-  rewind(fp);
-
-  char line[16];
-  char* s = fgets(line, sizeof(line), fp);
-  ASSERT_TRUE(s != NULL);
-  ASSERT_STREQ("<abc>\n", s);
-
+  AssertFileIs(fp, "<abc>\n", true);
   fclose(fp);
 }
 
-TEST(STDIO_TEST, fmemopen_NULL) {
+TEST(STDIO_TEST, KNOWN_FAILURE_ON_BIONIC(fmemopen_NULL)) {
   FILE* fp = fmemopen(nullptr, 128, "r+");
   ASSERT_NE(EOF, fputs("xyz\n", fp));
 
-  rewind(fp);
-
-  char line[16];
-  char* s = fgets(line, sizeof(line), fp);
-  ASSERT_TRUE(s != NULL);
-  ASSERT_STREQ("xyz\n", s);
-
+  AssertFileIs(fp, "xyz\n", true);
   fclose(fp);
 }
 
@@ -1196,15 +1314,10 @@ TEST(STDIO_TEST, lots_of_concurrent_files) {
   }
 
   for (size_t i = 0; i < 256; ++i) {
-    rewind(fps[i]);
-
-    char buf[BUFSIZ];
-    ASSERT_TRUE(fgets(buf, sizeof(buf), fps[i]) != nullptr);
-
     char expected[BUFSIZ];
     snprintf(expected, sizeof(expected), "hello %zu!\n", i);
-    ASSERT_STREQ(expected, buf);
 
+    AssertFileIs(fps[i], expected);
     fclose(fps[i]);
     delete tfs[i];
   }
@@ -1296,4 +1409,59 @@ TEST(STDIO_TEST, fseek_fseeko_EINVAL) {
   ASSERT_EQ(EINVAL, errno);
 
   fclose(fp);
+}
+
+TEST(STDIO_TEST, ctermid) {
+  ASSERT_STREQ("/dev/tty", ctermid(nullptr));
+
+  char buf[L_ctermid] = {};
+  ASSERT_EQ(buf, ctermid(buf));
+  ASSERT_STREQ("/dev/tty", buf);
+}
+
+TEST(STDIO_TEST, remove) {
+  struct stat sb;
+
+  TemporaryFile tf;
+  ASSERT_EQ(0, remove(tf.filename));
+  ASSERT_EQ(-1, lstat(tf.filename, &sb));
+  ASSERT_EQ(ENOENT, errno);
+
+  TemporaryDir td;
+  ASSERT_EQ(0, remove(td.dirname));
+  ASSERT_EQ(-1, lstat(td.dirname, &sb));
+  ASSERT_EQ(ENOENT, errno);
+
+  errno = 0;
+  ASSERT_EQ(-1, remove(tf.filename));
+  ASSERT_EQ(ENOENT, errno);
+
+  errno = 0;
+  ASSERT_EQ(-1, remove(td.dirname));
+  ASSERT_EQ(ENOENT, errno);
+}
+
+TEST(STDIO_DEATHTEST, snprintf_30445072_known_buffer_size) {
+  char buf[16];
+  ASSERT_EXIT(snprintf(buf, atol("-1"), "hello"),
+              testing::KilledBySignal(SIGABRT),
+#if defined(NOFORTIFY)
+              "FORTIFY: vsnprintf: size .* > SSIZE_MAX"
+#else
+              "FORTIFY: vsnprintf: prevented .*-byte write into 16-byte buffer"
+#endif
+              );
+}
+
+TEST(STDIO_DEATHTEST, snprintf_30445072_unknown_buffer_size) {
+  std::string buf = "world";
+  ASSERT_EXIT(snprintf(&buf[0], atol("-1"), "hello"),
+              testing::KilledBySignal(SIGABRT),
+              "FORTIFY: vsnprintf: size .* > SSIZE_MAX");
+}
+
+TEST(STDIO_TEST, sprintf_30445072) {
+  std::string buf = "world";
+  sprintf(&buf[0], "hello");
+  ASSERT_EQ(buf, "hello");
 }

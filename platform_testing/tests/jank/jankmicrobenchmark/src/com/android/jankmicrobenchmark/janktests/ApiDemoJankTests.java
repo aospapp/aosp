@@ -23,6 +23,7 @@ import android.os.SystemClock;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
 import android.support.test.jank.JankTestBase;
+import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
@@ -54,6 +55,7 @@ public class ApiDemoJankTests extends JankTestBase {
         super.setUp();
         mDevice = UiDevice.getInstance(getInstrumentation());
         mDevice.setOrientationNatural();
+        LauncherStrategyFactory.getInstance(mDevice).getLauncherStrategy().open();
     }
 
     @Override

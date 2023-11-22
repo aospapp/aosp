@@ -15,6 +15,8 @@
 #include "elfparse.h"
 #include "util.h"
 
+#define IDMAP_LEN 32U
+
 static void set_user(struct minijail *j, const char *arg)
 {
 	char *end = NULL;
@@ -78,72 +80,104 @@ static void add_mount(struct minijail *j, char *arg)
 	char *dest = strtok(NULL, ",");
 	char *type = strtok(NULL, ",");
 	char *flags = strtok(NULL, ",");
+	char *data = strtok(NULL, ",");
 	if (!src || !dest || !type) {
 		fprintf(stderr, "Bad mount: %s %s %s\n", src, dest, type);
 		exit(1);
 	}
-	if (minijail_mount(j, src, dest, type,
-			   flags ? strtoul(flags, NULL, 16) : 0)) {
+	if (minijail_mount_with_data(j, src, dest, type,
+				     flags ? strtoul(flags, NULL, 16) : 0,
+				     data)) {
 		fprintf(stderr, "minijail_mount failed.\n");
 		exit(1);
 	}
 }
 
+static char *build_idmap(id_t id, id_t lowerid)
+{
+	int ret;
+	char *idmap = malloc(IDMAP_LEN);
+	ret = snprintf(idmap, IDMAP_LEN, "%d %d 1", id, lowerid);
+	if (ret < 0 || (size_t)ret >= IDMAP_LEN) {
+		free(idmap);
+		fprintf(stderr, "Could not build id map.\n");
+		exit(1);
+	}
+	return idmap;
+}
+
 static void usage(const char *progn)
 {
 	size_t i;
-
-	printf("Usage: %s [-GhiInprsvtUl] [-b <src>,<dest>[,<writeable>]] [-f <file>]"
-	       "[-c <caps>] [-C <dir>] [-g <group>] [-S <file>] [-u <user>] "
-	       "[-k <src>,<dest>,<type>[,<flags>]] "
-	       "[-m \"<uid> <loweruid> <count>[,<uid> <loweruid> <count>]\"] "
-	       "[-M \"<gid> <lowergid> <count>[,<uid> <loweruid> <count>]\"] "
-	       "<program> [args...]\n"
-	       "  -a <table>: use alternate syscall table <table>\n"
-	       "  -b:         binds <src> to <dest> in chroot. Multiple "
-	       "instances allowed\n"
-	       "  -k:         mount <src> to <dest> in chroot. Multiple "
-	       "instances allowed, flags are passed to mount(2)\n"
-	       "  -c <caps>:  restrict caps to <caps>\n"
-	       "  -C <dir>:   chroot to <dir>\n"
-	       "              Not compatible with -P\n"
-	       "  -e[file]:   enter new network namespace, or existing one if 'file' is provided\n"
-	       "  -f <file>:  write the pid of the jailed process to <file>\n"
-	       "  -G:         inherit secondary groups from uid\n"
-	       "  -g <group>: change gid to <group>\n"
-	       "  -h:         help (this message)\n"
-	       "  -H:         seccomp filter help message\n"
-	       "  -i:         exit immediately after fork (do not act as init)\n"
-	       "              Not compatible with -p\n"
-	       "  -I:         run <program> as init (pid 1) inside a new pid namespace (implies -p)\n"
-	       "  -l:         enter new IPC namespace\n"
-	       "  -L:         report blocked syscalls to syslog when using seccomp filter.\n"
+	/* clang-format off */
+	printf("Usage: %s [-GhHiIKlLnNprstUvyY]\n"
+	       "  [-a <table>]\n"
+	       "  [-b <src>,<dest>[,<writeable>]] [-k <src>,<dest>,<type>[,<flags>][,<data>]]\n"
+	       "  [-c <caps>] [-C <dir>] [-P <dir>] [-e[file]] [-f <file>] [-g <group>]\n"
+	       "  [-m[<uid> <loweruid> <count>]*] [-M[<gid> <lowergid> <count>]*]\n"
+	       "  [-S <file>] [-T <type>] [-u <user>] [-V <file>]\n"
+	       "  <program> [args...]\n"
+	       "  -a <table>: Use alternate syscall table <table>.\n"
+	       "  -b:         Bind <src> to <dest> in chroot.\n"
+	       "              Multiple instances allowed.\n"
+	       "  -k:         Mount <src> at <dest> in chroot.\n"
+	       "              <flags> and <data> can be specified as in mount(2).\n"
+	       "              Multiple instances allowed.\n"
+	       "  -c <caps>:  Restrict caps to <caps>.\n"
+	       "  -C <dir>:   chroot(2) to <dir>.\n"
+	       "              Not compatible with -P.\n"
+	       "  -P <dir>:   pivot_root(2) to <dir> (implies -v).\n"
+	       "              Not compatible with -C.\n"
+	       "  -e[file]:   Enter new network namespace, or existing one if |file| is provided.\n"
+	       "  -f <file>:  Write the pid of the jailed process to <file>.\n"
+	       "  -g <group>: Change gid to <group>.\n"
+	       "  -G:         Inherit supplementary groups from uid.\n"
+	       "              Not compatible with -y.\n"
+	       "  -y:         Keep uid's supplementary groups.\n"
+	       "              Not compatible with -G.\n"
+	       "  -h:         Help (this message).\n"
+	       "  -H:         Seccomp filter help message.\n"
+	       "  -i:         Exit immediately after fork (do not act as init).\n"
+	       "              Not compatible with -p.\n"
+	       "  -I:         Run <program> as init (pid 1) inside a new pid namespace (implies -p).\n"
+	       "  -K:         Don't mark all existing mounts as MS_PRIVATE.\n"
+	       "  -l:         Enter new IPC namespace.\n"
+	       "  -L:         Report blocked syscalls to syslog when using seccomp filter.\n"
 	       "              Forces the following syscalls to be allowed:\n"
 	       "                  ", progn);
+	/* clang-format on */
 	for (i = 0; i < log_syscalls_len; i++)
 		printf("%s ", log_syscalls[i]);
 
+	/* clang-format off */
 	printf("\n"
-	       "  -m:         set the uid mapping of a user namespace (implies -pU).\n"
+	       "  -m[map]:    Set the uid map of a user namespace (implies -pU).\n"
 	       "              Same arguments as newuidmap(1), multiple mappings should be separated by ',' (comma).\n"
-	       "              Not compatible with -b without writable\n"
-	       "  -M:         set the gid mapping of a user namespace (implies -pU).\n"
+	       "              With no mapping, map the current uid to root inside the user namespace.\n"
+	       "              Not compatible with -b without the 'writable' option.\n"
+	       "  -M[map]:    Set the gid map of a user namespace (implies -pU).\n"
 	       "              Same arguments as newgidmap(1), multiple mappings should be separated by ',' (comma).\n"
-	       "              Not compatible with -b without writable\n"
-	       "  -n:         set no_new_privs\n"
-	       "  -p:         enter new pid namespace (implies -vr)\n"
-	       "  -P <dir>:   pivot_root to <dir> (implies -v)\n"
-	       "              Not compatible with -C\n"
-	       "  -r:         remount /proc read-only (implies -v)\n"
-	       "  -s:         use seccomp\n"
-	       "  -S <file>:  set seccomp filter using <file>\n"
-	       "              E.g., -S /usr/share/filters/<prog>.$(uname -m)\n"
-	       "              Requires -n when not running as root\n"
-	       "  -t:         mount tmpfs at /tmp inside chroot\n"
-	       "  -u <user>:  change uid to <user>\n"
-	       "  -U          enter new user namespace (implies -p)\n"
-	       "  -v:         enter new mount namespace\n"
-	       "  -V <file>:  enter specified mount namespace\n");
+	       "              With no mapping, map the current gid to root inside the user namespace.\n"
+	       "              Not compatible with -b without the 'writable' option.\n"
+	       "  -n:         Set no_new_privs.\n"
+	       "  -N:         Enter a new cgroup namespace.\n"
+	       "  -p:         Enter new pid namespace (implies -vr).\n"
+	       "  -r:         Remount /proc read-only (implies -v).\n"
+	       "  -s:         Use seccomp.\n"
+	       "  -S <file>:  Set seccomp filter using <file>.\n"
+	       "              E.g., '-S /usr/share/filters/<prog>.$(uname -m)'.\n"
+	       "              Requires -n when not running as root.\n"
+	       "  -t[size]:   Mount tmpfs at /tmp (implies -v).\n"
+	       "              Optional argument specifies size (default \"64M\").\n"
+	       "  -T <type>:  Don't access <program> before execve(2), assume <type> ELF binary.\n"
+	       "              <type> must be 'static' or 'dynamic'.\n"
+	       "  -u <user>:  Change uid to <user>.\n"
+	       "  -U:         Enter new user namespace (implies -p).\n"
+	       "  -v:         Enter new mount namespace.\n"
+	       "  -V <file>:  Enter specified mount namespace.\n"
+	       "  -w:         Create and join a new anonymous session keyring.\n"
+	       "  -Y:         Synchronize seccomp filters across thread group.\n");
+	/* clang-format on */
 }
 
 static void seccomp_filter_usage(const char *progn)
@@ -157,19 +191,24 @@ static void seccomp_filter_usage(const char *progn)
 }
 
 static int parse_args(struct minijail *j, int argc, char *argv[],
-		      int *exit_immediately)
+		      int *exit_immediately, ElfType *elftype)
 {
 	int opt;
 	int use_seccomp_filter = 0;
 	int binding = 0;
 	int pivot_root = 0, chroot = 0;
+	int mount_ns = 0, skip_remount = 0;
+	int inherit_suppl_gids = 0, keep_suppl_gids = 0;
 	const size_t path_max = 4096;
+	char *map;
+	size_t size;
 	const char *filter_path;
 	if (argc > 1 && argv[1][0] != '-')
 		return 1;
-	while ((opt = getopt(argc, argv,
-			     "u:g:sS:c:C:P:b:V:f:m:M:k:a:e::vrGhHinplLtIU"))
-	       != -1) {
+
+	const char *optstring =
+	    "u:g:sS:c:C:P:b:V:f:m::M::k:a:e::T:vrGhHinNplLt::IUKwyY";
+	while ((opt = getopt(argc, argv, optstring)) != -1) {
 		switch (opt) {
 		case 'u':
 			set_user(j, optarg);
@@ -225,6 +264,10 @@ static int parse_args(struct minijail *j, int argc, char *argv[],
 		case 'k':
 			add_mount(j, optarg);
 			break;
+		case 'K':
+			minijail_skip_remount_private(j);
+			skip_remount = 1;
+			break;
 		case 'P':
 			if (chroot) {
 				fprintf(stderr,
@@ -247,10 +290,17 @@ static int parse_args(struct minijail *j, int argc, char *argv[],
 			}
 			break;
 		case 't':
-			minijail_mount_tmp(j);
+			minijail_namespace_vfs(j);
+			size = 64 * 1024 * 1024;
+			if (optarg != NULL && 0 != parse_size(&size, optarg)) {
+				fprintf(stderr, "Invalid /tmp tmpfs size.\n");
+				exit(1);
+			}
+			minijail_mount_tmp_size(j, size);
 			break;
 		case 'v':
 			minijail_namespace_vfs(j);
+			mount_ns = 1;
 			break;
 		case 'V':
 			minijail_namespace_enter_vfs(j, optarg);
@@ -259,7 +309,25 @@ static int parse_args(struct minijail *j, int argc, char *argv[],
 			minijail_remount_proc_readonly(j);
 			break;
 		case 'G':
+			if (keep_suppl_gids) {
+				fprintf(stderr,
+					"-y and -G are not compatible.\n");
+				exit(1);
+			}
 			minijail_inherit_usergroups(j);
+			inherit_suppl_gids = 1;
+			break;
+		case 'y':
+			if (inherit_suppl_gids) {
+				fprintf(stderr,
+					"-y and -G are not compatible.\n");
+				exit(1);
+			}
+			minijail_keep_supplementary_gids(j);
+			keep_suppl_gids = 1;
+			break;
+		case 'N':
+			minijail_namespace_cgroups(j);
 			break;
 		case 'p':
 			minijail_namespace_pids(j);
@@ -287,18 +355,46 @@ static int parse_args(struct minijail *j, int argc, char *argv[],
 		case 'm':
 			minijail_namespace_user(j);
 			minijail_namespace_pids(j);
-			if (0 != minijail_uidmap(j, optarg)) {
-				fprintf(stderr, "Could not set uidmap.\n");
+
+			if (optarg) {
+				map = strdup(optarg);
+			} else {
+				/*
+				 * If no map is passed, map the current uid to
+				 * root.
+				 */
+				map = build_idmap(0, getuid());
+			}
+			if (0 != minijail_uidmap(j, map)) {
+				fprintf(stderr, "Could not set uid map.\n");
 				exit(1);
 			}
+			free(map);
 			break;
 		case 'M':
 			minijail_namespace_user(j);
 			minijail_namespace_pids(j);
-			if (0 != minijail_gidmap(j, optarg)) {
-				fprintf(stderr, "Could not set gidmap.\n");
+
+			if (optarg) {
+				map = strdup(optarg);
+			} else {
+				/*
+				 * If no map is passed, map the current gid to
+				 * root.
+				 * This means that we're likely *not* running as
+				 * root, so we also have to disable
+				 * setgroups(2) to be able to set the gid map.
+				 * See http://man7.org/linux/man-pages/man7/user_namespaces.7.html
+				 */
+				minijail_namespace_user_disable_setgroups(j);
+
+				map = build_idmap(0, getgid());
+			}
+			if (0 != minijail_gidmap(j, map)) {
+				fprintf(stderr, "Could not set gid map.\n");
 				exit(1);
 			}
+			free(map);
 			break;
 		case 'a':
 			if (0 != minijail_use_alt_syscall(j, optarg)) {
@@ -306,6 +402,23 @@ static int parse_args(struct minijail *j, int argc, char *argv[],
 					"Could not set alt-syscall table.\n");
 				exit(1);
 			}
+			break;
+		case 'T':
+			if (!strcmp(optarg, "static"))
+				*elftype = ELFSTATIC;
+			else if (!strcmp(optarg, "dynamic"))
+				*elftype = ELFDYNAMIC;
+			else {
+				fprintf(stderr, "ELF type must be 'static' or "
+						"'dynamic'.\n");
+				exit(1);
+			}
+			break;
+		case 'w':
+			minijail_new_session_keyring(j);
+			break;
+		case 'Y':
+			minijail_set_seccomp_filter_tsync(j);
 			break;
 		default:
 			usage(argv[0]);
@@ -319,6 +432,16 @@ static int parse_args(struct minijail *j, int argc, char *argv[],
 	if (binding && !(chroot || pivot_root)) {
 		fprintf(stderr, "Can't add bind mounts without chroot or"
 				" pivot_root.\n");
+		exit(1);
+	}
+
+	/*
+	 * Remounting / as MS_PRIVATE only happens when entering a new mount
+	 * namespace, so skipping it only applies in that case.
+	 */
+	if (skip_remount && !mount_ns) {
+		fprintf(stderr, "Can't skip marking mounts as MS_PRIVATE"
+				" without mount namespaces.\n");
 		exit(1);
 	}
 
@@ -344,24 +467,31 @@ int main(int argc, char *argv[])
 	struct minijail *j = minijail_new();
 	const char *dl_mesg = NULL;
 	int exit_immediately = 0;
-	char *program_path;
-	int consumed = parse_args(j, argc, argv, &exit_immediately);
 	ElfType elftype = ELFERROR;
+	int consumed = parse_args(j, argc, argv, &exit_immediately, &elftype);
 	argc -= consumed;
 	argv += consumed;
 
-	/* Get the path to the program adjusted for changing root. */
-	program_path = minijail_get_original_path(j, argv[0]);
+	if (elftype == ELFERROR) {
+		/*
+		 * -T was not specified.
+		 * Get the path to the program adjusted for changing root.
+		 */
+		char *program_path = minijail_get_original_path(j, argv[0]);
 
-	/* Check that we can access the target program. */
-	if (access(program_path, X_OK)) {
-		fprintf(stderr, "Target program '%s' is not accessible.\n",
-			argv[0]);
-		return 1;
+		/* Check that we can access the target program. */
+		if (access(program_path, X_OK)) {
+			fprintf(stderr,
+				"Target program '%s' is not accessible.\n",
+				argv[0]);
+			return 1;
+		}
+
+		/* Check if target is statically or dynamically linked. */
+		elftype = get_elf_linkage(program_path);
+		free(program_path);
 	}
 
-	/* Check if target is statically or dynamically linked. */
-	elftype = get_elf_linkage(program_path);
 	if (elftype == ELFSTATIC) {
 		/*
 		 * Target binary is statically linked so we cannot use
@@ -376,9 +506,9 @@ int main(int argc, char *argv[])
 
 		/* Check that we can dlopen() libminijailpreload.so. */
 		if (!dlopen(PRELOADPATH, RTLD_LAZY | RTLD_LOCAL)) {
-			    dl_mesg = dlerror();
-			    fprintf(stderr, "dlopen(): %s\n", dl_mesg);
-			    return 1;
+			dl_mesg = dlerror();
+			fprintf(stderr, "dlopen(): %s\n", dl_mesg);
+			return 1;
 		}
 		minijail_run(j, argv[0], argv);
 	} else {
@@ -387,8 +517,6 @@ int main(int argc, char *argv[])
 			argv[0]);
 		return 1;
 	}
-
-	free(program_path);
 
 	if (exit_immediately) {
 		info("not running init loop, exiting immediately");

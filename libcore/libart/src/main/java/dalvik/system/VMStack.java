@@ -16,6 +16,8 @@
 
 package dalvik.system;
 
+import dalvik.annotation.optimization.FastNative;
+
 /**
  * Provides a limited interface to the Dalvik VM stack. This class is mostly
  * used for implementing security checks.
@@ -29,6 +31,7 @@ public final class VMStack {
      * @return the requested class loader, or {@code null} if this is the
      *         bootstrap class loader.
      */
+    @FastNative
     native public static ClassLoader getCallingClassLoader();
 
     /**
@@ -45,12 +48,14 @@ public final class VMStack {
      *
      * @return the requested class, or {@code null}.
      */
+    @FastNative
     native public static Class<?> getStackClass2();
 
     /**
      * Returns the first ClassLoader on the call stack that isn't the
      * bootstrap class loader.
      */
+    @FastNative
     public native static ClassLoader getClosestUserClassLoader();
 
     /**
@@ -61,6 +66,7 @@ public final class VMStack {
      * @return an array of stack trace elements, or null if the thread
      *      doesn't have a stack trace (e.g. because it exited)
      */
+    @FastNative
     native public static StackTraceElement[] getThreadStackTrace(Thread t);
 
     /**
@@ -74,6 +80,7 @@ public final class VMStack {
      *      desired. Unused elements will be filled with null values.
      * @return the number of elements filled
      */
+    @FastNative
     native public static int fillStackTraceElements(Thread t,
         StackTraceElement[] stackTraceElements);
 }

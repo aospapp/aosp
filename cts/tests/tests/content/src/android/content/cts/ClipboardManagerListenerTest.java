@@ -18,10 +18,10 @@ package android.content.cts;
 
 import android.content.ClipData;
 import android.content.ClipboardManager.OnPrimaryClipChangedListener;
-import android.cts.util.PollingCheck;
 import android.net.Uri;
 import android.test.ActivityInstrumentationTestCase2;
 
+import com.android.compatibility.common.util.PollingCheck;
 
 public class ClipboardManagerListenerTest
         extends ActivityInstrumentationTestCase2<ClipboardManagerListenerActivity> {

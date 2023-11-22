@@ -19,7 +19,7 @@ import vogar.ExpectationStore;
 import vogar.ModeId;
 import vogar.Result;
 
-import com.android.compatibility.common.util.AbiUtils;
+import com.android.tradefed.util.AbiUtils;
 
 import java.io.File;
 import java.io.FilenameFilter;

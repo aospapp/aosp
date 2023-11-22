@@ -23,8 +23,8 @@
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Kifaa kisichojulikana"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Haijulikani"</string>
-    <string name="airplane_error_title" msgid="2683839635115739939">"Hali ya wa ndege"</string>
-    <string name="airplane_error_msg" msgid="8698965595254137230">"Huwezi kutumia Bluetooth katika hali ya Ndege."</string>
+    <string name="airplane_error_title" msgid="2683839635115739939">"Hali ya ndegeni"</string>
+    <string name="airplane_error_msg" msgid="8698965595254137230">"Huwezi kutumia Bluetooth kifaa kikiwa katika hali ya Ndegeni."</string>
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
     <string name="bt_enable_line1" msgid="7203551583048149">"Kutumia huduma za Bluetooth, lazima kwanza uwashe Bluetooth."</string>
     <string name="bt_enable_line2" msgid="4341936569415937994">"Je wataka kuwasha Bluetooth sasa?"</string>
@@ -101,6 +101,7 @@
     <string name="status_protocol_error" msgid="3245444473429269539">"Ombi haliwezi kushughulikiwa kwa usahihi."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Hitilafu isiyojulikana."</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"Zilizopokewa kupitia Bluetooth"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"Shiriki Bluetooth"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Imepokelewa kikamilifu"</string>
     <string name="upload_success" msgid="4014469387779648949">"Kutuma kwa <xliff:g id="FILE_SIZE">%1$s</xliff:g> kumekamilika."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"Mahamisho yanayoingia"</string>
@@ -130,4 +131,5 @@
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"Haiwezi kuchagua akaunti. Nafasi 0 zimesalia"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"Imeunganisha sauti ya Bluetooth"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Imeondoa sauti ya Bluetooth"</string>
+    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Sauti ya Bluetooth"</string>
 </resources>

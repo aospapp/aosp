@@ -59,4 +59,10 @@ public class EmergencyEditTextPreference extends EditTextPreference
                 com.android.internal.R.id.summary);
         summaryView.setMaxLines(MAX_LINES);
     }
+
+    @Override
+    protected void onBindDialogView(View view) {
+        super.onBindDialogView(view);
+	getEditText().setSelection(getEditText().getText().length());
+    }
 }

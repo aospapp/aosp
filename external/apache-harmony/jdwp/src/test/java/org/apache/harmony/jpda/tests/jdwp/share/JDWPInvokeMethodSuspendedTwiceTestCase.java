@@ -126,6 +126,8 @@ public abstract class JDWPInvokeMethodSuspendedTwiceTestCase extends JDWPSyncTes
         ReplyPacket anotherInvokeMethodReply =
                 debuggeeWrapper.vmMirror.performCommand(anotherInvokeMethodCommand);
         // Note: the RI returns INVALID_THREAD but ALREADY_INVOKING is more explicit.
+        assertTrue("Another invoke should return an error",
+                anotherInvokeMethodReply.getErrorCode() != JDWPConstants.Error.NONE);
 //        checkReplyPacket(anotherInvokeMethodReply, "Invalid error code",
 //                JDWPConstants.Error.ALREADY_INVOKING);
 

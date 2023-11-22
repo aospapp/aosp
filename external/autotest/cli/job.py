@@ -16,9 +16,12 @@ The common options are:
 See topic_common.py for a High Level Design and Algorithm.
 """
 
-import getpass, os, pwd, re, socket, sys
+# pylint: disable=missing-docstring
+
+import getpass, re
 from autotest_lib.cli import topic_common, action_common
 from autotest_lib.client.common_lib import control_data
+from autotest_lib.client.common_lib import priorities
 
 
 class job(topic_common.atest):
@@ -257,10 +260,9 @@ class job_create_or_clone(action_common.atest_create, job):
         super(job_create_or_clone, self).__init__()
         self.hosts = []
         self.data_item_key = 'name'
-        self.parser.add_option('-p', '--priority', help='Job priority (low, '
-                               'medium, high, urgent), default=medium',
-                               type='choice', choices=('low', 'medium', 'high',
-                               'urgent'), default='medium')
+        self.parser.add_option('-p', '--priority',
+                               help='Job priority (int)', type='int',
+                               default=priorities.Priority.DEFAULT)
         self.parser.add_option('-b', '--labels',
                                help='Comma separated list of labels '
                                'to get machine list from.', default='')
@@ -314,15 +316,14 @@ class job_create_or_clone(action_common.atest_create, job):
         options, leftover = super(job_create_or_clone, self).parse(
                 [host_info, job_info, oth_info, label_info] + parse_info,
                 req_items='jobname')
-        self.data = {}
+        self.data = {
+            'priority': options.priority,
+        }
         jobname = getattr(self, 'jobname')
         if len(jobname) > 1:
             self.invalid_syntax('Too many arguments specified, only expected '
                                 'to receive job name: %s' % jobname)
         self.jobname = jobname[0]
-
-        if options.priority:
-            self.data['priority'] = options.priority.capitalize()
 
         if self.one_time_hosts:
             self.data['one_time_hosts'] = self.one_time_hosts
@@ -354,16 +355,16 @@ class job_create_or_clone(action_common.atest_create, job):
 
 
 class job_create(job_create_or_clone):
-    """atest job create [--priority <Low|Medium|High|Urgent>]
+    """atest job create [--priority <int>]
     [--synch_count] [--control-file </path/to/cfile>]
-    [--on-server] [--test <test1,test2>] [--kernel <http://kernel>]
+    [--on-server] [--test <test1,test2>]
     [--mlist </path/to/machinelist>] [--machine <host1 host2 host3>]
     [--labels <list of labels of machines to run on>]
     [--reboot_before <option>] [--reboot_after <option>]
     [--noverify] [--timeout <timeout>] [--max_runtime <max runtime>]
     [--one-time-hosts <hosts>] [--email <email>]
     [--dependencies <labels this job is dependent on>]
-    [--atomic_group <atomic group name>] [--parse-failed-repair <option>]
+    [--parse-failed-repair <option>]
     [--image <http://path/to/image>] [--require-ssp]
     job_name
 
@@ -386,18 +387,8 @@ class job_create(job_create_or_clone):
         self.parser.add_option('-t', '--test',
                                help='List of tests to run')
 
-        self.parser.add_option('-k', '--kernel', help='A comma separated list'
-                               ' of kernel versions/URLs/filenames to run the'
-                               ' job on')
-        self.parser.add_option('--kernel-cmdline', help='A string that will be'
-                               ' given as cmdline to the booted kernel(s)'
-                               ' specified by the -k option')
-
         self.parser.add_option('-d', '--dependencies', help='Comma separated '
                                'list of labels this job is dependent on.',
-                               default='')
-        self.parser.add_option('-G', '--atomic_group', help='Name of an Atomic '
-                               'Group to schedule this job on.',
                                default='')
 
         self.parser.add_option('-B', '--reboot_before',
@@ -435,21 +426,6 @@ class job_create(job_create_or_clone):
                                default=False, action='store_true')
 
 
-    @staticmethod
-    def _get_kernel_data(kernel_list, cmdline):
-        # the RPC supports cmdline per kernel version in a dictionary
-        kernels = []
-        for version in re.split(r'[, ]+', kernel_list):
-            if not version:
-                continue
-            kernel_info = {'version': version}
-            if cmdline:
-                kernel_info['cmdline'] = cmdline
-            kernels.append(kernel_info)
-
-        return kernels
-
-
     def parse(self):
         deps_info = topic_common.item_parse_info(attribute_name='dependencies',
                                                  inline_option='dependencies')
@@ -457,19 +433,15 @@ class job_create(job_create_or_clone):
                 parse_info=[deps_info])
 
         if (len(self.hosts) == 0 and not self.one_time_hosts
-            and not options.labels and not options.atomic_group):
-            self.invalid_syntax('Must specify at least one machine '
-                                'or an atomic group '
-                                '(-m, -M, -b, -G or --one-time-hosts).')
+            and not options.labels):
+            self.invalid_syntax('Must specify at least one machine.'
+                                '(-m, -M, -b or --one-time-hosts).')
         if not options.control_file and not options.test:
             self.invalid_syntax('Must specify either --test or --control-file'
                                 ' to create a job.')
         if options.control_file and options.test:
             self.invalid_syntax('Can only specify one of --control-file or '
                                 '--test, not both.')
-        if options.kernel:
-            self.ctrl_file_data['kernel'] = self._get_kernel_data(
-                    options.kernel, options.kernel_cmdline)
         if options.control_file:
             try:
                 control_file_f = open(options.control_file)
@@ -480,12 +452,7 @@ class job_create(job_create_or_clone):
             except IOError:
                 self.generic_error('Unable to read from specified '
                                    'control-file: %s' % options.control_file)
-            if options.kernel:
-                # execute() will pass this to the AFE server to wrap this
-                # control file up to include the kernel installation steps.
-                self.ctrl_file_data['client_control_file'] = control_file_data
-            else:
-                self.data['control_file'] = control_file_data
+            self.data['control_file'] = control_file_data
         if options.test:
             if options.server:
                 self.invalid_syntax('If you specify tests, then the '
@@ -511,9 +478,6 @@ class job_create(job_create_or_clone):
         if options.max_runtime:
             self.data['max_runtime_mins'] = options.max_runtime
 
-        if options.atomic_group:
-            self.data['atomic_group_name'] = options.atomic_group
-
         self.data['dependencies'] = self.dependencies
 
         if options.synch_count:
@@ -530,22 +494,10 @@ class job_create(job_create_or_clone):
 
     def execute(self):
         if self.ctrl_file_data:
-            uploading_kernel = 'kernel' in self.ctrl_file_data
-            if uploading_kernel:
-                default_timeout = socket.getdefaulttimeout()
-                socket.setdefaulttimeout(topic_common.UPLOAD_SOCKET_TIMEOUT)
-                print 'Uploading Kernel: this may take a while...',
-                sys.stdout.flush()
-            try:
-                cf_info = self.execute_rpc(op='generate_control_file',
-                                           item=self.jobname,
-                                           **self.ctrl_file_data)
-            finally:
-                if uploading_kernel:
-                    socket.setdefaulttimeout(default_timeout)
+            cf_info = self.execute_rpc(op='generate_control_file',
+                                       item=self.jobname,
+                                       **self.ctrl_file_data)
 
-            if uploading_kernel:
-                print 'Done'
             self.data['control_file'] = cf_info['control_file']
             if 'synch_count' not in self.data:
                 self.data['synch_count'] = cf_info['synch_count']
@@ -566,7 +518,7 @@ class job_create(job_create_or_clone):
 
 
 class job_clone(job_create_or_clone):
-    """atest job clone [--priority <Low|Medium|High|Urgent>]
+    """atest job clone [--priority <int>]
     [--mlist </path/to/machinelist>] [--machine <host1 host2 host3>]
     [--labels <list of labels of machines to run on>]
     [--one-time-hosts <hosts>] [--email <email>]

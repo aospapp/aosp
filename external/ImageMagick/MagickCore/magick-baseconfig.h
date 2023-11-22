@@ -845,9 +845,7 @@
 #endif
 
 /* Define to 1 if you have the <sys/syslimits.h> header file. */
-#ifndef MAGICKCORE_HAVE_SYS_SYSLIMITS_H
-#define MAGICKCORE_HAVE_SYS_SYSLIMITS_H 1
-#endif
+/* #undef MAGICKCORE_HAVE_SYS_SYSLIMITS_H */
 
 /* Define to 1 if you have the <sys/timeb.h> header file. */
 #ifndef MAGICKCORE_HAVE_SYS_TIMEB_H

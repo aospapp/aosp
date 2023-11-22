@@ -17,8 +17,10 @@
 #include "sharpening.h"
 
 #include "base/casts.h"
+#include "base/enums.h"
 #include "class_linker.h"
 #include "code_generator.h"
+#include "driver/compiler_options.h"
 #include "driver/dex_compilation_unit.h"
 #include "utils/dex_cache_arrays_layout-inl.h"
 #include "driver/compiler_driver.h"
@@ -29,7 +31,7 @@
 #include "mirror/string.h"
 #include "nodes.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -39,130 +41,196 @@ void HSharpening::Run() {
     for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
       HInstruction* instruction = it.Current();
       if (instruction->IsInvokeStaticOrDirect()) {
-        ProcessInvokeStaticOrDirect(instruction->AsInvokeStaticOrDirect());
+        SharpenInvokeStaticOrDirect(instruction->AsInvokeStaticOrDirect(), codegen_);
       } else if (instruction->IsLoadString()) {
         ProcessLoadString(instruction->AsLoadString());
       }
       // TODO: Move the sharpening of invoke-virtual/-interface/-super from HGraphBuilder
       //       here. Rewrite it to avoid the CompilerDriver's reliance on verifier data
       //       because we know the type better when inlining.
-      // TODO: HLoadClass - select better load kind if available.
     }
   }
 }
 
-void HSharpening::ProcessInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) {
+static bool IsInBootImage(ArtMethod* method) {
+  const std::vector<gc::space::ImageSpace*>& image_spaces =
+      Runtime::Current()->GetHeap()->GetBootImageSpaces();
+  for (gc::space::ImageSpace* image_space : image_spaces) {
+    const auto& method_section = image_space->GetImageHeader().GetMethodsSection();
+    if (method_section.Contains(reinterpret_cast<uint8_t*>(method) - image_space->Begin())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool AOTCanEmbedMethod(ArtMethod* method, const CompilerOptions& options) {
+  return IsInBootImage(method) && !options.GetCompilePic();
+}
+
+
+void HSharpening::SharpenInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke,
+                                              CodeGenerator* codegen) {
   if (invoke->IsStringInit()) {
     // Not using the dex cache arrays. But we could still try to use a better dispatch...
     // TODO: Use direct_method and direct_code for the appropriate StringFactory method.
     return;
   }
 
-  // TODO: Avoid CompilerDriver.
-  InvokeType original_invoke_type = invoke->GetOriginalInvokeType();
-  InvokeType optimized_invoke_type = original_invoke_type;
-  MethodReference target_method(&graph_->GetDexFile(), invoke->GetDexMethodIndex());
-  int vtable_idx;
-  uintptr_t direct_code, direct_method;
-  bool success = compiler_driver_->ComputeInvokeInfo(
-      &compilation_unit_,
-      invoke->GetDexPc(),
-      false /* update_stats: already updated in builder */,
-      true /* enable_devirtualization */,
-      &optimized_invoke_type,
-      &target_method,
-      &vtable_idx,
-      &direct_code,
-      &direct_method);
-  if (!success) {
-    // TODO: try using kDexCachePcRelative. It's always a valid method load
-    // kind as long as it's supported by the codegen
-    return;
-  }
-  invoke->SetOptimizedInvokeType(optimized_invoke_type);
-  invoke->SetTargetMethod(target_method);
+  ArtMethod* callee = invoke->GetResolvedMethod();
+  DCHECK(callee != nullptr);
 
   HInvokeStaticOrDirect::MethodLoadKind method_load_kind;
   HInvokeStaticOrDirect::CodePtrLocation code_ptr_location;
   uint64_t method_load_data = 0u;
-  uint64_t direct_code_ptr = 0u;
 
-  HGraph* outer_graph = codegen_->GetGraph();
-  if (target_method.dex_file == &outer_graph->GetDexFile() &&
-      target_method.dex_method_index == outer_graph->GetMethodIdx()) {
+  // Note: we never call an ArtMethod through a known code pointer, as
+  // we do not want to keep on invoking it if it gets deoptimized. This
+  // applies to both AOT and JIT.
+  // This also avoids having to find out if the code pointer of an ArtMethod
+  // is the resolution trampoline (for ensuring the class is initialized), or
+  // the interpreter entrypoint. Such code pointers we do not want to call
+  // directly.
+  // Only in the case of a recursive call can we call directly, as we know the
+  // class is initialized already or being initialized, and the call will not
+  // be invoked once the method is deoptimized.
+
+  // We don't optimize for debuggable as it would prevent us from obsoleting the method in some
+  // situations.
+  if (callee == codegen->GetGraph()->GetArtMethod() && !codegen->GetGraph()->IsDebuggable()) {
+    // Recursive call.
     method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kRecursive;
     code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallSelf;
+  } else if (Runtime::Current()->UseJitCompilation() ||
+      AOTCanEmbedMethod(callee, codegen->GetCompilerOptions())) {
+    // JIT or on-device AOT compilation referencing a boot image method.
+    // Use the method address directly.
+    method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDirectAddress;
+    method_load_data = reinterpret_cast<uintptr_t>(callee);
+    code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
   } else {
-    bool use_pc_relative_instructions =
-        ((direct_method == 0u || direct_code == static_cast<uintptr_t>(-1))) &&
-        ContainsElement(compiler_driver_->GetDexFilesForOatFile(), target_method.dex_file);
-    if (direct_method != 0u) {  // Should we use a direct pointer to the method?
-      // Note: For JIT, kDirectAddressWithFixup doesn't make sense at all and while
-      // kDirectAddress would be fine for image methods, we don't support it at the moment.
-      DCHECK(!Runtime::Current()->UseJitCompilation());
-      if (direct_method != static_cast<uintptr_t>(-1)) {  // Is the method pointer known now?
-        method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDirectAddress;
-        method_load_data = direct_method;
-      } else {  // The direct pointer will be known at link time.
-        method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDirectAddressWithFixup;
-      }
-    } else {  // Use dex cache.
-      DCHECK_EQ(target_method.dex_file, &graph_->GetDexFile());
-      if (use_pc_relative_instructions) {  // Can we use PC-relative access to the dex cache arrays?
-        DCHECK(!Runtime::Current()->UseJitCompilation());
-        method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDexCachePcRelative;
-        DexCacheArraysLayout layout(GetInstructionSetPointerSize(codegen_->GetInstructionSet()),
-                                    &graph_->GetDexFile());
-        method_load_data = layout.MethodOffset(target_method.dex_method_index);
-      } else {  // We must go through the ArtMethod's pointer to resolved methods.
-        method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDexCacheViaMethod;
-      }
-    }
-    if (direct_code != 0u) {  // Should we use a direct pointer to the code?
-      // Note: For JIT, kCallPCRelative and kCallDirectWithFixup don't make sense at all and
-      // while kCallDirect would be fine for image methods, we don't support it at the moment.
-      DCHECK(!Runtime::Current()->UseJitCompilation());
-      if (direct_code != static_cast<uintptr_t>(-1)) {  // Is the code pointer known now?
-        code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallDirect;
-        direct_code_ptr = direct_code;
-      } else if (use_pc_relative_instructions) {
-        // Use PC-relative calls for invokes within a multi-dex oat file.
-        code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallPCRelative;
-      } else {  // The direct pointer will be known at link time.
-        // NOTE: This is used for app->boot calls when compiling an app against
-        // a relocatable but not yet relocated image.
-        code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallDirectWithFixup;
-      }
-    } else {  // We must use the code pointer from the ArtMethod.
-      code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
-    }
+    // Use PC-relative access to the dex cache arrays.
+    method_load_kind = HInvokeStaticOrDirect::MethodLoadKind::kDexCachePcRelative;
+    // Note: we use the invoke's graph instead of the codegen graph, which are
+    // different when inlining (the codegen graph is the most outer graph). The
+    // invoke's dex method index is relative to the dex file where the invoke's graph
+    // was built from.
+    DexCacheArraysLayout layout(GetInstructionSetPointerSize(codegen->GetInstructionSet()),
+                                &invoke->GetBlock()->GetGraph()->GetDexFile());
+    method_load_data = layout.MethodOffset(invoke->GetDexMethodIndex());
+    code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
   }
 
-  if (graph_->IsDebuggable()) {
+  if (codegen->GetGraph()->IsDebuggable()) {
     // For debuggable apps always use the code pointer from ArtMethod
     // so that we don't circumvent instrumentation stubs if installed.
     code_ptr_location = HInvokeStaticOrDirect::CodePtrLocation::kCallArtMethod;
   }
 
   HInvokeStaticOrDirect::DispatchInfo desired_dispatch_info = {
-      method_load_kind, code_ptr_location, method_load_data, direct_code_ptr
+      method_load_kind, code_ptr_location, method_load_data
   };
   HInvokeStaticOrDirect::DispatchInfo dispatch_info =
-      codegen_->GetSupportedInvokeStaticOrDirectDispatch(desired_dispatch_info,
-                                                         invoke->GetTargetMethod());
+      codegen->GetSupportedInvokeStaticOrDirectDispatch(desired_dispatch_info, invoke);
   invoke->SetDispatchInfo(dispatch_info);
+}
+
+HLoadClass::LoadKind HSharpening::ComputeLoadClassKind(HLoadClass* load_class,
+                                                       CodeGenerator* codegen,
+                                                       CompilerDriver* compiler_driver,
+                                                       const DexCompilationUnit& dex_compilation_unit) {
+  Handle<mirror::Class> klass = load_class->GetClass();
+  DCHECK(load_class->GetLoadKind() == HLoadClass::LoadKind::kDexCacheViaMethod ||
+         load_class->GetLoadKind() == HLoadClass::LoadKind::kReferrersClass)
+      << load_class->GetLoadKind();
+  DCHECK(!load_class->IsInBootImage()) << "HLoadClass should not be optimized before sharpening.";
+
+  HLoadClass::LoadKind load_kind = load_class->GetLoadKind();
+
+  if (load_class->NeedsAccessCheck()) {
+    // We need to call the runtime anyway, so we simply get the class as that call's return value.
+  } else if (load_kind == HLoadClass::LoadKind::kReferrersClass) {
+    // Loading from the ArtMethod* is the most efficient retrieval in code size.
+    // TODO: This may not actually be true for all architectures and
+    // locations of target classes. The additional register pressure
+    // for using the ArtMethod* should be considered.
+  } else {
+    const DexFile& dex_file = load_class->GetDexFile();
+    dex::TypeIndex type_index = load_class->GetTypeIndex();
+
+    bool is_in_boot_image = false;
+    HLoadClass::LoadKind desired_load_kind = HLoadClass::LoadKind::kInvalid;
+    Runtime* runtime = Runtime::Current();
+    if (codegen->GetCompilerOptions().IsBootImage()) {
+      // Compiling boot image. Check if the class is a boot image class.
+      DCHECK(!runtime->UseJitCompilation());
+      if (!compiler_driver->GetSupportBootImageFixup()) {
+        // compiler_driver_test. Do not sharpen.
+        desired_load_kind = HLoadClass::LoadKind::kDexCacheViaMethod;
+      } else if ((klass != nullptr) && compiler_driver->IsImageClass(
+          dex_file.StringDataByIdx(dex_file.GetTypeId(type_index).descriptor_idx_))) {
+        is_in_boot_image = true;
+        desired_load_kind = codegen->GetCompilerOptions().GetCompilePic()
+            ? HLoadClass::LoadKind::kBootImageLinkTimePcRelative
+            : HLoadClass::LoadKind::kBootImageLinkTimeAddress;
+      } else {
+        // Not a boot image class.
+        DCHECK(ContainsElement(compiler_driver->GetDexFilesForOatFile(), &dex_file));
+        desired_load_kind = HLoadClass::LoadKind::kBssEntry;
+      }
+    } else {
+      is_in_boot_image = (klass != nullptr) &&
+          runtime->GetHeap()->ObjectIsInBootImageSpace(klass.Get());
+      if (runtime->UseJitCompilation()) {
+        // TODO: Make sure we don't set the "compile PIC" flag for JIT as that's bogus.
+        // DCHECK(!codegen_->GetCompilerOptions().GetCompilePic());
+        if (is_in_boot_image) {
+          // TODO: Use direct pointers for all non-moving spaces, not just boot image. Bug: 29530787
+          desired_load_kind = HLoadClass::LoadKind::kBootImageAddress;
+        } else if (klass != nullptr) {
+          desired_load_kind = HLoadClass::LoadKind::kJitTableAddress;
+        } else {
+          // Class not loaded yet. This happens when the dex code requesting
+          // this `HLoadClass` hasn't been executed in the interpreter.
+          // Fallback to the dex cache.
+          // TODO(ngeoffray): Generate HDeoptimize instead.
+          desired_load_kind = HLoadClass::LoadKind::kDexCacheViaMethod;
+        }
+      } else if (is_in_boot_image && !codegen->GetCompilerOptions().GetCompilePic()) {
+        // AOT app compilation. Check if the class is in the boot image.
+        desired_load_kind = HLoadClass::LoadKind::kBootImageAddress;
+      } else {
+        // Not JIT and either the klass is not in boot image or we are compiling in PIC mode.
+        desired_load_kind = HLoadClass::LoadKind::kBssEntry;
+      }
+    }
+    DCHECK_NE(desired_load_kind, HLoadClass::LoadKind::kInvalid);
+
+    if (is_in_boot_image) {
+      load_class->MarkInBootImage();
+    }
+    load_kind = codegen->GetSupportedLoadClassKind(desired_load_kind);
+  }
+
+  if (!IsSameDexFile(load_class->GetDexFile(), *dex_compilation_unit.GetDexFile())) {
+    if ((load_kind == HLoadClass::LoadKind::kDexCacheViaMethod) ||
+        (load_kind == HLoadClass::LoadKind::kBssEntry)) {
+      // We actually cannot reference this class, we're forced to bail.
+      // We cannot reference this class with Bss, as the entrypoint will lookup the class
+      // in the caller's dex file, but that dex file does not reference the class.
+      return HLoadClass::LoadKind::kInvalid;
+    }
+  }
+  return load_kind;
 }
 
 void HSharpening::ProcessLoadString(HLoadString* load_string) {
   DCHECK_EQ(load_string->GetLoadKind(), HLoadString::LoadKind::kDexCacheViaMethod);
-  DCHECK(!load_string->IsInDexCache());
 
   const DexFile& dex_file = load_string->GetDexFile();
-  uint32_t string_index = load_string->GetStringIndex();
+  dex::StringIndex string_index = load_string->GetStringIndex();
 
-  bool is_in_dex_cache = false;
-  HLoadString::LoadKind desired_load_kind;
-  uint64_t address = 0u;  // String or dex cache element address.
+  HLoadString::LoadKind desired_load_kind = static_cast<HLoadString::LoadKind>(-1);
   {
     Runtime* runtime = Runtime::Current();
     ClassLinker* class_linker = runtime->GetClassLinker();
@@ -171,83 +239,55 @@ void HSharpening::ProcessLoadString(HLoadString* load_string) {
     Handle<mirror::DexCache> dex_cache = IsSameDexFile(dex_file, *compilation_unit_.GetDexFile())
         ? compilation_unit_.GetDexCache()
         : hs.NewHandle(class_linker->FindDexCache(soa.Self(), dex_file));
+    mirror::String* string = nullptr;
 
-    if (compiler_driver_->IsBootImage()) {
-      // Compiling boot image. Resolve the string and allocate it if needed.
+    if (codegen_->GetCompilerOptions().IsBootImage()) {
+      // Compiling boot image. Resolve the string and allocate it if needed, to ensure
+      // the string will be added to the boot image.
       DCHECK(!runtime->UseJitCompilation());
-      mirror::String* string = class_linker->ResolveString(dex_file, string_index, dex_cache);
+      string = class_linker->ResolveString(dex_file, string_index, dex_cache);
       CHECK(string != nullptr);
-      if (!compiler_driver_->GetSupportBootImageFixup()) {
-        // MIPS/MIPS64 or compiler_driver_test. Do not sharpen.
-        desired_load_kind = HLoadString::LoadKind::kDexCacheViaMethod;
-      } else {
+      if (compiler_driver_->GetSupportBootImageFixup()) {
         DCHECK(ContainsElement(compiler_driver_->GetDexFilesForOatFile(), &dex_file));
-        is_in_dex_cache = true;
         desired_load_kind = codegen_->GetCompilerOptions().GetCompilePic()
             ? HLoadString::LoadKind::kBootImageLinkTimePcRelative
             : HLoadString::LoadKind::kBootImageLinkTimeAddress;
+      } else {
+        // compiler_driver_test. Do not sharpen.
+        desired_load_kind = HLoadString::LoadKind::kDexCacheViaMethod;
       }
     } else if (runtime->UseJitCompilation()) {
       // TODO: Make sure we don't set the "compile PIC" flag for JIT as that's bogus.
       // DCHECK(!codegen_->GetCompilerOptions().GetCompilePic());
-      mirror::String* string = dex_cache->GetResolvedString(string_index);
-      is_in_dex_cache = (string != nullptr);
-      if (string != nullptr && runtime->GetHeap()->ObjectIsInBootImageSpace(string)) {
-        desired_load_kind = HLoadString::LoadKind::kBootImageAddress;
-        address = reinterpret_cast64<uint64_t>(string);
+      string = class_linker->LookupString(dex_file, string_index, dex_cache.Get());
+      if (string != nullptr) {
+        if (runtime->GetHeap()->ObjectIsInBootImageSpace(string)) {
+          desired_load_kind = HLoadString::LoadKind::kBootImageAddress;
+        } else {
+          desired_load_kind = HLoadString::LoadKind::kJitTableAddress;
+        }
       } else {
-        // Note: If the string is not in the dex cache, the instruction needs environment
-        // and will not be inlined across dex files. Within a dex file, the slow-path helper
-        // loads the correct string and inlined frames are used correctly for OOM stack trace.
-        // TODO: Write a test for this.
-        desired_load_kind = HLoadString::LoadKind::kDexCacheAddress;
-        void* dex_cache_element_address = &dex_cache->GetStrings()[string_index];
-        address = reinterpret_cast64<uint64_t>(dex_cache_element_address);
+        desired_load_kind = HLoadString::LoadKind::kDexCacheViaMethod;
       }
     } else {
       // AOT app compilation. Try to lookup the string without allocating if not found.
-      mirror::String* string = class_linker->LookupString(dex_file, string_index, dex_cache);
-      if (string != nullptr && runtime->GetHeap()->ObjectIsInBootImageSpace(string)) {
-        if (codegen_->GetCompilerOptions().GetCompilePic()) {
-          // Use PC-relative load from the dex cache if the dex file belongs
-          // to the oat file that we're currently compiling.
-          desired_load_kind = ContainsElement(compiler_driver_->GetDexFilesForOatFile(), &dex_file)
-              ? HLoadString::LoadKind::kDexCachePcRelative
-              : HLoadString::LoadKind::kDexCacheViaMethod;
-        } else {
-          desired_load_kind = HLoadString::LoadKind::kBootImageAddress;
-          address = reinterpret_cast64<uint64_t>(string);
-        }
+      string = class_linker->LookupString(dex_file, string_index, dex_cache.Get());
+      if (string != nullptr &&
+          runtime->GetHeap()->ObjectIsInBootImageSpace(string) &&
+          !codegen_->GetCompilerOptions().GetCompilePic()) {
+        desired_load_kind = HLoadString::LoadKind::kBootImageAddress;
       } else {
-        // Not JIT and the string is not in boot image.
-        desired_load_kind = HLoadString::LoadKind::kDexCachePcRelative;
+        desired_load_kind = HLoadString::LoadKind::kBssEntry;
       }
     }
-  }
-  if (is_in_dex_cache) {
-    load_string->MarkInDexCache();
-  }
-
-  HLoadString::LoadKind load_kind = codegen_->GetSupportedLoadStringKind(desired_load_kind);
-  switch (load_kind) {
-    case HLoadString::LoadKind::kBootImageLinkTimeAddress:
-    case HLoadString::LoadKind::kBootImageLinkTimePcRelative:
-    case HLoadString::LoadKind::kDexCacheViaMethod:
-      load_string->SetLoadKindWithStringReference(load_kind, dex_file, string_index);
-      break;
-    case HLoadString::LoadKind::kBootImageAddress:
-    case HLoadString::LoadKind::kDexCacheAddress:
-      DCHECK_NE(address, 0u);
-      load_string->SetLoadKindWithAddress(load_kind, address);
-      break;
-    case HLoadString::LoadKind::kDexCachePcRelative: {
-      size_t pointer_size = InstructionSetPointerSize(codegen_->GetInstructionSet());
-      DexCacheArraysLayout layout(pointer_size, &dex_file);
-      size_t element_index = layout.StringOffset(string_index);
-      load_string->SetLoadKindWithDexCacheReference(load_kind, dex_file, element_index);
-      break;
+    if (string != nullptr) {
+      load_string->SetString(handles_->NewHandle(string));
     }
   }
+  DCHECK_NE(desired_load_kind, static_cast<HLoadString::LoadKind>(-1));
+
+  HLoadString::LoadKind load_kind = codegen_->GetSupportedLoadStringKind(desired_load_kind);
+  load_string->SetLoadKind(load_kind);
 }
 
 }  // namespace art

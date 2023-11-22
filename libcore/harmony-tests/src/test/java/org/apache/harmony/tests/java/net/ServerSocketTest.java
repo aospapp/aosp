@@ -17,6 +17,12 @@
 
 package org.apache.harmony.tests.java.net;
 
+import libcore.io.Libcore;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
+
 import tests.support.Support_Configuration;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,7 +44,12 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Properties;
 
-public class ServerSocketTest extends junit.framework.TestCase {
+import static android.system.OsConstants.F_GETFL;
+import static android.system.OsConstants.O_NONBLOCK;
+
+public class ServerSocketTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
 
     boolean interrupted;
 
@@ -168,12 +179,16 @@ public class ServerSocketTest extends junit.framework.TestCase {
     /**
      * java.net.ServerSocket#accept()
      */
-    public void test_accept() throws IOException {
+    public void test_accept() throws Exception {
         s = new ServerSocket(0);
         try {
             s.setSoTimeout(5000);
             startClient(s.getLocalPort());
             sconn = s.accept();
+
+            // The new socket should not be blocking.
+            assertEquals(0, Libcore.os.fcntlVoid(sconn.getFileDescriptor$(), F_GETFL) & O_NONBLOCK);
+
             int localPort1 = s.getLocalPort();
             int localPort2 = sconn.getLocalPort();
             sconn.close();
@@ -691,17 +706,23 @@ public class ServerSocketTest extends junit.framework.TestCase {
         String platform = System.getProperty("os.name").toLowerCase(Locale.US);
         if (!platform.startsWith("windows")) {
             // on Unix
-            assertTrue(new ServerSocket().getReuseAddress());
-            assertTrue(new ServerSocket(0).getReuseAddress());
-            assertTrue(new ServerSocket(0, 50).getReuseAddress());
-            assertTrue(new ServerSocket(0, 50, InetAddress.getLocalHost()).getReuseAddress());
+            assertReuseAddressAndCloseSocket(new ServerSocket());
+            assertReuseAddressAndCloseSocket(new ServerSocket(0));
+            assertReuseAddressAndCloseSocket(new ServerSocket(0, 50));
+            assertReuseAddressAndCloseSocket(new ServerSocket(0, 50, InetAddress.getLocalHost()));
         } else {
             // on Windows
-            assertFalse(new ServerSocket().getReuseAddress());
-            assertFalse(new ServerSocket(0).getReuseAddress());
-            assertFalse(new ServerSocket(0, 50).getReuseAddress());
-            assertFalse(new ServerSocket(0, 50, InetAddress.getLocalHost()).getReuseAddress());
+            assertReuseAddressAndCloseSocket(new ServerSocket());
+            assertReuseAddressAndCloseSocket(new ServerSocket(0));
+            assertReuseAddressAndCloseSocket(new ServerSocket(0, 50));
+            assertReuseAddressAndCloseSocket(new ServerSocket(0, 50, InetAddress.getLocalHost()));
         }
+    }
+
+    private void assertReuseAddressAndCloseSocket(ServerSocket socket) throws IOException {
+        boolean reuseAddress = socket.getReuseAddress();
+        socket.close();
+        assertTrue(reuseAddress);
     }
 
     public void test_setReuseAddressZ() throws Exception {
@@ -719,16 +740,15 @@ public class ServerSocketTest extends junit.framework.TestCase {
         serverSocket.close();
 
         // now try to rebind the server which should fail with
-        // setReuseAddress to false. On windows platforms the bind is
-        // allowed even then reUseAddress is false so our test uses
-        // the platform to determine what the expected result is.
-        String platform = System.getProperty("os.name");
-        try {
-            serverSocket = new ServerSocket();
-            serverSocket.setReuseAddress(false);
-            serverSocket.bind(theAddress);
-            fail("No exception when setReuseAddress is false and we bind:" + theAddress.toString());
-        } catch (IOException expected) {
+        // setReuseAddress to false.
+        try (ServerSocket failingServerSocket = new ServerSocket()) {
+            failingServerSocket.setReuseAddress(false);
+            try {
+                failingServerSocket.bind(theAddress);
+                fail("No exception when setReuseAddress is false and we bind:" + theAddress
+                        .toString());
+            } catch (IOException expected) {
+            }
         }
         stillActiveSocket.close();
         theSocket.close();
@@ -748,13 +768,14 @@ public class ServerSocketTest extends junit.framework.TestCase {
 
         // now try to rebind the server which should pass with
         // setReuseAddress to true
-        try {
-            serverSocket = new ServerSocket();
-            serverSocket.setReuseAddress(true);
-            serverSocket.bind(theAddress);
-        } catch (IOException ex) {
-            fail("Unexpected exception when setReuseAddress is true and we bind:"
-                    + theAddress.toString() + ":" + ex.toString());
+        try (ServerSocket rebindServerSocket = new ServerSocket()) {
+            rebindServerSocket.setReuseAddress(true);
+            try {
+                rebindServerSocket.bind(theAddress);
+            } catch (IOException ex) {
+                fail("Unexpected exception when setReuseAddress is true and we bind:"
+                        + theAddress.toString() + ":" + ex.toString());
+            }
         }
         stillActiveSocket.close();
         theSocket.close();
@@ -773,23 +794,26 @@ public class ServerSocketTest extends junit.framework.TestCase {
         serverSocket.close();
 
         // now try to rebind the server which should pass
-        try {
-            serverSocket = new ServerSocket();
-            serverSocket.bind(theAddress);
-        } catch (IOException ex) {
-            fail("Unexpected exception when setReuseAddress is the default case and we bind:"
-                    + theAddress.toString() + ":" + ex.toString());
+        try (ServerSocket rebindServerSocket = new ServerSocket()) {
+            try {
+                rebindServerSocket.bind(theAddress);
+            } catch (IOException ex) {
+                fail("Unexpected exception when setReuseAddress is the default case and we bind:"
+                        + theAddress.toString() + ":" + ex.toString());
+            }
         }
         stillActiveSocket.close();
         theSocket.close();
     }
 
     public void test_getReuseAddress() throws Exception {
-        ServerSocket theSocket = new ServerSocket();
-        theSocket.setReuseAddress(true);
-        assertTrue("getReuseAddress false when it should be true", theSocket.getReuseAddress());
-        theSocket.setReuseAddress(false);
-        assertFalse("getReuseAddress true when it should be False", theSocket.getReuseAddress());
+        try (ServerSocket theSocket = new ServerSocket()) {
+            theSocket.setReuseAddress(true);
+            assertTrue("getReuseAddress false when it should be true", theSocket.getReuseAddress());
+            theSocket.setReuseAddress(false);
+            assertFalse("getReuseAddress true when it should be false",
+                    theSocket.getReuseAddress());
+        }
     }
 
     public void test_setReceiveBufferSizeI() throws Exception {
@@ -819,13 +843,15 @@ public class ServerSocketTest extends junit.framework.TestCase {
     }
 
     public void test_getReceiveBufferSize() throws Exception {
-        ServerSocket theSocket = new ServerSocket();
+        try (ServerSocket theSocket = new ServerSocket()) {
 
-        // since the value returned is not necessary what we set we are
-        // limited in what we can test
-        // just validate that it is not 0 or negative
-        assertFalse("get Buffer size returns 0:", 0 == theSocket.getReceiveBufferSize());
-        assertFalse("get Buffer size returns  a negative value:", 0 > theSocket.getReceiveBufferSize());
+            // since the value returned is not necessary what we set we are
+            // limited in what we can test
+            // just validate that it is not 0 or negative
+            assertFalse("get Buffer size returns 0:", 0 == theSocket.getReceiveBufferSize());
+            assertFalse("get Buffer size returns  a negative value:",
+                    0 > theSocket.getReceiveBufferSize());
+        }
     }
 
     public void test_getChannel() throws Exception {
@@ -880,11 +906,13 @@ public class ServerSocketTest extends junit.framework.TestCase {
      */
     public void test_implAcceptLjava_net_Socket() throws Exception {
         // regression test for Harmony-1235
-        try {
-            new MockServerSocket().mockImplAccept(new MockSocket(
-                    new MockSocketImpl()));
-        } catch (SocketException e) {
-            // expected
+        try (MockServerSocket mockServerSocket = new MockServerSocket()) {
+            try {
+                mockServerSocket.mockImplAccept(new MockSocket(new MockSocketImpl()));
+                fail("Expected SocketException");
+            } catch (SocketException e) {
+                // expected
+            }
         }
     }
 

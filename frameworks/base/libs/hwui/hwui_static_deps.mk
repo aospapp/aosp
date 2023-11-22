@@ -18,14 +18,16 @@ LOCAL_SHARED_LIBRARIES += \
     libutils \
     libEGL \
     libGLESv2 \
+    libvulkan \
     libskia \
     libui \
     libgui \
-    libprotobuf-cpp-lite \
+    libprotobuf-cpp-full \
     libharfbuzz_ng \
     libft2 \
-    libminikin
+    libminikin \
+    libandroidfw \
+    libRScpp
 
-ifneq (false,$(ANDROID_ENABLE_RENDERSCRIPT))
-    LOCAL_SHARED_LIBRARIES += libRS libRScpp
-endif
+LOCAL_STATIC_LIBRARIES += \
+    libplatformprotos

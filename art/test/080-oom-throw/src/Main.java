@@ -53,6 +53,30 @@ public class Main {
         }
     }
 
+    public static Object eatAllMemory() {
+        Object[] result = null;
+        int size = 1000000;
+        while (result == null && size != 0) {
+            try {
+                result = new Object[size];
+            } catch (OutOfMemoryError oome) {
+                size /= 2;
+            }
+        }
+        if (result != null) {
+            int index = 0;
+            while (index != result.length && size != 0) {
+                try {
+                    result[index] = new byte[size];
+                    ++index;
+                } catch (OutOfMemoryError oome) {
+                    size /= 2;
+                }
+            }
+        }
+        return result;
+    }
+
     static boolean triggerArrayOOM() {
         ArrayMemEater.blowup(new char[128 * 1024][]);
         return ArrayMemEater.sawOome;
@@ -74,6 +98,9 @@ public class Main {
         if (triggerReflectionOOM()) {
             System.out.println("Test reflection correctly threw");
         }
+        if (triggerReflectionOOM2()) {
+            System.out.println("Test reflection2 correctly threw");
+        }
 
         if (triggerArrayOOM()) {
             System.out.println("NEW_ARRAY correctly threw OOME");
@@ -87,13 +114,13 @@ public class Main {
     static Object[] holder;
 
     public static void blowup() throws Exception {
-        int size = 32 * 1024 * 1024;
+        int size = 2 * 1024 * 1024;
         for (int i = 0; i < holder.length; ) {
             try {
                 holder[i] = new char[size];
                 i++;
             } catch (OutOfMemoryError oome) {
-                size = size / 2;
+                size = size / 16;
                 if (size == 0) {
                      break;
                 }
@@ -105,7 +132,7 @@ public class Main {
     static boolean triggerReflectionOOM() {
         try {
             Class<?> c = Main.class;
-            Method m = c.getMethod("blowup", (Class[]) null);
+            Method m = c.getMethod("blowup");
             holder = new Object[1000000];
             m.invoke(null);
             holder = null;
@@ -124,5 +151,21 @@ public class Main {
             return false;
         }
         return true;
+    }
+
+    static boolean triggerReflectionOOM2() {
+        Object memory = eatAllMemory();
+        boolean result = false;
+        try {
+            Main.class.getDeclaredMethods();
+        } catch (OutOfMemoryError e) {
+            result = true;
+        }
+        if (!result) {
+            boolean memoryWasAllocated = (memory != null);
+            memory = null;
+            System.out.println("memoryWasAllocated = " + memoryWasAllocated);
+        }
+        return result;
     }
 }

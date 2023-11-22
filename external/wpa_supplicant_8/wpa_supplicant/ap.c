@@ -168,6 +168,7 @@ int wpa_supplicant_conf_ap_ht(struct wpa_supplicant *wpa_s,
 
 			if (mode->vht_capab && ssid->vht) {
 				conf->ieee80211ac = 1;
+				conf->vht_capab |= mode->vht_capab;
 				wpas_conf_ap_vht(wpa_s, conf, mode);
 			}
 		}
@@ -214,6 +215,13 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 	if (wpa_supplicant_conf_ap_ht(wpa_s, ssid, conf))
 		return -1;
 
+	if (ssid->pbss > 1) {
+		wpa_printf(MSG_ERROR, "Invalid pbss value(%d) for AP mode",
+			   ssid->pbss);
+		return -1;
+	}
+	bss->pbss = ssid->pbss;
+
 #ifdef CONFIG_ACS
 	if (ssid->acs) {
 		/* Setting channel to 0 in order to enable ACS */
@@ -227,6 +235,7 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 		conf->ieee80211d = 1;
 		conf->country[0] = wpa_s->conf->country[0];
 		conf->country[1] = wpa_s->conf->country[1];
+		conf->country[2] = ' ';
 	}
 
 #ifdef CONFIG_P2P
@@ -287,7 +296,10 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 
 	if (wpa_key_mgmt_wpa_psk(ssid->key_mgmt))
 		bss->wpa = ssid->proto;
-	bss->wpa_key_mgmt = ssid->key_mgmt;
+	if (ssid->key_mgmt == DEFAULT_KEY_MGMT)
+		bss->wpa_key_mgmt = WPA_KEY_MGMT_PSK;
+	else
+		bss->wpa_key_mgmt = ssid->key_mgmt;
 	bss->wpa_pairwise = ssid->pairwise_cipher;
 	if (ssid->psk_set) {
 		bin_clear_free(bss->ssid.wpa_psk, sizeof(*bss->ssid.wpa_psk));
@@ -296,6 +308,7 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 			return -1;
 		os_memcpy(bss->ssid.wpa_psk->psk, ssid->psk, PMK_LEN);
 		bss->ssid.wpa_psk->group = 1;
+		bss->ssid.wpa_psk_set = 1;
 	} else if (ssid->passphrase) {
 		bss->ssid.wpa_passphrase = os_strdup(ssid->passphrase);
 	} else if (ssid->wep_key_len[0] || ssid->wep_key_len[1] ||
@@ -409,6 +422,8 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 	     !(bss->wpa & 2)))
 		goto no_wps; /* WPS2 does not allow WPA/TKIP-only
 			      * configuration */
+	if (ssid->wps_disabled)
+		goto no_wps;
 	bss->eap_server = 1;
 
 	if (!ssid->ignore_broadcast_ssid)
@@ -437,6 +452,8 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 		os_memcpy(bss->uuid, wpa_s->conf->uuid, WPS_UUID_LEN);
 	os_memcpy(bss->os_version, wpa_s->conf->os_version, 4);
 	bss->pbc_in_m1 = wpa_s->conf->pbc_in_m1;
+	if (ssid->eap.fragment_size != DEFAULT_FRAGMENT_SIZE)
+		bss->fragment_size = ssid->eap.fragment_size;
 no_wps:
 #endif /* CONFIG_WPS */
 
@@ -453,7 +470,8 @@ no_wps:
 			wpabuf_dup(wpa_s->conf->ap_vendor_elements);
 	}
 
-	bss->pbss = ssid->pbss;
+	bss->ftm_responder = wpa_s->conf->ftm_responder;
+	bss->ftm_initiator = wpa_s->conf->ftm_initiator;
 
 	return 0;
 }
@@ -649,12 +667,17 @@ int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
 	if (ieee80211_is_dfs(params.freq.freq))
 		params.freq.freq = 0; /* set channel after CAC */
 
+	if (params.p2p)
+		wpa_drv_get_ext_capa(wpa_s, WPA_IF_P2P_GO);
+	else
+		wpa_drv_get_ext_capa(wpa_s, WPA_IF_AP_BSS);
+
 	if (wpa_drv_associate(wpa_s, &params) < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Failed to start AP functionality");
 		return -1;
 	}
 
-	wpa_s->ap_iface = hapd_iface = os_zalloc(sizeof(*wpa_s->ap_iface));
+	wpa_s->ap_iface = hapd_iface = hostapd_alloc_iface();
 	if (hapd_iface == NULL)
 		return -1;
 	hapd_iface->owner = wpa_s;
@@ -1363,7 +1386,6 @@ int wpas_ap_stop_ap(struct wpa_supplicant *wpa_s)
 	hapd = wpa_s->ap_iface->bss[0];
 	return hostapd_ctrl_iface_stop_ap(hapd);
 }
-#endif /* CONFIG_CTRL_IFACE */
 
 
 int wpas_ap_pmksa_cache_list(struct wpa_supplicant *wpa_s, char *buf,
@@ -1416,6 +1438,44 @@ void wpas_ap_pmksa_cache_flush(struct wpa_supplicant *wpa_s)
 	if (wpa_s->ifmsh)
 		hostapd_ctrl_iface_pmksa_flush(wpa_s->ifmsh->bss[0]);
 }
+
+
+#ifdef CONFIG_PMKSA_CACHE_EXTERNAL
+#ifdef CONFIG_MESH
+
+int wpas_ap_pmksa_cache_list_mesh(struct wpa_supplicant *wpa_s, const u8 *addr,
+				  char *buf, size_t len)
+{
+	return hostapd_ctrl_iface_pmksa_list_mesh(wpa_s->ifmsh->bss[0], addr,
+						  &buf[0], len);
+}
+
+
+int wpas_ap_pmksa_cache_add_external(struct wpa_supplicant *wpa_s, char *cmd)
+{
+	struct external_pmksa_cache *entry;
+	void *pmksa_cache;
+
+	pmksa_cache = hostapd_ctrl_iface_pmksa_create_entry(wpa_s->own_addr,
+							    cmd);
+	if (!pmksa_cache)
+		return -1;
+
+	entry = os_zalloc(sizeof(struct external_pmksa_cache));
+	if (!entry)
+		return -1;
+
+	entry->pmksa_cache = pmksa_cache;
+
+	dl_list_add(&wpa_s->mesh_external_pmksa_cache, &entry->list);
+
+	return 0;
+}
+
+#endif /* CONFIG_MESH */
+#endif /* CONFIG_PMKSA_CACHE_EXTERNAL */
+
+#endif /* CONFIG_CTRL_IFACE */
 
 
 #ifdef NEED_AP_MLME

@@ -18,7 +18,9 @@ package android.support.car;
 
 
 /**
- * Exception thrown when car is not connected for the API which requires car connection.
+ * Exception thrown when an API that requires a car connection is called while disconnected from a
+ * car.  This may have happened because the car and phone have become disconnected, the system is
+ * undergoing an upgrade, or some other event.
  */
 public class CarNotConnectedException extends Exception {
     private static final long serialVersionUID = -5629175439268813047L;

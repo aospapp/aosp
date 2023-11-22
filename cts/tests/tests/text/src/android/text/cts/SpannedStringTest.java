@@ -16,20 +16,32 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannedString;
 
-public class SpannedStringTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SpannedStringTest {
+    @Test
     public void testConstructor() {
         new SpannedString("test");
-
-        try {
-            new SpannedString(null);
-            fail("should throw NullPointerException here");
-        } catch (NullPointerException e) {
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNull() {
+        new SpannedString(null);
+    }
+
+    @Test
     public void testValueOf() {
         String text = "test valueOf";
         SpannedString spanned = SpannedString.valueOf(text);
@@ -37,14 +49,14 @@ public class SpannedStringTest extends AndroidTestCase {
 
         spanned = new SpannedString(text);
         assertSame(spanned, SpannedString.valueOf(spanned));
-
-        try {
-            SpannedString.valueOf(null);
-            fail("should throw NullPointerException here");
-        } catch (NullPointerException e) {
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testValueOfNull() {
+        SpannedString.valueOf(null);
+    }
+
+    @Test
     public void testSubSequence() {
         String text = "hello, world";
         SpannedString spanned = new SpannedString(text);

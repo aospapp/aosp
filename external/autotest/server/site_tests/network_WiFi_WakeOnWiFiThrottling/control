@@ -9,7 +9,6 @@ TEST_TYPE = 'Server'
 DEPENDENCIES = 'servo, wificell, lucidsleep'
 ATTRIBUTES = ('suite:wifi_correctness_cros_core, suite:wifi_matfunc, '
               'suite:wifi_lucidsleep')
-SUITE = 'wifi_matfunc, wifi_correctness_cros_core, wifi_lucidsleep'
 
 DOC = """
 This test verifies that shill disables wake on WiFi when the DUT wakes up in

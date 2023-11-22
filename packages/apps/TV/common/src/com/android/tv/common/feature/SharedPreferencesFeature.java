@@ -29,9 +29,9 @@ public final class SharedPreferencesFeature implements Feature {
     private static final String TAG = "SharedPrefFeature";
     private static final boolean DEBUG = false;
 
-    private String mKey;
+    private final String mKey;
     private boolean mEnabled;
-    private boolean mDefaultValue;
+    private final boolean mDefaultValue;
     private SharedPreferences mSharedPreferences;
     private final Feature mBaseFeature;
 

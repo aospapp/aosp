@@ -151,12 +151,10 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
     /**
      * Splits command line into arguments preserving spaces in quoted arguments
      * either with single and double quotes (not prefixed by '\').
-     * 
-     * @param cmdLine
+     *
+     * @param cmd
      *            command line
      * @return associated Process object or null if not available
-     * @throws IOException
-     *             if error occurred in launching process
      */
 /*
     public String[] splitCommandLine(String cmd) {
@@ -262,7 +260,7 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
     	logWriter.println("Splitted command line: " + argv);
         int size = argv.size();
         String args[] = new String[size];
-        return (String[])argv.toArray((String[])args);
+        return argv.toArray(args);
 	}
 
     /**
@@ -310,6 +308,7 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
      * Separate thread for waiting for process exit for specified timeout.
      */
     class ProcessWaiter extends Thread {
+        @Override
         public void run() {
             try {
                 process.waitFor();
@@ -319,9 +318,11 @@ public class JDWPUnitDebuggeeProcessWrapper extends JDWPDebuggeeWrapper {
         }
     }
 
+    @Override
     public void start() {
     }
 
+    @Override
     public void stop() {
     }
 }

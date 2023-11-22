@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2003-2011, International Business Machines Corporation and   *
@@ -21,22 +23,22 @@ import android.icu.impl.locale.AsciiUtil;
  * @hide Only a subset of ICU is exposed in Android
  */
 public final class LocaleIDParser {
-    
+
     /**
      * Char array representing the locale ID.
      */
     private char[] id;
-    
+
     /**
      * Current position in {@link #id} (while parsing).
      */
     private int index;
-    
+
     /**
      * Temporary buffer for parsed sections of data.
      */
     private StringBuilder buffer;
-    
+
     // um, don't handle POSIX ids unless we request it.  why not?  well... because.
     private boolean canonicalize;
     private boolean hadCountry;
@@ -73,14 +75,14 @@ public final class LocaleIDParser {
     }
 
     // utilities for working on text in the buffer
-    
+
     /**
      * Append c to the buffer.
      */
     private void append(char c) {
         buffer.append(c);
     }
-    
+
     private void addSeparator() {
         append(UNDERSCORE);
     }
@@ -194,7 +196,7 @@ public final class LocaleIDParser {
      */
     private int parseLanguage() {
         int startLength = buffer.length();
-        
+
         if (haveExperimentalLanguagePrefix()) {
             append(AsciiUtil.toLower(id[0]));
             append(HYPHEN);
@@ -280,7 +282,7 @@ public final class LocaleIDParser {
         if (!atTerminator()) {
             int oldIndex = index;
             ++index;
-            
+
             char c;
             while (!isTerminatorOrIDSeparator(c = next()) && AsciiUtil.isAlpha(c));
             --index;
@@ -397,7 +399,7 @@ public final class LocaleIDParser {
         boolean skipping = false;
         char c;
         boolean firstPass = true;
-        
+
         while ((c = next()) != DONE) {
             if (c == DOT) {
                 start = false;
@@ -591,6 +593,7 @@ public final class LocaleIDParser {
 
     private Comparator<String> getKeyComparator() {
         final Comparator<String> comp = new Comparator<String>() {
+            @Override
             public int compare(String lhs, String rhs) {
                 return lhs.compareTo(rhs);
             }

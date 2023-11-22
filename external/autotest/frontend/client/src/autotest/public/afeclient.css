@@ -154,6 +154,8 @@ table .custom-tab-top {
   margin: 0;
   padding: 4px 12px;
   display: block;
+  display: table-cell;
+  float: none;
 }
 
 .data-row-header {
@@ -381,4 +383,52 @@ td .has-tooltip * {
 
 .noborder {
   border: none;
+}
+
+.config-layout {
+  width: 100%;
+}
+
+.wizard-header {
+}
+
+.config-wizard {
+  width: 100%;
+}
+
+.config-wizard .wizard-view-panel {
+  width: 100%;
+  border-spacing: 0px 20px;
+}
+
+.config-wizard .wizard-edit-panel {
+  width: 100%;
+}
+
+.config-wizard .card-edit-status {
+  background-color: red;
+  height: 25px;
+  boarder-radius: 3px;
+}
+
+.config-wizard .card-edit-title {
+  background-color: #7CA0C7;
+  height: 25px;
+  boarder-radius: 3px;
+}
+
+.config-wizard .wizard-card-panel {
+  border-spacing: 0px 10px;
+}
+
+.config-wizard .wizard-card-panel .wizard-card-property-name-col {
+  width: 200px;
+}
+
+.config-wizard .wizard-card-panel .wizard-card-property-value-col {
+  width: 300px;
+}
+
+.config-wizard .wizard-card-panel .wizard-card-property-value {
+  width: 300px;
 }

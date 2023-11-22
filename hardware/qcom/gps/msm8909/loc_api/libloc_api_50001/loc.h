@@ -1,4 +1,4 @@
-/* Copyright (c) 2011,2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011,2014,2016 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -57,6 +57,8 @@ typedef struct {
     loc_ext_parser location_ext_parser;
     loc_ext_parser sv_ext_parser;
     gps_request_utc_time request_utc_time_cb;
+    gnss_set_system_info set_system_info_cb;
+    gnss_sv_status_callback gnss_sv_status_cb;
 } LocCallbacks;
 
 #ifdef __cplusplus

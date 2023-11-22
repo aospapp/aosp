@@ -14,10 +14,28 @@
 # limitations under the License.
 #
 
-#makefile for test0 app
+################################################################################
+#
+# test NanoApp Makefile
+#
+################################################################################
 
-SELF_MKFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
-# Googl + T + 0x8000
+
+SRCS := test_app0.c
+BIN := test0
 APP_ID := 476f6f676c548000
+APP_VERSION := 0
 
-include app/common.mk
+# Nanohub relative path
+NANOHUB_DIR := ../..
+
+# Device configuration #########################################################
+
+# select device variant for this app
+# if there is no path of the form $(NANOHUB_DIR)/variant/$(VARIANT), the
+# VARIANT_PATH variable must be set to ANDROID_TOP-relative valid path containing VARIANT subtree
+
+TARGET_PRODUCT ?= nucleo
+VARIANT := $(TARGET_PRODUCT)
+
+include $(NANOHUB_DIR)/app/app.mk

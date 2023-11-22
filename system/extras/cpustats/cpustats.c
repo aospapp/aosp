@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
     }
 
     cpu_count = get_cpu_count();
+    if (cpu_count < 1) die("Unexpected cpu count\n");
 
     old_cpus = malloc(sizeof(struct cpu_info) * cpu_count);
     if (!old_cpus) die("Could not allocate struct cpu_info\n");
@@ -112,7 +113,9 @@ int main(int argc, char *argv[]) {
     if (!new_cpus) die("Could not allocate struct cpu_info\n");
 
     for (i = 0; i < cpu_count; i++) {
-        old_cpus[i].freq_count = new_cpus[i].freq_count = get_freq_scales_count(i);
+        freq_count = get_freq_scales_count(i);
+        if (freq_count < 1) die("Unexpected frequency scale count\n");
+        old_cpus[i].freq_count = new_cpus[i].freq_count = freq_count;
         new_cpus[i].freqs = malloc(sizeof(struct freq_info) * new_cpus[i].freq_count);
         if (!new_cpus[i].freqs) die("Could not allocate struct freq_info\n");
         old_cpus[i].freqs = malloc(sizeof(struct freq_info) * old_cpus[i].freq_count);

@@ -40,6 +40,9 @@
 #include "ResolverController.h"
 #include "ResolverStats.h"
 
+namespace android {
+namespace net {
+
 int ResolverController::setDnsServers(unsigned netId, const char* searchDomains,
         const char** servers, int numservers, const __res_params* params) {
     if (DBG) {
@@ -246,3 +249,6 @@ void ResolverController::dump(DumpWriter& dw, unsigned netId) {
     }
     dw.decIndent();
 }
+
+}  // namespace net
+}  // namespace android

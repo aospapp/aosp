@@ -23,8 +23,6 @@ import org.connectbot.service.TerminalManager;
 import java.io.IOException;
 
 /**
- * @author Kenny Root
- * @author modified by raaar
  */
 public abstract class AbsTransport {
 

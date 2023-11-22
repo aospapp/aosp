@@ -138,4 +138,9 @@
         <attr name="radioGroup" format="string" />
     </declare-styleable>
 
+    <declare-styleable name="LeanbackPickerDialogPreference">
+        <!-- The type of this picker preference: can be either 'date' or 'time' -->
+        <attr name="pickerType" format="string" />
+    </declare-styleable>
+
 </resources>

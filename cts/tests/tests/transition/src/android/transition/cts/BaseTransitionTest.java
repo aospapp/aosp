@@ -15,45 +15,56 @@
  */
 package android.transition.cts;
 
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
-import android.test.ActivityInstrumentationTestCase2;
+import android.app.Instrumentation;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.rule.ActivityTestRule;
 import android.transition.Scene;
 import android.transition.Transition;
 import android.transition.TransitionManager;
 import android.transition.TransitionValues;
 import android.transition.Visibility;
-import android.view.Choreographer;
-import android.view.Choreographer.FrameCallback;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
-import java.util.ArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
-public class BaseTransitionTest extends ActivityInstrumentationTestCase2<TransitionActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+
+import java.util.ArrayList;
+
+public abstract class BaseTransitionTest {
+    protected Instrumentation mInstrumentation;
     protected TransitionActivity mActivity;
     protected FrameLayout mSceneRoot;
-    public float mAnimatedValue;
-    protected ArrayList<View> mTargets = new ArrayList<View>();
+    private float mAnimatedValue;
+    protected ArrayList<View> mTargets = new ArrayList<>();
     protected Transition mTransition;
-    protected SimpleTransitionListener mListener;
+    protected Transition.TransitionListener mListener;
 
-    public BaseTransitionTest() {
-        super(TransitionActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<TransitionActivity> mActivityRule =
+            new ActivityTestRule<>(TransitionActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        setActivityInitialTouchMode(false);
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mInstrumentation.setInTouchMode(false);
+        mActivity = mActivityRule.getActivity();
         mSceneRoot = (FrameLayout) mActivity.findViewById(R.id.container);
         mTargets.clear();
         mTransition = new TestTransition();
-        mListener = new SimpleTransitionListener();
+        mListener = mock(Transition.TransitionListener.class);
         mTransition.addListener(mListener);
     }
 
@@ -61,53 +72,43 @@ public class BaseTransitionTest extends ActivityInstrumentationTestCase2<Transit
         waitForStart(mListener);
     }
 
-    protected void waitForStart(SimpleTransitionListener listener) throws InterruptedException {
-        assertTrue(listener.startLatch.await(4000, TimeUnit.MILLISECONDS));
+    protected static void waitForStart(Transition.TransitionListener listener) {
+        verify(listener, within(4000)).onTransitionStart(any());
     }
 
-    protected void waitForEnd(long waitMillis) throws InterruptedException {
+    protected void waitForEnd(long waitMillis) {
         waitForEnd(mListener, waitMillis);
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
     }
 
-    protected static void waitForEnd(SimpleTransitionListener listener, long waitMillis)
-            throws InterruptedException {
-        listener.endLatch.await(waitMillis, TimeUnit.MILLISECONDS);
+    protected static void waitForEnd(Transition.TransitionListener listener, long waitMillis) {
+        if (waitMillis == 0) {
+            verify(listener, times(1)).onTransitionEnd(any());
+        } else {
+            verify(listener, within(waitMillis)).onTransitionEnd(any());
+        }
     }
 
     protected View loadLayout(final int layout) throws Throwable {
         View[] root = new View[1];
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                root[0] = mActivity.getLayoutInflater().inflate(layout, mSceneRoot, false);
-            }
-        });
+        mActivityRule.runOnUiThread(
+                () -> root[0] = mActivity.getLayoutInflater().inflate(layout, mSceneRoot, false));
 
         return root[0];
     }
 
     protected Scene loadScene(final View layout) throws Throwable {
-        Scene[] scene = new Scene[1];
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                scene[0] = new Scene(mSceneRoot, layout);
-            }
-        });
+        final Scene[] scene = new Scene[1];
+        mActivityRule.runOnUiThread(() -> scene[0] = new Scene(mSceneRoot, layout));
 
         return scene[0];
     }
 
     protected Scene loadScene(final int layoutId) throws Throwable {
-        Scene scene[] = new Scene[1];
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                scene[0] = Scene.getSceneForLayout(mSceneRoot, layoutId, mActivity);
-            }
-        });
+        final Scene scene[] = new Scene[1];
+        mActivityRule.runOnUiThread(
+                () -> scene[0] = Scene.getSceneForLayout(mSceneRoot, layoutId, mActivity));
         return scene[0];
     }
 
@@ -116,22 +117,12 @@ public class BaseTransitionTest extends ActivityInstrumentationTestCase2<Transit
     }
 
     protected void startTransition(final Scene scene) throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                TransitionManager.go(scene, mTransition);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> TransitionManager.go(scene, mTransition));
         waitForStart();
     }
 
     protected void endTransition() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                TransitionManager.endTransitions(mSceneRoot);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> TransitionManager.endTransitions(mSceneRoot));
     }
 
     protected void enterScene(final int layoutId) throws Throwable {
@@ -139,29 +130,22 @@ public class BaseTransitionTest extends ActivityInstrumentationTestCase2<Transit
     }
 
     protected void enterScene(final Scene scene) throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                scene.enter();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, scene::enter, false);
     }
 
     protected void exitScene(final Scene scene) throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                scene.exit();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(scene::exit);
+        mInstrumentation.waitForIdleSync();
     }
 
     protected void resetListener() {
         mTransition.removeListener(mListener);
-        mListener = new SimpleTransitionListener();
+        mListener = mock(Transition.TransitionListener.class);
         mTransition.addListener(mListener);
+    }
+
+    public void setAnimatedValue(float animatedValue) {
+        mAnimatedValue = animatedValue;
     }
 
     public class TestTransition extends Visibility {
@@ -173,14 +157,14 @@ public class BaseTransitionTest extends ActivityInstrumentationTestCase2<Transit
         public Animator onAppear(ViewGroup sceneRoot, View view, TransitionValues startValues,
                 TransitionValues endValues) {
             mTargets.add(endValues.view);
-            return ObjectAnimator.ofFloat(BaseTransitionTest.this, "mAnimatedValue", 0, 1);
+            return ObjectAnimator.ofFloat(BaseTransitionTest.this, "animatedValue", 0, 1);
         }
 
         @Override
         public Animator onDisappear(ViewGroup sceneRoot, View view, TransitionValues startValues,
                 TransitionValues endValues) {
             mTargets.add(startValues.view);
-            return ObjectAnimator.ofFloat(BaseTransitionTest.this, "mAnimatedValue", 1, 0);
+            return ObjectAnimator.ofFloat(BaseTransitionTest.this, "animatedValue", 1, 0);
         }
     }
 }

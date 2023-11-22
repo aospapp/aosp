@@ -85,7 +85,7 @@ class RSContext {
   unsigned int mTargetAPI;
   bool mVerbose;
 
-  llvm::DataLayout *mDataLayout;
+  const llvm::DataLayout &mDataLayout;
   llvm::LLVMContext &mLLVMContext;
 
   ExportableList mExportables;
@@ -146,7 +146,7 @@ class RSContext {
   inline clang::MangleContext &getMangleContext() const {
     return *mMangleCtx;
   }
-  inline const llvm::DataLayout *getDataLayout() const { return mDataLayout; }
+  inline const llvm::DataLayout &getDataLayout() const { return mDataLayout; }
   inline llvm::LLVMContext &getLLVMContext() const { return mLLVMContext; }
   inline const clang::SourceManager *getSourceManager() const {
     return &mPP.getSourceManager();

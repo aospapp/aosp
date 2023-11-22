@@ -24,14 +24,14 @@
        return-void
 .end method
 
-.method public run()V
+.method public run()S
 .limit regs 3
 
        new-instance v0, Ldot/junit/opcodes/iget_short/TestStubs;
        invoke-direct {v0}, dot/junit/opcodes/iget_short/TestStubs/<init>()V
-       
+
        iget-short v1, v0, dot.junit.opcodes.iget_short.TestStubs.TestStubProtectedField S
-       return-void
+       return v1
 .end method
 
 

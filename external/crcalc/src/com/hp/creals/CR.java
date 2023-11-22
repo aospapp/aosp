@@ -728,7 +728,7 @@ public volatile static boolean please_stop = false;
         scaled_int_rep += exp_adj << 52;
         double result = Double.longBitsToDouble(scaled_int_rep);
         if (may_underflow) {
-            double two48 = (double)(1 << 48);
+            double two48 = (double)(1L << 48);
             return result/two48/two48;
         } else {
             return result;

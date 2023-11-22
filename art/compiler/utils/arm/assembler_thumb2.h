@@ -22,11 +22,11 @@
 #include <vector>
 
 #include "base/arena_containers.h"
+#include "base/array_ref.h"
 #include "base/logging.h"
 #include "constants_arm.h"
 #include "utils/arm/managed_register_arm.h"
 #include "utils/arm/assembler_arm.h"
-#include "utils/array_ref.h"
 #include "offsets.h"
 
 namespace art {
@@ -43,6 +43,7 @@ class Thumb2Assembler FINAL : public ArmAssembler {
         fixups_(arena->Adapter(kArenaAllocAssembler)),
         fixup_dependents_(arena->Adapter(kArenaAllocAssembler)),
         literals_(arena->Adapter(kArenaAllocAssembler)),
+        literal64_dedupe_map_(std::less<uint64_t>(), arena->Adapter(kArenaAllocAssembler)),
         jump_tables_(arena->Adapter(kArenaAllocAssembler)),
         last_position_adjustment_(0u),
         last_old_position_(0u),
@@ -250,10 +251,15 @@ class Thumb2Assembler FINAL : public ArmAssembler {
   void vcmpdz(DRegister dd, Condition cond = AL) OVERRIDE;
   void vmstat(Condition cond = AL) OVERRIDE;  // VMRS APSR_nzcv, FPSCR
 
+  void vcntd(DRegister dd, DRegister dm) OVERRIDE;
+  void vpaddld(DRegister dd, DRegister dm, int32_t size, bool is_unsigned) OVERRIDE;
+
   void vpushs(SRegister reg, int nregs, Condition cond = AL) OVERRIDE;
   void vpushd(DRegister reg, int nregs, Condition cond = AL) OVERRIDE;
   void vpops(SRegister reg, int nregs, Condition cond = AL) OVERRIDE;
   void vpopd(DRegister reg, int nregs, Condition cond = AL) OVERRIDE;
+  void vldmiad(Register base_reg, DRegister reg, int nregs, Condition cond = AL) OVERRIDE;
+  void vstmiad(Register base_reg, DRegister reg, int nregs, Condition cond = AL) OVERRIDE;
 
   // Branch instructions.
   void b(Label* label, Condition cond = AL);
@@ -287,6 +293,8 @@ class Thumb2Assembler FINAL : public ArmAssembler {
 
   void PushList(RegList regs, Condition cond = AL) OVERRIDE;
   void PopList(RegList regs, Condition cond = AL) OVERRIDE;
+  void StoreList(RegList regs, size_t stack_offset) OVERRIDE;
+  void LoadList(RegList regs, size_t stack_offset) OVERRIDE;
 
   void Mov(Register rd, Register rm, Condition cond = AL) OVERRIDE;
 
@@ -316,6 +324,7 @@ class Thumb2Assembler FINAL : public ArmAssembler {
 
   // Load and Store. May clobber IP.
   void LoadImmediate(Register rd, int32_t value, Condition cond = AL) OVERRIDE;
+  void LoadDImmediate(DRegister dd, double value, Condition cond = AL) OVERRIDE;
   void MarkExceptionHandler(Label* label) OVERRIDE;
   void LoadFromOffset(LoadOperandType type,
                       Register reg,
@@ -362,8 +371,6 @@ class Thumb2Assembler FINAL : public ArmAssembler {
   void Emit32(int32_t value);     // Emit a 32 bit instruction in thumb format.
   void Emit16(int16_t value);     // Emit a 16 bit instruction in little endian format.
   void Bind(Label* label) OVERRIDE;
-
-  void MemoryBarrier(ManagedRegister scratch) OVERRIDE;
 
   // Force the assembler to generate 32 bit instructions.
   void Force32Bit() {
@@ -461,8 +468,8 @@ class Thumb2Assembler FINAL : public ArmAssembler {
       // Load long or FP literal variants.
       // VLDR s/dX, label; 32-bit insn, up to 1KiB offset; 4 bytes.
       kLongOrFPLiteral1KiB,
-      // MOV ip, modimm + ADD ip, pc + VLDR s/dX, [IP, #imm8*4]; up to 256KiB offset; 10 bytes.
-      kLongOrFPLiteral256KiB,
+      // MOV ip, imm16 + ADD ip, pc + VLDR s/dX, [IP, #0]; up to 64KiB offset; 10 bytes.
+      kLongOrFPLiteral64KiB,
       // MOV ip, imm16 + MOVT ip, imm16 + ADD ip, pc + VLDR s/dX, [IP]; any offset; 14 bytes.
       kLongOrFPLiteralFar,
     };
@@ -497,7 +504,7 @@ class Thumb2Assembler FINAL : public ArmAssembler {
     // Load wide literal.
     static Fixup LoadWideLiteral(uint32_t location, Register rt, Register rt2,
                                  Size size = kLongOrFPLiteral1KiB) {
-      DCHECK(size == kLongOrFPLiteral1KiB || size == kLongOrFPLiteral256KiB ||
+      DCHECK(size == kLongOrFPLiteral1KiB || size == kLongOrFPLiteral64KiB ||
              size == kLongOrFPLiteralFar);
       DCHECK(!IsHighRegister(rt) || (size != kLiteral1KiB && size != kLiteral64KiB));
       return Fixup(rt, rt2, kNoSRegister, kNoDRegister,
@@ -507,7 +514,7 @@ class Thumb2Assembler FINAL : public ArmAssembler {
     // Load FP single literal.
     static Fixup LoadSingleLiteral(uint32_t location, SRegister sd,
                                    Size size = kLongOrFPLiteral1KiB) {
-      DCHECK(size == kLongOrFPLiteral1KiB || size == kLongOrFPLiteral256KiB ||
+      DCHECK(size == kLongOrFPLiteral1KiB || size == kLongOrFPLiteral64KiB ||
              size == kLongOrFPLiteralFar);
       return Fixup(kNoRegister, kNoRegister, sd, kNoDRegister,
                    AL, kLoadFPLiteralSingle, size, location);
@@ -516,7 +523,7 @@ class Thumb2Assembler FINAL : public ArmAssembler {
     // Load FP double literal.
     static Fixup LoadDoubleLiteral(uint32_t location, DRegister dd,
                                    Size size = kLongOrFPLiteral1KiB) {
-      DCHECK(size == kLongOrFPLiteral1KiB || size == kLongOrFPLiteral256KiB ||
+      DCHECK(size == kLongOrFPLiteral1KiB || size == kLongOrFPLiteral64KiB ||
              size == kLongOrFPLiteralFar);
       return Fixup(kNoRegister, kNoRegister, kNoSRegister, dd,
                    AL, kLoadFPLiteralDouble, size, location);
@@ -568,6 +575,10 @@ class Thumb2Assembler FINAL : public ArmAssembler {
       return location_;
     }
 
+    uint32_t GetTarget() const {
+      return target_;
+    }
+
     uint32_t GetAdjustment() const {
       return adjustment_;
     }
@@ -586,6 +597,11 @@ class Thumb2Assembler FINAL : public ArmAssembler {
       DCHECK_NE(target, kUnresolved);
       target_ = target;
     }
+
+    // Branches with bound targets that are in range can be emitted early.
+    // However, the caller still needs to check if the branch doesn't go over
+    // another Fixup that's not ready to be emitted.
+    bool IsCandidateForEmitEarly() const;
 
     // Check if the current size is OK for current location_, target_ and adjustment_.
     // If not, increase the size. Return the size increase, 0 if unchanged.
@@ -745,6 +761,14 @@ class Thumb2Assembler FINAL : public ArmAssembler {
                   SRegister sn,
                   SRegister sm);
 
+  void EmitVLdmOrStm(int32_t rest,
+                     uint32_t reg,
+                     int nregs,
+                     Register rn,
+                     bool is_load,
+                     bool dbl,
+                     Condition cond);
+
   void EmitVFPddd(Condition cond,
                   int32_t opcode,
                   DRegister dd,
@@ -866,6 +890,9 @@ class Thumb2Assembler FINAL : public ArmAssembler {
   // Use std::deque<> for literal labels to allow insertions at the end
   // without invalidating pointers and references to existing elements.
   ArenaDeque<Literal> literals_;
+
+  // Deduplication map for 64-bit literals, used for LoadDImmediate().
+  ArenaSafeMap<uint64_t, Literal*> literal64_dedupe_map_;
 
   // Jump table list.
   ArenaDeque<JumpTable> jump_tables_;

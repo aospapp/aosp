@@ -7,4 +7,11 @@ sourceSets.main {
         'internal/prefixmapper/src',
         'geocoder/src'
     ]
+    resources.srcDirs =[
+        'libphonenumber/src'
+    ]
+}
+
+dependencies {
+    compile project(path: ':libprotobuf', configuration: 'nano')
 }

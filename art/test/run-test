@@ -37,11 +37,11 @@ test_dir="test-$$"
 if [ -z "$TMPDIR" ]; then
   tmp_dir="/tmp/$USER/${test_dir}"
 else
-  tmp_dir="${TMPDIR}/$USER/${test_dir}"
+  tmp_dir="${TMPDIR}/${test_dir}"
 fi
 checker="${progdir}/../tools/checker/checker.py"
 export JAVA="java"
-export JAVAC="javac -g -source 1.7 -target 1.7 -Xlint:-options"
+export JAVAC="javac -g -Xlint:-options"
 export RUN="${progdir}/etc/run-test-jar"
 export DEX_LOCATION=/data/run-test/${test_dir}
 export NEED_DEX="true"
@@ -78,12 +78,33 @@ if [ -z "$ANDROID_BUILD_TOP" ]; then
     export ANDROID_BUILD_TOP=$oldwd
 fi
 
+# ANDROID_HOST_OUT is not set in a build environment.
+if [ -z "$ANDROID_HOST_OUT" ]; then
+    export ANDROID_HOST_OUT=${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/linux-x86
+fi
+
 # If JACK_CLASSPATH is not set, assume it only contains core-libart.
 if [ -z "$JACK_CLASSPATH" ]; then
-  export JACK_CLASSPATH="${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/common/obj/JAVA_LIBRARIES/core-libart-hostdex_intermediates/classes.jack:${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/common/obj/JAVA_LIBRARIES/core-oj-hostdex_intermediates/classes.jack"
+  export JACK_CLASSPATH="${ANDROID_HOST_OUT}/../common/obj/JAVA_LIBRARIES/core-libart-hostdex_intermediates/classes.jack:${ANDROID_HOST_OUT}/../common/obj/JAVA_LIBRARIES/core-oj-hostdex_intermediates/classes.jack"
 fi
 
 export JACK="$JACK -g -cp $JACK_CLASSPATH"
+
+# Zipalign is not on the PATH in some configs, auto-detect it.
+if [ -z "$ZIPALIGN" ]; then
+  if which zipalign >/dev/null; then
+    ZIPALIGN="zipalign";
+  else
+    # TODO: Add a dependency for zipalign in Android.run-test.mk
+    # once it doesn't depend on libandroidfw (b/35246701)
+    case "$OSTYPE" in
+      darwin*)  ZIPALIGN="$ANDROID_BUILD_TOP/prebuilts/sdk/tools/darwin/bin/zipalign" ;;
+      linux*)   ZIPALIGN="$ANDROID_BUILD_TOP/prebuilts/sdk/tools/linux/bin/zipalign" ;;
+      *)        echo "Can't find zipalign: unknown: $OSTYPE" >&2;;
+    esac
+  fi
+fi
+export ZIPALIGN
 
 info="info.txt"
 build="build"
@@ -106,7 +127,7 @@ target_mode="yes"
 dev_mode="no"
 update_mode="no"
 debug_mode="no"
-relocate="yes"
+relocate="no"
 runtime="art"
 usage="no"
 build_only="no"
@@ -116,16 +137,20 @@ trace_stream="false"
 basic_verify="false"
 gc_verify="false"
 gc_stress="false"
+jvmti_stress="false"
 strace="false"
 always_clean="no"
 never_clean="no"
 have_dex2oat="yes"
 have_patchoat="yes"
 have_image="yes"
-image_suffix=""
-pic_image_suffix=""
 multi_image_suffix=""
 android_root="/system"
+bisection_search="no"
+suspend_timeout="500000"
+# By default we will use optimizing.
+image_args=""
+image_suffix=""
 
 while true; do
     if [ "x$1" = "x--host" ]; then
@@ -147,7 +172,9 @@ while true; do
         shift
     elif [ "x$1" = "x--jvm" ]; then
         target_mode="no"
+        DEX_LOCATION="$tmp_dir"
         runtime="jvm"
+        image_args=""
         prebuild_mode="no"
         NEED_DEX="false"
         USE_JACK="false"
@@ -157,6 +184,7 @@ while true; do
     elif [ "x$1" = "x-O" ]; then
         lib="libart.so"
         testlib="arttest"
+        run_args="${run_args} -O"
         shift
     elif [ "x$1" = "x--dalvik" ]; then
         lib="libdvm.so"
@@ -170,9 +198,6 @@ while true; do
         shift
     elif [ "x$1" = "x--no-image" ]; then
         have_image="no"
-        shift
-    elif [ "x$1" = "x--pic-image" ]; then
-        pic_image_suffix="-pic"
         shift
     elif [ "x$1" = "x--multi-image" ]; then
         multi_image_suffix="-multi"
@@ -209,6 +234,13 @@ while true; do
         basic_verify="true"
         gc_stress="true"
         shift
+    elif [ "x$1" = "x--jvmti-stress" ]; then
+        jvmti_stress="true"
+        shift
+    elif [ "x$1" = "x--suspend-timeout" ]; then
+        shift
+        suspend_timeout="$1"
+        shift
     elif [ "x$1" = "x--image" ]; then
         shift
         image="$1"
@@ -218,6 +250,11 @@ while true; do
         shift
         option="$1"
         run_args="${run_args} -Xcompiler-option $option"
+        shift
+    elif [ "x$1" = "x--build-option" ]; then
+        shift
+        option="$1"
+        build_args="${build_args} $option"
         shift
     elif [ "x$1" = "x--runtime-option" ]; then
         shift
@@ -238,28 +275,27 @@ while true; do
         shift
     elif [ "x$1" = "x--strace" ]; then
         strace="yes"
-        run_args="${run_args} --invoke-with strace --invoke-with -o --invoke-with $tmp_dir/$strace_output"
+        run_args="${run_args} --timeout 1800 --invoke-with strace --invoke-with -o --invoke-with $tmp_dir/$strace_output"
         shift
     elif [ "x$1" = "x--zygote" ]; then
         run_args="${run_args} --zygote"
         shift
     elif [ "x$1" = "x--interpreter" ]; then
-        run_args="${run_args} --interpreter --runtime-option -XOatFileManagerCompilerFilter:verify-at-runtime"
+        run_args="${run_args} --interpreter"
         image_suffix="-interpreter"
         shift
     elif [ "x$1" = "x--jit" ]; then
-        run_args="${run_args} --jit --runtime-option -XOatFileManagerCompilerFilter:verify-at-runtime"
-        image_suffix="-jit"
+        image_args="--jit"
+        image_suffix="-interpreter"
         shift
     elif [ "x$1" = "x--optimizing" ]; then
-        run_args="${run_args} -Xcompiler-option --compiler-backend=Optimizing"
-        image_suffix="-optimizing"
+        image_args="-Xcompiler-option --compiler-backend=Optimizing"
         shift
     elif [ "x$1" = "x--no-verify" ]; then
-        run_args="${run_args} --no-verify --runtime-option -XOatFileManagerCompilerFilter:verify-none"
+        run_args="${run_args} --no-verify"
         shift
     elif [ "x$1" = "x--verify-soft-fail" ]; then
-        run_args="${run_args} --verify-soft-fail --runtime-option -XOatFileManagerCompilerFilter:verify-at-runtime"
+        image_args="--verify-soft-fail"
         image_suffix="-interp-ac"
         shift
     elif [ "x$1" = "x--no-optimize" ]; then
@@ -339,6 +375,20 @@ while true; do
         shift
         run_args="${run_args} --instruction-set-features $1"
         shift
+    elif [ "x$1" = "x--bisection-search" ]; then
+        bisection_search="yes"
+        shift
+    elif [ "x$1" = "x--vdex" ]; then
+        run_args="${run_args} --vdex"
+        shift
+    elif [ "x$1" = "x--vdex-filter" ]; then
+        shift
+        filter=$1
+        run_args="${run_args} --vdex-filter $filter"
+        shift
+    elif [ "x$1" = "x--random-profile" ]; then
+        run_args="${run_args} --random-profile"
+        shift
     elif expr "x$1" : "x--" >/dev/null 2>&1; then
         echo "unknown $0 option: $1" 1>&2
         usage="yes"
@@ -348,6 +398,7 @@ while true; do
     fi
 done
 
+run_args="${run_args} ${image_args}"
 # Allocate file descriptor real_stderr and redirect it to the shell's error
 # output (fd 2).
 if [ ${BASH_VERSINFO[1]} -ge 4 ] && [ ${BASH_VERSINFO[2]} -ge 1 ]; then
@@ -381,6 +432,11 @@ noncanonical_tmp_dir=$tmp_dir
 tmp_dir="`cd $oldwd ; python -c "import os; print os.path.realpath('$tmp_dir')"`"
 mkdir -p $tmp_dir
 
+# Add thread suspend timeout flag
+if [ ! "$runtime" = "jvm" ]; then
+  run_args="${run_args} --runtime-option -XX:ThreadSuspendTimeout=$suspend_timeout"
+fi
+
 if [ "$basic_verify" = "true" ]; then
   # Set HspaceCompactForOOMMinIntervalMs to zero to run hspace compaction for OOM more frequently in tests.
   run_args="${run_args} --runtime-option -Xgc:preverify --runtime-option -Xgc:postverify --runtime-option -XX:HspaceCompactForOOMMinIntervalMs=0"
@@ -389,7 +445,10 @@ if [ "$gc_verify" = "true" ]; then
   run_args="${run_args} --runtime-option -Xgc:preverify_rosalloc --runtime-option -Xgc:postverify_rosalloc"
 fi
 if [ "$gc_stress" = "true" ]; then
-  run_args="${run_args} --gc-stress --runtime-option -Xgc:SS,gcstress --runtime-option -Xms2m --runtime-option -Xmx16m"
+  run_args="${run_args} --gc-stress --runtime-option -Xgc:gcstress --runtime-option -Xms2m --runtime-option -Xmx16m"
+fi
+if [ "$jvmti_stress" = "true" ]; then
+    run_args="${run_args} --no-app-image --jvmti-stress"
 fi
 if [ "$trace" = "true" ]; then
     run_args="${run_args} --runtime-option -Xmethod-trace --runtime-option -Xmethod-trace-file-size:2000000"
@@ -458,17 +517,13 @@ if [ "$runtime" = "dalvik" ]; then
     fi
 elif [ "$runtime" = "art" ]; then
     if [ "$target_mode" = "no" ]; then
-        # ANDROID_HOST_OUT is not set in a build environment.
-        if [ -z "$ANDROID_HOST_OUT" ]; then
-            export ANDROID_HOST_OUT=${OUT_DIR:-$ANDROID_BUILD_TOP/out/}host/linux-x86
-        fi
         guess_host_arch_name
-        run_args="${run_args} --boot ${ANDROID_HOST_OUT}/framework/core${image_suffix}${pic_image_suffix}${multi_image_suffix}.art"
-        run_args="${run_args} --runtime-option -Djava.library.path=${ANDROID_HOST_OUT}/lib${suffix64}"
+        run_args="${run_args} --boot ${ANDROID_HOST_OUT}/framework/core${image_suffix}${multi_image_suffix}.art"
+        run_args="${run_args} --runtime-option -Djava.library.path=${ANDROID_HOST_OUT}/lib${suffix64}:${ANDROID_HOST_OUT}/nativetest${suffix64}"
     else
         guess_target_arch_name
-        run_args="${run_args} --runtime-option -Djava.library.path=/data/art-test/${target_arch_name}:/system/lib${suffix64}"
-        run_args="${run_args} --boot /data/art-test/core${image_suffix}${pic_image_suffix}${multi_image_suffix}.art"
+        run_args="${run_args} --runtime-option -Djava.library.path=/data/nativetest${suffix64}/art/${target_arch_name}"
+        run_args="${run_args} --boot /data/art-test/core${image_suffix}${multi_image_suffix}.art"
     fi
     if [ "$relocate" = "yes" ]; then
       run_args="${run_args} --relocate"
@@ -477,7 +532,7 @@ elif [ "$runtime" = "art" ]; then
     fi
 elif [ "$runtime" = "jvm" ]; then
     # TODO: Detect whether the host is 32-bit or 64-bit.
-    run_args="${run_args} --runtime-option -Djava.library.path=${ANDROID_HOST_OUT}/lib64"
+    run_args="${run_args} --runtime-option -Djava.library.path=${ANDROID_HOST_OUT}/lib64:${ANDROID_HOST_OUT}/nativetest64"
 fi
 
 if [ "$have_image" = "no" ]; then
@@ -485,22 +540,6 @@ if [ "$have_image" = "no" ]; then
         err_echo "--no-image is only supported on the art runtime"
         exit 1
     fi
-    if [ "$target_mode" = "no" ]; then
-        framework="${ANDROID_HOST_OUT}/framework"
-        bpath_suffix="-hostdex"
-    else
-        framework="${android_root}/framework"
-        bpath_suffix=""
-    fi
-    # TODO If the target was compiled WITH_DEXPREOPT=true then these tests will
-    # fail since these jar files will be stripped.
-    bpath="${framework}/core-libart${bpath_suffix}.jar"
-    bpath="${bpath}:${framework}/core-oj${bpath_suffix}.jar"
-    bpath="${bpath}:${framework}/conscrypt${bpath_suffix}.jar"
-    bpath="${bpath}:${framework}/okhttp${bpath_suffix}.jar"
-    bpath="${bpath}:${framework}/bouncycastle${bpath_suffix}.jar"
-    # Pass down the bootclasspath
-    run_args="${run_args} --runtime-option -Xbootclasspath:${bpath}"
     run_args="${run_args} --no-image"
 fi
 
@@ -511,6 +550,21 @@ fi
 
 if [ "$dev_mode" = "yes" -a "$quiet" = "yes" ]; then
     err_echo "--dev and --quiet are mutually exclusive"
+    usage="yes"
+fi
+
+if [ "$bisection_search" = "yes" -a "$prebuild_mode" = "yes" ]; then
+    err_echo "--bisection-search and --prebuild are mutually exclusive"
+    usage="yes"
+fi
+
+if [ "$bisection_search" = "yes" -a "$have_dex2oat" = "no" ]; then
+    err_echo "--bisection-search and --no-dex2oat are mutually exclusive"
+    usage="yes"
+fi
+
+if [ "$bisection_search" = "yes" -a "$have_patchoat" = "no" ]; then
+    err_echo "--bisection-search and --no-patchoat are mutually exclusive"
     usage="yes"
 fi
 
@@ -534,6 +588,13 @@ if [ "$usage" = "no" ]; then
     shift
 fi
 
+# For building with javac and dx always use Java 7. The dx compiler
+# only support byte codes from Java 7 or earlier (class file major
+# version 51 or lower).
+if [ "$USE_JACK" != "true" ] && [ "$NEED_DEX" = "true" ]; then
+  export JAVAC="${JAVAC} -source 1.7 -target 1.7"
+fi
+
 if [ "$usage" = "yes" ]; then
     prog=`basename $prog`
     (
@@ -549,14 +610,15 @@ if [ "$usage" = "yes" ]; then
         echo "  Runtime Options:"
         echo "    -O                    Run non-debug rather than debug build (off by default)."
         echo "    -Xcompiler-option     Pass an option to the compiler."
+        echo "    --build-option        Pass an option to the build script."
         echo "    --runtime-option      Pass an option to the runtime."
         echo "    --debug               Wait for a debugger to attach."
         echo "    --debuggable          Whether to compile Java code for a debugger."
         echo "    --gdb                 Run under gdb; incompatible with some tests."
         echo "    --gdb-arg             Pass an option to gdb."
         echo "    --build-only          Build test files only (off by default)."
-        echo "    --build-with-javac-dx Build test files with javac and dx (on by default)."
-        echo "    --build-with-jack     Build test files with jack and jill (off by default)."
+        echo "    --build-with-javac-dx Build test files with javac and dx (off by default)."
+        echo "    --build-with-jack     Build test files with jack and jill (on by default)."
         echo "    --interpreter         Enable interpreter only mode (off by default)."
         echo "    --jit                 Enable jit (off by default)."
         echo "    --optimizing          Enable optimizing compiler (default)."
@@ -577,8 +639,8 @@ if [ "$usage" = "yes" ]; then
         echo "    --strip-dex           Strip the dex files before starting test."
         echo "    --relocate            Force the use of relocating in the test, making"
         echo "                          the image and oat files be relocated to a random"
-        echo "                          address before running. (default)"
-        echo "    --no-relocate         Force the use of no relocating in the test"
+        echo "                          address before running."
+        echo "    --no-relocate         Force the use of no relocating in the test. (default)"
         echo "    --image               Run the test using a precompiled boot image. (default)"
         echo "    --no-image            Run the test without a precompiled boot image."
         echo "    --host                Use the host-mode virtual machine."
@@ -596,18 +658,20 @@ if [ "$usage" = "yes" ]; then
         echo "    --stream              Run method tracing in streaming mode (requires --trace)"
         echo "    --gcstress            Run with gc stress testing"
         echo "    --gcverify            Run with gc verification"
+        echo "    --jvmti-stress        Run with jvmti stress testing"
         echo "    --always-clean        Delete the test files even if the test fails."
         echo "    --never-clean         Keep the test files even if the test succeeds."
         echo "    --android-root [path] The path on target for the android root. (/system by default)."
         echo "    --dex2oat-swap        Use a dex2oat swap file."
         echo "    --instruction-set-features [string]"
         echo "                          Set instruction-set-features for compilation."
-        echo "    --pic-image           Use an image compiled with position independent code for the"
-        echo "                          boot class path."
         echo "    --multi-image         Use a set of images compiled with dex2oat multi-image for"
         echo "                          the boot class path."
         echo "    --pic-test            Compile the test code position independent."
         echo "    --quiet               Don't print anything except failure messages"
+        echo "    --bisection-search    Perform bisection bug search."
+        echo "    --vdex                Test using vdex as in input to dex2oat. Only works with --prebuild."
+        echo "    --suspend-timeout     Change thread suspend timeout ms (default 500000)."
     ) 1>&2  # Direct to stderr so usage is not printed if --quiet is set.
     exit 1
 fi
@@ -660,37 +724,12 @@ chmod 755 "$check_cmd"
 
 export TEST_NAME=`basename ${test_dir}`
 
-# arch_supports_read_barrier ARCH
-# -------------------------------
-# Return whether the Optimizing compiler has read barrier support for ARCH.
-function arch_supports_read_barrier() {
-  # Optimizing has read barrier support for ARM, ARM64, x86 and x86-64 at the
-  # moment.
-  [ "x$1" = xarm ] || [ "x$1" = xarm64 ] || [ "x$1" = xx86 ] || [ "x$1" = xx86_64 ]
-}
-
 # Tests named '<number>-checker-*' will also have their CFGs verified with
 # Checker when compiled with Optimizing on host.
 if [[ "$TEST_NAME" =~ ^[0-9]+-checker- ]]; then
-  if [ "$runtime" = "art" -a "$image_suffix" = "-optimizing" -a "$USE_JACK" = "true" ]; then
-    # Optimizing has read barrier support for certain architectures
-    # only. On other architectures, compiling is disabled when read
-    # barriers are enabled, meaning that we do not produce a CFG file
-    # as a side-effect of compilation, thus the Checker assertions
-    # cannot be checked. Disable Checker for those cases.
-    #
-    # TODO: Enable Checker when read barrier support is added to more
-    # architectures (b/12687968).
-    if [ "x$ART_USE_READ_BARRIER" = xtrue ]                    \
-       && (([ "x$host_mode" = "xyes" ]                         \
-            && ! arch_supports_read_barrier "$host_arch_name") \
-           || ([ "x$target_mode" = "xyes" ]                    \
-               && ! arch_supports_read_barrier "$target_arch_name")); then
-      run_checker="no"
-    # In no-prebuild mode, the compiler is only invoked if both dex2oat and
-    # patchoat are available. Disable Checker otherwise (b/22552692).
-    elif [ "$prebuild_mode" = "yes" ] \
-         || [ "$have_patchoat" = "yes" -a "$have_dex2oat" = "yes" ]; then
+  if [ "$runtime" = "art" -a "$image_suffix" = "" -a "$USE_JACK" = "true" ]; then
+    # In no-prebuild mode, the compiler only quickens so disable the checker.
+    if [ "$prebuild_mode" = "yes" ]; then
       run_checker="yes"
 
       if [ "$target_mode" = "no" ]; then
@@ -711,31 +750,16 @@ if [[ "$TEST_NAME" =~ ^[0-9]+-checker- ]]; then
   fi
 fi
 
-if [ "$runtime" != "jvm" ]; then
   run_args="${run_args} --testlib ${testlib}"
-fi
 
-# To cause tests to fail fast, limit the file sizes created by dx, dex2oat and ART output to 2MB.
-build_file_size_limit=2048
-run_file_size_limit=2048
-
-# Add tests requiring a higher ulimit to this list. Ulimits might need to be raised to deal with
-# large amounts of expected output or large generated files.
-if echo "$test_dir" | grep -Eq "(083|089|961|964|971)" > /dev/null; then
-  build_file_size_limit=5120
-  run_file_size_limit=5120
-fi
-if [ "$run_checker" = "yes" -a "$target_mode" = "yes" ]; then
-  # We will need to `adb pull` the .cfg output from the target onto the host to
-  # run checker on it. This file can be big.
-  build_file_size_limit=24576
-  run_file_size_limit=24576
-fi
-if [ ${USE_JACK} = "false" ]; then
-  # Set ulimit if we build with dx only, Jack can generate big temp files.
-  if ! ulimit -S "$build_file_size_limit"; then
-    err_echo "ulimit file size setting failed"
-  fi
+# To cause tests to fail fast, limit the file sizes created by dx, dex2oat and
+# ART output to approximately 128MB. This should be more than sufficient
+# for any test while still catching cases of runaway output.
+# Set a hard limit to encourage ART developers to increase the ulimit here if
+# needed to support a test case rather than resetting the limit in the run
+# script for the particular test in question.
+if ! ulimit -f 128000; then
+  err_echo "ulimit file size setting failed"
 fi
 
 good="no"
@@ -746,9 +770,6 @@ if [ "$dev_mode" = "yes" ]; then
     build_exit="$?"
     echo "build exit status: $build_exit" 1>&2
     if [ "$build_exit" = '0' ]; then
-        if ! ulimit -S "$run_file_size_limit"; then
-          err_echo "ulimit file size setting failed"
-        fi
         echo "${test_dir}: running..." 1>&2
         "./${run}" $run_args "$@" 2>&1
         run_exit="$?"
@@ -774,9 +795,6 @@ elif [ "$update_mode" = "yes" ]; then
     "./${build}" $build_args >"$build_output" 2>&1
     build_exit="$?"
     if [ "$build_exit" = '0' ]; then
-        if ! ulimit -S "$run_file_size_limit"; then
-          err_echo "ulimit file size setting failed"
-        fi
         echo "${test_dir}: running..." 1>&2
         "./${run}" $run_args "$@" >"$output" 2>&1
         if [ "$run_checker" = "yes" ]; then
@@ -811,9 +829,6 @@ else
     "./${build}" $build_args >"$build_output" 2>&1
     build_exit="$?"
     if [ "$build_exit" = '0' ]; then
-        if ! ulimit -S "$run_file_size_limit"; then
-          err_echo "ulimit file size setting failed"
-        fi
         echo "${test_dir}: running..." 1>&2
         "./${run}" $run_args "$@" >"$output" 2>&1
         run_exit="$?"
@@ -876,6 +891,39 @@ fi
 
 ) 2>&${real_stderr} 1>&2
 
+# Attempt bisection only if the test failed.
+if [ "$bisection_search" = "yes" -a "$good" != "yes" ]; then
+    # Bisecting works by skipping different optimization passes which breaks checker assertions.
+    if [ "$run_checker" == "yes" ]; then
+      echo "${test_dir}: not bisecting, checker test." 1>&2
+    else
+      # Increase file size limit, bisection search can generate large logfiles.
+      echo "${test_dir}: bisecting..." 1>&2
+      cwd=`pwd`
+      maybe_device_mode=""
+      raw_cmd=""
+      if [ "$target_mode" = "yes" ]; then
+        # Produce cmdline.sh in $DEX_LOCATION. "$@" is passed as a runtime option
+        # so that cmdline.sh forwards its arguments to dalvikvm. invoke-with is set
+        # to exec in order to preserve pid when calling dalvikvm. This is required
+        # for bisection search to correctly retrieve logs from device.
+        "./${run}" $run_args --runtime-option '"$@"' --invoke-with exec --dry-run "$@" &> /dev/null
+        adb shell chmod u+x "$DEX_LOCATION/cmdline.sh"
+        maybe_device_mode="--device"
+        raw_cmd="$DEX_LOCATION/cmdline.sh"
+      else
+        raw_cmd="$cwd/${run} --external-log-tags $run_args $@"
+      fi
+      $ANDROID_BUILD_TOP/art/tools/bisection_search/bisection_search.py \
+        $maybe_device_mode \
+        --raw-cmd="$raw_cmd" \
+        --check-script="$cwd/check" \
+        --expected-output="$cwd/expected.txt" \
+        --logfile="$cwd/bisection_log.txt" \
+        --timeout=300
+    fi
+fi
+
 # Clean up test files.
 if [ "$always_clean" = "yes" -o "$good" = "yes" ] && [ "$never_clean" = "no" ]; then
     cd "$oldwd"
@@ -904,4 +952,8 @@ fi
 
 ) 2>&${real_stderr} 1>&2
 
-exit 1
+if [ "$never_clean" = "yes" ] && [ "$good" = "yes" ]; then
+  exit 0
+else
+  exit 1
+fi

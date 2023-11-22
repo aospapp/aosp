@@ -161,8 +161,6 @@ public class NetworkSetting extends PreferenceActivity
         public void onServiceConnected(ComponentName className, IBinder service) {
             if (DBG) log("connection created, binding local service.");
             mNetworkQueryService = ((NetworkQueryService.LocalBinder) service).getService();
-            // as soon as it is bound, run a query.
-            loadNetworksList();
         }
 
         /** Handle the task of cleaning up the local binding */
@@ -396,7 +394,7 @@ public class NetworkSetting extends PreferenceActivity
         if (phone != null) {
             ServiceState ss = tm.getServiceStateForSubscriber(phone.getSubId());
             if (ss != null) {
-                app.notificationMgr.updateNetworkSelection(ss.getState());
+                app.notificationMgr.updateNetworkSelection(ss.getState(), phone.getSubId());
             }
         }
     }

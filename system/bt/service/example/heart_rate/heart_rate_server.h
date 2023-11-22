@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <unordered_map>
 
 #include <base/macros.h>
@@ -23,20 +24,22 @@
 #include <base/memory/weak_ptr.h>
 #include <base/single_thread_task_runner.h>
 
-#include <bluetooth/binder/IBluetooth.h>
-#include <bluetooth/binder/IBluetoothGattServerCallback.h>
-#include <bluetooth/gatt_identifier.h>
+#include <android/bluetooth/BnBluetoothGattServerCallback.h>
+#include <android/bluetooth/IBluetooth.h>
+
+using android::binder::Status;
+using android::String16;
 
 namespace heart_rate {
 
 // Implements an example GATT Heart Rate service. This class emulates the
 // behavior of a heart rate service by sending fake heart-rate pulses.
-class HeartRateServer : public ipc::binder::BnBluetoothGattServerCallback {
+class HeartRateServer
+    : public android::bluetooth::BnBluetoothGattServerCallback {
  public:
-  HeartRateServer(
-      android::sp<ipc::binder::IBluetooth> bluetooth,
-      scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
-      bool advertise);
+  HeartRateServer(android::sp<android::bluetooth::IBluetooth> bluetooth,
+                  scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
+                  bool advertise);
   ~HeartRateServer() override;
 
   // Set up the server and register the GATT services with the stack. This
@@ -52,33 +55,31 @@ class HeartRateServer : public ipc::binder::BnBluetoothGattServerCallback {
   void BuildHeartRateMeasurementValue(std::vector<uint8_t>* out_value);
 
   // ipc::binder::IBluetoothGattServerCallback override:
-  void OnServerRegistered(int status, int server_if) override;
-  void OnServiceAdded(
+  Status OnServerRegistered(int status, int server_id) override;
+  Status OnServiceAdded(
       int status,
-      const bluetooth::GattIdentifier& service_id) override;
-  void OnCharacteristicReadRequest(
-      const std::string& device_address,
-      int request_id, int offset, bool is_long,
-      const bluetooth::GattIdentifier& characteristic_id) override;
-  void OnDescriptorReadRequest(
-      const std::string& device_address,
-      int request_id, int offset, bool is_long,
-      const bluetooth::GattIdentifier& descriptor_id) override;
-  void OnCharacteristicWriteRequest(
-      const std::string& device_address,
-      int request_id, int offset, bool is_prepare_write, bool need_response,
-      const std::vector<uint8_t>& value,
-      const bluetooth::GattIdentifier& characteristic_id) override;
-  void OnDescriptorWriteRequest(
-      const std::string& device_address,
-      int request_id, int offset, bool is_prepare_write, bool need_response,
-      const std::vector<uint8_t>& value,
-      const bluetooth::GattIdentifier& descriptor_id) override;
-  void OnExecuteWriteRequest(
-      const std::string& device_address,
-      int request_id, bool is_execute) override;
-  void OnNotificationSent(const std::string& device_address,
-                          int status) override;
+      const android::bluetooth::BluetoothGattService& service) override;
+  Status OnCharacteristicReadRequest(const String16& device_address,
+                                     int request_id, int offset, bool is_long,
+                                     int handle) override;
+  Status OnDescriptorReadRequest(const String16& device_address, int request_id,
+                                 int offset, bool is_long, int handle) override;
+  Status OnCharacteristicWriteRequest(const String16& device_address,
+                                      int request_id, int offset,
+                                      bool is_prepare_write, bool need_response,
+                                      const std::vector<uint8_t>& value,
+                                      int handle) override;
+  Status OnDescriptorWriteRequest(const String16& device_address,
+                                  int request_id, int offset,
+                                  bool is_prepare_write, bool need_response,
+                                  const std::vector<uint8_t>& value,
+                                  int handle) override;
+  Status OnExecuteWriteRequest(const String16& device_address, int request_id,
+                               bool is_execute) override;
+  Status OnNotificationSent(const String16& device_address,
+                            int status) override;
+  Status OnConnectionStateChanged(const String16& device_address,
+                                  bool connected) override;
 
   // Single mutex to protect all variables below.
   std::mutex mutex_;
@@ -89,8 +90,8 @@ class HeartRateServer : public ipc::binder::BnBluetoothGattServerCallback {
 
   // The IBluetooth and IBluetoothGattServer binders that we use to communicate
   // with the Bluetooth daemon's GATT server features.
-  android::sp<ipc::binder::IBluetooth> bluetooth_;
-  android::sp<ipc::binder::IBluetoothGattServer> gatt_;
+  android::sp<android::bluetooth::IBluetooth> bluetooth_;
+  android::sp<android::bluetooth::IBluetoothGattServer> gatt_;
 
   // ID assigned to us by the daemon to operate on our dedicated GATT server
   // instance.
@@ -111,13 +112,13 @@ class HeartRateServer : public ipc::binder::BnBluetoothGattServerCallback {
   // The Energy Expended value we use in our notifications.
   uint16_t energy_expended_;
 
-  // The unique IDs that refer to each of the Heart Rate Service GATT objects.
+  // Handles that refer to Heart Rate Service GATT objects.
   // These returned to us from the Bluetooth daemon as we populate the database.
-  bluetooth::GattIdentifier hr_service_id_;
-  bluetooth::GattIdentifier hr_measurement_id_;
-  bluetooth::GattIdentifier hr_measurement_cccd_id_;
-  bluetooth::GattIdentifier body_sensor_loc_id_;
-  bluetooth::GattIdentifier hr_control_point_id_;
+  uint16_t hr_service_handle_;
+  uint16_t hr_measurement_handle_;
+  uint16_t hr_measurement_cccd_handle_;
+  uint16_t body_sensor_loc_handle_;
+  uint16_t hr_control_point_handle_;
 
   // The daemon itself doesn't maintain a Client Characteristic Configuration
   // mapping, so we do it ourselves here.

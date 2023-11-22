@@ -571,7 +571,7 @@ template <typename Encoding>
 struct GenericStringStream {
     typedef typename Encoding::Ch Ch;
 
-    GenericStringStream(const Ch *src) : src_(src), head_(src) {}
+    explicit GenericStringStream(const Ch *src) : src_(src), head_(src) {}
 
     Ch Peek() const { return *src_; }
     Ch Take() { return *src_++; }
@@ -605,7 +605,7 @@ template <typename Encoding>
 struct GenericInsituStringStream {
     typedef typename Encoding::Ch Ch;
 
-    GenericInsituStringStream(Ch *src) : src_(src), dst_(0), head_(src) {}
+    explicit GenericInsituStringStream(Ch *src) : src_(src), dst_(0), head_(src) {}
 
     // Read
     Ch Peek() { return *src_; }

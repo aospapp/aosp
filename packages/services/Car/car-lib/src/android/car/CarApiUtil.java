@@ -16,6 +16,8 @@
 
 package android.car;
 
+import android.car.settings.CarSettings;
+
 /**
  * Internal helper utilities
  * @hide
@@ -31,41 +33,12 @@ public final class CarApiUtil {
     public static final String CAR_NOT_CONNECTED_EXCEPTION_MSG = "CarNotConnected";
 
     /**
-     * CarService throw IllegalStateException with this message is re-thrown as
-     * {@link CarNotSupportedException}.
-     *
-     * @hide
-     */
-    public static final String CAR_NOT_SUPPORTED_EXCEPTION_MSG = "CarNotSupported";
-
-    /**
-     * IllegalStateException from CarService with special message is re-thrown as a different
-     * exception.
-     *
-     * @param e exception from CarService
-     * @throws CarNotConnectedException
-     * @throws CarNotSupportedException
-     * @hide
-     */
-    public static void checkAllIllegalStateExceptionsFromCarService(IllegalStateException e)
-            throws CarNotConnectedException, CarNotSupportedException {
-        String message = e.getMessage();
-        if (message.equals(CAR_NOT_CONNECTED_EXCEPTION_MSG)) {
-            throw new CarNotConnectedException();
-        } else if (message.equals(CAR_NOT_SUPPORTED_EXCEPTION_MSG)) {
-            throw new CarNotSupportedException();
-        } else {
-            throw e;
-        }
-    }
-
-    /**
      * Re-throw IllegalStateException from CarService with
      * {@link #CAR_NOT_CONNECTED_EXCEPTION_MSG} message as {@link CarNotConnectedException}.
      * exception.
      *
      * @param e exception from CarService
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      * @hide
      */
     public static void checkCarNotConnectedExceptionFromCarService(IllegalStateException e)
@@ -79,4 +52,42 @@ public final class CarApiUtil {
 
     /** do not use */
     private CarApiUtil() {};
+
+    /**
+     * Return an integer array of {hour, minute} from the String presentation of the garage mode
+     * time.
+     *
+     * @hide
+     */
+    public static int[] decodeGarageTimeSetting(String time) {
+        int[] result = CarSettings.DEFAULT_GARAGE_MODE_WAKE_UP_TIME;
+        if (time == null) {
+            return result;
+        }
+
+        String[] tokens = time.split(":");
+        if (tokens.length != 2) {
+            return result;
+        }
+        try {
+            result[0] = Integer.valueOf(tokens[0]);
+            result[1] = Integer.valueOf(tokens[1]);
+        } catch (NumberFormatException e) {
+            return CarSettings.DEFAULT_GARAGE_MODE_WAKE_UP_TIME;
+        }
+        if (result[0] >= 0 && result[0] <= 23 && result[1] >= 0 && result[1] <= 59) {
+            return result;
+        } else {
+            return CarSettings.DEFAULT_GARAGE_MODE_WAKE_UP_TIME;
+        }
+    }
+
+    /**
+     * Return a String presentation of the garage mode "hour:minute".
+     *
+     * @hide
+     */
+    public static String encodeGarageTimeSetting(int hour, int min) {
+        return hour + ":" + min;
+    }
 }

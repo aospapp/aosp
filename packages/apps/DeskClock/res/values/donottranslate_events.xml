@@ -19,13 +19,15 @@
     <string name="category_clock">Clock</string>
     <string name="category_timer">Timer</string>
     <string name="category_stopwatch">Stopwatch</string>
+    <string name="category_screensaver">Screensaver</string>
+    <string name="category_analog_widget">Analog Widget</string>
+    <string name="category_digital_widget">Digital Widget</string>
 
     <!-- Action names for events describe what type of manipulation was performed. -->
     <string name="action_dismiss">Dismiss</string>
     <string name="action_hide">Hide</string>
     <string name="action_snooze">Snooze</string>
     <string name="action_create">Create</string>
-    <string name="action_add">Add</string>
     <string name="action_delete">Delete</string>
     <string name="action_update">Update</string>
     <string name="action_start">Start</string>
@@ -35,14 +37,23 @@
     <string name="action_reset">Reset</string>
     <string name="action_show">Show</string>
     <string name="action_add_minute">Add Minute</string>
-    <string name="action_resume">Resume</string>
     <string name="action_lap">Lap</string>
+    <string name="action_enable">Enable</string>
+    <string name="action_disable">Disable</string>
+    <string name="action_expand">Expand</string>
+    <string name="action_collapse">Collapse</string>
+    <string name="action_expand_implied">Expand Implied</string>
+    <string name="action_collapse_implied">Collapse Implied</string>
+    <string name="action_set_time">Set Time</string>
+    <string name="action_set_label">Set Label</string>
+    <string name="action_set_ringtone">Set Ringtone</string>
+    <string name="action_toggle_vibrate">Toggle Vibrate</string>
+    <string name="action_toggle_repeat_days">Toggle Repeat Days</string>
 
     <!-- Label names for events describe the entity responsible for the event. -->
     <string name="label_deskclock">DeskClock</string>
     <string name="label_notification">Notification</string>
     <string name="label_intent">Intent</string>
-    <string name="label_widget">Widget</string>
     <string name="label_hardware_button">HardwareButton</string>
-    <string name="label_reboot">Reboot</string>
+    <string name="label_shortcut">Shortcut</string>
 </resources>

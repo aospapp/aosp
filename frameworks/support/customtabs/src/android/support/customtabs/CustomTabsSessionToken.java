@@ -46,7 +46,6 @@ public class CustomTabsSessionToken {
         return new CustomTabsSessionToken(ICustomTabsCallback.Stub.asInterface(binder));
     }
 
-    /**@hide*/
     CustomTabsSessionToken(ICustomTabsCallback callbackBinder) {
         mCallbackBinder = callbackBinder;
         mCallback = new CustomTabsCallback() {
@@ -59,10 +58,36 @@ public class CustomTabsSessionToken {
                     Log.e(TAG, "RemoteException during ICustomTabsCallback transaction");
                 }
             }
+
+            @Override
+            public void extraCallback(String callbackName, Bundle args) {
+                try {
+                    mCallbackBinder.extraCallback(callbackName, args);
+                } catch (RemoteException e) {
+                    Log.e(TAG, "RemoteException during ICustomTabsCallback transaction");
+                }
+            }
+
+            @Override
+            public void onMessageChannelReady(Bundle extras) {
+                try {
+                    mCallbackBinder.onMessageChannelReady(extras);
+                } catch (RemoteException e) {
+                    Log.e(TAG, "RemoteException during ICustomTabsCallback transaction");
+                }
+            }
+
+            @Override
+            public void onPostMessage(String message, Bundle extras) {
+                try {
+                    mCallbackBinder.onPostMessage(message, extras);
+                } catch (RemoteException e) {
+                    Log.e(TAG, "RemoteException during ICustomTabsCallback transaction");
+                }
+            }
         };
     }
 
-    /**@hide*/
     IBinder getCallbackBinder() {
         return mCallbackBinder.asBinder();
     }
@@ -85,5 +110,12 @@ public class CustomTabsSessionToken {
      */
     public CustomTabsCallback getCallback() {
         return mCallback;
+    }
+
+    /**
+     * @return Whether this token is associated with the given session.
+     */
+    public boolean isAssociatedWith(CustomTabsSession session) {
+        return session.getBinder().equals(mCallbackBinder);
     }
 }

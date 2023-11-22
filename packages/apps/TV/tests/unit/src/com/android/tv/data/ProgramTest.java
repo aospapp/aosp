@@ -18,11 +18,20 @@ package com.android.tv.data;
 import static android.media.tv.TvContract.Programs.Genres.COMEDY;
 import static android.media.tv.TvContract.Programs.Genres.FAMILY_KIDS;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import com.android.tv.data.Program.CriticScore;
+import com.android.tv.dvr.SeriesRecording;
+
+import android.media.tv.TvContentRating;
+import android.media.tv.TvContract.Programs.Genres;
+import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.util.Log;
 
 import junit.framework.TestCase;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Tests for {@link Program}.
@@ -83,6 +92,71 @@ public class ProgramTest extends TestCase {
         assertHasGenre(program, FAMILY_GENRE_ID, false);
         assertHasGenre(program, COMEDY_GENRE_ID, false);
         assertHasGenre(program, GenreItems.ID_ALL_CHANNELS, true);
+    }
+
+    public void testParcelable() throws Exception {
+        List<CriticScore> criticScores = new ArrayList<>();
+        criticScores.add(new CriticScore("1", "2", "3"));
+        criticScores.add(new CriticScore("4", "5", "6"));
+        TvContentRating[] ratings = new TvContentRating[2];
+        ratings[0] = TvContentRating.unflattenFromString("1/2/3");
+        ratings[1] = TvContentRating.unflattenFromString("4/5/6");
+        Program p = new Program.Builder()
+                .setId(1)
+                .setPackageName("2")
+                .setChannelId(3)
+                .setTitle("4")
+                .setSeriesId("5")
+                .setEpisodeTitle("6")
+                .setSeasonNumber("7")
+                .setSeasonTitle("8")
+                .setEpisodeNumber("9")
+                .setStartTimeUtcMillis(10)
+                .setEndTimeUtcMillis(11)
+                .setDescription("12")
+                .setLongDescription("12-long")
+                .setVideoWidth(13)
+                .setVideoHeight(14)
+                .setCriticScores(criticScores)
+                .setPosterArtUri("15")
+                .setThumbnailUri("16")
+                .setCanonicalGenres(Genres.encode(Genres.SPORTS, Genres.SHOPPING))
+                .setContentRatings(ratings)
+                .setRecordingProhibited(true)
+                .build();
+        Parcel p1 = Parcel.obtain();
+        Parcel p2 = Parcel.obtain();
+        try {
+            p.writeToParcel(p1, 0);
+            byte[] bytes = p1.marshall();
+            p2.unmarshall(bytes, 0, bytes.length);
+            p2.setDataPosition(0);
+            Program r2 = Program.fromParcel(p2);
+            assertEquals(p, r2);
+        } finally {
+            p1.recycle();
+            p2.recycle();
+        }
+    }
+
+    public void testParcelableWithCriticScore() {
+        Program program = new Program.Builder()
+                .setTitle("MyTitle")
+                .addCriticScore(new CriticScore(
+                        "default source",
+                        "5/10",
+                        "https://testurl/testimage.jpg"))
+                .build();
+        Parcel parcel = Parcel.obtain();
+        program.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        Program programFromParcel = Program.CREATOR.createFromParcel(parcel);
+
+        assertNotNull(programFromParcel.getCriticScores());
+        assertEquals(programFromParcel.getCriticScores().get(0).source, "default source");
+        assertEquals(programFromParcel.getCriticScores().get(0).score, "5/10");
+        assertEquals(programFromParcel.getCriticScores().get(0).logoUrl,
+                "https://testurl/testimage.jpg");
     }
 
     private static void assertNullCanonicalGenres(Program program) {

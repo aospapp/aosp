@@ -10,7 +10,6 @@ PURPOSE = "Remotely controlled display to enable HDCP and check screen."
 CRITERIA = "This test will fail if Chameleon sees a wrong screen."
 # HDCP control/query is broken on DUT. Disable the test until it is fixed.
 #ATTRIBUTES = "suite:chameleon_hdmi"
-#SUITE = "chameleon_hdmi"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "display"

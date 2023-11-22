@@ -19,7 +19,9 @@ import android.widget.EditText;
 
 /**
  *  Manages use of the in-car IME. All methods should only be called on the main thread.
- *  Instances should be obtained by calling {@link android.support.car.app.CarActivity#getInputManager()}.
+ *  Instances should be obtained by calling
+ *  {@link android.support.car.app.CarActivity#getInputManager()}.
+ *  @hide
  */
 public abstract class CarInputManager {
     /**

@@ -48,12 +48,25 @@ higher can provide additional power values obtained from chipset data.</p>
 <p>The power profile for devices with CPU cores of heterogeneous architecture
 must include the following additional fields:
 <ul>
-<li>Number of total CPUs for each cluster.</li>
+<li>Number of total CPUs for each cluster (expressed in cpu.clusters.cores).</li>
 <li>CPU speeds supported by each cluster.</li>
+<li>Active CPU power consumption for each cluster.</li>
 </ul>
 
-<p>To differentiate between active CPUs and supported CPU speeds for each
-cluster, append the cluster number to the name of the array. Example:</p>
+<p>To differentiate between active CPU power consumption and supported CPU
+speeds for clusters, append the cluster number to the name of the array. Cluster
+numbers are assigned in the order of CPU cores in the kernel device tree. For
+example, in a heterogeneous architecture that has two (2) clusters with four (4)
+cores:</p>
+<ul>
+<li>cluster0 consists of cpu0-3</li>
+<li>cluster1 consists of cpu4-7</li>
+</ul>
+<p>The Android framework uses these CPU core numbers when it reads statistics
+from the <code>sysfs</code> files in:
+<code>/sys/devices/system/cpu/cpu&lt;number&gt;/cpufreq/stats</code>.
+
+<p>Example of cluster CPUs and speeds:</p>
 
 <pre>
 &lt;array name="cpu.active.cluster0"&gt;

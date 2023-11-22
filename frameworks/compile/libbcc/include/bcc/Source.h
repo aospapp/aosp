@@ -64,15 +64,20 @@ public:
   static Source *CreateFromModule(BCCContext &pContext,
                                   const char* name,
                                   llvm::Module &pModule,
+                                  uint32_t compilerVersion,
+                                  uint32_t optimizationLevel,
                                   bool pNoDelete = false);
-
-  static Source *CreateEmpty(BCCContext &pContext, const std::string &pName);
 
   const std::string& getName() const { return mName; }
 
   // Merge the current source with pSource. pSource
   // will be destroyed after successfully merged. Return false on error.
   bool merge(Source &pSource);
+
+  unsigned getCompilerVersion() const;
+
+  void getWrapperInformation(unsigned *compilerVersion,
+                             unsigned *optimizationLevel) const;
 
   inline BCCContext &getContext()
   { return mContext; }

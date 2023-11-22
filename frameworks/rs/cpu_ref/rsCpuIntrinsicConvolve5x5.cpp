@@ -18,9 +18,6 @@
 #include "rsCpuIntrinsic.h"
 #include "rsCpuIntrinsicInlines.h"
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -63,9 +60,6 @@ protected:
 
 
 };
-
-}
-}
 
 void RsdCpuScriptIntrinsicConvolve5x5::setGlobalObj(uint32_t slot, ObjectBase *data) {
     rsAssert(slot == 1);
@@ -699,9 +693,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::invokeFreeChildren() {
     alloc.clear();
 }
 
-
 RsdCpuScriptImpl * rsdIntrinsic_Convolve5x5(RsdCpuReferenceImpl *ctx,
                                             const Script *s, const Element *e) {
 
     return new RsdCpuScriptIntrinsicConvolve5x5(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

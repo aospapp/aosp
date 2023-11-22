@@ -16,23 +16,38 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.cts.util.KeyEventUtil;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.support.test.InstrumentationRegistry;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.LargeTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -43,17 +58,24 @@ import android.widget.ListPopupWindow;
 import android.widget.ListView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import android.widget.cts.util.ViewTestUtils;
 
-import static org.mockito.Mockito.*;
+import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.CtsTouchUtils;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
-@SmallTest
-public class ListPopupWindowTest extends
-        ActivityInstrumentationTestCase2<ListPopupWindowCtsActivity> {
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class ListPopupWindowTest {
     private Instrumentation mInstrumentation;
     private Activity mActivity;
-    private KeyEventUtil mKeyEventUtil;
     private Builder mPopupWindowBuilder;
+    private View promptView;
 
     /** The list popup window. */
     private ListPopupWindow mPopupWindow;
@@ -73,31 +95,26 @@ public class ListPopupWindowTest extends
         }
     }
 
-    /**
-     * Instantiates a new popup window test.
-     */
-    public ListPopupWindowTest() {
-        super(ListPopupWindowCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ListPopupWindowCtsActivity> mActivityRule
+            = new ActivityTestRule<>(ListPopupWindowCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mInstrumentation = getInstrumentation();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
         mItemClickListener = new PopupItemClickListener();
-        mKeyEventUtil = new KeyEventUtil(mInstrumentation);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void teardown() throws Throwable {
         if ((mPopupWindowBuilder != null) && (mPopupWindow != null)) {
-            mPopupWindowBuilder.dismiss();
+            mActivityRule.runOnUiThread(mPopupWindowBuilder::dismiss);
+            mInstrumentation.waitForIdleSync();
         }
-
-        super.tearDown();
     }
 
+    @Test
     public void testConstructor() {
         new ListPopupWindow(mActivity);
 
@@ -105,17 +122,29 @@ public class ListPopupWindowTest extends
 
         new ListPopupWindow(mActivity, null, android.R.attr.popupWindowStyle);
 
+        new ListPopupWindow(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_ListPopupWindow);
+
+        new ListPopupWindow(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ListPopupWindow);
+
         new ListPopupWindow(mActivity, null, 0, android.R.style.Widget_Material_ListPopupWindow);
+
+        new ListPopupWindow(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ListPopupWindow);
     }
 
+    @Test
     public void testNoDefaultVisibility() {
         mPopupWindow = new ListPopupWindow(mActivity);
         assertFalse(mPopupWindow.isShowing());
     }
 
-    public void testAccessBackground() {
+    @Test
+    public void testAccessBackground() throws Throwable {
         mPopupWindowBuilder = new Builder();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         Drawable drawable = new ColorDrawable();
         mPopupWindow.setBackgroundDrawable(drawable);
@@ -125,9 +154,11 @@ public class ListPopupWindowTest extends
         assertNull(mPopupWindow.getBackground());
     }
 
-    public void testAccessAnimationStyle() {
+    @Test
+    public void testAccessAnimationStyle() throws Throwable {
         mPopupWindowBuilder = new Builder();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
         assertEquals(0, mPopupWindow.getAnimationStyle());
 
         mPopupWindow.setAnimationStyle(android.R.style.Animation_Toast);
@@ -138,9 +169,11 @@ public class ListPopupWindowTest extends
         assertEquals(-100, mPopupWindow.getAnimationStyle());
     }
 
-    public void testAccessHeight() {
+    @Test
+    public void testAccessHeight() throws Throwable {
         mPopupWindowBuilder = new Builder();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, mPopupWindow.getHeight());
 
@@ -160,8 +193,12 @@ public class ListPopupWindowTest extends
         assertEquals(height, mPopupWindow.getHeight());
 
         height = -getDisplay().getHeight() / 2;
-        mPopupWindow.setHeight(height);
-        assertEquals(height, mPopupWindow.getHeight());
+        try {
+            mPopupWindow.setHeight(height);
+            fail("should throw IllegalArgumentException for negative height.");
+        } catch (IllegalArgumentException e) {
+            // expected exception.
+        }
     }
 
     /**
@@ -174,9 +211,11 @@ public class ListPopupWindowTest extends
         return wm.getDefaultDisplay();
     }
 
-    public void testAccessWidth() {
+    @Test
+    public void testAccessWidth() throws Throwable {
         mPopupWindowBuilder = new Builder().ignoreContentWidth();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, mPopupWindow.getWidth());
 
@@ -219,6 +258,14 @@ public class ListPopupWindowTest extends
                 Gravity.getAbsoluteGravity(gravity, upperAnchor.getLayoutDirection());
         if (absoluteGravity == Gravity.RIGHT) {
             expectedListViewOnScreenX -= (listView.getWidth() - upperAnchor.getWidth());
+        } else {
+            // On narrow screens, it's possible for the popup to reach the edge
+            // of the screen.
+            int rightmostX =
+                    getDisplay().getWidth() - mPopupWindow.getWidth() + listViewInWindowXY[0];
+            if (expectedListViewOnScreenX > rightmostX) {
+                expectedListViewOnScreenX = rightmostX;
+            }
         }
         int expectedListViewOnScreenY = anchorXY[1] + listViewInWindowXY[1]
                 + upperAnchor.getHeight() + verticalOffset;
@@ -226,9 +273,11 @@ public class ListPopupWindowTest extends
         assertEquals(expectedListViewOnScreenY, listViewOnScreenXY[1]);
     }
 
-    public void testAnchoring() {
+    @Test
+    public void testAnchoring() throws Throwable {
         mPopupWindowBuilder = new Builder();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mPopupWindow.getHorizontalOffset());
         assertEquals(0, mPopupWindow.getVerticalOffset());
@@ -236,9 +285,11 @@ public class ListPopupWindowTest extends
         verifyAnchoring(0, 0, Gravity.NO_GRAVITY);
     }
 
-    public void testAnchoringWithHorizontalOffset() {
+    @Test
+    public void testAnchoringWithHorizontalOffset() throws Throwable {
         mPopupWindowBuilder = new Builder().withHorizontalOffset(50);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(50, mPopupWindow.getHorizontalOffset());
         assertEquals(0, mPopupWindow.getVerticalOffset());
@@ -246,9 +297,11 @@ public class ListPopupWindowTest extends
         verifyAnchoring(50, 0, Gravity.NO_GRAVITY);
     }
 
-    public void testAnchoringWithVerticalOffset() {
+    @Test
+    public void testAnchoringWithVerticalOffset() throws Throwable {
         mPopupWindowBuilder = new Builder().withVerticalOffset(60);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mPopupWindow.getHorizontalOffset());
         assertEquals(60, mPopupWindow.getVerticalOffset());
@@ -256,9 +309,11 @@ public class ListPopupWindowTest extends
         verifyAnchoring(0, 60, Gravity.NO_GRAVITY);
     }
 
-    public void testAnchoringWithRightGravity() {
+    @Test
+    public void testAnchoringWithRightGravity() throws Throwable {
         mPopupWindowBuilder = new Builder().withDropDownGravity(Gravity.RIGHT);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mPopupWindow.getHorizontalOffset());
         assertEquals(0, mPopupWindow.getVerticalOffset());
@@ -266,9 +321,11 @@ public class ListPopupWindowTest extends
         verifyAnchoring(0, 0, Gravity.RIGHT);
     }
 
-    public void testAnchoringWithEndGravity() {
+    @Test
+    public void testAnchoringWithEndGravity() throws Throwable {
         mPopupWindowBuilder = new Builder().withDropDownGravity(Gravity.END);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(0, mPopupWindow.getHorizontalOffset());
         assertEquals(0, mPopupWindow.getVerticalOffset());
@@ -276,10 +333,12 @@ public class ListPopupWindowTest extends
         verifyAnchoring(0, 0, Gravity.END);
     }
 
-    public void testSetWindowLayoutType() {
+    @Test
+    public void testSetWindowLayoutType() throws Throwable {
         mPopupWindowBuilder = new Builder().withWindowLayoutType(
                 WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
         assertTrue(mPopupWindow.isShowing());
 
         WindowManager.LayoutParams p = (WindowManager.LayoutParams)
@@ -287,39 +346,52 @@ public class ListPopupWindowTest extends
         assertEquals(WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL, p.type);
     }
 
-    public void testDismiss() {
+    @Test
+    public void testDismiss() throws Throwable {
         mPopupWindowBuilder = new Builder();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
         assertTrue(mPopupWindow.isShowing());
 
-        mPopupWindowBuilder.dismiss();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::dismiss);
+        mInstrumentation.waitForIdleSync();
         assertFalse(mPopupWindow.isShowing());
 
-        mPopupWindowBuilder.dismiss();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::dismiss);
+        mInstrumentation.waitForIdleSync();
         assertFalse(mPopupWindow.isShowing());
     }
 
-    public void testSetOnDismissListener() {
+    @Test
+    public void testSetOnDismissListener() throws Throwable {
         mPopupWindowBuilder = new Builder().withDismissListener();
-        mPopupWindowBuilder.show();
-        mPopupWindowBuilder.dismiss();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::dismiss);
+        mInstrumentation.waitForIdleSync();
         verify(mPopupWindowBuilder.mOnDismissListener, times(1)).onDismiss();
 
-        mPopupWindowBuilder.showAgain();
-        mPopupWindowBuilder.dismiss();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::showAgain);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::dismiss);
+        mInstrumentation.waitForIdleSync();
         verify(mPopupWindowBuilder.mOnDismissListener, times(2)).onDismiss();
 
         mPopupWindow.setOnDismissListener(null);
-        mPopupWindowBuilder.showAgain();
-        mPopupWindowBuilder.dismiss();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::showAgain);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::dismiss);
+        mInstrumentation.waitForIdleSync();
         // Since we've reset the listener to null, we are not expecting any more interactions
         // on the previously registered listener.
         verifyNoMoreInteractions(mPopupWindowBuilder.mOnDismissListener);
     }
 
-    public void testAccessInputMethodMode() {
+    @Test
+    public void testAccessInputMethodMode() throws Throwable {
         mPopupWindowBuilder = new Builder().withDismissListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertEquals(PopupWindow.INPUT_METHOD_NEEDED, mPopupWindow.getInputMethodMode());
         assertFalse(mPopupWindow.isInputMethodNotNeeded());
@@ -341,9 +413,11 @@ public class ListPopupWindowTest extends
         assertFalse(mPopupWindow.isInputMethodNotNeeded());
     }
 
-    public void testAccessSoftInputMethodMode() {
+    @Test
+    public void testAccessSoftInputMethodMode() throws Throwable {
         mPopupWindowBuilder = new Builder().withDismissListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         mPopupWindow = new ListPopupWindow(mActivity);
         assertEquals(WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED,
@@ -361,60 +435,33 @@ public class ListPopupWindowTest extends
     private void verifyDismissalViaTouch(boolean setupAsModal) throws Throwable {
         // Register a click listener on the top-level container
         final View mainContainer = mActivity.findViewById(R.id.main_container);
-        View.OnClickListener mockContainerClickListener = mock(View.OnClickListener.class);
-        mainContainer.setOnClickListener(mockContainerClickListener);
+        final View.OnClickListener mockContainerClickListener = mock(View.OnClickListener.class);
+        mActivityRule.runOnUiThread(() ->
+                mainContainer.setOnClickListener(mockContainerClickListener));
 
         // Configure a list popup window with requested modality
         mPopupWindowBuilder = new Builder().setModal(setupAsModal).withDismissListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         assertTrue("Popup window showing", mPopupWindow.isShowing());
         // Make sure that the modality of the popup window is set up correctly
         assertEquals("Popup window modality", setupAsModal, mPopupWindow.isModal());
-
-        // Determine the location of the popup on the screen so that we can emulate
-        // a tap outside of its bounds to dismiss it
-        final int[] popupOnScreenXY = new int[2];
-        final Rect rect = new Rect();
-        mPopupWindow.getListView().getLocationOnScreen(popupOnScreenXY);
-        mPopupWindow.getBackground().getPadding(rect);
-
-        int emulatedTapX = popupOnScreenXY[0] - rect.left - 20;
-        int emulatedTapY = popupOnScreenXY[1] + mPopupWindow.getListView().getHeight() +
-                rect.top + rect.bottom + 20;
 
         // The logic below uses Instrumentation to emulate a tap outside the bounds of the
         // displayed list popup window. This tap is then treated by the framework to be "split" as
         // the ACTION_OUTSIDE for the popup itself, as well as DOWN / MOVE / UP for the underlying
         // view root if the popup is not modal.
         // It is not correct to emulate these two sequences separately in the test, as it
-        // wouldn't emulate the user-facing interaction for this test. Note that usage
-        // of Instrumentation is necessary here since Espresso's actions operate at the level
-        // of view or data. Also, we don't want to use View.dispatchTouchEvent directly as
-        // that would require emulation of two separate sequences as well.
-
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-
-        // Inject DOWN event
-        long downTime = SystemClock.uptimeMillis();
-        MotionEvent eventDown = MotionEvent.obtain(
-                downTime, downTime, MotionEvent.ACTION_DOWN, emulatedTapX, emulatedTapY, 1);
-        instrumentation.sendPointerSync(eventDown);
-
-        // Inject MOVE event
-        long moveTime = SystemClock.uptimeMillis();
-        MotionEvent eventMove = MotionEvent.obtain(
-                moveTime, moveTime, MotionEvent.ACTION_MOVE, emulatedTapX, emulatedTapY, 1);
-        instrumentation.sendPointerSync(eventMove);
-
-        // Inject UP event
-        long upTime = SystemClock.uptimeMillis();
-        MotionEvent eventUp = MotionEvent.obtain(
-                upTime, upTime, MotionEvent.ACTION_UP, emulatedTapX, emulatedTapY, 1);
-        instrumentation.sendPointerSync(eventUp);
-
-        // Wait for the system to process all events in the queue
-        instrumentation.waitForIdleSync();
+        // wouldn't emulate the user-facing interaction for this test. Also, we don't want to use
+        // View.dispatchTouchEvent directly as that would require emulation of two separate
+        // sequences as well.
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final ListView popupListView = mPopupWindow.getListView();
+        final Rect rect = new Rect();
+        mPopupWindow.getBackground().getPadding(rect);
+        CtsTouchUtils.emulateTapOnView(instrumentation, popupListView,
+                -rect.left - 20, popupListView.getHeight() + rect.top + rect.bottom + 20);
 
         // At this point our popup should not be showing and should have notified its
         // dismiss listener
@@ -426,19 +473,22 @@ public class ListPopupWindowTest extends
         verify(mockContainerClickListener, times(setupAsModal ? 0 : 1)).onClick(mainContainer);
     }
 
+    @Test
     public void testDismissalOutsideNonModal() throws Throwable {
         verifyDismissalViaTouch(false);
     }
 
+    @Test
     public void testDismissalOutsideModal() throws Throwable {
         verifyDismissalViaTouch(true);
     }
 
+    @Test
     public void testItemClicks() throws Throwable {
         mPopupWindowBuilder = new Builder().withItemClickListener().withDismissListener();
-        mPopupWindowBuilder.show();
-
-        runTestOnUiThread(() -> mPopupWindow.performItemClick(2));
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> mPopupWindow.performItemClick(2));
         mInstrumentation.waitForIdleSync();
 
         verify(mPopupWindowBuilder.mOnItemClickListener, times(1)).onItemClick(
@@ -447,12 +497,14 @@ public class ListPopupWindowTest extends
         assertFalse(mPopupWindow.isShowing());
         verify(mPopupWindowBuilder.mOnDismissListener, times(1)).onDismiss();
 
-        mPopupWindowBuilder.showAgain();
-        runTestOnUiThread(() -> mPopupWindow.getListView().performItemClick(null, 1, 1));
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::showAgain);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> mPopupWindow.getListView().performItemClick(null, 1, 1));
         mInstrumentation.waitForIdleSync();
 
         verify(mPopupWindowBuilder.mOnItemClickListener, times(1)).onItemClick(
-                any(AdapterView.class), any(View.class), eq(1), eq(1L));
+                any(AdapterView.class), any(), eq(1), eq(1L));
         // Also verify that the popup window has been dismissed
         assertFalse(mPopupWindow.isShowing());
         verify(mPopupWindowBuilder.mOnDismissListener, times(2)).onDismiss();
@@ -461,12 +513,15 @@ public class ListPopupWindowTest extends
         verifyNoMoreInteractions(mPopupWindowBuilder.mOnItemClickListener);
     }
 
+    @Test
     public void testPromptViewAbove() throws Throwable {
-        final View promptView = LayoutInflater.from(mActivity).inflate(
-                R.layout.popupwindow_prompt, null);
-        mPopupWindowBuilder = new Builder().withPrompt(
-                promptView, ListPopupWindow.POSITION_PROMPT_ABOVE);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(() -> {
+            promptView = LayoutInflater.from(mActivity).inflate(R.layout.popupwindow_prompt, null);
+            mPopupWindowBuilder = new Builder().withPrompt(
+                    promptView, ListPopupWindow.POSITION_PROMPT_ABOVE);
+            mPopupWindowBuilder.show();
+        });
+        mInstrumentation.waitForIdleSync();
 
         // Verify that our prompt is displayed on the screen and is above the first list item
         assertTrue(promptView.isAttachedToWindow());
@@ -477,7 +532,7 @@ public class ListPopupWindowTest extends
         promptView.getLocationOnScreen(promptViewOnScreenXY);
 
         final ListView listView = mPopupWindow.getListView();
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView, null);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, null);
 
         final View firstListChild = listView.getChildAt(0);
         final int[] firstChildOnScreenXY = new int[2];
@@ -486,12 +541,15 @@ public class ListPopupWindowTest extends
         assertTrue(promptViewOnScreenXY[1] + promptView.getHeight() <= firstChildOnScreenXY[1]);
     }
 
+    @Test
     public void testPromptViewBelow() throws Throwable {
-        final View promptView = LayoutInflater.from(mActivity).inflate(
-                R.layout.popupwindow_prompt, null);
-        mPopupWindowBuilder = new Builder().withPrompt(
-                promptView, ListPopupWindow.POSITION_PROMPT_BELOW);
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(() -> {
+            promptView = LayoutInflater.from(mActivity).inflate(R.layout.popupwindow_prompt, null);
+            mPopupWindowBuilder = new Builder().withPrompt(
+                    promptView, ListPopupWindow.POSITION_PROMPT_BELOW);
+            mPopupWindowBuilder.show();
+        });
+        mInstrumentation.waitForIdleSync();
 
         // Verify that our prompt is displayed on the screen and is below the last list item
         assertTrue(promptView.isAttachedToWindow());
@@ -499,7 +557,7 @@ public class ListPopupWindowTest extends
         assertEquals(ListPopupWindow.POSITION_PROMPT_BELOW, mPopupWindow.getPromptPosition());
 
         final ListView listView = mPopupWindow.getListView();
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView, null);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, null);
 
         final int[] promptViewOnScreenXY = new int[2];
         promptView.getLocationOnScreen(promptViewOnScreenXY);
@@ -508,18 +566,23 @@ public class ListPopupWindowTest extends
         final int[] lastChildOnScreenXY = new int[2];
         lastListChild.getLocationOnScreen(lastChildOnScreenXY);
 
-        assertTrue(lastChildOnScreenXY[1] + lastListChild.getHeight() <= promptViewOnScreenXY[1]);
+        // The child is above the prompt. They may overlap, as in the case
+        // when the list items do not all fit on screen, but this is still
+        // correct.
+        assertTrue(lastChildOnScreenXY[1] <= promptViewOnScreenXY[1]);
     }
 
     @Presubmit
+    @Test
     public void testAccessSelection() throws Throwable {
         mPopupWindowBuilder = new Builder().withItemSelectedListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         final ListView listView = mPopupWindow.getListView();
 
         // Select an item
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView,
                 () -> mPopupWindow.setSelection(1));
 
         // And verify the current selection state + selection listener invocation
@@ -534,7 +597,7 @@ public class ListPopupWindowTest extends
                 ((TextView) selectedView.findViewById(android.R.id.text1)).getText());
 
         // Select another item
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView,
                 () -> mPopupWindow.setSelection(3));
 
         // And verify the new selection state + selection listener invocation
@@ -549,8 +612,8 @@ public class ListPopupWindowTest extends
                 ((TextView) selectedView.findViewById(android.R.id.text1)).getText());
 
         // Clear selection
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
-                () -> mPopupWindow.clearListSelection());
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView,
+                mPopupWindow::clearListSelection);
 
         // And verify empty selection state + no more selection listener invocation
         verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onNothingSelected(
@@ -562,9 +625,11 @@ public class ListPopupWindowTest extends
         verifyNoMoreInteractions(mPopupWindowBuilder.mOnItemSelectedListener);
     }
 
+    @Test
     public void testNoDefaultDismissalWithBackButton() throws Throwable {
         mPopupWindowBuilder = new Builder().withDismissListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         // Send BACK key event. As we don't have any custom code that dismisses ListPopupWindow,
         // and ListPopupWindow doesn't track that system-level key event on its own, ListPopupWindow
@@ -574,17 +639,21 @@ public class ListPopupWindowTest extends
         assertTrue(mPopupWindow.isShowing());
     }
 
+    @Test
     public void testCustomDismissalWithBackButton() throws Throwable {
-        mPopupWindowBuilder = new Builder().withAnchor(R.id.anchor_upper_left)
-                .withDismissListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(() -> {
+            mPopupWindowBuilder = new Builder().withAnchor(R.id.anchor_upper_left)
+                    .withDismissListener();
+            mPopupWindowBuilder.show();
+        });
+        mInstrumentation.waitForIdleSync();
 
         // "Point" our custom extension of EditText to our ListPopupWindow
         final MockViewForListPopupWindow anchor =
                 (MockViewForListPopupWindow) mPopupWindow.getAnchorView();
         anchor.wireTo(mPopupWindow);
         // Request focus on our EditText
-        runTestOnUiThread(() -> anchor.requestFocus());
+        mActivityRule.runOnUiThread(anchor::requestFocus);
         mInstrumentation.waitForIdleSync();
         assertTrue(anchor.isFocused());
 
@@ -596,10 +665,12 @@ public class ListPopupWindowTest extends
         assertFalse(mPopupWindow.isShowing());
     }
 
+    @Test
     public void testListSelectionWithDPad() throws Throwable {
         mPopupWindowBuilder = new Builder().withAnchor(R.id.anchor_upper_left)
                 .withDismissListener().withItemSelectedListener();
-        mPopupWindowBuilder.show();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::show);
+        mInstrumentation.waitForIdleSync();
 
         final View root = mPopupWindow.getListView().getRootView();
 
@@ -608,13 +679,13 @@ public class ListPopupWindowTest extends
                 (MockViewForListPopupWindow) mPopupWindow.getAnchorView();
         anchor.wireTo(mPopupWindow);
         // Request focus on our EditText
-        runTestOnUiThread(() -> anchor.requestFocus());
+        mActivityRule.runOnUiThread(anchor::requestFocus);
         mInstrumentation.waitForIdleSync();
         assertTrue(anchor.isFocused());
 
         // Select entry #1 in the popup list
         final ListView listView = mPopupWindow.getListView();
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, listView,
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView,
                 () -> mPopupWindow.setSelection(1));
         verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onItemSelected(
                 any(AdapterView.class), any(View.class), eq(1), eq(1L));
@@ -622,10 +693,10 @@ public class ListPopupWindowTest extends
         // Send DPAD_DOWN key event. As our custom extension of EditText calls
         // ListPopupWindow.onKeyDown and onKeyUp, the end result should be transfer of selection
         // down one row
-        mKeyEventUtil.sendKeyDownUp(listView, KeyEvent.KEYCODE_DPAD_DOWN);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_DPAD_DOWN);
         mInstrumentation.waitForIdleSync();
 
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, root, null);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, root, null);
 
         // At this point we expect that item #2 was selected
         verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onItemSelected(
@@ -634,10 +705,10 @@ public class ListPopupWindowTest extends
         // Send a DPAD_UP key event. As our custom extension of EditText calls
         // ListPopupWindow.onKeyDown and onKeyUp, the end result should be transfer of selection
         // up one row
-        mKeyEventUtil.sendKeyDownUp(listView, KeyEvent.KEYCODE_DPAD_UP);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_DPAD_UP);
         mInstrumentation.waitForIdleSync();
 
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, root, null);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, root, null);
 
         // At this point we expect that item #1 was selected
         verify(mPopupWindowBuilder.mOnItemSelectedListener, times(2)).onItemSelected(
@@ -646,10 +717,10 @@ public class ListPopupWindowTest extends
         // Send one more DPAD_UP key event. As our custom extension of EditText calls
         // ListPopupWindow.onKeyDown and onKeyUp, the end result should be transfer of selection
         // up one more row
-        mKeyEventUtil.sendKeyDownUp(listView, KeyEvent.KEYCODE_DPAD_UP);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, listView, KeyEvent.KEYCODE_DPAD_UP);
         mInstrumentation.waitForIdleSync();
 
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, root, null);
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, root, null);
 
         // At this point we expect that item #0 was selected
         verify(mPopupWindowBuilder.mOnItemSelectedListener, times(1)).onItemSelected(
@@ -658,7 +729,7 @@ public class ListPopupWindowTest extends
         // Send ENTER key event. As our custom extension of EditText calls
         // ListPopupWindow.onKeyDown and onKeyUp, the end result should be dismissal of
         // the popup window
-        mKeyEventUtil.sendKeyDownUp(listView, KeyEvent.KEYCODE_ENTER);
+        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation,listView, KeyEvent.KEYCODE_ENTER);
         mInstrumentation.waitForIdleSync();
 
         verify(mPopupWindowBuilder.mOnDismissListener, times(1)).onDismiss();
@@ -668,40 +739,7 @@ public class ListPopupWindowTest extends
         verifyNoMoreInteractions(mPopupWindowBuilder.mOnDismissListener);
     }
 
-    /**
-     * Emulates a drag-down gestures by injecting ACTION events with {@link Instrumentation}.
-     */
-    private void emulateDragDownGesture(int emulatedX, int emulatedStartY, int swipeAmount) {
-        // The logic below uses Instrumentation to emulate a swipe / drag gesture to bring up
-        // the popup content.
-
-        // Inject DOWN event
-        long downTime = SystemClock.uptimeMillis();
-        MotionEvent eventDown = MotionEvent.obtain(
-                downTime, downTime, MotionEvent.ACTION_DOWN, emulatedX, emulatedStartY, 1);
-        mInstrumentation.sendPointerSync(eventDown);
-
-        // Inject a sequence of MOVE events that emulate a "swipe down" gesture
-        for (int i = 0; i < 10; i++) {
-            long moveTime = SystemClock.uptimeMillis();
-            final int moveY = emulatedStartY + swipeAmount * i / 10;
-            MotionEvent eventMove = MotionEvent.obtain(
-                    moveTime, moveTime, MotionEvent.ACTION_MOVE, emulatedX, moveY, 1);
-            mInstrumentation.sendPointerSync(eventMove);
-            // sleep for a bit to emulate a 200ms swipe
-            SystemClock.sleep(20);
-        }
-
-        // Inject UP event
-        long upTime = SystemClock.uptimeMillis();
-        MotionEvent eventUp = MotionEvent.obtain(
-                upTime, upTime, MotionEvent.ACTION_UP, emulatedX, emulatedStartY + swipeAmount, 1);
-        mInstrumentation.sendPointerSync(eventUp);
-
-        // Wait for the system to process all events in the queue
-        mInstrumentation.waitForIdleSync();
-    }
-
+    @Test
     public void testCreateOnDragListener() throws Throwable {
         // In this test we want precise control over the height of the popup content since
         // we need to know by how much to swipe down to end the emulated gesture over the
@@ -714,14 +752,18 @@ public class ListPopupWindowTest extends
                 .withItemClickListener().withDismissListener();
 
         // Configure ListPopupWindow without showing it
-        mPopupWindowBuilder.configure();
+        mActivityRule.runOnUiThread(mPopupWindowBuilder::configure);
+        mInstrumentation.waitForIdleSync();
 
         // Get the anchor view and configure it with ListPopupWindow's drag-to-open listener
         final View anchor = mActivity.findViewById(mPopupWindowBuilder.mAnchorId);
-        View.OnTouchListener dragListener = mPopupWindow.createDragToOpenListener(anchor);
-        anchor.setOnTouchListener(dragListener);
-        // And also configure it to show the popup window on click
-        anchor.setOnClickListener((View view) -> mPopupWindow.show());
+        final View.OnTouchListener dragListener = mPopupWindow.createDragToOpenListener(anchor);
+        mActivityRule.runOnUiThread(() -> {
+            anchor.setOnTouchListener(dragListener);
+            // And also configure it to show the popup window on click
+            anchor.setOnClickListener((View view) -> mPopupWindow.show());
+        });
+        mInstrumentation.waitForIdleSync();
 
         // Get the height of a row item in our popup window
         final int popupRowHeight = mActivity.getResources().getDimensionPixelSize(
@@ -738,7 +780,8 @@ public class ListPopupWindowTest extends
         int swipeAmount = 2 * popupRowHeight;
 
         // Emulate drag-down gesture with a sequence of motion events
-        emulateDragDownGesture(emulatedX, emulatedStartY, swipeAmount);
+        CtsTouchUtils.emulateDragGesture(mInstrumentation, emulatedX, emulatedStartY,
+                0, swipeAmount);
 
         // We expect the swipe / drag gesture to result in clicking the second item in our list.
         verify(mPopupWindowBuilder.mOnItemClickListener, times(1)).onItemClick(
@@ -952,7 +995,8 @@ public class ListPopupWindowTest extends
             if (mHasItemSelectedListener) {
                 mOnItemSelectedListener = mock(AdapterView.OnItemSelectedListener.class);
                 mPopupWindow.setOnItemSelectedListener(mOnItemSelectedListener);
-                mPopupWindow.setListSelector(mActivity.getDrawable(R.drawable.red_fill));
+                mPopupWindow.setListSelector(
+                        mActivity.getDrawable(R.drawable.red_translucent_fill));
             }
 
             if (mHasDismissListener) {
@@ -990,35 +1034,22 @@ public class ListPopupWindowTest extends
 
         private void show() {
             configure();
-
-            mInstrumentation.runOnMainSync(
-                    () -> {
-                        mPopupWindow.show();
-                        assertTrue(mPopupWindow.isShowing());
-                    });
-            mInstrumentation.waitForIdleSync();
+            mPopupWindow.show();
+            assertTrue(mPopupWindow.isShowing());
         }
 
         private void showAgain() {
-            mInstrumentation.runOnMainSync(
-                    () -> {
-                        if (mPopupWindow == null || mPopupWindow.isShowing()) {
-                            return;
-                        }
-                        mPopupWindow.show();
-                        assertTrue(mPopupWindow.isShowing());
-                    });
-            mInstrumentation.waitForIdleSync();
+            if (mPopupWindow == null || mPopupWindow.isShowing()) {
+                return;
+            }
+            mPopupWindow.show();
+            assertTrue(mPopupWindow.isShowing());
         }
 
         private void dismiss() {
-            mInstrumentation.runOnMainSync(
-                    () -> {
-                        if (mPopupWindow == null || !mPopupWindow.isShowing())
-                            return;
-                        mPopupWindow.dismiss();
-                    });
-            mInstrumentation.waitForIdleSync();
+            if (mPopupWindow == null || !mPopupWindow.isShowing())
+                return;
+            mPopupWindow.dismiss();
         }
     }
 }

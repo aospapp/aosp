@@ -195,7 +195,7 @@ src="../images/image_gmail_installed.png" id="figure1" /></td>
       of code (in this case, the Browser) that knows how to handle that Intent, and
       runs it. Intents can also be used to broadcast interesting events (such as a
       notification) system-wide. See
-      [https://developer.android.com/reference/android/content/Intent.html](https://developer.android.com/reference/android/content/Intent.html.</p>
+      <a href="https://developer.android.com/reference/android/content/Intent.html">https://developer.android.com/reference/android/content/Intent.html</a>.</p>
   </li>
   <li>
     <p><strong>ContentProviders</strong>: A ContentProvider is a data storehouse that provides

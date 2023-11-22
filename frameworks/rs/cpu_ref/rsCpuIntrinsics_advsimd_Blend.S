@@ -350,7 +350,7 @@
         uqrshrn     v2.8b,  v2.8h,  #8
         uqrshrn2    v2.16b, v14.8h, #8
 
-        mvn         v3.16b, v3.16b
+        mov         v3.16b, v11.16b
 .endm
 
 #define params_MULTIPLY zipped=0

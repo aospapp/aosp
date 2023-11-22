@@ -176,13 +176,13 @@ public final class CreateAttributeNS extends DOMTestCase {
 
         doc = (Document) load("hc_staff", builder);
 
-        // BEGIN android-changed
+        // BEGIN Android-changed
         //     Our exception priorities differ from the spec
         try {
             doc.createAttributeNS(namespaceURI, "");
             fail();
         } catch (DOMException ex) {
         }
-        // END android-changed
+        // END Android-changed
     }
 }

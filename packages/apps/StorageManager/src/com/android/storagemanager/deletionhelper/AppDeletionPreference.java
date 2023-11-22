@@ -15,34 +15,27 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.content.Context;
-import android.support.v7.preference.CheckBoxPreference;
-import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceViewHolder;
-import android.text.format.Formatter;
-import android.view.View;
-import android.widget.CheckBox;
-import android.widget.Switch;
-import android.widget.TextView;
-import com.android.storagemanager.deletionhelper.AppStateUsageStatsBridge.UsageStatsState;
+import android.text.format.DateUtils;
 import com.android.storagemanager.R;
-
-import com.android.settingslib.applications.ApplicationsState;
-import com.android.settingslib.applications.ApplicationsState.AppEntry;
+import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Preference item for an app with a switch to signify if it should be uninstalled.
- * This shows the name and icon of the app along with the days since its last use.
+ * Preference item for an app with a switch to signify if it should be uninstalled. This shows the
+ * name and icon of the app along with the days since its last use.
  */
-public class AppDeletionPreference extends NestedCheckboxPreference {
-    private AppEntry mEntry;
+public class AppDeletionPreference extends NestedDeletionPreference {
+    private PackageInfo mApp;
     private Context mContext;
 
-    public AppDeletionPreference(Context context, AppEntry item) {
+    public AppDeletionPreference(Context context, PackageInfo item) {
         super(context);
-        mEntry = item;
+        mApp = item;
         mContext = context;
         setIcon(item.icon);
         setTitle(item.label);
+        setItemSize(mApp.size);
     }
 
     @Override
@@ -55,30 +48,28 @@ public class AppDeletionPreference extends NestedCheckboxPreference {
      * Returns the package name for the app that these preference represents.
      */
     public String getPackageName() {
-        synchronized(mEntry) {
-            return mEntry.info.packageName;
-        }
+        return mApp.packageName;
     }
 
     public void updateSummary() {
-        if (mEntry.extraInfo == null) return;
-        if (mEntry.size == ApplicationsState.SIZE_UNKNOWN ||
-                mEntry.size == ApplicationsState.SIZE_INVALID) {
-            return;
-        }
-
-        UsageStatsState extraData = (UsageStatsState) mEntry.extraInfo;
-        String fileSize = Formatter.formatFileSize(mContext, mEntry.size);
-        if (extraData.daysSinceLastUse == AppStateUsageStatsBridge.NEVER_USED) {
-            setSummary(mContext.getString(R.string.deletion_helper_app_summary_never_used,
-                    fileSize));
-        } else if (extraData.daysSinceLastUse == AppStateUsageStatsBridge.UNKNOWN_LAST_USE) {
-            setSummary(mContext.getString(R.string.deletion_helper_app_summary_unknown_used,
-                    fileSize));
+        if (mApp == null) return;
+        if (mApp.daysSinceLastUse == AppsAsyncLoader.NEVER_USED) {
+            setSummary(mContext.getString(R.string.deletion_helper_app_summary_never_used));
+        } else if (mApp.daysSinceLastUse == AppsAsyncLoader.UNKNOWN_LAST_USE) {
+            setSummary(mContext.getString(R.string.deletion_helper_app_summary_unknown_used));
         } else {
-            setSummary(mContext.getString(R.string.deletion_helper_app_summary,
-                    fileSize,
-                    extraData.daysSinceLastUse));
+            // Use the formatter for the "yesterday" and "today" cases.
+            if (mApp.daysSinceLastUse <= 1) {
+                final long now = System.currentTimeMillis();
+                final long lastUse = now - TimeUnit.DAYS.toMillis(mApp.daysSinceLastUse);
+                setSummary(
+                        DateUtils.getRelativeTimeSpanString(
+                                lastUse, now, DateUtils.DAY_IN_MILLIS, 0));
+            } else {
+                setSummary(
+                        mContext.getString(
+                                R.string.deletion_helper_app_summary, mApp.daysSinceLastUse));
+            }
         }
     }
 

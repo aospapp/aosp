@@ -28,6 +28,8 @@ import android.widget.ImageView;
 
 /**
  * A custom view to provide list scroll behaviour -- up/down buttons and scroll indicator.
+ *
+ * @hide
  */
 public class PagedScrollBarView extends FrameLayout
         implements View.OnClickListener, View.OnLongClickListener {
@@ -74,15 +76,17 @@ public class PagedScrollBarView extends FrameLayout
                 R.layout.car_paged_scrollbar_buttons, this /*root*/, true /*attachToRoot*/);
 
         mUpButton = (ImageView) findViewById(R.id.page_up);
-        mUpButton.setImageDrawable(CarUiResourceLoader.getDrawable(context, "ic_up"));
+        mUpButton.setImageDrawable(context.getDrawable(R.drawable.ic_up_button));
         mUpButton.setOnClickListener(this);
         mUpButton.setOnLongClickListener(this);
         mDownButton = (ImageView) findViewById(R.id.page_down);
-        mDownButton.setImageDrawable(CarUiResourceLoader.getDrawable(context, "ic_down"));
+        mDownButton.setImageDrawable(context.getDrawable(R.drawable.ic_down_button));
         mDownButton.setOnClickListener(this);
         mDownButton.setOnLongClickListener(this);
 
         mScrollThumb = (ImageView) findViewById(R.id.scrollbar_thumb);
+        mScrollThumb.setAlpha(0.5f);
+
         mFiller = findViewById(R.id.filler);
 
         mMinThumbLength = getResources().getDimensionPixelSize(R.dimen.min_thumb_height);
@@ -151,6 +155,8 @@ public class PagedScrollBarView extends FrameLayout
         mUpButton.setBackgroundResource(R.drawable.car_pagination_background);
         mDownButton.setColorFilter(color, PorterDuff.Mode.SRC_IN);
         mDownButton.setBackgroundResource(R.drawable.car_pagination_background);
+
+        mScrollThumb.setBackgroundColor(color);
     }
 
     /** Sets auto light mode */
@@ -160,6 +166,8 @@ public class PagedScrollBarView extends FrameLayout
         mUpButton.setBackgroundResource(R.drawable.car_pagination_background_light);
         mDownButton.setColorFilter(color, PorterDuff.Mode.SRC_IN);
         mDownButton.setBackgroundResource(R.drawable.car_pagination_background_light);
+
+        mScrollThumb.setBackgroundColor(color);
     }
 
     /** Sets auto dark mode */
@@ -169,6 +177,8 @@ public class PagedScrollBarView extends FrameLayout
         mUpButton.setBackgroundResource(R.drawable.car_pagination_background_dark);
         mDownButton.setColorFilter(color, PorterDuff.Mode.SRC_IN);
         mDownButton.setBackgroundResource(R.drawable.car_pagination_background_dark);
+
+        mScrollThumb.setBackgroundColor(color);
     }
 
     protected void setUpEnabled(boolean enabled) {

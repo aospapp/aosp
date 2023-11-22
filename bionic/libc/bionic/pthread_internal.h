@@ -110,10 +110,13 @@ class pthread_internal_t {
    */
 #define __BIONIC_DLERROR_BUFFER_SIZE 512
   char dlerror_buffer[__BIONIC_DLERROR_BUFFER_SIZE];
+
+  bionic_tls* bionic_tls;
 };
 
 __LIBC_HIDDEN__ int __init_thread(pthread_internal_t* thread);
 __LIBC_HIDDEN__ void __init_tls(pthread_internal_t* thread);
+__LIBC_HIDDEN__ void __init_thread_stack_guard(pthread_internal_t* thread);
 __LIBC_HIDDEN__ void __init_alternate_signal_stack(pthread_internal_t*);
 
 __LIBC_HIDDEN__ pthread_t           __pthread_internal_add(pthread_internal_t* thread);
@@ -123,10 +126,26 @@ __LIBC_HIDDEN__ void                __pthread_internal_remove_and_free(pthread_i
 
 // Make __get_thread() inlined for performance reason. See http://b/19825434.
 static inline __always_inline pthread_internal_t* __get_thread() {
-  return reinterpret_cast<pthread_internal_t*>(__get_tls()[TLS_SLOT_THREAD_ID]);
+  void** tls = __get_tls();
+  if (__predict_true(tls)) {
+    return reinterpret_cast<pthread_internal_t*>(tls[TLS_SLOT_THREAD_ID]);
+  }
+
+  // This happens when called during libc initialization before TLS has been initialized.
+  return nullptr;
+}
+
+static inline __always_inline bionic_tls& __get_bionic_tls() {
+  return *__get_thread()->bionic_tls;
 }
 
 __LIBC_HIDDEN__ void pthread_key_clean_all(void);
+
+// SIGSTKSZ (8kB) is not big enough.
+// snprintf to a stack buffer of size PATH_MAX consumes ~7kB of stack.
+// Also, on 64-bit, logging uses more than 8kB by itself:
+// https://code.google.com/p/android/issues/detail?id=187064
+#define SIGNAL_STACK_SIZE_WITHOUT_GUARD_PAGE (16 * 1024)
 
 /*
  * Traditionally we gave threads a 1MiB stack. When we started
@@ -135,15 +154,10 @@ __LIBC_HIDDEN__ void pthread_key_clean_all(void);
  * from the default thread stack size. This should keep memory usage
  * roughly constant.
  */
-#define PTHREAD_STACK_SIZE_DEFAULT ((1 * 1024 * 1024) - SIGSTKSZ)
+#define PTHREAD_STACK_SIZE_DEFAULT ((1 * 1024 * 1024) - SIGNAL_STACK_SIZE_WITHOUT_GUARD_PAGE)
 
 // Leave room for a guard page in the internally created signal stacks.
-#if defined(__LP64__)
-// SIGSTKSZ is not big enough for 64-bit arch. See http://b/23041777.
-#define SIGNAL_STACK_SIZE (16 * 1024 + PAGE_SIZE)
-#else
-#define SIGNAL_STACK_SIZE (SIGSTKSZ + PAGE_SIZE)
-#endif
+#define SIGNAL_STACK_SIZE (SIGNAL_STACK_SIZE_WITHOUT_GUARD_PAGE + PAGE_SIZE)
 
 /* Needed by fork. */
 __LIBC_HIDDEN__ extern void __bionic_atfork_run_prepare();

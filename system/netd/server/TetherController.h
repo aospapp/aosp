@@ -23,6 +23,8 @@
 #include <set>
 #include <string>
 
+namespace android {
+namespace net {
 
 class TetherController {
 private:
@@ -59,5 +61,8 @@ public:
 private:
     bool setIpFwdEnabled();
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif

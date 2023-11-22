@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# pylint: disable=missing-docstring
 
 import unittest
 import common
@@ -6,7 +7,7 @@ import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.server import utils
-from autotest_lib.server.hosts import base_classes, bootloader
+from autotest_lib.server.hosts import base_classes
 
 
 class test_host_class(unittest.TestCase):
@@ -17,28 +18,17 @@ class test_host_class(unittest.TestCase):
                            lambda: "/unittest/server")
         self.god.stub_function(global_config.global_config,
                                "get_config_value")
-        # stub out the bootloader
-        self.real_bootloader = bootloader.Bootloader
-        bootloader.Bootloader = lambda arg: object()
 
 
     def tearDown(self):
         self.god.unstub_all()
-        bootloader.Bootloader = self.real_bootloader
 
 
     def test_init(self):
         self.god.stub_function(utils, "get_server_dir")
         host = base_classes.Host.__new__(base_classes.Host)
-        bootloader.Bootloader = \
-                self.god.create_mock_class_obj(self.real_bootloader,
-                                               "Bootloader")
-        # overwrite this attribute as it's irrelevant for these tests
-        # and may cause problems with construction of the mock
-        bootloader.Bootloader.boottool_path = None
         # set up the recording
         utils.get_server_dir.expect_call().and_return("/unittest/server")
-        bootloader.Bootloader.expect_new(host)
         # run the actual test
         host.__init__()
         self.god.check_playback()

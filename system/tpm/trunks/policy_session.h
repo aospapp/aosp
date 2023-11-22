@@ -43,10 +43,9 @@ class PolicySession {
   // |bind_authorization_value|. Encryption is enabled if |enable_encryption| is
   // true. The session remains active until this object is destroyed or another
   // session is started with a call to Start*Session.
-  virtual TPM_RC StartBoundSession(
-      TPMI_DH_ENTITY bind_entity,
-      const std::string& bind_authorization_value,
-      bool enable_encryption) = 0;
+  virtual TPM_RC StartBoundSession(TPMI_DH_ENTITY bind_entity,
+                                   const std::string& bind_authorization_value,
+                                   bool enable_encryption) = 0;
 
   // Starts a salted, unbound session. Encryption is enabled if
   // |enable_encryption| is true. The session remains active until this object
@@ -74,6 +73,9 @@ class PolicySession {
   // This method specifies that Authorization Values need to be included in
   // HMAC computation done by the AuthorizationDelegate.
   virtual TPM_RC PolicyAuthValue() = 0;
+
+  // Reset a policy session to its original state.
+  virtual TPM_RC PolicyRestart() = 0;
 
   // Sets the current entity authorization value. This can be safely called
   // while the session is active and subsequent commands will use the value.

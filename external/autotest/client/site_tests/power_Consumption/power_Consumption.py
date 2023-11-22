@@ -77,7 +77,10 @@ class power_Consumption(test.test):
         self._test_server = httpd.HTTPListener(self._httpd_port,
                                                docroot=self.bindir)
 
+        # initialize various interesting power related stats
+        self._statomatic = power_status.StatoMatic()
         self._test_server.run()
+
 
         logging.info('initialize() finished')
 
@@ -499,6 +502,7 @@ class power_Consumption(test.test):
         # Wrap up
         keyvals = self._plog.calc()
         keyvals.update(self._tmp_keyvals)
+        keyvals.update(self._statomatic.publish())
 
         # Calculate expected battery life time with ChromeVer power draw
         idle_name = 'ChromeVer_system_pwr'

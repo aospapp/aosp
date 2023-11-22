@@ -55,26 +55,26 @@ SYS_FUNC(brk)
 #include "xlat/mmap_flags.h"
 
 static void
-print_mmap(struct tcb *tcp, long *u_arg, unsigned long long offset)
+print_mmap(struct tcb *tcp, kernel_ulong_t *u_arg, unsigned long long offset)
 {
-	/* addr */
-	printaddr(u_arg[0]);
-	/* len */
-	tprintf(", %lu, ", u_arg[1]);
-	/* prot */
-	printflags(mmap_prot, u_arg[2], "PROT_???");
+	const kernel_ulong_t addr = u_arg[0];
+	const kernel_ulong_t len = u_arg[1];
+	const kernel_ulong_t prot = u_arg[2];
+	const kernel_ulong_t flags = u_arg[3];
+	const int fd = u_arg[4];
+
+	printaddr(addr);
+	tprintf(", %" PRI_klu ", ", len);
+	printflags64(mmap_prot, prot, "PROT_???");
 	tprints(", ");
-	/* flags */
 #ifdef MAP_TYPE
-	printxval(mmap_flags, u_arg[3] & MAP_TYPE, "MAP_???");
-	addflags(mmap_flags, u_arg[3] & ~MAP_TYPE);
+	printxval64(mmap_flags, flags & MAP_TYPE, "MAP_???");
+	addflags(mmap_flags, flags & ~MAP_TYPE);
 #else
-	printflags(mmap_flags, u_arg[3], "MAP_???");
+	printflags64(mmap_flags, flags, "MAP_???");
 #endif
 	tprints(", ");
-	/* fd */
-	printfd(tcp, u_arg[4]);
-	/* offset */
+	printfd(tcp, fd);
 	tprintf(", %#llx", offset);
 }
 
@@ -86,72 +86,61 @@ print_mmap(struct tcb *tcp, long *u_arg, unsigned long long offset)
  * Confused? Me too!
  */
 
+#if defined AARCH64 || defined ARM \
+ || defined I386 || defined X86_64 || defined X32 \
+ || defined M68K \
+ || defined S390 || defined S390X
 /* Params are pointed to by u_arg[0], offset is in bytes */
 SYS_FUNC(old_mmap)
 {
-	long u_arg[6];
-#if defined(IA64)
-	/*
-	 * IA64 processes never call this routine, they only use the
-	 * new 'sys_mmap' interface. Only IA32 processes come here.
-	 */
-	int i;
-	unsigned narrow_arg[6];
-	if (umoven(tcp, tcp->u_arg[0], sizeof(narrow_arg), narrow_arg) == -1)
-		return 0;
+	kernel_ulong_t u_arg[6];
+# if ANY_WORDSIZE_LESS_THAN_KERNEL_LONG
+	/* We are here only in a 32-bit personality. */
+	unsigned int narrow_arg[6];
+	if (umove_or_printaddr(tcp, tcp->u_arg[0], &narrow_arg))
+		return RVAL_DECODED | RVAL_HEX;
+	unsigned int i;
 	for (i = 0; i < 6; i++)
-		u_arg[i] = (unsigned long) narrow_arg[i];
-#elif defined(X86_64)
-	/* We are here only in personality 1 (i386) */
-	int i;
-	unsigned narrow_arg[6];
-	if (umoven(tcp, tcp->u_arg[0], sizeof(narrow_arg), narrow_arg) == -1)
-		return 0;
-	for (i = 0; i < 6; ++i)
-		u_arg[i] = (unsigned long) narrow_arg[i];
-#else
-	if (umoven(tcp, tcp->u_arg[0], sizeof(u_arg), u_arg) == -1)
-		return 0;
-#endif
-	print_mmap(tcp, u_arg, (unsigned long) u_arg[5]);
+		u_arg[i] = narrow_arg[i];
+# else
+	if (umove_or_printaddr(tcp, tcp->u_arg[0], &u_arg))
+		return RVAL_DECODED | RVAL_HEX;
+# endif
+	print_mmap(tcp, u_arg, u_arg[5]);
 
 	return RVAL_DECODED | RVAL_HEX;
 }
+#endif /* old_mmap architectures */
 
-#if defined(S390)
+#ifdef S390
 /* Params are pointed to by u_arg[0], offset is in pages */
 SYS_FUNC(old_mmap_pgoff)
 {
-	long u_arg[5];
+	kernel_ulong_t u_arg[5];
 	int i;
-	unsigned narrow_arg[6];
+	unsigned int narrow_arg[6];
 	unsigned long long offset;
-	if (umoven(tcp, tcp->u_arg[0], sizeof(narrow_arg), narrow_arg) == -1)
-		return 0;
+	if (umove_or_printaddr(tcp, tcp->u_arg[0], &narrow_arg))
+		return RVAL_DECODED | RVAL_HEX;
 	for (i = 0; i < 5; i++)
-		u_arg[i] = (unsigned long) narrow_arg[i];
+		u_arg[i] = narrow_arg[i];
 	offset = narrow_arg[5];
 	offset *= get_pagesize();
 	print_mmap(tcp, u_arg, offset);
 
 	return RVAL_DECODED | RVAL_HEX;
 }
-#endif
+#endif /* S390 */
 
 /* Params are passed directly, offset is in bytes */
 SYS_FUNC(mmap)
 {
-	unsigned long long offset = (unsigned long) tcp->u_arg[5];
-#if defined(LINUX_MIPSN32) || defined(X32)
-	/* Try test/x32_mmap.c */
-	offset = tcp->ext_arg[5];
-#endif
 	/* Example of kernel-side handling of this variety of mmap:
 	 * arch/x86/kernel/sys_x86_64.c::SYSCALL_DEFINE6(mmap, ...) calls
 	 * sys_mmap_pgoff(..., off >> PAGE_SHIFT); i.e. off is in bytes,
 	 * since the above code converts off to pages.
 	 */
-	print_mmap(tcp, tcp->u_arg, offset);
+	print_mmap(tcp, tcp->u_arg, tcp->u_arg[5]);
 
 	return RVAL_DECODED | RVAL_HEX;
 }
@@ -161,7 +150,7 @@ SYS_FUNC(mmap_pgoff)
 {
 	/* Try test/mmap_offset_decode.c */
 	unsigned long long offset;
-	offset = (unsigned long) tcp->u_arg[5];
+	offset = tcp->u_arg[5];
 	offset *= get_pagesize();
 	print_mmap(tcp, tcp->u_arg, offset);
 
@@ -172,7 +161,7 @@ SYS_FUNC(mmap_pgoff)
 SYS_FUNC(mmap_4koff)
 {
 	unsigned long long offset;
-	offset = (unsigned long) tcp->u_arg[5];
+	offset = tcp->u_arg[5];
 	offset <<= 12;
 	print_mmap(tcp, tcp->u_arg, offset);
 
@@ -182,18 +171,32 @@ SYS_FUNC(mmap_4koff)
 SYS_FUNC(munmap)
 {
 	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu", tcp->u_arg[1]);
+	tprintf(", %" PRI_klu, tcp->u_arg[1]);
+
+	return RVAL_DECODED;
+}
+
+static int
+do_mprotect(struct tcb *tcp, bool has_pkey)
+{
+	printaddr(tcp->u_arg[0]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[1]);
+	printflags64(mmap_prot, tcp->u_arg[2], "PROT_???");
+
+	if (has_pkey)
+		tprintf(", %d", (int) tcp->u_arg[3]);
 
 	return RVAL_DECODED;
 }
 
 SYS_FUNC(mprotect)
 {
-	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu, ", tcp->u_arg[1]);
-	printflags(mmap_prot, tcp->u_arg[2], "PROT_???");
+	return do_mprotect(tcp, false);
+}
 
-	return RVAL_DECODED;
+SYS_FUNC(pkey_mprotect)
+{
+	return do_mprotect(tcp, true);
 }
 
 #include "xlat/mremap_flags.h"
@@ -201,8 +204,8 @@ SYS_FUNC(mprotect)
 SYS_FUNC(mremap)
 {
 	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu, %lu, ", tcp->u_arg[1], tcp->u_arg[2]);
-	printflags(mremap_flags, tcp->u_arg[3], "MREMAP_???");
+	tprintf(", %" PRI_klu ", %" PRI_klu ", ", tcp->u_arg[1], tcp->u_arg[2]);
+	printflags64(mremap_flags, tcp->u_arg[3], "MREMAP_???");
 #ifdef MREMAP_FIXED
 	if ((tcp->u_arg[3] & (MREMAP_MAYMOVE | MREMAP_FIXED)) ==
 	    (MREMAP_MAYMOVE | MREMAP_FIXED)) {
@@ -218,7 +221,7 @@ SYS_FUNC(mremap)
 SYS_FUNC(madvise)
 {
 	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu, ", tcp->u_arg[1]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[1]);
 	printxval(madvise_cmds, tcp->u_arg[2], "MADV_???");
 
 	return RVAL_DECODED;
@@ -240,7 +243,7 @@ SYS_FUNC(msync)
 	/* addr */
 	printaddr(tcp->u_arg[0]);
 	/* len */
-	tprintf(", %lu, ", tcp->u_arg[1]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[1]);
 	/* flags */
 	printflags(mctl_sync, tcp->u_arg[2], "MS_???");
 
@@ -252,7 +255,7 @@ SYS_FUNC(msync)
 SYS_FUNC(mlock2)
 {
 	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu, ", tcp->u_arg[1]);
+	tprintf(", %" PRI_klu ", ", tcp->u_arg[1]);
 	printflags(mlock_flags, tcp->u_arg[2], "MLOCK_???");
 
 	return RVAL_DECODED;
@@ -262,19 +265,24 @@ SYS_FUNC(mincore)
 {
 	if (entering(tcp)) {
 		printaddr(tcp->u_arg[0]);
-		tprintf(", %lu, ", tcp->u_arg[1]);
+		tprintf(", %" PRI_klu ", ", tcp->u_arg[1]);
 	} else {
-		unsigned long i, len;
-		char *vec = NULL;
+		const unsigned long page_size = get_pagesize();
+		const unsigned long page_mask = page_size - 1;
+		unsigned long len = tcp->u_arg[1];
+		unsigned char *vec = NULL;
 
-		len = tcp->u_arg[1];
+		len = len / page_size + (len & page_mask ? 1 : 0);
 		if (syserror(tcp) || !verbose(tcp) ||
 		    !tcp->u_arg[2] || !(vec = malloc(len)) ||
 		    umoven(tcp, tcp->u_arg[2], len, vec) < 0)
 			printaddr(tcp->u_arg[2]);
 		else {
+			unsigned long i;
 			tprints("[");
 			for (i = 0; i < len; i++) {
+				if (i)
+					tprints(", ");
 				if (abbrev(tcp) && i >= max_strlen) {
 					tprints("...");
 					break;
@@ -292,250 +300,54 @@ SYS_FUNC(mincore)
  || defined SPARC || defined SPARC64
 SYS_FUNC(getpagesize)
 {
-	if (exiting(tcp))
-		return RVAL_HEX;
-	return 0;
+	return RVAL_DECODED | RVAL_HEX;
 }
 #endif
 
 SYS_FUNC(remap_file_pages)
 {
-	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu, ", tcp->u_arg[1]);
-	printflags(mmap_prot, tcp->u_arg[2], "PROT_???");
-	tprintf(", %lu, ", tcp->u_arg[3]);
+	const kernel_ulong_t addr = tcp->u_arg[0];
+	const kernel_ulong_t size = tcp->u_arg[1];
+	const kernel_ulong_t prot = tcp->u_arg[2];
+	const kernel_ulong_t pgoff = tcp->u_arg[3];
+	const kernel_ulong_t flags = tcp->u_arg[4];
+
+	printaddr(addr);
+	tprintf(", %" PRI_klu ", ", size);
+	printflags64(mmap_prot, prot, "PROT_???");
+	tprintf(", %" PRI_klu ", ", pgoff);
 #ifdef MAP_TYPE
-	printxval(mmap_flags, tcp->u_arg[4] & MAP_TYPE, "MAP_???");
-	addflags(mmap_flags, tcp->u_arg[4] & ~MAP_TYPE);
+	printxval64(mmap_flags, flags & MAP_TYPE, "MAP_???");
+	addflags(mmap_flags, flags & ~MAP_TYPE);
 #else
-	printflags(mmap_flags, tcp->u_arg[4], "MAP_???");
+	printflags64(mmap_flags, flags, "MAP_???");
 #endif
 
 	return RVAL_DECODED;
 }
 
-#define MPOL_DEFAULT    0
-#define MPOL_PREFERRED  1
-#define MPOL_BIND       2
-#define MPOL_INTERLEAVE 3
-
-#define MPOL_F_NODE     (1<<0)
-#define MPOL_F_ADDR     (1<<1)
-
-#define MPOL_MF_STRICT  (1<<0)
-#define MPOL_MF_MOVE	(1<<1)
-#define MPOL_MF_MOVE_ALL (1<<2)
-
-#include "xlat/policies.h"
-#include "xlat/mbindflags.h"
-#include "xlat/mempolicyflags.h"
-#include "xlat/move_pages_flags.h"
-
-static void
-get_nodes(struct tcb *tcp, unsigned long ptr, unsigned long maxnodes, int err)
-{
-	unsigned long nlongs, size, end;
-
-	nlongs = (maxnodes + 8 * sizeof(long) - 1) / (8 * sizeof(long));
-	size = nlongs * sizeof(long);
-	end = ptr + size;
-	if (nlongs == 0 || ((err || verbose(tcp)) && (size * 8 == maxnodes)
-			    && (end > ptr))) {
-		unsigned long n, cur, abbrev_end;
-		int failed = 0;
-
-		if (abbrev(tcp)) {
-			abbrev_end = ptr + max_strlen * sizeof(long);
-			if (abbrev_end < ptr)
-				abbrev_end = end;
-		} else {
-			abbrev_end = end;
-		}
-		tprints(", {");
-		for (cur = ptr; cur < end; cur += sizeof(long)) {
-			if (cur > ptr)
-				tprints(", ");
-			if (cur >= abbrev_end) {
-				tprints("...");
-				break;
-			}
-			if (umoven(tcp, cur, sizeof(n), &n) < 0) {
-				tprints("?");
-				failed = 1;
-				break;
-			}
-			tprintf("%#0*lx", (int) sizeof(long) * 2 + 2, n);
-		}
-		tprints("}");
-		if (failed) {
-			tprints(" ");
-			printaddr(ptr);
-		}
-	} else {
-		tprints(" ");
-		printaddr(ptr);
-	}
-	tprintf(", %lu", maxnodes);
-}
-
-SYS_FUNC(mbind)
-{
-	printaddr(tcp->u_arg[0]);
-	tprintf(", %lu, ", tcp->u_arg[1]);
-	printxval(policies, tcp->u_arg[2], "MPOL_???");
-	get_nodes(tcp, tcp->u_arg[3], tcp->u_arg[4], 0);
-	tprints(", ");
-	printflags(mbindflags, tcp->u_arg[5], "MPOL_???");
-
-	return RVAL_DECODED;
-}
-
-SYS_FUNC(set_mempolicy)
-{
-	printxval(policies, tcp->u_arg[0], "MPOL_???");
-	get_nodes(tcp, tcp->u_arg[1], tcp->u_arg[2], 0);
-
-	return RVAL_DECODED;
-}
-
-SYS_FUNC(get_mempolicy)
-{
-	if (exiting(tcp)) {
-		int pol;
-		if (!umove_or_printaddr(tcp, tcp->u_arg[0], &pol))
-			printxval(policies, pol, "MPOL_???");
-		get_nodes(tcp, tcp->u_arg[1], tcp->u_arg[2], syserror(tcp));
-		tprints(", ");
-		printaddr(tcp->u_arg[3]);
-		tprints(", ");
-		printflags(mempolicyflags, tcp->u_arg[4], "MPOL_???");
-	}
-	return 0;
-}
-
-SYS_FUNC(migrate_pages)
-{
-	tprintf("%ld, ", (long) (pid_t) tcp->u_arg[0]);
-	get_nodes(tcp, tcp->u_arg[2], tcp->u_arg[1], 0);
-	tprints(", ");
-	get_nodes(tcp, tcp->u_arg[3], tcp->u_arg[1], 0);
-
-	return RVAL_DECODED;
-}
-
-SYS_FUNC(move_pages)
-{
-	if (entering(tcp)) {
-		unsigned long npages = tcp->u_arg[1];
-		tprintf("%ld, %lu, ", tcp->u_arg[0], npages);
-		if (tcp->u_arg[2] == 0)
-			tprints("NULL, ");
-		else {
-			unsigned int i;
-			long puser = tcp->u_arg[2];
-			tprints("{");
-			for (i = 0; i < npages; ++i) {
-				void *p;
-				if (i > 0)
-					tprints(", ");
-				if (umove(tcp, puser, &p) < 0) {
-					tprints("???");
-					break;
-				}
-				tprintf("%p", p);
-				puser += sizeof(void *);
-			}
-			tprints("}, ");
-		}
-		if (tcp->u_arg[3] == 0)
-			tprints("NULL, ");
-		else {
-			unsigned int i;
-			long nodeuser = tcp->u_arg[3];
-			tprints("{");
-			for (i = 0; i < npages; ++i) {
-				int node;
-				if (i > 0)
-					tprints(", ");
-				if (umove(tcp, nodeuser, &node) < 0) {
-					tprints("???");
-					break;
-				}
-				tprintf("%#x", node);
-				nodeuser += sizeof(int);
-			}
-			tprints("}, ");
-		}
-	} else {
-		unsigned long npages = tcp->u_arg[1];
-		if (tcp->u_arg[4] == 0)
-			tprints("NULL, ");
-		else {
-			unsigned int i;
-			long statususer = tcp->u_arg[4];
-			tprints("{");
-			for (i = 0; i < npages; ++i) {
-				int status;
-				if (i > 0)
-					tprints(", ");
-				if (umove(tcp, statususer, &status) < 0) {
-					tprints("???");
-					break;
-				}
-				tprintf("%#x", status);
-				statususer += sizeof(int);
-			}
-			tprints("}, ");
-		}
-		printflags(move_pages_flags, tcp->u_arg[5], "MPOL_???");
-	}
-	return 0;
-}
-
 #if defined(POWERPC)
+static bool
+print_protmap_entry(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
+{
+	tprintf("%#08x", * (unsigned int *) elem_buf);
+
+	return true;
+}
+
 SYS_FUNC(subpage_prot)
 {
-	unsigned long cur, end, abbrev_end, entries;
-	unsigned int entry;
+	kernel_ulong_t addr = tcp->u_arg[0];
+	kernel_ulong_t len = tcp->u_arg[1];
+	kernel_ulong_t nmemb = len >> 16;
+	kernel_ulong_t map = tcp->u_arg[2];
 
-	printaddr(tcp->u_arg[0]);
-	tprints(", ");
-	printaddr(tcp->u_arg[1]);
-	tprints(", ");
-	entries = tcp->u_arg[1] >> 16;
-	if (!entries || !tcp->u_arg[2]) {
-		tprints("{}");
-		return 0;
-	}
-	cur = tcp->u_arg[2];
-	end = cur + (sizeof(int) * entries);
-	if (!verbose(tcp) || end < (unsigned long) tcp->u_arg[2]) {
-		printaddr(tcp->u_arg[2]);
-		return 0;
-	}
-	if (abbrev(tcp)) {
-		abbrev_end = cur + (sizeof(int) * max_strlen);
-		if (abbrev_end > end)
-			abbrev_end = end;
-	}
-	else
-		abbrev_end = end;
-	tprints("{");
-	for (; cur < end; cur += sizeof(int)) {
-		if (cur > (unsigned long) tcp->u_arg[2])
-			tprints(", ");
-		if (cur >= abbrev_end) {
-			tprints("...");
-			break;
-		}
-		if (umove(tcp, cur, &entry) < 0) {
-			tprintf("??? [%#lx]", cur);
-			break;
-		}
-		else
-			tprintf("%#08x", entry);
-	}
-	tprints("}");
+	printaddr(addr);
+	tprintf(", %" PRI_klu ", ", len);
+
+	unsigned int entry;
+	print_array(tcp, map, nmemb, &entry, sizeof(entry),
+		    umoven_or_printaddr, print_protmap_entry, 0);
 
 	return RVAL_DECODED;
 }

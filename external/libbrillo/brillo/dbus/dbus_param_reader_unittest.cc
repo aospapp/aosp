@@ -17,7 +17,7 @@ namespace brillo {
 namespace dbus_utils {
 
 TEST(DBusParamReader, NoArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageReader reader(message.get());
   bool called = false;
   auto callback = [&called]() { called = true; };
@@ -26,7 +26,7 @@ TEST(DBusParamReader, NoArgs) {
 }
 
 TEST(DBusParamReader, OneArg) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, 123);
   MessageReader reader(message.get());
@@ -41,7 +41,7 @@ TEST(DBusParamReader, OneArg) {
 }
 
 TEST(DBusParamReader, ManyArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   AppendValueToWriter(&writer, 1972);
@@ -62,7 +62,7 @@ TEST(DBusParamReader, ManyArgs) {
 }
 
 TEST(DBusParamReader, TooManyArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   AppendValueToWriter(&writer, 1972);
@@ -85,7 +85,7 @@ TEST(DBusParamReader, TooManyArgs) {
 }
 
 TEST(DBusParamReader, TooFewArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   MessageReader reader(message.get());
@@ -105,7 +105,7 @@ TEST(DBusParamReader, TooFewArgs) {
 }
 
 TEST(DBusParamReader, TypeMismatch) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   AppendValueToWriter(&writer, 1972);
@@ -126,7 +126,7 @@ TEST(DBusParamReader, TypeMismatch) {
 }
 
 TEST(DBusParamReader, NoArgs_With_OUT) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageReader reader(message.get());
   bool called = false;
   auto callback = [&called](int* param1) {
@@ -139,7 +139,7 @@ TEST(DBusParamReader, NoArgs_With_OUT) {
 }
 
 TEST(DBusParamReader, OneArg_Before_OUT) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, 123);
   MessageReader reader(message.get());
@@ -155,7 +155,7 @@ TEST(DBusParamReader, OneArg_Before_OUT) {
 }
 
 TEST(DBusParamReader, OneArg_After_OUT) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, 123);
   MessageReader reader(message.get());
@@ -171,7 +171,7 @@ TEST(DBusParamReader, OneArg_After_OUT) {
 }
 
 TEST(DBusParamReader, ManyArgs_With_OUT) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   AppendValueToWriter(&writer, 1972);
@@ -205,7 +205,7 @@ TEST(DBusParamReader, ManyArgs_With_OUT) {
 }
 
 TEST(DBusParamReader, TooManyArgs_With_OUT) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   AppendValueToWriter(&writer, 1972);
@@ -229,7 +229,7 @@ TEST(DBusParamReader, TooManyArgs_With_OUT) {
 }
 
 TEST(DBusParamReader, TooFewArgs_With_OUT) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, true);
   MessageReader reader(message.get());

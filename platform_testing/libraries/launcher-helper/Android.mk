@@ -18,7 +18,10 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := launcher-helper-lib
-LOCAL_JAVA_LIBRARIES := ub-uiautomator
+LOCAL_JAVA_LIBRARIES := ub-uiautomator \
+    android-support-test \
+    activity-helper
+LOCAL_STATIC_JAVA_LIBRARIES := dpad-util
 LOCAL_SDK_VERSION := 21
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

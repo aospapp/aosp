@@ -23,6 +23,9 @@
      devices.
 -->
 <permissions>
+    <!-- This is Android and fully CTS compatible.  Basically this is for CTS tests to use. -->
+    <feature name="android.software.cts" />
+
     <feature name="android.hardware.audio.output" />
     <feature name="android.hardware.camera" />
     <feature name="android.hardware.location" />
@@ -42,7 +45,11 @@
     <feature name="android.software.backup" />
     <feature name="android.software.home_screen" />
     <feature name="android.software.input_methods" />
+    <feature name="android.software.picture_in_picture" />
+    <feature name="android.software.activities_on_secondary_displays" />
     <feature name="android.software.print" />
+    <feature name="android.software.companion_device_setup" />
+    <feature name="android.software.autofill" />
 
     <!-- Feature to specify if the device supports adding device admins. -->
     <feature name="android.software.device_admin" />
@@ -50,11 +57,14 @@
     <!-- Feature to specify if the device support managed users. -->
     <feature name="android.software.managed_users" />
 
-    <!-- Feature to specify if the device supports a VR mode. -->
-    <feature name="android.software.vr.mode" />
+    <!-- Feature to specify if the device supports a VR mode.
+         feature name="android.software.vr.mode" -->
     <!-- Devices with all optimizations required to be a "VR Ready" device that
          pass all CTS tests for this feature must include feature
          android.hardware.vr.high_performance -->
+    <!-- Devices that support VR headtracking features and pass all CDD
+         requirements may include
+         android.hardware.vr.headtracking -->
 
     <!-- devices with GPS must include android.hardware.location.gps.xml -->
     <!-- devices with an autofocus camera and/or flash must include either

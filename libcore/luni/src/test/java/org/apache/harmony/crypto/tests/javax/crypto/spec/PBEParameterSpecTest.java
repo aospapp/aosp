@@ -23,7 +23,8 @@
 package org.apache.harmony.crypto.tests.javax.crypto.spec;
 
 import java.util.Arrays;
-
+import java.security.spec.AlgorithmParameterSpec;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEParameterSpec;
 
 import junit.framework.Test;
@@ -88,6 +89,29 @@ public class PBEParameterSpecTest extends TestCase {
         assertTrue("The returned iterationCount is not equal to the specified "
                 + "in the constructor.",
                 pbeps.getIterationCount() == iterationCount);
+    }
+
+    /**
+     * getAlgorithmParameterSpec() method testing. Tests that returned value is equal
+     * to the value specified in the constructor.
+     */
+    public void testGetAlgorithmParameterSpec() {
+        byte[] salt = new byte[] {1, 2, 3, 4, 5};
+        int iterationCount = 10;
+
+        // Check that the constructor works with a null AlgorithmParameterSpec and it's correctly
+        // returned in the getter.
+        PBEParameterSpec pbeps = new PBEParameterSpec(salt, iterationCount, null);
+        assertNull("The returned AlgorithmParameterSpec is not null, as the specified "
+                        + "in the constructor.",
+                pbeps.getParameterSpec());
+
+        // Check that a non-null AlgorithmParameterSpec is returned correctly.
+        AlgorithmParameterSpec aps = new IvParameterSpec(new byte[16]);
+        pbeps = new PBEParameterSpec(salt, iterationCount, aps);
+        assertSame("The returned AlgorithmParameterSpec is not the same as the specified "
+                        + "in the constructor.",
+                aps, pbeps.getParameterSpec());
     }
 
     public static Test suite() {

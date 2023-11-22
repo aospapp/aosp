@@ -1,5 +1,9 @@
 genl-ctrl-list
+/nf-ct-add
 nf-ct-list
+nf-exp-list
+nf-exp-add
+nf-exp-delete
 nf-log
 nf-monitor
 nl-addr-add
@@ -21,6 +25,12 @@ nl-neightbl-list
 nl-qdisc-add
 nl-qdisc-delete
 nl-qdisc-list
+nl-class-add
+nl-class-delete
+nl-class-list
+nl-cls-add
+nl-cls-delete
+nl-cls-list
 nl-route-add
 nl-route-delete
 nl-route-list
@@ -29,3 +39,8 @@ nl-rule-list
 nl-tctree-list
 nl-util-addr
 nf-queue
+nl-classid-lookup
+nl-pktloc-lookup
+nl-link-enslave
+nl-link-release
+idiag-socket-details

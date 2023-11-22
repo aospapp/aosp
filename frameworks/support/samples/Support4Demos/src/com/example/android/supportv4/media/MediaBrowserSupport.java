@@ -16,24 +16,25 @@
 
 package com.example.android.supportv4.media;
 
-import com.example.android.supportv4.R;
-import android.app.Activity;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaControllerCompat;
+
+import com.example.android.supportv4.R;
 
 /**
  * Main activity for the music player.
  */
-public class MediaBrowserSupport extends Activity implements BrowseFragment.FragmentDataHelper {
-    private MediaControllerCompat mMediaController;
+public class MediaBrowserSupport extends FragmentActivity
+        implements BrowseFragment.FragmentDataHelper {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_player);
         if (savedInstanceState == null) {
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(R.id.container, BrowseFragment.newInstance(null))
                     .commit();
         }
@@ -42,14 +43,17 @@ public class MediaBrowserSupport extends Activity implements BrowseFragment.Frag
     @Override
     public void onMediaItemSelected(MediaBrowserCompat.MediaItem item) {
         if (item.isPlayable()) {
-            mMediaController.getTransportControls().playFromMediaId(item.getMediaId(), null);
-            QueueFragment queueFragment = QueueFragment.newInstance();
-            getFragmentManager().beginTransaction()
-                    .replace(R.id.container, queueFragment)
-                    .addToBackStack(null)
-                    .commit();
+            MediaControllerCompat mediaController = MediaControllerCompat.getMediaController(this);
+            if (mediaController != null) {
+                mediaController.getTransportControls().playFromMediaId(item.getMediaId(), null);
+                QueueFragment queueFragment = QueueFragment.newInstance();
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.container, queueFragment)
+                        .addToBackStack(null)
+                        .commit();
+            }
         } else if (item.isBrowsable()) {
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .replace(R.id.container, BrowseFragment.newInstance(item.getMediaId()))
                     .addToBackStack(null)
                     .commit();
@@ -57,6 +61,6 @@ public class MediaBrowserSupport extends Activity implements BrowseFragment.Frag
     }
 
     public void setMediaController(MediaControllerCompat mediaController) {
-        mMediaController = mediaController;
+        MediaControllerCompat.setMediaController(this, mediaController);
     }
 }

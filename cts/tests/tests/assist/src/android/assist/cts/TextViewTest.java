@@ -17,12 +17,10 @@
 package android.assist.cts;
 
 import android.assist.common.Utils;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.provider.Settings;
 import android.util.Log;
 
 import java.util.concurrent.CountDownLatch;

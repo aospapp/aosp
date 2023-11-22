@@ -32,10 +32,15 @@ public class DataUtil {
 
     private static final Uri URI = ContactsContract.Data.CONTENT_URI;
 
-    public static String[] queryById(ContentResolver resolver, long dataId, String[] projection) {
+    public static String[] queryById(ContentResolver resolver, long dataId, String[] projection,
+            String selection, String[] selectionArgs) {
         Uri uri = ContentUris.withAppendedId(URI, dataId);
-        Cursor cursor = resolver.query(uri, projection, null, null, null);
+        Cursor cursor = resolver.query(uri, projection, selection, selectionArgs, null);
         return CommonDatabaseUtils.singleRecordToArray(cursor);
+    }
+
+    public static String[] queryById(ContentResolver resolver, long dataId, String[] projection) {
+        return queryById(resolver, dataId, projection, null, null);
     }
 
     public static void insertName(ContentResolver resolver, long rawContactId, String name) {

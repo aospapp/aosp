@@ -23,18 +23,20 @@
 #include "base/arena_allocator.h"
 #include "base/arena_containers.h"
 #include "base/bit_utils.h"
+#include "base/enums.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "base/value_object.h"
 #include "constants_arm.h"
+#include "utils/arm/assembler_arm_shared.h"
 #include "utils/arm/managed_register_arm.h"
 #include "utils/assembler.h"
+#include "utils/jni_macro_assembler.h"
 #include "offsets.h"
 
 namespace art {
 namespace arm {
 
-class Arm32Assembler;
 class Thumb2Assembler;
 
 // Assembler literal is a value embedded in code, retrieved using a PC-relative load.
@@ -206,36 +208,12 @@ class ShifterOperand {
   uint32_t rotate_;
   uint32_t immed_;
 
-  friend class Arm32Assembler;
   friend class Thumb2Assembler;
 
 #ifdef SOURCE_ASSEMBLER_SUPPORT
   friend class BinaryAssembler;
 #endif
 };
-
-
-enum LoadOperandType {
-  kLoadSignedByte,
-  kLoadUnsignedByte,
-  kLoadSignedHalfword,
-  kLoadUnsignedHalfword,
-  kLoadWord,
-  kLoadWordPair,
-  kLoadSWord,
-  kLoadDWord
-};
-
-
-enum StoreOperandType {
-  kStoreByte,
-  kStoreHalfword,
-  kStoreWord,
-  kStoreWordPair,
-  kStoreSWord,
-  kStoreDWord
-};
-
 
 // Load/store multiple addressing mode.
 enum BlockAddressMode {
@@ -268,7 +246,7 @@ class Address : public ValueObject {
     NegPostIndex = (0|0|0) << 21   // negative post-indexed with writeback
   };
 
-  Address(Register rn, int32_t offset = 0, Mode am = Offset) : rn_(rn), rm_(R0),
+  explicit Address(Register rn, int32_t offset = 0, Mode am = Offset) : rn_(rn), rm_(R0),
       offset_(offset),
       am_(am), is_immed_offset_(true), shift_(LSL) {
   }
@@ -282,12 +260,6 @@ class Address : public ValueObject {
                        rn_(rn), rm_(rm), offset_(count),
                        am_(am), is_immed_offset_(false), shift_(shift) {
     CHECK_NE(rm, PC);
-  }
-
-  // LDR(literal) - pc relative load.
-  explicit Address(int32_t offset) :
-               rn_(PC), rm_(R0), offset_(offset),
-               am_(Offset), is_immed_offset_(false), shift_(LSL) {
   }
 
   static bool CanHoldLoadOffsetArm(LoadOperandType type, int offset);
@@ -415,13 +387,6 @@ enum ItState {
   kItT = kItThen,
   kItElse,
   kItE = kItElse
-};
-
-// Set condition codes request.
-enum SetCc {
-  kCcDontCare,  // Allows prioritizing 16-bit instructions on Thumb2 whether they set CCs or not.
-  kCcSet,
-  kCcKeep,
 };
 
 constexpr uint32_t kNoItCondition = 3;
@@ -671,10 +636,15 @@ class ArmAssembler : public Assembler {
   virtual void vcmpdz(DRegister dd, Condition cond = AL) = 0;
   virtual void vmstat(Condition cond = AL) = 0;  // VMRS APSR_nzcv, FPSCR
 
+  virtual void vcntd(DRegister dd, DRegister dm) = 0;
+  virtual void vpaddld(DRegister dd, DRegister dm, int32_t size, bool is_unsigned) = 0;
+
   virtual void vpushs(SRegister reg, int nregs, Condition cond = AL) = 0;
   virtual void vpushd(DRegister reg, int nregs, Condition cond = AL) = 0;
   virtual void vpops(SRegister reg, int nregs, Condition cond = AL) = 0;
   virtual void vpopd(DRegister reg, int nregs, Condition cond = AL) = 0;
+  virtual void vldmiad(Register base_reg, DRegister reg, int nregs, Condition cond = AL) = 0;
+  virtual void vstmiad(Register base_reg, DRegister reg, int nregs, Condition cond = AL) = 0;
 
   // Branch instructions.
   virtual void b(Label* label, Condition cond = AL) = 0;
@@ -751,32 +721,7 @@ class ArmAssembler : public Assembler {
     }
   }
 
-  void LoadDImmediate(DRegister sd, double value, Condition cond = AL) {
-    if (!vmovd(sd, value, cond)) {
-      uint64_t int_value = bit_cast<uint64_t, double>(value);
-      if (int_value == bit_cast<uint64_t, double>(0.0)) {
-        // 0.0 is quite common, so we special case it by loading
-        // 2.0 in `sd` and then substracting it.
-        bool success = vmovd(sd, 2.0, cond);
-        CHECK(success);
-        vsubd(sd, sd, sd, cond);
-      } else {
-        if (sd < 16) {
-          SRegister low = static_cast<SRegister>(sd << 1);
-          SRegister high = static_cast<SRegister>(low + 1);
-          LoadSImmediate(low, bit_cast<float, uint32_t>(Low32Bits(int_value)), cond);
-          if (High32Bits(int_value) == Low32Bits(int_value)) {
-            vmovs(high, low);
-          } else {
-            LoadSImmediate(high, bit_cast<float, uint32_t>(High32Bits(int_value)), cond);
-          }
-        } else {
-          LOG(FATAL) << "Unimplemented loading of double into a D register "
-                     << "that cannot be split into two S registers";
-        }
-      }
-    }
-  }
+  virtual void LoadDImmediate(DRegister dd, double value, Condition cond = AL) = 0;
 
   virtual void MarkExceptionHandler(Label* label) = 0;
   virtual void LoadFromOffset(LoadOperandType type,
@@ -811,6 +756,9 @@ class ArmAssembler : public Assembler {
 
   virtual void PushList(RegList regs, Condition cond = AL) = 0;
   virtual void PopList(RegList regs, Condition cond = AL) = 0;
+
+  virtual void StoreList(RegList regs, size_t stack_offset) = 0;
+  virtual void LoadList(RegList regs, size_t stack_offset) = 0;
 
   virtual void Mov(Register rd, Register rm, Condition cond = AL) = 0;
 
@@ -902,121 +850,6 @@ class ArmAssembler : public Assembler {
   virtual void CompareAndBranchIfZero(Register r, Label* label) = 0;
   virtual void CompareAndBranchIfNonZero(Register r, Label* label) = 0;
 
-  //
-  // Overridden common assembler high-level functionality
-  //
-
-  // Emit code that will create an activation on the stack
-  void BuildFrame(size_t frame_size, ManagedRegister method_reg,
-                  const std::vector<ManagedRegister>& callee_save_regs,
-                  const ManagedRegisterEntrySpills& entry_spills) OVERRIDE;
-
-  // Emit code that will remove an activation from the stack
-  void RemoveFrame(size_t frame_size, const std::vector<ManagedRegister>& callee_save_regs)
-    OVERRIDE;
-
-  void IncreaseFrameSize(size_t adjust) OVERRIDE;
-  void DecreaseFrameSize(size_t adjust) OVERRIDE;
-
-  // Store routines
-  void Store(FrameOffset offs, ManagedRegister src, size_t size) OVERRIDE;
-  void StoreRef(FrameOffset dest, ManagedRegister src) OVERRIDE;
-  void StoreRawPtr(FrameOffset dest, ManagedRegister src) OVERRIDE;
-
-  void StoreImmediateToFrame(FrameOffset dest, uint32_t imm, ManagedRegister scratch) OVERRIDE;
-
-  void StoreImmediateToThread32(ThreadOffset<4> dest, uint32_t imm, ManagedRegister scratch)
-      OVERRIDE;
-
-  void StoreStackOffsetToThread32(ThreadOffset<4> thr_offs, FrameOffset fr_offs,
-                                  ManagedRegister scratch) OVERRIDE;
-
-  void StoreStackPointerToThread32(ThreadOffset<4> thr_offs) OVERRIDE;
-
-  void StoreSpanning(FrameOffset dest, ManagedRegister src, FrameOffset in_off,
-                     ManagedRegister scratch) OVERRIDE;
-
-  // Load routines
-  void Load(ManagedRegister dest, FrameOffset src, size_t size) OVERRIDE;
-
-  void LoadFromThread32(ManagedRegister dest, ThreadOffset<4> src, size_t size) OVERRIDE;
-
-  void LoadRef(ManagedRegister dest, FrameOffset src) OVERRIDE;
-
-  void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
-               bool unpoison_reference) OVERRIDE;
-
-  void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) OVERRIDE;
-
-  void LoadRawPtrFromThread32(ManagedRegister dest, ThreadOffset<4> offs) OVERRIDE;
-
-  // Copying routines
-  void Move(ManagedRegister dest, ManagedRegister src, size_t size) OVERRIDE;
-
-  void CopyRawPtrFromThread32(FrameOffset fr_offs, ThreadOffset<4> thr_offs,
-                              ManagedRegister scratch) OVERRIDE;
-
-  void CopyRawPtrToThread32(ThreadOffset<4> thr_offs, FrameOffset fr_offs, ManagedRegister scratch)
-      OVERRIDE;
-
-  void CopyRef(FrameOffset dest, FrameOffset src, ManagedRegister scratch) OVERRIDE;
-
-  void Copy(FrameOffset dest, FrameOffset src, ManagedRegister scratch, size_t size) OVERRIDE;
-
-  void Copy(FrameOffset dest, ManagedRegister src_base, Offset src_offset, ManagedRegister scratch,
-            size_t size) OVERRIDE;
-
-  void Copy(ManagedRegister dest_base, Offset dest_offset, FrameOffset src, ManagedRegister scratch,
-            size_t size) OVERRIDE;
-
-  void Copy(FrameOffset dest, FrameOffset src_base, Offset src_offset, ManagedRegister scratch,
-            size_t size) OVERRIDE;
-
-  void Copy(ManagedRegister dest, Offset dest_offset, ManagedRegister src, Offset src_offset,
-            ManagedRegister scratch, size_t size) OVERRIDE;
-
-  void Copy(FrameOffset dest, Offset dest_offset, FrameOffset src, Offset src_offset,
-            ManagedRegister scratch, size_t size) OVERRIDE;
-
-  // Sign extension
-  void SignExtend(ManagedRegister mreg, size_t size) OVERRIDE;
-
-  // Zero extension
-  void ZeroExtend(ManagedRegister mreg, size_t size) OVERRIDE;
-
-  // Exploit fast access in managed code to Thread::Current()
-  void GetCurrentThread(ManagedRegister tr) OVERRIDE;
-  void GetCurrentThread(FrameOffset dest_offset, ManagedRegister scratch) OVERRIDE;
-
-  // Set up out_reg to hold a Object** into the handle scope, or to be null if the
-  // value is null and null_allowed. in_reg holds a possibly stale reference
-  // that can be used to avoid loading the handle scope entry to see if the value is
-  // null.
-  void CreateHandleScopeEntry(ManagedRegister out_reg, FrameOffset handlescope_offset,
-                              ManagedRegister in_reg, bool null_allowed) OVERRIDE;
-
-  // Set up out_off to hold a Object** into the handle scope, or to be null if the
-  // value is null and null_allowed.
-  void CreateHandleScopeEntry(FrameOffset out_off, FrameOffset handlescope_offset,
-                              ManagedRegister scratch, bool null_allowed) OVERRIDE;
-
-  // src holds a handle scope entry (Object**) load this into dst
-  void LoadReferenceFromHandleScope(ManagedRegister dst, ManagedRegister src) OVERRIDE;
-
-  // Heap::VerifyObject on src. In some cases (such as a reference to this) we
-  // know that src may not be null.
-  void VerifyObject(ManagedRegister src, bool could_be_null) OVERRIDE;
-  void VerifyObject(FrameOffset src, bool could_be_null) OVERRIDE;
-
-  // Call to address held at [base+offset]
-  void Call(ManagedRegister base, Offset offset, ManagedRegister scratch) OVERRIDE;
-  void Call(FrameOffset base, Offset offset, ManagedRegister scratch) OVERRIDE;
-  void CallFromThread32(ThreadOffset<4> offset, ManagedRegister scratch) OVERRIDE;
-
-  // Generate code to check if Thread::Current()->exception_ is non-null
-  // and branch to a ExceptionSlowPath if it is.
-  void ExceptionPoll(ManagedRegister scratch, size_t stack_adjust) OVERRIDE;
-
   static uint32_t ModifiedImmediate(uint32_t value);
 
   static bool IsLowRegister(Register r) {
@@ -1040,6 +873,12 @@ class ArmAssembler : public Assembler {
   void UnpoisonHeapReference(Register reg) {
     // reg = -reg.
     rsb(reg, reg, ShifterOperand(0));
+  }
+  // Poison a heap reference contained in `reg` if heap poisoning is enabled.
+  void MaybePoisonHeapReference(Register reg) {
+    if (kPoisonHeapReferences) {
+      PoisonHeapReference(reg);
+    }
   }
   // Unpoison a heap reference contained in `reg` if heap poisoning is enabled.
   void MaybeUnpoisonHeapReference(Register reg) {
@@ -1092,18 +931,6 @@ class ArmAssembler : public Assembler {
 
   // Tracked labels. Use a vector, as we need to sort before adjusting.
   ArenaVector<Label*> tracked_labels_;
-};
-
-// Slowpath entered when Thread::Current()->_exception is non-null
-class ArmExceptionSlowPath FINAL : public SlowPath {
- public:
-  ArmExceptionSlowPath(ArmManagedRegister scratch, size_t stack_adjust)
-      : scratch_(scratch), stack_adjust_(stack_adjust) {
-  }
-  void Emit(Assembler *sp_asm) OVERRIDE;
- private:
-  const ArmManagedRegister scratch_;
-  const size_t stack_adjust_;
 };
 
 }  // namespace arm

@@ -303,7 +303,7 @@ TEST_F(SystemMetricsTest, ParseVmstat) {
 // calls to it.
 TEST_F(SystemMetricsTest, TestNoNegativeCpuUsage) {
   ProcessHandle handle = GetCurrentProcessHandle();
-  scoped_ptr<ProcessMetrics> metrics(
+  std::unique_ptr<ProcessMetrics> metrics(
       ProcessMetrics::CreateProcessMetrics(handle));
 
   EXPECT_GE(metrics->GetCPUUsage(), 0.0);
@@ -424,7 +424,7 @@ TEST(ProcessMetricsTest, DISABLED_GetNumberOfThreads) {
   ASSERT_GT(initial_threads, 0);
   const int kNumAdditionalThreads = 10;
   {
-    scoped_ptr<Thread> my_threads[kNumAdditionalThreads];
+    std::unique_ptr<Thread> my_threads[kNumAdditionalThreads];
     for (int i = 0; i < kNumAdditionalThreads; ++i) {
       my_threads[i].reset(new Thread("GetNumberOfThreadsTest"));
       my_threads[i]->Start();
@@ -496,9 +496,21 @@ TEST(ProcessMetricsTest, GetOpenFdCount) {
   ASSERT_TRUE(child.IsValid());
   WaitForEvent(temp_path, kSignalClosed);
 
-  scoped_ptr<ProcessMetrics> metrics(
+  std::unique_ptr<ProcessMetrics> metrics(
       ProcessMetrics::CreateProcessMetrics(child.Handle()));
-  EXPECT_EQ(0, metrics->GetOpenFdCount());
+  // Try a couple times to observe the child with 0 fds open.
+  // Sometimes we've seen that the child can have 1 remaining
+  // fd shortly after receiving the signal.  Potentially this
+  // is actually the signal file still open in the child.
+  int open_fds = -1;
+  for (int tries = 0; tries < 5; ++tries) {
+    open_fds = metrics->GetOpenFdCount();
+    if (!open_fds) {
+      break;
+    }
+    PlatformThread::Sleep(TimeDelta::FromMilliseconds(1));
+  }
+  EXPECT_EQ(0, open_fds);
   ASSERT_TRUE(child.Terminate(0, true));
 }
 #endif  // defined(OS_LINUX)

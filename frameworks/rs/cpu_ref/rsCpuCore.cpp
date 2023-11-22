@@ -30,28 +30,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include <cutils/properties.h>
-#include "utils/StopWatch.h"
-#endif
-
-#ifdef RS_SERVER
-// Android exposes gettid(), standard Linux does not
-static pid_t gettid() {
-    return syscall(SYS_gettid);
-}
-#endif
-
-using namespace android;
-using namespace android::renderscript;
-
 #define REDUCE_ALOGV(mtls, level, ...) do { if ((mtls)->logReduce >= (level)) ALOGV(__VA_ARGS__); } while(0)
 
 static pthread_key_t gThreadTLSKey = 0;
 static uint32_t gThreadTLSKeyCount = 0;
 static pthread_mutex_t gInitMutex = PTHREAD_MUTEX_INITIALIZER;
 
-bool android::renderscript::gArchUseSIMD = false;
+namespace android {
+namespace renderscript {
+
+bool gArchUseSIMD = false;
 
 RsdCpuReference::~RsdCpuReference() {
 }
@@ -316,7 +304,10 @@ RsdCpuReferenceImpl::~RsdCpuReferenceImpl() {
     for (uint32_t ct = 0; ct < mWorkers.mCount; ct++) {
         pthread_join(mWorkers.mThreadId[ct], &res);
     }
-    rsAssert(__sync_fetch_and_or(&mWorkers.mRunningCount, 0) == 0);
+    // b/23109602
+    // TODO: Refactor the implementation with threadpool to
+    // fix the race condition in the destuctor.
+    // rsAssert(__sync_fetch_and_or(&mWorkers.mRunningCount, 0) == 0);
     free(mWorkers.mThreadId);
     free(mWorkers.mNativeThreadId);
     delete[] mWorkers.mLaunchSignals;
@@ -341,7 +332,14 @@ static inline void FepPtrSetup(const MTLaunchStructForEach *mtls, RsExpandKernel
                                uint32_t z = 0, uint32_t lod = 0,
                                RsAllocationCubemapFace face = RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X,
                                uint32_t a1 = 0, uint32_t a2 = 0, uint32_t a3 = 0, uint32_t a4 = 0) {
+    // When rsForEach passes a null input allocation (as opposed to no input),
+    // fep->inLen can be 1 with mtls->ains[0] being null.
+    // This should only happen on old style kernels.
     for (uint32_t i = 0; i < fep->inLen; i++) {
+        if (mtls->ains[i] == nullptr) {
+            rsAssert(fep->inLen == 1);
+            continue;
+        }
         fep->inPtr[i] = (const uint8_t *)mtls->ains[i]->getPointerUnchecked(x, y, z, lod, face, a1, a2, a3, a4);
     }
     if (mtls->aout[0] != nullptr) {
@@ -492,7 +490,7 @@ static const int kFormatInBytesMax = 16;
 // ": " + 2 digits per byte + 1 separator between bytes + "..." + null
 typedef char FormatBuf[2 + kFormatInBytesMax*2 + (kFormatInBytesMax - 1) + 3 + 1];
 static const char *format_bytes(FormatBuf *outBuf, const uint8_t *inBuf, const int inBytes) {
-  strcpy(*outBuf, ": ");
+  strlcpy(*outBuf, ": ", sizeof(*outBuf));
   int pos = 2;
   const int lim = std::min(kFormatInBytesMax, inBytes);
   for (int i = 0; i < lim; ++i) {
@@ -504,7 +502,7 @@ static const char *format_bytes(FormatBuf *outBuf, const uint8_t *inBuf, const i
     pos += 2;
   }
   if (kFormatInBytesMax < inBytes)
-    strcpy(*outBuf + pos, "...");
+    strlcpy(*outBuf + pos, "...", sizeof(FormatBuf) - pos);
   return *outBuf;
 }
 
@@ -1038,3 +1036,6 @@ void* RsdCpuReferenceImpl::createScriptGroup(const ScriptGroupBase *sg) {
   }
   return nullptr;
 }
+
+} // namespace renderscript
+} // namespace android

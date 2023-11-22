@@ -444,13 +444,10 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     continue;
                 }
 
-                int[] availableAfModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
-                int[] availableAeModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES);
+                int[] availableAfModes = mStaticInfo.getAfAvailableModesChecked();
+                int[] availableAeModes = mStaticInfo.getAeAvailableModesChecked();
 
                 for (int afMode : availableAfModes) {
-
                     if (afMode == CameraCharacteristics.CONTROL_AF_MODE_OFF ||
                             afMode == CameraCharacteristics.CONTROL_AF_MODE_EDOF) {
                         // Only test AF modes that have meaningful trigger behavior
@@ -585,13 +582,10 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     continue;
                 }
 
-                int[] availableAfModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
-                int[] availableAeModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES);
+                int[] availableAfModes = mStaticInfo.getAfAvailableModesChecked();
+                int[] availableAeModes = mStaticInfo.getAeAvailableModesChecked();
 
                 for (int afMode : availableAfModes) {
-
                     if (afMode == CameraCharacteristics.CONTROL_AF_MODE_OFF ||
                             afMode == CameraCharacteristics.CONTROL_AF_MODE_EDOF) {
                         // Only test AF modes that have meaningful trigger behavior
@@ -689,13 +683,10 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     continue;
                 }
 
-                int[] availableAfModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
-                int[] availableAeModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES);
+                int[] availableAfModes = mStaticInfo.getAfAvailableModesChecked();
+                int[] availableAeModes = mStaticInfo.getAeAvailableModesChecked();
 
                 for (int afMode : availableAfModes) {
-
                     if (afMode == CameraCharacteristics.CONTROL_AF_MODE_OFF ||
                             afMode == CameraCharacteristics.CONTROL_AF_MODE_EDOF) {
                         // Only test AF modes that have meaningful trigger behavior
@@ -807,13 +798,10 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     continue;
                 }
 
-                int[] availableAfModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES);
-                int[] availableAeModes = mStaticInfo.getCharacteristics().get(
-                    CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES);
+                int[] availableAfModes = mStaticInfo.getAfAvailableModesChecked();
+                int[] availableAeModes = mStaticInfo.getAeAvailableModesChecked();
 
                 for (int afMode : availableAfModes) {
-
                     if (afMode == CameraCharacteristics.CONTROL_AF_MODE_OFF ||
                             afMode == CameraCharacteristics.CONTROL_AF_MODE_EDOF) {
                         // Only test AF modes that have meaningful trigger behavior
@@ -991,8 +979,8 @@ public class RobustnessTest extends Camera2AndroidTestCase {
     private CaptureRequest.Builder prepareTriggerTestSession(
             SurfaceTexture preview, int aeMode, int afMode) throws Exception {
         Log.i(TAG, String.format("Testing AE mode %s, AF mode %s",
-                        StaticMetadata.AE_MODE_NAMES[aeMode],
-                        StaticMetadata.AF_MODE_NAMES[afMode]));
+                        StaticMetadata.getAeModeName(aeMode),
+                        StaticMetadata.getAfModeName(afMode)));
 
         CaptureRequest.Builder previewRequest = preparePreviewTestSession(preview);
         previewRequest.set(CaptureRequest.CONTROL_AE_MODE, aeMode);
@@ -1046,7 +1034,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 // After several frames, AF must no longer be in INACTIVE state
                 assertTrue(String.format("In AF mode %s, AF state not PASSIVE_SCAN" +
                                 ", PASSIVE_FOCUSED, or PASSIVE_UNFOCUSED, is %s",
-                                StaticMetadata.AF_MODE_NAMES[afMode],
+                                StaticMetadata.getAfModeName(afMode),
                                 StaticMetadata.AF_STATE_NAMES[afState]),
                         afState == CaptureResult.CONTROL_AF_STATE_PASSIVE_SCAN ||
                         afState == CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED ||
@@ -1067,7 +1055,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
     private boolean verifyAfSequence(int afMode, int afState, boolean focusComplete) {
         if (focusComplete) {
             assertTrue(String.format("AF Mode %s: Focus lock lost after convergence: AF state: %s",
-                            StaticMetadata.AF_MODE_NAMES[afMode],
+                            StaticMetadata.getAfModeName(afMode),
                             StaticMetadata.AF_STATE_NAMES[afState]),
                     afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                     afState ==CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
@@ -1075,14 +1063,14 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         }
         if (VERBOSE) {
             Log.v(TAG, String.format("AF mode: %s, AF state: %s",
-                            StaticMetadata.AF_MODE_NAMES[afMode],
+                            StaticMetadata.getAfModeName(afMode),
                             StaticMetadata.AF_STATE_NAMES[afState]));
         }
         switch (afMode) {
             case CaptureResult.CONTROL_AF_MODE_AUTO:
             case CaptureResult.CONTROL_AF_MODE_MACRO:
                 assertTrue(String.format("AF mode %s: Unexpected AF state %s",
-                                StaticMetadata.AF_MODE_NAMES[afMode],
+                                StaticMetadata.getAfModeName(afMode),
                                 StaticMetadata.AF_STATE_NAMES[afState]),
                         afState == CaptureResult.CONTROL_AF_STATE_ACTIVE_SCAN ||
                         afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
@@ -1092,7 +1080,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 break;
             case CaptureResult.CONTROL_AF_MODE_CONTINUOUS_PICTURE:
                 assertTrue(String.format("AF mode %s: Unexpected AF state %s",
-                                StaticMetadata.AF_MODE_NAMES[afMode],
+                                StaticMetadata.getAfModeName(afMode),
                                 StaticMetadata.AF_STATE_NAMES[afState]),
                         afState == CaptureResult.CONTROL_AF_STATE_PASSIVE_SCAN ||
                         afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
@@ -1102,14 +1090,14 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 break;
             case CaptureResult.CONTROL_AF_MODE_CONTINUOUS_VIDEO:
                 assertTrue(String.format("AF mode %s: Unexpected AF state %s",
-                                StaticMetadata.AF_MODE_NAMES[afMode],
+                                StaticMetadata.getAfModeName(afMode),
                                 StaticMetadata.AF_STATE_NAMES[afState]),
                         afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
                         afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED);
                 focusComplete = true;
                 break;
             default:
-                fail("Unexpected AF mode: " + StaticMetadata.AF_MODE_NAMES[afMode]);
+                fail("Unexpected AF mode: " + StaticMetadata.getAfModeName(afMode));
         }
         return focusComplete;
     }

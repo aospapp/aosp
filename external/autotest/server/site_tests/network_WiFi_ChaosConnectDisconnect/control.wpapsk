@@ -6,9 +6,6 @@ AUTHOR = 'krisr, wiley, jabele'
 NAME = 'network_WiFi_ChaosConnectDisconnect.wpapsk'
 TIME = 'LONG'
 TEST_TYPE = 'server'
-ATTRIBUTES = 'suite:wifi_interop'
-SUITE = 'wifi_interop'
-DEPENDENCIES = 'chaos_nightly, chaos_dut'
 
 DOC = """
 This script iterates through all of the access points in the AP compatibility

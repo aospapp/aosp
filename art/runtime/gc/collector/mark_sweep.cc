@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "base/bounded_fifo.h"
+#include "base/enums.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/mutex-inl.h"
@@ -40,7 +41,7 @@
 #include "mark_sweep-inl.h"
 #include "mirror/object-inl.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread-inl.h"
 #include "thread_list.h"
 
@@ -271,15 +272,15 @@ class MarkSweep::ScanObjectVisitor {
   explicit ScanObjectVisitor(MarkSweep* const mark_sweep) ALWAYS_INLINE
       : mark_sweep_(mark_sweep) {}
 
-  void operator()(mirror::Object* obj) const
+  void operator()(ObjPtr<mirror::Object> obj) const
       ALWAYS_INLINE
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (kCheckLocks) {
       Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
       Locks::heap_bitmap_lock_->AssertExclusiveHeld(Thread::Current());
     }
-    mark_sweep_->ScanObject(obj);
+    mark_sweep_->ScanObject(obj.Ptr());
   }
 
  private:
@@ -389,8 +390,13 @@ inline void MarkSweep::MarkObjectNonNullParallel(mirror::Object* obj) {
   }
 }
 
-bool MarkSweep::IsMarkedHeapReference(mirror::HeapReference<mirror::Object>* ref) {
-  return IsMarked(ref->AsMirrorPtr());
+bool MarkSweep::IsNullOrMarkedHeapReference(mirror::HeapReference<mirror::Object>* ref,
+                                            bool do_atomic_update ATTRIBUTE_UNUSED) {
+  mirror::Object* obj = ref->AsMirrorPtr();
+  if (obj == nullptr) {
+    return true;
+  }
+  return IsMarked(obj);
 }
 
 class MarkSweep::MarkObjectSlowPath {
@@ -412,62 +418,48 @@ class MarkSweep::MarkObjectSlowPath {
     if (UNLIKELY(obj == nullptr || !IsAligned<kPageSize>(obj) ||
                  (kIsDebugBuild && large_object_space != nullptr &&
                      !large_object_space->Contains(obj)))) {
-      LOG(INTERNAL_FATAL) << "Tried to mark " << obj << " not contained by any spaces";
+      // Lowest priority logging first:
+      PrintFileToLog("/proc/self/maps", LogSeverity::FATAL_WITHOUT_ABORT);
+      MemMap::DumpMaps(LOG_STREAM(FATAL_WITHOUT_ABORT), true);
+      // Buffer the output in the string stream since it is more important than the stack traces
+      // and we want it to have log priority. The stack traces are printed from Runtime::Abort
+      // which is called from LOG(FATAL) but before the abort message.
+      std::ostringstream oss;
+      oss << "Tried to mark " << obj << " not contained by any spaces" << std::endl;
       if (holder_ != nullptr) {
         size_t holder_size = holder_->SizeOf();
         ArtField* field = holder_->FindFieldByOffset(offset_);
-        LOG(INTERNAL_FATAL) << "Field info: "
-                            << " holder=" << holder_
-                            << " holder is "
-                            << (mark_sweep_->GetHeap()->IsLiveObjectLocked(holder_)
-                                ? "alive" : "dead")
-                            << " holder_size=" << holder_size
-                            << " holder_type=" << PrettyTypeOf(holder_)
-                            << " offset=" << offset_.Uint32Value()
-                            << " field=" << (field != nullptr ? field->GetName() : "nullptr")
-                            << " field_type="
-                            << (field != nullptr ? field->GetTypeDescriptor() : "")
-                            << " first_ref_field_offset="
-                            << (holder_->IsClass()
-                                ? holder_->AsClass()->GetFirstReferenceStaticFieldOffset(
-                                    sizeof(void*))
-                                : holder_->GetClass()->GetFirstReferenceInstanceFieldOffset())
-                            << " num_of_ref_fields="
-                            << (holder_->IsClass()
-                                ? holder_->AsClass()->NumReferenceStaticFields()
-                                : holder_->GetClass()->NumReferenceInstanceFields())
-                            << "\n";
+        oss << "Field info: "
+            << " holder=" << holder_
+            << " holder is "
+            << (mark_sweep_->GetHeap()->IsLiveObjectLocked(holder_)
+                ? "alive" : "dead")
+            << " holder_size=" << holder_size
+            << " holder_type=" << holder_->PrettyTypeOf()
+            << " offset=" << offset_.Uint32Value()
+            << " field=" << (field != nullptr ? field->GetName() : "nullptr")
+            << " field_type="
+            << (field != nullptr ? field->GetTypeDescriptor() : "")
+            << " first_ref_field_offset="
+            << (holder_->IsClass()
+                ? holder_->AsClass()->GetFirstReferenceStaticFieldOffset(
+                    kRuntimePointerSize)
+                : holder_->GetClass()->GetFirstReferenceInstanceFieldOffset())
+            << " num_of_ref_fields="
+            << (holder_->IsClass()
+                ? holder_->AsClass()->NumReferenceStaticFields()
+                : holder_->GetClass()->NumReferenceInstanceFields())
+            << std::endl;
         // Print the memory content of the holder.
         for (size_t i = 0; i < holder_size / sizeof(uint32_t); ++i) {
           uint32_t* p = reinterpret_cast<uint32_t*>(holder_);
-          LOG(INTERNAL_FATAL) << &p[i] << ": " << "holder+" << (i * sizeof(uint32_t)) << " = "
-                              << std::hex << p[i];
+          oss << &p[i] << ": " << "holder+" << (i * sizeof(uint32_t)) << " = " << std::hex << p[i]
+              << std::endl;
         }
       }
-      PrintFileToLog("/proc/self/maps", LogSeverity::INTERNAL_FATAL);
-      MemMap::DumpMaps(LOG(INTERNAL_FATAL), true);
-      {
-        LOG(INTERNAL_FATAL) << "Attempting see if it's a bad root";
-        Thread* self = Thread::Current();
-        if (Locks::mutator_lock_->IsExclusiveHeld(self)) {
-          mark_sweep_->VerifyRoots();
-        } else {
-          const bool heap_bitmap_exclusive_locked =
-              Locks::heap_bitmap_lock_->IsExclusiveHeld(self);
-          if (heap_bitmap_exclusive_locked) {
-            Locks::heap_bitmap_lock_->ExclusiveUnlock(self);
-          }
-          {
-            ScopedThreadSuspension(self, kSuspended);
-            ScopedSuspendAll ssa(__FUNCTION__);
-            mark_sweep_->VerifyRoots();
-          }
-          if (heap_bitmap_exclusive_locked) {
-            Locks::heap_bitmap_lock_->ExclusiveLock(self);
-          }
-        }
-      }
-      LOG(FATAL) << "Can't mark invalid object";
+      oss << "Attempting see if it's a bad thread root" << std::endl;
+      mark_sweep_->VerifySuspendedThreadRoots(oss);
+      LOG(FATAL) << oss.str();
     }
   }
 
@@ -481,9 +473,9 @@ inline void MarkSweep::MarkObjectNonNull(mirror::Object* obj,
                                          mirror::Object* holder,
                                          MemberOffset offset) {
   DCHECK(obj != nullptr);
-  if (kUseBakerOrBrooksReadBarrier) {
-    // Verify all the objects have the correct pointer installed.
-    obj->AssertReadBarrierPointer();
+  if (kUseBakerReadBarrier) {
+    // Verify all the objects have the correct state installed.
+    obj->AssertReadBarrierState();
   }
   if (immune_spaces_.IsInImmuneRegion(obj)) {
     if (kCountMarkedObjects) {
@@ -522,9 +514,9 @@ inline void MarkSweep::PushOnMarkStack(mirror::Object* obj) {
 
 inline bool MarkSweep::MarkObjectParallel(mirror::Object* obj) {
   DCHECK(obj != nullptr);
-  if (kUseBakerOrBrooksReadBarrier) {
-    // Verify all the objects have the correct pointer installed.
-    obj->AssertReadBarrierPointer();
+  if (kUseBakerReadBarrier) {
+    // Verify all the objects have the correct state installed.
+    obj->AssertReadBarrierState();
   }
   if (immune_spaces_.IsInImmuneRegion(obj)) {
     DCHECK(IsMarked(obj) != nullptr);
@@ -540,7 +532,8 @@ inline bool MarkSweep::MarkObjectParallel(mirror::Object* obj) {
   return !mark_bitmap_->AtomicTestAndSet(obj, visitor);
 }
 
-void MarkSweep::MarkHeapReference(mirror::HeapReference<mirror::Object>* ref) {
+void MarkSweep::MarkHeapReference(mirror::HeapReference<mirror::Object>* ref,
+                                  bool do_atomic_update ATTRIBUTE_UNUSED) {
   MarkObject(ref->AsMirrorPtr(), nullptr, MemberOffset(0));
 }
 
@@ -560,7 +553,7 @@ class MarkSweep::VerifyRootMarkedVisitor : public SingleRootVisitor {
   explicit VerifyRootMarkedVisitor(MarkSweep* collector) : collector_(collector) { }
 
   void VisitRoot(mirror::Object* root, const RootInfo& info) OVERRIDE
-      SHARED_REQUIRES(Locks::mutator_lock_, Locks::heap_bitmap_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_, Locks::heap_bitmap_lock_) {
     CHECK(collector_->IsMarked(root) != nullptr) << info.ToString();
   }
 
@@ -586,22 +579,27 @@ void MarkSweep::VisitRoots(mirror::CompressedReference<mirror::Object>** roots,
 
 class MarkSweep::VerifyRootVisitor : public SingleRootVisitor {
  public:
+  explicit VerifyRootVisitor(std::ostream& os) : os_(os) {}
+
   void VisitRoot(mirror::Object* root, const RootInfo& info) OVERRIDE
-      SHARED_REQUIRES(Locks::mutator_lock_, Locks::heap_bitmap_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_, Locks::heap_bitmap_lock_) {
     // See if the root is on any space bitmap.
     auto* heap = Runtime::Current()->GetHeap();
     if (heap->GetLiveBitmap()->GetContinuousSpaceBitmap(root) == nullptr) {
       space::LargeObjectSpace* large_object_space = heap->GetLargeObjectsSpace();
       if (large_object_space != nullptr && !large_object_space->Contains(root)) {
-        LOG(INTERNAL_FATAL) << "Found invalid root: " << root << " " << info;
+        os_ << "Found invalid root: " << root << " " << info << std::endl;
       }
     }
   }
+
+ private:
+  std::ostream& os_;
 };
 
-void MarkSweep::VerifyRoots() {
-  VerifyRootVisitor visitor;
-  Runtime::Current()->GetThreadList()->VisitRoots(&visitor);
+void MarkSweep::VerifySuspendedThreadRoots(std::ostream& os) {
+  VerifyRootVisitor visitor(os);
+  Runtime::Current()->GetThreadList()->VisitRootsForSuspendedThreads(&visitor);
 }
 
 void MarkSweep::MarkRoots(Thread* self) {
@@ -627,17 +625,16 @@ void MarkSweep::MarkNonThreadRoots() {
 void MarkSweep::MarkConcurrentRoots(VisitRootFlags flags) {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
   // Visit all runtime roots and clear dirty flags.
-  Runtime::Current()->VisitConcurrentRoots(
-      this, static_cast<VisitRootFlags>(flags | kVisitRootFlagNonMoving));
+  Runtime::Current()->VisitConcurrentRoots(this, flags);
 }
 
 class MarkSweep::DelayReferenceReferentVisitor {
  public:
   explicit DelayReferenceReferentVisitor(MarkSweep* collector) : collector_(collector) {}
 
-  void operator()(mirror::Class* klass, mirror::Reference* ref) const
+  void operator()(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> ref) const
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     collector_->DelayReferenceReferent(klass, ref);
   }
 
@@ -678,19 +675,19 @@ class MarkSweep::MarkStackTask : public Task {
     ALWAYS_INLINE void operator()(mirror::Object* obj,
                     MemberOffset offset,
                     bool is_static ATTRIBUTE_UNUSED) const
-        SHARED_REQUIRES(Locks::mutator_lock_) {
+        REQUIRES_SHARED(Locks::mutator_lock_) {
       Mark(obj->GetFieldObject<mirror::Object>(offset));
     }
 
     void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
-        SHARED_REQUIRES(Locks::mutator_lock_) {
+        REQUIRES_SHARED(Locks::mutator_lock_) {
       if (!root->IsNull()) {
         VisitRoot(root);
       }
     }
 
     void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
-        SHARED_REQUIRES(Locks::mutator_lock_) {
+        REQUIRES_SHARED(Locks::mutator_lock_) {
       if (kCheckLocks) {
         Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
         Locks::heap_bitmap_lock_->AssertExclusiveHeld(Thread::Current());
@@ -699,7 +696,7 @@ class MarkSweep::MarkStackTask : public Task {
     }
 
    private:
-    ALWAYS_INLINE void Mark(mirror::Object* ref) const SHARED_REQUIRES(Locks::mutator_lock_) {
+    ALWAYS_INLINE void Mark(mirror::Object* ref) const REQUIRES_SHARED(Locks::mutator_lock_) {
       if (ref != nullptr && mark_sweep_->MarkObjectParallel(ref)) {
         if (kUseFinger) {
           std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -724,7 +721,7 @@ class MarkSweep::MarkStackTask : public Task {
     // No thread safety analysis since multiple threads will use this visitor.
     void operator()(mirror::Object* obj) const
         REQUIRES(Locks::heap_bitmap_lock_)
-        SHARED_REQUIRES(Locks::mutator_lock_) {
+        REQUIRES_SHARED(Locks::mutator_lock_) {
       MarkSweep* const mark_sweep = chunk_task_->mark_sweep_;
       MarkObjectParallelVisitor mark_visitor(chunk_task_, mark_sweep);
       DelayReferenceReferentVisitor ref_visitor(mark_sweep);
@@ -751,7 +748,7 @@ class MarkSweep::MarkStackTask : public Task {
   size_t mark_stack_pos_;
 
   ALWAYS_INLINE void MarkStackPush(mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (UNLIKELY(mark_stack_pos_ == kMaxSize)) {
       // Mark stack overflow, give 1/2 the stack to the thread pool as a new work task.
       mark_stack_pos_ /= 2;
@@ -773,7 +770,7 @@ class MarkSweep::MarkStackTask : public Task {
   // Scans all of the objects
   virtual void Run(Thread* self ATTRIBUTE_UNUSED)
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     ScanObjectParallelVisitor visitor(this);
     // TODO: Tune this.
     static const size_t kFifoSize = 4;
@@ -1088,7 +1085,7 @@ class MarkSweep::VerifySystemWeakVisitor : public IsMarkedVisitor {
 
   virtual mirror::Object* IsMarked(mirror::Object* obj)
       OVERRIDE
-      SHARED_REQUIRES(Locks::mutator_lock_, Locks::heap_bitmap_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_, Locks::heap_bitmap_lock_) {
     mark_sweep_->VerifyIsLive(obj);
     return obj;
   }
@@ -1121,7 +1118,7 @@ class MarkSweep::CheckpointMarkThreadRoots : public Closure, public RootVisitor 
   }
 
   void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_)
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::heap_bitmap_lock_) {
     for (size_t i = 0; i < count; ++i) {
       mark_sweep_->MarkObjectNonNullParallel(*roots[i]);
@@ -1131,7 +1128,7 @@ class MarkSweep::CheckpointMarkThreadRoots : public Closure, public RootVisitor 
   void VisitRoots(mirror::CompressedReference<mirror::Object>** roots,
                   size_t count,
                   const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_)
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::heap_bitmap_lock_) {
     for (size_t i = 0; i < count; ++i) {
       mark_sweep_->MarkObjectNonNullParallel(roots[i]->AsMirrorPtr());
@@ -1316,9 +1313,9 @@ void MarkSweep::SweepLargeObjects(bool swap_bitmaps) {
   }
 }
 
-// Process the "referent" field in a java.lang.ref.Reference.  If the referent has not yet been
+// Process the "referent" field lin a java.lang.ref.Reference.  If the referent has not yet been
 // marked, put it on the appropriate list in the heap for later processing.
-void MarkSweep::DelayReferenceReferent(mirror::Class* klass, mirror::Reference* ref) {
+void MarkSweep::DelayReferenceReferent(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> ref) {
   heap_->GetReferenceProcessor()->DelayReferenceReferent(klass, ref, this);
 }
 
@@ -1330,7 +1327,7 @@ class MarkVisitor {
                                 MemberOffset offset,
                                 bool is_static ATTRIBUTE_UNUSED) const
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (kCheckLocks) {
       Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
       Locks::heap_bitmap_lock_->AssertExclusiveHeld(Thread::Current());
@@ -1340,7 +1337,7 @@ class MarkVisitor {
 
   void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!root->IsNull()) {
       VisitRoot(root);
     }
@@ -1348,7 +1345,7 @@ class MarkVisitor {
 
   void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (kCheckLocks) {
       Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
       Locks::heap_bitmap_lock_->AssertExclusiveHeld(Thread::Current());

@@ -37,6 +37,8 @@ LOCAL_CFLAGS := \
     -DSASR \
     -DWAV49 \
     -Wno-unused-parameter \
+    -Wno-shift-negative-value \
+    -Werror
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc
 

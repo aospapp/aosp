@@ -58,7 +58,7 @@ public class ProtectedBroadcastsTest extends AndroidTestCase {
         "android.intent.action.SIM_STATE_CHANGED",
         "android.intent.action.NETWORK_SET_TIME",
         "android.intent.action.NETWORK_SET_TIMEZONE",
-        "android.intent.action.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS",
+        "com.android.internal.intent.action.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS",
         "android.intent.action.ACTION_MDN_STATE_CHANGED",
         "android.provider.Telephony.SPN_STRINGS_UPDATED",
         "android.intent.action.ANY_DATA_STATE",

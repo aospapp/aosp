@@ -17,5 +17,6 @@
          <reset-password />
          <limit-password />
          <disable-keyguard-features />
+         <disable-camera />
     </uses-policies>
 </device-admin>

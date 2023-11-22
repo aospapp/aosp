@@ -27,7 +27,7 @@ SERVICE_PROP_PARSERS = {
     'EAP.PrivateKey': unicode,
     'EAP.SubjectMatch': unicode,
     'EAP.UseSystemCAs': bool,
-    wifi_proxy.WifiProxy.SERVICE_PROPERTY_SECURITY: unicode,
+    wifi_proxy.WifiProxy.SERVICE_PROPERTY_SECURITY_CLASS: unicode,
     }
 
 

@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"선택 안함"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"알 수 없는 벨소리"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"사용 가능한 모든 라인이 사용 중입니다. 전화를 걸려면 해당 기기의 전화 중 하나를 연결 해제하거나 다른 기기의 전화를 사용하세요."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"모바일 데이터가 사용 중지되어 통화가 종료되었습니다."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"모바일 데이터가 한도에 도달하여 통화가 종료되었습니다."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"데이터 한도에 도달하여 통화가 종료되었습니다."</string>
 </resources>

@@ -25,8 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.ArrayReference;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.ArrayRegion;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
@@ -48,7 +46,7 @@ public class GetValuesTest extends JDWPArrayReferenceTestCase {
      * <BR>Receives fields with ReferenceType.fields command,
      * receives values with ArrayReference.GetValues then checks them.
      */
-    public void testGetValues001() throws UnsupportedEncodingException {
+    public void testGetValues001() {
         logWriter.println("==> GetValuesTest.testGetValues001 started...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
@@ -135,8 +133,7 @@ public class GetValuesTest extends JDWPArrayReferenceTestCase {
     }
 
     private void checkArrayValues(long classID, long fieldID, int error, int length,
-            int checksNumber, byte expectedArrayTag, byte expectedElementTag, boolean checkValues)
-    throws UnsupportedEncodingException {
+            int checksNumber, byte expectedArrayTag, byte expectedElementTag, boolean checkValues) {
         CommandPacket packet = new CommandPacket(
                 JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
                 JDWPCommands.ReferenceTypeCommandSet.GetValuesCommand);
@@ -186,8 +183,7 @@ public class GetValuesTest extends JDWPArrayReferenceTestCase {
     }
 
     private void checkArrayRegion(long arrayID, int error, int firstIndex, int length,
-            byte expectedArrayTag, byte expectedElementTag, boolean checkValues)
-        throws UnsupportedEncodingException {
+            byte expectedArrayTag, byte expectedElementTag, boolean checkValues) {
 
         CommandPacket packet = new CommandPacket(
                 JDWPCommands.ArrayReferenceCommandSet.CommandSetID,

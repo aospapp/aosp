@@ -36,6 +36,7 @@ public final class AccessControllerTest extends TestCase {
     public void testDoPrivilegedWithCombiner() {
         final Permission permission = new RuntimePermission("do stuff");
         final DomainCombiner union = new DomainCombiner() {
+            @Override
             public ProtectionDomain[] combine(ProtectionDomain[] a, ProtectionDomain[] b) {
                 throw new AssertionFailedError("Expected combiner to be unused");
             }
@@ -48,12 +49,14 @@ public final class AccessControllerTest extends TestCase {
         final AtomicInteger actionCount = new AtomicInteger();
 
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
+            @Override
             public Void run() {
                 assertEquals(null, AccessController.getContext().getDomainCombiner());
                 AccessController.getContext().checkPermission(permission);
 
                 // Calling doPrivileged again would have exercised the combiner
                 AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                    @Override
                     public Void run() {
                         actionCount.incrementAndGet();
                         assertEquals(null, AccessController.getContext().getDomainCombiner());

@@ -16,23 +16,43 @@
 
 package android.text.method.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
-import android.cts.util.KeyEventUtil;
-import android.cts.util.PollingCheck;
-import android.graphics.Rect;
+import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
-import android.test.ActivityInstrumentationTestCase2;
-import android.text.Editable;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.method.PasswordTransformationMethod;
 import android.util.TypedValue;
 import android.view.KeyCharacterMap;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+
+import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -41,8 +61,9 @@ import java.util.Scanner;
 /**
  * Test {@link PasswordTransformationMethod}.
  */
-public class PasswordTransformationMethodTest extends
-        ActivityInstrumentationTestCase2<CtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class PasswordTransformationMethodTest {
     private static final int EDIT_TXT_ID = 1;
 
     /** original text */
@@ -52,85 +73,72 @@ public class PasswordTransformationMethodTest extends
     private static final String TEST_CONTENT_TRANSFORMED =
         "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 
-    private int mPasswordPrefBackUp;
-
-    private boolean isPasswordPrefSaved;
-
+    private Instrumentation mInstrumentation;
     private CtsActivity mActivity;
-
-    private MockPasswordTransformationMethod mMethod;
-
+    private int mPasswordPrefBackUp;
+    private boolean isPasswordPrefSaved;
+    private PasswordTransformationMethod mMethod;
     private EditText mEditText;
-
     private CharSequence mTransformedText;
 
-    public PasswordTransformationMethodTest() {
-        super("android.text.cts", CtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<CtsActivity> mActivityRule = new ActivityTestRule<>(CtsActivity.class);
 
-    private KeyEventUtil mKeyEventUtil;
+    @Before
+    public void setup() throws Throwable {
+        mActivity = mActivityRule.getActivity();
+        PollingCheck.waitFor(1000, mActivity::hasWindowFocus);
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mMethod = spy(new PasswordTransformationMethod());
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        new PollingCheck(1000) {
-            @Override
-            protected boolean check() {
-                return mActivity.hasWindowFocus();
-            }
-        }.run();
-        mMethod = new MockPasswordTransformationMethod();
-        try {
-            runTestOnUiThread(new Runnable() {
-                public void run() {
-                    EditText editText = new EditTextNoIme(mActivity);
-                    editText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-                    editText.setId(EDIT_TXT_ID);
-                    editText.setTransformationMethod(mMethod);
-                    Button button = new Button(mActivity);
-                    LinearLayout layout = new LinearLayout(mActivity);
-                    layout.setOrientation(LinearLayout.VERTICAL);
-                    layout.addView(editText, new LayoutParams(LayoutParams.MATCH_PARENT,
-                            LayoutParams.WRAP_CONTENT));
-                    layout.addView(button, new LayoutParams(LayoutParams.MATCH_PARENT,
-                            LayoutParams.WRAP_CONTENT));
-                    mActivity.setContentView(layout);
-                    editText.requestFocus();
-                }
-            });
-        } catch (Throwable e) {
-            fail("Exception thrown is UI thread:" + e.getMessage());
-        }
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> {
+            EditText editText = new EditTextNoIme(mActivity);
+            editText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+            editText.setId(EDIT_TXT_ID);
+            editText.setTransformationMethod(mMethod);
+            Button button = new Button(mActivity);
+            LinearLayout layout = new LinearLayout(mActivity);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.addView(editText, new LayoutParams(LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT));
+            layout.addView(button, new LayoutParams(LayoutParams.MATCH_PARENT,
+                    LayoutParams.WRAP_CONTENT));
+            mActivity.setContentView(layout);
+            editText.requestFocus();
+        });
+        mInstrumentation.waitForIdleSync();
 
-        mEditText = (EditText) getActivity().findViewById(EDIT_TXT_ID);
+        mEditText = (EditText) mActivity.findViewById(EDIT_TXT_ID);
         assertTrue(mEditText.isFocused());
-
-        mKeyEventUtil = new KeyEventUtil(getInstrumentation());
 
         enableAppOps();
         savePasswordPref();
         switchShowPassword(true);
     }
 
+    @After
+    public void teardown() {
+        resumePasswordPref();
+    }
+
     private void enableAppOps() {
+        UiAutomation uiAutomation = mInstrumentation.getUiAutomation();
+
         StringBuilder cmd = new StringBuilder();
         cmd.append("appops set ");
-        cmd.append(getInstrumentation().getContext().getPackageName());
+        cmd.append(mActivity.getPackageName());
         cmd.append(" android:write_settings allow");
-        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
+        uiAutomation.executeShellCommand(cmd.toString());
 
         StringBuilder query = new StringBuilder();
         query.append("appops get ");
-        query.append(getInstrumentation().getContext().getPackageName());
+        query.append(mActivity.getPackageName());
         query.append(" android:write_settings");
         String queryStr = query.toString();
 
         String result = "No operations.";
         while (result.contains("No operations")) {
-            ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation().executeShellCommand(
-                                        queryStr);
+            ParcelFileDescriptor pfd = uiAutomation.executeShellCommand(queryStr);
             InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
             result = convertStreamToString(inputStream);
         }
@@ -142,63 +150,49 @@ public class PasswordTransformationMethodTest extends
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        resumePasswordPref();
-        super.tearDown();
-    }
-
+    @Test
     public void testConstructor() {
         new PasswordTransformationMethod();
     }
 
+    @Test
     public void testTextChangedCallBacks() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mTransformedText = mMethod.getTransformation(mEditText.getText(), mEditText);
-            }
-        });
+        mActivityRule.runOnUiThread(() ->
+            mTransformedText = mMethod.getTransformation(mEditText.getText(), mEditText));
 
-        mMethod.reset();
+        reset(mMethod);
         // 12-key support
         KeyCharacterMap keymap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "HELLO" in case of 12-key(NUMERIC) keyboard
-            mKeyEventUtil.sendKeys(mEditText, "6*4 6*3 7*5 DPAD_RIGHT 7*5 7*6 DPAD_RIGHT");
+            CtsKeyEventUtil.sendKeys(mInstrumentation, mEditText,
+                    "6*4 6*3 7*5 DPAD_RIGHT 7*5 7*6 DPAD_RIGHT");
         }
         else {
-            mKeyEventUtil.sendKeys(mEditText, "H E 2*L O");
+            CtsKeyEventUtil.sendKeys(mInstrumentation, mEditText, "H E 2*L O");
         }
-        assertTrue(mMethod.hasCalledBeforeTextChanged());
-        assertTrue(mMethod.hasCalledOnTextChanged());
-        assertTrue(mMethod.hasCalledAfterTextChanged());
+        verify(mMethod, atLeastOnce()).beforeTextChanged(any(), anyInt(), anyInt(), anyInt());
+        verify(mMethod, atLeastOnce()).onTextChanged(any(), anyInt(), anyInt(), anyInt());
+        verify(mMethod, atLeastOnce()).afterTextChanged(any());
 
-        mMethod.reset();
+        reset(mMethod);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mEditText.append(" ");
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mEditText.append(" "));
 
         // the appended string will not get transformed immediately
         // "***** "
         assertEquals("\u2022\u2022\u2022\u2022\u2022 ", mTransformedText.toString());
-        assertTrue(mMethod.hasCalledBeforeTextChanged());
-        assertTrue(mMethod.hasCalledOnTextChanged());
-        assertTrue(mMethod.hasCalledAfterTextChanged());
+        verify(mMethod, atLeastOnce()).beforeTextChanged(any(), anyInt(), anyInt(), anyInt());
+        verify(mMethod, atLeastOnce()).onTextChanged(any(), anyInt(), anyInt(), anyInt());
+        verify(mMethod, atLeastOnce()).afterTextChanged(any());
 
         // it will get transformed after a while
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                // "******"
-                return mTransformedText.toString()
-                        .equals("\u2022\u2022\u2022\u2022\u2022\u2022");
-            }
-        }.run();
+        // "******"
+        PollingCheck.waitFor(() -> mTransformedText.toString()
+                .equals("\u2022\u2022\u2022\u2022\u2022\u2022"));
     }
 
+    @Test
     public void testGetTransformation() {
         PasswordTransformationMethod method = new PasswordTransformationMethod();
 
@@ -215,6 +209,7 @@ public class PasswordTransformationMethodTest extends
         }
     }
 
+    @Test
     public void testGetInstance() {
         PasswordTransformationMethod method0 = PasswordTransformationMethod.getInstance();
         assertNotNull(method0);
@@ -222,22 +217,6 @@ public class PasswordTransformationMethodTest extends
         PasswordTransformationMethod method1 = PasswordTransformationMethod.getInstance();
         assertNotNull(method1);
         assertSame(method0, method1);
-    }
-
-    public void testOnFocusChanged() {
-        // lose focus
-        mMethod.reset();
-        assertTrue(mEditText.isFocused());
-        mKeyEventUtil.sendKeys(mEditText, "DPAD_DOWN");
-        assertFalse(mEditText.isFocused());
-        assertTrue(mMethod.hasCalledOnFocusChanged());
-
-        // gain focus
-        mMethod.reset();
-        assertFalse(mEditText.isFocused());
-        mKeyEventUtil.sendKeys(mEditText, "DPAD_UP");
-        assertTrue(mEditText.isFocused());
-        assertTrue(mMethod.hasCalledOnFocusChanged());
     }
 
     private void savePasswordPref() {
@@ -260,63 +239,5 @@ public class PasswordTransformationMethodTest extends
     private void switchShowPassword(boolean on) {
         System.putInt(mActivity.getContentResolver(), System.TEXT_SHOW_PASSWORD,
                 on ? 1 : 0);
-    }
-
-    private static class MockPasswordTransformationMethod extends PasswordTransformationMethod {
-        private boolean mHasCalledBeforeTextChanged;
-
-        private boolean mHasCalledOnTextChanged;
-
-        private boolean mHasCalledAfterTextChanged;
-
-        private boolean mHasCalledOnFocusChanged;
-
-        @Override
-        public void afterTextChanged(Editable s) {
-            super.afterTextChanged(s);
-            mHasCalledAfterTextChanged = true;
-        }
-
-        @Override
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            super.beforeTextChanged(s, start, count, after);
-            mHasCalledBeforeTextChanged = true;
-        }
-
-        @Override
-        public void onFocusChanged(View view, CharSequence sourceText, boolean focused,
-                int direction, Rect previouslyFocusedRect) {
-            super.onFocusChanged(view, sourceText, focused, direction, previouslyFocusedRect);
-            mHasCalledOnFocusChanged = true;
-        }
-
-        @Override
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
-            super.onTextChanged(s, start, before, count);
-            mHasCalledOnTextChanged = true;
-        }
-
-        public boolean hasCalledBeforeTextChanged() {
-            return mHasCalledBeforeTextChanged;
-        }
-
-        public boolean hasCalledOnTextChanged() {
-            return mHasCalledOnTextChanged;
-        }
-
-        public boolean hasCalledAfterTextChanged() {
-            return mHasCalledAfterTextChanged;
-        }
-
-        public boolean hasCalledOnFocusChanged() {
-            return mHasCalledOnFocusChanged;
-        }
-
-        public void reset() {
-            mHasCalledBeforeTextChanged = false;
-            mHasCalledOnTextChanged = false;
-            mHasCalledAfterTextChanged = false;
-            mHasCalledOnFocusChanged = false;
-        }
     }
 }

@@ -28,6 +28,11 @@
 #include <sys/types.h>
 #include <vector>
 
+struct android_net_context;
+
+namespace android {
+namespace net {
+
 class DumpWriter;
 class Network;
 class UidRanges;
@@ -114,5 +119,8 @@ private:
     std::map<uid_t, Permission> mUsers;
     std::set<uid_t> mProtectableUsers;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_NETWORK_CONTROLLER_H

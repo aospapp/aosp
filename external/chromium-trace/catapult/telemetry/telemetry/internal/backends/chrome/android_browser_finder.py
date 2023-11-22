@@ -6,9 +6,11 @@
 
 import logging
 import os
+import subprocess
 import sys
 
-from catapult_base import dependency_util
+from py_utils import dependency_util
+from devil import base_error
 from devil.android import apk_helper
 
 from telemetry.core import exceptions
@@ -119,9 +121,7 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
     self._InitPlatformIfNeeded()
     browser_backend = android_browser_backend.AndroidBrowserBackend(
         self._platform_backend,
-        finder_options.browser_options, self._backend_settings,
-        output_profile_path=finder_options.output_profile_path,
-        extensions_to_load=finder_options.extensions_to_load)
+        finder_options.browser_options, self._backend_settings)
     try:
       return browser.Browser(
           browser_backend, self._platform_backend, self._credentials_path)
@@ -135,8 +135,8 @@ class PossibleAndroidBrowser(possible_browser.PossibleBrowser):
 
       raise original_exception[0], original_exception[1], original_exception[2]
 
-  def SupportsOptions(self, finder_options):
-    if len(finder_options.extensions_to_load) != 0:
+  def SupportsOptions(self, browser_options):
+    if len(browser_options.extensions_to_load) != 0:
       return False
     return True
 
@@ -185,14 +185,15 @@ def _FindAllPossibleBrowsers(finder_options, android_platform):
   if (finder_options.browser_executable and
       CanPossiblyHandlePath(finder_options.browser_executable)):
     apk_name = os.path.basename(finder_options.browser_executable)
-    package_info = next((info for info in CHROME_PACKAGE_NAMES.itervalues()
-                         if info[2] == apk_name), None)
+    normalized_path = os.path.expanduser(finder_options.browser_executable)
+    exact_package = apk_helper.GetPackageName(normalized_path)
+    package_info = next(
+        (info for info in CHROME_PACKAGE_NAMES.itervalues()
+         if info[0] == exact_package or info[2] == apk_name), None)
 
-    # It is okay if the APK name doesn't match any of known chrome browser APKs,
-    # since it may be of a different browser.
+    # It is okay if the APK name or package doesn't match any of known chrome
+    # browser APKs, since it may be of a different browser.
     if package_info:
-      normalized_path = os.path.expanduser(finder_options.browser_executable)
-      exact_package = apk_helper.GetPackageName(normalized_path)
       if not exact_package:
         raise exceptions.PackageDetectionError(
             'Unable to find package for %s specified by --browser-executable' %
@@ -235,12 +236,14 @@ def _FindAllPossibleBrowsers(finder_options, android_platform):
 
   # Add any known local versions.
   for name, package_info in CHROME_PACKAGE_NAMES.iteritems():
-    package, backend_settings, local_apk = package_info
+    package, backend_settings, apk_name = package_info
+    if apk_name and not finder_options.chrome_root:
+      continue
     b = PossibleAndroidBrowser(name,
                                finder_options,
                                android_platform,
                                backend_settings(package),
-                               local_apk)
+                               apk_name)
     if b.platform.CanLaunchApplication(package) or b.HaveLocalAPK():
       possible_browsers.append(b)
   return possible_browsers
@@ -254,5 +257,12 @@ def FindAllAvailableBrowsers(finder_options, device):
   """
   if not isinstance(device, android_device.AndroidDevice):
     return []
-  android_platform = platform.GetPlatformForDevice(device, finder_options)
-  return _FindAllPossibleBrowsers(finder_options, android_platform)
+
+  try:
+    android_platform = platform.GetPlatformForDevice(device, finder_options)
+    return _FindAllPossibleBrowsers(finder_options, android_platform)
+  except base_error.BaseError as e:
+    logging.error('Unable to find browsers on %s: %s', device.device_id, str(e))
+    ps_output = subprocess.check_output(['ps', '-ef'])
+    logging.error('Ongoing processes:\n%s', ps_output)
+  return []

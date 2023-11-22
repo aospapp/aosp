@@ -17,7 +17,7 @@
 
     <include name="cts" />
 
-    <option name="compatibility:plan" value="cts-java" />
+    <option name="plan" value="cts-java" />
 
     <!-- Include CtsLibcoreTestCases -->
     <option name="compatibility:include-filter" value="CtsLibcoreTestCases" />

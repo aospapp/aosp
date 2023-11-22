@@ -16,6 +16,7 @@
 
 package com.android.server.telecom.testapps;
 
+import android.content.Context;
 import android.telecom.Call;
 import android.telecom.InCallService;
 import android.telecom.VideoProfile;
@@ -23,6 +24,7 @@ import android.telecom.VideoProfile.CameraCapabilities;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -32,11 +34,15 @@ import java.util.Set;
 /**
  * Maintains a list of calls received via the {@link TestInCallServiceImpl}.
  */
-public class TestCallList extends Call.Listener {
+public class TestCallList extends Call.Callback {
 
     public static abstract class Listener {
         public void onCallAdded(Call call) {}
         public void onCallRemoved(Call call) {}
+        public void onRttStarted(Call call) {}
+        public void onRttStopped(Call call) {}
+        public void onRttInitiationFailed(Call call, int reason) {}
+        public void onRttRequest(Call call, int id) {}
     }
 
     private static final TestCallList INSTANCE = new TestCallList();
@@ -97,6 +103,8 @@ public class TestCallList extends Call.Listener {
     private Map<Call, TestVideoCallListener> mVideoCallListeners =
             new ArrayMap<Call, TestVideoCallListener>();
     private Set<Listener> mListeners = new ArraySet<Listener>();
+    private Context mContext;
+    private int mLastRttRequestId = -1;
 
     /**
      * Singleton accessor.
@@ -126,7 +134,7 @@ public class TestCallList extends Call.Listener {
         }
         Log.i(TAG, "addCall: " + call + " " + System.identityHashCode(this));
         mCalls.add(call);
-        call.addListener(this);
+        call.registerCallback(this);
 
         for (Listener l : mListeners) {
             l.onCallAdded(call);
@@ -140,7 +148,7 @@ public class TestCallList extends Call.Listener {
         }
         Log.i(TAG, "removeCall: " + call);
         mCalls.remove(call);
-        call.removeListener(this);
+        call.unregisterCallback(this);
 
         for (Listener l : mListeners) {
             l.onCallRemoved(call);
@@ -162,6 +170,10 @@ public class TestCallList extends Call.Listener {
 
     public int size() {
         return mCalls.size();
+    }
+
+    public int getLastRttRequestId() {
+        return mLastRttRequestId;
     }
 
     /**
@@ -212,6 +224,35 @@ public class TestCallList extends Call.Listener {
                 mVideoCallListeners.put(call, listener);
                 Log.v(TAG, "onVideoCallChanged: added new listener");
             }
+        }
+    }
+
+    @Override
+    public void onRttStatusChanged(Call call, boolean enabled, Call.RttCall rttCall) {
+        Log.v(TAG, "onRttStatusChanged: call = " + call + " " + System.identityHashCode(this));
+        if (enabled) {
+            for (Listener l : mListeners) {
+                l.onRttStarted(call);
+            }
+        } else {
+            for (Listener l : mListeners) {
+                l.onRttStopped(call);
+            }
+        }
+    }
+
+    @Override
+    public void onRttInitiationFailure(Call call, int reason) {
+        for (Listener l : mListeners) {
+            l.onRttInitiationFailed(call, reason);
+        }
+    }
+
+    @Override
+    public void onRttRequest(Call call, int id) {
+        mLastRttRequestId = id;
+        for (Listener l : mListeners) {
+            l.onRttRequest(call, id);
         }
     }
 }

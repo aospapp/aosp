@@ -47,6 +47,9 @@ class DBusUpdateEngineClient : public UpdateEngineClient {
                  std::string* out_new_version,
                  int64_t* out_new_size) const override;
 
+  bool SetCohortHint(const std::string& cohort_hint) override;
+  bool GetCohortHint(std::string* cohort_hint) const override;
+
   bool SetUpdateOverCellularPermission(bool allowed) override;
   bool GetUpdateOverCellularPermission(bool* allowed) const override;
 
@@ -74,6 +77,8 @@ class DBusUpdateEngineClient : public UpdateEngineClient {
   bool UnregisterStatusUpdateHandler(StatusUpdateHandler* handler) override;
 
   bool GetLastAttemptError(int32_t* last_attempt_error) const override;
+
+  bool GetEolStatus(int32_t* eol_status) const override;
 
  private:
   void DBusStatusHandlersRegistered(const std::string& interface,

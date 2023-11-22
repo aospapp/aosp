@@ -61,10 +61,14 @@ static SLBufferQueueItf playerBufferQueue;
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static audio_utils_fifo fifo;
+static audio_utils_fifo *fifo;
+static audio_utils_fifo_reader *fifoReader;
+static audio_utils_fifo_writer *fifoWriter;
 
-static audio_utils_fifo fifo2;
+static audio_utils_fifo *fifo2;
 static short *fifo2Buffer = NULL;
+static audio_utils_fifo_reader *fifo2Reader;
+static audio_utils_fifo_writer *fifo2Writer;
 
 static int injectImpulse;
 
@@ -87,7 +91,7 @@ static void recorderCallback(SLAndroidSimpleBufferQueueItf caller __unused, void
     }
 
 #if 1
-    ssize_t actual = audio_utils_fifo_write(&fifo, buffer, (size_t) bufSizeInFrames);
+    ssize_t actual = fifoWriter->write(buffer, (size_t) bufSizeInFrames);
     if (actual != (ssize_t) bufSizeInFrames) {
         write(1, "?", 1);
     }
@@ -96,7 +100,7 @@ static void recorderCallback(SLAndroidSimpleBufferQueueItf caller __unused, void
     // and it is unsafe to do I/O as it could block for unbounded time.
     // Flash filesystem is especially notorious for blocking.
     if (fifo2Buffer != NULL) {
-        actual = audio_utils_fifo_write(&fifo2, buffer, (size_t) bufSizeInFrames);
+        actual = fifo2Writer->write(buffer, (size_t) bufSizeInFrames);
         if (actual != (ssize_t) bufSizeInFrames) {
             write(1, "?", 1);
         }
@@ -175,7 +179,7 @@ static void playerCallback(SLBufferQueueItf caller __unused, void *context __unu
     }
 
 #if 1
-    ssize_t actual = audio_utils_fifo_read(&fifo, buffer, bufSizeInFrames);
+    ssize_t actual = fifoReader->read(buffer, bufSizeInFrames);
     if (actual != (ssize_t) bufSizeInFrames) {
         write(1, "/", 1);
         // on underrun from pipe, substitute silence
@@ -363,7 +367,9 @@ int main(int argc, char **argv)
     size_t frameSize = channels * sizeof(short);
 #define FIFO_FRAMES 1024
     short *fifoBuffer = new short[FIFO_FRAMES * channels];
-    audio_utils_fifo_init(&fifo, FIFO_FRAMES, frameSize, fifoBuffer);
+    fifo = new audio_utils_fifo(FIFO_FRAMES, frameSize, fifoBuffer);
+    fifoReader = new audio_utils_fifo_reader(*fifo, true /*throttlesWriter*/);
+    fifoWriter = new audio_utils_fifo_writer(*fifo);
 
     SNDFILE *sndfile;
     if (outFileName != NULL) {
@@ -377,7 +383,9 @@ int main(int argc, char **argv)
         if (sndfile != NULL) {
 #define FIFO2_FRAMES 65536
             fifo2Buffer = new short[FIFO2_FRAMES * channels];
-            audio_utils_fifo_init(&fifo2, FIFO2_FRAMES, frameSize, fifo2Buffer);
+            fifo2 = new audio_utils_fifo(FIFO2_FRAMES, frameSize, fifo2Buffer);
+            fifo2Reader = new audio_utils_fifo_reader(*fifo2, true /*throttlesWriter*/);
+            fifo2Writer = new audio_utils_fifo_writer(*fifo2);
         } else {
             fprintf(stderr, "sf_open failed\n");
         }
@@ -550,7 +558,7 @@ int main(int argc, char **argv)
             if (fifo2Buffer != NULL) {
                 for (;;) {
                     short buffer[bufSizeInFrames * channels];
-                    ssize_t actual = audio_utils_fifo_read(&fifo2, buffer, bufSizeInFrames);
+                    ssize_t actual = fifo2Reader->read(buffer, bufSizeInFrames);
                     if (actual <= 0)
                         break;
                     (void) sf_writef_short(sndfile, buffer, (sf_count_t) actual);
@@ -580,13 +588,26 @@ int main(int argc, char **argv)
 
     // Tear down the objects and exit
 cleanup:
-    audio_utils_fifo_deinit(&fifo);
+    delete fifoWriter;
+    fifoWriter = NULL;
+    delete fifoReader;
+    fifoReader = NULL;
+    delete fifo;
+    fifo = NULL;
     delete[] fifoBuffer;
+    fifoBuffer = NULL;
 
     if (sndfile != NULL) {
-        audio_utils_fifo_deinit(&fifo2);
+        delete fifo2Writer;
+        fifo2Writer = NULL;
+        delete fifo2Reader;
+        fifo2Reader = NULL;
+        delete fifo2;
+        fifo2 = NULL;
         delete[] fifo2Buffer;
+        fifo2Buffer = NULL;
         sf_close(sndfile);
+        sndfile = NULL;
     }
     if (NULL != playerObject) {
         (*playerObject)->Destroy(playerObject);

@@ -20,19 +20,31 @@
     android:layout_height="wrap_content">
 
     <TextView android:id="@+id/closed_caption"
-        style="@style/channel_banner_track_meta_text"
+        style="@style/track_meta_text.channel_banner"
         android:visibility="gone" />
 
     <TextView android:id="@+id/aspect_ratio"
-        style="@style/channel_banner_track_meta_text"
+        style="@style/track_meta_text.channel_banner"
         android:visibility="gone" />
 
     <TextView android:id="@+id/resolution"
-        style="@style/channel_banner_track_meta_text"
+        style="@style/track_meta_text.channel_banner"
         android:visibility="gone" />
 
     <TextView android:id="@+id/audio_channel"
-        style="@style/channel_banner_track_meta_text"
+        style="@style/track_meta_text.channel_banner"
+        android:visibility="gone" />
+
+    <TextView android:id="@+id/content_ratings_0"
+        style="@style/track_meta_text.channel_banner"
+        android:visibility="gone" />
+
+    <TextView android:id="@+id/content_ratings_1"
+        style="@style/track_meta_text.channel_banner"
+        android:visibility="gone" />
+
+    <TextView android:id="@+id/content_ratings_2"
+        style="@style/track_meta_text.channel_banner"
         android:visibility="gone" />
 
 </LinearLayout>

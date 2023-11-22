@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@ public class ConnectivityConstants {
         public static final String NETWORK_CALLBACK_EVENT = "networkCallbackEvent";
         public static final String MAX_MS_TO_LIVE = "maxMsToLive";
         public static final String RSSI = "rssi";
+        public static final String INTERFACE_NAME = "interfaceName";
     }
 
     /**

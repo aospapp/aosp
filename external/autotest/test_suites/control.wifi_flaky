@@ -5,7 +5,6 @@
 AUTHOR = "wiley@chromium.org"
 NAME = "wifi_flaky"
 PURPOSE = "Track and monitor flaky WiFi tests."
-CRITERIA = "All tests with SUITE=wifi_flaky must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

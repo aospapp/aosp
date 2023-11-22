@@ -22,7 +22,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.android.support.design">
 
-    <uses-sdk android:minSdkVersion="7" android:targetSdkVersion="21" />
+    <uses-sdk android:minSdkVersion="14" android:targetSdkVersion="21" />
 
     <application android:label="@string/activity_sample_code"
             android:supportsRtl="true"
@@ -122,6 +122,14 @@
 
         <activity android:name=".widget.SnackbarWithoutCoordinatorLayout"
                   android:label="@string/design_snackbar_without_col">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.example.android.support.design.SAMPLE_CODE" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".widget.CustomSnackbarUsage"
+                  android:label="@string/design_snackbar_custom">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="com.example.android.support.design.SAMPLE_CODE" />

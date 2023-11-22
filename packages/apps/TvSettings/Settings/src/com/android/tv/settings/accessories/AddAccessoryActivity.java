@@ -465,8 +465,9 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
     }
 
     protected void updateView() {
-        if (mPreferenceFragment == null) {
+        if (mPreferenceFragment == null || isFinishing()) {
             // view not yet ready, update will happen on first layout event
+            // or alternately we're done and don't need to do anything
             return;
         }
 

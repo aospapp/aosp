@@ -21,12 +21,3 @@ LOCAL_SRC_FILES := $(call all-subdir-java-files)
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 include $(BUILD_JAVA_LIBRARY)
-
-# Copy the built module to the cts dir
-cts_library_jar := $(CTS_TESTCASES_OUT)/$(LOCAL_MODULE).jar
-$(cts_library_jar): $(LOCAL_BUILT_MODULE)
-	$(copy-file-to-target)
-
-# Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
-$(my_register_name) : $(cts_library_jar)
-

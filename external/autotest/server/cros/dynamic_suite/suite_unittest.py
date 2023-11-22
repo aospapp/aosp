@@ -8,29 +8,34 @@
 """Unit tests for server/cros/dynamic_suite/dynamic_suite.py."""
 
 import collections
-import mox
+from collections import OrderedDict
 import os
 import shutil
 import tempfile
 import unittest
-from collections import OrderedDict
+
+import mox
 
 import common
 
-from autotest_lib.client.common_lib import base_job, control_data
+from autotest_lib.client.common_lib import base_job
+from autotest_lib.client.common_lib import control_data
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import priorities
-from autotest_lib.client.common_lib import utils, error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.server import frontend
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import control_file_getter
+from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import job_status
 from autotest_lib.server.cros.dynamic_suite import reporting
+from autotest_lib.server.cros.dynamic_suite import suite as SuiteBase
 from autotest_lib.server.cros.dynamic_suite.comparators import StatusContains
-from autotest_lib.server.cros.dynamic_suite.suite import Suite
-from autotest_lib.server.cros.dynamic_suite.suite import RetryHandler
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeControlData
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeJob
-from autotest_lib.server import frontend
+from autotest_lib.server.cros.dynamic_suite.suite import RetryHandler
+from autotest_lib.server.cros.dynamic_suite.suite import Suite
 from autotest_lib.site_utils import phapi_lib
 
 
@@ -53,6 +58,8 @@ class SuiteTest(mox.MoxTestBase):
     def setUp(self):
         super(SuiteTest, self).setUp()
         self.maxDiff = None
+        self.use_batch = SuiteBase.ENABLE_CONTROLS_IN_BATCH
+        SuiteBase.ENABLE_CONTROLS_IN_BATCH = False
         self.afe = self.mox.CreateMock(frontend.AFE)
         self.tko = self.mox.CreateMock(frontend.TKO)
 
@@ -86,6 +93,7 @@ class SuiteTest(mox.MoxTestBase):
 
 
     def tearDown(self):
+        SuiteBase.ENABLE_CONTROLS_IN_BATCH = self.use_batch
         super(SuiteTest, self).tearDown()
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
@@ -114,12 +122,59 @@ class SuiteTest(mox.MoxTestBase):
             self.mox.StubOutWithMock(control_data, 'parse_control_string')
 
         self.getter.get_control_file_list(
-            suite_name=suite_name).AndReturn(file_list)
+                suite_name=suite_name).AndReturn(file_list)
         for file, data in files_to_parse.iteritems():
             self.getter.get_control_file_contents(
-                file).InAnyOrder().AndReturn(data.string)
+                    file).InAnyOrder().AndReturn(data.string)
             control_data.parse_control_string(
-                data.string, raise_warnings=True).InAnyOrder().AndReturn(data)
+                    data.string,
+                    raise_warnings=True,
+                    path=file).InAnyOrder().AndReturn(data)
+
+
+    def expect_control_file_parsing_in_batch(self, suite_name=_TAG):
+        """Expect an attempt to parse the contents of all control files in
+        |self.files| and |self.files_to_filter|, form them to a dict.
+
+        @param suite_name: The suite name to parse control files for.
+        """
+        self.mox.StubOutWithMock(control_data, 'parse_control_string')
+        suite_info = {}
+        for k, v in self.files.iteritems():
+            suite_info[k] = v.string
+            control_data.parse_control_string(
+                    v.string,
+                    raise_warnings=True,
+                    path=k).InAnyOrder().AndReturn(v)
+        for k, v in self.files_to_filter.iteritems():
+            suite_info[k] = v.string
+        self.getter._dev_server = self._DEVSERVER_HOST
+        self.getter.get_suite_info(
+                suite_name=suite_name).AndReturn(suite_info)
+
+
+    def testFindAllTestInBatch(self):
+        """Test switch on enable_getting_controls_in_batch for function
+        find_all_test."""
+        self.use_batch = SuiteBase.ENABLE_CONTROLS_IN_BATCH
+        self.expect_control_file_parsing_in_batch()
+        SuiteBase.ENABLE_CONTROLS_IN_BATCH = True
+
+        self.mox.ReplayAll()
+
+        predicate = lambda d: d.suite == self._TAG
+        tests = Suite.find_and_parse_tests(self.getter,
+                                           predicate,
+                                           self._TAG,
+                                           add_experimental=True)
+        self.assertEquals(len(tests), 6)
+        self.assertTrue(self.files['one'] in tests)
+        self.assertTrue(self.files['two'] in tests)
+        self.assertTrue(self.files['three'] in tests)
+        self.assertTrue(self.files['five'] in tests)
+        self.assertTrue(self.files['six'] in tests)
+        self.assertTrue(self.files['seven'] in tests)
+        SuiteBase.ENABLE_CONTROLS_IN_BATCH = self.use_batch
 
 
     def testFindAndParseStableTests(self):
@@ -199,12 +254,14 @@ class SuiteTest(mox.MoxTestBase):
 
         self.assertFalse(self.files['one'] in suite.tests)
         self.assertFalse(self.files['two'] in suite.tests)
-        self.assertFalse(self.files['one'] in suite.unstable_tests())
-        self.assertFalse(self.files['two'] in suite.stable_tests())
-        self.assertFalse(self.files['one'] in suite.stable_tests())
-        self.assertFalse(self.files['two'] in suite.unstable_tests())
         self.assertFalse(self.files['four'] in suite.tests)
         self.assertTrue(self.files['five'] in suite.tests)
+
+        discoverer = SuiteBase._DynamicSuiteDiscoverer(suite.tests)
+        self.assertFalse(self.files['one'] in discoverer.unstable_tests)
+        self.assertFalse(self.files['two'] in discoverer.stable_tests)
+        self.assertFalse(self.files['one'] in discoverer.stable_tests)
+        self.assertFalse(self.files['two'] in discoverer.unstable_tests)
 
 
     def testStableUnstableFilter(self):
@@ -218,12 +275,14 @@ class SuiteTest(mox.MoxTestBase):
 
         self.assertTrue(self.files['one'] in suite.tests)
         self.assertTrue(self.files['two'] in suite.tests)
-        self.assertTrue(self.files['one'] in suite.unstable_tests())
-        self.assertTrue(self.files['two'] in suite.stable_tests())
-        self.assertFalse(self.files['one'] in suite.stable_tests())
-        self.assertFalse(self.files['two'] in suite.unstable_tests())
         # Sanity check.
         self.assertFalse(self.files['four'] in suite.tests)
+
+        discoverer = SuiteBase._DynamicSuiteDiscoverer(suite.tests)
+        self.assertTrue(self.files['one'] in discoverer.unstable_tests)
+        self.assertTrue(self.files['two'] in discoverer.stable_tests)
+        self.assertFalse(self.files['one'] in discoverer.stable_tests)
+        self.assertFalse(self.files['two'] in discoverer.unstable_tests)
 
 
     def mock_control_file_parsing(self):
@@ -238,7 +297,8 @@ class SuiteTest(mox.MoxTestBase):
             mox.IgnoreArg(),
             add_experimental=True,
             forgiving_parser=True,
-            run_prod_code=False).AndReturn(self.files.values())
+            run_prod_code=False,
+            test_args=None).AndReturn(self.files.values())
 
 
     def expect_job_scheduling(self, recorder, add_experimental,
@@ -256,7 +316,7 @@ class SuiteTest(mox.MoxTestBase):
         """
         record_job_id = suite and suite._results_dir
         if record_job_id:
-            self.mox.StubOutWithMock(suite, '_remember_provided_job_id')
+            self.mox.StubOutWithMock(suite, '_remember_job_keyval')
         recorder.record_entry(
             StatusContains.CreateFromStrings('INFO', 'Start %s' % self._TAG),
             log_in_subdir=False)
@@ -308,12 +368,18 @@ class SuiteTest(mox.MoxTestBase):
                 fake_job = FakeJob(id=n)
                 job_mock.AndReturn(fake_job)
                 if record_job_id:
-                    suite._remember_provided_job_id(fake_job)
+                    suite._remember_job_keyval(fake_job)
                 n += 1
 
 
     def testScheduleTestsAndRecord(self):
         """Should schedule stable and experimental tests with the AFE."""
+        name_list = ['name-data_two', 'name-data_three',
+                     'name-data_four', 'name-data_five', 'name-data_six',
+                     'name-data_seven', 'experimental_name-data_one']
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 7,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
@@ -323,6 +389,9 @@ class SuiteTest(mox.MoxTestBase):
         self.mox.ResetAll()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=True, suite=suite)
+
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(self.tmpdir, keyval_dict)
         self.mox.ReplayAll()
         suite.schedule(recorder.record_entry, True)
         for job in suite._jobs:
@@ -331,9 +400,18 @@ class SuiteTest(mox.MoxTestBase):
 
     def testScheduleStableTests(self):
         """Should schedule only stable tests with the AFE."""
+        # Since test data_one is experimental, it will be skip.
+        name_list = ['name-data_two', 'name-data_three',
+                     'name-data_four', 'name-data_five', 'name-data_six',
+                     'name-data_seven']
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 6,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=False)
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(None, keyval_dict)
 
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
@@ -344,10 +422,19 @@ class SuiteTest(mox.MoxTestBase):
 
     def testScheduleStableTestsIgnoreDeps(self):
         """Should schedule only stable tests with the AFE."""
+        # Since test data_one is experimental, it will be skip.
+        name_list = ['name-data_two', 'name-data_three',
+                     'name-data_four', 'name-data_five', 'name-data_six',
+                     'name-data_seven']
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 6,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=False,
                                    ignore_deps=True)
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(None, keyval_dict)
 
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
@@ -359,9 +446,17 @@ class SuiteTest(mox.MoxTestBase):
 
     def testScheduleUnrunnableTestsTESTNA(self):
         """Tests which fail to schedule should be TEST_NA."""
+        # Since all tests will be fail to schedule, the num of scheduled tests
+        # will be zero.
+        name_list = []
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 0,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=True, raises=True)
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(None, keyval_dict)
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
                                        self.devserver,
@@ -371,9 +466,17 @@ class SuiteTest(mox.MoxTestBase):
 
     def testRetryMapAfterScheduling(self):
         """Test job-test and test-job mapping are correctly updated."""
+        name_list = ['name-data_two', 'name-data_three',
+                     'name-data_four', 'name-data_five', 'name-data_six',
+                     'name-data_seven', 'experimental_name-data_one']
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 7,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=True)
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(None, keyval_dict)
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
                                        self.devserver,
@@ -396,9 +499,18 @@ class SuiteTest(mox.MoxTestBase):
 
 
     def testSuiteMaxRetries(self):
+        """Test suite max retries."""
+        name_list = ['name-data_two', 'name-data_three',
+                     'name-data_four', 'name-data_five', 'name-data_six',
+                     'name-data_seven', 'experimental_name-data_one']
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 7,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=True)
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(None, keyval_dict)
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
                                        self.devserver,
@@ -414,10 +526,19 @@ class SuiteTest(mox.MoxTestBase):
 
     def testSuiteDependencies(self):
         """Should add suite dependencies to tests scheduled."""
+        # Since add_experimental set to False, will skip experimental data_one.
+        name_list = ['name-data_two', 'name-data_three',
+                     'name-data_four', 'name-data_five', 'name-data_six',
+                     'name-data_seven']
+        keyval_dict = {constants.SCHEDULED_TEST_COUNT_KEY: 6,
+                       constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
+
         self.mock_control_file_parsing()
         recorder = self.mox.CreateMock(base_job.base_job)
         self.expect_job_scheduling(recorder, add_experimental=False,
                                    suite_deps=['extra'])
+        self.mox.StubOutWithMock(utils, 'write_keyval')
+        utils.write_keyval(None, keyval_dict)
 
         self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
@@ -653,6 +774,7 @@ class SuiteTest(mox.MoxTestBase):
 
         self.mox.StubOutClassWithMocks(phapi_lib, 'ProjectHostingApiClient')
         mock_host = phapi_lib.ProjectHostingApiClient(mox.IgnoreArg(),
+                                                      mox.IgnoreArg(),
                                                       mox.IgnoreArg())
         self.mox.StubOutWithMock(reporting.Reporter, 'report')
         reporting.Reporter.report(mox.IgnoreArg(),
@@ -693,6 +815,7 @@ class SuiteTest(mox.MoxTestBase):
         self.mox.StubOutWithMock(reporting.Reporter, '_check_tracker')
         self.mox.StubOutClassWithMocks(phapi_lib, 'ProjectHostingApiClient')
         mock_host = phapi_lib.ProjectHostingApiClient(mox.IgnoreArg(),
+                                                      mox.IgnoreArg(),
                                                       mox.IgnoreArg())
         reporting.Reporter._check_tracker().AndReturn(False)
 
@@ -784,8 +907,8 @@ class SuiteTest(mox.MoxTestBase):
                 test_to_retry, retry_for=self._FAKE_JOB_ID).AndRaise(
                 error.RPCException('Expected during test'))
         # Do not file a bug.
-        self.mox.StubOutWithMock(self.suite, 'should_report')
-        self.suite.should_report(mox.IgnoreArg()).AndReturn(False)
+        self.mox.StubOutWithMock(self.suite, '_should_report')
+        self.suite._should_report(mox.IgnoreArg()).AndReturn(False)
 
         self.mox.ReplayAll()
 

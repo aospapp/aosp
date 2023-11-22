@@ -17,19 +17,21 @@
 package com.android.bluetooth.a2dpsink;
 
 import android.bluetooth.BluetoothAudioConfig;
-import android.bluetooth.BluetoothAvrcpController;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothA2dpSink;
 import android.content.Intent;
 import android.provider.Settings;
 import android.util.Log;
+
+import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 import com.android.bluetooth.a2dpsink.mbs.A2dpMediaBrowserService;
+
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.Utils;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Provides Bluetooth A2DP Sink profile, as a service in the Bluetooth application.
@@ -66,7 +68,9 @@ public class A2dpSinkService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "stop()");
         }
-        mStateMachine.doQuit();
+        if(mStateMachine != null) {
+            mStateMachine.doQuit();
+        }
         Intent stopIntent = new Intent(this, A2dpMediaBrowserService.class);
         stopService(stopIntent);
         return true;
@@ -123,6 +127,10 @@ public class A2dpSinkService extends ProfileService {
         int connectionState = mStateMachine.getConnectionState(device);
         if (connectionState == BluetoothProfile.STATE_CONNECTED ||
             connectionState == BluetoothProfile.STATE_CONNECTING) {
+            return false;
+        }
+
+        if (getPriority(device) == BluetoothProfile.PRIORITY_OFF) {
             return false;
         }
 
@@ -189,12 +197,12 @@ public class A2dpSinkService extends ProfileService {
      */
     public void informAvrcpPassThroughCmd(BluetoothDevice device, int keyCode, int keyState) {
         if (mStateMachine != null) {
-            if (keyCode == BluetoothAvrcpController.PASS_THRU_CMD_ID_PLAY &&
-                keyState == BluetoothAvrcpController.KEY_STATE_RELEASED) {
+            if (keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_PLAY &&
+                keyState == AvrcpControllerService.KEY_STATE_RELEASED) {
                 mStateMachine.sendMessage(A2dpSinkStateMachine.EVENT_AVRCP_CT_PLAY);
-            } else if ((keyCode == BluetoothAvrcpController.PASS_THRU_CMD_ID_PAUSE ||
-                       keyCode == BluetoothAvrcpController.PASS_THRU_CMD_ID_STOP) &&
-                       keyState == BluetoothAvrcpController.KEY_STATE_RELEASED) {
+            } else if ((keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE ||
+                       keyCode == AvrcpControllerService.PASS_THRU_CMD_ID_STOP) &&
+                       keyState == AvrcpControllerService.KEY_STATE_RELEASED) {
                 mStateMachine.sendMessage(A2dpSinkStateMachine.EVENT_AVRCP_CT_PAUSE);
             }
         }

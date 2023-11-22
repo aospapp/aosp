@@ -14,6 +14,7 @@ from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioAfterSuspend(audio_test.AudioTest):
@@ -30,14 +31,6 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
     SHORT_WAIT = 2
     SUSPEND_SECONDS = 30
 
-    PLUG_CONFIGS = [
-        # (plugged_before_suspend, plugged_after_suspend, plugged_before_resume)
-        (True, True, True),
-        (True, False, False),
-        (True, False, True),
-        (False, True, True),
-        (False, True, False),
-        ]
 
     def action_plug_jack(self, plug_state):
         """Calls the audio interface API and plugs/unplugs.
@@ -47,6 +40,9 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         """
         logging.debug('Plugging' if plug_state else 'Unplugging')
         jack_plugger = self.audio_board.get_jack_plugger()
+        if jack_plugger == None:
+            logging.debug('Jack plugger is NOT present!')
+            return
         if plug_state:
             jack_plugger.plug()
         else:
@@ -175,7 +171,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
 
     def run_once(self, host, audio_nodes, golden_data,
                  bind_from=None, bind_to=None,
-                 source=None, recorder=None, is_internal=False):
+                 source=None, recorder=None, plug_status=None):
         """Runs the test main workflow
 
         @param host: A host object representing the DUT.
@@ -190,7 +186,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
             should be defined in chameleon_audio_ids
         @param recorder: recorder widget entity
             should be defined in chameleon_audio_ids
-        @param is_internal: whether internal audio is tested flag
+        @param plug_status: audio channel plug unplug sequence
 
         """
         if (recorder == chameleon_audio_ids.CrosIds.INTERNAL_MIC and
@@ -203,22 +199,22 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
 
         self.host = host
         self.audio_nodes = audio_nodes
-        self.is_internal=is_internal
 
-        self.second_peak_ratio = audio_test_utils.DEFAULT_SECOND_PEAK_RATIO
+        self.second_peak_ratio = audio_test_utils.get_second_peak_ratio(
+                source_id=source,
+                recorder_id=recorder)
+
         self.ignore_frequencies = None
         if source == chameleon_audio_ids.CrosIds.SPEAKER:
-            self.second_peak_ratio = 0.1
             self.ignore_frequencies = [50, 60]
-        elif recorder == chameleon_audio_ids.CrosIds.INTERNAL_MIC:
-            self.second_peak_ratio = 0.2
 
         self.errors = []
         self.golden_file, self.low_pass_freq = golden_data
         chameleon_board = self.host.chameleon
-        self.factory = self.create_remote_facade_factory(self.host)
+        self.factory = remote_facade_factory.RemoteFacadeFactory(
+                self.host, results_dir=self.resultsdir)
         self.audio_facade = self.factory.create_audio_facade()
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 self.factory, host)
 
@@ -244,24 +240,11 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
 
         self.audio_board = chameleon_board.get_audio_board()
 
-        # If there is no audio-board, test default state.
-        if self.audio_board == None:
-            plug_configs = [(True,True,True)]
-        else:
-            plug_configs = self.PLUG_CONFIGS
-
         test_index = 0
-        for (plugged_before_suspend, plugged_after_suspend,
-                 plugged_before_resume) in plug_configs:
-            plugged_after_resume = True
+        for (plugged_before_suspend, plugged_after_suspend, plugged_before_resume,
+             plugged_after_resume) in plug_status:
             test_index += 1
 
-            # Reverse plugged states, when internal audio is tested
-            if self.is_internal:
-                plugged_after_resume = False
-                plugged_before_suspend = not plugged_before_suspend
-                plugged_after_suspend = not plugged_after_suspend
-                plugged_before_resume = not plugged_before_resume
             test_case = ('TEST CASE %d: %s > suspend > %s > %s > resume > %s' %
                 (test_index, 'PLUG' if plugged_before_suspend else 'UNPLUG',
                  'PLUG' if plugged_after_suspend else 'UNPLUG',
@@ -289,7 +272,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
             success, error_message = self.save_and_check_data(recorder_widget)
             if not success:
                 self.errors.append('%s: Comparison failed: %s' %
-                                   test_case, error_message)
+                                   (test_case, error_message))
 
         if self.errors:
             raise error.TestFail('; '.join(set(self.errors)))

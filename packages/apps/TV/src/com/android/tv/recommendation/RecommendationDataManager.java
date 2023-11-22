@@ -16,8 +16,8 @@
 
 package com.android.tv.recommendation;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.UriMatcher;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.media.tv.TvContract;
@@ -41,6 +41,7 @@ import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.Program;
 import com.android.tv.data.WatchedHistoryManager;
 import com.android.tv.util.PermissionUtils;
+import com.android.tv.util.TvProviderUriMatcher;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,17 +53,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class RecommendationDataManager implements WatchedHistoryManager.Listener {
-    private static final UriMatcher sUriMatcher;
-    private static final int MATCH_CHANNEL = 1;
-    private static final int MATCH_CHANNEL_ID = 2;
-    private static final int MATCH_WATCHED_PROGRAM_ID = 3;
-    static {
-        sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-        sUriMatcher.addURI(TvContract.AUTHORITY, "channel", MATCH_CHANNEL);
-        sUriMatcher.addURI(TvContract.AUTHORITY, "channel/#", MATCH_CHANNEL_ID);
-        sUriMatcher.addURI(TvContract.AUTHORITY, "watched_program/#", MATCH_WATCHED_PROGRAM_ID);
-    }
-
     private static final int MSG_START = 1000;
     private static final int MSG_STOP = 1001;
     private static final int MSG_UPDATE_CHANNELS = 1002;
@@ -130,8 +120,9 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
     public synchronized static RecommendationDataManager acquireManager(
             Context context, @NonNull Listener listener) {
         if (sManager == null) {
-            sManager = new RecommendationDataManager(context, listener);
+            sManager = new RecommendationDataManager(context);
         }
+        sManager.addListener(listener);
         return sManager;
     }
 
@@ -191,7 +182,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                 public void onInputUpdated(String inputId) { }
             };
 
-    private RecommendationDataManager(Context context, final Listener listener) {
+    private RecommendationDataManager(Context context) {
         mContext = context.getApplicationContext();
         mHandlerThread = new HandlerThread("RecommendationDataManager");
         mHandlerThread.start();
@@ -202,7 +193,6 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
         runOnMainThread(new Runnable() {
             @Override
             public void run() {
-                addListener(listener);
                 start();
             }
         });
@@ -273,9 +263,13 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
                 .sendToTarget();
     }
 
-    @MainThread
     private void addListener(Listener listener) {
-        mListeners.add(listener);
+        runOnMainThread(new Runnable() {
+            @Override
+            public void run() {
+                mListeners.add(listener);
+            }
+        });
     }
 
     @MainThread
@@ -493,7 +487,7 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
 
     private ChannelRecord updateChannelRecordFromWatchedProgram(WatchedProgram program) {
         ChannelRecord channelRecord = null;
-        if (program != null && program.getWatchEndTimeMs() != 0l) {
+        if (program != null && program.getWatchEndTimeMs() != 0L) {
             channelRecord = mChannelRecordMap.get(program.getProgram().getChannelId());
             if (channelRecord != null
                     && channelRecord.getLastWatchEndTimeMs() < program.getWatchEndTimeMs()) {
@@ -508,10 +502,11 @@ public class RecommendationDataManager implements WatchedHistoryManager.Listener
             super(handler);
         }
 
+        @SuppressLint("SwitchIntDef")
         @Override
         public void onChange(final boolean selfChange, final Uri uri) {
-            switch (sUriMatcher.match(uri)) {
-                case MATCH_WATCHED_PROGRAM_ID:
+            switch (TvProviderUriMatcher.match(uri)) {
+                case TvProviderUriMatcher.MATCH_WATCHED_PROGRAM_ID:
                     if (!mHandler.hasMessages(MSG_UPDATE_WATCH_HISTORY,
                             TvContract.WatchedPrograms.CONTENT_URI)) {
                         mHandler.obtainMessage(MSG_UPDATE_WATCH_HISTORY, uri).sendToTarget();

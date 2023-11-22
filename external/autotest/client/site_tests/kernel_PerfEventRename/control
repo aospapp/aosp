@@ -19,7 +19,6 @@ CRITERIA = """
 Fails if perf report doesn't contain the correct executable name
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"

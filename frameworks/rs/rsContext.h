@@ -26,14 +26,9 @@
 #include "rsScriptGroup.h"
 #include "rsSampler.h"
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#define ATRACE_TAG ATRACE_TAG_RS
-#include "utils/Trace.h"
-#else
 #define ATRACE_ENABLED(...) false
 #define ATRACE_NAME(...)
 #define ATRACE_CALL(...)
-#endif
 
 #ifndef RS_COMPATIBILITY_LIB
 #include "rsFont.h"
@@ -45,12 +40,7 @@
 
 #endif
 
-/*
- * This is a pointer to the gDebuggerPresent global from libRS.so. The
- * debugger will use this to signal that it is attached, and thus the
- * driver can wait appropriately.
-*/
-extern int *gInternalDebuggerPresent;
+#include <vector>
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -91,7 +81,8 @@ public:
 
     static Context * createContext(Device *, const RsSurfaceConfig *sc,
             RsContextType ct = RS_CONTEXT_TYPE_NORMAL,
-            uint32_t flags = 0);
+            uint32_t flags = 0,
+            const char* vendorDriverName = nullptr);
     static Context * createContextLite();
     ~Context();
 
@@ -102,11 +93,11 @@ public:
 
     class PushState {
     public:
-        PushState(Context *);
+        explicit PushState(Context *);
         ~PushState();
 
     private:
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
         ObjectBaseRef<ProgramFragment> mFragment;
         ObjectBaseRef<ProgramVertex> mVertex;
         ObjectBaseRef<ProgramStore> mStore;
@@ -125,7 +116,7 @@ public:
     bool isSynchronous() {return mSynchronous;}
     bool setupCheck();
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     FBOCache mFBOCache;
     ProgramFragmentState mStateFragment;
     ProgramStoreState mStateFragmentStore;
@@ -172,7 +163,7 @@ public:
     void initToClient();
     void deinitToClient();
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     ProgramFragment * getDefaultProgramFragment() const {
         return mStateFragment.mDefault.get();
     }
@@ -302,7 +293,6 @@ public:
         }
     }
 
-
 protected:
 
     uint32_t mTargetSdkVersion;
@@ -312,6 +302,7 @@ protected:
     int32_t mThreadPriority;
     bool mIsGraphicsContext;
 
+    bool mForceRSoV;
     bool mForceCpu;
 
     RsContextType mContextType;
@@ -328,7 +319,7 @@ protected:
     pid_t mNativeThreadId;
 
     ObjectBaseRef<Script> mRootScript;
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     ObjectBaseRef<ProgramFragment> mFragment;
     ObjectBaseRef<ProgramVertex> mVertex;
     ObjectBaseRef<ProgramStore> mFragmentStore;
@@ -341,7 +332,6 @@ protected:
 private:
     Context();
     bool initContext(Device *, const RsSurfaceConfig *sc);
-    void waitForDebugger();
     bool mSynchronous;
     bool initGLThread();
     void deinitEGL();
@@ -349,7 +339,10 @@ private:
     uint32_t runRootScript();
 
     bool loadRuntime(const char* filename);
-    bool loadDriver(bool forceDefault);
+    // Loads the driver.
+    // forceDefault: If true, loads the default CPU driver.
+    // forceRSoV:  If true, overrides forceDefault and loads the RSoV driver.
+    bool loadDriver(bool forceDefault, bool forceRSoV);
     static void * threadProc(void *);
     static void * helperThreadProc(void *);
 
@@ -360,9 +353,12 @@ private:
     // Since this is always just a static string, we don't have to
     // allocate, copy, or free any memory here.
     const char* mDriverName;
+    const char* mVendorDriverName;
 
-    Vector<ObjectBase *> mNames;
+    std::vector<ObjectBase *> mNames;
 
+    // Sync fence id for Graphic API, default value -1.
+    int32_t mSyncFd = -1;
     uint64_t mTimers[_RS_TIMER_TOTAL];
     Timers mTimerActive;
     uint64_t mTimeLast;
@@ -384,6 +380,6 @@ private:
 
 void LF_ObjDestroy_handcode(const Context *rsc, RsAsyncVoidPtr objPtr);
 
-} // renderscript
-} // android
+} // namespace renderscript
+} // namespace android
 #endif

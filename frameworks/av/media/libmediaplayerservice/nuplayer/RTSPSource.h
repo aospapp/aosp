@@ -40,6 +40,10 @@ struct NuPlayer::RTSPSource : public NuPlayer::Source {
             uid_t uid = 0,
             bool isSDP = false);
 
+    virtual status_t getDefaultBufferingSettings(
+            BufferingSettings* buffering /* nonnull */) override;
+    virtual status_t setBufferingSettings(const BufferingSettings& buffering) override;
+
     virtual void prepareAsync();
     virtual void start();
     virtual void stop();
@@ -49,7 +53,9 @@ struct NuPlayer::RTSPSource : public NuPlayer::Source {
     virtual status_t dequeueAccessUnit(bool audio, sp<ABuffer> *accessUnit);
 
     virtual status_t getDuration(int64_t *durationUs);
-    virtual status_t seekTo(int64_t seekTimeUs);
+    virtual status_t seekTo(
+            int64_t seekTimeUs,
+            MediaPlayerSeekMode mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC) override;
 
     void onMessageReceived(const sp<AMessage> &msg);
 
@@ -64,6 +70,8 @@ private:
         kWhatDisconnect      = 'disc',
         kWhatPerformSeek     = 'seek',
         kWhatPollBuffering   = 'poll',
+        kWhatSignalEOS       = 'eos ',
+        kWhatSetBufferingSettings = 'sBuS',
     };
 
     enum State {
@@ -77,12 +85,6 @@ private:
         // Don't log any URLs.
         kFlagIncognito = 1,
     };
-
-    // Buffer Prepare/Underflow/Overflow/Resume Marks
-    static const int64_t kPrepareMarkUs;
-    static const int64_t kUnderflowMarkUs;
-    static const int64_t kOverflowMarkUs;
-    static const int64_t kStartServerMarkUs;
 
     struct TrackInfo {
         sp<AnotherPacketSource> mSource;
@@ -106,6 +108,8 @@ private:
     Mutex mBufferingLock;
     bool mBuffering;
     bool mInPreparationPhase;
+    bool mEOSPending;
+    BufferingSettings mBufferingSettings;
 
     sp<ALooper> mLooper;
     sp<MyHandler> mHandler;
@@ -133,7 +137,12 @@ private:
 
     void performSeek(int64_t seekTimeUs);
     void schedulePollBuffering();
-    void checkBuffering(bool *prepared, bool *underflow, bool *overflow, bool *startServer);
+    void checkBuffering(
+            bool *prepared,
+            bool *underflow,
+            bool *overflow,
+            bool *startServer,
+            bool *finished);
     void onPollBuffering();
 
     bool haveSufficientDataOnAllTracks();
@@ -143,6 +152,13 @@ private:
     void startBufferingIfNecessary();
     bool stopBufferingIfNecessary();
     void finishSeek(status_t err);
+
+    void postSourceEOSIfNecessary();
+    void signalSourceEOS(status_t result);
+    void onSignalEOS(const sp<AMessage> &msg);
+
+    bool sourceNearEOS(bool audio);
+    bool sourceReachedEOS(bool audio);
 
     DISALLOW_EVIL_CONSTRUCTORS(RTSPSource);
 };

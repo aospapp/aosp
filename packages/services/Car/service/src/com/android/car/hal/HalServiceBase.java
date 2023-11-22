@@ -16,10 +16,13 @@
 
 package com.android.car.hal;
 
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropConfig;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
+
+import android.annotation.Nullable;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 
 import java.io.PrintWriter;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -31,6 +34,8 @@ import java.util.List;
 public abstract class HalServiceBase {
     /** For dispatching events. Kept here to avoid alloc every time */
     private final LinkedList<VehiclePropValue> mDispatchList = new LinkedList<VehiclePropValue>();
+
+    final static int NOT_SUPPORTED_PROPERTY = -1;
 
     public List<VehiclePropValue> getDispatchList() {
         return mDispatchList;
@@ -51,10 +56,47 @@ public abstract class HalServiceBase {
      * @param allProperties
      * @return null if no properties are supported.
      */
-    public abstract List<VehiclePropConfig> takeSupportedProperties(
-            List<VehiclePropConfig> allProperties);
+    @Nullable
+    public Collection<VehiclePropConfig> takeSupportedProperties(
+            Collection<VehiclePropConfig> allProperties) {
+        return null;
+    }
 
     public abstract void handleHalEvents(List<VehiclePropValue> values);
 
+    public void handlePropertySetError(int property, int area) {}
+
     public abstract void dump(PrintWriter writer);
+
+    /**
+     * Helper class that maintains bi-directional mapping between manager's property
+     * Id (public or system API) and vehicle HAL property Id.
+     *
+     * <p>This class is supposed to be immutable. Use {@link #create(int[])} factory method to
+     * instantiate this class.
+     */
+    static class ManagerToHalPropIdMap {
+        private final BidirectionalSparseIntArray mMap;
+
+        /**
+         * Creates {@link ManagerToHalPropIdMap} for provided [manager prop Id, hal prop Id] pairs.
+         *
+         * <p> The input array should have an odd number of elements.
+         */
+        static ManagerToHalPropIdMap create(int... mgrToHalPropIds) {
+            return new ManagerToHalPropIdMap(BidirectionalSparseIntArray.create(mgrToHalPropIds));
+        }
+
+        private ManagerToHalPropIdMap(BidirectionalSparseIntArray map) {
+            mMap = map;
+        }
+
+        int getHalPropId(int managerPropId) {
+            return mMap.getValue(managerPropId, NOT_SUPPORTED_PROPERTY);
+        }
+
+        int getManagerPropId(int halPropId) {
+            return mMap.getKey(halPropId, NOT_SUPPORTED_PROPERTY);
+        }
+    }
 }

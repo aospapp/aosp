@@ -40,6 +40,7 @@ public class ExceptionDebuggee extends SyncDebuggee {
         runDebuggee(ExceptionDebuggee.class);
     }
     
+    @Override
     public void run(){
         
         logWriter.println("--> ExceptionDebuggee: STARTED");

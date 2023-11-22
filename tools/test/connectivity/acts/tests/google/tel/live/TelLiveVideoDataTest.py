@@ -30,11 +30,8 @@ from acts.test_utils.tel.tel_video_utils import video_call_setup_teardown
 class TelLiveVideoDataTest(TelephonyBaseTest):
     def __init__(self, controllers):
         TelephonyBaseTest.__init__(self, controllers)
-        self.tests = (
-            # Data during VT call
-            "test_internet_access_during_video_call", )
 
-        self.stress_test_number = int(self.user_params["stress_test_number"])
+        self.stress_test_number = self.get_stress_test_number()
         self.wifi_network_ssid = self.user_params["wifi_network_ssid"]
 
         try:

@@ -25,6 +25,7 @@
 
 package sun.misc;
 
+import dalvik.annotation.optimization.FastNative;
 import dalvik.system.VMStack;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -110,7 +111,9 @@ public final class Unsafe {
       return getArrayIndexScaleForComponentType(component);
     }
 
+    @FastNative
     private static native int getArrayBaseOffsetForComponentType(Class component_class);
+    @FastNative
     private static native int getArrayIndexScaleForComponentType(Class component_class);
 
     /**
@@ -125,6 +128,7 @@ public final class Unsafe {
      * @return <code>true</code> if the new value was in fact stored, and
      * <code>false</code> if not
      */
+    @FastNative
     public native boolean compareAndSwapInt(Object obj, long offset,
             int expectedValue, int newValue);
 
@@ -140,6 +144,7 @@ public final class Unsafe {
      * @return <code>true</code> if the new value was in fact stored, and
      * <code>false</code> if not
      */
+    @FastNative
     public native boolean compareAndSwapLong(Object obj, long offset,
             long expectedValue, long newValue);
 
@@ -155,6 +160,7 @@ public final class Unsafe {
      * @return <code>true</code> if the new value was in fact stored, and
      * <code>false</code> if not
      */
+    @FastNative
     public native boolean compareAndSwapObject(Object obj, long offset,
             Object expectedValue, Object newValue);
 
@@ -166,6 +172,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @return the retrieved value
      */
+    @FastNative
     public native int getIntVolatile(Object obj, long offset);
 
     /**
@@ -176,6 +183,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @param newValue the value to store
      */
+    @FastNative
     public native void putIntVolatile(Object obj, long offset, int newValue);
 
     /**
@@ -186,6 +194,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @return the retrieved value
      */
+    @FastNative
     public native long getLongVolatile(Object obj, long offset);
 
     /**
@@ -196,6 +205,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @param newValue the value to store
      */
+    @FastNative
     public native void putLongVolatile(Object obj, long offset, long newValue);
 
     /**
@@ -206,6 +216,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @return the retrieved value
      */
+    @FastNative
     public native Object getObjectVolatile(Object obj, long offset);
 
     /**
@@ -216,6 +227,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @param newValue the value to store
      */
+    @FastNative
     public native void putObjectVolatile(Object obj, long offset,
             Object newValue);
 
@@ -226,6 +238,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @return the retrieved value
      */
+    @FastNative
     public native int getInt(Object obj, long offset);
 
     /**
@@ -235,11 +248,13 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @param newValue the value to store
      */
+    @FastNative
     public native void putInt(Object obj, long offset, int newValue);
 
     /**
      * Lazy set an int field.
      */
+    @FastNative
     public native void putOrderedInt(Object obj, long offset, int newValue);
 
     /**
@@ -249,6 +264,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @return the retrieved value
      */
+    @FastNative
     public native long getLong(Object obj, long offset);
 
     /**
@@ -258,11 +274,13 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @param newValue the value to store
      */
+    @FastNative
     public native void putLong(Object obj, long offset, long newValue);
 
     /**
      * Lazy set a long field.
      */
+    @FastNative
     public native void putOrderedLong(Object obj, long offset, long newValue);
 
     /**
@@ -272,6 +290,7 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @return the retrieved value
      */
+    @FastNative
     public native Object getObject(Object obj, long offset);
 
     /**
@@ -281,26 +300,40 @@ public final class Unsafe {
      * @param offset offset to the field within <code>obj</code>
      * @param newValue the value to store
      */
+    @FastNative
     public native void putObject(Object obj, long offset, Object newValue);
 
     /**
      * Lazy set an object field.
      */
+    @FastNative
     public native void putOrderedObject(Object obj, long offset,
             Object newValue);
 
 
+    @FastNative
     public native boolean getBoolean(Object obj, long offset);
+    @FastNative
     public native void putBoolean(Object obj, long offset, boolean newValue);
+    @FastNative
     public native byte getByte(Object obj, long offset);
+    @FastNative
     public native void putByte(Object obj, long offset, byte newValue);
+    @FastNative
     public native char getChar(Object obj, long offset);
+    @FastNative
     public native void putChar(Object obj, long offset, char newValue);
+    @FastNative
     public native short getShort(Object obj, long offset);
+    @FastNative
     public native void putShort(Object obj, long offset, short newValue);
+    @FastNative
     public native float getFloat(Object obj, long offset);
+    @FastNative
     public native void putFloat(Object obj, long offset, float newValue);
+    @FastNative
     public native double getDouble(Object obj, long offset);
+    @FastNative
     public native void putDouble(Object obj, long offset, double newValue);
 
     /**
@@ -348,50 +381,72 @@ public final class Unsafe {
      */
     public native Object allocateInstance(Class<?> c);
 
+    @FastNative
     public native int addressSize();
 
+    @FastNative
     public native int pageSize();
 
+    @FastNative
     public native long allocateMemory(long bytes);
 
+    @FastNative
     public native void freeMemory(long address);
 
+    @FastNative
     public native void setMemory(long address, long bytes, byte value);
 
+    @FastNative
     public native byte getByte(long address);
 
+    @FastNative
     public native void putByte(long address, byte x);
 
+    @FastNative
     public native short getShort(long address);
 
+    @FastNative
     public native void putShort(long address, short x);
 
+    @FastNative
     public native char getChar(long address);
 
+    @FastNative
     public native void putChar(long address, char x);
 
+    @FastNative
     public native int getInt(long address);
 
+    @FastNative
     public native void putInt(long address, int x);
 
+    @FastNative
     public native long getLong(long address);
 
+    @FastNative
     public native void putLong(long address, long x);
 
+    @FastNative
     public native float getFloat(long address);
 
+    @FastNative
     public native void putFloat(long address, float x);
 
+    @FastNative
     public native double getDouble(long address);
 
+    @FastNative
     public native void putDouble(long address, double x);
 
+    @FastNative
     public native void copyMemoryToPrimitiveArray(long srcAddr,
             Object dst, long dstOffset, long bytes);
 
+    @FastNative
     public native void copyMemoryFromPrimitiveArray(Object src, long srcOffset,
             long dstAddr, long bytes);
 
+    @FastNative
     public native void copyMemory(long srcAddr, long dstAddr, long bytes);
 
 
@@ -512,6 +567,7 @@ public final class Unsafe {
      * @since 1.8
      */
     // @HotSpotIntrinsicCandidate
+    @FastNative
     public native void loadFence();
 
     /**
@@ -527,6 +583,7 @@ public final class Unsafe {
      * @since 1.8
      */
     // @HotSpotIntrinsicCandidate
+    @FastNative
     public native void storeFence();
 
     /**
@@ -539,5 +596,6 @@ public final class Unsafe {
      * @since 1.8
      */
     // @HotSpotIntrinsicCandidate
+    @FastNative
     public native void fullFence();
 }

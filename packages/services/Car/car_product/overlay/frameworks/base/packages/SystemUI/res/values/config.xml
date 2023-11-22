@@ -20,5 +20,6 @@
 <!-- Resource overrides for car system ui. -->
 <resources>
     <string name="config_statusBarComponent" translatable="false">com.android.systemui.statusbar.car.CarStatusBar</string>
+    <string name="config_systemUIFactoryComponent" translatable="false">com.android.systemui.car.CarSystemUIFactory</string>
     <bool name="config_enableFullscreenUserSwitcher">true</bool>
 </resources>

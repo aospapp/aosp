@@ -7,23 +7,25 @@
 #ifndef PUBLIC_FPDF_FWLEVENT_H_
 #define PUBLIC_FPDF_FWLEVENT_H_
 
+// NOLINTNEXTLINE(build/include)
 #include "fpdfview.h"
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif  // __cplusplus
 
 typedef int FPDF_INT32;
 typedef unsigned int FPDF_UINT32;
 typedef float FPDF_FLOAT;
-// event type
+
+// Event types.
 typedef enum {
   FWL_EVENTTYPE_Mouse = 0,
   FWL_EVENTTYPE_MouseWheel,
   FWL_EVENTTYPE_Key,
 } FWL_EVENTTYPE;
 
-// key flag
+// Key flags.
 typedef enum {
   FWL_EVENTFLAG_ShiftKey = 1 << 0,
   FWL_EVENTFLAG_ControlKey = 1 << 1,
@@ -36,7 +38,7 @@ typedef enum {
   FWL_EVENTFLAG_RightButtonDown = 1 << 8,
 } FWL_EVENTFLAG;
 
-// Mouse message command
+// Mouse messages.
 typedef enum {
   FWL_EVENTMOUSECMD_LButtonDown = 1,
   FWL_EVENTMOUSECMD_LButtonUp,
@@ -53,7 +55,7 @@ typedef enum {
   FWL_EVENTMOUSECMD_MouseLeave,
 } FWL_EVENT_MOUSECMD;
 
-// mouse event
+// Mouse events.
 struct FWL_EVENT_MOUSE {
   FPDF_UINT32 command;
   FPDF_DWORD flag;
@@ -61,7 +63,7 @@ struct FWL_EVENT_MOUSE {
   FPDF_FLOAT y;
 };
 
-// mouse wheel
+// Mouse wheel events.
 struct FWL_EVENT_MOUSEWHEEL {
   FPDF_DWORD flag;
   FPDF_FLOAT x;
@@ -70,10 +72,11 @@ struct FWL_EVENT_MOUSEWHEEL {
   FPDF_FLOAT deltaY;
 };
 
-// virtual keycode
+// Virtual keycodes.
 typedef enum {
   FWL_VKEY_Back = 0x08,
   FWL_VKEY_Tab = 0x09,
+  FWL_VKEY_NewLine = 0x0A,
   FWL_VKEY_Clear = 0x0C,
   FWL_VKEY_Return = 0x0D,
   FWL_VKEY_Shift = 0x10,
@@ -242,14 +245,14 @@ typedef enum {
   FWL_VKEY_Unknown = 0,
 } FWL_VKEYCODE;
 
-// key event command
+// Key event commands.
 typedef enum {
   FWL_EVENTKEYCMD_KeyDown = 1,
   FWL_EVENTKEYCMD_KeyUp,
   FWL_EVENTKEYCMD_Char,
 } FWL_EVENTKEYCMD;
 
-// key event
+// Key events.
 struct FWL_EVENT_KEY {
   FPDF_UINT32 command;
   FPDF_DWORD flag;
@@ -261,9 +264,9 @@ struct FWL_EVENT_KEY {
   } code;
 };
 
-// event type
+// Event types.
 struct FWL_EVENT {
-  // structure size.
+  // Structure size.
   FPDF_UINT32 size;
   // FWL_EVENTTYPE.
   FPDF_UINT32 type;
@@ -275,7 +278,7 @@ struct FWL_EVENT {
 };
 
 #ifdef __cplusplus
-}
-#endif
+}  // extern "C"
+#endif  // __cplusplus
 
 #endif  // PUBLIC_FPDF_FWLEVENT_H_

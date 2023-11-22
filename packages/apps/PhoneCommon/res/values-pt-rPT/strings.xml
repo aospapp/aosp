@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Nenhum"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Toque desconhecido"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Todas as linhas disponíveis estão a ser utilizadas. Para fazer uma chamada, desligue uma das chamadas neste dispositivo ou num dos seus outros dispositivos."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"A chamada terminou porque os dados móveis estavam desativados."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"A chamada terminou porque atingiu o limite dos dados móveis."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"O limite de dados foi atingido. A chamada foi terminada."</string>
 </resources>

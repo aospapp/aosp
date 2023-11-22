@@ -16,11 +16,14 @@
 
 package android.support.v4.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.database.DataSetObserver;
 import android.os.Handler;
+import android.support.annotation.RestrictTo;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -42,46 +45,55 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected boolean mDataValid;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected boolean mAutoRequery;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected Cursor mCursor;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected Context mContext;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected int mRowIDColumn;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected ChangeObserver mChangeObserver;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected DataSetObserver mDataSetObserver;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected CursorFilter mCursorFilter;
     /**
      * This field should be made private, so it is hidden from the SDK.
      * {@hide}
      */
+    @RestrictTo(LIBRARY_GROUP)
     protected FilterQueryProvider mFilterQueryProvider;
 
     /**
@@ -476,6 +488,9 @@ public abstract class CursorAdapter extends BaseAdapter implements Filterable,
     }
 
     private class MyDataSetObserver extends DataSetObserver {
+        MyDataSetObserver() {
+        }
+
         @Override
         public void onChanged() {
             mDataValid = true;

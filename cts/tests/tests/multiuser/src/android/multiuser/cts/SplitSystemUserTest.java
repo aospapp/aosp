@@ -16,8 +16,8 @@
 
 package android.multiuser.cts;
 
+import com.android.compatibility.common.util.SystemUtil;
 
-import android.cts.util.SystemUtil;
 import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 import android.util.Log;

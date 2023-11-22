@@ -37,19 +37,21 @@ void ConnectToSignal(
     const std::string& signal_name,
     base::Callback<void(Args...)> signal_callback,
     dbus::ObjectProxy::OnConnectedCallback on_connected_callback) {
-  // DBusParamReader::Invoke() needs a functor object, not a base::Callback.
-  // Wrap the callback with lambda so we can redirect the call.
-  auto signal_callback_wrapper = [signal_callback](const Args&... args) {
-    if (!signal_callback.is_null()) {
-      signal_callback.Run(args...);
-    }
-  };
-
   // Raw signal handler stub method. When called, unpacks the signal arguments
   // from |signal| message buffer and redirects the call to
   // |signal_callback_wrapper| which, in turn, would call the user-provided
   // |signal_callback|.
-  auto dbus_signal_callback = [signal_callback_wrapper](dbus::Signal* signal) {
+  auto dbus_signal_callback = [](
+      const base::Callback<void(Args...)>& signal_callback,
+      dbus::Signal* signal) {
+    // DBusParamReader::Invoke() needs a functor object, not a base::Callback.
+    // Wrap the callback with lambda so we can redirect the call.
+    auto signal_callback_wrapper = [signal_callback](const Args&... args) {
+      if (!signal_callback.is_null()) {
+        signal_callback.Run(args...);
+      }
+    };
+
     dbus::MessageReader reader(signal);
     DBusParamReader<false, Args...>::Invoke(
         signal_callback_wrapper, &reader, nullptr);
@@ -58,7 +60,7 @@ void ConnectToSignal(
   // Register our stub handler with D-Bus ObjectProxy.
   object_proxy->ConnectToSignal(interface_name,
                                 signal_name,
-                                base::Bind(dbus_signal_callback),
+                                base::Bind(dbus_signal_callback, signal_callback),
                                 on_connected_callback);
 }
 

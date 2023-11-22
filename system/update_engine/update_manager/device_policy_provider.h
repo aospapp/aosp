@@ -52,7 +52,7 @@ class DevicePolicyProvider : public Provider {
   // Variable returning the set of connection types allowed for updates. The
   // identifiers returned are consistent with the ones returned by the
   // ShillProvider.
-  virtual Variable<std::set<ConnectionType>>*
+  virtual Variable<std::set<chromeos_update_engine::ConnectionType>>*
       var_allowed_connection_types_for_update() = 0;
 
   // Variable stating the name of the device owner. For enterprise enrolled
@@ -62,6 +62,8 @@ class DevicePolicyProvider : public Provider {
   virtual Variable<bool>* var_http_downloads_enabled() = 0;
 
   virtual Variable<bool>* var_au_p2p_enabled() = 0;
+
+  virtual Variable<bool>* var_allow_kiosk_app_control_chrome_version() = 0;
 
  protected:
   DevicePolicyProvider() {}

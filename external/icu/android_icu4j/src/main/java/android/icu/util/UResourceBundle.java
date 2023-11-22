@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2004-2016, International Business Machines Corporation and
@@ -8,23 +10,22 @@
 
 package android.icu.util;
 
-import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
-import android.icu.impl.ICUCache;
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.ICUResourceBundleReader;
 import android.icu.impl.ResourceBundleWrapper;
-import android.icu.impl.SimpleCache;
 
 /**
  * <strong>[icu enhancement]</strong> ICU's replacement for {@link java.util.ResourceBundle}.&nbsp;Methods, fields, and other functionality specific to ICU are labeled '<strong>[icu]</strong>'.
@@ -74,14 +75,14 @@ import android.icu.impl.SimpleCache;
  * change.  To open ICU style organization use:
  *
  * <pre>
- *      UResourceBundle bundle = 
- *          UResourceBundle.getBundleInstance("com/mycompany/resources", 
+ *      UResourceBundle bundle =
+ *          UResourceBundle.getBundleInstance("com/mycompany/resources",
  *                                            "en_US", myClassLoader);
  * </pre>
  * To open Java/JDK style organization use:
  * <pre>
- *      UResourceBundle bundle = 
- *          UResourceBundle.getBundleInstance("com.mycompany.resources.LocaleElements", 
+ *      UResourceBundle bundle =
+ *          UResourceBundle.getBundleInstance("com.mycompany.resources.LocaleElements",
  *                                            "en_US", myClassLoader);
  * </pre>
  *
@@ -98,28 +99,30 @@ public abstract class UResourceBundle extends ResourceBundle {
     /**
      * <strong>[icu]</strong> Creates a resource bundle using the specified base name and locale.
      * ICU_DATA_CLASS is used as the default root.
-     * @param baseName the base name of the resource bundle, a fully qualified class name
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @param localeName the locale for which a resource bundle is desired
      * @throws MissingResourceException If no resource bundle for the specified base name
      * can be found
      * @return a resource bundle for the given base name and locale
      */
     public static UResourceBundle getBundleInstance(String baseName, String localeName){
-        return getBundleInstance(baseName, localeName, ICUResourceBundle.ICU_DATA_CLASS_LOADER, 
+        return getBundleInstance(baseName, localeName, ICUResourceBundle.ICU_DATA_CLASS_LOADER,
                                  false);
     }
 
     /**
      * <strong>[icu]</strong> Creates a resource bundle using the specified base name, locale, and class root.
      *
-     * @param baseName the base name of the resource bundle, a fully qualified class name
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @param localeName the locale for which a resource bundle is desired
      * @param root the class object from which to load the resource bundle
      * @throws MissingResourceException If no resource bundle for the specified base name
      * can be found
      * @return a resource bundle for the given base name and locale
      */
-    public static UResourceBundle getBundleInstance(String baseName, String localeName, 
+    public static UResourceBundle getBundleInstance(String baseName, String localeName,
                                                     ClassLoader root){
         return getBundleInstance(baseName, localeName, root, false);
     }
@@ -128,7 +131,8 @@ public abstract class UResourceBundle extends ResourceBundle {
      * <strong>[icu]</strong> Creates a resource bundle using the specified base name, locale, and class
      * root.
      *
-     * @param baseName the base name of the resource bundle, a fully qualified class name
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @param localeName the locale for which a resource bundle is desired
      * @param root the class object from which to load the resource bundle
      * @param disableFallback Option to disable locale inheritence.
@@ -138,7 +142,7 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @return a resource bundle for the given base name and locale
      *
      */
-    protected static UResourceBundle getBundleInstance(String baseName, String localeName, 
+    protected static UResourceBundle getBundleInstance(String baseName, String localeName,
                                                        ClassLoader root, boolean disableFallback) {
         return instantiateBundle(baseName, localeName, root, disableFallback);
     }
@@ -162,31 +166,31 @@ public abstract class UResourceBundle extends ResourceBundle {
         if (locale==null) {
             locale = ULocale.getDefault();
         }
-        return getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, locale.toString(), 
+        return getBundleInstance(ICUData.ICU_BASE_NAME, locale.getBaseName(),
                                  ICUResourceBundle.ICU_DATA_CLASS_LOADER, false);
     }
 
     /**
      * <strong>[icu]</strong> Creates a UResourceBundle for the default locale and specified base name,
      * from which users can extract resources by using their corresponding keys.
-     * @param baseName  specifies the locale for which we want to open the resource.
-     *                If null the bundle for default locale is opened.
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @return a resource bundle for the given base name and default locale
      */
     public static UResourceBundle getBundleInstance(String baseName) {
         if (baseName == null) {
-            baseName = ICUResourceBundle.ICU_BASE_NAME;
+            baseName = ICUData.ICU_BASE_NAME;
         }
         ULocale uloc = ULocale.getDefault();
-        return getBundleInstance(baseName, uloc.toString(), ICUResourceBundle.ICU_DATA_CLASS_LOADER, 
+        return getBundleInstance(baseName, uloc.getBaseName(), ICUResourceBundle.ICU_DATA_CLASS_LOADER,
                                  false);
     }
 
     /**
      * <strong>[icu]</strong> Creates a UResourceBundle for the specified locale and specified base name,
      * from which users can extract resources by using their corresponding keys.
-     * @param baseName  specifies the locale for which we want to open the resource.
-     *                If null the bundle for default locale is opened.
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @param locale  specifies the locale for which we want to open the resource.
      *                If null the bundle for default locale is opened.
      * @return a resource bundle for the given base name and locale
@@ -194,12 +198,12 @@ public abstract class UResourceBundle extends ResourceBundle {
 
     public static UResourceBundle getBundleInstance(String baseName, Locale locale) {
         if (baseName == null) {
-            baseName = ICUResourceBundle.ICU_BASE_NAME;
+            baseName = ICUData.ICU_BASE_NAME;
         }
         ULocale uloc = locale == null ? ULocale.getDefault() : ULocale.forLocale(locale);
 
-        return getBundleInstance(baseName, uloc.toString(), ICUResourceBundle.ICU_DATA_CLASS_LOADER, 
-                                 false);
+        return getBundleInstance(baseName, uloc.getBaseName(),
+                                 ICUResourceBundle.ICU_DATA_CLASS_LOADER, false);
     }
 
     /**
@@ -213,32 +217,32 @@ public abstract class UResourceBundle extends ResourceBundle {
      */
     public static UResourceBundle getBundleInstance(String baseName, ULocale locale) {
         if (baseName == null) {
-            baseName = ICUResourceBundle.ICU_BASE_NAME;
+            baseName = ICUData.ICU_BASE_NAME;
         }
         if (locale == null) {
             locale = ULocale.getDefault();
         }
-        return getBundleInstance(baseName, locale.toString(), 
+        return getBundleInstance(baseName, locale.getBaseName(),
                                  ICUResourceBundle.ICU_DATA_CLASS_LOADER, false);
     }
 
     /**
      * <strong>[icu]</strong> Creates a UResourceBundle for the specified locale and specified base name,
      * from which users can extract resources by using their corresponding keys.
-     * @param baseName  specifies the locale for which we want to open the resource.
-     *                If null the bundle for default locale is opened.
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @param locale  specifies the locale for which we want to open the resource.
      *                If null the bundle for default locale is opened.
      * @param loader  the loader to use
      * @return a resource bundle for the given base name and locale
      */
-    public static UResourceBundle getBundleInstance(String baseName, Locale locale, 
+    public static UResourceBundle getBundleInstance(String baseName, Locale locale,
                                                     ClassLoader loader) {
         if (baseName == null) {
-            baseName = ICUResourceBundle.ICU_BASE_NAME;
+            baseName = ICUData.ICU_BASE_NAME;
         }
         ULocale uloc = locale == null ? ULocale.getDefault() : ULocale.forLocale(locale);
-        return getBundleInstance(baseName, uloc.toString(), loader, false);
+        return getBundleInstance(baseName, uloc.getBaseName(), loader, false);
     }
 
     /**
@@ -254,15 +258,15 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @param loader  the loader to use
      * @return a resource bundle for the given base name and locale
      */
-    public static UResourceBundle getBundleInstance(String baseName, ULocale locale, 
+    public static UResourceBundle getBundleInstance(String baseName, ULocale locale,
                                                     ClassLoader loader) {
         if (baseName == null) {
-            baseName = ICUResourceBundle.ICU_BASE_NAME;
+            baseName = ICUData.ICU_BASE_NAME;
         }
         if (locale == null) {
             locale = ULocale.getDefault();
         }
-        return getBundleInstance(baseName, locale.toString(), loader, false);
+        return getBundleInstance(baseName, locale.getBaseName(), loader, false);
     }
 
     /**
@@ -298,214 +302,48 @@ public abstract class UResourceBundle extends ResourceBundle {
      * Returns the locale of this bundle
      * @return the locale of this resource bundle
      */
+    @Override
     public Locale getLocale(){
         return getULocale().toLocale();
     }
 
-    // Cache for ResourceBundle instantiation
-    private static ICUCache<ResourceCacheKey, UResourceBundle> BUNDLE_CACHE =
-        new SimpleCache<ResourceCacheKey, UResourceBundle>();
+    private enum RootType { MISSING, ICU, JAVA }
 
-    /**
-     * @deprecated This API is ICU internal only.
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Deprecated
-    public static void resetBundleCache() {
-        /*
-         * A HACK!!!!!
-         * Currently if a resourcebundle with fallback turned ON is added to the cache
-         * and then a getBundleInstance() is called for a bundle with fallback turned OFF
-         * it will actually search the cache for any bundle of the same locale
-         * regaurdless of fallback status. This method has been created so that if
-         * The calling method KNOWS that instances of the other fallback state may be in the
-         * cache, the calling method may call this method to clear out the cache.
-         *
-         */
-        //TODO figure a way around this method(see method comment)
-        BUNDLE_CACHE = new SimpleCache<ResourceCacheKey, UResourceBundle>();
-    }
+    private static Map<String, RootType> ROOT_CACHE = new ConcurrentHashMap<String, RootType>();
 
-    /**
-     * Method used by subclasses to add a resource bundle object to the managed
-     * cache.  Works like a putIfAbsent(): If the cache already contains a matching
-     * bundle, that one will be retained and returned.
-     * @deprecated This API is ICU internal only.
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Deprecated
-    protected static UResourceBundle addToCache(String fullName, ULocale defaultLocale, UResourceBundle b) {
-        synchronized(cacheKey){
-            cacheKey.setKeyValues(fullName, defaultLocale);
-            UResourceBundle cachedBundle = BUNDLE_CACHE.get(cacheKey);
-            if (cachedBundle != null) {
-                return cachedBundle;
-            }
-            BUNDLE_CACHE.put((ResourceCacheKey)cacheKey.clone(), b);
-            return b;
-        }
-    }
-
-    /**
-     * Method used by sub classes to load a resource bundle object from the managed cache
-     * @deprecated This API is ICU internal only.
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Deprecated
-    protected static UResourceBundle loadFromCache(String fullName, ULocale defaultLocale) {
-        synchronized(cacheKey){
-            cacheKey.setKeyValues(fullName, defaultLocale);
-            return BUNDLE_CACHE.get(cacheKey);
-        }
-    }
-
-    /**
-     * Key used for cached resource bundles.  The key checks
-     * the resource name, the class root, and the default
-     * locale to determine if the resource is a match to the
-     * requested one. The root may be null, but the
-     * searchName and the default locale must have a non-null value.
-     * Note that the default locale may change over time, and
-     * lookup should always be based on the current default
-     * locale (if at all).
-     */
-    private static final class ResourceCacheKey implements Cloneable {
-        private String searchName;
-        private ULocale defaultLocale;
-        private int hashCodeCache;
-        ///CLOVER:OFF
-        public boolean equals(Object other) {
-            if (other == null) {
-                return false;
-            }
-            if (this == other) {
-                return true;
-            }
-            try {
-                final ResourceCacheKey otherEntry = (ResourceCacheKey) other;
-                //quick check to see if they are not equal
-                if (hashCodeCache != otherEntry.hashCodeCache) {
-                    return false;
-                }
-                //are the names the same?
-                if (!searchName.equals(otherEntry.searchName)) {
-                    return false;
-                }
-                // are the default locales the same?
-                if (defaultLocale == null) {
-                    if (otherEntry.defaultLocale != null) {
-                        return false;
-                    }
-                } else {
-                    if (!defaultLocale.equals(otherEntry.defaultLocale)) {
-                        return false;
-                    }
-                }
-                return true;
-            } catch (NullPointerException e) {
-                return false;
-            } catch (ClassCastException e) {
-                return false;
-            }
-        }
-
-        public int hashCode() {
-            return hashCodeCache;
-        }
-
-        public Object clone() {
-            try {
-                return super.clone();
-            } catch (CloneNotSupportedException e) {
-                //this should never happen
-                throw new ICUCloneNotSupportedException(e);
-            }
-        }
-
-        ///CLOVER:ON
-        private synchronized void setKeyValues(String searchName, ULocale defaultLocale) {
-            this.searchName = searchName;
-            hashCodeCache = searchName.hashCode();
-            this.defaultLocale = defaultLocale;
-            if (defaultLocale != null) {
-                hashCodeCache ^= defaultLocale.hashCode();
-            }
-        }
-        /*private void clear() {
-            setKeyValues(null, "", null);
-        }*/
-    }
-
-    private static final ResourceCacheKey cacheKey = new ResourceCacheKey();
-
-    private static final int ROOT_MISSING = 0;
-    private static final int ROOT_ICU = 1;
-    private static final int ROOT_JAVA = 2;
-
-    private static SoftReference<ConcurrentHashMap<String, Integer>> ROOT_CACHE =
-            new SoftReference<ConcurrentHashMap<String, Integer>>(new ConcurrentHashMap<String, Integer>());
-
-    private static int getRootType(String baseName, ClassLoader root) {
-        ConcurrentHashMap<String, Integer> m = null;
-        Integer rootType;
-
-        m = ROOT_CACHE.get();
-        if (m == null) {
-            synchronized(UResourceBundle.class) {
-                m = ROOT_CACHE.get();
-                if (m == null) {
-                    m = new ConcurrentHashMap<String, Integer>();
-                    ROOT_CACHE = new SoftReference<ConcurrentHashMap<String, Integer>>(m);
-                }
-            }
-        }
-
-        rootType = m.get(baseName);
+    private static RootType getRootType(String baseName, ClassLoader root) {
+        RootType rootType = ROOT_CACHE.get(baseName);
 
         if (rootType == null) {
             String rootLocale = (baseName.indexOf('.')==-1) ? "root" : "";
-            int rt = ROOT_MISSING; // value set on success
             try{
                 ICUResourceBundle.getBundleInstance(baseName, rootLocale, root, true);
-                rt = ROOT_ICU;
+                rootType = RootType.ICU;
             }catch(MissingResourceException ex){
                 try{
                     ResourceBundleWrapper.getBundleInstance(baseName, rootLocale, root, true);
-                    rt = ROOT_JAVA;
+                    rootType = RootType.JAVA;
                 }catch(MissingResourceException e){
                     //throw away the exception
+                    rootType = RootType.MISSING;
                 }
             }
 
-            rootType = Integer.valueOf(rt);
-            m.putIfAbsent(baseName, rootType);
+            ROOT_CACHE.put(baseName, rootType);
         }
 
-        return rootType.intValue();
+        return rootType;
     }
 
-    private static void setRootType(String baseName, int rootType) {
-        Integer rt = Integer.valueOf(rootType);
-        ConcurrentHashMap<String, Integer> m = null;
-
-        m = ROOT_CACHE.get();
-        if (m == null) {
-            synchronized(UResourceBundle.class) {
-                m = ROOT_CACHE.get();
-                if (m == null) {
-                    m = new ConcurrentHashMap<String, Integer>();
-                    ROOT_CACHE = new SoftReference<ConcurrentHashMap<String, Integer>>(m);
-                }
-            }
-        }
-
-        m.put(baseName, rt);
+    private static void setRootType(String baseName, RootType rootType) {
+        ROOT_CACHE.put(baseName, rootType);
     }
 
     /**
      * <strong>[icu]</strong> Loads a new resource bundle for the given base name, locale and class loader.
      * Optionally will disable loading of fallback bundles.
-     * @param baseName the base name of the resource bundle, a fully qualified class name
+     * @param baseName string containing the name of the data package.
+     *                    If null the default ICU package name is used.
      * @param localeName the locale for which a resource bundle is desired
      * @param root the class object from which to load the resource bundle
      * @param disableFallback disables loading of fallback lookup chain
@@ -515,41 +353,27 @@ public abstract class UResourceBundle extends ResourceBundle {
      */
     protected static UResourceBundle instantiateBundle(String baseName, String localeName,
                                                        ClassLoader root, boolean disableFallback) {
-        UResourceBundle b = null;
-        int rootType = getRootType(baseName, root);
+        RootType rootType = getRootType(baseName, root);
 
-        ULocale defaultLocale = ULocale.getDefault();
+        switch (rootType) {
+        case ICU:
+            return ICUResourceBundle.getBundleInstance(baseName, localeName, root, disableFallback);
 
-        switch (rootType)
-        {
-        case ROOT_ICU:
-            if(disableFallback) {
-                String fullName = ICUResourceBundleReader.getFullName(baseName, localeName);
-                b = loadFromCache(fullName, defaultLocale);
-                if (b == null) {
-                    b = ICUResourceBundle.getBundleInstance(baseName, localeName, root, 
-                                                            disableFallback);
-                }
-            } else {
-                b = ICUResourceBundle.getBundleInstance(baseName, localeName, root, 
-                                                        disableFallback);
-            }
-
-            return b;
-
-        case ROOT_JAVA:
-            return ResourceBundleWrapper.getBundleInstance(baseName, localeName, root, 
+        case JAVA:
+            return ResourceBundleWrapper.getBundleInstance(baseName, localeName, root,
                                                            disableFallback);
 
+        case MISSING:
         default:
+            UResourceBundle b;
             try{
-                b = ICUResourceBundle.getBundleInstance(baseName, localeName, root, 
+                b = ICUResourceBundle.getBundleInstance(baseName, localeName, root,
                                                         disableFallback);
-                setRootType(baseName, ROOT_ICU);
+                setRootType(baseName, RootType.ICU);
             }catch(MissingResourceException ex){
-                b = ResourceBundleWrapper.getBundleInstance(baseName, localeName, root, 
+                b = ResourceBundleWrapper.getBundleInstance(baseName, localeName, root,
                                                             disableFallback);
-                setRootType(baseName, ROOT_JAVA);
+                setRootType(baseName, RootType.JAVA);
             }
             return b;
         }
@@ -687,7 +511,6 @@ public abstract class UResourceBundle extends ResourceBundle {
         for (UResourceBundle res = this; res != null; res = res.getParent()) {
             UResourceBundle obj = res.handleGet(aKey, null, this);
             if (obj != null) {
-                ((ICUResourceBundle) obj).setLoadingStatus(getLocaleID());
                 return obj;
             }
         }
@@ -721,7 +544,7 @@ public abstract class UResourceBundle extends ResourceBundle {
     public UResourceBundle get(int index) {
         UResourceBundle obj = handleGet(index, null, this);
         if (obj == null) {
-            obj = (ICUResourceBundle) getParent();
+            obj = getParent();
             if (obj != null) {
                 obj = obj.get(index);
             }
@@ -731,7 +554,6 @@ public abstract class UResourceBundle extends ResourceBundle {
                                 + this.getClass().getName() + ", key "
                                 + getKey(), this.getClass().getName(), getKey());
         }
-        ((ICUResourceBundle)obj).setLoadingStatus(getLocaleID());
         return obj;
     }
 
@@ -756,7 +578,6 @@ public abstract class UResourceBundle extends ResourceBundle {
         for (UResourceBundle res = this; res != null; res = res.getParent()) {
             UResourceBundle obj = res.handleGet(index, null, this);
             if (obj != null) {
-                ((ICUResourceBundle) obj).setLoadingStatus(getLocaleID());
                 return obj;
             }
         }
@@ -768,6 +589,7 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @return an enumeration containing key strings,
      *         which is empty if this is not a bundle or a table resource
      */
+    @Override
     public Enumeration<String> getKeys() {
         return Collections.enumeration(keySet());
     }
@@ -779,6 +601,7 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     public Set<String> keySet() {
         // TODO: Java 6 ResourceBundle has keySet() which calls handleKeySet()
@@ -830,6 +653,7 @@ public abstract class UResourceBundle extends ResourceBundle {
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     @Deprecated
     protected Set<String> handleKeySet() {
         return Collections.emptySet();
@@ -838,7 +662,7 @@ public abstract class UResourceBundle extends ResourceBundle {
     /**
      * <strong>[icu]</strong> Returns the size of a resource. Size for scalar types is always 1, and for
      * vector/table types is the number of child resources.
-     * 
+     *
      * <br><b>Note:</b> Integer array is treated as a scalar type. There are no APIs to
      * access individual members of an integer array. It is always returned as a whole.
      * @return number of resources in a given resource.
@@ -936,7 +760,7 @@ public abstract class UResourceBundle extends ResourceBundle {
      *                  are the same, except in the cases where aliases are involved.
      * @return UResourceBundle a resource associated with the key
      */
-    protected UResourceBundle handleGet(String aKey, HashMap<String, String> aliasesVisited, 
+    protected UResourceBundle handleGet(String aKey, HashMap<String, String> aliasesVisited,
                                         UResourceBundle requested) {
         return null;
     }
@@ -951,7 +775,7 @@ public abstract class UResourceBundle extends ResourceBundle {
      *                  are the same, except in the cases where aliases are involved.
      * @return UResourceBundle a resource associated with the index
      */
-    protected UResourceBundle handleGet(int index, HashMap<String, String> aliasesVisited, 
+    protected UResourceBundle handleGet(int index, HashMap<String, String> aliasesVisited,
                                         UResourceBundle requested) {
         return null;
     }
@@ -981,6 +805,7 @@ public abstract class UResourceBundle extends ResourceBundle {
     // this method is declared in ResourceBundle class
     // so cannot change the signature
     // Override this method
+    @Override
     protected Object handleGetObject(String aKey) {
         return handleGetObjectImpl(aKey, this);
     }
@@ -1031,15 +856,6 @@ public abstract class UResourceBundle extends ResourceBundle {
         }
         return obj;
     }
-
-    /**
-     * This method is for setting the loading status of the resource.
-     * The status is analogous to the warning status in ICU4C.
-     * @deprecated This API is ICU internal only.
-     * @hide draft / provisional / internal are hidden on Android
-     */
-    @Deprecated
-    protected abstract void setLoadingStatus(int newStatus);
 
     /**
      * Is this a top-level resource, that is, a whole bundle?

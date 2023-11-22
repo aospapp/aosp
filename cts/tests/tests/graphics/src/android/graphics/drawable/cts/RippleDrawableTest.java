@@ -16,10 +16,12 @@
 
 package android.graphics.drawable.cts;
 
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
-import org.xmlpull.v1.XmlPullParserException;
-
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
@@ -29,16 +31,34 @@ import android.graphics.cts.R;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.RippleDrawable;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Xml;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
-public class RippleDrawableTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RippleDrawableTest {
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testConstructor() {
         new RippleDrawable(ColorStateList.valueOf(Color.RED), null, null);
     }
 
+    @Test
     public void testAccessRadius() {
         RippleDrawable drawable =
             new RippleDrawable(ColorStateList.valueOf(Color.RED), null, null);
@@ -47,23 +67,25 @@ public class RippleDrawableTest extends AndroidTestCase {
         assertEquals(10, drawable.getRadius());
     }
 
+    @Test
     public void testRadiusAttr() {
         RippleDrawable drawable =
-                (RippleDrawable) getContext().getDrawable(R.drawable.rippledrawable_radius);
+                (RippleDrawable) mContext.getDrawable(R.drawable.rippledrawable_radius);
         assertEquals(10, drawable.getRadius());
     }
 
+    @Test
     public void testPreloadDensity() throws XmlPullParserException, IOException {
-        final Resources res = getContext().getResources();
+        final Resources res = mContext.getResources();
         final int densityDpi = res.getConfiguration().densityDpi;
         try {
-            testPreloadDensityInner(res, densityDpi);
+            verifyPreloadDensityInner(res, densityDpi);
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
     }
 
-    private void testPreloadDensityInner(Resources res, int densityDpi)
+    private void verifyPreloadDensityInner(Resources res, int densityDpi)
             throws XmlPullParserException, IOException {
         // Capture initial state at default density.
         final XmlResourceParser parser = DrawableTestUtils.getResourceParser(
@@ -101,6 +123,7 @@ public class RippleDrawableTest extends AndroidTestCase {
         assertEquals(initialRadius, doubleDrawable.getRadius());
     }
 
+    @Test
     public void testSetColor() {
         Drawable.Callback cb = mock(Drawable.Callback.class);
         RippleDrawable dr = new RippleDrawable(ColorStateList.valueOf(Color.RED), null, null);

@@ -25,10 +25,10 @@ typedef struct hci_t hci_t;
 typedef struct hci_inject_t {
   // Starts the HCI injection module. Returns true on success, false on failure.
   // Once started, this module must be shut down with |close|.
-  bool (*open)(const hci_t *hci_interface);
+  bool (*open)(const hci_t* hci_interface);
 
   // Shuts down the HCI injection module.
   void (*close)(void);
 } hci_inject_t;
 
-const hci_inject_t *hci_inject_get_interface();
+const hci_inject_t* hci_inject_get_interface();

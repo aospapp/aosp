@@ -5,25 +5,20 @@
 """Common media action functions."""
 
 import logging
-import os
 
-from telemetry.core import util
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
+
+import py_utils
 
 
 class MediaAction(page_action.PageAction):
   def WillRunAction(self, tab):
     """Loads the common media action JS code prior to running the action."""
-    self.LoadJS(tab, 'media_action.js')
+    utils.InjectJavaScript(tab, 'media_action.js')
 
   def RunAction(self, tab):
     super(MediaAction, self).RunAction(tab)
-
-  def LoadJS(self, tab, js_file_name):
-    """Loads and executes a JS file in the tab."""
-    with open(os.path.join(os.path.dirname(__file__), js_file_name)) as f:
-      js = f.read()
-      tab.ExecuteJavaScript(js)
 
   def WaitForEvent(self, tab, selector, event_name, timeout_in_seconds):
     """Halts media action until the selector's event is fired.
@@ -35,13 +30,14 @@ class MediaAction(page_action.PageAction):
       timeout_in_seconds: Timeout to check for event, throws an exception if
           not fired.
     """
-    util.WaitFor(lambda:
-                     self.HasEventCompletedOrError(tab, selector, event_name),
-                 timeout=timeout_in_seconds)
+    py_utils.WaitFor(
+        lambda: self.HasEventCompletedOrError(tab, selector, event_name),
+        timeout=timeout_in_seconds)
 
   def HasEventCompletedOrError(self, tab, selector, event_name):
     if tab.EvaluateJavaScript(
-        'window.__hasEventCompleted("%s", "%s");' % (selector, event_name)):
+        'window.__hasEventCompleted({{ selector }}, {{ event_name }});',
+        selector=selector, event_name=event_name):
       return True
     error = tab.EvaluateJavaScript('window.__error')
     if error:

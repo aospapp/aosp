@@ -18,13 +18,17 @@ package io.appium.droiddriver.finders;
 
 import android.text.TextUtils;
 
+import java.util.Arrays;
+
 import io.appium.droiddriver.UiElement;
 
 /**
  * Static utility methods pertaining to {@code Predicate} instances.
  */
 public final class Predicates {
-  private Predicates() {}
+
+  private Predicates() {
+  }
 
   private static final Predicate<Object> ANY = new Predicate<Object>() {
     @Override
@@ -64,9 +68,9 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} if both arguments
-   * evaluate to {@code true}. The arguments are evaluated in order, and
-   * evaluation will be "short-circuited" as soon as a false predicate is found.
+   * Returns a predicate that evaluates to {@code true} if both arguments evaluate to {@code true}.
+   * The arguments are evaluated in order, and evaluation will be "short-circuited" as soon as a
+   * false predicate is found.
    */
   @SuppressWarnings("unchecked")
   public static <T> Predicate<T> allOf(final Predicate<? super T> first,
@@ -92,13 +96,11 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} if each of its
-   * components evaluates to {@code true}. The components are evaluated in
-   * order, and evaluation will be "short-circuited" as soon as a false
-   * predicate is found.
+   * Returns a predicate that evaluates to {@code true} if each of its components evaluates to
+   * {@code true}. The components are evaluated in order, and evaluation will be "short-circuited"
+   * as soon as a false predicate is found.
    */
-  @SuppressWarnings("unchecked")
-  public static <T> Predicate<T> allOf(final Predicate<? super T>... components) {
+  public static <T> Predicate<T> allOf(final Iterable<Predicate<? super T>> components) {
     return new Predicate<T>() {
       @Override
       public boolean apply(T input) {
@@ -118,13 +120,22 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} if any one of its
-   * components evaluates to {@code true}. The components are evaluated in
-   * order, and evaluation will be "short-circuited" as soon as a true predicate
-   * is found.
+   * Returns a predicate that evaluates to {@code true} if each of its components evaluates to
+   * {@code true}. The components are evaluated in order, and evaluation will be "short-circuited"
+   * as soon as a false predicate is found.
    */
-  @SuppressWarnings("unchecked")
-  public static <T> Predicate<T> anyOf(final Predicate<? super T>... components) {
+  @SuppressWarnings("RedundantTypeArguments") // Some compilers cannot infer <T>
+  @SafeVarargs
+  public static <T> Predicate<T> allOf(final Predicate<? super T>... components) {
+    return Predicates.<T>allOf(Arrays.asList(components));
+  }
+
+  /**
+   * Returns a predicate that evaluates to {@code true} if any one of its components evaluates to
+   * {@code true}. The components are evaluated in order, and evaluation will be "short-circuited"
+   * as soon as a true predicate is found.
+   */
+  public static <T> Predicate<T> anyOf(final Iterable<Predicate<? super T>> components) {
     return new Predicate<T>() {
       @Override
       public boolean apply(T input) {
@@ -144,8 +155,19 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} on a {@link UiElement}
-   * if its {@code attribute} is {@code true}.
+   * Returns a predicate that evaluates to {@code true} if any one of its components evaluates to
+   * {@code true}. The components are evaluated in order, and evaluation will be "short-circuited"
+   * as soon as a true predicate is found.
+   */
+  @SuppressWarnings("RedundantTypeArguments") // Some compilers cannot infer <T>
+  @SafeVarargs
+  public static <T> Predicate<T> anyOf(final Predicate<? super T>... components) {
+    return Predicates.<T>anyOf(Arrays.asList(components));
+  }
+
+  /**
+   * Returns a predicate that evaluates to {@code true} on a {@link UiElement} if its {@code
+   * attribute} is {@code true}.
    */
   public static Predicate<UiElement> attributeTrue(final Attribute attribute) {
     return new Predicate<UiElement>() {
@@ -163,8 +185,8 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} on a {@link UiElement}
-   * if its {@code attribute} is {@code false}.
+   * Returns a predicate that evaluates to {@code true} on a {@link UiElement} if its {@code
+   * attribute} is {@code false}.
    */
   public static Predicate<UiElement> attributeFalse(final Attribute attribute) {
     return new Predicate<UiElement>() {
@@ -182,8 +204,8 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} on a {@link UiElement}
-   * if its {@code attribute} equals {@code expected}.
+   * Returns a predicate that evaluates to {@code true} on a {@link UiElement} if its {@code
+   * attribute} equals {@code expected}.
    */
   public static Predicate<UiElement> attributeEquals(final Attribute attribute,
       final Object expected) {
@@ -202,10 +224,11 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} on a {@link UiElement}
-   * if its {@code attribute} matches {@code regex}.
+   * Returns a predicate that evaluates to {@code true} on a {@link UiElement} if its {@code
+   * attribute} matches {@code regex}.
    */
-  public static Predicate<UiElement> attributeMatches(final Attribute attribute, final String regex) {
+  public static Predicate<UiElement> attributeMatches(final Attribute attribute,
+      final String regex) {
     return new Predicate<UiElement>() {
       @Override
       public boolean apply(UiElement element) {
@@ -221,8 +244,8 @@ public final class Predicates {
   }
 
   /**
-   * Returns a predicate that evaluates to {@code true} on a {@link UiElement}
-   * if its {@code attribute} contains {@code substring}.
+   * Returns a predicate that evaluates to {@code true} on a {@link UiElement} if its {@code
+   * attribute} contains {@code substring}.
    */
   public static Predicate<UiElement> attributeContains(final Attribute attribute,
       final String substring) {
@@ -240,7 +263,8 @@ public final class Predicates {
     };
   }
 
-  public static Predicate<UiElement> withParent(final Predicate<? super UiElement> parentPredicate) {
+  public static Predicate<UiElement> withParent(
+      final Predicate<? super UiElement> parentPredicate) {
     return new Predicate<UiElement>() {
       @Override
       public boolean apply(UiElement element) {
@@ -277,7 +301,8 @@ public final class Predicates {
     };
   }
 
-  public static Predicate<UiElement> withSibling(final Predicate<? super UiElement> siblingPredicate) {
+  public static Predicate<UiElement> withSibling(
+      final Predicate<? super UiElement> siblingPredicate) {
     return new Predicate<UiElement>() {
       @Override
       public boolean apply(UiElement element) {
@@ -318,4 +343,6 @@ public final class Predicates {
       }
     };
   }
+
+
 }

@@ -16,12 +16,15 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.TintableBackgroundView;
 import android.support.v7.appcompat.R;
 import android.support.v7.content.res.AppCompatResources;
@@ -34,7 +37,7 @@ import android.widget.AutoCompleteTextView;
  * <ul>
  *     <li>Supports {@link R.attr#textAllCaps} style attribute which works back to
  *     {@link android.os.Build.VERSION_CODES#GINGERBREAD Gingerbread}.</li>
- *     <li>Allows dynamic tint of it background via the background tint methods in
+ *     <li>Allows dynamic tint of its background via the background tint methods in
  *     {@link android.support.v4.view.ViewCompat}.</li>
  *     <li>Allows setting of the background tint using {@link R.attr#backgroundTint} and
  *     {@link R.attr#backgroundTintMode}.</li>
@@ -50,8 +53,8 @@ public class AppCompatAutoCompleteTextView extends AutoCompleteTextView implemen
             android.R.attr.popupBackground
     };
 
-    private AppCompatBackgroundHelper mBackgroundTintHelper;
-    private AppCompatTextHelper mTextHelper;
+    private final AppCompatBackgroundHelper mBackgroundTintHelper;
+    private final AppCompatTextHelper mTextHelper;
 
     public AppCompatAutoCompleteTextView(Context context) {
         this(context, null);
@@ -106,6 +109,7 @@ public class AppCompatAutoCompleteTextView extends AutoCompleteTextView implemen
      *
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     public void setSupportBackgroundTintList(@Nullable ColorStateList tint) {
         if (mBackgroundTintHelper != null) {
@@ -119,6 +123,7 @@ public class AppCompatAutoCompleteTextView extends AutoCompleteTextView implemen
      *
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     @Nullable
     public ColorStateList getSupportBackgroundTintList() {
@@ -132,6 +137,7 @@ public class AppCompatAutoCompleteTextView extends AutoCompleteTextView implemen
      *
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     public void setSupportBackgroundTintMode(@Nullable PorterDuff.Mode tintMode) {
         if (mBackgroundTintHelper != null) {
@@ -145,6 +151,7 @@ public class AppCompatAutoCompleteTextView extends AutoCompleteTextView implemen
      *
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     @Nullable
     public PorterDuff.Mode getSupportBackgroundTintMode() {

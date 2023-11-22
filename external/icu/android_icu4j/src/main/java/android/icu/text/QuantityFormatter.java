@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2013-2016, International Business Machines Corporation and
@@ -9,7 +11,7 @@ package android.icu.text;
 
 import java.text.FieldPosition;
 
-import android.icu.impl.SimplePatternFormatter;
+import android.icu.impl.SimpleFormatterImpl;
 import android.icu.impl.StandardPlural;
 import android.icu.text.PluralRules.FixedDecimal;
 
@@ -22,8 +24,8 @@ import android.icu.text.PluralRules.FixedDecimal;
  * PluralRules and DecimalFormat. It is package-protected as it is not meant for public use.
  */
 class QuantityFormatter {
-    private final SimplePatternFormatter[] templates =
-            new SimplePatternFormatter[StandardPlural.COUNT];
+    private final SimpleFormatter[] templates =
+            new SimpleFormatter[StandardPlural.COUNT];
 
     public QuantityFormatter() {}
 
@@ -42,7 +44,7 @@ class QuantityFormatter {
         if (templates[idx] != null) {
             return;
         }
-        templates[idx] = SimplePatternFormatter.compileMinMaxPlaceholders(template, 0, 1);
+        templates[idx] = SimpleFormatter.compileMinMaxArguments(template, 0, 1);
     }
 
     /**
@@ -63,7 +65,7 @@ class QuantityFormatter {
     public String format(double number, NumberFormat numberFormat, PluralRules pluralRules) {
         String formatStr = numberFormat.format(number);
         StandardPlural p = selectPlural(number, numberFormat, pluralRules);
-        SimplePatternFormatter formatter = templates[p.ordinal()];
+        SimpleFormatter formatter = templates[p.ordinal()];
         if (formatter == null) {
             formatter = templates[StandardPlural.OTHER_INDEX];
             assert formatter != null;
@@ -72,20 +74,20 @@ class QuantityFormatter {
     }
 
     /**
-     * Gets the SimplePatternFormatter for a particular variant.
+     * Gets the SimpleFormatter for a particular variant.
      * @param variant "zero", "one", "two", "few", "many", "other"
-     * @return the SimplePatternFormatter
+     * @return the SimpleFormatter
      */
-    public SimplePatternFormatter getByVariant(CharSequence variant) {
+    public SimpleFormatter getByVariant(CharSequence variant) {
         assert isValid();
         int idx = StandardPlural.indexOrOtherIndexFromString(variant);
-        SimplePatternFormatter template = templates[idx];
+        SimpleFormatter template = templates[idx];
         return (template == null && idx != StandardPlural.OTHER_INDEX) ?
                 templates[StandardPlural.OTHER_INDEX] : template;
     }
 
     // The following methods live here so that class PluralRules does not depend on number formatting,
-    // and the SimplePatternFormatter does not depend on FieldPosition.
+    // and the SimpleFormatter does not depend on FieldPosition.
 
     /**
      * Selects the standard plural form for the number/formatter/rules.
@@ -124,7 +126,7 @@ class QuantityFormatter {
     public static StringBuilder format(String compiledPattern, CharSequence value,
             StringBuilder appendTo, FieldPosition pos) {
         int[] offsets = new int[1];
-        SimplePatternFormatter.formatAndAppend(compiledPattern, appendTo, offsets, value);
+        SimpleFormatterImpl.formatAndAppend(compiledPattern, appendTo, offsets, value);
         if (pos.getBeginIndex() != 0 || pos.getEndIndex() != 0) {
             if (offsets[0] >= 0) {
                 pos.setBeginIndex(pos.getBeginIndex() + offsets[0]);

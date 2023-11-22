@@ -63,6 +63,10 @@
 #include "debugrm.h"
 #include "libpfkey.h"
 
+#ifdef ANDROID_CHANGES
+#include "NetdClient.h"
+#endif
+
 #ifndef IP_IPSEC_POLICY
 #define IP_IPSEC_POLICY 16	/* XXX: from linux/in.h */
 #endif
@@ -260,6 +264,10 @@ struct sockaddr *getlocaladdr(struct sockaddr *remote)
     struct sockaddr_storage local;
     socklen_t len = sysdep_sa_len(remote);
     int s = socket(remote->sa_family, SOCK_DGRAM, 0);
+#ifdef ANDROID_CHANGES
+        protectFromVpn(s);
+#endif
+
     if (s == -1 || connect(s, remote, len) == -1 ||
         getsockname(s, (struct sockaddr *)&local, &len) == -1) {
         close(s);
@@ -340,6 +348,9 @@ getlocaladdr(remote)
 			"socket (%s)\n", strerror(errno));
 		goto err;
 	}
+#ifdef ANDROID_CHANGES
+	protectFromVpn(s);
+#endif
 
 	setsockopt_bypass(s, remote->sa_family);
 	
@@ -707,6 +718,10 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 					"socket (%s)\n", strerror(errno));
 				return -1;
 			}
+#ifdef ANDROID_CHANGES
+			protectFromVpn(sendsock);
+#endif
+
 			if (setsockopt(sendsock, SOL_SOCKET,
 #ifdef __linux__
 				       SO_REUSEADDR,

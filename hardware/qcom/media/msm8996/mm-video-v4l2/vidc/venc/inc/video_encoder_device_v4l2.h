@@ -356,6 +356,7 @@ class venc_dev
         bool venc_set_config(void *configData, OMX_INDEXTYPE index);
         bool venc_get_profile_level(OMX_U32 *eProfile,OMX_U32 *eLevel);
         bool venc_get_seq_hdr(void *, unsigned, unsigned *);
+        bool venc_get_dimensions(OMX_U32 portIndex, OMX_U32 *w, OMX_U32 *h);
         bool venc_loaded_start(void);
         bool venc_loaded_stop(void);
         bool venc_loaded_start_done(void);
@@ -598,6 +599,7 @@ class venc_dev
             static inline int getTimeStampAt(native_handle_t *, int index);
         };
         BatchInfo mBatchInfo;
+        bool mUseAVTimerTimestamps;
 };
 
 enum instance_state {

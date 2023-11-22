@@ -35,4 +35,3 @@ bool MockOpensslCryptoUtil::FakeGetRandomBytes(size_t num_bytes,
 }
 
 }  // namespace tpm_manager
-

@@ -95,7 +95,7 @@ void SetExecutablePath(const std::string& path) {
 }
 
 bool FileExists(std::string& file_name) {
-  struct stat file_info = {0};
+  struct stat file_info = {0, 0};
   return stat(file_name.c_str(), &file_info) == 0;
 }
 
@@ -192,7 +192,7 @@ std::string TempFilename(const std::string &dir, const std::string &prefix) {
 }
 
 bool CreateDir(std::string directory_name) {
-  struct stat path_info = {0};
+  struct stat path_info = {0, 0};
   // Check if the path exists already:
   if (stat(directory_name.c_str(), &path_info) == 0) {
     if (!S_ISDIR(path_info.st_mode)) {

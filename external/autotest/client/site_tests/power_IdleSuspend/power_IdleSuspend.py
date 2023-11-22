@@ -38,6 +38,7 @@ class power_IdleSuspend(test.test):
 
 
     def setup_power_manager(self):
+        """Configures powerd for the test."""
         # create directory for temporary settings
         self.tempdir = tempfile.mkdtemp(prefix='IdleSuspend.')
         logging.info('using temporary directory %s', self.tempdir)
@@ -59,6 +60,7 @@ class power_IdleSuspend(test.test):
 
 
     def wait_for_suspend(self):
+        """Thread callback to watch for powerd to announce idle transition."""
         # block reading new power state from /sys/power/state
         sys_power_state = open('/sys/power/state')
         self.new_power_state = sys_power_state.read()
@@ -79,6 +81,9 @@ class power_IdleSuspend(test.test):
             thread = threading.Thread(target=self.wait_for_suspend)
             thread.start()
 
+            # touch OOBE completed file so powerd won't ignore idle state.
+            utils.run('touch /home/chronos/.oobe_completed')
+
             # restart powerd to pick up new settings
             logging.info('restarting powerd')
             utils.run('start powerd')
@@ -94,8 +99,7 @@ class power_IdleSuspend(test.test):
                 # probably an exception in the thread, check the log
                 raise error.TestError('reader thread crashed')
 
-            if self.new_power_state.strip() != 'mem':
-                # oops, power manager wrote something other than "mem"
+            if self.new_power_state.strip() not in ['mem', 'freeze']:
                 err_str = 'bad power state written to /sys/power/state'
                 raise error.TestFail(err_str)
 

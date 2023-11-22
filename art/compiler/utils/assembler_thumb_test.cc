@@ -23,6 +23,10 @@
 
 #include "gtest/gtest.h"
 #include "utils/arm/assembler_thumb2.h"
+
+#include "jni/quick/calling_convention.h"
+#include "utils/arm/jni_macro_assembler_arm_vixl.h"
+
 #include "base/hex_dump.h"
 #include "common_runtime_test.h"
 
@@ -32,7 +36,7 @@ namespace arm {
 // Include results file (generated manually)
 #include "assembler_thumb_test_expected.cc.inc"
 
-#ifndef __ANDROID__
+#ifndef ART_TARGET_ANDROID
 // This controls whether the results are printed to the
 // screen or compared against the expected output.
 // To generate new expected output, set this to true and
@@ -72,7 +76,7 @@ void InitResults() {
 }
 
 std::string GetToolsDir() {
-#ifndef __ANDROID__
+#ifndef ART_TARGET_ANDROID
   // This will only work on the host.  There is no as, objcopy or objdump on the device.
   static std::string toolsdir;
 
@@ -89,7 +93,7 @@ std::string GetToolsDir() {
 }
 
 void DumpAndCheck(std::vector<uint8_t>& code, const char* testname, const char* const* results) {
-#ifndef __ANDROID__
+#ifndef ART_TARGET_ANDROID
   static std::string toolsdir = GetToolsDir();
 
   ScratchFile file;
@@ -154,7 +158,7 @@ void DumpAndCheck(std::vector<uint8_t>& code, const char* testname, const char* 
       }
       if (CompareIgnoringSpace(results[lineindex], testline) != 0) {
         LOG(FATAL) << "Output is not as expected at line: " << lineindex
-          << results[lineindex] << "/" << testline;
+          << results[lineindex] << "/" << testline << ", test name: " << testname;
       }
       ++lineindex;
     }
@@ -169,7 +173,7 @@ void DumpAndCheck(std::vector<uint8_t>& code, const char* testname, const char* 
 
   snprintf(buf, sizeof(buf), "%s.oo", filename);
   unlink(buf);
-#endif
+#endif  // ART_TARGET_ANDROID
 }
 
 #define __ assembler->
@@ -1241,22 +1245,6 @@ TEST_F(Thumb2AssemblerTest, LoadStoreRegOffset) {
   EmitAndCheck(&assembler, "LoadStoreRegOffset");
 }
 
-TEST_F(Thumb2AssemblerTest, LoadStoreLiteral) {
-  __ ldr(R0, Address(4));
-  __ str(R0, Address(4));
-
-  __ ldr(R0, Address(-8));
-  __ str(R0, Address(-8));
-
-  // Limits.
-  __ ldr(R0, Address(0x3ff));       // 10 bits (16 bit).
-  __ ldr(R0, Address(0x7ff));       // 11 bits (32 bit).
-  __ str(R0, Address(0x3ff));       // 32 bit (no 16 bit str(literal)).
-  __ str(R0, Address(0x7ff));       // 11 bits (32 bit).
-
-  EmitAndCheck(&assembler, "LoadStoreLiteral");
-}
-
 TEST_F(Thumb2AssemblerTest, LoadStoreLimits) {
   __ ldr(R0, Address(R4, 124));     // 16 bit.
   __ ldr(R0, Address(R4, 128));     // 32 bit.
@@ -1608,6 +1596,213 @@ TEST_F(Thumb2AssemblerTest, CmpConstant) {
   EmitAndCheck(&assembler, "CmpConstant");
 }
 
+#define ENABLE_VIXL_TEST
+
+#ifdef ENABLE_VIXL_TEST
+
+#define ARM_VIXL
+
+#ifdef ARM_VIXL
+typedef arm::ArmVIXLJNIMacroAssembler JniAssemblerType;
+#else
+typedef arm::Thumb2Assembler AssemblerType;
+#endif
+
+class ArmVIXLAssemblerTest : public ::testing::Test {
+ public:
+  ArmVIXLAssemblerTest() : pool(), arena(&pool), assembler(&arena) { }
+
+  ArenaPool pool;
+  ArenaAllocator arena;
+  JniAssemblerType assembler;
+};
+
 #undef __
+#define __ assembler->
+
+void EmitAndCheck(JniAssemblerType* assembler, const char* testname,
+                  const char* const* results) {
+  __ FinalizeCode();
+  size_t cs = __ CodeSize();
+  std::vector<uint8_t> managed_code(cs);
+  MemoryRegion code(&managed_code[0], managed_code.size());
+  __ FinalizeInstructions(code);
+
+  DumpAndCheck(managed_code, testname, results);
+}
+
+void EmitAndCheck(JniAssemblerType* assembler, const char* testname) {
+  InitResults();
+  std::map<std::string, const char* const*>::iterator results = test_results.find(testname);
+  ASSERT_NE(results, test_results.end());
+
+  EmitAndCheck(assembler, testname, results->second);
+}
+
+#undef __
+#define __ assembler.
+
+TEST_F(ArmVIXLAssemblerTest, VixlJniHelpers) {
+  const bool is_static = true;
+  const bool is_synchronized = false;
+  const bool is_critical_native = false;
+  const char* shorty = "IIFII";
+
+  ArenaPool pool;
+  ArenaAllocator arena(&pool);
+
+  std::unique_ptr<JniCallingConvention> jni_conv(
+      JniCallingConvention::Create(&arena,
+                                   is_static,
+                                   is_synchronized,
+                                   is_critical_native,
+                                   shorty,
+                                   kThumb2));
+  std::unique_ptr<ManagedRuntimeCallingConvention> mr_conv(
+      ManagedRuntimeCallingConvention::Create(&arena, is_static, is_synchronized, shorty, kThumb2));
+  const int frame_size(jni_conv->FrameSize());
+  ArrayRef<const ManagedRegister> callee_save_regs = jni_conv->CalleeSaveRegisters();
+
+  const ManagedRegister method_register = ArmManagedRegister::FromCoreRegister(R0);
+  const ManagedRegister scratch_register = ArmManagedRegister::FromCoreRegister(R12);
+
+  __ BuildFrame(frame_size, mr_conv->MethodRegister(), callee_save_regs, mr_conv->EntrySpills());
+  __ IncreaseFrameSize(32);
+
+  // Loads
+  __ IncreaseFrameSize(4096);
+  __ Load(method_register, FrameOffset(32), 4);
+  __ Load(method_register, FrameOffset(124), 4);
+  __ Load(method_register, FrameOffset(132), 4);
+  __ Load(method_register, FrameOffset(1020), 4);
+  __ Load(method_register, FrameOffset(1024), 4);
+  __ Load(scratch_register, FrameOffset(4092), 4);
+  __ Load(scratch_register, FrameOffset(4096), 4);
+  __ LoadRawPtrFromThread(scratch_register, ThreadOffset32(512));
+  __ LoadRef(method_register, scratch_register, MemberOffset(128), /* unpoison_reference */ false);
+
+  // Stores
+  __ Store(FrameOffset(32), method_register, 4);
+  __ Store(FrameOffset(124), method_register, 4);
+  __ Store(FrameOffset(132), method_register, 4);
+  __ Store(FrameOffset(1020), method_register, 4);
+  __ Store(FrameOffset(1024), method_register, 4);
+  __ Store(FrameOffset(4092), scratch_register, 4);
+  __ Store(FrameOffset(4096), scratch_register, 4);
+  __ StoreImmediateToFrame(FrameOffset(48), 0xFF, scratch_register);
+  __ StoreImmediateToFrame(FrameOffset(48), 0xFFFFFF, scratch_register);
+  __ StoreRawPtr(FrameOffset(48), scratch_register);
+  __ StoreRef(FrameOffset(48), scratch_register);
+  __ StoreSpanning(FrameOffset(48), method_register, FrameOffset(48), scratch_register);
+  __ StoreStackOffsetToThread(ThreadOffset32(512), FrameOffset(4096), scratch_register);
+  __ StoreStackPointerToThread(ThreadOffset32(512));
+
+  // Other
+  __ Call(method_register, FrameOffset(48), scratch_register);
+  __ Copy(FrameOffset(48), FrameOffset(44), scratch_register, 4);
+  __ CopyRawPtrFromThread(FrameOffset(44), ThreadOffset32(512), scratch_register);
+  __ CopyRef(FrameOffset(48), FrameOffset(44), scratch_register);
+  __ GetCurrentThread(method_register);
+  __ GetCurrentThread(FrameOffset(48), scratch_register);
+  __ Move(scratch_register, method_register, 4);
+  __ VerifyObject(scratch_register, false);
+
+  __ CreateHandleScopeEntry(scratch_register, FrameOffset(48), scratch_register, true);
+  __ CreateHandleScopeEntry(scratch_register, FrameOffset(48), scratch_register, false);
+  __ CreateHandleScopeEntry(method_register, FrameOffset(48), scratch_register, true);
+  __ CreateHandleScopeEntry(FrameOffset(48), FrameOffset(64), scratch_register, true);
+  __ CreateHandleScopeEntry(method_register, FrameOffset(0), scratch_register, true);
+  __ CreateHandleScopeEntry(method_register, FrameOffset(1025), scratch_register, true);
+  __ CreateHandleScopeEntry(scratch_register, FrameOffset(1025), scratch_register, true);
+
+  __ ExceptionPoll(scratch_register, 0);
+
+  // Push the target out of range of branch emitted by ExceptionPoll.
+  for (int i = 0; i < 64; i++) {
+    __ Store(FrameOffset(2047), scratch_register, 4);
+  }
+
+  __ DecreaseFrameSize(4096);
+  __ DecreaseFrameSize(32);
+  __ RemoveFrame(frame_size, callee_save_regs);
+
+  EmitAndCheck(&assembler, "VixlJniHelpers");
+}
+
+#ifdef ARM_VIXL
+#define R0 vixl::aarch32::r0
+#define R2 vixl::aarch32::r2
+#define R4 vixl::aarch32::r4
+#define R12 vixl::aarch32::r12
+#undef __
+#define __ assembler.asm_.
+#endif
+
+TEST_F(ArmVIXLAssemblerTest, VixlLoadFromOffset) {
+  __ LoadFromOffset(kLoadWord, R2, R4, 12);
+  __ LoadFromOffset(kLoadWord, R2, R4, 0xfff);
+  __ LoadFromOffset(kLoadWord, R2, R4, 0x1000);
+  __ LoadFromOffset(kLoadWord, R2, R4, 0x1000a4);
+  __ LoadFromOffset(kLoadWord, R2, R4, 0x101000);
+  __ LoadFromOffset(kLoadWord, R4, R4, 0x101000);
+  __ LoadFromOffset(kLoadUnsignedHalfword, R2, R4, 12);
+  __ LoadFromOffset(kLoadUnsignedHalfword, R2, R4, 0xfff);
+  __ LoadFromOffset(kLoadUnsignedHalfword, R2, R4, 0x1000);
+  __ LoadFromOffset(kLoadUnsignedHalfword, R2, R4, 0x1000a4);
+  __ LoadFromOffset(kLoadUnsignedHalfword, R2, R4, 0x101000);
+  __ LoadFromOffset(kLoadUnsignedHalfword, R4, R4, 0x101000);
+  __ LoadFromOffset(kLoadWordPair, R2, R4, 12);
+  __ LoadFromOffset(kLoadWordPair, R2, R4, 0x3fc);
+  __ LoadFromOffset(kLoadWordPair, R2, R4, 0x400);
+  __ LoadFromOffset(kLoadWordPair, R2, R4, 0x400a4);
+  __ LoadFromOffset(kLoadWordPair, R2, R4, 0x40400);
+  __ LoadFromOffset(kLoadWordPair, R4, R4, 0x40400);
+
+  vixl::aarch32::UseScratchRegisterScope temps(assembler.asm_.GetVIXLAssembler());
+  temps.Exclude(R12);
+  __ LoadFromOffset(kLoadWord, R0, R12, 12);  // 32-bit because of R12.
+  temps.Include(R12);
+  __ LoadFromOffset(kLoadWord, R2, R4, 0xa4 - 0x100000);
+
+  __ LoadFromOffset(kLoadSignedByte, R2, R4, 12);
+  __ LoadFromOffset(kLoadUnsignedByte, R2, R4, 12);
+  __ LoadFromOffset(kLoadSignedHalfword, R2, R4, 12);
+
+  EmitAndCheck(&assembler, "VixlLoadFromOffset");
+}
+
+TEST_F(ArmVIXLAssemblerTest, VixlStoreToOffset) {
+  __ StoreToOffset(kStoreWord, R2, R4, 12);
+  __ StoreToOffset(kStoreWord, R2, R4, 0xfff);
+  __ StoreToOffset(kStoreWord, R2, R4, 0x1000);
+  __ StoreToOffset(kStoreWord, R2, R4, 0x1000a4);
+  __ StoreToOffset(kStoreWord, R2, R4, 0x101000);
+  __ StoreToOffset(kStoreWord, R4, R4, 0x101000);
+  __ StoreToOffset(kStoreHalfword, R2, R4, 12);
+  __ StoreToOffset(kStoreHalfword, R2, R4, 0xfff);
+  __ StoreToOffset(kStoreHalfword, R2, R4, 0x1000);
+  __ StoreToOffset(kStoreHalfword, R2, R4, 0x1000a4);
+  __ StoreToOffset(kStoreHalfword, R2, R4, 0x101000);
+  __ StoreToOffset(kStoreHalfword, R4, R4, 0x101000);
+  __ StoreToOffset(kStoreWordPair, R2, R4, 12);
+  __ StoreToOffset(kStoreWordPair, R2, R4, 0x3fc);
+  __ StoreToOffset(kStoreWordPair, R2, R4, 0x400);
+  __ StoreToOffset(kStoreWordPair, R2, R4, 0x400a4);
+  __ StoreToOffset(kStoreWordPair, R2, R4, 0x40400);
+  __ StoreToOffset(kStoreWordPair, R4, R4, 0x40400);
+
+  vixl::aarch32::UseScratchRegisterScope temps(assembler.asm_.GetVIXLAssembler());
+  temps.Exclude(R12);
+  __ StoreToOffset(kStoreWord, R0, R12, 12);  // 32-bit because of R12.
+  temps.Include(R12);
+  __ StoreToOffset(kStoreWord, R2, R4, 0xa4 - 0x100000);
+
+  __ StoreToOffset(kStoreByte, R2, R4, 12);
+
+  EmitAndCheck(&assembler, "VixlStoreToOffset");
+}
+
+#undef __
+#endif  // ENABLE_VIXL_TEST
 }  // namespace arm
 }  // namespace art

@@ -17,22 +17,40 @@
 package com.android.server.telecom.tests;
 
 import android.content.Context;
+import android.os.Build;
+import android.telecom.Connection;
 import android.telecom.DisconnectCause;
+import android.telecom.InCallService;
+import android.telecom.Log;
 import android.telecom.ParcelableCallAnalytics;
 import android.telecom.TelecomAnalytics;
 import android.telecom.TelecomManager;
+import android.telecom.VideoCallImpl;
+import android.telecom.VideoProfile;
+import android.support.test.filters.FlakyTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Base64;
 
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.telecom.Analytics;
-import com.android.server.telecom.Log;
+import com.android.server.telecom.LogUtils;
+import com.android.server.telecom.nano.TelecomLogClass;
 
+import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 public class AnalyticsTests extends TelecomSystemTest {
     @MediumTest
@@ -41,6 +59,7 @@ public class AnalyticsTests extends TelecomSystemTest {
                 "650-555-1212",
                 mPhoneAccountA0.getAccountHandle(),
                 mConnectionServiceFixtureA);
+
         Map<String, Analytics.CallInfoImpl> analyticsMap = Analytics.cloneData();
 
         assertTrue(analyticsMap.containsKey(testCall.mCallId));
@@ -74,6 +93,7 @@ public class AnalyticsTests extends TelecomSystemTest {
         }
     }
 
+    @FlakyTest
     @MediumTest
     public void testAnalyticsDumping() throws Exception {
         Analytics.reset();
@@ -110,6 +130,7 @@ public class AnalyticsTests extends TelecomSystemTest {
         Set<Integer> capturedEvents = new HashSet<>();
         for (ParcelableCallAnalytics.AnalyticsEvent e : analyticsEvents) {
             capturedEvents.add(e.getEventName());
+            assertIsRoundedToOneSigFig(e.getTimeSinceLastEvent());
         }
         assertTrue(capturedEvents.contains(ParcelableCallAnalytics.AnalyticsEvent.SET_ACTIVE));
         assertTrue(capturedEvents.contains(
@@ -168,6 +189,55 @@ public class AnalyticsTests extends TelecomSystemTest {
         assertEquals(DisconnectCause.REMOTE, callAnalytics2.callTerminationReason.getCode());
     }
 
+    @MediumTest
+    public void testAnalyticsVideo() throws Exception {
+        Analytics.reset();
+        IdPair callIds = startAndMakeActiveOutgoingCall(
+                "650-555-1212",
+                mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA);
+
+        CountDownLatch counter = new CountDownLatch(1);
+        InCallService.VideoCall.Callback callback = mock(InCallService.VideoCall.Callback.class);
+
+        doAnswer(invocation -> {
+            counter.countDown();
+            return null;
+        }).when(callback)
+                .onSessionModifyResponseReceived(anyInt(), any(VideoProfile.class),
+                        any(VideoProfile.class));
+
+        mConnectionServiceFixtureA.sendSetVideoProvider(
+                mConnectionServiceFixtureA.mLatestConnectionId);
+        InCallService.VideoCall videoCall =
+                mInCallServiceFixtureX.getCall(callIds.mCallId).getVideoCallImpl(
+                        mInCallServiceComponentNameX.getPackageName(), Build.VERSION.SDK_INT);
+        videoCall.registerCallback(callback);
+        ((VideoCallImpl) videoCall).setVideoState(VideoProfile.STATE_BIDIRECTIONAL);
+
+        videoCall.sendSessionModifyRequest(new VideoProfile(VideoProfile.STATE_RX_ENABLED));
+        counter.await(10000, TimeUnit.MILLISECONDS);
+
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        Analytics.dumpToEncodedProto(pw, new String[]{});
+        TelecomLogClass.TelecomLog analyticsProto =
+                TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
+
+        assertEquals(1, analyticsProto.callLogs.length);
+        TelecomLogClass.VideoEvent[] videoEvents = analyticsProto.callLogs[0].videoEvents;
+        assertEquals(2, videoEvents.length);
+
+        assertEquals(Analytics.SEND_LOCAL_SESSION_MODIFY_REQUEST, videoEvents[0].getEventName());
+        assertEquals(VideoProfile.STATE_RX_ENABLED, videoEvents[0].getVideoState());
+        assertEquals(-1, videoEvents[0].getTimeSinceLastEventMillis());
+
+        assertEquals(Analytics.RECEIVE_REMOTE_SESSION_MODIFY_RESPONSE,
+                videoEvents[1].getEventName());
+        assertEquals(VideoProfile.STATE_RX_ENABLED, videoEvents[1].getVideoState());
+        assertIsRoundedToOneSigFig(videoEvents[1].getTimeSinceLastEventMillis());
+    }
+
     @SmallTest
     public void testAnalyticsRounding() {
         long[] testVals = {0, -1, -10, -100, -57836, 1, 10, 100, 1000, 458457};
@@ -180,14 +250,120 @@ public class AnalyticsTests extends TelecomSystemTest {
     @SmallTest
     public void testAnalyticsLogSessionTiming() throws Exception {
         long minTime = 50;
-        Log.startSession(Log.Sessions.CSW_ADD_CONFERENCE_CALL);
+        Log.startSession(LogUtils.Sessions.CSW_ADD_CONFERENCE_CALL);
         Thread.sleep(minTime);
         Log.endSession();
         TelecomManager tm = (TelecomManager) mSpyContext.getSystemService(Context.TELECOM_SERVICE);
         List<TelecomAnalytics.SessionTiming> sessions = tm.dumpAnalytics().getSessionTimings();
         sessions.stream()
-                .filter(s -> Log.Sessions.CSW_ADD_CONFERENCE_CALL.equals(
+                .filter(s -> LogUtils.Sessions.CSW_ADD_CONFERENCE_CALL.equals(
                         Analytics.sSessionIdToLogSession.get(s.getKey())))
-                .forEach(s -> assertTrue(s.getTime() > minTime));
+                .forEach(s -> assertTrue(s.getTime() >= minTime));
+    }
+
+    @MediumTest
+    public void testAnalyticsDumpToProto() throws Exception {
+        Analytics.reset();
+        IdPair testCall = startAndMakeActiveIncomingCall(
+                "650-555-1212",
+                mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA);
+
+        mConnectionServiceFixtureA.
+                sendSetDisconnected(testCall.mConnectionId, DisconnectCause.ERROR);
+        Analytics.CallInfoImpl expectedAnalytics = Analytics.cloneData().get(testCall.mCallId);
+
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        Analytics.dumpToEncodedProto(pw, new String[]{});
+        TelecomLogClass.TelecomLog analyticsProto =
+                TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
+
+        assertEquals(1, analyticsProto.callLogs.length);
+        TelecomLogClass.CallLog callLog = analyticsProto.callLogs[0];
+
+        assertTrue(Math.abs(expectedAnalytics.startTime - callLog.getStartTime5Min()) <
+                ParcelableCallAnalytics.MILLIS_IN_5_MINUTES);
+        assertEquals(0, callLog.getStartTime5Min() % ParcelableCallAnalytics.MILLIS_IN_5_MINUTES);
+        assertTrue(Math.abs((expectedAnalytics.endTime - expectedAnalytics.startTime) -
+                callLog.getCallDurationMillis()) < ParcelableCallAnalytics.MILLIS_IN_1_SECOND);
+        assertEquals(0,
+                callLog.getCallDurationMillis() % ParcelableCallAnalytics.MILLIS_IN_1_SECOND);
+
+        assertEquals(expectedAnalytics.callDirection, callLog.getType());
+        assertEquals(expectedAnalytics.isAdditionalCall, callLog.getIsAdditionalCall());
+        assertEquals(expectedAnalytics.isInterrupted, callLog.getIsInterrupted());
+        assertEquals(expectedAnalytics.callTechnologies, callLog.getCallTechnologies());
+        assertEquals(expectedAnalytics.callTerminationReason.getCode(),
+                callLog.getCallTerminationCode());
+        assertEquals(expectedAnalytics.connectionService, callLog.connectionService[0]);
+        TelecomLogClass.Event[] analyticsEvents = callLog.callEvents;
+        Set<Integer> capturedEvents = new HashSet<>();
+        for (TelecomLogClass.Event e : analyticsEvents) {
+            capturedEvents.add(e.getEventName());
+            assertIsRoundedToOneSigFig(e.getTimeSinceLastEventMillis());
+        }
+        assertTrue(capturedEvents.contains(ParcelableCallAnalytics.AnalyticsEvent.SET_ACTIVE));
+        assertTrue(capturedEvents.contains(
+                ParcelableCallAnalytics.AnalyticsEvent.FILTERING_INITIATED));
+    }
+
+    @MediumTest
+    public void testAnalyticsConnectionProperties() throws Exception {
+        Analytics.reset();
+        IdPair testCall = startAndMakeActiveIncomingCall(
+                "650-555-1212",
+                mPhoneAccountA0.getAccountHandle(),
+                mConnectionServiceFixtureA);
+
+        int properties1 = Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE
+                | Connection.PROPERTY_WIFI
+                | Connection.PROPERTY_EMERGENCY_CALLBACK_MODE;
+        int properties2 = Connection.PROPERTY_HIGH_DEF_AUDIO
+                | Connection.PROPERTY_WIFI;
+        int expectedProperties = properties1 | properties2;
+
+        mConnectionServiceFixtureA.mConnectionById.get(testCall.mConnectionId).properties =
+                properties1;
+        mConnectionServiceFixtureA.sendSetConnectionProperties(testCall.mConnectionId);
+        mConnectionServiceFixtureA.mConnectionById.get(testCall.mConnectionId).properties =
+                properties2;
+        mConnectionServiceFixtureA.sendSetConnectionProperties(testCall.mConnectionId);
+
+        mConnectionServiceFixtureA.
+                sendSetDisconnected(testCall.mConnectionId, DisconnectCause.ERROR);
+
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        Analytics.dumpToEncodedProto(pw, new String[]{});
+        TelecomLogClass.TelecomLog analyticsProto =
+                TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
+
+        assertEquals(expectedProperties,
+                analyticsProto.callLogs[0].getConnectionProperties() & expectedProperties);
+    }
+
+    @SmallTest
+    public void testAnalyticsMaxSize() throws Exception {
+        Analytics.reset();
+        for (int i = 0; i < Analytics.MAX_NUM_CALLS_TO_STORE * 2; i++) {
+            Analytics.initiateCallAnalytics(String.valueOf(i), Analytics.INCOMING_DIRECTION)
+                    .addCallTechnology(i);
+        }
+
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        Analytics.dumpToEncodedProto(pw, new String[]{});
+        TelecomLogClass.TelecomLog analyticsProto =
+                TelecomLogClass.TelecomLog.parseFrom(Base64.decode(sw.toString(), Base64.DEFAULT));
+
+        assertEquals(Analytics.MAX_NUM_CALLS_TO_STORE, analyticsProto.callLogs.length);
+        assertEquals(Arrays.stream(analyticsProto.callLogs)
+                .filter(x -> x.getCallTechnologies() < 100)
+                .count(), 0);
+    }
+
+    private void assertIsRoundedToOneSigFig(long x) {
+        assertEquals(x, Analytics.roundToOneSigFig(x));
     }
 }

@@ -6,8 +6,9 @@ AUTHOR = "dpolukhin, fdeng, yunlian"
 NAME = "logging_AsanCrash"
 PURPOSE = "Verify Address Sanitizer does catch memory errors."
 CRITERIA = "Fails if no message appears in a log after simulating memory bug."
+# Normally all suite:smoke tests running in the VM should also run on hardware
+# in bvt-inline. This test is an exception, as ASAN is VM specific.
 ATTRIBUTES = "suite:smoke"
-SUITE = "smoke"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "logging"

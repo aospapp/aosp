@@ -18,7 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := android-ex-camera2
-#LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := \
      $(call all-java-files-under, src)

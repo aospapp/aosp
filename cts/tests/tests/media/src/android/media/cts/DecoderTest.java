@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.cts.util.MediaUtils;
 import android.graphics.ImageFormat;
 import android.media.cts.CodecUtils;
 import android.media.Image;
@@ -39,6 +38,7 @@ import android.net.Uri;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.DynamicConfigDeviceSide;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
@@ -501,9 +501,9 @@ public class DecoderTest extends MediaPlayerTestBase {
 
     private void testTrackSelection(int resid) throws Exception {
         AssetFileDescriptor fd1 = null;
+        MediaExtractor ex1 = new MediaExtractor();
         try {
             fd1 = mResources.openRawResourceFd(resid);
-            MediaExtractor ex1 = new MediaExtractor();
             ex1.setDataSource(fd1.getFileDescriptor(), fd1.getStartOffset(), fd1.getLength());
 
             ByteBuffer buf1 = ByteBuffer.allocate(1024*1024);
@@ -664,6 +664,9 @@ public class DecoderTest extends MediaPlayerTestBase {
             }
 
         } finally {
+            if (ex1 != null) {
+                ex1.release();
+            }
             if (fd1 != null) {
                 fd1.close();
             }
@@ -954,13 +957,12 @@ public class DecoderTest extends MediaPlayerTestBase {
      * @param decParams the audio parameters of the given audio samples (decSamples)
      * @param encNch the encoded number of audio channels (number of channels of the original
      *               input)
+     * @param nrgRatioThresh threshold to classify the energy ratios ]0.0, 1.0[
      * @throws RuntimeException
      */
-    private void checkEnergy(short[] decSamples, AudioParameter decParams, int encNch)
-            throws RuntimeException
+    protected void checkEnergy(short[] decSamples, AudioParameter decParams, int encNch,
+                             float nrgRatioThresh) throws RuntimeException
     {
-        String localTag = TAG + "#checkEnergy";
-
         final int nSegPerBlk = 4;                          // the number of segments per block
         final int nCh = decParams.getNumChannels();        // the number of input channels
         final int nBlkSmp = decParams.getSamplingRate();   // length of one (LB/HB) block [samples]
@@ -1069,7 +1071,6 @@ public class DecoderTest extends MediaPlayerTestBase {
         }
 
         // go over all segment energies in all channels and check them
-        final double nrgRatioThresh = 0.50f;               // threshold to classify energy ratios
         double refMinNrg = zeroNrgThresh;                  // reference min energy for the 1st ch;
                                                            // others will be compared against 1st
         for (int ch = 0; ch < procNch; ch++) {
@@ -1129,6 +1130,11 @@ public class DecoderTest extends MediaPlayerTestBase {
         for (int seg = 0; seg < totSeg; seg++) {
             assertTrue(String.format("no channel has energy in segment %d", seg), sigSeg[seg]);
         }
+    }
+
+    private void checkEnergy(short[] decSamples, AudioParameter decParams, int encNch)
+            throws RuntimeException {
+        checkEnergy(decSamples, decParams, encNch, 0.50f);  // default energy ratio threshold: 0.50
     }
 
     /**
@@ -1265,7 +1271,7 @@ public class DecoderTest extends MediaPlayerTestBase {
     }
 
     // Class handling all audio parameters relevant for testing
-    private class AudioParameter {
+    protected static class AudioParameter {
 
         public AudioParameter() {
             this.reset();
@@ -1850,7 +1856,7 @@ public class DecoderTest extends MediaPlayerTestBase {
         if (checkTv()) {
             assertTrue(MediaUtils.canDecodeVideo(
                     MediaFormat.MIMETYPE_VIDEO_HEVC, 1920, 1080, 30,
-                    HEVCProfileMain, HEVCMainTierLevel41, 10000000));
+                    HEVCProfileMain, HEVCMainTierLevel41, 5000000));
         }
     }
 
@@ -2820,6 +2826,32 @@ public class DecoderTest extends MediaPlayerTestBase {
     }
 
     /**
+     * Returns true if there exists a codec supporting the given MIME type that meets the
+     * minimum specification for VR high performance requirements.
+     *
+     * The requirements are as follows:
+     *   - At least 243000 blocks per second (where blocks are defined as 16x16 -- note this
+     *   is equivalent to 1920x1080@30fps)
+     *   - Feature adaptive-playback present
+     */
+    private static boolean doesMimeTypeHaveMinimumSpecVrReadyCodec(String mimeType) {
+        List<CodecCapabilities> caps = getCodecCapabilitiesForMimeType(mimeType);
+        for (CodecCapabilities c : caps) {
+            if (!c.isFeatureSupported(CodecCapabilities.FEATURE_AdaptivePlayback)) {
+                continue;
+            }
+
+            if (!c.getVideoCapabilities().areSizeAndRateSupported(1920, 1080, 30.0)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Returns true if there exists a codec supporting the given MIME type that meets VR high
      * performance requirements.
      *
@@ -2850,69 +2882,6 @@ public class DecoderTest extends MediaPlayerTestBase {
         return false;
     }
 
-    private class DecodeRunnable implements Runnable {
-        private int video;
-        private int frames;
-        private long durationMillis;
-
-        public DecodeRunnable(int video) {
-            this.video = video;
-            this.frames = 0;
-            this.durationMillis = 0;
-        }
-
-        @Override
-        public void run() {
-            long start = System.currentTimeMillis();
-            int actual = 0;
-            try {
-                actual = countFrames(this.video, RESET_MODE_NONE, -1, null);
-            } catch (Exception e) {
-                actual = -1;
-            }
-            long durationMillis = System.currentTimeMillis() - start;
-
-            synchronized (this) {
-                this.frames = actual;
-                this.durationMillis = durationMillis;
-            }
-        }
-
-        public synchronized int getFrames() {
-            return this.frames;
-        }
-
-        public synchronized double getMeasuredFps() {
-            return this.frames / (this.durationMillis / 1000.0);
-        }
-    }
-
-    private void decodeInParallel(int video, int frames, int fps, int parallel) throws Exception {
-        DecodeRunnable[] runnables = new DecodeRunnable[parallel];
-        Thread[] threads = new Thread[parallel];
-
-        for (int i = 0; i < parallel; ++i) {
-            runnables[i] = new DecodeRunnable(video);
-            threads[i] = new Thread(runnables[i]);
-            threads[i].start();
-        }
-
-        for (Thread t : threads) {
-            t.join();
-        }
-
-        for (DecodeRunnable dr : runnables) {
-            assertTrue("Expected to decode " + frames + " frames, found " + dr.getFrames(),
-                    frames == dr.getFrames());
-        }
-
-        for (DecodeRunnable dr : runnables) {
-            Log.d(TAG, "Decoded at " + dr.getMeasuredFps());
-            assertTrue("Expected to decode at " + fps + " fps, measured " + dr.getMeasuredFps(),
-                    fps < dr.getMeasuredFps());
-        }
-    }
-
     public void testVrHighPerformanceH264() throws Exception {
         if (!supportsVrHighPerformance()) {
             MediaUtils.skipTest(TAG, "FEATURE_VR_MODE_HIGH_PERFORMANCE not present");
@@ -2921,16 +2890,6 @@ public class DecoderTest extends MediaPlayerTestBase {
 
         boolean h264IsReady = doesMimeTypeHaveVrReadyCodec(MediaFormat.MIMETYPE_VIDEO_AVC);
         assertTrue("Did not find a VR ready H.264 decoder", h264IsReady);
-
-        // Test throughput by decoding 1920x1080 @ 30fps x 4 instances.
-        decodeInParallel(
-                R.raw.bbb_s4_1920x1080_wide_mp4_h264_mp4_20mbps_30fps_aac_he_5ch_200kbps_44100hz,
-                150, 30, 4);
-
-        // Test throughput by decoding 1920x1080 @ 60fps x 2 instances.
-        decodeInParallel(
-                R.raw.bbb_s2_1920x1080_mp4_h264_mp42_20mbps_60fps_aac_he_v2_5ch_160kbps_48000hz,
-                300, 60, 2);
     }
 
     public void testVrHighPerformanceHEVC() throws Exception {
@@ -2939,17 +2898,14 @@ public class DecoderTest extends MediaPlayerTestBase {
             return;
         }
 
+        // Test minimum mandatory requirements.
+        assertTrue(doesMimeTypeHaveMinimumSpecVrReadyCodec(MediaFormat.MIMETYPE_VIDEO_HEVC));
+
         boolean hevcIsReady = doesMimeTypeHaveVrReadyCodec(MediaFormat.MIMETYPE_VIDEO_HEVC);
         if (!hevcIsReady) {
-            MediaUtils.skipTest(TAG, "HEVC isn't required to be VR ready");
+            Log.d(TAG, "HEVC isn't required to be VR ready");
             return;
         }
-
-        // Test throughput by decoding 1920x1080 @ 30fps x 4 instances.
-        decodeInParallel(
-                // using the 60fps sample to save on apk size, but decoding only at 30fps @ 5Mbps
-                R.raw.bbb_s2_1920x1080_mp4_hevc_mp41_10mbps_60fps_aac_lc_6ch_384kbps_22050hz,
-                300, 30 /* fps */, 4);
     }
 
     public void testVrHighPerformanceVP9() throws Exception {
@@ -2958,17 +2914,14 @@ public class DecoderTest extends MediaPlayerTestBase {
             return;
         }
 
+        // Test minimum mandatory requirements.
+        assertTrue(doesMimeTypeHaveMinimumSpecVrReadyCodec(MediaFormat.MIMETYPE_VIDEO_VP9));
+
         boolean vp9IsReady = doesMimeTypeHaveVrReadyCodec(MediaFormat.MIMETYPE_VIDEO_VP9);
         if (!vp9IsReady) {
-            MediaUtils.skipTest(TAG, "VP9 isn't required to be VR ready");
+            Log.d(TAG, "VP9 isn't required to be VR ready");
             return;
         }
-
-        // Test throughput by decoding 1920x1080 @ 30fps x 4 instances.
-        decodeInParallel(
-                // using the 60fps sample to save on apk size, but decoding only at 30fps @ 5Mbps
-                R.raw.bbb_s2_1920x1080_webm_vp9_0p41_10mbps_60fps_vorbis_6ch_384kbps_22050hz,
-                300, 30 /* fps */, 4);
     }
 
     private boolean supportsVrHighPerformance() {

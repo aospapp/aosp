@@ -69,7 +69,7 @@ struct Expression {
 struct LiteralExpression : public Expression {
   std::string value;
 
-  LiteralExpression(const std::string& value);
+  explicit LiteralExpression(const std::string& value);
   virtual ~LiteralExpression() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -78,7 +78,7 @@ struct LiteralExpression : public Expression {
 struct StringLiteralExpression : public Expression {
   std::string value;
 
-  StringLiteralExpression(const std::string& value);
+  explicit StringLiteralExpression(const std::string& value);
   virtual ~StringLiteralExpression() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -141,7 +141,7 @@ struct StatementBlock : public Statement {
 struct ExpressionStatement : public Statement {
   Expression* expression;
 
-  ExpressionStatement(Expression* expression);
+  explicit ExpressionStatement(Expression* expression);
   virtual ~ExpressionStatement() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -164,7 +164,7 @@ struct MethodCall : public Expression {
   std::vector<Expression*> arguments;
   std::vector<std::string> exceptions;
 
-  MethodCall(const std::string& name);
+  explicit MethodCall(const std::string& name);
   MethodCall(const std::string& name, int argc, ...);
   MethodCall(Expression* obj, const std::string& name);
   MethodCall(const Type* clazz, const std::string& name);
@@ -191,7 +191,7 @@ struct NewExpression : public Expression {
   const Type* type;
   std::vector<Expression*> arguments;
 
-  NewExpression(const Type* type);
+  explicit NewExpression(const Type* type);
   NewExpression(const Type* type, int argc, ...);
   virtual ~NewExpression() = default;
   void Write(CodeWriter* to) const override;
@@ -235,7 +235,7 @@ struct VariableDeclaration : public Statement {
   const Type* cast = nullptr;
   Expression* rvalue = nullptr;
 
-  VariableDeclaration(Variable* lvalue);
+  explicit VariableDeclaration(Variable* lvalue);
   VariableDeclaration(Variable* lvalue, Expression* rvalue,
                       const Type* cast = NULL);
   virtual ~VariableDeclaration() = default;
@@ -255,7 +255,7 @@ struct IfStatement : public Statement {
 struct ReturnStatement : public Statement {
   Expression* expression;
 
-  ReturnStatement(Expression* expression);
+  explicit ReturnStatement(Expression* expression);
   virtual ~ReturnStatement() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -272,7 +272,7 @@ struct CatchStatement : public Statement {
   StatementBlock* statements;
   Variable* exception;
 
-  CatchStatement(Variable* exception);
+  explicit CatchStatement(Variable* exception);
   virtual ~CatchStatement() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -290,7 +290,7 @@ struct Case {
   StatementBlock* statements = new StatementBlock;
 
   Case() = default;
-  Case(const std::string& c);
+  explicit Case(const std::string& c);
   virtual ~Case() = default;
   virtual void Write(CodeWriter* to) const;
 };
@@ -299,7 +299,7 @@ struct SwitchStatement : public Statement {
   Expression* expression;
   std::vector<Case*> cases;
 
-  SwitchStatement(Expression* expression);
+  explicit SwitchStatement(Expression* expression);
   virtual ~SwitchStatement() = default;
   void Write(CodeWriter* to) const override;
 };
@@ -326,12 +326,24 @@ struct Method : public ClassElement {
   void Write(CodeWriter* to) const override;
 };
 
-struct Constant : public ClassElement {
-  std::string name;
-  int value;
+struct IntConstant : public ClassElement {
+  const std::string name;
+  const int value;
 
-  Constant() = default;
-  virtual ~Constant() = default;
+  IntConstant(std::string name, int value)
+      : name(name), value(value) {}
+  virtual ~IntConstant() = default;
+
+  void Write(CodeWriter* to) const override;
+};
+
+struct StringConstant : public ClassElement {
+  const std::string name;
+  const std::string value;
+
+  StringConstant(std::string name, std::string value)
+      : name(name), value(value) {}
+  ~StringConstant() override = default;
 
   void Write(CodeWriter* to) const override;
 };

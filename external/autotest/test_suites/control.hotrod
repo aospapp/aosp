@@ -5,7 +5,6 @@
 AUTHOR = "Harpreet Grewal <harpreet@chromium.org>"
 NAME = "hotrod"
 PURPOSE = "Automated testing of hotrod."
-CRITERIA = "All tests with SUITE=hotrod must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
@@ -25,15 +24,14 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 # the bug filer will fallback to it's defaults.
 _BUG_TEMPLATE = {
     'labels': ['Proj-Hotrod', 'Hotrod-Auto-Bug'],
-    'owner': 'harpreet@chromium.org',
+    'owner': '',
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['dtosic@chromium.org', 'stevenh@chromium.org',
-           'vidster@chromium.org', 'jennyz@chromium.org']
+    'cc': ['hotrod-autotest-alerts@google.com']
 }
 
-args_dict['name'] = 'hotrod'
+args_dict['name'] = NAME
 args_dict['add_experimental'] = True
 args_dict['bug_template'] = _BUG_TEMPLATE
 args_dict['version_prefix'] = provision.CROS_VERSION_PREFIX

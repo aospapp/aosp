@@ -18,9 +18,7 @@
 
 package org.apache.harmony.jpda.tests.jdwp.InterfaceType;
 
-import org.apache.harmony.jpda.tests.framework.LogWriter;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
-import org.apache.harmony.jpda.tests.share.JPDATestOptions;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 /**

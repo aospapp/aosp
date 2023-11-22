@@ -5,20 +5,20 @@
 import logging
 import os
 import re
+import shutil
 from autotest_lib.client.common_lib import utils as client_utils
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.client.cros import constants
 from autotest_lib.server.cros.dynamic_suite.constants import JOB_BUILD_KEY
+from autotest_lib.server.crashcollect import collect_log_file
 from autotest_lib.server import utils
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = client_utils.metrics_mock
 
-CRASH_SERVER_OVERLOAD = 'crash_server_overload'
-CRASH_SERVER_FOUND = 'crash_server_found'
-SYMBOLICATE_TIMEDOUT = 'symbolicate_timedout'
-
-timer = autotest_stats.Timer('crash_collect')
 
 def generate_minidump_stacktrace(minidump_path):
     """
@@ -36,8 +36,29 @@ def generate_minidump_stacktrace(minidump_path):
                      (minidump_path, symbol_dir, minidump_path))
 
 
-@timer.decorate
-def symbolicate_minidump_with_devserver(minidump_path, resultdir):
+def _resolve_crashserver():
+    """
+    Attempts to find a devserver / crashserver that has capacity to
+    symbolicate a crashdump.
+
+    @raises DevServerException if no server with capacity could be found.
+    @returns Hostname of resolved server, if found.
+    """
+    crashserver_name = dev_server.get_least_loaded_devserver(
+            devserver_type=dev_server.CrashServer)
+    if not crashserver_name:
+        metrics.Counter('chromeos/autotest/crashcollect/could_not_resolve'
+                        ).increment()
+        raise dev_server.DevServerException(
+                'No crash server has the capacity to symbolicate the dump.')
+    else:
+        metrics.Counter('chromeos/autotest/crashcollect/resolved'
+                        ).increment(fields={'crash_server': crashserver_name})
+    return crashserver_name
+
+
+def _symbolicate_minidump_with_devserver(minidump_path, resultdir,
+                                        crashserver_name):
     """
     Generates a stack trace for the specified minidump by consulting devserver.
 
@@ -45,6 +66,7 @@ def symbolicate_minidump_with_devserver(minidump_path, resultdir):
 
     @param minidump_path: absolute path to minidump to by symbolicated.
     @param resultdir: server job's result directory.
+    @param crashserver_name: Name of crashserver to attempt to symbolicate with.
     @raise DevServerException upon failure, HTTP or otherwise.
     """
     # First, look up what build we tested.  If we can't find this, we can't
@@ -54,22 +76,60 @@ def symbolicate_minidump_with_devserver(minidump_path, resultdir):
         raise dev_server.DevServerException(
             'Cannot determine build being tested.')
 
-    crashserver_name = dev_server.get_least_loaded_devserver(
-            devserver_type=dev_server.CrashServer)
-    if not crashserver_name:
-        autotest_stats.Counter(CRASH_SERVER_OVERLOAD).increment()
-        raise dev_server.DevServerException(
-                'No crash server has the capacity to symbolicate the dump.')
-    else:
-        autotest_stats.Counter(CRASH_SERVER_FOUND).increment()
     devserver = dev_server.CrashServer(crashserver_name)
-    trace_text = devserver.symbolicate_dump(
-        minidump_path, keyvals[JOB_BUILD_KEY])
+
+    with metrics.SecondsTimer(
+            'chromeos/autotest/crashcollect/symbolicate_duration',
+            fields={'crash_server': crashserver_name}):
+        trace_text = devserver.symbolicate_dump(minidump_path,
+                                                keyvals[JOB_BUILD_KEY])
+
     if not trace_text:
         raise dev_server.DevServerException('Unknown error!!')
     with open(minidump_path + '.txt', 'w') as trace_file:
         trace_file.write(trace_text)
 
+def generate_stacktrace_for_file(minidump, host_resultdir):
+    """
+    Tries to generate a stack trace for the file located at |minidump|.
+    @param minidump: path to minidump file to generate the stacktrace for.
+    @param host_resultdir: server job's result directory.
+    """
+    # First, try to symbolicate locally.
+    try:
+        logging.info('Trying to generate stack trace locally for %s', minidump)
+        generate_minidump_stacktrace(minidump)
+        logging.info('Generated stack trace for dump %s', minidump)
+        return
+    except client_utils.error.CmdError as err:
+        logging.info('Failed to generate stack trace locally for '
+                     'dump %s (rc=%d):\n%r',
+                     minidump, err.result_obj.exit_status, err)
+
+    # If that did not succeed, try to symbolicate using the dev server.
+    try:
+        logging.info('Generating stack trace using devserver for %s', minidump)
+        crashserver_name = _resolve_crashserver()
+        args = (minidump, host_resultdir, crashserver_name)
+        is_timeout, _ = retry.timeout(_symbolicate_minidump_with_devserver,
+                                      args=args,
+                                      timeout_sec=600)
+        if is_timeout:
+            logging.info('Generating stack trace timed out for dump %s',
+                         minidump)
+            metrics.Counter(
+                    'chromeos/autotest/crashcollect/symbolicate_timed_out'
+            ).increment(fields={'crash_server': crashserver_name})
+        else:
+            logging.info('Generated stack trace for dump %s', minidump)
+            return
+    except dev_server.DevServerException as e:
+        logging.info('Failed to generate stack trace on devserver for dump '
+                     '%s:\n%r', minidump, e)
+
+    # Symbolicating failed.
+    logging.warning('Failed to generate stack trace for %s (see info logs)',
+                    minidump)
 
 def find_and_generate_minidump_stacktraces(host_resultdir):
     """
@@ -82,61 +142,114 @@ def find_and_generate_minidump_stacktraces(host_resultdir):
 
     @param host_resultdir: Directory to walk looking for dmp files.
 
-    @returns The list of generated minidumps.
+    @returns The list of all found minidump files. Each dump may or may not have
+             been symbolized.
     """
     minidumps = []
-    for dir, subdirs, files in os.walk(host_resultdir):
-        for file in files:
-            if not file.endswith('.dmp'):
-                continue
-            minidump = os.path.join(dir, file)
-
-            # First, try to symbolicate locally.
-            try:
-                generate_minidump_stacktrace(minidump)
-                logging.info('Generated stack trace for dump %s', minidump)
-                minidumps.append(minidump)
-                continue
-            except client_utils.error.CmdError as err:
-                logging.warning('Failed to generate stack trace locally for '
-                             'dump %s (rc=%d):\n%r',
-                             minidump, err.result_obj.exit_status, err)
-
-            # If that did not succeed, try to symbolicate using the dev server.
-            try:
-                logging.info('Generating stack trace for %s', minidump)
-                minidumps.append(minidump)
-                is_timeout, _ = retry.timeout(
-                        symbolicate_minidump_with_devserver,
-                        args=(minidump, host_resultdir),
-                        timeout_sec=600)
-                if is_timeout:
-                    logging.warn('Generating stack trace is timed out for dump '
-                                 '%s', minidump)
-                    autotest_stats.Counter(SYMBOLICATE_TIMEDOUT).increment()
-                else:
-                    logging.info('Generated stack trace for dump %s', minidump)
-                continue
-            except dev_server.DevServerException as e:
-                logging.warning('Failed to generate stack trace on devserver for '
-                             'dump %s:\n%r', minidump, e)
+    for file in _find_crashdumps(host_resultdir):
+        generate_stacktrace_for_file(file, host_resultdir)
+        minidumps.append(file)
     return minidumps
 
 
-def fetch_orphaned_crashdumps(host, host_resultdir):
+def _find_crashdumps(host_resultdir):
+    """Find crashdumps.
+
+    @param host_resultdir The result directory for this host for this test run.
+    """
+    for dir, subdirs, files in os.walk(host_resultdir):
+        for file in files:
+            if file.endswith('.dmp'):
+                yield os.path.join(dir, file)
+
+
+def _find_orphaned_crashdumps(host):
+    """Return file paths of crashdumps on host.
+
+    @param host A host object of the device.
+    """
+    return host.list_files_glob(os.path.join(constants.CRASH_DIR, '*'))
+
+
+def report_crashdumps(host):
+    """Report on crashdumps for host.
+
+    This is run when no tests failed.  We don't process crashdumps in this
+    case because of devserver load, but they should still be reported.
+
+    @param host A host object of the device we're to pull crashes from.
+    """
+    for crashfile in _find_orphaned_crashdumps(host):
+        logging.warning('Host crashdump exists: %s', crashfile)
+        host.job.record('INFO', None, None,
+                        'Host crashdump exists: %s' % (crashfile,))
+
+    host_resultdir = _get_host_resultdir(host)
+    for crashfile in _find_crashdumps(host_resultdir):
+        logging.warning('Local crashdump exists: %s', crashfile)
+        host.job.record('INFO', None, None,
+                        'Local crashdump exists: %s' % (crashfile,))
+
+
+def fetch_orphaned_crashdumps(host, infodir):
     """
     Copy all of the crashes in the crash directory over to the results folder.
 
     @param host A host object of the device we're to pull crashes from.
-    @param host_resultdir The result directory for this host for this test run.
+    @param infodir The directory to fetch crashdumps into.
     @return The list of minidumps that we pulled back from the host.
     """
-    minidumps = []
-    for file in host.list_files_glob(os.path.join(constants.CRASH_DIR, '*')):
-        logging.info('Collecting %s...', file)
-        host.get_file(file, host_resultdir, preserve_perm=False)
-        minidumps.append(file)
-    return minidumps
+    if not os.path.exists(infodir):
+        os.mkdir(infodir)
+    orphans = []
+    try:
+        for file in _find_orphaned_crashdumps(host):
+            logging.info('Collecting %s...', file)
+            collect_log_file(host, file, infodir, clean=True)
+            orphans.append(file)
+    except Exception as e:
+        logging.warning('Collection of orphaned crash dumps failed %s', e)
+    finally:
+        # Delete infodir if we have no orphans
+        if not orphans:
+            logging.info('There are no orphaned crashes; deleting %s', infodir)
+            os.rmdir(infodir)
+    return orphans
+
+
+def _copy_to_debug_dir(host_resultdir, filename):
+    """
+    Copies a file to the debug dir under host_resultdir.
+
+    @param host_resultdir The result directory for this host for this test run.
+    @param filename The full path of the file to copy to the debug folder.
+    """
+    debugdir = os.path.join(host_resultdir, 'debug')
+    src = filename
+    dst = os.path.join(debugdir, os.path.basename(filename))
+
+    try:
+        shutil.copyfile(src, dst)
+        logging.info('Copied %s to %s', src, dst)
+    except IOError:
+        logging.warning('Failed to copy %s to %s', src, dst)
+
+
+def _get_host_resultdir(host):
+    """Get resultdir for host.
+
+    @param host A host object of the device we're to pull crashes from.
+    """
+    return getattr(getattr(host, 'job', None), 'resultdir', None)
+
+
+def get_host_infodir(host):
+    """Get infodir for host.
+
+    @param host A host object of the device we're to pull crashes from.
+    """
+    host_resultdir = _get_host_resultdir(host)
+    return os.path.join(host_resultdir, 'crashinfo.%s' % host.hostname)
 
 
 def get_site_crashdumps(host, test_start_time):
@@ -147,18 +260,10 @@ def get_site_crashdumps(host, test_start_time):
     @param test_start_time When the test we just ran started.
     @return A list of all the minidumps
     """
-    host_resultdir = getattr(getattr(host, 'job', None), 'resultdir', None)
-    infodir = os.path.join(host_resultdir, 'crashinfo.%s' % host.hostname)
-    if not os.path.exists(infodir):
-        os.mkdir(infodir)
+    host_resultdir = _get_host_resultdir(host)
+    infodir = get_host_infodir(host)
 
-    # TODO(milleral): handle orphans differently. crosbug.com/38202
-    try:
-        orphans = fetch_orphaned_crashdumps(host, infodir)
-    except Exception as e:
-        orphans = []
-        logging.warning('Collection of orphaned crash dumps failed %s', e)
-
+    orphans = fetch_orphaned_crashdumps(host, infodir)
     minidumps = find_and_generate_minidump_stacktraces(host_resultdir)
 
     # Record all crashdumps in status.log of the job:
@@ -178,6 +283,14 @@ def get_site_crashdumps(host, test_start_time):
 
     for minidump in orphans:
         report_bug_from_crash(host, minidump)
+
+    # We copy Chrome crash information to the debug dir to assist debugging.
+    # Since orphans occurred on a previous run, they are most likely not
+    # relevant to the current failure, so we don't copy them.
+    for minidump in minidumps:
+        minidump_no_ext = os.path.splitext(minidump)[0]
+        _copy_to_debug_dir(host_resultdir, minidump_no_ext + '.dmp.txt')
+        _copy_to_debug_dir(host_resultdir, minidump_no_ext + '.log')
 
     return orphans
 

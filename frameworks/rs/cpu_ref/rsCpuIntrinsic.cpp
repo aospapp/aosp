@@ -17,8 +17,8 @@
 
 #include "rsCpuIntrinsic.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 RsdCpuScriptIntrinsic::RsdCpuScriptIntrinsic(RsdCpuReferenceImpl *ctx, const Script *s,
                                              const Element *e, RsScriptIntrinsicID iid)
@@ -119,3 +119,6 @@ void RsdCpuScriptIntrinsic::forEachKernelSetup(uint32_t slot, MTLaunchStructForE
     mtls->kernel = mRootPtr;
     mtls->fep.usr = this;
 }
+
+} // namespace renderscript
+} // namespace android

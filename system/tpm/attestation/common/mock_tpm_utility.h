@@ -37,28 +37,30 @@ class MockTpmUtility : public TpmUtility {
                                const std::string& input);
 
   MOCK_METHOD0(IsTpmReady, bool());
-  MOCK_METHOD6(ActivateIdentity, bool(const std::string&,
-                                      const std::string&,
-                                      const std::string&,
-                                      const std::string&,
-                                      const std::string&,
-                                      std::string*));
-  MOCK_METHOD9(CreateCertifiedKey, bool(KeyType,
-                                        KeyUsage,
-                                        const std::string&,
-                                        const std::string&,
-                                        std::string*,
-                                        std::string*,
-                                        std::string*,
-                                        std::string*,
-                                        std::string*));
+  MOCK_METHOD6(ActivateIdentity,
+               bool(const std::string&,
+                    const std::string&,
+                    const std::string&,
+                    const std::string&,
+                    const std::string&,
+                    std::string*));
+  MOCK_METHOD9(CreateCertifiedKey,
+               bool(KeyType,
+                    KeyUsage,
+                    const std::string&,
+                    const std::string&,
+                    std::string*,
+                    std::string*,
+                    std::string*,
+                    std::string*,
+                    std::string*));
   MOCK_METHOD2(SealToPCR0, bool(const std::string&, std::string*));
   MOCK_METHOD2(Unseal, bool(const std::string&, std::string*));
   MOCK_METHOD1(GetEndorsementPublicKey, bool(std::string*));
-  MOCK_METHOD3(Unbind, bool(const std::string&, const std::string&,
-                            std::string*));
-  MOCK_METHOD3(Sign, bool(const std::string&, const std::string&,
-                          std::string*));
+  MOCK_METHOD3(Unbind,
+               bool(const std::string&, const std::string&, std::string*));
+  MOCK_METHOD3(Sign,
+               bool(const std::string&, const std::string&, std::string*));
 };
 
 }  // namespace attestation

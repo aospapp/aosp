@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2016 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -13,45 +12,32 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/RootLayoutPadding"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <LinearLayout app:ctsv_layout_box="all"
-        android:orientation="vertical"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/text"
         android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp" />
+
+    <ScrollView
+        android:id="@+id/log_scroll_view"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
-        >
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
-            android:orientation="horizontal"
+            android:id="@+id/log_layout"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_height="match_parent"
+            android:orientation="vertical" />
 
-            <TextView android:id="@+id/text"
-                android:textSize="14sp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+    </ScrollView>
 
-            <ScrollView
-                android:id="@+id/log_scroll_view"
-                android:fillViewport="true"
-                android:layout_height="match_parent"
-                android:layout_width="0dp"
-                android:layout_weight="1">
-
-                <LinearLayout
-                    android:id="@+id/log_layout"
-                    android:orientation="vertical"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"/>
-
-            </ScrollView>
-
-        </LinearLayout>
-
-        <include layout="@layout/snsr_next_button" />
-
-    </LinearLayout>
-</com.android.cts.verifier.BoxInsetLayout>
+    <include layout="@layout/snsr_next_button" />
+</LinearLayout>

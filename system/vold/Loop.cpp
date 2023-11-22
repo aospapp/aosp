@@ -32,11 +32,18 @@
 
 #include <cutils/log.h>
 
+#include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/unique_fd.h>
+
 #include <sysutils/SocketClient.h>
 #include "Loop.h"
 #include "Asec.h"
 #include "VoldUtil.h"
 #include "sehandle.h"
+
+using android::base::StringPrintf;
+using android::base::unique_fd;
 
 int Loop::dumpState(SocketClient *c) {
     int i;
@@ -47,7 +54,7 @@ int Loop::dumpState(SocketClient *c) {
         struct loop_info64 li;
         int rc;
 
-        sprintf(filename, "/dev/block/loop%d", i);
+        snprintf(filename, sizeof(filename), "/dev/block/loop%d", i);
 
         if ((fd = open(filename, O_RDWR | O_CLOEXEC)) < 0) {
             if (errno != ENOENT) {
@@ -91,7 +98,7 @@ int Loop::lookupActive(const char *id, char *buffer, size_t len) {
         struct loop_info64 li;
         int rc;
 
-        sprintf(filename, "/dev/block/loop%d", i);
+        snprintf(filename, sizeof(filename), "/dev/block/loop%d", i);
 
         if ((fd = open(filename, O_RDWR | O_CLOEXEC)) < 0) {
             if (errno != ENOENT) {
@@ -137,7 +144,7 @@ int Loop::create(const char *id, const char *loopFile, char *loopDeviceBuffer, s
         int rc;
         char *secontext = NULL;
 
-        sprintf(filename, "/dev/block/loop%d", i);
+        snprintf(filename, sizeof(filename), "/dev/block/loop%d", i);
 
         /*
          * The kernel starts us off with 8 loop nodes, but more
@@ -229,6 +236,40 @@ int Loop::create(const char *id, const char *loopFile, char *loopDeviceBuffer, s
     return 0;
 }
 
+int Loop::create(const std::string& target, std::string& out_device) {
+    unique_fd ctl_fd(open("/dev/loop-control", O_RDWR | O_CLOEXEC));
+    if (ctl_fd.get() == -1) {
+        PLOG(ERROR) << "Failed to open loop-control";
+        return -errno;
+    }
+
+    int num = ioctl(ctl_fd.get(), LOOP_CTL_GET_FREE);
+    if (num == -1) {
+        PLOG(ERROR) << "Failed LOOP_CTL_GET_FREE";
+        return -errno;
+    }
+
+    out_device = StringPrintf("/dev/block/loop%d", num);
+
+    unique_fd target_fd(open(target.c_str(), O_RDWR | O_CLOEXEC));
+    if (target_fd.get() == -1) {
+        PLOG(ERROR) << "Failed to open " << target;
+        return -errno;
+    }
+    unique_fd device_fd(open(out_device.c_str(), O_RDWR | O_CLOEXEC));
+    if (device_fd.get() == -1) {
+        PLOG(ERROR) << "Failed to open " << out_device;
+        return -errno;
+    }
+
+    if (ioctl(device_fd.get(), LOOP_SET_FD, target_fd.get()) == -1) {
+        PLOG(ERROR) << "Failed to LOOP_SET_FD";
+        return -errno;
+    }
+
+    return 0;
+}
+
 int Loop::destroyByDevice(const char *loopDevice) {
     int device_fd;
 
@@ -254,19 +295,18 @@ int Loop::destroyByFile(const char * /*loopFile*/) {
 }
 
 int Loop::createImageFile(const char *file, unsigned long numSectors) {
-    int fd;
-
-    if ((fd = creat(file, 0600)) < 0) {
-        SLOGE("Error creating imagefile (%s)", strerror(errno));
-        return -1;
+    unique_fd fd(open(file, O_CREAT | O_WRONLY | O_TRUNC | O_CLOEXEC, 0600));
+    if (fd.get() == -1) {
+        PLOG(ERROR) << "Failed to create image " << file;
+        return -errno;
     }
-
-    if (ftruncate(fd, numSectors * 512) < 0) {
-        SLOGE("Error truncating imagefile (%s)", strerror(errno));
-        close(fd);
-        return -1;
+    if (fallocate(fd.get(), 0, 0, numSectors * 512) == -1) {
+        PLOG(WARNING) << "Failed to fallocate; falling back to ftruncate";
+        if (ftruncate(fd, numSectors * 512) == -1) {
+            PLOG(ERROR) << "Failed to ftruncate";
+            return -errno;
+        }
     }
-    close(fd);
     return 0;
 }
 

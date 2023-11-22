@@ -3,7 +3,7 @@
 `test_that` is the supported mechanism to run autotests against Chrome OS
 devices at your desk.  `test_that` replaces an older script, `run_remote_tests`.
 
-Features:
+Features for testing a local device:
   - CTRL+C kills `test_that` and all its autoserv children. Orphaned processes
     are no longer left behind.
   - Tests that require binary autotest dependencies will just work, because
@@ -14,6 +14,11 @@ Features:
   - Tests are generally specified to `test_that` by the NAME field of their
     control file. Matching tests by filename is supported using f:[file
     pattern]
+
+In addition to running tests against local device, `test_that` can be used to
+launch jobs in the ChromeOS Hardware Lab (or against a local Autotest instance
+or a Moblab). This feature is only supported for infrastructure-produced builds
+that were uploaded to google storage.
 
 ### Example uses (inside the chroot)
 
@@ -56,7 +61,10 @@ $ test_that -b ${board} ${host} f:.*control.dummy
 running tests against a specified host. The keyword :lab: is used as
 test\_that's REMOTE argument, and the -i/--build argument is required, and takes
 a trybot, paladin, or canary build number. To learn how to build a trybot image
-with a new test that you're iterating on, see "dynamic suite" codelab.
+with a new test that you're iterating on, see "dynamic suite" codelab or the
+[Chromium OS Remote
+Trybots](https://sites.google.com/a/chromium.org/dev/chromium-os/build/using-remote-trybots)
+guide.
 
 For instance:
 
@@ -93,8 +101,32 @@ test_that -b peach_pit :lab: suite:pyauto_perf -i 'peach_pit-release/R32-4763.0.
 That told me that my job ID was 5196037. I could follow along by going to
 http://cautotest/afe/#tab_id=view_job&object_id=5195962.
 
-### Things to note:
+Things to note about running in the lab:
 
-This will only work with images newer than Sept 20, 2013 (specifically, builds
-that contain Ifa73d7de7aac9c6efebd5f559708623804ad3691). Jobs will be scheduled
-in the pool:try-bot machine pool.
+ - This feature will only work on builds that produced autotest test artifacts.
+   If your build doesn't have such artifacts, you will see a
+   [confusing error](crbug.com/354556). The easiest way today to guarantee
+   that hwtest artifacts are produced is to make sure that your tryjob
+   is launched with the --hwtest flag. Once [this bug](crbug.com/299838) is
+   fixed that will no longer be the case.
+ - By default, jobs will be scheduled in the `suites` machine pool. That can be
+   overridden with the `-p` flag.
+ - This will only work with images newer than Sept 20, 2013 (specifically, builds
+   that contain Ifa73d7de7aac9c6efebd5f559708623804ad3691).
+
+
+### Running jobs against a local Autotest setup or MobLab
+
+`test_that` allows you to run jobs against a local Autotest setup or a
+MobLab instance. This usage is similar to running tests in the lab. The argument
+--web allows you to specify the web address of the Autotest instance you want to
+run tests within.
+
+For instance:
+```
+$ test_that -b lumpy -i lumpy-paladin/R38-6009.0.0-rc4 --web 100.96.51.136 :lab:
+dummy_Pass
+```
+
+This will kick off the dummy_Pass test on a lumpy device on the Autotest
+instance located at 100.96.51.136

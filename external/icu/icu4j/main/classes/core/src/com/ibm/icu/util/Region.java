@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2011-2015, International Business Machines Corporation        *
- * All Rights Reserved.                                                        *
+ * Copyright (C) 2011-2016, International Business Machines Corporation
+ * All Rights Reserved.
  *******************************************************************************
  */
 package com.ibm.icu.util;
@@ -15,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 
 /**
@@ -165,11 +168,11 @@ public class Region implements Comparable<Region> {
         UResourceBundle territoryContainment = null;
         UResourceBundle groupingContainment = null;
 
-        UResourceBundle metadata = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME,"metadata",ICUResourceBundle.ICU_DATA_CLASS_LOADER);
+        UResourceBundle metadata = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME,"metadata",ICUResourceBundle.ICU_DATA_CLASS_LOADER);
         metadataAlias = metadata.get("alias");
         territoryAlias = metadataAlias.get("territory");
 
-        UResourceBundle supplementalData = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME,"supplementalData", ICUResourceBundle.ICU_DATA_CLASS_LOADER);
+        UResourceBundle supplementalData = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME,"supplementalData", ICUResourceBundle.ICU_DATA_CLASS_LOADER);
         codeMappings = supplementalData.get("codeMappings");
         idValidity = supplementalData.get("idValidity");
         regionList = idValidity.get("region");

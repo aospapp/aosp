@@ -7,6 +7,7 @@ import android.service.carrier.CarrierIdentifier;
 import android.service.carrier.CarrierService;
 import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.Log;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -18,6 +19,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.android.internal.util.FastXmlSerializer;
 
@@ -32,6 +35,8 @@ import com.android.internal.util.FastXmlSerializer;
  * is vendor.xml, to provide vendor-specific overrides.
  */
 public class DefaultCarrierConfigService extends CarrierService {
+
+    private static final String SPN_EMPTY_MATCH = "null";
 
     private static final String TAG = "DefaultCarrierConfigService";
 
@@ -154,8 +159,15 @@ public class DefaultCarrierConfigService extends CarrierService {
      *   <li>gid1: {@link CarrierIdentifier#getGid1}</li>
      *   <li>gid2: {@link CarrierIdentifier#getGid2}</li>
      *   <li>spn: {@link CarrierIdentifier#getSpn}</li>
+     *   <li>imsi: {@link CarrierIdentifier#getImsi}</li>
      *   <li>device: {@link Build.DEVICE}</li>
      * </ul>
+     * </p>
+     *
+     * <p>
+     * The attributes imsi and spn can be expressed as regexp to filter on patterns.
+     * The spn attribute can be set to the string "null" to allow matching against a SIM
+     * with no spn set.
      * </p>
      *
      * @param parser an XmlPullParser pointing at a START_TAG with the attributes to check.
@@ -175,16 +187,19 @@ public class DefaultCarrierConfigService extends CarrierService {
                     result = result && value.equals(id.getMnc());
                     break;
                 case "gid1":
-                    result = result && value.equals(id.getGid1());
+                    result = result && value.equalsIgnoreCase(id.getGid1());
                     break;
                 case "gid2":
-                    result = result && value.equals(id.getGid2());
+                    result = result && value.equalsIgnoreCase(id.getGid2());
                     break;
                 case "spn":
-                    result = result && value.equals(id.getSpn());
+                    result = result && matchOnSP(value, id);
+                    break;
+                case "imsi":
+                    result = result && matchOnImsi(value, id);
                     break;
                 case "device":
-                    result = result && value.equals(Build.DEVICE);
+                    result = result && value.equalsIgnoreCase(Build.DEVICE);
                     break;
                 default:
                     Log.e(TAG, "Unknown attribute " + attribute + "=" + value);
@@ -193,5 +208,51 @@ public class DefaultCarrierConfigService extends CarrierService {
             }
         }
         return result;
+    }
+
+    /**
+     * Check to see if the IMSI expression from the XML matches the IMSI of the
+     * Carrier.
+     *
+     * @param xmlImsi IMSI expression fetched from the resource XML
+     * @param id Id of the evaluated CarrierIdentifier
+     * @return true if the XML IMSI matches the IMSI of CarrierIdentifier, false
+     *         otherwise.
+     */
+    static boolean matchOnImsi(String xmlImsi, CarrierIdentifier id) {
+        boolean matchFound = false;
+
+        String currentImsi = id.getImsi();
+        // If we were able to retrieve current IMSI, see if it matches.
+        if (currentImsi != null) {
+            Pattern imsiPattern = Pattern.compile(xmlImsi, Pattern.CASE_INSENSITIVE);
+            Matcher matcher = imsiPattern.matcher(currentImsi);
+            matchFound = matcher.matches();
+        }
+        return matchFound;
+    }
+
+    /**
+     * Check to see if the service provider name expression from the XML matches the
+     * CarrierIdentifier.
+     *
+     * @param xmlSP SP expression fetched from the resource XML
+     * @param id Id of the evaluated CarrierIdentifier
+     * @return true if the XML SP matches the phone's SP, false otherwise.
+     */
+    static boolean matchOnSP(String xmlSP, CarrierIdentifier id) {
+        boolean matchFound = false;
+
+        String currentSP = id.getSpn();
+        if (SPN_EMPTY_MATCH.equalsIgnoreCase(xmlSP)) {
+            if (TextUtils.isEmpty(currentSP)) {
+                matchFound = true;
+            }
+        } else if (currentSP != null) {
+            Pattern spPattern = Pattern.compile(xmlSP, Pattern.CASE_INSENSITIVE);
+            Matcher matcher = spPattern.matcher(currentSP);
+            matchFound = matcher.matches();
+        }
+        return matchFound;
     }
 }

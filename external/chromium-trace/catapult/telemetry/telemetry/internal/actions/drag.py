@@ -18,9 +18,9 @@ Action parameters are:
 - use_touch: boolean value to specify if gesture should use touch input or not.
 """
 
-import os
-
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
+from telemetry.util import js_template
 
 
 class DragAction(page_action.PageAction):
@@ -44,10 +44,8 @@ class DragAction(page_action.PageAction):
                                       synthetic_gesture_source)
 
   def WillRunAction(self, tab):
-    for js_file in ['gesture_common.js', 'drag.js']:
-      with open(os.path.join(os.path.dirname(__file__), js_file)) as f:
-        js = f.read()
-        tab.ExecuteJavaScript(js)
+    utils.InjectJavaScript(tab, 'gesture_common.js')
+    utils.InjectJavaScript(tab, 'drag.js')
 
     # Fail if browser doesn't support synthetic drag gestures.
     if not tab.EvaluateJavaScript('window.__DragAction_SupportedByBrowser()'):
@@ -65,11 +63,11 @@ class DragAction(page_action.PageAction):
         raise page_action.PageActionNotSupported(
             'Drag requires touch on this page but mouse input was requested')
 
-    done_callback = 'function() { window.__dragActionDone = true; }'
     tab.ExecuteJavaScript('''
         window.__dragActionDone = false;
-        window.__dragAction = new __DragAction(%s);'''
-        % done_callback)
+        window.__dragAction = new __DragAction(function() {
+          window.__dragActionDone = true;
+        });''')
 
   def RunAction(self, tab):
     if (self._selector is None and self._text is None and
@@ -81,27 +79,28 @@ class DragAction(page_action.PageAction):
         not self._use_touch):
       gesture_source_type = 'chrome.gpuBenchmarking.MOUSE_INPUT'
 
-    code = '''
+    code = js_template.Render('''
         function(element, info) {
           if (!element) {
             throw Error('Cannot find element: ' + info);
           }
           window.__dragAction.start({
             element: element,
-            left_start_ratio: %s,
-            top_start_ratio: %s,
-            left_end_ratio: %s,
-            top_end_ratio: %s,
-            speed: %s,
-            gesture_source_type: %s
+            left_start_ratio: {{ left_start_ratio }},
+            top_start_ratio: {{ top_start_ratio }},
+            left_end_ratio: {{ left_end_ratio }},
+            top_end_ratio: {{ top_end_ratio }},
+            speed: {{ speed }},
+            gesture_source_type: {{ @gesture_source_type }}
           });
-        }''' % (self._left_start_ratio,
-                self._top_start_ratio,
-                self._left_end_ratio,
-                self._top_end_ratio,
-                self._speed,
-                gesture_source_type)
+        }''',
+        left_start_ratio=self._left_start_ratio,
+        top_start_ratio=self._top_start_ratio,
+        left_end_ratio=self._left_end_ratio,
+        top_end_ratio=self._top_end_ratio,
+        speed=self._speed,
+        gesture_source_type=gesture_source_type)
     page_action.EvaluateCallbackWithElement(
         tab, code, selector=self._selector, text=self._text,
         element_function=self._element_function)
-    tab.WaitForJavaScriptExpression('window.__dragActionDone', 60)
+    tab.WaitForJavaScriptCondition('window.__dragActionDone', timeout=60)

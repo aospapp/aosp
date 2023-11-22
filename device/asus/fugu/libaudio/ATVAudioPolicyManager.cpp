@@ -126,8 +126,11 @@ audio_devices_t ATVAudioPolicyManager::getDeviceForInputSource(audio_source_t in
 {
     uint32_t device = AUDIO_DEVICE_NONE;
     bool usePhysRemote = true;
+    const audio_devices_t availableDeviceTypes = mAvailableInputDevices.types() &
+            ~AUDIO_DEVICE_BIT_IN;
 
-    if (inputSource == AUDIO_SOURCE_VOICE_RECOGNITION) {
+    if (inputSource == AUDIO_SOURCE_VOICE_RECOGNITION ||
+            inputSource == AUDIO_SOURCE_UNPROCESSED) {
 #ifdef REMOTE_CONTROL_INTERFACE
       ALOGI("Using REMOTE_CONTROL_INTERFACE.");
       // Check if remote is actually connected or we should move on
@@ -147,8 +150,6 @@ audio_devices_t ATVAudioPolicyManager::getDeviceForInputSource(audio_source_t in
 #endif
       ALOGV("getDeviceForInputSource %s %s", usePhysRemote ? "use physical" : "",
           mForceSubmixInputSelection ? "use virtual" : "");
-      audio_devices_t availableDeviceTypes = mAvailableInputDevices.types() &
-                                                ~AUDIO_DEVICE_BIT_IN;
       if (availableDeviceTypes & AUDIO_DEVICE_IN_WIRED_HEADSET &&
             usePhysRemote) {
           // User a wired headset (physical remote) if available, connected and active
@@ -163,6 +164,9 @@ audio_devices_t ATVAudioPolicyManager::getDeviceForInputSource(audio_source_t in
           ALOGV("Use USB audio input");
           device = AUDIO_DEVICE_IN_USB_DEVICE;
       }
+    } else if ((availableDeviceTypes & AUDIO_DEVICE_IN_REMOTE_SUBMIX) &&
+            (inputSource == AUDIO_SOURCE_REMOTE_SUBMIX)) {
+        device = AUDIO_DEVICE_IN_REMOTE_SUBMIX;
     }
 
     ALOGV("getDeviceForInputSource() input source %d, device %08x", inputSource, device);

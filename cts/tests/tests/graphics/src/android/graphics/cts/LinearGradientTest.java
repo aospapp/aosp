@@ -16,18 +16,29 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Bitmap.Config;
 import android.graphics.Shader.TileMode;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class LinearGradientTest extends AndroidTestCase {
+import com.android.compatibility.common.util.ColorUtils;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LinearGradientTest {
+    @Test
     public void testLinearGradient() {
         Bitmap b;
         LinearGradient lg;
@@ -51,7 +62,7 @@ public class LinearGradientTest extends AndroidTestCase {
         assertTrue(Color.red(b.getPixel(10, 20)) < Color.red(b.getPixel(10, 25)));
 
         lg = new LinearGradient(0, 0, 0, 40, Color.RED, Color.BLUE, TileMode.CLAMP);
-        b= drawLinearGradient(lg);
+        b = drawLinearGradient(lg);
 
         // The pixels in same gradient line should be equivalent
         assertEquals(b.getPixel(10, 10), b.getPixel(20, 10));
@@ -70,5 +81,18 @@ public class LinearGradientTest extends AndroidTestCase {
         Canvas canvas = new Canvas(b);
         canvas.drawPaint(paint);
         return b;
+    }
+
+    @Test
+    public void testZeroScaleMatrix() {
+        LinearGradient gradient = new LinearGradient(0.5f, 0, 1.5f, 0,
+                Color.RED, Color.BLUE, TileMode.CLAMP);
+        Matrix m = new Matrix();
+        m.setScale(0, 0);
+        gradient.setLocalMatrix(m);
+        Bitmap bitmap = drawLinearGradient(gradient);
+
+        ColorUtils.verifyColor(Color.BLACK, bitmap.getPixel(0, 0), 1);
+        ColorUtils.verifyColor(Color.BLACK, bitmap.getPixel(20, 20), 1);
     }
 }

@@ -19,10 +19,17 @@ common_libs := liblog libutils libcutils libhardware
 #Common C flags
 common_flags := -DDEBUG_CALC_FPS -Wno-missing-field-initializers
 common_flags += -Wconversion -Wall -Werror
+ifeq ($(TARGET_IS_HEADLESS), true)
+    LOCAL_CLANG := false
+else
+    LOCAL_CLANG := true
+endif
+
 ifneq ($(TARGET_USES_GRALLOC1), true)
     common_flags += -isystem $(display_top)/libgralloc
 else
     common_flags += -isystem $(display_top)/libgralloc1
+    common_flags += -DUSE_GRALLOC1
 endif
 
 ifeq ($(TARGET_USES_POST_PROCESSING),true)
@@ -41,6 +48,8 @@ endif
 ifeq ($(call is-board-platform-in-list, $(MASTER_SIDE_CP_TARGET_LIST)), true)
     common_flags += -DMASTER_SIDE_CP
 endif
+
+common_flags += -D__STDC_FORMAT_MACROS
 
 common_deps  :=
 kernel_includes :=

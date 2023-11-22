@@ -17,14 +17,13 @@
 Test script to exercise Gatt Apis.
 """
 
-from acts.controllers.android import SL4AAPIError
+from acts.controllers import sl4a_client
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.bt_test_utils import log_energy_info
 from acts.test_utils.bt.bt_test_utils import setup_multiple_devices_for_bt_test
 
 
 class GattApiTest(BluetoothBaseTest):
-
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
         self.ad = self.android_devices[0]
@@ -33,16 +32,15 @@ class GattApiTest(BluetoothBaseTest):
         return setup_multiple_devices_for_bt_test(self.android_devices)
 
     def setup_test(self):
-        self.log.debug(log_energy_info(self.android_devices, "Start"))
         for a in self.android_devices:
             a.ed.clear_all_events()
         return True
 
     def teardown_test(self):
-        self.log.debug(log_energy_info(self.android_devices, "End"))
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='fffe5c46-eb97-477b-ac3e-3f70700bb84e')
     def test_open_gatt_server(self):
         """Test a gatt server.
 
@@ -67,6 +65,7 @@ class GattApiTest(BluetoothBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='12828c2c-b6ae-4670-a829-9867e75fb711')
     def test_open_gatt_server_on_same_callback(self):
         """Test repetitive opening of a gatt server.
 
@@ -93,6 +92,7 @@ class GattApiTest(BluetoothBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='63fc684d-6c1d-455e-afdb-1887123b4d2f')
     def test_open_gatt_server_on_invalid_callback(self):
         """Test gatt server an an invalid callback.
 
@@ -114,7 +114,7 @@ class GattApiTest(BluetoothBaseTest):
         invalid_callback_index = -1
         try:
             self.ad.droid.gattServerOpenGattServer(invalid_callback_index)
-        except SL4AAPIError as e:
+        except sl4a_client.Sl4aApiError as e:
             self.log.info("Failed successfully with exception: {}.".format(e))
             return True
         return False

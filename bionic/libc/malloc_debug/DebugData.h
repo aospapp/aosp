@@ -41,6 +41,7 @@
 #include "FreeTrackData.h"
 #include "GuardData.h"
 #include "malloc_debug.h"
+#include "RecordData.h"
 #include "TrackData.h"
 
 class DebugData {
@@ -48,7 +49,7 @@ class DebugData {
   DebugData() = default;
   ~DebugData() = default;
 
-  bool Initialize();
+  bool Initialize(const char* options);
 
   static bool Disabled();
 
@@ -91,6 +92,7 @@ class DebugData {
   std::unique_ptr<FrontGuardData> front_guard;
   std::unique_ptr<RearGuardData> rear_guard;
   std::unique_ptr<FreeTrackData> free_track;
+  std::unique_ptr<RecordData> record;
 
  private:
   size_t extra_bytes_ = 0;
@@ -102,5 +104,7 @@ class DebugData {
 
   DISALLOW_COPY_AND_ASSIGN(DebugData);
 };
+
+extern DebugData* g_debug;
 
 #endif // MALLOC_DEBUG_DEBUGDATA_H

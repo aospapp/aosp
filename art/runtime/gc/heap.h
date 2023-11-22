@@ -34,6 +34,8 @@
 #include "gc/collector_type.h"
 #include "gc/space/large_object_space.h"
 #include "globals.h"
+#include "handle.h"
+#include "obj_ptr.h"
 #include "object_callbacks.h"
 #include "offsets.h"
 #include "process_state.h"
@@ -48,6 +50,7 @@ class StackVisitor;
 class Thread;
 class ThreadPool;
 class TimingLogger;
+class VariableSizedHandleScope;
 
 namespace mirror {
   class Class;
@@ -56,9 +59,12 @@ namespace mirror {
 
 namespace gc {
 
+class AllocationListener;
 class AllocRecordObjectMap;
+class GcPauseListener;
 class ReferenceProcessor;
 class TaskProcessor;
+class Verification;
 
 namespace accounting {
   class HeapBitmap;
@@ -128,11 +134,12 @@ class Heap {
   static constexpr size_t kDefaultMinFree = kDefaultMaxFree / 4;
   static constexpr size_t kDefaultLongPauseLogThreshold = MsToNs(5);
   static constexpr size_t kDefaultLongGCLogThreshold = MsToNs(100);
-  static constexpr size_t kDefaultTLABSize = 256 * KB;
+  static constexpr size_t kDefaultTLABSize = 32 * KB;
   static constexpr double kDefaultTargetUtilization = 0.5;
   static constexpr double kDefaultHeapGrowthMultiplier = 2.0;
   // Primitive arrays larger than this size are put in the large object space.
-  static constexpr size_t kDefaultLargeObjectThreshold = 3 * kPageSize;
+  static constexpr size_t kMinLargeObjectThreshold = 3 * kPageSize;
+  static constexpr size_t kDefaultLargeObjectThreshold = kMinLargeObjectThreshold;
   // Whether or not parallel GC is enabled. If not, then we never create the thread pool.
   static constexpr bool kDefaultEnableParallelGC = false;
 
@@ -182,6 +189,7 @@ class Heap {
        bool verify_pre_sweeping_rosalloc,
        bool verify_post_gc_rosalloc,
        bool gc_stress_mode,
+       bool measure_gc_performance,
        bool use_homogeneous_space_compaction,
        uint64_t min_interval_homogeneous_space_compaction_by_oom);
 
@@ -190,36 +198,48 @@ class Heap {
   // Allocates and initializes storage for an object instance.
   template <bool kInstrumented, typename PreFenceVisitor>
   mirror::Object* AllocObject(Thread* self,
-                              mirror::Class* klass,
+                              ObjPtr<mirror::Class> klass,
                               size_t num_bytes,
                               const PreFenceVisitor& pre_fence_visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_)
-      REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !*backtrace_lock_,
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!*gc_complete_lock_,
+               !*pending_task_lock_,
+               !*backtrace_lock_,
                !Roles::uninterruptible_) {
-    return AllocObjectWithAllocator<kInstrumented, true>(
-        self, klass, num_bytes, GetCurrentAllocator(), pre_fence_visitor);
+    return AllocObjectWithAllocator<kInstrumented, true>(self,
+                                                         klass,
+                                                         num_bytes,
+                                                         GetCurrentAllocator(),
+                                                         pre_fence_visitor);
   }
 
   template <bool kInstrumented, typename PreFenceVisitor>
   mirror::Object* AllocNonMovableObject(Thread* self,
-                                        mirror::Class* klass,
+                                        ObjPtr<mirror::Class> klass,
                                         size_t num_bytes,
                                         const PreFenceVisitor& pre_fence_visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_)
-      REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !*backtrace_lock_,
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!*gc_complete_lock_,
+               !*pending_task_lock_,
+               !*backtrace_lock_,
                !Roles::uninterruptible_) {
-    return AllocObjectWithAllocator<kInstrumented, true>(
-        self, klass, num_bytes, GetCurrentNonMovingAllocator(), pre_fence_visitor);
+    return AllocObjectWithAllocator<kInstrumented, true>(self,
+                                                         klass,
+                                                         num_bytes,
+                                                         GetCurrentNonMovingAllocator(),
+                                                         pre_fence_visitor);
   }
 
   template <bool kInstrumented, bool kCheckLargeObject, typename PreFenceVisitor>
   ALWAYS_INLINE mirror::Object* AllocObjectWithAllocator(Thread* self,
-                                                         mirror::Class* klass,
+                                                         ObjPtr<mirror::Class> klass,
                                                          size_t byte_count,
                                                          AllocatorType allocator,
                                                          const PreFenceVisitor& pre_fence_visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_)
-      REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !*backtrace_lock_,
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!*gc_complete_lock_,
+               !*pending_task_lock_,
+               !*backtrace_lock_,
                !Roles::uninterruptible_);
 
   AllocatorType GetCurrentAllocator() const {
@@ -232,18 +252,17 @@ class Heap {
 
   // Visit all of the live objects in the heap.
   void VisitObjects(ObjectCallback callback, void* arg)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_);
   void VisitObjectsPaused(ObjectCallback callback, void* arg)
       REQUIRES(Locks::mutator_lock_, !Locks::heap_bitmap_lock_, !*gc_complete_lock_);
 
-  void CheckPreconditionsForAllocObject(mirror::Class* c, size_t byte_count)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  void CheckPreconditionsForAllocObject(ObjPtr<mirror::Class> c, size_t byte_count)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void RegisterNativeAllocation(JNIEnv* env, size_t bytes)
-      REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !native_histogram_lock_);
-  void RegisterNativeFree(JNIEnv* env, size_t bytes)
-      REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !native_histogram_lock_);
+      REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !*native_blocking_gc_lock_);
+  void RegisterNativeFree(JNIEnv* env, size_t bytes);
 
   // Change the allocator, updates entrypoints.
   void ChangeAllocator(AllocatorType allocator)
@@ -259,7 +278,7 @@ class Heap {
   // The given reference is believed to be to an object in the Java heap, check the soundness of it.
   // TODO: NO_THREAD_SAFETY_ANALYSIS since we call this everywhere and it is impossible to find a
   // proper lock ordering for it.
-  void VerifyObjectBody(mirror::Object* o) NO_THREAD_SAFETY_ANALYSIS;
+  void VerifyObjectBody(ObjPtr<mirror::Object> o) NO_THREAD_SAFETY_ANALYSIS;
 
   // Check sanity of all live references.
   void VerifyHeap() REQUIRES(!Locks::heap_bitmap_lock_);
@@ -272,23 +291,23 @@ class Heap {
   // A weaker test than IsLiveObject or VerifyObject that doesn't require the heap lock,
   // and doesn't abort on error, allowing the caller to report more
   // meaningful diagnostics.
-  bool IsValidObjectAddress(const mirror::Object* obj) const SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsValidObjectAddress(const void* obj) const REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Faster alternative to IsHeapAddress since finding if an object is in the large object space is
   // very slow.
-  bool IsNonDiscontinuousSpaceHeapAddress(const mirror::Object* obj) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsNonDiscontinuousSpaceHeapAddress(const void* addr) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns true if 'obj' is a live heap object, false otherwise (including for invalid addresses).
   // Requires the heap lock to be held.
-  bool IsLiveObjectLocked(mirror::Object* obj,
+  bool IsLiveObjectLocked(ObjPtr<mirror::Object> obj,
                           bool search_allocation_stack = true,
                           bool search_live_stack = true,
                           bool sorted = false)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
   // Returns true if there is any chance that the object (obj) will move.
-  bool IsMovableObject(const mirror::Object* obj) const SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsMovableObject(ObjPtr<mirror::Object> obj) const REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Enables us to compacting GC until objects are released.
   void IncrementDisableMovingGC(Thread* self) REQUIRES(!*gc_complete_lock_);
@@ -304,7 +323,7 @@ class Heap {
   // Mutator lock is required for GetContinuousSpaces.
   void ClearMarkedObjects()
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Initiates an explicit garbage collection.
   void CollectGarbage(bool clear_soft_references)
@@ -312,26 +331,32 @@ class Heap {
 
   // Does a concurrent GC, should only be called by the GC daemon thread
   // through runtime.
-  void ConcurrentGC(Thread* self, bool force_full)
+  void ConcurrentGC(Thread* self, GcCause cause, bool force_full)
       REQUIRES(!Locks::runtime_shutdown_lock_, !*gc_complete_lock_, !*pending_task_lock_);
 
   // Implements VMDebug.countInstancesOfClass and JDWP VM_InstanceCount.
   // The boolean decides whether to use IsAssignableFrom or == when comparing classes.
-  void CountInstances(const std::vector<mirror::Class*>& classes,
+  void CountInstances(const std::vector<Handle<mirror::Class>>& classes,
                       bool use_is_assignable_from,
                       uint64_t* counts)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Implements JDWP RT_Instances.
-  void GetInstances(mirror::Class* c, int32_t max_count, std::vector<mirror::Object*>& instances)
+  void GetInstances(VariableSizedHandleScope& scope,
+                    Handle<mirror::Class> c,
+                    int32_t max_count,
+                    std::vector<Handle<mirror::Object>>& instances)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Implements JDWP OR_ReferringObjects.
-  void GetReferringObjects(mirror::Object* o,
+  void GetReferringObjects(VariableSizedHandleScope& scope,
+                           Handle<mirror::Object> o,
                            int32_t max_count,
-                           std::vector<mirror::Object*>& referring_objects)
+                           std::vector<Handle<mirror::Object>>& referring_objects)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Removes the growth limit on the alloc space so it may grow to its maximum capacity. Used to
   // implement dalvik.system.VMRuntime.clearGrowthLimit.
@@ -384,7 +409,7 @@ class Heap {
   }
 
   const std::vector<space::ContinuousSpace*>& GetContinuousSpaces() const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     return continuous_spaces_;
   }
 
@@ -435,23 +460,20 @@ class Heap {
 
   // Must be called if a field of an Object in the heap changes, and before any GC safe-point.
   // The call is not needed if null is stored in the field.
-  ALWAYS_INLINE void WriteBarrierField(const mirror::Object* dst,
-                                       MemberOffset offset ATTRIBUTE_UNUSED,
-                                       const mirror::Object* new_value ATTRIBUTE_UNUSED) {
-    card_table_->MarkCard(dst);
-  }
+  ALWAYS_INLINE void WriteBarrierField(ObjPtr<mirror::Object> dst,
+                                       MemberOffset offset,
+                                       ObjPtr<mirror::Object> new_value)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Write barrier for array operations that update many field positions
-  ALWAYS_INLINE void WriteBarrierArray(const mirror::Object* dst,
-                                       int start_offset ATTRIBUTE_UNUSED,
+  ALWAYS_INLINE void WriteBarrierArray(ObjPtr<mirror::Object> dst,
+                                       int start_offset,
                                        // TODO: element_count or byte_count?
-                                       size_t length ATTRIBUTE_UNUSED) {
-    card_table_->MarkCard(dst);
-  }
+                                       size_t length)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE void WriteBarrierEveryFieldOf(const mirror::Object* obj) {
-    card_table_->MarkCard(obj);
-  }
+  ALWAYS_INLINE void WriteBarrierEveryFieldOf(ObjPtr<mirror::Object> obj)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   accounting::CardTable* GetCardTable() const {
     return card_table_.get();
@@ -461,7 +483,7 @@ class Heap {
     return rb_table_.get();
   }
 
-  void AddFinalizerReference(Thread* self, mirror::Object** object);
+  void AddFinalizerReference(Thread* self, ObjPtr<mirror::Object>* object);
 
   // Returns the number of bytes currently allocated.
   size_t GetBytesAllocated() const {
@@ -524,18 +546,26 @@ class Heap {
   // get the space that corresponds to an object's address. Current implementation searches all
   // spaces in turn. If fail_ok is false then failing to find a space will cause an abort.
   // TODO: consider using faster data structure like binary tree.
-  space::ContinuousSpace* FindContinuousSpaceFromObject(const mirror::Object*, bool fail_ok) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  space::DiscontinuousSpace* FindDiscontinuousSpaceFromObject(const mirror::Object*,
-                                                              bool fail_ok) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  space::Space* FindSpaceFromObject(const mirror::Object*, bool fail_ok) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  space::ContinuousSpace* FindContinuousSpaceFromObject(ObjPtr<mirror::Object>, bool fail_ok) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void DumpForSigQuit(std::ostream& os) REQUIRES(!*gc_complete_lock_, !native_histogram_lock_);
+  space::ContinuousSpace* FindContinuousSpaceFromAddress(const mirror::Object* addr) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  space::DiscontinuousSpace* FindDiscontinuousSpaceFromObject(ObjPtr<mirror::Object>,
+                                                              bool fail_ok) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  space::Space* FindSpaceFromObject(ObjPtr<mirror::Object> obj, bool fail_ok) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  space::Space* FindSpaceFromAddress(const void* ptr) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void DumpForSigQuit(std::ostream& os) REQUIRES(!*gc_complete_lock_);
 
   // Do a pending collector transition.
-  void DoPendingCollectorTransition() REQUIRES(!*gc_complete_lock_);
+  void DoPendingCollectorTransition() REQUIRES(!*gc_complete_lock_, !*pending_task_lock_);
 
   // Deflate monitors, ... and trim the spaces.
   void Trim(Thread* self) REQUIRES(!*gc_complete_lock_);
@@ -548,15 +578,15 @@ class Heap {
   void RosAllocVerification(TimingLogger* timings, const char* name)
       REQUIRES(Locks::mutator_lock_);
 
-  accounting::HeapBitmap* GetLiveBitmap() SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
+  accounting::HeapBitmap* GetLiveBitmap() REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
     return live_bitmap_.get();
   }
 
-  accounting::HeapBitmap* GetMarkBitmap() SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
+  accounting::HeapBitmap* GetMarkBitmap() REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
     return mark_bitmap_.get();
   }
 
-  accounting::ObjectStack* GetLiveStack() SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
+  accounting::ObjectStack* GetLiveStack() REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
     return live_stack_.get();
   }
 
@@ -564,7 +594,7 @@ class Heap {
 
   // Mark and empty stack.
   void FlushAllocStack()
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::heap_bitmap_lock_);
 
   // Revoke all the thread-local allocation stacks.
@@ -577,29 +607,29 @@ class Heap {
                       accounting::SpaceBitmap<kObjectAlignment>* bitmap2,
                       accounting::SpaceBitmap<kLargeObjectAlignment>* large_objects,
                       accounting::ObjectStack* stack)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::heap_bitmap_lock_);
 
   // Mark the specified allocation stack as live.
   void MarkAllocStackAsLive(accounting::ObjectStack* stack)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::heap_bitmap_lock_);
 
   // Unbind any bound bitmaps.
   void UnBindBitmaps()
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns the boot image spaces. There may be multiple boot image spaces.
   const std::vector<space::ImageSpace*>& GetBootImageSpaces() const {
     return boot_image_spaces_;
   }
 
-  bool ObjectIsInBootImageSpace(mirror::Object* obj) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  bool ObjectIsInBootImageSpace(ObjPtr<mirror::Object> obj) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsInBootImageOatFile(const void* p) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void GetBootImagesSize(uint32_t* boot_image_begin,
                          uint32_t* boot_image_end,
@@ -619,7 +649,7 @@ class Heap {
 
   // Return the corresponding rosalloc space.
   space::RosAllocSpace* GetRosAllocSpace(gc::allocator::RosAlloc* rosalloc) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   space::MallocSpace* GetNonMovingSpace() const {
     return non_moving_space_;
@@ -644,18 +674,12 @@ class Heap {
     }
   }
 
-  void DumpSpaces(std::ostream& stream) const SHARED_REQUIRES(Locks::mutator_lock_);
-  std::string DumpSpaces() const SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Dump object should only be used by the signal handler.
-  void DumpObject(std::ostream& stream, mirror::Object* obj) NO_THREAD_SAFETY_ANALYSIS;
-  // Safe version of pretty type of which check to make sure objects are heap addresses.
-  std::string SafeGetClassDescriptor(mirror::Class* klass) NO_THREAD_SAFETY_ANALYSIS;
-  std::string SafePrettyTypeOf(mirror::Object* obj) NO_THREAD_SAFETY_ANALYSIS;
+  void DumpSpaces(std::ostream& stream) const REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string DumpSpaces() const REQUIRES_SHARED(Locks::mutator_lock_);
 
   // GC performance measuring
   void DumpGcPerformanceInfo(std::ostream& os)
-      REQUIRES(!*gc_complete_lock_, !native_histogram_lock_);
+      REQUIRES(!*gc_complete_lock_);
   void ResetGcPerformanceInfo() REQUIRES(!*gc_complete_lock_);
 
   // Thread pool.
@@ -706,8 +730,6 @@ class Heap {
     if (IsGcConcurrent() && IsMovingGc(collector_type_)) {
       // Assume no transition when a concurrent moving collector is used.
       DCHECK_EQ(collector_type_, foreground_collector_type_);
-      DCHECK_EQ(foreground_collector_type_, background_collector_type_)
-          << "Assume no transition such that collector_type_ won't change";
       return true;
     }
     return false;
@@ -722,7 +744,8 @@ class Heap {
   void RequestTrim(Thread* self) REQUIRES(!*pending_task_lock_);
 
   // Request asynchronous GC.
-  void RequestConcurrentGC(Thread* self, bool force_full) REQUIRES(!*pending_task_lock_);
+  void RequestConcurrentGC(Thread* self, GcCause cause, bool force_full)
+      REQUIRES(!*pending_task_lock_);
 
   // Whether or not we may use a garbage collector, used so that we only create collectors we need.
   bool MayUseCollector(CollectorType type) const;
@@ -759,23 +782,22 @@ class Heap {
       REQUIRES(Locks::alloc_tracker_lock_);
 
   void VisitAllocationRecords(RootVisitor* visitor) const
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::alloc_tracker_lock_);
 
   void SweepAllocationRecords(IsMarkedVisitor* visitor) const
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::alloc_tracker_lock_);
 
   void DisallowNewAllocationRecords() const
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::alloc_tracker_lock_);
 
   void AllowNewAllocationRecords() const
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::alloc_tracker_lock_);
 
   void BroadcastForNewAllocationRecords() const
-      SHARED_REQUIRES(Locks::mutator_lock_)
       REQUIRES(!Locks::alloc_tracker_lock_);
 
   void DisableGCForShutdown() REQUIRES(!*gc_complete_lock_);
@@ -783,6 +805,24 @@ class Heap {
   // Create a new alloc space and compact default alloc space to it.
   HomogeneousSpaceCompactResult PerformHomogeneousSpaceCompact() REQUIRES(!*gc_complete_lock_);
   bool SupportHomogeneousSpaceCompactAndCollectorTransitions() const;
+
+  // Install an allocation listener.
+  void SetAllocationListener(AllocationListener* l);
+  // Remove an allocation listener. Note: the listener must not be deleted, as for performance
+  // reasons, we assume it stays valid when we read it (so that we don't require a lock).
+  void RemoveAllocationListener();
+
+  // Install a gc pause listener.
+  void SetGcPauseListener(GcPauseListener* l);
+  // Get the currently installed gc pause listener, or null.
+  GcPauseListener* GetGcPauseListener() {
+    return gc_pause_listener_.LoadAcquire();
+  }
+  // Remove a gc pause listener. Note: the listener must not be deleted, as for performance
+  // reasons, we assume it stays valid when we read it (so that we don't require a lock).
+  void RemoveGcPauseListener();
+
+  const Verification* GetVerification() const;
 
  private:
   class ConcurrentGCTask;
@@ -817,6 +857,10 @@ class Heap {
         allocator_type != kAllocatorTypeRegionTLAB;
   }
   static ALWAYS_INLINE bool AllocatorMayHaveConcurrentGC(AllocatorType allocator_type) {
+    if (kUseReadBarrier) {
+      // Read barrier may have the TLAB allocator but is always concurrent. TODO: clean this up.
+      return true;
+    }
     return
         allocator_type != kAllocatorTypeBumpPointer &&
         allocator_type != kAllocatorTypeTLAB;
@@ -826,15 +870,16 @@ class Heap {
         collector_type == kCollectorTypeSS ||
         collector_type == kCollectorTypeGSS ||
         collector_type == kCollectorTypeCC ||
+        collector_type == kCollectorTypeCCBackground ||
         collector_type == kCollectorTypeMC ||
         collector_type == kCollectorTypeHomogeneousSpaceCompact;
   }
-  bool ShouldAllocLargeObject(mirror::Class* c, size_t byte_count) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  bool ShouldAllocLargeObject(ObjPtr<mirror::Class> c, size_t byte_count) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
   ALWAYS_INLINE void CheckConcurrentGC(Thread* self,
                                        size_t new_num_bytes_allocated,
-                                       mirror::Object** obj)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+                                       ObjPtr<mirror::Object>* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*pending_task_lock_, !*gc_complete_lock_);
 
   accounting::ObjectStack* GetMarkStack() {
@@ -844,10 +889,10 @@ class Heap {
   // We don't force this to be inlined since it is a slow path.
   template <bool kInstrumented, typename PreFenceVisitor>
   mirror::Object* AllocLargeObject(Thread* self,
-                                   mirror::Class** klass,
+                                   ObjPtr<mirror::Class>* klass,
                                    size_t byte_count,
                                    const PreFenceVisitor& pre_fence_visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !*backtrace_lock_);
 
   // Handles Allocate()'s slow allocation path with GC involved after
@@ -859,16 +904,16 @@ class Heap {
                                          size_t* bytes_allocated,
                                          size_t* usable_size,
                                          size_t* bytes_tl_bulk_allocated,
-                                         mirror::Class** klass)
+                                         ObjPtr<mirror::Class>* klass)
       REQUIRES(!Locks::thread_suspend_count_lock_, !*gc_complete_lock_, !*pending_task_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Allocate into a specific space.
   mirror::Object* AllocateInto(Thread* self,
                                space::AllocSpace* space,
-                               mirror::Class* c,
+                               ObjPtr<mirror::Class> c,
                                size_t bytes)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Need to do this with mutators paused so that somebody doesn't accidentally allocate into the
   // wrong space.
@@ -883,17 +928,22 @@ class Heap {
                                               size_t* bytes_allocated,
                                               size_t* usable_size,
                                               size_t* bytes_tl_bulk_allocated)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  mirror::Object* AllocWithNewTLAB(Thread* self,
+                                   size_t alloc_size,
+                                   bool grow,
+                                   size_t* bytes_allocated,
+                                   size_t* usable_size,
+                                   size_t* bytes_tl_bulk_allocated)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void ThrowOutOfMemoryError(Thread* self, size_t byte_count, AllocatorType allocator_type)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <bool kGrow>
-  ALWAYS_INLINE bool IsOutOfMemoryOnAllocation(AllocatorType allocator_type, size_t alloc_size);
-
-  // Returns true if the address passed in is within the address range of a continuous space.
-  bool IsValidContinuousSpaceObjectAddress(const mirror::Object* obj) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE bool IsOutOfMemoryOnAllocation(AllocatorType allocator_type,
+                                               size_t alloc_size,
+                                               bool grow);
 
   // Run the finalizers. If timeout is non zero, then we use the VMRuntime version.
   void RunFinalization(JNIEnv* env, uint64_t timeout);
@@ -906,8 +956,8 @@ class Heap {
   void RequestCollectorTransition(CollectorType desired_collector_type, uint64_t delta_time)
       REQUIRES(!*pending_task_lock_);
 
-  void RequestConcurrentGCAndSaveObject(Thread* self, bool force_full, mirror::Object** obj)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  void RequestConcurrentGCAndSaveObject(Thread* self, bool force_full, ObjPtr<mirror::Object>* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*pending_task_lock_);
   bool IsGCRequestPending() const;
 
@@ -931,10 +981,6 @@ class Heap {
       REQUIRES(!Locks::mutator_lock_, !*gc_complete_lock_);
   void PostGcVerificationPaused(collector::GarbageCollector* gc)
       REQUIRES(Locks::mutator_lock_, !*gc_complete_lock_);
-
-  // Update the watermark for the native allocated bytes based on the current number of native
-  // bytes allocated and the target utilization ratio.
-  void UpdateMaxNativeFootprint();
 
   // Find a collector based on GC type.
   collector::GarbageCollector* FindCollectorByGcType(collector::GcType gc_type);
@@ -963,10 +1009,10 @@ class Heap {
   size_t GetPercentFree();
 
   static void VerificationCallback(mirror::Object* obj, void* arg)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_);
+      REQUIRES_SHARED(Locks::heap_bitmap_lock_);
 
   // Swap the allocation stack with the live stack.
-  void SwapStacks() SHARED_REQUIRES(Locks::mutator_lock_);
+  void SwapStacks() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Clear cards and update the mod union table. When process_alloc_space_cards is true,
   // if clear_alloc_space_cards is true, then we clear cards instead of ageing them. We do
@@ -975,17 +1021,17 @@ class Heap {
                     bool use_rem_sets,
                     bool process_alloc_space_cards,
                     bool clear_alloc_space_cards)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Push an object onto the allocation stack.
-  void PushOnAllocationStack(Thread* self, mirror::Object** obj)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  void PushOnAllocationStack(Thread* self, ObjPtr<mirror::Object>* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*gc_complete_lock_, !*pending_task_lock_);
-  void PushOnAllocationStackWithInternalGC(Thread* self, mirror::Object** obj)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  void PushOnAllocationStackWithInternalGC(Thread* self, ObjPtr<mirror::Object>* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*gc_complete_lock_, !*pending_task_lock_);
-  void PushOnThreadLocalAllocationStackWithInternalGC(Thread* thread, mirror::Object** obj)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  void PushOnThreadLocalAllocationStackWithInternalGC(Thread* thread, ObjPtr<mirror::Object>* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*gc_complete_lock_, !*pending_task_lock_);
 
   void ClearConcurrentGCRequest();
@@ -995,7 +1041,9 @@ class Heap {
   // What kind of concurrency behavior is the runtime after? Currently true for concurrent mark
   // sweep GC, false for other GC types.
   bool IsGcConcurrent() const ALWAYS_INLINE {
-    return collector_type_ == kCollectorTypeCMS || collector_type_ == kCollectorTypeCC;
+    return collector_type_ == kCollectorTypeCMS ||
+        collector_type_ == kCollectorTypeCC ||
+        collector_type_ == kCollectorTypeCCBackground;
   }
 
   // Trim the managed and native spaces by releasing unused memory back to the OS.
@@ -1005,7 +1053,7 @@ class Heap {
   void TrimIndirectReferenceTables(Thread* self);
 
   void VisitObjectsInternal(ObjectCallback callback, void* arg)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Locks::heap_bitmap_lock_, !*gc_complete_lock_);
   void VisitObjectsInternalRegionSpace(ObjectCallback callback, void* arg)
       REQUIRES(Locks::mutator_lock_, !Locks::heap_bitmap_lock_, !*gc_complete_lock_);
@@ -1013,9 +1061,34 @@ class Heap {
   void UpdateGcCountRateHistograms() REQUIRES(gc_complete_lock_);
 
   // GC stress mode attempts to do one GC per unique backtrace.
-  void CheckGcStressMode(Thread* self, mirror::Object** obj)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  void CheckGcStressMode(Thread* self, ObjPtr<mirror::Object>* obj)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!*gc_complete_lock_, !*pending_task_lock_, !*backtrace_lock_);
+
+  collector::GcType NonStickyGcType() const {
+    return HasZygoteSpace() ? collector::kGcTypePartial : collector::kGcTypeFull;
+  }
+
+  // How large new_native_bytes_allocated_ can grow before we trigger a new
+  // GC.
+  ALWAYS_INLINE size_t NativeAllocationGcWatermark() const {
+    // Reuse max_free_ for the native allocation gc watermark, so that the
+    // native heap is treated in the same way as the Java heap in the case
+    // where the gc watermark update would exceed max_free_. Using max_free_
+    // instead of the target utilization means the watermark doesn't depend on
+    // the current number of registered native allocations.
+    return max_free_;
+  }
+
+  // How large new_native_bytes_allocated_ can grow while GC is in progress
+  // before we block the allocating thread to allow GC to catch up.
+  ALWAYS_INLINE size_t NativeAllocationBlockingGcWatermark() const {
+    // Historically the native allocations were bounded by growth_limit_. This
+    // uses that same value, dividing growth_limit_ by 2 to account for
+    // the fact that now the bound is relative to the number of retained
+    // registered native allocations rather than absolute.
+    return growth_limit_ / 2;
+  }
 
   // All-known continuous spaces, where objects lie within fixed bounds.
   std::vector<space::ContinuousSpace*> continuous_spaces_ GUARDED_BY(Locks::mutator_lock_);
@@ -1120,6 +1193,9 @@ class Heap {
   // True while the garbage collector is running.
   volatile CollectorType collector_type_running_ GUARDED_BY(gc_complete_lock_);
 
+  // The thread currently running the GC.
+  volatile Thread* thread_running_gc_ GUARDED_BY(gc_complete_lock_);
+
   // Last Gc type we ran. Used by WaitForConcurrentGc to know which Gc was waited on.
   volatile collector::GcType last_gc_type_ GUARDED_BY(gc_complete_lock_);
   collector::GcType next_gc_type_;
@@ -1135,12 +1211,6 @@ class Heap {
   // a GC should be triggered.
   size_t max_allowed_footprint_;
 
-  // The watermark at which a concurrent GC is requested by registerNativeAllocation.
-  size_t native_footprint_gc_watermark_;
-
-  // Whether or not we need to run finalizers in the next native allocation.
-  bool native_need_to_run_finalization_;
-
   // When num_bytes_allocated_ exceeds this amount then a concurrent GC should be requested so that
   // it completes ahead of an allocation failing.
   size_t concurrent_start_bytes_;
@@ -1154,13 +1224,25 @@ class Heap {
   // Number of bytes allocated.  Adjusted after each allocation and free.
   Atomic<size_t> num_bytes_allocated_;
 
-  // Bytes which are allocated and managed by native code but still need to be accounted for.
-  Atomic<size_t> native_bytes_allocated_;
+  // Number of registered native bytes allocated since the last time GC was
+  // triggered. Adjusted after each RegisterNativeAllocation and
+  // RegisterNativeFree. Used to determine when to trigger GC for native
+  // allocations.
+  // See the REDESIGN section of go/understanding-register-native-allocation.
+  Atomic<size_t> new_native_bytes_allocated_;
 
-  // Native allocation stats.
-  Mutex native_histogram_lock_;
-  Histogram<uint64_t> native_allocation_histogram_;
-  Histogram<uint64_t> native_free_histogram_;
+  // Number of registered native bytes allocated prior to the last time GC was
+  // triggered, for debugging purposes. The current number of registered
+  // native bytes is determined by taking the sum of
+  // old_native_bytes_allocated_ and new_native_bytes_allocated_.
+  Atomic<size_t> old_native_bytes_allocated_;
+
+  // Used for synchronization of blocking GCs triggered by
+  // RegisterNativeAllocation.
+  Mutex* native_blocking_gc_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+  std::unique_ptr<ConditionVariable> native_blocking_gc_cond_ GUARDED_BY(native_blocking_gc_lock_);
+  bool native_blocking_gc_in_progress_ GUARDED_BY(native_blocking_gc_lock_);
+  uint32_t native_blocking_gcs_finished_ GUARDED_BY(native_blocking_gc_lock_);
 
   // Number of bytes freed by thread local buffer revokes. This will
   // cancel out the ahead-of-time bulk counting of bytes allocated in
@@ -1348,6 +1430,13 @@ class Heap {
 
   // Boot image spaces.
   std::vector<space::ImageSpace*> boot_image_spaces_;
+
+  // An installed allocation listener.
+  Atomic<AllocationListener*> alloc_listener_;
+  // An installed GC Pause listener.
+  Atomic<GcPauseListener*> gc_pause_listener_;
+
+  std::unique_ptr<Verification> verification_;
 
   friend class CollectorTransitionTask;
   friend class collector::GarbageCollector;

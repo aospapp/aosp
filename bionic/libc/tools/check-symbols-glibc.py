@@ -88,7 +88,7 @@ bsd_stuff = set([
   'strlcpy',
   'sys_signame',
   'wcslcat',
-  'wcslcpy'
+  'wcslcpy',
 ])
 # Some symbols are part of the FORTIFY implementation.
 FORTIFY_stuff = set([
@@ -108,15 +108,16 @@ FORTIFY_stuff = set([
   '__strlen_chk',
   '__strncpy_chk2',
   '__strrchr_chk',
-  '__umask_chk'
+  '__umask_chk',
   '__write_chk',
 ])
-# Some symbols are used to implement public macros.
+# Some symbols are used to implement public functions/macros.
 macro_stuff = set([
   '__assert2',
   '__errno',
   '__fe_dfl_env',
   '__get_h_errno',
+  '__gnu_strerror_r',
   '__fpclassifyd',
   '__isfinite',
   '__isfinitef',
@@ -132,7 +133,8 @@ macro_stuff = set([
 linux_stuff = set([
   'getauxval',
   'gettid',
-  'tgkill'
+  'pthread_gettid_np',
+  'tgkill',
 ])
 # Some standard stuff isn't yet in the versions of glibc we're using.
 std_stuff = set([
@@ -168,6 +170,7 @@ weird_stuff = set([
 libresolv_stuff = set([
   '__res_send_setqhook',
   '__res_send_setrhook',
+  '_resolv_delete_cache_for_net',
   '_resolv_flush_cache_for_net',
   '_resolv_set_nameservers_for_net',
   'dn_expand',
@@ -178,6 +181,23 @@ known = set([
   '_ctype_',
   '__libc_init',
 ])
+# POSIX has some stuff that's too stupid for words (a64l) or not actually
+# implemented in glibc unless you count always failing with ENOSYS as
+# being implemented (fattach).
+in_posix_and_glibc_but_actually_dead = set([
+  'a64l',
+  'fattach',
+  'fdetach',
+  'getmsg',
+  'getpmsg',
+  'isastream',
+  'l64a',
+  'putmsg',
+  'putpmsg',
+])
+
+posix = posix - in_posix_and_glibc_but_actually_dead
+glibc = glibc - in_posix_and_glibc_but_actually_dead
 
 if not only_unwanted:
   #print 'glibc:'

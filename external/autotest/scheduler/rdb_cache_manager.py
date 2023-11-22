@@ -81,9 +81,15 @@ import collections
 import logging
 
 import common
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.global_config import global_config
 from autotest_lib.scheduler import rdb_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
 
 MEMOIZE_KEY = 'memoized_hosts'
 
@@ -233,10 +239,11 @@ class RDBHostCacheManager(object):
         staleness = self.mean_staleness()
         logging.debug('Cache stats: hit ratio: %.2f%%, '
                       'avg staleness per line: %.2f%%.', hit_ratio, staleness)
-        autotest_stats.Gauge(rdb_utils.RDB_STATS_KEY).send(
-                'cache.hit_ratio', hit_ratio)
-        autotest_stats.Gauge(rdb_utils.RDB_STATS_KEY).send(
-                'cache.stale_entries', staleness)
+        metrics.Float('chromeos/autotest/scheduler/rdb/cache/hit_ratio').set(
+                hit_ratio)
+        metrics.Float(
+                'chromeos/autotest/scheduler/rdb/cache/mean_staleness').set(
+                        staleness)
 
 
     @classmethod

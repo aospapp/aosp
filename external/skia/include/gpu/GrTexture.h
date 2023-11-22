@@ -10,10 +10,11 @@
 #define GrTexture_DEFINED
 
 #include "GrSurface.h"
+#include "GrSamplerParams.h"
 #include "SkPoint.h"
 #include "SkRefCnt.h"
 
-class GrTextureParams;
+class GrExternalTextureData;
 class GrTexturePriv;
 
 class GrTexture : virtual public GrSurface {
@@ -45,11 +46,14 @@ public:
     inline const GrTexturePriv texturePriv() const;
 
 protected:
-    GrTexture(GrGpu*, LifeCycle, const GrSurfaceDesc&);
+    GrTexture(GrGpu*, const GrSurfaceDesc&, GrSLType samplerType,
+              GrSamplerParams::FilterMode highestFilterMode, bool wasMipMapDataProvided);
 
     void validateDesc() const;
+    virtual std::unique_ptr<GrExternalTextureData> detachBackendTexture() = 0;
 
 private:
+    void computeScratchKey(GrScratchKey*) const override;
     size_t onGpuMemorySize() const override;
     void dirtyMipMaps(bool mipMapsDirty);
 
@@ -59,8 +63,11 @@ private:
         kValid_MipMapsStatus
     };
 
-    MipMapsStatus   fMipMapsStatus;
-
+    GrSLType                      fSamplerType;
+    GrSamplerParams::FilterMode   fHighestFilterMode;
+    MipMapsStatus                 fMipMapsStatus;
+    int                           fMaxMipMapLevel;
+    SkDestinationSurfaceColorMode fMipColorMode;
     friend class GrTexturePriv;
 
     typedef GrSurface INHERITED;

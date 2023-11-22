@@ -18,9 +18,10 @@
 
 #include <sstream>
 
+#include "android-base/stringprintf.h"
+
 #include "base/logging.h"
 #include "base/stl_util.h"
-#include "base/stringprintf.h"
 #include "class_linker.h"
 #include "common_throws.h"
 #include "compiler_filter.h"
@@ -33,9 +34,8 @@
 #include "oat_file_assistant.h"
 #include "oat_file_manager.h"
 #include "os.h"
-#include "profiler.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "ScopedLocalRef.h"
 #include "ScopedUtfChars.h"
 #include "utils.h"
@@ -43,6 +43,8 @@
 #include "zip_archive.h"
 
 namespace art {
+
+using android::base::StringPrintf;
 
 static bool ConvertJavaArrayToDexFiles(
     JNIEnv* env,
@@ -153,10 +155,110 @@ class NullableScopedUtfChars {
   void operator=(const NullableScopedUtfChars&);
 };
 
+static std::unique_ptr<MemMap> AllocateDexMemoryMap(JNIEnv* env, jint start, jint end) {
+  if (end <= start) {
+    ScopedObjectAccess soa(env);
+    ThrowWrappedIOException("Bad range");
+    return nullptr;
+  }
+
+  std::string error_message;
+  size_t length = static_cast<size_t>(end - start);
+  std::unique_ptr<MemMap> dex_mem_map(MemMap::MapAnonymous("DEX data",
+                                                           nullptr,
+                                                           length,
+                                                           PROT_READ | PROT_WRITE,
+                                                           /* low_4gb */ false,
+                                                           /* reuse */ false,
+                                                           &error_message));
+  if (dex_mem_map == nullptr) {
+    ScopedObjectAccess soa(env);
+    ThrowWrappedIOException("%s", error_message.c_str());
+  }
+  return dex_mem_map;
+}
+
+static const DexFile* CreateDexFile(JNIEnv* env, std::unique_ptr<MemMap> dex_mem_map) {
+  std::string location = StringPrintf("Anonymous-DexFile@%p-%p",
+                                      dex_mem_map->Begin(),
+                                      dex_mem_map->End());
+  std::string error_message;
+  std::unique_ptr<const DexFile> dex_file(DexFile::Open(location,
+                                                        0,
+                                                        std::move(dex_mem_map),
+                                                        /* verify */ true,
+                                                        /* verify_location */ true,
+                                                        &error_message));
+  if (dex_file == nullptr) {
+    ScopedObjectAccess soa(env);
+    ThrowWrappedIOException("%s", error_message.c_str());
+    return nullptr;
+  }
+
+  if (!dex_file->DisableWrite()) {
+    ScopedObjectAccess soa(env);
+    ThrowWrappedIOException("Failed to make dex file read-only");
+    return nullptr;
+  }
+
+  return dex_file.release();
+}
+
+static jobject CreateSingleDexFileCookie(JNIEnv* env, std::unique_ptr<MemMap> data) {
+  std::unique_ptr<const DexFile> dex_file(CreateDexFile(env, std::move(data)));
+  if (dex_file.get() == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
+  std::vector<std::unique_ptr<const DexFile>> dex_files;
+  dex_files.push_back(std::move(dex_file));
+  return ConvertDexFilesToJavaArray(env, nullptr, dex_files);
+}
+
+static jobject DexFile_createCookieWithDirectBuffer(JNIEnv* env,
+                                                    jclass,
+                                                    jobject buffer,
+                                                    jint start,
+                                                    jint end) {
+  uint8_t* base_address = reinterpret_cast<uint8_t*>(env->GetDirectBufferAddress(buffer));
+  if (base_address == nullptr) {
+    ScopedObjectAccess soa(env);
+    ThrowWrappedIOException("dexFileBuffer not direct");
+    return 0;
+  }
+
+  std::unique_ptr<MemMap> dex_mem_map(AllocateDexMemoryMap(env, start, end));
+  if (dex_mem_map == nullptr) {
+    DCHECK(Thread::Current()->IsExceptionPending());
+    return 0;
+  }
+
+  size_t length = static_cast<size_t>(end - start);
+  memcpy(dex_mem_map->Begin(), base_address, length);
+  return CreateSingleDexFileCookie(env, std::move(dex_mem_map));
+}
+
+static jobject DexFile_createCookieWithArray(JNIEnv* env,
+                                             jclass,
+                                             jbyteArray buffer,
+                                             jint start,
+                                             jint end) {
+  std::unique_ptr<MemMap> dex_mem_map(AllocateDexMemoryMap(env, start, end));
+  if (dex_mem_map == nullptr) {
+    DCHECK(Thread::Current()->IsExceptionPending());
+    return 0;
+  }
+
+  auto destination = reinterpret_cast<jbyte*>(dex_mem_map.get()->Begin());
+  env->GetByteArrayRegion(buffer, start, end - start, destination);
+  return CreateSingleDexFileCookie(env, std::move(dex_mem_map));
+}
+
+// TODO(calin): clean up the unused parameters (here and in libcore).
 static jobject DexFile_openDexFileNative(JNIEnv* env,
                                          jclass,
                                          jstring javaSourceName,
-                                         jstring javaOutputName,
+                                         jstring javaOutputName ATTRIBUTE_UNUSED,
                                          jint flags ATTRIBUTE_UNUSED,
                                          jobject class_loader,
                                          jobjectArray dex_elements) {
@@ -164,10 +266,7 @@ static jobject DexFile_openDexFileNative(JNIEnv* env,
   if (sourceName.c_str() == nullptr) {
     return 0;
   }
-  NullableScopedUtfChars outputName(env, javaOutputName);
-  if (env->ExceptionCheck()) {
-    return 0;
-  }
+
   Runtime* const runtime = Runtime::Current();
   ClassLinker* linker = runtime->GetClassLinker();
   std::vector<std::unique_ptr<const DexFile>> dex_files;
@@ -175,7 +274,6 @@ static jobject DexFile_openDexFileNative(JNIEnv* env,
   const OatFile* oat_file = nullptr;
 
   dex_files = runtime->GetOatFileManager().OpenDexFilesFromOat(sourceName.c_str(),
-                                                               outputName.c_str(),
                                                                class_loader,
                                                                dex_elements,
                                                                /*out*/ &oat_file,
@@ -186,7 +284,7 @@ static jobject DexFile_openDexFileNative(JNIEnv* env,
     if (array == nullptr) {
       ScopedObjectAccess soa(env);
       for (auto& dex_file : dex_files) {
-        if (linker->FindDexCache(soa.Self(), *dex_file, true) != nullptr) {
+        if (linker->IsDexFileRegistered(soa.Self(), *dex_file)) {
           dex_file.release();
         }
       }
@@ -218,8 +316,8 @@ static jboolean DexFile_closeDexFile(JNIEnv* env, jclass, jobject cookie) {
   bool all_deleted = true;
   {
     ScopedObjectAccess soa(env);
-    mirror::Object* dex_files_object = soa.Decode<mirror::Object*>(cookie);
-    mirror::LongArray* long_dex_files = dex_files_object->AsLongArray();
+    ObjPtr<mirror::Object> dex_files_object = soa.Decode<mirror::Object>(cookie);
+    ObjPtr<mirror::LongArray> long_dex_files = dex_files_object->AsLongArray();
     // Delete dex files associated with this dalvik.system.DexFile since there should not be running
     // code using it. dex_files is a vector due to multidex.
     ClassLinker* const class_linker = runtime->GetClassLinker();
@@ -228,7 +326,7 @@ static jboolean DexFile_closeDexFile(JNIEnv* env, jclass, jobject cookie) {
       if (dex_file != nullptr) {
         // Only delete the dex file if the dex cache is not found to prevent runtime crashes if there
         // are calls to DexFile.close while the ART DexFile is still in use.
-        if (class_linker->FindDexCache(soa.Self(), *dex_file, true) == nullptr) {
+        if (!class_linker->IsDexFileRegistered(soa.Self(), *dex_file)) {
           // Clear the element in the array so that we can call close again.
           long_dex_files->Set(i, 0);
           delete dex_file;
@@ -271,23 +369,30 @@ static jclass DexFile_defineClassNative(JNIEnv* env,
   const std::string descriptor(DotToDescriptor(class_name.c_str()));
   const size_t hash(ComputeModifiedUtf8Hash(descriptor.c_str()));
   for (auto& dex_file : dex_files) {
-    const DexFile::ClassDef* dex_class_def = dex_file->FindClassDef(descriptor.c_str(), hash);
+    const DexFile::ClassDef* dex_class_def =
+        OatDexFile::FindClassDef(*dex_file, descriptor.c_str(), hash);
     if (dex_class_def != nullptr) {
       ScopedObjectAccess soa(env);
       ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
       StackHandleScope<1> hs(soa.Self());
       Handle<mirror::ClassLoader> class_loader(
-          hs.NewHandle(soa.Decode<mirror::ClassLoader*>(javaLoader)));
-      class_linker->RegisterDexFile(*dex_file, class_loader.Get());
-      mirror::Class* result = class_linker->DefineClass(soa.Self(),
-                                                        descriptor.c_str(),
-                                                        hash,
-                                                        class_loader,
-                                                        *dex_file,
-                                                        *dex_class_def);
+          hs.NewHandle(soa.Decode<mirror::ClassLoader>(javaLoader)));
+      ObjPtr<mirror::DexCache> dex_cache =
+          class_linker->RegisterDexFile(*dex_file, class_loader.Get());
+      if (dex_cache == nullptr) {
+        // OOME or InternalError (dexFile already registered with a different class loader).
+        soa.Self()->AssertPendingException();
+        return nullptr;
+      }
+      ObjPtr<mirror::Class> result = class_linker->DefineClass(soa.Self(),
+                                                               descriptor.c_str(),
+                                                               hash,
+                                                               class_loader,
+                                                               *dex_file,
+                                                               *dex_class_def);
       // Add the used dex file. This only required for the DexFile.loadClass API since normal
       // class loaders already keep their dex files live.
-      class_linker->InsertDexFileInToClassLoader(soa.Decode<mirror::Object*>(dexFile),
+      class_linker->InsertDexFileInToClassLoader(soa.Decode<mirror::Object>(dexFile),
                                                  class_loader.Get());
       if (result != nullptr) {
         VLOG(class_linker) << "DexFile_defineClassNative returning " << result
@@ -379,13 +484,13 @@ static jint GetDexOptNeeded(JNIEnv* env,
   // TODO: Verify the dex location is well formed, and throw an IOException if
   // not?
 
-  OatFileAssistant oat_file_assistant(filename, target_instruction_set, profile_changed, false);
+  OatFileAssistant oat_file_assistant(filename, target_instruction_set, false);
 
   // Always treat elements of the bootclasspath as up-to-date.
   if (oat_file_assistant.IsInBootClassPath()) {
     return OatFileAssistant::kNoDexOptNeeded;
   }
-  return oat_file_assistant.GetDexOptNeeded(filter);
+  return oat_file_assistant.GetDexOptNeeded(filter, profile_changed);
 }
 
 static jstring DexFile_getDexFileStatus(JNIEnv* env,
@@ -412,35 +517,8 @@ static jstring DexFile_getDexFileStatus(JNIEnv* env,
   }
 
   OatFileAssistant oat_file_assistant(filename.c_str(), target_instruction_set,
-                                      false /* profile_changed */,
                                       false /* load_executable */);
-
-  std::ostringstream status;
-  bool oat_file_exists = false;
-  bool odex_file_exists = false;
-  if (oat_file_assistant.OatFileExists()) {
-    oat_file_exists = true;
-    status << *oat_file_assistant.OatFileName() << " [compilation_filter=";
-    status << CompilerFilter::NameOfFilter(oat_file_assistant.OatFileCompilerFilter());
-    status << ", status=" << oat_file_assistant.OatFileStatus();
-  }
-
-  if (oat_file_assistant.OdexFileExists()) {
-    odex_file_exists = true;
-    if (oat_file_exists) {
-      status << "] ";
-    }
-    status << *oat_file_assistant.OdexFileName() << " [compilation_filter=";
-    status << CompilerFilter::NameOfFilter(oat_file_assistant.OdexFileCompilerFilter());
-    status << ", status=" << oat_file_assistant.OdexFileStatus();
-  }
-
-  if (!oat_file_exists && !odex_file_exists) {
-    status << "invalid[";
-  }
-
-  status << "]";
-  return env->NewStringUTF(status.str().c_str());
+  return env->NewStringUTF(oat_file_assistant.GetStatusDump().c_str());
 }
 
 static jint DexFile_getDexOptNeeded(JNIEnv* env,
@@ -487,7 +565,7 @@ static jboolean DexFile_isDexOptNeeded(JNIEnv* env, jclass, jstring javaFilename
     return JNI_FALSE;
   }
 
-  OatFileAssistant oat_file_assistant(filename, kRuntimeISA, false, false);
+  OatFileAssistant oat_file_assistant(filename, kRuntimeISA, false);
   return oat_file_assistant.IsUpToDate() ? JNI_FALSE : JNI_TRUE;
 }
 
@@ -544,6 +622,31 @@ static jstring DexFile_getNonProfileGuidedCompilerFilter(JNIEnv* env,
   return env->NewStringUTF(new_filter_str.c_str());
 }
 
+static jstring DexFile_getSafeModeCompilerFilter(JNIEnv* env,
+                                                 jclass javeDexFileClass ATTRIBUTE_UNUSED,
+                                                 jstring javaCompilerFilter) {
+  ScopedUtfChars compiler_filter(env, javaCompilerFilter);
+  if (env->ExceptionCheck()) {
+    return nullptr;
+  }
+
+  CompilerFilter::Filter filter;
+  if (!CompilerFilter::ParseCompilerFilter(compiler_filter.c_str(), &filter)) {
+    return javaCompilerFilter;
+  }
+
+  CompilerFilter::Filter new_filter = CompilerFilter::GetSafeModeFilterFrom(filter);
+
+  // Filter stayed the same, return input.
+  if (filter == new_filter) {
+    return javaCompilerFilter;
+  }
+
+  // Create a new string object and return.
+  std::string new_filter_str = CompilerFilter::NameOfFilter(new_filter);
+  return env->NewStringUTF(new_filter_str.c_str());
+}
+
 static jboolean DexFile_isBackedByOatFile(JNIEnv* env, jclass, jobject cookie) {
   const OatFile* oat_file = nullptr;
   std::vector<const DexFile*> dex_files;
@@ -554,7 +657,7 @@ static jboolean DexFile_isBackedByOatFile(JNIEnv* env, jclass, jobject cookie) {
   return oat_file != nullptr;
 }
 
-static jstring DexFile_getDexFileOutputPath(JNIEnv* env,
+static jobjectArray DexFile_getDexFileOutputPaths(JNIEnv* env,
                                             jclass,
                                             jstring javaFilename,
                                             jstring javaInstructionSet) {
@@ -579,7 +682,6 @@ static jstring DexFile_getDexFileOutputPath(JNIEnv* env,
 
   OatFileAssistant oat_file_assistant(filename.c_str(),
                                       target_instruction_set,
-                                      false /* profile_changed */,
                                       false /* load_executable */);
 
   std::unique_ptr<OatFile> best_oat_file = oat_file_assistant.GetBestOatFile();
@@ -587,7 +689,26 @@ static jstring DexFile_getDexFileOutputPath(JNIEnv* env,
     return nullptr;
   }
 
-  return env->NewStringUTF(best_oat_file->GetLocation().c_str());
+  std::string oat_filename = best_oat_file->GetLocation();
+  std::string vdex_filename = GetVdexFilename(best_oat_file->GetLocation());
+
+  ScopedLocalRef<jstring> jvdexFilename(env, env->NewStringUTF(vdex_filename.c_str()));
+  if (jvdexFilename.get() == nullptr) {
+    return nullptr;
+  }
+  ScopedLocalRef<jstring> joatFilename(env, env->NewStringUTF(oat_filename.c_str()));
+  if (joatFilename.get() == nullptr) {
+    return nullptr;
+  }
+
+  // Now create output array and copy the set into it.
+  jobjectArray result = env->NewObjectArray(2,
+                                            WellKnownClasses::java_lang_String,
+                                            nullptr);
+  env->SetObjectArrayElement(result, 0, jvdexFilename.get());
+  env->SetObjectArrayElement(result, 1, joatFilename.get());
+
+  return result;
 }
 
 static JNINativeMethod gMethods[] = {
@@ -610,16 +731,22 @@ static JNINativeMethod gMethods[] = {
                 "Ljava/lang/ClassLoader;"
                 "[Ldalvik/system/DexPathList$Element;"
                 ")Ljava/lang/Object;"),
+  NATIVE_METHOD(DexFile, createCookieWithDirectBuffer,
+                "(Ljava/nio/ByteBuffer;II)Ljava/lang/Object;"),
+  NATIVE_METHOD(DexFile, createCookieWithArray, "([BII)Ljava/lang/Object;"),
   NATIVE_METHOD(DexFile, isValidCompilerFilter, "(Ljava/lang/String;)Z"),
   NATIVE_METHOD(DexFile, isProfileGuidedCompilerFilter, "(Ljava/lang/String;)Z"),
   NATIVE_METHOD(DexFile,
                 getNonProfileGuidedCompilerFilter,
                 "(Ljava/lang/String;)Ljava/lang/String;"),
+  NATIVE_METHOD(DexFile,
+                getSafeModeCompilerFilter,
+                "(Ljava/lang/String;)Ljava/lang/String;"),
   NATIVE_METHOD(DexFile, isBackedByOatFile, "(Ljava/lang/Object;)Z"),
   NATIVE_METHOD(DexFile, getDexFileStatus,
                 "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),
-  NATIVE_METHOD(DexFile, getDexFileOutputPath,
-                "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;")
+  NATIVE_METHOD(DexFile, getDexFileOutputPaths,
+                "(Ljava/lang/String;Ljava/lang/String;)[Ljava/lang/String;")
 };
 
 void register_dalvik_system_DexFile(JNIEnv* env) {

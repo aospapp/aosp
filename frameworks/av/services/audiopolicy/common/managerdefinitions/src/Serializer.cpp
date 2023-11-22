@@ -18,7 +18,7 @@
 //#define LOG_NDEBUG 0
 
 #include "Serializer.h"
-#include <convert/convert.h>
+#include <media/convert.h>
 #include "TypeConverter.h"
 #include <libxml/parser.h>
 #include <libxml/xinclude.h>
@@ -199,7 +199,8 @@ status_t AudioProfileTraits::deserialize(_xmlDoc */*doc*/, const _xmlNode *root,
     string format = getXmlAttribute(root, Attributes::format);
     string channels = getXmlAttribute(root, Attributes::channelMasks);
 
-    profile = new Element(formatFromString(format), channelMasksFromString(channels, ","),
+    profile = new Element(formatFromString(format, gDynamicFormat),
+                          channelMasksFromString(channels, ","),
                           samplingRatesFromString(samplingRates, ","));
 
     profile->setDynamicFormat(profile->getFormat() == gDynamicFormat);
@@ -300,7 +301,7 @@ status_t DevicePortTraits::deserialize(_xmlDoc *doc, const _xmlNode *root, PtrEl
                 AUDIO_PORT_ROLE_SOURCE : AUDIO_PORT_ROLE_SINK;
 
     audio_devices_t type = AUDIO_DEVICE_NONE;
-    if (!DeviceConverter::fromString(typeName, type) ||
+    if (!deviceFromString(typeName, type) ||
             (!audio_is_input_device(type) && portRole == AUDIO_PORT_ROLE_SOURCE) ||
             (!audio_is_output_devices(type) && portRole == AUDIO_PORT_ROLE_SINK)) {
         ALOGW("%s: bad type %08x", __FUNCTION__, type);
@@ -383,6 +384,7 @@ status_t RouteTraits::deserialize(_xmlDoc */*doc*/, const _xmlNode *root, PtrEle
             sp<AudioPort> source = ctx->findPortByTagName(String8(devTag));
             if (source == NULL) {
                 ALOGE("%s: no source found with name=%s", __FUNCTION__, devTag);
+                free(sourcesLiteral);
                 return BAD_VALUE;
             }
             sources.add(source);
@@ -418,19 +420,17 @@ status_t ModuleTraits::deserialize(xmlDocPtr doc, const xmlNode *root, PtrElemen
         ALOGE("%s: No %s found", __FUNCTION__, Attributes::name);
         return BAD_VALUE;
     }
-    uint32_t version = AUDIO_DEVICE_API_VERSION_MIN;
+    uint32_t versionMajor = 0, versionMinor = 0;
     string versionLiteral = getXmlAttribute(root, Attributes::version);
     if (!versionLiteral.empty()) {
-        uint32_t major, minor;
-        sscanf(versionLiteral.c_str(), "%u.%u", &major, &minor);
-        version = HARDWARE_DEVICE_API_VERSION(major, minor);
-        ALOGV("%s: mHalVersion = %04x major %u minor %u",  __FUNCTION__,
-              version, major, minor);
+        sscanf(versionLiteral.c_str(), "%u.%u", &versionMajor, &versionMinor);
+        ALOGV("%s: mHalVersion = major %u minor %u",  __FUNCTION__,
+              versionMajor, versionMajor);
     }
 
     ALOGV("%s: %s %s=%s", __FUNCTION__, tag, Attributes::name, name.c_str());
 
-    module = new Element(name.c_str(), version);
+    module = new Element(name.c_str(), versionMajor, versionMinor);
 
     // Deserialize childrens: Audio Mix Port, Audio Device Ports (Source/Sink), Audio Routes
     MixPortTraits::Collection mixPorts;

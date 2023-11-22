@@ -38,8 +38,6 @@ class LocalDataStoreImpl : public LocalDataStore {
   DISALLOW_COPY_AND_ASSIGN(LocalDataStoreImpl);
 };
 
-
 }  // namespace tpm_manager
-
 
 #endif  // TPM_MANAGER_SERVER_LOCAL_DATA_STORE_IMPL_H_

@@ -160,7 +160,7 @@ protected:
 };
 
 #define ASSERT_NO_ERROR(err, msg) \
-    ASSERT_EQ(NO_ERROR, err) << msg << strerror(-err)
+    ASSERT_EQ(NO_ERROR, err) << (msg) << strerror(-(err))
 
 void checkPixel(const CpuConsumer::LockedBuffer &buf,
         uint32_t x, uint32_t y, uint32_t r, uint32_t g=0, uint32_t b=0) {
@@ -490,7 +490,7 @@ void produceOneFrame(const sp<ANativeWindow>& anw,
 
     ASSERT_TRUE(anb != NULL);
 
-    sp<GraphicBuffer> buf(new GraphicBuffer(anb, false));
+    sp<GraphicBuffer> buf(GraphicBuffer::from(anb));
 
     *stride = buf->getStride();
     uint8_t* img = NULL;

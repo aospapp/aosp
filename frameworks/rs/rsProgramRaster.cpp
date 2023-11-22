@@ -17,9 +17,8 @@
 #include "rsContext.h"
 #include "rsProgramRaster.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+namespace android {
+namespace renderscript {
 
 ProgramRaster::ProgramRaster(Context *rsc, bool pointSprite, RsCullMode cull)
     : ProgramBase(rsc) {
@@ -31,9 +30,10 @@ ProgramRaster::ProgramRaster(Context *rsc, bool pointSprite, RsCullMode cull)
 }
 
 void ProgramRaster::preDestroy() const {
-    for (uint32_t ct = 0; ct < mRSC->mStateRaster.mRasterPrograms.size(); ct++) {
-        if (mRSC->mStateRaster.mRasterPrograms[ct] == this) {
-            mRSC->mStateRaster.mRasterPrograms.removeAt(ct);
+    auto& rasterPrograms = mRSC->mStateRaster.mRasterPrograms;
+    for (uint32_t ct = 0; ct < rasterPrograms.size(); ct++) {
+        if (rasterPrograms[ct] == this) {
+            rasterPrograms.erase(rasterPrograms.begin() + ct);
             break;
         }
     }
@@ -94,14 +94,11 @@ ObjectBaseRef<ProgramRaster> ProgramRaster::getProgramRaster(Context *rsc,
     returnRef.set(pr);
 
     ObjectBase::asyncLock();
-    rsc->mStateRaster.mRasterPrograms.push(pr);
+    rsc->mStateRaster.mRasterPrograms.push_back(pr);
     ObjectBase::asyncUnlock();
 
     return returnRef;
 }
-
-namespace android {
-namespace renderscript {
 
 RsProgramRaster rsi_ProgramRasterCreate(Context * rsc, bool pointSprite, RsCullMode cull) {
     ObjectBaseRef<ProgramRaster> pr = ProgramRaster::getProgramRaster(rsc, pointSprite, cull);
@@ -109,6 +106,5 @@ RsProgramRaster rsi_ProgramRasterCreate(Context * rsc, bool pointSprite, RsCullM
     return pr.get();
 }
 
-}
-}
-
+} // namespace renderscript
+} // namespace android

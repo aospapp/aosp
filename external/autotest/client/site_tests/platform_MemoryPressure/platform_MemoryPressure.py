@@ -11,6 +11,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 
 class platform_MemoryPressure(test.test):
+    """Memory pressure test."""
     version = 1
 
     def run_once(self, tab_open_secs=1.5, timeout_secs=180):
@@ -22,7 +23,7 @@ class platform_MemoryPressure(test.test):
 
         # Open tabs until a tab discard notification arrives, or a time limit
         # is reached.
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             while time.time() <= time_limit and not err:
                 tab = cr.browser.tabs.New()

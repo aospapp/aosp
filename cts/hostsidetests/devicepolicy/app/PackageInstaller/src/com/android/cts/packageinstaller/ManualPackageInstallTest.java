@@ -40,8 +40,7 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
             .pkg("com.android.settings");
     private static final BySelector INSTALL_BUTTON_SELECTOR = By
             .clazz(android.widget.Button.class.getName())
-            .res("com.android.packageinstaller:id/ok_button")
-            .pkg("com.google.android.packageinstaller");
+            .res("com.android.packageinstaller:id/ok_button");
 
     public void testManualInstallSucceeded() throws Exception {
         assertInstallPackage();

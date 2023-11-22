@@ -16,11 +16,12 @@
 
 package android.webkit.cts;
 
-import android.cts.util.NullWebViewUtils;
 import android.platform.test.annotations.Presubmit;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
 
 /**
  * Original framework tests for CookieManager

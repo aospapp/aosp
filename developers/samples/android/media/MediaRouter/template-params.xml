@@ -22,13 +22,9 @@
     <group>Media</group>
     <package>com.example.android.mediarouter</package>
 
+    <minSdk>17</minSdk>
 
-
-    <!-- change minSdk if needed-->
-    <minSdk>13</minSdk>
-
-    <dependency>com.android.support:mediarouter-v7:24.0.0</dependency>
-
+    <dependency>com.android.support:mediarouter-v7:24.2.1</dependency>
 
     <strings>
         <intro>

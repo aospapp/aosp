@@ -16,23 +16,25 @@
 
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.SparseIntArray;
 
-import java.util.Arrays;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-
-public class SparseIntArrayTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SparseIntArrayTest {
     private static final int[] KEYS   = {12, 23, 4, 6, 8, 1, 3, -12, 0, -3, 11, 14, -23};
     private static final int[] VALUES = {0,  1,  2, 3, 4, 5, 6, 7,   8,  9, 10, 11,  12};
     private static final int   NON_EXISTED_KEY = 123;
     private static final int   VALUE_FOR_NON_EXISTED_KEY = -1;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
+    @Test
     public void testSparseIntArrayWithDefaultCapacity() {
         SparseIntArray sparseIntArray = new SparseIntArray();
         assertEquals(0, sparseIntArray.size());
@@ -82,6 +84,7 @@ public class SparseIntArrayTest extends AndroidTestCase {
         assertEquals(0, sparseIntArray.size());
     }
 
+    @Test
     public void testSparseIntArrayWithSpecifiedCapacity() {
         SparseIntArray sparseIntArray = new SparseIntArray(5);
         assertEquals(0, sparseIntArray.size());
@@ -130,6 +133,7 @@ public class SparseIntArrayTest extends AndroidTestCase {
         assertEquals(0, sparseIntArray.size());
     }
 
+    @Test
     public void testSparseIntArrayRemoveAt() {
         final int[] testData = {
             13, 42, 85932, 885932, -6, Integer.MAX_VALUE, 0, Integer.MIN_VALUE };
@@ -171,6 +175,7 @@ public class SparseIntArrayTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIterationOrder() {
         SparseIntArray sparseArray = new SparseIntArray();
         // No matter in which order they are inserted.

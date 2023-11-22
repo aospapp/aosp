@@ -77,6 +77,12 @@ public class AlarmClockTestBase extends ActivityInstrumentationTestCase2<TestSta
     }
 
     private boolean isIntentSupported(TestcaseType testCaseType) {
+        final PackageManager manager = mContext.getPackageManager();
+        assertNotNull(manager);
+        // If TV then not supported.
+        if (manager.hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY)) {
+            return false;
+        }
         Intent intent;
         switch (testCaseType) {
           case DISMISS_ALARM:
@@ -96,8 +102,6 @@ public class AlarmClockTestBase extends ActivityInstrumentationTestCase2<TestSta
               // shouldn't happen
               return false;
         }
-        final PackageManager manager = mContext.getPackageManager();
-        assertNotNull(manager);
         if (manager.resolveActivity(intent, 0) == null) {
             Log.i(TAG, "No Voice Activity found for the intent: " + intent.getAction());
             return false;

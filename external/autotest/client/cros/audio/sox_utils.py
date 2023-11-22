@@ -10,15 +10,36 @@ from autotest_lib.client.cros.audio import cmd_utils
 SOX_PATH = 'sox'
 
 def _raw_format_args(channels, bits, rate):
+    """Gets raw format args used in sox.
+
+    @param channels: Number of channels.
+    @param bits: Bit length for a sample.
+    @param rate: Sampling rate.
+
+    @returns: A list of args.
+
+    """
     args = ['-t', 'raw', '-e', 'signed']
-    args += ['-c', str(channels)]
-    args += ['-b', str(bits)]
-    args += ['-r', str(rate)]
+    args += _format_args(channels, bits, rate)
     return args
 
+
+def _format_args(channels, bits, rate):
+    """Gets format args used in sox.
+
+    @param channels: Number of channels.
+    @param bits: Bit length for a sample.
+    @param rate: Sampling rate.
+
+    @returns: A list of args.
+
+    """
+    return ['-c', str(channels), '-b', str(bits), '-r', str(rate)]
+
+
 def generate_sine_tone_cmd(
-        filename, channels=2, bits=16, rate=48000, duration=None, frequence=440,
-        gain=None):
+        filename, channels=2, bits=16, rate=48000, duration=None, frequencies=440,
+        gain=None, raw=True):
     """Gets a command to generate sine tones at specified ferquencies.
 
     @param filename: The name of the file to store the sine wave in.
@@ -26,16 +47,25 @@ def generate_sine_tone_cmd(
     @param bits: The number of bits of each sample.
     @param rate: The sampling rate.
     @param duration: The length of the generated sine tone (in seconds).
-    @param frequence: The frequence of the sine wave.
+    @param frequencies: The frequencies of the sine wave. Pass a number or a
+                        list to specify frequency for each channel.
     @param gain: The gain (in db).
+    @param raw: True to use raw data format. False to use what filename specifies.
+
     """
     args = [SOX_PATH, '-n']
-    args += _raw_format_args(channels, bits, rate)
+    if raw:
+        args += _raw_format_args(channels, bits, rate)
+    else:
+        args += _format_args(channels, bits, rate)
     args.append(filename)
     args.append('synth')
     if duration is not None:
         args.append(str(duration))
-    args += ['sine', str(frequence)]
+    if not isinstance(frequencies, list):
+        frequencies = [frequencies]
+    for freq in frequencies:
+        args += ['sine', str(freq)]
     if gain is not None:
         args += ['gain', str(gain)]
     return args
@@ -207,7 +237,7 @@ def convert_raw_file(path_src, channels_src, bits_src, rate_src,
 
 def convert_format(path_src, channels_src, bits_src, rate_src,
                    path_dst, channels_dst, bits_dst, rate_dst,
-                   volume_scale):
+                   volume_scale, use_src_header=False, use_dst_header=False):
     """Converts a raw file to a new format.
 
     @param path_src: The path to the source file.
@@ -221,14 +251,26 @@ def convert_format(path_src, channels_src, bits_src, rate_src,
     @param volume_scale: A float for volume scale used in sox command.
                          E.g. 1.0 is the same. 0.5 to scale volume by
                          half. -1.0 to invert the data.
+    @param use_src_header: True to use header from source file and skip
+                           specifying channel, sample format, and rate for
+                           source. False otherwise.
+    @param use_dst_header: True to use header for dst file. False to treat
+                           dst file as a raw file.
 
     """
     sox_cmd = [SOX_PATH]
-    sox_cmd += _raw_format_args(channels_src, bits_src, rate_src)
+
+    if not use_src_header:
+        sox_cmd += _raw_format_args(channels_src, bits_src, rate_src)
     sox_cmd += ['-v', '%f' % volume_scale]
     sox_cmd += [path_src]
-    sox_cmd += _raw_format_args(channels_dst, bits_dst, rate_dst)
+
+    if not use_dst_header:
+        sox_cmd += _raw_format_args(channels_dst, bits_dst, rate_dst)
+    else:
+        sox_cmd += _format_args(channels_dst, bits_dst, rate_dst)
     sox_cmd += [path_dst]
+
     cmd_utils.execute(sox_cmd)
 
 

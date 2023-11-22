@@ -20,17 +20,17 @@ import javax.annotation.Nullable;
 import vogar.monitor.TargetMonitor;
 
 /**
- * Determines whether this can construct a {@link Runner} instance capable of exercising some
+ * Determines whether this can construct a {@link TargetRunner} instance capable of exercising some
  * aspect of the specified class, and then creates such an instance.
  */
 public interface RunnerFactory {
 
     /**
-     * Create a {@link Runner} instance suitable for exercising the supplied class, return
+     * Create a {@link TargetRunner} instance suitable for exercising the supplied class, return
      * {@code null} if no such instance is available.
      */
     @Nullable
-    Runner newRunner(TargetMonitor monitor, String qualification, Class<?> klass,
+    TargetRunner newRunner(TargetMonitor monitor, String qualification, Class<?> klass,
             AtomicReference<String> skipPastReference, TestEnvironment testEnvironment,
             int timeoutSeconds, boolean profile, String[] args);
 }

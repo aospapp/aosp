@@ -7,26 +7,30 @@ common_static_libraries := \
     libfec \
     libfec_rs \
     libbase \
-    libmincrypt \
-    libcrypto_static \
-    libext4_utils_static \
-    libsquashfs_utils
+    libcrypto_utils \
+    libcrypto \
+    libext4_utils \
+    libsquashfs_utils \
+    libselinux \
+    libavb
 
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_SANITIZE := integer
 LOCAL_SRC_FILES:= \
-    fs_mgr.c \
-    fs_mgr_format.c \
-    fs_mgr_fstab.c \
-    fs_mgr_slotselect.c \
-    fs_mgr_verity.cpp
+    fs_mgr.cpp \
+    fs_mgr_dm_ioctl.cpp \
+    fs_mgr_format.cpp \
+    fs_mgr_fstab.cpp \
+    fs_mgr_slotselect.cpp \
+    fs_mgr_verity.cpp \
+    fs_mgr_avb.cpp \
+    fs_mgr_avb_ops.cpp \
+    fs_mgr_boot_config.cpp
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \
     system/vold \
-    system/extras/ext4_utils \
-    external/openssl/include \
-    bootable/recovery
+    system/extras/ext4_utils
 LOCAL_MODULE:= libfs_mgr
 LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
@@ -34,12 +38,15 @@ LOCAL_CFLAGS := -Werror
 ifneq (,$(filter userdebug,$(TARGET_BUILD_VARIANT)))
 LOCAL_CFLAGS += -DALLOW_ADBD_DISABLE_VERITY=1
 endif
+ifneq (,$(filter eng,$(TARGET_BUILD_VARIANT)))
+LOCAL_CFLAGS += -DALLOW_SKIP_SECURE_CHECK=1
+endif
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_SANITIZE := integer
-LOCAL_SRC_FILES:= fs_mgr_main.c
+LOCAL_SRC_FILES:= fs_mgr_main.cpp
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_MODULE:= fs_mgr
 LOCAL_MODULE_TAGS := optional
@@ -51,7 +58,7 @@ LOCAL_STATIC_LIBRARIES := libfs_mgr \
     libcutils \
     liblog \
     libc \
-    libsparse_static \
+    libsparse \
     libz \
     libselinux
 LOCAL_CXX_STL := libc++_static

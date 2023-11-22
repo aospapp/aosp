@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2014, International Business Machines Corporation and         *
@@ -8,23 +10,27 @@ package com.ibm.icu.dev.test.translit;
 
 import java.util.ArrayList;
 
+import org.junit.Test;
+
+import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.Transliterator;
 
 // Test for ICU Ticket #7201.  With threading bugs in RuleBasedTransliterator, this
 //   test would reliably crash.
 
-public class ThreadTest extends TransliteratorTest {
-    public static void main(String[] args) throws Exception {
-        new ThreadTest().run(args);
-    }
-    
+public class ThreadTest extends TestFmwk {
     private ArrayList<Worker> threads = new ArrayList<Worker>();
-    private int iterationCount = 100000;
+    // Android patch: Halved the execution time of ThreadTest#TestThreads.
+    private int iterationCount = 50000;
+    // Android patch end.
     
+    @Test
     public void TestThreads()  {
-        if (getInclusion() >= 9) {
+        if (TestFmwk.getExhaustiveness() >= 9) {
             // Exhaustive test.  Run longer.
-            iterationCount = 1000000;
+            // Android patch: Halved the execution time of ThreadTest#TestThreads.
+            iterationCount = 500000;
+            // Android patch end.
         }
         
         for (int i = 0; i < 8; i++) {
@@ -68,6 +74,7 @@ public class ThreadTest extends TransliteratorTest {
     // this test will fairly reliably take the code path for races in 
     // populating the cache.
     // 
+    @Test
     public void TestAnyTranslit() {
         final Transliterator tx = Transliterator.getInstance("Any-Latin");
         ArrayList<Thread> threads = new ArrayList<Thread>();

@@ -24,6 +24,13 @@ public class CreateJobViewTab extends TabView {
     }
 
     @Override
+    public void ensureInitialized() {
+      super.ensureInitialized();
+      // Makes sure cloning mode is turned off.
+      getPresenter().setCloning(false);
+    }
+
+    @Override
     public void initialize() {
         super.initialize();
         getDisplay().initialize((HTMLPanel) getWidget());

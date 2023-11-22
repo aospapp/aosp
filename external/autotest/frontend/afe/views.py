@@ -8,31 +8,50 @@ from autotest_lib.frontend import views_common
 from autotest_lib.frontend.afe import models, rpc_handler, rpc_interface
 from autotest_lib.frontend.afe import rpc_utils
 
-site_rpc_interface = utils.import_site_module(
-        __file__, 'autotest_lib.frontend.afe.site_rpc_interface',
+moblab_rpc_interface = utils.import_site_module(
+        __file__, 'autotest_lib.frontend.afe.moblab_rpc_interface',
         dummy=object())
 
-# since site_rpc_interface is later in the list, its methods will override those
-# of rpc_interface
-rpc_handler_obj = rpc_handler.RpcHandler((rpc_interface, site_rpc_interface),
+# since moblab_rpc_interface is later in the list, its methods will
+# override those of rpc_interface
+rpc_handler_obj = rpc_handler.RpcHandler((rpc_interface,
+                                          moblab_rpc_interface),
                                          document_module=rpc_interface)
 
 
 def handle_rpc(request):
+    """Handle the RPC request.
+
+    @param request: the RPC request.
+    """
     return rpc_handler_obj.handle_rpc_request(request)
 
 
 def rpc_documentation(request):
+    """Return the rpc documentation.
+
+    @param request: the RPC request.
+    """
     return rpc_handler_obj.get_rpc_documentation()
 
 
 def model_documentation(request):
+    """Get the model documentation.
+
+    @param request: the RPC request.
+    """
     model_names = ('Label', 'Host', 'Test', 'User', 'AclGroup', 'Job',
                    'AtomicGroup')
     return views_common.model_documentation(models, model_names)
 
 
 def redirect_with_extra_data(request, url, **kwargs):
+    """Redirect according to the extra data.
+
+    @param request: the RPC request.
+    @param url: the partial redirected url.
+    @param kwargs: the parameters used in redirection.
+    """
     kwargs['getdata'] = request.GET.urlencode()
     kwargs['server_name'] = request.META['SERVER_NAME']
     return HttpResponsePermanentRedirect(url % kwargs)
@@ -40,6 +59,11 @@ def redirect_with_extra_data(request, url, **kwargs):
 
 GWT_SERVER = 'http://localhost:8888/'
 def gwt_forward(request, forward_addr):
+    """Get the response from forwarding address.
+
+    @param request: the RPC request.
+    @param forward_addr: the forwarding address.
+    """
     url = GWT_SERVER + forward_addr
     if len(request.POST) == 0:
         headers, content = httplib2.Http().request(url, 'GET')
@@ -54,6 +78,10 @@ def gwt_forward(request, forward_addr):
 
 
 def handler500(request):
+    """Redirect to error website page.
+
+    @param request: the RPC request.
+    """
     t = loader.get_template('500.html')
     trace = traceback.format_exc()
     context = Context({

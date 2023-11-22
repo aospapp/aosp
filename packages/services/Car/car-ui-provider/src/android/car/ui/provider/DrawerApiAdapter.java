@@ -21,6 +21,7 @@ import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemProperties;
 import android.support.car.ui.CarListItemViewHolder;
 import android.support.car.ui.PagedListView;
 import android.support.car.ui.R;
@@ -61,6 +62,7 @@ public class DrawerApiAdapter extends RecyclerView.Adapter<CarListItemViewHolder
     private static final String TAG = "CAR.UI.ADAPTER";
     private static final String INDEX_OUT_OF_BOUNDS_MESSAGE = "invalid item position";
     private static final String KEY_ID_UNAVAILABLE_CATEGORY = "UNAVAILABLE_CATEGORY";
+    private static final String UNLIMITED_MODE_PROPERTY = "android.car.drawer.unlimited";
 
     public interface OnItemSelectedListener {
         void onItemClicked(Bundle item, int position);
@@ -137,7 +139,11 @@ public class DrawerApiAdapter extends RecyclerView.Adapter<CarListItemViewHolder
 
     @Override
     public void setMaxItems(int maxItems) {
-        mMaxItems = maxItems;
+        if (SystemProperties.getBoolean(UNLIMITED_MODE_PROPERTY, false)) {
+            mMaxItems = PagedListView.ItemCap.UNLIMITED;
+        } else {
+            mMaxItems = maxItems;
+        }
     }
 
     @Override
@@ -170,7 +176,8 @@ public class DrawerApiAdapter extends RecyclerView.Adapter<CarListItemViewHolder
     public int getItemCount() {
         synchronized (mItemsLock) {
             if (mItems != null) {
-                return mMaxItems >= 0 ? Math.min(mItems.size(), mMaxItems) : mItems.size();
+                return mMaxItems != PagedListView.ItemCap.UNLIMITED ?
+                    Math.min(mItems.size(), mMaxItems) : mItems.size();
             }
         }
         return 0;

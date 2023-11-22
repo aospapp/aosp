@@ -18,7 +18,7 @@ import its.image
 import its.objects
 import its.target
 import os.path
-import pylab
+from matplotlib import pylab
 import matplotlib
 import matplotlib.pyplot
 

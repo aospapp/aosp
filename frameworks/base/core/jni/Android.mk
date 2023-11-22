@@ -7,7 +7,6 @@ LOCAL_CFLAGS += -U__APPLE__
 LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_CFLAGS += -Wno-non-virtual-dtor
 LOCAL_CFLAGS += -Wno-maybe-uninitialized -Wno-parentheses
-LOCAL_CFLAGS += -DHWUI_NEW_OPS
 LOCAL_CPPFLAGS += -Wno-conversion-null
 
 ifeq ($(TARGET_ARCH), arm)
@@ -20,8 +19,12 @@ ifneq ($(ENABLE_CPUSETS),)
     LOCAL_CFLAGS += -DENABLE_CPUSETS
 endif
 
-ifneq ($(ENABLE_SCHED_BOOST),)
-    LOCAL_CFLAGS += -DENABLE_SCHED_BOOST
+# TODO: Linear blending should be enabled by default, but we are
+# TODO: making it an opt-in while it's a work in progress
+# TODO: The final test should be:
+# TODO: ifneq ($(TARGET_ENABLE_LINEAR_BLENDING),false)
+ifeq ($(TARGET_ENABLE_LINEAR_BLENDING),true)
+    LOCAL_CFLAGS += -DANDROID_ENABLE_LINEAR_BLENDING
 endif
 
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
@@ -57,7 +60,6 @@ LOCAL_SRC_FILES:= \
     android_graphics_drawable_VectorDrawable.cpp \
     android_view_DisplayEventReceiver.cpp \
     android_view_DisplayListCanvas.cpp \
-    android_view_GraphicBuffer.cpp \
     android_view_HardwareLayer.cpp \
     android_view_InputChannel.cpp \
     android_view_InputDevice.cpp \
@@ -80,14 +82,22 @@ LOCAL_SRC_FILES:= \
     android_text_AndroidBidi.cpp \
     android_text_StaticLayout.cpp \
     android_os_Debug.cpp \
+    android_os_GraphicsEnvironment.cpp \
+    android_os_HwBinder.cpp \
+    android_os_HwBlob.cpp \
+    android_os_HwParcel.cpp \
+    android_os_HwRemoteBinder.cpp \
     android_os_MemoryFile.cpp \
     android_os_MessageQueue.cpp \
     android_os_Parcel.cpp \
     android_os_SELinux.cpp \
+    android_os_seccomp.cpp \
     android_os_SystemClock.cpp \
     android_os_SystemProperties.cpp \
     android_os_Trace.cpp \
     android_os_UEventObserver.cpp \
+    android_os_VintfObject.cpp \
+    android_os_VintfRuntimeInfo.cpp \
     android_net_LocalSocketImpl.cpp \
     android_net_NetUtils.cpp \
     android_net_TrafficStats.cpp \
@@ -111,13 +121,17 @@ LOCAL_SRC_FILES:= \
     android/graphics/ColorFilter.cpp \
     android/graphics/DrawFilter.cpp \
     android/graphics/FontFamily.cpp \
+    android/graphics/FontUtils.cpp \
     android/graphics/CreateJavaOutputStreamAdaptor.cpp \
+    android/graphics/GIFMovie.cpp \
+    android/graphics/GraphicBuffer.cpp \
     android/graphics/Graphics.cpp \
     android/graphics/HarfBuzzNGFaceSkia.cpp \
     android/graphics/Interpolator.cpp \
     android/graphics/MaskFilter.cpp \
     android/graphics/Matrix.cpp \
     android/graphics/Movie.cpp \
+    android/graphics/MovieImpl.cpp \
     android/graphics/NinePatch.cpp \
     android/graphics/NinePatchPeeker.cpp \
     android/graphics/Paint.cpp \
@@ -125,19 +139,17 @@ LOCAL_SRC_FILES:= \
     android/graphics/PathMeasure.cpp \
     android/graphics/PathEffect.cpp \
     android/graphics/Picture.cpp \
-    android/graphics/PorterDuff.cpp \
     android/graphics/BitmapRegionDecoder.cpp \
-    android/graphics/Rasterizer.cpp \
     android/graphics/Region.cpp \
     android/graphics/Shader.cpp \
     android/graphics/SurfaceTexture.cpp \
     android/graphics/Typeface.cpp \
     android/graphics/Utils.cpp \
-    android/graphics/Xfermode.cpp \
     android/graphics/YuvToJpegEncoder.cpp \
     android/graphics/pdf/PdfDocument.cpp \
     android/graphics/pdf/PdfEditor.cpp \
     android/graphics/pdf/PdfRenderer.cpp \
+    android/graphics/pdf/PdfUtils.cpp \
     android_media_AudioRecord.cpp \
     android_media_AudioSystem.cpp \
     android_media_AudioTrack.cpp \
@@ -150,6 +162,8 @@ LOCAL_SRC_FILES:= \
     android_hardware_camera2_legacy_LegacyCameraDevice.cpp \
     android_hardware_camera2_legacy_PerfMeasurement.cpp \
     android_hardware_camera2_DngCreator.cpp \
+    android_hardware_display_DisplayViewport.cpp \
+    android_hardware_HardwareBuffer.cpp \
     android_hardware_Radio.cpp \
     android_hardware_SensorManager.cpp \
     android_hardware_SerialPort.cpp \
@@ -157,7 +171,6 @@ LOCAL_SRC_FILES:= \
     android_hardware_UsbDevice.cpp \
     android_hardware_UsbDeviceConnection.cpp \
     android_hardware_UsbRequest.cpp \
-    android_hardware_location_ContextHubService.cpp \
     android_hardware_location_ActivityRecognitionHardware.cpp \
     android_util_FileObserver.cpp \
     android/opengl/poly_clip.cpp.arm \
@@ -174,36 +187,42 @@ LOCAL_SRC_FILES:= \
     android_content_res_Configuration.cpp \
     android_animation_PropertyValuesHolder.cpp \
     com_android_internal_net_NetworkStatsFactory.cpp \
+    com_android_internal_os_FuseAppLoop.cpp \
     com_android_internal_os_PathClassLoaderFactory.cpp \
     com_android_internal_os_Zygote.cpp \
     com_android_internal_util_VirtualRefBasePtr.cpp \
-    com_android_internal_view_animation_NativeInterpolatorFactoryHelper.cpp
+    com_android_internal_view_animation_NativeInterpolatorFactoryHelper.cpp \
+    hwbinder/EphemeralStorage.cpp \
+    fd_utils.cpp \
 
 LOCAL_C_INCLUDES += \
+    $(LOCAL_PATH)/include \
     $(JNI_H_INCLUDE) \
     $(LOCAL_PATH)/android/graphics \
     $(LOCAL_PATH)/../../libs/hwui \
-    $(LOCAL_PATH)/../../../native/opengl/libs \
     $(LOCAL_PATH)/../../../native/vulkan/include \
     $(call include-path-for, bluedroid) \
     $(call include-path-for, libhardware)/hardware \
     $(call include-path-for, libhardware_legacy)/hardware_legacy \
     $(TOP)/frameworks/base/media/jni \
+    $(TOP)/frameworks/rs/cpp \
+    $(TOP)/frameworks/rs \
     $(TOP)/system/core/base/include \
     $(TOP)/system/core/include \
+    $(TOP)/system/core/libappfuse/include \
     $(TOP)/system/media/camera/include \
+    $(TOP)/system/media/private/camera/include \
     $(TOP)/system/netd/include \
-    external/pdfium/core/include/fpdfapi \
-    external/pdfium/fpdfsdk/include \
+    external/giflib \
     external/pdfium/public \
-    external/pdfium \
     external/skia/include/private \
+    external/skia/src/codec \
     external/skia/src/core \
     external/skia/src/effects \
+    external/skia/src/image \
     external/skia/src/images \
     external/sqlite/dist \
     external/sqlite/android \
-    external/expat/lib \
     external/tremor/Tremor \
     external/harfbuzz_ng/src \
     libcore/include \
@@ -212,20 +231,28 @@ LOCAL_C_INCLUDES += \
     external/freetype/include
 # TODO: clean up Minikin so it doesn't need the freetype include
 
+LOCAL_STATIC_LIBRARIES := \
+    libgif \
+    libseccomp_policy \
+    libselinux \
+    libcrypto \
+    libgrallocusage \
+
 LOCAL_SHARED_LIBRARIES := \
     libmemtrack \
     libandroidfw \
-    libexpat \
+    libappfuse \
+    libbase \
     libnativehelper \
     liblog \
     libcutils \
+    libdebuggerd_client \
     libutils \
     libbinder \
-    libnetutils \
     libui \
     libgui \
+    libsensor \
     libinput \
-    libinputflinger \
     libcamera_client \
     libcamera_metadata \
     libskia \
@@ -234,21 +261,18 @@ LOCAL_SHARED_LIBRARIES := \
     libGLESv1_CM \
     libGLESv2 \
     libvulkan \
+    libziparchive \
     libETC1 \
     libhardware \
     libhardware_legacy \
     libselinux \
-    libsonivox \
-    libcrypto \
-    libssl \
     libicuuc \
-    libicui18n \
     libmedia \
+    libaudioclient \
     libjpeg \
     libusbhost \
     libharfbuzz_ng \
     libz \
-    libaudioutils \
     libpdfium \
     libimg_utils \
     libnetd_client \
@@ -260,17 +284,28 @@ LOCAL_SHARED_LIBRARIES := \
     libradio_metadata \
     libnativeloader \
     libmemunreachable \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
+    libvintf \
+    libnativewindow \
 
 LOCAL_SHARED_LIBRARIES += \
     libhwui \
-    libdl
+    libdl \
+
+# our headers include libnativewindow's public headers
+LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := \
+    libnativewindow \
 
 # we need to access the private Bionic header
 # <bionic_tls.h> in com_google_android_gles_jni_GLImpl.cpp
 LOCAL_C_INCLUDES += bionic/libc/private
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
+
 # AndroidRuntime.h depends on nativehelper/jni.h
-LOCAL_EXPORT_C_INCLUDE_DIRS := libnativehelper/include
+LOCAL_EXPORT_C_INCLUDE_DIRS += libnativehelper/include
 
 LOCAL_MODULE:= libandroid_runtime
 
@@ -283,9 +318,12 @@ LOCAL_CFLAGS += -Wall -Werror -Wno-error=deprecated-declarations -Wunused -Wunre
 #                        is not being compiled with that level. Remove once this has changed.
 LOCAL_CLANG_CFLAGS += -Wno-c++11-extensions
 
-# b/22414716: thread_local (android/graphics/Paint.cpp) and Clang don't like each other at the
-#             moment.
-LOCAL_CLANG := false
+ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+LOCAL_CFLAGS += -D__ANDROID_DEBUGGABLE__
+endif
+ifneq (,$(filter true, $(PRODUCT_FULL_TREBLE)))
+LOCAL_CFLAGS += -D__ANDROID_TREBLE__
+endif
 
 include $(BUILD_SHARED_LIBRARY)
 

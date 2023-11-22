@@ -184,7 +184,7 @@ public final class ProgramInfo {
      */
     public ProgramInfo build(Context context, int index) {
         if (!GEN_TITLE.equals(title)
-                && !GEN_EPISODE.equals(episode)
+                && episode == null
                 && !GEN_POSTER.equals(posterArtUri)
                 && durationMs != GEN_DURATION
                 && !GEN_GENRE.equals(genre)) {
@@ -193,8 +193,8 @@ public final class ProgramInfo {
         return new ProgramInfo(
                 GEN_TITLE.equals(title) ? "Title(" + index + ")" : title,
                 GEN_EPISODE.equals(episode) ? "Episode(" + index + ")" : episode,
-                GEN_EPISODE.equals(episode) ? (index % SEASON_MAX + 1) : seasonNumber,
-                GEN_EPISODE.equals(episode) ? (index % EPISODE_MAX + 1) : episodeNumber,
+                episode != null ? (index % SEASON_MAX + 1) : seasonNumber,
+                episode != null ? (index % EPISODE_MAX + 1) : episodeNumber,
                 GEN_POSTER.equals(posterArtUri)
                         ? Utils.getUriStringForResource(context,
                                 POSTER_ARTS_RES[index % POSTER_ARTS_RES.length])

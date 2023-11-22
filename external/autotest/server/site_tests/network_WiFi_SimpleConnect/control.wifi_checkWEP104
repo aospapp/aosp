@@ -7,9 +7,8 @@ NAME = 'network_WiFi_SimpleConnect.wifi_checkWEP104'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = ('suite:wifi_correctness_cros_core, suite:wifi_matfunc, '
-              'suite:wifi_matfunc_bcm4371, suite:wifi_release')
-SUITE = ('wifi_matfunc, wifi_matfunc_bcm4371, '
-         'wifi_correctness_cros_core, wifi_release')
+              'suite:wifi_matfunc_bcm4371, suite:wifi_release, subsystem:wifi,'
+              'suite:android_wifi_connect')
 DEPENDENCIES = 'wificell'
 
 DOC = """

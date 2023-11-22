@@ -25,7 +25,7 @@
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Aperçu du fond d\'écran animé"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Paramètres…"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"Sélectionner"</string>
-    <string name="live_wallpaper_empty" msgid="4278728108785853407">"Aucun fond d\'écran animé"</string>
+    <string name="live_wallpaper_empty" msgid="4278728108785853407">"Aucun fond d\'écran animé."</string>
     <string name="set_live_wallpaper" msgid="2381437614949033266">"Sélectionner"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> de <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Chargement du fond d\'écran animé…"</string>

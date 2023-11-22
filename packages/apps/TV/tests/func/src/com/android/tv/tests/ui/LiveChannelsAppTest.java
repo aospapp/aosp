@@ -19,9 +19,9 @@ package com.android.tv.tests.ui;
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertHas;
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
 
+import android.support.test.filters.LargeTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Until;
-import android.test.suitebuilder.annotation.LargeTest;
 
 import com.android.tv.R;
 import com.android.tv.testing.testinput.ChannelStateData;

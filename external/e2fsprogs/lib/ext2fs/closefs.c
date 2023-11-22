@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #if HAVE_UNISTD_H
 #include <unistd.h>
@@ -34,8 +35,15 @@ static int test_root(unsigned int a, unsigned int b)
 
 int ext2fs_bg_has_super(ext2_filsys fs, dgrp_t group)
 {
-	if (!(fs->super->s_feature_ro_compat &
-	      EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER) || group <= 1)
+	if (group == 0)
+		return 1;
+	if (ext2fs_has_feature_sparse_super2(fs->super)) {
+		if (group == fs->super->s_backup_bgs[0] ||
+		    group == fs->super->s_backup_bgs[1])
+			return 1;
+		return 0;
+	}
+	if ((group <= 1) || !ext2fs_has_feature_sparse_super(fs->super))
 		return 1;
 	if (!(group & 1))
 		return 0;
@@ -77,7 +85,7 @@ errcode_t ext2fs_super_and_bgd_loc2(ext2_filsys fs,
 	if (group_block == 0 && fs->blocksize == 1024)
 		group_block = 1; /* Deal with 1024 blocksize && bigalloc */
 
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
+	if (ext2fs_has_feature_meta_bg(fs->super))
 		old_desc_blocks = fs->super->s_first_meta_bg;
 	else
 		old_desc_blocks =
@@ -92,7 +100,7 @@ errcode_t ext2fs_super_and_bgd_loc2(ext2_filsys fs,
 	meta_bg_size = EXT2_DESC_PER_BLOCK(fs->super);
 	meta_bg = group / meta_bg_size;
 
-	if (!(fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG) ||
+	if (!ext2fs_has_feature_meta_bg(fs->super) ||
 	    (meta_bg < fs->super->s_first_meta_bg)) {
 		if (has_super) {
 			old_desc_blk = group_block + 1;
@@ -246,15 +254,19 @@ static errcode_t write_backup_super(ext2_filsys fs, dgrp_t group,
 				    blk64_t group_block,
 				    struct ext2_super_block *super_shadow)
 {
+	errcode_t retval;
 	dgrp_t	sgrp = group;
 
 	if (sgrp > ((1 << 16) - 1))
 		sgrp = (1 << 16) - 1;
+
+	super_shadow->s_block_group_nr = sgrp;
 #ifdef WORDS_BIGENDIAN
-	super_shadow->s_block_group_nr = ext2fs_swab16(sgrp);
-#else
-	fs->super->s_block_group_nr = sgrp;
+	ext2fs_swap_super(super_shadow);
 #endif
+	retval = ext2fs_superblock_csum_set(fs, super_shadow);
+	if (retval)
+		return retval;
 
 	return io_channel_write_blk64(fs->io, group_block, -SUPERBLOCK_SIZE,
 				    super_shadow);
@@ -278,7 +290,7 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 	dgrp_t		j;
 #endif
 	char	*group_ptr;
-	int	old_desc_blocks;
+	blk64_t	old_desc_blocks;
 	struct ext2fs_numeric_progress_struct progress;
 
 	EXT2_CHECK_MAGIC(fs, EXT2_ET_MAGIC_EXT2FS_FILSYS);
@@ -288,6 +300,23 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 
 	fs->super->s_wtime = fs->now ? fs->now : time(NULL);
 	fs->super->s_block_group_nr = 0;
+
+	/*
+	 * If the write_bitmaps() function is present, call it to
+	 * flush the bitmaps.  This is done this way so that a simple
+	 * program that doesn't mess with the bitmaps doesn't need to
+	 * drag in the bitmaps.c code.
+	 *
+	 * Bitmap checksums live in the group descriptor, so the
+	 * bitmaps need to be written before the descriptors.
+	 */
+	if (fs->write_bitmaps) {
+		retval = fs->write_bitmaps(fs);
+		if (retval)
+			goto errout;
+	}
+
+	/* Prepare the group descriptors for writing */
 #ifdef WORDS_BIGENDIAN
 	retval = EXT2_ET_NO_MEMORY;
 	retval = ext2fs_get_mem(SUPERBLOCK_SIZE, &super_shadow);
@@ -297,6 +326,7 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 				  &group_shadow);
 	if (retval)
 		goto errout;
+	memcpy(super_shadow, fs->super, sizeof(struct ext2_super_block));
 	memcpy(group_shadow, fs->group_desc, (size_t) fs->blocksize *
 	       fs->desc_blocks);
 
@@ -316,18 +346,13 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 	 * we write out the backup superblocks.)
 	 */
 	fs->super->s_state &= ~EXT2_VALID_FS;
-	fs->super->s_feature_incompat &= ~EXT3_FEATURE_INCOMPAT_RECOVER;
-#ifdef WORDS_BIGENDIAN
-	*super_shadow = *fs->super;
-	ext2fs_swap_super(super_shadow);
-#endif
+	ext2fs_clear_feature_journal_needs_recovery(fs->super);
 
 	/*
 	 * If this is an external journal device, don't write out the
 	 * block group descriptors or any of the backup superblocks
 	 */
-	if (fs->super->s_feature_incompat &
-	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV)
+	if (ext2fs_has_feature_journal_dev(fs->super))
 		goto write_primary_superblock_only;
 
 	/*
@@ -335,19 +360,23 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 	 * superblocks and group descriptors.
 	 */
 	group_ptr = (char *) group_shadow;
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
+	if (ext2fs_has_feature_meta_bg(fs->super)) {
 		old_desc_blocks = fs->super->s_first_meta_bg;
-	else
+		if (old_desc_blocks > fs->desc_blocks)
+			old_desc_blocks = fs->desc_blocks;
+	} else
 		old_desc_blocks = fs->desc_blocks;
 
-	ext2fs_numeric_progress_init(fs, &progress, NULL,
-				     fs->group_desc_count);
+	if (fs->progress_ops && fs->progress_ops->init)
+		(fs->progress_ops->init)(fs, &progress, NULL,
+					 fs->group_desc_count);
 
 
 	for (i = 0; i < fs->group_desc_count; i++) {
 		blk64_t	super_blk, old_desc_blk, new_desc_blk;
 
-		ext2fs_numeric_progress_update(fs, &progress, i);
+		if (fs->progress_ops && fs->progress_ops->update)
+			(fs->progress_ops->update)(fs, &progress, i);
 		ext2fs_super_and_bgd_loc2(fs, i, &super_blk, &old_desc_blk,
 					 &new_desc_blk, 0);
 
@@ -376,19 +405,8 @@ errcode_t ext2fs_flush2(ext2_filsys fs, int flags)
 		}
 	}
 
-	ext2fs_numeric_progress_close(fs, &progress, NULL);
-
-	/*
-	 * If the write_bitmaps() function is present, call it to
-	 * flush the bitmaps.  This is done this way so that a simple
-	 * program that doesn't mess with the bitmaps doesn't need to
-	 * drag in the bitmaps.c code.
-	 */
-	if (fs->write_bitmaps) {
-		retval = fs->write_bitmaps(fs);
-		if (retval)
-			goto errout;
-	}
+	if (fs->progress_ops && fs->progress_ops->close)
+		(fs->progress_ops->close)(fs, &progress, NULL);
 
 write_primary_superblock_only:
 	/*
@@ -406,6 +424,10 @@ write_primary_superblock_only:
 	*super_shadow = *fs->super;
 	ext2fs_swap_super(super_shadow);
 #endif
+
+	retval = ext2fs_superblock_csum_set(fs, super_shadow);
+	if (retval)
+		return retval;
 
 	if (!(flags & EXT2_FLAG_FLUSH_NO_SYNC))
 		retval = io_channel_flush(fs->io);
@@ -426,6 +448,18 @@ errout:
 		ext2fs_free_mem(&group_shadow);
 #endif
 	return retval;
+}
+
+errcode_t ext2fs_close_free(ext2_filsys *fs_ptr)
+{
+	errcode_t ret;
+	ext2_filsys fs = *fs_ptr;
+
+	ret = ext2fs_close2(fs, 0);
+	if (ret)
+		ext2fs_free(fs);
+	*fs_ptr = NULL;
+	return ret;
 }
 
 errcode_t ext2fs_close(ext2_filsys fs)

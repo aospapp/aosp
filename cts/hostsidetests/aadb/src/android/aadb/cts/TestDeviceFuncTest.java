@@ -258,8 +258,9 @@ public class TestDeviceFuncTest extends DeviceTestCase {
         File tmpDir = FileUtil.createTempDir("tmp");
         try {
             File tmpFile = createTempTestFile(tmpDir);
-            // set last modified to 10 minutes ago
-            tmpFile.setLastModified(System.currentTimeMillis() - 10*60*1000);
+            // set last modified to the beginning of time, we do this so that it does
+            // not get picked up when we syn for the 2nd time.
+            assertTrue(tmpFile.setLastModified(1));
             assertNotNull(externalStorePath);
             expectedDeviceFilePath = String.format("%s/%s/%s", externalStorePath,
                     tmpDir.getName(), tmpFile.getName());
@@ -272,13 +273,13 @@ public class TestDeviceFuncTest extends DeviceTestCase {
                     expectedDeviceFilePath));
             // now create another file and verify that is synced
             File tmpFile2 = createTempTestFile(tmpDir);
-            tmpFile2.setLastModified(System.currentTimeMillis() - 10*60*1000);
+            assertTrue(tmpFile2.setLastModified(1));
             assertTrue(mTestDevice.syncFiles(tmpDir, externalStorePath));
             String expectedDeviceFilePath2 = String.format("%s/%s/%s", externalStorePath,
                     tmpDir.getName(), tmpFile2.getName());
             assertTrue(mTestDevice.doesFileExist(expectedDeviceFilePath2));
 
-            // verify 1st file timestamp did not change
+            // verify 1st file timestamp did not change, (i.e. it didn't get synced again)
             String unchangedTmpFileStamp = mTestDevice.executeShellCommand(String.format("ls -l %s",
                     expectedDeviceFilePath));
             assertEquals(origTmpFileStamp, unchangedTmpFileStamp);
@@ -289,17 +290,8 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             stream.write(testString.getBytes());
             stream.close();
 
-            // adjust 1st file's last-modified timestamp according to persist.sys.timezone
-            String deviceTimezone = mTestDevice.getProperty("persist.sys.timezone");
-            if (deviceTimezone != null) {
-                TimeZone tz = TimeZone.getTimeZone(deviceTimezone);
-                long timestamp = tmpFile.lastModified() + tz.getRawOffset();
-                if (tz.observesDaylightTime()) {
-                    timestamp += tz.getDSTSavings();
-                }
-                tmpFile.setLastModified(timestamp);
-            }
-
+            // Set the update time to be far in the future forcing it to be picked up for sync.
+            assertTrue(tmpFile.setLastModified(Long.MAX_VALUE));
             assertTrue(mTestDevice.syncFiles(tmpDir, externalStorePath));
             String tmpFileContents = mTestDevice.executeShellCommand(String.format("cat %s",
                     expectedDeviceFilePath));

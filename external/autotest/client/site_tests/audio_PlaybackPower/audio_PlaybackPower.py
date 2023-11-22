@@ -86,7 +86,7 @@ class audio_PlaybackPower(test.test):
             md5sum = hashlib.md5(r.read()).hexdigest()
             if md5sum != checksum:
                 raise error.TestError('unmatched md5 sum: %s' % md5sum)
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             url = cr.browser.platform.http_server.UrlOf(local_path)
             self.play_audio(cr.browser.tabs[0], url)
@@ -97,7 +97,7 @@ class audio_PlaybackPower(test.test):
         """Navigates to an audio file over http and plays it in loop.
 
         @param tab: tab to open an audio stream.
-        @url: audio/video test url.
+        @param url: audio/video test url.
         """
         tab.Navigate(url)
         tab.ExecuteJavaScript(

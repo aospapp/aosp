@@ -16,51 +16,75 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.cts.R;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Drawable.ConstantState;
+import android.graphics.drawable.RotateDrawable;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.AttributeSet;
+import android.util.Xml;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Drawable.ConstantState;
-import android.graphics.drawable.RotateDrawable;
-import android.test.AndroidTestCase;
-import android.util.AttributeSet;
-import android.util.Xml;
-
-public class RotateDrawableTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RotateDrawableTest {
+    private Resources mResources;
     private RotateDrawable mRotateDrawable;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        Resources resources = mContext.getResources();
-        mRotateDrawable = (RotateDrawable) resources.getDrawable(R.drawable.rotatedrawable);
+    @Before
+    public void setup() {
+        mResources = InstrumentationRegistry.getTargetContext().getResources();
+        mRotateDrawable = (RotateDrawable) mResources.getDrawable(R.drawable.rotatedrawable);
     }
 
+    @Test
     public void testConstructor() {
         new RotateDrawable();
     }
 
+    @Test
     public void testDraw() {
         Canvas canvas = new Canvas();
         mRotateDrawable.draw(canvas);
     }
 
+    @Test
     public void testInflate() {
         RotateDrawable d;
 
-        d = (RotateDrawable) mContext.getResources().getDrawable(R.drawable.rotatedrawable_rel);
+        d = (RotateDrawable) mResources.getDrawable(R.drawable.rotatedrawable_rel);
         assertEquals(0.1f, d.getPivotX(), 0.01f);
         assertEquals(0.2f, d.getPivotY(), 0.01f);
         assertEquals(360.0f, d.getFromDegrees(), 0.01f);
@@ -68,7 +92,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(true, d.isPivotXRelative());
         assertEquals(true, d.isPivotYRelative());
 
-        d = (RotateDrawable) mContext.getResources().getDrawable(R.drawable.rotatedrawable_abs);
+        d = (RotateDrawable) mResources.getDrawable(R.drawable.rotatedrawable_abs);
         assertEquals(0.3f, d.getPivotX(), 0.01f);
         assertEquals(0.3f, d.getPivotY(), 0.01f);
         assertEquals(180.0f, d.getFromDegrees(), 0.01f);
@@ -77,6 +101,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(false, d.isPivotYRelative());
     }
 
+    @Test
     public void testSetPivot() {
         RotateDrawable d = new RotateDrawable();
         assertEquals(0.5f, d.getPivotX(), 0.01f);
@@ -97,6 +122,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(false, d.isPivotYRelative());
     }
 
+    @Test
     public void testSetDegrees() {
         RotateDrawable d = new RotateDrawable();
         assertEquals(0.0f, d.getFromDegrees(), 0.01f);
@@ -111,6 +137,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(-10.0f, d.getFromDegrees(), 0.01f);
     }
 
+    @Test
     public void testGetChangingConfigurations() {
         assertEquals(0, mRotateDrawable.getChangingConfigurations());
 
@@ -121,6 +148,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(Configuration.KEYBOARD_12KEY, mRotateDrawable.getChangingConfigurations());
     }
 
+    @Test
     public void testSetAlpha() {
         mRotateDrawable.setAlpha(100);
         assertEquals(100, ((BitmapDrawable) mRotateDrawable.getDrawable()).getPaint().getAlpha());
@@ -129,6 +157,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(255, ((BitmapDrawable) mRotateDrawable.getDrawable()).getPaint().getAlpha());
     }
 
+    @Test
     public void testSetColorFilter() {
         ColorFilter filter = new ColorFilter();
         mRotateDrawable.setColorFilter(filter);
@@ -139,68 +168,67 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertNull(((BitmapDrawable) mRotateDrawable.getDrawable()).getPaint().getColorFilter());
     }
 
+    @Test
     public void testGetOpacity() {
         assertEquals(PixelFormat.OPAQUE, mRotateDrawable.getOpacity());
     }
 
+    @Test
     public void testInvalidateDrawable() {
-        Drawable drawable = mContext.getResources().getDrawable(R.drawable.pass);
-        MockCallback callback = new MockCallback();
+        Drawable drawable = mResources.getDrawable(R.drawable.pass);
+        Drawable.Callback callback = mock(Drawable.Callback.class);
 
         mRotateDrawable.setCallback(callback);
         mRotateDrawable.invalidateDrawable(null);
-        assertTrue(callback.hasCalledInvalidate());
+        verify(callback, times(1)).invalidateDrawable(any());
 
-        callback.reset();
+        reset(callback);
         mRotateDrawable.invalidateDrawable(drawable);
-        assertTrue(callback.hasCalledInvalidate());
+        verify(callback, times(1)).invalidateDrawable(any());
 
-        callback.reset();
+        reset(callback);
         mRotateDrawable.setCallback(null);
         mRotateDrawable.invalidateDrawable(drawable);
-        assertFalse(callback.hasCalledInvalidate());
+        verify(callback, never()).invalidateDrawable(any());
     }
 
+    @Test
     public void testScheduleDrawable() {
-        MockCallback callback = new MockCallback();
+        Drawable.Callback callback = mock(Drawable.Callback.class);
 
         mRotateDrawable.setCallback(callback);
         mRotateDrawable.scheduleDrawable(null, null, 0);
-        assertTrue(callback.hasCalledSchedule());
+        verify(callback, times(1)).scheduleDrawable(any(), any(), anyLong());
 
-        callback.reset();
-        mRotateDrawable.scheduleDrawable(new BitmapDrawable(), new Runnable() {
-            public void run() {
-            }
-        }, 1000L);
-        assertTrue(callback.hasCalledSchedule());
+        reset(callback);
+        mRotateDrawable.scheduleDrawable(new ColorDrawable(Color.RED), () -> {}, 1000L);
+        verify(callback, times(1)).scheduleDrawable(any(), any(), anyLong());
 
-        callback.reset();
+        reset(callback);
         mRotateDrawable.setCallback(null);
         mRotateDrawable.scheduleDrawable(null, null, 0);
-        assertFalse(callback.hasCalledSchedule());
+        verify(callback, never()).scheduleDrawable(any(), any(), anyLong());
     }
 
+    @Test
     public void testUnscheduleDrawable() {
-        MockCallback callback = new MockCallback();
+        Drawable.Callback callback = mock(Drawable.Callback.class);
 
         mRotateDrawable.setCallback(callback);
         mRotateDrawable.unscheduleDrawable(null, null);
-        assertTrue(callback.hasCalledUnschedule());
+        verify(callback, times(1)).unscheduleDrawable(any(), any());
 
-        callback.reset();
-        mRotateDrawable.unscheduleDrawable(new BitmapDrawable(), new Runnable() {
-            public void run() {
-            }
-        });
-        assertTrue(callback.hasCalledUnschedule());
+        reset(callback);
+        mRotateDrawable.unscheduleDrawable(new ColorDrawable(Color.RED), () -> {});
+        verify(callback, times(1)).unscheduleDrawable(any(), any());
 
-        callback.reset();
+        reset(callback);
         mRotateDrawable.setCallback(null);
         mRotateDrawable.unscheduleDrawable(null, null);
-        assertFalse(callback.hasCalledUnschedule());
+        verify(callback, never()).unscheduleDrawable(any(), any());
     }
 
+    @Test
     public void testGetPadding() {
         Rect rect = new Rect();
         assertFalse(mRotateDrawable.getPadding(rect));
@@ -210,6 +238,7 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertEquals(0, rect.bottom);
     }
 
+    @Test
     public void testSetVisible() {
         assertTrue(mRotateDrawable.isVisible());
 
@@ -223,105 +252,68 @@ public class RotateDrawableTest extends AndroidTestCase {
         assertTrue(mRotateDrawable.isVisible());
     }
 
+    @Test
     public void testIsStateful() {
         assertFalse(mRotateDrawable.isStateful());
     }
 
-    public void testMethods() {
-        // implementation details, do not test.
-    }
-
+    @Test
     public void testGetIntrinsicWidthAndHeight() throws XmlPullParserException, IOException {
         // testimage is set in res/drawable/rotatedrawable.xml
-        Drawable drawable = mContext.getResources().getDrawable(R.drawable.testimage);
+        Drawable drawable = mResources.getDrawable(R.drawable.testimage);
         assertEquals(drawable.getIntrinsicWidth(), mRotateDrawable.getIntrinsicWidth());
         assertEquals(drawable.getIntrinsicHeight(), mRotateDrawable.getIntrinsicHeight());
 
         RotateDrawable rotateDrawable = new RotateDrawable();
-        Resources r = mContext.getResources();
-        XmlPullParser parser = r.getXml(R.drawable.rotatedrawable);
+        XmlPullParser parser = mResources.getXml(R.drawable.rotatedrawable);
         while (parser.next() != XmlPullParser.START_TAG) {
             // ignore event, just seek to first tag
         }
         AttributeSet attrs = Xml.asAttributeSet(parser);
-        rotateDrawable.inflate(r, parser, attrs);
+        rotateDrawable.inflate(mResources, parser, attrs);
         assertEquals(drawable.getIntrinsicWidth(), rotateDrawable.getIntrinsicWidth());
         assertEquals(drawable.getIntrinsicHeight(), rotateDrawable.getIntrinsicHeight());
-
-        try {
-            mRotateDrawable.inflate(null, null, null);
-            fail("did not throw NullPointerException when parameters are null.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testInflateNull() throws XmlPullParserException, IOException {
+        mRotateDrawable.inflate(null, null, null);
+    }
+
+    @Test
     public void testGetConstantState() {
         ConstantState state = mRotateDrawable.getConstantState();
         assertNotNull(state);
     }
 
+    @Test
     public void testMutate() {
-        Resources resources = mContext.getResources();
+        RotateDrawable d1 = (RotateDrawable) mResources.getDrawable(R.drawable.rotatedrawable);
+        RotateDrawable d2 = (RotateDrawable) mResources.getDrawable(R.drawable.rotatedrawable);
+        RotateDrawable d3 = (RotateDrawable) mResources.getDrawable(R.drawable.rotatedrawable);
 
-        RotateDrawable d1 = (RotateDrawable) resources.getDrawable(R.drawable.rotatedrawable);
-        RotateDrawable d2 = (RotateDrawable) resources.getDrawable(R.drawable.rotatedrawable);
-        RotateDrawable d3 = (RotateDrawable) resources.getDrawable(R.drawable.rotatedrawable);
+        int restoreAlpha = d1.getAlpha();
 
-        d1.setAlpha(100);
-        assertEquals(100, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+        try {
+            // verify bad behavior - modify before mutate pollutes other drawables
+            d1.setAlpha(100);
+            assertEquals(100, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
 
-        d1.mutate();
-        d1.setAlpha(200);
-        assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+            d1.mutate();
+            d1.setAlpha(200);
+            assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
 
-        d2.setAlpha(50);
-        assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
-        assertEquals(50, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
-        assertEquals(50, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
-    }
-
-    private static class MockCallback implements Drawable.Callback {
-        private boolean mCalledInvalidate;
-        private boolean mCalledSchedule;
-        private boolean mCalledUnschedule;
-
-        public void invalidateDrawable(Drawable who) {
-            mCalledInvalidate = true;
-        }
-
-        public void scheduleDrawable(Drawable who, Runnable what, long when) {
-            mCalledSchedule = true;
-        }
-
-        public void unscheduleDrawable(Drawable who, Runnable what) {
-            mCalledUnschedule = true;
-        }
-
-        public boolean hasCalledInvalidate() {
-            return mCalledInvalidate;
-        }
-
-        public boolean hasCalledSchedule() {
-            return mCalledSchedule;
-        }
-
-        public boolean hasCalledUnschedule() {
-            return mCalledUnschedule;
-        }
-
-        public int getResolvedLayoutDirection(Drawable who) {
-            return 0;
-        }
-
-        public void reset() {
-            mCalledInvalidate = false;
-            mCalledSchedule = false;
-            mCalledUnschedule = false;
+            d2.setAlpha(50);
+            assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
+            assertEquals(50, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
+            assertEquals(50, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+        } finally {
+            // restore drawable state
+            mResources.getDrawable(R.drawable.rotatedrawable).setAlpha(restoreAlpha);
         }
     }
 }

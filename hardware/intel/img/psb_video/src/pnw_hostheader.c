@@ -204,7 +204,7 @@ static void pnw__write_upto8bits_elements(
     OutByteIndex = (size_bits_p[0] / 8);
 
     if (!(size_bits_p[0] & 7)) {
-        if (size_bits_p[0] >= 120) {
+        if (size_bits_p[0] >= 120 && ((mtx_hdr->Elements + 1) < MAXNUMBERELEMENTS)) {
             /* Element maximum bits send to element, time to start a new one */
             mtx_hdr->Elements++; /* Increment element index */
             /* Element pointer set to position of next element (120/8 = 15 bytes) */
@@ -751,7 +751,7 @@ static void pnw__H264_writebits_sequence_header(
     MTX_HEADER_ELEMENT **aui32ElementPointers,
     H264_SEQUENCE_HEADER_PARAMS *pSHParams, H264_CROP_PARAMS *psCrop)
 {
-    IMG_UINT8 ui8SBP;
+    IMG_UINT8 ui8SBP = 0;
 
     pnw__insert_element_token(pMTX_Header,
                               aui32ElementPointers,
@@ -917,7 +917,11 @@ static void pnw__H264_writebits_sequence_header(
     // Finally we need to align to the next byte
     // We know the size of the data in the sequence header (no MTX variables)  and start is byte aligned, so it's possible to add this field here rather than MTX ELEMENT_INSERTBYTEALIGN_H264 command.
     pnw__write_upto8bits_elements(pMTX_Header, aui32ElementPointers, 1, 1);
-    ui8SBP = (aui32ElementPointers[pMTX_Header->Elements]->Size) & 7;
+    if (pMTX_Header->Elements < MAXNUMBERELEMENTS) {
+        ui8SBP = (aui32ElementPointers[pMTX_Header->Elements]->Size) & 7;
+    } else {
+        ui8SBP = 0;
+    }
     if (ui8SBP > 0)
         pnw__write_upto8bits_elements(pMTX_Header, aui32ElementPointers, 0, 8 - (ui8SBP));
     return;

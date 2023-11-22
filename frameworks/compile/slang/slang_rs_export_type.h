@@ -33,6 +33,7 @@
 
 #include "slang_rs_exportable.h"
 
+#define RS_PADDING_FIELD_NAME ".rs.padding"
 
 inline const clang::Type* GetCanonicalType(const clang::Type* T) {
   if (T == nullptr) {
@@ -306,7 +307,59 @@ class RSExportType : public RSExportable {
   }
 
   virtual bool keep();
-  virtual bool equals(const RSExportable *E) const;
+  // matchODR(): a helper function for Slang::checkODR() on ODR validation
+  //
+  // The LookInto parameter dictates whether to recursively validate member
+  // types of given compound types. This currently only affects struct
+  // (RSExportRecordType); it has no effect on primitive types, vector types,
+  // or matrix types.
+  //
+  // Consider the following pseudo code of nested struct types:
+  //
+  // Translation unit #1:     Translation unit #2:
+  //
+  // struct Name(AA) {        struct Name(BB) {
+  //   Type(aa) aa;             Type(bb) bb;
+  // };                       };
+  //
+  // struct Name(A)  {        struct Name(B) {
+  //   struct Name(AA) a;       struct Name(BB) b;
+  // };                       };
+  //
+  // Case 1:
+  // Assuming aa and bb do not match (say mismatching just in field name), but
+  // the rest does, then the desirable behavior is to report an ODR violation
+  // on struct BB (vs. struct AA) but not on struct B (vs. struct A), because
+  // BB is the tightest enclosing declaration of the violation, not B.
+  //
+  // For this case, RSExportRecordType::matchODR() has the following behavior:
+  //
+  // A.matchODR(B, true) should NOT report an ODR violation;
+  // AA.matchODR(BB, true) should report an ODR violation w.r.t. struct BB;
+  // A.matchODR(B, false) should not report an error;
+  // AA.matchODR(BB, false) should not report an error.
+  //
+  // Slang::checkODR() acts as a driver for this validation case. It calls
+  // A.matchODR() and AA.matchODR() comparing against B and BB respectively.
+  //
+  // By setting LookInto true when Slang::checkODR() calls matchODR() with
+  // the outermost compound type, and false with any recursively discovered
+  // types, we can ensure the desirable ODR violation reporting behavior.
+  //
+  // Case 2:
+  // Assuming Name(AA) != Name(BB), but the rest of the declarations match,
+  // then the desirable behavior is to report an ODR violation on struct B
+  // (vs. struct A).
+  //
+  // In this case, RSExportRecordType::matchODR() has the following behavior:
+  //
+  // A.matchODR(B, true) should report an ODR violation w.r.t. struct B;
+  // because AA and BB are two different types, AA.matchODR(BB) won't be
+  // called.
+  //
+  // A.matchODR(B, false) should not report an error; this happens, should
+  // there be any more additional enclosing types for A subject to ODR check.
+  virtual bool matchODR(const RSExportType *E, bool LookInto) const;
 };  // RSExportType
 
 // Primitive types
@@ -378,7 +431,7 @@ class RSExportPrimitiveType : public RSExportType {
       return IsRSObjectType(mType);
   }
 
-  virtual bool equals(const RSExportable *E) const;
+  bool matchODR(const RSExportType *E, bool LookInto) const override;
 
   static RSReflectionType *getRSReflectionType(DataType DT);
   static RSReflectionType *getRSReflectionType(
@@ -421,7 +474,7 @@ class RSExportPointerType : public RSExportType {
 
   inline const RSExportType *getPointeeType() const { return mPointeeType; }
 
-  virtual bool equals(const RSExportable *E) const;
+  bool matchODR(const RSExportType *E, bool LookInto) const override;
 };  // RSExportPointerType
 
 
@@ -462,7 +515,7 @@ class RSExportVectorType : public RSExportPrimitiveType {
     return Name.str();
   }
 
-  virtual bool equals(const RSExportable *E) const;
+  bool matchODR(const RSExportType *E, bool LookInto) const override;
 };
 
 // Only *square* *float* matrix is supported by now.
@@ -498,7 +551,8 @@ class RSExportMatrixType : public RSExportType {
 
   inline unsigned getDim() const { return mDim; }
 
-  virtual bool equals(const RSExportable *E) const;
+  bool matchODR(const RSExportType *E, bool LookInto) const override;
+
 };
 
 class RSExportConstantArrayType : public RSExportType {
@@ -531,7 +585,7 @@ class RSExportConstantArrayType : public RSExportType {
   }
 
   virtual bool keep();
-  virtual bool equals(const RSExportable *E) const;
+  bool matchODR(const RSExportType *E, bool LookInto) const override;
 };
 
 class RSExportRecordType : public RSExportType {
@@ -618,7 +672,7 @@ class RSExportRecordType : public RSExportType {
   }
 
   virtual bool keep();
-  virtual bool equals(const RSExportable *E) const;
+  bool matchODR(const RSExportType *E, bool LookInto) const override;
 
   ~RSExportRecordType() {
     for (std::list<const Field*>::iterator I = mFields.begin(),

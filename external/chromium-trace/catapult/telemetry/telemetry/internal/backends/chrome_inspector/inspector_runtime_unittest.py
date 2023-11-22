@@ -3,9 +3,9 @@
 # found in the LICENSE file.
 
 from telemetry.core import exceptions
-from telemetry.core import util
-from telemetry import decorators
 from telemetry.testing import tab_test_case
+
+import py_utils
 
 
 class InspectorRuntimeTest(tab_test_case.TabTestCase):
@@ -14,8 +14,10 @@ class InspectorRuntimeTest(tab_test_case.TabTestCase):
     assert res == 2
 
   def testRuntimeEvaluateThatFails(self):
-    self.assertRaises(exceptions.EvaluateException,
-                      lambda: self._tab.EvaluateJavaScript('fsdfsdfsf'))
+    with self.assertRaises(exceptions.EvaluateException) as ex_context:
+      self._tab.EvaluateJavaScript('var x = 1;\nfsdfsdfsf')
+    exception_message = str(ex_context.exception)
+    self.assertIn('ReferenceError: fsdfsdfsf is not defined', exception_message)
 
   def testRuntimeEvaluateOfSomethingThatCantJSONize(self):
 
@@ -34,7 +36,6 @@ class InspectorRuntimeTest(tab_test_case.TabTestCase):
   def testRuntimeExecuteOfSomethingThatCantJSONize(self):
     self._tab.ExecuteJavaScript('window')
 
-  @decorators.Disabled('chromeos')  # crbug.com/483212
   def testIFrame(self):
     starting_contexts = self._tab.EnableAllContexts()
 
@@ -42,11 +43,9 @@ class InspectorRuntimeTest(tab_test_case.TabTestCase):
 
     # Access host page.
     test_defined_js = "typeof(testVar) != 'undefined'"
-    self._tab.WaitForJavaScriptExpression(test_defined_js, timeout=10)
+    self._tab.WaitForJavaScriptCondition(test_defined_js, timeout=10)
 
-    expected_contexts = 4 + starting_contexts
-
-    util.WaitFor(lambda: self._tab.EnableAllContexts() == expected_contexts,
+    py_utils.WaitFor(lambda: self._tab.EnableAllContexts() != starting_contexts,
                  timeout=10)
 
     self.assertEquals(self._tab.EvaluateJavaScript('testVar'), 'host')
@@ -54,8 +53,8 @@ class InspectorRuntimeTest(tab_test_case.TabTestCase):
     def TestVarReady(context_id):
       """Returns True if the context and testVar are both ready."""
       try:
-        return self._tab.EvaluateJavaScriptInContext(test_defined_js,
-                                                     context_id)
+        return self._tab.EvaluateJavaScript(
+            test_defined_js, context_id=context_id)
       except exceptions.EvaluateException:
         # This happens when the context is not ready.
         return False
@@ -63,20 +62,21 @@ class InspectorRuntimeTest(tab_test_case.TabTestCase):
     def TestVar(context_id):
       """Waits for testVar and the context to be ready, then returns the value
       of testVar."""
-      util.WaitFor(lambda: TestVarReady(context_id), timeout=10)
-      return self._tab.EvaluateJavaScriptInContext('testVar', context_id)
+      py_utils.WaitFor(lambda: TestVarReady(context_id), timeout=10)
+      return self._tab.EvaluateJavaScript('testVar', context_id=context_id)
 
+    all_contexts = self._tab.EnableAllContexts()
     # Access parent page using EvaluateJavaScriptInContext.
-    self.assertEquals(TestVar(context_id=starting_contexts+1), 'host')
+    self.assertEquals(TestVar(context_id=all_contexts-3), 'host')
 
     # Access the iframes without guarantees on which order they loaded.
-    iframe1 = TestVar(context_id=starting_contexts+2)
-    iframe2 = TestVar(context_id=starting_contexts+3)
-    iframe3 = TestVar(context_id=starting_contexts+4)
+    iframe1 = TestVar(context_id=all_contexts-2)
+    iframe2 = TestVar(context_id=all_contexts-1)
+    iframe3 = TestVar(context_id=all_contexts)
     self.assertEqual(set([iframe1, iframe2, iframe3]),
                      set(['iframe1', 'iframe2', 'iframe3']))
 
     # Accessing a non-existent iframe throws an exception.
     self.assertRaises(exceptions.EvaluateException,
-        lambda: self._tab.EvaluateJavaScriptInContext(
-          '1+1', context_id=starting_contexts+5))
+        lambda: self._tab.EvaluateJavaScript(
+            '1+1', context_id=all_contexts + 1))

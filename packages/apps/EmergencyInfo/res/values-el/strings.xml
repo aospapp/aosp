@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Επαφές έκτακτης ανάγκης"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Προσθήκη επαφής"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Δεν ήταν δυνατός ο εντοπισμός ενός επιλογέα επαφών"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Δεν είναι δυνατή η προβολή της επαφής"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Κατάργηση <xliff:g id="CONTACT_NAME">%1$s</xliff:g> από τις επαφές έκτακτης ανάγκης;"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Κατάργηση επαφής"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Δεν ήταν δυνατή η σωστή ανάγνωση των πληροφοριών επικοινωνίας"</string>
     <string name="remove" msgid="1243949503772376064">"Κατάργηση"</string>
     <string name="cancel" msgid="7401575239009060939">"Ακύρωση"</string>
     <string name="ok" msgid="163967937451981024">"ΟΚ"</string>
@@ -96,8 +99,9 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Πληροφορίες έκτακτης ανάγκης"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Οι πληροφορίες που εισάγετε εδώ μπορούν να βοηθήσουν τα άτομα που θα ανταποκριθούν πρώτα σε περίπτωση έκτακτης ανάγκης. Αποθηκεύονται μόνο στη συσκευή σας και μπορούν να τα διαβάσουν όλοι από το πρόγραμμα κλήσης έκτακτης ανάγκης χωρίς να ξεκλειδώσουν το τηλέφωνό σας."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Συνέχεια"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Δεν παρέχονται πληροφορίες έκτακτης ανάγκης"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Δεν υπάρχουν πληροφορίες σχετικά με τον κάτοχο του τηλεφώνου"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Εάν αυτό είναι το τηλέφωνό σας, πατήστε στο εικονίδιο με το μολύβι για να προσθέσετε πληροφορίες οι οποίες θα εμφανιστούν εδώ σε περίπτωση έκτακτης ανάγκης"</string>
     <string name="clear_all" msgid="8899013032870561633">"Διαγραφή όλων"</string>
-    <string name="clear" msgid="3648880442502887163">"Εκκαθάριση"</string>
+    <string name="clear" msgid="3648880442502887163">"Διαγραφή"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Να διαγραφούν όλες οι πληροφορίες και οι επαφές;"</string>
 </resources>

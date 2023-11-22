@@ -37,6 +37,13 @@ public class TestMax extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestMaxRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inA;
         public float inB;
@@ -44,13 +51,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloatFloatFloat() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xc2162460l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xc2162461l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x2952d868c2162460l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x2952d868c2162461l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloatFloatFloat(inA, out);
             verifyResultsMaxFloatFloatFloat(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloatFloatFloat(inA, out);
             verifyResultsMaxFloatFloatFloat(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloatFloatFloat: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloatFloatFloat(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloat2Float2Float2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x36addadal, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x36addadbl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xc6031e7536addadal, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xc6031e7536addadbl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloat2Float2Float2(inA, out);
             verifyResultsMaxFloat2Float2Float2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat2Float2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloat2Float2Float2(inA, out);
             verifyResultsMaxFloat2Float2Float2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat2Float2Float2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloat2Float2Float2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloat3Float3Float3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x388bdc7bl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x388bdc7cl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x1a67fc95388bdc7bl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x1a67fc95388bdc7cl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloat3Float3Float3(inA, out);
             verifyResultsMaxFloat3Float3Float3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat3Float3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloat3Float3Float3(inA, out);
             verifyResultsMaxFloat3Float3Float3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat3Float3Float3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloat3Float3Float3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloat4Float4Float4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x3a69de1cl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x3a69de1dl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x6eccdab53a69de1cl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x6eccdab53a69de1dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloat4Float4Float4(inA, out);
             verifyResultsMaxFloat4Float4Float4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat4Float4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloat4Float4Float4(inA, out);
             verifyResultsMaxFloat4Float4Float4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat4Float4Float4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloat4Float4Float4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -368,13 +391,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalfHalfHalf() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xb6e25ddbl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xb6e25ddcl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x3cd92a4ab6e25ddbl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x3cd92a4ab6e25ddcl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalfHalfHalf(inA, out);
             verifyResultsMaxHalfHalfHalf(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalfHalfHalf: " + e.toString());
         }
@@ -383,9 +407,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalfHalfHalf(inA, out);
             verifyResultsMaxHalfHalfHalf(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalfHalfHalf: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalfHalfHalf(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -452,13 +479,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalf2Half2Half2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xf8fc6855l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xf8fc6856l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xf8c31a85f8fc6855l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xf8c31a85f8fc6856l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalf2Half2Half2(inA, out);
             verifyResultsMaxHalf2Half2Half2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf2Half2Half2: " + e.toString());
         }
@@ -467,9 +495,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalf2Half2Half2(inA, out);
             verifyResultsMaxHalf2Half2Half2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf2Half2Half2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalf2Half2Half2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -536,13 +567,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalf3Half3Half3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x579b7924l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x579b7925l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x1e779a6f579b7924l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x1e779a6f579b7925l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalf3Half3Half3(inA, out);
             verifyResultsMaxHalf3Half3Half3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf3Half3Half3: " + e.toString());
         }
@@ -551,9 +583,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalf3Half3Half3(inA, out);
             verifyResultsMaxHalf3Half3Half3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf3Half3Half3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalf3Half3Half3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -620,13 +655,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalf4Half4Half4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xb63a89f3l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xb63a89f4l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x442c1a58b63a89f3l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x442c1a58b63a89f4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalf4Half4Half4(inA, out);
             verifyResultsMaxHalf4Half4Half4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf4Half4Half4: " + e.toString());
         }
@@ -635,9 +671,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalf4Half4Half4(inA, out);
             verifyResultsMaxHalf4Half4Half4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf4Half4Half4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalf4Half4Half4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -704,13 +743,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloat2FloatFloat2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x8592438l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x8592439l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x63dd380708592438l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x63dd380708592439l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloat2FloatFloat2(inA, out);
             verifyResultsMaxFloat2FloatFloat2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat2FloatFloat2: " + e.toString());
         }
@@ -719,9 +759,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloat2FloatFloat2(inA, out);
             verifyResultsMaxFloat2FloatFloat2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat2FloatFloat2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloat2FloatFloat2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -783,13 +826,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloat3FloatFloat3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xf6c41894l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xf6c41895l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xb92ceb1ef6c41894l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xb92ceb1ef6c41895l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloat3FloatFloat3(inA, out);
             verifyResultsMaxFloat3FloatFloat3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat3FloatFloat3: " + e.toString());
         }
@@ -798,9 +842,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloat3FloatFloat3(inA, out);
             verifyResultsMaxFloat3FloatFloat3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat3FloatFloat3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloat3FloatFloat3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -862,13 +909,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxFloat4FloatFloat4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xe52f0cf0l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xe52f0cf1l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xe7c9e36e52f0cf0l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xe7c9e36e52f0cf1l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxFloat4FloatFloat4(inA, out);
             verifyResultsMaxFloat4FloatFloat4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat4FloatFloat4: " + e.toString());
         }
@@ -877,9 +925,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxFloat4FloatFloat4(inA, out);
             verifyResultsMaxFloat4FloatFloat4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxFloat4FloatFloat4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxFloat4FloatFloat4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -941,13 +992,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalf2HalfHalf2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xf5bbc96fl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xf5bbc970l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x8eb729ebf5bbc96fl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x8eb729ebf5bbc970l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalf2HalfHalf2(inA, out);
             verifyResultsMaxHalf2HalfHalf2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf2HalfHalf2: " + e.toString());
         }
@@ -956,9 +1008,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalf2HalfHalf2(inA, out);
             verifyResultsMaxHalf2HalfHalf2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf2HalfHalf2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalf2HalfHalf2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1025,13 +1080,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalf3HalfHalf3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xa8555b13l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xa8555b14l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb9444a6aa8555b13l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xb9444a6aa8555b14l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalf3HalfHalf3(inA, out);
             verifyResultsMaxHalf3HalfHalf3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf3HalfHalf3: " + e.toString());
         }
@@ -1040,9 +1096,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalf3HalfHalf3(inA, out);
             verifyResultsMaxHalf3HalfHalf3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf3HalfHalf3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalf3HalfHalf3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1109,13 +1168,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxHalf4HalfHalf4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x5aeeecb7l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x5aeeecb8l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xe3d16ae95aeeecb7l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xe3d16ae95aeeecb8l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxHalf4HalfHalf4(inA, out);
             verifyResultsMaxHalf4HalfHalf4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf4HalfHalf4: " + e.toString());
         }
@@ -1124,9 +1184,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxHalf4HalfHalf4(inA, out);
             verifyResultsMaxHalf4HalfHalf4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxHalf4HalfHalf4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxHalf4HalfHalf4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1199,13 +1262,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxCharCharChar() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0xb6405876l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0xb6405877l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0x5f77cf3cb6405876l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0x5f77cf3cb6405877l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxCharCharChar(inA, out);
             verifyResultsMaxCharCharChar(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxCharCharChar: " + e.toString());
         }
@@ -1214,9 +1278,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxCharCharChar(inA, out);
             verifyResultsMaxCharCharChar(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxCharCharChar: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxCharCharChar(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1277,13 +1344,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxChar2Char2Char2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0x19e42804l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0x19e42805l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0x94dd090a19e42804l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0x94dd090a19e42805l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxChar2Char2Char2(inA, out);
             verifyResultsMaxChar2Char2Char2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxChar2Char2Char2: " + e.toString());
         }
@@ -1292,9 +1360,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxChar2Char2Char2(inA, out);
             verifyResultsMaxChar2Char2Char2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxChar2Char2Char2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxChar2Char2Char2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1355,13 +1426,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxChar3Char3Char3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0x788338d3l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0x788338d4l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0xba9188f3788338d3l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0xba9188f3788338d4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxChar3Char3Char3(inA, out);
             verifyResultsMaxChar3Char3Char3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxChar3Char3Char3: " + e.toString());
         }
@@ -1370,9 +1442,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxChar3Char3Char3(inA, out);
             verifyResultsMaxChar3Char3Char3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxChar3Char3Char3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxChar3Char3Char3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1433,13 +1508,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxChar4Char4Char4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0xd72249a2l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0xd72249a3l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0xe04608dcd72249a2l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0xe04608dcd72249a3l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxChar4Char4Char4(inA, out);
             verifyResultsMaxChar4Char4Char4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxChar4Char4Char4: " + e.toString());
         }
@@ -1448,9 +1524,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxChar4Char4Char4(inA, out);
             verifyResultsMaxChar4Char4Char4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxChar4Char4Char4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxChar4Char4Char4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1517,13 +1596,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUcharUcharUchar() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x853a162dl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x853a162el, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x800f9948853a162dl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x800f9948853a162el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUcharUcharUchar(inA, out);
             verifyResultsMaxUcharUcharUchar(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUcharUcharUchar: " + e.toString());
         }
@@ -1532,9 +1612,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUcharUcharUchar(inA, out);
             verifyResultsMaxUcharUcharUchar(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUcharUcharUchar: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUcharUcharUchar(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1595,13 +1678,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUchar2Uchar2Uchar2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0xb7e9a9dbl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0xb7e9a9dcl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0xd31d5735b7e9a9dbl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0xd31d5735b7e9a9dcl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUchar2Uchar2Uchar2(inA, out);
             verifyResultsMaxUchar2Uchar2Uchar2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUchar2Uchar2Uchar2: " + e.toString());
         }
@@ -1610,9 +1694,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUchar2Uchar2Uchar2(inA, out);
             verifyResultsMaxUchar2Uchar2Uchar2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUchar2Uchar2Uchar2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUchar2Uchar2Uchar2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1673,13 +1760,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUchar3Uchar3Uchar3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0xb9c7ab7cl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0xb9c7ab7dl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0x27823555b9c7ab7cl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0x27823555b9c7ab7dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUchar3Uchar3Uchar3(inA, out);
             verifyResultsMaxUchar3Uchar3Uchar3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUchar3Uchar3Uchar3: " + e.toString());
         }
@@ -1688,9 +1776,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUchar3Uchar3Uchar3(inA, out);
             verifyResultsMaxUchar3Uchar3Uchar3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUchar3Uchar3Uchar3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUchar3Uchar3Uchar3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1751,13 +1842,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUchar4Uchar4Uchar4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0xbba5ad1dl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0xbba5ad1el, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0x7be71375bba5ad1dl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0x7be71375bba5ad1el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUchar4Uchar4Uchar4(inA, out);
             verifyResultsMaxUchar4Uchar4Uchar4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUchar4Uchar4Uchar4: " + e.toString());
         }
@@ -1766,9 +1858,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUchar4Uchar4Uchar4(inA, out);
             verifyResultsMaxUchar4Uchar4Uchar4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUchar4Uchar4Uchar4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUchar4Uchar4Uchar4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1835,13 +1930,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxShortShortShort() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0x43b57294l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0x43b57295l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0x920335e143b57294l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0x920335e143b57295l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxShortShortShort(inA, out);
             verifyResultsMaxShortShortShort(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShortShortShort: " + e.toString());
         }
@@ -1850,9 +1946,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxShortShortShort(inA, out);
             verifyResultsMaxShortShortShort(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShortShortShort: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxShortShortShort(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1913,13 +2012,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxShort2Short2Short2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0x56ecb9del, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0x56ecb9dfl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0x42e9d46b56ecb9del, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0x42e9d46b56ecb9dfl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxShort2Short2Short2(inA, out);
             verifyResultsMaxShort2Short2Short2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShort2Short2Short2: " + e.toString());
         }
@@ -1928,9 +2028,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxShort2Short2Short2(inA, out);
             verifyResultsMaxShort2Short2Short2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShort2Short2Short2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxShort2Short2Short2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1991,13 +2094,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxShort3Short3Short3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x58cabb7fl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x58cabb80l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x974eb28b58cabb7fl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x974eb28b58cabb80l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxShort3Short3Short3(inA, out);
             verifyResultsMaxShort3Short3Short3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShort3Short3Short3: " + e.toString());
         }
@@ -2006,9 +2110,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxShort3Short3Short3(inA, out);
             verifyResultsMaxShort3Short3Short3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShort3Short3Short3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxShort3Short3Short3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2069,13 +2176,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxShort4Short4Short4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0x5aa8bd20l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0x5aa8bd21l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0xebb390ab5aa8bd20l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0xebb390ab5aa8bd21l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxShort4Short4Short4(inA, out);
             verifyResultsMaxShort4Short4Short4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShort4Short4Short4: " + e.toString());
         }
@@ -2084,9 +2192,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxShort4Short4Short4(inA, out);
             verifyResultsMaxShort4Short4Short4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxShort4Short4Short4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxShort4Short4Short4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2153,13 +2264,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUshortUshortUshort() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0xb947704bl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0xb947704cl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0x8f869c73b947704bl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0x8f869c73b947704cl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUshortUshortUshort(inA, out);
             verifyResultsMaxUshortUshortUshort(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshortUshortUshort: " + e.toString());
         }
@@ -2168,9 +2280,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUshortUshortUshort(inA, out);
             verifyResultsMaxUshortUshortUshort(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshortUshortUshort: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUshortUshortUshort(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2231,13 +2346,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUshort2Ushort2Ushort2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0x150b1f95l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0x150b1f96l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0xbe3c50e6150b1f95l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0xbe3c50e6150b1f96l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUshort2Ushort2Ushort2(inA, out);
             verifyResultsMaxUshort2Ushort2Ushort2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshort2Ushort2Ushort2: " + e.toString());
         }
@@ -2246,9 +2362,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUshort2Ushort2Ushort2(inA, out);
             verifyResultsMaxUshort2Ushort2Ushort2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshort2Ushort2Ushort2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUshort2Ushort2Ushort2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2309,13 +2428,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUshort3Ushort3Ushort3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0x5df0112cl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0x5df0112dl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0x3e2be9df5df0112cl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0x3e2be9df5df0112dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUshort3Ushort3Ushort3(inA, out);
             verifyResultsMaxUshort3Ushort3Ushort3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshort3Ushort3Ushort3: " + e.toString());
         }
@@ -2324,9 +2444,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUshort3Ushort3Ushort3(inA, out);
             verifyResultsMaxUshort3Ushort3Ushort3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshort3Ushort3Ushort3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUshort3Ushort3Ushort3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2387,13 +2510,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUshort4Ushort4Ushort4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0xa6d502c3l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0xa6d502c4l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0xbe1b82d8a6d502c3l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0xbe1b82d8a6d502c4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUshort4Ushort4Ushort4(inA, out);
             verifyResultsMaxUshort4Ushort4Ushort4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshort4Ushort4Ushort4: " + e.toString());
         }
@@ -2402,9 +2526,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUshort4Ushort4Ushort4(inA, out);
             verifyResultsMaxUshort4Ushort4Ushort4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUshort4Ushort4Ushort4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUshort4Ushort4Ushort4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2471,13 +2598,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxIntIntInt() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xe43d0fa9l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xe43d0faal, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x773d0d60e43d0fa9l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x773d0d60e43d0faal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxIntIntInt(inA, out);
             verifyResultsMaxIntIntInt(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxIntIntInt: " + e.toString());
         }
@@ -2486,9 +2614,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxIntIntInt(inA, out);
             verifyResultsMaxIntIntInt(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxIntIntInt: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxIntIntInt(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2549,13 +2680,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxInt2Int2Int2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0xbb9dccd7l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0xbb9dccd8l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x32815a01bb9dccd7l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x32815a01bb9dccd8l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxInt2Int2Int2(inA, out);
             verifyResultsMaxInt2Int2Int2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxInt2Int2Int2: " + e.toString());
         }
@@ -2564,9 +2696,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxInt2Int2Int2(inA, out);
             verifyResultsMaxInt2Int2Int2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxInt2Int2Int2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxInt2Int2Int2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2627,13 +2762,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxInt3Int3Int3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x867314c0l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x867314c1l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x3f66ddfc867314c0l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x3f66ddfc867314c1l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxInt3Int3Int3(inA, out);
             verifyResultsMaxInt3Int3Int3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxInt3Int3Int3: " + e.toString());
         }
@@ -2642,9 +2778,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxInt3Int3Int3(inA, out);
             verifyResultsMaxInt3Int3Int3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxInt3Int3Int3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxInt3Int3Int3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2705,13 +2844,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxInt4Int4Int4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x51485ca9l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x51485caal, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x4c4c61f751485ca9l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x4c4c61f751485caal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxInt4Int4Int4(inA, out);
             verifyResultsMaxInt4Int4Int4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxInt4Int4Int4: " + e.toString());
         }
@@ -2720,9 +2860,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxInt4Int4Int4(inA, out);
             verifyResultsMaxInt4Int4Int4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxInt4Int4Int4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxInt4Int4Int4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2789,13 +2932,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUintUintUint() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0x85f73e36l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0x85f73e37l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xcd24e58385f73e36l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xcd24e58385f73e37l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUintUintUint(inA, out);
             verifyResultsMaxUintUintUint(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUintUintUint: " + e.toString());
         }
@@ -2804,9 +2948,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUintUintUint(inA, out);
             verifyResultsMaxUintUintUint(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUintUintUint: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUintUintUint(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2867,13 +3014,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUint2Uint2Uint2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0xe84d6c4l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0xe84d6c5l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0xbd5747860e84d6c4l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0xbd5747860e84d6c5l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUint2Uint2Uint2(inA, out);
             verifyResultsMaxUint2Uint2Uint2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUint2Uint2Uint2: " + e.toString());
         }
@@ -2882,9 +3030,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUint2Uint2Uint2(inA, out);
             verifyResultsMaxUint2Uint2Uint2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUint2Uint2Uint2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUint2Uint2Uint2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2945,13 +3096,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUint3Uint3Uint3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0x6d23e793l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0x6d23e794l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0xe30bc76f6d23e793l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0xe30bc76f6d23e794l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUint3Uint3Uint3(inA, out);
             verifyResultsMaxUint3Uint3Uint3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUint3Uint3Uint3: " + e.toString());
         }
@@ -2960,9 +3112,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUint3Uint3Uint3(inA, out);
             verifyResultsMaxUint3Uint3Uint3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUint3Uint3Uint3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUint3Uint3Uint3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3023,13 +3178,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUint4Uint4Uint4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0xcbc2f862l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0xcbc2f863l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0x8c04758cbc2f862l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0x8c04758cbc2f863l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUint4Uint4Uint4(inA, out);
             verifyResultsMaxUint4Uint4Uint4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUint4Uint4Uint4: " + e.toString());
         }
@@ -3038,9 +3194,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUint4Uint4Uint4(inA, out);
             verifyResultsMaxUint4Uint4Uint4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUint4Uint4Uint4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUint4Uint4Uint4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3107,13 +3266,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxLongLongLong() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0x85eceb84l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0x85eceb85l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0x542587285eceb84l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0x542587285eceb85l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxLongLongLong(inA, out);
             verifyResultsMaxLongLongLong(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLongLongLong: " + e.toString());
         }
@@ -3122,9 +3282,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxLongLongLong(inA, out);
             verifyResultsMaxLongLongLong(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLongLongLong: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxLongLongLong(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3185,13 +3348,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxLong2Long2Long2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0xc249c9dal, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0xc249c9dbl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0xc5c0bac4c249c9dal, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0xc5c0bac4c249c9dbl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxLong2Long2Long2(inA, out);
             verifyResultsMaxLong2Long2Long2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLong2Long2Long2: " + e.toString());
         }
@@ -3200,9 +3364,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxLong2Long2Long2(inA, out);
             verifyResultsMaxLong2Long2Long2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLong2Long2Long2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxLong2Long2Long2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3263,13 +3430,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxLong3Long3Long3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0x20e8daa9l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0x20e8daaal, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0xeb753aae20e8daa9l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0xeb753aae20e8daaal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxLong3Long3Long3(inA, out);
             verifyResultsMaxLong3Long3Long3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLong3Long3Long3: " + e.toString());
         }
@@ -3278,9 +3446,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxLong3Long3Long3(inA, out);
             verifyResultsMaxLong3Long3Long3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLong3Long3Long3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxLong3Long3Long3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3341,13 +3512,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxLong4Long4Long4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0x7f87eb78l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0x7f87eb79l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0x1129ba977f87eb78l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0x1129ba977f87eb79l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxLong4Long4Long4(inA, out);
             verifyResultsMaxLong4Long4Long4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLong4Long4Long4: " + e.toString());
         }
@@ -3356,9 +3528,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxLong4Long4Long4(inA, out);
             verifyResultsMaxLong4Long4Long4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxLong4Long4Long4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxLong4Long4Long4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3425,13 +3600,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUlongUlongUlong() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x8f18baafl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x8f18bab0l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x8d1ad8f38f18baafl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x8d1ad8f38f18bab0l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUlongUlongUlong(inA, out);
             verifyResultsMaxUlongUlongUlong(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlongUlongUlong: " + e.toString());
         }
@@ -3440,9 +3616,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUlongUlongUlong(inA, out);
             verifyResultsMaxUlongUlongUlong(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlongUlongUlong: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUlongUlongUlong(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3503,13 +3682,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUlong2Ulong2Ulong2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0x5946bc65l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0x5946bc66l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0x6e2049a55946bc65l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0x6e2049a55946bc66l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUlong2Ulong2Ulong2(inA, out);
             verifyResultsMaxUlong2Ulong2Ulong2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlong2Ulong2Ulong2: " + e.toString());
         }
@@ -3518,9 +3698,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUlong2Ulong2Ulong2(inA, out);
             verifyResultsMaxUlong2Ulong2Ulong2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlong2Ulong2Ulong2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUlong2Ulong2Ulong2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3581,13 +3764,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUlong3Ulong3Ulong3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0x5b24be06l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0x5b24be07l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0xc28527c55b24be06l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0xc28527c55b24be07l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUlong3Ulong3Ulong3(inA, out);
             verifyResultsMaxUlong3Ulong3Ulong3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlong3Ulong3Ulong3: " + e.toString());
         }
@@ -3596,9 +3780,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUlong3Ulong3Ulong3(inA, out);
             verifyResultsMaxUlong3Ulong3Ulong3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlong3Ulong3Ulong3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUlong3Ulong3Ulong3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3659,13 +3846,14 @@ public class TestMax extends RSBaseCompute {
     }
 
     private void checkMaxUlong4Ulong4Ulong4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x5d02bfa7l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x5d02bfa8l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x16ea05e55d02bfa7l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x16ea05e55d02bfa8l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMaxUlong4Ulong4Ulong4(inA, out);
             verifyResultsMaxUlong4Ulong4Ulong4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlong4Ulong4Ulong4: " + e.toString());
         }
@@ -3674,9 +3862,12 @@ public class TestMax extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMaxUlong4Ulong4Ulong4(inA, out);
             verifyResultsMaxUlong4Ulong4Ulong4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMaxUlong4Ulong4Ulong4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMaxUlong4Ulong4Ulong4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {

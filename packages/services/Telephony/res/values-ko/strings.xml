@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"이동통신 데이터"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"모바일 데이터"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"전화 서비스"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"긴급 통화"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"휴대전화"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"음성사서함 번호 없음"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 카드에 저장된 음성사서함 번호가 없습니다."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"번호 추가"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"기본 사용자만 음성사서함 설정을 변경할 수 있습니다."</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"SIM 카드의 잠금이 해제되었습니다. 휴대전화의 잠금해제 중..."</string>
     <string name="label_ndp" msgid="780479633159517250">"SIM 네트워크 잠금해제 PIN"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"잠금해제"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"네트워크 잠금해제 요청 중..."</string>
     <string name="unlock_failed" msgid="6490531697031504225">"네트워크 잠금해제 요청이 실패했습니다."</string>
     <string name="unlock_success" msgid="6770085622238180152">"네트워크의 잠금을 해제했습니다."</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"이 사용자는 이동통신망 설정을 사용할 수 없습니다."</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"이 사용자는 모바일 네트워크 설정을 사용할 수 없습니다."</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM 통화 설정"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM 통화 설정(<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA 통화 설정"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"음성사서함"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"음성사서함(<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"알림"</string>
     <string name="networks" msgid="8873030692174541976">"네트워크 운영자"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"긴급 방송"</string>
     <string name="call_settings" msgid="6112441768261754562">"통화 설정"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"전화를 받을 수 없는 경우"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"전화를 받을 수 없는 경우 착신전환할 번호"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"<xliff:g id="PHONENUMBER">{0}</xliff:g>(으)로 착신전환"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"사용 중지됨"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"사용 안함"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"이동통신사에서 전화를 받을 수 없을 때 착신전환 사용 중지를 지원하지 않습니다."</string>
     <string name="updating_title" msgid="6146755386174019046">"통화 설정"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"관리자만 통화 설정을 변경할 수 있습니다."</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"새 PIN에 잘못된 문자가 있습니다."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"PIN을 변경할 수 없습니다."</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"지원되지 않는 메시지 유형입니다. 들으려면 <xliff:g id="NUMBER">%s</xliff:g>번으로 전화하세요."</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"이동통신망 설정"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"모바일 네트워크 설정"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"모바일 네트워크"</string>
     <string name="label_available" msgid="1181658289009300430">"사용 가능한 네트워크"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"검색 중..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"네트워크를 찾을 수 없습니다."</string>
@@ -209,7 +212,7 @@
   </string-array>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"향상된 4G LTE 모드"</string>
     <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"고급 통화"</string>
-    <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE 서비스를 사용하여 음성 및 기타 통신을 개선할 수 있습니다(권장)."</string>
+    <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"LTE 서비스를 사용하여 음성 및 기타 통신을 개선할 수 있습니다(권장)"</string>
     <string name="data_enabled" msgid="5972538663568715366">"데이터 사용"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"데이터 사용 허용"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"주의"</string>
@@ -231,7 +234,7 @@
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"최대치 <xliff:g id="USED_0">%1$s</xliff:g> 초과\n데이터 속도가 <xliff:g id="USED_1">%2$d</xliff:g>Kb/s로 감소"</string>
     <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"주기의 <xliff:g id="USED_0">%1$d</xliff:g>٪ 경과\n다음 기간은 <xliff:g id="USED_1">%2$d</xliff:g>일 후에 시작(<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"데이터 사용량 제한을 초과하면 데이터 속도는 <xliff:g id="USED">%1$d</xliff:g>Kb/s로 줄어듭니다."</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"이동통신사의 이동통신망 데이터 사용 정책에 대한 자세한 정보"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"이동통신사의 모바일 네트워크 데이터 사용 정책에 대한 자세한 정보"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"셀 브로드캐스트 SMS"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"셀 브로드캐스트 SMS"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"셀 브로드캐스트 SMS 사용"</string>
@@ -368,6 +371,7 @@
     <string name="menu_add" msgid="1882023737425114762">"연락처 추가"</string>
     <string name="menu_edit" msgid="7143003705504672374">"연락처 수정"</string>
     <string name="menu_delete" msgid="3977150783449642851">"연락처 삭제"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"연락처로 전화 걸기"</string>
     <string name="get_pin2" msgid="8204677063922225311">"PIN2 유형"</string>
     <string name="name" msgid="7329028332786872378">"이름"</string>
     <string name="number" msgid="7905950798349903858">"번호"</string>
@@ -382,7 +386,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"발신 허용 번호를 삭제하는 중..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"발신 허용 번호가 삭제되었습니다."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"잘못된 PIN을 입력하여 FDN 업데이트 안됨"</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"숫자가 20자리를 초과할 수 없으므로 FDN을 업데이트하지 못했습니다."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"숫자가 비어있거나 20자리를 초과하여 FDN을 업데이트하지 못했습니다."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN이 업데이트되지 않았습니다. PIN2가 잘못되었거나 전화번호가 거부되었습니다."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN 작업이 실패했습니다."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"SIM 카드에서 읽는 중..."</string>
@@ -439,16 +443,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"알 수 없는 음성사서함 번호"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"서비스 불가"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"선택한 네트워크(<xliff:g id="OPERATOR_NAME">%s</xliff:g>)를 사용할 수 없음"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"전화를 걸려면 비행기 모드를 사용 중지하세요."</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"전화를 걸려면 모바일 네트워크를 사용 설정하고 비행기 모드 또는 배터리 세이버 모드를 사용 중지하세요."</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"전화를 걸려면 비행기 모드를 사용 중지하세요."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"전화를 걸려면 비행기 모드를 사용 중지하거나 무선 네트워크에 연결하세요."</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"일반 전화를 걸려면 긴급 콜백 모드를 해제하세요."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"네트워크에서 등록되지 않았습니다."</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"사용 가능한 이동통신망이 없습니다."</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"모바일 네트워크를 사용할 수 없습니다. 전화를 걸려면 무선 네트워크에 연결하세요."</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"모바일 네트워크를 사용할 수 없습니다."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"모바일 네트워크를 사용할 수 없습니다. 전화를 걸려면 무선 네트워크에 연결하세요."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"전화를 걸려면 올바른 번호를 입력하세요."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"전화 연결 실패"</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"현재 통화를 추가할 수 없습니다."</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI 시퀀스 시작 중..."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"지원되지 않는 서비스입니다."</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"통화를 전환할 수 없습니다."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"통화를 분리할 수 없습니다."</string>
@@ -523,10 +527,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"긴급 콜백 모드 시작"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"긴급 콜백 모드"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"데이터 연결이 끊김"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g>분 동안 데이터 연결 없음</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%s</xliff:g>분 동안 데이터 연결 없음</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"<xliff:g id="COMPLETETIME">%s</xliff:g>까지 데이터 연결 없음"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">휴대전화가 <xliff:g id="COUNT_1">%s</xliff:g>분 동안 긴급 콜백 모드로 전환됩니다. 긴급 콜백 모드에서는 데이터 연결을 이용하는 애플리케이션을 사용할 수 없습니다. 지금 종료하시겠습니까?</item>
       <item quantity="one">휴대전화가 <xliff:g id="COUNT_0">%s</xliff:g>분 동안 긴급 콜백 모드로 전환됩니다. 긴급 콜백 모드에서는 데이터 연결을 이용하는 앱을 사용할 수 없습니다. 지금 종료하시겠습니까?</item>
@@ -550,12 +551,9 @@
     <string name="selectContact" msgid="781975788478987237">"연락처 선택"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"음성통화 지원되지 않음"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"전화걸기"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"진동"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"진동"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"시각적 음성사서함"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"PIN 설정"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"PIN 변경"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"알림음"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"벨소리 및 진동"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"내장된 SIM 카드"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"화상 통화 사용"</string>
@@ -566,12 +564,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"긴급 전화 전용"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM 카드, 슬롯: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"접근성"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Wi-Fi 수신 전화"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wi-Fi 수신 전화:"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi 통화"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"다시 탭하여 열기"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"메시지를 디코딩하는 중에 오류가 발생했습니다."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM 카드로 서비스가 활성화되었으며 휴대전화 로밍 기능이 업데이트되었습니다."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"활성화된 통화가 너무 많습니다. 새로운 전화를 걸기 전에 기존의 통화를 끝내거나 합치세요."</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"연결할 수 없습니다. 유효한 SIM 카드를 삽입하세요."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi 연결이 끊어져 통화가 종료되었습니다."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"음성사서함 PIN 변경"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"계속"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"취소"</string>

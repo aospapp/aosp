@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 #include <chrono>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -34,28 +35,37 @@ class Workload {
 
  public:
   static std::unique_ptr<Workload> CreateWorkload(const std::vector<std::string>& args);
+  static std::unique_ptr<Workload> CreateWorkload(const std::function<void ()>& function);
 
   ~Workload();
 
   bool Start();
+  bool IsStarted() {
+    return work_state_ == Started;
+  }
   pid_t GetPid() {
     return work_pid_;
   }
 
  private:
-  Workload(const std::vector<std::string>& args)
+  explicit Workload(const std::vector<std::string>& args,
+                    const std::function<void ()>& function)
       : work_state_(NotYetCreateNewProcess),
-        args_(args),
+        child_proc_args_(args),
+        child_proc_function_(function),
         work_pid_(-1),
         start_signal_fd_(-1),
         exec_child_fd_(-1) {
   }
 
   bool CreateNewProcess();
-  bool WaitChildProcess(bool wait_forever);
+  void ChildProcessFn(int start_signal_fd, int exec_child_fd);
+  bool WaitChildProcess(bool wait_forever, bool is_child_killed);
 
   WorkState work_state_;
-  std::vector<std::string> args_;
+  // The child process either executes child_proc_args or run child_proc_function.
+  std::vector<std::string> child_proc_args_;
+  std::function<void ()> child_proc_function_;
   pid_t work_pid_;
   int start_signal_fd_;  // The parent process writes 1 to start workload in the child process.
   int exec_child_fd_;    // The child process writes 1 to notify that execvp() failed.

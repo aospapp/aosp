@@ -15,10 +15,13 @@
     limitations under the License.
 -->
 
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
+<selector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <item android:state_pressed="true">
-        <color android:color="@color/ripple_material_light" />
+        <!-- Ignore PrivateResource: This should be fixed -->
+        <color android:color="@color/ripple_material_light" tools:ignore="PrivateResource" />
     </item>
 
     <item>

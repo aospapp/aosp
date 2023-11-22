@@ -83,6 +83,7 @@ public class JDWPStackFrameTestCase extends JDWPSyncTestCase {
         
     }
     
+    @Override
     protected String getDebuggeeClassName() {
         return StackTraceDebuggee.class.getName();
     }

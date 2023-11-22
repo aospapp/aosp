@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alertă de urgență"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Transmisie celulară"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Setări pentru alerte de urgență"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mesaje privind difuzarea"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Activați notificările"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Afișați difuzările cu alerte de urgență"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Memento alerte"</string>
@@ -100,7 +101,7 @@
     <string name="cmas_certainty_observed" msgid="3668549749352106472">"Constatată"</string>
     <string name="cmas_certainty_likely" msgid="4254497828943291749">"Probabilă"</string>
     <string name="delivery_time_heading" msgid="5980836543433619329">"Primit:"</string>
-    <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> (de) alerte necitite."</string>
+    <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g>   alerte necitite."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Alerte noi"</string>
     <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"Afișați un dialog de renunțare după afișarea primei alerte CMAS (altele decât alerta prezidențială)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Afișați un dialog de renunțare"</string>
@@ -112,6 +113,6 @@
     <item msgid="9097229303902157183">"La fiecare 2 minute"</item>
     <item msgid="5718214950343391480">"La fiecare 5 minute"</item>
     <item msgid="3863339891188103437">"La fiecare 15 minute"</item>
-    <item msgid="6868848414437854609">"Dezactivate"</item>
+    <item msgid="6868848414437854609">"Dezactivat"</item>
   </string-array>
 </resources>

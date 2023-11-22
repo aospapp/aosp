@@ -18,11 +18,13 @@
 #include <vector>
 
 #include "art_field-inl.h"
+#include "base/enums.h"
 #include "class_linker-inl.h"
 #include "common_compiler_test.h"
+#include "mirror/class-inl.h"
 #include "mirror/field-inl.h"
 #include "mirror/method.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -34,7 +36,7 @@ class ProxyTest : public CommonCompilerTest {
   mirror::Class* GenerateProxyClass(ScopedObjectAccess& soa, jobject jclass_loader,
                                     const char* className,
                                     const std::vector<mirror::Class*>& interfaces)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     mirror::Class* javaLangObject = class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;");
     CHECK(javaLangObject != nullptr);
 
@@ -60,29 +62,31 @@ class ProxyTest : public CommonCompilerTest {
 
     jsize array_index = 0;
     // Fill the method array
+    DCHECK_EQ(Runtime::Current()->GetClassLinker()->GetImagePointerSize(), kRuntimePointerSize);
     ArtMethod* method = javaLangObject->FindDeclaredVirtualMethod(
-        "equals", "(Ljava/lang/Object;)Z", sizeof(void*));
+        "equals", "(Ljava/lang/Object;)Z", kRuntimePointerSize);
+    CHECK(method != nullptr);
+    DCHECK(!Runtime::Current()->IsActiveTransaction());
+    soa.Env()->SetObjectArrayElement(
+        proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
+            mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), method)));
+    method = javaLangObject->FindDeclaredVirtualMethod("hashCode", "()I", kRuntimePointerSize);
     CHECK(method != nullptr);
     soa.Env()->SetObjectArrayElement(
         proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-            mirror::Method::CreateFromArtMethod(soa.Self(), method)));
-    method = javaLangObject->FindDeclaredVirtualMethod("hashCode", "()I", sizeof(void*));
-    CHECK(method != nullptr);
-    soa.Env()->SetObjectArrayElement(
-        proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-            mirror::Method::CreateFromArtMethod(soa.Self(), method)));
+            mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), method)));
     method = javaLangObject->FindDeclaredVirtualMethod(
-        "toString", "()Ljava/lang/String;", sizeof(void*));
+        "toString", "()Ljava/lang/String;", kRuntimePointerSize);
     CHECK(method != nullptr);
     soa.Env()->SetObjectArrayElement(
         proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-            mirror::Method::CreateFromArtMethod(soa.Self(), method)));
+            mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), method)));
     // Now adds all interfaces virtual methods.
     for (mirror::Class* interface : interfaces) {
-      for (auto& m : interface->GetDeclaredVirtualMethods(sizeof(void*))) {
+      for (auto& m : interface->GetDeclaredVirtualMethods(kRuntimePointerSize)) {
         soa.Env()->SetObjectArrayElement(
             proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-                mirror::Method::CreateFromArtMethod(soa.Self(), &m)));
+                mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), &m)));
       }
     }
     CHECK_EQ(array_index, methods_count);
@@ -105,14 +109,14 @@ TEST_F(ProxyTest, ProxyClassHelper) {
   jobject jclass_loader = LoadDex("Interfaces");
   StackHandleScope<4> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(jclass_loader)));
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(jclass_loader)));
 
   Handle<mirror::Class> I(hs.NewHandle(
       class_linker_->FindClass(soa.Self(), "LInterfaces$I;", class_loader)));
   Handle<mirror::Class> J(hs.NewHandle(
       class_linker_->FindClass(soa.Self(), "LInterfaces$J;", class_loader)));
-  ASSERT_TRUE(I.Get() != nullptr);
-  ASSERT_TRUE(J.Get() != nullptr);
+  ASSERT_TRUE(I != nullptr);
+  ASSERT_TRUE(J != nullptr);
 
   std::vector<mirror::Class*> interfaces;
   interfaces.push_back(I.Get());
@@ -120,13 +124,13 @@ TEST_F(ProxyTest, ProxyClassHelper) {
   Handle<mirror::Class> proxy_class(hs.NewHandle(
       GenerateProxyClass(soa, jclass_loader, "$Proxy1234", interfaces)));
   interfaces.clear();  // Don't least possibly stale objects in the array as good practice.
-  ASSERT_TRUE(proxy_class.Get() != nullptr);
+  ASSERT_TRUE(proxy_class != nullptr);
   ASSERT_TRUE(proxy_class->IsProxyClass());
   ASSERT_TRUE(proxy_class->IsInitialized());
 
   EXPECT_EQ(2U, proxy_class->NumDirectInterfaces());  // Interfaces$I and Interfaces$J.
-  EXPECT_EQ(I.Get(), mirror::Class::GetDirectInterface(soa.Self(), proxy_class, 0));
-  EXPECT_EQ(J.Get(), mirror::Class::GetDirectInterface(soa.Self(), proxy_class, 1));
+  EXPECT_OBJ_PTR_EQ(I.Get(), mirror::Class::GetDirectInterface(soa.Self(), proxy_class.Get(), 0));
+  EXPECT_OBJ_PTR_EQ(J.Get(), mirror::Class::GetDirectInterface(soa.Self(), proxy_class.Get(), 1));
   std::string temp;
   const char* proxy_class_descriptor = proxy_class->GetDescriptor(&temp);
   EXPECT_STREQ("L$Proxy1234;", proxy_class_descriptor);
@@ -139,14 +143,14 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
   jobject jclass_loader = LoadDex("Interfaces");
   StackHandleScope<9> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(jclass_loader)));
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(jclass_loader)));
 
   Handle<mirror::Class> I(hs.NewHandle(
       class_linker_->FindClass(soa.Self(), "LInterfaces$I;", class_loader)));
   Handle<mirror::Class> J(hs.NewHandle(
       class_linker_->FindClass(soa.Self(), "LInterfaces$J;", class_loader)));
-  ASSERT_TRUE(I.Get() != nullptr);
-  ASSERT_TRUE(J.Get() != nullptr);
+  ASSERT_TRUE(I != nullptr);
+  ASSERT_TRUE(J != nullptr);
 
   Handle<mirror::Class> proxyClass;
   {
@@ -156,7 +160,7 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
     proxyClass = hs.NewHandle(GenerateProxyClass(soa, jclass_loader, "$Proxy1234", interfaces));
   }
 
-  ASSERT_TRUE(proxyClass.Get() != nullptr);
+  ASSERT_TRUE(proxyClass != nullptr);
   ASSERT_TRUE(proxyClass->IsProxyClass());
   ASSERT_TRUE(proxyClass->IsInitialized());
 
@@ -168,16 +172,16 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
 
   Handle<mirror::Class> interfacesFieldClass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/Class;")));
-  ASSERT_TRUE(interfacesFieldClass.Get() != nullptr);
+  ASSERT_TRUE(interfacesFieldClass != nullptr);
   Handle<mirror::Class> throwsFieldClass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[[Ljava/lang/Class;")));
-  ASSERT_TRUE(throwsFieldClass.Get() != nullptr);
+  ASSERT_TRUE(throwsFieldClass != nullptr);
 
   // Test "Class[] interfaces" field.
   ArtField* field = &static_fields->At(0);
   EXPECT_STREQ("interfaces", field->GetName());
   EXPECT_STREQ("[Ljava/lang/Class;", field->GetTypeDescriptor());
-  EXPECT_EQ(interfacesFieldClass.Get(), field->GetType<true>());
+  EXPECT_OBJ_PTR_EQ(interfacesFieldClass.Get(), field->GetType<true>());
   std::string temp;
   EXPECT_STREQ("L$Proxy1234;", field->GetDeclaringClass()->GetDescriptor(&temp));
   EXPECT_FALSE(field->IsPrimitiveType());
@@ -186,7 +190,7 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
   field = &static_fields->At(1);
   EXPECT_STREQ("throws", field->GetName());
   EXPECT_STREQ("[[Ljava/lang/Class;", field->GetTypeDescriptor());
-  EXPECT_EQ(throwsFieldClass.Get(), field->GetType<true>());
+  EXPECT_OBJ_PTR_EQ(throwsFieldClass.Get(), field->GetType<true>());
   EXPECT_STREQ("L$Proxy1234;", field->GetDeclaringClass()->GetDescriptor(&temp));
   EXPECT_FALSE(field->IsPrimitiveType());
 }
@@ -196,8 +200,6 @@ TEST_F(ProxyTest, CheckArtMirrorFieldsOfProxyStaticFields) {
   ScopedObjectAccess soa(Thread::Current());
   jobject jclass_loader = LoadDex("Interfaces");
   StackHandleScope<7> hs(soa.Self());
-  Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(jclass_loader)));
 
   Handle<mirror::Class> proxyClass0;
   Handle<mirror::Class> proxyClass1;
@@ -207,10 +209,10 @@ TEST_F(ProxyTest, CheckArtMirrorFieldsOfProxyStaticFields) {
     proxyClass1 = hs.NewHandle(GenerateProxyClass(soa, jclass_loader, "$Proxy1", interfaces));
   }
 
-  ASSERT_TRUE(proxyClass0.Get() != nullptr);
+  ASSERT_TRUE(proxyClass0 != nullptr);
   ASSERT_TRUE(proxyClass0->IsProxyClass());
   ASSERT_TRUE(proxyClass0->IsInitialized());
-  ASSERT_TRUE(proxyClass1.Get() != nullptr);
+  ASSERT_TRUE(proxyClass1 != nullptr);
   ASSERT_TRUE(proxyClass1->IsProxyClass());
   ASSERT_TRUE(proxyClass1->IsInitialized());
 
@@ -221,19 +223,25 @@ TEST_F(ProxyTest, CheckArtMirrorFieldsOfProxyStaticFields) {
   ASSERT_TRUE(static_fields1 != nullptr);
   ASSERT_EQ(2u, static_fields1->size());
 
-  EXPECT_EQ(static_fields0->At(0).GetDeclaringClass(), proxyClass0.Get());
-  EXPECT_EQ(static_fields0->At(1).GetDeclaringClass(), proxyClass0.Get());
-  EXPECT_EQ(static_fields1->At(0).GetDeclaringClass(), proxyClass1.Get());
-  EXPECT_EQ(static_fields1->At(1).GetDeclaringClass(), proxyClass1.Get());
+  EXPECT_OBJ_PTR_EQ(static_fields0->At(0).GetDeclaringClass(), proxyClass0.Get());
+  EXPECT_OBJ_PTR_EQ(static_fields0->At(1).GetDeclaringClass(), proxyClass0.Get());
+  EXPECT_OBJ_PTR_EQ(static_fields1->At(0).GetDeclaringClass(), proxyClass1.Get());
+  EXPECT_OBJ_PTR_EQ(static_fields1->At(1).GetDeclaringClass(), proxyClass1.Get());
 
+  ASSERT_EQ(Runtime::Current()->GetClassLinker()->GetImagePointerSize(), kRuntimePointerSize);
+  ASSERT_FALSE(Runtime::Current()->IsActiveTransaction());
   Handle<mirror::Field> field00 =
-      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields0->At(0), true));
+      hs.NewHandle(mirror::Field::CreateFromArtField<kRuntimePointerSize, false>(
+          soa.Self(), &static_fields0->At(0), true));
   Handle<mirror::Field> field01 =
-      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields0->At(1), true));
+      hs.NewHandle(mirror::Field::CreateFromArtField<kRuntimePointerSize, false>(
+          soa.Self(), &static_fields0->At(1), true));
   Handle<mirror::Field> field10 =
-      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields1->At(0), true));
+      hs.NewHandle(mirror::Field::CreateFromArtField<kRuntimePointerSize, false>(
+          soa.Self(), &static_fields1->At(0), true));
   Handle<mirror::Field> field11 =
-      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields1->At(1), true));
+      hs.NewHandle(mirror::Field::CreateFromArtField<kRuntimePointerSize, false>(
+          soa.Self(), &static_fields1->At(1), true));
   EXPECT_EQ(field00->GetArtField(), &static_fields0->At(0));
   EXPECT_EQ(field01->GetArtField(), &static_fields0->At(1));
   EXPECT_EQ(field10->GetArtField(), &static_fields1->At(0));

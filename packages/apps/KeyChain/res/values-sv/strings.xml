@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Appen %s har begärt ett certifikat. Om du väljer ett certifikat används detta som identitet gentemot servrar nu och framgent."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Servern för förfrågan har identifierats som %s, men ge bara appen åtkomst till certifikatet om du litar på appen."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Du kan installera certifikat från en PKCS#12-fil med filändelsen %1$s eller %2$s på en extern lagringsenhet."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Installera"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Tillåt"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Installera certifikat"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Välj"</string>
     <string name="deny_button" msgid="3766539809121892584">"Neka"</string>
 </resources>

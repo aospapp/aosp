@@ -31,11 +31,6 @@
 #include <sys/utsname.h>
 #include <sys/wait.h>
 
-jint android_os_cts_OSFeatures_getNoNewPrivs(JNIEnv* env, jobject thiz)
-{
-    return prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0);
-}
-
 jint android_os_cts_OSFeatures_prctlCapBsetRead(JNIEnv* env, jobject thiz, jint i)
 {
     return prctl(PR_CAPBSET_READ, i, 0, 0, 0);
@@ -93,8 +88,6 @@ jboolean android_os_cts_OSFeatures_needsSeccompSupport(JNIEnv*, jobject)
 }
 
 static JNINativeMethod gMethods[] = {
-    {  "getNoNewPrivs", "()I",
-            (void *) android_os_cts_OSFeatures_getNoNewPrivs  },
     {  "prctlCapBsetRead", "(I)I",
             (void *) android_os_cts_OSFeatures_prctlCapBsetRead },
     {  "hasSeccompSupport", "()Z",

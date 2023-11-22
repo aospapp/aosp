@@ -23,35 +23,37 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.content.res.Resources.Theme;
 import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
+import android.media.tv.TvContract.Programs.Genres;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvTrackInfo;
 import android.net.Uri;
-import android.os.Build;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
+import android.util.ArraySet;
 import android.util.Log;
 import android.view.View;
-import android.widget.Toast;
 
+import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
+import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
+import com.android.tv.data.GenreItems;
 import com.android.tv.data.Program;
 import com.android.tv.data.StreamInfo;
 
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
@@ -69,13 +71,17 @@ public class Utils {
     private static final String TAG = "Utils";
     private static final boolean DEBUG = false;
 
-    private static final SimpleDateFormat ISO_8601 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+    private static final SimpleDateFormat ISO_8601 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ",
+            Locale.US);
 
     public static final String EXTRA_KEY_KEYCODE = "keycode";
     public static final String EXTRA_KEY_ACTION = "action";
     public static final String EXTRA_ACTION_SHOW_TV_INPUT ="show_tv_input";
     public static final String EXTRA_KEY_FROM_LAUNCHER = "from_launcher";
-    public static final String EXTRA_KEY_RECORDING_URI = "recording_uri";
+    public static final String EXTRA_KEY_RECORDED_PROGRAM_ID = "recorded_program_id";
+    public static final String EXTRA_KEY_RECORDED_PROGRAM_SEEK_TIME = "recorded_program_seek_time";
+    public static final String EXTRA_KEY_RECORDED_PROGRAM_PIN_CHECKED =
+            "recorded_program_pin_checked";
 
     // Query parameter in the intent of starting MainActivity.
     public static final String PARAM_SOURCE = "source";
@@ -87,6 +93,10 @@ public class Utils {
     private static final String PREF_KEY_LAST_WATCHED_CHANNEL_ID_FOR_INPUT =
             "last_watched_channel_id_for_input_";
     private static final String PREF_KEY_LAST_WATCHED_CHANNEL_URI = "last_watched_channel_uri";
+    private static final String PREF_KEY_LAST_WATCHED_TUNER_INPUT_ID =
+            "last_watched_tuner_input_id";
+    private static final String PREF_KEY_RECORDING_FAILED_REASONS =
+            "recording_failed_reasons";
 
     private static final int VIDEO_SD_WIDTH = 704;
     private static final int VIDEO_SD_HEIGHT = 480;
@@ -102,6 +112,18 @@ public class Utils {
     private static final int AUDIO_CHANNEL_STEREO = 2;
     private static final int AUDIO_CHANNEL_SURROUND_6 = 6;
     private static final int AUDIO_CHANNEL_SURROUND_8 = 8;
+
+    private static final long RECORDING_FAILED_REASON_NONE = 0;
+    private static final long ONE_DAY_MS = TimeUnit.DAYS.toMillis(1);
+
+    // Hardcoded list for known bundled inputs not written by OEM/SOCs.
+    // Bundled (system) inputs not in the list will get the high priority
+    // so they and their channels come first in the UI.
+    private static final Set<String> BUNDLED_PACKAGE_SET = new ArraySet<>();
+
+    static {
+        BUNDLED_PACKAGE_SET.add("com.android.tv");
+    }
 
     private enum AspectRatio {
         ASPECT_RATIO_4_3(4, 3),
@@ -166,11 +188,32 @@ public class Utils {
                 throw new IllegalArgumentException("channelId should be equal to or larger than 0");
             }
             PreferenceManager.getDefaultSharedPreferences(context).edit()
-                    .putLong(PREF_KEY_LAST_WATCHED_CHANNEL_ID, channelId).apply();
-            PreferenceManager.getDefaultSharedPreferences(context).edit()
+                    .putLong(PREF_KEY_LAST_WATCHED_CHANNEL_ID, channelId)
                     .putLong(PREF_KEY_LAST_WATCHED_CHANNEL_ID_FOR_INPUT + channel.getInputId(),
-                            channelId).apply();
+                            channelId)
+                    .putString(PREF_KEY_LAST_WATCHED_TUNER_INPUT_ID, channel.getInputId())
+                    .apply();
         }
+    }
+
+    /**
+     * Sets recording failed reason.
+     */
+    public static void setRecordingFailedReason(Context context, int reason) {
+        long reasons = getRecordingFailedReasons(context) | 0x1 << reason;
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putLong(PREF_KEY_RECORDING_FAILED_REASONS, reasons)
+                .apply();
+    }
+
+    /**
+     * Clears recording failed reason.
+     */
+    public static void clearRecordingFailedReason(Context context, int reason) {
+        long reasons = getRecordingFailedReasons(context) & ~(0x1 << reason);
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+                .putLong(PREF_KEY_RECORDING_FAILED_REASONS, reasons)
+                .apply();
     }
 
     public static long getLastWatchedChannelId(Context context) {
@@ -186,6 +229,28 @@ public class Utils {
     public static String getLastWatchedChannelUri(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context)
                 .getString(PREF_KEY_LAST_WATCHED_CHANNEL_URI, null);
+    }
+
+    /**
+     * Returns the last watched tuner input id.
+     */
+    public static String getLastWatchedTunerInputId(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(PREF_KEY_LAST_WATCHED_TUNER_INPUT_ID, null);
+    }
+
+    private static long getRecordingFailedReasons(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getLong(PREF_KEY_RECORDING_FAILED_REASONS,
+                        RECORDING_FAILED_REASON_NONE);
+    }
+
+    /**
+     * Checks do recording failed reason exist.
+     */
+    public static boolean hasRecordingFailedReason(Context context, int reason) {
+        long reasons = getRecordingFailedReasons(context);
+        return (reasons & 0x1 << reason) != 0;
     }
 
     /**
@@ -286,11 +351,25 @@ public class Utils {
     }
 
     @VisibleForTesting
-    static String getDurationString(Context context, long baseMillis,
-            long startUtcMillis, long endUtcMillis, boolean useShortFormat, int flag) {
-        flag |= DateUtils.FORMAT_ABBREV_MONTH | DateUtils.FORMAT_SHOW_TIME
+    static String getDurationString(Context context, long baseMillis, long startUtcMillis,
+            long endUtcMillis, boolean useShortFormat, int flag) {
+        return getDurationString(context, startUtcMillis, endUtcMillis,
+                useShortFormat, !isInGivenDay(baseMillis, startUtcMillis), true, flag);
+    }
+
+    /**
+     * Returns duration string according to the time format, may not contain date information.
+     * Note: At least one of showDate and showTime should be true.
+     */
+    public static String getDurationString(Context context, long startUtcMillis, long endUtcMillis,
+            boolean useShortFormat, boolean showDate, boolean showTime, int flag) {
+        flag |= DateUtils.FORMAT_ABBREV_MONTH
                 | ((useShortFormat) ? DateUtils.FORMAT_NUMERIC_DATE : 0);
-        if (!isInGivenDay(baseMillis, startUtcMillis)) {
+        SoftPreconditions.checkArgument(showTime || showDate);
+        if (showTime) {
+            flag |= DateUtils.FORMAT_SHOW_TIME;
+        }
+        if (showDate) {
             flag |= DateUtils.FORMAT_SHOW_DATE;
         }
         if (startUtcMillis != endUtcMillis && useShortFormat) {
@@ -300,13 +379,17 @@ public class Utils {
             if (!isInGivenDay(startUtcMillis, endUtcMillis - 1)
                     && endUtcMillis - startUtcMillis < TimeUnit.HOURS.toMillis(11)) {
                 // Do not show date for short format.
-                // Extracting a day is needed because {@link DateUtils@formatDateRange}
-                // adds date if the duration covers multiple days.
+                // Subtracting one day is needed because {@link DateUtils@formatDateRange}
+                // automatically shows date if the duration covers multiple days.
                 return DateUtils.formatDateRange(context,
                         startUtcMillis, endUtcMillis - TimeUnit.DAYS.toMillis(1), flag);
             }
         }
-        return DateUtils.formatDateRange(context, startUtcMillis, endUtcMillis, flag);
+        // Workaround of b/28740989.
+        // Add 1 msec to endUtcMillis to avoid DateUtils' bug with a duration of 12:00AM~12:00AM.
+        String dateRange = DateUtils.formatDateRange(context, startUtcMillis, endUtcMillis, flag);
+        return startUtcMillis == endUtcMillis || dateRange.contains("–") ? dateRange
+                : DateUtils.formatDateRange(context, startUtcMillis, endUtcMillis + 1, flag);
     }
 
     @VisibleForTesting
@@ -319,6 +402,39 @@ public class Utils {
         }
         return Utils.floorTime(dayToMatchInMillis + offset, DAY_IN_MS)
                 == Utils.floorTime(subjectTimeInMillis + offset, DAY_IN_MS);
+    }
+
+    /**
+     * Calculate how many days between two milliseconds.
+     */
+    public static int computeDateDifference(long startTimeMs, long endTimeMs) {
+        Calendar calFrom = Calendar.getInstance();
+        Calendar calTo = Calendar.getInstance();
+        calFrom.setTime(new Date(startTimeMs));
+        calTo.setTime(new Date(endTimeMs));
+        resetCalendar(calFrom);
+        resetCalendar(calTo);
+        return (int) ((calTo.getTimeInMillis() - calFrom.getTimeInMillis()) / ONE_DAY_MS);
+    }
+
+    private static void resetCalendar(Calendar cal) {
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+    }
+
+    /**
+     * Returns the last millisecond of a day which the millis belongs to.
+     */
+    public static long getLastMillisecondOfDay(long millis) {
+        Calendar calender = Calendar.getInstance();
+        calender.setTime(new Date(millis));
+        calender.set(Calendar.HOUR_OF_DAY, 23);
+        calender.set(Calendar.MINUTE, 59);
+        calender.set(Calendar.SECOND, 59);
+        calender.set(Calendar.MILLISECOND, 999);
+        return calender.getTimeInMillis();
     }
 
     public static String getAspectRatioString(int width, int height) {
@@ -510,9 +626,27 @@ public class Utils {
 
     /**
      * Converts time in milliseconds to a String.
+     *
+     * @param fullFormat {@code true} for returning date string with a full format
+     *                   (e.g., Mon Aug 15 20:08:35 GMT 2016). {@code false} for a short format,
+     *                   {e.g., [8/15/16] 8:08 AM}, in which date information would only appears
+     *                   when the target time is not today.
+     */
+    public static String toTimeString(long timeMillis, boolean fullFormat) {
+        if (fullFormat) {
+            return new Date(timeMillis).toString();
+        } else {
+            long currentTime = System.currentTimeMillis();
+            return (String) DateUtils.formatSameDayTime(timeMillis, System.currentTimeMillis(),
+                    SimpleDateFormat.SHORT, SimpleDateFormat.SHORT);
+        }
+    }
+
+    /**
+     * Converts time in milliseconds to a String.
      */
     public static String toTimeString(long timeMillis) {
-        return new Date(timeMillis).toString();
+        return toTimeString(timeMillis, true);
     }
 
     /**
@@ -566,57 +700,7 @@ public class Utils {
      * @return index >= 0 && index < collection.size().
      */
     public static boolean isIndexValid(@Nullable Collection<?> collection, int index) {
-        return collection == null ? false : index >= 0 && index < collection.size();
-    }
-
-    /**
-     * Returns a color integer associated with a particular resource ID.
-     *
-     * @see #getColor(android.content.res.Resources,int,Theme)
-     */
-    public static int getColor(Resources res, int id) {
-        return getColor(res, id, null);
-    }
-
-    /**
-     * Returns a color integer associated with a particular resource ID.
-     *
-     * <p>In M version, {@link android.content.res.Resources#getColor(int)} was deprecated and
-     * {@link android.content.res.Resources#getColor(int,Theme)} was newly added.
-     *
-     * @see android.content.res.Resources#getColor(int)
-     */
-    public static int getColor(Resources res, int id, @Nullable Theme theme) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return res.getColor(id, theme);
-        } else {
-            return res.getColor(id);
-        }
-    }
-
-    /**
-     * Returns a color state list associated with a particular resource ID.
-     *
-     * @see #getColorStateList(android.content.res.Resources,int,Theme)
-     */
-    public static ColorStateList getColorStateList(Resources res, int id) {
-        return getColorStateList(res, id, null);
-    }
-
-    /**
-     * Returns a color state list associated with a particular resource ID.
-     *
-     * <p>In M version, {@link android.content.res.Resources#getColorStateList(int)} was deprecated
-     * and {@link android.content.res.Resources#getColorStateList(int,Theme)} was newly added.
-     *
-     * @see android.content.res.Resources#getColorStateList(int)
-     */
-    public static ColorStateList getColorStateList(Resources res, int id, @Nullable Theme theme) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return res.getColorStateList(id, theme);
-        } else {
-            return res.getColorStateList(id);
-        }
+        return collection != null && (index >= 0 && index < collection.size());
     }
 
     /**
@@ -632,15 +716,26 @@ public class Utils {
     }
 
     /**
+     * Checks where there is any internal TV input.
+     */
+    public static boolean hasInternalTvInputs(Context context, boolean tunerInputOnly) {
+        for (TvInputInfo input : TvApplication.getSingletons(context).getTvInputManagerHelper()
+                .getTvInputInfos(true, tunerInputOnly)) {
+            if (isInternalTvInput(context, input.getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Returns the internal TV inputs.
      */
     public static List<TvInputInfo> getInternalTvInputs(Context context, boolean tunerInputOnly) {
         List<TvInputInfo> inputs = new ArrayList<>();
-        String contextPackageName = context.getPackageName();
         for (TvInputInfo input : TvApplication.getSingletons(context).getTvInputManagerHelper()
                 .getTvInputInfos(true, tunerInputOnly)) {
-            if (contextPackageName.equals(ComponentName.unflattenFromString(input.getId())
-                    .getPackageName())) {
+            if (isInternalTvInput(context, input.getId())) {
                 inputs.add(input);
             }
         }
@@ -656,10 +751,113 @@ public class Utils {
     }
 
     /**
-     * Shows a toast message to notice that the current feature is a developer feature.
+     * Returns the TV input for the given {@code program}.
      */
-    public static void showToastMessageForDeveloperFeature(Context context) {
-        Toast.makeText(context, "This feature is for developer preview.", Toast.LENGTH_SHORT)
-                .show();
+    @Nullable
+    public static TvInputInfo getTvInputInfoForProgram(Context context, Program program) {
+        if (!Program.isValid(program)) {
+            return null;
+        }
+        return getTvInputInfoForChannelId(context, program.getChannelId());
+    }
+
+    /**
+     * Returns the TV input for the given channel ID.
+     */
+    @Nullable
+    public static TvInputInfo getTvInputInfoForChannelId(Context context, long channelId) {
+        ApplicationSingletons appSingletons = TvApplication.getSingletons(context);
+        Channel channel = appSingletons.getChannelDataManager().getChannel(channelId);
+        if (channel == null) {
+            return null;
+        }
+        return appSingletons.getTvInputManagerHelper().getTvInputInfo(channel.getInputId());
+    }
+
+    /**
+     * Returns the {@link TvInputInfo} for the given input ID.
+     */
+    @Nullable
+    public static TvInputInfo getTvInputInfoForInputId(Context context, String inputId) {
+        return TvApplication.getSingletons(context).getTvInputManagerHelper()
+                .getTvInputInfo(inputId);
+    }
+
+    /**
+     * Deletes a file or a directory.
+     */
+    public static void deleteDirOrFile(File fileOrDirectory) {
+        if (fileOrDirectory.isDirectory()) {
+            for (File child : fileOrDirectory.listFiles()) {
+                deleteDirOrFile(child);
+            }
+        }
+        fileOrDirectory.delete();
+    }
+
+    /**
+     * Checks whether a given package is in our bundled package set.
+     */
+    public static boolean isInBundledPackageSet(String packageName) {
+        return BUNDLED_PACKAGE_SET.contains(packageName);
+    }
+
+    /**
+     * Checks whether a given input is a bundled input.
+     */
+    public static boolean isBundledInput(String inputId) {
+        for (String prefix : BUNDLED_PACKAGE_SET) {
+            if (inputId.startsWith(prefix + "/")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the canonical genre ID's from the {@code genres}.
+     */
+    public static int[] getCanonicalGenreIds(String genres) {
+        if (TextUtils.isEmpty(genres)) {
+            return null;
+        }
+        return getCanonicalGenreIds(Genres.decode(genres));
+    }
+
+    /**
+     * Returns the canonical genre ID's from the {@code genres}.
+     */
+    public static int[] getCanonicalGenreIds(String[] canonicalGenres) {
+        if (canonicalGenres != null && canonicalGenres.length > 0) {
+            int[] results = new int[canonicalGenres.length];
+            int i = 0;
+            for (String canonicalGenre : canonicalGenres) {
+                int genreId = GenreItems.getId(canonicalGenre);
+                if (genreId == GenreItems.ID_ALL_CHANNELS) {
+                    // Skip if the genre is unknown.
+                    continue;
+                }
+                results[i++] = genreId;
+            }
+            if (i < canonicalGenres.length) {
+                results = Arrays.copyOf(results, i);
+            }
+            return results;
+        }
+        return null;
+    }
+
+    /**
+     * Returns the canonical genres for database.
+     */
+    public static String getCanonicalGenre(int[] canonicalGenreIds) {
+        if (canonicalGenreIds == null || canonicalGenreIds.length == 0) {
+            return null;
+        }
+        String[] genres = new String[canonicalGenreIds.length];
+        for (int i = 0; i < canonicalGenreIds.length; ++i) {
+            genres[i] = GenreItems.getCanonicalGenre(canonicalGenreIds[i]);
+        }
+        return Genres.encode(genres);
     }
 }

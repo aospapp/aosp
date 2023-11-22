@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2000-2015, International Business Machines Corporation and
@@ -8,6 +10,8 @@
 package android.icu.dev.test.timezone;
 import java.util.Date;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.dev.test.TestUtil.JavaVendor;
@@ -15,14 +19,11 @@ import android.icu.text.DateFormat;
 import android.icu.util.Calendar;
 import android.icu.util.SimpleTimeZone;
 import android.icu.util.TimeZone;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * A test which discovers the boundaries of DST programmatically and verifies
  * that they are correct.
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TimeZoneBoundaryTest extends TestFmwk
 {
     static final int ONE_SECOND = 1000;
@@ -46,10 +47,6 @@ public class TimeZoneBoundaryTest extends TestFmwk
     static final String AUSTRALIA = "Australia/Adelaide";
     static final long AUSTRALIA_1997_BEG = 877797000000L;
     static final long AUSTRALIA_1997_END = 859653000000L;
-    
-    public static void main(String[] args) throws Exception {
-        new TimeZoneBoundaryTest().run(args);
-    }
 
     /**
      * Date.toString().substring() Boundary Test
@@ -384,6 +381,7 @@ public class TimeZoneBoundaryTest extends TestFmwk
 //        }
 //    }
 
+    @Test
     public void TestBoundaries()
     {
         TimeZone save = TimeZone.getDefault();
@@ -718,6 +716,7 @@ public class TimeZoneBoundaryTest extends TestFmwk
     /**
      * Test new rule formats.
      */
+    @Test
     public void TestNewRules()
     {
         //logln(Locale.getDefault().getDisplayName());
@@ -846,6 +845,7 @@ public class TimeZoneBoundaryTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestStepwise()
     {
         findBoundariesStepwise(1997, ONE_DAY, safeGetTimeZone("America/New_York"), 2);

@@ -581,7 +581,8 @@ VAStatus psb_CreateRotateSurface(
 )
 {
     int width, height;
-    psb_surface_p rotate_surface;
+    psb_surface_p rotate_surface = NULL;
+    bool rotate_surfaceAlloc = false;
     VAStatus vaStatus = VA_STATUS_SUCCESS;
     int need_realloc = 0;
     unsigned int flags = 0;
@@ -615,6 +616,7 @@ VAStatus psb_CreateRotateSurface(
     } else {
         rotate_surface = (psb_surface_p) calloc(1, sizeof(struct psb_surface_s));
         CHECK_ALLOCATION(rotate_surface);
+        rotate_surfaceAlloc = true;
     }
 
 #ifdef PSBVIDEO_MSVDX_DEC_TILING
@@ -704,6 +706,10 @@ VAStatus psb_CreateRotateSurface(
         if (NULL == obj_context) {
             vaStatus = VA_STATUS_ERROR_INVALID_CONTEXT;
             DEBUG_FAILURE;
+            if (rotate_surface != NULL && rotate_surfaceAlloc) {
+                free(rotate_surface);
+                rotate_surface = NULL;
+            }
             return vaStatus;
         }
         unsigned long msvdx_tile = psb__tile_stride_log2_256(obj_surface->width_r);

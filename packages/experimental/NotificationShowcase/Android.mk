@@ -24,9 +24,11 @@ LOCAL_AAPT_FLAGS += -c mdpi,hdpi,xhdpi
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
+LOCAL_STATIC_ANDROID_LIBRARIES := \
     android-support-v4 \
     android-support-v7-preference
+
+LOCAL_USE_AAPT2 := true
 
 LOCAL_PACKAGE_NAME := NotificationShowcase
 include $(BUILD_PACKAGE)

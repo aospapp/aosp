@@ -6,7 +6,7 @@ TIME='FAST'
 AUTHOR = 'deymo,zeuthen,chromeos-installer'
 BUG_TEMPLATE = {
     'cc': ['chromeos-installer-alerts@google.com'],
-    'labels': ['Cr-Internals-Installer'],
+    'components': ['Internals>Installer'],
 }
 
 DOC = """\
@@ -20,7 +20,6 @@ NAME = 'p2p_ConsumeFiles'
 PURPOSE = 'Check that P2P can discover peers and download from them.'
 CRITERIA = 'Fails if p2p-client is not able to discover and get the URLs.'
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = 'bvt-cq'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'

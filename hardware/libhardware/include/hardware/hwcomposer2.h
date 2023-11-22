@@ -17,6 +17,8 @@
 #ifndef ANDROID_HARDWARE_HWCOMPOSER2_H
 #define ANDROID_HARDWARE_HWCOMPOSER2_H
 
+#include <sys/cdefs.h>
+
 #include <hardware/hardware.h>
 
 #include "hwcomposer_defs.h"
@@ -92,6 +94,27 @@ typedef enum {
      * the client. This will prevent the client from applying the color
      * transform during its composition step. */
     HWC2_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM = 2,
+
+    /* Specifies that the present fence must not be used as an accurate
+     * representation of the actual present time of a frame.
+     * This capability must never be set by HWC2 devices.
+     * This capability may be set for HWC1 devices that use the
+     * HWC2On1Adapter where emulation of the present fence using the retire
+     * fence is not feasible.
+     * In the future, CTS tests will require present time to be reliable.
+     */
+    HWC2_CAPABILITY_PRESENT_FENCE_IS_NOT_RELIABLE = 3,
+
+    /* Specifies that a device is able to skip the validateDisplay call before
+     * receiving a call to presentDisplay. The client will always skip
+     * validateDisplay and try to call presentDisplay regardless of the changes
+     * in the properties of the layers. If the device returns anything else than
+     * HWC2_ERROR_NONE, it will call validateDisplay then presentDisplay again.
+     * For this capability to be worthwhile the device implementation of
+     * presentDisplay should fail as fast as possible in the case a
+     * validateDisplay step is needed.
+     */
+    HWC2_CAPABILITY_SKIP_VALIDATE= 4,
 } hwc2_capability_t;
 
 /* Possible composition types for a given layer */
@@ -333,6 +356,8 @@ static inline const char* getCapabilityName(hwc2_capability_t capability) {
         case HWC2_CAPABILITY_SIDEBAND_STREAM: return "SidebandStream";
         case HWC2_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM:
                 return "SkipClientColorTransform";
+        case HWC2_CAPABILITY_PRESENT_FENCE_IS_NOT_RELIABLE:
+                return "PresentFenceIsNotReliable";
         default: return "Unknown";
     }
 }
@@ -360,7 +385,7 @@ static inline const char* getConnectionName(hwc2_connection_t connection) {
 
 static inline const char* getDisplayRequestName(
         hwc2_display_request_t request) {
-    switch (request) {
+    switch (__BIONIC_CAST(static_cast, int, request)) {
         case 0: return "None";
         case HWC2_DISPLAY_REQUEST_FLIP_CLIENT_TARGET: return "FlipClientTarget";
         case HWC2_DISPLAY_REQUEST_WRITE_CLIENT_TARGET_TO_OUTPUT:
@@ -459,7 +484,7 @@ static inline const char* getFunctionDescriptorName(
 }
 
 static inline const char* getLayerRequestName(hwc2_layer_request_t request) {
-    switch (request) {
+    switch (__BIONIC_CAST(static_cast, int, request)) {
         case 0: return "None";
         case HWC2_LAYER_REQUEST_CLEAR_CLIENT_TARGET: return "ClearClientTarget";
         default: return "Unknown";
@@ -477,7 +502,7 @@ static inline const char* getPowerModeName(hwc2_power_mode_t mode) {
 }
 
 static inline const char* getTransformName(hwc_transform_t transform) {
-    switch (transform) {
+    switch (__BIONIC_CAST(static_cast, int, transform)) {
         case 0: return "None";
         case HWC_TRANSFORM_FLIP_H: return "FlipH";
         case HWC_TRANSFORM_FLIP_V: return "FlipV";
@@ -549,6 +574,8 @@ enum class Capability : int32_t {
     Invalid = HWC2_CAPABILITY_INVALID,
     SidebandStream = HWC2_CAPABILITY_SIDEBAND_STREAM,
     SkipClientColorTransform = HWC2_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM,
+    PresentFenceIsNotReliable = HWC2_CAPABILITY_PRESENT_FENCE_IS_NOT_RELIABLE,
+    SkipValidate = HWC2_CAPABILITY_SKIP_VALIDATE,
 };
 TO_STRING(hwc2_capability_t, Capability, getCapabilityName)
 
@@ -738,7 +765,7 @@ typedef struct hwc2_device {
 static inline int hwc2_open(const struct hw_module_t* module,
         hwc2_device_t** device) {
     return module->methods->open(module, HWC_HARDWARE_COMPOSER,
-            (struct hw_device_t**) device);
+            TO_HW_DEVICE_T_OPEN(device));
 }
 
 static inline int hwc2_close(hwc2_device_t* device) {

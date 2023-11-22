@@ -28,7 +28,7 @@ package sun.misc;
 import java.io.PrintStream;
 
 public class Version {
-    // Android-changed : launcher_name, java_version,
+    // Android-changed: launcher_name, java_version,
     // java_runtime_name and java_runtime_version.
     private static final String launcher_name = "";
     private static final String java_version = AndroidHardcodedSystemProperties.JAVA_VERSION;

@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Ārkārtas situācijas brīdinājums"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Šūnu apraide"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Ārkārtas situācijas brīdinājumu iestatījumi"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Apraides ziņojumi"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Ieslēgt paziņojumus"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Rādīt ārkārtas situāciju brīdinājumu apraides"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Atgādinājums ar signālu"</string>

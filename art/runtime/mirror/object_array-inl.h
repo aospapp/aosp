@@ -17,14 +17,17 @@
 #ifndef ART_RUNTIME_MIRROR_OBJECT_ARRAY_INL_H_
 #define ART_RUNTIME_MIRROR_OBJECT_ARRAY_INL_H_
 
-#include <string>
-
 #include "object_array.h"
 
+#include <string>
+
+#include "android-base/stringprintf.h"
+
 #include "array-inl.h"
-#include "base/stringprintf.h"
+#include "class.h"
 #include "gc/heap.h"
-#include "mirror/class.h"
+#include "object-inl.h"
+#include "obj_ptr-inl.h"
 #include "runtime.h"
 #include "handle_scope-inl.h"
 #include "thread.h"
@@ -34,24 +37,29 @@ namespace art {
 namespace mirror {
 
 template<class T>
-inline ObjectArray<T>* ObjectArray<T>::Alloc(Thread* self, Class* object_array_class,
+inline ObjectArray<T>* ObjectArray<T>::Alloc(Thread* self,
+                                             ObjPtr<Class> object_array_class,
                                              int32_t length, gc::AllocatorType allocator_type) {
-  Array* array = Array::Alloc<true>(self, object_array_class, length,
-                                    ComponentSizeShiftWidth(sizeof(HeapReference<Object>)),
+  Array* array = Array::Alloc<true>(self,
+                                    object_array_class.Ptr(),
+                                    length,
+                                    ComponentSizeShiftWidth(kHeapReferenceSize),
                                     allocator_type);
   if (UNLIKELY(array == nullptr)) {
     return nullptr;
-  } else {
-    DCHECK_EQ(array->GetClass()->GetComponentSizeShift(),
-              ComponentSizeShiftWidth(sizeof(HeapReference<Object>)));
-    return array->AsObjectArray<T>();
   }
+  DCHECK_EQ(array->GetClass()->GetComponentSizeShift(),
+            ComponentSizeShiftWidth(kHeapReferenceSize));
+  return array->AsObjectArray<T>();
 }
 
 template<class T>
-inline ObjectArray<T>* ObjectArray<T>::Alloc(Thread* self, Class* object_array_class,
+inline ObjectArray<T>* ObjectArray<T>::Alloc(Thread* self,
+                                             ObjPtr<Class> object_array_class,
                                              int32_t length) {
-  return Alloc(self, object_array_class, length,
+  return Alloc(self,
+               object_array_class,
+               length,
                Runtime::Current()->GetHeap()->GetCurrentAllocator());
 }
 
@@ -65,7 +73,7 @@ inline T* ObjectArray<T>::Get(int32_t i) {
 }
 
 template<class T> template<VerifyObjectFlags kVerifyFlags>
-inline bool ObjectArray<T>::CheckAssignable(T* object) {
+inline bool ObjectArray<T>::CheckAssignable(ObjPtr<T> object) {
   if (object != nullptr) {
     Class* element_class = GetClass<kVerifyFlags>()->GetComponentType();
     if (UNLIKELY(!object->InstanceOf(element_class))) {
@@ -77,7 +85,7 @@ inline bool ObjectArray<T>::CheckAssignable(T* object) {
 }
 
 template<class T>
-inline void ObjectArray<T>::Set(int32_t i, T* object) {
+inline void ObjectArray<T>::Set(int32_t i, ObjPtr<T> object) {
   if (Runtime::Current()->IsActiveTransaction()) {
     Set<true>(i, object);
   } else {
@@ -87,7 +95,7 @@ inline void ObjectArray<T>::Set(int32_t i, T* object) {
 
 template<class T>
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
-inline void ObjectArray<T>::Set(int32_t i, T* object) {
+inline void ObjectArray<T>::Set(int32_t i, ObjPtr<T> object) {
   if (CheckIsValidIndex(i) && CheckAssignable<kVerifyFlags>(object)) {
     SetFieldObject<kTransactionActive, kCheckTransaction, kVerifyFlags>(OffsetOfElement(i), object);
   } else {
@@ -97,7 +105,7 @@ inline void ObjectArray<T>::Set(int32_t i, T* object) {
 
 template<class T>
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
-inline void ObjectArray<T>::SetWithoutChecks(int32_t i, T* object) {
+inline void ObjectArray<T>::SetWithoutChecks(int32_t i, ObjPtr<T> object) {
   DCHECK(CheckIsValidIndex<kVerifyFlags>(i));
   DCHECK(CheckAssignable<static_cast<VerifyObjectFlags>(kVerifyFlags & ~kVerifyThis)>(object));
   SetFieldObject<kTransactionActive, kCheckTransaction, kVerifyFlags>(OffsetOfElement(i), object);
@@ -105,7 +113,7 @@ inline void ObjectArray<T>::SetWithoutChecks(int32_t i, T* object) {
 
 template<class T>
 template<bool kTransactionActive, bool kCheckTransaction, VerifyObjectFlags kVerifyFlags>
-inline void ObjectArray<T>::SetWithoutChecksAndWriteBarrier(int32_t i, T* object) {
+inline void ObjectArray<T>::SetWithoutChecksAndWriteBarrier(int32_t i, ObjPtr<T> object) {
   DCHECK(CheckIsValidIndex<kVerifyFlags>(i));
   // TODO:  enable this check. It fails when writing the image in ImageWriter::FixupObjectArray.
   // DCHECK(CheckAssignable(object));
@@ -113,15 +121,17 @@ inline void ObjectArray<T>::SetWithoutChecksAndWriteBarrier(int32_t i, T* object
       OffsetOfElement(i), object);
 }
 
-template<class T>
+template<class T> template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
 inline T* ObjectArray<T>::GetWithoutChecks(int32_t i) {
   DCHECK(CheckIsValidIndex(i));
-  return GetFieldObject<T>(OffsetOfElement(i));
+  return GetFieldObject<T, kVerifyFlags, kReadBarrierOption>(OffsetOfElement(i));
 }
 
 template<class T>
-inline void ObjectArray<T>::AssignableMemmove(int32_t dst_pos, ObjectArray<T>* src,
-                                              int32_t src_pos, int32_t count) {
+inline void ObjectArray<T>::AssignableMemmove(int32_t dst_pos,
+                                              ObjPtr<ObjectArray<T>> src,
+                                              int32_t src_pos,
+                                              int32_t count) {
   if (kIsDebugBuild) {
     for (int i = 0; i < count; ++i) {
       // The get will perform the VerifyObject.
@@ -131,28 +141,60 @@ inline void ObjectArray<T>::AssignableMemmove(int32_t dst_pos, ObjectArray<T>* s
   // Perform the memmove using int memmove then perform the write barrier.
   static_assert(sizeof(HeapReference<T>) == sizeof(uint32_t),
                 "art::mirror::HeapReference<T> and uint32_t have different sizes.");
-  IntArray* dstAsIntArray = reinterpret_cast<IntArray*>(this);
-  IntArray* srcAsIntArray = reinterpret_cast<IntArray*>(src);
-  if (kUseReadBarrier) {
-    // TODO: Optimize this later?
-    const bool copy_forward = (src != this) || (dst_pos < src_pos) || (dst_pos - src_pos >= count);
-    if (copy_forward) {
-      // Forward copy.
+  // TODO: Optimize this later?
+  // We can't use memmove since it does not handle read barriers and may do by per byte copying.
+  // See b/32012820.
+  const bool copy_forward = (src != this) || (dst_pos < src_pos) || (dst_pos - src_pos >= count);
+  if (copy_forward) {
+    // Forward copy.
+    bool baker_non_gray_case = false;
+    if (kUseReadBarrier && kUseBakerReadBarrier) {
+      uintptr_t fake_address_dependency;
+      if (!ReadBarrier::IsGray(src.Ptr(), &fake_address_dependency)) {
+        baker_non_gray_case = true;
+        DCHECK_EQ(fake_address_dependency, 0U);
+        src.Assign(reinterpret_cast<ObjectArray<T>*>(
+            reinterpret_cast<uintptr_t>(src.Ptr()) | fake_address_dependency));
+        for (int i = 0; i < count; ++i) {
+          // We can skip the RB here because 'src' isn't gray.
+          T* obj = src->template GetWithoutChecks<kDefaultVerifyFlags, kWithoutReadBarrier>(
+              src_pos + i);
+          SetWithoutChecksAndWriteBarrier<false>(dst_pos + i, obj);
+        }
+      }
+    }
+    if (!baker_non_gray_case) {
       for (int i = 0; i < count; ++i) {
         // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
-        Object* obj = src->GetWithoutChecks(src_pos + i);
-        SetWithoutChecks<false>(dst_pos + i, obj);
-      }
-    } else {
-      // Backward copy.
-      for (int i = count - 1; i >= 0; --i) {
-        // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
-        Object* obj = src->GetWithoutChecks(src_pos + i);
-        SetWithoutChecks<false>(dst_pos + i, obj);
+        T* obj = src->GetWithoutChecks(src_pos + i);
+        SetWithoutChecksAndWriteBarrier<false>(dst_pos + i, obj);
       }
     }
   } else {
-    dstAsIntArray->Memmove(dst_pos, srcAsIntArray, src_pos, count);
+    // Backward copy.
+    bool baker_non_gray_case = false;
+    if (kUseReadBarrier && kUseBakerReadBarrier) {
+      uintptr_t fake_address_dependency;
+      if (!ReadBarrier::IsGray(src.Ptr(), &fake_address_dependency)) {
+        baker_non_gray_case = true;
+        DCHECK_EQ(fake_address_dependency, 0U);
+        src.Assign(reinterpret_cast<ObjectArray<T>*>(
+            reinterpret_cast<uintptr_t>(src.Ptr()) | fake_address_dependency));
+        for (int i = count - 1; i >= 0; --i) {
+          // We can skip the RB here because 'src' isn't gray.
+          T* obj = src->template GetWithoutChecks<kDefaultVerifyFlags, kWithoutReadBarrier>(
+              src_pos + i);
+          SetWithoutChecksAndWriteBarrier<false>(dst_pos + i, obj);
+        }
+      }
+    }
+    if (!baker_non_gray_case) {
+      for (int i = count - 1; i >= 0; --i) {
+        // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
+        T* obj = src->GetWithoutChecks(src_pos + i);
+        SetWithoutChecksAndWriteBarrier<false>(dst_pos + i, obj);
+      }
+    }
   }
   Runtime::Current()->GetHeap()->WriteBarrierArray(this, dst_pos, count);
   if (kIsDebugBuild) {
@@ -164,8 +206,10 @@ inline void ObjectArray<T>::AssignableMemmove(int32_t dst_pos, ObjectArray<T>* s
 }
 
 template<class T>
-inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos, ObjectArray<T>* src,
-                                             int32_t src_pos, int32_t count) {
+inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos,
+                                             ObjPtr<ObjectArray<T>> src,
+                                             int32_t src_pos,
+                                             int32_t count) {
   if (kIsDebugBuild) {
     for (int i = 0; i < count; ++i) {
       // The get will perform the VerifyObject.
@@ -175,17 +219,31 @@ inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos, ObjectArray<T>* sr
   // Perform the memmove using int memcpy then perform the write barrier.
   static_assert(sizeof(HeapReference<T>) == sizeof(uint32_t),
                 "art::mirror::HeapReference<T> and uint32_t have different sizes.");
-  IntArray* dstAsIntArray = reinterpret_cast<IntArray*>(this);
-  IntArray* srcAsIntArray = reinterpret_cast<IntArray*>(src);
-  if (kUseReadBarrier) {
-    // TODO: Optimize this later?
+  // TODO: Optimize this later?
+  // We can't use memmove since it does not handle read barriers and may do by per byte copying.
+  // See b/32012820.
+  bool baker_non_gray_case = false;
+  if (kUseReadBarrier && kUseBakerReadBarrier) {
+    uintptr_t fake_address_dependency;
+    if (!ReadBarrier::IsGray(src.Ptr(), &fake_address_dependency)) {
+      baker_non_gray_case = true;
+      DCHECK_EQ(fake_address_dependency, 0U);
+      src.Assign(reinterpret_cast<ObjectArray<T>*>(
+          reinterpret_cast<uintptr_t>(src.Ptr()) | fake_address_dependency));
+      for (int i = 0; i < count; ++i) {
+        // We can skip the RB here because 'src' isn't gray.
+        Object* obj = src->template GetWithoutChecks<kDefaultVerifyFlags, kWithoutReadBarrier>(
+            src_pos + i);
+        SetWithoutChecksAndWriteBarrier<false>(dst_pos + i, obj);
+      }
+    }
+  }
+  if (!baker_non_gray_case) {
     for (int i = 0; i < count; ++i) {
       // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
       T* obj = src->GetWithoutChecks(src_pos + i);
-      SetWithoutChecks<false>(dst_pos + i, obj);
+      SetWithoutChecksAndWriteBarrier<false>(dst_pos + i, obj);
     }
-  } else {
-    dstAsIntArray->Memcpy(dst_pos, srcAsIntArray, src_pos, count);
   }
   Runtime::Current()->GetHeap()->WriteBarrierArray(this, dst_pos, count);
   if (kIsDebugBuild) {
@@ -198,8 +256,10 @@ inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos, ObjectArray<T>* sr
 
 template<class T>
 template<bool kTransactionActive>
-inline void ObjectArray<T>::AssignableCheckingMemcpy(int32_t dst_pos, ObjectArray<T>* src,
-                                                     int32_t src_pos, int32_t count,
+inline void ObjectArray<T>::AssignableCheckingMemcpy(int32_t dst_pos,
+                                                     ObjPtr<ObjectArray<T>> src,
+                                                     int32_t src_pos,
+                                                     int32_t count,
                                                      bool throw_exception) {
   DCHECK_NE(this, src)
       << "This case should be handled with memmove that handles overlaps correctly";
@@ -208,42 +268,79 @@ inline void ObjectArray<T>::AssignableCheckingMemcpy(int32_t dst_pos, ObjectArra
   Class* dst_class = GetClass()->GetComponentType();
   Class* lastAssignableElementClass = dst_class;
 
-  Object* o = nullptr;
+  T* o = nullptr;
   int i = 0;
-  for (; i < count; ++i) {
-    // The follow get operations force the objects to be verified.
-    // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
-    o = src->GetWithoutChecks(src_pos + i);
-    if (o == nullptr) {
-      // Null is always assignable.
-      SetWithoutChecks<kTransactionActive>(dst_pos + i, nullptr);
-    } else {
-      // TODO: use the underlying class reference to avoid uncompression when not necessary.
-      Class* o_class = o->GetClass();
-      if (LIKELY(lastAssignableElementClass == o_class)) {
-        SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
-      } else if (LIKELY(dst_class->IsAssignableFrom(o_class))) {
-        lastAssignableElementClass = o_class;
-        SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
+  bool baker_non_gray_case = false;
+  if (kUseReadBarrier && kUseBakerReadBarrier) {
+    uintptr_t fake_address_dependency;
+    if (!ReadBarrier::IsGray(src.Ptr(), &fake_address_dependency)) {
+      baker_non_gray_case = true;
+      DCHECK_EQ(fake_address_dependency, 0U);
+      src.Assign(reinterpret_cast<ObjectArray<T>*>(
+          reinterpret_cast<uintptr_t>(src.Ptr()) | fake_address_dependency));
+      for (; i < count; ++i) {
+        // The follow get operations force the objects to be verified.
+        // We can skip the RB here because 'src' isn't gray.
+        o = src->template GetWithoutChecks<kDefaultVerifyFlags, kWithoutReadBarrier>(
+            src_pos + i);
+        if (o == nullptr) {
+          // Null is always assignable.
+          SetWithoutChecks<kTransactionActive>(dst_pos + i, nullptr);
+        } else {
+          // TODO: use the underlying class reference to avoid uncompression when not necessary.
+          Class* o_class = o->GetClass();
+          if (LIKELY(lastAssignableElementClass == o_class)) {
+            SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
+          } else if (LIKELY(dst_class->IsAssignableFrom(o_class))) {
+            lastAssignableElementClass = o_class;
+            SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
+          } else {
+            // Can't put this element into the array, break to perform write-barrier and throw
+            // exception.
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (!baker_non_gray_case) {
+    for (; i < count; ++i) {
+      // The follow get operations force the objects to be verified.
+      // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
+      o = src->GetWithoutChecks(src_pos + i);
+      if (o == nullptr) {
+        // Null is always assignable.
+        SetWithoutChecks<kTransactionActive>(dst_pos + i, nullptr);
       } else {
-        // Can't put this element into the array, break to perform write-barrier and throw
-        // exception.
-        break;
+        // TODO: use the underlying class reference to avoid uncompression when not necessary.
+        Class* o_class = o->GetClass();
+        if (LIKELY(lastAssignableElementClass == o_class)) {
+          SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
+        } else if (LIKELY(dst_class->IsAssignableFrom(o_class))) {
+          lastAssignableElementClass = o_class;
+          SetWithoutChecks<kTransactionActive>(dst_pos + i, o);
+        } else {
+          // Can't put this element into the array, break to perform write-barrier and throw
+          // exception.
+          break;
+        }
       }
     }
   }
   Runtime::Current()->GetHeap()->WriteBarrierArray(this, dst_pos, count);
   if (UNLIKELY(i != count)) {
-    std::string actualSrcType(PrettyTypeOf(o));
-    std::string dstType(PrettyTypeOf(this));
+    std::string actualSrcType(mirror::Object::PrettyTypeOf(o));
+    std::string dstType(PrettyTypeOf());
     Thread* self = Thread::Current();
+    std::string msg = android::base::StringPrintf(
+        "source[%d] of type %s cannot be stored in destination array of type %s",
+        src_pos + i,
+        actualSrcType.c_str(),
+        dstType.c_str());
     if (throw_exception) {
-      self->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
-                               "source[%d] of type %s cannot be stored in destination array of type %s",
-                               src_pos + i, actualSrcType.c_str(), dstType.c_str());
+      self->ThrowNewException("Ljava/lang/ArrayStoreException;", msg.c_str());
     } else {
-      LOG(FATAL) << StringPrintf("source[%d] of type %s cannot be stored in destination array of type %s",
-                                 src_pos + i, actualSrcType.c_str(), dstType.c_str());
+      LOG(FATAL) << msg;
     }
   }
 }
@@ -266,8 +363,7 @@ inline ObjectArray<T>* ObjectArray<T>::CopyOf(Thread* self, int32_t new_length) 
 
 template<class T>
 inline MemberOffset ObjectArray<T>::OffsetOfElement(int32_t i) {
-  return MemberOffset(DataOffset(sizeof(HeapReference<Object>)).Int32Value() +
-                      (i * sizeof(HeapReference<Object>)));
+  return MemberOffset(DataOffset(kHeapReferenceSize).Int32Value() + (i * kHeapReferenceSize));
 }
 
 template<class T> template<typename Visitor>

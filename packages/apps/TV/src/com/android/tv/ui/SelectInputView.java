@@ -34,14 +34,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import com.android.tv.R;
 import com.android.tv.ApplicationSingletons;
+import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.analytics.DurationTimer;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.data.Channel;
 import com.android.tv.util.TvInputManagerHelper;
-import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -156,9 +155,9 @@ public class SelectInputView extends VerticalGridView implements
         mShowDurationMillis = resources.getInteger(R.integer.select_input_show_duration);
         mRippleAnimDurationMillis = resources.getInteger(
                 R.integer.select_input_ripple_anim_duration);
-        mTextColorPrimary = Utils.getColor(resources, R.color.select_input_text_color_primary);
-        mTextColorSecondary = Utils.getColor(resources, R.color.select_input_text_color_secondary);
-        mTextColorDisabled = Utils.getColor(resources, R.color.select_input_text_color_disabled);
+        mTextColorPrimary = resources.getColor(R.color.select_input_text_color_primary, null);
+        mTextColorSecondary = resources.getColor(R.color.select_input_text_color_secondary, null);
+        mTextColorDisabled = resources.getColor(R.color.select_input_text_color_disabled, null);
 
         mItemViewForMeasure = LayoutInflater.from(context).inflate(
                 R.layout.select_input_item, this, false);

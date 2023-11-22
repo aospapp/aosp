@@ -20,7 +20,6 @@ endif
 
 LOCAL_SRC_FILES := \
         src/bt_vendor_brcm.c \
-        src/bt_vendor_brcm_a2dp.c \
         src/hardware.c \
         src/userial_vendor.c \
         src/upio.c \
@@ -30,11 +29,15 @@ LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \
         $(BDROID_DIR)/hci/include \
         $(BDROID_DIR)/include \
-        $(BDROID_DIR)/stack/include \
-        $(BDROID_DIR)/gki/ulinux
+        $(BDROID_DIR)/device/include \
+        $(BDROID_DIR)
 
 LOCAL_C_INCLUDES += $(bdroid_C_INCLUDES)
 LOCAL_CFLAGS += $(bdroid_CFLAGS)
+
+ifneq ($(BOARD_HAVE_BLUETOOTH_BCM_A2DP_OFFLOAD),)
+  LOCAL_STATIC_LIBRARIES := libbt-brcm_a2dp
+endif
 
 LOCAL_SHARED_LIBRARIES := \
         libcutils \

@@ -41,7 +41,7 @@ public:
     static Animation *createFromStream(Context *rsc, IStream *stream);
 
 protected:
-    Animation(Context *rsc);
+    explicit Animation(Context *rsc);
 
 
 
@@ -61,7 +61,7 @@ protected:
     float mInputMax;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif //ANDROID_STRUCTURED_ELEMENT_H
 

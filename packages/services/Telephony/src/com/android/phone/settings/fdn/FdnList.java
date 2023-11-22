@@ -17,16 +17,26 @@
 package com.android.phone.settings.fdn;
 
 import android.app.ActionBar;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PersistableBundle;
+import android.telecom.PhoneAccount;
+import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
+import android.text.TextUtils;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ListView;
+import android.widget.PopupMenu;
+import android.widget.PopupMenu.OnMenuItemClickListener;
 
 import com.android.phone.ADNList;
+import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
 
@@ -35,9 +45,44 @@ import com.android.phone.SubscriptionInfoHelper;
  * that allows a user to specify a limited set of phone numbers that the SIM can dial.
  */
 public class FdnList extends ADNList {
+    private class SelectionPopupMenu extends PopupMenu {
+        private OnMenuItemClickListener mMenuItemListener = new OnMenuItemClickListener() {
+
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                if (item.getItemId() == MENU_EDIT) {
+                    editSelected(position);
+                } else if (item.getItemId() == MENU_DELETE) {
+                    deleteSelected(position);
+                } else if (item.getItemId() == MENU_DIAL) {
+                    dialSelected(position);
+                }
+                return true;
+            }
+        };
+
+        private final int position;
+
+        public SelectionPopupMenu(Context context, View anchor, int position) {
+            super(context, anchor, Gravity.RIGHT);
+            this.position = position;
+        }
+
+        public void showPopUp() {
+            getMenu().add(0, MENU_EDIT, 0, getString(R.string.menu_edit));
+            getMenu().add(0, MENU_DELETE, 0, getString(R.string.menu_delete));
+            if (mFdnDialDirectlySupported) {
+                getMenu().add(0, MENU_DIAL, 0, getString(R.string.menu_dial));
+            }
+            setOnMenuItemClickListener(mMenuItemListener);
+            show();
+        }
+    }
+
     private static final int MENU_ADD = 1;
     private static final int MENU_EDIT = 2;
     private static final int MENU_DELETE = 3;
+    private static final int MENU_DIAL = 4;
 
     private static final String INTENT_EXTRA_NAME = "name";
     private static final String INTENT_EXTRA_NUMBER = "number";
@@ -46,6 +91,9 @@ public class FdnList extends ADNList {
     private static final String FDN_CONTENT_PATH_WITH_SUB_ID = "content://icc/fdn/subId/";
 
     private SubscriptionInfoHelper mSubscriptionInfoHelper;
+
+    private boolean mFdnDialDirectlySupported = false;
+    private SelectionPopupMenu mPopup;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -60,6 +108,20 @@ public class FdnList extends ADNList {
         mSubscriptionInfoHelper = new SubscriptionInfoHelper(this, getIntent());
         mSubscriptionInfoHelper.setActionBarTitle(
                 getActionBar(), getResources(), R.string.fdn_list_with_label);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mFdnDialDirectlySupported = getFdnDialDirectlySupported();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mPopup != null) {
+            mPopup.dismiss();
+        }
     }
 
     @Override
@@ -82,6 +144,7 @@ public class FdnList extends ADNList {
                 .setIcon(android.R.drawable.ic_menu_edit);
         menu.add(0, MENU_DELETE, 0, r.getString(R.string.menu_delete))
                 .setIcon(android.R.drawable.ic_menu_delete);
+        menu.add(0, MENU_DIAL, 0, r.getString(R.string.menu_dial));
         return true;
     }
 
@@ -93,6 +156,7 @@ public class FdnList extends ADNList {
         menu.findItem(MENU_ADD).setVisible(true);
         menu.findItem(MENU_EDIT).setVisible(hasSelection);
         menu.findItem(MENU_DELETE).setVisible(hasSelection);
+        menu.findItem(MENU_DIAL).setVisible(hasSelection && mFdnDialDirectlySupported);
 
         return true;
     }
@@ -119,6 +183,10 @@ public class FdnList extends ADNList {
             case MENU_DELETE:
                 deleteSelected();
                 return true;
+
+            case MENU_DIAL:
+                dialSelected();
+                return true;
         }
 
         return super.onOptionsItemSelected(item);
@@ -126,8 +194,8 @@ public class FdnList extends ADNList {
 
     @Override
     public void onListItemClick(ListView l, View v, int position, long id) {
-        // TODO: is this what we really want?
-        editSelected(position);
+        mPopup = new SelectionPopupMenu(this, v, position);
+        mPopup.showPopUp();
     }
 
     private void addContact() {
@@ -162,7 +230,11 @@ public class FdnList extends ADNList {
     }
 
     private void deleteSelected() {
-        if (mCursor.moveToPosition(getSelectedItemPosition())) {
+        deleteSelected(getSelectedItemPosition());
+    }
+
+    private void deleteSelected(int position) {
+        if (mCursor.moveToPosition(position)) {
             String name = mCursor.getString(NAME_COLUMN);
             String number = mCursor.getString(NUMBER_COLUMN);
 
@@ -170,6 +242,21 @@ public class FdnList extends ADNList {
             intent.putExtra(INTENT_EXTRA_NAME, name);
             intent.putExtra(INTENT_EXTRA_NUMBER, number);
             startActivity(intent);
+        }
+    }
+
+    private void dialSelected() {
+        dialSelected(getSelectedItemPosition());
+    }
+
+    private void dialSelected(int position) {
+        if (mCursor.moveToPosition(position)) {
+            String number = mCursor.getString(NUMBER_COLUMN);
+            if (!TextUtils.isEmpty(number)) {
+                Uri uri = Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null);
+                final Intent intent = new Intent(Intent.ACTION_CALL_PRIVILEGED, uri);
+                startActivity(intent);
+            }
         }
     }
 
@@ -182,4 +269,18 @@ public class FdnList extends ADNList {
                 : FDN_CONTENT_URI;
     }
 
+    /*
+     * Get the config of whether dialing FDN number from FDN list directly is supported
+     * from carrier config manager.
+     *
+     * @return boolean value of the config
+     */
+    private boolean getFdnDialDirectlySupported() {
+        int subId = mSubscriptionInfoHelper.hasSubId()
+                ? mSubscriptionInfoHelper.getSubId()
+                : SubscriptionManager.getDefaultSubscriptionId();
+        PersistableBundle carrierConfig =
+                PhoneGlobals.getInstance().getCarrierConfigForSubId(subId);
+        return carrierConfig.getBoolean(CarrierConfigManager.KEY_SUPPORT_DIRECT_FDN_DIALING_BOOL);
+    }
 }

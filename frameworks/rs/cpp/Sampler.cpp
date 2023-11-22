@@ -17,8 +17,8 @@
 #include "RenderScript.h"
 #include "rsCppInternal.h"
 
-using namespace android;
-using namespace RSC;
+using android::RSC::Sampler;
+using android::RSC::sp;
 
 Sampler::Sampler(sp<RS> rs, void* id):
     BaseObj(id, rs)
@@ -61,7 +61,7 @@ float Sampler::getAnisotropy() {
     return mAniso;
 }
 
-sp<Sampler> Sampler::create(sp<RS> rs, RsSamplerValue min, RsSamplerValue mag,
+sp<Sampler> Sampler::create(const sp<RS>& rs, RsSamplerValue min, RsSamplerValue mag,
                             RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy) {
     // We aren't supporting wrapR in C++ API atm, so always pass wrap for that.
     void* id = RS::dispatch->SamplerCreate(rs->getContext(), min, mag, wrapS, wrapT,
@@ -69,7 +69,7 @@ sp<Sampler> Sampler::create(sp<RS> rs, RsSamplerValue min, RsSamplerValue mag,
     return new Sampler(rs, id, min, mag, wrapS, wrapT, anisotropy);
 }
 
-#define CREATE_SAMPLER(N, MIN, MAG, WRAPS, WRAPT) sp<const Sampler> Sampler::N(sp<RS> rs) { \
+#define CREATE_SAMPLER(N, MIN, MAG, WRAPS, WRAPT) sp<const Sampler> Sampler::N(const sp<RS> &rs) { \
         if (rs->mSamplers.N == nullptr) {                                \
             rs->mSamplers.N = (create(rs, MIN, MAG, WRAPS, WRAPT, 0.f)); \
         }                                                                \

@@ -14,18 +14,13 @@
  ** limitations under the License.
  */
 
-#include <stdlib.h>
-#include <pthread.h>
-
-#include <cutils/log.h>
-#include <cutils/properties.h>
-
-#include <utils/CallStack.h>
-
-#include <EGL/egl.h>
-
 #include "egl_tls.h"
 
+#include <stdlib.h>
+
+#include <cutils/properties.h>
+#include <log/log.h>
+#include "CallStack.h"
 
 namespace android {
 
@@ -33,7 +28,7 @@ pthread_key_t egl_tls_t::sKey = TLS_KEY_NOT_INITIALIZED;
 pthread_once_t egl_tls_t::sOnceKey = PTHREAD_ONCE_INIT;
 
 egl_tls_t::egl_tls_t()
-    : error(EGL_SUCCESS), ctx(0), logCallWithNoContext(EGL_TRUE) {
+    : error(EGL_SUCCESS), ctx(0), logCallWithNoContext(true) {
 }
 
 const char *egl_tls_t::egl_strerror(EGLint err) {
@@ -78,7 +73,7 @@ void egl_tls_t::setErrorEtcImpl(
             char value[PROPERTY_VALUE_MAX];
             property_get("debug.egl.callstack", value, "0");
             if (atoi(value)) {
-                CallStack stack(LOG_TAG);
+                CallStack::log(LOG_TAG);
             }
         }
         tls->error = error;
@@ -87,11 +82,12 @@ void egl_tls_t::setErrorEtcImpl(
 
 bool egl_tls_t::logNoContextCall() {
     egl_tls_t* tls = getTLS();
-    if (tls->logCallWithNoContext == true) {
+    if (tls->logCallWithNoContext) {
         tls->logCallWithNoContext = false;
         return true;
     }
     return false;
+
 }
 
 egl_tls_t* egl_tls_t::getTLS() {

@@ -19,11 +19,14 @@
 #include <string.h>
 #include <zlib.h>
 
+#include "android-base/stringprintf.h"
+
 #include "arch/instruction_set_features.h"
 #include "base/bit_utils.h"
-#include "base/stringprintf.h"
 
 namespace art {
+
+using android::base::StringPrintf;
 
 constexpr uint8_t OatHeader::kOatMagic[4];
 constexpr uint8_t OatHeader::kOatVersion[4];
@@ -466,12 +469,12 @@ bool OatHeader::IsPic() const {
   return IsKeyEnabled(OatHeader::kPicKey);
 }
 
-bool OatHeader::HasPatchInfo() const {
-  return IsKeyEnabled(OatHeader::kHasPatchInfoKey);
-}
-
 bool OatHeader::IsDebuggable() const {
   return IsKeyEnabled(OatHeader::kDebuggableKey);
+}
+
+bool OatHeader::IsConcurrentCopying() const {
+  return IsKeyEnabled(OatHeader::kConcurrentCopying);
 }
 
 bool OatHeader::IsNativeDebuggable() const {

@@ -16,11 +16,12 @@
 #
 
 _adb() {
-    unset -v have
-    type $1 &> /dev/null && have="yes"
-
-    if [ "$have" != "yes" ]; then
+    if ! type -t "$1" >/dev/null; then
         return
+    fi
+
+    if type -t _init_completion >/dev/null; then
+        _init_completion || return
     fi
 
     local where i cur serial

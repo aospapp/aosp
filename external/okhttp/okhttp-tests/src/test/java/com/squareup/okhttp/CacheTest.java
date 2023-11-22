@@ -19,7 +19,6 @@ package com.squareup.okhttp;
 import com.squareup.okhttp.internal.Internal;
 import com.squareup.okhttp.internal.SslContextBuilder;
 import com.squareup.okhttp.internal.Util;
-import com.squareup.okhttp.internal.io.FileSystem;
 import com.squareup.okhttp.internal.io.InMemoryFileSystem;
 import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.MockWebServer;
@@ -76,9 +75,9 @@ public final class CacheTest {
 
   @Rule public MockWebServer server = new MockWebServer();
   @Rule public MockWebServer server2 = new MockWebServer();
+  @Rule public InMemoryFileSystem fileSystem = new InMemoryFileSystem();
 
   private final SSLContext sslContext = SslContextBuilder.localhost();
-  private final FileSystem fileSystem = new InMemoryFileSystem();
   private final OkHttpClient client = new OkHttpClient();
   private Cache cache;
   private final CookieManager cookieManager = new CookieManager();
@@ -93,6 +92,7 @@ public final class CacheTest {
   @After public void tearDown() throws Exception {
     ResponseCache.setDefault(null);
     CookieHandler.setDefault(null);
+    cache.delete();
   }
 
   /**
@@ -266,7 +266,7 @@ public final class CacheTest {
     Principal localPrincipal = response1.handshake().localPrincipal();
 
     Response response2 = client.newCall(request).execute(); // Cached!
-    assertEquals("ABC", response2.body().source().readUtf8());
+    assertEquals("ABC", response2.body().string());
 
     assertEquals(2, cache.getRequestCount());
     assertEquals(1, cache.getNetworkCount());
@@ -460,6 +460,26 @@ public final class CacheTest {
     HttpUrl url = server.url("/");
     assertEquals("a", get(url).body().string());
     assertEquals("b", get(url).body().string());
+  }
+
+  /** https://github.com/square/okhttp/issues/2198 */
+  @Test public void cachedRedirect() throws IOException {
+    server.enqueue(new MockResponse()
+        .setResponseCode(301)
+        .addHeader("Cache-Control: max-age=60")
+        .addHeader("Location: /bar"));
+    server.enqueue(new MockResponse()
+        .setBody("ABC"));
+    server.enqueue(new MockResponse()
+        .setBody("ABC"));
+
+    Request request1 = new Request.Builder().url(server.url("/")).build();
+    Response response1 = client.newCall(request1).execute();
+    assertEquals("ABC", response1.body().string());
+
+    Request request2 = new Request.Builder().url(server.url("/")).build();
+    Response response2 = client.newCall(request2).execute();
+    assertEquals("ABC", response2.body().string());
   }
 
   @Test public void serverDisconnectsPrematurelyWithContentLengthHeader() throws IOException {
@@ -1007,7 +1027,7 @@ public final class CacheTest {
 
     assertEquals("A", get(server.url("/")).body().string());
     assertEquals("A", get(server.url("/")).body().string());
-    assertEquals(1, client.getConnectionPool().getConnectionCount());
+    assertEquals(1, client.getConnectionPool().getIdleConnectionCount());
   }
 
   @Test public void expiresDateBeforeModifiedDate() throws Exception {
@@ -1873,6 +1893,7 @@ public final class CacheTest {
 
     Response response = get(server.url("/"));
     assertEquals("A", response.header(""));
+    assertEquals("body", response.body().string());
   }
 
   /**

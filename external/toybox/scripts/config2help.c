@@ -1,5 +1,6 @@
 //#include "toys.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 #include <inttypes.h>
 #include <termios.h>
 #include <poll.h>
+#include <sys/socket.h>
 struct statvfs {int i;};
 #include "lib/portability.h"
 #include "lib/lib.h"

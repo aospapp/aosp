@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright 2015, ARM Limited
+# Copyright 2015, VIXL authors
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,8 +26,11 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use v5.10.1;
+no warnings 'experimental::smartmatch';
+
 # Assembler header file.
-my $hfile = "src/vixl/a64/assembler-a64.h";
+my $hfile = "src/vixl/aarch64/assembler-aarch64.h";
 
 # Extra pseudo instructions added to AArch64.
 my @extras = qw/bind debug dci dc32 dc64 place/;
@@ -35,7 +38,7 @@ my @extras = qw/bind debug dci dc32 dc64 place/;
 my %inst = ();  # Global hash of instructions.
 
 $/ = '';
-open(IN, "<$hfile") or die("Can't open header file $header.\n");
+open(IN, "<$hfile") or die("Can't open header file $hfile.\n");
 while(<IN>)
 {
   # Find a function formatted like an instruction.

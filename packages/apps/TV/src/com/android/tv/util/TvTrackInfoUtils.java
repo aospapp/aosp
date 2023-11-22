@@ -50,8 +50,12 @@ public class TvTrackInfoUtils {
                 if (rhs == null) {
                     return 1;
                 }
-                boolean rhsLangMatch = Utils.isEqualLanguage(rhs.getLanguage(), language);
-                boolean lhsLangMatch = Utils.isEqualLanguage(lhs.getLanguage(), language);
+                // Assumes {@code null} language matches to any language since it means user hasn't
+                // selected any track before or selected a track without language information.
+                boolean rhsLangMatch = language == null || Utils.isEqualLanguage(rhs.getLanguage(),
+                        language);
+                boolean lhsLangMatch = language == null || Utils.isEqualLanguage(lhs.getLanguage(),
+                        language);
                 if (rhsLangMatch) {
                     if (lhsLangMatch) {
                         boolean rhsCountMatch = rhs.getAudioChannelCount() == channelCount;

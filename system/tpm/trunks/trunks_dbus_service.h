@@ -56,10 +56,9 @@ class TrunksDBusService : public brillo::DBusServiceDaemon {
 
  private:
   // Handles calls to the 'SendCommand' method.
-  void HandleSendCommand(
-      std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<
-          const SendCommandResponse&>> response_sender,
-      const SendCommandRequest& request);
+  void HandleSendCommand(std::unique_ptr<brillo::dbus_utils::DBusMethodResponse<
+                             const SendCommandResponse&>> response_sender,
+                         const SendCommandRequest& request);
 
   base::WeakPtr<TrunksDBusService> GetWeakPtr() {
     return weak_factory_.GetWeakPtr();
@@ -74,6 +73,5 @@ class TrunksDBusService : public brillo::DBusServiceDaemon {
 };
 
 }  // namespace trunks
-
 
 #endif  // TRUNKS_TRUNKS_DBUS_SERVICE_H_

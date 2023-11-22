@@ -2,7 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, threading, time
+import logging
+import os
+import subprocess
+import tempfile
+import threading
+import time
+
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
@@ -12,6 +18,10 @@ from autotest_lib.client.cros.audio import audio_helper
 class power_AudioDetector(test.test):
     """Verifies that audio playback prevents powerd from suspending."""
     version = 1
+
+    def initialize(self):
+        self._pref_change = None
+
 
     def run_once(self, run_time_sec=60):
         if run_time_sec < 10:
@@ -25,6 +35,16 @@ class power_AudioDetector(test.test):
 
             # Set a low audio volume to avoid annoying people during tests.
             audio_helper.set_volume_levels(10, 100)
+
+            # Start a subprocess that uses dbus-monitor to listen for suspend
+            # announcements from powerd and writes the output to a log.
+            dbus_log_fd, dbus_log_name = tempfile.mkstemp()
+            os.unlink(dbus_log_name)
+            dbus_log = os.fdopen(dbus_log_fd)
+            dbus_proc = subprocess.Popen(
+                'dbus-monitor --monitor --system ' +
+                '"type=\'signal\',interface=\'org.chromium.PowerManager\',' +
+                'member=\'SuspendImminent\'"', shell=True, stdout=dbus_log)
 
             # Start playing audio file.
             self._enable_audio_playback = True
@@ -63,16 +83,20 @@ class power_AudioDetector(test.test):
             if thread.is_alive():
                 logging.error('Audio thread did not terminate at end of test.')
 
-            # Check powerd's log to make sure that no suspend took place.
-            powerd_log_path = '/var/log/power_manager/powerd.LATEST'
-            log = open(powerd_log_path, 'r').read()
-            if log.find('Starting suspend') != -1:
+            # Check the D-Bus log to make sure that no suspend took place.
+            # dbus-monitor logs messages about its initial connection to the bus
+            # in addition to the signals that we asked it for, so look for the
+            # signal name in its output.
+            dbus_proc.kill()
+            dbus_log.seek(0)
+            if 'SuspendImminent' in dbus_log.read():
                 err_str = 'System suspended while audio was playing.'
                 raise error.TestFail(err_str)
 
 
     def cleanup(self):
-        utils.restart_job('powerd')
+        # Restore powerd prefs.
+        del self._pref_change
 
 
     def _play_audio(self, loop_time):

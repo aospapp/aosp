@@ -1,3 +1,4 @@
+// CHECKSTYLE:OFF Generated code
 /* This file is auto-generated from PlaybackControlHelper.java.  DO NOT MODIFY. */
 
 /*
@@ -57,6 +58,9 @@ abstract class PlaybackControlSupportHelper extends PlaybackControlSupportGlue {
     private PlaybackControlsRow.PictureInPictureAction mPipAction;
 
     private Handler mHandler = new Handler();
+    // simulating whether the media is yet prepared and ready to play
+    private boolean mInitialized = true;
+
     private final Runnable mUpdateProgressRunnable = new Runnable() {
         @Override
         public void run() {
@@ -65,12 +69,12 @@ abstract class PlaybackControlSupportHelper extends PlaybackControlSupportGlue {
         }
     };
 
-    public PlaybackControlSupportHelper(Context context, PlaybackOverlaySupportFragment fragment) {
+    PlaybackControlSupportHelper(Context context, PlaybackOverlaySupportFragment fragment) {
         super(context, fragment, sFastForwardSpeeds);
         mThumbsUpAction = new PlaybackControlsRow.ThumbsUpAction(context);
-        mThumbsUpAction.setIndex(PlaybackControlsRow.ThumbsUpAction.OUTLINE);
+        mThumbsUpAction.setIndex(PlaybackControlsRow.ThumbsUpAction.INDEX_OUTLINE);
         mThumbsDownAction = new PlaybackControlsRow.ThumbsDownAction(context);
-        mThumbsDownAction.setIndex(PlaybackControlsRow.ThumbsDownAction.OUTLINE);
+        mThumbsDownAction.setIndex(PlaybackControlsRow.ThumbsDownAction.INDEX_OUTLINE);
         mRepeatAction = new PlaybackControlsRow.RepeatAction(context);
         mPipAction = new PlaybackControlsRow.PictureInPictureAction(context);
     }
@@ -161,7 +165,7 @@ abstract class PlaybackControlSupportHelper extends PlaybackControlSupportGlue {
 
     @Override
     public boolean hasValidMedia() {
-        return true;
+        return mInitialized;
     }
 
     @Override
@@ -181,7 +185,7 @@ abstract class PlaybackControlSupportHelper extends PlaybackControlSupportGlue {
 
     @Override
     public int getMediaDuration() {
-        return FAUX_DURATION;
+        return mInitialized ? FAUX_DURATION : 0;
     }
 
     @Override
@@ -233,7 +237,7 @@ abstract class PlaybackControlSupportHelper extends PlaybackControlSupportGlue {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                if (mRepeatAction.getIndex() == PlaybackControlsRow.RepeatAction.NONE) {
+                if (mRepeatAction.getIndex() == PlaybackControlsRow.RepeatAction.INDEX_NONE) {
                     pausePlayback();
                 } else {
                     startPlayback(PlaybackControlSupportGlue.PLAYBACK_SPEED_NORMAL);
@@ -280,6 +284,18 @@ abstract class PlaybackControlSupportHelper extends PlaybackControlSupportGlue {
         mHandler.removeCallbacks(mUpdateProgressRunnable);
         if (enable) {
             mUpdateProgressRunnable.run();
+        }
+    }
+
+    public boolean isInitialized() {
+        return mInitialized;
+    }
+
+    public void setInitialized(boolean initialized) {
+        if (mInitialized != initialized) {
+            mInitialized = initialized;
+            onMetadataChanged();
+            onStateChanged();
         }
     }
 };

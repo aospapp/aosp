@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-#ifdef USE_MINGW
+#ifdef _WIN32
 typedef unsigned char u_char;
 typedef unsigned int uint32_t;
 typedef unsigned int u_int32_t;

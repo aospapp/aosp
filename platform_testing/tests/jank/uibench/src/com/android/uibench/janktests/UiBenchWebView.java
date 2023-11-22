@@ -62,7 +62,7 @@ public class UiBenchWebView extends JankTestBase {
     @JankTest(beforeTest = "openScrollableWebView", expectedFrames = EXPECTED_FRAMES)
     @GfxMonitor(processName = PACKAGE_NAME)
     public void testWebViewFling() {
-        mHelper.flingUpDown(mHelper.mContents, mHelper.SHORT_TIMEOUT, 1);
+        mHelper.flingUpDown(mHelper.mContents, 1);
     }
 
 }

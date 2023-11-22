@@ -44,6 +44,7 @@ public class DisableCollectionTest extends JDWPSyncTestCase {
 
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/DisableCollectionDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.DisableCollectionDebuggee";
     }
@@ -102,7 +103,7 @@ public class DisableCollectionTest extends JDWPSyncTestCase {
         assertEquals("Invalid value tag for checked object,",
                 JDWPConstants.Tag.OBJECT_TAG, checkedObjectFieldTag,
                 JDWPConstants.Tag.getName(JDWPConstants.Tag.OBJECT_TAG),
-                JDWPConstants.Tag.getName((byte) (checkedObjectFieldTag)));
+                JDWPConstants.Tag.getName(checkedObjectFieldTag));
 
         long checkedObjectID = checkedObjectFieldValue.getLongValue();
         logWriter.println("=> Returned checked ObjectID = " + checkedObjectID);

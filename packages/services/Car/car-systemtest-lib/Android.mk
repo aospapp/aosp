@@ -28,6 +28,4 @@ LOCAL_AIDL_INCLUDES += packages/services/Car/libvehiclenetwork/java/src/
 
 LOCAL_JAVA_LIBRARIES += android.car
 
-LOCAL_STATIC_JAVA_LIBRARIES += libvehiclenetwork-java
-
 include $(BUILD_STATIC_JAVA_LIBRARY)

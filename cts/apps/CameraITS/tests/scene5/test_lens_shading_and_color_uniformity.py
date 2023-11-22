@@ -52,15 +52,16 @@ def main():
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
-        # Converge 3A and get the estimates.
-        sens, exp, gains, xform, focus = cam.do_3a(get_results=True,
-                                                   do_af=False,
-                                                   lock_ae=True,
-                                                   lock_awb=True)
-        print "AE sensitivity %d, exposure %dms" % (sens, exp / 1000000.0)
-        print "AWB gains", gains
-        print "AWB transform", xform
-        print "AF distance", focus
+        if its.caps.read_3a(props):
+            # Converge 3A and get the estimates.
+            sens, exp, gains, xform, focus = cam.do_3a(get_results=True,
+                                                       do_af=False,
+                                                       lock_ae=True,
+                                                       lock_awb=True)
+            print "AE sensitivity %d, exposure %dms" % (sens, exp / 1000000.0)
+            print "AWB gains", gains
+            print "AWB transform", xform
+            print "AF distance", focus
         req = its.objects.auto_capture_request()
         img_size = its.objects.get_available_output_sizes("yuv", props)
         w = img_size[0][0]
@@ -117,7 +118,7 @@ def main():
         dist_max = math.sqrt(pow(w, 2)+pow(h, 2))/2
         for spb_ct in SPB_CT_LIST:
             # list sample block center location
-            num_sample = (1-spb_ct*2)/spb_r/2 + 1
+            num_sample = int(numpy.asscalar((1-spb_ct*2)/spb_r/2 + 1))
             ct_cord_x = numpy.concatenate(
                         (numpy.arange(spb_ct, 1-spb_ct+spb_r, spb_r*2),
                          spb_ct*numpy.ones((num_sample-1)),

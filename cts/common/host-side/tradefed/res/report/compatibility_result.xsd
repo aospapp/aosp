@@ -36,7 +36,6 @@
 
   <xs:complexType name="summaryType">
     <xs:attribute name="failed" type="xs:integer"/>
-    <xs:attribute name="not_executed" type="xs:integer"/>
     <xs:attribute name="pass" type="xs:integer"/>
   </xs:complexType>
 
@@ -121,7 +120,6 @@
     <xs:restriction base="xs:string">
       <xs:enumeration value="pass"/>
       <xs:enumeration value="fail"/>
-      <xs:enumeration value="not_executed"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>

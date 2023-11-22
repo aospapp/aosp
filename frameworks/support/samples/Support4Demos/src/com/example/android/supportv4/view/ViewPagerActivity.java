@@ -16,8 +16,6 @@
 
 package com.example.android.supportv4.view;
 
-import com.example.android.supportv4.R;
-
 import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -27,6 +25,8 @@ import android.support.v4.view.ViewPager;
 import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
+
+import com.example.android.supportv4.R;
 
 import java.util.ArrayList;
 
@@ -46,17 +46,17 @@ public class ViewPagerActivity extends Activity {
         mAdapter.add("Green", Color.GREEN);
         mAdapter.add("Blue", Color.BLUE);
 
-        mPager = (ViewPager) findViewById(R.id.pager);
+        mPager = findViewById(R.id.pager);
         mPager.setAdapter(mAdapter);
 
-        mTitles = (PagerTitleStrip) findViewById(R.id.titles);
+        mTitles = findViewById(R.id.titles);
     }
 
     private static class ColorPagerAdapter extends PagerAdapter {
         private ArrayList<Pair<String, Integer>> mEntries = new ArrayList<>();
 
         public void add(String title, int color) {
-            mEntries.add(new Pair(title, color));
+            mEntries.add(new Pair<>(title, color));
         }
 
         @Override

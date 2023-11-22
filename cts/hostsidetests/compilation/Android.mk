@@ -27,7 +27,7 @@ LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_MODULE := CtsCompilationTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt compatibility-host-util
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
 LOCAL_STATIC_JAVA_LIBRARIES := guavalib
 

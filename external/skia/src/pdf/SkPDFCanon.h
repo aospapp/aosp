@@ -7,39 +7,25 @@
 #ifndef SkPDFCanon_DEFINED
 #define SkPDFCanon_DEFINED
 
-#include "SkBitmap.h"
 #include "SkPDFGraphicState.h"
 #include "SkPDFShader.h"
 #include "SkPixelSerializer.h"
 #include "SkTDArray.h"
 #include "SkTHash.h"
+#include "SkBitmapKey.h"
 
+class SkAdvancedTypefaceMetrics;
 class SkPDFFont;
-class SkPaint;
-class SkImage;
-
-class SkBitmapKey {
-public:
-    SkBitmapKey() : fSubset(SkIRect::MakeEmpty()), fGenID(0) {}
-    explicit SkBitmapKey(const SkBitmap& bm)
-        : fSubset(bm.getSubset()), fGenID(bm.getGenerationID()) {}
-    bool operator==(const SkBitmapKey& rhs) const {
-        return fGenID == rhs.fGenID && fSubset == rhs.fSubset;
-    }
-
-private:
-    SkIRect fSubset;
-    uint32_t fGenID;
-};
 
 /**
- *  The SkPDFCanon canonicalizes objects across PDF pages(SkPDFDevices).
+ *  The SkPDFCanon canonicalizes objects across PDF pages
+ *  (SkPDFDevices) and across draw calls.
  *
  *  The PDF backend works correctly if:
  *  -  There is no more than one SkPDFCanon for each thread.
  *  -  Every SkPDFDevice is given a pointer to a SkPDFCanon on creation.
  *  -  All SkPDFDevices in a document share the same SkPDFCanon.
- *  The SkDocument_PDF class makes this happen by owning a single
+ *  The SkPDFDocument class makes this happen by owning a single
  *  SkPDFCanon.
  *
  *  The addFoo() methods will ref the Foo; the canon's destructor will
@@ -50,52 +36,49 @@ private:
  */
 class SkPDFCanon : SkNoncopyable {
 public:
-    ~SkPDFCanon() { this->reset(); }
+    ~SkPDFCanon();
 
     // reset to original setting, unrefs all objects.
     void reset();
 
-    // Returns exact match if there is one.  If not, it returns nullptr.
-    // If there is no exact match, but there is a related font, we
-    // still return nullptr, but also set *relatedFont.
-    SkPDFFont* findFont(uint32_t fontID,
-                        uint16_t glyphID,
-                        SkPDFFont** relatedFont) const;
-    void addFont(SkPDFFont* font, uint32_t fontID, uint16_t fGlyphID);
+    sk_sp<SkPDFObject> findFunctionShader(const SkPDFShader::State&) const;
+    void addFunctionShader(sk_sp<SkPDFObject>, SkPDFShader::State);
 
-    SkPDFFunctionShader* findFunctionShader(const SkPDFShader::State&) const;
-    void addFunctionShader(SkPDFFunctionShader*);
+    sk_sp<SkPDFObject> findAlphaShader(const SkPDFShader::State&) const;
+    void addAlphaShader(sk_sp<SkPDFObject>, SkPDFShader::State);
 
-    SkPDFAlphaFunctionShader* findAlphaShader(const SkPDFShader::State&) const;
-    void addAlphaShader(SkPDFAlphaFunctionShader*);
-
-    SkPDFImageShader* findImageShader(const SkPDFShader::State&) const;
-    void addImageShader(SkPDFImageShader*);
+    sk_sp<SkPDFObject> findImageShader(const SkPDFShader::State&) const;
+    void addImageShader(sk_sp<SkPDFObject>, SkPDFShader::State);
 
     const SkPDFGraphicState* findGraphicState(const SkPDFGraphicState&) const;
     void addGraphicState(const SkPDFGraphicState*);
 
-    SkPDFObject* findPDFBitmap(const SkImage* image) const;
-    void addPDFBitmap(uint32_t imageUniqueID, SkPDFObject*);
-    const SkImage* bitmapToImage(const SkBitmap&);
+    sk_sp<SkPDFObject> findPDFBitmap(SkBitmapKey key) const;
+    void addPDFBitmap(SkBitmapKey key, sk_sp<SkPDFObject>);
 
-    SkTHashMap<uint32_t, bool> fCanEmbedTypeface;
+    SkTHashMap<uint32_t, SkAdvancedTypefaceMetrics*> fTypefaceMetrics;
+    SkTHashMap<uint32_t, SkPDFDict*> fFontDescriptors;
+    SkTHashMap<uint64_t, SkPDFFont*> fFontMap;
 
-    SkAutoTUnref<SkPixelSerializer> fPixelSerializer;
+    SkPixelSerializer* getPixelSerializer() const { return fPixelSerializer.get(); }
+    void setPixelSerializer(sk_sp<SkPixelSerializer> ps) {
+        fPixelSerializer = std::move(ps);
+    }
+
+    sk_sp<SkPDFStream> makeInvertFunction();
+    sk_sp<SkPDFDict> makeNoSmaskGraphicState();
+    sk_sp<SkPDFArray> makeRangeObject();
 
 private:
-    struct FontRec {
-        SkPDFFont* fFont;
-        uint32_t fFontID;
-        uint16_t fGlyphID;
+    struct ShaderRec {
+        SkPDFShader::State fShaderState;
+        sk_sp<SkPDFObject> fShaderObject;
+        ShaderRec(SkPDFShader::State s, sk_sp<SkPDFObject> o)
+            : fShaderState(std::move(s)), fShaderObject(std::move(o)) {}
     };
-    SkTDArray<FontRec> fFontRecords;
-
-    SkTDArray<SkPDFFunctionShader*> fFunctionShaderRecords;
-
-    SkTDArray<SkPDFAlphaFunctionShader*> fAlphaShaderRecords;
-
-    SkTDArray<SkPDFImageShader*> fImageShaderRecords;
+    SkTArray<ShaderRec> fFunctionShaderRecords;
+    SkTArray<ShaderRec> fAlphaShaderRecords;
+    SkTArray<ShaderRec> fImageShaderRecords;
 
     struct WrapGS {
         explicit WrapGS(const SkPDFGraphicState* ptr = nullptr) : fPtr(ptr) {}
@@ -114,7 +97,12 @@ private:
     };
     SkTHashSet<WrapGS, WrapGS::Hash> fGraphicStateRecords;
 
-    SkTHashMap<SkBitmapKey, const SkImage*> fBitmapToImageMap;
-    SkTHashMap<uint32_t /*ImageUniqueID*/, SkPDFObject*> fPDFBitmapMap;
+    // TODO(halcanary): make SkTHashMap<K, sk_sp<V>> work correctly.
+    SkTHashMap<SkBitmapKey, SkPDFObject*> fPDFBitmapMap;
+
+    sk_sp<SkPixelSerializer> fPixelSerializer;
+    sk_sp<SkPDFStream> fInvertFunction;
+    sk_sp<SkPDFDict> fNoSmaskGraphicState;
+    sk_sp<SkPDFArray> fRangeObject;
 };
 #endif  // SkPDFCanon_DEFINED

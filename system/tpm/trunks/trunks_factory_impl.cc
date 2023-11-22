@@ -17,6 +17,7 @@
 #include "trunks/trunks_factory_impl.h"
 
 #include <base/logging.h>
+#include <base/memory/ptr_util.h>
 
 #include "trunks/blob_parser.h"
 #include "trunks/hmac_session_impl.h"
@@ -34,66 +35,73 @@
 
 namespace trunks {
 
-TrunksFactoryImpl::TrunksFactoryImpl(bool failure_is_fatal) {
+TrunksFactoryImpl::TrunksFactoryImpl() {
 #if defined(USE_BINDER_IPC)
   default_transceiver_.reset(new TrunksBinderProxy());
 #else
   default_transceiver_.reset(new TrunksDBusProxy());
 #endif
   transceiver_ = default_transceiver_.get();
-  tpm_.reset(new Tpm(transceiver_));
-  if (!transceiver_->Init()) {
-    if (failure_is_fatal) {
-      LOG(FATAL) << "Error initializing default IPC proxy.";
-    } else {
-      LOG(ERROR) << "Error initializing default IPC proxy.";
-    }
-  }
 }
 
 TrunksFactoryImpl::TrunksFactoryImpl(CommandTransceiver* transceiver) {
   transceiver_ = transceiver;
-  tpm_.reset(new Tpm(transceiver_));
 }
 
 TrunksFactoryImpl::~TrunksFactoryImpl() {}
+
+bool TrunksFactoryImpl::Initialize() {
+  if (initialized_) {
+    return true;
+  }
+  tpm_.reset(new Tpm(transceiver_));
+  if (transceiver_ != default_transceiver_.get()) {
+    initialized_ = true;
+  } else {
+    initialized_ = transceiver_->Init();
+    if (!initialized_) {
+      LOG(WARNING) << "Failed to initialize the trunks IPC proxy; "
+                   << "trunksd is not ready.";
+    }
+  }
+  return initialized_;
+}
 
 Tpm* TrunksFactoryImpl::GetTpm() const {
   return tpm_.get();
 }
 
-scoped_ptr<TpmState> TrunksFactoryImpl::GetTpmState() const {
-  return scoped_ptr<TpmState>(new TpmStateImpl(*this));
+std::unique_ptr<TpmState> TrunksFactoryImpl::GetTpmState() const {
+  return base::MakeUnique<TpmStateImpl>(*this);
 }
 
-scoped_ptr<TpmUtility> TrunksFactoryImpl::GetTpmUtility() const {
-  return scoped_ptr<TpmUtility>(new TpmUtilityImpl(*this));
+std::unique_ptr<TpmUtility> TrunksFactoryImpl::GetTpmUtility() const {
+  return base::MakeUnique<TpmUtilityImpl>(*this);
 }
 
-scoped_ptr<AuthorizationDelegate> TrunksFactoryImpl::GetPasswordAuthorization(
-    const std::string& password) const {
-  return scoped_ptr<AuthorizationDelegate>(
-      new PasswordAuthorizationDelegate(password));
+std::unique_ptr<AuthorizationDelegate>
+TrunksFactoryImpl::GetPasswordAuthorization(const std::string& password) const {
+  return base::MakeUnique<PasswordAuthorizationDelegate>(password);
 }
 
-scoped_ptr<SessionManager> TrunksFactoryImpl::GetSessionManager() const {
-  return scoped_ptr<SessionManager>(new SessionManagerImpl(*this));
+std::unique_ptr<SessionManager> TrunksFactoryImpl::GetSessionManager() const {
+  return base::MakeUnique<SessionManagerImpl>(*this);
 }
 
-scoped_ptr<HmacSession> TrunksFactoryImpl::GetHmacSession() const {
-  return scoped_ptr<HmacSession>(new HmacSessionImpl(*this));
+std::unique_ptr<HmacSession> TrunksFactoryImpl::GetHmacSession() const {
+  return base::MakeUnique<HmacSessionImpl>(*this);
 }
 
-scoped_ptr<PolicySession> TrunksFactoryImpl::GetPolicySession() const {
-  return scoped_ptr<PolicySession>(new PolicySessionImpl(*this, TPM_SE_POLICY));
+std::unique_ptr<PolicySession> TrunksFactoryImpl::GetPolicySession() const {
+  return base::MakeUnique<PolicySessionImpl>(*this, TPM_SE_POLICY);
 }
 
-scoped_ptr<PolicySession> TrunksFactoryImpl::GetTrialSession() const {
-  return scoped_ptr<PolicySession>(new PolicySessionImpl(*this, TPM_SE_TRIAL));
+std::unique_ptr<PolicySession> TrunksFactoryImpl::GetTrialSession() const {
+  return base::MakeUnique<PolicySessionImpl>(*this, TPM_SE_TRIAL);
 }
 
-scoped_ptr<BlobParser> TrunksFactoryImpl::GetBlobParser() const {
-  return scoped_ptr<BlobParser>(new BlobParser());
+std::unique_ptr<BlobParser> TrunksFactoryImpl::GetBlobParser() const {
+  return base::MakeUnique<BlobParser>();
 }
 
 }  // namespace trunks

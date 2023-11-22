@@ -49,6 +49,20 @@ public class OrientationTestUtils {
         changeOrientation(activity, instrumentation, originalOrientation);
     }
 
+    /**
+     * Switches the device's orientation from landscape to portrait or portrait to landscape.
+     *
+     * @param activity whose orientation will be changed.
+     * @param instrumentation use for idle syncing
+     */
+    public static void switchOrientation(final Activity activity, Instrumentation instrumentation) {
+        final int originalOrientation = activity.getResources().getConfiguration().orientation;
+        final int newOrientation = originalOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+        changeOrientation(activity, instrumentation, newOrientation);
+    }
+
     private static void changeOrientation(final Activity activity,
             Instrumentation instrumentation, final int orientation) {
         activity.setRequestedOrientation(orientation);

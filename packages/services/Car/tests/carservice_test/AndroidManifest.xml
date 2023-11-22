@@ -15,16 +15,17 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-        package="com.android.support.car.carservicetest"
+        package="com.android.car.test"
         android:sharedUserId="android.uid.system" >
 
     <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING" />
     <uses-permission android:name="android.car.permission.CAR_HVAC" />
     <uses-permission android:name="android.car.permission.CAR_RADIO" />
     <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING" />
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
     <instrumentation android:name="android.test.InstrumentationTestRunner"
-            android:targetPackage="com.android.support.car.carservicetest"
+            android:targetPackage="com.android.car.test"
             android:label="Tests for Car APIs"/>
 
     <application android:label="CarServiceTest">
@@ -35,5 +36,12 @@
                 <action android:name="android.car.content.pm.CarAppBlockingPolicyService"/>
             </intent-filter>
         </service>
+        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$ActivityA" />
+        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$ActivityB"
+            android:taskAffinity="com.android.car.carservicetest.activity"/>
+        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$ActivityC"
+            android:process="com.android.car.carservicetest.activityC"/>
+        <activity android:name="com.android.car.test.SystemActivityMonitoringServiceTest$BlockingActivity"
+            android:taskAffinity="com.android.car.carservicetest.block"/>
     </application>
 </manifest>

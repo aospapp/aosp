@@ -38,15 +38,15 @@ namespace {
 
 class PixelInfo : public AwPixelInfo {
  public:
-  PixelInfo(SkCanvas* canvas);
+  explicit PixelInfo(android::Canvas* canvas);
   ~PixelInfo();
 };
 
 
-PixelInfo::PixelInfo(SkCanvas* canvas) {
+PixelInfo::PixelInfo(android::Canvas* canvas) {
   memset(this, 0, sizeof(AwPixelInfo));
   version = kAwPixelInfoVersion;
-  state = SkCanvasStateUtils::CaptureCanvasState(canvas);
+  state = canvas->captureCanvasState();
 }
 
 PixelInfo::~PixelInfo() {
@@ -59,21 +59,7 @@ AwPixelInfo* GetPixels(JNIEnv* env, jobject java_canvas) {
   if (!nativeCanvas)
     return NULL;
 
-  SkCanvas* canvas = nativeCanvas->asSkCanvas();
-  if (!canvas)
-    return NULL;
-
-  // Workarounds for http://crbug.com/271096: SW draw only supports
-  // translate & scale transforms, and a simple rectangular clip.
-  // (This also avoids significant wasted time in calling
-  // SkCanvasStateUtils::CaptureCanvasState when the clip is complex).
-  if (!canvas->isClipRect() ||
-      (canvas->getTotalMatrix().getType() &
-                ~(SkMatrix::kTranslate_Mask | SkMatrix::kScale_Mask))) {
-    return NULL;
-  }
-
-  PixelInfo* pixels = new PixelInfo(canvas);
+  PixelInfo* pixels = new PixelInfo(nativeCanvas);
   if (!pixels->state) {
       delete pixels;
       pixels = NULL;

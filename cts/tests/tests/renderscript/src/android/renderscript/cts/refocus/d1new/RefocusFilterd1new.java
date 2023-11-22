@@ -48,9 +48,17 @@ public class RefocusFilterd1new extends
   private static final float MIN_DISC_RADIUS_FOR_FAST_FILTER = 3;
   boolean useFastFilterForCurrentLayer = false;
   ImageBuffersForRenderScriptd1new buffers;
+  Allocation kernelInfo, kernelStack;
 
   public RefocusFilterd1new(RenderScript rs) {
     super(rs);
+  }
+
+  public void destroy() {
+    buffers.destroy();
+    kernelInfo.destroy();
+    kernelStack.destroy();
+    scriptC.destroy();
   }
 
   @Override
@@ -93,6 +101,7 @@ public class RefocusFilterd1new extends
     scriptC.forEach_PackSharpImage(mAllocation);
 
     mAllocation.copyTo(mBitmap);
+    mAllocation.destroy();
     MediaStoreSaver.savePNG(mBitmap, "sharpd1new", name, renderScript.getApplicationContext());
   }
   /*
@@ -106,6 +115,7 @@ public class RefocusFilterd1new extends
     scriptC.forEach_PackFuzzyImage(mAllocation);
 
     mAllocation.copyTo(mBitmap);
+    mAllocation.destroy();
     MediaStoreSaver.savePNG(mBitmap, "fuzzyd1new", name, renderScript.getApplicationContext());
   }
 
@@ -132,6 +142,14 @@ public class RefocusFilterd1new extends
     }
     scriptC.set_g_kernel_stack(kernelData.stackAllocation);
     scriptC.set_galloc_kernel_info(kernelData.infoAllocation);
+    if (kernelInfo != null) {
+      kernelInfo.destroy();
+    }
+    kernelInfo = kernelData.infoAllocation;
+    if (kernelStack != null) {
+      kernelStack.destroy();
+    }
+    kernelStack = kernelData.stackAllocation;
   }
 
   @Override

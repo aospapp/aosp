@@ -47,7 +47,7 @@ void makedevs_main()
   // Open file and chdir, verbosely
   xprintf("rootdir = %s\n", *toys.optargs);
   if (toys.optflags & FLAG_d && strcmp(TT.fname, "-")) {
-    fd = xopen(TT.fname, O_RDONLY);
+    fd = xopenro(TT.fname);
     xprintf("table = %s\n", TT.fname);
   } else xprintf("table = <stdin>\n");
   xchdir(*toys.optargs);
@@ -78,8 +78,8 @@ void makedevs_main()
       continue;
     } else mode |= (mode_t[]){S_IFIFO, S_IFCHR, S_IFBLK, 0, 0}[i];
 
-    uid = *user ? xgetpwnamid(user)->pw_uid : getuid();
-    gid = *group ? xgetgrnamid(group)->gr_gid : getgid();
+    uid = *user ? xgetuid(user) : getuid();
+    gid = *group ? xgetgid(group) : getgid();
 
     while (*node == '/') node++; // using relative path
 
@@ -99,7 +99,7 @@ void makedevs_main()
           perror_msg("line %d: file '%s' does not exist", line_no, ptr);
           continue;
         }
-      } else if (mknod(ptr, mode, makedev(major, minor + i*incr))) {
+      } else if (mknod(ptr, mode, dev_makedev(major, minor + i*incr))) {
         perror_msg("line %d: can't create node '%s'", line_no, ptr);
         continue;
       }

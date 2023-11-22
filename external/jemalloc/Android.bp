@@ -15,8 +15,9 @@
 //
 
 common_cflags = [
-    "-std=gnu99",
     "-D_REENTRANT",
+    "-O3",
+    "-funroll-loops",
     "-fvisibility=hidden",
     "-Wno-unused-parameter",
     "-Wno-type-limits",
@@ -69,6 +70,7 @@ common_product_variables = {
 
 cc_defaults {
     name: "jemalloc_defaults",
+    defaults: ["linux_bionic_supported"],
     cflags: common_cflags,
 
     product_variables: common_product_variables,
@@ -92,6 +94,7 @@ cc_defaults {
     },
 
     local_include_dirs: common_c_local_includes,
+    stl: "none",
 }
 
 lib_src_files = [
@@ -116,11 +119,13 @@ lib_src_files = [
     "src/prof.c",
     "src/quarantine.c",
     "src/rtree.c",
+    "src/spin.c",
     "src/stats.c",
     "src/tcache.c",
     "src/ticker.c",
     "src/tsd.c",
     "src/util.c",
+    "src/witness.c",
 ]
 
 //-----------------------------------------------------------------------
@@ -131,11 +136,9 @@ cc_library_static {
 
     defaults: ["jemalloc_defaults"],
 
-    include_files: ["bionic/libc/private/libc_logging.h"],
+    cflags: ["-include bionic/libc/private/libc_logging.h"],
 
     srcs: lib_src_files,
-
-    sanitize: ["never"],
 }
 
 //-----------------------------------------------------------------------
@@ -146,9 +149,10 @@ cc_library_static {
 
     defaults: ["jemalloc_defaults"],
 
-    cflags: ["-DJEMALLOC_JET"],
-
-    local_include_files: ["android/include/libc_logging.h"],
+    cflags: [
+        "-DJEMALLOC_JET",
+        "-include android/include/libc_logging.h",
+    ],
 
     srcs: lib_src_files,
 
@@ -175,9 +179,10 @@ cc_library_static {
 
     defaults: ["jemalloc_defaults"],
 
-    cflags: ["-DJEMALLOC_UNIT_TEST"],
-
-    local_include_files: ["android/include/libc_logging.h"],
+    cflags: [
+        "-DJEMALLOC_UNIT_TEST",
+        "-include android/include/libc_logging.h",
+    ],
 
     local_include_dirs: [
         "test/src",
@@ -194,10 +199,13 @@ cc_library_static {
 // jemalloc unit tests
 //-----------------------------------------------------------------------
 unit_tests = [
+    "test/unit/a0.c",
+    "test/unit/arena_reset.c",
     "test/unit/atomic.c",
     "test/unit/bitmap.c",
     "test/unit/ckh.c",
     "test/unit/decay.c",
+    "test/unit/fork.c",
     "test/unit/hash.c",
     "test/unit/junk.c",
     "test/unit/junk_alloc.c",
@@ -208,6 +216,8 @@ unit_tests = [
     "test/unit/mq.c",
     "test/unit/mtx.c",
     "test/unit/nstime.c",
+    "test/unit/pack.c",
+    "test/unit/pages.c",
     "test/unit/prng.c",
     "test/unit/prof_accum.c",
     "test/unit/prof_active.c",
@@ -228,6 +238,7 @@ unit_tests = [
     "test/unit/ticker.c",
     "test/unit/tsd.c",
     "test/unit/util.c",
+    "test/unit/witness.c",
     "test/unit/zero.c",
 ]
 
@@ -238,9 +249,10 @@ cc_test {
 
     product_variables: common_product_variables,
 
-    cflags: common_cflags + ["-DJEMALLOC_UNIT_TEST"],
-
-    local_include_files: ["android/include/libc_logging.h"],
+    cflags: common_cflags + [
+        "-DJEMALLOC_UNIT_TEST",
+        "-include android/include/libc_logging.h",
+    ],
 
     local_include_dirs: common_c_local_includes + [
         "test/src",
@@ -264,9 +276,10 @@ cc_library_static {
 
     defaults: ["jemalloc_defaults"],
 
-    cflags: ["-DJEMALLOC_INTEGRATION_TEST"],
-
-    local_include_files: ["android/include/libc_logging.h"],
+    cflags: [
+        "-DJEMALLOC_INTEGRATION_TEST",
+        "-include android/include/libc_logging.h",
+    ],
 
     local_include_dirs: [
         "test/src",
@@ -304,9 +317,10 @@ cc_test {
 
     product_variables: common_product_variables,
 
-    cflags: common_cflags + ["-DJEMALLOC_INTEGRATION_TEST"],
-
-    local_include_files: ["android/include/libc_logging.h"],
+    cflags: common_cflags + [
+        "-DJEMALLOC_INTEGRATION_TEST",
+        "-include android/include/libc_logging.h",
+    ],
 
     local_include_dirs: common_c_local_includes + [
         "test/src",

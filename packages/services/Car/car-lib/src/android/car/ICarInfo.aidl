@@ -20,21 +20,6 @@ import android.os.Bundle;
 
 /** @hide */
 interface ICarInfo {
-    /**
-     * Even if it returns array, it will always be single element array. Array used to allow
-     * returning null if not supported.
-     */
-    int[] getInt(String key) = 0;
-    /**
-     * Even if it returns array, it will always be single element array. Array used to allow
-     * returning null if not supported.
-     */
-    float[] getFloat(String key) = 1;
-    /**
-     * Even if it returns array, it will always be single element array. Array used to allow
-     * returning null if not supported.
-     */
-    long[] getLong(String key) = 2;
-    String getString(String key) = 3;
-    Bundle getBundle(String key) = 4;
+    Bundle getBasicInfo() = 0;
+    String getStringInfo(in String key) = 1;
 }

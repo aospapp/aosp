@@ -16,12 +16,12 @@ Fail if we find any ELF files compiled without the following options:
 4. -Wl,-z,relro
 5. -fPIE
 """
-ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
+ATTRIBUTES = "suite:bvt-cq, suite:toolchain-tests"
 TEST_CLASS = "platform"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"
 TIME="MEDIUM"
+JOB_RETRIES = 2
 
 DOC = """
 Tests whether system ELF executables were compiled with a hardened toolchain.

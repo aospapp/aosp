@@ -17,8 +17,8 @@ type proc_irq, fs_type;
 type proc_kernel_sched, fs_type;
 type qmuxd_socket, file_type;
 type ssr_data_file, file_type, data_file_type;
-type sysfs_led, sysfs_type, fs_type;
 type sysfs_gpu_tuning, sysfs_type, fs_type;
+type sysfs_hal_gralloc, sysfs_type, fs_type;
 type sysfs_fingerprintd, sysfs_type, fs_type;
 type sysfs_msm_subsys, sysfs_type, fs_type;
 type sysfs_msm_subsys_toggle, sysfs_type, fs_type;
@@ -35,3 +35,5 @@ type cnd_data_file, file_type, data_file_type;
 
 type sysfs_wifi_sar, fs_type, sysfs_type;
 type sysfs_lcd_mipi, fs_type, sysfs_type;
+
+type nfc_vendor_data_file, file_type, data_file_type;

@@ -133,6 +133,9 @@ TEST(AttestTest, Simple) {
                                        &keymaster_security_level, &attestation_challenge,
                                        &parsed_sw_set, &parsed_hw_set, &unique_id));
 
+    delete[] attestation_challenge.data;
+    delete[] unique_id.data;
+
     hw_set.Sort();
     sw_set.Sort();
     parsed_hw_set.Sort();

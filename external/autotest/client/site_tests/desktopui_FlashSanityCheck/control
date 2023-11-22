@@ -7,7 +7,6 @@ NAME = 'desktopui_FlashSanityCheck'
 PURPOSE = 'Basic sanity check of Flash suppport in Chrome.'
 CRITERIA = 'This test will fail if flash causes a segfault.'
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = 'bvt-perbuild'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'desktopui'

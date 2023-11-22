@@ -61,6 +61,7 @@ public class ResumeDebuggee extends SyncDebuggee {
         }
     }
     
+    @Override
     public void run() {
         
         logWriter.println("--> ResumeDebuggee: START...");
@@ -129,6 +130,7 @@ class ResumeDebuggee_Thread extends Thread {
         threadKind = threadNumber % 3;
     }
 
+    @Override
     public void run() {
         ResumeDebuggee parent = ResumeDebuggee.resumeDebuggeeThis;
         synchronized (parent) { 

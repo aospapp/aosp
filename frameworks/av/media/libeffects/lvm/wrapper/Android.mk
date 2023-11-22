@@ -6,10 +6,12 @@ include $(CLEAR_VARS)
 
 LOCAL_ARM_MODE := arm
 
+LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES:= \
 	Bundle/EffectBundle.cpp
 
 LOCAL_CFLAGS += -fvisibility=hidden
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_MODULE:= libbundlewrapper
 
@@ -18,6 +20,7 @@ LOCAL_MODULE_RELATIVE_PATH := soundfx
 LOCAL_STATIC_LIBRARIES += libmusicbundle
 
 LOCAL_SHARED_LIBRARIES := \
+     liblog \
      libcutils \
      libdl
 
@@ -35,10 +38,12 @@ include $(CLEAR_VARS)
 
 LOCAL_ARM_MODE := arm
 
+LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES:= \
     Reverb/EffectReverb.cpp
 
 LOCAL_CFLAGS += -fvisibility=hidden
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_MODULE:= libreverbwrapper
 
@@ -47,6 +52,7 @@ LOCAL_MODULE_RELATIVE_PATH := soundfx
 LOCAL_STATIC_LIBRARIES += libreverb
 
 LOCAL_SHARED_LIBRARIES := \
+     liblog \
      libcutils \
      libdl
 

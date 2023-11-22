@@ -30,18 +30,17 @@
 .arch armv7-a
 .thumb
 
-// Macro to generate the value of Runtime::Current into rDest clobbering rTemp. As it uses labels
+// Macro to generate the value of Runtime::Current into rDest. As it uses labels
 // then the labels need to be unique. We bind these to the function name in the ENTRY macros.
-.macro RUNTIME_CURRENT name, num, rDest, rTemp
+.macro RUNTIME_CURRENT name, num, rDest
     .if .Lruntime_current\num\()_used
          .error
     .endif
     .set .Lruntime_current\num\()_used, 1
-    ldr \rDest, .Lgot_\name\()_\num               @ Load offset of the GOT.
-    ldr \rTemp, .Lruntime_instance_\name\()_\num  @ Load GOT offset of Runtime::instance_.
+    ldr \rDest, .Lruntime_instance_\name\()_\num  @ Load GOT_PREL offset of Runtime::instance_.
 .Lload_got_\name\()_\num\():
-    add \rDest, pc                                @ Fixup GOT address.
-    ldr \rDest, [\rDest, \rTemp]                  @ Load address of Runtime::instance_.
+    add \rDest, pc                                @ Fixup GOT_PREL address.
+    ldr \rDest, [\rDest]                          @ Load address of Runtime::instance_.
     ldr \rDest, [\rDest]                          @ Load Runtime::instance_.
 .endm
 
@@ -69,14 +68,14 @@
     .set .Lruntime_current3_used, 0
     // The RUNTIME_CURRENT macros that are bound to the \name argument of DEF_ENTRY to ensure
     // that label names are unique.
-    .macro RUNTIME_CURRENT1 rDest, rTemp
-        RUNTIME_CURRENT \name, 1, \rDest, \rTemp
+    .macro RUNTIME_CURRENT1 rDest
+        RUNTIME_CURRENT \name, 1, \rDest
     .endm
-    .macro RUNTIME_CURRENT2 rDest, rTemp
-        RUNTIME_CURRENT \name, 2, \rDest, \rTemp
+    .macro RUNTIME_CURRENT2 rDest
+        RUNTIME_CURRENT \name, 2, \rDest
     .endm
-    .macro RUNTIME_CURRENT3 rDest, rTemp
-        RUNTIME_CURRENT \name, 3, \rDest, \rTemp
+    .macro RUNTIME_CURRENT3 rDest
+        RUNTIME_CURRENT \name, 3, \rDest
     .endm
 .endm
 
@@ -90,26 +89,20 @@
     DEF_ENTRY .arm, \name
 .endm
 
-// Terminate an ENTRY and generate GOT references.
+// Terminate an ENTRY and generate GOT_PREL references.
 .macro END name
      // Generate offsets of GOT and Runtime::instance_ used in RUNTIME_CURRENT.
      .if .Lruntime_current1_used
-         .Lgot_\name\()_1:
-             .word   _GLOBAL_OFFSET_TABLE_-(.Lload_got_\name\()_1+4)
          .Lruntime_instance_\name\()_1:
-             .word   _ZN3art7Runtime9instance_E(GOT)
+             .word   _ZN3art7Runtime9instance_E(GOT_PREL)-(.Lload_got_\name\()_1+4)
      .endif
      .if .Lruntime_current2_used
-         .Lgot_\name\()_2:
-             .word   _GLOBAL_OFFSET_TABLE_-(.Lload_got_\name\()_2+4)
          .Lruntime_instance_\name\()_2:
-             .word   _ZN3art7Runtime9instance_E(GOT)
+             .word   _ZN3art7Runtime9instance_E(GOT_PREL)-(.Lload_got_\name\()_2+4)
     .endif
      .if .Lruntime_current3_used
-         .Lgot_\name\()_3:
-             .word   _GLOBAL_OFFSET_TABLE_-(.Lload_got_\name\()_3+4)
          .Lruntime_instance_\name\()_3:
-             .word   _ZN3art7Runtime9instance_E(GOT)
+             .word   _ZN3art7Runtime9instance_E(GOT_PREL)-(.Lload_got_\name\()_3+4)
     .endif
     // Remove the RUNTIME_CURRENTx macros so they get rebound in the next function entry.
     .purgem RUNTIME_CURRENT1

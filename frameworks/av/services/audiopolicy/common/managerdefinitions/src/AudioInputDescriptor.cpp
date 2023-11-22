@@ -63,11 +63,9 @@ audio_port_handle_t AudioInputDescriptor::getId() const
     return mId;
 }
 
-audio_source_t AudioInputDescriptor::inputSource() const
+audio_source_t AudioInputDescriptor::inputSource(bool activeOnly) const
 {
-    // TODO: return highest priority input source
-    return mSessions.size() > 0 ? mSessions.valueAt(0)->inputSource() :
-                       AUDIO_SOURCE_DEFAULT;
+    return getHighestPrioritySource(activeOnly);
 }
 
 void AudioInputDescriptor::toAudioPortConfig(struct audio_port_config *dstConfig,
@@ -132,6 +130,12 @@ bool AudioInputDescriptor::isSourceActive(audio_source_t source) const
     return mSessions.isSourceActive(source);
 }
 
+audio_source_t AudioInputDescriptor::getHighestPrioritySource(bool activeOnly) const
+{
+
+    return mSessions.getHighestPrioritySource(activeOnly);
+}
+
 bool AudioInputDescriptor::isSoundTrigger() const {
     // sound trigger and non sound trigger sessions are not mixed
     // on a given input
@@ -143,9 +147,22 @@ sp<AudioSession> AudioInputDescriptor::getAudioSession(
     return mSessions.valueFor(session);
 }
 
-AudioSessionCollection AudioInputDescriptor::getActiveAudioSessions() const
+AudioSessionCollection AudioInputDescriptor::getAudioSessions(bool activeOnly) const
 {
-    return mSessions.getActiveSessions();
+    if (activeOnly) {
+        return mSessions.getActiveSessions();
+    } else {
+        return mSessions;
+    }
+}
+
+size_t AudioInputDescriptor::getAudioSessionCount(bool activeOnly) const
+{
+    if (activeOnly) {
+        return mSessions.getActiveSessionCount();
+    } else {
+        return mSessions.size();
+    }
 }
 
 status_t AudioInputDescriptor::addAudioSession(audio_session_t session,
@@ -222,29 +239,33 @@ sp<AudioInputDescriptor> AudioInputCollection::getInputFromId(audio_port_handle_
     return inputDesc;
 }
 
-uint32_t AudioInputCollection::activeInputsCount() const
+uint32_t AudioInputCollection::activeInputsCountOnDevices(audio_devices_t devices) const
 {
     uint32_t count = 0;
     for (size_t i = 0; i < size(); i++) {
         const sp<AudioInputDescriptor>  inputDescriptor = valueAt(i);
-        if (inputDescriptor->isActive()) {
+        if (inputDescriptor->isActive() &&
+                ((devices == AUDIO_DEVICE_IN_DEFAULT) ||
+                 ((inputDescriptor->mDevice & devices & ~AUDIO_DEVICE_BIT_IN) != 0))) {
             count++;
         }
     }
     return count;
 }
 
-audio_io_handle_t AudioInputCollection::getActiveInput(bool ignoreVirtualInputs)
+Vector<sp <AudioInputDescriptor> > AudioInputCollection::getActiveInputs(bool ignoreVirtualInputs)
 {
+    Vector<sp <AudioInputDescriptor> > activeInputs;
+
     for (size_t i = 0; i < size(); i++) {
         const sp<AudioInputDescriptor>  inputDescriptor = valueAt(i);
         if ((inputDescriptor->isActive())
                 && (!ignoreVirtualInputs ||
                     !is_virtual_input_device(inputDescriptor->mDevice))) {
-            return keyAt(i);
+            activeInputs.add(inputDescriptor);
         }
     }
-    return 0;
+    return activeInputs;
 }
 
 audio_devices_t AudioInputCollection::getSupportedDevices(audio_io_handle_t handle) const

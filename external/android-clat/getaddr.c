@@ -20,6 +20,7 @@
 #include <string.h>
 #include <net/if.h>
 
+#include <linux/if_addr.h>
 #include <linux/rtnetlink.h>
 #include <netlink/handlers.h>
 #include <netlink/msg.h>

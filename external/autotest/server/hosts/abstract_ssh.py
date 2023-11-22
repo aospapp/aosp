@@ -1,14 +1,16 @@
 import os, time, socket, shutil, glob, logging, traceback, tempfile, re
+import shlex
 import subprocess
 
 from multiprocessing import Lock
 from autotest_lib.client.common_lib import autotemp, error
 from autotest_lib.server import utils, autotest
+from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import remote
 from autotest_lib.server.hosts import rpc_server_tracker
 from autotest_lib.client.common_lib.global_config import global_config
 
-# pylint: disable-msg=C0111
+# pylint: disable=C0111
 
 get_value = global_config.get_config_value
 enable_master_ssh = get_value('AUTOSERV', 'enable_master_ssh', type=bool,
@@ -25,10 +27,21 @@ class AbstractSSHHost(remote.RemoteHost):
     VERSION_PREFIX = ''
 
     def _initialize(self, hostname, user="root", port=22, password="",
-                    is_client_install_supported=True, host_attributes={},
-                    *args, **dargs):
+                    is_client_install_supported=True, afe_host=None,
+                    host_info_store=None, *args, **dargs):
         super(AbstractSSHHost, self)._initialize(hostname=hostname,
                                                  *args, **dargs)
+        """
+        @param hostname: The hostname of the host.
+        @param user: The username to use when ssh'ing into the host.
+        @param password: The password to use when ssh'ing into the host.
+        @param port: The port to use for ssh.
+        @param is_client_install_supported: Boolean to indicate if we can
+                install autotest on the host.
+        @param afe_host: The host object attained from the AFE (get_hosts).
+        @param host_info_store: Optional host_info.CachingHostInfoStore object
+                to obtain / update host information.
+        """
         # IP address is retrieved only on demand. Otherwise the host
         # initialization will fail for host is not online.
         self._ip = None
@@ -52,8 +65,9 @@ class AbstractSSHHost(remote.RemoteHost):
         # Create a Lock to protect against race conditions.
         self._lock = Lock()
 
-        self.host_attributes = host_attributes
-
+        self._afe_host = afe_host or utils.EmptyAFEHost()
+        self.host_info_store = (host_info_store or
+                                host_info.InMemoryHostInfoStore())
 
     @property
     def ip(self):
@@ -118,10 +132,12 @@ class AbstractSSHHost(remote.RemoteHost):
         return True
 
 
-    def _encode_remote_paths(self, paths, escape=True):
+    def _encode_remote_paths(self, paths, escape=True, use_scp=False):
         """
         Given a list of file paths, encodes it as a single remote path, in
         the style used by rsync and scp.
+        escape: add \\ to protect special characters.
+        use_scp: encode for scp if true, rsync if false.
         """
         if escape:
             paths = [utils.scp_remote_escape(path) for path in paths]
@@ -134,12 +150,27 @@ class AbstractSSHHost(remote.RemoteHost):
         if re.search(r':.*:', remote):
             remote = '[%s]' % remote
 
-        return '%s@%s:"%s"' % (self.user, remote, " ".join(paths))
+        if use_scp:
+            return '%s@%s:"%s"' % (self.user, remote, " ".join(paths))
+        else:
+            return '%s@%s:%s' % (
+                    self.user, remote,
+                    " :".join('"%s"' % p for p in paths))
 
-
-    def _make_rsync_cmd(self, sources, dest, delete_dest, preserve_symlinks):
+    def _encode_local_paths(self, paths, escape=True):
         """
-        Given a list of source paths and a destination path, produces the
+        Given a list of file paths, encodes it as a single local path.
+        escape: add \\ to protect special characters.
+        """
+        if escape:
+            paths = [utils.sh_escape(path) for path in paths]
+
+        return " ".join('"%s"' % p for p in paths)
+
+    def _make_rsync_cmd(self, sources, dest, delete_dest,
+                        preserve_symlinks, safe_symlinks):
+        """
+        Given a string of source paths and a destination path, produces the
         appropriate rsync command for copying them. Remote paths must be
         pre-encoded.
         """
@@ -150,14 +181,15 @@ class AbstractSSHHost(remote.RemoteHost):
             delete_flag = "--delete"
         else:
             delete_flag = ""
-        if preserve_symlinks:
-            symlink_flag = ""
+        if safe_symlinks:
+            symlink_flag = "-l --safe-links"
+        elif preserve_symlinks:
+            symlink_flag = "-l"
         else:
             symlink_flag = "-L"
         command = ("rsync %s %s --timeout=1800 --rsh='%s' -az --no-o --no-g "
                    "%s \"%s\"")
-        return command % (symlink_flag, delete_flag, ssh_cmd,
-                          " ".join(['"%s"' % p for p in sources]), dest)
+        return command % (symlink_flag, delete_flag, ssh_cmd, sources, dest)
 
 
     def _make_ssh_cmd(self, cmd):
@@ -173,14 +205,14 @@ class AbstractSSHHost(remote.RemoteHost):
 
     def _make_scp_cmd(self, sources, dest):
         """
-        Given a list of source paths and a destination path, produces the
+        Given a string of source paths and a destination path, produces the
         appropriate scp command for encoding it. Remote paths must be
         pre-encoded.
         """
         command = ("scp -rq %s -o StrictHostKeyChecking=no "
                    "-o UserKnownHostsFile=%s -P %d %s '%s'")
         return command % (self.master_ssh_option, self.known_hosts_file,
-                          self.port, " ".join(sources), dest)
+                          self.port, sources, dest)
 
 
     def _make_rsync_compatible_globs(self, path, is_local):
@@ -279,7 +311,7 @@ class AbstractSSHHost(remote.RemoteHost):
 
 
     def get_file(self, source, dest, delete_dest=False, preserve_perm=True,
-                 preserve_symlinks=False):
+                 preserve_symlinks=False, retry=True, safe_symlinks=False):
         """
         Copy files from the remote host to a local path.
 
@@ -304,7 +336,8 @@ class AbstractSSHHost(remote.RemoteHost):
                                permissions on files and dirs
                 preserve_symlinks: try to preserve symlinks instead of
                                    transforming them into files/dirs on copy
-
+                safe_symlinks: same as preserve_symlinks, but discard links
+                               that may point outside the copied tree
         Raises:
                 AutoservRunError: the scp command failed
         """
@@ -325,12 +358,33 @@ class AbstractSSHHost(remote.RemoteHost):
             try:
                 remote_source = self._encode_remote_paths(source)
                 local_dest = utils.sh_escape(dest)
-                rsync = self._make_rsync_cmd([remote_source], local_dest,
-                                             delete_dest, preserve_symlinks)
+                rsync = self._make_rsync_cmd(remote_source, local_dest,
+                                             delete_dest, preserve_symlinks,
+                                             safe_symlinks)
                 utils.run(rsync)
                 try_scp = False
             except error.CmdError, e:
-                logging.warning("trying scp, rsync failed: %s", e)
+                # retry on rsync exit values which may be caused by transient
+                # network problems:
+                #
+                # rc 10: Error in socket I/O
+                # rc 12: Error in rsync protocol data stream
+                # rc 23: Partial transfer due to error
+                # rc 255: Ssh error
+                #
+                # Note that rc 23 includes dangling symlinks.  In this case
+                # retrying is useless, but not very damaging since rsync checks
+                # for those before starting the transfer (scp does not).
+                status = e.result_obj.exit_status
+                if status in [10, 12, 23, 255] and retry:
+                    logging.warning('rsync status %d, retrying', status)
+                    self.get_file(source, dest, delete_dest, preserve_perm,
+                                  preserve_symlinks, retry=False)
+                    # The nested get_file() does all that's needed.
+                    return
+                else:
+                    logging.warning("trying scp, rsync failed: %s (%d)",
+                                     e, status)
 
         if try_scp:
             logging.debug('Trying scp.')
@@ -342,10 +396,10 @@ class AbstractSSHHost(remote.RemoteHost):
             remote_source = self._make_rsync_compatible_source(source, False)
             if remote_source:
                 # _make_rsync_compatible_source() already did the escaping
-                remote_source = self._encode_remote_paths(remote_source,
-                                                          escape=False)
+                remote_source = self._encode_remote_paths(
+                        remote_source, escape=False, use_scp=True)
                 local_dest = utils.sh_escape(dest)
-                scp = self._make_scp_cmd([remote_source], local_dest)
+                scp = self._make_scp_cmd(remote_source, local_dest)
                 try:
                     utils.run(scp)
                 except error.CmdError, e:
@@ -397,23 +451,23 @@ class AbstractSSHHost(remote.RemoteHost):
 
         if isinstance(source, basestring):
             source = [source]
-        remote_dest = self._encode_remote_paths([dest])
 
-        local_sources = [utils.sh_escape(path) for path in source]
+        local_sources = self._encode_local_paths(source)
         if not local_sources:
-            raise error.TestError('source |%s| yielded an empty list' % (
+            raise error.TestError('source |%s| yielded an empty string' % (
                 source))
-        if any([local_source.find('\x00') != -1 for
-                local_source in local_sources]):
+        if local_sources.find('\x00') != -1:
             raise error.TestError('one or more sources include NUL char')
 
         # If rsync is disabled or fails, try scp.
         try_scp = True
         if self.use_rsync():
             logging.debug('Using Rsync.')
+            remote_dest = self._encode_remote_paths([dest])
             try:
                 rsync = self._make_rsync_cmd(local_sources, remote_dest,
-                                             delete_dest, preserve_symlinks)
+                                             delete_dest, preserve_symlinks,
+                                             False)
                 utils.run(rsync)
                 try_scp = False
             except error.CmdError, e:
@@ -430,9 +484,11 @@ class AbstractSSHHost(remote.RemoteHost):
                     cmd %= (dest, dest)
                     self.run(cmd)
 
+            remote_dest = self._encode_remote_paths([dest], use_scp=True)
             local_sources = self._make_rsync_compatible_source(source, True)
             if local_sources:
-                scp = self._make_scp_cmd(local_sources, remote_dest)
+                sources = self._encode_local_paths(local_sources, escape=False)
+                scp = self._make_scp_cmd(sources, remote_dest)
                 try:
                     utils.run(scp)
                 except error.CmdError, e:
@@ -456,7 +512,7 @@ class AbstractSSHHost(remote.RemoteHost):
         return True
 
 
-    def ssh_ping(self, timeout=60, base_cmd='true'):
+    def ssh_ping(self, timeout=60, connect_timeout=None, base_cmd='true'):
         """
         Pings remote host via ssh.
 
@@ -469,8 +525,10 @@ class AbstractSSHHost(remote.RemoteHost):
                                                  permissions.
         @raise AutoservSshPingHostError: For other AutoservRunErrors.
         """
+        ctimeout = min(timeout, connect_timeout or timeout)
         try:
-            self.run(base_cmd, timeout=timeout, connect_timeout=timeout)
+            self.run(base_cmd, timeout=timeout, connect_timeout=ctimeout,
+                     ssh_failure_retry_ok=True)
         except error.AutoservSSHTimeout:
             msg = "Host (ssh) verify timed out (timeout = %d)" % timeout
             raise error.AutoservSSHTimeout(msg)
@@ -484,7 +542,7 @@ class AbstractSSHHost(remote.RemoteHost):
                                                  repr(e.result_obj))
 
 
-    def is_up(self, timeout=60, base_cmd='true'):
+    def is_up(self, timeout=60, connect_timeout=None, base_cmd='true'):
         """
         Check if the remote host is up by ssh-ing and running a base command.
 
@@ -494,7 +552,9 @@ class AbstractSSHHost(remote.RemoteHost):
                  False otherwise.
         """
         try:
-            self.ssh_ping(timeout=timeout, base_cmd=base_cmd)
+            self.ssh_ping(timeout=timeout,
+                          connect_timeout=connect_timeout,
+                          base_cmd=base_cmd)
         except error.AutoservError:
             return False
         else:
@@ -518,14 +578,20 @@ class AbstractSSHHost(remote.RemoteHost):
             current_time = int(time.time())
             end_time = current_time + timeout
 
+        autoserv_error_logged = False
         while not timeout or current_time < end_time:
-            if self.is_up(timeout=end_time - current_time):
+            if self.is_up(timeout=end_time - current_time,
+                          connect_timeout=20):
                 try:
                     if self.are_wait_up_processes_up():
                         logging.debug('Host %s is now up', self.hostname)
                         return True
-                except error.AutoservError:
-                    pass
+                except error.AutoservError as e:
+                    if not autoserv_error_logged:
+                        logging.debug('Ignoring failure to reach %s: %s %s',
+                                      self.hostname, e,
+                                      '(and further similar failures)')
+                        autoserv_error_logged = True
             time.sleep(1)
             current_time = int(time.time())
 
@@ -664,9 +730,20 @@ class AbstractSSHHost(remote.RemoteHost):
 
     def close(self):
         super(AbstractSSHHost, self).close()
-        self._cleanup_master_ssh()
-        os.remove(self.known_hosts_file)
         self.rpc_server_tracker.disconnect_all()
+        self._cleanup_master_ssh()
+        if os.path.exists(self.known_hosts_file):
+            os.remove(self.known_hosts_file)
+
+
+    def restart_master_ssh(self):
+        """
+        Stop and restart the ssh master connection.  This is meant as a last
+        resort when ssh commands fail and we don't understand why.
+        """
+        logging.debug('Restarting master ssh connection')
+        self._cleanup_master_ssh()
+        self.start_master_ssh(timeout=30)
 
 
     def _cleanup_master_ssh(self):
@@ -788,8 +865,7 @@ class AbstractSSHHost(remote.RemoteHost):
                     raise
                 return
         try:
-            self.get_file(
-                    remote_src_dir, local_dest_dir, preserve_symlinks=True)
+            self.get_file(remote_src_dir, local_dest_dir, safe_symlinks=True)
         except (error.AutotestRunError, error.AutoservRunError,
                 error.AutoservSSHTimeout) as e:
             logging.warning('Collection of %s to local dir %s from host %s '
@@ -801,8 +877,11 @@ class AbstractSSHHost(remote.RemoteHost):
                 raise
 
 
-    def _create_ssh_tunnel(self, port, local_port):
+    def create_ssh_tunnel(self, port, local_port):
         """Create an ssh tunnel from local_port to port.
+
+        This is used to forward a port securely through a tunnel process from
+        the server to the DUT for RPC server connection.
 
         @param port: remote port on the host.
         @param local_port: local forwarding port.
@@ -813,34 +892,24 @@ class AbstractSSHHost(remote.RemoteHost):
         ssh_cmd = self.make_ssh_command(opts=tunnel_options)
         tunnel_cmd = '%s %s' % (ssh_cmd, self.hostname)
         logging.debug('Full tunnel command: %s', tunnel_cmd)
-        tunnel_proc = subprocess.Popen(tunnel_cmd, shell=True, close_fds=True)
+        # Exec the ssh process directly here rather than using a shell.
+        # Using a shell leaves a dangling ssh process, because we deliver
+        # signals to the shell wrapping ssh, not the ssh process itself.
+        args = shlex.split(tunnel_cmd)
+        tunnel_proc = subprocess.Popen(args, close_fds=True)
         logging.debug('Started ssh tunnel, local = %d'
                       ' remote = %d, pid = %d',
                       local_port, port, tunnel_proc.pid)
         return tunnel_proc
 
 
-    def rpc_port_forward(self, port, local_port):
-        """
-        Forwards a port securely through a tunnel process from the server
-        to the DUT for RPC server connection.
-
-        @param port: remote port on the DUT.
-        @param local_port: local forwarding port.
-
-        @return: the tunnel process.
-        """
-        return self._create_ssh_tunnel(port, local_port)
-
-
-    def rpc_port_disconnect(self, tunnel_proc, port):
+    def disconnect_ssh_tunnel(self, tunnel_proc, port):
         """
         Disconnects a previously forwarded port from the server to the DUT for
         RPC server connection.
 
-        @param tunnel_proc: the original tunnel process returned from
-                            |rpc_port_forward|.
-        @param port: remote port on the DUT.
+        @param tunnel_proc: a tunnel process returned from |create_ssh_tunnel|.
+        @param port: remote port on the DUT, used in ADBHost.
 
         """
         if tunnel_proc.poll() is None:

@@ -17,7 +17,6 @@
 package android.support.v4.content;
 
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.support.annotation.NonNull;
 
 public final class SharedPreferencesCompat {
@@ -27,6 +26,9 @@ public final class SharedPreferencesCompat {
         private static EditorCompat sInstance;
 
         private static class Helper {
+            Helper() {
+            }
+
             public void apply(@NonNull SharedPreferences.Editor editor) {
                 try {
                     editor.apply();

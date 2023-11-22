@@ -17,16 +17,41 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+#ifdef NO_MEDIA_BACKEND
+#define CONFIG_MEDIA_BACKEND(fnptr) NULL
+#else
+#define CONFIG_MEDIA_BACKEND(fnptr) &fnptr
+#endif
+
+#ifdef NO_X_BACKEND
+#define CONFIG_X_BACKEND(fnptr) NULL
+#else
+#define CONFIG_X_BACKEND(fnptr) &fnptr
+#endif
+
+#ifdef NO_DB_BACKEND
+#define CONFIG_DB_BACKEND(fnptr) NULL
+#else
+#define CONFIG_DB_BACKEND(fnptr) &fnptr
+#endif
+
+#ifdef NO_ANDROID_BACKEND
+#define CONFIG_ANDROID_BACKEND(fnptr) NULL
+#else
+#define CONFIG_ANDROID_BACKEND(fnptr) (&(fnptr))
+#endif
+
 typedef int (*selabel_initfunc)(struct selabel_handle *rec,
 				const struct selinux_opt *opts,
 				unsigned nopts);
 
 static selabel_initfunc initfuncs[] = {
 	&selabel_file_init,
-	&selabel_media_init,
-	&selabel_x_init,
-	&selabel_db_init,
-	&selabel_property_init,
+	CONFIG_MEDIA_BACKEND(selabel_media_init),
+	CONFIG_X_BACKEND(selabel_x_init),
+	CONFIG_DB_BACKEND(selabel_db_init),
+	CONFIG_ANDROID_BACKEND(selabel_property_init),
+	CONFIG_ANDROID_BACKEND(selabel_service_init),
 };
 
 static void selabel_subs_fini(struct selabel_sub *ptr)
@@ -244,7 +269,11 @@ static int selabel_fini(struct selabel_handle *rec,
 			    struct selabel_lookup_rec *lr,
 			    int translating)
 {
-	if (compat_validate(rec, lr, rec->spec_file, 0))
+	char *path = NULL;
+
+	if (rec->spec_files)
+		path = rec->spec_files[0];
+	if (compat_validate(rec, lr, path, 0))
 		return -1;
 
 	if (translating && !lr->ctx_trans &&
@@ -325,6 +354,11 @@ struct selabel_handle *selabel_open(unsigned int backend,
 		goto out;
 	}
 
+	if (!initfuncs[backend]) {
+		errno = ENOTSUP;
+		goto out;
+	}
+
 	rec = (struct selabel_handle *)malloc(sizeof(*rec));
 	if (!rec)
 		goto out;
@@ -338,11 +372,9 @@ struct selabel_handle *selabel_open(unsigned int backend,
 	rec->digest = selabel_is_digest_set(opts, nopts, rec->digest);
 
 	if ((*initfuncs[backend])(rec, opts, nopts)) {
-		free(rec->spec_file);
-		free(rec);
+		selabel_close(rec);
 		rec = NULL;
 	}
-
 out:
 	return rec;
 }
@@ -460,12 +492,18 @@ int selabel_digest(struct selabel_handle *rec,
 
 void selabel_close(struct selabel_handle *rec)
 {
+	size_t i;
 	selabel_subs_fini(rec->subs);
 	selabel_subs_fini(rec->dist_subs);
+	if (rec->spec_files) {
+		for (i = 0; i < rec->spec_files_len; i++)
+			free(rec->spec_files[i]);
+		free(rec->spec_files);
+	}
 	if (rec->digest)
 		selabel_digest_fini(rec->digest);
-	rec->func_close(rec);
-	free(rec->spec_file);
+	if (rec->func_close)
+		rec->func_close(rec);
 	free(rec);
 }
 

@@ -16,31 +16,27 @@
 
 package android.support.v17.leanback.widget;
 
-import android.support.v17.leanback.test.R;
-import android.support.v7.widget.RecyclerView;
-import android.support.v17.leanback.widget.BaseGridView;
-import android.support.v17.leanback.widget.OnChildSelectedListener;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.support.v17.leanback.test.R;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.util.SparseArray;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.View.OnFocusChangeListener;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 
-/**
- * @hide from javadoc
- */
 public class GridActivity extends Activity {
 
     private static final String TAG = "GridActivity";
+
+    interface ImportantForAccessibilityListener {
+        void onImportantForAccessibilityChanged(View view, int newValue);
+    }
 
     interface AdapterListener {
         void onBind(RecyclerView.ViewHolder vh, int position);
@@ -58,6 +54,7 @@ public class GridActivity extends Activity {
     public static final String EXTRA_UPDATE_SIZE = "updateSize";
     public static final String EXTRA_LAYOUT_MARGINS = "layoutMargins";
     public static final String EXTRA_NINEPATCH_SHADOW = "NINEPATCH_SHADOW";
+    public static final String EXTRA_HAS_STABLE_IDS = "hasStableIds";
 
     /**
      * Class that implements GridWidgetTest.ViewTypeProvider for creating different
@@ -97,6 +94,7 @@ public class GridActivity extends Activity {
     GridWidgetTest.ItemAlignmentFacetProvider mAlignmentViewTypeProvider;
     AdapterListener mAdapterListener;
     boolean mUpdateSize = true;
+    boolean mHasStableIds;
 
     int[] mGridViewLayoutSize;
     BaseGridView mGridView;
@@ -106,6 +104,7 @@ public class GridActivity extends Activity {
     int mNinePatchShadow;
 
     private int mBoundCount;
+    ImportantForAccessibilityListener mImportantForAccessibilityListener;
 
     private View createView() {
 
@@ -141,6 +140,7 @@ public class GridActivity extends Activity {
         mUpdateSize = intent.getBooleanExtra(EXTRA_UPDATE_SIZE, true);
         mSecondarySizeZero = intent.getBooleanExtra(EXTRA_SECONDARY_SIZE_ZERO, false);
         mItemLengths = intent.getIntArrayExtra(EXTRA_ITEMS);
+        mHasStableIds = intent.getBooleanExtra(EXTRA_HAS_STABLE_IDS, false);
         mItemFocusables = intent.getBooleanArrayExtra(EXTRA_ITEMS_FOCUSABLE);
         mLayoutMargins = intent.getIntArrayExtra(EXTRA_LAYOUT_MARGINS);
         String alignmentClass = intent.getStringExtra(EXTRA_ITEMALIGNMENTPROVIDER_CLASS);
@@ -174,6 +174,7 @@ public class GridActivity extends Activity {
         if (DEBUG) Log.v(TAG, "onCreate " + this);
 
         RecyclerView.Adapter adapter = new MyAdapter();
+        adapter.setHasStableIds(mHasStableIds);
 
         View view = createView();
         if (mItemLengths == null) {
@@ -262,18 +263,33 @@ public class GridActivity extends Activity {
         mGridView.getAdapter().notifyItemMoved(index2 - 1, index1);
     }
 
+    void moveItem(int index1, int index2, boolean notify) {
+        if (index1 == index2) {
+            return;
+        }
+        int[] items = removeItems(index1, 1, false);
+        addItems(index2, items, false);
+        if (notify) {
+            mGridView.getAdapter().notifyItemMoved(index1, index2);
+        }
+    }
+
     void changeArraySize(int length) {
         mNumItems = length;
         mGridView.getAdapter().notifyDataSetChanged();
     }
 
     int[] removeItems(int index, int length) {
+        return removeItems(index, length, true);
+    }
+
+    int[] removeItems(int index, int length, boolean notify) {
         int[] removed = new int[length];
         System.arraycopy(mItemLengths, index, removed, 0, length);
         System.arraycopy(mItemLengths, index + length, mItemLengths, index,
                 mNumItems - index - length);
         mNumItems -= length;
-        if (mGridView.getAdapter() != null) {
+        if (mGridView.getAdapter() != null && notify) {
             mGridView.getAdapter().notifyItemRangeRemoved(index, length);
         }
         return removed;
@@ -286,7 +302,18 @@ public class GridActivity extends Activity {
     }
 
 
+    void changeItem(int position, int itemValue) {
+        mItemLengths[position] = itemValue;
+        if (mGridView.getAdapter() != null) {
+            mGridView.getAdapter().notifyItemChanged(position);
+        }
+    }
+
     void addItems(int index, int[] items) {
+        addItems(index, items, true);
+    }
+
+    void addItems(int index, int[] items, boolean notify) {
         int length = items.length;
         if (mItemLengths.length < mNumItems + length) {
             int[] array = new int[mNumItems + length];
@@ -296,7 +323,7 @@ public class GridActivity extends Activity {
         System.arraycopy(mItemLengths, index, mItemLengths, index + length, mNumItems - index);
         System.arraycopy(items, 0, mItemLengths, index, length);
         mNumItems += length;
-        if (mGridView.getAdapter() != null) {
+        if (notify && mGridView.getAdapter() != null) {
             mGridView.getAdapter().notifyItemRangeInserted(index, length);
         }
     }
@@ -313,8 +340,8 @@ public class GridActivity extends Activity {
 
         @Override
         public FacetProvider getFacetProvider(int viewType) {
-            final Object alignmentFacet = mAlignmentViewTypeProvider != null?
-                mAlignmentViewTypeProvider.getItemAlignmentFacet(viewType) : null;
+            final Object alignmentFacet = mAlignmentViewTypeProvider != null
+                    ? mAlignmentViewTypeProvider.getItemAlignmentFacet(viewType) : null;
             if (alignmentFacet != null) {
                 return new FacetProvider() {
                     @Override
@@ -371,6 +398,15 @@ public class GridActivity extends Activity {
                                 clearFocus();
                                 requestFocus();
                             }
+                        }
+                    }
+
+                    @Override
+                    public void setImportantForAccessibility(int mode) {
+                        super.setImportantForAccessibility(mode);
+                        if (mImportantForAccessibilityListener != null) {
+                            mImportantForAccessibilityListener.onImportantForAccessibilityChanged(
+                                    this, mode);
                         }
                     }
                 };
@@ -438,6 +474,11 @@ public class GridActivity extends Activity {
             return mNumItems;
         }
 
+        @Override
+        public long getItemId(int position) {
+            if (!mHasStableIds) return -1;
+            return position;
+        }
     }
 
     void updateSize(View view, int position) {

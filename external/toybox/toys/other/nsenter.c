@@ -39,6 +39,7 @@ config UNSHARE
 
 config NSENTER
   bool "nsenter"
+  depends on TOYBOX_CONTAINER
   default y
   help
     usage: nsenter [-t pid] [-F] [-i] [-m] [-n] [-p] [-u] [-U] COMMAND...
@@ -152,8 +153,7 @@ void unshare_main(void)
           filename = toybuf;
         }
 
-        if (setns(fd = xopen(filename, O_RDONLY), flags[i]))
-          perror_exit("setns");
+        if (setns(fd = xopenro(filename), flags[i])) perror_exit("setns");
         close(fd);
       }
       nsnames += strlen(nsnames)+1;

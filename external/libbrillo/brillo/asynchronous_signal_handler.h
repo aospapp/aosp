@@ -13,7 +13,6 @@
 #include <base/callback.h>
 #include <base/compiler_specific.h>
 #include <base/macros.h>
-#include <base/memory/scoped_ptr.h>
 #include <base/message_loop/message_loop.h>
 #include <brillo/asynchronous_signal_handler_interface.h>
 #include <brillo/brillo_export.h>

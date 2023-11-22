@@ -5,7 +5,7 @@
 #ifndef BENCH_GL_TEXTURETEST_H_
 #define BENCH_GL_TEXTURETEST_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
 
 #include "testbase.h"
 #include "utils.h"
@@ -37,7 +37,7 @@ class TextureTest : public TestBase {
   GLuint height_;
   GLuint program_;
   int texsize_;
-  scoped_ptr<char[]> pixels_[kNumberOfTextures];
+  std::unique_ptr<char[]> pixels_[kNumberOfTextures];
   GLuint textures_[kNumberOfTextures];
   UpdateFlavor flavor_;
   GLenum texel_gl_format_;

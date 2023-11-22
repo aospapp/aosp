@@ -17,17 +17,16 @@
 package android.print.cts.services;
 
 import android.printservice.PrintJob;
-import android.printservice.PrintService;
 
 public abstract class PrintServiceCallbacks {
 
-    private PrintService mService;
+    private StubbablePrintService mService;
 
-    public PrintService getService() {
+    public StubbablePrintService getService() {
         return mService;
     }
 
-    public void setService(PrintService service) {
+    public void setService(StubbablePrintService service) {
         mService = service;
     }
 

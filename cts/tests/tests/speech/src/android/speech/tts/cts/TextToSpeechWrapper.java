@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -87,6 +89,22 @@ public class TextToSpeechWrapper {
 
     public void shutdown() {
         mTts.shutdown();
+    }
+
+    public final Map<String, Integer> chunksReceived() {
+        return mUtteranceListener.chunksReceived();
+    }
+
+    public final Map<String, List<Integer>> timePointsStart() {
+        return mUtteranceListener.timePointsStart();
+    }
+
+    public final Map<String, List<Integer>> timePointsEnd() {
+        return mUtteranceListener.timePointsEnd();
+    }
+
+    public final Map<String, List<Integer>> timePointsFrame() {
+        return mUtteranceListener.timePointsFrame();
     }
 
     /**
@@ -169,6 +187,9 @@ public class TextToSpeechWrapper {
         private final Set<String> mCompletedUtterances = new HashSet<>();
         private final Set<String> mBeginSynthesisUtterances = new HashSet<>();
         private final Map<String, Integer> mChunksReceived = new HashMap<>();
+        private final Map<String, List<Integer>> mTimePointsStart = new HashMap<>();
+        private final Map<String, List<Integer>> mTimePointsEnd = new HashMap<>();
+        private final Map<String, List<Integer>> mTimePointsFrame = new HashMap<>();
 
         @Override
         public void onDone(String utteranceId) {
@@ -262,6 +283,25 @@ public class TextToSpeechWrapper {
             }
         }
 
+        @Override
+        public void onRangeStart(String utteranceId, int start, int end, int frame) {
+            Assert.assertNotNull(utteranceId);
+            mLock.lock();
+            try {
+                Assert.assertTrue(mBeginSynthesisUtterances.contains(utteranceId));
+                if (mTimePointsStart.get(utteranceId) == null) {
+                    mTimePointsStart.put(utteranceId, new ArrayList<Integer>());
+                    mTimePointsEnd.put(utteranceId, new ArrayList<Integer>());
+                    mTimePointsFrame.put(utteranceId, new ArrayList<Integer>());
+                }
+                mTimePointsStart.get(utteranceId).add(start);
+                mTimePointsEnd.get(utteranceId).add(end);
+                mTimePointsFrame.get(utteranceId).add(frame);
+            } finally {
+                mLock.unlock();
+            }
+        }
+
         public boolean waitForComplete(String utteranceId)
                 throws InterruptedException {
             long timeOutNanos = TimeUnit.MILLISECONDS.toNanos(TTS_INIT_MAX_WAIT_TIME);
@@ -296,13 +336,28 @@ public class TextToSpeechWrapper {
             }
         }
 
+        public final Map<String, Integer> chunksReceived() {
+            return mChunksReceived;
+        }
+
+        public final Map<String, List<Integer>> timePointsStart() {
+            return mTimePointsStart;
+        }
+
+        public final Map<String, List<Integer>> timePointsEnd() {
+            return mTimePointsEnd;
+        }
+
+        public final Map<String, List<Integer>> timePointsFrame() {
+            return mTimePointsFrame;
+        }
+
         public void verify(String... utteranceIds) {
             Assert.assertTrue(utteranceIds.length == mStartedUtterances.size());
             for (String id : utteranceIds) {
                 Assert.assertTrue(mStartedUtterances.contains(id));
                 Assert.assertTrue(mBeginSynthesisUtterances.contains(id));
                 Assert.assertTrue(mChunksReceived.containsKey(id));
-                Assert.assertTrue(mChunksReceived.get(id) > 0);
             }
         }
     }

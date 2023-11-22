@@ -36,7 +36,7 @@ if [ ! -z ${ANDROID_BUILD_TOP} ]; then
 fi;
 
 JAR_DIR=${ANDROID_BUILD_TOP}/out/host/$OS/framework
-JARS="tradefed-prebuilt.jar hosttestlib.jar signature-hostside.jar signature-tests.jar"
+JARS="tradefed.jar hosttestlib.jar signature-hostside.jar signature-tests.jar"
 
 for JAR in $JARS; do
     checkFile ${JAR_DIR}/${JAR}

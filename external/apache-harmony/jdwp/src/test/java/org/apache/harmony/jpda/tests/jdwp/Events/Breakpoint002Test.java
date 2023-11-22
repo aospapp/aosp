@@ -19,13 +19,13 @@
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
-import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 /**
  * JDWP Unit test for BREAKPOINT event in methods possibly inlined.
  */
 public class Breakpoint002Test extends JDWPEventTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return Breakpoint002Debuggee.class.getName();
     }

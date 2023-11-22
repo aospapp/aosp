@@ -1,5 +1,0 @@
-set (libname "grovemd")
-set (libdescription "upm grove i2c motor driver module")
-set (module_src ${libname}.cxx)
-set (module_h ${libname}.h)
-upm_module_init()

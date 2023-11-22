@@ -5,7 +5,6 @@
 AUTHOR = "gwendal"
 NAME = "StorageQualRetention"
 ATTRIBUTES = "suite:storage_qual"
-SUITE = "storage_qual"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"

@@ -8,7 +8,8 @@ android {
     compileSdkVersion project.ext.currentSdk
 
     defaultConfig {
-        minSdkVersion 9
+        minSdkVersion 14
+        vectorDrawables.useSupportLibrary = true
     }
 
     sourceSets {
@@ -18,9 +19,15 @@ android {
         main.res.srcDirs = ['res']
     }
 
+    signingConfigs {
+        debug {
+            // Use a local debug keystore to avoid build server issues.
+            storeFile project.rootProject.init.debugKeystore
+        }
+    }
+
     lintOptions {
-        // TODO: fix errors and reenable.
-        abortOnError false
+        abortOnError true
     }
 
     compileOptions {

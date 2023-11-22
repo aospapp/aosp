@@ -1,18 +1,21 @@
 AHAT - Android Heap Analysis Tool
 
 Usage:
-  java -jar ahat.jar [-p port] FILE
-    Launch an http server for viewing the given Android heap-dump FILE.
+  java -jar ahat.jar [OPTIONS] FILE
+    Launch an http server for viewing the given Android heap dump FILE.
 
-  Options:
+  OPTIONS:
     -p <port>
        Serve pages on the given port. Defaults to 7100.
+    --proguard-map FILE
+       Use the proguard map FILE to deobfuscate the heap dump.
+    --baseline FILE
+       Diff the heap dump against the given baseline heap dump FILE.
+    --baseline-proguard-map FILE
+       Use the proguard map FILE to deobfuscate the baseline heap dump.
 
 TODO:
- * Add more tips to the help page.
-   - Recommend how to start looking at a heap dump.
-   - Say how to enable allocation sites.
-   - Where to submit feedback, questions, and bug reports.
+ * Add a user guide.
  * Dim 'image' and 'zygote' heap sizes slightly? Why do we even show these?
  * Let user re-sort sites objects info by clicking column headers.
  * Let user re-sort "Objects" list.
@@ -36,11 +39,6 @@ TODO:
    ignored or not?  Is there any interest in what's unreachable, or is it only
    reachable objects that people care about?
 
- * [low priority] Have a way to diff two heap dumps by site.
-   This should be pretty easy to do, actually. The interface is the real
-   question. Maybe: augment each byte count field on every page with the diff
-   if a baseline has been provided, and allow the user to sort by the diff.
-
 Things to Test:
  * That we can open a hprof without an 'app' heap and show a tabulation of
    objects normally sorted by 'app' heap by default.
@@ -50,9 +48,9 @@ Things to Test:
    time.
  * That we don't show the 'extra' column in the DominatedList if we are
    showing all the instances.
- * That InstanceUtils.asString properly takes into account "offset" and
+ * That Instance.asString properly takes into account "offset" and
    "count" fields, if they are present.
- * InstanceUtils.getDexCacheLocation
+ * Instance.getDexCacheLocation
 
 Reported Issues:
  * Request to be able to sort tables by size.
@@ -77,7 +75,29 @@ Things to move to perflib:
  * Instance.isRoot and Instance.getRootTypes.
 
 Release History:
- 0.4 Pending
+ 1.1 Feb 21, 2017
+   Show java.lang.ref.Reference referents as "unreachable" instead of null.
+
+ 1.0 Dec 20, 2016
+   Add support for diffing two heap dumps.
+   Remove native allocations view.
+   Remove outdated help page.
+   Significant refactoring of ahat internals.
+
+ 0.8 Oct 18, 2016
+   Show sample path from GC root with field names in place of dominator path.
+
+ 0.7 Aug 16, 2016
+   Launch ahat server before processing the heap dump.
+   Target Java 1.7.
+
+ 0.6 Jun 21, 2016
+   Add support for proguard deobfuscation.
+
+ 0.5 Apr 19, 2016
+   Update perflib to perflib-25.0.0 to improve processing performance.
+
+ 0.4 Feb 23, 2016
    Annotate char[] objects with their string values.
    Show registered native allocations for heap dumps that support it.
 

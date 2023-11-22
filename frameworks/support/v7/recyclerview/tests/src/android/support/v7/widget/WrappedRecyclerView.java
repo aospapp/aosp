@@ -17,8 +17,15 @@
 package android.support.v7.widget;
 
 import android.content.Context;
+import android.support.test.InstrumentationRegistry;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
+
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * RecyclerView wrapper used in tests. This class can fake behavior like layout direction w/o
@@ -27,9 +34,19 @@ import android.util.AttributeSet;
 public class WrappedRecyclerView extends RecyclerView {
 
     Boolean mFakeRTL;
+    private long mDrawingTimeOffsetMs;
 
     public void setFakeRTL(Boolean fakeRTL) {
         mFakeRTL = fakeRTL;
+    }
+
+    public void setDrawingTimeOffset(long offsetMs) {
+        mDrawingTimeOffsetMs = offsetMs;
+    }
+
+    @Override
+    public long getDrawingTime() {
+        return super.getDrawingTime() + mDrawingTimeOffsetMs;
     }
 
     public WrappedRecyclerView(Context context) {
@@ -51,12 +68,49 @@ public class WrappedRecyclerView extends RecyclerView {
         //initializeScrollbars(null);
     }
 
+    public void waitUntilLayout() {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        while (isLayoutRequested()) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void waitUntilAnimations() throws InterruptedException {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        final CountDownLatch latch = new CountDownLatch(1);
+        if (mItemAnimator == null || !mItemAnimator.isRunning(
+                new ItemAnimator.ItemAnimatorFinishedListener() {
+                    @Override
+                    public void onAnimationsFinished() {
+                        latch.countDown();
+                    }
+                })) {
+            latch.countDown();
+        }
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        MatcherAssert.assertThat("waiting too long for animations",
+                latch.await(60, TimeUnit.SECONDS), CoreMatchers.is(true));
+    }
+
+
     @Override
     public int getLayoutDirection() {
         if (mFakeRTL == null) {
             return super.getLayoutDirection();
         }
+        //noinspection WrongConstant
         return Boolean.TRUE.equals(mFakeRTL) ? ViewCompat.LAYOUT_DIRECTION_RTL
                 : ViewCompat.LAYOUT_DIRECTION_LTR;
+    }
+
+    @Override
+    public boolean setChildImportantForAccessibilityInternal(ViewHolder viewHolder,
+            int importantForAccessibilityBeforeHidden) {
+        return super.setChildImportantForAccessibilityInternal(viewHolder,
+                importantForAccessibilityBeforeHidden);
     }
 }

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -39,5 +41,6 @@ public class HolidayBundle_en_GB extends ListResourceBundle
 
         { "Labor Day",  "Labour Day" },
     };
+    @Override
     public synchronized Object[][] getContents() { return fContents; }
 }

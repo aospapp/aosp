@@ -27,32 +27,40 @@
 #include <string.h>
 
 jfloatArray com_android_cts_verifier_camera_its_computeStatsImage(JNIEnv* env, jobject thiz,
-        jbyteArray img, jint width, jint height, jint gridWidth, jint gridHeight)
+        // The full pixel array read off the sensor.
+        jbyteArray img,
+        jint width, jint height,
+        // The active array crop region.
+        jint aax, jint aay, jint aaw, jint aah,
+        // The size of each grid cell to use when computing stats from the active array.
+        jint gridWidth, jint gridHeight)
 {
     int bufSize = (int)(env->GetArrayLength(img));
     unsigned char *buf = (unsigned char*)env->GetByteArrayElements(img, /*is_copy*/NULL);
 
-    // Size of the raw image.
-    const int w = width;
-    const int h = height;
+    // Size of the full raw image pixel array.
+    const int paw = width;
+    const int pah = height;
     // Size of each grid cell.
     const int gw = gridWidth;
     const int gh = gridHeight;
     // Number of grid cells (rounding down to full cells only at right+bottom edges).
-    const int ngx = w / gw;
-    const int ngy = h / gh;
+    const int ngx = aaw / gw;
+    const int ngy = aah / gh;
 
     float *mean = new float[ngy*ngx*4];
     float *var = new float[ngy*ngx*4];
+    // For each grid cell ...
     for (int gy = 0; gy < ngy; gy++) {
         for (int gx = 0; gx < ngx; gx++) {
             float sum[4] = {0};
             float sumSq[4] = {0};
             int count[4] = {0};
-            for (int y = gy*gh; y < (gy+1)*gh; y++) {
+            // Iterate over pixels in the grid cell
+            for (int y = aay+gy*gh; y < aay+(gy+1)*gh; y++) {
                 int chnOffset = (y & 0x1) * 2;
-                unsigned char *pbuf = buf + 2*y*w + 2*gx*gw;
-                for (int x = gx*gw; x < (gx+1)*gw; x++) {
+                unsigned char *pbuf = buf + 2*y*paw + 2*gx*gw + 2*aax;
+                for (int x = aax+gx*gw; x < aax+(gx+1)*gw; x++) {
                     // input is RAW16
                     int byte0 = *pbuf++;
                     int byte1 = *pbuf++;
@@ -81,7 +89,7 @@ jfloatArray com_android_cts_verifier_camera_its_computeStatsImage(JNIEnv* env, j
 }
 
 static JNINativeMethod gMethods[] = {
-    {  "computeStatsImage", "([BIIII)[F",
+    {  "computeStatsImage", "([BIIIIIIII)[F",
             (void *) com_android_cts_verifier_camera_its_computeStatsImage  },
 };
 

@@ -18,10 +18,12 @@ package android.security.cts;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 import java.util.List;
 
+@SecurityTest
 public class RunningAppProcessInfoTest extends AndroidTestCase {
     /*
      * This test verifies severity vulnerability: apps can bypass the L restrictions in

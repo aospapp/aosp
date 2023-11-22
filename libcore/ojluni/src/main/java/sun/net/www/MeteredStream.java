@@ -29,7 +29,6 @@ import java.net.URL;
 import java.util.*;
 import java.io.*;
 import sun.net.ProgressSource;
-import sun.net.www.http.ChunkedInputStream;
 
 
 public class MeteredStream extends FilterInputStream {
@@ -143,14 +142,15 @@ public class MeteredStream extends FilterInputStream {
             return 0;
         }
 
-        if (in instanceof ChunkedInputStream) {
-            n = in.skip(n);
-        }
-        else {
+// Android-changed: Remove support for Android-removed class ChunkedInputSTream
+//        if (in instanceof ChunkedInputStream) {
+//            n = in.skip(n);
+//        }
+//        else {
             // just skip min(n, num_bytes_left)
             long min = (n > expected - count) ? expected - count: n;
             n = in.skip(min);
-        }
+//        }
         justRead(n);
         return n;
     }

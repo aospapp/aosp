@@ -43,7 +43,7 @@ const audio_format_t AudioStreamIn::kAudioFormat = AUDIO_FORMAT_PCM_16_BIT;
 const uint32_t AudioStreamIn::kChannelMask = AUDIO_CHANNEL_IN_MONO;
 
 // number of periods in the ALSA buffer
-const int AudioStreamIn::kPeriodCount = 4;
+const int AudioStreamIn::kPeriodCount = 32;
 
 AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
     : mOwnerHAL(owner)
@@ -58,6 +58,9 @@ AudioStreamIn::AudioStreamIn(AudioHardwareInput& owner)
     , mInputSource(AUDIO_SOURCE_DEFAULT)
     , mReadStatus(0)
     , mFramesIn(0)
+    , mLastReadFinishedNs(-1)
+    , mLastBytesRead(0)
+    , mMinAllowedReadTimeNs(0)
 {
     struct resampler_buffer_provider& provider =
             mResamplerProviderWrapper.provider;
@@ -282,12 +285,37 @@ ssize_t AudioStreamIn::read(void* buffer, size_t bytes)
         // if we have never returned any data from an actual device and need
         // to synth on the first call to read)
         usleep(bytes * 1000000 / getFrameSize() / mRequestedSampleRate);
+        mLastReadFinishedNs = -1;
     } else {
         bool mute;
         mOwnerHAL.getMicMute(&mute);
         if (mute) {
             memset(buffer, 0, bytes);
         }
+
+        nsecs_t now = systemTime();
+
+        if (mLastReadFinishedNs != -1) {
+            const nsecs_t kMinsleeptimeNs = 1000000; // don't sleep less than 1ms
+            const nsecs_t deltaNs = now - mLastReadFinishedNs;
+
+            if (bytes != mLastBytesRead) {
+                mMinAllowedReadTimeNs =
+                        (((nsecs_t)bytes * 1000000000) / getFrameSize()) / mRequestedSampleRate / 2;
+                mLastBytesRead = bytes;
+            }
+
+            // Make sure total read time is at least the duration corresponding to half the amount
+            // of data requested.
+            // Note: deltaNs is always > 0 here
+            if (mMinAllowedReadTimeNs > deltaNs + kMinsleeptimeNs) {
+                usleep((mMinAllowedReadTimeNs - deltaNs) / 1000);
+                // Throttle must be attributed to the previous read time to allow
+                // back-to-back throttling.
+                now = systemTime();
+            }
+        }
+        mLastReadFinishedNs = now;
     }
 
     return bytes;
@@ -374,6 +402,9 @@ status_t AudioStreamIn::startInputStream_l()
         delete [] mBuffer;
     }
     mBuffer = new int16_t[mBufferSize / sizeof(uint16_t)];
+
+    mLastReadFinishedNs = -1;
+    mLastBytesRead = 0;
 
     if (mResampler) {
         release_resampler(mResampler);

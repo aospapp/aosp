@@ -75,7 +75,7 @@ log::
     -d out/target/common/obj/APPS/Fountain_intermediates/src/renderscript \
     -a out/target/common/obj/APPS/Fountain_intermediates/src/RenderScript.stamp \
     -MD \
-    -I frameworks/base/libs/rs/scriptc \
+    -I frameworks/base/libs/rs/script_api/include \
     -I external/clang/lib/Headers \
     frameworks/base/libs/rs/java/Fountain/src/com/android/fountain/fountain.rs
 

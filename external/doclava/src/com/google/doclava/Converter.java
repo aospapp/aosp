@@ -137,14 +137,14 @@ public class Converter {
     cl.setRemovedMethods(
             new ArrayList<MethodInfo>(Arrays.asList(Converter.getRemovedMethods(c.methods(false)))));
 
-    cl.setRemovedSelfMethods(
-        new ArrayList<MethodInfo>(Converter.convertAllMethods(c.methods(false))));
-    cl.setRemovedConstructors(
+    cl.setExhaustiveConstructors(
         new ArrayList<MethodInfo>(Converter.convertAllMethods(c.constructors(false))));
-    cl.setRemovedSelfFields(
-        new ArrayList<FieldInfo>(Converter.convertAllFields(c.fields(false))));
-    cl.setRemovedEnumConstants(
+    cl.setExhaustiveMethods(
+        new ArrayList<MethodInfo>(Converter.convertAllMethods(c.methods(false))));
+    cl.setExhaustiveEnumConstants(
         new ArrayList<FieldInfo>(Converter.convertAllFields(c.enumConstants())));
+    cl.setExhaustiveFields(
+        new ArrayList<FieldInfo>(Converter.convertAllFields(c.fields(false))));
 
     cl.setNonWrittenConstructors(
             new ArrayList<MethodInfo>(Arrays.asList(Converter.convertNonWrittenConstructors(

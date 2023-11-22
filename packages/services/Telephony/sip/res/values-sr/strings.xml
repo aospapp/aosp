@@ -21,8 +21,8 @@
     <string name="sip_accounts_title" msgid="2082527045326874519">"Налози"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"Примај долазне позиве"</string>
     <string name="sip_receive_calls_summary" msgid="946161517528227523">"Више троши батерију"</string>
-    <string name="sip_call_options_title" msgid="8421210494703869806">"Користите SIP позиве"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Користите SIP позиве (само за Wi-Fi)"</string>
+    <string name="sip_call_options_title" msgid="8421210494703869806">"Користите SIP позивање"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Користите SIP позивање (само за Wi-Fi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"За све позиве када је мрежа за пренос података доступна"</string>
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Само за SIP позиве"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"За све позиве"</string>
@@ -62,8 +62,8 @@
     <string name="auth_username_title" msgid="8262491689004708265">"Корисничко име за потврду идентитета"</string>
     <string name="auth_username_summary" msgid="941160241371436473">"За потврду идентитета користи се корисничко име"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;Није подешено&gt;"</string>
-    <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;Није подешенa&gt;"</string>
-    <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;Није подешенa&gt;"</string>
+    <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;Није подешено&gt;"</string>
+    <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;Није подешено&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;Исто као корисничко име&gt;"</string>
     <string name="optional_summary" msgid="2363105560396317624">"&lt;Опционално&gt;"</string>
     <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Додирните да бисте приказали све"</string>
@@ -76,5 +76,5 @@
     <string name="no_voip" msgid="3038021971231952704">"SIP позивање није подржано"</string>
     <string name="sip_system_decide" msgid="5577696249416700671">"Аутоматски"</string>
     <string name="sip_always_send_keepalive" msgid="4773022409239823318">"Увек шаљи"</string>
-    <string name="sip_connection_service_label" msgid="6935325004265884453">"Уграђена функција SIP позива"</string>
+    <string name="sip_connection_service_label" msgid="6935325004265884453">"Уграђена функција SIP позивања"</string>
 </resources>

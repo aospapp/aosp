@@ -16,20 +16,24 @@
 
 package android.util.cts;
 
-import android.R;
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.StateSet;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test StateSet
  */
-public class StateSetTest extends AndroidTestCase {
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class StateSetTest {
+    @Test
     public void testTrimStateSet() {
         // state set's old size is equal to new size
         int[] stateSet = {1, 2, 3};
@@ -42,17 +46,19 @@ public class StateSetTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testDump() {
-        int[] stateSet = {R.attr.state_window_focused,
-                          R.attr.state_pressed,
-                          R.attr.state_selected,
-                          R.attr.state_focused,
-                          R.attr.state_enabled,
+        int[] stateSet = {android.R.attr.state_window_focused,
+                          android.R.attr.state_pressed,
+                          android.R.attr.state_selected,
+                          android.R.attr.state_focused,
+                          android.R.attr.state_enabled,
                           1234325}; // irrelevant value
         String string = StateSet.dump(stateSet);
         assertEquals("W P S F E ", string);
     }
 
+    @Test
     public void testStateSetMatches() throws Exception {
          int[] stateSpec1 = new int[2];
          int[] stateSet1 = new int[3];
@@ -188,5 +194,4 @@ public class StateSetTest extends AndroidTestCase {
         stateSpec10 = StateSet.WILD_CARD;
         assertTrue(StateSet.stateSetMatches(stateSpec10, state3));
     }
-
 }

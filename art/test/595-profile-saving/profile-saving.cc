@@ -17,14 +17,14 @@
 #include "dex_file.h"
 
 #include "art_method-inl.h"
-#include "jit/offline_profiling_info.h"
+#include "jit/profile_compilation_info.h"
 #include "jit/profile_saver.h"
 #include "jni.h"
 #include "method_reference.h"
 #include "mirror/class-inl.h"
 #include "oat_file_assistant.h"
 #include "oat_file_manager.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "ScopedUtfChars.h"
 #include "thread.h"
 
@@ -34,11 +34,11 @@ namespace {
 class CreateProfilingInfoVisitor : public StackVisitor {
  public:
   explicit CreateProfilingInfoVisitor(Thread* thread, const char* method_name)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
         method_name_(method_name) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
@@ -74,7 +74,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_presentInProfile(
   ScopedUtfChars filename_chars(env, filename);
   CHECK(filename_chars.c_str() != nullptr);
   ScopedObjectAccess soa(Thread::Current());
-  const DexFile* dex_file = soa.Decode<mirror::Class*>(cls)->GetDexCache()->GetDexFile();
+  const DexFile* dex_file = soa.Decode<mirror::Class>(cls)->GetDexCache()->GetDexFile();
   return ProfileSaver::HasSeenMethod(std::string(filename_chars.c_str()),
                                      dex_file,
                                      static_cast<uint16_t>(method_index));

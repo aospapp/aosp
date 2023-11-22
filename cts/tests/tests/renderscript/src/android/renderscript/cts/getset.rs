@@ -69,20 +69,23 @@ COPY_1D(double)
         rsSetElementAt_##ty(gAlloc2DOut, i, x, y);                    \
     }                                                               \
     void __attribute__((kernel)) copy2D_##ty##2(int idx) {          \
-        uint x = idx % gWidth;                                      \
-        uint y = idx / gWidth;                                      \
+        uint realWidth = gWidth / 2;                                \
+        uint x = idx % realWidth;                                      \
+        uint y = idx / realWidth;                                      \
         ty##2 i = rsGetElementAt_##ty##2(gAlloc2DIn, x, y);           \
         rsSetElementAt_##ty##2(gAlloc2DOut, i, x, y);                 \
     }                                                               \
     void __attribute__((kernel)) copy2D_##ty##3(int idx) {          \
-        uint x = idx % gWidth;                                      \
-        uint y = idx / gWidth;                                      \
+        uint realWidth = gWidth / 4;                                \
+        uint x = idx % realWidth;                                      \
+        uint y = idx / realWidth;                                      \
         ty##3 i = rsGetElementAt_##ty##3(gAlloc2DIn, x, y);           \
         rsSetElementAt_##ty##3(gAlloc2DOut, i, x, y);                 \
     }                                                               \
     void __attribute__((kernel)) copy2D_##ty##4(int idx) {          \
-        uint x = idx % gWidth;                                      \
-        uint y = idx / gWidth;                                      \
+        uint realWidth = gWidth / 4;                                \
+        uint x = idx % realWidth;                                      \
+        uint y = idx / realWidth;                                      \
         ty##4 i = rsGetElementAt_##ty##4(gAlloc2DIn, x, y);           \
         rsSetElementAt_##ty##4(gAlloc2DOut, i, x, y);                 \
     }
@@ -109,23 +112,26 @@ COPY_2D(double)
         rsSetElementAt_##ty(gAlloc3DOut, i, x, y, z);                 \
     }                                                               \
     void __attribute__((kernel)) copy3D_##ty##2(int idx) {          \
-        uint x = idx % gWidth;                                      \
-        uint y = (idx / gWidth) % gHeight;                          \
-        uint z = idx / (gWidth * gHeight);                          \
+        uint realWidth = gWidth / 2;                                \
+        uint x = idx % realWidth;                                   \
+        uint y = (idx / realWidth) % gHeight;                       \
+        uint z = idx / (realWidth * gHeight);                       \
         ty##2 i = rsGetElementAt_##ty##2(gAlloc3DIn, x, y, z);        \
         rsSetElementAt_##ty##2(gAlloc3DOut, i, x, y, z);              \
     }                                                               \
     void __attribute__((kernel)) copy3D_##ty##3(int idx) {          \
-        uint x = idx % gWidth;                                      \
-        uint y = (idx / gWidth) % gHeight;                          \
-        uint z = idx / (gWidth * gHeight);                          \
+        uint realWidth = gWidth / 4;                                \
+        uint x = idx % realWidth;                                   \
+        uint y = (idx / realWidth) % gHeight;                       \
+        uint z = idx / (realWidth * gHeight);                       \
         ty##3 i = rsGetElementAt_##ty##3(gAlloc3DIn, x, y, z);        \
         rsSetElementAt_##ty##3(gAlloc3DOut, i, x, y, z);              \
     }                                                               \
     void __attribute__((kernel)) copy3D_##ty##4(int idx) {          \
-        uint x = idx % gWidth;                                      \
-        uint y = (idx / gWidth) % gHeight;                          \
-        uint z = idx / (gWidth * gHeight);                          \
+        uint realWidth = gWidth / 4;                                \
+        uint x = idx % realWidth;                                   \
+        uint y = (idx / realWidth) % gHeight;                       \
+        uint z = idx / (realWidth * gHeight);                       \
         ty##4 i = rsGetElementAt_##ty##4(gAlloc3DIn, x, y, z);        \
         rsSetElementAt_##ty##4(gAlloc3DOut, i, x, y, z);              \
     }

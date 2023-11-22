@@ -98,8 +98,8 @@ public class ActivityTransitionTest extends
         });
 
         assertTrue("Activity didn't finish!",
-                mActivity.returnLatch.await(1500, TimeUnit.MILLISECONDS));
-        assertTrue(mActivity.reenterLatch.await(300, TimeUnit.MILLISECONDS));
+                mActivity.returnLatch.await(3000, TimeUnit.MILLISECONDS));
+        assertTrue(mActivity.reenterLatch.await(1000, TimeUnit.MILLISECONDS));
         assertNotNull(mReceiver.resultData);
         assertEquals(2, mReceiver.resultData.getInt(
                 ActivityTransitionActivity.ARRIVE_COUNT, -1));
@@ -146,9 +146,9 @@ public class ActivityTransitionTest extends
         CountDownLatch latch = setReenterLatch();
 
         assertTrue("Activity didn't finish!",
-                mActivity.returnLatch.await(2000, TimeUnit.MILLISECONDS));
+                mActivity.returnLatch.await(3000, TimeUnit.MILLISECONDS));
         assertTrue("Reenter transition didn't finish", latch.await(1000, TimeUnit.MILLISECONDS));
-        assertTrue(mActivity.reenterLatch.await(300, TimeUnit.MILLISECONDS));
+        assertTrue(mActivity.reenterLatch.await(1000, TimeUnit.MILLISECONDS));
         getInstrumentation().waitForIdleSync();
         checkNoReturnTransitionVisibility();
         runTestOnUiThread(new Runnable() {
@@ -180,8 +180,8 @@ public class ActivityTransitionTest extends
         });
 
         assertTrue("Activity didn't finish!",
-                mActivity.returnLatch.await(1500, TimeUnit.MILLISECONDS));
-        assertTrue(mActivity.reenterLatch.await(300, TimeUnit.MILLISECONDS));
+                mActivity.returnLatch.await(3000, TimeUnit.MILLISECONDS));
+        assertTrue(mActivity.reenterLatch.await(1000, TimeUnit.MILLISECONDS));
         getInstrumentation().waitForIdleSync();
         checkNoReturnTransitionVisibility();
         runTestOnUiThread(new Runnable() {
@@ -214,9 +214,9 @@ public class ActivityTransitionTest extends
         });
 
         assertTrue("Activity didn't finish!",
-                mActivity.returnLatch.await(1500, TimeUnit.MILLISECONDS));
+                mActivity.returnLatch.await(3000, TimeUnit.MILLISECONDS));
         assertTrue("Reenter transition didn't finish", latch.await(1000, TimeUnit.MILLISECONDS));
-        assertTrue(mActivity.reenterLatch.await(300, TimeUnit.MILLISECONDS));
+        assertTrue(mActivity.reenterLatch.await(1000, TimeUnit.MILLISECONDS));
         getInstrumentation().waitForIdleSync();
         checkNoReturnTransitionVisibility();
         runTestOnUiThread(new Runnable() {
@@ -249,8 +249,8 @@ public class ActivityTransitionTest extends
         });
 
         assertTrue("Activity didn't finish!",
-                mActivity.returnLatch.await(1500, TimeUnit.MILLISECONDS));
-        assertTrue(mActivity.reenterLatch.await(300, TimeUnit.MILLISECONDS));
+                mActivity.returnLatch.await(3000, TimeUnit.MILLISECONDS));
+        assertTrue(mActivity.reenterLatch.await(1000, TimeUnit.MILLISECONDS));
         getInstrumentation().waitForIdleSync();
         checkNoReturnTransitionVisibility();
         runTestOnUiThread(new Runnable() {

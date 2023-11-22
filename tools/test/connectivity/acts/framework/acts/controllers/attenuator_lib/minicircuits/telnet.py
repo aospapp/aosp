@@ -25,7 +25,6 @@ interchangeable HW to be used.
 See http://www.minicircuits.com/softwaredownload/Prog_Manual-6-Programmable_Attenuator.pdf
 """
 
-
 from acts.controllers import attenuator
 from acts.controllers.attenuator_lib import _tnhelper
 
@@ -40,7 +39,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
     """
 
     def __init__(self, num_atten=0):
-        super().__init__(num_atten)
+        super(AttenuatorInstrument, self).__init__(num_atten)
         self._tnhelper = _tnhelper._TNHelper(tx_cmd_separator="\r\n",
                                              rx_cmd_separator="\r\n",
                                              prompt="")
@@ -100,7 +99,7 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         Parameters
         ----------
         idx : This zero-based index is the identifier for a particular attenuator in an
-        instrument.
+              instrument. For instruments that only has one channel, this is ignored by the device.
         value : This is a floating point value for nominal attenuation to be set.
 
         Raises
@@ -123,8 +122,8 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
 
         if value > self.max_atten:
             raise ValueError("Attenuator value out of range!", self.max_atten, value)
-
-        self._tnhelper.cmd("SETATT=" + str(value))
+        # The actual device uses one-based index for channel numbers.
+        self._tnhelper.cmd("CHAN:%s:SETATT:%s" % (idx + 1, value))
 
     def get_atten(self, idx):
         r"""This function returns the current attenuation from an attenuator at a given index in
@@ -148,10 +147,9 @@ class AttenuatorInstrument(attenuator.AttenuatorInstrument):
         if not self.is_open():
             raise attenuator.InvalidOperationError("Connection not open!")
 
-#       Potentially redundant safety check removed for the moment
-#       if idx >= self.num_atten:
-#           raise IndexError("Attenuator index out of range!", self.num_atten, idx)
+        if idx >= self.num_atten or idx < 0:
+            raise IndexError("Attenuator index out of range!", self.num_atten, idx)
 
-        atten_val = self._tnhelper.cmd("ATT?")
-
-        return float(atten_val)
+        atten_val_str = self._tnhelper.cmd("CHAN:%s:ATT?" % (idx + 1))
+        atten_val = float(atten_val_str)
+        return atten_val

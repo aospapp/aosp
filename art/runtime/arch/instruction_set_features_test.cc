@@ -18,15 +18,19 @@
 
 #include <gtest/gtest.h>
 
-#ifdef __ANDROID__
-#include "cutils/properties.h"
+#ifdef ART_TARGET_ANDROID
+#include "android-base/properties.h"
 #endif
 
-#include "base/stringprintf.h"
+#include "android-base/stringprintf.h"
+
+#include "base/logging.h"
 
 namespace art {
 
-#ifdef __ANDROID__
+using android::base::StringPrintf;
+
+#ifdef ART_TARGET_ANDROID
 #if defined(__aarch64__)
 TEST(InstructionSetFeaturesTest, DISABLED_FeaturesFromSystemPropertyVariant) {
   LOG(WARNING) << "Test disabled due to no CPP define for A53 erratum 835769";
@@ -39,8 +43,8 @@ TEST(InstructionSetFeaturesTest, FeaturesFromSystemPropertyVariant) {
 
   // Read the variant property.
   std::string key = StringPrintf("dalvik.vm.isa.%s.variant", GetInstructionSetString(kRuntimeISA));
-  char dex2oat_isa_variant[PROPERTY_VALUE_MAX];
-  if (property_get(key.c_str(), dex2oat_isa_variant, nullptr) > 0) {
+  std::string dex2oat_isa_variant = android::base::GetProperty(key, "");
+  if (!dex2oat_isa_variant.empty()) {
     // Use features from property to build InstructionSetFeatures and check against build's
     // features.
     std::string error_msg;
@@ -48,7 +52,7 @@ TEST(InstructionSetFeaturesTest, FeaturesFromSystemPropertyVariant) {
         InstructionSetFeatures::FromVariant(kRuntimeISA, dex2oat_isa_variant, &error_msg));
     ASSERT_TRUE(property_features.get() != nullptr) << error_msg;
 
-    EXPECT_TRUE(property_features->Equals(instruction_set_features.get()))
+    EXPECT_TRUE(property_features->HasAtLeast(instruction_set_features.get()))
       << "System property features: " << *property_features.get()
       << "\nFeatures from build: " << *instruction_set_features.get();
   }
@@ -67,13 +71,13 @@ TEST(InstructionSetFeaturesTest, FeaturesFromSystemPropertyString) {
   // Read the variant property.
   std::string variant_key = StringPrintf("dalvik.vm.isa.%s.variant",
                                          GetInstructionSetString(kRuntimeISA));
-  char dex2oat_isa_variant[PROPERTY_VALUE_MAX];
-  if (property_get(variant_key.c_str(), dex2oat_isa_variant, nullptr) > 0) {
+  std::string dex2oat_isa_variant = android::base::GetProperty(variant_key, "");
+  if (!dex2oat_isa_variant.empty()) {
     // Read the features property.
     std::string features_key = StringPrintf("dalvik.vm.isa.%s.features",
                                             GetInstructionSetString(kRuntimeISA));
-    char dex2oat_isa_features[PROPERTY_VALUE_MAX];
-    if (property_get(features_key.c_str(), dex2oat_isa_features, nullptr) > 0) {
+    std::string dex2oat_isa_features = android::base::GetProperty(features_key, "");
+    if (!dex2oat_isa_features.empty()) {
       // Use features from property to build InstructionSetFeatures and check against build's
       // features.
       std::string error_msg;
@@ -85,7 +89,7 @@ TEST(InstructionSetFeaturesTest, FeaturesFromSystemPropertyString) {
           base_features->AddFeaturesFromString(dex2oat_isa_features, &error_msg));
       ASSERT_TRUE(property_features.get() != nullptr) << error_msg;
 
-      EXPECT_TRUE(property_features->Equals(instruction_set_features.get()))
+      EXPECT_TRUE(property_features->HasAtLeast(instruction_set_features.get()))
       << "System property features: " << *property_features.get()
       << "\nFeatures from build: " << *instruction_set_features.get();
     }
@@ -105,13 +109,13 @@ TEST(InstructionSetFeaturesTest, FeaturesFromCpuInfo) {
   // Check we get the same instruction set features using /proc/cpuinfo.
   std::unique_ptr<const InstructionSetFeatures> cpuinfo_features(
       InstructionSetFeatures::FromCpuInfo());
-  EXPECT_TRUE(cpuinfo_features->Equals(instruction_set_features.get()))
+  EXPECT_TRUE(cpuinfo_features->HasAtLeast(instruction_set_features.get()))
       << "CPU Info features: " << *cpuinfo_features.get()
       << "\nFeatures from build: " << *instruction_set_features.get();
 }
 #endif
 
-#ifndef __ANDROID__
+#ifndef ART_TARGET_ANDROID
 TEST(InstructionSetFeaturesTest, HostFeaturesFromCppDefines) {
   std::string error_msg;
   std::unique_ptr<const InstructionSetFeatures> default_features(
@@ -120,7 +124,7 @@ TEST(InstructionSetFeaturesTest, HostFeaturesFromCppDefines) {
 
   std::unique_ptr<const InstructionSetFeatures> cpp_features(
       InstructionSetFeatures::FromCppDefines());
-  EXPECT_TRUE(default_features->Equals(cpp_features.get()))
+  EXPECT_TRUE(cpp_features->HasAtLeast(default_features.get()))
       << "Default variant features: " << *default_features.get()
       << "\nFeatures from build: " << *cpp_features.get();
 }
@@ -139,7 +143,7 @@ TEST(InstructionSetFeaturesTest, FeaturesFromHwcap) {
   // Check we get the same instruction set features using AT_HWCAP.
   std::unique_ptr<const InstructionSetFeatures> hwcap_features(
       InstructionSetFeatures::FromHwcap());
-  EXPECT_TRUE(hwcap_features->Equals(instruction_set_features.get()))
+  EXPECT_TRUE(hwcap_features->HasAtLeast(instruction_set_features.get()))
       << "Hwcap features: " << *hwcap_features.get()
       << "\nFeatures from build: " << *instruction_set_features.get();
 }
@@ -152,7 +156,7 @@ TEST(InstructionSetFeaturesTest, FeaturesFromAssembly) {
   // Check we get the same instruction set features using assembly tests.
   std::unique_ptr<const InstructionSetFeatures> assembly_features(
       InstructionSetFeatures::FromAssembly());
-  EXPECT_TRUE(assembly_features->Equals(instruction_set_features.get()))
+  EXPECT_TRUE(assembly_features->HasAtLeast(instruction_set_features.get()))
       << "Assembly features: " << *assembly_features.get()
       << "\nFeatures from build: " << *instruction_set_features.get();
 }

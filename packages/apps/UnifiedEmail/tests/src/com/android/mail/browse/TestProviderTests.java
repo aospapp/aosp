@@ -37,7 +37,6 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
     Context mMockContext;
     MockContentResolver mMockResolver;
 
-    private static final String CANHAZ_AUTHORITY = "com.android.canhaz";
     private static final String PONY_TABLE = "pony";
     private static final String PONY_COLUMN_NAME = "name";
     private static final String PONY_COLUMN_TYPE = "type";
@@ -60,7 +59,6 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
         super.setUp();
         mMockContext = getMockContext();
         mMockResolver = (MockContentResolver)mMockContext.getContentResolver();
-        mMockResolver.addProvider(CANHAZ_AUTHORITY, new TestProvider(mMockContext));
     }
 
     @Override
@@ -79,8 +77,7 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
 
     private ContentProviderResult[] setupPonies() throws RemoteException,
             OperationApplicationException {
-        // The Uri is content://com.android.canhaz/pony
-        Uri uri = new Uri.Builder().scheme("content").authority(CANHAZ_AUTHORITY)
+        Uri uri = new Uri.Builder().scheme("content").authority(TestProvider.AUTHORITY)
             .path(PONY_TABLE).build();
         // Our array of CPO's to be used with applyBatch
         ArrayList<ContentProviderOperation> ops = new ArrayList<ContentProviderOperation>();
@@ -95,12 +92,11 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
     }
 
     private static Uri getPonyUri() {
-        return new Uri.Builder().scheme("content").authority(CANHAZ_AUTHORITY)
+        return new Uri.Builder().scheme("content").authority(TestProvider.AUTHORITY)
             .path(PONY_TABLE).build();
     }
 
     public void testInsertQueryandDelete() throws RemoteException, OperationApplicationException {
-        // The Uri is content://com.android.canhaz/pony
         ContentProviderResult[] results = setupPonies();
         Uri uri = getPonyUri();
 
@@ -108,10 +104,9 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
         assertNotNull(results);
         assertEquals(2, results.length);
         // Make sure that we've created matcher entries for pony and pony/#
-        assertEquals(TestProvider.TABLE, TestProvider.sURIMatcher.match(TestProvider.uri(uri)));
-        assertEquals(TestProvider.RECORD,
-                TestProvider.sURIMatcher.match(TestProvider.uri(results[0].uri)));
-        Cursor c = mMockResolver.query(TestProvider.uri(uri), PONY_PROJECTION, null, null, null);
+        assertEquals(TestProvider.TABLE, TestProvider.sURIMatcher.match(uri));
+        assertEquals(TestProvider.RECORD, TestProvider.sURIMatcher.match(results[0].uri));
+        Cursor c = mMockResolver.query(uri, PONY_PROJECTION, null, null, null);
         assertNotNull(c);
         assertEquals(2, c.getCount());
         long eliseId = -1;
@@ -138,9 +133,9 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
         assertNotSame(-1, eliseId);
         assertNotSame(-1, flickaId);
         // Delete the elise record
-        assertEquals(1, mMockResolver.delete(ContentUris.withAppendedId(TestProvider.uri(uri),
+        assertEquals(1, mMockResolver.delete(ContentUris.withAppendedId(uri,
                 eliseId), null, null));
-        c = mMockResolver.query(TestProvider.uri(uri), PONY_PROJECTION, null, null, null);
+        c = mMockResolver.query(uri, PONY_PROJECTION, null, null, null);
         assertNotNull(c);
         // There should be one left (Flicka)
         assertEquals(1, c.getCount());
@@ -149,17 +144,16 @@ public class TestProviderTests extends ProviderTestCase2<TestProvider> {
     }
 
     public void testUpdate() throws RemoteException, OperationApplicationException {
-        // The Uri is content://com.android.canhaz/pony
         Uri uri = getPonyUri();
         setupPonies();
-        Cursor c = mMockResolver.query(TestProvider.uri(uri), PONY_PROJECTION, null, null, null);
+        Cursor c = mMockResolver.query(uri, PONY_PROJECTION, null, null, null);
         assertNotNull(c);
         assertEquals(2, c.getCount());
         // Give all the ponies 5 legs
         ContentValues cv = new ContentValues();
         cv.put(PONY_COLUMN_LEGS, 5);
-        assertEquals(2, mMockResolver.update(TestProvider.uri(uri), cv, null, null));
-        c = mMockResolver.query(TestProvider.uri(uri), PONY_PROJECTION, null, null, null);
+        assertEquals(2, mMockResolver.update(uri, cv, null, null));
+        c = mMockResolver.query(uri, PONY_PROJECTION, null, null, null);
         assertNotNull(c);
         // We should still have two records, and each should have 5 legs, but otherwise be the same
         assertEquals(2, c.getCount());

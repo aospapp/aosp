@@ -15,7 +15,6 @@ TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 
 sysctls_list = [
     { 'vm/dirty_background_ratio': 1 },

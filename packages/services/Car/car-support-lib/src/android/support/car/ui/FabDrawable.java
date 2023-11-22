@@ -38,6 +38,7 @@ import android.view.animation.DecelerateInterpolator;
  * default values for size and animation values provided for consistency.
  *
  * {@link #FabDrawable(int, int, int)} can also be used for added customization.
+ * @hide
  */
 public class FabDrawable extends Drawable {
     private final int mFabGrowth;

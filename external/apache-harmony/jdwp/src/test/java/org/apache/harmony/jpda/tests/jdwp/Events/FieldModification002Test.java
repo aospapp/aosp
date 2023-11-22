@@ -37,6 +37,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP Unit test for FIELD_MODIFICATION event.
  */
 public class FieldModification002Test extends JDWPEventTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return FieldModification002Debuggee.class.getName();
     }

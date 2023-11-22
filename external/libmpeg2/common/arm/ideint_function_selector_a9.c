@@ -50,7 +50,6 @@
 /* User include files */
 #include "icv_datatypes.h"
 #include "icv_macros.h"
-#include "icv_platform_macros.h"
 #include "icv.h"
 #include "icv_variance.h"
 #include "icv_sad.h"

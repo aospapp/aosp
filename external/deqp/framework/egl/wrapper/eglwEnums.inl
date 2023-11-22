@@ -1,7 +1,7 @@
 /* WARNING: This is auto-generated file. Do not modify, since changes will
  * be lost! Modify the generating script instead.
  *
- * Generated from Khronos EGL API description (egl.xml) revision 31042.
+ * Generated from Khronos EGL API description (egl.xml) revision 33315.
  */
 #define EGL_PBUFFER_BIT										0x0001
 #define EGL_PIXMAP_BIT										0x0002
@@ -12,6 +12,7 @@
 #define EGL_OPTIMAL_FORMAT_BIT_KHR							0x0100
 #define EGL_MULTISAMPLE_RESOLVE_BOX_BIT						0x0200
 #define EGL_SWAP_BEHAVIOR_PRESERVED_BIT						0x0400
+#define EGL_MUTABLE_RENDER_BUFFER_BIT_KHR					0x1000
 #define EGL_OPENGL_ES_BIT									0x0001
 #define EGL_OPENVG_BIT										0x0002
 #define EGL_OPENGL_ES2_BIT									0x0004
@@ -176,7 +177,6 @@
 #define EGL_GL_TEXTURE_ZOFFSET								0x30BD
 #define EGL_GL_TEXTURE_ZOFFSET_KHR							0x30BD
 #define EGL_CONTEXT_OPENGL_ROBUST_ACCESS_EXT				0x30BF
-#define EGL_CONTEXT_OPENGL_ROBUST_ACCESS_EXT				0x30BF
 #define EGL_FORMAT_RGB_565_EXACT_KHR						0x30C0
 #define EGL_FORMAT_RGB_565_KHR								0x30C1
 #define EGL_FORMAT_RGBA_8888_EXACT_KHR						0x30C2
@@ -227,6 +227,7 @@
 #define EGL_NATIVE_BUFFER_ANDROID							0x3140
 #define EGL_CONTEXT_OPENGL_DEBUG							0x31B0
 #define EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE				0x31B1
+#define EGL_CONTEXT_OPENGL_ROBUST_ACCESS					0x31B2
 #define EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR	0x31BD
 #define EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR	0x31BD
 #define EGL_NO_RESET_NOTIFICATION							0x31BE
@@ -237,6 +238,7 @@
 #define EGL_LOSE_CONTEXT_ON_RESET_EXT						0x31BF
 #define EGL_PLATFORM_X11_EXT								0x31D5
 #define EGL_PLATFORM_X11_SCREEN_EXT							0x31D6
+#define EGL_PLATFORM_WAYLAND_KHR							0x31D8
 #define EGL_YUV_BUFFER_EXT									0x3300
 #define EGL_YUV_ORDER_EXT									0x3301
 #define EGL_YUV_ORDER_YUV_EXT								0x3302
@@ -262,3 +264,6 @@
 #define EGL_YUV_PLANE_BPP_0_EXT								0x331B
 #define EGL_YUV_PLANE_BPP_8_EXT								0x331C
 #define EGL_YUV_PLANE_BPP_10_EXT							0x331D
+#define EGL_COLOR_COMPONENT_TYPE_EXT						0x3339
+#define EGL_COLOR_COMPONENT_TYPE_FIXED_EXT					0x333A
+#define EGL_COLOR_COMPONENT_TYPE_FLOAT_EXT					0x333B

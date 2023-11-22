@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 import android.content.Context;
 import android.os.PowerManager;
+import android.telecom.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 

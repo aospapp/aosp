@@ -102,7 +102,7 @@ private:
 
 class CmdDownload: public AudioProtocol {
 public:
-    CmdDownload(ClientSocket& socket)
+    explicit CmdDownload(ClientSocket& socket)
         : AudioProtocol(socket, ECmdDownload) {};
     virtual ~CmdDownload() {};
     virtual bool sendCommand(AudioParam& param);
@@ -111,7 +111,7 @@ public:
 
 class CmdStartPlayback: public AudioProtocol {
 public:
-    CmdStartPlayback(ClientSocket& socket)
+    explicit CmdStartPlayback(ClientSocket& socket)
         : AudioProtocol(socket, ECmdStartPlayback) {};
     virtual ~CmdStartPlayback() {};
     virtual bool sendCommand(AudioParam& param);
@@ -119,14 +119,14 @@ public:
 
 class CmdStopPlayback: public AudioProtocol {
 public:
-    CmdStopPlayback(ClientSocket& socket)
+    explicit CmdStopPlayback(ClientSocket& socket)
         : AudioProtocol(socket, ECmdStopPlayback) {};
     virtual ~CmdStopPlayback() {};
 };
 
 class CmdStartRecording: public AudioProtocol {
 public:
-    CmdStartRecording(ClientSocket& socket)
+    explicit CmdStartRecording(ClientSocket& socket)
         : AudioProtocol(socket, ECmdStartRecording) {};
     virtual ~CmdStartRecording() {};
 
@@ -137,14 +137,14 @@ public:
 
 class CmdStopRecording: public AudioProtocol {
 public:
-    CmdStopRecording(ClientSocket& socket)
+    explicit CmdStopRecording(ClientSocket& socket)
         : AudioProtocol(socket, ECmdStopRecording) {};
     virtual ~CmdStopRecording() {};
 };
 
 class CmdGetDeviceInfo: public AudioProtocol {
 public:
-    CmdGetDeviceInfo(ClientSocket& socket)
+    explicit CmdGetDeviceInfo(ClientSocket& socket)
         : AudioProtocol(socket, ECmdGetDeviceInfo) {};
     virtual ~CmdGetDeviceInfo() {};
 

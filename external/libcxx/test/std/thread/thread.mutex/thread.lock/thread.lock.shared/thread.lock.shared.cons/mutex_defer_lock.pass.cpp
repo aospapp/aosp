@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 // UNSUPPORTED: libcpp-has-no-threads
+// UNSUPPORTED: c++98, c++03, c++11
 
 // <shared_mutex>
 
@@ -17,13 +18,22 @@
 
 #include <shared_mutex>
 #include <cassert>
+#include "nasty_containers.hpp"
 
 int main()
 {
-#if _LIBCPP_STD_VER > 11
-    std::shared_timed_mutex m;
-    std::shared_lock<std::shared_timed_mutex> lk(m, std::defer_lock);
-    assert(lk.mutex() == &m);
+    {
+    typedef std::shared_timed_mutex M;
+    M m;
+    std::unique_lock<M> lk(m, std::defer_lock);
+    assert(lk.mutex() == std::addressof(m));
     assert(lk.owns_lock() == false);
-#endif  // _LIBCPP_STD_VER > 11
+    }
+    {
+    typedef nasty_mutex M;
+    M m;
+    std::unique_lock<M> lk(m, std::defer_lock);
+    assert(lk.mutex() == std::addressof(m));
+    assert(lk.owns_lock() == false);
+    }
 }

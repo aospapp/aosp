@@ -34,6 +34,12 @@ public class ReduceTest extends RSBaseCompute {
         mScript.invoke_setInfsHalf(RSUtils.FLOAT16_NEGATIVE_INFINITY, RSUtils.FLOAT16_POSITIVE_INFINITY);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        mScript.destroy();
+        super.tearDown();
+    }
+
     ///////////////////////////////////////////////////////////////////
 
     private void assertEquals(final float[] javaRslt, final float[] rsRslt) {
@@ -194,6 +200,8 @@ public class ReduceTest extends RSBaseCompute {
         final int rsRslt = mScript.reduce_addint(inputAllocation).get();
 
         assertEquals(javaRslt, rsRslt);
+
+        inputAllocation.destroy();
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -284,6 +292,9 @@ public class ReduceTest extends RSBaseCompute {
 
         short[] outputArray = new short[4];
         outputAllocation.copyTo(outputArray);
+
+        inputAllocation.destroy();
+        outputAllocation.destroy();
         return new Short2[] { new Short2(outputArray[0], outputArray[1]),
                               new Short2(outputArray[2], outputArray[3]) };
     }
@@ -322,6 +333,7 @@ public class ReduceTest extends RSBaseCompute {
         final float[] javaRslt = findMinMat(inputArray);
         final float[] rsRslt = mScript.reduce_findMinMat(inputAllocation).get();
 
+        inputAllocation.destroy();
         assertEquals(javaRslt, rsRslt);
     }
 
@@ -353,6 +365,7 @@ public class ReduceTest extends RSBaseCompute {
         final float[] javaRslt = findMinAndMaxMat(inputArray);
         final float[] rsRslt = mScript.reduce_findMinAndMaxMat(inputAllocation).get();
 
+        inputAllocation.destroy();
         assertEquals(javaRslt, rsRslt);
     }
 
@@ -388,6 +401,7 @@ public class ReduceTest extends RSBaseCompute {
 
         final int cellVal = inputArray[rsRslt.x + dimX * rsRslt.y];
 
+        inputAllocation.destroy();
         assertEquals("input[" + rsRslt.x + ", " + rsRslt.y + "]", 0, cellVal);
     }
 
@@ -410,6 +424,7 @@ public class ReduceTest extends RSBaseCompute {
 
         final int cellVal = inputArray[rsRslt.x + dimX * rsRslt.y + dimX * dimY * rsRslt.z];
 
+        inputAllocation.destroy();
         assertEquals("input[" + rsRslt.x + ", " + rsRslt.y + ", " + rsRslt.z + "]", 0, cellVal);
     }
 
@@ -433,6 +448,10 @@ public class ReduceTest extends RSBaseCompute {
         long[] outputArray = new long[histogramBucketCount];
         for (int i = 0; i < histogramBucketCount; ++i)
             outputArray[i] = outputArrayMistyped[i] & (long)0xffffffff;
+
+        inputAllocation.destroy();
+        outputAllocation.destroy();
+        scriptHsg.destroy();
         return outputArray;
     }
 
@@ -507,6 +526,10 @@ public class ReduceTest extends RSBaseCompute {
                 }
             }
         }
+
+        for (Allocation a : inputs) {
+            a.destroy();
+        }
     }
 
     public void testBadSumXorInputLengthMismatch() {
@@ -567,6 +590,11 @@ public class ReduceTest extends RSBaseCompute {
             } catch (RSRuntimeException e) {
             }
         }
+
+        inputI32.destroy();
+        for (Allocation a : badInput) {
+            a.destroy();
+        }
     }
 
     ///////////////////////////////////////////////////////////////////
@@ -619,6 +647,16 @@ public class ReduceTest extends RSBaseCompute {
                     }
                 }
             }
+        }
+
+        for (Allocation a : allocs1) {
+            a.destroy();
+        }
+        for (Allocation a : allocs2) {
+            a.destroy();
+        }
+        for (Allocation a : allocs3) {
+            a.destroy();
         }
     }
 

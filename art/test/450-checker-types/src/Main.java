@@ -30,6 +30,11 @@ class Super implements Interface {
   public void $noinline$f() {
     throw new RuntimeException();
   }
+
+  public int $inline$h(boolean cond) {
+    Super obj = (cond ? this : null);
+    return obj.hashCode();
+  }
 }
 
 class SubclassA extends Super {
@@ -98,7 +103,7 @@ public class Main {
   /// CHECK-NOT:     CheckCast
   public String testClassRemove() {
     Object s = SubclassA.class;
-    return ((Class)s).getName();
+    return ((Class<?>)s).getName();
   }
 
   /// CHECK-START: java.lang.String Main.testClassKeep() instruction_simplifier (before)
@@ -209,11 +214,11 @@ public class Main {
   /// CHECK-DAG:     <<IOf:z\d+>>  InstanceOf
   /// CHECK-DAG:                   If [<<IOf>>]
 
-  /// CHECK-START: void Main.testInstanceOf_Inlined(java.lang.Object) instruction_simplifier_after_bce (before)
+  /// CHECK-START: void Main.testInstanceOf_Inlined(java.lang.Object) instruction_simplifier$after_inlining (before)
   /// CHECK:         CheckCast
   /// CHECK-NOT:     CheckCast
 
-  /// CHECK-START: void Main.testInstanceOf_Inlined(java.lang.Object) instruction_simplifier_after_bce (after)
+  /// CHECK-START: void Main.testInstanceOf_Inlined(java.lang.Object) instruction_simplifier$after_inlining (after)
   /// CHECK-NOT:     CheckCast
   public void testInstanceOf_Inlined(Object o) {
     if (!$inline$InstanceofSubclassC(o)) {
@@ -618,6 +623,46 @@ public class Main {
   private void testInlinerReturnsNull() {
     Main o = getNull();
     o.mainField = 0;
+  }
+
+  /// CHECK-START: void Main.testThisArgumentMoreSpecific(boolean) inliner (before)
+  /// CHECK-DAG:     <<Arg:l\d+>>   NewInstance
+  /// CHECK-DAG:                    InvokeVirtual [<<Arg>>,{{z\d+}}] method_name:Super.$inline$h
+
+  /// CHECK-START: void Main.testThisArgumentMoreSpecific(boolean) inliner (after)
+  /// CHECK-DAG:     <<Arg:l\d+>>   NewInstance
+  /// CHECK-DAG:     <<Null:l\d+>>  NullConstant
+  /// CHECK-DAG:     <<Phi:l\d+>>   Phi [<<Arg>>,<<Null>>] klass:SubclassA
+  /// CHECK-DAG:     <<NCPhi:l\d+>> NullCheck [<<Phi>>]
+  /// CHECK-DAG:                    InvokeVirtual [<<NCPhi>>] method_name:Super.hashCode
+
+  public void testThisArgumentMoreSpecific(boolean cond) {
+    // Inlining method from Super will build it with `this` typed as Super.
+    // Running RTP will sharpen it to SubclassA.
+    SubclassA obj = new SubclassA();
+    ((Super) obj).$inline$h(cond);
+  }
+
+  public static int $inline$hashCode(Super obj) {
+    return obj.hashCode();
+  }
+
+  /// CHECK-START: void Main.testExplicitArgumentMoreSpecific(SubclassA) inliner (before)
+  /// CHECK-DAG:     <<Arg:l\d+>>   ParameterValue klass:SubclassA
+  // Note: The ArtMethod* (typed as int or long) is optional after sharpening.
+  /// CHECK-DAG:                    InvokeStaticOrDirect [<<Arg>>{{(,[ij]\d+)?}}] method_name:Main.$inline$hashCode
+
+  /// CHECK-START: void Main.testExplicitArgumentMoreSpecific(SubclassA) inliner (after)
+  /// CHECK-DAG:     <<Arg:l\d+>>   ParameterValue klass:SubclassA
+  /// CHECK-DAG:     <<NCArg:l\d+>> NullCheck [<<Arg>>] klass:SubclassA
+  /// CHECK-DAG:                    InvokeVirtual [<<NCArg>>] method_name:Super.hashCode
+
+  public void testExplicitArgumentMoreSpecific(SubclassA obj) {
+    // Inlining a method will build it with reference types from its signature,
+    // here the callee graph is built with Super as the type of its only argument.
+    // Running RTP after its ParameterValue instructions are replaced with actual
+    // arguments will type the inner graph more precisely.
+    $inline$hashCode(obj);
   }
 
   /// CHECK-START: void Main.testPhiHasOnlyNullInputs(boolean) inliner (before)

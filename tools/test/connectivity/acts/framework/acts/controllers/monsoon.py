@@ -13,28 +13,24 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 """Interface for a USB-connected Monsoon power meter
 (http://msoon.com/LabEquipment/PowerMonitor/).
+Based on the original py2 script of kens@google.com
 """
 
-_new_author_ = 'angli@google.com (Ang Li)'
-_author_ = 'kens@google.com (Ken Shirriff)'
-
 import fcntl
+import logging
 import os
 import select
 import struct
 import sys
 import time
-import traceback
 import collections
 
 # http://pyserial.sourceforge.net/
 # On ubuntu, apt-get install python3-pyserial
 import serial
 
-import acts.logger
 import acts.signals
 
 from acts import utils
@@ -43,19 +39,23 @@ from acts.controllers import android_device
 ACTS_CONTROLLER_CONFIG_NAME = "Monsoon"
 ACTS_CONTROLLER_REFERENCE_NAME = "monsoons"
 
-def create(configs, logger):
+
+def create(configs):
     objs = []
     for c in configs:
-        objs.append(Monsoon(serial=c, logger=logger))
+        objs.append(Monsoon(serial=c))
     return objs
+
 
 def destroy(objs):
     return
 
+
 class MonsoonError(acts.signals.ControllerError):
     """Raised for exceptions encountered in monsoon lib."""
 
-class MonsoonProxy:
+
+class MonsoonProxy(object):
     """Class that directly talks to monsoon over serial.
 
     Provides a simple class to use the power meter, e.g.
@@ -108,8 +108,7 @@ class MonsoonProxy:
                 try:  # use a lockfile to ensure exclusive access
                     fcntl.lockf(self._tempfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError as e:
-                    # TODO(angli): get rid of all print statements.
-                    print("device %s is in use" % dev, file=sys.stderr)
+                    logging.error("device %s is in use", dev)
                     continue
 
                 try:  # try to open the device
@@ -118,23 +117,21 @@ class MonsoonProxy:
                     self._FlushInput()  # discard stale input
                     status = self.GetStatus()
                 except Exception as e:
-                    print("error opening device %s: %s" % (dev, e),
-                        file=sys.stderr)
-                    print(traceback.format_exc())
+                    logging.exception("Error opening device %s: %s", dev, e)
                     continue
 
                 if not status:
-                    print("no response from device %s" % dev, file=sys.stderr)
+                    logging.error("no response from device %s", dev)
                 elif serialno and status["serialNumber"] != serialno:
-                    print(("Note: another device serial #%d seen on %s" %
-                        (status["serialNumber"], dev)), file=sys.stderr)
+                    logging.error("Another device serial #%d seen on %s",
+                                  status["serialNumber"], dev)
                 else:
                     self.start_voltage = status["voltage1"]
                     return
 
             self._tempfile = None
             if not wait: raise IOError("No device found")
-            print("Waiting for device...", file=sys.stderr)
+            logging.info("Waiting for device...")
             time.sleep(1)
 
     def GetStatus(self):
@@ -146,21 +143,48 @@ class MonsoonProxy:
         # status packet format
         STATUS_FORMAT = ">BBBhhhHhhhHBBBxBbHBHHHHBbbHHBBBbbbbbbbbbBH"
         STATUS_FIELDS = [
-                "packetType", "firmwareVersion", "protocolVersion",
-                "mainFineCurrent", "usbFineCurrent", "auxFineCurrent",
-                "voltage1", "mainCoarseCurrent", "usbCoarseCurrent",
-                "auxCoarseCurrent", "voltage2", "outputVoltageSetting",
-                "temperature", "status", "leds", "mainFineResistor",
-                "serialNumber", "sampleRate", "dacCalLow", "dacCalHigh",
-                "powerUpCurrentLimit", "runTimeCurrentLimit", "powerUpTime",
-                "usbFineResistor", "auxFineResistor",
-                "initialUsbVoltage", "initialAuxVoltage",
-                "hardwareRevision", "temperatureLimit", "usbPassthroughMode",
-                "mainCoarseResistor", "usbCoarseResistor", "auxCoarseResistor",
-                "defMainFineResistor", "defUsbFineResistor",
-                "defAuxFineResistor", "defMainCoarseResistor",
-                "defUsbCoarseResistor", "defAuxCoarseResistor", "eventCode",
-                "eventData", ]
+            "packetType",
+            "firmwareVersion",
+            "protocolVersion",
+            "mainFineCurrent",
+            "usbFineCurrent",
+            "auxFineCurrent",
+            "voltage1",
+            "mainCoarseCurrent",
+            "usbCoarseCurrent",
+            "auxCoarseCurrent",
+            "voltage2",
+            "outputVoltageSetting",
+            "temperature",
+            "status",
+            "leds",
+            "mainFineResistor",
+            "serialNumber",
+            "sampleRate",
+            "dacCalLow",
+            "dacCalHigh",
+            "powerUpCurrentLimit",
+            "runTimeCurrentLimit",
+            "powerUpTime",
+            "usbFineResistor",
+            "auxFineResistor",
+            "initialUsbVoltage",
+            "initialAuxVoltage",
+            "hardwareRevision",
+            "temperatureLimit",
+            "usbPassthroughMode",
+            "mainCoarseResistor",
+            "usbCoarseResistor",
+            "auxCoarseResistor",
+            "defMainFineResistor",
+            "defUsbFineResistor",
+            "defAuxFineResistor",
+            "defMainCoarseResistor",
+            "defUsbCoarseResistor",
+            "defAuxCoarseResistor",
+            "eventCode",
+            "eventData",
+        ]
 
         self._SendStruct("BBB", 0x01, 0x00, 0x00)
         while 1:  # Keep reading, discarding non-status packets
@@ -169,11 +193,11 @@ class MonsoonProxy:
                 return None
             calsize = struct.calcsize(STATUS_FORMAT)
             if len(read_bytes) != calsize or read_bytes[0] != 0x10:
-                print("Wanted status, dropped type=0x%02x, len=%d" % (
-                    read_bytes[0], len(read_bytes)), file=sys.stderr)
+                logging.warning("Wanted status, dropped type=0x%02x, len=%d",
+                                read_bytes[0], len(read_bytes))
                 continue
             status = dict(zip(STATUS_FIELDS, struct.unpack(STATUS_FORMAT,
-                read_bytes)))
+                                                           read_bytes)))
             p_type = status["packetType"]
             if p_type != 0x10:
                 raise MonsoonError("Package type %s is not 0x10." % p_type)
@@ -181,9 +205,9 @@ class MonsoonProxy:
                 if k.endswith("VoltageSetting"):
                     status[k] = 2.0 + status[k] * 0.01
                 elif k.endswith("FineCurrent"):
-                    pass # needs calibration data
+                    pass  # needs calibration data
                 elif k.endswith("CoarseCurrent"):
-                    pass # needs calibration data
+                    pass  # needs calibration data
                 elif k.startswith("voltage") or k.endswith("Voltage"):
                     status[k] = status[k] * 0.000125
                 elif k.endswith("Resistor"):
@@ -196,7 +220,7 @@ class MonsoonProxy:
 
     def RampVoltage(self, start, end):
         v = start
-        if v < 3.0: v = 3.0 # protocol doesn't support lower than this
+        if v < 3.0: v = 3.0  # protocol doesn't support lower than this
         while (v < end):
             self.SetVoltage(v)
             v += .1
@@ -224,8 +248,8 @@ class MonsoonProxy:
         """
         if i < 0 or i > 8:
             raise MonsoonError(("Target max current %sA, is out of acceptable "
-                "range [0, 8].") % i)
-        val = 1023 - int((i/8)*1023)
+                                "range [0, 8].") % i)
+        val = 1023 - int((i / 8) * 1023)
         self._SendStruct("BBB", 0x01, 0x0a, val & 0xff)
         self._SendStruct("BBB", 0x01, 0x0b, val >> 8)
 
@@ -234,8 +258,8 @@ class MonsoonProxy:
         """
         if i < 0 or i > 8:
             raise MonsoonError(("Target max current %sA, is out of acceptable "
-                "range [0, 8].") % i)
-        val = 1023 - int((i/8)*1023)
+                                "range [0, 8].") % i)
+        val = 1023 - int((i / 8) * 1023)
         self._SendStruct("BBB", 0x01, 0x08, val & 0xff)
         self._SendStruct("BBB", 0x01, 0x09, val >> 8)
 
@@ -255,13 +279,13 @@ class MonsoonProxy:
     def StartDataCollection(self):
         """Tell the device to start collecting and sending measurement data.
         """
-        self._SendStruct("BBB", 0x01, 0x1b, 0x01) # Mystery command
+        self._SendStruct("BBB", 0x01, 0x1b, 0x01)  # Mystery command
         self._SendStruct("BBBBBBB", 0x02, 0xff, 0xff, 0xff, 0xff, 0x03, 0xe8)
 
     def StopDataCollection(self):
         """Tell the device to stop collecting measurement data.
         """
-        self._SendStruct("BB", 0x03, 0x00) # stop
+        self._SendStruct("BB", 0x03, 0x00)  # stop
 
     def CollectData(self):
         """Return some current samples. Call StartDataCollection() first.
@@ -271,22 +295,22 @@ class MonsoonProxy:
             if not _bytes:
                 return None
             if len(_bytes) < 4 + 8 + 1 or _bytes[0] < 0x20 or _bytes[0] > 0x2F:
-                print("Wanted data, dropped type=0x%02x, len=%d" % (
-                    _bytes[0], len(_bytes)), file=sys.stderr)
+                logging.warning("Wanted data, dropped type=0x%02x, len=%d",
+                                _bytes[0], len(_bytes))
                 continue
 
             seq, _type, x, y = struct.unpack("BBBB", _bytes[:4])
-            data = [struct.unpack(">hhhh", _bytes[x:x+8])
-                            for x in range(4, len(_bytes) - 8, 8)]
+            data = [struct.unpack(">hhhh", _bytes[x:x + 8])
+                    for x in range(4, len(_bytes) - 8, 8)]
 
             if self._last_seq and seq & 0xF != (self._last_seq + 1) & 0xF:
-                print("Data sequence skipped, lost packet?", file=sys.stderr)
+                logging.warning("Data sequence skipped, lost packet?")
             self._last_seq = seq
 
             if _type == 0:
                 if not self._coarse_scale or not self._fine_scale:
-                    print("Waiting for calibration, dropped data packet.",
-                        file=sys.stderr)
+                    logging.warning(
+                        "Waiting for calibration, dropped data packet.")
                     continue
                 out = []
                 for main, usb, aux, voltage in data:
@@ -303,13 +327,13 @@ class MonsoonProxy:
                 self._fine_ref = data[0][0]
                 self._coarse_ref = data[1][0]
             else:
-                print("Discarding data packet type=0x%02x" % _type,
-                    file=sys.stderr)
+                logging.warning("Discarding data packet type=0x%02x", _type)
                 continue
 
             # See http://wiki/Main/MonsoonProtocol for details on these values.
             if self._coarse_ref != self._coarse_zero:
-                self._coarse_scale = 2.88 / (self._coarse_ref - self._coarse_zero)
+                self._coarse_scale = 2.88 / (
+                    self._coarse_ref - self._coarse_zero)
             if self._fine_ref != self._fine_zero:
                 self._fine_scale = 0.0332 / (self._fine_ref - self._fine_zero)
 
@@ -318,8 +342,8 @@ class MonsoonProxy:
         """
         data = struct.pack(fmt, *args)
         data_len = len(data) + 1
-        checksum = (data_len + sum(data)) % 256
-        out = bytes([data_len]) + data + bytes([checksum])
+        checksum = (data_len + sum(bytearray(data))) % 256
+        out = struct.pack("B", data_len) + data + struct.pack("B", checksum)
         self.ser.write(out)
 
     def _ReadPacket(self):
@@ -327,22 +351,24 @@ class MonsoonProxy:
         """
         len_char = self.ser.read(1)
         if not len_char:
-            print("Reading from serial port timed out.", file=sys.stderr)
+            logging.error("Reading from serial port timed out.")
             return None
 
         data_len = ord(len_char)
         if not data_len:
             return ""
         result = self.ser.read(int(data_len))
+        result = bytearray(result)
         if len(result) != data_len:
-            print("Length mismatch, expected %d bytes, got %d bytes." % data_len,
-                len(result))
+            logging.error("Length mismatch, expected %d bytes, got %d bytes.",
+                          data_len, len(result))
             return None
         body = result[:-1]
-        checksum = (sum(result[:-1]) + data_len) % 256
+        checksum = (sum(struct.unpack("B" * len(body), body)) + data_len) % 256
         if result[-1] != checksum:
-            print("Invalid checksum from serial port!", file=sys.stderr)
-            print("Expected {}, got {}".format(hex(checksum), hex(result[-1])))
+            logging.error(
+                "Invalid checksum from serial port! Expected %s, got %s",
+                hex(checksum), hex(result[-1]))
             return None
         return result[:-1]
 
@@ -351,10 +377,10 @@ class MonsoonProxy:
         self.ser.flush()
         flushed = 0
         while True:
-            ready_r, ready_w, ready_x = select.select([self.ser], [],
-                [self.ser], 0)
+            ready_r, ready_w, ready_x = select.select(
+                [self.ser], [], [self.ser], 0)
             if len(ready_x) > 0:
-                print("exception from serial port", file=sys.stderr)
+                logging.error("Exception from serial port.")
                 return None
             elif len(ready_r) > 0:
                 flushed += 1
@@ -363,9 +389,10 @@ class MonsoonProxy:
             else:
                 break
         # if flushed > 0:
-        #     print("dropped >%d bytes" % flushed, file=sys.stderr)
+        #     logging.info("dropped >%d bytes" % flushed)
 
-class MonsoonData:
+
+class MonsoonData(object):
     """A class for reporting power measurement data from monsoon.
 
     Data means the measured current value in Amps.
@@ -394,7 +421,8 @@ class MonsoonData:
         num_of_data_pt = len(self._data_points)
         if self.offset >= num_of_data_pt:
             raise MonsoonError(("Offset number (%d) must be smaller than the "
-                "number of data points (%d).") % (offset, num_of_data_pt))
+                                "number of data points (%d).") %
+                               (offset, num_of_data_pt))
         self.data_points = self._data_points[self.offset:]
         self.timestamps = self._timestamps[self.offset:]
         self.hz = hz
@@ -440,8 +468,7 @@ class MonsoonData:
         lines = data_str.strip().split('\n')
         err_msg = ("Invalid input string format. Is this string generated by "
                    "MonsoonData class?")
-        conditions = [len(lines) <= 4,
-                      "Average Current:" not in lines[1],
+        conditions = [len(lines) <= 4, "Average Current:" not in lines[1],
                       "Voltage: " not in lines[2],
                       "Total Power: " not in lines[3],
                       "samples taken at " not in lines[4],
@@ -564,9 +591,8 @@ class MonsoonData:
         strs.append("Voltage: {}V.".format(self.voltage))
         strs.append("Total Power: {}mW.".format(self.total_power))
         strs.append(("{} samples taken at {}Hz, with an offset of {} samples."
-                    ).format(len(self._data_points),
-                             self.hz,
-                             self.offset))
+                     ).format(
+                         len(self._data_points), self.hz, self.offset))
         return "\n".join(strs)
 
     def __len__(self):
@@ -583,16 +609,15 @@ class MonsoonData:
     def __repr__(self):
         return self._header()
 
-class Monsoon:
+
+class Monsoon(object):
     """The wrapper class for test scripts to interact with monsoon.
     """
+
     def __init__(self, *args, **kwargs):
         serial = kwargs["serial"]
         device = None
-        if "logger" in kwargs:
-            self.log = acts.logger.LoggerProxy(kwargs["logger"])
-        else:
-            self.log = acts.logger.LoggerProxy()
+        self.log = logging.getLogger()
         if "device" in kwargs:
             device = kwargs["device"]
         self.mon = MonsoonProxy(serialno=serial, device=device)
@@ -666,8 +691,8 @@ class Monsoon:
         """
         sys.stdout.flush()
         voltage = self.mon.GetVoltage()
-        self.log.info("Taking samples at %dhz for %ds, voltage %.2fv." % (
-            sample_hz, sample_num/sample_hz, voltage))
+        self.log.info("Taking samples at %dhz for %ds, voltage %.2fv.",
+                      sample_hz, (sample_num / sample_hz), voltage)
         sample_num += sample_offset
         # Make sure state is normal
         self.mon.StopDataCollection()
@@ -695,7 +720,7 @@ class Monsoon:
                 # The number of raw samples to consume before emitting the next
                 # output
                 need = int((native_hz - offset + sample_hz - 1) / sample_hz)
-                if need > len(collected):     # still need more input samples
+                if need > len(collected):  # still need more input samples
                     samples = self.mon.CollectData()
                     if not samples:
                         break
@@ -711,22 +736,25 @@ class Monsoon:
                         this_time = int(time.time())
                         timestamps.append(this_time)
                         if live:
-                            self.log.info("%s %s" % (this_time, this_sample))
+                            self.log.info("%s %s", this_time, this_sample)
                         current_values.append(this_sample)
                         sys.stdout.flush()
                         offset -= native_hz
-                        emitted += 1 # adjust for emitting 1 output sample
+                        emitted += 1  # adjust for emitting 1 output sample
                     collected = collected[need:]
                     now = time.time()
-                    if now - last_flush >= 0.99: # flush every second
+                    if now - last_flush >= 0.99:  # flush every second
                         sys.stdout.flush()
                         last_flush = now
         except Exception as e:
             pass
         self.mon.StopDataCollection()
         try:
-            return MonsoonData(current_values, timestamps, sample_hz,
-                voltage, offset=sample_offset)
+            return MonsoonData(current_values,
+                               timestamps,
+                               sample_hz,
+                               voltage,
+                               offset=sample_offset)
         except:
             return None
 
@@ -747,15 +775,11 @@ class Monsoon:
         Returns:
             True if the state is legal and set. False otherwise.
         """
-        state_lookup = {
-            "off": 0,
-            "on": 1,
-            "auto": 2
-        }
+        state_lookup = {"off": 0, "on": 1, "auto": 2}
         state = state.lower()
         if state in state_lookup:
             current_state = self.mon.GetUsbPassthrough()
-            while(current_state != state_lookup[state]):
+            while (current_state != state_lookup[state]):
                 self.mon.SetUsbPassthrough(state_lookup[state])
                 time.sleep(1)
                 current_state = self.mon.GetUsbPassthrough()
@@ -776,7 +800,13 @@ class Monsoon:
             pass
         ad.adb.wait_for_device()
 
-    def execute_sequence_and_measure(self, step_funcs, hz, duration, offset_sec=20, *args, **kwargs):
+    def execute_sequence_and_measure(self,
+                                     step_funcs,
+                                     hz,
+                                     duration,
+                                     offset_sec=20,
+                                     *args,
+                                     **kwargs):
         """@Deprecated.
         Executes a sequence of steps and take samples in-between.
 
@@ -816,7 +846,7 @@ class Monsoon:
         try:
             if len(duration) != len(step_funcs):
                 raise MonsoonError(("The number of durations need to be the "
-                    "same as the number of step functions."))
+                                    "same as the number of step functions."))
             for d in duration:
                 sample_nums.append(d * 60 * hz)
         except TypeError:
@@ -828,25 +858,24 @@ class Monsoon:
             try:
                 self.usb("auto")
                 step_name = func.__name__
-                self.log.info("Executing step function %s." % step_name)
+                self.log.info("Executing step function %s.", step_name)
                 take_sample = func(ad, *args, **kwargs)
                 if not take_sample:
-                    self.log.info("Skip taking samples for %s" % step_name)
+                    self.log.info("Skip taking samples for %s", step_name)
                     continue
                 time.sleep(1)
-                self.dut.terminate_all_sessions()
+                self.dut.stop_services()
                 time.sleep(1)
-                self.log.info("Taking samples for %s." % step_name)
+                self.log.info("Taking samples for %s.", step_name)
                 data = self.take_samples(hz, num, sample_offset=oset)
                 if not data:
                     raise MonsoonError("Sampling for %s failed." % step_name)
-                self.log.info("Sample summary: %s" % repr(data))
-                # self.log.debug(str(data))
+                self.log.info("Sample summary: %s", repr(data))
                 data.tag = step_name
                 results.append(data)
             except Exception:
-                msg = "Exception happened during step %s, abort!" % func.__name__
-                self.log.exception(msg)
+                self.log.exception("Exception happened during step %s, abort!"
+                                   % func.__name__)
                 return results
             finally:
                 self.mon.StopDataCollection()
@@ -854,10 +883,10 @@ class Monsoon:
                 self._wait_for_device(self.dut)
                 # Wait for device to come back online.
                 time.sleep(10)
-                droid, ed = self.dut.get_droid(True)
-                ed.start()
+                self.dut.start_services(skip_sl4a=getattr(self.dut,
+                                                          "skip_sl4a", False))
                 # Release wake lock to put device into sleep.
-                droid.goToSleepNow()
+                self.dut.droid.goToSleepNow()
         return results
 
     def measure_power(self, hz, duration, tag, offset=30):
@@ -865,7 +894,7 @@ class Monsoon:
 
         Because it takes some time for the device to calm down after the usb
         connection is cut, an offset is set for each measurement. The default
-        is 20s.
+        is 30s. The total time taken to measure will be (duration + offset).
 
         Args:
             hz: Number of samples to take per second.
@@ -876,24 +905,20 @@ class Monsoon:
         Returns:
             A MonsoonData object with the measured power data.
         """
-        if offset >= duration:
-            raise MonsoonError(("Measurement duration (%ds) should be larger "
-                "than offset (%ds) for measurement %s."
-                ) % (duration, offset, tag))
         num = duration * hz
         oset = offset * hz
         data = None
         try:
             self.usb("auto")
             time.sleep(1)
-            self.dut.terminate_all_sessions()
+            self.dut.stop_services()
             time.sleep(1)
             data = self.take_samples(hz, num, sample_offset=oset)
             if not data:
-                raise MonsoonError(("No data was collected in measurement %s."
-                    ) % tag)
+                raise MonsoonError((
+                    "No data was collected in measurement %s.") % tag)
             data.tag = tag
-            self.log.info("Measurement summary: %s" % repr(data))
+            self.log.info("Measurement summary: %s", repr(data))
         finally:
             self.mon.StopDataCollection()
             self.log.info("Finished taking samples, reconnecting to dut.")
@@ -901,9 +926,9 @@ class Monsoon:
             self._wait_for_device(self.dut)
             # Wait for device to come back online.
             time.sleep(10)
-            droid, ed = self.dut.get_droid(True)
-            ed.start()
+            self.dut.start_services(skip_sl4a=getattr(self.dut,
+                                                      "skip_sl4a", False))
             # Release wake lock to put device into sleep.
-            droid.goToSleepNow()
-            self.log.info("Dut reconncted.")
+            self.dut.droid.goToSleepNow()
+            self.log.info("Dut reconnected.")
             return data

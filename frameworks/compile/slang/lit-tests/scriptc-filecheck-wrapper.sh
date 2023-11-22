@@ -8,6 +8,8 @@ print_help() {
   help_str="Usage: %s --output=<output-dir> \
 --filecheck=<path-to-filecheck> \
 --lang=[Java/C++] \
+[--type=<typename>] \
+[--check-prefix=<prefix>] \
 <.rs file>\n"
 
   printf "$help_str" $0
@@ -24,6 +26,12 @@ do
     ;;
   --lang*)
     lang="${arg#*=}"
+    ;;
+  --type*)
+    type="${arg#*=}"
+    ;;
+  --check-prefix=*)
+    check_prefix="${arg}"
     ;;
   --help)
     print_help
@@ -51,9 +59,20 @@ rsfile_basename=$(basename "$rsfile")
 
 if [[ $lang == "Java" ]]
 then
-  filecheck_inputfile=foo/ScriptC_${rsfile_basename%.*}.java
+  if [[ (-z $type) ]]
+  then
+    filecheck_inputfile=foo/ScriptC_${rsfile_basename%.*}.java
+  else
+    filecheck_inputfile=foo/ScriptField_${type}.java
+  fi
 elif [[ $lang == "C++" ]]
 then
+  if [[ (-n $type) ]]
+  then
+    echo --type not supported for C++
+    print_help
+    exit 1
+  fi
   filecheck_inputfile=ScriptC_${rsfile_basename%.*}.h
 else
   echo Unknown language "$lang"
@@ -73,4 +92,4 @@ then
   exit 1
 fi
 
-"$filecheck" -input-file "$outdir"/$filecheck_inputfile "$rsfile"
+"$filecheck" -input-file "$outdir"/$filecheck_inputfile ${check_prefix} "$rsfile"

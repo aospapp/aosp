@@ -1,5 +1,0 @@
-set (libname "adxl345")
-set (libdescription "libupm Digital Accelerometer")
-set (module_src ${libname}.cxx)
-set (module_h ${libname}.h)
-upm_module_init()

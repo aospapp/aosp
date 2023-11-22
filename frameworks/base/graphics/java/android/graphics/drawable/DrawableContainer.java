@@ -21,21 +21,18 @@ import android.content.pm.ActivityInfo.Config;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Insets;
 import android.graphics.Outline;
 import android.graphics.PixelFormat;
-import android.graphics.Rect;
 import android.graphics.PorterDuff.Mode;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.LayoutDirection;
 import android.util.SparseArray;
 import android.view.View;
-
-import java.util.Collection;
 
 /**
  * A helper class that contains several {@link Drawable}s and selects which one to use.
@@ -213,6 +210,7 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
     /**
      * Change the global fade duration when a new drawable is entering
      * the scene.
+     *
      * @param ms The amount of time to fade in milliseconds.
      */
     public void setEnterFadeDuration(int ms) {
@@ -222,6 +220,7 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
     /**
      * Change the global fade duration when a new drawable is leaving
      * the scene.
+     *
      * @param ms The amount of time to fade in milliseconds.
      */
     public void setExitFadeDuration(int ms) {
@@ -241,6 +240,18 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
     @Override
     public boolean isStateful() {
         return mDrawableContainerState.isStateful();
+    }
+
+    /** @hide */
+    @Override
+    public boolean hasFocusStateSpecified() {
+        if (mCurrDrawable != null) {
+            return mCurrDrawable.hasFocusStateSpecified();
+        }
+        if (mLastDrawable != null) {
+            return mLastDrawable.hasFocusStateSpecified();
+        }
+        return false;
     }
 
     @Override
@@ -378,6 +389,13 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
 
     @Override
     public void invalidateDrawable(@NonNull Drawable who) {
+        // This may have been called as the result of a tint changing, in
+        // which case we may need to refresh the cached statefulness or
+        // opacity.
+        if (mDrawableContainerState != null) {
+            mDrawableContainerState.invalidateCache();
+        }
+
         if (who == mCurrDrawable && getCallback() != null) {
             getCallback().invalidateDrawable(this);
         }
@@ -601,8 +619,9 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
      * during inflation.
      *
      * @param res the resources used to inflate density-dependent values
+     * @hide
      */
-    final void updateDensity(Resources res) {
+    protected final void updateDensity(Resources res) {
         mDrawableContainerState.updateDensity(res);
     }
 
@@ -711,7 +730,10 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
         boolean mHasTintList;
         boolean mHasTintMode;
 
-        DrawableContainerState(DrawableContainerState orig, DrawableContainer owner,
+        /**
+         * @hide
+         */
+        protected DrawableContainerState(DrawableContainerState orig, DrawableContainer owner,
                 Resources res) {
             mOwner = owner;
             mSourceRes = res != null ? res : (orig != null ? orig.mSourceRes : null);
@@ -821,8 +843,8 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
             mDrawables[pos] = dr;
             mNumChildren++;
             mChildrenChangingConfigurations |= dr.getChangingConfigurations();
-            mCheckedStateful = false;
-            mCheckedOpacity = false;
+
+            invalidateCache();
 
             mConstantPadding = null;
             mCheckedPadding = false;
@@ -830,6 +852,14 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
             mCheckedConstantState = false;
 
             return pos;
+        }
+
+        /**
+         * Invalidates the cached opacity and statefulness.
+         */
+        void invalidateCache() {
+            mCheckedOpacity = false;
+            mCheckedStateful = false;
         }
 
         final int getCapacity() {
@@ -1127,8 +1157,6 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
 
             createAllFutures();
 
-            mCheckedOpacity = true;
-
             final int N = mNumChildren;
             final Drawable[] drawables = mDrawables;
             int op = (N > 0) ? drawables[0].getOpacity() : PixelFormat.TRANSPARENT;
@@ -1137,6 +1165,7 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
             }
 
             mOpacity = op;
+            mCheckedOpacity = true;
             return op;
         }
 
@@ -1147,19 +1176,19 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
 
             createAllFutures();
 
-            mCheckedStateful = true;
-
             final int N = mNumChildren;
             final Drawable[] drawables = mDrawables;
+            boolean isStateful = false;
             for (int i = 0; i < N; i++) {
                 if (drawables[i].isStateful()) {
-                    mStateful = true;
-                    return true;
+                    isStateful = true;
+                    break;
                 }
             }
 
-            mStateful = false;
-            return false;
+            mStateful = isStateful;
+            mCheckedStateful = true;
+            return isStateful;
         }
 
         public void growArray(int oldSize, int newSize) {
@@ -1190,19 +1219,6 @@ public class DrawableContainer extends Drawable implements Drawable.Callback {
             return true;
         }
 
-        /** @hide */
-        @Override
-        public int addAtlasableBitmaps(Collection<Bitmap> atlasList) {
-            final int N = mNumChildren;
-            int pixelCount = 0;
-            for (int i = 0; i < N; i++) {
-                final ConstantState state = getChild(i).getConstantState();
-                if (state != null) {
-                    pixelCount += state.addAtlasableBitmaps(atlasList);
-                }
-            }
-            return pixelCount;
-        }
     }
 
     protected void setConstantState(DrawableContainerState state) {

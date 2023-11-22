@@ -190,11 +190,11 @@ public class FormatActivity extends Activity
                             handleFormatAsPrivateComplete(privateBench, internalBench);
                         }
 
-                        Toast.makeText(FormatActivity.this, getString(
+                        Toast.makeText(context, getString(
                                 R.string.storage_format_success, mFormatDiskDesc),
                                 Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(FormatActivity.this,
+                        Toast.makeText(context,
                                 getString(R.string.storage_format_failure, mFormatDiskDesc),
                                 Toast.LENGTH_SHORT).show();
                         finish();
@@ -208,11 +208,11 @@ public class FormatActivity extends Activity
                     final boolean success =
                             intent.getBooleanExtra(SettingsStorageService.EXTRA_SUCCESS, false);
                     if (success) {
-                        Toast.makeText(FormatActivity.this,
+                        Toast.makeText(context,
                                 getString(R.string.storage_format_success,
                                         mFormatDiskDesc), Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(FormatActivity.this,
+                        Toast.makeText(context,
                                 getString(R.string.storage_format_failure,
                                         mFormatDiskDesc), Toast.LENGTH_SHORT).show();
                     }

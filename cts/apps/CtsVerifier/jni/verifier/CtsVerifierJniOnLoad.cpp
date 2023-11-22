@@ -17,17 +17,12 @@
 #include <jni.h>
 #include <stdio.h>
 
-extern int register_com_android_cts_verifier_os_FileUtils(JNIEnv*);
 extern int register_com_android_cts_verifier_camera_its_StatsImage(JNIEnv*);
 
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env = NULL;
 
     if (vm->GetEnv((void **) &env, JNI_VERSION_1_4) != JNI_OK) {
-        return JNI_ERR;
-    }
-
-    if (register_com_android_cts_verifier_os_FileUtils(env)) {
         return JNI_ERR;
     }
 

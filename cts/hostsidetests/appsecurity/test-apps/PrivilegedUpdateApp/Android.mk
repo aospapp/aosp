@@ -23,7 +23,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test ctsdeviceutil ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test compatibility-device-util ctstestrunner
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 LOCAL_PROGUARD_ENABLED := disabled
@@ -52,20 +52,6 @@ LOCAL_SRC_FILES := CtsShimPrivUpgrade.apk
 
 include $(BUILD_PREBUILT)
 
-# Add package to the set of APKs available to CTS
-# Unceremoneously ripped from cts/build/support_package.mk
-cts_support_apks :=
-$(foreach fp, $(ALL_MODULES.$(LOCAL_MODULE).BUILT_INSTALLED),\
-  $(eval pair := $(subst :,$(space),$(fp)))\
-  $(eval built := $(word 1,$(pair)))\
-  $(eval installed := $(CTS_TESTCASES_OUT)/$(notdir $(word 2,$(pair))))\
-  $(eval $(call copy-one-file, $(built), $(installed)))\
-  $(eval cts_support_apks += $(installed)))
-
-# Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
-$(my_register_name) : $(cts_support_apks)
-
-
 ###########################################################
 # Variant: Privileged app upgrade (wrong SHA)
 
@@ -82,16 +68,3 @@ LOCAL_COMPATIBILITY_SUITE := cts
 LOCAL_SRC_FILES := CtsShimPrivUpgradeWrongSHA.apk
 
 include $(BUILD_PREBUILT)
-
-# Add package to the set of APKs available to CTS
-# Unceremoneously ripped from cts/build/support_package.mk
-cts_support_apks :=
-$(foreach fp, $(ALL_MODULES.$(LOCAL_MODULE).BUILT_INSTALLED),\
-  $(eval pair := $(subst :,$(space),$(fp)))\
-  $(eval built := $(word 1,$(pair)))\
-  $(eval installed := $(CTS_TESTCASES_OUT)/$(notdir $(word 2,$(pair))))\
-  $(eval $(call copy-one-file, $(built), $(installed)))\
-  $(eval cts_support_apks += $(installed)))
-
-# Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
-$(my_register_name) : $(cts_support_apks)

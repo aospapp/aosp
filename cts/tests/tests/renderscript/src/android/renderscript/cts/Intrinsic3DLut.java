@@ -27,6 +27,20 @@ public class Intrinsic3DLut extends IntrinsicBase {
     final int sy = 32;
     final int sz = 16;
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mCube != null) {
+            mCube.destroy();
+        }
+        if (mScript != null) {
+            mScript.destroy();
+        }
+        if (mIntrinsic != null) {
+            mIntrinsic.destroy();
+        }
+        super.tearDown();
+    }
+
     private void genCubeIdent() {
         int dat[] = new int[sx * sy * sz];
         for (int z = 0; z < sz; z++) {
@@ -142,6 +156,7 @@ public class Intrinsic3DLut extends IntrinsicBase {
         if (kid == null) {
             throw new IllegalStateException("kid must be valid");
         }
+        s.destroy();
     }
 
 }

@@ -19,20 +19,20 @@ umask 022
 
 # Helper function to copy files
 function do_copy() {
-  odex_file=$1
+  source_file=$1
   dest_name=$2
   # Move to a temporary file so we can do a rename and have the preopted file
   # appear atomically in the filesystem.
   temp_dest_name=${dest_name}.tmp
-  if ! cp ${odex_file} ${temp_dest_name} ; then
-    log -p w -t cppreopts "Unable to copy odex file ${odex_file} to ${temp_dest_name}!"
+  if ! cp ${source_file} ${temp_dest_name} ; then
+    log -p w -t cppreopts "Unable to copy file ${source_file} to ${temp_dest_name}!"
   else
-    log -p i -t cppreopts "Copied odex file from ${odex_file} to ${temp_dest_name}"
+    log -p i -t cppreopts "Copied file from ${source_file} to ${temp_dest_name}"
     sync
     if ! mv ${temp_dest_name} ${dest_name} ; then
-      log -p w -t cppreopts "Unable to rename temporary odex file from ${temp_dest_name} to ${dest_name}"
+      log -p w -t cppreopts "Unable to rename temporary file from ${temp_dest_name} to ${dest_name}"
     else
-      log -p i -t cppreopts "Renamed temporary odex file from ${temp_dest_name} to ${dest_name}"
+      log -p i -t cppreopts "Renamed temporary file from ${temp_dest_name} to ${dest_name}"
     fi
   fi
 }
@@ -42,23 +42,23 @@ if [ $# -eq 1 ]; then
   mountpoint=$1
 
   if ! test -f ${mountpoint}/system-other-odex-marker ; then
-    log -p i -t cppreopts "system_other partition does not appear have been built to contain preopted files."
+    log -p i -t cppreopts "system_other partition does not appear to have been built to contain preopted files."
     exit 1
   fi
 
   log -p i -t cppreopts "cppreopts from ${mountpoint}"
-  # For each odex file do the copy task
+  # For each odex and vdex file do the copy task
   # NOTE: this implementation will break in any path with spaces to favor
   # background copy tasks
-  for odex_file in $(find ${mountpoint} -type f -name "*.odex"); do
-    real_odex_name=${odex_file/${mountpoint}/\/system}
-    dest_name=$(preopt2cachename ${real_odex_name})
+  for file in $(find ${mountpoint} -type f -name "*.odex" -o -type f -name "*.vdex"); do
+    real_name=${file/${mountpoint}/\/system}
+    dest_name=$(preopt2cachename ${real_name})
     if ! test $? -eq 0 ; then
-      log -p i -t cppreopts "Unable to figure out destination for ${odex_file}"
+      log -p i -t cppreopts "Unable to figure out destination for ${file}"
       continue
     fi
     # Copy files in background to speed things up
-    do_copy ${odex_file} ${dest_name} &
+    do_copy ${file} ${dest_name} &
   done
   # Wait for jobs to finish
   wait

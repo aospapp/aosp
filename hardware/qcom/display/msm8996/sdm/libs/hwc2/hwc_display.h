@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include "hwc_buffer_allocator.h"
 #include "hwc_callbacks.h"
 #include "hwc_layers.h"
 
@@ -178,6 +179,10 @@ class HWCDisplay : public DisplayEventHandler {
                                        int32_t *out_fences);
   virtual HWC2::Error Present(int32_t *out_retire_fence) = 0;
 
+ bool validated_ = false;
+ bool skip_validate_ = false;
+ uint32_t geometry_changes_ = GeometryChanges::kNone;
+
  protected:
   enum DisplayStatus {
     kDisplayStatusOffline = 0,
@@ -190,7 +195,8 @@ class HWCDisplay : public DisplayEventHandler {
   static const uint32_t kMaxLayerCount = 32;
 
   HWCDisplay(CoreInterface *core_intf, HWCCallbacks *callbacks, DisplayType type, hwc2_display_t id,
-             bool needs_blit, qService::QService *qservice, DisplayClass display_class);
+             bool needs_blit, qService::QService *qservice, DisplayClass display_class,
+             BufferAllocator *buffer_allocator);
 
   // DisplayEventHandler methods
   virtual DisplayError VSync(const DisplayEventVSync &vsync);
@@ -222,6 +228,7 @@ class HWCDisplay : public DisplayEventHandler {
 
   CoreInterface *core_intf_ = nullptr;
   HWCCallbacks *callbacks_  = nullptr;
+  HWCBufferAllocator *buffer_allocator_ = NULL;
   DisplayType type_;
   hwc2_display_t id_;
   bool needs_blit_ = false;
@@ -256,16 +263,14 @@ class HWCDisplay : public DisplayEventHandler {
   LayerRect solid_fill_rect_ = {};
   uint32_t solid_fill_color_ = 0;
   LayerRect display_rect_;
-  bool validated_ = false;
   bool color_tranform_failed_ = false;
   HWCColorMode *color_mode_ = NULL;
 
  private:
   void DumpInputBuffers(void);
-  BlitEngine *blit_engine_ = NULL;
+  bool CanSkipValidate();
   qService::QService *qservice_ = NULL;
   DisplayClass display_class_;
-  uint32_t geometry_changes_ = GeometryChanges::kNone;
 };
 
 inline int HWCDisplay::Perform(uint32_t operation, ...) {

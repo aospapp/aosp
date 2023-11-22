@@ -1,8 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ****************************************************************************************
- * Copyright (C) 2009-2016, Google, Inc.; International Business Machines Corporation   *
- * and others. All Rights Reserved.                                                     *
+ * Copyright (C) 2009-2016, Google, Inc.; International Business Machines Corporation
+ * and others. All Rights Reserved.
  ****************************************************************************************
  */
 package android.icu.util;
@@ -18,6 +20,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.Relation;
 import android.icu.impl.Row;
@@ -450,6 +453,12 @@ public class LocaleMatcher {
          */
         @Override
         public boolean equals(Object obj) {
+            if (obj == this) {
+                return true;
+            }
+            if (obj == null || !(obj instanceof LocalePatternMatcher)) {
+                return false;
+            }
             LocalePatternMatcher other = (LocalePatternMatcher) obj;
             return Utility.objectEquals(level, other.level)
                 && Utility.objectEquals(lang, other.lang)
@@ -655,21 +664,6 @@ public class LocaleMatcher {
             return 1.0 - diff;
         }
 
-
-        /**
-         * Add an exceptional distance between languages, typically because regional
-         * dialects were given their own language codes. At this point the code is
-         * symmetric. We don't bother producing an equivalence class because there are
-         * so few cases; this function depends on the other permutations being
-         * added specifically.
-         * @deprecated This API is ICU internal only.
-         * @hide draft / provisional / internal are hidden on Android
-         */
-        @SuppressWarnings("unused")
-        @Deprecated
-        private LanguageMatcherData addDistance(String desired, String supported, int percent) {
-            return addDistance(desired, supported, percent, false, null);
-        }
         /**
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
@@ -829,7 +823,7 @@ public class LocaleMatcher {
     @Deprecated
     public static ICUResourceBundle getICUSupplementalData() {
         ICUResourceBundle suppData = (ICUResourceBundle) UResourceBundle.getBundleInstance(
-            ICUResourceBundle.ICU_BASE_NAME,
+            ICUData.ICU_BASE_NAME,
             "supplementalData",
             ICUResourceBundle.ICU_DATA_CLASS_LOADER);
         return suppData;

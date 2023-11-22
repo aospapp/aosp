@@ -147,11 +147,7 @@ struct __sfileext {
 #define __SNPT 0
 #define __SOPT 0
 
-#if defined(__cplusplus)
-#define _EXT(fp) reinterpret_cast<__sfileext*>((fp)->_ext._base)
-#else
-#define _EXT(fp) ((struct __sfileext *)((fp)->_ext._base))
-#endif
+#define _EXT(fp) __BIONIC_CAST(reinterpret_cast, struct __sfileext*, (fp)->_ext._base)
 
 #define _UB(fp) _EXT(fp)->_ub
 #define _FLOCK(fp)  _EXT(fp)->_lock
@@ -171,7 +167,7 @@ do { \
 
 #define _FILEEXT_SETUP(f, fext) \
 do { \
-	(f)->_ext._base = (unsigned char *)(fext); \
+	(f)->_ext._base = __BIONIC_CAST(reinterpret_cast, unsigned char*, fext); \
 	_FILEEXT_INIT(f); \
 } while (0)
 
@@ -199,8 +195,6 @@ __LIBC32_LEGACY_PUBLIC__ int __swrite(void *, const char *, int);
 __LIBC32_LEGACY_PUBLIC__ fpos_t __sseek(void *, fpos_t, int);
 __LIBC32_LEGACY_PUBLIC__ int __sclose(void *);
 __LIBC32_LEGACY_PUBLIC__ int _fwalk(int (*)(FILE *));
-
-#pragma GCC visibility push(hidden)
 
 off64_t __sseek64(void*, off64_t, int);
 int	__sflush_locked(FILE *);
@@ -248,19 +242,9 @@ int	__vfwscanf(FILE * __restrict, const wchar_t * __restrict, __va_list);
 #define NO_PRINTF_PERCENT_N
 
 /* OpenBSD exposes these in <stdio.h>, but we only want them exposed to the implementation. */
-#define __sfeof(p)     (((p)->_flags & __SEOF) != 0)
 #define __sferror(p)   (((p)->_flags & __SERR) != 0)
 #define __sclearerr(p) ((void)((p)->_flags &= ~(__SERR|__SEOF)))
-#if !defined(__cplusplus)
 #define __sgetc(p) (--(p)->_r < 0 ? __srget(p) : (int)(*(p)->_p++))
-static __inline int __sputc(int _c, FILE* _p) {
-  if (--_p->_w >= 0 || (_p->_w >= _p->_lbfsize && (char)_c != '\n')) {
-    return (*_p->_p++ = _c);
-  } else {
-    return (__swbuf(_c, _p));
-  }
-}
-#endif
 
 /* OpenBSD declares these in fvwrite.h but we want to ensure they're hidden. */
 struct __suio;
@@ -271,7 +255,8 @@ wint_t __fputwc_unlock(wchar_t wc, FILE *fp);
 extern void __sinit(void); // Not actually implemented.
 #define __sdidinit 1
 
-#pragma GCC visibility pop
+size_t parsefloat(FILE*, char*, char*);
+size_t wparsefloat(FILE*, wchar_t*, wchar_t*);
 
 __END_DECLS
 

@@ -5,7 +5,6 @@
 AUTHOR = 'mnissler, pastarmovj'
 NAME = 'platform_SessionManagerBlockDevmodeSetting'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

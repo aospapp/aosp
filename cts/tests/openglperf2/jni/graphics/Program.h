@@ -20,7 +20,7 @@
 
 class Program {
 public:
-    Program(GLuint programId);
+    explicit Program(GLuint programId);
     virtual ~Program() {};
     virtual void before(Matrix& model, Matrix& view, Matrix& projection);
     virtual void after(Matrix& model, Matrix& view, Matrix& projection);

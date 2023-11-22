@@ -40,6 +40,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class NewInstanceTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee";
     }
@@ -167,7 +168,7 @@ public class NewInstanceTest extends JDWPSyncTestCase {
         packet.setNextValueAsThreadID(targetThreadID);
         packet.setNextValueAsMethodID(targetMethodID);
         packet.setNextValueAsInt(1);
-        packet.setNextValueAsValue(new Value(false));
+        packet.setNextValueAsValue(Value.createBoolean(false));
         packet.setNextValueAsInt(0);
         logWriter.println(" Send ClassType.NewInstance (without Exception)");
         reply = debuggeeWrapper.vmMirror.performCommand(packet);
@@ -218,7 +219,7 @@ public class NewInstanceTest extends JDWPSyncTestCase {
         packet.setNextValueAsThreadID(targetThreadID);
         packet.setNextValueAsMethodID(targetMethodID);
         packet.setNextValueAsInt(1);
-        packet.setNextValueAsValue(new Value(true));
+        packet.setNextValueAsValue(Value.createBoolean(true));
         packet.setNextValueAsInt(0);
         logWriter.println(" Send ClassType.NewInstance (with Exception)");
         reply = debuggeeWrapper.vmMirror.performCommand(packet);

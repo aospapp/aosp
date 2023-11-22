@@ -27,7 +27,7 @@ USE_CAMERA_STUB := true
 BOARD_USE_LEGACY_UI := true
 
 # share the same one across all mini-emulators
-BOARD_EGL_CFG := device/generic/goldfish/opengl/system/egl/egl.cfg
+BOARD_EGL_CFG := device/generic/goldfish-opengl/system/egl/egl.cfg
 TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 786432000
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 576716800

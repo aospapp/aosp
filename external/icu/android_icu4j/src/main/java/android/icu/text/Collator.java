@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
 *******************************************************************************
 * Copyright (C) 1996-2016, International Business Machines Corporation and
@@ -8,15 +10,15 @@
 package android.icu.text;
 
 import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.Set;
 
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUDebug;
 import android.icu.impl.ICUResourceBundle;
+import android.icu.impl.UResource;
 import android.icu.impl.coll.CollationData;
 import android.icu.impl.coll.CollationRoot;
 import android.icu.lang.UCharacter;
@@ -225,7 +227,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
 
     /**
      * Reordering codes for non-script groups that can be reordered under collation.
-     * 
+     *
      * @see #getReorderCodes
      * @see #setReorderCodes
      * @see #getEquivalentReorderCodes
@@ -240,7 +242,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
          */
         public final static int NONE          = UScript.UNKNOWN;
         /**
-         * A special reordering code that is used to specify all other codes used for reordering except 
+         * A special reordering code that is used to specify all other codes used for reordering except
          * for the codes listed as ReorderingCodes and those listed explicitly in a reordering.
          */
         public final static int OTHERS          = UScript.UNKNOWN;
@@ -275,13 +277,14 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
          */
         public final static int DIGIT          = 0x1004;
         /**
-         * The limit of the reorder codes. This is intended for use in range checking 
-         * and enumeration of the reorder codes.
+         * One more than the highest normal ReorderCodes value.
+         * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
          * @hide unsupported on Android
          */
-        public final static int LIMIT          = 0x1005;        
+        @Deprecated
+        public final static int LIMIT          = 0x1005;
     }
-    
+
     // public methods --------------------------------------------------------
 
     /**
@@ -298,6 +301,21 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
     public boolean equals(Object obj) {
         // Subclasses: Call this method and then add more specific checks.
         return this == obj || (obj != null && getClass() == obj.getClass());
+    }
+
+    /**
+     * Generates a hash code for this Collator object.
+     *
+     * <p>The implementation exists just for consistency with {@link #equals(Object)}
+     * implementation in this class and does not generate a useful hash code.
+     * Subclasses should override this implementation.
+     *
+     * @return a hash code value.
+     */
+    @Override
+    public int hashCode() {
+        // Dummy return to prevent compile warnings.
+        return 0;
     }
 
     // public setters --------------------------------------------------------
@@ -375,16 +393,16 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
         checkNotFrozen();
     }
 
-    /** 
+    /**
      * Sets the reordering codes for this collator.
      * Collation reordering allows scripts and some other groups of characters
      * to be moved relative to each other. This reordering is done on top of
-     * the DUCET/CLDR standard collation order. Reordering can specify groups to be placed 
+     * the DUCET/CLDR standard collation order. Reordering can specify groups to be placed
      * at the start and/or the end of the collation order. These groups are specified using
      * UScript codes and {@link Collator.ReorderCodes} entries.
      *
-     * <p>By default, reordering codes specified for the start of the order are placed in the 
-     * order given after several special non-script blocks. These special groups of characters 
+     * <p>By default, reordering codes specified for the start of the order are placed in the
+     * order given after several special non-script blocks. These special groups of characters
      * are space, punctuation, symbol, currency, and digit. These special groups are represented with
      * {@link Collator.ReorderCodes} entries. Script groups can be intermingled with
      * these special non-script groups if those special groups are explicitly specified in the reordering.
@@ -397,13 +415,13 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * <p>The special reorder code {@link Collator.ReorderCodes#DEFAULT DEFAULT}
      * will reset the reordering for this collator
      * to the default for this collator. The default reordering may be the DUCET/CLDR order or may be a reordering that
-     * was specified when this collator was created from resource data or from rules. The 
+     * was specified when this collator was created from resource data or from rules. The
      * DEFAULT code <b>must</b> be the sole code supplied when it is used.
      * If not, then an {@link IllegalArgumentException} will be thrown.
      *
      * <p>The special reorder code {@link Collator.ReorderCodes#NONE NONE}
      * will remove any reordering for this collator.
-     * The result of setting no reordering will be to have the DUCET/CLDR ordering used. The 
+     * The result of setting no reordering will be to have the DUCET/CLDR ordering used. The
      * NONE code <b>must</b> be the sole code supplied when it is used.
      *
      * @param order the reordering codes to apply to this collator; if this is null or an empty array
@@ -412,11 +430,11 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * @see #getEquivalentReorderCodes
      * @see Collator.ReorderCodes
      * @see UScript
-     */ 
-    public void setReorderCodes(int... order) 
-    { 
-        throw new UnsupportedOperationException("Needs to be implemented by the subclass."); 
-    } 
+     */
+    public void setReorderCodes(int... order)
+    {
+        throw new UnsupportedOperationException("Needs to be implemented by the subclass.");
+    }
 
     // public getters --------------------------------------------------------
 
@@ -439,6 +457,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * Clones the collator.
      * @return a clone of this collator.
      */
+    @Override
     public Object clone() throws CloneNotSupportedException {
         return super.clone();
     }
@@ -827,7 +846,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
 
     /**
      * <strong>[icu]</strong> Registers a collator factory.
-     * 
+     *
      * <p>Because ICU may choose to cache Collator objects internally, this must
      * be called at application startup, prior to any calls to
      * Collator.getInstance to avoid undefined behavior.
@@ -865,7 +884,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
         // TODO make this wrap getAvailableULocales later
         if (shim == null) {
             return ICUResourceBundle.getAvailableLocales(
-                ICUResourceBundle.ICU_COLLATION_BASE_NAME, ICUResourceBundle.ICU_DATA_CLASS_LOADER);
+                ICUData.ICU_COLLATION_BASE_NAME, ICUResourceBundle.ICU_DATA_CLASS_LOADER);
         }
         return shim.getAvailableLocales();
     }
@@ -880,7 +899,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
     public static final ULocale[] getAvailableULocales() {
         if (shim == null) {
             return ICUResourceBundle.getAvailableULocales(
-                ICUResourceBundle.ICU_COLLATION_BASE_NAME, ICUResourceBundle.ICU_DATA_CLASS_LOADER);
+                ICUData.ICU_COLLATION_BASE_NAME, ICUResourceBundle.ICU_DATA_CLASS_LOADER);
         }
         return shim.getAvailableULocales();
     }
@@ -901,8 +920,8 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * The resource bundle base name for this service.
      * *since ICU 3.0
      */
-    
-    private static final String BASE = ICUResourceBundle.ICU_COLLATION_BASE_NAME;
+
+    private static final String BASE = ICUData.ICU_COLLATION_BASE_NAME;
 
     /**
      * <strong>[icu]</strong> Returns an array of all possible keywords that are relevant to
@@ -942,48 +961,47 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      *                      it will return all the available values for the locale.
      * @return an array of string values for the given key and the locale.
      */
-    public static final String[] getKeywordValuesForLocale(String key, ULocale locale, 
+    public static final String[] getKeywordValuesForLocale(String key, ULocale locale,
                                                            boolean commonlyUsed) {
-        // Note: The parameter commonlyUsed is actually not used.
+        // Note: The parameter commonlyUsed is not used.
         // The switch is in the method signature for consistency
         // with other locale services.
 
-        // Read available collation values from collation bundles
-        String baseLoc = locale.getBaseName();
+        // Read available collation values from collation bundles.
+        ICUResourceBundle bundle = (ICUResourceBundle)
+                UResourceBundle.getBundleInstance(
+                        ICUData.ICU_COLLATION_BASE_NAME, locale);
+        KeywordsSink sink = new KeywordsSink();
+        bundle.getAllItemsWithFallback("collations", sink);
+        return sink.values.toArray(new String[sink.values.size()]);
+    }
+
+    private static final class KeywordsSink extends UResource.Sink {
         LinkedList<String> values = new LinkedList<String>();
+        boolean hasDefault = false;
 
-        UResourceBundle bundle = UResourceBundle.getBundleInstance(
-                ICUResourceBundle.ICU_COLLATION_BASE_NAME, baseLoc);
-
-        String defcoll = null;
-        while (bundle != null) {
-            UResourceBundle collations = bundle.get("collations");
-            Enumeration<String> collEnum = collations.getKeys();
-            while (collEnum.hasMoreElements()) {
-                String collkey = collEnum.nextElement();
-                if (collkey.equals("default")) {
-                    if (defcoll == null) {
-                        // Keep the default
-                        defcoll = collations.getString("default");
+        @Override
+        public void put(UResource.Key key, UResource.Value value, boolean noFallback) {
+            UResource.Table collations = value.getTable();
+            for (int i = 0; collations.getKeyAndValue(i, key, value); ++i) {
+                int type = value.getType();
+                if (type == UResourceBundle.STRING) {
+                    if (!hasDefault && key.contentEquals("default")) {
+                        String defcoll = value.getString();
+                        if (!defcoll.isEmpty()) {
+                            values.remove(defcoll);
+                            values.addFirst(defcoll);
+                            hasDefault = true;
+                        }
                     }
-                } else if (!collkey.startsWith("private-") && !values.contains(collkey)) {
-                    values.add(collkey);
+                } else if (type == UResourceBundle.TABLE && !key.startsWith("private-")) {
+                    String collkey = key.toString();
+                    if (!values.contains(collkey)) {
+                        values.add(collkey);
+                    }
                 }
             }
-            bundle = ((ICUResourceBundle)bundle).getParent();
         }
-        // Reordering
-        Iterator<String> itr = values.iterator();
-        String[] result = new String[values.size()];
-        result[0] = defcoll;
-        int idx = 1;
-        while (itr.hasNext()) {
-            String collKey = itr.next();
-            if (!collKey.equals(defcoll)) {
-                result[idx++] = collKey;
-            }
-        }
-        return result;
     }
 
     /**
@@ -1176,6 +1194,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      *         value is greater than zero if source is greater than target.
      * @throws ClassCastException thrown if either arguments cannot be cast to CharSequence.
      */
+    @Override
     public int compare(Object source, Object target) {
         return doCompare((CharSequence)source, (CharSequence)target);
     }
@@ -1199,7 +1218,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * repeated comparison.  The resulting key depends on the collator's
      * rules, strength and decomposition mode.
      *
-     * <p>Note that collation keys are often less efficient than simply doing comparison. 
+     * <p>Note that collation keys are often less efficient than simply doing comparison.
      * For more details, see the ICU User Guide.
      *
      * <p>See the CollationKey class documentation for more information.
@@ -1219,7 +1238,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * key.  If key has a internal byte array of length that's too small for the result,
      * the internal byte array will be grown to the exact required size.
      *
-     * <p>Note that collation keys are often less efficient than simply doing comparison. 
+     * <p>Note that collation keys are often less efficient than simply doing comparison.
      * For more details, see the ICU User Guide.
      *
      * @param source the text String to be transformed into a RawCollationKey
@@ -1270,7 +1289,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * the top of one of the supported reordering groups,
      * and it must not be beyond the last of those groups.
      * See {@link #setMaxVariable(int)}.
-     * 
+     *
      * @param varTop one or more (if contraction) characters to which the
      *               variable top should be set
      * @return variable top primary weight
@@ -1293,7 +1312,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
 
     /**
      * <strong>[icu]</strong> Gets the variable top value of a Collator.
-     * 
+     *
      * @return the variable top primary weight
      * @see #getMaxVariable
      */
@@ -1306,7 +1325,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * the top of one of the supported reordering groups,
      * and it must not be beyond the last of those groups.
      * See {@link #setMaxVariable(int)}.
-     * 
+     *
      * @param varTop primary weight, as returned by setVariableTop or getVariableTop
      * @see #getVariableTop
      * @see #setVariableTop(String)
@@ -1327,21 +1346,21 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * @return the version object associated with this collator
      */
     public abstract VersionInfo getUCAVersion();
-    
-    /**  
+
+    /**
      * Retrieves the reordering codes for this collator.
      * These reordering codes are a combination of UScript codes and ReorderCodes.
-     * @return a copy of the reordering codes for this collator; 
+     * @return a copy of the reordering codes for this collator;
      * if none are set then returns an empty array
      * @see #setReorderCodes
      * @see #getEquivalentReorderCodes
      * @see Collator.ReorderCodes
      * @see UScript
-     */ 
-    public int[] getReorderCodes() 
-    { 
-        throw new UnsupportedOperationException("Needs to be implemented by the subclass."); 
-    }   
+     */
+    public int[] getReorderCodes()
+    {
+        throw new UnsupportedOperationException("Needs to be implemented by the subclass.");
+    }
 
     /**
      * Retrieves all the reorder codes that are grouped with the given reorder code. Some reorder
@@ -1349,7 +1368,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * Beginning with ICU 55, scripts only reorder together if they are primary-equal,
      * for example Hiragana and Katakana.
      *
-     * @param reorderCode The reorder code to determine equivalence for. 
+     * @param reorderCode The reorder code to determine equivalence for.
      * @return the set of all reorder codes in the same group as the given reorder code.
      * @see #setReorderCodes
      * @see #getReorderCodes
@@ -1359,17 +1378,18 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
     public static int[] getEquivalentReorderCodes(int reorderCode) {
         CollationData baseData = CollationRoot.getData();
         return baseData.getEquivalentScripts(reorderCode);
-    }   
+    }
 
 
     // Freezable interface implementation -------------------------------------------------
-    
+
     /**
      * Determines whether the object has been frozen or not.
      *
      * <p>An unfrozen Collator is mutable and not thread-safe.
      * A frozen Collator is immutable and thread-safe.
      */
+    @Override
     public boolean isFrozen() {
         return false;
     }
@@ -1378,6 +1398,7 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
      * Freezes the collator.
      * @return the collator itself.
      */
+    @Override
     public Collator freeze() {
         throw new UnsupportedOperationException("Needs to be implemented by the subclass.");
     }
@@ -1385,10 +1406,11 @@ public abstract class Collator implements Comparator<Object>, Freezable<Collator
     /**
      * Provides for the clone operation. Any clone is initially unfrozen.
      */
+    @Override
     public Collator cloneAsThawed() {
         throw new UnsupportedOperationException("Needs to be implemented by the subclass.");
     }
-    
+
     /**
      * Empty default constructor to make javadocs happy
      */

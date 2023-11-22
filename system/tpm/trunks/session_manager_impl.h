@@ -68,5 +68,4 @@ class TRUNKS_EXPORT SessionManagerImpl : public SessionManager {
 
 }  // namespace trunks
 
-
 #endif  // TRUNKS_SESSION_MANAGER_IMPL_H_

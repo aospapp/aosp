@@ -2674,9 +2674,9 @@ void teximage3d (NegativeTestContext& ctx)
 	ctx.endSection();
 
 	ctx.beginSection("GL_INVALID_OPERATION is generated if target is GL_TEXTURE_3D and format is GL_DEPTH_COMPONENT, or GL_DEPTH_STENCIL.");
-	ctx.glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, 1, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_BYTE, 0);
+	ctx.glTexImage3D(GL_TEXTURE_3D, 0, GL_DEPTH_STENCIL, 1, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
 	ctx.expectError(GL_INVALID_OPERATION);
-	ctx.glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, 1, 1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+	ctx.glTexImage3D(GL_TEXTURE_3D, 0, GL_DEPTH_COMPONENT, 1, 1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
 	ctx.expectError(GL_INVALID_OPERATION);
 	ctx.endSection();
 
@@ -2916,8 +2916,6 @@ void texsubimage3d_neg_level (NegativeTestContext& ctx)
 	ctx.glTexImage3D		(GL_TEXTURE_3D, 0, GL_RGBA, 4, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	ctx.glBindTexture		(GL_TEXTURE_2D_ARRAY, textures[1]);
 	ctx.glTexImage3D		(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 4, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-	ctx.glBindTexture		(GL_TEXTURE_CUBE_MAP_ARRAY, textures[2]);
-	ctx.glTexImage3D		(GL_TEXTURE_CUBE_MAP_ARRAY, 0, GL_RGBA, 4, 4, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	ctx.expectError			(GL_NO_ERROR);
 
 	ctx.beginSection("GL_INVALID_VALUE is generated if level is less than 0.");
@@ -2928,6 +2926,10 @@ void texsubimage3d_neg_level (NegativeTestContext& ctx)
 
 	if (contextSupports(ctx.getRenderContext().getType(), glu::ApiType::es(3, 2)) || ctx.getContextInfo().isExtensionSupported("GL_OES_texture_cube_map_array"))
 	{
+		ctx.glBindTexture		(GL_TEXTURE_CUBE_MAP_ARRAY, textures[2]);
+		ctx.glTexImage3D		(GL_TEXTURE_CUBE_MAP_ARRAY, 0, GL_RGBA, 4, 4, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		ctx.expectError			(GL_NO_ERROR);
+
 		ctx.glTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, -1, 0, 0, 0, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		ctx.expectError(GL_INVALID_VALUE);
 	}
@@ -2971,8 +2973,6 @@ void texsubimage3d_neg_offset (NegativeTestContext& ctx)
 	ctx.glTexImage3D		(GL_TEXTURE_3D, 0, GL_RGBA, 4, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	ctx.glBindTexture		(GL_TEXTURE_2D_ARRAY, textures[1]);
 	ctx.glTexImage3D		(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 4, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-	ctx.glBindTexture		(GL_TEXTURE_CUBE_MAP_ARRAY, textures[2]);
-	ctx.glTexImage3D		(GL_TEXTURE_CUBE_MAP_ARRAY, 0, GL_RGBA, 4, 4, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 	ctx.expectError			(GL_NO_ERROR);
 
 	ctx.beginSection("GL_INVALID_VALUE is generated if xoffset, yoffset or zoffset are negative.");
@@ -2995,6 +2995,10 @@ void texsubimage3d_neg_offset (NegativeTestContext& ctx)
 
 	if (contextSupports(ctx.getRenderContext().getType(), glu::ApiType::es(3, 2)) || ctx.getContextInfo().isExtensionSupported("GL_OES_texture_cube_map_array"))
 	{
+		ctx.glBindTexture		(GL_TEXTURE_CUBE_MAP_ARRAY, textures[2]);
+		ctx.glTexImage3D		(GL_TEXTURE_CUBE_MAP_ARRAY, 0, GL_RGBA, 4, 4, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		ctx.expectError			(GL_NO_ERROR);
+
 		ctx.glTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, -1, 0, 0, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		ctx.expectError(GL_INVALID_VALUE);
 		ctx.glTexSubImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, 0, 0, -1, 0, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);

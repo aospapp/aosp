@@ -21,13 +21,16 @@ class Story(object):
     shared_state_class: subclass of telemetry.story.shared_state.SharedState.
     name: string name of this story that can be used for identifying this story
         in results output.
-    labels: A list or set of string labels that are used for filtering. See
+    tags: A list or set of string labels that are used for filtering. See
         story.story_filter for more information.
     is_local: If True, the story does not require network.
+    grouping_keys: A dict of grouping keys that will be added to values computed
+        on this story.
   """
 
-  def __init__(self, shared_state_class, name='', labels=None,
-               is_local=False, make_javascript_deterministic=True):
+  def __init__(self, shared_state_class, name='', tags=None,
+               is_local=False, make_javascript_deterministic=True,
+               grouping_keys=None, platform_specific=False):
     """
     Args:
       make_javascript_deterministic: Whether JavaScript performed on
@@ -35,32 +38,40 @@ class Story(object):
           requires that the web content is served via Web Page Replay
           to take effect. This setting does not affect stories containing no web
           content or where the HTTP MIME type is not text/html.See also:
-          _InjectScripts method in third_party/webpagereplay/httpclient.py.
+          _InjectScripts method in third_party/web-page-replay/httpclient.py.
+      platform_specific: Boolean indicating if a separate web page replay
+          recording is required on each platform.
     """
     assert issubclass(shared_state_class,
                       shared_state_module.SharedState)
     self._shared_state_class = shared_state_class
     self._name = name
+    self._platform_specific = platform_specific
     global _next_story_id
     self._id = _next_story_id
     _next_story_id += 1
-    if labels is None:
-      labels = set([])
-    elif isinstance(labels, list):
-      labels = set(labels)
+    if tags is None:
+      tags = set()
+    elif isinstance(tags, list):
+      tags = set(tags)
     else:
-      assert isinstance(labels, set)
-    self._labels = labels
+      assert isinstance(tags, set)
+    self._tags = tags
     self._is_local = is_local
     self._make_javascript_deterministic = make_javascript_deterministic
+    if grouping_keys is None:
+      grouping_keys = {}
+    else:
+      assert isinstance(grouping_keys, dict)
+    self._grouping_keys = grouping_keys
 
   def Run(self, shared_state):
     """Execute the interactions with the applications and/or platforms."""
     raise NotImplementedError
 
   @property
-  def labels(self):
-    return self._labels
+  def tags(self):
+    return self._tags
 
   @property
   def shared_state_class(self):
@@ -73,6 +84,14 @@ class Story(object):
   @property
   def name(self):
     return self._name
+
+  @property
+  def grouping_keys(self):
+    return self._grouping_keys
+
+  @property
+  def display_name_and_grouping_key_tuple(self):
+    return self.display_name, tuple(self.grouping_keys.iteritems())
 
   def AsDict(self):
     """Converts a story object to a dict suitable for JSON output."""
@@ -117,3 +136,7 @@ class Story(object):
   @property
   def make_javascript_deterministic(self):
     return self._make_javascript_deterministic
+
+  @property
+  def platform_specific(self):
+    return self._platform_specific

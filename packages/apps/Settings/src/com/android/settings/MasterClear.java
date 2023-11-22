@@ -20,6 +20,7 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
 import android.app.Activity;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -31,16 +32,22 @@ import android.os.Environment;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnScrollChangeListener;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settings.widget.CarrierDemoPasswordDialogFragment;
 import com.android.settingslib.RestrictedLockUtils;
 
 import java.util.List;
@@ -57,7 +64,8 @@ import static com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
  *
  * This is the initial screen.
  */
-public class MasterClear extends OptionsMenuFragment {
+public class MasterClear extends OptionsMenuFragment
+        implements CarrierDemoPasswordDialogFragment.Callback {
     private static final String TAG = "MasterClear";
 
     private static final int KEYGUARD_REQUEST = 55;
@@ -68,6 +76,15 @@ public class MasterClear extends OptionsMenuFragment {
     private Button mInitiateButton;
     private View mExternalStorageContainer;
     private CheckBox mExternalStorage;
+    private ScrollView mScrollView;
+
+    private final OnGlobalLayoutListener mOnGlobalLayoutListener = new OnGlobalLayoutListener() {
+        @Override
+        public void onGlobalLayout() {
+            mScrollView.getViewTreeObserver().removeOnGlobalLayoutListener(mOnGlobalLayoutListener);
+            mInitiateButton.setEnabled(hasReachedBottom(mScrollView));
+        }
+    };
 
     /**
      * Keyguard validation is run using the standard {@link ConfirmLockPattern}
@@ -101,7 +118,8 @@ public class MasterClear extends OptionsMenuFragment {
     private void showFinalConfirmation() {
         Bundle args = new Bundle();
         args.putBoolean(ERASE_EXTERNAL_EXTRA, mExternalStorage.isChecked());
-        ((SettingsActivity) getActivity()).startPreferencePanel(MasterClearConfirm.class.getName(),
+        ((SettingsActivity) getActivity()).startPreferencePanel(
+                this, MasterClearConfirm.class.getName(),
                 args, R.string.master_clear_confirm_title, null, null, 0);
     }
 
@@ -113,11 +131,22 @@ public class MasterClear extends OptionsMenuFragment {
     private final Button.OnClickListener mInitiateListener = new Button.OnClickListener() {
 
         public void onClick(View v) {
-            if (!runKeyguardConfirmation(KEYGUARD_REQUEST)) {
+            if ( Utils.isCarrierDemoUser(v.getContext())) {
+                // Require the carrier password before displaying the final confirmation.
+                final FragmentManager fm = getChildFragmentManager();
+                if (fm != null && !fm.isDestroyed()) {
+                    new CarrierDemoPasswordDialogFragment().show(fm, null /* tag */);
+                }
+            } else if (!runKeyguardConfirmation(KEYGUARD_REQUEST)) {
                 showFinalConfirmation();
             }
         }
     };
+
+    @Override
+    public void onPasswordVerified() {
+        showFinalConfirmation();
+    }
 
     /**
      * In its initial state, the activity presents a button for the user to
@@ -136,6 +165,7 @@ public class MasterClear extends OptionsMenuFragment {
         mInitiateButton.setOnClickListener(mInitiateListener);
         mExternalStorageContainer = mContentView.findViewById(R.id.erase_external_container);
         mExternalStorage = (CheckBox) mContentView.findViewById(R.id.erase_external);
+        mScrollView = (ScrollView) mContentView.findViewById(R.id.master_clear_scrollview);
 
         /*
          * If the external storage is emulated, it will be erased with a factory
@@ -174,6 +204,32 @@ public class MasterClear extends OptionsMenuFragment {
         View masterClearContainer = mContentView.findViewById(R.id.master_clear_container);
         getContentDescription(masterClearContainer, contentDescription);
         masterClearContainer.setContentDescription(contentDescription);
+
+        // Set the status of initiateButton based on scrollview
+        mScrollView.setOnScrollChangeListener(new OnScrollChangeListener() {
+            @Override
+            public void onScrollChange(View v, int scrollX, int scrollY, int oldScrollX,
+                int oldScrollY) {
+                if (v instanceof ScrollView && hasReachedBottom((ScrollView) v)) {
+                    mInitiateButton.setEnabled(true);
+                }
+            }
+        });
+
+        // Set the initial state of the initiateButton
+        mScrollView.getViewTreeObserver().addOnGlobalLayoutListener(mOnGlobalLayoutListener);
+    }
+
+    @VisibleForTesting
+    boolean hasReachedBottom(final ScrollView scrollView) {
+        if (scrollView.getChildCount() < 1) {
+            return true;
+        }
+
+        final View view = scrollView.getChildAt(0);
+        final int diff = view.getBottom() - (scrollView.getHeight() + scrollView.getScrollY());
+
+        return diff <= 0;
     }
 
     private void getContentDescription(View v, StringBuffer description) {
@@ -228,11 +284,13 @@ public class MasterClear extends OptionsMenuFragment {
                     .getAuthenticatorTypesAsUser(profileId);
             final int M = descs.length;
 
-            View titleView = Utils.inflateCategoryHeader(inflater, contents);
-            final TextView titleText = (TextView) titleView.findViewById(android.R.id.title);
-            titleText.setText(userInfo.isManagedProfile() ? R.string.category_work
-                    : R.string.category_personal);
-            contents.addView(titleView);
+            if (profilesSize > 1) {
+                View titleView = Utils.inflateCategoryHeader(inflater, contents);
+                final TextView titleText = (TextView) titleView.findViewById(android.R.id.title);
+                titleText.setText(userInfo.isManagedProfile() ? R.string.category_work
+                        : R.string.category_personal);
+                contents.addView(titleView);
+            }
 
             for (int i = 0; i < N; i++) {
                 Account account = accounts[i];
@@ -265,10 +323,9 @@ public class MasterClear extends OptionsMenuFragment {
                     icon = context.getPackageManager().getDefaultActivityIcon();
                 }
 
-                TextView child = (TextView)inflater.inflate(R.layout.master_clear_account,
-                        contents, false);
-                child.setText(account.name);
-                child.setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null);
+                View child = inflater.inflate(R.layout.master_clear_account, contents, false);
+                ((ImageView) child.findViewById(android.R.id.icon)).setImageDrawable(icon);
+                ((TextView) child.findViewById(android.R.id.title)).setText(account.name);
                 contents.addView(child);
             }
         }
@@ -286,11 +343,13 @@ public class MasterClear extends OptionsMenuFragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(
-                getActivity(), UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId());
-        final UserManager um = UserManager.get(getActivity());
-        if (!um.isAdminUser() || RestrictedLockUtils.hasBaseUserRestriction(getActivity(),
-                UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId())) {
+        final Context context = getContext();
+        final EnforcedAdmin admin = RestrictedLockUtils.checkIfRestrictionEnforced(context,
+                UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId());
+        final UserManager um = UserManager.get(context);
+        final boolean disallow = !um.isAdminUser() || RestrictedLockUtils.hasBaseUserRestriction(
+                context, UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId());
+        if (disallow && !Utils.isCarrierDemoUser(context)) {
             return inflater.inflate(R.layout.master_clear_disallowed_screen, null);
         } else if (admin != null) {
             View view = inflater.inflate(R.layout.admin_support_details_empty_view, null);
@@ -306,7 +365,7 @@ public class MasterClear extends OptionsMenuFragment {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.MASTER_CLEAR;
     }
 }

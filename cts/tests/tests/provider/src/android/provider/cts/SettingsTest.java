@@ -16,6 +16,8 @@
 
 package android.provider.cts;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -23,7 +25,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.cts.util.SystemUtil;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;

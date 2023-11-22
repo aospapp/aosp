@@ -16,12 +16,20 @@
 
 package libcore.java.io;
 
+import android.system.ErrnoException;
+import android.system.OsConstants;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.UUID;
 import libcore.io.Libcore;
+
+import static android.system.Os.stat;
 
 public class FileTest extends junit.framework.TestCase {
 
@@ -304,23 +312,28 @@ public class FileTest extends junit.framework.TestCase {
 
     // http://b/25878034
     //
-    // SELinux prevents stat(2) from working on some parts of the system partition, and there
-    // isn't currently a CTS test that enforces this for the system partition as a whole (and it
-    // isn't clear that there can be one). This particular file has a special label
-    // (see file_contexts) that makes sure it isn't unstattable but then again this file might
-    // disappear soon or be absent on some devices.
-    //
-    // TODO: This isn't a very good test. uncrypt is scheduled to disappear somewhere
-    // in the near future. Is there a better candidate file ?
-    public void testExistsOnSystem() {
-        File sh = new File("/system/bin/uncrypt");
-        assertTrue(sh.exists());
+    // The test makes sure that #exists doesn't use stat. To implement the same, it installs
+    // SECCOMP filter. The SECCOMP filter is designed to not allow stat(fstatat64/newfstatat) calls
+    // and whenever a thread makes the system call, android.system.ErrnoException
+    // (EPERM - Operation not permitted) will be raised.
+    public void testExistsOnSystem() throws ErrnoException, IOException {
+        File tmpFile = File.createTempFile("testExistsOnSystem", ".tmp");
         try {
-            android.system.Os.stat(sh.getAbsolutePath());
-            fail();
-        } catch (android.system.ErrnoException expected) {
+            assertEquals("SECCOMP filter is not installed.", 0, installSeccompFilter());
+            try {
+                // Verify that SECCOMP filter obstructs stat.
+                stat(tmpFile.getAbsolutePath());
+                fail();
+            } catch (ErrnoException expected) {
+                assertEquals(OsConstants.EPERM, expected.errno);
+            }
+            assertTrue(tmpFile.exists());
+        } finally {
+            tmpFile.delete();
         }
     }
+
+    private static native int installSeccompFilter();
 
     // http://b/25859957
     //
@@ -367,5 +380,17 @@ public class FileTest extends junit.framework.TestCase {
 
         assertEquals("/foo/bar", new File("/foo/", "/bar/").getPath());
         assertEquals("/foo/bar", new File("/foo", "/bar//").getPath());
+    }
+
+    public void test_toPath() {
+        File file = new File("testPath");
+        Path filePath = file.toPath();
+        assertEquals(Paths.get("testPath"), filePath);
+
+        File file1 = new File("'\u0000'");
+        try {
+            file1.toPath();
+            fail();
+        } catch (InvalidPathException expected) {}
     }
 }

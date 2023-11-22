@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"รายชื่อติดต่อกรณีฉุกเฉิน"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"เพิ่มรายชื่อติดต่อ"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"ไม่พบเครื่องมือเลือกรายชื่อติดต่อ"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"ไม่สามารถแสดงรายชื่อติดต่อ"</string>
     <string name="remove_contact" msgid="6934983445723096759">"นำ <xliff:g id="CONTACT_NAME">%1$s</xliff:g> ออกจากรายชื่อติดต่อกรณีฉุกเฉินไหม"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"นำรายชื่อติดต่อออก"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"ไม่สามารถอ่านข้อมูลติดต่อได้อย่างถูกต้อง"</string>
     <string name="remove" msgid="1243949503772376064">"นำออก"</string>
     <string name="cancel" msgid="7401575239009060939">"ยกเลิก"</string>
     <string name="ok" msgid="163967937451981024">"ตกลง"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"ข้อมูลสำหรับกรณีฉุกเฉิน"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"ข้อมูลที่คุณป้อนที่นี่จะช่วยผู้ที่เข้ามาช่วยเหลือเป็นคนแรกได้ในกรณีฉุกเฉิน โดยระบบจะจัดเก็บข้อมูลนี้ไว้ในอุปกรณ์ของคุณเท่านั้น และทุกคนจะอ่านได้จากโปรแกรมโทรฉุกเฉินโดยไม่ต้องปลดล็อกโทรศัพท์ของคุณ"</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"ต่อไป"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"ไม่ได้ให้ข้อมูลสำหรับกรณีฉุกเฉินไว้"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"ไม่มีข้อมูลเกี่ยวกับเจ้าของโทรศัพท์"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"หากโทรศัพท์เครื่องนี้เป็นของคุณ ให้แตะไอคอนรูปดินสอเพื่อเพิ่มข้อมูลที่จะแสดงที่นี่ในกรณีฉุกเฉิน"</string>
     <string name="clear_all" msgid="8899013032870561633">"ล้างทั้งหมด"</string>
     <string name="clear" msgid="3648880442502887163">"ล้าง"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ล้างข้อมูลและรายชื่อติดต่อทั้งหมดไหม"</string>

@@ -2533,7 +2533,7 @@ static int loc_eng_set_server(loc_eng_data_s_type &loc_eng_data,
         const char nohost[] = "NONE";
         if (hostname == NULL ||
             strncasecmp(nohost, hostname, sizeof(nohost)) == 0) {
-            url[0] = NULL;
+            url[0] = '\0';
         } else {
             len = snprintf(url, sizeof(url), "%s:%u", hostname, (unsigned) port);
         }

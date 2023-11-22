@@ -71,7 +71,6 @@ class network_FirewallHolePunch(test.test):
         elif command == 'login':
             flag = '--enable-firewall-hole-punching'
             self.cr = chrome.Chrome(extension_paths=[self.extension_path],
-                                    is_component=False,
                                     extra_browser_args=flag)
         else:
             raise error.TestError('Invalid client command passed.')

@@ -27,11 +27,28 @@ class SuspendTimeout(SuspendFailure):
 
 
 class KernelError(SuspendFailure):
-    """Kernel problem encountered during suspend/resume."""
+    """Kernel problem encountered during suspend/resume.
+
+    Whitelist is an array of a 2-entry tuples consisting of (source regexp, text
+    regexp).  For example, kernel output might look like,
+
+      [  597.079950] WARNING: CPU: 0 PID: 21415 at \
+      <path>/v3.18/drivers/gpu/drm/i915/intel_pm.c:3687 \
+      skl_update_other_pipe_wm+0x136/0x18a()
+      [  597.079962] WARN_ON(!wm_changed)
+
+    source regexp should match first line above while text regexp can match
+    up to 2 lines below the source.  Note timestamps are stripped prior to
+    comparing regexp.
+    """
     WHITELIST = [
             # crosbug.com/37594: debug tracing clock desync we don't care about
             (r'kernel/trace/ring_buffer.c:\d+ rb_reserve_next_event',
              r'Delta way too big!'),
+            # TODO(crosbug.com/p/52008): Remove from whitelist once watermark
+            # implementation has landed.
+            (r'v3.18/\S+/intel_pm.c:\d+ skl_update_other_pipe_wm',
+            r'WARN_ON\(\!wm_changed\)')
         ]
 
 
@@ -58,6 +75,8 @@ class SpuriousWakeupError(SuspendFailure):
     S0_WHITELIST = [  # (<board>, <kernel wake source>)
             # crbug.com/290923: spurious keyboard IRQ, believed to be from Servo
             ('^x86-alex|^lumpy|^parrot|^butterfly', 'serio0'),
+            # crosbug.com/p/46140: battery event caused by MKBP
+            ('^elm|^oak', 'spi32766.0'),
         ]
 
 class MemoryError(SuspendFailure):
@@ -69,6 +88,11 @@ class SuspendNotAllowed(SuspendFailure):
     """Suspend was not allowed to be performed."""
     pass
 
+
+class S0ixResidencyNotChanged(SuspendFailure):
+    """power_SuspendStress test found CPU/SoC is unable to idle properly
+    when suspended to S0ix. """
+    pass
 
 def prepare_wakeup(seconds):
     """Prepare the device to wake up from an upcoming suspend.
@@ -140,14 +164,15 @@ def suspend_bg_for_dark_resume(delay_seconds=0):
     process.start()
 
 
-def kernel_suspend(seconds):
+def kernel_suspend(seconds, state='mem'):
     """Do a kernel suspend.
 
-    Suspend the system to RAM (S3), waking up again after |seconds|, by directly
+    Suspend the system to @state, waking up again after |seconds|, by directly
     writing to /sys/power/state. Function will block until suspend/resume has
     completed or failed.
 
     @param seconds: The number of seconds to suspend the device.
+    @param state: power state to suspend to.  DEFAULT mem.
     """
     alarm, wakeup_count = prepare_wakeup(seconds)
     logging.debug('Saving wakeup count: %d', wakeup_count)
@@ -155,7 +180,7 @@ def kernel_suspend(seconds):
     try:
         logging.info('Suspending at %d', rtc.get_seconds())
         with open(SYSFS_POWER_STATE, 'w') as sysfs_file:
-            sysfs_file.write('mem')
+            sysfs_file.write(state)
     except IOError as e:
         logging.exception('Writing to %s failed', SYSFS_POWER_STATE)
         if e.errno == errno.EBUSY and rtc.get_seconds() >= alarm:

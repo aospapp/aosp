@@ -18,6 +18,7 @@ package com.android.server.telecom.tests;
 
 import android.Manifest;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -27,8 +28,11 @@ import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.UserHandle;
 import android.telecom.InCallService;
+import android.telecom.ParcelableCall;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.test.mock.MockContext;
@@ -37,15 +41,18 @@ import android.text.TextUtils;
 
 import com.android.internal.telecom.IInCallAdapter;
 import com.android.internal.telecom.IInCallService;
+import com.android.server.telecom.Analytics;
 import com.android.server.telecom.BluetoothHeadsetProxy;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallsManager;
+import com.android.server.telecom.DefaultDialerCache;
+import com.android.server.telecom.EmergencyCallHelper;
 import com.android.server.telecom.InCallController;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.R;
 import com.android.server.telecom.SystemStateProvider;
-import com.android.server.telecom.TelecomServiceImpl.DefaultDialerManagerAdapter;
 import com.android.server.telecom.TelecomSystem;
+import com.android.server.telecom.Timeouts;
 
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -53,14 +60,14 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import java.util.Collections;
 import java.util.LinkedList;
 
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Matchers.isNull;
-import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -78,7 +85,8 @@ public class InCallControllerTests extends TelecomTestCase {
     @Mock Call mMockCall;
     @Mock Resources mMockResources;
     @Mock MockContext mMockContext;
-    @Mock DefaultDialerManagerAdapter mMockDefaultDialerAdapter;
+    @Mock Timeouts.Adapter mTimeoutsAdapter;
+    @Mock DefaultDialerCache mDefaultDialerCache;
 
     private static final int CURRENT_USER_ID = 900973;
     private static final String DEF_PKG = "defpkg";
@@ -91,16 +99,22 @@ public class InCallControllerTests extends TelecomTestCase {
     private UserHandle mUserHandle = UserHandle.of(CURRENT_USER_ID);
     private InCallController mInCallController;
     private TelecomSystem.SyncRoot mLock = new TelecomSystem.SyncRoot() {};
+    private EmergencyCallHelper mEmergencyCallHelper;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
         MockitoAnnotations.initMocks(this);
+        when(mMockCall.getAnalytics()).thenReturn(new Analytics.CallInfo());
         doReturn(mMockResources).when(mMockContext).getResources();
         doReturn(SYS_PKG).when(mMockResources).getString(R.string.ui_default_package);
         doReturn(SYS_CLASS).when(mMockResources).getString(R.string.incall_default_class);
+        doReturn(true).when(mMockResources).getBoolean(R.bool.grant_location_permission_enabled);
+        mEmergencyCallHelper = new EmergencyCallHelper(mMockContext, SYS_PKG,
+                mTimeoutsAdapter);
         mInCallController = new InCallController(mMockContext, mLock, mMockCallsManager,
-                mMockSystemStateProvider, mMockDefaultDialerAdapter);
+                mMockSystemStateProvider, mDefaultDialerCache, mTimeoutsAdapter,
+                mEmergencyCallHelper);
     }
 
     @Override
@@ -115,8 +129,9 @@ public class InCallControllerTests extends TelecomTestCase {
         when(mMockCallsManager.hasEmergencyCall()).thenReturn(false);
         when(mMockCall.isIncoming()).thenReturn(true);
         when(mMockCall.isExternalCall()).thenReturn(false);
+        when(mTimeoutsAdapter.getEmergencyCallbackWindowMillis(any(ContentResolver.class)))
+                .thenReturn(300_000L);
 
-        Intent queryIntent = new Intent(InCallService.SERVICE_INTERFACE);
         setupMockPackageManager(false /* default */, true /* system */, false /* external calls */);
         mInCallController.bindToServices(mMockCall);
 
@@ -146,6 +161,8 @@ public class InCallControllerTests extends TelecomTestCase {
         when(mMockCall.getTargetPhoneAccount()).thenReturn(PA_HANDLE);
         when(mMockCall.getIntentExtras()).thenReturn(callExtras);
         when(mMockCall.isExternalCall()).thenReturn(false);
+        when(mTimeoutsAdapter.getEmergencyCallbackWindowMillis(any(ContentResolver.class)))
+                .thenReturn(300_000L);
 
         Intent queryIntent = new Intent(InCallService.SERVICE_INTERFACE);
         setupMockPackageManager(false /* default */, true /* system */, false /* external calls */);
@@ -180,7 +197,7 @@ public class InCallControllerTests extends TelecomTestCase {
         when(mMockCall.getTargetPhoneAccount()).thenReturn(PA_HANDLE);
         when(mMockCall.getIntentExtras()).thenReturn(callExtras);
         when(mMockCall.isExternalCall()).thenReturn(false);
-        when(mMockDefaultDialerAdapter.getDefaultDialerApplication(mMockContext, CURRENT_USER_ID))
+        when(mDefaultDialerCache.getDefaultDialerApplication(CURRENT_USER_ID))
                 .thenReturn(DEF_PKG);
         when(mMockContext.bindServiceAsUser(any(Intent.class), any(ServiceConnection.class),
                 anyInt(), eq(UserHandle.CURRENT))).thenReturn(true);
@@ -226,17 +243,21 @@ public class InCallControllerTests extends TelecomTestCase {
         when(mMockCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
         when(mMockCallsManager.hasEmergencyCall()).thenReturn(true);
+        when(mMockCall.isEmergencyCall()).thenReturn(true);
         when(mMockCall.isIncoming()).thenReturn(false);
         when(mMockCall.getTargetPhoneAccount()).thenReturn(PA_HANDLE);
         when(mMockCall.getIntentExtras()).thenReturn(callExtras);
         when(mMockCall.isExternalCall()).thenReturn(false);
-        when(mMockDefaultDialerAdapter.getDefaultDialerApplication(mMockContext, CURRENT_USER_ID))
+        when(mDefaultDialerCache.getDefaultDialerApplication(CURRENT_USER_ID))
                 .thenReturn(DEF_PKG);
         when(mMockContext.bindServiceAsUser(any(Intent.class), any(ServiceConnection.class),
                 eq(Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE),
                 eq(UserHandle.CURRENT))).thenReturn(true);
+        when(mTimeoutsAdapter.getEmergencyCallbackWindowMillis(any(ContentResolver.class)))
+                .thenReturn(300_000L);
 
         setupMockPackageManager(true /* default */, true /* system */, false /* external calls */);
+        setupMockPackageManagerLocationPermission(SYS_PKG, false /* granted */);
 
         mInCallController.bindToServices(mMockCall);
 
@@ -268,6 +289,17 @@ public class InCallControllerTests extends TelecomTestCase {
                 TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE));
         assertEquals(callExtras, bindIntent.getExtras().getParcelable(
                 TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS));
+
+        verify(mMockPackageManager).grantRuntimePermission(eq(SYS_PKG),
+                eq(Manifest.permission.ACCESS_FINE_LOCATION), eq(mUserHandle));
+
+        // Pretend that the call has gone away.
+        when(mMockCallsManager.getCalls()).thenReturn(Collections.emptyList());
+        mInCallController.onCallRemoved(mMockCall);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TelecomSystemTest.TEST_TIMEOUT);
+
+        verify(mMockPackageManager).revokeRuntimePermission(eq(SYS_PKG),
+                eq(Manifest.permission.ACCESS_FINE_LOCATION), eq(mUserHandle));
     }
 
     @MediumTest
@@ -278,11 +310,15 @@ public class InCallControllerTests extends TelecomTestCase {
         when(mMockCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
         when(mMockCallsManager.hasEmergencyCall()).thenReturn(false);
+        when(mMockCallsManager.getCalls()).thenReturn(Collections.singletonList(mMockCall));
+        when(mMockCallsManager.getAudioState()).thenReturn(null);
+        when(mMockCallsManager.canAddCall()).thenReturn(false);
         when(mMockCall.isIncoming()).thenReturn(false);
         when(mMockCall.getTargetPhoneAccount()).thenReturn(PA_HANDLE);
         when(mMockCall.getIntentExtras()).thenReturn(callExtras);
         when(mMockCall.isExternalCall()).thenReturn(false);
-        when(mMockDefaultDialerAdapter.getDefaultDialerApplication(mMockContext, CURRENT_USER_ID))
+        when(mMockCall.getConferenceableCalls()).thenReturn(Collections.emptyList());
+        when(mDefaultDialerCache.getDefaultDialerApplication(CURRENT_USER_ID))
                 .thenReturn(DEF_PKG);
         when(mMockContext.bindServiceAsUser(
                 any(Intent.class), any(ServiceConnection.class), anyInt(), any(UserHandle.class)))
@@ -386,14 +422,67 @@ public class InCallControllerTests extends TelecomTestCase {
         assertEquals(DEF_CLASS, bindIntent.getComponent().getClassName());
     }
 
+    /**
+     * Make sure that if a call goes away before the in-call service finishes binding and another
+     * call gets connected soon after, the new call will still be sent to the in-call service.
+     */
+    @MediumTest
+    public void testUnbindDueToCallDisconnect() throws Exception {
+        when(mMockCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
+        when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
+        when(mMockCallsManager.hasEmergencyCall()).thenReturn(false);
+        when(mMockCall.isIncoming()).thenReturn(true);
+        when(mMockCall.isExternalCall()).thenReturn(false);
+        when(mDefaultDialerCache.getDefaultDialerApplication(CURRENT_USER_ID)).thenReturn(DEF_PKG);
+        when(mMockContext.bindServiceAsUser(nullable(Intent.class),
+                nullable(ServiceConnection.class), anyInt(), nullable(UserHandle.class)))
+                .thenReturn(true);
+        when(mTimeoutsAdapter.getCallRemoveUnbindInCallServicesDelay(
+                nullable(ContentResolver.class))).thenReturn(500L);
+
+        when(mMockCallsManager.getCalls()).thenReturn(Collections.singletonList(mMockCall));
+        setupMockPackageManager(true /* default */, true /* system */, false /* external calls */);
+        mInCallController.bindToServices(mMockCall);
+
+        ArgumentCaptor<Intent> bindIntentCaptor = ArgumentCaptor.forClass(Intent.class);
+        ArgumentCaptor<ServiceConnection> serviceConnectionCaptor =
+                ArgumentCaptor.forClass(ServiceConnection.class);
+        verify(mMockContext, times(1)).bindServiceAsUser(
+                bindIntentCaptor.capture(),
+                serviceConnectionCaptor.capture(),
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE),
+                eq(UserHandle.CURRENT));
+
+        // Pretend that the call has gone away.
+        when(mMockCallsManager.getCalls()).thenReturn(Collections.emptyList());
+        mInCallController.onCallRemoved(mMockCall);
+
+        // Start the connection, make sure we don't unbind, and make sure that we don't send
+        // anything to the in-call service yet.
+        ServiceConnection serviceConnection = serviceConnectionCaptor.getValue();
+        ComponentName defDialerComponentName = new ComponentName(DEF_PKG, DEF_CLASS);
+        IBinder mockBinder = mock(IBinder.class);
+        IInCallService mockInCallService = mock(IInCallService.class);
+        when(mockBinder.queryLocalInterface(anyString())).thenReturn(mockInCallService);
+
+        serviceConnection.onServiceConnected(defDialerComponentName, mockBinder);
+        verify(mockInCallService).setInCallAdapter(nullable(IInCallAdapter.class));
+        verify(mMockContext, never()).unbindService(serviceConnection);
+        verify(mockInCallService, never()).addCall(any(ParcelableCall.class));
+
+        // Now, we add in the call again and make sure that it's sent to the InCallService.
+        when(mMockCallsManager.getCalls()).thenReturn(Collections.singletonList(mMockCall));
+        mInCallController.onCallAdded(mMockCall);
+        verify(mockInCallService).addCall(any(ParcelableCall.class));
+    }
+
     private void setupMocks(boolean isExternalCall) {
         when(mMockCallsManager.getCurrentUserHandle()).thenReturn(mUserHandle);
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
         when(mMockCallsManager.hasEmergencyCall()).thenReturn(false);
         when(mMockCall.isIncoming()).thenReturn(false);
         when(mMockCall.getTargetPhoneAccount()).thenReturn(PA_HANDLE);
-        when(mMockDefaultDialerAdapter.getDefaultDialerApplication(mMockContext, CURRENT_USER_ID))
-                .thenReturn(DEF_PKG);
+        when(mDefaultDialerCache.getDefaultDialerApplication(CURRENT_USER_ID)).thenReturn(DEF_PKG);
         when(mMockContext.bindServiceAsUser(any(Intent.class), any(ServiceConnection.class),
                 anyInt(), eq(UserHandle.CURRENT))).thenReturn(true);
         when(mMockCall.isExternalCall()).thenReturn(isExternalCall);
@@ -454,4 +543,12 @@ public class InCallControllerTests extends TelecomTestCase {
         }).when(mMockPackageManager).queryIntentServicesAsUser(
                 any(Intent.class), eq(PackageManager.GET_META_DATA), eq(CURRENT_USER_ID));
     }
+
+    private void setupMockPackageManagerLocationPermission(final String pkg,
+            final boolean granted) {
+        when(mMockPackageManager.checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, pkg))
+                .thenReturn(granted
+                        ? PackageManager.PERMISSION_GRANTED
+                        : PackageManager.PERMISSION_DENIED);
+  }
 }

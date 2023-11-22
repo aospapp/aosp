@@ -16,19 +16,32 @@
 
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.ArraySet;
 import android.util.Log;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
+import java.util.NoSuchElementException;
 
 // As is the case with ArraySet itself, ArraySetTest borrows heavily from ArrayMapTest.
 
-public class ArraySetTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ArraySetTest {
     private static final String TAG = "ArraySetTest";
 
     private static final boolean DEBUG = false;
@@ -201,17 +214,18 @@ public class ArraySetTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testTest() {
         assertEquals("OPS and KEYS must be equal length", OPS.length, KEYS.length);
     }
 
+    @Test
     public void testBasicArraySet() {
-        HashSet<ControlledHash> hashSet = new HashSet<ControlledHash>();
-        ArraySet<ControlledHash> arraySet = new ArraySet<ControlledHash>();
+        HashSet<ControlledHash> hashSet = new HashSet<>();
+        ArraySet<ControlledHash> arraySet = new ArraySet<>();
 
         for (int i = 0; i < OPS.length; i++) {
             ControlledHash key = KEYS[i] < 0 ? null : new ControlledHash(KEYS[i]);
-            String strKey = KEYS[i] < 0 ? null : Integer.toString(KEYS[i]);
             switch (OPS[i]) {
                 case OP_ADD:
                     if (DEBUG) Log.i(TAG, "Adding key: " + key);
@@ -270,6 +284,7 @@ public class ArraySetTest extends AndroidTestCase {
         dump(hashSet, arraySet);
     }
 
+    @Test
     public void testCopyArraySet() {
         // set copy constructor test
         ArraySet newSet = new ArraySet<Integer>();
@@ -288,10 +303,11 @@ public class ArraySetTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testEqualsArrayMap() {
-        ArraySet<Integer> set1 = new ArraySet<Integer>();
-        ArraySet<Integer> set2 = new ArraySet<Integer>();
-        HashSet<Integer> set3 = new HashSet<Integer>();
+        ArraySet<Integer> set1 = new ArraySet<>();
+        ArraySet<Integer> set2 = new ArraySet<>();
+        HashSet<Integer> set3 = new HashSet<>();
         if (!compare(set1, set2) || !compare(set1, set3) || !compare(set3, set2)) {
             fail("ArraySet equals failure for empty sets " + set1 + ", " +
                     set2 + ", " + set3);
@@ -314,8 +330,9 @@ public class ArraySetTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIsEmpty() {
-        ArraySet<Integer> set = new ArraySet<Integer>();
+        ArraySet<Integer> set = new ArraySet<>();
         assertEquals("New ArraySet should have size==0", 0, set.size());
         assertTrue("New ArraySet should be isEmptry", set.isEmpty());
 
@@ -328,8 +345,9 @@ public class ArraySetTest extends AndroidTestCase {
         assertTrue("ArraySet should be isEmptry", set.isEmpty());
     }
 
+    @Test
     public void testRemoveAt() {
-        ArraySet<Integer> set = new ArraySet<Integer>();
+        ArraySet<Integer> set = new ArraySet<>();
 
         for (int i = 0; i < 10; ++i) {
             set.add(i * 10);
@@ -361,8 +379,9 @@ public class ArraySetTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIndexOf() {
-        ArraySet<Integer> set = new ArraySet<Integer>();
+        ArraySet<Integer> set = new ArraySet<>();
 
         for (int i = 0; i < 10; ++i) {
             set.add(i * 10);
@@ -373,10 +392,11 @@ public class ArraySetTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAddAll() {
-        ArraySet<Integer> arraySet = new ArraySet<Integer>();
-        ArraySet<Integer> testArraySet = new ArraySet<Integer>();
-        ArrayList<Integer> testArrayList = new ArrayList<Integer>();
+        ArraySet<Integer> arraySet = new ArraySet<>();
+        ArraySet<Integer> testArraySet = new ArraySet<>();
+        ArrayList<Integer> testArrayList = new ArrayList<>();
 
         for (int i = 0; i < 10; ++i) {
             testArraySet.add(i * 10);
@@ -401,10 +421,11 @@ public class ArraySetTest extends AndroidTestCase {
         assertTrue("ArraySet.addAll(Container) failed", arraySet.containsAll(testArrayList));
     }
 
+    @Test
     public void testRemoveAll() {
-        ArraySet<Integer> arraySet = new ArraySet<Integer>();
-        ArraySet<Integer> arraySetToRemove = new ArraySet<Integer>();
-        ArrayList<Integer> arrayListToRemove = new ArrayList<Integer>();
+        ArraySet<Integer> arraySet = new ArraySet<>();
+        ArraySet<Integer> arraySetToRemove = new ArraySet<>();
+        ArrayList<Integer> arrayListToRemove = new ArrayList<>();
 
         for (int i = 0; i < 10; ++i) {
             arraySet.add(i * 10);
@@ -440,9 +461,10 @@ public class ArraySetTest extends AndroidTestCase {
         assertEquals(0, arraySet.size());
     }
 
+    @Test
     public void testRetainAll() {
-        ArraySet<Integer> arraySet = new ArraySet<Integer>();
-        ArrayList<Integer> arrayListToRetain = new ArrayList<Integer>();
+        ArraySet<Integer> arraySet = new ArraySet<>();
+        ArrayList<Integer> arrayListToRetain = new ArrayList<>();
 
         for (int i = 0; i < 10; ++i) {
             arraySet.add(i * 10);
@@ -466,8 +488,9 @@ public class ArraySetTest extends AndroidTestCase {
         assertEquals(2, arraySet.size());
     }
 
+    @Test
     public void testToArray() {
-        ArraySet<Integer> arraySet = new ArraySet<Integer>();
+        ArraySet<Integer> arraySet = new ArraySet<>();
         for (int i = 0; i < 10; ++i) {
             arraySet.add(i * 10);
         }
@@ -492,4 +515,22 @@ public class ArraySetTest extends AndroidTestCase {
         Object[] objectArray = arraySet.toArray();
         compareArraySetAndRawArray(arraySet, objectArray);
     }
+
+    @Test
+    public void testCanNotIteratePastEnd() {
+        ArraySet<String> set = new ArraySet<>();
+        set.add("value");
+        Iterator<String> iterator = set.iterator();
+
+        assertTrue(iterator.hasNext());
+        assertEquals("value", iterator.next());
+        assertFalse(iterator.hasNext());
+
+        try {
+            iterator.next();
+            fail();
+        } catch (NoSuchElementException expected) {
+        }
+    }
+
 }

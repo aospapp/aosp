@@ -151,29 +151,14 @@ void RSCheckAST::ValidateFunctionDecl(clang::FunctionDecl *FD) {
     return;
   }
 
-  if (FD->hasAttr<clang::KernelAttr>()) {
-    // Validate that the kernel attribute is not used with static.
-    if (FD->getStorageClass() == clang::SC_Static) {
-      Context->ReportError(FD->getLocation(),
-                           "Invalid use of attribute kernel with "
-                           "static function declaration: %0")
-        << FD->getName();
-      mValid = false;
-    }
-
-    // We allow no arguments to the attribute, or an expected single
-    // argument. If there is an expected single argument, we verify
-    // that it is one of the recognized kernel kinds.
-    llvm::StringRef KernelKind =
-      FD->getAttr<clang::KernelAttr>()->getKernelKind();
-
-    if (!KernelKind.empty()) {
-      Context->ReportError(FD->getLocation(),
-                           "Unknown kernel attribute argument '%0' "
-                           "in declaration of function '%1'")
-        << KernelKind << FD->getName();
-      mValid = false;
-    }
+  // Validate that the kernel attribute is not used with static.
+  if (FD->hasAttr<clang::RenderScriptKernelAttr>() &&
+      FD->getStorageClass() == clang::SC_Static) {
+    Context->ReportError(FD->getLocation(),
+                         "Invalid use of attribute kernel with "
+                         "static function declaration: %0")
+      << FD->getName();
+    mValid = false;
   }
 
   clang::QualType resultType = FD->getReturnType().getCanonicalType();
@@ -306,6 +291,11 @@ bool RSCheckAST::Validate() {
           DE = TUDecl->decls_end();
        DI != DE;
        DI++) {
+
+    // Following tests are not applicable to implicitly defined types
+    if (DI->isImplicit())
+      continue;
+
     if (!Slang::IsLocInRSHeaderFile(DI->getLocStart(), mSM)) {
       if (clang::VarDecl *VD = llvm::dyn_cast<clang::VarDecl>(*DI)) {
         ValidateVarDecl(VD);

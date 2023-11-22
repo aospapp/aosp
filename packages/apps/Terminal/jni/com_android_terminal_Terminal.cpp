@@ -30,8 +30,6 @@
 #include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
-#include <util.h>
-#include <utmp.h>
 
 #include <vterm.h>
 

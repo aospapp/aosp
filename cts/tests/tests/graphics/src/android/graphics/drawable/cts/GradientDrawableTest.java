@@ -16,8 +16,12 @@
 
 package android.graphics.drawable.cts;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -32,19 +36,33 @@ import android.graphics.cts.R;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.GradientDrawable.Orientation;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.Arrays;
 
-import static org.junit.Assert.assertArrayEquals;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class GradientDrawableTest {
+    private Resources mResources;
 
-public class GradientDrawableTest extends AndroidTestCase {
-    @SmallTest
+    @Before
+    public void setup() {
+        mResources = InstrumentationRegistry.getTargetContext().getResources();
+    }
+
+    @Test
     public void testConstructor() {
         int[] color = new int[] {1, 2, 3};
 
@@ -53,7 +71,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         new GradientDrawable(null, null);
     }
 
-    @SmallTest
+    @Test
     public void testGetOpacity() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         assertEquals("Default opacity is TRANSLUCENT",
@@ -86,7 +104,7 @@ public class GradientDrawableTest extends AndroidTestCase {
 
     }
 
-    @SmallTest
+    @Test
     public void testSetOrientation() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         Orientation orientation;
@@ -97,7 +115,7 @@ public class GradientDrawableTest extends AndroidTestCase {
                 orientation, gradientDrawable.getOrientation());
     }
 
-    @SmallTest
+    @Test
     public void testSetCornerRadii() {
         float[] radii = new float[] {1.0f, 2.0f, 3.0f};
 
@@ -115,7 +133,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.setCornerRadii(null);
     }
 
-    @SmallTest
+    @Test
     public void testSetCornerRadius() {
         GradientDrawable gradientDrawable = new GradientDrawable();
 
@@ -123,7 +141,21 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.setCornerRadius(-2.5f);
     }
 
-    @SmallTest
+    @Test
+    public void testGetCornerRadius() {
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        gradientDrawable.setCornerRadius(5.5f);
+        assertEquals(gradientDrawable.getCornerRadius(), 5.5f, 0);
+        float[] radii = new float[] {1.0f, 2.0f, 3.0f};
+        gradientDrawable.setCornerRadii(radii);
+        assertEquals(5.5f, gradientDrawable.getCornerRadius(), 0);
+        gradientDrawable.setShape(GradientDrawable.OVAL);
+        assertEquals(5.5f, gradientDrawable.getCornerRadius(), 0);
+        gradientDrawable.setCornerRadii(null);
+        assertEquals(0, gradientDrawable.getCornerRadius(), 0);
+    }
+
+    @Test
     public void testSetStroke() {
         helpTestSetStroke(2, Color.RED);
         helpTestSetStroke(-2, Color.TRANSPARENT);
@@ -136,64 +168,64 @@ public class GradientDrawableTest extends AndroidTestCase {
         // TODO: Verify stroke properties.
     }
 
-    @SmallTest
+    @Test
     public void testSetStroke_WidthGap() {
-        helpTestSetStroke_WidthGap(2, Color.RED, 3.4f, 5.5f);
-        helpTestSetStroke_WidthGap(-2, Color.TRANSPARENT, -3.4f, -5.5f);
-        helpTestSetStroke_WidthGap(0, 0, 0, (float) 0.0f);
+        verifySetStroke_WidthGap(2, Color.RED, 3.4f, 5.5f);
+        verifySetStroke_WidthGap(-2, Color.TRANSPARENT, -3.4f, -5.5f);
+        verifySetStroke_WidthGap(0, 0, 0, (float) 0.0f);
     }
 
-    private void helpTestSetStroke_WidthGap(int width, int color,
+    private void verifySetStroke_WidthGap(int width, int color,
             float dashWidth, float dashGap) {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setStroke(width, color, dashWidth, dashGap);
         // TODO: Verify stroke properties.
     }
 
-    @SmallTest
+    @Test
     public void testSetStrokeList() {
-        helpTestSetStrokeList(2, ColorStateList.valueOf(Color.RED));
-        helpTestSetStrokeList(-2, ColorStateList.valueOf(Color.TRANSPARENT));
-        helpTestSetStrokeList(0, null);
+        verifySetStrokeList(2, ColorStateList.valueOf(Color.RED));
+        verifySetStrokeList(-2, ColorStateList.valueOf(Color.TRANSPARENT));
+        verifySetStrokeList(0, null);
     }
 
-    private void helpTestSetStrokeList(int width,
+    private void verifySetStrokeList(int width,
             ColorStateList colorList) {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setStroke(width, colorList);
         // TODO: Verify stroke properties.
     }
 
-    @SmallTest
+    @Test
     public void testSetStrokeList_WidthGap() {
-        helpTestSetStrokeList_WidthGap(2, ColorStateList.valueOf(Color.RED), 3.4f, 5.5f);
-        helpTestSetStrokeList_WidthGap(-2, ColorStateList.valueOf(Color.TRANSPARENT), -3.4f, -5.5f);
-        helpTestSetStrokeList_WidthGap(0, null, 0.0f, 0.0f);
+        verifySetStrokeList_WidthGap(2, ColorStateList.valueOf(Color.RED), 3.4f, 5.5f);
+        verifySetStrokeList_WidthGap(-2, ColorStateList.valueOf(Color.TRANSPARENT), -3.4f, -5.5f);
+        verifySetStrokeList_WidthGap(0, null, 0.0f, 0.0f);
     }
 
-    private void helpTestSetStrokeList_WidthGap(int width, ColorStateList colorList,
+    private void verifySetStrokeList_WidthGap(int width, ColorStateList colorList,
             float dashWidth, float dashGap) {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setStroke(width, colorList, dashWidth, dashGap);
         // TODO: Verify stroke properties.
     }
 
-    @SmallTest
+    @Test
     public void testSetSize() {
-        helpTestSetSize(6, 4);
-        helpTestSetSize(-30, -40);
-        helpTestSetSize(0, 0);
-        helpTestSetSize(Integer.MAX_VALUE, Integer.MIN_VALUE);
+        verifySetSize(6, 4);
+        verifySetSize(-30, -40);
+        verifySetSize(0, 0);
+        verifySetSize(Integer.MAX_VALUE, Integer.MIN_VALUE);
     }
 
-    private void helpTestSetSize(int width, int height) {
+    private void verifySetSize(int width, int height) {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setSize(width, height);
         assertEquals(width, gradientDrawable.getIntrinsicWidth());
         assertEquals(height, gradientDrawable.getIntrinsicHeight());
     }
 
-    @SmallTest
+    @Test
     public void testSetShape() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         int shape;
@@ -209,7 +241,7 @@ public class GradientDrawableTest extends AndroidTestCase {
                 shape, gradientDrawable.getShape());
     }
 
-    @SmallTest
+    @Test
     public void testSetGradientType() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         int gradientType;
@@ -225,7 +257,7 @@ public class GradientDrawableTest extends AndroidTestCase {
                 gradientType, gradientDrawable.getGradientType());
     }
 
-    @SmallTest
+    @Test
     public void testSetGradientCenter() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         float centerX;
@@ -245,11 +277,11 @@ public class GradientDrawableTest extends AndroidTestCase {
         centerX = 0.0f;
         centerY = 0.0f;
         gradientDrawable.setGradientCenter(centerX, centerY);
-        assertEquals(centerX, gradientDrawable.getGradientCenterX());
-        assertEquals(centerY, gradientDrawable.getGradientCenterY());
+        assertEquals(centerX, gradientDrawable.getGradientCenterX(), 0.01f);
+        assertEquals(centerY, gradientDrawable.getGradientCenterY(), 0.01f);
     }
 
-    @SmallTest
+    @Test
     public void testSetGradientRadius() {
         GradientDrawable gradientDrawable = new GradientDrawable();
 
@@ -257,7 +289,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.setGradientRadius(-3.6f);
     }
 
-    @SmallTest
+    @Test
     public void testSetUseLevel() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         boolean useLevel;
@@ -275,7 +307,7 @@ public class GradientDrawableTest extends AndroidTestCase {
                 useLevel, gradientDrawable.getUseLevel());
     }
 
-    @SmallTest
+    @Test
     public void testDraw() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         Canvas c = new Canvas();
@@ -285,7 +317,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.draw(null);
     }
 
-    @SmallTest
+    @Test
     public void testSetColor() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         int color;
@@ -301,7 +333,7 @@ public class GradientDrawableTest extends AndroidTestCase {
                 gradientDrawable.getColor().getDefaultColor());
     }
 
-    @SmallTest
+    @Test
     public void testSetColors() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         int[] colors;
@@ -317,7 +349,7 @@ public class GradientDrawableTest extends AndroidTestCase {
                 colors, gradientDrawable.getColors());
     }
 
-    @SmallTest
+    @Test
     public void testSetColorList() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         ColorStateList color;
@@ -331,7 +363,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals("Color was set to null (TRANSPARENT)", color, gradientDrawable.getColor());
     }
 
-    @SmallTest
+    @Test
     public void testGetChangingConfigurations() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         assertEquals(0, gradientDrawable.getChangingConfigurations());
@@ -343,7 +375,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals(-20, gradientDrawable.getChangingConfigurations());
     }
 
-    @SmallTest
+    @Test
     public void testSetAlpha() {
         GradientDrawable gradientDrawable = new GradientDrawable();
 
@@ -351,7 +383,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.setAlpha(-1);
     }
 
-    @SmallTest
+    @Test
     public void testSetDither() {
         GradientDrawable gradientDrawable = new GradientDrawable();
 
@@ -359,7 +391,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.setDither(false);
     }
 
-    @SmallTest
+    @Test
     public void testSetColorFilter() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         ColorFilter cf = new ColorFilter();
@@ -369,7 +401,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         gradientDrawable.setColorFilter(null);
     }
 
-    @SmallTest
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         GradientDrawable gradientDrawable = new GradientDrawable();
         Rect rect = new Rect();
@@ -379,8 +411,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals(0, rect.right);
         assertEquals(0, rect.bottom);
 
-        Resources resources = mContext.getResources();
-        XmlPullParser parser = resources.getXml(R.drawable.gradientdrawable);
+        XmlPullParser parser = mResources.getXml(R.drawable.gradientdrawable);
         AttributeSet attrs = Xml.asAttributeSet(parser);
 
         // find the START_TAG
@@ -392,7 +423,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals(XmlPullParser.START_TAG, type);
 
         // padding is set in gradientdrawable.xml
-        gradientDrawable.inflate(resources, parser, attrs);
+        gradientDrawable.inflate(mResources, parser, attrs);
         assertTrue(gradientDrawable.getPadding(rect));
         assertEquals(4, rect.left);
         assertEquals(2, rect.top);
@@ -414,28 +445,27 @@ public class GradientDrawableTest extends AndroidTestCase {
         }
     }
 
-    @SmallTest
+    @Test
     public void testInflateGradientRadius() throws XmlPullParserException, IOException {
         Rect parentBounds = new Rect(0, 0, 100, 100);
-        Resources resources = mContext.getResources();
 
         GradientDrawable gradientDrawable;
         float radius;
 
-        gradientDrawable = (GradientDrawable) resources.getDrawable(
+        gradientDrawable = (GradientDrawable) mResources.getDrawable(
                 R.drawable.gradientdrawable_radius_base);
         gradientDrawable.setBounds(parentBounds);
         radius = gradientDrawable.getGradientRadius();
         assertEquals(25.0f, radius, 0.0f);
 
-        gradientDrawable = (GradientDrawable) resources.getDrawable(
+        gradientDrawable = (GradientDrawable) mResources.getDrawable(
                 R.drawable.gradientdrawable_radius_parent);
         gradientDrawable.setBounds(parentBounds);
         radius = gradientDrawable.getGradientRadius();
         assertEquals(50.0f, radius, 0.0f);
     }
 
-    @SmallTest
+    @Test
     public void testGetIntrinsicWidth() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setSize(6, 4);
@@ -445,7 +475,7 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals(-10, gradientDrawable.getIntrinsicWidth());
     }
 
-    @SmallTest
+    @Test
     public void testGetIntrinsicHeight() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         gradientDrawable.setSize(5, 3);
@@ -455,18 +485,20 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals(-15, gradientDrawable.getIntrinsicHeight());
     }
 
-    @SmallTest
+    @Test
     public void testGetConstantState() {
         GradientDrawable gradientDrawable = new GradientDrawable();
         assertNotNull(gradientDrawable.getConstantState());
     }
 
-    @SmallTest
+    @Test
     public void testMutate() {
-        Resources resources = mContext.getResources();
-        GradientDrawable d1 = (GradientDrawable) resources.getDrawable(R.drawable.gradientdrawable);
-        GradientDrawable d2 = (GradientDrawable) resources.getDrawable(R.drawable.gradientdrawable);
-        GradientDrawable d3 = (GradientDrawable) resources.getDrawable(R.drawable.gradientdrawable);
+        GradientDrawable d1 =
+                (GradientDrawable) mResources.getDrawable(R.drawable.gradientdrawable);
+        GradientDrawable d2 =
+                (GradientDrawable) mResources.getDrawable(R.drawable.gradientdrawable);
+        GradientDrawable d3 =
+                (GradientDrawable) mResources.getDrawable(R.drawable.gradientdrawable);
 
         d1.setSize(10, 10);
         assertEquals(10, d1.getIntrinsicHeight());
@@ -494,18 +526,29 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertEquals(40, d3.getIntrinsicWidth());
     }
 
-    @MediumTest
+    @Test
     public void testPreloadDensity() throws XmlPullParserException, IOException {
-        final Resources res = getContext().getResources();
-        final int densityDpi = res.getConfiguration().densityDpi;
+        final int densityDpi = mResources.getConfiguration().densityDpi;
         try {
-            testPreloadDensityInner(res, densityDpi);
+            DrawableTestUtils.setResourcesDensity(mResources, densityDpi);
+            verifyPreloadDensityInner(mResources, densityDpi);
         } finally {
-            DrawableTestUtils.setResourcesDensity(res, densityDpi);
+            DrawableTestUtils.setResourcesDensity(mResources, densityDpi);
         }
     }
 
-    private void testPreloadDensityInner(Resources res, int densityDpi)
+    @Test
+    public void testPreloadDensity_tvdpi() throws XmlPullParserException, IOException {
+        final int densityDpi = mResources.getConfiguration().densityDpi;
+        try {
+            DrawableTestUtils.setResourcesDensity(mResources, 213);
+            verifyPreloadDensityInner(mResources, 213);
+        } finally {
+            DrawableTestUtils.setResourcesDensity(mResources, densityDpi);
+        }
+    }
+
+    private void verifyPreloadDensityInner(Resources res, int densityDpi)
             throws XmlPullParserException, IOException {
         final Rect tempPadding = new Rect();
 
@@ -520,15 +563,17 @@ public class GradientDrawableTest extends AndroidTestCase {
         final Rect origPadding = new Rect();
         preloadedDrawable.getPadding(origPadding);
 
-        // Set density to half of original. Unlike offsets, which are
+        // Set density to approximately half of original. Unlike offsets, which are
         // truncated, dimensions are rounded to the nearest pixel.
         DrawableTestUtils.setResourcesDensity(res, densityDpi / 2);
         final GradientDrawable halfDrawable =
                 (GradientDrawable) preloadedConstantState.newDrawable(res);
-        assertEquals(Math.round(origWidth / 2f), halfDrawable.getIntrinsicWidth());
-        assertEquals(Math.round(origHeight / 2f), halfDrawable.getIntrinsicHeight());
+        // NOTE: densityDpi may not be an even number, so account for *actual* scaling in asserts
+        final float approxHalf = (float)(densityDpi / 2) / densityDpi;
+        assertEquals(Math.round(origWidth * approxHalf), halfDrawable.getIntrinsicWidth());
+        assertEquals(Math.round(origHeight * approxHalf), halfDrawable.getIntrinsicHeight());
         assertTrue(halfDrawable.getPadding(tempPadding));
-        assertEquals((int) (origPadding.left / 2f), tempPadding.left);
+        assertEquals((int) (origPadding.left * approxHalf), tempPadding.left);
 
         // Set density to double original.
         DrawableTestUtils.setResourcesDensity(res, densityDpi * 2);
@@ -548,20 +593,21 @@ public class GradientDrawableTest extends AndroidTestCase {
         assertTrue(origDrawable.getPadding(tempPadding));
         assertEquals(origPadding, tempPadding);
 
-        // Some precision is lost when scaling the half-density
-        // drawable back up to the original density. Padding is
-        // always truncated, rather than rounded.
+        // Reproduce imprecise truncated scale down, and back up. Note these aren't rounded.
+        final float approxDouble = 1 / approxHalf;
         final Rect sloppyOrigPadding = new Rect();
-        sloppyOrigPadding.left = 2 * (origPadding.left / 2);
-        sloppyOrigPadding.top = 2 * (origPadding.top / 2);
-        sloppyOrigPadding.right = 2 * (origPadding.right / 2);
-        sloppyOrigPadding.bottom = 2 * (origPadding.bottom / 2);
+        sloppyOrigPadding.left = (int)(approxDouble * ((int)(origPadding.left * approxHalf)));
+        sloppyOrigPadding.top = (int)(approxDouble * ((int)(origPadding.top * approxHalf)));
+        sloppyOrigPadding.right = (int)(approxDouble * ((int)(origPadding.right * approxHalf)));
+        sloppyOrigPadding.bottom = (int)(approxDouble * ((int)(origPadding.bottom * approxHalf)));
 
         // Ensure theme density is applied correctly.
         final Theme t = res.newTheme();
         halfDrawable.applyTheme(t);
-        assertEquals(2 * Math.round(origWidth / 2f), halfDrawable.getIntrinsicWidth());
-        assertEquals(2 * Math.round(origHeight / 2f), halfDrawable.getIntrinsicHeight());
+        assertEquals(Math.round(approxDouble * Math.round(origWidth * approxHalf)),
+                halfDrawable.getIntrinsicWidth());
+        assertEquals(Math.round(approxDouble * Math.round(origHeight * approxHalf)),
+                halfDrawable.getIntrinsicHeight());
         assertTrue(halfDrawable.getPadding(tempPadding));
         assertEquals(sloppyOrigPadding, tempPadding);
         doubleDrawable.applyTheme(t);

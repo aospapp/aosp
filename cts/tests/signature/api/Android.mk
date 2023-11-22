@@ -18,6 +18,9 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 # current api, in XML format.
+# NOTE: the output XML file is also used
+# in //cts/hostsidetests/devicepolicy/AndroidTest.xml
+# by com.android.cts.managedprofile.CurrentApiHelper
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := cts-current-api
@@ -34,9 +37,21 @@ $(LOCAL_BUILT_MODULE) : frameworks/base/api/current.txt | $(APICHECK)
 	@mkdir -p $(dir $@)
 	$(hide) $(APICHECK_COMMAND) -convert2xml $< $@
 
-# For CTS v1
-cts_api_xml_v1 := $(CTS_TESTCASES_OUT)/current.api
-$(cts_api_xml_v1):  $(LOCAL_BUILT_MODULE) | $(ACP)
-	$(call copy-file-to-new-target)
+include $(CLEAR_VARS)
 
-$(CTS_TESTCASES_OUT)/CtsSignatureTestCases.xml: $(cts_api_xml_v1)
+# current api, in XML format.
+# ============================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := cts-system-current-api
+LOCAL_MODULE_STEM := system-current.api
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_ETC)
+
+# Tag this module as a cts test artifact
+LOCAL_COMPATIBILITY_SUITE := cts
+
+include $(BUILD_SYSTEM)/base_rules.mk
+$(LOCAL_BUILT_MODULE) : frameworks/base/api/system-current.txt | $(APICHECK)
+	@echo "Convert API file $@"
+	@mkdir -p $(dir $@)
+	$(hide) $(APICHECK_COMMAND) -convert2xml $< $@

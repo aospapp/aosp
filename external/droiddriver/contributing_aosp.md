@@ -16,9 +16,12 @@ $ repo sync
 ```
 
 The code should be downloaded to the current dir. You may see some lines in the output like:
-curl: (22) The requested URL returned error: 401 Unauthorized
+
+`curl: (22) The requested URL returned error: 401 Unauthorized`
+
 These messages seem non-fatal and you should see these dirs after it is done:
-build/  external/  frameworks/  Makefile  prebuilts/
+
+`build/  external/  frameworks/  Makefile  prebuilts/`
 
 #### Submitting Patches
 
@@ -51,16 +54,3 @@ When commenting on the code, posts will show up as drafts. Drafts are not visibl
 - `repo upload`
 
 The [`repo prune`](https://source.android.com/source/using-repo.html) command can be used to delete already merged branches.
-
-#### Building
-
-This sets up environment and some bash functions, particularly "tapas"
-(the counterpart of "lunch" for unbundled projects) and "m".
-
-```bash
-$ . build/envsetup.sh
-$ tapas droiddriver ManualDD
-$ m
-```
-
-ManualDD is an APK you can use to manually test DroidDriver.

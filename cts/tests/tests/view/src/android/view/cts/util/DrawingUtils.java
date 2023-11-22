@@ -23,6 +23,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.Pair;
 import android.view.View;
+
 import junit.framework.Assert;
 
 import java.util.List;

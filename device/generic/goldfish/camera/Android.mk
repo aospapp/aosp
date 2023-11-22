@@ -25,6 +25,7 @@ emulator_camera_cflags += -Wno-unused-parameter -Wno-missing-field-initializers
 emulator_camera_clang_flags := -Wno-c++11-narrowing
 emulator_camera_shared_libraries := \
     libbinder \
+    libexif \
     liblog \
     libutils \
     libcutils \
@@ -34,9 +35,15 @@ emulator_camera_shared_libraries := \
 	libjpeg \
 	libcamera_metadata
 
-emulator_camera_c_includes := external/jpeg \
+emulator_camera_static_libraries := \
+	libyuv_static
+
+emulator_camera_c_includes := external/libjpeg-turbo \
+	external/libexif \
+	external/libyuv/files/include \
 	frameworks/native/include/media/hardware \
-	$(LOCAL_PATH)/../opengl/system/OpenglSystemCommon \
+	$(LOCAL_PATH)/../include \
+	$(LOCAL_PATH)/../../goldfish-opengl/system/OpenglSystemCommon \
 	$(call include-path-for, camera)
 
 emulator_camera_src := \
@@ -62,7 +69,11 @@ emulator_camera_src := \
 		fake-pipeline2/Sensor.cpp \
 		fake-pipeline2/JpegCompressor.cpp \
 	EmulatedCamera3.cpp \
-		EmulatedFakeCamera3.cpp
+		EmulatedFakeCamera3.cpp \
+	Exif.cpp \
+	Thumbnail.cpp \
+	WorkerThread.cpp \
+
 
 # Emulated camera - goldfish / vbox_x86 build###################################
 
@@ -71,10 +82,13 @@ LOCAL_CFLAGS := ${emulator_camera_cflags}
 LOCAL_CLANG_CFLAGS += ${emulator_camera_clang_flags}
 
 LOCAL_SHARED_LIBRARIES := ${emulator_camera_shared_libraries}
+LOCAL_STATIC_LIBRARIES := ${emulator_camera_static_libraries}
 LOCAL_C_INCLUDES += ${emulator_camera_c_includes}
 LOCAL_SRC_FILES := ${emulator_camera_src}
 
-ifeq ($(TARGET_PRODUCT),vbox_x86)
+ifeq ($(TARGET_BOARD_PLATFORM),brilloemulator)
+LOCAL_MODULE := camera.$(TARGET_BOARD_PLATFORM)
+else ifeq ($(TARGET_PRODUCT),vbox_x86)
 LOCAL_MODULE := camera.vbox_x86
 else
 LOCAL_MODULE := camera.goldfish
@@ -91,6 +105,7 @@ LOCAL_CFLAGS := ${emulator_camera_cflags}
 LOCAL_CLANG_CFLAGS += ${emulator_camera_clang_flags}
 
 LOCAL_SHARED_LIBRARIES := ${emulator_camera_shared_libraries}
+LOCAL_STATIC_LIBRARIES := ${emulator_camera_static_libraries}
 LOCAL_C_INCLUDES += ${emulator_camera_c_includes}
 LOCAL_SRC_FILES := ${emulator_camera_src}
 
@@ -98,55 +113,6 @@ LOCAL_MODULE := camera.ranchu
 
 include $(BUILD_SHARED_LIBRARY)
 
-# JPEG stub#####################################################################
+# Build all subdirectories #####################################################
+include $(call all-makefiles-under,$(LOCAL_PATH))
 
-ifneq ($(TARGET_BUILD_PDK),true)
-
-include $(CLEAR_VARS)
-
-jpeg_module_relative_path := hw
-jpeg_cflags := -fno-short-enums -DQEMU_HARDWARE
-jpeg_cflags += -Wno-unused-parameter
-jpeg_clang_flags += -Wno-c++11-narrowing
-jpeg_shared_libraries := \
-    libcutils \
-    liblog \
-    libskia \
-    libandroid_runtime
-jpeg_c_includes := external/libjpeg-turbo \
-                   external/skia/include/core/ \
-                   frameworks/base/core/jni/android/graphics \
-                   frameworks/native/include
-jpeg_src := JpegStub.cpp
-
-# JPEG stub - goldfish build####################################################
-
-LOCAL_MODULE_RELATIVE_PATH := ${jpeg_module_relative_path}
-LOCAL_CFLAGS += ${jpeg_cflags}
-LOCAL_CLANG_CFLAGS += ${jpeg_clangflags}
-
-LOCAL_SHARED_LIBRARIES := ${jpeg_shared_libraries}
-LOCAL_C_INCLUDES += ${jpeg_c_includes}
-LOCAL_SRC_FILES := ${jpeg_src}
-
-LOCAL_MODULE := camera.goldfish.jpeg
-
-include $(BUILD_SHARED_LIBRARY)
-
-# JPEG stub - ranchu build######################################################
-
-include ${CLEAR_VARS}
-
-LOCAL_MODULE := camera.ranchu.jpeg
-
-LOCAL_MODULE_RELATIVE_PATH := ${jpeg_module_relative_path}
-LOCAL_CFLAGS += ${jpeg_cflags}
-LOCAL_CLANG_CFLAGS += ${jpeg_clangflags}
-
-LOCAL_SHARED_LIBRARIES := ${jpeg_shared_libraries}
-LOCAL_C_INCLUDES += ${jpeg_c_includes}
-LOCAL_SRC_FILES := ${jpeg_src}
-
-include $(BUILD_SHARED_LIBRARY)
-
-endif # !PDK

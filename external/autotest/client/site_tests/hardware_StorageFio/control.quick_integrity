@@ -8,7 +8,6 @@ PURPOSE = 'Short integrity test to verify the integrity test'
 TIME = 'LENGTHY'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:storagequal"
-SUITE = 'storagequal'
 
 DOC = """
 This test uses FIO to spawn a number of threads to perform a particular type of

@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"אנשי קשר בחירום"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"הוספת איש קשר"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"לא ניתן היה למצוא בוחר אנשי קשר"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"לא ניתן להציג את איש הקשר"</string>
     <string name="remove_contact" msgid="6934983445723096759">"האם להסיר את <xliff:g id="CONTACT_NAME">%1$s</xliff:g> מרשימת אנשי הקשר בחירום?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"הסר את איש הקשר"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"לא ניתן היה לקרוא את הפרטים ליצירת קשר"</string>
     <string name="remove" msgid="1243949503772376064">"הסר"</string>
     <string name="cancel" msgid="7401575239009060939">"ביטול"</string>
     <string name="ok" msgid="163967937451981024">"אישור"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"מידע למקרה חירום"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"מידע שתזין כאן יכול לעזור למגישי עזרה ראשונה במקרה חירום. הוא מאוחסן במכשיר שלך בלבד, אבל כל אחד יכול לקרוא אותו מחייגן החירום ללא ביטול נעילת הטלפון."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"המשך"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"לא סופק מידע למקרה חירום"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"אין מידע על הבעלים של הטלפון"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"אם זהו הטלפון שלך, הקש על סמל העיפרון כדי להוסיף מידע שיוצג כאן במקרה חירום"</string>
     <string name="clear_all" msgid="8899013032870561633">"נקה הכול"</string>
     <string name="clear" msgid="3648880442502887163">"נקה"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"האם לנקות את כל המידע ואנשי הקשר?"</string>

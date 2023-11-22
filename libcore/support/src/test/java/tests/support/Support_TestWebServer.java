@@ -69,6 +69,9 @@ public class Support_TestWebServer implements Support_HttpConstants {
     /* Switch on/off logging */
     boolean mLog = false;
 
+    /* Minimum delay before sending each response */
+    int mDelay = 0;
+
     /* If set, this will keep connections alive after a request has been
      * processed.
      */
@@ -174,6 +177,15 @@ public class Support_TestWebServer implements Support_HttpConstants {
     }
 
     /**
+     * Call this to introduce a minimum delay before server responds to requests. When this value is
+     * not set, no delay will be introduced.
+     * @param delay The delay in milliseconds
+     */
+    public void setDelay(int delay) {
+        mDelay = delay;
+    }
+
+    /**
      * Returns a map from recently-requested paths (like "/index.html") to a
      * snapshot of the request data.
      */
@@ -215,7 +227,7 @@ public class Support_TestWebServer implements Support_HttpConstants {
             while (!closed) {
                 try {
                     Socket s = ss.accept();
-                    new Thread(new Worker(s), "additional worker").start();
+                    new Thread(new Worker(s).setDelay(mDelay), "additional worker").start();
                 } catch (SocketException e) {
                     log(e.getMessage());
                 } catch (IOException e) {
@@ -303,6 +315,9 @@ public class Support_TestWebServer implements Support_HttpConstants {
         /* Indicates whether current request has any data content */
         private boolean hasContent = false;
 
+        /* Optional delay before sending response */
+        private int delay = 0;
+
         /* Request headers are stored here */
         private Map<String, String> headers = new LinkedHashMap<String, String>();
 
@@ -310,6 +325,11 @@ public class Support_TestWebServer implements Support_HttpConstants {
         Worker(Socket s) {
             this.buf = new byte[BUF_SIZE];
             this.s = s;
+        }
+
+        Worker setDelay(int delay) {
+            this.delay = delay;
+            return this;
         }
 
         public synchronized void run() {
@@ -585,6 +605,15 @@ public class Support_TestWebServer implements Support_HttpConstants {
 
                 // Reset test number prior to outputing data
                 testNum = -1;
+
+                // Delay before sending response
+                if (mDelay > 0) {
+                    try {
+                        Thread.sleep(mDelay);
+                    } catch (InterruptedException e) {
+                        // Ignored
+                    }
+                }
 
                 // Write out the data
                 printStatus(ps);

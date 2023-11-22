@@ -19,20 +19,39 @@
 #include "FwmarkCommand.h"
 
 #include <errno.h>
+#include <cutils/properties.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
+
 namespace {
 
 const sockaddr_un FWMARK_SERVER_PATH = {AF_UNIX, "/dev/socket/fwmarkd"};
 
+const bool isBuildDebuggable = property_get_bool("ro.debuggable", 0) == 1;
+
+bool isOverriddenBy(const char *name) {
+    return isBuildDebuggable && getenv(name);
+}
+
 }  // namespace
 
 bool FwmarkClient::shouldSetFwmark(int family) {
-    return (family == AF_INET || family == AF_INET6) && !getenv("ANDROID_NO_USE_FWMARK_CLIENT");
+    if (isOverriddenBy(ANDROID_NO_USE_FWMARK_CLIENT)) {
+        return false;
+    }
+    return family == AF_INET || family == AF_INET6;
+}
+
+bool FwmarkClient::shouldReportConnectComplete(int family) {
+    if (isOverriddenBy(ANDROID_FWMARK_METRICS_ONLY)) {
+        return false;
+    }
+    return shouldSetFwmark(family);
 }
 
 FwmarkClient::FwmarkClient() : mChannel(-1) {
@@ -44,7 +63,7 @@ FwmarkClient::~FwmarkClient() {
     }
 }
 
-int FwmarkClient::send(FwmarkCommand* data, int fd) {
+int FwmarkClient::send(FwmarkCommand* data, int fd, FwmarkConnectInfo* connectInfo) {
     mChannel = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (mChannel == -1) {
         return -errno;
@@ -57,14 +76,14 @@ int FwmarkClient::send(FwmarkCommand* data, int fd) {
         return 0;
     }
 
-    iovec iov;
-    iov.iov_base = data;
-    iov.iov_len = sizeof(*data);
-
+    iovec iov[2] = {
+        { data, sizeof(*data) },
+        { connectInfo, (connectInfo ? sizeof(*connectInfo) : 0) },
+    };
     msghdr message;
     memset(&message, 0, sizeof(message));
-    message.msg_iov = &iov;
-    message.msg_iovlen = 1;
+    message.msg_iov = iov;
+    message.msg_iovlen = ARRAY_SIZE(iov);
 
     union {
         cmsghdr cmh;

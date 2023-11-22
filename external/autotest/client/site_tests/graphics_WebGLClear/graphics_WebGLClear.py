@@ -44,10 +44,11 @@ class graphics_WebGLClear(test.test):
         if self.GSC:
             keyvals = self.GSC.get_memory_keyvals()
             for key, val in keyvals.iteritems():
-                self.output_perf_value(description=key,
-                                       value=val,
-                                       units='bytes',
-                                       higher_is_better=False)
+                self.output_perf_value(
+                    description=key,
+                    value=val,
+                    units='bytes',
+                    higher_is_better=False)
             self.GSC.finalize()
             self.write_perf_keyval(keyvals)
 
@@ -64,10 +65,11 @@ class graphics_WebGLClear(test.test):
         time.sleep(self.test_duration_secs)
         avg_fps = tab.EvaluateJavaScript('g_fpsTimer.averageFPS;')
         self.perf_keyval['avg_fps'] = avg_fps
-        self.output_perf_value(description='avg_fps',
-                               value=avg_fps,
-                               units='fps',
-                               higher_is_better=True)
+        self.output_perf_value(
+            description='avg_fps',
+            value=avg_fps,
+            units='fps',
+            higher_is_better=True)
         logging.info('Average FPS = %f', avg_fps)
 
         tab.Close()
@@ -85,12 +87,13 @@ class graphics_WebGLClear(test.test):
         browser_args = '--disable-gpu-vsync'
 
         with chrome.Chrome(logged_in=False,
-                           extra_browser_args=browser_args) as cr:
+                           extra_browser_args=browser_args,
+                           init_network_controller=True) as cr:
             clearsrc = os.path.join(self.autodir, 'deps', 'webgl_clear', 'src')
             if not cr.browser.platform.SetHTTPServerDirectories(clearsrc):
-                raise error.TestError('Unable to start HTTP server')
-            test_url = cr.browser.platform.http_server.UrlOf(os.path.join(
-                clearsrc, 'WebGLClear.html'))
+                raise error.TestFail('Failed: Unable to start HTTP server')
+            test_url = cr.browser.platform.http_server.UrlOf(
+                os.path.join(clearsrc, 'WebGLClear.html'))
             self.run_clear_test(cr.browser, test_url)
 
         self.write_perf_keyval(self.perf_keyval)

@@ -5,7 +5,6 @@
 NAME='crashme'
 AUTHOR='George J. Carrette'
 ATTRIBUTES = "suite:kernel_per-build_regression"
-SUITE = "kernel_per-build_regression"
 TEST_CATEGORY='Stress'
 TEST_CLASS='Kernel'
 TEST_TYPE='client'

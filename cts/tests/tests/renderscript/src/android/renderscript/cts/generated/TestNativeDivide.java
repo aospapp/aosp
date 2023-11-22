@@ -37,6 +37,13 @@ public class TestNativeDivide extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeDivideRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inLeftVector;
         public float inRightVector;
@@ -44,13 +51,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideFloatFloatFloat() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x751754efl, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x19040daal, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x73477387751754efl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x5ed4412e19040daal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideFloatFloatFloat(inLeftVector, out);
             verifyResultsNativeDivideFloatFloatFloat(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideFloatFloatFloat(inLeftVector, out);
             verifyResultsNativeDivideFloatFloatFloat(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloatFloatFloat: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideFloatFloatFloat(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideFloat2Float2Float2() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x7785d6dl, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xaf507ad4l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x752d5a1207785d6dl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xb071fa74af507ad4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideFloat2Float2Float2(inLeftVector, out);
             verifyResultsNativeDivideFloat2Float2Float2(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloat2Float2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideFloat2Float2Float2(inLeftVector, out);
             verifyResultsNativeDivideFloat2Float2Float2(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloat2Float2Float2: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideFloat2Float2Float2(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideFloat3Float3Float3() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x5fb90198l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x822c0e0dl, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x5623c6c05fb90198l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x79d63bbd822c0e0dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideFloat3Float3Float3(inLeftVector, out);
             verifyResultsNativeDivideFloat3Float3Float3(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloat3Float3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideFloat3Float3Float3(inLeftVector, out);
             verifyResultsNativeDivideFloat3Float3Float3(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloat3Float3Float3: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideFloat3Float3Float3(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideFloat4Float4Float4() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xb7f9a5c3l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x5507a146l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x371a336eb7f9a5c3l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x433a7d065507a146l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideFloat4Float4Float4(inLeftVector, out);
             verifyResultsNativeDivideFloat4Float4Float4(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloat4Float4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideFloat4Float4Float4(inLeftVector, out);
             verifyResultsNativeDivideFloat4Float4Float4(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideFloat4Float4Float4: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideFloat4Float4Float4(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -368,13 +391,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideHalfHalfHalf() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xaeea6bb8l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xcf78e16dl, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x2fac288caeea6bb8l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x3bea90ecf78e16dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideHalfHalfHalf(inLeftVector, out);
             verifyResultsNativeDivideHalfHalfHalf(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalfHalfHalf: " + e.toString());
         }
@@ -383,9 +407,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideHalfHalfHalf(inLeftVector, out);
             verifyResultsNativeDivideHalfHalfHalf(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalfHalfHalf: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideHalfHalfHalf(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -452,13 +479,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideHalf2Half2Half2() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x15982fb6l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xea8cd17l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xffe86bf115982fb6l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xfdddfaec0ea8cd17l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideHalf2Half2Half2(inLeftVector, out);
             verifyResultsNativeDivideHalf2Half2Half2(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf2Half2Half2: " + e.toString());
         }
@@ -467,9 +495,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideHalf2Half2Half2(inLeftVector, out);
             verifyResultsNativeDivideHalf2Half2Half2(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf2Half2Half2: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideHalf2Half2Half2(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -536,13 +567,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideHalf3Half3Half3() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xc1c6525bl, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xfa689ecel, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x58958982c1c6525bl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xe2f1f263fa689ecel, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideHalf3Half3Half3(inLeftVector, out);
             verifyResultsNativeDivideHalf3Half3Half3(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf3Half3Half3: " + e.toString());
         }
@@ -551,9 +583,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideHalf3Half3Half3(inLeftVector, out);
             verifyResultsNativeDivideHalf3Half3Half3(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf3Half3Half3: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideHalf3Half3Half3(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -620,13 +655,14 @@ public class TestNativeDivide extends RSBaseCompute {
     }
 
     private void checkNativeDivideHalf4Half4Half4() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6df47500l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xe6287085l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xb142a7146df47500l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xc805e9dbe6287085l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testNativeDivideHalf4Half4Half4(inLeftVector, out);
             verifyResultsNativeDivideHalf4Half4Half4(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf4Half4Half4: " + e.toString());
         }
@@ -635,9 +671,12 @@ public class TestNativeDivide extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testNativeDivideHalf4Half4Half4(inLeftVector, out);
             verifyResultsNativeDivideHalf4Half4Half4(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeDivideHalf4Half4Half4: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsNativeDivideHalf4Half4Half4(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {

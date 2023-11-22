@@ -13,7 +13,6 @@ CRITERIA = """
 Fail if the list of setuid/gid binaries doesn't match the baseline
 """
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

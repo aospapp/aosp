@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "network_WiMaxPresent"
 ATTRIBUTES = "suite:wimax"
-SUITE = "wimax"
 PURPOSE = "Verify a WiMAX module is detected and supported by the system."
 CRITERIA = """
 This test fails if one of the following conditions occurs:

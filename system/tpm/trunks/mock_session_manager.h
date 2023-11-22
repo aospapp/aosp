@@ -32,11 +32,12 @@ class MockSessionManager : public SessionManager {
 
   MOCK_CONST_METHOD0(GetSessionHandle, TPM_HANDLE());
   MOCK_METHOD0(CloseSession, void());
-  MOCK_METHOD5(StartSession, TPM_RC(TPM_SE,
-                                    TPMI_DH_ENTITY,
-                                    const std::string&,
-                                    bool,
-                                    HmacAuthorizationDelegate*));
+  MOCK_METHOD5(StartSession,
+               TPM_RC(TPM_SE,
+                      TPMI_DH_ENTITY,
+                      const std::string&,
+                      bool,
+                      HmacAuthorizationDelegate*));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockSessionManager);

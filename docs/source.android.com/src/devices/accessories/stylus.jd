@@ -29,11 +29,11 @@ page.title=Stylus
 connections over Bluetooth (BT), Bluetooth Low Energy (BTLE), or USB. The
 platform correlates timing between touch input and stylus data then provides
 stylus data to render MotionEvents to the active application. The following
-sections provide guidelines for OEM partners, stylus accessory creators, and
+sections provide guidelines for OEM device implementers, stylus accessory creators, and
 stylus application developers.</p>
 
-<h2 id="guide-partners">Guidelines for OEM partners</h2>
-<p>To enable Bluetooth stylus support, OEM partners must support Bluetooth
+<h2 id="guide-partners">Guidelines for OEM device implementers</h2>
+<p>To enable Bluetooth stylus support, OEM device implementers must support Bluetooth
 (and should support BTLE for wider compatibility). The platform handles data
 collection, timing correlation, and rendering to the application for supported
 stylus events.</p>
@@ -44,7 +44,7 @@ workaround, we recommend creating a stylus accessory or emulator that can
 simulate stylus events.</p>
 
 <h2 id="guide-creators">Guidelines for stylus accessory creators</h2>
-<p>To implement support on a stylus device, partners must use the Stylus
+<p>To implement support on a stylus device, device implementers must use the Stylus
 Human Interface Device (HID) Descriptor shown below to describe how stylus data
 (pressure sensitivity, eraser, side buttons, device ID, etc.) is represented.
 The stylus device sends the HID information to the Android mobile device,

@@ -21,7 +21,7 @@
 #include "rsdBcc.h"
 #include "rsdElement.h"
 #include "rsdType.h"
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     #include "rsdGL.h"
     #include "rsdProgramStore.h"
     #include "rsdProgramRaster.h"
@@ -44,8 +44,11 @@
 #include <sys/syscall.h>
 #include <string.h>
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::RsHalInitEnums;
+using android::renderscript::RsdCpuReference;
+using android::renderscript::Script;
 
 static void Shutdown(Context *rsc);
 static void SetPriority(const Context *rsc, int32_t priority);
@@ -55,6 +58,9 @@ static void SetPriority(const Context *rsc, int32_t priority);
 #else
     #define NATIVE_FUNC(a) nullptr
 #endif
+
+namespace android {
+namespace renderscript {
 
 extern "C" bool rsdHalQueryHal(RsHalInitEnums entry, void **fnPtr) {
     switch(entry) {
@@ -202,7 +208,7 @@ extern "C" bool rsdHalQueryHal(RsHalInitEnums entry, void **fnPtr) {
     // Functions below this point are for the legacy graphics api,
     // vendor drivers are NOT expected to implement these.  They will never be called
     // for an external driver.
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     case RS_HAL_GRAPHICS_INIT:
         fnPtr[0] = (void *)rsdGLInit; break;
     case RS_HAL_GRAPHICS_SHUTDOWN:
@@ -268,7 +274,8 @@ extern "C" bool rsdHalQueryVersion(uint32_t *major, uint32_t *minor) {
     return true;
 }
 
-
+} // namespace renderscript
+} // namespace android
 
 extern const RsdCpuReference::CpuSymbol * rsdLookupRuntimeStub(Context * pContext, char const* name);
 
@@ -346,7 +353,7 @@ void SetPriority(const Context *rsc, int32_t priority) {
 
     dc->mCpuRef->setPriority(priority);
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (dc->mHasGraphics) {
         rsdGLSetPriority(rsc, priority);
     }

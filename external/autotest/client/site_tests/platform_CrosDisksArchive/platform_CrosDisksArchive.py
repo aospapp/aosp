@@ -151,8 +151,8 @@ class CrosDisksArchiveTester(CrosDisksTester):
             if not test_content.verify(expected_mount_path):
                 raise error.TestFail("Failed to verify filesystem test content")
 
-            self.cros_disks.unmount(expected_mount_path, ['force'])
-            self.cros_disks.unmount(device_file, ['force'])
+            self.cros_disks.unmount(expected_mount_path, ['lazy'])
+            self.cros_disks.unmount(device_file, ['lazy'])
 
     def test_archives(self):
         for archive_type in self._archive_types:

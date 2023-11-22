@@ -15,15 +15,20 @@
  */
 package android.transition.cts;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.MediumTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.Slide;
 import android.view.Gravity;
 
-import junit.framework.TestCase;
-
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class SlideBadEdgeTest extends TestCase {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class SlideBadEdgeTest {
 
     private static final Object[][] sBadGravity = {
             { Gravity.AXIS_CLIP, "AXIS_CLIP" },
@@ -50,12 +55,13 @@ public class SlideBadEdgeTest extends TestCase {
     };
 
     @SmallTest
+    @Test
     public void testBadSide() {
         for (int i = 0; i < sBadGravity.length; i++) {
             int badEdge = (Integer) sBadGravity[i][0];
             String edgeName = (String) sBadGravity[i][1];
             try {
-                Slide slide = new Slide(badEdge);
+                new Slide(badEdge);
                 fail("Should not be able to set slide edge to " + edgeName);
             } catch (IllegalArgumentException e) {
                 // expected

@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 
 dependencies {
     compile project(':support-leanback-v17')
+    compile project(':support-preference-leanback-v17')
 }
 
 android {
@@ -18,8 +19,14 @@ android {
         main.res.srcDirs = ['res']
     }
 
+    signingConfigs {
+        debug {
+            // Use a local debug keystore to avoid build server issues.
+            storeFile project.rootProject.init.debugKeystore
+        }
+    }
+
     lintOptions {
-        // TODO: fix errors and reenable.
         abortOnError false
     }
 

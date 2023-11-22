@@ -1,50 +1,41 @@
 /* 
  * If linux/types.h is already been included, assume it has defined
- * everything we need.  (cross fingers)  Other header files may have 
+ * everything we need.  (cross fingers)  Other header files may have
  * also defined the types that we need.
  */
-#if (!defined(_STDINT_H) && !defined(_UUID_STDINT_H))
-#define _UUID_STDINT_H
+#if (!defined(_LINUX_TYPES_H) && !defined(_BLKID_TYPES_H) && \
+	!defined(_EXT2_TYPES_H))
+#define _EXT2_TYPES_H
 
-typedef unsigned char uint8_t;
-typedef signed char int8_t;
+typedef unsigned char __u8;
+typedef __signed__ char __s8;
+typedef unsigned short __u16;
+typedef __signed__ short __s16;
+typedef unsigned int __u32;
+typedef __signed__ int __s32;
+typedef unsigned long long __u64;
+typedef __signed__ long long __s64;
+#endif
 
-#if (4 == 8)
-typedef int		int64_t;
-typedef unsigned int	uint64_t;
-#elif (4 == 8)
-typedef long		int64_t;
-typedef unsigned long	uint64_t;
-#elif (8 == 8)
-#if defined(__GNUC__)
-typedef __signed__ long long 	int64_t;
+#include <stdint.h> //uintptr_t
+
+/* endian checking stuff */
+#ifndef EXT2_ENDIAN_H_
+#define EXT2_ENDIAN_H_
+
+#ifdef __CHECKER__
+#define __bitwise		__attribute__((bitwise))
+#define __force			__attribute__((force))
 #else
-typedef signed long long 	int64_t;
-#endif
-typedef unsigned long long	uint64_t;
-#endif
-
-#if (4 == 2)
-typedef	int		int16_t;
-typedef	unsigned int	uint16_t;
-#elif (2 == 2)
-typedef	short		int16_t;
-typedef	unsigned short	uint16_t;
-#else
-  ?==error: undefined 16 bit type
+#define __bitwise
+#define __force
 #endif
 
-#if (4 == 4)
-typedef	int		int32_t;
-typedef	unsigned int	uint32_t;
-#elif (4 == 4)
-typedef	long		int32_t;
-typedef	unsigned long	uint32_t;
-#elif (2 == 4)
-typedef	short		int32_t;
-typedef	unsigned short	uint32_t;
-#else
- ?== error: undefined 32 bit type
-#endif
+typedef __u16	__bitwise	__le16;
+typedef __u32	__bitwise	__le32;
+typedef __u64	__bitwise	__le64;
+typedef __u16	__bitwise	__be16;
+typedef __u32	__bitwise	__be32;
+typedef __u64	__bitwise	__be64;
 
-#endif
+#endif /* EXT2_ENDIAN_H_ */

@@ -641,11 +641,13 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         SimpleDateFormat pFormat = new SimpleDateFormat("h z", Locale.ENGLISH);
         try {
             pFormat.parse("14 GMT-23");
+            fail();
         } catch (ParseException expected) {
         }
 
         try {
             pFormat.parse("14 GMT+23");
+            fail();
         } catch (ParseException expected) {
         }
     }

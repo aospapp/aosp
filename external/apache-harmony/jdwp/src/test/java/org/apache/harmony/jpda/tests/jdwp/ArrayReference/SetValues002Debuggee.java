@@ -40,6 +40,7 @@ public class SetValues002Debuggee extends SyncDebuggee {
 
     static SetValues002Debuggee objectArrayField[]; // JDWP_TAG_ARRAY = 91
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: SetValues002Debuggee: START");
 

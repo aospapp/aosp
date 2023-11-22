@@ -47,6 +47,7 @@ public class NormalClass {
     public static String STATIC_FIELD;
     public volatile String VOLATILE_FIELD;
     public transient String TRANSIENT_FIELD;
+    public final static String VALUE_FIELD = "\u2708";
     String PACAKGE_FIELD;
     private String PRIVATE_FIELD;
     protected String PROTECTED_FIELD;

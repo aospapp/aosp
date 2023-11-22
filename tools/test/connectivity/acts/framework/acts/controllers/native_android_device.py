@@ -15,11 +15,11 @@
 #   limitations under the License.
 
 from acts.controllers.android_device import AndroidDevice
-from acts.controllers.adb import is_port_available
-from acts.controllers.adb import get_available_host_port
+from acts.controllers.utils_lib  import host_utils
 import acts.controllers.native as native
 from subprocess import call
 
+import logging
 import time
 
 #TODO(tturney): Merge this into android device
@@ -27,7 +27,9 @@ import time
 ACTS_CONTROLLER_CONFIG_NAME = "NativeAndroidDevice"
 ACTS_CONTROLLER_REFERENCE_NAME = "native_android_devices"
 
-def create(configs, logger):
+
+def create(configs):
+    logger = logging.getLogger()
     ads = get_instances(configs, logger)
     for ad in ads:
         try:
@@ -36,8 +38,10 @@ def create(configs, logger):
             logger.exception("Failed to start sl4n on %s" % ad.serial)
     return ads
 
+
 def destroy(ads):
     pass
+
 
 def get_instances(serials, logger=None):
     """Create AndroidDevice instances from a list of serials.
@@ -54,11 +58,12 @@ def get_instances(serials, logger=None):
         results.append(NativeAndroidDevice(s, logger=logger))
     return results
 
+
 class NativeAndroidDeviceError(Exception):
     pass
 
-class NativeAndroidDevice(AndroidDevice):
 
+class NativeAndroidDevice(AndroidDevice):
     def __del__(self):
         if self.h_port:
             self.adb.forward("--remove tcp:%d" % self.h_port)
@@ -89,16 +94,17 @@ class NativeAndroidDevice(AndroidDevice):
             >>> ad = NativeAndroidDevice()
             >>> droid, ed = ad.get_droid()
         """
-        if not self.h_port or not is_port_available(self.h_port):
-            self.h_port = get_available_host_port()
+        if not self.h_port or not host_utils.is_port_available(self.h_port):
+            self.h_port = host_utils.get_available_host_port()
         self.adb.tcp_forward(self.h_port, self.d_port)
-        pid = self.adb.shell(
-            "ps | grep sl4n | awk '{print $2}'").decode('ascii')
+        pid = self.adb.shell("ps | grep sl4n | awk '{print $2}'").decode(
+            'ascii')
         while (pid):
             self.adb.shell("kill {}".format(pid))
-            pid = self.adb.shell(
-                "ps | grep sl4n | awk '{print $2}'").decode('ascii')
-        call(["adb -s " + self.serial + " shell sh -c \"/system/bin/sl4n\" &"],
+            pid = self.adb.shell("ps | grep sl4n | awk '{print $2}'").decode(
+                'ascii')
+        call(
+            ["adb -s " + self.serial + " shell sh -c \"/system/bin/sl4n\" &"],
             shell=True)
         try:
             time.sleep(3)
@@ -123,7 +129,7 @@ class NativeAndroidDevice(AndroidDevice):
         droid = native.NativeAndroid(port=self.h_port)
         if droid.uid in self._droid_sessions:
             raise bt.SL4NException(("SL4N returned an existing uid for a "
-                "new session. Abort."))
+                                    "new session. Abort."))
             return droid
         self._droid_sessions[droid.uid] = [droid]
         return droid

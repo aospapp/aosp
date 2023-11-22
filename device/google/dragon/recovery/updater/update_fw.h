@@ -19,6 +19,6 @@
 
 #include "edify/expr.h"
 
-int update_fw(Value *fw_file, Value *ec_file, int force);
+int update_fw(const Value *fw_file, const Value *ec_file, int force);
 
 #endif /* _RECOVERY_UPDATE_FW_H_ */

@@ -15,7 +15,7 @@
  */
 package android.uirendering.cts.bitmapverifiers;
 
-import android.annotation.ColorInt;
+import android.support.annotation.ColorInt;
 
 /**
  * Checks to see if a bitmap is entirely a single color

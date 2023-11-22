@@ -33,6 +33,7 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
+import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
 public class OldFileHandlerTest extends TestCase {
@@ -162,11 +163,15 @@ public class OldFileHandlerTest extends TestCase {
         FileHandler h7 = new FileHandler("%t/log/string%u.log");
         h7.publish(r);
         h7.close();
+        boolean assertionPassed = false;
         try {
-            assertFileContent(TEMPPATH + SEP + "log", "string0.log", h
-                    .getFormatter());
-            fail("should assertion failed");
-        } catch (Error e) {
+            assertFileContent(TEMPPATH + SEP + "log", "string0.log", h.getFormatter());
+            assertionPassed = true;
+        } catch (AssertionFailedError e) {
+            // Assertion failed as expected.
+        }
+        if (assertionPassed) {
+            fail("assertion should have failed");
         }
         File file = new File(TEMPPATH + SEP + "log");
         assertTrue("length list of file is incorrect", file.list().length <= 2);

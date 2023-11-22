@@ -70,6 +70,7 @@ char *runJniTests(JNIEnv *env, ...) {
             free(result);
             if (newResult == NULL) {
                 // Shouldn't happen, but deal as gracefully as possible.
+                va_end(args);
                 return NULL;
             }
             result = newResult;

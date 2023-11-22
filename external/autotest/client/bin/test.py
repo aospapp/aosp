@@ -18,11 +18,11 @@
 #       src             eg. tests/<test>/src
 #       tmpdir          eg. tmp/<testname.tag>
 
-import os, traceback, sys, shutil, logging, resource, glob
+import os, logging, resource, glob
 
-from autotest_lib.client.common_lib import error, utils
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import test as common_test
-from autotest_lib.client.bin import sysinfo, os_dep
+from autotest_lib.client.bin import os_dep
 
 
 class test(common_test.base_test):
@@ -108,6 +108,8 @@ class test(common_test.base_test):
 
 
 def runtest(job, url, tag, args, dargs):
+    # Leave some autotest bread crumbs in the system logs.
+    utils.system('logger "autotest runtest %s"' % url, ignore_status=True)
     common_test.runtest(job, url, tag, args, dargs, locals(), globals(),
                         job.sysinfo.log_before_each_test,
                         job.sysinfo.log_after_each_test,

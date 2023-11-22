@@ -23,6 +23,10 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.UserManager;
 import android.test.InstrumentationTestCase;
+import android.text.TextUtils;
+import android.util.Log;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 /**
  * Base class for profile and device based tests.
@@ -42,6 +46,8 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
     protected DevicePolicyManager mDevicePolicyManager;
     protected UserManager mUserManager;
     protected Context mContext;
+
+    private final String mTag = getClass().getSimpleName();
 
     @Override
     protected void setUp() throws Exception {
@@ -64,5 +70,19 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
         final PackageManager pm = mContext.getPackageManager();
         final PackageInfo pi = pm.getPackageInfo(mContext.getPackageName(), /* flags =*/ 0);
         return pi.applicationInfo.targetSdkVersion;
+    }
+
+    /**
+     * Runs a Shell command, returning a trimmed response.
+     */
+    protected String runShellCommand(String template, Object...args) {
+        final String command = String.format(template, args);
+        Log.d(mTag, "runShellCommand(): " + command);
+        try {
+            final String result = SystemUtil.runShellCommand(getInstrumentation(), command);
+            return TextUtils.isEmpty(result) ? "" : result.trim();
+        } catch (Exception e) {
+            throw new RuntimeException("Command '" + command + "' failed: ", e);
+        }
     }
 }

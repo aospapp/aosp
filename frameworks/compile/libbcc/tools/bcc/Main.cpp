@@ -24,6 +24,8 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
+#include <log/log.h>
+
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Config/config.h>
@@ -36,16 +38,11 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <bcc/BCCContext.h>
-#include <bcc/Compiler.h>
-#include <bcc/Config/Config.h>
-#include <bcc/Renderscript/RSCompilerDriver.h>
-#include <bcc/Script.h>
+#include <bcc/CompilerConfig.h>
+#include <bcc/Config.h>
+#include <bcc/Initialization.h>
+#include <bcc/RSCompilerDriver.h>
 #include <bcc/Source.h>
-#include <bcc/Support/Log.h>
-#include <bcc/Support/CompilerConfig.h>
-#include <bcc/Support/Initialization.h>
-#include <bcc/Support/InputFile.h>
-#include <bcc/Support/OutputFile.h>
 
 using namespace bcc;
 
@@ -161,7 +158,7 @@ void extractSourcesAndSlots(const llvm::cl::list<std::string>& optList,
                             std::list<std::list<std::pair<int, int>>>* sourcesAndSlots) {
   for (unsigned i = 0; i < optList.size(); ++i) {
     std::string plan = optList[i];
-    unsigned found = plan.find(":");
+    unsigned found = plan.find(':');
 
     std::string name = plan.substr(0, found);
     std::cerr << "new kernel name: " << name << std::endl;
@@ -171,7 +168,7 @@ void extractSourcesAndSlots(const llvm::cl::list<std::string>& optList,
     std::string s;
     std::list<std::pair<int, int>> planList;
     while (getline(iss, s, '.')) {
-      found = s.find(",");
+      found = s.find(',');
       std::string sourceStr = s.substr(0, found);
       std::string slotStr = s.substr(found + 1);
 
@@ -348,7 +345,7 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;
     }
 
-    std::unique_ptr<RSScript> s(new (std::nothrow) RSScript(*source, RSCD.getConfig()));
+    std::unique_ptr<Script> s(new (std::nothrow) Script(source));
     if (s == nullptr) {
       llvm::errs() << "Out of memory when creating script for file `"
                    << OptInputFilenames[0] << "'!\n";
@@ -356,6 +353,7 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;
     }
 
+    s->setOptimizationLevel(RSCD.getConfig()->getOptimizationLevel());
     llvm::SmallString<80> output(OptOutputPath);
     llvm::sys::path::append(output, "/", OptOutputFilename);
     llvm::sys::path::replace_extension(output, ".o");

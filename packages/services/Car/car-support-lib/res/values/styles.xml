@@ -14,73 +14,81 @@
  limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android" >
-    <style name="CarHeadline1" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
+    <style name="CarHeadline0" >
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_headline_1_size</item>
+        <item name="android:textSize">@dimen/car_headline0_size</item>
+        <item name="android:textColor">@color/car_headline0</item>
+    </style>
+
+    <style name="CarHeadline0.Dark" >
+        <item name="android:textColor">@color/car_headline0_dark</item>
+    </style>
+
+    <style name="CarHeadline0.Light" >
+        <item name="android:textColor">@color/car_headline0_light</item>
+    </style>
+
+    <style name="CarHeadline1" >
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_headline1_size</item>
         <item name="android:textColor">@color/car_headline1</item>
     </style>
 
-    <style name="CarHeadline1.Dark" parent="CarHeadline1" >
+    <style name="CarHeadline1.Dark" >
         <item name="android:textColor">@color/car_headline1_dark</item>
     </style>
 
-    <style name="CarHeadline1.Light" parent="CarHeadline1" >
+    <style name="CarHeadline1.Light" >
         <item name="android:textColor">@color/car_headline1_light</item>
     </style>
 
     <style name="CarHeadline2" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_headline_2_size</item>
+        <item name="android:textSize">@dimen/car_headline2_size</item>
         <item name="android:textColor">@color/car_headline1</item>
 
     </style>
 
-    <style name="CarHeadline2.Dark" parent="CarHeadline2" >
+    <style name="CarHeadline2.Dark" >
         <item name="android:textColor">@color/car_headline1_dark</item>
     </style>
 
-    <style name="CarHeadline2.Light" parent="CarHeadline2" >
+    <style name="CarHeadline2.Light" >
         <item name="android:textColor">@color/car_headline1_light</item>
     </style>
 
     <style name="CarTitle" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/car_title_size</item>
         <item name="android:textColor">@color/car_title</item>
         <item name="android:includeFontPadding">false</item>
     </style>
 
-    <style name="CarTitle.Dark" parent="CarTitle" >
+    <style name="CarTitle.Dark" >
         <item name="android:textColor">@color/car_title_dark</item>
     </style>
 
-    <style name="CarTitle.Light" parent="CarTitle" >
+    <style name="CarTitle.Light" >
         <item name="android:textColor">@color/car_title_light</item>
     </style>
 
     <style name="CarBody1" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_body_1_size</item>
+        <item name="android:textSize">@dimen/car_body1_size</item>
         <item name="android:textColor">@color/car_body1</item>
     </style>
 
-    <style name="CarBody1.Dark" parent="CarBody1" >
+    <style name="CarBody1.Dark" >
         <item name="android:textColor">@color/car_body1_dark</item>
-
     </style>
 
-    <style name="CarBody1.Light" parent="CarBody1" >
+    <style name="CarBody1.Light" >
         <item name="android:textColor">@color/car_body1_light</item>
     </style>
 
     <style name="CarBody2" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_body_2_size</item>
+        <item name="android:textSize">@dimen/car_body2_size</item>
         <item name="android:textColor">@color/car_body2</item>
         <item name="android:includeFontPadding">false</item>
     </style>
@@ -89,33 +97,59 @@
         <item name="android:textColor">@color/car_body2_light</item>
     </style>
 
+    <style name="CarKey1" >
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_key1_size</item>
+        <item name="android:textColor">@color/car_key1</item>
+    </style>
+
+    <style name="CarKey1.Dark" >
+        <item name="android:textColor">@color/car_key1_dark</item>
+    </style>
+
+    <style name="CarKey1.Light" >
+        <item name="android:textColor">@color/car_key1_light</item>
+    </style>
+
+    <style name="CarKey2" >
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_key2_size</item>
+        <item name="android:textColor">@color/car_key2</item>
+    </style>
+
+    <style name="CarKey2.Dark" >
+        <item name="android:textColor">@color/car_key2_dark</item>
+    </style>
+
+    <style name="CarKey2.Light" >
+        <item name="android:textColor">@color/car_key2_light</item>
+    </style>
+
     <style name="CarCaption" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/car_caption_size</item>
         <item name="android:textColor">@color/car_caption</item>
     </style>
 
-    <style name="CarCaption.Dark" parent="CarCaption" >
+    <style name="CarCaption.Dark" >
         <item name="android:textColor">@color/car_caption_dark</item>
     </style>
 
-    <style name="CarCaption.Light" parent="CarCaption" >
+    <style name="CarCaption.Light" >
         <item name="android:textColor">@color/car_caption_light</item>
     </style>
 
     <style name="CarMicro" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/car_micro_size</item>
         <item name="android:textColor">@color/car_micro</item>
     </style>
 
-    <style name="CarMicro.Dark" parent="CarMicro" >
+    <style name="CarMicro.Dark" >
         <item name="android:textColor">@color/car_micro_dark</item>
     </style>
 
-    <style name="CarMicro.Light" parent="CarMicro" >
+    <style name="CarMicro.Light" >
         <item name="android:textColor">@color/car_micro_light</item>
     </style>
 
@@ -131,7 +165,7 @@
     </style>
 
     <style name="Toast" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/car_font</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/car_title_size</item>
         <item name="android:textColor">@color/car_grey_100</item>
@@ -139,16 +173,16 @@
     </style>
 
     <style name="CarUnavailableCategory" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/car_font</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_body_2_size</item>
+        <item name="android:textSize">@dimen/car_body2_size</item>
         <item name="android:textColor">@color/car_unavailable_category</item>
     </style>
 
     <style name="CarTruncatedList" >
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@string/car_font</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_body_2_size</item>
+        <item name="android:textSize">@dimen/car_body2_size</item>
         <item name="android:textColor">@color/car_grey_50</item>
         <item name="android:drawableTint">@color/car_grey_50</item>
     </style>

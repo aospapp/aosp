@@ -35,7 +35,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/android-config.mk
-LOCAL_SHARED_LIBRARIES := $(log_shared_libraries) libcrypto-host
+LOCAL_SHARED_LIBRARIES := $(log_shared_libraries) libcrypto
 LOCAL_SRC_FILES += $(host_src_files)
 LOCAL_CFLAGS += $(host_c_flags)
 LOCAL_C_INCLUDES += $(host_c_includes)

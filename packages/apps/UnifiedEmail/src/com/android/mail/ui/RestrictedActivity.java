@@ -36,9 +36,9 @@ import android.view.Window;
 
 /**
  * {@link RestrictedActivity} gives access to a subset of
- * {@link android.support.v7.app.ActionBarActivity} methods.
+ * {@link android.support.v7.app.AppCompatActivity} methods.
  * These methods match the signatures from
- * {@link android.support.v7.app.ActionBarActivity}.
+ * {@link android.support.v7.app.AppCompatActivity}.
  */
 public interface RestrictedActivity {
     /*
@@ -49,7 +49,7 @@ public interface RestrictedActivity {
     /**
      * @see android.app.Activity#findViewById(int)
      */
-    View findViewById(int id);
+    <T extends View> T findViewById(int id);
 
     /**
      * @see android.app.Activity#finish()
@@ -57,7 +57,7 @@ public interface RestrictedActivity {
     void finish();
 
     /**
-     * @see android.support.v7.app.ActionBarActivity#getSupportActionBar()
+     * @see android.support.v7.app.AppCompatActivity#getSupportActionBar()
      */
     ActionBar getSupportActionBar();
 
@@ -102,7 +102,7 @@ public interface RestrictedActivity {
     Window getWindow();
 
     /**
-     * @see android.support.v7.app.ActionBarActivity#supportInvalidateOptionsMenu()
+     * @see android.support.v7.app.AppCompatActivity#supportInvalidateOptionsMenu()
      */
     void supportInvalidateOptionsMenu();
 
@@ -147,7 +147,7 @@ public interface RestrictedActivity {
     void showDialog(int id);
 
     /**
-     * @see android.support.v7.app.ActionBarActivity#startSupportActionMode(ActionMode.Callback)
+     * @see android.support.v7.app.AppCompatActivity#startSupportActionMode(ActionMode.Callback)
      */
     ActionMode startSupportActionMode(ActionMode.Callback callback);
 

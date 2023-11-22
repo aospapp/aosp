@@ -33,6 +33,7 @@ import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telephony.CarrierConfigManager;
+import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.util.Pair;
@@ -150,7 +151,8 @@ abstract class TelephonyConnection extends Connection {
                     break;
                 case MSG_SUPP_SERVICE_NOTIFY:
                     Log.v(TelephonyConnection.this, "MSG_SUPP_SERVICE_NOTIFY on phoneId : "
-                            +getPhone().getPhoneId());
+                            + getPhone() != null ? Integer.toString(getPhone().getPhoneId())
+                            : "null");
                     SuppServiceNotification mSsNotification = null;
                     if (msg.obj != null && ((AsyncResult) msg.obj).result != null) {
                         mSsNotification =
@@ -254,6 +256,7 @@ abstract class TelephonyConnection extends Connection {
      */
     public abstract static class TelephonyConnectionListener {
         public void onOriginalConnectionConfigured(TelephonyConnection c) {}
+        public void onOriginalConnectionRetry(TelephonyConnection c) {}
     }
 
     private final PostDialListener mPostDialListener = new PostDialListener() {
@@ -482,13 +485,19 @@ abstract class TelephonyConnection extends Connection {
     private boolean mIsCdmaVoicePrivacyEnabled;
 
     /**
+     * Indicates whether this call is an outgoing call.
+     */
+    protected final boolean mIsOutgoing;
+
+    /**
      * Listeners to our TelephonyConnection specific callbacks
      */
     private final Set<TelephonyConnectionListener> mTelephonyListeners = Collections.newSetFromMap(
             new ConcurrentHashMap<TelephonyConnectionListener, Boolean>(8, 0.9f, 1));
 
     protected TelephonyConnection(com.android.internal.telephony.Connection originalConnection,
-            String callId) {
+            String callId, boolean isOutgoingCall) {
+        mIsOutgoing = isOutgoingCall;
         setTelecomCallId(callId);
         if (originalConnection != null) {
             setOriginalConnection(originalConnection);
@@ -681,7 +690,7 @@ abstract class TelephonyConnection extends Connection {
         }
     }
 
-    public void performConference(TelephonyConnection otherConnection) {
+    public void performConference(Connection otherConnection) {
         Log.d(this, "performConference - %s", this);
         if (getPhone() != null) {
             try {
@@ -738,7 +747,7 @@ abstract class TelephonyConnection extends Connection {
         // shown.
         Phone phone = getPhone();
         if (phone != null && phone.isInEcm()) {
-            connectionProperties |= PROPERTY_SHOW_CALLBACK_NUMBER;
+            connectionProperties |= PROPERTY_EMERGENCY_CALLBACK_MODE;
         }
 
         return connectionProperties;
@@ -823,6 +832,7 @@ abstract class TelephonyConnection extends Connection {
         setVideoState(mOriginalConnection.getVideoState());
         setOriginalConnectionCapabilities(mOriginalConnection.getConnectionCapabilities());
         setWifi(mOriginalConnection.isWifi());
+        setAudioModeIsVoip(mOriginalConnection.getAudioModeIsVoip());
         setVideoProvider(mOriginalConnection.getVideoProvider());
         setAudioQuality(mOriginalConnection.getAudioQuality());
         setTechnologyTypeExtra();
@@ -882,7 +892,7 @@ abstract class TelephonyConnection extends Connection {
         String[] filteredCnapNames = null;
         if (carrierConfig != null) {
             filteredCnapNames = carrierConfig.getStringArray(
-                    CarrierConfigManager.FILTERED_CNAP_NAMES_STRING_ARRAY);
+                    CarrierConfigManager.KEY_FILTERED_CNAP_NAMES_STRING_ARRAY);
         }
         if (filteredCnapNames != null) {
             long cnapNameMatches = Arrays.asList(filteredCnapNames)
@@ -958,6 +968,12 @@ abstract class TelephonyConnection extends Connection {
                 b != null && b.getBoolean(CarrierConfigManager.KEY_WIFI_CALLS_CAN_BE_HD_AUDIO);
         boolean canVideoCallsBeHdAudio =
                 b != null && b.getBoolean(CarrierConfigManager.KEY_VIDEO_CALLS_CAN_BE_HD_AUDIO);
+        boolean shouldDisplayHdAudio =
+                b != null && b.getBoolean(CarrierConfigManager.KEY_DISPLAY_HD_AUDIO_PROPERTY_BOOL);
+
+        if (!shouldDisplayHdAudio) {
+            return false;
+        }
 
         if (isVideoCall && !canVideoCallsBeHdAudio) {
             return false;
@@ -973,7 +989,8 @@ abstract class TelephonyConnection extends Connection {
     private boolean canHoldImsCalls() {
         PersistableBundle b = getCarrierConfig();
         // Return true if the CarrierConfig is unavailable
-        return b == null || b.getBoolean(CarrierConfigManager.KEY_ALLOW_HOLD_IN_IMS_CALL_BOOL);
+        return !doesDeviceRespectHoldCarrierConfig() || b == null ||
+                b.getBoolean(CarrierConfigManager.KEY_ALLOW_HOLD_IN_IMS_CALL_BOOL);
     }
 
     private PersistableBundle getCarrierConfig() {
@@ -982,6 +999,23 @@ abstract class TelephonyConnection extends Connection {
             return null;
         }
         return PhoneGlobals.getInstance().getCarrierConfigForSubId(phone.getSubId());
+    }
+
+    /**
+     * Determines if the device will respect the value of the
+     * {@link CarrierConfigManager#KEY_ALLOW_HOLD_IN_IMS_CALL_BOOL} configuration option.
+     *
+     * @return {@code false} if the device always supports holding IMS calls, {@code true} if it
+     *      will use {@link CarrierConfigManager#KEY_ALLOW_HOLD_IN_IMS_CALL_BOOL} to determine if
+     *      hold is supported.
+     */
+    private boolean doesDeviceRespectHoldCarrierConfig() {
+        Phone phone = getPhone();
+        if (phone == null) {
+            return true;
+        }
+        return phone.getContext().getResources().getBoolean(
+                com.android.internal.R.bool.config_device_respects_hold_carrier_config);
     }
 
     /**
@@ -1248,10 +1282,19 @@ abstract class TelephonyConnection extends Connection {
                     setRinging();
                     break;
                 case DISCONNECTED:
-                    setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
-                            mOriginalConnection.getDisconnectCause(),
-                            mOriginalConnection.getVendorDisconnectCause()));
-                    close();
+                    // We can get into a situation where the radio wants us to redial the same
+                    // emergency call on the other available slot. This will not set the state to
+                    // disconnected and will instead tell the TelephonyConnectionService to create
+                    // a new originalConnection using the new Slot.
+                    if (mOriginalConnection.getDisconnectCause() ==
+                            DisconnectCause.DIALED_ON_WRONG_SLOT) {
+                        fireOnOriginalConnectionRetryDial();
+                    } else {
+                        setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
+                                mOriginalConnection.getDisconnectCause(),
+                                mOriginalConnection.getVendorDisconnectCause()));
+                        close();
+                    }
                     break;
                 case DISCONNECTING:
                     break;
@@ -1477,6 +1520,13 @@ abstract class TelephonyConnection extends Connection {
     }
 
     /**
+     * @return {@code true} if this is an outgoing call, {@code false} otherwise.
+     */
+    boolean isOutgoingCall() {
+        return mIsOutgoing;
+    }
+
+    /**
      * Sets the current call audio quality. Used during rebuild of the properties
      * to set or unset the {@link Connection#PROPERTY_HIGH_DEF_AUDIO} property.
      *
@@ -1510,6 +1560,14 @@ abstract class TelephonyConnection extends Connection {
      */
     public void setVideoPauseSupported(boolean isVideoPauseSupported) {
         mIsVideoPauseSupported = isVideoPauseSupported;
+    }
+
+    /**
+     * @return {@code true} if this connection supports pausing the outgoing video using the
+     * {@link android.telecom.VideoProfile#STATE_PAUSED} VideoState.
+     */
+    public boolean getVideoPauseSupported() {
+        return mIsVideoPauseSupported;
     }
 
     /**
@@ -1629,6 +1687,12 @@ abstract class TelephonyConnection extends Connection {
         }
     }
 
+    private final void fireOnOriginalConnectionRetryDial() {
+        for (TelephonyConnectionListener l : mTelephonyListeners) {
+            l.onOriginalConnectionRetry(this);
+        }
+    }
+
     /**
      * Handles exiting ECM mode.
      */
@@ -1651,7 +1715,7 @@ abstract class TelephonyConnection extends Connection {
         boolean isVoWifiEnabled = false;
         if (isIms) {
             ImsPhone imsPhone = (ImsPhone) phone;
-            isVoWifiEnabled = imsPhone.isWifiCallingEnabled();
+            isVoWifiEnabled = ImsUtil.isWfcEnabled(phone.getContext());
         }
         PhoneAccountHandle phoneAccountHandle = isIms ? PhoneUtils
                 .makePstnPhoneAccountHandle(phone.getDefaultPhone())

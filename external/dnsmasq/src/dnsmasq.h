@@ -644,6 +644,7 @@ extern struct daemon {
   struct doctor *doctors;
   unsigned short edns_pktsz;
   char *tftp_prefix; 
+  uint32_t listen_mark;
 
   /* globally used stuff for DNS */
   char *packet; /* packet buffer */

@@ -96,6 +96,7 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
      * Launches new debuggee process according to test run options and
      * establishes JDWP connection.
      */
+    @Override
     public void start() {
         String cmdLine = settings.getDebuggeeJavaPath() + " -cp \""
                 + settings.getDebuggeeClassPath() + "\" -agentlib:"
@@ -121,18 +122,18 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
      * Closes all connections, stops redirectors, and waits for debuggee process
      * exit for default timeout.
      */
+    @Override
     public void stop() {
         disposeConnection();
 
-        finishProcessAndRedirectors();
-
-        closeConnection();
-        if (settings.isListenConnectorKind()) {
-            try {
-                transport.stopListening();
-            } catch (IOException e) {
-                logWriter.println("IOException in stopping transport listening: " + e);
-            }
+        try {
+            finishProcessAndRedirectors();
+        } finally {
+            // If the test has failed (e.g. a TestErrorException is
+            // thrown), make sure that the transport server socket (if
+            // any) is closed before leaving, as we may otherwise
+            // block the transport port for subsequent JDWP tests.
+            tearDownConnection();
         }
     }
 
@@ -178,6 +179,20 @@ public class JDWPUnitDebuggeeWrapper extends JDWPUnitDebuggeeProcessWrapper {
                 vmMirror.closeConnection();
             } catch (IOException e) {
                 logWriter.println("Ignoring exception in closing connection: " + e);
+            }
+        }
+    }
+
+    /**
+     * Closes JDWP connection and for listen connectors, stops listening to transport.
+     */
+    private void tearDownConnection() {
+        closeConnection();
+        if (settings.isListenConnectorKind()) {
+            try {
+                transport.stopListening();
+            } catch (IOException e) {
+                logWriter.println("IOException in transport listening stopping: " + e);
             }
         }
     }

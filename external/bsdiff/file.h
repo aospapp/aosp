@@ -29,7 +29,7 @@ class File : public FileInterface {
  private:
   // Creates the File instance for the |fd|. Takes ownership of the file
   // descriptor.
-  File(int fd);
+  explicit File(int fd);
 
   int fd_;
 };

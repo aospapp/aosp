@@ -18,25 +18,7 @@ package android.text.method.cts;
 
 import android.view.KeyEvent;
 
-import junit.framework.Assert;
-
 public class TextMethodUtils {
-    /**
-     * Assert that two char arrays are equal.
-     *
-     * @param expected the expected char array.
-     * @param actual the actual char array.
-     */
-    public static void assertEquals(char[] expected, char[] actual) {
-        if (expected != actual) {
-            if (expected == null || actual == null) {
-                Assert.fail("the char arrays are not equal");
-            }
-
-            Assert.assertEquals(String.valueOf(expected), String.valueOf(actual));
-        }
-    }
-
     /**
      * Get an unaccepted key code.
      *

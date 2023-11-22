@@ -18,7 +18,7 @@ package com.android.phone;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.app.Dialog;
@@ -189,47 +189,6 @@ public class OutgoingCallBroadcaster extends Activity
 
             final PhoneGlobals app = PhoneGlobals.getInstance();
             final Phone phone = PhoneGlobals.getPhone();
-
-            // OTASP-specific checks.
-            // TODO: This should probably all happen in
-            // OutgoingCallBroadcaster.onCreate(), since there's no reason to
-            // even bother with the NEW_OUTGOING_CALL broadcast if we're going
-            // to disallow the outgoing call anyway...
-            if (TelephonyCapabilities.supportsOtasp(phone)) {
-                boolean activateState = (app.cdmaOtaScreenState.otaScreenState
-                        == OtaUtils.CdmaOtaScreenState.OtaScreenState.OTA_STATUS_ACTIVATION);
-                boolean dialogState = (app.cdmaOtaScreenState.otaScreenState
-                        == OtaUtils.CdmaOtaScreenState.OtaScreenState
-                        .OTA_STATUS_SUCCESS_FAILURE_DLG);
-                boolean isOtaCallActive = false;
-
-                // TODO: Need cleaner way to check if OTA is active.
-                // Also, this check seems to be broken in one obscure case: if
-                // you interrupt an OTASP call by pressing Back then Skip,
-                // otaScreenState somehow gets left in either PROGRESS or
-                // LISTENING.
-                if ((app.cdmaOtaScreenState.otaScreenState
-                        == OtaUtils.CdmaOtaScreenState.OtaScreenState.OTA_STATUS_PROGRESS)
-                        || (app.cdmaOtaScreenState.otaScreenState
-                        == OtaUtils.CdmaOtaScreenState.OtaScreenState.OTA_STATUS_LISTENING)) {
-                    isOtaCallActive = true;
-                }
-
-                if (activateState || dialogState) {
-                    // The OTASP sequence is active, but either (1) the call
-                    // hasn't started yet, or (2) the call has ended and we're
-                    // showing the success/failure screen.  In either of these
-                    // cases it's OK to make a new outgoing call, but we need
-                    // to take down any OTASP-related UI first.
-                    if (dialogState) app.dismissOtaDialogs();
-                    app.clearOtaState();
-                } else if (isOtaCallActive) {
-                    // The actual OTASP call is active.  Don't allow new
-                    // outgoing calls at all from this state.
-                    Log.w(TAG, "OTASP call is active: disallowing a new outgoing call.");
-                    return false;
-                }
-            }
 
             if (number == null) {
                 if (DBG) Log.v(TAG, "CALL cancelled (null number), returning...");
@@ -429,9 +388,9 @@ public class OutgoingCallBroadcaster extends Activity
         int launchedFromUid;
         String launchedFromPackage;
         try {
-            launchedFromUid = ActivityManagerNative.getDefault().getLaunchedFromUid(
+            launchedFromUid = ActivityManager.getService().getLaunchedFromUid(
                     getActivityToken());
-            launchedFromPackage = ActivityManagerNative.getDefault().getLaunchedFromPackage(
+            launchedFromPackage = ActivityManager.getService().getLaunchedFromPackage(
                     getActivityToken());
         } catch (RemoteException e) {
             launchedFromUid = -1;

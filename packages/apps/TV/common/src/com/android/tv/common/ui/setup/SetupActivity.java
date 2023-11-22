@@ -49,6 +49,7 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        SetupAnimationHelper.initialize(this);
         setContentView(R.layout.activity_setup);
         mFragmentTransitionDuration = getResources().getInteger(
                 R.integer.setup_fragment_transition_duration);
@@ -129,19 +130,26 @@ public abstract class SetupActivity extends Activity implements OnActionClickLis
     }
 
     @Override
-    public void onActionClick(String category, int actionId) {
+    public boolean onActionClick(String category, int actionId, Bundle params) {
         if (mHandler.hasMessages(MSG_EXECUTE_ACTION)) {
-            return;
+            return false;
         }
-        executeAction(category, actionId);
+        return executeAction(category, actionId, params);
     }
 
     protected void executeActionWithDelay(Runnable action, int delayMs) {
         mHandler.sendMessageDelayed(mHandler.obtainMessage(MSG_EXECUTE_ACTION, action), delayMs);
     }
 
-    // Override this method if the inherited class wants to handle the action.
-    protected void executeAction(String category, int actionId) { }
+    /**
+     * Override this method if the inherited class wants to handle the action.
+     * <p>
+     * The override method should return {@code true} if the action is handled, otherwise
+     * {@code false}.
+     */
+    protected boolean executeAction(String category, int actionId, Bundle params) {
+        return false;
+    }
 
     /**
      * Returns the duration of the shared element transition.

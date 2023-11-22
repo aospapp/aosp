@@ -60,8 +60,8 @@ struct mpsse_context* MPSSE(enum modes mode, int freq, int endianess) {
   struct mpsse_context* mpsse = NULL;
 
   for (i = 0; supported_devices[i].vid != 0; i++) {
-    mpsse = Open(supported_devices[i].vid, supported_devices[i].pid, mode,
-                 freq, endianess, IFACE_A, NULL, NULL);
+    mpsse = Open(supported_devices[i].vid, supported_devices[i].pid, mode, freq,
+                 endianess, IFACE_A, NULL, NULL);
     if (mpsse) {
       mpsse->description = supported_devices[i].description;
       return mpsse;
@@ -885,9 +885,8 @@ uint8_t* Transfer(struct mpsse_context* mpsse, uint8_t* data, int size)
             rxsize = SPI_TRANSFER_SIZE;
           }
 
-          txdata =
-              build_block_buffer(mpsse, mpsse->txrx, data + n,
-                                 rxsize, &data_size);
+          txdata = build_block_buffer(mpsse, mpsse->txrx, data + n, rxsize,
+                                      &data_size);
           if (txdata) {
             retval = raw_write(mpsse, txdata, data_size);
             free(txdata);

@@ -16,15 +16,20 @@
 
 package android.widget.cts;
 
-
-import android.test.InstrumentationTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.RemoteViews;
-import android.widget.RemoteViews.ActionException;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
- * Test {@link ActionException}.
+ * Test {@link RemoteViews.ActionException}.
  */
-public class RemoteViews_ActionExceptionTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RemoteViews_ActionExceptionTest {
+    @Test
     public void testConstructor() {
         String message = "This is exception message";
         new RemoteViews.ActionException(message);

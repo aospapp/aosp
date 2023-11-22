@@ -39,8 +39,7 @@ import java.util.ArrayList;
  * used with the platform {@link android.app.Fragment} APIs.  You will not
  * normally use this, instead using action bar tabs.
  */
-public class FragmentTabHost extends TabHost
-        implements TabHost.OnTabChangeListener {
+public class FragmentTabHost extends TabHost implements TabHost.OnTabChangeListener {
     private final ArrayList<TabInfo> mTabs = new ArrayList<TabInfo>();
     private FrameLayout mRealTabContent;
     private Context mContext;
@@ -51,10 +50,10 @@ public class FragmentTabHost extends TabHost
     private boolean mAttached;
 
     static final class TabInfo {
-        private final String tag;
-        private final Class<?> clss;
-        private final Bundle args;
-        private Fragment fragment;
+        final String tag;
+        final Class<?> clss;
+        final Bundle args;
+        Fragment fragment;
 
         TabInfo(String _tag, Class<?> _class, Bundle _args) {
             tag = _tag;
@@ -86,7 +85,7 @@ public class FragmentTabHost extends TabHost
             super(superState);
         }
 
-        private SavedState(Parcel in) {
+        SavedState(Parcel in) {
             super(in);
             curTab = in.readString();
         }
@@ -172,7 +171,8 @@ public class FragmentTabHost extends TabHost
      * call {@link #setup(Context, FragmentManager)} or
      * {@link #setup(Context, FragmentManager, int)}.
      */
-    @Override @Deprecated
+    @Override
+    @Deprecated
     public void setup() {
         throw new IllegalStateException(
                 "Must call setup() that takes a Context and FragmentManager");

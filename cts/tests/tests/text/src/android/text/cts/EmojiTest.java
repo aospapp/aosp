@@ -16,38 +16,54 @@
 
 package android.text.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Context;
-import android.cts.util.NullWebViewUtils;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Picture;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.TypedValue;
 import android.view.KeyEvent;
-import android.view.Menu;
 import android.view.View;
-import android.widget.TextView;
-import android.widget.EditText;
 import android.webkit.cts.WebViewOnUiThread;
+import android.widget.EditText;
+import android.widget.TextView;
 
-public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity> {
+import com.android.compatibility.common.util.NullWebViewUtils;
 
-    public EmojiTest() {
-        super("android.text.cts", EmojiCtsActivity.class);
-    }
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class EmojiTest {
+    private Context mContext;
+    private EditText mEditText;
 
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @Rule
+    public ActivityTestRule<EmojiCtsActivity> mActivityRule =
+            new ActivityTestRule<>(EmojiCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mContext = mActivityRule.getActivity();
     }
 
     /**
      * Tests all Emoji are defined in Character class
      */
+    @Test
     public void testEmojiCodePoints() {
         for (int i = 0; i < EmojiConstants.emojiCodePoints.length; i++) {
             assertTrue(Character.isDefined(EmojiConstants.emojiCodePoints[i]));
@@ -78,8 +94,10 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
      * Tests Emoji has different glyph for different meaning characters.
      * Test on Canvas, TextView, EditText and WebView
      */
+    @UiThreadTest
+    @Test
     public void testEmojiGlyph() {
-        CaptureCanvas ccanvas = new CaptureCanvas(getInstrumentation().getContext());
+        CaptureCanvas ccanvas = new CaptureCanvas(mContext);
 
         Bitmap mBitmapA, mBitmapB;  // Emoji displayed Bitmaps to compare
 
@@ -103,17 +121,17 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
             assertFalse(baseMessage + bmpDiffMessage, mBitmapA.sameAs(mBitmapB));
 
             // cannot reuse CaptureTextView as 2nd setText call throws NullPointerException
-            CaptureTextView cviewA = new CaptureTextView(getInstrumentation().getContext());
+            CaptureTextView cviewA = new CaptureTextView(mContext);
             mBitmapA = cviewA.capture(Character.toChars(comparedCodePoints[i][0]));
-            CaptureTextView cviewB = new CaptureTextView(getInstrumentation().getContext());
+            CaptureTextView cviewB = new CaptureTextView(mContext);
             mBitmapB = cviewB.capture(Character.toChars(comparedCodePoints[i][1]));
 
             bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
             assertFalse(baseMessage + bmpDiffMessage, mBitmapA.sameAs(mBitmapB));
 
-            CaptureEditText cedittextA = new CaptureEditText(getInstrumentation().getContext());
+            CaptureEditText cedittextA = new CaptureEditText(mContext);
             mBitmapA = cedittextA.capture(Character.toChars(comparedCodePoints[i][0]));
-            CaptureEditText cedittextB = new CaptureEditText(getInstrumentation().getContext());
+            CaptureEditText cedittextB = new CaptureEditText(mContext);
             mBitmapB = cedittextB.capture(Character.toChars(comparedCodePoints[i][1]));
 
             bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
@@ -121,9 +139,8 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
 
             // Trigger activity bringup so we can determine if a WebView is available on this
             // device.
-            EmojiCtsActivity activity = getActivity();
             if (NullWebViewUtils.isWebViewAvailable()) {
-                CaptureWebView cwebview = new CaptureWebView(getInstrumentation().getContext());
+                CaptureWebView cwebview = new CaptureWebView();
                 mBitmapA = cwebview.capture(Character.toChars(comparedCodePoints[i][0]));
                 mBitmapB = cwebview.capture(Character.toChars(comparedCodePoints[i][1]));
                 bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
@@ -135,6 +152,8 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
     /**
      * Tests EditText handles Emoji
      */
+    @LargeTest
+    @Test
     public void testEmojiEditable() throws Throwable {
         int testedCodePoints[] = {
             0xAE,    // registered mark
@@ -148,28 +167,24 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
         for (int i = 0; i < testedCodePoints.length; i++) {
             origStr = "Test character  ";
             // cannot reuse CaptureTextView as 2nd setText call throws NullPointerException
-            final EditText editText = new EditText(getInstrumentation().getContext());
-            editText.setText(origStr + String.valueOf(Character.toChars(testedCodePoints[i])));
+            mActivityRule.runOnUiThread(() -> mEditText = new EditText(mContext));
+            mEditText.setText(origStr + String.valueOf(Character.toChars(testedCodePoints[i])));
 
             // confirm the emoji is added.
-            newStr = editText.getText().toString();
+            newStr = mEditText.getText().toString();
             assertEquals(newStr.codePointCount(0, newStr.length()), origStr.length() + 1);
 
-            runTestOnUiThread(new Runnable() {
-                public void run() {
-                    // Delete added character by sending KEYCODE_DEL event
-                    editText.dispatchKeyEvent(
-                            new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL));
-                }
-            });
-            getInstrumentation().waitForIdleSync();
+            // Delete added character by sending KEYCODE_DEL event
+            mActivityRule.runOnUiThread(() -> mEditText.dispatchKeyEvent(
+                    new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL)));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-            newStr = editText.getText().toString();
+            newStr = mEditText.getText().toString();
             assertEquals(newStr.codePointCount(0, newStr.length()), origStr.length() + 1);
         }
     }
 
-    private class CaptureCanvas extends View {
+    private static class CaptureCanvas extends View {
 
         String mTestStr;
         Paint paint = new Paint();
@@ -201,7 +216,7 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
 
     }
 
-    private class CaptureTextView extends TextView {
+    private static class CaptureTextView extends TextView {
 
         CaptureTextView(Context context) {
             super(context);
@@ -225,7 +240,7 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
 
     }
 
-    private class CaptureEditText extends EditText {
+    private static class CaptureEditText extends EditText {
 
         CaptureEditText(Context context) {
             super(context);
@@ -254,13 +269,15 @@ public class EmojiTest extends ActivityInstrumentationTestCase2<EmojiCtsActivity
 
         WebViewOnUiThread webViewOnUiThread;
         Bitmap bitmap;
-        CaptureWebView(Context context) {
-            webViewOnUiThread = new WebViewOnUiThread(EmojiTest.this, getActivity().getWebView());
+        CaptureWebView() {
+            webViewOnUiThread = new WebViewOnUiThread(mActivityRule,
+                    mActivityRule.getActivity().getWebView());
         }
 
         Bitmap capture(char c[]) {
 
-            webViewOnUiThread.loadDataAndWaitForCompletion("<html><body>" + String.valueOf(c) + "</body></html>",
+            webViewOnUiThread.loadDataAndWaitForCompletion(
+                    "<html><body>" + String.valueOf(c) + "</body></html>",
                     "text/html; charset=utf-8", "utf-8");
             // The Chromium-powered WebView renders asynchronously and there's nothing reliable
             // we can easily wait for to be sure that capturePicture will return a fresh frame.

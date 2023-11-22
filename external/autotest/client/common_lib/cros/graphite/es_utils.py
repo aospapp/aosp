@@ -79,8 +79,13 @@ except ImportError:
     elasticsearch_helpers = elasticsearch.Elasticsearch()
 
 
+# Global timeout for connection to esdb timeout.
 DEFAULT_TIMEOUT = 30
 
+# Default result size for a query.
+DEFAULT_RESULT_SIZE = 10**4
+# Default result size when scrolling query results.
+DEFAULT_SCROLL_SIZE = 5*10**4
 
 class EsUtilException(Exception):
     """Exception raised when functions here fail. """
@@ -225,8 +230,9 @@ class ESMetadata(object):
 
 
     def _compose_query(self, equality_constraints=[], fields_returned=None,
-                       range_constraints=[], size=1000000, sort_specs=None,
-                       regex_constraints=[], batch_constraints=[]):
+                       range_constraints=[], size=DEFAULT_RESULT_SIZE,
+                       sort_specs=None, regex_constraints=[],
+                       batch_constraints=[]):
         """Creates a dict. representing multple range and/or equality queries.
 
         Example input:
@@ -294,7 +300,7 @@ class ESMetadata(object):
             e.g. [ ('field1', 2, 10), ('field2', -1, 20) ]
             If you want one side to be unbounded, you can use None.
             e.g. [ ('field1', 2, None) ] means value of field1 >= 2.
-        @param size: max number of entries to return. Default is 1000000.
+        @param size: max number of entries to return. Default is 100000.
         @param sort_specs: A list of fields to sort on, tiebreakers will be
             broken by the next field(s).
         @param regex_constraints: A list of regex constraints of tuples of
@@ -406,25 +412,28 @@ class ESMetadata(object):
             logging.error('Index (%s) does not exist on %s:%s',
                           self.index, self.host, self.port)
             return None
-        result = self.es.search(index=self.index, body=query,
-                                timeout=DEFAULT_TIMEOUT,
-                                request_timeout=DEFAULT_TIMEOUT)
+        result = self.es.search(index=self.index, body=query)
         # Check if all matched records are returned. It could be the size is
         # set too small. Special case for size set to 1, as that means that
         # the query cares about the first matched entry.
         # TODO: Use pagination in Elasticsearch. This needs major change on how
         #       query results are iterated.
         size = query.get('size', 1)
+        need_scroll = 'size' in query and size == DEFAULT_RESULT_SIZE
         return_count = len(result['hits']['hits'])
         total_match = result['hits']['total']
-        if total_match > return_count and size != 1:
-            logging.error('There are %d matched records, only %d entries are '
-                          'returned. Query size is set to %d.', total_match,
-                          return_count, size)
-
+        if total_match > return_count and need_scroll:
+            logging.warn('There are %d matched records, only %d entries are '
+                         'returned. Query size is set to %d. Will try to use '
+                         'scroll command to get all entries.', total_match,
+                         return_count, size)
+            # Try to get all results with scroll.
+            hits = self._get_results_by_scan(query, total_match)
+        else:
+            hits = result['hits']['hits']
         # Extract the actual results from the query.
         output = QueryResult(total_match, [])
-        for hit in result['hits']['hits']:
+        for hit in hits:
             converted = {}
             if 'fields' in hit:
                 for key, value in hit['fields'].items():
@@ -433,6 +442,57 @@ class ESMetadata(object):
                 converted = hit['_source'].copy()
             output.hits.append(converted)
         return output
+
+
+    def _get_results_by_scan(self, query, total_match=None):
+        """Get all results by using scan.
+
+        @param query: query dictionary (see _compose_query)
+        @param total_match: The number of total matched results. Pass the value
+                in so the code doesn't need to run another query to get it.
+
+        @returns: A list of matched results.
+        """
+        if True or not total_match:
+            # Reduce the return size to make the query run faster.
+            query['size'] = 1
+            result = self.es.search(index=self.index, body=query)
+            total_match = result['hits']['total']
+        # Remove the sort from query so scroll method can run faster.
+        sort = None
+        if 'sort' in query:
+            sort = query['sort']
+            if len(sort) > 1:
+                raise EsUtilException('_get_results_by_scan does not support '
+                                      'sort with more than one key: %s', sort)
+            del query['sort']
+        del query['size']
+        scroll = elasticsearch_helpers.scan(self.es, query=query,
+                                            index=self.index,
+                                            size=DEFAULT_SCROLL_SIZE)
+        hits = []
+        next_mark = 0
+        for hit in scroll:
+          hits.append(hit)
+          downloaded_percent = 100 * float(len(hits))/total_match
+          if downloaded_percent > next_mark:
+              logging.debug('%2.0f%% downloaded (%d)', downloaded_percent,
+                            len(hits))
+              next_mark += 5
+        logging.debug('Number of hits found: %s', len(hits))
+
+        if sort:
+            logging.debug('Sort hits with rule: %s', sort)
+            sort_key = sort[0].keys()[0]
+            is_desc = sort[0].values()[0] == 'desc'
+            # If the query has `fields` specified, the dict of hit stores value
+            # in hit['fields'], otherwise, the keyvals are stored in
+            # hit['_source'].
+            key = lambda hit:(hit['_source'][sort_key] if '_source' in hit else
+                              hit['fields'][sort_key][0])
+            hits = sorted(hits, key=key, reverse=is_desc)
+
+        return hits
 
 
     def query(self, *args, **kwargs):

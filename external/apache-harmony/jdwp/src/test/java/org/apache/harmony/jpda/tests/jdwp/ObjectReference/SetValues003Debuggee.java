@@ -39,6 +39,7 @@ public class SetValues003Debuggee extends SyncDebuggee {
     SetValues003Debuggee_ExtraClass objectField;
     static SetValues003Debuggee_ExtraClass objectFieldCopy;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: SetValues003Debuggee: START");
         setValues003DebuggeeObject = new SetValues003Debuggee();

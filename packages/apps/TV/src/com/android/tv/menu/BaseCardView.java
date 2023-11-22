@@ -21,10 +21,13 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Outline;
+import android.support.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.android.tv.R;
 
@@ -44,6 +47,16 @@ public abstract class BaseCardView<T> extends LinearLayout implements ItemListRo
     private final float mVerticalCardMargin;
     private final float mCardCornerRadius;
     private float mFocusAnimatedValue;
+    private boolean mExtendViewOnFocus;
+    private final float mExtendedCardHeight;
+    private final float mTextViewHeight;
+    private final float mExtendedTextViewHeight;
+    @Nullable
+    private TextView mTextView;
+    @Nullable
+    private TextView mTextViewFocused;
+    private final int mCardImageWidth;
+    private final float mCardHeight;
 
     public BaseCardView(Context context) {
         this(context, null);
@@ -72,16 +85,42 @@ public abstract class BaseCardView<T> extends LinearLayout implements ItemListRo
                 outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), mCardCornerRadius);
             }
         });
+        mCardImageWidth = getResources().getDimensionPixelSize(R.dimen.card_image_layout_width);
+        mCardHeight = getResources().getDimensionPixelSize(R.dimen.card_layout_height);
+        mExtendedCardHeight = getResources().getDimensionPixelSize(
+                R.dimen.card_layout_height_extended);
+        mTextViewHeight = getResources().getDimensionPixelSize(R.dimen.card_meta_layout_height);
+        mExtendedTextViewHeight = getResources().getDimensionPixelOffset(
+                R.dimen.card_meta_layout_height_extended);
+    }
+
+    @Override
+    protected void onFinishInflate() {
+        super.onFinishInflate();
+        mTextView = (TextView) findViewById(R.id.card_text);
+        mTextViewFocused = (TextView) findViewById(R.id.card_text_focused);
     }
 
     /**
      * Called when the view is displayed.
+     *
+     * Before onBind is called, this view's text should be set to determine if it'll be extended
+     * or not in focus state.
      */
     @Override
     public void onBind(T item, boolean selected) {
-        // Note that getCardHeight() will be called by setFocusAnimatedValue().
-        // Therefore, be sure that getCardHeight() has a proper value before this method is called.
-       setFocusAnimatedValue(selected ? SCALE_FACTOR_1F : SCALE_FACTOR_0F);
+        if (mTextView != null && mTextViewFocused != null) {
+            mTextViewFocused.measure(
+                    MeasureSpec.makeMeasureSpec(mCardImageWidth, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+            mExtendViewOnFocus = mTextViewFocused.getLineCount() > 1;
+            if (mExtendViewOnFocus) {
+                setTextViewFocusedAlpha(selected ? 1f : 0f);
+            } else {
+                setTextViewFocusedAlpha(1f);
+            }
+        }
+        setFocusAnimatedValue(selected ? SCALE_FACTOR_1F : SCALE_FACTOR_0F);
     }
 
     @Override
@@ -108,10 +147,48 @@ public abstract class BaseCardView<T> extends LinearLayout implements ItemListRo
     }
 
     /**
+     * Sets text of this card view.
+     */
+    public void setText(int resId) {
+        if (mTextViewFocused != null) {
+            mTextViewFocused.setText(resId);
+        }
+        if (mTextView != null) {
+            mTextView.setText(resId);
+        }
+    }
+
+    /**
+     * Sets text of this card view.
+     */
+    public void setText(String text) {
+        if (mTextViewFocused != null) {
+            mTextViewFocused.setText(text);
+        }
+        if (mTextView != null) {
+            mTextView.setText(text);
+        }
+    }
+
+    /**
+     * Enables or disables text view of this card view.
+     */
+    public void setTextViewEnabled(boolean enabled) {
+        if (mTextViewFocused != null) {
+            mTextViewFocused.setEnabled(enabled);
+        }
+        if (mTextView != null) {
+            mTextView.setEnabled(enabled);
+        }
+    }
+
+    /**
      * Called when the focus animation started.
      */
     protected void onFocusAnimationStart(boolean selected) {
-        // do nothing.
+        if (mExtendViewOnFocus) {
+            setTextViewFocusedAlpha(selected ? 1f : 0f);
+        }
     }
 
     /**
@@ -126,10 +203,19 @@ public abstract class BaseCardView<T> extends LinearLayout implements ItemListRo
      * between {@code SCALE_FACTOR_0F} and {@code SCALE_FACTOR_1F}.
      */
     protected void onSetFocusAnimatedValue(float animatedValue) {
-        float scale = 1f + (mVerticalCardMargin / getCardHeight()) * animatedValue;
+        float cardViewHeight = (mExtendViewOnFocus && isFocused())
+                ? mExtendedCardHeight : mCardHeight;
+        float scale = 1f + (mVerticalCardMargin / cardViewHeight) * animatedValue;
         setScaleX(scale);
         setScaleY(scale);
         setTranslationZ(mFocusTranslationZ * animatedValue);
+        if (mExtendViewOnFocus) {
+            ViewGroup.LayoutParams params = mTextView.getLayoutParams();
+            params.height = Math.round(mTextViewHeight
+                    + (mExtendedTextViewHeight - mTextViewHeight) * animatedValue);
+            setTextViewLayoutParams(params);
+            setTextViewFocusedAlpha(animatedValue);
+        }
     }
 
     private void setFocusAnimatedValue(float animatedValue) {
@@ -171,8 +257,13 @@ public abstract class BaseCardView<T> extends LinearLayout implements ItemListRo
         }
     }
 
-    /**
-     * The implementation should return the height of the card.
-     */
-    protected abstract float getCardHeight();
+    private void setTextViewLayoutParams(ViewGroup.LayoutParams params) {
+        mTextViewFocused.setLayoutParams(params);
+        mTextView.setLayoutParams(params);
+    }
+
+    private void setTextViewFocusedAlpha(float focusedAlpha) {
+        mTextViewFocused.setAlpha(focusedAlpha);
+        mTextView.setAlpha(1f - focusedAlpha);
+    }
 }

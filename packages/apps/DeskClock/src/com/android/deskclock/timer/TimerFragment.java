@@ -22,27 +22,32 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
 import android.support.annotation.VisibleForTesting;
 import android.support.v4.view.ViewPager;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.ImageButton;
+import android.widget.Button;
 import android.widget.ImageView;
 
+import com.android.deskclock.AnimatorUtils;
 import com.android.deskclock.DeskClock;
 import com.android.deskclock.DeskClockFragment;
-import com.android.deskclock.HandleDeskClockApiCalls;
 import com.android.deskclock.R;
+import com.android.deskclock.Utils;
 import com.android.deskclock.data.DataModel;
 import com.android.deskclock.data.Timer;
 import com.android.deskclock.data.TimerListener;
+import com.android.deskclock.data.TimerStringFormatter;
 import com.android.deskclock.events.Events;
+import com.android.deskclock.uidata.UiDataModel;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -50,15 +55,14 @@ import java.util.Arrays;
 import static android.view.View.ALPHA;
 import static android.view.View.GONE;
 import static android.view.View.INVISIBLE;
-import static android.view.View.OnClickListener;
-import static android.view.View.SCALE_X;
+import static android.view.View.TRANSLATION_Y;
 import static android.view.View.VISIBLE;
-import static com.android.deskclock.AnimatorUtils.getScaleAnimator;
+import static com.android.deskclock.uidata.UiDataModel.Tab.TIMERS;
 
 /**
  * Displays a vertical list of timers in all states.
  */
-public class TimerFragment extends DeskClockFragment {
+public final class TimerFragment extends DeskClockFragment {
 
     private static final String EXTRA_TIMER_SETUP = "com.android.deskclock.action.TIMER_SETUP";
 
@@ -76,54 +80,46 @@ public class TimerFragment extends DeskClockFragment {
     private TimerSetupView mCreateTimerView;
     private ViewPager mViewPager;
     private TimerPagerAdapter mAdapter;
-    private ImageButton mCancelCreateButton;
     private View mTimersView;
     private View mCurrentView;
     private ImageView[] mPageIndicators;
 
-    private int mShortAnimationDuration;
-    private int mMediumAnimationDuration;
-
     private Serializable mTimerSetupState;
+
+    /** {@code true} while this fragment is creating a new timer; {@code false} otherwise. */
+    private boolean mCreatingTimer;
 
     /**
      * @return an Intent that selects the timers tab with the setup screen for a new timer in place.
      */
     public static Intent createTimerSetupIntent(Context context) {
-        return new Intent(context, DeskClock.class)
-                .putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.TIMER_TAB_INDEX)
-                .putExtra(EXTRA_TIMER_SETUP, true);
+        return new Intent(context, DeskClock.class).putExtra(EXTRA_TIMER_SETUP, true);
     }
 
     /** The public no-arg constructor required by all fragments. */
-    public TimerFragment() {}
+    public TimerFragment() {
+        super(TIMERS);
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         final View view = inflater.inflate(R.layout.timer_fragment, container, false);
 
-        mAdapter = new TimerPagerAdapter(getChildFragmentManager());
+        mAdapter = new TimerPagerAdapter(getFragmentManager());
         mViewPager = (ViewPager) view.findViewById(R.id.vertical_view_pager);
         mViewPager.setAdapter(mAdapter);
         mViewPager.addOnPageChangeListener(mTimerPageChangeListener);
 
         mTimersView = view.findViewById(R.id.timer_view);
         mCreateTimerView = (TimerSetupView) view.findViewById(R.id.timer_setup);
+        mCreateTimerView.setFabContainer(this);
         mPageIndicators = new ImageView[] {
                 (ImageView) view.findViewById(R.id.page_indicator0),
                 (ImageView) view.findViewById(R.id.page_indicator1),
                 (ImageView) view.findViewById(R.id.page_indicator2),
                 (ImageView) view.findViewById(R.id.page_indicator3)
         };
-        mCancelCreateButton = (ImageButton) view.findViewById(R.id.timer_cancel);
-        mCancelCreateButton.setOnClickListener(new CancelCreateListener());
-
-        view.findViewById(R.id.timer_create).setOnClickListener(new CreateListener());
-
-        final Resources resources = getResources();
-        mShortAnimationDuration = resources.getInteger(android.R.integer.config_shortAnimTime);
-        mMediumAnimationDuration = resources.getInteger(android.R.integer.config_mediumAnimTime);
 
         DataModel.getDataModel().addTimerListener(mAdapter);
         DataModel.getDataModel().addTimerListener(mTimerWatcher);
@@ -137,11 +133,8 @@ public class TimerFragment extends DeskClockFragment {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-
-        // Start watching for page changes away from this fragment.
-        getDeskClock().registerPageChangedListener(this);
+    public void onStart() {
+        super.onStart();
 
         // Initialize the page indicators.
         updatePageIndicators();
@@ -156,18 +149,18 @@ public class TimerFragment extends DeskClockFragment {
             createTimer = intent.getBooleanExtra(EXTRA_TIMER_SETUP, false);
             intent.removeExtra(EXTRA_TIMER_SETUP);
 
-            showTimerId = intent.getIntExtra(HandleDeskClockApiCalls.EXTRA_TIMER_ID, -1);
-            intent.removeExtra(HandleDeskClockApiCalls.EXTRA_TIMER_ID);
+            showTimerId = intent.getIntExtra(TimerService.EXTRA_TIMER_ID, -1);
+            intent.removeExtra(TimerService.EXTRA_TIMER_ID);
         }
 
         // Choose the view to display in this fragment.
         if (showTimerId != -1) {
             // A specific timer must be shown; show the list of timers.
-            showTimersView();
+            showTimersView(FAB_AND_BUTTONS_IMMEDIATE);
         } else if (!hasTimers() || createTimer || mTimerSetupState != null) {
             // No timers exist, a timer is being created, or the last view was timer setup;
             // show the timer setup view.
-            showCreateTimerView();
+            showCreateTimerView(FAB_AND_BUTTONS_IMMEDIATE);
 
             if (mTimerSetupState != null) {
                 mCreateTimerView.setState(mTimerSetupState);
@@ -175,7 +168,7 @@ public class TimerFragment extends DeskClockFragment {
             }
         } else {
             // Otherwise, default to showing the list of timers.
-            showTimersView();
+            showTimersView(FAB_AND_BUTTONS_IMMEDIATE);
         }
 
         // If the intent did not specify a timer to show, show the last timer that expired.
@@ -195,11 +188,25 @@ public class TimerFragment extends DeskClockFragment {
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
+    public void onResume() {
+        super.onResume();
 
-        // Stop watching for page changes away from this fragment.
-        getDeskClock().unregisterPageChangedListener(this);
+        // We may have received a new intent while paused.
+        final Intent intent = getActivity().getIntent();
+        if (intent != null && intent.hasExtra(TimerService.EXTRA_TIMER_ID)) {
+            // This extra is single-use; remove after honoring it.
+            final int showTimerId = intent.getIntExtra(TimerService.EXTRA_TIMER_ID, -1);
+            intent.removeExtra(TimerService.EXTRA_TIMER_ID);
+
+            final Timer timer = DataModel.getDataModel().getTimer(showTimerId);
+            if (timer != null) {
+                // A specific timer must be shown; show the list of timers.
+                final int index = DataModel.getDataModel().getTimers().indexOf(timer);
+                mViewPager.setCurrentItem(index);
+
+                animateToView(mTimersView, null, false);
+            }
+        }
     }
 
     @Override
@@ -229,103 +236,195 @@ public class TimerFragment extends DeskClockFragment {
         }
     }
 
-    @Override
-    public void setFabAppearance() {
-        if (mFab == null || getSelectedTab() != DeskClock.TIMER_TAB_INDEX) {
-            return;
-        }
-
+    private void updateFab(@NonNull ImageView fab, boolean animate) {
         if (mCurrentView == mTimersView) {
             final Timer timer = getTimer();
             if (timer == null) {
-                mFab.setVisibility(INVISIBLE);
+                fab.setVisibility(INVISIBLE);
                 return;
             }
 
-            mFab.setVisibility(VISIBLE);
+            fab.setVisibility(VISIBLE);
             switch (timer.getState()) {
                 case RUNNING:
-                    mFab.setImageResource(R.drawable.ic_pause_white_24dp);
-                    mFab.setContentDescription(getString(R.string.timer_stop));
+                    if (animate) {
+                        fab.setImageResource(R.drawable.ic_play_pause_animation);
+                    } else {
+                        fab.setImageResource(R.drawable.ic_play_pause);
+                    }
+                    fab.setContentDescription(fab.getResources().getString(R.string.timer_stop));
                     break;
                 case RESET:
-                case PAUSED:
-                    mFab.setImageResource(R.drawable.ic_start_white_24dp);
-                    mFab.setContentDescription(getString(R.string.timer_start));
+                    if (animate) {
+                        fab.setImageResource(R.drawable.ic_stop_play_animation);
+                    } else {
+                        fab.setImageResource(R.drawable.ic_pause_play);
+                    }
+                    fab.setContentDescription(fab.getResources().getString(R.string.timer_start));
                     break;
+                case PAUSED:
+                    if (animate) {
+                        fab.setImageResource(R.drawable.ic_pause_play_animation);
+                    } else {
+                        fab.setImageResource(R.drawable.ic_pause_play);
+                    }
+                    fab.setContentDescription(fab.getResources().getString(R.string.timer_start));
+                    break;
+                case MISSED:
                 case EXPIRED:
-                    mFab.setImageResource(R.drawable.ic_stop_white_24dp);
-                    mFab.setContentDescription(getString(R.string.timer_stop));
+                    fab.setImageResource(R.drawable.ic_stop_white_24dp);
+                    fab.setContentDescription(fab.getResources().getString(R.string.timer_stop));
+                    break;
+            }
+        } else if (mCurrentView == mCreateTimerView) {
+            if (mCreateTimerView.hasValidInput()) {
+                fab.setImageResource(R.drawable.ic_start_white_24dp);
+                fab.setContentDescription(fab.getResources().getString(R.string.timer_start));
+                fab.setVisibility(VISIBLE);
+            } else {
+                fab.setContentDescription(null);
+                fab.setVisibility(INVISIBLE);
+            }
+        }
+    }
+
+    @Override
+    public void onUpdateFab(@NonNull ImageView fab) {
+        updateFab(fab, false);
+    }
+
+    @Override
+    public void onMorphFab(@NonNull ImageView fab) {
+        // Update the fab's drawable to match the current timer state.
+        updateFab(fab, Utils.isNOrLater());
+        // Animate the drawable.
+        AnimatorUtils.startDrawableAnimation(fab);
+    }
+
+    @Override
+    public void onUpdateFabButtons(@NonNull Button left, @NonNull Button right) {
+        if (mCurrentView == mTimersView) {
+            left.setClickable(true);
+            left.setText(R.string.timer_delete);
+            left.setContentDescription(left.getResources().getString(R.string.timer_delete));
+            left.setVisibility(VISIBLE);
+
+            right.setClickable(true);
+            right.setText(R.string.timer_add_timer);
+            right.setContentDescription(right.getResources().getString(R.string.timer_add_timer));
+            right.setVisibility(VISIBLE);
+
+        } else if (mCurrentView == mCreateTimerView) {
+            left.setClickable(true);
+            left.setText(R.string.timer_cancel);
+            left.setContentDescription(left.getResources().getString(R.string.timer_cancel));
+            // If no timers yet exist, the user is forced to create the first one.
+            left.setVisibility(hasTimers() ? VISIBLE : INVISIBLE);
+
+            right.setVisibility(INVISIBLE);
+        }
+    }
+
+    @Override
+    public void onFabClick(@NonNull ImageView fab) {
+        if (mCurrentView == mTimersView) {
+            final Timer timer = getTimer();
+
+            // If no timer is currently showing a fab action is meaningless.
+            if (timer == null) {
+                return;
+            }
+
+            final Context context = fab.getContext();
+            final long currentTime = timer.getRemainingTime();
+
+            switch (timer.getState()) {
+                case RUNNING:
+                    DataModel.getDataModel().pauseTimer(timer);
+                    Events.sendTimerEvent(R.string.action_stop, R.string.label_deskclock);
+                    if (currentTime > 0) {
+                        mTimersView.announceForAccessibility(TimerStringFormatter.formatString(
+                                context, R.string.timer_accessibility_stopped, currentTime, true));
+                    }
+                    break;
+                case PAUSED:
+                case RESET:
+                    DataModel.getDataModel().startTimer(timer);
+                    Events.sendTimerEvent(R.string.action_start, R.string.label_deskclock);
+                    if (currentTime > 0) {
+                        mTimersView.announceForAccessibility(TimerStringFormatter.formatString(
+                                context, R.string.timer_accessibility_started, currentTime, true));
+                    }
+                    break;
+                case MISSED:
+                case EXPIRED:
+                    DataModel.getDataModel().resetOrDeleteTimer(timer, R.string.label_deskclock);
                     break;
             }
 
         } else if (mCurrentView == mCreateTimerView) {
-            mFab.setVisibility(INVISIBLE);
-        }
-    }
+            mCreatingTimer = true;
+            try {
+                // Create the new timer.
+                final long timerLength = mCreateTimerView.getTimeInMillis();
+                final Timer timer = DataModel.getDataModel().addTimer(timerLength, "", false);
+                Events.sendTimerEvent(R.string.action_create, R.string.label_deskclock);
 
-    @Override
-    public void onFabClick(View view) {
-        final Timer timer = getTimer();
-
-        // If no timer is currently showing a fab action is meaningless.
-        if (timer == null) {
-            return;
-        }
-
-        switch (timer.getState()) {
-            case RUNNING:
-                DataModel.getDataModel().pauseTimer(timer);
-                Events.sendTimerEvent(R.string.action_stop, R.string.label_deskclock);
-                break;
-            case PAUSED:
-            case RESET:
+                // Start the new timer.
                 DataModel.getDataModel().startTimer(timer);
                 Events.sendTimerEvent(R.string.action_start, R.string.label_deskclock);
-                break;
-            case EXPIRED:
-                DataModel.getDataModel().resetOrDeleteTimer(timer, R.string.label_deskclock);
-                break;
+
+                // Display the freshly created timer view.
+                mViewPager.setCurrentItem(0);
+            } finally {
+                mCreatingTimer = false;
+            }
+
+            // Return to the list of timers.
+            animateToView(mTimersView, null, true);
         }
     }
 
     @Override
-    public void setLeftRightButtonAppearance() {
-        if (mLeftButton == null || mRightButton == null ||
-                getSelectedTab() != DeskClock.TIMER_TAB_INDEX) {
-            return;
+    public void onLeftButtonClick(@NonNull Button left) {
+        if (mCurrentView == mTimersView) {
+            // Clicking the "delete" button.
+            final Timer timer = getTimer();
+            if (timer == null) {
+                return;
+            }
+
+            if (mAdapter.getCount() > 1) {
+                animateTimerRemove(timer);
+            } else {
+                animateToView(mCreateTimerView, timer, false);
+            }
+
+            left.announceForAccessibility(getActivity().getString(R.string.timer_deleted));
+
+        } else if (mCurrentView == mCreateTimerView) {
+            // Clicking the "cancel" button on the timer creation page returns to the timers list.
+            mCreateTimerView.reset();
+
+            animateToView(mTimersView, null, false);
+
+            left.announceForAccessibility(getActivity().getString(R.string.timer_canceled));
         }
-
-        mLeftButton.setEnabled(true);
-        mLeftButton.setImageResource(R.drawable.ic_delete);
-        mLeftButton.setContentDescription(getString(R.string.timer_delete));
-        mLeftButton.setVisibility(mCurrentView != mTimersView ? GONE : VISIBLE);
-
-        mRightButton.setEnabled(true);
-        mRightButton.setImageResource(R.drawable.ic_add_timer);
-        mRightButton.setContentDescription(getString(R.string.timer_add_timer));
-        mRightButton.setVisibility(mCurrentView != mTimersView ? GONE : VISIBLE);
     }
 
     @Override
-    public void onLeftButtonClick(View view) {
-        final Timer timer = getTimer();
-        if (timer == null) {
-            return;
+    public void onRightButtonClick(@NonNull Button right) {
+        if (mCurrentView != mCreateTimerView) {
+            animateToView(mCreateTimerView, null, true);
         }
-
-        if (mAdapter.getCount() > 1) {
-            animateTimerRemove(timer);
-        } else {
-            animateToView(mCreateTimerView, timer);
-        }
-
-        view.announceForAccessibility(getActivity().getString(R.string.timer_deleted));
     }
 
     @Override
-    public void onRightButtonClick(View view) {
-        animateToView(mCreateTimerView, null);
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (mCurrentView == mCreateTimerView) {
+            return mCreateTimerView.onKeyDown(keyCode, event);
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     /**
@@ -409,13 +508,9 @@ public class TimerFragment extends DeskClockFragment {
     /**
      * Display the view that creates a new timer.
      */
-    private void showCreateTimerView() {
+    private void showCreateTimerView(int updateTypes) {
         // Stop animating the timers.
         stopUpdatingTime();
-
-        // If no timers yet exist, the user is forced to create the first one.
-        mCancelCreateButton.setVisibility(hasTimers() ? VISIBLE : INVISIBLE);
-        mCancelCreateButton.setEnabled(true);
 
         // Show the creation view; hide the timer view.
         mTimersView.setVisibility(GONE);
@@ -425,14 +520,16 @@ public class TimerFragment extends DeskClockFragment {
         mCurrentView = mCreateTimerView;
 
         // Update the fab and buttons.
-        setLeftRightButtonAppearance();
-        setFabAppearance();
+        updateFab(updateTypes);
     }
 
     /**
      * Display the view that lists all existing timers.
      */
-    private void showTimersView() {
+    private void showTimersView(int updateTypes) {
+        // Clear any defunct timer creation state; the next timer creation starts fresh.
+        mTimerSetupState = null;
+
         // Show the timer view; hide the creation view.
         mTimersView.setVisibility(VISIBLE);
         mCreateTimerView.setVisibility(GONE);
@@ -441,8 +538,7 @@ public class TimerFragment extends DeskClockFragment {
         mCurrentView = mTimersView;
 
         // Update the fab and buttons.
-        setLeftRightButtonAppearance();
-        setFabAppearance();
+        updateFab(updateTypes);
 
         // Start animating the timers.
         startUpdatingTime();
@@ -452,8 +548,10 @@ public class TimerFragment extends DeskClockFragment {
      * @param timerToRemove the timer to be removed during the animation
      */
     private void animateTimerRemove(final Timer timerToRemove) {
+        final long duration = UiDataModel.getUiDataModel().getShortAnimationDuration();
+
         final Animator fadeOut = ObjectAnimator.ofFloat(mViewPager, ALPHA, 1, 0);
-        fadeOut.setDuration(mShortAnimationDuration);
+        fadeOut.setDuration(duration);
         fadeOut.setInterpolator(new DecelerateInterpolator());
         fadeOut.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -464,7 +562,7 @@ public class TimerFragment extends DeskClockFragment {
         });
 
         final Animator fadeIn = ObjectAnimator.ofFloat(mViewPager, ALPHA, 0, 1);
-        fadeIn.setDuration(mShortAnimationDuration);
+        fadeIn.setDuration(duration);
         fadeIn.setInterpolator(new AccelerateInterpolator());
 
         final AnimatorSet animatorSet = new AnimatorSet();
@@ -476,70 +574,105 @@ public class TimerFragment extends DeskClockFragment {
      * @param toView one of {@link #mTimersView} or {@link #mCreateTimerView}
      * @param timerToRemove the timer to be removed during the animation; {@code null} if no timer
      *      should be removed
+     * @param animateDown {@code true} if the views should animate upwards, otherwise downwards
      */
-    private void animateToView(View toView, final Timer timerToRemove) {
+    private void animateToView(final View toView, final Timer timerToRemove,
+            final boolean animateDown) {
         if (mCurrentView == toView) {
-            throw new IllegalStateException("toView is already the current view");
+            return;
         }
 
         final boolean toTimers = toView == mTimersView;
-
+        if (toTimers) {
+            mTimersView.setVisibility(VISIBLE);
+        } else {
+            mCreateTimerView.setVisibility(VISIBLE);
+        }
         // Avoid double-taps by enabling/disabling the set of buttons active on the new view.
-        mLeftButton.setEnabled(toTimers);
-        mRightButton.setEnabled(toTimers);
-        mCancelCreateButton.setEnabled(!toTimers);
+        updateFab(BUTTONS_DISABLE);
 
-        final Animator rotateFrom = ObjectAnimator.ofFloat(mCurrentView, SCALE_X, 1, 0);
-        rotateFrom.setDuration(mShortAnimationDuration);
-        rotateFrom.setInterpolator(new DecelerateInterpolator());
-        rotateFrom.addListener(new AnimatorListenerAdapter() {
+        final long animationDuration = UiDataModel.getUiDataModel().getLongAnimationDuration();
+
+        final ViewTreeObserver viewTreeObserver = toView.getViewTreeObserver();
+        viewTreeObserver.addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
             @Override
-            public void onAnimationEnd(Animator animation) {
-                if (timerToRemove != null) {
-                    DataModel.getDataModel().removeTimer(timerToRemove);
-                    Events.sendTimerEvent(R.string.action_delete, R.string.label_deskclock);
+            public boolean onPreDraw() {
+                if (viewTreeObserver.isAlive()) {
+                    viewTreeObserver.removeOnPreDrawListener(this);
                 }
 
-                mCurrentView.setScaleX(1);
-                if (toTimers) {
-                    showTimersView();
-                } else {
-                    showCreateTimerView();
-                }
+                final View view = mTimersView.findViewById(R.id.timer_time);
+                final float distanceY = view != null ? view.getHeight() + view.getY() : 0;
+                final float translationDistance = animateDown ? distanceY : -distanceY;
+
+                toView.setTranslationY(-translationDistance);
+                mCurrentView.setTranslationY(0f);
+                toView.setAlpha(0f);
+                mCurrentView.setAlpha(1f);
+
+                final Animator translateCurrent = ObjectAnimator.ofFloat(mCurrentView,
+                        TRANSLATION_Y, translationDistance);
+                final Animator translateNew = ObjectAnimator.ofFloat(toView, TRANSLATION_Y, 0f);
+                final AnimatorSet translationAnimatorSet = new AnimatorSet();
+                translationAnimatorSet.playTogether(translateCurrent, translateNew);
+                translationAnimatorSet.setDuration(animationDuration);
+                translationAnimatorSet.setInterpolator(AnimatorUtils.INTERPOLATOR_FAST_OUT_SLOW_IN);
+
+                final Animator fadeOutAnimator = ObjectAnimator.ofFloat(mCurrentView, ALPHA, 0f);
+                fadeOutAnimator.setDuration(animationDuration / 2);
+                fadeOutAnimator.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                        super.onAnimationStart(animation);
+
+                        // The fade-out animation and fab-shrinking animation should run together.
+                        updateFab(FAB_AND_BUTTONS_SHRINK);
+                    }
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        super.onAnimationEnd(animation);
+                        if (toTimers) {
+                            showTimersView(FAB_AND_BUTTONS_EXPAND);
+
+                            // Reset the state of the create view.
+                            mCreateTimerView.reset();
+                        } else {
+                            showCreateTimerView(FAB_AND_BUTTONS_EXPAND);
+                        }
+
+                        if (timerToRemove != null) {
+                            DataModel.getDataModel().removeTimer(timerToRemove);
+                            Events.sendTimerEvent(R.string.action_delete, R.string.label_deskclock);
+                        }
+
+                        // Update the fab and button states now that the correct view is visible and
+                        // before the animation to expand the fab and buttons starts.
+                        updateFab(FAB_AND_BUTTONS_IMMEDIATE);
+                    }
+                });
+
+                final Animator fadeInAnimator = ObjectAnimator.ofFloat(toView, ALPHA, 1f);
+                fadeInAnimator.setDuration(animationDuration / 2);
+                fadeInAnimator.setStartDelay(animationDuration / 2);
+
+                final AnimatorSet animatorSet = new AnimatorSet();
+                animatorSet.playTogether(fadeOutAnimator, fadeInAnimator, translationAnimatorSet);
+                animatorSet.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        super.onAnimationEnd(animation);
+                        mTimersView.setTranslationY(0f);
+                        mCreateTimerView.setTranslationY(0f);
+                        mTimersView.setAlpha(1f);
+                        mCreateTimerView.setAlpha(1f);
+                    }
+                });
+                animatorSet.start();
+
+                return true;
             }
         });
-
-        final Animator rotateTo = ObjectAnimator.ofFloat(toView, SCALE_X, 0, 1);
-        rotateTo.setDuration(mShortAnimationDuration);
-        rotateTo.setInterpolator(new AccelerateInterpolator());
-
-        final float preScale = toTimers ? 0 : 1;
-        final float postScale = toTimers ? 1 : 0;
-        final Animator fabAnimator = getScaleAnimator(mFab, preScale, postScale);
-        final Animator leftButtonAnimator = getScaleAnimator(mLeftButton, preScale, postScale);
-        final Animator rightButtonAnimator = getScaleAnimator(mRightButton, preScale, postScale);
-
-        final AnimatorSet buttons = new AnimatorSet();
-        buttons.setDuration(toTimers ? mMediumAnimationDuration : mShortAnimationDuration);
-        buttons.play(leftButtonAnimator).with(rightButtonAnimator).with(fabAnimator);
-        buttons.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                mLeftButton.setVisibility(toTimers ? VISIBLE : INVISIBLE);
-                mRightButton.setVisibility(toTimers ? VISIBLE : INVISIBLE);
-
-                mFab.setScaleX(1);
-                mFab.setScaleY(1);
-                mLeftButton.setScaleX(1);
-                mLeftButton.setScaleY(1);
-                mRightButton.setScaleX(1);
-                mRightButton.setScaleY(1);
-            }
-        });
-
-        final AnimatorSet animatorSet = new AnimatorSet();
-        animatorSet.play(rotateFrom).before(rotateTo).with(buttons);
-        animatorSet.start();
     }
 
     private boolean hasTimers() {
@@ -590,7 +723,7 @@ public class TimerFragment extends DeskClockFragment {
         @Override
         public void onPageSelected(int position) {
             updatePageIndicators();
-            setFabAppearance();
+            updateFab(FAB_AND_BUTTONS_IMMEDIATE);
 
             // Showing a new timer page may introduce a timer requiring continuous updates.
             startUpdatingTime();
@@ -612,23 +745,17 @@ public class TimerFragment extends DeskClockFragment {
     private class TimerWatcher implements TimerListener {
         @Override
         public void timerAdded(Timer timer) {
-            // The user interface should not be updated unless the fragment is resumed. It will be
-            // refreshed during onResume later if it is not currently resumed.
-            if (!isResumed()) {
-                return;
-            }
-
             updatePageIndicators();
+            // If the timer is being created via this fragment avoid adjusting the fab.
+            // Timer setup view is about to be animated away in response to this timer creation.
+            // Changes to the fab immediately preceding that animation are jarring.
+            if (!mCreatingTimer) {
+                updateFab(FAB_AND_BUTTONS_IMMEDIATE);
+            }
         }
 
         @Override
         public void timerUpdated(Timer before, Timer after) {
-            // The user interface should not be updated unless the fragment is resumed. It will be
-            // refreshed during onResume later if it is not currently resumed.
-            if (!isResumed()) {
-                return;
-            }
-
             // If the timer started, animate the timers.
             if (before.isReset() && !after.isReset()) {
                 startUpdatingTime();
@@ -641,65 +768,23 @@ public class TimerFragment extends DeskClockFragment {
             if (!before.isExpired() && after.isExpired() && index != mViewPager.getCurrentItem()) {
                 mViewPager.setCurrentItem(index, true);
 
-            } else if (index == mViewPager.getCurrentItem()) {
-                // If the visible timer changed, update the fab to match its new state.
-                setFabAppearance();
+            } else if (mCurrentView == mTimersView && index == mViewPager.getCurrentItem()) {
+                // Morph the fab from its old state to new state if necessary.
+                if (before.getState() != after.getState()
+                        && !(before.isPaused() && after.isReset())) {
+                    updateFab(FAB_MORPH);
+                }
             }
         }
 
         @Override
         public void timerRemoved(Timer timer) {
-            // The user interface should not be updated unless the fragment is resumed. It will be
-            // refreshed during onResume later if it is not currently resumed.
-            if (!isResumed()) {
-                return;
-            }
-
             updatePageIndicators();
-        }
-    }
+            updateFab(FAB_AND_BUTTONS_IMMEDIATE);
 
-    /**
-     * Clicking the play icon on the timer creation page creates a new timer and returns to the
-     * timers list.
-     */
-    private class CreateListener implements OnClickListener {
-        @Override
-        public void onClick(View v) {
-            // Create the new timer.
-            final long length = mCreateTimerView.getTimeInMillis();
-            final Timer timer = DataModel.getDataModel().addTimer(length, "", false);
-            Events.sendTimerEvent(R.string.action_create, R.string.label_deskclock);
-
-            // Start the new timer.
-            DataModel.getDataModel().startTimer(timer);
-            Events.sendTimerEvent(R.string.action_start, R.string.label_deskclock);
-
-            // Reset the state of the create view.
-            mCreateTimerView.reset();
-
-            // Display the freshly created timer view.
-            mViewPager.setCurrentItem(0);
-
-            // Return to the list of timers.
-            animateToView(mTimersView, null);
-        }
-    }
-
-    /**
-     * Clicking the X icon on the timer creation page returns to the timers list.
-     */
-    private class CancelCreateListener implements OnClickListener {
-        @Override
-        public void onClick(View view) {
-            // Reset the state of the create view.
-            mCreateTimerView.reset();
-
-            if (hasTimers()) {
-                animateToView(mTimersView, null);
+            if (mCurrentView == mTimersView && mAdapter.getCount() == 0) {
+                animateToView(mCreateTimerView, null, false);
             }
-
-            view.announceForAccessibility(getActivity().getString(R.string.timer_canceled));
         }
     }
 }

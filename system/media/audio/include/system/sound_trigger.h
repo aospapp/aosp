@@ -50,13 +50,7 @@ typedef enum {
     SOUND_MODEL_TYPE_GENERIC = 1      /* use for all models other than keyphrase */
 } sound_trigger_sound_model_type_t;
 
-typedef struct sound_trigger_uuid_s {
-    unsigned int   timeLow;
-    unsigned short timeMid;
-    unsigned short timeHiAndVersion;
-    unsigned short clockSeq;
-    unsigned char  node[6];
-} sound_trigger_uuid_t;
+typedef audio_uuid_t sound_trigger_uuid_t;
 
 /*
  * sound trigger implementation descriptor read by the framework via get_properties().

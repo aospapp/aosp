@@ -6,9 +6,8 @@ AUTHOR = 'bmahadev, harpreet, krisr'
 TIME = 'SHORT'
 NAME = 'network_WiFi_RoamEndToEnd'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_matfunc_bcm4371,' 
-              'suite:wifi_release')
-SUITE = 'wifi_endtoend, wifi_matfunc_bcm4371, wifi_release'
+ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_release, '
+              'suite:wifi_matfunc_bcm4371')
 DEPENDENCIES = 'wificell'
 
 DOC = """

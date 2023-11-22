@@ -29,17 +29,17 @@ oneway interface IBluetoothGattServerCallback {
   void onServerRegistered(in int status, in int server_if);
 
   /**
-   * Called to report the result of a call to
-   * IBluetoothGattServer.endServiceDeclaration. A |status| of 0 denotes
-   * success, which means that the GATT service has been published and is
-   * discoverable. |service_id| belongs to the service that was registered.
+   * Called to report the result of a call to IBluetoothGattServer.AddService.
+   * A |status| of 0 denotes success, which means that the GATT service has
+   * been published and is discoverable. In this case handles of added service,
+   * it's characteristics and descriptors are filled.
    */
-  void onServiceAdded(in int status, in GattIdentifier service_id);
+  void onServiceAdded(in int status, in BluetoothGattServer service_id);
 
   /**
    * Called when there is an incoming read request from the remote device with
-   * address |device_address| for the characteristic with identifier
-   * |characteristic_id|. |offset| is the index of the characteristic value that
+   * address |device_address| for the characteristic with handle |handle|.
+   * |offset| is the index of the characteristic value that
    * the remote device wants to read from. If |is_long| is true, then this
    * request is part of a Long Read procedure. An implementation should handle
    * this request by calling IBluetoothGattServer.sendResponse with the given
@@ -52,12 +52,12 @@ oneway interface IBluetoothGattServerCallback {
    */
   void onCharacteristicReadRequest(in String device_address, in int request_id,
                                    in int offset, in boolean is_long,
-                                   in GattIdentifier characteristic_id);
+                                   in int handle);
 
   /**
    * Called when there is an incoming read request from the remote device with
-   * address |device_address| for the descriptor with identifier
-   * |descriptor_id|. |offset| is the index of the descriptor value that
+   * address |device_address| for the descriptor with handle |handle|.
+   * |offset| is the index of the descriptor value that
    * the remote device wants to read from. If |is_long| is true, then this
    * request is part of a Long Read procedure. An implementation should handle
    * this request by calling IBluetoothGattServer.sendResponse with the given
@@ -70,12 +70,12 @@ oneway interface IBluetoothGattServerCallback {
    */
   void onDescriptorReadRequest(in String device_address, in int request_id,
                                in int offset, in boolean is_long,
-                               in GattIdentifier descriptor_id);
+                               in int handle);
 
   /**
    * Called when there is an incoming write request from the remote device with
-   * address |device_address| for the characteristic with identifier
-   * |characteristic_id| with the value |value|. An implementation should handle
+   * address |device_address| for the characteristic with handle |handle|
+   * with the value |value|. An implementation should handle
    * this request by calling IBluetoothGattServer.sendResponse with the given
    * |request_id|. |offset| is the index of the characteristic value that the
    * remote device wants to write to, so the value should be written starting at
@@ -90,12 +90,12 @@ oneway interface IBluetoothGattServerCallback {
   void onCharacteristicWriteRequest(in String device_address, in int request_id,
                                     in int offset, in boolean is_prepare_write,
                                     in boolean need_response, in byte[] value,
-                                    in GattIdentifier characteristic_id);
+                                    in int handle);
 
   /**
    * Called when there is an incoming write request from the remote device with
-   * address |device_address| for the descriptor with identifier
-   * |descriptor_id| with the value |value|. An implementation should handle
+   * address |device_address| for the descriptor with handle |handle|
+   * with the value |value|. An implementation should handle
    * this request by calling IBluetoothGattServer.sendResponse with the given
    * |request_id|. |offset| is the index of the descriptor value that the
    * remote device wants to write to, so the value should be written starting at
@@ -110,7 +110,7 @@ oneway interface IBluetoothGattServerCallback {
   void onDescriptorWriteRequest(in String device_address, in int request_id,
                                 in int offset, in boolean is_prepare_write,
                                 in boolean need_response, in byte[] value,
-                                in GattIdentifier descriptor_id);
+                                in int handle);
 
   /**
    * Called when there is an incoming execute-write request to commit or abort

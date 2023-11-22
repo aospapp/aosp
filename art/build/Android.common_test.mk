@@ -19,9 +19,15 @@ ART_ANDROID_COMMON_TEST_MK = true
 
 include art/build/Android.common_path.mk
 
-# We need to set a define for the nativetest dir so that common_runtime_test will know the right
-# path. (The problem is being a 32b test on 64b device, which is still located in nativetest64).
-ART_TARGET_CFLAGS += -DART_TARGET_NATIVETEST_DIR=${ART_TARGET_NATIVETEST_DIR}
+# Directory used for temporary test files on the host.
+ifneq ($(TMPDIR),)
+ART_HOST_TEST_DIR := $(TMPDIR)/test-art-$(shell echo $$PPID)
+else
+# Use a BSD checksum calculated from ANDROID_BUILD_TOP and USER as one of the
+# path components for the test output. This should allow us to run tests from multiple
+# repositories at the same time.
+ART_HOST_TEST_DIR := /tmp/test-art-$(shell echo ${ANDROID_BUILD_TOP}-${USER} | sum | cut -d ' ' -f1)
+endif
 
 # List of known broken tests that we won't attempt to execute. The test name must be the full
 # rule name such as test-art-host-oat-optimizing-HelloWorld64.
@@ -48,17 +54,20 @@ ART_TEST_FULL ?= false
 ART_TEST_QUIET ?= true
 
 # Do you want interpreter tests run?
-ART_TEST_INTERPRETER ?= $(ART_TEST_FULL)
-ART_TEST_INTERPRETER_ACCESS_CHECKS ?= $(ART_TEST_FULL)
+ART_TEST_INTERPRETER ?= true
+ART_TEST_INTERPRETER_ACCESS_CHECKS ?= true
 
 # Do you want JIT tests run?
-ART_TEST_JIT ?= $(ART_TEST_FULL)
+ART_TEST_JIT ?= true
 
 # Do you want optimizing compiler tests run?
 ART_TEST_OPTIMIZING ?= true
 
-# Do we want to test a PIC-compiled core image?
-ART_TEST_PIC_IMAGE ?= $(ART_TEST_FULL)
+# Do you want to test the optimizing compiler with graph coloring register allocation?
+ART_TEST_OPTIMIZING_GRAPH_COLOR ?= $(ART_TEST_FULL)
+
+# Do you want to do run-tests with profiles?
+ART_TEST_SPEED_PROFILE ?= $(ART_TEST_FULL)
 
 # Do we want to test PIC-compiled tests ("apps")?
 ART_TEST_PIC_TEST ?= $(ART_TEST_FULL)
@@ -78,14 +87,17 @@ ART_TEST_GC_STRESS ?= $(ART_TEST_FULL)
 # Do you want tests with the JNI forcecopy mode enabled run?
 ART_TEST_JNI_FORCECOPY ?= $(ART_TEST_FULL)
 
-# Do you want run-tests with relocation disabled run?
-ART_TEST_RUN_TEST_NO_RELOCATE ?= $(ART_TEST_FULL)
+# Do you want run-tests with relocation enabled run?
+ART_TEST_RUN_TEST_RELOCATE ?= $(ART_TEST_FULL)
 
 # Do you want run-tests with prebuilding?
 ART_TEST_RUN_TEST_PREBUILD ?= true
 
 # Do you want run-tests with no prebuilding enabled run?
 ART_TEST_RUN_TEST_NO_PREBUILD ?= $(ART_TEST_FULL)
+
+# Do you want run-tests with a pregenerated core.art?
+ART_TEST_RUN_TEST_IMAGE ?= true
 
 # Do you want run-tests without a pregenerated core.art?
 ART_TEST_RUN_TEST_NO_IMAGE ?= $(ART_TEST_FULL)
@@ -115,12 +127,17 @@ ART_TEST_RUN_TEST_DEBUGGABLE ?= $(ART_TEST_FULL)
 ART_TEST_RUN_TEST_MULTI_IMAGE ?= $(ART_TEST_FULL)
 
 # Define the command run on test failure. $(1) is the name of the test. Executed by the shell.
+# If the test was a top-level make target (e.g. `test-art-host-gtest-codegen_test64`), the command
+# fails with exit status 1 (returned by the last `grep` statement below).
+# Otherwise (e.g., if the test was run as a prerequisite of a compound test command, such as
+# `test-art-host-gtest-codegen_test`), the command does not fail, as this would break rules running
+# ART_TEST_PREREQ_FINISHED as one of their actions, which expects *all* prerequisites *not* to fail.
 define ART_TEST_FAILED
   ( [ -f $(ART_HOST_TEST_DIR)/skipped/$(1) ] || \
     (mkdir -p $(ART_HOST_TEST_DIR)/failed/ && touch $(ART_HOST_TEST_DIR)/failed/$(1) && \
       echo $(ART_TEST_KNOWN_FAILING) | grep -q $(1) \
         && (echo -e "$(1) \e[91mKNOWN FAILURE\e[0m") \
-        || (echo -e "$(1) \e[91mFAILED\e[0m" >&2 )))
+        || (echo -e "$(1) \e[91mFAILED\e[0m" >&2; echo $(MAKECMDGOALS) | grep -q -v $(1))))
 endef
 
 ifeq ($(ART_TEST_QUIET),true)
@@ -201,6 +218,7 @@ define build-art-test-dex
     LOCAL_MODULE_PATH := $(3)
     LOCAL_DEX_PREOPT_IMAGE_LOCATION := $(TARGET_CORE_IMG_OUT)
     ifneq ($(wildcard $(LOCAL_PATH)/$(2)/main.list),)
+      LOCAL_DX_FLAGS := --multi-dex --main-dex-list=$(LOCAL_PATH)/$(2)/main.list --minimal-main-dex
       LOCAL_JACK_FLAGS := -D jack.dex.output.policy=minimal-multidex -D jack.preprocessor=true -D jack.preprocessor.file=$(LOCAL_PATH)/$(2)/main.jpp
     endif
     include $(BUILD_JAVA_LIBRARY)
@@ -216,6 +234,7 @@ define build-art-test-dex
     LOCAL_JAVA_LIBRARIES := $(HOST_CORE_JARS)
     LOCAL_DEX_PREOPT_IMAGE := $(HOST_CORE_IMG_LOCATION)
     ifneq ($(wildcard $(LOCAL_PATH)/$(2)/main.list),)
+      LOCAL_DX_FLAGS := --multi-dex --main-dex-list=$(LOCAL_PATH)/$(2)/main.list --minimal-main-dex
       LOCAL_JACK_FLAGS := -D jack.dex.output.policy=minimal-multidex -D jack.preprocessor=true -D jack.preprocessor.file=$(LOCAL_PATH)/$(2)/main.jpp
     endif
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)

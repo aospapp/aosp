@@ -60,7 +60,8 @@ Camera3Stream::Camera3Stream(int id,
     mOldMaxBuffers(0),
     mPrepared(false),
     mPreparedBufferIdx(0),
-    mLastMaxCount(Camera3StreamInterface::ALLOCATE_PIPELINE_MAX) {
+    mLastMaxCount(Camera3StreamInterface::ALLOCATE_PIPELINE_MAX),
+    mBufferLimitLatency(kBufferLimitLatencyBinSize) {
 
     camera3_stream::stream_type = type;
     camera3_stream::width = width;
@@ -166,7 +167,7 @@ bool Camera3Stream::isConfiguring() const {
     return (mState == STATE_IN_CONFIG) || (mState == STATE_IN_RECONFIG);
 }
 
-status_t Camera3Stream::finishConfiguration(camera3_device *hal3Device) {
+status_t Camera3Stream::finishConfiguration() {
     ATRACE_CALL();
     Mutex::Autolock l(mLock);
     switch (mState) {
@@ -212,14 +213,6 @@ status_t Camera3Stream::finishConfiguration(camera3_device *hal3Device) {
     if (res != OK) {
         ALOGE("%s: Unable to configure stream %d queue: %s (%d)",
                 __FUNCTION__, mId, strerror(-res), res);
-        mState = STATE_ERROR;
-        return res;
-    }
-
-    res = registerBuffersLocked(hal3Device);
-    if (res != OK) {
-        ALOGE("%s: Unable to register stream buffers with HAL: %s (%d)",
-                __FUNCTION__, strerror(-res), res);
         mState = STATE_ERROR;
         return res;
     }
@@ -451,7 +444,8 @@ status_t Camera3Stream::tearDown() {
     return OK;
 }
 
-status_t Camera3Stream::getBuffer(camera3_stream_buffer *buffer) {
+status_t Camera3Stream::getBuffer(camera3_stream_buffer *buffer,
+        const std::vector<size_t>& surface_ids) {
     ATRACE_CALL();
     Mutex::Autolock l(mLock);
     status_t res = OK;
@@ -466,8 +460,11 @@ status_t Camera3Stream::getBuffer(camera3_stream_buffer *buffer) {
     // Wait for new buffer returned back if we are running into the limit.
     if (getHandoutOutputBufferCountLocked() == camera3_stream::max_buffers) {
         ALOGV("%s: Already dequeued max output buffers (%d), wait for next returned one.",
-                __FUNCTION__, camera3_stream::max_buffers);
+                        __FUNCTION__, camera3_stream::max_buffers);
+        nsecs_t waitStart = systemTime(SYSTEM_TIME_MONOTONIC);
         res = mOutputBufferReturnedSignal.waitRelative(mLock, kWaitForBufferDuration);
+        nsecs_t waitEnd = systemTime(SYSTEM_TIME_MONOTONIC);
+        mBufferLimitLatency.add(waitStart, waitEnd);
         if (res != OK) {
             if (res == TIMED_OUT) {
                 ALOGE("%s: wait for output buffer return timed out after %lldms (max_buffers %d)",
@@ -478,7 +475,7 @@ status_t Camera3Stream::getBuffer(camera3_stream_buffer *buffer) {
         }
     }
 
-    res = getBufferLocked(buffer);
+    res = getBufferLocked(buffer, surface_ids);
     if (res == OK) {
         fireBufferListenersLocked(*buffer, /*acquired*/true, /*output*/true);
         if (buffer->buffer) {
@@ -662,6 +659,9 @@ status_t Camera3Stream::disconnect() {
     ALOGV("%s: Stream %d: Disconnecting...", __FUNCTION__, mId);
     status_t res = disconnectLocked();
 
+    mBufferLimitLatency.log("Stream %d latency histogram for wait on max_buffers", mId);
+    mBufferLimitLatency.reset();
+
     if (res == -ENOTCONN) {
         // "Already disconnected" -- not an error
         return OK;
@@ -670,90 +670,15 @@ status_t Camera3Stream::disconnect() {
     }
 }
 
-status_t Camera3Stream::registerBuffersLocked(camera3_device *hal3Device) {
-    ATRACE_CALL();
-
-    /**
-     * >= CAMERA_DEVICE_API_VERSION_3_2:
-     *
-     * camera3_device_t->ops->register_stream_buffers() is not called and must
-     * be NULL.
-     */
-    if (hal3Device->common.version >= CAMERA_DEVICE_API_VERSION_3_2) {
-        ALOGV("%s: register_stream_buffers unused as of HAL3.2", __FUNCTION__);
-
-        if (hal3Device->ops->register_stream_buffers != NULL) {
-            ALOGE("%s: register_stream_buffers is deprecated in HAL3.2; "
-                    "must be set to NULL in camera3_device::ops", __FUNCTION__);
-            return INVALID_OPERATION;
-        }
-
-        return OK;
-    }
-
-    ALOGV("%s: register_stream_buffers using deprecated code path", __FUNCTION__);
-
-    status_t res;
-
-    size_t bufferCount = getBufferCountLocked();
-
-    Vector<buffer_handle_t*> buffers;
-    buffers.insertAt(/*prototype_item*/NULL, /*index*/0, bufferCount);
-
-    camera3_stream_buffer_set bufferSet = camera3_stream_buffer_set();
-    bufferSet.stream = this;
-    bufferSet.num_buffers = bufferCount;
-    bufferSet.buffers = buffers.editArray();
-
-    Vector<camera3_stream_buffer_t> streamBuffers;
-    streamBuffers.insertAt(camera3_stream_buffer_t(), /*index*/0, bufferCount);
-
-    // Register all buffers with the HAL. This means getting all the buffers
-    // from the stream, providing them to the HAL with the
-    // register_stream_buffers() method, and then returning them back to the
-    // stream in the error state, since they won't have valid data.
-    //
-    // Only registered buffers can be sent to the HAL.
-
-    uint32_t bufferIdx = 0;
-    for (; bufferIdx < bufferCount; bufferIdx++) {
-        res = getBufferLocked( &streamBuffers.editItemAt(bufferIdx) );
-        if (res != OK) {
-            ALOGE("%s: Unable to get buffer %d for registration with HAL",
-                    __FUNCTION__, bufferIdx);
-            // Skip registering, go straight to cleanup
-            break;
-        }
-
-        sp<Fence> fence = new Fence(streamBuffers[bufferIdx].acquire_fence);
-        fence->waitForever("Camera3Stream::registerBuffers");
-
-        buffers.editItemAt(bufferIdx) = streamBuffers[bufferIdx].buffer;
-    }
-    if (bufferIdx == bufferCount) {
-        // Got all buffers, register with HAL
-        ALOGV("%s: Registering %zu buffers with camera HAL",
-                __FUNCTION__, bufferCount);
-        ATRACE_BEGIN("camera3->register_stream_buffers");
-        res = hal3Device->ops->register_stream_buffers(hal3Device,
-                &bufferSet);
-        ATRACE_END();
-    }
-
-    // Return all valid buffers to stream, in ERROR state to indicate
-    // they weren't filled.
-    for (size_t i = 0; i < bufferIdx; i++) {
-        streamBuffers.editItemAt(i).release_fence = -1;
-        streamBuffers.editItemAt(i).status = CAMERA3_BUFFER_STATUS_ERROR;
-        returnBufferLocked(streamBuffers[i], 0);
-    }
-
-    mPrepared = true;
-
-    return res;
+void Camera3Stream::dump(int fd, const Vector<String16> &args) const
+{
+    (void)args;
+    mBufferLimitLatency.dump(fd,
+            "      Latency histogram for wait on max_buffers");
 }
 
-status_t Camera3Stream::getBufferLocked(camera3_stream_buffer *) {
+status_t Camera3Stream::getBufferLocked(camera3_stream_buffer *,
+        const std::vector<size_t>&) {
     ALOGE("%s: This type of stream does not support output", __FUNCTION__);
     return INVALID_OPERATION;
 }
@@ -816,6 +741,18 @@ void Camera3Stream::removeBufferListener(
         ALOGW("%s: Could not find listener to remove, already removed",
               __FUNCTION__);
     }
+}
+
+void Camera3Stream::setBufferFreedListener(
+        Camera3StreamBufferFreedListener* listener) {
+    Mutex::Autolock l(mLock);
+    // Only allow set listener during stream configuration because stream is guaranteed to be IDLE
+    // at this state, so setBufferFreedListener won't collide with onBufferFreed callbacks
+    if (mState != STATE_IN_CONFIG && mState != STATE_IN_RECONFIG) {
+        ALOGE("%s: listener must be set during stream configuration!",__FUNCTION__);
+        return;
+    }
+    mBufferFreedListener = listener;
 }
 
 }; // namespace camera3

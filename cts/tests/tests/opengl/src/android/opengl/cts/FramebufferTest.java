@@ -156,9 +156,6 @@ public class FramebufferTest extends AndroidTestCase {
          */
         public static final int FLAG_TRY_GLES3 = 0x02;
 
-        // Android-specific extension.
-        private static final int EGL_RECORDABLE_ANDROID = 0x3142;
-
         private EGLDisplay mEGLDisplay = EGL14.EGL_NO_DISPLAY;
         private EGLContext mEGLContext = EGL14.EGL_NO_CONTEXT;
         private EGLConfig mEGLConfig = null;
@@ -271,7 +268,7 @@ public class FramebufferTest extends AndroidTestCase {
                     EGL14.EGL_NONE
             };
             if ((flags & FLAG_RECORDABLE) != 0) {
-                attribList[attribList.length - 3] = EGL_RECORDABLE_ANDROID;
+                attribList[attribList.length - 3] = EGLExt.EGL_RECORDABLE_ANDROID;
                 attribList[attribList.length - 2] = 1;
             }
             EGLConfig[] configs = new EGLConfig[1];

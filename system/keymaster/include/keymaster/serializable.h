@@ -201,7 +201,7 @@ inline bool copy_uint32_array_from_buf(const uint8_t** buf_ptr, const uint8_t* e
 class Buffer : public Serializable {
   public:
     Buffer() : buffer_(NULL), buffer_size_(0), read_position_(0), write_position_(0) {}
-    Buffer(size_t size) : buffer_(NULL) { Reinitialize(size); }
+    explicit Buffer(size_t size) : buffer_(NULL) { Reinitialize(size); }
     Buffer(const void* buf, size_t size) : buffer_(NULL) { Reinitialize(buf, size); }
 
     // Grow the buffer so that at least \p size bytes can be written.

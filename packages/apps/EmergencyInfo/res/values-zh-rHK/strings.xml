@@ -69,13 +69,13 @@
     <string name="ab_positive" msgid="1931300033534642005">"AB 正型"</string>
     <string name="ab_negative" msgid="2064555613093591729">"AB 負型"</string>
     <string name="h_h" msgid="2183333409760379720">"H H"</string>
-    <string name="allergies" msgid="2789200777539258165">"過敏症"</string>
+    <string name="allergies" msgid="2789200777539258165">"過敏"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"不明"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"例如花生"</string>
     <string name="medications" msgid="644428945685557183">"服用中藥物"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"不明"</string>
     <string name="medications_hint" msgid="3221620025945593723">"例如阿士匹靈"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"醫療事項"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"醫療注意事項"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"不明"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"例如哮喘"</string>
     <string name="organ_donor" msgid="5953509460007124827">"器官捐贈者"</string>
@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"緊急聯絡人"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"新增聯絡人"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"找不到聯絡人選擇工具"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"無法顯示聯絡人"</string>
     <string name="remove_contact" msgid="6934983445723096759">"要將<xliff:g id="CONTACT_NAME">%1$s</xliff:g>從緊急聯絡人中移除嗎？"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"移除聯絡人"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"無法正確讀取聯絡資料"</string>
     <string name="remove" msgid="1243949503772376064">"移除"</string>
     <string name="cancel" msgid="7401575239009060939">"取消"</string>
     <string name="ok" msgid="163967937451981024">"確定"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"緊急資料"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"您在此輸入的資料將有助急救員處理緊急情況。雖然這些資料只會儲存在您的裝置中，但任何人士無需將手機解鎖也可從緊急撥號器看到。"</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"繼續"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"沒有緊急資料提供"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"沒有手機擁有者的資料"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"如果這是您的手機，請輕按鉛筆圖示加入資料，在緊急情況時便會在此顯示"</string>
     <string name="clear_all" msgid="8899013032870561633">"全部清除"</string>
     <string name="clear" msgid="3648880442502887163">"清除"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"要清除所有資料和聯絡人嗎？"</string>

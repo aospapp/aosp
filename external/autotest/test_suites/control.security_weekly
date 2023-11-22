@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "security_weekly"
 PURPOSE = "Test long-running security related functionality each week."
-CRITERIA = "All tests with SUITE=security_weekly must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "Functional"

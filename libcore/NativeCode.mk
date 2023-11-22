@@ -80,7 +80,7 @@ core_c_includes := libcore/include $(LOCAL_C_INCLUDES)
 core_shared_libraries := $(LOCAL_SHARED_LIBRARIES)
 core_static_libraries := $(LOCAL_STATIC_LIBRARIES)
 libart_cflags := $(LOCAL_CFLAGS) -Wall -Wextra -Werror
-core_cppflags += -std=gnu++11 -DU_USING_ICU_NAMESPACE=0
+core_cppflags += -DU_USING_ICU_NAMESPACE=0
 # TODO(narayan): Prune down this list of exclusions once the underlying
 # issues have been fixed. Most of these are small changes except for
 # -Wunused-parameter.
@@ -169,6 +169,7 @@ LOCAL_SRC_FILES += $(core_test_files)
 LOCAL_C_INCLUDES += libcore/include
 LOCAL_SHARED_LIBRARIES += libnativehelper_compat_libc++
 LOCAL_MODULE_TAGS := optional
+LOCAL_STRIP_MODULE := keep_symbols
 LOCAL_MODULE := libjavacoretests
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/NativeCode.mk
 LOCAL_CXX_STL := libc++
@@ -178,7 +179,9 @@ endif # LIBCORE_SKIP_TESTS
 
 # Set of gtest unit tests.
 include $(CLEAR_VARS)
-LOCAL_CFLAGS += $(libart_cflags)
+# Add -fno-builtin so that the compiler doesn't attempt to inline
+# memcpy calls that are not really aligned.
+LOCAL_CFLAGS += $(libart_cflags) -fno-builtin
 LOCAL_CPPFLAGS += $(core_cppflags)
 LOCAL_SRC_FILES += \
   luni/src/test/native/libcore_io_Memory_test.cpp \
@@ -229,7 +232,7 @@ endif
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libjavacore
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/NativeCode.mk
-LOCAL_SHARED_LIBRARIES += $(core_shared_libraries) libexpat-host libicuuc-host libicui18n-host libcrypto-host libz-host libziparchive-host
+LOCAL_SHARED_LIBRARIES += $(core_shared_libraries) libexpat libicuuc libicui18n libcrypto libz-host libziparchive
 LOCAL_STATIC_LIBRARIES += $(core_static_libraries)
 LOCAL_MULTILIB := both
 LOCAL_CXX_STL := libc++
@@ -241,11 +244,11 @@ LOCAL_SRC_FILES := $(openjdk_core_src_files)
 LOCAL_C_INCLUDES := $(core_c_includes)
 LOCAL_CFLAGS := -D_LARGEFILE64_SOURCE -D_GNU_SOURCE -DLINUX -D__GLIBC__ # Sigh.
 LOCAL_CFLAGS += $(openjdk_cflags)
-LOCAL_SHARED_LIBRARIES := $(core_shared_libraries) libicuuc-host libcrypto-host libz-host
+LOCAL_SHARED_LIBRARIES := $(core_shared_libraries) libicuuc libcrypto libz-host
 LOCAL_SHARED_LIBRARIES += libopenjdkjvmd libnativehelper
 LOCAL_STATIC_LIBRARIES := $(core_static_libraries) libfdlibm
 LOCAL_MODULE_TAGS := optional
-LOCAL_LDLIBS += -ldl -lpthread
+LOCAL_LDLIBS += -ldl -lpthread -lrt
 LOCAL_MODULE := libopenjdkd
 LOCAL_NOTICE_FILE := $(LOCAL_PATH)/ojluni/NOTICE
 LOCAL_MULTILIB := both
@@ -256,11 +259,11 @@ LOCAL_SRC_FILES := $(openjdk_core_src_files)
 LOCAL_C_INCLUDES := $(core_c_includes)
 LOCAL_CFLAGS := -D_LARGEFILE64_SOURCE -D_GNU_SOURCE -DLINUX -D__GLIBC__ # Sigh.
 LOCAL_CFLAGS += $(openjdk_cflags)
-LOCAL_SHARED_LIBRARIES := $(core_shared_libraries) libicuuc-host libcrypto-host libz-host
+LOCAL_SHARED_LIBRARIES := $(core_shared_libraries) libicuuc libcrypto libz-host
 LOCAL_SHARED_LIBRARIES += libopenjdkjvm libnativehelper
 LOCAL_STATIC_LIBRARIES := $(core_static_libraries) libfdlibm
 LOCAL_MODULE_TAGS := optional
-LOCAL_LDLIBS += -ldl -lpthread
+LOCAL_LDLIBS += -ldl -lpthread -lrt
 LOCAL_MODULE := libopenjdk
 LOCAL_NOTICE_FILE := $(LOCAL_PATH)/ojluni/NOTICE
 LOCAL_MULTILIB := both

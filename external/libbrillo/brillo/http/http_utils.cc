@@ -376,8 +376,9 @@ std::unique_ptr<base::DictionaryValue> ParseJsonResponse(
     Response* response,
     int* status_code,
     brillo::ErrorPtr* error) {
+  std::unique_ptr<base::DictionaryValue> result;
   if (!response)
-    return std::unique_ptr<base::DictionaryValue>();
+    return result;
 
   if (status_code)
     *status_code = response->GetStatusCode();
@@ -390,7 +391,7 @@ std::unique_ptr<base::DictionaryValue> ParseJsonResponse(
     brillo::Error::AddTo(error, FROM_HERE, brillo::errors::json::kDomain,
                          "non_json_content_type",
                          "Unexpected response content type: " + content_type);
-    return std::unique_ptr<base::DictionaryValue>();
+    return result;
   }
 
   std::string json = response->ExtractDataAsString();
@@ -402,20 +403,16 @@ std::unique_ptr<base::DictionaryValue> ParseJsonResponse(
                                brillo::errors::json::kParseError,
                                "Error '%s' occurred parsing JSON string '%s'",
                                error_message.c_str(), json.c_str());
-    return std::unique_ptr<base::DictionaryValue>();
+    return result;
   }
-  base::DictionaryValue* dict_value = nullptr;
-  if (!value->GetAsDictionary(&dict_value)) {
+  result = base::DictionaryValue::From(std::move(value));
+  if (!result) {
     brillo::Error::AddToPrintf(error, FROM_HERE, brillo::errors::json::kDomain,
                                brillo::errors::json::kObjectExpected,
                                "Response is not a valid JSON object: '%s'",
                                json.c_str());
-    return std::unique_ptr<base::DictionaryValue>();
-  } else {
-    // |value| is now owned by |dict_value|, so release the scoped_ptr now.
-    base::IgnoreResult(value.release());
   }
-  return std::unique_ptr<base::DictionaryValue>(dict_value);
+  return result;
 }
 
 std::string GetCanonicalHeaderName(const std::string& name) {

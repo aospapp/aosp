@@ -112,7 +112,7 @@ class AdbShell(object):
                 # Get the root access first as some commands need it.
                 self._host_shell.run_command('adb root')
             self._root_granted = True
-        cmd = "adb shell '%s'" % cmd.replace("'", "\\'")
+        cmd = "adb shell 'export TMPDIR=/data/local/tmp; %s'" % cmd.replace("'", "\\'")
         return self._host_shell._run_command(cmd)
 
     def run_command(self, cmd):

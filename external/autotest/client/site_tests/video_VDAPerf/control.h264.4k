@@ -9,7 +9,6 @@ CRITERIA = """
 The test fails if the video_decode_accelerator_unittest fails or crashes.
 """
 ATTRIBUTES = "suite:crosbolt_perf_nightly"
-SUITE = "crosbolt_perf_nightly"
 TIME = "SHORT"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"

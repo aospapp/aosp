@@ -15,13 +15,34 @@ class security_SuidBinaries(test.test):
     """
     version = 1
 
-    def load_baseline(self, bltype):
+    def _load_baseline_file(self, basename):
+        """Load the list of expected files from a given file name.
+
+        @param basename the basename of the file to load.
+        @returns a set containing the names of the files listed in the baseline
+        file.
         """
-        Load the list of expected files for a given baseline type.
+        path = os.path.join(self.bindir, basename)
+        if os.path.exists(path):
+            with open(path) as basefile:
+                return set(l.strip() for l in basefile if l.strip()[0] != '#')
+        return set()
+
+
+    def _load_baseline(self, bltype):
+        """Load the list of expected files for a given baseline type.
+
         @param bltype the baseline to load.
+        @returns a set containing the names of the files in the board's
+        baseline.
         """
-        baseline_file = open(os.path.join(self.bindir, 'baseline.' + bltype))
-        return set(l.strip() for l in baseline_file)
+        # Baseline common to all boards.
+        blname = 'baseline.' + bltype
+        blset = self._load_baseline_file(blname)
+        # Board-specific baseline.
+        board_blname = 'baseline.%s.%s' % (utils.get_current_board(), bltype)
+        blset |= self._load_baseline_file(board_blname)
+        return blset
 
 
     def run_once(self, baseline='suid'):
@@ -52,7 +73,7 @@ class security_SuidBinaries(test.test):
 
         cmd_output = utils.system_output(cmd, ignore_status=True)
         observed_set = set(cmd_output.splitlines())
-        baseline_set = self.load_baseline(baseline)
+        baseline_set = self._load_baseline(baseline)
 
         # Report observed set for debugging.
         for line in observed_set:

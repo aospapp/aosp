@@ -14,500 +14,293 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import acts.jsonrpc as jsonrpc
-from acts.test_utils.wifi.wifi_test_utils import WifiEnums
+import collections
+import ipaddress
+import logging
 
-ACTS_CONTROLLER_CONFIG_NAME = "AP"
-ACTS_CONTROLLER_REFERENCE_NAME = "access_points"
+from acts.controllers.ap_lib import dhcp_config
+from acts.controllers.ap_lib import dhcp_server
+from acts.controllers.ap_lib import hostapd
+from acts.controllers.ap_lib import hostapd_config
+from acts.controllers.utils_lib.commands import ip
+from acts.controllers.utils_lib.commands import route
+from acts.controllers.utils_lib.commands import shell
+from acts.controllers.utils_lib.ssh import connection
+from acts.controllers.utils_lib.ssh import settings
 
-def create(configs, logger):
-    results = []
-    for c in configs:
-        addr = c[Config.key_address.value]
-        port = 80
-        if Config.key_port.value in c:
-            port = c[Config.key_port.value]
-        results.append(AP(addr, port))
-    return results
+ACTS_CONTROLLER_CONFIG_NAME = 'AccessPoint'
+ACTS_CONTROLLER_REFERENCE_NAME = 'access_points'
 
-def destroy(objs):
-    return
 
-class ServerError(Exception):
-    pass
+def create(configs):
+    """Creates ap controllers from a json config.
 
-class ClientError(Exception):
-    pass
+    Creates an ap controller from either a list, or a single
+    element. The element can either be just the hostname or a dictionary
+    containing the hostname and username of the ap to connect to over ssh.
 
-"""
-Controller for OpenWRT routers.
-"""
-class AP():
-    """Interface to OpenWRT using the LuCI interface.
+    Args:
+        The json configs that represent this controller.
 
-    Works via JSON-RPC over HTTP. A generic access method is provided, as well
-    as more specialized methods.
-
-    Can also call LuCI methods generically:
-
-        ap_instance.sys.loadavg()
-        ap_instance.sys.dmesg()
-        ap_instance.fs.stat("/etc/hosts")
+    Returns:
+        A new AccessPoint.
     """
-    IFACE_DEFAULTS = {"mode": "ap", "disabled": "0",
-                      "encryption": "psk2", "network": "lan"}
-    RADIO_DEFAULTS = {"disabled": "0"}
+    return [
+        AccessPoint(settings.from_config(c['ssh_config'])) for c in configs
+    ]
 
-    def __init__(self, addr, port=80):
-        self._client = jsonrpc.JSONRPCClient(
-                        "http://""{}:{}/cgi-bin/luci/rpc/".format(addr, port))
-        self.RADIO_NAMES = []
-        keys = self._client.get_all("wireless").keys()
-        if "radio0" in keys:
-            self.RADIO_NAMES.append("radio0")
-        if "radio1" in keys:
-            self.RADIO_NAMES.append("radio1")
 
-    def section_id_lookup(self, cfg_name, key, value):
-        """Looks up the section id of a section.
+def destroy(aps):
+    """Destroys a list of access points.
 
-        Finds the section ids of the sections that have the specified key:value
-        pair in them.
+    Args:
+        aps: The list of access points to destroy.
+    """
+    for ap in aps:
+        ap.close()
+
+
+def get_info(aps):
+    """Get information on a list of access points.
+
+    Args:
+        aps: A list of AccessPoints.
+
+    Returns:
+        A list of all aps hostname.
+    """
+    return [ap.ssh_settings.hostname for ap in aps]
+
+
+class Error(Exception):
+    """Error raised when there is a problem with the access point."""
+
+
+_ApInstance = collections.namedtuple('_ApInstance', ['hostapd', 'subnet'])
+
+# We use these today as part of a hardcoded mapping of interface name to
+# capabilities.  However, medium term we need to start inspecting
+# interfaces to determine their capabilities.
+_AP_2GHZ_INTERFACE = 'wlan0'
+_AP_5GHZ_INTERFACE = 'wlan1'
+# These ranges were split this way since each physical radio can have up
+# to 8 SSIDs so for the 2GHz radio the DHCP range will be
+# 192.168.1 - 8 and the 5Ghz radio will be 192.168.9 - 16
+_AP_2GHZ_SUBNET_STR = '192.168.1.0/24'
+_AP_5GHZ_SUBNET_STR = '192.168.9.0/24'
+_AP_2GHZ_SUBNET = dhcp_config.Subnet(ipaddress.ip_network(_AP_2GHZ_SUBNET_STR))
+_AP_5GHZ_SUBNET = dhcp_config.Subnet(ipaddress.ip_network(_AP_5GHZ_SUBNET_STR))
+
+
+class AccessPoint(object):
+    """An access point controller.
+
+    Attributes:
+        ssh: The ssh connection to this ap.
+        ssh_settings: The ssh settings being used by the ssh conneciton.
+        dhcp_settings: The dhcp server settings being used.
+    """
+
+    def __init__(self, ssh_settings):
+        """
+        Args:
+            ssh_settings: acts.controllers.utils_lib.ssh.SshSettings instance.
+        """
+        self.ssh_settings = ssh_settings
+        self.ssh = connection.SshConnection(self.ssh_settings)
+
+        # Singleton utilities for running various commands.
+        self._ip_cmd = ip.LinuxIpCommand(self.ssh)
+        self._route_cmd = route.LinuxRouteCommand(self.ssh)
+
+        # A map from network interface name to _ApInstance objects representing
+        # the hostapd instance running against the interface.
+        self._aps = dict()
+
+    def __del__(self):
+        self.close()
+
+    def start_ap(self, hostapd_config, additional_parameters=None):
+        """Starts as an ap using a set of configurations.
+
+        This will start an ap on this host. To start an ap the controller
+        selects a network interface to use based on the configs given. It then
+        will start up hostapd on that interface. Next a subnet is created for
+        the network interface and dhcp server is refreshed to give out ips
+        for that subnet for any device that connects through that interface.
 
         Args:
-            cfg_name: Name of the configuration file to look in.
-            key: Key of the pair.
-            value: Value of the pair.
+            hostapd_config: hostapd_config.HostapdConfig, The configurations
+                            to use when starting up the ap.
+            additional_parameters: A dicitonary of parameters that can sent
+                                   directly into the hostapd config file.  This
+                                   can be used for debugging and or adding one
+                                   off parameters into the config.
 
         Returns:
-            A list of the section ids found.
+            An identifier for the ap being run. This identifier can be used
+            later by this controller to control the ap.
+
+        Raises:
+            Error: When the ap can't be brought up.
         """
-        section_ids = []
-        sections = self._client.get_all(cfg_name)
-        for section_id, section_cfg in sections.items():
-            if key in section_cfg and section_cfg[key] == value:
-                section_ids.append(section_id)
-        return section_ids
+        # Right now, we hardcode that a frequency maps to a particular
+        # network interface.  This is true of the hardware we're running
+        # against right now, but in general, we'll want to do some
+        # dynamic discovery of interface capabilities.  See b/32582843
+        if hostapd_config.frequency < 5000:
+            interface = _AP_2GHZ_INTERFACE
+            subnet = _AP_2GHZ_SUBNET
+        else:
+            interface = _AP_5GHZ_INTERFACE
+            subnet = _AP_5GHZ_SUBNET
 
-    def _section_option_lookup(self, cfg_name, conditions, *target_keys):
-        """Looks up values of options in sections that match the conditions.
+        # In order to handle dhcp servers on any interface, the initiation of
+        # the dhcp server must be done after the wlan interfaces are figured
+        # out as opposed to being in __init__
+        self._dhcp = dhcp_server.DhcpServer(self.ssh, interface=interface)
 
-        To match a condition, a section needs to have all the key:value pairs
-        specified in conditions.
+        # For multi bssid configurations the mac address
+        # of the wireless interface needs to have enough space to mask out
+        # up to 8 different mac addresses.  The easiest way to do this
+        # is to set the last byte to 0.  While technically this could
+        # cause a duplicate mac address it is unlikely and will allow for
+        # one radio to have up to 8 APs on the interface.  The check ensures
+        # backwards compatibility since if someone has set the bssid on purpose
+        # the bssid will not be changed from what the user set.
+        interface_mac_orig = None
+        if not hostapd_config.bssid:
+            cmd = "ifconfig %s|grep ether|awk -F' ' '{print $2}'" % interface
+            interface_mac_orig = self.ssh.run(cmd)
+            interface_mac = interface_mac_orig.stdout[:-1] + '0'
+            hostapd_config.bssid = interface_mac
+
+        if interface in self._aps:
+            raise ValueError('No WiFi interface available for AP on '
+                             'channel %d' % hostapd_config.channel)
+
+        apd = hostapd.Hostapd(self.ssh, interface)
+        new_instance = _ApInstance(hostapd=apd, subnet=subnet)
+        self._aps[interface] = new_instance
+
+        # Turn off the DHCP server, we're going to change its settings.
+        self._dhcp.stop()
+        # Clear all routes to prevent old routes from interfering.
+        self._route_cmd.clear_routes(net_interface=interface)
+
+        if hostapd_config.bss_lookup:
+            # The dhcp_bss dictionary is created to hold the key/value
+            # pair of the interface name and the ip scope that will be
+            # used for the particular interface.  The a, b, c, d
+            # variables below are the octets for the ip address.  The
+            # third octet is then incremented for each interface that
+            # is requested.  This part is designed to bring up the
+            # hostapd interfaces and not the DHCP servers for each
+            # interface.
+            dhcp_bss = {}
+            counter = 1
+            for bss in hostapd_config.bss_lookup:
+                if not hostapd_config.bss_lookup[bss].bssid:
+                    if interface_mac_orig:
+                        hostapd_config.bss_lookup[
+                            bss].bssid = interface_mac_orig.stdout[:-1] + str(
+                                counter)
+                self._route_cmd.clear_routes(net_interface=str(bss))
+                if interface is _AP_2GHZ_INTERFACE:
+                    starting_ip_range = _AP_2GHZ_SUBNET_STR
+                else:
+                    starting_ip_range = _AP_5GHZ_SUBNET_STR
+                a, b, c, d = starting_ip_range.split('.')
+                dhcp_bss[bss] = dhcp_config.Subnet(
+                    ipaddress.ip_network('%s.%s.%s.%s' % (a, b, str(
+                        int(c) + counter), d)))
+                counter = counter + 1
+
+        apd.start(hostapd_config, additional_parameters=additional_parameters)
+
+        # The DHCP serer requires interfaces to have ips and routes before
+        # the server will come up.
+        interface_ip = ipaddress.ip_interface(
+            '%s/%s' % (subnet.router, subnet.network.netmask))
+        self._ip_cmd.set_ipv4_address(interface, interface_ip)
+        if hostapd_config.bss_lookup:
+            # This loop goes through each interface that was setup for
+            # hostapd and assigns the DHCP scopes that were defined but
+            # not used during the hostapd loop above.  The k and v
+            # variables represent the interface name, k, and dhcp info, v.
+            for k, v in dhcp_bss.items():
+                bss_interface_ip = ipaddress.ip_interface(
+                    '%s/%s' %
+                    (dhcp_bss[k].router, dhcp_bss[k].network.netmask))
+                self._ip_cmd.set_ipv4_address(str(k), bss_interface_ip)
+
+        # Restart the DHCP server with our updated list of subnets.
+        configured_subnets = [x.subnet for x in self._aps.values()]
+        if hostapd_config.bss_lookup:
+            for k, v in dhcp_bss.items():
+                configured_subnets.append(v)
+
+        self._dhcp.start(config=dhcp_config.DhcpConfig(configured_subnets))
+
+        return interface
+
+    def get_bssid_from_ssid(self, ssid):
+        """Gets the BSSID from a provided SSID
 
         Args:
-            cfg_name: Name of the configuration file to look in.
-            key: Key of the pair.
-            value: Value of the pair.
-            target_key: Key of the options we want to retrieve values from.
-
-        Returns:
-            A list of the values found.
+            ssid: An SSID string
+        Returns: The BSSID if on the AP or None is SSID could not be found.
         """
-        results = []
-        sections = self._client.get_all(cfg_name)
-        for section_cfg in sections.values():
-            if self._match_conditions(conditions, section_cfg):
-                r = {}
-                for k in target_keys:
-                    if k not in section_cfg:
-                        break
-                    r[k] = section_cfg[k]
-                if r:
-                    results.append(r)
-        return results
 
-    @staticmethod
-    def _match_conditions(conds, cfg):
-        for cond in conds:
-            key, value = cond
-            if key not in cfg or cfg[key] != value:
-                return False
-        return True
+        cmd = "iw dev %s info|grep addr|awk -F' ' '{print $2}'" % str(ssid)
+        iw_output = self.ssh.run(cmd)
+        if 'command failed: No such device' in iw_output.stderr:
+            return None
+        else:
+            return iw_output.stdout
 
-    def run(self, *cmd):
-        """Executes a terminal command on the AP.
+    def stop_ap(self, identifier):
+        """Stops a running ap on this controller.
 
         Args:
-            cmd: A tuple of command strings.
-
-        Returns:
-            The terminal output of the command.
+            identifier: The identify of the ap that should be taken down.
         """
-        return self._client.sys("exec", *cmd)
 
-    def apply_configs(self, ap_config):
-        """Applies configurations to the access point.
+        if identifier not in self._aps:
+            raise ValueError('Invalid identifer %s given' % identifier)
 
-        Reads the configuration file, adds wifi interfaces, and sets parameters
-        based on the configuration file.
+        instance = self._aps.get(identifier)
 
-        Args:
-            ap_config: A dict containing the configurations for the AP.
-        """
-        self.reset()
-        for k, v in ap_config.items():
-            if "radio" in k:
-                self._apply_radio_configs(k, v)
-            if "network" in k:
-                # TODO(angli) Implement this.
+        instance.hostapd.stop()
+        self._dhcp.stop()
+        self._ip_cmd.clear_ipv4_addresses(identifier)
+
+        # DHCP server needs to refresh in order to tear down the subnet no
+        # longer being used. In the event that all interfaces are torn down
+        # then an exception gets thrown. We need to catch this exception and
+        # check that all interfaces should actually be down.
+        configured_subnets = [x.subnet for x in self._aps.values()]
+        if configured_subnets:
+            self._dhcp.start(dhcp_config.DhcpConfig(configured_subnets))
+
+    def stop_all_aps(self):
+        """Stops all running aps on this device."""
+
+        for ap in self._aps.keys():
+            try:
+                self.stop_ap(ap)
+            except dhcp_server.NoInterfaceError as e:
                 pass
-        self.apply_wifi_changes()
 
-    def _apply_radio_configs(self, radio_id, radio_config):
-        """Applies conigurations on a radio of the AP.
+    def close(self):
+        """Called to take down the entire access point.
 
-        Sets the options in the radio config.
-        Adds wifi-ifaces to this radio based on the configurations.
+        When called will stop all aps running on this host, shutdown the dhcp
+        server, and stop the ssh conneciton.
         """
-        for k, v in radio_config.items():
-            if k == "settings":
-                self._set_options('wireless', radio_id, v,
-                                  self.RADIO_DEFAULTS)
-            if k == "wifi-iface":
-                for cfg in v:
-                    cfg["device"] = radio_id
-                self._add_ifaces(v)
 
-    def reset(self):
-        """Resets the AP to a clean state.
-        
-        Deletes all wifi-ifaces.
-        Enable all the radios.
-        """
-        sections = self._client.get_all("wireless")
-        to_be_deleted = []
-        for section_id in sections.keys():
-            if section_id not in self.RADIO_NAMES:
-                to_be_deleted.append(section_id)
-        self.delete_ifaces_by_ids(to_be_deleted)
-        for r in self.RADIO_NAMES:
-            self.toggle_radio_state(r, True)
+        if self._aps:
+            self.stop_all_aps()
+            self._dhcp.stop()
 
-    def toggle_radio_state(self, radio_name, state=None):
-        """Toggles the state of a radio.
-
-        If input state is None, toggle the state of the radio.
-        Otherwise, set the radio's state to input state.
-        State True is equivalent to 'disabled':'0'
-
-        Args:
-            radio_name: Name of the radio to change state.
-            state: State to set to, default is None.
-
-        Raises:
-            ClientError: If the radio specified does not exist on the AP.
-        """
-        if radio_name not in self.RADIO_NAMES:
-            raise ClientError("Trying to change none-existent radio's state")
-        cur_state = self._client.get("wireless", radio_name, "disabled")
-        cur_state = True if cur_state=='0' else False
-        if state == cur_state:
-            return
-        new_state = '1' if cur_state else '0'
-        self._set_option("wireless", radio_name, "disabled", new_state)
-        self.apply_wifi_changes()
-        return
-
-    def set_ssid_state(self, ssid, state):
-        """Sets the state of ssid (turns on/off).
-
-        Args:
-            ssid: The ssid whose state is being changed.
-            state: State to set the ssid to. Enable the ssid if True, disable
-                otherwise.
-        """
-        new_state = '0' if state else '1'
-        section_ids = self.section_id_lookup("wireless", "ssid", ssid)
-        for s_id in section_ids:
-            self._set_option("wireless", s_id, "disabled", new_state)
-
-    def get_ssids(self, conds):
-        """Gets all the ssids that match the conditions.
-
-        Params:
-            conds: An iterable of tuples, each representing a key:value pair
-                an ssid must have to be included.
-
-        Returns:
-            A list of ssids that contain all the specified key:value pairs.
-        """
-        results = []
-        for s in self._section_option_lookup("wireless", conds, "ssid"):
-            results.append(s["ssid"])
-        return results
-
-    def get_active_ssids(self):
-        """Gets the ssids that are currently not disabled.
-
-        Returns:
-            A list of ssids that are currently active.
-        """
-        conds = (("disabled", "0"),)
-        return self.get_ssids(conds)
-
-    def get_active_ssids_info(self, *keys):
-        """Gets the specified info of currently active ssids
-
-        If frequency is requested, it'll be retrieved from the radio section
-        associated with this ssid.
-
-        Params:
-            keys: Names of the fields to include in the returned info.
-                e.g. "frequency".
-
-        Returns:
-            Values of the requested info.
-        """
-        conds = (("disabled", "0"),)
-        keys = [w.replace("frequency","device") for w in keys]
-        if "device" not in keys:
-            keys.append("device")
-        info = self._section_option_lookup("wireless", conds, "ssid", *keys)
-        results = []
-        for i in info:
-            radio = i["device"]
-            # Skip this info the radio its ssid is on is disabled.
-            disabled = self._client.get("wireless", radio, "disabled")
-            if disabled != '0':
-                continue
-            c = int(self._client.get("wireless", radio, "channel"))
-            if radio == "radio0":
-                i["frequency"] = WifiEnums.channel_2G_to_freq[c]
-            elif radio == "radio1":
-                i["frequency"] = WifiEnums.channel_5G_to_freq[c]
-            results.append(i)
-        return results
-
-    def get_radio_option(self, key, idx=0):
-        """Gets an option from the configured settings of a radio.
-
-        Params:
-            key: Name of the option to retrieve.
-            idx: Index of the radio to retrieve the option from. Default is 0.
-
-        Returns:
-            The value of the specified option and radio.
-        """
-        r = None
-        if idx == 0:
-            r = "radio0"
-        elif idx == 1:
-            r = "radio1"
-        return self._client.get("wireless", r, key)
-
-    def apply_wifi_changes(self):
-        """Applies committed wifi changes by restarting wifi.
-
-        Raises:
-            ServerError: Something funny happened restarting wifi on the AP.
-        """
-        s = self._client.commit('wireless')
-        resp = self.run('wifi')
-        return resp
-        # if resp != '' or not s:
-        #     raise ServerError(("Exception in refreshing wifi changes, commit"
-        #                        " status: ") + str(s) + ", wifi restart response: "
-        #                        + str(resp))
-
-    def set_wifi_channel(self, channel, device='radio0'):
-        self.set('wireless', device, 'channel', channel)
-
-    def _add_ifaces(self, configs):
-        """Adds wifi-ifaces in the AP's wireless config based on a list of
-        configuration dict.
-
-        Args:
-            configs: A list of dicts each representing a wifi-iface config.
-        """
-        for config in configs:
-            self._add_cfg_section('wireless', 'wifi-iface',
-                              config, self.IFACE_DEFAULTS)
-
-    def _add_cfg_section(self, cfg_name, section, options, defaults=None):
-        """Adds a section in a configuration file.
-
-        Args:
-            cfg_name: Name of the config file to add a section to.
-                e.g. 'wireless'.
-            section: Type of the secion to add. e.g. 'wifi-iface'.
-            options: A dict containing all key:value pairs of the options.
-                e.g. {'ssid': 'test', 'mode': 'ap'}
-
-        Raises:
-            ServerError: Uci add call returned False.
-        """
-        section_id = self._client.add(cfg_name, section)
-        if not section_id:
-            raise ServerError(' '.join(("Failed adding", section, "in",
-                              cfg_name)))
-        self._set_options(cfg_name, section_id, options, defaults)
-
-    def _set_options(self, cfg_name, section_id, options, defaults):
-        """Sets options in a section.
-
-        Args:
-            cfg_name: Name of the config file to add a section to.
-                e.g. 'wireless'.
-            section_id: ID of the secion to add options to. e.g. 'cfg000864'.
-            options: A dict containing all key:value pairs of the options.
-                e.g. {'ssid': 'test', 'mode': 'ap'}
-
-        Raises:
-            ServerError: Uci set call returned False.
-        """
-        # Fill the fields not defined in config with default values.
-        if defaults:
-            for k, v in defaults.items():
-                if k not in options:
-                    options[k] = v
-        # Set value pairs defined in config.
-        for k, v in options.items():
-            self._set_option(cfg_name, section_id, k, v)
-
-    def _set_option(self, cfg_name, section_id, k, v):
-        """Sets an option in a config section.
-
-        Args:
-            cfg_name: Name of the config file the section is in.
-                e.g. 'wireless'.
-            section_id: ID of the secion to set option in. e.g. 'cfg000864'.
-            k: Name of the option.
-            v: Value to set the option to.
-
-        Raises:
-            ServerError: If the rpc called returned False.
-        """
-        status = self._client.set(cfg_name, section_id, k, v)
-        if not status:
-            # Delete whatever was added.
-                raise ServerError(' '.join(("Failed adding option", str(k),
-                                  ':', str(d), "to", str(section_id))))
-
-    def delete_ifaces_by_ids(self, ids):
-        """Delete wifi-ifaces that are specified by the ids from the AP's
-        wireless config.
-
-        Args:
-            ids: A list of ids whose wifi-iface sections to be deleted.
-        """
-        for i in ids:
-            self._delete_cfg_section_by_id('wireless', i)
-
-    def delete_ifaces(self, key, value):
-        """Delete wifi-ifaces that contain the specified key:value pair.
-
-        Args:
-            key: Key of the pair.
-            value: Value of the pair.
-        """
-        self._delete_cfg_sections('wireless', key, value)
-
-    def _delete_cfg_sections(self, cfg_name, key, value):
-        """Deletes config sections that have the specified key:value pair.
-
-        Finds the ids of sections that match a key:value pair in the specified
-        config file and delete the section.
-
-        Args:
-            cfg_name: Name of the config file to delete sections from.
-                e.g. 'wireless'.
-            key: Name of the option to be matched.
-            value: Value of the option to be matched.
-
-        Raises:
-            ClientError: Could not find any section that has the key:value
-                pair.
-        """
-        section_ids = self.section_id_lookup(cfg_name, key, value)
-        if not section_ids:
-            raise ClientError(' '.join(("Could not find any section that has ",
-                              key, ":", value)))
-        for section_id in section_ids:
-            self._delete_cfg_section_by_id(cfg_name, section_id)
-
-    def _delete_cfg_section_by_id(self, cfg_name, section_id):
-        """Deletes the config section with specified id.
-
-        Args:
-            cfg_name: Name of the config file to the delete a section from.
-                e.g. 'wireless'.
-            section_id: ID of the section to be deleted. e.g. 'cfg0d3777'.
-
-        Raises:
-            ServerError: Uci delete call returned False.
-        """
-        self._client.delete(cfg_name, section_id)
-
-    def _get_iw_info(self):
-        results = []
-        text = self.run("iw dev").replace('\t', '')
-        interfaces = text.split("Interface")
-        for intf in interfaces:
-            if len(intf.strip()) < 6:
-                # This is a PHY mark.
-                continue
-            # This is an interface line.
-            intf = intf.replace(', ', '\n')
-            lines = intf.split('\n')
-            r = {}
-            for l in lines:
-                if ' ' in l:
-                    # Only the lines with space are processed.
-                    k, v = l.split(' ', 1)
-                    if k == "addr":
-                        k = "bssid"
-                    if "wlan" in v:
-                        k = "interface"
-                    if k == "channel":
-                        vs = v.split(' ', 1)
-                        v = int(vs[0])
-                        r["frequency"] = int(vs[1].split(' ', 1)[0][1:5])
-                    if k[-1] == ':':
-                        k = k[:-1]
-                    r[k] = v
-            results.append(r)
-        return results
-
-    def get_active_bssids_info(self, radio, *args):
-        wlan = None
-        if radio == "radio0":
-            wlan = "wlan0"
-        if radio == "radio1":
-            wlan = "wlan1"
-        infos = self._get_iw_info()
-        bssids = []
-        for i in infos:
-            if wlan in i["interface"]:
-                r = {}
-                for k,v in i.items():
-                    if k in args:
-                        r[k] = v
-                r["bssid"] = i["bssid"].upper()
-                bssids.append(r)
-        return bssids
-
-    def toggle_bssid_state(self, bssid):
-        if bssid == self.get_bssid("radio0"):
-            self.toggle_radio_state("radio0")
-            return True
-        elif bssid == self.get_bssid("radio1"):
-            self.toggle_radio_state("radio1")
-            return True
-        return False
-
-    def __getattr__(self, name):
-        return _LibCaller(self._client, name)
-
-class _LibCaller:
-    def __init__(self, client, *args):
-        self._client = client
-        self._args = args
-
-    def __getattr__(self, name):
-        return _LibCaller(self._client, *self._args+(name,))
-
-    def __call__(self, *args):
-        return self._client.call("/".join(self._args[:-1]),
-                                 self._args[-1],
-                                 *args)
+        self.ssh.close()

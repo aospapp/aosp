@@ -29,6 +29,8 @@ class MockTpmInitializer : public TpmInitializer {
   ~MockTpmInitializer() override;
 
   MOCK_METHOD0(InitializeTpm, bool());
+  MOCK_METHOD0(VerifiedBootHelper, void());
+  MOCK_METHOD0(ResetDictionaryAttackLock, bool());
 };
 
 }  // namespace tpm_manager

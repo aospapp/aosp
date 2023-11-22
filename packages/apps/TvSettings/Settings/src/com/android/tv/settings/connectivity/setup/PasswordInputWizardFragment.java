@@ -87,8 +87,8 @@ public class PasswordInputWizardFragment extends Fragment {
         final View action = inflater.inflate(R.layout.password_text_input, actionArea, false);
         actionArea.addView(action);
 
-        TextView titleText = (TextView) content.findViewById(R.id.title_text);
-        TextView descriptionText = (TextView) content.findViewById(R.id.description_text);
+        TextView titleText = (TextView) content.findViewById(R.id.guidance_title);
+        TextView descriptionText = (TextView) content.findViewById(R.id.guidance_description);
         mTextInput = (EditText) action.findViewById(R.id.text_input);
         mTextObfuscationToggle = (CheckBox) action.findViewById(R.id.text_obfuscation_toggle);
 

@@ -25,9 +25,7 @@ LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_MODULE := CtsHostsideNumberBlockingTestCases
 
-LOCAL_STATIC_JAVA_LIBRARIES := cts-migration-lib
-
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt compatibility-host-util
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 

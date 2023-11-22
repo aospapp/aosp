@@ -18,7 +18,7 @@ import its.device
 import its.objects
 import its.target
 import time
-import pylab
+from matplotlib import pylab
 import os.path
 import matplotlib
 import matplotlib.pyplot

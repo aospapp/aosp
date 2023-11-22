@@ -16,41 +16,58 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
-import android.cts.util.PollingCheck;
-import android.test.ActivityInstrumentationTestCase2;
+import android.app.Instrumentation;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
-import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.view.animation.cts.AnimationTestUtils;
 
-import android.view.cts.R;
+import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link View}.
  */
-public class View_AnimationTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivity> {
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class View_AnimationTest {
 
     private static final int TIME_OUT = 5000;
     private static final int DURATION = 2000;
 
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
 
     private TranslateAnimation mAnimation;
 
-    public View_AnimationTest() {
-        super("android.view.cts", ViewTestCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ViewTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ViewTestCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mAnimation =  new TranslateAnimation(0.0f, 10.0f, 0.0f, 10.0f);
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        mAnimation = new TranslateAnimation(0.0f, 10.0f, 0.0f, 10.0f);
         mAnimation.setDuration(DURATION);
     }
 
+    @Test
     public void testAnimation() throws Throwable {
         final View view = mActivity.findViewById(R.id.mock_view);
         // set null animation
@@ -58,34 +75,29 @@ public class View_AnimationTest extends ActivityInstrumentationTestCase2<ViewTes
         assertNull(view.getAnimation());
 
         view.setAnimation(mAnimation);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                view.invalidate();
-            }
-        });
+        mActivityRule.runOnUiThread(view::invalidate);
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), view, mAnimation, TIME_OUT);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, view, mAnimation,
+                TIME_OUT);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testStartAnimationNull() {
+        final View view = mActivity.findViewById(R.id.mock_view);
+        view.startAnimation(null);
+    }
+
+    @Test
     public void testStartAnimation() throws Throwable {
         final View view = mActivity.findViewById(R.id.mock_view);
-        // start null animation
-        try {
-            view.startAnimation(null);
-            fail("did not throw NullPointerException when start null animation");
-        } catch (NullPointerException e) {
-            // expected
-        }
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                view.startAnimation(mAnimation);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> view.startAnimation(mAnimation));
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), view, mAnimation, TIME_OUT);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, view, mAnimation,
+                TIME_OUT);
     }
 
+    @Test
     public void testClearBeforeAnimation() throws Throwable {
         final View view = mActivity.findViewById(R.id.mock_view);
         assertFalse(mAnimation.hasStarted());
@@ -94,39 +106,28 @@ public class View_AnimationTest extends ActivityInstrumentationTestCase2<ViewTes
 
         assertSame(mAnimation, view.getAnimation());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                view.clearAnimation();
-                view.invalidate();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            view.clearAnimation();
+            view.invalidate();
         });
 
-        Thread.sleep(TIME_OUT);
+        SystemClock.sleep(TIME_OUT);
         assertFalse(mAnimation.hasStarted());
         assertNull(view.getAnimation());
     }
 
+    @Test
     public void testClearDuringAnimation() throws Throwable {
         final View view = mActivity.findViewById(R.id.mock_view);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                view.startAnimation(mAnimation);
-                assertNotNull(view.getAnimation());
-            }
+        mActivityRule.runOnUiThread(() -> {
+            view.startAnimation(mAnimation);
+            assertNotNull(view.getAnimation());
         });
 
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mAnimation.hasStarted();
-            }
-        }.run();
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                view.clearAnimation();
-            }
-        });
-        Thread.sleep(TIME_OUT);
+        PollingCheck.waitFor(TIME_OUT, mAnimation::hasStarted);
+
+        mActivityRule.runOnUiThread(view::clearAnimation);
+        SystemClock.sleep(TIME_OUT);
         assertTrue(mAnimation.hasStarted());
         assertTrue(mAnimation.hasEnded());
         assertNull(view.getAnimation());

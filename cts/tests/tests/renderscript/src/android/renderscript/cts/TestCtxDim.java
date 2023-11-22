@@ -40,5 +40,8 @@ public class TestCtxDim extends RSBaseCompute {
         script.invoke_check_result();
         mRS.finish();
         waitForMessage();
+
+        A.destroy();
+        script.destroy();
     }
 }

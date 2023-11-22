@@ -29,10 +29,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#if (DE_COMPILER == DE_COMPILER_MSC)
-#	include <varargs.h>
-#endif
-
 DE_BEGIN_EXTERN_C
 
 /*--------------------------------------------------------------------*//*!
@@ -131,7 +127,7 @@ int deVsprintf (char* string, size_t size, const char* format, va_list list)
 }
 
 /*--------------------------------------------------------------------*//*!
- * \brief 	Safe string print
+ * \brief	Safe string print
  * \note	This has the new safe signature, i.e., string length is a
  *			required parameter.
  *//*--------------------------------------------------------------------*/
@@ -181,11 +177,11 @@ char* deStrcat (char* s1, size_t size, const char* s2)
 
 size_t deStrnlen (const char* string, size_t maxSize)
 {
-#if ((DE_COMPILER == DE_COMPILER_MSC) && (DE_OS != DE_OS_WINCE)) || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201100L))
+#if ((DE_COMPILER == DE_COMPILER_MSC) && (DE_OS != DE_OS_WINCE))
 	return strnlen_s(string, maxSize);
 #else
 	size_t len = 0;
-	while (len < maxSize || string[len] != 0)
+	while (len < maxSize && string[len] != 0)
 		++len;
 	return len;
 #endif

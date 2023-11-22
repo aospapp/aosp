@@ -20,18 +20,9 @@
 #include <time.h>
 
 #if defined(ARCH_SUPPORTS_SECCOMP)
-#include <linux/filter.h>
-#include <linux/seccomp.h>
-#include <sys/syscall.h>
+#include <libminijail.h>
+#include <seccomp_bpf_tests.h>
 #endif
-
-#include "seccomp_sample_program.h"
-#include "seccomp-tests/tests/test_harness.h"
-
-// Forward declare from seccomp_bpf_tests.c.
-extern "C" {
-struct __test_metadata* get_seccomp_test_list();
-}
 
 static const char TAG[] = "SeccompBpfTest-Native";
 
@@ -54,31 +45,53 @@ jboolean android_security_cts_SeccompBpfTest_runKernelUnitTest(
     return false;
 }
 
-jboolean android_security_cts_SeccompBpfTest_installTestFilter(JNIEnv*, jclass) {
+jboolean android_security_cts_SeccompBpfTest_nativeInstallTestFilter(
+        JNIEnv*, jclass, jint policyFd) {
 #if !defined(ARCH_SUPPORTS_SECCOMP)
-  return false;
-#else
-  struct sock_fprog prog = GetTestSeccompFilterProgram();
-
-  if (prog.len == 0)
     return false;
+#else
+    minijail* j = minijail_new();
+    minijail_no_new_privs(j);
+    minijail_use_seccomp_filter(j);
+    minijail_set_seccomp_filter_tsync(j);
+    minijail_parse_seccomp_filters_from_fd(j, policyFd);
+    minijail_enter(j);
+    minijail_destroy(j);
 
-  int rv = syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC, &prog);
-  return rv == 0;
+    close(policyFd);
+    return true;
 #endif
 }
 
+jstring android_security_cts_SeccompBpfTest_getPolicyAbiString(JNIEnv* env, jclass) {
+    const char* string;
+#if defined(__arm__)
+    string = "arm";
+#elif defined(__aarch64__)
+    string = "arm64";
+#elif defined(__i386__)
+    string = "i386";
+#elif defined(__x86_64__)
+    string = "x86-64";
+#else
+    return nullptr;
+#endif
+    return env->NewStringUTF(string);
+}
+
 jint android_security_cts_SeccompBpfTest_getClockBootTime(JNIEnv*, jclass) {
-  struct timespec ts;
-  int rv = clock_gettime(CLOCK_BOOTTIME, &ts);
-  return rv;
+    struct timespec ts;
+    int rv = clock_gettime(CLOCK_BOOTTIME_ALARM, &ts);
+    return rv;
 }
 
 static JNINativeMethod methods[] = {
     { "runKernelUnitTest", "(Ljava/lang/String;)Z",
         (void*)android_security_cts_SeccompBpfTest_runKernelUnitTest },
-    { "installTestFilter", "()Z",
-        (void*)android_security_cts_SeccompBpfTest_installTestFilter },
+    { "nativeInstallTestFilter", "(I)Z",
+        (void*)android_security_cts_SeccompBpfTest_nativeInstallTestFilter },
+    { "getPolicyAbiString", "()Ljava/lang/String;",
+        (void*)android_security_cts_SeccompBpfTest_getPolicyAbiString },
     { "getClockBootTime", "()I",
         (void*)android_security_cts_SeccompBpfTest_getClockBootTime },
 };

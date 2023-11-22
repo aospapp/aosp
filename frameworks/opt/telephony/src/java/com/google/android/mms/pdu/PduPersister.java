@@ -17,15 +17,6 @@
 
 package com.google.android.mms.pdu;
 
-import com.google.android.mms.ContentType;
-import com.google.android.mms.InvalidHeaderValueException;
-import com.google.android.mms.MmsException;
-import com.google.android.mms.util.DownloadDrmHelper;
-import com.google.android.mms.util.DrmConvertSession;
-import com.google.android.mms.util.PduCache;
-import com.google.android.mms.util.PduCacheEntry;
-import com.google.android.mms.util.SqliteWrapper;
-
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -38,16 +29,25 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.provider.Telephony;
 import android.provider.Telephony.Mms;
-import android.provider.Telephony.MmsSms;
-import android.provider.Telephony.Threads;
 import android.provider.Telephony.Mms.Addr;
 import android.provider.Telephony.Mms.Part;
+import android.provider.Telephony.MmsSms;
 import android.provider.Telephony.MmsSms.PendingMessages;
-import android.telephony.SubscriptionManager;
+import android.provider.Telephony.Threads;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.google.android.mms.ContentType;
+import com.google.android.mms.InvalidHeaderValueException;
+import com.google.android.mms.MmsException;
+import com.google.android.mms.util.DownloadDrmHelper;
+import com.google.android.mms.util.DrmConvertSession;
+import com.google.android.mms.util.PduCache;
+import com.google.android.mms.util.PduCacheEntry;
+import com.google.android.mms.util.SqliteWrapper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -60,10 +60,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
-
-import com.google.android.mms.pdu.EncodedStringValue;
+import java.util.Set;
 
 /**
  * This class is the high-level manager of PDU storage.
@@ -838,7 +836,7 @@ public class PduPersister {
                 os = mContentResolver.openOutputStream(uri);
                 if (data == null) {
                     dataUri = part.getDataUri();
-                    if ((dataUri == null) || (dataUri == uri)) {
+                    if ((dataUri == null) || (dataUri.equals(uri))) {
                         Log.w(TAG, "Can't find data for this part.");
                         return;
                     }
@@ -1138,7 +1136,7 @@ public class PduPersister {
         // 1. New binary data supplied or
         // 2. The Uri of the part is different from the current one.
         if ((part.getData() != null)
-                || (uri != part.getDataUri())) {
+                || (!uri.equals(part.getDataUri()))) {
             persistData(part, uri, contentType, preOpenedFiles);
         }
     }
@@ -1183,7 +1181,8 @@ public class PduPersister {
             for (int i = 0; i < partsNum; i++) {
                 PduPart part = body.getPart(i);
                 Uri partUri = part.getDataUri();
-                if ((partUri == null) || !partUri.getAuthority().startsWith("mms")) {
+                if ((partUri == null) || TextUtils.isEmpty(partUri.getAuthority())
+                        || !partUri.getAuthority().startsWith("mms")) {
                     toBeCreated.add(part);
                 } else {
                     toBeUpdated.put(partUri, part);

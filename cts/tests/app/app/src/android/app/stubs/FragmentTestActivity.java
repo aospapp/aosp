@@ -19,6 +19,7 @@ package android.app.stubs;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.transition.Transition;
 import android.transition.Transition.TransitionListener;

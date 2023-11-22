@@ -186,25 +186,49 @@ public class RawConverter {
                 copyTo(blackLevelPattern, /*offset*/0);
         int whiteLevel = staticMetadata.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL);
         int ref1 = staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1);
-        int ref2 = staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);
+        int ref2;
+        if (staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2) != null) {
+            ref2 = staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);
+        }
+        else {
+            ref2 = ref1;
+        }
         float[] calib1 = new float[9];
         float[] calib2 = new float[9];
         convertColorspaceTransform(
                 staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1), calib1);
-        convertColorspaceTransform(
+        if (staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2) != null) {
+            convertColorspaceTransform(
                 staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2), calib2);
+        }
+        else {
+            convertColorspaceTransform(
+                staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1), calib2);
+        }
         float[] color1 = new float[9];
         float[] color2 = new float[9];
         convertColorspaceTransform(
                 staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1), color1);
-        convertColorspaceTransform(
+        if (staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2) != null) {
+            convertColorspaceTransform(
                 staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2), color2);
+        }
+        else {
+            convertColorspaceTransform(
+                staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1), color2);
+        }
         float[] forward1 = new float[9];
         float[] forward2 = new float[9];
         convertColorspaceTransform(
                 staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1), forward1);
-        convertColorspaceTransform(
+        if (staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2) != null) {
+            convertColorspaceTransform(
                 staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2), forward2);
+        }
+        else {
+            convertColorspaceTransform(
+                staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1), forward2);
+        }
 
         Rational[] neutral = dynamicMetadata.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
 

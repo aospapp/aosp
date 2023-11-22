@@ -7,8 +7,6 @@
 
 #include "GrXferProcessor.h"
 #include "GrPipeline.h"
-#include "GrPipelineBuilder.h"
-#include "GrProcOptInfo.h"
 #include "gl/GrGLCaps.h"
 
 GrXferProcessor::GrXferProcessor()
@@ -27,29 +25,13 @@ GrXferProcessor::GrXferProcessor(const DstTexture* dstTexture,
         SkASSERT(willReadDstColor);
         fDstTexture.reset(dstTexture->texture());
         fDstTextureOffset = dstTexture->offset();
-        this->addTextureAccess(&fDstTexture);
-        this->setWillReadFragmentPosition();
+        this->addTextureSampler(&fDstTexture);
     }
 }
 
 GrXferProcessor::OptFlags GrXferProcessor::getOptimizations(
-                                                       const GrPipelineOptimizations& optimizations,
-                                                       bool doesStencilWrite,
-                                                       GrColor* overrideColor,
-                                                       const GrCaps& caps) const {
-    GrXferProcessor::OptFlags flags = this->onGetOptimizations(optimizations,
-                                                               doesStencilWrite,
-                                                               overrideColor,
-                                                               caps);
-
-    if (this->willReadDstColor()) {
-        // When performing a dst read we handle coverage in the base class.
-        SkASSERT(!(flags & GrXferProcessor::kIgnoreCoverage_OptFlag));
-        if (optimizations.fCoveragePOI.isSolidWhite()) {
-            flags |= GrXferProcessor::kIgnoreCoverage_OptFlag;
-        }
-    }
-    return flags;
+        const FragmentProcessorAnalysis& analysis) const {
+    return this->onGetOptimizations(analysis);
 }
 
 bool GrXferProcessor::hasSecondaryOutput() const {
@@ -68,7 +50,8 @@ void GrXferProcessor::getBlendInfo(BlendInfo* blendInfo) const {
     }
 }
 
-void GrXferProcessor::getGLSLProcessorKey(const GrGLSLCaps& caps, GrProcessorKeyBuilder* b) const {
+void GrXferProcessor::getGLSLProcessorKey(const GrShaderCaps& caps,
+                                          GrProcessorKeyBuilder* b) const {
     uint32_t key = this->willReadDstColor() ? 0x1 : 0x0;
     if (key) {
         if (const GrTexture* dstTexture = this->getDstTexture()) {
@@ -192,35 +175,48 @@ SkString GrXferProcessor::BlendInfo::dump() const {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-GrXferProcessor* GrXPFactory::createXferProcessor(const GrPipelineOptimizations& optimizations,
+bool GrXPFactory::WillNeedDstTexture(const GrXPFactory* factory, const GrCaps& caps,
+                                     const GrProcessorSet::FragmentProcessorAnalysis& analysis) {
+    bool result;
+    if (factory) {
+        result = !caps.shaderCaps()->dstReadInShaderSupport() &&
+                 factory->willReadDstInShader(caps, analysis);
+    } else {
+        result = GrPorterDuffXPFactory::WillSrcOverNeedDstTexture(caps, analysis);
+    }
+    return result;
+}
+
+bool GrXPFactory::CompatibleWithCoverageAsAlpha(const GrXPFactory* factory, bool colorIsOpaque) {
+    if (factory) {
+        return factory->compatibleWithCoverageAsAlpha(colorIsOpaque);
+    }
+    return GrPorterDuffXPFactory::SrcOverIsCompatibleWithCoverageAsAlpha();
+}
+
+bool GrXPFactory::CanCombineOverlappedStencilAndCover(const GrXPFactory* factory,
+                                                      bool colorIsOpaque) {
+    if (factory) {
+        return factory->canCombineOverlappedStencilAndCover(colorIsOpaque);
+    }
+    return GrPorterDuffXPFactory::SrcOverCanCombineOverlappedStencilAndCover(colorIsOpaque);
+}
+
+GrXferProcessor* GrXPFactory::createXferProcessor(const FragmentProcessorAnalysis& analysis,
                                                   bool hasMixedSamples,
                                                   const DstTexture* dstTexture,
                                                   const GrCaps& caps) const {
 #ifdef SK_DEBUG
-    if (this->willReadDstColor(caps, optimizations, hasMixedSamples)) {
+    if (this->willReadDstInShader(caps, analysis)) {
         if (!caps.shaderCaps()->dstReadInShaderSupport()) {
             SkASSERT(dstTexture && dstTexture->texture());
         } else {
-            SkASSERT(!dstTexture || !dstTexture->texture()); 
+            SkASSERT(!dstTexture || !dstTexture->texture());
         }
     } else {
-        SkASSERT(!dstTexture || !dstTexture->texture()); 
+        SkASSERT(!dstTexture || !dstTexture->texture());
     }
     SkASSERT(!hasMixedSamples || caps.shaderCaps()->dualSourceBlendingSupport());
 #endif
-    return this->onCreateXferProcessor(caps, optimizations, hasMixedSamples, dstTexture);
-}
-
-bool GrXPFactory::willNeedDstTexture(const GrCaps& caps,
-                                     const GrPipelineOptimizations& optimizations,
-                                     bool hasMixedSamples) const {
-    return (this->willReadDstColor(caps, optimizations, hasMixedSamples) &&
-            !caps.shaderCaps()->dstReadInShaderSupport());
-}
-
-bool GrXPFactory::willReadDstColor(const GrCaps& caps,
-                                   const GrPipelineOptimizations& optimizations,
-                                   bool hasMixedSamples) const {
-    return optimizations.fOverrides.fUsePLSDstRead || this->onWillReadDstColor(caps, optimizations,
-                                                                               hasMixedSamples);
+    return this->onCreateXferProcessor(caps, analysis, hasMixedSamples, dstTexture);
 }

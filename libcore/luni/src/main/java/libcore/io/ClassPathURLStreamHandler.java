@@ -103,7 +103,22 @@ public class ClassPathURLStreamHandler extends Handler {
   }
 
   private class ClassPathURLConnection extends JarURLConnection {
-    // The JarFile instance is shared across URLConnections and must not be closed.
+    // The JarFile instance can be shared across URLConnections and should not be closed when it is:
+    //
+    // Sharing occurs if getUseCaches() is true when connect() is called (which can take place
+    // implicitly). useCachedJarFile records the state of sharing at connect() time.
+    // useCachedJarFile == true is the common case. If developers call getJarFile().close() when
+    // sharing is enabled then it will affect other users (current and future) of the shared
+    // JarFile.
+    //
+    // Developers could call ClassLoader.findResource().openConnection() to get a URLConnection and
+    // then call setUseCaches(false) before connect() to prevent sharing. The developer must then
+    // call getJarFile().close() or close() on the inputStream from getInputStream() will do it
+    // automatically. This is likely to be an extremely rare case.
+    //
+    // Most developers are not expecting to deal with the lifecycle of the underlying JarFile object
+    // at all. The presence of the getJarFile() method and setUseCaches() forces us to consider /
+    // handle it.
     private JarFile connectionJarFile;
 
     private ZipEntry jarEntry;
@@ -141,7 +156,7 @@ public class ClassPathURLStreamHandler extends Handler {
       connect();
 
       // We do cache in the surrounding class if useCachedJarFile is true to
-      // preserve garbage collection semantics to avoid leak warnings.
+      // preserve garbage collection semantics and to avoid leak warnings.
       if (useCachedJarFile) {
         connectionJarFile = jarFile;
       } else {
@@ -163,8 +178,9 @@ public class ClassPathURLStreamHandler extends Handler {
         @Override
         public void close() throws IOException {
           super.close();
-          // If the jar file is not cached closing the input stream will close the URLConnection and
-          // any JarFile returned from getJarFile().
+          // If the jar file is not cached then closing the input stream will close the
+          // URLConnection and any JarFile returned from getJarFile(). If the jar file is cached
+          // we must not close it because it will affect other URLConnections.
           if (connectionJarFile != null && !useCachedJarFile) {
             connectionJarFile.close();
             closed = true;

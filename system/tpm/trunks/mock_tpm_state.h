@@ -45,6 +45,9 @@ class MockTpmState : public TpmState {
   MOCK_METHOD0(GetLockoutThreshold, uint32_t());
   MOCK_METHOD0(GetLockoutInterval, uint32_t());
   MOCK_METHOD0(GetLockoutRecovery, uint32_t());
+  MOCK_METHOD0(GetMaxNVSize, uint32_t());
+  MOCK_METHOD2(GetTpmProperty, bool(TPM_PT, uint32_t*));
+  MOCK_METHOD2(GetAlgorithmProperties, bool(TPM_ALG_ID, TPMA_ALGORITHM*));
 };
 
 }  // namespace trunks

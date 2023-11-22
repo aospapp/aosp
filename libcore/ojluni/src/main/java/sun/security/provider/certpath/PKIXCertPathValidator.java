@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -103,7 +103,7 @@ public final class PKIXCertPathValidator extends CertPathValidatorSpi {
              */
             try {
                 X509CertImpl firstCertImpl = X509CertImpl.toImpl(firstCert);
-                selector.parseAuthorityKeyIdentifierExtension(
+                selector.setSkiAndSerialNumber(
                             firstCertImpl.getAuthorityKeyIdentifierExtension());
             } catch (CertificateException | IOException e) {
                 // ignore
@@ -162,12 +162,22 @@ public final class PKIXCertPathValidator extends CertPathValidatorSpi {
                                                         ValidatorParams params)
         throws CertPathValidatorException
     {
+        // add standard checkers that we will be using
+        // Android-removed: Android doesn't use this mechanism for checking untrusted certificates.
+        // check if anchor is untrusted
+        //UntrustedChecker untrustedChecker = new UntrustedChecker();
+        //X509Certificate anchorCert = anchor.getTrustedCert();
+        //if (anchorCert != null) {
+        //    untrustedChecker.check(anchorCert);
+        //}
+
         int certPathLen = params.certificates().size();
 
         // create PKIXCertPathCheckers
         List<PKIXCertPathChecker> certPathCheckers = new ArrayList<>();
         // add standard checkers that we will be using
-        certPathCheckers.add(new UntrustedChecker());
+        // Android-removed: Android doesn't use this mechanism for checking untrusted certificates.
+        // certPathCheckers.add(untrustedChecker);
         certPathCheckers.add(new AlgorithmChecker(anchor));
         certPathCheckers.add(new KeyChecker(certPathLen,
                                             params.targetCertConstraints()));

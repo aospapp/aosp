@@ -65,9 +65,10 @@ class SourcePackage (Source):
 		if not self.isArchiveUpToDate():
 			self.fetchAndVerifyArchive()
 
-		# \note No way to verify that extracted contents match archive, re-extract
-		Source.clean(self)
-		self.extract()
+		if self.getExtractedChecksum() != self.checksum:
+			Source.clean(self)
+			self.extract()
+			self.storeExtractedChecksum(self.checksum)
 
 	def removeArchives (self):
 		archiveDir = os.path.join(EXTERNAL_DIR, pkg.baseDir, pkg.archiveDir)
@@ -80,6 +81,20 @@ class SourcePackage (Source):
 			return computeChecksum(readFile(archiveFile)) == self.checksum
 		else:
 			return False
+
+	def getExtractedChecksumFilePath (self):
+		return os.path.join(EXTERNAL_DIR, pkg.baseDir, pkg.archiveDir, "extracted")
+
+	def getExtractedChecksum (self):
+		extractedChecksumFile = self.getExtractedChecksumFilePath()
+
+		if os.path.exists(extractedChecksumFile):
+			return readFile(extractedChecksumFile)
+		else:
+			return None
+
+	def storeExtractedChecksum (self, checksum):
+		writeFile(self.getExtractedChecksumFilePath(), checksum)
 
 	def fetchAndVerifyArchive (self):
 		print "Fetching %s" % self.url
@@ -158,24 +173,28 @@ def postExtractLibpng (path):
 
 PACKAGES = [
 	SourcePackage(
-		"http://zlib.net/zlib-1.2.8.tar.gz",
-		"zlib-1.2.8.tar.gz",
-		"36658cb768a54c1d4dec43c3116c27ed893e88b02ecfcb44f2166f9c0b7f2a0d",
+		"http://zlib.net/zlib-1.2.11.tar.gz",
+		"zlib-1.2.11.tar.gz",
+		"c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
 		"zlib"),
 	SourcePackage(
-		"http://prdownloads.sourceforge.net/libpng/libpng-1.6.17.tar.gz",
-		"libpng-1.6.17.tar.gz",
-		"a18233c99e1dc59a256180e6871d9305a42e91b3f98799b3ceb98e87e9ec5e31",
+		"http://prdownloads.sourceforge.net/libpng/libpng-1.6.27.tar.gz",
+		"libpng-1.6.27.tar.gz",
+		"c9d164ec247f426a525a7b89936694aefbc91fb7a50182b198898b8fc91174b4",
 		"libpng",
 		postExtract = postExtractLibpng),
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Tools.git",
-		"f7e63786a919040cb2e0e572d960a0650f2c2881",
+		"ab03b879cab5d09147c257035145f0ad36c45064",
 		"spirv-tools"),
 	GitRepo(
 		"https://github.com/KhronosGroup/glslang.git",
-		"5639f3aca5b75cbe5419a623eecf5e3794fab917",
+		"e3aa654c4b0c761b28d7864192ca8ceea6faf70a",
 		"glslang"),
+	GitRepo(
+		"https://github.com/KhronosGroup/SPIRV-Headers.git",
+		"bd47a9abaefac00be692eae677daed1b977e625c",
+		"spirv-headers"),
 ]
 
 def parseArgs ():

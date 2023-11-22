@@ -34,8 +34,14 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsNetTestCases
 
-LOCAL_STATIC_JAVA_LIBRARIES := core-tests-support  ctsdeviceutil \
-                               ctstestrunner ctstestserver mockwebserver
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    core-tests-support \
+    compatibility-device-util \
+    ctstestrunner \
+    ctstestserver \
+    mockwebserver \
+    junit \
+    legacy-android-test
 
 # uncomment when b/13249961 is fixed
 #LOCAL_SDK_VERSION := current

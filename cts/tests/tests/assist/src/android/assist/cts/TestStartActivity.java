@@ -16,25 +16,18 @@
 
 package android.assist.cts;
 
-import android.assist.common.Utils;
-
 import android.app.Activity;
-import android.app.assist.AssistStructure;
-import android.app.assist.AssistStructure.ViewNode;
-import android.content.Intent;
+import android.assist.common.Utils;
 import android.content.ComponentName;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.Window;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ScrollView;
 import android.widget.TextView;
-
-import java.lang.Override;
 
 public class TestStartActivity extends Activity {
     static final String TAG = "TestStartActivity";

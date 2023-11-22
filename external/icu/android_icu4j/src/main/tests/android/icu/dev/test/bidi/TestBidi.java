@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2007-2013, International Business Machines
@@ -10,10 +12,10 @@ package android.icu.dev.test.bidi;
 
 import java.util.Arrays;
 
+import org.junit.Test;
+
 import android.icu.text.Bidi;
 import android.icu.text.BidiRun;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Regression test for Bidi class override.
@@ -21,12 +23,12 @@ import android.icu.junit.IcuTestFmwkRunner;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
-@RunWith(IcuTestFmwkRunner.class)
-public class TestBidi extends BidiTest {
+public class TestBidi extends BidiFmwk {
 
     private static final int MAXLEN = 256;
     private static final String levelString = "............................";
 
+    @Test
     public void testBidi() {
         Bidi bidi;
         Bidi bidiLine;
@@ -572,15 +574,5 @@ public class TestBidi extends BidiTest {
         /* last R (Hebrew etc.) others are weak L (English Digits) */
         String lastHebrewOthersEnglishDigit = "\u0031\u0032\u0033\u05F1";
         assertEquals("\nWrong direction through fast detection #15", Bidi.RTL, Bidi.getBaseDirection(lastHebrewOthersEnglishDigit));
-    }
-
-
-    public static void main(String[] args) {
-        try {
-            new TestBidi().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
     }
 }

@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "power_StatsCPUFreq"
 ATTRIBUTES = "suite:power_build"
-SUITE = "power_build"
 PURPOSE = "Measure time spent at each CPU Frequency when system is idle."
 CRITERIA = "This test is a benchmark."
 TIME = "SHORT"

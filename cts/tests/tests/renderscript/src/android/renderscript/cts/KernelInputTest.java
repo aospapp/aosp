@@ -75,6 +75,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_char(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_char2() {
@@ -88,6 +92,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_char2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_char3() {
@@ -101,6 +109,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_char3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_char4() {
@@ -114,6 +126,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_char4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_double() {
@@ -127,6 +143,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_double(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_double2() {
@@ -140,6 +160,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_double2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_double3() {
@@ -153,6 +177,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_double3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_double4() {
@@ -166,6 +194,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_double4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_float() {
@@ -179,6 +211,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_float(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_float2() {
@@ -192,6 +228,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_float2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_float3() {
@@ -205,6 +245,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_float3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_float4() {
@@ -218,6 +262,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_float4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_int() {
@@ -231,6 +279,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_int(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_int2() {
@@ -244,6 +296,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_int2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_int3() {
@@ -257,6 +313,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_int3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_int4() {
@@ -270,6 +330,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_int4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_long() {
@@ -283,6 +347,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_long(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_long2() {
@@ -296,6 +364,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_long2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_long3() {
@@ -309,6 +381,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_long3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_long4() {
@@ -322,6 +398,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_long4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_short() {
@@ -335,6 +415,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_short(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_short2() {
@@ -348,6 +432,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_short2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_short3() {
@@ -361,6 +449,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_short3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_short4() {
@@ -374,6 +466,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_short4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uchar() {
@@ -387,6 +483,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uchar(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uchar2() {
@@ -400,6 +500,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uchar2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uchar3() {
@@ -413,6 +517,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uchar3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uchar4() {
@@ -426,6 +534,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uchar4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uint() {
@@ -439,6 +551,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uint(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uint2() {
@@ -452,6 +568,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uint2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uint3() {
@@ -465,6 +585,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uint3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_uint4() {
@@ -478,6 +602,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_uint4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ulong() {
@@ -491,6 +619,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ulong(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ulong2() {
@@ -504,6 +636,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ulong2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ulong3() {
@@ -517,6 +653,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ulong3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ulong4() {
@@ -530,6 +670,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ulong4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ushort() {
@@ -543,6 +687,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ushort(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ushort2() {
@@ -556,6 +704,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ushort2(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ushort3() {
@@ -569,6 +721,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ushort3(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputNotModified_ushort4() {
@@ -582,6 +738,10 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_ushort4(ain);
 
         checkForErrorsInScript(script);
+
+        ain.destroy();
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputsNotModified_small() {
@@ -596,6 +756,9 @@ public class KernelInputTest extends RSBaseCompute {
         script.invoke_verify_input_small(item.getAllocation());
 
         checkForErrorsInScript(script);
+
+        tmp.destroy();
+        script.destroy();
     }
 
     public void testInputsNotModified_big() {
@@ -615,5 +778,8 @@ public class KernelInputTest extends RSBaseCompute {
        }
 
       checkForErrorsInScript(script);
+
+      tmp.destroy();
+      script.destroy();
     }
 }

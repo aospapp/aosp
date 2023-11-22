@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 #include <gui/GLConsumer.h>
 #include <gui/Surface.h>
+#include <gui/BufferQueue.h>
 #include <system/graphics.h>
 #include <utils/Log.h>
 #include <utils/Thread.h>
@@ -535,7 +536,7 @@ TEST_F(SurfaceTextureClientTest, DISABLED_SurfaceTextureSyncModeWaitRetire) {
             return false;
         }
     public:
-        MyThread(const sp<GLConsumer>& mST)
+        explicit MyThread(const sp<GLConsumer>& mST)
             : mST(mST), mBufferRetired(false) {
             ctx = eglGetCurrentContext();
             sur = eglGetCurrentSurface(EGL_DRAW);

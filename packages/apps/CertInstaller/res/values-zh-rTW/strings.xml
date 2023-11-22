@@ -69,7 +69,7 @@
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g>憑證已新增至 Wi-Fi 已儲存的網路。"</string>
     <string name="done_label" msgid="5597425930652904250">"完成"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"安裝 Wi-Fi 憑證即可透過<xliff:g id="NAME">%1$s</xliff:g>連上網路。"</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"下載的檔案有問題，因此無法安裝。請確認您是從正確的來源下載檔案。"</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"下載的檔案有問題，因此無法安裝。請確認你是從正確的來源下載檔案。"</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"無法安裝 Wi-Fi 憑證。請再次嘗試下載檔案。"</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"已取消安裝"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"無法安裝"</string>

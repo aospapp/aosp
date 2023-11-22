@@ -10,7 +10,6 @@ The test outputs the cpu usage and dropped frame count of H264 4K video
 playback.
 """
 ATTRIBUTES = "suite:crosbolt_perf_nightly"
-SUITE = "crosbolt_perf_nightly"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
@@ -22,7 +21,7 @@ This test measures the CPU usage and dropped frame count of H264 4K video
 playback for hardware decode and software decode.
 """
 
-VIDEO_NAME = 'traffic_3840x2160-32ec10f87ef369d0e5ec9c736d63cc58.mp4'
+VIDEO_NAME = 'traffic/traffic_3840x2160-32ec10f87ef369d0e5ec9c736d63cc58.mp4'
 VIDEO_DESCRIPTION = 'h264_4k'
 job.run_test('video_PlaybackPerf', video_name=VIDEO_NAME,
              video_description=VIDEO_DESCRIPTION)

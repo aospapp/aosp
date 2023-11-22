@@ -211,7 +211,7 @@ class StreamLocalCopy;
 template<typename Stream>
 class StreamLocalCopy<Stream, 1> {
 public:
-    StreamLocalCopy(Stream& original) : s(original), original_(original) {}
+    explicit StreamLocalCopy(Stream& original) : s(original), original_(original) {}
     ~StreamLocalCopy() { original_ = s; }
 
     Stream s;
@@ -226,7 +226,7 @@ private:
 template<typename Stream>
 class StreamLocalCopy<Stream, 0> {
 public:
-    StreamLocalCopy(Stream& original) : s(original) {}
+    explicit StreamLocalCopy(Stream& original) : s(original) {}
 
     Stream& s;
 
@@ -379,7 +379,7 @@ public:
     /*! \param stackAllocator Optional allocator for allocating stack memory. (Only use for non-destructive parsing)
         \param stackCapacity stack capacity in bytes for storing a single decoded string.  (Only use for non-destructive parsing)
     */
-    GenericReader(StackAllocator* stackAllocator = 0, size_t stackCapacity = kDefaultStackCapacity) : stack_(stackAllocator, stackCapacity), parseResult_() {}
+    explicit GenericReader(StackAllocator* stackAllocator = 0, size_t stackCapacity = kDefaultStackCapacity) : stack_(stackAllocator, stackCapacity), parseResult_() {}
 
     //! Parse JSON text.
     /*! \tparam parseFlags Combination of \ref ParseFlag.
@@ -614,7 +614,7 @@ private:
     public:
         typedef CharType Ch;
 
-        StackStream(internal::Stack<StackAllocator>& stack) : stack_(stack), length_(0) {}
+        explicit StackStream(internal::Stack<StackAllocator>& stack) : stack_(stack), length_(0) {}
         RAPIDJSON_FORCEINLINE void Put(Ch c) {
             *stack_.template Push<Ch>() = c;
             ++length_;

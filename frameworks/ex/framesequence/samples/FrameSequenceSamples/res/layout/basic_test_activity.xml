@@ -5,8 +5,8 @@
         android:orientation="vertical"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
-    <ImageView
-            android:id="@+id/imageview"
+    <View
+            android:id="@+id/drawableview"
             android:layout_width="match_parent"
             android:layout_height="300dp" />
     <LinearLayout
@@ -34,5 +34,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
     </LinearLayout>
-
+    <Button
+            android:id="@+id/circle_mask"
+            android:text="@string/circle_mask"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
 </LinearLayout>

@@ -35,7 +35,13 @@ const String16 sAccessSurfaceFlinger("android.permission.ACCESS_SURFACE_FLINGER"
 // ---------------------------------------------------------------------------
 
 Client::Client(const sp<SurfaceFlinger>& flinger)
-    : mFlinger(flinger)
+    : Client(flinger, nullptr)
+{
+}
+
+Client::Client(const sp<SurfaceFlinger>& flinger, const sp<Layer>& parentLayer)
+    : mFlinger(flinger),
+      mParentLayer(parentLayer)
 {
 }
 
@@ -43,8 +49,25 @@ Client::~Client()
 {
     const size_t count = mLayers.size();
     for (size_t i=0 ; i<count ; i++) {
-        mFlinger->removeLayer(mLayers.valueAt(i));
+        sp<Layer> l = mLayers.valueAt(i).promote();
+        if (l != nullptr) {
+            mFlinger->removeLayer(l);
+        }
     }
+}
+
+void Client::setParentLayer(const sp<Layer>& parentLayer) {
+    Mutex::Autolock _l(mLock);
+    mParentLayer = parentLayer;
+}
+
+sp<Layer> Client::getParentLayer(bool* outParentDied) const {
+    Mutex::Autolock _l(mLock);
+    sp<Layer> parent = mParentLayer.promote();
+    if (outParentDied != nullptr) {
+        *outParentDied = (mParentLayer != nullptr && parent == nullptr);
+    }
+    return parent;
 }
 
 status_t Client::initCheck() const {
@@ -90,12 +113,17 @@ status_t Client::onTransact(
      const int pid = ipc->getCallingPid();
      const int uid = ipc->getCallingUid();
      const int self_pid = getpid();
-     if (CC_UNLIKELY(pid != self_pid && uid != AID_GRAPHICS && uid != AID_SYSTEM && uid != 0)) {
+     // If we are called from another non root process without the GRAPHICS, SYSTEM, or ROOT
+     // uid we require the sAccessSurfaceFlinger permission.
+     // We grant an exception in the case that the Client has a "parent layer", as its
+     // effects will be scoped to that layer.
+     if (CC_UNLIKELY(pid != self_pid && uid != AID_GRAPHICS && uid != AID_SYSTEM && uid != 0)
+             && (getParentLayer() == nullptr)) {
          // we're called from a different process, do the real check
          if (!PermissionCache::checkCallingPermission(sAccessSurfaceFlinger))
          {
              ALOGE("Permission Denial: "
-                     "can't openGlobalTransaction pid=%d, uid=%d", pid, uid);
+                     "can't openGlobalTransaction pid=%d, uid<=%d", pid, uid);
              return PERMISSION_DENIED;
          }
      }
@@ -106,14 +134,31 @@ status_t Client::onTransact(
 status_t Client::createSurface(
         const String8& name,
         uint32_t w, uint32_t h, PixelFormat format, uint32_t flags,
+        const sp<IBinder>& parentHandle, uint32_t windowType, uint32_t ownerUid,
         sp<IBinder>* handle,
         sp<IGraphicBufferProducer>* gbp)
 {
+    sp<Layer> parent = nullptr;
+    if (parentHandle != nullptr) {
+        parent = getLayerUser(parentHandle);
+        if (parent == nullptr) {
+            return NAME_NOT_FOUND;
+        }
+    }
+    if (parent == nullptr) {
+        bool parentDied;
+        parent = getParentLayer(&parentDied);
+        // If we had a parent, but it died, we've lost all
+        // our capabilities.
+        if (parentDied) {
+            return NAME_NOT_FOUND;
+        }
+    }
+
     /*
      * createSurface must be called from the GL thread so that it can
      * have access to the GL context.
      */
-
     class MessageCreateLayer : public MessageBase {
         SurfaceFlinger* flinger;
         Client* client;
@@ -124,26 +169,32 @@ status_t Client::createSurface(
         uint32_t w, h;
         PixelFormat format;
         uint32_t flags;
+        sp<Layer>* parent;
+        uint32_t windowType;
+        uint32_t ownerUid;
     public:
         MessageCreateLayer(SurfaceFlinger* flinger,
                 const String8& name, Client* client,
                 uint32_t w, uint32_t h, PixelFormat format, uint32_t flags,
-                sp<IBinder>* handle,
-                sp<IGraphicBufferProducer>* gbp)
+                sp<IBinder>* handle, uint32_t windowType, uint32_t ownerUid,
+                sp<IGraphicBufferProducer>* gbp,
+                sp<Layer>* parent)
             : flinger(flinger), client(client),
               handle(handle), gbp(gbp), result(NO_ERROR),
-              name(name), w(w), h(h), format(format), flags(flags) {
+              name(name), w(w), h(h), format(format), flags(flags),
+              parent(parent), windowType(windowType), ownerUid(ownerUid) {
         }
         status_t getResult() const { return result; }
         virtual bool handler() {
             result = flinger->createLayer(name, client, w, h, format, flags,
-                    handle, gbp);
+                    windowType, ownerUid, handle, gbp, parent);
             return true;
         }
     };
 
     sp<MessageBase> msg = new MessageCreateLayer(mFlinger.get(),
-            name, this, w, h, format, flags, handle, gbp);
+            name, this, w, h, format, flags, handle,
+            windowType, ownerUid, gbp, &parent);
     mFlinger->postMessageSync(msg);
     return static_cast<MessageCreateLayer*>( msg.get() )->getResult();
 }
@@ -167,16 +218,6 @@ status_t Client::getLayerFrameStats(const sp<IBinder>& handle, FrameStats* outSt
         return NAME_NOT_FOUND;
     }
     layer->getFrameStats(outStats);
-    return NO_ERROR;
-}
-
-status_t Client::getTransformToDisplayInverse(const sp<IBinder>& handle,
-        bool* outTransformToDisplayInverse) const {
-    sp<Layer> layer = getLayerUser(handle);
-    if (layer == NULL) {
-        return NAME_NOT_FOUND;
-    }
-    *outTransformToDisplayInverse = layer->getTransformToDisplayInverse();
     return NO_ERROR;
 }
 

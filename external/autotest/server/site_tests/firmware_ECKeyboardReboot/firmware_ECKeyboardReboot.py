@@ -36,7 +36,7 @@ class firmware_ECKeyboardReboot(FirmwareTest):
         logging.info('DUT is off as expected')
 
     def confirm_dut_on(self):
-        if not self.host.wait_up(timeout=30):
+        if not self.host.wait_up(timeout=60):
           raise error.TestFail('DUT is off, expected on')
         logging.info('DUT is on as expected')
 

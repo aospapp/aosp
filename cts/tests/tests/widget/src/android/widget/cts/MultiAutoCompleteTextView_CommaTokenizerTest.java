@@ -16,35 +16,41 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
 
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.UnderlineSpan;
-import android.widget.MultiAutoCompleteTextView.CommaTokenizer;
+import android.widget.MultiAutoCompleteTextView;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class MultiAutoCompleteTextView_CommaTokenizerTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MultiAutoCompleteTextView_CommaTokenizerTest {
     private static final String TEST_TEXT = "first token, second token";
-    CommaTokenizer mCommaTokenizer;
+    MultiAutoCompleteTextView.CommaTokenizer mCommaTokenizer;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mCommaTokenizer = new CommaTokenizer();
+    @Before
+    public void setup() {
+        mCommaTokenizer = new MultiAutoCompleteTextView.CommaTokenizer();
     }
 
+    @Test
     public void testConstructor() {
-        new CommaTokenizer();
+        new MultiAutoCompleteTextView.CommaTokenizer();
     }
 
+    @Test
     public void testFindTokenStart() {
         int indexOfSecondToken = TEST_TEXT.indexOf("second");
         assertEquals(indexOfSecondToken,
                 mCommaTokenizer.findTokenStart(TEST_TEXT, indexOfSecondToken));
         // cursor point to the space before "second".
-        // FIXME: does it worked as intended? findTokenStart does not exclude this leading
-        // space in this case.
         assertEquals(indexOfSecondToken - 1,
                 mCommaTokenizer.findTokenStart(TEST_TEXT, indexOfSecondToken - 1));
         assertEquals(indexOfSecondToken,
@@ -56,22 +62,19 @@ public class MultiAutoCompleteTextView_CommaTokenizerTest extends TestCase {
 
         assertEquals(-1, mCommaTokenizer.findTokenStart(TEST_TEXT, -1));
         assertEquals(-2, mCommaTokenizer.findTokenStart(TEST_TEXT, -2));
-
-        try {
-            mCommaTokenizer.findTokenStart(TEST_TEXT, TEST_TEXT.length() + 1);
-            fail("did not throw IndexOutOfBoundsException when cursor is large than length");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
-        try {
-            mCommaTokenizer.findTokenStart(null, TEST_TEXT.length());
-            fail("did not throw NullPointerException when text is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
     }
 
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testFindTokenStartInvalidCursor() {
+        mCommaTokenizer.findTokenStart(TEST_TEXT, TEST_TEXT.length() + 1);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testFindTokenStartNullText() {
+        mCommaTokenizer.findTokenStart(null, TEST_TEXT.length());
+    }
+
+    @Test
     public void testFindTokenEnd() {
         int indexOfComma = TEST_TEXT.indexOf(",");
 
@@ -85,22 +88,19 @@ public class MultiAutoCompleteTextView_CommaTokenizerTest extends TestCase {
                 mCommaTokenizer.findTokenEnd(TEST_TEXT, TEST_TEXT.length()));
         assertEquals(TEST_TEXT.length(),
                 mCommaTokenizer.findTokenEnd(TEST_TEXT, TEST_TEXT.length() + 1));
-
-        try {
-            mCommaTokenizer.findTokenEnd(TEST_TEXT, -1);
-            fail("did not throw IndexOutOfBoundsException when cursor is -1");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
-        try {
-            mCommaTokenizer.findTokenEnd(null, 1);
-            fail("did not throw NullPointerException when text is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
     }
 
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testFindTokenEndInvalidCursor() {
+        mCommaTokenizer.findTokenEnd(TEST_TEXT, -1);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testFindTokenEndNullText() {
+        mCommaTokenizer.findTokenEnd(null, 1);
+    }
+
+    @Test
     public void testTerminateToken() {
         String text = "end with comma,";
         assertEquals(text, mCommaTokenizer.terminateToken(text));
@@ -130,12 +130,10 @@ public class MultiAutoCompleteTextView_CommaTokenizerTest extends TestCase {
         assertEquals(expected.toString(), actual.toString());
         assertEquals(0, actual.getSpanStart(what));
         assertEquals(spannableString.length(), actual.getSpanEnd(what));
+    }
 
-        try {
-            mCommaTokenizer.terminateToken(null);
-            fail("did not throw NullPointerException when text is null");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
+    @Test(expected=NullPointerException.class)
+    public void testTerminateTokenNullText() {
+        mCommaTokenizer.terminateToken(null);
     }
 }

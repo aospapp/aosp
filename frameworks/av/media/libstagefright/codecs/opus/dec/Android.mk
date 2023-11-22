@@ -10,11 +10,12 @@ LOCAL_C_INCLUDES := \
         frameworks/native/include/media/openmax \
 
 LOCAL_SHARED_LIBRARIES := \
-        libopus libstagefright libstagefright_omx \
+        libopus libmedia libstagefright_omx \
         libstagefright_foundation libutils liblog
 
-LOCAL_CLANG := true
-LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow
+LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow cfi
+
+LOCAL_SANITIZE_DIAG := cfi
 
 LOCAL_MODULE := libstagefright_soft_opusdec
 LOCAL_MODULE_TAGS := optional

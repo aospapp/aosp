@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Vyhľadávanie je vždy k dispozícii"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Povoliť službe určovania polohy Google a ostatným aplikáciám vyhľadávať siete aj v prípade, že je sieť Wi-Fi vypnutá"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Povoliť službe určovania polohy Google a ostatným aplikáciám vyhľadávať siete aj v prípade, že je sieť Wi-Fi vypnutá"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Šetrič obrazovky"</string>
     <string name="device_display" msgid="101455384386372747">"Obrazovka"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Batéria: <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Prebieha zrušenie párovania zariadenia..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Pripojené"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Zmeniť názov"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Zadajte nový názov zariadenia"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Vyhľadávanie príslušenstva..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Skôr ako začnete párovať svoje zariadenia Bluetooth, presvedčte sa, že majú zapnutý režim párovania."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Našlo sa zariadenie a automaticky sa spáruje o <xliff:g id="COUNTDOWN">%1$s</xliff:g> s"</string>
@@ -91,13 +93,15 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Klávesnica"</string>
     <string name="system_home" msgid="2858989138172296012">"Plocha"</string>
     <string name="system_search" msgid="2837264654143247611">"Vyhľadávanie"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Zabezpečenie a obmedzenia"</string>
     <string name="system_speech" msgid="8128688499687306982">"Reč"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Vstupy"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Zjednodušenie ovládania"</string>
-    <string name="system_developer_options" msgid="3237985523474863638">"Možnosti pre vývojárov"</string>
+    <string name="system_developer_options" msgid="3237985523474863638">"Pre vývojárov"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Žiadna"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Využitie a diagnostika"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Návody"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Aktualizácia systému"</string>
     <string name="about_preference" msgid="4131396784531360434">"Informácie"</string>
     <string name="device_name" msgid="2670488158531273028">"Názov zariadenia"</string>
@@ -359,10 +363,10 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Služby určovania polohy od tretích strán"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Nahlasovanie polohy"</string>
     <string name="location_history" msgid="2946680949724247804">"História polohy"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google používa túto funkciu v službách, ako sú Asistent Google a Mapy Google. Zapnutím Nahlasovania polohy umožníte službám Google využívajúcim túto funkciu ukladať a používať údaje o najaktuálnejšej polohe vášho zariadenia v súvislosti s vaším účtom Google"</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"Keď je v súvislosti s týmto účtom zapnutá História polohy, Google môže ukladať údaje o polohe vášho zariadenia na použitie vo vašich aplikáciách.\n\nNapríklad Mapy Google vám môžu poskytnúť trasy a aplikácia Asistent Google vás môže pri dochádzaní informovať o premávke.\n\nHistóriu polohy môžete kedykoľvek vypnúť, avšak tým ju neodstránite. Zobraziť a spravovať ju môžete na adrese maps.google.com/locationhistory."</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google používa túto funkciu v službách, ako sú Google Now a Mapy Google. Zapnutím Nahlasovania polohy umožníte službám Google využívajúcim túto funkciu ukladať a používať údaje o najaktuálnejšej polohe vášho zariadenia v súvislosti s vaším účtom Google"</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"Keď je v súvislosti s týmto účtom zapnutá História polohy, Google môže ukladať údaje o polohe vášho zariadenia na použitie vo vašich aplikáciách.\n\nNapríklad Mapy Google vám môžu poskytnúť trasy a aplikácia Google Now vás môže pri dochádzaní informovať o premávke.\n\nHistóriu polohy môžete kedykoľvek vypnúť, avšak tým ju neodstránite. Zobraziť a spravovať ju môžete na adrese maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"Odstrániť históriu polohy"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"Týmto odstránite celú hist. polohy tohto účtu ulož. v zar. Nedá sa vrátiť späť. Niekt. ap. (aj Asistent) prestanú fungovať."</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"Táto akcia odstráni celú históriu polohy tohto účtu uloženú v zariadení. Akcia sa nedá vrátiť späť. Niektoré aplikácie, vrátane asistenta Google Now, prestanú fungovať."</string>
     <string name="system_services" msgid="7230571820151215779">"Služby"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Nastavenia služby"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text s vysokým kontrastom"</string>
@@ -374,6 +378,7 @@
     <string name="display_options" msgid="5504549024985225774">"Možnosti zobrazenia"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurovať"</string>
     <string name="captions_language" msgid="2835554055388996343">"Jazyk"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Predvolené"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Veľkosť textu"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Štýl titulkov"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Vlastné možnosti"</string>
@@ -435,7 +440,7 @@
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"Povoliť simulované polohy"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"Vybrať aplikáciu na ladenie"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Čakať na ladiaci nástroj"</string>
-    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Overiť aplikácie inštalované cez USB"</string>
+    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Overovať aplikácie z USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Kontrolovať škodlivosť aplikácií nainštalovaných pomocou nástroja ADB/ADT"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Prihlasovanie Wi-Fi Verbose"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Povoliť prihlasovanie Wi-Fi Verbose"</string>
@@ -450,7 +455,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Mierka animácie premeny"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Mierka dĺžky animácie"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Prísny režim bol povolený"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Zobraziť využitie CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Profilovať vykresľovanie GPU"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Povoliť sledovania"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Neuchovávať aktivity"</string>
@@ -468,7 +472,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Od najlep. k najhor.: mod., zel., sv. červ., červ."</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Celý obsah okna pri aktualizácii bliká"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Blikanie pri dlhých operáciách hlavného vlákna"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Prekryvná vrstva s aktuálnym využitím procesora"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Merať čas vykresľov. v adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Zapnuté"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Vypnuté"</string>
@@ -608,7 +611,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Vynútiť zastavenie"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ak vynútite zastavenie aplikácie, môže sa správať zvláštne."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Odinštalovať"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Chcete túto aplikáciu odinštalovať?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Odinštalovať aktualizácie"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Všetky aktualizácie tejto aplikácie systému Android budú odinštalované."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Vypnúť"</string>
@@ -625,6 +627,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Vymazať vyrovnávaciu pamäť"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Upozornenia"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Povolenia"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Aplikácia nie je k dispozícii"</string>
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Zrušiť"</string>
     <string name="settings_on" msgid="6892236264945435013">"Zapnúť"</string>
@@ -648,17 +651,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Chcete vymazať všetky svoje osobné údaje a stiahnuté aplikácie? Túto akciu nebude možné vrátiť späť."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Vymazať všetko"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Výber názvu pre zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Názov pomôže identifikovať zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, keď doň budete pristupovať z iných zariadení, ako sú váš telefón, tablet alebo počítač."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Pomenujte svoje zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>. Uľahčí vám to jeho identifikáciu, keď budete prenášať obsah alebo sa k nemu pripájať z iných zariadení."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Obývačka"</item>
-    <item msgid="3722089849939477581">"Mediálna izba"</item>
-    <item msgid="6108590585438763574">"Rodinná izba"</item>
-    <item msgid="2581035245390468625">"Jedáleň"</item>
-    <item msgid="3127487827308695324">"Moja izba"</item>
-    <item msgid="6172018430592195063">"Spálňa"</item>
-    <item msgid="8120010459866284578">"Kuchyňa"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Televízor v obývačke"</item>
+    <item msgid="8122798759665439456">"Televízor v rodinnej izbe"</item>
+    <item msgid="1389347662738182100">"Televízor v spálni"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Zadať vlastný názov..."</string>
+    <string name="custom_room" msgid="8655516733933892458">"Zadať vlastný názov..."</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Zmena názvu zariadenia <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Toto zariadenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g> sa momentálne nazýva <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
     <string name="change_setting" msgid="2047402388786162246">"Zmeniť"</string>
@@ -667,10 +667,13 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"Povolenia aplikácie"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"Povolené aplikácie: <xliff:g id="COUNT_0">%d</xliff:g> z <xliff:g id="COUNT_1">%d</xliff:g>"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Žiadosť o povolenie použiť rozhranie Bluetooth"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Úroveň opráv zabezpečenia systému Android"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Úroveň opráv zabezpečenia systému"</string>
     <string name="choose_application" msgid="5662960665577780353">"Výber aplikácie"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Experimentálne)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Reštartovať do núdzového režimu"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Chcete zariadenie reštartovať do núdzového režimu?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Zakážu sa tým všetky aplikácie tretích strán, ktoré ste nainštalovali. Tieto aplikácie budú obnovené po ďalšom reštartovaní."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Hlásenie chyby sa zaznamenáva"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Dostupné virtuálne klávesnice"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Spravovať klávesnice"</string>
 </resources>

@@ -40,8 +40,8 @@ namespace testing {
 // ResponseHolder::ReceiveResponse() will not be called since we bind the
 // callback to the object instance via a weak pointer.
 struct ResponseHolder final : public base::SupportsWeakPtr<ResponseHolder> {
-  void ReceiveResponse(scoped_ptr<dbus::Response> response) {
-    response_.reset(response.release());
+  void ReceiveResponse(std::unique_ptr<dbus::Response> response) {
+    response_ = std::move(response);
   }
 
   std::unique_ptr<dbus::Response> response_;

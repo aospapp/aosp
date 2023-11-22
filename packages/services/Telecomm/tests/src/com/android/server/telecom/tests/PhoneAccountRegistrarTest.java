@@ -26,6 +26,7 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Process;
 import android.os.UserHandle;
+import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -34,7 +35,7 @@ import android.util.Xml;
 
 import com.android.internal.telecom.IConnectionService;
 import com.android.internal.util.FastXmlSerializer;
-import com.android.server.telecom.Log;
+import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneAccountRegistrar.DefaultPhoneAccountHandle;
 
@@ -52,13 +53,19 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Set;
 
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.when;
+
 public class PhoneAccountRegistrarTest extends TelecomTestCase {
 
     private static final int MAX_VERSION = Integer.MAX_VALUE;
     private static final String FILE_NAME = "phone-account-registrar-test-1223.xml";
+    private static final String TEST_LABEL = "right";
     private PhoneAccountRegistrar mRegistrar;
-    @Mock
-    private TelecomManager mTelecomManager;
+    @Mock private TelecomManager mTelecomManager;
+    @Mock private DefaultDialerCache mDefaultDialerCache;
+    @Mock private PhoneAccountRegistrar.AppLabelProxy mAppLabelProxy;
 
     @Override
     public void setUp() throws Exception {
@@ -69,9 +76,13 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
                 mComponentContextFixture.getTestDouble().getApplicationContext().getFilesDir(),
                 FILE_NAME)
                 .delete();
+        when(mDefaultDialerCache.getDefaultDialerApplication(anyInt()))
+                .thenReturn("com.android.dialer");
+        when(mAppLabelProxy.getAppLabel(anyString()))
+                .thenReturn(TEST_LABEL);
         mRegistrar = new PhoneAccountRegistrar(
                 mComponentContextFixture.getTestDouble().getApplicationContext(),
-                FILE_NAME);
+                FILE_NAME, mDefaultDialerCache, mAppLabelProxy);
     }
 
     @Override
@@ -118,6 +129,16 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
                 mContext);
 
         assertPhoneAccountEquals(input, result);
+    }
+
+    @MediumTest
+    public void testDefaultPhoneAccountHandleEmptyGroup() throws Exception {
+        DefaultPhoneAccountHandle input = new DefaultPhoneAccountHandle(Process.myUserHandle(),
+                makeQuickAccountHandle("i1"), "");
+        DefaultPhoneAccountHandle result = roundTripXml(this, input,
+                PhoneAccountRegistrar.sDefaultPhoneAcountHandleXml, mContext);
+
+        assertDefaultPhoneAccountHandleEquals(input, result);
     }
 
     /**
@@ -505,6 +526,55 @@ public class PhoneAccountRegistrarTest extends TelecomTestCase {
                         .setSupportedUriSchemes(Arrays.asList("tel", "sip"))
                         .setGroupId("testGroup")
                         .build());
+    }
+
+    /**
+     * Tests ability to register a self-managed PhoneAccount; verifies that the user defined label
+     * is overridden.
+     * @throws Exception
+     */
+    @MediumTest
+    public void testSelfManagedPhoneAccount() throws Exception {
+        mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
+                Mockito.mock(IConnectionService.class));
+
+        PhoneAccountHandle selfManagedHandle =  makeQuickAccountHandle(
+                new ComponentName("self", "managed"), "selfie1");
+
+        PhoneAccount selfManagedAccount = new PhoneAccount.Builder(selfManagedHandle, "Wrong")
+                .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+                .build();
+
+        mRegistrar.registerPhoneAccount(selfManagedAccount);
+
+        PhoneAccount registeredAccount = mRegistrar.getPhoneAccountUnchecked(selfManagedHandle);
+        assertEquals(TEST_LABEL, registeredAccount.getLabel());
+    }
+
+    /**
+     * Tests to ensure that when registering a self-managed PhoneAccount, it cannot also be defined
+     * as a call provider, connection manager, or sim subscription.
+     * @throws Exception
+     */
+    @MediumTest
+    public void testSelfManagedCapabilityOverride() throws Exception {
+        mComponentContextFixture.addConnectionService(makeQuickConnectionServiceComponentName(),
+                Mockito.mock(IConnectionService.class));
+
+        PhoneAccountHandle selfManagedHandle =  makeQuickAccountHandle(
+                new ComponentName("self", "managed"), "selfie1");
+
+        PhoneAccount selfManagedAccount = new PhoneAccount.Builder(selfManagedHandle, TEST_LABEL)
+                .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED |
+                        PhoneAccount.CAPABILITY_CALL_PROVIDER |
+                        PhoneAccount.CAPABILITY_CONNECTION_MANAGER |
+                        PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
+                .build();
+
+        mRegistrar.registerPhoneAccount(selfManagedAccount);
+
+        PhoneAccount registeredAccount = mRegistrar.getPhoneAccountUnchecked(selfManagedHandle);
+        assertEquals(PhoneAccount.CAPABILITY_SELF_MANAGED, registeredAccount.getCapabilities());
     }
 
     private static ComponentName makeQuickConnectionServiceComponentName() {

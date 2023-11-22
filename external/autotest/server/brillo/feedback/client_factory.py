@@ -4,6 +4,7 @@
 
 import common
 from autotest_lib.client.common_lib import error
+from autotest_lib.server import site_utils
 
 
 _AVAILABLE_AUDIO_CLIENTS = set(('loop', 'interactive'))
@@ -31,8 +32,10 @@ def _get_client(fb_client_name, available_clients, test_name, machine,
                 'Feedback client (%s) is unknown or unavailble for this test' %
                 fb_client_name)
 
-    dut_name = '%s-%s' % (machine['hostname'],
-                          machine['host_attributes']['serials'])
+    hostname = site_utils.get_hostname_from_machine(machine)
+    afe_host = site_utils.get_afe_host_from_machine(machine)
+    serials = afe_host.attributes.get('serials')
+    dut_name = '%s-%s' % (hostname, serials)
     args = args_str.split(',') if args_str else []
 
     if fb_client_name == 'loop':

@@ -15,227 +15,67 @@
  */
 package com.android.car.hal;
 
-import static com.android.car.hal.CarPropertyUtils.toCarPropertyValue;
-import static com.android.car.hal.CarPropertyUtils.toVehiclePropValue;
-import static java.lang.Integer.toHexString;
+import android.car.hardware.hvac.CarHvacManager;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 
-import android.car.hardware.CarPropertyConfig;
-import android.car.hardware.CarPropertyValue;
-import android.car.hardware.hvac.CarHvacEvent;
-import android.car.hardware.hvac.CarHvacManager.HvacPropertyId;
-import android.os.ServiceSpecificException;
-import android.util.Log;
-import android.util.SparseIntArray;
+public class HvacHalService extends PropertyHalServiceBase {
+    private static final boolean DBG = false;
+    private static final String TAG = "HvacHalService";
 
-import com.android.car.CarLog;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropConfig;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
+    private final ManagerToHalPropIdMap mMgrHalPropIdMap = ManagerToHalPropIdMap.create(
+           CarHvacManager.ID_MIRROR_DEFROSTER_ON, VehicleProperty.HVAC_SIDE_MIRROR_HEAT,
 
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+           CarHvacManager.ID_STEERING_WHEEL_TEMP, VehicleProperty.HVAC_STEERING_WHEEL_TEMP,
 
-public class HvacHalService extends HalServiceBase {
-    private static final boolean   DBG = true;
-    private static final String    TAG = CarLog.TAG_HVAC + ".HvacHalService";
-    private HvacHalListener        mListener;
-    private final VehicleHal       mVehicleHal;
+           CarHvacManager.ID_OUTSIDE_AIR_TEMP, VehicleProperty.ENV_OUTSIDE_TEMPERATURE,
 
-    private final HashMap<Integer, CarPropertyConfig<?>> mProps = new HashMap<>();
-    private final SparseIntArray mHalPropToValueType = new SparseIntArray();
+           CarHvacManager.ID_TEMPERATURE_UNITS, VehicleProperty.HVAC_TEMPERATURE_UNITS,
 
-    public interface HvacHalListener {
-        void onPropertyChange(CarHvacEvent event);
-        void onError(int zone, int property);
-    }
+           CarHvacManager.ID_ZONED_TEMP_SETPOINT, VehicleProperty.HVAC_TEMPERATURE_SET,
+
+           CarHvacManager.ID_ZONED_TEMP_ACTUAL, VehicleProperty.HVAC_TEMPERATURE_CURRENT,
+
+           CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT, VehicleProperty.HVAC_FAN_SPEED,
+
+           CarHvacManager.ID_ZONED_FAN_SPEED_RPM, VehicleProperty.HVAC_ACTUAL_FAN_SPEED_RPM,
+
+           CarHvacManager.ID_ZONED_FAN_POSITION_AVAILABLE,
+           VehicleProperty.HVAC_FAN_DIRECTION_AVAILABLE,
+
+           CarHvacManager.ID_ZONED_FAN_POSITION, VehicleProperty.HVAC_FAN_DIRECTION,
+
+           CarHvacManager.ID_ZONED_SEAT_TEMP, VehicleProperty.HVAC_SEAT_TEMPERATURE,
+
+           CarHvacManager.ID_ZONED_AC_ON, VehicleProperty.HVAC_AC_ON,
+
+           CarHvacManager.ID_ZONED_AUTOMATIC_MODE_ON, VehicleProperty.HVAC_AUTO_ON,
+
+           CarHvacManager.ID_ZONED_AIR_RECIRCULATION_ON,VehicleProperty.HVAC_RECIRC_ON,
+
+           CarHvacManager.ID_ZONED_MAX_AC_ON, VehicleProperty.HVAC_MAX_AC_ON,
+
+           CarHvacManager.ID_ZONED_DUAL_ZONE_ON, VehicleProperty.HVAC_DUAL_ON,
+
+           CarHvacManager.ID_ZONED_MAX_DEFROST_ON, VehicleProperty.HVAC_MAX_DEFROST_ON,
+
+           CarHvacManager.ID_ZONED_HVAC_POWER_ON, VehicleProperty.HVAC_POWER_ON,
+
+           CarHvacManager.ID_WINDOW_DEFROSTER_ON, VehicleProperty.HVAC_DEFROSTER
+    );
 
     public HvacHalService(VehicleHal vehicleHal) {
-        mVehicleHal = vehicleHal;
-        if (DBG) {
-            Log.d(TAG, "started HvacHalService!");
-        }
-    }
-
-    public void setListener(HvacHalListener listener) {
-        synchronized (this) {
-            mListener = listener;
-        }
-    }
-
-    public List<CarPropertyConfig> getHvacProperties() {
-        List<CarPropertyConfig> propList;
-        synchronized (mProps) {
-            propList = new ArrayList<>(mProps.values());
-        }
-        return propList;
-    }
-
-    public CarPropertyValue getHvacProperty(int hvacPropertyId, int areaId) {
-        int halProp = hvacToHalPropId(hvacPropertyId);
-
-        VehiclePropValue value = null;
-        try {
-            VehiclePropValue valueRequest = VehiclePropValue.newBuilder()
-                    .setProp(halProp)
-                    .setZone(areaId)
-                    .setValueType(mHalPropToValueType.get(halProp))
-                    .build();
-
-            value = mVehicleHal.getVehicleNetwork().getProperty(valueRequest);
-        } catch (ServiceSpecificException e) {
-            Log.e(CarLog.TAG_HVAC, "property not ready 0x" + toHexString(halProp), e);
-        }
-
-        return value == null ? null : toCarPropertyValue(value, hvacPropertyId);
-    }
-
-    public void setHvacProperty(CarPropertyValue prop) {
-        VehiclePropValue halProp = toVehiclePropValue(prop, hvacToHalPropId(prop.getPropertyId()));
-        mVehicleHal.getVehicleNetwork().setProperty(halProp);
-    }
-
-    @Override
-    public void init() {
-        if (DBG) {
-            Log.d(TAG, "init()");
-        }
-        synchronized (mProps) {
-            // Subscribe to each of the HVAC properties
-            for (Integer prop : mProps.keySet()) {
-                mVehicleHal.subscribeProperty(this, prop, 0);
-            }
-        }
-    }
-
-    @Override
-    public void release() {
-        if (DBG) {
-            Log.d(TAG, "release()");
-        }
-        synchronized (mProps) {
-            for (Integer prop : mProps.keySet()) {
-                mVehicleHal.unsubscribeProperty(this, prop);
-            }
-
-            // Clear the property list
-            mProps.clear();
-        }
-        mListener = null;
-    }
-
-    @Override
-    public synchronized List<VehiclePropConfig> takeSupportedProperties(
-            List<VehiclePropConfig> allProperties) {
-        List<VehiclePropConfig> taken = new LinkedList<>();
-
-        for (VehiclePropConfig p : allProperties) {
-            int hvacPropId;
-            try {
-                hvacPropId = halToHvacPropId(p.getProp());
-            } catch (IllegalArgumentException e) {
-                Log.i(TAG, "Property not supported by HVAC: 0x" + toHexString(p.getProp()));
-                continue;
-            }
-            CarPropertyConfig hvacConfig = CarPropertyUtils.toCarPropertyConfig(p, hvacPropId);
-
-            taken.add(p);
-            mProps.put(p.getProp(), hvacConfig);
-            mHalPropToValueType.put(p.getProp(), p.getValueType());
-
-            if (DBG) {
-                Log.d(TAG, "takeSupportedProperties:  " + toHexString(p.getProp()));
-            }
-        }
-        return taken;
-    }
-
-    @Override
-    public void handleHalEvents(List<VehiclePropValue> values) {
-        HvacHalListener listener;
-        synchronized (this) {
-            listener = mListener;
-        }
-        if (listener != null) {
-            dispatchEventToListener(listener, values);
-        }
-    }
-
-    private void dispatchEventToListener(HvacHalListener listener, List<VehiclePropValue> values) {
-        for (VehiclePropValue v : values) {
-            int prop = v.getProp();
-
-            int hvacPropId;
-            try {
-                hvacPropId = halToHvacPropId(prop);
-            } catch (IllegalArgumentException ex) {
-                Log.e(TAG, "Property is not supported: 0x" + toHexString(prop), ex);
-                continue;
-            }
-
-            CarHvacEvent event;
-            CarPropertyValue<?> hvacProperty = toCarPropertyValue(v, hvacPropId);
-            event = new CarHvacEvent(CarHvacEvent.HVAC_EVENT_PROPERTY_CHANGE, hvacProperty);
-
-            listener.onPropertyChange(event);
-            if (DBG) {
-                Log.d(TAG, "handleHalEvents event: " + event);
-            }
-        }
-    }
-
-    @Override
-    public void dump(PrintWriter writer) {
-        writer.println("*HVAC HAL*");
-        writer.println("  Properties available:");
-        for (CarPropertyConfig prop : mProps.values()) {
-            writer.println("    " + prop.toString());
-        }
+        super(vehicleHal, TAG, DBG);
     }
 
     // Convert the HVAC public API property ID to HAL property ID
-    private static int hvacToHalPropId(int hvacPropId) {
-        switch (hvacPropId) {
-            case HvacPropertyId.ZONED_FAN_SPEED_SETPOINT:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_FAN_SPEED;
-            case HvacPropertyId.ZONED_FAN_POSITION:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_FAN_DIRECTION;
-            case HvacPropertyId.ZONED_TEMP_ACTUAL:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_CURRENT;
-            case HvacPropertyId.ZONED_TEMP_SETPOINT:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_SET;
-            case HvacPropertyId.WINDOW_DEFROSTER_ON:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_DEFROSTER;
-            case HvacPropertyId.ZONED_AC_ON:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_AC_ON;
-            case HvacPropertyId.ZONED_AIR_RECIRCULATION_ON:
-                return VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_RECIRC_ON;
-            default:
-                throw new IllegalArgumentException("hvacPropId " + hvacPropId + " is not supported");
-        }
+    @Override
+    protected int managerToHalPropId(int hvacPropId) {
+        return mMgrHalPropIdMap.getHalPropId(hvacPropId);
     }
 
     // Convert he HAL specific property ID to HVAC public API
-    private static int halToHvacPropId(int halPropId) {
-        switch (halPropId) {
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_FAN_SPEED:
-                return HvacPropertyId.ZONED_FAN_SPEED_SETPOINT;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_FAN_DIRECTION:
-                return HvacPropertyId.ZONED_FAN_POSITION;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_CURRENT:
-                return HvacPropertyId.ZONED_TEMP_ACTUAL;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_SET:
-                return HvacPropertyId.ZONED_TEMP_SETPOINT;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_DEFROSTER:
-                return HvacPropertyId.WINDOW_DEFROSTER_ON;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_AC_ON:
-                return HvacPropertyId.ZONED_AC_ON;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_RECIRC_ON:
-                return HvacPropertyId.ZONED_AIR_RECIRCULATION_ON;
-            default:
-                throw new IllegalArgumentException("halPropId " + halPropId + " is not supported");
-        }
+    @Override
+    protected int halToManagerPropId(int halPropId) {
+        return mMgrHalPropIdMap.getManagerPropId(halPropId);
     }
 }

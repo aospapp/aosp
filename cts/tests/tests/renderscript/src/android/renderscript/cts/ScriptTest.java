@@ -52,5 +52,8 @@ public class ScriptTest extends RSBaseCompute {
         S.setVar(13, a);  // allocationTest
 
         S.bindAllocation(a, 14);  // intPtrTest
+
+        a.destroy();
+        S.destroy();
     }
 }

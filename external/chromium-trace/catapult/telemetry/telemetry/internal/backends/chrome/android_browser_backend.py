@@ -9,31 +9,31 @@ from telemetry.core import exceptions
 from telemetry.internal.platform import android_platform_backend as \
   android_platform_backend_module
 from telemetry.core import util
-from telemetry.internal.backends import android_command_line_backend
 from telemetry.internal.backends import browser_backend
 from telemetry.internal.backends.chrome import chrome_browser_backend
 from telemetry.internal.browser import user_agent
 
+from devil.android import app_ui
+from devil.android import flag_changer
 from devil.android.sdk import intent
 
 
 class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
   """The backend for controlling a browser instance running on Android."""
   def __init__(self, android_platform_backend, browser_options,
-               backend_settings, output_profile_path, extensions_to_load):
+               backend_settings):
     assert isinstance(android_platform_backend,
                       android_platform_backend_module.AndroidPlatformBackend)
     super(AndroidBrowserBackend, self).__init__(
         android_platform_backend,
         supports_tab_control=backend_settings.supports_tab_control,
-        supports_extensions=False, browser_options=browser_options,
-        output_profile_path=output_profile_path,
-        extensions_to_load=extensions_to_load)
+        supports_extensions=False, browser_options=browser_options)
 
     self._port_keeper = util.PortKeeper()
     # Use the port hold by _port_keeper by default.
     self._port = self._port_keeper.port
 
+    extensions_to_load = browser_options.extensions_to_load
 
     if len(extensions_to_load) > 0:
       raise browser_backend.ExtensionsNotSupportedException(
@@ -43,8 +43,8 @@ class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
     self._backend_settings = backend_settings
     self._saved_sslflag = ''
 
-    # Kill old browser.
-    self._KillBrowser()
+    # Stop old browser, if any.
+    self._StopBrowser()
 
     if self.device.HasRoot() or self.device.NeedsSU():
       if self.browser_options.profile_dir:
@@ -67,14 +67,13 @@ class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
   def device(self):
     return self.platform_backend.device
 
-  def _KillBrowser(self):
-    if self.device.IsUserBuild():
-      self.platform_backend.StopApplication(self._backend_settings.package)
-    else:
-      self.platform_backend.KillApplication(self._backend_settings.package)
+  def _StopBrowser(self):
+    # Note: it's important to stop and _not_ kill the browser app, since
+    # stopping also clears the app state in Android's activity manager.
+    self.platform_backend.StopApplication(self._backend_settings.package)
 
   def Start(self):
-    self.device.RunShellCommand('logcat -c')
+    self.device.adb.Logcat(clear=True)
     if self.browser_options.startup_url:
       url = self.browser_options.startup_url
     elif self.browser_options.profile_dir:
@@ -90,8 +89,9 @@ class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
         self.browser_options.browser_user_agent_type)
 
     browser_startup_args = self.GetBrowserStartupArgs()
-    with android_command_line_backend.SetUpCommandLineFlags(
-        self.device, self._backend_settings, browser_startup_args):
+    command_line_name = self._backend_settings.command_line_name
+    with flag_changer.CustomCommandLineFlags(
+        self.device, command_line_name, browser_startup_args):
       self.device.StartActivity(
           intent.Intent(package=self._backend_settings.package,
                         activity=self._backend_settings.activity,
@@ -154,6 +154,35 @@ class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
         self.Close()
         raise
 
+  def Foreground(self):
+    package = self._backend_settings.package
+    activity = self._backend_settings.activity
+    self.device.StartActivity(
+        intent.Intent(package=package,
+                      activity=activity,
+                      action=None,
+                      flags=[intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED]),
+        blocking=False)
+    # TODO(crbug.com/601052): The following waits for any UI node for the
+    # package launched to appear on the screen. When the referenced bug is
+    # fixed, remove this workaround and just switch blocking above to True.
+    try:
+      app_ui.AppUi(self.device).WaitForUiNode(package=package)
+    except Exception:
+      raise exceptions.BrowserGoneException(self.browser,
+          'Timed out waiting for browser to come back foreground.')
+
+  def Background(self):
+    package = 'org.chromium.push_apps_to_background'
+    activity = package + '.PushAppsToBackgroundActivity'
+    self.device.StartActivity(
+        intent.Intent(
+            package=package,
+            activity=activity,
+            action=None,
+            flags=[intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED]),
+        blocking=True)
+
   def GetBrowserStartupArgs(self):
     args = super(AndroidBrowserBackend, self).GetBrowserStartupArgs()
     args.append('--enable-remote-debugging')
@@ -194,7 +223,7 @@ class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
   def Close(self):
     super(AndroidBrowserBackend, self).Close()
 
-    self._KillBrowser()
+    self._StopBrowser()
 
     self.platform_backend.StopForwardingHost(self._port)
 
@@ -210,3 +239,15 @@ class AndroidBrowserBackend(chrome_browser_backend.ChromeBrowserBackend):
 
   def GetStackTrace(self):
     return self.platform_backend.GetStackTrace()
+
+  def GetMostRecentMinidumpPath(self):
+    return None
+
+  def GetAllMinidumpPaths(self):
+    return None
+
+  def GetAllUnsymbolizedMinidumpPaths(self):
+    return None
+
+  def SymbolizeMinidump(self, minidump_path):
+    return None

@@ -18,6 +18,7 @@ package com.android.performanceLaunch;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Trace;
 import android.view.Window;
 import android.webkit.WebView;
 
@@ -27,10 +28,12 @@ public class EmptyWebViewActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "onCreate");
         super.onCreate(savedInstanceState);
         getWindow().requestFeature(Window.FEATURE_NO_TITLE);
         mWebView = new WebView(this);
         this.setContentView(mWebView);
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
     }
 
 }

@@ -33,13 +33,4 @@ public class VrCpuTest extends ActivityInstrumentationTestCase2<CtsActivity> {
             assertTrue(Runtime.getRuntime().availableProcessors() >= 2);
         }
     }
-
-    public void testHasExclusiveCores() {
-        mActivity = getActivity();
-        if (mActivity.getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE)) {
-            int[] excl_cores = Process.getExclusiveCores();
-            assertTrue(excl_cores.length >= 1);
-        }
-    }
 }

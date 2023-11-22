@@ -16,7 +16,7 @@
 */
 
 //#define LOG_NDEBUG 0
-#define LOG_TAG "MediaPlayer"
+#define LOG_TAG "MediaPlayerNative"
 
 #include <fcntl.h>
 #include <inttypes.h>
@@ -36,6 +36,7 @@
 #include <media/AudioSystem.h>
 #include <media/AVSyncSettings.h>
 #include <media/IDataSource.h>
+#include <media/MediaAnalyticsItem.h>
 
 #include <binder/MemoryBase.h>
 
@@ -55,7 +56,9 @@ MediaPlayer::MediaPlayer()
     mStreamType = AUDIO_STREAM_MUSIC;
     mAudioAttributesParcel = NULL;
     mCurrentPosition = -1;
+    mCurrentSeekMode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
     mSeekPosition = -1;
+    mSeekMode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
     mCurrentState = MEDIA_PLAYER_IDLE;
     mPrepareSync = false;
     mPrepareStatus = NO_ERROR;
@@ -100,7 +103,9 @@ void MediaPlayer::disconnect()
 void MediaPlayer::clear_l()
 {
     mCurrentPosition = -1;
+    mCurrentSeekMode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
     mSeekPosition = -1;
+    mSeekMode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
     mVideoWidth = mVideoHeight = 0;
     mRetransmitEndpointValid = false;
 }
@@ -132,8 +137,10 @@ status_t MediaPlayer::attachNewPlayer(const sp<IMediaPlayer>& player)
         mPlayer = player;
         if (player != 0) {
             mCurrentState = MEDIA_PLAYER_INITIALIZED;
+            player->getDefaultBufferingSettings(&mCurrentBufferingSettings);
             err = NO_ERROR;
         } else {
+            mCurrentBufferingSettings = BufferingSettings();
             ALOGE("Unable to create media player");
         }
     }
@@ -238,6 +245,44 @@ status_t MediaPlayer::setVideoSurfaceTexture(
     Mutex::Autolock _l(mLock);
     if (mPlayer == 0) return NO_INIT;
     return mPlayer->setVideoSurfaceTexture(bufferProducer);
+}
+
+status_t MediaPlayer::getDefaultBufferingSettings(BufferingSettings* buffering /* nonnull */)
+{
+    ALOGV("getDefaultBufferingSettings");
+
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == 0) {
+        return NO_INIT;
+    }
+    return mPlayer->getDefaultBufferingSettings(buffering);
+}
+
+status_t MediaPlayer::getBufferingSettings(BufferingSettings* buffering /* nonnull */)
+{
+    ALOGV("getBufferingSettings");
+
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == 0) {
+        return NO_INIT;
+    }
+    *buffering = mCurrentBufferingSettings;
+    return NO_ERROR;
+}
+
+status_t MediaPlayer::setBufferingSettings(const BufferingSettings& buffering)
+{
+    ALOGV("setBufferingSettings");
+
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == 0) {
+        return NO_INIT;
+    }
+    status_t err =  mPlayer->setBufferingSettings(buffering);
+    if (err == NO_ERROR) {
+        mCurrentBufferingSettings = buffering;
+    }
+    return err;
 }
 
 // must call with lock held
@@ -508,9 +553,9 @@ status_t MediaPlayer::getDuration(int *msec)
     return getDuration_l(msec);
 }
 
-status_t MediaPlayer::seekTo_l(int msec)
+status_t MediaPlayer::seekTo_l(int msec, MediaPlayerSeekMode mode)
 {
-    ALOGV("seekTo %d", msec);
+    ALOGV("seekTo (%d, %d)", msec, mode);
     if ((mPlayer != 0) && ( mCurrentState & ( MEDIA_PLAYER_STARTED | MEDIA_PLAYER_PREPARED |
             MEDIA_PLAYER_PAUSED |  MEDIA_PLAYER_PLAYBACK_COMPLETE) ) ) {
         if ( msec < 0 ) {
@@ -537,12 +582,14 @@ status_t MediaPlayer::seekTo_l(int msec)
 
         // cache duration
         mCurrentPosition = msec;
+        mCurrentSeekMode = mode;
         if (mSeekPosition < 0) {
             mSeekPosition = msec;
-            return mPlayer->seekTo(msec);
+            mSeekMode = mode;
+            return mPlayer->seekTo(msec, mode);
         }
         else {
-            ALOGV("Seek in progress - queue up seekTo[%d]", msec);
+            ALOGV("Seek in progress - queue up seekTo[%d, %d]", msec, mode);
             return NO_ERROR;
         }
     }
@@ -551,11 +598,11 @@ status_t MediaPlayer::seekTo_l(int msec)
     return INVALID_OPERATION;
 }
 
-status_t MediaPlayer::seekTo(int msec)
+status_t MediaPlayer::seekTo(int msec, MediaPlayerSeekMode mode)
 {
     mLockThreadId = getThreadId();
     Mutex::Autolock _l(mLock);
-    status_t result = seekTo_l(msec);
+    status_t result = seekTo_l(msec, mode);
     mLockThreadId = 0;
 
     return result;
@@ -578,6 +625,7 @@ status_t MediaPlayer::reset_l()
         // setDataSource has to be called again to create a
         // new mediaplayer.
         mPlayer = 0;
+        mCurrentBufferingSettings = BufferingSettings();
         return ret;
     }
     clear_l();
@@ -763,7 +811,11 @@ status_t MediaPlayer::getParameter(int key, Parcel *reply)
     ALOGV("MediaPlayer::getParameter(%d)", key);
     Mutex::Autolock _l(mLock);
     if (mPlayer != NULL) {
-        return  mPlayer->getParameter(key, reply);
+        status_t status =  mPlayer->getParameter(key, reply);
+        if (status != OK) {
+            ALOGD("getParameter returns %d", status);
+        }
+        return status;
     }
     ALOGV("getParameter: no active player");
     return INVALID_OPERATION;
@@ -827,7 +879,7 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
     case MEDIA_NOP: // interface test message
         break;
     case MEDIA_PREPARED:
-        ALOGV("prepared");
+        ALOGV("MediaPlayer::notify() prepared");
         mCurrentState = MEDIA_PLAYER_PREPARED;
         if (mPrepareSync) {
             ALOGV("signal application thread");
@@ -835,6 +887,9 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
             mPrepareStatus = NO_ERROR;
             mSignal.signal();
         }
+        break;
+    case MEDIA_DRM_INFO:
+        ALOGV("MediaPlayer::notify() MEDIA_DRM_INFO(%d, %d, %d, %p)", msg, ext1, ext2, obj);
         break;
     case MEDIA_PLAYBACK_COMPLETE:
         ALOGV("playback complete");
@@ -869,14 +924,16 @@ void MediaPlayer::notify(int msg, int ext1, int ext2, const Parcel *obj)
         break;
     case MEDIA_SEEK_COMPLETE:
         ALOGV("Received seek complete");
-        if (mSeekPosition != mCurrentPosition) {
-            ALOGV("Executing queued seekTo(%d)", mSeekPosition);
+        if (mSeekPosition != mCurrentPosition || (mSeekMode != mCurrentSeekMode)) {
+            ALOGV("Executing queued seekTo(%d, %d)", mCurrentPosition, mCurrentSeekMode);
             mSeekPosition = -1;
-            seekTo_l(mCurrentPosition);
+            mSeekMode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
+            seekTo_l(mCurrentPosition, mCurrentSeekMode);
         }
         else {
             ALOGV("All seeks complete - return to regularly scheduled program");
             mCurrentPosition = mSeekPosition = -1;
+            mCurrentSeekMode = mSeekMode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC;
         }
         break;
     case MEDIA_BUFFERING_UPDATE:
@@ -932,6 +989,91 @@ status_t MediaPlayer::setNextMediaPlayer(const sp<MediaPlayer>& next) {
     }
 
     return mPlayer->setNextPlayer(next == NULL ? NULL : next->mPlayer);
+}
+
+VolumeShaper::Status MediaPlayer::applyVolumeShaper(
+        const sp<VolumeShaper::Configuration>& configuration,
+        const sp<VolumeShaper::Operation>& operation)
+{
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == nullptr) {
+        return VolumeShaper::Status(NO_INIT);
+    }
+    VolumeShaper::Status status = mPlayer->applyVolumeShaper(configuration, operation);
+    return status;
+}
+
+sp<VolumeShaper::State> MediaPlayer::getVolumeShaperState(int id)
+{
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == nullptr) {
+        return nullptr;
+    }
+    return mPlayer->getVolumeShaperState(id);
+}
+
+// Modular DRM
+status_t MediaPlayer::prepareDrm(const uint8_t uuid[16], const Vector<uint8_t>& drmSessionId)
+{
+    // TODO change to ALOGV
+    ALOGD("prepareDrm: uuid: %p  drmSessionId: %p(%zu)", uuid,
+            drmSessionId.array(), drmSessionId.size());
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == NULL) {
+        return NO_INIT;
+    }
+
+    // Only allowed it in player's preparing/prepared state.
+    // We get here only if MEDIA_DRM_INFO has already arrived (e.g., prepare is half-way through or
+    // completed) so the state change to "prepared" might not have happened yet (e.g., buffering).
+    // Still, we can allow prepareDrm for the use case of being called in OnDrmInfoListener.
+    if (!(mCurrentState & (MEDIA_PLAYER_PREPARING | MEDIA_PLAYER_PREPARED))) {
+        ALOGE("prepareDrm is called in the wrong state (%d).", mCurrentState);
+        return INVALID_OPERATION;
+    }
+
+    if (drmSessionId.isEmpty()) {
+        ALOGE("prepareDrm: Unexpected. Can't proceed with crypto. Empty drmSessionId.");
+        return INVALID_OPERATION;
+    }
+
+    // Passing down to mediaserver mainly for creating the crypto
+    status_t status = mPlayer->prepareDrm(uuid, drmSessionId);
+    ALOGE_IF(status != OK, "prepareDrm: Failed at mediaserver with ret: %d", status);
+
+    // TODO change to ALOGV
+    ALOGD("prepareDrm: mediaserver::prepareDrm ret=%d", status);
+
+    return status;
+}
+
+status_t MediaPlayer::releaseDrm()
+{
+    Mutex::Autolock _l(mLock);
+    if (mPlayer == NULL) {
+        return NO_INIT;
+    }
+
+    // Not allowing releaseDrm in an active/resumable state
+    if (mCurrentState & (MEDIA_PLAYER_STARTED |
+                         MEDIA_PLAYER_PAUSED |
+                         MEDIA_PLAYER_PLAYBACK_COMPLETE |
+                         MEDIA_PLAYER_STATE_ERROR)) {
+        ALOGE("releaseDrm Unexpected state %d. Can only be called in stopped/idle.", mCurrentState);
+        return INVALID_OPERATION;
+    }
+
+    status_t status = mPlayer->releaseDrm();
+    // TODO change to ALOGV
+    ALOGD("releaseDrm: mediaserver::releaseDrm ret: %d", status);
+    if (status != OK) {
+        ALOGE("releaseDrm: Failed at mediaserver with ret: %d", status);
+        // Overriding to OK so the client proceed with its own cleanup
+        // Client can't do more cleanup. mediaserver release its crypto at end of session anyway.
+        status = OK;
+    }
+
+    return status;
 }
 
 } // namespace android

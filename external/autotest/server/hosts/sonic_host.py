@@ -26,6 +26,7 @@ from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros import sonic_client_utils
+from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.hosts import abstract_ssh
 
 
@@ -269,7 +270,8 @@ class SonicHost(abstract_ssh.AbstractSSHHost):
     def machine_install(self, update_url):
         """Installs a build on the Sonic device.
 
-        @returns String of the current build number.
+        @returns A tuple of (string of the current build number,
+                             {'job_repo_url': update_url}).
         """
         old_build_number = self.get_build_number()
         self._remount_root(permissions='rw')
@@ -288,4 +290,4 @@ class SonicHost(abstract_ssh.AbstractSSHHost):
                                          '%s after update with %s' %
                                          (self.hostname, update_url()))
 
-        return str(new_build_number)
+        return str(new_build_number), {constants.JOB_REPO_URL: update_url}

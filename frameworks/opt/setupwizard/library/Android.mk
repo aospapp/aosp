@@ -5,7 +5,9 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_AAPT_FLAGS := --auto-add-overlay
+LOCAL_USE_AAPT2 := true
+LOCAL_JAVA_LIBRARIES := \
+    android-support-annotations
 LOCAL_MANIFEST_FILE := main/AndroidManifest.xml
 LOCAL_MODULE := setup-wizard-lib
 LOCAL_RESOURCE_DIR := \
@@ -16,52 +18,57 @@ LOCAL_SRC_FILES := $(call all-java-files-under, main/src platform/src)
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
+
 ##
-# Build eclair-mr1-compat library, which uses AppCompat support library to provide backwards
-# compatibility back to SDK v7.
+# Build gingerbread-compat library, which uses AppCompat support library to provide backwards
+# compatibility back to SDK v9.
 #
 
 include $(CLEAR_VARS)
 
-LOCAL_AAPT_FLAGS := --auto-add-overlay \
-    --extra-packages android.support.v7.appcompat
+ifeq ($(TARGET_BUILD_APPS),)
+# Use AAPT2 only when TARGET_BUILD_APPS is empty because AAPT2 is not compatible with the current
+# setup of prebuilt support libs used in unbundled builds. b/29836407
+LOCAL_USE_AAPT2 := true
+endif
+
 LOCAL_MANIFEST_FILE := main/AndroidManifest.xml
-LOCAL_MODULE := setup-wizard-lib-eclair-mr1-compat
+LOCAL_MODULE := setup-wizard-lib-gingerbread-compat
 LOCAL_RESOURCE_DIR := \
     $(LOCAL_PATH)/main/res \
     $(LOCAL_PATH)/eclair-mr1/res \
-    frameworks/support/v7/appcompat/res
-LOCAL_SDK_VERSION := current
-LOCAL_SRC_FILES := $(call all-java-files-under, main/src eclair-mr1/src)
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-v4 \
-    android-support-v7-appcompat
-
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-
-##
-# Build the full-support library, which includes RecyclerView and any other support libraries as
-# they are integrated.
-#
-include $(CLEAR_VARS)
-
-LOCAL_AAPT_FLAGS := --auto-add-overlay \
-    --extra-packages android.support.v7.appcompat \
-    --extra-packages android.support.v7.recyclerview
-LOCAL_MANIFEST_FILE := main/AndroidManifest.xml
-LOCAL_MODULE := setup-wizard-lib-full-support
-LOCAL_RESOURCE_DIR := \
-    $(LOCAL_PATH)/main/res \
-    $(LOCAL_PATH)/eclair-mr1/res \
-    $(LOCAL_PATH)/full-support/res \
-    frameworks/support/v7/appcompat/res \
-    frameworks/support/v7/recyclerview/res
+    $(LOCAL_PATH)/full-support/res
 LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := $(call all-java-files-under, main/src eclair-mr1/src full-support/src)
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-v4 \
+
+ifdef LOCAL_USE_AAPT2
+
+LOCAL_SHARED_ANDROID_LIBRARIES := \
+    android-support-annotations \
+    android-support-compat \
+    android-support-core-ui \
     android-support-v7-appcompat \
     android-support-v7-recyclerview
+
+else
+
+LOCAL_AAPT_FLAGS := --auto-add-overlay \
+    --extra-packages android.support.compat \
+    --extra-packages android.support.v7.appcompat \
+    --extra-packages android.support.v7.recyclerview
+
+LOCAL_RESOURCE_DIR += \
+    frameworks/support/compat/res \
+    frameworks/support/v7/appcompat/res \
+    frameworks/support/v7/recyclerview/res
+
+LOCAL_JAVA_LIBRARIES := \
+    android-support-annotations \
+    android-support-compat \
+    android-support-core-ui \
+    android-support-v7-appcompat \
+    android-support-v7-recyclerview
+
+endif
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

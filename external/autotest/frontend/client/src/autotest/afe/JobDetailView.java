@@ -46,7 +46,7 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
         {DataTable.CLICKABLE_WIDGET_COLUMN, ""}, // selection checkbox
         {"hostname", "Host"}, {"full_status", "Status"},
         {"host_status", "Host Status"}, {"host_locked", "Host Locked"},
-        // columns for status log and debug log links
+        // columns for all logs and debug log links
         {DataTable.CLICKABLE_WIDGET_COLUMN, ""}, {DataTable.CLICKABLE_WIDGET_COLUMN, ""}
     };
     private static final String[][] CHILD_JOBS_COLUMNS = {
@@ -69,7 +69,6 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
     public interface JobDetailListener {
         public void onHostSelected(String hostId);
         public void onCloneJob(JSONValue result);
-        public void onCreateRecurringJob(int id);
     }
 
     protected class ChildJobsListener {
@@ -95,7 +94,6 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
     protected SimpleFilter jobFilter = new SimpleFilter();
     protected Button abortButton = new Button("Abort job");
     protected Button cloneButton = new Button("Clone job");
-    protected Button recurringButton = new Button("Create recurring job");
     protected Frame tkoResultsFrame = new Frame();
 
     protected JobDetailListener listener;
@@ -231,6 +229,8 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
                 childJobsTable.refresh();
 
                 jobHistoryTable.clear();
+
+                getSpongeUrl(jobObject);
             }
 
 
@@ -329,13 +329,6 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
             }
         });
         addWidget(cloneButton, "view_clone");
-
-        recurringButton.addClickHandler(new ClickHandler() {
-            public void onClick(ClickEvent event) {
-                createRecurringJob();
-            }
-        });
-        addWidget(recurringButton, "view_recurring");
 
         tkoResultsFrame.getElement().setAttribute("scrolling", "no");
         addWidget(tkoResultsFrame, "tko_results");
@@ -455,10 +448,6 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
                 listener.onCloneJob(result);
             }
         });
-    }
-
-    private void createRecurringJob() {
-        listener.onCreateRecurringJob(jobId);
     }
 
     private String getResultsURL(int jobId) {
@@ -584,7 +573,7 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
         if (cell == JOB_HOSTS_COLUMNS.length - 1) {
             return new HTML(getLogsLinkHtml(basePath + "debug", "Debug logs"));
         } else {
-            return new HTML(getLogsLinkHtml(basePath + "status.log", "Status log"));
+            return new HTML(getLogsLinkHtml(basePath, "All logs"));
         }
     }
 
@@ -606,5 +595,21 @@ public class JobDetailView extends DetailView implements TableWidgetFactory {
                 jobHistoryTable.addRows(rows);
             }
         }, true);
+    }
+
+    private void getSpongeUrl(JSONObject jobObject) {
+        getElementById("view_sponge_invocation").setInnerHTML("");
+        getElementById("view_sponge_invocation_wrapper").getStyle().setProperty("display", "none");
+        JSONObject params = new JSONObject();
+        params.put("afe_job_id", new JSONNumber(jobId));
+        AfeUtils.callGetSpongeUrl(params, new SimpleCallback() {
+            public void doCallback(Object spongeUrl) {
+                if (spongeUrl != null){
+                    getElementById("view_sponge_invocation_wrapper").getStyle().setProperty("display", "");
+                    getElementById("view_sponge_invocation").setAttribute("href", spongeUrl.toString());
+                    getElementById("view_sponge_invocation").setInnerHTML(spongeUrl.toString());
+                }
+            }
+        });
     }
 }

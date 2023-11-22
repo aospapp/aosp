@@ -58,6 +58,7 @@ public class FramesDebuggee extends SyncDebuggee {
         depthCount--;
     }
 
+    @Override
     public void run() {
         THREAD_NAME = Thread.currentThread().getName();
         recursiveMethod();

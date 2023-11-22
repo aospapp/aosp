@@ -12,7 +12,6 @@ This test will fail under the following conditions:
   - if a supported frequency cannot be set
 """
 ATTRIBUTES = "suite:hwqual, suite:power_build"
-SUITE = "hwqual, power_build"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"

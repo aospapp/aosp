@@ -27,89 +27,74 @@
 #ifndef BTA_SDP_INT_H
 #define BTA_SDP_INT_H
 
-#include "bta_sys.h"
 #include "bta_api.h"
 #include "bta_sdp_api.h"
+#include "bta_sys.h"
 
 /*****************************************************************************
-**  Constants
-*****************************************************************************/
+ *  Constants
+ ****************************************************************************/
 
-enum
-{
-    /* these events are handled by the state machine */
-    BTA_SDP_API_ENABLE_EVT = BTA_SYS_EVT_START(BTA_ID_SDP),
-    BTA_SDP_API_SEARCH_EVT,
-    BTA_SDP_API_CREATE_RECORD_USER_EVT,
-    BTA_SDP_API_REMOVE_RECORD_USER_EVT,
-    BTA_SDP_MAX_INT_EVT
+enum {
+  /* these events are handled by the state machine */
+  BTA_SDP_API_ENABLE_EVT = BTA_SYS_EVT_START(BTA_ID_SDP),
+  BTA_SDP_API_SEARCH_EVT,
+  BTA_SDP_API_CREATE_RECORD_USER_EVT,
+  BTA_SDP_API_REMOVE_RECORD_USER_EVT,
+  BTA_SDP_MAX_INT_EVT
 };
 
-enum
-{
-    BTA_SDP_ACTIVE_NONE = 0,
-    BTA_SDP_ACTIVE_YES       /* waiting for SDP result */
+enum {
+  BTA_SDP_ACTIVE_NONE = 0,
+  BTA_SDP_ACTIVE_YES /* waiting for SDP result */
 };
-
-
 
 /* data type for BTA_SDP_API_ENABLE_EVT */
-typedef struct
-{
-    BT_HDR             hdr;
-    tBTA_SDP_DM_CBACK  *p_cback;
+typedef struct {
+  BT_HDR hdr;
+  tBTA_SDP_DM_CBACK* p_cback;
 } tBTA_SDP_API_ENABLE;
 
 /* data type for BTA_SDP_API_SEARCH_EVT */
-typedef struct
-{
-    BT_HDR          hdr;
-    BD_ADDR         bd_addr;
-    tSDP_UUID       uuid;
+typedef struct {
+  BT_HDR hdr;
+  BD_ADDR bd_addr;
+  tSDP_UUID uuid;
 } tBTA_SDP_API_SEARCH;
 
 /* data type for BTA_SDP_API_SEARCH_EVT */
-typedef struct
-{
-    BT_HDR          hdr;
-    void*           user_data;
+typedef struct {
+  BT_HDR hdr;
+  void* user_data;
 } tBTA_SDP_API_RECORD_USER;
 
 /* union of all data types */
-typedef union
-{
-    /* GKI event buffer header */
-    BT_HDR                                 hdr;
-    tBTA_SDP_API_ENABLE                    enable;
-    tBTA_SDP_API_SEARCH                    get_search;
-    tBTA_SDP_API_RECORD_USER               record;
+typedef union {
+  /* GKI event buffer header */
+  BT_HDR hdr;
+  tBTA_SDP_API_ENABLE enable;
+  tBTA_SDP_API_SEARCH get_search;
+  tBTA_SDP_API_RECORD_USER record;
 } tBTA_SDP_MSG;
 
 /* SDP control block */
-typedef struct
-{
-    UINT8              sdp_active;  /* see BTA_SDP_SDP_ACT_* */
-    BD_ADDR            remote_addr;
-    tBTA_SDP_DM_CBACK  *p_dm_cback;
+typedef struct {
+  uint8_t sdp_active; /* see BTA_SDP_SDP_ACT_* */
+  BD_ADDR remote_addr;
+  tBTA_SDP_DM_CBACK* p_dm_cback;
 } tBTA_SDP_CB;
 
-
 /* SDP control block */
-#if BTA_DYNAMIC_MEMORY == FALSE
 extern tBTA_SDP_CB bta_sdp_cb;
-#else
-extern tBTA_SDP_CB *bta_sdp_cb_ptr;
-#define bta_sdp_cb (*bta_sdp_cb_ptr)
-#endif
 
 /* config struct */
-extern tBTA_SDP_CFG *p_bta_sdp_cfg;
+extern tBTA_SDP_CFG* p_bta_sdp_cfg;
 
-extern BOOLEAN bta_sdp_sm_execute(BT_HDR *p_msg);
+extern bool bta_sdp_sm_execute(BT_HDR* p_msg);
 
-extern void bta_sdp_enable (tBTA_SDP_MSG *p_data);
-extern void bta_sdp_search (tBTA_SDP_MSG *p_data);
-extern void bta_sdp_create_record(tBTA_SDP_MSG *p_data);
-extern void bta_sdp_remove_record(tBTA_SDP_MSG *p_data);
+extern void bta_sdp_enable(tBTA_SDP_MSG* p_data);
+extern void bta_sdp_search(tBTA_SDP_MSG* p_data);
+extern void bta_sdp_create_record(tBTA_SDP_MSG* p_data);
+extern void bta_sdp_remove_record(tBTA_SDP_MSG* p_data);
 
 #endif /* BTA_SDP_INT_H */

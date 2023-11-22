@@ -20,7 +20,8 @@
 
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="21" />
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
     <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
@@ -32,13 +33,14 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="com.android.voicemail.permission.ADD_VOICEMAIL" />
+    <uses-permission android:name="com.android.voicemail.permission.WRITE_VOICEMAIL" />
+    <uses-permission android:name="com.android.voicemail.permission.READ_VOICEMAIL" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
-
 
     <application>
         <uses-library android:name="android.test.runner"/>
@@ -50,6 +52,8 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
+
+        <activity android:name="android.provider.cts.GetResultActivity" />
 
         <service android:name="android.provider.cts.contacts.account.MockAccountService"
                  process="android.provider.cts"
@@ -71,6 +75,48 @@
             <meta-data android:name="android.view.im"
                        android:resource="@xml/method" />
         </service>
+
+        <provider
+            android:name=".contacts.DummyGalProvider"
+            android:authorities="android.provider.cts.contacts.dgp"
+            android:exported="true"
+            android:readPermission="android.permission.BIND_DIRECTORY_SEARCH" >
+            <meta-data android:name="android.content.ContactDirectory" android:value="true" />
+        </provider>
+
+        <provider android:name="android.support.v4.content.FileProvider"
+            android:authorities="android.provider.cts.fileprovider"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        <provider android:name="android.provider.cts.MockFontProvider"
+                  android:authorities="android.provider.fonts.cts.font"
+                  android:exported="false"
+                  android:multiprocess="true" />
+
+        <service
+            android:name="android.provider.cts.contacts.StubInCallService"
+            android:permission="android.permission.BIND_INCALL_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.InCallService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.telecom.IN_CALL_SERVICE_UI"
+                android:value="true"/>
+        </service>
+
+        <activity android:name="android.provider.cts.contacts.StubDialerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL"/>
+                <data android:scheme="tel"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL"/>
+            </intent-filter>
+        </activity>
+
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

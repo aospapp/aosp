@@ -188,7 +188,7 @@ their high-value content in the OpenGL ES environment, preventing important VR
 use cases such as watching DRM protected content in VR.</p>
 
 <p>AOSP includes framework code for secure texture video playback; driver
-support is up to the vendor. Partners must implement the
+support is up to the vendor. Device implementers must implement the
 <code>EGL_EXT_protected_content</code> and
 <code>GL_EXT_protected_textures extensions</code>. When using your own codec
 library (to replace libstagefright), note the changes in
@@ -201,6 +201,6 @@ the extensions, refer to the Khronos Registry
 (<a href="https://www.khronos.org/registry/egl/extensions/EXT/EGL_EXT_protected_content.txt">EGL_EXT_protected_content</a>,
 <a href="https://www.khronos.org/registry/gles/extensions/EXT/EXT_protected_textures.txt">GL_EXT_protected_textures</a>).</p>
 
-<p>Partners may also need to make hardware changes to ensure that protected
-memory mapped onto the GPU remains protected and unreadable by unprotected
-code.</p>
+<p>Device implementers may also need to make hardware changes to ensure that
+protected memory mapped onto the GPU remains protected and unreadable by
+unprotected code.</p>

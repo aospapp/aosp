@@ -16,49 +16,65 @@
 
 package android.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.animation.Keyframe;
 import android.animation.TimeInterpolator;
-import android.test.InstrumentationTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.AccelerateInterpolator;
 
-public class KeyframeTest extends InstrumentationTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class KeyframeTest {
+    @Test
     public void testGetFraction() {
         Keyframe keyFrame = Keyframe.ofInt(0.0f);
         float fraction = keyFrame.getFraction();
-        assertTrue(fraction == 0.0f);
+        assertEquals(0.0f, fraction, 0.0f);
     }
 
+    @Test
     public void testSetFraction() {
         Keyframe keyFrame = Keyframe.ofInt(0.0f);
         keyFrame.setFraction(0.5f);
         float fraction = keyFrame.getFraction();
-        assertTrue(fraction == 0.5f);
+        assertEquals(0.5f, fraction, 0.0f);
     }
 
+    @Test
     public void testOfFloat() {
         Keyframe keyFrame = Keyframe.ofFloat(0.0f);
         float fraction = keyFrame.getFraction();
-        assertEquals(fraction, 0.0f);
+        assertEquals(0.0f, fraction, 0.0f);
     }
 
+    @Test
     public void testOfIntValue() {
         Keyframe keyFrame = Keyframe.ofInt(0.0f,10);
         assertTrue(keyFrame.hasValue());
         assertEquals(keyFrame.getValue(),10);
     }
 
+    @Test
     public void testOfFloatValue() {
         Keyframe keyFrame = Keyframe.ofFloat(0.0f,9.0f);
         assertTrue(keyFrame.hasValue());
-        assertEquals(keyFrame.getValue(),9.0f);
+        assertEquals(9.0f, (float) keyFrame.getValue(), 0.0f);
     }
 
+    @Test
     public void testOfObject() {
         Keyframe keyFrame = Keyframe.ofObject(0.0f);
         float fraction = keyFrame.getFraction();
-        assertEquals(fraction, 0.0f);
+        assertEquals(0.0f, fraction, 0.0f);
     }
 
+    @Test
     public void testOfObjectValue() {
         String value = "test";
         Keyframe keyFrame = Keyframe.ofObject(0.0f, value);
@@ -66,6 +82,7 @@ public class KeyframeTest extends InstrumentationTestCase {
         assertEquals(keyFrame.getValue(), value);
     }
 
+    @Test
     public void testGetType() {
         Keyframe keyFrame = Keyframe.ofFloat(0.0f);
         Class typeClass = keyFrame.getType();
@@ -73,12 +90,14 @@ public class KeyframeTest extends InstrumentationTestCase {
         assertEquals(typeName, "float");
     }
 
+    @Test
     public void testClone() {
         Keyframe keyFrame = Keyframe.ofFloat(0.0f);
         Keyframe clone = keyFrame.clone();
-        assertEquals(keyFrame.getFraction(), clone.getFraction());
+        assertEquals(keyFrame.getFraction(), clone.getFraction(), 0.0f);
     }
 
+    @Test
     public void testSetInterpolator() {
         Keyframe keyFrame = Keyframe.ofFloat(0.0f);
         TimeInterpolator interpolator = new AccelerateInterpolator();
@@ -86,11 +105,12 @@ public class KeyframeTest extends InstrumentationTestCase {
         assertEquals(interpolator, keyFrame.getInterpolator());
     }
 
+    @Test
     public void testSetValue() {
         Keyframe keyFrame = Keyframe.ofFloat(0.0f);
         Float value = new Float(100.0f);
         keyFrame.setValue(value);
-        Float actualValue = (Float)keyFrame.getValue();
+        Float actualValue = (Float) keyFrame.getValue();
         assertEquals(value, actualValue);
     }
 }

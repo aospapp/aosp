@@ -29,6 +29,8 @@
     <bool name="profile_supported_avrcp_controller">false</bool>
     <bool name="profile_supported_sap">false</bool>
     <bool name="profile_supported_pbapclient">false</bool>
+    <bool name="profile_supported_mapmce">false</bool>
+    <bool name="profile_supported_hidd">false</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one
@@ -66,4 +68,32 @@
 
     <!-- For enabling the hfp client connection service -->
     <bool name="hfp_client_connection_service_enabled">false</bool>
+
+    <!-- Enabling autoconnect over pan -->
+    <bool name="config_bluetooth_pan_enable_autoconnect">true</bool>
+
+    <!-- Enabling the phone policy -->
+    <bool name="enable_phone_policy">true</bool>
+
+    <!-- Configuring priorities of A2DP source codecs. Larger value means
+         higher priority. Value -1 means the codec is disabled.
+         Value 0 is reserved and should not be used here. Enabled codecs
+         should have priorities in the interval [1, 999999], and each priority
+         value should be unique. -->
+    <integer name="a2dp_source_codec_priority_sbc">1001</integer>
+    <integer name="a2dp_source_codec_priority_aac">2001</integer>
+    <integer name="a2dp_source_codec_priority_aptx">3001</integer>
+    <integer name="a2dp_source_codec_priority_aptx_hd">4001</integer>
+    <integer name="a2dp_source_codec_priority_ldac">5001</integer>
+
+    <!-- Package that is responsible for user interaction on pairing request,
+         success or cancel.
+         Receives:
+          - BluetootDevice.ACTION_PAIRING_CANCEL on bond failure
+          - BluetoothDevice.ACTION_PAIRING_REUQEST on pin request
+          - BluetootDevice.ACTION_BOND_STATE_CHANGED on pairing request and success
+          - BluetoothDevice.ACTION_CONNECTION_ACCESS_REQUEST on access requests
+          - BluetoothDevice.ACTION_CONNECTION_ACCESS_CANCEL to cancel access requests -->
+    <string name="pairing_ui_package">com.android.settings</string>
+
 </resources>

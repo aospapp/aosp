@@ -119,6 +119,7 @@ public class CallServiceNotifier {
                 .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
                 .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
                         PhoneAccount.CAPABILITY_VIDEO_CALLING |
+                        PhoneAccount.CAPABILITY_RTT |
                         PhoneAccount.CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE)
                 .setIcon(Icon.createWithResource(
                         context.getResources(), R.drawable.stat_sys_phone_call))
@@ -139,6 +140,7 @@ public class CallServiceNotifier {
                 .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
                         PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION |
                         PhoneAccount.CAPABILITY_VIDEO_CALLING |
+                        PhoneAccount.CAPABILITY_RTT |
                         PhoneAccount.CAPABILITY_VIDEO_CALLING_RELIES_ON_PRESENCE)
                 .setIcon(Icon.createWithResource(
                         context.getResources(), R.drawable.stat_sys_phone_call))

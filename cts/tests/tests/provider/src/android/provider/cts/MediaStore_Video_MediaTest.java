@@ -22,8 +22,6 @@ import android.provider.cts.R;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.cts.util.FileCopyHelper;
-import android.cts.util.FileUtils;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
@@ -31,6 +29,9 @@ import android.provider.MediaStore;
 import android.provider.MediaStore.Video.Media;
 import android.provider.MediaStore.Video.VideoColumns;
 import android.test.AndroidTestCase;
+
+import com.android.compatibility.common.util.FileCopyHelper;
+import com.android.compatibility.common.util.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -228,6 +229,9 @@ public class MediaStore_Video_MediaTest extends AndroidTestCase {
 
     private Uri insertVideo(Context context) throws IOException {
         File file = new File(Environment.getExternalStorageDirectory(), "testVideo.3gp");
+        // clean up any potential left over entries from a previous aborted run
+        cleanExternalMediaFile(file.getAbsolutePath());
+
         new FileCopyHelper(context).copyToExternalStorage(R.raw.testvideo, file);
 
         ContentValues values = new ContentValues();

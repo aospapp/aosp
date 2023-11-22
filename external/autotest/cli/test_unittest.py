@@ -4,10 +4,10 @@
 
 """Tests for test."""
 
-import unittest, sys, os
+import unittest
 
 import common
-from autotest_lib.cli import cli_mock, topic_common, test
+from autotest_lib.cli import cli_mock
 from autotest_lib.client.common_lib import control_data
 
 CLIENT = control_data.CONTROL_TYPE_NAMES.CLIENT
@@ -18,7 +18,6 @@ class test_list_unittest(cli_mock.cli_unittest):
                u'test_type': CLIENT,
                u'test_class': u'Canned Test Sets',
                u'path': u'client/tests/test0/control',
-               u'synch_type': u'Asynchronous',
                u'id': 138,
                u'name': u'test0',
                u'experimental': False},
@@ -26,7 +25,6 @@ class test_list_unittest(cli_mock.cli_unittest):
                u'test_type': SERVER,
                u'test_class': u'Kernel',
                u'path': u'server/tests/test1/control',
-               u'synch_type': u'Asynchronous',
                u'id': 139,
                u'name': u'test1',
                u'experimental': False},
@@ -34,7 +32,6 @@ class test_list_unittest(cli_mock.cli_unittest):
                u'test_type': CLIENT,
                u'test_class': u'Canned Test Sets',
                u'path': u'client/tests/test2/control.readprofile',
-               u'synch_type': u'Asynchronous',
                u'id': 140,
                u'name': u'test2',
                u'experimental': False},
@@ -42,7 +39,6 @@ class test_list_unittest(cli_mock.cli_unittest):
                u'test_type': SERVER,
                u'test_class': u'Canned Test Sets',
                u'path': u'server/tests/test3/control',
-               u'synch_type': u'Asynchronous',
                u'id': 142,
                u'name': u'test3',
                u'experimental': False},
@@ -50,7 +46,6 @@ class test_list_unittest(cli_mock.cli_unittest):
                u'test_type': CLIENT,
                u'test_class': u'Hardware',
                u'path': u'client/tests/test4/control.export',
-               u'synch_type': u'Asynchronous',
                u'id': 143,
                u'name': u'test4',
                u'experimental': True}]
@@ -82,7 +77,6 @@ class test_list_unittest(cli_mock.cli_unittest):
                               u'test_type': CLIENT,
                               u'test_class': u'Hardware',
                               u'path': u'client/tests/test4/control.export',
-                              u'synch_type': u'Asynchronous',
                               u'id': 143,
                               u'name': u'test4',
                               u'experimental': True}])],

@@ -23,9 +23,10 @@
 #include <linux/keychord.h>
 #include <unistd.h>
 
+#include <android-base/properties.h>
+
 #include "init.h"
 #include "log.h"
-#include "property_service.h"
 #include "service.h"
 
 static struct input_keychord *keychords = 0;
@@ -43,7 +44,7 @@ void add_service_keycodes(Service* svc)
         size = sizeof(*keychord) + svc->keycodes().size() * sizeof(keychord->keycodes[0]);
         keychords = (input_keychord*) realloc(keychords, keychords_length + size);
         if (!keychords) {
-            ERROR("could not allocate keychords\n");
+            PLOG(ERROR) << "could not allocate keychords";
             keychords_length = 0;
             keychords_count = 0;
             return;
@@ -69,22 +70,22 @@ static void handle_keychord() {
 
     ret = read(keychord_fd, &id, sizeof(id));
     if (ret != sizeof(id)) {
-        ERROR("could not read keychord id\n");
+        PLOG(ERROR) << "could not read keychord id";
         return;
     }
 
     // Only handle keychords if adb is enabled.
-    std::string adb_enabled = property_get("init.svc.adbd");
+    std::string adb_enabled = android::base::GetProperty("init.svc.adbd", "");
     if (adb_enabled == "running") {
         Service* svc = ServiceManager::GetInstance().FindServiceByKeychord(id);
         if (svc) {
-            NOTICE("Starting service '%s' from keychord %d\n", svc->name().c_str(), id);
+            LOG(INFO) << "Starting service " << svc->name() << " from keychord " << id;
             svc->Start();
         } else {
-            ERROR("Service for keychord %d not found\n", id);
+            LOG(ERROR) << "Service for keychord " << id << " not found";
         }
     } else {
-        WARNING("Not starting service for keychord %d because ADB is disabled\n", id);
+        LOG(WARNING) << "Not starting service for keychord " << id << " because ADB is disabled";
     }
 }
 
@@ -98,13 +99,13 @@ void keychord_init() {
 
     keychord_fd = TEMP_FAILURE_RETRY(open("/dev/keychord", O_RDWR | O_CLOEXEC));
     if (keychord_fd == -1) {
-        ERROR("could not open /dev/keychord: %s\n", strerror(errno));
+        PLOG(ERROR) << "could not open /dev/keychord";
         return;
     }
 
     int ret = write(keychord_fd, keychords, keychords_length);
     if (ret != keychords_length) {
-        ERROR("could not configure /dev/keychord %d: %s\n", ret, strerror(errno));
+        PLOG(ERROR) << "could not configure /dev/keychord " << ret;
         close(keychord_fd);
     }
 

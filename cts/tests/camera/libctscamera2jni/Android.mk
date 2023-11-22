@@ -36,18 +36,16 @@ LOCAL_CFLAGS := -DUNIX_ENV=1 -DqDNGBigEndian=0 -DqDNGThreadSafe=1 -DqDNGUseLibJP
 # Flags to avoid warnings from DNG SDK
 LOCAL_CFLAGS += -Wno-unused-parameter
 
-LOCAL_STATIC_LIBRARIES := libdng_sdk_validate libjpeg_static libz
+LOCAL_STATIC_LIBRARIES := libdng_sdk_validate libjpeg_static_ndk
 LOCAL_SHARED_LIBRARIES := libandroid \
     libnativehelper_compat_libc++ \
     liblog \
     libcamera2ndk \
-    libmediandk
+    libmediandk \
+    libz \
 
 # NDK build, shared C++ runtime
-#LOCAL_SDK_VERSION := current
-#LOCAL_NDK_STL_VARIANT := c++_shared
-
-# Temporary workaround until camera2 NDK is active. See b/27102995.
-LOCAL_CXX_STL := libc++_static
+LOCAL_SDK_VERSION := 24
+LOCAL_NDK_STL_VARIANT := c++_shared
 
 include $(BUILD_SHARED_LIBRARY)

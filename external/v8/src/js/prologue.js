@@ -120,9 +120,21 @@ function InstallGetterSetter(object, name, getter, setter, attributes) {
   SetFunctionName(setter, name, "set");
   %FunctionRemovePrototype(getter);
   %FunctionRemovePrototype(setter);
-  %DefineAccessorPropertyUnchecked(object, name, getter, setter, DONT_ENUM);
+  %DefineAccessorPropertyUnchecked(object, name, getter, setter, attributes);
   %SetNativeFlag(getter);
   %SetNativeFlag(setter);
+}
+
+
+function OverrideFunction(object, name, f, afterInitialBootstrap) {
+  %CheckIsBootstrapping();
+  %object_define_property(object, name, { value: f,
+                                          writeable: true,
+                                          configurable: true,
+                                          enumerable: false });
+  SetFunctionName(f, name);
+  if (!afterInitialBootstrap) %FunctionRemovePrototype(f);
+  %SetNativeFlag(f);
 }
 
 
@@ -169,46 +181,24 @@ function PostNatives(utils) {
 
   // Whitelist of exports from normal natives to experimental natives and debug.
   var expose_list = [
-    "ArrayToString",
-    "ErrorToString",
-    "GetIterator",
-    "GetMethod",
-    "IsNaN",
-    "MakeError",
-    "MakeTypeError",
+    "FormatDateToParts",
     "MapEntries",
     "MapIterator",
     "MapIteratorNext",
-    "MathMax",
-    "MathMin",
     "MaxSimple",
     "MinSimple",
-    "ObjectDefineProperty",
-    "ObserveArrayMethods",
-    "ObserveObjectMethods",
-    "PromiseChain",
-    "PromiseDeferred",
-    "PromiseResolved",
-    "SameValueZero",
     "SetIterator",
     "SetIteratorNext",
     "SetValues",
-    "SymbolToString",
-    "ToPositiveInteger",
+    "ToLocaleLowerCaseI18N",
+    "ToLocaleUpperCaseI18N",
+    "ToLowerCaseI18N",
+    "ToUpperCaseI18N",
     // From runtime:
-    "is_concat_spreadable_symbol",
-    "iterator_symbol",
-    "promise_status_symbol",
-    "promise_value_symbol",
-    "object_freeze",
-    "object_is_frozen",
-    "object_is_sealed",
+    "promise_result_symbol",
+    "promise_state_symbol",
     "reflect_apply",
-    "reflect_construct",
-    "regexp_flags_symbol",
     "to_string_tag_symbol",
-    "object_to_string",
-    "species_symbol",
   ];
 
   var filtered_exports = {};
@@ -236,9 +226,6 @@ function PostExperimentals(utils) {
     imports_from_experimental(exports_container);
   }
 
-  utils.CreateDoubleResultArray();
-  utils.CreateDoubleResultArray = UNDEFINED;
-
   utils.Export = UNDEFINED;
   utils.PostDebug = UNDEFINED;
   utils.PostExperimentals = UNDEFINED;
@@ -250,9 +237,6 @@ function PostDebug(utils) {
   for ( ; !IS_UNDEFINED(imports); imports = imports.next) {
     imports(exports_container);
   }
-
-  utils.CreateDoubleResultArray();
-  utils.CreateDoubleResultArray = UNDEFINED;
 
   exports_container = UNDEFINED;
 
@@ -287,6 +271,7 @@ utils.InstallConstants = InstallConstants;
 utils.InstallFunctions = InstallFunctions;
 utils.InstallGetter = InstallGetter;
 utils.InstallGetterSetter = InstallGetterSetter;
+utils.OverrideFunction = OverrideFunction;
 utils.SetUpLockedPrototype = SetUpLockedPrototype;
 utils.PostNatives = PostNatives;
 utils.PostExperimentals = PostExperimentals;
@@ -326,14 +311,14 @@ extrasUtils.createPrivateSymbol = function createPrivateSymbol(name) {
 // indirection and slowness given how un-optimized bind is.
 
 extrasUtils.simpleBind = function simpleBind(func, thisArg) {
-  return function() {
-    return %Apply(func, thisArg, arguments, 0, arguments.length);
+  return function(...args) {
+    return %reflect_apply(func, thisArg, args);
   };
 };
 
 extrasUtils.uncurryThis = function uncurryThis(func) {
-  return function(thisArg) {
-    return %Apply(func, thisArg, arguments, 1, arguments.length - 1);
+  return function(thisArg, ...args) {
+    return %reflect_apply(func, thisArg, args);
   };
 };
 

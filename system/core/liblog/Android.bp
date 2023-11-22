@@ -15,29 +15,31 @@
 //
 
 liblog_sources = [
+    "config_read.c",
+    "config_write.c",
+    "local_logger.c",
     "log_event_list.c",
     "log_event_write.c",
-    "logger_write.c",
-    "config_write.c",
-    "logger_name.c",
+    "log_ratelimit.cpp",
     "logger_lock.c",
+    "logger_name.c",
+    "logger_read.c",
+    "logger_write.c",
+    "logprint.c",
+    "stderr_write.c",
 ]
 liblog_host_sources = [
     "fake_log_device.c",
-    //"event.logtags",
     "fake_writer.c",
 ]
 liblog_target_sources = [
-    "event_tag_map.c",
-    "config_read.c",
+    "event_tag_map.cpp",
     "log_time.cpp",
-    "log_is_loggable.c",
-    "logprint.c",
+    "properties.c",
     "pmsg_reader.c",
     "pmsg_writer.c",
     "logd_reader.c",
     "logd_writer.c",
-    "logger_read.c",
 ]
 
 // Shared and static library for host and device
@@ -56,7 +58,9 @@ cc_library {
         android: {
             srcs: liblog_target_sources,
             // AddressSanitizer runtime library depends on liblog.
-            sanitize: ["never"],
+            sanitize: {
+                address: false,
+            },
         },
         android_arm: {
             // TODO: This is to work around b/24465209. Remove after root cause is fixed
@@ -67,12 +71,17 @@ cc_library {
             enabled: true,
         },
         not_windows: {
-            srcs: ["event_tag_map.c"],
+            srcs: ["event_tag_map.cpp"],
         },
         linux: {
             host_ldlibs: ["-lrt"],
         },
+        linux_bionic: {
+            enabled: true,
+        },
     },
+
+    export_include_dirs: ["include"],
 
     cflags: [
         "-Werror",
@@ -83,9 +92,31 @@ cc_library {
         //       's/^\([0-9]*\)[ \t]*liblog[ \t].*/-DLIBLOG_LOG_TAG=\1/p' \
         //       $(LOCAL_PATH)/event.logtags)
         // so make sure we do not regret hard-coding it as follows:
-        "-DLIBLOG_LOG_TAG=1005",
+        "-DLIBLOG_LOG_TAG=1006",
         "-DSNET_EVENT_LOG_TAG=1397638484",
     ],
+    logtags: ["event.logtags"],
     compile_multilib: "both",
-    stl: "none",
+}
+
+ndk_headers {
+    name: "liblog_headers",
+    from: "include/android",
+    to: "android",
+    srcs: ["include/android/log.h"],
+    license: "NOTICE",
+}
+
+ndk_library {
+    name: "liblog",
+    symbol_file: "liblog.map.txt",
+    first_version: "9",
+    unversioned_until: "current",
+}
+
+llndk_library {
+    name: "liblog",
+    symbol_file: "liblog.map.txt",
+    unversioned: true,
+    export_include_dirs: ["include_vndk"],
 }

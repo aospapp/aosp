@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2014, International Business Machines Corporation and   *
@@ -28,7 +30,7 @@ class BasicDurationFormatter implements DurationFormatter {
    * the locales and timezones of these are in sync.
    */
   public BasicDurationFormatter(PeriodFormatter formatter,
-                                PeriodBuilder builder, 
+                                PeriodBuilder builder,
                                 DateFormatter fallback,
                                 long fallbackLimit) {
     this.formatter = formatter;
@@ -38,7 +40,7 @@ class BasicDurationFormatter implements DurationFormatter {
   }
 
   protected BasicDurationFormatter(PeriodFormatter formatter,
-                                   PeriodBuilder builder, 
+                                   PeriodBuilder builder,
                                    DateFormatter fallback,
                                    long fallbackLimit,
                                    String localeName,
@@ -51,17 +53,20 @@ class BasicDurationFormatter implements DurationFormatter {
     this.timeZone = timeZone;
   }
 
+  @Override
   public String formatDurationFromNowTo(Date targetDate) {
     long now = System.currentTimeMillis();
     long duration = targetDate.getTime() - now;
     return formatDurationFrom(duration, now);
   }
 
-  public String formatDurationFromNow(long duration) {
+  @Override
+public String formatDurationFromNow(long duration) {
     return formatDurationFrom(duration, System.currentTimeMillis());
   }
 
-  public String formatDurationFrom(long duration, long referenceDate) {
+  @Override
+public String formatDurationFrom(long duration, long referenceDate) {
     String s = doFallback(duration, referenceDate);
     if (s == null) {
       Period p = doBuild(duration, referenceDate);
@@ -70,12 +75,13 @@ class BasicDurationFormatter implements DurationFormatter {
     return s;
   }
 
-  public DurationFormatter withLocale(String locName) {
+  @Override
+public DurationFormatter withLocale(String locName) {
     if (!locName.equals(localeName)) {
       PeriodFormatter newFormatter = formatter.withLocale(locName);
       PeriodBuilder newBuilder = builder.withLocale(locName);
-      DateFormatter newFallback = fallback == null 
-          ? null 
+      DateFormatter newFallback = fallback == null
+          ? null
           : fallback.withLocale(locName);
       return new BasicDurationFormatter(newFormatter, newBuilder,
                                         newFallback, fallbackLimit,
@@ -84,11 +90,12 @@ class BasicDurationFormatter implements DurationFormatter {
     return this;
   }
 
-  public DurationFormatter withTimeZone(TimeZone tz) {
+  @Override
+public DurationFormatter withTimeZone(TimeZone tz) {
     if (!tz.equals(timeZone)) {
       PeriodBuilder newBuilder = builder.withTimeZone(tz);
-      DateFormatter newFallback = fallback == null 
-          ? null 
+      DateFormatter newFallback = fallback == null
+          ? null
           : fallback.withTimeZone(tz);
       return new BasicDurationFormatter(formatter, newBuilder,
                                         newFallback, fallbackLimit,
@@ -98,7 +105,7 @@ class BasicDurationFormatter implements DurationFormatter {
   }
 
   protected String doFallback(long duration, long referenceDate) {
-    if (fallback != null 
+    if (fallback != null
         && fallbackLimit > 0
         && Math.abs(duration) >= fallbackLimit) {
       return fallback.format(referenceDate + duration);

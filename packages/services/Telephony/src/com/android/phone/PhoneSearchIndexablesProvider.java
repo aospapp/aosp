@@ -16,11 +16,14 @@
 
 package com.android.phone;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
+import android.os.UserManager;
 import android.provider.SearchIndexableResource;
 import android.provider.SearchIndexablesProvider;
 
+import static android.provider.SearchIndexablesContract.COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RANK;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_RESID;
 import static android.provider.SearchIndexablesContract.COLUMN_INDEX_XML_RES_CLASS_NAME;
@@ -37,7 +40,7 @@ public class PhoneSearchIndexablesProvider extends SearchIndexablesProvider {
     private static final String TAG = "PhoneSearchIndexablesProvider";
 
     private static SearchIndexableResource[] INDEXABLE_RES = new SearchIndexableResource[] {
-            new SearchIndexableResource(1, R.xml.network_setting,
+            new SearchIndexableResource(1, R.xml.network_setting_fragment,
                     MobileNetworkSettings.class.getName(),
                     R.mipmap.ic_launcher_phone),
     };
@@ -70,9 +73,23 @@ public class PhoneSearchIndexablesProvider extends SearchIndexablesProvider {
         MatrixCursor cursor = new MatrixCursor(INDEXABLES_RAW_COLUMNS);
         return cursor;
     }
+
     @Override
     public Cursor queryNonIndexableKeys(String[] projection) {
         MatrixCursor cursor = new MatrixCursor(NON_INDEXABLES_KEYS_COLUMNS);
+        final UserManager userManager = (UserManager) getContext().getSystemService(
+                Context.USER_SERVICE);
+        if (!userManager.isAdminUser()) {
+            final String[] values = new String[]{"preferred_network_mode_key", "button_roaming_key",
+                    "cdma_lte_data_service_key", "enabled_networks_key", "enhanced_4g_lte",
+                    "button_apn_key", "button_carrier_sel_key", "carrier_settings_key",
+                    "cdma_system_select_key", "carrier_settings_euicc_key"};
+            for (String nik : values) {
+                final Object[] ref = new Object[NON_INDEXABLES_KEYS_COLUMNS.length];
+                ref[COLUMN_INDEX_NON_INDEXABLE_KEYS_KEY_VALUE] = nik;
+                cursor.addRow(ref);
+            }
+        }
         return cursor;
     }
 }

@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <inttypes.h>
+#include <limits>
 #include <random>
 #include <regex>
 #include <selinux/android.h>
@@ -32,17 +33,19 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <cutils/fs.h>
-#include <cutils/log.h>
 #include <cutils/properties.h>
+#include <dex2oat_return_codes.h>
+#include <log/log.h>
 #include <private/android_filesystem_config.h>
 
-#include <commands.h>
-#include <file_parsing.h>
-#include <globals.h>
-#include <installd_deps.h>  // Need to fill in requirements of commands.
-#include <otapreopt_utils.h>
-#include <system_properties.h>
-#include <utils.h>
+#include "dexopt.h"
+#include "file_parsing.h"
+#include "globals.h"
+#include "installd_constants.h"
+#include "installd_deps.h"  // Need to fill in requirements of commands.
+#include "otapreopt_utils.h"
+#include "system_properties.h"
+#include "utils.h"
 
 #ifndef LOG_TAG
 #define LOG_TAG "otapreopt"
@@ -60,6 +63,25 @@ using android::base::StringPrintf;
 
 namespace android {
 namespace installd {
+
+// Check expected values for dexopt flags. If you need to change this:
+//
+//   RUN AN A/B OTA TO MAKE SURE THINGS STILL WORK!
+//
+// You most likely need to increase the protocol version and all that entails!
+
+static_assert(DEXOPT_PUBLIC         == 1 << 1, "DEXOPT_PUBLIC unexpected.");
+static_assert(DEXOPT_DEBUGGABLE     == 1 << 2, "DEXOPT_DEBUGGABLE unexpected.");
+static_assert(DEXOPT_BOOTCOMPLETE   == 1 << 3, "DEXOPT_BOOTCOMPLETE unexpected.");
+static_assert(DEXOPT_PROFILE_GUIDED == 1 << 4, "DEXOPT_PROFILE_GUIDED unexpected.");
+static_assert(DEXOPT_SECONDARY_DEX  == 1 << 5, "DEXOPT_SECONDARY_DEX unexpected.");
+static_assert(DEXOPT_FORCE          == 1 << 6, "DEXOPT_FORCE unexpected.");
+static_assert(DEXOPT_STORAGE_CE     == 1 << 7, "DEXOPT_STORAGE_CE unexpected.");
+static_assert(DEXOPT_STORAGE_DE     == 1 << 8, "DEXOPT_STORAGE_DE unexpected.");
+
+static_assert(DEXOPT_MASK           == 0x1fe, "DEXOPT_MASK unexpected.");
+
+
 
 template<typename T>
 static constexpr T RoundDown(T x, typename std::decay<T>::type n) {
@@ -143,6 +165,20 @@ class OTAPreoptService {
     }
 
 private:
+
+    struct Parameters {
+        const char *apk_path;
+        uid_t uid;
+        const char *pkgName;
+        const char *instruction_set;
+        int dexopt_needed;
+        const char* oat_dir;
+        int dexopt_flags;
+        const char* compiler_filter;
+        const char* volume_uuid;
+        const char* shared_libraries;
+        const char* se_info;
+    };
 
     bool ReadSystemProperties() {
         static constexpr const char* kPropertyFiles[] = {
@@ -245,15 +281,23 @@ private:
         return true;
     }
 
-    bool ReadArguments(int argc ATTRIBUTE_UNUSED, char** argv) {
-        // Expected command line:
-        //   target-slot dexopt {DEXOPT_PARAMETERS}
-        // The DEXOPT_PARAMETERS are passed on to dexopt(), so we expect DEXOPT_PARAM_COUNT
-        // of them. We store them in package_parameters_ (size checks are done when
-        // parsing the special parameters and when copying into package_parameters_.
+    bool ParseUInt(const char* in, uint32_t* out) {
+        char* end;
+        long long int result = strtoll(in, &end, 0);
+        if (in == end || *end != '\0') {
+            return false;
+        }
+        if (result < std::numeric_limits<uint32_t>::min() ||
+                std::numeric_limits<uint32_t>::max() < result) {
+            return false;
+        }
+        *out = static_cast<uint32_t>(result);
+        return true;
+    }
 
-        static_assert(DEXOPT_PARAM_COUNT == ARRAY_SIZE(package_parameters_),
-                      "Unexpected dexopt param count");
+    bool ReadArguments(int argc, char** argv) {
+        // Expected command line:
+        //   target-slot [version] dexopt {DEXOPT_PARAMETERS}
 
         const char* target_slot_arg = argv[1];
         if (target_slot_arg == nullptr) {
@@ -267,27 +311,228 @@ private:
             return false;
         }
 
-        // Check for "dexopt" next.
+        // Check for version or "dexopt" next.
+        if (argv[2] == nullptr) {
+            LOG(ERROR) << "Missing parameters";
+            return false;
+        }
+
+        if (std::string("dexopt").compare(argv[2]) == 0) {
+            // This is version 1 (N) or pre-versioning version 2.
+            constexpr int kV2ArgCount =   1   // "otapreopt"
+                                        + 1   // slot
+                                        + 1   // "dexopt"
+                                        + 1   // apk_path
+                                        + 1   // uid
+                                        + 1   // pkg
+                                        + 1   // isa
+                                        + 1   // dexopt_needed
+                                        + 1   // oat_dir
+                                        + 1   // dexopt_flags
+                                        + 1   // filter
+                                        + 1   // volume
+                                        + 1   // libs
+                                        + 1;  // seinfo
+            if (argc == kV2ArgCount) {
+                return ReadArgumentsV2(argc, argv, false);
+            } else {
+                return ReadArgumentsV1(argc, argv);
+            }
+        }
+
+        uint32_t version;
+        if (!ParseUInt(argv[2], &version)) {
+            LOG(ERROR) << "Could not parse version: " << argv[2];
+            return false;
+        }
+
+        switch (version) {
+            case 2:
+                return ReadArgumentsV2(argc, argv, true);
+
+            default:
+                LOG(ERROR) << "Unsupported version " << version;
+                return false;
+        }
+    }
+
+    bool ReadArgumentsV2(int argc ATTRIBUTE_UNUSED, char** argv, bool versioned) {
+        size_t dexopt_index = versioned ? 3 : 2;
+
+        // Check for "dexopt".
+        if (argv[dexopt_index] == nullptr) {
+            LOG(ERROR) << "Missing parameters";
+            return false;
+        }
+        if (std::string("dexopt").compare(argv[dexopt_index]) != 0) {
+            LOG(ERROR) << "Expected \"dexopt\"";
+            return false;
+        }
+
+        size_t param_index = 0;
+        for (;; ++param_index) {
+            const char* param = argv[dexopt_index + 1 + param_index];
+            if (param == nullptr) {
+                break;
+            }
+
+            switch (param_index) {
+                case 0:
+                    package_parameters_.apk_path = param;
+                    break;
+
+                case 1:
+                    package_parameters_.uid = atoi(param);
+                    break;
+
+                case 2:
+                    package_parameters_.pkgName = param;
+                    break;
+
+                case 3:
+                    package_parameters_.instruction_set = param;
+                    break;
+
+                case 4:
+                    package_parameters_.dexopt_needed = atoi(param);
+                    break;
+
+                case 5:
+                    package_parameters_.oat_dir = param;
+                    break;
+
+                case 6:
+                    package_parameters_.dexopt_flags = atoi(param);
+                    break;
+
+                case 7:
+                    package_parameters_.compiler_filter = param;
+                    break;
+
+                case 8:
+                    package_parameters_.volume_uuid = ParseNull(param);
+                    break;
+
+                case 9:
+                    package_parameters_.shared_libraries = ParseNull(param);
+                    break;
+
+                case 10:
+                    package_parameters_.se_info = ParseNull(param);
+                    break;
+
+                default:
+                    LOG(ERROR) << "Too many arguments, got " << param;
+                    return false;
+            }
+        }
+
+        if (param_index != 11) {
+            LOG(ERROR) << "Not enough parameters";
+            return false;
+        }
+
+        return true;
+    }
+
+    static int ReplaceMask(int input, int old_mask, int new_mask) {
+        return (input & old_mask) != 0 ? new_mask : 0;
+    }
+
+    bool ReadArgumentsV1(int argc ATTRIBUTE_UNUSED, char** argv) {
+        // Check for "dexopt".
         if (argv[2] == nullptr) {
             LOG(ERROR) << "Missing parameters";
             return false;
         }
         if (std::string("dexopt").compare(argv[2]) != 0) {
-            LOG(ERROR) << "Second parameter not dexopt: " << argv[2];
+            LOG(ERROR) << "Expected \"dexopt\"";
             return false;
         }
 
-        // Copy the rest into package_parameters_, but be careful about over- and underflow.
-        size_t index = 0;
-        while (index < DEXOPT_PARAM_COUNT &&
-                argv[index + 3] != nullptr) {
-            package_parameters_[index] = argv[index + 3];
-            index++;
+        size_t param_index = 0;
+        for (;; ++param_index) {
+            const char* param = argv[3 + param_index];
+            if (param == nullptr) {
+                break;
+            }
+
+            switch (param_index) {
+                case 0:
+                    package_parameters_.apk_path = param;
+                    break;
+
+                case 1:
+                    package_parameters_.uid = atoi(param);
+                    break;
+
+                case 2:
+                    package_parameters_.pkgName = param;
+                    break;
+
+                case 3:
+                    package_parameters_.instruction_set = param;
+                    break;
+
+                case 4: {
+                    // Version 1 had:
+                    //   DEXOPT_DEX2OAT_NEEDED       = 1
+                    //   DEXOPT_PATCHOAT_NEEDED      = 2
+                    //   DEXOPT_SELF_PATCHOAT_NEEDED = 3
+                    // We will simply use DEX2OAT_FROM_SCRATCH.
+                    package_parameters_.dexopt_needed = DEX2OAT_FROM_SCRATCH;
+                    break;
+                }
+
+                case 5:
+                    package_parameters_.oat_dir = param;
+                    break;
+
+                case 6: {
+                    // Version 1 had:
+                    constexpr int OLD_DEXOPT_PUBLIC         = 1 << 1;
+                    // Note: DEXOPT_SAFEMODE has been removed.
+                    // constexpr int OLD_DEXOPT_SAFEMODE       = 1 << 2;
+                    constexpr int OLD_DEXOPT_DEBUGGABLE     = 1 << 3;
+                    constexpr int OLD_DEXOPT_BOOTCOMPLETE   = 1 << 4;
+                    constexpr int OLD_DEXOPT_PROFILE_GUIDED = 1 << 5;
+                    constexpr int OLD_DEXOPT_OTA            = 1 << 6;
+                    int input = atoi(param);
+                    package_parameters_.dexopt_flags =
+                            ReplaceMask(input, OLD_DEXOPT_PUBLIC, DEXOPT_PUBLIC) |
+                            ReplaceMask(input, OLD_DEXOPT_DEBUGGABLE, DEXOPT_DEBUGGABLE) |
+                            ReplaceMask(input, OLD_DEXOPT_BOOTCOMPLETE, DEXOPT_BOOTCOMPLETE) |
+                            ReplaceMask(input, OLD_DEXOPT_PROFILE_GUIDED, DEXOPT_PROFILE_GUIDED) |
+                            ReplaceMask(input, OLD_DEXOPT_OTA, 0);
+                    break;
+                }
+
+                case 7:
+                    package_parameters_.compiler_filter = param;
+                    break;
+
+                case 8:
+                    package_parameters_.volume_uuid = ParseNull(param);
+                    break;
+
+                case 9:
+                    package_parameters_.shared_libraries = ParseNull(param);
+                    break;
+
+                default:
+                    LOG(ERROR) << "Too many arguments, got " << param;
+                    return false;
+            }
         }
-        if (index != ARRAY_SIZE(package_parameters_) || argv[index + 3] != nullptr) {
-            LOG(ERROR) << "Wrong number of parameters";
+
+        if (param_index != 10) {
+            LOG(ERROR) << "Not enough parameters";
             return false;
         }
+
+        // Set se_info to null. It is only relevant for secondary dex files, which we won't
+        // receive from a v1 A side.
+        package_parameters_.se_info = nullptr;
 
         return true;
     }
@@ -305,11 +550,11 @@ private:
     // Ensure that we have the right boot image. The first time any app is
     // compiled, we'll try to generate it.
     bool PrepareBootImage(bool force) const {
-        if (package_parameters_[kISAIndex] == nullptr) {
+        if (package_parameters_.instruction_set == nullptr) {
             LOG(ERROR) << "Instruction set missing.";
             return false;
         }
-        const char* isa = package_parameters_[kISAIndex];
+        const char* isa = package_parameters_.instruction_set;
 
         // Check whether the file exists where expected.
         std::string dalvik_cache = GetOTADataDirectory() + "/" + DALVIK_CACHE;
@@ -508,6 +753,10 @@ private:
     }
 
     static const char* ParseNull(const char* arg) {
+        // b/38186355. Revert soon.
+        if (strcmp(arg, "!null") == 0) {
+            return nullptr;
+        }
         return (strcmp(arg, "!") == 0) ? nullptr : arg;
     }
 
@@ -535,14 +784,12 @@ private:
         //       (This is ugly as it's the only thing where we need to understand the contents
         //        of package_parameters_, but it beats postponing the decision or using the call-
         //        backs to do weird things.)
-        constexpr size_t kApkPathIndex = 0;
-        CHECK_GT(DEXOPT_PARAM_COUNT, kApkPathIndex);
-        CHECK(package_parameters_[kApkPathIndex] != nullptr);
-        if (StartsWith(package_parameters_[kApkPathIndex], android_root_.c_str())) {
-            const char* last_slash = strrchr(package_parameters_[kApkPathIndex], '/');
+        const char* apk_path = package_parameters_.apk_path;
+        CHECK(apk_path != nullptr);
+        if (StartsWith(apk_path, android_root_.c_str())) {
+            const char* last_slash = strrchr(apk_path, '/');
             if (last_slash != nullptr) {
-                std::string path(package_parameters_[kApkPathIndex],
-                                 last_slash - package_parameters_[kApkPathIndex] + 1);
+                std::string path(apk_path, last_slash - apk_path + 1);
                 CHECK(EndsWith(path, "/"));
                 path = path + "oat";
                 if (access(path.c_str(), F_OK) == 0) {
@@ -556,13 +803,27 @@ private:
         // partition will not be available and fail to build. This is problematic, as
         // this tool will wipe the OTA artifact cache and try again (for robustness after
         // a failed OTA with remaining cache artifacts).
-        if (access(package_parameters_[kApkPathIndex], F_OK) != 0) {
-            LOG(WARNING) << "Skipping preopt of non-existing package "
-                         << package_parameters_[kApkPathIndex];
+        if (access(apk_path, F_OK) != 0) {
+            LOG(WARNING) << "Skipping preopt of non-existing package " << apk_path;
             return true;
         }
 
         return false;
+    }
+
+    // Run dexopt with the parameters of package_parameters_.
+    int Dexopt() {
+        return dexopt(package_parameters_.apk_path,
+                      package_parameters_.uid,
+                      package_parameters_.pkgName,
+                      package_parameters_.instruction_set,
+                      package_parameters_.dexopt_needed,
+                      package_parameters_.oat_dir,
+                      package_parameters_.dexopt_flags,
+                      package_parameters_.compiler_filter,
+                      package_parameters_.volume_uuid,
+                      package_parameters_.shared_libraries,
+                      package_parameters_.se_info);
     }
 
     int RunPreopt() {
@@ -570,22 +831,36 @@ private:
             return 0;
         }
 
-        int dexopt_result = dexopt(package_parameters_);
+        int dexopt_result = Dexopt();
         if (dexopt_result == 0) {
             return 0;
         }
 
         // If the dexopt failed, we may have a stale boot image from a previous OTA run.
-        // Try to delete and retry.
+        // Then regenerate and retry.
+        if (WEXITSTATUS(dexopt_result) ==
+                static_cast<int>(art::dex2oat::ReturnCode::kCreateRuntime)) {
+            if (!PrepareBootImage(/* force */ true)) {
+                LOG(ERROR) << "Forced boot image creating failed. Original error return was "
+                        << dexopt_result;
+                return dexopt_result;
+            }
 
-        if (!PrepareBootImage(/* force */ true)) {
-            LOG(ERROR) << "Forced boot image creating failed. Original error return was "
-                         << dexopt_result;
+            int dexopt_result_boot_image_retry = Dexopt();
+            if (dexopt_result_boot_image_retry == 0) {
+                return 0;
+            }
+        }
+
+        // If this was a profile-guided run, we may have profile version issues. Try to downgrade,
+        // if possible.
+        if ((package_parameters_.dexopt_flags & DEXOPT_PROFILE_GUIDED) == 0) {
             return dexopt_result;
         }
 
-        LOG(WARNING) << "Original dexopt failed, re-trying after boot image was regenerated.";
-        return dexopt(package_parameters_);
+        LOG(WARNING) << "Downgrading compiler filter in an attempt to progress compilation";
+        package_parameters_.dexopt_flags &= ~DEXOPT_PROFILE_GUIDED;
+        return Dexopt();
     }
 
     ////////////////////////////////////
@@ -715,7 +990,7 @@ private:
     std::string boot_classpath_;
     std::string asec_mountpoint_;
 
-    const char* package_parameters_[DEXOPT_PARAM_COUNT];
+    Parameters package_parameters_;
 
     // Store environment values we need to set.
     std::vector<std::string> environ_;
@@ -823,7 +1098,7 @@ bool create_cache_path(char path[PKG_PATH_MAX],
                                               DALVIK_CACHE,
                                               instruction_set,
                                               from_src.c_str(),
-                                              DALVIK_CACHE_POSTFIX2);
+                                              DALVIK_CACHE_POSTFIX);
 
     if (assembled_path.length() + 1 > PKG_PATH_MAX) {
         return false;

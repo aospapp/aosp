@@ -8,4 +8,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/libwebm/
 
 LOCAL_MODULE := libwebm
 
+LOCAL_SANITIZE := cfi
+LOCAL_SANITIZE_DIAG := cfi
+
 include $(BUILD_STATIC_LIBRARY)

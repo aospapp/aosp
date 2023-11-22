@@ -126,6 +126,8 @@ class FlashromProgrammer(_BaseProgrammer):
         self._ro_vpd = os.path.join(self._tmp_path, 'ro_vpd')
         self._rw_vpd = os.path.join(self._tmp_path, 'rw_vpd')
         self._gbb = os.path.join(self._tmp_path, 'gbb')
+        self._servo_version = self._servo.get_servo_version()
+        self._servo_serials = self._servo._server.get_servo_serials()
 
 
     def program(self):
@@ -143,18 +145,32 @@ class FlashromProgrammer(_BaseProgrammer):
             else:
                 preserved_sections = ro_vpd_section + rw_vpd_section
 
-            servo_version = self._servo.get_servo_version()
             servo_v2_programmer = 'ft2232_spi:type=servo-v2'
             servo_v3_programmer = 'linux_spi'
-            if servo_version == 'servo_v2':
+            servo_v4_with_micro_programmer = 'raiden_spi'
+            servo_v4_with_ccd_programmer = 'raiden_debug_spi:target=AP'
+            if self._servo_version == 'servo_v2':
                 programmer = servo_v2_programmer
-                if self._servo.servo_serial:
-                    programmer += ',serial=%s' % self._servo.servo_serial
-            elif servo_version == 'servo_v3':
+                servo_serial = self._servo_serials.get('main')
+                if servo_serial:
+                    programmer += ',serial=%s' % servo_serial
+            elif self._servo_version == 'servo_v3':
                 programmer = servo_v3_programmer
+            elif self._servo_version == 'servo_v4':
+                # Get the serial of the servo micro if it exists.
+                servo_micro_serial = self._servo_serials.get('servo_micro')
+                ccd_serial = self._servo_serials.get('ccd')
+                # When a uServo is connected to a DUT with CCD support, the
+                # firmware programmer will always use the uServo to program.
+                if servo_micro_serial:
+                    programmer = servo_v4_with_micro_programmer
+                    programmer += ',serial=%s' % servo_micro_serial
+                elif ccd_serial:
+                    programmer = servo_v4_with_ccd_programmer
+                    programmer += ',serial=%s' % ccd_serial
             else:
                 raise Exception('Servo version %s is not supported.' %
-                                servo_version)
+                                self._servo_version)
             # Save needed sections from current firmware
             for section in preserved_sections + gbb_section:
                 self._servo.system(' '.join([
@@ -192,6 +208,7 @@ class FlashromProgrammer(_BaseProgrammer):
                     'flashrom', '-V', '-p', programmer,
                     '-w', self._fw_main]), timeout=FIRMWARE_PROGRAM_TIMEOUT_SEC)
         finally:
+            self._servo.get_power_state_controller().reset()
             self._restore_servo_state()
 
 
@@ -199,19 +216,21 @@ class FlashromProgrammer(_BaseProgrammer):
         """Prepare programmer for programming.
 
         @param path: a string, name of the file containing the firmware image.
-        @param board: a string, used to find servo voltage setting.
         """
-        faft_config = FAFTConfig(self._servo.get_board())
         self._fw_path = path
-        self._servo_prog_state_delay = faft_config.servo_prog_state_delay
-        self._servo_prog_state = (
-            'spi2_vref:%s' % faft_config.spi_voltage,
-            'spi2_buf_en:on',
-            'spi2_buf_on_flex_en:on',
-            'spi_hold:off',
-            'cold_reset:on',
-            'usbpd_reset:on',
-            )
+        # CCD takes care holding AP/EC. Don't need the following steps.
+        if not (self._servo_version == 'servo_v4' and
+                'ccd' in self._servo_serials):
+            faft_config = FAFTConfig(self._servo.get_board())
+            self._servo_prog_state_delay = faft_config.servo_prog_state_delay
+            self._servo_prog_state = (
+                'spi2_vref:%s' % faft_config.spi_voltage,
+                'spi2_buf_en:on',
+                'spi2_buf_on_flex_en:on',
+                'spi_hold:off',
+                'cold_reset:on',
+                'usbpd_reset:on',
+                )
 
 
 class FlashECProgrammer(_BaseProgrammer):
@@ -221,16 +240,18 @@ class FlashECProgrammer(_BaseProgrammer):
         """Configure required servo state."""
         super(FlashECProgrammer, self).__init__(servo, ['flash_ec',])
         self._servo = servo
-
+        self._servo_serials = self._servo._server.get_servo_serials()
 
     def prepare_programmer(self, image):
         """Prepare programmer for programming.
 
         @param image: string with the location of the image file
         """
-        # TODO: need to not have port be hardcoded
-        self._program_cmd = ('flash_ec --chip=%s --image=%s --port=%s' %
-                             (self._servo.get('ec_chip'), image, '9999'))
+        port = self._servo._servo_host.servo_port
+        self._program_cmd = ('flash_ec --chip=%s --image=%s --port=%d' %
+                             (self._servo.get('ec_chip'), image, port))
+        if 'ccd' in self._servo_serials:
+            self._program_cmd += ' --raiden'
 
 
 class ProgrammerV2(object):
@@ -297,6 +318,16 @@ class ProgrammerV2(object):
         return result
 
 
+    def _get_flashrom_programmer(self, servo):
+        """Gets a proper flashrom programmer.
+
+        @param servo: A servo object.
+
+        @return A programmer for flashrom.
+        """
+        return FlashromProgrammer(servo)
+
+
     def _factory_bios(self, servo):
         """Instantiates and returns (bios, ec) programmers for the board.
 
@@ -308,16 +339,9 @@ class ProgrammerV2(object):
         _bios_prog = None
         _board = servo.get_board()
 
-        servo_prog_state = [
-            'spi2_buf_en:on',
-            'spi2_buf_on_flex_en:on',
-            'spi_hold:off',
-            'cold_reset:on',
-            ]
-
         logging.debug('Setting up BIOS programmer for board: %s', _board)
         if _board in self._valid_boards:
-            _bios_prog = FlashromProgrammer(servo)
+            _bios_prog = self._get_flashrom_programmer(servo)
         else:
             logging.warning('No BIOS programmer found for board: %s', _board)
 
@@ -364,6 +388,36 @@ class ProgrammerV2(object):
         self._ec_programmer.program()
 
 
+class ProgrammerV2RwOnly(ProgrammerV2):
+    """Main programmer class which provides programmer for only updating the RW
+    portion of BIOS with servo V2.
+
+    It does nothing on EC, as EC software sync on the next boot will
+    automatically overwrite the EC RW portion, using the EC RW image inside
+    the BIOS RW image.
+
+    """
+
+    def _get_flashrom_programmer(self, servo):
+        """Gets a proper flashrom programmer.
+
+        @param servo: A servo object.
+
+        @return A programmer for flashrom.
+        """
+        return FlashromProgrammer(servo, keep_ro=True)
+
+
+    def program_ec(self, image):
+        """Programs the DUT with provide ec image.
+
+        @param image: (required) location of ec image file.
+
+        """
+        # Do nothing. EC software sync will update the EC RW.
+        pass
+
+
 class ProgrammerV3(object):
     """Main programmer class which provides programmer for BIOS and EC with
     servo V3.
@@ -401,7 +455,7 @@ class ProgrammerV3(object):
         self._ec_programmer.program()
 
 
-class ProgrammerV3RwOnly(object):
+class ProgrammerV3RwOnly(ProgrammerV3):
     """Main programmer class which provides programmer for only updating the RW
     portion of BIOS with servo V3.
 
@@ -414,16 +468,6 @@ class ProgrammerV3RwOnly(object):
     def __init__(self, servo):
         self._servo = servo
         self._bios_programmer = FlashromProgrammer(servo, keep_ro=True)
-
-
-    def program_bios(self, image):
-        """Programs the DUT with provide bios image.
-
-        @param image: (required) location of bios image file.
-
-        """
-        self._bios_programmer.prepare_programmer(image)
-        self._bios_programmer.program()
 
 
     def program_ec(self, image):

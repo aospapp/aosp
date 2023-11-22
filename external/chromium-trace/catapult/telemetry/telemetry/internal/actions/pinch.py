@@ -1,9 +1,10 @@
 # Copyright 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import os
 
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
+from telemetry.util import js_template
 
 
 class PinchAction(page_action.PageAction):
@@ -27,21 +28,19 @@ class PinchAction(page_action.PageAction):
       self._element_function = 'document.body'
 
   def WillRunAction(self, tab):
-    for js_file in ['gesture_common.js', 'pinch.js']:
-      with open(os.path.join(os.path.dirname(__file__), js_file)) as f:
-        js = f.read()
-        tab.ExecuteJavaScript(js)
+    utils.InjectJavaScript(tab, 'gesture_common.js')
+    utils.InjectJavaScript(tab, 'pinch.js')
 
     # Fail if browser doesn't support synthetic pinch gestures.
     if not tab.EvaluateJavaScript('window.__PinchAction_SupportedByBrowser()'):
       raise page_action.PageActionNotSupported(
           'Synthetic pinch not supported for this browser')
 
-    done_callback = 'function() { window.__pinchActionDone = true; }'
     tab.ExecuteJavaScript("""
         window.__pinchActionDone = false;
-        window.__pinchAction = new __PinchAction(%s);"""
-        % done_callback)
+        window.__pinchAction = new __PinchAction(function() {
+          window.__pinchActionDone = true;
+        });""")
 
   @staticmethod
   def _GetDefaultScaleFactorForPage(tab):
@@ -52,23 +51,24 @@ class PinchAction(page_action.PageAction):
   def RunAction(self, tab):
     scale_factor = (self._scale_factor if self._scale_factor else
                     PinchAction._GetDefaultScaleFactorForPage(tab))
-    code = '''
+    code = js_template.Render('''
         function(element, info) {
           if (!element) {
             throw Error('Cannot find element: ' + info);
           }
           window.__pinchAction.start({
             element: element,
-            left_anchor_ratio: %s,
-            top_anchor_ratio: %s,
-            scale_factor: %s,
-            speed: %s
+            left_anchor_ratio: {{ left_anchor_ratio }},
+            top_anchor_ratio: {{ top_anchor_ratio }},
+            scale_factor: {{ scale_factor }},
+            speed: {{ speed }}
           });
-        }''' % (self._left_anchor_ratio,
-                self._top_anchor_ratio,
-                scale_factor,
-                self._speed)
+        }''',
+        left_anchor_ratio=self._left_anchor_ratio,
+        top_anchor_ratio=self._top_anchor_ratio,
+        scale_factor=scale_factor,
+        speed=self._speed)
     page_action.EvaluateCallbackWithElement(
         tab, code, selector=self._selector, text=self._text,
         element_function=self._element_function)
-    tab.WaitForJavaScriptExpression('window.__pinchActionDone', 60)
+    tab.WaitForJavaScriptCondition('window.__pinchActionDone', timeout=60)

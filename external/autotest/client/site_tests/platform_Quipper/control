@@ -17,7 +17,6 @@ TEST_TYPE = "client"
 JOB_RETRIES = 2
 
 ATTRIBUTES = "suite:experimental"
-SUITE = "experimental"
 
 DOC = """
 Verify that CWP's quipper tool can successfully call perf to collect a profile,

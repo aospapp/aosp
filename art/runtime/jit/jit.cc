@@ -19,13 +19,15 @@
 #include <dlfcn.h>
 
 #include "art_method-inl.h"
+#include "base/enums.h"
 #include "debugger.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "interpreter/interpreter.h"
+#include "java_vm_ext.h"
 #include "jit_code_cache.h"
 #include "oat_file_manager.h"
 #include "oat_quick_method_header.h"
-#include "offline_profiling_info.h"
+#include "profile_compilation_info.h"
 #include "profile_saver.h"
 #include "runtime.h"
 #include "runtime_options.h"
@@ -59,8 +61,8 @@ JitOptions* JitOptions::CreateFromRuntimeArguments(const RuntimeArgumentMap& opt
       options.GetOrDefault(RuntimeArgumentMap::JITCodeCacheMaxCapacity);
   jit_options->dump_info_on_shutdown_ =
       options.Exists(RuntimeArgumentMap::DumpJITInfoOnShutdown);
-  jit_options->save_profiling_info_ =
-      options.GetOrDefault(RuntimeArgumentMap::JITSaveProfilingInfo);
+  jit_options->profile_saver_options_ =
+      options.GetOrDefault(RuntimeArgumentMap::ProfileSaverOpts);
 
   jit_options->compile_threshold_ = options.GetOrDefault(RuntimeArgumentMap::JITCompileThreshold);
   if (jit_options->compile_threshold_ > std::numeric_limits<uint16_t>::max()) {
@@ -113,7 +115,7 @@ JitOptions* JitOptions::CreateFromRuntimeArguments(const RuntimeArgumentMap& opt
   } else {
     jit_options->invoke_transition_weight_ = std::max(
         jit_options->warmup_threshold_ / Jit::kDefaultInvokeTransitionWeightRatio,
-        static_cast<size_t>(1));;
+        static_cast<size_t>(1));
   }
 
   return jit_options;
@@ -145,10 +147,14 @@ Jit::Jit() : dump_info_on_shutdown_(false),
              memory_use_("Memory used for compilation", 16),
              lock_("JIT memory use lock"),
              use_jit_compilation_(true),
-             save_profiling_info_(false) {}
+             hot_method_threshold_(0),
+             warm_method_threshold_(0),
+             osr_method_threshold_(0),
+             priority_thread_weight_(0),
+             invoke_transition_weight_(0) {}
 
 Jit* Jit::Create(JitOptions* options, std::string* error_msg) {
-  DCHECK(options->UseJitCompilation() || options->GetSaveProfilingInfo());
+  DCHECK(options->UseJitCompilation() || options->GetProfileSaverOptions().IsEnabled());
   std::unique_ptr<Jit> jit(new Jit);
   jit->dump_info_on_shutdown_ = options->DumpJitInfoOnShutdown();
   if (jit_compiler_handle_ == nullptr && !LoadCompiler(error_msg)) {
@@ -163,12 +169,12 @@ Jit* Jit::Create(JitOptions* options, std::string* error_msg) {
     return nullptr;
   }
   jit->use_jit_compilation_ = options->UseJitCompilation();
-  jit->save_profiling_info_ = options->GetSaveProfilingInfo();
+  jit->profile_saver_options_ = options->GetProfileSaverOptions();
   VLOG(jit) << "JIT created with initial_capacity="
       << PrettySize(options->GetCodeCacheInitialCapacity())
       << ", max_capacity=" << PrettySize(options->GetCodeCacheMaxCapacity())
       << ", compile_threshold=" << options->GetCompileThreshold()
-      << ", save_profiling_info=" << options->GetSaveProfilingInfo();
+      << ", profile_saver_options=" << options->GetProfileSaverOptions();
 
 
   jit->hot_method_threshold_ = options->GetCompileThreshold();
@@ -246,33 +252,42 @@ bool Jit::CompileMethod(ArtMethod* method, Thread* self, bool osr) {
 
   // Don't compile the method if it has breakpoints.
   if (Dbg::IsDebuggerActive() && Dbg::MethodHasAnyBreakpoints(method)) {
-    VLOG(jit) << "JIT not compiling " << PrettyMethod(method) << " due to breakpoint";
+    VLOG(jit) << "JIT not compiling " << method->PrettyMethod() << " due to breakpoint";
     return false;
   }
 
   // Don't compile the method if we are supposed to be deoptimized.
   instrumentation::Instrumentation* instrumentation = Runtime::Current()->GetInstrumentation();
   if (instrumentation->AreAllMethodsDeoptimized() || instrumentation->IsDeoptimized(method)) {
-    VLOG(jit) << "JIT not compiling " << PrettyMethod(method) << " due to deoptimization";
+    VLOG(jit) << "JIT not compiling " << method->PrettyMethod() << " due to deoptimization";
     return false;
   }
 
   // If we get a request to compile a proxy method, we pass the actual Java method
   // of that proxy method, as the compiler does not expect a proxy method.
-  ArtMethod* method_to_compile = method->GetInterfaceMethodIfProxy(sizeof(void*));
+  ArtMethod* method_to_compile = method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
   if (!code_cache_->NotifyCompilationOf(method_to_compile, self, osr)) {
     return false;
   }
 
   VLOG(jit) << "Compiling method "
-            << PrettyMethod(method_to_compile)
+            << ArtMethod::PrettyMethod(method_to_compile)
             << " osr=" << std::boolalpha << osr;
   bool success = jit_compile_method_(jit_compiler_handle_, method_to_compile, self, osr);
   code_cache_->DoneCompiling(method_to_compile, self, osr);
   if (!success) {
     VLOG(jit) << "Failed to compile method "
-              << PrettyMethod(method_to_compile)
+              << ArtMethod::PrettyMethod(method_to_compile)
               << " osr=" << std::boolalpha << osr;
+  }
+  if (kIsDebugBuild) {
+    if (self->IsExceptionPending()) {
+      mirror::Throwable* exception = self->GetException();
+      LOG(FATAL) << "No pending exception expected after compiling "
+                 << ArtMethod::PrettyMethod(method)
+                 << ": "
+                 << exception->Dump();
+    }
   }
   return success;
 }
@@ -280,9 +295,13 @@ bool Jit::CompileMethod(ArtMethod* method, Thread* self, bool osr) {
 void Jit::CreateThreadPool() {
   // There is a DCHECK in the 'AddSamples' method to ensure the tread pool
   // is not null when we instrument.
-  thread_pool_.reset(new ThreadPool("Jit thread pool", 1));
+
+  // We need peers as we may report the JIT thread, e.g., in the debugger.
+  constexpr bool kJitPoolNeedsPeers = true;
+  thread_pool_.reset(new ThreadPool("Jit thread pool", 1, kJitPoolNeedsPeers));
+
   thread_pool_->SetPthreadPriority(kJitPoolThreadPthreadPriority);
-  thread_pool_->StartWorkers(Thread::Current());
+  Start();
 }
 
 void Jit::DeleteThreadPool() {
@@ -307,16 +326,17 @@ void Jit::DeleteThreadPool() {
 }
 
 void Jit::StartProfileSaver(const std::string& filename,
-                            const std::vector<std::string>& code_paths,
-                            const std::string& foreign_dex_profile_path,
-                            const std::string& app_dir) {
-  if (save_profiling_info_) {
-    ProfileSaver::Start(filename, code_cache_.get(), code_paths, foreign_dex_profile_path, app_dir);
+                            const std::vector<std::string>& code_paths) {
+  if (profile_saver_options_.IsEnabled()) {
+    ProfileSaver::Start(profile_saver_options_,
+                        filename,
+                        code_cache_.get(),
+                        code_paths);
   }
 }
 
 void Jit::StopProfileSaver() {
-  if (save_profiling_info_ && ProfileSaver::IsStarted()) {
+  if (profile_saver_options_.IsEnabled() && ProfileSaver::IsStarted()) {
     ProfileSaver::Stop(dump_info_on_shutdown_);
   }
 }
@@ -330,9 +350,10 @@ bool Jit::CanInvokeCompiledCode(ArtMethod* method) {
 }
 
 Jit::~Jit() {
-  DCHECK(!save_profiling_info_ || !ProfileSaver::IsStarted());
+  DCHECK(!profile_saver_options_.IsEnabled() || !ProfileSaver::IsStarted());
   if (dump_info_on_shutdown_) {
-    DumpInfo(LOG(INFO));
+    DumpInfo(LOG_STREAM(INFO));
+    Runtime::Current()->DumpDeoptimizations(LOG_STREAM(INFO));
   }
   DeleteThreadPool();
   if (jit_compiler_handle_ != nullptr) {
@@ -359,8 +380,8 @@ void Jit::NewTypeLoadedIfUsingJit(mirror::Class* type) {
 
 void Jit::DumpTypeInfoForLoadedTypes(ClassLinker* linker) {
   struct CollectClasses : public ClassVisitor {
-    bool operator()(mirror::Class* klass) override {
-      classes_.push_back(klass);
+    bool operator()(ObjPtr<mirror::Class> klass) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      classes_.push_back(klass.Ptr());
       return true;
     }
     std::vector<mirror::Class*> classes_;
@@ -406,7 +427,7 @@ bool Jit::MaybeDoOnStackReplacement(Thread* thread,
 
   // Get the actual Java method if this method is from a proxy class. The compiler
   // and the JIT code cache do not expect methods from proxy classes.
-  method = method->GetInterfaceMethodIfProxy(sizeof(void*));
+  method = method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
 
   // Cheap check if the method has been compiled already. That's an indicator that we should
   // osr into it.
@@ -419,14 +440,14 @@ bool Jit::MaybeDoOnStackReplacement(Thread* thread,
   // method while we are being suspended.
   const size_t number_of_vregs = method->GetCodeItem()->registers_size_;
   const char* shorty = method->GetShorty();
-  std::string method_name(VLOG_IS_ON(jit) ? PrettyMethod(method) : "");
+  std::string method_name(VLOG_IS_ON(jit) ? method->PrettyMethod() : "");
   void** memory = nullptr;
   size_t frame_size = 0;
   ShadowFrame* shadow_frame = nullptr;
   const uint8_t* native_pc = nullptr;
 
   {
-    ScopedAssertNoThreadSuspension sts(thread, "Holding OSR method");
+    ScopedAssertNoThreadSuspension sts("Holding OSR method");
     const OatQuickMethodHeader* osr_method = jit->GetCodeCache()->LookupOsrMethodHeader(method);
     if (osr_method == nullptr) {
       // No osr method yet, just return to the interpreter.
@@ -500,7 +521,7 @@ bool Jit::MaybeDoOnStackReplacement(Thread* thread,
       }
     }
 
-    native_pc = stack_map.GetNativePcOffset(encoding.stack_map_encoding) +
+    native_pc = stack_map.GetNativePcOffset(encoding.stack_map.encoding, kRuntimeISA) +
         osr_method->GetEntryPoint();
     VLOG(jit) << "Jumping to "
               << method_name
@@ -534,7 +555,7 @@ void Jit::AddMemoryUsage(ArtMethod* method, size_t bytes) {
     LOG(INFO) << "Compiler allocated "
               << PrettySize(bytes)
               << " to compile "
-              << PrettyMethod(method);
+              << ArtMethod::PrettyMethod(method);
   }
   MutexLock mu(Thread::Current(), lock_);
   memory_use_.AddValue(bytes);
@@ -569,7 +590,7 @@ class JitCompileTask FINAL : public Task {
     } else {
       DCHECK(kind_ == kAllocateProfile);
       if (ProfilingInfo::Create(self, method_, /* retry_allocation */ true)) {
-        VLOG(jit) << "Start profiling " << PrettyMethod(method_);
+        VLOG(jit) << "Start profiling " << ArtMethod::PrettyMethod(method_);
       }
     }
     ProfileSaver::NotifyJitActivity();
@@ -612,10 +633,10 @@ void Jit::AddSamples(Thread* self, ArtMethod* method, uint16_t count, bool with_
   int32_t new_count = starting_count + count;   // int32 here to avoid wrap-around;
   if (starting_count < warm_method_threshold_) {
     if ((new_count >= warm_method_threshold_) &&
-        (method->GetProfilingInfo(sizeof(void*)) == nullptr)) {
+        (method->GetProfilingInfo(kRuntimePointerSize) == nullptr)) {
       bool success = ProfilingInfo::Create(self, method, /* retry_allocation */ false);
       if (success) {
-        VLOG(jit) << "Start profiling " << PrettyMethod(method);
+        VLOG(jit) << "Start profiling " << method->PrettyMethod();
       }
 
       if (thread_pool_ == nullptr) {
@@ -667,7 +688,7 @@ void Jit::MethodEntered(Thread* thread, ArtMethod* method) {
     return;
   }
 
-  ProfilingInfo* profiling_info = method->GetProfilingInfo(sizeof(void*));
+  ProfilingInfo* profiling_info = method->GetProfilingInfo(kRuntimePointerSize);
   // Update the entrypoint if the ProfilingInfo has one. The interpreter will call it
   // instead of interpreting the method.
   if ((profiling_info != nullptr) && (profiling_info->GetSavedEntryPoint() != nullptr)) {
@@ -678,18 +699,14 @@ void Jit::MethodEntered(Thread* thread, ArtMethod* method) {
   }
 }
 
-void Jit::InvokeVirtualOrInterface(Thread* thread,
-                                   mirror::Object* this_object,
+void Jit::InvokeVirtualOrInterface(ObjPtr<mirror::Object> this_object,
                                    ArtMethod* caller,
                                    uint32_t dex_pc,
                                    ArtMethod* callee ATTRIBUTE_UNUSED) {
-  ScopedAssertNoThreadSuspension ants(thread, __FUNCTION__);
+  ScopedAssertNoThreadSuspension ants(__FUNCTION__);
   DCHECK(this_object != nullptr);
-  ProfilingInfo* info = caller->GetProfilingInfo(sizeof(void*));
+  ProfilingInfo* info = caller->GetProfilingInfo(kRuntimePointerSize);
   if (info != nullptr) {
-    // Since the instrumentation is marked from the declaring class we need to mark the card so
-    // that mod-union tables and card rescanning know about the update.
-    Runtime::Current()->GetHeap()->WriteBarrierEveryFieldOf(caller->GetDeclaringClass());
     info->AddInvokeInfo(dex_pc, this_object->GetClass());
   }
 }
@@ -697,6 +714,34 @@ void Jit::InvokeVirtualOrInterface(Thread* thread,
 void Jit::WaitForCompilationToFinish(Thread* self) {
   if (thread_pool_ != nullptr) {
     thread_pool_->Wait(self, false, false);
+  }
+}
+
+void Jit::Stop() {
+  Thread* self = Thread::Current();
+  // TODO(ngeoffray): change API to not require calling WaitForCompilationToFinish twice.
+  WaitForCompilationToFinish(self);
+  GetThreadPool()->StopWorkers(self);
+  WaitForCompilationToFinish(self);
+}
+
+void Jit::Start() {
+  GetThreadPool()->StartWorkers(Thread::Current());
+}
+
+ScopedJitSuspend::ScopedJitSuspend() {
+  jit::Jit* jit = Runtime::Current()->GetJit();
+  was_on_ = (jit != nullptr) && (jit->GetThreadPool() != nullptr);
+  if (was_on_) {
+    jit->Stop();
+  }
+}
+
+ScopedJitSuspend::~ScopedJitSuspend() {
+  if (was_on_) {
+    DCHECK(Runtime::Current()->GetJit() != nullptr);
+    DCHECK(Runtime::Current()->GetJit()->GetThreadPool() != nullptr);
+    Runtime::Current()->GetJit()->Start();
   }
 }
 

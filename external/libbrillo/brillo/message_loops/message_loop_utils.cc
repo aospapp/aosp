@@ -16,7 +16,8 @@ void MessageLoopRunUntil(
   bool timeout_called = false;
   MessageLoop::TaskId task_id = loop->PostDelayedTask(
       FROM_HERE,
-      base::Bind([&timeout_called]() { timeout_called = true; }),
+      base::Bind([](bool* timeout_called) { *timeout_called = true; },
+                 base::Unretained(&timeout_called)),
       timeout);
   while (!timeout_called && (terminate.is_null() || !terminate.Run()))
     loop->RunOnce(true);

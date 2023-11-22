@@ -76,6 +76,7 @@ public class EABService extends Service {
     private static final int BOOT_COMPLETED = 0;
     private static final int CONTACT_TABLE_MODIFIED = 1;
     private static final int CONTACT_PROFILE_TABLE_MODIFIED = 2;
+    private static final int EAB_DATABASE_RESET = 3;
 
     private static final int SYNC_COMPLETE_DELAY_TIMER = 3 * 1000; // 3 seconds.
     private static final String TAG = "EABService";
@@ -96,8 +97,7 @@ public class EABService extends Service {
 
     /**
      * When "clear data" is done for contact storage in system settings, EAB
-     * Provider must me cleared and PREF_KEY_CHANGE and PREF_KEY_DELETE keys
-     * should not cleared.
+     * Provider must be cleared.
      */
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -105,32 +105,48 @@ public class EABService extends Service {
             String action = intent.getAction();
             logger.debug("onReceive intent: " + action);
 
-            if(ContactsContract.Intents.CONTACTS_DATABASE_CREATED.equals(action)) {
-                logger.debug("Contacts database created.");
-                // Delete all entries from EAB Provider as it has to be re-synced with Contact db.
-                mContext.getContentResolver().delete(
-                        EABContract.EABColumns.CONTENT_URI, null, null);
-                // Initialise EABProvider.
-                logger.debug("Resetting timestamp values in shared pref.");
-                SharedPrefUtil.resetEABSharedPref(mContext);
-                // init the EAB db after re-setting.
-                ensureInitDone();
-            } else if(Intent.ACTION_TIME_CHANGED.equals(action) ||
-                    Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
-                Calendar cal = Calendar.getInstance();
-                long currentTimestamp = cal.getTimeInMillis();
-                long lastChangedTimestamp = SharedPrefUtil.getLastContactChangedTimestamp(
-                        mContext, currentTimestamp);
-                logger.debug("lastChangedTimestamp=" + lastChangedTimestamp +
-                        " currentTimestamp=" + currentTimestamp);
-                // Changed time backwards.
-                if(lastChangedTimestamp > currentTimestamp) {
+            switch(action) {
+                case ContactsContract.Intents.CONTACTS_DATABASE_CREATED: {
+                    logger.debug("Contacts database created.");
+                    // Delete all entries from EAB Provider as it has to be re-synced with
+                    // Contact db.
+                    mContext.getContentResolver().delete(
+                            EABContract.EABColumns.CONTENT_URI, null, null);
+                    // Initialise EABProvider.
                     logger.debug("Resetting timestamp values in shared pref.");
                     SharedPrefUtil.resetEABSharedPref(mContext);
-                    CapabilityPolling capabilityPolling = CapabilityPolling.getInstance(null);
-                    if (capabilityPolling != null) {
-                        capabilityPolling.enqueueDiscovery(CapabilityPolling.ACTION_POLLING_NORMAL);
+                    // init the EAB db after re-setting.
+                    ensureInitDone();
+                    break;
+                }
+                case Intent.ACTION_TIME_CHANGED:
+                    // fall through
+                case Intent.ACTION_TIMEZONE_CHANGED: {
+                    Calendar cal = Calendar.getInstance();
+                    long currentTimestamp = cal.getTimeInMillis();
+                    long lastChangedTimestamp = SharedPrefUtil.getLastContactChangedTimestamp(
+                            mContext, currentTimestamp);
+                    logger.debug("lastChangedTimestamp=" + lastChangedTimestamp +
+                            " currentTimestamp=" + currentTimestamp);
+                    // Changed time backwards.
+                    if(lastChangedTimestamp > currentTimestamp) {
+                        logger.debug("Resetting timestamp values in shared pref.");
+                        SharedPrefUtil.resetEABSharedPref(mContext);
+                        // Set Init done to true as only the contact sync timestamps are cleared and
+                        // the EABProvider table data is not cleared.
+                        SharedPrefUtil.setInitDone(mContext, true);
+                        CapabilityPolling capabilityPolling = CapabilityPolling.getInstance(null);
+                        if (capabilityPolling != null) {
+                            capabilityPolling.enqueueDiscovery(
+                                    CapabilityPolling.ACTION_POLLING_NORMAL);
+                        }
                     }
+                    break;
+                }
+                case Contacts.ACTION_EAB_DATABASE_RESET: {
+                    logger.info("EAB Database Reset, Recreating...");
+                    sendEABResetMessage();
+                    break;
                 }
             }
         }
@@ -190,6 +206,7 @@ public class EABService extends Service {
         filter.addAction(ContactsContract.Intents.CONTACTS_DATABASE_CREATED);
         filter.addAction(Intent.ACTION_TIME_CHANGED);
         filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        filter.addAction(Contacts.ACTION_EAB_DATABASE_RESET);
         registerReceiver(mReceiver, filter);
 
         initializeRcsInterfacer();
@@ -309,23 +326,29 @@ public class EABService extends Service {
             logger.debug("Enter: handleMessage");
 
             switch (msg.what) {
-                case BOOT_COMPLETED:
-                    logger.debug("case BOOT_COMPLETED");
-                    ensureInitDone();
-                    isEABServiceInitializing = false;
-                    break;
-                case CONTACT_TABLE_MODIFIED:
-                    logger.debug("case CONTACT_TABLE_MODIFIED");
-                    ensureVideoCallingGroupCreation();
-                    validateAndSyncFromContactsDb();
-                    break;
-                case CONTACT_PROFILE_TABLE_MODIFIED:
-                    logger.debug("case CONTACT_PROFILE_TABLE_MODIFIED");
-                    validateAndSyncFromProfileDb();
-                    break;
-                default:
-                    logger.debug("default usecase hit! Do nothing");
-                    break;
+            case BOOT_COMPLETED:
+                logger.debug("case BOOT_COMPLETED");
+                ensureInitDone();
+                isEABServiceInitializing = false;
+                break;
+            case CONTACT_TABLE_MODIFIED:
+                logger.debug("case CONTACT_TABLE_MODIFIED");
+                validateAndSyncFromContactsDb();
+                break;
+            case CONTACT_PROFILE_TABLE_MODIFIED:
+                logger.debug("case CONTACT_PROFILE_TABLE_MODIFIED");
+                validateAndSyncFromProfileDb();
+                break;
+            case EAB_DATABASE_RESET:
+                // Initialise EABProvider.
+                logger.debug("Resetting timestamp values in shared pref.");
+                SharedPrefUtil.resetEABSharedPref(mContext);
+                // init the EAB db after re-setting.
+                ensureInitDone();
+                break;
+            default:
+                logger.debug("default usecase hit! Do nothing");
+                break;
             }
             logger.debug("Exit: handleMessage");
         }
@@ -351,7 +374,6 @@ public class EABService extends Service {
 
     private void ensureInitDone() {
         logger.debug("Enter : ensureInitDone()");
-        ensureVideoCallingGroupCreation();
         if(SharedPrefUtil.isInitDone(mContext)) {
             logger.debug("EAB initialized already!!! Just Sync with Contacts db.");
             validateAndSyncFromContactsDb();
@@ -369,18 +391,18 @@ public class EABService extends Service {
         }
     }
 
-    private void ensureVideoCallingGroupCreation() {
-        logger.debug("TODO: ensureVideoCallingGroupCreation");
-        /*
-        if (!isRcsProvisioned()) {
-            logger.debug("Device is not provisioned. Remove Video calling group and account.");
-            ContactDbUtil.removeVideoCallingContactGroup(mContext);
-            AccountUtil.removeRcsAccount(mContext);
-        } else {
-            logger.debug("Device is provisioned. Create Video calling group and account.");
-            Account vCallingAccount = AccountUtil.addRcsAccount(mContext);
-            ContactDbUtil.addVideoCallingContactGroup(mContext, vCallingAccount);
-        }*/
+    private void sendEABResetMessage() {
+        logger.debug("Enter: sendEABResetMsg()");
+        if (null != mServiceHandler) {
+            if (mServiceHandler.hasMessages(EAB_DATABASE_RESET)) {
+                mServiceHandler.removeMessages(EAB_DATABASE_RESET);
+                logger.debug("Removed previous EAB_DATABASE_RESET msg.");
+            }
+
+            logger.debug("Sending new EAB_DATABASE_RESET msg.");
+            Message msg = mServiceHandler.obtainMessage(EAB_DATABASE_RESET);
+            mServiceHandler.sendMessage(msg);
+        }
     }
 
     private void sendDelayedContactChangeMsg() {
@@ -433,59 +455,68 @@ public class EABService extends Service {
                 "' AND " + ContactsContract.Data.CONTACT_LAST_UPDATED_TIMESTAMP  + " > '" +
                 contactLastChange + "'";
         String sortOrder = ContactsContract.Data.CONTACT_LAST_UPDATED_TIMESTAMP + " desc";
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                    projection, selection, null, sortOrder);
 
-        Cursor cursor = getContentResolver().query(ContactsContract.Data.CONTENT_URI,
-                projection, selection, null, sortOrder);
-
-        if (null != cursor) {
-            int count = cursor.getCount();
-            logger.debug("cursor count : " + count);
-            if (count > 0) {
-                ArrayList<Long> uniqueRawContactIds = new ArrayList<Long>();
-                while (cursor.moveToNext()) {
-                    Long dataId = Long.valueOf(cursor.getLong(cursor.getColumnIndex(
-                            ContactsContract.Data._ID)));
-                    Long contactId = Long.valueOf(cursor.getLong(cursor.getColumnIndex(
-                            ContactsContract.Data.CONTACT_ID)));
-                    Long rawContactId = Long.valueOf(cursor.getLong(cursor.getColumnIndex(
-                            ContactsContract.Data.RAW_CONTACT_ID)));
-                    String phoneNumber = cursor.getString(cursor.getColumnIndex(
-                            ContactsContract.Data.DATA1));
-                    String displayName = cursor.getString(cursor.getColumnIndex(
-                           ContactsContract.Data.DISPLAY_NAME));
-                    verifyInsertOrUpdateAction(dataId, contactId, rawContactId, phoneNumber,
-                          displayName);
-                    if (uniqueRawContactIds.isEmpty()) {
-                        uniqueRawContactIds.add(rawContactId);
-                    } else if (!uniqueRawContactIds.contains(rawContactId)) {
-                        uniqueRawContactIds.add(rawContactId);
-                    } else {
-                        // Do nothing.
-                        logger.debug("uniqueRawContactIds already contains rawContactId : " +
-                                rawContactId);
+            if (null != cursor) {
+                int count = cursor.getCount();
+                logger.debug("cursor count : " + count);
+                if (count > 0) {
+                    ArrayList<Long> uniqueRawContactIds = new ArrayList<Long>();
+                    while (cursor.moveToNext()) {
+                        Long dataId = Long.valueOf(cursor.getLong(cursor.getColumnIndex(
+                                ContactsContract.Data._ID)));
+                        Long contactId = Long.valueOf(cursor.getLong(cursor.getColumnIndex(
+                                ContactsContract.Data.CONTACT_ID)));
+                        Long rawContactId = Long.valueOf(cursor.getLong(cursor.getColumnIndex(
+                                ContactsContract.Data.RAW_CONTACT_ID)));
+                        String phoneNumber = cursor.getString(cursor.getColumnIndex(
+                                ContactsContract.Data.DATA1));
+                        String displayName = cursor.getString(cursor.getColumnIndex(
+                               ContactsContract.Data.DISPLAY_NAME));
+                        logger.debug("dataId : " + dataId + " rawContactId :"  + rawContactId +
+                               " contactId : " + contactId
+                               + " phoneNumber :" + phoneNumber + " displayName :" + displayName);
+                        verifyInsertOrUpdateAction(dataId, contactId, rawContactId, phoneNumber,
+                              displayName);
+                        if (uniqueRawContactIds.isEmpty()) {
+                            uniqueRawContactIds.add(rawContactId);
+                        } else if (!uniqueRawContactIds.contains(rawContactId)) {
+                            uniqueRawContactIds.add(rawContactId);
+                        } else {
+                            // Do nothing.
+                            logger.debug("uniqueRawContactIds already contains rawContactId : " +
+                                    rawContactId);
+                        }
+                    }
+                    checkForPhoneNumberDelete(uniqueRawContactIds);
+                    // Save the largest timestamp returned. Only need the first one due to
+                    // the sort order.
+                    cursor.moveToFirst();
+                    long timestamp = cursor.getLong(cursor
+                            .getColumnIndex(ContactsContract.Data.CONTACT_LAST_UPDATED_TIMESTAMP));
+                    if (timestamp > 0) {
+                        SharedPrefUtil.saveLastContactChangedTimestamp(mContext, timestamp);
                     }
                 }
-                checkForPhoneNumberDelete(uniqueRawContactIds);
-                // Save the largest timestamp returned. Only need the first one due to
-                // the sort order.
-                cursor.moveToFirst();
-                long timestamp = cursor.getLong(cursor
-                        .getColumnIndex(ContactsContract.Data.CONTACT_LAST_UPDATED_TIMESTAMP));
-                if (timestamp > 0) {
-                    SharedPrefUtil.saveLastContactChangedTimestamp(mContext, timestamp);
-                }
+            } else {
+                logger.error("cursor is null!");
             }
-        } else {
-            logger.error("cursor is null!");
-        }
-        if (null != cursor) {
-            cursor.close();
+        } catch (Exception e) {
+            logger.error("checkForContactNumberChanges() exception:", e);
+        } finally {
+            if (null != cursor) {
+                cursor.close();
+            }
         }
         logger.debug("Exit: checkForContactNumberChanges()");
     }
 
     private void verifyInsertOrUpdateAction(Long dataId, Long contactId,
             Long rawContactId, String phoneNumber, String displayName) {
+        logger.debug("Enter: verifyInsertOrUpdateAction() phoneNumber : " + phoneNumber);
         if (null == phoneNumber){
             logger.error("Error: return as phoneNumber is null");
             return;
@@ -496,7 +527,8 @@ public class EABService extends Service {
                 EABContract.EABColumns.CONTACT_NAME };
         String eabWhereClause = EABContract.EABColumns.DATA_ID + " ='" + dataId.toString()
                 + "' AND " + EABContract.EABColumns.RAW_CONTACT_ID + " ='"
-                + rawContactId.toString() + "'";
+                + rawContactId.toString() + "' AND " + EABContract.EABColumns.CONTACT_ID
+                + " ='" + contactId.toString() + "'";
         logger.debug("eabWhereClause : " + eabWhereClause);
 
         Cursor eabCursor = getContentResolver().query(EABContract.EABColumns.CONTENT_URI,
@@ -512,17 +544,18 @@ public class EABService extends Service {
                                     .getColumnIndex(EABContract.EABColumns.CONTACT_NUMBER));
                     String eabDisplayName = eabCursor.getString(eabCursor
                             .getColumnIndex(EABContract.EABColumns.CONTACT_NAME));
-                    // Contact names should match and both numbers should not be
-                    // null & should not match.
-                    if ((null != eabPhoneNumber)
-                            && !PhoneNumberUtils.compare(mContext, phoneNumber, eabPhoneNumber)) {
-                        // Update use-case.
-                        handlePhoneNumberChanged(dataId, contactId, rawContactId,
-                                eabPhoneNumber, phoneNumber, displayName);
-                    } else {
-                        if ((null != eabPhoneNumber)
-                                && PhoneNumberUtils.compare(mContext, phoneNumber, eabPhoneNumber)
-                                && !TextUtils.equals(displayName, eabDisplayName)) {
+                    logger.debug("phoneNumber : " + phoneNumber
+                            + " eabPhoneNumber :" + eabPhoneNumber);
+                    // If contact number do not match, then update EAB database with the new
+                    // number. If contact name do not match, then update EAB database with the
+                    // new name.
+                    if (null != eabPhoneNumber) {
+                        if (!phoneNumber.equals(eabPhoneNumber)) {
+                            // Update use-case.
+                            handlePhoneNumberChanged(dataId, contactId, rawContactId,
+                                    eabPhoneNumber, phoneNumber, displayName);
+                        } else if (!TextUtils.equals(displayName, eabDisplayName)) {
+                            // Update name use-case.
                             handlePhoneNameUpdate(dataId, contactId, rawContactId,
                                     phoneNumber, displayName);
                         } else {
@@ -620,6 +653,7 @@ public class EABService extends Service {
                         while (eabDbCursor.moveToNext()) {
                             String eabPhoneNumber = eabDbCursor.getString(eabDbCursor
                                     .getColumnIndex(EABContract.EABColumns.CONTACT_NUMBER));
+                            logger.debug("eabPhoneNumber :" + eabPhoneNumber);
                             Long eabDataId = Long.valueOf(eabDbCursor.getLong(eabDbCursor
                                     .getColumnIndex(EABContract.EABColumns.DATA_ID)));
                             logger.debug("eabDataId :" + eabDataId);
@@ -629,8 +663,8 @@ public class EABService extends Service {
                                 eabDataIdList.add(eabDataId);
                             } else {
                                 // Something is wrong. There can not be duplicate numbers.
-                                logger.error("Duplicate entry for DataId : " + eabDataId +
-                                    " found in EABProvider.");
+                                logger.error("Duplicate entry for PhoneNumber :" + eabPhoneNumber
+                                        + " with DataId : " + eabDataId + " found in EABProvider.");
                             }
                         }
                         logger.debug("Before computation eabDataIdList size :" +
@@ -641,12 +675,15 @@ public class EABService extends Service {
                             Long contactDataId = Long.valueOf(contactDbCursor.getLong(
                                     contactDbCursor
                                             .getColumnIndex(ContactsContract.Data._ID)));
+                            logger.debug("contactPhoneNumber : " + contactPhoneNumber +
+                                    " dataId : " + contactDataId);
                             if (eabDataIdList.contains(contactDataId) )  {
                                 eabDataIdList.remove(contactDataId);
                                 logger.debug("Number removed from eabDataIdList");
                             } else {
                                 // Something is wrong. There can not be new number in Contacts DB.
-                                logger.error("DataId " + contactDataId +
+                                logger.error("Number :" + contactPhoneNumber
+                                        + " with DataId : " + contactDataId +
                                         " not found in EABProvider.");
                             }
                         }
@@ -762,6 +799,11 @@ public class EABService extends Service {
                             ContactsContract.Contacts.Entity.DATA1));
                     String profileName = cursor.getString(cursor.getColumnIndex(
                             ContactsContract.Contacts.Entity.DISPLAY_NAME));
+                    logger.debug("Profile Name : " + profileName
+                            + " Profile Number : " + contactNumber
+                            + " profile dataId : " + dataId
+                            + " profile rawContactId : " + rawContactId
+                            + " profile contactId : " + contactId);
                     if (profileDataIdList.isEmpty()) {
                         profileDataIdList.add(dataId);
                         profileNumberList.clear();
@@ -771,7 +813,8 @@ public class EABService extends Service {
                         profileNumberList.add(contactNumber);
                     } else {
                         // There are duplicate entries in Profile's Table
-                        logger.error("Duplicate entry in Profile's Table for dataId : " + dataId);
+                        logger.error("Duplicate entry in Profile's Table for contact :" +
+                                contactNumber + " dataId : " + dataId);
                     }
                     verifyInsertOrUpdateAction(dataId, contactId, rawContactId, contactNumber,
                             profileName);
@@ -911,6 +954,10 @@ public class EABService extends Service {
     private void handlePhoneNumberInsertion(Long dataId, Long contactId,
             Long rawContactId, String phoneNumber, String contactName) {
 
+        logger.debug("handlePhoneNumberInsertion() rawContactId : "
+                + rawContactId + " dataId :" + dataId + " contactId :"
+                + contactId + " phoneNumber :" + phoneNumber + " contactName :"
+                + contactName);
         if (!EABDbUtil.validateEligibleContact(mContext, phoneNumber)) {
             logger.debug("Return as number is not elegible for VT.");
             return;
@@ -927,8 +974,9 @@ public class EABService extends Service {
         if (null != contactId) {
             sContactId = contactId.toString();
         }
+        String formattedNumber = EABDbUtil.formatNumber(phoneNumber);
         ArrayList<PresenceContact> contactListToInsert = new ArrayList<PresenceContact>();
-        contactListToInsert.add(new PresenceContact(contactName, phoneNumber,
+        contactListToInsert.add(new PresenceContact(contactName, phoneNumber, formattedNumber,
                 sRawContactId, sContactId, sDataId));
 
         EABDbUtil.addContactsToEabDb(getApplicationContext(),
@@ -938,6 +986,11 @@ public class EABService extends Service {
     private void handlePhoneNumberChanged(Long dataId, Long contactId,
             Long rawContactId, String oldPhoneNumber, String newPhoneNumber,
             String contactName) {
+
+        logger.debug("handlePhoneNumberChanged() rawContactId : " + rawContactId
+                + " dataId :" + dataId + " oldPhoneNumber :" + oldPhoneNumber
+                + " newPhoneNumber :" + newPhoneNumber + " contactName :"
+                + contactName);
 
         if (null == oldPhoneNumber && null == newPhoneNumber) {
             logger.debug("Both old and new numbers are null.");
@@ -958,17 +1011,19 @@ public class EABService extends Service {
         if (null != contactId) {
             sContactId = contactId.toString();
         }
+        String newFormattedNumber = EABDbUtil.formatNumber(newPhoneNumber);
+        logger.debug("newFormattedNumber : " + newFormattedNumber);
         logger.debug("Removing old number and inserting new number in EABProvider.");
         if (null != oldPhoneNumber) {
             contactListToDelete.add(new PresenceContact(contactName,
-                    oldPhoneNumber, sRawContactId, sContactId, sDataId));
+                    oldPhoneNumber, null /*formattedNumber*/, sRawContactId, sContactId, sDataId));
             // Delete old number from EAB Presence Table
             EABDbUtil.deleteNumbersFromEabDb(getApplicationContext(), contactListToDelete);
         }
         if (null != newPhoneNumber) {
             if (EABDbUtil.validateEligibleContact(mContext, newPhoneNumber)) {
                 contactListToInsert.add(new PresenceContact(contactName,
-                        newPhoneNumber, sRawContactId, sContactId, sDataId));
+                        newPhoneNumber, newFormattedNumber, sRawContactId, sContactId, sDataId));
                 // Insert new number from EAB Presence Table
                 EABDbUtil.addContactsToEabDb(getApplicationContext(), contactListToInsert);
             } else {
@@ -987,7 +1042,7 @@ public class EABService extends Service {
                 if (null != rawContactId) {
                     sRawContactId = rawContactId.toString();
                 }
-                phoneNumberToDeleteList.add(new PresenceContact(null, null,
+                phoneNumberToDeleteList.add(new PresenceContact(null, null, null,
                         sRawContactId, null, staleDataId.toString()));
             }
         }
@@ -997,6 +1052,8 @@ public class EABService extends Service {
 
     private void handlePhoneNameUpdate(Long dataId, Long contactId,
             Long rawContactId, String phoneNumber, String newDisplayName) {
+        logger.debug("handlePhoneNameUpdate() rawContactId : " + rawContactId
+                + " dataId :" + dataId + " newDisplayName :" + newDisplayName);
         String sRawContactId = null;
         String sDataId = null;
         String sContactId = null;
@@ -1011,7 +1068,7 @@ public class EABService extends Service {
         }
         ArrayList<PresenceContact> contactNameToUpdate = new ArrayList<PresenceContact>();
         contactNameToUpdate.add(new PresenceContact(newDisplayName,
-                phoneNumber, sRawContactId, sContactId, sDataId));
+                phoneNumber, null /*formattedNumber */, sRawContactId, sContactId, sDataId));
 
         EABDbUtil.updateNamesInEabDb(getApplicationContext(), contactNameToUpdate);
     }
@@ -1022,7 +1079,8 @@ public class EABService extends Service {
             logger.debug("handleContactDeleted : contactId is null");
         }
         ArrayList<PresenceContact> contactListToDelete = new ArrayList<PresenceContact>();
-        contactListToDelete.add(new PresenceContact(null, null, null, contactId.toString(), null));
+        contactListToDelete.add(new PresenceContact(null, null, null, null, contactId.toString(),
+                null));
 
         //ContactDbUtil.deleteRawContact(getApplicationContext(), contactListToDelete);
         EABDbUtil.deleteContactsFromEabDb(mContext, contactListToDelete);
@@ -1033,7 +1091,7 @@ public class EABService extends Service {
         logger.debug("contactProfileMinId : " + contactProfileMinId);
 
         ArrayList<PresenceContact> contactListToDelete = new ArrayList<PresenceContact>();
-        contactListToDelete.add(new PresenceContact(null, null, null,
+        contactListToDelete.add(new PresenceContact(null, null, null, null,
                 contactProfileMinId.toString(), null));
 
         EABDbUtil.deleteContactsFromEabDb(mContext, contactListToDelete);

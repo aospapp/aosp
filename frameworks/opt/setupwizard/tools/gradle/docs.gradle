@@ -35,7 +35,7 @@ android.libraryVariants.all { variant ->
             addOption(new DoclavaJavadocOptionFileOption('federationapi'))
                     .setValue(['Android', file("$DOCSDIR/android-22.txt").canonicalPath])
             addStringOption('templatedir',
-                    file("$rootDir/build/tools/droiddoc/templates-sdk-dev").canonicalPath)
+                    file("$rootDir/external/doclava/res/assets/templates-sdk").canonicalPath)
         }
 
         dependsOn(variant.assemble)

@@ -1,4 +1,4 @@
-page.title=Camera Version Support
+lpage.title=Camera Version Support
 @jd:body
 
 <!--
@@ -130,8 +130,8 @@ allow Google Play filtering of Camera API2 camera apps.</p>
 
 <h2 id=cts_requirements>CTS requirements</h2>
 
-<p>Android 5.0 and later devices must pass the Camera API1 CTS, Camera API2 CTS,
-and CTS Verifier camera tests.</p>
+<p>Devices running Android 5.0 and later must pass the Camera API1 CTS, Camera
+API2 CTS, and CTS Verifier camera tests.</p>
 
 <p>Devices that do not feature a Camera HAL3.2 implementation and are not
 capable of supporting the full Camera API2 interfaces must still pass the Camera
@@ -168,8 +168,9 @@ stack in API1 on HAL3" id="figure1" /></p>
 stack in API1 on HAL3.</p>
 </li>
 <li>HAL1, which supports passing metadata in video buffers, <strong>vendors must
-update the HAL to allow camera and video encoder in different processes</strong>
-(e.g., the HAL cannot store virtual addresses in the metadata).
+update the HAL to use kMetadataBufferTypeNativeHandleSource</strong>.
+(<code>kMetadataBufferTypeCameraSource</code> is no longer supported in Android
+7.0.)
 <p><img src="images/ape_camera_n_api1_hal1.png" alt="Android 7.0 camera and media
 stack in API1 on HAL1" id="figure1" /></p>
 <p class="img-caption"><strong>Figure 2.</strong>Android 7.0 camera and media
@@ -206,18 +207,13 @@ App for 120/240 FPS high speed video recording. Devices also require a small
 amount of additional RAM to create the new process.</li>
 <li><strong>Pass metadata in video buffers</strong>(<em>HAL1 only</em>). If HAL1
 stores metadata instead of real YUV frame data in video buffers, the HAL must
-not store anything that is invalid across process boundaries, including native
-handles. If HAL passes native handles in the metadata in video buffers, you must
-update it to use <code>kMetadataBufferTypeNativeHandleSource</code> as the
-metadata buffer type and pass <code>VideoNativeHandleMetadata</code> in video
-buffers.
-<p>With <code>VideoNativeHandleMetadata</code>, camera and media frameworks are
-able to pass the video buffers between processes by serializing and
-deserializing the native handles properly. If HAL chooses to continue using
-<code>kMetadataBufferTypeCameraSource</code> as the metadata buffer type, the
-metadata must be able to be passed between processes as plain values.</p>
-</li>
-<li><strong>Buffer handle address does not always store same buffer</strong>
+use <code>kMetadataBufferTypeNativeHandleSource</code> as the metadata buffer
+type and pass <code>VideoNativeHandleMetadata</code> in video buffers.
+(<code>kMetadataBufferTypeCameraSource</code> is no longer supported on Android
+7.0.) With <code>VideoNativeHandleMetadata</code>, camera and media frameworks
+are able to pass the video buffers between processes by serializing and
+deserializing the native handles properly.</li>
+<li><strong>Buffer handle address does not always store the same buffer</strong>
 (<em>HAL3 only</em>). For each capture request, HAL3 gets addresses of buffer
 handles. HAL cannot use the addresses to identify buffers because the addresses
 may store another buffer handle after HAL returns the buffer. You must update

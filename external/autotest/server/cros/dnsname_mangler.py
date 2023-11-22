@@ -7,7 +7,6 @@ import socket
 
 from autotest_lib.client.common_lib import error
 
-
 # See server/cros/network/wifi_test_context_manager.py for commandline
 # flags to control IP addresses in WiFi tests.
 DEFAULT_FAILURE_MESSAGE = (
@@ -20,6 +19,8 @@ BLUETOOTH_TESTER_FAILURE_MESSAGE = (
          '--args tester=IP')
 ROUTER_FAILURE_MESSAGE = (
         'Cannot infer DNS name of WiFi router from a client IP address.')
+PCAP_FAILURE_MESSAGE = (
+        'Cannot infer DNS name of Packet Capturer from a client IP address.')
 
 
 def is_ip_address(hostname):
@@ -86,6 +87,24 @@ def get_router_addr(client_hostname, cmdline_override=None):
             '-router',
             cmdline_override=cmdline_override,
             not_dnsname_msg=ROUTER_FAILURE_MESSAGE)
+
+
+def get_pcap_addr(client_hostname,
+                  cmdline_override=None,
+                  allow_failure=False):
+    """Build a hostname for a packet capturer from the client hostname.
+
+    @param client_hostname: string DNS name of the client.
+    @param cmdline_override: string DNS name of the packet capturer provided
+            via commandline arguments.
+    @return usable DNS name for capturer host or None.
+
+    """
+    return get_companion_device_addr(
+            client_hostname,
+            '-pcap',
+            not_dnsname_msg=PCAP_FAILURE_MESSAGE,
+            allow_failure=allow_failure)
 
 
 def get_attenuator_addr(client_hostname,

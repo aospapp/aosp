@@ -5,7 +5,6 @@
 AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_Perf.11g_tkip'
 ATTRIBUTES = 'suite:wifi_perf, suite:wifi_perf_bcm4371'
-SUITE = 'wifi_perf, wifi_perf_bcm4371'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'

@@ -41,8 +41,8 @@ public class InstanceCountsDebuggee extends SyncDebuggee {
     @Override
 	public void run() {
 		//Objects reachable for garbage collection purpose
-		ArrayList reachableObjs = new ArrayList();
-        
+		ArrayList<Object> reachableObjs = new ArrayList<Object>();
+
 		for(int i = 0; i < reachableObjNumOfClass1; i++) {
 			reachableObjs.add(new MockClass1(true));
 		}
@@ -70,16 +70,19 @@ public class InstanceCountsDebuggee extends SyncDebuggee {
 }
 
 class MockClass1 {
-	private boolean isReachable;
-	MockClass1(boolean isReachable){
-		this.isReachable = isReachable;
-	}
+    @SuppressWarnings("unused")
+    private boolean isReachable;
+
+    MockClass1(boolean isReachable) {
+        this.isReachable = isReachable;
+    }
 }
 
-class MockClass2{
+class MockClass2 {
+    @SuppressWarnings("unused")
     private boolean isReachable;
-    
-    MockClass2(boolean isReachable){
+
+    MockClass2(boolean isReachable) {
         this.isReachable = isReachable;
-    }    
+    }
 }

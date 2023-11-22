@@ -51,7 +51,7 @@ status_t CallbackDataSource::initCheck() const {
 }
 
 ssize_t CallbackDataSource::readAt(off64_t offset, void* data, size_t size) {
-    if (mMemory == NULL) {
+    if (mMemory == NULL || data == NULL) {
         return -1;
     }
 
@@ -111,6 +111,10 @@ void CallbackDataSource::close() {
 
 sp<DecryptHandle> CallbackDataSource::DrmInitialization(const char *mime) {
     return mIDataSource->DrmInitialization(mime);
+}
+
+sp<IDataSource> CallbackDataSource::getIDataSource() const {
+    return mIDataSource;
 }
 
 TinyCacheSource::TinyCacheSource(const sp<DataSource>& source)
@@ -190,4 +194,9 @@ sp<DecryptHandle> TinyCacheSource::DrmInitialization(const char *mime) {
     mCachedSize = 0;
     return mSource->DrmInitialization(mime);
 }
+
+sp<IDataSource> TinyCacheSource::getIDataSource() const {
+    return mSource->getIDataSource();
+}
+
 } // namespace android

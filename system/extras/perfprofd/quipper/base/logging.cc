@@ -4,6 +4,8 @@
 // the system log.
 //
 
+#define LOG_TAG "perf_reader"
+
 #include "quipper/base/logging.h"
 
 #if defined(OS_POSIX)
@@ -23,8 +25,6 @@
 #include <string>
 
 #include <android/log.h>
-
-#define LOG_TAG "perf_reader"
 
 namespace logging {
 

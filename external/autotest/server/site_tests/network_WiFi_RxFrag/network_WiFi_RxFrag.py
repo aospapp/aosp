@@ -27,7 +27,7 @@ class network_WiFi_RxFrag(wifi_cell_test_base.WiFiCellTestBase):
                 mode=hostap_config.HostapConfig.MODE_11G,
                 frag_threshold=256)
         self.context.configure(configuration)
-        self.context.router.start_capture(configuration.frequency)
+        self.context.capture_host.start_capture(configuration.frequency)
         assoc_params = xmlrpc_datatypes.AssociationParameters()
         assoc_params.ssid = self.context.router.get_ssid()
         self.context.assert_connect_wifi(assoc_params)
@@ -39,3 +39,4 @@ class network_WiFi_RxFrag(wifi_cell_test_base.WiFiCellTestBase):
         self.context.assert_ping_from_server(ping_config=build_config(1500))
         self.context.client.shill.disconnect(assoc_params.ssid)
         self.context.router.deconfig()
+        self.context.capture_host.stop_capture()

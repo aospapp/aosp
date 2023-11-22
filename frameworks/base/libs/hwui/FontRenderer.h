@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HWUI_FONT_RENDERER_H
-#define ANDROID_HWUI_FONT_RENDERER_H
+#pragma once
 
 #include "font/FontUtil.h"
 #include "font/CacheTexture.h"
 #include "font/CachedGlyphInfo.h"
 #include "font/Font.h"
+#ifdef BUGREPORT_FONT_CACHE_USAGE
+#include "font/FontCacheHistoryTracker.h"
+#endif
 
 #include <utils/LruCache.h>
+#include <utils/String8.h>
 #include <utils/StrongPointer.h>
 
 #include <SkPaint.h>
@@ -31,7 +34,6 @@
 
 #include <vector>
 
-#ifdef ANDROID_ENABLE_RENDERSCRIPT
 #include "RenderScript.h"
 namespace RSC {
     class Element;
@@ -39,36 +41,25 @@ namespace RSC {
     class ScriptIntrinsicBlur;
     class sp;
 }
-#endif
 
 namespace android {
 namespace uirenderer {
 
-#if HWUI_NEW_OPS
 class BakedOpState;
 class BakedOpRenderer;
 struct ClipBase;
-#else
-class OpenGLRenderer;
-#endif
 
 class TextDrawFunctor {
 public:
     TextDrawFunctor(
-#if HWUI_NEW_OPS
             BakedOpRenderer* renderer,
             const BakedOpState* bakedState,
             const ClipBase* clip,
-#else
-            OpenGLRenderer* renderer,
-#endif
             float x, float y, bool pureTranslate,
-            int alpha, SkXfermode::Mode mode, const SkPaint* paint)
+            int alpha, SkBlendMode mode, const SkPaint* paint)
         : renderer(renderer)
-#if HWUI_NEW_OPS
         , bakedState(bakedState)
         , clip(clip)
-#endif
         , x(x)
         , y(y)
         , pureTranslate(pureTranslate)
@@ -79,24 +70,20 @@ public:
 
     void draw(CacheTexture& texture, bool linearFiltering);
 
-#if HWUI_NEW_OPS
     BakedOpRenderer* renderer;
     const BakedOpState* bakedState;
     const ClipBase* clip;
-#else
-    OpenGLRenderer* renderer;
-#endif
     float x;
     float y;
     bool pureTranslate;
     int alpha;
-    SkXfermode::Mode mode;
+    SkBlendMode mode;
     const SkPaint* paint;
 };
 
 class FontRenderer {
 public:
-    FontRenderer(const uint8_t* gammaTable);
+    explicit FontRenderer(const uint8_t* gammaTable);
     ~FontRenderer();
 
     void flushLargeCaches(std::vector<CacheTexture*>& cacheTextures);
@@ -132,7 +119,12 @@ public:
         mLinearFiltering = linearFiltering;
     }
 
-    uint32_t getCacheSize(GLenum format) const;
+    uint32_t getSize() const;
+    void dumpMemoryUsage(String8& log) const;
+
+#ifdef BUGREPORT_FONT_CACHE_USAGE
+    FontCacheHistoryTracker& historyTracker() { return mHistoryTracker; }
+#endif
 
 private:
     friend class Font;
@@ -175,6 +167,10 @@ private:
         mUploadTexture = true;
     }
 
+    const std::vector<CacheTexture*>& cacheTexturesForFormat(GLenum format) const;
+    uint32_t getCacheSize(GLenum format) const;
+    uint32_t getFreeCacheSize(GLenum format) const;
+
     uint32_t mSmallCacheWidth;
     uint32_t mSmallCacheHeight;
     uint32_t mLargeCacheWidth;
@@ -199,12 +195,14 @@ private:
 
     bool mLinearFiltering;
 
-#ifdef ANDROID_ENABLE_RENDERSCRIPT
+#ifdef BUGREPORT_FONT_CACHE_USAGE
+    FontCacheHistoryTracker mHistoryTracker;
+#endif
+
     // RS constructs
     RSC::sp<RSC::RS> mRs;
     RSC::sp<const RSC::Element> mRsElement;
     RSC::sp<RSC::ScriptIntrinsicBlur> mRsScript;
-#endif
 
     static void computeGaussianWeights(float* weights, int32_t radius);
     static void horizontalBlur(float* weights, int32_t radius, const uint8_t *source, uint8_t *dest,
@@ -218,5 +216,3 @@ private:
 
 }; // namespace uirenderer
 }; // namespace android
-
-#endif // ANDROID_HWUI_FONT_RENDERER_H

@@ -16,7 +16,7 @@
 
 #include <errno.h>
 
-#include "ext4_sb.h"
+#include "ext4_utils/ext4_sb.h"
 
 int ext4_parse_sb(struct ext4_super_block *sb, struct fs_info *info)
 {

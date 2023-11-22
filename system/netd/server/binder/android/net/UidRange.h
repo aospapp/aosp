@@ -48,6 +48,15 @@ public:
     int32_t getStart() const;
     int32_t getStop() const;
 
+    /**
+     * Additional functions.
+     */
+    uint32_t length() const;
+
+
+    /**
+     * Operators and comparators.
+     */
     friend bool operator<(const UidRange& lhs, const UidRange& rhs) {
         return lhs.mStart != rhs.mStart ? (lhs.mStart < rhs.mStart) : (lhs.mStop < rhs.mStop);
     }

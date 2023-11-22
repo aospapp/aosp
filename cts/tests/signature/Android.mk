@@ -25,12 +25,11 @@ LOCAL_PACKAGE_NAME := CtsSignatureTestCases
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-# For CTS v1
-LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
-
 LOCAL_SDK_VERSION := current
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner \
+    compatibility-device-util \
+    android-support-test
 
 include $(BUILD_CTS_PACKAGE)
 
@@ -40,7 +39,7 @@ include $(BUILD_CTS_PACKAGE)
 include $(CLEAR_VARS)
 
 # These files are for device-side only, so filter-out for host library
-LOCAL_DEVICE_ONLY_SOURCES := %/SignatureTest.java
+LOCAL_DEVICE_ONLY_SOURCES := %/SignatureTest.java %/IntentTest.java %/CurrentApi.java
 
 LOCAL_SRC_FILES := $(filter-out $(LOCAL_DEVICE_ONLY_SOURCES), $(call all-java-files-under, src))
 

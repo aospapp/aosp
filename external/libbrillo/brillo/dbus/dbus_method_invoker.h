@@ -122,7 +122,7 @@ inline std::unique_ptr<dbus::Response> CallMethodAndBlockWithTimeout(
                          method_name.c_str());
     }
   }
-  return std::unique_ptr<dbus::Response>(response.release());
+  return response;
 }
 
 // Same as CallMethodAndBlockWithTimeout() but uses a default timeout value.

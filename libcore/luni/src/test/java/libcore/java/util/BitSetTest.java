@@ -34,6 +34,22 @@ public class BitSetTest extends junit.framework.TestCase {
         assertEquals("{2, 4, 10}", bs.toString());
     }
 
+    // b/31234459
+    public void test_toString_highestPossibleBitSet() {
+        // 2^28 bytes for the bits in the BitSet, plus extra bytes for everything else
+        int bytesRequired = (1 << 28) + (1 << 27);
+        if (Runtime.getRuntime().maxMemory() < bytesRequired) {
+            return;
+        }
+        try {
+            BitSet bitSet = new BitSet();
+            bitSet.set(Integer.MAX_VALUE);
+            assertEquals("{2147483647}", bitSet.toString());
+        } catch (OutOfMemoryError e) {
+            // ignore
+        }
+    }
+
     private static void assertBitSet(BitSet bs, long[] longs, String s) {
         for (int i = 0; i < 64 * longs.length; ++i) {
             assertEquals(bs.toString(), ((longs[i / 64] & (1L << (i % 64))) != 0), bs.get(i));

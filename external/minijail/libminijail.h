@@ -43,6 +43,7 @@ void minijail_change_gid(struct minijail *j, gid_t gid);
 /* Copies |list|. */
 void minijail_set_supplementary_gids(struct minijail *j, size_t size,
 				     const gid_t *list);
+void minijail_keep_supplementary_gids(struct minijail *j);
 /* Stores user to change to and copies |user| for internal consistency. */
 int minijail_change_user(struct minijail *j, const char *user);
 /* Does not take ownership of |group|. */
@@ -50,28 +51,42 @@ int minijail_change_group(struct minijail *j, const char *group);
 void minijail_use_seccomp(struct minijail *j);
 void minijail_no_new_privs(struct minijail *j);
 void minijail_use_seccomp_filter(struct minijail *j);
+void minijail_set_seccomp_filter_tsync(struct minijail *j);
 void minijail_parse_seccomp_filters(struct minijail *j, const char *path);
+void minijail_parse_seccomp_filters_from_fd(struct minijail *j, int fd);
 void minijail_log_seccomp_filter_failures(struct minijail *j);
+/* 'minijail_use_caps' and 'minijail_capbset_drop' are mutually exclusive. */
 void minijail_use_caps(struct minijail *j, uint64_t capmask);
+void minijail_capbset_drop(struct minijail *j, uint64_t capmask);
 void minijail_reset_signal_mask(struct minijail *j);
 void minijail_namespace_vfs(struct minijail *j);
 void minijail_namespace_enter_vfs(struct minijail *j, const char *ns_path);
+void minijail_new_session_keyring(struct minijail *j);
+
+/*
+ * This option is *dangerous* as it negates most of the functionality of
+ * minijail_namespace_vfs(). You very likely don't need this.
+ */
+void minijail_skip_remount_private(struct minijail *j);
 void minijail_namespace_ipc(struct minijail *j);
 void minijail_namespace_net(struct minijail *j);
 void minijail_namespace_enter_net(struct minijail *j, const char *ns_path);
+void minijail_namespace_cgroups(struct minijail *j);
+/* Closes all open file descriptors after forking. */
+void minijail_close_open_fds(struct minijail *j);
 /*
  * Implies namespace_vfs and remount_proc_readonly.
  * WARNING: this is NOT THREAD SAFE. See the block comment in </libminijail.c>.
  */
 void minijail_namespace_pids(struct minijail *j);
 void minijail_namespace_user(struct minijail *j);
+void minijail_namespace_user_disable_setgroups(struct minijail *j);
 int minijail_uidmap(struct minijail *j, const char *uidmap);
 int minijail_gidmap(struct minijail *j, const char *gidmap);
 void minijail_remount_proc_readonly(struct minijail *j);
 void minijail_run_as_init(struct minijail *j);
 int minijail_write_pid_file(struct minijail *j, const char *path);
 void minijail_inherit_usergroups(struct minijail *j);
-void minijail_disable_ptrace(struct minijail *j);
 /*
  * Changes the jailed process's syscall table to the alt_syscall table
  * named |table|.
@@ -114,10 +129,33 @@ int minijail_enter_pivot_root(struct minijail *j, const char *dir);
 char *minijail_get_original_path(struct minijail *j, const char *chroot_path);
 
 /*
- * minijail_mount_tmp: enables mounting of a tmpfs filesystem on /tmp.
+ * minijail_mount_tmp: enables mounting of a 64M tmpfs filesystem on /tmp.
  * As be rules of bind mounts, /tmp must exist in chroot.
  */
 void minijail_mount_tmp(struct minijail *j);
+
+/*
+ * minijail_mount_tmp_size: enables mounting of a tmpfs filesystem on /tmp.
+ * As be rules of bind mounts, /tmp must exist in chroot.  Size is in bytes.
+ */
+void minijail_mount_tmp_size(struct minijail *j, size_t size);
+
+/*
+ * minijail_mount_with_data: when entering minijail @j,
+ *   mounts @src at @dst with @flags and @data.
+ * @j         minijail to bind inside
+ * @src       source to bind
+ * @dest      location to bind (inside chroot)
+ * @type      type of filesystem
+ * @flags     flags passed to mount
+ * @data      data arguments passed to mount(2), e.g. "mode=755"
+ *
+ * This may be called multiple times; all mounts will be applied in the order
+ * of minijail_mount() calls.
+ */
+int minijail_mount_with_data(struct minijail *j, const char *src,
+			     const char *dest, const char *type,
+			     unsigned long flags, const char *data);
 
 /*
  * minijail_mount: when entering minijail @j, mounts @src at @dst with @flags
@@ -127,7 +165,7 @@ void minijail_mount_tmp(struct minijail *j);
  * @type      type of filesystem
  * @flags     flags passed to mount
  *
- * This may be called multiple times; all bindings will be applied in the order
+ * This may be called multiple times; all mounts will be applied in the order
  * of minijail_mount() calls.
  */
 int minijail_mount(struct minijail *j, const char *src, const char *dest,
@@ -147,9 +185,10 @@ int minijail_bind(struct minijail *j, const char *src, const char *dest,
 		  int writeable);
 
 /*
- * Lock this process into the given minijail. Note that this procedure cannot fail,
- * since there is no way to undo privilege-dropping; therefore, if any part of
- * the privilege-drop fails, minijail_enter() will abort the entire process.
+ * Lock this process into the given minijail. Note that this procedure cannot
+ * fail, since there is no way to undo privilege-dropping; therefore, if any
+ * part of the privilege-drop fails, minijail_enter() will abort the entire
+ * process.
  *
  * Some restrictions cannot be enabled this way (pid namespaces) and attempting
  * to do so will cause an abort.
@@ -222,14 +261,14 @@ int minijail_run_pid_pipes_no_preload(struct minijail *j, const char *filename,
 int minijail_kill(struct minijail *j);
 
 /*
- * Wait for all processed in the specified minijail to exit. Returns the exit
+ * Wait for all processes in the specified minijail to exit. Returns the exit
  * status of the _first_ process spawned in the jail.
  */
 int minijail_wait(struct minijail *j);
 
 /*
- * Frees the given minijail. It does not matter if the process is inside the minijail or
- * not.
+ * Frees the given minijail. It does not matter if the process is inside the
+ * minijail or not.
  */
 void minijail_destroy(struct minijail *j);
 

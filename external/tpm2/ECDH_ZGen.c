@@ -38,7 +38,7 @@ TPM2_ECDH_ZGen(
    if(     eccKey->publicArea.objectAttributes.restricted == SET
       ||   eccKey->publicArea.objectAttributes.decrypt != SET
      )
-       return TPM_RC_KEY + RC_ECDH_ZGen_keyHandle;
+       return TPM_RC_ATTRIBUTES + RC_ECDH_ZGen_keyHandle;
 
    // Make sure the scheme allows this use
    if(     eccKey->publicArea.parameters.eccDetail.scheme.scheme != TPM_ALG_ECDH

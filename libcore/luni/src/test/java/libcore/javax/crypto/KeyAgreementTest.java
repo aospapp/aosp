@@ -37,6 +37,7 @@ public class KeyAgreementTest extends TestCase {
     public void testKeyAgreement_getInstance_SuppliedProviderNotRegistered_Success()
             throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("KeyAgreement.FOO", MockKeyAgreementSpi.AllKeyTypes.class.getName());
             }
@@ -52,6 +53,7 @@ public class KeyAgreementTest extends TestCase {
     public void testKeyAgreement_getInstance_DoesNotSupportKeyClass_Success()
             throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("KeyAgreement.FOO", MockKeyAgreementSpi.AllKeyTypes.class.getName());
                 put("KeyAgreement.FOO SupportedKeyClasses", "none");
@@ -76,6 +78,7 @@ public class KeyAgreementTest extends TestCase {
     public void testKeyAgreement_init_DoesNotSupportKeyClass_throwsInvalidKeyException()
             throws Exception {
         Provider mockProvider = new MockProvider("MockProvider") {
+            @Override
             public void setup() {
                 put("KeyAgreement.FOO", MockKeyAgreementSpi.AllKeyTypes.class.getName());
                 put("KeyAgreement.FOO SupportedKeyClasses", "none");

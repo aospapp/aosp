@@ -1,4 +1,4 @@
-# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -9,18 +9,23 @@ import pprint
 import time
 
 import common
-from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import error, site_utils
+from autotest_lib.client.common_lib import utils as base_utils
 from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.server import hosts
 from autotest_lib.server import site_linux_system
 from autotest_lib.server.cros import host_lock_manager
 from autotest_lib.server.cros.ap_configurators import ap_batch_locker
+from autotest_lib.server.cros.ap_configurators \
+        import ap_configurator_factory
 from autotest_lib.server.cros.network import chaos_clique_utils as utils
 from autotest_lib.server.cros.network import wifi_client
+from autotest_lib.server.hosts import adb_host
 
 # Webdriver master hostname
 MASTERNAME = 'chromeos3-chaosvmmaster.cros.corp.google.com'
+WEBDRIVER_PORT = 9515
 
 
 class ChaosRunner(object):
@@ -46,7 +51,7 @@ class ChaosRunner(object):
         logging.info('DUT time: %s', self._host.run('date').stdout.strip())
 
 
-    def run(self, job, batch_size=7, tries=10, capturer_hostname=None,
+    def run(self, job, batch_size=10, tries=10, capturer_hostname=None,
             conn_worker=None, work_client_hostname=None,
             disabled_sysinfo=False):
         """Executes Chaos test.
@@ -66,9 +71,11 @@ class ChaosRunner(object):
 
         lock_manager = host_lock_manager.HostLockManager()
         webdriver_master = hosts.SSHHost(MASTERNAME, user='chaosvmmaster')
+        host_prefix = self._host.hostname.split('-')[0]
         with host_lock_manager.HostsLockedBy(lock_manager):
             capture_host = utils.allocate_packet_capturer(
-                    lock_manager, hostname=capturer_hostname)
+                    lock_manager, hostname=capturer_hostname,
+                    prefix=host_prefix)
             # Cleanup and reboot packet capturer before the test.
             utils.sanitize_client(capture_host)
             capturer = site_linux_system.LinuxSystem(capture_host, {},
@@ -78,8 +85,14 @@ class ChaosRunner(object):
             iw_command = iw_runner.IwRunner(capture_host)
             start_time = time.time()
             logging.info('Performing a scan with a max timeout of 30 seconds.')
+            capture_interface = 'wlan0'
+            capturer_info = capture_host.run('cat /etc/lsb-release',
+                                             ignore_status=True, timeout=5).stdout
+            if 'whirlwind' in capturer_info:
+                # Use the dual band aux radio for scanning networks.
+                capture_interface = 'wlan2'
             while time.time() - start_time <= ap_constants.MAX_SCAN_TIMEOUT:
-                networks = iw_command.scan('wlan0')
+                networks = iw_command.scan(capture_interface)
                 if networks is None:
                     if (time.time() - start_time ==
                             ap_constants.MAX_SCAN_TIMEOUT):
@@ -91,7 +104,7 @@ class ChaosRunner(object):
                     break
                 elif len(networks) >= ap_constants.MAX_SSID_COUNT:
                     raise error.TestError(
-                        'Probably someone is already running a'
+                        'Probably someone is already running a '
                         'chaos test?!')
 
             if conn_worker is not None:
@@ -99,33 +112,56 @@ class ChaosRunner(object):
                         lock_manager, hostname=work_client_hostname)
                 conn_worker.prepare_work_client(work_client_machine)
 
+            # Lock VM. If on, power off; always power on. Then create a tunnel.
             webdriver_instance = utils.allocate_webdriver_instance(lock_manager)
-            self._ap_spec._webdriver_hostname = webdriver_instance
 
-            # If a test is cancelled or aborted the VM may be left on.  Always
-            # turn of the VM to return it to a clean state.
-            try:
-                logging.info('Always power off VM %s', webdriver_instance)
+            if utils.is_VM_running(webdriver_master, webdriver_instance):
+                logging.info('VM %s was on; powering off for a clean instance',
+                             webdriver_instance)
                 utils.power_off_VM(webdriver_master, webdriver_instance)
-            except:
-                logging.debug('VM was already off, ignoring.')
+                logging.info('Allow VM time to gracefully shut down')
+                time.sleep(5)
 
             logging.info('Starting up VM %s', webdriver_instance)
             utils.power_on_VM(webdriver_master, webdriver_instance)
+            logging.info('Allow VM time to power on before creating a tunnel.')
+            time.sleep(5)
+
+            if not site_utils.host_is_in_lab_zone(webdriver_instance.hostname):
+                self._ap_spec._webdriver_hostname = webdriver_instance.hostname
+            else:
+                # If in the lab then port forwarding must be done so webdriver
+                # connection will be over localhost.
+                self._ap_spec._webdriver_hostname = 'localhost'
+                webdriver_tunnel = webdriver_instance.create_ssh_tunnel(
+                                                WEBDRIVER_PORT, WEBDRIVER_PORT)
+                logging.info('Wait for tunnel to be created.')
+                for i in range(3):
+                    time.sleep(10)
+                    results = base_utils.run('lsof -i:%s' % WEBDRIVER_PORT,
+                                             ignore_status=True)
+                    if results:
+                        break
+                if not results:
+                    raise error.TestError(
+                            'Unable to listen to WEBDRIVER_PORT: %s', results)
 
             batch_locker = ap_batch_locker.ApBatchLocker(
                     lock_manager, self._ap_spec,
                     ap_test_type=ap_constants.AP_TEST_TYPE_CHAOS)
 
             while batch_locker.has_more_aps():
-                # Work around crbug.com/358716
-                utils.sanitize_client(self._host)
+                # Work around for CrOS devices only:crbug.com/358716
+                # Do not reboot Android devices:b/27977927
+                if self._host.get_os_type() != adb_host.OS_TYPE_ANDROID:
+                    utils.sanitize_client(self._host)
                 healthy_dut = True
 
                 with contextlib.closing(wifi_client.WiFiClient(
-                    hosts.create_host(self._host.hostname),
-                    './debug',
-                    False)) as client:
+                    hosts.create_host({'hostname' : self._host.hostname,
+                            'afe_host' : self._host._afe_host},
+                            host_class=self._host.__class__),
+                    './debug', False)) as client:
 
                     aps = batch_locker.get_ap_batch(batch_size=batch_size)
                     if not aps:
@@ -225,11 +261,20 @@ class ChaosRunner(object):
                         continue
 
                 batch_locker.unlock_aps()
+
+            if webdriver_tunnel:
+                webdriver_instance.disconnect_ssh_tunnel(webdriver_tunnel,
+                                                         WEBDRIVER_PORT)
+                webdriver_instance.close()
             capturer.close()
             logging.info('Powering off VM %s', webdriver_instance)
             utils.power_off_VM(webdriver_master, webdriver_instance)
-            lock_manager.unlock(webdriver_instance)
+            lock_manager.unlock(webdriver_instance.hostname)
 
             if self._broken_pdus:
                 logging.info('PDU is down!!!\nThe following PDUs are down:\n')
                 pprint.pprint(self._broken_pdus)
+
+            factory = ap_configurator_factory.APConfiguratorFactory(
+                    ap_constants.AP_TEST_TYPE_CHAOS)
+            factory.turn_off_all_routers(self._broken_pdus)

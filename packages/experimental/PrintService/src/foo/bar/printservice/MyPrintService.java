@@ -67,7 +67,7 @@ public class MyPrintService extends PrintService {
     static final String INTENT_EXTRA_PRINT_JOB_ID = "INTENT_EXTRA_PRINT_JOB_ID";
 
     static final int ACTION_TYPE_ON_PRINT_JOB_PENDING = 1;
-    static final int ACTION_TYPE_ON_REQUEST_CANCEL_PRINT_JOB = 2;
+    private static final int ACTION_TYPE_ON_REQUEST_CANCEL_PRINT_JOB = 2;
 
     private static final Object sLock = new Object();
 
@@ -77,10 +77,8 @@ public class MyPrintService extends PrintService {
 
     private AsyncTask<ParcelFileDescriptor, Void, Void> mFakePrintTask;
 
-    private FakePrinterDiscoverySession mSession;
-
     private final Map<PrintJobId, PrintJob> mProcessedPrintJobs =
-            new ArrayMap<PrintJobId, PrintJob>();
+            new ArrayMap<>();
 
     public static MyPrintService peekInstance() {
         synchronized (sLock) {
@@ -100,9 +98,6 @@ public class MyPrintService extends PrintService {
     @Override
     protected void onDisconnected() {
         Log.i(LOG_TAG, "#onDisconnected()");
-        if (mSession != null) {
-            mSession.cancellAddingFakePrinters();
-        }
         synchronized (sLock) {
             sInstance = null;
         }
@@ -195,7 +190,7 @@ public class MyPrintService extends PrintService {
         mHandler.sendMessageDelayed(message, STANDARD_DELAY_MILLIS);
     }
 
-    void handleUnblockPrintJob(PrintJobId printJobId) {
+    private void handleUnblockPrintJob(PrintJobId printJobId) {
         final PrintJob printJob = mProcessedPrintJobs.get(printJobId);
         if (printJob == null) {
             return;
@@ -285,12 +280,10 @@ public class MyPrintService extends PrintService {
                     } catch (IOException ioe) {
                         throw new RuntimeException(ioe);
                     } finally {
-                        if (in != null) {
-                            try {
-                                in.close();
-                            } catch (IOException ioe) {
-                                /* ignore */
-                            }
+                        try {
+                            in.close();
+                        } catch (IOException ioe) {
+                            /* ignore */
                         }
                         if (out != null) {
                             try {
@@ -334,16 +327,15 @@ public class MyPrintService extends PrintService {
                     printJob.getDocument().getData());
         } catch (IOException e) {
             Log.e(LOG_TAG, "Could not create temporary file: %s", e);
-            return;
         }
     }
 
     private final class MyHandler extends Handler {
-        public static final int MSG_HANDLE_DO_PRINT_JOB = 1;
-        public static final int MSG_HANDLE_FAIL_PRINT_JOB = 2;
-        public static final int MSG_HANDLE_BLOCK_PRINT_JOB = 3;
-        public static final int MSG_HANDLE_UNBLOCK_PRINT_JOB = 4;
-        public static final int MSG_HANDLE_PRINT_JOB_PROGRESS = 5;
+        static final int MSG_HANDLE_DO_PRINT_JOB = 1;
+        static final int MSG_HANDLE_FAIL_PRINT_JOB = 2;
+        static final int MSG_HANDLE_BLOCK_PRINT_JOB = 3;
+        static final int MSG_HANDLE_UNBLOCK_PRINT_JOB = 4;
+        static final int MSG_HANDLE_PRINT_JOB_PROGRESS = 5;
 
         public MyHandler(Looper looper) {
             super(looper);
@@ -383,9 +375,9 @@ public class MyPrintService extends PrintService {
     private final class FakePrinterDiscoverySession extends  PrinterDiscoverySession {
         private final Handler mSesionHandler = new SessionHandler(getMainLooper());
 
-        private final List<PrinterInfo> mFakePrinters = new ArrayList<PrinterInfo>();
+        private final List<PrinterInfo> mFakePrinters = new ArrayList<>();
 
-        public FakePrinterDiscoverySession() {
+        FakePrinterDiscoverySession() {
             for (int i = 0; i < 6; i++) {
                 String name = "Printer " + i;
 
@@ -525,8 +517,8 @@ public class MyPrintService extends PrintService {
         }
 
         final class SessionHandler extends Handler {
-            public static final int MSG_ADD_FIRST_BATCH_FAKE_PRINTERS = 1;
-            public static final int MSG_SUPPLY_CUSTOM_PRINTER_ICON = 2;
+            static final int MSG_ADD_FIRST_BATCH_FAKE_PRINTERS = 1;
+            static final int MSG_SUPPLY_CUSTOM_PRINTER_ICON = 2;
 
             public SessionHandler(Looper looper) {
                 super(looper);

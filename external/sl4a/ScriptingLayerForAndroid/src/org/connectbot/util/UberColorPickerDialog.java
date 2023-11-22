@@ -62,7 +62,6 @@ import android.view.View;
  * NOTE (from Kenny Root): This is a VERY slimmed down version custom for ConnectBot.
  * Visit Keith's site for the full version at the URL listed in the author line.<p>
  *
- * @author Keith Wiley, kwiley@keithwiley.com, http://keithwiley.com
  */
 public class UberColorPickerDialog extends Dialog {
 	private OnColorChangedListener mListener;

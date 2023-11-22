@@ -22,22 +22,24 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Shader;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
 import android.uirendering.cts.testinfrastructure.DisplayModifier;
 import android.uirendering.cts.testinfrastructure.ResourceModifier;
-import org.junit.Test;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test cases of all combination of resource modifications.
  */
-@MediumTest
+@LargeTest
+@RunWith(AndroidJUnit4.class)
 public class SweepTests extends ActivityTestBase {
     private final static DisplayModifier COLOR_FILTER_GRADIENT_MODIFIER = new DisplayModifier() {
         private final Rect mBounds = new Rect(30, 30, 150, 150);
@@ -120,9 +122,15 @@ public class SweepTests extends ActivityTestBase {
         // Create the test cases with each combination
         do {
             int arrIndex = Math.min(index, bitmapComparers.length - 1);
-            createTest()
-                    .addCanvasClient(modifierAccessor.getDebugString(), canvasClient)
-                    .runWithComparer(bitmapComparers[arrIndex]);
+            TestCaseBuilder builder = createTest();
+            String debugString = modifierAccessor.getDebugString();
+            if (debugString.contains("bitmapMesh")) {
+                // picture mode is disabled due to bug:34871089
+                builder.addCanvasClientWithoutUsingPicture(debugString, canvasClient);
+            } else {
+                builder.addCanvasClient(debugString, canvasClient);
+            }
+            builder.runWithComparer(bitmapComparers[arrIndex]);
             index++;
         } while (modifierAccessor.step());
     }

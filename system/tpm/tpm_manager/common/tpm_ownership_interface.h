@@ -20,12 +20,13 @@
 #include <base/callback.h>
 
 #include "tpm_manager/common/export.h"
-#include "tpm_manager/common/tpm_ownership_interface.pb.h"
+#include "tpm_manager/common/tpm_manager.pb.h"
 
 namespace tpm_manager {
 
-// This is the interface to access the ownership subsystem of the Tpm. It is
-// extended by TpmManagerInterface.
+// The command interface for TPM administration. Inherited by both IPC proxy
+// and service classes. All methods are asynchronous because all TPM operations
+// may take a long time to finish.
 class TPM_MANAGER_EXPORT TpmOwnershipInterface {
  public:
   virtual ~TpmOwnershipInterface() = default;

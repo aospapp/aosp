@@ -28,6 +28,10 @@
     <color name="suw_progress_bar_color_dark">#ffffcd40</color>
     <color name="suw_progress_bar_color_light">#fff4b400</color>
 
+    <!-- On versions < 23, we cannot reference other theme values in a color resource. Default to
+         the framework default of 12% black -->
+    <color name="suw_flat_button_highlight">#1f000000</color>
+
     <!-- Navigation bar colors -->
 
     <color name="suw_navbar_bg_dark">#ff21272b</color>

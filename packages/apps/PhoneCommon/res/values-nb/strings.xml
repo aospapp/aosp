@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Ingen"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Ukjent ringetone"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Alle tilgjengelige linjer er i bruk. For å kunne ringe, må du avbryte en av samtalene på denne eller en av de andre enhetene dine."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Samtalen ble avsluttet fordi mobildata ble slått av."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Samtalen ble avsluttet fordi grensen for mobildata ble nådd."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Mobildatagrensen ble nådd. Samtalen er avsluttet."</string>
 </resources>

@@ -29,9 +29,9 @@
     <string name="accessibility_call_muted" msgid="2776111226185342220">"Zvuk poziva isključen."</string>
     <string name="accessibility_speakerphone_enabled" msgid="1988512040421036359">"Zvučnik je omogućen."</string>
     <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"Sada ne mogu razgovarati. Što ima?"</string>
-    <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"Nazvat ću vas odmah."</string>
-    <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"Zvat ću vas kasnije."</string>
-    <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"Sada ne mogu razgovarati. Nazovite me kasnije."</string>
+    <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"Zovem čim stignem."</string>
+    <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"Nazvat ću kasnije."</string>
+    <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"Sad ne mogu razgovarati. Čujemo se kasnije."</string>
     <string name="respond_via_sms_setting_title" msgid="3754000371039709383">"Brzi odgovori"</string>
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"Uređivanje brzih odgovora"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Broj hitne službe ne može se blokirati."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Broj <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> već je blokiran."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Za upućivanje poziva upotrebljava se osobni program za biranje"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Poziv u aplikaciji <xliff:g id="CALL_VIA">%1$s</xliff:g> od korisnika <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videopoziv u aplikaciji <xliff:g id="CALL_VIA">%1$s</xliff:g> od korisnika <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Ako odgovorite, prekinut ćete poziv u aplikaciji <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Ako odgovorite, prekinut ćete pozive u aplikaciji <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Ako odgovorite, prekinut ćete videopoziv u aplikaciji <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Ako odgovorite, prekinut ćete poziv u tijeku"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Ako odgovorite, prekinut ćete pozive u tijeku"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Ako odgovorite, prekinut ćete videopoziv u tijeku"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Odgovori"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Odbij"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Poziv se ne može uspostaviti zbog poziva u aplikaciji <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Poziv se ne može uspostaviti zbog poziva u aplikaciji <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Poziv se ne može uspostaviti zbog poziva u drugoj aplikaciji."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Dolazni pozivi"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Propušteni pozivi"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Upućivanjem ovog poziva prekinut ćete poziv u aplikaciji <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

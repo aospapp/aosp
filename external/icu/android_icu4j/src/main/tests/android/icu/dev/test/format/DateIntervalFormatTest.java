@@ -1,7 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2001-2015, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -15,9 +18,16 @@ package android.icu.dev.test.format;
 
 import java.text.FieldPosition;
 import java.text.ParseException;
+import java.text.ParsePosition;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.Locale;
 
+import org.junit.Test;
+
+import android.icu.dev.test.TestFmwk;
 import android.icu.impl.Utility;
 import android.icu.text.DateFormat;
 import android.icu.text.DateIntervalFormat;
@@ -26,12 +36,10 @@ import android.icu.text.DateIntervalInfo.PatternInfo;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
 import android.icu.util.DateInterval;
+import android.icu.util.Output;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
 
     /**
@@ -43,14 +51,10 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
      */
     private static final ULocale LA_SPANISH = new ULocale("es-419");
 
-    public static void main(String[] args) throws Exception {
-        new DateIntervalFormatTest().run(args);
-    }
-
-
     /**
      * Test format
      */
+    @Test
     public void TestFormat() {
         // first item is date pattern
         // followed by a group of locale/from_data/to_data/skeleton/interval_data
@@ -602,7 +606,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
 
                 "de", "2007 01 10 10:00:10", "2007 01 10 14:10:10", "hmz", "10:00 vorm. \\u2013 2:10 nachm. GMT-8", 
 
-                "de", "2007 01 10 10:00:10", "2007 01 10 14:10:10", "h", "10 vorm. \\u2013 2 nachm.", 
+                "de", "2007 01 10 10:00:10", "2007 01 10 14:10:10", "h", "10 Uhr vorm. \\u2013 2 Uhr nachm.", 
 
                 "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "EEEEdMMM", "Mittwoch, 10. Jan.", 
 
@@ -612,11 +616,11 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
 
                 "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hmz", "10:00\\u201310:20 vorm. GMT-8", 
 
-                "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "h", "10 vorm.", 
+                "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "h", "10 Uhr vorm.", 
 
-                "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hv", "10 vorm. Los Angeles Zeit", 
+                "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hv", "10 Uhr vorm. Los Angeles Zeit", 
 
-                "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hz", "10 vorm. GMT-8", 
+                "de", "2007 01 10 10:00:10", "2007 01 10 10:20:10", "hz", "10 Uhr vorm. GMT-8", 
 
                 "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "EEEEdMMMy", "Mittwoch, 10. Jan. 2007", 
 
@@ -632,17 +636,17 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
 
                 "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "jmz", "10:10 GMT-8", 
 
-                "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "h", "10 vorm.", 
+                "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "h", "10 Uhr vorm.", 
 
-                "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "hv", "10 vorm. Los Angeles Zeit", 
+                "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "hv", "10 Uhr vorm. Los Angeles Zeit", 
 
-                "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "hz", "10 vorm. GMT-8", 
+                "de", "2007 01 10 10:10:10", "2007 01 10 10:10:20", "hz", "10 Uhr vorm. GMT-8", 
 
                 // Thai (default calendar buddhist)
 
                 // Android patch: Force default Gregorian calendar.
 
-                "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "EEEEdMMMy", "\\u0E27\\u0E31\\u0E19\\u0E40\\u0E2A\\u0E32\\u0E23\\u0E4C\\u0E17\\u0E35\\u0E48 10 \\u0E15.\\u0E04. 2550 \\u2013 \\u0E27\\u0E31\\u0E19\\u0E2D\\u0E32\\u0E17\\u0E34\\u0E15\\u0E22\\u0E4C\\u0E17\\u0E35\\u0E48 10 \\u0E15.\\u0E04. 2551",
+                "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "EEEEdMMMy", "\\u0E27\\u0E31\\u0E19\\u0E40\\u0E2A\\u0E32\\u0E23\\u0E4C\\u0E17\\u0E35\\u0E48 10 \\u0E15.\\u0E04. 2550 \\u2013 \\u0E27\\u0E31\\u0E19\\u0E2D\\u0E32\\u0E17\\u0E34\\u0E15\\u0E22\\u0E4C\\u0E17\\u0E35\\u0E48 10 \\u0E15.\\u0E04. 2551", 
 
 
                 "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "dMMM", "10 \\u0E15.\\u0E04. 2550 \\u2013 10 \\u0E15.\\u0E04. 2551", 
@@ -650,14 +654,14 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
                 "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "MMMy", "\\u0E15.\\u0E04. 2550 \\u2013 \\u0E15.\\u0E04. 2551", 
 
 
-                "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "EdMy", "\\u0E2A. 10/10/2550 \\u2013 \\u0E2D\\u0E32. 10/10/2551",
+                "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "EdMy", "\\u0E2A. 10/10/2550 \\u2013 \\u0E2D\\u0E32. 10/10/2551", 
 
                 "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "dMy", "10/10/2550 \\u2013 10/10/2551", 
 
 
                 "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "My", "10/2550 \\u2013 10/2551", 
 
-                "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "EdM", "\\u0E2A. 10/10/2550 \\u2013 \\u0E2D\\u0E32. 10/10/2551",
+                "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "EdM", "\\u0E2A. 10/10/2550 \\u2013 \\u0E2D\\u0E32. 10/10/2551", 
 
 
                 "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "y", "2550\\u20132551", 
@@ -665,7 +669,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
                 "th", "2550 10 10 10:10:10", "2551 10 10 10:10:10", "M", "10/2550 \\u2013 10/2551", 
 
 
-                "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "EEEEdMMMy", "\\u0E27\\u0E31\\u0E19\\u0E40\\u0E2A\\u0E32\\u0E23\\u0E4C\\u0E17\\u0E35\\u0E48 10 \\u0E15.\\u0E04. \\u2013 \\u0E27\\u0E31\\u0E19\\u0E2D\\u0E31\\u0E07\\u0E04\\u0E32\\u0E23\\u0E17\\u0E35\\u0E48 10 \\u0E1E.\\u0E22. 2550",
+                "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "EEEEdMMMy", "\\u0E27\\u0E31\\u0E19\\u0E40\\u0E2A\\u0E32\\u0E23\\u0E4C\\u0E17\\u0E35\\u0E48 10 \\u0E15.\\u0E04. \\u2013 \\u0E27\\u0E31\\u0E19\\u0E2D\\u0E31\\u0E07\\u0E04\\u0E32\\u0E23\\u0E17\\u0E35\\u0E48 10 \\u0E1E.\\u0E22. 2550", 
 
 
                 "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "dMMM", "10 \\u0E15.\\u0E04. \\u2013 10 \\u0E1E.\\u0E22.", 
@@ -679,10 +683,10 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
 
                 "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "d", "10/10 \\u2013 10/11", 
 
-                "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "y", "2550",
+                "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "y", "2550", 
 
 
-                "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "MMM", "\\u0E15.\\u0E04.\\u2013\\u0E1E.\\u0E22.", 
+                "th", "2550 10 10 10:10:10", "2550 11 10 10:10:10", "MMM", "\\u0E15.\\u0E04. \\u2013 \\u0E1E.\\u0E22.", 
 
                 // Android patch end.
         };
@@ -724,6 +728,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* 
      * Test format using user defined DateIntervalInfo
      */
+    @Test
     public void TestFormatUserDII() {
         // first item is date pattern
         // followed by a group of locale/from_data/to_data/interval_data
@@ -820,6 +825,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* 
      * Test format using user defined DateIntervalInfo
      */
+    @Test
     public void TestFormatCLDR() {
         // first item is date pattern
         // followed by a group of locale/from_data/to_data/interval_data
@@ -905,8 +911,9 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /**
      * Stress test
      */
+    @Test
     public void TestStress() {
-        if (getInclusion() <= 5) {
+        if (TestFmwk.getExhaustiveness() <= 5) {
             logln("INFO: Skipping test");
             return;
         }
@@ -1071,6 +1078,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /*
      * Ticket#6396 DateIntervalInfo of ICU4J 4.0d3 throw NullPointerException 
      */
+    @Test
     public void TestT6396() {
         DateIntervalInfo dii = new DateIntervalInfo(new ULocale("th_TH"));
         try {
@@ -1088,6 +1096,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
         }
     }
 
+    @Test
     public void TestConstructor() {
         DateIntervalInfo diiJapan = new DateIntervalInfo(ULocale.JAPAN);
         DateIntervalInfo diiJapanJ = new DateIntervalInfo(Locale.JAPAN);
@@ -1098,6 +1107,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public boolean equals(Object a)
      */
+    @Test
     public void TestDateIntervalInfoEquals(){
         // Tests when "if ( a instanceof PatternInfo )" is false
         DateIntervalInfo diia = new DateIntervalInfo();
@@ -1122,6 +1132,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public Object cloneAsThawed()
      */
+    @Test
     public void TestCloseAsThawed(){
         DateIntervalInfo dii = new DateIntervalInfo();
         try{
@@ -1135,6 +1146,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public boolean isFrozen()
      */
+    @Test
     public void TestIsFrozen(){
         DateIntervalInfo dii = new DateIntervalInfo();
         if(dii.isFrozen() != false){
@@ -1150,6 +1162,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public boolean clone()
      */
+    @Test
     public void TestClone(){
         DateIntervalInfo dii = new DateIntervalInfo(new ULocale("en_US"));
         DateIntervalInfo dii_clone = (DateIntervalInfo) dii.clone();
@@ -1166,6 +1179,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public void setFallbackIntervalPattern(String fallbackPattern)
      */
+    @Test
     public void TestSetFallbackIntervalPattern(){
         DateIntervalInfo dii = new DateIntervalInfo(new ULocale("en_US"));
         // Tests when "if ( frozen )" is true
@@ -1201,6 +1215,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public PatternInfo getIntervalPattern(String skeleton, int field)
      */
+    @Test
     public void TestGetIntervalPattern(){
         // Tests when "if ( field > MINIMUM_SUPPORTED_CALENDAR_FIELD )" is true
         // MINIMUM_SUPPORTED_CALENDAR_FIELD = Calendar.SECOND;
@@ -1216,6 +1231,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public void setIntervalPattern(String skeleton, int lrgDiffCalUnit, String intervalPattern)
      */
+    @Test
     public void TestSetIntervalPattern(){
         DateIntervalInfo dii = new DateIntervalInfo();
         // Tests when "if ( frozen )" is true
@@ -1239,6 +1255,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
         } catch(Exception e){}
     }
 
+    @Test
     public void TestSetIntervalPatternNoSideEffect() {
         PatternInfo patternInfo = new DateIntervalInfo(ULocale.ENGLISH).getIntervalPattern("yMd", Calendar.DATE);
         String expectedPattern = patternInfo.getFirstPart() + patternInfo.getSecondPart();
@@ -1252,6 +1269,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
                 actualPattern);
     }
 
+    @Test
     public void TestGetSetTimeZone(){
         DateIntervalFormat dtitvfmt = DateIntervalFormat.getInstance("MMMdHHmm", Locale.ENGLISH);
         long date1 = 1299090600000L; // 2011-Mar-02 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo
@@ -1287,6 +1305,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
     /* Tests the method
      *      public int hashCode()
      */
+    @Test
     public void TestHashCode(){
         // Tests when
         //      "int hash = fIntervalPatternFirstPart != null ? fIntervalPatternFirstPart.hashCode() : 0;"
@@ -1302,6 +1321,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
      *      public boolean equals(Object a)
      * in PatternInfo
      */
+    @Test
     public void TestPattternInfoEquals(){
         // Tests when "if ( a instanceof PatternInfo )" is false
         PatternInfo pi = new PatternInfo("","", false);
@@ -1323,6 +1343,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
         }
     }
 
+    @Test
     public void TestDateIntervalCoverage() {
         DateInterval di = new DateInterval(0, 1);
 
@@ -1339,6 +1360,81 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
         }
     }
 
+    @Test
+    public void testGetInstance_String_DateIntervalInfo() {
+        DateIntervalInfo dateIntervalInfo = new DateIntervalInfo(new ULocale("ca"));
+        DateIntervalFormat dateIntervalFormat = DateIntervalFormat.getInstance(
+                DateFormat.YEAR_MONTH, Locale.ENGLISH, dateIntervalInfo);
+        Calendar from = Calendar.getInstance();
+        from.set(2000, Calendar.JANUARY, 1, 12, 0);
+        Calendar to = Calendar.getInstance();
+        to.set(2001, Calendar.FEBRUARY, 1, 12, 0);
+        DateInterval interval = new DateInterval(from.getTimeInMillis(), to.getTimeInMillis());
+        dateIntervalFormat.setTimeZone(from.getTimeZone());
+        // Month names are default (English), format is Catalan
+        assertEquals("Wrong date interval",
+                "January de 2000 – February de 2001", dateIntervalFormat.format(interval));
+    }
+
+    @Test
+    public void testGetInstance_String_Locale_DateIntervalInfo() {
+        DateIntervalInfo dateIntervalInfo = new DateIntervalInfo(new ULocale("ca"));
+        DateIntervalFormat dateIntervalFormat = DateIntervalFormat.getInstance(
+                DateFormat.YEAR_MONTH, Locale.GERMAN, dateIntervalInfo);
+        Calendar from = Calendar.getInstance();
+        from.set(2000, Calendar.JANUARY, 1, 12, 0);
+        Calendar to = Calendar.getInstance();
+        to.set(2001, Calendar.FEBRUARY, 1, 12, 0);
+        DateInterval interval = new DateInterval(from.getTimeInMillis(), to.getTimeInMillis());
+        dateIntervalFormat.setTimeZone(from.getTimeZone());
+        // Month names are German, format is Catalan
+        assertEquals("Wrong date interval",
+                "Januar de 2000 – Februar de 2001", dateIntervalFormat.format(interval));
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testParseObject_notSupported() throws ParseException {
+        DateIntervalFormat.getInstance(DateFormat.YEAR_MONTH).parseObject("");
+    }
+
+    @Test
+    public void TestDateIntervalFormatCoverage() throws Exception{
+        long date1 = 1299090600000L;
+        long date2 = 1299115800000L;
+        DateInterval dtitv = new DateInterval(date1, date2);
+        DateIntervalFormat dtitvfmt = DateIntervalFormat.getInstance("MMMd", Locale.ENGLISH);
+        DateIntervalInfo dtintinf = new DateIntervalInfo(ULocale.ENGLISH);
+
+        // Check the default private constructor
+        checkDefaultPrivateConstructor(DateIntervalFormat.class);
+
+        // Check clone
+        DateIntervalFormat dtitvfmtClone = (DateIntervalFormat) dtitvfmt.clone();
+        assertEquals("DateIntervalFormat.clone() failed", dtitvfmt.format(dtitv), dtitvfmtClone.format(dtitv));
+
+        // Coverage for getInstance
+        assertNotNull("Expected DateIntervalFormat object", DateIntervalFormat.getInstance("MMMd", dtintinf));
+        assertNotNull("Expected DateIntervalFormat object",
+                DateIntervalFormat.getInstance("MMMdHHmm", Locale.ENGLISH, dtintinf));
+
+        // Coverage for parseObject. Exception expected.
+        try {
+            dtitvfmt.parseObject("", new ParsePosition(0));
+            errln("Exception was expected when calling DateIntervalFormat.parseObject()");
+        } catch (Exception e) { /* No op */ }
+
+        // Check getPatterns()
+        Output<String> secondPart = new Output<String>();
+        Calendar fromCalendar = Calendar.getInstance(Locale.ENGLISH);
+        fromCalendar.set(2016, 5, 22);
+        Calendar toCalendar= Calendar.getInstance(Locale.ENGLISH);
+        toCalendar.set(2016, 5, 23);
+        assertEquals("Date interval pattern mismatch.",
+                dtitvfmt.getPatterns(fromCalendar, toCalendar, secondPart), "MMM d – ");
+        assertEquals("Date interval pattern mismatch.", secondPart.value, "d");
+    }
+
+    @Test
     public void TestTicket9919GetInstance() {
         // Creating a DateIntervalFormat with a custom DateIntervalInfo
         // object used to corrupt the cache.
@@ -1377,6 +1473,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
 
     }
 
+    @Test
     public void TestTicket9919Setter() {
 
         // Creating a DateIntervalFormat with a custom DateIntervalInfo
@@ -1415,6 +1512,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
                 .toString()); 
     }
 
+    @Test
     public void TestTicket9914() {
         DateIntervalInfo dateIntervalInfo =
                 new DateIntervalInfo(ULocale.ENGLISH);
@@ -1448,6 +1546,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
                 .toString());
     }
 
+    @Test
     public void TestTicket11583 () {
         ULocale[] locales = {
                 ULocale.ENGLISH, 
@@ -1536,6 +1635,7 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
         return false;
     }
 
+    @Test
     public void TestFPos_SkelWithSeconds () {
         
         final long[] deltas = {
@@ -1718,6 +1818,74 @@ public class DateIntervalFormatTest extends android.icu.dev.test.TestFmwk {
                            ": expect " + expectPosFmt.posBegin + "-" + expectPosFmt.posEnd + " \"" + expectPosFmt.format +
                            "\"; get " + pos.getBeginIndex() + "-" + pos.getEndIndex() + " \"" + actualString + "\"");
                 }
+            }
+        }
+    }
+
+    // TestTicket11669 - Check the thread safety of DateIntervalFormat.format().
+    //                   This test failed with ICU 56.
+    @Test
+    public void TestTicket11669 () {
+        // These final variables are accessed directly by the concurrent threads.
+        final DateIntervalFormat formatter = DateIntervalFormat.getInstance(DateFormat.YEAR_MONTH_DAY, ULocale.US);
+        final ArrayList<DateInterval> testIntervals = new ArrayList<DateInterval>();
+        final ArrayList<String>expectedResults = new ArrayList<String>();
+        
+        // Create and save the input test data.
+        TimeZone tz = TimeZone.getTimeZone("Americal/Los_Angeles");
+        Calendar intervalStart = Calendar.getInstance(tz, ULocale.US);
+        Calendar intervalEnd = Calendar.getInstance(tz, ULocale.US);        
+        intervalStart.set(2009,  6, 1);
+        intervalEnd.set(2009, 6, 2);
+        testIntervals.add(new DateInterval(intervalStart.getTimeInMillis(), intervalEnd.getTimeInMillis()));        
+        intervalStart.set(2015, 2, 27);
+        intervalEnd.set(2015, 3, 1);
+        testIntervals.add(new DateInterval(intervalStart.getTimeInMillis(), intervalEnd.getTimeInMillis()));
+        
+        // Run the formatter single-threaded to create and save the expected results.
+        for (DateInterval interval: testIntervals) {
+            FieldPosition pos = new FieldPosition(0);
+            StringBuffer result = new StringBuffer();
+            formatter.format(interval, result, pos);
+            expectedResults.add(result.toString());
+        }
+               
+        class TestThread extends Thread {
+            public String errorMessage;
+            public void run() {
+                for (int loop=0; loop < 2000; ++loop) {
+                    ListIterator<String> expectedItr = expectedResults.listIterator();
+                    for (DateInterval interval: testIntervals) {
+                        String expected = expectedItr.next();
+                        FieldPosition pos = new FieldPosition(0);
+                        StringBuffer result = new StringBuffer();
+                        formatter.format(interval, result, pos);
+                        if (!expected.equals(result.toString())) {
+                            // Note: The ICU test framework doesn't support reporting failures from within a sub-thread.
+                            //       Save the failure for the main thread to pick up later.
+                            errorMessage = String.format("Expected \"%s\", actual \"%s\"", expected, result);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        List<TestThread> threads = new ArrayList<TestThread>();
+        for (int i=0; i<4; ++i) {
+            threads.add(new TestThread());
+        }
+        for (Thread t: threads) {
+            t.start();
+        }
+        for (TestThread t: threads) {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                fail("Unexpected exception: " + e.toString());
+            }
+            if (t.errorMessage != null) {
+                fail(t.errorMessage);
             }
         }
     }

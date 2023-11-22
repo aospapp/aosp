@@ -354,6 +354,8 @@ private:
         ComponentSetConfig(OMX_INDEXTYPE nIndex,
                            OMX_PTR pComponentConfigStructure) = 0;
 
+    virtual OMX_COLOR_FORMATTYPE GetOutputColorFormat(int width);
+
     /* buffer processing */
     /* implement WorkableInterface */
     virtual void Work(void); /* handle this->ports, hold ports_block */

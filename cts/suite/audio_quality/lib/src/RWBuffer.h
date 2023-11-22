@@ -25,7 +25,7 @@
 /// utility for R/W buffer
 class RWBuffer {
 public:
-    RWBuffer(int capacity)
+    explicit RWBuffer(int capacity)
         : mCapacity(capacity),
           mWrPoint(0),
           mRdPoint(0) {

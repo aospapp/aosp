@@ -38,6 +38,9 @@ public class LocalServerSocketTest extends TestCase {
         clientSocket.connect(new LocalSocketAddress(address));
         LocalSocket serverSocket = localServerSocket.accept();
 
+        assertTrue(serverSocket.isConnected());
+        assertTrue(serverSocket.isBound());
+
         // send data from client to server
         OutputStream clientOutStream = clientSocket.getOutputStream();
         clientOutStream.write(12);

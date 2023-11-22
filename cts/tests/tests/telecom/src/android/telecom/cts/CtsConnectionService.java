@@ -30,6 +30,7 @@ import android.util.Log;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * This is the official ConnectionService for Telecom's CTS App. Since telecom requires that a
@@ -44,8 +45,9 @@ import java.util.Collections;
  *                     Telecom framework to the test connection service.
  * sTelecomConnectionService: Contains the connection service object registered to the Telecom
  *                            framework. We use this object to forward any communication from the
- *                            test connection service to the Telecom framework.
- *
+ *                            test connection service to the Telecom framework. After Telecom
+ *                            binds to CtsConnectionService, this is set to be the instance of
+ *                            CtsConnectionService created by the framework after Telecom binds.
  */
 public class CtsConnectionService extends ConnectionService {
     private static String LOG_TAG = "CtsConnectionService";
@@ -53,28 +55,18 @@ public class CtsConnectionService extends ConnectionService {
     private static ConnectionService sConnectionService;
     // This is the connection service registered with Telecom
     private static ConnectionService sTelecomConnectionService;
-    private static boolean mIsServiceBound = false;
+    private static boolean sIsBound = false;
+    private static CountDownLatch sServiceUnBoundLatch = new CountDownLatch(1);
 
     public CtsConnectionService() throws Exception {
         super();
         sTelecomConnectionService = this;
-        // Cant override the onBind method for ConnectionService, so reset it here.
-        mIsServiceBound = true;
+        sIsBound = true;
     }
 
-    // ConnectionService used by default as a fallback if no connection service is specified
-    // during test setup.
-    private static ConnectionService mMockConnectionService = new MockConnectionService();
-
-    /**
-     * Used to control whether the {@link MockVideoProvider} will be created when connections are
-     * created.  Used by {@link VideoCallTest#testVideoCallDelayProvider()} to test scenario where
-     * the {@link MockVideoProvider} is not created immediately when the Connection is created.
-     */
     private static Object sLock = new Object();
 
-    public static void setUp(PhoneAccountHandle phoneAccountHandle,
-            ConnectionService connectionService) throws Exception {
+    public static void setUp(ConnectionService connectionService) throws Exception {
         synchronized(sLock) {
             if (sConnectionService != null) {
                 throw new Exception("Mock ConnectionService exists.  Failed to call tearDown().");
@@ -98,8 +90,7 @@ public class CtsConnectionService extends ConnectionService {
                 return sConnectionService.onCreateOutgoingConnection(
                         connectionManagerPhoneAccount, request);
             } else {
-                return mMockConnectionService.onCreateOutgoingConnection(
-                        connectionManagerPhoneAccount, request);
+                return null;
             }
         }
     }
@@ -112,8 +103,7 @@ public class CtsConnectionService extends ConnectionService {
                 return sConnectionService.onCreateIncomingConnection(
                         connectionManagerPhoneAccount, request);
             } else {
-                return mMockConnectionService.onCreateIncomingConnection(
-                        connectionManagerPhoneAccount, request);
+                return null;
             }
         }
     }
@@ -123,8 +113,6 @@ public class CtsConnectionService extends ConnectionService {
         synchronized(sLock) {
             if (sConnectionService != null) {
                 sConnectionService.onConference(connection1, connection2);
-            } else {
-                mMockConnectionService.onConference(connection1, connection2);
             }
         }
     }
@@ -134,8 +122,6 @@ public class CtsConnectionService extends ConnectionService {
         synchronized(sLock) {
             if (sConnectionService != null) {
                 sConnectionService.onRemoteExistingConnectionAdded(connection);
-            } else {
-                mMockConnectionService.onRemoteExistingConnectionAdded(connection);
             }
         }
     }
@@ -185,8 +171,6 @@ public class CtsConnectionService extends ConnectionService {
         synchronized(sLock) {
             if (sConnectionService != null) {
                 sConnectionService.onRemoteConferenceAdded(conference);
-            } else {
-                mMockConnectionService.onRemoteConferenceAdded(conference);
             }
         }
     }
@@ -194,16 +178,22 @@ public class CtsConnectionService extends ConnectionService {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.i(LOG_TAG, "Service has been unbound");
-        assertTrue(mIsServiceBound);
-        mIsServiceBound = false;
+        sServiceUnBoundLatch.countDown();
+        sIsBound = false;
+        sConnectionService = null;
         return super.onUnbind(intent);
-    }
-
-    public static boolean isServiceBound() {
-        return mIsServiceBound;
     }
 
     public static boolean isServiceRegisteredToTelecom() {
         return sTelecomConnectionService != null;
+    }
+
+    public static boolean isBound() {
+        return sIsBound;
+    }
+
+    public static boolean waitForUnBinding() {
+        sServiceUnBoundLatch = TestUtils.waitForLock(sServiceUnBoundLatch);
+        return sServiceUnBoundLatch != null;
     }
 }

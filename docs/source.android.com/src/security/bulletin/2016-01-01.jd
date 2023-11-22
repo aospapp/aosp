@@ -1,4 +1,4 @@
-page.title=Nexus Security Bulletin - January 2016
+page.title=Nexus Security Bulletin—January 2016
 @jd:body
 
 <!--
@@ -24,7 +24,7 @@ page.title=Nexus Security Bulletin - January 2016
   </div>
 </div>
 
-<p><em>Published January 04, 2016 | Updated January 06, 2016</em></p>
+<p><em>Published January 04, 2016 | Updated April 28, 2016</em></p>
 
 <p>We have released a security update to Nexus devices through an over-the-air
 (OTA) update as part of our Android Security Bulletin Monthly Release process.
@@ -40,7 +40,9 @@ enable remote code execution on an affected device through multiple methods
 such as email, web browsing, and MMS when processing media files.</p>
 
 <p>We have had no reports of active customer exploitation of these newly reported
-issues. Refer to the <a href="#mitigations">Mitigations</a> section for details on the <a href="https://source.android.com/security/enhancements/">Android security platform protections</a> and service protections such as SafetyNet, which improve the security of the
+issues. Refer to the <a href="#mitigations">Mitigations</a> section for details on the
+<a href="{@docRoot}security/enhancements/index.html">Android security platform protections</a>
+and service protections such as SafetyNet, which improve the security of the
 Android platform. We encourage all customers to accept these updates to their
 devices.</p>
 
@@ -48,7 +50,9 @@ devices.</p>
 
 
 <p>The table below contains a list of security vulnerabilities, the Common
-Vulnerability and Exposures ID (CVE), and their assessed severity. The <a href="https://source.android.com/security/overview/updates-resources.html#severity">severity assessment</a> is based on the effect that exploiting the vulnerability would have on an
+Vulnerability and Exposures ID (CVE), and their assessed severity. The
+<a href="{@docRoot}security/overview/updates-resources.html#severity">severity assessment</a>
+is based on the effect that exploiting the vulnerability would have on an
 affected device, assuming the platform and service mitigations are disabled for
 development purposes or if successfully bypassed.</p>
 <table>
@@ -74,7 +78,8 @@ development purposes or if successfully bypassed.</p>
  </tr>
  <tr>
     <td>Elevation of Privilege Vulnerabilities in Trustzone</td>
-    <td>CVE-2015-6639</td>
+    <td>CVE-2015-6639<br />
+        CVE-2015-6647</td>
     <td>Critical</td>
  </tr>
  <tr>
@@ -123,7 +128,9 @@ development purposes or if successfully bypassed.</p>
 <h2 id=mitigations>Mitigations</h2>
 
 
-<p>This is a summary of the mitigations provided by the <a href="https://source.android.com/security/enhancements/index.html">Android security platform</a> and service protections such as SafetyNet. These capabilities reduce the
+<p>This is a summary of the mitigations provided by the
+<a href="{@docRoot}security/enhancements/index.html">Android security platform</a>
+and service protections such as SafetyNet. These capabilities reduce the
 likelihood that security vulnerabilities could be successfully exploited on
 Android.</p>
 
@@ -151,14 +158,16 @@ pass media to processes such as mediaserver.
 
 <ul>
   <li> Abhishek Arya, Oliver Chang, and Martin Barbella of Google Chrome Security
-Team: CVE-2015-6636, CVE-2015-6617
-  <li> Sen Nie (<a href="https://twitter.com/@nforest_">@nforest_</a>) and jfang of KEEN lab, Tencent (<a href="https://twitter.com/k33nteam">@K33nTeam</a>): CVE-2015-6637
+       Team: CVE-2015-6636
+  <li> Sen Nie (<a href="https://twitter.com/@nforest_">@nforest_</a>) and jfang of KEEN lab, Tencent
+       (<a href="https://twitter.com/k33nteam">@K33nTeam</a>): CVE-2015-6637
   <li> Yabin Cui from Android Bionic Team: CVE-2015-6640
   <li> Tom Craig of Google X: CVE-2015-6641
   <li> Jann Horn (<a href="https://thejh.net">https://thejh.net</a>): CVE-2015-6642
   <li> Jouni Malinen PGP id EFC895FA: CVE-2015-5310
   <li> Quan Nguyen of Google Information Security Engineer Team: CVE-2015-6644
-  <li> Gal Beniamini (<a href="https://twitter.com/@laginimaineb">@laginimaineb</a>, <a href="http://bits-please.blogspot.com">http://bits-please.blogspot.com</a>): CVE-2015-6639
+  <li> Gal Beniamini (<a href="https://twitter.com/@laginimaineb">@laginimaineb</a>,
+       <a href="http://bits-please.blogspot.com">http://bits-please.blogspot.com</a>): CVE-2015-6639
 </ul>
 
 <h2 id=security_vulnerability_details>Security Vulnerability Details</h2>
@@ -528,3 +537,4 @@ manufacturers that include these updates should set the patch string level to:
 <ul>
   <li> January 04, 2016: Bulletin published.
   <li> January 06, 2016: Bulletin revised to include AOSP links.
+  <li> April 28, 2016: Removed CVE-2015-6617 from Acknowledgements and added CVE-2015-6647 to summary table

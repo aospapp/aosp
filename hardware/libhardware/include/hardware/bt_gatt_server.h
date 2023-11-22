@@ -19,6 +19,7 @@
 #define ANDROID_INCLUDE_BT_GATT_SERVER_H
 
 #include <stdint.h>
+#include <vector>
 
 #include "bt_gatt_types.h"
 
@@ -53,23 +54,7 @@ typedef void (*connection_callback)(int conn_id, int server_if, int connected,
 
 /** Callback invoked in response to create_service */
 typedef void (*service_added_callback)(int status, int server_if,
-                btgatt_srvc_id_t *srvc_id, int srvc_handle);
-
-/** Callback indicating that an included service has been added to a service */
-typedef void (*included_service_added_callback)(int status, int server_if,
-                int srvc_handle, int incl_srvc_handle);
-
-/** Callback invoked when a characteristic has been added to a service */
-typedef void (*characteristic_added_callback)(int status, int server_if,
-                bt_uuid_t *uuid, int srvc_handle, int char_handle);
-
-/** Callback invoked when a descriptor has been added to a characteristic */
-typedef void (*descriptor_added_callback)(int status, int server_if,
-                bt_uuid_t *uuid, int srvc_handle, int descr_handle);
-
-/** Callback invoked in response to start_service */
-typedef void (*service_started_callback)(int status, int server_if,
-                                         int srvc_handle);
+                                       std::vector<btgatt_db_element_t> service);
 
 /** Callback invoked in response to stop_service */
 typedef void (*service_stopped_callback)(int status, int server_if,
@@ -91,8 +76,8 @@ typedef void (*request_read_callback)(int conn_id, int trans_id, bt_bdaddr_t *bd
  * characteristic or descriptor.
  */
 typedef void (*request_write_callback)(int conn_id, int trans_id, bt_bdaddr_t *bda,
-                                       int attr_handle, int offset, int length,
-                                       bool need_rsp, bool is_prep, uint8_t* value);
+                                       int attr_handle, int offset, bool need_rsp,
+                                       bool is_prep, std::vector<uint8_t> value);
 
 /** Callback invoked when a previously prepared write is to be executed */
 typedef void (*request_exec_write_callback)(int conn_id, int trans_id,
@@ -120,23 +105,31 @@ typedef void (*congestion_callback)(int conn_id, bool congested);
 /** Callback invoked when the MTU for a given connection changes */
 typedef void (*mtu_changed_callback)(int conn_id, int mtu);
 
+/** Callback invoked when the PHY for a given connection changes */
+typedef void (*phy_updated_callback)(int conn_id, uint8_t tx_phy,
+                                     uint8_t rx_phy, uint8_t status);
+
+/** Callback invoked when the connection parameters for a given connection changes */
+typedef void (*conn_updated_callback)(int conn_id, uint16_t interval,
+                                      uint16_t latency, uint16_t timeout,
+                                      uint8_t status);
 typedef struct {
     register_server_callback        register_server_cb;
     connection_callback             connection_cb;
     service_added_callback          service_added_cb;
-    included_service_added_callback included_service_added_cb;
-    characteristic_added_callback   characteristic_added_cb;
-    descriptor_added_callback       descriptor_added_cb;
-    service_started_callback        service_started_cb;
     service_stopped_callback        service_stopped_cb;
     service_deleted_callback        service_deleted_cb;
-    request_read_callback           request_read_cb;
-    request_write_callback          request_write_cb;
+    request_read_callback           request_read_characteristic_cb;
+    request_read_callback           request_read_descriptor_cb;
+    request_write_callback          request_write_characteristic_cb;
+    request_write_callback          request_write_descriptor_cb;
     request_exec_write_callback     request_exec_write_cb;
     response_confirmation_callback  response_confirmation_cb;
     indication_sent_callback        indication_sent_cb;
     congestion_callback             congestion_cb;
     mtu_changed_callback            mtu_changed_cb;
+    phy_updated_callback            phy_updated_cb;
+    conn_updated_callback           conn_updated_cb;
 } btgatt_server_callbacks_t;
 
 /** Represents the standard BT-GATT server interface. */
@@ -156,23 +149,7 @@ typedef struct {
                     int conn_id );
 
     /** Create a new service */
-    bt_status_t (*add_service)( int server_if, btgatt_srvc_id_t *srvc_id, int num_handles);
-
-    /** Assign an included service to it's parent service */
-    bt_status_t (*add_included_service)( int server_if, int service_handle, int included_handle);
-
-    /** Add a characteristic to a service */
-    bt_status_t (*add_characteristic)( int server_if,
-                    int service_handle, bt_uuid_t *uuid,
-                    int properties, int permissions);
-
-    /** Add a descriptor to a given service */
-    bt_status_t (*add_descriptor)(int server_if, int service_handle,
-                                  bt_uuid_t *uuid, int permissions);
-
-    /** Starts a local service */
-    bt_status_t (*start_service)(int server_if, int service_handle,
-                                 int transport);
+    bt_status_t (*add_service)(int server_if, std::vector<btgatt_db_element_t> service);
 
     /** Stops a local service */
     bt_status_t (*stop_service)(int server_if, int service_handle);
@@ -182,12 +159,20 @@ typedef struct {
 
     /** Send value indication to a remote device */
     bt_status_t (*send_indication)(int server_if, int attribute_handle,
-                                   int conn_id, int len, int confirm,
-                                   char* p_value);
+                                   int conn_id, int confirm,
+                                   std::vector<uint8_t> value);
 
     /** Send a response to a read/write operation */
     bt_status_t (*send_response)(int conn_id, int trans_id,
                                  int status, btgatt_response_t *response);
+
+    bt_status_t (*set_preferred_phy)(int conn_id, uint8_t tx_phy,
+                                     uint8_t rx_phy, uint16_t phy_options);
+
+    bt_status_t (*read_phy)(
+        int conn_id,
+        base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)>
+            cb);
 
 } btgatt_server_interface_t;
 

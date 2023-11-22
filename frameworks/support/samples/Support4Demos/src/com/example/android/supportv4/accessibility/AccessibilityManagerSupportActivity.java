@@ -23,7 +23,6 @@ import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.support.v4.accessibilityservice.AccessibilityServiceInfoCompat;
 import android.support.v4.view.accessibility.AccessibilityManagerCompat;
-import android.support.v4.view.accessibility.AccessibilityManagerCompat.AccessibilityStateChangeListenerCompat;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -62,7 +61,7 @@ public class AccessibilityManagerSupportActivity extends Activity {
         setContentView(R.layout.accessibility_manager);
         mAccessibilityManager = (AccessibilityManager) getSystemService(
                 Service.ACCESSIBILITY_SERVICE);
-        mAccessibilityStateView = (TextView) findViewById(R.id.accessibility_state);
+        mAccessibilityStateView = findViewById(R.id.accessibility_state);
         registerAccessibilityStateChangeListener();
     }
 
@@ -85,11 +84,12 @@ public class AccessibilityManagerSupportActivity extends Activity {
         // platform API version is lower and the called API is not available no listener
         // is added and you will not receive a call of onAccessibilityStateChanged.
         AccessibilityManagerCompat.addAccessibilityStateChangeListener(mAccessibilityManager,
-                new AccessibilityStateChangeListenerCompat() {
+                new AccessibilityManagerCompat.AccessibilityStateChangeListener() {
             @Override
             public void onAccessibilityStateChanged(boolean enabled) {
                 Toast.makeText(AccessibilityManagerSupportActivity.this,
-                        getString(R.string.accessibility_manager_accessibility_state, enabled),
+                        getString(R.string.accessibility_manager_accessibility_state,
+                                Boolean.toString(enabled)),
                         Toast.LENGTH_SHORT).show();
             }
         });
@@ -114,13 +114,14 @@ public class AccessibilityManagerSupportActivity extends Activity {
                 AccessibilityServiceInfo service = enabledServices.get(i);
                 // Some new APIs were added in ICS for getting more information about
                 // an accessibility service. Again accessed them via the support library.
-                ResolveInfo resolveInfo = AccessibilityServiceInfoCompat.getResolveInfo(service);
+                ResolveInfo resolveInfo = service.getResolveInfo();
                 String serviceDescription = getString(
                         R.string.accessibility_manager_enabled_service,
                         resolveInfo.loadLabel(getPackageManager()),
                         AccessibilityServiceInfoCompat.feedbackTypeToString(service.feedbackType),
-                        AccessibilityServiceInfoCompat.getDescription(service),
-                        AccessibilityServiceInfoCompat.getSettingsActivityName(service));
+                        AccessibilityServiceInfoCompat.loadDescription(
+                                service, getPackageManager()),
+                        service.getSettingsActivityName());
                 builder.append(serviceDescription);
             }
             mAccessibilityStateView.setText(builder);

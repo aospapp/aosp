@@ -33,7 +33,7 @@
 #define DEFAULT_DATA_SIZE       1000000000
 
 // The amount of memory allocated for the cold benchmarks to use.
-#define DEFAULT_COLD_DATA_SIZE  128*1024*1024
+#define DEFAULT_COLD_DATA_SIZE  (128*1024*1024)
 
 // The default size of the stride between each buffer for cold benchmarks.
 #define DEFAULT_COLD_STRIDE_SIZE  4096
@@ -197,9 +197,9 @@ static void inline printColdSummary(
 
 #define MAINLOOP(cmd_data, BENCH, COMPUTE_AVG, PRINT_ITER, PRINT_AVG) \
     uint64_t time_ns;                                                 \
-    int iters = cmd_data.args[1];                                     \
-    bool print_average = cmd_data.print_average;                      \
-    bool print_each_iter = cmd_data.print_each_iter;                  \
+    int iters = (cmd_data).args[1];                                   \
+    bool print_average = (cmd_data).print_average;                    \
+    bool print_each_iter = (cmd_data).print_each_iter;                \
     double min = 0.0, max = 0.0, running_avg = 0.0, square_avg = 0.0; \
     double avg;                                                       \
     for (int i = 0; iters == -1 || i < iters; i++) {                  \
@@ -226,7 +226,7 @@ static void inline printColdSummary(
     }
 
 #define MAINLOOP_DATA(name, cmd_data, size, BENCH)                    \
-    size_t copies = cmd_data.data_size/size;                          \
+    size_t copies = (cmd_data).data_size/(size);                      \
     size_t j;                                                         \
     MAINLOOP(cmd_data,                                                \
              for (j = 0; j < copies; j++) {                           \
@@ -239,14 +239,14 @@ static void inline printColdSummary(
                           std_dev, min, max));
 
 #define MAINLOOP_COLD(name, cmd_data, size, num_incrs, BENCH)                 \
-    size_t num_strides = num_buffers / num_incrs;                             \
-    if ((num_buffers % num_incrs) != 0) {                                     \
+    size_t num_strides = num_buffers / (num_incrs);                           \
+    if ((num_buffers % (num_incrs)) != 0) {                                   \
         num_strides--;                                                        \
     }                                                                         \
     size_t copies = 1;                                                        \
-    num_buffers = num_incrs * num_strides;                                    \
-    if (num_buffers * size < static_cast<size_t>(cmd_data.data_size)) {       \
-        copies = cmd_data.data_size / (num_buffers * size);                   \
+    num_buffers = (num_incrs) * num_strides;                                  \
+    if (num_buffers * (size) < static_cast<size_t>((cmd_data).data_size)) {   \
+        copies = (cmd_data).data_size / (num_buffers * (size));               \
     }                                                                         \
     if (num_strides == 0) {                                                   \
         printf("%s: Chosen options lead to no copies, aborting.\n", name);    \
@@ -255,7 +255,7 @@ static void inline printColdSummary(
     size_t j, k;                                                              \
     MAINLOOP(cmd_data,                                                        \
              for (j = 0; j < copies; j++) {                                   \
-                 for (k = 0; k < num_incrs; k++) {                            \
+                 for (k = 0; k < (num_incrs); k++) {                          \
                      BENCH;                                                   \
                 }                                                             \
             },                                                                \
@@ -271,8 +271,8 @@ static void inline printColdSummary(
 //        be executed once.
 // BENCH - The actual code to benchmark and is timed.
 #define BENCH_ONE_BUF(name, cmd_data, INIT, BENCH)                            \
-    size_t size = cmd_data.args[0]; \
-    uint8_t *buf = allocateAlignedMemory(size, cmd_data.dst_align, cmd_data.dst_or_mask); \
+    size_t size = (cmd_data).args[0];                                         \
+    uint8_t *buf = allocateAlignedMemory(size, (cmd_data).dst_align, (cmd_data).dst_or_mask); \
     if (!buf)                                                                 \
         return -1;                                                            \
     INIT;                                                                     \
@@ -285,14 +285,14 @@ static void inline printColdSummary(
 //        be executed once.
 // BENCH - The actual code to benchmark and is timed.
 #define BENCH_TWO_BUFS(name, cmd_data, INIT, BENCH)                           \
-    size_t size = cmd_data.args[0];                                           \
-    uint8_t *buf1 = allocateAlignedMemory(size, cmd_data.src_align, cmd_data.src_or_mask); \
+    size_t size = (cmd_data).args[0];                                         \
+    uint8_t *buf1 = allocateAlignedMemory(size, (cmd_data).src_align, (cmd_data).src_or_mask); \
     if (!buf1)                                                                \
         return -1;                                                            \
     size_t total_size = size;                                                 \
-    if (cmd_data.dst_str_size > 0)                                            \
-        total_size += cmd_data.dst_str_size;                                  \
-    uint8_t *buf2 = allocateAlignedMemory(total_size, cmd_data.dst_align, cmd_data.dst_or_mask); \
+    if ((cmd_data).dst_str_size > 0)                                          \
+        total_size += (cmd_data).dst_str_size;                                \
+    uint8_t *buf2 = allocateAlignedMemory(total_size, (cmd_data).dst_align, (cmd_data).dst_or_mask); \
     if (!buf2)                                                                \
         return -1;                                                            \
     INIT;                                                                     \
@@ -312,19 +312,19 @@ static void inline printColdSummary(
 //        be executed once.
 // BENCH - The actual code to benchmark and is timed.
 #define COLD_ONE_BUF(name, cmd_data, INIT, BENCH)                             \
-    size_t size = cmd_data.args[0];                                           \
-    size_t incr = getAlignmentIncrement(size, cmd_data.dst_align);            \
-    size_t num_buffers = cmd_data.cold_data_size / incr;                      \
+    size_t size = (cmd_data).args[0];                                         \
+    size_t incr = getAlignmentIncrement(size, (cmd_data).dst_align);          \
+    size_t num_buffers = (cmd_data).cold_data_size / incr;                    \
     size_t buffer_size = num_buffers * incr;                                  \
-    uint8_t *buffer = getColdBuffer(num_buffers, incr, cmd_data.dst_align, cmd_data.dst_or_mask); \
+    uint8_t *buffer = getColdBuffer(num_buffers, incr, (cmd_data).dst_align, (cmd_data).dst_or_mask); \
     if (!buffer)                                                              \
         return -1;                                                            \
-    size_t num_incrs = cmd_data.cold_stride_size / incr + 1;                  \
+    size_t num_incrs = (cmd_data).cold_stride_size / incr + 1;                \
     size_t stride_incr = incr * num_incrs;                                    \
     uint8_t *buf;                                                             \
     size_t l;                                                                 \
     INIT;                                                                     \
-    MAINLOOP_COLD(name, cmd_data, size, num_incrs,                            \
+    MAINLOOP_COLD(name, (cmd_data), size, num_incrs,                          \
                   buf = buffer + k * incr;                                    \
                   for (l = 0; l < num_strides; l++) {                         \
                       BENCH;                                                  \
@@ -345,31 +345,31 @@ static void inline printColdSummary(
 //        be executed once.
 // BENCH - The actual code to benchmark and is timed.
 #define COLD_TWO_BUFS(name, cmd_data, INIT, BENCH)                            \
-    size_t size = cmd_data.args[0];                                           \
-    size_t buf1_incr = getAlignmentIncrement(size, cmd_data.src_align);       \
+    size_t size = (cmd_data).args[0];                                         \
+    size_t buf1_incr = getAlignmentIncrement(size, (cmd_data).src_align);     \
     size_t total_size = size;                                                 \
-    if (cmd_data.dst_str_size > 0)                                            \
-        total_size += cmd_data.dst_str_size;                                  \
-    size_t buf2_incr = getAlignmentIncrement(total_size, cmd_data.dst_align); \
+    if ((cmd_data).dst_str_size > 0)                                          \
+        total_size += (cmd_data).dst_str_size;                                \
+    size_t buf2_incr = getAlignmentIncrement(total_size, (cmd_data).dst_align); \
     size_t max_incr = (buf1_incr > buf2_incr) ? buf1_incr : buf2_incr;        \
-    size_t num_buffers = cmd_data.cold_data_size / max_incr;                  \
+    size_t num_buffers = (cmd_data).cold_data_size / max_incr;                \
     size_t buffer1_size = num_buffers * buf1_incr;                            \
     size_t buffer2_size = num_buffers * buf2_incr;                            \
-    uint8_t *buffer1 = getColdBuffer(num_buffers, buf1_incr, cmd_data.src_align, cmd_data.src_or_mask); \
+    uint8_t *buffer1 = getColdBuffer(num_buffers, buf1_incr, (cmd_data).src_align, (cmd_data).src_or_mask); \
     if (!buffer1)                                                             \
         return -1;                                                            \
-    uint8_t *buffer2 = getColdBuffer(num_buffers, buf2_incr, cmd_data.dst_align, cmd_data.dst_or_mask); \
+    uint8_t *buffer2 = getColdBuffer(num_buffers, buf2_incr, (cmd_data).dst_align, (cmd_data).dst_or_mask); \
     if (!buffer2)                                                             \
         return -1;                                                            \
     size_t min_incr = (buf1_incr < buf2_incr) ? buf1_incr : buf2_incr;        \
-    size_t num_incrs = cmd_data.cold_stride_size / min_incr + 1;              \
+    size_t num_incrs = (cmd_data).cold_stride_size / min_incr + 1;            \
     size_t buf1_stride_incr = buf1_incr * num_incrs;                          \
     size_t buf2_stride_incr = buf2_incr * num_incrs;                          \
     size_t l;                                                                 \
     uint8_t *buf1;                                                            \
     uint8_t *buf2;                                                            \
     INIT;                                                                     \
-    MAINLOOP_COLD(name, cmd_data, size, num_incrs,                            \
+    MAINLOOP_COLD(name, (cmd_data), size, num_incrs,                          \
                   buf1 = buffer1 + k * buf1_incr;                             \
                   buf2 = buffer2 + k * buf2_incr;                             \
                   for (l = 0; l < num_strides; l++) {                         \

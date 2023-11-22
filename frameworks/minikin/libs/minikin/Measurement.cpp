@@ -15,15 +15,16 @@
  */
 
 #define LOG_TAG "Minikin"
-#include <cutils/log.h>
 
 #include <cmath>
 #include <unicode/uchar.h>
 
+#include <android/log.h>
+
 #include <minikin/GraphemeBreak.h>
 #include <minikin/Measurement.h>
 
-namespace android {
+namespace minikin {
 
 // These could be considered helper methods of layout, but need only be loosely coupled, so
 // are separate.
@@ -53,7 +54,8 @@ static float getRunAdvance(const float* advances, const uint16_t* buf, size_t la
         int numGraphemeClustersAfter = 0;
         for (size_t i = lastCluster; i < nextCluster; i++) {
             bool isAfter = i >= offset;
-            if (GraphemeBreak::isGraphemeBreak(buf, start, count, i)) {
+            if (GraphemeBreak::isGraphemeBreak(
+                    advances + (start - layoutStart), buf, start, count, i)) {
                 numGraphemeClusters++;
                 if (isAfter) {
                     numGraphemeClustersAfter++;
@@ -85,7 +87,7 @@ size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t st
     float x = 0.0f, xLastClusterStart = 0.0f, xSearchStart = 0.0f;
     size_t lastClusterStart = start, searchStart = start;
     for (size_t i = start; i < start + count; i++) {
-        if (GraphemeBreak::isGraphemeBreak(buf, start, count, i)) {
+        if (GraphemeBreak::isGraphemeBreak(advances, buf, start, count, i)) {
             searchStart = lastClusterStart;
             xSearchStart = xLastClusterStart;
         }
@@ -102,7 +104,7 @@ size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t st
     size_t best = searchStart;
     float bestDist = FLT_MAX;
     for (size_t i = searchStart; i <= start + count; i++) {
-        if (GraphemeBreak::isGraphemeBreak(buf, start, count, i)) {
+        if (GraphemeBreak::isGraphemeBreak(advances, buf, start, count, i)) {
             // "getRunAdvance(layout, buf, start, count, i) - advance" but more efficient
             float delta = getRunAdvance(advances, buf, start, searchStart, count - searchStart, i)
 
@@ -119,4 +121,4 @@ size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t st
     return best;
 }
 
-}
+}  // namespace minikin

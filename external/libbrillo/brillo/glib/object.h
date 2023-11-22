@@ -10,10 +10,10 @@
 
 #include <base/logging.h>
 #include <base/macros.h>
-#include <base/memory/scoped_ptr.h>
 
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <string>
 
 namespace brillo {
@@ -61,7 +61,7 @@ class ResetHelper {
 //   *x = new int(10);
 // }
 // ...
-// scoped_ptr<int> x;
+// std::unique_ptr<int> x;
 // function(Resetter(x).lvalue());
 //
 // \end_example
@@ -314,7 +314,7 @@ struct FreeError {
   }
 };
 
-typedef ::scoped_ptr< ::GError, FreeError> ScopedError;
+typedef std::unique_ptr< ::GError, FreeError> ScopedError;
 
 // \brief ScopedArray holds a ::GArray* and deletes both the container and the
 // segment containing the elements on destruction.
@@ -326,7 +326,7 @@ struct FreeArray {
   }
 };
 
-typedef ::scoped_ptr< ::GArray, FreeArray> ScopedArray;
+typedef std::unique_ptr< ::GArray, FreeArray> ScopedArray;
 
 // \brief ScopedPtrArray adapts ::GPtrArray* to conform to the standard
 //  container requirements.

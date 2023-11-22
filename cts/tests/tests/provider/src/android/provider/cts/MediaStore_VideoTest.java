@@ -21,12 +21,13 @@ import android.provider.cts.R;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.cts.util.FileCopyHelper;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore.Video;
 import android.provider.MediaStore.Video.VideoColumns;
 import android.test.InstrumentationTestCase;
+
+import com.android.compatibility.common.util.FileCopyHelper;
 
 import java.util.ArrayList;
 

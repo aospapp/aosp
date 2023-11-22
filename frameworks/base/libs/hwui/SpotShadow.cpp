@@ -302,21 +302,6 @@ bool SpotShadow::testPointInsidePolygon(const Vector2 testPoint,
 }
 
 /**
- * Make the polygon turn clockwise.
- *
- * @param polygon the polygon as a Vector2 array.
- * @param len the number of points of the polygon
- */
-void SpotShadow::makeClockwise(Vector2* polygon, int len) {
-    if (polygon == nullptr  || len == 0) {
-        return;
-    }
-    if (!ShadowTessellator::isClockwise(polygon, len)) {
-        reverse(polygon, len);
-    }
-}
-
-/**
  * Reverse the polygon
  *
  * @param polygon the polygon as a Vector2 array
@@ -942,9 +927,13 @@ void SpotShadow::generateTriangleStrip(bool isCasterOpaque, float shadowStrength
         AlphaVertex::set(&shadowVertices[vertexBufferIndex++], newPenumbra[i].x,
                 newPenumbra[i].y, PENUMBRA_ALPHA);
     }
+    // Since the umbra can be a faked one when the occluder is too high, the umbra should be lighter
+    // in this case.
+    float scaledUmbraAlpha = UMBRA_ALPHA * shadowStrengthScale;
+
     for (int i = 0; i < umbraLength; i++) {
         AlphaVertex::set(&shadowVertices[vertexBufferIndex++], umbra[i].x, umbra[i].y,
-                UMBRA_ALPHA);
+                scaledUmbraAlpha);
     }
 
     for (int i = 0; i < verticesPairIndex; i++) {
@@ -984,14 +973,14 @@ void SpotShadow::generateTriangleStrip(bool isCasterOpaque, float shadowStrength
             indexBuffer[indexBufferIndex++] = newPenumbraLength + i;
             indexBuffer[indexBufferIndex++] = vertexBufferIndex;
             AlphaVertex::set(&shadowVertices[vertexBufferIndex++],
-                    closerVertex.x, closerVertex.y, UMBRA_ALPHA);
+                    closerVertex.x, closerVertex.y, scaledUmbraAlpha);
         }
     } else {
         // If there is no occluded umbra at all, then draw the triangle fan
         // starting from the centroid to all umbra vertices.
         int lastCentroidIndex = vertexBufferIndex;
         AlphaVertex::set(&shadowVertices[vertexBufferIndex++], centroid.x,
-                centroid.y, UMBRA_ALPHA);
+                centroid.y, scaledUmbraAlpha);
         for (int i = 0; i < umbraLength; i++) {
             indexBuffer[indexBufferIndex++] = newPenumbraLength + i;
             indexBuffer[indexBufferIndex++] = lastCentroidIndex;

@@ -3,6 +3,10 @@ This document outlines the coding conventions and code style used in Fluoride.
 Its primary purpose is to provide explicit guidance on style so that developers
 are consistent with one another and spend less time debating style.
 
+As a rule, we follow the Google C++
+[Style Guide](https://google.github.io/styleguide/cppguide.html).
+Exceptions will be noted below.
+
 ## Directory structure
 Directories at the top-level should consist of major subsystems in Fluoride.
 Each subsystem's purpose should be documented in the `doc/directory_layout.md`
@@ -175,19 +179,19 @@ corresponding `*_free` function. For example, list objects returned from
 `list_new` should be freed with `list_free` and no other freeing routine.
 
 ### Asserts
-Use `assert` liberally throughout the code to enforce invariants. Assertions
+Use `CHECK` liberally throughout the code to enforce invariants. Assertions
 should not have any side-effects and should be used to detect programming logic
-errors.
+errors. Please do not use `assert`.
 
 At minimum, every function should assert expectations on its arguments. The
 following example demonstrates the kinds of assertions one should make on
 function arguments.
 ```
   size_t open_and_read_file(const char *filename, void *target_buffer, size_t max_bytes) {
-    assert(filename != NULL);
-    assert(filename[0] != '\0');
-    assert(target_buffer != NULL);
-    assert(max_bytes > 0);
+    CHECK(filename != NULL);
+    CHECK(filename[0] != '\0');
+    CHECK(target_buffer != NULL);
+    CHECK(max_bytes > 0);
 
     // function implementation begins here
   }
@@ -258,68 +262,168 @@ error-prone, doesn't pollute the global namespace, is more compact, and can
 result in faster compilation.
 
 ## Formatting
-Code formatting is pretty arbitrary, but the codebase is easier to follow if
-everyone uses the same style. Individuals may not agree with every aspect of
-the formatting rules, and some of the rules may take some getting used to,
-but it is important that all engineers follow the formatting rules so we can all
-understand and read the code easily.
+Code formatting is done automatically using clang-format.
 
-### White space
-* use only spaces, indent 2 spaces at a time
-* no trailing whitespaces at the end of a line
-* no tab characters
-* use one blank line to separate logical code blocks, function definitions,
-  and sections of a file
+The style file is located at the root of the source tree in .clang-format.  The
+-style=file option instructs clang-format to look for this file.  You may find
+clang-format --help useful for more advanced usage. The [Online clang-format
+Documentation](http://clang.llvm.org/docs/ClangFormat.html) can also be helpful.
 
-```
-// Space after keyword in conditionals and loops.
-// No space immeidately before or after parentheses.
-if (foo)
+`clang-format -style=file -i path_to_files/filename_or_*`
 
-// Space surrounding binary operators.
-if (foo < 5)
+### My Patch Doesn't Apply Anymore!
+Choose one of the options below.  The fewer patches that have been applied to
+the tree since the formatting change was applied, the better.  In this short
+guide, commands you type will be marked as `code`, with output in *italics*.
 
-// Space after comma.
-for (int x = 0, y = 0; x; ++y)
+#### Option 1: The Best Case
+Use this option if your patch touches only a few files with few intermediate
+patches.
 
-// No space between unary operators and their argument.
-++x;
-z = -y;
+##### Find the formatting patch
 
-// No space between function name and open parenthesis.
-call_my_fn(arg1, arg2);
+`git log --oneline path_to_files/filename_or_* | grep clang-format | head -n 5`
 
-// Space before * in variable declaration.
-int *x = NULL;
+ **15ce1bd** subtree: Apply **clang-format** for the first time*
 
-// Space after // beginning a comment.
-// Notice the space between "//" and "N".
-```
+##### Revert the formatting patch
 
-Use only spaces, and indent 2 spaces at a time. Do not use tab characters in the
-codebase.
+`git revert HASH -n`
 
-Use a single blank line to separate logical code blocks, function definitions,
-and sections of a file.
+(Replace HASH with 15ce1bd in this example.)
 
-### Brace style
-```
-// Open curly braces are never on a line by themselves.
-void my_function(void) {
-  // Conditional statements with only one child statement should elide braces.
-  // The child statement must be on a new line, indented by 2 spaces.
-  if (foo)
-    do_bar();
-  else
-    do_baz();
+##### Check for conflicts with your patch
 
-  // Conditionals with a branch containing more than one child statement forces
-  // braces on both branches.
-  if (foo) {
-    do_bar();
-  } else {
-    do_baz();
-    ++var1;
-  }
-}
-```
+`git status | grep both.modified`
+
+If this list contains files modified by your patch, you should give up
+
+`git revert --abort`
+
+and try a different method.
+
+If this list contains files not modified by your patch, you should unstage them
+
+`git reset HEAD both_modified_file`
+
+and remove their changes
+
+`git checkout both_modified_file`
+
+##### Apply your patch
+
+`git cherry-pick your_patch_that_used_to_apply_cleanly`
+
+##### Reformat the code
+
+`clang-format -style=file -i path_to_files/filename_or_*`
+
+##### Commit the code that your patch touched
+
+`git add path_to_files/filename_or_*`
+
+`git commit --amend`
+
+##### Clean up any other files
+
+`git checkout .`
+
+##### Review your new patch
+
+`git diff`
+
+#### Option 2: Reformat your patch
+
+##### Start with a tree with your patch applied to the tip of tree
+
+`git log --oneline | head -n 1`
+
+ **dc5f0e2** Unformatted but vital patch*
+
+(**Remember the HASH from this step**)
+
+##### Create a new branch starting from the first unrelated patch
+
+`git checkout HEAD^ -b reformat_my_patch_branch`
+
+`git log --oneline | head -n 1`
+
+ **15ce1bd** First Unrelated patch*
+
+##### Reformat the code
+
+`clang-format -style=file -i path_to_files/filename_or_*`
+
+##### Commit your temporary formatting patch
+
+`git add path_to_files/filename_or_*`
+
+`git commit -m tmp_format_patch`
+
+##### Revert your temporary formatting patch (**Bear with me!**)
+
+`git revert HEAD --no-edit`
+
+##### Apply your patch
+
+`git cherry-pick HASH`
+
+(The HASH of your patch, dc5f0e2 in this case)
+
+##### Reformat the code
+
+`clang-format -style=file -i path_to_files/filename_or_*`
+
+##### Commit your second temporary formatting patch
+
+`git add path_to_files/filename_or_*`
+
+`git commit -m tmp_format_patch_2`
+
+##### Check to see that everything looks right
+
+`git log --oneline | head -n 5`
+
+*04c97cf tmp_format_patch_2*
+
+*cf8560c Unformatted but vital patch*
+
+*04c97cf Revert "tmp_format_patch"*
+
+*d66bb6f tmp_format_patch*
+
+*15ce1bd First Unrelated patch*
+
+##### Squash the last three patches with git rebase
+
+`git rebase -i HEAD^^^`
+
+*pick 04c97cf tmp_format_patch_2*
+
+*squash cf8560c Unformatted but vital patch*
+
+*squash 04c97cf Revert "tmp_format_patch"*
+
+##### Remember to edit the commit message!
+
+`clang-format -style=file -i path_to_files/filename_or_*`
+
+##### Check to see that everything looks right
+
+`git log --oneline | head -n 2`
+
+*523078f Reformatted vital patch*
+
+*d66bb6f tmp_format_patch*
+
+##### Review your new patch
+
+`git show`
+
+##### Checkout the current tree and cherry pick your reformatted patch!
+
+`git checkout aosp/master`
+
+`git cherry-pick HASH`
+
+(HASH is 523078f in this example)

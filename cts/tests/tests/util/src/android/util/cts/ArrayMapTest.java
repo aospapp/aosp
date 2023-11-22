@@ -16,22 +16,39 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.AbstractMap;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
-public class ArrayMapTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ArrayMapTest {
     static final boolean DEBUG = false;
 
     static final int OP_ADD = 1;
@@ -332,9 +349,10 @@ public class ArrayMapTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testBasicArrayMap() {
-        HashMap<ControlledHash, Integer> hashMap = new HashMap<ControlledHash, Integer>();
-        ArrayMap<ControlledHash, Integer> arrayMap = new ArrayMap<ControlledHash, Integer>();
+        HashMap<ControlledHash, Integer> hashMap = new HashMap<>();
+        ArrayMap<ControlledHash, Integer> arrayMap = new ArrayMap<>();
         Bundle bundle = new Bundle();
 
         for (int i=0; i<OPS.length; i++) {
@@ -406,11 +424,9 @@ public class ArrayMapTest extends AndroidTestCase {
             dump(hashMap, arrayMap);
             fail(msg);
         }
-
-        //Log.e("test", "Test successful; printing final map.");
-        //dump(hashMap, arrayMap);
     }
 
+    @Test
     public void testCopyArrayMap() {
         // map copy constructor test
         ArrayMap newMap = new ArrayMap<Integer, String>();
@@ -428,10 +444,11 @@ public class ArrayMapTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testEqualsArrayMap() {
-        ArrayMap<Integer, String> map1 = new ArrayMap<Integer, String>();
-        ArrayMap<Integer, String> map2 = new ArrayMap<Integer, String>();
-        HashMap<Integer, String> map3 = new HashMap<Integer, String>();
+        ArrayMap<Integer, String> map1 = new ArrayMap<>();
+        ArrayMap<Integer, String> map2 = new ArrayMap<>();
+        HashMap<Integer, String> map3 = new HashMap<>();
         if (!compare(map1, map2) || !compare(map1, map3) || !compare(map3, map2)) {
             fail("ArrayMap equals failure for empty maps " + map1 + ", " +
                     map2 + ", " + map3);
@@ -465,6 +482,7 @@ public class ArrayMapTest extends AndroidTestCase {
      * Test creating a malformed array map with duplicated keys and that we will catch this
      * when unparcelling.
      */
+    @Test
     public void testDuplicateKeys() throws NoSuchMethodException,
             InvocationTargetException, IllegalAccessException, NoSuchFieldException {
         ArrayMap<String, Object> map1 = new ArrayMap(2);
@@ -497,4 +515,160 @@ public class ArrayMapTest extends AndroidTestCase {
         dump(map1, map2);
         fail(msg);
     }
+
+    private static void checkEntrySetToArray(ArrayMap<?, ?> testMap) {
+        try {
+            testMap.entrySet().toArray();
+            fail();
+        } catch (UnsupportedOperationException expected) {}
+
+        try {
+            Map.Entry<?, ?>[] entries = new Map.Entry[20];
+            testMap.entrySet().toArray(entries);
+            fail();
+        } catch (UnsupportedOperationException expected) {}
+    }
+
+    // http://b/32294038, Test ArrayMap.entrySet().toArray()
+    @Test
+    public void testEntrySetArray() {
+        // Create
+        ArrayMap<Integer, String> testMap = new ArrayMap<>();
+
+        // Test empty
+        checkEntrySetToArray(testMap);
+
+        // Test non-empty
+        for (int i = 0; i < 10; ++i) {
+            testMap.put(i, String.valueOf(i));
+        }
+        checkEntrySetToArray(testMap);
+    }
+
+    @Test
+    public void testCanNotIteratePastEnd_entrySetIterator() {
+        Map<String, String> map = new ArrayMap<>();
+        map.put("key 1", "value 1");
+        map.put("key 2", "value 2");
+        Set<Map.Entry<String, String>> expectedEntriesToIterate = new HashSet<>(Arrays.asList(
+                entryOf("key 1", "value 1"),
+                entryOf("key 2", "value 2")
+        ));
+        Iterator<Map.Entry<String, String>> iterator = map.entrySet().iterator();
+
+        // Assert iteration over the expected two entries in any order
+        assertTrue(iterator.hasNext());
+        Map.Entry<String, String> firstEntry = copyOf(iterator.next());
+        assertTrue(expectedEntriesToIterate.remove(firstEntry));
+
+        assertTrue(iterator.hasNext());
+        Map.Entry<String, String> secondEntry = copyOf(iterator.next());
+        assertTrue(expectedEntriesToIterate.remove(secondEntry));
+
+        assertFalse(iterator.hasNext());
+
+        try {
+            iterator.next();
+            fail();
+        } catch (NoSuchElementException expected) {
+        }
+    }
+
+    private static<K, V> Map.Entry<K, V> entryOf(K key, V value) {
+        return new AbstractMap.SimpleEntry<>(key, value);
+    }
+
+    private static<K, V> Map.Entry<K, V> copyOf(Map.Entry<K, V> entry) {
+        return entryOf(entry.getKey(), entry.getValue());
+    }
+
+    @Test
+    public void testCanNotIteratePastEnd_keySetIterator() {
+        Map<String, String> map = new ArrayMap<>();
+        map.put("key 1", "value 1");
+        map.put("key 2", "value 2");
+        Set<String> expectedKeysToIterate = new HashSet<>(Arrays.asList("key 1", "key 2"));
+        Iterator<String> iterator = map.keySet().iterator();
+
+        // Assert iteration over the expected two keys in any order
+        assertTrue(iterator.hasNext());
+        String firstKey = iterator.next();
+        assertTrue(expectedKeysToIterate.remove(firstKey));
+
+        assertTrue(iterator.hasNext());
+        String secondKey = iterator.next();
+        assertTrue(expectedKeysToIterate.remove(secondKey));
+
+        assertFalse(iterator.hasNext());
+
+        try {
+            iterator.next();
+            fail();
+        } catch (NoSuchElementException expected) {
+        }
+    }
+
+    @Test
+    public void testCanNotIteratePastEnd_valuesIterator() {
+        Map<String, String> map = new ArrayMap<>();
+        map.put("key 1", "value 1");
+        map.put("key 2", "value 2");
+        Set<String> expectedValuesToIterate = new HashSet<>(Arrays.asList("value 1", "value 2"));
+        Iterator<String> iterator = map.values().iterator();
+
+        // Assert iteration over the expected two values in any order
+        assertTrue(iterator.hasNext());
+        String firstValue = iterator.next();
+        assertTrue(expectedValuesToIterate.remove(firstValue));
+
+        assertTrue(iterator.hasNext());
+        String secondValue = iterator.next();
+        assertTrue(expectedValuesToIterate.remove(secondValue));
+
+        assertFalse(iterator.hasNext());
+
+        try {
+            iterator.next();
+            fail();
+        } catch (NoSuchElementException expected) {
+        }
+    }
+
+    /**
+     * The entrySet Iterator returns itself from each call to {@code next()}.
+     * This is unusual behavior for {@link Iterator#next()}; this test ensures that
+     * any future change to this behavior is deliberate.
+     */
+    @Test
+    public void testUnusualBehavior_eachEntryIsSameAsIterator_entrySetIterator() {
+        Map<String, String> map = new ArrayMap<>();
+        map.put("key 1", "value 1");
+        map.put("key 2", "value 2");
+        Iterator<Map.Entry<String, String>> iterator = map.entrySet().iterator();
+
+        assertSame(iterator, iterator.next());
+        assertSame(iterator, iterator.next());
+    }
+
+    @Test
+    public void testUnusualBehavior_equalsThrowsAfterRemove_entrySetIterator() {
+        Map<String, String> map = new ArrayMap<>();
+        map.put("key 1", "value 1");
+        map.put("key 2", "value 2");
+        Iterator<Map.Entry<String, String>> iterator = map.entrySet().iterator();
+        iterator.next();
+        iterator.remove();
+        try {
+            iterator.equals(iterator);
+            fail();
+        } catch (IllegalStateException expected) {
+        }
+    }
+
+    private static<T> void assertEqualsBothWays(T a, T b) {
+        assertEquals(a, b);
+        assertEquals(b, a);
+        assertEquals(a.hashCode(), b.hashCode());
+    }
+
 }

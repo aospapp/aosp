@@ -21,14 +21,17 @@
 #include <iomanip>
 #include <sstream>
 
-#include "base/stringprintf.h"
+#include "android-base/stringprintf.h"
+
 #include "dex_file-inl.h"
 #include "utils.h"
 
 namespace art {
 
+using android::base::StringPrintf;
+
 const char* const Instruction::kInstructionNames[] = {
-#define INSTRUCTION_NAME(o, c, pname, f, r, i, a, v) pname,
+#define INSTRUCTION_NAME(o, c, pname, f, i, a, v) pname,
 #include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_NAME)
 #undef DEX_INSTRUCTION_LIST
@@ -36,7 +39,7 @@ const char* const Instruction::kInstructionNames[] = {
 };
 
 Instruction::Format const Instruction::kInstructionFormats[] = {
-#define INSTRUCTION_FORMAT(o, c, p, format, r, i, a, v) format,
+#define INSTRUCTION_FORMAT(o, c, p, format, i, a, v) format,
 #include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_FORMAT)
 #undef DEX_INSTRUCTION_LIST
@@ -44,7 +47,7 @@ Instruction::Format const Instruction::kInstructionFormats[] = {
 };
 
 Instruction::IndexType const Instruction::kInstructionIndexTypes[] = {
-#define INSTRUCTION_INDEX_TYPE(o, c, p, f, r, index, a, v) index,
+#define INSTRUCTION_INDEX_TYPE(o, c, p, f, index, a, v) index,
 #include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_INDEX_TYPE)
 #undef DEX_INSTRUCTION_LIST
@@ -52,7 +55,7 @@ Instruction::IndexType const Instruction::kInstructionIndexTypes[] = {
 };
 
 int const Instruction::kInstructionFlags[] = {
-#define INSTRUCTION_FLAGS(o, c, p, f, r, i, flags, v) flags,
+#define INSTRUCTION_FLAGS(o, c, p, f, i, flags, v) flags,
 #include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_FLAGS)
 #undef DEX_INSTRUCTION_LIST
@@ -60,7 +63,7 @@ int const Instruction::kInstructionFlags[] = {
 };
 
 int const Instruction::kInstructionVerifyFlags[] = {
-#define INSTRUCTION_VERIFY_FLAGS(o, c, p, f, r, i, a, vflags) vflags,
+#define INSTRUCTION_VERIFY_FLAGS(o, c, p, f, i, a, vflags) vflags,
 #include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_VERIFY_FLAGS)
 #undef DEX_INSTRUCTION_LIST
@@ -68,12 +71,13 @@ int const Instruction::kInstructionVerifyFlags[] = {
 };
 
 int const Instruction::kInstructionSizeInCodeUnits[] = {
-#define INSTRUCTION_SIZE(opcode, c, p, format, r, i, a, v) \
-    ((opcode == NOP)                        ? -1 : \
-     ((format >= k10x) && (format <= k10t)) ?  1 : \
-     ((format >= k20t) && (format <= k25x)) ?  2 : \
-     ((format >= k32x) && (format <= k3rc)) ?  3 : \
-      (format == k51l)                      ?  5 : -1),
+#define INSTRUCTION_SIZE(opcode, c, p, format, i, a, v) \
+    (((opcode) == NOP) ? -1 : \
+     (((format) >= k10x) && ((format) <= k10t)) ?  1 : \
+     (((format) >= k20t) && ((format) <= k22c)) ?  2 : \
+     (((format) >= k32x) && ((format) <= k3rc)) ?  3 : \
+     (((format) >= k45cc) && ((format) <= k4rcc)) ? 4 : \
+      ((format) == k51l) ?  5 : -1),
 #include "dex_instruction_list.h"
   DEX_INSTRUCTION_LIST(INSTRUCTION_SIZE)
 #undef DEX_INSTRUCTION_LIST
@@ -190,10 +194,11 @@ std::string Instruction::DumpString(const DexFile* file) const {
           if (file != nullptr) {
             uint32_t string_idx = VRegB_21c();
             if (string_idx < file->NumStringIds()) {
-              os << StringPrintf("const-string v%d, %s // string@%d",
-                                 VRegA_21c(),
-                                 PrintableString(file->StringDataByIdx(string_idx)).c_str(),
-                                 string_idx);
+              os << StringPrintf(
+                  "const-string v%d, %s // string@%d",
+                  VRegA_21c(),
+                  PrintableString(file->StringDataByIdx(dex::StringIndex(string_idx))).c_str(),
+                  string_idx);
             } else {
               os << StringPrintf("const-string v%d, <<invalid-string-idx-%d>> // string@%d",
                                  VRegA_21c(),
@@ -207,9 +212,9 @@ std::string Instruction::DumpString(const DexFile* file) const {
         case CONST_CLASS:
         case NEW_INSTANCE:
           if (file != nullptr) {
-            uint32_t type_idx = VRegB_21c();
-            os << opcode << " v" << static_cast<int>(VRegA_21c()) << ", " << PrettyType(type_idx, *file)
-               << " // type@" << type_idx;
+            dex::TypeIndex type_idx(VRegB_21c());
+            os << opcode << " v" << static_cast<int>(VRegA_21c()) << ", "
+               << file->PrettyType(type_idx) << " // type@" << type_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -222,7 +227,7 @@ std::string Instruction::DumpString(const DexFile* file) const {
         case SGET_SHORT:
           if (file != nullptr) {
             uint32_t field_idx = VRegB_21c();
-            os << opcode << "  v" << static_cast<int>(VRegA_21c()) << ", " << PrettyField(field_idx, *file, true)
+            os << opcode << "  v" << static_cast<int>(VRegA_21c()) << ", " << file->PrettyField(field_idx, true)
                << " // field@" << field_idx;
             break;
           }
@@ -236,16 +241,8 @@ std::string Instruction::DumpString(const DexFile* file) const {
         case SPUT_SHORT:
           if (file != nullptr) {
             uint32_t field_idx = VRegB_21c();
-            os << opcode << " v" << static_cast<int>(VRegA_21c()) << ", " << PrettyField(field_idx, *file, true)
+            os << opcode << " v" << static_cast<int>(VRegA_21c()) << ", " << file->PrettyField(field_idx, true)
                << " // field@" << field_idx;
-            break;
-          }
-          FALLTHROUGH_INTENDED;
-        case CREATE_LAMBDA:
-          if (file != nullptr) {
-            uint32_t method_idx = VRegB_21c();
-            os << opcode << " v" << static_cast<int>(VRegA_21c()) << ", " << PrettyMethod(method_idx, *file, true)
-               << " // method@" << method_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -271,7 +268,7 @@ std::string Instruction::DumpString(const DexFile* file) const {
           if (file != nullptr) {
             uint32_t field_idx = VRegC_22c();
             os << opcode << " v" << static_cast<int>(VRegA_22c()) << ", v" << static_cast<int>(VRegB_22c()) << ", "
-               << PrettyField(field_idx, *file, true) << " // field@" << field_idx;
+               << file->PrettyField(field_idx, true) << " // field@" << field_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -294,7 +291,7 @@ std::string Instruction::DumpString(const DexFile* file) const {
           if (file != nullptr) {
             uint32_t field_idx = VRegC_22c();
             os << opcode << " v" << static_cast<int>(VRegA_22c()) << ", v" << static_cast<int>(VRegB_22c()) << ", "
-               << PrettyField(field_idx, *file, true) << " // field@" << field_idx;
+               << file->PrettyField(field_idx, true) << " // field@" << field_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -309,17 +306,19 @@ std::string Instruction::DumpString(const DexFile* file) const {
           FALLTHROUGH_INTENDED;
         case INSTANCE_OF:
           if (file != nullptr) {
-            uint32_t type_idx = VRegC_22c();
-            os << opcode << " v" << static_cast<int>(VRegA_22c()) << ", v" << static_cast<int>(VRegB_22c()) << ", "
-               << PrettyType(type_idx, *file) << " // type@" << type_idx;
+            dex::TypeIndex type_idx(VRegC_22c());
+            os << opcode << " v" << static_cast<int>(VRegA_22c()) << ", v"
+               << static_cast<int>(VRegB_22c()) << ", " << file->PrettyType(type_idx)
+               << " // type@" << type_idx.index_;
             break;
           }
           FALLTHROUGH_INTENDED;
         case NEW_ARRAY:
           if (file != nullptr) {
-            uint32_t type_idx = VRegC_22c();
-            os << opcode << " v" << static_cast<int>(VRegA_22c()) << ", v" << static_cast<int>(VRegB_22c()) << ", "
-               << PrettyType(type_idx, *file) << " // type@" << type_idx;
+            dex::TypeIndex type_idx(VRegC_22c());
+            os << opcode << " v" << static_cast<int>(VRegA_22c()) << ", v"
+               << static_cast<int>(VRegB_22c()) << ", " << file->PrettyType(type_idx)
+               << " // type@" << type_idx.index_;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -328,26 +327,6 @@ std::string Instruction::DumpString(const DexFile* file) const {
           break;
       }
       break;
-    }
-    case k25x: {
-      if (Opcode() == INVOKE_LAMBDA) {
-        uint32_t arg[kMaxVarArgRegs25x];
-        GetAllArgs25x(arg);
-        const size_t num_extra_var_args = VRegB_25x();
-        DCHECK_LE(num_extra_var_args + 2, arraysize(arg));
-
-        // invoke-lambda vC, {vD, vE, vF, vG}
-        os << opcode << " v" << arg[0] << ", {";
-        for (size_t i = 0; i < num_extra_var_args; ++i) {
-          if (i != 0) {
-            os << ", ";
-          }
-          os << "v" << arg[i + 2];  // Don't print the pair of vC registers. Pair is implicit.
-        }
-        os << "}";
-        break;
-      }
-      FALLTHROUGH_INTENDED;
     }
     case k32x:  os << StringPrintf("%s v%d, v%d", opcode, VRegA_32x(), VRegB_32x()); break;
     case k30t:  os << StringPrintf("%s %+d", opcode, VRegA_30t()); break;
@@ -358,11 +337,12 @@ std::string Instruction::DumpString(const DexFile* file) const {
         uint32_t string_idx = VRegB_31c();
         if (file != nullptr) {
           if (string_idx < file->NumStringIds()) {
-            os << StringPrintf("%s v%d, %s // string@%d",
-                               opcode,
-                               VRegA_31c(),
-                               PrintableString(file->StringDataByIdx(string_idx)).c_str(),
-                               string_idx);
+            os << StringPrintf(
+                "%s v%d, %s // string@%d",
+                opcode,
+                VRegA_31c(),
+                PrintableString(file->StringDataByIdx(dex::StringIndex(string_idx))).c_str(),
+                string_idx);
           } else {
             os << StringPrintf("%s v%d, <<invalid-string-idx-%d>> // string@%d",
                                opcode,
@@ -378,7 +358,7 @@ std::string Instruction::DumpString(const DexFile* file) const {
       }
       break;
     case k35c: {
-      uint32_t arg[5];
+      uint32_t arg[kMaxVarArgRegs];
       GetVarArgs(arg);
       switch (Opcode()) {
         case FILLED_NEW_ARRAY:
@@ -409,7 +389,7 @@ std::string Instruction::DumpString(const DexFile* file) const {
               }
               os << "v" << arg[i];
             }
-            os << "}, " << PrettyMethod(method_idx, *file) << " // method@" << method_idx;
+            os << "}, " << file->PrettyMethod(method_idx) << " // method@" << method_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -427,6 +407,20 @@ std::string Instruction::DumpString(const DexFile* file) const {
             break;
           }
           FALLTHROUGH_INTENDED;
+        case INVOKE_CUSTOM:
+          if (file != nullptr) {
+            os << opcode << " {";
+            uint32_t call_site_idx = VRegB_35c();
+            for (size_t i = 0; i < VRegA_35c(); ++i) {
+              if (i != 0) {
+                os << ", ";
+              }
+              os << "v" << arg[i];
+            }
+            os << "},  // call_site@" << call_site_idx;
+            break;
+          }
+          FALLTHROUGH_INTENDED;
         default:
           os << opcode << " {v" << arg[0] << ", v" << arg[1] << ", v" << arg[2]
                        << ", v" << arg[3] << ", v" << arg[4] << "}, thing@" << VRegB_35c();
@@ -435,6 +429,8 @@ std::string Instruction::DumpString(const DexFile* file) const {
       break;
     }
     case k3rc: {
+      uint16_t first_reg = VRegC_3rc();
+      uint16_t last_reg =  VRegC_3rc() + VRegA_3rc() - 1;
       switch (Opcode()) {
         case INVOKE_VIRTUAL_RANGE:
         case INVOKE_SUPER_RANGE:
@@ -443,31 +439,105 @@ std::string Instruction::DumpString(const DexFile* file) const {
         case INVOKE_INTERFACE_RANGE:
           if (file != nullptr) {
             uint32_t method_idx = VRegB_3rc();
-            os << StringPrintf("%s, {v%d .. v%d}, ", opcode, VRegC_3rc(), (VRegC_3rc() + VRegA_3rc() - 1))
-               << PrettyMethod(method_idx, *file) << " // method@" << method_idx;
+            os << StringPrintf("%s, {v%d .. v%d}, ", opcode, first_reg, last_reg)
+               << file->PrettyMethod(method_idx) << " // method@" << method_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
         case INVOKE_VIRTUAL_RANGE_QUICK:
           if (file != nullptr) {
             uint32_t method_idx = VRegB_3rc();
-            os << StringPrintf("%s, {v%d .. v%d}, ", opcode, VRegC_3rc(), (VRegC_3rc() + VRegA_3rc() - 1))
+            os << StringPrintf("%s, {v%d .. v%d}, ", opcode, first_reg, last_reg)
                << "// vtable@" << method_idx;
             break;
           }
           FALLTHROUGH_INTENDED;
+        case INVOKE_CUSTOM_RANGE:
+          if (file != nullptr) {
+            uint32_t call_site_idx = VRegB_3rc();
+            os << StringPrintf("%s, {v%d .. v%d}, ", opcode, first_reg, last_reg)
+               << "// call_site@" << call_site_idx;
+            break;
+          }
+          FALLTHROUGH_INTENDED;
         default:
-          os << StringPrintf("%s, {v%d .. v%d}, thing@%d", opcode, VRegC_3rc(),
-                             (VRegC_3rc() + VRegA_3rc() - 1), VRegB_3rc());
+          os << StringPrintf("%s, {v%d .. v%d}, ", opcode, first_reg, last_reg)
+             << "thing@" << VRegB_3rc();
           break;
       }
       break;
     }
+    case k45cc: {
+      uint32_t arg[kMaxVarArgRegs];
+      GetVarArgs(arg);
+      uint32_t method_idx = VRegB_45cc();
+      uint32_t proto_idx = VRegH_45cc();
+      os << opcode << " {";
+      for (int i = 0; i < VRegA_45cc(); ++i) {
+        if (i != 0) {
+          os << ", ";
+        }
+        os << "v" << arg[i];
+      }
+      os << "}";
+      if (file != nullptr) {
+        os << ", " << file->PrettyMethod(method_idx) << ", " << file->GetShorty(proto_idx)
+           << " // ";
+      } else {
+        os << ", ";
+      }
+      os << "method@" << method_idx << ", proto@" << proto_idx;
+      break;
+    }
+    case k4rcc:
+      switch (Opcode()) {
+        case INVOKE_POLYMORPHIC_RANGE: {
+          if (file != nullptr) {
+            uint32_t method_idx = VRegB_4rcc();
+            uint32_t proto_idx = VRegH_4rcc();
+            os << opcode << ", {v" << VRegC_4rcc() << " .. v" << (VRegC_4rcc() + VRegA_4rcc())
+               << "}, " << file->PrettyMethod(method_idx) << ", " << file->GetShorty(proto_idx)
+               << " // method@" << method_idx << ", proto@" << proto_idx;
+            break;
+          }
+        }
+        FALLTHROUGH_INTENDED;
+        default: {
+          uint32_t method_idx = VRegB_4rcc();
+          uint32_t proto_idx = VRegH_4rcc();
+          os << opcode << ", {v" << VRegC_4rcc() << " .. v" << (VRegC_4rcc() + VRegA_4rcc())
+             << "}, method@" << method_idx << ", proto@" << proto_idx;
+        }
+      }
+      break;
     case k51l: os << StringPrintf("%s v%d, #%+" PRId64, opcode, VRegA_51l(), VRegB_51l()); break;
-    default: os << " unknown format (" << DumpHex(5) << ")"; break;
   }
   return os.str();
 }
+
+// Add some checks that ensure the flags make sense. We need a subclass to be in the context of
+// Instruction. Otherwise the flags from the instruction list don't work.
+struct InstructionStaticAsserts : private Instruction {
+  #define IMPLIES(a, b) (!(a) || (b))
+
+  #define VAR_ARGS_CHECK(o, c, pname, f, i, a, v) \
+    static_assert(IMPLIES((f) == k35c || (f) == k45cc, \
+                          ((v) & (kVerifyVarArg | kVerifyVarArgNonZero)) != 0), \
+                  "Missing var-arg verification");
+  #include "dex_instruction_list.h"
+    DEX_INSTRUCTION_LIST(VAR_ARGS_CHECK)
+  #undef DEX_INSTRUCTION_LIST
+  #undef VAR_ARGS_CHECK
+
+  #define VAR_ARGS_RANGE_CHECK(o, c, pname, f, i, a, v) \
+    static_assert(IMPLIES((f) == k3rc || (f) == k4rcc, \
+                          ((v) & (kVerifyVarArgRange | kVerifyVarArgRangeNonZero)) != 0), \
+                  "Missing var-arg verification");
+  #include "dex_instruction_list.h"
+    DEX_INSTRUCTION_LIST(VAR_ARGS_RANGE_CHECK)
+  #undef DEX_INSTRUCTION_LIST
+  #undef VAR_ARGS_RANGE_CHECK
+};
 
 std::ostream& operator<<(std::ostream& os, const Instruction::Code& code) {
   return os << Instruction::Name(code);

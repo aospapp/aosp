@@ -20,6 +20,7 @@ import android.view.animation.Animation;
 /**
  * Provides empty implementations of the methods in
  * {@link android.view.animation.Animation.AnimationListener} for convenience reasons.
+ * @hide
  */
 public class AnimationListenerAdapter implements Animation.AnimationListener {
 

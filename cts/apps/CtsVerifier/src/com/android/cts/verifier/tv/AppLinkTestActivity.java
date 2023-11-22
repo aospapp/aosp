@@ -37,6 +37,8 @@ public class AppLinkTestActivity extends TvAppVerifierActivity implements View.O
     private View mSelectAppLinkItem;
     private View mVerifyAppLinkIntentItem;
     private View mVerifyAppLinkCardItem;
+    private View mSupportThirdPartyInputYesItem;
+    private View mSupportThirdPartyInputNoItem;
 
     Runnable mSelectAppLinkFailCallback;
 
@@ -44,7 +46,17 @@ public class AppLinkTestActivity extends TvAppVerifierActivity implements View.O
     public void onClick(View v) {
         final View postTarget = getPostTarget();
 
-        if (containsButton(mSelectAppLinkItem, v)) {
+        if (containsButton(mSupportThirdPartyInputYesItem, v)) {
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            setButtonEnabled(mSelectAppLinkItem, true);
+            return;
+        } else if (containsButton(mSupportThirdPartyInputNoItem, v)){
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            getPassButton().setEnabled(true);
+            return;
+        } else if (containsButton(mSelectAppLinkItem, v)) {
             Intent tvAppIntent = null;
             String[] projection = { TvContract.Channels._ID };
             try (Cursor cursor = getContentResolver().query(
@@ -92,9 +104,14 @@ public class AppLinkTestActivity extends TvAppVerifierActivity implements View.O
 
     @Override
     protected void createTestItems() {
+        mSupportThirdPartyInputYesItem = createUserItem(
+                R.string.tv_input_discover_test_third_party_tif_input_support,
+                R.string.tv_yes, this);
+        setButtonEnabled(mSupportThirdPartyInputYesItem, true);
+        mSupportThirdPartyInputNoItem = createButtonItem(R.string.tv_no, this);
+        setButtonEnabled(mSupportThirdPartyInputNoItem, true);
         mSelectAppLinkItem = createUserItem(R.string.tv_app_link_test_select_app_link,
                 R.string.tv_launch_tv_app, this);
-        setButtonEnabled(mSelectAppLinkItem, true);
         mVerifyAppLinkIntentItem = createAutoItem(
                 R.string.tv_app_link_test_verify_link_clicked);
         mVerifyAppLinkCardItem = createUserItem(R.string.tv_input_link_test_verify_link_interface,

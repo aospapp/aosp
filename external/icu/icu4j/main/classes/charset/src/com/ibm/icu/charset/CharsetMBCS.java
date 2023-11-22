@@ -1,9 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2006-2015, International Business Machines Corporation and
+ * Copyright (C) 2006-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
- *******************************************************************************
- *
  *******************************************************************************
  */
 
@@ -24,7 +24,6 @@ import java.util.Locale;
 import com.ibm.icu.charset.UConverterSharedData.UConverterType;
 import com.ibm.icu.impl.ICUBinary;
 import com.ibm.icu.impl.ICUData;
-import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.InvalidFormatException;
 import com.ibm.icu.lang.UCharacter;
 import com.ibm.icu.text.UTF16;
@@ -35,7 +34,7 @@ class CharsetMBCS extends CharsetICU {
     private byte[] fromUSubstitution = null;
     UConverterSharedData sharedData = null;
     private static final int MAX_VERSION_LENGTH = 4;
-    
+
     // these variables are used in getUnicodeSet() and may be changed in future
     // typedef enum UConverterSetFilter {
       static final int UCNV_SET_FILTER_NONE = 1;
@@ -96,7 +95,7 @@ class CharsetMBCS extends CharsetICU {
         UConverterSharedData baseSharedData;
         // int extIndexes[];
         ByteBuffer extIndexes; // create int[] view etc. as needed
-        
+
         CharBuffer mbcsIndex;                     /* for fast conversion from most of BMP to MBCS (utf8Friendly data) */
         // char sbcsIndex[/* SBCS_FAST_LIMIT>>6 */]; /* for fast conversion from low BMP to SBCS (utf8Friendly data) */
         boolean utf8Friendly;                     /* for utf8Friendly data */
@@ -155,7 +154,7 @@ class CharsetMBCS extends CharsetICU {
         int countStates, countToUFallbacks, offsetToUCodeUnits, offsetFromUTable, offsetFromUBytes;
         int flags;
         int fromUBytesLength;
-        
+
         /* new and required in version 5 */
         int options;
 
@@ -170,14 +169,14 @@ class CharsetMBCS extends CharsetICU {
     public CharsetMBCS(String icuCanonicalName, String javaCanonicalName, String[] aliases, String classPath,
             ClassLoader loader) throws InvalidFormatException {
         super(icuCanonicalName, javaCanonicalName, aliases);
-        
+
         /* See if the icuCanonicalName contains certain option information. */
         if (icuCanonicalName.indexOf(UConverterConstants.OPTION_SWAP_LFNL_STRING) > -1) {
             options = UConverterConstants.OPTION_SWAP_LFNL;
             icuCanonicalName = icuCanonicalName.substring(0, icuCanonicalName.indexOf(UConverterConstants.OPTION_SWAP_LFNL_STRING));
             super.icuCanonicalName = icuCanonicalName;
         }
-        
+
         // now try to load the data
         sharedData = loadConverter(1, icuCanonicalName, classPath, loader);
 
@@ -190,13 +189,13 @@ class CharsetMBCS extends CharsetICU {
         subChar1 = sharedData.staticData.subChar1;
         fromUSubstitution = new byte[sharedData.staticData.subCharLen];
         System.arraycopy(sharedData.staticData.subChar, 0, fromUSubstitution, 0, sharedData.staticData.subCharLen);
-        
+
         initializeConverter(options);
     }
 
     public CharsetMBCS(String icuCanonicalName, String javaCanonicalName, String[] aliases)
             throws InvalidFormatException {
-        this(icuCanonicalName, javaCanonicalName, aliases, ICUResourceBundle.ICU_BUNDLE, null);
+        this(icuCanonicalName, javaCanonicalName, aliases, ICUData.ICU_BUNDLE, null);
     }
 
     private UConverterSharedData loadConverter(int nestedLoads, String myName, String classPath, ClassLoader loader)
@@ -229,7 +228,6 @@ class CharsetMBCS extends CharsetICU {
             throw new InvalidFormatException(e);
         }
 
-        UConverterSharedData data = null;
         int type = staticData.conversionType;
 
         if (type != UConverterSharedData.UConverterType.MBCS
@@ -237,10 +235,7 @@ class CharsetMBCS extends CharsetICU {
             throw new InvalidFormatException();
         }
 
-        data = new UConverterSharedData(1, null, false, 0);
-        data.dataReader = reader;
-        data.staticData = staticData;
-        data.sharedDataCached = false;
+        UConverterSharedData data = new UConverterSharedData(staticData);
 
         // Load data
         UConverterMBCSTable mbcsTable = data.mbcs;
@@ -282,7 +277,7 @@ class CharsetMBCS extends CharsetICU {
         // agljport:add this would be unnecessary if extIndexes were memory mapped
         /*
          * if(mbcsTable.extIndexes != null) {
-         * 
+         *
          * try { //int nbytes = mbcsTable.extIndexes[UConverterExt.UCNV_EXT_TO_U_LENGTH]*4 +
          * mbcsTable.extIndexes[UConverterExt.UCNV_EXT_TO_U_UCHARS_LENGTH]*2 +
          * mbcsTable.extIndexes[UConverterExt.UCNV_EXT_FROM_U_LENGTH]*6 +
@@ -454,11 +449,11 @@ class CharsetMBCS extends CharsetICU {
                     throw new InvalidFormatException();
                 }
             }
-            
+
             if (header.version[1] >= 3 && (mbcsTable.unicodeMask & UConverterConstants.HAS_SURROGATES) == 0 &&
                     (mbcsTable.countStates == 1 ? ((char)header.version[2] >= (SBCS_FAST_MAX>>8)) : ((char)header.version[2] >= (MBCS_FAST_MAX>>8)))) {
                 mbcsTable.utf8Friendly = true;
-                
+
                 if (mbcsTable.countStates == 1) {
                     /*
                      * SBCS: Stage 3 is allocated in 64-entry blocks for U+0000..SBCS_FAST_MAX or higher.
@@ -516,7 +511,6 @@ class CharsetMBCS extends CharsetICU {
         int p;
         int c;
         int i, st3;
-        long temp;
 
         table = mbcsTable.fromUnicodeTable;
         int[] tableInts = mbcsTable.fromUnicodeTableInts;
@@ -542,7 +536,7 @@ class CharsetMBCS extends CharsetICU {
             if(value<=0xffffff) {
                 /* short sequences are stored directly */
                 /* code set 0 or 1 */
-            } else if(value<=0x8effffff) {
+            } else if(value<=0x8effffffL) {
                 /* code set 2 */
                 value&=0x7fffff;
             } else /* first byte is 0x8f */ {
@@ -563,7 +557,7 @@ class CharsetMBCS extends CharsetICU {
             /* locate the stage 2 & 3 data */
             stage2 = table[c>>10] + ((c>>4)&0x3f);
             st3 = tableInts[stage2];
-            st3 = (int)(char)(st3 * 16 + (c&0xf));
+            st3 = (char)(st3 * 16 + (c&0xf));
 
             /* write the codepage bytes into stage 3 */
             switch(mbcsTable.outputType) {
@@ -583,9 +577,9 @@ class CharsetMBCS extends CharsetICU {
                 break;
             }
 
-            /* set the roundtrip flag */
-            temp = (1L<<(16+(c&0xf)));
-            tableInts[stage2] |= temp;
+            // Set the roundtrip flag.
+            int shift = 16 + (c & 0x0F);
+            tableInts[stage2] |= (1L << shift);
         }
         return true;
      }
@@ -659,7 +653,7 @@ class CharsetMBCS extends CharsetICU {
         /* reconstitute fromUnicodeBytes with roundtrips from toUnicode data */
         MBCSEnumToUnicode(mbcsTable);
     }
-    
+
     /*
      * Internal function enumerating the toUnicode data of an MBCS converter.
      * Currently only used for reconstituting data for a MBCS_OPT_NO_FROM_U
@@ -673,49 +667,49 @@ class CharsetMBCS extends CharsetICU {
          * Properties for each state, to speed up the enumeration.
          * Ignorable actions are unassigned/illegal/state-change-only:
          * They do not lead to mappings.
-         * 
+         *
          * Bits 7..6
          * 1 direct/initial state (stateful converters have mulitple)
          * 0 non-initial state with transitions or with nonignorable result actions
          * -1 final state with only ignorable actions
-         * 
+         *
          * Bits 5..3
          * The lowest byte value with non-ignorable actions is
          * value<<5 (rounded down).
-         * 
+         *
          * Bits 2..0:
          * The highest byte value with non-ignorable actions is
          * (value<<5)&0x1f (rounded up).
          */
         byte stateProps[] = new byte[MBCS_MAX_STATE_COUNT];
         int state;
-        
+
         /* recurse from state 0 and set all stateProps */
         getStateProp(mbcsTable.stateTable, stateProps, 0);
-        
+
         for (state = 0; state < mbcsTable.countStates; ++state) {
             if (stateProps[state] >= 0x40) {
                 /* start from each direct state */
                 enumToU(mbcsTable, stateProps, state, 0, 0);
             }
         }
-        
-        
+
+
     }
-    
+
     private static boolean enumToU(UConverterMBCSTable mbcsTable, byte stateProps[], int state, int offset, int value) {
         int[] codePoints = new int[32];
         int[] row;
         char[] unicodeCodeUnits;
         int anyCodePoints;
         int b, limit;
-        
+
         row = mbcsTable.stateTable[state];
         unicodeCodeUnits = mbcsTable.unicodeCodeUnits;
-        
+
         value<<=8;
         anyCodePoints = -1; /* becomes non-negative if there is a mapping */
-        
+
         b = (stateProps[state]&0x38)<<2;
         if (b == 0 && stateProps[state] >= 0x40) {
             /* skip byte sequences with leading zeros because they are note stored in the fromUnicode table */
@@ -737,7 +731,7 @@ class CharsetMBCS extends CharsetICU {
             } else {
                 int c;
                 int action;
-                
+
                 /*
                  * An if-else-if chain provides more reliable performance for
                  * the most common cases compared to a switch.
@@ -774,7 +768,7 @@ class CharsetMBCS extends CharsetICU {
                 } else {
                     c = UConverterConstants.U_SENTINEL;
                 }
-                
+
                 codePoints[b&0x1f] = c;
                 anyCodePoints&=c;
             }
@@ -787,10 +781,10 @@ class CharsetMBCS extends CharsetICU {
                 }
             }
         }
-        
+
         return true;
     }
-    
+
     /*
      * Only called if stateProps[state]==-1.
      * A recursive call may do stateProps[state]|=0x40 if this state is the target of an
@@ -799,10 +793,10 @@ class CharsetMBCS extends CharsetICU {
     private static byte getStateProp(int stateTable[][], byte stateProps[], int state) {
         int[] row;
         int min, max, entry, nextState;
-        
+
         row = stateTable[state];
         stateProps[state] = 0;
-        
+
         /* find first non-ignorable state */
         for (min = 0;;++min) {
             entry = row[min];
@@ -823,7 +817,7 @@ class CharsetMBCS extends CharsetICU {
             }
         }
         stateProps[state]|=(byte)((min>>5)<<3);
-        
+
         /* find last non-ignorable state */
         for (max = 0xff; min < max; --max) {
             entry = row[max];
@@ -840,7 +834,7 @@ class CharsetMBCS extends CharsetICU {
             }
         }
         stateProps[state]|=(byte)(max>>5);
-        
+
         /* recurse further and collect direct-state information */
         while (min <= max) {
             entry = row[min];
@@ -930,16 +924,16 @@ class CharsetMBCS extends CharsetICU {
       * OS/390 (z/OS) Unix System Services (Open Edition).
       * The difference is in the mapping of Line Feed and New Line control codes:
       * Standard EBDIC maps
-      * 
+      *
       * <U000A> \x25 |0
       * <U0085> \x15 |0
-      * 
+      *
       * but OS/390 USS EBCDIC swaps the control codes for LF and NL,
       * mapping
-      * 
+      *
       * <U000A> \x15 |0
       * <U0085> \x25 |0
-      * 
+      *
       * This code modifies a loaded standard EBCDIC<->Unicode mapping table
       * by copying it into allocated memory and swapping the LF and NL values.
       * It allows to support the same EBCDIC charset in both version without
@@ -948,15 +942,15 @@ class CharsetMBCS extends CharsetICU {
     /* standard EBCDIC codes */
     private static final short EBCDIC_LF = 0x0025;
     private static final short EBCDIC_NL = 0x0015;
-    
+
     /* standard EBCDIC codes with roundtrip flag as stored in Unicode-to-single-byte tables */
     private static final short EBCDIC_RT_LF = 0x0f25;
     private static final short EBCDIC_RT_NL = 0x0f15;
-    
+
     /* Unicode code points */
     private static final short U_LF = 0x000A;
     private static final short U_NL = 0x0085;
-    
+
     private boolean EBCDICSwapLFNL() throws Exception {
         UConverterMBCSTable mbcsTable;
 
@@ -968,7 +962,7 @@ class CharsetMBCS extends CharsetICU {
         int stage2Entry;
 
         mbcsTable = sharedData.mbcs;
-        
+
         table = mbcsTable.fromUnicodeTable;
         int[] tableInts = sharedData.mbcs.fromUnicodeTableInts;
         char[] chars = mbcsTable.fromUnicodeChars;
@@ -977,7 +971,7 @@ class CharsetMBCS extends CharsetICU {
         /*
          * Check that this is an EBCDIC table with SBCS portion -
          * SBCS or EBCDIC with standard EBCDIC LF and NL mappings.
-         * 
+         *
          * If not, ignore the option. Options are always ignored if they do not apply.
          */
         if (!((mbcsTable.outputType == MBCS_OUTPUT_1 || mbcsTable.outputType == MBCS_OUTPUT_2_SISO) &&
@@ -985,7 +979,7 @@ class CharsetMBCS extends CharsetICU {
               mbcsTable.stateTable[0][EBCDIC_NL] == MBCS_ENTRY_FINAL(0, MBCS_STATE_VALID_DIRECT_16, U_NL))) {
             return false;
         }
-        
+
         if (mbcsTable.outputType == MBCS_OUTPUT_1) {
             if (!(EBCDIC_RT_LF == MBCS_SINGLE_RESULT_FROM_U(table, results, U_LF) &&
                   EBCDIC_RT_NL == MBCS_SINGLE_RESULT_FROM_U(table, results, U_NL))) {
@@ -997,14 +991,14 @@ class CharsetMBCS extends CharsetICU {
                   EBCDIC_LF == MBCS_VALUE_2_FROM_STAGE_2(chars, stage2Entry, U_LF))) {
                 return false;
             }
-            
+
             stage2Entry = MBCS_STAGE_2_FROM_U(table, tableInts, U_NL);
             if (!(MBCS_FROM_U_IS_ROUNDTRIP(stage2Entry, U_NL) &&
                   EBCDIC_NL == MBCS_VALUE_2_FROM_STAGE_2(chars, stage2Entry, U_NL))) {
                 return false;
             }
         }
-        
+
         if (mbcsTable.fromUBytesLength > 0) {
             /*
              * We _know_ the number of bytes in the fromUnicodeBytes array
@@ -1020,7 +1014,7 @@ class CharsetMBCS extends CharsetICU {
              */
             throw new Exception("U_INVALID_FORMAT_ERROR");
         }
-        
+
         /*
          * The table has an appropriate format.
          * Allocate and build
@@ -1029,16 +1023,16 @@ class CharsetMBCS extends CharsetICU {
          * - a converter name string with the swap option appended
          */
 //        size = mbcsTable.countStates * 1024 + sizeofFromUBytes + UConverterConstants.MAX_CONVERTER_NAME_LENGTH + 20;
-        
+
         /* copy and modify the to-Unicode state table */
         newStateTable = new int[mbcsTable.stateTable.length][mbcsTable.stateTable[0].length];
         for (int i = 0; i < newStateTable.length; i++) {
             System.arraycopy(mbcsTable.stateTable[i], 0, newStateTable[i], 0, newStateTable[i].length);
         }
-        
+
         newStateTable[0][EBCDIC_LF] = MBCS_ENTRY_FINAL(0, MBCS_STATE_VALID_DIRECT_16, U_NL);
         newStateTable[0][EBCDIC_NL] = MBCS_ENTRY_FINAL(0, MBCS_STATE_VALID_DIRECT_16, U_LF);
-        
+
         /* copy and modify the from-Unicode result table */
         char[] newResults = new char[chars.length];
         System.arraycopy(chars, 0, newResults, 0, chars.length);
@@ -1049,11 +1043,11 @@ class CharsetMBCS extends CharsetICU {
         } else /* MBCS_OUTPUT_2_SISO */ {
             stage2Entry = MBCS_STAGE_2_FROM_U(table, tableInts, U_LF);
             MBCS_VALUE_2_FROM_STAGE_2_SET(newResults, stage2Entry, U_LF, EBCDIC_NL);
-            
+
             stage2Entry = MBCS_STAGE_2_FROM_U(table, tableInts, U_NL);
             MBCS_VALUE_2_FROM_STAGE_2_SET(newResults, stage2Entry, U_NL, EBCDIC_LF);
         }
-        
+
         /* set the canonical converter name */
         newName = icuCanonicalName.concat(UConverterConstants.OPTION_SWAP_LFNL_STRING);
 
@@ -1098,7 +1092,7 @@ class CharsetMBCS extends CharsetICU {
      * Some ranges of GB 18030 where both the Unicode code points and the GB four-byte sequences are contiguous and are
      * handled algorithmically by the special callback functions below. The values are start & end of Unicode & GB
      * codes.
-     * 
+     *
      * Note that single surrogates are not mapped by GB 18030 as of the re-released mapping tables from 2000-nov-30.
      */
     private static final int gb18030Ranges[][] = new int[/* 14 */][/* 4 */] {
@@ -1119,24 +1113,24 @@ class CharsetMBCS extends CharsetICU {
 
     /* bit flag for UConverter.options indicating GB 18030 special handling */
     private static final int MBCS_OPTION_GB18030 = 0x8000;
-    
-    /* bit flag for UConverter.options indicating KEIS,JEF,JIF special handling */ 
+
+    /* bit flag for UConverter.options indicating KEIS,JEF,JIF special handling */
     private static final int MBCS_OPTION_KEIS = 0x01000;
     private static final int MBCS_OPTION_JEF = 0x02000;
-    private static final int MBCS_OPTION_JIPS = 0x04000; 
-    
+    private static final int MBCS_OPTION_JIPS = 0x04000;
+
     private static enum SISO_Option {
         SI,
         SO
     }
-    
+
     private static final byte[] KEIS_SO_CHAR = { 0x0A, 0x42 };
     private static final byte[] KEIS_SI_CHAR = { 0x0A, 0x41 };
     private static final byte JEF_SO_CHAR = 0x28;
     private static final byte JEF_SI_CHAR = 0x29;
     private static final byte[] JIPS_SO_CHAR = { 0x1A, 0x70 };
     private static final byte[] JIPS_SI_CHAR = { 0x1A, 0x71 };
-    
+
     private static int getSISOBytes(SISO_Option option, int cnvOption, byte[] value) {
         int SISOLength = 0;
 
@@ -1197,8 +1191,8 @@ class CharsetMBCS extends CharsetICU {
     static final int MBCS_STATE_UNASSIGNED = MBCS_STATE_VALID_16_PAIR + 1;
     static final int MBCS_STATE_ILLEGAL = MBCS_STATE_UNASSIGNED + 1;
     static final int MBCS_STATE_CHANGE_ONLY = MBCS_STATE_ILLEGAL + 1;
-    
-    static int MBCS_ENTRY_SET_STATE(int entry, int state) { 
+
+    static int MBCS_ENTRY_SET_STATE(int entry, int state) {
         return (entry&0x80ffffff)|(state<<24L);
     }
 
@@ -1250,11 +1244,11 @@ class CharsetMBCS extends CharsetICU {
     static char MBCS_ENTRY_FINAL_VALUE_16(int entry) {
         return (char) (entry);
     }
-    
+
     static boolean MBCS_IS_ASCII_ROUNDTRIP(int b, long asciiRoundtrips) {
         return (((asciiRoundtrips) & (1<<((b)>>2)))!=0);
     }
-    
+
     /**
      * This macro version of _MBCSSingleSimpleGetNextUChar() gets a code point from a byte. It works for single-byte,
      * single-state codepages that only map to and from BMP code points, and it always returns fallback values.
@@ -1270,7 +1264,7 @@ class CharsetMBCS extends CharsetICU {
         int i = table[i1] + (c & 0xf);
         return results[i];
     }
-    
+
     /* single-byte fromUnicode: set the 16-bit result word with newValue*/
     static void MBCS_SINGLE_RESULT_FROM_U_SET(char[] table, char[] results, int c, int newValue) {
         int i1 = table[c >>> 10] + ((c >>> 4) & 0x3f);
@@ -1412,7 +1406,7 @@ class CharsetMBCS extends CharsetICU {
 
     /* trie access, returns the stage 3 value=index to stage 3b; s1Index=c>>10 */
     static int FROM_U(CharBuffer stage12, CharBuffer stage3, int s1Index, int c) {
-        return stage3.get(((int) stage12.get((stage12.get(s1Index) + ((c >>> 4) & 0x3f))) << STAGE_2_LEFT_SHIFT)
+        return stage3.get((stage12.get((stage12.get(s1Index) + ((c >>> 4) & 0x3f))) << STAGE_2_LEFT_SHIFT)
                 + (c & 0xf));
     }
 
@@ -1605,7 +1599,7 @@ class CharsetMBCS extends CharsetICU {
             if (byt == TO_U_GET_BYTE((int)word)) {
                 return TO_U_GET_VALUE((int) word); /* never 0 */
             }
-        } 
+        }
         return 0; /* not found */
     }
 
@@ -1619,7 +1613,7 @@ class CharsetMBCS extends CharsetICU {
     /*
      * get the SI/SO toU state (state 0 is for SBCS, 1 for DBCS), or 1 for DBCS-only, or -1 if the converter is not
      * SI/SO stateful
-     * 
+     *
      * Note: For SI/SO stateful converters getting here, cnv->mode==0 is equivalent to firstLength==1.
      */
     private static int SISO_STATE(UConverterSharedData sharedData, int mode) {
@@ -1633,6 +1627,7 @@ class CharsetMBCS extends CharsetICU {
             super(cs);
         }
 
+        @Override
         protected CoderResult decodeLoop(ByteBuffer source, CharBuffer target, IntBuffer offsets, boolean flush) {
         /* Just call cnvMBCSToUnicodeWithOffsets() to remove duplicate code. */
             return cnvMBCSToUnicodeWithOffsets(source, target, offsets, flush);
@@ -1680,13 +1675,13 @@ class CharsetMBCS extends CharsetICU {
             } else /* match==0 */{
                 /*
                  * no match
-                 * 
+                 *
                  * We need to split the previous input into two parts:
-                 * 
+                 *
                  * 1. The first codepage character is unmappable - that's how we got into trying the extension data in
                  * the first place. We need to move it from the preToU buffer to the error buffer, set an error code,
                  * and prepare the rest of the previous input for 2.
-                 * 
+                 *
                  * 2. The rest of the previous input must be converted once we come back from the callback for the first
                  * character. At that time, we have to try again from scratch to convert these input characters. The
                  * replay will be handled by the ucnv.c conversion code.
@@ -1734,7 +1729,7 @@ class CharsetMBCS extends CharsetICU {
 
             matchValue = 0;
             i = j = matchLength = 0;
-            if (source != null) { 
+            if (source != null) {
                 srcLength = source.remaining();
             }
 
@@ -2655,7 +2650,7 @@ class CharsetMBCS extends CharsetICU {
          * returns an "assigned" result if it consumes the entire input. It does not use state from the converter, nor
          * error codes. It does not handle the EBCDIC swaplfnl option (set in UConverter). It handles conversion
          * extensions but not GB 18030.
-         * 
+         *
          * @return U+fffe unassigned U+ffff illegal otherwise the Unicode code point
          */
         int simpleGetNextUChar(ByteBuffer source, boolean useFallback) {
@@ -2807,14 +2802,14 @@ class CharsetMBCS extends CharsetICU {
             /* Then recurse for transition entries. */
             for (b = 0; b <= 0xff; b++) {
                 entry = row[b];
-                if (MBCS_ENTRY_IS_TRANSITION(entry) && 
+                if (MBCS_ENTRY_IS_TRANSITION(entry) &&
                         hasValidTrailBytes(stateTable, (short)MBCS_ENTRY_TRANSITION_STATE(entry))) {
                     return true;
                 }
             }
             return false;
         }
-        
+
         private boolean isSingleOrLead(int[][] stateTable, int state, boolean isDBCSOnly, int b) {
             int[] row = stateTable[state];
             int entry = row[b];
@@ -2829,7 +2824,7 @@ class CharsetMBCS extends CharsetICU {
                 }
             }
         }
-        
+
 
     }
 
@@ -2842,11 +2837,13 @@ class CharsetMBCS extends CharsetICU {
             implReset();
         }
 
+        @Override
         protected void implReset() {
             super.implReset();
             preFromUFirstCP = UConverterConstants.U_SENTINEL;
         }
 
+        @Override
         @SuppressWarnings("fallthrough")
         protected CoderResult encodeLoop(CharBuffer source, ByteBuffer target, IntBuffer offsets, boolean flush) {
             CoderResult[] cr = { CoderResult.UNDERFLOW };
@@ -2863,7 +2860,7 @@ class CharsetMBCS extends CharsetICU {
             int stage2Entry = 0, value = 0, length = 0, prevLength;
             short uniMask;
             // long asciiRoundtrips;
-            
+
             byte[] si_value = new byte[2];
             byte[] so_value = new byte[2];
             int si_value_length = 0, so_value_length = 0;
@@ -2943,7 +2940,7 @@ class CharsetMBCS extends CharsetICU {
                  * if(c==0) and duplicating the trail-surrogate-handling code in the else branch of that check. I could
                  * not find any other way to get around this other than using a function call for the conversion and
                  * callback, which would be even more inefficient.
-                 * 
+                 *
                  * Markus Scherer 2000-jul-19
                  */
                 boolean doloop = true;
@@ -3026,25 +3023,25 @@ class CharsetMBCS extends CharsetICU {
                             /*
                              * The basic lookup is a triple-stage compact array (trie) lookup. For details see the
                              * beginning of this file.
-                             * 
+                             *
                              * Single-byte codepages are handled with a different data structure by _MBCSSingle...
                              * functions.
-                             * 
+                             *
                              * The result consists of a 32-bit value from stage 2 and a pointer to as many bytes as are
                              * stored per character. The pointer points to the character's bytes in stage 3. Bits 15..0
                              * of the stage 2 entry contain the stage 3 index for that pointer, while bits 31..16 are
                              * flags for which of the 16 characters in the block are roundtrip-assigned.
-                             * 
+                             *
                              * For 2-byte and 4-byte codepages, the bytes are stored as uint16_t respectively as
                              * uint32_t, in the platform encoding. For 3-byte codepages, the bytes are always stored in
                              * big-endian order.
-                             * 
+                             *
                              * For EUC encodings that use only either 0x8e or 0x8f as the first byte of their longest
                              * byte sequences, the first two bytes in this third stage indicate with their 7th bits
                              * whether these bytes are to be written directly or actually need to be preceeded by one of
                              * the two Single-Shift codes. With this, the third stage stores one byte fewer per
                              * character than the actual maximum length of EUC byte sequences.
-                             * 
+                             *
                              * Other than that, leading zero bytes are removed and the other bytes output. A single zero
                              * byte may be output if the "assigned" bit in stage 2 was on. The data structure does not
                              * support zero byte output as a fallback, and also does not allow output of leading zeros.
@@ -3196,7 +3193,7 @@ class CharsetMBCS extends CharsetICU {
                                 length = 0;
                                 break;
                             }
-                            
+
                             /* is this code point assigned, or do we use fallbacks? */
                             if (gotoUnassigned || (!(MBCS_FROM_U_IS_ROUNDTRIP(stage2Entry, c) || (isFromUUseFallback(c) && value != 0)))) {
                                 gotoUnassigned = false;
@@ -3323,7 +3320,7 @@ class CharsetMBCS extends CharsetICU {
                 /*
                  * the end of the input stream and detection of truncated input are handled by the framework, but for
                  * EBCDIC_STATEFUL conversion we need to emit an SI at the very end
-                 * 
+                 *
                  * conditions: successful EBCDIC_STATEFUL in DBCS mode end of input and no truncated input
                  */
                 if (outputType == MBCS_OUTPUT_2_SISO && prevLength == 2 && flush && sourceArrayIndex >= source.limit()
@@ -3373,11 +3370,11 @@ class CharsetMBCS extends CharsetICU {
          * This is another simple conversion function for internal use by other conversion implementations. It does not
          * use the converter state nor call callbacks. It does not handle the EBCDIC swaplfnl option (set in
          * UConverter). It handles conversion extensions but not GB 18030.
-         * 
+         *
          * It converts one single Unicode code point into codepage bytes, encoded as one 32-bit value. The function
          * returns the number of bytes in *pValue: 1..4 the number of bytes in *pValue 0 unassigned (*pValue undefined)
          * -1 illegal (currently not used, *pValue undefined)
-         * 
+         *
          * *pValue will contain the resulting bytes with the last byte in bits 7..0, the second to last byte in bits
          * 15..8, etc. Currently, the function assumes but does not check that 0<=c<=0x10ffff.
          */
@@ -3566,13 +3563,13 @@ class CharsetMBCS extends CharsetICU {
             } else { /* match==0 or 1 */
                 /*
                  * no match
-                 * 
+                 *
                  * We need to split the previous input into two parts:
-                 * 
+                 *
                  * 1. The first code point is unmappable - that's how we got into trying the extension data in the first
                  * place. We need to move it from the preFromU buffer to the error buffer, set an error code, and
                  * prepare the rest of the previous input for 2.
-                 * 
+                 *
                  * 2. The rest of the previous input must be converted once we come back from the callback for the first
                  * code point. At that time, we have to try again from scratch to convert these input characters. The
                  * replay will be handled by the ucnv.c conversion code.
@@ -3976,7 +3973,7 @@ class CharsetMBCS extends CharsetICU {
                 return false;
             }
         }
-        
+
         CoderResult cnvMBCSFromUnicodeWithOffsets(CharBuffer source, ByteBuffer target, IntBuffer offsets, boolean flush) {
             // Just call encodeLoop to remove duplicate code.
             return encodeLoop(source, target, offsets, flush);
@@ -4673,13 +4670,14 @@ class CharsetMBCS extends CharsetICU {
 
         /**
          * Overrides super class method
-         * 
+         *
          * @param encoder
          * @param source
          * @param target
          * @param offsets
          * @return
          */
+        @Override
         protected CoderResult cbFromUWriteSub(CharsetEncoderICU encoder, CharBuffer source, ByteBuffer target,
                 IntBuffer offsets) {
             CharsetMBCS cs = (CharsetMBCS) encoder.charset();
@@ -4740,10 +4738,11 @@ class CharsetMBCS extends CharsetICU {
         /**
          * Gets called whenever CharsetEncoder.replaceWith gets called. allowReplacementChanges only allows subChar and
          * subChar1 to be modified outside construction (since replaceWith is called once during construction).
-         * 
+         *
          * @param replacement
          *            The replacement for subchar.
          */
+        @Override
         protected void implReplaceWith(byte[] replacement) {
             if (allowReplacementChanges) {
                 CharsetMBCS cs = (CharsetMBCS) this.charset();
@@ -4755,10 +4754,12 @@ class CharsetMBCS extends CharsetICU {
         }
     }
 
+    @Override
     public CharsetDecoder newDecoder() {
         return new CharsetDecoderMBCS(this);
     }
 
+    @Override
     public CharsetEncoder newEncoder() {
         return new CharsetEncoderMBCS(this);
     }
@@ -4770,9 +4771,9 @@ class CharsetMBCS extends CharsetICU {
         char st1,maxStage1, st2;
         int st3;
         int c ;
-        
+
         mbcsTable = data.mbcs;
-        table = mbcsTable.fromUnicodeTable; 
+        table = mbcsTable.fromUnicodeTable;
         if(mbcsTable.hasSupplementary()){
             maxStage1 = 0x440;
         }
@@ -4780,7 +4781,7 @@ class CharsetMBCS extends CharsetICU {
             maxStage1 = 0x40;
         }
         c=0; /* keep track of current code point while enumerating */
-        
+
         if(mbcsTable.outputType==MBCS_OUTPUT_1){
             char stage2, stage3;
             char minValue;
@@ -4840,7 +4841,7 @@ class CharsetMBCS extends CharsetICU {
             }
 
             for(st1=0;st1<maxStage1;++st1){
-                st2 = table[st1]; 
+                st2 = table[st1];
                 if(st2>(maxStage1>>1)){
                     stage2 =  st2 ;
                     for(st2=0;st2<64;++st2){
@@ -4893,7 +4894,7 @@ class CharsetMBCS extends CharsetICU {
                             case UCNV_SET_FILTER_2022_CN :
                                 /* only add code points that map to CNS 11643 planes 1&2 for non-EXT ISO-2202-CN. */
                                 do {
-                                    if(((st3&1) != 0 || useFallBack) && 
+                                    if(((st3&1) != 0 || useFallBack) &&
                                             ((value= (UConverterConstants.UNSIGNED_BYTE_MASK & bytes[stage3]))==0x81 || value==0x82) ){
                                         setFillIn.add(c);
                                     }
@@ -4914,8 +4915,8 @@ class CharsetMBCS extends CharsetICU {
                             case UCNV_SET_FILTER_GR94DBCS:
                                 /* only add code points that maps to ISO 2022 GR 94 DBCS codes*/
                                 do {
-                                    if(((st3&1) != 0 || useFallBack) && 
-                                            (UConverterConstants.UNSIGNED_SHORT_MASK & ((value=chars[stage3 / 2])- 0xa1a1))<=(0xfefe - 0xa1a1) && 
+                                    if(((st3&1) != 0 || useFallBack) &&
+                                            (UConverterConstants.UNSIGNED_SHORT_MASK & ((value=chars[stage3 / 2])- 0xa1a1))<=(0xfefe - 0xa1a1) &&
                                             (UConverterConstants.UNSIGNED_BYTE_MASK & (value - 0xa1)) <= (0xfe - 0xa1)){
                                         setFillIn.add(c);
                                     }
@@ -4926,7 +4927,7 @@ class CharsetMBCS extends CharsetICU {
                             case UCNV_SET_FILTER_HZ:
                                 /*Only add code points that are suitable for HZ DBCS*/
                                 do {
-                                    if( ((st3&1) != 0 || useFallBack) && 
+                                    if( ((st3&1) != 0 || useFallBack) &&
                                             (UConverterConstants.UNSIGNED_SHORT_MASK & ((value=chars[stage3 / 2])-0xa1a1))<=(0xfdfe - 0xa1a1) &&
                                             (UConverterConstants.UNSIGNED_BYTE_MASK & (value - 0xa1)) <= (0xfe - 0xa1)){
                                         setFillIn.add(c);
@@ -4949,8 +4950,8 @@ class CharsetMBCS extends CharsetICU {
         }
         extGetUnicodeSet(setFillIn, which, filter, data);
     }
-   
-    static void extGetUnicodeSetString(ByteBuffer cx,UnicodeSet setFillIn, boolean useFallback, 
+
+    static void extGetUnicodeSetString(ByteBuffer cx,UnicodeSet setFillIn, boolean useFallback,
         int minLength, int c, char s[],int length,int sectionIndex){
         CharBuffer fromUSectionUChar;
         IntBuffer fromUSectionValues;
@@ -4959,7 +4960,7 @@ class CharsetMBCS extends CharsetICU {
         int fromUSectionUCharIndex = fromUSectionUChar.position()+sectionIndex;
         int fromUSectionValuesIndex = fromUSectionValues.position()+sectionIndex;
         int value, i, count;
-        
+
         /* read first pair of the section */
        count = fromUSectionUChar.get(fromUSectionUCharIndex++);
        value = fromUSectionValues.get(fromUSectionValuesIndex++);
@@ -4977,17 +4978,17 @@ class CharsetMBCS extends CharsetICU {
                }
              }
        }
-       
+
        for(i=0; i<count; ++i){
            s[length] = fromUSectionUChar.get(fromUSectionUCharIndex + i);
            value = fromUSectionValues.get(fromUSectionValuesIndex + i);
-           
+
            if(value==0) {
                /* no mapping, do nothing */
            } else if (FROM_U_IS_PARTIAL(value)) {
                extGetUnicodeSetString( cx, setFillIn, useFallback, minLength, UConverterConstants.U_SENTINEL, s, length+1,
                        FROM_U_GET_PARTIAL_INDEX(value));
-           } else if ((useFallback ? (value&FROM_U_RESERVED_MASK)==0:((value&(FROM_U_ROUNDTRIP_FLAG|FROM_U_RESERVED_MASK))==FROM_U_ROUNDTRIP_FLAG)) 
+           } else if ((useFallback ? (value&FROM_U_RESERVED_MASK)==0:((value&(FROM_U_ROUNDTRIP_FLAG|FROM_U_RESERVED_MASK))==FROM_U_ROUNDTRIP_FLAG))
                    && FROM_U_GET_LENGTH(value)>=minLength) {
                StringBuilder normalizedStringBuilder = new StringBuilder(); // String for composite characters
                for(int j=0; j<(length+1);j++){
@@ -4996,14 +4997,14 @@ class CharsetMBCS extends CharsetICU {
              setFillIn.add(normalizedStringBuilder.toString());
            }
        }
-        
+
     }
-    
-    
+
+
     static void extGetUnicodeSet(UnicodeSet setFillIn, int which, int filter, UConverterSharedData Data){
         int st1, stage1Length, st2, st3, minLength;
         int ps2, ps3;
-        
+
         CharBuffer stage12, stage3;
         int value, length;
         IntBuffer stage3b;
@@ -5017,10 +5018,10 @@ class CharsetMBCS extends CharsetICU {
         stage12 = (CharBuffer)ARRAY(cx, EXT_FROM_U_STAGE_12_INDEX,char.class );
         stage3 = (CharBuffer)ARRAY(cx, EXT_FROM_U_STAGE_3_INDEX,char.class );
         stage3b = (IntBuffer)ARRAY(cx, EXT_FROM_U_STAGE_3B_INDEX,int.class );
-        
+
         stage1Length = cx.asIntBuffer().get(EXT_FROM_U_STAGE_1_LENGTH);
         useFallback = (which==ROUNDTRIP_AND_FALLBACK_SET);
-        
+
         c = 0;
         if(filter == UCNV_SET_FILTER_2022_CN) {
             minLength = 3;
@@ -5030,13 +5031,13 @@ class CharsetMBCS extends CharsetICU {
         } else {
             minLength = 1;
         }
-        
+
         for(st1=0; st1< stage1Length; ++st1){
             st2 = stage12.get(st1);
             if(st2>stage1Length) {
                 ps2 = st2;
                 for(st2=0;st2<64;++st2){
-                    st3=((int) stage12.get(ps2+st2))<<STAGE_2_LEFT_SHIFT;
+                    st3=(stage12.get(ps2+st2))<<STAGE_2_LEFT_SHIFT;
                     if(st3!= 0){
                         ps3 = st3;
                         do {
@@ -5047,9 +5048,9 @@ class CharsetMBCS extends CharsetICU {
                                 length = 0;
                                 length=UTF16.append(s, length, c);
                                 extGetUnicodeSetString(cx,setFillIn,useFallback,minLength,c,s,length,FROM_U_GET_PARTIAL_INDEX(value));
-                            } else if ((useFallback ?  (value&FROM_U_RESERVED_MASK)==0 :((value&(FROM_U_ROUNDTRIP_FLAG|FROM_U_RESERVED_MASK))== FROM_U_ROUNDTRIP_FLAG)) && 
+                            } else if ((useFallback ?  (value&FROM_U_RESERVED_MASK)==0 :((value&(FROM_U_ROUNDTRIP_FLAG|FROM_U_RESERVED_MASK))== FROM_U_ROUNDTRIP_FLAG)) &&
                                     FROM_U_GET_LENGTH(value)>=minLength){
-                                
+
                                 switch(filter) {
                                 case UCNV_SET_FILTER_2022_CN:
                                     if(!(FROM_U_GET_LENGTH(value)==3 && FROM_U_GET_DATA(value)<=0x82ffff)){
@@ -5081,10 +5082,10 @@ class CharsetMBCS extends CharsetICU {
                                     break;
                                 }
                                 setFillIn.add(c);
-                              
+
                             }
                         }while((++c&0xf) != 0);
-                      
+
                     } else {
                         c+=16;   /* emplty stage3 block */
                     }
@@ -5094,12 +5095,13 @@ class CharsetMBCS extends CharsetICU {
             }
         }
     }
-    
+
     void MBCSGetUnicodeSetForUnicode(UConverterSharedData data, UnicodeSet setFillIn, int which){
-        MBCSGetFilteredUnicodeSetForUnicode(data, setFillIn, which, 
+        MBCSGetFilteredUnicodeSetForUnicode(data, setFillIn, which,
                 this.sharedData.mbcs.outputType==MBCS_OUTPUT_DBCS_ONLY ? UCNV_SET_FILTER_DBCS_ONLY : UCNV_SET_FILTER_NONE );
     }
-    
+
+    @Override
     void getUnicodeSetImpl( UnicodeSet setFillIn, int which){
         if((options & MBCS_OPTION_GB18030)!=0){
             setFillIn.add(0, 0xd7ff);

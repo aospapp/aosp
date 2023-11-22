@@ -16,44 +16,47 @@
 
 #include "oat_file_assistant.h"
 
-#include <fcntl.h>
-#ifdef __linux__
-#include <sys/sendfile.h>
-#else
-#include <sys/socket.h>
-#endif
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <sstream>
 
-#include <set>
+#include <sys/stat.h>
+
+#include "android-base/stringprintf.h"
+#include "android-base/strings.h"
 
 #include "base/logging.h"
-#include "base/stringprintf.h"
 #include "compiler_filter.h"
 #include "class_linker.h"
+#include "exec_utils.h"
 #include "gc/heap.h"
 #include "gc/space/image_space.h"
 #include "image.h"
 #include "oat.h"
 #include "os.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
-#include "ScopedFd.h"
+#include "scoped_thread_state_change-inl.h"
 #include "utils.h"
+#include "vdex_file.h"
 
 namespace art {
 
+using android::base::StringPrintf;
+
 std::ostream& operator << (std::ostream& stream, const OatFileAssistant::OatStatus status) {
   switch (status) {
-    case OatFileAssistant::kOatOutOfDate:
-      stream << "kOatOutOfDate";
+    case OatFileAssistant::kOatCannotOpen:
+      stream << "kOatCannotOpen";
+      break;
+    case OatFileAssistant::kOatDexOutOfDate:
+      stream << "kOatDexOutOfDate";
+      break;
+    case OatFileAssistant::kOatBootImageOutOfDate:
+      stream << "kOatBootImageOutOfDate";
+      break;
+    case OatFileAssistant::kOatRelocationOutOfDate:
+      stream << "kOatRelocationOutOfDate";
       break;
     case OatFileAssistant::kOatUpToDate:
       stream << "kOatUpToDate";
-      break;
-    case OatFileAssistant::kOatNeedsRelocation:
-      stream << "kOatNeedsRelocation";
       break;
     default:
       UNREACHABLE();
@@ -64,19 +67,35 @@ std::ostream& operator << (std::ostream& stream, const OatFileAssistant::OatStat
 
 OatFileAssistant::OatFileAssistant(const char* dex_location,
                                    const InstructionSet isa,
-                                   bool profile_changed,
                                    bool load_executable)
-    : OatFileAssistant(dex_location, nullptr, isa, profile_changed, load_executable)
-{ }
-
-OatFileAssistant::OatFileAssistant(const char* dex_location,
-                                   const char* oat_location,
-                                   const InstructionSet isa,
-                                   bool profile_changed,
-                                   bool load_executable)
-    : isa_(isa), profile_changed_(profile_changed), load_executable_(load_executable) {
+    : isa_(isa),
+      load_executable_(load_executable),
+      odex_(this, /*is_oat_location*/ false),
+      oat_(this, /*is_oat_location*/ true) {
   CHECK(dex_location != nullptr) << "OatFileAssistant: null dex location";
-  dex_location_.assign(dex_location);
+
+  // Try to get the realpath for the dex location.
+  //
+  // This is OK with respect to dalvik cache naming scheme because we never
+  // generate oat files starting from symlinks which go into dalvik cache.
+  // (recall that the oat files in dalvik cache are encoded by replacing '/'
+  // with '@' in the path).
+  // The boot image oat files (which are symlinked in dalvik-cache) are not
+  // loaded via the oat file assistant.
+  //
+  // The only case when the dex location may resolve to a different path
+  // is for secondary dex files (e.g. /data/user/0 symlinks to /data/data and
+  // the app is free to create its own internal layout). Related to this it is
+  // worthwhile to mention that installd resolves the secondary dex location
+  // before calling dex2oat.
+  UniqueCPtr<const char[]> dex_location_real(realpath(dex_location, nullptr));
+  if (dex_location_real != nullptr) {
+    dex_location_.assign(dex_location_real.get());
+  } else {
+    // If we can't get the realpath of the location there's not much point in trying to move on.
+    PLOG(ERROR) << "Could not get the realpath of dex_location " << dex_location;
+    return;
+  }
 
   if (load_executable_ && isa != kRuntimeISA) {
     LOG(WARNING) << "OatFileAssistant: Load executable specified, "
@@ -84,12 +103,38 @@ OatFileAssistant::OatFileAssistant(const char* dex_location,
     load_executable_ = false;
   }
 
-  // If the user gave a target oat location, save that as the cached oat
-  // location now so we won't try to construct the default location later.
-  if (oat_location != nullptr) {
-    cached_oat_file_name_ = std::string(oat_location);
-    cached_oat_file_name_attempted_ = true;
-    cached_oat_file_name_found_ = true;
+  // Get the odex filename.
+  std::string error_msg;
+  std::string odex_file_name;
+  if (DexLocationToOdexFilename(dex_location_, isa_, &odex_file_name, &error_msg)) {
+    odex_.Reset(odex_file_name);
+  } else {
+    LOG(WARNING) << "Failed to determine odex file name: " << error_msg;
+  }
+
+  // Get the oat filename.
+  std::string oat_file_name;
+  if (DexLocationToOatFilename(dex_location_, isa_, &oat_file_name, &error_msg)) {
+    oat_.Reset(oat_file_name);
+  } else {
+    LOG(WARNING) << "Failed to determine oat file name for dex location "
+        << dex_location_ << ": " << error_msg;
+  }
+
+  // Check if the dex directory is writable.
+  // This will be needed in most uses of OatFileAssistant and so it's OK to
+  // compute it eagerly. (the only use which will not make use of it is
+  // OatFileAssistant::GetStatusDump())
+  size_t pos = dex_location_.rfind('/');
+  if (pos == std::string::npos) {
+    LOG(WARNING) << "Failed to determine dex file parent directory: " << dex_location_;
+  } else {
+    std::string parent = dex_location_.substr(0, pos);
+    if (access(parent.c_str(), W_OK) == 0) {
+      dex_parent_writable_ = true;
+    } else {
+      VLOG(oat) << "Dex parent of " << dex_location_ << " is not writable: " << strerror(errno);
+    }
   }
 }
 
@@ -121,11 +166,17 @@ bool OatFileAssistant::Lock(std::string* error_msg) {
   CHECK(error_msg != nullptr);
   CHECK(!flock_.HasFile()) << "OatFileAssistant::Lock already acquired";
 
-  if (OatFileName() == nullptr) {
-    *error_msg = "Failed to determine lock file";
-    return false;
-  }
-  std::string lock_file_name = *OatFileName() + ".flock";
+  // Note the lock will only succeed for secondary dex files and in test
+  // environment.
+  //
+  // The lock *will fail* for all primary apks in a production environment.
+  // The app does not have permissions to create locks next to its dex location
+  // (be it system, data or vendor parition). We also cannot use the odex or
+  // oat location for the same reasoning.
+  //
+  // This is best effort and if it fails it's unlikely that we will be able
+  // to generate oat files anyway.
+  std::string lock_file_name = dex_location_ + "." + GetInstructionSetString(isa_) + ".flock";
 
   if (!flock_.Init(lock_file_name.c_str(), error_msg)) {
     unlink(lock_file_name.c_str());
@@ -134,148 +185,126 @@ bool OatFileAssistant::Lock(std::string* error_msg) {
   return true;
 }
 
-bool OatFileAssistant::OatFileCompilerFilterIsOkay(CompilerFilter::Filter target) {
-  const OatFile* oat_file = GetOatFile();
-  if (oat_file != nullptr) {
-    CompilerFilter::Filter current = oat_file->GetCompilerFilter();
-    return CompilerFilter::IsAsGoodAs(current, target);
+int OatFileAssistant::GetDexOptNeeded(CompilerFilter::Filter target, bool profile_changed) {
+  OatFileInfo& info = GetBestInfo();
+  DexOptNeeded dexopt_needed = info.GetDexOptNeeded(target, profile_changed);
+  if (info.IsOatLocation() || dexopt_needed == kDex2OatFromScratch) {
+    return dexopt_needed;
   }
-  return false;
+  return -dexopt_needed;
 }
 
-bool OatFileAssistant::OdexFileCompilerFilterIsOkay(CompilerFilter::Filter target) {
-  const OatFile* odex_file = GetOdexFile();
-  if (odex_file != nullptr) {
-    CompilerFilter::Filter current = odex_file->GetCompilerFilter();
-    return CompilerFilter::IsAsGoodAs(current, target);
-  }
-  return false;
-}
+// Figure out the currently specified compile filter option in the runtime.
+// Returns true on success, false if the compiler filter is invalid, in which
+// case error_msg describes the problem.
+static bool GetRuntimeCompilerFilterOption(CompilerFilter::Filter* filter,
+                                           std::string* error_msg) {
+  CHECK(filter != nullptr);
+  CHECK(error_msg != nullptr);
 
-OatFileAssistant::DexOptNeeded OatFileAssistant::GetDexOptNeeded(CompilerFilter::Filter target) {
-  bool compilation_desired = CompilerFilter::IsBytecodeCompilationEnabled(target);
-
-  // See if the oat file is in good shape as is.
-  bool oat_okay = OatFileCompilerFilterIsOkay(target);
-  if (oat_okay) {
-    if (compilation_desired) {
-      if (OatFileIsUpToDate()) {
-        return kNoDexOptNeeded;
-      }
-    } else {
-      if (!OatFileIsOutOfDate()) {
-        return kNoDexOptNeeded;
+  *filter = OatFileAssistant::kDefaultCompilerFilterForDexLoading;
+  for (StringPiece option : Runtime::Current()->GetCompilerOptions()) {
+    if (option.starts_with("--compiler-filter=")) {
+      const char* compiler_filter_string = option.substr(strlen("--compiler-filter=")).data();
+      if (!CompilerFilter::ParseCompilerFilter(compiler_filter_string, filter)) {
+        *error_msg = std::string("Unknown --compiler-filter value: ")
+                   + std::string(compiler_filter_string);
+        return false;
       }
     }
   }
-
-  // See if the odex file is in good shape as is.
-  bool odex_okay = OdexFileCompilerFilterIsOkay(target);
-  if (odex_okay) {
-    if (compilation_desired) {
-      if (OdexFileIsUpToDate()) {
-        return kNoDexOptNeeded;
-      }
-    } else {
-      if (!OdexFileIsOutOfDate()) {
-        return kNoDexOptNeeded;
-      }
-    }
-  }
-
-  // See if we can get an up-to-date file by running patchoat.
-  if (compilation_desired) {
-    if (odex_okay && OdexFileNeedsRelocation() && OdexFileHasPatchInfo()) {
-      return kPatchOatNeeded;
-    }
-
-    if (oat_okay && OatFileNeedsRelocation() && OatFileHasPatchInfo()) {
-      return kSelfPatchOatNeeded;
-    }
-  }
-
-  // We can only run dex2oat if there are original dex files.
-  return HasOriginalDexFiles() ? kDex2OatNeeded : kNoDexOptNeeded;
+  return true;
 }
 
 bool OatFileAssistant::IsUpToDate() {
-  return OatFileIsUpToDate() || OdexFileIsUpToDate();
+  return GetBestInfo().Status() == kOatUpToDate;
 }
 
 OatFileAssistant::ResultOfAttemptToUpdate
-OatFileAssistant::MakeUpToDate(CompilerFilter::Filter target, std::string* error_msg) {
-  switch (GetDexOptNeeded(target)) {
-    case kNoDexOptNeeded: return kUpdateSucceeded;
-    case kDex2OatNeeded: return GenerateOatFile(target, error_msg);
-    case kPatchOatNeeded: return RelocateOatFile(OdexFileName(), error_msg);
-    case kSelfPatchOatNeeded: return RelocateOatFile(OatFileName(), error_msg);
+OatFileAssistant::MakeUpToDate(bool profile_changed, std::string* error_msg) {
+  CompilerFilter::Filter target;
+  if (!GetRuntimeCompilerFilterOption(&target, error_msg)) {
+    return kUpdateNotAttempted;
+  }
+
+  OatFileInfo& info = GetBestInfo();
+  switch (info.GetDexOptNeeded(target, profile_changed)) {
+    case kNoDexOptNeeded:
+      return kUpdateSucceeded;
+
+    // TODO: For now, don't bother with all the different ways we can call
+    // dex2oat to generate the oat file. Always generate the oat file as if it
+    // were kDex2OatFromScratch.
+    case kDex2OatFromScratch:
+    case kDex2OatForBootImage:
+    case kDex2OatForRelocation:
+    case kDex2OatForFilter:
+      return GenerateOatFileNoChecks(info, target, error_msg);
   }
   UNREACHABLE();
 }
 
 std::unique_ptr<OatFile> OatFileAssistant::GetBestOatFile() {
-  // The best oat files are, in descending order of bestness:
-  // 1. Properly relocated files. These may be opened executable.
-  // 2. Not out-of-date files that are already opened non-executable.
-  // 3. Not out-of-date files that we must reopen non-executable.
+  return GetBestInfo().ReleaseFileForUse();
+}
 
-  if (OatFileIsUpToDate()) {
-    oat_file_released_ = true;
-    return std::move(cached_oat_file_);
-  }
+std::string OatFileAssistant::GetStatusDump() {
+  std::ostringstream status;
+  bool oat_file_exists = false;
+  bool odex_file_exists = false;
+  if (oat_.Status() != kOatCannotOpen) {
+    // If we can open the file, Filename should not return null.
+    CHECK(oat_.Filename() != nullptr);
 
-  if (OdexFileIsUpToDate()) {
-    oat_file_released_ = true;
-    return std::move(cached_odex_file_);
-  }
-
-  VLOG(oat) << "Oat File Assistant: No relocated oat file found,"
-    << " attempting to fall back to interpreting oat file instead.";
-
-  if (!OatFileIsOutOfDate() && !OatFileIsExecutable()) {
-    oat_file_released_ = true;
-    return std::move(cached_oat_file_);
-  }
-
-  if (!OdexFileIsOutOfDate() && !OdexFileIsExecutable()) {
-    oat_file_released_ = true;
-    return std::move(cached_odex_file_);
-  }
-
-  if (!OatFileIsOutOfDate()) {
-    load_executable_ = false;
-    ClearOatFileCache();
-    if (!OatFileIsOutOfDate()) {
-      CHECK(!OatFileIsExecutable());
-      oat_file_released_ = true;
-      return std::move(cached_oat_file_);
+    oat_file_exists = true;
+    status << *oat_.Filename() << "[status=" << oat_.Status() << ", ";
+    const OatFile* file = oat_.GetFile();
+    if (file == nullptr) {
+      // If the file is null even though the status is not kOatCannotOpen, it
+      // means we must have a vdex file with no corresponding oat file. In
+      // this case we cannot determine the compilation filter. Indicate that
+      // we have only the vdex file instead.
+      status << "vdex-only";
+    } else {
+      status << "compilation_filter=" << CompilerFilter::NameOfFilter(file->GetCompilerFilter());
     }
   }
 
-  if (!OdexFileIsOutOfDate()) {
-    load_executable_ = false;
-    ClearOdexFileCache();
-    if (!OdexFileIsOutOfDate()) {
-      CHECK(!OdexFileIsExecutable());
-      oat_file_released_ = true;
-      return std::move(cached_odex_file_);
+  if (odex_.Status() != kOatCannotOpen) {
+    // If we can open the file, Filename should not return null.
+    CHECK(odex_.Filename() != nullptr);
+
+    odex_file_exists = true;
+    if (oat_file_exists) {
+      status << "] ";
+    }
+    status << *odex_.Filename() << "[status=" << odex_.Status() << ", ";
+    const OatFile* file = odex_.GetFile();
+    if (file == nullptr) {
+      status << "vdex-only";
+    } else {
+      status << "compilation_filter=" << CompilerFilter::NameOfFilter(file->GetCompilerFilter());
     }
   }
 
-  return std::unique_ptr<OatFile>();
+  if (!oat_file_exists && !odex_file_exists) {
+    status << "invalid[";
+  }
+
+  status << "]";
+  return status.str();
 }
 
 std::vector<std::unique_ptr<const DexFile>> OatFileAssistant::LoadDexFiles(
     const OatFile& oat_file, const char* dex_location) {
   std::vector<std::unique_ptr<const DexFile>> dex_files;
 
-  // Load the primary dex file.
+  // Load the main dex file.
   std::string error_msg;
   const OatFile::OatDexFile* oat_dex_file = oat_file.GetOatDexFile(
-      dex_location, nullptr, false);
+      dex_location, nullptr, &error_msg);
   if (oat_dex_file == nullptr) {
-    LOG(WARNING) << "Attempt to load out-of-date oat file "
-      << oat_file.GetLocation() << " for dex location " << dex_location;
+    LOG(WARNING) << error_msg;
     return std::vector<std::unique_ptr<const DexFile>>();
   }
 
@@ -286,12 +315,12 @@ std::vector<std::unique_ptr<const DexFile>> OatFileAssistant::LoadDexFiles(
   }
   dex_files.push_back(std::move(dex_file));
 
-  // Load secondary multidex files
+  // Load the rest of the multidex entries
   for (size_t i = 1; ; i++) {
-    std::string secondary_dex_location = DexFile::GetMultiDexLocation(i, dex_location);
-    oat_dex_file = oat_file.GetOatDexFile(secondary_dex_location.c_str(), nullptr, false);
+    std::string multidex_dex_location = DexFile::GetMultiDexLocation(i, dex_location);
+    oat_dex_file = oat_file.GetOatDexFile(multidex_dex_location.c_str(), nullptr);
     if (oat_dex_file == nullptr) {
-      // There are no more secondary dex files to load.
+      // There are no more multidex entries to load.
       break;
     }
 
@@ -306,222 +335,115 @@ std::vector<std::unique_ptr<const DexFile>> OatFileAssistant::LoadDexFiles(
 }
 
 bool OatFileAssistant::HasOriginalDexFiles() {
-  // Ensure GetRequiredDexChecksum has been run so that
+  // Ensure GetRequiredDexChecksums has been run so that
   // has_original_dex_files_ is initialized. We don't care about the result of
-  // GetRequiredDexChecksum.
-  GetRequiredDexChecksum();
+  // GetRequiredDexChecksums.
+  GetRequiredDexChecksums();
   return has_original_dex_files_;
 }
 
-const std::string* OatFileAssistant::OdexFileName() {
-  if (!cached_odex_file_name_attempted_) {
-    cached_odex_file_name_attempted_ = true;
-
-    std::string error_msg;
-    cached_odex_file_name_found_ = DexFilenameToOdexFilename(
-        dex_location_, isa_, &cached_odex_file_name_, &error_msg);
-    if (!cached_odex_file_name_found_) {
-      // If we can't figure out the odex file, we treat it as if the odex
-      // file was inaccessible.
-      LOG(WARNING) << "Failed to determine odex file name: " << error_msg;
-    }
-  }
-  return cached_odex_file_name_found_ ? &cached_odex_file_name_ : nullptr;
-}
-
-bool OatFileAssistant::OdexFileExists() {
-  return GetOdexFile() != nullptr;
-}
-
 OatFileAssistant::OatStatus OatFileAssistant::OdexFileStatus() {
-  if (OdexFileIsOutOfDate()) {
-    return kOatOutOfDate;
-  }
-  if (OdexFileIsUpToDate()) {
-    return kOatUpToDate;
-  }
-  return kOatNeedsRelocation;
-}
-
-bool OatFileAssistant::OdexFileIsOutOfDate() {
-  if (!odex_file_is_out_of_date_attempted_) {
-    odex_file_is_out_of_date_attempted_ = true;
-    const OatFile* odex_file = GetOdexFile();
-    if (odex_file == nullptr) {
-      cached_odex_file_is_out_of_date_ = true;
-    } else {
-      cached_odex_file_is_out_of_date_ = GivenOatFileIsOutOfDate(*odex_file);
-    }
-  }
-  return cached_odex_file_is_out_of_date_;
-}
-
-bool OatFileAssistant::OdexFileNeedsRelocation() {
-  return OdexFileStatus() == kOatNeedsRelocation;
-}
-
-bool OatFileAssistant::OdexFileIsUpToDate() {
-  if (!odex_file_is_up_to_date_attempted_) {
-    odex_file_is_up_to_date_attempted_ = true;
-    const OatFile* odex_file = GetOdexFile();
-    if (odex_file == nullptr) {
-      cached_odex_file_is_up_to_date_ = false;
-    } else {
-      cached_odex_file_is_up_to_date_ = GivenOatFileIsUpToDate(*odex_file);
-    }
-  }
-  return cached_odex_file_is_up_to_date_;
-}
-
-CompilerFilter::Filter OatFileAssistant::OdexFileCompilerFilter() {
-  const OatFile* odex_file = GetOdexFile();
-  CHECK(odex_file != nullptr);
-
-  return odex_file->GetCompilerFilter();
-}
-std::string OatFileAssistant::ArtFileName(const OatFile* oat_file) const {
-  const std::string oat_file_location = oat_file->GetLocation();
-  // Replace extension with .art
-  const size_t last_ext = oat_file_location.find_last_of('.');
-  if (last_ext == std::string::npos) {
-    LOG(ERROR) << "No extension in oat file " << oat_file_location;
-    return std::string();
-  }
-  return oat_file_location.substr(0, last_ext) + ".art";
-}
-
-const std::string* OatFileAssistant::OatFileName() {
-  if (!cached_oat_file_name_attempted_) {
-    cached_oat_file_name_attempted_ = true;
-
-    // Compute the oat file name from the dex location.
-    // TODO: The oat file assistant should be the definitive place for
-    // determining the oat file name from the dex location, not
-    // GetDalvikCacheFilename.
-    std::string cache_dir = StringPrintf("%s%s",
-        DalvikCacheDirectory().c_str(), GetInstructionSetString(isa_));
-    std::string error_msg;
-    cached_oat_file_name_found_ = GetDalvikCacheFilename(dex_location_.c_str(),
-        cache_dir.c_str(), &cached_oat_file_name_, &error_msg);
-    if (!cached_oat_file_name_found_) {
-      // If we can't determine the oat file name, we treat the oat file as
-      // inaccessible.
-      LOG(WARNING) << "Failed to determine oat file name for dex location "
-        << dex_location_ << ": " << error_msg;
-    }
-  }
-  return cached_oat_file_name_found_ ? &cached_oat_file_name_ : nullptr;
-}
-
-bool OatFileAssistant::OatFileExists() {
-  return GetOatFile() != nullptr;
+  return odex_.Status();
 }
 
 OatFileAssistant::OatStatus OatFileAssistant::OatFileStatus() {
-  if (OatFileIsOutOfDate()) {
-    return kOatOutOfDate;
-  }
-  if (OatFileIsUpToDate()) {
-    return kOatUpToDate;
-  }
-  return kOatNeedsRelocation;
+  return oat_.Status();
 }
 
-bool OatFileAssistant::OatFileIsOutOfDate() {
-  if (!oat_file_is_out_of_date_attempted_) {
-    oat_file_is_out_of_date_attempted_ = true;
-    const OatFile* oat_file = GetOatFile();
-    if (oat_file == nullptr) {
-      cached_oat_file_is_out_of_date_ = true;
-    } else {
-      cached_oat_file_is_out_of_date_ = GivenOatFileIsOutOfDate(*oat_file);
-    }
-  }
-  return cached_oat_file_is_out_of_date_;
-}
-
-bool OatFileAssistant::OatFileNeedsRelocation() {
-  return OatFileStatus() == kOatNeedsRelocation;
-}
-
-bool OatFileAssistant::OatFileIsUpToDate() {
-  if (!oat_file_is_up_to_date_attempted_) {
-    oat_file_is_up_to_date_attempted_ = true;
-    const OatFile* oat_file = GetOatFile();
-    if (oat_file == nullptr) {
-      cached_oat_file_is_up_to_date_ = false;
-    } else {
-      cached_oat_file_is_up_to_date_ = GivenOatFileIsUpToDate(*oat_file);
-    }
-  }
-  return cached_oat_file_is_up_to_date_;
-}
-
-CompilerFilter::Filter OatFileAssistant::OatFileCompilerFilter() {
-  const OatFile* oat_file = GetOatFile();
-  CHECK(oat_file != nullptr);
-
-  return oat_file->GetCompilerFilter();
-}
-
-OatFileAssistant::OatStatus OatFileAssistant::GivenOatFileStatus(const OatFile& file) {
-  // TODO: This could cause GivenOatFileIsOutOfDate to be called twice, which
-  // is more work than we need to do. If performance becomes a concern, and
-  // this method is actually called, this should be fixed.
-  if (GivenOatFileIsOutOfDate(file)) {
-    return kOatOutOfDate;
-  }
-  if (GivenOatFileIsUpToDate(file)) {
-    return kOatUpToDate;
-  }
-  return kOatNeedsRelocation;
-}
-
-bool OatFileAssistant::GivenOatFileIsOutOfDate(const OatFile& file) {
-  // Verify the dex checksum.
-  // Note: GetOatDexFile will return null if the dex checksum doesn't match
-  // what we provide, which verifies the primary dex checksum for us.
-  const uint32_t* dex_checksum_pointer = GetRequiredDexChecksum();
-  const OatFile::OatDexFile* oat_dex_file = file.GetOatDexFile(
-      dex_location_.c_str(), dex_checksum_pointer, false);
-  if (oat_dex_file == nullptr) {
+bool OatFileAssistant::DexChecksumUpToDate(const VdexFile& file, std::string* error_msg) {
+  const std::vector<uint32_t>* required_dex_checksums = GetRequiredDexChecksums();
+  if (required_dex_checksums == nullptr) {
+    LOG(WARNING) << "Required dex checksums not found. Assuming dex checksums are up to date.";
     return true;
   }
 
-  // Verify the dex checksums for any secondary multidex files
-  for (size_t i = 1; ; i++) {
-    std::string secondary_dex_location
-      = DexFile::GetMultiDexLocation(i, dex_location_.c_str());
-    const OatFile::OatDexFile* secondary_oat_dex_file
-      = file.GetOatDexFile(secondary_dex_location.c_str(), nullptr, false);
-    if (secondary_oat_dex_file == nullptr) {
-      // There are no more secondary dex files to check.
-      break;
-    }
+  uint32_t number_of_dex_files = file.GetHeader().GetNumberOfDexFiles();
+  if (required_dex_checksums->size() != number_of_dex_files) {
+    *error_msg = StringPrintf("expected %zu dex files but found %u",
+                              required_dex_checksums->size(),
+                              number_of_dex_files);
+    return false;
+  }
 
-    std::string error_msg;
-    uint32_t expected_secondary_checksum = 0;
-    if (DexFile::GetChecksum(secondary_dex_location.c_str(),
-          &expected_secondary_checksum, &error_msg)) {
-      uint32_t actual_secondary_checksum
-        = secondary_oat_dex_file->GetDexFileLocationChecksum();
-      if (expected_secondary_checksum != actual_secondary_checksum) {
-        VLOG(oat) << "Dex checksum does not match for secondary dex: "
-          << secondary_dex_location
-          << ". Expected: " << expected_secondary_checksum
-          << ", Actual: " << actual_secondary_checksum;
-        return true;
-      }
-    } else {
-      // If we can't get the checksum for the secondary location, we assume
-      // the dex checksum is up to date for this and all other secondary dex
-      // files.
-      break;
+  for (uint32_t i = 0; i < number_of_dex_files; i++) {
+    uint32_t expected_checksum = (*required_dex_checksums)[i];
+    uint32_t actual_checksum = file.GetLocationChecksum(i);
+    if (expected_checksum != actual_checksum) {
+      std::string dex = DexFile::GetMultiDexLocation(i, dex_location_.c_str());
+      *error_msg = StringPrintf("Dex checksum does not match for dex: %s."
+                                "Expected: %u, actual: %u",
+                                dex.c_str(),
+                                expected_checksum,
+                                actual_checksum);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool OatFileAssistant::DexChecksumUpToDate(const OatFile& file, std::string* error_msg) {
+  const std::vector<uint32_t>* required_dex_checksums = GetRequiredDexChecksums();
+  if (required_dex_checksums == nullptr) {
+    LOG(WARNING) << "Required dex checksums not found. Assuming dex checksums are up to date.";
+    return true;
+  }
+
+  uint32_t number_of_dex_files = file.GetOatHeader().GetDexFileCount();
+  if (required_dex_checksums->size() != number_of_dex_files) {
+    *error_msg = StringPrintf("expected %zu dex files but found %u",
+                              required_dex_checksums->size(),
+                              number_of_dex_files);
+    return false;
+  }
+
+  for (uint32_t i = 0; i < number_of_dex_files; i++) {
+    std::string dex = DexFile::GetMultiDexLocation(i, dex_location_.c_str());
+    uint32_t expected_checksum = (*required_dex_checksums)[i];
+    const OatFile::OatDexFile* oat_dex_file = file.GetOatDexFile(dex.c_str(), nullptr);
+    if (oat_dex_file == nullptr) {
+      *error_msg = StringPrintf("failed to find %s in %s", dex.c_str(), file.GetLocation().c_str());
+      return false;
+    }
+    uint32_t actual_checksum = oat_dex_file->GetDexFileLocationChecksum();
+    if (expected_checksum != actual_checksum) {
+      VLOG(oat) << "Dex checksum does not match for dex: " << dex
+        << ". Expected: " << expected_checksum
+        << ", Actual: " << actual_checksum;
+      return false;
+    }
+  }
+  return true;
+}
+
+OatFileAssistant::OatStatus OatFileAssistant::GivenOatFileStatus(const OatFile& file) {
+  // Verify the ART_USE_READ_BARRIER state.
+  // TODO: Don't fully reject files due to read barrier state. If they contain
+  // compiled code and are otherwise okay, we should return something like
+  // kOatRelocationOutOfDate. If they don't contain compiled code, the read
+  // barrier state doesn't matter.
+  const bool is_cc = file.GetOatHeader().IsConcurrentCopying();
+  constexpr bool kRuntimeIsCC = kUseReadBarrier;
+  if (is_cc != kRuntimeIsCC) {
+    return kOatCannotOpen;
+  }
+
+  // Verify the dex checksum.
+  std::string error_msg;
+  if (kIsVdexEnabled) {
+    VdexFile* vdex = file.GetVdexFile();
+    if (!DexChecksumUpToDate(*vdex, &error_msg)) {
+      LOG(ERROR) << error_msg;
+      return kOatDexOutOfDate;
+    }
+  } else {
+    if (!DexChecksumUpToDate(file, &error_msg)) {
+      LOG(ERROR) << error_msg;
+      return kOatDexOutOfDate;
     }
   }
 
   CompilerFilter::Filter current_compiler_filter = file.GetCompilerFilter();
-  VLOG(oat) << "Compiler filter for " << file.GetLocation() << " is " << current_compiler_filter;
 
   // Verify the image checksum
   if (CompilerFilter::DependsOnImageChecksum(current_compiler_filter)) {
@@ -530,7 +452,7 @@ bool OatFileAssistant::GivenOatFileIsOutOfDate(const OatFile& file) {
       VLOG(oat) << "No image for oat image checksum to match against.";
 
       if (HasOriginalDexFiles()) {
-        return true;
+        return kOatBootImageOutOfDate;
       }
 
       // If there is no original dex file to fall back to, grudgingly accept
@@ -541,48 +463,20 @@ bool OatFileAssistant::GivenOatFileIsOutOfDate(const OatFile& file) {
       // starts up.
       LOG(WARNING) << "Dex location " << dex_location_ << " does not seem to include dex file. "
         << "Allow oat file use. This is potentially dangerous.";
-    } else if (file.GetOatHeader().GetImageFileLocationOatChecksum()
-        != GetCombinedImageChecksum()) {
+    } else if (file.GetOatHeader().GetImageFileLocationOatChecksum() != image_info->oat_checksum) {
       VLOG(oat) << "Oat image checksum does not match image checksum.";
-      return true;
+      return kOatBootImageOutOfDate;
     }
   } else {
     VLOG(oat) << "Image checksum test skipped for compiler filter " << current_compiler_filter;
   }
 
-  // Verify the profile hasn't changed recently.
-  // TODO: Move this check to OatFileCompilerFilterIsOkay? Nothing bad should
-  // happen if we use an oat file compiled with an out-of-date profile.
-  if (CompilerFilter::DependsOnProfile(current_compiler_filter)) {
-    if (profile_changed_) {
-      VLOG(oat) << "The profile has changed recently.";
-      return true;
-    }
-  } else {
-    VLOG(oat) << "Profile check skipped for compiler filter " << current_compiler_filter;
-  }
-
-  // Everything looks good; the dex file is not out of date.
-  return false;
-}
-
-bool OatFileAssistant::GivenOatFileNeedsRelocation(const OatFile& file) {
-  return GivenOatFileStatus(file) == kOatNeedsRelocation;
-}
-
-bool OatFileAssistant::GivenOatFileIsUpToDate(const OatFile& file) {
-  if (GivenOatFileIsOutOfDate(file)) {
-    return false;
-  }
-
-  CompilerFilter::Filter current_compiler_filter = file.GetCompilerFilter();
-
-  if (CompilerFilter::IsBytecodeCompilationEnabled(current_compiler_filter)) {
+  if (CompilerFilter::IsAotCompilationEnabled(current_compiler_filter)) {
     if (!file.IsPic()) {
       const ImageInfo* image_info = GetImageInfo();
       if (image_info == nullptr) {
         VLOG(oat) << "No image to check oat relocation against.";
-        return false;
+        return kOatRelocationOutOfDate;
       }
 
       // Verify the oat_data_begin recorded for the image in the oat file matches
@@ -594,7 +488,7 @@ bool OatFileAssistant::GivenOatFileIsUpToDate(const OatFile& file) {
           ": Oat file image oat_data_begin (" << oat_data_begin << ")"
           << " does not match actual image oat_data_begin ("
           << image_info->oat_data_begin << ")";
-        return false;
+        return kOatRelocationOutOfDate;
       }
 
       // Verify the oat_patch_delta recorded for the image in the oat file matches
@@ -605,7 +499,7 @@ bool OatFileAssistant::GivenOatFileIsUpToDate(const OatFile& file) {
           ": Oat file image patch delta (" << oat_patch_delta << ")"
           << " does not match actual image patch delta ("
           << image_info->patch_delta << ")";
-        return false;
+        return kOatRelocationOutOfDate;
       }
     } else {
       // Oat files compiled in PIC mode do not require relocation.
@@ -614,63 +508,113 @@ bool OatFileAssistant::GivenOatFileIsUpToDate(const OatFile& file) {
   } else {
     VLOG(oat) << "Oat relocation test skipped for compiler filter " << current_compiler_filter;
   }
+  return kOatUpToDate;
+}
+
+static bool DexLocationToOdexNames(const std::string& location,
+                                   InstructionSet isa,
+                                   std::string* odex_filename,
+                                   std::string* oat_dir,
+                                   std::string* isa_dir,
+                                   std::string* error_msg) {
+  CHECK(odex_filename != nullptr);
+  CHECK(error_msg != nullptr);
+
+  // The odex file name is formed by replacing the dex_location extension with
+  // .odex and inserting an oat/<isa> directory. For example:
+  //   location = /foo/bar/baz.jar
+  //   odex_location = /foo/bar/oat/<isa>/baz.odex
+
+  // Find the directory portion of the dex location and add the oat/<isa>
+  // directory.
+  size_t pos = location.rfind('/');
+  if (pos == std::string::npos) {
+    *error_msg = "Dex location " + location + " has no directory.";
+    return false;
+  }
+  std::string dir = location.substr(0, pos+1);
+  // Add the oat directory.
+  dir += "oat";
+  if (oat_dir != nullptr) {
+    *oat_dir = dir;
+  }
+  // Add the isa directory
+  dir += "/" + std::string(GetInstructionSetString(isa));
+  if (isa_dir != nullptr) {
+    *isa_dir = dir;
+  }
+
+  // Get the base part of the file without the extension.
+  std::string file = location.substr(pos+1);
+  pos = file.rfind('.');
+  if (pos == std::string::npos) {
+    *error_msg = "Dex location " + location + " has no extension.";
+    return false;
+  }
+  std::string base = file.substr(0, pos);
+
+  *odex_filename = dir + "/" + base + ".odex";
   return true;
 }
 
-OatFileAssistant::ResultOfAttemptToUpdate
-OatFileAssistant::RelocateOatFile(const std::string* input_file, std::string* error_msg) {
-  CHECK(error_msg != nullptr);
-
-  if (input_file == nullptr) {
-    *error_msg = "Patching of oat file for dex location " + dex_location_
-      + " not attempted because the input file name could not be determined.";
-    return kUpdateNotAttempted;
-  }
-  const std::string& input_file_name = *input_file;
-
-  if (OatFileName() == nullptr) {
-    *error_msg = "Patching of oat file for dex location " + dex_location_
-      + " not attempted because the oat file name could not be determined.";
-    return kUpdateNotAttempted;
-  }
-  const std::string& oat_file_name = *OatFileName();
-
-  const ImageInfo* image_info = GetImageInfo();
-  Runtime* runtime = Runtime::Current();
-  if (image_info == nullptr) {
-    *error_msg = "Patching of oat file " + oat_file_name
-      + " not attempted because no image location was found.";
-    return kUpdateNotAttempted;
+// Prepare a subcomponent of the odex directory.
+// (i.e. create and set the expected permissions on the path `dir`).
+static bool PrepareDirectory(const std::string& dir, std::string* error_msg) {
+  struct stat dir_stat;
+  if (TEMP_FAILURE_RETRY(stat(dir.c_str(), &dir_stat)) == 0) {
+    // The directory exists. Check if it is indeed a directory.
+    if (!S_ISDIR(dir_stat.st_mode)) {
+      *error_msg = dir + " is not a dir";
+      return false;
+    } else {
+      // The dir is already on disk.
+      return true;
+    }
   }
 
-  if (!runtime->IsDex2OatEnabled()) {
-    *error_msg = "Patching of oat file " + oat_file_name
-      + " not attempted because dex2oat is disabled";
-    return kUpdateNotAttempted;
+  // Failed to stat. We need to create the directory.
+  if (errno != ENOENT) {
+    *error_msg = "Could not stat isa dir " + dir + ":" + strerror(errno);
+    return false;
   }
 
-  std::vector<std::string> argv;
-  argv.push_back(runtime->GetPatchoatExecutable());
-  argv.push_back("--instruction-set=" + std::string(GetInstructionSetString(isa_)));
-  argv.push_back("--input-oat-file=" + input_file_name);
-  argv.push_back("--output-oat-file=" + oat_file_name);
-  argv.push_back("--patched-image-location=" + image_info->location);
-
-  std::string command_line(Join(argv, ' '));
-  if (!Exec(argv, error_msg)) {
-    // Manually delete the file. This ensures there is no garbage left over if
-    // the process unexpectedly died.
-    unlink(oat_file_name.c_str());
-    return kUpdateFailed;
+  mode_t mode = S_IRWXU | S_IXGRP | S_IXOTH;
+  if (mkdir(dir.c_str(), mode) != 0) {
+    *error_msg = "Could not create dir " + dir + ":" + strerror(errno);
+    return false;
   }
-
-  // Mark that the oat file has changed and we should try to reload.
-  ClearOatFileCache();
-  return kUpdateSucceeded;
+  if (chmod(dir.c_str(), mode) != 0) {
+    *error_msg = "Could not create the oat dir " + dir + ":" + strerror(errno);
+    return false;
+  }
+  return true;
 }
 
-OatFileAssistant::ResultOfAttemptToUpdate
-OatFileAssistant::GenerateOatFile(CompilerFilter::Filter target, std::string* error_msg) {
+// Prepares the odex directory for the given dex location.
+static bool PrepareOdexDirectories(const std::string& dex_location,
+                                   const std::string& expected_odex_location,
+                                   InstructionSet isa,
+                                   std::string* error_msg) {
+  std::string actual_odex_location;
+  std::string oat_dir;
+  std::string isa_dir;
+  if (!DexLocationToOdexNames(
+        dex_location, isa, &actual_odex_location, &oat_dir, &isa_dir, error_msg)) {
+    return false;
+  }
+  DCHECK_EQ(expected_odex_location, actual_odex_location);
+
+  if (!PrepareDirectory(oat_dir, error_msg)) {
+    return false;
+  }
+  if (!PrepareDirectory(isa_dir, error_msg)) {
+    return false;
+  }
+  return true;
+}
+
+OatFileAssistant::ResultOfAttemptToUpdate OatFileAssistant::GenerateOatFileNoChecks(
+      OatFileAssistant::OatFileInfo& info, CompilerFilter::Filter filter, std::string* error_msg) {
   CHECK(error_msg != nullptr);
 
   Runtime* runtime = Runtime::Current();
@@ -680,30 +624,60 @@ OatFileAssistant::GenerateOatFile(CompilerFilter::Filter target, std::string* er
     return kUpdateNotAttempted;
   }
 
-  if (OatFileName() == nullptr) {
+  if (info.Filename() == nullptr) {
     *error_msg = "Generation of oat file for dex location " + dex_location_
       + " not attempted because the oat file name could not be determined.";
     return kUpdateNotAttempted;
   }
-  const std::string& oat_file_name = *OatFileName();
+  const std::string& oat_file_name = *info.Filename();
+  const std::string& vdex_file_name = GetVdexFilename(oat_file_name);
 
   // dex2oat ignores missing dex files and doesn't report an error.
   // Check explicitly here so we can detect the error properly.
   // TODO: Why does dex2oat behave that way?
-  if (!OS::FileExists(dex_location_.c_str())) {
-    *error_msg = "Dex location " + dex_location_ + " does not exists.";
+  struct stat dex_path_stat;
+  if (TEMP_FAILURE_RETRY(stat(dex_location_.c_str(), &dex_path_stat)) != 0) {
+    *error_msg = "Could not access dex location " + dex_location_ + ":" + strerror(errno);
     return kUpdateNotAttempted;
   }
 
-  std::unique_ptr<File> oat_file;
-  oat_file.reset(OS::CreateEmptyFile(oat_file_name.c_str()));
+  // If this is the odex location, we need to create the odex file layout (../oat/isa/..)
+  if (!info.IsOatLocation()) {
+    if (!PrepareOdexDirectories(dex_location_, oat_file_name, isa_, error_msg)) {
+      return kUpdateNotAttempted;
+    }
+  }
+
+  // Set the permissions for the oat and the vdex files.
+  // The user always gets read and write while the group and others propagate
+  // the reading access of the original dex file.
+  mode_t file_mode = S_IRUSR | S_IWUSR |
+      (dex_path_stat.st_mode & S_IRGRP) |
+      (dex_path_stat.st_mode & S_IROTH);
+
+  std::unique_ptr<File> vdex_file(OS::CreateEmptyFile(vdex_file_name.c_str()));
+  if (vdex_file.get() == nullptr) {
+    *error_msg = "Generation of oat file " + oat_file_name
+      + " not attempted because the vdex file " + vdex_file_name
+      + " could not be opened.";
+    return kUpdateNotAttempted;
+  }
+
+  if (fchmod(vdex_file->Fd(), file_mode) != 0) {
+    *error_msg = "Generation of oat file " + oat_file_name
+      + " not attempted because the vdex file " + vdex_file_name
+      + " could not be made world readable.";
+    return kUpdateNotAttempted;
+  }
+
+  std::unique_ptr<File> oat_file(OS::CreateEmptyFile(oat_file_name.c_str()));
   if (oat_file.get() == nullptr) {
     *error_msg = "Generation of oat file " + oat_file_name
       + " not attempted because the oat file could not be created.";
     return kUpdateNotAttempted;
   }
 
-  if (fchmod(oat_file->Fd(), 0644) != 0) {
+  if (fchmod(oat_file->Fd(), file_mode) != 0) {
     *error_msg = "Generation of oat file " + oat_file_name
       + " not attempted because the oat file could not be made world readable.";
     oat_file->Erase();
@@ -712,15 +686,24 @@ OatFileAssistant::GenerateOatFile(CompilerFilter::Filter target, std::string* er
 
   std::vector<std::string> args;
   args.push_back("--dex-file=" + dex_location_);
+  args.push_back("--output-vdex-fd=" + std::to_string(vdex_file->Fd()));
   args.push_back("--oat-fd=" + std::to_string(oat_file->Fd()));
   args.push_back("--oat-location=" + oat_file_name);
-  args.push_back("--compiler-filter=" + CompilerFilter::NameOfFilter(target));
+  args.push_back("--compiler-filter=" + CompilerFilter::NameOfFilter(filter));
 
   if (!Dex2Oat(args, error_msg)) {
-    // Manually delete the file. This ensures there is no garbage left over if
-    // the process unexpectedly died.
+    // Manually delete the oat and vdex files. This ensures there is no garbage
+    // left over if the process unexpectedly died.
+    vdex_file->Erase();
+    unlink(vdex_file_name.c_str());
     oat_file->Erase();
     unlink(oat_file_name.c_str());
+    return kUpdateFailed;
+  }
+
+  if (vdex_file->FlushCloseOrErase() != 0) {
+    *error_msg = "Unable to close vdex file " + vdex_file_name;
+    unlink(vdex_file_name.c_str());
     return kUpdateFailed;
   }
 
@@ -730,8 +713,8 @@ OatFileAssistant::GenerateOatFile(CompilerFilter::Filter target, std::string* er
     return kUpdateFailed;
   }
 
-  // Mark that the oat file has changed and we should try to reload.
-  ClearOatFileCache();
+  // Mark that the odex file has changed and we should try to reload.
+  info.Reset();
   return kUpdateSucceeded;
 }
 
@@ -754,7 +737,7 @@ bool OatFileAssistant::Dex2Oat(const std::vector<std::string>& args,
     class_path = OatFile::kSpecialSharedLibrary;
   }
   argv.push_back(class_path);
-  if (runtime->IsDebuggable()) {
+  if (runtime->IsJavaDebuggable()) {
     argv.push_back("--debuggable");
   }
   runtime->AddCurrentRuntimeFeaturesAsDex2OatArguments(&argv);
@@ -782,66 +765,34 @@ bool OatFileAssistant::Dex2Oat(const std::vector<std::string>& args,
 
   argv.insert(argv.end(), args.begin(), args.end());
 
-  std::string command_line(Join(argv, ' '));
+  std::string command_line(android::base::Join(argv, ' '));
   return Exec(argv, error_msg);
 }
 
-bool OatFileAssistant::DexFilenameToOdexFilename(const std::string& location,
-    InstructionSet isa, std::string* odex_filename, std::string* error_msg) {
-  CHECK(odex_filename != nullptr);
-  CHECK(error_msg != nullptr);
-
-  // The odex file name is formed by replacing the dex_location extension with
-  // .odex and inserting an oat/<isa> directory. For example:
-  //   location = /foo/bar/baz.jar
-  //   odex_location = /foo/bar/oat/<isa>/baz.odex
-
-  // Find the directory portion of the dex location and add the oat/<isa>
-  // directory.
-  size_t pos = location.rfind('/');
-  if (pos == std::string::npos) {
-    *error_msg = "Dex location " + location + " has no directory.";
-    return false;
-  }
-  std::string dir = location.substr(0, pos+1);
-  dir += "oat/" + std::string(GetInstructionSetString(isa));
-
-  // Find the file portion of the dex location.
-  std::string file;
-  if (pos == std::string::npos) {
-    file = location;
-  } else {
-    file = location.substr(pos+1);
-  }
-
-  // Get the base part of the file without the extension.
-  pos = file.rfind('.');
-  if (pos == std::string::npos) {
-    *error_msg = "Dex location " + location + " has no extension.";
-    return false;
-  }
-  std::string base = file.substr(0, pos);
-
-  *odex_filename = dir + "/" + base + ".odex";
-  return true;
+bool OatFileAssistant::DexLocationToOdexFilename(const std::string& location,
+                                                 InstructionSet isa,
+                                                 std::string* odex_filename,
+                                                 std::string* error_msg) {
+  return DexLocationToOdexNames(location, isa, odex_filename, nullptr, nullptr, error_msg);
 }
 
-std::string OatFileAssistant::DalvikCacheDirectory() {
-  // Note: We don't cache this, because it will only be called once by
-  // OatFileName.
+bool OatFileAssistant::DexLocationToOatFilename(const std::string& location,
+                                                InstructionSet isa,
+                                                std::string* oat_filename,
+                                                std::string* error_msg) {
+  CHECK(oat_filename != nullptr);
+  CHECK(error_msg != nullptr);
 
-  // TODO: The work done in GetDalvikCache is overkill for what we need.
-  // Ideally a new API for getting the DalvikCacheDirectory the way we want
-  // (without existence testing, creation, or death) is provided with the rest
-  // of the GetDalvikCache family of functions. Until such an API is in place,
-  // we use GetDalvikCache to avoid duplicating the logic for determining the
-  // dalvik cache directory.
-  std::string result;
-  bool have_android_data;
-  bool dalvik_cache_exists;
-  bool is_global_cache;
-  GetDalvikCache("", false, &result, &have_android_data, &dalvik_cache_exists, &is_global_cache);
-  return result;
+  std::string cache_dir = GetDalvikCache(GetInstructionSetString(isa));
+  if (cache_dir.empty()) {
+    *error_msg = "Dalvik cache directory does not exist";
+    return false;
+  }
+
+  // TODO: The oat file assistant should be the definitive place for
+  // determining the oat file name from the dex location, not
+  // GetDalvikCacheFilename.
+  return GetDalvikCacheFilename(location.c_str(), cache_dir.c_str(), oat_filename, error_msg);
 }
 
 std::string OatFileAssistant::ImageLocation() {
@@ -854,13 +805,16 @@ std::string OatFileAssistant::ImageLocation() {
   return image_spaces[0]->GetImageLocation();
 }
 
-const uint32_t* OatFileAssistant::GetRequiredDexChecksum() {
-  if (!required_dex_checksum_attempted_) {
-    required_dex_checksum_attempted_ = true;
-    required_dex_checksum_found_ = false;
+const std::vector<uint32_t>* OatFileAssistant::GetRequiredDexChecksums() {
+  if (!required_dex_checksums_attempted_) {
+    required_dex_checksums_attempted_ = true;
+    required_dex_checksums_found_ = false;
+    cached_required_dex_checksums_.clear();
     std::string error_msg;
-    if (DexFile::GetChecksum(dex_location_.c_str(), &cached_required_dex_checksum_, &error_msg)) {
-      required_dex_checksum_found_ = true;
+    if (DexFile::GetMultiDexChecksums(dex_location_.c_str(),
+                                      &cached_required_dex_checksums_,
+                                      &error_msg)) {
+      required_dex_checksums_found_ = true;
       has_original_dex_files_ = true;
     } else {
       // This can happen if the original dex file has been stripped from the
@@ -868,177 +822,296 @@ const uint32_t* OatFileAssistant::GetRequiredDexChecksum() {
       VLOG(oat) << "OatFileAssistant: " << error_msg;
       has_original_dex_files_ = false;
 
-      // Get the checksum from the odex if we can.
-      const OatFile* odex_file = GetOdexFile();
+      // Get the checksums from the odex if we can.
+      const OatFile* odex_file = odex_.GetFile();
       if (odex_file != nullptr) {
-        const OatFile::OatDexFile* odex_dex_file = odex_file->GetOatDexFile(
-            dex_location_.c_str(), nullptr, false);
-        if (odex_dex_file != nullptr) {
-          cached_required_dex_checksum_ = odex_dex_file->GetDexFileLocationChecksum();
-          required_dex_checksum_found_ = true;
+        required_dex_checksums_found_ = true;
+        for (size_t i = 0; i < odex_file->GetOatHeader().GetDexFileCount(); i++) {
+          std::string dex = DexFile::GetMultiDexLocation(i, dex_location_.c_str());
+          const OatFile::OatDexFile* odex_dex_file = odex_file->GetOatDexFile(dex.c_str(), nullptr);
+          if (odex_dex_file == nullptr) {
+            required_dex_checksums_found_ = false;
+            break;
+          }
+          cached_required_dex_checksums_.push_back(odex_dex_file->GetDexFileLocationChecksum());
         }
       }
     }
   }
-  return required_dex_checksum_found_ ? &cached_required_dex_checksum_ : nullptr;
+  return required_dex_checksums_found_ ? &cached_required_dex_checksums_ : nullptr;
 }
 
-const OatFile* OatFileAssistant::GetOdexFile() {
-  CHECK(!oat_file_released_) << "OdexFile called after oat file released.";
-  if (!odex_file_load_attempted_) {
-    odex_file_load_attempted_ = true;
-    if (OdexFileName() != nullptr) {
-      const std::string& odex_file_name = *OdexFileName();
-      std::string error_msg;
-      cached_odex_file_.reset(OatFile::Open(odex_file_name.c_str(),
-                                            odex_file_name.c_str(),
-                                            nullptr,
-                                            nullptr,
-                                            load_executable_,
-                                            /*low_4gb*/false,
-                                            dex_location_.c_str(),
-                                            &error_msg));
-      if (cached_odex_file_.get() == nullptr) {
-        VLOG(oat) << "OatFileAssistant test for existing pre-compiled oat file "
-          << odex_file_name << ": " << error_msg;
-      }
-    }
+std::unique_ptr<OatFileAssistant::ImageInfo>
+OatFileAssistant::ImageInfo::GetRuntimeImageInfo(InstructionSet isa, std::string* error_msg) {
+  CHECK(error_msg != nullptr);
+
+  Runtime* runtime = Runtime::Current();
+  std::unique_ptr<ImageInfo> info(new ImageInfo());
+  info->location = runtime->GetImageLocation();
+
+  std::unique_ptr<ImageHeader> image_header(
+      gc::space::ImageSpace::ReadImageHeader(info->location.c_str(), isa, error_msg));
+  if (image_header == nullptr) {
+    return nullptr;
   }
-  return cached_odex_file_.get();
-}
 
-bool OatFileAssistant::OdexFileIsExecutable() {
-  const OatFile* odex_file = GetOdexFile();
-  return (odex_file != nullptr && odex_file->IsExecutable());
-}
-
-bool OatFileAssistant::OdexFileHasPatchInfo() {
-  const OatFile* odex_file = GetOdexFile();
-  return (odex_file != nullptr && odex_file->HasPatchInfo());
-}
-
-void OatFileAssistant::ClearOdexFileCache() {
-  odex_file_load_attempted_ = false;
-  cached_odex_file_.reset();
-  odex_file_is_out_of_date_attempted_ = false;
-  odex_file_is_up_to_date_attempted_ = false;
-}
-
-const OatFile* OatFileAssistant::GetOatFile() {
-  CHECK(!oat_file_released_) << "OatFile called after oat file released.";
-  if (!oat_file_load_attempted_) {
-    oat_file_load_attempted_ = true;
-    if (OatFileName() != nullptr) {
-      const std::string& oat_file_name = *OatFileName();
-      std::string error_msg;
-      cached_oat_file_.reset(OatFile::Open(oat_file_name.c_str(),
-                                           oat_file_name.c_str(),
-                                           nullptr,
-                                           nullptr,
-                                           load_executable_,
-                                           /*low_4gb*/false,
-                                           dex_location_.c_str(),
-                                           &error_msg));
-      if (cached_oat_file_.get() == nullptr) {
-        VLOG(oat) << "OatFileAssistant test for existing oat file "
-          << oat_file_name << ": " << error_msg;
-      }
-    }
-  }
-  return cached_oat_file_.get();
-}
-
-bool OatFileAssistant::OatFileIsExecutable() {
-  const OatFile* oat_file = GetOatFile();
-  return (oat_file != nullptr && oat_file->IsExecutable());
-}
-
-bool OatFileAssistant::OatFileHasPatchInfo() {
-  const OatFile* oat_file = GetOatFile();
-  return (oat_file != nullptr && oat_file->HasPatchInfo());
-}
-
-void OatFileAssistant::ClearOatFileCache() {
-  oat_file_load_attempted_ = false;
-  cached_oat_file_.reset();
-  oat_file_is_out_of_date_attempted_ = false;
-  oat_file_is_up_to_date_attempted_ = false;
+  info->oat_checksum = image_header->GetOatChecksum();
+  info->oat_data_begin = reinterpret_cast<uintptr_t>(image_header->GetOatDataBegin());
+  info->patch_delta = image_header->GetPatchDelta();
+  return info;
 }
 
 const OatFileAssistant::ImageInfo* OatFileAssistant::GetImageInfo() {
   if (!image_info_load_attempted_) {
     image_info_load_attempted_ = true;
-
-    Runtime* runtime = Runtime::Current();
-    std::vector<gc::space::ImageSpace*> image_spaces = runtime->GetHeap()->GetBootImageSpaces();
-    if (!image_spaces.empty()) {
-      cached_image_info_.location = image_spaces[0]->GetImageLocation();
-
-      if (isa_ == kRuntimeISA) {
-        const ImageHeader& image_header = image_spaces[0]->GetImageHeader();
-        cached_image_info_.oat_checksum = image_header.GetOatChecksum();
-        cached_image_info_.oat_data_begin = reinterpret_cast<uintptr_t>(
-            image_header.GetOatDataBegin());
-        cached_image_info_.patch_delta = image_header.GetPatchDelta();
-      } else {
-        std::unique_ptr<ImageHeader> image_header(
-            gc::space::ImageSpace::ReadImageHeaderOrDie(cached_image_info_.location.c_str(), isa_));
-        cached_image_info_.oat_checksum = image_header->GetOatChecksum();
-        cached_image_info_.oat_data_begin = reinterpret_cast<uintptr_t>(
-            image_header->GetOatDataBegin());
-        cached_image_info_.patch_delta = image_header->GetPatchDelta();
-      }
-    }
-    image_info_load_succeeded_ = (!image_spaces.empty());
-
-    combined_image_checksum_ = CalculateCombinedImageChecksum(isa_);
-  }
-  return image_info_load_succeeded_ ? &cached_image_info_ : nullptr;
-}
-
-// TODO: Use something better than xor.
-uint32_t OatFileAssistant::CalculateCombinedImageChecksum(InstructionSet isa) {
-  uint32_t checksum = 0;
-  std::vector<gc::space::ImageSpace*> image_spaces =
-      Runtime::Current()->GetHeap()->GetBootImageSpaces();
-  if (isa == kRuntimeISA) {
-    for (gc::space::ImageSpace* image_space : image_spaces) {
-      checksum ^= image_space->GetImageHeader().GetOatChecksum();
-    }
-  } else {
-    for (gc::space::ImageSpace* image_space : image_spaces) {
-      std::string location = image_space->GetImageLocation();
-      std::unique_ptr<ImageHeader> image_header(
-          gc::space::ImageSpace::ReadImageHeaderOrDie(location.c_str(), isa));
-      checksum ^= image_header->GetOatChecksum();
+    std::string error_msg;
+    cached_image_info_ = ImageInfo::GetRuntimeImageInfo(isa_, &error_msg);
+    if (cached_image_info_ == nullptr) {
+      LOG(WARNING) << "Unable to get runtime image info: " << error_msg;
     }
   }
-  return checksum;
+  return cached_image_info_.get();
 }
 
-uint32_t OatFileAssistant::GetCombinedImageChecksum() {
-  if (!image_info_load_attempted_) {
-    GetImageInfo();
+OatFileAssistant::OatFileInfo& OatFileAssistant::GetBestInfo() {
+  // TODO(calin): Document the side effects of class loading when
+  // running dalvikvm command line.
+  if (dex_parent_writable_) {
+    // If the parent of the dex file is writable it means that we can
+    // create the odex file. In this case we unconditionally pick the odex
+    // as the best oat file. This corresponds to the regular use case when
+    // apps gets installed or when they load private, secondary dex file.
+    // For apps on the system partition the odex location will not be
+    // writable and thus the oat location might be more up to date.
+    return odex_;
   }
-  return combined_image_checksum_;
+
+  // We cannot write to the odex location. This must be a system app.
+
+  // If the oat location is usable take it.
+  if (oat_.IsUseable()) {
+    return oat_;
+  }
+
+  // The oat file is not usable but the odex file might be up to date.
+  // This is an indication that we are dealing with an up to date prebuilt
+  // (that doesn't need relocation).
+  if (odex_.Status() == kOatUpToDate) {
+    return odex_;
+  }
+
+  // The oat file is not usable and the odex file is not up to date.
+  // However we have access to the original dex file which means we can make
+  // the oat location up to date.
+  if (HasOriginalDexFiles()) {
+    return oat_;
+  }
+
+  // We got into the worst situation here:
+  // - the oat location is not usable
+  // - the prebuild odex location is not up to date
+  // - and we don't have the original dex file anymore (stripped).
+  // Pick the odex if it exists, or the oat if not.
+  return (odex_.Status() == kOatCannotOpen) ? oat_ : odex_;
 }
 
-gc::space::ImageSpace* OatFileAssistant::OpenImageSpace(const OatFile* oat_file) {
+std::unique_ptr<gc::space::ImageSpace> OatFileAssistant::OpenImageSpace(const OatFile* oat_file) {
   DCHECK(oat_file != nullptr);
-  std::string art_file = ArtFileName(oat_file);
+  std::string art_file = ReplaceFileExtension(oat_file->GetLocation(), "art");
   if (art_file.empty()) {
     return nullptr;
   }
   std::string error_msg;
   ScopedObjectAccess soa(Thread::Current());
-  gc::space::ImageSpace* ret = gc::space::ImageSpace::CreateFromAppImage(art_file.c_str(),
-                                                                         oat_file,
-                                                                         &error_msg);
+  std::unique_ptr<gc::space::ImageSpace> ret =
+      gc::space::ImageSpace::CreateFromAppImage(art_file.c_str(), oat_file, &error_msg);
   if (ret == nullptr && (VLOG_IS_ON(image) || OS::FileExists(art_file.c_str()))) {
     LOG(INFO) << "Failed to open app image " << art_file.c_str() << " " << error_msg;
   }
   return ret;
 }
 
-}  // namespace art
+OatFileAssistant::OatFileInfo::OatFileInfo(OatFileAssistant* oat_file_assistant,
+                                           bool is_oat_location)
+  : oat_file_assistant_(oat_file_assistant), is_oat_location_(is_oat_location)
+{}
 
+bool OatFileAssistant::OatFileInfo::IsOatLocation() {
+  return is_oat_location_;
+}
+
+const std::string* OatFileAssistant::OatFileInfo::Filename() {
+  return filename_provided_ ? &filename_ : nullptr;
+}
+
+bool OatFileAssistant::OatFileInfo::IsUseable() {
+  switch (Status()) {
+    case kOatCannotOpen:
+    case kOatDexOutOfDate:
+    case kOatBootImageOutOfDate: return false;
+
+    case kOatRelocationOutOfDate:
+    case kOatUpToDate: return true;
+  }
+  UNREACHABLE();
+}
+
+OatFileAssistant::OatStatus OatFileAssistant::OatFileInfo::Status() {
+  if (!status_attempted_) {
+    status_attempted_ = true;
+    const OatFile* file = GetFile();
+    if (file == nullptr) {
+      // Check to see if there is a vdex file we can make use of.
+      std::string error_msg;
+      std::string vdex_filename = GetVdexFilename(filename_);
+      std::unique_ptr<VdexFile> vdex = VdexFile::Open(vdex_filename,
+                                                      /*writeable*/false,
+                                                      /*low_4gb*/false,
+                                                      /*unquicken*/false,
+                                                      &error_msg);
+      if (vdex == nullptr) {
+        status_ = kOatCannotOpen;
+        VLOG(oat) << "unable to open vdex file " << vdex_filename << ": " << error_msg;
+      } else {
+        if (oat_file_assistant_->DexChecksumUpToDate(*vdex, &error_msg)) {
+          // The vdex file does not contain enough information to determine
+          // whether it is up to date with respect to the boot image, so we
+          // assume it is out of date.
+          VLOG(oat) << error_msg;
+          status_ = kOatBootImageOutOfDate;
+        } else {
+          status_ = kOatDexOutOfDate;
+        }
+      }
+    } else {
+      status_ = oat_file_assistant_->GivenOatFileStatus(*file);
+      VLOG(oat) << file->GetLocation() << " is " << status_
+          << " with filter " << file->GetCompilerFilter();
+    }
+  }
+  return status_;
+}
+
+OatFileAssistant::DexOptNeeded OatFileAssistant::OatFileInfo::GetDexOptNeeded(
+    CompilerFilter::Filter target, bool profile_changed) {
+  bool compilation_desired = CompilerFilter::IsAotCompilationEnabled(target);
+  bool filter_okay = CompilerFilterIsOkay(target, profile_changed);
+
+  if (filter_okay && Status() == kOatUpToDate) {
+    // The oat file is in good shape as is.
+    return kNoDexOptNeeded;
+  }
+
+  if (filter_okay && !compilation_desired && Status() == kOatRelocationOutOfDate) {
+    // If no compilation is desired, then it doesn't matter if the oat
+    // file needs relocation. It's in good shape as is.
+    return kNoDexOptNeeded;
+  }
+
+  if (filter_okay && Status() == kOatRelocationOutOfDate) {
+    return kDex2OatForRelocation;
+  }
+
+  if (IsUseable()) {
+    return kDex2OatForFilter;
+  }
+
+  if (Status() == kOatBootImageOutOfDate) {
+    return kDex2OatForBootImage;
+  }
+
+  if (oat_file_assistant_->HasOriginalDexFiles()) {
+    return kDex2OatFromScratch;
+  } else {
+    // Otherwise there is nothing we can do, even if we want to.
+    return kNoDexOptNeeded;
+  }
+}
+
+const OatFile* OatFileAssistant::OatFileInfo::GetFile() {
+  CHECK(!file_released_) << "GetFile called after oat file released.";
+  if (!load_attempted_) {
+    load_attempted_ = true;
+    if (filename_provided_) {
+      std::string error_msg;
+      file_.reset(OatFile::Open(filename_.c_str(),
+                                filename_.c_str(),
+                                nullptr,
+                                nullptr,
+                                oat_file_assistant_->load_executable_,
+                                /*low_4gb*/false,
+                                oat_file_assistant_->dex_location_.c_str(),
+                                &error_msg));
+      if (file_.get() == nullptr) {
+        VLOG(oat) << "OatFileAssistant test for existing oat file "
+          << filename_ << ": " << error_msg;
+      }
+    }
+  }
+  return file_.get();
+}
+
+bool OatFileAssistant::OatFileInfo::CompilerFilterIsOkay(
+    CompilerFilter::Filter target, bool profile_changed) {
+  const OatFile* file = GetFile();
+  if (file == nullptr) {
+    return false;
+  }
+
+  CompilerFilter::Filter current = file->GetCompilerFilter();
+  if (profile_changed && CompilerFilter::DependsOnProfile(current)) {
+    VLOG(oat) << "Compiler filter not okay because Profile changed";
+    return false;
+  }
+  return CompilerFilter::IsAsGoodAs(current, target);
+}
+
+bool OatFileAssistant::OatFileInfo::IsExecutable() {
+  const OatFile* file = GetFile();
+  return (file != nullptr && file->IsExecutable());
+}
+
+void OatFileAssistant::OatFileInfo::Reset() {
+  load_attempted_ = false;
+  file_.reset();
+  status_attempted_ = false;
+}
+
+void OatFileAssistant::OatFileInfo::Reset(const std::string& filename) {
+  filename_provided_ = true;
+  filename_ = filename;
+  Reset();
+}
+
+std::unique_ptr<OatFile> OatFileAssistant::OatFileInfo::ReleaseFile() {
+  file_released_ = true;
+  return std::move(file_);
+}
+
+std::unique_ptr<OatFile> OatFileAssistant::OatFileInfo::ReleaseFileForUse() {
+  if (Status() == kOatUpToDate) {
+    return ReleaseFile();
+  }
+
+  VLOG(oat) << "Oat File Assistant: No relocated oat file found,"
+    << " attempting to fall back to interpreting oat file instead.";
+
+  if (Status() == kOatRelocationOutOfDate && !IsExecutable()) {
+    return ReleaseFile();
+  }
+
+  if (Status() == kOatRelocationOutOfDate) {
+    // We are loading an oat file for runtime use that needs relocation.
+    // Reload the file non-executable to ensure that we interpret out of the
+    // dex code in the oat file rather than trying to execute the unrelocated
+    // compiled code.
+    oat_file_assistant_->load_executable_ = false;
+    Reset();
+    if (IsUseable()) {
+      CHECK(!IsExecutable());
+      return ReleaseFile();
+    }
+  }
+  return std::unique_ptr<OatFile>();
+}
+}  // namespace art

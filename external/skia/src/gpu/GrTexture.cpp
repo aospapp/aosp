@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2011 Google Inc.
  *
@@ -14,6 +13,10 @@
 #include "GrRenderTargetPriv.h"
 #include "GrTexture.h"
 #include "GrTexturePriv.h"
+#include "GrTypes.h"
+#include "SkMath.h"
+#include "SkMipMap.h"
+#include "SkTypes.h"
 
 void GrTexture::dirtyMipMaps(bool mipMapsDirty) {
     if (mipMapsDirty) {
@@ -26,29 +29,14 @@ void GrTexture::dirtyMipMaps(bool mipMapsDirty) {
         if (sizeChanged) {
             // This must not be called until after changing fMipMapsStatus.
             this->didChangeGpuMemorySize();
+            // TODO(http://skbug.com/4548) - The desc and scratch key should be
+            // updated to reflect the newly-allocated mipmaps.
         }
     }
 }
 
 size_t GrTexture::onGpuMemorySize() const {
-    size_t textureSize;
-
-    if (GrPixelConfigIsCompressed(fDesc.fConfig)) {
-        textureSize = GrCompressedFormatDataSize(fDesc.fConfig, fDesc.fWidth, fDesc.fHeight);
-    } else {
-        textureSize = (size_t) fDesc.fWidth * fDesc.fHeight * GrBytesPerPixel(fDesc.fConfig);
-    }
-
-    if (this->texturePriv().hasMipMaps()) {
-        // We don't have to worry about the mipmaps being a different size than
-        // we'd expect because we never change fDesc.fWidth/fHeight.
-        textureSize += textureSize/3;
-    }
-
-    SkASSERT(!SkToBool(fDesc.fFlags & kRenderTarget_GrSurfaceFlag));
-    SkASSERT(textureSize <= WorseCaseSize(fDesc));
-
-    return textureSize;
+    return GrSurface::ComputeSize(fDesc, 1, this->texturePriv().hasMipMaps());
 }
 
 void GrTexture::validateDesc() const {
@@ -81,15 +69,25 @@ GrSurfaceOrigin resolve_origin(const GrSurfaceDesc& desc) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-GrTexture::GrTexture(GrGpu* gpu, LifeCycle lifeCycle, const GrSurfaceDesc& desc)
-    : INHERITED(gpu, lifeCycle, desc)
-    , fMipMapsStatus(kNotAllocated_MipMapsStatus) {
+GrTexture::GrTexture(GrGpu* gpu, const GrSurfaceDesc& desc, GrSLType samplerType,
+                     GrSamplerParams::FilterMode highestFilterMode, bool wasMipMapDataProvided)
+    : INHERITED(gpu, desc)
+    , fSamplerType(samplerType)
+    , fHighestFilterMode(highestFilterMode)
+    // Mip color mode is explicitly set after creation via GrTexturePriv
+    , fMipColorMode(SkDestinationSurfaceColorMode::kLegacy) {
+    if (wasMipMapDataProvided) {
+        fMipMapsStatus = kValid_MipMapsStatus;
+        fMaxMipMapLevel = SkMipMap::ComputeLevelCount(fDesc.fWidth, fDesc.fHeight);
+    } else {
+        fMipMapsStatus = kNotAllocated_MipMapsStatus;
+        fMaxMipMapLevel = 0;
+    }
+}
 
-    if (!this->isExternal() && !GrPixelConfigIsCompressed(desc.fConfig) &&
-        !desc.fTextureStorageAllocator.fAllocateTextureStorage) {
-        GrScratchKey key;
-        GrTexturePriv::ComputeScratchKey(desc, &key);
-        this->setScratchKey(key);
+void GrTexture::computeScratchKey(GrScratchKey* key) const {
+    if (!GrPixelConfigIsCompressed(fDesc.fConfig)) {
+        GrTexturePriv::ComputeScratchKey(fDesc, key);
     }
 }
 
@@ -99,7 +97,9 @@ void GrTexturePriv::ComputeScratchKey(const GrSurfaceDesc& desc, GrScratchKey* k
     GrSurfaceOrigin origin = resolve_origin(desc);
     uint32_t flags = desc.fFlags & ~kCheckAllocation_GrSurfaceFlag;
 
-    SkASSERT(static_cast<int>(desc.fConfig) < (1 << 6));
+    // make sure desc.fConfig fits in 5 bits
+    SkASSERT(sk_float_log2(kLast_GrPixelConfig) <= 5);
+    SkASSERT(static_cast<int>(desc.fConfig) < (1 << 5));
     SkASSERT(desc.fSampleCnt < (1 << 8));
     SkASSERT(flags < (1 << 10));
     SkASSERT(static_cast<int>(origin) < (1 << 8));
@@ -107,5 +107,6 @@ void GrTexturePriv::ComputeScratchKey(const GrSurfaceDesc& desc, GrScratchKey* k
     GrScratchKey::Builder builder(key, kType, 3);
     builder[0] = desc.fWidth;
     builder[1] = desc.fHeight;
-    builder[2] = desc.fConfig | (desc.fSampleCnt << 6) | (flags << 14) | (origin << 24);
+    builder[2] = desc.fConfig | (desc.fIsMipMapped << 5) | (desc.fSampleCnt << 6) | (flags << 14)
+                 | (origin << 24);
 }

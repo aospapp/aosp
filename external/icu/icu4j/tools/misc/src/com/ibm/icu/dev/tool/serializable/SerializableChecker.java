@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -21,7 +23,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import com.ibm.icu.dev.test.serializable.SerializableTest;
+import com.ibm.icu.dev.test.serializable.SerializableTestUtility;
 import com.ibm.icu.impl.URLHandler;
 
 /**
@@ -110,7 +112,7 @@ public class SerializableChecker implements URLHandler.URLVisitor
                     }
                     
                     if (Modifier.isPublic(m)) {
-                        SerializableTest.Handler handler = SerializableTest.getHandler(className);
+                        SerializableTestUtility.Handler handler = SerializableTestUtility.getHandler(className);
                         
                         if (!Modifier.isInterface(m) && handler != null) {
                             Object objectsOut[] = handler.getTestObjects();

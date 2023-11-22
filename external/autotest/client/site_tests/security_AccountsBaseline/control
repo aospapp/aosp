@@ -11,7 +11,6 @@ PURPOSE = ("To ensure required accounts consistently appear with the same "
            "name:uid# mapping")
 CRITERIA = "Fail if the list of uid/gid doesn't match the baseline."
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

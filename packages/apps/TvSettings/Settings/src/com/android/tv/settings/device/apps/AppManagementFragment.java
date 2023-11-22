@@ -31,6 +31,7 @@ import android.support.annotation.NonNull;
 import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -43,6 +44,18 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
     private static final String TAG = "AppManagementFragment";
 
     private static final String ARG_PACKAGE_NAME = "packageName";
+
+    private static final String KEY_VERSION = "version";
+    private static final String KEY_OPEN = "open";
+    private static final String KEY_FORCE_STOP = "forceStop";
+    private static final String KEY_UNINSTALL = "uninstall";
+    private static final String KEY_ENABLE_DISABLE = "enableDisable";
+    private static final String KEY_APP_STORAGE = "appStorage";
+    private static final String KEY_CLEAR_DATA = "clearData";
+    private static final String KEY_CLEAR_CACHE = "clearCache";
+    private static final String KEY_CLEAR_DEFAULTS = "clearDefaults";
+    private static final String KEY_NOTIFICATIONS = "notifications";
+    private static final String KEY_PERMISSIONS = "permissions";
 
     // Result code identifiers
     private static final int REQUEST_UNINSTALL = 1;
@@ -125,10 +138,14 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         }
         switch (requestCode) {
             case REQUEST_UNINSTALL:
-                if (resultCode == Activity.RESULT_OK) {
+                final int deleteResult = data != null
+                        ? data.getIntExtra(Intent.EXTRA_INSTALL_RESULT, 0) : 0;
+                if (deleteResult == PackageManager.DELETE_SUCCEEDED) {
                     final int userId =  UserHandle.getUserId(mEntry.info.uid);
                     mApplicationsState.removePackage(mPackageName, userId);
                     navigateBack();
+                } else {
+                    Log.e(TAG, "Uninstall failed with result " + deleteResult);
                 }
                 break;
             case REQUEST_MANAGE_SPACE:
@@ -154,13 +171,18 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
 
     @Override
     public boolean onPreferenceTreeClick(Preference preference) {
-        if (preference.getIntent() != null) {
+        final Intent intent = preference.getIntent();
+        if (intent != null) {
             try {
-                startActivity(preference.getIntent());
+                if (preference.equals(mUninstallPreference)) {
+                    startActivityForResult(intent, mUninstallPreference.canUninstall()
+                            ? REQUEST_UNINSTALL : REQUEST_UNINSTALL_UPDATES);
+                } else {
+                    startActivity(intent);
+                }
             } catch (ActivityNotFoundException e) {
                 Log.e(TAG, "Could not find activity to launch", e);
-                // TODO(b/30507703): don't reuse this string
-                Toast.makeText(getContext(), R.string.status_unavailable,
+                Toast.makeText(getContext(), R.string.device_apps_app_management_not_available,
                         Toast.LENGTH_SHORT).show();
             }
             return true;
@@ -175,72 +197,145 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         final PreferenceScreen screen =
                 getPreferenceManager().createPreferenceScreen(themedContext);
         screen.setTitle(getAppName());
+        setPreferenceScreen(screen);
 
+        updatePrefs();
+    }
+
+    private void updatePrefs() {
         if (mEntry == null) {
-            setPreferenceScreen(screen);
+            final PreferenceScreen screen = getPreferenceScreen();
+            screen.removeAll();
             return;
         }
+        final Context themedContext = getPreferenceManager().getContext();
 
-        final Preference versionPreference = new Preference(themedContext);
-        versionPreference.setSelectable(false);
+        // Version
+        Preference versionPreference = findPreference(KEY_VERSION);
+        if (versionPreference == null) {
+            versionPreference = new Preference(themedContext);
+            versionPreference.setKey(KEY_VERSION);
+            replacePreference(versionPreference);
+            versionPreference.setSelectable(false);
+        }
         versionPreference.setTitle(getString(R.string.device_apps_app_management_version,
                 mEntry.getVersion(getActivity())));
         versionPreference.setSummary(mPackageName);
-        screen.addPreference(versionPreference);
 
         // Open
+        Preference openPreference = findPreference(KEY_OPEN);
+        if (openPreference == null) {
+            openPreference = new Preference(themedContext);
+            openPreference.setKey(KEY_OPEN);
+            replacePreference(openPreference);
+        }
         Intent appLaunchIntent =
                 mPackageManager.getLeanbackLaunchIntentForPackage(mEntry.info.packageName);
         if (appLaunchIntent == null) {
             appLaunchIntent = mPackageManager.getLaunchIntentForPackage(mEntry.info.packageName);
         }
         if (appLaunchIntent != null) {
-            final Preference openPreference = new Preference(themedContext);
             openPreference.setIntent(appLaunchIntent);
             openPreference.setTitle(R.string.device_apps_app_management_open);
-            screen.addPreference(openPreference);
+            openPreference.setVisible(true);
+        } else {
+            openPreference.setVisible(false);
         }
 
         // Force stop
-        mForceStopPreference = new ForceStopPreference(themedContext, mEntry);
-        screen.addPreference(mForceStopPreference);
+        if (mForceStopPreference == null) {
+            mForceStopPreference = new ForceStopPreference(themedContext, mEntry);
+            mForceStopPreference.setKey(KEY_FORCE_STOP);
+            replacePreference(mForceStopPreference);
+        } else {
+            mForceStopPreference.setEntry(mEntry);
+        }
 
         // Uninstall
-        mUninstallPreference = new UninstallPreference(themedContext, mEntry);
-        screen.addPreference(mUninstallPreference);
+        if (mUninstallPreference == null) {
+            mUninstallPreference = new UninstallPreference(themedContext, mEntry);
+            mUninstallPreference.setKey(KEY_UNINSTALL);
+            replacePreference(mUninstallPreference);
+        } else {
+            mUninstallPreference.setEntry(mEntry);
+        }
 
         // Disable/Enable
-        mEnableDisablePreference = new EnableDisablePreference(themedContext, mEntry);
-        screen.addPreference(mEnableDisablePreference);
+        if (mEnableDisablePreference == null) {
+            mEnableDisablePreference = new EnableDisablePreference(themedContext, mEntry);
+            mEnableDisablePreference.setKey(KEY_ENABLE_DISABLE);
+            replacePreference(mEnableDisablePreference);
+        } else {
+            mEnableDisablePreference.setEntry(mEntry);
+        }
 
         // Storage used
-        mAppStoragePreference = new AppStoragePreference(themedContext, mEntry);
-        screen.addPreference(mAppStoragePreference);
+        if (mAppStoragePreference == null) {
+            mAppStoragePreference = new AppStoragePreference(themedContext, mEntry);
+            mAppStoragePreference.setKey(KEY_APP_STORAGE);
+            replacePreference(mAppStoragePreference);
+        } else {
+            mAppStoragePreference.setEntry(mEntry);
+        }
 
         // Clear data
-        mClearDataPreference = new ClearDataPreference(themedContext, mEntry);
-        screen.addPreference(mClearDataPreference);
+        if (mClearDataPreference == null) {
+            mClearDataPreference = new ClearDataPreference(themedContext, mEntry);
+            mClearDataPreference.setKey(KEY_CLEAR_DATA);
+            replacePreference(mClearDataPreference);
+        } else {
+            mClearDataPreference.setEntry(mEntry);
+        }
 
         // Clear cache
-        mClearCachePreference = new ClearCachePreference(themedContext, mEntry);
-        screen.addPreference(mClearCachePreference);
+        if (mClearCachePreference == null) {
+            mClearCachePreference = new ClearCachePreference(themedContext, mEntry);
+            mClearCachePreference.setKey(KEY_CLEAR_CACHE);
+            replacePreference(mClearCachePreference);
+        } else {
+            mClearCachePreference.setEntry(mEntry);
+        }
 
         // Clear defaults
-        mClearDefaultsPreference = new ClearDefaultsPreference(themedContext, mEntry);
-        screen.addPreference(mClearDefaultsPreference);
+        if (mClearDefaultsPreference == null) {
+            mClearDefaultsPreference = new ClearDefaultsPreference(themedContext, mEntry);
+            mClearDefaultsPreference.setKey(KEY_CLEAR_DEFAULTS);
+            replacePreference(mClearDefaultsPreference);
+        } else {
+            mClearDefaultsPreference.setEntry(mEntry);
+        }
 
         // Notifications
-        mNotificationsPreference = new NotificationsPreference(themedContext, mEntry);
-        screen.addPreference(mNotificationsPreference);
+        if (mNotificationsPreference == null) {
+            mNotificationsPreference = new NotificationsPreference(themedContext, mEntry);
+            mNotificationsPreference.setKey(KEY_NOTIFICATIONS);
+            replacePreference(mNotificationsPreference);
+        } else {
+            mNotificationsPreference.setEntry(mEntry);
+        }
 
         // Permissions
-        final Preference permissionsPreference = new Preference(themedContext);
-        permissionsPreference.setTitle(R.string.device_apps_app_management_permissions);
+        Preference permissionsPreference = findPreference(KEY_PERMISSIONS);
+        if (permissionsPreference == null) {
+            permissionsPreference = new Preference(themedContext);
+            permissionsPreference.setKey(KEY_PERMISSIONS);
+            permissionsPreference.setTitle(R.string.device_apps_app_management_permissions);
+            replacePreference(permissionsPreference);
+        }
         permissionsPreference.setIntent(new Intent(Intent.ACTION_MANAGE_APP_PERMISSIONS)
                 .putExtra(Intent.EXTRA_PACKAGE_NAME, mPackageName));
-        screen.addPreference(permissionsPreference);
+    }
 
-        setPreferenceScreen(screen);
+    private void replacePreference(Preference preference) {
+        final String key = preference.getKey();
+        if (TextUtils.isEmpty(key)) {
+            throw new IllegalArgumentException("Can't replace a preference without a key");
+        }
+        final Preference old = findPreference(key);
+        if (old != null) {
+            getPreferenceScreen().removePreference(old);
+        }
+        getPreferenceScreen().addPreference(preference);
     }
 
     public String getAppName() {
@@ -334,15 +429,6 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         }
     }
 
-    public void launchUninstall() {
-        if (mUninstallPreference.canUninstall() || mUninstallPreference.canUninstallUpdates()) {
-            Intent uninstallIntent = mUninstallPreference.getUninstallIntent();
-            uninstallIntent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
-            startActivityForResult(uninstallIntent, REQUEST_UNINSTALL);
-        }
-        mUninstallPreference.refresh();
-    }
-
     private class ApplicationsStateCallbacks implements ApplicationsState.Callbacks {
 
         @Override
@@ -362,7 +448,7 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
             if (mEntry == null) {
                 navigateBack();
             }
-            onCreatePreferences(null, null);
+            updatePrefs();
         }
 
         @Override
@@ -394,7 +480,9 @@ public class AppManagementFragment extends LeanbackPreferenceFragment {
         }
 
         @Override
-        public void onLauncherInfoChanged() {}
+        public void onLauncherInfoChanged() {
+            updatePrefs();
+        }
 
         @Override
         public void onLoadEntriesCompleted() {

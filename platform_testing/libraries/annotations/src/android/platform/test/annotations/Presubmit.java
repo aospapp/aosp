@@ -22,7 +22,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a test that should run as part of the presubmit suite for platform development.
+ * Marks a test or test class that should run as part of a project scoped presubmit suite
  *
  */
 @Retention(RetentionPolicy.RUNTIME)

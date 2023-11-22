@@ -53,6 +53,7 @@ public class NestedTypesDebuggee extends SyncDebuggee {
         logWriter.println("--> Debuggee: DUMP{" + obj1 + "}");
     }
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: NestedTypesDebuggee: START");
         StatClass_1 stat_Class_1_Obj = new StatClass_1();

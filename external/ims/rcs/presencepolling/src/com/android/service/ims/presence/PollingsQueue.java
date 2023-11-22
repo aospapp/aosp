@@ -190,7 +190,7 @@ public class PollingsQueue {
             return;
         }
 
-        logger.print("Remove polling task: " + task);
+        logger.debug("Remove polling task: " + task);
         if (task != null) {
             for (int i = 0; i < nTasks; i++) {
                 PollingTask task0 = mPollingTasks.get(i);

@@ -25,6 +25,7 @@ class hardware_StorageQualBase(test.test):
             'requirements': [
                 ('seq_read', []),
                 ('seq_write', []),
+                ('16k_read', []),
                 ('16k_write', [])],
                 })
     ]

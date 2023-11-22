@@ -3,10 +3,10 @@
 # found in the LICENSE file.
 
 """
-This module helps to deploy config files from host to container. It reads
-the settings from a setting file (ssp_deploy_config), and deploy the config
-files based on the settings. The setting file has a json string of a list of
-deployment settings. For example:
+This module helps to deploy config files and shared folders from host to
+container. It reads the settings from a setting file (ssp_deploy_config), and
+deploy the config files based on the settings. The setting file has a json
+string of a list of deployment settings. For example:
 [{
     "source": "/etc/resolv.conf",
     "target": "/etc/resolv.conf",
@@ -18,10 +18,17 @@ deployment settings. For example:
     "target": "/root/.ssh",
     "append": false,
     "permission": 400
+ },
+ {
+    "source": "/usr/local/autotest/results/shared",
+    "target": "/usr/local/autotest/results/shared",
+    "mount": true,
+    "readonly": false,
+    "force_create": true
  }
 ]
 
-Definition of each attribute are as follows:
+Definition of each attribute for config files are as follows:
 source: config file in host to be copied to container.
 target: config file's location inside container.
 append: true to append the content of config file to existing file inside
@@ -29,11 +36,39 @@ append: true to append the content of config file to existing file inside
         be overwritten.
 permission: Permission to set to the config file inside container.
 
-The sample settings will:
+Example:
+{
+    "source": "/etc/resolv.conf",
+    "target": "/etc/resolv.conf",
+    "append": true,
+    "permission": 400
+}
+The above example will:
 1. Append the content of /etc/resolv.conf in host machine to file
    /etc/resolv.conf inside container.
 2. Copy all files in ssh to /root/.ssh in container.
 3. Change all these files' permission to 400
+
+Definition of each attribute for sharing folders are as follows:
+source: a folder in host to be mounted in container.
+target: the folder's location inside container.
+mount: true to mount the source folder onto the target inside container.
+       A setting with false value of mount is invalid.
+readonly: true if the mounted folder inside container should be readonly.
+force_create: true to create the source folder if it doesn't exist.
+
+Example:
+ {
+    "source": "/usr/local/autotest/results/shared",
+    "target": "/usr/local/autotest/results/shared",
+    "mount": true,
+    "readonly": false,
+    "force_create": true
+ }
+The above example will mount folder "/usr/local/autotest/results/shared" in the
+host to path "/usr/local/autotest/results/shared" inside the container. The
+folder can be written to inside container. If the source folder doesn't exist,
+it will be created as `force_create` is set to true.
 
 The setting file (ssp_deploy_config) lives in AUTOTEST_DIR folder.
 For relative file path specified in ssp_deploy_config, AUTOTEST_DIR/containers
@@ -78,6 +113,9 @@ CONTAINER_AUTOTEST_DIR = '/usr/local/autotest'
 
 DeployConfig = collections.namedtuple(
         'DeployConfig', ['source', 'target', 'append', 'permission'])
+MountConfig = collections.namedtuple(
+        'MountConfig', ['source', 'target', 'mount', 'readonly',
+                        'force_create'])
 
 
 class SSPDeployError(Exception):
@@ -98,6 +136,31 @@ class DeployConfigManager(object):
     """
 
     @staticmethod
+    def validate_path(deploy_config):
+        """Validate the source and target in deploy_config dict.
+
+        @param deploy_config: A dictionary of deploy config to be validated.
+
+        @raise SSPDeployError: If any path in deploy config is invalid.
+        """
+        target = deploy_config['target']
+        source = deploy_config['source']
+        if not os.path.isabs(target):
+            raise SSPDeployError('Target path must be absolute path: %s' %
+                                 target)
+        if not os.path.isabs(source):
+            if source.startswith('~'):
+                # This is to handle the case that the script is run with sudo.
+                inject_user_path = ('~%s%s' % (utils.get_real_user(),
+                                               source[1:]))
+                source = os.path.expanduser(inject_user_path)
+            else:
+                source = os.path.join(common.autotest_dir, source)
+            # Update the source setting in deploy config with the updated path.
+            deploy_config['source'] = source
+
+
+    @staticmethod
     def validate(deploy_config):
         """Validate the deploy config.
 
@@ -112,21 +175,33 @@ class DeployConfigManager(object):
         @raise SSPDeployError: If the deploy config is invalid.
 
         """
-        c = DeployConfig(**deploy_config)
-        if not os.path.isabs(c.target):
-            raise SSPDeployError('Target path must be absolute path: %s' %
-                                 c.target)
-        if not os.path.isabs(c.source):
-            if c.source.startswith('~'):
-                # This is to handle the case that the script is run with sudo.
-                inject_user_path = ('~%s%s' % (utils.get_real_user(),
-                                               c.source[1:]))
-                source = os.path.expanduser(inject_user_path)
-            else:
-                source = os.path.join(common.autotest_dir, c.source)
-            deploy_config['source'] = source
-
+        DeployConfigManager.validate_path(deploy_config)
         return DeployConfig(**deploy_config)
+
+
+    @staticmethod
+    def validate_mount(deploy_config):
+        """Validate the deploy config for mounting a directory.
+
+        Deploy configs need to be validated and pre-processed, e.g.,
+        1. Target must be an absolute path.
+        2. Source must be updated to be an absolute path.
+        3. Mount must be true.
+
+        @param deploy_config: A dictionary of deploy config to be validated.
+
+        @return: A DeployConfig object that contains the deploy config.
+
+        @raise SSPDeployError: If the deploy config is invalid.
+
+        """
+        DeployConfigManager.validate_path(deploy_config)
+        c = MountConfig(**deploy_config)
+        if not c.mount:
+            raise SSPDeployError('`mount` must be true.')
+        if not c.force_create and not os.path.exists(c.source):
+            raise SSPDeployError('`source` does not exist.')
+        return c
 
 
     def __init__(self, container):
@@ -145,7 +220,10 @@ class DeployConfigManager(object):
                        else SSP_DEPLOY_CONFIG_FILE)
         with open(config_file) as f:
             deploy_configs = json.load(f)
-        self.deploy_configs = [self.validate(c) for c in deploy_configs]
+        self.deploy_configs = [self.validate(c) for c in deploy_configs
+                               if 'append' in c]
+        self.mount_configs = [self.validate_mount(c) for c in deploy_configs
+                              if 'mount' in c]
         self.tmp_append = os.path.join(self.container.rootfs, APPEND_FOLDER)
         if lxc_utils.path_exists(self.tmp_append):
             utils.run('sudo rm -rf "%s"' % self.tmp_append)
@@ -310,6 +388,10 @@ class DeployConfigManager(object):
         """
         for deploy_config in self.deploy_configs:
             self._deploy_config_pre_start(deploy_config)
+        for mount_config in self.mount_configs:
+            if (mount_config.force_create and
+                not os.path.exists(mount_config.source)):
+                utils.run('mkdir -p %s' % mount_config.source)
 
 
     def deploy_post_start(self):

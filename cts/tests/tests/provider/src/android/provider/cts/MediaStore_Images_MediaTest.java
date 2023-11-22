@@ -21,8 +21,6 @@ import android.provider.cts.R;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.cts.util.FileCopyHelper;
-import android.cts.util.FileUtils;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -33,6 +31,9 @@ import android.provider.MediaStore.Images.Media;
 import android.provider.MediaStore.Images.Thumbnails;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.FileCopyHelper;
+import com.android.compatibility.common.util.FileUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;

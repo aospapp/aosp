@@ -15,9 +15,9 @@ def repair(machine):
     try:
         hostname = utils.get_hostname_from_machine(machine)
         job.record('START', None, 'repair')
-        target = hosts.create_target_machine(machine, initialize=False,
-                                             auto_monitor=False,
-                                             try_lab_servo=True)
+        target = hosts.create_target_machine(machine,
+                                             try_lab_servo=True,
+                                             try_servo_repair=True)
         # We don't need to collect logs or crash info if we're an ADBHost or
         # testbed since they're not applicable (yet).
         if isinstance(target, hosts.CrosHost):
@@ -41,7 +41,7 @@ def repair(machine):
         raise Exception('')
     else:
         job.record('END GOOD', None, 'repair',
-                   '%s repaired successfully' % machine)
+                   '%s repaired successfully' % hostname)
 
 
 job.parallel_simple(repair, machines)

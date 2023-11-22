@@ -20,10 +20,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
-import android.os.Build;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
@@ -36,6 +37,9 @@ import com.android.tv.TvApplication;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.epg.EpgFetcher;
+import com.android.tv.experiments.Experiments;
+import com.android.tv.tuner.tvinput.TunerTvInputService;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -64,23 +68,23 @@ public class SetupUtils {
     private final Set<String> mSetUpInputs;
     private final Set<String> mRecognizedInputs;
     private boolean mIsFirstTune;
-    private final String mUsbTunerInputId;
+    private final String mTunerInputId;
 
     private SetupUtils(TvApplication tvApplication) {
         mTvApplication = tvApplication;
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(tvApplication);
         mSetUpInputs = new ArraySet<>();
         mSetUpInputs.addAll(mSharedPreferences.getStringSet(PREF_KEY_SET_UP_INPUTS,
-                Collections.<String>emptySet()));
+                Collections.emptySet()));
         mKnownInputs = new ArraySet<>();
         mKnownInputs.addAll(mSharedPreferences.getStringSet(PREF_KEY_KNOWN_INPUTS,
-                Collections.<String>emptySet()));
+                Collections.emptySet()));
         mRecognizedInputs = new ArraySet<>();
         mRecognizedInputs.addAll(mSharedPreferences.getStringSet(PREF_KEY_RECOGNIZED_INPUTS,
                 mKnownInputs));
         mIsFirstTune = mSharedPreferences.getBoolean(PREF_KEY_IS_FIRST_TUNE, true);
-        mUsbTunerInputId = TvContract.buildInputId(new ComponentName(tvApplication,
-                com.android.usbtuner.tvinput.UsbTunerTvInputService.class));
+        mTunerInputId = TvContract.buildInputId(new ComponentName(tvApplication,
+                TunerTvInputService.class));
     }
 
     /**
@@ -264,15 +268,11 @@ public class SetupUtils {
      * @param context The Context used for granting permission.
      */
     public static void grantEpgPermissionToSetUpPackages(Context context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            // Can't grant permission.
-            return;
-        }
-
         // Find all already-verified packages.
         Set<String> setUpPackages = new HashSet<>();
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(context);
-        for (String input : sp.getStringSet(PREF_KEY_SET_UP_INPUTS, Collections.EMPTY_SET)) {
+        for (String input : sp.getStringSet(PREF_KEY_SET_UP_INPUTS,
+                Collections.<String>emptySet())) {
             if (!TextUtils.isEmpty(input)) {
                 ComponentName componentName = ComponentName.unflattenFromString(input);
                 if (componentName != null) {
@@ -293,21 +293,18 @@ public class SetupUtils {
      * @param packageName The name of the package to give permission.
      */
     public static void grantEpgPermission(Context context, String packageName) {
-        // TvProvider allows granting of Uri permissions starting from MNC.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (DEBUG) {
-                Log.d(TAG, "grantEpgPermission(context=" + context + ", packageName=" + packageName
-                        + ")");
-            }
-            try {
-                int modeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                        | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
-                context.grantUriPermission(packageName, TvContract.Channels.CONTENT_URI, modeFlags);
-                context.grantUriPermission(packageName, TvContract.Programs.CONTENT_URI, modeFlags);
-            } catch (SecurityException e) {
-                Log.e(TAG, "Either TvProvider does not allow granting of Uri permissions or the app"
-                        + " does not have permission.", e);
-            }
+        if (DEBUG) {
+            Log.d(TAG, "grantEpgPermission(context=" + context + ", packageName=" + packageName
+                    + ")");
+        }
+        try {
+            int modeFlags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+            context.grantUriPermission(packageName, TvContract.Channels.CONTENT_URI, modeFlags);
+            context.grantUriPermission(packageName, TvContract.Programs.CONTENT_URI, modeFlags);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Either TvProvider does not allow granting of Uri permissions or the app"
+                    + " does not have permission.", e);
         }
     }
 
@@ -335,17 +332,31 @@ public class SetupUtils {
         // A USB tuner device can be temporarily unplugged. We do not remove the USB tuner input
         // from the known inputs so that the input won't appear as a new input whenever the user
         // plugs in the USB tuner device again.
-        removedInputList.remove(mUsbTunerInputId);
+        removedInputList.remove(mTunerInputId);
 
         if (!removedInputList.isEmpty()) {
+            boolean inputPackageDeleted = false;
             for (String input : removedInputList) {
-                mRecognizedInputs.remove(input);
-                mSetUpInputs.remove(input);
-                mKnownInputs.remove(input);
+                try {
+                    // Just after booting, input list from TvInputManager are not reliable.
+                    // So we need to double-check package existence. b/29034900
+                    mTvApplication.getPackageManager().getPackageInfo(
+                            ComponentName.unflattenFromString(input)
+                            .getPackageName(), PackageManager.GET_ACTIVITIES);
+                    Log.i(TAG, "TV input (" + input + ") is removed but package is not deleted");
+                } catch (NameNotFoundException e) {
+                    Log.i(TAG, "TV input (" + input + ") and its package are removed");
+                    mRecognizedInputs.remove(input);
+                    mSetUpInputs.remove(input);
+                    mKnownInputs.remove(input);
+                    inputPackageDeleted = true;
+                }
             }
-            mSharedPreferences.edit().putStringSet(PREF_KEY_SET_UP_INPUTS, mSetUpInputs)
-                    .putStringSet(PREF_KEY_KNOWN_INPUTS, mKnownInputs)
-                    .putStringSet(PREF_KEY_RECOGNIZED_INPUTS, mRecognizedInputs).apply();
+            if (inputPackageDeleted) {
+                mSharedPreferences.edit().putStringSet(PREF_KEY_SET_UP_INPUTS, mSetUpInputs)
+                        .putStringSet(PREF_KEY_KNOWN_INPUTS, mKnownInputs)
+                        .putStringSet(PREF_KEY_RECOGNIZED_INPUTS, mRecognizedInputs).apply();
+            }
         }
     }
 
@@ -353,7 +364,7 @@ public class SetupUtils {
      * Called when an setup is done. Once it is called, {@link #isSetupDone} returns {@code true}
      * for {@code inputId}.
      */
-    public void onSetupDone(String inputId) {
+    private void onSetupDone(String inputId) {
         SoftPreconditions.checkState(inputId != null);
         if (DEBUG) Log.d(TAG, "onSetupDone: input=" + inputId);
         if (!mRecognizedInputs.contains(inputId)) {
@@ -370,6 +381,14 @@ public class SetupUtils {
         if (!mSetUpInputs.contains(inputId)) {
             mSetUpInputs.add(inputId);
             mSharedPreferences.edit().putStringSet(PREF_KEY_SET_UP_INPUTS, mSetUpInputs).apply();
+        }
+        // Start fetching program guide data for internal tuners.
+        Context context = mTvApplication.getApplicationContext();
+        if (Utils.isInternalTvInput(context, inputId)) {
+            if (context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                    == PackageManager.PERMISSION_GRANTED && Experiments.CLOUD_EPG.get()) {
+                EpgFetcher.getInstance(context).startImmediately();
+            }
         }
     }
 }

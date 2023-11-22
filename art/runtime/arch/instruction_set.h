@@ -20,7 +20,8 @@
 #include <iosfwd>
 #include <string>
 
-#include "base/logging.h"  // Logging is required for FATAL in the helper functions.
+#include "base/enums.h"
+#include "base/macros.h"
 
 namespace art {
 
@@ -53,12 +54,12 @@ static constexpr InstructionSet kRuntimeISA = kNone;
 #endif
 
 // Architecture-specific pointer sizes
-static constexpr size_t kArmPointerSize = 4;
-static constexpr size_t kArm64PointerSize = 8;
-static constexpr size_t kMipsPointerSize = 4;
-static constexpr size_t kMips64PointerSize = 8;
-static constexpr size_t kX86PointerSize = 4;
-static constexpr size_t kX86_64PointerSize = 8;
+static constexpr PointerSize kArmPointerSize = PointerSize::k32;
+static constexpr PointerSize kArm64PointerSize = PointerSize::k64;
+static constexpr PointerSize kMipsPointerSize = PointerSize::k32;
+static constexpr PointerSize kMips64PointerSize = PointerSize::k64;
+static constexpr PointerSize kX86PointerSize = PointerSize::k32;
+static constexpr PointerSize kX86_64PointerSize = PointerSize::k64;
 
 // ARM instruction alignment. ARM processors require code to be 4-byte aligned,
 // but ARM ELF requires 8..
@@ -67,13 +68,20 @@ static constexpr size_t kArmAlignment = 8;
 // ARM64 instruction alignment. This is the recommended alignment for maximum performance.
 static constexpr size_t kArm64Alignment = 16;
 
-// MIPS instruction alignment.  MIPS processors require code to be 4-byte aligned.
-// TODO: Can this be 4?
+// MIPS instruction alignment.  MIPS processors require code to be 4-byte aligned,
+// but 64-bit literals must be 8-byte aligned.
 static constexpr size_t kMipsAlignment = 8;
 
 // X86 instruction alignment. This is the recommended alignment for maximum performance.
 static constexpr size_t kX86Alignment = 16;
 
+// Different than code alignment since code alignment is only first instruction of method.
+static constexpr size_t kThumb2InstructionAlignment = 2;
+static constexpr size_t kArm64InstructionAlignment = 4;
+static constexpr size_t kX86InstructionAlignment = 1;
+static constexpr size_t kX86_64InstructionAlignment = 1;
+static constexpr size_t kMipsInstructionAlignment = 4;
+static constexpr size_t kMips64InstructionAlignment = 4;
 
 const char* GetInstructionSetString(InstructionSet isa);
 
@@ -82,7 +90,10 @@ InstructionSet GetInstructionSetFromString(const char* instruction_set);
 
 InstructionSet GetInstructionSetFromELF(uint16_t e_machine, uint32_t e_flags);
 
-static inline size_t GetInstructionSetPointerSize(InstructionSet isa) {
+// Fatal logging out of line to keep the header clean of logging.h.
+NO_RETURN void InstructionSetAbort(InstructionSet isa);
+
+static inline PointerSize GetInstructionSetPointerSize(InstructionSet isa) {
   switch (isa) {
     case kArm:
       // Fall-through.
@@ -98,13 +109,20 @@ static inline size_t GetInstructionSetPointerSize(InstructionSet isa) {
       return kMipsPointerSize;
     case kMips64:
       return kMips64PointerSize;
-    case kNone:
-      LOG(FATAL) << "ISA kNone does not have pointer size.";
-      UNREACHABLE();
     default:
-      LOG(FATAL) << "Unknown ISA " << isa;
-      UNREACHABLE();
+      InstructionSetAbort(isa);
   }
+}
+
+ALWAYS_INLINE static inline constexpr size_t GetInstructionSetInstructionAlignment(
+    InstructionSet isa) {
+  return (isa == kThumb2 || isa == kArm) ? kThumb2InstructionAlignment :
+         (isa == kArm64) ? kArm64InstructionAlignment :
+         (isa == kX86) ? kX86InstructionAlignment :
+         (isa == kX86_64) ? kX86_64InstructionAlignment :
+         (isa == kMips) ? kMipsInstructionAlignment :
+         (isa == kMips64) ? kMips64InstructionAlignment :
+         0;  // Invalid case, but constexpr doesn't support asserts.
 }
 
 static inline bool IsValidInstructionSet(InstructionSet isa) {
@@ -138,17 +156,13 @@ static inline bool Is64BitInstructionSet(InstructionSet isa) {
     case kMips64:
       return true;
 
-    case kNone:
-      LOG(FATAL) << "ISA kNone does not have bit width.";
-      UNREACHABLE();
     default:
-      LOG(FATAL) << "Unknown ISA " << isa;
-      UNREACHABLE();
+      InstructionSetAbort(isa);
   }
 }
 
-static inline size_t InstructionSetPointerSize(InstructionSet isa) {
-  return Is64BitInstructionSet(isa) ? 8U : 4U;
+static inline PointerSize InstructionSetPointerSize(InstructionSet isa) {
+  return Is64BitInstructionSet(isa) ? PointerSize::k64 : PointerSize::k32;
 }
 
 static inline size_t GetBytesPerGprSpillLocation(InstructionSet isa) {
@@ -167,12 +181,9 @@ static inline size_t GetBytesPerGprSpillLocation(InstructionSet isa) {
       return 4;
     case kMips64:
       return 8;
-    case kNone:
-      LOG(FATAL) << "ISA kNone does not have spills.";
-      UNREACHABLE();
+
     default:
-      LOG(FATAL) << "Unknown ISA " << isa;
-      UNREACHABLE();
+      InstructionSetAbort(isa);
   }
 }
 
@@ -192,12 +203,9 @@ static inline size_t GetBytesPerFprSpillLocation(InstructionSet isa) {
       return 4;
     case kMips64:
       return 8;
-    case kNone:
-      LOG(FATAL) << "ISA kNone does not have spills.";
-      UNREACHABLE();
+
     default:
-      LOG(FATAL) << "Unknown ISA " << isa;
-      UNREACHABLE();
+      InstructionSetAbort(isa);
   }
 }
 

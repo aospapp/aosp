@@ -52,5 +52,5 @@ class brillo_StorageWriteSpeedTest(test.test):
                               actual_speed, min_speed)
                 raise error.TestFail(
                         'Storage write speed is lower than required')
-        except error.AutoservRunError:
+        except error.GenericHostRunError:
             raise error.TestFail('Error writing to device data partition')

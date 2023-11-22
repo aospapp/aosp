@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include <unistd.h>
 #include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+
 #include "ext4fixup.h"
 
 static void usage(char *me)

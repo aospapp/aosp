@@ -22,14 +22,14 @@
  *
  *  Description:   Bluetooth pan Interface
  *
- *******************************************************************************/
+ ******************************************************************************/
 
 #ifndef BTIF_PAN_H
 #define BTIF_PAN_H
 
 #include <hardware/bt_pan.h>
 
-btpan_interface_t *btif_pan_interface();
+btpan_interface_t* btif_pan_interface();
 void btif_pan_init();
 void btif_pan_cleanup();
 

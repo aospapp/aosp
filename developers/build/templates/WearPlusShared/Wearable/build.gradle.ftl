@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.1.2'
+        classpath 'com.android.tools.build:gradle:2.3.2'
     }
 }
 
@@ -44,6 +44,12 @@ dependencies {
 </#list>
     compile ${play_services_wearable_dependency}
     compile ${android_support_v13_dependency}
+
+    <#if sample.preview_wearable_support_provided_dependency?? && sample.preview_wearable_support_provided_dependency?has_content>
+    provided '${sample.preview_wearable_support_provided_dependency}'
+    <#else>
+    provided ${wearable_support_provided_dependency}
+    </#if>
 
     <#if sample.preview_wearable_support_dependency?? && sample.preview_wearable_support_dependency?has_content>
     compile '${sample.preview_wearable_support_dependency}'

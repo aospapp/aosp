@@ -108,7 +108,7 @@ public final class OptionHelper {
             // match -option=value or --option=value
             "((-[-\\w]+([ =]"
             // allow -option "...", -option x y z, and -option x:y:z
-            + "(" + quoteMatching + "|([\\w\\s:.]|"+ nonSpacedHypen + ")+))?"
+            + "(" + quoteMatching + "|([\\w\\/\\s:.]|"+ nonSpacedHypen + ")+))?"
             + "))|"
             // allow anything in direct quotes
             + quoteMatching

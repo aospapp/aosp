@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2014, International Business Machines Corporation and         *
@@ -5,6 +7,8 @@
  *******************************************************************************
  */
 package com.ibm.icu.dev.test.format;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.DecimalFormat;
@@ -17,10 +21,7 @@ import com.ibm.icu.util.ULocale;
  *
  */
 public class ScientificNumberFormatterTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new ScientificNumberFormatterTest().run(args);
-    }
-    
+    @Test
     public void TestBasic() {
         ScientificNumberFormatter markup = ScientificNumberFormatter.getMarkupInstance(
                 ULocale.ENGLISH, "<sup>", "</sup>");
@@ -36,6 +37,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
     }
     
     
+    @Test
     public void TestFarsi() {
         ScientificNumberFormatter fmt = ScientificNumberFormatter.getMarkupInstance(
                 new ULocale("fa"), "<sup>", "</sup>");
@@ -46,6 +48,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
     }
 
 
+    @Test
     public void TestPlusSignInExponentMarkup() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getScientificInstance(ULocale.ENGLISH);
         decfmt.applyPattern("0.00E+0");
@@ -59,6 +62,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
     }
 
     
+    @Test
     public void TestPlusSignInExponentSuperscript() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getScientificInstance(ULocale.ENGLISH);
         decfmt.applyPattern("0.00E+0");
@@ -70,6 +74,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
                 fmt.format(6.02e23));
     }
     
+    @Test
     public void TestFixedDecimalMarkup() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getInstance(ULocale.ENGLISH);
         ScientificNumberFormatter fmt = ScientificNumberFormatter.getMarkupInstance(
@@ -80,6 +85,7 @@ public class ScientificNumberFormatterTest extends TestFmwk {
                 fmt.format(123456.0));
     }
     
+    @Test
     public void TestFixedDecimalSuperscript() {
         DecimalFormat decfmt = (DecimalFormat) NumberFormat.getInstance(ULocale.ENGLISH);
         ScientificNumberFormatter fmt = ScientificNumberFormatter.getSuperscriptInstance(decfmt);

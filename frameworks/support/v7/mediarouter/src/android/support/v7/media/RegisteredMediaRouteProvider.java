@@ -16,6 +16,35 @@
 
 package android.support.v7.media;
 
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_ROUTE_ID;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_ROUTE_LIBRARY_GROUP;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_UNSELECT_REASON;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_DATA_VOLUME;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .CLIENT_MSG_CREATE_ROUTE_CONTROLLER;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_REGISTER;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .CLIENT_MSG_RELEASE_ROUTE_CONTROLLER;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_ROUTE_CONTROL_REQUEST;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_SELECT_ROUTE;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_SET_DISCOVERY_REQUEST;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_SET_ROUTE_VOLUME;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_UNREGISTER;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_UNSELECT_ROUTE;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_MSG_UPDATE_ROUTE_VOLUME;
+import static android.support.v7.media.MediaRouteProviderProtocol.CLIENT_VERSION_CURRENT;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_DATA_ERROR;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .SERVICE_MSG_CONTROL_REQUEST_FAILED;
+import static android.support.v7.media.MediaRouteProviderProtocol
+        .SERVICE_MSG_CONTROL_REQUEST_SUCCEEDED;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_DESCRIPTOR_CHANGED;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_GENERIC_FAILURE;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_GENERIC_SUCCESS;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_MSG_REGISTERED;
+import static android.support.v7.media.MediaRouteProviderProtocol.SERVICE_VERSION_1;
+import static android.support.v7.media.MediaRouteProviderProtocol.isValidRemoteMessenger;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -24,10 +53,10 @@ import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.os.IBinder.DeathRecipient;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.RemoteException;
 import android.support.annotation.NonNull;
 import android.support.v7.media.MediaRouter.ControlRequestCallback;
 import android.util.Log;
@@ -37,18 +66,16 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-import static android.support.v7.media.MediaRouteProviderProtocol.*;
-
 /**
  * Maintains a connection to a particular media route provider service.
  */
 final class RegisteredMediaRouteProvider extends MediaRouteProvider
         implements ServiceConnection {
-    private static final String TAG = "MediaRouteProviderProxy";  // max. 23 chars
-    private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    static final String TAG = "MediaRouteProviderProxy";  // max. 23 chars
+    static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
     private final ComponentName mComponentName;
-    private final PrivateHandler mPrivateHandler;
+    final PrivateHandler mPrivateHandler;
     private final ArrayList<Controller> mControllers = new ArrayList<Controller>();
 
     private boolean mStarted;
@@ -241,7 +268,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
         return null;
     }
 
-    private void onConnectionReady(Connection connection) {
+    void onConnectionReady(Connection connection) {
         if (mActiveConnection == connection) {
             mConnectionReady = true;
             attachControllersToConnection();
@@ -253,7 +280,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
         }
     }
 
-    private void onConnectionDied(Connection connection) {
+    void onConnectionDied(Connection connection) {
         if (mActiveConnection == connection) {
             if (DEBUG) {
                 Log.d(TAG, this + ": Service connection died");
@@ -262,7 +289,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
         }
     }
 
-    private void onConnectionError(Connection connection, String error) {
+    void onConnectionError(Connection connection, String error) {
         if (mActiveConnection == connection) {
             if (DEBUG) {
                 Log.d(TAG, this + ": Service connection error - " + error);
@@ -271,7 +298,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
         }
     }
 
-    private void onConnectionDescriptorChanged(Connection connection,
+    void onConnectionDescriptorChanged(Connection connection,
             MediaRouteProviderDescriptor descriptor) {
         if (mActiveConnection == connection) {
             if (DEBUG) {
@@ -291,7 +318,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
         }
     }
 
-    private void onControllerReleased(Controller controller) {
+    void onControllerReleased(Controller controller) {
         mControllers.remove(controller);
         controller.detachConnection();
         updateBinding();
@@ -454,7 +481,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
             });
         }
 
-        private void failPendingCallbacks() {
+        void failPendingCallbacks() {
             int count = 0;
             for (int i = 0; i < mPendingCallbacks.size(); i++) {
                 mPendingCallbacks.valueAt(i).onError(null, null);
@@ -537,7 +564,7 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
             int controllerId = mNextControllerId++;
             Bundle data = new Bundle();
             data.putString(CLIENT_DATA_ROUTE_ID, routeId);
-            data.putString(CLIENT_DATA_ROUTE_GROUP_ID, routeGroupId);
+            data.putString(CLIENT_DATA_ROUTE_LIBRARY_GROUP, routeGroupId);
             sendRequest(CLIENT_MSG_CREATE_ROUTE_CONTROLLER,
                     mNextRequestId++, controllerId, null, data);
             return controllerId;
@@ -614,7 +641,9 @@ final class RegisteredMediaRouteProvider extends MediaRouteProvider
         }
     }
 
-    private final class PrivateHandler extends Handler {
+    private static final class PrivateHandler extends Handler {
+        PrivateHandler() {
+        }
     }
 
     /**

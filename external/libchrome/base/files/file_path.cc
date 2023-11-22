@@ -44,7 +44,7 @@ const FilePath::CharType kStringTerminator = FILE_PATH_LITERAL('\0');
 // otherwise returns npos.  This can only be true on Windows, when a pathname
 // begins with a letter followed by a colon.  On other platforms, this always
 // returns npos.
-StringPieceType::size_type FindDriveLetter(StringPieceType /* path */) {
+StringPieceType::size_type FindDriveLetter(StringPieceType path) {
 #if defined(FILE_PATH_USES_DRIVE_LETTERS)
   // This is dependent on an ASCII-based character set, but that's a
   // reasonable assumption.  iswalpha can be too inclusive here.
@@ -53,6 +53,8 @@ StringPieceType::size_type FindDriveLetter(StringPieceType /* path */) {
        (path[0] >= L'a' && path[0] <= L'z'))) {
     return 1;
   }
+#else
+  (void)path;  // Avoid an unused warning.
 #endif  // FILE_PATH_USES_DRIVE_LETTERS
   return StringType::npos;
 }
@@ -502,10 +504,10 @@ FilePath FilePath::Append(StringPieceType component) const {
   // Don't append a separator if the path is empty (indicating the current
   // directory) or if the path component is empty (indicating nothing to
   // append).
-  if (appended.length() > 0 && new_path.path_.length() > 0) {
+  if (!appended.empty() && !new_path.path_.empty()) {
     // Don't append a separator if the path still ends with a trailing
     // separator after stripping (indicating the root directory).
-    if (!IsSeparator(new_path.path_[new_path.path_.length() - 1])) {
+    if (!IsSeparator(new_path.path_.back())) {
       // Don't append a separator if the path is just a drive letter.
       if (FindDriveLetter(new_path.path_) + 1 != new_path.path_.length()) {
         new_path.path_.append(1, kSeparators[0]);
@@ -537,7 +539,7 @@ bool FilePath::IsAbsolute() const {
 bool FilePath::EndsWithSeparator() const {
   if (empty())
     return false;
-  return IsSeparator(path_[path_.size() - 1]);
+  return IsSeparator(path_.back());
 }
 
 FilePath FilePath::AsEndingWithSeparator() const {
@@ -610,7 +612,7 @@ string16 FilePath::AsUTF16Unsafe() const {
 }
 
 // static
-FilePath FilePath::FromUTF8Unsafe(const std::string& utf8) {
+FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
 #if defined(SYSTEM_NATIVE_UTF8)
   return FilePath(utf8);
 #else
@@ -619,11 +621,11 @@ FilePath FilePath::FromUTF8Unsafe(const std::string& utf8) {
 }
 
 // static
-FilePath FilePath::FromUTF16Unsafe(const string16& utf16) {
+FilePath FilePath::FromUTF16Unsafe(StringPiece16 utf16) {
 #if defined(SYSTEM_NATIVE_UTF8)
   return FilePath(UTF16ToUTF8(utf16));
 #else
-  return FilePath(SysWideToNativeMB(UTF16ToWide(utf16)));
+  return FilePath(SysWideToNativeMB(UTF16ToWide(utf16.as_string())));
 #endif
 }
 
@@ -647,15 +649,23 @@ string16 FilePath::AsUTF16Unsafe() const {
 }
 
 // static
-FilePath FilePath::FromUTF8Unsafe(const std::string& utf8) {
+FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
   return FilePath(UTF8ToWide(utf8));
 }
 
 // static
-FilePath FilePath::FromUTF16Unsafe(const string16& utf16) {
+FilePath FilePath::FromUTF16Unsafe(StringPiece16 utf16) {
   return FilePath(utf16);
 }
 #endif
+
+void FilePath::GetSizeForPickle(PickleSizer* sizer) const {
+#if defined(OS_WIN)
+  sizer->AddString16(path_);
+#else
+  sizer->AddString(path_);
+#endif
+}
 
 void FilePath::WriteToPickle(Pickle* pickle) const {
 #if defined(OS_WIN)
@@ -685,6 +695,10 @@ bool FilePath::ReadFromPickle(PickleIterator* iter) {
 
 int FilePath::CompareIgnoreCase(StringPieceType string1,
                                 StringPieceType string2) {
+  static decltype(::CharUpperW)* const char_upper_api =
+      reinterpret_cast<decltype(::CharUpperW)*>(
+          ::GetProcAddress(::GetModuleHandle(L"user32.dll"), "CharUpperW"));
+  CHECK(char_upper_api);
   // Perform character-wise upper case comparison rather than using the
   // fully Unicode-aware CompareString(). For details see:
   // http://blogs.msdn.com/michkap/archive/2005/10/17/481600.aspx
@@ -694,9 +708,9 @@ int FilePath::CompareIgnoreCase(StringPieceType string1,
   StringPieceType::const_iterator string2end = string2.end();
   for ( ; i1 != string1end && i2 != string2end; ++i1, ++i2) {
     wchar_t c1 =
-        (wchar_t)LOWORD(::CharUpperW((LPWSTR)(DWORD_PTR)MAKELONG(*i1, 0)));
+        (wchar_t)LOWORD(char_upper_api((LPWSTR)(DWORD_PTR)MAKELONG(*i1, 0)));
     wchar_t c2 =
-        (wchar_t)LOWORD(::CharUpperW((LPWSTR)(DWORD_PTR)MAKELONG(*i2, 0)));
+        (wchar_t)LOWORD(char_upper_api((LPWSTR)(DWORD_PTR)MAKELONG(*i2, 0)));
     if (c1 < c2)
       return -1;
     if (c1 > c2)
@@ -1184,6 +1198,7 @@ int FilePath::HFSFastUnicodeCompare(StringPieceType string1,
 }
 
 StringType FilePath::GetHFSDecomposedForm(StringPieceType string) {
+  StringType result;
   ScopedCFTypeRef<CFStringRef> cfstring(
       CFStringCreateWithBytesNoCopy(
           NULL,
@@ -1192,26 +1207,27 @@ StringType FilePath::GetHFSDecomposedForm(StringPieceType string) {
           kCFStringEncodingUTF8,
           false,
           kCFAllocatorNull));
-  // Query the maximum length needed to store the result. In most cases this
-  // will overestimate the required space. The return value also already
-  // includes the space needed for a terminating 0.
-  CFIndex length = CFStringGetMaximumSizeOfFileSystemRepresentation(cfstring);
-  DCHECK_GT(length, 0);  // should be at least 1 for the 0-terminator.
-  // Reserve enough space for CFStringGetFileSystemRepresentation to write into.
-  // Also set the length to the maximum so that we can shrink it later.
-  // (Increasing rather than decreasing it would clobber the string contents!)
-  StringType result;
-  result.reserve(length);
-  result.resize(length - 1);
-  Boolean success = CFStringGetFileSystemRepresentation(cfstring,
-                                                        &result[0],
-                                                        length);
-  if (success) {
-    // Reduce result.length() to actual string length.
-    result.resize(strlen(result.c_str()));
-  } else {
-    // An error occurred -> clear result.
-    result.clear();
+  if (cfstring) {
+    // Query the maximum length needed to store the result. In most cases this
+    // will overestimate the required space. The return value also already
+    // includes the space needed for a terminating 0.
+    CFIndex length = CFStringGetMaximumSizeOfFileSystemRepresentation(cfstring);
+    DCHECK_GT(length, 0);  // should be at least 1 for the 0-terminator.
+    // Reserve enough space for CFStringGetFileSystemRepresentation to write
+    // into. Also set the length to the maximum so that we can shrink it later.
+    // (Increasing rather than decreasing it would clobber the string contents!)
+    result.reserve(length);
+    result.resize(length - 1);
+    Boolean success = CFStringGetFileSystemRepresentation(cfstring,
+                                                          &result[0],
+                                                          length);
+    if (success) {
+      // Reduce result.length() to actual string length.
+      result.resize(strlen(result.c_str()));
+    } else {
+      // An error occurred -> clear result.
+      result.clear();
+    }
   }
   return result;
 }
@@ -1299,7 +1315,7 @@ FilePath FilePath::NormalizePathSeparators() const {
   return NormalizePathSeparatorsTo(kSeparators[0]);
 }
 
-FilePath FilePath::NormalizePathSeparatorsTo(CharType /* separator */) const {
+FilePath FilePath::NormalizePathSeparatorsTo(CharType separator) const {
 #if defined(FILE_PATH_USES_WIN_SEPARATORS)
   DCHECK_NE(kSeparators + kSeparatorsLength,
             std::find(kSeparators, kSeparators + kSeparatorsLength, separator));
@@ -1309,6 +1325,7 @@ FilePath FilePath::NormalizePathSeparatorsTo(CharType /* separator */) const {
   }
   return FilePath(copy);
 #else
+  (void)separator;  // Avoid an unused warning.
   return *this;
 #endif
 }

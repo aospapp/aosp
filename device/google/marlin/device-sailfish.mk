@@ -42,15 +42,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.hwui.path_cache_size=16
 
 PRODUCT_COPY_FILES += \
-    device/google/marlin/init.common.rc:root/init.sailfish.rc \
-    device/google/marlin/init.common.usb.rc:root/init.sailfish.usb.rc \
-    device/google/marlin/fstab.common:root/fstab.sailfish \
-    device/google/marlin/ueventd.common.rc:root/ueventd.sailfish.rc \
+    device/google/marlin/fstab.common:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.sailfish \
     device/google/marlin/init.recovery.common.rc:root/init.recovery.sailfish.rc
-
-# Sensor hub init script
-PRODUCT_COPY_FILES += \
-    device/google/marlin/init.common.nanohub.rc:root/init.sailfish.nanohub.rc
 
 # Sensor packages
 PRODUCT_PACKAGES += \
@@ -62,7 +55,7 @@ PRODUCT_PACKAGES += \
     nfc_nci.sailfish
 
 PRODUCT_COPY_FILES += \
-    device/google/marlin/nfc/libnfc-nxp.sailfish.conf:system/etc/libnfc-nxp.conf
+    device/google/marlin/nfc/libnfc-nxp.sailfish.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf
 
 # Led packages
 PRODUCT_PACKAGES += \
@@ -76,3 +69,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     vr.sailfish
 
+# Fingerprint
+PRODUCT_PACKAGES += \
+    fingerprint.sailfish

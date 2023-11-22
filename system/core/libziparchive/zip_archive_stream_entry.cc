@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "ZIPARCHIVE"
+
 // Read-only stream access to Zip Archive entries.
 #include <errno.h>
 #include <inttypes.h>
@@ -24,9 +26,9 @@
 #include <memory>
 #include <vector>
 
-#define LOG_TAG "ZIPARCHIVE"
 #include <android-base/file.h>
 #include <log/log.h>
+
 #include <ziparchive/zip_archive.h>
 #include <ziparchive/zip_archive_stream_entry.h>
 #include <zlib.h>
@@ -38,7 +40,7 @@ static constexpr size_t kBufSize = 65535;
 bool ZipArchiveStreamEntry::Init(const ZipEntry& entry) {
   ZipArchive* archive = reinterpret_cast<ZipArchive*>(handle_);
   off64_t data_offset = entry.offset;
-  if (lseek64(archive->fd, data_offset, SEEK_SET) != data_offset) {
+  if (!archive->mapped_zip.SeekToOffset(data_offset)) {
     ALOGW("lseek to data at %" PRId64 " failed: %s", data_offset, strerror(errno));
     return false;
   }
@@ -48,7 +50,8 @@ bool ZipArchiveStreamEntry::Init(const ZipEntry& entry) {
 
 class ZipArchiveStreamEntryUncompressed : public ZipArchiveStreamEntry {
  public:
-  ZipArchiveStreamEntryUncompressed(ZipArchiveHandle handle) : ZipArchiveStreamEntry(handle) {}
+  explicit ZipArchiveStreamEntryUncompressed(ZipArchiveHandle handle)
+      : ZipArchiveStreamEntry(handle) {}
   virtual ~ZipArchiveStreamEntryUncompressed() {}
 
   const std::vector<uint8_t>* Read() override;
@@ -86,7 +89,7 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryUncompressed::Read() {
   size_t bytes = (length_ > data_.size()) ? data_.size() : length_;
   ZipArchive* archive = reinterpret_cast<ZipArchive*>(handle_);
   errno = 0;
-  if (!android::base::ReadFully(archive->fd, data_.data(), bytes)) {
+  if (!archive->mapped_zip.ReadData(data_.data(), bytes)) {
     if (errno != 0) {
       ALOGE("Error reading from archive fd: %s", strerror(errno));
     } else {
@@ -110,7 +113,8 @@ bool ZipArchiveStreamEntryUncompressed::Verify() {
 
 class ZipArchiveStreamEntryCompressed : public ZipArchiveStreamEntry {
  public:
-  ZipArchiveStreamEntryCompressed(ZipArchiveHandle handle) : ZipArchiveStreamEntry(handle) {}
+  explicit ZipArchiveStreamEntryCompressed(ZipArchiveHandle handle)
+      : ZipArchiveStreamEntry(handle) {}
   virtual ~ZipArchiveStreamEntryCompressed();
 
   const std::vector<uint8_t>* Read() override;
@@ -206,7 +210,7 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryCompressed::Read() {
       size_t bytes = (compressed_length_ > in_.size()) ? in_.size() : compressed_length_;
       ZipArchive* archive = reinterpret_cast<ZipArchive*>(handle_);
       errno = 0;
-      if (!android::base::ReadFully(archive->fd, in_.data(), bytes)) {
+      if (!archive->mapped_zip.ReadData(in_.data(), bytes)) {
         if (errno != 0) {
           ALOGE("Error reading from archive fd: %s", strerror(errno));
         } else {
@@ -249,7 +253,7 @@ const std::vector<uint8_t>* ZipArchiveStreamEntryCompressed::Read() {
 
 class ZipArchiveStreamEntryRawCompressed : public ZipArchiveStreamEntryUncompressed {
  public:
-  ZipArchiveStreamEntryRawCompressed(ZipArchiveHandle handle)
+  explicit ZipArchiveStreamEntryRawCompressed(ZipArchiveHandle handle)
       : ZipArchiveStreamEntryUncompressed(handle) {}
   virtual ~ZipArchiveStreamEntryRawCompressed() {}
 

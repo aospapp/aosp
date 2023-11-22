@@ -39,6 +39,12 @@
 
 namespace android {
 
+namespace {
+
+static constexpr int USB_CONTROL_TRANSFER_TIMEOUT_MS = 200;
+
+}  // namespace
+
 #if 0
 static bool isMtpDevice(uint16_t vendor, uint16_t product) {
     // Sandisk Sansa Fuze
@@ -84,15 +90,18 @@ MtpDevice* MtpDevice::open(const char* deviceName, int fd) {
                 interface->bInterfaceSubClass == 1 && // Still Image Capture
                 interface->bInterfaceProtocol == 1)     // Picture Transfer Protocol (PIMA 15470)
             {
-                char* manufacturerName = usb_device_get_manufacturer_name(device);
-                char* productName = usb_device_get_product_name(device);
+                char* manufacturerName = usb_device_get_manufacturer_name(device,
+                        USB_CONTROL_TRANSFER_TIMEOUT_MS);
+                char* productName = usb_device_get_product_name(device,
+                        USB_CONTROL_TRANSFER_TIMEOUT_MS);
                 ALOGD("Found camera: \"%s\" \"%s\"\n", manufacturerName, productName);
                 free(manufacturerName);
                 free(productName);
             } else if (interface->bInterfaceClass == 0xFF &&
                     interface->bInterfaceSubClass == 0xFF &&
                     interface->bInterfaceProtocol == 0) {
-                char* interfaceName = usb_device_get_string(device, interface->iInterface);
+                char* interfaceName = usb_device_get_string(device, interface->iInterface,
+                        USB_CONTROL_TRANSFER_TIMEOUT_MS);
                 if (!interfaceName) {
                     continue;
                 } else if (strcmp(interfaceName, "MTP")) {
@@ -102,8 +111,10 @@ MtpDevice* MtpDevice::open(const char* deviceName, int fd) {
                 free(interfaceName);
 
                 // Looks like an android style MTP device
-                char* manufacturerName = usb_device_get_manufacturer_name(device);
-                char* productName = usb_device_get_product_name(device);
+                char* manufacturerName = usb_device_get_manufacturer_name(device,
+                        USB_CONTROL_TRANSFER_TIMEOUT_MS);
+                char* productName = usb_device_get_product_name(device,
+                        USB_CONTROL_TRANSFER_TIMEOUT_MS);
                 ALOGD("Found MTP device: \"%s\" \"%s\"\n", manufacturerName, productName);
                 free(manufacturerName);
                 free(productName);
@@ -220,7 +231,10 @@ MtpDevice::MtpDevice(struct usb_device* device, int interface,
         mTransactionID(0),
         mReceivedResponse(false),
         mProcessingEvent(false),
-        mCurrentEventHandle(0)
+        mCurrentEventHandle(0),
+        mLastSendObjectInfoTransactionID(0),
+        mLastSendObjectInfoObjectHandle(0),
+        mPacketDivisionMode(FIRST_PACKET_HAS_PAYLOAD)
 {
     mRequestIn1 = usb_request_new(device, ep_in);
     mRequestIn2 = usb_request_new(device, ep_in);
@@ -263,19 +277,20 @@ void MtpDevice::close() {
 }
 
 void MtpDevice::print() {
-    if (mDeviceInfo) {
-        mDeviceInfo->print();
+    if (!mDeviceInfo)
+        return;
 
-        if (mDeviceInfo->mDeviceProperties) {
-            ALOGI("***** DEVICE PROPERTIES *****\n");
-            int count = mDeviceInfo->mDeviceProperties->size();
-            for (int i = 0; i < count; i++) {
-                MtpDeviceProperty propCode = (*mDeviceInfo->mDeviceProperties)[i];
-                MtpProperty* property = getDevicePropDesc(propCode);
-                if (property) {
-                    property->print();
-                    delete property;
-                }
+    mDeviceInfo->print();
+
+    if (mDeviceInfo->mDeviceProperties) {
+        ALOGI("***** DEVICE PROPERTIES *****\n");
+        int count = mDeviceInfo->mDeviceProperties->size();
+        for (int i = 0; i < count; i++) {
+            MtpDeviceProperty propCode = (*mDeviceInfo->mDeviceProperties)[i];
+            MtpProperty* property = getDevicePropDesc(propCode);
+            if (property) {
+                property->print();
+                delete property;
             }
         }
     }
@@ -490,6 +505,8 @@ MtpObjectHandle MtpDevice::sendObjectInfo(MtpObjectInfo* info) {
    if (sendRequest(MTP_OPERATION_SEND_OBJECT_INFO) && sendData()) {
         MtpResponseCode ret = readResponse();
         if (ret == MTP_RESPONSE_OK) {
+            mLastSendObjectInfoTransactionID = mRequest.getTransactionID();
+            mLastSendObjectInfoObjectHandle = mResponse.getParameter(3);
             info->mStorageID = mResponse.getParameter(1);
             info->mParent = mResponse.getParameter(2);
             info->mHandle = mResponse.getParameter(3);
@@ -502,31 +519,21 @@ MtpObjectHandle MtpDevice::sendObjectInfo(MtpObjectInfo* info) {
 bool MtpDevice::sendObject(MtpObjectHandle handle, int size, int srcFD) {
     Mutex::Autolock autoLock(mMutex);
 
-    int remaining = size;
-    mRequest.reset();
-    mRequest.setParameter(1, handle);
-    bool error = false;
-    if (sendRequest(MTP_OPERATION_SEND_OBJECT)) {
-        // send data header
-        writeDataHeader(MTP_OPERATION_SEND_OBJECT, remaining);
-
-        // USB writes greater than 16K don't work
-        char buffer[MTP_BUFFER_SIZE];
-        while (remaining > 0) {
-            int count = read(srcFD, buffer, sizeof(buffer));
-            if (count > 0) {
-                if (mData.write(mRequestOut, buffer, count) < 0) {
-                    error = true;
-                }
-                // FIXME check error
-                remaining -= count;
-            } else {
-                break;
-            }
-        }
+    if (mLastSendObjectInfoTransactionID + 1 != mTransactionID ||
+            mLastSendObjectInfoObjectHandle != handle) {
+        ALOGE("A sendObject request must follow the sendObjectInfo request.");
+        return false;
     }
-    MtpResponseCode ret = readResponse();
-    return (remaining == 0 && ret == MTP_RESPONSE_OK && !error);
+
+    mRequest.reset();
+    if (sendRequest(MTP_OPERATION_SEND_OBJECT)) {
+        mData.setOperationCode(mRequest.getOperationCode());
+        mData.setTransactionID(mRequest.getTransactionID());
+        const int writeResult = mData.write(mRequestOut, mPacketDivisionMode, srcFD, size);
+        const MtpResponseCode ret = readResponse();
+        return ret == MTP_RESPONSE_OK && writeResult > 0;
+    }
+    return false;
 }
 
 bool MtpDevice::deleteObject(MtpObjectHandle handle) {
@@ -698,8 +705,8 @@ bool MtpDevice::readData(ReadObjectCallback callback,
         return false;
     }
 
-    // If object size 0 byte, the remote device can reply response packet
-    // without sending any data packets.
+    // If object size 0 byte, the remote device may reply a response packet without sending any data
+    // packets.
     if (mData.getContainerType() == MTP_CONTAINER_TYPE_RESPONSE) {
         mResponse.copyFrom(mData);
         return mResponse.getResponseCode() == MTP_RESPONSE_OK;
@@ -722,6 +729,14 @@ bool MtpDevice::readData(ReadObjectCallback callback,
     {
         int initialDataLength = 0;
         void* const initialData = mData.getData(&initialDataLength);
+        if (fullLength > MTP_CONTAINER_HEADER_SIZE && initialDataLength == 0) {
+            // According to the MTP spec, the responder (MTP device) can choose two ways of sending
+            // data. a) The first packet contains the head and as much of the payload as possible
+            // b) The first packet contains only the header. The initiator (MTP host) needs
+            // to remember which way the responder used, and send upcoming data in the same way.
+            ALOGD("Found short packet that contains only a header.");
+            mPacketDivisionMode = FIRST_PACKET_ONLY_HEADER;
+        }
         if (initialData) {
             if (initialDataLength > 0) {
                 if (!callback(initialData, offset, initialDataLength, clientData)) {
@@ -845,7 +860,7 @@ bool MtpDevice::sendData() {
     ALOGV("sendData\n");
     mData.setOperationCode(mRequest.getOperationCode());
     mData.setTransactionID(mRequest.getTransactionID());
-    int ret = mData.write(mRequestOut);
+    int ret = mData.write(mRequestOut, mPacketDivisionMode);
     mData.dump();
     return (ret >= 0);
 }
@@ -870,12 +885,6 @@ bool MtpDevice::readData() {
         ALOGV("readResponse failed\n");
         return false;
     }
-}
-
-bool MtpDevice::writeDataHeader(MtpOperationCode operation, int dataLength) {
-    mData.setOperationCode(operation);
-    mData.setTransactionID(mRequest.getTransactionID());
-    return (!mData.writeDataHeader(mRequestOut, dataLength));
 }
 
 MtpResponseCode MtpDevice::readResponse() {

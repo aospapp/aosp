@@ -13,6 +13,7 @@
 #include "radius/radius_client.h"
 #include "common/ieee802_11_defs.h"
 #include "common/eapol_common.h"
+#include "common/dhcp.h"
 #include "eap_common/eap_wsc_common.h"
 #include "eap_server/eap.h"
 #include "wpa_auth.h"
@@ -55,6 +56,8 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 
 	bss->wpa_group_rekey = 600;
 	bss->wpa_gmk_rekey = 86400;
+	bss->wpa_group_update_count = 4;
+	bss->wpa_pairwise_update_count = 4;
 	bss->wpa_key_mgmt = WPA_KEY_MGMT_PSK;
 	bss->wpa_pairwise = WPA_CIPHER_TKIP;
 	bss->wpa_group = WPA_CIPHER_TKIP;
@@ -88,13 +91,22 @@ void hostapd_config_defaults_bss(struct hostapd_bss_config *bss)
 	/* Set to -1 as defaults depends on HT in setup */
 	bss->wmm_enabled = -1;
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	bss->ft_over_ds = 1;
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 	bss->radius_das_time_window = 300;
 
 	bss->sae_anti_clogging_threshold = 5;
+
+	bss->gas_frag_limit = 1400;
+
+#ifdef CONFIG_FILS
+	dl_list_init(&bss->fils_realms);
+	bss->fils_hlp_wait_time = 30;
+	bss->dhcp_server_port = DHCP_SERVER_PORT;
+	bss->dhcp_relay_port = DHCP_SERVER_PORT;
+#endif /* CONFIG_FILS */
 }
 
 
@@ -329,13 +341,7 @@ int hostapd_setup_wpa_psk(struct hostapd_bss_config *conf)
 		ssid->wpa_psk->group = 1;
 	}
 
-	if (ssid->wpa_psk_file) {
-		if (hostapd_config_read_wpa_psk(ssid->wpa_psk_file,
-						&conf->ssid))
-			return -1;
-	}
-
-	return 0;
+	return hostapd_config_read_wpa_psk(ssid->wpa_psk_file, &conf->ssid);
 }
 
 
@@ -384,6 +390,18 @@ void hostapd_config_free_eap_user(struct hostapd_eap_user *user)
 }
 
 
+void hostapd_config_free_eap_users(struct hostapd_eap_user *user)
+{
+	struct hostapd_eap_user *prev_user;
+
+	while (user) {
+		prev_user = user;
+		user = user->next;
+		hostapd_config_free_eap_user(prev_user);
+	}
+}
+
+
 static void hostapd_config_free_wep(struct hostapd_wep_keys *keys)
 {
 	int i;
@@ -420,10 +438,22 @@ static void hostapd_config_free_anqp_elem(struct hostapd_bss_config *conf)
 }
 
 
+static void hostapd_config_free_fils_realms(struct hostapd_bss_config *conf)
+{
+#ifdef CONFIG_FILS
+	struct fils_realm *realm;
+
+	while ((realm = dl_list_first(&conf->fils_realms, struct fils_realm,
+				      list))) {
+		dl_list_del(&realm->list);
+		os_free(realm);
+	}
+#endif /* CONFIG_FILS */
+}
+
+
 void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 {
-	struct hostapd_eap_user *user, *prev_user;
-
 	if (conf == NULL)
 		return;
 
@@ -436,12 +466,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 	os_free(conf->ssid.vlan_tagged_interface);
 #endif /* CONFIG_FULL_DYNAMIC_VLAN */
 
-	user = conf->eap_user;
-	while (user) {
-		prev_user = user;
-		user = user->next;
-		hostapd_config_free_eap_user(prev_user);
-	}
+	hostapd_config_free_eap_users(conf->eap_user);
 	os_free(conf->eap_user_sqlite);
 
 	os_free(conf->eap_req_id_text);
@@ -477,7 +502,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 	hostapd_config_free_vlan(conf);
 	os_free(conf->time_zone);
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	{
 		struct ft_remote_r0kh *r0kh, *r0kh_prev;
 		struct ft_remote_r1kh *r1kh, *r1kh_prev;
@@ -498,7 +523,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 			os_free(r1kh_prev);
 		}
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 #ifdef CONFIG_WPS
 	os_free(conf->wps_pin_requests);
@@ -567,6 +592,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 #endif /* CONFIG_HS20 */
 
 	wpabuf_free(conf->vendor_elements);
+	wpabuf_free(conf->assocresp_elements);
 
 	os_free(conf->sae_groups);
 
@@ -580,6 +606,8 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 
 	os_free(conf->no_probe_resp_if_seen_on);
 	os_free(conf->no_auth_if_seen_on);
+
+	hostapd_config_free_fils_realms(conf);
 
 	os_free(conf);
 }
@@ -606,6 +634,8 @@ void hostapd_config_free(struct hostapd_config *conf)
 #ifdef CONFIG_ACS
 	os_free(conf->acs_chan_bias);
 #endif /* CONFIG_ACS */
+	wpabuf_free(conf->lci);
+	wpabuf_free(conf->civic);
 
 	os_free(conf);
 }
@@ -799,7 +829,7 @@ static int hostapd_config_check_bss(struct hostapd_bss_config *bss,
 		}
 	}
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (full_config && wpa_key_mgmt_ft(bss->wpa_key_mgmt) &&
 	    (bss->nas_identifier == NULL ||
 	     os_strlen(bss->nas_identifier) < 1 ||
@@ -809,7 +839,7 @@ static int hostapd_config_check_bss(struct hostapd_bss_config *bss,
 			   "string");
 		return -1;
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 #ifdef CONFIG_IEEE80211N
 	if (full_config && conf->ieee80211n &&
@@ -837,6 +867,25 @@ static int hostapd_config_check_bss(struct hostapd_bss_config *bss,
 			   "capabilities");
 	}
 #endif /* CONFIG_IEEE80211N */
+
+#ifdef CONFIG_IEEE80211AC
+	if (full_config && conf->ieee80211ac &&
+	    bss->ssid.security_policy == SECURITY_STATIC_WEP) {
+		bss->disable_11ac = 1;
+		wpa_printf(MSG_ERROR,
+			   "VHT (IEEE 802.11ac) with WEP is not allowed, disabling VHT capabilities");
+	}
+
+	if (full_config && conf->ieee80211ac && bss->wpa &&
+	    !(bss->wpa_pairwise & WPA_CIPHER_CCMP) &&
+	    !(bss->rsn_pairwise & (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP |
+				   WPA_CIPHER_CCMP_256 | WPA_CIPHER_GCMP_256)))
+	{
+		bss->disable_11ac = 1;
+		wpa_printf(MSG_ERROR,
+			   "VHT (IEEE 802.11ac) with WPA/WPA2 requires CCMP/GCMP to be enabled, disabling VHT capabilities");
+	}
+#endif /* CONFIG_IEEE80211AC */
 
 #ifdef CONFIG_WPS
 	if (full_config && bss->wps_state && bss->ignore_broadcast_ssid) {

@@ -16,6 +16,7 @@ LOCAL_PATH:=$(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_CLANG := true
+LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_MODULE := libbnnmlowp
 
 LOCAL_CPP_EXTENSION := .cc

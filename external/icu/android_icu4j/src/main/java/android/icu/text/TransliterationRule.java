@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -541,12 +543,13 @@ class TransliterationRule {
      * Return a string representation of this object.
      * @return string representation of this object
      */
+    @Override
     public String toString() {
         return '{' + toRule(true) + '}';
     }
 
     /**
-     * Find the source and target sets, subject to the input filter. 
+     * Find the source and target sets, subject to the input filter.
      * There is a known issue with filters containing multiple characters.
      */
     // TODO: Problem: the rule is [{ab}]c > x

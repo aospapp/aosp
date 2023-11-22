@@ -14,14 +14,13 @@
 #define PR_ALT_SYSCALL_SET_SYSCALL_TABLE 1
 #endif
 
-int main(void)
-{
-	int ret;
+int main(void) {
+  int ret;
 
-	ret = prctl(PR_ALT_SYSCALL, PR_ALT_SYSCALL_SET_SYSCALL_TABLE,
-		    "read_write_test");
-	if (ret < 0)
-		return 1;
+  ret = prctl(PR_ALT_SYSCALL, PR_ALT_SYSCALL_SET_SYSCALL_TABLE,
+              "read_write_test");
+  if (ret < 0)
+    return 1;
 
-	return 0;
+  return 0;
 }

@@ -19,13 +19,14 @@ package android.media.tv.cts;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.cts.util.PollingCheck;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvInputService;
 import android.os.Handler;
 import android.test.ActivityInstrumentationTestCase2;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.IOException;
 import java.util.ArrayList;

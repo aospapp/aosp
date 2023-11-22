@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Stiki za nujne primere"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Dodajanje stika"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Izbirnika stikov ni bilo mogoče najti"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Stika ni mogoče prikazati"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Ali želite osebo <xliff:g id="CONTACT_NAME">%1$s</xliff:g> odstraniti iz stikov za nujne primere?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Odstranitev stika"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Podatkov za stik ni mogoče pravilno prebrati."</string>
     <string name="remove" msgid="1243949503772376064">"Odstrani"</string>
     <string name="cancel" msgid="7401575239009060939">"Prekliči"</string>
     <string name="ok" msgid="163967937451981024">"V REDU"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Informacije za nujne primere"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Podatki, ki jih vnesete tukaj, lahko v nujnih primerih pomagajo prvim, ki priskočijo na pomoč. Shranjeni so samo v napravi in jih lahko v klicalniku za nujne primere brez odklepanja telefona prebere vsakdo."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Naprej"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Podatki za nujne primere niso bili navedeni."</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Ni podatkov o lastniku telefona"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Če je to vaš telefon, se dotaknite ikone svinčnika, da dodate podatke, ki bodo prikazani tukaj za nujne primere."</string>
     <string name="clear_all" msgid="8899013032870561633">"Izbriši vse"</string>
     <string name="clear" msgid="3648880442502887163">"Izbriši"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Želite izbrisati vse informacije in stike?"</string>

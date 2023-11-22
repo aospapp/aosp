@@ -42,6 +42,9 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
         "com.android.cts.permission.sms.MESSAGE_STATUS_RECEIVED_ACTION";
     private static final String MESSAGE_SENT_ACTION =
         "com.android.cts.permission.sms.MESSAGE_SENT";
+    private static final String APP_SPECIFIC_SMS_RECEIVED_ACTION =
+        "com.android.cts.permission.sms.APP_SPECIFIC_SMS_RECEIVED";
+
 
     private static final String LOG_TAG = "NoReceiveSmsPermissionTest";
 
@@ -70,7 +73,7 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
         filter.addAction(MESSAGE_STATUS_RECEIVED_ACTION);
 
         getContext().registerReceiver(receiver, filter);
-        sendSMSToSelf();
+        sendSMSToSelf("test");
         synchronized(receiver) {
             try {
                 receiver.wait(WAIT_TIME);
@@ -84,7 +87,46 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
         assertFalse("Sms received without proper permissions", receiver.isSmsReceived());
     }
 
-    private void sendSMSToSelf() {
+    /**
+     * Verify that without {@link android.Manifest.permission#RECEIVE_SMS} that an SMS sent
+     * containing a nonce from {@link SmsManager#createAppSpecificSmsToken} is delivered
+     * to the app.
+     */
+    public void testAppSpecificSmsToken() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        AppSpecificSmsReceiver receiver = new AppSpecificSmsReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(TELEPHONY_SMS_RECEIVED);
+        filter.addAction(MESSAGE_SENT_ACTION);
+        filter.addAction(MESSAGE_STATUS_RECEIVED_ACTION);
+        filter.addAction(APP_SPECIFIC_SMS_RECEIVED_ACTION);
+        getContext().registerReceiver(receiver, filter);
+
+        PendingIntent receivedIntent = PendingIntent.getBroadcast(getContext(), 0,
+                new Intent(APP_SPECIFIC_SMS_RECEIVED_ACTION), PendingIntent.FLAG_ONE_SHOT);
+
+        String token = SmsManager.getDefault().createAppSpecificSmsToken(receivedIntent);
+        String message = "test message, token=" + token;
+        sendSMSToSelf(message);
+        synchronized(receiver) {
+            try {
+                receiver.wait(WAIT_TIME);
+            } catch (InterruptedException e) {
+                Log.w(LOG_TAG, "wait for sms interrupted");
+            }
+        }
+
+        assertTrue("[RERUN] Sms not sent successfully. Check signal.",
+                receiver.isMessageSent());
+        assertFalse("Sms received without proper permissions", receiver.isSmsReceived());
+        assertTrue("App specific SMS intent not triggered", receiver.isAppSpecificSmsReceived());
+    }
+
+    private void sendSMSToSelf(String message) {
         PendingIntent sentIntent = PendingIntent.getBroadcast(getContext(), 0,
                 new Intent(MESSAGE_SENT_ACTION), PendingIntent.FLAG_ONE_SHOT);
         PendingIntent deliveryIntent = PendingIntent.getBroadcast(getContext(), 0,
@@ -98,7 +140,7 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
                 TextUtils.isEmpty(currentNumber));
 
         Log.i(LOG_TAG, String.format("Sending SMS to self: %s", currentNumber));
-        sendSms(currentNumber, "test message", sentIntent, deliveryIntent);
+        sendSms(currentNumber, message, sentIntent, deliveryIntent);
     }
 
     protected void sendSms(String currentNumber, String text, PendingIntent sentIntent,
@@ -178,6 +220,23 @@ public class NoReceiveSmsPermissionTest extends AndroidTestCase {
                     return "Radio off";
             }
             return "unknown";
+        }
+    }
+
+    public class AppSpecificSmsReceiver extends IllegalSmsReceiver {
+        private boolean mAppSpecificSmsReceived = false;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (APP_SPECIFIC_SMS_RECEIVED_ACTION.equals(intent.getAction())) {
+                mAppSpecificSmsReceived = true;
+            } else {
+                super.onReceive(context, intent);
+            }
+        }
+
+        public boolean isAppSpecificSmsReceived() {
+            return mAppSpecificSmsReceived;
         }
     }
 }

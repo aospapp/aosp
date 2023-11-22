@@ -42,8 +42,6 @@ public final class ChannelInfo {
      * If this is specify for logo, it will be selected randomly including null.
      */
     public static final String GENERATE_LOGO = "GEN";
-    // If the logo is set to {@link ChannelInfo#GENERATE_LOGO}, pick one randomly from this list.
-    private static final int[] LOGOS_RES = {0, R.drawable.crash_test_android_logo};
 
     public static final String[] PROJECTION = {
             TvContract.Channels.COLUMN_DISPLAY_NUMBER,

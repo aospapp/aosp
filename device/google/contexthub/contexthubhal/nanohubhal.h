@@ -17,16 +17,18 @@
 #ifndef _NANOHUB_HAL_H_
 #define _NANOHUB_HAL_H_
 
-#include <pthread.h>
+#include <mutex>
+#include <thread>
+#include <list>
 
 #include <hardware/context_hub.h>
-#include <utils/Mutex.h>
 
-#define NANOAPP_VENDOR_GOOGLE NANOAPP_VENDOR("Googl")
+#include <nanohub/nanohub.h>
 
 //as per protocol
-#define MAX_RX_PACKET           128
-#define APP_FROM_HOST_EVENT_ID  0x000000F8
+#define MAX_RX_PACKET               128
+#define APP_FROM_HOST_EVENT_ID      0x000000F8
+#define APP_FROM_HOST_CHRE_EVENT_ID 0x000000F9
 
 namespace android {
 
@@ -34,28 +36,62 @@ namespace nanohub {
 
 void dumpBuffer(const char *pfx, const hub_app_name_t &appId, uint32_t evtId, const void *data, size_t len, int status = 0);
 
-struct nano_message_hdr {
-    uint32_t event_id;
-    hub_app_name_t app_name;
-    uint8_t len;
-} __attribute__((packed));
-
-struct nano_message {
-    nano_message_hdr hdr;
+struct nano_message_chre {
+    HostMsgHdrChre hdr;
     uint8_t data[MAX_RX_PACKET];
 } __attribute__((packed));
 
+struct nano_message {
+    HostMsgHdr hdr;
+    uint8_t data[MAX_RX_PACKET];
+} __attribute__((packed));
+
+class HubMessage : public hub_message_t {
+    std::unique_ptr<uint8_t> data_;
+public:
+    HubMessage(const HubMessage &other) = delete;
+    HubMessage &operator = (const HubMessage &other) = delete;
+
+    HubMessage(const hub_app_name_t *name, uint32_t typ, const void *data, uint32_t len) {
+        app_name = *name;
+        message_type = typ;
+        message_len = len;
+        message = data;
+        if (len > 0 && data != nullptr) {
+            data_ = std::unique_ptr<uint8_t>(new uint8_t[len]);
+            memcpy(data_.get(), data, len);
+            message = data_.get();
+        }
+    }
+
+    HubMessage(HubMessage &&other) {
+        *this = (HubMessage &&)other;
+    }
+
+    HubMessage &operator = (HubMessage &&other) {
+        *static_cast<hub_message_t *>(this) = static_cast<hub_message_t>(other);
+        data_ = std::move(other.data_);
+        other.message = nullptr;
+        other.message_len = 0;
+        return *this;
+    }
+};
+
 class NanoHub {
-    Mutex mLock;
+    std::mutex mLock;
+    bool mAppQuit;
+    std::mutex mAppTxLock;
+    std::condition_variable mAppTxCond;
+    std::list<HubMessage> mAppTxQueue;
+    std::thread mPollThread;
+    std::thread mAppThread;
     context_hub_callback *mMsgCbkFunc;
     int mThreadClosingPipe[2];
     int mFd; // [0] is read end
     void * mMsgCbkData;
-    pthread_t mWorkerThread;
 
-    NanoHub() {
-        reset();
-    }
+    NanoHub();
+    ~NanoHub();
 
     void reset() {
         mThreadClosingPipe[0] = -1;
@@ -63,11 +99,11 @@ class NanoHub {
         mFd = -1;
         mMsgCbkData = nullptr;
         mMsgCbkFunc = nullptr;
-        mWorkerThread = 0;
+        mAppQuit = false;
     }
 
-    static void* run(void *);
-    void* doRun();
+    void* runAppTx();
+    void* runDeviceRx();
 
     int openHub();
     int closeHub();
@@ -79,8 +115,8 @@ class NanoHub {
 
     int doSubscribeMessages(uint32_t hub_id, context_hub_callback *cbk, void *cookie);
     int doSendToNanohub(uint32_t hub_id, const hub_message_t *msg);
-    int doSendToDevice(const hub_app_name_t *name, const void *data, uint32_t len);
-    void doSendToApp(const hub_app_name_t *name, uint32_t typ, const void *data, uint32_t len);
+    int doSendToDevice(const hub_app_name_t name, const void *data, uint32_t len, uint32_t messageType);
+    void doSendToApp(HubMessage &&msg);
 
     static constexpr unsigned int FL_MESSAGE_TRACING = 1;
 
@@ -112,11 +148,11 @@ public:
     }
     // passes message to kernel driver directly
     static int sendToDevice(const hub_app_name_t *name, const void *data, uint32_t len) {
-        return hubInstance()->doSendToDevice(name, data, len);
+        return hubInstance()->doSendToDevice(*name, data, len, 0);
     }
     // passes message to APP via callback
-    static void sendToApp(const hub_app_name_t *name, uint32_t typ, const void *data, uint32_t len) {
-        hubInstance()->doSendToApp(name, typ, data, len);
+    static void sendToApp(HubMessage &&msg) {
+        hubInstance()->doSendToApp((HubMessage &&)msg);
     }
 };
 

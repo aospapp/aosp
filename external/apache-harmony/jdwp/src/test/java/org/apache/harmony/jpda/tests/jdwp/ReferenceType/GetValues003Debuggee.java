@@ -32,6 +32,7 @@ public class GetValues003Debuggee extends SyncDebuggee {
     
     static int superClassStaticIntVar;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: GetValues003Debuggee: START");
 

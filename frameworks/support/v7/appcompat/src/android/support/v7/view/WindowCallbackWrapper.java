@@ -16,6 +16,10 @@
 
 package android.support.v7.view;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
 import android.view.ActionMode;
 import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
@@ -37,6 +41,7 @@ import java.util.List;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class WindowCallbackWrapper implements Window.Callback {
 
     final Window.Callback mWrapped;
@@ -133,6 +138,7 @@ public class WindowCallbackWrapper implements Window.Callback {
         mWrapped.onPanelClosed(featureId, menu);
     }
 
+    @RequiresApi(23)
     @Override
     public boolean onSearchRequested(SearchEvent searchEvent) {
         return mWrapped.onSearchRequested(searchEvent);
@@ -148,6 +154,7 @@ public class WindowCallbackWrapper implements Window.Callback {
         return mWrapped.onWindowStartingActionMode(callback);
     }
 
+    @RequiresApi(23)
     @Override
     public ActionMode onWindowStartingActionMode(ActionMode.Callback callback, int type) {
         return mWrapped.onWindowStartingActionMode(callback, type);
@@ -163,9 +170,16 @@ public class WindowCallbackWrapper implements Window.Callback {
         mWrapped.onActionModeFinished(mode);
     }
 
+    @RequiresApi(24)
     @Override
     public void onProvideKeyboardShortcuts(
             List<KeyboardShortcutGroup> data, Menu menu, int deviceId) {
         mWrapped.onProvideKeyboardShortcuts(data, menu, deviceId);
+    }
+
+    @RequiresApi(26)
+    @Override
+    public void onPointerCaptureChanged(boolean hasCapture) {
+        mWrapped.onPointerCaptureChanged(hasCapture);
     }
 }

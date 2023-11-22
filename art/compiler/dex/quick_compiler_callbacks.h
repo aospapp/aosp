@@ -18,27 +18,26 @@
 #define ART_COMPILER_DEX_QUICK_COMPILER_CALLBACKS_H_
 
 #include "compiler_callbacks.h"
+#include "verifier/verifier_deps.h"
 
 namespace art {
 
 class VerificationResults;
-class DexFileToMethodInlinerMap;
 
 class QuickCompilerCallbacks FINAL : public CompilerCallbacks {
   public:
     QuickCompilerCallbacks(VerificationResults* verification_results,
-                           DexFileToMethodInlinerMap* method_inliner_map,
                            CompilerCallbacks::CallbackMode mode)
-        : CompilerCallbacks(mode), verification_results_(verification_results),
-          method_inliner_map_(method_inliner_map) {
+        : CompilerCallbacks(mode),
+          verification_results_(verification_results),
+          verifier_deps_(nullptr) {
       CHECK(verification_results != nullptr);
-      CHECK(method_inliner_map != nullptr);
     }
 
     ~QuickCompilerCallbacks() { }
 
     void MethodVerified(verifier::MethodVerifier* verifier)
-        SHARED_REQUIRES(Locks::mutator_lock_) OVERRIDE;
+        REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
 
     void ClassRejected(ClassReference ref) OVERRIDE;
 
@@ -47,9 +46,17 @@ class QuickCompilerCallbacks FINAL : public CompilerCallbacks {
       return true;
     }
 
+    verifier::VerifierDeps* GetVerifierDeps() const OVERRIDE {
+      return verifier_deps_.get();
+    }
+
+    void SetVerifierDeps(verifier::VerifierDeps* deps) OVERRIDE {
+      verifier_deps_.reset(deps);
+    }
+
   private:
     VerificationResults* const verification_results_;
-    DexFileToMethodInlinerMap* const method_inliner_map_;
+    std::unique_ptr<verifier::VerifierDeps> verifier_deps_;
 };
 
 }  // namespace art

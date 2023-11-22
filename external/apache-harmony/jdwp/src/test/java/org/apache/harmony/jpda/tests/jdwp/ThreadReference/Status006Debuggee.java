@@ -46,6 +46,7 @@ public class Status006Debuggee extends SyncDebuggee {
         }
     }
     
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: Status006Debuggee: START");
         status006DebuggeeThis = this;
@@ -84,6 +85,7 @@ class Status006Debuggee_Thread extends Thread {
         super(name);
     }
 
+    @Override
     public void run() {
         Status006Debuggee parent = Status006Debuggee.status006DebuggeeThis;
         parent.logWriter.println("--> Thread: " + getName() +  ": started...");

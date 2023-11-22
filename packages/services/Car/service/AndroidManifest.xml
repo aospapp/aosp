@@ -28,6 +28,11 @@
         android:description="@string/car_permission_desc"
         android:label="@string/car_permission_label" />
     <permission
+        android:name="android.car.permission.CAR_CABIN"
+        android:protectionLevel="system|signature"
+        android:label="@string/car_permission_label_cabin"
+        android:description="@string/car_permission_desc_cabin" />
+    <permission
         android:name="android.car.permission.CAR_CAMERA"
         android:protectionLevel="system|signature"
         android:label="@string/car_permission_label_camera"
@@ -80,6 +85,26 @@
         android:protectionLevel="system|signature"
         android:label="@string/car_permission_car_navigation_manager"
         android:description="@string/car_permission_desc_car_navigation_manager" />
+    <permission
+      android:name="android.car.permission.DIAGNOSTIC_READ"
+      android:protectionLevel="system|signature"
+      android:label="@string/car_permission_label_diag_read"
+      android:description="@string/car_permission_desc_diag_read" />
+    <permission
+      android:name="android.car.permission.DIAGNOSTIC_CLEAR"
+      android:protectionLevel="dangerous"
+      android:label="@string/car_permission_label_diag_clear"
+      android:description="@string/car_permission_desc_diag_clear" />
+    <permission
+        android:name="android.car.permission.VMS_PUBLISHER"
+        android:protectionLevel="system|signature"
+        android:label="@string/car_permission_label_vms_publisher"
+        android:description="@string/car_permission_desc_vms_publisher" />
+    <permission
+        android:name="android.car.permission.VMS_SUBSCRIBER"
+        android:protectionLevel="system|signature"
+        android:label="@string/car_permission_label_vms_subscriber"
+        android:description="@string/car_permission_desc_vms_subscriber" />
 
     <!--  may replace this with system permission if proper one is defined. -->
     <permission
@@ -88,19 +113,52 @@
         android:label="@string/car_permission_label_control_app_blocking"
         android:description="@string/car_permission_desc_control_app_blocking" />
 
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <permission
+        android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"
+        android:protectionLevel="system|signature"
+        android:label="@string/car_permission_label_audio_volume"
+        android:description="@string/car_permission_desc_audio_volume" />
+
+    <permission
+        android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS"
+        android:protectionLevel="system|signature"
+        android:label="@string/car_permission_label_audio_settings"
+        android:description="@string/car_permission_desc_audio_settings" />
+
+    <permission
+            android:name="android.car.permission.BIND_INSTRUMENT_CLUSTER_RENDERER_SERVICE"
+            android:protectionLevel="signature"
+            android:label="@string/car_permission_label_bind_instrument_cluster_rendering"
+            android:description="@string/car_permission_desc_bind_instrument_cluster_rendering"/>
+
+    <permission
+            android:name="android.car.permission.BIND_CAR_INPUT_SERVICE"
+            android:protectionLevel="signature"
+            android:label="@string/car_permission_label_bind_input_service"
+            android:description="@string/car_permission_desc_bind_input_service"/>
+
+    <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.REBOOT" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_STACKS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
     <uses-permission android:name="android.permission.MODIFY_DAY_NIGHT_MODE" />
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" />
+    <uses-permission android:name="android.permission.REBOOT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REMOVE_TASKS" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.MANAGE_USERS" />
 
     <application android:label="Car service"
-            android:directBootAware="true"
-            android:allowBackup="false"
-	    android:persistent="true">
+                 android:directBootAware="true"
+                 android:allowBackup="false"
+                 android:persistent="true">
 
         <service android:name=".CarService"
                 android:singleUser="true">
@@ -108,11 +166,19 @@
                 <action android:name="android.car.ICar" />
             </intent-filter>
         </service>
+        <service android:name=".PerUserCarService" android:exported="false" />
         <receiver android:name=".BootReceiver">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.PRE_BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
+        <activity android:name="com.android.car.pm.ActivityBlockingActivity"
+                  android:excludeFromRecents="true"
+                  android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

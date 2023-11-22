@@ -19,6 +19,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.telephony.CellInfo;
+import android.telephony.CellInfoCdma;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
 import android.telephony.CellInfoWcdma;
@@ -43,6 +44,18 @@ public class CellInfoTest extends AndroidTestCase{
     // Maximum and minimum possible RSSI values(in dbm).
     private static final int MAX_RSSI = -10;
     private static final int MIN_RSSI = -150;
+    // Maximum and minimum possible RSSP values(in dbm).
+    private static final int MAX_RSRP = -44;
+    private static final int MIN_RSRP = -140;
+    // Maximum and minimum possible RSSQ values.
+    private static final int MAX_RSRQ = -3;
+    private static final int MIN_RSRQ = -35;
+    // Maximum and minimum possible RSSNR values.
+    private static final int MAX_RSSNR = 50;
+    private static final int MIN_RSSNR = 0;
+    // Maximum and minimum possible CQI values.
+    private static final int MAX_CQI = 30;
+    private static final int MIN_CQI = 0;
     private PackageManager mPm;
 
     @Override
@@ -84,6 +97,8 @@ public class CellInfoTest extends AndroidTestCase{
                 verifyWcdmaInfo((CellInfoWcdma) cellInfo);
             } else if (cellInfo instanceof CellInfoGsm) {
                 verifyGsmInfo((CellInfoGsm) cellInfo);
+            } else if (cellInfo instanceof CellInfoCdma) {
+                verifyCdmaInfo((CellInfoCdma) cellInfo);
             }
         }
 
@@ -94,6 +109,11 @@ public class CellInfoTest extends AndroidTestCase{
                 numRegisteredCells > 0 && numRegisteredCells <= 2);
     }
 
+    private void verifyCdmaInfo(CellInfoCdma cdma) {
+        int level = cdma.getCellSignalStrength().getLevel();
+        assertTrue("getLevel() out of range [0,4], level=" + level, level >=0 && level <= 4);
+    }
+
     // Verify lte cell information is within correct range.
     private void verifyLteInfo(CellInfoLte lte) {
         verifyRssiDbm(lte.getCellSignalStrength().getDbm());
@@ -101,16 +121,32 @@ public class CellInfoTest extends AndroidTestCase{
         // Only physical cell id is available for LTE neighbor.
         int pci = lte.getCellIdentity().getPci();
         // Physical cell id should be within [0, 503].
-        assertTrue("getPci() out of range [0, 503]", pci >= 0 && pci <= 503);
+        assertTrue("getPci() out of range [0, 503], pci=" + pci, pci >= 0 && pci <= 503);
 
         int earfcn = lte.getCellIdentity().getEarfcn();
         // Reference 3GPP 36.101 Table 5.7.3-1
-        assertTrue("getEarfcn() out of range [0,47000]", earfcn >= 0 && earfcn <= 47000);
-
-        int ta = ((CellSignalStrengthLte)lte.getCellSignalStrength()).getTimingAdvance();
+        assertTrue("getEarfcn() out of range [0,47000], earfcn=" + earfcn,
+            earfcn >= 0 && earfcn <= 47000);
+        CellSignalStrengthLte cellSignalStrengthLte = lte.getCellSignalStrength();
         //Integer.MAX_VALUE indicates an unavailable field
-        assertTrue("getTimingAdvance() invalid [0-1282] | Integer.MAX_VALUE",
+        int rsrp = cellSignalStrengthLte.getRsrp();
+        // RSRP is being treated as RSSI in LTE (they are similar but not quite right)
+        // so reusing the constants here.
+        assertTrue("getRsrp() out of range, rsrp=" + rsrp, rsrp >= MIN_RSRP && rsrp <= MAX_RSRP);
+        int rsrq = cellSignalStrengthLte.getRsrq();
+        assertTrue("getRsrq() out of range | Integer.MAX_VALUE, rsrq=" + rsrq,
+            rsrq == Integer.MAX_VALUE || (rsrq >= MIN_RSRQ && rsrq <= MAX_RSRQ));
+        int rssnr = cellSignalStrengthLte.getRssnr();
+        assertTrue("getRssnr() out of range | Integer.MAX_VALUE, rssnr=" + rssnr,
+            rssnr == Integer.MAX_VALUE || (rssnr >= MIN_RSSNR && rssnr <= MAX_RSSNR));
+        int cqi = cellSignalStrengthLte.getCqi();
+        assertTrue("getCqi() out of range | Integer.MAX_VALUE, cqi=" + cqi,
+            cqi == Integer.MAX_VALUE || (cqi >= MIN_CQI && cqi <= MAX_CQI));
+        int ta = cellSignalStrengthLte.getTimingAdvance();
+        assertTrue("getTimingAdvance() invalid [0-1282] | Integer.MAX_VALUE, ta=" + ta,
                 ta == Integer.MAX_VALUE || (ta >= 0 && ta <=1282));
+        int level = cellSignalStrengthLte.getLevel();
+        assertTrue("getLevel() out of range [0,4], level=" + level, level >=0 && level <= 4);
     }
 
     // Verify wcdma cell information is within correct range.
@@ -119,11 +155,15 @@ public class CellInfoTest extends AndroidTestCase{
         // Verify wcdma primary scrambling code information.
         // Primary scrambling code should be within [0, 511].
         int psc = wcdma.getCellIdentity().getPsc();
-        assertTrue("getPsc() out of range [0, 511]", psc >= 0 && psc <= 511);
+        assertTrue("getPsc() out of range [0, 511], psc=" + psc, psc >= 0 && psc <= 511);
 
         int uarfcn = wcdma.getCellIdentity().getUarfcn();
         // Reference 3GPP 25.101 Table 5.2
-        assertTrue("getUarfcn() out of range [400,11000]", uarfcn >= 400 && uarfcn <= 11000);
+        assertTrue("getUarfcn() out of range [400,11000], uarfcn=" + uarfcn,
+            uarfcn >= 400 && uarfcn <= 11000);
+
+        int level = wcdma.getCellSignalStrength().getLevel();
+        assertTrue("getLevel() out of range [0,4], level=" + level, level >=0 && level <= 4);
     }
 
     // Verify gsm cell information is within correct range.
@@ -132,21 +172,29 @@ public class CellInfoTest extends AndroidTestCase{
         // Verify gsm local area code and cellid.
         // Local area code and cellid should be with [0, 65535].
         int lac = gsm.getCellIdentity().getLac();
-        assertTrue("getLac() out of range [0, 65535]", lac >= 0 && lac <= 65535);
+        assertTrue("getLac() out of range [0, 65535], lac=" + lac, !gsm.isRegistered() ||
+            lac >= 0 && lac <= 65535);
         int cid = gsm.getCellIdentity().getCid();
-        assertTrue("getCid() out range [0, 65535]", cid >= 0 && cid <= 65535);
+        assertTrue("getCid() out range [0, 65535], cid=" + cid, !gsm.isRegistered() ||
+            cid >= 0 && cid <= 65535);
 
         int arfcn = gsm.getCellIdentity().getArfcn();
         // Reference 3GPP 45.005 Table 2-2
-        assertTrue("getArfcn() out of range [0,1024]", arfcn >= 0 && arfcn <= 1024);
+        assertTrue("getArfcn() out of range [0,1024], arfcn=" + arfcn,
+            arfcn >= 0 && arfcn <= 1024);
+
+        int level = gsm.getCellSignalStrength().getLevel();
+        assertTrue("getLevel() out of range [0,4], level=" + level, level >=0 && level <= 4);
 
         int bsic = gsm.getCellIdentity().getBsic();
-        assertTrue("getBsic() out of range [0,63]", bsic >=0 && bsic <=63);
+        // TODO(b/32774471) - Bsic should always be valid, so Integer.MAX_VALUE shouldn't be needed
+        assertTrue("getBsic() out of range [0,63]",
+                (bsic >= 0 && bsic <= 63) || bsic == Integer.MAX_VALUE);
     }
 
     // Rssi(in dbm) should be within [MIN_RSSI, MAX_RSSI].
     private void verifyRssiDbm(int dbm) {
-        assertTrue("getCellSignalStrength().getDbm() out of range",
+        assertTrue("getCellSignalStrength().getDbm() out of range, dbm=" + dbm,
                 dbm >= MIN_RSSI && dbm <= MAX_RSSI);
     }
 }

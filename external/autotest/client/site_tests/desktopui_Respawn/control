@@ -5,7 +5,6 @@
 AUTHOR = "cmasone, jrbarnette"
 NAME = "desktopui_Respawn"
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = "bvt-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "desktopui"

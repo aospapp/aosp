@@ -21,9 +21,9 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include <base/macros.h>
-#include <base/memory/scoped_ptr.h>
 #include <gtest/gtest_prod.h>
 
 #include "trunks/trunks_export.h"
@@ -108,8 +108,7 @@ class TRUNKS_EXPORT TpmUtilityImpl : public TpmUtility {
                  AuthorizationDelegate* delegate,
                  TPM_HANDLE* key_handle) override;
   TPM_RC GetKeyName(TPM_HANDLE handle, std::string* name) override;
-  TPM_RC GetKeyPublicArea(TPM_HANDLE handle,
-                          TPMT_PUBLIC* public_data) override;
+  TPM_RC GetKeyPublicArea(TPM_HANDLE handle, TPMT_PUBLIC* public_data) override;
   TPM_RC SealData(const std::string& data_to_seal,
                   const std::string& policy_digest,
                   AuthorizationDelegate* delegate,
@@ -123,22 +122,39 @@ class TRUNKS_EXPORT TpmUtilityImpl : public TpmUtility {
                                     std::string* policy_digest) override;
   TPM_RC DefineNVSpace(uint32_t index,
                        size_t num_bytes,
+                       TPMA_NV attributes,
+                       const std::string& authorization_value,
+                       const std::string& policy_digest,
                        AuthorizationDelegate* delegate) override;
   TPM_RC DestroyNVSpace(uint32_t index,
                         AuthorizationDelegate* delegate) override;
-  TPM_RC LockNVSpace(uint32_t index, AuthorizationDelegate* delegate) override;
+  TPM_RC LockNVSpace(uint32_t index,
+                     bool lock_read,
+                     bool lock_write,
+                     bool using_owner_authorization,
+                     AuthorizationDelegate* delegate) override;
   TPM_RC WriteNVSpace(uint32_t index,
                       uint32_t offset,
                       const std::string& nvram_data,
+                      bool using_owner_authorization,
+                      bool extend,
                       AuthorizationDelegate* delegate) override;
   TPM_RC ReadNVSpace(uint32_t index,
                      uint32_t offset,
                      size_t num_bytes,
+                     bool using_owner_authorization,
                      std::string* nvram_data,
                      AuthorizationDelegate* delegate) override;
   TPM_RC GetNVSpaceName(uint32_t index, std::string* name) override;
   TPM_RC GetNVSpacePublicArea(uint32_t index,
                               TPMS_NV_PUBLIC* public_data) override;
+  TPM_RC ListNVSpaces(std::vector<uint32_t>* index_list) override;
+  TPM_RC SetDictionaryAttackParameters(
+      uint32_t max_tries,
+      uint32_t recovery_time,
+      uint32_t lockout_recovery,
+      AuthorizationDelegate* delegate) override;
+  TPM_RC ResetDictionaryAttackLock(AuthorizationDelegate* delegate) override;
 
  private:
   friend class TpmUtilityTest;

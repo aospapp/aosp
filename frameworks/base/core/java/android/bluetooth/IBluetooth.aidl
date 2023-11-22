@@ -52,6 +52,7 @@ interface IBluetooth
     boolean startDiscovery();
     boolean cancelDiscovery();
     boolean isDiscovering();
+    long getDiscoveryEndMillis();
 
     int getAdapterConnectionState();
     int getProfileConnectionState(int profile);
@@ -62,6 +63,8 @@ interface IBluetooth
     boolean cancelBondProcess(in BluetoothDevice device);
     boolean removeBond(in BluetoothDevice device);
     int getBondState(in BluetoothDevice device);
+    boolean isBondingInitiatedLocally(in BluetoothDevice device);
+    long getSupportedProfiles();
     int getConnectionState(in BluetoothDevice device);
 
     String getRemoteName(in BluetoothDevice device);
@@ -94,14 +97,17 @@ interface IBluetooth
     ParcelFileDescriptor connectSocket(in BluetoothDevice device, int type, in ParcelUuid uuid, int port, int flag);
     ParcelFileDescriptor createSocketChannel(int type, in String serviceName, in ParcelUuid uuid, int port, int flag);
 
-    boolean configHciSnoopLog(boolean enable);
     boolean factoryReset();
 
     boolean isMultiAdvertisementSupported();
-    boolean isPeripheralModeSupported();
     boolean isOffloadedFilteringSupported();
     boolean isOffloadedScanBatchingSupported();
     boolean isActivityAndEnergyReportingSupported();
+    boolean isLe2MPhySupported();
+    boolean isLeCodedPhySupported();
+    boolean isLeExtendedAdvertisingSupported();
+    boolean isLePeriodicAdvertisingSupported();
+    int getLeMaximumAdvertisingDataLength();
     BluetoothActivityEnergyInfo reportActivityInfo();
 
     /**

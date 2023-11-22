@@ -6,8 +6,12 @@ import logging
 
 import common
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import site_utils
 from autotest_lib.client.common_lib.cros.network import iw_runner
+from autotest_lib.server import afe_utils
 from autotest_lib.server import test
+from autotest_lib.server.brillo import host_utils
 
 
 class brillo_WifiInterfaceTest(test.test):
@@ -38,10 +42,13 @@ class brillo_WifiInterfaceTest(test.test):
         return ifconfig_dict
 
 
-    def run_once(self, host=None, wifi_iface=None, wifi_ssid=None):
+    def run_once(self, host=None, ssid=None, passphrase=None, wifi_iface=None,
+                 wifi_ssid=None):
         """Check that a given wifi interface is properly configured.
 
         @param host: a host object representing the DUT.
+        @param ssid: A string representing the ssid to connect to.
+        @param passphrase: A string representing the passphrase to the ssid.
         @param wifi_iface: Name of the wifi interface to test; None means we'll
                            try to detect at least one that works.
         @param wifi_ssid: Name of the SSID we want the interface to be
@@ -49,49 +56,58 @@ class brillo_WifiInterfaceTest(test.test):
 
         @raise TestFail: The test failed.
         """
-        err_iface = ('No interface is' if wifi_iface is None
-                      else 'Interface %s is not' % wifi_iface)
+        self.host = host
+        if afe_utils.host_in_lab(host):
+            ssid = site_utils.get_wireless_ssid(host.hostname)
+            passphrase = global_config.global_config.get_config_value(
+                    'CLIENT', 'wireless_password', default=None)
+        with host_utils.connect_to_ssid(host, ssid, passphrase):
+            err_iface = ('No interface is' if wifi_iface is None
+                          else 'Interface %s is not' % wifi_iface)
 
-        # First check link status and SSID.
-        iw = iw_runner.IwRunner(remote_host=host)
-        active_ifaces = []
-        try:
-            iw_ifaces = [iface_tuple.if_name
-                         for iface_tuple in iw.list_interfaces()]
-            if wifi_iface is not None:
-                if wifi_iface not in iw_ifaces:
-                    raise error.TestFail(
-                            'Interface %s not listed by iw' % wifi_iface)
-                test_ifaces = [wifi_iface]
-            else:
-                test_ifaces = iw_ifaces
+            # First check link status and SSID.
+            iw = iw_runner.IwRunner(remote_host=host)
+            active_ifaces = []
+            try:
+                iw_ifaces = [iface_tuple.if_name
+                             for iface_tuple in iw.list_interfaces()]
+                if wifi_iface is not None:
+                    if wifi_iface not in iw_ifaces:
+                        raise error.TestFail(
+                                'Interface %s not listed by iw' % wifi_iface)
+                    test_ifaces = [wifi_iface]
+                else:
+                    test_ifaces = iw_ifaces
 
-            for iface in test_ifaces:
-                iface_ssid = iw.get_link_value(iface, 'SSID')
-                if (iface_ssid is not None and
-                    (wifi_ssid is None or iface_ssid == wifi_ssid)):
-                    active_ifaces.append(iface)
-        except error.AutoservRunError:
-            raise error.TestFail('Failed to run iw')
+                for iface in test_ifaces:
+                    iface_ssid = iw.get_link_value(iface, 'SSID')
+                    if (iface_ssid is not None and
+                        (wifi_ssid is None or iface_ssid == wifi_ssid)):
+                        active_ifaces.append(iface)
+            except error.GenericHostRunError:
+                raise error.TestFail('Failed to run iw')
 
-        if not active_ifaces:
-            err_ssid = 'any SSID' if wifi_ssid is None else 'SSID ' + wifi_ssid
-            raise error.TestFail('%s connected to %s' % (err_iface, err_ssid))
+            if not active_ifaces:
+                err_ssid = 'any SSID' if wifi_ssid is None else ('SSID ' +
+                                                                 wifi_ssid)
+                raise error.TestFail('%s connected to %s' % (err_iface,
+                                                             err_ssid))
 
-        logging.info('Active wifi interfaces: %s', ', '.join(active_ifaces))
+            logging.info('Active wifi interfaces: %s', ', '.join(active_ifaces))
 
-        # Then check IPv4 connectivity.
-        try:
-            ifconfig_output = host.run_output('ifconfig').splitlines()
-        except error.AutoservRunError:
-            raise error.TestFail('Failed to run ifconfig')
+            # Then check IPv4 connectivity.
+            try:
+                ifconfig_output = host.run_output('ifconfig').splitlines()
+            except error.GenericHostRunError:
+                raise error.TestFail('Failed to run ifconfig')
 
-        ifconfig_dict = self.get_ifconfig_dict(ifconfig_output)
-        connected_ifaces = [iface for iface in active_ifaces
-                            if any(['inet addr:' in line
-                                    for line in ifconfig_dict.get(iface, [])])]
-        if not connected_ifaces:
-            raise error.TestFail('%s IPv4 connected' % err_iface)
+            ifconfig_dict = self.get_ifconfig_dict(ifconfig_output)
+            connected_ifaces = [iface for iface in active_ifaces
+                                if any(['inet addr:' in line
+                                        for line in ifconfig_dict.get(iface,
+                                                                      [])])]
+            if not connected_ifaces:
+                raise error.TestFail('%s IPv4 connected' % err_iface)
 
-        logging.info('IPv4 connected wifi interfaces: %s',
-                     ', '.join(connected_ifaces))
+            logging.info('IPv4 connected wifi interfaces: %s',
+                         ', '.join(connected_ifaces))

@@ -5,7 +5,6 @@
 AUTHOR = "dunno@chromium.org"
 NAME = "youtube_page"
 PURPOSE = "Verify that YouTube page HTML5 video works"
-CRITERIA = "All tests with SUITE='youtube_page' must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

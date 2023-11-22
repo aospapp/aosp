@@ -17,15 +17,15 @@ package android.support.v17.leanback.transition;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.graphics.Rect;
+import android.support.annotation.RequiresApi;
+import android.support.v17.leanback.R;
+import android.transition.TransitionValues;
+import android.transition.Visibility;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Property;
 import android.view.Gravity;
 import android.view.View;
@@ -33,16 +33,12 @@ import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
-import android.transition.Visibility;
-import android.transition.Transition;
-import android.transition.TransitionValues;
-import android.support.v17.leanback.R;
 
 /**
  * Slide distance toward/from a edge.
  * This is a limited Slide implementation for KitKat without propagation support.
- * @hide
  */
+@RequiresApi(19)
 class SlideKitkat extends Visibility {
     private static final String TAG = "SlideKitkat";
 
@@ -64,6 +60,9 @@ class SlideKitkat extends Visibility {
     }
 
     private static abstract class CalculateSlideHorizontal implements CalculateSlide {
+        CalculateSlideHorizontal() {
+        }
+
         @Override
         public float getHere(View view) {
             return view.getTranslationX();
@@ -76,6 +75,9 @@ class SlideKitkat extends Visibility {
     }
 
     private static abstract class CalculateSlideVertical implements CalculateSlide {
+        CalculateSlideVertical() {
+        }
+
         @Override
         public float getHere(View view) {
             return view.getTranslationY();

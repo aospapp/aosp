@@ -36,6 +36,9 @@ import java.text.DecimalFormat;
 public class LocationTest extends AndroidTestCase {
     private static final float DELTA = 0.1f;
     private final float TEST_ACCURACY = 1.0f;
+    private final float TEST_VERTICAL_ACCURACY = 2.0f;
+    private final float TEST_SPEED_ACCURACY = 3.0f;
+    private final float TEST_BEARING_ACCURACY = 4.0f;
     private final double TEST_ALTITUDE = 1.0;
     private final double TEST_LATITUDE = 50;
     private final float TEST_BEARING = 1.0f;
@@ -50,6 +53,7 @@ public class LocationTest extends AndroidTestCase {
 
     private static final String ENABLED_KEY = "enabled";
     private static final String MESSENGER_KEY = "messenger";
+
 
     public void testConstructor() {
         new Location("LocationProvider");
@@ -271,6 +275,34 @@ public class LocationTest extends AndroidTestCase {
         assertFalse(location.hasAccuracy());
     }
 
+    public void testAccessVerticalAccuracy() {
+        Location location = new Location("");
+        assertFalse(location.hasVerticalAccuracy());
+
+        location.setVerticalAccuracyMeters(1.0f);
+        assertEquals(1.0, location.getVerticalAccuracyMeters(), DELTA);
+        assertTrue(location.hasVerticalAccuracy());
+    }
+
+    public void testAccessSpeedAccuracy() {
+        Location location = new Location("");
+        assertFalse(location.hasSpeedAccuracy());
+
+        location.setSpeedAccuracyMetersPerSecond(1.0f);
+        assertEquals(1.0, location.getSpeedAccuracyMetersPerSecond(), DELTA);
+        assertTrue(location.hasSpeedAccuracy());
+    }
+
+    public void testAccessBearingAccuracy() {
+        Location location = new Location("");
+        assertFalse(location.hasBearingAccuracy());
+
+        location.setBearingAccuracyDegrees(1.0f);
+        assertEquals(1.0, location.getBearingAccuracyDegrees(), DELTA);
+        assertTrue(location.hasBearingAccuracy());
+    }
+
+
     public void testAccessAltitude() {
         Location location = new Location("");
         assertFalse(location.hasAltitude());
@@ -411,6 +443,15 @@ public class LocationTest extends AndroidTestCase {
         assertFalse(location.hasBearing());
         assertEquals(0, location.getAccuracy(), DELTA);
         assertFalse(location.hasAccuracy());
+
+        assertEquals(0, location.getVerticalAccuracyMeters(), DELTA);
+        assertEquals(0, location.getSpeedAccuracyMetersPerSecond(), DELTA);
+        assertEquals(0, location.getBearingAccuracyDegrees(), DELTA);
+
+        assertFalse(location.hasVerticalAccuracy());
+        assertFalse(location.hasSpeedAccuracy());
+        assertFalse(location.hasBearingAccuracy());
+
         assertNull(location.getExtras());
     }
 
@@ -486,6 +527,9 @@ public class LocationTest extends AndroidTestCase {
         assertNotNull(l);
         assertEquals(TEST_PROVIDER, l.getProvider());
         assertEquals(TEST_ACCURACY, l.getAccuracy(), DELTA);
+        assertEquals(TEST_VERTICAL_ACCURACY, l.getVerticalAccuracyMeters(), DELTA);
+        assertEquals(TEST_SPEED_ACCURACY, l.getSpeedAccuracyMetersPerSecond(), DELTA);
+        assertEquals(TEST_BEARING_ACCURACY, l.getBearingAccuracyDegrees(), DELTA);
         assertEquals(TEST_ALTITUDE, l.getAltitude(), DELTA);
         assertEquals(TEST_LATITUDE, l.getLatitude(), DELTA);
         assertEquals(TEST_BEARING, l.getBearing(), DELTA);
@@ -498,6 +542,10 @@ public class LocationTest extends AndroidTestCase {
     private Location createTestLocation() {
         Location l = new Location(TEST_PROVIDER);
         l.setAccuracy(TEST_ACCURACY);
+        l.setVerticalAccuracyMeters(TEST_VERTICAL_ACCURACY);
+        l.setSpeedAccuracyMetersPerSecond(TEST_SPEED_ACCURACY);
+        l.setBearingAccuracyDegrees(TEST_BEARING_ACCURACY);
+
         l.setAltitude(TEST_ALTITUDE);
         l.setLatitude(TEST_LATITUDE);
         l.setBearing(TEST_BEARING);

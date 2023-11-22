@@ -16,10 +16,9 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
+import android.widget.cts.R;
 
 public class HorizontalScrollViewCtsActivity extends Activity {
     @Override

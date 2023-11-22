@@ -3,15 +3,31 @@ package com.android.cts.intent.sender;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.Until;
 import android.test.InstrumentationTestCase;
 
 public class SuspendPackageTest extends InstrumentationTestCase {
+    private static final int WAIT_DIALOG_TIMEOUT_IN_MS = 5000;
+    private static final BySelector POPUP_IMAGE_SELECTOR = By
+            .clazz(android.widget.ImageView.class.getName())
+            .res("com.android.settings:id/admin_support_icon")
+            .pkg("com.android.settings");
+
+    private static final BySelector POPUP_BUTTON_SELECTOR = By
+            .clazz(android.widget.Button.class.getName())
+            .res("android:id/button1")
+            .pkg("com.android.settings");
+
     private IntentSenderActivity mActivity;
     private Context mContext;
     private PackageManager mPackageManager;
 
     private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
-    private static final String TARGET_ACTIVTIY_NAME
+    private static final String TARGET_ACTIVITY_NAME
             = "com.android.cts.intent.receiver.SimpleIntentReceiverActivity";
 
     @Override
@@ -37,19 +53,34 @@ public class SuspendPackageTest extends InstrumentationTestCase {
     }
 
     /**
-     * Verify the package is suspended by trying start the activity inside it. If the package
-     * is not suspended, the target activity will return the result.
+     * Verify that the package is suspended by trying to start the activity inside it. If the
+     * package is not suspended, the target activity will return the result.
      */
     private void assertPackageSuspended(boolean suspended) throws Exception {
         Intent intent = new Intent();
-        intent.setClassName(INTENT_RECEIVER_PKG, TARGET_ACTIVTIY_NAME);
+        intent.setClassName(INTENT_RECEIVER_PKG, TARGET_ACTIVITY_NAME);
         Intent result = mActivity.getResult(intent);
         if (suspended) {
+            dismissPolicyTransparencyDialog();
             assertNull(result);
         } else {
             assertNotNull(result);
         }
-        // No matter it is suspended or not, we should able to resolve the activity.
+        // No matter if it is suspended or not, we should be able to resolve the activity.
         assertNotNull(mPackageManager.resolveActivity(intent, 0));
+    }
+
+    /**
+     * Wait for the policy transparency dialog and dismiss it.
+     */
+    private void dismissPolicyTransparencyDialog() {
+        final UiDevice device = UiDevice.getInstance(getInstrumentation());
+        device.wait(Until.hasObject(POPUP_IMAGE_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
+        final UiObject2 icon = device.findObject(POPUP_IMAGE_SELECTOR);
+        assertNotNull("Policy transparency dialog icon not found", icon);
+        // "OK" button only present in the dialog if it is blocked by policy.
+        final UiObject2 button = device.findObject(POPUP_BUTTON_SELECTOR);
+        assertNotNull("OK button not found", button);
+        button.click();
     }
 }

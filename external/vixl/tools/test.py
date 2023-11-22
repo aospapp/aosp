@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 
-# Copyright 2015, ARM Limited
+# Copyright 2015, VIXL authors
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,7 @@ import sys
 import time
 
 import config
+import clang_format
 import lint
 import printer
 import test
@@ -71,12 +72,13 @@ class TestOption(object):
   def __init__(self, option_type, name, help,
                val_test_choices, val_test_default = None,
                # If unset, the user can pass any value.
-               strict_choices = True):
+               strict_choices = True, test_independently = False):
     self.name = name
     self.option_type = option_type
     self.help = help
     self.val_test_choices = val_test_choices
     self.strict_choices = strict_choices
+    self.test_independently = test_independently
     if val_test_default is not None:
       self.val_test_default = val_test_default
     else:
@@ -114,13 +116,14 @@ class BuildOption(TestOption):
   option_type = TestOption.type_build
   def __init__(self, name, help,
                val_test_choices, val_test_default = None,
-               strict_choices = True):
+               strict_choices = True, test_independently = False):
     super(BuildOption, self).__init__(BuildOption.option_type,
                                       name,
                                       help,
                                       val_test_choices,
                                       val_test_default,
-                                      strict_choices = strict_choices)
+                                      strict_choices = strict_choices,
+                                      test_independently = test_independently)
   def GetOptionString(self, value):
     return self.name + '=' + value
 
@@ -157,9 +160,19 @@ build_option_standard = \
   BuildOption('std', 'Test with the specified C++ standard.',
               val_test_choices=['all'] + config.tested_cpp_standards,
               strict_choices = False)
+build_option_target = \
+  BuildOption('target', 'Test with the specified isa enabled.',
+              val_test_choices=['all'] + config.build_options_target,
+              strict_choices = False, test_independently = True)
+build_option_negative_testing = \
+  BuildOption('negative_testing', 'Test with negative testing enabled.',
+              val_test_choices=['all'] + config.build_options_negative_testing,
+              strict_choices = False, test_independently = True)
 test_build_options = [
   build_option_mode,
-  build_option_standard
+  build_option_standard,
+  build_option_target,
+  build_option_negative_testing
 ]
 
 runtime_option_debugger = \
@@ -178,7 +191,7 @@ test_options = \
 def BuildOptions():
   args = argparse.ArgumentParser(
     description =
-    '''This tool runs all tests matching the speficied filters for multiple
+    '''This tool runs all tests matching the specified filters for multiple
     environment, build options, and runtime options configurations.''',
     # Print default values.
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -204,12 +217,14 @@ def BuildOptions():
 
   general_arguments = args.add_argument_group('General options')
   general_arguments.add_argument('--fast', action='store_true',
-                                 help='''Skip the lint tests, and run only with
-                                 one compiler, in one mode, with one C++
-                                 standard, and with an appropriate default for
-                                 runtime options. The compiler, mode, and C++
-                                 standard used are the first ones provided to
-                                 the script or in the default arguments.''')
+                                 help='''Skip the lint and clang-format tests,
+                                 and run only with one compiler, in one mode,
+                                 with one C++ standard, and with an appropriate
+                                 default for runtime options.''')
+  general_arguments.add_argument('--dry-run', action='store_true',
+                                 help='''Don't actually build or run anything,
+                                 but print the configurations that would be
+                                 tested.''')
   general_arguments.add_argument(
     '--jobs', '-j', metavar='N', type=int, nargs='?',
     default=multiprocessing.cpu_count(),
@@ -220,11 +235,15 @@ def BuildOptions():
                                  help='Do not run benchmarks.')
   general_arguments.add_argument('--nolint', action='store_true',
                                  help='Do not run the linter.')
+  general_arguments.add_argument('--noclang-format', action='store_true',
+                                 help='Do not run clang-format.')
   general_arguments.add_argument('--notest', action='store_true',
                                  help='Do not run tests.')
-  sim_default = 'off' if platform.machine() == 'aarch64' else 'on'
+  general_arguments.add_argument('--fail-early', action='store_true',
+                                 help='Exit as soon as a test fails.')
+  sim_default = 'none' if platform.machine() == 'aarch64' else 'aarch64'
   general_arguments.add_argument(
-    '--simulator', action='store', choices=['on', 'off'],
+    '--simulator', action='store', choices=['aarch64', 'none'],
     default=sim_default,
     help='Explicitly enable or disable the simulator.')
   general_arguments.add_argument(
@@ -316,11 +335,17 @@ def RunCommand(command, environment_options = None):
 
 
 def RunLinter():
-  rc, default_tracked_files = lint.GetDefaultTrackedFiles()
+  rc, default_tracked_files = lint.GetDefaultFilesToLint()
   if rc:
     return rc
-  return lint.LintFiles(map(lambda x: join(dir_root, x), default_tracked_files),
+  return lint.RunLinter(map(lambda x: join(dir_root, x), default_tracked_files),
                         jobs = args.jobs, progress_prefix = 'cpp lint: ')
+
+
+def RunClangFormat():
+  return clang_format.ClangFormatFiles(clang_format.GetCppSourceFilesToFormat(),
+                                       jobs = args.jobs,
+                                       progress_prefix = 'clang-format: ')
 
 
 
@@ -330,12 +355,57 @@ def BuildAll(build_options, jobs):
   return RunCommand(scons_command, list(environment_options))
 
 
-def RunBenchmarks():
+# Work out if the given options or args allow to run on the specified arch.
+#  * arches is a list of ISA/architecture (a64, aarch32, etc)
+#  * options are test.py's command line options if any.
+#  * args are the arguments given to the build script.
+def CanRunOn(arches, options, args):
+  # First we check in the build specific options.
+  for option in options:
+    if 'target' in option:
+      # The option format is 'target=x,y,z'.
+      for target in (option.split('='))[1].split(','):
+        if target in arches:
+          return True
+
+      # There was a target build option but it didn't include the target arch.
+      return False
+
+  # No specific build option, check the script arguments.
+  # The meaning of 'all' will depend on the platform, e.g. 32-bit compilers
+  # cannot handle Aarch64 while 64-bit compiler can handle Aarch32. To avoid
+  # any issues no benchmarks are run for target='all'.
+  if args.target == 'all': return False
+
+  for target in args.target[0].split(','):
+    if target in arches:
+      return True
+
+  return False
+
+
+def CanRunAarch64(options, args):
+  return CanRunOn(['aarch64', 'a64'], options, args)
+
+
+def CanRunAarch32(options, args):
+  return CanRunOn(['aarch32', 'a32', 't32'], options, args)
+
+
+def RunBenchmarks(options, args):
   rc = 0
-  benchmark_names = util.ListCCFilesWithoutExt(config.dir_benchmarks)
-  for bench in benchmark_names:
-    rc |= RunCommand(
-      [os.path.realpath(join(config.dir_build_latest, 'benchmarks', bench))])
+  if CanRunAarch32(options, args):
+    benchmark_names = util.ListCCFilesWithoutExt(config.dir_aarch32_benchmarks)
+    for bench in benchmark_names:
+      rc |= RunCommand(
+        [os.path.realpath(
+          join(config.dir_build_latest, 'benchmarks/aarch32', bench))])
+  if CanRunAarch64(options, args):
+    benchmark_names = util.ListCCFilesWithoutExt(config.dir_aarch64_benchmarks)
+    for bench in benchmark_names:
+      rc |= RunCommand(
+        [util.relrealpath(
+            join(config.dir_build_latest, 'benchmarks/aarch64', bench))])
   return rc
 
 
@@ -354,20 +424,31 @@ if __name__ == '__main__':
 
   args = BuildOptions()
 
+  def MaybeExitEarly(rc):
+    if args.fail_early and rc != 0:
+      PrintStatus(rc == 0)
+      sys.exit(rc)
+
   if args.under_valgrind:
     util.require_program('valgrind')
 
   if args.fast:
     def SetFast(option, specified, default):
       option.val_test_choices = \
-        [default[0] if specified == 'all' else specified[0]]
-    SetFast(environment_option_compiler, args.compiler, config.tested_compilers)
-    SetFast(build_option_mode, args.mode, config.build_options_modes)
-    SetFast(build_option_standard, args.std, config.tested_cpp_standards)
-    SetFast(runtime_option_debugger, args.debugger, ['on', 'off'])
+        [default if specified == 'all' else specified[0]]
+    # `g++` is very slow to compile a few aarch32 test files.
+    SetFast(environment_option_compiler, args.compiler, 'clang++')
+    SetFast(build_option_standard, args.std, 'c++98')
+    SetFast(build_option_mode, args.mode, 'debug')
+    SetFast(runtime_option_debugger, args.debugger, 'on')
 
-  if not args.nolint and not args.fast:
+  if not args.nolint and not (args.fast or args.dry_run):
     rc |= RunLinter()
+    MaybeExitEarly(rc)
+
+  if not args.noclang_format and not (args.fast or args.dry_run):
+    rc |= RunClangFormat()
+    MaybeExitEarly(rc)
 
   # Don't try to test the debugger if we are not running with the simulator.
   if not args.simulator:
@@ -376,14 +457,40 @@ if __name__ == '__main__':
 
   # List all combinations of options that will be tested.
   def ListCombinations(args, options):
-    opts_list = map(lambda opt : opt.ArgList(args.__dict__[opt.name]), options)
+    opts_list = [
+        opt.ArgList(args.__dict__[opt.name])
+        for opt in options
+        if not opt.test_independently
+    ]
     return list(itertools.product(*opts_list))
+  # List combinations of options that should only be tested independently.
+  def ListIndependentCombinations(args, options, base):
+    n = []
+    for opt in options:
+      if opt.test_independently:
+        for o in opt.ArgList(args.__dict__[opt.name]):
+          n.append(base + (o,))
+    return n
+  # TODO: We should refine the configurations we test by default, instead of
+  #       always testing all possible combinations.
   test_env_combinations = ListCombinations(args, test_environment_options)
   test_build_combinations = ListCombinations(args, test_build_options)
+  if not args.fast:
+    test_build_combinations.extend(
+        ListIndependentCombinations(args,
+                                    test_build_options,
+                                    test_build_combinations[0]))
   test_runtime_combinations = ListCombinations(args, test_runtime_options)
 
   for environment_options in test_env_combinations:
     for build_options in test_build_combinations:
+      if (args.dry_run):
+        for runtime_options in test_runtime_combinations:
+          print(' '.join(filter(None, environment_options)) + ', ' +
+                ' '.join(filter(None, build_options)) + ', ' +
+                ' '.join(filter(None, runtime_options)))
+        continue
+
       # Avoid going through the build stage if we are not using the build
       # result.
       if not (args.notest and args.nobench):
@@ -391,11 +498,12 @@ if __name__ == '__main__':
         # Don't run the tests for this configuration if the build failed.
         if build_rc != 0:
           rc |= build_rc
+          MaybeExitEarly(rc)
           continue
 
       # Use the realpath of the test executable so that the commands printed
       # can be copy-pasted and run.
-      test_executable = os.path.realpath(
+      test_executable = util.relrealpath(
         join(config.dir_build_latest, 'test', 'test-runner'))
 
       if not args.notest:
@@ -410,8 +518,13 @@ if __name__ == '__main__':
                                         list(runtime_options),
                                         args.under_valgrind,
                                         jobs = args.jobs, prefix = prefix)
+          MaybeExitEarly(rc)
 
       if not args.nobench:
-        rc |= RunBenchmarks()
+        rc |= RunBenchmarks(build_options, args)
+        MaybeExitEarly(rc)
 
-  PrintStatus(rc == 0)
+  if not args.dry_run:
+    PrintStatus(rc == 0)
+
+  sys.exit(rc)

@@ -348,6 +348,7 @@ public class LinkedHashSetTest extends junit.framework.TestCase {
 
         assertTrue(hashSet.spliterator().hasCharacteristics(Spliterator.DISTINCT));
         SpliteratorTester.runDistinctTests(keys);
+        SpliteratorTester.assertSupportsTrySplit(hashSet);
     }
 
     /**

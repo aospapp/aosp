@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2016 Google Inc.
+ * Copyright (C) 2017 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.googlecode.android_scripting.activity;
@@ -24,10 +24,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.Build;
 import android.os.StrictMode;
 import android.preference.PreferenceManager;
-import android.util.Log;
 
 import com.googlecode.android_scripting.AndroidProxy;
 import com.googlecode.android_scripting.BaseApplication;
@@ -55,7 +53,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A service that allows scripts and the RPC server to run in the background.
  *
- * @author Damon Kohler (damonkohler@gmail.com)
  */
 public class ScriptingLayerService extends ForegroundService {
   private static final int NOTIFICATION_ID = NotificationIdFactory.create();
@@ -146,51 +143,31 @@ public class ScriptingLayerService extends ForegroundService {
     mNotificationManager.notify(NOTIFICATION_ID, mNotification);
   }
 
-  @Override
-  public int onStartCommand(Intent intent, int flags, int startId) {
-    super.onStartCommand(intent, flags, startId);
+  private void startAction(Intent intent, int flags, int startId) {
+    AndroidProxy proxy = null;
+    InterpreterProcess interpreterProcess = null;
     String errmsg = null;
     if (intent == null) {
-      return START_REDELIVER_INTENT;
-    }
-    if (intent.getAction().equals(Constants.ACTION_KILL_ALL)) {
+    } else if (intent.getAction().equals(Constants.ACTION_KILL_ALL)) {
       killAll();
       stopSelf(startId);
-      return START_REDELIVER_INTENT;
-    }
-
-    if (intent.getAction().equals(Constants.ACTION_KILL_PROCESS)) {
+    } else if (intent.getAction().equals(Constants.ACTION_KILL_PROCESS)) {
       killProcess(intent);
       if (mProcessMap.isEmpty()) {
         stopSelf(startId);
       }
-      return START_REDELIVER_INTENT;
-    }
-
-    if (intent.getAction().equals(Constants.ACTION_SHOW_RUNNING_SCRIPTS)) {
+    } else if (intent.getAction().equals(Constants.ACTION_SHOW_RUNNING_SCRIPTS)) {
       showRunningScripts();
-      return START_REDELIVER_INTENT;
-    }
-
-    //TODO: b/26538940 We need to go back to a strict policy and fix the problems
-    StrictMode.ThreadPolicy sl4aPolicy = new StrictMode.ThreadPolicy.Builder()
-        .detectAll()
-        .penaltyLog()
-        .build();
-
-    StrictMode.setThreadPolicy(sl4aPolicy);
-
-    AndroidProxy proxy = null;
-    InterpreterProcess interpreterProcess = null;
-    if (intent.getAction().equals(Constants.ACTION_LAUNCH_SERVER)) {
-      proxy = launchServer(intent, false);
-      // TODO(damonkohler): This is just to make things easier. Really, we shouldn't need to start
-      // an interpreter when all we want is a server.
-      interpreterProcess = new InterpreterProcess(new ShellInterpreter(), proxy);
-      interpreterProcess.setName("Server");
-    } else {
-      proxy = launchServer(intent, true);
-      if (intent.getAction().equals(Constants.ACTION_LAUNCH_FOREGROUND_SCRIPT)) {
+    } else { //We are launching a script of some kind
+      if (intent.getAction().equals(Constants.ACTION_LAUNCH_SERVER)) {
+        proxy = launchServer(intent, false);
+        // TODO(damonkohler): This is just to make things easier. Really, we shouldn't need to start
+        // an interpreter when all we want is a server.
+        interpreterProcess = new InterpreterProcess(new ShellInterpreter(), proxy);
+        interpreterProcess.setName("Server");
+      }
+      else if (intent.getAction().equals(Constants.ACTION_LAUNCH_FOREGROUND_SCRIPT)) {
+        proxy = launchServer(intent, true);
         launchTerminal(proxy.getAddress());
         try {
           interpreterProcess = launchScript(intent, proxy);
@@ -201,19 +178,42 @@ public class ScriptingLayerService extends ForegroundService {
           interpreterProcess = null;
         }
       } else if (intent.getAction().equals(Constants.ACTION_LAUNCH_BACKGROUND_SCRIPT)) {
+        proxy = launchServer(intent, true);
         interpreterProcess = launchScript(intent, proxy);
       } else if (intent.getAction().equals(Constants.ACTION_LAUNCH_INTERPRETER)) {
+        proxy = launchServer(intent, true);
         launchTerminal(proxy.getAddress());
         interpreterProcess = launchInterpreter(intent, proxy);
+      }
+      if (interpreterProcess == null) {
+        errmsg = "Action not implemented: " + intent.getAction();
+      } else {
+        addProcess(interpreterProcess);
       }
     }
     if (errmsg != null) {
       updateNotification(errmsg);
-    } else if (interpreterProcess == null) {
-      updateNotification("Action not implemented: " + intent.getAction());
-    } else {
-      addProcess(interpreterProcess);
     }
+  }
+
+  @Override
+  public int onStartCommand(Intent intent, int flags, int startId) {
+    super.onStartCommand(intent, flags, startId);
+
+    //TODO: b/26538940 We need to go back to a strict policy and fix the problems
+    StrictMode.ThreadPolicy sl4aPolicy = new StrictMode.ThreadPolicy.Builder()
+        .detectAll()
+        .penaltyLog()
+        .build();
+    StrictMode.setThreadPolicy(sl4aPolicy);
+
+    Thread launchThread = new Thread(new Runnable() {
+        public void run() {
+            startAction(intent, flags, startId);
+        }
+    });
+    launchThread.start();
+
     return START_REDELIVER_INTENT;
   }
 
@@ -285,19 +285,24 @@ public class ScriptingLayerService extends ForegroundService {
   }
 
   private void addProcess(InterpreterProcess process) {
-    mProcessMap.put(process.getPort(), process);
-    mModCount++;
+    synchronized(mProcessMap) {
+        mProcessMap.put(process.getPort(), process);
+        mModCount++;
+    }
     if (!mHide) {
       updateNotification(process.getName() + " started.");
     }
   }
 
   private InterpreterProcess removeProcess(int port) {
-    InterpreterProcess process = mProcessMap.remove(port);
-    if (process == null) {
-      return null;
+    InterpreterProcess process;
+    synchronized(mProcessMap) {
+        process = mProcessMap.remove(port);
+        if (process == null) {
+          return null;
+        }
+        mModCount++;
     }
-    mModCount++;
     if (!mHide) {
       updateNotification(process.getName() + " exited.");
     }

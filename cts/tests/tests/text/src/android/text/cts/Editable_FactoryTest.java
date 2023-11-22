@@ -16,31 +16,37 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
-import android.text.SpannableStringBuilder;
 import android.text.Editable.Factory;
+import android.text.SpannableStringBuilder;
 
-public class Editable_FactoryTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    Factory mFactory;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Editable_FactoryTest {
+    private Factory mFactory;
 
+    @Test
     public void testNewEditable() {
-
         CharSequence source = "abc";
         // set the expected value
         Editable expected = new SpannableStringBuilder(source);
 
-        // new the Factory instance
         mFactory = new Editable.Factory();
         Editable actual = mFactory.newEditable(source);
         assertEquals(expected.toString(), actual.toString());
 
     }
 
+    @Test
     public void testGetInstance() {
-
-        // new the Factory instance
         mFactory = Factory.getInstance();
         assertTrue(mFactory instanceof Editable.Factory);
     }

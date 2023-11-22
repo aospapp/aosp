@@ -17,17 +17,23 @@
 #ifndef ART_COMPILER_JNI_QUICK_MIPS64_CALLING_CONVENTION_MIPS64_H_
 #define ART_COMPILER_JNI_QUICK_MIPS64_CALLING_CONVENTION_MIPS64_H_
 
+#include "base/enums.h"
 #include "jni/quick/calling_convention.h"
 
 namespace art {
 namespace mips64 {
 
 constexpr size_t kFramePointerSize = 8;
+static_assert(kFramePointerSize == static_cast<size_t>(PointerSize::k64),
+              "Invalid frame pointer size");
 
 class Mips64ManagedRuntimeCallingConvention FINAL : public ManagedRuntimeCallingConvention {
  public:
   Mips64ManagedRuntimeCallingConvention(bool is_static, bool is_synchronized, const char* shorty)
-      : ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty, kFramePointerSize) {}
+      : ManagedRuntimeCallingConvention(is_static,
+                                        is_synchronized,
+                                        shorty,
+                                        PointerSize::k64) {}
   ~Mips64ManagedRuntimeCallingConvention() OVERRIDE {}
   // Calling convention
   ManagedRegister ReturnRegister() OVERRIDE;
@@ -48,7 +54,10 @@ class Mips64ManagedRuntimeCallingConvention FINAL : public ManagedRuntimeCalling
 
 class Mips64JniCallingConvention FINAL : public JniCallingConvention {
  public:
-  Mips64JniCallingConvention(bool is_static, bool is_synchronized, const char* shorty);
+  Mips64JniCallingConvention(bool is_static,
+                             bool is_synchronized,
+                             bool is_critical_native,
+                             const char* shorty);
   ~Mips64JniCallingConvention() OVERRIDE {}
   // Calling convention
   ManagedRegister ReturnRegister() OVERRIDE;
@@ -57,14 +66,10 @@ class Mips64JniCallingConvention FINAL : public JniCallingConvention {
   // JNI calling convention
   size_t FrameSize() OVERRIDE;
   size_t OutArgSize() OVERRIDE;
-  const std::vector<ManagedRegister>& CalleeSaveRegisters() const OVERRIDE {
-    return callee_save_regs_;
-  }
+  ArrayRef<const ManagedRegister> CalleeSaveRegisters() const OVERRIDE;
   ManagedRegister ReturnScratchRegister() const OVERRIDE;
   uint32_t CoreSpillMask() const OVERRIDE;
-  uint32_t FpSpillMask() const OVERRIDE {
-    return 0;  // Floats aren't spilled in JNI down call
-  }
+  uint32_t FpSpillMask() const OVERRIDE;
   bool IsCurrentParamInRegister() OVERRIDE;
   bool IsCurrentParamOnStack() OVERRIDE;
   ManagedRegister CurrentParamRegister() OVERRIDE;
@@ -79,9 +84,6 @@ class Mips64JniCallingConvention FINAL : public JniCallingConvention {
   size_t NumberOfOutgoingStackArgs() OVERRIDE;
 
  private:
-  // TODO: these values aren't unique and can be shared amongst instances
-  std::vector<ManagedRegister> callee_save_regs_;
-
   DISALLOW_COPY_AND_ASSIGN(Mips64JniCallingConvention);
 };
 

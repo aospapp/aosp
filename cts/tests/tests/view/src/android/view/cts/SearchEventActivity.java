@@ -16,15 +16,12 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.SearchEvent;
 
 public class SearchEventActivity extends Activity {
-
-    private static SearchEvent mSearchEvent;
+    private SearchEvent mSearchEvent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,9 +37,5 @@ public class SearchEventActivity extends Activity {
 
     public SearchEvent getTestSearchEvent() {
         return mSearchEvent;
-    }
-
-    public void reset() {
-        mSearchEvent = null;
     }
 }

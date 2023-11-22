@@ -31,7 +31,7 @@ LOCAL_PACKAGE_NAME := CtsHostsideTvInputMonitor
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
 
 LOCAL_SDK_VERSION := current
 

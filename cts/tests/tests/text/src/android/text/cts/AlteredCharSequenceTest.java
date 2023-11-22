@@ -16,44 +16,53 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.AlteredCharSequence;
 import android.text.Spanned;
 
-public class AlteredCharSequenceTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AlteredCharSequenceTest {
     private static final String SOURCE_STR = "This is a char sequence.";
+
     private AlteredCharSequence mAlteredCharSequence;
 
+    @Test
     public void testCharAt() {
-        mAlteredCharSequence = null;
-        char[] sub = { 'i', 's' };
-        CharSequence source = "abcdefgh";
-        mAlteredCharSequence = AlteredCharSequence.make(source, sub, 0, sub.length);
+        mAlteredCharSequence = AlteredCharSequence.make("abcdefgh", new char[] {'i', 's'}, 0, 2);
         // chars in sub.
         assertEquals('i', mAlteredCharSequence.charAt(0));
         assertEquals('s', mAlteredCharSequence.charAt(1));
         // chars in source.
         assertEquals('c', mAlteredCharSequence.charAt(2));
         assertEquals('d', mAlteredCharSequence.charAt(3));
-
-        try {
-            mAlteredCharSequence.charAt(-1);
-            fail("should raise a StringIndexOutOfBoundsException.");
-        } catch (StringIndexOutOfBoundsException e) {
-            // expected.
-        }
-
-        try {
-            mAlteredCharSequence.charAt(mAlteredCharSequence.length() + 1);
-            fail("should raise a StringIndexOutOfBoundsException.");
-        } catch (StringIndexOutOfBoundsException e) {
-            // expected.
-        }
     }
 
+    @Test(expected=StringIndexOutOfBoundsException.class)
+    public void testCharAtTooLow() {
+        mAlteredCharSequence = AlteredCharSequence.make("abcdefgh", new char[] {'i', 's'}, 0, 2);
+
+        mAlteredCharSequence.charAt(-1);
+    }
+
+    @Test(expected=StringIndexOutOfBoundsException.class)
+    public void testCharAtTooHigh() {
+        mAlteredCharSequence = AlteredCharSequence.make("abcdefgh", new char[] {'i', 's'}, 0, 2);
+
+        mAlteredCharSequence.charAt(mAlteredCharSequence.length() + 1);
+    }
+
+    @Test
     public void testGetChars() {
-        mAlteredCharSequence = null;
         char[] sub = { 'i', 's' };
         int start = 0;
         int end = 2;
@@ -84,6 +93,7 @@ public class AlteredCharSequenceTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testLength() {
         char[] sub = { 'i', 's' };
 
@@ -95,8 +105,8 @@ public class AlteredCharSequenceTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testMake() {
-        mAlteredCharSequence = null;
         char[] sub = { 'i', 's' };
 
         CharSequence source = SOURCE_STR;
@@ -113,8 +123,8 @@ public class AlteredCharSequenceTest extends AndroidTestCase {
         assertFalse(0 == acsClassName.compareTo(spanClassName));
     }
 
+    @Test
     public void testSubSequence() {
-        mAlteredCharSequence = null;
         char[] sub = { 'i', 's' };
 
         CharSequence source = SOURCE_STR;
@@ -129,8 +139,8 @@ public class AlteredCharSequenceTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testToString() {
-        mAlteredCharSequence = null;
         char[] sub = { 'i', 's' };
         CharSequence source = SOURCE_STR;
         mAlteredCharSequence = AlteredCharSequence.make(source, sub, 0, sub.length);
@@ -140,28 +150,35 @@ public class AlteredCharSequenceTest extends AndroidTestCase {
     class MockSpanned implements Spanned {
         public MockSpanned(String sequence) {
         }
+
         public int getSpanEnd(Object tag) {
             return 0;
         }
+
         public int getSpanFlags(Object tag) {
             return 0;
         }
+
         public int getSpanStart(Object tag) {
             return 0;
         }
+
         public <T> T[] getSpans(int start, int end, Class<T> type) {
             return null;
         }
-        @SuppressWarnings("unchecked")
+
         public int nextSpanTransition(int start, int limit, Class type) {
             return 0;
         }
+
         public char charAt(int index) {
             return 0;
         }
+
         public int length() {
             return 0;
         }
+
         public CharSequence subSequence(int start, int end) {
             return null;
         }

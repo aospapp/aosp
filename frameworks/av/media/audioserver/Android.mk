@@ -6,18 +6,20 @@ LOCAL_SRC_FILES := \
 	main_audioserver.cpp
 
 LOCAL_SHARED_LIBRARIES := \
+	libaaudioservice \
 	libaudioflinger \
 	libaudiopolicyservice \
 	libbinder \
 	libcutils \
 	liblog \
-	libmedia \
 	libmedialogservice \
 	libnbaio \
 	libradioservice \
 	libsoundtriggerservice \
-	libutils
+	libutils \
+	libhwbinder
 
+# TODO oboeservice is the old folder name for aaudioservice. It will be changed.
 LOCAL_C_INCLUDES := \
 	frameworks/av/services/audioflinger \
 	frameworks/av/services/audiopolicy \
@@ -26,8 +28,12 @@ LOCAL_C_INCLUDES := \
 	frameworks/av/services/audiopolicy/engine/interface \
 	frameworks/av/services/audiopolicy/service \
 	frameworks/av/services/medialog \
+	frameworks/av/services/oboeservice \
 	frameworks/av/services/radio \
 	frameworks/av/services/soundtrigger \
+	frameworks/av/media/libaaudio/include \
+	frameworks/av/media/libaaudio/src \
+	frameworks/av/media/libaaudio/src/binding \
 	$(call include-path-for, audio-utils) \
 	external/sonic \
 

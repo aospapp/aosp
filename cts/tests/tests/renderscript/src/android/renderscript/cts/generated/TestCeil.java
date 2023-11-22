@@ -37,17 +37,25 @@ public class TestCeil extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestCeilRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkCeilFloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x492bf934l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xf12a662b492bf934l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testCeilFloatFloat(inV, out);
             verifyResultsCeilFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testCeilFloatFloat(inV, out);
             verifyResultsCeilFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -112,11 +122,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilFloat2Float2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x43152978l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xdb16a3ea43152978l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testCeilFloat2Float2(inV, out);
             verifyResultsCeilFloat2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloat2Float2: " + e.toString());
         }
@@ -124,9 +135,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testCeilFloat2Float2(inV, out);
             verifyResultsCeilFloat2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloat2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilFloat2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -181,11 +194,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilFloat3Float3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x39304a56l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xdb186d0539304a56l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testCeilFloat3Float3(inV, out);
             verifyResultsCeilFloat3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloat3Float3: " + e.toString());
         }
@@ -193,9 +207,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testCeilFloat3Float3(inV, out);
             verifyResultsCeilFloat3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloat3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilFloat3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -250,11 +266,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilFloat4Float4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x2f4b6b34l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xdb1a36202f4b6b34l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testCeilFloat4Float4(inV, out);
             verifyResultsCeilFloat4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloat4Float4: " + e.toString());
         }
@@ -262,9 +279,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testCeilFloat4Float4(inV, out);
             verifyResultsCeilFloat4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilFloat4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilFloat4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -325,11 +344,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilHalfHalf() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x6f7686bel, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xf287e5866f7686bel, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testCeilHalfHalf(inV, out);
             verifyResultsCeilHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalfHalf: " + e.toString());
         }
@@ -337,9 +357,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testCeilHalfHalf(inV, out);
             verifyResultsCeilHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -398,11 +420,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilHalf2Half2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xb64a4070l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xb787d7deb64a4070l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testCeilHalf2Half2(inV, out);
             verifyResultsCeilHalf2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalf2Half2: " + e.toString());
         }
@@ -410,9 +433,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testCeilHalf2Half2(inV, out);
             verifyResultsCeilHalf2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalf2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -471,11 +496,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilHalf3Half3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x15520564l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb787e28015520564l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testCeilHalf3Half3(inV, out);
             verifyResultsCeilHalf3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalf3Half3: " + e.toString());
         }
@@ -483,9 +509,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testCeilHalf3Half3(inV, out);
             verifyResultsCeilHalf3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalf3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -544,11 +572,12 @@ public class TestCeil extends RSBaseCompute {
     }
 
     private void checkCeilHalf4Half4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x7459ca58l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xb787ed217459ca58l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testCeilHalf4Half4(inV, out);
             verifyResultsCeilHalf4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalf4Half4: " + e.toString());
         }
@@ -556,9 +585,11 @@ public class TestCeil extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testCeilHalf4Half4(inV, out);
             verifyResultsCeilHalf4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCeilHalf4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsCeilHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {

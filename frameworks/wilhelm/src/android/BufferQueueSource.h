@@ -33,7 +33,7 @@ public:
     // store an item structure to indicate a processed buffer
     static const SLuint32 kItemProcessed[NB_BUFFEREVENT_ITEM_FIELDS];
 
-    BufferQueueSource(IAndroidBufferQueue *androidBufferQueue);
+    explicit BufferQueueSource(IAndroidBufferQueue *androidBufferQueue);
 
     virtual status_t initCheck() const;
 

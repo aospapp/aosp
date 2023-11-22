@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
 *******************************************************************************
 * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -7,6 +9,8 @@
 */
 
 package android.icu.dev.test.util;
+
+import org.junit.Test;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.CharTrie;
@@ -17,8 +21,6 @@ import android.icu.impl.TrieBuilder;
 import android.icu.impl.TrieIterator;
 import android.icu.text.UTF16;
 import android.icu.util.RangeValueIterator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
 * Testing class for Trie. Tests here will be simple, since both CharTrie and 
@@ -27,7 +29,6 @@ import android.icu.junit.IcuTestFmwkRunner;
 * @author Syn Wee Quek
 * @since release 2.1 Jan 01 2002
 */
-@RunWith(IcuTestFmwkRunner.class)
 public final class TrieTest extends TestFmwk 
 { 
     // constructor ---------------------------------------------------
@@ -40,16 +41,6 @@ public final class TrieTest extends TestFmwk
     }
       
     // public methods -----------------------------------------------
-    
-    public static void main(String arg[]) 
-    {
-        TrieTest test = new TrieTest();
-        try {
-            test.run(arg);
-        } catch (Exception e) {
-            test.errln("Error testing trietest");
-        }
-    }
     
     /** 
      * Values for setting possibly overlapping, out-of-order ranges of values
@@ -468,6 +459,7 @@ public final class TrieTest extends TestFmwk
         new CheckRange(0x110000,9)
     };
     
+    @Test
     public void TestIntTrie() 
     {
         _testTrieRanges4(setRanges1, setRanges1.length, checkRanges1, 
@@ -484,6 +476,7 @@ public final class TrieTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestDummyCharTrie() {
         CharTrie trie;
         final int initialValue=0x313, leadUnitValue=0xaffe; 
@@ -508,6 +501,7 @@ public final class TrieTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestDummyIntTrie() {
         IntTrie trie;
         final int initialValue=0x01234567, leadUnitValue=0x89abcdef; 

@@ -88,7 +88,7 @@ private:
 	EventState&				m_eventState;
 };
 
-class GlxDisplay : public x11::Display
+class GlxDisplay : public XlibDisplay
 {
 public:
 							GlxDisplay				(EventState&	eventState,
@@ -130,7 +130,7 @@ public:
 
 	virtual void			processEvents		(void) {}
 	virtual void			getDimensions		(int* width, int* height) = 0;
-	int		 				getWidth			(void);
+	int						getWidth			(void);
 	int						getHeight			(void);
 	void					swapBuffers			(void) { glXSwapBuffers(getXDisplay(), getGLXDrawable()); }
 
@@ -149,21 +149,21 @@ public:
 							~GlxWindow			(void);
 	void					processEvents		(void) { m_x11Window.processEvents(); }
 	::Display*				getXDisplay			(void) { return m_x11Display.getXDisplay(); }
-	void	 				getDimensions		(int* width, int* height);
+	void					getDimensions		(int* width, int* height);
 
 protected:
 	GLXDrawable				getGLXDrawable		() { return m_GLXDrawable; }
 
 private:
-	x11::Display&			m_x11Display;
-	x11::Window				m_x11Window;
+	XlibDisplay&			m_x11Display;
+	XlibWindow				m_x11Window;
 	const GLXDrawable		m_GLXDrawable;
 };
 
 class GlxRenderContext : public RenderContext
 {
 public:
-										GlxRenderContext 	(const GlxContextFactory&	factory,
+										GlxRenderContext	(const GlxContextFactory&	factory,
 															 const RenderConfig&		config);
 										~GlxRenderContext	(void);
 	virtual ContextType					getType				(void) const;
@@ -220,7 +220,7 @@ GlxContextFactory::~GlxContextFactory (void)
 }
 
 GlxDisplay::GlxDisplay (EventState& eventState, const char* name)
-	: x11::Display	(eventState, name)
+	: XlibDisplay	(eventState, name)
 {
 	const Bool supported = glXQueryExtension(m_display, &m_errorBase, &m_eventBase);
 	if (!supported)

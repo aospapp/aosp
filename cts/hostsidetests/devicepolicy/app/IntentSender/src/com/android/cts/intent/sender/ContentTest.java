@@ -20,7 +20,10 @@ import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.v4.content.FileProvider;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
@@ -31,6 +34,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 
 public class ContentTest extends InstrumentationTestCase {
 
@@ -42,6 +49,12 @@ public class ContentTest extends InstrumentationTestCase {
 
     private static final String ACTION_TAKE_PERSISTABLE_URI_PERMISSION =
             "com.android.cts.action.TAKE_PERSISTABLE_URI_PERMISSION";
+
+    public static final String ACTION_NOTIFY_URI_CHANGE
+            = "com.android.cts.action.NOTIFY_URI_CHANGE";
+
+    public static final String ACTION_OBSERVE_URI_CHANGE
+            = "com.android.cts.action.OBSERVE_URI_CHANGE";
 
     private static final String TAG = "CrossProfileContentTest";
 
@@ -68,7 +81,7 @@ public class ContentTest extends InstrumentationTestCase {
      */
     public void testReceiverCanRead() throws Exception {
         Uri uri = getUriWithTextInFile("reading_test", MESSAGE);
-        assertTrue(uri != null);
+        assertNotNull(uri);
         Intent intent = new Intent(ACTION_READ_FROM_URI);
         intent.setClipData(ClipData.newRawUri("", uri));
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -162,6 +175,79 @@ public class ContentTest extends InstrumentationTestCase {
         } else {
             // But if we somehow came through, make sure they threw.
             assertTrue(result.getBooleanExtra("extra_caught_security_exception", false));
+        }
+    }
+
+    /**
+     * Test that an app can notify a uri change across profiles.
+     */
+    public void testCanNotifyAcrossProfiles() throws Exception {
+        Uri uri = getUriWithTextInFile("notifying_test", "");
+        assertNotNull(uri);
+        Intent intent = new Intent(ACTION_NOTIFY_URI_CHANGE);
+        intent.setClipData(ClipData.newRawUri("", uri));
+        intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        HandlerThread handlerThread = new HandlerThread("observer");
+        handlerThread.start();
+        UriObserver uriObserver = new UriObserver(new Handler(handlerThread.getLooper()));
+        try {
+            mContext.getContentResolver().registerContentObserver(uri, false, uriObserver);
+            // ask the cross-profile receiver to notify the uri
+            mActivity.getCrossProfileResult(intent);
+            assertEquals(uri, uriObserver.waitForNotify());
+        } finally {
+            mContext.getContentResolver().unregisterContentObserver(uriObserver);
+            handlerThread.quit();
+        }
+    }
+
+    /**
+     * Test that an app can observe a uri change across profiles.
+     */
+    public void testCanObserveAcrossProfiles() throws Exception {
+        final Uri uri = getUriWithTextInFile("observing_test", "");
+        assertNotNull(uri);
+        Intent intent = new Intent(ACTION_OBSERVE_URI_CHANGE);
+        intent.setClipData(ClipData.newRawUri("", uri));
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                mContext.getContentResolver().notifyChange(uri, null);
+            }
+        }, 5000 /* 5 seconds */);
+
+        // Check that the app in the other profile could be notified of the change.
+        // A non-null result intent indicates success.
+        assertNotNull(mActivity.getCrossProfileResult(intent));
+    }
+
+    private class UriObserver extends ContentObserver {
+        private final SynchronousQueue<Uri> mSynchronousQueue;
+
+        public UriObserver(Handler handler) {
+           super(handler);
+           mSynchronousQueue = new SynchronousQueue<Uri>();
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+            super.onChange(selfChange, uri);
+            try {
+                if (!mSynchronousQueue.offer(uri, 5, TimeUnit.SECONDS)) {
+                    Log.e(TAG, "Failed to offer uri " + uri + " to synchronous queue");
+                }
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Interrupted while receiving onChange for " + uri, e);
+            }
+        }
+
+        private Uri waitForNotify() throws InterruptedException {
+            // The uri notification may not come immediately.
+            return mSynchronousQueue.poll(30, TimeUnit.SECONDS);
         }
     }
 

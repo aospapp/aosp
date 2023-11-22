@@ -37,7 +37,7 @@ import com.android.emergency.PreferenceKeys;
 import com.android.emergency.R;
 import com.android.emergency.edit.EditInfoActivity;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 import java.util.ArrayList;
 
@@ -88,7 +88,7 @@ public class ViewInfoActivity extends EmergencyTabActivity {
         // Show a TextView with "No information provided" if there are no fragments.
         if (getNumberFragments() == 0) {
             mViewFlipper.setDisplayedChild(
-                    mViewFlipper.indexOfChild(findViewById(R.id.no_info_text_view)));
+                    mViewFlipper.indexOfChild(findViewById(R.id.no_info)));
         } else {
             mViewFlipper.setDisplayedChild(mViewFlipper.indexOfChild(findViewById(R.id.tabs)));
         }
@@ -105,7 +105,7 @@ public class ViewInfoActivity extends EmergencyTabActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.view_info_menu, menu);
-        return true;
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override

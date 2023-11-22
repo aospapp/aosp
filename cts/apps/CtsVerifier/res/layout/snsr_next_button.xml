@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2013 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2013 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,35 +13,32 @@
      limitations under the License.
 -->
 <GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="horizontal"
-        android:columnCount="@integer/test_list_footer_button_count"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:columnCount="@integer/test_list_footer_button_count"
+    android:orientation="horizontal"
+    android:paddingBottom="@dimen/snsr_view_padding_bottom"
+    android:paddingTop="@dimen/snsr_view_padding_top">
+
+    <Button
+        android:id="@+id/next_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="@dimen/snsr_view_padding_bottom"
-        android:paddingTop="@dimen/snsr_view_padding_top"
-        >
+        android:text="@string/next_button_text" />
 
-    <Button android:id="@+id/next_button"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:layout_columnWeight="1"
-            android:text="@string/next_button_text"
-            />
+    <Button
+        android:id="@+id/pass_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:drawableTop="@drawable/fs_good"
+        android:visibility="gone" />
 
-    <Button android:id="@+id/pass_button"
-            android:visibility="gone"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:drawableTop="@drawable/fs_good"
-            />
-
-    <Button android:id="@+id/fail_button"
-            android:visibility="gone"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:drawableTop="@drawable/fs_error"
-            />
+    <Button
+        android:id="@+id/fail_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_columnWeight="1"
+        android:drawableTop="@drawable/fs_error"
+        android:visibility="gone" />
 
 </GridLayout>

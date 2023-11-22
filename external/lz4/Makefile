@@ -1,19 +1,19 @@
 # ################################################################
 # LZ4 - Makefile
-# Copyright (C) Yann Collet 2011-2015
+# Copyright (C) Yann Collet 2011-2016
 # All rights reserved.
-# 
+#
 # BSD license
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
-# 
+#
 # * Redistributions of source code must retain the above copyright notice, this
 #   list of conditions and the following disclaimer.
-# 
+#
 # * Redistributions in binary form must reproduce the above copyright notice, this
 #   list of conditions and the following disclaimer in the documentation and/or
 #   other materials provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -24,113 +24,160 @@
 # ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
+#
 # You can contact the author at :
-#  - LZ4 source repository : http://code.google.com/p/lz4/
+#  - LZ4 source repository : https://github.com/Cyan4973/lz4
 #  - LZ4 forum froup : https://groups.google.com/forum/#!forum/lz4c
 # ################################################################
 
-# Version number
-export VERSION=126
-export RELEASE=r$(VERSION)
-
-DESTDIR?=
-PREFIX ?= /usr
+DESTDIR ?=
+PREFIX  ?= /usr/local
+VOID    := /dev/null
 
 LIBDIR ?= $(PREFIX)/lib
 INCLUDEDIR=$(PREFIX)/include
-PRGDIR  = programs
 LZ4DIR  = lib
-DISTRIBNAME=lz4-$(RELEASE).tar.gz
-
-TEXT =  $(LZ4DIR)/lz4.c $(LZ4DIR)/lz4.h $(LZ4DIR)/lz4hc.c $(LZ4DIR)/lz4hc.h \
-	$(LZ4DIR)/lz4frame.c $(LZ4DIR)/lz4frame.h $(LZ4DIR)/lz4frame_static.h \
-	$(LZ4DIR)/xxhash.c $(LZ4DIR)/xxhash.h \
-	$(LZ4DIR)/liblz4.pc.in $(LZ4DIR)/Makefile $(LZ4DIR)/LICENSE \
-	Makefile lz4_block_format.txt LZ4_Frame_Format.html NEWS README.md \
-	cmake_unofficial/CMakeLists.txt \
-	$(PRGDIR)/fullbench.c $(PRGDIR)/lz4cli.c \
-	$(PRGDIR)/datagen.c $(PRGDIR)/fuzzer.c \
-	$(PRGDIR)/lz4io.c $(PRGDIR)/lz4io.h \
-	$(PRGDIR)/bench.c $(PRGDIR)/bench.h \
-	$(PRGDIR)/lz4.1 $(PRGDIR)/lz4c.1 $(PRGDIR)/lz4cat.1 \
-	$(PRGDIR)/Makefile $(PRGDIR)/COPYING	
-NONTEXT = images/image00.png images/image01.png images/image02.png \
-	images/image03.png images/image04.png images/image05.png \
-	images/image06.png
-SOURCES = $(TEXT) $(NONTEXT)
+PRGDIR  = programs
+TESTDIR = tests
+EXDIR   = examples
 
 
-# Select test target for Travis CI's Build Matrix
-ifneq (,$(filter test-%,$(LZ4_TRAVIS_CI_ENV)))
-TRAVIS_TARGET=prg-travis
+# Define nul output
+ifneq (,$(filter Windows%,$(OS)))
+EXT = .exe
 else
-TRAVIS_TARGET=$(LZ4_TRAVIS_CI_ENV)
+EXT =
 endif
 
 
-default: lz4programs
+.PHONY: default all lib lz4 clean test versionsTest examples
 
-all: 
-	@cd $(LZ4DIR); $(MAKE) -e all
-	@cd $(PRGDIR); $(MAKE) -e all
+default:
+	@$(MAKE) -C $(LZ4DIR)
+	@$(MAKE) -C $(PRGDIR)
+	@cp $(PRGDIR)/lz4$(EXT) .
 
-lz4programs:
-	@cd $(PRGDIR); $(MAKE) -e
+all:
+	@$(MAKE) -C $(LZ4DIR) $@
+	@$(MAKE) -C $(PRGDIR) $@
+	@$(MAKE) -C $(TESTDIR) $@
+	@$(MAKE) -C $(EXDIR) $@
+
+lib:
+	@$(MAKE) -C $(LZ4DIR)
+
+lz4:
+	@$(MAKE) -C $(PRGDIR) $@
+	@cp $(PRGDIR)/lz4$(EXT) .
+
+lz4-release:
+	@$(MAKE) -C $(PRGDIR)
+	@cp $(PRGDIR)/lz4$(EXT) .
 
 clean:
-	@rm -f $(DISTRIBNAME) *.sha1
-	@cd $(PRGDIR); $(MAKE) clean
-	@cd $(LZ4DIR); $(MAKE) clean
-	@cd examples; $(MAKE) clean
+	@$(MAKE) -C $(PRGDIR) $@ > $(VOID)
+	@$(MAKE) -C $(TESTDIR) $@ > $(VOID)
+	@$(MAKE) -C $(LZ4DIR) $@ > $(VOID)
+	@$(MAKE) -C $(EXDIR) $@ > $(VOID)
+	@$(MAKE) -C examples $@ > $(VOID)
+	@$(RM) lz4$(EXT)
 	@echo Cleaning completed
 
 
 #------------------------------------------------------------------------
-#make install is validated only for Linux, OSX, kFreeBSD and Hurd targets
-ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU))
+#make install is validated only for Linux, OSX, kFreeBSD, Hurd and
+#FreeBSD targets
+ifneq (,$(filter $(shell uname),Linux Darwin GNU/kFreeBSD GNU FreeBSD))
+HOST_OS = POSIX
 
 install:
-	@cd $(LZ4DIR); $(MAKE) -e install
-	@cd $(PRGDIR); $(MAKE) -e install
+	@$(MAKE) -C $(LZ4DIR) $@
+	@$(MAKE) -C $(PRGDIR) $@
 
 uninstall:
-	@cd $(LZ4DIR); $(MAKE) uninstall
-	@cd $(PRGDIR); $(MAKE) uninstall
+	@$(MAKE) -C $(LZ4DIR) $@
+	@$(MAKE) -C $(PRGDIR) $@
 
 travis-install:
-	sudo $(MAKE) install
-
-dist: clean
-	@install -dD -m 700 lz4-$(RELEASE)/lib/
-	@install -dD -m 700 lz4-$(RELEASE)/programs/
-	@install -dD -m 700 lz4-$(RELEASE)/cmake_unofficial/
-	@install -dD -m 700 lz4-$(RELEASE)/images/
-	@for f in $(TEXT); do \
-		tr -d '\r' < $$f > .tmp; \
-		install -m 600 .tmp lz4-$(RELEASE)/$$f; \
-	done
-	@rm .tmp
-	@for f in $(NONTEXT); do \
-		install -m 600 $$f lz4-$(RELEASE)/$$f; \
-	done
-	@tar -czf $(DISTRIBNAME) lz4-$(RELEASE)/
-	@rm -rf lz4-$(RELEASE)
-	@sha1sum $(DISTRIBNAME) > $(DISTRIBNAME).sha1
-	@echo Distribution $(DISTRIBNAME) built
+	$(MAKE) -j1 install PREFIX=~/install_test_dir
 
 test:
-	@cd $(PRGDIR); $(MAKE) -e test
+	$(MAKE) -C $(TESTDIR) $@
 
-test-travis: $(TRAVIS_TARGET)
+clangtest: clean
+	clang -v
+	@CFLAGS="-O3 -Werror -Wconversion -Wno-sign-conversion" $(MAKE) -C $(LZ4DIR)  all CC=clang
+	@CFLAGS="-O3 -Werror -Wconversion -Wno-sign-conversion" $(MAKE) -C $(PRGDIR)  all CC=clang
+	@CFLAGS="-O3 -Werror -Wconversion -Wno-sign-conversion" $(MAKE) -C $(TESTDIR) all CC=clang
+
+clangtest-native: clean
+	clang -v
+	@CFLAGS="-O3 -Werror -Wconversion -Wno-sign-conversion" $(MAKE) -C $(LZ4DIR)  all    CC=clang
+	@CFLAGS="-O3 -Werror -Wconversion -Wno-sign-conversion" $(MAKE) -C $(PRGDIR)  native CC=clang
+	@CFLAGS="-O3 -Werror -Wconversion -Wno-sign-conversion" $(MAKE) -C $(TESTDIR) native CC=clang
+
+usan: clean
+	CC=clang CFLAGS="-O3 -g -fsanitize=undefined" $(MAKE) test FUZZER_TIME="-T1mn" NB_LOOPS=-i1
+
+usan32: clean
+	CFLAGS="-m32 -O3 -g -fsanitize=undefined" $(MAKE) test FUZZER_TIME="-T1mn" NB_LOOPS=-i1
+
+staticAnalyze: clean
+	CFLAGS=-g scan-build --status-bugs -v $(MAKE) all
+
+platformTest: clean
+	@echo "\n ---- test lz4 with $(CC) compiler ----"
+	@$(CC) -v
+	CFLAGS="-O3 -Werror"         $(MAKE) -C $(LZ4DIR) all
+	CFLAGS="-O3 -Werror -static" $(MAKE) -C $(PRGDIR) all
+	CFLAGS="-O3 -Werror -static" $(MAKE) -C $(TESTDIR) all
+	$(MAKE) -C $(TESTDIR) test-platform
+
+versionsTest: clean
+	$(MAKE) -C $(TESTDIR) $@
+
+examples:
+	$(MAKE) -C $(LZ4DIR)
+	$(MAKE) -C $(PRGDIR) lz4
+	$(MAKE) -C examples test
+
+endif
+
+
+ifneq (,$(filter MSYS%,$(shell uname)))
+HOST_OS = MSYS
+CMAKE_PARAMS = -G"MSYS Makefiles"
+endif
+
+
+#------------------------------------------------------------------------
+#make tests validated only for MSYS, Linux, OSX, kFreeBSD and Hurd targets
+#------------------------------------------------------------------------
+ifneq (,$(filter $(HOST_OS),MSYS POSIX))
 
 cmake:
-	@cd cmake_unofficial; cmake CMakeLists.txt; $(MAKE)
+	@cd contrib/cmake_unofficial; cmake $(CMAKE_PARAMS) CMakeLists.txt; $(MAKE)
 
-streaming-examples:
-	cd examples; $(MAKE) -e test
+gpptest: clean
+	g++ -v
+	CC=g++ $(MAKE) -C $(LZ4DIR)  all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+	CC=g++ $(MAKE) -C $(PRGDIR)  all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+	CC=g++ $(MAKE) -C $(TESTDIR) all CFLAGS="-O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
 
-prg-travis:
-	@cd $(PRGDIR); $(MAKE) -e test-travis
+gpptest32: clean
+	g++ -v
+	CC=g++ $(MAKE) -C $(LZ4DIR)  all    CFLAGS="-m32 -O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+	CC=g++ $(MAKE) -C $(PRGDIR)  native CFLAGS="-m32 -O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+	CC=g++ $(MAKE) -C $(TESTDIR) native CFLAGS="-m32 -O3 -Wall -Wextra -Wundef -Wshadow -Wcast-align -Werror"
+
+c_standards: clean
+	$(MAKE) all MOREFLAGS="-std=gnu90 -Werror"
+	$(MAKE) clean
+	$(MAKE) all MOREFLAGS="-std=c99 -Werror"
+	$(MAKE) clean
+	$(MAKE) all MOREFLAGS="-std=gnu99 -Werror"
+	$(MAKE) clean
+	$(MAKE) all MOREFLAGS="-std=c11 -Werror"
+	$(MAKE) clean
 
 endif

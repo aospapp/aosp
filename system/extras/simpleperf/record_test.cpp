@@ -27,94 +27,118 @@ class RecordTest : public ::testing::Test {
     const EventType* type = FindEventTypeByName("cpu-cycles");
     ASSERT_TRUE(type != nullptr);
     event_attr = CreateDefaultPerfEventAttr(*type);
+    event_attr.sample_id_all = 1;
   }
 
-  template <class RecordType>
-  void CheckRecordMatchBinary(const RecordType& record);
+  void CheckRecordMatchBinary(const Record& record) {
+    const char* p = record.Binary();
+    std::vector<std::unique_ptr<Record>> records =
+        ReadRecordsFromBuffer(event_attr, p, record.size());
+    ASSERT_EQ(1u, records.size());
+    CheckRecordEqual(record, *records[0]);
+  }
 
   perf_event_attr event_attr;
 };
 
-template <class RecordType>
-void RecordTest::CheckRecordMatchBinary(const RecordType& record) {
-  std::vector<char> binary = record.BinaryFormat();
-  std::vector<std::unique_ptr<Record>> records =
-      ReadRecordsFromBuffer(event_attr, binary.data(), binary.size());
-  ASSERT_EQ(1u, records.size());
-  CheckRecordEqual(record, *records[0]);
-}
-
 TEST_F(RecordTest, MmapRecordMatchBinary) {
-  MmapRecord record =
-      CreateMmapRecord(event_attr, true, 1, 2, 0x1000, 0x2000, 0x3000, "MmapRecord");
+  MmapRecord record(event_attr, true, 1, 2, 0x1000, 0x2000, 0x3000,
+                    "MmapRecord", 0);
   CheckRecordMatchBinary(record);
 }
 
 TEST_F(RecordTest, CommRecordMatchBinary) {
-  CommRecord record = CreateCommRecord(event_attr, 1, 2, "CommRecord");
+  CommRecord record(event_attr, 1, 2, "CommRecord", 0, 7);
+  CheckRecordMatchBinary(record);
+}
+
+TEST_F(RecordTest, SampleRecordMatchBinary) {
+  event_attr.sample_type = PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME
+                           | PERF_SAMPLE_ID | PERF_SAMPLE_CPU
+                           | PERF_SAMPLE_PERIOD | PERF_SAMPLE_CALLCHAIN;
+  SampleRecord record(event_attr, 1, 2, 3, 4, 5, 6, 7, {8, 9, 10});
   CheckRecordMatchBinary(record);
 }
 
 TEST_F(RecordTest, RecordCache_smoke) {
   event_attr.sample_id_all = 1;
   event_attr.sample_type |= PERF_SAMPLE_TIME;
-  RecordCache cache(event_attr, 2, 2);
-  MmapRecord r1 = CreateMmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300, "mmap_record1");
-  MmapRecord r2 = r1;
-  MmapRecord r3 = r1;
-  MmapRecord r4 = r1;
-  r1.sample_id.time_data.time = 3;
-  r2.sample_id.time_data.time = 1;
-  r3.sample_id.time_data.time = 4;
-  r4.sample_id.time_data.time = 6;
-  std::vector<char> buf1 = r1.BinaryFormat();
-  std::vector<char> buf2 = r2.BinaryFormat();
-  std::vector<char> buf3 = r3.BinaryFormat();
-  std::vector<char> buf4 = r4.BinaryFormat();
+  RecordCache cache(true, 2, 2);
+
   // Push r1.
-  cache.Push(buf1.data(), buf1.size());
+  MmapRecord* r1 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
+                                  "mmap_record1", 0, 3);
+  cache.Push(std::unique_ptr<Record>(r1));
   ASSERT_EQ(nullptr, cache.Pop());
+
   // Push r2.
-  cache.Push(buf2.data(), buf2.size());
+  MmapRecord* r2 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
+                                  "mmap_record1", 0, 1);
+  cache.Push(std::unique_ptr<Record>(r2));
   // Pop r2.
   std::unique_ptr<Record> popped_r = cache.Pop();
   ASSERT_TRUE(popped_r != nullptr);
-  CheckRecordEqual(r2, *popped_r);
+  ASSERT_EQ(r2, popped_r.get());
   ASSERT_EQ(nullptr, cache.Pop());
+
   // Push r3.
-  cache.Push(buf3.data(), buf3.size());
+  MmapRecord* r3 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
+                                  "mmap_record1", 0, 4);
+  cache.Push(std::unique_ptr<Record>(r3));
   ASSERT_EQ(nullptr, cache.Pop());
+
   // Push r4.
-  cache.Push(buf4.data(), buf4.size());
+  MmapRecord* r4 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
+                                  "mmap_record1", 0, 6);
+  cache.Push(std::unique_ptr<Record>(r4));
   // Pop r1.
   popped_r = cache.Pop();
   ASSERT_TRUE(popped_r != nullptr);
-  CheckRecordEqual(r1, *popped_r);
+  ASSERT_EQ(r1, popped_r.get());
   // Pop r3.
   popped_r = cache.Pop();
   ASSERT_TRUE(popped_r != nullptr);
-  CheckRecordEqual(r3, *popped_r);
+  ASSERT_EQ(r3, popped_r.get());
   ASSERT_EQ(nullptr, cache.Pop());
   // Pop r4.
   std::vector<std::unique_ptr<Record>> last_records = cache.PopAll();
   ASSERT_EQ(1u, last_records.size());
-  CheckRecordEqual(r4, *last_records[0]);
+  ASSERT_EQ(r4, last_records[0].get());
 }
 
 TEST_F(RecordTest, RecordCache_FIFO) {
   event_attr.sample_id_all = 1;
   event_attr.sample_type |= PERF_SAMPLE_TIME;
-  RecordCache cache(event_attr, 2, 2);
-  std::vector<MmapRecord> records;
+  RecordCache cache(true, 2, 2);
+  std::vector<MmapRecord*> records;
   for (size_t i = 0; i < 10; ++i) {
-    MmapRecord r = CreateMmapRecord(event_attr, true, 1, i, 0x100, 0x200, 0x300, "mmap_record1");
-    records.push_back(r);
-    std::vector<char> buf = r.BinaryFormat();
-    cache.Push(buf.data(), buf.size());
+    records.push_back(new MmapRecord(event_attr, true, 1, i, 0x100, 0x200,
+                                     0x300, "mmap_record1", 0));
+    cache.Push(std::unique_ptr<Record>(records.back()));
   }
   std::vector<std::unique_ptr<Record>> out_records = cache.PopAll();
   ASSERT_EQ(records.size(), out_records.size());
   for (size_t i = 0; i < records.size(); ++i) {
-    CheckRecordEqual(records[i], *out_records[i]);
+    ASSERT_EQ(records[i], out_records[i].get());
   }
+}
+
+TEST_F(RecordTest, RecordCache_PushRecordVector) {
+  event_attr.sample_id_all = 1;
+  event_attr.sample_type |= PERF_SAMPLE_TIME;
+  RecordCache cache(true, 2, 2);
+  MmapRecord* r1 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
+                                  "mmap_record1", 0, 1);
+  MmapRecord* r2 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
+                                  "mmap_record1", 0, 3);
+  std::vector<std::unique_ptr<Record>> records;
+  records.push_back(std::unique_ptr<Record>(r1));
+  records.push_back(std::unique_ptr<Record>(r2));
+  cache.Push(std::move(records));
+  std::unique_ptr<Record> popped_r = cache.Pop();
+  ASSERT_TRUE(popped_r != nullptr);
+  ASSERT_EQ(r1, popped_r.get());
+  std::vector<std::unique_ptr<Record>> last_records = cache.PopAll();
+  ASSERT_EQ(1u, last_records.size());
+  ASSERT_EQ(r2, last_records[0].get());
 }

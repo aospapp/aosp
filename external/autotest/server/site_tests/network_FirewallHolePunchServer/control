@@ -8,7 +8,7 @@ PURPOSE = "Verify Chrome apps can open holes in the firewall"
 CRITERIA = """
 Test will pass if Chrome apps can open holes in the firewall, that those
 holes are closed when the app is reloaded or closed"""
-SUITE = 'network_nightly'
+ATTRIBUTES = "suite:network_nightly"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

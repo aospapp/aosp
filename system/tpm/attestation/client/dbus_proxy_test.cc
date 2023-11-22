@@ -38,6 +38,7 @@ class DBusProxyTest : public testing::Test {
         nullptr, "", dbus::ObjectPath(""));
     proxy_.set_object_proxy(mock_object_proxy_.get());
   }
+
  protected:
   scoped_refptr<StrictMock<dbus::MockObjectProxy>> mock_object_proxy_;
   DBusProxy proxy_;
@@ -399,11 +400,11 @@ TEST_F(DBusProxyTest, RegisterKeyWithChapsToken) {
 
   // Set expectations on the outputs.
   int callback_count = 0;
-  auto callback = [&callback_count](
-      const RegisterKeyWithChapsTokenReply& reply) {
-    callback_count++;
-    EXPECT_EQ(STATUS_SUCCESS, reply.status());
-  };
+  auto callback =
+      [&callback_count](const RegisterKeyWithChapsTokenReply& reply) {
+        callback_count++;
+        EXPECT_EQ(STATUS_SUCCESS, reply.status());
+      };
   RegisterKeyWithChapsTokenRequest request;
   request.set_key_label("label");
   request.set_username("user");

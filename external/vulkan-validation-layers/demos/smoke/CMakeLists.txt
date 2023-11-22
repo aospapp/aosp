@@ -2,8 +2,8 @@ set (GLMINC_PREFIX ${PROJECT_SOURCE_DIR}/libs)
 
 macro(generate_dispatch_table out)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${out}
-        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate-dispatch-table ${CMAKE_CURRENT_SOURCE_DIR}/${out}
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/generate-dispatch-table
+        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate-dispatch-table.py ${CMAKE_CURRENT_SOURCE_DIR}/${out}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/generate-dispatch-table.py
         )
 endmacro()
 
@@ -60,14 +60,23 @@ if(WIN32)
 
     list(APPEND sources ShellWin32.cpp ShellWin32.h)
 else()
-    list(APPEND libraries PRIVATE -ldl)
+    list(APPEND libraries PRIVATE -ldl -lrt)
 
-    find_package(XCB REQUIRED)
+    if(BUILD_WSI_XCB_SUPPORT)
+        find_package(XCB REQUIRED)
 
-    list(APPEND sources ShellXcb.cpp ShellXcb.h)
-    list(APPEND definitions PRIVATE -DVK_USE_PLATFORM_XCB_KHR)
-    list(APPEND includes PRIVATE ${XCB_INCLUDES})
-    list(APPEND libraries PRIVATE ${XCB_LIBRARIES})
+        list(APPEND sources ShellXcb.cpp ShellXcb.h)
+        list(APPEND definitions PRIVATE -DVK_USE_PLATFORM_XCB_KHR)
+        list(APPEND includes PRIVATE ${XCB_INCLUDES})
+        list(APPEND libraries PRIVATE ${XCB_LIBRARIES})
+    elseif(BUILD_WSI_WAYLAND_SUPPORT)
+        find_package(Wayland REQUIRED)
+
+        list(APPEND sources ShellWayland.cpp ShellWayland.h)
+        list(APPEND definitions PRIVATE -DVK_USE_PLATFORM_WAYLAND_KHR)
+        list(APPEND includes PRIVATE ${WAYLAND_CLIENT_INCLUDE_DIR})
+        list(APPEND libraries PRIVATE ${WAYLAND_CLIENT_LIBRARIES})
+    endif()
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/demos)

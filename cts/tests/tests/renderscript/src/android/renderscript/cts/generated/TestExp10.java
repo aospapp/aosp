@@ -37,17 +37,25 @@ public class TestExp10 extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestExp10Relaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkExp10FloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xc123e2edl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xc5df97aec123e2edl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testExp10FloatFloat(inV, out);
             verifyResultsExp10FloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10FloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testExp10FloatFloat(inV, out);
             verifyResultsExp10FloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10FloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10FloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -112,11 +122,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10Float2Float2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xc0ac42a9l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x2bc94277c0ac42a9l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testExp10Float2Float2(inV, out);
             verifyResultsExp10Float2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Float2Float2: " + e.toString());
         }
@@ -124,9 +135,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testExp10Float2Float2(inV, out);
             verifyResultsExp10Float2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Float2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10Float2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -181,11 +194,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10Float3Float3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xb6c76387l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x2bcb0b92b6c76387l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testExp10Float3Float3(inV, out);
             verifyResultsExp10Float3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Float3Float3: " + e.toString());
         }
@@ -193,9 +207,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testExp10Float3Float3(inV, out);
             verifyResultsExp10Float3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Float3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10Float3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -250,11 +266,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10Float4Float4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xace28465l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x2bccd4adace28465l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testExp10Float4Float4(inV, out);
             verifyResultsExp10Float4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Float4Float4: " + e.toString());
         }
@@ -262,9 +279,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testExp10Float4Float4(inV, out);
             verifyResultsExp10Float4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Float4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10Float4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -325,11 +344,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10HalfHalf() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xe916fd3fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xb6d58743e916fd3fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testExp10HalfHalf(inV, out);
             verifyResultsExp10HalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10HalfHalf: " + e.toString());
         }
@@ -337,9 +357,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testExp10HalfHalf(inV, out);
             verifyResultsExp10HalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10HalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10HalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -398,11 +420,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10Half2Half2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x2e422a29l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x8c3d09622e422a29l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testExp10Half2Half2(inV, out);
             verifyResultsExp10Half2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Half2Half2: " + e.toString());
         }
@@ -410,9 +433,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testExp10Half2Half2(inV, out);
             verifyResultsExp10Half2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Half2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10Half2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -471,11 +496,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10Half3Half3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x8d49ef1dl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x8c3d14038d49ef1dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testExp10Half3Half3(inV, out);
             verifyResultsExp10Half3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Half3Half3: " + e.toString());
         }
@@ -483,9 +509,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testExp10Half3Half3(inV, out);
             verifyResultsExp10Half3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Half3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10Half3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -544,11 +572,12 @@ public class TestExp10 extends RSBaseCompute {
     }
 
     private void checkExp10Half4Half4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xec51b411l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x8c3d1ea4ec51b411l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testExp10Half4Half4(inV, out);
             verifyResultsExp10Half4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Half4Half4: " + e.toString());
         }
@@ -556,9 +585,11 @@ public class TestExp10 extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testExp10Half4Half4(inV, out);
             verifyResultsExp10Half4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testExp10Half4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsExp10Half4Half4(Allocation inV, Allocation out, boolean relaxed) {

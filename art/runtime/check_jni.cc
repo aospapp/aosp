@@ -20,6 +20,8 @@
 #include <sys/mman.h>
 #include <zlib.h>
 
+#include "android-base/stringprintf.h"
+
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/logging.h"
@@ -36,11 +38,14 @@
 #include "mirror/string-inl.h"
 #include "mirror/throwable.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 #include "well_known_classes.h"
 
 namespace art {
+
+using android::base::StringAppendF;
+using android::base::StringPrintf;
 
 /*
  * ===========================================================================
@@ -268,28 +273,28 @@ class ScopedCheck {
    * Assumes "jobj" has already been validated.
    */
   bool CheckInstanceFieldID(ScopedObjectAccess& soa, jobject java_object, jfieldID fid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Object* o = soa.Decode<mirror::Object*>(java_object);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(java_object);
     if (o == nullptr) {
       AbortF("field operation on NULL object: %p", java_object);
       return false;
     }
-    if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(o)) {
-      Runtime::Current()->GetHeap()->DumpSpaces(LOG(ERROR));
+    if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(o.Ptr())) {
+      Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(ERROR));
       AbortF("field operation on invalid %s: %p",
-             ToStr<IndirectRefKind>(GetIndirectRefKind(java_object)).c_str(),
+             GetIndirectRefKindString(IndirectReferenceTable::GetIndirectRefKind(java_object)),
              java_object);
       return false;
     }
 
-    ArtField* f = CheckFieldID(soa, fid);
+    ArtField* f = CheckFieldID(fid);
     if (f == nullptr) {
       return false;
     }
     mirror::Class* c = o->GetClass();
     if (c->FindInstanceField(f->GetName(), f->GetTypeDescriptor()) == nullptr) {
       AbortF("jfieldID %s not valid for an object of class %s",
-             PrettyField(f).c_str(), PrettyTypeOf(o).c_str());
+             f->PrettyField().c_str(), o->PrettyTypeOf().c_str());
       return false;
     }
     return true;
@@ -312,41 +317,42 @@ class ScopedCheck {
    */
   bool CheckMethodAndSig(ScopedObjectAccess& soa, jobject jobj, jclass jc,
                          jmethodID mid, Primitive::Type type, InvokeType invoke)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    ArtMethod* m = CheckMethodID(soa, mid);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ArtMethod* m = CheckMethodID(mid);
     if (m == nullptr) {
       return false;
     }
     if (type != Primitive::GetType(m->GetShorty()[0])) {
-      AbortF("the return type of %s does not match %s", function_name_, PrettyMethod(m).c_str());
+      AbortF("the return type of %s does not match %s", function_name_, m->PrettyMethod().c_str());
       return false;
     }
     bool is_static = (invoke == kStatic);
     if (is_static != m->IsStatic()) {
       if (is_static) {
         AbortF("calling non-static method %s with %s",
-               PrettyMethod(m).c_str(), function_name_);
+               m->PrettyMethod().c_str(), function_name_);
       } else {
         AbortF("calling static method %s with %s",
-               PrettyMethod(m).c_str(), function_name_);
+               m->PrettyMethod().c_str(), function_name_);
       }
       return false;
     }
     if (invoke != kVirtual) {
-      mirror::Class* c = soa.Decode<mirror::Class*>(jc);
+      ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(jc);
       if (!m->GetDeclaringClass()->IsAssignableFrom(c)) {
         AbortF("can't call %s %s with class %s", invoke == kStatic ? "static" : "nonvirtual",
-            PrettyMethod(m).c_str(), PrettyClass(c).c_str());
+            m->PrettyMethod().c_str(), mirror::Class::PrettyClass(c).c_str());
         return false;
       }
     }
     if (invoke != kStatic) {
-      mirror::Object* o = soa.Decode<mirror::Object*>(jobj);
+      ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(jobj);
       if (o == nullptr) {
-        AbortF("can't call %s on null object", PrettyMethod(m).c_str());
+        AbortF("can't call %s on null object", m->PrettyMethod().c_str());
         return false;
       } else if (!o->InstanceOf(m->GetDeclaringClass())) {
-        AbortF("can't call %s on instance of %s", PrettyMethod(m).c_str(), PrettyTypeOf(o).c_str());
+        AbortF("can't call %s on instance of %s", m->PrettyMethod().c_str(),
+               o->PrettyTypeOf().c_str());
         return false;
       }
     }
@@ -359,14 +365,15 @@ class ScopedCheck {
    * Assumes "java_class" has already been validated.
    */
   bool CheckStaticFieldID(ScopedObjectAccess& soa, jclass java_class, jfieldID fid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Class* c = soa.Decode<mirror::Class*>(java_class);
-    ArtField* f = CheckFieldID(soa, fid);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(java_class);
+    ArtField* f = CheckFieldID(fid);
     if (f == nullptr) {
       return false;
     }
-    if (f->GetDeclaringClass() != c) {
-      AbortF("static jfieldID %p not valid for class %s", fid, PrettyClass(c).c_str());
+    if (c != f->GetDeclaringClass()) {
+      AbortF("static jfieldID %p not valid for class %s", fid,
+             mirror::Class::PrettyClass(c).c_str());
       return false;
     }
     return true;
@@ -382,14 +389,15 @@ class ScopedCheck {
    * Instances of "java_class" must be instances of the method's declaring class.
    */
   bool CheckStaticMethod(ScopedObjectAccess& soa, jclass java_class, jmethodID mid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    ArtMethod* m = CheckMethodID(soa, mid);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ArtMethod* m = CheckMethodID(mid);
     if (m == nullptr) {
       return false;
     }
-    mirror::Class* c = soa.Decode<mirror::Class*>(java_class);
+    ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(java_class);
     if (!m->GetDeclaringClass()->IsAssignableFrom(c)) {
-      AbortF("can't call static %s on class %s", PrettyMethod(m).c_str(), PrettyClass(c).c_str());
+      AbortF("can't call static %s on class %s", m->PrettyMethod().c_str(),
+             mirror::Class::PrettyClass(c).c_str());
       return false;
     }
     return true;
@@ -403,17 +411,18 @@ class ScopedCheck {
    * will be handled automatically by the instanceof check.)
    */
   bool CheckVirtualMethod(ScopedObjectAccess& soa, jobject java_object, jmethodID mid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    ArtMethod* m = CheckMethodID(soa, mid);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ArtMethod* m = CheckMethodID(mid);
     if (m == nullptr) {
       return false;
     }
-    mirror::Object* o = soa.Decode<mirror::Object*>(java_object);
+    ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(java_object);
     if (o == nullptr) {
-      AbortF("can't call %s on null object", PrettyMethod(m).c_str());
+      AbortF("can't call %s on null object", m->PrettyMethod().c_str());
       return false;
     } else if (!o->InstanceOf(m->GetDeclaringClass())) {
-      AbortF("can't call %s on instance of %s", PrettyMethod(m).c_str(), PrettyTypeOf(o).c_str());
+      AbortF("can't call %s on instance of %s", m->PrettyMethod().c_str(),
+             o->PrettyTypeOf().c_str());
       return false;
     }
     return true;
@@ -456,7 +465,7 @@ class ScopedCheck {
    * Use the kFlag_NullableUtf flag where 'u' field(s) are nullable.
    */
   bool Check(ScopedObjectAccess& soa, bool entry, const char* fmt, JniValueType* args)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* traceMethod = nullptr;
     if (has_method_ && soa.Vm()->IsTracingEnabled()) {
       // We need to guard some of the invocation interface's calls: a bad caller might
@@ -481,7 +490,7 @@ class ScopedCheck {
         LOG(INFO) << "JNI: call to " << function_name_ << "(" << msg << ")";
       } else if (entry) {
         if (has_method_) {
-          std::string methodName(PrettyMethod(traceMethod, false));
+          std::string methodName(ArtMethod::PrettyMethod(traceMethod, false));
           LOG(INFO) << "JNI: " << methodName << " -> " << function_name_ << "(" << msg << ")";
           indent_ = methodName.size() + 1;
         } else {
@@ -532,7 +541,7 @@ class ScopedCheck {
           Thread* self = Thread::Current();
           ScopedObjectAccess soa(self);
           ArtMethod* traceMethod = self->GetCurrentMethod(nullptr);
-          std::string methodName(PrettyMethod(traceMethod, false));
+          std::string methodName(ArtMethod::PrettyMethod(traceMethod, false));
           LOG(INFO) << "JNI: " << methodName << " -> " << function_name_ << "(" << msg << ")";
           indent_ = methodName.size() + 1;
         } else {
@@ -556,70 +565,69 @@ class ScopedCheck {
   }
 
   bool CheckReflectedMethod(ScopedObjectAccess& soa, jobject jmethod)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Object* method = soa.Decode<mirror::Object*>(jmethod);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Object> method = soa.Decode<mirror::Object>(jmethod);
     if (method == nullptr) {
       AbortF("expected non-null method");
       return false;
     }
     mirror::Class* c = method->GetClass();
-    if (soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_reflect_Method) != c &&
-        soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_reflect_Constructor) != c) {
+    if (soa.Decode<mirror::Class>(WellKnownClasses::java_lang_reflect_Method) != c &&
+        soa.Decode<mirror::Class>(WellKnownClasses::java_lang_reflect_Constructor) != c) {
       AbortF("expected java.lang.reflect.Method or "
           "java.lang.reflect.Constructor but got object of type %s: %p",
-          PrettyTypeOf(method).c_str(), jmethod);
+          method->PrettyTypeOf().c_str(), jmethod);
       return false;
     }
     return true;
   }
 
-  bool CheckConstructor(ScopedObjectAccess& soa, jmethodID mid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    ArtMethod* method = soa.DecodeMethod(mid);
+  bool CheckConstructor(jmethodID mid) REQUIRES_SHARED(Locks::mutator_lock_) {
+    ArtMethod* method = jni::DecodeArtMethod(mid);
     if (method == nullptr) {
       AbortF("expected non-null constructor");
       return false;
     }
     if (!method->IsConstructor() || method->IsStatic()) {
-      AbortF("expected a constructor but %s: %p", PrettyMethod(method).c_str(), mid);
+      AbortF("expected a constructor but %s: %p", method->PrettyMethod().c_str(), mid);
       return false;
     }
     return true;
   }
 
   bool CheckReflectedField(ScopedObjectAccess& soa, jobject jfield)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Object* field = soa.Decode<mirror::Object*>(jfield);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Object> field = soa.Decode<mirror::Object>(jfield);
     if (field == nullptr) {
       AbortF("expected non-null java.lang.reflect.Field");
       return false;
     }
     mirror::Class* c = field->GetClass();
-    if (soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_reflect_Field) != c) {
+    if (soa.Decode<mirror::Class>(WellKnownClasses::java_lang_reflect_Field) != c) {
       AbortF("expected java.lang.reflect.Field but got object of type %s: %p",
-             PrettyTypeOf(field).c_str(), jfield);
+             field->PrettyTypeOf().c_str(), jfield);
       return false;
     }
     return true;
   }
 
   bool CheckThrowable(ScopedObjectAccess& soa, jthrowable jobj)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Object* obj = soa.Decode<mirror::Object*>(jobj);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Object> obj = soa.Decode<mirror::Object>(jobj);
     if (!obj->GetClass()->IsThrowableClass()) {
       AbortF("expected java.lang.Throwable but got object of type "
-             "%s: %p", PrettyTypeOf(obj).c_str(), obj);
+             "%s: %p", obj->PrettyTypeOf().c_str(), obj.Ptr());
       return false;
     }
     return true;
   }
 
   bool CheckThrowableClass(ScopedObjectAccess& soa, jclass jc)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Class* c = soa.Decode<mirror::Class*>(jc);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(jc);
     if (!c->IsThrowableClass()) {
       AbortF("expected java.lang.Throwable class but got object of "
-             "type %s: %p", PrettyDescriptor(c).c_str(), c);
+             "type %s: %p", c->PrettyDescriptor().c_str(), c.Ptr());
       return false;
     }
     return true;
@@ -628,17 +636,17 @@ class ScopedCheck {
   bool CheckReferenceKind(IndirectRefKind expected_kind, Thread* self, jobject obj) {
     IndirectRefKind found_kind;
     if (expected_kind == kLocal) {
-      found_kind = GetIndirectRefKind(obj);
+      found_kind = IndirectReferenceTable::GetIndirectRefKind(obj);
       if (found_kind == kHandleScopeOrInvalid && self->HandleScopeContains(obj)) {
         found_kind = kLocal;
       }
     } else {
-      found_kind = GetIndirectRefKind(obj);
+      found_kind = IndirectReferenceTable::GetIndirectRefKind(obj);
     }
     if (obj != nullptr && found_kind != expected_kind) {
       AbortF("expected reference of kind %s but found %s: %p",
-             ToStr<IndirectRefKind>(expected_kind).c_str(),
-             ToStr<IndirectRefKind>(GetIndirectRefKind(obj)).c_str(),
+             GetIndirectRefKindString(expected_kind),
+             GetIndirectRefKindString(IndirectReferenceTable::GetIndirectRefKind(obj)),
              obj);
       return false;
     }
@@ -646,24 +654,24 @@ class ScopedCheck {
   }
 
   bool CheckInstantiableNonArray(ScopedObjectAccess& soa, jclass jc)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    mirror::Class* c = soa.Decode<mirror::Class*>(jc);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(jc);
     if (!c->IsInstantiableNonArray()) {
-      AbortF("can't make objects of type %s: %p", PrettyDescriptor(c).c_str(), c);
+      AbortF("can't make objects of type %s: %p", c->PrettyDescriptor().c_str(), c.Ptr());
       return false;
     }
     return true;
   }
 
   bool CheckPrimitiveArrayType(ScopedObjectAccess& soa, jarray array, Primitive::Type type)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!CheckArray(soa, array)) {
       return false;
     }
-    mirror::Array* a = soa.Decode<mirror::Array*>(array);
+    ObjPtr<mirror::Array> a = soa.Decode<mirror::Array>(array);
     if (a->GetClass()->GetComponentType()->GetPrimitiveType() != type) {
       AbortF("incompatible array type %s expected %s[]: %p",
-             PrettyDescriptor(a->GetClass()).c_str(), PrettyDescriptor(type).c_str(), array);
+             a->GetClass()->PrettyDescriptor().c_str(), PrettyDescriptor(type).c_str(), array);
       return false;
     }
     return true;
@@ -671,44 +679,45 @@ class ScopedCheck {
 
   bool CheckFieldAccess(ScopedObjectAccess& soa, jobject obj, jfieldID fid, bool is_static,
                         Primitive::Type type)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (is_static && !CheckStaticFieldID(soa, down_cast<jclass>(obj), fid)) {
       return false;
     }
     if (!is_static && !CheckInstanceFieldID(soa, obj, fid)) {
       return false;
     }
-    ArtField* field = soa.DecodeField(fid);
+    ArtField* field = jni::DecodeArtField(fid);
     DCHECK(field != nullptr);  // Already checked by Check.
     if (is_static != field->IsStatic()) {
       AbortF("attempt to access %s field %s: %p",
-             field->IsStatic() ? "static" : "non-static", PrettyField(field).c_str(), fid);
+             field->IsStatic() ? "static" : "non-static", field->PrettyField().c_str(), fid);
       return false;
     }
     if (type != field->GetTypeAsPrimitiveType()) {
       AbortF("attempt to access field %s of type %s with the wrong type %s: %p",
-             PrettyField(field).c_str(), PrettyDescriptor(field->GetTypeDescriptor()).c_str(),
+             field->PrettyField().c_str(),
+             PrettyDescriptor(field->GetTypeDescriptor()).c_str(),
              PrettyDescriptor(type).c_str(), fid);
       return false;
     }
     if (is_static) {
-      mirror::Object* o = soa.Decode<mirror::Object*>(obj);
+      ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(obj);
       if (o == nullptr || !o->IsClass()) {
         AbortF("attempt to access static field %s with a class argument of type %s: %p",
-               PrettyField(field).c_str(), PrettyTypeOf(o).c_str(), fid);
+               field->PrettyField().c_str(), o->PrettyTypeOf().c_str(), fid);
         return false;
       }
-      mirror::Class* c = o->AsClass();
-      if (field->GetDeclaringClass() != c) {
+      ObjPtr<mirror::Class> c = o->AsClass();
+      if (c != field->GetDeclaringClass()) {
         AbortF("attempt to access static field %s with an incompatible class argument of %s: %p",
-               PrettyField(field).c_str(), PrettyDescriptor(c).c_str(), fid);
+               field->PrettyField().c_str(), mirror::Class::PrettyDescriptor(c).c_str(), fid);
         return false;
       }
     } else {
-      mirror::Object* o = soa.Decode<mirror::Object*>(obj);
+      ObjPtr<mirror::Object> o = soa.Decode<mirror::Object>(obj);
       if (o == nullptr || !field->GetDeclaringClass()->IsAssignableFrom(o->GetClass())) {
         AbortF("attempt to access field %s from an object argument of type %s: %p",
-               PrettyField(field).c_str(), PrettyTypeOf(o).c_str(), fid);
+               field->PrettyField().c_str(), o->PrettyTypeOf().c_str(), fid);
         return false;
       }
     }
@@ -732,7 +741,7 @@ class ScopedCheck {
    * to "running" mode before doing the checks.
    */
   bool CheckInstance(ScopedObjectAccess& soa, InstanceKind kind, jobject java_object, bool null_ok)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     const char* what = nullptr;
     switch (kind) {
     case kClass:
@@ -763,12 +772,12 @@ class ScopedCheck {
       }
     }
 
-    mirror::Object* obj = soa.Decode<mirror::Object*>(java_object);
+    ObjPtr<mirror::Object> obj = soa.Decode<mirror::Object>(java_object);
     if (obj == nullptr) {
       // Either java_object is invalid or is a cleared weak.
       IndirectRef ref = reinterpret_cast<IndirectRef>(java_object);
       bool okay;
-      if (GetIndirectRefKind(ref) != kWeakGlobal) {
+      if (IndirectReferenceTable::GetIndirectRefKind(ref) != kWeakGlobal) {
         okay = false;
       } else {
         obj = soa.Vm()->DecodeWeakGlobal(soa.Self(), ref);
@@ -776,17 +785,21 @@ class ScopedCheck {
       }
       if (!okay) {
         AbortF("%s is an invalid %s: %p (%p)",
-               what, ToStr<IndirectRefKind>(GetIndirectRefKind(java_object)).c_str(),
-               java_object, obj);
+               what,
+               GetIndirectRefKindString(IndirectReferenceTable::GetIndirectRefKind(java_object)),
+               java_object,
+               obj.Ptr());
         return false;
       }
     }
 
-    if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(obj)) {
-      Runtime::Current()->GetHeap()->DumpSpaces(LOG(ERROR));
+    if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(obj.Ptr())) {
+      Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(ERROR));
       AbortF("%s is an invalid %s: %p (%p)",
-             what, ToStr<IndirectRefKind>(GetIndirectRefKind(java_object)).c_str(),
-             java_object, obj);
+             what,
+             GetIndirectRefKindString(IndirectReferenceTable::GetIndirectRefKind(java_object)),
+             java_object,
+             obj.Ptr());
       return false;
     }
 
@@ -808,7 +821,7 @@ class ScopedCheck {
       break;
     }
     if (!okay) {
-      AbortF("%s has wrong type: %s", what, PrettyTypeOf(obj).c_str());
+      AbortF("%s has wrong type: %s", what, mirror::Object::PrettyTypeOf(obj).c_str());
       return false;
     }
 
@@ -828,16 +841,16 @@ class ScopedCheck {
   }
 
   bool CheckPossibleHeapValue(ScopedObjectAccess& soa, char fmt, JniValueType arg)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     switch (fmt) {
       case 'a':  // jarray
         return CheckArray(soa, arg.a);
       case 'c':  // jclass
         return CheckInstance(soa, kClass, arg.c, false);
       case 'f':  // jfieldID
-        return CheckFieldID(soa, arg.f) != nullptr;
+        return CheckFieldID(arg.f) != nullptr;
       case 'm':  // jmethodID
-        return CheckMethodID(soa, arg.m) != nullptr;
+        return CheckMethodID(arg.m) != nullptr;
       case 'r':  // release int
         return CheckReleaseMode(arg.r);
       case 's':  // jstring
@@ -856,10 +869,10 @@ class ScopedCheck {
   }
 
   bool CheckVarArgs(ScopedObjectAccess& soa, const VarArgs* args_p)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     CHECK(args_p != nullptr);
     VarArgs args(args_p->Clone());
-    ArtMethod* m = CheckMethodID(soa, args.GetMethodID());
+    ArtMethod* m = CheckMethodID(args.GetMethodID());
     if (m == nullptr) {
       return false;
     }
@@ -922,7 +935,7 @@ class ScopedCheck {
 
   void TracePossibleHeapValue(ScopedObjectAccess& soa, bool entry, char fmt, JniValueType arg,
                               std::string* msg)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     switch (fmt) {
       case 'L':  // jobject fall-through.
       case 'a':  // jarray fall-through.
@@ -936,15 +949,15 @@ class ScopedCheck {
         break;
       case 'c': {  // jclass
         jclass jc = arg.c;
-        mirror::Class* c = soa.Decode<mirror::Class*>(jc);
+        ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(jc);
         if (c == nullptr) {
           *msg += "NULL";
-        } else if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(c)) {
+        } else if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(c.Ptr())) {
           StringAppendF(msg, "INVALID POINTER:%p", jc);
         } else if (!c->IsClass()) {
-          *msg += "INVALID NON-CLASS OBJECT OF TYPE:" + PrettyTypeOf(c);
+          *msg += "INVALID NON-CLASS OBJECT OF TYPE:" + c->PrettyTypeOf();
         } else {
-          *msg += PrettyClass(c);
+          *msg += c->PrettyClass();
           if (!entry) {
             StringAppendF(msg, " (%p)", jc);
           }
@@ -953,8 +966,8 @@ class ScopedCheck {
       }
       case 'f': {  // jfieldID
         jfieldID fid = arg.f;
-        ArtField* f = soa.DecodeField(fid);
-        *msg += PrettyField(f);
+        ArtField* f = jni::DecodeArtField(fid);
+        *msg += ArtField::PrettyField(f);
         if (!entry) {
           StringAppendF(msg, " (%p)", fid);
         }
@@ -962,8 +975,8 @@ class ScopedCheck {
       }
       case 'm': {  // jmethodID
         jmethodID mid = arg.m;
-        ArtMethod* m = soa.DecodeMethod(mid);
-        *msg += PrettyMethod(m);
+        ArtMethod* m = jni::DecodeArtMethod(mid);
+        *msg += ArtMethod::PrettyMethod(m);
         if (!entry) {
           StringAppendF(msg, " (%p)", mid);
         }
@@ -972,7 +985,7 @@ class ScopedCheck {
       case '.': {
         const VarArgs* va = arg.va;
         VarArgs args(va->Clone());
-        ArtMethod* m = soa.DecodeMethod(args.GetMethodID());
+        ArtMethod* m = jni::DecodeArtMethod(args.GetMethodID());
         uint32_t len;
         const char* shorty = m->GetShorty(&len);
         CHECK_GE(len, 1u);
@@ -1101,21 +1114,22 @@ class ScopedCheck {
    * Since we're dealing with objects, switch to "running" mode.
    */
   bool CheckArray(ScopedObjectAccess& soa, jarray java_array)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (UNLIKELY(java_array == nullptr)) {
       AbortF("jarray was NULL");
       return false;
     }
 
-    mirror::Array* a = soa.Decode<mirror::Array*>(java_array);
-    if (UNLIKELY(!Runtime::Current()->GetHeap()->IsValidObjectAddress(a))) {
-      Runtime::Current()->GetHeap()->DumpSpaces(LOG(ERROR));
+    ObjPtr<mirror::Array> a = soa.Decode<mirror::Array>(java_array);
+    if (UNLIKELY(!Runtime::Current()->GetHeap()->IsValidObjectAddress(a.Ptr()))) {
+      Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(ERROR));
       AbortF("jarray is an invalid %s: %p (%p)",
-             ToStr<IndirectRefKind>(GetIndirectRefKind(java_array)).c_str(),
-             java_array, a);
+             GetIndirectRefKindString(IndirectReferenceTable::GetIndirectRefKind(java_array)),
+             java_array,
+             a.Ptr());
       return false;
     } else if (!a->IsArrayInstance()) {
-      AbortF("jarray argument has non-array type: %s", PrettyTypeOf(a).c_str());
+      AbortF("jarray argument has non-array type: %s", a->PrettyTypeOf().c_str());
       return false;
     }
     return true;
@@ -1137,53 +1151,53 @@ class ScopedCheck {
     return true;
   }
 
-  ArtField* CheckFieldID(ScopedObjectAccess& soa, jfieldID fid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+  ArtField* CheckFieldID(jfieldID fid) REQUIRES_SHARED(Locks::mutator_lock_) {
     if (fid == nullptr) {
       AbortF("jfieldID was NULL");
       return nullptr;
     }
-    ArtField* f = soa.DecodeField(fid);
+    ArtField* f = jni::DecodeArtField(fid);
     // TODO: Better check here.
-    if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(f->GetDeclaringClass())) {
-      Runtime::Current()->GetHeap()->DumpSpaces(LOG(ERROR));
+    if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(f->GetDeclaringClass().Ptr())) {
+      Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(ERROR));
       AbortF("invalid jfieldID: %p", fid);
       return nullptr;
     }
     return f;
   }
 
-  ArtMethod* CheckMethodID(ScopedObjectAccess& soa, jmethodID mid)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+  ArtMethod* CheckMethodID(jmethodID mid) REQUIRES_SHARED(Locks::mutator_lock_) {
     if (mid == nullptr) {
       AbortF("jmethodID was NULL");
       return nullptr;
     }
-    ArtMethod* m = soa.DecodeMethod(mid);
+    ArtMethod* m = jni::DecodeArtMethod(mid);
     // TODO: Better check here.
     if (!Runtime::Current()->GetHeap()->IsValidObjectAddress(m->GetDeclaringClass())) {
-      Runtime::Current()->GetHeap()->DumpSpaces(LOG(ERROR));
+      Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(ERROR));
       AbortF("invalid jmethodID: %p", mid);
       return nullptr;
     }
     return m;
   }
 
-  bool CheckThread(JNIEnv* env) SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool CheckThread(JNIEnv* env) REQUIRES_SHARED(Locks::mutator_lock_) {
     Thread* self = Thread::Current();
     if (self == nullptr) {
       AbortF("a thread (tid %d) is making JNI calls without being attached", GetTid());
       return false;
     }
 
-    // Get the *correct* JNIEnv by going through our TLS pointer.
+    // Get the current thread's JNIEnv by going through our TLS pointer.
     JNIEnvExt* threadEnv = self->GetJniEnv();
 
     // Verify that the current thread is (a) attached and (b) associated with
     // this particular instance of JNIEnv.
     if (env != threadEnv) {
+      // Get the thread owning the JNIEnv that's being used.
+      Thread* envThread = reinterpret_cast<JNIEnvExt*>(env)->self;
       AbortF("thread %s using JNIEnv* from thread %s",
-             ToStr<Thread>(*self).c_str(), ToStr<Thread>(*self).c_str());
+             ToStr<Thread>(*self).c_str(), ToStr<Thread>(*envThread).c_str());
       return false;
     }
 
@@ -1409,7 +1423,7 @@ class GuardedCopy {
                                    void* original_ptr) {
     ScopedObjectAccess soa(env);
 
-    mirror::Array* a = soa.Decode<mirror::Array*>(java_array);
+    ObjPtr<mirror::Array> a = soa.Decode<mirror::Array>(java_array);
     size_t component_size = a->GetClass()->GetComponentSize();
     size_t byte_count = a->GetLength() * component_size;
     void* result = Create(original_ptr, byte_count, true);
@@ -1993,7 +2007,7 @@ class CheckJNI {
     VarArgs rest(mid, vargs);
     JniValueType args[4] = {{.E = env}, {.c = c}, {.m = mid}, {.va = &rest}};
     if (sc.Check(soa, true, "Ecm.", args) && sc.CheckInstantiableNonArray(soa, c) &&
-        sc.CheckConstructor(soa, mid)) {
+        sc.CheckConstructor(mid)) {
       JniValueType result;
       result.L = baseEnv(env)->NewObjectV(env, c, mid, vargs);
       if (sc.Check(soa, false, "L", &result)) {
@@ -2017,7 +2031,7 @@ class CheckJNI {
     VarArgs rest(mid, vargs);
     JniValueType args[4] = {{.E = env}, {.c = c}, {.m = mid}, {.va = &rest}};
     if (sc.Check(soa, true, "Ecm.", args) && sc.CheckInstantiableNonArray(soa, c) &&
-        sc.CheckConstructor(soa, mid)) {
+        sc.CheckConstructor(mid)) {
       JniValueType result;
       result.L = baseEnv(env)->NewObjectA(env, c, mid, vargs);
       if (sc.Check(soa, false, "L", &result)) {
@@ -2427,19 +2441,20 @@ class CheckJNI {
                                                      Primitive::kPrimDouble));
   }
 
+// NOLINT added to avoid wrong warning/fix from clang-tidy.
 #define PRIMITIVE_ARRAY_FUNCTIONS(ctype, name, ptype) \
-  static ctype* Get##name##ArrayElements(JNIEnv* env, ctype##Array array, jboolean* is_copy) { \
-    return reinterpret_cast<ctype*>( \
+  static ctype* Get##name##ArrayElements(JNIEnv* env, ctype##Array array, jboolean* is_copy) { /* NOLINT */ \
+    return reinterpret_cast<ctype*>( /* NOLINT */ \
         GetPrimitiveArrayElements(__FUNCTION__, ptype, env, array, is_copy)); \
   } \
   \
-  static void Release##name##ArrayElements(JNIEnv* env, ctype##Array array, ctype* elems, \
+  static void Release##name##ArrayElements(JNIEnv* env, ctype##Array array, ctype* elems, /* NOLINT */ \
                                            jint mode) { \
     ReleasePrimitiveArrayElements(__FUNCTION__, ptype, env, array, elems, mode); \
   } \
   \
   static void Get##name##ArrayRegion(JNIEnv* env, ctype##Array array, jsize start, jsize len, \
-                                     ctype* buf) { \
+                                     ctype* buf) { /* NOLINT */ \
     GetPrimitiveArrayRegion(__FUNCTION__, ptype, env, array, start, len, buf); \
   } \
   \
@@ -2852,7 +2867,7 @@ class CheckJNI {
 
   static bool CheckCallArgs(ScopedObjectAccess& soa, ScopedCheck& sc, JNIEnv* env, jobject obj,
                             jclass c, jmethodID mid, InvokeType invoke, const VarArgs* vargs)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     bool checked;
     switch (invoke) {
       case kVirtual: {

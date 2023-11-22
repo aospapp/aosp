@@ -23,4 +23,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator timeresult-helper-lib launcher-hel
 
 LOCAL_SDK_VERSION := current
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

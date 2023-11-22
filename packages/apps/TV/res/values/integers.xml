@@ -84,4 +84,7 @@
     <integer name="half_sized_dialog_anim_duration">250</integer>
     <integer name="half_sized_dialog_enter_offset_y">32</integer>
     <integer name="half_sized_dialog_exit_offset_y">32</integer>
+
+    <!-- DVR library -->
+    <integer name="dvr_details_full_text_animation_duration">500</integer>
 </resources>

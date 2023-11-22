@@ -7,3 +7,6 @@
 /bin
 .idea/*
 .idea/
+gen/
+*.iml
+*.class

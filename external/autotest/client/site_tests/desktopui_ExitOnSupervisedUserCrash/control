@@ -5,7 +5,6 @@
 AUTHOR = "cmasone, antrim"
 NAME = "desktopui_ExitOnSupervisedUserCrash"
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = "bvt-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "desktopui"

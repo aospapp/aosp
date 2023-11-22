@@ -29,17 +29,12 @@ import android.os.Bundle;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.webkit.WebView;
 import android.widget.EditText;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
-import static android.widget.LinearLayout.VERTICAL;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,7 +62,7 @@ public class CommitContentSupport extends Activity {
         setContentView(R.layout.commit_content);
 
         final LinearLayout layout =
-                (LinearLayout) findViewById(R.id.commit_content_sample_edit_boxes);
+                findViewById(R.id.commit_content_sample_edit_boxes);
 
         // This declares that the IME cannot commit any content with
         // InputConnectionCompat#commitContent().
@@ -95,12 +90,12 @@ public class CommitContentSupport extends Activity {
         layout.addView(createEditTextWithContentMimeTypes(
                 new String[]{"image/png", "image/gif", "image/jpeg", "image/webp"}));
 
-        mWebView = (WebView) findViewById(R.id.commit_content_webview);
-        mMimeTypes = (TextView) findViewById(R.id.text_commit_content_mime_types);
-        mLabel = (TextView) findViewById(R.id.text_commit_content_label);
-        mContentUri = (TextView) findViewById(R.id.text_commit_content_content_uri);
-        mLinkUri = (TextView) findViewById(R.id.text_commit_content_link_uri);
-        mFlags = (TextView) findViewById(R.id.text_commit_content_link_flags);
+        mWebView = findViewById(R.id.commit_content_webview);
+        mMimeTypes = findViewById(R.id.text_commit_content_mime_types);
+        mLabel = findViewById(R.id.text_commit_content_label);
+        mContentUri = findViewById(R.id.text_commit_content_content_uri);
+        mLinkUri = findViewById(R.id.text_commit_content_link_uri);
+        mFlags = findViewById(R.id.text_commit_content_link_flags);
 
         if (savedInstanceState != null) {
             final InputContentInfoCompat previousInputContentInfo = InputContentInfoCompat.wrap(
@@ -120,7 +115,7 @@ public class CommitContentSupport extends Activity {
                 mCurrentInputContentInfo.releasePermission();
             }
         } catch (Exception e) {
-            Log.e(TAG, "InputContentInfo#releasePermission() failed.", e);
+            Log.e(TAG, "InputContentInfoCompat#releasePermission() failed.", e);
         } finally {
             mCurrentInputContentInfo = null;
         }
@@ -151,7 +146,7 @@ public class CommitContentSupport extends Activity {
             try {
                 inputContentInfo.requestPermission();
             } catch (Exception e) {
-                Log.e(TAG, "InputContentInfo#requestPermission() failed.", e);
+                Log.e(TAG, "InputContentInfoCompat#requestPermission() failed.", e);
                 return false;
             }
         }

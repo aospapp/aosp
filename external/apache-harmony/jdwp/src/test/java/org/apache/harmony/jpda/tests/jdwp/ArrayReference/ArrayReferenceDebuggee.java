@@ -41,7 +41,7 @@ public class ArrayReferenceDebuggee extends SyncDebuggee {
 
     static Thread[] threadArray = { new Thread() };
     static ThreadGroup[] threadGroupArray = { new ThreadGroup("name") };
-    static Class[] classArray = { ArrayReferenceDebuggee.class };
+    static Class<?>[] classArray = { ArrayReferenceDebuggee.class };
     static ClassLoader[] ClassLoaderArray = { ArrayReferenceDebuggee.class.getClassLoader() };
     static MyThread[] myThreadArray = { new MyThread() };
     static Object[][] objectArrayArray = { threadArray };
@@ -61,6 +61,7 @@ public class ArrayReferenceDebuggee extends SyncDebuggee {
         }
     }
 
+    @Override
     public void run() {
         logWriter.println("-- ArrayReferenceDebuggee: STARTED ...");
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

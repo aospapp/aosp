@@ -20,6 +20,7 @@ Action parameters are:
 from telemetry.core import exceptions
 from telemetry.internal.actions import media_action
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
 
 
 class SeekAction(media_action.MediaAction):
@@ -35,13 +36,17 @@ class SeekAction(media_action.MediaAction):
   def WillRunAction(self, tab):
     """Load the media metrics JS code prior to running the action."""
     super(SeekAction, self).WillRunAction(tab)
-    self.LoadJS(tab, 'seek.js')
+    utils.InjectJavaScript(tab, 'seek.js')
 
   def RunAction(self, tab):
     try:
       tab.ExecuteJavaScript(
-          'window.__seekMedia("%s", "%s", %i, "%s");' %
-          (self._selector, self._seconds, self._log_time, self._label))
+          'window.__seekMedia('
+              '{{ selector }}, {{ seconds }}, {{ log_time }}, {{ label}});',
+          selector=self._selector,
+          seconds=str(self._seconds),
+          log_time=self._log_time,
+          label=self._label)
       if self._timeout_in_seconds > 0:
         self.WaitForEvent(tab, self._selector, 'seeked',
                           self._timeout_in_seconds)

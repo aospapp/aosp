@@ -131,4 +131,10 @@ public class LocaleDataTest extends junit.framework.TestCase {
     assertEquals("aK:mm", ja_JP.timeFormat_hm);
     assertEquals("H:mm", ja_JP.timeFormat_Hm);
   }
+
+  // http://b/26397197
+  public void testPatternWithOverride() throws Exception {
+    LocaleData haw = LocaleData.get(new Locale("haw"));
+    assertFalse(haw.shortDateFormat.isEmpty());
+  }
 }

@@ -117,8 +117,18 @@ DeclContext *Sema::computeDeclContext(const CXXScopeSpec &SS,
           // specializations, we're entering into the definition of that
           // class template partial specialization.
           if (ClassTemplatePartialSpecializationDecl *PartialSpec
-                = ClassTemplate->findPartialSpecialization(ContextType))
+                = ClassTemplate->findPartialSpecialization(ContextType)) {
+            // A declaration of the partial specialization must be visible.
+            // We can always recover here, because this only happens when we're
+            // entering the context, and that can't happen in a SFINAE context.
+            assert(!isSFINAEContext() &&
+                   "partial specialization scope specifier in SFINAE context?");
+            if (!hasVisibleDeclaration(PartialSpec))
+              diagnoseMissingImport(SS.getLastQualifierNameLoc(), PartialSpec,
+                                    MissingImportKind::PartialSpecialization,
+                                    /*Recover*/true);
             return PartialSpec;
+          }
         }
       } else if (const RecordType *RecordT = NNSType->getAs<RecordType>()) {
         // The nested name specifier refers to a member of a class template.
@@ -195,6 +205,8 @@ bool Sema::RequireCompleteDeclContext(CXXScopeSpec &SS,
   TagDecl *tag = dyn_cast<TagDecl>(DC);
 
   // If this is a dependent type, then we consider it complete.
+  // FIXME: This is wrong; we should require a (visible) definition to
+  // exist in this case too.
   if (!tag || tag->isDependentContext())
     return false;
 
@@ -218,10 +230,23 @@ bool Sema::RequireCompleteDeclContext(CXXScopeSpec &SS,
   // Fixed enum types are complete, but they aren't valid as scopes
   // until we see a definition, so awkwardly pull out this special
   // case.
-  // FIXME: The definition might not be visible; complain if it is not.
   const EnumType *enumType = dyn_cast_or_null<EnumType>(tagType);
-  if (!enumType || enumType->getDecl()->isCompleteDefinition())
+  if (!enumType)
     return false;
+  if (enumType->getDecl()->isCompleteDefinition()) {
+    // If we know about the definition but it is not visible, complain.
+    NamedDecl *SuggestedDef = nullptr;
+    if (!hasVisibleDefinition(enumType->getDecl(), &SuggestedDef,
+                              /*OnlyNeedComplete*/false)) {
+      // If the user is going to see an error here, recover by making the
+      // definition visible.
+      bool TreatAsComplete = !isSFINAEContext();
+      diagnoseMissingImport(loc, SuggestedDef, MissingImportKind::Definition,
+                            /*Recover*/TreatAsComplete);
+      return !TreatAsComplete;
+    }
+    return false;
+  }
 
   // Try to instantiate the definition, if this is a specialization of an
   // enumeration temploid.
@@ -291,8 +316,10 @@ bool Sema::isAcceptableNestedNameSpecifier(const NamedDecl *SD,
   if (!SD)
     return false;
 
+  SD = SD->getUnderlyingDecl();
+
   // Namespace and namespace aliases are fine.
-  if (isa<NamespaceDecl>(SD) || isa<NamespaceAliasDecl>(SD))
+  if (isa<NamespaceDecl>(SD))
     return true;
 
   if (!isa<TypeDecl>(SD))
@@ -396,10 +423,7 @@ bool Sema::isNonTypeNestedNameSpecifier(Scope *S, CXXScopeSpec &SS,
   }
   Found.suppressDiagnostics();
   
-  if (NamedDecl *ND = Found.getAsSingle<NamedDecl>())
-    return isa<NamespaceDecl>(ND) || isa<NamespaceAliasDecl>(ND);
-  
-  return false;
+  return Found.getAsSingle<NamespaceDecl>();
 }
 
 namespace {
@@ -607,7 +631,11 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
         diagnoseTypo(Corrected, PDiag(diag::err_undeclared_var_use_suggest)
                                   << Name);
 
-      if (NamedDecl *ND = Corrected.getCorrectionDecl())
+      if (Corrected.getCorrectionSpecifier())
+        SS.MakeTrivial(Context, Corrected.getCorrectionSpecifier(),
+                       SourceRange(Found.getNameLoc()));
+
+      if (NamedDecl *ND = Corrected.getFoundDecl())
         Found.addDecl(ND);
       Found.setLookupName(Corrected.getCorrection());
     } else {
@@ -615,7 +643,8 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
     }
   }
 
-  NamedDecl *SD = Found.getAsSingle<NamedDecl>();
+  NamedDecl *SD =
+      Found.isSingleResult() ? Found.getRepresentativeDecl() : nullptr;
   bool IsExtension = false;
   bool AcceptSpec = isAcceptableNestedNameSpecifier(SD, &IsExtension);
   if (!AcceptSpec && IsExtension) {
@@ -687,7 +716,8 @@ bool Sema::BuildCXXNestedNameSpecifier(Scope *S,
       return false;
     }
 
-    QualType T = Context.getTypeDeclType(cast<TypeDecl>(SD));
+    QualType T =
+        Context.getTypeDeclType(cast<TypeDecl>(SD->getUnderlyingDecl()));
     TypeLocBuilder TLB;
     if (isa<InjectedClassNameType>(T)) {
       InjectedClassNameTypeLoc InjectedTL

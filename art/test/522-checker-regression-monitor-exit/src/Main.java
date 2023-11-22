@@ -40,7 +40,7 @@ public class Main {
       Integer result;
       try {
         Class<?> c = Class.forName("Test");
-        Method m = c.getMethod("synchronizedHashCode", new Class[] { Object.class });
+        Method m = c.getMethod("synchronizedHashCode", Object.class);
         result = (Integer) m.invoke(null, m_obj);
       } catch (Exception e) {
         System.err.println("Hash code query exception");
@@ -66,7 +66,7 @@ public class Main {
     }
 
     try {
-      List<Future<Integer>> results = pool.invokeAll(queries, 5, TimeUnit.SECONDS);
+      List<Future<Integer>> results = pool.invokeAll(queries);
 
       int hash = obj.hashCode();
       for (int i = 0; i < numThreads; ++i) {

@@ -23,11 +23,13 @@
 
 #include "NuPlayerCCDecoder.h"
 #include "NuPlayerDecoder.h"
+#include "NuPlayerDrm.h"
 #include "NuPlayerRenderer.h"
 #include "NuPlayerSource.h"
 
 #include <cutils/properties.h>
 #include <media/ICrypto.h>
+#include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
@@ -35,7 +37,7 @@
 #include <media/stagefright/MediaCodec.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
-
+#include <media/stagefright/SurfaceUtils.h>
 #include <gui/Surface.h>
 
 #include "avc_utils.h"
@@ -57,6 +59,7 @@ NuPlayer::Decoder::Decoder(
         const sp<AMessage> &notify,
         const sp<Source> &source,
         pid_t pid,
+        uid_t uid,
         const sp<Renderer> &renderer,
         const sp<Surface> &surface,
         const sp<CCDecoder> &ccDecoder)
@@ -66,6 +69,7 @@ NuPlayer::Decoder::Decoder(
       mRenderer(renderer),
       mCCDecoder(ccDecoder),
       mPid(pid),
+      mUid(uid),
       mSkipRenderingUntilMediaTimeUs(-1ll),
       mNumFramesTotal(0ll),
       mNumInputFramesDropped(0ll),
@@ -75,6 +79,8 @@ NuPlayer::Decoder::Decoder(
       mIsAudio(true),
       mIsVideoAVC(false),
       mIsSecure(false),
+      mIsEncrypted(false),
+      mIsEncryptedObservedEarlier(false),
       mFormatChangePending(false),
       mTimeChangePending(false),
       mFrameRateTotal(kDefaultVideoFrameRateTotal),
@@ -91,7 +97,11 @@ NuPlayer::Decoder::Decoder(
 }
 
 NuPlayer::Decoder::~Decoder() {
-    mCodec->release();
+    // Need to stop looper first since mCodec could be accessed on the mDecoderLooper.
+    stopLooper();
+    if (mCodec != NULL) {
+        mCodec->release();
+    }
     releaseAndResetMediaBuffers();
 }
 
@@ -200,6 +210,18 @@ void NuPlayer::Decoder::onMessageReceived(const sp<AMessage> &msg) {
             break;
         }
 
+        case kWhatAudioOutputFormatChanged:
+        {
+            if (!isStaleReply(msg)) {
+                status_t err;
+                if (msg->findInt32("err", &err) && err != OK) {
+                    ALOGE("Renderer reported 0x%x when changing audio output format", err);
+                    handleError(err);
+                }
+            }
+            break;
+        }
+
         case kWhatSetVideoSurface:
         {
             sp<AReplyToken> replyID;
@@ -216,27 +238,34 @@ void NuPlayer::Decoder::onMessageReceived(const sp<AMessage> &msg) {
                 //
                 // at this point MediaPlayerService::client has already connected to the
                 // surface, which MediaCodec does not expect
-                err = native_window_api_disconnect(surface.get(), NATIVE_WINDOW_API_MEDIA);
+                err = nativeWindowDisconnect(surface.get(), "kWhatSetVideoSurface(surface)");
                 if (err == OK) {
                     err = mCodec->setSurface(surface);
                     ALOGI_IF(err, "codec setSurface returned: %d", err);
                     if (err == OK) {
                         // reconnect to the old surface as MPS::Client will expect to
                         // be able to disconnect from it.
-                        (void)native_window_api_connect(mSurface.get(), NATIVE_WINDOW_API_MEDIA);
+                        (void)nativeWindowConnect(mSurface.get(), "kWhatSetVideoSurface(mSurface)");
                         mSurface = surface;
                     }
                 }
                 if (err != OK) {
                     // reconnect to the new surface on error as MPS::Client will expect to
                     // be able to disconnect from it.
-                    (void)native_window_api_connect(surface.get(), NATIVE_WINDOW_API_MEDIA);
+                    (void)nativeWindowConnect(surface.get(), "kWhatSetVideoSurface(err)");
                 }
             }
 
             sp<AMessage> response = new AMessage;
             response->setInt32("err", err);
             response->postReply(replyID);
+            break;
+        }
+
+        case kWhatDrmReleaseCrypto:
+        {
+            ALOGV("kWhatDrmReleaseCrypto");
+            onReleaseCrypto(msg);
             break;
         }
 
@@ -265,7 +294,7 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
     ALOGV("[%s] onConfigure (surface=%p)", mComponentName.c_str(), mSurface.get());
 
     mCodec = MediaCodec::CreateByType(
-            mCodecLooper, mime.c_str(), false /* encoder */, NULL /* err */, mPid);
+            mCodecLooper, mime.c_str(), false /* encoder */, NULL /* err */, mPid, mUid);
     int32_t secure = 0;
     if (format->findInt32("secure", &secure) && secure != 0) {
         if (mCodec != NULL) {
@@ -274,7 +303,7 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
             mCodec->release();
             ALOGI("[%s] creating", mComponentName.c_str());
             mCodec = MediaCodec::CreateByComponentName(
-                    mCodecLooper, mComponentName.c_str(), NULL /* err */, mPid);
+                    mCodecLooper, mComponentName.c_str(), NULL /* err */, mPid, mUid);
         }
     }
     if (mCodec == NULL) {
@@ -290,15 +319,29 @@ void NuPlayer::Decoder::onConfigure(const sp<AMessage> &format) {
     status_t err;
     if (mSurface != NULL) {
         // disconnect from surface as MediaCodec will reconnect
-        err = native_window_api_disconnect(
-                mSurface.get(), NATIVE_WINDOW_API_MEDIA);
+        err = nativeWindowDisconnect(mSurface.get(), "onConfigure");
         // We treat this as a warning, as this is a preparatory step.
         // Codec will try to connect to the surface, which is where
         // any error signaling will occur.
         ALOGW_IF(err != OK, "failed to disconnect from surface: %d", err);
     }
+
+    // Modular DRM
+    void *pCrypto;
+    if (!format->findPointer("crypto", &pCrypto)) {
+        pCrypto = NULL;
+    }
+    sp<ICrypto> crypto = (ICrypto*)pCrypto;
+    // non-encrypted source won't have a crypto
+    mIsEncrypted = (crypto != NULL);
+    // configure is called once; still using OR in case the behavior changes.
+    mIsEncryptedObservedEarlier = mIsEncryptedObservedEarlier || mIsEncrypted;
+    ALOGV("onConfigure mCrypto: %p (%d)  mIsSecure: %d",
+            crypto.get(), (crypto != NULL ? crypto->getStrongCount() : 0), mIsSecure);
+
     err = mCodec->configure(
-            format, mSurface, NULL /* crypto */, 0 /* flags */);
+            format, mSurface, crypto, 0 /* flags */);
+
     if (err != OK) {
         ALOGE("Failed to configure %s decoder (err=%d)", mComponentName.c_str(), err);
         mCodec->release();
@@ -408,17 +451,7 @@ void NuPlayer::Decoder::onSetParameters(const sp<AMessage> &params) {
 }
 
 void NuPlayer::Decoder::onSetRenderer(const sp<Renderer> &renderer) {
-    bool hadNoRenderer = (mRenderer == NULL);
     mRenderer = renderer;
-    if (hadNoRenderer && mRenderer != NULL) {
-        // this means that the widevine legacy source is ready
-        onRequestInputBuffers();
-    }
-}
-
-void NuPlayer::Decoder::onGetInputBuffers(
-        Vector<sp<ABuffer> > *dstBuffers) {
-    CHECK_EQ((status_t)OK, mCodec->getWidevineLegacyBuffers(dstBuffers));
 }
 
 void NuPlayer::Decoder::onResume(bool notifyComplete) {
@@ -486,8 +519,7 @@ void NuPlayer::Decoder::onShutdown(bool notifyComplete) {
 
         if (mSurface != NULL) {
             // reconnect to surface as MediaCodec disconnected from it
-            status_t error =
-                    native_window_api_connect(mSurface.get(), NATIVE_WINDOW_API_MEDIA);
+            status_t error = nativeWindowConnect(mSurface.get(), "onShutdown");
             ALOGW_IF(error != NO_ERROR,
                     "[%s] failed to connect to native window, error=%d",
                     mComponentName.c_str(), error);
@@ -515,9 +547,7 @@ void NuPlayer::Decoder::onShutdown(bool notifyComplete) {
  * returns true if we should request more data
  */
 bool NuPlayer::Decoder::doRequestBuffers() {
-    // mRenderer is only NULL if we have a legacy widevine source that
-    // is not yet ready. In this case we must not fetch input.
-    if (isDiscontinuityPending() || mRenderer == NULL) {
+    if (isDiscontinuityPending()) {
         return false;
     }
     status_t err = OK;
@@ -556,12 +586,52 @@ void NuPlayer::Decoder::handleError(int32_t err)
     notify->post();
 }
 
+status_t NuPlayer::Decoder::releaseCrypto()
+{
+    ALOGV("releaseCrypto");
+
+    sp<AMessage> msg = new AMessage(kWhatDrmReleaseCrypto, this);
+
+    sp<AMessage> response;
+    status_t status = msg->postAndAwaitResponse(&response);
+    if (status == OK && response != NULL) {
+        CHECK(response->findInt32("status", &status));
+        ALOGV("releaseCrypto ret: %d ", status);
+    } else {
+        ALOGE("releaseCrypto err: %d", status);
+    }
+
+    return status;
+}
+
+void NuPlayer::Decoder::onReleaseCrypto(const sp<AMessage>& msg)
+{
+    status_t status = INVALID_OPERATION;
+    if (mCodec != NULL) {
+        status = mCodec->releaseCrypto();
+    } else {
+        // returning OK if the codec has been already released
+        status = OK;
+        ALOGE("onReleaseCrypto No mCodec. err: %d", status);
+    }
+
+    sp<AMessage> response = new AMessage;
+    response->setInt32("status", status);
+    // Clearing the state as it's tied to crypto. mIsEncryptedObservedEarlier is sticky though
+    // and lasts for the lifetime of this codec. See its use in fetchInputData.
+    mIsEncrypted = false;
+
+    sp<AReplyToken> replyID;
+    CHECK(msg->senderAwaitsResponse(&replyID));
+    response->postReply(replyID);
+}
+
 bool NuPlayer::Decoder::handleAnInputBuffer(size_t index) {
     if (isDiscontinuityPending()) {
         return false;
     }
 
-    sp<ABuffer> buffer;
+    sp<MediaCodecBuffer> buffer;
     mCodec->getInputBuffer(index, &buffer);
 
     if (buffer == NULL) {
@@ -628,8 +698,13 @@ bool NuPlayer::Decoder::handleAnOutputBuffer(
         int64_t timeUs,
         int32_t flags) {
 //    CHECK_LT(bufferIx, mOutputBuffers.size());
-    sp<ABuffer> buffer;
+    sp<MediaCodecBuffer> buffer;
     mCodec->getOutputBuffer(index, &buffer);
+
+    if (buffer == NULL) {
+        handleError(UNKNOWN_ERROR);
+        return false;
+    }
 
     if (index >= mOutputBuffers.size()) {
         for (size_t i = mOutputBuffers.size(); i <= index; ++i) {
@@ -700,19 +775,18 @@ void NuPlayer::Decoder::handleOutputFormatChange(const sp<AMessage> &format) {
         int64_t durationUs;
         bool hasVideo = (mSource->getFormat(false /* audio */) != NULL);
         if (getAudioDeepBufferSetting() // override regardless of source duration
-                || (!hasVideo
-                        && mSource->getDuration(&durationUs) == OK
+                || (mSource->getDuration(&durationUs) == OK
                         && durationUs > AUDIO_SINK_MIN_DEEP_BUFFER_DURATION_US)) {
             flags = AUDIO_OUTPUT_FLAG_DEEP_BUFFER;
         } else {
             flags = AUDIO_OUTPUT_FLAG_NONE;
         }
 
-        status_t err = mRenderer->openAudioSink(
-                format, false /* offloadOnly */, hasVideo, flags, NULL /* isOffloaed */);
-        if (err != OK) {
-            handleError(err);
-        }
+        sp<AMessage> reply = new AMessage(kWhatAudioOutputFormatChanged, this);
+        reply->setInt32("generation", mBufferGeneration);
+        mRenderer->changeAudioFormat(
+                format, false /* offloadOnly */, hasVideo,
+                flags, mSource->isStreaming(), reply);
     }
 }
 
@@ -754,7 +828,7 @@ bool NuPlayer::Decoder::isStaleReply(const sp<AMessage> &msg) {
 
 status_t NuPlayer::Decoder::fetchInputData(sp<AMessage> &reply) {
     sp<ABuffer> accessUnit;
-    bool dropAccessUnit;
+    bool dropAccessUnit = true;
     do {
         status_t err = mSource->dequeueAccessUnit(mIsAudio, &accessUnit);
 
@@ -813,7 +887,20 @@ status_t NuPlayer::Decoder::fetchInputData(sp<AMessage> &reply) {
         }
 
         dropAccessUnit = false;
-        if (!mIsAudio && !mIsSecure) {
+        if (!mIsAudio && !mIsEncrypted) {
+            // Extra safeguard if higher-level behavior changes. Otherwise, not required now.
+            // Preventing the buffer from being processed (and sent to codec) if this is a later
+            // round of playback but this time without prepareDrm. Or if there is a race between
+            // stop (which is not blocking) and releaseDrm allowing buffers being processed after
+            // Crypto has been released (GenericSource currently prevents this race though).
+            // Particularly doing this check before IsAVCReferenceFrame call to prevent parsing
+            // of encrypted data.
+            if (mIsEncryptedObservedEarlier) {
+                ALOGE("fetchInputData: mismatched mIsEncrypted/mIsEncryptedObservedEarlier (0/1)");
+
+                return INVALID_OPERATION;
+            }
+
             int32_t layerId = 0;
             bool haveLayerId = accessUnit->meta()->findInt32("temporal-layer-id", &layerId);
             if (mRenderer->getVideoLateByUs() > 100000ll
@@ -865,43 +952,11 @@ bool NuPlayer::Decoder::onInputBufferFetched(const sp<AMessage> &msg) {
     size_t bufferIx;
     CHECK(msg->findSize("buffer-ix", &bufferIx));
     CHECK_LT(bufferIx, mInputBuffers.size());
-    sp<ABuffer> codecBuffer = mInputBuffers[bufferIx];
+    sp<MediaCodecBuffer> codecBuffer = mInputBuffers[bufferIx];
 
     sp<ABuffer> buffer;
     bool hasBuffer = msg->findBuffer("buffer", &buffer);
-
-    // handle widevine classic source - that fills an arbitrary input buffer
-    MediaBuffer *mediaBuffer = NULL;
-    if (hasBuffer) {
-        mediaBuffer = (MediaBuffer *)(buffer->getMediaBufferBase());
-        if (mediaBuffer != NULL) {
-            // likely filled another buffer than we requested: adjust buffer index
-            size_t ix;
-            for (ix = 0; ix < mInputBuffers.size(); ix++) {
-                const sp<ABuffer> &buf = mInputBuffers[ix];
-                if (buf->data() == mediaBuffer->data()) {
-                    // all input buffers are dequeued on start, hence the check
-                    if (!mInputBufferIsDequeued[ix]) {
-                        ALOGV("[%s] received MediaBuffer for #%zu instead of #%zu",
-                                mComponentName.c_str(), ix, bufferIx);
-                        mediaBuffer->release();
-                        return false;
-                    }
-
-                    // TRICKY: need buffer for the metadata, so instead, set
-                    // codecBuffer to the same (though incorrect) buffer to
-                    // avoid a memcpy into the codecBuffer
-                    codecBuffer = buffer;
-                    codecBuffer->setRange(
-                            mediaBuffer->range_offset(),
-                            mediaBuffer->range_length());
-                    bufferIx = ix;
-                    break;
-                }
-            }
-            CHECK(ix < mInputBuffers.size());
-        }
-    }
+    bool needsCopy = true;
 
     if (buffer == NULL /* includes !hasBuffer */) {
         int32_t streamErr = ERROR_END_OF_STREAM;
@@ -954,38 +1009,79 @@ bool NuPlayer::Decoder::onInputBufferFetched(const sp<AMessage> &msg) {
             flags |= MediaCodec::BUFFER_FLAG_CODECCONFIG;
         }
 
+        // Modular DRM
+        MediaBuffer *mediaBuf = NULL;
+        NuPlayerDrm::CryptoInfo *cryptInfo = NULL;
+
         // copy into codec buffer
-        if (buffer != codecBuffer) {
+        if (needsCopy) {
             if (buffer->size() > codecBuffer->capacity()) {
                 handleError(ERROR_BUFFER_TOO_SMALL);
                 mDequeuedInputBuffers.push_back(bufferIx);
                 return false;
             }
-            codecBuffer->setRange(0, buffer->size());
-            memcpy(codecBuffer->data(), buffer->data(), buffer->size());
-        }
 
-        status_t err = mCodec->queueInputBuffer(
-                        bufferIx,
-                        codecBuffer->offset(),
-                        codecBuffer->size(),
-                        timeUs,
-                        flags);
+            if (buffer->data() != NULL) {
+                codecBuffer->setRange(0, buffer->size());
+                memcpy(codecBuffer->data(), buffer->data(), buffer->size());
+            } else { // No buffer->data()
+                //Modular DRM
+                mediaBuf = (MediaBuffer*)buffer->getMediaBufferBase();
+                if (mediaBuf != NULL) {
+                    codecBuffer->setRange(0, mediaBuf->size());
+                    memcpy(codecBuffer->data(), mediaBuf->data(), mediaBuf->size());
+
+                    sp<MetaData> meta_data = mediaBuf->meta_data();
+                    cryptInfo = NuPlayerDrm::getSampleCryptoInfo(meta_data);
+
+                    // since getMediaBuffer() has incremented the refCount
+                    mediaBuf->release();
+                } else { // No mediaBuf
+                    ALOGE("onInputBufferFetched: buffer->data()/mediaBuf are NULL for %p",
+                            buffer.get());
+                    handleError(UNKNOWN_ERROR);
+                    return false;
+                }
+            } // buffer->data()
+        } // needsCopy
+
+        status_t err;
+        AString errorDetailMsg;
+        if (cryptInfo != NULL) {
+            err = mCodec->queueSecureInputBuffer(
+                    bufferIx,
+                    codecBuffer->offset(),
+                    cryptInfo->subSamples,
+                    cryptInfo->numSubSamples,
+                    cryptInfo->key,
+                    cryptInfo->iv,
+                    cryptInfo->mode,
+                    cryptInfo->pattern,
+                    timeUs,
+                    flags,
+                    &errorDetailMsg);
+            // synchronous call so done with cryptInfo here
+            free(cryptInfo);
+        } else {
+            err = mCodec->queueInputBuffer(
+                    bufferIx,
+                    codecBuffer->offset(),
+                    codecBuffer->size(),
+                    timeUs,
+                    flags,
+                    &errorDetailMsg);
+        } // no cryptInfo
+
         if (err != OK) {
-            if (mediaBuffer != NULL) {
-                mediaBuffer->release();
-            }
-            ALOGE("Failed to queue input buffer for %s (err=%d)",
-                    mComponentName.c_str(), err);
+            ALOGE("onInputBufferFetched: queue%sInputBuffer failed for %s (err=%d, %s)",
+                    (cryptInfo != NULL ? "Secure" : ""),
+                    mComponentName.c_str(), err, errorDetailMsg.c_str());
             handleError(err);
         } else {
             mInputBufferIsDequeued.editItemAt(bufferIx) = false;
-            if (mediaBuffer != NULL) {
-                CHECK(mMediaBuffers[bufferIx] == NULL);
-                mMediaBuffers.editItemAt(bufferIx) = mediaBuffer;
-            }
         }
-    }
+
+    }   // buffer != NULL
     return true;
 }
 
@@ -998,7 +1094,7 @@ void NuPlayer::Decoder::onRenderBuffer(const sp<AMessage> &msg) {
 
     if (!mIsAudio) {
         int64_t timeUs;
-        sp<ABuffer> buffer = mOutputBuffers[bufferIx];
+        sp<MediaCodecBuffer> buffer = mOutputBuffers[bufferIx];
         buffer->meta()->findInt64("timeUs", &timeUs);
 
         if (mCCDecoder != NULL && mCCDecoder->isSelected()) {

@@ -34,7 +34,7 @@ class AudioMix;
 class AudioInputDescriptor: public AudioPortConfig, public AudioSessionInfoProvider
 {
 public:
-    AudioInputDescriptor(const sp<IOProfile>& profile);
+    explicit AudioInputDescriptor(const sp<IOProfile>& profile);
     void setIoHandle(audio_io_handle_t ioHandle);
     audio_port_handle_t getId() const;
     audio_module_handle_t getModuleHandle() const;
@@ -57,13 +57,15 @@ public:
     void clearPreemptedSessions();
     bool isActive() const;
     bool isSourceActive(audio_source_t source) const;
-    audio_source_t inputSource() const;
+    audio_source_t inputSource(bool activeOnly = false) const;
     bool isSoundTrigger() const;
     status_t addAudioSession(audio_session_t session,
                              const sp<AudioSession>& audioSession);
     status_t removeAudioSession(audio_session_t session);
     sp<AudioSession> getAudioSession(audio_session_t session) const;
-    AudioSessionCollection getActiveAudioSessions() const;
+    AudioSessionCollection getAudioSessions(bool activeOnly) const;
+    size_t getAudioSessionCount(bool activeOnly) const;
+    audio_source_t getHighestPrioritySource(bool activeOnly) const;
 
     // implementation of AudioSessionInfoProvider
     virtual audio_config_base_t getConfig() const;
@@ -93,14 +95,16 @@ public:
 
     sp<AudioInputDescriptor> getInputFromId(audio_port_handle_t id) const;
 
-    uint32_t activeInputsCount() const;
+    // count active capture sessions using one of the specified devices.
+    // ignore devices if AUDIO_DEVICE_IN_DEFAULT is passed
+    uint32_t activeInputsCountOnDevices(audio_devices_t devices = AUDIO_DEVICE_IN_DEFAULT) const;
 
     /**
      * return io handle of active input or 0 if no input is active
      * Only considers inputs from physical devices (e.g. main mic, headset mic) when
      * ignoreVirtualInputs is true.
      */
-    audio_io_handle_t getActiveInput(bool ignoreVirtualInputs = true);
+    Vector<sp <AudioInputDescriptor> > getActiveInputs(bool ignoreVirtualInputs = true);
 
     audio_devices_t getSupportedDevices(audio_io_handle_t handle) const;
 

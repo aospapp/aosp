@@ -47,6 +47,9 @@
 #include "SurfaceFlinger.h"
 #include "Layer.h"
 
+#include <android/hardware/configstore/1.0/ISurfaceFlingerConfigs.h>
+#include <configstore/Utils.h>
+
 // ----------------------------------------------------------------------------
 using namespace android;
 // ----------------------------------------------------------------------------
@@ -56,6 +59,13 @@ static constexpr bool kEGLAndroidSwapRectangle = true;
 #else
 static constexpr bool kEGLAndroidSwapRectangle = false;
 #endif
+
+// retrieve triple buffer setting from configstore
+using namespace android::hardware::configstore;
+using namespace android::hardware::configstore::V1_0;
+
+static bool useTripleFramebuffer = getInt64< ISurfaceFlingerConfigs,
+        &ISurfaceFlingerConfigs::maxFrameBufferAcquiredBuffers>(2) == 3;
 
 #if !defined(EGL_EGLEXT_PROTOTYPES) || !defined(EGL_ANDROID_swap_rectangle)
 // Dummy implementation in case it is missing.
@@ -70,6 +80,7 @@ inline void eglSetSwapRectangleANDROID (EGLDisplay, EGLSurface, EGLint, EGLint, 
 
 uint32_t DisplayDevice::sPrimaryDisplayOrientation = 0;
 
+// clang-format off
 DisplayDevice::DisplayDevice(
         const sp<SurfaceFlinger>& flinger,
         DisplayType type,
@@ -81,7 +92,8 @@ DisplayDevice::DisplayDevice(
         const wp<IBinder>& displayToken,
         const sp<DisplaySurface>& displaySurface,
         const sp<IGraphicBufferProducer>& producer,
-        EGLConfig config)
+        EGLConfig config,
+        bool supportWideColor)
     : lastCompositionHadVisibleLayers(false),
       mFlinger(flinger),
       mType(type),
@@ -103,10 +115,17 @@ DisplayDevice::DisplayDevice(
       mPowerMode(HWC_POWER_MODE_OFF),
       mActiveConfig(0)
 {
+    // clang-format on
     Surface* surface;
     mNativeWindow = surface = new Surface(producer, false);
     ANativeWindow* const window = mNativeWindow.get();
 
+#ifdef USE_HWC2
+    mActiveColorMode = static_cast<android_color_mode_t>(-1);
+    mDisplayHasWideColor = supportWideColor;
+#else
+    (void) supportWideColor;
+#endif
     /*
      * Create our display's surface
      */
@@ -165,9 +184,9 @@ DisplayDevice::DisplayDevice(
     // initialize the display orientation transform.
     setProjection(DisplayState::eOrientationDefault, mViewport, mFrame);
 
-#ifdef NUM_FRAMEBUFFER_SURFACE_BUFFERS
-    surface->allocateBuffers();
-#endif
+    if (useTripleFramebuffer) {
+        surface->allocateBuffers();
+    }
 }
 
 DisplayDevice::~DisplayDevice() {
@@ -612,4 +631,18 @@ void DisplayDevice::dump(String8& result) const {
     String8 surfaceDump;
     mDisplaySurface->dumpAsString(surfaceDump);
     result.append(surfaceDump);
+}
+
+std::atomic<int32_t> DisplayDeviceState::nextDisplayId(1);
+
+DisplayDeviceState::DisplayDeviceState(DisplayDevice::DisplayType type, bool isSecure)
+    : type(type),
+      layerStack(DisplayDevice::NO_LAYER_STACK),
+      orientation(0),
+      width(0),
+      height(0),
+      isSecure(isSecure)
+{
+    viewport.makeInvalid();
+    frame.makeInvalid();
 }

@@ -46,4 +46,4 @@ class cellular_ChromeEndToEnd(test.test):
 
         client_at = autotest.Autotest(self._client)
         client_at.run_test('network_ChromeCellularEndToEnd',
-                           test=test)
+                           test=test, check_client_result=True)

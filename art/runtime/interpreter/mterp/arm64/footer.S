@@ -141,7 +141,7 @@ MterpCommonTakenBranchNoFlags:
     add     w2, wINST, wINST            // w2<- byte offset
     FETCH_ADVANCE_INST_RB w2            // update rPC, load wINST
     REFRESH_IBASE
-    ands    lr, lr, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    lr, lr, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .L_suspend_request_pending
     GET_INST_OPCODE ip                  // extract opcode from wINST
     GOTO_OPCODE ip                      // jump to next instruction
@@ -215,7 +215,7 @@ MterpCommonTakenBranchNoFlags:
  */
 MterpCheckSuspendAndContinue:
     ldr     xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]  // refresh xIBASE
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    check1
     GET_INST_OPCODE ip                  // extract opcode from wINST
     GOTO_OPCODE ip                      // jump to next instruction
@@ -234,7 +234,7 @@ MterpOnStackReplacement:
 #if MTERP_LOGGING
     mov  x0, xSELF
     add  x1, xFP, #OFF_FP_SHADOWFRAME
-    sbfm x2, xINST, 0, 31
+    sxtw x2, wINST
     bl MterpLogOSR
 #endif
     mov  x0, #1                         // Signal normal return
@@ -267,13 +267,7 @@ MterpExceptionReturn:
     b MterpDone
 MterpReturn:
     ldr     x2, [xFP, #OFF_FP_RESULT_REGISTER]
-    ldr     lr, [xSELF, #THREAD_FLAGS_OFFSET]
     str     x0, [x2]
-    mov     x0, xSELF
-    ands    lr, lr, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
-    b.eq    check2
-    bl      MterpSuspendCheck                       // (self)
-check2:
     mov     x0, #1                                  // signal return to caller.
 MterpDone:
 /*
@@ -285,12 +279,15 @@ MterpDone:
  */
     cmp     wPROFILE, #0
     bgt     MterpProfileActive                      // if > 0, we may have some counts to report.
-    ldp     fp, lr, [sp, #64]
-    ldp     xPC, xFP, [sp, #48]
-    ldp     xSELF, xINST, [sp, #32]
-    ldp     xIBASE, xREFS, [sp, #16]
-    ldp     xPROFILE, x27, [sp], #80
+    .cfi_remember_state
+    RESTORE_TWO_REGS                fp, lr, 64
+    RESTORE_TWO_REGS                xPC, xFP, 48
+    RESTORE_TWO_REGS                xSELF, xINST, 32
+    RESTORE_TWO_REGS                xIBASE, xREFS, 16
+    RESTORE_TWO_REGS_DECREASE_FRAME xPROFILE, x27, 80
     ret
+    .cfi_restore_state                              // Reset unwind info so following code unwinds.
+    .cfi_def_cfa_offset 80                          // workaround for clang bug: 31975598
 
 MterpProfileActive:
     mov     xINST, x0                               // stash return value
@@ -301,11 +298,11 @@ MterpProfileActive:
     strh    wPROFILE, [x1, #SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET]
     bl      MterpAddHotnessBatch                    // (method, shadow_frame, self)
     mov     x0, xINST                               // restore return value
-    ldp     fp, lr, [sp, #64]
-    ldp     xPC, xFP, [sp, #48]
-    ldp     xSELF, xINST, [sp, #32]
-    ldp     xIBASE, xREFS, [sp, #16]
-    ldp     xPROFILE, x27, [sp], #80
+    RESTORE_TWO_REGS                fp, lr, 64
+    RESTORE_TWO_REGS                xPC, xFP, 48
+    RESTORE_TWO_REGS                xSELF, xINST, 32
+    RESTORE_TWO_REGS                xIBASE, xREFS, 16
+    RESTORE_TWO_REGS_DECREASE_FRAME xPROFILE, x27, 80
     ret
 
     .cfi_endproc

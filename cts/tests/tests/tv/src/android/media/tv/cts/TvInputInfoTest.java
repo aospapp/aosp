@@ -96,8 +96,6 @@ public class TvInputInfoTest extends AndroidTestCase {
         mStubInfo.writeToParcel(p, 0);
         p.setDataPosition(0);
         TvInputInfo infoFromParcel = TvInputInfo.CREATOR.createFromParcel(p);
-        assertEquals(mStubInfo.createSettingsIntent().getComponent(),
-                infoFromParcel.createSettingsIntent().getComponent());
         assertEquals(mStubInfo.createSetupIntent().getComponent(),
                 infoFromParcel.createSetupIntent().getComponent());
         assertEquals(mStubInfo.describeContents(), infoFromParcel.describeContents());
@@ -114,18 +112,6 @@ public class TvInputInfoTest extends AndroidTestCase {
         assertEquals(mStubInfo.loadLabel(getContext()), infoFromParcel.loadLabel(getContext()));
         assertEquals(mStubInfo.toString(), infoFromParcel.toString());
         p.recycle();
-    }
-
-    public void testGetIntentForSettingsActivity() throws Exception {
-        if (!Utils.hasTvInputFramework(getContext())) {
-            return;
-        }
-        Intent intent = mStubInfo.createSettingsIntent();
-
-        assertEquals(intent.getComponent(), new ComponentName(getContext(),
-                TvInputSettingsActivityStub.class));
-        String inputId = intent.getStringExtra(TvInputInfo.EXTRA_INPUT_ID);
-        assertEquals(mStubInfo.getId(), inputId);
     }
 
     public void testGetIntentForSetupActivity() throws Exception {

@@ -16,28 +16,50 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
 import android.app.Instrumentation;
-import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.TouchUtils;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.View.OnFocusChangeListener;
-import android.view.View.OnLongClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.android.compatibility.common.util.CtsTouchUtils;
 
-public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingViewsCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.invocation.InvocationOnMock;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class View_UsingViewsTest {
     /**
      * country of Argentina
      */
@@ -68,8 +90,8 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
      */
     private static final String CHINA_SYMBOL = "table tennis";
 
-    private Activity mActivity;
     private Instrumentation mInstrumentation;
+    private Activity mActivity;
 
     private EditText mEditText;
     private Button mButtonOk;
@@ -77,16 +99,14 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
     private TextView mSymbolTextView;
     private TextView mWarningTextView;
 
-    public View_UsingViewsTest() {
-        super("android.view.cts", UsingViewsCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<UsingViewsCtsActivity> mActivityRule =
+            new ActivityTestRule<>(UsingViewsCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
 
         mEditText = (EditText) mActivity.findViewById(R.id.entry);
         mButtonOk = (Button) mActivity.findViewById(R.id.ok);
@@ -96,34 +116,33 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
     }
 
     @UiThreadTest
+    @Test
     public void testSetProperties() {
-        /**
-         * setClickable, setOnClickListener
-         */
+        // setClickable, setOnClickListener
         mButtonOk.setClickable(true);
         assertTrue(mButtonOk.isClickable());
 
-        MockOnClickOkListener okButtonListener = new MockOnClickOkListener();
+        View.OnClickListener okButtonListener = spy(new MockOnClickOkListener());
         mButtonOk.setOnClickListener(okButtonListener);
-        assertFalse(okButtonListener.hasOnClickCalled());
 
         mButtonOk.performClick();
-        assertTrue(okButtonListener.hasOnClickCalled());
+        verify(okButtonListener, times(1)).onClick(mButtonOk);
 
         mButtonCancel.setClickable(false);
         assertFalse(mButtonCancel.isClickable());
 
-        MockOnClickCancelListener cancelButtonListener = new MockOnClickCancelListener();
+        View.OnClickListener cancelButtonListener = mock(View.OnClickListener.class);
+        doAnswer((InvocationOnMock invocation) -> {
+            mEditText.setText(null);
+            return null;
+        }).when(cancelButtonListener).onClick(any(View.class));
         mButtonCancel.setOnClickListener(cancelButtonListener);
-        assertFalse(cancelButtonListener.hasOnClickCalled());
         assertTrue(mButtonCancel.isClickable());
 
         mButtonCancel.performClick();
-        assertTrue(cancelButtonListener.hasOnClickCalled());
+        verify(cancelButtonListener, times(1)).onClick(mButtonCancel);
 
-        /**
-         * setDrawingCacheEnabled, setDrawingCacheQuality, setDrawingCacheBackgroundColor,
-         */
+        // setDrawingCacheEnabled, setDrawingCacheQuality, setDrawingCacheBackgroundColor,
         mEditText.setDrawingCacheEnabled(true);
         assertTrue(mEditText.isDrawingCacheEnabled());
 
@@ -160,9 +179,7 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         assertEquals(Color.YELLOW, b.getPixel(0, 0));
         mEditText.destroyDrawingCache();
 
-        /**
-         * setDuplicateParentStateEnabled
-         */
+        // setDuplicateParentStateEnabled
         TextView v = new TextView(mActivity);
         v.setSingleLine(); // otherwise the multiline state interferes with theses tests
         v.setEnabled(false);
@@ -183,23 +200,18 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         parent.addView(v);
         v.refreshDrawableState();
 
-        assertEquals(parent.getDrawableState().length, v.getDrawableState().length);
-        assertEquals(parent.getDrawableState().toString(), v.getDrawableState().toString());
+        assertArrayEquals(parent.getDrawableState(), v.getDrawableState());
         parent.removeView(v);
 
-        /**
-         * setEnabled
-         */
+        // setEnabled
         mWarningTextView.setEnabled(false);
         assertFalse(mWarningTextView.isEnabled());
 
         mWarningTextView.setEnabled(true);
         assertTrue(mWarningTextView.isEnabled());
 
-        /**
-         * setFadingEdgeLength, setVerticalFadingEdgeEnabled and
-         * setHorizontalFadingEdgeEnabled(boolean)
-         */
+        // setFadingEdgeLength, setVerticalFadingEdgeEnabled and
+        // setHorizontalFadingEdgeEnabled(boolean)
         mWarningTextView.setVerticalFadingEdgeEnabled(true);
         assertTrue(mWarningTextView.isVerticalFadingEdgeEnabled());
         mWarningTextView.setFadingEdgeLength(10);
@@ -208,9 +220,7 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         assertTrue(mSymbolTextView.isHorizontalFadingEdgeEnabled());
         mSymbolTextView.setFadingEdgeLength(100);
 
-        /**
-         * setFocusable and setFocusableInTouchMode
-         */
+        // setFocusable and setFocusableInTouchMode
         mButtonCancel.setFocusable(false);
         assertFalse(mButtonCancel.isFocusable());
         assertFalse(mButtonCancel.isFocusableInTouchMode());
@@ -231,9 +241,7 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         assertTrue(mButtonOk.isFocusable());
         assertTrue(mButtonOk.isFocusableInTouchMode());
 
-        /**
-         * setHorizontalScrollBarEnabled and setVerticalScrollBarEnabled
-         */
+        // setHorizontalScrollBarEnabled and setVerticalScrollBarEnabled
         // both two bar is not drawn by default
         assertFalse(parent.isHorizontalScrollBarEnabled());
         assertFalse(parent.isVerticalScrollBarEnabled());
@@ -244,9 +252,7 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         parent.setVerticalScrollBarEnabled(true);
         assertTrue(parent.isVerticalScrollBarEnabled());
 
-        /**
-         * setId
-         */
+        // setId
         assertEquals(View.NO_ID, parent.getId());
         assertEquals(R.id.entry, mEditText.getId());
         assertEquals(R.id.symbolball, mSymbolTextView.getId());
@@ -261,14 +267,15 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
     }
 
     @UiThreadTest
-    public void testSetFocus() throws Throwable {
+    @Test
+    public void testSetFocus() {
         boolean focusWasOnEditText = mEditText.hasFocus();
 
-        MockOnFocusChangeListener editListener = new MockOnFocusChangeListener();
-        MockOnFocusChangeListener okListener = new MockOnFocusChangeListener();
-        MockOnFocusChangeListener cancelListener = new MockOnFocusChangeListener();
-        MockOnFocusChangeListener symbolListener = new MockOnFocusChangeListener();
-        MockOnFocusChangeListener warningListener = new MockOnFocusChangeListener();
+        View.OnFocusChangeListener editListener = mock(View.OnFocusChangeListener.class);
+        View.OnFocusChangeListener okListener = mock(View.OnFocusChangeListener.class);
+        View.OnFocusChangeListener cancelListener = mock(View.OnFocusChangeListener.class);
+        View.OnFocusChangeListener symbolListener = mock(View.OnFocusChangeListener.class);
+        View.OnFocusChangeListener warningListener = mock(View.OnFocusChangeListener.class);
 
         mEditText.setOnFocusChangeListener(editListener);
         mButtonOk.setOnFocusChangeListener(okListener);
@@ -286,141 +293,139 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         assertFalse(mSymbolTextView.hasFocus());
         assertFalse(mWarningTextView.hasFocus());
 
-        assertTrue(editListener.hasFocus() || focusWasOnEditText);
-        assertFalse(okListener.hasFocus());
-        assertFalse(cancelListener.hasFocus());
-        assertFalse(symbolListener.hasFocus());
-        assertFalse(warningListener.hasFocus());
+        if (!focusWasOnEditText) {
+            verify(editListener, times(1)).onFocusChange(mEditText, true);
+        }
+        verifyZeroInteractions(okListener);
+        verifyZeroInteractions(cancelListener);
+        verifyZeroInteractions(symbolListener);
+        verifyZeroInteractions(warningListener);
 
         // set ok button to focus
+        reset(editListener);
         assertTrue(mButtonOk.requestFocus());
         assertTrue(mButtonOk.hasFocus());
-        assertTrue(okListener.hasFocus());
+        verify(okListener, times(1)).onFocusChange(mButtonOk, true);
         assertFalse(mEditText.hasFocus());
-        assertFalse(editListener.hasFocus());
+        verify(editListener, times(1)).onFocusChange(mEditText, false);
+        verifyZeroInteractions(cancelListener);
+        verifyZeroInteractions(symbolListener);
+        verifyZeroInteractions(warningListener);
 
         // set cancel button to focus
+        reset(okListener);
+        reset(editListener);
         assertTrue(mButtonCancel.requestFocus());
         assertTrue(mButtonCancel.hasFocus());
-        assertTrue(cancelListener.hasFocus());
+        verify(cancelListener, times(1)).onFocusChange(mButtonCancel, true);
         assertFalse(mButtonOk.hasFocus());
-        assertFalse(okListener.hasFocus());
+        verify(okListener, times(1)).onFocusChange(mButtonOk, false);
+        verifyZeroInteractions(editListener);
+        verifyZeroInteractions(symbolListener);
+        verifyZeroInteractions(warningListener);
 
         // set symbol text to focus
         mSymbolTextView.setFocusable(true);
         assertTrue(mSymbolTextView.requestFocus());
         assertTrue(mSymbolTextView.hasFocus());
-        assertTrue(symbolListener.hasFocus());
+        verify(symbolListener, times(1)).onFocusChange(mSymbolTextView, true);
         assertFalse(mButtonCancel.hasFocus());
-        assertFalse(cancelListener.hasFocus());
+        verify(cancelListener, times(1)).onFocusChange(mButtonCancel, false);
+        verifyZeroInteractions(okListener);
+        verifyZeroInteractions(editListener);
+        verifyZeroInteractions(warningListener);
 
         // set warning text to focus
         mWarningTextView.setFocusable(true);
         assertTrue(mWarningTextView.requestFocus());
         assertTrue(mWarningTextView.hasFocus());
-        assertTrue(warningListener.hasFocus());
+        verify(warningListener, times(1)).onFocusChange(mWarningTextView, true);
         assertFalse(mSymbolTextView.hasFocus());
-        assertFalse(symbolListener.hasFocus());
+        verify(symbolListener, times(1)).onFocusChange(mSymbolTextView, false);
+        verifyZeroInteractions(editListener);
+        verifyZeroInteractions(okListener);
+        verifyZeroInteractions(cancelListener);
 
         // set edit text to focus
         assertTrue(mEditText.requestFocus());
         assertTrue(mEditText.hasFocus());
-        assertTrue(editListener.hasFocus());
+        verify(editListener, times(1)).onFocusChange(mEditText, true);
         assertFalse(mWarningTextView.hasFocus());
-        assertFalse(warningListener.hasFocus());
+        verify(warningListener, times(1)).onFocusChange(mWarningTextView, false);
+        verifyZeroInteractions(cancelListener);
+        verifyZeroInteractions(symbolListener);
+        verifyZeroInteractions(okListener);
     }
 
+    @Test
     public void testSetupListeners() throws Throwable {
         // set ok button OnClick listener
         mButtonOk.setClickable(true);
         assertTrue(mButtonOk.isClickable());
 
-        MockOnClickOkListener okButtonListener = new MockOnClickOkListener();
+        View.OnClickListener okButtonListener = spy(new MockOnClickOkListener());
         mButtonOk.setOnClickListener(okButtonListener);
 
         // set cancel button OnClick listener
         mButtonCancel.setClickable(true);
         assertTrue(mButtonCancel.isClickable());
 
-        MockOnClickCancelListener cancelButtonListener = new MockOnClickCancelListener();
+        View.OnClickListener cancelButtonListener = mock(View.OnClickListener.class);
+        doAnswer((InvocationOnMock invocation) -> {
+            mEditText.setText(null);
+            return null;
+        }).when(cancelButtonListener).onClick(any(View.class));
         mButtonCancel.setOnClickListener(cancelButtonListener);
 
         // set edit text OnLongClick listener
         mEditText.setLongClickable(true);
         assertTrue(mEditText.isLongClickable());
 
-        final MockOnLongClickListener onLongClickListener = new MockOnLongClickListener();
+        final View.OnLongClickListener onLongClickListener =
+                mock(View.OnLongClickListener.class);
         mEditText.setOnLongClickListener(onLongClickListener);
 
         // long click the edit text
-        assertFalse(onLongClickListener.isOnLongClickCalled());
-        assertNull(onLongClickListener.getView());
-
         mInstrumentation.waitForIdleSync();
-        TouchUtils.longClickView(this, mEditText);
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return onLongClickListener.isOnLongClickCalled();
-            }
-        }.run();
-        assertSame(mEditText, onLongClickListener.getView());
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mEditText);
+        verify(onLongClickListener, within(1000)).onLongClick(mEditText);
 
         // click the Cancel button
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mEditText.setText("Germany");
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mEditText.setText("Germany"));
         mInstrumentation.waitForIdleSync();
 
-        TouchUtils.clickView(this, mButtonCancel);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonCancel);
         assertEquals("", mEditText.getText().toString());
 
         // click the OK button
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mEditText.setText(ARGENTINA);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mEditText.setText(ARGENTINA));
         mInstrumentation.waitForIdleSync();
 
-        TouchUtils.clickView(this, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
         assertEquals(ARGENTINA_SYMBOL, mSymbolTextView.getText().toString());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mEditText.setText(AMERICA);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mEditText.setText(AMERICA));
         mInstrumentation.waitForIdleSync();
 
-        TouchUtils.clickView(this, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
         assertEquals(AMERICA_SYMBOL, mSymbolTextView.getText().toString());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mEditText.setText(CHINA);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mEditText.setText(CHINA));
         mInstrumentation.waitForIdleSync();
 
-        TouchUtils.clickView(this, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
         assertEquals(CHINA_SYMBOL, mSymbolTextView.getText().toString());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mEditText.setText("Unknown");
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mEditText.setText("Unknown"));
         mInstrumentation.waitForIdleSync();
 
-        TouchUtils.clickView(this, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
         assertEquals(View.VISIBLE, mWarningTextView.getVisibility());
     }
 
     @UiThreadTest
-    public void testSetVisibility() throws Throwable {
+    @Test
+    public void testSetVisibility() {
         mActivity.setContentView(R.layout.view_visibility_layout);
 
         View v1 = mActivity.findViewById(R.id.textview1);
@@ -445,21 +450,7 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         assertEquals(View.INVISIBLE, v3.getVisibility());
     }
 
-    private static class MockOnFocusChangeListener implements OnFocusChangeListener {
-        private boolean mHasFocus;
-
-        public void onFocusChange(View v, boolean hasFocus) {
-            mHasFocus = hasFocus;
-        }
-
-        public boolean hasFocus() {
-            return mHasFocus;
-        }
-    }
-
-    private class MockOnClickOkListener implements OnClickListener {
-        private boolean mHasOnClickCalled = false;
-
+    protected class MockOnClickOkListener implements OnClickListener {
         private boolean showPicture(String country) {
             if (ARGENTINA.equals(country)) {
                 mSymbolTextView.setText(ARGENTINA_SYMBOL);
@@ -476,59 +467,12 @@ public class View_UsingViewsTest extends ActivityInstrumentationTestCase2<UsingV
         }
 
         public void onClick(View v) {
-            mHasOnClickCalled = true;
-
             String country = mEditText.getText().toString();
             if (!showPicture(country)) {
                 mWarningTextView.setVisibility(View.VISIBLE);
             } else if (View.VISIBLE == mWarningTextView.getVisibility()) {
                 mWarningTextView.setVisibility(View.INVISIBLE);
             }
-        }
-
-        public boolean hasOnClickCalled() {
-            return mHasOnClickCalled;
-        }
-
-        public void reset() {
-            mHasOnClickCalled = false;
-        }
-    }
-
-    private class MockOnClickCancelListener implements OnClickListener {
-        private boolean mHasOnClickCalled = false;
-
-        public void onClick(View v) {
-            mHasOnClickCalled = true;
-
-            mEditText.setText(null);
-        }
-
-        public boolean hasOnClickCalled() {
-            return mHasOnClickCalled;
-        }
-
-        public void reset() {
-            mHasOnClickCalled = false;
-        }
-    }
-
-    private static class MockOnLongClickListener implements OnLongClickListener {
-        private boolean mIsOnLongClickCalled;
-        private View mView;
-
-        public boolean onLongClick(View v) {
-            mIsOnLongClickCalled = true;
-            mView = v;
-            return true;
-        }
-
-        public boolean isOnLongClickCalled() {
-            return mIsOnLongClickCalled;
-        }
-
-        public View getView() {
-            return mView;
         }
     }
 }

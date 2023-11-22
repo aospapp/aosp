@@ -15,6 +15,7 @@
  */
 package com.android.server.connectivity;
 
+import android.annotation.WorkerThread;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -25,8 +26,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.net.ProxyInfo;
+import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -39,10 +42,10 @@ import com.android.internal.annotations.GuardedBy;
 import com.android.net.IProxyCallback;
 import com.android.net.IProxyPortListener;
 import com.android.net.IProxyService;
-import com.android.server.IoThread;
 
 import libcore.io.Streams;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -66,12 +69,13 @@ public class PacManager {
     private static final int DELAY_1 = 0;
     private static final int DELAY_4 = 3;
     private static final int DELAY_LONG = 4;
+    private static final long MAX_PAC_SIZE = 20 * 1000 * 1000;
 
     /** Keep these values up-to-date with ProxyService.java */
     public static final String KEY_PROXY = "keyProxy";
     private String mCurrentPac;
     @GuardedBy("mProxyLock")
-    private Uri mPacUrl = Uri.EMPTY;
+    private volatile Uri mPacUrl = Uri.EMPTY;
 
     private AlarmManager mAlarmManager;
     @GuardedBy("mProxyLock")
@@ -84,29 +88,37 @@ public class PacManager {
     private int mCurrentDelay;
     private int mLastPort;
 
-    private boolean mHasSentBroadcast;
-    private boolean mHasDownloaded;
+    private volatile boolean mHasSentBroadcast;
+    private volatile boolean mHasDownloaded;
 
     private Handler mConnectivityHandler;
     private int mProxyMessage;
 
     /**
-     * Used for locking when setting mProxyService and all references to mPacUrl or mCurrentPac.
+     * Used for locking when setting mProxyService and all references to mCurrentPac.
      */
     private final Object mProxyLock = new Object();
 
+    /**
+     * Runnable to download PAC script.
+     * The behavior relies on the assamption it always run on mNetThread to guarantee that the
+     * latest data fetched from mPacUrl is stored in mProxyService.
+     */
     private Runnable mPacDownloader = new Runnable() {
         @Override
+        @WorkerThread
         public void run() {
             String file;
-            synchronized (mProxyLock) {
-                if (Uri.EMPTY.equals(mPacUrl)) return;
-                try {
-                    file = get(mPacUrl);
-                } catch (IOException ioe) {
-                    file = null;
-                    Log.w(TAG, "Failed to load PAC file: " + ioe);
-                }
+            final Uri pacUrl = mPacUrl;
+            if (Uri.EMPTY.equals(pacUrl)) return;
+            final int oldTag = TrafficStats.getAndSetThreadStatsTag(TrafficStats.TAG_SYSTEM_PAC);
+            try {
+                file = get(pacUrl);
+            } catch (IOException ioe) {
+                file = null;
+                Log.w(TAG, "Failed to load PAC file: " + ioe);
+            } finally {
+                TrafficStats.setThreadStatsTag(oldTag);
             }
             if (file != null) {
                 synchronized (mProxyLock) {
@@ -123,15 +135,21 @@ public class PacManager {
         }
     };
 
+    private final HandlerThread mNetThread = new HandlerThread("android.pacmanager",
+            android.os.Process.THREAD_PRIORITY_DEFAULT);
+    private final Handler mNetThreadHandler;
+
     class PacRefreshIntentReceiver extends BroadcastReceiver {
         public void onReceive(Context context, Intent intent) {
-            IoThread.getHandler().post(mPacDownloader);
+            mNetThreadHandler.post(mPacDownloader);
         }
     }
 
     public PacManager(Context context, Handler handler, int proxyMessage) {
         mContext = context;
         mLastPort = -1;
+        mNetThread.start();
+        mNetThreadHandler = new Handler(mNetThread.getLooper());
 
         mPacRefreshIntent = PendingIntent.getBroadcast(
                 context, 0, new Intent(ACTION_PAC_REFRESH), 0);
@@ -163,9 +181,7 @@ public class PacManager {
                 // Allow to send broadcast, nothing to do.
                 return false;
             }
-            synchronized (mProxyLock) {
-                mPacUrl = proxy.getPacFileUrl();
-            }
+            mPacUrl = proxy.getPacFileUrl();
             mCurrentDelay = DELAY_1;
             mHasSentBroadcast = false;
             mHasDownloaded = false;
@@ -199,7 +215,25 @@ public class PacManager {
     private static String get(Uri pacUri) throws IOException {
         URL url = new URL(pacUri.toString());
         URLConnection urlConnection = url.openConnection(java.net.Proxy.NO_PROXY);
-        return new String(Streams.readFully(urlConnection.getInputStream()));
+        long contentLength = -1;
+        try {
+            contentLength = Long.parseLong(urlConnection.getHeaderField("Content-Length"));
+        } catch (NumberFormatException e) {
+            // Ignore
+        }
+        if (contentLength > MAX_PAC_SIZE) {
+            throw new IOException("PAC too big: " + contentLength + " bytes");
+        }
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int count;
+        while ((count = urlConnection.getInputStream().read(buffer)) != -1) {
+            bytes.write(buffer, 0, count);
+            if (bytes.size() > MAX_PAC_SIZE) {
+                throw new IOException("PAC too big");
+            }
+        }
+        return bytes.toString();
     }
 
     private int getNextDelay(int currentDelay) {
@@ -267,7 +301,7 @@ public class PacManager {
         intent.setClassName(PAC_PACKAGE, PAC_SERVICE);
         if ((mProxyConnection != null) && (mConnection != null)) {
             // Already bound no need to bind again, just download the new file.
-            IoThread.getHandler().post(mPacDownloader);
+            mNetThreadHandler.post(mPacDownloader);
             return;
         }
         mConnection = new ServiceConnection() {
@@ -297,7 +331,7 @@ public class PacManager {
                         } catch (RemoteException e) {
                             Log.e(TAG, "Unable to reach ProxyService - PAC will not be started", e);
                         }
-                        IoThread.getHandler().post(mPacDownloader);
+                        mNetThreadHandler.post(mPacDownloader);
                     }
                 }
             }

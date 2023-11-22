@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS JDWP test cases">
+    <option name="config-descriptor:metadata" key="component" value="art" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/ctsjdwp/java.io.tmpdir" />
         <option name="run-command" value="mkdir -p /data/local/tmp/ctsjdwp/user.home" />
@@ -30,12 +31,13 @@
         <option name="classpath" value="/data/local/tmp/ctsjdwp/CtsJdwpTestCases.jar" />
         <option name="dalvik-arg" value="-Xcompiler-option" />
         <option name="dalvik-arg" value="--debuggable" />
+        <option name="dalvik-arg" value="-Xusejit:true" />
         <option name="dalvik-arg" value="-Djpda.settings.verbose=false" />
         <option name="dalvik-arg" value="-Djpda.settings.timeout=10000" />
         <option name="dalvik-arg" value="-Djpda.settings.waitingTime=10000" />
-        <option name="dalvik-arg" value="-Djpda.settings.debuggeeJavaPath='dalvikvm|#ABI#| -XXlib:libart.so -Xcompiler-option --debuggable'" />
+        <option name="dalvik-arg" value="-Djpda.settings.debuggeeJavaPath='dalvikvm|#ABI#| -XXlib:libart.so -Xcompiler-option --debuggable -Xusejit:true'" />
         <option name="known-failures" value="/expectations/jdwp-known-failures.txt" />
-        <option name="runtime-hint" value="5m" />
+        <option name="runtime-hint" value="16m" />
 
     </test>
 </configuration>

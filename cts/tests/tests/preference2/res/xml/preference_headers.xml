@@ -13,17 +13,24 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<preference-headers
-        xmlns:android="http://schemas.android.com/apk/res/android">
-        
-    <header android:fragment="android.preference2.cts.PreferenceWithHeaders$PrefsOneFragment"
-            android:icon="@drawable/ic_settings_applications"
-            android:title="Prefs 1"
-            android:summary="An example of some preferences." />
+<preference-headers xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <header android:icon="@drawable/ic_settings_display"
-            android:title="Intent"
-            android:summary="Launches an Intent.">
+    <header
+        android:fragment="android.preference2.cts.PreferenceWithHeaders$PrefsOneFragment"
+        android:icon="@drawable/ic_settings_applications"
+        android:title="Prefs 1"
+        android:summary="An example of some preferences." />
+
+    <header
+        android:fragment="android.preference2.cts.PreferenceWithHeaders$PrefsTwoFragment"
+        android:icon="@drawable/ic_settings_applications"
+        android:title="Prefs 2"
+        android:summary="An example of some preferences." />
+
+    <header
+        android:icon="@drawable/ic_settings_display"
+        android:title="Intent"
+        android:summary="Launches an Intent.">
         <intent android:action="android.intent.action.VIEW"
                 android:data="http://www.android.com" />
     </header>

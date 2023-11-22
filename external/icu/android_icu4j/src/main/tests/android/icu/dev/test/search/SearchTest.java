@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2000-2015, International Business Machines Corporation and    *
@@ -25,6 +27,9 @@ import static android.icu.text.SearchIterator.ElementComparisonType.STANDARD_ELE
 import java.text.StringCharacterIterator;
 import java.util.Locale;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.BreakIterator;
 import android.icu.text.Collator;
@@ -33,10 +38,7 @@ import android.icu.text.SearchIterator;
 import android.icu.text.SearchIterator.ElementComparisonType;
 import android.icu.text.StringSearch;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class SearchTest extends TestFmwk {
 
     //inner class
@@ -535,7 +537,8 @@ public class SearchTest extends TestFmwk {
 
     }
 
-    protected void init()throws Exception{
+    @Before
+    public void init() throws Exception {
         m_en_us_ = (RuleBasedCollator)Collator.getInstance(Locale.US);
         m_fr_fr_ = (RuleBasedCollator)Collator.getInstance(Locale.FRANCE);
         m_de_ = (RuleBasedCollator)Collator.getInstance(new Locale("de", "DE"));
@@ -547,10 +550,6 @@ public class SearchTest extends TestFmwk {
         rules = m_es_.getRules() + EXTRACOLLATIONRULE;
         m_es_ = new RuleBasedCollator(rules);
 
-    }
-    public static void main(String[] args) throws Exception {
-        new SearchTest().run(args);
-        // new SearchTest().TestContraction();
     }
 
     RuleBasedCollator getCollator(String collator) {
@@ -742,6 +741,7 @@ public class SearchTest extends TestFmwk {
         return true;
     }
 
+    @Test
     public void TestConstructor()
     {
         String pattern = "pattern";
@@ -788,6 +788,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBasic() {
         for (int count = 0; count < BASIC.length; count++) {
             if (!assertEqual(BASIC[count])) {
@@ -796,6 +797,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBreakIterator() {
 
         String text = BREAKITERATOREXACT[0].text;
@@ -866,6 +868,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBreakIteratorCanonical() {
         int        count  = 0;
         while (count < 4) {
@@ -919,6 +922,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCanonical() {
         for (int count = 0; count < BASICCANONICAL.length; count++) {
             if (!assertCanonicalEqual(BASICCANONICAL[count])) {
@@ -927,6 +931,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCollator() {
         // test collator that thinks "o" and "p" are the same thing
         String text = COLLATOR[0].text;
@@ -969,6 +974,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCollatorCanonical() {
         /* test collator that thinks "o" and "p" are the same thing */
         String text = COLLATORCANONICAL[0].text;
@@ -1015,6 +1021,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCompositeBoundaries() {
         for (int count = 0; count < COMPOSITEBOUNDARIES.length; count++) {
             // logln("composite " + count);
@@ -1024,6 +1031,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCompositeBoundariesCanonical() {
         for (int count = 0; count < COMPOSITEBOUNDARIESCANONICAL.length; count++) {
             // logln("composite " + count);
@@ -1033,6 +1041,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestContraction() {
         String rules = CONTRACTIONRULE;
         RuleBasedCollator collator = null;
@@ -1063,6 +1072,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestContractionCanonical() {
         String rules = CONTRACTIONRULE;
         RuleBasedCollator collator = null;
@@ -1094,6 +1104,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestGetMatch() {
         SearchData search = MATCH[0];
         String text = search.text;
@@ -1139,6 +1150,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestGetSetAttribute() {
         String  pattern = "pattern";
         String  text = "text";
@@ -1180,6 +1192,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestGetSetOffset() {
         String  pattern = "1234567890123456";
         String  text  = "12345678901234567890123456789012";
@@ -1253,6 +1266,7 @@ public class SearchTest extends TestFmwk {
         strsrch.getCollator().setStrength(TERTIARY);
     }
 
+    @Test
     public void TestGetSetOffsetCanonical() {
 
         String  text = "text";
@@ -1323,6 +1337,7 @@ public class SearchTest extends TestFmwk {
         strsrch.getCollator().setDecomposition(Collator.NO_DECOMPOSITION);
     }
 
+    @Test
     public void TestIgnorable() {
         String rules = IGNORABLERULE;
         int        count  = 0;
@@ -1356,6 +1371,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestInitialization() {
         String  pattern;
         String  text;
@@ -1386,6 +1402,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestNormCanonical() {
         m_en_us_.setDecomposition(Collator.CANONICAL_DECOMPOSITION);
         for (int count = 0; count < NORMCANONICAL.length; count++) {
@@ -1396,6 +1413,7 @@ public class SearchTest extends TestFmwk {
         m_en_us_.setDecomposition(Collator.NO_DECOMPOSITION);
     }
 
+    @Test
     public void TestNormExact() {
         int count;
 
@@ -1418,6 +1436,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestOpenClose() {
         StringSearch            result;
         BreakIterator           breakiter = m_en_wordbreaker_;
@@ -1529,6 +1548,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestOverlap() {
         int count;
 
@@ -1578,6 +1598,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestOverlapCanonical() {
         int count;
 
@@ -1619,6 +1640,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestPattern() {
         m_en_us_.setStrength(PATTERN[0].strength);
         StringSearch strsrch = new StringSearch(PATTERN[0].pattern, new StringCharacterIterator(PATTERN[0].text), m_en_us_, null);
@@ -1688,6 +1710,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestPatternCanonical() {
         //StringCharacterIterator text = new StringCharacterIterator(PATTERNCANONICAL[0].text);
         m_en_us_.setStrength(PATTERNCANONICAL[0].strength);
@@ -1737,6 +1760,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestReset() {
         StringCharacterIterator text = new StringCharacterIterator("fish fish");
         String pattern = "s";
@@ -1758,6 +1782,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSetMatch() {
         for (int count = 0; count < MATCH.length; count++) {
             SearchData     search = MATCH[count];
@@ -1800,6 +1825,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestStrength() {
         for (int count = 0; count < STRENGTH.length; count++) {
             if (!assertEqual(STRENGTH[count])) {
@@ -1808,6 +1834,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestStrengthCanonical() {
         for (int count = 0; count < STRENGTHCANONICAL.length; count++) {
             if (!assertCanonicalEqual(STRENGTHCANONICAL[count])) {
@@ -1816,6 +1843,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSupplementary() {
         for (int count = 0; count < SUPPLEMENTARY.length; count++) {
             if (!assertEqual(SUPPLEMENTARY[count])) {
@@ -1824,6 +1852,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSupplementaryCanonical() {
         for (int count = 0; count < SUPPLEMENTARYCANONICAL.length; count++) {
             if (!assertCanonicalEqual(SUPPLEMENTARYCANONICAL[count])) {
@@ -1832,6 +1861,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestText() {
         SearchData TEXT[] = {
             SD("the foxy brown fox", "fox", null, TERTIARY, STANDARD_ELEMENT_COMPARISON, null, IA(4, 15, -1), IA(3, 3)),
@@ -1861,6 +1891,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestTextCanonical() {
         StringCharacterIterator t = new StringCharacterIterator(TEXTCANONICAL[0].text);
         StringSearch strsrch = new StringSearch(TEXTCANONICAL[0].pattern, t, m_en_us_, null);
@@ -1902,6 +1933,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestVariable() {
         m_en_us_.setAlternateHandlingShifted(true);
         for (int count = 0; count < VARIABLE.length; count++) {
@@ -1913,6 +1945,7 @@ public class SearchTest extends TestFmwk {
         m_en_us_.setAlternateHandlingShifted(false);
     }
 
+    @Test
     public void TestVariableCanonical() {
         m_en_us_.setAlternateHandlingShifted(true);
         for (int count = 0; count < VARIABLE.length; count++) {
@@ -1924,6 +1957,7 @@ public class SearchTest extends TestFmwk {
         m_en_us_.setAlternateHandlingShifted(false);
     }
 
+    @Test
     public void TestSubClass()
     {
         class TestSearch extends SearchIterator
@@ -2006,6 +2040,7 @@ public class SearchTest extends TestFmwk {
     }
     
     //Test for ticket 5024
+    @Test
     public void TestDiactricMatch() {
         String pattern = "pattern";
         String text = "text";
@@ -2032,6 +2067,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestUsingSearchCollator() {
         String scKoText =
             " " +
@@ -2178,6 +2214,7 @@ public class SearchTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestIndicPrefixMatch() {
         for (int count = 0; count < INDICPREFIXMATCH.length; count++) {
             if (!assertEqual(INDICPREFIXMATCH[count])) {

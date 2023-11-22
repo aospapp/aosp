@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Notfallbenachrichtigung"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Cell Broadcast"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Einstellungen für Notfallbenachrichtigungen"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Broadcast-Nachrichten"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Benachrichtigungen aktivieren"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Notfallbenachrichtigungen anzeigen"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Benachrichtigungserinnerung"</string>
@@ -58,7 +59,7 @@
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Warnungen zu extremen Gefahren für Leben und Eigentum anzeigen"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Schwerwiegende Gefahren anzeigen"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Warnungen zu schwerwiegenden Gefahren für Leben und Eigentum anzeigen"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Amber Alerts anzeigen"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"AMBER Alerts anzeigen"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Notfall-Bulletins zu Kindesentführung anzeigen (Amber Alert)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"CMAS-Testnachrichten anzeigen"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"Testnachrichten für Commercial Mobile Alert System anzeigen"</string>
@@ -67,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Einstellungen für Brasilien"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"Kanal 50-Benachrichtigungen anzeigen"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"Kanal 50 wird in Brasilien für aktuelle Gebietsinformationen verwendet."</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Entwickler"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"Entwickleroptionen"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Warnungskategorie:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geophysik"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorologie"</string>

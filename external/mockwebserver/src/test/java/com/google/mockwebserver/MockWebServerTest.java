@@ -32,7 +32,13 @@ import junit.framework.TestCase;
 
 public final class MockWebServerTest extends TestCase {
 
-    private MockWebServer server = new MockWebServer();
+    private MockWebServer server;
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        server = new MockWebServer();
+    }
 
     @Override protected void tearDown() throws Exception {
         server.shutdown();

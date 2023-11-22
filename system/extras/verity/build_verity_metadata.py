@@ -1,10 +1,26 @@
 #! /usr/bin/env python
+#
+# Copyright (C) 2013 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+import argparse
 import os
 import sys
 import struct
+import shlex
+import subprocess
 import tempfile
-import commands
 
 VERSION = 0
 MAGIC_NUMBER = 0xb001b001
@@ -12,9 +28,10 @@ BLOCK_SIZE = 4096
 METADATA_SIZE = BLOCK_SIZE * 8
 
 def run(cmd):
-    status, output = commands.getstatusoutput(cmd)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    output, _ = p.communicate()
     print output
-    if status:
+    if p.returncode:
         exit(-1)
 
 def get_verity_metadata_size(data_size):
@@ -27,12 +44,16 @@ def build_metadata_block(verity_table, signature):
     block = block.ljust(METADATA_SIZE, '\x00')
     return block
 
-def sign_verity_table(table, signer_path, key_path):
+def sign_verity_table(table, signer_path, key_path, signer_args=None):
     with tempfile.NamedTemporaryFile(suffix='.table') as table_file:
         with tempfile.NamedTemporaryFile(suffix='.sig') as signature_file:
             table_file.write(table)
             table_file.flush()
-            cmd = " ".join((signer_path, table_file.name, key_path, signature_file.name))
+            if signer_args is None:
+              cmd = [signer_path, table_file.name, key_path, signature_file.name]
+            else:
+              args_list = shlex.split(signer_args)
+              cmd = [signer_path] + args_list + [table_file.name, key_path, signature_file.name]
             print cmd
             run(cmd)
             return signature_file.read()
@@ -49,12 +70,12 @@ def build_verity_table(block_device, data_blocks, root_hash, salt):
                 salt)
     return table
 
-def build_verity_metadata(data_blocks, metadata_image, root_hash,
-                            salt, block_device, signer_path, signing_key):
+def build_verity_metadata(data_blocks, metadata_image, root_hash, salt,
+        block_device, signer_path, signing_key, signer_args=None):
     # build the verity table
     verity_table = build_verity_table(block_device, data_blocks, root_hash, salt)
     # build the verity table signature
-    signature = sign_verity_table(verity_table, signer_path, signing_key)
+    signature = sign_verity_table(verity_table, signer_path, signing_key, signer_args)
     # build the metadata block
     metadata_block = build_metadata_block(verity_table, signature)
     # write it to the outfile
@@ -62,17 +83,30 @@ def build_verity_metadata(data_blocks, metadata_image, root_hash,
         f.write(metadata_block)
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == "-s":
-        print get_verity_metadata_size(int(sys.argv[2]))
-    elif len(sys.argv) == 8:
-        data_image_blocks = int(sys.argv[1]) / 4096
-        metadata_image = sys.argv[2]
-        root_hash = sys.argv[3]
-        salt = sys.argv[4]
-        block_device = sys.argv[5]
-        signer_path = sys.argv[6]
-        signing_key = sys.argv[7]
-        build_verity_metadata(data_image_blocks, metadata_image, root_hash,
-                                salt, block_device, signer_path, signing_key)
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    parser_size = subparsers.add_parser('size')
+    parser_size.add_argument('partition_size', type=int, action='store', help='partition size')
+    parser_size.set_defaults(dest='size')
+
+    parser_build = subparsers.add_parser('build')
+    parser_build.add_argument('blocks', type=int, help='data image blocks')
+    parser_build.add_argument('metadata_image', action='store', help='metadata image')
+    parser_build.add_argument('root_hash', action='store', help='root hash')
+    parser_build.add_argument('salt', action='store', help='salt')
+    parser_build.add_argument('block_device', action='store', help='block device')
+    parser_build.add_argument('signer_path', action='store', help='verity signer path')
+    parser_build.add_argument('signing_key', action='store', help='verity signing key')
+    parser_build.add_argument('--signer_args', action='store', help='verity signer args')
+    parser_build.set_defaults(dest='build')
+
+    args = parser.parse_args()
+
+    if args.dest == 'size':
+        print get_verity_metadata_size(args.partition_size)
     else:
-        exit(-1)
+        build_verity_metadata(args.blocks / 4096, args.metadata_image,
+                              args.root_hash, args.salt, args.block_device,
+                              args.signer_path, args.signing_key,
+                              args.signer_args)

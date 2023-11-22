@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2005-2015, International Business Machines Corporation and
@@ -18,25 +20,20 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.text.IDNA;
 import android.icu.text.StringPrepParseException;
 import android.icu.text.UTF16;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @author limaoyu
  * 
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class IDNAConformanceTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new IDNAConformanceTest().run(args);
-    }
-
+    @Test
     public void TestConformance() {
 
         TreeMap inputData = null;

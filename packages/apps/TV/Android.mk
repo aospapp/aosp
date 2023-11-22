@@ -15,13 +15,16 @@
 #
 
 LOCAL_PATH:= $(call my-dir)
+
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := optional
 
 include $(LOCAL_PATH)/version.mk
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := \
+    $(call all-java-files-under, src) \
+    $(call all-proto-files-under, proto)
 
 LOCAL_PACKAGE_NAME := LiveTv
 
@@ -32,9 +35,18 @@ LOCAL_SDK_VERSION := system_current
 LOCAL_MIN_SDK_VERSION := 23  # M
 LOCAL_RESOURCE_DIR := \
     $(LOCAL_PATH)/res \
-    $(LOCAL_PATH)/common/res \
+    $(LOCAL_PATH)/usbtuner-res \
+    $(LOCAL_PATH)/common/res
+
+ifdef TARGET_BUILD_APPS
+LOCAL_RESOURCE_DIR += \
+    $(TOP)/prebuilts/sdk/current/support/v17/leanback/res \
+    $(TOP)/prebuilts/sdk/current/support/v7/recyclerview/res
+else # !TARGET_BUILD_APPS
+LOCAL_RESOURCE_DIR += \
     $(TOP)/frameworks/support/v17/leanback/res \
-    $(TOP)/frameworks/support/v7/recyclerview/res \
+    $(TOP)/frameworks/support/v7/recyclerview/res
+endif
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-annotations \
@@ -42,10 +54,14 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-v7-palette \
     android-support-v7-recyclerview \
     android-support-v17-leanback \
+    icu4j-usbtuner \
+    lib-exoplayer \
     tv-common \
+    legacy-android-test \
+    junit
+
 
 LOCAL_JAVACFLAGS := -Xlint:deprecation -Xlint:unchecked
-
 
 LOCAL_AAPT_FLAGS := --auto-add-overlay \
     --extra-packages android.support.v7.recyclerview \
@@ -57,11 +73,42 @@ LOCAL_AAPT_FLAGS := --auto-add-overlay \
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 
-LOCAL_RESOURCE_DIR += $(LOCAL_PATH)/usbtuner/res
-LOCAL_STATIC_JAVA_LIBRARIES += usbtuner-tvinput
 LOCAL_JNI_SHARED_LIBRARIES := libtunertvinput_jni
-LOCAL_AAPT_FLAGS += --extra-packages com.android.usbtuner
+LOCAL_AAPT_FLAGS += --extra-packages com.android.tv.tuner
+
+LOCAL_PROTOC_OPTIMIZE_TYPE := nano
+LOCAL_PROTOC_FLAGS := --proto_path=$(LOCAL_PATH)/proto/
 
 include $(BUILD_PACKAGE)
+
+# --------------------------------------------------------------
+# Build a tiny icu4j library out of the classes necessary for the project.
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := icu4j-usbtuner
+LOCAL_MODULE_TAGS := optional
+icu4j_path := icu/icu4j
+LOCAL_SRC_FILES := \
+    $(icu4j_path)/main/classes/core/src/com/ibm/icu/text/SCSU.java \
+    $(icu4j_path)/main/classes/core/src/com/ibm/icu/text/UnicodeDecompressor.java
+LOCAL_SDK_VERSION := system_current
+
+include $(BUILD_STATIC_JAVA_LIBRARY)
+
+#############################################################
+# Pre-built dependency jars
+#############################################################
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
+    lib-exoplayer:libs/exoplayer.jar \
+
+
+include $(BUILD_MULTI_PREBUILT)
+
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

@@ -31,10 +31,12 @@ import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 /**
- * This debugger is invoked by debuggee on demand. Debugger establishes synch connection with debuggee and with Test.
- * Debugger only performs <code>VirtualMachine::Version</code> command, sends message (OK or FAIL) to debugged, then releases debuggee.
+ * This debugger is invoked by debuggee on demand. Debugger establishes synch
+ * connection with debuggee and with Test.
+ * Debugger only performs <code>VirtualMachine::Version</code> command, sends
+ * message (OK or FAIL) to debugged, then releases debuggee.
  *
- * @see org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthowDebuggerLaunchDebuggee
+ * @see org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowDebuggerLaunchDebuggee
  */
 public class OnthrowLaunchDebugger001 extends LaunchedDebugger {
 

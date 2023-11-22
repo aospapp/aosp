@@ -31,7 +31,7 @@ class ArgumentParser(argparse.ArgumentParser):
         super(ArgumentParser, self).__init__()
         self.add_argument(
             "--adb", dest="adb_path",
-            help="Use specific adb command")
+            help="use specific adb command")
 
         group = self.add_argument_group(title="device selection")
         group = group.add_mutually_exclusive_group()
@@ -100,22 +100,29 @@ def get_processes(device):
     # Perform the check for this on the device to avoid an adb roundtrip
     # Some devices might not have readlink or which, so we need to handle
     # this as well.
+    #
+    # Gracefully handle [ or readlink being missing by always using `ps` if
+    # readlink is missing. (API 18 has [, but not readlink).
 
     ps_script = """
-        if [ ! -x /system/bin/readlink -o ! -x /system/bin/which ]; then
+        if $(ls /system/bin/readlink >/dev/null 2>&1); then
+          if [ $(readlink /system/bin/ps) == "toolbox" ]; then
             ps;
-        elif [ $(readlink $(which ps)) == "toolbox" ]; then
-            ps;
-        else
+          else
             ps -w;
+          fi
+        else
+          ps;
         fi
     """
     ps_script = " ".join([line.strip() for line in ps_script.splitlines()])
 
     output, _ = device.shell([ps_script])
+    return parse_ps_output(output)
 
+def parse_ps_output(output):
     processes = dict()
-    output = output.replace("\r", "").splitlines()
+    output = adb.split_lines(output.replace("\r", ""))
     columns = output.pop(0).split()
     try:
         pid_column = columns.index("PID")
@@ -176,13 +183,12 @@ def start_gdbserver(device, gdbserver_local_path, gdbserver_remote_path,
     atexit.register(lambda: device.forward_remove("tcp:{}".format(port)))
     gdbserver_cmd = get_run_as_cmd(user, gdbserver_cmd)
 
-    # Use ppid so that the file path stays the same.
-    gdbclient_output_path = os.path.join(tempfile.gettempdir(),
-                                         "gdbclient-{}".format(os.getppid()))
-    print "Redirecting gdbclient output to {}".format(gdbclient_output_path)
-    gdbclient_output = file(gdbclient_output_path, 'w')
-    return device.shell_popen(gdbserver_cmd, stdout=gdbclient_output,
-                              stderr=gdbclient_output)
+    gdbserver_output_path = os.path.join(tempfile.gettempdir(),
+                                         "gdbclient.log")
+    print("Redirecting gdbserver output to {}".format(gdbserver_output_path))
+    gdbserver_output = file(gdbserver_output_path, 'w')
+    return device.shell_popen(gdbserver_cmd, stdout=gdbserver_output,
+                              stderr=gdbserver_output)
 
 
 def find_file(device, executable_path, sysroot, user=None):
@@ -291,14 +297,22 @@ def start_gdb(gdb_path, gdb_commands, gdb_flags=None):
         gdb_flags: List of flags to append to gdb command.
     """
 
-    with tempfile.NamedTemporaryFile() as gdb_script:
-        gdb_script.write(gdb_commands)
-        gdb_script.flush()
-        gdb_args = [gdb_path, "-x", gdb_script.name] + (gdb_flags or [])
-        gdb_process = subprocess.Popen(gdb_args)
-        while gdb_process.returncode is None:
-            try:
-                gdb_process.communicate()
-            except KeyboardInterrupt:
-                pass
+    # Windows disallows opening the file while it's open for writing.
+    gdb_script_fd, gdb_script_path = tempfile.mkstemp()
+    os.write(gdb_script_fd, gdb_commands)
+    os.close(gdb_script_fd)
+    gdb_args = [gdb_path, "-x", gdb_script_path] + (gdb_flags or [])
+
+    kwargs = {}
+    if sys.platform.startswith("win"):
+        kwargs["creationflags"] = subprocess.CREATE_NEW_CONSOLE
+
+    gdb_process = subprocess.Popen(gdb_args, **kwargs)
+    while gdb_process.returncode is None:
+        try:
+            gdb_process.communicate()
+        except KeyboardInterrupt:
+            pass
+
+    os.unlink(gdb_script_path)
 

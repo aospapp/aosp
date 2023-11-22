@@ -165,7 +165,7 @@
    <string name="themes_prompt">Select a Theme:</string>
    <string name="sample_text">Sample text goes here. I wanted something creative and whimsical
 but then I just got bored...</string>
-    <string name="long_text">This is a really long string which exceeds the width of the view.
+   <string name="long_text">This is a really long string which exceeds the width of the view.
 New devices have a much larger screen which actually enables long strings to be displayed
 with no fading. I have made this string longer to fix this case. If you are correcting this
 text, I would love to see the kind of devices you guys now use! Guys, maybe some devices need longer string!
@@ -176,4 +176,8 @@ with no fading. I have made this string longer to fix this case. If you are corr
 text, I would love to see the kind of devices you guys now use! Guys, maybe some devices need longer string!
 I think so, so how about double this string, like copy and paste! </string>
     <string name="rectangle200">"M 0,0 l 200,0 l 0, 200 l -200, 0 z"</string>
+    <plurals name="list_ellipsize_test">
+        <item quantity="one">one more</item>
+        <item quantity="other"><xliff:g id="number">%d</xliff:g> more</item>
+    </plurals>
 </resources>

@@ -35,11 +35,7 @@
 # define COMPILER_RT_ABI __attribute__((pcs("aapcs")))
 #else
 # define ARM_EABI_FNALIAS(aeabi_name, name)
-# if defined(__arm__) && defined(_WIN32) && (!defined(_MSC_VER) || defined(__clang__))
-#   define COMPILER_RT_ABI __attribute__((pcs("aapcs")))
-# else
-#   define COMPILER_RT_ABI
-# endif
+# define COMPILER_RT_ABI
 #endif
 
 #ifdef _MSC_VER
@@ -128,6 +124,6 @@ uint32_t __inline __builtin_clzll(uint64_t value) {
 #endif
 
 #define __builtin_clzl __builtin_clzll
-#endif // defined(_MSC_VER) && !defined(__clang__)
+#endif /* defined(_MSC_VER) && !defined(__clang__) */
 
 #endif /* INT_LIB_H */

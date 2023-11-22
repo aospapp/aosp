@@ -60,6 +60,10 @@ NvIsAvailable(
     void
     )
 {
+    // Make sure that NV state is still good
+    if (s_NvStatus == TPM_RC_SUCCESS)
+	NvCheckState();
+
     return s_NvStatus;
 }
 //
@@ -654,8 +658,12 @@ NvReadPersistent(
     // Algorithm selection persistent data
     NvReadReserved(NV_ALGORITHM_SET, &gp.algorithmSet);
     // Firmware version persistent data
+#ifdef EMBEDDED_MODE
+   _plat__GetFwVersion(&gp.firmwareV1, &gp.firmwareV2);
+#else
     NvReadReserved(NV_FIRMWARE_V1, &gp.firmwareV1);
     NvReadReserved(NV_FIRMWARE_V2, &gp.firmwareV2);
+#endif
     return;
 }
 //
@@ -772,6 +780,48 @@ NvFindHandle(
     pAssert(addr == 0);
     return addr;
 }
+
+//
+//   NvCheckAndMigrateIfNeeded()
+//
+// Supported only in EMBEDDED_MODE.
+//
+// Check if the NVRAM storage format changed, and if so - reinitialize the
+// NVRAM. No content migration yet, hopefully it will come one day.
+//
+// Note that the NV_FIRMWARE_V1 and NV_FIRMWARE_V2 values not used to store
+// TPM versoion when in embedded mode are used for NVRAM format version
+// instead.
+//
+//
+static void
+NvCheckAndMigrateIfNeeded(void)
+{
+#ifdef EMBEDDED_MODE
+  UINT32 nv_vers1;
+  UINT32 nv_vers2;
+
+  NvReadReserved(NV_FIRMWARE_V1, &nv_vers1);
+  NvReadReserved(NV_FIRMWARE_V2, &nv_vers2);
+
+  if ((nv_vers1 == ~nv_vers2) && (nv_vers1 == NV_FORMAT_VERSION))
+    return; // All is well.
+
+  // This will reinitialize NVRAM to empty. Migration code will come here
+  // later.
+  NvInit();
+
+  nv_vers1 = NV_FORMAT_VERSION;
+  nv_vers2 = ~NV_FORMAT_VERSION;
+
+  NvWriteReserved(NV_FIRMWARE_V1, &nv_vers1);
+  NvWriteReserved(NV_FIRMWARE_V2, &nv_vers2);
+
+  NvCommit();
+#endif
+}
+
+
 //
 //
 //          NvPowerOn()
@@ -796,7 +846,8 @@ NvPowerOn(
     {
         if((nvError = _plat__NVEnable(0)) < 0)
             FAIL(FATAL_ERROR_NV_UNRECOVERABLE);
-          NvInitStatic();
+	NvInitStatic();
+	NvCheckAndMigrateIfNeeded();
     }
     return nvError == 0;
 }
@@ -1050,6 +1101,53 @@ NvIsUndefinedEvictHandle(
     else
         return FALSE;
 }
+
+//
+//
+//           NvUnmarshalObject()
+//
+//      This function accepts a buffer containing a marshaled OBJECT
+//      structure, a pointer to the area where the input data should be
+//      unmarshaled, and a pointer to the size of the output area.
+//
+//      No error checking is performed, unmarshaled data is guaranteed not to
+//      spill over the allocated space.
+//
+static TPM_RC NvUnmarshalObject(OBJECT *o, BYTE **buf, INT32 *size)
+{
+    TPM_RC result;
+
+    // There is no generated function to unmarshal the attributes field, do it
+    // by hand.
+    MemoryCopy(&o->attributes, *buf, sizeof(o->attributes), *size);
+    *buf += sizeof(o->attributes);
+    *size -= sizeof(o->attributes);
+
+    result = TPMT_PUBLIC_Unmarshal(&o->publicArea, buf, size);
+    if (result != TPM_RC_SUCCESS)
+        return result;
+
+    result = TPMT_SENSITIVE_Unmarshal(&o->sensitive, buf, size);
+    if (result != TPM_RC_SUCCESS)
+        return result;
+
+#ifdef TPM_ALG_RSA
+    result = TPM2B_PUBLIC_KEY_RSA_Unmarshal(&o->privateExponent, buf, size);
+    if (result != TPM_RC_SUCCESS)
+        return result;
+#endif
+
+    result = TPM2B_NAME_Unmarshal(&o->qualifiedName, buf, size);
+    if (result != TPM_RC_SUCCESS)
+        return result;
+
+    result = TPMI_DH_OBJECT_Unmarshal(&o->evictHandle, buf, size, TRUE);
+    if (result != TPM_RC_SUCCESS)
+        return result;
+
+    return TPM2B_NAME_Unmarshal(&o->name, buf, size);
+}
+
 //
 //
 //           NvGetEvictObject()
@@ -1072,13 +1170,34 @@ NvGetEvictObject(
     // Find the address of evict object
     entityAddr = NvFindHandle(handle);
     // If handle is not found, return an error
-    if(entityAddr == 0)
+    if(entityAddr == 0) {
         result = TPM_RC_HANDLE;
-    else
-        // Read evict object
-        _plat__NvMemoryRead(entityAddr + sizeof(TPM_HANDLE),
-                             sizeof(OBJECT),
-                             object);
+    } else {
+        UINT32   storedSize;
+        UINT32   nextEntryAddr;
+
+        // Let's calculate the size of object as stored in NVMEM.
+        _plat__NvMemoryRead(entityAddr - sizeof(UINT32),
+                            sizeof(UINT32), &nextEntryAddr);
+
+        storedSize = nextEntryAddr - entityAddr;
+
+        if (storedSize == (sizeof(TPM_HANDLE) + sizeof(OBJECT))) {
+            // Read evict object stored unmarshaled.
+            _plat__NvMemoryRead(entityAddr + sizeof(TPM_HANDLE),
+                                sizeof(OBJECT),
+                                object);
+        } else {
+            // Must be stored marshaled, let's unmarshal it.
+            BYTE marshaled[sizeof(OBJECT)];
+            INT32 max_size = sizeof(marshaled);
+            BYTE *marshaledPtr = marshaled;
+
+            _plat__NvMemoryRead(entityAddr + sizeof(TPM_HANDLE),
+                                storedSize, marshaled);
+            result = NvUnmarshalObject(object,  &marshaledPtr, &max_size);
+        }
+    }
     // whether there is an error or not, make sure that the evict
     // status of the object is set so that the slot will get freed on exit
     object->attributes.evict = SET;
@@ -1443,6 +1562,51 @@ NvDefineIndex(
        NvAddRAM(publicArea->nvIndex, publicArea->dataSize);
    return TPM_RC_SUCCESS;
 }
+
+//
+//
+//           NvMarshalObject()
+//
+//      This function marshals the passed in OBJECT structure into a buffer. A
+//      pointer to pointer to the buffer and a pointer to the size of the
+//      buffer are passed in for this function to update as appropriate.
+//
+//      On top of marshaling the object, this function also modifies one of
+//      the object's properties and sets the evictHandle field of the
+//      marshaled object to the requested value.
+//
+//      Returns
+//
+//      Marshaled size of the object.
+//
+static UINT16 NvMarshalObject(OBJECT *o, TPMI_DH_OBJECT evictHandle,
+                              BYTE **buf, INT32 *size)
+{
+    UINT16 marshaledSize;
+    OBJECT_ATTRIBUTES stored_attributes;
+
+    stored_attributes = o->attributes;
+    stored_attributes.evict = SET;
+    marshaledSize = sizeof(stored_attributes);
+    MemoryCopy(*buf, &stored_attributes, marshaledSize, *size);
+    *buf += marshaledSize;
+    *size -= marshaledSize;
+
+    marshaledSize += TPMT_PUBLIC_Marshal(&o->publicArea, buf, size);
+    marshaledSize += TPMT_SENSITIVE_Marshal(&o->sensitive, buf, size);
+#ifdef TPM_ALG_RSA
+    marshaledSize += TPM2B_PUBLIC_KEY_RSA_Marshal(&o->privateExponent,
+                                                  buf, size);
+#endif
+    marshaledSize += TPM2B_NAME_Marshal(&o->qualifiedName, buf, size);
+
+    // Use the supplied handle instead of the object contents.
+    marshaledSize += TPMI_DH_OBJECT_Marshal(&evictHandle, buf, size);
+    marshaledSize += TPM2B_NAME_Marshal(&o->name, buf, size);
+
+    return marshaledSize;
+}
+
 //
 //
 //           NvAddEvictObject()
@@ -1463,35 +1627,34 @@ NvAddEvictObject(
 {
     // The buffer to be written to NV memory
     BYTE            nvBuffer[sizeof(TPM_HANDLE) + sizeof(OBJECT)];
-    OBJECT              *nvObject;                // a pointer to the OBJECT data in
-                                                  // nvBuffer
     UINT16              entrySize;                // size of entry
+    BYTE                *marshalSpace;
+    INT32               marshalRoom;
+
     // evict handle type should match the object hierarchy
     pAssert(   (   NvIsPlatformPersistentHandle(evictHandle)
                 && object->attributes.ppsHierarchy == SET)
             || (   NvIsOwnerPersistentHandle(evictHandle)
                 && (   object->attributes.spsHierarchy == SET
                     || object->attributes.epsHierarchy == SET)));
-    // An evict needs 4 bytes of handle + sizeof OBJECT
-    entrySize = sizeof(TPM_HANDLE) + sizeof(OBJECT);
-    // Check if we have enough space to add the evict object
-    // An evict object needs 8 bytes in index table + sizeof OBJECT
-    // In this implementation, the only resource limitation is the available NV
-    // space. Other implementation may have other limitation on evict object
-    // handle space
-    if(!NvTestSpace(entrySize, FALSE)) return TPM_RC_NV_SPACE;
-    // Allocate a new evict handle
+
+    // Do not attemp storing a duplicate handle.
     if(!NvIsUndefinedEvictHandle(evictHandle))
         return TPM_RC_NV_DEFINED;
-    // Copy evict object to nvBuffer
+
         // Copy handle
-    memcpy(nvBuffer, &evictHandle, sizeof(TPM_HANDLE));
-        // Copy OBJECT
-    nvObject = (OBJECT *) (nvBuffer + sizeof(TPM_HANDLE));
-    *nvObject = *object;
-    // Set evict attribute and handle
-    nvObject->attributes.evict = SET;
-    nvObject->evictHandle = evictHandle;
+    entrySize = sizeof(TPM_HANDLE);
+    memcpy(nvBuffer, &evictHandle, entrySize);
+
+    // Let's serialize the object before storing it in NVMEM
+    marshalSpace = nvBuffer + entrySize;
+    marshalRoom = sizeof(nvBuffer) - entrySize;
+    entrySize += NvMarshalObject(object, evictHandle,
+                                 &marshalSpace, &marshalRoom);
+
+    // Check if we have enough space to add this evict object
+    if(!NvTestSpace(entrySize, FALSE)) return TPM_RC_NV_SPACE;
+
     // Add evict to NV memory
     NvAdd(entrySize, entrySize, nvBuffer);
     return TPM_RC_SUCCESS;

@@ -20,7 +20,7 @@ package com.android.mail.ui;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.StrictMode;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -37,7 +37,7 @@ import java.io.PrintWriter;
  * <p>In the Gmail codebase, this was called GmailBaseActivity</p>
  *
  */
-public abstract class AbstractMailActivity extends ActionBarActivity implements RestrictedActivity {
+public abstract class AbstractMailActivity extends AppCompatActivity implements RestrictedActivity {
 
     private final UiHandler mUiHandler = new UiHandler();
 

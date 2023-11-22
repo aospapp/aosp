@@ -8,20 +8,21 @@ libraries.
 The easiest way to run tests is simply run
 
 ```
-runtest frameworks-wifi
+frameworks/opt/net/wifi/tests/wifitests/runtests.sh
 ```
 
-`runtest` will build the test project and push the APK to the connected device. It will then run the
-tests on the device. See `runtest --help` for options to specify individual test classes or methods.
+`runtests.sh` will build the test project and all of its dependencies and push the APK to the
+connected device. It will then run the tests on the device.
 
-**WARNING:** You have to build the components under test (wifi-service, etc) first before you run
-runtest for changes there to take effect. You can use the following command from your build root to
-build the wifi service and run tests.
+See below for a few example of options to limit which tests are run.
+See the
+[AndroidJUnitRunner Documentation](https://developer.android.com/reference/android/support/test/runner/AndroidJUnitRunner.html)
+for more details on the supported options.
 
 ```
-mmma frameworks/opt/net/wifi/tests && runtest frameworks-wifi
+runtests.sh -e package com.android.server.wifi.util
+runtests.sh -e class com.android.server.wifi.WifiStateMachineTest
 ```
-
 
 If you manually build and push the test APK to the device you can run tests using
 
@@ -41,7 +42,7 @@ with the tag `TestRunner`.
 ## Code Coverage
 If you would like to collect code coverage information you can run the `coverage.sh` script located
 in this directory. It will rebuild parts of your tree with coverage enabled and then run the tests,
-similar to runtest. If you have multiple devices connected to your machine make sure to set the
+similar to runtests.sh. If you have multiple devices connected to your machine make sure to set the
 `ANDROID_SERIAL` environment variable before running the script. You must supply an output directory
 for results. By default the results are generated as a set of HTML pages. For example, you can use
 the following from the root out your source tree to generate results in the wifi_coverage directory

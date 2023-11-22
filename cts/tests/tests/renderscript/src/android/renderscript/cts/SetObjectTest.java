@@ -47,20 +47,35 @@ public class SetObjectTest extends RSBaseCompute {
         sampler = new Sampler.Builder(mRS).create();
         script = new ScriptC_set_object(mRS);
 
+
         ms_set = new ScriptC_set_object(mRS);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        if (mIn != null) {
+            mIn.destroy();
+        }
+        if (mOut != null) {
+            mOut.destroy();
+        }
+        allocation.destroy();
+        script.destroy();
+        ms_set.destroy();
+        super.tearDown();
     }
 
     /**
      * rsSetObject test
      */
     public void testSetObjectElement() {
-        ScriptField__set_object_element_input filed = new ScriptField__set_object_element_input(
+        ScriptField__set_object_element_input field = new ScriptField__set_object_element_input(
                 mRS, 1);
         ScriptField__set_object_element_input.Item mItem = new ScriptField__set_object_element_input.Item();
         mItem.element = element;
-        filed.set(mItem, 0, true);
+        field.set(mItem, 0, true);
 
-        mIn = filed.getAllocation();
+        mIn = field.getAllocation();
         mOut = Allocation.createSized(mRS, Element.I32(mRS), ObjectNum);
         try {
             ms_set.forEach_set_object_element(mIn, mOut);
@@ -75,12 +90,12 @@ public class SetObjectTest extends RSBaseCompute {
     }
 
     public void testSetObjectType() {
-        ScriptField__set_object_type_input filed = new ScriptField__set_object_type_input(mRS, 1);
+        ScriptField__set_object_type_input field = new ScriptField__set_object_type_input(mRS, 1);
         ScriptField__set_object_type_input.Item mItem = new ScriptField__set_object_type_input.Item();
         mItem.type = type;
-        filed.set(mItem, 0, true);
+        field.set(mItem, 0, true);
 
-        mIn = filed.getAllocation();
+        mIn = field.getAllocation();
         mOut = Allocation.createSized(mRS, Element.I32(mRS), ObjectNum);
 
         try {
@@ -97,13 +112,13 @@ public class SetObjectTest extends RSBaseCompute {
     }
 
     public void testSetObjectAllocation() {
-        ScriptField__set_object_allocation_input filed = new ScriptField__set_object_allocation_input(
+        ScriptField__set_object_allocation_input field = new ScriptField__set_object_allocation_input(
                 mRS, 1);
         ScriptField__set_object_allocation_input.Item mItem = new ScriptField__set_object_allocation_input.Item();
         mItem.allocation = allocation;
-        filed.set(mItem, 0, true);
+        field.set(mItem, 0, true);
 
-        mIn = filed.getAllocation();
+        mIn = field.getAllocation();
         mOut = Allocation.createSized(mRS, Element.I32(mRS), ObjectNum);
 
         try {
@@ -119,13 +134,13 @@ public class SetObjectTest extends RSBaseCompute {
     }
 
     public void testSetObjectSampler() {
-        ScriptField__set_object_sampler_input filed = new ScriptField__set_object_sampler_input(
+        ScriptField__set_object_sampler_input field = new ScriptField__set_object_sampler_input(
                 mRS, 1);
         ScriptField__set_object_sampler_input.Item mItem = new ScriptField__set_object_sampler_input.Item();
         mItem.sampler = sampler;
-        filed.set(mItem, 0, true);
+        field.set(mItem, 0, true);
 
-        mIn = filed.getAllocation();
+        mIn = field.getAllocation();
         mOut = Allocation.createSized(mRS, Element.I32(mRS), ObjectNum);
 
         try {
@@ -141,13 +156,13 @@ public class SetObjectTest extends RSBaseCompute {
     }
 
     public void testSetObjectScript() {
-        ScriptField__set_object_script_input filed = new ScriptField__set_object_script_input(
+        ScriptField__set_object_script_input field = new ScriptField__set_object_script_input(
                 mRS, 1);
         ScriptField__set_object_script_input.Item mItem = new ScriptField__set_object_script_input.Item();
         mItem.script = script;
-        filed.set(mItem, 0, true);
+        field.set(mItem, 0, true);
 
-        mIn = filed.getAllocation();
+        mIn = field.getAllocation();
         mOut = Allocation.createSized(mRS, Element.I32(mRS), ObjectNum);
 
         try {

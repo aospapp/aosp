@@ -74,6 +74,7 @@ typedef enum {
     GSCAN_ATTRIBUTE_RSSI_HIGH,
     GSCAN_ATTRIBUTE_HOTLIST_ELEM,
     GSCAN_ATTRIBUTE_HOTLIST_FLUSH,
+    GSCAN_ATTRIBUTE_HOTLIST_BSSID_COUNT,
 
     /* remaining reserved for additional attributes */
     GSCAN_ATTRIBUTE_RSSI_SAMPLE_SIZE = 60,
@@ -1016,6 +1017,11 @@ public:
             return result;
         }
 
+        result = request.put_u32(GSCAN_ATTRIBUTE_HOTLIST_BSSID_COUNT, mParams.num_bssid);
+        if (result < 0) {
+            return result;
+        }
+
         struct nlattr * attr = request.attr_start(GSCAN_ATTRIBUTE_HOTLIST_BSSIDS);
         for (int i = 0; i < mParams.num_bssid; i++) {
             nlattr *attr2 = request.attr_start(GSCAN_ATTRIBUTE_HOTLIST_ELEM);
@@ -1174,6 +1180,10 @@ public:
         }
     }
     int createSetupRequest(WifiRequest& request) {
+        if (epno_params.num_networks > MAX_EPNO_NETWORKS) {
+            ALOGE("wrong epno num_networks:%d", epno_params.num_networks);
+            return WIFI_ERROR_INVALID_ARGS;
+        }
         int result = request.create(GOOGLE_OUI, GSCAN_SUBCMD_SET_EPNO_SSID);
         if (result < 0) {
             return result;
@@ -1426,30 +1436,38 @@ public:
         if (result < 0) {
             return result;
         }
-
-        struct nlattr * attr = request.attr_start(GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS);
-
-        for (int i = 0; i < mParams.num_bssid; i++) {
-            nlattr *attr2 = request.attr_start(i);
-            if (attr2 == NULL) {
+        result = request.put_u16(GSCAN_ATTRIBUTE_NUM_BSSID, mParams.num_bssid);
+        if (result < 0) {
+            return result;
+        }
+        if (mParams.num_bssid != 0) {
+            nlattr* attr = request.attr_start(GSCAN_ATTRIBUTE_SIGNIFICANT_CHANGE_BSSIDS);
+            if (attr == NULL) {
                 return WIFI_ERROR_OUT_OF_MEMORY;
             }
-            result = request.put_addr(GSCAN_ATTRIBUTE_BSSID, mParams.ap[i].bssid);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u8(GSCAN_ATTRIBUTE_RSSI_HIGH, mParams.ap[i].high);
-            if (result < 0) {
-                return result;
-            }
-            result = request.put_u8(GSCAN_ATTRIBUTE_RSSI_LOW, mParams.ap[i].low);
-            if (result < 0) {
-                return result;
-            }
-            request.attr_end(attr2);
-        }
 
-        request.attr_end(attr);
+            for (int i = 0; i < mParams.num_bssid; i++) {
+                nlattr* attr2 = request.attr_start(i);
+                if (attr2 == NULL) {
+                    return WIFI_ERROR_OUT_OF_MEMORY;
+                }
+                result = request.put_addr(GSCAN_ATTRIBUTE_BSSID, mParams.ap[i].bssid);
+                if (result < 0) {
+                    return result;
+                }
+                result = request.put_u8(GSCAN_ATTRIBUTE_RSSI_HIGH, mParams.ap[i].high);
+                if (result < 0) {
+                    return result;
+                }
+                result = request.put_u8(GSCAN_ATTRIBUTE_RSSI_LOW, mParams.ap[i].low);
+                if (result < 0) {
+                    return result;
+                }
+                request.attr_end(attr2);
+            }
+
+            request.attr_end(attr);
+        }
         request.attr_end(data);
 
         return result;
@@ -1637,82 +1655,6 @@ wifi_error wifi_set_epno_list(wifi_request_id id, wifi_interface_handle iface,
     return result;
 }
 
-class BssidBlacklistCommand : public WifiCommand
-{
-private:
-    wifi_bssid_params *mParams;
-public:
-    BssidBlacklistCommand(wifi_interface_handle handle, int id,
-            wifi_bssid_params *params)
-        : WifiCommand("BssidBlacklistCommand", handle, id), mParams(params)
-    { }
-     int createRequest(WifiRequest& request) {
-        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_BSSID_BLACKLIST);
-        if (result < 0) {
-            return result;
-        }
-
-        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
-        result = request.put_u32(GSCAN_ATTRIBUTE_NUM_BSSID, mParams->num_bssid);
-        if (result < 0) {
-            return result;
-        }
-        if (!mParams->num_bssid) {
-            result = request.put_u32(GSCAN_ATTRIBUTE_BSSID_BLACKLIST_FLUSH, 1);
-            if (result < 0) {
-                return result;
-            }
-        }
-        for (int i = 0; i < mParams->num_bssid; i++) {
-            result = request.put_addr(GSCAN_ATTRIBUTE_BLACKLIST_BSSID, mParams->bssids[i]);
-            if (result < 0) {
-                return result;
-            }
-        }
-        request.attr_end(data);
-        return result;
-    }
-
-    int start() {
-        ALOGV("Executing bssid blacklist request, num = %d", mParams->num_bssid);
-        WifiRequest request(familyId(), ifaceId());
-        int result = createRequest(request);
-        if (result < 0) {
-            return result;
-        }
-
-        result = requestResponse(request);
-        if (result < 0) {
-            ALOGE("Failed to execute bssid blacklist request, result = %d", result);
-            return result;
-        }
-
-        ALOGI("Successfully added %d blacklist bssids", mParams->num_bssid);
-        if (result < 0) {
-            return result;
-        }
-        return result;
-    }
-
-
-    virtual int handleResponse(WifiEvent& reply) {
-        /* Nothing to do on response! */
-        return NL_SKIP;
-    }
-};
-
-wifi_error wifi_set_bssid_blacklist(wifi_request_id id, wifi_interface_handle iface,
-        wifi_bssid_params params)
-{
-    wifi_handle handle = getWifiHandle(iface);
-
-    BssidBlacklistCommand *cmd = new BssidBlacklistCommand(iface, id, &params);
-    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
-    wifi_error result = (wifi_error)cmd->start();
-    //release the reference of command as well
-    cmd->releaseRef();
-    return result;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -36,11 +36,16 @@ import android.print.cts.services.PrintServiceCallbacks;
 import android.print.cts.services.PrinterDiscoverySessionCallbacks;
 import android.print.cts.services.SecondPrintService;
 import android.print.cts.services.StubbablePrinterDiscoverySession;
+import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.util.Log;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -49,9 +54,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
+import static android.print.cts.Utils.eventually;
+
 /**
  * This test verifies changes to the printer capabilities are applied correctly.
  */
+@RunWith(AndroidJUnit4.class)
 public class CustomPrintOptionsTest extends BasePrintTest {
     private final static String LOG_TAG = "CustomPrintOptionsTest";
     private static final String PRINTER_NAME = "Test printer";
@@ -79,6 +87,10 @@ public class CustomPrintOptionsTest extends BasePrintTest {
             new Resolution("600x600", "600x600", 600, 600)
     };
 
+    private PrintAttributes mLayoutAttributes;
+    private PrintDocumentAdapter mAdapter;
+    private static boolean sHasDefaultPrinterSet;
+
     /**
      * Get the page ranges currently selected as described in the UI.
      *
@@ -87,7 +99,8 @@ public class CustomPrintOptionsTest extends BasePrintTest {
      * @throws Exception If something was unexpected
      */
     private PageRange[] getPages() throws Exception {
-        if (getUiDevice().hasObject(By.text("All 3"))) {
+        if (getUiDevice().hasObject(By.text(getPrintSpoolerStringOneParam("template_all_pages",
+                3)))) {
             return PAGESS[2];
         }
 
@@ -110,30 +123,8 @@ public class CustomPrintOptionsTest extends BasePrintTest {
         }
     }
 
-    /**
-     * Test that we can switch to a specific set of settings via the custom print options activity
-     *
-     * @param copyFromOriginal If the print job info should be copied from the original
-     * @param numCopies        The copies to print
-     * @param pages            The page ranges to print
-     * @param mediaSize        The media size to use
-     * @param isPortrait       If the mediaSize is portrait
-     * @param colorMode        The color mode to use
-     * @param duplexMode       The duplex mode to use
-     * @param resolution       The resolution to use
-     *
-     * @throws Exception If anything is unexpected
-     */
-    private void testCase(final boolean copyFromOriginal, final Integer numCopies,
-            final PageRange[] pages, final MediaSize mediaSize, final boolean isPortrait,
-            final Integer colorMode, final Integer duplexMode, final Resolution resolution)
-            throws Throwable {
-        if (!supportsPrinting()) {
-            return;
-        }
-
-        final PrintAttributes[] layoutAttributes = new PrintAttributes[1];
-
+    @Before
+    public void setUpServicesAndAdapter() {
         final PrinterDiscoverySessionCallbacks firstSessionCallbacks =
                 createMockPrinterDiscoverySessionCallbacks(invocation -> {
                     StubbablePrinterDiscoverySession session =
@@ -164,7 +155,7 @@ public class CustomPrintOptionsTest extends BasePrintTest {
                     return null;
                 });
 
-        PrintDocumentAdapter adapter = createMockPrintDocumentAdapter(
+        mAdapter = createMockPrintDocumentAdapter(
                 invocation -> {
                     LayoutResultCallback callback = (LayoutResultCallback) invocation
                             .getArguments()[3];
@@ -174,7 +165,7 @@ public class CustomPrintOptionsTest extends BasePrintTest {
                             .build();
 
                     synchronized (CustomPrintOptionsTest.this) {
-                        layoutAttributes[0] = (PrintAttributes) invocation.getArguments()[1];
+                        mLayoutAttributes = (PrintAttributes) invocation.getArguments()[1];
 
                         CustomPrintOptionsTest.this.notifyAll();
                     }
@@ -189,7 +180,7 @@ public class CustomPrintOptionsTest extends BasePrintTest {
 
                     PageRange[] writtenPages = (PageRange[]) args[0];
 
-                    writeBlankPages(layoutAttributes[0], fd, writtenPages[0].getStart(),
+                    writeBlankPages(mLayoutAttributes, fd, writtenPages[0].getStart(),
                             writtenPages[0].getEnd());
                     fd.close();
 
@@ -208,6 +199,51 @@ public class CustomPrintOptionsTest extends BasePrintTest {
         FirstPrintService.setCallbacks(firstServiceCallbacks);
         SecondPrintService.setCallbacks(createMockPrintServiceCallbacks(null, null, null));
 
+        // Set default printer
+        if (!sHasDefaultPrinterSet) {
+            // This is the first print test that runs. If this is run after other tests these other
+            // test can still cause memory pressure and make the printactivity to go through a
+            // destroy-create cycle. In this case we have to retry to operation.
+            int tries = 0;
+            while (true) {
+                try {
+                    resetCounters();
+                    makeDefaultPrinter(mAdapter, PRINTER_NAME);
+                    break;
+                } catch (Throwable e) {
+                    if (getActivityDestroyCallbackCallCount() > 0 && tries < MAX_TRIES) {
+                        Log.e(LOG_TAG, "Activity was destroyed during test, retrying", e);
+
+                        tries++;
+                        continue;
+                    }
+
+                    throw new RuntimeException(e);
+                }
+            }
+
+            sHasDefaultPrinterSet = true;
+        }
+    }
+
+    /**
+     * Test that we can switch to a specific set of settings via the custom print options activity
+     *
+     * @param copyFromOriginal If the print job info should be copied from the original
+     * @param numCopies        The copies to print
+     * @param pages            The page ranges to print
+     * @param mediaSize        The media size to use
+     * @param isPortrait       If the mediaSize is portrait
+     * @param colorMode        The color mode to use
+     * @param duplexMode       The duplex mode to use
+     * @param resolution       The resolution to use
+     *
+     * @throws Exception If anything is unexpected
+     */
+    private void testCase(final boolean copyFromOriginal, final Integer numCopies,
+            final PageRange[] pages, final MediaSize mediaSize, final boolean isPortrait,
+            final Integer colorMode, final Integer duplexMode, final Resolution resolution)
+            throws Throwable {
         final PrintAttributes.Builder additionalAttributesBuilder = new PrintAttributes.Builder();
         final PrintAttributes.Builder newAttributesBuilder = new PrintAttributes.Builder();
 
@@ -272,28 +308,6 @@ public class CustomPrintOptionsTest extends BasePrintTest {
                     return printJobBuilder.build();
                 });
 
-        // This is the first print test that runs. If this is run after other tests these other test
-        // can still cause memory pressure and make the printactivity to go through a destroy-create
-        // cycle. In this case we have to retry to operation.
-        int tries = 0;
-        while (true) {
-            try {
-                clearPrintSpoolerData();
-                resetCounters();
-                makeDefaultPrinter(adapter, PRINTER_NAME);
-                break;
-            } catch (Throwable e) {
-                if (getActivityDestroyCallbackCallCount() > 0 && tries < MAX_TRIES) {
-                    Log.e(LOG_TAG, "Activity was destroyed during test, retrying", e);
-
-                    tries++;
-                    continue;
-                }
-
-                throw e;
-            }
-        }
-
         // Check that the attributes were send to the print service
         PrintAttributes newAttributes = newAttributesBuilder.build();
         Log.i(LOG_TAG, "Change to attributes: " + newAttributes + ", copies: " + numCopies +
@@ -302,12 +316,13 @@ public class CustomPrintOptionsTest extends BasePrintTest {
         // This is the first print test that runs. If this is run after other tests these other test
         // can still cause memory pressure and make the printactivity to go through a destroy-create
         // cycle. In this case we have to retry to operation.
+        int tries = 0;
         while (true) {
             try {
                 resetCounters();
 
                 // Start printing
-                print(adapter);
+                print(mAdapter);
 
                 // Wait for write.
                 waitForWriteAdapterCallback(1);
@@ -322,15 +337,15 @@ public class CustomPrintOptionsTest extends BasePrintTest {
                 Log.d(LOG_TAG, "Check attributes");
                 long endTime = System.currentTimeMillis() + OPERATION_TIMEOUT_MILLIS;
                 synchronized (this) {
-                    while (layoutAttributes[0] == null ||
-                            !layoutAttributes[0].equals(newAttributes)) {
+                    while (mLayoutAttributes == null ||
+                            !mLayoutAttributes.equals(newAttributes)) {
                         wait(Math.max(1, endTime - System.currentTimeMillis()));
 
                         if (endTime < System.currentTimeMillis()) {
                             throw new TimeoutException(
                                     "Print attributes did not change to " + newAttributes + " in " +
                                             OPERATION_TIMEOUT_MILLIS + " ms. Current attributes"
-                                            + layoutAttributes[0]);
+                                            + mLayoutAttributes);
                         }
                     }
                 }
@@ -344,25 +359,14 @@ public class CustomPrintOptionsTest extends BasePrintTest {
                 }
 
                 Log.d(LOG_TAG, "Check pages");
-                while (true) {
-                    try {
-                        PageRange[] actualPages = getPages();
-                        if (!Arrays.equals(newPages, actualPages)) {
-                            new AssertionError(
-                                    "Expected " + Arrays.toString(newPages) + ", actual " +
-                                            Arrays.toString(actualPages));
-                        }
-
-                        break;
-                    } catch (Throwable e) {
-                        if (endTime < System.currentTimeMillis()) {
-                            throw e;
-                        } else {
-                            Log.e(LOG_TAG, "Could not verify pages, retrying", e);
-                            Thread.sleep(100);
-                        }
+                eventually(() -> {
+                    PageRange[] actualPages = getPages();
+                    if (!Arrays.equals(newPages, actualPages)) {
+                        throw new AssertionError(
+                                "Expected " + Arrays.toString(newPages) + ", actual " +
+                                        Arrays.toString(actualPages));
                     }
-                }
+                });
 
                 break;
             } catch (Throwable e) {
@@ -378,53 +382,70 @@ public class CustomPrintOptionsTest extends BasePrintTest {
         }
 
         // Abort printing
-        getActivity().finish();
+        getUiDevice().pressBack();
+        getUiDevice().pressBack();
+        getUiDevice().pressBack();
 
         waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
     }
 
-    public void testChangeToChangeEveryThing() throws Throwable {
-        testCase(false, 2, PAGESS[1], MEDIA_SIZES[1], false, COLOR_MODES[1], DUPLEX_MODES[1],
+    @Test
+    public void changeToChangeEveryThingButPages() throws Throwable {
+        testCase(false, 2, null, MEDIA_SIZES[1], false, COLOR_MODES[1], DUPLEX_MODES[1],
                 RESOLUTIONS[1]);
     }
 
-    public void testChangeToAttributes() throws Throwable {
+    @Test
+    public void changeToAttributes() throws Throwable {
         testCase(false, null, null, MEDIA_SIZES[1], false, COLOR_MODES[1], DUPLEX_MODES[1],
                 RESOLUTIONS[1]);
     }
 
-    public void testChangeToNonAttributes() throws Throwable {
+    @Test
+    public void changeToNonAttributes() throws Throwable {
         testCase(false, 2, PAGESS[1], null, true, null, null, null);
     }
 
-    public void testChangeToAttributesNoCopy() throws Throwable {
+    @Test
+    public void changeToAttributesNoCopy() throws Throwable {
         testCase(true, null, null, MEDIA_SIZES[1], false, COLOR_MODES[1], DUPLEX_MODES[1],
                 RESOLUTIONS[1]);
     }
 
-    public void testChangeToNonAttributesNoCopy() throws Throwable {
+    @Test
+    public void changeToNonAttributesNoCopy() throws Throwable {
         testCase(true, 2, PAGESS[1], null, true, null, null, null);
     }
 
-    public void testChangeToDefault() throws Throwable {
+    @Test
+    public void changeToDefault() throws Throwable {
         testCase(false, 1, DEFAULT_PAGES, DEFAULT_MEDIA_SIZE, DEFAULT_MEDIA_SIZE.isPortrait(),
                 DEFAULT_COLOR_MODE, DEFAULT_DUPLEX_MODE, DEFAULT_RESOLUTION);
     }
 
-    public void testChangeToDefaultNoCopy() throws Throwable {
+    @Test
+    public void changeToDefaultNoCopy() throws Throwable {
         testCase(true, 1, DEFAULT_PAGES, DEFAULT_MEDIA_SIZE, DEFAULT_MEDIA_SIZE.isPortrait(),
                 DEFAULT_COLOR_MODE, DEFAULT_DUPLEX_MODE, DEFAULT_RESOLUTION);
     }
 
-    public void testChangeToNothing() throws Throwable {
+    @Test
+    public void changeToNothing() throws Throwable {
         testCase(false, null, null, null, true, null, null, null);
     }
 
+    @Test
     public void testChangeToNothingNoCopy() throws Throwable {
         testCase(true, null, null, null, true, null, null, null);
     }
 
-    public void testChangeToAllPages() throws Throwable {
+    @Test
+    public void changeToAllPages() throws Throwable {
         testCase(false, null, PAGESS[2], null, true, null, null, null);
+    }
+
+    @Test
+    public void changeToSomePages() throws Throwable {
+        testCase(false, null, PAGESS[1], null, true, null, null, null);
     }
 }

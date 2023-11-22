@@ -39,7 +39,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <hardware/lights.h>
-#include <hardware/qemud.h>
+#include "qemud.h"
 
 /* Set to 1 to enable debug messages to the log */
 #define DEBUG 0

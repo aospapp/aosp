@@ -75,10 +75,10 @@ JNIEXPORT jboolean JNICALL Java_sun_nio_ch_Net_canJoin6WithIPv4Group0
 /*
  * Class:     sun_nio_ch_Net
  * Method:    socket0
- * Signature: (ZZZ)I
+ * Signature: (ZZZZ)I
  */
 JNIEXPORT jint JNICALL Java_sun_nio_ch_Net_socket0
-  (JNIEnv *, jclass, jboolean, jboolean, jboolean);
+  (JNIEnv *, jclass, jboolean, jboolean, jboolean, jboolean);
 
 /*
  * Class:     sun_nio_ch_Net
@@ -155,10 +155,18 @@ JNIEXPORT jint JNICALL Java_sun_nio_ch_Net_getIntOption0
 /*
  * Class:     sun_nio_ch_Net
  * Method:    setIntOption0
- * Signature: (Ljava/io/FileDescriptor;ZIII)V
+ * Signature: (Ljava/io/FileDescriptor;ZIIIZ)V
  */
 JNIEXPORT void JNICALL Java_sun_nio_ch_Net_setIntOption0
-  (JNIEnv *, jclass, jobject, jboolean, jint, jint, jint);
+  (JNIEnv *, jclass, jobject, jboolean, jint, jint, jint, jboolean);
+
+/*
+ * Class:     sun_nio_ch_Net
+ * Method:    poll
+ * Signature: (Ljava/io/FileDescriptor;IJ)I
+ */
+JNIEXPORT jint JNICALL Java_sun_nio_ch_Net_poll
+  (JNIEnv *, jclass, jobject, jint, jlong);
 
 /*
  * Class:     sun_nio_ch_Net
@@ -226,10 +234,50 @@ JNIEXPORT jint JNICALL Java_sun_nio_ch_Net_getInterface6
 
 /*
  * Class:     sun_nio_ch_Net
- * Method:    initIDs
- * Signature: ()V
+ * Method:    pollinValue
+ * Signature: ()S
  */
-JNIEXPORT void JNICALL Java_sun_nio_ch_Net_initIDs
+JNIEXPORT jshort JNICALL Java_sun_nio_ch_Net_pollinValue
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     sun_nio_ch_Net
+ * Method:    polloutValue
+ * Signature: ()S
+ */
+JNIEXPORT jshort JNICALL Java_sun_nio_ch_Net_polloutValue
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     sun_nio_ch_Net
+ * Method:    pollerrValue
+ * Signature: ()S
+ */
+JNIEXPORT jshort JNICALL Java_sun_nio_ch_Net_pollerrValue
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     sun_nio_ch_Net
+ * Method:    pollhupValue
+ * Signature: ()S
+ */
+JNIEXPORT jshort JNICALL Java_sun_nio_ch_Net_pollhupValue
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     sun_nio_ch_Net
+ * Method:    pollnvalValue
+ * Signature: ()S
+ */
+JNIEXPORT jshort JNICALL Java_sun_nio_ch_Net_pollnvalValue
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     sun_nio_ch_Net
+ * Method:    pollconnValue
+ * Signature: ()S
+ */
+JNIEXPORT jshort JNICALL Java_sun_nio_ch_Net_pollconnValue
   (JNIEnv *, jclass);
 
 #ifdef __cplusplus

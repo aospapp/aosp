@@ -993,6 +993,27 @@ public class LocationManagerTest extends BaseMockLocationTest {
         }
     }
 
+    /**
+     * Test case for bug 33091107, where a malicious app used to be able to fool a real provider
+     * into providing a mock location that isn't marked as being mock.
+     */
+    public void testLocationShouldStillBeMarkedMockWhenProvidersDoNotMatch()
+            throws InterruptedException {
+        double latitude = 20;
+        double longitude = 40;
+
+        List<String> providers = mManager.getAllProviders();
+        if (providers.isEmpty()) {
+            // Device doesn't have any providers. Can't perform this test, and no need to do so:
+            // no providers that malicious app could fool
+            return;
+        }
+        String realProviderToFool = providers.get(0);
+
+        // Register for location updates, then set a mock location and ensure it is marked "mock"
+        updateLocationAndWait(TEST_MOCK_PROVIDER_NAME, realProviderToFool, latitude, longitude);
+    }
+
     @UiThreadTest
     public void testGpsStatusListener() {
         MockGpsStatusListener listener = new MockGpsStatusListener();
@@ -1152,22 +1173,38 @@ public class LocationManagerTest extends BaseMockLocationTest {
 
     private void updateLocationAndWait(String providerName, double latitude, double longitude)
             throws InterruptedException {
+        updateLocationAndWait(providerName, providerName, latitude, longitude);
+    }
+
+    /**
+     * Like {@link #updateLocationAndWait(String, double, double)}, but allows inconsistent providers
+     * to be used in the calls to {@link Location#Location(String)} and {@link
+     * LocationManager#setTestProviderLocation(String, Location)}
+     *
+     * @param testProviderName used in {@link LocationManager#setTestProviderLocation(String,
+     * Location)}
+     * @param locationProviderName used in {@link Location#Location(String)}
+     */
+    private void updateLocationAndWait(String testProviderName, String locationProviderName,
+        double latitude, double longitude) throws InterruptedException {
+
         // Register a listener for the location we are about to set.
         MockLocationListener listener = new MockLocationListener();
         HandlerThread handlerThread = new HandlerThread("updateLocationAndWait");
         handlerThread.start();
-        mManager.requestLocationUpdates(providerName, 0, 0, listener, handlerThread.getLooper());
+        mManager.requestLocationUpdates(locationProviderName, 0, 0, listener,
+                handlerThread.getLooper());
 
         // Set the location.
-        updateLocation(providerName, latitude, longitude);
+        updateLocation(testProviderName, locationProviderName, latitude, longitude);
 
         // Make sure we received the location, and it is the right one.
-        assertTrue(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+        assertTrue("Listener not called", listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
         Location location = listener.getLocation();
-        assertEquals(providerName, location.getProvider());
-        assertEquals(latitude, location.getLatitude());
-        assertEquals(longitude, location.getLongitude());
-        assertEquals(true, location.isFromMockProvider());
+        assertEquals("Bad provider name", locationProviderName, location.getProvider());
+        assertEquals("Bad latitude", latitude, location.getLatitude());
+        assertEquals("Bad longitude", longitude, location.getLongitude());
+        assertTrue("Bad isMock", location.isFromMockProvider());
 
         // Remove the listener.
         mManager.removeUpdates(listener);
@@ -1220,13 +1257,23 @@ public class LocationManagerTest extends BaseMockLocationTest {
 
     private void updateLocation(final String providerName, final double latitude,
             final double longitude) {
-        Location location = new Location(providerName);
+        updateLocation(providerName, providerName, latitude, longitude);
+    }
+
+    /**
+     * Like {@link #updateLocation(String, double, double)}, but allows inconsistent providers to be
+     * used in the calls to {@link Location#Location(String)} and
+     * {@link LocationManager#setTestProviderLocation(String, Location)}.
+     */
+    private void updateLocation(String testProviderName, String locationProviderName,
+        double latitude, double longitude) {
+        Location location = new Location(locationProviderName);
         location.setLatitude(latitude);
         location.setLongitude(longitude);
         location.setAccuracy(1.0f);
-        location.setTime(java.lang.System.currentTimeMillis());
+        location.setTime(System.currentTimeMillis());
         location.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
-        mManager.setTestProviderLocation(providerName, location);
+        mManager.setTestProviderLocation(testProviderName, location);
     }
 
     private void updateLocation(final double latitude, final double longitude) {

@@ -16,22 +16,24 @@
 
 #define LOG_TAG "ExpatParser"
 
+#include <expat.h>
+#include <string.h>
+
+#include <memory>
+
+#include <android/log.h>
+#include <android-base/stringprintf.h>
+
 #include "JNIHelp.h"
 #include "JniConstants.h"
 #include "JniException.h"
-#include "LocalArray.h"
 #include "ScopedLocalRef.h"
 #include "ScopedPrimitiveArray.h"
 #include "ScopedStringChars.h"
 #include "ScopedUtfChars.h"
 #include "jni.h"
-#include "cutils/log.h"
 #include "unicode/unistr.h"
 
-#include <memory>
-
-#include <string.h>
-#include <expat.h>
 
 #define BUCKET_COUNT 128
 
@@ -102,7 +104,8 @@ private:
  * Data passed to parser handler method by the parser.
  */
 struct ParsingContext {
-    ParsingContext(jobject object) : env(NULL), object(object), buffer(NULL), bufferSize(-1) {
+    explicit ParsingContext(jobject object)
+        : env(NULL), object(object), buffer(NULL), bufferSize(-1) {
         for (int i = 0; i < BUCKET_COUNT; i++) {
             internedStrings[i] = NULL;
         }
@@ -518,9 +521,8 @@ public:
         }
 
         // return prefix + ":" + localName
-        ::LocalArray<1024> qName(strlen(mPrefix) + 1 + strlen(mLocalName) + 1);
-        snprintf(&qName[0], qName.size(), "%s:%s", mPrefix, mLocalName);
-        return internString(mEnv, mParsingContext, &qName[0]);
+        auto qName = android::base::StringPrintf("%s:%s", mPrefix, mLocalName);
+        return internString(mEnv, mParsingContext, qName.c_str());
     }
 
     /**

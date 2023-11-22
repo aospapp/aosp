@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2005, International Business Machines Corporation and         *
@@ -7,14 +9,13 @@
 
 package com.ibm.icu.dev.test.normalizer;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.Normalizer;
 
 public class NormalizerRegressionTests extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new NormalizerRegressionTests().run(args);
-    }
-
+    @Test
     public void TestJB4472() {
         // submitter's test case
         String tamil = "\u0b87\u0ba8\u0bcd\u0ba4\u0bbf\u0baf\u0bbe";

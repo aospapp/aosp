@@ -12,7 +12,6 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.chameleon import chameleon_port_finder
 from autotest_lib.client.cros.chameleon import chameleon_screen_test
-from autotest_lib.client.cros.chameleon import edid
 from autotest_lib.server import test
 from autotest_lib.server.cros.multimedia import remote_facade_factory
 
@@ -41,7 +40,7 @@ class display_ResolutionList(test.test):
         display_facade = factory.create_display_facade()
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
 
@@ -57,9 +56,6 @@ class display_ResolutionList(test.test):
                 test_resolution = (width, height)
                 test_name = "%s_%dx%d" % ((interface,) + test_resolution)
 
-                if not edid.is_edid_supported(host, interface, width, height):
-                    logging.info('Skip unsupported EDID: %s', test_name)
-                    continue
                 edid_path = os.path.join(self.bindir, 'test_data', 'edids',
                                     test_name)
 

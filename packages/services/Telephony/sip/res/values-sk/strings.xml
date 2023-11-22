@@ -66,7 +66,7 @@
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;Nenastavené&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;Rovnaké ako používateľské meno&gt;"</string>
     <string name="optional_summary" msgid="2363105560396317624">"&lt;Voliteľné&gt;"</string>
-    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Klepnutím všetko zobrazíte"</string>
+    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Klepnutím zobrazíte všetky"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ Klepnutím všetko skryjete"</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"Zadajte informácie o novom účte SIP."</string>
     <string name="empty_alert" msgid="6659484914371384024">"Pole <xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> je povinné a nemôže zostať prázdne."</string>

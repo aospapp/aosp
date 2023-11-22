@@ -123,7 +123,7 @@ struct UTF8 {
     template <typename InputStream>
     static bool Decode(InputStream& is, unsigned* codepoint) {
 #define COPY() c = is.Take(); *codepoint = (*codepoint << 6) | ((unsigned char)c & 0x3Fu)
-#define TRANS(mask) result &= ((GetRange((unsigned char)c) & mask) != 0)
+#define TRANS(mask) result &= ((GetRange((unsigned char)c) & (mask)) != 0)
 #define TAIL() COPY(); TRANS(0x70)
         Ch c = is.Take();
         if (!(c & 0x80)) {
@@ -152,7 +152,7 @@ struct UTF8 {
     template <typename InputStream, typename OutputStream>
     static bool Validate(InputStream& is, OutputStream& os) {
 #define COPY() os.Put(c = is.Take())
-#define TRANS(mask) result &= ((GetRange((unsigned char)c) & mask) != 0)
+#define TRANS(mask) result &= ((GetRange((unsigned char)c) & (mask)) != 0)
 #define TAIL() COPY(); TRANS(0x70)
         Ch c;
         COPY();

@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Aplicația %s a solicitat un certificat. Alegerea unui certificat va permite aplicației să utilizeze această identitate în relația sa cu serverele, acum și în viitor."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Aplicația a identificat serverul solicitant drept %s, dar ar trebui să acordați aplicației acces la certificat numai dacă aveți încredere în aceasta."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Puteți instala certificate dintr-un fișier PKCS#12 cu o extensie %1$s sau %2$s care se află pe stocarea externă."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Instalați"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Permiteți"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Instalați certificatul"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Selectați"</string>
     <string name="deny_button" msgid="3766539809121892584">"Refuzați"</string>
 </resources>

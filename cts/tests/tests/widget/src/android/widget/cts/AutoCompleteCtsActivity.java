@@ -18,7 +18,6 @@ package android.widget.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
-
 import android.widget.cts.R;
 
 /**

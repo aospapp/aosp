@@ -25,15 +25,15 @@
     <string name="header_category_accessories" msgid="823295909353025991">"遥控器和配件"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"个人"</string>
     <string name="accounts_category_title" msgid="7591072907146317425">"帐号"</string>
-    <string name="add_account" msgid="4098060223200619258">"添加帐户"</string>
-    <string name="account_header_remove_account" msgid="3288957118207682685">"移除帐户"</string>
+    <string name="add_account" msgid="4098060223200619258">"添加帐号"</string>
+    <string name="account_header_remove_account" msgid="3288957118207682685">"移除帐号"</string>
     <string name="account_sync" msgid="773808124331714965">"选择要同步的应用"</string>
     <string name="sync_now" msgid="8732244492880016471">"立即同步"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"正在同步…"</string>
     <string name="last_synced" msgid="6178494892357077274">"上次同步时间：<xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"已关闭"</string>
-    <string name="account_remove" msgid="4313580520737295272">"移除帐户"</string>
-    <string name="account_remove_failed" msgid="980654375770693544">"无法移除帐户"</string>
+    <string name="account_remove" msgid="4313580520737295272">"移除帐号"</string>
+    <string name="account_remove_failed" msgid="980654375770693544">"无法移除帐号"</string>
     <!-- no translation found for sync_item_title (2716687595867726981) -->
     <skip />
     <string name="sync_one_time_sync" msgid="3575080833667908804">"立即同步<xliff:g id="LAST_SYNC_TIME">
@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"WLAN"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"有线网络"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"随时都可扫描"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"允许 Google 的位置信息服务和其他应用扫描网络（即使在 WLAN 网络关闭时也可扫描）"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允许 Google 的位置信息服务和其他应用扫描网络（即使 WLAN 已关闭）"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"WLAN"</string>
     <string name="device_daydream" msgid="3354366974209179614">"屏保"</string>
     <string name="device_display" msgid="101455384386372747">"显示"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"剩余电量：<xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"正在取消与设备的配对…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"已连接"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"更改名称"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"为此配件输入新的名称"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"正在搜索配件…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"在配对您的蓝牙设备之前，请确保它们处于配对模式"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"发现了一部设备，将会在<xliff:g id="COUNTDOWN">%1$s</xliff:g>秒后自动配对"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"键盘"</string>
     <string name="system_home" msgid="2858989138172296012">"主屏幕"</string>
     <string name="system_search" msgid="2837264654143247611">"搜索"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"安全和限制"</string>
     <string name="system_speech" msgid="8128688499687306982">"语音"</string>
     <string name="system_inputs" msgid="2413907183796651102">"输入端口"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"开发者选项"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"无"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"使用情况和诊断信息"</string>
+    <string name="tutorials" msgid="3731493987558093244">"教程"</string>
     <string name="about_system_update" msgid="7282772247661356586">"系统更新"</string>
     <string name="about_preference" msgid="4131396784531360434">"关于"</string>
     <string name="device_name" msgid="2670488158531273028">"设备名称"</string>
@@ -357,10 +361,10 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"第三方位置信息服务"</string>
     <string name="location_reporting" msgid="3054236612250063073">"位置报告"</string>
     <string name="location_history" msgid="2946680949724247804">"位置记录"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google会在Google即时和Google地图等产品中使用此功能。启用位置报告功能后，凡是使用此功能的Google产品都将可以存储和使用您设备上与您的Google帐户关联的最新位置数据。"</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"如果您为此帐户启用了位置记录功能，Google就可以存储您设备上的位置数据，以供您的应用使用。\n\n例如，Google地图可为您提供路线信息、Google即时可告知您上下班交通路况信息。\n\n您可以随时关闭位置记录功能，但系统并不会因此删除相关记录。要查看和管理您的位置记录，请访问maps.google.com/locationhistory。"</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google会在Google即时和Google地图等产品中使用此功能。启用位置报告功能后，凡是使用此功能的Google产品都将可以存储和使用您设备上与您的Google帐号关联的最新位置数据。"</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"如果您为此帐号启用了位置记录功能，Google就可以存储您设备上的位置数据，以供您的应用使用。\n\n例如，Google地图可为您提供路线信息、Google即时可告知您上下班交通路况信息。\n\n您可以随时关闭位置记录功能，但系统并不会因此删除相关记录。要查看和管理您的位置记录，请访问maps.google.com/locationhistory。"</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"删除位置记录"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"该操作将删除您通过此设备存储在这个Google帐户中的所有位置记录。此删除操作无法撤消。部分应用（包括Google即时）将会因此而无法正常工作。"</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"该操作将删除您通过此设备存储在这个Google帐号中的所有位置记录。此删除操作无法撤消。部分应用（包括Google即时）将会因此而无法正常工作。"</string>
     <string name="system_services" msgid="7230571820151215779">"服务"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"服务设置"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"高对比度文字"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"显示选项"</string>
     <string name="captions_configure" msgid="5537548915977371014">"配置"</string>
     <string name="captions_language" msgid="2835554055388996343">"语言"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"默认"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"文字大小"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"字幕样式"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"自定义选项"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"过渡动画缩放"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"动画程序时长调整"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"启用严格模式"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"显示CPU使用情况"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"GPU渲染模式分析"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"启用跟踪"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"不保留活动"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"从最优到最差依次显示为：蓝色、绿色、淡红色、红色"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"窗口中的面(surface)更新时全部闪烁"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"应用在主线程上执行长时间操作时闪烁屏幕"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"屏幕叠加层显示当前CPU使用情况"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"测量 adb shell dumpsys gfxinfo 中的渲染时间"</string>
     <string name="action_on_title" msgid="6852389884236870765">"开启"</string>
     <string name="action_off_title" msgid="3157728958166559966">"关闭"</string>
@@ -557,11 +560,11 @@
       <item quantity="other">未连接的输入设备</item>
       <item quantity="one">未连接的输入设备</item>
     </plurals>
-    <string name="user_add_profile_item_summary" msgid="2946168478936086933">"限制其他人使用您帐户中的应用和内容"</string>
+    <string name="user_add_profile_item_summary" msgid="2946168478936086933">"限制其他人使用您帐号中的应用和内容"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"受限个人资料"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"由<xliff:g id="APP">%1$s</xliff:g>控制"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"受限个人资料无法使用此应用"</string>
-    <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"此应用可访问您的帐户"</string>
+    <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"此应用可访问您的帐号"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"位置信息"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"允许应用使用您的位置信息"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"进入受限个人资料"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"强行停止"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"强行停止某个应用可能会导致其出现异常。"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"卸载"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"要卸载此应用吗？"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"卸载更新"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"系统将会卸载此 Android 系统应用的所有相关更新。"</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"停用"</string>
@@ -608,13 +610,14 @@
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"已使用的存储空间"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="VOLUME">%2$s</xliff:g>已使用 <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"清除数据"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"系统会永久删除此应用的所有数据。\n删除的内容包括所有文件、设置、帐户、数据库等。"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"系统会永久删除此应用的所有数据。\n删除的内容包括所有文件、设置、帐号、数据库等。"</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"清除默认操作"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"使用此应用处理某些操作"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"没有默认操作"</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"清除缓存"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"通知"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"权限"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"无法使用应用"</string>
     <string name="settings_ok" msgid="3321630456511355983">"确定"</string>
     <string name="settings_cancel" msgid="304280412158061225">"取消"</string>
     <string name="settings_on" msgid="6892236264945435013">"开启"</string>
@@ -627,28 +630,25 @@
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"闲置 <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>后"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"让设备进入休眠状态"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"如果在这段时间内无任何操作，屏幕将会自动关闭。"</string>
-    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"目前没有存储备份数据的帐户"</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"目前没有存储备份数据的帐号"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"要停止备份您的 WLAN 密码、书签、其他设置以及应用数据，并清除 Google 服务器上的所有副本吗？"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"备份我的数据"</string>
-    <string name="privacy_backup_account" msgid="9059939814827165020">"备份帐户"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"备份帐号"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"自动还原"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"重置设备"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"此操作将会从您的设备的内部存储空间中清除所有数据，包括您的 Google 帐户、系统数据、应用数据、相关设置，以及已下载的应用"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"此操作将会从您的设备的内部存储空间中清除所有数据，包括您的 Google 帐号、系统数据、应用数据、相关设置，以及已下载的应用"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"要清除所有个人信息和已下载的应用吗？请注意，此操作无法撤消！"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"全部清除"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"为您的 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 选择一个名称"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"当您通过其他设备（例如您的手机、平板电脑或计算机）访问 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 时，可通过此名称快速找到该设备。"</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"为您的 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 命名，以便在通过其他设备向其投射内容或与其建立连接时能够识别该设备。"</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"客厅"</item>
-    <item msgid="3722089849939477581">"视听室"</item>
-    <item msgid="6108590585438763574">"家庭活动室"</item>
-    <item msgid="2581035245390468625">"餐厅"</item>
-    <item msgid="3127487827308695324">"书房"</item>
-    <item msgid="6172018430592195063">"卧室"</item>
-    <item msgid="8120010459866284578">"厨房"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"客厅电视"</item>
+    <item msgid="8122798759665439456">"家庭活动室电视"</item>
+    <item msgid="1389347662738182100">"卧室电视"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"输入自定义名称…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"输入自定义名称…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"重命名此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 目前的名称为“<xliff:g id="DEVICENAME">%2$s</xliff:g>”"</string>
     <string name="change_setting" msgid="2047402388786162246">"更改"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"重新启动并进入安全模式"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"您想重新启动并进入安全模式吗？"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"这将停用您已安装的所有第三方应用。您必须再次重新启动才能恢复这些应用。"</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"正在获取错误报告"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"可用的虚拟键盘"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"管理键盘"</string>
 </resources>

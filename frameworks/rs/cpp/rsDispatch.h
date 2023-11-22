@@ -23,12 +23,13 @@
 typedef void (*SetNativeLibDirFnPtr)(RsContext con, const char *nativeLibDir, size_t length);
 typedef const void* (*AllocationGetTypeFnPtr)(RsContext con, RsAllocation va);
 typedef void (*TypeGetNativeDataFnPtr)(RsContext, RsType, uintptr_t *typeData, uint32_t typeDataSize);
-typedef void (*ElementGetNativeDataFnPtr)(RsContext, RsElement, uintptr_t *elemData, uint32_t elemDataSize);
-typedef void (*ElementGetSubElementsFnPtr)(RsContext, RsElement, uintptr_t *ids, const char **names, uint32_t *arraySizes, uint32_t dataSize);
+typedef void (*ElementGetNativeDataFnPtr)(RsContext, RsElement, uint32_t *elemData, uint32_t elemDataSize);
+typedef void (*ElementGetSubElementsFnPtr)(RsContext, RsElement, uintptr_t *ids, const char **names, size_t *arraySizes, uint32_t dataSize);
 typedef RsDevice (*DeviceCreateFnPtr) ();
 typedef void (*DeviceDestroyFnPtr) (RsDevice dev);
 typedef void (*DeviceSetConfigFnPtr) (RsDevice dev, RsDeviceParam p, int32_t value);
 typedef RsContext (*ContextCreateFnPtr)(RsDevice vdev, uint32_t version, uint32_t sdkVersion, RsContextType ct, uint32_t flags);
+typedef RsContext (*ContextCreateVendorFnPtr)(RsDevice vdev, uint32_t version, uint32_t sdkVersion, RsContextType ct, uint32_t flags, const char* vendorDriverName);
 typedef void (*GetNameFnPtr)(RsContext, void * obj, const char **name);
 typedef RsClosure (*ClosureCreateFnPtr)(RsContext, RsScriptKernelID, RsAllocation, RsScriptFieldID*, size_t, int64_t*, size_t, int*, size_t, RsClosure*, size_t, RsScriptFieldID*, size_t);
 typedef RsClosure (*InvokeClosureCreateFnPtr)(RsContext, RsScriptInvokeID, const void*, const size_t, const RsScriptFieldID*, const size_t, const int64_t*, const size_t, const int*, const size_t);
@@ -40,6 +41,7 @@ typedef RsMessageToClientType (*ContextPeekMessageFnPtr) (RsContext, size_t*, si
 typedef void (*ContextSendMessageFnPtr) (RsContext, uint32_t, const uint8_t*, size_t);
 typedef void (*ContextInitToClientFnPtr) (RsContext);
 typedef void (*ContextDeinitToClientFnPtr) (RsContext);
+typedef void (*ContextSetCacheDirFnPtr) (RsContext rsc, const char *cacheDir, size_t cacheDir_length);
 typedef RsType (*TypeCreateFnPtr) (RsContext, RsElement, uint32_t, uint32_t, uint32_t, bool, bool, uint32_t);
 typedef RsAllocation (*AllocationCreateTypedFnPtr) (RsContext, RsType, RsAllocationMipmapControl, uint32_t, uintptr_t);
 typedef RsAllocation (*AllocationCreateStridedFnPtr) (RsContext, RsType, RsAllocationMipmapControl, uint32_t, uintptr_t, size_t);
@@ -70,6 +72,8 @@ typedef void (*AllocationSyncAllFnPtr) (RsContext, RsAllocation, RsAllocationUsa
 typedef void (*AllocationResize1DFnPtr) (RsContext, RsAllocation, uint32_t);
 typedef void (*AllocationCopy2DRangeFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t);
 typedef void (*AllocationCopy3DRangeFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t);
+typedef void (*AllocationSetupBufferQueueFnPtr) (RsContext context, RsAllocation valloc, uint32_t numAlloc);
+typedef void (*AllocationShareBufferQueueFnPtr) (RsContext context, RsAllocation valloc1, RsAllocation valloc2);
 typedef RsSampler (*SamplerCreateFnPtr) (RsContext, RsSamplerValue, RsSamplerValue, RsSamplerValue, RsSamplerValue, RsSamplerValue, float);
 typedef void (*ScriptBindAllocationFnPtr) (RsContext, RsScript, RsAllocation, uint32_t);
 typedef void (*ScriptSetTimeZoneFnPtr) (RsContext, RsScript, const char*, size_t);
@@ -97,8 +101,43 @@ typedef void (*ScriptGroupSetOutputFnPtr) (RsContext, RsScriptGroup, RsScriptKer
 typedef void (*ScriptGroupSetInputFnPtr) (RsContext, RsScriptGroup, RsScriptKernelID, RsAllocation);
 typedef void (*ScriptGroupExecuteFnPtr) (RsContext, RsScriptGroup);
 typedef void (*AllocationIoSendFnPtr) (RsContext, RsAllocation);
-typedef void (*AllocationIoReceiveFnPtr) (RsContext, RsAllocation);
+typedef int64_t (*AllocationIoReceiveFnPtr) (RsContext, RsAllocation);
 typedef void * (*AllocationGetPointerFnPtr) (RsContext, RsAllocation, uint32_t lod, RsAllocationCubemapFace face, uint32_t z, uint32_t array, size_t *stride, size_t stride_len);
+typedef RsAllocation (*AllocationAdapterCreateFnPtr) (RsContext rsc, RsType vtype, RsAllocation baseAlloc);
+typedef void (*AllocationAdapterOffsetFnPtr) (RsContext rsc, RsAllocation alloc, const uint32_t * offsets, size_t offsets_length);
+
+// Graphics APIs
+typedef RsContext (*ContextCreateGLFnPtr) (RsDevice vdev, uint32_t version, uint32_t sdkVersion, RsSurfaceConfig sc, uint32_t dpi);
+typedef RsProgramStore (*ProgramStoreCreateFnPtr) (RsContext rsc, bool colorMaskR, bool colorMaskG, bool colorMaskB, bool colorMaskA, bool depthMask, bool ditherEnable, RsBlendSrcFunc srcFunc, RsBlendDstFunc destFunc, RsDepthFunc depthFunc);
+typedef RsProgramRaster (*ProgramRasterCreateFnPtr) (RsContext rsc, bool pointSprite, RsCullMode cull);
+typedef void (*ProgramBindConstantsFnPtr) (RsContext rsc, RsProgram vp, uint32_t slot, RsAllocation constants);
+typedef void (*ProgramBindTextureFnPtr) (RsContext rsc, RsProgramFragment pf, uint32_t slot, RsAllocation a);
+typedef void (*ProgramBindSamplerFnPtr) (RsContext rsc, RsProgramFragment pf, uint32_t slot, RsSampler s);
+typedef RsProgramFragment (*ProgramFragmentCreateFnPtr) (RsContext rsc, const char * shaderText, size_t shaderText_length, const char ** textureNames, size_t textureNames_length_length, const size_t * textureNames_length, const uintptr_t * params, size_t params_length);
+typedef RsProgramVertex (*ProgramVertexCreateFnPtr) (RsContext rsc, const char * shaderText, size_t shaderText_length, const char ** textureNames, size_t textureNames_length_length, const size_t * textureNames_length, const uintptr_t * params, size_t params_length);
+typedef RsFont (*FontCreateFromFileFnPtr) (RsContext rsc, const char * name, size_t name_length, float fontSize, uint32_t dpi);
+typedef RsFont (*FontCreateFromMemoryFnPtr) (RsContext rsc, const char * name, size_t name_length, float fontSize, uint32_t dpi, const void * data, size_t data_length);
+typedef RsMesh (*MeshCreateFnPtr) (RsContext rsc, RsAllocation * vtx, size_t vtx_length, RsAllocation * idx, size_t idx_length, uint32_t * primType, size_t primType_length);
+typedef void (*ContextBindProgramStoreFnPtr) (RsContext rsc, RsProgramStore pgm);
+typedef void (*ContextBindProgramFragmentFnPtr) (RsContext rsc, RsProgramFragment pgm);
+typedef void (*ContextBindProgramVertexFnPtr) (RsContext rsc, RsProgramVertex pgm);
+typedef void (*ContextBindProgramRasterFnPtr) (RsContext rsc, RsProgramRaster pgm);
+typedef void (*ContextBindFontFnPtr) (RsContext rsc, RsFont pgm);
+typedef void (*ContextSetSurfaceFnPtr) (RsContext rsc, uint32_t width, uint32_t height, RsNativeWindow sur);
+typedef void (*ContextBindRootScriptFnPtr) (RsContext rsc, RsScript sampler);
+typedef void (*ContextPauseFnPtr) (RsContext rsc);
+typedef void (*ContextResumeFnPtr) (RsContext rsc);
+typedef void (*MeshGetVertexBufferCountFnPtr) (RsContext con, RsMesh mv, int32_t *numVtx);
+typedef void (*MeshGetIndexCountFnPtr) (RsContext con, RsMesh mv, int32_t *numIdx);
+typedef void (*MeshGetVerticesFnPtr) (RsContext con, RsMesh mv, RsAllocation *vtxData, uint32_t vtxDataCount);
+typedef void (*MeshGetIndicesFnPtr) (RsContext con, RsMesh mv, RsAllocation *va, uint32_t *primType, uint32_t idxDataCount);
+typedef RsObjectBase (*FileA3DGetEntryByIndexFnPtr) (RsContext con, uint32_t index, RsFile file);
+typedef void (*FileA3DGetNumIndexEntriesFnPtr) (RsContext con, int32_t *numEntries, RsFile file);
+typedef void (*FileA3DGetIndexEntriesFnPtr) (RsContext con, RsFileIndexEntry *fileEntries, uint32_t numEntries, RsFile file);
+typedef RsFile (*FileA3DCreateFromMemoryFnPtr) (RsContext con, const void *data, uint32_t len);
+typedef RsFile (*FileA3DCreateFromAssetFnPtr) (RsContext con, void *_asset);
+typedef RsFile (*FileA3DCreateFromFileFnPtr) (RsContext con, const char *path);
+
 
 struct dispatchTable {
     SetNativeLibDirFnPtr SetNativeLibDir;
@@ -111,6 +150,8 @@ struct dispatchTable {
     Allocation2DReadFnPtr Allocation2DRead;
     Allocation3DDataFnPtr Allocation3DData;
     Allocation3DReadFnPtr Allocation3DRead;
+    AllocationAdapterCreateFnPtr AllocationAdapterCreate;
+    AllocationAdapterOffsetFnPtr AllocationAdapterOffset;
     AllocationCopy2DRangeFnPtr AllocationCopy2DRange;
     AllocationCopy3DRangeFnPtr AllocationCopy3DRange;
     AllocationCopyToBitmapFnPtr AllocationCopyToBitmap;
@@ -130,11 +171,14 @@ struct dispatchTable {
     AllocationResize1DFnPtr AllocationResize1D;
     AllocationSetSurfaceFnPtr AllocationSetSurface;
     AllocationSyncAllFnPtr AllocationSyncAll;
+    AllocationSetupBufferQueueFnPtr AllocationSetupBufferQueue;
+    AllocationShareBufferQueueFnPtr AllocationShareBufferQueue;
     AssignNameFnPtr AssignName;
     ClosureCreateFnPtr ClosureCreate;
     ClosureSetArgFnPtr ClosureSetArg;
     ClosureSetGlobalFnPtr ClosureSetGlobal;
     ContextCreateFnPtr ContextCreate;
+    ContextCreateVendorFnPtr ContextCreateVendor;
     ContextDeinitToClientFnPtr ContextDeinitToClient;
     ContextDestroyFnPtr ContextDestroy;
     ContextDumpFnPtr ContextDump;
@@ -144,6 +188,7 @@ struct dispatchTable {
     ContextPeekMessageFnPtr ContextPeekMessage;
     ContextSendMessageFnPtr ContextSendMessage;
     ContextSetPriorityFnPtr ContextSetPriority;
+    ContextSetCacheDirFnPtr ContextSetCacheDir;
     DeviceCreateFnPtr DeviceCreate;
     DeviceDestroyFnPtr DeviceDestroy;
     DeviceSetConfigFnPtr DeviceSetConfig;
@@ -182,6 +227,38 @@ struct dispatchTable {
     ScriptSetVarVFnPtr ScriptSetVarV;
     TypeCreateFnPtr TypeCreate;
     TypeGetNativeDataFnPtr TypeGetNativeData;
+
+    // Graphics API entries
+    ContextCreateGLFnPtr ContextCreateGL;
+    ContextPauseFnPtr ContextPause;
+    ContextResumeFnPtr ContextResume;
+    ContextBindProgramStoreFnPtr ContextBindProgramStore;
+    ContextBindProgramFragmentFnPtr ContextBindProgramFragment;
+    ContextBindProgramVertexFnPtr ContextBindProgramVertex;
+    ContextBindProgramRasterFnPtr ContextBindProgramRaster;
+    ContextBindFontFnPtr ContextBindFont;
+    ContextSetSurfaceFnPtr ContextSetSurface;
+    ContextBindRootScriptFnPtr ContextBindRootScript;
+    ProgramStoreCreateFnPtr ProgramStoreCreate;
+    ProgramRasterCreateFnPtr ProgramRasterCreate;
+    ProgramBindConstantsFnPtr ProgramBindConstants;
+    ProgramBindTextureFnPtr ProgramBindTexture;
+    ProgramBindSamplerFnPtr ProgramBindSampler;
+    ProgramFragmentCreateFnPtr ProgramFragmentCreate;
+    ProgramVertexCreateFnPtr ProgramVertexCreate;
+    FontCreateFromFileFnPtr FontCreateFromFile;
+    FontCreateFromMemoryFnPtr FontCreateFromMemory;
+    MeshCreateFnPtr MeshCreate;
+    MeshGetVertexBufferCountFnPtr MeshGetVertexBufferCount;
+    MeshGetIndexCountFnPtr MeshGetIndexCount;
+    MeshGetVerticesFnPtr MeshGetVertices;
+    MeshGetIndicesFnPtr MeshGetIndices;
+    FileA3DGetEntryByIndexFnPtr FileA3DGetEntryByIndex;
+    FileA3DGetNumIndexEntriesFnPtr FileA3DGetNumIndexEntries;
+    FileA3DGetIndexEntriesFnPtr FileA3DGetIndexEntries;
+    FileA3DCreateFromMemoryFnPtr FileA3DCreateFromMemory;
+    FileA3DCreateFromAssetFnPtr FileA3DCreateFromAsset;
+    FileA3DCreateFromFileFnPtr FileA3DCreateFromFile;
 };
 
 bool loadSymbols(void* handle, dispatchTable& dispatchTab, int device_api = 0);

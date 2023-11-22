@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -36,17 +37,24 @@ blk64_t ext2fs_descriptor_block_loc2(ext2_filsys fs, blk64_t group_block,
 				     dgrp_t i)
 {
 	int	bg;
-	int	has_super = 0;
+	int	has_super = 0, group_zero_adjust = 0;
 	blk64_t	ret_blk;
 
-	if (!(fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG) ||
+	/*
+	 * On a bigalloc FS with 1K blocks, block 0 is reserved for non-ext4
+	 * stuff, so adjust for that if we're being asked for group 0.
+	 */
+	if (i == 0 && fs->blocksize == 1024 && EXT2FS_CLUSTER_RATIO(fs) > 1)
+		group_zero_adjust = 1;
+
+	if (!ext2fs_has_feature_meta_bg(fs->super) ||
 	    (i < fs->super->s_first_meta_bg))
-		return (group_block + i + 1);
+		return group_block + i + 1 + group_zero_adjust;
 
 	bg = EXT2_DESC_PER_BLOCK(fs->super) * i;
 	if (ext2fs_bg_has_super(fs, bg))
 		has_super = 1;
-	ret_blk = ext2fs_group_first_block2(fs, bg) + has_super;
+	ret_blk = ext2fs_group_first_block2(fs, bg);
 	/*
 	 * If group_block is not the normal value, we're trying to use
 	 * the backup group descriptors and superblock --- so use the
@@ -56,10 +64,21 @@ blk64_t ext2fs_descriptor_block_loc2(ext2_filsys fs, blk64_t group_block,
 	 * have the infrastructure in place to do that.
 	 */
 	if (group_block != fs->super->s_first_data_block &&
-	    ((ret_blk + fs->super->s_blocks_per_group) <
-	     ext2fs_blocks_count(fs->super)))
+	    ((ret_blk + has_super + fs->super->s_blocks_per_group) <
+	     ext2fs_blocks_count(fs->super))) {
 		ret_blk += fs->super->s_blocks_per_group;
-	return ret_blk;
+
+		/*
+		 * If we're going to jump forward a block group, make sure
+		 * that we adjust has_super to account for the next group's
+		 * backup superblock (or lack thereof).
+		 */
+		if (ext2fs_bg_has_super(fs, bg + 1))
+			has_super = 1;
+		else
+			has_super = 0;
+	}
+	return ret_blk + has_super + group_zero_adjust;
 }
 
 blk_t ext2fs_descriptor_block_loc(ext2_filsys fs, blk_t group_block, dgrp_t i)
@@ -101,6 +120,7 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 	unsigned int	blocks_per_group, io_flags;
 	blk64_t		group_block, blk;
 	char		*dest, *cp;
+	int		group_zero_adjust = 0;
 #ifdef WORDS_BIGENDIAN
 	unsigned int	groups_per_block;
 	struct ext2_group_desc *gdp;
@@ -195,6 +215,14 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 	if (fs->orig_super)
 		memcpy(fs->orig_super, fs->super, SUPERBLOCK_SIZE);
 
+	if (!(fs->flags & EXT2_FLAG_IGNORE_CSUM_ERRORS)) {
+		retval = 0;
+		if (!ext2fs_verify_csum_type(fs, fs->super))
+			retval = EXT2_ET_UNKNOWN_CSUM;
+		if (!ext2fs_superblock_csum_verify(fs, fs->super))
+			retval = EXT2_ET_SB_CSUM_INVALID;
+	}
+
 #ifdef WORDS_BIGENDIAN
 	fs->flags |= EXT2_FLAG_SWAP_BYTES;
 	ext2fs_swap_super(fs->super);
@@ -205,10 +233,11 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 	}
 #endif
 
-	if (fs->super->s_magic != EXT2_SUPER_MAGIC) {
+	if (fs->super->s_magic != EXT2_SUPER_MAGIC)
 		retval = EXT2_ET_BAD_MAGIC;
+	if (retval)
 		goto cleanup;
-	}
+
 	if (fs->super->s_rev_level > EXT2_LIB_CURRENT_REV) {
 		retval = EXT2_ET_REV_TOO_HIGH;
 		goto cleanup;
@@ -240,8 +269,7 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 		}
 
 		if (!(flags & EXT2_FLAG_JOURNAL_DEV_OK) &&
-		    (fs->super->s_feature_incompat &
-		     EXT3_FEATURE_INCOMPAT_JOURNAL_DEV)) {
+		    ext2fs_has_feature_journal_dev(fs->super)) {
 			retval = EXT2_ET_UNSUPP_FEATURE;
 			goto cleanup;
 		}
@@ -257,15 +285,13 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 	 * bigalloc requires cluster-aware bitfield operations, which at the
 	 * moment means we need EXT2_FLAG_64BITS.
 	 */
-	if (EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-				       EXT4_FEATURE_RO_COMPAT_BIGALLOC) &&
+	if (ext2fs_has_feature_bigalloc(fs->super) &&
 	    !(flags & EXT2_FLAG_64BITS)) {
 		retval = EXT2_ET_CANT_USE_LEGACY_BITMAPS;
 		goto cleanup;
 	}
 
-	if (!EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-					EXT4_FEATURE_RO_COMPAT_BIGALLOC) &&
+	if (!ext2fs_has_feature_bigalloc(fs->super) &&
 	    (fs->super->s_log_block_size != fs->super->s_log_cluster_size)) {
 		retval = EXT2_ET_CORRUPT_SUPERBLOCK;
 		goto cleanup;
@@ -275,6 +301,21 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 		retval = EXT2_ET_CORRUPT_SUPERBLOCK;
 		goto cleanup;
 	}
+
+	/* Enforce the block group descriptor size */
+	if (ext2fs_has_feature_64bit(fs->super)) {
+		if (fs->super->s_desc_size < EXT2_MIN_DESC_SIZE_64BIT) {
+			retval = EXT2_ET_BAD_DESC_SIZE;
+			goto cleanup;
+		}
+	} else {
+		if (fs->super->s_desc_size &&
+		    fs->super->s_desc_size != EXT2_MIN_DESC_SIZE) {
+			retval = EXT2_ET_BAD_DESC_SIZE;
+			goto cleanup;
+		}
+	}
+
 	fs->cluster_ratio_bits = fs->super->s_log_cluster_size -
 		fs->super->s_log_block_size;
 	if (EXT2_BLOCKS_PER_GROUP(fs->super) !=
@@ -301,8 +342,7 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 	 * If this is an external journal device, don't try to read
 	 * the group descriptors, because they're not there.
 	 */
-	if (fs->super->s_feature_incompat &
-	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
+	if (ext2fs_has_feature_journal_dev(fs->super)) {
 		fs->group_desc_count = 0;
 		*ret_fs = fs;
 		return 0;
@@ -312,6 +352,8 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 		retval = EXT2_ET_CORRUPT_SUPERBLOCK;
 		goto cleanup;
 	}
+	/* Precompute the FS UUID to seed other checksums */
+	ext2fs_init_csum_seed(fs);
 
 	/*
 	 * Read group descriptors
@@ -341,18 +383,32 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 		goto cleanup;
 	if (!group_block)
 		group_block = fs->super->s_first_data_block;
+	/*
+	 * On a FS with a 1K blocksize, block 0 is reserved for bootloaders
+	 * so we must increment block numbers to any group 0 items.
+	 *
+	 * However, we cannot touch group_block directly because in the meta_bg
+	 * case, the ext2fs_descriptor_block_loc2() function will interpret
+	 * group_block != s_first_data_block to mean that we want to access the
+	 * backup group descriptors.  This is not what we want if the caller
+	 * set superblock == 0 (i.e. auto-detect the superblock), which is
+	 * what's going on here.
+	 */
 	if (group_block == 0 && fs->blocksize == 1024)
-		group_block = 1; /* Deal with 1024 blocksize && bigalloc */
+		group_zero_adjust = 1;
 	dest = (char *) fs->group_desc;
 #ifdef WORDS_BIGENDIAN
 	groups_per_block = EXT2_DESC_PER_BLOCK(fs->super);
 #endif
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
+	if (ext2fs_has_feature_meta_bg(fs->super)) {
 		first_meta_bg = fs->super->s_first_meta_bg;
-	else
+		if (first_meta_bg > fs->desc_blocks)
+			first_meta_bg = fs->desc_blocks;
+	} else
 		first_meta_bg = fs->desc_blocks;
 	if (first_meta_bg) {
-		retval = io_channel_read_blk(fs->io, group_block+1,
+		retval = io_channel_read_blk(fs->io, group_block +
+					     group_zero_adjust + 1,
 					     first_meta_bg, dest);
 		if (retval)
 			goto cleanup;
@@ -386,8 +442,7 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 	 * If recovery is from backup superblock, Clear _UNININT flags &
 	 * reset bg_itable_unused to zero
 	 */
-	if (superblock > 1 && EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-					EXT4_FEATURE_RO_COMPAT_GDT_CSUM)) {
+	if (superblock > 1 && ext2fs_has_group_desc_csum(fs)) {
 		dgrp_t group;
 
 		for (group = 0; group < fs->group_desc_count; group++) {
@@ -402,7 +457,7 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 			ext2fs_mark_super_dirty(fs);
 	}
 
-	if ((fs->super->s_feature_incompat & EXT4_FEATURE_INCOMPAT_MMP) &&
+	if (ext2fs_has_feature_mmp(fs->super) &&
 	    !(flags & EXT2_FLAG_SKIP_MMP) &&
 	    (flags & (EXT2_FLAG_RW | EXT2_FLAG_EXCLUSIVE))) {
 		retval = ext2fs_mmp_start(fs);
@@ -418,10 +473,11 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 
 	return 0;
 cleanup:
-	if (flags & EXT2_FLAG_NOFREE_ON_ERROR)
-		*ret_fs = fs;
-	else
+	if (!(flags & EXT2_FLAG_NOFREE_ON_ERROR)) {
 		ext2fs_free(fs);
+		fs = NULL;
+	}
+	*ret_fs = fs;
 	return retval;
 }
 

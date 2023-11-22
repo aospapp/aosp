@@ -98,7 +98,6 @@ public class AccessibilityServiceInfoTest extends AndroidTestCase {
                 AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS));
         assertEquals("FLAG_REQUEST_TOUCH_EXPLORATION_MODE", AccessibilityServiceInfo.flagToString(
                 AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE));
-        
     }
 
     /**

@@ -16,12 +16,11 @@
 
 package android.text.cts;
 
-import android.text.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
-import android.cts.util.NullWebViewUtils;
 import android.webkit.WebView;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
 
 public class EmojiCtsActivity extends Activity {
     private WebView mWebView;

@@ -19,16 +19,19 @@ package android.accessibilityservice.cts;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.UiAutomation;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
@@ -314,65 +317,117 @@ public class AccessibilityEndToEndTest extends
     @SuppressWarnings("deprecation")
     public void testTypeNotificationStateChangedAccessibilityEvent() throws Throwable {
         // No notification UI on televisions.
-        if((getActivity().getResources().getConfiguration().uiMode
+        if ((getActivity().getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION) {
             Log.i(LOG_TAG, "Skipping: testTypeNotificationStateChangedAccessibilityEvent" +
                     " - No notification UI on televisions.");
             return;
         }
+        PackageManager pm = getInstrumentation().getTargetContext().getPackageManager();
+        if (pm.hasSystemFeature(pm.FEATURE_WATCH)) {
+            Log.i(LOG_TAG, "Skipping: testTypeNotificationStateChangedAccessibilityEvent" +
+                    " - Watches have different notification system.");
+            return;
+        }
 
         String message = getActivity().getString(R.string.notification_message);
 
-        // create the notification to send
-        final int notificationId = 1;
-        final Notification notification = new Notification.Builder(getActivity())
-                .setSmallIcon(android.R.drawable.stat_notify_call_mute)
-                .setContentIntent(PendingIntent.getActivity(getActivity(), 0, new Intent(),
-                        PendingIntent.FLAG_CANCEL_CURRENT))
-                .setTicker(message)
-                .setContentTitle("")
-                .setContentText("")
-                .setPriority(Notification.PRIORITY_MAX)
-                // Mark the notification as "interruptive" by specifying a vibration pattern. This
-                // ensures it's announced properly on watch-type devices.
-                .setVibrate(new long[] {})
-                .build();
+        final NotificationManager notificationManager =
+                (NotificationManager) getActivity().getSystemService(Service.NOTIFICATION_SERVICE);
+        final NotificationChannel channel =
+                new NotificationChannel("id", "name", NotificationManager.IMPORTANCE_DEFAULT);
+        try {
+            // create the notification to send
+            channel.enableVibration(true);
+            channel.enableLights(true);
+            channel.setBypassDnd(true);
+            notificationManager.createNotificationChannel(channel);
+            NotificationChannel created =
+                    notificationManager.getNotificationChannel(channel.getId());
+            final int notificationId = 1;
+            final Notification notification =
+                    new Notification.Builder(getActivity(), channel.getId())
+                            .setSmallIcon(android.R.drawable.stat_notify_call_mute)
+                            .setContentIntent(PendingIntent.getActivity(getActivity(), 0,
+                                    new Intent(),
+                                    PendingIntent.FLAG_CANCEL_CURRENT))
+                            .setTicker(message)
+                            .setContentTitle("")
+                            .setContentText("")
+                            .setPriority(Notification.PRIORITY_MAX)
+                            // Mark the notification as "interruptive" by specifying a vibration
+                            // pattern. This ensures it's announced properly on watch-type devices.
+                            .setVibrate(new long[]{})
+                            .build();
 
-        // create and populate the expected event
-        final AccessibilityEvent expected = AccessibilityEvent.obtain();
-        expected.setEventType(AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED);
-        expected.setClassName(Notification.class.getName());
-        expected.setPackageName(getActivity().getPackageName());
-        expected.getText().add(message);
-        expected.setParcelableData(notification);
+            // create and populate the expected event
+            final AccessibilityEvent expected = AccessibilityEvent.obtain();
+            expected.setEventType(AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED);
+            expected.setClassName(Notification.class.getName());
+            expected.setPackageName(getActivity().getPackageName());
+            expected.getText().add(message);
+            expected.setParcelableData(notification);
 
-        AccessibilityEvent awaitedEvent =
-            getInstrumentation().getUiAutomation().executeAndWaitForEvent(
-                new Runnable() {
-            @Override
-            public void run() {
-                // trigger the event
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        // trigger the event
-                        NotificationManager notificationManager =
-                            (NotificationManager) getActivity().getSystemService(
-                                    Service.NOTIFICATION_SERVICE);
-                        notificationManager.notify(notificationId, notification);
-                        getActivity().finish();
+            AccessibilityEvent awaitedEvent =
+                    getInstrumentation().getUiAutomation().executeAndWaitForEvent(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    // trigger the event
+                                    getActivity().runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            // trigger the event
+                                            notificationManager
+                                                    .notify(notificationId, notification);
+                                            getActivity().finish();
+                                        }
+                                    });
+                                }
+                            },
+                            new UiAutomation.AccessibilityEventFilter() {
+                                // check the received event
+                                @Override
+                                public boolean accept(AccessibilityEvent event) {
+                                    return equalsAccessiblityEvent(event, expected);
+                                }
+                            },
+                            TIMEOUT_ASYNC_PROCESSING);
+            assertNotNull("Did not receive expected event: " + expected, awaitedEvent);
+        } finally {
+            notificationManager.deleteNotificationChannel(channel.getId());
+        }
+    }
+
+    @MediumTest
+    public void testInterrupt_notifiesService() {
+        getInstrumentation()
+                .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        InstrumentedAccessibilityService service = InstrumentedAccessibilityService.enableService(
+                getInstrumentation(), InstrumentedAccessibilityService.class);
+        try {
+            assertFalse(service.wasOnInterruptCalled());
+
+            getActivity().runOnUiThread(() -> {
+                AccessibilityManager accessibilityManager = (AccessibilityManager) getActivity()
+                        .getSystemService(Service.ACCESSIBILITY_SERVICE);
+                accessibilityManager.interrupt();
+            });
+
+            Object waitObject = service.getInterruptWaitObject();
+            synchronized (waitObject) {
+                if (!service.wasOnInterruptCalled()) {
+                    try {
+                        waitObject.wait(TIMEOUT_ASYNC_PROCESSING);
+                    } catch (InterruptedException e) {
+                        // Do nothing
                     }
-                });
-            }},
-            new UiAutomation.AccessibilityEventFilter() {
-                // check the received event
-                @Override
-                public boolean accept(AccessibilityEvent event) {
-                    return equalsAccessiblityEvent(event, expected);
                 }
-            },
-            TIMEOUT_ASYNC_PROCESSING);
-        assertNotNull("Did not receive expected event: " + expected, awaitedEvent);
+            }
+            assertTrue(service.wasOnInterruptCalled());
+        } finally {
+            service.disableSelfAndRemove();
+        }
     }
 
     /**

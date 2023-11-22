@@ -16,6 +16,7 @@
 
 package libcore.java.lang;
 
+import dalvik.system.VMRuntime;
 import java.util.Arrays;
 import java.util.List;
 import junit.framework.TestCase;
@@ -39,8 +40,20 @@ public final class PackageTest extends TestCase {
 
     // http://b/28057303
     public void test_toString() throws Exception {
-        Package libcoreJavaLang = Package.getPackage("libcore.java.lang");
-        assertEquals("package libcore.java.lang", libcoreJavaLang.toString());
+        int savedTargetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
+        try {
+            VMRuntime.getRuntime().setTargetSdkVersion(24);
+            Package libcoreJavaLang = Package.getPackage("libcore.java.lang");
+            assertEquals("package libcore.java.lang",
+                         libcoreJavaLang.toString());
+
+            VMRuntime.getRuntime().setTargetSdkVersion(25);
+            libcoreJavaLang = Package.getPackage("libcore.java.lang");
+            assertEquals("package libcore.java.lang, Unknown, version 0.0",
+                         libcoreJavaLang.toString());
+        } finally {
+            VMRuntime.getRuntime().setTargetSdkVersion(savedTargetSdkVersion);
+        }
     }
 
     // http://b/5171136

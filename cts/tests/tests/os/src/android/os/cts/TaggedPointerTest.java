@@ -16,11 +16,9 @@
 
 package android.os.cts;
 
-
 import android.test.AndroidTestCase;
-
-import android.os.cts.CpuFeatures;
 import android.os.cts.TaggedPointer;
+import com.android.compatibility.common.util.CpuFeatures;
 
 public class TaggedPointerTest extends AndroidTestCase {
 

@@ -14,14 +14,13 @@
 #include "src/elements.h"
 #include "src/frames.h"
 #include "src/isolate.h"
+#include "src/libsampler/sampler.h"
 #include "src/objects.h"
 #include "src/profiler/heap-profiler.h"
-#include "src/profiler/sampler.h"
 #include "src/runtime-profiler.h"
 #include "src/snapshot/natives.h"
-#include "src/snapshot/serialize.h"
 #include "src/snapshot/snapshot.h"
-
+#include "src/tracing/tracing-category-observer.h"
 
 namespace v8 {
 namespace internal {
@@ -46,10 +45,9 @@ void V8::TearDown() {
   Bootstrapper::TearDownExtensions();
   ElementsAccessor::TearDown();
   LOperand::TearDownCaches();
-  ExternalReference::TearDownMathExpData();
   RegisteredExtension::UnregisterAll();
   Isolate::GlobalTearDown();
-  Sampler::TearDown();
+  sampler::Sampler::TearDown();
   FlagList::ResetAllFlags();  // Frees memory held by string arguments.
 }
 
@@ -77,7 +75,7 @@ void V8::InitializeOncePerProcessImpl() {
 
   Isolate::InitializeOncePerProcess();
 
-  Sampler::SetUp();
+  sampler::Sampler::SetUp();
   CpuFeatures::Probe(false);
   ElementsAccessor::InitializeOncePerProcess();
   LOperand::SetUpCaches();
@@ -96,11 +94,13 @@ void V8::InitializePlatform(v8::Platform* platform) {
   CHECK(!platform_);
   CHECK(platform);
   platform_ = platform;
+  v8::tracing::TracingCategoryObserver::SetUp();
 }
 
 
 void V8::ShutdownPlatform() {
   CHECK(platform_);
+  v8::tracing::TracingCategoryObserver::TearDown();
   platform_ = NULL;
 }
 

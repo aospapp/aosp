@@ -40,6 +40,7 @@ public class MediaItemTest extends AndroidTestCase {
         assertEquals(MediaItem.FLAG_BROWSABLE, mediaItem.getFlags());
         assertTrue(mediaItem.isBrowsable());
         assertFalse(mediaItem.isPlayable());
+        assertEquals(0, mediaItem.describeContents());
 
         // Test writeToParcel
         Parcel p = Parcel.obtain();
@@ -62,6 +63,7 @@ public class MediaItemTest extends AndroidTestCase {
         assertEquals(MediaItem.FLAG_PLAYABLE, mediaItem.getFlags());
         assertFalse(mediaItem.isBrowsable());
         assertTrue(mediaItem.isPlayable());
+        assertEquals(0, mediaItem.describeContents());
 
         // Test writeToParcel
         Parcel p = Parcel.obtain();

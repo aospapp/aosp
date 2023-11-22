@@ -38,6 +38,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class AllClassesWithGenericTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

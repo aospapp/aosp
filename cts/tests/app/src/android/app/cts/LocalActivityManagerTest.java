@@ -21,9 +21,10 @@ import android.app.Instrumentation;
 import android.app.LocalActivityManager;
 import android.app.stubs.LocalActivityManagerTestHelper;
 import android.content.Intent;
-import android.cts.util.CTSResult;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
+
+import com.android.compatibility.common.util.CTSResult;
 
 public class LocalActivityManagerTest extends InstrumentationTestCase implements CTSResult {
 

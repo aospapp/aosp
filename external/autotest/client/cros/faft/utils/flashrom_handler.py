@@ -118,6 +118,7 @@ class FlashromHandler(object):
             self.fv_sections = {
                 'a': FvSection('VBOOTA', 'FVMAIN'),
                 'b': FvSection('VBOOTB', 'FVMAINB'),
+                'rec': FvSection(None, 'RECOVERY_MRC_CACHE'),
                 'ec_a': FvSection(None, 'ECMAINA'),
                 'ec_b': FvSection(None, 'ECMAINB'),
                 }
@@ -132,6 +133,7 @@ class FlashromHandler(object):
         self.os_if = os_if
         self.pub_key_file = pub_key_file
         self.dev_key_path = dev_key_path
+        self.new_image()
 
     def new_image(self, image_file=None):
         """Parse the full flashrom image and store sections into files.

@@ -26,9 +26,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#ifdef __arm__
-#include <machine/cpu-features.h>
-#endif
 
 #include <audio_utils/fixedfft.h>
 
@@ -86,7 +83,7 @@ static const uint32_t twiddle[MAX_FFT_SIZE / 4] = {
 /* Returns the multiplication of \conj{a} and {b}. */
 static inline int32_t mult(int32_t a, int32_t b)
 {
-#if __ARM_ARCH__ >= 6
+#if defined(__arm__)
     int32_t t = b;
     __asm__("smuad  %0, %0, %1"          : "+r" (t) : "r" (a));
     __asm__("smusdx %0, %0, %1"          : "+r" (b) : "r" (a));
@@ -100,7 +97,7 @@ static inline int32_t mult(int32_t a, int32_t b)
 
 static inline int32_t half(int32_t a)
 {
-#if __ARM_ARCH__ >= 6
+#if defined(__arm__)
     __asm__("shadd16 %0, %0, %1" : "+r" (a) : "r" (0));
     return a;
 #else

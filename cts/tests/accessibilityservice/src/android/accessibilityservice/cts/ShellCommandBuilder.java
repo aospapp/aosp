@@ -16,9 +16,9 @@
 
 package android.accessibilityservice.cts;
 
+import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
-import android.test.InstrumentationTestCase;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -31,18 +31,18 @@ import java.util.LinkedList;
 public class ShellCommandBuilder {
     private final LinkedList<String> mCommands = new LinkedList<>();
 
-    private final InstrumentationTestCase mTestCase;
+    private final Instrumentation mInstrumentation;
 
-    public static ShellCommandBuilder create(InstrumentationTestCase testCase) {
-        return new ShellCommandBuilder(testCase);
+    public static ShellCommandBuilder create(Instrumentation instrumentation) {
+        return new ShellCommandBuilder(instrumentation);
     }
 
-    private ShellCommandBuilder(InstrumentationTestCase testCase) {
-        mTestCase = testCase;
+    private ShellCommandBuilder(Instrumentation instrumentation) {
+        mInstrumentation = instrumentation;
     }
 
     public void run() {
-        final UiAutomation automation = mTestCase.getInstrumentation().getUiAutomation(
+        final UiAutomation automation = mInstrumentation.getUiAutomation(
                 UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
         for (String command : mCommands) {
             execShellCommand(automation, command);

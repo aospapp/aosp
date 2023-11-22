@@ -233,8 +233,7 @@ swig_string_data Read(struct mpsse_context* mpsse, int size);
 swig_string_data Transfer(struct mpsse_context* mpsse, char* data, int size);
 #else
 uint8_t* Read(struct mpsse_context* mpsse, int size);
-uint8_t* Transfer(struct mpsse_context* mpsse,
-                        uint8_t* data, int size);
+uint8_t* Transfer(struct mpsse_context* mpsse, uint8_t* data, int size);
 
 int FastWrite(struct mpsse_context* mpsse, char* data, int size);
 int FastRead(struct mpsse_context* mpsse, char* data, int size);
@@ -246,4 +245,4 @@ int FastTransfer(struct mpsse_context* mpsse,
 #ifdef __cplusplus
 }
 #endif
-#endif  /* TRUNKS_FTDI_MPSSE_H_ */
+#endif /* TRUNKS_FTDI_MPSSE_H_ */

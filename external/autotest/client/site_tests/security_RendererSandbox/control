@@ -7,7 +7,6 @@ sandboxed/jailed.
 """
 TIME = "SHORT"
 ATTRIBUTES = "suite:security"
-SUITE = "security"
 TEST_CATEGORY = "Security"
 TEST_CLASS = "security"
 TEST_TYPE = "client"

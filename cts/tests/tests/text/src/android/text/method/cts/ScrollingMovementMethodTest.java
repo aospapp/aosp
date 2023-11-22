@@ -16,9 +16,21 @@
 
 package android.text.method.cts;
 
-import android.cts.util.WidgetTestUtils;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
+import android.app.Activity;
+import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Layout;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -30,10 +42,16 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.TextView;
 import android.widget.TextView.BufferType;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link ScrollingMovementMethod}. The class is an implementation of interface
@@ -43,68 +61,64 @@ import android.widget.TextView.BufferType;
  *
  * @see android.widget.cts.TextViewTest
  */
-public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase2<CtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ScrollingMovementMethodTest {
     private static final int LITTLE_SPACE = 20;
 
     private static final String THREE_LINES_TEXT = "first line\nsecond line\nlast line";
 
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
     private TextView mTextView;
-
     private Spannable mSpannable;
-
     private int mScaledTouchSlop;
 
-    public ScrollingMovementMethodTest() {
-        super("android.text.cts", CtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<CtsActivity> mActivityRule = new ActivityTestRule<>(CtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mTextView = new TextViewNoIme(getActivity());
+    @UiThreadTest
+    @Before
+    public void setup() throws Throwable {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        mTextView = new TextViewNoIme(mActivity);
         mTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         mTextView.setText(THREE_LINES_TEXT, BufferType.EDITABLE);
         mSpannable = (Spannable) mTextView.getText();
-        mScaledTouchSlop = ViewConfiguration.get(getActivity()).getScaledTouchSlop();
+        mScaledTouchSlop = ViewConfiguration.get(mActivity).getScaledTouchSlop();
     }
 
+    @Test
     public void testConstructor() {
         new ScrollingMovementMethod();
     }
 
+    @Test
     public void testGetInstance() {
-        MovementMethod method0 = ScrollingMovementMethod.getInstance();
+        final MovementMethod method0 = ScrollingMovementMethod.getInstance();
         assertTrue(method0 instanceof ScrollingMovementMethod);
 
-        MovementMethod method1 = ScrollingMovementMethod.getInstance();
+        final MovementMethod method1 = ScrollingMovementMethod.getInstance();
         assertSame(method0, method1);
     }
 
+    @Test
     public void testOnTouchEventHorizontalMotion() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
         final ScrollingMovementMethod method = new ScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setText("hello world", BufferType.SPANNABLE);
-                mTextView.setSingleLine();
-                mSpannable = (Spannable) mTextView.getText();
-                int width = WidgetTestUtils.convertDipToPixels(getActivity(), LITTLE_SPACE);
-                getActivity().setContentView(mTextView,
-                        new ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT));
-            }
+        runActionOnUiThread(() -> {
+            mTextView.setText("hello world", BufferType.SPANNABLE);
+            mTextView.setSingleLine();
+            mSpannable = (Spannable) mTextView.getText();
+            final int width = WidgetTestUtils.convertDipToPixels(mActivity, LITTLE_SPACE);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(width, LayoutParams.WRAP_CONTENT));
         });
         assertNotNull(mTextView.getLayout());
 
-        float rightMost = mTextView.getLayout().getLineRight(0) - mTextView.getWidth()
+        final float rightMost = mTextView.getLayout().getLineRight(0) - mTextView.getWidth()
                 + mTextView.getTotalPaddingLeft() + mTextView.getTotalPaddingRight();
-        int leftMost = mTextView.getScrollX();
+        final int leftMost = mTextView.getScrollX();
 
         final long now = SystemClock.uptimeMillis();
         assertTrue(getActionResult(new ActionRunnerWithResult() {
@@ -186,28 +200,19 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         }));
     }
 
+    @Test
     public void testOnTouchEventVerticalMotion() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
         final ScrollingMovementMethod method = new ScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setLines(1);
-                getActivity().setContentView(mTextView,
-                        new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-            }
+        runActionOnUiThread(() -> {
+            mTextView.setLines(1);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         });
         assertNotNull(mTextView.getLayout());
 
-        float bottom = mTextView.getLayout().getHeight() - mTextView.getHeight()
+        final float bottom = mTextView.getLayout().getHeight() - mTextView.getHeight()
                 + mTextView.getTotalPaddingTop() + mTextView.getTotalPaddingBottom();
-        int top = mTextView.getScrollY();
+        final int top = mTextView.getScrollY();
 
         final long now = SystemClock.uptimeMillis();
         assertTrue(getActionResult(new ActionRunnerWithResult() {
@@ -289,230 +294,158 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         }));
     }
 
+    @Test
     public void testOnTouchEventExceptional() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                int width = WidgetTestUtils.convertDipToPixels(getActivity(), LITTLE_SPACE);
-                getActivity().setContentView(mTextView,
-                        new ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT));
-            }
+        runActionOnUiThread(() -> {
+            final int width = WidgetTestUtils.convertDipToPixels(mActivity, LITTLE_SPACE);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(width, LayoutParams.WRAP_CONTENT));
         });
         assertNotNull(mTextView.getLayout());
 
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(mTextView, mSpannable, null);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+        runActionOnUiThread(() -> {
+            try {
+                new ScrollingMovementMethod().onTouchEvent(mTextView, mSpannable, null);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                long now = SystemClock.uptimeMillis();
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(mTextView, null,
-                            MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 0, 0, 0));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
-
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(null, mSpannable,
-                            MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 0, 0, 0));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
-
-                new ScrollingMovementMethod().onTouchEvent(mTextView, mSpannable,
+            long now = SystemClock.uptimeMillis();
+            try {
+                new ScrollingMovementMethod().onTouchEvent(mTextView, null,
                         MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 0, 0, 0));
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(null, mSpannable,
-                            MotionEvent.obtain(now, now, MotionEvent.ACTION_MOVE, - 10000, 0, 0));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(mTextView, null,
-                            MotionEvent.obtain(now, now, MotionEvent.ACTION_MOVE, - 10000, 0, 0));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                new ScrollingMovementMethod().onTouchEvent(null, mSpannable,
+                        MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 0, 0, 0));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(null, mSpannable,
-                            MotionEvent.obtain(now, now, MotionEvent.ACTION_UP, - 10000, 0, 0));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            new ScrollingMovementMethod().onTouchEvent(mTextView, mSpannable,
+                    MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 0, 0, 0));
+            try {
+                new ScrollingMovementMethod().onTouchEvent(null, mSpannable,
+                        MotionEvent.obtain(now, now, MotionEvent.ACTION_MOVE, -10000, 0, 0));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    new ScrollingMovementMethod().onTouchEvent(mTextView, null,
-                            MotionEvent.obtain(now, now, MotionEvent.ACTION_UP, - 10000, 0, 0));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                new ScrollingMovementMethod().onTouchEvent(mTextView, null,
+                        MotionEvent.obtain(now, now, MotionEvent.ACTION_MOVE, -10000, 0, 0));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
+
+            try {
+                new ScrollingMovementMethod().onTouchEvent(null, mSpannable,
+                        MotionEvent.obtain(now, now, MotionEvent.ACTION_UP, -10000, 0, 0));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
+
+            try {
+                new ScrollingMovementMethod().onTouchEvent(mTextView, null,
+                        MotionEvent.obtain(now, now, MotionEvent.ACTION_UP, -10000, 0, 0));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
             }
         });
     }
 
+    @Test
     public void testCanSelectArbitrarily() {
         assertFalse(new ScrollingMovementMethod().canSelectArbitrarily());
     }
 
+    @Test
     public void testOnKeyDownVerticalMovement() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                getActivity().setContentView(mTextView);
-            }
-        });
+        runActionOnUiThread(() -> mActivity.setContentView(mTextView));
         assertNotNull(mTextView.getLayout());
 
-        assertVisibleLineInTextView(0);
+        verifyVisibleLineInTextView(0);
         final MyScrollingMovementMethod method = new MyScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onKeyDown(mTextView, null, KeyEvent.KEYCODE_DPAD_DOWN,
-                        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN));
-            }
-        });
-        assertVisibleLineInTextView(1);
+        runActionOnUiThread(() -> method.onKeyDown(mTextView, null, KeyEvent.KEYCODE_DPAD_DOWN,
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN)));
+        verifyVisibleLineInTextView(1);
 
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onKeyDown(mTextView, null, KeyEvent.KEYCODE_DPAD_UP,
-                        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP));
-            }
-        });
-        assertVisibleLineInTextView(0);
+        runActionOnUiThread(() -> method.onKeyDown(mTextView, null, KeyEvent.KEYCODE_DPAD_UP,
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP)));
+        verifyVisibleLineInTextView(0);
     }
 
+    @Test
     public void testOnKeyDownHorizontalMovement() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setText("short");
-                mTextView.setSingleLine();
-                int width = WidgetTestUtils.convertDipToPixels(getActivity(), LITTLE_SPACE);
-                getActivity().setContentView(mTextView,
-                        new ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT));
-            }
+        runActionOnUiThread(() -> {
+            mTextView.setText("short");
+            mTextView.setSingleLine();
+            final int width = WidgetTestUtils.convertDipToPixels(mActivity, LITTLE_SPACE);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(width, LayoutParams.WRAP_CONTENT));
         });
         assertNotNull(mTextView.getLayout());
 
         final MyScrollingMovementMethod method = new MyScrollingMovementMethod();
         int previousScrollX = mTextView.getScrollX();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onKeyDown(mTextView, (Spannable) mTextView.getText(),
-                        KeyEvent.KEYCODE_DPAD_RIGHT, new KeyEvent(KeyEvent.ACTION_DOWN,
-                                KeyEvent.KEYCODE_DPAD_RIGHT));
-            }
-        });
+        runActionOnUiThread(() -> method.onKeyDown(mTextView, (Spannable) mTextView.getText(),
+                KeyEvent.KEYCODE_DPAD_RIGHT, new KeyEvent(KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_DPAD_RIGHT)));
         assertTrue(mTextView.getScrollX() > previousScrollX);
 
         previousScrollX = mTextView.getScrollX();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onKeyDown(mTextView, (Spannable) mTextView.getText(),
-                        KeyEvent.KEYCODE_DPAD_LEFT, new KeyEvent(KeyEvent.ACTION_DOWN,
-                                KeyEvent.KEYCODE_DPAD_LEFT));
-            }
-        });
+        runActionOnUiThread(() -> method.onKeyDown(mTextView, (Spannable) mTextView.getText(),
+                KeyEvent.KEYCODE_DPAD_LEFT, new KeyEvent(KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_DPAD_LEFT)));
         assertTrue(mTextView.getScrollX() < previousScrollX);
 
         previousScrollX = mTextView.getScrollX();
-        assertVisibleLineInTextView(0);
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                assertFalse(method.onKeyDown(mTextView, mSpannable, 0,
-                        new KeyEvent(KeyEvent.ACTION_DOWN, 0)));
-            }
-        });
+        verifyVisibleLineInTextView(0);
+        runActionOnUiThread(() -> assertFalse(method.onKeyDown(mTextView, mSpannable, 0,
+                new KeyEvent(KeyEvent.ACTION_DOWN, 0))));
         assertEquals(previousScrollX, mTextView.getScrollX());
-        assertVisibleLineInTextView(0);
+        verifyVisibleLineInTextView(0);
     }
 
+    @Test
     public void testOnKeyDownExceptions() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                getActivity().setContentView(mTextView);
-            }
-        });
+        runActionOnUiThread(() -> mActivity.setContentView(mTextView));
         assertNotNull(mTextView.getLayout());
 
         final MyScrollingMovementMethod method = new MyScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    method.onKeyDown(null, mSpannable, KeyEvent.KEYCODE_DPAD_RIGHT,
-                            new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+        runActionOnUiThread(() -> {
+            try {
+                method.onKeyDown(null, mSpannable, KeyEvent.KEYCODE_DPAD_RIGHT,
+                        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    method.onKeyDown(mTextView, null, KeyEvent.KEYCODE_DPAD_RIGHT,
-                            new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP));
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                method.onKeyDown(mTextView, null, KeyEvent.KEYCODE_DPAD_RIGHT,
+                        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_UP));
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    method.onKeyDown(mTextView, mSpannable, KeyEvent.KEYCODE_DPAD_RIGHT, null);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                method.onKeyDown(mTextView, mSpannable, KeyEvent.KEYCODE_DPAD_RIGHT, null);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
             }
         });
     }
 
+    @Test
     public void testVerticalMovement() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
         final MyScrollingMovementMethod method = new MyScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setLines(1);
-                getActivity().setContentView(mTextView,
-                        new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-            }
+        runActionOnUiThread(() -> {
+            mTextView.setLines(1);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         });
         assertNotNull(mTextView.getLayout());
 
@@ -521,72 +454,71 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
                 mResult = method.down(mTextView, mSpannable);
             }
         }));
-        assertVisibleLineInTextView(1);
+        verifyVisibleLineInTextView(1);
 
         assertTrue(getActionResult(new ActionRunnerWithResult() {
             public void run() {
                 mResult = method.down(mTextView, mSpannable);
             }
         }));
-        assertVisibleLineInTextView(2);
+        verifyVisibleLineInTextView(2);
 
         assertFalse(getActionResult(new ActionRunnerWithResult() {
             public void run() {
                 mResult = method.down(mTextView, mSpannable);
             }
         }));
-        assertVisibleLineInTextView(2);
+        verifyVisibleLineInTextView(2);
 
         assertTrue(getActionResult(new ActionRunnerWithResult() {
             public void run() {
                 mResult = method.up(mTextView, mSpannable);
             }
         }));
-        assertVisibleLineInTextView(1);
+        verifyVisibleLineInTextView(1);
 
         assertTrue(getActionResult(new ActionRunnerWithResult() {
             public void run() {
                 mResult = method.up(mTextView, mSpannable);
             }
         }));
-        assertVisibleLineInTextView(0);
+        verifyVisibleLineInTextView(0);
 
         assertFalse(getActionResult(new ActionRunnerWithResult() {
             public void run() {
                 mResult = method.up(mTextView, mSpannable);
             }
         }));
-        assertVisibleLineInTextView(0);
+        verifyVisibleLineInTextView(0);
 
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    method.up(null, mSpannable);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+        runActionOnUiThread(() -> {
+            try {
+                method.up(null, mSpannable);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    method.up(mTextView, null);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                method.up(mTextView, null);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    method.down(null, mSpannable);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                method.down(null, mSpannable);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    method.down(mTextView, null);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                method.down(mTextView, null);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
             }
         });
     }
 
+    @Test
     public void testMovementWithNullLayout() {
         assertNull(mTextView.getLayout());
         try {
@@ -613,7 +545,7 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
             // NPE is acceptable
         }
 
-        long now = SystemClock.uptimeMillis();
+        final long now = SystemClock.uptimeMillis();
         try {
             KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT);
             new ScrollingMovementMethod().onKeyDown(mTextView, mSpannable,
@@ -632,14 +564,16 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         }
     }
 
+    @Test
     public void testInitialize() {
         new ScrollingMovementMethod().initialize(null, null);
     }
 
+    @Test
     public void testOnTrackballEvent() {
-        long now = SystemClock.uptimeMillis();
-        MotionEvent event = MotionEvent.obtain(now, now, 0, 2, -2, 0);
-        MyScrollingMovementMethod mockMethod = new MyScrollingMovementMethod();
+        final long now = SystemClock.uptimeMillis();
+        final MotionEvent event = MotionEvent.obtain(now, now, 0, 2, -2, 0);
+        final MyScrollingMovementMethod mockMethod = new MyScrollingMovementMethod();
 
         assertFalse(mockMethod.onTrackballEvent(mTextView, mSpannable, event));
         assertFalse(mockMethod.onTrackballEvent(null, mSpannable, event));
@@ -647,11 +581,13 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         assertFalse(mockMethod.onTrackballEvent(mTextView, null, event));
     }
 
+    @UiThreadTest
+    @Test
     public void testOnKeyUp() {
-        ScrollingMovementMethod method = new ScrollingMovementMethod();
-        SpannableString spannable = new SpannableString("Test Content");
-        KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0);
-        TextView view = new TextViewNoIme(getActivity());
+        final ScrollingMovementMethod method = new ScrollingMovementMethod();
+        final SpannableString spannable = new SpannableString("Test Content");
+        final KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0);
+        final TextView view = new TextViewNoIme(mActivity);
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 
         assertFalse(method.onKeyUp(view, spannable, KeyEvent.KEYCODE_0, event));
@@ -662,15 +598,8 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         assertFalse(method.onKeyUp(view, spannable, KeyEvent.KEYCODE_0, null));
     }
 
+    @Test
     public void testOnTakeFocus() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
         final ScrollingMovementMethod method = new ScrollingMovementMethod();
         // wait until the text view gets layout
         assertNull(mTextView.getLayout());
@@ -680,71 +609,50 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
             // NPE is acceptable
         }
 
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                int height = WidgetTestUtils.convertDipToPixels(getActivity(), LITTLE_SPACE);
-                getActivity().setContentView(mTextView,
-                        new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                                height));
-            }
+        runActionOnUiThread(() -> {
+            final int height = WidgetTestUtils.convertDipToPixels(mActivity, LITTLE_SPACE);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(LayoutParams.MATCH_PARENT,
+                            height));
         });
-        Layout layout = mTextView.getLayout();
+        final Layout layout = mTextView.getLayout();
         assertNotNull(layout);
 
         int previousScrollY = mTextView.getScrollY();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onTakeFocus(mTextView, mSpannable, View.FOCUS_BACKWARD);
-            }
-        });
+        runActionOnUiThread(() -> method.onTakeFocus(mTextView, mSpannable, View.FOCUS_BACKWARD));
         assertTrue(mTextView.getScrollY() >= previousScrollY);
-        assertVisibleLineInTextView(2);
+        verifyVisibleLineInTextView(2);
 
         previousScrollY = mTextView.getScrollY();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onTakeFocus(mTextView, mSpannable, View.FOCUS_FORWARD);
-            }
-        });
+        runActionOnUiThread(() -> method.onTakeFocus(mTextView, mSpannable, View.FOCUS_FORWARD));
         assertTrue(mTextView.getScrollY() <= previousScrollY);
-        assertVisibleLineInTextView(0);
+        verifyVisibleLineInTextView(0);
 
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                try {
-                    method.onTakeFocus(null, mSpannable, View.FOCUS_FORWARD);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+        runActionOnUiThread(() -> {
+            try {
+                method.onTakeFocus(null, mSpannable, View.FOCUS_FORWARD);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
+            }
 
-                try {
-                    method.onTakeFocus(mTextView, null, View.FOCUS_FORWARD);
-                } catch (NullPointerException e) {
-                    // NPE is acceptable
-                }
+            try {
+                method.onTakeFocus(mTextView, null, View.FOCUS_FORWARD);
+            } catch (NullPointerException e) {
+                // NPE is acceptable
             }
         });
     }
 
+    @Test
     public void testHorizontalMovement() throws Throwable {
-        /*
-         * All these assertions depends on whether the TextView has a layout.The text view will not
-         * get layout in setContent method but in otherhandler's function. Assertion which is
-         * following the setContent will not get the expecting result. It have to wait all the
-         * handlers' operations on the UiTread to finish. So all these cases are divided into
-         * several steps,setting the content at first, waiting the layout, and checking the
-         * assertion at last.
-         */
         final MyScrollingMovementMethod method = new MyScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setText("short");
-                mTextView.setSingleLine();
-                DisplayMetrics dm = getActivity().getResources().getDisplayMetrics();
-                int width = (int) (LITTLE_SPACE * dm.scaledDensity);
-                getActivity().setContentView(mTextView,
-                        new ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT));
-            }
+        runActionOnUiThread(() -> {
+            mTextView.setText("short");
+            mTextView.setSingleLine();
+            final DisplayMetrics dm = mActivity.getResources().getDisplayMetrics();
+            final int width = (int) (LITTLE_SPACE * dm.scaledDensity);
+            mActivity.setContentView(mTextView,
+                    new LayoutParams(width, LayoutParams.WRAP_CONTENT));
         });
         assertNotNull(mTextView.getLayout());
 
@@ -782,39 +690,28 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
         assertEquals(previousScrollX, mTextView.getScrollX());
     }
 
+    @Test
     public void testOnKeyOther() throws Throwable {
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                getActivity().setContentView(mTextView);
-            }
-        });
+        runActionOnUiThread(() -> mActivity.setContentView(mTextView));
         assertNotNull(mTextView.getLayout());
 
-        assertVisibleLineInTextView(0);
+        verifyVisibleLineInTextView(0);
         final MyScrollingMovementMethod method = new MyScrollingMovementMethod();
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onKeyOther(mTextView, null,
-                        new KeyEvent(0, 0, KeyEvent.ACTION_MULTIPLE,
-                                KeyEvent.KEYCODE_DPAD_DOWN, 2));
-            }
-        });
-        assertVisibleLineInTextView(1);
+        runActionOnUiThread(() -> method.onKeyOther(mTextView, null,
+                new KeyEvent(0, 0, KeyEvent.ACTION_MULTIPLE,
+                        KeyEvent.KEYCODE_DPAD_DOWN, 2)));
+        verifyVisibleLineInTextView(1);
 
-        runActionOnUiThread(new Runnable() {
-            public void run() {
-                method.onKeyOther(mTextView, null,
-                        new KeyEvent(0, 0, KeyEvent.ACTION_MULTIPLE,
-                                KeyEvent.KEYCODE_DPAD_UP, 2));
-            }
-        });
-        assertVisibleLineInTextView(0);
+        runActionOnUiThread(() -> method.onKeyOther(mTextView, null,
+                new KeyEvent(0, 0, KeyEvent.ACTION_MULTIPLE,
+                        KeyEvent.KEYCODE_DPAD_UP, 2)));
+        verifyVisibleLineInTextView(0);
     }
 
-    private void assertVisibleLineInTextView(int line) {
-        Layout layout = mTextView.getLayout();
-        int scrollY = mTextView.getScrollY();
-        int padding = mTextView.getTotalPaddingTop() + mTextView.getTotalPaddingBottom();
+    private void verifyVisibleLineInTextView(int line) {
+        final Layout layout = mTextView.getLayout();
+        final int scrollY = mTextView.getScrollY();
+        final int padding = mTextView.getTotalPaddingTop() + mTextView.getTotalPaddingBottom();
         assertTrue(layout.getLineForVertical(scrollY) <= line);
         assertTrue(layout.getLineForVertical(scrollY + mTextView.getHeight() - padding) >= line);
     }
@@ -825,8 +722,8 @@ public class ScrollingMovementMethodTest extends ActivityInstrumentationTestCase
     }
 
     private void runActionOnUiThread(Runnable actionRunner) throws Throwable {
-        runTestOnUiThread(actionRunner);
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(actionRunner);
+        mInstrumentation.waitForIdleSync();
     }
 
     private static abstract class ActionRunnerWithResult implements Runnable {

@@ -53,7 +53,7 @@ import android.view.MotionEvent;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.dataconnection.ApnSetting;
@@ -149,7 +149,7 @@ public class ApnSettings extends RestrictedSettingsFragment implements
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.APN;
     }
 
@@ -184,8 +184,7 @@ public class ApnSettings extends RestrictedSettingsFragment implements
         mUnavailable = isUiRestricted();
         setHasOptionsMenu(!mUnavailable);
         if (mUnavailable) {
-            setPreferenceScreen(new PreferenceScreen(getPrefContext(), null));
-            getPreferenceScreen().removeAll();
+            addPreferencesFromResource(R.xml.empty_settings);
             return;
         }
 
@@ -240,8 +239,9 @@ public class ApnSettings extends RestrictedSettingsFragment implements
 
     private void fillList() {
         final TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-        final String mccmnc = mSubscriptionInfo == null ? ""
-            : tm.getSimOperator(mSubscriptionInfo.getSubscriptionId());
+        final int subId = mSubscriptionInfo != null ? mSubscriptionInfo.getSubscriptionId()
+                : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        final String mccmnc = mSubscriptionInfo == null ? "" : tm.getSimOperator(subId);
         Log.d(TAG, "mccmnc = " + mccmnc);
         StringBuilder where = new StringBuilder("numeric=\"" + mccmnc +
                 "\" AND NOT (type='ia' AND (apn=\"\" OR apn IS NULL)) AND user_visible!=0");
@@ -257,8 +257,8 @@ public class ApnSettings extends RestrictedSettingsFragment implements
         if (cursor != null) {
             IccRecords r = null;
             if (mUiccController != null && mSubscriptionInfo != null) {
-                r = mUiccController.getIccRecords(SubscriptionManager.getPhoneId(
-                        mSubscriptionInfo.getSubscriptionId()), UiccController.APP_FAM_3GPP);
+                r = mUiccController.getIccRecords(
+                        SubscriptionManager.getPhoneId(subId), UiccController.APP_FAM_3GPP);
             }
             PreferenceGroup apnList = (PreferenceGroup) findPreference("apn_list");
             apnList.removeAll();
@@ -285,6 +285,7 @@ public class ApnSettings extends RestrictedSettingsFragment implements
                 pref.setSummary(apn);
                 pref.setPersistent(false);
                 pref.setOnPreferenceChangeListener(this);
+                pref.setSubId(subId);
 
                 boolean selectable = ((type == null) || !type.equals("mms"));
                 pref.setSelectable(selectable);
@@ -337,7 +338,7 @@ public class ApnSettings extends RestrictedSettingsFragment implements
             if (mAllowAddingApns) {
                 menu.add(0, MENU_NEW, 0,
                         getResources().getString(R.string.menu_new))
-                        .setIcon(android.R.drawable.ic_menu_add)
+                        .setIcon(R.drawable.ic_menu_add_white)
                         .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
             }
             menu.add(0, MENU_RESTORE, 0,
@@ -399,14 +400,14 @@ public class ApnSettings extends RestrictedSettingsFragment implements
 
         ContentValues values = new ContentValues();
         values.put(APN_ID, mSelectedKey);
-        resolver.update(PREFERAPN_URI, values, null, null);
+        resolver.update(getUriForCurrSubId(PREFERAPN_URI), values, null, null);
     }
 
     private String getSelectedApnKey() {
         String key = null;
 
-        Cursor cursor = getContentResolver().query(PREFERAPN_URI, new String[] {"_id"},
-                null, null, Telephony.Carriers.DEFAULT_SORT_ORDER);
+        Cursor cursor = getContentResolver().query(getUriForCurrSubId(PREFERAPN_URI),
+                new String[] {"_id"}, null, null, Telephony.Carriers.DEFAULT_SORT_ORDER);
         if (cursor.getCount() > 0) {
             cursor.moveToFirst();
             key = cursor.getString(ID_INDEX);
@@ -435,6 +436,17 @@ public class ApnSettings extends RestrictedSettingsFragment implements
         mRestoreApnProcessHandler
                 .sendEmptyMessage(EVENT_RESTORE_DEFAULTAPN_START);
         return true;
+    }
+
+    // Append subId to the Uri
+    private Uri getUriForCurrSubId(Uri uri) {
+        int subId = mSubscriptionInfo != null ? mSubscriptionInfo.getSubscriptionId()
+                : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        if (SubscriptionManager.isValidSubscriptionId(subId)) {
+            return Uri.withAppendedPath(uri, "subId/" + String.valueOf(subId));
+        } else {
+            return uri;
+        }
     }
 
     private class RestoreApnUiHandler extends Handler {
@@ -474,7 +486,7 @@ public class ApnSettings extends RestrictedSettingsFragment implements
             switch (msg.what) {
                 case EVENT_RESTORE_DEFAULTAPN_START:
                     ContentResolver resolver = getContentResolver();
-                    resolver.delete(DEFAULTAPN_URI, null, null);
+                    resolver.delete(getUriForCurrSubId(DEFAULTAPN_URI), null, null);
                     mRestoreApnUiHandler
                         .sendEmptyMessage(EVENT_RESTORE_DEFAULTAPN_COMPLETE);
                     break;
@@ -495,5 +507,13 @@ public class ApnSettings extends RestrictedSettingsFragment implements
             return dialog;
         }
         return null;
+    }
+
+    @Override
+    public int getDialogMetricsCategory(int dialogId) {
+        if (dialogId == DIALOG_RESTORE_DEFAULTAPN) {
+            return MetricsEvent.DIALOG_APN_RESTORE_DEFAULT;
+        }
+        return 0;
     }
 }

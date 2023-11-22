@@ -215,6 +215,12 @@ bool PerfParser::ProcessEvents() {
         VLOG(1) << "Parsed event type: " << event.header.type
                 << ". Doing nothing.";
         break;
+    case SIMPLE_PERF_RECORD_KERNEL_SYMBOL:
+    case SIMPLE_PERF_RECORD_DSO:
+    case SIMPLE_PERF_RECORD_SYMBOL:
+    case SIMPLE_PERF_RECORD_SPLIT:
+    case SIMPLE_PERF_RECORD_SPLIT_END:
+      break;
       default:
         LOG(ERROR) << "Unknown event type: " << event.header.type;
         return false;
@@ -286,12 +292,14 @@ bool PerfParser::MapSampleEvent(ParsedEvent* parsed_event) {
     mapping_failed = true;
   }
 
-  // Write the remapped data back to the raw event regardless of whether it was
-  // entirely successfully remapped.  A single failed remap should not
-  // invalidate all the other remapped entries.
-  if (!WritePerfSampleInfo(sample_info, parsed_event->raw_event)) {
-    LOG(ERROR) << "Failed to write back remapped sample info.";
-    return false;
+  if (options_.do_remap) {
+    // Write the remapped data back to the raw event regardless of
+    // whether it was entirely successfully remapped.  A single failed
+    // remap should not invalidate all the other remapped entries.
+    if (!WritePerfSampleInfo(sample_info, parsed_event->raw_event)) {
+      LOG(ERROR) << "Failed to write back remapped sample info.";
+      return false;
+    }
   }
 
   return !mapping_failed;

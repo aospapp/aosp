@@ -14,41 +14,20 @@
  * limitations under the License.
  */
 
+/*
+ * USAGE NOTE: Only include this header when _implementing_ a particular
+ * effect. When access to UUID and properties is enough, include the
+ * corresponding header from system/audio_effects/, which doesn't include
+ * hardware/audio_effect.h.
+ *
+ * Only code that immediately calls into HAL or implements an effect
+ * can import hardware/audio_effect.h.
+ */
+
 #ifndef ANDROID_EFFECT_AGC_H_
 #define ANDROID_EFFECT_AGC_H_
 
 #include <hardware/audio_effect.h>
-
-#if __cplusplus
-extern "C" {
-#endif
-
-// The AGC type UUID is not defined by OpenSL ES and has been generated from
-// http://www.itu.int/ITU-T/asn1/uuid.html
-static const effect_uuid_t FX_IID_AGC_ =
-    { 0x0a8abfe0, 0x654c, 0x11e0, 0xba26, { 0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b } };
-const effect_uuid_t * const FX_IID_AGC = &FX_IID_AGC_;
-
-
-typedef enum
-{
-    AGC_PARAM_TARGET_LEVEL,      // target output level in millibel
-    AGC_PARAM_COMP_GAIN,         // gain in the compression range in millibel
-    AGC_PARAM_LIMITER_ENA,       // enable or disable limiter (boolean)
-    AGC_PARAM_PROPERTIES
-} t_agc_params;
-
-
-//t_agc_settings groups all current agc settings for backup and restore.
-typedef struct s_agc_settings {
-    int16_t  targetLevel;
-    int16_t  compGain;
-    bool     limiterEnabled;
-} t_agc_settings;
-
-#if __cplusplus
-}  // extern "C"
-#endif
-
+#include <system/audio_effects/effect_agc.h>
 
 #endif /*ANDROID_EFFECT_AGC_H_*/

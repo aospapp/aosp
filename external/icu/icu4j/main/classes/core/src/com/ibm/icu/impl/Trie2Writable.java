@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009, International Business Machines Corporation and         *
@@ -832,7 +834,7 @@ public class Trie2Writable extends Trie2 {
 
         if  (UTRIE2_DEBUG) {
             /* we saved some space */
-            System.out.printf("compacting UTrie2: count of 32-bit data words %d->%d\n",
+            System.out.printf("compacting UTrie2: count of 32-bit data words %d->%d%n",
                 dataLength, newStart);
         }
 
@@ -913,7 +915,7 @@ public class Trie2Writable extends Trie2 {
 
         if (UTRIE2_DEBUG) {
             /* we saved some space */
-            System.out.printf("compacting UTrie2: count of 16-bit index-2 words %d->%d\n",
+            System.out.printf("compacting UTrie2: count of 16-bit index-2 words %d->%d%n",
                     index2Length, newStart);
         }
 
@@ -940,7 +942,7 @@ public class Trie2Writable extends Trie2 {
         this.highStart=localHighStart;
 
         if (UTRIE2_DEBUG) {
-            System.out.printf("UTrie2: highStart U+%04x  highValue 0x%x  initialValue 0x%x\n",
+            System.out.printf("UTrie2: highStart U+%04x  highValue 0x%x  initialValue 0x%x%n",
                 highStart, highValue, initialValue);
         }
 
@@ -955,7 +957,7 @@ public class Trie2Writable extends Trie2 {
             compactIndex2();
         } else {
             if (UTRIE2_DEBUG) {
-                 System.out.printf("UTrie2: highStart U+%04x  count of 16-bit index-2 words %d->%d\n",
+                 System.out.printf("UTrie2: highStart U+%04x  count of 16-bit index-2 words %d->%d%n",
                          highStart, index2Length, UTRIE2_INDEX_1_OFFSET);
             }
         }

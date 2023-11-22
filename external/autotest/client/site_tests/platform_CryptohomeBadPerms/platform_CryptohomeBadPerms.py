@@ -9,10 +9,17 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cryptohome
 
 class platform_CryptohomeBadPerms(test.test):
+    """Tests Cryptohome's ability to detect directories with bad permissions or
+       ownership in the mount path of a home directory.
+    """
     version = 1
     cryptohome_proxy = None
 
     def require_mount_fail(self, user):
+        """
+        Raise an error if the mound succeeded.
+        @param user: A random user created in run_once.
+        """
         if self.cryptohome_proxy.mount(user, 'test', create=True):
             raise error.TestFail('Mount unexpectedly succeeded for %s' % user)
 
@@ -65,8 +72,10 @@ class platform_CryptohomeBadPerms(test.test):
         user = utils.random_username()
         path = cryptohome.user_path(user)
         parent_path = os.path.dirname(path)
+        old_perm = os.stat(parent_path).st_mode & 0777
         os.chmod(parent_path, 0777)
         try:
             self.require_mount_fail(user)
         finally:
+            os.chmod(parent_path, old_perm)
             os.chown(parent_path, 0, 0)

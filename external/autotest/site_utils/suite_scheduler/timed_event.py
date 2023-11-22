@@ -2,12 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import datetime, logging
+import datetime
+import logging
 
 import common
 from autotest_lib.client.common_lib import priorities
 
-import base_event, task
+import base_event
+import task
 
 
 class TimedEvent(base_event.BaseEvent):
@@ -15,6 +17,9 @@ class TimedEvent(base_event.BaseEvent):
 
     @var _deadline: If this time has passed, ShouldHandle() returns True.
     """
+
+    # Number of days between each timed event to trigger. Default to 1.
+    DAYS_INTERVAL = 1
 
 
     def __init__(self, keyword, manifest_versions, always_handle, deadline):
@@ -65,6 +70,7 @@ class TimedEvent(base_event.BaseEvent):
         @return {branch: [build-name]}
         """
         since_date = self._deadline - datetime.timedelta(days=days_ago)
+        since_date = max(since_date, datetime.datetime(2017, 1, 31, 23, 0, 0))
         all_branch_manifests = self._mv.ManifestsSinceDate(since_date, board)
         latest_branch_builds = {}
         for (type, milestone), manifests in all_branch_manifests.iteritems():
@@ -75,6 +81,39 @@ class TimedEvent(base_event.BaseEvent):
         return latest_branch_builds
 
 
+    def _LatestLaunchControlBuildsSince(self, board, days_ago):
+        """Get per-branch, per-board builds since last run of this event.
+
+        @param board: the board whose builds we want, e.g., android-shamu.
+        @param days_ago: how many days back to look for manifests.
+
+        @return: A list of Launch Control builds for the given board, e.g.,
+                ['git_mnc_release/shamu-eng/123',
+                 'git_mnc_release/shamu-eng/124'].
+        """
+        # TODO(crbug.com/589936): Get the latest builds for Launch Control for a
+        # given period, not just the last build on each branch.
+        return self._LatestLaunchControlBuilds(board)
+
+
+    def GetBranchBuildsForBoard(self, board):
+        """Get per-branch, per-board builds since last run of this event.
+        """
+        return self._LatestPerBranchBuildsSince(board, self.DAYS_INTERVAL)
+
+
+    def GetLaunchControlBuildsForBoard(self, board):
+        """Get per-branch, per-board builds since last run of this event.
+
+        @param board: the board whose builds we want.
+
+        @return: A list of Launch Control builds for the given board, e.g.,
+                ['git_mnc_release/shamu-eng/123',
+                 'git_mnc_release/shamu-eng/124'].
+        """
+        return self._LatestLaunchControlBuildsSince(board, self.DAYS_INTERVAL)
+
+
 class Nightly(TimedEvent):
     """A TimedEvent that allows a task to be triggered at every night. Each task
     can set the hour when it should be triggered, through `hour` setting.
@@ -83,6 +122,9 @@ class Nightly(TimedEvent):
                   with the Nightly event.
     @var _DEFAULT_HOUR: the default hour to trigger the nightly event.
     """
+
+    # Nightly event is triggered once a day.
+    DAYS_INTERVAL = 1
 
     KEYWORD = 'nightly'
     # Each task may have different setting of `hour`. Therefore, nightly tasks
@@ -104,10 +146,6 @@ class Nightly(TimedEvent):
         deadline = now_hour + datetime.timedelta(hours=extra_hour)
         super(Nightly, self).__init__(self.KEYWORD, manifest_versions,
                                       always_handle, deadline)
-
-
-    def GetBranchBuildsForBoard(self, board):
-        return self._LatestPerBranchBuildsSince(board, 1)
 
 
     def UpdateCriteria(self):
@@ -138,6 +176,9 @@ class Weekly(TimedEvent):
     @var _DEFAULT_DAY: The default day to run a weekly task.
     @var _DEFAULT_HOUR: can be overridden in the "weekly_params" config section.
     """
+
+    # Weekly event is triggered once a week.
+    DAYS_INTERVAL = 7
 
     KEYWORD = 'weekly'
     _DEFAULT_DAY = 5  # Saturday
@@ -194,10 +235,6 @@ class Weekly(TimedEvent):
         super(Weekly, self).Merge(to_merge)
         if self._deadline.time() != to_merge._deadline.time():
             self._deadline = to_merge._deadline
-
-
-    def GetBranchBuildsForBoard(self, board):
-        return self._LatestPerBranchBuildsSince(board, 7)
 
 
     def UpdateCriteria(self):

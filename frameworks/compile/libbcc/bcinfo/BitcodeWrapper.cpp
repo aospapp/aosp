@@ -18,9 +18,6 @@
 #include "bcinfo/Wrap/bitcode_wrapperer.h"
 #include "bcinfo/Wrap/in_memory_wrapper_input.h"
 
-#define LOG_TAG "bcinfo"
-#include <cutils/log.h>
-
 #include "llvm/Bitcode/ReaderWriter.h"
 
 #include <cstdlib>

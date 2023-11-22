@@ -92,9 +92,9 @@ public class PageMetadata {
   *
   * @param rootTypeNodesList A list of root metadata nodes, each
   *        representing a type and it's member child pages.
+  * @deprecated
   */
   public static void WriteList(List<Node> rootTypeNodesList) {
-
     Collections.sort(rootTypeNodesList, BY_TYPE_NAME);
     Node pageMeta = new Node.Builder().setLabel("TOP").setChildren(rootTypeNodesList).build();
 
@@ -105,7 +105,7 @@ public class PageMetadata {
     // write the taglist to js file
     Data data = Doclava.makeHDF();
     data.setValue("reference_tree", buf.toString());
-    ClearPage.write(data, "jd_lists_unified.cs", "jd_lists_unified.js");
+    ClearPage.write(data, "jd_lists_unified.cs",  "jd_lists_unified.js");
   }
 
   /**
@@ -139,6 +139,42 @@ public class PageMetadata {
       ClearPage.write(data, "jd_lists_unified.cs", unifiedFilename);
       // append jd_extras to jd_lists_unified for each lang, then delete.
       appendExtrasMetadata(extrasFilename, unifiedFilename);
+    }
+  }
+
+  /**
+  * Given a list of metadata nodes organized by lang, sort the
+  * root nodes by type name and render the types and their child
+  * samples metadata nodes only to separate lang-specific json files
+  * in the out dir. Only used by devsite (ds) builds.
+  *
+  * @param rootNodesList A list of root metadata nodes, each
+  *        representing a type and it's member child pages.
+  */
+  public static void WriteSamplesListByLang(List<Node> rootNodesList) {
+    Collections.sort(rootNodesList, BY_LANG_NAME);
+    for (Node n : rootNodesList) {
+      boolean langHasSamples = false;
+      String langFilename = "";
+      String langname = n.getLang();
+      langFilename = "_" + langname;
+      Collections.sort(n.getChildren(), BY_TYPE_NAME);
+      Node pageMeta = new Node.Builder().setLabel("TOP").setChildren(n.getChildren()).build();
+
+      StringBuilder buf = new StringBuilder();
+      // write the taglist to string format
+      langHasSamples = pageMeta.renderSamplesResources(buf,langname);
+      // write the taglist to js file
+      Data data = Doclava.makeHDF();
+      data.setValue("reference_tree", buf.toString());
+      data.setValue("metadata.lang", langname);
+
+      if (langHasSamples) {
+        data.setValue("samples_only", "1");
+        // write out jd_lists_unified for each lang
+        String unifiedFilename = "android_samples_metadata" + langFilename + ".js";
+        ClearPage.write(data, "jd_lists_unified.cs", unifiedFilename);
+      }
     }
   }
 
@@ -181,11 +217,7 @@ public class PageMetadata {
       pageMeta.setLang(getLangStringNormalized(hdf, filename));
       pageMeta.setType(getStringValueNormalized(hdf, "page.type"));
       pageMeta.setTimestamp(hdf.getValue("page.timestamp",""));
-      if (Doclava.USE_UPDATED_TEMPLATES) {
-        appendMetaNodeByLang(pageMeta, tagList);
-      } else {
-        appendMetaNodeByType(pageMeta, tagList);
-      }
+      appendMetaNodeByLang(pageMeta, tagList);
     }
   }
 
@@ -267,6 +299,7 @@ public class PageMetadata {
             XPathConstants.NODESET);
         if (imgNodes.getLength() > 0) {
           imageUrl = imgNodes.item(0).getNodeValue();
+          imageUrl = getImageUrlNormalized(imageUrl);
           imgFrom = "itemprop";
         } else {
           XPathExpression FirstImgExpr = xpath.compile("//img/@src");
@@ -748,6 +781,31 @@ public class PageMetadata {
         }
       }
     }
+
+    /**
+    * Render a tree of metadata nodes of type 'develop' to extract
+    * samples metadata. Only used by devsite (ds) builds.
+    * @param buf Output buffer to render to.
+    * @return true if samples were rendered to buf
+    */
+    boolean renderSamplesResources(StringBuilder buf, String langname) {
+      boolean langHasSamples = false;
+      List<Node> list = mChildren; //list of type rootnodes
+      if (list == null || list.size() == 0) {
+        buf.append("null");
+      } else {
+        final int n = list.size();
+        for (int i = 0; i < n; i++) {
+          //samples are always in type 'develop', so restrict
+          if ("develop".equals(list.get(i).mType)) {
+            //render this type's children
+            langHasSamples = list.get(i).renderTypeForSamples(buf);
+          }
+        }
+      }
+      return langHasSamples;
+    }
+
     /**
     * Render all metadata nodes for a specific type.
     * @param buf Output buffer to render to.
@@ -793,6 +851,61 @@ public class PageMetadata {
           }
         }
       }
+    }
+
+    /**
+    * Render all metadata nodes for samples only.
+    * Only used by devsite (ds) builds.
+    * @param buf Output buffer to render to.
+    * @return whether any samples were rendered to buf
+    */
+    boolean renderTypeForSamples(StringBuilder buf) {
+      boolean typeHasSamples = false;
+      List<Node> list = mChildren;
+      if (list == null || list.size() == 0) {
+        buf.append("nulltype");
+      } else {
+        final int n = list.size();
+        for (int i = 0; i < n; i++) {
+          // valid samples must have category 'samples'
+          if ("samples".equals(list.get(i).mCategory)) {
+            typeHasSamples = true;
+            buf.append("\n      {\n");
+            buf.append("        \"title\":\"");
+            renderStrWithUcs(buf, list.get(i).mLabel);
+            buf.append("\",\n" );
+            buf.append("        \"summary\":\"");
+            renderStrWithUcs(buf, list.get(i).mSummary);
+            buf.append("\",\n" );
+            buf.append("        \"url\":\"" + list.get(i).mLink + "\",\n" );
+            if (!"".equals(list.get(i).mImage)) {
+              buf.append("        \"image\":\"" + list.get(i).mImage + "\",\n" );
+            }
+            if (!"".equals(list.get(i).mGroup)) {
+              buf.append("        \"group\":\"");
+              renderStrWithUcs(buf, list.get(i).mGroup);
+              buf.append("\",\n" );
+            }
+            if (!"".equals(list.get(i).mCategory)) {
+              buf.append("        \"category\":\"" + list.get(i).mCategory + "\",\n" );
+            }
+            if ((list.get(i).mType != null) && (list.get(i).mType != "")) {
+              buf.append("        \"type\":\"" + list.get(i).mType + "\",\n");
+            }
+            list.get(i).renderArrayType(buf, list.get(i).mKeywords, "keywords");
+            list.get(i).renderArrayType(buf, list.get(i).mTags, "tags");
+            if (!"".equals(list.get(i).mTimestamp)) {
+              buf.append("        \"timestamp\":\"" + list.get(i).mTimestamp + "\",\n");
+            }
+            buf.append("        \"lang\":\"" + list.get(i).mLang + "\"" );
+            buf.append("\n      }");
+            if (i != n - 1) {
+              buf.append(", ");
+            }
+          }
+        }
+      }
+      return typeHasSamples;
     }
 
     /**

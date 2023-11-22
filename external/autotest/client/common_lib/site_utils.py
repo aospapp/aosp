@@ -12,12 +12,12 @@ import struct
 import time
 import urllib2
 import uuid
-import wave
 
 from autotest_lib.client.common_lib import base_utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import lsbrelease_utils
+from autotest_lib.client.common_lib.cros.graphite import stats_es_mock
 from autotest_lib.client.cros import constants
 
 
@@ -36,7 +36,8 @@ DEFAULT_OFFLOAD_GSURI = CONFIG.get_config_value(
         'CROS', 'results_storage_server', default=None)
 
 # Default Moblab Ethernet Interface.
-MOBLAB_ETH = 'eth0'
+_MOBLAB_ETH_0 = 'eth0'
+_MOBLAB_ETH_1 = 'eth1'
 
 # A list of subnets that requires dedicated devserver and drone in the same
 # subnet. Each item is a tuple of (subnet_ip, mask_bits), e.g.,
@@ -44,8 +45,10 @@ MOBLAB_ETH = 'eth0'
 RESTRICTED_SUBNETS = []
 restricted_subnets_list = CONFIG.get_config_value(
         'CROS', 'restricted_subnets', type=list, default=[])
+# TODO(dshi): Remove the code to split subnet with `:` after R51 is off stable
+# channel, and update shadow config to use `/` as delimiter for consistency.
 for subnet in restricted_subnets_list:
-    ip, mask_bits = subnet.split(':')
+    ip, mask_bits = subnet.split('/') if '/' in subnet else subnet.split(':')
     RESTRICTED_SUBNETS.append((ip, int(mask_bits)))
 
 # regex pattern for CLIENT/wireless_ssid_ config. For example, global config
@@ -54,10 +57,31 @@ for subnet in restricted_subnets_list:
 # wireless_ssid_192.168.0.1/24: ssid_1
 WIRELESS_SSID_PATTERN = 'wireless_ssid_(.*)/(\d+)'
 
+def get_built_in_ethernet_nic_name():
+    """Gets the moblab public network interface.
+
+    If the eth0 is an USB interface, try to use eth1 instead. Otherwise
+    use eth0 by default.
+    """
+    try:
+        cmd_result = base_utils.run('readlink -f /sys/class/net/eth0')
+        if cmd_result.exit_status == 0 and 'usb' in cmd_result.stdout:
+            cmd_result = base_utils.run('readlink -f /sys/class/net/eth1')
+            if cmd_result.exit_status == 0 and not ('usb' in cmd_result.stdout):
+                logging.info('Eth0 is a USB dongle, use eth1 as moblab nic.')
+                return _MOBLAB_ETH_1
+    except error.CmdError:
+        # readlink is not supported.
+        logging.info('No readlink available, use eth0 as moblab nic.')
+        pass
+    return _MOBLAB_ETH_0
+
+
 def ping(host, deadline=None, tries=None, timeout=60):
     """Attempt to ping |host|.
 
-    Shell out to 'ping' to try to reach |host| for |timeout| seconds.
+    Shell out to 'ping' if host is an IPv4 addres or 'ping6' if host is an
+    IPv6 address to try to reach |host| for |timeout| seconds.
     Returns exit code of ping.
 
     Per 'man ping', if you specify BOTH |deadline| and |tries|, ping only
@@ -66,6 +90,9 @@ def ping(host, deadline=None, tries=None, timeout=60):
     Specifying |deadline| or |count| alone should return 0 as long as
     some packets receive responses.
 
+    Note that while this works with literal IPv6 addresses it will not work
+    with hostnames that resolve to IPv6 only.
+
     @param host: the host to ping.
     @param deadline: seconds within which |tries| pings must succeed.
     @param tries: number of pings to send.
@@ -73,11 +100,14 @@ def ping(host, deadline=None, tries=None, timeout=60):
     @return exit code of ping command.
     """
     args = [host]
+    ping_cmd = 'ping6' if re.search(r':.*:', host) else 'ping'
+
     if deadline:
         args.append('-w%d' % deadline)
     if tries:
         args.append('-c%d' % tries)
-    return base_utils.run('ping', args=args,
+
+    return base_utils.run(ping_cmd, args=args, verbose=True,
                           ignore_status=True, timeout=timeout,
                           stdout_tee=base_utils.TEE_TO_LOGS,
                           stderr_tee=base_utils.TEE_TO_LOGS).exit_status
@@ -148,6 +178,12 @@ def get_chrome_version(job_views):
     return None
 
 
+def get_default_interface_mac_address():
+    """Returns the default moblab MAC address."""
+    return get_interface_mac_address(
+            get_built_in_ethernet_nic_name())
+
+
 def get_interface_mac_address(interface):
     """Return the MAC address of a given interface.
 
@@ -158,6 +194,25 @@ def get_interface_mac_address(interface):
     # The output will be in the format of:
     # 'link/ether <mac> brd ff:ff:ff:ff:ff:ff'
     return interface_link.split()[1]
+
+
+def get_moblab_id():
+    """Gets the moblab random id.
+
+    The random id file is cached on disk. If it does not exist, a new file is
+    created the first time.
+
+    @returns the moblab random id.
+    """
+    moblab_id_filepath = '/home/moblab/.moblab_id'
+    if os.path.exists(moblab_id_filepath):
+        with open(moblab_id_filepath, 'r') as moblab_id_file:
+            random_id = moblab_id_file.read()
+    else:
+        random_id = uuid.uuid1()
+        with open(moblab_id_filepath, 'w') as moblab_id_file:
+            moblab_id_file.write('%s' % random_id)
+    return random_id
 
 
 def get_offload_gsuri():
@@ -172,19 +227,19 @@ def get_offload_gsuri():
 
     @returns gsuri to offload test results to.
     """
+    # For non-moblab, use results_storage_server or default.
     if not lsbrelease_utils.is_moblab():
         return DEFAULT_OFFLOAD_GSURI
-    moblab_id_filepath = '/home/moblab/.moblab_id'
-    if os.path.exists(moblab_id_filepath):
-        with open(moblab_id_filepath, 'r') as moblab_id_file:
-            random_id = moblab_id_file.read()
-    else:
-        random_id = uuid.uuid1()
-        with open(moblab_id_filepath, 'w') as moblab_id_file:
-            moblab_id_file.write('%s' % random_id)
-    return '%sresults/%s/%s/' % (
-            CONFIG.get_config_value('CROS', 'image_storage_server'),
-            get_interface_mac_address(MOBLAB_ETH), random_id)
+
+    # For moblab, use results_storage_server or image_storage_server as bucket
+    # name and mac-address/moblab_id as path.
+    gsuri = DEFAULT_OFFLOAD_GSURI
+    if not gsuri:
+        gsuri = "%sresults/" % CONFIG.get_config_value('CROS', 'image_storage_server')
+
+    return '%s%s/%s/' % (
+            gsuri, get_interface_mac_address(get_built_in_ethernet_nic_name()),
+            get_moblab_id())
 
 
 # TODO(petermayo): crosbug.com/31826 Share this with _GsUpload in
@@ -432,6 +487,14 @@ def get_function_arg_value(func, arg_name, args, kwargs):
                            (arg_name, argspec, args, kwargs))
 
 
+def has_systemd():
+    """Check if the host is running systemd.
+
+    @return: True if the host uses systemd, otherwise returns False.
+    """
+    return os.path.basename(os.readlink('/proc/1/exe')) == 'systemd'
+
+
 def version_match(build_version, release_version, update_url=''):
     """Compare release versino from lsb-release with cros-version label.
 
@@ -494,8 +557,10 @@ def version_match(build_version, release_version, update_url=''):
     stripped_version = stripped_version.split('/')[-1]
 
     is_trybot_non_release_build = (
-            re.match(r'.*trybot-.+-(paladin|pre-cq|test-ap)', build_version) or
-            re.match(r'.*trybot-.+-(paladin|pre-cq|test-ap)', update_url))
+            re.match(r'.*trybot-.+-(paladin|pre-cq|test-ap|toolchain)',
+                     build_version) or
+            re.match(r'.*trybot-.+-(paladin|pre-cq|test-ap|toolchain)',
+                     update_url))
 
     # Replace date string with 0 in release_version
     release_version_no_date = re.sub(r'\d{4}_\d{2}_\d{2}_\d+', '0',
@@ -547,6 +612,83 @@ def get_real_user():
     if not user:
         user = os.environ.get('USER')
     return user
+
+
+def get_service_pid(service_name):
+    """Return pid of service.
+
+    @param service_name: string name of service.
+
+    @return: pid or 0 if service is not running.
+    """
+    if has_systemd():
+        # systemctl show prints 'MainPID=0' if the service is not running.
+        cmd_result = base_utils.run('systemctl show -p MainPID %s' %
+                                    service_name, ignore_status=True)
+        return int(cmd_result.stdout.split('=')[1])
+    else:
+        cmd_result = base_utils.run('status %s' % service_name,
+                                        ignore_status=True)
+        if 'start/running' in cmd_result.stdout:
+            return int(cmd_result.stdout.split()[3])
+        return 0
+
+
+def control_service(service_name, action='start', ignore_status=True):
+    """Controls a service. It can be used to start, stop or restart
+    a service.
+
+    @param service_name: string service to be restarted.
+
+    @param action: string choice of action to control command.
+
+    @param ignore_status: boolean ignore if system command fails.
+
+    @return: status code of the executed command.
+    """
+    if action not in ('start', 'stop', 'restart'):
+        raise ValueError('Unknown action supplied as parameter.')
+
+    control_cmd = action + ' ' + service_name
+    if has_systemd():
+        control_cmd = 'systemctl ' + control_cmd
+    return base_utils.system(control_cmd, ignore_status=ignore_status)
+
+
+def restart_service(service_name, ignore_status=True):
+    """Restarts a service
+
+    @param service_name: string service to be restarted.
+
+    @param ignore_status: boolean ignore if system command fails.
+
+    @return: status code of the executed command.
+    """
+    return control_service(service_name, action='restart', ignore_status=ignore_status)
+
+
+def start_service(service_name, ignore_status=True):
+    """Starts a service
+
+    @param service_name: string service to be started.
+
+    @param ignore_status: boolean ignore if system command fails.
+
+    @return: status code of the executed command.
+    """
+    return control_service(service_name, action='start', ignore_status=ignore_status)
+
+
+def stop_service(service_name, ignore_status=True):
+    """Stops a service
+
+    @param service_name: string service to be stopped.
+
+    @param ignore_status: boolean ignore if system command fails.
+
+    @return: status code of the executed command.
+    """
+    return control_service(service_name, action='stop', ignore_status=ignore_status)
 
 
 def sudo_require_password():
@@ -643,8 +785,11 @@ def get_servers_in_same_subnet(host_ip, mask_bits, servers=None,
         raise ValueError('Either `servers` or `server_ip_map` must be given.')
     if not servers:
         servers = server_ip_map.keys()
+    # Make sure server_ip_map is an empty dict if it's not set.
+    if not server_ip_map:
+        server_ip_map = {}
     for server in servers:
-        server_ip = server_ip_map.get(server) or get_ip_address(server)
+        server_ip = server_ip_map.get(server, get_ip_address(server))
         if server_ip and is_in_same_subnet(server_ip, host_ip, mask_bits):
             matched_servers.append(server)
     return matched_servers
@@ -688,6 +833,10 @@ def get_wireless_ssid(hostname):
     # Get all wireless ssid in the global config.
     ssids = CONFIG.get_config_value_regex('CLIENT', WIRELESS_SSID_PATTERN)
 
+    # There could be multiple subnet matches, pick the one with most strict
+    # match, i.e., the one with highest maskbit.
+    matched_ssid = default_ssid
+    matched_maskbit = -1
     for key, value in ssids.items():
         # The config key filtered by regex WIRELESS_SSID_PATTERN has a format of
         # wireless_ssid_[subnet_ip]/[maskbit], for example:
@@ -695,15 +844,18 @@ def get_wireless_ssid(hostname):
         # Following line extract the subnet ip and mask bit from the key name.
         match = re.match(WIRELESS_SSID_PATTERN, key)
         subnet_ip, maskbit = match.groups()
-        if is_in_same_subnet(subnet_ip, host_ip, int(maskbit)):
-            return value
-    return default_ssid
+        maskbit = int(maskbit)
+        if (is_in_same_subnet(subnet_ip, host_ip, maskbit) and
+            maskbit > matched_maskbit):
+            matched_ssid = value
+            matched_maskbit = maskbit
+    return matched_ssid
 
 
-def parse_android_build(build_name):
-    """Get branch, target, build_id from the given build_name.
+def parse_launch_control_build(build_name):
+    """Get branch, target, build_id from the given Launch Control build_name.
 
-    @param build_name: Name of an Android build, should be formated as
+    @param build_name: Name of a Launch Control build, should be formated as
                        branch/target/build_id
 
     @return: Tuple of branch, target, build_id
@@ -713,69 +865,55 @@ def parse_android_build(build_name):
     return branch, target, build_id
 
 
-def extract_wav_frames(wave_file):
-    """Extract all frames from a WAV file.
+def parse_android_target(target):
+    """Get board and build type from the given target.
 
-    wave_file: A Wave_read object representing a WAV file opened for reading.
+    @param target: Name of an Android build target, e.g., shamu-eng.
 
-    @return: A list containing the frames in the WAV file.
+    @return: Tuple of board, build_type
+    @raise ValueError: If the target is not correctly formated.
     """
-    num_frames = wave_file.getnframes()
-    sample_width = wave_file.getsampwidth()
-    if sample_width == 1:
-        fmt = '%iB'  # Read 1 byte.
-    elif sample_width == 2:
-        fmt = '%ih'  # Read 2 bytes.
-    elif sample_width == 4:
-        fmt = '%ii'  # Read 4 bytes.
+    board, build_type = target.split('-')
+    return board, build_type
+
+
+def parse_launch_control_target(target):
+    """Parse the build target and type from a Launch Control target.
+
+    The Launch Control target has the format of build_target-build_type, e.g.,
+    shamu-eng or dragonboard-userdebug. This method extracts the build target
+    and type from the target name.
+
+    @param target: Name of a Launch Control target, e.g., shamu-eng.
+
+    @return: (build_target, build_type), e.g., ('shamu', 'userdebug')
+    """
+    match = re.match('(?P<build_target>.+)-(?P<build_type>[^-]+)', target)
+    if match:
+        return match.group('build_target'), match.group('build_type')
     else:
-        raise ValueError('Unsupported sample width')
-    return list(struct.unpack(fmt % num_frames * wave_file.getnchannels(),
-                              wave_file.readframes(num_frames)))
+        return None, None
 
 
-def check_wav_file(filename, num_channels=None, sample_rate=None,
-                   sample_width=None):
-    """Checks a WAV file and returns its peak PCM values.
+def is_launch_control_build(build):
+    """Check if a given build is a Launch Control build.
 
-    @param filename: Input WAV file to analyze.
-    @param num_channels: Number of channels to expect (None to not check).
-    @param sample_rate: Sample rate to expect (None to not check).
-    @param sample_width: Sample width to expect (None to not check).
+    @param build: Name of a build, e.g.,
+                  ChromeOS build: daisy-release/R50-1234.0.0
+                  Launch Control build: git_mnc_release/shamu-eng
 
-    @return A list of the absolute maximum PCM values for each channel in the
-            WAV file.
-
-    @raise ValueError: Failed to process the WAV file or validate an attribute.
+    @return: True if the build name matches the pattern of a Launch Control
+             build, False otherwise.
     """
-    chk_file = None
     try:
-        chk_file = wave.open(filename, 'r')
-        if num_channels is not None and chk_file.getnchannels() != num_channels:
-            raise ValueError('Expected %d channels but got %d instead.',
-                             num_channels, chk_file.getnchannels())
-        if sample_rate is not None and chk_file.getframerate() != sample_rate:
-            raise ValueError('Expected sample rate %d but got %d instead.',
-                             sample_rate, chk_file.getframerate())
-        if sample_width is not None and chk_file.getsampwidth() != sample_width:
-            raise ValueError('Expected sample width %d but got %d instead.',
-                             sample_width, chk_file.getsampwidth())
-        frames = extract_wav_frames(chk_file)
-    except wave.Error as e:
-        raise ValueError('Error processing WAV file: %s' % e)
-    finally:
-        if chk_file is not None:
-            chk_file.close()
-
-    # Since 8-bit PCM is unsigned with an offset of 128, we subtract the offset
-    # to make it signed since the rest of the code assumes signed numbers.
-    if chk_file.getsampwidth() == 1:
-        frames = [val - 128 for val in frames]
-
-    peaks = []
-    for i in range(chk_file.getnchannels()):
-        peaks.append(max(map(abs, frames[i::chk_file.getnchannels()])))
-    return peaks;
+        _, target, _ = parse_launch_control_build(build)
+        build_target, _ = parse_launch_control_target(target)
+        if build_target:
+            return True
+    except ValueError:
+        # parse_launch_control_build or parse_launch_control_target failed.
+        pass
+    return False
 
 
 def which(exec_file):
@@ -797,3 +935,51 @@ def which(exec_file):
         path = os.path.join(prefix, exec_file)
         if os.access(path, os.X_OK):
             return path
+
+
+class TimeoutError(error.TestError):
+    """Error raised when we time out when waiting on a condition."""
+    pass
+
+
+def poll_for_condition(condition,
+                       exception=None,
+                       timeout=10,
+                       sleep_interval=0.1,
+                       desc=None):
+    """Polls until a condition becomes true.
+
+    @param condition: function taking no args and returning bool
+    @param exception: exception to throw if condition doesn't become true
+    @param timeout: maximum number of seconds to wait
+    @param sleep_interval: time to sleep between polls
+    @param desc: description of default TimeoutError used if 'exception' is
+                 None
+
+    @return The true value that caused the poll loop to terminate.
+
+    @raise 'exception' arg if supplied; TimeoutError otherwise
+    """
+    start_time = time.time()
+    while True:
+        value = condition()
+        if value:
+            return value
+        if time.time() + sleep_interval - start_time > timeout:
+            if exception:
+                logging.error(exception)
+                raise exception
+
+            if desc:
+                desc = 'Timed out waiting for condition: ' + desc
+            else:
+                desc = 'Timed out waiting for unnamed condition'
+            logging.error(desc)
+            raise TimeoutError(desc)
+
+        time.sleep(sleep_interval)
+
+
+class metrics_mock(stats_es_mock.mock_class_base):
+    """mock class for metrics in case chromite is not installed."""
+    pass

@@ -185,3 +185,46 @@ backtrace:
     #07 pc 000000000001d3eb  /system/lib64/libc.so (__start_thread+11)
     #08 pc 00000000000138f5  /system/lib64/libc.so (__bionic_clone+53)
 """
+
+libmemunreachable = """
+ Unreachable memory
+  48 bytes in 2 unreachable allocations
+  ABI: 'arm'
+
+  24 bytes unreachable at a11e6748
+   and 24 similar unreachable bytes in 1 allocation
+   contents:
+   a11e6748: 63 6f 6d 2e 61 6e 64 72 6f 69 64 2e 73 79 73 74 com.android.syst
+   a11e6758: 65 6d 75 69 00 00 00 00                         emui....
+          #00  pc 000076ae  /system/lib/libcutils.so (set_process_name+45)
+          #01  pc 000989d6  /system/lib/libandroid_runtime.so (android_os_Process_setArgV0(_JNIEnv*, _jobject*, _jstring*)+125)
+"""
+
+# This is a long crash in ASAN format, which does not pad frame numbers. This should be used
+# in a test to ensure that the stack is not split into two (see stack_core's test_long_asan_crash).
+long_asan_crash = """
+Build fingerprint: 'Android/aosp_arm/generic_arm:4.4.3.43.43.43/AOSP/enh06302258:eng/test-keys'
+ABI: 'arm'
+
+     #0 0x727d4dfdaf  (/system/lib/libclang_rt.asan-arm-android.so+0x31daf)
+
+     #1 0x727d4e00af  (/system/lib/libclang_rt.asan-arm-android.so+0x320af)
+
+     #2 0x72778db0cf  (/data/lib/libc.so+0x740cf)
+
+     #3 0x725688a66f  (/does/not/matter/a.so+0x1066f)
+
+     #4 0x72568a02af  (/does/not/matter/a.so+0x262af)
+
+     #5 0x725689e313  (/does/not/matter/a.so+0x24313)
+
+     #6 0x72568a95eb  (/does/not/matter/a.so+0x2f5eb)
+
+     #7 0x725688de6f  (/does/not/matter/a.so+0x13e6f)
+
+     #8 0x72778ceeff  (/does/not/matter/a.so+0x67eff)
+
+     #9 0x7277884983  (/does/not/matter/a.so+0x1d983)
+
+     #10 0x7277884983  (/does/not/matter/a.so+0x1d983)
+"""

@@ -19,9 +19,19 @@ if [ ! -d art ]; then
   exit 1
 fi
 
-out_dir=${OUT_DIR-out}
+# Logic for setting out_dir from build/make/core/envsetup.mk:
+if [[ -z $OUT_DIR ]]; then
+  if [[ -z $OUT_DIR_COMMON_BASE ]]; then
+    out_dir=out
+  else
+    out_dir=${OUT_DIR_COMMON_BASE}/${PWD##*/}
+  fi
+else
+  out_dir=${OUT_DIR}
+fi
+
 java_libraries_dir=${out_dir}/target/common/obj/JAVA_LIBRARIES
-common_targets="vogar core-tests apache-harmony-jdwp-tests-hostdex jsr166-tests ${out_dir}/host/linux-x86/bin/jack"
+common_targets="vogar core-tests apache-harmony-jdwp-tests-hostdex jsr166-tests mockito-target ${out_dir}/host/linux-x86/bin/jack"
 mode="target"
 j_arg="-j$(nproc)"
 showcommands=
@@ -42,13 +52,21 @@ while true; do
     shift
   elif [[ "$1" == "" ]]; then
     break
+  else
+    echo "Unknown options $@"
+    exit 1
   fi
 done
 
 if [[ $mode == "host" ]]; then
-  make_command="make $j_arg $showcommands build-art-host-tests $common_targets ${out_dir}/host/linux-x86/lib/libjavacoretests.so ${out_dir}/host/linux-x86/lib64/libjavacoretests.so"
+  make_command="make $j_arg $showcommands build-art-host-tests $common_targets"
+  make_command+=" ${out_dir}/host/linux-x86/lib/libjavacoretests.so "
+  make_command+=" ${out_dir}/host/linux-x86/lib64/libjavacoretests.so"
 elif [[ $mode == "target" ]]; then
-  make_command="make $j_arg $showcommands build-art-target-tests $common_targets libjavacrypto libjavacoretests linker toybox toolbox sh ${out_dir}/host/linux-x86/bin/adb libstdc++"
+  make_command="make $j_arg $showcommands build-art-target-tests $common_targets"
+  make_command+=" libjavacrypto libjavacoretests libnetd_client linker toybox toolbox sh"
+  make_command+=" ${out_dir}/host/linux-x86/bin/adb libstdc++ "
+  make_command+=" ${out_dir}/target/product/${TARGET_PRODUCT}/system/etc/public.libraries.txt"
 fi
 
 echo "Executing $make_command"

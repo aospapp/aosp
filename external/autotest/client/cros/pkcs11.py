@@ -261,6 +261,6 @@ def test_and_cleanup_key():
 
 def generate_user_key():
     """Generates a key in the current user token."""
-    output = __p11_replay_on_user_token('--generate')
+    output = __p11_replay_on_user_token('--replay_wifi --generate')
     return re.search('Sign: CKR_OK', output)
 

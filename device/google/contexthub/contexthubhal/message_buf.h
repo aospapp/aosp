@@ -55,6 +55,7 @@ public:
         data = const_cast<char *>(buf);
         readOnly = true;
     }
+    void reset() { pos = 0; }
     const char *getData() const { return data; }
     size_t getSize() const { return size; }
     size_t getPos() const { return pos; }

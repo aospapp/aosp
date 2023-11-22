@@ -41,6 +41,12 @@ public enum IndexType {
     /** field reference index */
     FIELD_REF,
 
+    /** method index and a proto index */
+    METHOD_AND_PROTO_REF,
+
+    /** call site reference index */
+    CALL_SITE_REF,
+
     /** inline method index (for inline linked method invocations) */
     INLINE_METHOD,
 

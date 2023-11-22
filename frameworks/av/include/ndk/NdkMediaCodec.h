@@ -27,7 +27,7 @@
 #ifndef _NDK_MEDIA_CODEC_H
 #define _NDK_MEDIA_CODEC_H
 
-#include <android/native_window.h>
+#include <sys/cdefs.h>
 
 #include "NdkMediaCrypto.h"
 #include "NdkMediaError.h"
@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+struct ANativeWindow;
+
+#if __ANDROID_API__ >= 21
 
 struct AMediaCodec;
 typedef struct AMediaCodec AMediaCodec;
@@ -176,6 +179,78 @@ media_status_t AMediaCodec_setOutputSurface(AMediaCodec*, ANativeWindow* surface
 media_status_t AMediaCodec_releaseOutputBufferAtTime(
         AMediaCodec *mData, size_t idx, int64_t timestampNs);
 
+/**
+ * Creates a Surface that can be used as the input to encoder, in place of input buffers
+ *
+ * This can only be called after the codec has been configured via
+ * AMediaCodec_configure(..); and before AMediaCodec_start() has been called.
+ *
+ * The application is responsible for releasing the surface by calling
+ * ANativeWindow_release() when done.
+ *
+ * For more details, see the Java documentation for MediaCodec.createInputSurface.
+ */
+media_status_t AMediaCodec_createInputSurface(
+        AMediaCodec *mData, ANativeWindow **surface);
+
+/**
+ * Creates a persistent Surface that can be used as the input to encoder
+ *
+ * Persistent surface can be reused by MediaCodec instances and can be set
+ * on a new instance via AMediaCodec_setInputSurface().
+ * A persistent surface can be connected to at most one instance of MediaCodec
+ * at any point in time.
+ *
+ * The application is responsible for releasing the surface by calling
+ * ANativeWindow_release() when done.
+ *
+ * For more details, see the Java documentation for MediaCodec.createPersistentInputSurface.
+ */
+media_status_t AMediaCodec_createPersistentInputSurface(
+        ANativeWindow **surface);
+
+/**
+ * Set a persistent-surface that can be used as the input to encoder, in place of input buffers
+ *
+ * The surface provided *must* be a persistent surface created via
+ * AMediaCodec_createPersistentInputSurface()
+ * This can only be called after the codec has been configured by calling
+ * AMediaCodec_configure(..); and before AMediaCodec_start() has been called.
+ *
+ * For more details, see the Java documentation for MediaCodec.setInputSurface.
+ */
+media_status_t AMediaCodec_setInputSurface(
+        AMediaCodec *mData, ANativeWindow *surface);
+
+/**
+ * Signal additional parameters to the codec instance.
+ *
+ * Parameters can be communicated only when the codec is running, i.e
+ * after AMediaCodec_start() has been called.
+ *
+ * NOTE: Some of these parameter changes may silently fail to apply.
+ */
+media_status_t AMediaCodec_setParameters(
+        AMediaCodec *mData, const AMediaFormat* params);
+
+/**
+ * Signals end-of-stream on input. Equivalent to submitting an empty buffer with
+ * AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM set.
+ *
+ * Returns AMEDIA_ERROR_INVALID_OPERATION when used with an encoder not in executing state
+ * or not receiving input from a Surface created by AMediaCodec_createInputSurface or
+ * AMediaCodec_createPersistentInputSurface.
+ *
+ * Returns the previous codec error if one exists.
+ *
+ * Returns AMEDIA_OK when completed succesfully.
+ *
+ * For more details, see the Java documentation for MediaCodec.signalEndOfInputStream.
+ */
+media_status_t AMediaCodec_signalEndOfInputStream(AMediaCodec *mData);
+
+
+
 typedef enum {
     AMEDIACODECRYPTOINFO_MODE_CLEAR = 0,
     AMEDIACODECRYPTOINFO_MODE_AES_CTR = 1,
@@ -253,6 +328,8 @@ media_status_t AMediaCodecCryptoInfo_getClearBytes(AMediaCodecCryptoInfo*, size_
  * The number of trailing encrypted bytes in each subsample.
  */
 media_status_t AMediaCodecCryptoInfo_getEncryptedBytes(AMediaCodecCryptoInfo*, size_t *dst);
+
+#endif /* __ANDROID_API__ >= 21 */
 
 #ifdef __cplusplus
 } // extern "C"

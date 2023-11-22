@@ -68,7 +68,7 @@ bool HwcLayerList::checkSupported(int planeType, HwcLayer *hwcLayer)
     }
 
     // check usage
-    if (!hwcLayer->getUsage() & GRALLOC_USAGE_HW_COMPOSER) {
+    if (!(hwcLayer->getUsage() & GRALLOC_USAGE_HW_COMPOSER)) {
         WLOGTRACE("not a composer layer");
         return false;
     }
@@ -134,7 +134,7 @@ bool HwcLayerList::checkRgbOverlaySupported(HwcLayer *hwcLayer)
     }
 
     // check usage
-    if (!hwcLayer->getUsage() & GRALLOC_USAGE_HW_COMPOSER) {
+    if (!(hwcLayer->getUsage() & GRALLOC_USAGE_HW_COMPOSER)) {
         WLOGTRACE("not a composer layer");
         return false;
     }
@@ -204,7 +204,7 @@ bool HwcLayerList::checkCursorSupported(HwcLayer *hwcLayer)
     }
 
     // check usage
-    if (!hwcLayer->getUsage() & GRALLOC_USAGE_HW_COMPOSER) {
+    if (!(hwcLayer->getUsage() & GRALLOC_USAGE_HW_COMPOSER)) {
         WLOGTRACE("not a composer layer");
         return false;
     }
@@ -266,6 +266,11 @@ bool HwcLayerList::initialize()
         if (!layer) {
             DEINIT_AND_RETURN_FALSE("layer %d is null", i);
         }
+
+        if ((layer->compositionType != HWC_FRAMEBUFFER_TARGET) &&
+                (layer->compositionType != HWC_FORCE_FRAMEBUFFER) &&
+                (layer->compositionType != HWC_SIDEBAND))
+            layer->compositionType = HWC_FRAMEBUFFER;
 
         HwcLayer *hwcLayer = new HwcLayer(i, layer);
         if (!hwcLayer) {
@@ -784,6 +789,10 @@ void HwcLayerList::setupSmartComposition()
             break;
         }
     }
+}
+
+void HwcLayerList::updateFBT(hwc_display_contents_1_t *list) {
+    mFrameBufferTarget->update(&list->hwLayers[mLayerCount - 1]);
 }
 
 #if 1  // support overlay fallback to GLES

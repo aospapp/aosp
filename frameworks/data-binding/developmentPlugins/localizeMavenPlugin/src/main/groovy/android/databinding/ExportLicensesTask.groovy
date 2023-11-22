@@ -25,7 +25,7 @@ class ExportLicensesTask extends DefaultTask {
     static def knownLicenses = [
             [
                     libraries: ["kotlin-stdlib", "kotlin-runtime", "kotlin-annotation-processing", "kotlin-gradle-plugin", "kotlin-gradle-plugin-api",
-                    "kdoc", "kotlin-gradle-plugin-core", "kotlin-jdk-annotations", "kotlin-compiler", "kotlin-compiler-embeddable"],
+                    "kdoc", "kotlin-gradle-plugin-core", "kotlin-jdk-annotations", "kotlin-compiler", "kotlin-compiler-embeddable", "kotlin-android-extensions"],
                     licenses : ["https://raw.githubusercontent.com/JetBrains/kotlin/master/license/LICENSE.txt",
                                 "http://www.apache.org/licenses/LICENSE-2.0.txt"],
                     notices  : ["https://raw.githubusercontent.com/JetBrains/kotlin/master/license/NOTICE.txt"]

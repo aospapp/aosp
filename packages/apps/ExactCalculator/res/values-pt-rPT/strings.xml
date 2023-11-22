@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"eliminar"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"mostrar funções inversas"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"ocultar funções inversas"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Sem fórmula"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Sem resultados"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Números e operações básicas"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Operações avançadas"</string>
     <string name="error_nan" msgid="5674077944929888710">"Não é um núm."</string>
     <string name="error_syntax" msgid="4786987111228645602">"Expr. incorreta"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Interrompida"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Infinito?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Impos. dividir por 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Texto copiado"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Cálculo cancelado"</string>
-    <string name="timeout" msgid="802690170415591535">"Tempo limite excedido. O valor pode ser infinito ou indefinido."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Cálculo cancelado."</string>
+    <string name="timeout" msgid="5461892570729418573">"O valor pode ser infinito ou indefinido."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Utilizar tempos limite maiores"</string>
     <string name="dismiss" msgid="7872443888515066216">"Ignorar"</string>
     <string name="exact" msgid="2597237880041789948">"(exato)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Resp. com dígitos iniciais"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Responder como fração"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Lic. código aberto"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Histórico"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Limpar"</string>
+    <string name="title_history" msgid="7820912156315181539">"Histórico"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Navegar para cima"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Tempo limite"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Limpar histórico e memória?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Expressão atual"</string>
+    <string name="no_history" msgid="4331262030447527188">"Sem histórico"</string>
 </resources>

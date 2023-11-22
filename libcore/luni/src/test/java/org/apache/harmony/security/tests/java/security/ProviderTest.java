@@ -372,26 +372,26 @@ public class ProviderTest extends TestCase {
             super(name, version, info);
         }
 
-        // BEGIN android-added
+        // BEGIN Android-added
         public void putService(Provider.Service s) {
             super.putService(s);
         }
-        // END android-added
+        // END Android-added
 
-        // BEGIN android-added
+        // BEGIN Android-added
         public void removeService(Provider.Service s) {
             super.removeService(s);
         }
-        // END android-added
+        // END Android-added
 
-        // BEGIN android-added
+        // BEGIN Android-added
         public int getNumServices() {
             return getServices().size();
         }
-        // END android-added
+        // END Android-added
     }
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public final void testService2() {
         Provider[] pp = Security.getProviders("MessageDigest.ASH-1");
         if (pp == null) {
@@ -410,9 +410,9 @@ public class ProviderTest extends TestCase {
         } catch (NoSuchAlgorithmException e) {
         }
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public final void testGetServices() {
         MyProvider myProvider = new MyProvider(null, 1, null);
         Set<Provider.Service> services = myProvider.getServices();
@@ -450,9 +450,9 @@ public class ProviderTest extends TestCase {
         assertTrue(!actual.contains(s[1]));
         assertTrue(actual.contains(s[2]));
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public final void testPutService() {
         MyProvider myProvider = new MyProvider(null, 1, null);
         Provider.Service s[] = new Provider.Service[3];
@@ -501,9 +501,9 @@ public class ProviderTest extends TestCase {
             // expected
         }
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public final void testRemoveService() {
         MyProvider myProvider = new MyProvider(null, 1, null);
         try {
@@ -569,9 +569,9 @@ public class ProviderTest extends TestCase {
             // expected
         }
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public final void testLoad() throws IOException {
         InputStream is = new ByteArrayInputStream(writeProperties());
         MyProvider myProvider = new MyProvider("name", 1, "info");
@@ -594,9 +594,9 @@ public class ProviderTest extends TestCase {
             // expected
         }
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public final void testLoad2() {
         class TestInputStream extends InputStream {
             @Override
@@ -613,9 +613,9 @@ public class ProviderTest extends TestCase {
             // expected
         }
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     protected byte[] writeProperties() {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(bout);
@@ -625,9 +625,9 @@ public class ProviderTest extends TestCase {
         ps.close();
         return bout.toByteArray();
     }
-    // END android-added
+    // END Android-added
 
-    // BEGIN android-added
+    // BEGIN Android-added
     static class TestSecurityManager extends SecurityManager {
         boolean called = false;
         private final String permissionName;
@@ -645,5 +645,5 @@ public class ProviderTest extends TestCase {
             }
         }
     }
-    // END android-added
+    // END Android-added
 }

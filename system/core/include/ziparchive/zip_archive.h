@@ -26,8 +26,6 @@
 #include <sys/types.h>
 #include <utils/Compat.h>
 
-__BEGIN_DECLS
-
 /* Zip compression methods we support */
 enum {
   kCompressStored     = 0,        // no compression
@@ -43,8 +41,7 @@ struct ZipString {
   /*
    * entry_name has to be an c-style string with only ASCII characters.
    */
-  explicit ZipString(const char* entry_name)
-      : name(reinterpret_cast<const uint8_t*>(entry_name)), name_length(strlen(entry_name)) {}
+  explicit ZipString(const char* entry_name);
 
   bool operator==(const ZipString& rhs) const {
     return name && (name_length == rhs.name_length) &&
@@ -131,6 +128,8 @@ int32_t OpenArchive(const char* fileName, ZipArchiveHandle* handle);
 int32_t OpenArchiveFd(const int fd, const char* debugFileName,
                       ZipArchiveHandle *handle, bool assume_ownership = true);
 
+int32_t OpenArchiveFromMemory(void* address, size_t length, const char* debugFileName,
+                              ZipArchiveHandle *handle);
 /*
  * Close archive, releasing resources associated with it. This will
  * unmap the central directory of the zipfile and free all internal
@@ -194,7 +193,8 @@ void EndIteration(void* cookie);
  * Uncompress and write an entry to an open file identified by |fd|.
  * |entry->uncompressed_length| bytes will be written to the file at
  * its current offset, and the file will be truncated at the end of
- * the uncompressed data.
+ * the uncompressed data (no truncation if |fd| references a block
+ * device).
  *
  * Returns 0 on success and negative values on failure.
  */
@@ -215,6 +215,15 @@ int GetFileDescriptor(const ZipArchiveHandle handle);
 
 const char* ErrorCodeString(int32_t error_code);
 
-__END_DECLS
+#if !defined(_WIN32)
+typedef bool (*ProcessZipEntryFunction)(const uint8_t* buf, size_t buf_size, void* cookie);
+
+/*
+ * Stream the uncompressed data through the supplied function,
+ * passing cookie to it each time it gets called.
+*/
+int32_t ProcessZipEntryContents(ZipArchiveHandle handle, ZipEntry* entry,
+        ProcessZipEntryFunction func, void* cookie);
+#endif
 
 #endif  // LIBZIPARCHIVE_ZIPARCHIVE_H_

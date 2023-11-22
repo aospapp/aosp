@@ -18,9 +18,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.ThreadReference;
 
-import org.apache.harmony.jpda.tests.framework.DebuggeeSynchronizer;
-import org.apache.harmony.jpda.tests.framework.LogWriter;
-import org.apache.harmony.jpda.tests.framework.jdwp.Value;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
@@ -65,11 +62,11 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
 
     static Object waitForFinish = new Object();
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         threadName = synchronizer.receiveMessage();
-        DebuggeeThread thrd = new DebuggeeThread(threadName, logWriter,
-                synchronizer);
+        DebuggeeThread thrd = new DebuggeeThread(threadName);
         synchronized (waitForStart) {
             thrd.start();
             try {
@@ -168,17 +165,11 @@ public class ForceEarlyReturnDebuggee extends SyncDebuggee {
 
     class DebuggeeThread extends Thread {
 
-        LogWriter logWriter;
-
-        DebuggeeSynchronizer synchronizer;
-
-        public DebuggeeThread(String name, LogWriter logWriter,
-                DebuggeeSynchronizer synchronizer) {
+        public DebuggeeThread(String name) {
             super(name);
-            this.logWriter = logWriter;
-            this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             synchronized (ForceEarlyReturnDebuggee.waitForFinish) {

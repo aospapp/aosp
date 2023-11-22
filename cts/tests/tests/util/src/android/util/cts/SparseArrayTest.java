@@ -16,18 +16,30 @@
 
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.SparseArray;
 
-public class SparseArrayTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SparseArrayTest {
     private static final int[] KEYS = {12, 23, 4, 6, 8, 1, 3, -12, 0, -3, 11, 14, -23};
     private static final Integer[] VALUES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
     private static final int LENGTH = VALUES.length;
     private static final int NON_EXISTED_KEY = 123;
     private static final Integer VALUE_FOR_NON_EXISTED_KEY = -1;
 
+    @Test
     public void testSparseArrayWithDefaultCapacity() {
-        SparseArray<Integer> sparseArray = new SparseArray<Integer>();
+        SparseArray<Integer> sparseArray = new SparseArray<>();
         assertEquals(0, sparseArray.size());
 
         int length = VALUES.length;
@@ -91,8 +103,9 @@ public class SparseArrayTest extends AndroidTestCase {
         assertEquals(0, sparseArray.size());
     }
 
+    @Test
     public void testSparseArrayWithSpecifiedCapacity() {
-        SparseArray<Integer> sparseArray = new SparseArray<Integer>(5);
+        SparseArray<Integer> sparseArray = new SparseArray<>(5);
         assertEquals(0, sparseArray.size());
 
         int length = VALUES.length;
@@ -156,8 +169,9 @@ public class SparseArrayTest extends AndroidTestCase {
         assertEquals(0, sparseArray.size());
     }
 
+    @Test
     public void testIterationOrder() {
-        SparseArray<Long> sparseArray = new SparseArray<Long>();
+        SparseArray<Long> sparseArray = new SparseArray<>();
         // No matter in which order they are inserted.
         sparseArray.put(1, Long.valueOf(2L));
         sparseArray.put(10, Long.valueOf(20L));

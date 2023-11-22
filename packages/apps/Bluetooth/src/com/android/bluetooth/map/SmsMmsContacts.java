@@ -166,7 +166,8 @@ public class SmsMmsContacts {
 
         // TODO: Should we change to extract both formatted name, and display name?
 
-        Uri uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI,Uri.encode(phone));
+        Uri uri = Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI,
+                Uri.encode(phone));
         String selection = CONTACT_SEL_VISIBLE;
         String[] selectionArgs = null;
         if(contactNameFilter != null) {

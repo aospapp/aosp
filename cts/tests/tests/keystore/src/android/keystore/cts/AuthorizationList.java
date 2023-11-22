@@ -32,6 +32,7 @@ import com.android.org.bouncycastle.asn1.ASN1Primitive;
 import com.android.org.bouncycastle.asn1.ASN1Sequence;
 import com.android.org.bouncycastle.asn1.ASN1SequenceParser;
 import com.android.org.bouncycastle.asn1.ASN1TaggedObject;
+import com.android.org.bouncycastle.asn1.ASN1InputStream;
 
 import java.io.IOException;
 import java.security.cert.CertificateParsingException;
@@ -118,6 +119,7 @@ public class AuthorizationList {
     private static final int KM_TAG_ROOT_OF_TRUST = KM_BYTES | 704;
     private static final int KM_TAG_OS_VERSION = KM_UINT | 705;
     private static final int KM_TAG_OS_PATCHLEVEL = KM_UINT | 706;
+    private static final int KM_TAG_ATTESTATION_APPLICATION_ID = KM_BYTES | 709;
 
     // Map for converting padding values to strings
     private static final ImmutableMap<Integer, String> paddingMap = ImmutableMap
@@ -172,6 +174,7 @@ public class AuthorizationList {
     private RootOfTrust rootOfTrust;
     private Integer osVersion;
     private Integer osPatchLevel;
+    private AttestationApplicationId attestationApplicationId;
 
     public AuthorizationList(ASN1Encodable sequence) throws CertificateParsingException {
         if (!(sequence instanceof ASN1Sequence)) {
@@ -252,6 +255,10 @@ public class AuthorizationList {
                     break;
                 case KM_TAG_ROOT_OF_TRUST & KEYMASTER_TAG_TYPE_MASK:
                     rootOfTrust = new RootOfTrust(value);
+                    break;
+                case KM_TAG_ATTESTATION_APPLICATION_ID & KEYMASTER_TAG_TYPE_MASK:
+                    attestationApplicationId = new AttestationApplicationId(Asn1Utils
+                            .getAsn1EncodableFromBytes(Asn1Utils.getByteArrayFromAsn1(value)));
                     break;
                 case KM_TAG_ALL_APPLICATIONS & KEYMASTER_TAG_TYPE_MASK:
                     allApplications = true;
@@ -481,6 +488,10 @@ public class AuthorizationList {
         return osPatchLevel;
     }
 
+    public AttestationApplicationId getAttestationApplicationId() {
+        return attestationApplicationId;
+    }
+
     @Override
     public String toString() {
         StringBuilder s = new StringBuilder();
@@ -562,6 +573,9 @@ public class AuthorizationList {
             s.append("\nOS Patchlevel: ").append(osPatchLevel);
         }
 
+        if (attestationApplicationId != null) {
+            s.append("\nAttestation Application Id:").append(attestationApplicationId);
+        }
         return s.toString();
     }
 }

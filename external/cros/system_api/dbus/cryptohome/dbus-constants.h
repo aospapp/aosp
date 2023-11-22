@@ -114,12 +114,23 @@ const char kCryptohomeFlushAndSignBootAttributes[] =
 const char kCryptohomeGetLoginStatus[] = "GetLoginStatus";
 const char kCryptohomeGetTpmStatus[] = "GetTpmStatus";
 const char kCryptohomeGetEndorsementInfo[] = "GetEndorsementInfo";
+const char kCryptohomeRenameCryptohome[] = "RenameCryptohome";
+const char kCryptohomeGetAccountDiskUsage[] = "GetAccountDiskUsage";
+const char kCryptohomeGetFirmwareManagementParameters[] =
+    "GetFirmwareManagementParameters";
+const char kCryptohomeSetFirmwareManagementParameters[] =
+    "SetFirmwareManagementParameters";
+const char kCryptohomeRemoveFirmwareManagementParameters[] =
+    "RemoveFirmwareManagementParameters";
+const char kCryptohomeMigrateToDircrypto[] = "MigrateToDircrypto";
 
 // Signals
 const char kSignalAsyncCallStatus[] = "AsyncCallStatus";
 const char kSignalAsyncCallStatusWithData[] = "AsyncCallStatusWithData";
 const char kSignalTpmInitStatus[] = "TpmInitStatus";
 const char kSignalCleanupUsersRemoved[] = "CleanupUsersRemoved";
+const char kSignalLowDiskSpace[] = "LowDiskSpace";
+const char kSignalDircryptoMigrationProgress[] = "DircryptoMigrationProgress";
 // Error code
 enum MountError {
   MOUNT_ERROR_NONE = 0,
@@ -130,7 +141,20 @@ enum MountError {
   MOUNT_ERROR_TPM_DEFEND_LOCK = 1 << 4,
   MOUNT_ERROR_USER_DOES_NOT_EXIST = 1 << 5,
   MOUNT_ERROR_TPM_NEEDS_REBOOT = 1 << 6,
+  // Encrypted in old method, need migration before mounting.
+  MOUNT_ERROR_OLD_ENCRYPTION = 1 << 7,
+  // Previous migration attempt was aborted in the middle. Must resume it first.
+  MOUNT_ERROR_PREVIOUS_MIGRATION_INCOMPLETE = 1 << 8,
   MOUNT_ERROR_RECREATED = 1 << 31,
+};
+// Status code signaled from MigrateToDircrypto().
+enum DircryptoMigrationStatus {
+  // 0 means a successful completeion.
+  DYRCRYPTO_MIGRATION_SUCCESS = 0,
+  // Negative values mean failing completion.
+  // TODO(kinaba,dspaid): Add error codes as needed here.
+  // Positive values mean intermediate state report for the running migration.
+  // TODO(kinaba,dspaid): Add state codes as needed.
 };
 }  // namespace cryptohome
 

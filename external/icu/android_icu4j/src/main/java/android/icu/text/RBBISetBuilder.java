@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2003-2011, International Business Machines Corporation and    *
@@ -123,7 +125,7 @@ class RBBISetBuilder {
     RangeDescriptor       fRangeList;      // Head of the linked list of RangeDescriptors
 
     IntTrieBuilder        fTrie;           // The mapping TRIE that is the end result of processing
-    int                  fTrieSize;        //  the Unicode Sets.
+                                           //  the Unicode Sets.
 
     // Groups correspond to character categories -
     //       groups of ranges that are in the same original UnicodeSets.

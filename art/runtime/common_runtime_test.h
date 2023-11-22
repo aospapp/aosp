@@ -25,9 +25,17 @@
 #include "arch/instruction_set.h"
 #include "base/mutex.h"
 #include "globals.h"
+// TODO: Add inl file and avoid including inl.
+#include "obj_ptr-inl.h"
 #include "os.h"
 
 namespace art {
+
+// OBJ pointer helpers to avoid needing .Decode everywhere.
+#define EXPECT_OBJ_PTR_EQ(a, b) EXPECT_EQ(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr());
+#define ASSERT_OBJ_PTR_EQ(a, b) ASSERT_EQ(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr());
+#define EXPECT_OBJ_PTR_NE(a, b) EXPECT_NE(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr());
+#define ASSERT_OBJ_PTR_NE(a, b) ASSERT_NE(MakeObjPtr(a).Ptr(), MakeObjPtr(b).Ptr());
 
 class ClassLinker;
 class CompilerCallbacks;
@@ -36,11 +44,19 @@ class JavaVMExt;
 class Runtime;
 typedef std::vector<std::pair<std::string, const void*>> RuntimeOptions;
 
+uint8_t* DecodeBase64(const char* src, size_t* dst_size);
+
 class ScratchFile {
  public:
   ScratchFile();
 
+  explicit ScratchFile(const std::string& filename);
+
   ScratchFile(const ScratchFile& other, const char* suffix);
+
+  ScratchFile(ScratchFile&& other);
+
+  ScratchFile& operator=(ScratchFile&& other);
 
   explicit ScratchFile(File* file);
 
@@ -113,13 +129,14 @@ class CommonRuntimeTestImpl {
 
   std::string GetTestDexFileName(const char* name) const;
 
-  std::vector<std::unique_ptr<const DexFile>> OpenTestDexFiles(const char* name)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  std::vector<std::unique_ptr<const DexFile>> OpenTestDexFiles(const char* name);
 
   std::unique_ptr<const DexFile> OpenTestDexFile(const char* name)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  jobject LoadDex(const char* dex_name) SHARED_REQUIRES(Locks::mutator_lock_);
+  jobject LoadDex(const char* dex_name) REQUIRES_SHARED(Locks::mutator_lock_);
+  jobject LoadMultiDex(const char* first_dex_name, const char* second_dex_name)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   std::string android_data_;
   std::string dalvik_cache_;
@@ -141,11 +158,13 @@ class CommonRuntimeTestImpl {
 
   std::unique_ptr<CompilerCallbacks> callbacks_;
 
-  void SetUp();
+  virtual void SetUp();
 
-  void TearDown();
+  virtual void TearDown();
 
-  void FinalizeSetup();
+  // Called to finish up runtime creation and filling test fields. By default runs root
+  // initializers, initialize well-known classes, and creates the heap thread pool.
+  virtual void FinalizeSetup();
 
  private:
   static std::string GetCoreFileLocation(const char* suffix);
@@ -160,18 +179,12 @@ class CommonRuntimeTestBase : public TestType, public CommonRuntimeTestImpl {
   virtual ~CommonRuntimeTestBase() {}
 
  protected:
-  virtual void SetUp() {
+  virtual void SetUp() OVERRIDE {
     CommonRuntimeTestImpl::SetUp();
   }
 
-  virtual void TearDown() {
+  virtual void TearDown() OVERRIDE {
     CommonRuntimeTestImpl::TearDown();
-  }
-
-  // Called to finish up runtime creation and filling test fields. By default runs root
-  // initializers, initialize well-known classes, and creates the heap thread pool.
-  virtual void FinalizeSetup() {
-    CommonRuntimeTestImpl::FinalizeSetup();
   }
 };
 
@@ -188,6 +201,7 @@ class CheckJniAbortCatcher {
 
   ~CheckJniAbortCatcher();
 
+  void Check(const std::string& expected_text);
   void Check(const char* expected_text);
 
  private:
@@ -199,9 +213,33 @@ class CheckJniAbortCatcher {
   DISALLOW_COPY_AND_ASSIGN(CheckJniAbortCatcher);
 };
 
+#define TEST_DISABLED_FOR_TARGET() \
+  if (kIsTargetBuild) { \
+    printf("WARNING: TEST DISABLED FOR TARGET\n"); \
+    return; \
+  }
+
 #define TEST_DISABLED_FOR_MIPS() \
   if (kRuntimeISA == kMips) { \
     printf("WARNING: TEST DISABLED FOR MIPS\n"); \
+    return; \
+  }
+
+#define TEST_DISABLED_FOR_X86() \
+  if (kRuntimeISA == kX86) { \
+    printf("WARNING: TEST DISABLED FOR X86\n"); \
+    return; \
+  }
+
+#define TEST_DISABLED_FOR_STRING_COMPRESSION() \
+  if (mirror::kUseStringCompression) { \
+    printf("WARNING: TEST DISABLED FOR STRING COMPRESSION\n"); \
+    return; \
+  }
+
+#define TEST_DISABLED_FOR_NON_STATIC_HOST_BUILDS() \
+  if (!kHostStaticBuildEnabled) { \
+    printf("WARNING: TEST DISABLED FOR NON-STATIC HOST BUILDS\n"); \
     return; \
   }
 

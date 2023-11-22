@@ -16,11 +16,12 @@
 
 #include <hardware/hwvulkan.h>
 
-#include <algorithm>
-#include <array>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <algorithm>
+#include <array>
 
 #include <log/log.h>
 #include <utils/Errors.h>
@@ -268,15 +269,8 @@ VkResult EnumerateInstanceExtensionProperties(
             layer_name);
     }
 
-// NOTE: Change this to zero to report and extension, which can be useful
-// for testing changes to the loader.
-#if 1
-    (void)properties;  // unused
-    *count = 0;
-    return VK_SUCCESS;
-#else
     const VkExtensionProperties kExtensions[] = {
-        {VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_SPEC_VERSION}};
+        {VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_SPEC_VERSION}};
     const uint32_t kExtensionsCount =
         sizeof(kExtensions) / sizeof(kExtensions[0]);
 
@@ -285,7 +279,6 @@ VkResult EnumerateInstanceExtensionProperties(
     if (properties)
         std::copy(kExtensions, kExtensions + *count, properties);
     return *count < kExtensionsCount ? VK_INCOMPLETE : VK_SUCCESS;
-#endif
 }
 
 VKAPI_ATTR
@@ -309,6 +302,10 @@ VkResult CreateInstance(const VkInstanceCreateInfo* create_info,
 
     for (uint32_t i = 0; i < create_info->enabledExtensionCount; i++) {
         if (strcmp(create_info->ppEnabledExtensionNames[i],
+                   VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME) == 0) {
+            ALOGV("instance extension '%s' requested",
+                  create_info->ppEnabledExtensionNames[i]);
+        } else if (strcmp(create_info->ppEnabledExtensionNames[i],
                    VK_EXT_DEBUG_REPORT_EXTENSION_NAME) == 0) {
             ALOGV("instance extension '%s' requested",
                   create_info->ppEnabledExtensionNames[i]);
@@ -513,6 +510,33 @@ void GetPhysicalDeviceProperties(VkPhysicalDevice,
     };
 }
 
+void GetPhysicalDeviceProperties2KHR(VkPhysicalDevice physical_device,
+                                  VkPhysicalDeviceProperties2KHR* properties) {
+    GetPhysicalDeviceProperties(physical_device, &properties->properties);
+
+    while (properties->pNext) {
+        properties = reinterpret_cast<VkPhysicalDeviceProperties2KHR *>(properties->pNext);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
+        switch ((VkFlags)properties->sType) {
+        case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENTATION_PROPERTIES_ANDROID: {
+            VkPhysicalDevicePresentationPropertiesANDROID *presentation_properties =
+                reinterpret_cast<VkPhysicalDevicePresentationPropertiesANDROID *>(properties);
+#pragma clang diagnostic pop
+
+                // Claim that we do all the right things for the loader to
+                // expose KHR_shared_presentable_image on our behalf.
+                presentation_properties->sharedImage = VK_TRUE;
+            } break;
+
+        default:
+            // Silently ignore other extension query structs
+            break;
+        }
+    }
+}
+
 void GetPhysicalDeviceQueueFamilyProperties(
     VkPhysicalDevice,
     uint32_t* count,
@@ -528,6 +552,12 @@ void GetPhysicalDeviceQueueFamilyProperties(
     }
 }
 
+void GetPhysicalDeviceQueueFamilyProperties2KHR(VkPhysicalDevice physical_device, uint32_t* count, VkQueueFamilyProperties2KHR* properties) {
+    // note: even though multiple structures, this is safe to forward in this
+    // case since we only expose one queue family.
+    GetPhysicalDeviceQueueFamilyProperties(physical_device, count, properties ? &properties->queueFamilyProperties : nullptr);
+}
+
 void GetPhysicalDeviceMemoryProperties(
     VkPhysicalDevice,
     VkPhysicalDeviceMemoryProperties* properties) {
@@ -541,6 +571,10 @@ void GetPhysicalDeviceMemoryProperties(
     properties->memoryHeapCount = 1;
     properties->memoryHeaps[0].size = kMaxDeviceMemory;
     properties->memoryHeaps[0].flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
+}
+
+void GetPhysicalDeviceMemoryProperties2KHR(VkPhysicalDevice physical_device, VkPhysicalDeviceMemoryProperties2KHR* properties) {
+    GetPhysicalDeviceMemoryProperties(physical_device, &properties->memoryProperties);
 }
 
 void GetPhysicalDeviceFeatures(VkPhysicalDevice /*gpu*/,
@@ -602,6 +636,10 @@ void GetPhysicalDeviceFeatures(VkPhysicalDevice /*gpu*/,
         VK_FALSE,  // variableMultisampleRate
         VK_FALSE,  // inheritedQueries
     };
+}
+
+void GetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physical_device, VkPhysicalDeviceFeatures2KHR* features) {
+    GetPhysicalDeviceFeatures(physical_device, &features->features);
 }
 
 // -----------------------------------------------------------------------------
@@ -886,6 +924,18 @@ VkResult GetSwapchainGrallocUsageANDROID(VkDevice,
     return VK_SUCCESS;
 }
 
+VkResult GetSwapchainGrallocUsage2ANDROID(VkDevice,
+                                          VkFormat,
+                                          VkImageUsageFlags,
+                                          VkSwapchainImageUsageFlagsANDROID,
+                                          uint64_t* grallocConsumerUsage,
+                                          uint64_t* grallocProducerUsage) {
+    // The null driver never reads or writes the gralloc buffer
+    *grallocConsumerUsage = 0;
+    *grallocProducerUsage = 0;
+    return VK_SUCCESS;
+}
+
 VkResult AcquireImageANDROID(VkDevice,
                              VkImage,
                              int fence,
@@ -1072,7 +1122,18 @@ void GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice, VkFormat
     ALOGV("TODO: vk%s", __FUNCTION__);
 }
 
+void GetPhysicalDeviceFormatProperties2KHR(VkPhysicalDevice physicalDevice, VkFormat format, VkFormatProperties2KHR* pFormatProperties) {
+    ALOGV("TODO: vk%s", __FUNCTION__);
+}
+
 VkResult GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags, VkImageFormatProperties* pImageFormatProperties) {
+    ALOGV("TODO: vk%s", __FUNCTION__);
+    return VK_SUCCESS;
+}
+
+VkResult GetPhysicalDeviceImageFormatProperties2KHR(VkPhysicalDevice physicalDevice,
+                                                    const VkPhysicalDeviceImageFormatInfo2KHR* pImageFormatInfo,
+                                                    VkImageFormatProperties2KHR* pImageFormatProperties) {
     ALOGV("TODO: vk%s", __FUNCTION__);
     return VK_SUCCESS;
 }
@@ -1128,6 +1189,14 @@ void GetImageSparseMemoryRequirements(VkDevice device, VkImage image, uint32_t* 
 void GetPhysicalDeviceSparseImageFormatProperties(VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkSampleCountFlagBits samples, VkImageUsageFlags usage, VkImageTiling tiling, uint32_t* pNumProperties, VkSparseImageFormatProperties* pProperties) {
     ALOGV("TODO: vk%s", __FUNCTION__);
 }
+
+void GetPhysicalDeviceSparseImageFormatProperties2KHR(VkPhysicalDevice physicalDevice,
+                                                      VkPhysicalDeviceSparseImageFormatInfo2KHR const* pInfo,
+                                                      unsigned int* pNumProperties,
+                                                      VkSparseImageFormatProperties2KHR* pProperties) {
+    ALOGV("TODO: vk%s", __FUNCTION__);
+}
+
 
 VkResult QueueBindSparse(VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence) {
     ALOGV("TODO: vk%s", __FUNCTION__);
@@ -1334,7 +1403,7 @@ void CmdCopyBufferToImage(VkCommandBuffer cmdBuffer, VkBuffer srcBuffer, VkImage
 void CmdCopyImageToBuffer(VkCommandBuffer cmdBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkBuffer destBuffer, uint32_t regionCount, const VkBufferImageCopy* pRegions) {
 }
 
-void CmdUpdateBuffer(VkCommandBuffer cmdBuffer, VkBuffer destBuffer, VkDeviceSize destOffset, VkDeviceSize dataSize, const uint32_t* pData) {
+void CmdUpdateBuffer(VkCommandBuffer cmdBuffer, VkBuffer destBuffer, VkDeviceSize destOffset, VkDeviceSize dataSize, const void* pData) {
 }
 
 void CmdFillBuffer(VkCommandBuffer cmdBuffer, VkBuffer destBuffer, VkDeviceSize destOffset, VkDeviceSize fillSize, uint32_t data) {

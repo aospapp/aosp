@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2012-2015, International Business Machines Corporation and    *
@@ -77,7 +79,24 @@ public enum DisplayContext {
      * use short names when generating a locale name,
      * e.g. "U.S." for US.
      */
-    LENGTH_SHORT(Type.DISPLAY_LENGTH, 1);
+    LENGTH_SHORT(Type.DISPLAY_LENGTH, 1),
+    /**
+     * ================================
+     * Settings for SUBSTITUTE_HANDLING (choose one)
+     */
+    /**
+     * A possible setting for SUBSTITUTE_HANDLING:
+     * Returns a fallback value (e.g., the input code) when no data is available.
+     * This is the default behavior.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    SUBSTITUTE(Type.SUBSTITUTE_HANDLING, 0),
+    /**
+     * A possible setting for SUBSTITUTE_HANDLING:
+     * Returns a null value when no data is available.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    NO_SUBSTITUTE(Type.SUBSTITUTE_HANDLING, 1);
 
     /**
      * Type values for DisplayContext
@@ -95,7 +114,12 @@ public enum DisplayContext {
         /**
          * DISPLAY_LENGTH can be set to LENGTH_FULL or LENGTH_SHORT.
          */
-        DISPLAY_LENGTH
+        DISPLAY_LENGTH,
+        /**
+         * SUBSTITUTE_HANDLING can be set to SUBSTITUTE or NO_SUBSTITUTE.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        SUBSTITUTE_HANDLING
     }
 
     private final Type type;

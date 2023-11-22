@@ -353,7 +353,7 @@
         vqrshrn.u16 d4, q2,  #8
         vqrshrn.u16 d5, q14, #8
 
-        vmvn        q3, q3
+        vmov        q3, q11
 .endm
 
 #define params_MULTIPLY zipped=0

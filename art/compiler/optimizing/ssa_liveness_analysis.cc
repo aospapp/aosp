@@ -18,88 +18,19 @@
 
 #include "base/bit_vector-inl.h"
 #include "code_generator.h"
+#include "linear_order.h"
 #include "nodes.h"
 
 namespace art {
 
 void SsaLivenessAnalysis::Analyze() {
-  LinearizeGraph();
+  // Compute the linear order directly in the graph's data structure
+  // (there are no more following graph mutations).
+  LinearizeGraph(graph_, graph_->GetArena(), &graph_->linear_order_);
+
+  // Liveness analysis.
   NumberInstructions();
   ComputeLiveness();
-}
-
-static bool IsLoop(HLoopInformation* info) {
-  return info != nullptr;
-}
-
-static bool InSameLoop(HLoopInformation* first_loop, HLoopInformation* second_loop) {
-  return first_loop == second_loop;
-}
-
-static bool IsInnerLoop(HLoopInformation* outer, HLoopInformation* inner) {
-  return (inner != outer)
-      && (inner != nullptr)
-      && (outer != nullptr)
-      && inner->IsIn(*outer);
-}
-
-static void AddToListForLinearization(ArenaVector<HBasicBlock*>* worklist, HBasicBlock* block) {
-  HLoopInformation* block_loop = block->GetLoopInformation();
-  auto insert_pos = worklist->rbegin();  // insert_pos.base() will be the actual position.
-  for (auto end = worklist->rend(); insert_pos != end; ++insert_pos) {
-    HBasicBlock* current = *insert_pos;
-    HLoopInformation* current_loop = current->GetLoopInformation();
-    if (InSameLoop(block_loop, current_loop)
-        || !IsLoop(current_loop)
-        || IsInnerLoop(current_loop, block_loop)) {
-      // The block can be processed immediately.
-      break;
-    }
-  }
-  worklist->insert(insert_pos.base(), block);
-}
-
-void SsaLivenessAnalysis::LinearizeGraph() {
-  // Create a reverse post ordering with the following properties:
-  // - Blocks in a loop are consecutive,
-  // - Back-edge is the last block before loop exits.
-
-  // (1): Record the number of forward predecessors for each block. This is to
-  //      ensure the resulting order is reverse post order. We could use the
-  //      current reverse post order in the graph, but it would require making
-  //      order queries to a GrowableArray, which is not the best data structure
-  //      for it.
-  ArenaVector<uint32_t> forward_predecessors(graph_->GetBlocks().size(),
-                                             graph_->GetArena()->Adapter(kArenaAllocSsaLiveness));
-  for (HReversePostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    HBasicBlock* block = it.Current();
-    size_t number_of_forward_predecessors = block->GetPredecessors().size();
-    if (block->IsLoopHeader()) {
-      number_of_forward_predecessors -= block->GetLoopInformation()->NumberOfBackEdges();
-    }
-    forward_predecessors[block->GetBlockId()] = number_of_forward_predecessors;
-  }
-
-  // (2): Following a worklist approach, first start with the entry block, and
-  //      iterate over the successors. When all non-back edge predecessors of a
-  //      successor block are visited, the successor block is added in the worklist
-  //      following an order that satisfies the requirements to build our linear graph.
-  graph_->linear_order_.reserve(graph_->GetReversePostOrder().size());
-  ArenaVector<HBasicBlock*> worklist(graph_->GetArena()->Adapter(kArenaAllocSsaLiveness));
-  worklist.push_back(graph_->GetEntryBlock());
-  do {
-    HBasicBlock* current = worklist.back();
-    worklist.pop_back();
-    graph_->linear_order_.push_back(current);
-    for (HBasicBlock* successor : current->GetSuccessors()) {
-      int block_id = successor->GetBlockId();
-      size_t number_of_remaining_predecessors = forward_predecessors[block_id];
-      if (number_of_remaining_predecessors == 1) {
-        AddToListForLinearization(&worklist, successor);
-      }
-      forward_predecessors[block_id] = number_of_remaining_predecessors - 1;
-    }
-  } while (!worklist.empty());
 }
 
 void SsaLivenessAnalysis::NumberInstructions() {
@@ -114,8 +45,7 @@ void SsaLivenessAnalysis::NumberInstructions() {
   // to differentiate between the start and end of an instruction. Adding 2 to
   // the lifetime position for each instruction ensures the start of an
   // instruction is different than the end of the previous instruction.
-  for (HLinearOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    HBasicBlock* block = it.Current();
+  for (HBasicBlock* block : graph_->GetLinearOrder()) {
     block->SetLifetimeStart(lifetime_position);
 
     for (HInstructionIterator inst_it(block->GetPhis()); !inst_it.Done(); inst_it.Advance()) {
@@ -157,8 +87,7 @@ void SsaLivenessAnalysis::NumberInstructions() {
 }
 
 void SsaLivenessAnalysis::ComputeLiveness() {
-  for (HLinearOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    HBasicBlock* block = it.Current();
+  for (HBasicBlock* block : graph_->GetLinearOrder()) {
     block_infos_[block->GetBlockId()] =
         new (graph_->GetArena()) BlockInfo(graph_->GetArena(), *block, number_of_ssa_values_);
   }
@@ -177,8 +106,9 @@ void SsaLivenessAnalysis::ComputeLiveness() {
 static void RecursivelyProcessInputs(HInstruction* current,
                                      HInstruction* actual_user,
                                      BitVector* live_in) {
-  for (size_t i = 0, e = current->InputCount(); i < e; ++i) {
-    HInstruction* input = current->InputAt(i);
+  HInputsRef inputs = current->GetInputs();
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    HInstruction* input = inputs[i];
     bool has_in_location = current->GetLocations()->InAt(i).IsValid();
     bool has_out_location = input->GetLocations()->Out().IsValid();
 
@@ -209,9 +139,7 @@ static void RecursivelyProcessInputs(HInstruction* current,
 void SsaLivenessAnalysis::ComputeLiveRanges() {
   // Do a post order visit, adding inputs of instructions live in the block where
   // that instruction is defined, and killing instructions that are being visited.
-  for (HLinearPostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    HBasicBlock* block = it.Current();
-
+  for (HBasicBlock* block : ReverseRange(graph_->GetLinearOrder())) {
     BitVector* kill = GetKillSet(*block);
     BitVector* live_in = GetLiveInSet(*block);
 
@@ -328,15 +256,13 @@ void SsaLivenessAnalysis::ComputeLiveInAndLiveOutSets() {
   do {
     changed = false;
 
-    for (HPostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-      const HBasicBlock& block = *it.Current();
-
+    for (const HBasicBlock* block : graph_->GetPostOrder()) {
       // The live_in set depends on the kill set (which does not
       // change in this loop), and the live_out set.  If the live_out
       // set does not change, there is no need to update the live_in set.
-      if (UpdateLiveOut(block) && UpdateLiveIn(block)) {
+      if (UpdateLiveOut(*block) && UpdateLiveIn(*block)) {
         if (kIsDebugBuild) {
-          CheckNoLiveInIrreducibleLoop(block);
+          CheckNoLiveInIrreducibleLoop(*block);
         }
         changed = true;
       }
@@ -365,6 +291,27 @@ bool SsaLivenessAnalysis::UpdateLiveIn(const HBasicBlock& block) {
   // sure instructions in live_out are also in live_in, unless they are killed
   // by this block.
   return live_in->UnionIfNotIn(live_out, kill);
+}
+
+void LiveInterval::DumpWithContext(std::ostream& stream,
+                                   const CodeGenerator& codegen) const {
+  Dump(stream);
+  if (IsFixed()) {
+    stream << ", register:" << GetRegister() << "(";
+    if (IsFloatingPoint()) {
+      codegen.DumpFloatingPointRegister(stream, GetRegister());
+    } else {
+      codegen.DumpCoreRegister(stream, GetRegister());
+    }
+    stream << ")";
+  } else {
+    stream << ", spill slot:" << GetSpillSlot();
+  }
+  stream << ", requires_register:" << (GetDefinedBy() != nullptr && RequiresRegister());
+  if (GetParent()->GetDefinedBy() != nullptr) {
+    stream << ", defined_by:" << GetParent()->GetDefinedBy()->GetKind();
+    stream << "(" << GetParent()->GetDefinedBy()->GetLifetimePosition() << ")";
+  }
 }
 
 static int RegisterOrLowRegister(Location location) {
@@ -430,12 +377,12 @@ int LiveInterval::FindFirstRegisterHint(size_t* free_until,
         // If the instruction dies at the phi assignment, we can try having the
         // same register.
         if (end == user->GetBlock()->GetPredecessors()[input_index]->GetLifetimeEnd()) {
-          for (size_t i = 0, e = user->InputCount(); i < e; ++i) {
+          HInputsRef inputs = user->GetInputs();
+          for (size_t i = 0; i < inputs.size(); ++i) {
             if (i == input_index) {
               continue;
             }
-            HInstruction* input = user->InputAt(i);
-            Location location = input->GetLiveInterval()->GetLocationAt(
+            Location location = inputs[i]->GetLiveInterval()->GetLocationAt(
                 user->GetBlock()->GetPredecessors()[i]->GetLifetimeEnd() - 1);
             if (location.IsRegisterKind()) {
               int reg = RegisterOrLowRegister(location);
@@ -471,10 +418,10 @@ int LiveInterval::FindHintAtDefinition() const {
   if (defined_by_->IsPhi()) {
     // Try to use the same register as one of the inputs.
     const ArenaVector<HBasicBlock*>& predecessors = defined_by_->GetBlock()->GetPredecessors();
-    for (size_t i = 0, e = defined_by_->InputCount(); i < e; ++i) {
-      HInstruction* input = defined_by_->InputAt(i);
+    HInputsRef inputs = defined_by_->GetInputs();
+    for (size_t i = 0; i < inputs.size(); ++i) {
       size_t end = predecessors[i]->GetLifetimeEnd();
-      LiveInterval* input_interval = input->GetLiveInterval()->GetSiblingAt(end - 1);
+      LiveInterval* input_interval = inputs[i]->GetLiveInterval()->GetSiblingAt(end - 1);
       if (input_interval->GetEnd() == end) {
         // If the input dies at the end of the predecessor, we know its register can
         // be reused.
@@ -522,8 +469,15 @@ bool LiveInterval::SameRegisterKind(Location other) const {
   }
 }
 
-bool LiveInterval::NeedsTwoSpillSlots() const {
-  return type_ == Primitive::kPrimLong || type_ == Primitive::kPrimDouble;
+size_t LiveInterval::NumberOfSpillSlotsNeeded() const {
+  // For a SIMD operation, compute the number of needed spill slots.
+  // TODO: do through vector type?
+  HInstruction* definition = GetParent()->GetDefinedBy();
+  if (definition != nullptr && definition->IsVecOperation()) {
+    return definition->AsVecOperation()->GetVectorNumberOfBytes() / kVRegSize;
+  }
+  // Return number of needed spill slots based on type.
+  return (type_ == Primitive::kPrimLong || type_ == Primitive::kPrimDouble) ? 2 : 1;
 }
 
 Location LiveInterval::ToLocation() const {
@@ -547,10 +501,11 @@ Location LiveInterval::ToLocation() const {
     if (defined_by->IsConstant()) {
       return defined_by->GetLocations()->Out();
     } else if (GetParent()->HasSpillSlot()) {
-      if (NeedsTwoSpillSlots()) {
-        return Location::DoubleStackSlot(GetParent()->GetSpillSlot());
-      } else {
-        return Location::StackSlot(GetParent()->GetSpillSlot());
+      switch (NumberOfSpillSlotsNeeded()) {
+        case 1: return Location::StackSlot(GetParent()->GetSpillSlot());
+        case 2: return Location::DoubleStackSlot(GetParent()->GetSpillSlot());
+        case 4: return Location::SIMDStackSlot(GetParent()->GetSpillSlot());
+        default: LOG(FATAL) << "Unexpected number of spill slots"; UNREACHABLE();
       }
     } else {
       return Location();

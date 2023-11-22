@@ -20,24 +20,23 @@ LOCAL_PATH := $(my-dir)
 # by setting BRILLO_USE_* values. Note that we define local variables like
 # local_use_* to prevent leaking our default setting for other packages.
 local_use_binder := $(if $(BRILLO_USE_BINDER),$(BRILLO_USE_BINDER),1)
-local_use_dbus := $(if $(BRILLO_USE_DBUS),$(BRILLO_USE_DBUS),0)
 local_use_hwid_override := \
     $(if $(BRILLO_USE_HWID_OVERRIDE),$(BRILLO_USE_HWID_OVERRIDE),0)
 # "libcros" gates the LibCrosService exposed by the Chrome OS' chrome browser to
 # the system layer.
 local_use_libcros := $(if $(BRILLO_USE_LIBCROS),$(BRILLO_USE_LIBCROS),0)
 local_use_mtd := $(if $(BRILLO_USE_MTD),$(BRILLO_USE_MTD),0)
-local_use_power_management := \
-    $(if $(BRILLO_USE_POWER_MANAGEMENT),$(BRILLO_USE_POWER_MANAGEMENT),0)
 local_use_weave := $(if $(BRILLO_USE_WEAVE),$(BRILLO_USE_WEAVE),0)
+
+# IoT devices use Omaha for updates.
+local_use_omaha := $(if $(filter true,$(PRODUCT_IOT)),1,0)
 
 ue_common_cflags := \
     -DUSE_BINDER=$(local_use_binder) \
-    -DUSE_DBUS=$(local_use_dbus) \
     -DUSE_HWID_OVERRIDE=$(local_use_hwid_override) \
     -DUSE_LIBCROS=$(local_use_libcros) \
     -DUSE_MTD=$(local_use_mtd) \
-    -DUSE_POWER_MANAGEMENT=$(local_use_power_management) \
+    -DUSE_OMAHA=$(local_use_omaha) \
     -DUSE_WEAVE=$(local_use_weave) \
     -D_FILE_OFFSET_BITS=64 \
     -D_POSIX_C_SOURCE=199309L \
@@ -53,33 +52,18 @@ ue_common_cflags := \
     -fvisibility=hidden
 ue_common_cppflags := \
     -Wnon-virtual-dtor \
-    -fno-strict-aliasing \
-    -std=gnu++11
+    -fno-strict-aliasing
 ue_common_ldflags := \
     -Wl,--gc-sections
 ue_common_c_includes := \
     $(LOCAL_PATH)/client_library/include \
-    external/gtest/include \
     system
 ue_common_shared_libraries := \
     libbrillo-stream \
     libbrillo \
     libchrome
-
-ifeq ($(local_use_dbus),1)
-
-# update_engine_client-dbus-proxies (from generate-dbus-proxies.gypi)
-# ========================================================
-include $(CLEAR_VARS)
-LOCAL_MODULE := update_engine_client-dbus-proxies
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-LOCAL_SRC_FILES := \
-    dbus_bindings/dbus-service-config.json \
-    dbus_bindings/org.chromium.UpdateEngineInterface.dbus-xml
-LOCAL_DBUS_PROXY_PREFIX := update_engine
-include $(BUILD_STATIC_LIBRARY)
-
-endif  # local_use_dbus == 1
+ue_common_static_libraries := \
+    libgtest_prod \
 
 # update_metadata-protos (type: static_library)
 # ========================================================
@@ -111,30 +95,6 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(generated_sources_dir)/proto/system
 LOCAL_SRC_FILES := $(ue_update_metadata_protos_src_files)
 include $(BUILD_STATIC_LIBRARY)
 
-ifeq ($(local_use_dbus),1)
-
-# update_engine-dbus-adaptor (from generate-dbus-adaptors.gypi)
-# ========================================================
-# Chrome D-Bus bindings.
-include $(CLEAR_VARS)
-LOCAL_MODULE := update_engine-dbus-adaptor
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-LOCAL_SRC_FILES := \
-    dbus_bindings/org.chromium.UpdateEngineInterface.dbus-xml
-include $(BUILD_STATIC_LIBRARY)
-
-# update_engine-dbus-libcros-client (from generate-dbus-proxies.gypi)
-# ========================================================
-include $(CLEAR_VARS)
-LOCAL_MODULE := update_engine-dbus-libcros-client
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-LOCAL_SRC_FILES := \
-    dbus_bindings/org.chromium.LibCrosService.dbus-xml
-LOCAL_DBUS_PROXY_PREFIX := libcros
-include $(BUILD_STATIC_LIBRARY)
-
-endif  # local_use_dbus == 1
-
 # libpayload_consumer (type: static_library)
 # ========================================================
 # The payload application component and common dependencies.
@@ -142,9 +102,12 @@ ue_libpayload_consumer_exported_static_libraries := \
     update_metadata-protos \
     libxz-host \
     libbz \
+    libimgpatch \
+    libbspatch \
+    libz \
     $(ue_update_metadata_protos_exported_static_libraries)
 ue_libpayload_consumer_exported_shared_libraries := \
-    libcrypto-host \
+    libcrypto \
     $(ue_update_metadata_protos_exported_shared_libraries)
 
 ue_libpayload_consumer_src_files := \
@@ -154,10 +117,10 @@ ue_libpayload_consumer_src_files := \
     common/constants.cc \
     common/cpu_limiter.cc \
     common/error_code_utils.cc \
+    common/file_fetcher.cc \
     common/hash_calculator.cc \
     common/http_common.cc \
     common/http_fetcher.cc \
-    common/file_fetcher.cc \
     common/hwid_override.cc \
     common/multi_range_http_fetcher.cc \
     common/platform_constants_android.cc \
@@ -189,10 +152,10 @@ LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
 LOCAL_C_INCLUDES := \
-    $(ue_common_c_includes) \
-    external/e2fsprogs/lib
+    $(ue_common_c_includes)
 LOCAL_STATIC_LIBRARIES := \
     update_metadata-protos \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries) \
     $(ue_update_metadata_protos_exported_static_libraries)
 LOCAL_SHARED_LIBRARIES := \
@@ -213,10 +176,10 @@ LOCAL_CFLAGS := $(ue_common_cflags)
 LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
 LOCAL_C_INCLUDES := \
-    $(ue_common_c_includes) \
-    external/e2fsprogs/lib
+    $(ue_common_c_includes)
 LOCAL_STATIC_LIBRARIES := \
     update_metadata-protos \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries:-host=) \
     $(ue_update_metadata_protos_exported_static_libraries)
 LOCAL_SHARED_LIBRARIES := \
@@ -226,39 +189,70 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_SRC_FILES := $(ue_libpayload_consumer_src_files)
 include $(BUILD_STATIC_LIBRARY)
 
-ifdef BRILLO
+# libupdate_engine_boot_control (type: static_library)
+# ========================================================
+# A BootControl class implementation using Android's HIDL boot_control HAL.
+ue_libupdate_engine_boot_control_exported_static_libraries := \
+    update_metadata-protos \
+    $(ue_update_metadata_protos_exported_static_libraries)
+
+ue_libupdate_engine_boot_control_exported_shared_libraries := \
+    libhwbinder \
+    libhidlbase \
+    libutils \
+    android.hardware.boot@1.0 \
+    $(ue_update_metadata_protos_exported_shared_libraries)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libupdate_engine_boot_control
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CLANG := true
+LOCAL_CFLAGS := $(ue_common_cflags)
+LOCAL_CPPFLAGS := $(ue_common_cppflags)
+LOCAL_LDFLAGS := $(ue_common_ldflags)
+LOCAL_C_INCLUDES := \
+    $(ue_common_c_includes) \
+    bootable/recovery
+LOCAL_STATIC_LIBRARIES := \
+    $(ue_common_static_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_static_libraries)
+LOCAL_SHARED_LIBRARIES := \
+    $(ue_common_shared_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_shared_libraries)
+LOCAL_SRC_FILES := \
+    boot_control_android.cc
+include $(BUILD_STATIC_LIBRARY)
+
+ifeq ($(local_use_omaha),1)
 
 # libupdate_engine (type: static_library)
 # ========================================================
 # The main daemon static_library with all the code used to check for updates
 # with Omaha and expose a DBus daemon.
 ue_libupdate_engine_exported_c_includes := \
-    $(LOCAL_PATH)/include \
     external/cros/system_api/dbus
 ue_libupdate_engine_exported_static_libraries := \
     libpayload_consumer \
     update_metadata-protos \
-    update_engine-dbus-adaptor \
-    update_engine-dbus-libcros-client \
-    update_engine_client-dbus-proxies \
     libbz \
     libfs_mgr \
+    libbase \
+    liblog \
     $(ue_libpayload_consumer_exported_static_libraries) \
-    $(ue_update_metadata_protos_exported_static_libraries)
+    $(ue_update_metadata_protos_exported_static_libraries) \
+    libupdate_engine_boot_control \
+    $(ue_libupdate_engine_boot_control_exported_static_libraries)
 ue_libupdate_engine_exported_shared_libraries := \
-    libdbus \
-    libbrillo-dbus \
-    libchrome-dbus \
     libmetrics \
-    libshill-client \
     libexpat \
     libbrillo-policy \
-    libhardware \
     libcurl \
     libcutils \
     libssl \
     $(ue_libpayload_consumer_exported_shared_libraries) \
-    $(ue_update_metadata_protos_exported_shared_libraries)
+    $(ue_update_metadata_protos_exported_shared_libraries) \
+    $(ue_libupdate_engine_boot_control_exported_shared_libraries)
 ifeq ($(local_use_binder),1)
 ue_libupdate_engine_exported_shared_libraries += \
     libbinder \
@@ -289,9 +283,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_STATIC_LIBRARIES := \
     libpayload_consumer \
     update_metadata-protos \
-    update_engine-dbus-adaptor \
-    update_engine-dbus-libcros-client \
-    update_engine_client-dbus-proxies \
+    $(ue_common_static_libraries) \
     $(ue_libupdate_engine_exported_static_libraries:-host=) \
     $(ue_libpayload_consumer_exported_static_libraries:-host=) \
     $(ue_update_metadata_protos_exported_static_libraries)
@@ -301,26 +293,25 @@ LOCAL_SHARED_LIBRARIES := \
     $(ue_libpayload_consumer_exported_shared_libraries:-host=) \
     $(ue_update_metadata_protos_exported_shared_libraries)
 LOCAL_SRC_FILES := \
-    boot_control_android.cc \
     certificate_checker.cc \
     common_service.cc \
-    connection_manager.cc \
+    connection_manager_android.cc \
+    connection_utils.cc \
     daemon.cc \
-    dbus_service.cc \
     hardware_android.cc \
     image_properties_android.cc \
-    libcros_proxy.cc \
     libcurl_http_fetcher.cc \
     metrics.cc \
     metrics_utils.cc \
     omaha_request_action.cc \
     omaha_request_params.cc \
     omaha_response_handler_action.cc \
+    omaha_utils.cc \
     p2p_manager.cc \
     payload_state.cc \
+    power_manager_android.cc \
     proxy_resolver.cc \
     real_system_state.cc \
-    shill_proxy.cc \
     update_attempter.cc \
     update_manager/boxed_value.cc \
     update_manager/chromeos_policy.cc \
@@ -330,7 +321,6 @@ LOCAL_SRC_FILES := \
     update_manager/real_config_provider.cc \
     update_manager/real_device_policy_provider.cc \
     update_manager/real_random_provider.cc \
-    update_manager/real_shill_provider.cc \
     update_manager/real_system_provider.cc \
     update_manager/real_time_provider.cc \
     update_manager/real_updater_provider.cc \
@@ -357,7 +347,7 @@ LOCAL_SRC_FILES += \
 endif  # local_use_libcros == 1
 include $(BUILD_STATIC_LIBRARY)
 
-else  # !defined(BRILLO)
+else  # local_use_omaha == 1
 
 ifneq ($(local_use_binder),1)
 $(error USE_BINDER is disabled but is required in non-Brillo devices.)
@@ -370,16 +360,20 @@ endif  # local_use_binder == 1
 ue_libupdate_engine_android_exported_static_libraries := \
     libpayload_consumer \
     libfs_mgr \
-    $(ue_libpayload_consumer_exported_static_libraries)
+    libbase \
+    liblog \
+    $(ue_libpayload_consumer_exported_static_libraries) \
+    libupdate_engine_boot_control \
+    $(ue_libupdate_engine_boot_control_exported_static_libraries)
 ue_libupdate_engine_android_exported_shared_libraries := \
     $(ue_libpayload_consumer_exported_shared_libraries) \
-    libandroid \
+    $(ue_libupdate_engine_boot_control_exported_shared_libraries) \
+    libandroid_net \
     libbinder \
     libbinderwrapper \
     libbrillo-binder \
     libcutils \
     libcurl \
-    libhardware \
     libssl \
     libutils
 
@@ -399,6 +393,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES += \
     external/cros/system_api/dbus
 LOCAL_STATIC_LIBRARIES := \
+    $(ue_common_static_libraries) \
     $(ue_libupdate_engine_android_exported_static_libraries:-host=)
 LOCAL_SHARED_LIBRARIES += \
     $(ue_common_shared_libraries) \
@@ -408,7 +403,6 @@ LOCAL_SRC_FILES += \
     binder_bindings/android/os/IUpdateEngine.aidl \
     binder_bindings/android/os/IUpdateEngineCallback.aidl \
     binder_service_android.cc \
-    boot_control_android.cc \
     certificate_checker.cc \
     daemon.cc \
     daemon_state_android.cc \
@@ -421,7 +415,7 @@ LOCAL_SRC_FILES += \
     utils_android.cc
 include $(BUILD_STATIC_LIBRARY)
 
-endif  # !defined(BRILLO)
+endif  # local_use_omaha == 1
 
 # update_engine (type: executable)
 # ========================================================
@@ -430,7 +424,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := update_engine
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_REQUIRED_MODULES := \
-    bspatch \
     cacerts_google
 ifeq ($(local_use_weave),1)
 LOCAL_REQUIRED_MODULES += updater.json
@@ -444,24 +437,26 @@ LOCAL_C_INCLUDES := \
     $(ue_common_c_includes)
 LOCAL_SHARED_LIBRARIES := \
     $(ue_common_shared_libraries)
+LOCAL_STATIC_LIBRARIES := \
+    $(ue_common_static_libraries)
 LOCAL_SRC_FILES := \
     main.cc
 
-ifdef BRILLO
+ifeq ($(local_use_omaha),1)
 LOCAL_C_INCLUDES += \
     $(ue_libupdate_engine_exported_c_includes)
-LOCAL_STATIC_LIBRARIES := \
+LOCAL_STATIC_LIBRARIES += \
     libupdate_engine \
     $(ue_libupdate_engine_exported_static_libraries:-host=)
 LOCAL_SHARED_LIBRARIES += \
     $(ue_libupdate_engine_exported_shared_libraries:-host=)
-else  # !defined(BRILLO)
-LOCAL_STATIC_LIBRARIES := \
+else  # local_use_omaha == 1
+LOCAL_STATIC_LIBRARIES += \
     libupdate_engine_android \
     $(ue_libupdate_engine_android_exported_static_libraries:-host=)
 LOCAL_SHARED_LIBRARIES += \
     $(ue_libupdate_engine_android_exported_shared_libraries:-host=)
-endif  # !defined(BRILLO)
+endif  # local_use_omaha == 1
 
 LOCAL_INIT_RC := update_engine.rc
 include $(BUILD_EXECUTABLE)
@@ -475,8 +470,6 @@ LOCAL_MODULE := update_engine_sideload
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_REQUIRED_MODULES := \
-    bspatch_recovery
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
 LOCAL_CFLAGS := \
@@ -492,7 +485,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES += \
     external/cros/system_api/dbus
 LOCAL_SRC_FILES := \
-    boot_control_android.cc \
+    boot_control_recovery.cc \
     hardware_android.cc \
     network_selector_stub.cc \
     proxy_resolver.cc \
@@ -502,8 +495,11 @@ LOCAL_SRC_FILES := \
     utils_android.cc
 LOCAL_STATIC_LIBRARIES := \
     libfs_mgr \
+    libbase \
+    liblog \
     libpayload_consumer \
     update_metadata-protos \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries:-host=) \
     $(ue_update_metadata_protos_exported_static_libraries)
 # We add the static versions of the shared libraries since we are forcing this
@@ -512,11 +508,12 @@ LOCAL_STATIC_LIBRARIES := \
 LOCAL_STATIC_LIBRARIES += \
     $(ue_common_shared_libraries) \
     libcutils \
-    libcrypto_static \
+    liblog \
+    $(ue_libpayload_consumer_exported_shared_libraries:-host=) \
     $(ue_update_metadata_protos_exported_shared_libraries) \
     libevent \
     libmodpb64 \
-    liblog
+    libgtest_prod
 
 ifeq ($(strip $(PRODUCT_STATIC_BOOT_CONTROL_HAL)),)
 # No static boot_control HAL defined, so no sideload support. We use a fake
@@ -542,7 +539,6 @@ LOCAL_CFLAGS := \
     -Wall \
     -Werror \
     -Wno-unused-parameter \
-    -DUSE_DBUS=$(local_use_dbus) \
     -DUSE_BINDER=$(local_use_binder)
 LOCAL_CLANG := true
 LOCAL_CPP_EXTENSION := .cc
@@ -550,8 +546,7 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/client_library/include \
     external/cros/system_api/dbus \
-    system \
-    external/gtest/include
+    system
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/client_library/include
 LOCAL_SHARED_LIBRARIES := \
     libchrome \
@@ -560,8 +555,7 @@ LOCAL_SRC_FILES := \
     client_library/client.cc \
     update_status_utils.cc
 
-# We can only compile support for one IPC mechanism. If both "binder" and "dbus"
-# are defined, we prefer binder.
+# We only support binder IPC mechanism in Android.
 ifeq ($(local_use_binder),1)
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/binder_bindings
 LOCAL_SHARED_LIBRARIES += \
@@ -573,14 +567,6 @@ LOCAL_SRC_FILES += \
     binder_bindings/android/brillo/IUpdateEngineStatusCallback.aidl \
     client_library/client_binder.cc \
     parcelable_update_engine_status.cc
-else  # local_use_binder != 1
-LOCAL_STATIC_LIBRARIES := \
-    update_engine_client-dbus-proxies
-LOCAL_SHARED_LIBRARIES += \
-    libchrome-dbus \
-    libbrillo-dbus
-LOCAL_SRC_FILES += \
-    client_library/client_dbus.cc
 endif  # local_use_binder == 1
 
 include $(BUILD_SHARED_LIBRARY)
@@ -598,13 +584,15 @@ LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
 LOCAL_C_INCLUDES := $(ue_common_c_includes)
 LOCAL_SHARED_LIBRARIES := $(ue_common_shared_libraries)
-ifdef BRILLO
+LOCAL_STATIC_LIBRARIES := $(ue_common_static_libraries)
+ifeq ($(local_use_omaha),1)
 LOCAL_SHARED_LIBRARIES += \
     libupdate_engine_client
 LOCAL_SRC_FILES := \
     update_engine_client.cc \
-    common/error_code_utils.cc
-else  # !defined(BRILLO)
+    common/error_code_utils.cc \
+    omaha_utils.cc
+else  # local_use_omaha == 1
 #TODO(deymo): Remove external/cros/system_api/dbus once the strings are moved
 # out of the DBus interface.
 LOCAL_C_INCLUDES += \
@@ -621,7 +609,7 @@ LOCAL_SRC_FILES := \
     common/error_code_utils.cc \
     update_engine_client_android.cc \
     update_status_utils.cc
-endif  # !defined(BRILLO)
+endif  # local_use_omaha == 1
 include $(BUILD_EXECUTABLE)
 
 # libpayload_generator (type: static_library)
@@ -635,7 +623,7 @@ ue_libpayload_generator_exported_static_libraries := \
     $(ue_libpayload_consumer_exported_static_libraries) \
     $(ue_update_metadata_protos_exported_static_libraries)
 ue_libpayload_generator_exported_shared_libraries := \
-    libext2fs-host \
+    libext2fs \
     $(ue_libpayload_consumer_exported_shared_libraries) \
     $(ue_update_metadata_protos_exported_shared_libraries)
 
@@ -655,6 +643,7 @@ ue_libpayload_generator_src_files := \
     payload_generator/graph_types.cc \
     payload_generator/graph_utils.cc \
     payload_generator/inplace_generator.cc \
+    payload_generator/mapfile_filesystem.cc \
     payload_generator/payload_file.cc \
     payload_generator/payload_generation_config.cc \
     payload_generator/payload_signer.cc \
@@ -678,6 +667,7 @@ LOCAL_STATIC_LIBRARIES := \
     libpayload_consumer \
     update_metadata-protos \
     liblzma \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries) \
     $(ue_update_metadata_protos_exported_static_libraries)
 LOCAL_SHARED_LIBRARIES := \
@@ -703,6 +693,7 @@ LOCAL_STATIC_LIBRARIES := \
     libpayload_consumer \
     update_metadata-protos \
     liblzma \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries:-host=) \
     $(ue_update_metadata_protos_exported_static_libraries)
 LOCAL_SHARED_LIBRARIES := \
@@ -723,6 +714,9 @@ ifeq ($(HOST_OS),linux)
 # Build for the host.
 include $(CLEAR_VARS)
 LOCAL_MODULE := delta_generator
+LOCAL_REQUIRED_MODULES := \
+    bsdiff \
+    imgdiff
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
@@ -733,6 +727,7 @@ LOCAL_C_INCLUDES := $(ue_common_c_includes)
 LOCAL_STATIC_LIBRARIES := \
     libpayload_consumer \
     libpayload_generator \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries) \
     $(ue_libpayload_generator_exported_static_libraries)
 LOCAL_SHARED_LIBRARIES := \
@@ -745,7 +740,9 @@ endif  # HOST_OS == linux
 
 # Build for the target.
 include $(CLEAR_VARS)
-LOCAL_MODULE := delta_generator
+LOCAL_MODULE := ue_unittest_delta_generator
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
+LOCAL_MODULE_STEM := delta_generator
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
@@ -756,6 +753,7 @@ LOCAL_C_INCLUDES := $(ue_common_c_includes)
 LOCAL_STATIC_LIBRARIES := \
     libpayload_consumer \
     libpayload_generator \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_consumer_exported_static_libraries:-host=) \
     $(ue_libpayload_generator_exported_static_libraries:-host=)
 LOCAL_SHARED_LIBRARIES := \
@@ -764,10 +762,6 @@ LOCAL_SHARED_LIBRARIES := \
     $(ue_libpayload_generator_exported_shared_libraries:-host=)
 LOCAL_SRC_FILES := $(ue_delta_generator_src_files)
 include $(BUILD_EXECUTABLE)
-
-# TODO(deymo): Enable the unittest binaries in non-Brillo builds once the DBus
-# dependencies are removed or placed behind the USE_DBUS flag.
-ifdef BRILLO
 
 # Private and public keys for unittests.
 # ========================================================
@@ -835,14 +829,21 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
 LOCAL_PREBUILT_MODULE_FILE := $(TARGET_OUT_COMMON_GEN)/zlib_fingerprint
 include $(BUILD_PREBUILT)
 
+# update_engine.conf
+# ========================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := ue_unittest_update_engine.conf
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
+LOCAL_MODULE_STEM := update_engine.conf
+LOCAL_SRC_FILES := update_engine.conf
+include $(BUILD_PREBUILT)
+
 # test_http_server (type: executable)
 # ========================================================
 # Test HTTP Server.
 include $(CLEAR_VARS)
 LOCAL_MODULE := test_http_server
-ifdef BRILLO
-  LOCAL_MODULE_TAGS := eng
-endif
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
@@ -852,9 +853,50 @@ LOCAL_CPPFLAGS := $(ue_common_cppflags)
 LOCAL_LDFLAGS := $(ue_common_ldflags)
 LOCAL_C_INCLUDES := $(ue_common_c_includes)
 LOCAL_SHARED_LIBRARIES := $(ue_common_shared_libraries)
+LOCAL_STATIC_LIBRARIES := $(ue_common_static_libraries)
 LOCAL_SRC_FILES := \
     common/http_common.cc \
     test_http_server.cc
+include $(BUILD_EXECUTABLE)
+
+# bsdiff (type: executable)
+# ========================================================
+# We need bsdiff in the update_engine_unittests directory, so we build it here.
+include $(CLEAR_VARS)
+LOCAL_MODULE := ue_unittest_bsdiff
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
+LOCAL_MODULE_STEM := bsdiff
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := ../../external/bsdiff/bsdiff_main.cc
+LOCAL_CFLAGS := \
+    -D_FILE_OFFSET_BITS=64 \
+    -Wall \
+    -Werror \
+    -Wextra \
+    -Wno-unused-parameter
+LOCAL_STATIC_LIBRARIES := \
+    libbsdiff \
+    libbz \
+    libdivsufsort64 \
+    libdivsufsort
+include $(BUILD_EXECUTABLE)
+
+# test_subprocess (type: executable)
+# ========================================================
+# Test helper subprocess program.
+include $(CLEAR_VARS)
+LOCAL_MODULE := test_subprocess
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/update_engine_unittests
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CLANG := true
+LOCAL_CFLAGS := $(ue_common_cflags)
+LOCAL_CPPFLAGS := $(ue_common_cppflags)
+LOCAL_LDFLAGS := $(ue_common_ldflags)
+LOCAL_C_INCLUDES := $(ue_common_c_includes)
+LOCAL_SHARED_LIBRARIES := $(ue_common_shared_libraries)
+LOCAL_STATIC_LIBRARIES := $(ue_common_static_libraries)
+LOCAL_SRC_FILES := test_subprocess.cc
 include $(BUILD_EXECUTABLE)
 
 # update_engine_unittests (type: executable)
@@ -862,10 +904,11 @@ include $(BUILD_EXECUTABLE)
 # Main unittest file.
 include $(CLEAR_VARS)
 LOCAL_MODULE := update_engine_unittests
-ifdef BRILLO
-  LOCAL_MODULE_TAGS := eng
-endif
 LOCAL_REQUIRED_MODULES := \
+    test_http_server \
+    test_subprocess \
+    ue_unittest_bsdiff \
+    ue_unittest_delta_generator \
     ue_unittest_disk_ext2_1k.img \
     ue_unittest_disk_ext2_4k.img \
     ue_unittest_disk_ext2_4k_empty.img \
@@ -874,8 +917,8 @@ LOCAL_REQUIRED_MODULES := \
     ue_unittest_key.pub.pem \
     ue_unittest_key2.pem \
     ue_unittest_key2.pub.pem \
+    ue_unittest_update_engine.conf \
     zlib_fingerprint
-LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CLANG := true
 LOCAL_CFLAGS := $(ue_common_cflags)
@@ -885,17 +928,14 @@ LOCAL_C_INCLUDES := \
     $(ue_common_c_includes) \
     $(ue_libupdate_engine_exported_c_includes)
 LOCAL_STATIC_LIBRARIES := \
-    libupdate_engine \
     libpayload_generator \
     libbrillo-test-helpers \
     libgmock \
-    libgtest \
     libchrome_test_helpers \
-    $(ue_libupdate_engine_exported_static_libraries:-host=) \
+    $(ue_common_static_libraries) \
     $(ue_libpayload_generator_exported_static_libraries:-host=)
 LOCAL_SHARED_LIBRARIES := \
     $(ue_common_shared_libraries) \
-    $(ue_libupdate_engine_exported_shared_libraries:-host=) \
     $(ue_libpayload_generator_exported_shared_libraries:-host=)
 LOCAL_SRC_FILES := \
     certificate_checker_unittest.cc \
@@ -914,19 +954,9 @@ LOCAL_SRC_FILES := \
     common/terminator_unittest.cc \
     common/test_utils.cc \
     common/utils_unittest.cc \
-    common_service_unittest.cc \
-    connection_manager_unittest.cc \
-    fake_shill_proxy.cc \
-    fake_system_state.cc \
-    metrics_utils_unittest.cc \
-    omaha_request_action_unittest.cc \
-    omaha_request_params_unittest.cc \
-    omaha_response_handler_action_unittest.cc \
-    p2p_manager_unittest.cc \
     payload_consumer/bzip_extent_writer_unittest.cc \
     payload_consumer/delta_performer_integration_test.cc \
     payload_consumer/delta_performer_unittest.cc \
-    payload_consumer/download_action_unittest.cc \
     payload_consumer/extent_writer_unittest.cc \
     payload_consumer/file_writer_unittest.cc \
     payload_consumer/filesystem_verifier_action_unittest.cc \
@@ -944,12 +974,33 @@ LOCAL_SRC_FILES := \
     payload_generator/full_update_generator_unittest.cc \
     payload_generator/graph_utils_unittest.cc \
     payload_generator/inplace_generator_unittest.cc \
+    payload_generator/mapfile_filesystem_unittest.cc \
     payload_generator/payload_file_unittest.cc \
     payload_generator/payload_generation_config_unittest.cc \
     payload_generator/payload_signer_unittest.cc \
     payload_generator/tarjan_unittest.cc \
     payload_generator/topological_sort_unittest.cc \
     payload_generator/zip_unittest.cc \
+    proxy_resolver_unittest.cc \
+    testrunner.cc
+ifeq ($(local_use_omaha),1)
+LOCAL_C_INCLUDES += \
+    $(ue_libupdate_engine_exported_c_includes)
+LOCAL_STATIC_LIBRARIES += \
+    libupdate_engine \
+    $(ue_libupdate_engine_exported_static_libraries:-host=)
+LOCAL_SHARED_LIBRARIES += \
+    $(ue_libupdate_engine_exported_shared_libraries:-host=)
+LOCAL_SRC_FILES += \
+    common_service_unittest.cc \
+    fake_system_state.cc \
+    metrics_utils_unittest.cc \
+    omaha_request_action_unittest.cc \
+    omaha_request_params_unittest.cc \
+    omaha_response_handler_action_unittest.cc \
+    omaha_utils_unittest.cc \
+    p2p_manager_unittest.cc \
+    payload_consumer/download_action_unittest.cc \
     payload_state_unittest.cc \
     update_attempter_unittest.cc \
     update_manager/boxed_value_unittest.cc \
@@ -957,23 +1008,26 @@ LOCAL_SRC_FILES := \
     update_manager/evaluation_context_unittest.cc \
     update_manager/generic_variables_unittest.cc \
     update_manager/prng_unittest.cc \
-    update_manager/real_config_provider_unittest.cc \
     update_manager/real_device_policy_provider_unittest.cc \
     update_manager/real_random_provider_unittest.cc \
-    update_manager/real_shill_provider_unittest.cc \
     update_manager/real_system_provider_unittest.cc \
     update_manager/real_time_provider_unittest.cc \
     update_manager/real_updater_provider_unittest.cc \
     update_manager/umtest_utils.cc \
     update_manager/update_manager_unittest.cc \
-    update_manager/variable_unittest.cc \
-    testrunner.cc
+    update_manager/variable_unittest.cc
+else  # local_use_omaha == 1
+LOCAL_STATIC_LIBRARIES += \
+    libupdate_engine_android \
+    $(ue_libupdate_engine_android_exported_static_libraries:-host=)
+LOCAL_SHARED_LIBRARIES += \
+    $(ue_libupdate_engine_android_exported_shared_libraries:-host=)
+endif  # local_use_omaha == 1
 ifeq ($(local_use_libcros),1)
 LOCAL_SRC_FILES += \
     chrome_browser_proxy_resolver_unittest.cc
 endif  # local_use_libcros == 1
 include $(BUILD_NATIVE_TEST)
-endif  # BRILLO
 
 # Weave schema files
 # ========================================================

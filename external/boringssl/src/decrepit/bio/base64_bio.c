@@ -65,6 +65,8 @@
 #include <openssl/evp.h>
 #include <openssl/mem.h>
 
+#include "../../crypto/internal.h"
+
 
 #define B64_BLOCK_SIZE 1024
 #define B64_BLOCK_SIZE2 768
@@ -94,7 +96,7 @@ static int b64_new(BIO *bio) {
     return 0;
   }
 
-  memset(ctx, 0, sizeof(*ctx));
+  OPENSSL_memset(ctx, 0, sizeof(*ctx));
 
   ctx->cont = 1;
   ctx->start = 1;
@@ -147,7 +149,7 @@ static int b64_read(BIO *b, char *out, int outl) {
       i = outl;
     }
     assert(ctx->buf_off + i < (int)sizeof(ctx->buf));
-    memcpy(out, &ctx->buf[ctx->buf_off], i);
+    OPENSSL_memcpy(out, &ctx->buf[ctx->buf_off], i);
     ret = i;
     out += i;
     outl -= i;
@@ -274,7 +276,7 @@ static int b64_read(BIO *b, char *out, int outl) {
       }
       /* z is now number of output bytes and jj is the number consumed. */
       if (jj != i) {
-        memmove(ctx->tmp, &ctx->tmp[jj], i - jj);
+        OPENSSL_memmove(ctx->tmp, &ctx->tmp[jj], i - jj);
         ctx->tmp_len = i - jj;
       }
       ctx->buf_len = 0;
@@ -300,7 +302,7 @@ static int b64_read(BIO *b, char *out, int outl) {
       i = outl;
     }
 
-    memcpy(out, ctx->buf, i);
+    OPENSSL_memcpy(out, ctx->buf, i);
     ret += i;
     ctx->buf_off = i;
     if (ctx->buf_off == ctx->buf_len) {
@@ -367,7 +369,7 @@ static int b64_write(BIO *b, const char *in, int inl) {
         if (n > inl) {
           n = inl;
         }
-        memcpy(&(ctx->tmp[ctx->tmp_len]), in, n);
+        OPENSSL_memcpy(&(ctx->tmp[ctx->tmp_len]), in, n);
         ctx->tmp_len += n;
         ret += n;
         if (ctx->tmp_len < 3) {
@@ -383,7 +385,7 @@ static int b64_write(BIO *b, const char *in, int inl) {
         ctx->tmp_len = 0;
       } else {
         if (n < 3) {
-          memcpy(ctx->tmp, in, n);
+          OPENSSL_memcpy(ctx->tmp, in, n);
           ctx->tmp_len = n;
           ret += n;
           break;
@@ -452,7 +454,7 @@ static long b64_ctrl(BIO *b, int cmd, long num, void *ptr) {
     case BIO_CTRL_WPENDING: /* More to write in buffer */
       assert(ctx->buf_len >= ctx->buf_off);
       ret = ctx->buf_len - ctx->buf_off;
-      if ((ret == 0) && (ctx->encode != B64_NONE) && (ctx->base64.num != 0)) {
+      if ((ret == 0) && (ctx->encode != B64_NONE) && (ctx->base64.data_used != 0)) {
         ret = 1;
       } else if (ret <= 0) {
         ret = BIO_ctrl(b->next_bio, cmd, num, ptr);
@@ -484,7 +486,7 @@ static long b64_ctrl(BIO *b, int cmd, long num, void *ptr) {
           ctx->tmp_len = 0;
           goto again;
         }
-      } else if (ctx->encode != B64_NONE && ctx->base64.num != 0) {
+      } else if (ctx->encode != B64_NONE && ctx->base64.data_used != 0) {
         ctx->buf_off = 0;
         EVP_EncodeFinal(&(ctx->base64), (uint8_t *)ctx->buf, &(ctx->buf_len));
         /* push out the bytes */
@@ -524,12 +526,8 @@ static long b64_callback_ctrl(BIO *b, int cmd, bio_info_cb fp) {
   return ret;
 }
 
-static int b64_puts(BIO *b, const char *str) {
-  return b64_write(b, str, strlen(str));
-}
-
 static const BIO_METHOD b64_method = {
-    BIO_TYPE_BASE64, "base64 encoding", b64_write, b64_read, b64_puts,
+    BIO_TYPE_BASE64, "base64 encoding", b64_write, b64_read, NULL /* puts */,
     NULL /* gets */, b64_ctrl,          b64_new,   b64_free, b64_callback_ctrl,
 };
 

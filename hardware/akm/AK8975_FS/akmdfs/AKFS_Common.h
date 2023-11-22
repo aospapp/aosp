@@ -113,7 +113,7 @@
 /***** Dbg Zone Output ***************************************/
 #if ENABLE_AKMDEBUG
 #define AKMDATA(flag, format, ...)  \
-	((((int)flag) & g_dbgzone) \
+	((((int)(flag)) & g_dbgzone) \
 	  ? (fprintf(stdout, (format), ##__VA_ARGS__)) \
 	  : ((void)0))
 #else

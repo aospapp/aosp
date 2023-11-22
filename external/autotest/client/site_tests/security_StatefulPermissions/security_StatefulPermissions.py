@@ -16,11 +16,15 @@ class security_StatefulPermissions(test.test):
     """
     version = 1
     _STATEFUL_ROOT = "/mnt/stateful_partition"
+    _AID_SYSTEM = 1000
+    _AID_CACHE = 2001
 
     # Note that chronos permissions in /home are covered in greater detail
     # by 'security_ProfilePermissions'.
     _masks_byuser = {"adm": [],
-                     "attestation": ["/unencrypted/preserve/attestation.epb"],
+                     "android-root": ["/encrypted/var/log/android.kmsg"],
+                     "attestation": ["/unencrypted/preserve",
+                                     "/unencrypted/preserve/attestation.epb"],
                      "avfs": [],
                      "bin": [],
                      "bluetooth": ["/encrypted/var/lib/bluetooth"],
@@ -30,9 +34,11 @@ class security_StatefulPermissions(test.test):
                                  "/encrypted/var/cache/device_local_account_component_policy",
                                  "/encrypted/var/cache/device_local_account_extensions",
                                  "/encrypted/var/cache/device_local_account_external_policy_data",
+                                 "/encrypted/var/cache/display_profiles",
                                  "/encrypted/var/cache/echo",
                                  "/encrypted/var/cache/external_cache",
                                  "/encrypted/var/cache/shared_extensions",
+                                 "/encrypted/var/cache/signin_profile_component_policy",
                                  "/encrypted/var/cache/touch_trial/selection",
                                  "/encrypted/var/lib/cromo",
                                  "/encrypted/var/lib/opencryptoki",
@@ -47,9 +53,13 @@ class security_StatefulPermissions(test.test):
                      "chronos-access": [],
                      "cras": [],
                      "cros-disks": [],
+                     "cups": ["/encrypted/var/cache/cups",
+                              "/encrypted/var/spool/cups"],
                      "daemon": [],
                      "debugd": [],
                      "dhcp": ["/encrypted/var/lib/dhcpcd"],
+                     "dlm": ["/encrypted/var/log/displaylink"],
+                     "imageloaderd": ["/encrypted/var/lib/imageloader"],
                      "input": [],
                      "ipsec": [],
                      "lp": [],
@@ -68,6 +78,8 @@ class security_StatefulPermissions(test.test):
                      "syslog": ["/encrypted/var/log"],
                      "tcpdump": [],
                      "tlsdate": [],
+                     "tpm_manager": ["/encrypted/var/lib/tpm_manager",
+                                     "/unencrypted/preserve"],
                      "tss": ["/var/lib/tpm"],
                      "uucp": [],
                      "wpa": [],
@@ -96,6 +108,30 @@ class security_StatefulPermissions(test.test):
         paths.append("/var_overlay")
 
         return paths
+
+
+    def generate_prune_arguments_android(self):
+        """Returns a command-line fragment to make 'find' exclude
+        android-data/cache: uid=AID_SYSTEM, gid=AID_CACHE
+        android-data/data:  uid=AID_SYSTEM, gid=AID_SYSTEM
+        Files under these paths are created by various android users.
+        """
+        try:
+            aroot_uid = pwd.getpwnam('android-root').pw_uid
+        except KeyError:
+            # android-root not found, so don't prune anything
+            return ""
+
+        # On ecryptfs backend, the Android data path is
+        # /home/.shadow/hash/vault/root/ENCRYPTED<android-data>/...
+        # while on ext4crypto backend, it is:
+        # /home/.shadow/hash/mount/ENCRYPTED<root>/ENCRYPTED<android-data>/...
+        cmd = "-regextype posix-extended -regex STATEFUL_ROOT/home/.shadow/"
+        cmd += "[[:alnum:]]{40}/(vault/root|mount/[^/]*)/[^/]*/[^/]* "
+        cmd += "-uid {0} \\( -gid {1} -o -gid {2} \\) -prune -o ".format(
+                aroot_uid + self._AID_SYSTEM,
+                aroot_uid + self._AID_SYSTEM, aroot_uid + self._AID_CACHE)
+        return cmd
 
 
     def generate_prune_arguments(self, prunelist):
@@ -152,6 +188,7 @@ class security_StatefulPermissions(test.test):
         """Returns the set of file/directory owners present in stateful."""
 
         cmd = "find STATEFUL_ROOT "
+        cmd += self.generate_prune_arguments_android()
         cmd += self.generate_prune_arguments(self.systemwide_exclusions())
         cmd += " -printf '%u\\n' | sort -u"
         return set(self.subst_run(cmd).splitlines())

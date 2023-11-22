@@ -18,7 +18,7 @@ of tests that use them, callers must pass in their location at call time."""
 
 def compare_policy_response(proto_binding_location, policy_response,
                             owner=None, guests=None, new_users=None,
-                            roaming=None, whitelist=None, proxies=None):
+                            roaming=None, whitelist=None):
     """Check the contents of |policy_response| against given args.
 
     Deserializes |policy_response| into a PolicyFetchResponse protobuf,
@@ -34,7 +34,6 @@ def compare_policy_response(proto_binding_location, policy_response,
     @param new_users: boolean indicating if user pods are on login screen.
     @param roaming: boolean indicating whether data roaming is enabled.
     @param whitelist: list of accounts that are allowed to log in.
-    @param proxies: dictionary - { 'proxy_mode': <string> }
 
     @return True if |policy_response| has all the provided data, else False.
     """
@@ -47,7 +46,6 @@ def compare_policy_response(proto_binding_location, policy_response,
     from chrome_device_policy_pb2 import GuestModeEnabledProto
     from chrome_device_policy_pb2 import ShowUserNamesOnSigninProto
     from chrome_device_policy_pb2 import DataRoamingEnabledProto
-    from chrome_device_policy_pb2 import DeviceProxySettingsProto
 
     response_proto = PolicyFetchResponse()
     response_proto.ParseFromString(policy_response)
@@ -66,12 +64,10 @@ def compare_policy_response(proto_binding_location, policy_response,
     if whitelist:
         ownership.assert_new_users(settings, False)
         ownership.assert_users_on_whitelist(settings, whitelist)
-        if proxies: ownership.assert_proxy_settings(settings, proxies)
 
 
 def build_policy_data(proto_binding_location, owner=None, guests=None,
-                      new_users=None, roaming=None, whitelist=None,
-                      proxies=None):
+                      new_users=None, roaming=None, whitelist=None):
     """Generate and serialize a populated device policy protobuffer.
 
     Creates a PolicyData protobuf, with an embedded
@@ -84,7 +80,6 @@ def build_policy_data(proto_binding_location, owner=None, guests=None,
     @param new_users: boolean indicating if user pods are on login screen.
     @param roaming: boolean indicating whether data roaming is enabled.
     @param whitelist: list of accounts that are allowed to log in.
-    @param proxies: dictionary - { 'proxy_mode': <string> }
 
     @return serialization of the PolicyData proto that we build.
     """
@@ -96,7 +91,6 @@ def build_policy_data(proto_binding_location, owner=None, guests=None,
     from chrome_device_policy_pb2 import GuestModeEnabledProto
     from chrome_device_policy_pb2 import ShowUserNamesOnSigninProto
     from chrome_device_policy_pb2 import DataRoamingEnabledProto
-    from chrome_device_policy_pb2 import DeviceProxySettingsProto
 
     data_proto = PolicyData()
     data_proto.policy_type = ownership.POLICY_TYPE
@@ -113,8 +107,6 @@ def build_policy_data(proto_binding_location, owner=None, guests=None,
         settings.allow_new_users.allow_new_users = False
         for user in whitelist:
             settings.user_whitelist.user_whitelist.append(user)
-    if proxies:
-        settings.device_proxy_settings.proxy_mode = proxies['proxy_mode']
 
     data_proto.policy_value = settings.SerializeToString()
     return data_proto.SerializeToString()

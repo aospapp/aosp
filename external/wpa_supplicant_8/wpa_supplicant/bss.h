@@ -40,6 +40,7 @@ struct wpa_bss_anqp {
 	struct wpabuf *nai_realm;
 	struct wpabuf *anqp_3gpp;
 	struct wpabuf *domain_name;
+	struct wpabuf *fils_realm_info;
 	struct dl_list anqp_elems; /* list of struct wpa_bss_anqp_elem */
 #endif /* CONFIG_INTERWORKING */
 #ifdef CONFIG_HS20
@@ -113,6 +114,8 @@ void wpa_bss_update_start(struct wpa_supplicant *wpa_s);
 void wpa_bss_update_scan_res(struct wpa_supplicant *wpa_s,
 			     struct wpa_scan_res *res,
 			     struct os_reltime *fetch_time);
+void wpa_bss_remove(struct wpa_supplicant *wpa_s, struct wpa_bss *bss,
+		    const char *reason);
 void wpa_bss_update_end(struct wpa_supplicant *wpa_s, struct scan_info *info,
 			int new_scan);
 int wpa_bss_init(struct wpa_supplicant *wpa_s);
@@ -164,5 +167,9 @@ static inline void wpa_bss_update_level(struct wpa_bss *bss, int new_level)
 	if (bss != NULL && new_level < 0)
 		bss->level = new_level;
 }
+
+void calculate_update_time(const struct os_reltime *fetch_time,
+			   unsigned int age_ms,
+			   struct os_reltime *update_time);
 
 #endif /* BSS_H */

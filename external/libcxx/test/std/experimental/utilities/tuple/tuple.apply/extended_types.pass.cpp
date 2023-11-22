@@ -13,7 +13,7 @@
 
 // template <class F, class T> constexpr decltype(auto) apply(F &&, T &&)
 
-// Testing extended function types. The extented function types are those
+// Testing extended function types. The extended function types are those
 // named by INVOKE but that are not actual callable objects. These include
 // bullets 1-4 of invoke.
 
@@ -21,6 +21,10 @@
 #include <array>
 #include <utility>
 #include <cassert>
+
+// std::array is explicitly allowed to be initialized with A a = { init-list };.
+// Disable the missing braces warning for this reason.
+#include "disable_missing_braces_warning.h"
 
 int count = 0;
 

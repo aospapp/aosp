@@ -79,6 +79,9 @@ BPF_TEST_C(ParameterRestrictions,
   CheckClock(CLOCK_MONOTONIC);
   CheckClock(CLOCK_MONOTONIC_COARSE);
   CheckClock(CLOCK_PROCESS_CPUTIME_ID);
+#if defined(OS_ANDROID)
+  CheckClock(CLOCK_BOOTTIME);
+#endif
   CheckClock(CLOCK_REALTIME);
   CheckClock(CLOCK_REALTIME_COARSE);
   CheckClock(CLOCK_THREAD_CPUTIME_ID);
@@ -154,7 +157,9 @@ void SchedGetParamThread(base::WaitableEvent* thread_run) {
 BPF_TEST_C(ParameterRestrictions,
            sched_getparam_allowed,
            RestrictSchedPolicy) {
-  base::WaitableEvent thread_run(true, false);
+  base::WaitableEvent thread_run(
+      base::WaitableEvent::ResetPolicy::MANUAL,
+      base::WaitableEvent::InitialState::NOT_SIGNALED);
   // Run the actual test in a new thread so that the current pid and tid are
   // different.
   base::Thread getparam_thread("sched_getparam_thread");

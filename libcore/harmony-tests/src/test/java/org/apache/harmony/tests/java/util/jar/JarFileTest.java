@@ -36,6 +36,7 @@ import java.security.SignatureSpi;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
@@ -59,7 +60,7 @@ import tests.support.resource.Support_Resources;
 
 public class JarFileTest extends TestCase {
 
-    // BEGIN android-added
+    // BEGIN Android-added
     public byte[] getAllBytesFromStream(InputStream is) throws IOException {
         ByteArrayOutputStream bs = new ByteArrayOutputStream();
         byte[] buf = new byte[666];
@@ -72,7 +73,7 @@ public class JarFileTest extends TestCase {
         return bs.toByteArray();
     }
 
-    // END android-added
+    // END Android-added
 
     private final String jarName = "hyts_patch.jar"; // a 'normal' jar file
 
@@ -571,9 +572,9 @@ public class JarFileTest extends TestCase {
             JarFile jar = new JarFile(signedFile);
             JarEntry entry = new JarEntry(entryName3);
             InputStream in = jar.getInputStream(entry);
-            // BEGIN android-added
+            // BEGIN Android-added
             byte[] dummy = getAllBytesFromStream(in);
-            // END android-added
+            // END Android-added
             assertNull("found certificates", entry.getCertificates());
         } catch (Exception e) {
             fail("Exception during test 4: " + e);
@@ -584,9 +585,9 @@ public class JarFileTest extends TestCase {
             JarEntry entry = jar.getJarEntry(entryName3);
             entry.setSize(1076);
             InputStream in = jar.getInputStream(entry);
-            // BEGIN android-added
+            // BEGIN Android-added
             byte[] dummy = getAllBytesFromStream(in);
-            // END android-added
+            // END Android-added
             fail("SecurityException should be thrown.");
         } catch (SecurityException e) {
             // expected
@@ -977,9 +978,9 @@ public class JarFileTest extends TestCase {
         try {
             JarFile jf = new JarFile(localFile);
             java.io.InputStream is = jf.getInputStream(jf.getEntry(entryName));
-            // BEGIN android-removed
+            // BEGIN Android-removed
             // jf.close();
-            // END android-removed
+            // END Android-removed
             assertTrue("Returned invalid stream", is.available() > 0);
             int r = is.read(b, 0, 1024);
             is.close();
@@ -989,9 +990,9 @@ public class JarFileTest extends TestCase {
             }
             String contents = sb.toString();
             assertTrue("Incorrect stream read", contents.indexOf("bar") > 0);
-            // BEGIN android-added
+            // BEGIN Android-added
             jf.close();
-            // END android-added
+            // END Android-added
         } catch (Exception e) {
             fail("Exception during test: " + e.toString());
         }
@@ -1122,6 +1123,47 @@ public class JarFileTest extends TestCase {
                 fail("Should not call this provider");
                 return null;
             }
+        }
+    }
+
+    /**
+     * java.util.jar.JarFile#stream()
+     */
+    public void test_stream() throws Exception {
+        /*
+         * Note only (and all of) the following should be contained in the file
+         * META-INF/ META-INF/MANIFEST.MF Blah.txt  foo/ foo/bar/ foo/bar/A.class
+         */
+        Support_Resources.copyFile(resources, null, jarName);
+        JarFile jarFile = new JarFile(new File(resources, jarName));
+
+        final List<String> names = new ArrayList<>();
+        jarFile.stream().forEach((ZipEntry entry) -> names.add(entry.getName()));
+        assertEquals(Arrays.asList("META-INF/", "META-INF/MANIFEST.MF", "Blah.txt", "foo/", "foo/bar/",
+                                   "foo/bar/A.class"), names);
+        jarFile.close();
+    }
+
+
+    /**
+     * hyts_metainf.jar contains an additional entry in META-INF (META-INF/bad_checksum.txt),
+     * that has been altered since jar signing - we expect to detect a mismatching digest.
+     */
+    public void test_metainf_verification() throws Exception {
+        String jarFilename = "hyts_metainf.jar";
+        Support_Resources.copyFile(resources, null, jarFilename);
+        try (JarFile jarFile = new JarFile(new File(resources, jarFilename))) {
+
+            JarEntry jre = new JarEntry("META-INF/bad_checksum.txt");
+            InputStream in = jarFile.getInputStream(jre);
+
+            byte[] buffer = new byte[1024];
+            try {
+                while (in.available() > 0) {
+                    in.read(buffer);
+                }
+                fail("SecurityException expected");
+            } catch (SecurityException expected) {}
         }
     }
 }

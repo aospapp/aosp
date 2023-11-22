@@ -27,11 +27,29 @@
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.app.stubs"
-                     android:label="CTS tests of android.app">
+            android:targetPackage="android.app.stubs"
+            android:label="CTS tests of android.app">
         <meta-data android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
 
-</manifest>
+    <instrumentation android:name=".DefaultProcessInstrumentation"
+            android:targetPackage="com.android.cts.launcherapps.simpleapp">
+    </instrumentation>
 
+    <instrumentation android:name=".AltProcessInstrumentation"
+            android:targetPackage="com.android.cts.launcherapps.simpleapp"
+            android:targetProcesses="com.android.cts.launcherapps.simpleapp:other">
+    </instrumentation>
+
+    <instrumentation android:name=".WildcardProcessInstrumentation"
+                     android:targetPackage="com.android.cts.launcherapps.simpleapp"
+                     android:targetProcesses="*">
+    </instrumentation>
+
+    <instrumentation android:name=".MultiProcessInstrumentation"
+                     android:targetPackage="com.android.cts.launcherapps.simpleapp"
+                     android:targetProcesses="com.android.cts.launcherapps.simpleapp:other,com.android.cts.launcherapps.simpleapp">
+    </instrumentation>
+
+</manifest>

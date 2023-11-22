@@ -26,6 +26,8 @@
 #ifndef ANDROID_CONFIGURATION_H
 #define ANDROID_CONFIGURATION_H
 
+#include <sys/cdefs.h>
+
 #include <android/asset_manager.h>
 
 #ifdef __cplusplus
@@ -265,6 +267,36 @@ enum {
     ACONFIGURATION_SCREENROUND_NO = 0x1,
     ACONFIGURATION_SCREENROUND_YES = 0x2,
 
+    /** Wide color gamut: not specified. */
+    ACONFIGURATION_WIDE_COLOR_GAMUT_ANY = 0x00,
+    /**
+     * Wide color gamut: value that corresponds to
+     * <a href="@dacRoot/guide/topics/resources/providing-resources.html#WideColorGamutQualifier">no
+     * nowidecg</a> resource qualifier specified.
+     */
+    ACONFIGURATION_WIDE_COLOR_GAMUT_NO = 0x1,
+    /**
+     * Wide color gamut: value that corresponds to
+     * <a href="@dacRoot/guide/topics/resources/providing-resources.html#WideColorGamutQualifier">
+     * widecg</a> resource qualifier specified.
+     */
+    ACONFIGURATION_WIDE_COLOR_GAMUT_YES = 0x2,
+
+    /** HDR: not specified. */
+    ACONFIGURATION_HDR_ANY = 0x00,
+    /**
+     * HDR: value that corresponds to
+     * <a href="@dacRoot/guide/topics/resources/providing-resources.html#HDRQualifier">
+     * lowdr</a> resource qualifier specified.
+     */
+    ACONFIGURATION_HDR_NO = 0x1,
+    /**
+     * HDR: value that corresponds to
+     * <a href="@dacRoot/guide/topics/resources/providing-resources.html#HDRQualifier">
+     * highdr</a> resource qualifier specified.
+     */
+    ACONFIGURATION_HDR_YES = 0x2,
+
     /** UI mode: not specified. */
     ACONFIGURATION_UI_MODE_TYPE_ANY = 0x00,
     /**
@@ -298,6 +330,11 @@ enum {
      * <a href="@dacRoot/guide/topics/resources/providing-resources.html#UiModeQualifier">watch</a> resource qualifier specified.
      */
     ACONFIGURATION_UI_MODE_TYPE_WATCH = 0x06,
+    /**
+     * UI mode: value that corresponds to
+     * <a href="@dacRoot/guide/topics/resources/providing-resources.html#UiModeQualifier">vr</a> resource qualifier specified.
+     */
+    ACONFIGURATION_UI_MODE_TYPE_VR_HEADSET = 0x07,
 
     /** UI night mode: not specified.*/
     ACONFIGURATION_UI_MODE_NIGHT_ANY = 0x00,
@@ -423,6 +460,12 @@ enum {
      */
     ACONFIGURATION_LAYOUTDIR = 0x4000,
     ACONFIGURATION_SCREEN_ROUND = 0x8000,
+    /**
+     * Bit mask for
+     * <a href="@dacRoot/guide/topics/resources/providing-resources.html#WideColorGamutQualifier">wide color gamut</a>
+     * and <a href="@dacRoot/guide/topics/resources/providing-resources.html#HDRQualifier">HDR</a> configurations.
+     */
+    ACONFIGURATION_COLOR_MODE = 0x10000,
     /**
      * Constant used to to represent MNC (Mobile Network Code) zero.
      * 0 cannot be used, since it is used to represent an undefined MNC.
@@ -628,6 +671,7 @@ int32_t AConfiguration_getUiModeNight(AConfiguration* config);
  */
 void AConfiguration_setUiModeNight(AConfiguration* config, int32_t uiModeNight);
 
+#if __ANDROID_API__ >= 13
 /**
  * Return the current configuration screen width in dp units, or
  * ACONFIGURATION_SCREEN_WIDTH_DP_ANY if not set.
@@ -660,7 +704,9 @@ int32_t AConfiguration_getSmallestScreenWidthDp(AConfiguration* config);
  * Set the configuration's smallest screen width in dp units.
  */
 void AConfiguration_setSmallestScreenWidthDp(AConfiguration* config, int32_t value);
+#endif /* __ANDROID_API__ >= 13 */
 
+#if __ANDROID_API__ >= 17
 /**
  * Return the configuration's layout direction, or
  * ACONFIGURATION_LAYOUTDIR_ANY if not set.
@@ -671,6 +717,7 @@ int32_t AConfiguration_getLayoutDirection(AConfiguration* config);
  * Set the configuration's layout direction.
  */
 void AConfiguration_setLayoutDirection(AConfiguration* config, int32_t value);
+#endif /* __ANDROID_API__ >= 17 */
 
 /**
  * Perform a diff between two configurations.  Returns a bit mask of

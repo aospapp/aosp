@@ -116,7 +116,7 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
         dwell_time = 0
         channel = hostap_config.HostapConfig.get_channel_for_frequency(
             self.FREQUENCY_MHZ)
-        self.context.router.start_capture(self.FREQUENCY_MHZ)
+        self.context.capture_host.start_capture(self.FREQUENCY_MHZ)
         ssid_prefix = self._build_ssid_prefix()
 
         with frame_sender.FrameSender(self.context.router, 'beacon', channel,
@@ -147,8 +147,7 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
             # context. This is to ensure that no additional frames are
             # transmitted while we're waiting for the packet capture
             # to complete.
-
-        pcap_path = self.context.router.stop_capture()[0].local_pcap_path
+        pcap_path = self.context.capture_host.stop_capture()[0].local_pcap_path
 
         # Filter scan result based on ssid prefix to remove any cached
         # BSSs from previous run.

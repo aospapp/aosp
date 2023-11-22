@@ -18,6 +18,7 @@
 #define ART_RUNTIME_UTILS_DEX_CACHE_ARRAYS_LAYOUT_H_
 
 #include "dex_file.h"
+#include "dex_file_types.h"
 
 namespace art {
 
@@ -31,18 +32,22 @@ class DexCacheArraysLayout {
   // Construct an invalid layout.
   DexCacheArraysLayout()
       : /* types_offset_ is always 0u */
-        pointer_size_(0u),
+        pointer_size_(kRuntimePointerSize),
         methods_offset_(0u),
         strings_offset_(0u),
         fields_offset_(0u),
+        method_types_offset_(0u),
+        call_sites_offset_(0u),
         size_(0u) {
   }
 
   // Construct a layout for a particular dex file header.
-  DexCacheArraysLayout(size_t pointer_size, const DexFile::Header& header);
+  DexCacheArraysLayout(PointerSize pointer_size,
+                       const DexFile::Header& header,
+                       uint32_t num_call_sites);
 
   // Construct a layout for a particular dex file.
-  DexCacheArraysLayout(size_t pointer_size, const DexFile* dex_file);
+  DexCacheArraysLayout(PointerSize pointer_size, const DexFile* dex_file);
 
   bool Valid() const {
     return Size() != 0u;
@@ -54,11 +59,13 @@ class DexCacheArraysLayout {
 
   size_t Alignment() const;
 
+  static constexpr size_t Alignment(PointerSize pointer_size);
+
   size_t TypesOffset() const {
     return types_offset_;
   }
 
-  size_t TypeOffset(uint32_t type_idx) const;
+  size_t TypeOffset(dex::TypeIndex type_idx) const;
 
   size_t TypesSize(size_t num_elements) const;
 
@@ -94,19 +101,35 @@ class DexCacheArraysLayout {
 
   size_t FieldsAlignment() const;
 
+  size_t MethodTypesOffset() const {
+    return method_types_offset_;
+  }
+
+  size_t MethodTypesSize(size_t num_elements) const;
+
+  size_t MethodTypesAlignment() const;
+
+  size_t CallSitesOffset() const {
+    return call_sites_offset_;
+  }
+
+  size_t CallSitesSize(size_t num_elements) const;
+
+  size_t CallSitesAlignment() const;
+
  private:
   static constexpr size_t types_offset_ = 0u;
-  const size_t pointer_size_;  // Must be first for construction initialization order.
+  const PointerSize pointer_size_;  // Must be first for construction initialization order.
   const size_t methods_offset_;
   const size_t strings_offset_;
   const size_t fields_offset_;
+  const size_t method_types_offset_;
+  const size_t call_sites_offset_;
   const size_t size_;
 
-  static size_t Alignment(size_t pointer_size);
+  static size_t ElementOffset(PointerSize element_size, uint32_t idx);
 
-  static size_t ElementOffset(size_t element_size, uint32_t idx);
-
-  static size_t ArraySize(size_t element_size, uint32_t num_elements);
+  static size_t ArraySize(PointerSize element_size, uint32_t num_elements);
 };
 
 }  // namespace art

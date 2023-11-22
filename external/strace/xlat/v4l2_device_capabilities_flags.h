@@ -2,11 +2,13 @@
 
 #ifdef IN_MPERS
 
-# error static const struct xlat v4l2_device_capabilities_flags in mpers mode
+extern const struct xlat v4l2_device_capabilities_flags[];
 
 #else
 
+# if !(defined HAVE_M32_MPERS || defined HAVE_MX32_MPERS)
 static
+# endif
 const struct xlat v4l2_device_capabilities_flags[] = {
 #if defined(V4L2_CAP_VIDEO_CAPTURE) || (defined(HAVE_DECL_V4L2_CAP_VIDEO_CAPTURE) && HAVE_DECL_V4L2_CAP_VIDEO_CAPTURE)
   XLAT(V4L2_CAP_VIDEO_CAPTURE),
@@ -73,6 +75,9 @@ const struct xlat v4l2_device_capabilities_flags[] = {
 #endif
 #if defined(V4L2_CAP_STREAMING) || (defined(HAVE_DECL_V4L2_CAP_STREAMING) && HAVE_DECL_V4L2_CAP_STREAMING)
   XLAT(V4L2_CAP_STREAMING),
+#endif
+#if defined(V4L2_CAP_TOUCH) || (defined(HAVE_DECL_V4L2_CAP_TOUCH) && HAVE_DECL_V4L2_CAP_TOUCH)
+  XLAT(V4L2_CAP_TOUCH),
 #endif
 #if defined(V4L2_CAP_DEVICE_CAPS) || (defined(HAVE_DECL_V4L2_CAP_DEVICE_CAPS) && HAVE_DECL_V4L2_CAP_DEVICE_CAPS)
   XLAT(V4L2_CAP_DEVICE_CAPS),

@@ -16,25 +16,40 @@
 
 package android.widget.cts;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.database.DataSetObserver;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.ArrayAdapter;
 import android.widget.Filter;
 import android.widget.TextView;
 
-import android.widget.cts.R;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.List;
 
-public class ArrayAdapterTest extends InstrumentationTestCase {
-
-    private static final int INVALD_ID = -1;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ArrayAdapterTest {
+    private static final int INVALID_ID = -1;
     private static final String STR1 = "string1";
     private static final String STR2 = "string2";
     private static final String STR3 = "string3";
@@ -42,87 +57,90 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
     private ArrayAdapter<String> mArrayAdapter;
     private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
-        mArrayAdapter = new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line);
+    @Rule
+    public ActivityTestRule<CtsActivity> mActivityRule =
+            new ActivityTestRule<>(CtsActivity.class);
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mArrayAdapter = new ArrayAdapter<>(mContext, R.layout.simple_dropdown_item_1line);
     }
 
+    @Test
     public void testConstructor() {
-
         new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line);
-        new ArrayAdapter<String>(mContext, INVALD_ID);// invalid resource id
+        new ArrayAdapter<String>(mContext, INVALID_ID); // invalid resource id
 
         new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line, R.id.text1);
-        new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line, INVALD_ID);
+        new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line, INVALID_ID);
 
-        new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line,
+        new ArrayAdapter<>(mContext, R.layout.simple_dropdown_item_1line,
                 new String[] {"str1", "str2"});
 
-        new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line, R.id.text1,
+        new ArrayAdapter<>(mContext, R.layout.simple_dropdown_item_1line, R.id.text1,
                 new String[] {"str1", "str2"});
 
-        List<String> list = new ArrayList<String>();
+        List<String> list = new ArrayList<>();
         list.add(STR1);
         list.add(STR2);
 
-        new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line, list);
+        new ArrayAdapter<>(mContext, R.layout.simple_dropdown_item_1line, list);
 
-        new ArrayAdapter<String>(mContext, R.layout.simple_dropdown_item_1line, R.id.text1, list);
-
-        // invalid input
-        try {
-            new ArrayAdapter<String>(null, R.layout.simple_dropdown_item_1line);
-            fail("should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected exception
-        }
+        new ArrayAdapter<>(mContext, R.layout.simple_dropdown_item_1line, R.id.text1, list);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext() {
+        new ArrayAdapter<String>(null, R.layout.simple_dropdown_item_1line);
+    }
+
+    @Test
     public void testDataChangeEvent() {
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
 
         // enable automatically notifying.
         mArrayAdapter.setNotifyOnChange(true);
-        assertEquals(0, mockDataSetObserver.getCalledOnChangedCount());
+        verifyZeroInteractions(mockDataSetObserver);
         mArrayAdapter.add(STR1);
         assertEquals(1, mArrayAdapter.getCount());
-        assertEquals(1, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(1)).onChanged();
         mArrayAdapter.add(STR2);
         assertEquals(2, mArrayAdapter.getCount());
-        assertEquals(2, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(2)).onChanged();
 
         // reset data
         mArrayAdapter.clear();
         // clear notify changed
-        assertEquals(3, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(3)).onChanged();
         assertEquals(0, mArrayAdapter.getCount());
         // if empty before, clear also notify changed
         mArrayAdapter.clear();
-        assertEquals(4, mockDataSetObserver.getCalledOnChangedCount());
-        mockDataSetObserver.clearCount();
-        assertEquals(0, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(4)).onChanged();
+
+        reset(mockDataSetObserver);
 
         // disable auto notify
         mArrayAdapter.setNotifyOnChange(false);
 
         mArrayAdapter.add(STR3);
         assertEquals(1, mArrayAdapter.getCount());
-        assertEquals(0, mockDataSetObserver.getCalledOnChangedCount());
+        verifyZeroInteractions(mockDataSetObserver);
 
         // manually notify
         mArrayAdapter.notifyDataSetChanged();
-        assertEquals(1, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(1)).onChanged();
         // no data changed, but force notify
         mArrayAdapter.notifyDataSetChanged();
-        assertEquals(2, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(2)).onChanged();
         // once called notify, auto notify enabled
         mArrayAdapter.add(STR3);
-        assertEquals(3, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(3)).onChanged();
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessView() {
         final TextView textView = new TextView(mContext);
         textView.setText(STR3);
@@ -145,48 +163,54 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
         assertSame(textView, mArrayAdapter.getView(0, textView, null));
         assertSame(textView, mArrayAdapter.getDropDownView(0, textView, null));
         assertEquals(STR1, textView.getText());
-
-        try {
-            assertEquals(textView, mArrayAdapter.getView(-1, textView, null));
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            assertEquals(textView, mArrayAdapter.getDropDownView(-1, textView, null));
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            assertEquals(textView,
-                    mArrayAdapter.getView(mArrayAdapter.getCount(), textView, null));
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            assertEquals(textView,
-                    mArrayAdapter.getDropDownView(mArrayAdapter.getCount(), textView, null));
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
     }
 
     @UiThreadTest
-    public void testGetFilter() {
-        Filter filter = mArrayAdapter.getFilter();
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetViewOutOfBoundsLow() {
+        final TextView textView = new TextView(mContext);
+        mArrayAdapter.getView(-1, textView, null);
+    }
 
-        assertNotNull(mArrayAdapter.getFilter());
-        assertSame(filter, mArrayAdapter.getFilter());
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDropDownGetViewOutOfBoundsLow() {
+        final TextView textView = new TextView(mContext);
+        mArrayAdapter.getDropDownView(-1, textView, null);
+    }
+
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetViewOutOfBoundsHigh() {
+        final TextView textView = new TextView(mContext);
+        mArrayAdapter.getView(mArrayAdapter.getCount(), textView, null);
+    }
+
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDropDownGetViewOutOfBoundsHigh() {
+        final TextView textView = new TextView(mContext);
+        mArrayAdapter.getDropDownView(mArrayAdapter.getCount(), textView, null);
+    }
+
+    @Test
+    public void testGetFilter() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            Filter filter = mArrayAdapter.getFilter();
+
+            assertNotNull(mArrayAdapter.getFilter());
+            assertSame(filter, mArrayAdapter.getFilter());
+        });
     }
 
     /**
-     * just simple change the resource id from which the drop view inflate from
+     * Just simple change the resource id from which the drop view inflate from
      * we set a xml that not contain a textview, so exception should throw to lete us know
      * sucessfully change the dropdown xml, but should not affect the normal view by getview
      */
-    public void testSetDropDownViewResouce() {
+    @UiThreadTest
+    @Test
+    public void testSetDropDownViewResource() {
         mArrayAdapter.add(STR1);
 
         mArrayAdapter.getDropDownView(0, null, null);
@@ -194,17 +218,19 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
         mArrayAdapter.setDropDownViewResource(R.layout.tabhost_layout);
         // getview is ok
         mArrayAdapter.getView(0, null, null);
-        // getDropDownView error for it changed
-        try {
-            mArrayAdapter.getDropDownView(0, null, null);
-            fail("should throw IllegalStateException");
-        } catch (IllegalStateException e) {
-            // expected exception
-        }
 
-        mArrayAdapter.setDropDownViewResource(INVALD_ID);
+        mArrayAdapter.setDropDownViewResource(INVALID_ID);
     }
 
+    @UiThreadTest
+    @Test(expected=IllegalStateException.class)
+    public void testSetDropDownViewResourceIllegal() {
+        mArrayAdapter.add(STR1);
+        mArrayAdapter.setDropDownViewResource(R.layout.tabhost_layout);
+        mArrayAdapter.getDropDownView(0, null, null);
+    }
+
+    @Test
     public void testAccessDropDownViewTheme() {
         Theme theme = mContext.getResources().newTheme();
         mArrayAdapter.setDropDownViewTheme(theme);
@@ -215,15 +241,16 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
      * insert the item to the specific position, notify data changed
      * check -1, normal, > count
      */
+    @Test
     public void testInsert() {
         mArrayAdapter.setNotifyOnChange(true);
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
 
         mArrayAdapter.insert(STR1, 0);
         assertEquals(1, mArrayAdapter.getCount());
         assertEquals(0, mArrayAdapter.getPosition(STR1));
-        assertEquals(1, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(1)).onChanged();
 
         mArrayAdapter.insert(STR2, 0);
         assertEquals(2, mArrayAdapter.getCount());
@@ -235,26 +262,31 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
 
         mArrayAdapter.insert(null, 0);
         assertEquals(0, mArrayAdapter.getPosition(null));
+    }
 
-        try {
-            mArrayAdapter.insert(STR1, -1);
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-            // expected exception
-        }
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testInsertOutOfBoundsLow() {
+        mArrayAdapter.insert(STR1, 0);
+        mArrayAdapter.insert(STR2, 0);
+        mArrayAdapter.insert(null, 0);
 
-        try {
-            mArrayAdapter.insert(STR1, mArrayAdapter.getCount() + 1);
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-            // expected exception
-        }
+        mArrayAdapter.insert(STR1, -1);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testInsertOutOfBoundsHigh() {
+        mArrayAdapter.insert(STR1, 0);
+        mArrayAdapter.insert(STR2, 0);
+        mArrayAdapter.insert(null, 0);
+
+        mArrayAdapter.insert(STR1, mArrayAdapter.getCount() + 1);
     }
 
     /**
      * return the given position obj
      * test range: -1, normal, > count
      */
+    @Test
     public void testGetItem() {
         mArrayAdapter.add(STR1);
         mArrayAdapter.add(STR2);
@@ -263,26 +295,30 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
         assertSame(STR1, mArrayAdapter.getItem(0));
         assertSame(STR2, mArrayAdapter.getItem(1));
         assertSame(STR3, mArrayAdapter.getItem(2));
+    }
 
-        // test invalid input
-        try {
-            mArrayAdapter.getItem(-1);
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-            // expected exception
-        }
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetItemOutOfBoundsLow() {
+        mArrayAdapter.add(STR1);
+        mArrayAdapter.add(STR2);
+        mArrayAdapter.add(STR3);
 
-        try {
-            mArrayAdapter.getItem(mArrayAdapter.getCount());
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-            // expected exception
-        }
+        mArrayAdapter.getItem(-1);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetItemOutOfBoundsHigh() {
+        mArrayAdapter.add(STR1);
+        mArrayAdapter.add(STR2);
+        mArrayAdapter.add(STR3);
+
+        mArrayAdapter.getItem(mArrayAdapter.getCount());
     }
 
     /**
      * just return the given position
      */
+    @Test
     public void testGetItemId() {
         mArrayAdapter.add(STR1);
         mArrayAdapter.add(STR2);
@@ -294,13 +330,13 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
 
         // test invalid input
         assertEquals(-1, mArrayAdapter.getItemId(-1));
-        assertEquals(mArrayAdapter.getCount(),
-                mArrayAdapter.getItemId(mArrayAdapter.getCount()));
+        assertEquals(mArrayAdapter.getCount(), mArrayAdapter.getItemId(mArrayAdapter.getCount()));
     }
 
     /*
      * return the obj position that in the array, if there are same objs, return the first one
      */
+    @Test
     public void testGetPosition() {
         mArrayAdapter.add(STR1);
         mArrayAdapter.add(STR2);
@@ -321,24 +357,24 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
      * Removes the specified object from the array. notify data changed
      * remove first one if duplicated string in the array
      */
+    @Test
     public void testRemove() {
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
         mArrayAdapter.setNotifyOnChange(true);
 
         // remove the not exist one
         assertEquals(0, mArrayAdapter.getCount());
-        assertEquals(0, mockDataSetObserver.getCalledOnChangedCount());
+        verifyZeroInteractions(mockDataSetObserver);
         // remove the item not exist also notify change
         mArrayAdapter.remove(STR1);
-        assertEquals(1, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(1)).onChanged();
 
         mArrayAdapter.add(STR1);
         mArrayAdapter.add(STR2);
         mArrayAdapter.add(STR3);
         mArrayAdapter.add(STR2);
-        mockDataSetObserver.clearCount();
-        assertEquals(0, mockDataSetObserver.getCalledOnChangedCount());
+        reset(mockDataSetObserver);
         assertEquals(4, mArrayAdapter.getCount());
 
         mArrayAdapter.remove(STR1);
@@ -346,11 +382,11 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
         assertEquals(-1, mArrayAdapter.getPosition(STR1));
         assertEquals(0, mArrayAdapter.getPosition(STR2));
         assertEquals(1, mArrayAdapter.getPosition(STR3));
-        assertEquals(1, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(1)).onChanged();
 
         mArrayAdapter.remove(STR2);
         assertEquals(2, mArrayAdapter.getCount());
-        // remove the first one if dumplicated
+        // remove the first one if duplicated
         assertEquals(1, mArrayAdapter.getPosition(STR2));
         assertEquals(0, mArrayAdapter.getPosition(STR3));
 
@@ -364,51 +400,45 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
      * Creates a new ArrayAdapter from external resources. The content of the array is
      * obtained through {@link android.content.res.Resources#getTextArray(int)}.
      */
+    @Test
     public void testCreateFromResource() {
         ArrayAdapter.createFromResource(mContext, R.array.string, R.layout.simple_spinner_item);
 
-        // invalid input
-        try {
-            ArrayAdapter.createFromResource(null, R.array.string, R.layout.simple_spinner_item);
-            fail("should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected exception
-        }
-
-        try {
-            ArrayAdapter.createFromResource(mContext, INVALD_ID, R.layout.simple_spinner_item);
-            fail("should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected exception
-        }
-
-       ArrayAdapter.createFromResource(mContext, R.array.string, INVALD_ID);
+        ArrayAdapter.createFromResource(mContext, R.array.string, INVALID_ID);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testCreateFromResourceWithNullContext() {
+        ArrayAdapter.createFromResource(null, R.array.string, R.layout.simple_spinner_item);
+    }
+
+    @Test(expected=Resources.NotFoundException.class)
+    public void testCreateFromResourceWithInvalidId() {
+        ArrayAdapter.createFromResource(mContext, INVALID_ID, R.layout.simple_spinner_item);
+    }
+
+    @Test
     public void testSort() {
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
         mArrayAdapter.setNotifyOnChange(true);
-        assertEquals(0, mockDataSetObserver.getCalledOnChangedCount());
+        verifyZeroInteractions(mockDataSetObserver);
 
-        mArrayAdapter.sort( new Comparator<String>() {
-            public int compare(String o1, String o2) {
-                return 0;
-            }
-        });
-        assertEquals(1, mockDataSetObserver.getCalledOnChangedCount());
+        mArrayAdapter.sort((String o1, String o2) -> 0);
+        verify(mockDataSetObserver, times(1)).onChanged();
 
         mArrayAdapter.sort(null);
-        assertEquals(2, mockDataSetObserver.getCalledOnChangedCount());
+        verify(mockDataSetObserver, times(2)).onChanged();
     }
 
     /**
      * insert multiple items via add, notify data changed
      * check count and content
      */
+    @Test
     public void testAdd() {
         mArrayAdapter.setNotifyOnChange(true);
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
 
         mArrayAdapter.clear();
@@ -425,12 +455,13 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
      * insert multiple items via addAll, notify data changed
      * check count and content
      */
+    @Test
     public void testAddAllCollection() {
         mArrayAdapter.setNotifyOnChange(true);
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
 
-        List<String> list = new ArrayList<String>();
+        List<String> list = new ArrayList<>();
         list.add("");
         list.add("hello");
         list.add("android");
@@ -452,9 +483,10 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
      * insert multiple items via addAll, notify data changed
      * check count and content
      */
+    @Test
     public void testAddAllParams() {
         mArrayAdapter.setNotifyOnChange(true);
-        final MockDataSetObserver mockDataSetObserver = new MockDataSetObserver();
+        final DataSetObserver mockDataSetObserver = mock(DataSetObserver.class);
         mArrayAdapter.registerDataSetObserver(mockDataSetObserver);
 
         mArrayAdapter.clear();
@@ -467,36 +499,5 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
         assertEquals(mArrayAdapter.getItem(2), "a");
         assertEquals(mArrayAdapter.getItem(3), "unit");
         assertEquals(mArrayAdapter.getItem(4), "test");
-    }
-
-    private static class MockDataSetObserver extends DataSetObserver {
-
-        private int mCalledOnChangedCount;
-        private int mOnCalledInvalidatedCount;
-
-        public MockDataSetObserver() {
-            clearCount();
-        }
-
-        public int getCalledOnChangedCount() {
-            return mCalledOnChangedCount;
-        }
-
-        public int getCalledOnInvalidatedCount() {
-            return mOnCalledInvalidatedCount;
-        }
-
-        public void clearCount() {
-            mCalledOnChangedCount = 0;
-            mOnCalledInvalidatedCount = 0;
-        }
-
-        public void onChanged() {
-            mCalledOnChangedCount++;
-        }
-
-        public void onInvalidated() {
-            mOnCalledInvalidatedCount++;
-        }
     }
 }

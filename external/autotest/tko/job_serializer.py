@@ -10,11 +10,8 @@ responsible for serializing the job instance via protocol buffers.
 """
 
 # import python libraries
-import os
 import datetime
 import time
-import random
-import re
 
 # import autotest libraries
 from autotest_lib.tko import models
@@ -45,7 +42,11 @@ class JobSerializer(object):
                               'machine_owner':str,
                               'machine_group':str, 'aborted_by':str,
                               'aborted_on':datetime,
-                              'keyval_dict':dict}
+                              'keyval_dict':dict,
+                              'afe_parent_job_id':str,
+                              'build_version':str,
+                              'suite':str,
+                              'board':str}
 
         self.test_type_dict = {'subdir':str, 'testname':str,
                                'status':str, 'reason':str,
@@ -68,10 +69,10 @@ class JobSerializer(object):
         job object and then converts the job object into a tko job
         object.
 
-        @param
-        infile: the name of the binary file that will be deserialized.
 
-        @return a tko job that is represented by the binary file will
+        @param infile: the name of the binary file that will be deserialized.
+
+        @return: a tko job that is represented by the binary file will
         be returned.
         """
 
@@ -99,12 +100,13 @@ class JobSerializer(object):
         is already in the job object. Any fields that is None will be
         provided a default value.
 
-        @param
-        the_job: the tko job object that will be serialized.
+        @param the_job: the tko job object that will be serialized.
         tag: contains the job name and the afe_job_id
         binaryfilename: the name of the file that will be written to
+        @param tag: The job tag string.
+        @param binaryfilename: The output filename.
 
-        @return the filename of the file that contains the
+        @return: the filename of the file that contains the
         binary of the serialized object.
         """
 
@@ -184,6 +186,8 @@ class JobSerializer(object):
 
         self.set_trivial_attr(tko_job, pb_job, self.job_type_dict)
         self.set_afe_job_id_and_tag(pb_job, tag)
+        if hasattr(tko_job, 'index'):
+            pb_job.job_idx = tko_job.index
 
         for test in tko_job.tests:
             newtest = pb_job.tests.add()
@@ -257,6 +261,8 @@ class JobSerializer(object):
         self.set_trivial_attr(tko_test, pb_test, self.test_type_dict)
 
         self.set_pb_kernel(tko_test.kernel, pb_test.kernel)
+        if hasattr(tko_test, 'test_idx'):
+            pb_test.test_idx = tko_test.test_idx
 
         for current_iteration in tko_test.iterations:
             pb_iteration = pb_test.iterations.add()

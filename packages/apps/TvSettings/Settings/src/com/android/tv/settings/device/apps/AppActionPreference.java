@@ -28,12 +28,26 @@ import com.android.settingslib.applications.ApplicationsState;
 import java.util.List;
 
 public abstract class AppActionPreference extends Preference {
-    protected final ApplicationsState.AppEntry mEntry;
+    protected ApplicationsState.AppEntry mEntry;
 
     public AppActionPreference(Context context, ApplicationsState.AppEntry entry) {
         super(context);
         mEntry = entry;
     }
+
+    /**
+     * Set entry and refresh pref.
+     * @param entry entry
+     */
+    public void setEntry(@NonNull ApplicationsState.AppEntry entry) {
+        mEntry = entry;
+        refresh();
+    }
+
+    /**
+     * Refresh pref from AppEntry
+     */
+    public abstract void refresh();
 
     public static abstract class ConfirmationFragment extends GuidedStepFragment {
         private static final int ID_OK = 0;

@@ -52,13 +52,14 @@ TEST(read_apk, FindElfInApkByName) {
 
 TEST(read_apk, GetBuildIdFromApkFile) {
   BuildId build_id;
-  ASSERT_TRUE(GetBuildIdFromApkFile(GetTestData(APK_FILE), NATIVELIB_IN_APK, &build_id));
+  ASSERT_EQ(ElfStatus::NO_ERROR, GetBuildIdFromApkFile(GetTestData(APK_FILE), NATIVELIB_IN_APK, &build_id));
   ASSERT_EQ(build_id, native_lib_build_id);
 }
 
 TEST(read_apk, ParseSymbolsFromApkFile) {
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_TRUE(ParseSymbolsFromApkFile(GetTestData(APK_FILE), NATIVELIB_IN_APK, native_lib_build_id,
-                                      std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ASSERT_EQ(ElfStatus::NO_SYMBOL_TABLE,
+            ParseSymbolsFromApkFile(GetTestData(APK_FILE), NATIVELIB_IN_APK, native_lib_build_id,
+                                    std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   CheckElfFileSymbols(symbols);
 }

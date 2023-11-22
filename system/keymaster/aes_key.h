@@ -28,7 +28,7 @@ const size_t kMaxGcmTagLength = 16 * 8;
 
 class AesKeyFactory : public SymmetricKeyFactory {
   public:
-    AesKeyFactory(const KeymasterContext* context) : SymmetricKeyFactory(context) {}
+    explicit AesKeyFactory(const KeymasterContext* context) : SymmetricKeyFactory(context) {}
 
     keymaster_algorithm_t registry_key() const { return KM_ALGORITHM_AES; }
 

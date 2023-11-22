@@ -27,12 +27,11 @@ import java.io.IOException;
 public class ReportLogHostInfoStore extends HostInfoStore {
 
     private final String mStreamName;
-    private final File tempJsonFile;
+    private File tempJsonFile;
 
     public ReportLogHostInfoStore(File jsonFile, String streamName) throws Exception {
         mJsonFile = jsonFile;
         mStreamName = streamName;
-        tempJsonFile = File.createTempFile(streamName, "-temp-report-log");
     }
 
     /**
@@ -42,7 +41,7 @@ public class ReportLogHostInfoStore extends HostInfoStore {
     public void open() throws IOException {
         // Write new metrics to a temp file to avoid invalid JSON files due to failed tests.
         BufferedWriter formatWriter;
-        tempJsonFile.createNewFile();
+        tempJsonFile = File.createTempFile(mStreamName, "-temp-report-log");
         formatWriter = new BufferedWriter(new FileWriter(tempJsonFile));
         if (mJsonFile.exists()) {
             BufferedReader jsonReader = new BufferedReader(new FileReader(mJsonFile));

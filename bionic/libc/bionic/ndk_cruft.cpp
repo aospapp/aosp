@@ -45,12 +45,13 @@
 #include <unistd.h>
 #include <wchar.h>
 
+#include "private/bionic_macros.h"
 #include "private/libc_logging.h"
 
 extern "C" {
 
-// Brillo and LP64 don't need to support any legacy cruft.
-#if !defined(__BRILLO__) && !defined(__LP64__)
+// LP64 doesn't need to support any legacy cruft.
+#if !defined(__LP64__)
 
 // These were accidentally declared in <unistd.h> because we stupidly used to inline
 // getpagesize() and __getpageshift(). Needed for backwards compatibility with old NDK apps.
@@ -240,15 +241,17 @@ sighandler_t bsd_signal(int signum, sighandler_t handler) {
   return signal(signum, handler);
 }
 
-#if !defined(__i386__)
 // This was removed from POSIX 2008.
 #undef bcopy
 void bcopy(const void* src, void* dst, size_t n) {
   memmove(dst, src, n);
 }
-#else
-// x86 has an assembler implementation.
-#endif
+
+// This was removed from POSIX 2008.
+#undef bzero
+void bzero(void* dst, size_t n) {
+  memset(dst, 0, n);
+}
 
 // sysv_signal() was never in POSIX.
 extern "C++" sighandler_t _signal(int signum, sighandler_t handler, int flags);
@@ -364,10 +367,6 @@ long __set_errno(int n) {
   return __set_errno_internal(n);
 }
 
-// This was never implemented in bionic, only needed for ABI compatibility with the NDK.
-// In the M time frame, over 1000 apps have a reference to this!
-void endpwent() { }
-
 // Since dlmalloc_inspect_all and dlmalloc_trim are exported for systems
 // that use dlmalloc, be consistent and export them everywhere.
 void dlmalloc_inspect_all(void (*)(void*, void*, size_t, void*), void*) {
@@ -376,6 +375,11 @@ int dlmalloc_trim(size_t) {
     return 0;
 }
 
-#endif // !defined(__BRILLO__) && !defined (__LP64__)
+// LP32's <stdio.h> had putw (but not getw).
+int putw(int value, FILE* fp) {
+    return fwrite(&value, sizeof(value), 1, fp) == 1 ? 0 : EOF;
+}
+
+#endif // !defined (__LP64__)
 
 } // extern "C"

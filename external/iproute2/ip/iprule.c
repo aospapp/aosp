@@ -149,17 +149,10 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 			fprintf(fp, "[detached] ");
 	}
 
-	if (tb[FRA_UID_START] || tb[FRA_UID_END]) {
-		fprintf(fp, "uidrange ");
-		if (tb[FRA_UID_START])
-			fprintf(fp, "%u", rta_getattr_u32(tb[FRA_UID_START]));
-		else
-			fprintf(fp, "???");
+	if (tb[FRA_UID_RANGE]) {
+		struct fib_rule_uid_range *r = RTA_DATA(tb[FRA_UID_RANGE]);
 
-		if (tb[FRA_UID_END])
-			fprintf(fp, "-%u ", rta_getattr_u32(tb[FRA_UID_END]));
-		else
-			fprintf(fp, "-??? ");
+		fprintf(fp, "uidrange %u-%u ", r->start, r->end);
 	}
 
 	table = rtm_get_table(r, tb);
@@ -441,19 +434,20 @@ static int iprule_modify(int cmd, int argc, char **argv)
 		} else if (strcmp(*argv, "oif") == 0) {
 			NEXT_ARG();
 			addattr_l(&req.n, sizeof(req), FRA_OIFNAME, *argv, strlen(*argv)+1);
+		} else if (strcmp(*argv, "uidrange") == 0) {
+			struct fib_rule_uid_range r;
+
+			NEXT_ARG();
+			if (sscanf(*argv, "%u-%u", &r.start, &r.end) != 2)
+				invarg("invalid UID range\n", *argv);
+			addattr_l(&req.n, sizeof(req), FRA_UID_RANGE, &r,
+				  sizeof(r));
 		} else if (strcmp(*argv, "nat") == 0 ||
 			   matches(*argv, "map-to") == 0) {
 			NEXT_ARG();
 			fprintf(stderr, "Warning: route NAT is deprecated\n");
 			addattr32(&req.n, sizeof(req), RTA_GATEWAY, get_addr32(*argv));
 			req.r.rtm_type = RTN_NAT;
-		} else if (strcmp(*argv, "uidrange") == 0) {
-			__u32 uid_start, uid_end;
-			NEXT_ARG();
-			if (sscanf(*argv, "%u-%u", &uid_start, &uid_end) != 2)
-				invarg("UID range is invalid\n", *argv);
-			addattr32(&req.n, sizeof(req), FRA_UID_START, uid_start);
-			addattr32(&req.n, sizeof(req), FRA_UID_END, uid_end);
 		} else {
 			int type;
 

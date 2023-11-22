@@ -17,13 +17,21 @@
 package android.text.style.cts;
 
 
+import static org.junit.Assert.assertEquals;
+
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.SubscriptSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class SubscriptSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SubscriptSpanTest {
+    @Test
     public void testConstructor() {
         SubscriptSpan subscriptSpan = new SubscriptSpan();
 
@@ -37,6 +45,7 @@ public class SubscriptSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateMeasureState() {
         // the expected result is: tp.baselineShift -= (int) (tp.ascent() / 2)
         SubscriptSpan subscriptSpan = new SubscriptSpan();
@@ -48,15 +57,16 @@ public class SubscriptSpanTest extends TestCase {
 
         subscriptSpan.updateMeasureState(tp);
         assertEquals(baselineShift - (int) (ascent / 2), tp.baselineShift);
-
-        try {
-            subscriptSpan.updateMeasureState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        SubscriptSpan subscriptSpan = new SubscriptSpan();
+
+        subscriptSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testUpdateDrawState() {
         // the expected result is: tp.baselineShift -= (int) (tp.ascent() / 2)
         SubscriptSpan subscriptSpan = new SubscriptSpan();
@@ -68,25 +78,28 @@ public class SubscriptSpanTest extends TestCase {
 
         subscriptSpan.updateDrawState(tp);
         assertEquals(baselineShift - (int) (ascent / 2), tp.baselineShift);
-
-        try {
-            subscriptSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        SubscriptSpan subscriptSpan = new SubscriptSpan();
+
+        subscriptSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         SubscriptSpan subscriptSpan = new SubscriptSpan();
         subscriptSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         SubscriptSpan subscriptSpan = new SubscriptSpan();
         subscriptSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

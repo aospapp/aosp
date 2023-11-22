@@ -14,9 +14,9 @@
  limitations under the License.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_height="match_parent"
-    android:layout_width="match_parent">
+             xmlns:app="http://schemas.android.com/apk/res-auto"
+             android:layout_height="match_parent"
+             android:layout_width="match_parent">
 
     <ImageView
         android:id="@+id/background"
@@ -41,13 +41,13 @@
             android:layout_gravity="left"
             android:layout_marginEnd="96dp"
             android:background="@color/car_card"
-            android:paddingTop="@dimen/car_drawer_header_height" >
+            android:paddingTop="@dimen/lens_header_height" >
 
             <android.car.ui.provider.PagedListView
                 android:id="@+id/list_view"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:paddingEnd="32dp" />
+            />
 
             <ProgressBar
                 android:id="@+id/progress"
@@ -85,16 +85,22 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/car_drawer_header_height">
-        <ImageView
-            android:id="@+id/car_drawer_button"
-            android:layout_width="@dimen/car_drawer_header_menu_button_size"
-            android:layout_height="@dimen/car_drawer_header_height"
-            android:background="@drawable/car_header_button_background"
-            android:focusable="false"
-            android:scaleType="center"
-            android:layout_gravity="left|top"
-            />
+        android:layout_height="@dimen/lens_header_height">
+
+        <FrameLayout
+            android:layout_width="@dimen/car_drawer_button_container_width"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/car_drawer_button"
+                android:layout_width="@dimen/car_drawer_header_menu_button_size"
+                android:layout_height="@dimen/car_drawer_header_menu_button_size"
+                android:background="@drawable/car_header_button_background"
+                android:focusable="false"
+                android:scaleType="center"
+                android:layout_gravity="center" />
+        </FrameLayout>
+
         <FrameLayout
             android:id="@+id/car_drawer_title_container"
             android:layout_width="0dp"
@@ -109,7 +115,7 @@
                 android:focusable="false"
                 android:gravity="center_vertical"
                 android:singleLine="true"
-                />
+            />
         </FrameLayout>
         <android.support.v7.widget.CardView
             android:id="@+id/car_search_box"

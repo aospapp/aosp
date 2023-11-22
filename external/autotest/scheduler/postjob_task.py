@@ -10,12 +10,17 @@ if necessary.
 
 import os
 
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.client.common_lib import utils
 from autotest_lib.frontend.afe import models, model_attributes
 from autotest_lib.scheduler import agent_task, drones, drone_manager
 from autotest_lib.scheduler import email_manager, pidfile_monitor
 from autotest_lib.scheduler import scheduler_config
 from autotest_lib.server import autoserv_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 _parser_path = os.path.join(drones.AUTOTEST_INSTALL_DIR, 'tko', 'parse')
@@ -118,21 +123,23 @@ class SelfThrottledPostJobTask(PostJobTask):
     # it drops to lower than the following level.
     REVIVE_NOTIFICATION_THRESHOLD = 0.80
 
+    @classmethod
+    def _gauge_metrics(cls):
+        """Report to monarch the number of running processes."""
+        m = metrics.Gauge('chromeos/autotest/scheduler/postjob_tasks')
+        m.set(cls._num_running_processes, fields={'task_name': cls.__name__})
+
 
     @classmethod
     def _increment_running_processes(cls):
         cls._num_running_processes += 1
-        autotest_stats.Gauge('scheduler').send(
-                '%s.num_running_processes' % cls.__name__,
-                cls._num_running_processes)
+        cls._gauge_metrics()
 
 
     @classmethod
     def _decrement_running_processes(cls):
         cls._num_running_processes -= 1
-        autotest_stats.Gauge('scheduler').send(
-                '%s.num_running_processes' % cls.__name__,
-                cls._num_running_processes)
+        cls._gauge_metrics()
 
 
     @classmethod
@@ -311,7 +318,7 @@ class FinalReparseTask(SelfThrottledPostJobTask):
 
     def _generate_command(self, results_dir):
         return [_parser_path, '--write-pidfile', '--record-duration',
-                '-l', '2', '-r', '-o', results_dir]
+                '--suite-report', '-l', '2', '-r', '-o', results_dir]
 
 
     @property

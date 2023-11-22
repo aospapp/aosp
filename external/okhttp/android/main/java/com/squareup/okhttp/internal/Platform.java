@@ -16,30 +16,62 @@
  */
 package com.squareup.okhttp.internal;
 
-import dalvik.system.SocketTagger;
+import com.squareup.okhttp.Protocol;
+import com.squareup.okhttp.internal.tls.RealTrustRootIndex;
+import com.squareup.okhttp.internal.tls.TrustRootIndex;
+
 import java.io.IOException;
-import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
-import com.squareup.okhttp.Protocol;
-
+import dalvik.system.SocketTagger;
 import okio.Buffer;
 
 /**
- * Access to proprietary Android APIs. Doesn't use reflection.
+ * Access to proprietary Android APIs. Avoids use of reflection where possible.
  */
-public final class Platform {
-    private static final Platform PLATFORM = new Platform();
+// only tests should extend this class
+public class Platform {
+    private static final AtomicReference<Platform> INSTANCE_HOLDER
+            = new AtomicReference<>(new Platform());
+
+    // only for private use and in tests
+    protected Platform() {
+    }
 
     public static Platform get() {
-        return PLATFORM;
+        return INSTANCE_HOLDER.get();
+    }
+
+    /**
+     * Atomically replaces the Platform instance returned by future
+     * invocations of {@link #get()}, for use in tests.
+     * Invocations of this method should typically be followed by
+     * a try/finally block to reset the previous value:
+     *
+     * <pre>
+     * Platform p = getAndSetForTest(...);
+     * try {
+     *   ...
+     * } finally {
+     *   getAndSetForTest(p);
+     * }
+     * </pre>
+     *
+     * @return the previous value of {@link #get()}.
+     */
+    public static Platform getAndSetForTest(Platform platform) {
+        if (platform == null) {
+            throw new NullPointerException();
+        }
+        return INSTANCE_HOLDER.getAndSet(platform);
     }
 
     /** setUseSessionTickets(boolean) */
@@ -116,6 +148,56 @@ public final class Platform {
     /** Prefix used on custom headers. */
     public String getPrefix() {
         return "X-Android";
+    }
+
+    /**
+     * Stripped down/adapted from OkHttp's {@code Platform.Android.trustManager()}.
+     * OkHttp 2.7.5 uses this only for certificate pinning logic that we don't use
+     * on Android, so this method should never be called outside of OkHttp's tests.
+     * This method has been stripped down to the minimum for OkHttp's tests to pass.
+     */
+    public X509TrustManager trustManager(SSLSocketFactory sslSocketFactory) {
+        Class sslParametersClass;
+        try {
+            sslParametersClass = Class.forName("com.android.org.conscrypt.SSLParametersImpl");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        Object context = readFieldOrNull(sslSocketFactory, sslParametersClass, "sslParameters");
+        return readFieldOrNull(context, X509TrustManager.class, "x509TrustManager");
+    }
+
+    /**
+     * Stripped down from OkHttp's implementation to the minimum to get OkHttp's tests
+     * to pass. OkHttp 2.7.5 uses this for certificate pinning logic which is unused
+     * in Android. This method should never be called outside of OkHttp's tests.
+     */
+    public TrustRootIndex trustRootIndex(X509TrustManager trustManager) {
+        return new RealTrustRootIndex(trustManager.getAcceptedIssuers());
+    }
+
+    // Helper method from OkHttp's Platform.java
+    private static <T> T readFieldOrNull(Object instance, Class<T> fieldType, String fieldName) {
+        for (Class<?> c = instance.getClass(); c != Object.class; c = c.getSuperclass()) {
+            try {
+                Field field = c.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                Object value = field.get(instance);
+                if (value == null || !fieldType.isInstance(value)) return null;
+                return fieldType.cast(value);
+            } catch (NoSuchFieldException ignored) {
+            } catch (IllegalAccessException e) {
+                throw new AssertionError();
+            }
+        }
+
+        // Didn't find the field we wanted. As a last gasp attempt, try to find the value on a delegate.
+        if (!fieldName.equals("delegate")) {
+            Object delegate = readFieldOrNull(instance, Object.class, "delegate");
+            if (delegate != null) return readFieldOrNull(delegate, fieldType, fieldName);
+        }
+
+        return null;
     }
 
     /**

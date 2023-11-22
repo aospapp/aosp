@@ -13,24 +13,19 @@
  * @ingroup core
  * @defgroup cb Callbacks/Customization
  *
- * @details
- * @par 1) Setting up a callback set
- * @code
- * // Allocate a callback set and initialize it to the verbose default set
- * struct nl_cb *cb = nl_cb_alloc(NL_CB_VERBOSE);
+ * Related sections in the development guide:
+ * - @core_doc{core_cb, Callback Configuration}
  *
- * // Modify the set to call my_func() for all valid messages
- * nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, my_func, NULL);
- *
- * // Set the error message handler to the verbose default implementation
- * // and direct it to print all errors to the given file descriptor.
- * FILE *file = fopen(...);
- * nl_cb_err(cb, NL_CB_VERBOSE, NULL, file);
- * @endcode
  * @{
+ *
+ * Header
+ * ------
+ * ~~~~{.c}
+ * #include <netlink/handlers.h>
+ * ~~~~
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/msg.h>
@@ -40,7 +35,7 @@ static void print_header_content(FILE *ofd, struct nlmsghdr *n)
 {
 	char flags[128];
 	char type[32];
-	
+
 	fprintf(ofd, "type=%s length=%u flags=<%s> sequence-nr=%u pid=%u",
 		nl_nlmsgtype2str(n->nlmsg_type, type, sizeof(type)),
 		n->nlmsg_len, nl_nlmsg_flags2str(n->nlmsg_flags, flags,
@@ -76,7 +71,7 @@ static int nl_overrun_handler_verbose(struct nl_msg *msg, void *arg)
 	fprintf(ofd, "-- Error: Netlink Overrun: ");
 	print_header_content(ofd, nlmsg_hdr(msg));
 	fprintf(ofd, "\n");
-	
+
 	return NL_STOP;
 }
 
@@ -84,9 +79,10 @@ static int nl_error_handler_verbose(struct sockaddr_nl *who,
 				    struct nlmsgerr *e, void *arg)
 {
 	FILE *ofd = arg ? arg : stderr;
+	char buf[256];
 
 	fprintf(ofd, "-- Error received: %s\n-- Original message: ",
-		strerror(-e->error));
+		strerror_r(-e->error, buf, sizeof(buf)));
 	print_header_content(ofd, &e->msg);
 	fprintf(ofd, "\n");
 
@@ -111,7 +107,7 @@ static int nl_finish_handler_debug(struct nl_msg *msg, void *arg)
 	fprintf(ofd, "-- Debug: End of multipart message block: ");
 	print_header_content(ofd, nlmsg_hdr(msg));
 	fprintf(ofd, "\n");
-	
+
 	return NL_STOP;
 }
 
@@ -121,7 +117,7 @@ static int nl_msg_in_handler_debug(struct nl_msg *msg, void *arg)
 
 	fprintf(ofd, "-- Debug: Received Message:\n");
 	nl_msg_dump(msg, ofd);
-	
+
 	return NL_OK;
 }
 
@@ -215,6 +211,7 @@ struct nl_cb *nl_cb_alloc(enum nl_cb_kind kind)
 		return NULL;
 
 	cb->cb_refcnt = 1;
+	cb->cb_active = NL_CB_TYPE_MAX + 1;
 
 	for (i = 0; i <= NL_CB_TYPE_MAX; i++)
 		nl_cb_set(cb, i, kind, NULL, NULL);
@@ -233,7 +230,7 @@ struct nl_cb *nl_cb_alloc(enum nl_cb_kind kind)
 struct nl_cb *nl_cb_clone(struct nl_cb *orig)
 {
 	struct nl_cb *cb;
-	
+
 	cb = nl_cb_alloc(NL_CB_DEFAULT);
 	if (!cb)
 		return NULL;
@@ -265,6 +262,17 @@ void nl_cb_put(struct nl_cb *cb)
 		free(cb);
 }
 
+/**
+ * Obtain type of current active callback
+ * @arg cb		callback to query
+ *
+ * @return type or __NL_CB_TYPE_MAX if none active
+ */
+enum nl_cb_type nl_cb_active_type(struct nl_cb *cb)
+{
+	return cb->cb_active;
+}
+
 /** @} */
 
 /**
@@ -273,7 +281,7 @@ void nl_cb_put(struct nl_cb *cb)
  */
 
 /**
- * Set up a callback 
+ * Set up a callback
  * @arg cb		callback set
  * @arg type		callback to modify
  * @arg kind		kind of implementation

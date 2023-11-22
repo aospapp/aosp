@@ -31,7 +31,6 @@ package com.android.ims.internal;
 import java.lang.String;
 import android.util.Log;
 
-import android.os.Build;
 import android.text.TextUtils;
 
 /**
@@ -40,83 +39,54 @@ import android.text.TextUtils;
  * @hide
  */
 public class Logger {
-    /**
-     * DEBUG level
-     */
-    public static int DEBUG_LEVEL = 0;
 
-    /**
-     * INFO level
-     */
-    public static int INFO_LEVEL = 1;
-
-    /**
-     * WARN level
-     */
-    public static int WARN_LEVEL = 2;
-
-    /**
-     * ERROR level
-     */
-    public static int ERROR_LEVEL = 3;
-
-    /**
-     * FATAL level
-     */
-    public static int FATAL_LEVEL = 4;
+    private static boolean VERBOSE = isLoggable(android.util.Log.VERBOSE);
+    private static boolean DEBUG = isLoggable(android.util.Log.DEBUG);
+    private static boolean INFO = isLoggable(android.util.Log.INFO);
+    private static boolean WARN = isLoggable(android.util.Log.WARN);
+    private static boolean ERROR = isLoggable(android.util.Log.ERROR);
 
     /**
      * RCS test mode flag
      */
-    public static boolean rcsTestMode = false;
-
-    /**
-     * Trace level
-     */
-    public static int traceLevel = DEBUG_LEVEL;
+    private static boolean mRcsTestMode = false;
 
     /**
      * Log tag name
      */
-    private static String tagname = "rcs";
+    private static String TAG = "rcs";
 
     /**
      * Classname
      */
-    private String classname;
+    private String mClassName;
 
     /**
      * Constructor
      *
-     * @param classname Classname
+     * @param mClassName Classname
      */
-    private Logger(String tagName, String classname) {
+    private Logger(String tagName, String mClassName) {
         if(!TextUtils.isEmpty(tagName)) {
-            this.tagname = tagName;
+            TAG = tagName;
         }
 
-        int index = classname.lastIndexOf('.');
+        int index = mClassName.lastIndexOf('.');
         if (index != -1) {
-            this.classname = classname.substring(index+1);
+            this.mClassName = mClassName.substring(index+1);
         } else {
-            this.classname = classname;
-        }
-
-        if(Build.IS_DEBUGGABLE || rcsTestMode){
-            traceLevel = DEBUG_LEVEL;
-        }else{
-            traceLevel = ERROR_LEVEL;
+            this.mClassName = mClassName;
         }
     }
 
     public static void setRcsTestMode(boolean test) {
-        rcsTestMode = test;
-
-        if (Build.IS_DEBUGGABLE || rcsTestMode) {
-            traceLevel = DEBUG_LEVEL;
-        } else {
-            traceLevel = ERROR_LEVEL;
-        }
+        mRcsTestMode = test;
+        // Reset log-ability of each mode.
+        DEBUG = isLoggable(android.util.Log.DEBUG);
+        INFO = isLoggable(android.util.Log.INFO);
+        VERBOSE = isLoggable(android.util.Log.VERBOSE);
+        WARN = isLoggable(android.util.Log.WARN);
+        ERROR = isLoggable(android.util.Log.ERROR);
     }
 
     /**
@@ -124,8 +94,19 @@ public class Logger {
      *
      * @return boolean
      */
-    public boolean isActivated() {
+    private boolean isActivated() {
         return true;
+    }
+
+    /**
+     * Verbose trace
+     *
+     * @param trace Trace
+     */
+    public void verbose(String trace) {
+        if (isActivated() && VERBOSE) {
+            Log.d(TAG, "[" + mClassName +"] " + trace);
+        }
     }
 
     /**
@@ -134,8 +115,8 @@ public class Logger {
      * @param trace Trace
      */
     public void debug(String trace) {
-        if (isActivated() && (traceLevel <= DEBUG_LEVEL)) {
-            Log.d(tagname, "[" + classname +"] " + trace);
+        if (isActivated() && DEBUG) {
+            Log.d(TAG, "[" + mClassName +"] " + trace);
         }
     }
 
@@ -146,8 +127,8 @@ public class Logger {
      * @param e the exception which need to be printed.
      */
     public void debug(String trace, Throwable e) {
-        if (isActivated() && (traceLevel <= DEBUG_LEVEL)) {
-            Log.d(tagname, "[" + classname +"] " + trace, e);
+        if (isActivated() && DEBUG) {
+            Log.d(TAG, "[" + mClassName +"] " + trace, e);
         }
     }
 
@@ -157,8 +138,8 @@ public class Logger {
      * @param trace Trace
      */
     public void info(String trace) {
-        if (isActivated() && (traceLevel <= INFO_LEVEL)) {
-            Log.i(tagname, "[" + classname +"] " + trace);
+        if (isActivated() && INFO) {
+            Log.i(TAG, "[" + mClassName +"] " + trace);
         }
     }
 
@@ -168,8 +149,8 @@ public class Logger {
      * @param trace Trace
      */
     public void warn(String trace) {
-        if (isActivated() && (traceLevel <= WARN_LEVEL)) {
-            Log.w(tagname, "[" + classname +"] " + trace);
+        if (isActivated() && WARN) {
+            Log.w(TAG, "[" + mClassName +"] " + trace);
         }
     }
 
@@ -179,8 +160,8 @@ public class Logger {
      * @param trace Trace
      */
     public void error(String trace) {
-        if (isActivated() && (traceLevel <= ERROR_LEVEL)) {
-            Log.e(tagname, "[" + classname +"] " + trace);
+        if (isActivated() && ERROR) {
+            Log.e(TAG, "[" + mClassName +"] " + trace);
         }
     }
 
@@ -191,8 +172,8 @@ public class Logger {
      * @param e Exception
      */
     public void error(String trace, Throwable e) {
-        if (isActivated() && (traceLevel <= ERROR_LEVEL)) {
-            Log.e(tagname, "[" + classname +"] " + trace, e);
+        if (isActivated() && ERROR) {
+            Log.e(TAG, "[" + mClassName +"] " + trace, e);
         }
     }
 
@@ -203,7 +184,7 @@ public class Logger {
      * @param e Exception
      */
     public void print(String trace) {
-        Log.i(tagname, "[" + classname +"] " + trace);
+        Log.i(TAG, "[" + mClassName +"] " + trace);
     }
 
     /**
@@ -213,7 +194,25 @@ public class Logger {
      * @param e Exception
      */
     public void print(String trace, Throwable e) {
-        Log.i(tagname, "[" + classname +"] " + trace, e);
+        Log.i(TAG, "[" + mClassName +"] " + trace, e);
+    }
+
+    // Hide all numbers except for the last two
+    public static String hidePhoneNumberPii(String number) {
+        if(TextUtils.isEmpty(number) || mRcsTestMode || number.length() <= 2) {
+            return number;
+        }
+        StringBuilder sb = new StringBuilder(number.length());
+        sb.append("...*");
+        sb.append(number.substring(number.length()-2, number.length()));
+        return sb.toString();
+    }
+
+    /**
+     * Determines if the debug level is currently loggable.
+     */
+    private static boolean isLoggable(int level) {
+        return mRcsTestMode || android.util.Log.isLoggable(TAG, level);
     }
 
     /**
@@ -233,7 +232,7 @@ public class Logger {
      * @return Instance
      */
     public static synchronized Logger getLogger(String classname) {
-        return new Logger(tagname, classname);
+        return new Logger(TAG, classname);
     }
 }
 

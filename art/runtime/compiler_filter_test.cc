@@ -28,25 +28,43 @@ static void TestCompilerFilterName(CompilerFilter::Filter filter, std::string na
   EXPECT_EQ(name, CompilerFilter::NameOfFilter(filter));
 }
 
+static void TestSafeModeFilter(CompilerFilter::Filter expected, std::string name) {
+  CompilerFilter::Filter parsed;
+  EXPECT_TRUE(CompilerFilter::ParseCompilerFilter(name.c_str(), &parsed));
+  EXPECT_EQ(expected, CompilerFilter::GetSafeModeFilterFrom(parsed));
+}
+
+
 // Verify the dexopt status values from dalvik.system.DexFile
 // match the OatFileAssistant::DexOptStatus values.
 TEST(CompilerFilterTest, ParseCompilerFilter) {
   CompilerFilter::Filter filter;
 
-  TestCompilerFilterName(CompilerFilter::kVerifyNone, "verify-none");
-  TestCompilerFilterName(CompilerFilter::kVerifyAtRuntime, "verify-at-runtime");
-  TestCompilerFilterName(CompilerFilter::kVerifyProfile, "verify-profile");
-  TestCompilerFilterName(CompilerFilter::kInterpretOnly, "interpret-only");
-  TestCompilerFilterName(CompilerFilter::kTime, "time");
+  TestCompilerFilterName(CompilerFilter::kAssumeVerified, "assume-verified");
+  TestCompilerFilterName(CompilerFilter::kExtract, "extract");
+  TestCompilerFilterName(CompilerFilter::kVerify, "verify");
+  TestCompilerFilterName(CompilerFilter::kQuicken, "quicken");
   TestCompilerFilterName(CompilerFilter::kSpaceProfile, "space-profile");
   TestCompilerFilterName(CompilerFilter::kSpace, "space");
-  TestCompilerFilterName(CompilerFilter::kBalanced, "balanced");
   TestCompilerFilterName(CompilerFilter::kSpeedProfile, "speed-profile");
   TestCompilerFilterName(CompilerFilter::kSpeed, "speed");
   TestCompilerFilterName(CompilerFilter::kEverythingProfile, "everything-profile");
   TestCompilerFilterName(CompilerFilter::kEverything, "everything");
 
   EXPECT_FALSE(CompilerFilter::ParseCompilerFilter("super-awesome-filter", &filter));
+}
+
+TEST(CompilerFilterTest, SafeModeFilter) {
+  TestSafeModeFilter(CompilerFilter::kAssumeVerified, "assume-verified");
+  TestSafeModeFilter(CompilerFilter::kExtract, "extract");
+  TestSafeModeFilter(CompilerFilter::kVerify, "verify");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "quicken");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "space-profile");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "space");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "speed-profile");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "speed");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "everything-profile");
+  TestSafeModeFilter(CompilerFilter::kQuicken, "everything");
 }
 
 }  // namespace art

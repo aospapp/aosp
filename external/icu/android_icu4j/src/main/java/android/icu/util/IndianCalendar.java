@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2011, International Business Machines Corporation and    *
@@ -419,11 +421,7 @@ public class IndianCalendar extends Calendar {
            month %= 12;
        }
        
-       if(month == 12) {
-           imonth = 1;
-       } else {
-           imonth = month +1;  
-       }
+       imonth = month + 1;  
        
        double jd = IndianToJD(year ,imonth, 1);
        

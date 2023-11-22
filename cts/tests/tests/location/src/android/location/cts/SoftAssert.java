@@ -48,18 +48,35 @@ public class SoftAssert {
      * @param actualResult   actual value
      * @param condition      condition for test
      */
-    public void assertTrue(String message, long eventTimeInNs, String expectedResult,
+    public void assertTrue(String message, Long eventTimeInNs, String expectedResult,
                            String actualResult, boolean condition) {
         if (condition) {
             Log.i(mTag, message + ", (Test: PASS, actual : " +
                     actualResult + ", expected: " + expectedResult + ")");
         } else {
-            String errorMessage = "At time = " + eventTimeInNs + " ns, " + message +
+            String errorMessage = "";
+            if (eventTimeInNs != null) {
+                errorMessage = "At time = " + eventTimeInNs + " ns, ";
+            }
+            errorMessage += message +
                     " (Test: FAIL, actual :" + actualResult + ", " +
                     "expected: " + expectedResult + ")";
             Log.e(mTag, errorMessage);
             mErrorList.add(errorMessage);
         }
+    }
+
+    /**
+     * assertTrue without eventTime
+     *
+     * @param message        test message
+     * @param expectedResult expected value
+     * @param actualResult   actual value
+     * @param condition      condition for test
+     */
+    public void assertTrue(String message, String expectedResult,
+        String actualResult, boolean condition) {
+        assertTrue(message, null, expectedResult, actualResult, condition);
     }
 
     /**
@@ -156,7 +173,9 @@ public class SoftAssert {
         if (testIsStrict) {
             Assert.assertTrue(message, condition);
         } else {
-            failAsWarning("", message);
+            if (!condition) {
+                failAsWarning("", message);
+            }
         }
     }
 

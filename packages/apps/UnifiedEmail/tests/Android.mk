@@ -31,7 +31,7 @@ LOCAL_INSTRUMENTATION_FOR := UnifiedEmail
 
 LOCAL_SRC_FILES := $(call all-java-files-under, $(src_dirs))
 LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test legacy-android-test
 
 include $(BUILD_PACKAGE)
 

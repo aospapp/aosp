@@ -17,10 +17,11 @@ package com.android.compatibility.common.tradefed.testtype;
 
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.testtype.IAbi;
+import com.android.tradefed.util.MultiMap;
 
 import java.io.File;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -36,14 +37,18 @@ public interface IModuleRepo {
     /**
      * Initializes the repository.
      */
-    void initialize(int shards, File testsDir, Set<IAbi> abis, List<String> deviceTokens,
-            List<String> testArgs, List<String> moduleArgs, List<String> mIncludeFilters,
-            List<String> mExcludeFilters, IBuildInfo buildInfo);
+    void initialize(int shards, Integer shardIndex, File testsDir, Set<IAbi> abis,
+            List<String> deviceTokens, List<String> testArgs, List<String> moduleArgs,
+            Set<String> mIncludeFilters, Set<String> mExcludeFilters,
+            MultiMap<String, String> metadataIncludeFilters,
+            MultiMap<String, String> metadataExcludeFilters,
+            IBuildInfo buildInfo);
 
     /**
-     * @return a {@link Map} of all modules to run on the device referenced by the given serial.
+     * @return a {@link LinkedList} of all modules to run on the device referenced by the given
+     * serial.
      */
-    List<IModuleDef> getModules(String serial);
+    LinkedList<IModuleDef> getModules(String serial, int shardIndex);
 
     /**
      * @return the number of shards this repo is initialized for.
@@ -51,34 +56,9 @@ public interface IModuleRepo {
     int getNumberOfShards();
 
     /**
-     * @return the maximum number of modules a shard will run.
+     * @return the modules which do not have token and have not been assigned to a device.
      */
-    int getModulesPerShard();
-
-    /**
-     * @return the {@link Map} of device serials to tokens.
-     */
-    Map<String, Set<String>> getDeviceTokens();
-
-    /**
-     * @return the {@link Set} of device serials that have taken their workload.
-     */
-    Set<String> getSerials();
-
-    /**
-     * @return the small modules that don't have tokens but have not been assigned to a device.
-     */
-    List<IModuleDef> getSmallModules();
-
-    /**
-     * @return the medium modules that don't have tokens but have not been assigned to a device.
-     */
-    List<IModuleDef> getMediumModules();
-
-    /**
-     * @return the large modules that don't have tokens but have not been assigned to a device.
-     */
-    List<IModuleDef> getLargeModules();
+    List<IModuleDef> getNonTokenModules();
 
     /**
      * @return the modules which have token and have not been assigned to a device.
@@ -89,4 +69,9 @@ public interface IModuleRepo {
      * @return An array of all module ids in the repo.
      */
     String[] getModuleIds();
+
+    /**
+     * Clean up all internal references.
+     */
+    void tearDown();
 }

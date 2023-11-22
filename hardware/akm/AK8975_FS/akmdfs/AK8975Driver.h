@@ -27,7 +27,7 @@
 #define AKD_FALSE	0		/*!< Represents false */
 #define AKD_SUCCESS	1		/*!< Represents success.*/
 #define AKD_FAIL	0		/*!< Represents fail. */
-#define AKD_ERROR	-1		/*!< Represents error. */
+#define AKD_ERROR	(-1)		/*!< Represents error. */
 
 /*! 0:Don't Output data, 1:Output data */
 #define AKD_DBG_DATA	0

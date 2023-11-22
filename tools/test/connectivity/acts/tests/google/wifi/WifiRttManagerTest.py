@@ -21,7 +21,7 @@ import acts.base_test
 import acts.test_utils.wifi.wifi_test_utils as wutils
 import acts.utils
 from acts import asserts
-from acts.controllers.android import SL4AAPIError
+from acts.controllers import sl4a_client
 
 WifiEnums = wutils.WifiEnums
 
@@ -37,8 +37,10 @@ RttType = WifiEnums.RttType
 ScanResult = WifiEnums.ScanResult
 RTT_MARGIN_OF_ERROR = WifiEnums.RTT_MARGIN_OF_ERROR
 
-class WifiRTTRangingError (Exception):
-     """Error in WifiScanner Rtt."""
+
+class WifiRTTRangingError(Exception):
+    """Error in WifiScanner Rtt."""
+
 
 class WifiRttManagerTest(acts.base_test.BaseTestClass):
     """Tests for wifi's RttManager APIs."""
@@ -47,30 +49,22 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
 
     def __init__(self, controllers):
         acts.base_test.BaseTestClass.__init__(self, controllers)
-        self.tests = (
-            "test_support_check",
-            "test_invalid_params",
-            "test_capability_check",
-            "test_rtt_ranging_single_AP_stress",
-            "test_regular_scan_then_rtt_ranging_stress",
-            "test_gscan_then_rtt_ranging_stress"
-        )
+        self.tests = ("test_support_check", "test_invalid_params",
+                      "test_capability_check",
+                      "test_rtt_ranging_single_AP_stress",
+                      "test_regular_scan_then_rtt_ranging_stress",
+                      "test_gscan_then_rtt_ranging_stress")
 
     def setup_class(self):
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
-        required_params = (
-            "support_models",
-            "stress_num",
-            "vht80_5g",
-            "actual_distance"
-        )
+        required_params = ("support_models", "stress_num", "vht80_5g",
+                           "actual_distance")
         self.unpack_userparams(required_params)
-        asserts.assert_true(self.actual_distance >= 5,
+        asserts.assert_true(
+            self.actual_distance >= 5,
             "Actual distance should be no shorter than 5 meters.")
-        self.visible_networks = (
-            self.vht80_5g,
-        )
+        self.visible_networks = (self.vht80_5g, )
         self.default_rtt_params = {
             RttParam.request_type: RttType.TYPE_TWO_SIDED,
             RttParam.device_type: RttPeerType.PEER_TYPE_AP,
@@ -120,13 +114,15 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         }
 
     """Helper Functions"""
+
     def invalid_params_logic(self, rtt_params):
         try:
             self.dut.droid.wifiRttStartRanging([rtt_params])
-        except SL4AAPIError as e:
+        except sl4a_client.Sl4aApiError as e:
             e_str = str(e)
             asserts.assert_true("IllegalArgumentException" in e_str,
-                "Missing IllegalArgumentException in %s." % e_str)
+                                "Missing IllegalArgumentException in %s." %
+                                e_str)
             msg = "Got expected exception with invalid param %s." % rtt_params
             self.log.info(msg)
 
@@ -149,7 +145,8 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
                 result_len = len(results)
                 param_len = len(rtt_params)
                 asserts.assert_true(result_len == param_len,
-                    "Expected %d results, got %d." % (param_len, result_len))
+                                    "Expected %d results, got %d." %
+                                    (param_len, result_len))
                 # Add acceptable margin of error to results, which will be used
                 # during result processing.
                 for i, r in enumerate(results):
@@ -217,17 +214,20 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
             A list of networks that have RTTResponders.
         """
         s = {
-            "reportEvents" : WifiEnums.REPORT_EVENT_FULL_SCAN_RESULT,
+            "reportEvents": WifiEnums.REPORT_EVENT_FULL_SCAN_RESULT,
             "band": WifiEnums.WIFI_BAND_BOTH,
             "periodInMs": 10000,
             "numBssidsPerScan": 32
         }
-        idx = wutils.start_wifi_single_scan(self.android_devices[0], s)["Index"]
+        idx = wutils.start_wifi_single_scan(self.android_devices[0],
+                                            s)["Index"]
         self.log.info("Scan index is %d" % idx)
         event_name = "WifiScannerScan%donFullResult" % idx
+
         def condition(event):
             nw = event["data"]["Results"][0]
             return self.network_selector(nw)
+
         rtt_networks = []
         try:
             for i in range(len(self.visible_networks)):
@@ -284,18 +284,20 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
                         # Distance should be in acceptable range.
                         is_d_valid = (acd - margin) <= d <= acd + (margin)
                         if not is_d_valid:
-                            self.log.warning(("Reported distance %.2fm is out of the"
-                                " acceptable range %.2f±%.2fm.") % (d, acd, margin))
+                            self.log.warning(
+                                ("Reported distance %.2fm is out of the"
+                                 " acceptable range %.2f±%.2fm.") %
+                                (d, acd, margin))
                             out_of_range += 1
                         continue
                     # Check if the RTT value is in range.
                     d = (value / 2) / 1E10 * wutils.SPEED_OF_LIGHT
                     is_rtt_valid = (acd - margin) <= d <= (acd + margin)
                     if not is_rtt_valid:
-                        self.log.warning(
-                           ("Distance calculated from RTT value %d - %.2fm is "
-                            "out of the acceptable range %.2f±%dm.") % (
-                            value, d, acd, margin))
+                        self.log.warning((
+                            "Distance calculated from RTT value %d - %.2fm is "
+                            "out of the acceptable range %.2f±%dm.") %
+                                         (value, d, acd, margin))
                         out_of_range += 1
                         continue
                     # Check if the RSSI value is in range.
@@ -305,26 +307,28 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
                     is_rssi_valid = 0 <= rssi <= 200
                     if not is_rssi_valid:
                         self.log.warning(("Reported RSSI %d is out of the"
-                                " acceptable range 0-200") % rssi)
+                                          " acceptable range 0-200") % rssi)
                         out_of_range += 1
                         continue
-        self.log.info(("Processed %d RTT events. %d aborted, %s failed. Among"
+        self.log.info((
+            "Processed %d RTT events. %d aborted, %s failed. Among"
             " the %d responses in successful callbacks, %s are invalid, %s has"
-            " RTT values that are out of range.") % (
-            len(events), aborted, failure, total, invalid, out_of_range))
+            " RTT values that are out of range.") %
+                      (len(events), aborted, failure, total, invalid,
+                       out_of_range))
         asserts.assert_true(total > 0, "No RTT response received.")
         # Percentage of responses that are valid should be >= 90%.
         valid_total = float(total - invalid)
         valid_response_rate = valid_total / total
-        self.log.info("%.2f%% of the responses are valid." % (
-                      valid_response_rate * 100))
+        self.log.info("%.2f%% of the responses are valid." %
+                      (valid_response_rate * 100))
         asserts.assert_true(valid_response_rate >= 0.9,
-                         "Valid response rate is below 90%%.")
+                            "Valid response rate is below 90%%.")
         # Among the valid responses, the percentage of having an in-range RTT
         # value should be >= 67%.
         valid_value_rate = (total - invalid - out_of_range) / valid_total
-        self.log.info("%.2f%% of valid responses have in-range RTT value" % (
-                      valid_value_rate * 100))
+        self.log.info("%.2f%% of valid responses have in-range RTT value" %
+                      (valid_value_rate * 100))
         msg = "In-range response rate is below 67%%."
         asserts.assert_true(valid_value_rate >= 0.67, msg)
 
@@ -399,30 +403,27 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         return p
 
     """Tests"""
+
     def test_invalid_params(self):
         """Tests the sanity check function in RttManager.
         """
         param_list = [
-            {RttParam.device_type: 3},
-            {RttParam.device_type: 1, RttParam.request_type:3},
-            {
-                RttParam.device_type: 1,
-                RttParam.request_type:1,
-                RttParam.BSSID: None
-            },
-            {RttParam.BSSID: "xxxxxxxx", RttParam.number_burst: 1},
-            {RttParam.number_burst: 0, RttParam.num_samples_per_burst: -1},
-            {RttParam.num_samples_per_burst:32},
-            {
-                RttParam.num_samples_per_burst:5,
+            {RttParam.device_type: 3}, {RttParam.device_type: 1,
+                                        RttParam.request_type: 3}, {
+                                            RttParam.device_type: 1,
+                                            RttParam.request_type: 1,
+                                            RttParam.BSSID: None
+                                        }, {RttParam.BSSID: "xxxxxxxx",
+                                            RttParam.number_burst: 1},
+            {RttParam.number_burst: 0,
+             RttParam.num_samples_per_burst: -1},
+            {RttParam.num_samples_per_burst: 32}, {
+                RttParam.num_samples_per_burst: 5,
                 RttParam.num_retries_per_measurement_frame: -1
-            },
-            {RttParam.num_retries_per_measurement_frame: 4 },
-            {
+            }, {RttParam.num_retries_per_measurement_frame: 4}, {
                 RttParam.num_retries_per_measurement_frame: 2,
                 RttParam.num_retries_per_FTMR: -1
-            },
-            {RttParam.num_retries_per_FTMR: 4}
+            }, {RttParam.num_retries_per_FTMR: 4}
         ]
         for param in param_list:
             self.invalid_params_logic(param)
@@ -433,18 +434,21 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         devices support device-to-ap RTT.
         """
         model = acts.utils.trim_model_name(self.dut.model)
-        asserts.assert_true(not self.dut.droid.wifiIsDeviceToDeviceRttSupported(),
-            "Device to device is not supposed to be supported.")
+        asserts.assert_true(
+            self.dut.droid.wifiIsDeviceToDeviceRttSupported(),
+            "Device to device is supposed to be supported.")
         if any([model in m for m in self.support_models]):
             asserts.assert_true(self.dut.droid.wifiIsDeviceToApRttSupported(),
-                "%s should support device-to-ap RTT." % model)
+                                "%s should support device-to-ap RTT." % model)
             self.log.info("%s supports device-to-ap RTT as expected." % model)
         else:
-            asserts.assert_true(not self.dut.droid.wifiIsDeviceToApRttSupported(),
-                "%s should not support device-to-ap RTT." % model)
-            self.log.info(("%s does not support device-to-ap RTT as expected."
-                ) % model)
-            asserts.abort_class("Device %s does not support RTT, abort." % model)
+            asserts.assert_false(self.dut.droid.wifiIsDeviceToApRttSupported(),
+                                 "%s should not support device-to-ap RTT." %
+                                 model)
+            self.log.info((
+                "%s does not support device-to-ap RTT as expected.") % model)
+            asserts.abort_class("Device %s does not support RTT, abort." %
+                                model)
         return True
 
     def test_capability_check(self):
@@ -454,12 +458,13 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         asserts.assert_true(caps, "Unable to get rtt capabilities.")
         self.log.debug("Got rtt capabilities %s" % caps)
         model = acts.utils.trim_model_name(self.dut.model)
-        asserts.assert_true(model in self.rtt_cap_table, "Unknown model %s" % model)
+        asserts.assert_true(model in self.rtt_cap_table, "Unknown model %s" %
+                            model)
         expected_caps = self.rtt_cap_table[model]
         for k, v in expected_caps.items():
             asserts.assert_true(k in caps, "%s missing in capabilities." % k)
-            asserts.assert_true(v == caps[k],
-                "Expected %s for %s, got %s." % (v, k, caps[k]))
+            asserts.assert_true(v == caps[k], "Expected %s for %s, got %s." %
+                                (v, k, caps[k]))
         return True
 
     def test_discovery(self):
@@ -479,7 +484,8 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         scan_results = self.dut.droid.wifiGetScanResults()
         self.log.debug(scan_results)
         for n in visible_networks:
-            asserts.assert_true(wutils.match_networks(n, scan_results),
+            asserts.assert_true(
+                wutils.match_networks(n, scan_results),
                 "Network %s was not discovered properly." % n)
         return True
 
@@ -489,9 +495,9 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         """
         p = {}
         p[RttParam.request_type] = RttType.TYPE_TWO_SIDED
-        p[RttParam.device_type]  = RttPeerType.PEER_TYPE_AP
-        p[RttParam.preamble]     = RttPreamble.PREAMBLE_VHT
-        p[RttParam.bandwidth]    = RttBW.BW_80_SUPPORT
+        p[RttParam.device_type] = RttPeerType.PEER_TYPE_AP
+        p[RttParam.preamble] = RttPreamble.PREAMBLE_VHT
+        p[RttParam.bandwidth] = RttBW.BW_80_SUPPORT
         p[RttParam.frequency] = self.vht80_5g[WifiEnums.frequency_key]
         p[RttParam.center_freq0] = self.vht80_5g[RttParam.center_freq0]
         results = self.get_rtt_results([p])
@@ -508,9 +514,9 @@ class WifiRttManagerTest(acts.base_test.BaseTestClass):
         """
         p = {}
         p[RttParam.request_type] = RttType.TYPE_TWO_SIDED
-        p[RttParam.device_type]  = RttPeerType.PEER_TYPE_AP
-        p[RttParam.preamble]     = RttPreamble.PREAMBLE_VHT
-        p[RttParam.bandwidth]    = RttBW.BW_80_SUPPORT
+        p[RttParam.device_type] = RttPeerType.PEER_TYPE_AP
+        p[RttParam.preamble] = RttPreamble.PREAMBLE_VHT
+        p[RttParam.bandwidth] = RttBW.BW_80_SUPPORT
         p[RttParam.BSSID] = self.vht80_5g[WifiEnums.BSSID_KEY]
         p[RttParam.frequency] = self.vht80_5g[WifiEnums.frequency_key]
         p[RttParam.center_freq0] = self.vht80_5g[RttParam.center_freq0]

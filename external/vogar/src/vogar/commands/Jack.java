@@ -173,6 +173,11 @@ public class Jack {
         return this;
     }
 
+    public Jack extra(List<String> extra) {
+        builder.args(extra);
+        return this;
+    }
+
     public Jack setEnvVar(String key, String value) {
         builder.env(key, value);
         return this;

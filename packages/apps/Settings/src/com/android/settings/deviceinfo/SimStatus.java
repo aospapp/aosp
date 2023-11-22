@@ -47,9 +47,9 @@ import android.widget.TabHost.TabContentFactory;
 import android.widget.TabHost.TabSpec;
 import android.widget.TabWidget;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
-import com.android.internal.telephony.DefaultPhoneNotifier;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstantConversions;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
@@ -196,7 +196,7 @@ public class SimStatus extends SettingsPreferenceFragment {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.DEVICEINFO_SIM_STATUS;
     }
 
@@ -292,7 +292,7 @@ public class SimStatus extends SettingsPreferenceFragment {
 
     private void updateDataState() {
         final int state =
-                DefaultPhoneNotifier.convertDataState(mPhone.getDataConnectionState());
+                PhoneConstantConversions.convertDataState(mPhone.getDataConnectionState());
 
         String display = mRes.getString(R.string.radioInfo_unknown);
 
@@ -426,6 +426,12 @@ public class SimStatus extends SettingsPreferenceFragment {
                 }
 
                 mPhone = phone;
+                // To avoid register multiple listeners when user changes the tab.
+                if (mPhoneStateListener != null && mTelephonyManager != null) {
+                    mTelephonyManager.listen(mPhoneStateListener,
+                            PhoneStateListener.LISTEN_NONE);
+                    mPhoneStateListener = null;
+                }
                 mPhoneStateListener = new PhoneStateListener(mSir.getSubscriptionId()) {
                     @Override
                     public void onDataConnectionStateChanged(int state) {

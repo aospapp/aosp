@@ -42,6 +42,7 @@ public class SignatureTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.Signature command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

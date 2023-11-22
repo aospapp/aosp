@@ -275,7 +275,8 @@ class gtest_parser(object):
             List of failed tests.
         """
         return (self._TestsByStatus('failed', include_fails, include_flaky) +
-                self._TestsByStatus('timeout', include_fails, include_flaky))
+                self._TestsByStatus('timeout', include_fails, include_flaky) +
+                self._TestsByStatus('started', include_fails, include_flaky))
 
     def FailureDescription(self, test):
         """Returns a list containing the failure description for the given test.

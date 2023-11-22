@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -9,16 +11,15 @@
 
 package android.icu.dev.test.timescale;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.math.BigDecimal;
 import android.icu.util.UniversalTimeScale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Test UniversalTimeScale API
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TimeScaleAPITest extends TestFmwk
 {
 
@@ -29,6 +30,7 @@ public class TimeScaleAPITest extends TestFmwk
     {
     }
     
+    @Test
     public void TestBigDecimalFromBigDecimal()
     {
         BigDecimal bigZero = new BigDecimal(0);
@@ -56,6 +58,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestBigDecimalFromDouble()
     {
         try {
@@ -81,6 +84,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestBigDecimalFromLong()
     {
         try {
@@ -106,6 +110,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestFromLong()
     {
         long result;
@@ -169,6 +174,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestGetTimeScale()
     {
         long value;
@@ -211,6 +217,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestToBigDecimalFromBigDecimal()
     {
         BigDecimal bigZero = new BigDecimal(0);
@@ -238,6 +245,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
 
+    @Test
     public void TestToBigDecimalTrunc()
     {
         BigDecimal bigZero = new BigDecimal(0);
@@ -265,6 +273,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestToBigDecimalFromLong()
     {
         try {
@@ -290,6 +299,7 @@ public class TimeScaleAPITest extends TestFmwk
         }
     }
     
+    @Test
     public void TestToLong()
     {
         long result;
@@ -351,10 +361,5 @@ public class TimeScaleAPITest extends TestFmwk
         } catch (IllegalArgumentException iae) {
             logln("PASS: UniversalTimeScale.toLong failed as expected");
         }
-    }
-    
-    public static void main(String[] args)
-    {
-        new TimeScaleAPITest().run(args);
     }
 }

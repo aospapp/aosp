@@ -46,7 +46,6 @@ import org.apache.commons.codec.EncoderException;
  * </p>
  *
  * @see <a href="http://www.ietf.org/rfc/rfc2045.txt">RFC 2045</a>
- * @author Apache Software Foundation
  * @since 1.0
  * @version $Id: Base64.java 801706 2009-08-06 16:27:06Z niallp $
  */

@@ -20,24 +20,19 @@ import android.support.car.CarManagerBase;
 import android.support.car.CarNotConnectedException;
 
 /**
- * Provides car specific API related with package management.
+ * Provides car specific API related to package management.
+ * @hide
  */
 public abstract class CarPackageManager implements CarManagerBase {
 
     /**
      * Check if given activity is allowed while driving.
-     * @param packageName
-     * @param className
-     * @return
      */
     public abstract boolean isActivityAllowedWhileDriving(String packageName, String className)
             throws CarNotConnectedException;
 
     /**
      * Check if given service is allowed while driving.
-     * @param packageName
-     * @param className
-     * @return
      */
     public abstract boolean isServiceAllowedWhileDriving(String packageName, String className)
             throws CarNotConnectedException;

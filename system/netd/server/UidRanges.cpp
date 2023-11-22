@@ -18,19 +18,31 @@
 
 #include "NetdConstants.h"
 
+#include <inttypes.h>
+#include <limits.h>
 #include <stdlib.h>
 
 #include <android-base/stringprintf.h>
+#include <log/log.h>
 
 using android::base::StringAppendF;
 
+namespace android {
+namespace net {
+
 bool UidRanges::hasUid(uid_t uid) const {
-    auto iter = std::lower_bound(mRanges.begin(), mRanges.end(), Range(uid, uid));
-    return (iter != mRanges.end() && iter->first == uid) ||
-           (iter != mRanges.begin() && (--iter)->second >= uid);
+    if (uid > (unsigned) INT32_MAX) {
+        ALOGW("UID larger than 32 bits: %" PRIu64, static_cast<uint64_t>(uid));
+        return false;
+    }
+    const int32_t intUid = static_cast<int32_t>(uid);
+
+    auto iter = std::lower_bound(mRanges.begin(), mRanges.end(), UidRange(intUid, intUid));
+    return (iter != mRanges.end() && iter->getStart() == intUid) ||
+           (iter != mRanges.begin() && (--iter)->getStop() >= intUid);
 }
 
-const std::vector<UidRanges::Range>& UidRanges::getRanges() const {
+const std::vector<UidRange>& UidRanges::getRanges() const {
     return mRanges;
 }
 
@@ -69,18 +81,14 @@ bool UidRanges::parseFrom(int argc, char* argv[]) {
             // Invalid UIDs.
             return false;
         }
-        mRanges.push_back(Range(uidStart, uidEnd));
+        mRanges.push_back(UidRange(uidStart, uidEnd));
     }
     std::sort(mRanges.begin(), mRanges.end());
     return true;
 }
 
-UidRanges::UidRanges(const std::vector<android::net::UidRange>& ranges) {
-    mRanges.resize(ranges.size());
-    std::transform(ranges.begin(), ranges.end(), mRanges.begin(),
-            [](const android::net::UidRange& range) {
-                return Range(range.getStart(), range.getStop());
-            });
+UidRanges::UidRanges(const std::vector<UidRange>& ranges) {
+    mRanges = ranges;
     std::sort(mRanges.begin(), mRanges.end());
 }
 
@@ -97,13 +105,18 @@ void UidRanges::remove(const UidRanges& other) {
 
 std::string UidRanges::toString() const {
     std::string s("UidRanges{ ");
-    for (Range range : mRanges) {
-        if (range.first != range.second) {
-            StringAppendF(&s, "%u-%u ", range.first, range.second);
+    for (const auto &range : mRanges) {
+        if (range.length() == 0) {
+            StringAppendF(&s, "<BAD: %u-%u> ", range.getStart(), range.getStop());
+        } else if (range.length() == 1) {
+            StringAppendF(&s, "%u ", range.getStart());
         } else {
-            StringAppendF(&s, "%u ", range.first);
+            StringAppendF(&s, "%u-%u ", range.getStart(), range.getStop());
         }
     }
     StringAppendF(&s, "}");
     return s;
 }
+
+}  // namespace net
+}  // namespace android

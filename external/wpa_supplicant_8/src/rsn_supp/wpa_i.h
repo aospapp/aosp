@@ -138,6 +138,18 @@ struct wpa_sm {
 #ifdef CONFIG_TESTING_OPTIONS
 	struct wpabuf *test_assoc_ie;
 #endif /* CONFIG_TESTING_OPTIONS */
+
+#ifdef CONFIG_FILS
+	u8 fils_nonce[FILS_NONCE_LEN];
+	u8 fils_session[FILS_SESSION_LEN];
+	u8 fils_anonce[FILS_NONCE_LEN];
+	u8 fils_key_auth_ap[FILS_MAX_KEY_AUTH_LEN];
+	u8 fils_key_auth_sta[FILS_MAX_KEY_AUTH_LEN];
+	size_t fils_key_auth_len;
+	unsigned int fils_completed:1;
+	unsigned int fils_erp_pmkid_set:1;
+	u8 fils_erp_pmkid[PMKID_LEN];
+#endif /* CONFIG_FILS */
 };
 
 
@@ -209,18 +221,18 @@ static inline u8 * wpa_sm_alloc_eapol(struct wpa_sm *sm, u8 type,
 				    msg_len, data_pos);
 }
 
-static inline int wpa_sm_add_pmkid(struct wpa_sm *sm, const u8 *bssid,
-				   const u8 *pmkid)
+static inline int wpa_sm_add_pmkid(struct wpa_sm *sm, void *network_ctx,
+				   const u8 *bssid, const u8 *pmkid)
 {
 	WPA_ASSERT(sm->ctx->add_pmkid);
-	return sm->ctx->add_pmkid(sm->ctx->ctx, bssid, pmkid);
+	return sm->ctx->add_pmkid(sm->ctx->ctx, network_ctx, bssid, pmkid);
 }
 
-static inline int wpa_sm_remove_pmkid(struct wpa_sm *sm, const u8 *bssid,
-				      const u8 *pmkid)
+static inline int wpa_sm_remove_pmkid(struct wpa_sm *sm, void *network_ctx,
+				      const u8 *bssid, const u8 *pmkid)
 {
 	WPA_ASSERT(sm->ctx->remove_pmkid);
-	return sm->ctx->remove_pmkid(sm->ctx->ctx, bssid, pmkid);
+	return sm->ctx->remove_pmkid(sm->ctx->ctx, network_ctx, bssid, pmkid);
 }
 
 static inline int wpa_sm_mlme_setprotection(struct wpa_sm *sm, const u8 *addr,
@@ -353,7 +365,16 @@ static inline int wpa_sm_key_mgmt_set_pmk(struct wpa_sm *sm,
 	return sm->ctx->key_mgmt_set_pmk(sm->ctx->ctx, pmk, pmk_len);
 }
 
-int wpa_eapol_key_send(struct wpa_sm *sm, const u8 *kck, size_t kck_len,
+static inline void wpa_sm_fils_hlp_rx(struct wpa_sm *sm,
+				      const u8 *dst, const u8 *src,
+				      const u8 *pkt, size_t pkt_len)
+{
+	if (sm->ctx->fils_hlp_rx)
+		sm->ctx->fils_hlp_rx(sm->ctx->ctx, dst, src, pkt, pkt_len);
+}
+
+
+int wpa_eapol_key_send(struct wpa_sm *sm, struct wpa_ptk *ptk,
 		       int ver, const u8 *dest, u16 proto,
 		       u8 *msg, size_t msg_len, u8 *key_mic);
 int wpa_supplicant_send_2_of_4(struct wpa_sm *sm, const unsigned char *dst,

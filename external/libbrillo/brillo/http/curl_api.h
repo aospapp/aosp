@@ -113,6 +113,17 @@ class CurlInterface {
   // Wrapper around curl_multi_strerror().
   virtual std::string MultiStrError(CURLMcode code) const = 0;
 
+  // Wrapper around curl_multi_perform().
+  virtual CURLMcode MultiPerform(CURLM* multi_handle,
+                                 int* running_handles) = 0;
+
+  // Wrapper around curl_multi_wait().
+  virtual CURLMcode MultiWait(CURLM* multi_handle,
+                              curl_waitfd extra_fds[],
+                              unsigned int extra_nfds,
+                              int timeout_ms,
+                              int* numfds) = 0;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(CurlInterface);
 };
@@ -199,6 +210,17 @@ class BRILLO_EXPORT CurlApi : public CurlInterface {
 
   // Wrapper around curl_multi_strerror().
   std::string MultiStrError(CURLMcode code) const override;
+
+  // Wrapper around curl_multi_perform().
+  CURLMcode MultiPerform(CURLM* multi_handle,
+                         int* running_handles) override;
+
+  // Wrapper around curl_multi_wait().
+  CURLMcode MultiWait(CURLM* multi_handle,
+                      curl_waitfd extra_fds[],
+                      unsigned int extra_nfds,
+                      int timeout_ms,
+                      int* numfds) override;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CurlApi);

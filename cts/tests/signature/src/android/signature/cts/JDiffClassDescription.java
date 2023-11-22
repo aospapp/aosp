@@ -26,10 +26,12 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -48,6 +50,25 @@ public class JDiffClassDescription {
     private static final int METHOD_MODIFIER_VAR_ARGS  = 0x00000080;
     /** Indicates that the method is a synthetic method. */
     private static final int METHOD_MODIFIER_SYNTHETIC = 0x00001000;
+
+    private static final Set<String> HIDDEN_INTERFACE_WHITELIST = new HashSet<>();
+    static {
+        // Interfaces that define @hide methods will by definition contain
+        // methods that do not appear in current.txt. Interfaces added to this
+        // list are probably not meant to be implemented in an application.
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract boolean android.companion.DeviceFilter.matches(D)");
+        HIDDEN_INTERFACE_WHITELIST.add("public static <D> boolean android.companion.DeviceFilter.matches(android.companion.DeviceFilter<D>,D)");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract java.lang.String android.companion.DeviceFilter.getDeviceDisplayName(D)");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract int android.companion.DeviceFilter.getMediumType()");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.nfc.tech.TagTechnology.reconnect() throws java.io.IOException");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.os.IBinder.shellCommand(java.io.FileDescriptor,java.io.FileDescriptor,java.io.FileDescriptor,java.lang.String[],android.os.ShellCallback,android.os.ResultReceiver) throws android.os.RemoteException");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract int android.text.ParcelableSpan.getSpanTypeIdInternal()");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.text.ParcelableSpan.writeToParcelInternal(android.os.Parcel,int)");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract void android.view.WindowManager.requestAppKeyboardShortcuts(android.view.WindowManager$KeyboardShortcutsReceiver,int)");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract boolean javax.microedition.khronos.egl.EGL10.eglReleaseThread()");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract void org.w3c.dom.ls.LSSerializer.setFilter(org.w3c.dom.ls.LSSerializerFilter)");
+        HIDDEN_INTERFACE_WHITELIST.add("public abstract org.w3c.dom.ls.LSSerializerFilter org.w3c.dom.ls.LSSerializer.getFilter()");
+    }
 
     public enum JDiffType {
         INTERFACE, CLASS
@@ -243,11 +264,20 @@ public class JDiffClassDescription {
      */
     public static final class JDiffField extends JDiffElement {
         private String mFieldType;
+        private String mFieldValue;
 
-        public JDiffField(String name, String fieldType, int modifier) {
+        public JDiffField(String name, String fieldType, int modifier, String value) {
             super(name, modifier);
 
             mFieldType = fieldType;
+            mFieldValue = value;
+        }
+
+        /**
+         * A string representation of the value within the field.
+         */
+        public String getValueString() {
+            return mFieldValue;
         }
 
         /**
@@ -749,7 +779,12 @@ public class JDiffClassDescription {
                             field.toReadableString(mAbsoluteClassName),
                             "Non-compatible field modifiers found when looking for " +
                             field.toSignatureString());
-                } else if (!f.getType().getCanonicalName().equals(field.mFieldType)) {
+                } else if (!checkFieldValueCompliance(field, f)) {
+                    mResultObserver.notifyFailure(FailureType.MISMATCH_FIELD,
+                            field.toReadableString(mAbsoluteClassName),
+                            "Incorrect field value found when looking for " +
+                            field.toSignatureString());
+                }else if (!f.getType().getCanonicalName().equals(field.mFieldType)) {
                     // type name does not match, but this might be a generic
                     String genericTypeName = null;
                     Type type = f.getGenericType();
@@ -777,6 +812,194 @@ public class JDiffClassDescription {
     }
 
     /**
+     * Checks whether the field values are compatible.
+     *
+     * @param apiField The field as defined by the platform API.
+     * @param deviceField The field as defined by the device under test.
+     */
+    private boolean checkFieldValueCompliance(JDiffField apiField, Field deviceField)
+            throws IllegalAccessException {
+        if ((apiField.mModifier & Modifier.FINAL) == 0 ||
+                (apiField.mModifier & Modifier.STATIC) == 0) {
+            // Only final static fields can have fixed values.
+            return true;
+        }
+        if (apiField.getValueString() == null) {
+            // If we don't define a constant value for it, then it can be anything.
+            return true;
+        }
+        // Some fields may be protected or package-private
+        deviceField.setAccessible(true);
+        switch(apiField.mFieldType) {
+            case "byte":
+                return Objects.equals(apiField.getValueString(),
+                        Byte.toString(deviceField.getByte(null)));
+            case "char":
+                return Objects.equals(apiField.getValueString(),
+                        Integer.toString(deviceField.getChar(null)));
+            case "short":
+                return Objects.equals(apiField.getValueString(),
+                        Short.toString(deviceField.getShort(null)));
+            case "int":
+                return Objects.equals(apiField.getValueString(),
+                        Integer.toString(deviceField.getInt(null)));
+            case "long":
+                return Objects.equals(apiField.getValueString(),
+                        Long.toString(deviceField.getLong(null)) + "L");
+            case "float":
+                return Objects.equals(apiField.getValueString(),
+                        canonicalizeFloatingPoint(
+                            Float.toString(deviceField.getFloat(null)), "f"));
+            case "double":
+                return Objects.equals(apiField.getValueString(),
+                        canonicalizeFloatingPoint(
+                            Double.toString(deviceField.getDouble(null)), ""));
+            case "boolean":
+                return Objects.equals(apiField.getValueString(),
+                        Boolean.toString(deviceField.getBoolean(null)));
+            case "java.lang.String":
+                String value = apiField.getValueString();
+                // Remove the quotes the value string is wrapped in
+                value = unescapeFieldStringValue(value.substring(1, value.length() - 1));
+                return Objects.equals(value, deviceField.get(null));
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Canonicalize the string representation of floating point numbers.
+     *
+     * This needs to be kept in sync with the doclava canonicalization.
+     */
+    private static final String canonicalizeFloatingPoint(String val, String suffix) {
+        if (val.equals("Infinity")) {
+            return "(1.0" + suffix + "/0.0" + suffix + ")";
+        } else if (val.equals("-Infinity")) {
+            return "(-1.0" + suffix + "/0.0" + suffix + ")";
+        } else if (val.equals("NaN")) {
+            return "(0.0" + suffix + "/0.0" + suffix + ")";
+        }
+
+        String str = val.toString();
+        if (str.indexOf('E') != -1) {
+            return str + suffix;
+        }
+
+        // 1.0 is the only case where a trailing "0" is allowed.
+        // 1.00 is canonicalized as 1.0.
+        int i = str.length() - 1;
+        int d = str.indexOf('.');
+        while (i >= d + 2 && str.charAt(i) == '0') {
+            str = str.substring(0, i--);
+        }
+        return str + suffix;
+    }
+
+
+    // This unescapes the string format used by doclava and so needs to be kept in sync with any
+    // changes made to that format.
+    private static String unescapeFieldStringValue(String str) {
+        final int N = str.length();
+
+        // If there's no special encoding strings in the string then just return it.
+        if (str.indexOf('\\') == -1) {
+            return str;
+        }
+
+        final StringBuilder buf = new StringBuilder(str.length());
+        char escaped = 0;
+        final int START = 0;
+        final int CHAR1 = 1;
+        final int CHAR2 = 2;
+        final int CHAR3 = 3;
+        final int CHAR4 = 4;
+        final int ESCAPE = 5;
+        int state = START;
+
+        for (int i=0; i<N; i++) {
+            final char c = str.charAt(i);
+            switch (state) {
+                case START:
+                    if (c == '\\') {
+                        state = ESCAPE;
+                    } else {
+                        buf.append(c);
+                    }
+                    break;
+                case ESCAPE:
+                    switch (c) {
+                        case '\\':
+                            buf.append('\\');
+                            state = START;
+                            break;
+                        case 't':
+                            buf.append('\t');
+                            state = START;
+                            break;
+                        case 'b':
+                            buf.append('\b');
+                            state = START;
+                            break;
+                        case 'r':
+                            buf.append('\r');
+                            state = START;
+                            break;
+                        case 'n':
+                            buf.append('\n');
+                            state = START;
+                            break;
+                        case 'f':
+                            buf.append('\f');
+                            state = START;
+                            break;
+                        case '\'':
+                            buf.append('\'');
+                            state = START;
+                            break;
+                        case '\"':
+                            buf.append('\"');
+                            state = START;
+                            break;
+                        case 'u':
+                            state = CHAR1;
+                            escaped = 0;
+                            break;
+                    }
+                    break;
+                case CHAR1:
+                case CHAR2:
+                case CHAR3:
+                case CHAR4:
+                    escaped <<= 4;
+                    if (c >= '0' && c <= '9') {
+                        escaped |= c - '0';
+                    } else if (c >= 'a' && c <= 'f') {
+                        escaped |= 10 + (c - 'a');
+                    } else if (c >= 'A' && c <= 'F') {
+                        escaped |= 10 + (c - 'A');
+                    } else {
+                        throw new RuntimeException(
+                                "bad escape sequence: '" + c + "' at pos " + i + " in: \""
+                                + str + "\"");
+                    }
+                    if (state == CHAR4) {
+                        buf.append(escaped);
+                        state = START;
+                    } else {
+                        state++;
+                    }
+                    break;
+            }
+        }
+        if (state != START) {
+            throw new RuntimeException("unfinished escape sequence: " + str);
+        }
+        return buf.toString();
+    }
+
+
+    /**
      * Finds the reflected field specified by the field description.
      *
      * @param field the field description to find
@@ -784,6 +1007,15 @@ public class JDiffClassDescription {
      */
     private Field findMatchingField(JDiffField field) {
         return mClassFieldMap.get(field.mName);
+    }
+
+    /**
+     * Gets the list of fields found within this class.
+     *
+     * @return the list of fields.
+     */
+    public Collection<JDiffField> getFieldList() {
+        return jDiffFields;
     }
 
     /**
@@ -887,6 +1119,40 @@ public class JDiffClassDescription {
     }
 
     /**
+     * Validate that an interfaces method count is as expected.
+     */
+    private List<String> checkInterfaceMethodCompliance() {
+        List<String> unexpectedMethods = new ArrayList<>();
+        for (Method method : mClass.getDeclaredMethods()) {
+            if (method.isDefault()) {
+                continue;
+            }
+            if (method.isSynthetic()) {
+                continue;
+            }
+            if (method.isBridge()) {
+                continue;
+            }
+            if (HIDDEN_INTERFACE_WHITELIST.contains(method.toGenericString())) {
+                continue;
+            }
+
+            boolean foundMatch = false;
+            for (JDiffMethod jdiffMethod : jDiffMethods) {
+                if (matches(jdiffMethod, method)) {
+                    foundMatch = true;
+                }
+            }
+            if (!foundMatch) {
+                unexpectedMethods.add(method.toGenericString());
+            }
+        }
+
+        return unexpectedMethods;
+
+    }
+
+    /**
      * Checks that the class found through reflection matches the
      * specification from the API xml file.
      */
@@ -910,6 +1176,15 @@ public class JDiffClassDescription {
 
                 return;
             }
+
+            List<String> methods = checkInterfaceMethodCompliance();
+            if (JDiffType.INTERFACE.equals(mClassType) && methods.size() > 0) {
+                mResultObserver.notifyFailure(FailureType.MISMATCH_INTERFACE_METHOD,
+                        mAbsoluteClassName, "Interfaces cannot be modified: "
+                                + mAbsoluteClassName + ": " + methods);
+                return;
+            }
+
             if (!checkClassModifiersCompliance()) {
                 logMismatchInterfaceSignature(mAbsoluteClassName,
                         "Non-compatible class found when looking for " +
@@ -1090,6 +1365,15 @@ public class JDiffClassDescription {
     }
 
     /**
+     * Gets the package name + short class name
+     *
+     * @return The package + short class name
+     */
+    public String getAbsoluteClassName() {
+        return mAbsoluteClassName;
+    }
+
+    /**
      * Sets the modifier for the class under test.
      *
      * @param modifier the modifier
@@ -1213,7 +1497,9 @@ public class JDiffClassDescription {
     private static String scrubJdiffParamType(String paramType) {
         // <? extends java.lang.Object and <?> are the same, so
         // canonicalize them to one form.
-        return paramType.replace("<? extends java.lang.Object>", "<?>");
+        return paramType
+            .replace("? extends java.lang.Object", "?")
+            .replace("? super java.lang.Object", "? super ?");
     }
 
     /**

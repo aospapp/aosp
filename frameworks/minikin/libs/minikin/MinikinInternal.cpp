@@ -15,16 +15,16 @@
  */
 
 // Definitions internal to Minikin
+#define LOG_TAG "Minikin"
 
 #include "MinikinInternal.h"
 #include "HbFontCache.h"
-#include "generated/UnicodeData.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
 
-namespace android {
+namespace minikin {
 
-Mutex gMinikinLock;
+android::Mutex gMinikinLock;
 
 void assertMinikinLocked() {
 #ifdef ENABLE_RACE_DETECTION
@@ -32,59 +32,7 @@ void assertMinikinLocked() {
 #endif
 }
 
-bool isEmoji(uint32_t c) {
-    // U+2695 U+2640 U+2642 are not in emoji category in Unicode 9 but they are now emoji category.
-    // TODO: remove once emoji database is updated.
-    if (c == 0x2695 || c == 0x2640 || c == 0x2642) {
-        return true;
-    }
-    const size_t length = sizeof(generated::EMOJI_LIST) / sizeof(generated::EMOJI_LIST[0]);
-    return std::binary_search(generated::EMOJI_LIST, generated::EMOJI_LIST + length, c);
-}
-
-// Based on Modifiers from http://www.unicode.org/L2/L2016/16011-data-file.txt
-bool isEmojiModifier(uint32_t c) {
-    return (0x1F3FB <= c && c <= 0x1F3FF);
-}
-
-// Based on Emoji_Modifier_Base from
-// http://www.unicode.org/Public/emoji/3.0/emoji-data.txt
-bool isEmojiBase(uint32_t c) {
-    if (0x261D <= c && c <= 0x270D) {
-        return (c == 0x261D || c == 0x26F9 || (0x270A <= c && c <= 0x270D));
-    } else if (0x1F385 <= c && c <= 0x1F93E) {
-        return (c == 0x1F385
-                || (0x1F3C3 <= c && c <= 0x1F3C4)
-                || (0x1F3CA <= c && c <= 0x1F3CB)
-                || (0x1F442 <= c && c <= 0x1F443)
-                || (0x1F446 <= c && c <= 0x1F450)
-                || (0x1F466 <= c && c <= 0x1F469)
-                || c == 0x1F46E
-                || (0x1F470 <= c && c <= 0x1F478)
-                || c == 0x1F47C
-                || (0x1F481 <= c && c <= 0x1F483)
-                || (0x1F485 <= c && c <= 0x1F487)
-                || c == 0x1F4AA
-                || c == 0x1F575
-                || c == 0x1F57A
-                || c == 0x1F590
-                || (0x1F595 <= c && c <= 0x1F596)
-                || (0x1F645 <= c && c <= 0x1F647)
-                || (0x1F64B <= c && c <= 0x1F64F)
-                || c == 0x1F6A3
-                || (0x1F6B4 <= c && c <= 0x1F6B6)
-                || c == 0x1F6C0
-                || (0x1F918 <= c && c <= 0x1F91E)
-                || c == 0x1F926
-                || c == 0x1F930
-                || (0x1F933 <= c && c <= 0x1F939)
-                || (0x1F93B <= c && c <= 0x1F93E));
-    } else {
-        return false;
-    }
-}
-
-hb_blob_t* getFontTable(MinikinFont* minikinFont, uint32_t tag) {
+hb_blob_t* getFontTable(const MinikinFont* minikinFont, uint32_t tag) {
     assertMinikinLocked();
     hb_font_t* font = getHbFontLocked(minikinFont);
     hb_face_t* face = hb_font_get_face(font);
@@ -93,4 +41,26 @@ hb_blob_t* getFontTable(MinikinFont* minikinFont, uint32_t tag) {
     return blob;
 }
 
+inline static bool isBMPVariationSelector(uint32_t codePoint) {
+    return VS1 <= codePoint && codePoint <= VS16;
 }
+
+inline static bool isVariationSelectorSupplement(uint32_t codePoint) {
+    return VS17 <= codePoint && codePoint <= VS256;
+}
+
+uint16_t getVsIndex(uint32_t codePoint) {
+    if (isBMPVariationSelector(codePoint)) {
+        return codePoint - VS1;
+    } else if (isVariationSelectorSupplement(codePoint)) {
+        return codePoint - VS17 + 16;
+    } else {
+        return INVALID_VS_INDEX;
+    }
+}
+
+bool isVariationSelector(uint32_t codePoint) {
+    return isBMPVariationSelector(codePoint) || isVariationSelectorSupplement(codePoint);
+}
+
+}  // namespace minikin

@@ -171,10 +171,11 @@ expensive).
 <h2 id="tuning">Tuning</h2>
 
 <p>
-Partners may precompile (some of) the system apps if they want so. Initial JIT
-performance vs pre-compiled depends on the the app, but in general they are
-quite close. It might be worth noting that precompiled apps will not be profiled
-and as such will take more space and may miss on other optimizations.
+Device implementers may precompile (some of) the system apps if they want so.
+Initial JIT performance vs pre-compiled depends on the the app, but in general
+they are quite close. It might be worth noting that precompiled apps will not
+be profiled and as such will take more space and may miss on other
+optimizations.
 </p>
 
 <p>
@@ -198,13 +199,17 @@ pm.dexopt.boot=verify-profile
 </pre>
 
 <p>
+See the <a href="#recommendation">Recommendation</a> section for use.
+</p>
+
+<p>
 Note the reference to A/B over-the-air (OTA) updates here.
 </p>
 
 <p>
 Check <code>$ adb shell cmd package compile</code> for usage. Note all commands
-are preceded by a dollar ($) sign that should be excluded when copying and
-pasting. A few common use cases:
+in this document are preceded by a dollar ($) sign that should be excluded when
+copying and pasting. A few common use cases:
 </p>
 
 <h3 id="turn-on-jit-logging">Turn on JIT logging</h3>
@@ -258,10 +263,137 @@ remove compiled code</h3>
 -a</code></li>
 </ul>
 
+<h2 id="recommendation">Recommendation</h2>
+
+<h3 id="runtime_compilation_level">Level of compilation/verification</h3>
+
+<p>
+Note that it is strongly recommended to use the default following
+<code>pm.dexopt</code> settings and it is the only path we have tested and will
+support.
+</p>
+
+<pre>
+pm.dexopt.install=interpret-only
+pm.dexopt.bg-dexopt=speed-profile
+pm.dexopt.boot=verify-profile (or interpret-only)
+</pre>
+
+<p>
+Here’s a detailed explanation about the <code>pm.dexopt</code> options, and the
+reasoning for our recommendations:
+</p>
+
+<pre>
+pm.dexopt.install
+</pre>
+
+<p>
+This is the compilation filter used when installing application through the
+Play Store. For faster installs we recommend <code>interpret-only</code>.
+</p>
+
+<pre>
+pm.dexopt.bg-dexopt
+</pre>
+
+<p>
+This is the compilation filter used when the device is idle and charging and
+fully charged.  We recommend using <code>speed-profile</code> to take advantage
+of profile guided compilation and save on storage.
+</p>
+
+<pre>
+pm.dexopt.ab-ota
+</pre>
+
+<p>
+This is the compilation filter used when doing an A/B over-the-air (OTA)
+update. If the device supports A/B OTA,  we recommend using
+<code>speed-profile</code> to take advantage of profile guided compilation and
+save on storage.
+</p>
+
+<pre>
+pm.dexopt.nsys-library
+pm.dexopt.shared-apk
+pm.dexopt.core-app
+</pre>
+
+<p>
+You can use these different options to control how to compile essentially
+applications used by other applications. For such applications, we recommend
+the <code>speed</code> filter, as the platform does not support efficient
+profiling of them.
+</p>
+
+<pre>
+pm.dexopt.first-boot
+</pre>
+
+<p>
+The compilation filter for the first time the device ever boots. The filter
+used here will only affect the boot time after factory. We recommend the filter
+<code>interpret-only</code> for it, to avoid long times before a user gets to
+use the phone for the very first time. Note that if all applications in /system
+are already speed compiled, <code>pm.dexopt.first-boot</code> has no effect.
+</p>
+
+<pre>
+pm.dexopt.boot
+</pre>
+
+<p>
+The compilation filter used after an over-the-air update. We
+<strong>strongly</strong> recommend <code>verify-profile</code> for this
+option, to avoid very long updates.
+</p>
+
+<h3 id="system_image_compilation_level">System image</h3>
+
+<p>
+This section gives recommendations on how to minimize the system image size
+while retaining the highest possible level of performance.
+Note these complement the above guidelines on the
+<a href="#runtime_compilation_level">level of compilation/verification</a>.
+</p>
+
+<p>
+System image size can be reduced by opting for a lower level of compilation for
+prebuilts. To achieve the best compromise between app performance and image size,
+we strongly recommend compiling prebuilts with the <code>interpret-only</code>
+filter. To do this, edit the following files to include these entries.
+</p>
+
+<p>Add the following entry to <code>BoardConfig.mk</code>:</p>
+
+<pre>WITH_DEXPREOPT := true</pre>
+
+<p>Add the following entry to <code>device.mk</code>:</p>
+
+<pre>
+PRODUCT_DEX_PREOPT_DEFAULT_FLAGS := --compiler-filter=interpret-only
+</pre>
+
+<p>
+Using the <code>interpret-only</code> filter will reduce the optimized code
+size for prebuilts by roughly half (depending on the the application) when
+compared with the <code>speed</code> filter. It also allows the runtime to
+profile the prebuilts and perform profile-guided compilation to further
+save on data partition storage.
+</p>
+
+<p>
+We advise against using a lower compilation/verification level
+(e.g. <code>verify-none</code>) or disabling the optimization for prebuilts
+as an effort to further save space on the system image. That will lead to slower
+application startup and increased memory consumption.
+</p>
+
 <h2 id="validation">Validation</h2>
 
 <p>
-To ensure their version of the feature works as intended, partners should run
-the ART test in <code>android/art/test</code>. Also, see the CTS test
-<code>hostsidetests/compilation</code> for userdedug builds.
+To ensure their version of the feature works as intended, device implementers
+should run the ART test in <code>android/art/test</code>. Also, see the CTS
+test <code>hostsidetests/compilation</code> for userdedug builds.
 </p>

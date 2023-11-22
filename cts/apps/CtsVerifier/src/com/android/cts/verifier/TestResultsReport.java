@@ -21,8 +21,15 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.Xml;
 
+import com.android.compatibility.common.util.DevicePropertyInfo;
+import com.android.compatibility.common.util.ICaseResult;
+import com.android.compatibility.common.util.IInvocationResult;
+import com.android.compatibility.common.util.IModuleResult;
+import com.android.compatibility.common.util.InvocationResult;
+import com.android.compatibility.common.util.ITestResult;
 import com.android.compatibility.common.util.MetricsXmlSerializer;
 import com.android.compatibility.common.util.ReportLog;
+import com.android.compatibility.common.util.TestStatus;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 import org.xmlpull.v1.XmlSerializer;
@@ -33,27 +40,10 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Map.Entry;
 
 /**
- * XML text report of the current test results.
- * <p>
- * Sample:
- * <pre>
- * <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
- * <test-results-report report-version="1" creation-time="Tue Jun 28 11:04:10 PDT 2011">
- *   <verifier-info version-name="2.3_r4" version-code="2" />
- *   <device-info>
- *     <build-info fingerprint="google/soju/crespo:2.3.4/GRJ22/121341:user/release-keys" />
- *   </device-info>
- *   <test-results>
- *     <test title="Audio Quality Verifier" class-name="com.android.cts.verifier.audioquality.AudioQualityVerifierActivity" result="not-executed" />
- *     <test title="Hardware/Software Feature Summary" class-name="com.android.cts.verifier.features.FeatureSummaryActivity" result="fail" />
- *     <test title="Bluetooth Test" class-name="com.android.cts.verifier.bluetooth.BluetoothTestActivity" result="fail" />
- *     <test title="SUID File Scanner" class-name="com.android.cts.verifier.suid.SuidFilesActivity" result="not-executed" />
- *     <test title="Accelerometer Test" class-name="com.android.cts.verifier.sensors.AccelerometerTestActivity" result="pass" />
- *   </test-results>
- * </test-results-report>
- * </pre>
+ * Helper class for creating an {@code InvocationResult} for CTS result generation.
  */
 class TestResultsReport {
 
@@ -64,6 +54,7 @@ class TestResultsReport {
     private static DateFormat DATE_FORMAT =
             new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.ENGLISH);
 
+    private static final String PREFIX_TAG = "build_";
     private static final String TEST_RESULTS_REPORT_TAG = "test-results-report";
     private static final String VERIFIER_INFO_TAG = "verifier-info";
     private static final String DEVICE_INFO_TAG = "device-info";
@@ -71,6 +62,9 @@ class TestResultsReport {
     private static final String TEST_RESULTS_TAG = "test-results";
     private static final String TEST_TAG = "test";
     private static final String TEST_DETAILS_TAG = "details";
+
+    private static final String MODULE_ID = "noabi CtsVerifier";
+    private static final String TEST_CASE_NAME = "manualTests";
 
     private final Context mContext;
 
@@ -81,83 +75,89 @@ class TestResultsReport {
         this.mAdapter = adapter;
     }
 
-    String getContents() throws IllegalArgumentException, IllegalStateException, IOException {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    IInvocationResult generateResult() {
+        String abis = null;
+        String abis32 = null;
+        String abis64 = null;
+        String versionBaseOs = null;
+        String versionSecurityPatch = null;
+        IInvocationResult result = new InvocationResult();
+        IModuleResult moduleResult = result.getOrCreateModule(MODULE_ID);
 
-        XmlSerializer xml = Xml.newSerializer();
-        xml.setOutput(outputStream, "utf-8");
-        xml.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
-        xml.startDocument("utf-8", true);
+        // Collect build fields available in API level 21
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            abis = TextUtils.join(",", Build.SUPPORTED_ABIS);
+            abis32 = TextUtils.join(",", Build.SUPPORTED_32_BIT_ABIS);
+            abis64 = TextUtils.join(",", Build.SUPPORTED_64_BIT_ABIS);
+        }
 
-        xml.startTag(null, TEST_RESULTS_REPORT_TAG);
-        xml.attribute(null, "report-version", Integer.toString(REPORT_VERSION));
-        xml.attribute(null, "creation-time", DATE_FORMAT.format(new Date()));
+        // Collect build fields available in API level 23
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            versionBaseOs = Build.VERSION.BASE_OS;
+            versionSecurityPatch = Build.VERSION.SECURITY_PATCH;
+        }
 
-        xml.startTag(null, VERIFIER_INFO_TAG);
-        xml.attribute(null, "version-name", Version.getVersionName(mContext));
-        xml.attribute(null, "version-code", Integer.toString(Version.getVersionCode(mContext)));
-        xml.endTag(null, VERIFIER_INFO_TAG);
+        // at the time of writing, the build class has no REFERENCE_FINGERPRINT property
+        String referenceFingerprint = null;
 
-        xml.startTag(null, DEVICE_INFO_TAG);
-        xml.startTag(null, BUILD_INFO_TAG);
-        xml.attribute(null, "board", Build.BOARD);
-        xml.attribute(null, "brand", Build.BRAND);
-        xml.attribute(null, "device", Build.DEVICE);
-        xml.attribute(null, "display", Build.DISPLAY);
-        xml.attribute(null, "fingerprint", Build.FINGERPRINT);
-        xml.attribute(null, "id", Build.ID);
-        xml.attribute(null, "model", Build.MODEL);
-        xml.attribute(null, "product", Build.PRODUCT);
-        xml.attribute(null, "release", Build.VERSION.RELEASE);
-        xml.attribute(null, "sdk", Integer.toString(Build.VERSION.SDK_INT));
-        xml.endTag(null, BUILD_INFO_TAG);
-        xml.endTag(null, DEVICE_INFO_TAG);
+        DevicePropertyInfo devicePropertyInfo = new DevicePropertyInfo(Build.CPU_ABI,
+                Build.CPU_ABI2, abis, abis32, abis64, Build.BOARD, Build.BRAND, Build.DEVICE,
+                Build.FINGERPRINT, Build.ID, Build.MANUFACTURER, Build.MODEL, Build.PRODUCT,
+                referenceFingerprint, Build.SERIAL, Build.TAGS, Build.TYPE, versionBaseOs,
+                Build.VERSION.RELEASE, Integer.toString(Build.VERSION.SDK_INT),
+                versionSecurityPatch, Build.VERSION.INCREMENTAL);
 
-        xml.startTag(null, TEST_RESULTS_TAG);
+        // add device properties to the result with a prefix tag for each key
+        for (Entry<String, String> entry :
+                devicePropertyInfo.getPropertytMapWithPrefix(PREFIX_TAG).entrySet()) {
+            String entryValue = entry.getValue();
+            if (entryValue != null) {
+                result.addInvocationInfo(entry.getKey(), entry.getValue());
+            }
+        }
+
+        ICaseResult caseResult = moduleResult.getOrCreateResult(TEST_CASE_NAME);
         int count = mAdapter.getCount();
+        int notExecutedCount = 0;
         for (int i = 0; i < count; i++) {
             TestListItem item = mAdapter.getItem(i);
             if (item.isTest()) {
-                xml.startTag(null, TEST_TAG);
-                xml.attribute(null, "title", item.title);
-                xml.attribute(null, "class-name", item.testName);
-                xml.attribute(null, "result", getTestResultString(mAdapter.getTestResult(i)));
-
-                String details = mAdapter.getTestDetails(i);
-                if (!TextUtils.isEmpty(details)) {
-                    xml.startTag(null, TEST_DETAILS_TAG);
-                    xml.text(details);
-                    xml.endTag(null, TEST_DETAILS_TAG);
+                ITestResult currentTestResult = caseResult.getOrCreateResult(item.testName);
+                TestStatus resultStatus = getTestResultStatus(mAdapter.getTestResult(i));
+                if (resultStatus == null) {
+                    ++notExecutedCount;
                 }
+                currentTestResult.setResultStatus(resultStatus);
+                // TODO: report test details with Extended Device Info (EDI) or CTS metrics
+                // String details = mAdapter.getTestDetails(i);
 
-                // TODO(stuartscott): For v2: ReportLog.serialize(xml, mAdapter.getReportLog(i));
                 ReportLog reportLog = mAdapter.getReportLog(i);
                 if (reportLog != null) {
-                    MetricsXmlSerializer metricsXmlSerializer = new MetricsXmlSerializer(xml);
-                    metricsXmlSerializer.serialize(reportLog);
+                    currentTestResult.setReportLog(reportLog);
                 }
-
-                xml.endTag(null, TEST_TAG);
             }
         }
-        xml.endTag(null, TEST_RESULTS_TAG);
+        moduleResult.setDone(true);
+        moduleResult.setNotExecuted(notExecutedCount);
 
-        xml.endTag(null, TEST_RESULTS_REPORT_TAG);
-        xml.endDocument();
-
-        return outputStream.toString("utf-8");
+        return result;
     }
 
-    private String getTestResultString(int testResult) {
+    String getContents() {
+        // TODO: remove getContents and everything that depends on it
+        return "Report viewing is deprecated. See contents on the SD Card.";
+    }
+
+    private TestStatus getTestResultStatus(int testResult) {
         switch (testResult) {
             case TestResult.TEST_RESULT_PASSED:
-                return "pass";
+                return TestStatus.PASS;
 
             case TestResult.TEST_RESULT_FAILED:
-                return "fail";
+                return TestStatus.FAIL;
 
             case TestResult.TEST_RESULT_NOT_EXECUTED:
-                return "not-executed";
+                return null;
 
             default:
                 throw new IllegalArgumentException("Unknown test result: " + testResult);

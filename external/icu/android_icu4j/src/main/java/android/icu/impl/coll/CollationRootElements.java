@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2013-2014, International Business Machines
@@ -453,7 +455,7 @@ public final class CollationRootElements {
         while((start + 1) < limit) {
             // Invariant: elements[start] and elements[limit] are primaries,
             // and elements[start]<=p<=elements[limit].
-            int i = (start + limit) / 2;
+            int i = (int)(((long)start + (long)limit) / 2);
             long q = elements[i];
             if((q & SEC_TER_DELTA_FLAG) != 0) {
                 // Find the next primary.

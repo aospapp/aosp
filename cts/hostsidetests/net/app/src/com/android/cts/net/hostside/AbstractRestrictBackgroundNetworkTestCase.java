@@ -16,28 +16,38 @@
 
 package com.android.cts.net.hostside;
 
-import static android.cts.util.SystemUtil.runShellCommand;
 import static android.net.ConnectivityManager.ACTION_RESTRICT_BACKGROUND_CHANGED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_WHITELISTED;
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import android.app.Instrumentation;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.NetworkInfo.State;
 import android.net.wifi.WifiManager;
+import android.os.BatteryManager;
+import android.os.Binder;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.service.notification.NotificationListenerService;
 import android.test.InstrumentationTestCase;
+import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.cts.net.hostside.INetworkStateObserver;
 
 /**
  * Superclass for tests related to background network restrictions.
@@ -48,29 +58,20 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected static final String TEST_PKG = "com.android.cts.net.hostside";
     protected static final String TEST_APP2_PKG = "com.android.cts.net.hostside.app2";
 
+    private static final String TEST_APP2_ACTIVITY_CLASS = TEST_APP2_PKG + ".MyActivity";
+    private static final String TEST_APP2_SERVICE_CLASS = TEST_APP2_PKG + ".MyForegroundService";
+
     private static final int SLEEP_TIME_SEC = 1;
     private static final boolean DEBUG = true;
 
     // Constants below must match values defined on app2's Common.java
     private static final String MANIFEST_RECEIVER = "ManifestReceiver";
     private static final String DYNAMIC_RECEIVER = "DynamicReceiver";
-    private static final String ACTION_GET_COUNTERS =
-            "com.android.cts.net.hostside.app2.action.GET_COUNTERS";
-    private static final String ACTION_GET_RESTRICT_BACKGROUND_STATUS =
-            "com.android.cts.net.hostside.app2.action.GET_RESTRICT_BACKGROUND_STATUS";
-    private static final String ACTION_CHECK_NETWORK =
-            "com.android.cts.net.hostside.app2.action.CHECK_NETWORK";
+
     private static final String ACTION_RECEIVER_READY =
             "com.android.cts.net.hostside.app2.action.RECEIVER_READY";
-    static final String ACTION_SEND_NOTIFICATION =
-            "com.android.cts.net.hostside.app2.action.SEND_NOTIFICATION";
-    private static final String EXTRA_ACTION = "com.android.cts.net.hostside.app2.extra.ACTION";
-    private static final String EXTRA_RECEIVER_NAME =
-            "com.android.cts.net.hostside.app2.extra.RECEIVER_NAME";
-    private static final String EXTRA_NOTIFICATION_ID =
-            "com.android.cts.net.hostside.app2.extra.NOTIFICATION_ID";
-    private static final String EXTRA_NOTIFICATION_TYPE =
-            "com.android.cts.net.hostside.app2.extra.NOTIFICATION_TYPE";
+    static final String ACTION_SHOW_TOAST =
+            "com.android.cts.net.hostside.app2.action.SHOW_TOAST";
 
     protected static final String NOTIFICATION_TYPE_CONTENT = "CONTENT";
     protected static final String NOTIFICATION_TYPE_DELETE = "DELETE";
@@ -87,16 +88,35 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     private static final int PROCESS_STATE_FOREGROUND_SERVICE = 4;
     private static final int PROCESS_STATE_TOP = 2;
 
+    private static final String KEY_NETWORK_STATE_OBSERVER = TEST_PKG + ".observer";
+
+    protected static final int TYPE_COMPONENT_ACTIVTIY = 0;
+    protected static final int TYPE_COMPONENT_FOREGROUND_SERVICE = 1;
+
+    private static final int BATTERY_STATE_TIMEOUT_MS = 5000;
+    private static final int BATTERY_STATE_CHECK_INTERVAL_MS = 500;
+
+    private static final int FOREGROUND_PROC_NETWORK_TIMEOUT_MS = 6000;
 
     // Must be higher than NETWORK_TIMEOUT_MS
     private static final int ORDERED_BROADCAST_TIMEOUT_MS = NETWORK_TIMEOUT_MS * 4;
+
+    private static final IntentFilter BATTERY_CHANGED_FILTER =
+            new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+
+    private static final String APP_NOT_FOREGROUND_ERROR = "app_not_fg";
 
     protected Context mContext;
     protected Instrumentation mInstrumentation;
     protected ConnectivityManager mCm;
     protected WifiManager mWfm;
     protected int mUid;
+    private int mMyUid;
     private String mMeteredWifi;
+    private MyServiceClient mServiceClient;
+    private boolean mHasWatch;
+    private String mDeviceIdleConstantsSetting;
+    private boolean mSupported;
 
     @Override
     protected void setUp() throws Exception {
@@ -107,12 +127,29 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         mCm = (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
         mWfm = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         mUid = getUid(TEST_APP2_PKG);
-        final int myUid = getUid(mContext.getPackageName());
+        mMyUid = getUid(mContext.getPackageName());
+        mServiceClient = new MyServiceClient(mContext);
+        mServiceClient.bind();
+        mHasWatch = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_WATCH);
+        if (mHasWatch) {
+            mDeviceIdleConstantsSetting = "device_idle_constants_watch";
+        } else {
+            mDeviceIdleConstantsSetting = "device_idle_constants";
+        }
+        mSupported = setUpActiveNetworkMeteringState();
 
         Log.i(TAG, "Apps status on " + getName() + ":\n"
-                + "\ttest app: uid=" + myUid + ", state=" + getProcessStateByUid(myUid) + "\n"
+                + "\ttest app: uid=" + mMyUid + ", state=" + getProcessStateByUid(mMyUid) + "\n"
                 + "\tapp2: uid=" + mUid + ", state=" + getProcessStateByUid(mUid));
    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        mServiceClient.unbind();
+
+        super.tearDown();
+    }
 
     protected int getUid(String packageName) throws Exception {
         return mContext.getPackageManager().getPackageUid(packageName, 0);
@@ -169,20 +206,29 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     }
 
     protected int getNumberBroadcastsReceived(String receiverName, String action) throws Exception {
-        final Intent intent = new Intent(ACTION_GET_COUNTERS);
-        intent.putExtra(EXTRA_ACTION, ACTION_RESTRICT_BACKGROUND_CHANGED);
-        intent.putExtra(EXTRA_RECEIVER_NAME, receiverName);
-        final String resultData = sendOrderedBroadcast(intent);
-        assertNotNull("timeout waiting for ordered broadcast result", resultData);
-        return Integer.valueOf(resultData);
+        return mServiceClient.getCounters(receiverName, action);
     }
 
     protected void assertRestrictBackgroundStatus(int expectedStatus) throws Exception {
-        final Intent intent = new Intent(ACTION_GET_RESTRICT_BACKGROUND_STATUS);
-        final String resultData = sendOrderedBroadcast(intent);
-        assertNotNull("timeout waiting for ordered broadcast result", resultData);
-        final String actualStatus = toString(Integer.parseInt(resultData));
+        final String status = mServiceClient.getRestrictBackgroundStatus();
+        assertNotNull("didn't get API status from app2", status);
+        final String actualStatus = toString(Integer.parseInt(status));
         assertEquals("wrong status", toString(expectedStatus), actualStatus);
+    }
+
+    protected void assertMyRestrictBackgroundStatus(int expectedStatus) throws Exception {
+        final int actualStatus = mCm.getRestrictBackgroundStatus();
+        assertEquals("Wrong status", toString(expectedStatus), toString(actualStatus));
+    }
+
+    protected boolean isMyRestrictBackgroundStatus(int expectedStatus) throws Exception {
+        final int actualStatus = mCm.getRestrictBackgroundStatus();
+        if (expectedStatus != actualStatus) {
+            Log.d(TAG, "Expected: " + toString(expectedStatus)
+                    + " but actual: " + toString(actualStatus));
+            return false;
+        }
+        return true;
     }
 
     protected void assertBackgroundNetworkAccess(boolean expectAllowed) throws Exception {
@@ -203,7 +249,9 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     /**
      * Whether this device suport this type of test.
      *
-     * <p>Should be overridden when necessary, and explicitly used before each test. Example:
+     * <p>Should be overridden when necessary (but always calling
+     * {@code super.isSupported()} first), and explicitly used before each test
+     * Example:
      *
      * <pre><code>
      * public void testSomething() {
@@ -213,7 +261,7 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
      * @return {@code true} by default.
      */
     protected boolean isSupported() throws Exception {
-        return true;
+        return mSupported;
     }
 
     /**
@@ -224,13 +272,11 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
      */
     protected void assertsForegroundAlwaysHasNetworkAccess() throws Exception{
         // Checks foreground first.
-        launchActivity();
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
         finishActivity();
 
         // Then foreground service
-        startForegroundService();
-        assertForegroundServiceNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_FOREGROUND_SERVICE);
         stopForegroundService();
     }
 
@@ -244,7 +290,7 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             if (isBackground(state.state)) {
                 return;
             }
-            Log.d(TAG, "App not on background state on attempt #" + i
+            Log.d(TAG, "App not on background state (" + state + ") on attempt #" + i
                     + "; sleeping 1s before trying again");
             SystemClock.sleep(SECOND_IN_MS);
         }
@@ -263,6 +309,7 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             }
             Log.d(TAG, "App not on foreground state on attempt #" + i
                     + "; sleeping 1s before trying again");
+            turnScreenOn();
             SystemClock.sleep(SECOND_IN_MS);
         }
         fail("App2 is not on foreground state after " + maxTries + " attempts: " + state );
@@ -327,15 +374,20 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
      * @return error message with the mismatch (or empty if assertion passed).
      */
     private String checkNetworkAccess(boolean expectAvailable) throws Exception {
-        String resultData = sendOrderedBroadcast(new Intent(ACTION_CHECK_NETWORK));
+        final String resultData = mServiceClient.checkNetworkStatus();
+        return checkForAvailabilityInResultData(resultData, expectAvailable);
+    }
+
+    private String checkForAvailabilityInResultData(String resultData, boolean expectAvailable) {
         if (resultData == null) {
-            return "timeout waiting for ordered broadcast";
+            assertNotNull("Network status from app2 is null", resultData);
         }
         // Network status format is described on MyBroadcastReceiver.checkNetworkStatus()
         final String[] parts = resultData.split(NETWORK_STATUS_SEPARATOR);
         assertEquals("Wrong network status: " + resultData, 5, parts.length); // Sanity check
-        final State state = State.valueOf(parts[0]);
-        final DetailedState detailedState = DetailedState.valueOf(parts[1]);
+        final State state = parts[0].equals("null") ? null : State.valueOf(parts[0]);
+        final DetailedState detailedState = parts[1].equals("null")
+                ? null : DetailedState.valueOf(parts[1]);
         final boolean connected = Boolean.valueOf(parts[2]);
         final String connectionCheckDetails = parts[3];
         final String networkInfo = parts[4];
@@ -426,15 +478,61 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     }
 
     /**
-     * Puts the device in a state where the active network is metered, or fail if it can't achieve
-     * that state.
+     * Sets the initial metering state for the active network.
+     *
+     * <p>It's called on setup and by default does nothing - it's up to the
+     * subclasses to override.
+     *
+     * @return whether the tests in the subclass are supported on this device.
      */
-    protected void setMeteredNetwork() throws Exception {
+    protected boolean setUpActiveNetworkMeteringState() throws Exception {
+        return true;
+    }
+
+    /**
+     * Makes sure the active network is not metered.
+     *
+     * <p>If the device does not supoprt un-metered networks (for example if it
+     * only has cellular data but not wi-fi), it should return {@code false};
+     * otherwise, it should return {@code true} (or fail if the un-metered
+     * network could not be set).
+     *
+     * @return {@code true} if the network is now unmetered.
+     */
+    protected boolean setUnmeteredNetwork() throws Exception {
+        final NetworkInfo info = mCm.getActiveNetworkInfo();
+        assertNotNull("Could not get active network", info);
+        if (!mCm.isActiveNetworkMetered()) {
+            Log.d(TAG, "Active network is not metered: " + info);
+        } else if (info.getType() == ConnectivityManager.TYPE_WIFI) {
+            Log.i(TAG, "Setting active WI-FI network as not metered: " + info );
+            setWifiMeteredStatus(false);
+        } else {
+            Log.d(TAG, "Active network cannot be set to un-metered: " + info);
+            return false;
+        }
+        assertActiveNetworkMetered(false); // Sanity check.
+        return true;
+    }
+
+    /**
+     * Enables metering on the active network if supported.
+     *
+     * <p>If the device does not support metered networks it should return
+     * {@code false}; otherwise, it should return {@code true} (or fail if the
+     * metered network could not be set).
+     *
+     * @return {@code true} if the network is now metered.
+     */
+    protected boolean setMeteredNetwork() throws Exception {
         final NetworkInfo info = mCm.getActiveNetworkInfo();
         final boolean metered = mCm.isActiveNetworkMetered();
         if (metered) {
             Log.d(TAG, "Active network already metered: " + info);
-            return;
+            return true;
+        } else if (info.getType() != ConnectivityManager.TYPE_WIFI) {
+            Log.w(TAG, "Active network does not support metering: " + info);
+            return false;
         } else {
             Log.w(TAG, "Active network not metered: " + info);
         }
@@ -445,31 +543,21 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         // Sanity check.
         assertWifiMeteredStatus(netId, true);
         assertActiveNetworkMetered(true);
+        return true;
     }
 
     /**
-     * Puts the device in a state where the active network is not metered, or fail if it can't
-     * achieve that state.
-     * <p>It assumes the device has a valid WI-FI connection.
+     * Resets the device metering state to what it was before the test started.
+     *
+     * <p>This reverts any metering changes made by {@code setMeteredNetwork}.
      */
     protected void resetMeteredNetwork() throws Exception {
         if (mMeteredWifi != null) {
             Log.i(TAG, "resetMeteredNetwork(): SID '" + mMeteredWifi
                     + "' was set as metered by test case; resetting it");
             setWifiMeteredStatus(mMeteredWifi, false);
-        } else {
-            final NetworkInfo info = mCm.getActiveNetworkInfo();
-            assertNotNull("Could not get active network", info);
-            if (!mCm.isActiveNetworkMetered()) {
-                Log.d(TAG, "Active network is not metered: " + info);
-            } else if (info.getType() == ConnectivityManager.TYPE_WIFI) {
-                Log.i(TAG, "Setting active WI-FI network as metered: " + info );
-                setWifiMeteredStatus(false);
-            } else {
-                fail("Active network is not WI-FI hence cannot be set as non-metered: " + info);
-            }
+            assertActiveNetworkMetered(false); // Sanity check.
         }
-        assertActiveNetworkMetered(false); // Sanity check.
     }
 
     private void assertActiveNetworkMetered(boolean expected) throws Exception {
@@ -541,6 +629,9 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected void addRestrictBackgroundWhitelist(int uid) throws Exception {
         executeShellCommand("cmd netpolicy add restrict-background-whitelist " + uid);
         assertRestrictBackgroundWhitelist(uid, true);
+        // UID policies live by the Highlander rule: "There can be only one".
+        // Hence, if app is whitelisted, it should not be blacklisted.
+        assertRestrictBackgroundBlacklist(uid, false);
     }
 
     protected void removeRestrictBackgroundWhitelist(int uid) throws Exception {
@@ -555,6 +646,9 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected void addRestrictBackgroundBlacklist(int uid) throws Exception {
         executeShellCommand("cmd netpolicy add restrict-background-blacklist " + uid);
         assertRestrictBackgroundBlacklist(uid, true);
+        // UID policies live by the Highlander rule: "There can be only one".
+        // Hence, if app is blacklisted, it should not be whitelisted.
+        assertRestrictBackgroundWhitelist(uid, false);
     }
 
     protected void removeRestrictBackgroundBlacklist(int uid) throws Exception {
@@ -613,12 +707,56 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         assertPowerSaveModeWhitelist(packageName, false); // Sanity check
     }
 
+    protected void assertPowerSaveModeExceptIdleWhitelist(String packageName, boolean expected)
+            throws Exception {
+        // TODO: currently the power-save mode is behaving like idle, but once it changes, we'll
+        // need to use netpolicy for whitelisting
+        assertDelayedShellCommand("dumpsys deviceidle except-idle-whitelist =" + packageName,
+                Boolean.toString(expected));
+    }
+
+    protected void addPowerSaveModeExceptIdleWhitelist(String packageName) throws Exception {
+        Log.i(TAG, "Adding package " + packageName + " to power-save-mode-except-idle whitelist");
+        // TODO: currently the power-save mode is behaving like idle, but once it changes, we'll
+        // need to use netpolicy for whitelisting
+        executeShellCommand("dumpsys deviceidle except-idle-whitelist +" + packageName);
+        assertPowerSaveModeExceptIdleWhitelist(packageName, true); // Sanity check
+    }
+
+    protected void removePowerSaveModeExceptIdleWhitelist(String packageName) throws Exception {
+        Log.i(TAG, "Removing package " + packageName
+                + " from power-save-mode-except-idle whitelist");
+        // TODO: currently the power-save mode is behaving like idle, but once it changes, we'll
+        // need to use netpolicy for whitelisting
+        executeShellCommand("dumpsys deviceidle except-idle-whitelist reset");
+        assertPowerSaveModeExceptIdleWhitelist(packageName, false); // Sanity check
+    }
+
     protected void turnBatteryOff() throws Exception {
         executeSilentShellCommand("cmd battery unplug");
+        assertBatteryState(false);
     }
 
     protected void turnBatteryOn() throws Exception {
         executeSilentShellCommand("cmd battery reset");
+        assertBatteryState(true);
+
+    }
+
+    private void assertBatteryState(boolean pluggedIn) throws Exception {
+        final long endTime = SystemClock.elapsedRealtime() + BATTERY_STATE_TIMEOUT_MS;
+        while (isDevicePluggedIn() != pluggedIn && SystemClock.elapsedRealtime() <= endTime) {
+            Thread.sleep(BATTERY_STATE_CHECK_INTERVAL_MS);
+        }
+        if (isDevicePluggedIn() != pluggedIn) {
+            fail("Timed out waiting for the plugged-in state to change,"
+                    + " expected pluggedIn: " + pluggedIn);
+        }
+    }
+
+    private boolean isDevicePluggedIn() {
+        final Intent batteryIntent = mContext.registerReceiver(null, BATTERY_CHANGED_FILTER);
+        return batteryIntent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) > 0;
     }
 
     protected void turnScreenOff() throws Exception {
@@ -634,9 +772,9 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         Log.i(TAG, "Setting Battery Saver Mode to " + enabled);
         if (enabled) {
             turnBatteryOff();
-            executeSilentShellCommand("cmd battery unplug");
-            executeSilentShellCommand("settings put global low_power 1");
+            executeSilentShellCommand("cmd power set-mode 1");
         } else {
+            executeSilentShellCommand("cmd power set-mode 0");
             turnBatteryOn();
         }
     }
@@ -670,12 +808,40 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
 
     protected void setAppIdle(boolean enabled) throws Exception {
         Log.i(TAG, "Setting app idle to " + enabled);
+        final String beforeStats = getUsageStatsDump();
         executeSilentShellCommand("am set-inactive " + TEST_APP2_PKG + " " + enabled );
-        assertAppIdle(enabled); // Sanity check
+        try {
+            assertAppIdle(enabled); // Sanity check
+        } catch (Throwable e) {
+            final String afterStats = getUsageStatsDump();
+            Log.d(TAG, "UsageStats before:\n" + beforeStats);
+            Log.d(TAG, "UsageStats after:\n" + afterStats);
+            throw e;
+        }
+    }
+
+    private String getUsageStatsDump() throws Exception {
+        final String output = runShellCommand(mInstrumentation, "dumpsys usagestats").trim();
+        final StringBuilder sb = new StringBuilder();
+        final TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter('\n');
+        splitter.setString(output);
+        String str;
+        while (splitter.hasNext()) {
+            str = splitter.next();
+            if (str.contains("package=")
+                    && !str.contains(TEST_PKG) && !str.contains(TEST_APP2_PKG)) {
+                continue;
+            }
+            if (str.contains("config=")) {
+                continue;
+            }
+            sb.append(str).append('\n');
+        }
+        return sb.toString();
     }
 
     protected void assertAppIdle(boolean enabled) throws Exception {
-        assertDelayedShellCommand("am get-inactive " + TEST_APP2_PKG, 10, 2, "Idle=" + enabled);
+        assertDelayedShellCommand("am get-inactive " + TEST_APP2_PKG, 15, 2, "Idle=" + enabled);
     }
 
     /**
@@ -686,12 +852,14 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
      * {@link #runDeviceTests(String, String)} is executed.
      */
     protected void registerBroadcastReceiver() throws Exception {
-        executeShellCommand("am startservice com.android.cts.net.hostside.app2/.MyService");
+        mServiceClient.registerBroadcastReceiver();
+
+        final Intent intent = new Intent(ACTION_RECEIVER_READY)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         // Wait until receiver is ready.
-        final int maxTries = 5;
+        final int maxTries = 10;
         for (int i = 1; i <= maxTries; i++) {
-            final String message =
-                    sendOrderedBroadcast(new Intent(ACTION_RECEIVER_READY), SECOND_IN_MS);
+            final String message = sendOrderedBroadcast(intent, SECOND_IN_MS * 4);
             Log.d(TAG, "app2 receiver acked: " + message);
             if (message != null) {
                 return;
@@ -723,45 +891,96 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     }
 
     protected void setPendingIntentWhitelistDuration(int durationMs) throws Exception {
-        final String command = String.format(
-                "settings put global device_idle_constants %s=%d",
-                "notification_whitelist_duration", durationMs);
-        executeSilentShellCommand(command);
+        executeSilentShellCommand(String.format(
+                "settings put global %s %s=%d", mDeviceIdleConstantsSetting,
+                "notification_whitelist_duration", durationMs));
     }
 
     protected void resetDeviceIdleSettings() throws Exception {
-        executeShellCommand("settings delete global device_idle_constants");
+        executeShellCommand(String.format("settings delete global %s",
+                mDeviceIdleConstantsSetting));
     }
 
-    protected void startForegroundService() throws Exception {
-        executeShellCommand(
-                "am startservice -f 1 com.android.cts.net.hostside.app2/.MyForegroundService");
+    protected void launchComponentAndAssertNetworkAccess(int type) throws Exception {
+        if (type == TYPE_COMPONENT_FOREGROUND_SERVICE) {
+            startForegroundService();
+            assertForegroundServiceNetworkAccess();
+            return;
+        } else if (type == TYPE_COMPONENT_ACTIVTIY) {
+            turnScreenOn();
+            // Wait for screen-on state to propagate through the system.
+            SystemClock.sleep(2000);
+            final CountDownLatch latch = new CountDownLatch(1);
+            final Intent launchIntent = getIntentForComponent(type);
+            final Bundle extras = new Bundle();
+            final String[] errors = new String[]{null};
+            extras.putBinder(KEY_NETWORK_STATE_OBSERVER, getNewNetworkStateObserver(latch, errors));
+            launchIntent.putExtras(extras);
+            mContext.startActivity(launchIntent);
+            if (latch.await(FOREGROUND_PROC_NETWORK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                if (!errors[0].isEmpty()) {
+                    if (errors[0] == APP_NOT_FOREGROUND_ERROR) {
+                        // App didn't come to foreground when the activity is started, so try again.
+                        assertForegroundNetworkAccess();
+                    } else {
+                        fail("Network is not available for app2 (" + mUid + "): " + errors[0]);
+                    }
+                }
+            } else {
+                fail("Timed out waiting for network availability status from app2 (" + mUid + ")");
+            }
+        } else {
+            throw new IllegalArgumentException("Unknown type: " + type);
+        }
+    }
+
+    private void startForegroundService() throws Exception {
+        final Intent launchIntent = getIntentForComponent(TYPE_COMPONENT_FOREGROUND_SERVICE);
+        mContext.startForegroundService(launchIntent);
         assertForegroundServiceState();
     }
 
+    private Intent getIntentForComponent(int type) {
+        final Intent intent = new Intent();
+        if (type == TYPE_COMPONENT_ACTIVTIY) {
+            intent.setComponent(new ComponentName(TEST_APP2_PKG, TEST_APP2_ACTIVITY_CLASS));
+        } else if (type == TYPE_COMPONENT_FOREGROUND_SERVICE) {
+            intent.setComponent(new ComponentName(TEST_APP2_PKG, TEST_APP2_SERVICE_CLASS))
+                    .setFlags(1);
+        } else {
+            fail("Unknown type: " + type);
+        }
+        return intent;
+    }
+
     protected void stopForegroundService() throws Exception {
-        executeShellCommand(
-                "am startservice -f 2 com.android.cts.net.hostside.app2/.MyForegroundService");
+        executeShellCommand(String.format("am startservice -f 2 %s/%s",
+                TEST_APP2_PKG, TEST_APP2_SERVICE_CLASS));
         // NOTE: cannot assert state because it depends on whether activity was on top before.
     }
 
-    /**
-     * Launches an activity on app2 so its process is elevated to foreground status.
-     */
-    protected void launchActivity() throws Exception {
-        turnScreenOn();
-        executeShellCommand("am start com.android.cts.net.hostside.app2/.MyActivity");
-        final int maxTries = 30;
-        ProcessState state = null;
-        for (int i = 1; i <= maxTries; i++) {
-            state = getProcessStateByUid(mUid);
-            if (state.state == PROCESS_STATE_TOP) return;
-            Log.w(TAG, "launchActivity(): uid " + mUid + " not on TOP state on attempt #" + i
-                    + "; turning screen on and sleeping 1s before checking again");
-            turnScreenOn();
-            SystemClock.sleep(SECOND_IN_MS);
-        }
-        fail("App2 is not on foreground state after " + maxTries + " attempts: " + state);
+    private Binder getNewNetworkStateObserver(final CountDownLatch latch,
+            final String[] errors) {
+        return new INetworkStateObserver.Stub() {
+            @Override
+            public boolean isForeground() {
+                try {
+                    final ProcessState state = getProcessStateByUid(mUid);
+                    return !isBackground(state.state);
+                } catch (Exception e) {
+                    Log.d(TAG, "Error while reading the proc state for " + mUid + ": " + e);
+                    return false;
+                }
+            }
+
+            @Override
+            public void onNetworkStateChecked(String resultData) {
+                errors[0] = resultData == null
+                        ? APP_NOT_FOREGROUND_ERROR
+                        : checkForAvailabilityInResultData(resultData, true);
+                latch.countDown();
+            }
+        };
     }
 
     /**
@@ -773,13 +992,21 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
                 + "--receiver-foreground --receiver-registered-only");
     }
 
-    protected void sendNotification(int notificationId, String notificationType) {
-        final Intent intent = new Intent(ACTION_SEND_NOTIFICATION);
-        intent.putExtra(EXTRA_NOTIFICATION_ID, notificationId);
-        intent.putExtra(EXTRA_NOTIFICATION_TYPE, notificationType);
-        Log.d(TAG, "Sending notification broadcast (id=" + notificationId + ", type="
-                + notificationType + ": " + intent);
-        mContext.sendBroadcast(intent);
+    protected void sendNotification(int notificationId, String notificationType) throws Exception {
+        Log.d(TAG, "Sending notification broadcast (id=" + notificationId
+                + ", type=" + notificationType);
+        mServiceClient.sendNotification(notificationId, notificationType);
+    }
+
+    protected String showToast() {
+        final Intent intent = new Intent(ACTION_SHOW_TOAST);
+        intent.setPackage(TEST_APP2_PKG);
+        Log.d(TAG, "Sending request to show toast");
+        try {
+            return sendOrderedBroadcast(intent, 3 * SECOND_IN_MS);
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private String toString(int status) {

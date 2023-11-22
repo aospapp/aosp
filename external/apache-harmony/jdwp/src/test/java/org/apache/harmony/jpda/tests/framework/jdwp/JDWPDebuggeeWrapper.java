@@ -60,7 +60,7 @@ public abstract class JDWPDebuggeeWrapper extends DebuggeeWrapper {
     public TransportWrapper createTransportWrapper() {
         String name = settings.getTransportWrapperClassName();
         try {
-            Class cls = Class.forName(name);
+            Class<?> cls = Class.forName(name);
             return (TransportWrapper) cls.newInstance();
         } catch (Exception e) {
             throw new TestErrorException(e);
@@ -96,6 +96,7 @@ public abstract class JDWPDebuggeeWrapper extends DebuggeeWrapper {
    /**
      * Resumes debuggee VM.
      */
+    @Override
     public void resume() {
         vmMirror.resume();
     }
@@ -103,6 +104,7 @@ public abstract class JDWPDebuggeeWrapper extends DebuggeeWrapper {
     /**
      * Disposes debuggee VM.
      */
+    @Override
     public void dispose() {
         vmMirror.dispose();
     }
@@ -110,6 +112,7 @@ public abstract class JDWPDebuggeeWrapper extends DebuggeeWrapper {
     /**
      * Exit target Virtual Machine
      */
+    @Override
     public void exit(int exitStatus) {
         vmMirror.exit(exitStatus);
     }

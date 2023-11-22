@@ -11,6 +11,7 @@ LOCAL_SRC_FILES:= \
     com_android_bluetooth_avrcp.cpp \
     com_android_bluetooth_avrcp_controller.cpp \
     com_android_bluetooth_hid.cpp \
+    com_android_bluetooth_hidd.cpp \
     com_android_bluetooth_hdp.cpp \
     com_android_bluetooth_pan.cpp \
     com_android_bluetooth_gatt.cpp \
@@ -21,13 +22,12 @@ LOCAL_C_INCLUDES += \
 
 LOCAL_SHARED_LIBRARIES := \
     libandroid_runtime \
+    libchrome \
     libnativehelper \
     libcutils \
     libutils \
     liblog \
     libhardware
-
-LOCAL_MULTILIB := 32
 
 LOCAL_CFLAGS += -Wall -Wextra -Wno-unused-parameter
 

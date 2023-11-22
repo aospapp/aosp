@@ -51,14 +51,14 @@ class firmware_UpdateFirmwareDataKeyVersion(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         dict_args = utils.args_to_dict(cmdline_args)
-        self.use_shellball = dict_args.get('shellball', None)
+        shellball_path = dict_args.get('shellball', None)
         super(firmware_UpdateFirmwareDataKeyVersion, self).initialize(
             host, cmdline_args)
         self.backup_firmware()
-        updater_path = self.setup_firmwareupdate_shellball(self.use_shellball)
+        self.setup_firmwareupdate_shellball(shellball_path)
 
         # Update firmware if needed
-        if updater_path:
+        if shellball_path:
             self.set_hardware_write_protect(enable=False)
             self.faft_client.updater.run_factory_install()
             self.switcher.mode_aware_reboot()

@@ -16,12 +16,16 @@ const char kUpdateEngineServiceErrorFailed[] =
 
 // Methods.
 const char kAttemptUpdate[] = "AttemptUpdate";
+const char kGetLastAttemptError[] = "GetLastAttemptError";
 const char kGetStatus[] = "GetStatus";
 const char kRebootIfNeeded[] = "RebootIfNeeded";
 const char kSetChannel[] = "SetChannel";
 const char kGetChannel[] = "GetChannel";
 const char kAttemptRollback[] = "AttemptRollback";
 const char kCanRollback[] = "CanRollback";
+const char kGetEolStatus[] = "GetEolStatus";
+const char kSetUpdateOverCellularPermission[] =
+    "SetUpdateOverCellularPermission";
 
 // Signals.
 const char kStatusUpdate[] = "StatusUpdate";
@@ -30,6 +34,13 @@ const char kStatusUpdate[] = "StatusUpdate";
 typedef enum {
   kAttemptUpdateFlagNonInteractive = (1 << 0)
 } AttemptUpdateFlags;
+
+// End of Life status used in the GetEolStatus() D-Bus method.
+typedef enum {
+   kSupported = 0,
+   kSecurityOnly = 1,
+   kEol = 2,
+} EndOfLifeStatus;
 
 // Operations contained in StatusUpdate signals.
 const char kUpdateStatusIdle[] = "UPDATE_STATUS_IDLE";

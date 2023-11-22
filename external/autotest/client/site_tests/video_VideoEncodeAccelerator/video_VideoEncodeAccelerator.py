@@ -12,8 +12,6 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.cros import chrome_binary_test
 
-from contextlib import closing
-
 DOWNLOAD_BASE = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/'
 BINARY = 'video_encode_accelerator_unittest'
 
@@ -45,11 +43,29 @@ class video_VideoEncodeAccelerator(chrome_binary_test.ChromeBinaryTest):
 
     version = 1
 
+    def get_filter_option(self):
+        """Get option of filtering test
+        """
+
+        blacklist = {
+                # board: [tests to skip...]
+
+                # Kevin doesn't support HW encode for plane sizes not multiple
+                # of cache line
+                'kevin': ['CacheLineUnalignedInputTest/*']
+                }
+
+        board = utils.get_current_board()
+        if board in blacklist:
+            return ' --gtest_filter=-' + ':'.join(blacklist[board])
+
+        return ''
 
     @chrome_binary_test.nuke_chrome
     def run_once(self, in_cloud, streams, profile):
         """Runs video_encode_accelerator_unittest on the streams.
 
+        @param in_cloud: Input file needs to be downloaded first.
         @param streams: The test streams for video_encode_accelerator_unittest.
         @param profile: The profile to encode into.
 
@@ -71,6 +87,7 @@ class video_VideoEncodeAccelerator(chrome_binary_test.ChromeBinaryTest):
                     input_path, width, height, profile, output_path, bit_rate)
             if utils.is_freon():
                 cmd_line += ' --ozone-platform=gbm'
+            cmd_line += self.get_filter_option()
             try:
                 self.run_chrome_test_binary(BINARY, cmd_line, as_chronos=False)
             except error.TestFail as test_failure:
@@ -82,6 +99,7 @@ class video_VideoEncodeAccelerator(chrome_binary_test.ChromeBinaryTest):
                 # Remove the downloaded video
                 if in_cloud:
                     _remove_if_exists(input_path)
+                _remove_if_exists(output_path)
 
         if last_test_failure:
             raise last_test_failure

@@ -37,6 +37,13 @@ public class TestPow extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestPowRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inBase;
         public float inExponent;
@@ -44,13 +51,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowFloatFloatFloat() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x622b91eel, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x49a5f734l, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x377b8a6622b91eel, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x8bdde8de49a5f734l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowFloatFloatFloat(inBase, out);
             verifyResultsPowFloatFloatFloat(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowFloatFloatFloat(inBase, out);
             verifyResultsPowFloatFloatFloat(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloatFloatFloat: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowFloatFloatFloat(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowFloat2Float2Float2() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x895c2294l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xbbad35fal, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x15be0382895c2294l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xeb77bf60bbad35fal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowFloat2Float2Float2(inBase, out);
             verifyResultsPowFloat2Float2Float2(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloat2Float2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowFloat2Float2Float2(inBase, out);
             verifyResultsPowFloat2Float2Float2(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloat2Float2Float2: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowFloat2Float2Float2(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowFloat3Float3Float3() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x71d00807l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x12cfb87dl, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xb0a4522671d00807l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xc6e63a6212cfb87dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowFloat3Float3Float3(inBase, out);
             verifyResultsPowFloat3Float3Float3(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloat3Float3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowFloat3Float3Float3(inBase, out);
             verifyResultsPowFloat3Float3Float3(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloat3Float3Float3: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowFloat3Float3Float3(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowFloat4Float4Float4() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x5a43ed7al, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x69f23b00l, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x4b8aa0ca5a43ed7al, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xa254b56369f23b00l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowFloat4Float4Float4(inBase, out);
             verifyResultsPowFloat4Float4Float4(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloat4Float4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowFloat4Float4Float4(inBase, out);
             verifyResultsPowFloat4Float4Float4(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowFloat4Float4Float4: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowFloat4Float4Float4(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -368,13 +391,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowHalfHalfHalf() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xe2a33d87l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x999eb5fdl, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x7a1d4a5e2a33d87l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x57947e8999eb5fdl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowHalfHalfHalf(inBase, out);
             verifyResultsPowHalfHalfHalf(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalfHalfHalf: " + e.toString());
         }
@@ -383,9 +407,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowHalfHalfHalf(inBase, out);
             verifyResultsPowHalfHalfHalf(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalfHalfHalf: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowHalfHalfHalf(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -452,13 +479,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowHalf2Half2Half2() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xbeaf459dl, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x5bbbe933l, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x10fd0fe7beaf459dl, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x7ea6c0fd5bbbe933l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowHalf2Half2Half2(inBase, out);
             verifyResultsPowHalf2Half2Half2(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalf2Half2Half2: " + e.toString());
         }
@@ -467,9 +495,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowHalf2Half2Half2(inBase, out);
             verifyResultsPowHalf2Half2Half2(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalf2Half2Half2: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowHalf2Half2Half2(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -536,13 +567,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowHalf3Half3Half3() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb260967al, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x5d7d1400l, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x4a871b7db260967al, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x4774ddaa5d7d1400l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowHalf3Half3Half3(inBase, out);
             verifyResultsPowHalf3Half3Half3(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalf3Half3Half3: " + e.toString());
         }
@@ -551,9 +583,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowHalf3Half3Half3(inBase, out);
             verifyResultsPowHalf3Half3Half3(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalf3Half3Half3: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowHalf3Half3Half3(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -620,13 +655,14 @@ public class TestPow extends RSBaseCompute {
     }
 
     private void checkPowHalf4Half4Half4() {
-        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xa611e757l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x5f3e3ecdl, false);
+        Allocation inBase = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x84112713a611e757l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x1042fa575f3e3ecdl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testPowHalf4Half4Half4(inBase, out);
             verifyResultsPowHalf4Half4Half4(inBase, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalf4Half4Half4: " + e.toString());
         }
@@ -635,9 +671,12 @@ public class TestPow extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testPowHalf4Half4Half4(inBase, out);
             verifyResultsPowHalf4Half4Half4(inBase, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testPowHalf4Half4Half4: " + e.toString());
         }
+        inBase.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsPowHalf4Half4Half4(Allocation inBase, Allocation inExponent, Allocation out, boolean relaxed) {

@@ -27,7 +27,7 @@ package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
-;
+
 
 /**
  * Debuggee for BreakpointTest unit test.
@@ -42,6 +42,7 @@ public class BreakpointDebuggee extends SyncDebuggee {
         logWriter.println("breakpointTest");
     }
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         

@@ -16,9 +16,12 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
+import android.support.annotation.RestrictTo;
 import android.support.v7.appcompat.R;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
@@ -34,6 +37,7 @@ import java.lang.ref.WeakReference;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public final class ViewStubCompat extends View {
     private int mLayoutResource = 0;
     private int mInflatedId;

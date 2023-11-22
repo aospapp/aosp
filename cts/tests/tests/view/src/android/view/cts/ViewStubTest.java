@@ -16,85 +16,106 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
-import android.content.Context;
-import android.test.ActivityInstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
 import android.view.ViewParent;
 import android.view.ViewStub;
-import android.view.ViewStub.OnInflateListener;
 import android.widget.LinearLayout;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.xmlpull.v1.XmlPullParser;
 
 /**
  * Test {@link ViewStub}.
  */
-public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsActivity> {
-    private Context mContext;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ViewStubTest {
     private Activity mActivity;
 
-    public ViewStubTest() {
-        super("android.view.cts", ViewStubCtsActivity.class);
+    @Rule
+    public ActivityTestRule<ViewStubCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ViewStubCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getContext();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.viewstub_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
         assertNotNull(attrs);
 
-        new ViewStub(mContext);
+        new ViewStub(mActivity);
 
-        new ViewStub(mContext, 10);
+        new ViewStub(mActivity, 10);
 
-        new ViewStub(mContext, attrs);
+        new ViewStub(mActivity, attrs);
 
-        new ViewStub(mContext, attrs, 30);
+        new ViewStub(mActivity, attrs, 30);
     }
 
+    @Test
     public void testDraw() {
-        ViewStub viewStub = new ViewStub(mContext);
+        ViewStub viewStub = new ViewStub(mActivity);
         // if the function draw() does not throw any exception,
         // we think it is right, because it's an empty method.
         viewStub.draw(null);
     }
 
     @UiThreadTest
+    @Test
     public void testSetVisibility() {
         final ViewStub viewStub1 = (ViewStub) mActivity.findViewById(R.id.viewstub);
-        MockOnInflateListener listener = new MockOnInflateListener();
+        final ViewStub.OnInflateListener listener = mock(ViewStub.OnInflateListener.class);
         viewStub1.setOnInflateListener(listener);
-        assertFalse(listener.hasCalledOnInflate());
+        verifyZeroInteractions(listener);
         assertNotNull(viewStub1.getParent());
 
         // set GONE
         viewStub1.setVisibility(View.GONE);
         assertEquals(View.GONE, viewStub1.getVisibility());
         // does not call inflate
-        assertFalse(listener.hasCalledOnInflate());
+        verifyZeroInteractions(listener);
         assertNotNull(viewStub1.getParent());
 
         // set VISIBLE
         viewStub1.setVisibility(View.VISIBLE);
         assertEquals(View.VISIBLE, viewStub1.getVisibility());
-        //assure the inflate is called
-        assertTrue(listener.hasCalledOnInflate());
+        // assure the inflate is called
+        ArgumentCaptor<View> inflatedViewCaptor = ArgumentCaptor.forClass(View.class);
+        verify(listener, times(1)).onInflate(eq(viewStub1), inflatedViewCaptor.capture());
+        // We're expecting inflatedId attribute on ViewStub to take precedence over the
+        // id attribute defined on the inflated view
+        assertEquals(R.id.inflated_id, inflatedViewCaptor.getValue().getId());
         assertNull(viewStub1.getParent());
 
         // set INVISIBLE when parent is null
-        final ViewStub viewStub2 = new ViewStub(mContext);
+        final ViewStub viewStub2 = new ViewStub(mActivity);
         assertNull(viewStub2.getParent());
         try {
             viewStub2.setVisibility(View.INVISIBLE);
@@ -104,8 +125,9 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
         assertEquals(View.INVISIBLE, viewStub2.getVisibility());
     }
 
+    @Test
     public void testAccessLayoutResource() {
-        ViewStub viewStub = new ViewStub(mContext);
+        ViewStub viewStub = new ViewStub(mActivity);
 
         viewStub.setLayoutResource(R.layout.viewstub_layout);
         assertEquals(R.layout.viewstub_layout, viewStub.getLayoutResource());
@@ -117,8 +139,9 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
         assertEquals(-1, viewStub.getLayoutResource());
     }
 
+    @Test
     public void testViewStubHasNoDimensions() {
-        ViewStub viewStub = new ViewStub(mContext);
+        ViewStub viewStub = new ViewStub(mActivity);
 
         viewStub.forceLayout();
         viewStub.measure(200, 300);
@@ -131,30 +154,29 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
     }
 
     @UiThreadTest
+    @Test
     public void testSetOnInflateListener() {
         final ViewStub viewStub = (ViewStub) mActivity.findViewById(R.id.viewstub);
-        final MockOnInflateListener listener = new MockOnInflateListener();
+        final ViewStub.OnInflateListener listener = mock(ViewStub.OnInflateListener.class);
 
         viewStub.setOnInflateListener(listener);
-        assertFalse(listener.hasCalledOnInflate());
-        viewStub.inflate();
-        assertTrue(listener.hasCalledOnInflate());
+        verifyZeroInteractions(listener);
+        final View inflated = viewStub.inflate();
+        verify(listener, times(1)).onInflate(viewStub, inflated);
     }
 
     @UiThreadTest
+    @Test
     public void testSetOnInflateListenerError() {
         final ViewStub viewStub = (ViewStub) mActivity.findViewById(R.id.viewstub);
 
         viewStub.setOnInflateListener(null);
-        try {
-            viewStub.inflate();
-        } catch (NullPointerException e) {
-            fail("should not throw NullPointerException");
-        }
+        viewStub.inflate();
     }
 
+    @Test
     public void testAccessInflatedId() {
-        ViewStub viewStub = new ViewStub(mContext);
+        ViewStub viewStub = new ViewStub(mActivity);
         assertEquals("Default ViewStub inflated ID is View.NO_ID",
                 View.NO_ID, viewStub.getInflatedId());
 
@@ -168,13 +190,14 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
     }
 
     @UiThreadTest
+    @Test
     public void testInflate() {
         final ViewStub viewStub = (ViewStub) mActivity.findViewById(R.id.viewstub);
         final ViewParent vsParent = viewStub.getParent();
-        final MockOnInflateListener listener = new MockOnInflateListener();
+        final ViewStub.OnInflateListener listener = mock(ViewStub.OnInflateListener.class);
 
         viewStub.setOnInflateListener(listener);
-        assertFalse(listener.hasCalledOnInflate());
+        verifyZeroInteractions(listener);
         assertNotNull(vsParent);
 
         View view = viewStub.inflate();
@@ -185,43 +208,23 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
         assertNull(viewStub.getParent());
         assertSame(vsParent, view.getParent());
         assertEquals(R.id.inflated_id, view.getId());
-        assertTrue(listener.hasCalledOnInflate());
+        verify(listener, times(1)).onInflate(viewStub, view);
     }
 
-    public void testInflateError() {
+    @Test(expected=IllegalArgumentException.class)
+    public void testInflateErrorInvalidLayoutResource() {
         final ViewStub viewStub = (ViewStub) mActivity.findViewById(R.id.viewstub);
 
         // mLayoutResource is 0
         viewStub.setLayoutResource(0);
-        try {
-            viewStub.inflate();
-            fail("should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
-
-        // parent is null
-        ViewStub stub = new ViewStub(mContext);
-        assertNull(stub.getParent());
-        try {
-            stub.inflate();
-            fail("should throw IllegalStateException");
-        } catch (IllegalStateException e) {
-        }
+        viewStub.inflate();
     }
 
-    private class MockOnInflateListener implements OnInflateListener {
-        private boolean mCalledOnInflate = false;
-
-        public void onInflate(ViewStub stub, View inflated) {
-            mCalledOnInflate = true;
-        }
-
-        public boolean hasCalledOnInflate() {
-            return mCalledOnInflate;
-        }
-
-        public void reset() {
-            mCalledOnInflate = false;
-        }
+    @Test(expected=IllegalStateException.class)
+    public void testInflateErrorNullParent() {
+        // parent is null
+        ViewStub stub = new ViewStub(mActivity);
+        assertNull(stub.getParent());
+        stub.inflate();
     }
 }

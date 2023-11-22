@@ -54,8 +54,6 @@ extern "C" {
 #include "hci_uart.h"
 #include "hw_rome.h"
 
-#define BT_VERSION_FILEPATH "/data/misc/bluedroid/bt_fw_version.txt"
-
 #ifdef __cplusplus
 }
 #endif
@@ -178,16 +176,6 @@ int get_vs_hci_event(unsigned char *rsp)
                                                 rsp[PATCH_SOC_VER_OFFSET]  ));
                 }
 
-                if (NULL != (btversionfile = fopen(BT_VERSION_FILEPATH, "wb"))) {
-                    fprintf(btversionfile, "Bluetooth Controller Product ID    : 0x%08x\n", productid);
-                    fprintf(btversionfile, "Bluetooth Controller Patch Version : 0x%04x\n", patchversion);
-                    fprintf(btversionfile, "Bluetooth Controller Build Version : 0x%04x\n", rome_ver);
-                    fprintf(btversionfile, "Bluetooth Controller SOC Version   : 0x%08x\n", soc_id);
-                    fclose(btversionfile);
-                }else {
-                    ALOGI("Failed to dump SOC version info. Errno:%d", errno);
-                }
-
                 /* Rome Chipset Version can be decided by Patch version and SOC version,
                 Upper 2 bytes will be used for Patch version and Lower 2 bytes will be
                 used for SOC as combination for BT host driver */
@@ -228,12 +216,6 @@ int get_vs_hci_event(unsigned char *rsp)
                 *(build_label+build_lbl_len) = '\0';
 
                 ALOGI("BT SoC FW SU Build info: %s, %d", build_label, build_lbl_len);
-                if (NULL != (btversionfile = fopen(BT_VERSION_FILEPATH, "a+b"))) {
-                    fprintf(btversionfile, "Bluetooth Contoller SU Build info  : %s\n", build_label);
-                    fclose(btversionfile);
-                } else {
-                    ALOGI("Failed to dump  FW SU build info. Errno:%d", errno);
-                }
             break;
         }
         break;

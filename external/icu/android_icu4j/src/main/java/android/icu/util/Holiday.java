@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2011, International Business Machines Corporation and    *
@@ -18,7 +20,7 @@ import android.icu.util.ULocale.Category;
 /**
  * <b>Note:</b> The Holiday framework is a technology preview.
  * Despite its age, is still draft API, and clients should treat it as such.
- * 
+ *
  * An abstract class representing a holiday.
  * @hide Only a subset of ICU is exposed in Android
  * @hide draft / provisional / internal are hidden on Android
@@ -69,6 +71,7 @@ public abstract class Holiday implements DateRule
      * @see #firstBetween
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public Date firstAfter(Date start) {
         return rule.firstAfter(start);
     }
@@ -86,6 +89,7 @@ public abstract class Holiday implements DateRule
      * @see #firstAfter
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public Date firstBetween(Date start, Date end) {
         return rule.firstBetween(start, end);
     }
@@ -99,6 +103,7 @@ public abstract class Holiday implements DateRule
      * @return      true if this holiday occurs on the given date.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public boolean isOn(Date date) {
         //System.out.println(name + ".isOn(" + date.toString() + "):");
         return rule.isOn(date);
@@ -109,6 +114,7 @@ public abstract class Holiday implements DateRule
      * dates given.
      * @hide draft / provisional / internal are hidden on Android
      */
+    @Override
     public boolean isBetween(Date start, Date end) {
         return rule.isBetween(start, end);
     }

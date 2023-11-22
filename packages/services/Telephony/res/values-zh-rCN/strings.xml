@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"移动数据网络"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"移动数据"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"电话服务"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"紧急拨号器"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"电话"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"缺少语音信箱号码"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM卡上未存储语音信箱号码。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"添加号码"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"只有主用户才能修改语音信箱设置。"</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"您的SIM卡已解锁。正在解锁您的手机..."</string>
     <string name="label_ndp" msgid="780479633159517250">"SIM网络解锁PIN码"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"解锁"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"正在请求网络解锁..."</string>
     <string name="unlock_failed" msgid="6490531697031504225">"网络解锁请求失败。"</string>
     <string name="unlock_success" msgid="6770085622238180152">"网络解锁成功。"</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"此用户无法修改移动网络设置"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"此用户无法修改移动网络设置"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM 通话设置"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM 通话设置（<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>）"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA 通话设置"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"语音信箱"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"语音信箱（<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>）"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"语音信箱："</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"通知"</string>
     <string name="networks" msgid="8873030692174541976">"网络运营商"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"紧急广播"</string>
     <string name="call_settings" msgid="6112441768261754562">"通话设置"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"无法接通时"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"无法接通时的转接号码"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"转接到 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"未启用"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"关闭"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"您的运营商不支持在手机无法接通时停用来电转接功能。"</string>
     <string name="updating_title" msgid="6146755386174019046">"通话设置"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"只有管理员用户才能更改通话设置。"</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"新的 PIN 码包含无效字符。"</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"无法更改 PIN 码"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"不受支持的语音邮件类型，请拨打 <xliff:g id="NUMBER">%s</xliff:g> 收听。"</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"移动网络设置"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"移动网络设置"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"移动网络"</string>
     <string name="label_available" msgid="1181658289009300430">"可用网络"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"正在搜索..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"未找到网络。"</string>
@@ -231,7 +234,7 @@
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"已超过<xliff:g id="USED_0">%1$s</xliff:g>速率上限\n数据传输速率已降至 <xliff:g id="USED_1">%2$d</xliff:g> Kb/s。"</string>
     <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"此周期已过去 <xliff:g id="USED_0">%1$d</xliff:g>٪\n下一个时段将从 <xliff:g id="USED_1">%2$d</xliff:g> 天后 (<xliff:g id="USED_2">%3$s</xliff:g>) 开始"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"如果超过了流量上限，则数据传输速率会降至 <xliff:g id="USED">%1$d</xliff:g> Kb/s"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"您的运营商的移动网络数据使用政策详情"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"有关您运营商的移动网络数据使用政策的详情"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"小区广播短信"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"小区广播短信"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"已启用小区广播短信"</string>
@@ -368,6 +371,7 @@
     <string name="menu_add" msgid="1882023737425114762">"添加联系人"</string>
     <string name="menu_edit" msgid="7143003705504672374">"编辑联系人"</string>
     <string name="menu_delete" msgid="3977150783449642851">"删除联系人"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"拨打电话给联系人"</string>
     <string name="get_pin2" msgid="8204677063922225311">"输入 PIN2 码"</string>
     <string name="name" msgid="7329028332786872378">"名称"</string>
     <string name="number" msgid="7905950798349903858">"号码"</string>
@@ -382,7 +386,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"正在删除固定拨号联系人..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"已删除固定拨号联系人。"</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"固定拨号未更新，因为输入的 PIN 码有误。"</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"固定拨号未更新，因为号码不能超过 20 位。"</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"系统未更新 FDN，因为未输入号码或者输入的号码超过了 20 位。"</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"固定拨号未更新。PIN2 码有误，或电话号码遭拒。"</string>
     <string name="fdn_failed" msgid="540018079008319747">"固定拨号操作失败。"</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"正在从SIM卡读取..."</string>
@@ -439,16 +443,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"语音信箱号码未知"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"无服务"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"所选网络（<xliff:g id="OPERATOR_NAME">%s</xliff:g>）不可用"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"需关闭飞行模式才能拨打电话。"</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"需开启移动网络，并关闭飞行模式或省电模式才能拨打电话。"</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"需关闭飞行模式才能拨打电话。"</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"需关闭飞行模式或连接至无线网络才能拨打电话。"</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"要拨打非紧急电话，请先退出紧急回拨模式。"</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"尚未注册网络。"</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"无法连接到移动网络。"</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"移动网络不可用。需连接至无线网络才能拨打电话。"</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"无法连接到移动网络"</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"移动网络不可用。需连接至无线网络才能拨打电话。"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"要拨打电话，请输入有效的电话号码。"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"无法通话。"</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"目前无法添加通话。"</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"正在启动 MMI 序列..."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"服务不受支持"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"无法切换通话。"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"无法单独通话。"</string>
@@ -523,10 +527,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"已进入紧急回拨模式"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"紧急回拨模式"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"数据连接已停用"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other">持续 <xliff:g id="COUNT_1">%s</xliff:g> 分钟没有数据网络连接</item>
-      <item quantity="one">持续 <xliff:g id="COUNT_0">%s</xliff:g> 分钟没有数据网络连接</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"<xliff:g id="COMPLETETIME">%s</xliff:g> 之后才有数据网络连接"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">手机在 <xliff:g id="COUNT_1">%s</xliff:g> 分钟内都会处于紧急回拨模式。此模式下无法使用任何需要连接数据网络的应用。要立即退出吗？</item>
       <item quantity="one">手机在 <xliff:g id="COUNT_0">%s</xliff:g> 分钟内都会处于紧急回拨模式。此模式下无法使用任何需要连接数据网络的应用。要立即退出吗？</item>
@@ -550,12 +551,9 @@
     <string name="selectContact" msgid="781975788478987237">"选择联系人"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"不支持语音呼叫"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"拨号"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"振动"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"振动"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"可视语音邮箱"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"设置 PIN 码"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"更改 PIN 码"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"提示音"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"铃声和振动"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"内置SIM卡"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"开启视频通话功能"</string>
@@ -566,12 +564,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"只能拨打紧急呼救电话"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM 卡，插槽：<xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"无障碍功能"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"WLAN 来电"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"WLAN 通话来电："</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"WLAN 通话"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"再次点按即可打开"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"对邮件解码时出错。"</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM 卡已启用您的服务，并更新了您手机的漫游功能。"</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"进行中的通话过多。请结束现有通话或将其合并，然后再拨打新的电话。"</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"无法连接，请插入有效的 SIM 卡。"</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"WLAN 连接中断，通话已结束。"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"更改语音信箱 PIN 码"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"继续"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"取消"</string>

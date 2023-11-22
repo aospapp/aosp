@@ -107,10 +107,18 @@ public class RingtoneTest extends InstrumentationTestCase {
 
     private boolean hasAudioOutput() {
         return getInstrumentation().getContext().getPackageManager()
-            .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+                .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
+    private boolean isTV() {
+        return getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY);
     }
 
     public void testRingtone() {
+        if (isTV()) {
+            return;
+        }
         if (!hasAudioOutput()) {
             Log.i(TAG, "Skipping testRingtone(): device doesn't have audio output.");
             return;

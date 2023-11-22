@@ -16,11 +16,12 @@
 
 from acts import asserts
 from acts import base_test
+from acts import test_runner
 
 import mock_controller
 
-class IntegrationTest(base_test.BaseTestClass):
 
+class IntegrationTest(base_test.BaseTestClass):
     def setup_class(self):
         self.register_controller(mock_controller)
 
@@ -30,3 +31,7 @@ class IntegrationTest(base_test.BaseTestClass):
         self.log.info("This is a bare minimal test to make sure the basic ACTS"
                       "test flow works.")
         asserts.explicit_pass("Hello World")
+
+
+if __name__ == "__main__":
+    test_runner.main()

@@ -58,8 +58,12 @@ UPDATE afe_special_tasks SET requested_by_id = (
   SELECT id FROM afe_users WHERE login = 'autotest_system')
 WHERE requested_by_id IS NULL;
 
+SET foreign_key_checks = 0;
+
 ALTER TABLE afe_special_tasks
 MODIFY COLUMN requested_by_id INT NOT NULL;
+
+SET foreign_key_checks = 1;
 """
 
 

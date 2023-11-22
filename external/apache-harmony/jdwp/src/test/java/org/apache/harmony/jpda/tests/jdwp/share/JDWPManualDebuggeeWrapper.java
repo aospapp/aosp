@@ -76,6 +76,7 @@ public class JDWPManualDebuggeeWrapper extends JDWPUnitDebuggeeWrapper {
      * @throws IOException
      *             if user does not confirm process launching
      */
+    @Override
     protected Process launchProcess(String cmdLine) throws IOException {
         getLogWriter().println(
                 "\n>>> Start debuggee VM with this command line:\n" + cmdLine);
@@ -93,6 +94,7 @@ public class JDWPManualDebuggeeWrapper extends JDWPUnitDebuggeeWrapper {
      * @throws IOException
      *             if user does not confirm process exit
      */
+    @Override
     protected void WaitForProcessExit(Process process) throws IOException {
         getLogWriter().println(
                 "\n>>> Confirm that debuggee VM has exited [yes/no]:");

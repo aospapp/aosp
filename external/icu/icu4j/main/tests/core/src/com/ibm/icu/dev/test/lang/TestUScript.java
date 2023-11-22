@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
 *******************************************************************************
-* Copyright (C) 1996-2015, International Business Machines Corporation and
+* Copyright (C) 1996-2016, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 */
@@ -9,6 +11,8 @@ package com.ibm.icu.dev.test.lang;
 
 import java.util.BitSet;
 import java.util.Locale;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.lang.UProperty;
@@ -24,10 +28,6 @@ public class TestUScript extends TestFmwk {
     */
     public TestUScript()
     {
-    }
-
-    public static void main(String[] args) throws Exception {
-        new TestUScript().run(args);
     }
 
     private static String scriptsToString(int[] scripts) {
@@ -48,6 +48,7 @@ public class TestUScript extends TestFmwk {
         assertEquals(msg, scriptsToString(expectedScripts), scriptsToString(actualScripts));
     }
 
+    @Test
     public void TestLocaleGetCode(){
         final ULocale[] testNames={
         /* test locale */
@@ -135,18 +136,15 @@ public class TestUScript extends TestFmwk {
                 UScript.getCode("ro-RO"));  // String not ULocale
     }
 
+    // TODO(junit): remove this and convert the tests that use this to be parameterized
     private void reportDataErrors(int numErrors) {
         if (numErrors >0) {
             // assume missing locale data, so not an error, just a warning
-            if (isModularBuild() || noData()) {
-                // if nodata is set don't even warn
-                warnln("Could not find locale data");
-            } else {
-                errln("encountered " + numErrors + " errors.");
-            }
+            errln("encountered " + numErrors + " errors.");
         }
     }
 
+    @Test
     public void TestMultipleCode(){
         final String[] testNames = { "ja" ,"ko_KR","zh","zh_TW"};
         final int[][] expected = {
@@ -201,6 +199,7 @@ public class TestUScript extends TestFmwk {
         reportDataErrors(numErrors);                 
     }
 
+    @Test
     public void TestGetCode(){
 
         final String[] testNames={
@@ -267,6 +266,7 @@ public class TestUScript extends TestFmwk {
         reportDataErrors(numErrors);
     }
 
+    @Test
     public void TestGetName(){
 
         final int[] testCodes={
@@ -296,6 +296,7 @@ public class TestUScript extends TestFmwk {
         }
 
     }
+    @Test
     public void TestGetShortName(){
         final int[] testCodes={
             /* abbr should return */
@@ -326,6 +327,7 @@ public class TestUScript extends TestFmwk {
             warnln("encountered " + numErrors + " errors in UScript.getShortName()");
         }
     }
+    @Test
     public void TestGetScript(){
         int codepoints[][] = new int[][] {
                 {0x0000FF9D, UScript.KATAKANA },
@@ -372,6 +374,7 @@ public class TestUScript extends TestFmwk {
         }
     }
 
+    @Test
     public void TestGetScriptOfCharsWithScriptExtensions() {
         /* test characters which have Script_Extensions */
         if(!(
@@ -383,6 +386,7 @@ public class TestUScript extends TestFmwk {
         }
     }
 
+    @Test
     public void TestHasScript() {
         if(!(
             !UScript.hasScript(0x063f, UScript.COMMON) &&
@@ -430,6 +434,7 @@ public class TestUScript extends TestFmwk {
         }
     }
 
+    @Test
     public void TestGetScriptExtensions() {
         BitSet scripts=new BitSet(UScript.CODE_LIMIT);
 
@@ -463,6 +468,7 @@ public class TestUScript extends TestFmwk {
         }
     }
 
+    @Test
     public void TestScriptMetadataAPI() {
         /* API & code coverage. */
         String sample = UScript.getSampleString(UScript.LATIN);
@@ -511,18 +517,23 @@ public class TestUScript extends TestFmwk {
      */
     private static final int getCharScript(int script) {
         switch(script) {
+        case UScript.HAN_WITH_BOPOMOFO:
         case UScript.SIMPLIFIED_HAN:
         case UScript.TRADITIONAL_HAN:
             return UScript.HAN;
         case UScript.JAPANESE:
             return UScript.HIRAGANA;
+        case UScript.JAMO:
         case UScript.KOREAN:
             return UScript.HANGUL;
+        case UScript.SYMBOLS_EMOJI:
+            return UScript.SYMBOLS;
         default:
             return script;
         }
     }
 
+    @Test
     public void TestScriptMetadata() {
         UnicodeSet rtl = new UnicodeSet("[[:bc=R:][:bc=AL:]-[:Cn:]-[:sc=Common:]]");
         // So far, sample characters are uppercase.
@@ -565,6 +576,7 @@ public class TestUScript extends TestFmwk {
         assertFalse("Latn does not break between letters", UScript.breaksBetweenLetters(UScript.LATIN));
     }
 
+    @Test
     public void TestScriptNames(){
         for(int i=0; i<UScript.CODE_LIMIT;i++){
             String name = UScript.getName(i);
@@ -577,6 +589,7 @@ public class TestUScript extends TestFmwk {
             }
         }
     }
+    @Test
     public void TestAllCodepoints(){
         int code;
         //String oldId="";
@@ -597,6 +610,7 @@ public class TestUScript extends TestFmwk {
           }
         }
     }
+    @Test
     public void TestNewCode(){
         /*
          * These script codes were originally added to ICU pre-3.6, so that ICU would
@@ -629,13 +643,15 @@ public class TestUScript extends TestFmwk {
             "Loma", "Mende_Kikakui", "Meroitic_Cursive",
             "Old_North_Arabian", "Nabataean", "Palmyrene", "Khudawadi", "Warang_Citi",
             /* new in ICU 4.8 */
-            "Afak", "Jurc", "Mro", "Nshu", "Sharada", "Sora_Sompeng", "Takri", "Tang", "Wole",
+            "Afak", "Jurc", "Mro", "Nshu", "Sharada", "Sora_Sompeng", "Takri", "Tangut", "Wole",
             /* new in ICU 49 */
             "Anatolian_Hieroglyphs", "Khojki", "Tirhuta",
             /* new in ICU 52 */
             "Caucasian_Albanian", "Mahajani",
             /* new in ICU 54 */
-            "Ahom", "Hatran", "Modi", "Multani", "Pau_Cin_Hau", "Siddham"
+            "Ahom", "Hatran", "Modi", "Multani", "Pau_Cin_Hau", "Siddham",
+            // new in ICU 58
+            "Adlam", "Bhaiksuki", "Marchen", "Newa", "Osage", "Hanb", "Jamo", "Zsye"
         };
         String[] expectedShort = new String[]{
             "Bali", "Batk", "Blis", "Brah", "Cham", "Cirt", "Cyrs", "Egyd", "Egyh", "Egyp",
@@ -661,7 +677,9 @@ public class TestUScript extends TestFmwk {
             /* new in ICU 52 */
             "Aghb", "Mahj",
             /* new in ICU 54 */
-            "Ahom", "Hatr", "Modi", "Mult", "Pauc", "Sidd"
+            "Ahom", "Hatr", "Modi", "Mult", "Pauc", "Sidd",
+            // new in ICU 58
+            "Adlm", "Bhks", "Marc", "Newa", "Osge", "Hanb", "Jamo", "Zsye"
         };
         if(expectedLong.length!=(UScript.CODE_LIMIT-UScript.BALINESE)) {
             errln("need to add new script codes in lang.TestUScript.java!");

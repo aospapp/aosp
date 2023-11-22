@@ -28,8 +28,8 @@
 using android::OK;
 using android::String16;
 using android::String8;
-using android::brillo::ParcelableUpdateEngineStatus;
 using android::binder::Status;
+using android::brillo::ParcelableUpdateEngineStatus;
 using android::getService;
 using chromeos_update_engine::StringToUpdateStatus;
 using chromeos_update_engine::UpdateEngineService;
@@ -70,6 +70,20 @@ bool BinderUpdateEngineClient::GetStatus(int64_t* out_last_checked_time,
                        out_update_status);
   *out_new_version = String8{status.new_version_}.string();
   *out_new_size = status.new_size_;
+  return true;
+}
+
+bool BinderUpdateEngineClient::SetCohortHint(const string& in_cohort_hint) {
+  return service_->SetCohortHint(String16{in_cohort_hint.c_str()}).isOk();
+}
+
+bool BinderUpdateEngineClient::GetCohortHint(string* out_cohort_hint) const {
+  String16 out_as_string16;
+
+  if (!service_->GetCohortHint(&out_as_string16).isOk())
+    return false;
+
+  *out_cohort_hint = String8{out_as_string16}.string();
   return true;
 }
 
@@ -177,10 +191,7 @@ bool BinderUpdateEngineClient::RegisterStatusUpdateHandler(
 
 bool BinderUpdateEngineClient::UnregisterStatusUpdateHandler(
     StatusUpdateHandler* handler) {
-  auto it = handlers_.begin();
-
-  for (; *it != handler && it != handlers_.end(); it++);
-
+  auto it = std::find(handlers_.begin(), handlers_.end(), handler);
   if (it != handlers_.end()) {
     handlers_.erase(it);
     return true;
@@ -223,6 +234,16 @@ bool BinderUpdateEngineClient::GetLastAttemptError(
     return false;
 
   *last_attempt_error = out_as_int;
+  return true;
+}
+
+bool BinderUpdateEngineClient::GetEolStatus(int32_t* eol_status) const {
+  int out_as_int;
+
+  if (!service_->GetEolStatus(&out_as_int).isOk())
+    return false;
+
+  *eol_status = out_as_int;
   return true;
 }
 

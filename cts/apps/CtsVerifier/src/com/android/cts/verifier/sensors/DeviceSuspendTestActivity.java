@@ -143,7 +143,7 @@ public class DeviceSuspendTestActivity
             if (wakeUpSensor == null) {
                 throw new SensorNotSupportedException(Sensor.TYPE_MAGNETIC_FIELD, true);
             }
-            return runAPWakeUpWhenFIFOFull(wakeUpSensor);
+            return runAPWakeUpWhenReportLatencyExpires(wakeUpSensor);
         }
 
         public String testAPWakeUpWhenFIFOFullAccel() throws Throwable {

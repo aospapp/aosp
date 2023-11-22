@@ -19,7 +19,12 @@ LOCAL_PACKAGE_NAME := DialerJankTests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator ub-janktesthelper
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    ub-uiautomator \
+    ub-janktesthelper \
+    legacy-android-test
 LOCAK_SDK_VERSION := 22
+
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 include $(BUILD_PACKAGE)

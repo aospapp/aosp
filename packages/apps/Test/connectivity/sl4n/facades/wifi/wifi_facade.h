@@ -46,5 +46,4 @@ class WifiFacade {
   bool SharedValidator();
   bool WifiStartHal();
   bool WifiGetInterfaces();
-  int BringInterfaceUpDown(const char *ifname, int dev_up);
 };

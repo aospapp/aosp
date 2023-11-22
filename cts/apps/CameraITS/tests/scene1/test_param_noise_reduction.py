@@ -21,7 +21,10 @@ import matplotlib
 import matplotlib.pyplot
 import numpy
 import os.path
-import pylab
+from matplotlib import pylab
+
+NR_MODES = [0, 1, 2, 3, 4]  # NR modes 0, 1, 2, 3, 4 with high gain
+
 
 def main():
     """Test that the android.noiseReduction.mode param is applied when set.
@@ -65,14 +68,14 @@ def main():
         print "Ref SNRs:", ref_snr
 
         e, s = its.target.get_target_exposure_combos(cam)["maxSensitivity"]
-        # NR modes 0, 1, 2, 3, 4 with high gain
-        for mode in range(5):
+
+        for mode in NR_MODES:
             # Skip unavailable modes
             if not its.caps.noise_reduction_mode(props, mode):
                 nr_modes_reported.append(mode)
                 for channel in range(3):
                     snrs[channel].append(0)
-                continue;
+                continue
 
             rgb_snr_list = []
             # Capture several images to account for per frame noise variations
@@ -109,10 +112,13 @@ def main():
 
     # Draw a plot.
     for j in range(3):
-        pylab.plot(range(5), snrs[j], "rgb"[j])
+        pylab.plot(NR_MODES, snrs[j], "-"+"rgb"[j]+"o")
+    pylab.xlabel("Noise Reduction Mode")
+    pylab.ylabel("SNR (dB)")
+    pylab.xticks(NR_MODES)
     matplotlib.pyplot.savefig("%s_plot_SNRs.png" % (NAME))
 
-    assert(nr_modes_reported == [0,1,2,3,4])
+    assert nr_modes_reported == NR_MODES
 
     for j in range(3):
         # Larger SNR is better

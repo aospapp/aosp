@@ -591,12 +591,6 @@ public class WelcomeFragment extends OnboardingFragment {
     }
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        initialize();
-    }
-
-    @Override
     public void onAttach(Context context) {
         super.onAttach(context);
         initialize();

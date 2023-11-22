@@ -26,6 +26,10 @@ tune2fs \- adjust tunable filesystem parameters on ext2/ext3/ext4 filesystems
 .I interval-between-checks
 ]
 [
+.B \-I
+.I new_inode_size
+]
+[
 .B \-j
 ]
 [
@@ -39,6 +43,10 @@ tune2fs \- adjust tunable filesystem parameters on ext2/ext3/ext4 filesystems
 [
 .B \-o
 .RI [^]mount-options [,...]
+]
+[
+.B \-p
+.I mmp_update_interval
 ]
 [
 .B \-r
@@ -87,6 +95,10 @@ tune2fs \- adjust tunable filesystem parameters on ext2/ext3/ext4 filesystems
 [
 .B \-U
 .I UUID
+]
+[
+.B \-z
+.I undo_file
 ]
 device
 .SH DESCRIPTION
@@ -248,7 +260,10 @@ option is useful when removing the
 filesystem feature from a filesystem which has 
 an external journal (or is corrupted
 such that it appears to have an external journal), but that 
-external journal is not available.   
+external journal is not available.   If the filesystem appears to require
+journal replay, the
+.B \-f
+flag must be specified twice to proceed.
 .sp
 .B WARNING:
 Removing an external journal from a filesystem which was not cleanly unmounted
@@ -283,6 +298,15 @@ It is strongly recommended that either
 checking of the filesystem.  Failure to do so may lead to filesystem
 corruption (due to bad disks, cables, memory, or kernel bugs) going
 unnoticed, ultimately resulting in data loss or corruption.
+.TP
+.B \-I
+Change the inode size used by the file system.   This requires rewriting
+the inode table, so it requires that the file system is checked for
+consistency first using
+.BR e2fsck (8).
+This operation can also take a while and the file system can be
+corrupted and data lost if it is interrupted while in the middle of
+converting the file system.
 .TP
 .B \-j
 Add an ext3 journal to the filesystem.  If the 
@@ -330,9 +354,16 @@ Create a journal stored in the filesystem of size
 .I journal-size
 megabytes.   The size of the journal must be at least 1024 filesystem blocks
 (i.e., 1MB if using 1k blocks, 4MB if using 4k blocks, etc.)
-and may be no more than 102,400 filesystem blocks.
+and may be no more than 10,240,000 filesystem blocks.
 There must be enough free space in the filesystem to create a journal of
 that size.
+.TP
+.BI location =journal-location
+Specify the location of the journal.  The argument
+.I journal-location
+can either be specified as a block number, or if the number has a units
+suffix (e.g., 'M', 'G', etc.) interpret it as the offset from the
+beginning of the file system.
 @JDEV@.TP
 @JDEV@.BI device= external-journal
 @JDEV@Attach the filesystem to the journal block device located on
@@ -515,8 +546,15 @@ Use hashed b-trees to speed up lookups for large directories.
 .B dir_nlink
 Allow more than 65000 subdirectories per directory.
 .TP
+.B encrypt
+Enable file system level encryption.
+.B Tune2fs
+currently only supports setting this filesystem feature.
+.TP
 .B extent
 Enable the use of extent trees to store the location of data blocks in inodes.
+.B Tune2fs
+currently only supports setting this filesystem feature.
 .TP
 .B extra_isize
 Enable the extended inode fields used by ext4.
@@ -545,26 +583,37 @@ Support files larger than 2 terabytes in size.
 .B large_file
 Filesystem can contain files that are greater than 2GB.
 .TP
-.B resize_inode
-Reserve space so the block group descriptor table may grow in the
-future.
-.B Tune2fs 
-only supports clearing this filesystem feature.
+.B metadata_csum
+Store a checksum to protect the contents in each metadata block.
 .TP
 .B mmp
 Enable or disable multiple mount protection (MMP) feature.
-@QUOTA_MAN_COMMENT@.TP
-@QUOTA_MAN_COMMENT@.B quota
-@QUOTA_MAN_COMMENT@Enable internal file system quota inodes.
+.TP
+.B project
+Enable project ID tracking.  This is used for project quota tracking.
+.TP
+.B quota
+Enable internal file system quota inodes.
+.TP
+.B read-only
+Force the kernel to mount the file system read-only.
+.TP
+.B resize_inode
+Reserve space so the block group descriptor table may grow in the
+future.
+.B Tune2fs
+only supports clearing this filesystem feature.
 .TP
 .B sparse_super
 Limit the number of backup superblocks to save space on large filesystems.
+.B Tune2fs
+currently only supports setting this filesystem feature.
 .TP
 .B uninit_bg
 Allow the kernel to initialize bitmaps and inode tables lazily, and to
 keep a high watermark for the unused inodes in a filesystem, to reduce
 .BR e2fsck (8)
-time.  This first e2fsck run after enabling this feature will take the
+time.  The first e2fsck run after enabling this feature will take the
 full time, but subsequent e2fsck runs will take only a fraction of the
 original time, depending on how full the file system is.
 .RE
@@ -576,8 +625,9 @@ After setting or clearing
 or
 .B resize_inode
 filesystem features,
+the file system may require being checked using
 .BR e2fsck (8)
-must be run on the filesystem to return the filesystem to a consistent state.
+to return the filesystem to a consistent state.
 .B Tune2fs
 will print a message requesting that the system administrator run
 .BR e2fsck (8)
@@ -609,6 +659,9 @@ Sets/clears user quota inode in the superblock.
 .TP
 .BR [^]grpquota
 Sets/clears group quota inode in the superblock.
+.TP
+.BR [^]prjquota
+Sets/clears project quota inode in the superblock.
 .RE
 .TP
 .BI \-T " time-last-checked"
@@ -674,10 +727,20 @@ or
 .IR /dev/urandom ,
 .B tune2fs
 will automatically use a time-based UUID instead of a randomly-generated UUID.
+.TP
+.BI \-z " undo_file"
+Before overwriting a file system block, write the old contents of the block to
+an undo file.  This undo file can be used with e2undo(8) to restore the old
+contents of the file system should something go wrong.  If the empty string is
+passed as the undo_file argument, the undo file will be written to a file named
+tune2fs-\fIdevice\fR.e2undo in the directory specified via the
+\fIE2FSPROGS_UNDO_DIR\fR environment variable.
+
+WARNING: The undo file cannot be used to recover from a power or system crash.
 .SH BUGS
 We haven't found any bugs yet.  That doesn't mean there aren't any...
 .SH AUTHOR
-.B tune2fs 
+.B tune2fs
 was written by Remy Card <Remy.Card@linux.org>.  It is currently being
 maintained by Theodore Ts'o <tytso@alum.mit.edu>.
 .B tune2fs

@@ -291,7 +291,6 @@ static void semanage_direct_destroy(semanage_handle_t * sh
 					__attribute__ ((unused)))
 {
 	/* do nothing */
-	sh = NULL;
 }
 
 static int semanage_direct_disconnect(semanage_handle_t * sh)
@@ -363,6 +362,35 @@ static int semanage_direct_begintrans(semanage_handle_t * sh)
 }
 
 /********************* utility functions *********************/
+
+/* Takes a module stored in 'module_data' and parses its headers.
+ * Sets reference variables 'module_name' to module's name, and
+ * 'version' to module's version.  The caller is responsible for
+ * free()ing 'module_name', and 'version'; they will be
+ * set to NULL upon entering this function.  Returns 0 on success, -1
+ * if out of memory.
+ */
+static int parse_module_headers(semanage_handle_t * sh, char *module_data,
+                               size_t data_len, char **module_name,
+                               char **version)
+{
+       struct sepol_policy_file *pf;
+       int file_type;
+       *module_name = *version = NULL;
+
+       if (sepol_policy_file_create(&pf)) {
+               ERR(sh, "Out of memory!");
+               return -1;
+       }
+       sepol_policy_file_set_mem(pf, module_data, data_len);
+       sepol_policy_file_set_handle(pf, sh->sepolh);
+       if (module_data != NULL && data_len > 0)
+           sepol_module_package_info(pf, &file_type, module_name,
+                                     version);
+       sepol_policy_file_free(pf);
+
+       return 0;
+}
 
 #include <stdlib.h>
 #include <bzlib.h>
@@ -867,7 +895,7 @@ cleanup:
 }
 
 static int semanage_direct_write_langext(semanage_handle_t *sh,
-				char *lang_ext,
+				const char *lang_ext,
 				const semanage_module_info_t *modinfo)
 {
 	int ret = -1;
@@ -927,8 +955,8 @@ static int semanage_compile_module(semanage_handle_t *sh,
 	ssize_t bzip_status;
 	int status = 0;
 	int compressed;
-	size_t cil_data_len;
-	size_t err_data_len;
+	size_t cil_data_len = 0;
+	size_t err_data_len = 0;
 
 	if (!strcasecmp(modinfo->lang_ext, "cil")) {
 		goto cleanup;
@@ -1076,7 +1104,7 @@ static int semanage_direct_commit(semanage_handle_t * sh)
 	/* Declare some variables */
 	int modified = 0, fcontexts_modified, ports_modified,
 	    seusers_modified, users_extra_modified, dontaudit_modified,
-	    preserve_tunables_modified, bools_modified,
+	    preserve_tunables_modified, bools_modified = 0,
 		disable_dontaudit, preserve_tunables;
 	dbase_config_t *users = semanage_user_dbase_local(sh);
 	dbase_config_t *users_base = semanage_user_base_dbase_local(sh);
@@ -1525,7 +1553,9 @@ static int semanage_direct_install_file(semanage_handle_t * sh,
 	char *path = NULL;
 	char *filename;
 	char *lang_ext = NULL;
+	char *module_name = NULL;
 	char *separator;
+	char *version = NULL;
 
 	if ((data_len = map_file(sh, install_filename, &data, &compressed)) <= 0) {
 		ERR(sh, "Unable to read file %s\n", install_filename);
@@ -1565,10 +1595,29 @@ static int semanage_direct_install_file(semanage_handle_t * sh,
 		lang_ext = separator + 1;
 	}
 
-	retval = semanage_direct_install(sh, data, data_len, filename, lang_ext);
+	if (strcmp(lang_ext, "pp") == 0) {
+		retval = parse_module_headers(sh, data, data_len, &module_name, &version);
+		free(version);
+		if (retval != 0)
+			goto cleanup;
+	}
+
+	if (module_name == NULL) {
+		module_name = strdup(filename);
+		if (module_name == NULL) {
+			ERR(sh, "No memory available for module_name.\n");
+			retval = -1;
+			goto cleanup;
+		}
+	} else if (strcmp(module_name, filename) != 0) {
+		fprintf(stderr, "Warning: SELinux userspace will refer to the module from %s as %s rather than %s\n", install_filename, module_name, filename);
+	}
+
+	retval = semanage_direct_install(sh, data, data_len, module_name, lang_ext);
 
 cleanup:
 	if (data_len > 0) munmap(data, data_len);
+	free(module_name);
 	free(path);
 
 	return retval;
@@ -2136,6 +2185,7 @@ static int semanage_direct_set_module_info(semanage_handle_t *sh,
 	char fn[PATH_MAX];
 	const char *path = NULL;
 	int enabled = 0;
+	semanage_module_info_t *modinfo_tmp = NULL;
 
 	semanage_module_key_t modkey;
 	ret = semanage_module_key_init(sh, &modkey);
@@ -2143,8 +2193,6 @@ static int semanage_direct_set_module_info(semanage_handle_t *sh,
 		status = -1;
 		goto cleanup;
 	}
-
-	semanage_module_info_t *modinfo_tmp = NULL;
 
 	/* check transaction */
 	if (!sh->is_in_transaction) {
@@ -2316,14 +2364,14 @@ static int semanage_direct_list_all(semanage_handle_t *sh,
 
 	uint16_t priority = 0;
 
+	semanage_module_info_t *modinfo_tmp = NULL;
+
 	semanage_module_info_t modinfo;
 	ret = semanage_module_info_init(sh, &modinfo);
 	if (ret != 0) {
 		status = -1;
 		goto cleanup;
 	}
-
-	semanage_module_info_t *modinfo_tmp = NULL;
 
 	if (sh->is_in_transaction) {
 		toplevel = semanage_path(SEMANAGE_TMP, SEMANAGE_MODULES);

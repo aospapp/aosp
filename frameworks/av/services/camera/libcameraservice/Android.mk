@@ -27,7 +27,7 @@ LOCAL_SRC_FILES :=  \
     CameraFlashlight.cpp \
     common/Camera2ClientBase.cpp \
     common/CameraDeviceBase.cpp \
-    common/CameraModule.cpp \
+    common/CameraProviderManager.cpp \
     common/FrameProcessorBase.cpp \
     api1/CameraClient.cpp \
     api1/Camera2Client.cpp \
@@ -40,19 +40,22 @@ LOCAL_SRC_FILES :=  \
     api1/client2/CaptureSequencer.cpp \
     api1/client2/ZslProcessor.cpp \
     api2/CameraDeviceClient.cpp \
+    device1/CameraHardwareInterface.cpp \
     device3/Camera3Device.cpp \
     device3/Camera3Stream.cpp \
     device3/Camera3IOStreamBase.cpp \
     device3/Camera3InputStream.cpp \
     device3/Camera3OutputStream.cpp \
-    device3/Camera3ZslStream.cpp \
     device3/Camera3DummyStream.cpp \
+    device3/Camera3SharedOutputStream.cpp \
     device3/StatusTracker.cpp \
     device3/Camera3BufferManager.cpp \
+    device3/Camera3StreamSplitter.cpp \
     gui/RingBufferConsumer.cpp \
     utils/CameraTraces.cpp \
     utils/AutoConditionLock.cpp \
-    utils/TagMonitor.cpp
+    utils/TagMonitor.cpp \
+    utils/LatencyHistogram.cpp
 
 LOCAL_SHARED_LIBRARIES:= \
     libui \
@@ -63,17 +66,25 @@ LOCAL_SHARED_LIBRARIES:= \
     libmedia \
     libmediautils \
     libcamera_client \
+    libcamera_metadata \
+    libfmq \
     libgui \
     libhardware \
-    libsync \
-    libcamera_metadata \
+    libhidlbase \
+    libhidltransport \
     libjpeg \
-    libmemunreachable
+    libmemunreachable \
+    android.hardware.camera.common@1.0 \
+    android.hardware.camera.provider@2.4 \
+    android.hardware.camera.device@1.0 \
+    android.hardware.camera.device@3.2 \
+    android.hidl.manager@1.0
+
+LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := libbinder libcamera_client libfmq
 
 LOCAL_C_INCLUDES += \
     system/media/private/camera/include \
-    frameworks/native/include/media/openmax \
-    external/jpeg
+    frameworks/native/include/media/openmax
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := \
     frameworks/av/services/camera/libcameraservice

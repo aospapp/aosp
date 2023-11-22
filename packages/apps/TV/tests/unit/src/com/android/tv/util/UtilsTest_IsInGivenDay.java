@@ -16,8 +16,8 @@
 
 package com.android.tv.util;
 
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;

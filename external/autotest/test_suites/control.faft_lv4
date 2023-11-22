@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "faft_lv4"
 PURPOSE = "Test hard-to-automate 'normal' mode firmware scenarios."
-CRITERIA = "All tests with SUITE=faft_lv4 must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

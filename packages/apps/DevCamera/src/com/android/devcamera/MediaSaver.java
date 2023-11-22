@@ -27,6 +27,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 /**
  * This class has methods required to save a JPEG to disk as well as update the
@@ -42,13 +44,54 @@ public class MediaSaver {
     private static final boolean UDPATE_MEDIA_STORE = true;
 
 
-    public static int getNextInt(Context context) {
+    public static int getNextInt(Context context, String id) {
         SharedPreferences prefs = context.getSharedPreferences(MY_PREFS_NAME, Context.MODE_PRIVATE);
-        int i = prefs.getInt("counter", 1);
+        int i = prefs.getInt(id, 1);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putInt("counter", i+1);
+        editor.putInt(id, i+1);
         editor.commit();
         return i;
+    }
+
+    /**
+     * @param context Application context.
+     * @param depthCloudData Depth cloud byte buffer.
+     */
+    public static String saveDepth(Context context, ByteBuffer depthCloudData) {
+        String filename = "";
+        try {
+            File file;
+            int i = getNextInt(context, "depthCounter");
+            filename = String.format("/sdcard/DCIM/Depth_%05d.img", i);
+            file = new File(filename);
+            if (!file.createNewFile()) {
+                throw new IOException(filename);
+            }
+
+            long t0 = SystemClock.uptimeMillis();
+            FileOutputStream fos = new FileOutputStream(file);
+            FileChannel channel = fos.getChannel();
+            int bytesWritten = 0;
+            int byteCount = 0;
+            while (depthCloudData.hasRemaining()) {
+                byteCount = channel.write(depthCloudData);
+                if (0 == byteCount) {
+                    throw new IOException(filename);
+                } else {
+                    bytesWritten += byteCount;
+                }
+            }
+            channel.close();
+            fos.flush();
+            fos.close();
+            long t1 = SystemClock.uptimeMillis();
+
+            Log.v(TAG, String.format("Wrote Depth %d bytes as %s in %.3f seconds",
+                    bytesWritten, file, (t1 - t0) * 0.001));
+        } catch (IOException e) {
+            Log.e(TAG, "Error creating new file: ", e);
+        }
+        return filename;
     }
 
     /**
@@ -60,7 +103,7 @@ public class MediaSaver {
         try {
             File file;
             while (true) {
-                int i = getNextInt(context);
+                int i = getNextInt(context, "counter");
                 filename = String.format("/sdcard/DCIM/Camera/SNAP_%05d.JPG", i);
                 file = new File(filename);
                 if (file.createNewFile()) {

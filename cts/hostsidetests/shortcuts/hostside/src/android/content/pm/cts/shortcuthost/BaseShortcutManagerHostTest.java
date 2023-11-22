@@ -15,7 +15,7 @@
  */
 package android.content.pm.cts.shortcuthost;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult;
@@ -102,9 +102,9 @@ abstract public class BaseShortcutManagerHostTest extends DeviceTestCase impleme
     protected void installAppAsUser(String appFileName, int userId) throws FileNotFoundException,
             DeviceNotAvailableException {
         CLog.i("Installing app " + appFileName + " for user " + userId);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         String result = getDevice().installPackageForUser(
-                MigrationHelper.getTestFile(mCtsBuild, appFileName), true, true,
-                userId, "-t");
+                buildHelper.getTestFile(appFileName), true, true, userId, "-t");
         assertNull("Failed to install " + appFileName + " for user " + userId + ": " + result,
                 result);
     }

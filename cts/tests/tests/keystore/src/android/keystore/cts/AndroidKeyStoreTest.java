@@ -1336,9 +1336,15 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
     }
 
     public void testKeyStore_SetEntry_PrivateKeyEntry_Params_Unencrypted_Failure() throws Exception {
-        // This test asserts that Android Keystore refuses to create/import keys encrypted at rest
-        // using the secure lock screen credential. The test assumes that the secure lock screen is
-        // not set up.
+        // The Android Keystore requires encrypted storage which is only decryptable with a key
+        // bound to a credential provided by the user. By default, the Keystore waits for the user
+        // to set a lock screen PIN or password and uses this credential to set up an encrypted
+        // storage space itself. In that implementation, the Keystore should not be initialized when
+        // no lock screen PIN or password has been set. This is what the test verifies.
+        //
+        // If your environment already provides encrypted storage which is only decryptable with a
+        // key bound to another credential provided by the user, you may initialize the Keystore
+        // immediately and get a waiver for this test.
         KeyguardManager keyguardManager =
                 (KeyguardManager) getContext().getSystemService(Context.KEYGUARD_SERVICE);
         assertNotNull(keyguardManager);
@@ -2472,6 +2478,8 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
 
         KeyProtection params = new KeyProtection.Builder(
                 KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .build();
         String alias = "test1";
         mKeyStore.deleteEntry(alias);
@@ -2512,7 +2520,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
             if (!TestUtils.isHmacAlgorithm(algorithm)) {
                 continue;
             }
-            for (int keySizeBytes = 0; keySizeBytes <= 1024 / 8; keySizeBytes++) {
+            for (int keySizeBytes = 8; keySizeBytes <= 1024 / 8; keySizeBytes++) {
                 try {
                     KeyStore.SecretKeyEntry entry = new KeyStore.SecretKeyEntry(
                             new TransparentSecretKey(new byte[keySizeBytes], algorithm));

@@ -56,7 +56,7 @@ class FileLineReader : public LineReader {
 
 class MemoryLineReader : public LineReader {
  public:
-  MemoryLineReader(const string& contents) : input_stream_(contents) {}
+  explicit MemoryLineReader(const string& contents) : input_stream_(contents) {}
   virtual ~MemoryLineReader() = default;
 
   bool ReadLine(string* line) override {

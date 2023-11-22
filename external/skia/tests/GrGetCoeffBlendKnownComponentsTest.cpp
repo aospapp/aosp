@@ -11,9 +11,17 @@
 
 #include "GrBlend.h"
 #include "SkGr.h"
-#include "SkGrPriv.h"
 #include "SkRandom.h"
-#include "SkXfermode.h"
+
+static inline SkPMColor GrColorToSkPMColor(GrColor c) {
+    GrColorIsPMAssert(c);
+    return SkPackARGB32(GrColorUnpackA(c), GrColorUnpackR(c), GrColorUnpackG(c), GrColorUnpackB(c));
+}
+
+static inline GrColor SkPMColorToGrColor(SkPMColor c) {
+    return GrColorPackRGBA(SkGetPackedR32(c), SkGetPackedG32(c), SkGetPackedB32(c),
+                           SkGetPackedA32(c));
+}
 
 static GrColor make_baseline_color(GrColor src, GrColor dst, const SkXfermode* xm) {
     SkPMColor skSrc = GrColorToSkPMColor(src);
@@ -31,7 +39,7 @@ DEF_TEST(GrGetCoeffBlendKnownComponents, reporter) {
     SkRandom random;
     for (int i = 0; i < SkXfermode::kLastCoeffMode; ++i) {
         SkXfermode::Mode mode = (SkXfermode::Mode)i;
-        SkAutoTUnref<SkXfermode> xm(SkXfermode::Create(mode));
+        auto xm(SkXfermode::Make(mode));
         SkXfermode::Coeff srcCoeff, dstCoeff;
         SkAssertResult(SkXfermode::ModeAsCoeff(mode, &srcCoeff, &dstCoeff));
         for (int j = 0; j < 1000; ++j) {
@@ -44,7 +52,7 @@ DEF_TEST(GrGetCoeffBlendKnownComponents, reporter) {
                                            src, kRGBA_GrColorComponentFlags,
                                            dst, kRGBA_GrColorComponentFlags,
                                            &outColor, &outFlags);
-            GrColor baselineColor = make_baseline_color(src, dst, xm);
+            GrColor baselineColor = make_baseline_color(src, dst, xm.get());
             if (SkAbs32(GrColorUnpackA(baselineColor) - GrColorUnpackA(outColor)) > 1 ||
                 SkAbs32(GrColorUnpackR(baselineColor) - GrColorUnpackR(outColor)) > 1 ||
                 SkAbs32(GrColorUnpackG(baselineColor) - GrColorUnpackG(outColor)) > 1 ||

@@ -20,7 +20,6 @@ import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -69,7 +68,7 @@ public final class MetricsReportLog extends ReportLog {
         super.addValue(source, message, value, type, unit);
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -82,7 +81,7 @@ public final class MetricsReportLog extends ReportLog {
         super.addValue(message, value, type, unit);
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -97,7 +96,7 @@ public final class MetricsReportLog extends ReportLog {
         super.addValues(source, message, values, type, unit);
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -110,7 +109,7 @@ public final class MetricsReportLog extends ReportLog {
         super.addValues(message, values, type, unit);
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -122,7 +121,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValue(String message, int value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -134,7 +133,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValue(String message, long value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -146,7 +145,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValue(String message, float value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -158,7 +157,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValue(String message, boolean value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -170,7 +169,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValue(String message, String value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -182,7 +181,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValues(String message, int[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -194,7 +193,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValues(String message, long[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -206,7 +205,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValues(String message, float[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -218,7 +217,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValues(String message, boolean[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -230,7 +229,7 @@ public final class MetricsReportLog extends ReportLog {
     public void addValues(String message, List<String> values, ResultType type, ResultUnit unit) {
         try {
             store.addListResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -245,7 +244,7 @@ public final class MetricsReportLog extends ReportLog {
         super.setSummary(message, value, type, unit);
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -256,9 +255,9 @@ public final class MetricsReportLog extends ReportLog {
     public void submit() {
         try {
             store.close();
-        } catch (IOException e) {
+            MetricsStore.storeResult(mBuildInfo, mAbi, mClassMethodName, this);
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        MetricsStore.storeResult(mBuildInfo, mAbi, mClassMethodName, this);
     }
 }

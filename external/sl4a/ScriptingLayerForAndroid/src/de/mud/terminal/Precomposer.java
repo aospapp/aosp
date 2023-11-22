@@ -18,7 +18,6 @@
 package de.mud.terminal;
 
 /**
- * @author Kenny Root
  * This data was taken from xterm's precompose.c
  */
 public class Precomposer {

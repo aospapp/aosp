@@ -154,7 +154,7 @@ public class SmsUsageMonitorShortCodeTest extends InstrumentationTestCase {
             new ShortCodeTest("ch", "123", CATEGORY_NOT_SHORT_CODE),
             new ShortCodeTest("ch", "234", CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
             new ShortCodeTest("ch", "3456", CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
-            new ShortCodeTest("ch", "98765", CATEGORY_POSSIBLE_PREMIUM_SHORT_CODE),
+            new ShortCodeTest("ch", "98765", CATEGORY_FREE_SHORT_CODE),
             new ShortCodeTest("ch", "543", CATEGORY_PREMIUM_SHORT_CODE),
             new ShortCodeTest("ch", "83111", CATEGORY_PREMIUM_SHORT_CODE),
             new ShortCodeTest("ch", "234567", CATEGORY_NOT_SHORT_CODE),

@@ -19,7 +19,7 @@
 #include "jit/jit_code_cache.h"
 #include "jit/profiling_info.h"
 #include "oat_quick_method_header.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "ScopedUtfChars.h"
 #include "stack_map.h"
 
@@ -28,13 +28,13 @@ namespace art {
 class OsrVisitor : public StackVisitor {
  public:
   explicit OsrVisitor(Thread* thread, const char* method_name)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
         method_name_(method_name),
         in_osr_method_(false),
         in_interpreter_(false) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
@@ -43,7 +43,7 @@ class OsrVisitor : public StackVisitor {
           Runtime::Current()->GetJit()->GetCodeCache()->LookupOsrMethodHeader(m);
       if (header != nullptr && header == GetCurrentOatQuickMethodHeader()) {
         in_osr_method_ = true;
-      } else if (IsCurrentFrameInInterpreter()) {
+      } else if (IsShadowFrame()) {
         in_interpreter_ = true;
       }
       return false;
@@ -90,11 +90,11 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_isInInterpreter(JNIEnv* env,
 class ProfilingInfoVisitor : public StackVisitor {
  public:
   explicit ProfilingInfoVisitor(Thread* thread, const char* method_name)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
         method_name_(method_name) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
@@ -124,11 +124,11 @@ extern "C" JNIEXPORT void JNICALL Java_Main_ensureHasProfilingInfo(JNIEnv* env,
 class OsrCheckVisitor : public StackVisitor {
  public:
   OsrCheckVisitor(Thread* thread, const char* method_name)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
         method_name_(method_name) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
@@ -136,7 +136,7 @@ class OsrCheckVisitor : public StackVisitor {
     if (m_name.compare(method_name_) == 0) {
       while (jit->GetCodeCache()->LookupOsrMethodHeader(m) == nullptr) {
         // Sleep to yield to the compiler thread.
-        sleep(0);
+        usleep(1000);
         // Will either ensure it's compiled or do the compilation itself.
         jit->CompileMethod(m, Thread::Current(), /* osr */ true);
       }

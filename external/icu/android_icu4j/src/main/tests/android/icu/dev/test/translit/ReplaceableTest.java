@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -12,20 +14,13 @@ import android.icu.impl.Utility;
 import android.icu.text.Replaceable;
 import android.icu.text.ReplaceableString;
 import android.icu.text.Transliterator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @test
  * @summary Round trip test of Transliterator
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class ReplaceableTest extends TestFmwk {
-    
-    public static void main(String[] args) throws Exception {
-        new ReplaceableTest().run(args);
-    }
-  
+    @org.junit.Test
     public void Test() {
         check("Lower", "ABCD", "1234");
         check("Upper", "abcd\u00DF", "123455"); // must map 00DF to SS
@@ -185,6 +180,7 @@ public class ReplaceableTest extends TestFmwk {
         static final boolean DEBUG = false;
     }
     
+    @org.junit.Test
     public void Test5789() {
         String rules =
             "IETR > IET | \\' R; # (1) do split ietr between t and r\r\n" +

@@ -9,13 +9,13 @@ configurations {
 sourceSets {
     host {
         java {
-            srcDirs = ['src']
+            srcDirs = ['src/main/java']
         }
     }
 
     target {
         java {
-            srcDirs = ['src']
+            srcDirs = ['src/main/java']
             include 'org/**',
                     'junit/extensions/**',
                     // remove these packages since they are in android.test.runner

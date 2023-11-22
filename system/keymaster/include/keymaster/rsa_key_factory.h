@@ -26,7 +26,7 @@ namespace keymaster {
 
 class RsaKeyFactory : public AsymmetricKeyFactory {
   public:
-    RsaKeyFactory(const KeymasterContext* context) : AsymmetricKeyFactory(context) {}
+    explicit RsaKeyFactory(const KeymasterContext* context) : AsymmetricKeyFactory(context) {}
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
                                   KeymasterKeyBlob* key_blob, AuthorizationSet* hw_enforced,

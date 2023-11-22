@@ -17,11 +17,17 @@
 #include <jni.h>
 #include <stdio.h>
 
+extern int register_android_graphics_cts_ANativeWindowTest(JNIEnv*);
+extern int register_android_graphics_cts_BitmapTest(JNIEnv*);
 extern int register_android_graphics_cts_VulkanFeaturesTest(JNIEnv*);
 
 jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     JNIEnv* env = nullptr;
     if (vm->GetEnv((void**)&env, JNI_VERSION_1_4) != JNI_OK)
+        return JNI_ERR;
+    if (register_android_graphics_cts_ANativeWindowTest(env))
+        return JNI_ERR;
+    if (register_android_graphics_cts_BitmapTest(env))
         return JNI_ERR;
     if (register_android_graphics_cts_VulkanFeaturesTest(env))
         return JNI_ERR;

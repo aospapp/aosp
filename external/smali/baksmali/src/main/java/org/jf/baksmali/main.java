@@ -591,13 +591,27 @@ public class main {
                     "/system/framework/android.policy.jar",
                     "/system/framework/services.jar",
                     "/system/framework/apache-xml.jar");
-        } else { // api >= 21
-            // TODO: verify, add new ones?
+        } else if (apiLevel < 26) {
             return Lists.newArrayList(
                     "/system/framework/core-libart.jar",
                     "/system/framework/conscrypt.jar",
                     "/system/framework/okhttp.jar",
                     "/system/framework/core-junit.jar",
+                    "/system/framework/bouncycastle.jar",
+                    "/system/framework/ext.jar",
+                    "/system/framework/framework.jar",
+                    "/system/framework/telephony-common.jar",
+                    "/system/framework/voip-common.jar",
+                    "/system/framework/ims-common.jar",
+                    "/system/framework/mms-common.jar",
+                    "/system/framework/android.policy.jar",
+                    "/system/framework/apache-xml.jar");
+        } else { // api >= 26
+            // TODO: verify, add new ones?
+            return Lists.newArrayList(
+                    "/system/framework/core-libart.jar",
+                    "/system/framework/conscrypt.jar",
+                    "/system/framework/okhttp.jar",
                     "/system/framework/bouncycastle.jar",
                     "/system/framework/ext.jar",
                     "/system/framework/framework.jar",

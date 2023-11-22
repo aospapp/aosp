@@ -22,7 +22,7 @@
  *
  *  Description:   Bluetooth socket Interface Helper functions
  *
- *******************************************************************************/
+ ******************************************************************************/
 
 #ifndef BTIF_SOCK_UTIL_H
 #define BTIF_SOCK_UTIL_H

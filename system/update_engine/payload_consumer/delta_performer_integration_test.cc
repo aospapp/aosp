@@ -29,6 +29,7 @@
 #include <base/strings/stringprintf.h>
 #include <google/protobuf/repeated_field.h>
 #include <gtest/gtest.h>
+#include <openssl/pem.h>
 
 #include "update_engine/common/constants.h"
 #include "update_engine/common/fake_boot_control.h"
@@ -47,6 +48,7 @@ namespace chromeos_update_engine {
 
 using std::string;
 using std::vector;
+using test_utils::GetBuildArtifactsPath;
 using test_utils::ScopedLoopMounter;
 using test_utils::System;
 using test_utils::kRandomString;
@@ -156,6 +158,14 @@ static bool WriteSparseFile(const string& path, off_t size) {
   return true;
 }
 
+static bool WriteByteAtOffset(const string& path, off_t offset) {
+  int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0644);
+  TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
+  ScopedFdCloser fd_closer(&fd);
+  EXPECT_TRUE(utils::PWriteAll(fd, "\0", 1, offset));
+  return true;
+}
+
 static size_t GetSignatureSize(const string& private_key_path) {
   const brillo::Blob data(1, 'x');
   brillo::Blob hash;
@@ -183,31 +193,22 @@ static bool InsertSignaturePlaceholder(int signature_size,
 
 static void SignGeneratedPayload(const string& payload_path,
                                  uint64_t* out_metadata_size) {
-  int signature_size = GetSignatureSize(kUnittestPrivateKeyPath);
+  string private_key_path = GetBuildArtifactsPath(kUnittestPrivateKeyPath);
+  int signature_size = GetSignatureSize(private_key_path);
   brillo::Blob hash;
   ASSERT_TRUE(PayloadSigner::HashPayloadForSigning(
-      payload_path,
-      vector<int>(1, signature_size),
-      &hash,
-      nullptr));
+      payload_path, {signature_size}, &hash, nullptr));
   brillo::Blob signature;
-  ASSERT_TRUE(PayloadSigner::SignHash(hash,
-                                      kUnittestPrivateKeyPath,
-                                      &signature));
+  ASSERT_TRUE(PayloadSigner::SignHash(hash, private_key_path, &signature));
   ASSERT_TRUE(PayloadSigner::AddSignatureToPayload(
-      payload_path,
-      vector<brillo::Blob>(1, signature),
-      {},
-      payload_path,
-      out_metadata_size));
+      payload_path, {signature}, {}, payload_path, out_metadata_size));
   EXPECT_TRUE(PayloadSigner::VerifySignedPayload(
-      payload_path,
-      kUnittestPublicKeyPath));
+      payload_path, GetBuildArtifactsPath(kUnittestPublicKeyPath)));
 }
 
 static void SignGeneratedShellPayload(SignatureTest signature_test,
                                       const string& payload_path) {
-  string private_key_path = kUnittestPrivateKeyPath;
+  string private_key_path = GetBuildArtifactsPath(kUnittestPrivateKeyPath);
   if (signature_test == kSignatureGeneratedShellBadKey) {
     ASSERT_TRUE(utils::MakeTempFile("key.XXXXXX",
                                     &private_key_path,
@@ -223,8 +224,20 @@ static void SignGeneratedShellPayload(SignatureTest signature_test,
   // Generates a new private key that will not match the public key.
   if (signature_test == kSignatureGeneratedShellBadKey) {
     LOG(INFO) << "Generating a mismatched private key.";
-    ASSERT_EQ(0, System(base::StringPrintf(
-        "openssl genrsa -out %s 2048", private_key_path.c_str())));
+    // The code below executes the equivalent of:
+    // openssl genrsa -out <private_key_path> 2048
+    RSA* rsa = RSA_new();
+    BIGNUM* e = BN_new();
+    EXPECT_EQ(1, BN_set_word(e, RSA_F4));
+    EXPECT_EQ(1, RSA_generate_key_ex(rsa, 2048, e, nullptr));
+    BN_free(e);
+    FILE* fprikey = fopen(private_key_path.c_str(), "w");
+    EXPECT_NE(nullptr, fprikey);
+    EXPECT_EQ(1,
+              PEM_write_RSAPrivateKey(
+                  fprikey, rsa, nullptr, nullptr, 0, nullptr, nullptr));
+    fclose(fprikey);
+    RSA_free(rsa);
   }
   int signature_size = GetSignatureSize(private_key_path);
   string hash_file;
@@ -237,58 +250,53 @@ static void SignGeneratedShellPayload(SignatureTest signature_test,
                                                signature_size, signature_size);
   else
     signature_size_string = base::StringPrintf("%d", signature_size);
+  string delta_generator_path = GetBuildArtifactsPath("delta_generator");
   ASSERT_EQ(0,
             System(base::StringPrintf(
-                "./delta_generator -in_file=%s -signature_size=%s "
-                "-out_hash_file=%s",
+                "%s -in_file=%s -signature_size=%s -out_hash_file=%s",
+                delta_generator_path.c_str(),
                 payload_path.c_str(),
                 signature_size_string.c_str(),
                 hash_file.c_str())));
 
-  // Pad the hash
-  brillo::Blob hash;
+  // Sign the hash
+  brillo::Blob hash, signature;
   ASSERT_TRUE(utils::ReadFile(hash_file, &hash));
-  ASSERT_TRUE(PayloadVerifier::PadRSA2048SHA256Hash(&hash));
-  ASSERT_TRUE(test_utils::WriteFileVector(hash_file, hash));
+  ASSERT_TRUE(PayloadSigner::SignHash(hash, private_key_path, &signature));
 
   string sig_file;
   ASSERT_TRUE(utils::MakeTempFile("signature.XXXXXX", &sig_file, nullptr));
   ScopedPathUnlinker sig_unlinker(sig_file);
-  ASSERT_EQ(0,
-            System(base::StringPrintf(
-                "openssl rsautl -raw -sign -inkey %s -in %s -out %s",
-                private_key_path.c_str(),
-                hash_file.c_str(),
-                sig_file.c_str())));
+  ASSERT_TRUE(test_utils::WriteFileVector(sig_file, signature));
+
   string sig_file2;
   ASSERT_TRUE(utils::MakeTempFile("signature.XXXXXX", &sig_file2, nullptr));
   ScopedPathUnlinker sig2_unlinker(sig_file2);
   if (signature_test == kSignatureGeneratedShellRotateCl1 ||
       signature_test == kSignatureGeneratedShellRotateCl2) {
-    ASSERT_EQ(0,
-              System(base::StringPrintf(
-                  "openssl rsautl -raw -sign -inkey %s -in %s -out %s",
-                  kUnittestPrivateKey2Path,
-                  hash_file.c_str(),
-                  sig_file2.c_str())));
+    ASSERT_TRUE(PayloadSigner::SignHash(
+        hash, GetBuildArtifactsPath(kUnittestPrivateKey2Path), &signature));
+    ASSERT_TRUE(test_utils::WriteFileVector(sig_file2, signature));
     // Append second sig file to first path
     sig_file += ":" + sig_file2;
   }
 
   ASSERT_EQ(0,
             System(base::StringPrintf(
-                "./delta_generator -in_file=%s -signature_file=%s "
-                "-out_file=%s",
+                "%s -in_file=%s -signature_file=%s -out_file=%s",
+                delta_generator_path.c_str(),
                 payload_path.c_str(),
                 sig_file.c_str(),
                 payload_path.c_str())));
-  int verify_result =
-      System(base::StringPrintf(
-          "./delta_generator -in_file=%s -public_key=%s -public_key_version=%d",
-          payload_path.c_str(),
-          signature_test == kSignatureGeneratedShellRotateCl2 ?
-          kUnittestPublicKey2Path : kUnittestPublicKeyPath,
-          signature_test == kSignatureGeneratedShellRotateCl2 ? 2 : 1));
+  int verify_result = System(base::StringPrintf(
+      "%s -in_file=%s -public_key=%s -public_key_version=%d",
+      delta_generator_path.c_str(),
+      payload_path.c_str(),
+      (signature_test == kSignatureGeneratedShellRotateCl2
+           ? GetBuildArtifactsPath(kUnittestPublicKey2Path)
+           : GetBuildArtifactsPath(kUnittestPublicKeyPath))
+          .c_str(),
+      signature_test == kSignatureGeneratedShellRotateCl2 ? 2 : 1));
   if (signature_test == kSignatureGeneratedShellBadKey) {
     ASSERT_NE(0, verify_result);
   } else {
@@ -310,7 +318,10 @@ static void GenerateDeltaFile(bool full_kernel,
   // in-place on A, we apply it to a new image, result_img.
   EXPECT_TRUE(
       utils::MakeTempFile("result_img.XXXXXX", &state->result_img, nullptr));
-  test_utils::CreateExtImageAtPath(state->a_img, nullptr);
+
+  EXPECT_TRUE(
+      base::CopyFile(GetBuildArtifactsPath().Append("gen/disk_ext2_4k.img"),
+                     base::FilePath(state->a_img)));
 
   state->image_size = utils::FileSize(state->a_img);
 
@@ -360,10 +371,8 @@ static void GenerateDeltaFile(bool full_kernel,
         WriteSparseFile(base::StringPrintf("%s/move-from-sparse",
                                            a_mnt.c_str()), 16 * 1024));
 
-    EXPECT_EQ(0,
-              System(base::StringPrintf("dd if=/dev/zero of=%s/move-semi-sparse"
-                                        " bs=1 seek=4096 count=1 status=none",
-                                        a_mnt.c_str()).c_str()));
+    EXPECT_TRUE(WriteByteAtOffset(
+        base::StringPrintf("%s/move-semi-sparse", a_mnt.c_str()), 4096));
 
     // Write 1 MiB of 0xff to try to catch the case where writing a bsdiff
     // patch fails to zero out the final block.
@@ -389,57 +398,47 @@ static void GenerateDeltaFile(bool full_kernel,
                 utils::FileSize(state->result_img));
     }
 
-    test_utils::CreateExtImageAtPath(state->b_img, nullptr);
+    EXPECT_TRUE(
+        base::CopyFile(GetBuildArtifactsPath().Append("gen/disk_ext2_4k.img"),
+                       base::FilePath(state->b_img)));
 
     // Make some changes to the B image.
     string b_mnt;
     ScopedLoopMounter b_mounter(state->b_img, &b_mnt, 0);
+    base::FilePath mnt_path(b_mnt);
 
-    EXPECT_EQ(0, System(base::StringPrintf("cp %s/hello %s/hello2",
-                                           b_mnt.c_str(),
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_EQ(0, System(base::StringPrintf("rm %s/hello",
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_EQ(0, System(base::StringPrintf("mv %s/hello2 %s/hello",
-                                           b_mnt.c_str(),
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_EQ(0, System(base::StringPrintf("echo foo > %s/foo",
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_EQ(0, System(base::StringPrintf("touch %s/emptyfile",
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_TRUE(WriteSparseFile(base::StringPrintf("%s/fullsparse",
-                                                   b_mnt.c_str()),
-                                                   1024 * 1024));
+    EXPECT_TRUE(base::CopyFile(mnt_path.Append("regular-small"),
+                               mnt_path.Append("regular-small2")));
+    EXPECT_TRUE(base::DeleteFile(mnt_path.Append("regular-small"), false));
+    EXPECT_TRUE(base::Move(mnt_path.Append("regular-small2"),
+                           mnt_path.Append("regular-small")));
+    EXPECT_TRUE(
+        test_utils::WriteFileString(mnt_path.Append("foo").value(), "foo"));
+    EXPECT_EQ(0, base::WriteFile(mnt_path.Append("emptyfile"), "", 0));
 
     EXPECT_TRUE(
-        WriteSparseFile(base::StringPrintf("%s/move-to-sparse", b_mnt.c_str()),
-                        16 * 1024));
+        WriteSparseFile(mnt_path.Append("fullsparse").value(), 1024 * 1024));
+    EXPECT_TRUE(
+        WriteSparseFile(mnt_path.Append("move-to-sparse").value(), 16 * 1024));
 
     brillo::Blob zeros(16 * 1024, 0);
     EXPECT_EQ(static_cast<int>(zeros.size()),
-              base::WriteFile(base::FilePath(base::StringPrintf(
-                                  "%s/move-from-sparse", b_mnt.c_str())),
+              base::WriteFile(mnt_path.Append("move-from-sparse"),
                               reinterpret_cast<const char*>(zeros.data()),
                               zeros.size()));
 
-    EXPECT_EQ(0, System(base::StringPrintf("dd if=/dev/zero "
-                                           "of=%s/move-semi-sparse "
-                                           "bs=1 seek=4096 count=1 status=none",
-                                           b_mnt.c_str()).c_str()));
+    EXPECT_TRUE(
+        WriteByteAtOffset(mnt_path.Append("move-semi-sparse").value(), 4096));
+    EXPECT_TRUE(WriteByteAtOffset(mnt_path.Append("partsparse").value(), 4096));
 
-    EXPECT_EQ(0, System(base::StringPrintf("dd if=/dev/zero "
-                                           "of=%s/partsparse bs=1 "
-                                           "seek=4096 count=1 status=none",
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_EQ(0, System(base::StringPrintf("cp %s/srchardlink0 %s/tmp && "
-                                           "mv %s/tmp %s/srchardlink1",
-                                           b_mnt.c_str(),
-                                           b_mnt.c_str(),
-                                           b_mnt.c_str(),
-                                           b_mnt.c_str()).c_str()));
-    EXPECT_EQ(0, System(
-        base::StringPrintf("rm %s/boguslink && echo foobar > %s/boguslink",
-                           b_mnt.c_str(), b_mnt.c_str()).c_str()));
+    EXPECT_TRUE(
+        base::CopyFile(mnt_path.Append("regular-16k"), mnt_path.Append("tmp")));
+    EXPECT_TRUE(base::Move(mnt_path.Append("tmp"),
+                           mnt_path.Append("link-hard-regular-16k")));
+
+    EXPECT_TRUE(base::DeleteFile(mnt_path.Append("link-short_symlink"), false));
+    EXPECT_TRUE(test_utils::WriteFileString(
+        mnt_path.Append("link-short_symlink").value(), "foobar"));
 
     brillo::Blob hardtocompress;
     while (hardtocompress.size() < 3 * kBlockSize) {
@@ -500,7 +499,9 @@ static void GenerateDeltaFile(bool full_kernel,
   LOG(INFO) << "delta path: " << state->delta_path;
   {
     const string private_key =
-        signature_test == kSignatureGenerator ? kUnittestPrivateKeyPath : "";
+        signature_test == kSignatureGenerator
+            ? GetBuildArtifactsPath(kUnittestPrivateKeyPath)
+            : "";
 
     PayloadGenerationConfig payload_config;
     payload_config.is_delta = !full_rootfs;
@@ -552,7 +553,8 @@ static void GenerateDeltaFile(bool full_kernel,
 
   if (signature_test == kSignatureGeneratedPlaceholder ||
       signature_test == kSignatureGeneratedPlaceholderMismatch) {
-    int signature_size = GetSignatureSize(kUnittestPrivateKeyPath);
+    int signature_size =
+        GetSignatureSize(GetBuildArtifactsPath(kUnittestPrivateKeyPath));
     LOG(INFO) << "Inserting placeholder signature.";
     ASSERT_TRUE(InsertSignaturePlaceholder(signature_size, state->delta_path,
                                            &state->metadata_size));
@@ -619,10 +621,10 @@ static void ApplyDeltaFile(bool full_kernel, bool full_rootfs, bool noop,
       EXPECT_EQ(1U, signature.version());
 
       uint64_t expected_sig_data_length = 0;
-      vector<string> key_paths{kUnittestPrivateKeyPath};
+      vector<string> key_paths{GetBuildArtifactsPath(kUnittestPrivateKeyPath)};
       if (signature_test == kSignatureGeneratedShellRotateCl1 ||
           signature_test == kSignatureGeneratedShellRotateCl2) {
-        key_paths.push_back(kUnittestPrivateKey2Path);
+        key_paths.push_back(GetBuildArtifactsPath(kUnittestPrivateKey2Path));
       }
       EXPECT_TRUE(PayloadSigner::SignatureBlobLength(
           key_paths,
@@ -736,7 +738,7 @@ static void ApplyDeltaFile(bool full_kernel, bool full_rootfs, bool noop,
   ASSERT_TRUE(PayloadSigner::GetMetadataSignature(
       state->delta.data(),
       state->metadata_size,
-      kUnittestPrivateKeyPath,
+      GetBuildArtifactsPath(kUnittestPrivateKeyPath),
       &install_plan->metadata_signature));
   EXPECT_FALSE(install_plan->metadata_signature.empty());
 
@@ -745,8 +747,9 @@ static void ApplyDeltaFile(bool full_kernel, bool full_rootfs, bool noop,
                                   &state->fake_hardware_,
                                   &state->mock_delegate_,
                                   install_plan);
-  EXPECT_TRUE(utils::FileExists(kUnittestPublicKeyPath));
-  (*performer)->set_public_key_path(kUnittestPublicKeyPath);
+  string public_key_path = GetBuildArtifactsPath(kUnittestPublicKeyPath);
+  EXPECT_TRUE(utils::FileExists(public_key_path.c_str()));
+  (*performer)->set_public_key_path(public_key_path);
   DeltaPerformerIntegrationTest::SetSupportedVersion(*performer, minor_version);
 
   EXPECT_EQ(static_cast<off_t>(state->image_size),

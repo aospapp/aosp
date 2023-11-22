@@ -29,6 +29,7 @@ import com.google.currysrc.api.process.ast.BodyDeclarationLocators;
 import com.google.currysrc.api.process.ast.TypeLocator;
 import com.google.currysrc.processors.HidePublicClasses;
 import com.google.currysrc.processors.InsertHeader;
+import com.google.currysrc.processors.MakeClassesPublic;
 import com.google.currysrc.processors.ModifyQualifiedNames;
 import com.google.currysrc.processors.ModifyStringLiterals;
 import com.google.currysrc.processors.RemoveJavaDocTags;
@@ -49,6 +50,12 @@ import static com.android.icu4j.srcgen.Icu4jTransformRules.createOptionalRule;
  * then you should re-run the generate_android_icu4j.sh script.
  */
 public class Icu4jTransform {
+
+  // The list of non-public ICU API classes exposed on Android for testing.
+  static final String[] MAKE_PUBLIC_FOR_TESTING = new String[] {
+      /* ASCII order please. */
+      "android.icu.text.DigitList",
+  };
 
   // The list of public ICU API classes exposed on Android. If you change this, you should change
   // the INITIAL_DEPRECATED_SET below to include entries from the new classes.
@@ -78,7 +85,9 @@ public class Icu4jTransform {
       "android.icu.text.DecimalFormatSymbols",
       "android.icu.text.DisplayContext",
       "android.icu.text.IDNA",
+      "android.icu.text.ListFormatter",
       "android.icu.text.LocaleDisplayNames",
+      "android.icu.text.LocaleDisplayNames$UiListItem",
       "android.icu.text.MeasureFormat",
       "android.icu.text.MessageFormat",
       "android.icu.text.MessagePattern",
@@ -91,6 +100,7 @@ public class Icu4jTransform {
       "android.icu.text.RelativeDateTimeFormatter",
       "android.icu.text.Replaceable",
       "android.icu.text.RuleBasedCollator",
+      "android.icu.text.ScientificNumberFormatter",
       "android.icu.text.SearchIterator",
       "android.icu.text.SelectFormat",
       "android.icu.text.SimpleDateFormat",
@@ -114,7 +124,7 @@ public class Icu4jTransform {
       "android.icu.util.Currency",
       "android.icu.util.CurrencyAmount",
       "android.icu.util.DateInterval",
-      "android.icu.util.EthiopticCalendar",
+      "android.icu.util.EthiopicCalendar",
       "android.icu.util.Freezable",
       "android.icu.util.GregorianCalendar",
       "android.icu.util.HebrewCalendar",
@@ -130,6 +140,7 @@ public class Icu4jTransform {
       "android.icu.util.TimeUnit",
       "android.icu.util.TimeZone",
       "android.icu.util.ULocale",
+      "android.icu.util.UniversalTimeScale",
       "android.icu.util.ValueIterator",
       "android.icu.util.VersionInfo",
   };
@@ -528,8 +539,6 @@ public class Icu4jTransform {
       "field:android.icu.text.Collator$ReorderCodes#LIMIT",
       "field:android.icu.text.DateFormat#FIELD_COUNT",
       "field:android.icu.text.DateTimePatternGenerator#TYPE_LIMIT",
-      "field:android.icu.util.TimeZone#TIMEZONE_ICU",
-      "field:android.icu.util.TimeZone#TIMEZONE_JDK",
       "method:android.icu.text.BreakIterator#registerInstance(BreakIterator,Locale,int)",
       "method:android.icu.text.BreakIterator#registerInstance(BreakIterator,ULocale,int)",
       "method:android.icu.text.BreakIterator#unregister(Object)",
@@ -544,10 +553,10 @@ public class Icu4jTransform {
       "method:android.icu.text.UnicodeSet#addAllTo(Iterable<T>,T[])",
       "method:android.icu.text.UnicodeSet#addAllTo(Iterable<T>,U)",
       "method:android.icu.text.UnicodeSet#addAllTo(String[])",
-      "method:android.icu.text.UnicodeSet#compare(int,CharSequence)",
       "method:android.icu.text.UnicodeSet#compare(CharSequence,int)",
       "method:android.icu.text.UnicodeSet#compare(Collection<T>,Collection<T>,ComparisonStyle)",
       "method:android.icu.text.UnicodeSet#compare(Iterable<T>,Iterable<T>)",
+      "method:android.icu.text.UnicodeSet#compare(int,CharSequence)",
       "method:android.icu.text.UnicodeSet#resemblesPattern(String,int)",
       "method:android.icu.text.UnicodeSet#toArray(UnicodeSet)",
       "method:android.icu.util.CECalendar#ceToJD(long,int,int,int)",
@@ -677,6 +686,11 @@ public class Icu4jTransform {
 
           // AST change: Hide all ICU public classes except those in the whitelist.
           createHidePublicClassesRule(),
+
+          // AST change: Make whitelisted ICU classes public for testing. This should come after the
+          // createHidePublicClassesRule() as otherwise there will be two @hide tags added.
+          createMakePublicForTesting(),
+
           // AST change: Hide ICU methods that are deprecated and Android does not want to make
           // public.
           createHideOriginalDeprecatedClassesRule(),
@@ -734,6 +748,15 @@ public class Icu4jTransform {
           BodyDeclarationLocators.createLocatorsFromStrings(DECLARATIONS_TO_HIDE);
       return createOptionalRule(
           new TagMatchingDeclarations(blacklist, "@hide unsupported on Android"));
+    }
+
+    private static Rule createMakePublicForTesting() {
+      ImmutableList.Builder<TypeLocator> apiClassesWhitelistBuilder = ImmutableList.builder();
+      for (String publicClassName : MAKE_PUBLIC_FOR_TESTING) {
+        apiClassesWhitelistBuilder.add(new TypeLocator(publicClassName));
+      }
+      return createOptionalRule(new MakeClassesPublic(apiClassesWhitelistBuilder.build(),
+              "@hide Made public for testing"));
     }
 
     private static Rule createHidePublicClassesRule() {

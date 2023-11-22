@@ -681,49 +681,6 @@ public class Inet6AddressTest extends junit.framework.TestCase {
                 .isIPv4CompatibleAddress());
     }
 
-    public void test_getByNameLjava_lang_String() throws Exception {
-        // ones to add "::255.255.255.255", "::FFFF:0.0.0.0",
-        // "0.0.0.0.0.0::255.255.255.255", "F:F:F:F:F:F:F:F",
-        // "[F:F:F:F:F:F:F:F]"
-        String validIPAddresses[] = { "::1.2.3.4", "::", "::", "1::0", "1::",
-                "::1", "0", /* jdk1.5 accepts 0 as valid */
-                "FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF",
-                "FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:255.255.255.255",
-                "0:0:0:0:0:0:0:0", "0:0:0:0:0:0:0.0.0.0" };
-
-        String invalidIPAddresses[] = { "FFFF:FFFF" };
-
-        for (int i = 0; i < validIPAddresses.length; i++) {
-
-            InetAddress.getByName(validIPAddresses[i]);
-
-            //exercise positive cache
-            InetAddress.getByName(validIPAddresses[i]);
-
-            if (!validIPAddresses[i].equals("0")) {
-                String tempIPAddress = "[" + validIPAddresses[i] + "]";
-                InetAddress.getByName(tempIPAddress);
-            }
-        }
-
-        for (int i = 0; i < invalidIPAddresses.length; i++) {
-            try {
-                InetAddress.getByName(invalidIPAddresses[i]);
-                fail("Invalid IP address incorrectly recognized as valid: "
-                        + invalidIPAddresses[i]);
-            } catch (Exception e) {
-            }
-
-            //exercise negative cache
-            try {
-                InetAddress.getByName(invalidIPAddresses[i]);
-                fail("Invalid IP address incorrectly recognized as valid: "
-                        + invalidIPAddresses[i]);
-            } catch (Exception e) {
-            }
-        }
-    }
-
     public void test_getByAddressLString$BI() throws UnknownHostException {
         try {
             Inet6Address.getByAddress("123", null, 0);

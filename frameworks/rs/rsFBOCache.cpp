@@ -19,9 +19,8 @@
 #include "rsContext.h"
 #include "rsAllocation.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+namespace android {
+namespace renderscript {
 
 FBOCache::FBOCache() {
     mDirty = true;
@@ -91,3 +90,6 @@ void FBOCache::setup(Context *rsc) {
 
     mDirty = false;
 }
+
+} // namespace renderscript
+} // namespace android

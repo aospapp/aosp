@@ -1254,14 +1254,14 @@ static void peer_groups_changed(struct wpa_supplicant *wpa_s)
  * irrespective of the role (client/GO) of the current device
  *
  * @wpa_s: %wpa_supplicant network interface data
- * @ssid: SSID object
  * @client: this device is P2P client
- * @network_id: network id of the group started, use instead of ssid->id
- *	to account for persistent groups
+ * @persistent: 0 - non persistent group, 1 - persistent group
+ * @ip: When group role is client, it contains local IP address, netmask, and
+ *	GO's IP address, if assigned; otherwise, NULL
  */
 void wpas_dbus_signal_p2p_group_started(struct wpa_supplicant *wpa_s,
-					const struct wpa_ssid *ssid,
-					int client, int network_id)
+					int client, int persistent,
+					const u8 *ip)
 {
 	DBusMessage *msg;
 	DBusMessageIter iter, dict_iter;
@@ -1300,8 +1300,16 @@ void wpas_dbus_signal_p2p_group_started(struct wpa_supplicant *wpa_s,
 					      wpa_s->dbus_new_path) ||
 	    !wpa_dbus_dict_append_string(&dict_iter, "role",
 					 client ? "client" : "GO") ||
+	    !wpa_dbus_dict_append_bool(&dict_iter, "persistent", persistent) ||
 	    !wpa_dbus_dict_append_object_path(&dict_iter, "group_object",
 					      wpa_s->dbus_groupobj_path) ||
+	    (ip &&
+	     (!wpa_dbus_dict_append_byte_array(&dict_iter, "IpAddr",
+					       (char *) ip, 4) ||
+	      !wpa_dbus_dict_append_byte_array(&dict_iter, "IpAddrMask",
+					       (char *) ip + 4, 4) ||
+	      !wpa_dbus_dict_append_byte_array(&dict_iter, "IpAddrGo",
+					       (char *) ip + 8, 4))) ||
 	    !wpa_dbus_dict_close_write(&iter, &dict_iter)) {
 		wpa_printf(MSG_ERROR, "dbus: Failed to construct signal");
 	} else {
@@ -1979,6 +1987,11 @@ void wpas_dbus_signal_prop_changed(struct wpa_supplicant *wpa_s,
 	case WPAS_DBUS_PROP_AP_SCAN:
 		prop = "ApScan";
 		break;
+#ifdef CONFIG_IEEE80211W
+	case WPAS_DBUS_PROP_PMF:
+		prop = "Pmf";
+		break;
+#endif /* CONFIG_IEEE80211W */
 	case WPAS_DBUS_PROP_SCANNING:
 		prop = "Scanning";
 		break;
@@ -3130,6 +3143,13 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	  wpas_dbus_setter_ap_scan,
 	  NULL
 	},
+#ifdef CONFIG_IEEE80211W
+	{ "Pmf", WPAS_DBUS_NEW_IFACE_INTERFACE, "u",
+	  wpas_dbus_getter_pmf,
+	  wpas_dbus_setter_pmf,
+	  NULL
+	},
+#endif /* CONFIG_IEEE80211W */
 	{ "BSSExpireAge", WPAS_DBUS_NEW_IFACE_INTERFACE, "u",
 	  wpas_dbus_getter_bss_expire_age,
 	  wpas_dbus_setter_bss_expire_age,
@@ -3157,6 +3177,11 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	},
 	{ "BridgeIfname", WPAS_DBUS_NEW_IFACE_INTERFACE, "s",
 	  wpas_dbus_getter_bridge_ifname,
+	  NULL,
+	  NULL
+	},
+	{ "ConfigFile", WPAS_DBUS_NEW_IFACE_INTERFACE, "s",
+	  wpas_dbus_getter_config_file,
 	  NULL,
 	  NULL
 	},
@@ -3219,6 +3244,42 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	{ "ConfigMethods", WPAS_DBUS_NEW_IFACE_WPS, "s",
 	  wpas_dbus_getter_config_methods,
 	  wpas_dbus_setter_config_methods,
+	  NULL
+	},
+	{
+	  "DeviceName", WPAS_DBUS_NEW_IFACE_WPS, "s",
+	  wpas_dbus_getter_wps_device_name,
+	  wpas_dbus_setter_wps_device_name,
+	  NULL
+	},
+	{
+	  "Manufacturer", WPAS_DBUS_NEW_IFACE_WPS, "s",
+	  wpas_dbus_getter_wps_manufacturer,
+	  wpas_dbus_setter_wps_manufacturer,
+	  NULL
+	},
+	{
+	  "ModelName", WPAS_DBUS_NEW_IFACE_WPS, "s",
+	  wpas_dbus_getter_wps_device_model_name,
+	  wpas_dbus_setter_wps_device_model_name,
+	  NULL
+	},
+	{
+	  "ModelNumber", WPAS_DBUS_NEW_IFACE_WPS, "s",
+	  wpas_dbus_getter_wps_device_model_number,
+	  wpas_dbus_setter_wps_device_model_number,
+	  NULL
+	},
+	{
+	  "SerialNumber", WPAS_DBUS_NEW_IFACE_WPS, "s",
+	  wpas_dbus_getter_wps_device_serial_number,
+	  wpas_dbus_setter_wps_device_serial_number,
+	  NULL
+	},
+	{
+	  "DeviceType", WPAS_DBUS_NEW_IFACE_WPS, "ay",
+	  wpas_dbus_getter_wps_device_device_type,
+	  wpas_dbus_setter_wps_device_device_type,
 	  NULL
 	},
 #endif /* CONFIG_WPS */
@@ -3351,6 +3412,13 @@ static const struct wpa_dbus_signal_desc wpas_dbus_interface_signals[] = {
 	{ "DeviceFound", WPAS_DBUS_NEW_IFACE_P2PDEVICE,
 	  {
 		  { "path", "o", ARG_OUT },
+		  END_ARGS
+	  }
+	},
+	{ "DeviceFoundProperties", WPAS_DBUS_NEW_IFACE_P2PDEVICE,
+	  {
+		  { "path", "o", ARG_OUT },
+		  { "properties", "a{sv}", ARG_OUT },
 		  END_ARGS
 	  }
 	},
@@ -3802,12 +3870,13 @@ static const struct wpa_dbus_signal_desc wpas_dbus_p2p_peer_signals[] = {
  *	In case of peer objects, it would be emitted by either
  *	the "interface object" or by "peer objects"
  * @sig_name: signal name - DeviceFound
+ * @properties: Whether to add a second argument with object properties
  *
- * Notify listeners about event related with newly found p2p peer device
+ * Notify listeners about event related with p2p peer device
  */
 static void wpas_dbus_signal_peer(struct wpa_supplicant *wpa_s,
 				  const u8 *dev_addr, const char *interface,
-				  const char *sig_name)
+				  const char *sig_name, int properties)
 {
 	struct wpas_dbus_priv *iface;
 	DBusMessage *msg;
@@ -3835,7 +3904,10 @@ static void wpas_dbus_signal_peer(struct wpa_supplicant *wpa_s,
 	dbus_message_iter_init_append(msg, &iter);
 	path = peer_obj_path;
 	if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH,
-					    &path))
+					    &path) ||
+	    (properties && !wpa_dbus_get_object_properties(
+		    iface, peer_obj_path, WPAS_DBUS_NEW_IFACE_P2P_PEER,
+		    &iter)))
 		wpa_printf(MSG_ERROR, "dbus: Failed to construct signal");
 	else
 		dbus_connection_send(iface->con, msg, NULL);
@@ -3856,7 +3928,11 @@ void wpas_dbus_signal_peer_device_found(struct wpa_supplicant *wpa_s,
 {
 	wpas_dbus_signal_peer(wpa_s, dev_addr,
 			      WPAS_DBUS_NEW_IFACE_P2PDEVICE,
-			      "DeviceFound");
+			      "DeviceFound", FALSE);
+
+	wpas_dbus_signal_peer(wpa_s, dev_addr,
+			      WPAS_DBUS_NEW_IFACE_P2PDEVICE,
+			      "DeviceFoundProperties", TRUE);
 }
 
 /**
@@ -3871,7 +3947,7 @@ void wpas_dbus_signal_peer_device_lost(struct wpa_supplicant *wpa_s,
 {
 	wpas_dbus_signal_peer(wpa_s, dev_addr,
 			      WPAS_DBUS_NEW_IFACE_P2PDEVICE,
-			      "DeviceLost");
+			      "DeviceLost", FALSE);
 }
 
 /**

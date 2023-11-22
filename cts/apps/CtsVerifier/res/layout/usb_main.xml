@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2011 The Android Open Source Project
+<!-- Copyright (C) 2016 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,55 +14,40 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="vertical"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        >
-    <TextView android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/usb_sent_messages"
-            style="?android:attr/listSeparatorTextViewStyle"
-            />
-    <FrameLayout android:orientation="vertical"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            >
-        <ListView android:id="@+id/usb_sent_messages"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                />
-        <TextView android:id="@+id/usb_empty_sent_messages"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="@string/usb_no_messages"
-                android:visibility="gone"
-                />
-    </FrameLayout>
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
-    <TextView android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/usb_received_messages"
-            style="?android:attr/listSeparatorTextViewStyle"
-            />
-    <FrameLayout android:orientation="vertical"
+    <LinearLayout android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <ImageView android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_usb_48"
+            android:tint="@color/primary"
+            android:scaleType="fitCenter"
+            android:layout_marginBottom="16dp" />
+
+        <ProgressBar android:id="@+id/progress_bar"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            >
-        <ListView android:id="@+id/usb_received_messages"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
+
+        <ScrollView android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1">
+
+            <TextView android:id="@+id/status"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                />
-        <TextView android:id="@+id/usb_empty_received_messages"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="@string/usb_no_messages"
-                android:visibility="gone"
-                />
-    </FrameLayout>
+                android:layout_height="wrap_content" />
+
+        </ScrollView>
+
+    </LinearLayout>
 
     <include layout="@layout/pass_fail_buttons" />
 

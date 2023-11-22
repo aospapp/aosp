@@ -21,9 +21,8 @@
 
 #include "rsgApiStructs.h"
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 #include "rsMesh.h"
-#include <gui/DisplayEventReceiver.h>
 #endif
 
 #include <sys/types.h>
@@ -36,26 +35,12 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && \
-        defined(__ANDROID__)
-#include <cutils/properties.h>
-#endif
-
 #ifdef RS_COMPATIBILITY_LIB
 #include "rsCompatibilityLib.h"
 #endif
 
-int *gInternalDebuggerPresent = nullptr;
-
-#ifdef RS_SERVER
-// Android exposes gettid(), standard Linux does not
-static pid_t gettid() {
-    return syscall(SYS_gettid);
-}
-#endif
-
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 pthread_mutex_t Context::gInitMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t Context::gMessageMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -64,12 +49,14 @@ pthread_mutex_t Context::gLibMutex = PTHREAD_MUTEX_INITIALIZER;
 bool Context::initGLThread() {
     pthread_mutex_lock(&gInitMutex);
 
-    if (!mHal.funcs.initGraphics(this)) {
+    int32_t ret = mHal.funcs.initGraphics(this);
+    if (ret < 0) {
         pthread_mutex_unlock(&gInitMutex);
         ALOGE("%p initGraphics failed", this);
         return false;
     }
 
+    mSyncFd = ret;
     pthread_mutex_unlock(&gInitMutex);
     return true;
 }
@@ -82,7 +69,7 @@ void Context::deinitEGL() {
 
 Context::PushState::PushState(Context *con) {
     mRsc = con;
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (con->mIsGraphicsContext) {
         mFragment.set(con->getProgramFragment());
         mVertex.set(con->getProgramVertex());
@@ -94,7 +81,7 @@ Context::PushState::PushState(Context *con) {
 }
 
 Context::PushState::~PushState() {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (mRsc->mIsGraphicsContext) {
         mRsc->setProgramFragment(mFragment.get());
         mRsc->setProgramVertex(mVertex.get());
@@ -115,7 +102,7 @@ uint32_t Context::runScript(Script *s) {
 
 uint32_t Context::runRootScript() {
     timerSet(RS_TIMER_SCRIPT);
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     mStateFragmentStore.mLast.clear();
 #endif
     watchdog.inRoot = true;
@@ -126,13 +113,9 @@ uint32_t Context::runRootScript() {
 }
 
 uint64_t Context::getTime() const {
-#ifndef ANDROID_RS_SERIALIZE
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return t.tv_nsec + ((uint64_t)t.tv_sec * 1000 * 1000 * 1000);
-#else
-    return 0;
-#endif //ANDROID_RS_SERIALIZE
 }
 
 void Context::timerReset() {
@@ -198,7 +181,7 @@ void Context::timerPrint() {
 }
 
 bool Context::setupCheck() {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     mFragmentStore->setup(this, &mStateFragmentStore);
     mFragment->setup(this, &mStateFragment);
     mRaster->setup(this, &mStateRaster);
@@ -208,15 +191,15 @@ bool Context::setupCheck() {
     return true;
 }
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 void Context::setupProgramStore() {
     mFragmentStore->setup(this, &mStateFragmentStore);
 }
 #endif
 
 static uint32_t getProp(const char *str) {
-#if !defined(RS_SERVER) && defined(__ANDROID__)
-    char buf[PROPERTY_VALUE_MAX];
+#ifdef __ANDROID__
+    char buf[PROP_VALUE_MAX];
     property_get(str, buf, "0");
     return atoi(buf);
 #else
@@ -225,9 +208,10 @@ static uint32_t getProp(const char *str) {
 }
 
 void Context::displayDebugStats() {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     char buffer[128];
-    sprintf(buffer, "Avg fps %u, Frame %i ms, Script %i ms", mAverageFPS, mTimeMSLastFrame, mTimeMSLastScript);
+    snprintf(buffer, sizeof(buffer), "Avg fps %u, Frame %i ms, Script %i ms",
+             mAverageFPS, mTimeMSLastFrame, mTimeMSLastScript);
     float oldR, oldG, oldB, oldA;
     mStateFont.getFontColor(&oldR, &oldG, &oldB, &oldA);
     uint32_t bufferLen = strlen(buffer);
@@ -249,10 +233,7 @@ void Context::displayDebugStats() {
 void * Context::threadProc(void *vrsc) {
     Context *rsc = static_cast<Context *>(vrsc);
 
-#ifndef ANDROID_RS_SERIALIZE
     rsc->mNativeThreadId = gettid();
-#endif //ANDROID_RS_SERIALIZE
-
     rsc->props.mLogTimes = getProp("debug.rs.profile") != 0;
     rsc->props.mLogScripts = getProp("debug.rs.script") != 0;
     rsc->props.mLogShaders = getProp("debug.rs.shader") != 0;
@@ -269,6 +250,12 @@ void * Context::threadProc(void *vrsc) {
         rsc->mForceCpu = true;
     }
 
+    bool forceRSoV = getProp("debug.rs.rsov") != 0;
+    if (forceRSoV) {
+        ALOGD("Force the use of RSoV driver");
+        rsc->mForceRSoV = true;
+    }
+
     bool forceCpu = getProp("debug.rs.default-CPU-driver") != 0;
     if (forceCpu) {
         ALOGD("Skipping hardware driver and loading default CPU driver");
@@ -276,7 +263,10 @@ void * Context::threadProc(void *vrsc) {
     }
 
     rsc->mForceCpu |= rsc->mIsGraphicsContext;
-    rsc->loadDriver(rsc->mForceCpu);
+    if (!rsc->loadDriver(rsc->mForceCpu, rsc->mForceRSoV)) {
+      rsc->setError(RS_ERROR_DRIVER, "Failed loading driver");
+      return nullptr;
+    }
 
     if (!rsc->isSynchronous()) {
         // Due to legacy we default to normal_graphics
@@ -284,7 +274,7 @@ void * Context::threadProc(void *vrsc) {
         rsc->setPriority(RS_THREAD_PRIORITY_NORMAL_GRAPHICS);
     }
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (rsc->mIsGraphicsContext) {
         if (!rsc->initGLThread()) {
             rsc->setError(RS_ERROR_OUT_OF_MEMORY, "Failed initializing GL");
@@ -316,49 +306,36 @@ void * Context::threadProc(void *vrsc) {
         while (!rsc->mExit) {
             rsc->mIO.playCoreCommands(rsc, -1);
         }
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     } else {
-#ifndef ANDROID_RS_SERIALIZE
-        DisplayEventReceiver displayEvent;
-        DisplayEventReceiver::Event eventBuffer[1];
-#endif
-        int vsyncRate = 0;
-        int targetRate = 0;
+        // The number of millisecond to wait between successive calls to the
+        // root function.  The special value 0 means that root should not be
+        // called again until something external changes.
+        // See compile/slang/README.rst and search for "The function **root**"
+        // for more details.
+        int whenToCallAgain = 0;
 
-        bool drawOnce = false;
         while (!rsc->mExit) {
             rsc->timerSet(RS_TIMER_IDLE);
-
-#ifndef ANDROID_RS_SERIALIZE
-            if (!rsc->mRootScript.get() || !rsc->mHasSurface || rsc->mPaused) {
-                targetRate = 0;
+            // While it's tempting to simply have if(whenToCallAgain > 0)
+            // usleep(whentoCallAgain * 1000), doing it this way emulates
+            // more closely what the original code did.
+            if (whenToCallAgain > 16) {
+                usleep((whenToCallAgain - 16) * 1000);
             }
 
-            if (vsyncRate != targetRate) {
-                displayEvent.setVsyncRate(targetRate);
-                vsyncRate = targetRate;
-            }
-            if (targetRate) {
-                drawOnce |= rsc->mIO.playCoreCommands(rsc, displayEvent.getFd());
-                while (displayEvent.getEvents(eventBuffer, 1) != 0) {
-                    //ALOGE("vs2 time past %lld", (rsc->getTime() - eventBuffer[0].header.timestamp) / 1000000);
-                }
-            } else
-#endif
-            {
-                drawOnce |= rsc->mIO.playCoreCommands(rsc, -1);
+            if (!rsc->mRootScript.get() || !rsc->mHasSurface || rsc->mPaused || whenToCallAgain == 0) {
+                rsc->mIO.playCoreCommands(rsc, -1);
+            } else {
+                rsc->mIO.playCoreCommands(rsc, rsc->mSyncFd);
             }
 
-            if ((rsc->mRootScript.get() != nullptr) && rsc->mHasSurface &&
-                (targetRate || drawOnce) && !rsc->mPaused) {
-
-                drawOnce = false;
-                targetRate = ((rsc->runRootScript() + 15) / 16);
+            if (rsc->mRootScript.get() && rsc->mHasSurface && !rsc->mPaused) {
+                whenToCallAgain = rsc->runRootScript();
 
                 if (rsc->props.mLogVisual) {
                     rsc->displayDebugStats();
                 }
-
                 rsc->timerSet(RS_TIMER_CLEAR_SWAP);
                 rsc->mHal.funcs.swap(rsc);
                 rsc->timerFrame();
@@ -372,7 +349,7 @@ void * Context::threadProc(void *vrsc) {
 
     //ALOGV("%p RS Thread exiting", rsc);
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (rsc->mIsGraphicsContext) {
         pthread_mutex_lock(&gInitMutex);
         rsc->deinitEGL();
@@ -387,7 +364,7 @@ void * Context::threadProc(void *vrsc) {
 void Context::destroyWorkerThreadResources() {
     //ALOGV("destroyWorkerThreadResources 1");
     ObjectBase::zeroAllUserRef(this);
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (mIsGraphicsContext) {
          mRaster.clear();
          mFragment.clear();
@@ -460,6 +437,7 @@ Context::Context() {
     memset(&watchdog, 0, sizeof(watchdog));
     memset(&mHal, 0, sizeof(mHal));
     mForceCpu = false;
+    mForceRSoV = false;
     mContextType = RS_CONTEXT_TYPE_NORMAL;
     mOptLevel = 3;
     mSynchronous = false;
@@ -472,27 +450,18 @@ Context::Context() {
 }
 
 void Context::setCacheDir(const char * cacheDir_arg, uint32_t length) {
-    if (!hasSetCacheDir) {
-        if (length <= PATH_MAX) {
-            memcpy(mCacheDir, cacheDir_arg, length);
-            mCacheDir[length] = 0;
-            hasSetCacheDir = true;
-        } else {
-            setError(RS_ERROR_BAD_VALUE, "Invalid path");
-        }
-    }
-}
-
-void Context::waitForDebugger() {
-    // Wait until this symbol has been properly set up, and the flag itself is
-    // set to a non-zero value.
-    while (!gInternalDebuggerPresent || !*gInternalDebuggerPresent) {
-        sleep(0);
+    if (length <= PATH_MAX) {
+        memcpy(mCacheDir, cacheDir_arg, length);
+        mCacheDir[length] = 0;
+        hasSetCacheDir = true;
+    } else {
+        setError(RS_ERROR_BAD_VALUE, "Invalid path");
     }
 }
 
 Context * Context::createContext(Device *dev, const RsSurfaceConfig *sc,
-                                 RsContextType ct, uint32_t flags) {
+                                 RsContextType ct, uint32_t flags,
+                                 const char* vendorDriverName) {
     Context * rsc = new Context();
 
     if (flags & RS_CONTEXT_LOW_LATENCY) {
@@ -503,14 +472,11 @@ Context * Context::createContext(Device *dev, const RsSurfaceConfig *sc,
     }
     rsc->mContextType = ct;
     rsc->mHal.flags = flags;
+    rsc->mVendorDriverName = vendorDriverName;
 
     if (!rsc->initContext(dev, sc)) {
         delete rsc;
         return nullptr;
-    }
-
-    if (flags & RS_CONTEXT_WAIT_FOR_ATTACH) {
-        rsc->waitForDebugger();
     }
 
     return rsc;
@@ -525,11 +491,13 @@ Context * Context::createContextLite() {
 bool Context::initContext(Device *dev, const RsSurfaceConfig *sc) {
     pthread_mutex_lock(&gInitMutex);
 
-    mIO.init();
+    if (!mIO.init()) {
+        ALOGE("Failed initializing IO Fifo");
+        pthread_mutex_unlock(&gInitMutex);
+        return false;
+    }
     mIO.setTimeoutCallback(printWatchdogInfo, this, 2e9);
 
-    dev->addContext(this);
-    mDev = dev;
     if (sc) {
         mUserSurfaceConfig = *sc;
     } else {
@@ -589,7 +557,10 @@ Context::~Context() {
         void *res;
 
         mIO.shutdown();
-        if (!mSynchronous) {
+        if (!mSynchronous && mRunning) {
+            // Only try to join a pthread when:
+            // 1. The Context is asynchronous.
+            // 2. pthread successfully created and running.
             pthread_join(mThreadId, &res);
         }
         rsAssert(mExit);
@@ -597,19 +568,10 @@ Context::~Context() {
         if (mHal.funcs.shutdownDriver && mHal.drv) {
             mHal.funcs.shutdownDriver(this);
         }
-
-        // Global structure cleanup.
-        pthread_mutex_lock(&gInitMutex);
-        if (mDev) {
-            mDev->removeContext(this);
-        }
-        pthread_mutex_unlock(&gInitMutex);
     }
-
-    delete mDev;
 }
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 void Context::setSurface(uint32_t w, uint32_t h, RsNativeWindow sur) {
     rsAssert(mIsGraphicsContext);
     mHal.funcs.setSurface(this, w, h, sur);
@@ -718,13 +680,13 @@ void Context::finish() {
 void Context::assignName(ObjectBase *obj, const char *name, uint32_t len) {
     rsAssert(!obj->getName());
     obj->setName(name, len);
-    mNames.add(obj);
+    mNames.push_back(obj);
 }
 
 void Context::removeName(ObjectBase *obj) {
     for (size_t ct=0; ct < mNames.size(); ct++) {
         if (obj == mNames[ct]) {
-            mNames.removeAt(ct);
+            mNames.erase(mNames.begin() + ct);
             return;
         }
     }
@@ -782,15 +744,12 @@ void Context::dumpDebug() const {
 ///////////////////////////////////////////////////////////////////////////////////////////
 //
 
-namespace android {
-namespace renderscript {
-
 void rsi_ContextFinish(Context *rsc) {
     rsc->finish();
 }
 
 void rsi_ContextBindRootScript(Context *rsc, RsScript vs) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     Script *s = static_cast<Script *>(vs);
     rsc->setRootScript(s);
 #endif
@@ -811,7 +770,7 @@ void rsi_ContextBindSampler(Context *rsc, uint32_t slot, RsSampler vs) {
     s->bindToContext(&rsc->mStateSampler, slot);
 }
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 void rsi_ContextBindProgramStore(Context *rsc, RsProgramStore vpfs) {
     ProgramStore *pfs = static_cast<ProgramStore *>(vpfs);
     rsc->setProgramStore(pfs);
@@ -849,7 +808,7 @@ void rsi_ObjDestroy(Context *rsc, void *optr) {
     ob->decUserRef();
 }
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 void rsi_ContextPause(Context *rsc) {
     rsc->pause();
 }
@@ -934,5 +893,5 @@ void LF_ObjDestroy_handcode(const Context *rsc, RsAsyncVoidPtr objPtr) {
 
 }
 
-}
-}
+} // namespace renderscript
+} // namespace android

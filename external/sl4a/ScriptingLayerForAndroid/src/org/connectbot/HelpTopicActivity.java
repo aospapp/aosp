@@ -26,7 +26,6 @@ import com.googlecode.android_scripting.R;
 import org.connectbot.util.HelpTopicView;
 
 /**
- * @author Kenny Root
  *
  */
 public class HelpTopicActivity extends Activity {

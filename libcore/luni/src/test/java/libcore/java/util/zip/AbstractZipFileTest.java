@@ -34,11 +34,16 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-import junit.framework.TestCase;
-
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 import tests.support.resource.Support_Resources;
 
-public abstract class AbstractZipFileTest extends TestCase {
+public abstract class AbstractZipFileTest extends TestCaseWithRules {
+    @Rule
+    public TestRule resourceLeakageDetectorRule = ResourceLeakageDetector.getRule();
+
     /**
      * Exercise Inflater's ability to refill the zlib's input buffer. As of this
      * writing, this buffer's max size is 64KiB compressed bytes. We'll write a
@@ -426,8 +431,9 @@ public abstract class AbstractZipFileTest extends TestCase {
         out.putNextEntry(ze);
         out.close();
 
-        ZipFile zipFile = new ZipFile(file);
-        assertEquals(null, zipFile.getComment());
+        try (ZipFile zipFile = new ZipFile(file)) {
+            assertEquals(null, zipFile.getComment());
+        }
     }
 
     // https://code.google.com/p/android/issues/detail?id=58465
@@ -458,6 +464,7 @@ public abstract class AbstractZipFileTest extends TestCase {
         // setCrc takes a long, not an int, so -1 isn't a valid CRC32 (because it's 64 bits).
         try {
             ze.setCrc(-1);
+            fail();
         } catch (IllegalArgumentException expected) {
         }
 

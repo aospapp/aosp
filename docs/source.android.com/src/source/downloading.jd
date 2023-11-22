@@ -30,6 +30,10 @@ page.title=Downloading the Source
   and the date they were made. This document describes how to download the source tree for a
   specific Android code-line.
 </p>
+<p>
+ To instead start with a factory image for a specific device, see
+ <a href="running.html#selecting-device-build">Selecting a device build</a>.
+</p>
 <h2 id="installing-repo">
   Installing Repo
 </h2>
@@ -63,19 +67,13 @@ $ chmod a+x ~/bin/repo
   </li>
 </ol>
 <p>
-  For version 1.17, the SHA-1 checksum for repo is ddd79b6d5a7807e911b524cb223bc3544b661c28
-</p>
-<p>
-  For version 1.19, the SHA-1 checksum for repo is 92cbad8c880f697b58ed83e348d06619f8098e6c
-</p>
-<p>
-  For version 1.20, the SHA-1 checksum for repo is e197cb48ff4ddda4d11f23940d316e323b29671c
-</p>
-<p>
   For version 1.21, the SHA-1 checksum for repo is b8bd1804f432ecf1bab730949c82b93b0fc5fede
 </p>
 <p>
   For version 1.22, the SHA-1 checksum for repo is da0514e484f74648a890c0467d61ca415379f791
+</p>
+<p>
+  For version 1.23, the SHA-1 checksum for repo is ac9d646f6d699f6822a6bc787d3e7338ae7ab6ed
 </p>
 <h2 id="initializing-a-repo-client">
   Initializing a Repo client

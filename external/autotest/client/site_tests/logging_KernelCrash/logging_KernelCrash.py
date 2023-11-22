@@ -5,7 +5,7 @@
 import logging, os, re
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import crash_test
+from autotest_lib.client.cros.crash import crash_test
 
 
 class logging_KernelCrash(crash_test.CrashTest):

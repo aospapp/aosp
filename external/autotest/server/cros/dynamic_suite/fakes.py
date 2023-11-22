@@ -5,8 +5,11 @@
 
 """Fakes for dynamic_suite-related unit tests."""
 
+import common
+from autotest_lib.client.common_lib import control_data
 
-class FakeControlData(object):
+
+class FakeControlData(control_data.ControlData):
     """A fake parsed control file data structure."""
     def __init__(self, suite, attributes, data, time='LONG', expr=False,
                  dependencies=None, job_retries=0):

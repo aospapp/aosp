@@ -49,8 +49,8 @@ namespace android {
 
 /** Compute difference between start and end */
 #define TIME_DIFF(start, end, diff) \
-    diff = ((end.tv_sec - start.tv_sec) * 1000000) + \
-            (end.tv_usec - start.tv_usec);
+    diff = (((end).tv_sec - (start).tv_sec) * 1000000) + \
+            ((end).tv_usec - (start).tv_usec);
 
 struct SoftMPEG2 : public SoftVideoDecoderOMXComponent {
     SoftMPEG2(
@@ -106,6 +106,7 @@ private:
     // codec. So the codec is switching to decode the new resolution.
     bool mChangingResolution;
     bool mFlushNeeded;
+    bool mSignalledError;
     bool mWaitForI;
     size_t mStride;
 

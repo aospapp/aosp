@@ -101,7 +101,7 @@ void memcpy_to_float_from_p24(float *dst, const uint8_t *src, size_t count)
 void memcpy_to_i16_from_p24(int16_t *dst, const uint8_t *src, size_t count)
 {
     while (count--) {
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = src[1] | (src[0] << 8);
 #else
         *dst++ = src[1] | (src[2] << 8);
@@ -113,7 +113,7 @@ void memcpy_to_i16_from_p24(int16_t *dst, const uint8_t *src, size_t count)
 void memcpy_to_i32_from_p24(int32_t *dst, const uint8_t *src, size_t count)
 {
     while (count--) {
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = (src[2] << 8) | (src[1] << 16) | (src[0] << 24);
 #else
         *dst++ = (src[0] << 8) | (src[1] << 16) | (src[2] << 24);
@@ -125,7 +125,7 @@ void memcpy_to_i32_from_p24(int32_t *dst, const uint8_t *src, size_t count)
 void memcpy_to_p24_from_i16(uint8_t *dst, const int16_t *src, size_t count)
 {
     while (count--) {
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = *src >> 8;
         *dst++ = *src++;
         *dst++ = 0;
@@ -142,7 +142,7 @@ void memcpy_to_p24_from_float(uint8_t *dst, const float *src, size_t count)
     while (count--) {
         int32_t ival = clamp24_from_float(*src++);
 
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = ival >> 16;
         *dst++ = ival >> 8;
         *dst++ = ival;
@@ -159,7 +159,7 @@ void memcpy_to_p24_from_q8_23(uint8_t *dst, const int32_t *src, size_t count)
     while (count--) {
         int32_t ival = clamp24_from_q8_23(*src++);
 
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = ival >> 16;
         *dst++ = ival >> 8;
         *dst++ = ival;
@@ -176,7 +176,7 @@ void memcpy_to_p24_from_i32(uint8_t *dst, const int32_t *src, size_t count)
     while (count--) {
         int32_t ival = *src++ >> 8;
 
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = ival >> 16;
         *dst++ = ival >> 8;
         *dst++ = ival;
@@ -205,7 +205,7 @@ void memcpy_to_q8_23_from_float_with_clamp(int32_t *dst, const float *src, size_
 void memcpy_to_q8_23_from_p24(int32_t *dst, const uint8_t *src, size_t count)
 {
     while (count--) {
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
         *dst++ = (int8_t)src[0] << 16 | src[1] << 8 | src[2];
 #else
         *dst++ = (int8_t)src[2] << 16 | src[1] << 8 | src[0];
@@ -345,15 +345,15 @@ size_t nonZeroStereo16(const int16_t *frames, size_t count)
 #define copy_frame_by_mask(dst, dmask, src, smask, count, zero) \
 { \
     uint32_t bit, ormask; \
-    while (count--) { \
-        ormask = dmask | smask; \
+    while ((count)--) { \
+        ormask = (dmask) | (smask); \
         while (ormask) { \
             bit = ormask & -ormask; /* get lowest bit */ \
             ormask ^= bit; /* remove lowest bit */ \
-            if (dmask & bit) { \
-                *dst++ = smask & bit ? *src++ : zero; \
+            if ((dmask) & bit) { \
+                *(dst)++ = (smask) & bit ? *(src)++ : (zero); \
             } else { /* source channel only */ \
-                ++src; \
+                ++(src); \
             } \
         } \
     } \
@@ -417,12 +417,12 @@ void memcpy_by_channel_mask(void *dst, uint32_t dst_mask,
 { \
     unsigned i; \
     int index; \
-    while (count--) { \
-        for (i = 0; i < dst_channels; ++i) { \
-            index = idxary[i]; \
-            *dst++ = index < 0 ? zero : src[index]; \
+    while ((count)--) { \
+        for (i = 0; i < (dst_channels); ++i) { \
+            index = (idxary)[i]; \
+            *(dst)++ = index < 0 ? (zero) : (src)[index]; \
         } \
-        src += src_channels; \
+        (src) += (src_channels); \
     } \
 }
 

@@ -22,6 +22,7 @@
 
 package org.apache.harmony.crypto.tests.javax.crypto;
 
+import java.nio.DirectByteBuffer;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -35,6 +36,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.ShortBufferException;
 import javax.crypto.CipherSpi;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import junit.framework.TestCase;
 
@@ -297,6 +299,137 @@ public class CipherSpiTest extends TestCase {
         bb1.position(pos);
         bb2.position(0);
         assertTrue("Incorrect result", cSpi.engineDoFinal(bb1, bb2) > 0);
+    }
+
+    public void testCrypt_doNotCallPositionInNonArrayBackedInputBuffer() throws Exception {
+        ByteBuffer nonArrayBackedInputBuffer = new MockNonArrayBackedByteBuffer(10, false);
+        ByteBuffer nonArrayBackedOutputBuffer = new MockNonArrayBackedByteBuffer(10, false);
+        Mock_CipherSpi cipherSpi = new Mock_CipherSpi() {
+            public int engineGetOutputSize(int inputLength) {
+                return inputLength;
+            }
+        };
+        cipherSpi.engineUpdate(nonArrayBackedInputBuffer, nonArrayBackedOutputBuffer);
+        assertEquals(0, nonArrayBackedInputBuffer.position());
+    }
+
+    public void testCrypt_doNotCallPutForZeroLengthOutput() throws Exception {
+        ByteBuffer nonArrayBackedInputBuffer = new MockNonArrayBackedByteBuffer(10, false);
+        ByteBuffer nonArrayBackedOutputBuffer = new MockNonArrayBackedByteBuffer(10, false) {
+            @Override
+            public ByteBuffer put(byte[] dst, int offset, int length) {
+                if (length == 0) {
+                    throw new IllegalStateException("put shouldn't be called with length 0");
+                }
+                return this;
+            }
+        };
+
+        Mock_CipherSpi cipherSpi = new Mock_CipherSpi() {
+            public int engineUpdate(
+                    byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) {
+                return 0;
+            }
+        };
+
+        // The put method is not called in the output buffer and so the test passes.
+        cipherSpi.engineUpdate(nonArrayBackedInputBuffer, nonArrayBackedOutputBuffer);
+    }
+
+    // In case a call to engineGetOutputSize returns 0 for the whole input size, but a positive
+    // value for the chunk size to be written, check that the positive output size is used in the
+    // second attempt to read from the the buffer.
+    public void testCrypt_outputSizeUpdatedAfterShortBufferException()
+            throws Exception {
+
+        // 4096 is the value hardcoded for a maximum array allocation in CipherSpi#getTempArraySize
+        final int maxInternalArrayAllocation = 4096;
+        // The length of the input is greater than the max chunk allowed, so the size of the chunk
+        // and the size of the input will differ.
+        final int testInputLength = maxInternalArrayAllocation + 1;
+        // Length to be returned the second time engineGetOutputSize is called (that is, when it's
+        // called with maxInternalArrayAllocation). First length returned (that is, when it's
+        // called with testInputLength) is 0.
+        final int testSecondOutputLength = 1000;
+
+        final AtomicInteger firstGetLength = new AtomicInteger(0);
+        final AtomicInteger secondGetLength = new AtomicInteger(0);
+
+        ByteBuffer inputBuffer = new MockNonArrayBackedByteBuffer(testInputLength, false) {
+            private boolean getWasCalled = false;
+
+            @Override
+            public ByteBuffer get(byte[] dst, int offset, int length) {
+                if (!getWasCalled) {
+                    getWasCalled = true;
+                    firstGetLength.set(length);
+                } else {
+                    if (secondGetLength.get() == 0) {
+                        secondGetLength.set(length);
+                    }
+                }
+                return this;
+            }
+        };
+
+        ByteBuffer outputBuffer = new MockNonArrayBackedByteBuffer(10, false);
+
+        Mock_CipherSpi cipherSpi = new Mock_CipherSpi() {
+            @Override
+            public int engineGetOutputSize(int inputLength) {
+                if (inputLength == testInputLength) {
+                    return 0;
+                } else if (inputLength == maxInternalArrayAllocation) {
+                    return testSecondOutputLength;
+                } else {
+                    throw new IllegalStateException("Unexpected value " + inputLength);
+                }
+            }
+
+            @Override
+            public int engineUpdate(
+                    byte[] inArray, int inOfs, int inLen, byte[] outArray, int outputOffset)
+                    throws ShortBufferException {
+                if (inLen == maxInternalArrayAllocation) {
+                    throw new ShortBufferException("to be caught in order to retry with a new"
+                            + "output size");
+                }
+                return 0;
+            }
+        };
+
+        cipherSpi.engineUpdate(inputBuffer, outputBuffer);
+
+        assertEquals(
+                "first call to get must use the input length, as the output length "
+                        + "from engineGetOutputSize is 0",
+                maxInternalArrayAllocation,
+                firstGetLength.get());
+
+        assertEquals(
+                "second call to get must use the new output length",
+                testSecondOutputLength,
+                secondGetLength.get());
+    }
+
+    // The tests using ByteBuffer depend on final methods (like hasArray) that cannot be mocked in
+    // Mockito, so the mock is done manually. ByteBuffer has abstract methods that are
+    // package-private, so extending DirectByteBuffer. It happens to be not backed by an array, so
+    // we use it when we need a byte buffer not array-backed.
+    private class MockNonArrayBackedByteBuffer extends DirectByteBuffer {
+        public MockNonArrayBackedByteBuffer(int capacity, boolean isReadOnly) {
+            super(capacity, 0 /* addr */, null /* fd */, null /* unmapper */, isReadOnly);
+        }
+
+        @Override
+        public ByteBuffer get(byte[] dst, int offset, int length) {
+            return this;
+        }
+
+        @Override
+        public ByteBuffer put(byte[] dst, int offset, int length) {
+            return this;
+        }
     }
 }
 /**

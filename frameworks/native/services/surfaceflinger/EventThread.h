@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <private/gui/BitTube.h>
 #include <gui/DisplayEventReceiver.h>
 #include <gui/IDisplayEventConnection.h>
 
@@ -57,7 +58,7 @@ public:
 class EventThread : public Thread, private VSyncSource::Callback {
     class Connection : public BnDisplayEventConnection {
     public:
-        Connection(const sp<EventThread>& eventThread);
+        explicit Connection(const sp<EventThread>& eventThread);
         status_t postEvent(const DisplayEventReceiver::Event& event);
 
         // count >= 1 : continuous event. count is the vsync rate
@@ -68,16 +69,16 @@ class EventThread : public Thread, private VSyncSource::Callback {
     private:
         virtual ~Connection();
         virtual void onFirstRef();
-        virtual sp<BitTube> getDataChannel() const;
-        virtual void setVsyncRate(uint32_t count);
-        virtual void requestNextVsync();    // asynchronous
+        status_t stealReceiveChannel(gui::BitTube* outChannel) override;
+        status_t setVsyncRate(uint32_t count) override;
+        void requestNextVsync() override;    // asynchronous
         sp<EventThread> const mEventThread;
-        sp<BitTube> const mChannel;
+        gui::BitTube mChannel;
     };
 
 public:
 
-    EventThread(const sp<VSyncSource>& src, SurfaceFlinger& flinger);
+    EventThread(const sp<VSyncSource>& src, SurfaceFlinger& flinger, bool interceptVSyncs);
 
     sp<Connection> createEventConnection() const;
     status_t registerDisplayEventConnection(const sp<Connection>& connection);
@@ -132,6 +133,7 @@ private:
     bool mDebugVsyncEnabled;
 
     bool mVsyncHintSent;
+    const bool mInterceptVSyncs;
     timer_t mTimerId;
 };
 

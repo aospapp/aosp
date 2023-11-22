@@ -17,16 +17,25 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.app.Activity;
-import android.content.Context;
 import android.os.Bundle;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.Preference;
+import android.support.annotation.IntDef;
 
 /**
  * Helper for the Deletion Helper which can query, clear out, and visualize deletable data.
  * This could represent a helper for deleting photos, downloads, movies, etc.
  */
 public interface DeletionType {
+
+    @IntDef({LoadingStatus.LOADING, LoadingStatus.COMPLETE, LoadingStatus.EMPTY})
+    @interface LoadingStatus {
+        /** Loading is still in progress. */
+        int LOADING = 0;
+        /** Loading was completed and deletable content was found. */
+        int COMPLETE = 1;
+        /** Loading was completed and no deletable content was found. */
+        int EMPTY = 2;
+    }
+
     /**
      * Registers a callback to call when the amount of freeable space is updated.
      * @param listener A callback.
@@ -50,10 +59,53 @@ public interface DeletionType {
      */
     void clearFreeableData(Activity activity);
 
+    /** @return The number of items found that are available for deletion. */
+    int getContentCount();
+
+    /** @return The loading status of this deletion type. Can be any of {@link LoadingStatus}. */
+    @LoadingStatus
+    int getLoadingStatus();
+
+    /**
+     * Convenience method for checking if the loading status is {@link LoadingStatus#COMPLETE}.
+     *
+     * @return Whether the loading status is currently {@link LoadingStatus#COMPLETE} as a boolean.
+     */
+    default boolean isComplete() {
+        return getLoadingStatus() == LoadingStatus.COMPLETE;
+    }
+
+    /**
+     * Convenience method for checking if the loading status is {@link LoadingStatus#EMPTY}.
+     *
+     * @return Whether the loading status is currently {@link LoadingStatus#EMPTY} as a boolean.
+     */
+    default boolean isEmpty() {
+        return getLoadingStatus() == LoadingStatus.EMPTY;
+    }
+
+    /**
+     * @param loadingStatus The state to set the deletion type to. Can be any of {@link
+     *     LoadingStatus}.
+     */
+    void setLoadingStatus(@LoadingStatus int loadingStatus);
+
     /**
      * Callback interface to listen for when a deletion feature's amount of freeable space updates.
      */
     interface FreeableChangedListener {
         void onFreeableChanged(int numItems, long bytesFreeable);
+    }
+
+    /**
+     * Updates the loading status of the deletion type based on whether content is available to
+     * delete or not.
+     */
+    default void updateLoadingStatus() {
+        if (getContentCount() == 0) {
+            setLoadingStatus(LoadingStatus.EMPTY);
+        } else {
+            setLoadingStatus(LoadingStatus.COMPLETE);
+        }
     }
 }

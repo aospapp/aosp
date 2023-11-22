@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.StrictMode;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import android.webkit.cts.CtsTestServer;
 
@@ -35,6 +36,7 @@ import java.util.List;
 /**
  * Test file for browser security issues.
  */
+@SecurityTest
 public class BrowserTest extends AndroidTestCase {
     private CtsTestServer mWebServer;
 
@@ -172,7 +174,13 @@ public class BrowserTest extends AndroidTestCase {
 
             // do a file request
             intent.setData(Uri.fromFile(htmlFile));
-            mContext.startActivity(intent);
+
+            try {
+                mContext.startActivity(intent);
+            } catch (SecurityException e) {
+                // If browser activity cannot be started, skip the test.
+                continue;
+            }
 
             /*
              * Wait 5 seconds for the browser to contact the server, but

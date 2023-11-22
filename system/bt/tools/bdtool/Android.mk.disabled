@@ -39,7 +39,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../test/suite \
   $(LOCAL_PATH)/../..
 
-LOCAL_SHARED_LIBRARIES += \
+LOCAL_SHARED_LIBRARIES := \
   libhardware liblog
 
 LOCAL_CFLAGS += $(bluetooth_CFLAGS)

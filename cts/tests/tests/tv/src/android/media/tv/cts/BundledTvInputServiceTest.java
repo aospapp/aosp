@@ -19,7 +19,6 @@ package android.media.tv.cts;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.cts.util.PollingCheck;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
@@ -28,6 +27,8 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.util.ArrayMap;
 
 import android.tv.cts.R;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -157,13 +158,15 @@ public class BundledTvInputServiceTest
         if (!Utils.hasTvInputFramework(getActivity())) {
             return;
         }
-        // On average, the device is expected to have ~ 5 pass-through inputs (HDMI1-4 and
-        // Component) and tuning should be completed within 3 seconds, which gives 15 seconds
-        // for an input. Set 5 minutes of timeout for this test case and try 20 iterations.
-        final int ITERATIONS = 20;
-        for (int i = 0; i < mPassthroughInputList.size() * ITERATIONS; ++i) {
-            final TvInputInfo info =
-                    mPassthroughInputList.get(i % mPassthroughInputList.size());
+        if (mPassthroughInputList.size() == 0) {
+            // The device does not have any passthrough inputs. Skipping the stress test.
+            return;
+        }
+        // Tuning should be completed within 3 seconds on average, therefore, we set 100 iterations
+        // here to fit the test case running time in 5 minutes limitation of CTS test cases.
+        final int ITERATIONS = 100;
+        for (int i = 0; i < ITERATIONS; ++i) {
+            final TvInputInfo info = mPassthroughInputList.get(i % mPassthroughInputList.size());
             mCallback.mVideoUnavailableReasonMap.remove(info.getId());
             runTestOnUiThread(new Runnable() {
                 @Override

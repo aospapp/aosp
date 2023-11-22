@@ -7,8 +7,7 @@ NAME = 'brillo_WebservdSanity'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'Server'
-#ATTRIBUTES = 'suite:brillo-pts'
-#SUITE = 'brillo-pts'
+ATTRIBUTES = 'suite:brillo-smoke, suite:brillo-bvt, suite:brillo-pts'
 
 DOC = """
 Tests whether the Brillo webserver services basic requests.

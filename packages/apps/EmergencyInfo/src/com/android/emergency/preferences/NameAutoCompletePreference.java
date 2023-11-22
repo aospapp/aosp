@@ -37,7 +37,8 @@ public class NameAutoCompletePreference extends AutoCompleteEditTextPreference i
     private ArrayAdapter createAdapter() {
         UserManager userManager =
                 (UserManager) getContext().getSystemService(Context.USER_SERVICE);
-        String[] autocompleteSuggestions = {userManager.getUserName()};
+        String[] autocompleteSuggestions = userManager.isUserNameSet()
+            ? new String[] {userManager.getUserName()} : new String[] {};
         return new ArrayAdapter<String>(getContext(),
                 android.R.layout.simple_dropdown_item_1line, autocompleteSuggestions);
     }

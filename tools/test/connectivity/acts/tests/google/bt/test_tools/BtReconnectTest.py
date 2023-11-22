@@ -36,12 +36,7 @@ class BtReconnectTest(BluetoothBaseTest):
 
     def setup_test(self):
         setup_result = reset_bluetooth(self.android_devices)
-        self.log.debug(log_energy_info(self.android_devices, "Start"))
         return setup_result
-
-    def teardown_test(self):
-        self.log.debug(log_energy_info(self.android_devices, "End"))
-        return True
 
     @BluetoothBaseTest.bt_test_wrap
     def test_tool_reconnect(self):

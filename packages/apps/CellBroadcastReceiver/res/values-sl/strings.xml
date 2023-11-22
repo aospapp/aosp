@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Opozorilo v sili"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Oddaje v celici"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Nastavitve opozoril v sili"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Sporočila mobilnega operaterja"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Vklop besedil"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Prikaži oddaje za opozorila v sili"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Opomnik za opozorilo"</string>
@@ -102,7 +103,7 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"Prejeto:"</string>
     <string name="notification_multiple" msgid="5121978148152124860">"Št. neprebranih opozoril: <xliff:g id="COUNT">%s</xliff:g>."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Nova opozorila"</string>
-    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"Po prikazu prvega opozorila CMAS (ki ni za predsednika) pokaži pogovorno okno za onemogočenje."</string>
+    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"Po prikazu prvega opozorila CMAS (ki ni predsedniško opozorilo) pokaži pogovorno okno za onemogočenje."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Pokaži pogovorno okno za onemogočenje"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Trenutno prejemate opozorila v sili. Ali jih želite prejemati še naprej?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Da"</string>

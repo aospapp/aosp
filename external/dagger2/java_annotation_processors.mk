@@ -50,7 +50,6 @@ GENERATED_SOURCE_DIR := $(local-generated-sources-dir)/annotation_processor_outp
 
 # Tell javac to generate source files in the source directory.
 LOCAL_JAVACFLAGS += -s $(GENERATED_SOURCE_DIR)
-LOCAL_GENERATED_SOURCES := $(GENERATED_SOURCE_DIR)
 
 # Add dependency between the jar being built and the processor jars so that
 # they are built before this one.

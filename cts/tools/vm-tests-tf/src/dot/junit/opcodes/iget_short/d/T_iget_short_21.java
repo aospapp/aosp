@@ -18,6 +18,7 @@ package dot.junit.opcodes.iget_short.d;
 
 public class T_iget_short_21 {
 
-    public void run() {
+    public short run() {
+        return 0;
     }
 }

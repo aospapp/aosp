@@ -19,28 +19,34 @@
 #include "IGateKeeperService.h"
 
 #include <errno.h>
-#include <stdint.h>
-#include <inttypes.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <stdint.h>
 #include <unistd.h>
-
-#include <cutils/log.h>
-#include <utils/Log.h>
 
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 #include <binder/PermissionCache.h>
-#include <utils/String16.h>
-#include <utils/Log.h>
-
-#include <keystore/IKeystoreService.h>
-#include <keystore/keystore.h> // For error code
 #include <gatekeeper/password_handle.h> // for password_handle_t
 #include <hardware/gatekeeper.h>
 #include <hardware/hw_auth_token.h>
+#include <keystore/IKeystoreService.h>
+#include <keystore/keystore.h> // For error code
+#include <log/log.h>
+#include <utils/Log.h>
+#include <utils/String16.h>
 
 #include "SoftGateKeeperDevice.h"
 #include "IUserManager.h"
+
+#include <hidl/HidlSupport.h>
+#include <android/hardware/gatekeeper/1.0/IGatekeeper.h>
+
+using android::sp;
+using android::hardware::gatekeeper::V1_0::IGatekeeper;
+using android::hardware::gatekeeper::V1_0::GatekeeperStatusCode;
+using android::hardware::gatekeeper::V1_0::GatekeeperResponse;
+using android::hardware::Return;
 
 namespace android {
 
@@ -50,33 +56,27 @@ static const String16 DUMP_PERMISSION("android.permission.DUMP");
 class GateKeeperProxy : public BnGateKeeperService {
 public:
     GateKeeperProxy() {
-        int ret = hw_get_module_by_class(GATEKEEPER_HARDWARE_MODULE_ID, NULL, &module);
-        device = NULL;
+        hw_device = IGatekeeper::getService();
 
-        if (ret < 0) {
+        if (hw_device == nullptr) {
             ALOGW("falling back to software GateKeeper");
             soft_device.reset(new SoftGateKeeperDevice());
-        } else {
-            ret = gatekeeper_open(module, &device);
-            if (ret < 0)
-                LOG_ALWAYS_FATAL_IF(ret < 0, "Unable to open GateKeeper HAL");
         }
 
         if (mark_cold_boot()) {
             ALOGI("cold boot: clearing state");
-            if (device != NULL && device->delete_all_users != NULL) {
-                device->delete_all_users(device);
+            if (hw_device != nullptr) {
+                hw_device->deleteAllUsers([](const GatekeeperResponse &){});
             }
         }
     }
 
     virtual ~GateKeeperProxy() {
-        if (device) gatekeeper_close(device);
     }
 
     void store_sid(uint32_t uid, uint64_t sid) {
         char filename[21];
-        sprintf(filename, "%u", uid);
+        snprintf(filename, sizeof(filename), "%u", uid);
         int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR);
         if (fd < 0) {
             ALOGE("could not open file: %s: %s", filename, strerror(errno));
@@ -102,7 +102,7 @@ public:
 
     void maybe_store_sid(uint32_t uid, uint64_t sid) {
         char filename[21];
-        sprintf(filename, "%u", uid);
+        snprintf(filename, sizeof(filename), "%u", uid);
         if (access(filename, F_OK) == -1) {
             store_sid(uid, sid);
         }
@@ -111,7 +111,7 @@ public:
     uint64_t read_sid(uint32_t uid) {
         char filename[21];
         uint64_t sid;
-        sprintf(filename, "%u", uid);
+        snprintf(filename, sizeof(filename), "%u", uid);
         int fd = open(filename, O_RDONLY);
         if (fd < 0) return 0;
         read(fd, &sid, sizeof(sid));
@@ -121,7 +121,7 @@ public:
 
     void clear_sid(uint32_t uid) {
         char filename[21];
-        sprintf(filename, "%u", uid);
+        snprintf(filename, sizeof(filename), "%u", uid);
         if (remove(filename) < 0) {
             ALOGE("%s: could not remove file [%s], attempting 0 write", __func__, strerror(errno));
             store_sid(uid, 0);
@@ -144,7 +144,7 @@ public:
         if (desired_password_length == 0) return -EINVAL;
 
         int ret;
-        if (device) {
+        if (hw_device != nullptr) {
             const gatekeeper::password_handle_t *handle =
                     reinterpret_cast<const gatekeeper::password_handle_t *>(current_password_handle);
 
@@ -157,10 +157,37 @@ public:
                 current_password_length = 0;
             }
 
-            ret = device->enroll(device, uid, current_password_handle, current_password_handle_length,
-                    current_password, current_password_length,
-                    desired_password, desired_password_length,
-                    enrolled_password_handle, enrolled_password_handle_length);
+            android::hardware::hidl_vec<uint8_t> curPwdHandle;
+            curPwdHandle.setToExternal(const_cast<uint8_t*>(current_password_handle),
+                                       current_password_handle_length);
+            android::hardware::hidl_vec<uint8_t> curPwd;
+            curPwd.setToExternal(const_cast<uint8_t*>(current_password),
+                                 current_password_length);
+            android::hardware::hidl_vec<uint8_t> newPwd;
+            newPwd.setToExternal(const_cast<uint8_t*>(desired_password),
+                                 desired_password_length);
+
+            Return<void> hwRes = hw_device->enroll(uid, curPwdHandle, curPwd, newPwd,
+                              [&ret, enrolled_password_handle, enrolled_password_handle_length]
+                                   (const GatekeeperResponse &rsp) {
+                ret = static_cast<int>(rsp.code); // propagate errors
+                if (rsp.code >= GatekeeperStatusCode::STATUS_OK) {
+                    if (enrolled_password_handle != nullptr &&
+                        enrolled_password_handle_length != nullptr) {
+                        *enrolled_password_handle = new uint8_t[rsp.data.size()];
+                        *enrolled_password_handle_length = rsp.data.size();
+                        memcpy(*enrolled_password_handle, rsp.data.data(),
+                               *enrolled_password_handle_length);
+                    }
+                    ret = 0; // all success states are reported as 0
+                } else if (rsp.code == GatekeeperStatusCode::ERROR_RETRY_TIMEOUT && rsp.timeout > 0) {
+                    ret = rsp.timeout;
+                }
+            });
+            if (!hwRes.isOk()) {
+                ALOGE("enroll transaction failed\n");
+                ret = -1;
+            }
         } else {
             ret = soft_device->enroll(uid,
                     current_password_handle, current_password_handle_length,
@@ -169,7 +196,14 @@ public:
                     enrolled_password_handle, enrolled_password_handle_length);
         }
 
-        if (ret == 0) {
+        if (ret == GATEKEEPER_RESPONSE_OK && (*enrolled_password_handle == nullptr ||
+            *enrolled_password_handle_length != sizeof(password_handle_t))) {
+            ret = GATEKEEPER_RESPONSE_ERROR;
+            ALOGE("HAL: password_handle=%p size_of_handle=%" PRIu32 "\n",
+                  *enrolled_password_handle, *enrolled_password_handle_length);
+        }
+
+        if (ret == GATEKEEPER_RESPONSE_OK) {
             gatekeeper::password_handle_t *handle =
                     reinterpret_cast<gatekeeper::password_handle_t *>(*enrolled_password_handle);
             store_sid(uid, handle->user_id);
@@ -210,16 +244,40 @@ public:
             return -EINVAL;
 
         int ret;
-        if (device) {
+        if (hw_device != nullptr) {
             const gatekeeper::password_handle_t *handle =
                     reinterpret_cast<const gatekeeper::password_handle_t *>(enrolled_password_handle);
             // handle version 0 does not have hardware backed flag, and thus cannot be upgraded to
             // a HAL if there was none before
             if (handle->version == 0 || handle->hardware_backed) {
-                ret = device->verify(device, uid, challenge,
-                    enrolled_password_handle, enrolled_password_handle_length,
-                    provided_password, provided_password_length, auth_token, auth_token_length,
-                    request_reenroll);
+                android::hardware::hidl_vec<uint8_t> curPwdHandle;
+                curPwdHandle.setToExternal(const_cast<uint8_t*>(enrolled_password_handle),
+                                           enrolled_password_handle_length);
+                android::hardware::hidl_vec<uint8_t> enteredPwd;
+                enteredPwd.setToExternal(const_cast<uint8_t*>(provided_password),
+                                         provided_password_length);
+                Return<void> hwRes = hw_device->verify(uid, challenge, curPwdHandle, enteredPwd,
+                                        [&ret, request_reenroll, auth_token, auth_token_length]
+                                             (const GatekeeperResponse &rsp) {
+                    ret = static_cast<int>(rsp.code); // propagate errors
+                    if (auth_token != nullptr && auth_token_length != nullptr &&
+                        rsp.code >= GatekeeperStatusCode::STATUS_OK) {
+                        *auth_token = new uint8_t[rsp.data.size()];
+                        *auth_token_length = rsp.data.size();
+                        memcpy(*auth_token, rsp.data.data(), *auth_token_length);
+                        if (request_reenroll != nullptr) {
+                            *request_reenroll = (rsp.code == GatekeeperStatusCode::STATUS_REENROLL);
+                        }
+                        ret = 0; // all success states are reported as 0
+                    } else if (rsp.code == GatekeeperStatusCode::ERROR_RETRY_TIMEOUT &&
+                               rsp.timeout > 0) {
+                        ret = rsp.timeout;
+                    }
+                });
+                if (!hwRes.isOk()) {
+                    ALOGE("verify transaction failed\n");
+                    ret = -1;
+                }
             } else {
                 // upgrade scenario, a HAL has been added to this device where there was none before
                 SoftGateKeeperDevice soft_dev;
@@ -246,9 +304,9 @@ public:
             sp<IBinder> binder = sm->getService(String16("android.security.keystore"));
             sp<IKeystoreService> service = interface_cast<IKeystoreService>(binder);
             if (service != NULL) {
-                status_t ret = service->addAuthToken(*auth_token, *auth_token_length);
-                if (ret != ResponseCode::NO_ERROR) {
-                    ALOGE("Falure sending auth token to KeyStore: %d", ret);
+                auto ret = service->addAuthToken(*auth_token, *auth_token_length);
+                if (!ret.isOk()) {
+                    ALOGE("Failure sending auth token to KeyStore: %" PRId32, int32_t(ret));
                 }
             } else {
                 ALOGE("Unable to communicate with KeyStore");
@@ -291,8 +349,8 @@ public:
         }
         clear_sid(uid);
 
-        if (device != NULL && device->delete_user != NULL) {
-            device->delete_user(device, uid);
+        if (hw_device != nullptr) {
+            hw_device->deleteUser(uid, [] (const GatekeeperResponse &){});
         }
     }
 
@@ -304,7 +362,7 @@ public:
             return PERMISSION_DENIED;
         }
 
-        if (device == NULL) {
+        if (hw_device == NULL) {
             const char *result = "Device not available";
             write(fd, result, strlen(result) + 1);
         } else {
@@ -316,9 +374,8 @@ public:
     }
 
 private:
-    gatekeeper_device_t *device;
+    sp<IGatekeeper> hw_device;
     UniquePtr<SoftGateKeeperDevice> soft_device;
-    const hw_module_t *module;
 };
 }// namespace android
 

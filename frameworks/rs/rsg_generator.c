@@ -120,7 +120,8 @@ void printFuncDecl(FILE *f, const ApiEntry *api, const char *prefix, int addCont
     printVarTypeAndName(f, &api->ret);
     if (isFnPtr) {
         char t[1024];
-        strcpy(t, api->name);
+        strncpy(t, api->name, sizeof(t)-1);
+        t[sizeof(t)-1] = '\0';
         if (strlen(prefix) == 0) {
             if (t[0] > 'A' && t[0] < 'Z') {
                 t[0] -= 'A' - 'a';
@@ -203,8 +204,8 @@ void printApiCpp(FILE *f) {
     fprintf(f, "#include \"rsgApiFuncDecl.h\"\n");
     fprintf(f, "#include \"rsFifo.h\"\n");
     fprintf(f, "\n");
-    fprintf(f, "using namespace android;\n");
-    fprintf(f, "using namespace android::renderscript;\n");
+    fprintf(f, "using namespace android;  // NOLINT\n");
+    fprintf(f, "using namespace android::renderscript;  // NOLINT\n");
     fprintf(f, "\n");
 
     // Generate RS funcs that send messages on the local FIFO.

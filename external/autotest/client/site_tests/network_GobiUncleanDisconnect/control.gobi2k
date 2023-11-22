@@ -10,7 +10,6 @@ This test will fail if any of its subtest programs fails to find or connect to
 the Gobi.
 """
 ATTRIBUTES = "suite:network3g"
-SUITE = "network3g"
 TIME = "SHORT"
 TEST_CATEGORY = "Regression"
 TEST_CLASS = "network"

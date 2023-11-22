@@ -25,6 +25,7 @@
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
+    <uses-permission android:name="android.permission.PEERS_MAC_ADDRESS"/>
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.REBOOT" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
@@ -189,6 +190,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <action android:name="android.intent.action.MANAGE_PACKAGE_STORAGE" />
+                <action android:name="android.os.storage.action.MANAGE_STORAGE" />
             </intent-filter>
         </activity>
         <activity android:name=".device.storage.ResetActivity"
@@ -328,11 +330,6 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".system.SetDateTimeActivity"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:excludeFromRecents="true"
-            android:exported="false" />
-        <activity
             android:name=".system.LocationActivity"
             android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
@@ -365,7 +362,7 @@
             android:excludeFromRecents="true"
             android:exported="false" />
         <activity
-            android:name=".system.KeyboardActivity"
+            android:name=".inputmethod.KeyboardActivity"
             android:theme="@style/Theme.Settings.Transparent"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
@@ -416,14 +413,6 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name=".accessories.BluetoothConnectionsManager" >
-            <intent-filter>
-                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
-                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
-                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" />
-            </intent-filter>
-        </receiver>
-
         <receiver android:name=".accessories.BluetoothPairingRequest" >
             <intent-filter>
                 <action android:name="android.bluetooth.device.action.PAIRING_REQUEST" />
@@ -434,7 +423,8 @@
             android:name=".accessories.BluetoothPairingDialog"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
-            android:exported="true" >
+            android:exported="true"
+            android:taskAffinity="" >
             <intent-filter>
                 <action android:name="android.bluetooth.device.action.PAIRING_REQUEST" />
 
@@ -496,6 +486,17 @@
                     <category android:name="android.intent.category.DEFAULT" />
                 </intent-filter>
         </activity>
+        <activity
+            android:name=".name.setup.DeviceNameFlowStartActivity"
+            android:configChanges="keyboardHidden|navigation"
+            android:theme="@style/SetupFlowGuidedStepTheme"
+            android:label="@string/device_name"
+            android:excludeFromRecents="true" >
+            <intent-filter>
+                <action android:name="android.settings.START_DEVICE_NAME_FLOW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <service android:name=".users.UserSwitchListenerService"/>
         <receiver android:name=".users.UserSwitchListenerService$BootReceiver">
@@ -504,9 +505,8 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".device.storage.NewStorageActivity$DiskReceiver">
+        <receiver android:name=".device.storage.DiskReceiver">
             <intent-filter>
-                <action android:name="android.os.storage.action.DISK_SCANNED" />
                 <action android:name="android.os.storage.action.VOLUME_STATE_CHANGED" />
                 <action android:name="com.google.android.tungsten.setupwraith.TV_SETTINGS_POST_SETUP" />
             </intent-filter>
@@ -517,12 +517,22 @@
 
         <activity android:name=".device.storage.NewStorageActivity"
             android:excludeFromRecents="true"
-            android:exported="false"
-            android:taskAffinity="" />
+            android:taskAffinity=""
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.tv.settings.action.NEW_STORAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity android:name=".device.storage.UnmountActivity"
             android:excludeFromRecents="true"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.tv.settings.action.UNMOUNT_STORAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity android:name=".device.storage.FormatActivity"
             android:excludeFromRecents="true"
@@ -530,11 +540,21 @@
 
         <activity android:name=".device.storage.MigrateStorageActivity"
             android:excludeFromRecents="true"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.tv.settings.action.MIGRATE_STORAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity android:name=".device.apps.MoveAppActivity"
             android:excludeFromRecents="true"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.tv.settings.action.MOVE_APP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity android:name=".accessories.BluetoothRequestPermissionActivity"
             android:label="@string/bluetooth_permission_request"
@@ -551,10 +571,71 @@
         <!-- Triggered when user-selected home app isn't encryption aware -->
         <activity android:name=".system.FallbackHome"
                   android:excludeFromRecents="true"
-                  android:theme="@style/FallbackHome">
+                  android:theme="@style/FallbackHome"
+                  android:configChanges="locale|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize|layoutDirection" >
             <intent-filter android:priority="-1000">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".inputmethod.InputMethodAndSubtypeEnablerActivity"
+                  android:label=""
+                  android:theme="@style/Theme.Settings.Transparent"
+                  android:clearTaskOnLaunch="true">
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.INPUT_METHOD_SUBTYPE_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.VOICE_LAUNCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".device.apps.specialaccess.ManageExternalSourcesActivity"
+                android:label="@string/install_other_apps"
+                android:theme="@style/Theme.Settings.Transparent"
+                android:taskAffinity="">
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.MANAGE_UNKNOWN_APP_SOURCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.MANAGE_UNKNOWN_APP_SOURCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </activity>
+
+        <!-- Dummy intent filters for CTS TODO: implement something useful -->
+        <activity android:name=".EmptyStubActivity"
+                  android:exported="true"
+                  android:excludeFromRecents="true"
+                  android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.settings.WEBVIEW_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="package" />
+            </intent-filter>
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="package" />
+            </intent-filter>
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.MANAGE_DEFAULT_APPS_SETTINGS" />
+                <action android:name="android.settings.HOME_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

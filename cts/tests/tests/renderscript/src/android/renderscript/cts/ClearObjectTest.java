@@ -73,6 +73,9 @@ public class ClearObjectTest extends RSBaseCompute {
 
         for(int i = 0; i < ObjectNum; i++)
             assertEquals(tmpArray[i], 1);
+
+        mIn.destroy();
+        mOut.destroy();
     }
 
     public void testclearObjectType() {
@@ -90,6 +93,9 @@ public class ClearObjectTest extends RSBaseCompute {
 
         for(int i = 0; i < ObjectNum; i++)
             assertEquals(tmpArray[i], 1);
+
+        mIn.destroy();
+        mOut.destroy();
     }
 
     public void testclearObjectAllocation() {
@@ -106,6 +112,10 @@ public class ClearObjectTest extends RSBaseCompute {
 
         for(int i = 0; i < ObjectNum; i++)
             assertEquals(tmpArray[i], 1);
+
+        mIn.destroy();
+        mOut.destroy();
+        allocation.destroy();
     }
 
     public void testclearObjectSampler() {
@@ -122,6 +132,9 @@ public class ClearObjectTest extends RSBaseCompute {
 
         for(int i = 0; i < ObjectNum; i++)
             assertEquals(tmpArray[i], 1);
+
+        mIn.destroy();
+        mOut.destroy();
     }
 
     public void testclearObjectScript() {
@@ -138,5 +151,8 @@ public class ClearObjectTest extends RSBaseCompute {
 
         for(int i = 0; i < ObjectNum; i++)
             assertEquals(tmpArray[i], 1);
+
+        mIn.destroy();
+        mOut.destroy();
     }
 }

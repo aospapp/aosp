@@ -16,17 +16,20 @@
 
 package dalvik.system;
 
+import android.system.Os;
+import android.system.OsConstants;
 import junit.framework.TestCase;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
-/**
- * Created by narayan on 1/7/16.
- */
 public class BlockGuardTest extends TestCase {
 
     private BlockGuard.Policy oldPolicy;
@@ -34,6 +37,7 @@ public class BlockGuardTest extends TestCase {
 
     @Override
     public void setUp() {
+        recorder.setChecks(EnumSet.allOf(RecordingPolicy.Check.class));
         oldPolicy = BlockGuard.getThreadPolicy();
         BlockGuard.setThreadPolicy(recorder);
     }
@@ -100,22 +104,33 @@ public class BlockGuardTest extends TestCase {
     }
 
     public void testFileInputStream() throws Exception {
-        File f = new File("/proc/version");
-        recorder.clear();
+        // The file itself doesn't matter: it just has to exist and allow the creation of the
+        // FileInputStream. The BlockGuard should have the same behavior towards a normal file and
+        // system file.
+        File tmpFile = File.createTempFile("inputFile", ".txt");
+        try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+            fos.write("01234567890".getBytes());
+        }
 
-        FileInputStream fis = new FileInputStream(f);
-        recorder.expectAndClear("onReadFromDisk");
+        try {
+            recorder.clear();
 
-        fis.read(new byte[4],0, 4);
-        recorder.expectAndClear("onReadFromDisk");
+            FileInputStream fis = new FileInputStream(tmpFile);
+            recorder.expectAndClear("onReadFromDisk");
 
-        fis.read();
-        recorder.expectAndClear("onReadFromDisk");
+            fis.read(new byte[4], 0, 4);
+            recorder.expectAndClear("onReadFromDisk");
 
-        fis.skip(1);
-        recorder.expectAndClear("onReadFromDisk");
+            fis.read();
+            recorder.expectAndClear("onReadFromDisk");
 
-        fis.close();
+            fis.skip(1);
+            recorder.expectAndClear("onReadFromDisk");
+
+            fis.close();
+        } finally {
+            tmpFile.delete();
+        }
     }
 
     public void testFileOutputStream() throws Exception {
@@ -138,23 +153,158 @@ public class BlockGuardTest extends TestCase {
         recorder.expectNoViolations();
     }
 
+    public void testUnbufferedIO() throws Exception {
+        File f = File.createTempFile("foo", "bar");
+        recorder.setChecks(EnumSet.of(RecordingPolicy.Check.UNBUFFERED_IO));
+        recorder.clear();
+
+        try (FileOutputStream fos = new FileOutputStream(f)) {
+            recorder.expectNoViolations();
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                fos.write("a".getBytes());
+            }
+            recorder.expectAndClear("onUnbufferedIO");
+        }
+
+        try (FileInputStream fis = new FileInputStream(new File("/dev/null"))) {
+            recorder.expectNoViolations();
+            byte[] b = new byte[1];
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                fis.read(b);
+            }
+            recorder.expectAndClear("onUnbufferedIO");
+        }
+
+        try (RandomAccessFile ras = new RandomAccessFile(f, "rw")) {
+            // seek should reset the IoTracker.
+            ras.seek(0);
+            recorder.expectNoViolations();
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                ras.read("a".getBytes());
+            }
+            recorder.expectAndClear("onUnbufferedIO");
+        }
+
+        try (RandomAccessFile ras = new RandomAccessFile(f, "rw")) {
+            // No violation is expected as a write is called while reading which should reset the
+            // IoTracker counter.
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                if (i == 5) {
+                    ras.write("a".getBytes());
+                }
+                ras.read("a".getBytes());
+            }
+            recorder.expectNoViolations();
+        }
+
+        try (RandomAccessFile ras = new RandomAccessFile(f, "rw")) {
+            // No violation is expected as a seek is called while reading which should reset the
+            // IoTracker counter.
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                if (i == 5) {
+                    ras.seek(0);
+                }
+                ras.read("a".getBytes());
+            }
+            recorder.expectNoViolations();
+        }
+
+        try (RandomAccessFile ras = new RandomAccessFile(f, "rw")) {
+            // seek should reset the IoTracker.
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                ras.write("a".getBytes());
+            }
+            recorder.expectAndClear("onUnbufferedIO");
+        }
+
+        try (RandomAccessFile ras = new RandomAccessFile(f, "rw")) {
+            // No violation is expected as a read is called while writing which should reset the
+            // IoTracker counter.
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                if (i == 5) {
+                    ras.read("a".getBytes());
+                }
+                ras.write("a".getBytes());
+            }
+            recorder.expectNoViolations();
+        }
+
+        try (RandomAccessFile ras = new RandomAccessFile(f, "rw")) {
+            for (int i = 0; i < 11; i++) {
+                recorder.expectNoViolations();
+                if (i == 5) {
+                    ras.seek(0);
+                }
+                ras.write("a".getBytes());
+            }
+            recorder.expectNoViolations();
+        }
+    }
+
+    public void testOpen() throws Exception {
+        File temp = File.createTempFile("foo", "bar");
+        recorder.clear();
+
+        // Open in read/write mode : should be recorded as a read and a write to disk.
+        FileDescriptor fd = Os.open(temp.getPath(), OsConstants.O_RDWR, 0);
+        recorder.expectAndClear("onReadFromDisk", "onWriteToDisk");
+        Os.close(fd);
+
+        // Open in read only mode : should be recorded as a read from disk.
+        recorder.clear();
+        fd = Os.open(temp.getPath(), OsConstants.O_RDONLY, 0);
+        recorder.expectAndClear("onReadFromDisk");
+        Os.close(fd);
+    }
 
     public static class RecordingPolicy implements BlockGuard.Policy {
         private final List<String> violations = new ArrayList<>();
+        private Set<Check> checksList;
+
+        public enum Check {
+            WRITE_TO_DISK,
+            READ_FROM_DISK,
+            NETWORK,
+            UNBUFFERED_IO,
+        }
+
+        public void setChecks(EnumSet<Check> checksList) {
+            this.checksList = checksList;
+        }
 
         @Override
         public void onWriteToDisk() {
-            addViolation("onWriteToDisk");
+            if (checksList != null && checksList.contains(Check.WRITE_TO_DISK)) {
+                addViolation("onWriteToDisk");
+            }
         }
 
         @Override
         public void onReadFromDisk() {
-            addViolation("onReadFromDisk");
+            if (checksList != null && checksList.contains(Check.READ_FROM_DISK)) {
+                addViolation("onReadFromDisk");
+            }
         }
 
         @Override
         public void onNetwork() {
-            addViolation("onNetwork");
+            if (checksList != null && checksList.contains(Check.NETWORK)) {
+                addViolation("onNetwork");
+            }
+        }
+
+        @Override
+        public void onUnbufferedIO() {
+            if (checksList != null && checksList.contains(Check.UNBUFFERED_IO)) {
+                addViolation("onUnbufferedIO");
+            }
         }
 
         private void addViolation(String type) {

@@ -399,7 +399,7 @@ class GlobalValueNumberer : public ValueObject {
   ArenaVector<ValueSet*> sets_;
 
   // BitVector which serves as a fast-access map from block id to
-  // visited/unvisited boolean.
+  // visited/unvisited Boolean.
   ArenaBitVector visited_blocks_;
 
   DISALLOW_COPY_AND_ASSIGN(GlobalValueNumberer);
@@ -411,8 +411,8 @@ void GlobalValueNumberer::Run() {
 
   // Use the reverse post order to ensure the non back-edge predecessors of a block are
   // visited before the block itself.
-  for (HReversePostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    VisitBasicBlock(it.Current());
+  for (HBasicBlock* block : graph_->GetReversePostOrder()) {
+    VisitBasicBlock(block);
   }
 }
 

@@ -21,14 +21,26 @@
 MAX_WAIT_TIME_CONNECTION_STATE_UPDATE = 20
 
 # Max time to wait for network reselection
-MAX_WAIT_TIME_NW_SELECTION = 120
+MAX_WAIT_TIME_NW_SELECTION = 180
 
 # Max time to wait for call drop
 MAX_WAIT_TIME_CALL_DROP = 60
 
+# Wait time between state check retry
+WAIT_TIME_BETWEEN_STATE_CHECK = 5
+
 # Max time to wait after caller make a call and before
 # callee start ringing
-MAX_WAIT_TIME_CALLEE_RINGING = 30
+MAX_WAIT_TIME_CALLEE_RINGING = 90
+
+# country code list
+COUNTRY_CODE_LIST = [
+    "+1", "+44", "+39", "+61", "+49", "+34", "+33", "+47", "+246", "+86",
+    "+850", "+81"
+]
+
+# Wait time after enterring puk code
+WAIT_TIME_SUPPLY_PUK_CODE = 30
 
 # Max time to wait after caller make a call and before
 # callee start ringing
@@ -60,10 +72,10 @@ MAX_WAIT_TIME_IMS_REGISTRATION = 120
 # be used for wait after IMS registration.
 
 # Max time to wait for VoLTE enabled flag to be True
-MAX_WAIT_TIME_VOLTE_ENABLED = MAX_WAIT_TIME_IMS_REGISTRATION + 20
+MAX_WAIT_TIME_VOLTE_ENABLED = MAX_WAIT_TIME_IMS_REGISTRATION + 60
 
 # Max time to wait for WFC enabled flag to be True
-MAX_WAIT_TIME_WFC_ENABLED = MAX_WAIT_TIME_IMS_REGISTRATION + 50
+MAX_WAIT_TIME_WFC_ENABLED = MAX_WAIT_TIME_IMS_REGISTRATION + 120
 
 # Max time to wait for WFC enabled flag to be False
 MAX_WAIT_TIME_WFC_DISABLED = 60
@@ -82,7 +94,7 @@ MAX_WAIT_TIME_USER_PLANE_DATA = 20
 MAX_WAIT_TIME_TETHERING_ENTITLEMENT_CHECK = 15
 
 # Max time to wait for voice mail count report correct result.
-MAX_WAIT_TIME_VOICE_MAIL_COUNT = 30
+MAX_WAIT_TIME_VOICE_MAIL_COUNT = 90
 
 # Max time to wait for data SIM change
 MAX_WAIT_TIME_DATA_SUB_CHANGE = 150
@@ -176,21 +188,25 @@ INVALID_SIM_SLOT_INDEX = -1
 INVALID_WIFI_RSSI = -127
 
 # MAX and MIN value for attenuator settings
-ATTEN_MAX_VALUE = 90
+ATTEN_MAX_VALUE = 95
 ATTEN_MIN_VALUE = 0
 
 MAX_RSSI_RESERVED_VALUE = 100
 MIN_RSSI_RESERVED_VALUE = -200
 
 # cellular weak RSSI value
-CELL_WEAK_RSSI_VALUE = -120
+CELL_WEAK_RSSI_VALUE = -105
 # cellular strong RSSI value
 CELL_STRONG_RSSI_VALUE = -70
 # WiFi weak RSSI value
-WIFI_WEAK_RSSI_VALUE = -80
+WIFI_WEAK_RSSI_VALUE = -63
 
 # Emergency call number
-EMERGENCY_CALL_NUMBER = "911"
+DEFAULT_EMERGENCY_CALL_NUMBER = "911"
+
+EMERGENCY_CALL_NUMBERS = [
+    "08", "000", "110", "112", "118", "119", "911", "999", "*911", "#911"
+]
 
 AOSP_PREFIX = "aosp_"
 
@@ -222,6 +238,12 @@ CARRIER_SPT = 'spt'
 CARRIER_EEUK = 'eeuk'
 CARRIER_VFUK = 'vfuk'
 CARRIER_UNKNOWN = 'unknown'
+CARRIER_GMBH = 'gmbh'
+CARRIER_ITA = 'ita'
+CARRIER_ESP = 'esp'
+CARRIER_ORG = 'org'
+CARRIER_TEL = 'tel'
+CARRIER_TSA = 'tsa'
 
 RAT_FAMILY_CDMA = 'cdma'
 RAT_FAMILY_CDMA2000 = 'cdma2000'
@@ -386,7 +408,7 @@ RAT_HSPAP = "HSPAP"
 RAT_GSM = "GSM"
 RAT_TD_SCDMA = "TD_SCDMA"
 RAT_GLOBAL = "GLOBAL"
-RAT_LTE_CA = "LTE_CA" # LTE Carrier Aggregation
+RAT_LTE_CA = "LTE_CA"  # LTE Carrier Aggregation
 RAT_UNKNOWN = "UNKNOWN"
 
 # Constant for Phone Type
@@ -412,6 +434,10 @@ DATA_STATE_DISCONNECTED = "DISCONNECTED"
 DATA_STATE_CONNECTING = "CONNECTING"
 DATA_STATE_SUSPENDED = "SUSPENDED"
 DATA_STATE_UNKNOWN = "UNKNOWN"
+
+# Constant for Data Roaming State
+DATA_ROAMING_ENABLE = 1
+DATA_ROAMING_DISABLE = 0
 
 # Constant for Telephony Manager Call State
 TELEPHONY_STATE_RINGING = "RINGING"
@@ -443,6 +469,10 @@ VOLTE_SERVICE_STATE_HANDOVER_UNKNOWN = "UNKNOWN"
 PRECISE_CALL_STATE_LISTEN_LEVEL_FOREGROUND = "FOREGROUND"
 PRECISE_CALL_STATE_LISTEN_LEVEL_RINGING = "RINGING"
 PRECISE_CALL_STATE_LISTEN_LEVEL_BACKGROUND = "BACKGROUND"
+
+# Constants used to register or de-register for call callback events
+EVENT_CALL_STATE_CHANGED = "EVENT_STATE_CHANGED"
+EVENT_CALL_CHILDREN_CHANGED = "EVENT_CHILDREN_CHANGED"
 
 # Constants used to register or de-register for video call callback events
 EVENT_VIDEO_SESSION_MODIFY_REQUEST_RECEIVED = "EVENT_VIDEO_SESSION_MODIFY_REQUEST_RECEIVED"
@@ -501,7 +531,11 @@ EventDataSmsReceived = "DataSmsReceived"
 EventCmasReceived = "CmasReceived"
 EventEtwsReceived = "EtwsReceived"
 
-# Constant for Telecom Call Event Name
+# Constants for Telecom Call Management Event Name (see InCallService.java).
+EventTelecomCallAdded = "TelecomCallAdded"
+EventTelecomCallRemoved = "TelecomCallRemoved"
+
+# Constant for Telecom Call Event Name (see Call.java)
 EventTelecomCallStateChanged = "TelecomCallStateChanged"
 EventTelecomCallParentChanged = "TelecomCallParentChanged"
 EventTelecomCallChildrenChanged = "TelecomCallChildrenChanged"

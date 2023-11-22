@@ -61,7 +61,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(testng_src_files)
 LOCAL_MODULE := testng
 LOCAL_STATIC_JAVA_LIBRARIES := jcommander snakeyaml guice
-LOCAL_JAVA_LIBRARIES := junit-targetdex junit4-target
+LOCAL_JAVA_LIBRARIES := junit
 include $(LOCAL_PATH)/GenerateTemplates.mk # Generate Version.java
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -70,7 +70,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(testng_src_files)
 LOCAL_MODULE := testng-lib
 LOCAL_STATIC_JAVA_LIBRARIES := jcommander snakeyaml guice
-LOCAL_JAVA_LIBRARIES := junit-targetdex junit4-target
+LOCAL_JAVA_LIBRARIES := junit
 include $(LOCAL_PATH)/GenerateTemplates.mk # Generate Version.java
 include $(BUILD_JAVA_LIBRARY)
 
@@ -79,7 +79,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(testng_src_files)
 LOCAL_MODULE := testng-host
 LOCAL_STATIC_JAVA_LIBRARIES := jcommander-host snakeyaml-host guice-host
-LOCAL_JAVA_LIBRARIES := junit
+LOCAL_JAVA_LIBRARIES := junit-host
 LOCAL_IS_HOST_MODULE := true
 include $(LOCAL_PATH)/GenerateTemplates.mk # Generate Version.java
 include $(BUILD_HOST_JAVA_LIBRARY)
@@ -89,8 +89,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(testng_src_files)
 LOCAL_MODULE := testng-hostdex
 LOCAL_STATIC_JAVA_LIBRARIES := jcommander-hostdex snakeyaml-hostdex guice-hostdex
-LOCAL_JAVA_LIBRARIES := junit-hostdex junit4-target-hostdex
+LOCAL_JAVA_LIBRARIES := junit-hostdex
 include $(LOCAL_PATH)/GenerateTemplates.mk # Generate Version.java
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
 
 # TODO: also add the tests once we have testng working.

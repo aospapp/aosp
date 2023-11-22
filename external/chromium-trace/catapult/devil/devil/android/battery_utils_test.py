@@ -616,13 +616,13 @@ class BatteryUtilsDiscoverDeviceProfile(BatteryUtilsTest):
     with self.patch_call(self.call.device.product_model,
                          return_value='Nexus 4'):
       self.battery._DiscoverDeviceProfile()
-      self.assertEqual(self.battery._cache['profile']['name'], "Nexus 4")
+      self.assertListEqual(self.battery._cache['profile']['name'], ["Nexus 4"])
 
   def testDiscoverDeviceProfile_unknown(self):
     with self.patch_call(self.call.device.product_model,
                          return_value='Other'):
       self.battery._DiscoverDeviceProfile()
-      self.assertEqual(self.battery._cache['profile']['name'], None)
+      self.assertListEqual(self.battery._cache['profile']['name'], [])
 
 
 class BatteryUtilsClearPowerData(BatteryUtilsTest):
@@ -650,6 +650,7 @@ class BatteryUtilsClearPowerData(BatteryUtilsTest):
               ['dumpsys', 'battery', 'reset'], check_return=True), [])):
         self.assertTrue(self.battery._ClearPowerData())
 
+  @mock.patch('time.sleep', mock.Mock())
   def testClearPowerData_notClearedL(self):
     with self.patch_call(self.call.device.build_version_sdk,
                          return_value=22):
@@ -666,9 +667,26 @@ class BatteryUtilsClearPowerData(BatteryUtilsTest):
               check_return=True, large_output=True),
               ['9,1000,l,pwi,uid,0.0327']),
           (self.call.device.RunShellCommand(
+              ['dumpsys', 'batterystats', '--reset'], check_return=True), []),
+          (self.call.device.RunShellCommand(
+              ['dumpsys', 'batterystats', '--charged', '-c'],
+              check_return=True, large_output=True),
+              ['9,1000,l,pwi,uid,0.0327']),
+          (self.call.device.RunShellCommand(
+              ['dumpsys', 'batterystats', '--reset'], check_return=True), []),
+          (self.call.device.RunShellCommand(
+              ['dumpsys', 'batterystats', '--charged', '-c'],
+              check_return=True, large_output=True),
+              ['9,1000,l,pwi,uid,0.0327']),
+          (self.call.device.RunShellCommand(
+              ['dumpsys', 'batterystats', '--reset'], check_return=True), []),
+          (self.call.device.RunShellCommand(
+              ['dumpsys', 'batterystats', '--charged', '-c'],
+              check_return=True, large_output=True),
+              ['9,1000,l,pwi,uid,0.0']),
+          (self.call.device.RunShellCommand(
               ['dumpsys', 'battery', 'reset'], check_return=True), [])):
-        with self.assertRaises(device_errors.CommandFailedError):
-          self.battery._ClearPowerData()
+        self.battery._ClearPowerData()
 
 
 if __name__ == '__main__':

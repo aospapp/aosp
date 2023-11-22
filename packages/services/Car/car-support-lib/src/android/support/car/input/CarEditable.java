@@ -20,6 +20,7 @@ import android.view.inputmethod.InputConnection;
 
 /**
  * Views that implement this interface are editable by the Car IME system.
+ * @hide
  */
 public interface CarEditable {
     InputConnection onCreateInputConnection(EditorInfo outAttrs);

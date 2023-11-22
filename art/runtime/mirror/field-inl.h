@@ -27,14 +27,13 @@ namespace art {
 
 namespace mirror {
 
-template <bool kTransactionActive>
-inline mirror::Field* Field::CreateFromArtField(Thread* self, ArtField* field,
-                                                bool force_resolve) {
+template <PointerSize kPointerSize, bool kTransactionActive>
+inline mirror::Field* Field::CreateFromArtField(Thread* self, ArtField* field, bool force_resolve) {
   StackHandleScope<2> hs(self);
   // Try to resolve type before allocating since this is a thread suspension point.
   Handle<mirror::Class> type = hs.NewHandle(field->GetType<true>());
 
-  if (type.Get() == nullptr) {
+  if (type == nullptr) {
     if (force_resolve) {
       if (kIsDebugBuild) {
         self->AssertPendingException();
@@ -49,15 +48,13 @@ inline mirror::Field* Field::CreateFromArtField(Thread* self, ArtField* field,
       self->ClearException();
     }
   }
-  auto ret = hs.NewHandle(static_cast<Field*>(StaticClass()->AllocObject(self)));
-  if (UNLIKELY(ret.Get() == nullptr)) {
+  auto ret = hs.NewHandle(ObjPtr<Field>::DownCast(StaticClass()->AllocObject(self)));
+  if (UNLIKELY(ret == nullptr)) {
     self->AssertPendingOOMException();
     return nullptr;
   }
-  const auto pointer_size = kTransactionActive ?
-      Runtime::Current()->GetClassLinker()->GetImagePointerSize() : sizeof(void*);
   auto dex_field_index = field->GetDexFieldIndex();
-  auto* resolved_field = field->GetDexCache()->GetResolvedField(dex_field_index, pointer_size);
+  auto* resolved_field = field->GetDexCache()->GetResolvedField(dex_field_index, kPointerSize);
   if (field->GetDeclaringClass()->IsProxyClass()) {
     DCHECK(field->IsStatic());
     DCHECK_LT(dex_field_index, 2U);
@@ -70,7 +67,7 @@ inline mirror::Field* Field::CreateFromArtField(Thread* self, ArtField* field,
     } else {
       // We rely on the field being resolved so that we can back to the ArtField
       // (i.e. FromReflectedMethod).
-      field->GetDexCache()->SetResolvedField(dex_field_index, field, pointer_size);
+      field->GetDexCache()->SetResolvedField(dex_field_index, field, kPointerSize);
     }
   }
   ret->SetType<kTransactionActive>(type.Get());
@@ -79,6 +76,16 @@ inline mirror::Field* Field::CreateFromArtField(Thread* self, ArtField* field,
   ret->SetDexFieldIndex<kTransactionActive>(dex_field_index);
   ret->SetOffset<kTransactionActive>(field->GetOffset().Int32Value());
   return ret.Get();
+}
+
+template<bool kTransactionActive>
+inline void Field::SetDeclaringClass(ObjPtr<mirror::Class> c) {
+  SetFieldObject<kTransactionActive>(OFFSET_OF_OBJECT_MEMBER(Field, declaring_class_), c);
+}
+
+template<bool kTransactionActive>
+inline void Field::SetType(ObjPtr<mirror::Class> type) {
+  SetFieldObject<kTransactionActive>(OFFSET_OF_OBJECT_MEMBER(Field, type_), type);
 }
 
 }  // namespace mirror

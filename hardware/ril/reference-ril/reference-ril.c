@@ -25,6 +25,7 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <alloca.h>
@@ -34,11 +35,11 @@
 #include <getopt.h>
 #include <sys/socket.h>
 #include <cutils/sockets.h>
-#include <termios.h>
 #include <sys/system_properties.h>
+#include <termios.h>
+#include <system/qemu_pipe.h>
 
 #include "ril.h"
-#include "hardware/qemu_pipe.h"
 
 #define LOG_TAG "RIL"
 #include <utils/Log.h>
@@ -155,7 +156,7 @@ static int is3gpp2(int radioTech) {
 typedef enum {
     SIM_ABSENT = 0,
     SIM_NOT_READY = 1,
-    SIM_READY = 2, /* SIM_READY means the radio state is RADIO_STATE_SIM_READY */
+    SIM_READY = 2,
     SIM_PIN = 3,
     SIM_PUK = 4,
     SIM_NETWORK_PERSONALIZATION = 5,
@@ -238,6 +239,7 @@ static int s_repollCallsCount = 0;
 // Should we expect a call to be answered in the next CLCC?
 static int s_expectAnswer = 0;
 #endif /* WORKAROUND_ERRONEOUS_ANSWER */
+
 
 static int s_cell_info_rate_ms = INT_MAX;
 static int s_mcc = 0;
@@ -329,6 +331,22 @@ error:
     return -1;
 }
 
+static int parseSimResponseLine(char* line, RIL_SIM_IO_Response* response) {
+    int err;
+
+    err = at_tok_start(&line);
+    if (err < 0) return err;
+    err = at_tok_nextint(&line, &response->sw1);
+    if (err < 0) return err;
+    err = at_tok_nextint(&line, &response->sw2);
+    if (err < 0) return err;
+
+    if (at_tok_hasmore(&line)) {
+        err = at_tok_nextstr(&line, &response->simResponse);
+        if (err < 0) return err;
+    }
+    return 0;
+}
 
 /** do post-AT+CFUN=1 initialization */
 static void onRadioPowerOn()
@@ -532,70 +550,72 @@ static void requestOrSendDataCallList(RIL_Token *t)
         err = at_tok_nextstr(&line, &out);
         if (err < 0)
             goto error;
-        responses[i].type = alloca(strlen(out) + 1);
-        strcpy(responses[i].type, out);
+
+        int type_size = strlen(out) + 1;
+        responses[i].type = alloca(type_size);
+        strlcpy(responses[i].type, out, type_size);
 
         // APN ignored for v5
         err = at_tok_nextstr(&line, &out);
         if (err < 0)
             goto error;
 
-        responses[i].ifname = alloca(strlen(PPP_TTY_PATH) + 1);
-        strcpy(responses[i].ifname, PPP_TTY_PATH);
+        int ifname_size = strlen(PPP_TTY_PATH) + 1;
+        responses[i].ifname = alloca(ifname_size);
+        strlcpy(responses[i].ifname, PPP_TTY_PATH, ifname_size);
 
         err = at_tok_nextstr(&line, &out);
         if (err < 0)
             goto error;
 
-        responses[i].addresses = alloca(strlen(out) + 1);
-        strcpy(responses[i].addresses, out);
+        int addresses_size = strlen(out) + 1;
+        responses[i].addresses = alloca(addresses_size);
+        strlcpy(responses[i].addresses, out, addresses_size);
 
-        {
-            char  propValue[PROP_VALUE_MAX];
+        if (isInEmulator()) {
+            /* We are in the emulator - the dns servers are listed
+                * by the following system properties, setup in
+                * /system/etc/init.goldfish.sh:
+                *  - net.eth0.dns1
+                *  - net.eth0.dns2
+                *  - net.eth0.dns3
+                *  - net.eth0.dns4
+                */
+            const int   dnslist_sz = 128;
+            char*       dnslist = alloca(dnslist_sz);
+            const char* separator = "";
+            int         nn;
 
-            if (__system_property_get("ro.kernel.qemu", propValue) != 0) {
-                /* We are in the emulator - the dns servers are listed
-                 * by the following system properties, setup in
-                 * /system/etc/init.goldfish.sh:
-                 *  - net.eth0.dns1
-                 *  - net.eth0.dns2
-                 *  - net.eth0.dns3
-                 *  - net.eth0.dns4
-                 */
-                const int   dnslist_sz = 128;
-                char*       dnslist = alloca(dnslist_sz);
-                const char* separator = "";
-                int         nn;
+            dnslist[0] = 0;
+            for (nn = 1; nn <= 4; nn++) {
+                /* Probe net.eth0.dns<n> */
+                char  propName[PROP_NAME_MAX];
+                char  propValue[PROP_VALUE_MAX];
 
-                dnslist[0] = 0;
-                for (nn = 1; nn <= 4; nn++) {
-                    /* Probe net.eth0.dns<n> */
-                    char  propName[PROP_NAME_MAX];
-                    snprintf(propName, sizeof propName, "net.eth0.dns%d", nn);
+                snprintf(propName, sizeof propName, "net.eth0.dns%d", nn);
 
-                    /* Ignore if undefined */
-                    if (__system_property_get(propName, propValue) == 0) {
-                        continue;
-                    }
-
-                    /* Append the DNS IP address */
-                    strlcat(dnslist, separator, dnslist_sz);
-                    strlcat(dnslist, propValue, dnslist_sz);
-                    separator = " ";
+                /* Ignore if undefined */
+                if (__system_property_get(propName, propValue) == 0) {
+                    continue;
                 }
-                responses[i].dnses = dnslist;
 
-                /* There is only on gateway in the emulator */
-                responses[i].gateways = "10.0.2.2";
-                responses[i].mtu = DEFAULT_MTU;
+                /* Append the DNS IP address */
+                strlcat(dnslist, separator, dnslist_sz);
+                strlcat(dnslist, propValue, dnslist_sz);
+                separator = " ";
             }
-            else {
-                /* I don't know where we are, so use the public Google DNS
-                 * servers by default and no gateway.
-                 */
-                responses[i].dnses = "8.8.8.8 8.8.4.4";
-                responses[i].gateways = "";
-            }
+            responses[i].dnses = dnslist;
+
+            /* There is only on gateway in the emulator */
+            responses[i].gateways = "10.0.2.2";
+            responses[i].mtu = DEFAULT_MTU;
+        }
+        else {
+            /* I don't know where we are, so use the public Google DNS
+                * servers by default and no gateway.
+                */
+            responses[i].dnses = "8.8.8.8 8.8.4.4";
+            responses[i].gateways = "";
         }
     }
 
@@ -1575,6 +1595,9 @@ static void requestSendSMS(void *data, size_t datalen, RIL_Token t)
 
     err = at_send_command_sms(cmd1, cmd2, "+CMGS:", &p_response);
 
+    free(cmd1);
+    free(cmd2);
+
     if (err != 0 || p_response->success == 0) goto error;
 
     /* FIXME fill in messageRef and ackPDU */
@@ -1639,6 +1662,119 @@ error:
 error2:
     response.messageRef = -1;
     RIL_onRequestComplete(t, RIL_E_SMS_SEND_FAIL_RETRY, &response, sizeof(response));
+}
+
+static void requestSimOpenChannel(void *data, size_t datalen, RIL_Token t)
+{
+    ATResponse *p_response = NULL;
+    int32_t session_id;
+    int err;
+    char cmd[32];
+    char dummy;
+    char *line;
+
+    // Max length is 16 bytes according to 3GPP spec 27.007 section 8.45
+    if (data == NULL || datalen == 0 || datalen > 16) {
+        ALOGE("Invalid data passed to requestSimOpenChannel");
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        return;
+    }
+
+    snprintf(cmd, sizeof(cmd), "AT+CCHO=%s", data);
+
+    err = at_send_command_numeric(cmd, &p_response);
+    if (err < 0 || p_response == NULL || p_response->success == 0) {
+        ALOGE("Error %d opening logical channel: %d",
+              err, p_response ? p_response->success : 0);
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        at_response_free(p_response);
+        return;
+    }
+
+    // Ensure integer only by scanning for an extra char but expect one result
+    line = p_response->p_intermediates->line;
+    if (sscanf(line, "%" SCNd32 "%c", &session_id, &dummy) != 1) {
+        ALOGE("Invalid AT response, expected integer, was '%s'", line);
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        return;
+    }
+
+    RIL_onRequestComplete(t, RIL_E_SUCCESS, &session_id, sizeof(&session_id));
+    at_response_free(p_response);
+}
+
+static void requestSimCloseChannel(void *data, size_t datalen, RIL_Token t)
+{
+    ATResponse *p_response = NULL;
+    int32_t session_id;
+    int err;
+    char cmd[32];
+
+    if (data == NULL || datalen != sizeof(session_id)) {
+        ALOGE("Invalid data passed to requestSimCloseChannel");
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        return;
+    }
+    session_id = ((int32_t *)data)[0];
+    snprintf(cmd, sizeof(cmd), "AT+CCHC=%" PRId32, session_id);
+    err = at_send_command_singleline(cmd, "+CCHC", &p_response);
+
+    if (err < 0 || p_response == NULL || p_response->success == 0) {
+        ALOGE("Error %d closing logical channel %d: %d",
+              err, session_id, p_response ? p_response->success : 0);
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        at_response_free(p_response);
+        return;
+    }
+
+    RIL_onRequestComplete(t, RIL_E_SUCCESS, NULL, 0);
+
+    at_response_free(p_response);
+}
+
+static void requestSimTransmitApduChannel(void *data,
+                                          size_t datalen,
+                                          RIL_Token t)
+{
+    ATResponse *p_response = NULL;
+    int err;
+    char *cmd;
+    char *line;
+    size_t cmd_size;
+    RIL_SIM_IO_Response sim_response;
+    RIL_SIM_APDU *apdu = (RIL_SIM_APDU *)data;
+
+    if (apdu == NULL || datalen != sizeof(RIL_SIM_APDU)) {
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        return;
+    }
+
+    cmd_size = 10 + (apdu->data ? strlen(apdu->data) : 0);
+    asprintf(&cmd, "AT+CGLA=%d,%zu,%02x%02x%02x%02x%02x%s",
+             apdu->sessionid, cmd_size, apdu->cla, apdu->instruction,
+             apdu->p1, apdu->p2, apdu->p3, apdu->data ? apdu->data : "");
+
+    err = at_send_command_singleline(cmd, "+CGLA", &p_response);
+    free(cmd);
+    if (err < 0 || p_response == NULL || p_response->success == 0) {
+        ALOGE("Error %d transmitting APDU: %d",
+              err, p_response ? p_response->success : 0);
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+        at_response_free(p_response);
+        return;
+    }
+
+    line = p_response->p_intermediates->line;
+    err = parseSimResponseLine(line, &sim_response);
+
+    if (err == 0) {
+        RIL_onRequestComplete(t, RIL_E_SUCCESS,
+                              &sim_response, sizeof(sim_response));
+    } else {
+        ALOGE("Error %d parsing SIM response line: %s", err, line);
+        RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
+    }
+    at_response_free(p_response);
 }
 
 static void requestSetupDataCall(void *data, size_t datalen, RIL_Token t)
@@ -1819,18 +1955,9 @@ static void  requestSIM_IO(void *data, size_t datalen __unused, RIL_Token t)
 
     line = p_response->p_intermediates->line;
 
-    err = at_tok_start(&line);
-    if (err < 0) goto error;
-
-    err = at_tok_nextint(&line, &(sr.sw1));
-    if (err < 0) goto error;
-
-    err = at_tok_nextint(&line, &(sr.sw2));
-    if (err < 0) goto error;
-
-    if (at_tok_hasmore(&line)) {
-        err = at_tok_nextstr(&line, &(sr.simResponse));
-        if (err < 0) goto error;
+    err = parseSimResponseLine(line, &sr);
+    if (err < 0) {
+        goto error;
     }
 
     RIL_onRequestComplete(t, RIL_E_SUCCESS, &sr, sizeof(sr));
@@ -1990,9 +2117,9 @@ static void requestGetHardwareConfig(void *data, size_t datalen, RIL_Token t)
  * RIL_onRequestComplete() may be called from any thread, before or after
  * this function returns.
  *
- * Will always be called from the same thread, so returning here implies
- * that the radio is ready to process another command (whether or not
- * the previous command has completed).
+ * Because onRequest function could be called from multiple different thread,
+ * we must ensure that the underlying at_send_command_* function
+ * is atomic.
  */
 static void
 onRequest (int request, void *data, size_t datalen, RIL_Token t)
@@ -2163,6 +2290,15 @@ onRequest (int request, void *data, size_t datalen, RIL_Token t)
             break;
         case RIL_REQUEST_IMS_SEND_SMS:
             requestImsSendSMS(data, datalen, t);
+            break;
+        case RIL_REQUEST_SIM_OPEN_CHANNEL:
+            requestSimOpenChannel(data, datalen, t);
+            break;
+        case RIL_REQUEST_SIM_CLOSE_CHANNEL:
+            requestSimCloseChannel(data, datalen, t);
+            break;
+        case RIL_REQUEST_SIM_TRANSMIT_APDU_CHANNEL:
+            requestSimTransmitApduChannel(data, datalen, t);
             break;
         case RIL_REQUEST_SETUP_DATA_CALL:
             requestSetupDataCall(data, datalen, t);
@@ -2756,7 +2892,7 @@ static void pollSIMState (void *param __unused)
     ATResponse *p_response;
     int ret;
 
-    if (sState != RADIO_STATE_SIM_NOT_READY) {
+    if (sState != RADIO_STATE_UNAVAILABLE) {
         // no longer valid to poll
         return;
     }
@@ -3296,37 +3432,14 @@ mainLoop(void *param __unused)
     for (;;) {
         fd = -1;
         while  (fd < 0) {
-            if (s_port > 0) {
-                fd = socket_loopback_client(s_port, SOCK_STREAM);
+            if (isInEmulator()) {
+                fd = qemu_pipe_open("pipe:qemud:gsm");
+            } else if (s_port > 0) {
+                fd = socket_network_client("localhost", s_port, SOCK_STREAM);
             } else if (s_device_socket) {
-                if (!strcmp(s_device_path, "/dev/socket/qemud")) {
-                    /* Before trying to connect to /dev/socket/qemud (which is
-                     * now another "legacy" way of communicating with the
-                     * emulator), we will try to connecto to gsm service via
-                     * qemu pipe. */
-                    fd = qemu_pipe_open("qemud:gsm");
-                    if (fd < 0) {
-                        /* Qemu-specific control socket */
-                        fd = socket_local_client( "qemud",
-                                                  ANDROID_SOCKET_NAMESPACE_RESERVED,
-                                                  SOCK_STREAM );
-                        if (fd >= 0 ) {
-                            char  answer[2];
-
-                            if ( write(fd, "gsm", 3) != 3 ||
-                                 read(fd, answer, 2) != 2 ||
-                                 memcmp(answer, "OK", 2) != 0)
-                            {
-                                close(fd);
-                                fd = -1;
-                            }
-                       }
-                    }
-                }
-                else
-                    fd = socket_local_client( s_device_path,
-                                            ANDROID_SOCKET_NAMESPACE_FILESYSTEM,
-                                            SOCK_STREAM );
+                fd = socket_local_client(s_device_path,
+                                         ANDROID_SOCKET_NAMESPACE_FILESYSTEM,
+                                         SOCK_STREAM);
             } else if (s_device_path != NULL) {
                 fd = open (s_device_path, O_RDWR);
                 if ( fd >= 0 && !memcmp( s_device_path, "/dev/ttyS", 9 ) ) {
@@ -3409,7 +3522,7 @@ const RIL_RadioFunctions *RIL_Init(const struct RIL_Env *env, int argc, char **a
         }
     }
 
-    if (s_port < 0 && s_device_path == NULL) {
+    if (s_port < 0 && s_device_path == NULL && !isInEmulator()) {
         usage(argv[0]);
         return NULL;
     }
@@ -3458,7 +3571,7 @@ int main (int argc, char **argv)
         }
     }
 
-    if (s_port < 0 && s_device_path == NULL) {
+    if (s_port < 0 && s_device_path == NULL && !isInEmulator()) {
         usage(argv[0]);
     }
 

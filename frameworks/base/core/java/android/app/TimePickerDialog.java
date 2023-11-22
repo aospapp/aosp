@@ -16,6 +16,7 @@
 
 package android.app;
 
+import android.annotation.TestApi;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
@@ -91,6 +92,12 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
 
     /**
      * Creates a new time picker dialog with the specified theme.
+     * <p>
+     * The theme is overlaid on top of the theme of the parent {@code context}.
+     * If {@code themeResId} is 0, the dialog will be inflated using the theme
+     * specified by the
+     * {@link android.R.attr#timePickerDialogTheme android:timePickerDialogTheme}
+     * attribute on the parent {@code context}'s theme.
      *
      * @param context the parent context
      * @param themeResId the resource ID of the theme to apply to this dialog
@@ -109,11 +116,6 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
         mIs24HourView = is24HourView;
 
         final Context themeContext = getContext();
-
-
-        final TypedValue outValue = new TypedValue();
-        context.getTheme().resolveAttribute(R.attr.timePickerDialogTheme, outValue, true);
-
         final LayoutInflater inflater = LayoutInflater.from(themeContext);
         final View view = inflater.inflate(R.layout.time_picker_dialog, null);
         setView(view);
@@ -128,15 +130,41 @@ public class TimePickerDialog extends AlertDialog implements OnClickListener,
         mTimePicker.setOnTimeChangedListener(this);
     }
 
+    /**
+     * @return the time picker displayed in the dialog
+     * @hide For testing only.
+     */
+    @TestApi
+    public TimePicker getTimePicker() {
+        return mTimePicker;
+    }
+
     @Override
     public void onTimeChanged(TimePicker view, int hourOfDay, int minute) {
         /* do nothing */
     }
 
     @Override
+    public void show() {
+        super.show();
+        getButton(BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mTimePicker.validateInput()) {
+                    TimePickerDialog.this.onClick(TimePickerDialog.this, BUTTON_POSITIVE);
+                    dismiss();
+                }
+            }
+        });
+    }
+
+    @Override
     public void onClick(DialogInterface dialog, int which) {
         switch (which) {
             case BUTTON_POSITIVE:
+                // Note this skips input validation and just uses the last valid time and hour
+                // entry. This will only be invoked programmatically. User clicks on BUTTON_POSITIVE
+                // are handled in show().
                 if (mTimeSetListener != null) {
                     mTimeSetListener.onTimeSet(mTimePicker, mTimePicker.getCurrentHour(),
                             mTimePicker.getCurrentMinute());

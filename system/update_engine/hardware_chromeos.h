@@ -22,6 +22,7 @@
 
 #include <base/macros.h>
 #include <base/time/time.h>
+#include <debugd/dbus-proxies.h>
 
 #include "update_engine/common/hardware_interface.h"
 
@@ -34,9 +35,13 @@ class HardwareChromeOS final : public HardwareInterface {
   HardwareChromeOS() = default;
   ~HardwareChromeOS() override = default;
 
+  void Init();
+
   // HardwareInterface methods.
   bool IsOfficialBuild() const override;
   bool IsNormalBootMode() const override;
+  bool AreDevFeaturesEnabled() const override;
+  bool IsOOBEEnabled() const override;
   bool IsOOBEComplete(base::Time* out_time_of_oobe) const override;
   std::string GetHardwareClass() const override;
   std::string GetFirmwareVersion() const override;
@@ -48,6 +53,17 @@ class HardwareChromeOS final : public HardwareInterface {
   bool GetPowerwashSafeDirectory(base::FilePath* path) const override;
 
  private:
+  friend class HardwareChromeOSTest;
+
+  // Load the update manager config flags (is_oobe_enabled flag) from the
+  // appropriate location based on whether we are in a normal mode boot (as
+  // passed in |normal_mode|) prefixing the paths with |root_prefix|.
+  void LoadConfig(const std::string& root_prefix, bool normal_mode);
+
+  bool is_oobe_enabled_;
+
+  std::unique_ptr<org::chromium::debugdProxyInterface> debugd_proxy_;
+
   DISALLOW_COPY_AND_ASSIGN(HardwareChromeOS);
 };
 

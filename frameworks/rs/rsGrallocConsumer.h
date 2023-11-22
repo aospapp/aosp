@@ -17,20 +17,15 @@
 #ifndef ANDROID_RS_GRALLOC_CONSUMER_H
 #define ANDROID_RS_GRALLOC_CONSUMER_H
 
-#include <gui/ConsumerBase.h>
-
-#include <ui/GraphicBuffer.h>
-
-#include <utils/String8.h>
-#include <utils/Vector.h>
-#include <utils/threads.h>
-
+#include "NdkImage.h"
+#include "NdkImageReader.h"
 
 // ---------------------------------------------------------------------------
 namespace android {
 namespace renderscript {
 
 class Allocation;
+class Context;
 
 /**
  * CpuConsumer is a BufferQueue consumer endpoint that allows direct CPU
@@ -39,38 +34,39 @@ class Allocation;
  * CpuConsumer owner. Sets gralloc usage flags to be software-read-only.
  * This queue is synchronous by default.
  */
-class GrallocConsumer : public ConsumerBase
+class GrallocConsumer
 {
   public:
-    typedef ConsumerBase::FrameAvailableListener FrameAvailableListener;
-
-    GrallocConsumer(Allocation *, const sp<IGraphicBufferConsumer>& bq, int flags, uint32_t numAlloc);
+    GrallocConsumer(const Context *, Allocation *, uint32_t numAlloc);
 
     virtual ~GrallocConsumer();
-    status_t lockNextBuffer(uint32_t idx = 0);
-    status_t unlockBuffer(uint32_t idx = 0);
+    ANativeWindow* getNativeWindow();
+    media_status_t lockNextBuffer(uint32_t idx = 0);
+    media_status_t unlockBuffer(uint32_t idx = 0);
     uint32_t getNextAvailableIdx(Allocation *a);
     bool releaseIdx(uint32_t idx);
+    bool isActive();
     uint32_t mNumAlloc;
 
+    static void onFrameAvailable(void* obj, AImageReader* reader);
 
   private:
-    status_t releaseAcquiredBufferLocked(uint32_t idx);
+    media_status_t releaseAcquiredBufferLocked(uint32_t idx);
     // Boolean array to check if a position has been occupied or not.
     bool *isIdxUsed;
     Allocation **mAlloc;
 
+    const Context *mCtx;
+    AImageReader* mImgReader;
+    ANativeWindow* mNativeWindow;
+    AImageReader_ImageListener mReaderCb;
     // Tracking for buffers acquired by the user
     struct AcquiredBuffer {
-        // Need to track the original mSlot index and the buffer itself because
-        // the mSlot entry may be freed/reused before the acquired buffer is
-        // released.
-        int mSlot;
-        sp<GraphicBuffer> mGraphicBuffer;
-        void *mBufferPointer;
+        AImage *mImg;
+        uint8_t *mBufferPointer;
 
         AcquiredBuffer() :
-                mSlot(BufferQueue::INVALID_BUFFER_SLOT),
+                mImg(nullptr),
                 mBufferPointer(nullptr) {
         }
     };

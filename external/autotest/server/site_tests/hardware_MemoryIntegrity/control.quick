@@ -9,7 +9,6 @@ TIME = 'FAST'
 TEST_CLASS = 'hardware'
 TEST_TYPE = 'server'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 
 DOC = """
 This test call hardware_StorageFio to write data once to the ramfs and

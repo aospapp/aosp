@@ -719,7 +719,8 @@ cmsBool _cmsReadHeader(_cmsICCPROFILE* Icc)
         for (j=0; j < Icc ->TagCount; j++) {
 
             if ((Icc ->TagOffsets[j] == Tag.offset) &&
-                (Icc ->TagSizes[j]   == Tag.size)) {
+                (Icc ->TagSizes[j]   == Tag.size) &&
+                (Icc ->TagNames[j]   == Tag.sig)) {
 
                 Icc ->TagLinked[Icc ->TagCount] = Icc ->TagNames[j];
             }
@@ -1473,6 +1474,17 @@ void* CMSEXPORT cmsReadTag(cmsHPROFILE hProfile, cmsTagSignature sig)
 
     // If the element is already in memory, return the pointer
     if (Icc -> TagPtrs[n]) {
+
+        if (Icc->TagTypeHandlers[n] == NULL) goto Error;
+
+        // Sanity check
+        BaseType = Icc->TagTypeHandlers[n]->Signature;
+        if (BaseType == 0) goto Error;
+
+        TagDescriptor = _cmsGetTagDescriptor(Icc->ContextID, sig);
+        if (TagDescriptor == NULL) goto Error;
+
+        if (!IsTypeSupported(TagDescriptor, BaseType)) goto Error;
 
         if (Icc ->TagSaveAsRaw[n]) goto Error;  // We don't support read raw tags as cooked
 

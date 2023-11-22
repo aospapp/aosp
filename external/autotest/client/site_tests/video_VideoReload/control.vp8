@@ -1,4 +1,4 @@
-# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if Chrome fails to reload webm video.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
@@ -23,4 +22,7 @@ DOC = """
 This test verifies Chrome can reload webm video after reloading the page.
 """
 
-job.run_test('video_VideoReload', tag='vp8', html='webmvideo.html')
+video = ('http://commondatastorage.googleapis.com/'
+            'chromiumos-test-assets-public/Shaka-Dash/720_vp8.webm')
+
+job.run_test('video_VideoReload', tag='vp8', video_file=video)

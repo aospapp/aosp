@@ -36,10 +36,35 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
 
         if (mHasFeature) {
             installAppAsUser(PROFILE_OWNER_APK, mUserId);
-            assertTrue("Failed to set profile owner",
-                    setProfileOwner(PROFILE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
-                             /* expectFailure */ false));
+            if (!setProfileOwner(
+                    PROFILE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
+                    /* expectFailure */ false)) {
+                removeAdmin(PROFILE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
+                getDevice().uninstallPackage(PROFILE_OWNER_PKG);
+                fail("Failed to set profile owner");
+            }
         }
+    }
+
+    public void testWifi() throws Exception {
+        if (!mHasFeature || !hasDeviceFeature("android.hardware.wifi")) {
+            return;
+        }
+        executeProfileOwnerTest("WifiTest");
+    }
+
+    public void testManagement() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeProfileOwnerTest("ManagementTest");
+    }
+
+    public void testAdminActionBookkeeping() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeProfileOwnerTest("AdminActionBookkeepingTest");
     }
 
     @Override
@@ -53,19 +78,11 @@ public class ProfileOwnerTest extends BaseDevicePolicyTest {
         super.tearDown();
     }
 
-    public void testWifi() throws Exception {
-        if (hasDeviceFeature("android.hardware.wifi")) {
-            return;
-        }
-        executeProfileOwnerTest("WifiTest");
-    }
-
     private void executeProfileOwnerTest(String testClassName) throws Exception {
         if (!mHasFeature) {
             return;
         }
         String testClass = PROFILE_OWNER_PKG + "." + testClassName;
-        assertTrue(testClass + " failed.", runDeviceTestsAsUser(PROFILE_OWNER_PKG, testClass,
-                mPrimaryUserId));
+        runDeviceTestsAsUser(PROFILE_OWNER_PKG, testClass, mPrimaryUserId);
     }
 }

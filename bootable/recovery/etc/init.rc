@@ -5,7 +5,6 @@ on early-init
     restorecon /postinstall
 
     start ueventd
-    start healthd
 
 on init
     export ANDROID_ROOT /system
@@ -13,6 +12,9 @@ on init
     export EXTERNAL_STORAGE /sdcard
 
     symlink /system/etc /etc
+
+    mount cgroup none /acct cpuacct
+    mkdir /acct/uid
 
     mkdir /sdcard
     mkdir /system
@@ -28,6 +30,7 @@ on init
     write /proc/sys/vm/max_map_count 1000000
 
 on fs
+    write /sys/class/android_usb/android0/f_ffs/aliases adb
     mkdir /dev/usb-ffs 0770 shell shell
     mkdir /dev/usb-ffs/adb 0770 shell shell
     mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
@@ -35,7 +38,6 @@ on fs
     write /sys/class/android_usb/android0/enable 0
     write /sys/class/android_usb/android0/idVendor 18D1
     write /sys/class/android_usb/android0/idProduct D001
-    write /sys/class/android_usb/android0/f_ffs/aliases adb
     write /sys/class/android_usb/android0/functions adb
     write /sys/class/android_usb/android0/iManufacturer ${ro.product.manufacturer}
     write /sys/class/android_usb/android0/iProduct ${ro.product.model}
@@ -73,16 +75,13 @@ on late-init
     trigger early-boot
     trigger boot
 
-on property:sys.powerctl=*
-   powerctl ${sys.powerctl}
-
 service ueventd /sbin/ueventd
     critical
     seclabel u:r:ueventd:s0
 
-service healthd /sbin/healthd -r
+service charger /charger -r
     critical
-    seclabel u:r:healthd:s0
+    seclabel u:r:charger:s0
 
 service recovery /sbin/recovery
     seclabel u:r:recovery:s0

@@ -29,6 +29,7 @@ import android.content.IntentFilter.MalformedMimeTypeException;
 import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
@@ -49,9 +50,9 @@ import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.telephony.TelephonyManager;
 import android.text.format.DateUtils;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.Xml;
-import android.text.TextUtils;
 
 import org.xmlpull.v1.XmlSerializer;
 
@@ -173,7 +174,9 @@ public class BluetoothMapContentObserver {
     public static final String EXTRA_MESSAGE_SENT_TIMESTAMP = "timestamp";
 
     private SmsBroadcastReceiver mSmsBroadcastReceiver = new SmsBroadcastReceiver();
+    private CeBroadcastReceiver mCeBroadcastReceiver = new CeBroadcastReceiver();
 
+    private boolean mStorageUnlocked = false;
     private boolean mInitialized = false;
 
 
@@ -481,6 +484,12 @@ public class BluetoothMapContentObserver {
                 Log.w(TAG, "onChange() with URI == null - not handled.");
                 return;
             }
+
+            if (!mStorageUnlocked) {
+                Log.v(TAG, "Ignore events until storage is completely unlocked");
+                return;
+            }
+
             if (V) Log.d(TAG, "onChange on thread: " + Thread.currentThread().getId()
                     + " Uri: " + uri.toString() + " selfchange: " + selfChange);
 
@@ -1182,13 +1191,20 @@ public class BluetoothMapContentObserver {
     private void initMsgList() throws RemoteException {
         if (V) Log.d(TAG, "initMsgList");
         UserManager manager = UserManager.get(mContext);
-        if (manager == null || manager.isUserUnlocked()) return;
+        if (manager == null || !manager.isUserUnlocked()) return;
 
         if (mEnableSmsMms) {
             HashMap<Long, Msg> msgListSms = new HashMap<Long, Msg>();
 
-            Cursor c = mResolver.query(Sms.CONTENT_URI,
+            Cursor c;
+            try {
+                c = mResolver.query(Sms.CONTENT_URI,
                     SMS_PROJECTION_SHORT, null, null, null);
+            } catch (SQLiteException e) {
+                Log.e(TAG, "Failed to initialize the list of messages: " + e.toString());
+                return;
+            }
+
             try {
                 if (c != null && c.moveToFirst()) {
                     do {
@@ -1316,14 +1332,14 @@ public class BluetoothMapContentObserver {
         boolean listChanged = false;
 
         Cursor c;
-        if (mMapEventReportVersion == BluetoothMapUtils.MAP_EVENT_REPORT_V10) {
-            c = mResolver.query(Sms.CONTENT_URI,
-                    SMS_PROJECTION_SHORT, null, null, null);
-        } else {
-            c = mResolver.query(Sms.CONTENT_URI,
-                    SMS_PROJECTION_SHORT_EXT, null, null, null);
-        }
         synchronized(getMsgListSms()) {
+            if (mMapEventReportVersion == BluetoothMapUtils.MAP_EVENT_REPORT_V10) {
+                c = mResolver.query(Sms.CONTENT_URI,
+                        SMS_PROJECTION_SHORT, null, null, null);
+            } else {
+                c = mResolver.query(Sms.CONTENT_URI,
+                        SMS_PROJECTION_SHORT_EXT, null, null, null);
+            }
             try {
                 if (c != null && c.moveToFirst()) {
                     do {
@@ -1465,15 +1481,15 @@ public class BluetoothMapContentObserver {
         HashMap<Long, Msg> msgListMms = new HashMap<Long, Msg>();
         boolean listChanged = false;
         Cursor c;
-        if (mMapEventReportVersion == BluetoothMapUtils.MAP_EVENT_REPORT_V10) {
-            c = mResolver.query(Mms.CONTENT_URI,
-                    MMS_PROJECTION_SHORT, null, null, null);
-        } else {
-            c = mResolver.query(Mms.CONTENT_URI,
-                    MMS_PROJECTION_SHORT_EXT, null, null, null);
-        }
-
         synchronized(getMsgListMms()) {
+            if (mMapEventReportVersion == BluetoothMapUtils.MAP_EVENT_REPORT_V10) {
+                c = mResolver.query(Mms.CONTENT_URI,
+                        MMS_PROJECTION_SHORT, null, null, null);
+            } else {
+                c = mResolver.query(Mms.CONTENT_URI,
+                        MMS_PROJECTION_SHORT_EXT, null, null, null);
+            }
+
             try{
                 if (c != null && c.moveToFirst()) {
                     do {
@@ -3201,6 +3217,52 @@ public class BluetoothMapContentObserver {
         }
     }
 
+    private class CeBroadcastReceiver extends BroadcastReceiver {
+        public void register() {
+            UserManager manager = UserManager.get(mContext);
+            if (manager == null || manager.isUserUnlocked()) {
+                mStorageUnlocked = true;
+                return;
+            }
+
+            Handler handler = new Handler(Looper.getMainLooper());
+            IntentFilter intentFilter = new IntentFilter();
+            intentFilter.addAction(Intent.ACTION_BOOT_COMPLETED);
+            mContext.registerReceiver(this, intentFilter, null, handler);
+        }
+
+        public void unregister() {
+            try {
+                mContext.unregisterReceiver(this);
+            } catch (IllegalArgumentException e) {
+                /* do nothing */
+            }
+        }
+
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            Log.d(TAG, "onReceive: action"  + action);
+
+            if (action.equals(Intent.ACTION_BOOT_COMPLETED)) {
+                try {
+                    initMsgList();
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Error initializing SMS/MMS message lists.");
+                }
+
+                for (String folder : FOLDER_SMS_MAP.values()) {
+                    Event evt = new Event(EVENT_TYPE_NEW, -1, folder, mSmsType);
+                    sendEvent(evt);
+                }
+                mStorageUnlocked = true;
+                /* After unlock this BroadcastReceiver is never needed */
+                unregister();
+            } else {
+                Log.d(TAG, "onReceive: Unknown action " + action);
+            }
+        }
+    }
+
     /**
      * Handle MMS sent intents in disconnected(MNS) state, where we do not need to send any
      * notifications.
@@ -3411,6 +3473,11 @@ public class BluetoothMapContentObserver {
         if (mSmsBroadcastReceiver != null) {
             mSmsBroadcastReceiver.register();
         }
+
+        if (mCeBroadcastReceiver != null) {
+            mCeBroadcastReceiver.register();
+        }
+
         registerPhoneServiceStateListener();
         mInitialized = true;
     }

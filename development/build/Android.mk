@@ -68,7 +68,7 @@ android_stubs: $(full_target) $(full_src_target)
 # The package installation stuff doesn't know about this file, so nobody will
 # ever be able to write a rule that installs it to a device.
 $(dir $(full_target))javalib.jar: $(full_target)
-	$(hide)$(ACP) $< $@
+	$(copy-file-to-target)
 
 # android.jar is what we put in the SDK package.
 android_jar_intermediates := $(TARGET_OUT_COMMON_INTERMEDIATES)/PACKAGING/android_jar_intermediates
@@ -77,8 +77,7 @@ android_jar_src_target := $(android_jar_intermediates)/android-stubs-src.jar
 
 $(android_jar_full_target): $(full_target)
 	@echo Package SDK Stubs: $@
-	$(hide)mkdir -p $(dir $@)
-	$(hide)$(ACP) $< $@
+	$(copy-file-to-target)
 
 $(android_jar_src_target): $(full_src_target)
 	@echo Package SDK Stubs Source: $@
@@ -108,10 +107,9 @@ ALL_SDK_FILES += $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/org.apache.ht
 define _package_sdk_library
 $(eval _psm_build_module := $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/$(1)_intermediates/javalib.jar)
 $(eval _psm_packaging_target := $(TARGET_OUT_COMMON_INTERMEDIATES)/PACKAGING/$(1)_intermediates/$(1).jar)
-$(_psm_packaging_target) : $(_psm_build_module) | $(ACP)
+$(_psm_packaging_target) : $(_psm_build_module)
 	@echo "Package $(1).jar: $$@"
-	$(hide) mkdir -p $$(dir $$@)
-	$(hide) $(ACP) $$< $$@
+	$$(copy-file-to-target)
 	@# Delete resource generated classes from the jar files.
 	$(hide) zip -d $$@ "*/R.class" "*/R\$$$$*.class" "*/Manifest.class" "*/Manifest\$$$$*.class" >/dev/null 2>&1 || true
 
@@ -120,42 +118,11 @@ $(eval _psm_build_module :=)
 $(eval _psm_packaging_target :=)
 endef
 
-ANDROID_SUPPORT_LIBRARIES := \
-    android-support-annotations \
-    android-support-compat \
-    android-support-media-compat \
-    android-support-core-ui \
-    android-support-fragment \
-    android-support-core-utils \
-    android-support-v4 \
-    android-support-v7-appcompat \
-    android-support-v7-cardview \
-    android-support-v7-gridlayout \
-    android-support-v7-mediarouter \
-    android-support-v7-palette \
-    android-support-v7-preference \
-    android-support-v7-recyclerview \
-    android-support-v13 \
-    android-support-v14-preference \
-    android-support-v17-leanback \
-    android-support-v17-preference-leanback \
-    android-support-multidex \
-    android-support-multidex-instrumentation \
-    android-support-design \
-    android-support-percent \
-    android-support-recommendation \
-    android-support-customtabs \
-    android-support-documents-archive \
-    android-support-vectordrawable \
-    android-support-animatedvectordrawable
-
-$(foreach lib, $(ANDROID_SUPPORT_LIBRARIES), $(eval $(call _package_sdk_library,$(lib))))
-
 # ======= Lint API XML ===========
 
 ALL_SDK_FILES += $(HOST_OUT)/development/sdk/generated-api-versions.xml
 
-api_gen_jar := $(TOPDIR)prebuilts/tools/common/api-generator/api-generator-25.0.0.jar
+api_gen_jar := $(TOPDIR)prebuilts/tools/common/api-generator/api-generator-26.0.0.jar
 api_gen_deps := \
   $(TOPDIR)prebuilts/tools/common/m2/repository/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar \
   $(TOPDIR)prebuilts/tools/common/m2/repository/org/ow2/asm/asm/5.0.4/asm-5.0.4.jar \

@@ -101,6 +101,7 @@
     <string name="status_protocol_error" msgid="3245444473429269539">"Pieprasījumu nevar pareizi apstrādāt."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Nezināma kļūda."</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth saņemtie faili"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"Bluetooth kopīgošana"</string>
     <string name="download_success" msgid="7036160438766730871">"Faila <xliff:g id="FILE_SIZE">%1$s</xliff:g> saņemšana pabeigta."</string>
     <string name="upload_success" msgid="4014469387779648949">"Faila <xliff:g id="FILE_SIZE">%1$s</xliff:g> sūtīšana ir pabeigta."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"Pārsūtīšana: ienākošie faili"</string>
@@ -132,4 +133,5 @@
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"Nevar atlasīt kontu. Atlicis 0 slotu."</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"Izveidots savienojums ar Bluetooth audio"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Pārtraukts savienojums ar Bluetooth audio"</string>
+    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth audio"</string>
 </resources>

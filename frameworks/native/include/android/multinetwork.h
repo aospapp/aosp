@@ -51,16 +51,15 @@ typedef uint64_t net_handle_t;
  * on failure with an appropriate errno value set.
  */
 
+#if __ANDROID_API__ >= 24
 
 /**
  * Set the network to be used by the given socket file descriptor.
  *
- * To clear a previous socket binding invoke with NETWORK_UNSPECIFIED.
+ * To clear a previous socket binding, invoke with NETWORK_UNSPECIFIED.
  *
- * This is the equivalent of:
+ * This is the equivalent of: [android.net.Network#bindSocket()](https://developer.android.com/reference/android/net/Network.html#bindSocket(java.net.Socket))
  *
- *     [ android.net.Network#bindSocket() ]
- *     https://developer.android.com/reference/android/net/Network.html#bindSocket(java.net.Socket)
  */
 int android_setsocknetwork(net_handle_t network, int fd);
 
@@ -74,12 +73,10 @@ int android_setsocknetwork(net_handle_t network, int fd);
  * resolutions will fail.  This is by design so an application doesn't
  * accidentally use sockets it thinks are still bound to a particular network.
  *
- * To clear a previous process binding invoke with NETWORK_UNSPECIFIED.
+ * To clear a previous process binding, invoke with NETWORK_UNSPECIFIED.
  *
- * This is the equivalent of:
+ * This is the equivalent of: [android.net.ConnectivityManager#setProcessDefaultNetwork()](https://developer.android.com/reference/android/net/ConnectivityManager.html#setProcessDefaultNetwork(android.net.Network))
  *
- *     [ android.net.ConnectivityManager#setProcessDefaultNetwork() ]
- *     https://developer.android.com/reference/android/net/ConnectivityManager.html#setProcessDefaultNetwork(android.net.Network)
  */
 int android_setprocnetwork(net_handle_t network);
 
@@ -95,14 +92,14 @@ int android_setprocnetwork(net_handle_t network);
  *     - either |node| or |service| may be NULL, but not both
  *     - |res| must not be NULL
  *
- * This is the equivalent of:
+ * This is the equivalent of: [android.net.Network#getAllByName()](https://developer.android.com/reference/android/net/Network.html#getAllByName(java.lang.String))
  *
- *     [ android.net.Network#getAllByName() ]
- *     https://developer.android.com/reference/android/net/Network.html#getAllByName(java.lang.String)
  */
 int android_getaddrinfofornetwork(net_handle_t network,
         const char *node, const char *service,
         const struct addrinfo *hints, struct addrinfo **res);
+
+#endif /* __ANDROID_API__ >= 24 */
 
 __END_DECLS
 

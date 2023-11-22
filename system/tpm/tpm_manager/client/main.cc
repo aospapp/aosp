@@ -22,67 +22,136 @@
 #include <string>
 
 #include <base/command_line.h>
+#include <base/files/file_util.h>
 #include <base/logging.h>
+#include <base/memory/ptr_util.h>
 #include <base/message_loop/message_loop.h>
 #include <brillo/bind_lambda.h>
+#if defined(USE_BINDER_IPC)
+#include <brillo/binder_watcher.h>
+#endif
 #include <brillo/daemons/daemon.h>
 #include <brillo/syslog_logging.h>
+#include <crypto/sha2.h>
 
+#if defined(USE_BINDER_IPC)
+#include "tpm_manager/client/tpm_nvram_binder_proxy.h"
+#include "tpm_manager/client/tpm_ownership_binder_proxy.h"
+#else
 #include "tpm_manager/client/tpm_nvram_dbus_proxy.h"
 #include "tpm_manager/client/tpm_ownership_dbus_proxy.h"
-#include "tpm_manager/common/print_tpm_ownership_interface_proto.h"
-#include "tpm_manager/common/print_tpm_nvram_interface_proto.h"
-#include "tpm_manager/common/tpm_ownership_interface.pb.h"
-#include "tpm_manager/common/tpm_nvram_interface.pb.h"
+#endif
+#include "tpm_manager/common/print_tpm_manager_proto.h"
+#include "tpm_manager/common/tpm_manager.pb.h"
+#include "trunks/tpm_generated.h"
 
 namespace tpm_manager {
 
-const char kGetTpmStatusCommand[] = "status";
-const char kTakeOwnershipCommand[] = "take_ownership";
-const char kRemoveOwnerDependencyCommand[] = "remove_dependency";
-const char kDefineNvramCommand[] = "define_nvram";
-const char kDestroyNvramCommand[] = "destroy_nvram";
-const char kWriteNvramCommand[] = "write_nvram";
-const char kReadNvramCommand[] = "read_nvram";
-const char kIsNvramDefinedCommand[] = "is_nvram_defined";
-const char kIsNvramLockedCommand[] = "is_nvram_locked";
-const char kGetNvramSizeCommand[] = "get_nvram_size";
+constexpr char kGetTpmStatusCommand[] = "status";
+constexpr char kTakeOwnershipCommand[] = "take_ownership";
+constexpr char kRemoveOwnerDependencyCommand[] = "remove_dependency";
+constexpr char kDefineSpaceCommand[] = "define_space";
+constexpr char kDestroySpaceCommand[] = "destroy_space";
+constexpr char kWriteSpaceCommand[] = "write_space";
+constexpr char kReadSpaceCommand[] = "read_space";
+constexpr char kLockSpaceCommand[] = "lock_space";
+constexpr char kListSpacesCommand[] = "list_spaces";
+constexpr char kGetSpaceInfoCommand[] = "get_space_info";
 
-const char kNvramIndexArg[] = "nvram_index";
-const char kNvramLengthArg[] = "nvram_length";
-const char kNvramDataArg[] = "nvram_data";
+constexpr char kDependencySwitch[] = "dependency";
+constexpr char kIndexSwitch[] = "index";
+constexpr char kSizeSwitch[] = "size";
+constexpr char kAttributesSwitch[] = "attributes";
+constexpr char kPasswordSwitch[] = "password";
+constexpr char kBindToPCR0Switch[] = "bind_to_pcr0";
+constexpr char kFileSwitch[] = "file";
+constexpr char kUseOwnerSwitch[] = "use_owner_authorization";
+constexpr char kLockRead[] = "lock_read";
+constexpr char kLockWrite[] = "lock_write";
 
-const char kUsage[] = R"(
+constexpr char kUsage[] = R"(
 Usage: tpm_manager_client <command> [<arguments>]
-Commands (used as switches):
-  --status
-      Prints the current status of the Tpm.
-  --take_ownership
+Commands:
+  status
+      Prints TPM status information.
+  take_ownership
       Takes ownership of the Tpm with a random password.
-  --remove_dependency=<owner_dependency>
-      Removes the provided Tpm owner dependency.
-  --define_nvram
-      Defines an NV space at |nvram_index| with length |nvram_length|.
-  --destroy_nvram
-      Destroys the NV space at |nvram_index|.
-  --write_nvram
-      Writes the NV space at |nvram_index| with |nvram_data|.
-  --read_nvram
-      Prints the contents of the NV space at |nvram_index|.
-  --is_nvram_defined
-      Prints whether the NV space at |nvram_index| is defined.
-  --is_nvram_locked
-      Prints whether the NV space at |nvram_index|  is locked for writing.
-  --get_nvram_size
-      Prints the size of the NV space at |nvram_index|.
-Arguments (used as switches):
-  --nvram_index=<index>
-      Index of NV space to operate on.
-  --nvram_length=<length>
-      Size in bytes of the NV space to be created.
-  --nvram_data=<data>
-      Data to write to NV space.
+  remove_dependency --dependency=<owner_dependency>
+      Removes the named Tpm owner dependency. E.g. \"Nvram\" or \"Attestation\".
+  define_space --index=<index> --size=<size> [--attributes=<attribute_list>]
+               [--password=<password>] [--bind_to_pcr0]
+      Defines an NV space. The attribute format is a '|' separated list of:
+          PERSISTENT_WRITE_LOCK: Allow write lock; stay locked until destroyed.
+          BOOT_WRITE_LOCK: Allow write lock; stay locked until next boot.
+          BOOT_READ_LOCK: Allow read lock; stay locked until next boot.
+          WRITE_AUTHORIZATION: Require authorization to write.
+          READ_AUTHORIZATION: Require authorization to read.
+          WRITE_EXTEND: Allow only extend operations, not direct writes.
+          GLOBAL_LOCK: Engage write lock when the global lock is engaged.
+          PLATFORM_WRITE: Allow write only with 'platform' authorization. This
+                          is similar to the TPM 1.2 'physical presence' notion.
+          OWNER_WRITE: Allow write only with TPM owner authorization.
+          OWNER_READ: Allow read only with TPM owner authorization.
+      This command requires that owner authorization is available. If a password
+      is given it will be required only as specified by the attributes. E.g. if
+      READ_AUTHORIZATION is not listed, then the password will not be required
+      in order to read. Similarly, if the --bind_to_pcr0 option is given, the
+      current PCR0 value will be required only as specified by the attributes.
+  destroy_space --index=<index>
+      Destroys an NV space. This command requires that owner authorization is
+      available.
+  write_space --index=<index> --file=<input_file> [--password=<password>]
+              [--use_owner_authorization]
+      Writes data from a file to an NV space. Any existing data will be
+      overwritten.
+  read_space --index=<index> --file=<output_file> [--password=<password>]
+             [--use_owner_authorization]
+      Reads the entire contents of an NV space to a file.
+  lock_space --index=<index> [--lock_read] [--lock_write]
+             [--password=<password>] [--use_owner_authorization]
+      Locks an NV space for read and / or write.
+  list_spaces
+      Prints a list of all defined index values.
+  get_space_info --index=<index>
+      Prints public information about an NV space.
 )";
+
+constexpr char kKnownNVRAMSpaces[] = R"(
+NVRAM Index Reference:
+ TPM 1.2 (32-bit values)
+  0x00001007 - Chrome OS Firmware Version Rollback Protection
+  0x00001008 - Chrome OS Kernel Version Rollback Protection
+  0x00001009 - Chrome OS Firmware Backup
+  0x0000100A - Chrome OS Firmware Management Parameters
+  0x20000004 - Chrome OS Install Attributes (aka LockBox)
+  0x10000001 - Standard TPM_NV_INDEX_DIR (Permanent)
+  0x1000F000 - Endorsement Certificate (Permanent)
+  0x30000001 - Endorsement Authority Certificate (Permanent)
+  0x0000F004 - Standard Test Index (for testing TPM_NV_DefineSpace)
+
+ TPM 2.0 (24-bit values)
+  0x400000 and following - Reserved for Firmware
+  0x800000 and following - Reserved for Software
+  0xC00000 and following - Endorsement Certificates
+)";
+
+bool ReadFileToString(const std::string& filename, std::string* data) {
+  return base::ReadFileToString(base::FilePath(filename), data);
+}
+
+bool WriteStringToFile(const std::string& data, const std::string& filename) {
+  int result =
+      base::WriteFile(base::FilePath(filename), data.data(), data.size());
+  return (result != -1 && static_cast<size_t>(result) == data.size());
+}
+
+uint32_t StringToUint32(const std::string& s) {
+  return strtoul(s.c_str(), nullptr, 0);
+}
+
+uint32_t StringToNvramIndex(const std::string& s) {
+  return trunks::HR_HANDLE_MASK & StringToUint32(s);
+}
 
 using ClientLoopBase = brillo::Daemon;
 class ClientLoop : public ClientLoopBase {
@@ -97,21 +166,34 @@ class ClientLoop : public ClientLoopBase {
       LOG(ERROR) << "Error initializing tpm_manager_client.";
       return exit_code;
     }
-    TpmNvramDBusProxy* nvram_proxy = new TpmNvramDBusProxy();
+#if defined(USE_BINDER_IPC)
+    if (!binder_watcher_.Init()) {
+      LOG(ERROR) << "Error initializing binder watcher.";
+      return EX_UNAVAILABLE;
+    }
+    std::unique_ptr<TpmNvramBinderProxy> nvram_proxy =
+        base::MakeUnique<TpmNvramBinderProxy>();
+    std::unique_ptr<TpmOwnershipBinderProxy> ownership_proxy =
+        base::MakeUnique<TpmOwnershipBinderProxy>();
+#else
+    std::unique_ptr<TpmNvramDBusProxy> nvram_proxy =
+        base::MakeUnique<TpmNvramDBusProxy>();
+    std::unique_ptr<TpmOwnershipDBusProxy> ownership_proxy =
+        base::MakeUnique<TpmOwnershipDBusProxy>();
+#endif
     if (!nvram_proxy->Initialize()) {
-      LOG(ERROR) << "Error initializing proxy to nvram interface.";
+      LOG(ERROR) << "Error initializing nvram proxy.";
       return EX_UNAVAILABLE;
     }
-    TpmOwnershipDBusProxy* ownership_proxy = new TpmOwnershipDBusProxy();
     if (!ownership_proxy->Initialize()) {
-      LOG(ERROR) << "Error initializing proxy to ownership interface.";
+      LOG(ERROR) << "Error initializing ownership proxy.";
       return EX_UNAVAILABLE;
     }
-    tpm_nvram_.reset(nvram_proxy);
-    tpm_ownership_.reset(ownership_proxy);
+    tpm_nvram_ = std::move(nvram_proxy);
+    tpm_ownership_ = std::move(ownership_proxy);
     exit_code = ScheduleCommand();
     if (exit_code == EX_USAGE) {
-      printf("%s", kUsage);
+      printf("%s%s", kUsage, kKnownNVRAMSpaces);
     }
     return exit_code;
   }
@@ -127,89 +209,88 @@ class ClientLoop : public ClientLoopBase {
   int ScheduleCommand() {
     base::Closure task;
     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-    if (command_line->HasSwitch("help") || command_line->HasSwitch("h")) {
+    if (command_line->HasSwitch("help") || command_line->HasSwitch("h") ||
+        command_line->GetArgs().size() == 0) {
       return EX_USAGE;
-    } else if (command_line->HasSwitch(kGetTpmStatusCommand)) {
+    }
+    std::string command = command_line->GetArgs()[0];
+    if (command == kGetTpmStatusCommand) {
       task = base::Bind(&ClientLoop::HandleGetTpmStatus,
                         weak_factory_.GetWeakPtr());
-    } else if (command_line->HasSwitch(kTakeOwnershipCommand)) {
+    } else if (command == kTakeOwnershipCommand) {
       task = base::Bind(&ClientLoop::HandleTakeOwnership,
                         weak_factory_.GetWeakPtr());
-    } else if (command_line->HasSwitch(kRemoveOwnerDependencyCommand)) {
-      task = base::Bind(
-          &ClientLoop::HandleRemoveOwnerDependency,
-          weak_factory_.GetWeakPtr(),
-          command_line->GetSwitchValueASCII(kRemoveOwnerDependencyCommand));
-    } else if (command_line->HasSwitch(kDefineNvramCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg) ||
-          !command_line->HasSwitch(kNvramLengthArg)) {
-        LOG(ERROR) << "Cannot define nvram without a valid index and length.";
+    } else if (command == kRemoveOwnerDependencyCommand) {
+      if (!command_line->HasSwitch(kDependencySwitch)) {
+        return EX_USAGE;
+      }
+      task = base::Bind(&ClientLoop::HandleRemoveOwnerDependency,
+                        weak_factory_.GetWeakPtr(),
+                        command_line->GetSwitchValueASCII(kDependencySwitch));
+    } else if (command == kDefineSpaceCommand) {
+      if (!command_line->HasSwitch(kIndexSwitch) ||
+          !command_line->HasSwitch(kSizeSwitch)) {
         return EX_USAGE;
       }
       task = base::Bind(
-          &ClientLoop::HandleDefineNvram,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()),
-          atoi(command_line->GetSwitchValueASCII(kNvramLengthArg).c_str()));
-    } else if (command_line->HasSwitch(kDestroyNvramCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg)) {
-        LOG(ERROR) << "Cannot destroy nvram without a valid index.";
+          &ClientLoop::HandleDefineSpace, weak_factory_.GetWeakPtr(),
+          StringToNvramIndex(command_line->GetSwitchValueASCII(kIndexSwitch)),
+          StringToUint32(command_line->GetSwitchValueASCII(kSizeSwitch)),
+          command_line->GetSwitchValueASCII(kAttributesSwitch),
+          command_line->GetSwitchValueASCII(kPasswordSwitch),
+          command_line->HasSwitch(kBindToPCR0Switch));
+    } else if (command == kDestroySpaceCommand) {
+      if (!command_line->HasSwitch(kIndexSwitch)) {
         return EX_USAGE;
       }
       task = base::Bind(
-          &ClientLoop::HandleDestroyNvram,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()));
-    } else if (command_line->HasSwitch(kWriteNvramCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg) ||
-          !command_line->HasSwitch(kNvramDataArg)) {
-        LOG(ERROR) << "Cannot write nvram without a valid index and data.";
+          &ClientLoop::HandleDestroySpace, weak_factory_.GetWeakPtr(),
+          StringToNvramIndex(command_line->GetSwitchValueASCII(kIndexSwitch)));
+    } else if (command == kWriteSpaceCommand) {
+      if (!command_line->HasSwitch(kIndexSwitch) ||
+          !command_line->HasSwitch(kFileSwitch)) {
         return EX_USAGE;
       }
       task = base::Bind(
-          &ClientLoop::HandleWriteNvram,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()),
-          command_line->GetSwitchValueASCII(kNvramDataArg));
-    } else if (command_line->HasSwitch(kReadNvramCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg)) {
-        LOG(ERROR) << "Cannot read nvram without a valid index.";
+          &ClientLoop::HandleWriteSpace, weak_factory_.GetWeakPtr(),
+          StringToNvramIndex(command_line->GetSwitchValueASCII(kIndexSwitch)),
+          command_line->GetSwitchValueASCII(kFileSwitch),
+          command_line->GetSwitchValueASCII(kPasswordSwitch),
+          command_line->HasSwitch(kUseOwnerSwitch));
+    } else if (command == kReadSpaceCommand) {
+      if (!command_line->HasSwitch(kIndexSwitch) ||
+          !command_line->HasSwitch(kFileSwitch)) {
         return EX_USAGE;
       }
       task = base::Bind(
-          &ClientLoop::HandleReadNvram,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()));
-    } else if (command_line->HasSwitch(kIsNvramDefinedCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg)) {
-        LOG(ERROR) << "Cannot query nvram without a valid index.";
+          &ClientLoop::HandleReadSpace, weak_factory_.GetWeakPtr(),
+          StringToNvramIndex(command_line->GetSwitchValueASCII(kIndexSwitch)),
+          command_line->GetSwitchValueASCII(kFileSwitch),
+          command_line->GetSwitchValueASCII(kPasswordSwitch),
+          command_line->HasSwitch(kUseOwnerSwitch));
+    } else if (command == kLockSpaceCommand) {
+      if (!command_line->HasSwitch(kIndexSwitch)) {
         return EX_USAGE;
       }
       task = base::Bind(
-          &ClientLoop::HandleIsNvramDefined,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()));
-    } else if (command_line->HasSwitch(kIsNvramLockedCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg)) {
-        LOG(ERROR) << "Cannot query nvram without a valid index.";
+          &ClientLoop::HandleLockSpace, weak_factory_.GetWeakPtr(),
+          StringToNvramIndex(command_line->GetSwitchValueASCII(kIndexSwitch)),
+          command_line->HasSwitch(kLockRead),
+          command_line->HasSwitch(kLockWrite),
+          command_line->GetSwitchValueASCII(kPasswordSwitch),
+          command_line->HasSwitch(kUseOwnerSwitch));
+    } else if (command == kListSpacesCommand) {
+      task =
+          base::Bind(&ClientLoop::HandleListSpaces, weak_factory_.GetWeakPtr());
+    } else if (command == kGetSpaceInfoCommand) {
+      if (!command_line->HasSwitch(kIndexSwitch)) {
         return EX_USAGE;
       }
       task = base::Bind(
-          &ClientLoop::HandleIsNvramLocked,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()));
-    } else if (command_line->HasSwitch(kGetNvramSizeCommand)) {
-      if (!command_line->HasSwitch(kNvramIndexArg)) {
-        LOG(ERROR) << "Cannot query nvram without a valid index.";
-        return EX_USAGE;
-      }
-      task = base::Bind(
-          &ClientLoop::HandleGetNvramSize,
-          weak_factory_.GetWeakPtr(),
-          atoi(command_line->GetSwitchValueASCII(kNvramIndexArg).c_str()));
+          &ClientLoop::HandleGetSpaceInfo, weak_factory_.GetWeakPtr(),
+          StringToNvramIndex(command_line->GetSwitchValueASCII(kIndexSwitch)));
     } else {
       // Command line arguments did not match any valid commands.
-      LOG(ERROR) << "No Valid Command selected.";
       return EX_USAGE;
     }
     base::MessageLoop::current()->PostTask(FROM_HERE, task);
@@ -226,17 +307,15 @@ class ClientLoop : public ClientLoopBase {
   void HandleGetTpmStatus() {
     GetTpmStatusRequest request;
     tpm_ownership_->GetTpmStatus(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<GetTpmStatusReply>,
-                   weak_factory_.GetWeakPtr()));
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<GetTpmStatusReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
   void HandleTakeOwnership() {
     TakeOwnershipRequest request;
     tpm_ownership_->TakeOwnership(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<TakeOwnershipReply>,
-                   weak_factory_.GetWeakPtr()));
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<TakeOwnershipReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
   void HandleRemoveOwnerDependency(const std::string& owner_dependency) {
@@ -248,74 +327,176 @@ class ClientLoop : public ClientLoopBase {
                    weak_factory_.GetWeakPtr()));
   }
 
-  void HandleDefineNvram(uint32_t index, size_t length) {
-    DefineNvramRequest request;
-    request.set_index(index);
-    request.set_length(length);
-    tpm_nvram_->DefineNvram(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<DefineNvramReply>,
-                   weak_factory_.GetWeakPtr()));
+  bool DecodeAttribute(const std::string& attribute_str,
+                       NvramSpaceAttribute* attribute) {
+    if (attribute_str == "PERSISTENT_WRITE_LOCK") {
+      *attribute = NVRAM_PERSISTENT_WRITE_LOCK;
+      return true;
+    }
+    if (attribute_str == "BOOT_WRITE_LOCK") {
+      *attribute = NVRAM_BOOT_WRITE_LOCK;
+      return true;
+    }
+    if (attribute_str == "BOOT_READ_LOCK") {
+      *attribute = NVRAM_BOOT_READ_LOCK;
+      return true;
+    }
+    if (attribute_str == "WRITE_AUTHORIZATION") {
+      *attribute = NVRAM_WRITE_AUTHORIZATION;
+      return true;
+    }
+    if (attribute_str == "READ_AUTHORIZATION") {
+      *attribute = NVRAM_READ_AUTHORIZATION;
+      return true;
+    }
+    if (attribute_str == "WRITE_EXTEND") {
+      *attribute = NVRAM_WRITE_EXTEND;
+      return true;
+    }
+    if (attribute_str == "GLOBAL_LOCK") {
+      *attribute = NVRAM_GLOBAL_LOCK;
+      return true;
+    }
+    if (attribute_str == "PLATFORM_WRITE") {
+      *attribute = NVRAM_PLATFORM_WRITE;
+      return true;
+    }
+    if (attribute_str == "OWNER_WRITE") {
+      *attribute = NVRAM_OWNER_WRITE;
+      return true;
+    }
+    if (attribute_str == "OWNER_READ") {
+      *attribute = NVRAM_OWNER_READ;
+      return true;
+    }
+    LOG(ERROR) << "Unrecognized attribute: " << attribute_str;
+    return false;
   }
 
-  void HandleDestroyNvram(uint32_t index) {
-    DestroyNvramRequest request;
+  void HandleDefineSpace(uint32_t index,
+                         size_t size,
+                         const std::string& attributes,
+                         const std::string& password,
+                         bool bind_to_pcr0) {
+    DefineSpaceRequest request;
     request.set_index(index);
-    tpm_nvram_->DestroyNvram(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<DestroyNvramReply>,
-                   weak_factory_.GetWeakPtr()));
+    request.set_size(size);
+    std::string::size_type pos = 0;
+    std::string::size_type next_pos = 0;
+    while (next_pos != std::string::npos) {
+      next_pos = attributes.find('|', pos);
+      std::string attribute_str;
+      if (next_pos == std::string::npos) {
+        attribute_str = attributes.substr(pos);
+      } else {
+        attribute_str = attributes.substr(pos, next_pos - pos);
+      }
+      if (!attribute_str.empty()) {
+        NvramSpaceAttribute attribute;
+        if (!DecodeAttribute(attribute_str, &attribute)) {
+          Quit();
+          return;
+        }
+        request.add_attributes(attribute);
+      }
+      pos = next_pos + 1;
+    }
+    request.set_authorization_value(crypto::SHA256HashString(password));
+    request.set_policy(bind_to_pcr0 ? NVRAM_POLICY_PCR0 : NVRAM_POLICY_NONE);
+    tpm_nvram_->DefineSpace(
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<DefineSpaceReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
-  void HandleWriteNvram(uint32_t index, const std::string& data) {
-    WriteNvramRequest request;
+  void HandleDestroySpace(uint32_t index) {
+    DestroySpaceRequest request;
     request.set_index(index);
+    tpm_nvram_->DestroySpace(
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<DestroySpaceReply>,
+                            weak_factory_.GetWeakPtr()));
+  }
+
+  void HandleWriteSpace(uint32_t index,
+                        const std::string& input_file,
+                        const std::string& password,
+                        bool use_owner_authorization) {
+    WriteSpaceRequest request;
+    request.set_index(index);
+    std::string data;
+    if (!ReadFileToString(input_file, &data)) {
+      LOG(ERROR) << "Failed to read input file.";
+      Quit();
+      return;
+    }
     request.set_data(data);
-    tpm_nvram_->WriteNvram(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<WriteNvramReply>,
-                   weak_factory_.GetWeakPtr()));
+    request.set_authorization_value(crypto::SHA256HashString(password));
+    request.set_use_owner_authorization(use_owner_authorization);
+    tpm_nvram_->WriteSpace(
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<WriteSpaceReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
-  void HandleReadNvram(uint32_t index) {
-    ReadNvramRequest request;
+  void HandleReadSpaceReply(const std::string& output_file,
+                            const ReadSpaceReply& reply) {
+    if (!WriteStringToFile(reply.data(), output_file)) {
+      LOG(ERROR) << "Failed to write output file.";
+    }
+    LOG(INFO) << "Message Reply: " << GetProtoDebugString(reply);
+    Quit();
+  }
+
+  void HandleReadSpace(uint32_t index,
+                       const std::string& output_file,
+                       const std::string& password,
+                       bool use_owner_authorization) {
+    ReadSpaceRequest request;
     request.set_index(index);
-    tpm_nvram_->ReadNvram(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<ReadNvramReply>,
-                   weak_factory_.GetWeakPtr()));
+    request.set_authorization_value(crypto::SHA256HashString(password));
+    request.set_use_owner_authorization(use_owner_authorization);
+    tpm_nvram_->ReadSpace(request,
+                          base::Bind(&ClientLoop::HandleReadSpaceReply,
+                                     weak_factory_.GetWeakPtr(), output_file));
   }
 
-  void HandleIsNvramDefined(uint32_t index) {
-    IsNvramDefinedRequest request;
+  void HandleLockSpace(uint32_t index,
+                       bool lock_read,
+                       bool lock_write,
+                       const std::string& password,
+                       bool use_owner_authorization) {
+    LockSpaceRequest request;
     request.set_index(index);
-    tpm_nvram_->IsNvramDefined(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<IsNvramDefinedReply>,
-                   weak_factory_.GetWeakPtr()));
+    request.set_lock_read(lock_read);
+    request.set_lock_write(lock_write);
+    request.set_authorization_value(crypto::SHA256HashString(password));
+    request.set_use_owner_authorization(use_owner_authorization);
+    tpm_nvram_->LockSpace(
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<LockSpaceReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
-  void HandleIsNvramLocked(uint32_t index) {
-    IsNvramLockedRequest request;
+  void HandleListSpaces() {
+    printf("%s\n", kKnownNVRAMSpaces);
+    ListSpacesRequest request;
+    tpm_nvram_->ListSpaces(
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<ListSpacesReply>,
+                            weak_factory_.GetWeakPtr()));
+  }
+
+  void HandleGetSpaceInfo(uint32_t index) {
+    GetSpaceInfoRequest request;
     request.set_index(index);
-    tpm_nvram_->IsNvramLocked(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<IsNvramLockedReply>,
-                   weak_factory_.GetWeakPtr()));
+    tpm_nvram_->GetSpaceInfo(
+        request, base::Bind(&ClientLoop::PrintReplyAndQuit<GetSpaceInfoReply>,
+                            weak_factory_.GetWeakPtr()));
   }
 
-  void HandleGetNvramSize(uint32_t index) {
-    GetNvramSizeRequest request;
-    request.set_index(index);
-    tpm_nvram_->GetNvramSize(
-        request,
-        base::Bind(&ClientLoop::PrintReplyAndQuit<GetNvramSizeReply>,
-                   weak_factory_.GetWeakPtr()));
-  }
-
-  // Pointer to a DBus proxy to tpm_managerd.
+  // IPC proxy interfaces.
   std::unique_ptr<tpm_manager::TpmNvramInterface> tpm_nvram_;
   std::unique_ptr<tpm_manager::TpmOwnershipInterface> tpm_ownership_;
+
+#if defined(USE_BINDER_IPC)
+  brillo::BinderWatcher binder_watcher_;
+#endif
 
   // Declared last so that weak pointers will be destroyed first.
   base::WeakPtrFactory<ClientLoop> weak_factory_{this};

@@ -21,7 +21,6 @@ class power_BrightnessResetAfterReboot(test.test):
         if host.has_internal_display() is None:
             raise error.TestNAError('Test can not processed on '
                                     'devices without internal display')
-        self.is_freon_build(host)
         autotest_client = autotest.Autotest(host)
         host.reboot()
         autotest_client.run_test(client_autotest,
@@ -71,12 +70,3 @@ class power_BrightnessResetAfterReboot(test.test):
             raise error.TestFail(cmd)
         if result:
             return float(result)
-
-
-    def is_freon_build(self, host):
-        """ Checks for the freon builds.
-            @param host: host object representing the DUT
-        """
-        if not host.run('modetest', ignore_status=True ).exit_status == 0:
-            raise error.TestNAError('Test can not processed on non-freon build')
-

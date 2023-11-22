@@ -20,7 +20,7 @@ import static android.Manifest.permission.READ_PHONE_STATE;
 import static android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE;
 
 import android.annotation.NonNull;
-import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -58,6 +58,7 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.util.FastXmlSerializer;
+import com.android.internal.util.IndentingPrintWriter;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -71,6 +72,9 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -79,8 +83,9 @@ import java.util.List;
 
 public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
     private static final String LOG_TAG = "CarrierConfigLoader";
-    // Package name for default carrier config app, bundled with system image.
-    private static final String DEFAULT_CARRIER_CONFIG_PACKAGE = "com.android.carrierconfig";
+
+    // Package name for platform carrier config app, bundled with system image.
+    private final String mPlatformCarrierConfigPackage;
 
     /** The singleton instance. */
     private static CarrierConfigLoader sInstance;
@@ -192,16 +197,16 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
 
                 case EVENT_FETCH_DEFAULT:
                     iccid = getIccIdForPhoneId(phoneId);
-                    config = restoreConfigFromXml(DEFAULT_CARRIER_CONFIG_PACKAGE, iccid);
+                    config = restoreConfigFromXml(mPlatformCarrierConfigPackage, iccid);
                     if (config != null) {
-                        log("Loaded config from XML. package=" + DEFAULT_CARRIER_CONFIG_PACKAGE
+                        log("Loaded config from XML. package=" + mPlatformCarrierConfigPackage
                                 + " phoneId=" + phoneId);
                         mConfigFromDefaultApp[phoneId] = config;
                         Message newMsg = obtainMessage(EVENT_LOADED_FROM_DEFAULT, phoneId, -1);
                         newMsg.getData().putBoolean("loaded_from_xml", true);
                         mHandler.sendMessage(newMsg);
                     } else {
-                        if (bindToConfigPackage(DEFAULT_CARRIER_CONFIG_PACKAGE,
+                        if (bindToConfigPackage(mPlatformCarrierConfigPackage,
                                 phoneId, EVENT_CONNECTED_TO_DEFAULT)) {
                             sendMessageDelayed(obtainMessage(EVENT_BIND_DEFAULT_TIMEOUT, phoneId, -1),
                                     BIND_TIMEOUT_MILLIS);
@@ -226,7 +231,7 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
                                 .asInterface(conn.service);
                         config = carrierService.getCarrierConfig(carrierId);
                         iccid = getIccIdForPhoneId(phoneId);
-                        saveConfigToXml(DEFAULT_CARRIER_CONFIG_PACKAGE, iccid, config);
+                        saveConfigToXml(mPlatformCarrierConfigPackage, iccid, config);
                         mConfigFromDefaultApp[phoneId] = config;
                         sendMessage(obtainMessage(EVENT_LOADED_FROM_DEFAULT, phoneId, -1));
                     } catch (Exception ex) {
@@ -345,6 +350,8 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
      */
     private CarrierConfigLoader(Context context) {
         mContext = context;
+        mPlatformCarrierConfigPackage =
+                mContext.getString(R.string.platform_carrier_config_package);
 
         IntentFilter bootFilter = new IntentFilter();
         bootFilter.addAction(Intent.ACTION_BOOT_COMPLETED);
@@ -388,10 +395,10 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
 
     private void broadcastConfigChangedIntent(int phoneId) {
         Intent intent = new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
-        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT |
+                Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
         SubscriptionManager.putPhoneIdAndSubIdExtra(intent, phoneId);
-        ActivityManagerNative.broadcastStickyIntent(intent, READ_PHONE_STATE,
-                UserHandle.USER_ALL);
+        ActivityManager.broadcastStickyIntent(intent, UserHandle.USER_ALL);
     }
 
     /** Binds to the default or carrier config app. */
@@ -472,8 +479,13 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
             loge("Cannot save config with null packageName or iccid.");
             return;
         }
-        if (config == null) {
-          config = new PersistableBundle();
+        // b/32668103 Only save to file if config isn't empty.
+        // In case of failure, not caching an empty bundle will
+        // try loading config again on next power on or sim loaded.
+        // Downside is for genuinely empty bundle, will bind and load
+        // on every power on.
+        if (config == null || config.isEmpty()) {
+            return;
         }
 
         final String version = getPackageVersion(packageName);
@@ -712,9 +724,41 @@ public class CarrierConfigLoader extends ICarrierConfigLoader.Stub {
         }
         pw.println("CarrierConfigLoader: " + this);
         for (int i = 0; i < TelephonyManager.getDefault().getPhoneCount(); i++) {
-            pw.println("  Phone Id=" + i);
-            pw.println("  mConfigFromDefaultApp=" + mConfigFromDefaultApp[i]);
-            pw.println("  mConfigFromCarrierApp=" + mConfigFromCarrierApp[i]);
+            pw.println("Phone Id = " + i);
+            // display default values in CarrierConfigManager
+            printConfig(CarrierConfigManager.getDefaultConfig(), pw,
+                    "Default Values from CarrierConfigManager");
+            pw.println("");
+            // display ConfigFromDefaultApp
+            printConfig(mConfigFromDefaultApp[i], pw, "mConfigFromDefaultApp");
+            pw.println("");
+            // display ConfigFromCarrierApp
+            printConfig(mConfigFromCarrierApp[i], pw, "mConfigFromCarrierApp");
+        }
+    }
+
+    private void printConfig(PersistableBundle configApp, PrintWriter pw, String name) {
+        IndentingPrintWriter indentPW = new IndentingPrintWriter(pw, "    ");
+        if (configApp == null) {
+            indentPW.increaseIndent();
+            indentPW.println(name + " : null ");
+            return;
+        }
+        indentPW.increaseIndent();
+        indentPW.println(name + " : ");
+        List<String> sortedKeys = new ArrayList<String>(configApp.keySet());
+        Collections.sort(sortedKeys);
+        indentPW.increaseIndent();
+        indentPW.increaseIndent();
+        for (String key : sortedKeys) {
+            if (configApp.get(key) != null && configApp.get(key) instanceof Object[]) {
+                indentPW.println(key + " = " +
+                        Arrays.toString((Object[]) configApp.get(key)));
+            } else if (configApp.get(key) != null && configApp.get(key) instanceof int[]) {
+                indentPW.println(key + " = " + Arrays.toString((int[]) configApp.get(key)));
+            } else {
+                indentPW.println(key + " = " + configApp.get(key));
+            }
         }
     }
 

@@ -21,7 +21,10 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
-ArchType ScopedCurrentArch::current_arch = GetBuildArch();
+#include "perf_event.h"
+
+ArchType ScopedCurrentArch::current_arch = ARCH_UNSUPPORTED;
+ArchType ScopedCurrentArch::current_arch32 = ARCH_UNSUPPORTED;
 
 ArchType GetArchType(const std::string& arch) {
   if (arch == "x86" || arch == "i686") {
@@ -31,10 +34,66 @@ ArchType GetArchType(const std::string& arch) {
   } else if (arch == "aarch64") {
     return ARCH_ARM64;
   } else if (android::base::StartsWith(arch, "arm")) {
+    // If arch is "armv8l", it is likely that we are using a 32-bit simpleperf
+    // binary on a aarch64 device. In this case, the profiling environment is
+    // ARCH_ARM64, because the kernel is aarch64.
+    if (arch[3] == 'v') {
+      int version = atoi(&arch[4]);
+      if (version >= 8) {
+        return ARCH_ARM64;
+      }
+    }
     return ARCH_ARM;
   }
   LOG(ERROR) << "unsupported arch: " << arch;
   return ARCH_UNSUPPORTED;
+}
+
+ArchType GetArchForAbi(ArchType machine_arch, int abi) {
+  if (abi == PERF_SAMPLE_REGS_ABI_32) {
+    if (machine_arch == ARCH_X86_64) {
+      return ARCH_X86_32;
+    }
+    if (machine_arch == ARCH_ARM64) {
+      return ARCH_ARM;
+    }
+  }
+  return machine_arch;
+}
+
+std::string GetArchString(ArchType arch) {
+  switch (arch) {
+    case ARCH_X86_32:
+      return "x86";
+    case ARCH_X86_64:
+      return "x86_64";
+    case ARCH_ARM64:
+      return "arm64";
+    case ARCH_ARM:
+      return "arm";
+    default:
+      break;
+  }
+  return "unknown";
+}
+
+// If strict_check, must have arch1 == arch2.
+// Otherwise, allow X86_32 with X86_64, ARM with ARM64.
+bool IsArchTheSame(ArchType arch1, ArchType arch2, bool strict_check) {
+  if (strict_check) {
+    return arch1 == arch2;
+  }
+  switch (arch1) {
+    case ARCH_X86_32:
+    case ARCH_X86_64:
+      return arch2 == ARCH_X86_32 || arch2 == ARCH_X86_64;
+    case ARCH_ARM64:
+    case ARCH_ARM:
+      return arch2 == ARCH_ARM64 || arch2 == ARCH_ARM;
+    default:
+      break;
+  }
+  return arch1 == arch2;
 }
 
 uint64_t GetSupportedRegMask(ArchType arch) {
@@ -107,7 +166,7 @@ std::string GetRegName(size_t regno, ArchType arch) {
   }
 }
 
-RegSet CreateRegSet(uint64_t valid_mask, const std::vector<uint64_t>& valid_regs) {
+RegSet CreateRegSet(int abi, uint64_t valid_mask, const uint64_t* valid_regs) {
   RegSet regs;
   regs.valid_mask = valid_mask;
   for (int i = 0, j = 0; i < 64; ++i) {
@@ -115,7 +174,33 @@ RegSet CreateRegSet(uint64_t valid_mask, const std::vector<uint64_t>& valid_regs
       regs.data[i] = valid_regs[j++];
     }
   }
+  if (ScopedCurrentArch::GetCurrentArch() == ARCH_ARM64 &&
+      abi == PERF_SAMPLE_REGS_ABI_32) {
+    // The kernel dumps arm64 regs, but we need arm regs. So map arm64
+    // regs into arm regs.
+    regs.data[PERF_REG_ARM_PC] = regs.data[PERF_REG_ARM64_PC];
+  }
   return regs;
+}
+
+void SetIpReg(ArchType arch, uint64_t ip, RegSet* regs) {
+  int regno;
+  switch (arch) {
+    case ARCH_X86_64:
+    case ARCH_X86_32:
+      regno = PERF_REG_X86_IP;
+      break;
+    case ARCH_ARM:
+      regno = PERF_REG_ARM_PC;
+      break;
+    case ARCH_ARM64:
+      regno = PERF_REG_ARM64_PC;
+      break;
+    default:
+      return;
+  }
+  regs->valid_mask |= (1ULL << regno);
+  regs->data[regno] = ip;
 }
 
 bool GetRegValue(const RegSet& regs, size_t regno, uint64_t* value) {

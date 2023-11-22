@@ -22,17 +22,17 @@ import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.net.Uri;
 import android.os.HandlerThread;
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 import android.test.mock.MockCursor;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.tv.testing.Constants;
-import com.android.tv.testing.ProgramInfo;
 import com.android.tv.testing.FakeClock;
+import com.android.tv.testing.ProgramInfo;
 import com.android.tv.util.Utils;
 
 import java.util.ArrayList;
@@ -78,7 +78,7 @@ public class ProgramDataManagerTest extends AndroidTestCase {
         mHandlerThread = new HandlerThread(TAG);
         mHandlerThread.start();
         mProgramDataManager = new ProgramDataManager(
-                mContentResolver, mClock, mHandlerThread.getLooper());
+                mContentResolver, mClock, mHandlerThread.getLooper(), null);
         mProgramDataManager.setPrefetchEnabled(true);
         mProgramDataManager.addListener(mListener);
     }

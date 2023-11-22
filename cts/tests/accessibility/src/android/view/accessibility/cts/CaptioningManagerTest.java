@@ -22,16 +22,25 @@ import android.test.InstrumentationTestCase;
 import android.view.accessibility.CaptioningManager;
 import android.view.accessibility.CaptioningManager.CaptionStyle;
 import android.view.accessibility.CaptioningManager.CaptioningChangeListener;
+import org.mockito.Mockito;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 
+import static org.mockito.Matchers.anyFloat;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
+
 /**
  * Tests whether the CaptioningManager APIs are functional.
  */
 public class CaptioningManagerTest extends InstrumentationTestCase {
+    private static final int LISTENER_TIMEOUT = 3000;
     private CaptioningManager mManager;
     private UiAutomation mUiAutomation;
 
@@ -56,32 +65,32 @@ public class CaptioningManagerTest extends InstrumentationTestCase {
         putSecureSetting("accessibility_captioning_locale", "en_US");
         putSecureSetting("accessibility_captioning_font_scale", "1.0");
 
-        MockCaptioningChangeListener listener = new MockCaptioningChangeListener();
-        mManager.addCaptioningChangeListener(listener);
+        CaptioningChangeListener mockListener = mock(CaptioningChangeListener.class);
+        mManager.addCaptioningChangeListener(mockListener);
 
         putSecureSetting("accessibility_captioning_enabled", "1");
-        assertTrue("Observed enabled change", listener.wasEnabledChangedCalled);
+        verify(mockListener, timeout(LISTENER_TIMEOUT)).onEnabledChanged(true);
 
         // Style change gets posted in a Runnable, so we need to wait for idle.
         putSecureSetting("accessibility_captioning_preset", "-1");
         getInstrumentation().waitForIdleSync();
-        assertTrue("Observed user style change", listener.wasUserStyleChangedCalled);
+        verify(mockListener, timeout(LISTENER_TIMEOUT)).onUserStyleChanged(anyObject());
 
         putSecureSetting("accessibility_captioning_locale", "ja_JP");
-        assertTrue("Observed locale change", listener.wasLocaleChangedCalled);
+        verify(mockListener, timeout(LISTENER_TIMEOUT)).onLocaleChanged(anyObject());
 
         putSecureSetting("accessibility_captioning_font_scale", "2.0");
-        assertTrue("Observed font scale change", listener.wasFontScaleChangedCalled);
+        verify(mockListener, timeout(LISTENER_TIMEOUT)).onFontScaleChanged(anyFloat());
 
-        mManager.removeCaptioningChangeListener(listener);
+        mManager.removeCaptioningChangeListener(mockListener);
 
-        listener.reset();
+        Mockito.reset(mockListener);
 
         putSecureSetting("accessibility_captioning_enabled","0");
-        assertFalse("Did not observe enabled change", listener.wasEnabledChangedCalled);
+        verifyZeroInteractions(mockListener);
 
         try {
-            mManager.removeCaptioningChangeListener(listener);
+            mManager.removeCaptioningChangeListener(mockListener);
         } catch (Exception e) {
             throw new AssertionError("Fails silently when removing listener twice", e);
         }
@@ -132,44 +141,6 @@ public class CaptioningManagerTest extends InstrumentationTestCase {
             while ((is.read(buffer)) != -1);
         } catch (IOException e) {
             throw new RuntimeException("Failed to exec: " + cmd);
-        }
-    }
-
-    private static class MockCaptioningChangeListener extends CaptioningChangeListener {
-        boolean wasEnabledChangedCalled = false;
-        boolean wasUserStyleChangedCalled = false;
-        boolean wasLocaleChangedCalled = false;
-        boolean wasFontScaleChangedCalled = false;
-
-        @Override
-        public void onEnabledChanged(boolean enabled) {
-            super.onEnabledChanged(enabled);
-            wasEnabledChangedCalled = true;
-        }
-
-        @Override
-        public void onUserStyleChanged(CaptionStyle userStyle) {
-            super.onUserStyleChanged(userStyle);
-            wasUserStyleChangedCalled = true;
-        }
-
-        @Override
-        public void onLocaleChanged(Locale locale) {
-            super.onLocaleChanged(locale);
-            wasLocaleChangedCalled = true;
-        }
-
-        @Override
-        public void onFontScaleChanged(float fontScale) {
-            super.onFontScaleChanged(fontScale);
-            wasFontScaleChangedCalled = true;
-        }
-
-        public void reset() {
-            wasEnabledChangedCalled = false;
-            wasUserStyleChangedCalled = false;
-            wasLocaleChangedCalled = false;
-            wasFontScaleChangedCalled = false;
         }
     }
 }

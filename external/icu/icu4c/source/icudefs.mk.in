@@ -2,7 +2,9 @@
 #
 # Yves Arrouye.
 #
-# Copyright (C) 2000-2014, International Business Machines Corporation and others.
+# Copyright (C) 2016 and later: Unicode, Inc. and others.
+# License & terms of use: http://www.unicode.org/copyright.html
+# Copyright (C) 2000-2016, International Business Machines Corporation and others.
 # All Rights Reserved.
 
 #
@@ -165,8 +167,6 @@ COMPILE.c=    $(CC) $(CPPFLAGS) $(DEFS) $(CFLAGS) -c
 COMPILE.cc=   $(CXX) $(CPPFLAGS) $(DEFS) $(CXXFLAGS) -c
 
 # Commands to link
-# Markus Scherer (Google) 20070430: Add LINKFLAGS to enable
-# setting -rpath options.
 LINK.c=       $(CC) $(CFLAGS) $(LDFLAGS) $(LINKFLAGS)
 LINK.cc=      $(CXX) $(CXXFLAGS) $(LDFLAGS) $(LINKFLAGS)
 
@@ -245,7 +245,6 @@ TOOLLIBDIR=$(LIBDIR)
 DATA_STUBNAME = data
 COMMON_STUBNAME = uc
 I18N_STUBNAME = i18n
-LAYOUT_STUBNAME = le
 LAYOUTEX_STUBNAME = lx
 IO_STUBNAME = io
 TOOLUTIL_STUBNAME = tu
@@ -264,8 +263,6 @@ else
 USING_ICULEHB=no
 ICULEHB_TRUE=#
 ICULEHB_FALSE=
-ICULIBS_LE	= -l$(STATIC_PREFIX_WHEN_USED)$(ICUPREFIX)$(LAYOUT_STUBNAME)$(ICULIBSUFFIX)$(SO_TARGET_VERSION_SUFFIX)
-ICULE_CFLAGS=-I$(top_srcdir)
 endif
 
 # Just the libs.

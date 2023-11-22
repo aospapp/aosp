@@ -16,88 +16,95 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.Context;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.TextUtils;
-import android.util.AttributeSet;
-import android.util.Xml;
 import android.view.KeyEvent;
 import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Filter;
 import android.widget.MultiAutoCompleteTextView;
 import android.widget.MultiAutoCompleteTextView.CommaTokenizer;
 import android.widget.MultiAutoCompleteTextView.Tokenizer;
 
-public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCase2
-        <MultiAutoCompleteTextViewCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class MultiAutoCompleteTextViewTest {
+    private Activity mActivity;
     private MultiAutoCompleteTextView mMultiAutoCompleteTextView_country;
     private MultiAutoCompleteTextView mMultiAutoCompleteTextView_name;
-    private Activity mActivity;
 
-    public MultiAutoCompleteTextViewTest() {
-        super("android.widget.cts", MultiAutoCompleteTextViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<MultiAutoCompleteTextViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(MultiAutoCompleteTextViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mActivity = getActivity();
-
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
         mMultiAutoCompleteTextView_country = (MultiAutoCompleteTextView)mActivity
                 .findViewById(R.id.country_edit);
         mMultiAutoCompleteTextView_name = (MultiAutoCompleteTextView)mActivity
                 .findViewById(R.id.name_edit);
     }
 
-    @UiThreadTest
+    @Test
     public void testConstructor() {
-        XmlPullParser parser = mActivity.getResources()
-                .getXml(R.layout.multi_auto_complete_text_view_layout);
-        AttributeSet attr = Xml.asAttributeSet(parser);
-
         new MultiAutoCompleteTextView(mActivity);
-        new MultiAutoCompleteTextView(mActivity, attr);
-        new MultiAutoCompleteTextView(mActivity, attr, 0);
-
-        try {
-            new MultiAutoCompleteTextView(null);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
-
-        try {
-            new MultiAutoCompleteTextView(null, null);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
-
-        try {
-            new MultiAutoCompleteTextView(null, null, -1);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
+        new MultiAutoCompleteTextView(mActivity, null);
+        new MultiAutoCompleteTextView(mActivity, null, android.R.attr.autoCompleteTextViewStyle);
+        new MultiAutoCompleteTextView(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_AutoCompleteTextView);
+        new MultiAutoCompleteTextView(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_AutoCompleteTextView);
+        new MultiAutoCompleteTextView(mActivity, null, 0,
+                android.R.style.Widget_Material_AutoCompleteTextView);
+        new MultiAutoCompleteTextView(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_AutoCompleteTextView);
     }
 
-    @UiThreadTest
-    private void setText(MultiAutoCompleteTextView m, CharSequence c) {
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext1() {
+        new MultiAutoCompleteTextView(null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext2() {
+        new MultiAutoCompleteTextView(null, null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext3() {
+        new MultiAutoCompleteTextView(null, null, -1);
+    }
+
+    private void setText(final MultiAutoCompleteTextView m, final CharSequence c) {
         m.setText(c);
         m.setSelection(0, c.length());
     }
 
     @UiThreadTest
+    @Test
     public void testMultiAutoCompleteTextView() {
         mMultiAutoCompleteTextView_country.setTokenizer(new CommaTokenizer());
         mMultiAutoCompleteTextView_name.setTokenizer(new CommaTokenizer());
@@ -125,21 +132,23 @@ public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCa
 
         setText(mMultiAutoCompleteTextView_name, "Jacky");
         assertTrue(mMultiAutoCompleteTextView_name.enoughToFilter());
-
-        MockValidator v = new MockValidator();
-        v.setValid(true);
-        mMultiAutoCompleteTextView_name.setValidator(v);
-
-        // There will be an endless loop when using CommaTokenizer as the Tokenizer
-        // mMultiAutoCompleteTextView_name.performValidation();
-        mMultiAutoCompleteTextView_name.setValidator(null);
     }
 
     @UiThreadTest
+    @Test
     public void testPerformValidation() {
-        MockValidator v = new MockValidator();
-        v.setValid(true);
-        mMultiAutoCompleteTextView_country.setValidator(v);
+        final AutoCompleteTextView.Validator validator = mock(AutoCompleteTextView.Validator.class);
+        when(validator.isValid(any(CharSequence.class))).thenReturn(true);
+        when(validator.fixText(any(CharSequence.class))).thenAnswer(
+                new Answer<CharSequence>() {
+                    @Override
+                    public CharSequence answer(InvocationOnMock invocation) throws Throwable {
+                        // Return the originally passed parameter
+                        return (CharSequence) invocation.getArguments()[0];
+                    }
+                });
+
+        mMultiAutoCompleteTextView_country.setValidator(validator);
         MockTokenizer t = new MockTokenizer();
         mMultiAutoCompleteTextView_country.setTokenizer(t);
         String str = new String("Foo, Android Test, OH");
@@ -147,19 +156,20 @@ public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCa
         mMultiAutoCompleteTextView_country.performValidation();
         assertEquals(str, mMultiAutoCompleteTextView_country.getText().toString());
 
-        v.setValid(false);
+        when(validator.isValid(any(CharSequence.class))).thenReturn(false);
         mMultiAutoCompleteTextView_country.performValidation();
         assertEquals(str + ", ", mMultiAutoCompleteTextView_country.getText().toString());
     }
 
     @UiThreadTest
+    @Test
     public void testPerformFiltering() {
         MyMultiAutoCompleteTextView multiAutoCompleteTextView =
             new MyMultiAutoCompleteTextView(mActivity);
         CommaTokenizer t = new CommaTokenizer();
         multiAutoCompleteTextView.setTokenizer(t);
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(mActivity,
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(mActivity,
                 R.layout.simple_dropdown_item_1line);
         assertNotNull(adapter);
 
@@ -169,8 +179,8 @@ public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCa
         String text = "Android test.";
         multiAutoCompleteTextView.setText(text);
         multiAutoCompleteTextView.setSelection(0, 12);
-
         multiAutoCompleteTextView.performFiltering(text, KeyEvent.KEYCODE_0);
+
         assertNotNull(multiAutoCompleteTextView.getFilter());
 
         multiAutoCompleteTextView.performFiltering(text, 0, text.length(), KeyEvent.KEYCODE_E);
@@ -178,6 +188,7 @@ public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCa
     }
 
     @UiThreadTest
+    @Test
     public void testReplaceText() {
         MyMultiAutoCompleteTextView multiAutoCompleteTextView =
             new MyMultiAutoCompleteTextView(mActivity);
@@ -250,22 +261,6 @@ public class MultiAutoCompleteTextViewTest extends ActivityInstrumentationTestCa
                     return text + ", ";
                 }
             }
-        }
-    }
-
-    private class MockValidator implements MultiAutoCompleteTextView.Validator {
-        private boolean mIsValid;
-
-        public void setValid(boolean b) {
-            mIsValid = b;
-        }
-
-        public boolean isValid(CharSequence text) {
-            return mIsValid;
-        }
-
-        public CharSequence fixText(CharSequence invalidText) {
-            return invalidText;
         }
     }
 

@@ -105,11 +105,13 @@ public class RenderScriptTask {
         RefocusFilterF32 rfFilterF32 = new RefocusFilterF32(renderScript);
         outputImage =
                 rfFilterF32.compute(rgbdImage, blurStack);
+        rfFilterF32.destroy();
         break;
       case d1new:
         RefocusFilterd1new rfFilterd1new = new RefocusFilterd1new(renderScript);
         outputImage =
                 rfFilterd1new.compute(rgbdImage, blurStack);
+        rfFilterd1new.destroy();
         break;
     }
 

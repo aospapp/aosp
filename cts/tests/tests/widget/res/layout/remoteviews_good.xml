@@ -14,42 +14,78 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/remoteViews_good"
-    android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
-    <LinearLayout android:id="@+id/remoteView_linear"
+    <LinearLayout
+        android:id="@+id/remoteView_linear"
         android:layout_width="10dip"
         android:layout_height="10dip" />
 
-    <TextView android:id="@+id/remoteView_text"
+    <TextView
+        android:id="@+id/remoteView_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
-    <ImageView android:id="@+id/remoteView_image"
+    <TextView
+        android:id="@+id/remoteView_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
-    <FrameLayout android:id="@+id/remoteView_frame"
+    <TextView
+        android:id="@+id/remoteView_text_ltr"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layoutDirection="ltr" />
+
+    <TextView
+        android:id="@+id/remoteView_text_rtl"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layoutDirection="rtl" />
+
+    <ImageView
+        android:id="@+id/remoteView_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <FrameLayout
+        android:id="@+id/remoteView_frame"
         android:layout_width="10dip"
         android:layout_height="10dip" />
 
-    <RelativeLayout android:id="@+id/remoteView_relative"
+    <RelativeLayout
+        android:id="@+id/remoteView_relative"
         android:layout_width="10dip"
         android:layout_height="10dip" />
 
-    <AbsoluteLayout android:id="@+id/remoteView_absolute"
+    <AbsoluteLayout
+        android:id="@+id/remoteView_absolute"
         android:layout_width="10dip"
         android:layout_height="10dip" />
 
-    <ProgressBar android:id="@+id/remoteView_progress"
+    <ProgressBar
+        android:id="@+id/remoteView_progress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         style="?android:attr/progressBarStyleHorizontal" />
 
-    <Chronometer android:id="@+id/remoteView_chronometer"
+    <Chronometer
+        android:id="@+id/remoteView_chronometer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <StackView
+        android:id="@+id/remoteView_stack"
+        android:layout_width="100dip"
+        android:layout_height="100dip" />
+
+    <android.widget.cts.MyRemotableView
+        android:id="@+id/remoteView_custom"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 

@@ -19,6 +19,6 @@ package dot.junit.opcodes.iget;
 public class TestStubs {
     // used by testVFE4
     private int TestStubField = 50;
-    // ussed by testVFE15
+    // used by testVFE15 and testVFE35
     protected int TestStubProtectedField = 50;
 }

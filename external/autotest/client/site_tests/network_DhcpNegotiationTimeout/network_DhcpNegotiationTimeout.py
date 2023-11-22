@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
 import time
 
 from autotest_lib.client.common_lib import error
@@ -25,31 +24,20 @@ class network_DhcpNegotiationTimeout(dhcp_test_base.DhcpTestBase):
     @staticmethod
     def get_daemon_pid(daemon_name):
         """
-        Get the PID of a running daemon that is managed by upstart.
-
-        Query upstart for the PID of |daemon_name|, and return the PID.
-        If the daemon is unknown, or not running, raise an exception.
+        Get the PID of a running daemon.
 
         @return The PID as an integer.
 
         """
-        cmd_result = \
-            utils.run("status %s" % daemon_name, ignore_status=True)
-        if cmd_result.stdout.find("start/running") != -1:
-            # Example: "shill start/running, process 445"
-            return int(cmd_result.stdout.split()[3])
-        else:
-            if len(cmd_result.stdout):
-                logging.debug("upstart stdout is %s", cmd_result.stdout)
-            if len(cmd_result.stderr):
-                logging.debug("upstart stderr is %s", cmd_result.stderr)
-            raise error.TestFail('Failed to get pid of %s' % daemon_name)
-
+        pid = utils.get_service_pid(daemon_name)
+        if pid == 0:
+            raise error.TestFail('Failed to get the pid of %s' % daemon_name)
+        return pid
 
     def test_body(self):
         """Test main loop."""
         self.server.stop()
-        utils.run("restart shill")
+        utils.restart_service("shill")
         start_pid = self.get_daemon_pid("shill")
 
         time.sleep(self.SHILL_DHCP_TIMEOUT_SECONDS + 2)

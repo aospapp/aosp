@@ -18,11 +18,11 @@
 
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
+import org.apache.harmony.jpda.tests.framework.TestErrorException;
 import org.apache.harmony.jpda.tests.framework.jdwp.EventBuilder;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.TaggedObject;
-import org.apache.harmony.jpda.tests.framework.jdwp.VmMirror;
 
 /**
  *
@@ -103,6 +103,9 @@ public class FieldWithLocationTest extends EventLocationEventTestCase {
             accessedField = ((ParsedEvent.Event_FIELD_ACCESS)event).getObject();
         } else if (fieldEventKind == JDWPConstants.EventKind.FIELD_MODIFICATION) {
             accessedField = ((ParsedEvent.Event_FIELD_MODIFICATION)event).getObject();
+        } else {
+            throw new TestErrorException(
+                    "Unexpected event " + JDWPConstants.EventKind.getName(fieldEventKind));
         }
 
         // Check the field receiver is an instance of our debuggee class.

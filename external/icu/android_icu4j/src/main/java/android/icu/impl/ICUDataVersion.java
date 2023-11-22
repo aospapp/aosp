@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
-*   Copyright (C) 2009-2012, International Business Machines
+*   Copyright (C) 2009-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -29,7 +31,10 @@ public final class ICUDataVersion {
     public static VersionInfo getDataVersion() {
         UResourceBundle icudatares = null;
         try {
-            icudatares = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, ICUDataVersion.U_ICU_VERSION_BUNDLE, ICUResourceBundle.ICU_DATA_CLASS_LOADER);
+            icudatares = UResourceBundle.getBundleInstance(
+                    ICUData.ICU_BASE_NAME,
+                    ICUDataVersion.U_ICU_VERSION_BUNDLE,
+                    ICUResourceBundle.ICU_DATA_CLASS_LOADER);
             icudatares = icudatares.get(ICUDataVersion.U_ICU_DATA_KEY);
         } catch (MissingResourceException ex) {
             return null;

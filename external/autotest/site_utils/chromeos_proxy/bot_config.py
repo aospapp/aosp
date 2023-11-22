@@ -89,18 +89,28 @@ def get_state(bot=None):
 ### Hooks
 
 
-def on_before_task(bot):
+def on_before_task(bot, bot_file=None):
     """Hook function called before running a task.
 
     It shouldn't do much, since it can't cancel the task so it shouldn't do
     anything too fancy.
-
     @param bot: bot.Bot instance.
+    @param bot_file: Path to file to write information about the state of the
+                     bot. This file can be used to pass certain info about the
+                     bot to tasks, such as which connected android devices to
+                     run on. See
+                     https://github.com/luci/luci-py/tree/master/appengine/swarming/doc/Magic-Values.md#run_isolated
+                     TODO(bpastene): Remove default value None.
     """
     # TODO(fdeng): it is possible that the format gets updated
     # without warning. It would be better to find a long term solution.
-    work_dir = os.path.join(bot.base_dir, 'work')
-    path = os.path.join(work_dir, 'task_runner_in.json')
+    path = os.path.join(bot.base_dir, 'w', 'task_runner_in.json')
+    if not os.path.isfile(path):
+        # For older version.
+        path = os.path.join(bot.base_dir, 'work', 'task_runner_in.json')
+        if not os.path.isfile(path):
+            bot.post_error('Failed to process task_runner_in.json')
+            return
     manifest = {}
     with open(path) as f:
         manifest = json.load(f)
@@ -108,7 +118,6 @@ def on_before_task(bot):
     if full_command and not full_command[0] in CMD_WHITELIST:
         # override the command with a safe "echo"
         manifest['command'] = ['echo', '"Command not allowed"']
-        manifest['data'] = []
         with open(path, 'wb') as f:
             f.write(json.dumps(manifest))
         raise Exception('Command not allowed: %s' % full_command)

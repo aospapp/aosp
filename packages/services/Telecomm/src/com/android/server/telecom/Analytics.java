@@ -16,19 +16,27 @@
 
 package com.android.server.telecom;
 
+import android.telecom.Connection;
 import android.telecom.DisconnectCause;
+import android.telecom.Logging.EventManager;
 import android.telecom.ParcelableCallAnalytics;
 import android.telecom.TelecomAnalytics;
+import android.util.Base64;
+import android.telecom.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.server.telecom.nano.TelecomLogClass;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
 import static android.telecom.ParcelableCallAnalytics.AnalyticsEvent;
@@ -39,94 +47,99 @@ import static android.telecom.TelecomAnalytics.SessionTiming;
  * aggregate these into useful statistics.
  */
 public class Analytics {
+    public static final String ANALYTICS_DUMPSYS_ARG = "analytics";
+    private static final String CLEAR_ANALYTICS_ARG = "clear";
+
     public static final Map<String, Integer> sLogEventToAnalyticsEvent =
             new HashMap<String, Integer>() {{
-                put(Log.Events.SET_SELECT_PHONE_ACCOUNT, AnalyticsEvent.SET_SELECT_PHONE_ACCOUNT);
-                put(Log.Events.REQUEST_HOLD, AnalyticsEvent.REQUEST_HOLD);
-                put(Log.Events.REQUEST_UNHOLD, AnalyticsEvent.REQUEST_UNHOLD);
-                put(Log.Events.SWAP, AnalyticsEvent.SWAP);
-                put(Log.Events.SKIP_RINGING, AnalyticsEvent.SKIP_RINGING);
-                put(Log.Events.CONFERENCE_WITH, AnalyticsEvent.CONFERENCE_WITH);
-                put(Log.Events.SPLIT_FROM_CONFERENCE, AnalyticsEvent.SPLIT_CONFERENCE);
-                put(Log.Events.SET_PARENT, AnalyticsEvent.SET_PARENT);
-                put(Log.Events.MUTE, AnalyticsEvent.MUTE);
-                put(Log.Events.UNMUTE, AnalyticsEvent.UNMUTE);
-                put(Log.Events.AUDIO_ROUTE_BT, AnalyticsEvent.AUDIO_ROUTE_BT);
-                put(Log.Events.AUDIO_ROUTE_EARPIECE, AnalyticsEvent.AUDIO_ROUTE_EARPIECE);
-                put(Log.Events.AUDIO_ROUTE_HEADSET, AnalyticsEvent.AUDIO_ROUTE_HEADSET);
-                put(Log.Events.AUDIO_ROUTE_SPEAKER, AnalyticsEvent.AUDIO_ROUTE_SPEAKER);
-                put(Log.Events.SILENCE, AnalyticsEvent.SILENCE);
-                put(Log.Events.SCREENING_COMPLETED, AnalyticsEvent.SCREENING_COMPLETED);
-                put(Log.Events.BLOCK_CHECK_FINISHED, AnalyticsEvent.BLOCK_CHECK_FINISHED);
-                put(Log.Events.DIRECT_TO_VM_FINISHED, AnalyticsEvent.DIRECT_TO_VM_FINISHED);
-                put(Log.Events.REMOTELY_HELD, AnalyticsEvent.REMOTELY_HELD);
-                put(Log.Events.REMOTELY_UNHELD, AnalyticsEvent.REMOTELY_UNHELD);
-                put(Log.Events.REQUEST_PULL, AnalyticsEvent.REQUEST_PULL);
-                put(Log.Events.REQUEST_ACCEPT, AnalyticsEvent.REQUEST_ACCEPT);
-                put(Log.Events.REQUEST_REJECT, AnalyticsEvent.REQUEST_REJECT);
-                put(Log.Events.SET_ACTIVE, AnalyticsEvent.SET_ACTIVE);
-                put(Log.Events.SET_DISCONNECTED, AnalyticsEvent.SET_DISCONNECTED);
-                put(Log.Events.SET_HOLD, AnalyticsEvent.SET_HOLD);
-                put(Log.Events.SET_DIALING, AnalyticsEvent.SET_DIALING);
-                put(Log.Events.START_CONNECTION, AnalyticsEvent.START_CONNECTION);
-                put(Log.Events.BIND_CS, AnalyticsEvent.BIND_CS);
-                put(Log.Events.CS_BOUND, AnalyticsEvent.CS_BOUND);
-                put(Log.Events.SCREENING_SENT, AnalyticsEvent.SCREENING_SENT);
-                put(Log.Events.DIRECT_TO_VM_INITIATED, AnalyticsEvent.DIRECT_TO_VM_INITIATED);
-                put(Log.Events.BLOCK_CHECK_INITIATED, AnalyticsEvent.BLOCK_CHECK_INITIATED);
-                put(Log.Events.FILTERING_INITIATED, AnalyticsEvent.FILTERING_INITIATED);
-                put(Log.Events.FILTERING_COMPLETED, AnalyticsEvent.FILTERING_COMPLETED);
-                put(Log.Events.FILTERING_TIMED_OUT, AnalyticsEvent.FILTERING_TIMED_OUT);
+                put(LogUtils.Events.SET_SELECT_PHONE_ACCOUNT,
+                        AnalyticsEvent.SET_SELECT_PHONE_ACCOUNT);
+                put(LogUtils.Events.REQUEST_HOLD, AnalyticsEvent.REQUEST_HOLD);
+                put(LogUtils.Events.REQUEST_UNHOLD, AnalyticsEvent.REQUEST_UNHOLD);
+                put(LogUtils.Events.SWAP, AnalyticsEvent.SWAP);
+                put(LogUtils.Events.SKIP_RINGING, AnalyticsEvent.SKIP_RINGING);
+                put(LogUtils.Events.CONFERENCE_WITH, AnalyticsEvent.CONFERENCE_WITH);
+                put(LogUtils.Events.SPLIT_FROM_CONFERENCE, AnalyticsEvent.SPLIT_CONFERENCE);
+                put(LogUtils.Events.SET_PARENT, AnalyticsEvent.SET_PARENT);
+                put(LogUtils.Events.MUTE, AnalyticsEvent.MUTE);
+                put(LogUtils.Events.UNMUTE, AnalyticsEvent.UNMUTE);
+                put(LogUtils.Events.AUDIO_ROUTE_BT, AnalyticsEvent.AUDIO_ROUTE_BT);
+                put(LogUtils.Events.AUDIO_ROUTE_EARPIECE, AnalyticsEvent.AUDIO_ROUTE_EARPIECE);
+                put(LogUtils.Events.AUDIO_ROUTE_HEADSET, AnalyticsEvent.AUDIO_ROUTE_HEADSET);
+                put(LogUtils.Events.AUDIO_ROUTE_SPEAKER, AnalyticsEvent.AUDIO_ROUTE_SPEAKER);
+                put(LogUtils.Events.SILENCE, AnalyticsEvent.SILENCE);
+                put(LogUtils.Events.SCREENING_COMPLETED, AnalyticsEvent.SCREENING_COMPLETED);
+                put(LogUtils.Events.BLOCK_CHECK_FINISHED, AnalyticsEvent.BLOCK_CHECK_FINISHED);
+                put(LogUtils.Events.DIRECT_TO_VM_FINISHED, AnalyticsEvent.DIRECT_TO_VM_FINISHED);
+                put(LogUtils.Events.REMOTELY_HELD, AnalyticsEvent.REMOTELY_HELD);
+                put(LogUtils.Events.REMOTELY_UNHELD, AnalyticsEvent.REMOTELY_UNHELD);
+                put(LogUtils.Events.REQUEST_PULL, AnalyticsEvent.REQUEST_PULL);
+                put(LogUtils.Events.REQUEST_ACCEPT, AnalyticsEvent.REQUEST_ACCEPT);
+                put(LogUtils.Events.REQUEST_REJECT, AnalyticsEvent.REQUEST_REJECT);
+                put(LogUtils.Events.SET_ACTIVE, AnalyticsEvent.SET_ACTIVE);
+                put(LogUtils.Events.SET_DISCONNECTED, AnalyticsEvent.SET_DISCONNECTED);
+                put(LogUtils.Events.SET_HOLD, AnalyticsEvent.SET_HOLD);
+                put(LogUtils.Events.SET_DIALING, AnalyticsEvent.SET_DIALING);
+                put(LogUtils.Events.START_CONNECTION, AnalyticsEvent.START_CONNECTION);
+                put(LogUtils.Events.BIND_CS, AnalyticsEvent.BIND_CS);
+                put(LogUtils.Events.CS_BOUND, AnalyticsEvent.CS_BOUND);
+                put(LogUtils.Events.SCREENING_SENT, AnalyticsEvent.SCREENING_SENT);
+                put(LogUtils.Events.DIRECT_TO_VM_INITIATED, AnalyticsEvent.DIRECT_TO_VM_INITIATED);
+                put(LogUtils.Events.BLOCK_CHECK_INITIATED, AnalyticsEvent.BLOCK_CHECK_INITIATED);
+                put(LogUtils.Events.FILTERING_INITIATED, AnalyticsEvent.FILTERING_INITIATED);
+                put(LogUtils.Events.FILTERING_COMPLETED, AnalyticsEvent.FILTERING_COMPLETED);
+                put(LogUtils.Events.FILTERING_TIMED_OUT, AnalyticsEvent.FILTERING_TIMED_OUT);
             }};
 
     public static final Map<String, Integer> sLogSessionToSessionId =
             new HashMap<String, Integer> () {{
-                put(Log.Sessions.ICA_ANSWER_CALL, SessionTiming.ICA_ANSWER_CALL);
-                put(Log.Sessions.ICA_REJECT_CALL, SessionTiming.ICA_REJECT_CALL);
-                put(Log.Sessions.ICA_DISCONNECT_CALL, SessionTiming.ICA_DISCONNECT_CALL);
-                put(Log.Sessions.ICA_HOLD_CALL, SessionTiming.ICA_HOLD_CALL);
-                put(Log.Sessions.ICA_UNHOLD_CALL, SessionTiming.ICA_UNHOLD_CALL);
-                put(Log.Sessions.ICA_MUTE, SessionTiming.ICA_MUTE);
-                put(Log.Sessions.ICA_SET_AUDIO_ROUTE, SessionTiming.ICA_SET_AUDIO_ROUTE);
-                put(Log.Sessions.ICA_CONFERENCE, SessionTiming.ICA_CONFERENCE);
-                put(Log.Sessions.CSW_HANDLE_CREATE_CONNECTION_COMPLETE,
+                put(LogUtils.Sessions.ICA_ANSWER_CALL, SessionTiming.ICA_ANSWER_CALL);
+                put(LogUtils.Sessions.ICA_REJECT_CALL, SessionTiming.ICA_REJECT_CALL);
+                put(LogUtils.Sessions.ICA_DISCONNECT_CALL, SessionTiming.ICA_DISCONNECT_CALL);
+                put(LogUtils.Sessions.ICA_HOLD_CALL, SessionTiming.ICA_HOLD_CALL);
+                put(LogUtils.Sessions.ICA_UNHOLD_CALL, SessionTiming.ICA_UNHOLD_CALL);
+                put(LogUtils.Sessions.ICA_MUTE, SessionTiming.ICA_MUTE);
+                put(LogUtils.Sessions.ICA_SET_AUDIO_ROUTE, SessionTiming.ICA_SET_AUDIO_ROUTE);
+                put(LogUtils.Sessions.ICA_CONFERENCE, SessionTiming.ICA_CONFERENCE);
+                put(LogUtils.Sessions.CSW_HANDLE_CREATE_CONNECTION_COMPLETE,
                         SessionTiming.CSW_HANDLE_CREATE_CONNECTION_COMPLETE);
-                put(Log.Sessions.CSW_SET_ACTIVE, SessionTiming.CSW_SET_ACTIVE);
-                put(Log.Sessions.CSW_SET_RINGING, SessionTiming.CSW_SET_RINGING);
-                put(Log.Sessions.CSW_SET_DIALING, SessionTiming.CSW_SET_DIALING);
-                put(Log.Sessions.CSW_SET_DISCONNECTED, SessionTiming.CSW_SET_DISCONNECTED);
-                put(Log.Sessions.CSW_SET_ON_HOLD, SessionTiming.CSW_SET_ON_HOLD);
-                put(Log.Sessions.CSW_REMOVE_CALL, SessionTiming.CSW_REMOVE_CALL);
-                put(Log.Sessions.CSW_SET_IS_CONFERENCED, SessionTiming.CSW_SET_IS_CONFERENCED);
-                put(Log.Sessions.CSW_ADD_CONFERENCE_CALL, SessionTiming.CSW_ADD_CONFERENCE_CALL);
+                put(LogUtils.Sessions.CSW_SET_ACTIVE, SessionTiming.CSW_SET_ACTIVE);
+                put(LogUtils.Sessions.CSW_SET_RINGING, SessionTiming.CSW_SET_RINGING);
+                put(LogUtils.Sessions.CSW_SET_DIALING, SessionTiming.CSW_SET_DIALING);
+                put(LogUtils.Sessions.CSW_SET_DISCONNECTED, SessionTiming.CSW_SET_DISCONNECTED);
+                put(LogUtils.Sessions.CSW_SET_ON_HOLD, SessionTiming.CSW_SET_ON_HOLD);
+                put(LogUtils.Sessions.CSW_REMOVE_CALL, SessionTiming.CSW_REMOVE_CALL);
+                put(LogUtils.Sessions.CSW_SET_IS_CONFERENCED, SessionTiming.CSW_SET_IS_CONFERENCED);
+                put(LogUtils.Sessions.CSW_ADD_CONFERENCE_CALL,
+                        SessionTiming.CSW_ADD_CONFERENCE_CALL);
 
             }};
 
     public static final Map<String, Integer> sLogEventTimingToAnalyticsEventTiming =
             new HashMap<String, Integer>() {{
-                put(Log.Events.Timings.ACCEPT_TIMING,
+                put(LogUtils.Events.Timings.ACCEPT_TIMING,
                         ParcelableCallAnalytics.EventTiming.ACCEPT_TIMING);
-                put(Log.Events.Timings.REJECT_TIMING,
+                put(LogUtils.Events.Timings.REJECT_TIMING,
                         ParcelableCallAnalytics.EventTiming.REJECT_TIMING);
-                put(Log.Events.Timings.DISCONNECT_TIMING,
+                put(LogUtils.Events.Timings.DISCONNECT_TIMING,
                         ParcelableCallAnalytics.EventTiming.DISCONNECT_TIMING);
-                put(Log.Events.Timings.HOLD_TIMING,
+                put(LogUtils.Events.Timings.HOLD_TIMING,
                         ParcelableCallAnalytics.EventTiming.HOLD_TIMING);
-                put(Log.Events.Timings.UNHOLD_TIMING,
+                put(LogUtils.Events.Timings.UNHOLD_TIMING,
                         ParcelableCallAnalytics.EventTiming.UNHOLD_TIMING);
-                put(Log.Events.Timings.OUTGOING_TIME_TO_DIALING_TIMING,
+                put(LogUtils.Events.Timings.OUTGOING_TIME_TO_DIALING_TIMING,
                         ParcelableCallAnalytics.EventTiming.OUTGOING_TIME_TO_DIALING_TIMING);
-                put(Log.Events.Timings.BIND_CS_TIMING,
+                put(LogUtils.Events.Timings.BIND_CS_TIMING,
                         ParcelableCallAnalytics.EventTiming.BIND_CS_TIMING);
-                put(Log.Events.Timings.SCREENING_COMPLETED_TIMING,
+                put(LogUtils.Events.Timings.SCREENING_COMPLETED_TIMING,
                         ParcelableCallAnalytics.EventTiming.SCREENING_COMPLETED_TIMING);
-                put(Log.Events.Timings.DIRECT_TO_VM_FINISHED_TIMING,
+                put(LogUtils.Events.Timings.DIRECT_TO_VM_FINISHED_TIMING,
                         ParcelableCallAnalytics.EventTiming.DIRECT_TO_VM_FINISHED_TIMING);
-                put(Log.Events.Timings.BLOCK_CHECK_FINISHED_TIMING,
+                put(LogUtils.Events.Timings.BLOCK_CHECK_FINISHED_TIMING,
                         ParcelableCallAnalytics.EventTiming.BLOCK_CHECK_FINISHED_TIMING);
-                put(Log.Events.Timings.FILTERING_COMPLETED_TIMING,
+                put(LogUtils.Events.Timings.FILTERING_COMPLETED_TIMING,
                         ParcelableCallAnalytics.EventTiming.FILTERING_COMPLETED_TIMING);
-                put(Log.Events.Timings.FILTERING_TIMED_OUT_TIMING,
+                put(LogUtils.Events.Timings.FILTERING_TIMED_OUT_TIMING,
                         ParcelableCallAnalytics.EventTiming.FILTERING_TIMED_OUT_TIMING);
             }};
 
@@ -162,13 +175,19 @@ public class Analytics {
         public void setCallConnectionService(String connectionServiceName) {
         }
 
-        public void setCallEvents(Log.CallEventRecord records) {
+        public void setCallEvents(EventManager.EventRecord records) {
         }
 
         public void setCallIsVideo(boolean isVideo) {
         }
 
         public void addVideoEvent(int eventId, int videoState) {
+        }
+
+        public void addInCallService(String serviceName, int type) {
+        }
+
+        public void addCallProperties(int properties) {
         }
     }
 
@@ -197,10 +216,13 @@ public class Analytics {
         public String connectionService;
         public boolean isEmergency = false;
 
-        public Log.CallEventRecord callEvents;
+        public EventManager.EventRecord callEvents;
 
         public boolean isVideo = false;
-        public List<ParcelableCallAnalytics.VideoEvent> videoEvents;
+        public List<TelecomLogClass.VideoEvent> videoEvents;
+        public List<TelecomLogClass.InCallServiceInfo> inCallServiceInfos;
+        public int callProperties = 0;
+
         private long mTimeOfLastVideoEvent = -1;
 
         CallInfoImpl(String callId, int callDirection) {
@@ -211,6 +233,7 @@ public class Analytics {
             callTechnologies = 0;
             connectionService = "";
             videoEvents = new LinkedList<>();
+            inCallServiceInfos = new LinkedList<>();
         }
 
         CallInfoImpl(CallInfoImpl other) {
@@ -227,6 +250,7 @@ public class Analytics {
             this.callEvents = other.callEvents;
             this.isVideo = other.isVideo;
             this.videoEvents = other.videoEvents;
+            this.callProperties = other.callProperties;
 
             if (other.callTerminationReason != null) {
                 this.callTerminationReason = new DisconnectCause(
@@ -291,7 +315,7 @@ public class Analytics {
         }
 
         @Override
-        public void setCallEvents(Log.CallEventRecord records) {
+        public void setCallEvents(EventManager.EventRecord records) {
             this.callEvents = records;
         }
 
@@ -311,8 +335,22 @@ public class Analytics {
             }
             mTimeOfLastVideoEvent = currentTime;
 
-            videoEvents.add(new ParcelableCallAnalytics.VideoEvent(
-                    eventId, timeSinceLastEvent, videoState));
+            videoEvents.add(new TelecomLogClass.VideoEvent()
+                    .setEventName(eventId)
+                    .setTimeSinceLastEventMillis(timeSinceLastEvent)
+                    .setVideoState(videoState));
+        }
+
+        @Override
+        public void addInCallService(String serviceName, int type) {
+            inCallServiceInfos.add(new TelecomLogClass.InCallServiceInfo()
+                    .setInCallServiceName(serviceName)
+                    .setInCallServiceType(type));
+        }
+
+        @Override
+        public void addCallProperties(int properties) {
+            this.callProperties |= properties;
         }
 
         @Override
@@ -327,44 +365,91 @@ public class Analytics {
                     + "    callTerminationReason: " + getCallDisconnectReasonString() + '\n'
                     + "    connectionService: " + connectionService + '\n'
                     + "    isVideoCall: " + isVideo + '\n'
+                    + "    inCallServices: " + getInCallServicesString() + '\n'
+                    + "    callProperties: " + Connection.propertiesToStringShort(callProperties)
+                    + '\n'
                     + "}\n";
         }
 
         public ParcelableCallAnalytics toParcelableAnalytics() {
+            TelecomLogClass.CallLog analyticsProto = toProto();
+            List<ParcelableCallAnalytics.AnalyticsEvent> events =
+                    Arrays.stream(analyticsProto.callEvents)
+                    .map(callEventProto -> new ParcelableCallAnalytics.AnalyticsEvent(
+                                callEventProto.getEventName(),
+                                callEventProto.getTimeSinceLastEventMillis())
+                    ).collect(Collectors.toList());
+
+            List<ParcelableCallAnalytics.EventTiming> timings =
+                    Arrays.stream(analyticsProto.callTimings)
+                    .map(callTimingProto -> new ParcelableCallAnalytics.EventTiming(
+                            callTimingProto.getTimingName(),
+                            callTimingProto.getTimeMillis())
+                    ).collect(Collectors.toList());
+
+            ParcelableCallAnalytics result = new ParcelableCallAnalytics(
+                    // rounds down to nearest 5 minute mark
+                    analyticsProto.getStartTime5Min(),
+                    analyticsProto.getCallDurationMillis(),
+                    analyticsProto.getType(),
+                    analyticsProto.getIsAdditionalCall(),
+                    analyticsProto.getIsInterrupted(),
+                    analyticsProto.getCallTechnologies(),
+                    analyticsProto.getCallTerminationCode(),
+                    analyticsProto.getIsEmergencyCall(),
+                    analyticsProto.connectionService[0],
+                    analyticsProto.getIsCreatedFromExistingConnection(),
+                    events,
+                    timings);
+
+            result.setIsVideoCall(analyticsProto.getIsVideoCall());
+            result.setVideoEvents(Arrays.stream(analyticsProto.videoEvents)
+                    .map(videoEventProto -> new ParcelableCallAnalytics.VideoEvent(
+                            videoEventProto.getEventName(),
+                            videoEventProto.getTimeSinceLastEventMillis(),
+                            videoEventProto.getVideoState())
+                    ).collect(Collectors.toList()));
+
+            return result;
+        }
+
+        public TelecomLogClass.CallLog toProto() {
+            TelecomLogClass.CallLog result = new TelecomLogClass.CallLog();
+            result.setStartTime5Min(
+                    startTime - startTime % ParcelableCallAnalytics.MILLIS_IN_5_MINUTES);
+
             // Rounds up to the nearest second.
             long callDuration = (endTime == 0 || startTime == 0) ? 0 : endTime - startTime;
             callDuration += (callDuration % MILLIS_IN_1_SECOND == 0) ?
                     0 : (MILLIS_IN_1_SECOND - callDuration % MILLIS_IN_1_SECOND);
+            result.setCallDurationMillis(callDuration);
 
-            List<AnalyticsEvent> events;
-            List<ParcelableCallAnalytics.EventTiming> timings;
+            result.setType(callDirection)
+                    .setIsAdditionalCall(isAdditionalCall)
+                    .setIsInterrupted(isInterrupted)
+                    .setCallTechnologies(callTechnologies)
+                    .setCallTerminationCode(
+                            callTerminationReason == null ?
+                                    ParcelableCallAnalytics.STILL_CONNECTED :
+                                    callTerminationReason.getCode())
+                    .setIsEmergencyCall(isEmergency)
+                    .setIsCreatedFromExistingConnection(createdFromExistingConnection)
+                    .setIsEmergencyCall(isEmergency)
+                    .setIsVideoCall(isVideo)
+                    .setConnectionProperties(callProperties);
+
+            result.connectionService = new String[] {connectionService};
             if (callEvents != null) {
-                events = convertLogEventsToAnalyticsEvents(callEvents.getEvents());
-                timings = callEvents.extractEventTimings().stream()
-                        .map(Analytics::logEventTimingToAnalyticsEventTiming)
-                        .collect(Collectors.toList());
-            } else {
-                events = Collections.emptyList();
-                timings = Collections.emptyList();
+                result.callEvents = convertLogEventsToProtoEvents(callEvents.getEvents());
+                result.callTimings = callEvents.extractEventTimings().stream()
+                        .map(Analytics::logEventTimingToProtoEventTiming)
+                        .toArray(TelecomLogClass.EventTimingEntry[]::new);
             }
-            ParcelableCallAnalytics result = new ParcelableCallAnalytics(
-                    // rounds down to nearest 5 minute mark
-                    startTime - startTime % ParcelableCallAnalytics.MILLIS_IN_5_MINUTES,
-                    callDuration,
-                    callDirection,
-                    isAdditionalCall,
-                    isInterrupted,
-                    callTechnologies,
-                    callTerminationReason == null ?
-                            ParcelableCallAnalytics.STILL_CONNECTED :
-                            callTerminationReason.getCode(),
-                    isEmergency,
-                    connectionService,
-                    createdFromExistingConnection,
-                    events,
-                    timings);
-            result.setIsVideoCall(isVideo);
-            result.setVideoEvents(videoEvents);
+            result.videoEvents =
+                    videoEvents.toArray(new TelecomLogClass.VideoEvent[videoEvents.size()]);
+            result.inCallServices = inCallServiceInfos.toArray(
+                    new TelecomLogClass.InCallServiceInfo[inCallServiceInfos.size()]);
+
             return result;
         }
 
@@ -400,6 +485,21 @@ public class Analytics {
                 return "NOT SET";
             }
         }
+
+        private String getInCallServicesString() {
+            StringBuilder s = new StringBuilder();
+            s.append("[\n");
+            for (TelecomLogClass.InCallServiceInfo service : inCallServiceInfos) {
+                s.append("    ");
+                s.append("name: ");
+                s.append(service.getInCallServiceName());
+                s.append(" type: ");
+                s.append(service.getInCallServiceType());
+                s.append("\n");
+            }
+            s.append("]");
+            return s.toString();
+        }
     }
     public static final String TAG = "TelecomAnalytics";
 
@@ -427,8 +527,11 @@ public class Analytics {
 
     public static final long MILLIS_IN_1_SECOND = ParcelableCallAnalytics.MILLIS_IN_1_SECOND;
 
+    public static final int MAX_NUM_CALLS_TO_STORE = 100;
+
     private static final Object sLock = new Object(); // Coarse lock for all of analytics
     private static final Map<String, CallInfoImpl> sCallIdToInfo = new HashMap<>();
+    private static final LinkedList<String> sActiveCallIds = new LinkedList<>();
     private static final List<SessionTiming> sSessionTimings = new LinkedList<>();
 
     public static void addSessionTiming(String sessionName, long time) {
@@ -444,7 +547,12 @@ public class Analytics {
         Log.d(TAG, "Starting analytics for call " + callId);
         CallInfoImpl callInfo = new CallInfoImpl(callId, direction);
         synchronized (sLock) {
+            while (sActiveCallIds.size() >= MAX_NUM_CALLS_TO_STORE) {
+                String callToRemove = sActiveCallIds.remove();
+                sCallIdToInfo.remove(callToRemove);
+            }
             sCallIdToInfo.put(callId, callInfo);
+            sActiveCallIds.add(callId);
         }
         return callInfo;
     }
@@ -461,6 +569,28 @@ public class Analytics {
             sSessionTimings.clear();
         }
         return new TelecomAnalytics(sessionTimings, calls);
+    }
+
+    public static void dumpToEncodedProto(PrintWriter pw, String[] args) {
+        TelecomLogClass.TelecomLog result = new TelecomLogClass.TelecomLog();
+
+        synchronized (sLock) {
+            result.callLogs = sCallIdToInfo.values().stream()
+                    .map(CallInfoImpl::toProto)
+                    .toArray(TelecomLogClass.CallLog[]::new);
+            result.sessionTimings = sSessionTimings.stream()
+                    .map(timing -> new TelecomLogClass.LogSessionTiming()
+                            .setSessionEntryPoint(timing.getKey())
+                            .setTimeMillis(timing.getTime()))
+                    .toArray(TelecomLogClass.LogSessionTiming[]::new);
+            if (args.length > 1 && CLEAR_ANALYTICS_ARG.equals(args[1])) {
+                sCallIdToInfo.clear();
+                sSessionTimings.clear();
+            }
+        }
+        String encodedProto = Base64.encodeToString(
+                TelecomLogClass.TelecomLog.toByteArray(result), Base64.DEFAULT);
+        pw.write(encodedProto);
     }
 
     public static void dump(IndentingPrintWriter writer) {
@@ -521,33 +651,32 @@ public class Analytics {
         }
     }
 
-    private static List<AnalyticsEvent> convertLogEventsToAnalyticsEvents(
-            List<Log.CallEvent> logEvents) {
+    private static TelecomLogClass.Event[] convertLogEventsToProtoEvents(
+            List<EventManager.Event> logEvents) {
         long timeOfLastEvent = -1;
-        ArrayList<AnalyticsEvent> events = new ArrayList<>(logEvents.size());
-        for (Log.CallEvent logEvent : logEvents) {
+        ArrayList<TelecomLogClass.Event> events = new ArrayList<>(logEvents.size());
+        for (EventManager.Event logEvent : logEvents) {
             if (sLogEventToAnalyticsEvent.containsKey(logEvent.eventId)) {
-                int analyticsEventId = sLogEventToAnalyticsEvent.get(logEvent.eventId);
-                long timeSinceLastEvent =
-                        timeOfLastEvent < 0 ? -1 : logEvent.time - timeOfLastEvent;
-                events.add(new AnalyticsEvent(
-                        analyticsEventId,
-                        roundToOneSigFig(timeSinceLastEvent)
-                ));
+                TelecomLogClass.Event event = new TelecomLogClass.Event();
+                event.setEventName(sLogEventToAnalyticsEvent.get(logEvent.eventId));
+                event.setTimeSinceLastEventMillis(roundToOneSigFig(
+                        timeOfLastEvent < 0 ? -1 : logEvent.time - timeOfLastEvent));
+                events.add(event);
                 timeOfLastEvent = logEvent.time;
             }
         }
-        return events;
+        return events.toArray(new TelecomLogClass.Event[events.size()]);
     }
 
-    private static ParcelableCallAnalytics.EventTiming logEventTimingToAnalyticsEventTiming(
-            Log.CallEventRecord.EventTiming logEventTiming) {
+    private static TelecomLogClass.EventTimingEntry logEventTimingToProtoEventTiming(
+            EventManager.EventRecord.EventTiming logEventTiming) {
         int analyticsEventTimingName =
                 sLogEventTimingToAnalyticsEventTiming.containsKey(logEventTiming.name) ?
                         sLogEventTimingToAnalyticsEventTiming.get(logEventTiming.name) :
                         ParcelableCallAnalytics.EventTiming.INVALID;
-        return new ParcelableCallAnalytics.EventTiming(analyticsEventTimingName,
-                (long) logEventTiming.time);
+        return new TelecomLogClass.EventTimingEntry()
+                .setTimingName(analyticsEventTimingName)
+                .setTimeMillis(logEventTiming.time);
     }
 
     @VisibleForTesting

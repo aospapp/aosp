@@ -18,56 +18,67 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.view.cts">
 
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-feature android:name="android.hardware.camera" />
+
     <application android:label="Android TestCase"
                 android:icon="@drawable/size_48x48"
                 android:maxRecents="1"
                 android:multiArch="true"
-                android:name="android.view.cts.MockApplication"
                 android:supportsRtl="true">
         <uses-library android:name="android.test.runner" />
-        
+
         <activity android:name="android.view.cts.ViewStubCtsActivity"
-            android:label="ViewStubCtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="ViewStubCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="android.view.cts.UsingViewsCtsActivity"
-            android:label="Using Views Test">
+                  android:screenOrientation="locked"
+                  android:label="Using Views Test">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="android.view.cts.FocusHandlingCtsActivity"
-            android:label="Focus Handling Test">
+                  android:screenOrientation="locked"
+                  android:label="Focus Handling Test">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
-        
-        <activity android:name="android.view.cts.ViewGroupCtsActivity" android:label="ViewGroupCtsActivity">
+
+        <activity android:name=".ViewGroupInvalidateChildCtsActivity"
+                  android:label="ViewGroupCtsActivity"
+                  android:screenOrientation="locked"
+                  android:hardwareAccelerated="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="android.view.cts.ViewTestCtsActivity"
-            android:label="ViewTestCtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="ViewTestCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="android.view.cts.ViewLayoutPositionTestCtsActivity"
-            android:label="ViewTestCtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="ViewTestCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -75,16 +86,19 @@
         </activity>
 
         <activity android:name="android.view.cts.WindowCtsActivity"
-            android:theme="@android:style/Theme.Holo.NoActionBar"
-            android:label="WindowCtsActivity">
+                  android:theme="@android:style/Theme.Holo.NoActionBar"
+                  android:screenOrientation="locked"
+                  android:label="WindowCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
-        
+
         <activity android:name="android.view.animation.cts.AnimationTestCtsActivity"
-            android:label="AnimationTestCtsActivity" android:configChanges="orientation|screenSize">
+                  android:label="AnimationTestCtsActivity"
+                  android:screenOrientation="locked"
+                  android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -92,7 +106,9 @@
         </activity>
 
         <activity android:name="android.view.animation.cts.GridLayoutAnimCtsActivity"
-            android:label="GridLayoutAnimCtsActivity" android:configChanges="orientation|screenSize">
+                  android:label="GridLayoutAnimCtsActivity"
+                  android:screenOrientation="locked"
+                  android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -100,31 +116,9 @@
         </activity>
 
         <activity android:name="android.view.animation.cts.LayoutAnimCtsActivity"
-            android:label="LayoutAnimCtsActivity" android:configChanges="orientation|screenSize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-        
-        <activity android:name="android.view.inputmethod.cts.InputMethodCtsActivity"
-            android:label="InputMethodCtsActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-        <service android:name="android.view.inputmethod.cts.InputMethodInfoStub"
-            android:label="InputMethodInfoStub">
-            <intent-filter>
-                <action android:name="android.view.InputMethod" />
-            </intent-filter>
-            <meta-data android:name="android.view.im"
-                android:resource="@xml/method" />
-        </service>
-
-        <activity android:name="android.view.cts.MenuInflaterCtsActivity"
-            android:label="MenuInflaterCtsActivity">
+                  android:label="LayoutAnimCtsActivity"
+                  android:screenOrientation="locked"
+                  android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -132,7 +126,8 @@
         </activity>
 
         <activity android:name="android.view.cts.SurfaceViewCtsActivity"
-            android:label="SurfaceViewCtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="SurfaceViewCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -140,23 +135,56 @@
         </activity>
 
         <activity android:name="android.view.cts.TextureViewCtsActivity"
-            android:label="TextureViewCtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="TextureViewCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.TextureViewCameraActivity"
+                  android:screenOrientation="locked">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.TextureViewStressTestActivity"
+                  android:screenOrientation="locked">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.TextureViewSnapshotTestActivity"
+                  android:screenOrientation="locked">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <activity android:name="android.view.cts.PixelCopyVideoSourceActivity"
-            android:label="PixelCopyVideoSourceActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
+                  android:screenOrientation="locked"
+                  android:label="PixelCopyVideoSourceActivity" />
+
+        <activity android:name="android.view.cts.PixelCopyGLProducerCtsActivity"
+                  android:screenOrientation="locked"
+                  android:label="PixelCopyGLProducerCtsActivity"/>
+
+        <activity android:name="android.view.cts.PixelCopyViewProducerActivity"
+                  android:label="PixelCopyViewProducerActivity"
+                  android:screenOrientation="portrait"
+                  android:rotationAnimation="jumpcut"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+                  android:configChanges="orientation|screenSize" />
 
         <activity android:name="android.view.cts.FocusFinderCtsActivity"
-            android:label="FocusFinderCtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="FocusFinderCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -164,34 +192,41 @@
         </activity>
 
         <activity android:name="android.view.cts.GestureDetectorCtsActivity"
-            android:label="GestureDetectorCtsActivity"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+                  android:label="GestureDetectorCtsActivity"
+                  android:screenOrientation="locked"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
 
         <activity android:name="android.view.cts.ScaleGestureDetectorCtsActivity"
-            android:label="ScaleGestureDetectorCtsActivity"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+                  android:label="ScaleGestureDetectorCtsActivity"
+                  android:screenOrientation="locked"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
 
-        <activity android:name="android.view.cts.GLSurfaceViewCtsActivity"
-            android:label="GLSurfaceViewCts"/>
+        <activity android:name="android.view.cts.DisplayRefreshRateCtsActivity"
+                  android:label="DisplayRefreshRateCtsActivity"/>
 
-        <activity android:name="android.view.cts.MockActivity" android:label="MockActivity">
+        <activity android:name="android.view.cts.MockActivity"
+                  android:label="MockActivity"
+                  android:screenOrientation="locked">
             <meta-data android:name="android.view.merge"
                 android:resource="@xml/merge" />
         </activity>
 
-        <activity android:name="android.view.cts.ActionModeCtsActivity"
-            android:label="ActionModeCtsActivity">
-        </activity>
+        <activity android:name="android.view.cts.MenuTestActivity"
+                  android:screenOrientation="locked"
+                  android:label="MenuTestActivity" />
 
-        <activity android:name="android.view.cts.ViewGroupCtsActivity"
-                  android:label="WidgetViewGroupCtsActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
+        <activity android:name="android.view.cts.MenuItemCtsActivity"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:screenOrientation="locked"
+                  android:label="MenuItemCtsActivity" />
+
+        <activity android:name="android.view.cts.ActionModeCtsActivity"
+                  android:screenOrientation="locked"
+                  android:label="ActionModeCtsActivity">
         </activity>
 
         <activity android:name="android.view.cts.ViewOverlayCtsActivity"
+                  android:screenOrientation="locked"
                   android:label="ViewOverlayCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -200,6 +235,7 @@
         </activity>
 
         <activity android:name="android.view.cts.ViewGroupOverlayCtsActivity"
+                  android:screenOrientation="locked"
                   android:label="ViewGroupOverlayCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -208,7 +244,8 @@
         </activity>
 
         <activity android:name="android.view.cts.SearchEventActivity"
-            android:label="SearchEventActivity">
+                  android:screenOrientation="locked"
+                  android:label="SearchEventActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -216,7 +253,8 @@
         </activity>
 
         <activity android:name="android.view.cts.CtsActivity"
-            android:label="CtsActivity">
+                  android:screenOrientation="locked"
+                  android:label="CtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -224,6 +262,7 @@
         </activity>
 
         <activity android:name="android.view.cts.ContentPaneCtsActivity"
+                  android:screenOrientation="locked"
                   android:label="ContentPaneCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -232,6 +271,7 @@
         </activity>
 
         <activity android:name="android.view.cts.LongPressBackActivity"
+                  android:screenOrientation="locked"
                   android:label="LongPressBackActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -239,8 +279,61 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.view.cts.PanicPressBackActivity"
+                  android:screenOrientation="locked"
+                  android:label="PanicPressBackActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.DragDropActivity"
+                  android:screenOrientation="locked"
+                  android:label="DragDropActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.view.cts.surfacevalidator.CapturedActivity"
+            android:screenOrientation="locked"
+            android:theme="@style/WhiteBackgroundTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.HoverCtsActivity"
+                  android:screenOrientation="locked"
                   android:theme="@style/WhiteBackgroundTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.TooltipActivity"
+                  android:screenOrientation="locked"
+                  android:label="TooltipActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.PointerCaptureCtsActivity"
+                  android:screenOrientation="locked"
+                  android:theme="@style/WhiteBackgroundTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.DefaultFocusHighlightCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -256,4 +349,3 @@
     </instrumentation>
 
 </manifest>
-

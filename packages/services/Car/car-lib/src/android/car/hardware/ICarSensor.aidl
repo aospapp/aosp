@@ -25,13 +25,13 @@ interface ICarSensor {
     int[] getSupportedSensors() = 0;
 
     /**
-     * register a listener or update registration if already updated.
-     * @param sensorType sensor to listen with this listener.
+     * register a callback or update registration if already updated.
+     * @param sensorType sensor to listen with this callback.
      * @param rate sensor rate.
      * @return false if requested sensors cannot be subscribed / started.
      */
     boolean registerOrUpdateSensorListener(int sensorType, int rate,
-            in ICarSensorEventListener listener) = 1;
+            in ICarSensorEventListener callback) = 1;
 
     /**
      * get latest sensor event for the type. If there was no update after car connection, it will
@@ -43,5 +43,5 @@ interface ICarSensor {
      * Stop listening for the given sensor type. All other sensors registered before will not
      * be affected.
      */
-    void unregisterSensorListener(int sensorType, in ICarSensorEventListener listener) = 3;
+    void unregisterSensorListener(int sensorType, in ICarSensorEventListener callback) = 3;
 }

@@ -20,4 +20,4 @@ $(call inherit-product, device/google/atv/products/sdk_atv_armv7.mk)
 # Overrides
 PRODUCT_NAME := sdk_atv_x86
 PRODUCT_DEVICE := generic_x86
-PRODUCT_BRAND := generic_x86
+PRODUCT_BRAND := google

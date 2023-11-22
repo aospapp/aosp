@@ -43,10 +43,14 @@
 #include <linux/version.h>
 #include <linux/usb/ch9.h>
 
+#include <chrono>
 #include <memory>
+#include <thread>
 
 #include "fastboot.h"
 #include "usb.h"
+
+using namespace std::chrono_literals;
 
 #define MAX_RETRIES 5
 
@@ -89,7 +93,7 @@ struct usb_handle
 
 class LinuxUsbTransport : public Transport {
   public:
-    LinuxUsbTransport(std::unique_ptr<usb_handle> handle) : handle_(std::move(handle)) {}
+    explicit LinuxUsbTransport(std::unique_ptr<usb_handle> handle) : handle_(std::move(handle)) {}
     ~LinuxUsbTransport() override = default;
 
     ssize_t Read(void* data, size_t len) override;
@@ -145,7 +149,7 @@ static int filter_usb_device(char* sysfs_name,
     int in, out;
     unsigned i;
     unsigned e;
-    
+
     if (check(ptr, len, USB_DT_DEVICE, USB_DT_DEVICE_SIZE))
         return -1;
     dev = (struct usb_device_descriptor *)ptr;
@@ -333,15 +337,14 @@ static std::unique_ptr<usb_handle> find_usb_device(const char* base, ifc_match_f
     char desc[1024];
     int n, in, out, ifc;
 
-    DIR *busdir;
     struct dirent *de;
     int fd;
     int writable;
 
-    busdir = opendir(base);
+    std::unique_ptr<DIR, decltype(&closedir)> busdir(opendir(base), closedir);
     if (busdir == 0) return 0;
 
-    while ((de = readdir(busdir)) && (usb == nullptr)) {
+    while ((de = readdir(busdir.get())) && (usb == nullptr)) {
         if (badname(de->d_name)) continue;
 
         if (!convert_to_devfs_name(de->d_name, devname, sizeof(devname))) {
@@ -377,7 +380,6 @@ static std::unique_ptr<usb_handle> find_usb_device(const char* base, ifc_match_f
             }
         }
     }
-    closedir(busdir);
 
     return usb;
 }
@@ -428,7 +430,7 @@ ssize_t LinuxUsbTransport::Read(void* _data, size_t len)
         return -1;
     }
 
-    while(len > 0) {
+    while (len > 0) {
         int xfer = (len > MAX_USBFS_BULK_SIZE) ? MAX_USBFS_BULK_SIZE : len;
 
         bulk.ep = handle_->ep_in;
@@ -437,18 +439,17 @@ ssize_t LinuxUsbTransport::Read(void* _data, size_t len)
         bulk.timeout = 0;
         retry = 0;
 
-        do{
-           DBG("[ usb read %d fd = %d], fname=%s\n", xfer, handle_->desc, handle_->fname);
-           n = ioctl(handle_->desc, USBDEVFS_BULK, &bulk);
-           DBG("[ usb read %d ] = %d, fname=%s, Retry %d \n", xfer, n, handle_->fname, retry);
+        do {
+            DBG("[ usb read %d fd = %d], fname=%s\n", xfer, handle_->desc, handle_->fname);
+            n = ioctl(handle_->desc, USBDEVFS_BULK, &bulk);
+            DBG("[ usb read %d ] = %d, fname=%s, Retry %d \n", xfer, n, handle_->fname, retry);
 
-           if( n < 0 ) {
-            DBG1("ERROR: n = %d, errno = %d (%s)\n",n, errno, strerror(errno));
-            if ( ++retry > MAX_RETRIES ) return -1;
-            sleep( 1 );
-           }
-        }
-        while( n < 0 );
+            if (n < 0) {
+                DBG1("ERROR: n = %d, errno = %d (%s)\n",n, errno, strerror(errno));
+                if (++retry > MAX_RETRIES) return -1;
+                std::this_thread::sleep_for(1s);
+            }
+        } while (n < 0);
 
         count += n;
         len -= n;
@@ -490,9 +491,8 @@ int LinuxUsbTransport::WaitForDisconnect()
 {
   double deadline = now() + WAIT_FOR_DISCONNECT_TIMEOUT;
   while (now() < deadline) {
-    if (access(handle_->fname, F_OK))
-      return 0;
-    usleep(50000);
+    if (access(handle_->fname, F_OK)) return 0;
+    std::this_thread::sleep_for(50ms);
   }
   return -1;
 }

@@ -35,10 +35,10 @@ package com.android.bluetooth.opp;
 import com.android.bluetooth.R;
 import com.google.android.collect.Lists;
 
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.net.Uri;
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ActivityNotFoundException;
@@ -46,6 +46,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
+import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
@@ -54,7 +55,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import android.support.v4.content.FileProvider;
 /**
  * This class has some utilities for Opp application;
  */
@@ -65,6 +65,10 @@ public class BluetoothOppUtility {
 
     private static final ConcurrentHashMap<Uri, BluetoothOppSendFileInfo> sSendFileMap
             = new ConcurrentHashMap<Uri, BluetoothOppSendFileInfo>();
+
+    public static boolean isBluetoothShareUri(Uri uri) {
+        return uri.toString().startsWith(BluetoothShare.CONTENT_URI.toString());
+    }
 
     public static BluetoothOppTransferInfo queryRecord(Context context, Uri uri) {
         BluetoothOppTransferInfo info = new BluetoothOppTransferInfo();
@@ -176,6 +180,11 @@ public class BluetoothOppUtility {
             return;
         }
 
+        if (!isBluetoothShareUri(uri)) {
+            Log.e(TAG, "Trying to open a file that wasn't transfered over Bluetooth");
+            return;
+        }
+
         File f = new File(fileName);
         if (!f.exists()) {
             Intent in = new Intent(context, BluetoothOppBtErrorActivity.class);
@@ -191,8 +200,12 @@ public class BluetoothOppUtility {
             return;
         }
 
-        Uri path = FileProvider.getUriForFile(context,
-                       "com.google.android.bluetooth.fileprovider", f);
+        Uri path = BluetoothOppFileProvider.getUriForFile(
+                context, "com.android.bluetooth.opp.fileprovider", f);
+        if (path == null) {
+            Log.w(TAG, "Cannot get content URI for the shared file");
+            return;
+        }
         // If there is no scheme, then it must be a file
         if (path.getScheme() == null) {
             path = Uri.fromFile(new File(fileName));
@@ -206,17 +219,8 @@ public class BluetoothOppUtility {
                 .queryIntentActivities(activityIntent,
                         PackageManager.MATCH_DEFAULT_ONLY);
 
-            // Grant permissions for any app that can handle a file to access it
-            for (ResolveInfo resolveInfo : resInfoList) {
-                String packageName = resolveInfo.activityInfo.packageName;
-                context.grantUriPermission(packageName, path,
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            }
-
             activityIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            activityIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            activityIntent.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            activityIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
             try {
                 if (V) Log.d(TAG, "ACTION_VIEW intent sent out: " + path + " / " + mimetype);
@@ -351,6 +355,42 @@ public class BluetoothOppUtility {
                 info.mInputStream.close();
             } catch (IOException ignored) {
             }
+        }
+    }
+
+    /**
+     * Checks if the URI is in Environment.getExternalStorageDirectory() as it
+     * is the only directory that is possibly readable by both the sender and
+     * the Bluetooth process.
+     */
+    static boolean isInExternalStorageDir(Uri uri) {
+        if (!ContentResolver.SCHEME_FILE.equals(uri.getScheme())) {
+            Log.e(TAG, "Not a file URI: " + uri);
+            return false;
+        }
+        final File file = new File(uri.getCanonicalUri().getPath());
+        return isSameOrSubDirectory(Environment.getExternalStorageDirectory(), file);
+    }
+
+    /**
+     * Checks, whether the child directory is the same as, or a sub-directory of the base
+     * directory. Neither base nor child should be null.
+     */
+    static boolean isSameOrSubDirectory(File base, File child) {
+        try {
+            base = base.getCanonicalFile();
+            child = child.getCanonicalFile();
+            File parentFile = child;
+            while (parentFile != null) {
+                if (base.equals(parentFile)) {
+                    return true;
+                }
+                parentFile = parentFile.getParentFile();
+            }
+            return false;
+        } catch (IOException ex) {
+            Log.e(TAG, "Error while accessing file", ex);
+            return false;
         }
     }
 }

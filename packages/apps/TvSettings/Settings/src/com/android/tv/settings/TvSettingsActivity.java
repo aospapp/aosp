@@ -24,11 +24,13 @@ import android.transition.Scene;
 import android.transition.Slide;
 import android.transition.Transition;
 import android.transition.TransitionManager;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 
 public abstract class TvSettingsActivity extends Activity {
+    private static final String TAG = "TvSettingsActivity";
 
     private static final String SETTINGS_FRAGMENT_TAG =
             "com.android.tv.settings.MainSettings.SETTINGS_FRAGMENT";
@@ -38,23 +40,25 @@ public abstract class TvSettingsActivity extends Activity {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
 
-            final ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
+            final ViewGroup root = findViewById(android.R.id.content);
             root.getViewTreeObserver().addOnPreDrawListener(
                     new ViewTreeObserver.OnPreDrawListener() {
                         @Override
                         public boolean onPreDraw() {
                             root.getViewTreeObserver().removeOnPreDrawListener(this);
                             final Scene scene = new Scene(root);
-                            scene.setEnterAction(new Runnable() {
-                                @Override
-                                public void run() {
-                                    final Fragment fragment = createSettingsFragment();
-                                    if (fragment != null) {
-                                        getFragmentManager().beginTransaction()
-                                                .add(android.R.id.content, fragment,
-                                                        SETTINGS_FRAGMENT_TAG)
-                                                .commitNow();
-                                    }
+                            scene.setEnterAction(() -> {
+                                if (getFragmentManager().isStateSaved()
+                                        || getFragmentManager().isDestroyed()) {
+                                    Log.d(TAG, "Got torn down before adding fragment");
+                                    return;
+                                }
+                                final Fragment fragment = createSettingsFragment();
+                                if (fragment != null) {
+                                    getFragmentManager().beginTransaction()
+                                            .add(android.R.id.content, fragment,
+                                                    SETTINGS_FRAGMENT_TAG)
+                                            .commitNow();
                                 }
                             });
 
@@ -75,16 +79,11 @@ public abstract class TvSettingsActivity extends Activity {
     public void finish() {
         final Fragment fragment = getFragmentManager().findFragmentByTag(SETTINGS_FRAGMENT_TAG);
         if (isResumed() && fragment != null) {
-            final ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
+            final ViewGroup root = findViewById(android.R.id.content);
             final Scene scene = new Scene(root);
-            scene.setEnterAction(new Runnable() {
-                @Override
-                public void run() {
-                    getFragmentManager().beginTransaction()
-                            .remove(fragment)
-                            .commitNow();
-                }
-            });
+            scene.setEnterAction(() -> getFragmentManager().beginTransaction()
+                    .remove(fragment)
+                    .commitNow());
             final Slide slide = new Slide(Gravity.END);
             slide.setSlideFraction(
                     getResources().getDimension(R.dimen.lb_settings_pane_width) / root.getWidth());

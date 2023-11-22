@@ -14,7 +14,7 @@
 #include    "swap.h"
 
            // from the title page of the specification
-#define TPM_SPEC_FAMILY      0x200
+#define TPM_SPEC_FAMILY      0x322E3000   // This is 2.0 in ASCII
 #define TPM_SPEC_LEVEL       0
 #define TPM_SPEC_VERSION     116  // Major_revision * 100 + Minor_revision
 #define TPM_SPEC_DAY_OF_YEAR 303

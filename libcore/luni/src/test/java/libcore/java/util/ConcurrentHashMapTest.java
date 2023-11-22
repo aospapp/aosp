@@ -22,7 +22,8 @@ public class ConcurrentHashMapTest extends junit.framework.TestCase {
 
     public void test_getOrDefault() {
         MapDefaultMethodTester.test_getOrDefault(new ConcurrentHashMap<>(),
-                false /*doesNotAcceptNullKey*/, false /*doesNotAcceptNullValue*/);
+                false /*doesNotAcceptNullKey*/, false /*doesNotAcceptNullValue*/,
+                true /*getAcceptsAnyObject*/);
     }
 
     public void test_forEach() {

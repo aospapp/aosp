@@ -18,6 +18,7 @@ package android.security.cts;
 
 import android.os.Binder;
 import android.os.IBinder;
+import android.platform.test.annotations.SecurityTest;
 
 import junit.framework.TestCase;
 
@@ -25,6 +26,7 @@ import java.lang.Class;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+@SecurityTest
 public class NetdTest extends TestCase {
 
     /**

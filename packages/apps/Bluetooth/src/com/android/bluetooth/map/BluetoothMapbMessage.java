@@ -681,6 +681,7 @@ public abstract class BluetoothMapbMessage {
     private void parseBody(BMsgReader reader) {
         String line;
         line = reader.getLineEnforce();
+        parseMsgInit();
         while(!line.contains("END:")) {
             if(line.contains("PARTID:")) {
                 String arg[] = line.split(":");
@@ -734,52 +735,35 @@ public abstract class BluetoothMapbMessage {
                 }
             }
             else if(line.contains("BEGIN:MSG")) {
+                if (V) Log.v(TAG, "bMsgLength: " + mBMsgLength);
                 if(mBMsgLength == INVALID_VALUE)
                     throw new IllegalArgumentException("Missing value for 'LENGTH'. " +
                             "Unable to read remaining part of the message");
+
                 /* For SMS: Encoding of MSG is always UTF-8 compliant, regardless of any properties,
                    since PDUs are encodes as hex-strings */
                 /* PTS has a bug regarding the message length, and sets it 2 bytes too short, hence
                  * using the length field to determine the amount of data to read, might not be the
                  * best solution.
-                 * Since errata ???(bluetooth.org is down at the moment) introduced escaping of
-                 * END:MSG in the actual message content, it is now safe to use the END:MSG tag
-                 * as terminator, and simply ignore the length field.*/
+                 * Errata ESR06 section 5.8.12 introduced escaping of END:MSG in the actual message
+                 * content, it is now safe to use the END:MSG tag as terminator, and simply ignore
+                 * the length field.*/
 
-                /* 2 added to compensate for the removed \r\n */
-                byte[] rawData = reader.getDataBytes(mBMsgLength - (line.getBytes().length + 2));
-                String data;
-                try {
-                    data = new String(rawData, "UTF-8");
-                    if(V) {
-                        Log.v(TAG,"MsgLength: " + mBMsgLength);
-                        Log.v(TAG,"line.getBytes().length: " + line.getBytes().length);
-                        String debug = line.replaceAll("\\n", "<LF>\n");
-                        debug = debug.replaceAll("\\r", "<CR>");
-                        Log.v(TAG,"The line: \"" + debug + "\"");
-                        debug = data.replaceAll("\\n", "<LF>\n");
-                        debug = debug.replaceAll("\\r", "<CR>");
-                        Log.v(TAG,"The msgString: \"" + debug + "\"");
-                    }
-                } catch (UnsupportedEncodingException e) {
-                    Log.w(TAG,e);
-                    throw new IllegalArgumentException("Unable to convert to UTF-8");
+                // Read until we receive END:MSG as some carkits send bad message lengths
+                String data = "";
+                String message_line = "";
+                while (!message_line.equals("END:MSG")) {
+                    data += message_line;
+                    message_line = reader.getLineEnforce();
                 }
-                /* Decoding of MSG:
-                 * 1) split on "\r\nEND:MSG\r\n"
-                 * 2) delete "BEGIN:MSG\r\n" for each msg
-                 * 3) replace any occurrence of "\END:MSG" with "END:MSG"
-                 * 4) based on charset from application properties either store as String[] or
-                 *    decode to raw PDUs
-                 * */
-                String messages[] = data.split("\r\nEND:MSG\r\n");
-                parseMsgInit();
-                for(int i = 0; i < messages.length; i++) {
-                    messages[i] = messages[i].replaceFirst("^BEGIN:MSG\r\n", "");
-                    messages[i] = messages[i].replaceAll("\r\n([/]*)/END\\:MSG", "\r\n$1END:MSG");
-                    messages[i] = messages[i].trim();
-                    parseMsgPart(messages[i]);
-                }
+
+                // The MAP spec says that all END:MSG strings in the body
+                // of the message must be escaped upon encoding and the
+                // escape removed upon decoding
+                data.replaceAll("([/]*)/END\\:MSG", "$1END:MSG");
+                data.trim();
+
+                parseMsgPart(data);
             }
             line = reader.getLineEnforce();
         }

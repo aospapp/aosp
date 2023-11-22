@@ -29,7 +29,7 @@
 
 #include "make_f2fs.h"
 
-#ifndef USE_MINGW /* O_BINARY is windows-specific flag */
+#ifndef _WIN32 /* O_BINARY is windows-specific flag */
 #define O_BINARY 0
 #endif
 

@@ -61,13 +61,13 @@ host_arch_cflags := \
   -DVGA_amd64=1 \
   -DVGP_amd64_linux=1 \
   -DVG_PLATFORM=\"amd64-linux\" \
-  -DVG_LIBDIR=\"$(realpath $(HOST_OUT_SHARED_LIBRARIES))/valgrind\"
+  -DVG_LIBDIR=\"$(abspath $(HOST_OUT_SHARED_LIBRARIES))/valgrind\"
 
 host_2nd_arch_cflags := \
   -DVGA_x86=1 \
   -DVGP_x86_linux=1 \
   -DVG_PLATFORM=\"x86-linux\" \
-  -DVG_LIBDIR=\"$(realpath $(HOST_OUT_SHARED_LIBRARIES))/valgrind\"
+  -DVG_LIBDIR=\"$(abspath $(HOST_OUT_SHARED_LIBRARIES))/valgrind\"
 
 common_includes := \
 	external/valgrind \
@@ -296,6 +296,10 @@ vg_local_src_files := \
 	coregrind/m_gdbserver/valgrind-low-s390x.c \
 	coregrind/m_gdbserver/valgrind-low-x86.c \
 	coregrind/m_gdbserver/version.c
+
+ifeq (arm64, $(TARGET_ARCH))
+  vg_local_src_files += android/aarch64/setjmp.S
+endif
 
 vg_local_ldflags := $(vex_ldflags)
 vg_local_cflags := $(common_cflags)
@@ -613,9 +617,8 @@ endif
 # Copy prebuilt suppressions
 include $(CLEAR_VARS)
 LOCAL_MODULE := default.supp
-LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(PRODUCT_OUT)$(vg_target_module_path)
-LOCAL_STRIP_MODULE := false
 LOCAL_SRC_FILES := bionic.supp
 
 include $(BUILD_PREBUILT)
@@ -624,9 +627,8 @@ ifeq ($(HOST_OS), linux)
 include $(CLEAR_VARS)
 LOCAL_IS_HOST_MODULE := true
 LOCAL_MODULE := default.supp
-LOCAL_MODULE_CLASS := SHARED_LIBRARIES
+LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(HOST_OUT_SHARED_LIBRARIES)/valgrind
-LOCAL_STRIP_MODULE := false
 LOCAL_SRC_FILES := bionic.supp
 
 include $(BUILD_PREBUILT)

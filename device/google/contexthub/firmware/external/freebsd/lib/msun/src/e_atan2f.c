@@ -17,7 +17,7 @@
 __FBSDID("$FreeBSD$");
 
 #include "math.h"
-#include "math_private.h"
+#include <math_private.h>
 
 static volatile float
 tiny  = 1.0e-30;

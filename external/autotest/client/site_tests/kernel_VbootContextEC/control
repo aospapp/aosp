@@ -7,7 +7,6 @@ AUTHOR = 'The Chromium OS Authors'
 PURPOSE = 'Test access Vboot Context stored in EC'
 CRITERIA = 'Fails if kernel could not read/write Vboot Context in EC'
 ATTRIBUTES = "suite:kernel_per-build_regression"
-SUITE = 'kernel_per-build_regression'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'kernel'

@@ -8,16 +8,23 @@ import time
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import base_utils, error
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import power_utils
+from autotest_lib.client.cros import power_utils, upstart
 
 class power_VideoDetector(test.test):
+    """
+    Verify the backlight does not get dimmed while playing video.
+    """
+
     version = 1
 
     def run_once(self, run_time_sec=60):
+        """
+        @param run_time_sec: time to run the test
+        """
         if run_time_sec < 30:
             raise error.TestError('Must run for at least 30 seconds')
 
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             # Start powerd if not started.  Set timeouts for quick idle events.
             run_time_ms = run_time_sec * 1000
             # At the time of writing this test, the video detector gets a status
@@ -68,4 +75,7 @@ class power_VideoDetector(test.test):
 
 
     def cleanup(self):
-        utils.restart_job('powerd')
+        """
+        Cleanup powerd after test.
+        """
+        upstart.restart_job('powerd')

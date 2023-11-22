@@ -39,6 +39,7 @@ public class CreateStringTest extends JDWPSyncTestCase {
 
     static final String CHECKED_STRING = "Hello World!";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

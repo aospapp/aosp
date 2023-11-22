@@ -16,15 +16,28 @@
 
 package android.text.cts;
 
-import java.util.Iterator;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils.SimpleStringSplitter;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.Iterator;
 
 /**
  * Test {@link SimpleStringSplitter}.
  */
-public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TextUtils_SimpleStringSplitterTest {
+    @Test
     public void testConstructor() {
         new SimpleStringSplitter('|');
 
@@ -33,6 +46,7 @@ public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
         new SimpleStringSplitter(Character.MIN_VALUE);
     }
 
+    @Test
     public void testHasNext() {
         SimpleStringSplitter simpleStringSplitter = new SimpleStringSplitter('|');
         assertFalse(simpleStringSplitter.hasNext());
@@ -50,6 +64,7 @@ public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
         assertFalse(simpleStringSplitter.hasNext());
     }
 
+    @Test
     public void testIterator() {
         SimpleStringSplitter simpleStringSplitter = new SimpleStringSplitter('|');
 
@@ -67,6 +82,7 @@ public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
         assertFalse(iterator.hasNext());
     }
 
+    @Test
     public void testNext1() {
         SimpleStringSplitter simpleStringSplitter = new SimpleStringSplitter(',');
 
@@ -80,6 +96,7 @@ public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testNext2() {
         SimpleStringSplitter simpleStringSplitter = new SimpleStringSplitter(',');
 
@@ -96,6 +113,7 @@ public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
         assertEquals("", simpleStringSplitter.next());
     }
 
+    @Test
     public void testRemove() {
         SimpleStringSplitter simpleStringSplitter = new SimpleStringSplitter(',');
 
@@ -106,6 +124,7 @@ public class TextUtils_SimpleStringSplitterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetString() {
         SimpleStringSplitter simpleStringSplitter = new SimpleStringSplitter(',');
 

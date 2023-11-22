@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and    *
@@ -55,7 +57,7 @@ public class ByteArrayWrapper implements Comparable<ByteArrayWrapper>
      * size &lt; 0, or size &gt; bytesToAdopt.length.
      */
     public ByteArrayWrapper(byte[] bytesToAdopt, int size) {
-        if ((bytesToAdopt == null && size != 0) || size < 0 || size > bytesToAdopt.length) {
+        if ((bytesToAdopt == null && size != 0) || size < 0 || (bytesToAdopt != null && size > bytesToAdopt.length)) {
             throw new IndexOutOfBoundsException("illegal size: " + size);
         }
         this.bytes = bytesToAdopt;
@@ -108,7 +110,9 @@ public class ByteArrayWrapper implements Comparable<ByteArrayWrapper>
     {
         if (bytes == null || bytes.length < capacity) {
             byte[] newbytes = new byte[capacity];
-            copyBytes(bytes, 0, newbytes, 0, size);
+            if (bytes != null) {
+                copyBytes(bytes, 0, newbytes, 0, size);
+            }
             bytes = newbytes;
         }
         return this;

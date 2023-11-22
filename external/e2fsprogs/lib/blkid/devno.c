@@ -10,6 +10,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -90,7 +91,7 @@ static void free_dirlist(struct dir_list **list)
 	*list = NULL;
 }
 
-void blkid__scan_dir(char *dirname, dev_t devno, struct dir_list **list,
+void blkid__scan_dir(const char *dirname, dev_t devno, struct dir_list **list,
 		     char **devname)
 {
 	DIR	*dir;

@@ -1,11 +1,4 @@
 {
-  "/etc/chromium/policies": {
-    "can_dangle": true,
-    "destination": "/home/chronos/user/var/browser-policies",
-    "owner": "chronos",
-    "group": "chronos",
-    "mode": "0755"
-  },
   "/etc/ipsec.conf": {
     "can_dangle": true,
     "destination": "/var/run/l2tpipsec_vpn/current/ipsec.conf",
@@ -40,13 +33,6 @@
     "owner": "root",
     "group": "root",
     "mode": "0644"
-  },
-  "/etc/opt/chrome/policies": {
-    "can_dangle": true,
-    "destination": "/home/chronos/user/var/browser-policies",
-    "owner": "chronos",
-    "group": "chronos",
-    "mode": "0755"
   },
   "/etc/resolv.conf": {
     "can_dangle": false,

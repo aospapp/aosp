@@ -25,13 +25,10 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
-import org.apache.harmony.jpda.tests.framework.Breakpoint;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
-import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -40,6 +37,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP Unit test for BREAKPOINT event.
  */
 public class BreakpointTest extends JDWPEventTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return BreakpointDebuggee.class.getName();
     }

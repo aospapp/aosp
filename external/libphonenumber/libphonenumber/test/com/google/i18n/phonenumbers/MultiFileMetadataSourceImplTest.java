@@ -16,36 +16,47 @@
 
 package com.google.i18n.phonenumbers;
 
+import com.google.i18n.phonenumbers.Phonemetadata.PhoneMetadata;
+import junit.framework.TestCase;
+
 /**
  * Unit tests for MultiFileMetadataSourceImpl.java.
  */
-public class MultiFileMetadataSourceImplTest extends TestMetadataTestCase  {
+public class MultiFileMetadataSourceImplTest extends TestCase {
+  private static final MultiFileMetadataSourceImpl SOURCE =
+      new MultiFileMetadataSourceImpl(MetadataManager.DEFAULT_METADATA_LOADER);
+  private static final MultiFileMetadataSourceImpl MISSING_FILE_SOURCE =
+      new MultiFileMetadataSourceImpl("no/such/file", MetadataManager.DEFAULT_METADATA_LOADER);
 
-  private final MultiFileMetadataSourceImpl multiFileMetadataSource;
-
-  public MultiFileMetadataSourceImplTest() {
-    multiFileMetadataSource = new MultiFileMetadataSourceImpl(TEST_META_DATA_FILE_PREFIX,
-        PhoneNumberUtil.DEFAULT_METADATA_LOADER);
+  public void testGeoPhoneNumberMetadataLoadCorrectly() {
+    // We should have some data for the UAE.
+    PhoneMetadata uaeMetadata = SOURCE.getMetadataForRegion("AE");
+    assertEquals(uaeMetadata.getCountryCode(), 971);
+    assertTrue(uaeMetadata.hasGeneralDesc());
   }
 
-  public void testMissingMetadataFileThrowsRuntimeException() {
-    // In normal usage we should never get a state where we are asking to load metadata that doesn't
-    // exist. However if the library is packaged incorrectly in the jar, this could happen and the
-    // best we can do is make sure the exception has the file name in it.
+  public void testGeoPhoneNumberMetadataLoadFromMissingFileThrowsException() throws Exception {
     try {
-      multiFileMetadataSource.loadMetadataFromFile(
-          "no/such/file", "XX", -1, PhoneNumberUtil.DEFAULT_METADATA_LOADER);
+      MISSING_FILE_SOURCE.getMetadataForRegion("AE");
       fail("expected exception");
     } catch (RuntimeException e) {
-      assertTrue("Unexpected error: " + e, e.toString().contains("no/such/file_XX"));
+      assertTrue("Unexpected error: " + e, e.getMessage().contains("no/such/file"));
     }
+  }
+
+  public void testNonGeoPhoneNumberMetadataLoadCorrectly() {
+    // We should have some data for international toll-free numbers.
+    PhoneMetadata intlMetadata = SOURCE.getMetadataForNonGeographicalRegion(800);
+    assertEquals(intlMetadata.getId(), "001");
+    assertTrue(intlMetadata.hasGeneralDesc());
+  }
+
+  public void testNonGeoPhoneNumberMetadataLoadFromMissingFileThrowsException() throws Exception {
     try {
-      multiFileMetadataSource.loadMetadataFromFile("no/such/file",
-          PhoneNumberUtil.REGION_CODE_FOR_NON_GEO_ENTITY, 123,
-          PhoneNumberUtil.DEFAULT_METADATA_LOADER);
+      MISSING_FILE_SOURCE.getMetadataForNonGeographicalRegion(800);
       fail("expected exception");
     } catch (RuntimeException e) {
-      assertTrue("Unexpected error: " + e, e.getMessage().contains("no/such/file_123"));
+      assertTrue("Unexpected error: " + e, e.getMessage().contains("no/such/file"));
     }
   }
 }

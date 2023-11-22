@@ -105,9 +105,10 @@ static int usage()
            "  -h                                show this help\n"
            "  -v                                enable verbose logging\n"
            "  -r, --roots=<bytes>               number of parity bytes\n"
-           "  -m, --mmap                        use memory mapping\n"
            "  -j, --threads=<threads>           number of threads to use\n"
            "  -S                                treat data as a sparse file\n"
+           "encoding options:\n"
+           "  -p, --padding=<bytes>             add padding after ECC data\n"
            "decoding options:\n"
            "  -i, --inplace                     correct <data> in place\n"
         );
@@ -176,7 +177,7 @@ static int encode(image& ctx, const std::vector<std::string>& inp_filenames,
         FATAL("invalid parameters: inplace can only used when decoding\n");
     }
 
-    if (!image_load(inp_filenames, &ctx, false)) {
+    if (!image_load(inp_filenames, &ctx)) {
         FATAL("failed to read input\n");
     }
 
@@ -189,7 +190,7 @@ static int encode(image& ctx, const std::vector<std::string>& inp_filenames,
 
     size_t n = 1;
 
-    for (auto fn : inp_filenames) {
+    for (const auto& fn : inp_filenames) {
         INFO("\t%zu: '%s'\n", n++, fn.c_str());
     }
 
@@ -221,8 +222,12 @@ static int decode(image& ctx, const std::vector<std::string>& inp_filenames,
             "files\n");
     }
 
+    if (ctx.padding) {
+        FATAL("invalid parameters: padding is only relevant when encoding\n");
+    }
+
     if (!image_ecc_load(fec_filename, &ctx) ||
-            !image_load(inp_filenames, &ctx, !out_filename.empty())) {
+            !image_load(inp_filenames, &ctx)) {
         FATAL("failed to read input\n");
     }
 
@@ -281,15 +286,15 @@ int main(int argc, char **argv)
             {"sparse", no_argument, 0, 'S'},
             {"roots", required_argument, 0, 'r'},
             {"inplace", no_argument, 0, 'i'},
-            {"mmap", no_argument, 0, 'm'},
             {"threads", required_argument, 0, 'j'},
             {"print-fec-size", required_argument, 0, 's'},
             {"get-ecc-start", required_argument, 0, 'E'},
             {"get-verity-start", required_argument, 0, 'V'},
+            {"padding", required_argument, 0, 'p'},
             {"verbose", no_argument, 0, 'v'},
             {NULL, 0, 0, 0}
         };
-        int c = getopt_long(argc, argv, "hedSr:imj:s:E:V:v", long_options, NULL);
+        int c = getopt_long(argc, argv, "hedSr:ij:s:E:V:p:v", long_options, NULL);
         if (c < 0) {
             break;
         }
@@ -317,9 +322,6 @@ int main(int argc, char **argv)
         case 'i':
             ctx.inplace = true;
             break;
-        case 'm':
-            ctx.mmap = true;
-            break;
         case 'j':
             ctx.threads = (int)parse_arg(optarg, "threads", IMAGE_MAX_THREADS);
             break;
@@ -343,6 +345,12 @@ int main(int argc, char **argv)
             }
             mode = MODE_GETVERITYSTART;
             inp_filenames.push_back(optarg);
+            break;
+        case 'p':
+            ctx.padding = (uint32_t)parse_arg(optarg, "padding", UINT32_MAX);
+            if (ctx.padding % FEC_BLOCKSIZE) {
+                FATAL("padding must be multiple of %u\n", FEC_BLOCKSIZE);
+            }
             break;
         case 'v':
             ctx.verbose = true;

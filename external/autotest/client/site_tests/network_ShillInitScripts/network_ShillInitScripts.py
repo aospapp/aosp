@@ -36,12 +36,12 @@ class network_ShillInitScripts(test.test):
 
     def start_shill(self):
         """ Starts a shill instance. """
-        utils.system('start shill')
+        utils.start_service('shill')
 
 
     def stop_shill(self):
         """ Halt the running shill instance. """
-        utils.system('stop shill', ignore_status=True)
+        utils.stop_service('shill', ignore_status=True)
 
         for attempt in range(10):
             if not self.find_pid('shill'):
@@ -59,8 +59,15 @@ class network_ShillInitScripts(test.test):
         @param user string user name (email address) to log in.
 
         """
-        utils.system('start shill-start-user-session CHROMEOS_USER=%s' %
-                     (user or self.fake_user))
+
+        if utils.has_systemd():
+            start_cmd = (('systemctl set-environment CHROMEOS_USER=%s'
+                          ' && systemctl start shill-start-user-session') %
+                         (user or self.fake_user))
+        else:
+            start_cmd = ('start shill-start-user-session CHROMEOS_USER=%s' %
+                         (user or self.fake_user))
+        utils.system(start_cmd)
 
 
     def login_guest(self):
@@ -78,13 +85,13 @@ class network_ShillInitScripts(test.test):
         Note: "start" blocks until the "script" block completes.
 
         """
-        utils.system('start shill-stop-user-session')
+        utils.start_service('shill-stop-user-session')
 
 
     def start_test(self):
         """ Setup the start of the test.  Stop shill and create test harness."""
         # Stop a system process on test duts for keeping connectivity up.
-        ret = utils.system('stop recover_duts', ignore_status=True)
+        ret = utils.stop_service('recover_duts', ignore_status=True)
         self.recover_duts_stopped = (ret == 0);
 
         self.stop_shill()
@@ -162,9 +169,9 @@ class network_ShillInitScripts(test.test):
 
     def restart_system_processes(self):
         """ Restart vital system services at the end of the test. """
-        utils.system('start shill', ignore_status=True)
+        utils.start_service('shill', ignore_status=True)
         if self.recover_duts_stopped:
-            utils.system('start recover_duts', ignore_status=True)
+            utils.start_service('recover_duts', ignore_status=True)
 
 
     def assure(self, must_be_true, assertion_name):

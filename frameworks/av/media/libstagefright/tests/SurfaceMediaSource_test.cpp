@@ -466,7 +466,7 @@ sp<MediaRecorder> SurfaceMediaSourceGLTest::setUpMediaRecorder(int fd, int video
     mr->setVideoSource(videoSource);
     mr->setOutputFormat(outputFormat);
     mr->setVideoEncoder(videoEncoder);
-    mr->setOutputFile(fd, 0, 0);
+    mr->setOutputFile(fd);
     mr->setVideoSize(width, height);
     mr->setVideoFrameRate(fps);
     mr->prepare();
@@ -510,7 +510,7 @@ void SurfaceMediaSourceTest::oneBufferPass(int width, int height ) {
 
     // Fill the buffer with the a checkerboard pattern
     uint8_t* img = NULL;
-    sp<GraphicBuffer> buf(new GraphicBuffer(anb, false));
+    sp<GraphicBuffer> buf(GraphicBuffer::from(anb));
     buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**)(&img));
     SurfaceMediaSourceTest::fillYV12Buffer(img, width, height, buf->getStride());
     buf->unlock();
@@ -527,7 +527,7 @@ void SurfaceMediaSourceTest::oneBufferPassNoFill(
     ASSERT_TRUE(anb != NULL);
 
     // We do not fill the buffer in. Just queue it back.
-    sp<GraphicBuffer> buf(new GraphicBuffer(anb, false));
+    sp<GraphicBuffer> buf(GraphicBuffer::from(anb));
     ASSERT_EQ(NO_ERROR, mANW->queueBuffer(mANW.get(), buf->getNativeBuffer(),
             -1));
 }
@@ -593,7 +593,7 @@ void SurfaceMediaSourceTest::fillYV12BufferRect(uint8_t* buf, int w,
 struct SimpleDummyRecorder {
         sp<MediaSource> mSource;
 
-        SimpleDummyRecorder
+        explicit SimpleDummyRecorder
                 (const sp<MediaSource> &source): mSource(source) {}
 
         status_t start() { return mSource->start();}

@@ -67,7 +67,7 @@ extern int mls;
 /* Takes base, some number of modules, links them, and expands them
    reads source from myfiles array, which has the base string followed by
    each module string */
-int expander_policy_init(policydb_t * mybase, int num_modules, policydb_t ** mymodules, policydb_t * myexpanded, char **myfiles)
+int expander_policy_init(policydb_t * mybase, int num_modules, policydb_t ** mymodules, policydb_t * myexpanded, const char *const *myfiles)
 {
 	char *filename[num_modules + 1];
 	int i;
@@ -122,19 +122,22 @@ int expander_policy_init(policydb_t * mybase, int num_modules, policydb_t ** mym
 		return -1;
 	}
 
+	for (i = 0; i < num_modules + 1; i++) {
+		free(filename[i]);
+	}
 	return 0;
 }
 
 int expander_test_init(void)
 {
-	char *small_base_file = "small-base.conf";
-	char *base_only_file = "base-base-only.conf";
+	const char *small_base_file = "small-base.conf";
+	const char *base_only_file = "base-base-only.conf";
 	int rc;
 	policydb_t *mymod2;
-	char *files2[] = { "small-base.conf", "module.conf" };
-	char *role_files[] = { "role-base.conf", "role-module.conf" };
-	char *user_files[] = { "user-base.conf", "user-module.conf" };
-	char *alias_files[] = { "alias-base.conf", "alias-module.conf" };
+	const char *files2[] = { "small-base.conf", "module.conf" };
+	const char *role_files[] = { "role-base.conf", "role-module.conf" };
+	const char *user_files[] = { "user-base.conf", "user-module.conf" };
+	const char *alias_files[] = { "alias-base.conf", "alias-module.conf" };
 
 	rc = expander_policy_init(&basemod, 0, NULL, &base_expanded, &small_base_file);
 	if (rc != 0)
@@ -173,6 +176,20 @@ int expander_test_cleanup(void)
 {
 	policydb_destroy(&basemod);
 	policydb_destroy(&base_expanded);
+	policydb_destroy(&basemod2);
+	policydb_destroy(&base_expanded2);
+	policydb_destroy(&mod2);
+	policydb_destroy(&base_only_mod);
+	policydb_destroy(&base_only_expanded);
+	policydb_destroy(&role_basemod);
+	policydb_destroy(&role_expanded);
+	policydb_destroy(&role_mod);
+	policydb_destroy(&user_basemod);
+	policydb_destroy(&user_expanded);
+	policydb_destroy(&user_mod);
+	policydb_destroy(&alias_basemod);
+	policydb_destroy(&alias_expanded);
+	policydb_destroy(&alias_mod);
 	free(typemap);
 
 	return 0;

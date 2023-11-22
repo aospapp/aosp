@@ -16,21 +16,26 @@
 
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.SparseBooleanArray;
 
-public class SparseBooleanArrayTest extends AndroidTestCase {
-    private static final int[] KEYS   = {12, 23, 4, 6, 8, 1, 3, -12, 0, -3, 11, 14, -23};
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SparseBooleanArrayTest {
+    private static final int[] KEYS = {12, 23, 4, 6, 8, 1, 3, -12, 0, -3, 11, 14, -23};
     private static final boolean[] VALUES =
-        {true,  false, true, false, false, true, true, true, true, false, false, false, false};
+        {true, false, true, false, false, true, true, true, true, false, false, false, false};
     private static final int NON_EXISTED_KEY = 123;
     private static final boolean VALUE_FOR_NON_EXISTED_KEY = true;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
+    @Test
     public void testSparseBooleanArrayWithDefaultCapacity() {
         SparseBooleanArray sparseBooleanArray = new SparseBooleanArray();
         assertEquals(0, sparseBooleanArray.size());
@@ -87,6 +92,7 @@ public class SparseBooleanArrayTest extends AndroidTestCase {
         assertEquals(0, sparseBooleanArray.size());
     }
 
+    @Test
     public void testSparseBooleanArrayWithSpecifiedCapacity() {
         SparseBooleanArray sparseBooleanArray = new SparseBooleanArray(5);
         assertEquals(0, sparseBooleanArray.size());
@@ -143,6 +149,7 @@ public class SparseBooleanArrayTest extends AndroidTestCase {
         assertEquals(0, sparseBooleanArray.size());
     }
 
+    @Test
     public void testIterationOrder() {
         SparseBooleanArray sparseArray = new SparseBooleanArray();
         // No matter in which order they are inserted.

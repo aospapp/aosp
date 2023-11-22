@@ -522,18 +522,6 @@ def BuildCtsTemporarilyKnownFailureList():
           'android.alarmclock.cts.SetAlarmTest#testAll',
           'android.alarmclock.cts.SnoozeAlarmTest#testAll',
       ],
-      'android.assist' : [
-          'android.assist.cts.AssistantContentViewTest',
-          'android.assist.cts.ExtraAssistDataTest',
-          'android.assist.cts.FocusChangeTest',
-          'android.assist.cts.LargeViewHierarchyTest',
-          'android.assist.cts.ScreenshotTest',
-          'android.assist.cts.TextViewTest',
-          'android.assist.cts.WebViewTest',
-      ],
-      'android.calllog' : [
-          'android.calllog.cts.CallLogBackupTest#testSingleCallBackup',
-      ],
       'android.dumpsys' : [
           'android.dumpsys.cts.DumpsysHostTest#testBatterystatsOutput',
           'android.dumpsys.cts.DumpsysHostTest#testGfxinfoFramestats',

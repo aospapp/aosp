@@ -26,13 +26,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.system.ErrnoException;
+import android.system.Os;
 import android.system.OsConstants;
-import junit.framework.TestCase;
+import android.system.StructStatVfs;
+import android.util.MutableInt;
 
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public final class FileInputStreamTest extends TestCase {
+public final class FileInputStreamTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
+
     private static final int TOTAL_SIZE = 1024;
     private static final int SKIP_SIZE = 100;
 
@@ -204,10 +213,22 @@ public final class FileInputStreamTest extends TestCase {
     }
 
     // http://b/26117827
-    public void testReadProcVersion() throws IOException {
-        File file = new File("/proc/version");
-        FileInputStream input = new FileInputStream(file);
-        assertTrue(input.available() == 0);
+    //
+    // Return 0 (the conservative estimate) for files for which ioctl is not implemented.
+    public void test_available_on_nonIOCTL_supported_file() throws Exception {
+        File file = new File("/dev/zero");
+        try (FileInputStream input = new FileInputStream(file)) {
+            assertEquals(0, input.available());
+        }
+
+        try (FileInputStream input = new FileInputStream(file)) {
+            android.system.Os.ioctlInt(input.getFD(), OsConstants.FIONREAD, new MutableInt(0));
+            fail();
+        } catch (ErrnoException expected) {
+            assertEquals("FIONREAD should have returned ENOTTY for the file. If it doesn't return"
+                    + " FIONREAD, the test is no longer valid.", OsConstants.ENOTTY,
+                    expected.errno);
+        }
     }
 
     // http://b/25695227
@@ -226,23 +247,49 @@ public final class FileInputStreamTest extends TestCase {
     // http://b/28192631
     public void testSkipOnLargeFiles() throws Exception {
         File largeFile = File.createTempFile("FileInputStreamTest_testSkipOnLargeFiles", "");
-        FileOutputStream fos = new FileOutputStream(largeFile);
+        // Required space is 3.1 GB: 3GB for file plus 100M headroom.
+        final long requiredFreeSpaceBytes = 3172L * 1024 * 1024;
+        long fileSize = 3 * 1024L * 1024 * 1024; // 3 GiB
+        // If system doesn't have enough space free for this test, skip it.
+        final StructStatVfs statVfs = Os.statvfs(largeFile.getPath());
+        final long freeSpaceAvailableBytes = statVfs.f_bsize * statVfs.f_bavail;
+        if (freeSpaceAvailableBytes < requiredFreeSpaceBytes) {
+            return;
+        }
         try {
-            byte[] buffer = new byte[1024 * 1024]; // 1 MB
-            for (int i = 0; i < 3 * 1024; i++) { // 3 GB
-                fos.write(buffer);
+            allocateEmptyFile(largeFile, fileSize);
+            assertEquals(fileSize, largeFile.length());
+            try (FileInputStream fis = new FileInputStream(largeFile)) {
+                long lastByte = fileSize - 1;
+                assertEquals(0, Libcore.os.lseek(fis.getFD(), 0, OsConstants.SEEK_CUR));
+                assertEquals(lastByte, fis.skip(lastByte));
             }
         } finally {
-            fos.close();
+            // Proactively cleanup - it's a pretty large file.
+            assertTrue(largeFile.delete());
         }
+    }
 
-        FileInputStream fis = new FileInputStream(largeFile);
-        long lastByte = 3 * 1024 * 1024 * 1024L - 1;
-        assertEquals(0, Libcore.os.lseek(fis.getFD(), 0, OsConstants.SEEK_CUR));
-        assertEquals(lastByte, fis.skip(lastByte));
-
-        // Proactively cleanup - it's a pretty large file.
-        assertTrue(largeFile.delete());
+    /**
+     * Allocates a file to the specified size using fallocate, falling back to ftruncate.
+     */
+    private static void allocateEmptyFile(File file, long fileSize)
+            throws IOException, InterruptedException {
+        // fallocate is much faster than ftruncate (<<1sec rather than 24sec for 3 GiB on Nexus 6P)
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            try {
+                Os.posix_fallocate(fos.getFD(), 0, fileSize);
+                return;
+            } catch (ErrnoException e) {
+                // Fall back to ftruncate, which works on all filesystems but is slower
+            }
+        }
+        // Need to reopen the file to get a valid FileDescriptor
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            Os.ftruncate(fos.getFD(), fileSize);
+        } catch (ErrnoException e2) {
+            throw new IOException("Failed to truncate: " + file, e2);
+        }
     }
 
     private static List<Integer> getOpenFdsForPrefix(String path) throws Exception {

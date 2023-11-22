@@ -16,10 +16,16 @@
 
 package android.os.cts;
 
+import android.content.res.AssetManager;
 import android.os.Build;
 import android.platform.test.annotations.RestrictedBuildTest;
+import android.support.test.InstrumentationRegistry;
 import android.util.Log;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -29,17 +35,16 @@ import junit.framework.TestCase;
 public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
-    private static final Set<String> EXPECTED_RELEASES =
-            new HashSet<String>(Arrays.asList("7.1"));
-    private static final int EXPECTED_SDK = 25;
+    private static final int EXPECTED_SDK = 26;
     private static final String EXPECTED_BUILD_VARIANT = "user";
     private static final String EXPECTED_TAG = "release-keys";
+    private static final String PLATFORM_VERSIONS_FILE = "platform_versions.txt";
 
     @SuppressWarnings("deprecation")
     @RestrictedBuildTest
     public void testReleaseVersion() {
         // Applications may rely on the exact release version
-        assertAnyOf("BUILD.VERSION.RELEASE", Build.VERSION.RELEASE, EXPECTED_RELEASES);
+        assertAnyOf("BUILD.VERSION.RELEASE", Build.VERSION.RELEASE, getExpectedReleases());
         assertEquals("Build.VERSION.SDK", "" + EXPECTED_SDK, Build.VERSION.SDK);
         assertEquals("Build.VERSION.SDK_INT", EXPECTED_SDK, Build.VERSION.SDK_INT);
     }
@@ -93,5 +98,21 @@ public class BuildVersionTest extends TestCase {
              fail("For: " + label + ", the value: " + actualValue +
                      ", should be one of: " + permittedValues);
         }
+    }
+
+    private Set<String> getExpectedReleases() {
+        Set<String> expectedReleases = new HashSet<String>();
+        final AssetManager assets =
+                InstrumentationRegistry.getInstrumentation().getTargetContext().getAssets();
+        String line;
+        try (BufferedReader br =
+                new BufferedReader(new InputStreamReader(assets.open(PLATFORM_VERSIONS_FILE)))) {
+            while ((line = br.readLine()) != null) {
+                expectedReleases.add(line);
+            }
+        } catch (IOException e) {
+            fail("Could not open file " + PLATFORM_VERSIONS_FILE + " to run test");
+        }
+        return expectedReleases;
     }
 }

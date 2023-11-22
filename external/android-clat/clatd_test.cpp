@@ -379,12 +379,12 @@ void check_data_matches(const void *expected, const void *actual, size_t len, co
     unsigned pos = 0;
     for (unsigned i = 0; i < len; i++) {
       if (i % 20 == 0) {
-        sprintf(expected_hexdump + pos, "\n   ");
-        sprintf(actual_hexdump + pos, "\n   ");
+        snprintf(expected_hexdump + pos, hexdump_len - pos, "\n   ");
+        snprintf(actual_hexdump + pos, hexdump_len - pos, "\n   ");
         pos += 4;
       }
-      sprintf(expected_hexdump + pos, " %02x", ((uint8_t *) expected)[i]);
-      sprintf(actual_hexdump + pos, " %02x", ((uint8_t *) actual)[i]);
+      snprintf(expected_hexdump + pos, hexdump_len - pos, " %02x", ((uint8_t *) expected)[i]);
+      snprintf(actual_hexdump + pos, hexdump_len - pos, " %02x", ((uint8_t *) actual)[i]);
       pos += 3;
     }
     FAIL() << msg << ": Data doesn't match"

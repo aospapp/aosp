@@ -19,27 +19,72 @@
 #include "arch/quick_alloc_entrypoints.S"
 
 
+.macro INCREASE_FRAME frame_adjustment
+    sub sp, sp, #(\frame_adjustment)
+    .cfi_adjust_cfa_offset (\frame_adjustment)
+.endm
+
+.macro DECREASE_FRAME frame_adjustment
+    add sp, sp, #(\frame_adjustment)
+    .cfi_adjust_cfa_offset -(\frame_adjustment)
+.endm
+
+.macro SAVE_REG reg, offset
+    str \reg, [sp, #(\offset)]
+    .cfi_rel_offset \reg, (\offset)
+.endm
+
+.macro RESTORE_REG reg, offset
+    ldr \reg, [sp, #(\offset)]
+    .cfi_restore \reg
+.endm
+
+.macro SAVE_TWO_REGS reg1, reg2, offset
+    stp \reg1, \reg2, [sp, #(\offset)]
+    .cfi_rel_offset \reg1, (\offset)
+    .cfi_rel_offset \reg2, (\offset) + 8
+.endm
+
+.macro RESTORE_TWO_REGS reg1, reg2, offset
+    ldp \reg1, \reg2, [sp, #(\offset)]
+    .cfi_restore \reg1
+    .cfi_restore \reg2
+.endm
+
+.macro SAVE_TWO_REGS_INCREASE_FRAME reg1, reg2, frame_adjustment
+    stp \reg1, \reg2, [sp, #-(\frame_adjustment)]!
+    .cfi_adjust_cfa_offset (\frame_adjustment)
+    .cfi_rel_offset \reg1, 0
+    .cfi_rel_offset \reg2, 8
+.endm
+
+.macro RESTORE_TWO_REGS_DECREASE_FRAME reg1, reg2, frame_adjustment
+    ldp \reg1, \reg2, [sp], #(\frame_adjustment)
+    .cfi_restore \reg1
+    .cfi_restore \reg2
+    .cfi_adjust_cfa_offset -(\frame_adjustment)
+.endm
+
     /*
      * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kSaveAll)
+     * Runtime::CreateCalleeSaveMethod(kSaveAllCalleeSaves)
      */
-.macro SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
+.macro SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
+    // art::Runtime** xIP0 = &art::Runtime::instance_
     adrp xIP0, :got:_ZN3art7Runtime9instance_E
     ldr xIP0, [xIP0, #:got_lo12:_ZN3art7Runtime9instance_E]
 
     // Our registers aren't intermixed - just spill in order.
-    ldr xIP0, [xIP0]  // xIP0 = & (art::Runtime * art::Runtime.instance_) .
+    ldr xIP0, [xIP0]  // art::Runtime* xIP0 = art::Runtime::instance_;
 
-    // xIP0 = (ArtMethod*) Runtime.instance_.callee_save_methods[kRefAndArgs]  .
-    // Loads appropriate callee-save-method.
-    ldr xIP0, [xIP0, RUNTIME_SAVE_ALL_CALLEE_SAVE_FRAME_OFFSET ]
+    // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveAllCalleeSaves];
+    ldr xIP0, [xIP0, RUNTIME_SAVE_ALL_CALLEE_SAVES_METHOD_OFFSET]
 
-    sub sp, sp, #176
-    .cfi_adjust_cfa_offset 176
+    INCREASE_FRAME 176
 
     // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_SAVE_ALL_CALLEE_SAVE != 176)
-#error "SAVE_ALL_CALLEE_SAVE_FRAME(ARM64) size not as expected."
+#if (FRAME_SIZE_SAVE_ALL_CALLEE_SAVES != 176)
+#error "FRAME_SIZE_SAVE_ALL_CALLEE_SAVES(ARM64) size not as expected."
 #endif
 
     // Stack alignment filler [sp, #8].
@@ -50,31 +95,14 @@
     stp d14, d15, [sp, #64]
 
     // GP callee-saves
-    stp x19, x20, [sp, #80]
-    .cfi_rel_offset x19, 80
-    .cfi_rel_offset x20, 88
+    SAVE_TWO_REGS x19, x20, 80
+    SAVE_TWO_REGS x21, x22, 96
+    SAVE_TWO_REGS x23, x24, 112
+    SAVE_TWO_REGS x25, x26, 128
+    SAVE_TWO_REGS x27, x28, 144
+    SAVE_TWO_REGS x29, xLR, 160
 
-    stp x21, x22, [sp, #96]
-    .cfi_rel_offset x21, 96
-    .cfi_rel_offset x22, 104
-
-    stp x23, x24, [sp, #112]
-    .cfi_rel_offset x23, 112
-    .cfi_rel_offset x24, 120
-
-    stp x25, x26, [sp, #128]
-    .cfi_rel_offset x25, 128
-    .cfi_rel_offset x26, 136
-
-    stp x27, x28, [sp, #144]
-    .cfi_rel_offset x27, 144
-    .cfi_rel_offset x28, 152
-
-    stp x29, xLR, [sp, #160]
-    .cfi_rel_offset x29, 160
-    .cfi_rel_offset x30, 168
-
-    // Store ArtMethod* Runtime::callee_save_methods_[kRefsAndArgs].
+    // Store ArtMethod* Runtime::callee_save_methods_[kSaveAllCalleeSaves].
     str xIP0, [sp]
     // Place sp in Thread::Current()->top_quick_frame.
     mov xIP0, sp
@@ -83,50 +111,35 @@
 
     /*
      * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kRefsOnly).
+     * Runtime::CreateCalleeSaveMethod(kSaveRefsOnly).
      */
-.macro SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+.macro SETUP_SAVE_REFS_ONLY_FRAME
+    // art::Runtime** xIP0 = &art::Runtime::instance_
     adrp xIP0, :got:_ZN3art7Runtime9instance_E
     ldr xIP0, [xIP0, #:got_lo12:_ZN3art7Runtime9instance_E]
 
     // Our registers aren't intermixed - just spill in order.
-    ldr xIP0, [xIP0]  // xIP0 = & (art::Runtime * art::Runtime.instance_) .
+    ldr xIP0, [xIP0]  // art::Runtime* xIP0 = art::Runtime::instance_;
 
-    // xIP0 = (ArtMethod*) Runtime.instance_.callee_save_methods[kRefOnly]  .
-    // Loads appropriate callee-save-method.
-    ldr xIP0, [xIP0, RUNTIME_REFS_ONLY_CALLEE_SAVE_FRAME_OFFSET ]
+    // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveRefOnly];
+    ldr xIP0, [xIP0, RUNTIME_SAVE_REFS_ONLY_METHOD_OFFSET]
 
-    sub sp, sp, #96
-    .cfi_adjust_cfa_offset 96
+    INCREASE_FRAME 96
 
     // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_REFS_ONLY_CALLEE_SAVE != 96)
-#error "REFS_ONLY_CALLEE_SAVE_FRAME(ARM64) size not as expected."
+#if (FRAME_SIZE_SAVE_REFS_ONLY != 96)
+#error "FRAME_SIZE_SAVE_REFS_ONLY(ARM64) size not as expected."
 #endif
 
     // GP callee-saves.
     // x20 paired with ArtMethod* - see below.
-    stp x21, x22, [sp, #16]
-    .cfi_rel_offset x21, 16
-    .cfi_rel_offset x22, 24
+    SAVE_TWO_REGS x21, x22, 16
+    SAVE_TWO_REGS x23, x24, 32
+    SAVE_TWO_REGS x25, x26, 48
+    SAVE_TWO_REGS x27, x28, 64
+    SAVE_TWO_REGS x29, xLR, 80
 
-    stp x23, x24, [sp, #32]
-    .cfi_rel_offset x23, 32
-    .cfi_rel_offset x24, 40
-
-    stp x25, x26, [sp, #48]
-    .cfi_rel_offset x25, 48
-    .cfi_rel_offset x26, 56
-
-    stp x27, x28, [sp, #64]
-    .cfi_rel_offset x27, 64
-    .cfi_rel_offset x28, 72
-
-    stp x29, xLR, [sp, #80]
-    .cfi_rel_offset x29, 80
-    .cfi_rel_offset x30, 88
-
-    // Store ArtMethod* Runtime::callee_save_methods_[kRefsOnly].
+    // Store ArtMethod* Runtime::callee_save_methods_[kSaveRefsOnly].
     stp xIP0, x20, [sp]
     .cfi_rel_offset x20, 8
 
@@ -136,53 +149,34 @@
 .endm
 
 // TODO: Probably no need to restore registers preserved by aapcs64.
-.macro RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+.macro RESTORE_SAVE_REFS_ONLY_FRAME
     // Callee-saves.
-    ldr x20, [sp, #8]
-    .cfi_restore x20
+    RESTORE_REG x20, 8
+    RESTORE_TWO_REGS x21, x22, 16
+    RESTORE_TWO_REGS x23, x24, 32
+    RESTORE_TWO_REGS x25, x26, 48
+    RESTORE_TWO_REGS x27, x28, 64
+    RESTORE_TWO_REGS x29, xLR, 80
 
-    ldp x21, x22, [sp, #16]
-    .cfi_restore x21
-    .cfi_restore x22
-
-    ldp x23, x24, [sp, #32]
-    .cfi_restore x23
-    .cfi_restore x24
-
-    ldp x25, x26, [sp, #48]
-    .cfi_restore x25
-    .cfi_restore x26
-
-    ldp x27, x28, [sp, #64]
-    .cfi_restore x27
-    .cfi_restore x28
-
-    ldp x29, xLR, [sp, #80]
-    .cfi_restore x29
-    .cfi_restore x30
-
-    add sp, sp, #96
-    .cfi_adjust_cfa_offset -96
+    DECREASE_FRAME 96
 .endm
 
-.macro POP_REFS_ONLY_CALLEE_SAVE_FRAME
-    add sp, sp, #96
-    .cfi_adjust_cfa_offset - 96
+.macro POP_SAVE_REFS_ONLY_FRAME
+    DECREASE_FRAME 96
 .endm
 
-.macro RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME_AND_RETURN
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+.macro RESTORE_SAVE_REFS_ONLY_FRAME_AND_RETURN
+    RESTORE_SAVE_REFS_ONLY_FRAME
     ret
 .endm
 
 
-.macro SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_INTERNAL
-    sub sp, sp, #224
-    .cfi_adjust_cfa_offset 224
+.macro SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL
+    INCREASE_FRAME 224
 
     // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE != 224)
-#error "REFS_AND_ARGS_CALLEE_SAVE_FRAME(ARM64) size not as expected."
+#if (FRAME_SIZE_SAVE_REFS_AND_ARGS != 224)
+#error "FRAME_SIZE_SAVE_REFS_AND_ARGS(ARM64) size not as expected."
 #endif
 
     // Stack alignment filler [sp, #8].
@@ -193,72 +187,49 @@
     stp d6, d7, [sp, #64]
 
     // Core args.
-    stp x1, x2, [sp, #80]
-    .cfi_rel_offset x1, 80
-    .cfi_rel_offset x2, 88
-
-    stp x3, x4, [sp, #96]
-    .cfi_rel_offset x3, 96
-    .cfi_rel_offset x4, 104
-
-    stp x5, x6, [sp, #112]
-    .cfi_rel_offset x5, 112
-    .cfi_rel_offset x6, 120
+    SAVE_TWO_REGS x1, x2, 80
+    SAVE_TWO_REGS x3, x4, 96
+    SAVE_TWO_REGS x5, x6, 112
 
     // x7, Callee-saves.
-    stp x7, x20, [sp, #128]
-    .cfi_rel_offset x7, 128
-    .cfi_rel_offset x20, 136
-
-    stp x21, x22, [sp, #144]
-    .cfi_rel_offset x21, 144
-    .cfi_rel_offset x22, 152
-
-    stp x23, x24, [sp, #160]
-    .cfi_rel_offset x23, 160
-    .cfi_rel_offset x24, 168
-
-    stp x25, x26, [sp, #176]
-    .cfi_rel_offset x25, 176
-    .cfi_rel_offset x26, 184
-
-    stp x27, x28, [sp, #192]
-    .cfi_rel_offset x27, 192
-    .cfi_rel_offset x28, 200
+    SAVE_TWO_REGS x7, x20, 128
+    SAVE_TWO_REGS x21, x22, 144
+    SAVE_TWO_REGS x23, x24, 160
+    SAVE_TWO_REGS x25, x26, 176
+    SAVE_TWO_REGS x27, x28, 192
 
     // x29(callee-save) and LR.
-    stp x29, xLR, [sp, #208]
-    .cfi_rel_offset x29, 208
-    .cfi_rel_offset x30, 216
+    SAVE_TWO_REGS x29, xLR, 208
 
 .endm
 
     /*
      * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kRefsAndArgs).
+     * Runtime::CreateCalleeSaveMethod(kSaveRefsAndArgs).
      *
      * TODO This is probably too conservative - saving FP & LR.
      */
-.macro SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+.macro SETUP_SAVE_REFS_AND_ARGS_FRAME
+    // art::Runtime** xIP0 = &art::Runtime::instance_
     adrp xIP0, :got:_ZN3art7Runtime9instance_E
     ldr xIP0, [xIP0, #:got_lo12:_ZN3art7Runtime9instance_E]
 
     // Our registers aren't intermixed - just spill in order.
-    ldr xIP0, [xIP0]  // xIP0 = & (art::Runtime * art::Runtime.instance_) .
+    ldr xIP0, [xIP0]  // art::Runtime* xIP0 = art::Runtime::instance_;
 
-    // xIP0 = (ArtMethod*) Runtime.instance_.callee_save_methods[kRefAndArgs]  .
-    ldr xIP0, [xIP0, RUNTIME_REFS_AND_ARGS_CALLEE_SAVE_FRAME_OFFSET ]
+    // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveRefAndArgs];
+    ldr xIP0, [xIP0, RUNTIME_SAVE_REFS_AND_ARGS_METHOD_OFFSET]
 
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_INTERNAL
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL
 
-    str xIP0, [sp]    // Store ArtMethod* Runtime::callee_save_methods_[kRefsAndArgs]
+    str xIP0, [sp]    // Store ArtMethod* Runtime::callee_save_methods_[kSaveRefsAndArgs].
     // Place sp in Thread::Current()->top_quick_frame.
     mov xIP0, sp
     str xIP0, [xSELF, # THREAD_TOP_QUICK_FRAME_OFFSET]
 .endm
 
-.macro SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_X0
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_INTERNAL
+.macro SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_X0
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_INTERNAL
     str x0, [sp, #0]  // Store ArtMethod* to bottom of stack.
     // Place sp in Thread::Current()->top_quick_frame.
     mov xIP0, sp
@@ -266,7 +237,7 @@
 .endm
 
 // TODO: Probably no need to restore registers preserved by aapcs64.
-.macro RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+.macro RESTORE_SAVE_REFS_AND_ARGS_FRAME
     // FP args.
     ldp d0, d1, [sp, #16]
     ldp d2, d3, [sp, #32]
@@ -274,46 +245,142 @@
     ldp d6, d7, [sp, #64]
 
     // Core args.
-    ldp x1, x2, [sp, #80]
-    .cfi_restore x1
-    .cfi_restore x2
-
-    ldp x3, x4, [sp, #96]
-    .cfi_restore x3
-    .cfi_restore x4
-
-    ldp x5, x6, [sp, #112]
-    .cfi_restore x5
-    .cfi_restore x6
+    RESTORE_TWO_REGS x1, x2, 80
+    RESTORE_TWO_REGS x3, x4, 96
+    RESTORE_TWO_REGS x5, x6, 112
 
     // x7, Callee-saves.
-    ldp x7, x20, [sp, #128]
-    .cfi_restore x7
-    .cfi_restore x20
-
-    ldp x21, x22, [sp, #144]
-    .cfi_restore x21
-    .cfi_restore x22
-
-    ldp x23, x24, [sp, #160]
-    .cfi_restore x23
-    .cfi_restore x24
-
-    ldp x25, x26, [sp, #176]
-    .cfi_restore x25
-    .cfi_restore x26
-
-    ldp x27, x28, [sp, #192]
-    .cfi_restore x27
-    .cfi_restore x28
+    RESTORE_TWO_REGS x7, x20, 128
+    RESTORE_TWO_REGS x21, x22, 144
+    RESTORE_TWO_REGS x23, x24, 160
+    RESTORE_TWO_REGS x25, x26, 176
+    RESTORE_TWO_REGS x27, x28, 192
 
     // x29(callee-save) and LR.
-    ldp x29, xLR, [sp, #208]
-    .cfi_restore x29
-    .cfi_restore x30
+    RESTORE_TWO_REGS x29, xLR, 208
 
-    add sp, sp, #224
-    .cfi_adjust_cfa_offset -224
+    DECREASE_FRAME 224
+.endm
+
+    /*
+     * Macro that sets up the callee save frame to conform with
+     * Runtime::CreateCalleeSaveMethod(kSaveEverything)
+     * when the SP has already been decremented by FRAME_SIZE_SAVE_EVERYTHING
+     * and saving registers x29 and LR is handled elsewhere.
+     */
+.macro SETUP_SAVE_EVERYTHING_FRAME_DECREMENTED_SP_SKIP_X29_LR
+    // Ugly compile-time check, but we only have the preprocessor.
+#if (FRAME_SIZE_SAVE_EVERYTHING != 512)
+#error "FRAME_SIZE_SAVE_EVERYTHING(ARM64) size not as expected."
+#endif
+
+    // Save FP registers.
+    // For better performance, store d0 and d31 separately, so that all STPs are 16-byte aligned.
+    str d0,       [sp, #8]
+    stp d1, d2,   [sp, #16]
+    stp d3, d4,   [sp, #32]
+    stp d5, d6,   [sp, #48]
+    stp d7, d8,   [sp, #64]
+    stp d9, d10,  [sp, #80]
+    stp d11, d12, [sp, #96]
+    stp d13, d14, [sp, #112]
+    stp d15, d16, [sp, #128]
+    stp d17, d18, [sp, #144]
+    stp d19, d20, [sp, #160]
+    stp d21, d22, [sp, #176]
+    stp d23, d24, [sp, #192]
+    stp d25, d26, [sp, #208]
+    stp d27, d28, [sp, #224]
+    stp d29, d30, [sp, #240]
+    str d31,      [sp, #256]
+
+    // Save core registers.
+    SAVE_REG            x0, 264
+    SAVE_TWO_REGS  x1,  x2, 272
+    SAVE_TWO_REGS  x3,  x4, 288
+    SAVE_TWO_REGS  x5,  x6, 304
+    SAVE_TWO_REGS  x7,  x8, 320
+    SAVE_TWO_REGS  x9, x10, 336
+    SAVE_TWO_REGS x11, x12, 352
+    SAVE_TWO_REGS x13, x14, 368
+    SAVE_TWO_REGS x15, x16, 384
+    SAVE_TWO_REGS x17, x18, 400
+    SAVE_TWO_REGS x19, x20, 416
+    SAVE_TWO_REGS x21, x22, 432
+    SAVE_TWO_REGS x23, x24, 448
+    SAVE_TWO_REGS x25, x26, 464
+    SAVE_TWO_REGS x27, x28, 480
+
+    // art::Runtime** xIP0 = &art::Runtime::instance_
+    adrp xIP0, :got:_ZN3art7Runtime9instance_E
+    ldr xIP0, [xIP0, #:got_lo12:_ZN3art7Runtime9instance_E]
+
+    ldr xIP0, [xIP0]  // art::Runtime* xIP0 = art::Runtime::instance_;
+
+    // ArtMethod* xIP0 = Runtime::instance_->callee_save_methods_[kSaveEverything];
+    ldr xIP0, [xIP0, RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET]
+
+    // Store ArtMethod* Runtime::callee_save_methods_[kSaveEverything].
+    str xIP0, [sp]
+    // Place sp in Thread::Current()->top_quick_frame.
+    mov xIP0, sp
+    str xIP0, [xSELF, # THREAD_TOP_QUICK_FRAME_OFFSET]
+.endm
+
+    /*
+     * Macro that sets up the callee save frame to conform with
+     * Runtime::CreateCalleeSaveMethod(kSaveEverything)
+     */
+.macro SETUP_SAVE_EVERYTHING_FRAME
+    INCREASE_FRAME 512
+    SAVE_TWO_REGS x29, xLR, 496
+    SETUP_SAVE_EVERYTHING_FRAME_DECREMENTED_SP_SKIP_X29_LR
+.endm
+
+.macro RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
+    // Restore FP registers.
+    // For better performance, load d0 and d31 separately, so that all LDPs are 16-byte aligned.
+    ldr d0,       [sp, #8]
+    ldp d1, d2,   [sp, #16]
+    ldp d3, d4,   [sp, #32]
+    ldp d5, d6,   [sp, #48]
+    ldp d7, d8,   [sp, #64]
+    ldp d9, d10,  [sp, #80]
+    ldp d11, d12, [sp, #96]
+    ldp d13, d14, [sp, #112]
+    ldp d15, d16, [sp, #128]
+    ldp d17, d18, [sp, #144]
+    ldp d19, d20, [sp, #160]
+    ldp d21, d22, [sp, #176]
+    ldp d23, d24, [sp, #192]
+    ldp d25, d26, [sp, #208]
+    ldp d27, d28, [sp, #224]
+    ldp d29, d30, [sp, #240]
+    ldr d31,      [sp, #256]
+
+    // Restore core registers.
+    RESTORE_TWO_REGS  x1,  x2, 272
+    RESTORE_TWO_REGS  x3,  x4, 288
+    RESTORE_TWO_REGS  x5,  x6, 304
+    RESTORE_TWO_REGS  x7,  x8, 320
+    RESTORE_TWO_REGS  x9, x10, 336
+    RESTORE_TWO_REGS x11, x12, 352
+    RESTORE_TWO_REGS x13, x14, 368
+    RESTORE_TWO_REGS x15, x16, 384
+    RESTORE_TWO_REGS x17, x18, 400
+    RESTORE_TWO_REGS x19, x20, 416
+    RESTORE_TWO_REGS x21, x22, 432
+    RESTORE_TWO_REGS x23, x24, 448
+    RESTORE_TWO_REGS x25, x26, 464
+    RESTORE_TWO_REGS x27, x28, 480
+    RESTORE_TWO_REGS x29, xLR, 496
+
+    DECREASE_FRAME 512
+.endm
+
+.macro RESTORE_SAVE_EVERYTHING_FRAME
+    RESTORE_REG            x0, 264
+    RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
 .endm
 
 .macro RETURN_IF_RESULT_IS_ZERO
@@ -329,16 +396,24 @@
 .endm
 
     /*
-     * Macro that set calls through to artDeliverPendingExceptionFromCode, where the pending
-     * exception is Thread::Current()->exception_
+     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
+     * exception is Thread::Current()->exception_ when the runtime method frame is ready.
      */
-.macro DELIVER_PENDING_EXCEPTION
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
+.macro DELIVER_PENDING_EXCEPTION_FRAME_READY
     mov x0, xSELF
 
     // Point of no return.
-    b artDeliverPendingExceptionFromCode  // artDeliverPendingExceptionFromCode(Thread*)
+    bl artDeliverPendingExceptionFromCode  // artDeliverPendingExceptionFromCode(Thread*)
     brk 0  // Unreached
+.endm
+
+    /*
+     * Macro that calls through to artDeliverPendingExceptionFromCode, where the pending
+     * exception is Thread::Current()->exception_.
+     */
+.macro DELIVER_PENDING_EXCEPTION
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
+    DELIVER_PENDING_EXCEPTION_FRAME_READY
 .endm
 
 .macro RETURN_OR_DELIVER_PENDING_EXCEPTION_REG reg
@@ -368,28 +443,39 @@
 .macro NO_ARG_RUNTIME_EXCEPTION c_name, cxx_name
     .extern \cxx_name
 ENTRY \c_name
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME // save all registers as basis for long jump context
     mov x0, xSELF                     // pass Thread::Current
-    b   \cxx_name                     // \cxx_name(Thread*)
+    bl  \cxx_name                     // \cxx_name(Thread*)
+    brk 0
+END \c_name
+.endm
+
+.macro NO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING c_name, cxx_name
+    .extern \cxx_name
+ENTRY \c_name
+    SETUP_SAVE_EVERYTHING_FRAME       // save all registers as basis for long jump context
+    mov x0, xSELF                     // pass Thread::Current
+    bl  \cxx_name                     // \cxx_name(Thread*)
+    brk 0
 END \c_name
 .endm
 
 .macro ONE_ARG_RUNTIME_EXCEPTION c_name, cxx_name
     .extern \cxx_name
 ENTRY \c_name
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context.
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME // save all registers as basis for long jump context.
     mov x1, xSELF                     // pass Thread::Current.
-    b   \cxx_name                     // \cxx_name(arg, Thread*).
+    bl  \cxx_name                     // \cxx_name(arg, Thread*).
     brk 0
 END \c_name
 .endm
 
-.macro TWO_ARG_RUNTIME_EXCEPTION c_name, cxx_name
+.macro TWO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING c_name, cxx_name
     .extern \cxx_name
 ENTRY \c_name
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
+    SETUP_SAVE_EVERYTHING_FRAME       // save all registers as basis for long jump context
     mov x2, xSELF                     // pass Thread::Current
-    b   \cxx_name                     // \cxx_name(arg1, arg2, Thread*)
+    bl  \cxx_name                     // \cxx_name(arg1, arg2, Thread*)
     brk 0
 END \c_name
 .endm
@@ -403,28 +489,48 @@ ONE_ARG_RUNTIME_EXCEPTION art_quick_deliver_exception, artDeliverExceptionFromCo
     /*
      * Called by managed code to create and deliver a NullPointerException.
      */
-NO_ARG_RUNTIME_EXCEPTION art_quick_throw_null_pointer_exception, artThrowNullPointerExceptionFromCode
+NO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_null_pointer_exception, artThrowNullPointerExceptionFromCode
+
+    /*
+     * Call installed by a signal handler to create and deliver a NullPointerException.
+     */
+    .extern art_quick_throw_null_pointer_exception_from_signal
+ENTRY art_quick_throw_null_pointer_exception_from_signal
+    // The fault handler pushes the gc map address, i.e. "return address", to stack
+    // and passes the fault address in LR. So we need to set up the CFI info accordingly.
+    .cfi_def_cfa_offset __SIZEOF_POINTER__
+    .cfi_rel_offset lr, 0
+    // Save all registers as basis for long jump context.
+    INCREASE_FRAME (FRAME_SIZE_SAVE_EVERYTHING - __SIZEOF_POINTER__)
+    SAVE_REG x29, (FRAME_SIZE_SAVE_EVERYTHING - 2 * __SIZEOF_POINTER__)  // LR already saved.
+    SETUP_SAVE_EVERYTHING_FRAME_DECREMENTED_SP_SKIP_X29_LR
+    mov x0, lr                        // pass the fault address stored in LR by the fault handler.
+    mov x1, xSELF                     // pass Thread::Current.
+    bl  artThrowNullPointerExceptionFromSignal  // (arg, Thread*).
+    brk 0
+END art_quick_throw_null_pointer_exception_from_signal
 
     /*
      * Called by managed code to create and deliver an ArithmeticException.
      */
-NO_ARG_RUNTIME_EXCEPTION art_quick_throw_div_zero, artThrowDivZeroFromCode
+NO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_div_zero, artThrowDivZeroFromCode
 
     /*
      * Called by managed code to create and deliver an ArrayIndexOutOfBoundsException. Arg1 holds
      * index, arg2 holds limit.
      */
-TWO_ARG_RUNTIME_EXCEPTION art_quick_throw_array_bounds, artThrowArrayBoundsFromCode
+TWO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_array_bounds, artThrowArrayBoundsFromCode
+
+    /*
+     * Called by managed code to create and deliver a StringIndexOutOfBoundsException
+     * as if thrown from a call to String.charAt(). Arg1 holds index, arg2 holds limit.
+     */
+TWO_ARG_RUNTIME_EXCEPTION_SAVE_EVERYTHING art_quick_throw_string_bounds, artThrowStringBoundsFromCode
 
     /*
      * Called by managed code to create and deliver a StackOverflowError.
      */
 NO_ARG_RUNTIME_EXCEPTION art_quick_throw_stack_overflow, artThrowStackOverflowFromCode
-
-    /*
-     * Called by managed code to create and deliver a NoSuchMethodError.
-     */
-ONE_ARG_RUNTIME_EXCEPTION art_quick_throw_no_such_method, artThrowNoSuchMethodFromCode
 
     /*
      * All generated callsites for interface invokes and invocation slow paths will load arguments
@@ -447,7 +553,7 @@ ONE_ARG_RUNTIME_EXCEPTION art_quick_throw_no_such_method, artThrowNoSuchMethodFr
      */
 .macro INVOKE_TRAMPOLINE_BODY cxx_name
     .extern \cxx_name
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME  // save callee saves in case allocation triggers GC
+    SETUP_SAVE_REFS_AND_ARGS_FRAME        // save callee saves in case allocation triggers GC
     // Helper signature is always
     // (method_idx, *this_object, *caller_method, *self, sp)
 
@@ -455,7 +561,7 @@ ONE_ARG_RUNTIME_EXCEPTION art_quick_throw_no_such_method, artThrowNoSuchMethodFr
     mov    x3, sp
     bl     \cxx_name                      // (method_idx, this, Thread*, SP)
     mov    xIP0, x1                       // save Method*->code_
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
     cbz    x0, 1f                         // did we find the target? if not go to exception delivery
     br     xIP0                           // tail call to target
 1:
@@ -1077,15 +1183,13 @@ ENTRY art_quick_lock_object
     add    x4, x0, #MIRROR_OBJECT_LOCK_WORD_OFFSET  // exclusive load/store has no immediate anymore
 .Lretry_lock:
     ldr    w2, [xSELF, #THREAD_ID_OFFSET] // TODO: Can the thread ID really change during the loop?
-    ldxr   w1, [x4]
-    mov    x3, x1
-    and    w3, w3, #LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED  // zero the read barrier bits
+    ldaxr  w1, [x4]                   // acquire needed only in most common case
+    and    w3, w1, #LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED  // zero the gc bits
     cbnz   w3, .Lnot_unlocked         // already thin locked
     // unlocked case - x1: original lock word that's zero except for the read barrier bits.
     orr    x2, x1, x2                 // x2 holds thread id with count of 0 with preserved read barrier bits
     stxr   w3, w2, [x4]
     cbnz   w3, .Llock_stxr_fail       // store failed, retry
-    dmb    ishld                      // full (LoadLoad|LoadStore) memory barrier
     ret
 .Lnot_unlocked:  // x1: original lock word
     lsr    w3, w1, LOCK_WORD_STATE_SHIFT
@@ -1094,10 +1198,9 @@ ENTRY art_quick_lock_object
     uxth   w2, w2                     // zero top 16 bits
     cbnz   w2, .Lslow_lock            // lock word and self thread id's match -> recursive lock
                                       // else contention, go to slow path
-    mov    x3, x1                     // copy the lock word to check count overflow.
-    and    w3, w3, #LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED  // zero the read barrier bits.
+    and    w3, w1, #LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED  // zero the gc bits.
     add    w2, w3, #LOCK_WORD_THIN_LOCK_COUNT_ONE  // increment count in lock word placing in w2 to check overflow
-    lsr    w3, w2, LOCK_WORD_READ_BARRIER_STATE_SHIFT  // if either of the upper two bits (28-29) are set, we overflowed.
+    lsr    w3, w2, #LOCK_WORD_GC_STATE_SHIFT     // if the first gc state bit is set, we overflowed.
     cbnz   w3, .Lslow_lock            // if we overflow the count go slow path
     add    w2, w1, #LOCK_WORD_THIN_LOCK_COUNT_ONE  // increment count for real
     stxr   w3, w2, [x4]
@@ -1106,18 +1209,18 @@ ENTRY art_quick_lock_object
 .Llock_stxr_fail:
     b      .Lretry_lock               // retry
 .Lslow_lock:
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case we block
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case we block
     mov    x1, xSELF                  // pass Thread::Current
     bl     artLockObjectFromCode      // (Object* obj, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     RETURN_IF_W0_IS_ZERO_OR_DELIVER
 END art_quick_lock_object
 
 ENTRY art_quick_lock_object_no_inline
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case we block
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case we block
     mov    x1, xSELF                  // pass Thread::Current
     bl     artLockObjectFromCode      // (Object* obj, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     RETURN_IF_W0_IS_ZERO_OR_DELIVER
 END art_quick_lock_object_no_inline
 
@@ -1140,23 +1243,19 @@ ENTRY art_quick_unlock_object
     lsr    w2, w1, LOCK_WORD_STATE_SHIFT
     cbnz   w2, .Lslow_unlock          // if either of the top two bits are set, go slow path
     ldr    w2, [xSELF, #THREAD_ID_OFFSET]
-    mov    x3, x1                     // copy lock word to check thread id equality
-    and    w3, w3, #LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED  // zero the read barrier bits
+    and    w3, w1, #LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED  // zero the gc bits
     eor    w3, w3, w2                 // lock_word.ThreadId() ^ self->ThreadId()
     uxth   w3, w3                     // zero top 16 bits
     cbnz   w3, .Lslow_unlock          // do lock word and self thread id's match?
-    mov    x3, x1                     // copy lock word to detect transition to unlocked
-    and    w3, w3, #LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED  // zero the read barrier bits
+    and    w3, w1, #LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED  // zero the gc bits
     cmp    w3, #LOCK_WORD_THIN_LOCK_COUNT_ONE
     bpl    .Lrecursive_thin_unlock
     // transition to unlocked
-    mov    x3, x1
-    and    w3, w3, #LOCK_WORD_READ_BARRIER_STATE_MASK  // w3: zero except for the preserved read barrier bits
-    dmb    ish                        // full (LoadStore|StoreStore) memory barrier
+    and    w3, w1, #LOCK_WORD_GC_STATE_MASK_SHIFTED  // w3: zero except for the preserved read barrier bits
 #ifndef USE_READ_BARRIER
-    str    w3, [x4]
+    stlr   w3, [x4]
 #else
-    stxr   w2, w3, [x4]               // Need to use atomic instructions for read barrier
+    stlxr  w2, w3, [x4]               // Need to use atomic instructions for read barrier
     cbnz   w2, .Lunlock_stxr_fail     // store failed, retry
 #endif
     ret
@@ -1170,69 +1269,59 @@ ENTRY art_quick_unlock_object
 #endif
     ret
 .Lunlock_stxr_fail:
-    b      .Lretry_unlock               // retry
+    b      .Lretry_unlock             // retry
 .Lslow_unlock:
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case exception allocation triggers GC
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case exception allocation triggers GC
     mov    x1, xSELF                  // pass Thread::Current
     bl     artUnlockObjectFromCode    // (Object* obj, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     RETURN_IF_W0_IS_ZERO_OR_DELIVER
 END art_quick_unlock_object
 
 ENTRY art_quick_unlock_object_no_inline
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case exception allocation triggers GC
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case exception allocation triggers GC
     mov    x1, xSELF                  // pass Thread::Current
     bl     artUnlockObjectFromCode    // (Object* obj, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     RETURN_IF_W0_IS_ZERO_OR_DELIVER
 END art_quick_unlock_object_no_inline
 
     /*
-     * Entry from managed code that calls artIsAssignableFromCode and on failure calls
-     * artThrowClassCastException.
+     * Entry from managed code that calls artInstanceOfFromCode and on failure calls
+     * artThrowClassCastExceptionForObject.
      */
-    .extern artThrowClassCastException
-ENTRY art_quick_check_cast
+    .extern artInstanceOfFromCode
+    .extern artThrowClassCastExceptionForObject
+ENTRY art_quick_check_instance_of
     // Store arguments and link register
     // Stack needs to be 16B aligned on calls.
-    stp x0, x1, [sp,#-32]!
-    .cfi_adjust_cfa_offset 32
-    .cfi_rel_offset x0, 0
-    .cfi_rel_offset x1, 8
-    str xLR, [sp, #24]
-    .cfi_rel_offset x30, 24
+    SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 32
+    SAVE_REG xLR, 24
 
     // Call runtime code
-    bl artIsAssignableFromCode
+    bl artInstanceOfFromCode
 
     // Check for exception
     cbz x0, .Lthrow_class_cast_exception
 
     // Restore and return
-    ldr xLR, [sp, #24]
-    .cfi_restore x30
-    ldp x0, x1, [sp], #32
-    .cfi_restore x0
-    .cfi_restore x1
-    .cfi_adjust_cfa_offset -32
+    .cfi_remember_state
+    RESTORE_REG xLR, 24
+    RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
     ret
-
-    .cfi_adjust_cfa_offset 32         // Reset unwind info so following code unwinds.
+    .cfi_restore_state                // Reset unwind info so following code unwinds.
+    .cfi_def_cfa_offset 32            // workaround for clang bug: 31975598
 
 .Lthrow_class_cast_exception:
     // Restore
-    ldr xLR, [sp, #24]
-    .cfi_restore x30
-    ldp x0, x1, [sp], #32
-    .cfi_restore x0
-    .cfi_restore x1
-    .cfi_adjust_cfa_offset -32
+    RESTORE_REG xLR, 24
+    RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
 
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME // save all registers as basis for long jump context
     mov x2, xSELF                     // pass Thread::Current
-    b artThrowClassCastException      // (Class*, Class*, Thread*)
+    bl artThrowClassCastExceptionForObject     // (Object*, Class*, Thread*)
     brk 0                             // We should not return here...
-END art_quick_check_cast
+END art_quick_check_instance_of
 
 // Restore xReg's value from [sp, #offset] if xReg is not the same as xExclude.
 .macro POP_REG_NE xReg, offset, xExclude
@@ -1242,6 +1331,22 @@ END art_quick_check_cast
     .endif
 .endm
 
+// Restore xReg1's value from [sp, #offset] if xReg1 is not the same as xExclude.
+// Restore xReg2's value from [sp, #(offset + 8)] if xReg2 is not the same as xExclude.
+.macro POP_REGS_NE xReg1, xReg2, offset, xExclude
+    .ifc \xReg1, \xExclude
+        ldr \xReg2, [sp, #(\offset + 8)]        // restore xReg2
+    .else
+        .ifc \xReg2, \xExclude
+            ldr \xReg1, [sp, #\offset]          // restore xReg1
+        .else
+            ldp \xReg1, \xReg2, [sp, #\offset]  // restore xReg1 and xReg2
+        .endif
+    .endif
+    .cfi_restore \xReg1
+    .cfi_restore \xReg2
+.endm
+
     /*
      * Macro to insert read barrier, only used in art_quick_aput_obj.
      * xDest, wDest and xObj are registers, offset is a defined literal such as
@@ -1249,19 +1354,22 @@ END art_quick_check_cast
      * name mismatch between instructions. This macro uses the lower 32b of register when possible.
      * TODO: When read barrier has a fast path, add heap unpoisoning support for the fast path.
      */
-.macro READ_BARRIER xDest, wDest, xObj, offset
+.macro READ_BARRIER xDest, wDest, xObj, xTemp, wTemp, offset, number
 #ifdef USE_READ_BARRIER
+#ifdef USE_BAKER_READ_BARRIER
+    ldr \wTemp, [\xObj, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
+    tbnz \wTemp, #LOCK_WORD_READ_BARRIER_STATE_SHIFT, .Lrb_slowpath\number
+    // False dependency to avoid needing load/load fence.
+    add \xObj, \xObj, \xTemp, lsr #32
+    ldr \wDest, [\xObj, #\offset]   // Heap reference = 32b. This also zero-extends to \xDest.
+    UNPOISON_HEAP_REF \wDest
+    b .Lrb_exit\number
+#endif
+.Lrb_slowpath\number:
     // Store registers used in art_quick_aput_obj (x0-x4, LR), stack is 16B aligned.
-    stp x0, x1, [sp, #-48]!
-    .cfi_adjust_cfa_offset 48
-    .cfi_rel_offset x0, 0
-    .cfi_rel_offset x1, 8
-    stp x2, x3, [sp, #16]
-    .cfi_rel_offset x2, 16
-    .cfi_rel_offset x3, 24
-    stp x4, xLR, [sp, #32]
-    .cfi_rel_offset x4, 32
-    .cfi_rel_offset x30, 40
+    SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 48
+    SAVE_TWO_REGS x2, x3, 16
+    SAVE_TWO_REGS x4, xLR, 32
 
     // mov x0, \xRef                // pass ref in x0 (no-op for now since parameter ref is unused)
     .ifnc \xObj, x1
@@ -1280,54 +1388,26 @@ END art_quick_check_cast
     POP_REG_NE x2, 16, \xDest
     POP_REG_NE x3, 24, \xDest
     POP_REG_NE x4, 32, \xDest
-    ldr xLR, [sp, #40]
-    .cfi_restore x30
-    add sp, sp, #48
-    .cfi_adjust_cfa_offset -48
+    RESTORE_REG xLR, 40
+    DECREASE_FRAME 48
+.Lrb_exit\number:
 #else
     ldr \wDest, [\xObj, #\offset]   // Heap reference = 32b. This also zero-extends to \xDest.
     UNPOISON_HEAP_REF \wDest
 #endif  // USE_READ_BARRIER
 .endm
 
-    /*
-     * Entry from managed code for array put operations of objects where the value being stored
-     * needs to be checked for compatibility.
-     * x0 = array, x1 = index, x2 = value
-     *
-     * Currently all values should fit into w0/w1/w2, and w1 always will as indices are 32b. We
-     * assume, though, that the upper 32b are zeroed out. At least for x1/w1 we can do better by
-     * using index-zero-extension in load/stores.
-     *
-     * Temporaries: x3, x4
-     * TODO: x4 OK? ip seems wrong here.
-     */
-ENTRY art_quick_aput_obj_with_null_and_bound_check
-    tst x0, x0
-    bne art_quick_aput_obj_with_bound_check
-    b art_quick_throw_null_pointer_exception
-END art_quick_aput_obj_with_null_and_bound_check
-
-ENTRY art_quick_aput_obj_with_bound_check
-    ldr w3, [x0, #MIRROR_ARRAY_LENGTH_OFFSET]
-    cmp w3, w1
-    bhi art_quick_aput_obj
-    mov x0, x1
-    mov x1, x3
-    b art_quick_throw_array_bounds
-END art_quick_aput_obj_with_bound_check
-
 #ifdef USE_READ_BARRIER
     .extern artReadBarrierSlow
 #endif
 ENTRY art_quick_aput_obj
     cbz x2, .Ldo_aput_null
-    READ_BARRIER x3, w3, x0, MIRROR_OBJECT_CLASS_OFFSET     // Heap reference = 32b
-                                                         // This also zero-extends to x3
-    READ_BARRIER x4, w4, x2, MIRROR_OBJECT_CLASS_OFFSET     // Heap reference = 32b
-                                                         // This also zero-extends to x4
-    READ_BARRIER x3, w3, x3, MIRROR_CLASS_COMPONENT_TYPE_OFFSET // Heap reference = 32b
-                                                         // This also zero-extends to x3
+    READ_BARRIER x3, w3, x0, x3, w3, MIRROR_OBJECT_CLASS_OFFSET, 0  // Heap reference = 32b
+                                                                    // This also zero-extends to x3
+    READ_BARRIER x3, w3, x3, x4, w4, MIRROR_CLASS_COMPONENT_TYPE_OFFSET, 1 // Heap reference = 32b
+    // This also zero-extends to x3
+    READ_BARRIER x4, w4, x2, x4, w4, MIRROR_OBJECT_CLASS_OFFSET, 2  // Heap reference = 32b
+                                                                    // This also zero-extends to x4
     cmp w3, w4  // value's type == array's component type - trivial assignability
     bne .Lcheck_assignability
 .Ldo_aput:
@@ -1346,13 +1426,8 @@ ENTRY art_quick_aput_obj
     ret
 .Lcheck_assignability:
     // Store arguments and link register
-    stp x0, x1, [sp,#-32]!
-    .cfi_adjust_cfa_offset 32
-    .cfi_rel_offset x0, 0
-    .cfi_rel_offset x1, 8
-    stp x2, xLR, [sp, #16]
-    .cfi_rel_offset x2, 16
-    .cfi_rel_offset x30, 24
+    SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 32
+    SAVE_TWO_REGS x2, xLR, 16
 
     // Call runtime code
     mov x0, x3              // Heap reference, 32b, "uncompress" = do nothing, already zero-extended
@@ -1363,13 +1438,9 @@ ENTRY art_quick_aput_obj
     cbz x0, .Lthrow_array_store_exception
 
     // Restore
-    ldp x2, x30, [sp, #16]
-    .cfi_restore x2
-    .cfi_restore x30
-    ldp x0, x1, [sp], #32
-    .cfi_restore x0
-    .cfi_restore x1
-    .cfi_adjust_cfa_offset -32
+    .cfi_remember_state
+    RESTORE_TWO_REGS x2, xLR, 16
+    RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
 
     add x3, x0, #MIRROR_OBJECT_ARRAY_DATA_OFFSET
                                                           // "Compress" = do nothing
@@ -1379,31 +1450,27 @@ ENTRY art_quick_aput_obj
     lsr x0, x0, #7
     strb w3, [x3, x0]
     ret
-    .cfi_adjust_cfa_offset 32  // 4 restores after cbz for unwinding.
+    .cfi_restore_state            // Reset unwind info so following code unwinds.
+    .cfi_def_cfa_offset 32        // workaround for clang bug: 31975598
 .Lthrow_array_store_exception:
-    ldp x2, x30, [sp, #16]
-    .cfi_restore x2
-    .cfi_restore x30
-    ldp x0, x1, [sp], #32
-    .cfi_restore x0
-    .cfi_restore x1
-    .cfi_adjust_cfa_offset -32
+    RESTORE_TWO_REGS x2, xLR, 16
+    RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 32
 
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
-    mov x1, x2                    // Pass value.
-    mov x2, xSELF                 // Pass Thread::Current.
-    b artThrowArrayStoreException // (Object*, Object*, Thread*).
-    brk 0                         // Unreached.
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
+    mov x1, x2                      // Pass value.
+    mov x2, xSELF                   // Pass Thread::Current.
+    bl artThrowArrayStoreException  // (Object*, Object*, Thread*).
+    brk 0                           // Unreached.
 END art_quick_aput_obj
 
 // Macro to facilitate adding new allocation entrypoints.
 .macro ONE_ARG_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME // save callee saves in case of GC
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
     mov    x1, xSELF                  // pass Thread::Current
     bl     \entrypoint                // (uint32_t type_idx, Method* method, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
 END \name
 .endm
@@ -1412,10 +1479,10 @@ END \name
 .macro TWO_ARG_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME // save callee saves in case of GC
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
     mov    x2, xSELF                  // pass Thread::Current
     bl     \entrypoint                // (uint32_t type_idx, Method* method, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
 END \name
 .endm
@@ -1424,10 +1491,10 @@ END \name
 .macro THREE_ARG_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME // save callee saves in case of GC
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
     mov    x3, xSELF                  // pass Thread::Current
     bl     \entrypoint
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
 END \name
 .endm
@@ -1436,24 +1503,23 @@ END \name
 .macro FOUR_ARG_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME // save callee saves in case of GC
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
     mov    x4, xSELF                  // pass Thread::Current
     bl     \entrypoint                //
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
     DELIVER_PENDING_EXCEPTION
 END \name
 .endm
 
-// Macros taking opportunity of code similarities for downcalls with referrer.
+// Macros taking opportunity of code similarities for downcalls.
 .macro ONE_ARG_REF_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case of GC
-    ldr    x1, [sp, #FRAME_SIZE_REFS_ONLY_CALLEE_SAVE] // Load referrer
-    mov    x2, xSELF                  // pass Thread::Current
-    bl     \entrypoint                // (uint32_t type_idx, Method* method, Thread*, SP)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
+    mov    x1, xSELF                  // pass Thread::Current
+    bl     \entrypoint                // (uint32_t type_idx, Thread*)
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
 END \name
 .endm
@@ -1461,11 +1527,10 @@ END \name
 .macro TWO_ARG_REF_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case of GC
-    ldr    x2, [sp, #FRAME_SIZE_REFS_ONLY_CALLEE_SAVE] // Load referrer
-    mov    x3, xSELF                  // pass Thread::Current
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
+    mov    x2, xSELF                  // pass Thread::Current
     bl     \entrypoint
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
 END \name
 .endm
@@ -1473,12 +1538,29 @@ END \name
 .macro THREE_ARG_REF_DOWNCALL name, entrypoint, return
     .extern \entrypoint
 ENTRY \name
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case of GC
-    ldr    x3, [sp, #FRAME_SIZE_REFS_ONLY_CALLEE_SAVE] // Load referrer
-    mov    x4, xSELF                  // pass Thread::Current
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
+    mov    x3, xSELF                  // pass Thread::Current
     bl     \entrypoint
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_ONLY_FRAME
     \return
+END \name
+.endm
+
+// Macro for string and type resolution and initialization.
+.macro ONE_ARG_SAVE_EVERYTHING_DOWNCALL name, entrypoint
+    .extern \entrypoint
+ENTRY \name
+    SETUP_SAVE_EVERYTHING_FRAME       // save everything for stack crawl
+    mov   x1, xSELF                   // pass Thread::Current
+    bl    \entrypoint                 // (int32_t index, Thread* self)
+    cbz   w0, 1f                      // If result is null, deliver the OOME.
+    .cfi_remember_state
+    RESTORE_SAVE_EVERYTHING_FRAME_KEEP_X0
+    ret                        // return
+    .cfi_restore_state
+    .cfi_def_cfa_offset FRAME_SIZE_SAVE_EVERYTHING  // workaround for clang bug: 31975598
+1:
+    DELIVER_PENDING_EXCEPTION_FRAME_READY
 END \name
 .endm
 
@@ -1500,114 +1582,97 @@ TWO_ARG_REF_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode,
      * initializer and deliver the exception on error. On success the static storage base is
      * returned.
      */
-ONE_ARG_DOWNCALL art_quick_initialize_static_storage, artInitializeStaticStorageFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_static_storage, artInitializeStaticStorageFromCode
 
-ONE_ARG_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
-ONE_ARG_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromCode
 
-ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, artGetBooleanStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, artGetByteStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_char_static, artGetCharStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_short_static, artGetShortStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get32_static, artGet32StaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get64_static, artGet64StaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, artGetObjStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, artGetBooleanStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, artGetByteStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get_char_static, artGetCharStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get_short_static, artGetShortStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get32_static, artGet32StaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get64_static, artGet64StaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, artGetObjStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
 
-TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, artGetBooleanInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, artGetByteInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, artGetCharInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, artGetShortInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get32_instance, artGet32InstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get64_instance, artGet64InstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
-TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, artGetObjInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, artGetBooleanInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, artGetByteInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, artGetCharInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, artGetShortInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get32_instance, artGet32InstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get64_instance, artGet64InstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
+TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, artGetObjInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
 
-TWO_ARG_REF_DOWNCALL art_quick_set8_static, artSet8StaticFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set16_static, artSet16StaticFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set32_static, artSet32StaticFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-TWO_ARG_REF_DOWNCALL art_quick_set_obj_static, artSetObjStaticFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL art_quick_set8_static, artSet8StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL art_quick_set16_static, artSet16StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL art_quick_set32_static, artSet32StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL art_quick_set64_static, artSet64StaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+TWO_ARG_REF_DOWNCALL art_quick_set_obj_static, artSetObjStaticFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
 
-THREE_ARG_REF_DOWNCALL art_quick_set8_instance, artSet8InstanceFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set16_instance, artSet16InstanceFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set32_instance, artSet32InstanceFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set64_instance, artSet64InstanceFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-THREE_ARG_REF_DOWNCALL art_quick_set_obj_instance, artSetObjInstanceFromCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
-
-// This is separated out as the argument order is different.
-    .extern artSet64StaticFromCode
-ENTRY art_quick_set64_static
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME  // save callee saves in case of GC
-    ldr    x1, [sp, #FRAME_SIZE_REFS_ONLY_CALLEE_SAVE] // Load referrer
-                                      // x2 contains the parameter
-    mov    x3, xSELF                  // pass Thread::Current
-    bl     artSet64StaticFromCode
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
-    RETURN_IF_W0_IS_ZERO_OR_DELIVER
-END art_quick_set64_static
-
-    /*
-     * Entry from managed code to resolve a string, this stub will allocate a String and deliver an
-     * exception on error. On success the String is returned. w0 holds the string index. The fast
-     * path check for hit in strings cache has already been performed.
-     */
-ONE_ARG_DOWNCALL art_quick_resolve_string, artResolveStringFromCode, RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL art_quick_set8_instance, artSet8InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL art_quick_set16_instance, artSet16InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL art_quick_set32_instance, artSet32InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL art_quick_set64_instance, artSet64InstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
+THREE_ARG_REF_DOWNCALL art_quick_set_obj_instance, artSetObjInstanceFromCompiledCode, RETURN_IF_W0_IS_ZERO_OR_DELIVER
 
 // Generate the allocation entrypoints for each allocator.
-GENERATE_ALLOC_ENTRYPOINTS_FOR_EACH_ALLOCATOR
+GENERATE_ALLOC_ENTRYPOINTS_FOR_NON_TLAB_ALLOCATORS
+// Comment out allocators that have arm64 specific asm.
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED32(_region_tlab, RegionTLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED64(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_tlab, RegionTLAB)
 
-// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_rosalloc, RosAlloc).
-ENTRY art_quick_alloc_object_rosalloc
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED32(_tlab, TLAB)
+// GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED64(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_tlab, TLAB)
+
+.macro ART_QUICK_ALLOC_OBJECT_ROSALLOC c_name, cxx_name
+ENTRY \c_name
     // Fast path rosalloc allocation.
-    // x0: type_idx/return value, x1: ArtMethod*, xSELF(x19): Thread::Current
-    // x2-x7: free.
-    ldr    x2, [x1, #ART_METHOD_DEX_CACHE_TYPES_OFFSET_64]    // Load dex cache resolved types array
-                                                              // Load the class (x2)
-    ldr    w2, [x2, x0, lsl #COMPRESSED_REFERENCE_SIZE_SHIFT]
-    cbz    x2, .Lart_quick_alloc_object_rosalloc_slow_path    // Check null class
-                                                              // Check class status.
-    ldr    w3, [x2, #MIRROR_CLASS_STATUS_OFFSET]
-    cmp    x3, #MIRROR_CLASS_STATUS_INITIALIZED
-    bne    .Lart_quick_alloc_object_rosalloc_slow_path
-                                                              // Add a fake dependence from the
-                                                              // following access flag and size
-                                                              // loads to the status load.
-                                                              // This is to prevent those loads
-                                                              // from being reordered above the
-                                                              // status load and reading wrong
-                                                              // values (an alternative is to use
-                                                              // a load-acquire for the status).
-    eor    x3, x3, x3
-    add    x2, x2, x3
-                                                              // Check access flags has
-                                                              // kAccClassIsFinalizable
-    ldr    w3, [x2, #MIRROR_CLASS_ACCESS_FLAGS_OFFSET]
-    tst    x3, #ACCESS_FLAGS_CLASS_IS_FINALIZABLE
-    bne    .Lart_quick_alloc_object_rosalloc_slow_path
+    // x0: type, xSELF(x19): Thread::Current
+    // x1-x7: free.
     ldr    x3, [xSELF, #THREAD_LOCAL_ALLOC_STACK_TOP_OFFSET]  // Check if the thread local
                                                               // allocation stack has room.
                                                               // ldp won't work due to large offset.
     ldr    x4, [xSELF, #THREAD_LOCAL_ALLOC_STACK_END_OFFSET]
     cmp    x3, x4
-    bhs    .Lart_quick_alloc_object_rosalloc_slow_path
-    ldr    w3, [x2, #MIRROR_CLASS_OBJECT_SIZE_OFFSET]         // Load the object size (x3)
+    bhs    .Lslow_path\c_name
+    ldr    w3, [x0, #MIRROR_CLASS_OBJECT_SIZE_ALLOC_FAST_PATH_OFFSET]  // Load the object size (x3)
     cmp    x3, #ROSALLOC_MAX_THREAD_LOCAL_BRACKET_SIZE        // Check if the size is for a thread
-                                                              // local allocation
-    bhs    .Lart_quick_alloc_object_rosalloc_slow_path
+                                                              // local allocation. Also does the
+                                                              // finalizable and initialization
+                                                              // checks.
+    bhs    .Lslow_path\c_name
                                                               // Compute the rosalloc bracket index
-                                                              // from the size.
-                                                              // Align up the size by the rosalloc
-                                                              // bracket quantum size and divide
-                                                              // by the quantum size and subtract
-                                                              // by 1. This code is a shorter but
-                                                              // equivalent version.
-    sub    x3, x3, #1
-    lsr    x3, x3, #ROSALLOC_BRACKET_QUANTUM_SIZE_SHIFT
-                                                              // Load the rosalloc run (x4)
-    add    x4, xSELF, x3, lsl #POINTER_SIZE_SHIFT
-    ldr    x4, [x4, #THREAD_ROSALLOC_RUNS_OFFSET]
+                                                              // from the size. Since the size is
+                                                              // already aligned we can combine the
+                                                              // two shifts together.
+    add    x4, xSELF, x3, lsr #(ROSALLOC_BRACKET_QUANTUM_SIZE_SHIFT - POINTER_SIZE_SHIFT)
+                                                              // Subtract pointer size since ther
+                                                              // are no runs for 0 byte allocations
+                                                              // and the size is already aligned.
+    ldr    x4, [x4, #(THREAD_ROSALLOC_RUNS_OFFSET - __SIZEOF_POINTER__)]
                                                               // Load the free list head (x3). This
                                                               // will be the return val.
     ldr    x3, [x4, #(ROSALLOC_RUN_FREE_LIST_OFFSET + ROSALLOC_RUN_FREE_LIST_HEAD_OFFSET)]
-    cbz    x3, .Lart_quick_alloc_object_rosalloc_slow_path
+    cbz    x3, .Lslow_path\c_name
     // "Point of no slow path". Won't go to the slow path from here on. OK to clobber x0 and x1.
     ldr    x1, [x3, #ROSALLOC_SLOT_NEXT_OFFSET]               // Load the next pointer of the head
                                                               // and update the list head with the
@@ -1620,15 +1685,15 @@ ENTRY art_quick_alloc_object_rosalloc
 #if ROSALLOC_SLOT_NEXT_OFFSET != MIRROR_OBJECT_CLASS_OFFSET
 #error "Class pointer needs to overwrite next pointer."
 #endif
-    POISON_HEAP_REF w2
-    str    w2, [x3, #MIRROR_OBJECT_CLASS_OFFSET]
+    POISON_HEAP_REF w0
+    str    w0, [x3, #MIRROR_OBJECT_CLASS_OFFSET]
                                                               // Fence. This is "ish" not "ishst" so
                                                               // that it also ensures ordering of
-                                                              // the class status load with respect
+                                                              // the object size load with respect
                                                               // to later accesses to the class
                                                               // object. Alternatively we could use
                                                               // "ishst" if we use load-acquire for
-                                                              // the class status load.)
+                                                              // the class status load.
                                                               // Needs to be done before pushing on
                                                               // allocation since Heap::VisitObjects
                                                               // relies on seeing the class pointer.
@@ -1651,153 +1716,201 @@ ENTRY art_quick_alloc_object_rosalloc
 
     mov    x0, x3                                             // Set the return value and return.
     ret
-.Lart_quick_alloc_object_rosalloc_slow_path:
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME      // save callee saves in case of GC
-    mov    x2, xSELF                       // pass Thread::Current
-    bl     artAllocObjectFromCodeRosAlloc  // (uint32_t type_idx, Method* method, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+.Lslow_path\c_name:
+    SETUP_SAVE_REFS_ONLY_FRAME                      // save callee saves in case of GC
+    mov    x1, xSELF                                // pass Thread::Current
+    bl     \cxx_name
+    RESTORE_SAVE_REFS_ONLY_FRAME
     RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
-END art_quick_alloc_object_rosalloc
+END \c_name
+.endm
 
-// The common fast path code for art_quick_alloc_object_tlab and art_quick_alloc_object_region_tlab.
-//
-// x0: type_idx/return value, x1: ArtMethod*, x2: Class*, xSELF(x19): Thread::Current
-// x3-x7: free.
-// Need to preserve x0 and x1 to the slow path.
-.macro ALLOC_OBJECT_TLAB_FAST_PATH slowPathLabel
-    cbz    x2, \slowPathLabel                                 // Check null class
-                                                              // Check class status.
-    ldr    w3, [x2, #MIRROR_CLASS_STATUS_OFFSET]
-    cmp    x3, #MIRROR_CLASS_STATUS_INITIALIZED
-    bne    \slowPathLabel
-                                                              // Add a fake dependence from the
-                                                              // following access flag and size
-                                                              // loads to the status load.
-                                                              // This is to prevent those loads
-                                                              // from being reordered above the
-                                                              // status load and reading wrong
-                                                              // values (an alternative is to use
-                                                              // a load-acquire for the status).
-    eor    x3, x3, x3
-    add    x2, x2, x3
-                                                              // Check access flags has
-                                                              // kAccClassIsFinalizable.
-    ldr    w3, [x2, #MIRROR_CLASS_ACCESS_FLAGS_OFFSET]
-    tbnz   x3, #ACCESS_FLAGS_CLASS_IS_FINALIZABLE_BIT, \slowPathLabel
-                                                              // Load thread_local_pos (x4) and
-                                                              // thread_local_end (x5).
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_resolved_rosalloc, artAllocObjectFromCodeResolvedRosAlloc
+ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, artAllocObjectFromCodeInitializedRosAlloc
+
+.macro ALLOC_OBJECT_TLAB_FAST_PATH_RESOLVED slowPathLabel
     ldr    x4, [xSELF, #THREAD_LOCAL_POS_OFFSET]
     ldr    x5, [xSELF, #THREAD_LOCAL_END_OFFSET]
-    sub    x6, x5, x4                                         // Compute the remaining buf size.
-    ldr    w7, [x2, #MIRROR_CLASS_OBJECT_SIZE_OFFSET]         // Load the object size (x7).
-    cmp    x7, x6                                             // Check if it fits. OK to do this
-                                                              // before rounding up the object size
-                                                              // assuming the buf size alignment.
+    ldr    w7, [x0, #MIRROR_CLASS_OBJECT_SIZE_ALLOC_FAST_PATH_OFFSET]  // Load the object size (x7).
+    add    x6, x4, x7                                         // Add object size to tlab pos.
+    cmp    x6, x5                                             // Check if it fits, overflow works
+                                                              // since the tlab pos and end are 32
+                                                              // bit values.
     bhi    \slowPathLabel
-    // "Point of no slow path". Won't go to the slow path from here on. OK to clobber x0 and x1.
-                                                              // Round up the object size by the
-                                                              // object alignment. (addr + 7) & ~7.
-    add    x7, x7, #OBJECT_ALIGNMENT_MASK
-    and    x7, x7, #OBJECT_ALIGNMENT_MASK_TOGGLED
-                                                              // Move old thread_local_pos to x0
-                                                              // for the return value.
-    mov    x0, x4
-    add    x5, x0, x7
-    str    x5, [xSELF, #THREAD_LOCAL_POS_OFFSET]              // Store new thread_local_pos.
+    str    x6, [xSELF, #THREAD_LOCAL_POS_OFFSET]              // Store new thread_local_pos.
     ldr    x5, [xSELF, #THREAD_LOCAL_OBJECTS_OFFSET]          // Increment thread_local_objects.
     add    x5, x5, #1
     str    x5, [xSELF, #THREAD_LOCAL_OBJECTS_OFFSET]
-    POISON_HEAP_REF w2
-    str    w2, [x0, #MIRROR_OBJECT_CLASS_OFFSET]              // Store the class pointer.
+    POISON_HEAP_REF w0
+    str    w0, [x4, #MIRROR_OBJECT_CLASS_OFFSET]              // Store the class pointer.
                                                               // Fence. This is "ish" not "ishst" so
                                                               // that the code after this allocation
                                                               // site will see the right values in
                                                               // the fields of the class.
                                                               // Alternatively we could use "ishst"
                                                               // if we use load-acquire for the
-                                                              // class status load.)
+                                                              // object size load.)
+    mov    x0, x4
     dmb    ish
     ret
 .endm
 
-// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_tlab, TLAB).
-ENTRY art_quick_alloc_object_tlab
-    // Fast path tlab allocation.
-    // x0: type_idx/return value, x1: ArtMethod*, xSELF(x19): Thread::Current
-    // x2-x7: free.
-#if defined(USE_READ_BARRIER)
-    mvn    x0, xzr                                            // Read barrier not supported here.
-    ret                                                       // Return -1.
-#endif
-    ldr    x2, [x1, #ART_METHOD_DEX_CACHE_TYPES_OFFSET_64]    // Load dex cache resolved types array
-                                                              // Load the class (x2)
-    ldr    w2, [x2, x0, lsl #COMPRESSED_REFERENCE_SIZE_SHIFT]
-    ALLOC_OBJECT_TLAB_FAST_PATH .Lart_quick_alloc_object_tlab_slow_path
-.Lart_quick_alloc_object_tlab_slow_path:
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    // Save callee saves in case of GC.
-    mov    x2, xSELF                     // Pass Thread::Current.
-    bl     artAllocObjectFromCodeTLAB    // (uint32_t type_idx, Method* method, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
-END art_quick_alloc_object_tlab
-
-// A hand-written override for GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region_tlab, RegionTLAB)
-ENTRY art_quick_alloc_object_region_tlab
+// The common code for art_quick_alloc_object_*region_tlab
+.macro GENERATE_ALLOC_OBJECT_RESOLVED_TLAB name, entrypoint
+ENTRY \name
     // Fast path region tlab allocation.
-    // x0: type_idx/return value, x1: ArtMethod*, xSELF(x19): Thread::Current
-    // x2-x7: free.
-#if !defined(USE_READ_BARRIER)
-    mvn    x0, xzr                                            // Read barrier must be enabled here.
-    ret                                                       // Return -1.
-#endif
-    ldr    x2, [x1, #ART_METHOD_DEX_CACHE_TYPES_OFFSET_64]    // Load dex cache resolved types array
-                                                              // Load the class (x2)
-    ldr    w2, [x2, x0, lsl #COMPRESSED_REFERENCE_SIZE_SHIFT]
-                                                              // Read barrier for class load.
-    ldr    w3, [xSELF, #THREAD_IS_GC_MARKING_OFFSET]
-    cbnz   x3, .Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path
-.Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path_exit:
-    ALLOC_OBJECT_TLAB_FAST_PATH .Lart_quick_alloc_object_region_tlab_slow_path
-.Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path:
-                                                              // The read barrier slow path. Mark
-                                                              // the class.
-    stp    x0, x1, [sp, #-32]!                                // Save registers (x0, x1, lr).
-    str    xLR, [sp, #16]                                     // Align sp by 16 bytes.
-    mov    x0, x2                                             // Pass the class as the first param.
-    bl     artReadBarrierMark
-    mov    x2, x0                                             // Get the (marked) class back.
-    ldp    x0, x1, [sp, #0]                                   // Restore registers.
-    ldr    xLR, [sp, #16]
-    add    sp, sp, #32
-    b      .Lart_quick_alloc_object_region_tlab_class_load_read_barrier_slow_path_exit
-.Lart_quick_alloc_object_region_tlab_slow_path:
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME          // Save callee saves in case of GC.
-    mov    x2, xSELF                           // Pass Thread::Current.
-    bl     artAllocObjectFromCodeRegionTLAB    // (uint32_t type_idx, Method* method, Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+    // x0: type, xSELF(x19): Thread::Current
+    // x1-x7: free.
+    ALLOC_OBJECT_TLAB_FAST_PATH_RESOLVED .Lslow_path\name
+.Lslow_path\name:
+    SETUP_SAVE_REFS_ONLY_FRAME                 // Save callee saves in case of GC.
+    mov    x1, xSELF                           // Pass Thread::Current.
+    bl     \entrypoint                         // (mirror::Class*, Thread*)
+    RESTORE_SAVE_REFS_ONLY_FRAME
     RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
-END art_quick_alloc_object_region_tlab
+END \name
+.endm
+
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_region_tlab, artAllocObjectFromCodeResolvedRegionTLAB
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_region_tlab, artAllocObjectFromCodeInitializedRegionTLAB
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_resolved_tlab, artAllocObjectFromCodeResolvedTLAB
+GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, artAllocObjectFromCodeInitializedTLAB
+
+.macro ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE slowPathLabel, xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+    and    \xTemp1, \xTemp1, #OBJECT_ALIGNMENT_MASK_TOGGLED64 // Apply alignemnt mask
+                                                              // (addr + 7) & ~7. The mask must
+                                                              // be 64 bits to keep high bits in
+                                                              // case of overflow.
+    // Negative sized arrays are handled here since xCount holds a zero extended 32 bit value.
+    // Negative ints become large 64 bit unsigned ints which will always be larger than max signed
+    // 32 bit int. Since the max shift for arrays is 3, it can not become a negative 64 bit int.
+    cmp    \xTemp1, #MIN_LARGE_OBJECT_THRESHOLD               // Possibly a large object, go slow
+    bhs    \slowPathLabel                                     // path.
+
+    ldr    \xTemp0, [xSELF, #THREAD_LOCAL_POS_OFFSET]         // Check tlab for space, note that
+                                                              // we use (end - begin) to handle
+                                                              // negative size arrays. It is
+                                                              // assumed that a negative size will
+                                                              // always be greater unsigned than
+                                                              // region size.
+    ldr    \xTemp2, [xSELF, #THREAD_LOCAL_END_OFFSET]
+    sub    \xTemp2, \xTemp2, \xTemp0
+    cmp    \xTemp1, \xTemp2
+    bhi    \slowPathLabel
+    // "Point of no slow path". Won't go to the slow path from here on. OK to clobber x0 and x1.
+                                                              // Move old thread_local_pos to x0
+                                                              // for the return value.
+    mov    x0, \xTemp0
+    add    \xTemp0, \xTemp0, \xTemp1
+    str    \xTemp0, [xSELF, #THREAD_LOCAL_POS_OFFSET]         // Store new thread_local_pos.
+    ldr    \xTemp0, [xSELF, #THREAD_LOCAL_OBJECTS_OFFSET]     // Increment thread_local_objects.
+    add    \xTemp0, \xTemp0, #1
+    str    \xTemp0, [xSELF, #THREAD_LOCAL_OBJECTS_OFFSET]
+    POISON_HEAP_REF \wClass
+    str    \wClass, [x0, #MIRROR_OBJECT_CLASS_OFFSET]         // Store the class pointer.
+    str    \wCount, [x0, #MIRROR_ARRAY_LENGTH_OFFSET]         // Store the array length.
+                                                              // Fence.
+    dmb    ishst
+    ret
+.endm
+
+.macro GENERATE_ALLOC_ARRAY_TLAB name, entrypoint, size_setup
+ENTRY \name
+    // Fast path array allocation for region tlab allocation.
+    // x0: mirror::Class* type
+    // x1: int32_t component_count
+    // x2-x7: free.
+    mov    x3, x0
+    \size_setup x3, w3, x1, w1, x4, w4, x5, w5, x6, w6
+    ALLOC_ARRAY_TLAB_FAST_PATH_RESOLVED_WITH_SIZE .Lslow_path\name, x3, w3, x1, w1, x4, w4, x5, w5, x6, w6
+.Lslow_path\name:
+    // x0: mirror::Class* klass
+    // x1: int32_t component_count
+    // x2: Thread* self
+    SETUP_SAVE_REFS_ONLY_FRAME        // save callee saves in case of GC
+    mov    x2, xSELF                  // pass Thread::Current
+    bl     \entrypoint
+    RESTORE_SAVE_REFS_ONLY_FRAME
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
+END \name
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_UNKNOWN xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+    // Array classes are never finalizable or uninitialized, no need to check.
+    ldr    \wTemp0, [\xClass, #MIRROR_CLASS_COMPONENT_TYPE_OFFSET] // Load component type
+    UNPOISON_HEAP_REF \wTemp0
+    ldr    \wTemp0, [\xTemp0, #MIRROR_CLASS_OBJECT_PRIMITIVE_TYPE_OFFSET]
+    lsr    \xTemp0, \xTemp0, #PRIMITIVE_TYPE_SIZE_SHIFT_SHIFT // Component size shift is in high 16
+                                                              // bits.
+                                                              // xCount is holding a 32 bit value,
+                                                              // it can not overflow.
+    lsl    \xTemp1, \xCount, \xTemp0                          // Calculate data size
+    // Add array data offset and alignment.
+    add    \xTemp1, \xTemp1, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+#if MIRROR_LONG_ARRAY_DATA_OFFSET != MIRROR_INT_ARRAY_DATA_OFFSET + 4
+#error Long array data offset must be 4 greater than int array data offset.
+#endif
+
+    add    \xTemp0, \xTemp0, #1                               // Add 4 to the length only if the
+                                                              // component size shift is 3
+                                                              // (for 64 bit alignment).
+    and    \xTemp0, \xTemp0, #4
+    add    \xTemp1, \xTemp1, \xTemp0
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_8 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+    // Add array data offset and alignment.
+    add    \xTemp1, \xCount, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_16 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+    lsl    \xTemp1, \xCount, #1
+    // Add array data offset and alignment.
+    add    \xTemp1, \xTemp1, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_32 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+    lsl    \xTemp1, \xCount, #2
+    // Add array data offset and alignment.
+    add    \xTemp1, \xTemp1, #(MIRROR_INT_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+.macro COMPUTE_ARRAY_SIZE_64 xClass, wClass, xCount, wCount, xTemp0, wTemp0, xTemp1, wTemp1, xTemp2, wTemp2
+    lsl    \xTemp1, \xCount, #3
+    // Add array data offset and alignment.
+    add    \xTemp1, \xTemp1, #(MIRROR_WIDE_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
+.endm
+
+# TODO(ngeoffray): art_quick_alloc_array_resolved_region_tlab is not used for arm64, remove
+# the entrypoint once all backends have been updated to use the size variants.
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_8
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_16
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_32
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_64
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_8
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_16
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_32
+GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_64
 
     /*
      * Called by managed code when the thread has been asked to suspend.
      */
     .extern artTestSuspendFromCode
 ENTRY art_quick_test_suspend
-    ldrh   w0, [xSELF, #THREAD_FLAGS_OFFSET]  // get xSELF->state_and_flags.as_struct.flags
-    cbnz   w0, .Lneed_suspend                 // check flags == 0
-    ret                                       // return if flags == 0
-.Lneed_suspend:
+    SETUP_SAVE_EVERYTHING_FRAME               // save callee saves for stack crawl
     mov    x0, xSELF
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME          // save callee saves for stack crawl
     bl     artTestSuspendFromCode             // (Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME_AND_RETURN
+    RESTORE_SAVE_EVERYTHING_FRAME
+    ret
 END art_quick_test_suspend
 
 ENTRY art_quick_implicit_suspend
     mov    x0, xSELF
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME          // save callee saves for stack crawl
+    SETUP_SAVE_REFS_ONLY_FRAME                // save callee saves for stack crawl
     bl     artTestSuspendFromCode             // (Thread*)
-    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME_AND_RETURN
+    RESTORE_SAVE_REFS_ONLY_FRAME_AND_RETURN
 END art_quick_implicit_suspend
 
      /*
@@ -1807,17 +1920,17 @@ END art_quick_implicit_suspend
      */
      .extern artQuickProxyInvokeHandler
 ENTRY art_quick_proxy_invoke_handler
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_X0
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_X0
     mov     x2, xSELF                   // pass Thread::Current
     mov     x3, sp                      // pass SP
     bl      artQuickProxyInvokeHandler  // (Method* proxy method, receiver, Thread*, SP)
     ldr     x2, [xSELF, THREAD_EXCEPTION_OFFSET]
     cbnz    x2, .Lexception_in_proxy    // success if no exception is pending
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME // Restore frame
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME    // Restore frame
     fmov    d0, x0                      // Store result in d0 in case it was float or double
     ret                                 // return on success
 .Lexception_in_proxy:
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
     DELIVER_PENDING_EXCEPTION
 END art_quick_proxy_invoke_handler
 
@@ -1853,21 +1966,22 @@ ENTRY art_quick_imt_conflict_trampoline
 .Lconflict_trampoline:
     // Call the runtime stub to populate the ImtConflictTable and jump to the
     // resolved method.
+    mov x0, xIP0  // Load interface method
     INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
 END art_quick_imt_conflict_trampoline
 
 ENTRY art_quick_resolution_trampoline
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    SETUP_SAVE_REFS_AND_ARGS_FRAME
     mov x2, xSELF
     mov x3, sp
     bl artQuickResolutionTrampoline  // (called, receiver, Thread*, SP)
     cbz x0, 1f
     mov xIP0, x0            // Remember returned code pointer in xIP0.
     ldr x0, [sp, #0]        // artQuickResolutionTrampoline puts called method in *SP.
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
     br xIP0
 1:
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
     DELIVER_PENDING_EXCEPTION
 END art_quick_resolution_trampoline
 
@@ -1927,7 +2041,7 @@ END art_quick_resolution_trampoline
      * Called to do a generic JNI down-call
      */
 ENTRY art_quick_generic_jni_trampoline
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_X0
+    SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_X0
 
     // Save SP , so we can have static CFI info.
     mov x28, sp
@@ -1999,7 +2113,7 @@ ENTRY art_quick_generic_jni_trampoline
     .cfi_def_cfa_register sp
 
     // Tear down the callee-save frame.
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
 
     // store into fpr, for when it's a fpr return...
     fmov d0, x0
@@ -2021,7 +2135,7 @@ END art_quick_generic_jni_trampoline
  * x1..x7, d0..d7 = arguments to that method.
  */
 ENTRY art_quick_to_interpreter_bridge
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME   // Set up frame and save arguments.
+    SETUP_SAVE_REFS_AND_ARGS_FRAME         // Set up frame and save arguments.
 
     //  x0 will contain mirror::ArtMethod* method.
     mov x1, xSELF                          // How to get Thread::Current() ???
@@ -2031,12 +2145,17 @@ ENTRY art_quick_to_interpreter_bridge
     //                                      mirror::ArtMethod** sp)
     bl   artQuickToInterpreterBridge
 
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME  // TODO: no need to restore arguments in this case.
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME       // TODO: no need to restore arguments in this case.
 
     fmov d0, x0
 
     RETURN_OR_DELIVER_PENDING_EXCEPTION
 END art_quick_to_interpreter_bridge
+
+/*
+ * Called to attempt to execute an obsolete method.
+ */
+ONE_ARG_RUNTIME_EXCEPTION art_invoke_obsolete_method_stub, artInvokeObsoleteMethod
 
 
 //
@@ -2044,7 +2163,7 @@ END art_quick_to_interpreter_bridge
 //
     .extern artInstrumentationMethodEntryFromCode
 ENTRY art_quick_instrumentation_entry
-    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    SETUP_SAVE_REFS_AND_ARGS_FRAME
 
     mov   x20, x0             // Preserve method reference in a callee-save.
 
@@ -2055,7 +2174,7 @@ ENTRY art_quick_instrumentation_entry
     mov   xIP0, x0            // x0 = result of call.
     mov   x0, x20             // Reload method reference.
 
-    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME  // Note: will restore xSELF
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME  // Note: will restore xSELF
     adr   xLR, art_quick_instrumentation_exit
     br    xIP0                // Tail-call method with lr set to art_quick_instrumentation_exit.
 END art_quick_instrumentation_entry
@@ -2064,7 +2183,7 @@ END art_quick_instrumentation_entry
 ENTRY art_quick_instrumentation_exit
     mov   xLR, #0             // Clobber LR for later checks.
 
-    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+    SETUP_SAVE_REFS_ONLY_FRAME
 
     // We need to save x0 and d0. We could use a callee-save from SETUP_REF_ONLY, but then
     // we would need to fully restore it. As there are a lot of callee-save registers, it seems
@@ -2084,10 +2203,10 @@ ENTRY art_quick_instrumentation_exit
     mov   xLR, x1             // r1 is holding link register if we're to bounce to deoptimize
 
     ldr   d0, [sp, #8]        // Restore floating-point result.
-    ldr   x0, [sp], 16        // Restore integer result, and drop stack area.
+    ldr   x0, [sp], #16       // Restore integer result, and drop stack area.
     .cfi_adjust_cfa_offset 16
 
-    POP_REFS_ONLY_CALLEE_SAVE_FRAME
+    POP_SAVE_REFS_ONLY_FRAME
 
     br    xIP0                // Tail-call out.
 END art_quick_instrumentation_exit
@@ -2098,9 +2217,9 @@ END art_quick_instrumentation_exit
      */
     .extern artDeoptimize
 ENTRY art_quick_deoptimize
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
     mov    x0, xSELF          // Pass thread.
-    bl     artDeoptimize      // artDeoptimize(Thread*)
+    bl     artDeoptimize      // (Thread*)
     brk 0
 END art_quick_deoptimize
 
@@ -2110,9 +2229,9 @@ END art_quick_deoptimize
      */
     .extern artDeoptimizeFromCompiledCode
 ENTRY art_quick_deoptimize_from_compiled_code
-    SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
-    mov    x0, xSELF                      // Pass thread.
-    bl     artDeoptimizeFromCompiledCode  // artDeoptimizeFromCompiledCode(Thread*)
+    SETUP_SAVE_EVERYTHING_FRAME
+    mov    x1, xSELF                      // Pass thread.
+    bl     artDeoptimizeFromCompiledCode  // (DeoptimizationKind, Thread*)
     brk 0
 END art_quick_deoptimize_from_compiled_code
 
@@ -2127,9 +2246,16 @@ END art_quick_deoptimize_from_compiled_code
      *    w2:   Starting offset in string data
      */
 ENTRY art_quick_indexof
+#if (STRING_COMPRESSION_FEATURE)
+    ldr   w4, [x0, #MIRROR_STRING_COUNT_OFFSET]
+#else
     ldr   w3, [x0, #MIRROR_STRING_COUNT_OFFSET]
+#endif
     add   x0, x0, #MIRROR_STRING_VALUE_OFFSET
-
+#if (STRING_COMPRESSION_FEATURE)
+    /* w4 holds count (with flag) and w3 holds actual length */
+    lsr   w3, w4, #1
+#endif
     /* Clamp start to [0..count] */
     cmp   w2, #0
     csel  w2, wzr, w2, lt
@@ -2139,10 +2265,12 @@ ENTRY art_quick_indexof
     /* Save a copy to compute result */
     mov   x5, x0
 
+#if (STRING_COMPRESSION_FEATURE)
+    tbz   w4, #0, .Lstring_indexof_compressed
+#endif
     /* Build pointer to start of data to compare and pre-bias */
     add   x0, x0, x2, lsl #1
     sub   x0, x0, #2
-
     /* Compute iteration count */
     sub   w2, w3, w2
 
@@ -2207,109 +2335,478 @@ ENTRY art_quick_indexof
     sub   x0, x0, x5
     asr   x0, x0, #1
     ret
+#if (STRING_COMPRESSION_FEATURE)
+   /*
+    * Comparing compressed string character-per-character with
+    * input character
+    */
+.Lstring_indexof_compressed:
+    add   x0, x0, x2
+    sub   x0, x0, #1
+    sub   w2, w3, w2
+.Lstring_indexof_compressed_loop:
+    subs  w2, w2, #1
+    b.lt  .Lindexof_nomatch
+    ldrb  w6, [x0, #1]!
+    cmp   w6, w1
+    b.eq  .Lstring_indexof_compressed_matched
+    b     .Lstring_indexof_compressed_loop
+.Lstring_indexof_compressed_matched:
+    sub   x0, x0, x5
+    ret
+#endif
 END art_quick_indexof
 
-   /*
-     * String's compareTo.
+    /*
+     * Create a function `name` calling the ReadBarrier::Mark routine,
+     * getting its argument and returning its result through W register
+     * `wreg` (corresponding to X register `xreg`), saving and restoring
+     * all caller-save registers.
      *
-     * TODO: Not very optimized.
-     *
-     * On entry:
-     *    x0:   this object pointer
-     *    x1:   comp object pointer
-     *
+     * If `wreg` is different from `w0`, the generated function follows a
+     * non-standard runtime calling convention:
+     * - register `wreg` is used to pass the (sole) argument of this
+     *   function (instead of W0);
+     * - register `wreg` is used to return the result of this function
+     *   (instead of W0);
+     * - W0 is treated like a normal (non-argument) caller-save register;
+     * - everything else is the same as in the standard runtime calling
+     *   convention (e.g. standard callee-save registers are preserved).
      */
-    .extern __memcmp16
-ENTRY art_quick_string_compareto
-    mov    x2, x0         // x0 is return, use x2 for first input.
-    sub    x0, x2, x1     // Same string object?
-    cbnz   x0,1f
+.macro READ_BARRIER_MARK_REG name, wreg, xreg
+ENTRY \name
+    // Reference is null, no work to do at all.
+    cbz \wreg, .Lret_rb_\name
+    // Use wIP0 as temp and check the mark bit of the reference. wIP0 is not used by the compiler.
+    ldr   wIP0, [\xreg, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
+    tbz   wIP0, #LOCK_WORD_MARK_BIT_SHIFT, .Lnot_marked_rb_\name
+.Lret_rb_\name:
     ret
-1:                        // Different string objects.
+.Lnot_marked_rb_\name:
+    // Check if the top two bits are one, if this is the case it is a forwarding address.
+    tst   wIP0, wIP0, lsl #1
+    bmi   .Lret_forwarding_address\name
+.Lslow_rb_\name:
+    /*
+     * Allocate 44 stack slots * 8 = 352 bytes:
+     * - 20 slots for core registers X0-15, X17-X19, LR
+     * - 24 slots for floating-point registers D0-D7 and D16-D31
+     */
+    // We must not clobber IP1 since code emitted for HLoadClass and HLoadString
+    // relies on IP1 being preserved.
+    // Save all potentially live caller-save core registers.
+    SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 352
+    SAVE_TWO_REGS  x2,  x3, 16
+    SAVE_TWO_REGS  x4,  x5, 32
+    SAVE_TWO_REGS  x6,  x7, 48
+    SAVE_TWO_REGS  x8,  x9, 64
+    SAVE_TWO_REGS x10, x11, 80
+    SAVE_TWO_REGS x12, x13, 96
+    SAVE_TWO_REGS x14, x15, 112
+    SAVE_TWO_REGS x17, x18, 128  // Skip x16, i.e. IP0.
+    SAVE_TWO_REGS x19, xLR, 144  // Save also return address.
+    // Save all potentially live caller-save floating-point registers.
+    stp   d0, d1,   [sp, #160]
+    stp   d2, d3,   [sp, #176]
+    stp   d4, d5,   [sp, #192]
+    stp   d6, d7,   [sp, #208]
+    stp   d16, d17, [sp, #224]
+    stp   d18, d19, [sp, #240]
+    stp   d20, d21, [sp, #256]
+    stp   d22, d23, [sp, #272]
+    stp   d24, d25, [sp, #288]
+    stp   d26, d27, [sp, #304]
+    stp   d28, d29, [sp, #320]
+    stp   d30, d31, [sp, #336]
 
-    ldr    w4, [x2, #MIRROR_STRING_COUNT_OFFSET]
-    ldr    w3, [x1, #MIRROR_STRING_COUNT_OFFSET]
-    add    x2, x2, #MIRROR_STRING_VALUE_OFFSET
-    add    x1, x1, #MIRROR_STRING_VALUE_OFFSET
+    .ifnc \wreg, w0
+      mov   w0, \wreg                   // Pass arg1 - obj from `wreg`
+    .endif
+    bl    artReadBarrierMark            // artReadBarrierMark(obj)
+    .ifnc \wreg, w0
+      mov   \wreg, w0                   // Return result into `wreg`
+    .endif
+
+    // Restore core regs, except `xreg`, as `wreg` is used to return the
+    // result of this function (simply remove it from the stack instead).
+    POP_REGS_NE x0, x1,   0,   \xreg
+    POP_REGS_NE x2, x3,   16,  \xreg
+    POP_REGS_NE x4, x5,   32,  \xreg
+    POP_REGS_NE x6, x7,   48,  \xreg
+    POP_REGS_NE x8, x9,   64,  \xreg
+    POP_REGS_NE x10, x11, 80,  \xreg
+    POP_REGS_NE x12, x13, 96,  \xreg
+    POP_REGS_NE x14, x15, 112, \xreg
+    POP_REGS_NE x17, x18, 128, \xreg
+    POP_REGS_NE x19, xLR, 144, \xreg  // Restore also return address.
+    // Restore floating-point registers.
+    ldp   d0, d1,   [sp, #160]
+    ldp   d2, d3,   [sp, #176]
+    ldp   d4, d5,   [sp, #192]
+    ldp   d6, d7,   [sp, #208]
+    ldp   d16, d17, [sp, #224]
+    ldp   d18, d19, [sp, #240]
+    ldp   d20, d21, [sp, #256]
+    ldp   d22, d23, [sp, #272]
+    ldp   d24, d25, [sp, #288]
+    ldp   d26, d27, [sp, #304]
+    ldp   d28, d29, [sp, #320]
+    ldp   d30, d31, [sp, #336]
+    // Remove frame and return.
+    DECREASE_FRAME 352
+    ret
+.Lret_forwarding_address\name:
+    // Shift left by the forwarding address shift. This clears out the state bits since they are
+    // in the top 2 bits of the lock word.
+    lsl   \wreg, wIP0, #LOCK_WORD_STATE_FORWARDING_ADDRESS_SHIFT
+    ret
+END \name
+.endm
+
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg00, w0,  x0
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg01, w1,  x1
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg02, w2,  x2
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg03, w3,  x3
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg04, w4,  x4
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg05, w5,  x5
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg06, w6,  x6
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg07, w7,  x7
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg08, w8,  x8
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg09, w9,  x9
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg10, w10, x10
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg11, w11, x11
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg12, w12, x12
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg13, w13, x13
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg14, w14, x14
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg15, w15, x15
+// READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg16, w16, x16 ip0 is blocked
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg17, w17, x17
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg18, w18, x18
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg19, w19, x19
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg20, w20, x20
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg21, w21, x21
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg22, w22, x22
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg23, w23, x23
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg24, w24, x24
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg25, w25, x25
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg26, w26, x26
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg27, w27, x27
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg28, w28, x28
+READ_BARRIER_MARK_REG art_quick_read_barrier_mark_reg29, w29, x29
+
+
+.macro SELECT_X_OR_W_FOR_MACRO macro_to_use, x, w, xreg
+    .if \xreg
+      \macro_to_use \x
+    .else
+      \macro_to_use \w
+    .endif
+.endm
+
+.macro FOR_REGISTERS macro_for_register, macro_for_reserved_register, xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x0, w0, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x1, w1, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x2, w2, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x3, w3, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x4, w4, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x5, w5, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x6, w6, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x7, w7, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x8, w8, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x9, w9, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x10, w10, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x11, w11, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x12, w12, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x13, w13, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x14, w14, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x15, w15, \xreg
+    \macro_for_reserved_register  // IP0 is reserved
+    \macro_for_reserved_register  // IP1 is reserved
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x18, w18, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x19, w19, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x20, w20, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x21, w21, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x22, w22, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x23, w23, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x24, w24, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x25, w25, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x26, w26, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x27, w27, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x28, w28, \xreg
+    SELECT_X_OR_W_FOR_MACRO \macro_for_register, x29, w29, \xreg
+    \macro_for_reserved_register  // lr is reserved
+    \macro_for_reserved_register  // sp is reserved
+.endm
+
+.macro FOR_XREGISTERS macro_for_register, macro_for_reserved_register
+    FOR_REGISTERS \macro_for_register, \macro_for_reserved_register, /* xreg */ 1
+.endm
+
+.macro FOR_WREGISTERS macro_for_register, macro_for_reserved_register
+    FOR_REGISTERS \macro_for_register, \macro_for_reserved_register, /* xreg */ 0
+.endm
+
+.macro BRK0_BRK0
+    brk 0
+    brk 0
+.endm
+
+#if BAKER_MARK_INTROSPECTION_FIELD_LDR_OFFSET != BAKER_MARK_INTROSPECTION_ARRAY_LDR_OFFSET
+#error "Array and field introspection code sharing requires same LDR offset."
+#endif
+.macro INTROSPECTION_ARRAY_LOAD index_reg
+    ldr   wIP0, [xIP0, \index_reg, lsl #2]
+    b     art_quick_read_barrier_mark_introspection
+.endm
+
+.macro MOV_WIP0_TO_WREG_AND_BL_LR reg
+    mov   \reg, wIP0
+    br    lr  // Do not use RET as we do not enter the entrypoint with "BL".
+.endm
+
+.macro READ_BARRIER_MARK_INTROSPECTION_SLOW_PATH ldr_offset
+    /*
+     * Allocate 44 stack slots * 8 = 352 bytes:
+     * - 19 slots for core registers X0-15, X18-X19, LR
+     * - 1 slot padding
+     * - 24 slots for floating-point registers D0-D7 and D16-D31
+     */
+    // Save all potentially live caller-save core registers.
+    SAVE_TWO_REGS_INCREASE_FRAME x0, x1, 352
+    SAVE_TWO_REGS  x2,  x3, 16
+    SAVE_TWO_REGS  x4,  x5, 32
+    SAVE_TWO_REGS  x6,  x7, 48
+    SAVE_TWO_REGS  x8,  x9, 64
+    SAVE_TWO_REGS x10, x11, 80
+    SAVE_TWO_REGS x12, x13, 96
+    SAVE_TWO_REGS x14, x15, 112
+    SAVE_TWO_REGS x18, x19, 128       // Skip x16, x17, i.e. IP0, IP1.
+    SAVE_REG      xLR,      144       // Save return address, skip padding at 152.
+    // Save all potentially live caller-save floating-point registers.
+    stp   d0, d1,   [sp, #160]
+    stp   d2, d3,   [sp, #176]
+    stp   d4, d5,   [sp, #192]
+    stp   d6, d7,   [sp, #208]
+    stp   d16, d17, [sp, #224]
+    stp   d18, d19, [sp, #240]
+    stp   d20, d21, [sp, #256]
+    stp   d22, d23, [sp, #272]
+    stp   d24, d25, [sp, #288]
+    stp   d26, d27, [sp, #304]
+    stp   d28, d29, [sp, #320]
+    stp   d30, d31, [sp, #336]
+
+    mov   x0, xIP0
+    bl    artReadBarrierMark          // artReadBarrierMark(obj)
+    mov   xIP0, x0
+
+    // Restore core regs, except x0 and x1 as the return register switch case
+    // address calculation is smoother with an extra register.
+    RESTORE_TWO_REGS  x2,  x3, 16
+    RESTORE_TWO_REGS  x4,  x5, 32
+    RESTORE_TWO_REGS  x6,  x7, 48
+    RESTORE_TWO_REGS  x8,  x9, 64
+    RESTORE_TWO_REGS x10, x11, 80
+    RESTORE_TWO_REGS x12, x13, 96
+    RESTORE_TWO_REGS x14, x15, 112
+    RESTORE_TWO_REGS x18, x19, 128    // Skip x16, x17, i.e. IP0, IP1.
+    RESTORE_REG      xLR,      144    // Restore return address.
+    // Restore caller-save floating-point registers.
+    ldp   d0, d1,   [sp, #160]
+    ldp   d2, d3,   [sp, #176]
+    ldp   d4, d5,   [sp, #192]
+    ldp   d6, d7,   [sp, #208]
+    ldp   d16, d17, [sp, #224]
+    ldp   d18, d19, [sp, #240]
+    ldp   d20, d21, [sp, #256]
+    ldp   d22, d23, [sp, #272]
+    ldp   d24, d25, [sp, #288]
+    ldp   d26, d27, [sp, #304]
+    ldp   d28, d29, [sp, #320]
+    ldp   d30, d31, [sp, #336]
+
+    ldr   x0, [lr, #\ldr_offset]      // Load the instruction.
+    adr   xIP1, .Lmark_introspection_return_switch
+    bfi   xIP1, x0, #3, #5            // Calculate switch case address.
+    RESTORE_TWO_REGS_DECREASE_FRAME x0, x1, 352
+    br    xIP1
+.endm
 
     /*
-     * Now:           Data*  Count
-     *    first arg    x2      w4
-     *   second arg    x1      w3
+     * Use introspection to load a reference from the same address as the LDR
+     * instruction in generated code would load (unless loaded by the thunk,
+     * see below), call ReadBarrier::Mark() with that reference if needed
+     * and return it in the same register as the LDR instruction would load.
+     *
+     * The entrypoint is called through a thunk that differs across load kinds.
+     * For field and array loads the LDR instruction in generated code follows
+     * the branch to the thunk, i.e. the LDR is at [LR, #-4], and the thunk
+     * knows the holder and performs the gray bit check, returning to the LDR
+     * instruction if the object is not gray, so this entrypoint no longer
+     * needs to know anything about the holder. For GC root loads, the LDR
+     * instruction in generated code precedes the branch to the thunk (i.e.
+     * the LDR is at [LR, #-8]) and the thunk does not do the gray bit check.
+     *
+     * For field accesses and array loads with a constant index the thunk loads
+     * the reference into IP0 using introspection and calls the main entrypoint,
+     * art_quick_read_barrier_mark_introspection. With heap poisoning enabled,
+     * the passed reference is poisoned.
+     *
+     * For array accesses with non-constant index, the thunk inserts the bits
+     * 16-21 of the LDR instruction to the entrypoint address, effectively
+     * calculating a switch case label based on the index register (bits 16-20)
+     * and adding an extra offset (bit 21 is set) to differentiate from the
+     * main entrypoint, then moves the base register to IP0 and jumps to the
+     * switch case. Therefore we need to align the main entrypoint to 512 bytes,
+     * accounting for a 256-byte offset followed by 32 array entrypoints
+     * starting at art_quick_read_barrier_mark_introspection_arrays, each
+     * containing an LDR (register) and a branch to the main entrypoint.
+     *
+     * For GC root accesses we cannot use the main entrypoint because of the
+     * different offset where the LDR instruction in generated code is located.
+     * (And even with heap poisoning enabled, GC roots are not poisoned.)
+     * To re-use the same entrypoint pointer in generated code, we make sure
+     * that the gc root entrypoint (a copy of the entrypoint with a different
+     * offset for introspection loads) is located at a known offset (768 bytes,
+     * or BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRYPOINT_OFFSET) from the main
+     * entrypoint and the GC root thunk adjusts the entrypoint pointer, moves
+     * the root register to IP0 and jumps to the customized entrypoint,
+     * art_quick_read_barrier_mark_introspection_gc_roots. The thunk also
+     * performs all the fast-path checks, so we need just the slow path.
+     *
+     * The code structure is
+     *   art_quick_read_barrier_mark_introspection:
+     *     Up to 256 bytes for the main entrypoint code.
+     *     Padding to 256 bytes if needed.
+     *   art_quick_read_barrier_mark_introspection_arrays:
+     *     Exactly 256 bytes for array load switch cases (32x2 instructions).
+     *   .Lmark_introspection_return_switch:
+     *     Exactly 256 bytes for return switch cases (32x2 instructions).
+     *   art_quick_read_barrier_mark_introspection_gc_roots:
+     *     GC root entrypoint code.
      */
+    .balign 512
+ENTRY art_quick_read_barrier_mark_introspection
+    // At this point, IP0 contains the reference, IP1 can be freely used.
+    // For heap poisoning, the reference is poisoned, so unpoison it first.
+    UNPOISON_HEAP_REF wIP0
+    // If reference is null, just return it in the right register.
+    cbz   wIP0, .Lmark_introspection_return
+    // Use wIP1 as temp and check the mark bit of the reference.
+    ldr   wIP1, [xIP0, #MIRROR_OBJECT_LOCK_WORD_OFFSET]
+    tbz   wIP1, #LOCK_WORD_MARK_BIT_SHIFT, .Lmark_introspection_unmarked
+.Lmark_introspection_return:
+    // Without an extra register for the return switch case address calculation,
+    // we exploit the high word of the xIP0 to temporarily store the ref_reg*8,
+    // so the return switch below must move wIP0 instead of xIP0 to the register.
+    ldr   wIP1, [lr, #BAKER_MARK_INTROSPECTION_FIELD_LDR_OFFSET]  // Load the instruction.
+    bfi   xIP0, xIP1, #(32 + 3), #5   // Extract ref_reg*8 to high word in xIP0.
+    adr   xIP1, .Lmark_introspection_return_switch
+    bfxil xIP1, xIP0, #32, #8         // Calculate return switch case address.
+    br    xIP1
+.Lmark_introspection_unmarked:
+    // Check if the top two bits are one, if this is the case it is a forwarding address.
+    tst   wIP1, wIP1, lsl #1
+    bmi   .Lmark_introspection_forwarding_address
+    READ_BARRIER_MARK_INTROSPECTION_SLOW_PATH BAKER_MARK_INTROSPECTION_FIELD_LDR_OFFSET
 
-    // x0 := str1.length(w4) - str2.length(w3). ldr zero-extended w3/w4 into x3/x4.
-    subs x0, x4, x3
-    // Min(count1, count2) into w3.
-    csel x3, x3, x4, ge
+.Lmark_introspection_forwarding_address:
+    // Shift left by the forwarding address shift. This clears out the state bits since they are
+    // in the top 2 bits of the lock word.
+    lsl   wIP0, wIP1, #LOCK_WORD_STATE_FORWARDING_ADDRESS_SHIFT
+    b .Lmark_introspection_return
 
-    // TODO: Tune this value.
-    // Check for long string, do memcmp16 for them.
-    cmp w3, #28  // Constant from arm32.
-    bgt .Ldo_memcmp16
+    // We're very close to the alloted 256B for the entrypoint code before the
+    // array switch cases. Should we go a little bit over the limit, we can
+    // move some code after the array switch cases and return switch cases.
+    .balign 256
+    .hidden art_quick_read_barrier_mark_introspection_arrays
+    .global art_quick_read_barrier_mark_introspection_arrays
+art_quick_read_barrier_mark_introspection_arrays:
+    FOR_XREGISTERS INTROSPECTION_ARRAY_LOAD, BRK0_BRK0
+.Lmark_introspection_return_switch:
+    FOR_WREGISTERS MOV_WIP0_TO_WREG_AND_BL_LR, BRK0_BRK0
+    .hidden art_quick_read_barrier_mark_introspection_gc_roots
+    .global art_quick_read_barrier_mark_introspection_gc_roots
+art_quick_read_barrier_mark_introspection_gc_roots:
+    READ_BARRIER_MARK_INTROSPECTION_SLOW_PATH BAKER_MARK_INTROSPECTION_GC_ROOT_LDR_OFFSET
+END art_quick_read_barrier_mark_introspection
 
-    /*
-     * Now:
-     *   x2: *first string data
-     *   x1: *second string data
-     *   w3: iteration count
-     *   x0: return value if comparison equal
-     *   x4, x5, x6, x7: free
-     */
+.extern artInvokePolymorphic
+ENTRY art_quick_invoke_polymorphic
+    SETUP_SAVE_REFS_AND_ARGS_FRAME                // Save callee saves in case allocation triggers GC.
+    mov     x2, xSELF
+    mov     x3, sp
+    INCREASE_FRAME 16                             // Reserve space for JValue result.
+    str     xzr, [sp, #0]                         // Initialize result to zero.
+    mov     x0, sp                                // Set r0 to point to result.
+    bl      artInvokePolymorphic                  // ArtInvokePolymorphic(result, receiver, thread, save_area)
+    uxtb    w0, w0                                // Result is the return type descriptor as a char.
+    sub     w0, w0, 'A'                           // Convert to zero based index.
+    cmp     w0, 'Z' - 'A'
+    bhi     .Lcleanup_and_return                  // Clean-up if out-of-bounds.
+    adrp    x1, .Lhandler_table                   // Compute address of handler table.
+    add     x1, x1, :lo12:.Lhandler_table
+    ldrb    w0, [x1, w0, uxtw]                    // Lookup handler offset in handler table.
+    adr     x1, .Lstart_of_handlers
+    add     x0, x1, w0, sxtb #2                   // Convert relative offset to absolute address.
+    br      x0                                    // Branch to handler.
 
-    // Do a simple unrolled loop.
-.Lloop:
-    // At least two more elements?
-    subs w3, w3, #2
-    b.lt .Lremainder_or_done
+.Lstart_of_handlers:
+.Lstore_boolean_result:
+    ldrb    w0, [sp]
+    b       .Lcleanup_and_return
+.Lstore_char_result:
+    ldrh    w0, [sp]
+    b       .Lcleanup_and_return
+.Lstore_float_result:
+    ldr     s0, [sp]
+    str     s0, [sp, #32]
+    b       .Lcleanup_and_return
+.Lstore_double_result:
+    ldr     d0, [sp]
+    str     d0, [sp, #32]
+    b       .Lcleanup_and_return
+.Lstore_long_result:
+    ldr     x0, [sp]
+    // Fall-through
+.Lcleanup_and_return:
+    DECREASE_FRAME 16
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    RETURN_OR_DELIVER_PENDING_EXCEPTION_X1
 
-    ldrh w4, [x2], #2
-    ldrh w5, [x1], #2
+    .section    .rodata                           // Place handler table in read-only section away from text.
+    .align  2
+.macro HANDLER_TABLE_OFFSET handler_label
+    .byte (\handler_label - .Lstart_of_handlers) / 4
+.endm
+.Lhandler_table:
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // A
+    HANDLER_TABLE_OFFSET(.Lstore_long_result)     // B (byte)
+    HANDLER_TABLE_OFFSET(.Lstore_char_result)     // C (char)
+    HANDLER_TABLE_OFFSET(.Lstore_double_result)   // D (double)
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // E
+    HANDLER_TABLE_OFFSET(.Lstore_float_result)    // F (float)
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // G
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // H
+    HANDLER_TABLE_OFFSET(.Lstore_long_result)     // I (int)
+    HANDLER_TABLE_OFFSET(.Lstore_long_result)     // J (long)
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // K
+    HANDLER_TABLE_OFFSET(.Lstore_long_result)     // L (object - references are compressed and only 32-bits)
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // M
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // N
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // O
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // P
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // Q
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // R
+    HANDLER_TABLE_OFFSET(.Lstore_long_result)     // S (short)
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // T
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // U
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // V (void)
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // W
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // X
+    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)    // Y
+    HANDLER_TABLE_OFFSET(.Lstore_boolean_result)  // Z (boolean)
+    .text
 
-    ldrh w6, [x2], #2
-    ldrh w7, [x1], #2
-
-    subs w4, w4, w5
-    b.ne .Lw4_result
-
-    subs w6, w6, w7
-    b.ne .Lw6_result
-
-    b .Lloop
-
-.Lremainder_or_done:
-    adds w3, w3, #1
-    b.eq .Lremainder
-    ret
-
-.Lremainder:
-    ldrh w4, [x2], #2
-    ldrh w5, [x1], #2
-    subs w4, w4, w5
-    b.ne .Lw4_result
-    ret
-
-// Result is in w4
-.Lw4_result:
-    sxtw x0, w4
-    ret
-
-// Result is in w6
-.Lw6_result:
-    sxtw x0, w6
-    ret
-
-.Ldo_memcmp16:
-    mov x14, x0                  // Save x0 and LR. __memcmp16 does not use these temps.
-    mov x15, xLR                 //                 TODO: Codify and check that?
-
-    mov x0, x2
-    uxtw x2, w3
-    bl __memcmp16
-
-    mov xLR, x15                 // Restore LR.
-
-    cmp x0, #0                   // Check the memcmp difference.
-    csel x0, x0, x14, ne         // x0 := x0 != 0 ? x14(prev x0=length diff) : x1.
-    ret
-END art_quick_string_compareto
+END  art_quick_invoke_polymorphic

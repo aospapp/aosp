@@ -30,7 +30,17 @@
             android:name="android.preference2.cts.PreferenceFromCodeActivity" >
         </activity>
         <activity android:name="android.preference2.cts.PreferencesFromXml" />
+        <activity android:name="android.preference2.cts.PreferencesFromXmlNested" />
+        <activity android:name="android.preference2.cts.PreferencesFromXmlRecycle" />
         <activity android:name="android.preference2.cts.PreferenceWithHeaders" />
+        <!-- Landscape setup of PreferenceWithHeaders -->
+        <activity
+            android:name="android.preference2.cts.PreferenceWithHeadersLandscape"
+            android:screenOrientation="landscape"/>
+        <!-- Portrait setup of PreferenceWithHeaders -->
+        <activity
+            android:name="android.preference2.cts.PreferenceWithHeadersPortrait"
+            android:screenOrientation="portrait"/>
         <activity android:name="android.preference2.cts.FragmentPreferences" />
     </application>
 

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009, International Business Machines Corporation and         *
@@ -10,12 +12,12 @@ package android.icu.dev.test.util;
 
 import java.util.HashMap;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import android.icu.text.Collator;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class LocaleAliasCollationTest extends android.icu.dev.test.TestFmwk {
     private static final ULocale[][] _LOCALES = {
             {new ULocale("en", "RH"), new ULocale("en", "ZW")},
@@ -34,24 +36,22 @@ public class LocaleAliasCollationTest extends android.icu.dev.test.TestFmwk {
     };
 
     private static final int _LOCALE_NUMBER = _LOCALES.length;
-    private static ULocale[] available = null;
+    private ULocale[] available = null;
     private HashMap availableMap = new HashMap();
     private static final ULocale _DEFAULT_LOCALE = ULocale.US;
-
-    public static void main(String[] args) {
-        new LocaleAliasCollationTest().run(args);
-    }
 
     public LocaleAliasCollationTest() {
     }
 
-    protected void init(){
+    @Before
+    public void init() {
         available = ULocale.getAvailableLocales();
         for(int i=0; i<available.length;i++){
             availableMap.put(available[i].toString(),"");
         }
     }
 
+    @Test
     public void TestCollation() {
         ULocale defLoc = ULocale.getDefault();
         ULocale.setDefault(_DEFAULT_LOCALE);

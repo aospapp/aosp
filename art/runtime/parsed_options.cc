@@ -23,6 +23,7 @@
 #include "gc/heap.h"
 #include "monitor.h"
 #include "runtime.h"
+#include "ti/agent.h"
 #include "trace.h"
 #include "utils.h"
 
@@ -90,6 +91,13 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
       .Define({"-Xrunjdwp:_", "-agentlib:jdwp=_"})
           .WithType<JDWP::JdwpOptions>()
           .IntoKey(M::JdwpOptions)
+      // TODO Re-enable -agentlib: once I have a good way to transform the values.
+      // .Define("-agentlib:_")
+      //     .WithType<std::vector<ti::Agent>>().AppendValues()
+      //     .IntoKey(M::AgentLib)
+      .Define("-agentpath:_")
+          .WithType<std::list<ti::Agent>>().AppendValues()
+          .IntoKey(M::AgentPath)
       .Define("-Xms_")
           .WithType<MemoryKiB>()
           .IntoKey(M::MemoryInitialSize)
@@ -176,8 +184,13 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
           .WithType<unsigned int>()
           .IntoKey(M::JITInvokeTransitionWeight)
       .Define("-Xjitsaveprofilinginfo")
-          .WithValue(true)
-          .IntoKey(M::JITSaveProfilingInfo)
+          .WithType<ProfileSaverOptions>()
+          .AppendValues()
+          .IntoKey(M::ProfileSaverOpts)
+      .Define("-Xps-_")  // profile saver options -Xps-<key>:<value>
+          .WithType<ProfileSaverOptions>()
+          .AppendValues()
+          .IntoKey(M::ProfileSaverOpts)  // NOTE: Appends into same key as -Xjitsaveprofilinginfo
       .Define("-XX:HspaceCompactForOOMMinIntervalMs=_")  // in ms
           .WithType<MillisecondsToNanoseconds>()  // store as ns
           .IntoKey(M::HSpaceCompactForOOMMinIntervalsMs)
@@ -244,14 +257,6 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
                          {"wallclock",      TraceClockSource::kWall},
                          {"dualclock",      TraceClockSource::kDual}})
           .IntoKey(M::ProfileClock)
-      .Define("-Xenable-profiler")
-          .WithType<TestProfilerOptions>()
-          .AppendValues()
-          .IntoKey(M::ProfilerOpts)  // NOTE: Appends into same key as -Xprofile-*
-      .Define("-Xprofile-_")  // -Xprofile-<key>:<value>
-          .WithType<TestProfilerOptions>()
-          .AppendValues()
-          .IntoKey(M::ProfilerOpts)  // NOTE: Appends into same key as -Xenable-profiler
       .Define("-Xcompiler:_")
           .WithType<std::string>()
           .IntoKey(M::Compiler)
@@ -292,9 +297,12 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
           .IntoKey(M::Experimental)
       .Define("-Xforce-nb-testing")
           .IntoKey(M::ForceNativeBridge)
-      .Define("-XOatFileManagerCompilerFilter:_")
-          .WithType<std::string>()
-          .IntoKey(M::OatFileManagerCompilerFilter)
+      .Define("-Xplugin:_")
+          .WithType<std::vector<Plugin>>().AppendValues()
+          .IntoKey(M::Plugins)
+      .Define("-XX:ThreadSuspendTimeout=_")  // in ms
+          .WithType<MillisecondsToNanoseconds>()  // store as ns
+          .IntoKey(M::ThreadSuspendTimeout)
       .Ignore({
           "-ea", "-da", "-enableassertions", "-disableassertions", "--runtime-arg", "-esa",
           "-dsa", "-enablesystemassertions", "-disablesystemassertions", "-Xrs", "-Xint:_",
@@ -468,7 +476,10 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
     Usage(nullptr);
     return false;
   } else if (args.Exists(M::ShowVersion)) {
-    UsageMessage(stdout, "ART version %s\n", Runtime::GetVersion());
+    UsageMessage(stdout,
+                 "ART version %s %s\n",
+                 Runtime::GetVersion(),
+                 GetInstructionSetString(kRuntimeISA));
     Exit(0);
   } else if (args.Exists(M::BootClassPath)) {
     LOG(INFO) << "setting boot class path to " << *args.Get(M::BootClassPath);
@@ -493,7 +504,7 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
   args.SetIfMissing(M::ParallelGCThreads, gc::Heap::kDefaultEnableParallelGC ?
       static_cast<unsigned int>(sysconf(_SC_NPROCESSORS_CONF) - 1u) : 0u);
 
-  // -Xverbose:
+  // -verbose:
   {
     LogVerbosity *log_verbosity = args.Get(M::Verbose);
     if (log_verbosity != nullptr) {
@@ -589,12 +600,6 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
     args.Set(M::HeapGrowthLimit, args.GetOrDefault(M::MemoryMaximumSize));
   }
 
-  if (args.GetOrDefault(M::Experimental) & ExperimentalFlags::kLambdas) {
-    LOG(WARNING) << "Experimental lambdas have been enabled. All lambda opcodes have "
-                 << "an unstable specification and are nearly guaranteed to change over time. "
-                 << "Do not attempt to write shipping code against these opcodes.";
-  }
-
   *runtime_options = std::move(args);
   return true;
 }
@@ -639,6 +644,11 @@ void ParsedOptions::Usage(const char* fmt, ...) {
   UsageMessage(stream, "  -showversion\n");
   UsageMessage(stream, "  -help\n");
   UsageMessage(stream, "  -agentlib:jdwp=options\n");
+  // TODO add back in once -agentlib actually does something.
+  // UsageMessage(stream, "  -agentlib:library=options (Experimental feature, "
+  //                      "requires -Xexperimental:agent, some features might not be supported)\n");
+  UsageMessage(stream, "  -agentpath:library_path=options (Experimental feature, "
+                       "requires -Xexperimental:agent, some features might not be supported)\n");
   UsageMessage(stream, "\n");
 
   UsageMessage(stream, "The following extended options are supported:\n");
@@ -682,6 +692,7 @@ void ParsedOptions::Usage(const char* fmt, ...) {
   UsageMessage(stream, "  -XX:MaxSpinsBeforeThinLockInflation=integervalue\n");
   UsageMessage(stream, "  -XX:LongPauseLogThreshold=integervalue\n");
   UsageMessage(stream, "  -XX:LongGCLogThreshold=integervalue\n");
+  UsageMessage(stream, "  -XX:ThreadSuspendTimeout=integervalue\n");
   UsageMessage(stream, "  -XX:DumpGCPerformanceOnShutdown\n");
   UsageMessage(stream, "  -XX:DumpJITInfoOnShutdown\n");
   UsageMessage(stream, "  -XX:IgnoreMaxFootprint\n");
@@ -693,17 +704,14 @@ void ParsedOptions::Usage(const char* fmt, ...) {
   UsageMessage(stream, "  -Xmethod-trace\n");
   UsageMessage(stream, "  -Xmethod-trace-file:filename");
   UsageMessage(stream, "  -Xmethod-trace-file-size:integervalue\n");
-  UsageMessage(stream, "  -Xenable-profiler\n");
-  UsageMessage(stream, "  -Xprofile-filename:filename\n");
-  UsageMessage(stream, "  -Xprofile-period:integervalue\n");
-  UsageMessage(stream, "  -Xprofile-duration:integervalue\n");
-  UsageMessage(stream, "  -Xprofile-interval:integervalue\n");
-  UsageMessage(stream, "  -Xprofile-backoff:doublevalue\n");
-  UsageMessage(stream, "  -Xprofile-start-immediately\n");
-  UsageMessage(stream, "  -Xprofile-top-k-threshold:doublevalue\n");
-  UsageMessage(stream, "  -Xprofile-top-k-change-threshold:doublevalue\n");
-  UsageMessage(stream, "  -Xprofile-type:{method,stack}\n");
-  UsageMessage(stream, "  -Xprofile-max-stack-depth:integervalue\n");
+  UsageMessage(stream, "  -Xps-min-save-period-ms:integervalue\n");
+  UsageMessage(stream, "  -Xps-save-resolved-classes-delay-ms:integervalue\n");
+  UsageMessage(stream, "  -Xps-startup-method-samples:integervalue\n");
+  UsageMessage(stream, "  -Xps-min-methods-to-save:integervalue\n");
+  UsageMessage(stream, "  -Xps-min-classes-to-save:integervalue\n");
+  UsageMessage(stream, "  -Xps-min-notification-before-wake:integervalue\n");
+  UsageMessage(stream, "  -Xps-max-notification-before-wake:integervalue\n");
+  UsageMessage(stream, "  -Xps-profile-path:file-path\n");
   UsageMessage(stream, "  -Xcompiler:filename\n");
   UsageMessage(stream, "  -Xcompiler-option dex2oat-option\n");
   UsageMessage(stream, "  -Ximage-compiler-option dex2oat-option\n");
@@ -719,8 +727,12 @@ void ParsedOptions::Usage(const char* fmt, ...) {
   UsageMessage(stream, "  -X[no]image-dex2oat (Whether to create and use a boot image)\n");
   UsageMessage(stream, "  -Xno-dex-file-fallback "
                        "(Don't fall back to dex files without oat files)\n");
-  UsageMessage(stream, "  -Xexperimental:lambdas "
-                       "(Enable new and experimental dalvik opcodes and semantics)\n");
+  UsageMessage(stream, "  -Xplugin:<library.so> "
+                       "(Load a runtime plugin, requires -Xexperimental:runtime-plugins)\n");
+  UsageMessage(stream, "  -Xexperimental:runtime-plugins"
+                       "(Enable new and experimental agent support)\n");
+  UsageMessage(stream, "  -Xexperimental:agents"
+                       "(Enable new and experimental agent support)\n");
   UsageMessage(stream, "\n");
 
   UsageMessage(stream, "The following previously supported Dalvik options are ignored:\n");

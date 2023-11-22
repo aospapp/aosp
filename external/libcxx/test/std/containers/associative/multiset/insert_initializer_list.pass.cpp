@@ -15,6 +15,7 @@
 
 #include <set>
 #include <cassert>
+#include <cstddef>
 
 #include "min_allocator.h"
 
@@ -27,7 +28,7 @@ int main()
     C m = {10, 8};
     m.insert({1, 2, 3, 4, 5, 6});
     assert(m.size() == 8);
-    assert(distance(m.begin(), m.end()) == m.size());
+    assert(static_cast<std::size_t>(distance(m.begin(), m.end())) == m.size());
     C::const_iterator i = m.cbegin();
     assert(*i == V(1));
     assert(*++i == V(2));
@@ -39,14 +40,14 @@ int main()
     assert(*++i == V(10));
     }
 #endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
-#if __cplusplus >= 201103L
+#if TEST_STD_VER >= 11
     {
     typedef std::multiset<int, std::less<int>, min_allocator<int>> C;
     typedef C::value_type V;
     C m = {10, 8};
     m.insert({1, 2, 3, 4, 5, 6});
     assert(m.size() == 8);
-    assert(distance(m.begin(), m.end()) == m.size());
+    assert(static_cast<std::size_t>(distance(m.begin(), m.end())) == m.size());
     C::const_iterator i = m.cbegin();
     assert(*i == V(1));
     assert(*++i == V(2));

@@ -33,7 +33,7 @@ class brillo_MemorySizeTest(test.test):
 
         try:
             meminfo_output = host.run_output('cat /proc/meminfo').splitlines()
-        except error.AutoservRunError:
+        except error.GenericHostRunError:
             raise error.TestFail('Failed to cat /proc/meminfo')
 
         meminfo_dict = dict([[tok.strip() for tok in line.split(':', 1)]

@@ -4,11 +4,10 @@
 
 "Module containing common utilities for server-side autoupdate tests."
 
-import logging
-
 import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import autoupdater, dev_server
+from autotest_lib.server import afe_utils
 from autotest_lib.server.cros.dynamic_suite import tools
 
 
@@ -33,11 +32,8 @@ def get_updater_from_repo_url(host, job_repo_url=None):
     # Get the job_repo_url -- if not present, attempt to use the one
     # specified in the host attributes for the host.
     if not job_repo_url:
-        try:
-            job_repo_url = host.lookup_job_repo_url()
-        except KeyError:
-            logging.fatal('Could not lookup job_repo_url from afe.')
-
+        job_repo_url = afe_utils.get_host_attribute(
+                host, host.job_repo_url_attribute)
         if not job_repo_url:
             raise error.TestError(
                     'Could not find a job_repo_url for the given host.')

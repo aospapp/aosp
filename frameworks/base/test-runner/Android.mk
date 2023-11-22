@@ -20,8 +20,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := core-oj core-libart core-junit framework
-LOCAL_STATIC_JAVA_LIBRARIES := junit-runner
+LOCAL_JAVA_LIBRARIES := core-oj core-libart framework legacy-test
 
 LOCAL_MODULE:= android.test.runner
 

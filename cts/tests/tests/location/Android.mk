@@ -27,7 +27,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctsdeviceutil ctstestrunner
+    compatibility-device-util ctstestrunner
 
 LOCAL_SDK_VERSION := test_current
 
@@ -47,7 +47,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

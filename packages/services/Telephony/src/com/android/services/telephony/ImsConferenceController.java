@@ -16,6 +16,7 @@
 
 package com.android.services.telephony;
 
+import com.android.ims.ImsReasonInfo;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.phone.PhoneUtils;
@@ -91,7 +92,7 @@ public class ImsConferenceController {
     /**
      * The current {@link ConnectionService}.
      */
-    private final TelephonyConnectionService mConnectionService;
+    private final TelephonyConnectionServiceProxy mConnectionService;
 
     /**
      * List of known {@link TelephonyConnection}s.
@@ -104,13 +105,17 @@ public class ImsConferenceController {
      */
     private final ArrayList<ImsConference> mImsConferences = new ArrayList<>(1);
 
+    private TelecomAccountRegistry mTelecomAccountRegistry;
+
     /**
      * Creates a new instance of the Ims conference controller.
      *
      * @param connectionService The current connection service.
      */
-    public ImsConferenceController(TelephonyConnectionService connectionService) {
+    public ImsConferenceController(TelecomAccountRegistry telecomAccountRegistry,
+                                   TelephonyConnectionServiceProxy connectionService) {
         mConnectionService = connectionService;
+        mTelecomAccountRegistry = telecomAccountRegistry;
     }
 
     /**
@@ -187,6 +192,7 @@ public class ImsConferenceController {
         Log.v(this, "recalculateConferenceable : %d", mTelephonyConnections.size());
         HashSet<Conferenceable> conferenceableSet = new HashSet<>(mTelephonyConnections.size() +
                 mImsConferences.size());
+        HashSet<Conferenceable> conferenceParticipantsSet = new HashSet<>();
 
         // Loop through and collect all calls which are active or holding
         for (TelephonyConnection connection : mTelephonyConnections) {
@@ -240,7 +246,10 @@ public class ImsConferenceController {
                 case Connection.STATE_ACTIVE:
                     //fall through
                 case Connection.STATE_HOLDING:
-                    conferenceableSet.add(conference);
+                    if (!conference.isFullConference()) {
+                        conferenceParticipantsSet.addAll(conference.getConnections());
+                        conferenceableSet.add(conference);
+                    }
                     continue;
                 default:
                     break;
@@ -256,8 +265,25 @@ public class ImsConferenceController {
                         .stream()
                         .filter(conferenceable -> c != conferenceable)
                         .collect(Collectors.toList());
+                // TODO: Remove this once RemoteConnection#setConferenceableConnections is fixed.
+                // Add all conference participant connections as conferenceable with a standalone
+                // Connection.  We need to do this to ensure that RemoteConnections work properly.
+                // At the current time, a RemoteConnection will not be conferenceable with a
+                // Conference, so we need to add its children to ensure the user can merge the call
+                // into the conference.
+                // We should add support for RemoteConnection#setConferenceables, which accepts a
+                // list of remote conferences and connections in the future.
+                conferenceables.addAll(conferenceParticipantsSet);
+
                 ((Connection) c).setConferenceables(conferenceables);
-            } else if (c instanceof Conference) {
+            } else if (c instanceof ImsConference) {
+                ImsConference imsConference = (ImsConference) c;
+
+                // If the conference is full, don't allow anything to be conferenced with it.
+                if (imsConference.isFullConference()) {
+                    imsConference.setConferenceableConnections(Collections.<Connection>emptyList());
+                }
+
                 // Remove all conferences from the set, since we can not conference a conference
                 // to another conference.
                 List<Connection> connections = conferenceableSet
@@ -266,7 +292,7 @@ public class ImsConferenceController {
                         .map(conferenceable -> (Connection) conferenceable)
                         .collect(Collectors.toList());
                 // Conference equivalent to setConferenceables that only accepts Connections
-                ((Conference) c).setConferenceableConnections(connections);
+                imsConference.setConferenceableConnections(connections);
             }
         }
     }
@@ -298,7 +324,6 @@ public class ImsConferenceController {
         Iterator<TelephonyConnection> it = mTelephonyConnections.iterator();
         while (it.hasNext()) {
             TelephonyConnection connection = it.next();
-
             if (connection.isImsConnection() && connection.getOriginalConnection() != null &&
                     connection.getOriginalConnection().isMultiparty()) {
 
@@ -331,6 +356,7 @@ public class ImsConferenceController {
         // This is necessary since the Connection Service does not support removing a connection
         // from Telecom.  Instead we create a new instance and remove the old one from telecom.
         TelephonyConnection conferenceHostConnection = connection.cloneConnection();
+        conferenceHostConnection.setVideoPauseSupported(connection.getVideoPauseSupported());
 
         PhoneAccountHandle phoneAccountHandle = null;
 
@@ -344,8 +370,8 @@ public class ImsConferenceController {
                     PhoneUtils.makePstnPhoneAccountHandle(imsPhone.getDefaultPhone());
         }
 
-        ImsConference conference = new ImsConference(mConnectionService, conferenceHostConnection,
-                phoneAccountHandle);
+        ImsConference conference = new ImsConference(mTelecomAccountRegistry, mConnectionService,
+                conferenceHostConnection, phoneAccountHandle);
         conference.setState(conferenceHostConnection.getState());
         conference.addListener(mConferenceListener);
         conference.updateConferenceParticipantsAfterCreation();
@@ -357,7 +383,9 @@ public class ImsConferenceController {
         // disconnect tone is not played.
         connection.removeConnectionListener(mConnectionListener);
         connection.clearOriginalConnection();
-        connection.setDisconnected(new DisconnectCause(DisconnectCause.OTHER));
+        connection.setDisconnected(new DisconnectCause(DisconnectCause.OTHER,
+                android.telephony.DisconnectCause.toString(
+                        android.telephony.DisconnectCause.IMS_MERGED_SUCCESSFULLY)));
         connection.destroy();
         mImsConferences.add(conference);
     }

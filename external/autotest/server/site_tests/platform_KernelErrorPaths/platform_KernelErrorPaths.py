@@ -6,7 +6,7 @@ import logging, os, time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
-from autotest_lib.client.cros.crash_test import CrashTest as CrashTestDefs
+from autotest_lib.client.cros.crash.crash_test import CrashTest as CrashTestDefs
 from autotest_lib.server import test
 
 class platform_KernelErrorPaths(test.test):

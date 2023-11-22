@@ -50,7 +50,9 @@ public class Options {
   public static String deviceName = "";
   public static boolean usingSpecificDevice = false;
   public static int repeat = 1;
+  public static int divergenceRetry = 10;
   public static String executeDirectory = "/data/art-test";
+  public static String androidRoot = "";
   public static String dumpMutationsFile = "mutations.dump";
   public static String loadMutationsFile = "mutations.dump";
   public static String reportLogFile = "report.log";
@@ -61,7 +63,6 @@ public class Options {
   public static boolean executeOnHost;
   public static boolean noBootImage;
   public static boolean useInterpreter;
-  public static boolean useQuick;
   public static boolean useOptimizing;
   public static boolean useArchArm;
   public static boolean useArchArm64;
@@ -78,6 +79,7 @@ public class Options {
   public static boolean skipMutation;
   public static boolean dumpMutations;
   public static boolean loadMutations;
+  public static boolean runBisectionSearch;
 
   /**
    * Print out usage information about dexfuzz, and then exit.
@@ -95,12 +97,13 @@ public class Options {
     Log.always("                           the argument given to adb -s. Default execution mode.");
     Log.always("    --execute-dir=<dir>  : Push tests to this directory to execute them.");
     Log.always("                           (Default: /data/art-test)");
+    Log.always("    --android-root=<dir> : Set path where dalvikvm should look for binaries.");
+    Log.always("                           Use this when pushing binaries to a custom location.");
     Log.always("    --no-boot-image      : Use this flag when boot.art is not available.");
     Log.always("    --skip-host-verify   : When executing, skip host-verification stage");
     Log.always("    --execute-class=<c>  : When executing, execute this class (default: Main)");
     Log.always("");
     Log.always("    --interpreter        : Include the Interpreter in comparisons");
-    Log.always("    --quick              : Include the Quick Compiler in comparisons");
     Log.always("    --optimizing         : Include the Optimizing Compiler in comparisons");
     Log.always("");
     Log.always("    --arm                : Include ARM backends in comparisons");
@@ -116,6 +119,8 @@ public class Options {
     Log.always("    --repeat=<n>         : Fuzz N programs, executing each one.");
     Log.always("    --short-timeouts     : Shorten timeouts (faster; use if");
     Log.always("                           you want to focus on output divergences)");
+    Log.always("    --divergence-retry=<n> : Number of retries when checking if test is");
+    Log.always("                           self-divergent. (Default: 10)");
     Log.always("  --seed=<seed>          : RNG seed to use");
     Log.always("  --method-mutations=<n> : Maximum number of mutations to perform on each method.");
     Log.always("                           (Default: 3)");
@@ -138,6 +143,7 @@ public class Options {
     Log.always("  --report-unique        : Print out information about unique programs generated");
     Log.always("  --unique-db=<file>     : Use <file> store results about unique programs");
     Log.always("                           (Default: unique_progs.db)");
+    Log.always("  --bisection-search     : Run bisection search for divergences");
     Log.always("");
     System.exit(0);
   }
@@ -158,8 +164,6 @@ public class Options {
       skipHostVerify = true;
     } else if (flag.equals("interpreter")) {
       useInterpreter = true;
-    } else if (flag.equals("quick")) {
-      useQuick = true;
     } else if (flag.equals("optimizing")) {
       useOptimizing = true;
     } else if (flag.equals("arm")) {
@@ -197,6 +201,8 @@ public class Options {
       methodMutations = 1;
       minMethods = 1;
       maxMethods = 1;
+    } else if (flag.equals("bisection-search")) {
+      runBisectionSearch = true;
     } else if (flag.equals("help")) {
       usage();
     } else {
@@ -236,6 +242,8 @@ public class Options {
       maxMethods = Integer.parseInt(value);
     } else if (key.equals("repeat")) {
       repeat = Integer.parseInt(value);
+    } else if (key.equals("divergence-retry")) {
+      divergenceRetry = Integer.parseInt(value);
     } else if (key.equals("log")) {
       Log.setLoggingLevel(LogTag.valueOf(value.toUpperCase()));
     } else if (key.equals("likelihoods")) {
@@ -257,6 +265,8 @@ public class Options {
       usingSpecificDevice = true;
     } else if (key.equals("execute-dir")) {
       executeDirectory = value;
+    } else if (key.equals("android-root")) {
+      androidRoot = value;
     } else {
       Log.error("Unrecognised key: --" + key);
       usage();
@@ -355,6 +365,10 @@ public class Options {
       Log.error("--repeat must be at least 1!");
       return false;
     }
+    if (divergenceRetry < 0) {
+      Log.error("--divergence-retry cannot be negative!");
+      return false;
+    }
     if (usingProvidedSeed && repeat > 1) {
       Log.error("Cannot use --repeat with --seed");
       return false;
@@ -419,18 +433,15 @@ public class Options {
       if (useInterpreter) {
         backends++;
       }
-      if (useQuick) {
-        backends++;
-      }
       if (useOptimizing) {
         backends++;
       }
       if (useArchArm && useArchArm64) {
-        // Could just be comparing quick-ARM versus quick-ARM64?
+        // Could just be comparing optimizing-ARM versus optimizing-ARM64?
         backends++;
       }
       if (backends < 2) {
-        Log.error("Not enough backends specified! Try --quick --interpreter!");
+        Log.error("Not enough backends specified! Try --optimizing --interpreter!");
         return false;
       }
     }

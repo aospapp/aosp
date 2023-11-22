@@ -24,7 +24,7 @@
     <!-- String.format failed for translation -->
     <!-- no translation found for install_new_cert_message (4451971501142085495) -->
     <skip />
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Installer"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Autoriser"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Installer le certificat"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Sélectionner"</string>
     <string name="deny_button" msgid="3766539809121892584">"Refuser"</string>
 </resources>

@@ -55,7 +55,7 @@ device incompatibility. Previously, manufacturers had to develop their own
 implementations of HDMI-CEC or use third-party solutions.</li>
   <li>A service that is well-tested against numerous HDMI-CEC devices already in the
 market. Android has been conducting rigorous research on compatibility issues
-found among the products and collecting useful advice from partners experienced
+found among the products and collecting useful advice from device implementers experienced
 in the technology. The CEC service is designed to keep a healthy balance
 between the standard and modifications to that standard so that it works with
 the products that people already use.</li>

@@ -19,6 +19,7 @@ okhttp_common_src_files := $(call all-java-files-under,okhttp/src/main/java)
 okhttp_common_src_files += $(call all-java-files-under,okhttp-urlconnection/src/main/java)
 okhttp_common_src_files += $(call all-java-files-under,okhttp-android-support/src/main/java)
 okhttp_common_src_files += $(call all-java-files-under,okio/okio/src/main/java)
+
 okhttp_system_src_files := $(filter-out %/Platform.java, $(okhttp_common_src_files))
 okhttp_system_src_files += $(call all-java-files-under, android/main/java)
 
@@ -33,12 +34,9 @@ okhttp_test_src_files += $(call all-java-files-under,okio/okio/src/test/java)
 okhttp_test_src_files += $(call all-java-files-under,mockwebserver/src/main/java)
 okhttp_test_src_files += $(call all-java-files-under,mockwebserver/src/test/java)
 
-# Exclude tests Android currently has problems with:
-# 1) Parameterized (requires JUnit 4.11).
-# 2) New dependencies like gson.
+# Exclude test Android currently has problems with due to @Parameterized (requires JUnit 4.11).
 okhttp_test_src_excludes := \
-    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformUrlTest.java \
-    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformTestRun.java
+    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformUrlTest.java
 
 okhttp_test_src_files := \
     $(filter-out $(okhttp_test_src_excludes), $(okhttp_test_src_files))
@@ -48,7 +46,21 @@ LOCAL_MODULE := okhttp
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_system_src_files)
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
-LOCAL_JAVA_LIBRARIES := core-oj core-libart conscrypt
+LOCAL_JAVA_LIBRARIES := core-oj core-libart
+LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+include $(BUILD_JAVA_LIBRARY)
+
+# A guaranteed unstripped version of okhttp.
+# The build system may or may not strip the okhttp jar, but this one will
+# not be stripped. See b/24535627.
+include $(CLEAR_VARS)
+LOCAL_MODULE := okhttp-testdex
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := $(okhttp_system_src_files)
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
+LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
@@ -59,7 +71,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-nojarjar
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_system_src_files)
-LOCAL_JAVA_LIBRARIES := core-oj core-libart conscrypt
+LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
@@ -69,7 +81,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-tests-nojarjar
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_test_src_files)
-LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp-nojarjar junit4-target bouncycastle-nojarjar conscrypt
+LOCAL_JAVA_LIBRARIES := core-oj core-libart okhttp-nojarjar junit bouncycastle-nojarjar conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7

@@ -23,6 +23,7 @@ import android.media.session.MediaSession;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.telecom.Log;
 import android.view.KeyEvent;
 
 /**
@@ -46,11 +47,12 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
         public boolean onMediaButtonEvent(Intent intent) {
             KeyEvent event = (KeyEvent) intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
             Log.v(this, "SessionCallback.onMediaButton()...  event = %s.", event);
-            if ((event != null) && (event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK)) {
+            if ((event != null) && ((event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK) ||
+                                    (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))) {
                 synchronized (mLock) {
-                    Log.v(this, "SessionCallback: HEADSETHOOK");
-                    boolean consumed = handleHeadsetHook(event);
-                    Log.v(this, "==> handleHeadsetHook(): consumed = %b.", consumed);
+                    Log.v(this, "SessionCallback: HEADSETHOOK/MEDIA_PLAY_PAUSE");
+                    boolean consumed = handleCallMediaButton(event);
+                    Log.v(this, "==> handleCallMediaButton(): consumed = %b.", consumed);
                     return consumed;
                 }
             }
@@ -92,6 +94,7 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
     private final CallsManager mCallsManager;
     private final TelecomSystem.SyncRoot mLock;
     private MediaSession mSession;
+    private KeyEvent mLastHookEvent;
 
     public HeadsetMediaButton(
             Context context,
@@ -111,13 +114,27 @@ public class HeadsetMediaButton extends CallsManagerListenerBase {
      *
      * @return true if we consumed the event.
      */
-    private boolean handleHeadsetHook(KeyEvent event) {
-        Log.d(this, "handleHeadsetHook()...%s %s", event.getAction(), event.getRepeatCount());
+    private boolean handleCallMediaButton(KeyEvent event) {
+        Log.d(this, "handleCallMediaButton()...%s %s", event.getAction(), event.getRepeatCount());
+
+        // Save ACTION_DOWN Event temporarily.
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            mLastHookEvent = event;
+        }
 
         if (event.isLongPress()) {
             return mCallsManager.onMediaButton(LONG_PRESS);
-        } else if (event.getAction() == KeyEvent.ACTION_UP && event.getRepeatCount() == 0) {
-            return mCallsManager.onMediaButton(SHORT_PRESS);
+        } else if (event.getAction() == KeyEvent.ACTION_UP) {
+            // We should not judge SHORT_PRESS by ACTION_UP event repeatCount, because it always
+            // return 0.
+            // Actually ACTION_DOWN event repeatCount only increases when LONG_PRESS performed.
+            if (mLastHookEvent != null && mLastHookEvent.getRepeatCount() == 0) {
+                return mCallsManager.onMediaButton(SHORT_PRESS);
+            }
+        }
+
+        if (event.getAction() != KeyEvent.ACTION_DOWN) {
+            mLastHookEvent = null;
         }
 
         return true;

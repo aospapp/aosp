@@ -149,6 +149,11 @@ class YouTubeHelper(object):
             raise error.TestError(
                     'Player failed to return available video qualities.')
         video_qualities.reverse()
+
+        # Removing 'auto' resolution since it tends to interfere with explicit
+        # bandwidth selection later.
+        video_qualities.remove('auto')
+
         width, height = graphics_utils.get_internal_resolution()
         logging.info('checking resolution: %d width  %d height', width, height)
         for quality in video_qualities:

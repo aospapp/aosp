@@ -10,7 +10,7 @@ import shlex
 import socket
 import sys
 
-from catapult_base import cloud_storage  # pylint: disable=import-error
+from py_utils import cloud_storage  # pylint: disable=import-error
 
 from telemetry.core import platform
 from telemetry.core import util
@@ -18,6 +18,7 @@ from telemetry.internal.browser import browser_finder
 from telemetry.internal.browser import browser_finder_exceptions
 from telemetry.internal.browser import profile_types
 from telemetry.internal.platform import device_finder
+from telemetry.internal.platform import remote_platform_options
 from telemetry.internal.platform.profiler import profiler_finder
 from telemetry.internal.util import binary_manager
 from telemetry.util import wpr_modes
@@ -36,11 +37,6 @@ class BrowserFinderOptions(optparse.Values):
     self.device = None
     self.cros_ssh_identity = None
 
-    self.extensions_to_load = []
-
-    # If set, copy the generated profile to this path on exit.
-    self.output_profile_path = None
-
     self.cros_remote = None
 
     self.profiler = None
@@ -49,7 +45,8 @@ class BrowserFinderOptions(optparse.Values):
     self.browser_options = BrowserOptions()
     self.output_file = None
 
-    self.android_blacklist_file = None
+    self.remote_platform_options = None
+
     self.no_performance_mode = False
 
   def __repr__(self):
@@ -81,12 +78,6 @@ class BrowserFinderOptions(optparse.Values):
         help='Where to look for build artifacts. '
              'Can also be specified by setting environment variable '
              'CHROMIUM_OUTPUT_DIR.')
-    group.add_option('--device',
-        dest='device',
-        help='The device ID to use. '
-             'If not specified, only 0 or 1 connected devices are supported. '
-             'If specified as "android", all available Android devices are '
-             'used.')
     group.add_option(
         '--remote',
         dest='cros_remote',
@@ -132,8 +123,17 @@ class BrowserFinderOptions(optparse.Values):
         'test is executed at maximum CPU speed in order to minimize noise '
         '(specially important for dashboards / continuous builds). '
         'This option prevents Telemetry from tweaking such platform settings.')
+    parser.add_option_group(group)
+
+    # Remote platform options
+    group = optparse.OptionGroup(parser, 'Remote platform options')
     group.add_option('--android-blacklist-file',
                      help='Device blacklist JSON file.')
+    group.add_option('--device',
+    help='The device ID to use. '
+         'If not specified, only 0 or 1 connected devices are supported. '
+         'If specified as "android", all available Android devices are '
+         'used.')
     parser.add_option_group(group)
 
     # Browser options.
@@ -158,9 +158,12 @@ class BrowserFinderOptions(optparse.Values):
       if self.chromium_output_dir:
         os.environ['CHROMIUM_OUTPUT_DIR'] = self.chromium_output_dir
 
-      if self.device == 'list':
+      # Parse remote platform options.
+      self.BuildRemotePlatformOptions()
+
+      if self.remote_platform_options.device == 'list':
         if binary_manager.NeedsInit():
-          binary_manager.InitDependencyManager(None)
+          binary_manager.InitDependencyManager([])
         devices = device_finder.GetDevicesMatchingOptions(self)
         print 'Available devices:'
         for device in devices:
@@ -171,7 +174,7 @@ class BrowserFinderOptions(optparse.Values):
         self.browser_type = 'exact'
       if self.browser_type == 'list':
         if binary_manager.NeedsInit():
-          binary_manager.InitDependencyManager(None)
+          binary_manager.InitDependencyManager([])
         devices = device_finder.GetDevicesMatchingOptions(self)
         if not devices:
           sys.exit(0)
@@ -201,6 +204,23 @@ class BrowserFinderOptions(optparse.Values):
     parser.parse_args = ParseArgs
     return parser
 
+  # TODO(eakuefner): Factor this out into OptionBuilder pattern
+  def BuildRemotePlatformOptions(self):
+    if self.device or self.android_blacklist_file:
+      self.remote_platform_options = (
+          remote_platform_options.AndroidPlatformOptions(
+              self.device, self.android_blacklist_file))
+
+      # We delete these options because they should live solely in the
+      # AndroidPlatformOptions instance belonging to this class.
+      if self.device:
+        del self.device
+      if self.android_blacklist_file:
+        del self.android_blacklist_file
+    else:
+      self.remote_platform_options = (
+          remote_platform_options.AndroidPlatformOptions())
+
   def AppendExtraBrowserArgs(self, args):
     self.browser_options.AppendExtraBrowserArgs(args)
 
@@ -210,9 +230,23 @@ class BrowserFinderOptions(optparse.Values):
 
 class BrowserOptions(object):
   """Options to be used for launching a browser."""
+
+  # Levels of browser logging.
+  NO_LOGGING = 'none'
+  NON_VERBOSE_LOGGING = 'non-verbose'
+  VERBOSE_LOGGING = 'verbose'
+
+  _LOGGING_LEVELS = (NO_LOGGING, NON_VERBOSE_LOGGING, VERBOSE_LOGGING)
+  _DEFAULT_LOGGING_LEVEL = NO_LOGGING
+
   def __init__(self):
     self.browser_type = None
     self.show_stdout = False
+
+    self.extensions_to_load = []
+
+    # If set, copy the generated profile to this path on exit.
+    self.output_profile_path = None
 
     # When set to True, the browser will use the default profile.  Telemetry
     # will not provide an alternate profile directory.
@@ -229,7 +263,6 @@ class BrowserOptions(object):
     self._browser_startup_timeout = 60
 
     self.disable_background_networking = True
-    self.no_proxy_server = False
     self.browser_user_agent_type = None
 
     self.clear_sytem_cache_for_browser_and_profile_on_start = False
@@ -241,7 +274,8 @@ class BrowserOptions(object):
     # Disable default apps.
     self.disable_default_apps = True
 
-    self.enable_logging = False
+    self.logging_verbosity = self._DEFAULT_LOGGING_LEVEL
+
     # The cloud storage bucket & path for uploading logs data produced by the
     # browser to.
     # If logs_cloud_remote_path is None, a random remote path is generated every
@@ -295,16 +329,19 @@ class BrowserOptions(object):
     group.add_option('--extra-wpr-args',
         dest='extra_wpr_args_as_string',
         help=('Additional arguments to pass to Web Page Replay. '
-              'See third_party/webpagereplay/replay.py for usage.'))
+              'See third_party/web-page-replay/replay.py for usage.'))
     group.add_option('--show-stdout',
         action='store_true',
         help='When possible, will display the stdout of the process')
-    group.add_option('--enable-browser-logging',
-        dest='enable_logging',
-        action='store_true',
-        help=('Enable browser logging. The log file is saved in temp directory.'
-              "Note that enabling this flag affects the browser's "
-              'performance'))
+
+    group.add_option('--browser-logging-verbosity',
+        dest='logging_verbosity',
+        type='choice',
+        choices=cls._LOGGING_LEVELS,
+        help=('Browser logging verbosity. The log file is saved in temp '
+              "directory. Note that logging affects the browser's "
+              'performance. Supported values: %s. Defaults to %s.' % (
+                  ', '.join(cls._LOGGING_LEVELS), cls._DEFAULT_LOGGING_LEVEL)))
     parser.add_option_group(group)
 
     group = optparse.OptionGroup(parser, 'Compatibility options')
@@ -317,7 +354,6 @@ class BrowserOptions(object):
     browser_options_list = [
         'extra_browser_args_as_string',
         'extra_wpr_args_as_string',
-        'enable_logging',
         'profile_dir',
         'profile_type',
         'show_stdout',
@@ -359,6 +395,10 @@ class BrowserOptions(object):
 
     if not self.profile_dir:
       self.profile_dir = profile_types.GetProfileDir(self.profile_type)
+
+    if getattr(finder_options, 'logging_verbosity'):
+      self.logging_verbosity = finder_options.logging_verbosity
+      delattr(finder_options, 'logging_verbosity')
 
     # This deferred import is necessary because browser_options is imported in
     # telemetry/telemetry/__init__.py.
@@ -423,6 +463,8 @@ class CrosBrowserOptions(ChromeBrowserOptions):
     self.username = 'test@test.test'
     self.password = ''
     self.gaia_id = '12345'
+    # For non-accelerated QEMU VMs.
+    self.browser_startup_timeout = 240
 
   def IsCrosBrowserOptions(self):
     return True

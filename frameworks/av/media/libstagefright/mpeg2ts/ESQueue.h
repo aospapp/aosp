@@ -19,9 +19,13 @@
 #define ES_QUEUE_H_
 
 #include <media/stagefright/foundation/ABase.h>
+#include <media/stagefright/foundation/AMessage.h>
 #include <utils/Errors.h>
 #include <utils/List.h>
 #include <utils/RefBase.h>
+#include <vector>
+
+#include "HlsSampleDecryptor.h"
 
 namespace android {
 
@@ -30,6 +34,7 @@ class MetaData;
 
 struct ElementaryStreamQueue {
     enum Mode {
+        INVALID = 0,
         H264,
         AAC,
         AC3,
@@ -43,10 +48,20 @@ struct ElementaryStreamQueue {
     enum Flags {
         // Data appended to the queue is always at access unit boundaries.
         kFlag_AlignedData = 1,
+        kFlag_ScrambledData = 2,
+        kFlag_SampleEncryptedData = 4,
     };
-    ElementaryStreamQueue(Mode mode, uint32_t flags = 0);
+    explicit ElementaryStreamQueue(Mode mode, uint32_t flags = 0);
 
-    status_t appendData(const void *data, size_t size, int64_t timeUs);
+    status_t appendData(const void *data, size_t size,
+            int64_t timeUs, int32_t payloadOffset = 0,
+            uint32_t pesScramblingControl = 0);
+
+    void appendScrambledData(
+            const void *data, size_t size,
+            int32_t keyId, bool isSync,
+            sp<ABuffer> clearSizes, sp<ABuffer> encSizes);
+
     void signalEOS();
     void clear(bool clearFormat);
 
@@ -54,10 +69,27 @@ struct ElementaryStreamQueue {
 
     sp<MetaData> getFormat();
 
+    bool isScrambled() const;
+
+    void setCasInfo(int32_t systemId, const std::vector<uint8_t> &sessionId);
+
+    void signalNewSampleAesKey(const sp<AMessage> &keyItem);
+
 private:
     struct RangeInfo {
         int64_t mTimestampUs;
         size_t mLength;
+        int32_t mPesOffset;
+        uint32_t mPesScramblingControl;
+    };
+
+    struct ScrambledRangeInfo {
+        //int64_t mTimestampUs;
+        size_t mLength;
+        int32_t mKeyId;
+        int32_t mIsSync;
+        sp<ABuffer> mClearSizes;
+        sp<ABuffer> mEncSizes;
     };
 
     Mode mMode;
@@ -67,7 +99,19 @@ private:
     sp<ABuffer> mBuffer;
     List<RangeInfo> mRangeInfos;
 
+    sp<ABuffer> mScrambledBuffer;
+    List<ScrambledRangeInfo> mScrambledRangeInfos;
+    int32_t mCASystemId;
+    std::vector<uint8_t> mCasSessionId;
+
     sp<MetaData> mFormat;
+
+    sp<HlsSampleDecryptor> mSampleDecryptor;
+    int mAUIndex;
+
+    bool isSampleEncrypted() const {
+        return (mFlags & kFlag_SampleEncryptedData) != 0;
+    }
 
     sp<ABuffer> dequeueAccessUnitH264();
     sp<ABuffer> dequeueAccessUnitAAC();
@@ -80,7 +124,11 @@ private:
 
     // consume a logical (compressed) access unit of size "size",
     // returns its timestamp in us (or -1 if no time information).
-    int64_t fetchTimestamp(size_t size);
+    int64_t fetchTimestamp(size_t size,
+            int32_t *pesOffset = NULL,
+            int32_t *pesScramblingControl = NULL);
+
+    sp<ABuffer> dequeueScrambledAccessUnit();
 
     DISALLOW_EVIL_CONSTRUCTORS(ElementaryStreamQueue);
 };

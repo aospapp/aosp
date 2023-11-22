@@ -17,11 +17,11 @@
 package android.widget.cts;
 
 import android.view.ContextMenu;
-import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
+import android.view.View;
 import android.view.View.OnCreateContextMenuListener;
-import android.widget.ExpandableListView;
 import android.widget.AdapterView.AdapterContextMenuInfo;
+import android.widget.ExpandableListView;
 
 public class PositionTesterContextMenuListener implements OnCreateContextMenuListener {
 

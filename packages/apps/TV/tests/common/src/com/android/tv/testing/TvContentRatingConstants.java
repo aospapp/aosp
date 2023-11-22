@@ -33,7 +33,7 @@ public final class TvContentRatingConstants {
     public static final TvContentRating CONTENT_RATING_US_TV_Y7_US_TV_FV =
             TvContentRating.createRating("com.android.tv", "US_TV", "US_TV_Y7", "US_TV_FV");
 
-    public static String STRING_US_TV_Y7_US_TV_FV = "com.android.tv/US_TV/US_TV_Y7/US_TV_FV";
+    public static final String STRING_US_TV_Y7_US_TV_FV = "com.android.tv/US_TV/US_TV_Y7/US_TV_FV";
 
     /**
      * A content rating object.
@@ -45,7 +45,7 @@ public final class TvContentRatingConstants {
     public static final TvContentRating CONTENT_RATING_US_TV_MA =
             TvContentRating.createRating("com.android.tv", "US_TV", "US_TV_MA");
 
-    public static String STRING_US_TV_MA = "com.android.tv/US_TV/US_TV_MA";
+    public static final String STRING_US_TV_MA = "com.android.tv/US_TV/US_TV_MA";
 
     /**
      * A content rating object.
@@ -58,7 +58,4 @@ public final class TvContentRatingConstants {
     public static final TvContentRating CONTENT_RATING_US_TV_PG_US_TV_L_US_TV_S =
             TvContentRating.createRating("com.android.tv", "US_TV", "US_TV_PG", "US_TV_L",
                     "US_TV_S");
-
-    public static String STRING_US_TV_PG_US_TV_L_US_TV_S
-            = "com.android.tv/US_TV/US_TV_Y7/US_TV_L/US_TV_S";
 }

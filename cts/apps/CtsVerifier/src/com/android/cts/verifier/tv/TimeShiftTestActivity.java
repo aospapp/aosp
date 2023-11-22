@@ -47,13 +47,26 @@ public class TimeShiftTestActivity extends TvAppVerifierActivity
     private View mVerifySeekToPreviousItem;
     private View mVerifySeekToNextItem;
 
+    private View mSupportThirdPartyInputYesItem;
+    private View mSupportThirdPartyInputNoItem;
+
     private Intent mTvAppIntent = null;
 
     @Override
     public void onClick(View v) {
         final View postTarget = getPostTarget();
 
-        if (containsButton(mPauseResumeItem, v)) {
+        if (containsButton(mSupportThirdPartyInputYesItem, v)) {
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            setButtonEnabled(mPauseResumeItem, true);
+            return;
+        } else if (containsButton(mSupportThirdPartyInputNoItem, v)){
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            getPassButton().setEnabled(true);
+            return;
+        } else if (containsButton(mPauseResumeItem, v)) {
             mVerifyResumeAfterPauseItem.setTag(NOT_PASSED);
             mVerifyPositionTrackingItem.setTag(NOT_PASSED);
 
@@ -186,10 +199,15 @@ public class TimeShiftTestActivity extends TvAppVerifierActivity
 
     @Override
     protected void createTestItems() {
+        mSupportThirdPartyInputYesItem = createUserItem(
+                R.string.tv_input_discover_test_third_party_tif_input_support,
+                R.string.tv_yes, this);
+        setButtonEnabled(mSupportThirdPartyInputYesItem, true);
+        mSupportThirdPartyInputNoItem = createButtonItem(R.string.tv_no, this);
+        setButtonEnabled(mSupportThirdPartyInputNoItem, true);
         mPauseResumeItem = createUserItem(
                 R.string.tv_time_shift_test_pause_resume,
                 R.string.tv_launch_tv_app, this);
-        setButtonEnabled(mPauseResumeItem, true);
         mVerifyResumeAfterPauseItem = createAutoItem(
                 R.string.tv_time_shift_test_verify_resume_after_pause);
         mVerifyPositionTrackingItem = createAutoItem(

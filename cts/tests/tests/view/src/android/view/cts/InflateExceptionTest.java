@@ -15,69 +15,79 @@
  */
 package android.view.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.InflateException;
 
-public class InflateExceptionTest extends TestCase {
-   public void testInflateException(){
-       InflateException ne = null;
-       boolean isThrowed = false;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-       try {
-           ne = new InflateException();
-           throw ne;
-       } catch (InflateException e) {
-           assertSame(ne, e);
-           isThrowed = true;
-       } finally {
-           if (!isThrowed) {
-               fail("should throw out InflateException");
-           }
-       }
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class InflateExceptionTest {
+    @Test
+    public void testInflateException() {
+        InflateException ne = null;
+        boolean isThrown = false;
 
-       String detailMessage = "testInflateException";
-       Throwable throwable = new Exception();
+        try {
+            ne = new InflateException();
+            throw ne;
+        } catch (InflateException e) {
+            assertSame(ne, e);
+            isThrown = true;
+        } finally {
+            if (!isThrown) {
+                fail("should throw out InflateException");
+            }
+        }
 
-       isThrowed = false;
+        String detailMessage = "testInflateException";
+        Throwable throwable = new Exception();
 
-       try {
-           ne = new InflateException(detailMessage, throwable);
-           throw ne;
-       } catch (InflateException e) {
-           assertSame(ne, e);
-           isThrowed = true;
-       } finally {
-           if (!isThrowed) {
-               fail("should throw out InflateException");
-           }
-       }
+        isThrown = false;
 
-       isThrowed = false;
+        try {
+            ne = new InflateException(detailMessage, throwable);
+            throw ne;
+        } catch (InflateException e) {
+            assertSame(ne, e);
+            isThrown = true;
+        } finally {
+            if (!isThrown) {
+                fail("should throw out InflateException");
+            }
+        }
 
-       try {
-           ne = new InflateException(detailMessage);
-           throw ne;
-       } catch (InflateException e) {
-           assertSame(ne, e);
-           isThrowed = true;
-       } finally {
-           if (!isThrowed) {
-               fail("should throw out InflateException");
-           }
-       }
+        isThrown = false;
 
-       isThrowed = false;
+        try {
+            ne = new InflateException(detailMessage);
+            throw ne;
+        } catch (InflateException e) {
+            assertSame(ne, e);
+            isThrown = true;
+        } finally {
+            if (!isThrown) {
+                fail("should throw out InflateException");
+            }
+        }
 
-       try {
-           ne = new InflateException(throwable);
-           throw ne;
-       } catch (InflateException e) {
-           assertSame(ne, e);
-           isThrowed = true;
-       } finally {
-           if (!isThrowed) {
-               fail("should throw out InflateException");
-           }
-       }
-   }
+        isThrown = false;
+
+        try {
+            ne = new InflateException(throwable);
+            throw ne;
+        } catch (InflateException e) {
+            assertSame(ne, e);
+            isThrown = true;
+        } finally {
+            if (!isThrown) {
+                fail("should throw out InflateException");
+            }
+        }
+    }
 }

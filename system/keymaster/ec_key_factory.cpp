@@ -170,16 +170,29 @@ keymaster_error_t EcKeyFactory::UpdateImportKeyDescription(const AuthorizationSe
         return error;
 
     *key_size_bits = extracted_key_size_bits;
-    if (!updated_description->GetTagValue(TAG_KEY_SIZE, key_size_bits))
+    if (!updated_description->GetTagValue(TAG_KEY_SIZE, key_size_bits)) {
         updated_description->push_back(TAG_KEY_SIZE, extracted_key_size_bits);
-    if (*key_size_bits != extracted_key_size_bits)
+    } else if (*key_size_bits != extracted_key_size_bits) {
         return KM_ERROR_IMPORT_PARAMETER_MISMATCH;
+    }
+
+    keymaster_ec_curve_t curve_from_size;
+    error = EcKeySizeToCurve(*key_size_bits, &curve_from_size);
+    if (error != KM_ERROR_OK)
+        return error;
+    keymaster_ec_curve_t curve;
+    if (!updated_description->GetTagValue(TAG_EC_CURVE, &curve)) {
+        updated_description->push_back(TAG_EC_CURVE, curve_from_size);
+    } else if (curve_from_size != curve) {
+        return KM_ERROR_IMPORT_PARAMETER_MISMATCH;
+    }
 
     keymaster_algorithm_t algorithm = KM_ALGORITHM_EC;
-    if (!updated_description->GetTagValue(TAG_ALGORITHM, &algorithm))
+    if (!updated_description->GetTagValue(TAG_ALGORITHM, &algorithm)) {
         updated_description->push_back(TAG_ALGORITHM, KM_ALGORITHM_EC);
-    if (algorithm != KM_ALGORITHM_EC)
+    } else if (algorithm != KM_ALGORITHM_EC) {
         return KM_ERROR_IMPORT_PARAMETER_MISMATCH;
+    }
 
     return KM_ERROR_OK;
 }

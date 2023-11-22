@@ -17,10 +17,10 @@
  * limitations under the License.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <cutils/properties.h>
 #include <errno.h>
-#include <gr.h>
-#include <gralloc_priv.h>
 #include <math.h>
 #include <sync/sync.h>
 #include <utils/constants.h>
@@ -38,6 +38,9 @@
 #include "hwc_display.h"
 #include "hwc_debugger.h"
 #include "blit_engine_c2d.h"
+#ifndef USE_GRALLOC1
+#include <gr.h>
+#endif
 
 #ifdef QTI_BSP
 #include <hardware/display_defs.h>
@@ -154,7 +157,7 @@ HWC2::Error HWCColorMode::HandleColorModeTransform(android_color_mode_t mode,
   current_color_mode_ = mode;
   current_color_transform_ = hint;
   CopyColorTransformMatrix(matrix, color_matrix_);
-  DLOGI("Setting Color Mode = %d Transform Hint = %d Success", mode, hint);
+  DLOGV_IF(kTagQDCM, "Setting Color Mode = %d Transform Hint = %d Success", mode, hint);
 
   return HWC2::Error::None;
 }
@@ -185,6 +188,8 @@ void HWCColorMode::PopulateColorModes() {
       PopulateTransform(HAL_COLOR_MODE_ADOBE_RGB, mode_string);
     } else if (mode_string.find("hal_dci_p3") != std::string::npos) {
       PopulateTransform(HAL_COLOR_MODE_DCI_P3, mode_string);
+    } else if (mode_string.find("hal_display_p3") != std::string::npos) {
+      PopulateTransform(HAL_COLOR_MODE_DISPLAY_P3, mode_string);
     }
   }
 }
@@ -211,7 +216,7 @@ void HWCColorMode::PopulateTransform(const android_color_mode_t &mode,
 
 HWCDisplay::HWCDisplay(CoreInterface *core_intf, HWCCallbacks *callbacks, DisplayType type,
                        hwc2_display_t id, bool needs_blit, qService::QService *qservice,
-                       DisplayClass display_class)
+                       DisplayClass display_class, BufferAllocator *buffer_allocator)
     : core_intf_(core_intf),
       callbacks_(callbacks),
       type_(type),
@@ -219,6 +224,7 @@ HWCDisplay::HWCDisplay(CoreInterface *core_intf, HWCCallbacks *callbacks, Displa
       needs_blit_(needs_blit),
       qservice_(qservice),
       display_class_(display_class) {
+  buffer_allocator_ = static_cast<HWCBufferAllocator *>(buffer_allocator);
 }
 
 int HWCDisplay::Init() {
@@ -235,21 +241,12 @@ int HWCDisplay::Init() {
     swap_interval_zero_ = true;
   }
 
+  client_target_ = new HWCLayer(id_, buffer_allocator_);
 
-  client_target_ = new HWCLayer(id_);
   int blit_enabled = 0;
   HWCDebugHandler::Get()->GetProperty("persist.hwc.blit.comp", &blit_enabled);
   if (needs_blit_ && blit_enabled) {
-    blit_engine_ = new BlitEngineC2d();
-    if (!blit_engine_) {
-      DLOGI("Create Blit Engine C2D failed");
-    } else {
-      if (blit_engine_->Init() < 0) {
-        DLOGI("Blit Engine Init failed, Blit Composition will not be used!!");
-        delete blit_engine_;
-        blit_engine_ = NULL;
-      }
-    }
+    // TODO(user): Add blit engine when needed
   }
 
   display_intf_->GetRefreshRateRange(&min_refresh_rate_, &max_refresh_rate_);
@@ -267,12 +264,6 @@ int HWCDisplay::Deinit() {
 
   delete client_target_;
 
-  if (blit_engine_) {
-    blit_engine_->DeInit();
-    delete blit_engine_;
-    blit_engine_ = NULL;
-  }
-
   if (color_mode_) {
     color_mode_->DeInit();
     delete color_mode_;
@@ -283,10 +274,11 @@ int HWCDisplay::Deinit() {
 
 // LayerStack operations
 HWC2::Error HWCDisplay::CreateLayer(hwc2_layer_t *out_layer_id) {
-  HWCLayer *layer = *layer_set_.emplace(new HWCLayer(id_));
+  HWCLayer *layer = *layer_set_.emplace(new HWCLayer(id_, buffer_allocator_));
   layer_map_.emplace(std::make_pair(layer->GetId(), layer));
   *out_layer_id = layer->GetId();
   geometry_changes_ |= GeometryChanges::kAdded;
+  validated_ = false;
   return HWC2::Error::None;
 }
 
@@ -302,6 +294,7 @@ HWCLayer *HWCDisplay::GetHWCLayer(hwc2_layer_t layer_id) {
 
 HWC2::Error HWCDisplay::DestroyLayer(hwc2_layer_t layer_id) {
   const auto map_layer = layer_map_.find(layer_id);
+  validated_ = false;
   if (map_layer == layer_map_.end()) {
     DLOGE("[%" PRIu64 "] destroyLayer(%" PRIu64 ") failed: no such layer", id_, layer_id);
     return HWC2::Error::BadLayer;
@@ -350,7 +343,11 @@ void HWCDisplay::BuildLayerStack() {
     const private_handle_t *handle =
         reinterpret_cast<const private_handle_t *>(layer->input_buffer->buffer_id);
     if (handle) {
+#ifdef USE_GRALLOC1
+      if (handle->buffer_type == BUFFER_TYPE_VIDEO) {
+#else
       if (handle->bufferType == BUFFER_TYPE_VIDEO) {
+#endif
         layer_stack_.flags.video_present = true;
       }
       // TZ Protected Buffer - L1
@@ -401,7 +398,11 @@ void HWCDisplay::BuildLayerStack() {
     }
     display_rect_ = Union(display_rect_, layer->dst_rect);
     geometry_changes_ |= hwc_layer->GetGeometryChanges();
-    layer->flags.updating = IsLayerUpdating(layer);
+
+    layer->flags.updating = true;
+    if (layer_set_.size() <= kMaxLayerCount) {
+      layer->flags.updating = IsLayerUpdating(layer);
+    }
 
     layer_stack_.layers.push_back(layer);
   }
@@ -681,10 +682,6 @@ void HWCDisplay::SetFrameDumpConfig(uint32_t count, uint32_t bit_mask_layer_type
   dump_frame_index_ = 0;
   dump_input_layers_ = ((bit_mask_layer_type & (1 << INPUT_LAYER_DUMP)) != 0);
 
-  if (blit_engine_) {
-    blit_engine_->SetFrameDumpConfig(count);
-  }
-
   DLOGI("num_frame_dump %d, input_layer_dump_enable %d", dump_frame_count_, dump_input_layers_);
 }
 
@@ -758,10 +755,12 @@ HWC2::Error HWCDisplay::PrepareLayerStack(uint32_t *out_num_types, uint32_t *out
     if (requested_composition != device_composition) {
       layer_changes_[hwc_layer->GetId()] = device_composition;
     }
+    hwc_layer->ResetValidation();
   }
   *out_num_types = UINT32(layer_changes_.size());
   *out_num_requests = UINT32(layer_requests_.size());
   validated_ = true;
+  skip_validate_ = false;
   if (*out_num_types > 0) {
     return HWC2::Error::HasChanges;
   } else {
@@ -770,14 +769,23 @@ HWC2::Error HWCDisplay::PrepareLayerStack(uint32_t *out_num_types, uint32_t *out
 }
 
 HWC2::Error HWCDisplay::AcceptDisplayChanges() {
-  if (!validated_ && !layer_set_.empty()) {
+  if (layer_set_.empty()) {
+    return HWC2::Error::None;
+  }
+
+  if (!validated_) {
     return HWC2::Error::NotValidated;
   }
 
   for (const auto& change : layer_changes_) {
     auto hwc_layer = layer_map_[change.first];
     auto composition = change.second;
-    hwc_layer->UpdateClientCompositionType(composition);
+
+    if (hwc_layer == nullptr) {
+      DLOGW("Null layer: %" PRIu64, change.first);
+    } else {
+      hwc_layer->UpdateClientCompositionType(composition);
+    }
   }
   return HWC2::Error::None;
 }
@@ -852,7 +860,11 @@ HWC2::Error HWCDisplay::CommitLayerStack(void) {
   }
 
   if (!validated_) {
-    DLOGW("Display is not validated");
+    return HWC2::Error::NotValidated;
+  }
+
+  if (skip_validate_ && !CanSkipValidate()) {
+    validated_ = false;
     return HWC2::Error::NotValidated;
   }
 
@@ -861,7 +873,6 @@ HWC2::Error HWCDisplay::CommitLayerStack(void) {
   if (!flush_) {
     DisplayError error = kErrorUndefined;
     error = display_intf_->Commit(&layer_stack_);
-    validated_ = false;
 
     if (error == kErrorNone) {
       // A commit is successfully submitted, start flushing on failure now onwards.
@@ -870,6 +881,9 @@ HWC2::Error HWCDisplay::CommitLayerStack(void) {
       if (error == kErrorShutDown) {
         shutdown_pending_ = true;
         return HWC2::Error::Unsupported;
+      } else if (error == kErrorNotValidated) {
+        validated_ = false;
+        return HWC2::Error::NotValidated;
       } else if (error != kErrorPermission) {
         DLOGE("Commit failed. Error = %d", error);
         // To prevent surfaceflinger infinite wait, flush the previous frame during Commit()
@@ -879,6 +893,7 @@ HWC2::Error HWCDisplay::CommitLayerStack(void) {
     }
   }
 
+  skip_validate_ = true;
   return HWC2::Error::None;
 }
 
@@ -931,6 +946,7 @@ HWC2::Error HWCDisplay::PostCommitLayerStack(int32_t *out_retire_fence) {
       layer_stack_.retire_fence_fd = -1;
     }
     *out_retire_fence = layer_stack_.retire_fence_fd;
+    layer_stack_.retire_fence_fd = -1;
 
     if (dump_frame_count_) {
       dump_frame_count_--;
@@ -1297,17 +1313,17 @@ int HWCDisplay::SetFrameBufferResolution(uint32_t x_pixels, uint32_t y_pixels) {
 
   int aligned_width;
   int aligned_height;
-  int usage = GRALLOC_USAGE_HW_FB;
+  uint32_t usage = GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
   int format = HAL_PIXEL_FORMAT_RGBA_8888;
-  int ubwc_enabled = 0;
-  int flags = 0;
-  HWCDebugHandler::Get()->GetProperty("debug.gralloc.enable_fb_ubwc", &ubwc_enabled);
-  if (ubwc_enabled == 1) {
-    usage |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
-    flags |= private_handle_t::PRIV_FLAGS_UBWC_ALIGNED;
-  }
-  AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(INT(x_pixels), INT(y_pixels), format, usage,
-                                                        aligned_width, aligned_height);
+  int flags = private_handle_t::PRIV_FLAGS_UBWC_ALIGNED;
+
+#ifdef USE_GRALLOC1
+  buffer_allocator_->GetAlignedWidthAndHeight(INT(x_pixels), INT(y_pixels), format, usage,
+                                              &aligned_width, &aligned_height);
+#else
+  AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(INT(x_pixels), INT(y_pixels), format,
+                                                        INT(usage), aligned_width, aligned_height);
+#endif
 
   // TODO(user): How does the dirty region get set on the client target? File bug on Google
   client_target_layer->composition = kCompositionGPUTarget;
@@ -1638,6 +1654,7 @@ std::string HWCDisplay::Dump() {
           to_string(layer->GetDeviceSelectedCompositionType()).c_str() << std::endl;
     os << "\tplane_alpha: " << std::to_string(sdm_layer->plane_alpha).c_str() << std::endl;
     os << "\tformat: " << GetFormatString(sdm_layer->input_buffer->format) << std::endl;
+    os << "\tsecure: " << sdm_layer->input_buffer->flags.secure << std::endl;
     os << "\ttransform: rot: " << transform.rotation << " flip_h: " << transform.flip_horizontal <<
           " flip_v: "<< transform.flip_vertical << std::endl;
     os << "\tbuffer_id: " << std::hex << "0x" << sdm_layer->input_buffer->buffer_id << std::dec
@@ -1645,4 +1662,20 @@ std::string HWCDisplay::Dump() {
   }
   return os.str();
 }
+
+bool HWCDisplay::CanSkipValidate() {
+  for (auto hwc_layer : layer_set_) {
+    if (hwc_layer->NeedsValidation()) {
+      return false;
+    }
+
+    // Do not allow Skip Validate, if any layer needs GPU Composition.
+    if (hwc_layer->GetDeviceSelectedCompositionType() == HWC2::Composition::Client) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 }  // namespace sdm

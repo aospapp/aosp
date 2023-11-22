@@ -123,6 +123,7 @@ int main()
         fwrite(&fw_DE3.pui8Data[i*4], 4, 1, ptr);
     }
     fclose(ptr);
+    fclose(fp_ll_dma);
 
     /* Create stitch image of 56k msvdx fw */
     ptr = fopen("unsigned_msvdx_fw_56k.bin", "w");
@@ -158,6 +159,7 @@ int main()
         fwrite(&fw_DE3.pui8Data[i*4], 4, 1, ptr);
     }
     fclose(ptr);
+    fclose(fp_ll_dma);
 
     /* Create mrfl unsigned image */
     ptr = fopen("unsigned_msvdx_fw_mrfl.bin", "w");
@@ -201,6 +203,7 @@ int main()
         fwrite(&fw_DE3.pui8Data[i*4], 4, 1, ptr);
     }
     fclose(ptr);
+    fclose(fp_ll_dma);
 
     /* Create mrfl unsigned image 56k */
     ptr = fopen("unsigned_msvdx_fw_mrfl_56k.bin", "w");
@@ -237,6 +240,7 @@ int main()
         fwrite(&fw_DE3.pui8Data[i*4], 4, 1, ptr);
     }
     fclose(ptr);
+    fclose(fp_ll_dma);
 
     return 0;
 }

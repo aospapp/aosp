@@ -63,8 +63,7 @@ class login_OwnershipApi(test.test):
                                            new_users=True,
                                            roaming=True,
                                            whitelist=(ownership.TESTUSER,
-                                                      'a@b.c'),
-                                           proxies={ 'proxy_mode': 'direct' })
+                                                      'a@b.c'))
 
         policy_string = policy.generate_policy(self.srcdir,
                                                pkey,
@@ -79,8 +78,7 @@ class login_OwnershipApi(test.test):
                                        guests=False,
                                        new_users=True,
                                        roaming=True,
-                                       whitelist=(ownership.TESTUSER, 'a@b.c'),
-                                       proxies={ 'proxy_mode': 'direct' })
+                                       whitelist=(ownership.TESTUSER, 'a@b.c'))
         try:
             # Sanity check against an incorrect policy
             policy.compare_policy_response(self.srcdir,
@@ -88,8 +86,7 @@ class login_OwnershipApi(test.test):
                                            owner=ownership.TESTUSER,
                                            guests=True,
                                            whitelist=(ownership.TESTUSER,
-                                                      'a@b.c'),
-                                           proxies={ 'proxy_mode': 'direct' })
+                                                      'a@b.c'))
         except ownership.OwnershipError:
             pass
         else:

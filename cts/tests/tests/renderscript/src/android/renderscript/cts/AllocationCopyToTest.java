@@ -24,6 +24,14 @@ import java.util.Random;
 public class AllocationCopyToTest extends RSBaseCompute {
     private Allocation alloc;
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (alloc != null) {
+            alloc.destroy();
+        }
+        super.tearDown();
+    }
+
     public void test_Allocationcopy1DRangeTo_Byte() {
         Random random = new Random(0x172d8ab9);
         int width = random.nextInt(512);

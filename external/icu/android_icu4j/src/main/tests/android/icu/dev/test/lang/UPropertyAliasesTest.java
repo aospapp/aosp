@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
 * Copyright (c) 2002-2010, International Business Machines
@@ -11,24 +13,20 @@
 */
 package android.icu.dev.test.lang;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UProperty;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class UPropertyAliasesTest extends TestFmwk {
   
     public UPropertyAliasesTest() {}
     
-    public static void main(String[] args) throws Exception {
-        new UPropertyAliasesTest().run(args);
-    }
-
     /**
      * Test the property names and property value names API.
      */
+    @Test
     public void TestPropertyNames() {
         int p, v, choice, rev;
         for (p=0; ; ++p) {
@@ -130,6 +128,7 @@ public class UPropertyAliasesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestUnknownPropertyNames() {
         try {
             int p = UCharacter.getPropertyEnum("??");

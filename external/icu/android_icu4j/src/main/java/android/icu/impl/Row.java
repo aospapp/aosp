@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  **********************************************************************
  * Copyright (c) 2002-2014, Google, International Business Machines
@@ -97,6 +99,7 @@ public class Row<C0, C1, C2, C3, C4> implements java.lang.Comparable, Cloneable,
         return this;
     }
 
+    @Override
     public int hashCode() {
         int sum = items.length;
         for (Object item : items) {
@@ -105,6 +108,7 @@ public class Row<C0, C1, C2, C3, C4> implements java.lang.Comparable, Cloneable,
         return sum;
     }
 
+    @Override
     public boolean equals(Object other) {
         if (other == null) {
             return false;
@@ -129,6 +133,7 @@ public class Row<C0, C1, C2, C3, C4> implements java.lang.Comparable, Cloneable,
         }
     }
 
+    @Override
     public int compareTo(Object other) {
         int result;
         Row<C0, C1, C2, C3, C4> that = (Row<C0, C1, C2, C3, C4>)other;
@@ -146,6 +151,7 @@ public class Row<C0, C1, C2, C3, C4> implements java.lang.Comparable, Cloneable,
         return 0;
     }
 
+    @Override
     public String toString() {
         StringBuilder result = new StringBuilder("[");
         boolean first = true;
@@ -160,15 +166,18 @@ public class Row<C0, C1, C2, C3, C4> implements java.lang.Comparable, Cloneable,
         return result.append("]").toString();
     }
 
+    @Override
     public boolean isFrozen() {
         return frozen;
     }
 
+    @Override
     public Row<C0, C1, C2, C3, C4> freeze() {
         frozen = true;
         return this;
     }
 
+    @Override
     public Object clone() {
         if (frozen) return this;
         try {
@@ -180,6 +189,7 @@ public class Row<C0, C1, C2, C3, C4> implements java.lang.Comparable, Cloneable,
         }
     }
 
+    @Override
     public Row<C0, C1, C2, C3, C4> cloneAsThawed() {
         try {
             Row<C0, C1, C2, C3, C4> result = (Row<C0, C1, C2, C3, C4>) super.clone();

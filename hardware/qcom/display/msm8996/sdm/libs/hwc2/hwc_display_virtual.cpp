@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -31,7 +31,9 @@
 #include <utils/debug.h>
 #include <sync/sync.h>
 #include <stdarg.h>
+#ifndef USE_GRALLOC1
 #include <gr.h>
+#endif
 
 #include "hwc_display_virtual.h"
 #include "hwc_debugger.h"
@@ -40,10 +42,12 @@
 
 namespace sdm {
 
-int HWCDisplayVirtual::Create(CoreInterface *core_intf, HWCCallbacks *callbacks, uint32_t width,
+int HWCDisplayVirtual::Create(CoreInterface *core_intf, HWCBufferAllocator *buffer_allocator,
+                              HWCCallbacks *callbacks, uint32_t width,
                               uint32_t height, int32_t *format, HWCDisplay **hwc_display) {
   int status = 0;
-  HWCDisplayVirtual *hwc_display_virtual = new HWCDisplayVirtual(core_intf, callbacks);
+  HWCDisplayVirtual *hwc_display_virtual = new HWCDisplayVirtual(core_intf, buffer_allocator,
+                                                                 callbacks);
 
   // TODO(user): Populate format correctly
   DLOGI("Creating virtual display: w: %d h:%d format:0x%x", width, height, *format);
@@ -87,9 +91,10 @@ void HWCDisplayVirtual::Destroy(HWCDisplay *hwc_display) {
   delete hwc_display;
 }
 
-HWCDisplayVirtual::HWCDisplayVirtual(CoreInterface *core_intf, HWCCallbacks *callbacks)
+HWCDisplayVirtual::HWCDisplayVirtual(CoreInterface *core_intf, HWCBufferAllocator *buffer_allocator,
+                                     HWCCallbacks *callbacks)
     : HWCDisplay(core_intf, callbacks, kVirtual, HWC_DISPLAY_VIRTUAL, false, NULL,
-                 DISPLAY_CLASS_VIRTUAL) {
+                 DISPLAY_CLASS_VIRTUAL, buffer_allocator) {
 }
 
 int HWCDisplayVirtual::Init() {
@@ -187,13 +192,16 @@ HWC2::Error HWCDisplayVirtual::SetOutputBuffer(buffer_handle_t buf, int32_t rele
       return HWC2::Error::BadParameter;
     }
 
-    int output_buffer_width, output_buffer_height;
-    AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(output_handle, output_buffer_width,
-                                                          output_buffer_height);
+    int aligned_width, aligned_height;
+#ifdef USE_GRALLOC1
+    buffer_allocator_->GetCustomWidthAndHeight(output_handle, &aligned_width, &aligned_height);
+#else
+    AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(output_handle, aligned_width,
+                                                          aligned_height);
+#endif
 
-    output_buffer_->width = UINT32(output_buffer_width);
-    output_buffer_->height = UINT32(output_buffer_height);
-    // TODO(mkavm): Handle DRC and metadata changes
+    output_buffer_->width = UINT32(aligned_width);
+    output_buffer_->height = UINT32(aligned_height);
     output_buffer_->flags.secure = 0;
     output_buffer_->flags.video = 0;
 

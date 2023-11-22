@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/it.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 it{
     Countries{
         001{"Mondo"}
@@ -28,7 +22,7 @@ it{
         039{"Europa meridionale"}
         053{"Australasia"}
         054{"Melanesia"}
-        057{"Regione Micronesiana"}
+        057{"Regione micronesiana"}
         061{"Polinesia"}
         142{"Asia"}
         143{"Asia centrale"}
@@ -46,7 +40,6 @@ it{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Antille Olandesi"}
         AO{"Angola"}
         AQ{"Antartide"}
         AR{"Argentina"}
@@ -69,7 +62,7 @@ it{
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
-        BQ{"Caraibi Olandesi"}
+        BQ{"Caraibi olandesi"}
         BR{"Brasile"}
         BS{"Bahamas"}
         BT{"Bhutan"}
@@ -96,7 +89,7 @@ it{
         CW{"Curaçao"}
         CX{"Isola Christmas"}
         CY{"Cipro"}
-        CZ{"Repubblica Ceca"}
+        CZ{"Cèchia"}
         DE{"Germania"}
         DG{"Diego Garcia"}
         DJ{"Gibuti"}
@@ -115,7 +108,7 @@ it{
         EU{"Unione Europea"}
         FI{"Finlandia"}
         FJ{"Figi"}
-        FK{"Isole Falkland"}
+        FK{"Isole Falkland (Isole Malvine)"}
         FM{"Micronesia"}
         FO{"Isole Fær Øer"}
         FR{"Francia"}
@@ -133,12 +126,12 @@ it{
         GP{"Guadalupa"}
         GQ{"Guinea Equatoriale"}
         GR{"Grecia"}
-        GS{"Georgia del Sud e isole Sandwich australi"}
+        GS{"Georgia del Sud e Sandwich australi"}
         GT{"Guatemala"}
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hong-Kong"}
+        HK{"Hong Kong"}
         HM{"Isole Heard e McDonald"}
         HN{"Honduras"}
         HR{"Croazia"}
@@ -188,7 +181,7 @@ it{
         MF{"Saint Martin"}
         MG{"Madagascar"}
         MH{"Isole Marshall"}
-        MK{"Repubblica di Macedonia"}
+        MK{"Ex Repubblica Jugoslava di Macedonia"}
         ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
@@ -279,6 +272,7 @@ it{
         UA{"Ucraina"}
         UG{"Uganda"}
         UM{"Altre isole americane del Pacifico"}
+        UN{"nazioni unite"}
         US{"Stati Uniti"}
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
@@ -300,15 +294,16 @@ it{
         ZZ{"Regione sconosciuta"}
     }
     Countries%short{
-        GB{"GB"}
+        GB{"UK"}
+        UN{"nazioni unite"}
         US{"USA"}
     }
     Countries%variant{
         CD{"Congo (RDC)"}
         CG{"Congo (Repubblica)"}
-        FK{"Isole Falkland (Isole Malvine)"}
-        MK{"Ex Repubblica Jugoslava di Macedonia"}
+        CI{"Côte d’Ivoire"}
+        CZ{"Repubblica Ceca"}
         TL{"Timor Est"}
     }
-    Version{"2.1.19.17"}
+    Version{"2.1.28.79"}
 }

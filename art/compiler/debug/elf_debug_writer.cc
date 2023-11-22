@@ -18,6 +18,7 @@
 
 #include <vector>
 
+#include "base/array_ref.h"
 #include "debug/dwarf/dwarf_constants.h"
 #include "debug/elf_compilation_unit.h"
 #include "debug/elf_debug_frame_writer.h"
@@ -29,7 +30,6 @@
 #include "debug/method_debug_info.h"
 #include "elf_builder.h"
 #include "linker/vector_output_stream.h"
-#include "utils/array_ref.h"
 
 namespace art {
 namespace debug {
@@ -145,7 +145,7 @@ static std::vector<uint8_t> WriteDebugElfFileForClassesInternal(
     InstructionSet isa,
     const InstructionSetFeatures* features,
     const ArrayRef<mirror::Class*>& types)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   std::vector<uint8_t> buffer;
   buffer.reserve(KB);
   VectorOutputStream out("Debug ELF file", &buffer);

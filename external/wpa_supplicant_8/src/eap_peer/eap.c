@@ -489,7 +489,7 @@ static void eap_peer_erp_init(struct eap_sm *sm)
 	u8 *emsk = NULL;
 	size_t emsk_len = 0;
 	u8 EMSKname[EAP_EMSK_NAME_LEN];
-	u8 len[2];
+	u8 len[2], ctx[3];
 	char *realm;
 	size_t realm_len, nai_buf_len;
 	struct eap_erp_key *erp = NULL;
@@ -526,7 +526,7 @@ static void eap_peer_erp_init(struct eap_sm *sm)
 
 	wpa_hexdump_key(MSG_DEBUG, "EAP: EMSK", emsk, emsk_len);
 
-	WPA_PUT_BE16(len, 8);
+	WPA_PUT_BE16(len, EAP_EMSK_NAME_LEN);
 	if (hmac_sha256_kdf(sm->eapSessionId, sm->eapSessionIdLen, "EMSK",
 			    len, sizeof(len),
 			    EMSKname, EAP_EMSK_NAME_LEN) < 0) {
@@ -550,9 +550,11 @@ static void eap_peer_erp_init(struct eap_sm *sm)
 	erp->rRK_len = emsk_len;
 	wpa_hexdump_key(MSG_DEBUG, "EAP: ERP rRK", erp->rRK, erp->rRK_len);
 
+	ctx[0] = EAP_ERP_CS_HMAC_SHA256_128;
+	WPA_PUT_BE16(&ctx[1], erp->rRK_len);
 	if (hmac_sha256_kdf(erp->rRK, erp->rRK_len,
-			    "EAP Re-authentication Integrity Key@ietf.org",
-			    len, sizeof(len), erp->rIK, erp->rRK_len) < 0) {
+			    "Re-authentication Integrity Key@ietf.org",
+			    ctx, sizeof(ctx), erp->rIK, erp->rRK_len) < 0) {
 		wpa_printf(MSG_DEBUG, "EAP: Could not derive rIK for ERP");
 		goto fail;
 	}
@@ -571,8 +573,7 @@ fail:
 
 
 #ifdef CONFIG_ERP
-static int eap_peer_erp_reauth_start(struct eap_sm *sm,
-				     const struct eap_hdr *hdr, size_t len)
+struct wpabuf * eap_peer_build_erp_reauth_start(struct eap_sm *sm, u8 eap_id)
 {
 	char *realm;
 	struct eap_erp_key *erp;
@@ -581,16 +582,16 @@ static int eap_peer_erp_reauth_start(struct eap_sm *sm,
 
 	realm = eap_home_realm(sm);
 	if (!realm)
-		return -1;
+		return NULL;
 
 	erp = eap_erp_get_key(sm, realm);
 	os_free(realm);
 	realm = NULL;
 	if (!erp)
-		return -1;
+		return NULL;
 
 	if (erp->next_seq >= 65536)
-		return -1; /* SEQ has range of 0..65535 */
+		return NULL; /* SEQ has range of 0..65535 */
 
 	/* TODO: check rRK lifetime expiration */
 
@@ -599,9 +600,9 @@ static int eap_peer_erp_reauth_start(struct eap_sm *sm,
 
 	msg = eap_msg_alloc(EAP_VENDOR_IETF, (EapType) EAP_ERP_TYPE_REAUTH,
 			    1 + 2 + 2 + os_strlen(erp->keyname_nai) + 1 + 16,
-			    EAP_CODE_INITIATE, hdr->identifier);
+			    EAP_CODE_INITIATE, eap_id);
 	if (msg == NULL)
-		return -1;
+		return NULL;
 
 	wpabuf_put_u8(msg, 0x20); /* Flags: R=0 B=0 L=1 */
 	wpabuf_put_be16(msg, erp->next_seq);
@@ -615,13 +616,28 @@ static int eap_peer_erp_reauth_start(struct eap_sm *sm,
 	if (hmac_sha256(erp->rIK, erp->rIK_len,
 			wpabuf_head(msg), wpabuf_len(msg), hash) < 0) {
 		wpabuf_free(msg);
-		return -1;
+		return NULL;
 	}
 	wpabuf_put_data(msg, hash, 16);
 
-	wpa_printf(MSG_DEBUG, "EAP: Sending EAP-Initiate/Re-auth");
 	sm->erp_seq = erp->next_seq;
 	erp->next_seq++;
+
+	wpa_hexdump_buf(MSG_DEBUG, "ERP: EAP-Initiate/Re-auth", msg);
+
+	return msg;
+}
+
+
+static int eap_peer_erp_reauth_start(struct eap_sm *sm, u8 eap_id)
+{
+	struct wpabuf *msg;
+
+	msg = eap_peer_build_erp_reauth_start(sm, eap_id);
+	if (!msg)
+		return -1;
+
+	wpa_printf(MSG_DEBUG, "EAP: Sending EAP-Initiate/Re-auth");
 	wpabuf_free(sm->eapRespData);
 	sm->eapRespData = msg;
 	sm->reauthInit = TRUE;
@@ -1566,7 +1582,7 @@ static void eap_peer_initiate(struct eap_sm *sm, const struct eap_hdr *hdr,
 		/* TODO: Derivation of domain specific keys for local ER */
 	}
 
-	if (eap_peer_erp_reauth_start(sm, hdr, len) == 0)
+	if (eap_peer_erp_reauth_start(sm, hdr->identifier) == 0)
 		return;
 
 invalid:
@@ -1577,8 +1593,7 @@ invalid:
 }
 
 
-static void eap_peer_finish(struct eap_sm *sm, const struct eap_hdr *hdr,
-			    size_t len)
+void eap_peer_finish(struct eap_sm *sm, const struct eap_hdr *hdr, size_t len)
 {
 #ifdef CONFIG_ERP
 	const u8 *pos = (const u8 *) (hdr + 1);
@@ -2231,6 +2246,7 @@ static void eap_sm_request(struct eap_sm *sm, enum wpa_ctrl_req_type field,
 		config->pending_req_passphrase++;
 		break;
 	case WPA_CTRL_REQ_SIM:
+		config->pending_req_sim++;
 		txt = msg;
 		break;
 	case WPA_CTRL_REQ_EXT_CERT_CHECK:

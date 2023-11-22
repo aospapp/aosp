@@ -43,6 +43,7 @@ public class ClassLoaderTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.ClassLoader command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }
@@ -137,8 +138,7 @@ public class ClassLoaderTest extends JDWPSyncTestCase {
 
         assertAllDataRead(classLoaderReply);
 
-        assertTrue("Result should be a classloader",
-                isClassLoader(returnedClassLoaderID, thisCommandName));
+        assertTrue("Result should be a classloader", isClassLoader(returnedClassLoaderID));
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": FINISH");
@@ -149,7 +149,7 @@ public class ClassLoaderTest extends JDWPSyncTestCase {
      * the reference ID of java.lang.ClassLoader, then following the superclass chain and
      * comparing.
      */
-    private boolean isClassLoader(long classLoaderObjectID, String thisCommandName) {
+    private boolean isClassLoader(long classLoaderObjectID) {
         if (classLoaderObjectID == 0) {
             // 0 = null = bootstrap classloader.
             return true;

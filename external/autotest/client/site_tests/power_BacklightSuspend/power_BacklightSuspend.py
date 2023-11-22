@@ -8,9 +8,11 @@ from autotest_lib.client.cros import power_utils, sys_power
 
 
 class power_BacklightSuspend(test.test):
+    """class power_BacklightSuspend."""
+
     version = 1
 
-    def run_once(self, resume_percent=70):
+    def run_once(self, resume_percent=70, suspend_state='mem'):
         results = {}
         backlight = power_utils.Backlight()
 
@@ -24,7 +26,7 @@ class power_BacklightSuspend(test.test):
             resume_level = max_level - resume_level
         backlight.set_resume_level(resume_level)
 
-        sys_power.kernel_suspend(seconds=5)
+        sys_power.kernel_suspend(seconds=5, state=suspend_state)
 
         final_level = backlight.get_level()
         if final_level != resume_level:

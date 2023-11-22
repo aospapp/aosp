@@ -17,8 +17,8 @@
 #include "rsContext.h"
 #include "rsAllocation.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 extern "C" const void * rsaAllocationGetType(RsContext con, RsAllocation va) {
     Allocation *a = static_cast<Allocation *>(va);
@@ -26,3 +26,6 @@ extern "C" const void * rsaAllocationGetType(RsContext con, RsAllocation va) {
 
     return a->getType();
 }
+
+} // namespace renderscript
+} // namespace android

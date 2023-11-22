@@ -43,6 +43,7 @@ public class GetValues003Test extends JDWPSyncTestCase {
     static final String thisCommandName = "ObjectReference::GetValues command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/GetValues003Debuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.GetValues003Debuggee";
     }

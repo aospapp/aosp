@@ -14,7 +14,9 @@
      limitations under the License.
 -->
 <configuration description="Config for the CTS JDWP host test cases">
+    <option name="config-descriptor:metadata" key="component" value="art" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsJdwpSecurityHostTestCases.jar" />
+        <option name="runtime-hint" value="10m30s" />
     </test>
 </configuration>

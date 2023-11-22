@@ -58,7 +58,7 @@ const size_t kHashDigestSize = 32;  // 256 bits is SHA256 digest size.
 //  tpm.Create(..., &hmac);
 //  hmac.set_entity_authorization_value(...);
 //  tpm.Load(..., &hmac);
-class TRUNKS_EXPORT HmacAuthorizationDelegate: public AuthorizationDelegate {
+class TRUNKS_EXPORT HmacAuthorizationDelegate : public AuthorizationDelegate {
  public:
   HmacAuthorizationDelegate();
   ~HmacAuthorizationDelegate() override;
@@ -106,9 +106,7 @@ class TRUNKS_EXPORT HmacAuthorizationDelegate: public AuthorizationDelegate {
     return entity_authorization_value_;
   }
 
-  TPM_HANDLE session_handle() const {
-    return session_handle_;
-  }
+  TPM_HANDLE session_handle() const { return session_handle_; }
 
   void set_use_entity_authorization_for_encryption_only(bool value) {
     use_entity_authorization_for_encryption_only_ = value;
@@ -127,8 +125,7 @@ class TRUNKS_EXPORT HmacAuthorizationDelegate: public AuthorizationDelegate {
                         const TPM2B_NONCE& nonce_newer,
                         const TPM2B_NONCE& nonce_older);
   // This method performs a FIPS198 HMAC operation on |data| using |key|
-  std::string HmacSha256(const std::string& key,
-                         const std::string& data);
+  std::string HmacSha256(const std::string& key, const std::string& data);
   // This method performs an AES operation using a 128 bit key.
   // |operation_type| can be either AES_ENCRYPT or AES_DECRYPT and it
   // determines if the operation is an encryption or decryption.

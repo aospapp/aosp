@@ -40,6 +40,7 @@ import android.util.Log;
 
 import com.android.settingslib.accounts.AuthenticatorHelper;
 import com.android.tv.settings.R;
+
 import com.google.android.collect.Lists;
 
 import java.util.ArrayList;
@@ -96,13 +97,6 @@ public class AccountSyncFragment extends LeanbackPreferenceFragment implements
 
         super.onCreate(savedInstanceState);
 
-        if (!accountExists(mAccount)) {
-            Log.e(TAG, "Account provided does not exist: " + mAccount);
-            if (!getFragmentManager().popBackStackImmediate()) {
-                getActivity().finish();
-            }
-            return;
-        }
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "Got account: " + mAccount);
         }
@@ -124,7 +118,7 @@ public class AccountSyncFragment extends LeanbackPreferenceFragment implements
     @Override
     public void onResume() {
         super.onResume();
-        onAccountsUpdate(mUserHandle);
+        mHandler.post(() -> onAccountsUpdate(mUserHandle));
     }
 
     @Override

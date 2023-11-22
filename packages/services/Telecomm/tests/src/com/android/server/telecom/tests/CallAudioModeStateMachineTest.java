@@ -18,6 +18,7 @@ package com.android.server.telecom.tests;
 
 import android.media.AudioManager;
 import android.test.suitebuilder.annotation.LargeTest;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.CallAudioManager;
 import com.android.server.telecom.CallAudioModeStateMachine;
@@ -32,6 +33,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class CallAudioModeStateMachineTest extends StateMachineTestBase<CallAudioModeStateMachine> {
     private static class ModeTestParameters extends TestParameters {
@@ -98,6 +100,37 @@ public class CallAudioModeStateMachineTest extends StateMachineTestBase<CallAudi
     public void testTransitions() throws Throwable {
         List<ModeTestParameters> testCases = generateTestCases();
         parametrizedTestStateMachine(testCases);
+    }
+
+    @SmallTest
+    public void testNoFocusWhenRingerSilenced() throws Throwable {
+        CallAudioModeStateMachine sm = new CallAudioModeStateMachine(mAudioManager);
+        sm.setCallAudioManager(mCallAudioManager);
+        sm.sendMessage(CallAudioModeStateMachine.ABANDON_FOCUS_FOR_TESTING);
+        waitForStateMachineActionCompletion(sm, CallAudioModeStateMachine.RUN_RUNNABLE);
+
+        resetMocks();
+        when(mCallAudioManager.startRinging()).thenReturn(false);
+
+        sm.sendMessage(CallAudioModeStateMachine.NEW_RINGING_CALL,
+                new CallAudioModeStateMachine.MessageArgs(
+                        false, // hasActiveOrDialingCalls
+                        true, // hasRingingCalls
+                        false, // hasHoldingCalls
+                        false, // isTonePlaying
+                        false, // foregroundCallIsVoip
+                        null // session
+                ));
+        waitForStateMachineActionCompletion(sm, CallAudioModeStateMachine.RUN_RUNNABLE);
+
+        assertEquals(CallAudioModeStateMachine.RING_STATE_NAME, sm.getCurrentStateName());
+
+        verify(mAudioManager, never()).requestAudioFocusForCall(anyInt(), anyInt());
+        verify(mAudioManager, never()).setMode(anyInt());
+
+        verify(mCallAudioManager, never()).stopRinging();
+
+        verify(mCallAudioManager).stopCallWaiting();
     }
 
     private List<ModeTestParameters> generateTestCases() {
@@ -516,6 +549,7 @@ public class CallAudioModeStateMachineTest extends StateMachineTestBase<CallAudi
         waitForStateMachineActionCompletion(sm, CallAudioModeStateMachine.RUN_RUNNABLE);
 
         resetMocks();
+        when(mCallAudioManager.startRinging()).thenReturn(true);
 
         sm.sendMessage(params.messageType, params.externalState);
         waitForStateMachineActionCompletion(sm, CallAudioModeStateMachine.RUN_RUNNABLE);
@@ -570,6 +604,8 @@ public class CallAudioModeStateMachineTest extends StateMachineTestBase<CallAudi
                 verify(mCallAudioManager).stopCallWaiting();
                 break;
         }
+
+        sm.quitNow();
     }
 
     private void resetMocks() {

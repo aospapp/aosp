@@ -23,6 +23,15 @@ public class IntrinsicColorMatrix extends IntrinsicBase {
     protected ScriptIntrinsicColorMatrix mSi;
     protected ScriptC_intrinsic_colormatrix mSr;
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mSi != null) {
+            mSi.destroy();
+            mSr.destroy();
+        }
+        super.tearDown();
+    }
+
     private void subtest(int w, int h, Matrix4f mat, Float4 add,
                          Element.DataType dtIn, int vsIn,
                          Element.DataType dtOut, int vsOut,

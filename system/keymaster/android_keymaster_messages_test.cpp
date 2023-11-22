@@ -48,7 +48,7 @@ Message* round_trip(int32_t ver, const Message& message, size_t expected_size) {
 }
 
 struct EmptyKeymasterResponse : public KeymasterResponse {
-    EmptyKeymasterResponse(int32_t ver) : KeymasterResponse(ver) {}
+    explicit EmptyKeymasterResponse(int32_t ver) : KeymasterResponse(ver) {}
     size_t NonErrorSerializedSize() const { return 1; }
     uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* /* end */) const {
         *buf++ = 0;

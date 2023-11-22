@@ -20,51 +20,51 @@
 #include <base/callback.h>
 
 #include "tpm_manager/common/export.h"
-#include "tpm_manager/common/tpm_nvram_interface.pb.h"
+#include "tpm_manager/common/tpm_manager.pb.h"
 
 namespace tpm_manager {
 
-// This is the interface to access the nvram subsystem of the Tpm. It is
-// extended by TpmManagerInterface.
+// The command interface for working with TPM NVRAM. Inherited by both IPC proxy
+// and service classes. All methods are asynchronous because all TPM operations
+// may take a long time to finish.
 class TPM_MANAGER_EXPORT TpmNvramInterface {
  public:
   virtual ~TpmNvramInterface() = default;
 
-  // Processes a DefineNvramRequest and responds with a DefineNvramReply.
-  using DefineNvramCallback = base::Callback<void(const DefineNvramReply&)>;
-  virtual void DefineNvram(const DefineNvramRequest& request,
-                           const DefineNvramCallback& callback) = 0;
+  // Processes a DefineSpaceRequest and responds with a DefineSpaceReply.
+  using DefineSpaceCallback = base::Callback<void(const DefineSpaceReply&)>;
+  virtual void DefineSpace(const DefineSpaceRequest& request,
+                           const DefineSpaceCallback& callback) = 0;
 
-  // Processes a DestroyNvramRequest and responds with a DestroyNvramReply.
-  using DestroyNvramCallback = base::Callback<void(const DestroyNvramReply&)>;
-  virtual void DestroyNvram(const DestroyNvramRequest& request,
-                            const DestroyNvramCallback& callback) = 0;
+  // Processes a DestroySpaceRequest and responds with a DestroySpaceReply.
+  using DestroySpaceCallback = base::Callback<void(const DestroySpaceReply&)>;
+  virtual void DestroySpace(const DestroySpaceRequest& request,
+                            const DestroySpaceCallback& callback) = 0;
 
-  // Processes a WriteNvramRequest and responds with a WriteNvramReply.
-  using WriteNvramCallback = base::Callback<void(const WriteNvramReply&)>;
-  virtual void WriteNvram(const WriteNvramRequest& request,
-                          const WriteNvramCallback& callback) = 0;
+  // Processes a WriteSpaceRequest and responds with a WriteSpaceReply.
+  using WriteSpaceCallback = base::Callback<void(const WriteSpaceReply&)>;
+  virtual void WriteSpace(const WriteSpaceRequest& request,
+                          const WriteSpaceCallback& callback) = 0;
 
-  // Processes a ReadNvramRequest and responds with a ReadNvramReply.
-  using ReadNvramCallback = base::Callback<void(const ReadNvramReply&)>;
-  virtual void ReadNvram(const ReadNvramRequest& request,
-                         const ReadNvramCallback& callback) = 0;
+  // Processes a ReadSpaceRequest and responds with a ReadSpaceReply.
+  using ReadSpaceCallback = base::Callback<void(const ReadSpaceReply&)>;
+  virtual void ReadSpace(const ReadSpaceRequest& request,
+                         const ReadSpaceCallback& callback) = 0;
 
-  // Processes a IsNvramDefinedRequest and responds with a IsNvramDefinedReply.
-  using IsNvramDefinedCallback =
-      base::Callback<void(const IsNvramDefinedReply&)>;
-  virtual void IsNvramDefined(const IsNvramDefinedRequest& request,
-                              const IsNvramDefinedCallback& callback) = 0;
+  // Processes a LockSpaceRequest and responds with a LockSpaceReply.
+  using LockSpaceCallback = base::Callback<void(const LockSpaceReply&)>;
+  virtual void LockSpace(const LockSpaceRequest& request,
+                         const LockSpaceCallback& callback) = 0;
 
-  // Processes a IsNvramLockedRequest and responds with a IsNvramLockedReply.
-  using IsNvramLockedCallback = base::Callback<void(const IsNvramLockedReply&)>;
-  virtual void IsNvramLocked(const IsNvramLockedRequest& request,
-                             const IsNvramLockedCallback& callback) = 0;
+  // Processes a ListSpacesRequest and responds with a ListSpacesReply.
+  using ListSpacesCallback = base::Callback<void(const ListSpacesReply&)>;
+  virtual void ListSpaces(const ListSpacesRequest& request,
+                          const ListSpacesCallback& callback) = 0;
 
-  // Processes a GetNvramSizeRequest and responds with a GetNvramSizeReply.
-  using GetNvramSizeCallback = base::Callback<void(const GetNvramSizeReply&)>;
-  virtual void GetNvramSize(const GetNvramSizeRequest& request,
-                            const GetNvramSizeCallback& callback) = 0;
+  // Processes a GetSpaceInfoRequest and responds with a GetSpaceInfoReply.
+  using GetSpaceInfoCallback = base::Callback<void(const GetSpaceInfoReply&)>;
+  virtual void GetSpaceInfo(const GetSpaceInfoRequest& request,
+                            const GetSpaceInfoCallback& callback) = 0;
 };
 
 }  // namespace tpm_manager

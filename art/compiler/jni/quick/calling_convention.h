@@ -17,9 +17,9 @@
 #ifndef ART_COMPILER_JNI_QUICK_CALLING_CONVENTION_H_
 #define ART_COMPILER_JNI_QUICK_CALLING_CONVENTION_H_
 
-#include <vector>
-
 #include "base/arena_object.h"
+#include "base/array_ref.h"
+#include "base/enums.h"
 #include "handle_scope.h"
 #include "primitive.h"
 #include "thread.h"
@@ -71,8 +71,10 @@ class CallingConvention : public DeletableArenaObject<kArenaAllocCallingConventi
   virtual ~CallingConvention() {}
 
  protected:
-  CallingConvention(bool is_static, bool is_synchronized, const char* shorty,
-                    size_t frame_pointer_size)
+  CallingConvention(bool is_static,
+                    bool is_synchronized,
+                    const char* shorty,
+                    PointerSize frame_pointer_size)
       : itr_slots_(0), itr_refs_(0), itr_args_(0), itr_longs_and_doubles_(0),
         itr_float_and_doubles_(0), displacement_(0),
         frame_pointer_size_(frame_pointer_size),
@@ -159,6 +161,12 @@ class CallingConvention : public DeletableArenaObject<kArenaAllocCallingConventi
   size_t NumArgs() const {
     return num_args_;
   }
+  // Implicit argument count: 1 for instance functions, 0 for static functions.
+  // (The implicit argument is only relevant to the shorty, i.e.
+  // the 0th arg is not in the shorty if it's implicit).
+  size_t NumImplicitArgs() const {
+    return IsStatic() ? 0 : 1;
+  }
   size_t NumLongOrDoubleArgs() const {
     return num_long_or_double_args_;
   }
@@ -199,7 +207,7 @@ class CallingConvention : public DeletableArenaObject<kArenaAllocCallingConventi
   // Space for frames below this on the stack.
   FrameOffset displacement_;
   // The size of a pointer.
-  const size_t frame_pointer_size_;
+  const PointerSize frame_pointer_size_;
   // The size of a reference entry within the handle scope.
   const size_t handle_scope_pointer_size_;
 
@@ -256,7 +264,7 @@ class ManagedRuntimeCallingConvention : public CallingConvention {
   ManagedRuntimeCallingConvention(bool is_static,
                                   bool is_synchronized,
                                   const char* shorty,
-                                  size_t frame_pointer_size)
+                                  PointerSize frame_pointer_size)
       : CallingConvention(is_static, is_synchronized, shorty, frame_pointer_size) {}
 };
 
@@ -279,6 +287,7 @@ class JniCallingConvention : public CallingConvention {
   static std::unique_ptr<JniCallingConvention> Create(ArenaAllocator* arena,
                                                       bool is_static,
                                                       bool is_synchronized,
+                                                      bool is_critical_native,
                                                       const char* shorty,
                                                       InstructionSet instruction_set);
 
@@ -286,7 +295,8 @@ class JniCallingConvention : public CallingConvention {
   // always at the bottom of a frame, but this doesn't work for outgoing
   // native args). Includes alignment.
   virtual size_t FrameSize() = 0;
-  // Size of outgoing arguments, including alignment
+  // Size of outgoing arguments (stack portion), including alignment.
+  // -- Arguments that are passed via registers are excluded from this size.
   virtual size_t OutArgSize() = 0;
   // Number of references in stack indirect reference table
   size_t ReferenceCount() const;
@@ -301,7 +311,7 @@ class JniCallingConvention : public CallingConvention {
   virtual bool RequiresSmallResultTypeExtension() const = 0;
 
   // Callee save registers to spill prior to native code (which may clobber)
-  virtual const std::vector<ManagedRegister>& CalleeSaveRegisters() const = 0;
+  virtual ArrayRef<const ManagedRegister> CalleeSaveRegisters() const = 0;
 
   // Spill mask values
   virtual uint32_t CoreSpillMask() const = 0;
@@ -317,8 +327,11 @@ class JniCallingConvention : public CallingConvention {
   bool IsCurrentParamAFloatOrDouble();
   bool IsCurrentParamADouble();
   bool IsCurrentParamALong();
+  bool IsCurrentParamALongOrDouble() {
+    return IsCurrentParamALong() || IsCurrentParamADouble();
+  }
   bool IsCurrentParamJniEnv();
-  size_t CurrentParamSize();
+  size_t CurrentParamSize() const;
   virtual bool IsCurrentParamInRegister() = 0;
   virtual bool IsCurrentParamOnStack() = 0;
   virtual ManagedRegister CurrentParamRegister() = 0;
@@ -329,7 +342,7 @@ class JniCallingConvention : public CallingConvention {
 
   // Position of handle scope and interior fields
   FrameOffset HandleScopeOffset() const {
-    return FrameOffset(this->displacement_.Int32Value() + frame_pointer_size_);
+    return FrameOffset(this->displacement_.Int32Value() + static_cast<size_t>(frame_pointer_size_));
     // above Method reference
   }
 
@@ -357,16 +370,54 @@ class JniCallingConvention : public CallingConvention {
     kObjectOrClass = 1
   };
 
-  JniCallingConvention(bool is_static, bool is_synchronized, const char* shorty,
-                       size_t frame_pointer_size)
-      : CallingConvention(is_static, is_synchronized, shorty, frame_pointer_size) {}
+  JniCallingConvention(bool is_static,
+                       bool is_synchronized,
+                       bool is_critical_native,
+                       const char* shorty,
+                       PointerSize frame_pointer_size)
+      : CallingConvention(is_static, is_synchronized, shorty, frame_pointer_size),
+        is_critical_native_(is_critical_native) {}
 
   // Number of stack slots for outgoing arguments, above which the handle scope is
   // located
   virtual size_t NumberOfOutgoingStackArgs() = 0;
 
  protected:
-  size_t NumberOfExtraArgumentsForJni();
+  size_t NumberOfExtraArgumentsForJni() const;
+
+  // Does the transition have a StackHandleScope?
+  bool HasHandleScope() const;
+  // Does the transition have a local reference segment state?
+  bool HasLocalReferenceSegmentState() const;
+  // Has a JNIEnv* parameter implicitly?
+  bool HasJniEnv() const;
+  // Has a 'jclass' parameter implicitly?
+  bool HasSelfClass() const;
+
+  // Are there extra JNI arguments (JNIEnv* and maybe jclass)?
+  bool HasExtraArgumentsForJni() const;
+
+  // Returns the position of itr_args_, fixed up by removing the offset of extra JNI arguments.
+  unsigned int GetIteratorPositionWithinShorty() const;
+
+  // Is the current argument (at the iterator) an extra argument for JNI?
+  bool IsCurrentArgExtraForJni() const;
+
+  const bool is_critical_native_;
+
+ private:
+  // Shorthand for switching on the switch value but only IF there are extra JNI arguments.
+  //
+  // Puts the case value into return_value.
+  // * (switch_value == kJniEnv) => case_jni_env
+  // * (switch_value == kObjectOrClass) => case_object_or_class
+  //
+  // Returns false otherwise (or if there are no extra JNI arguments).
+  bool SwitchExtraJniArguments(size_t switch_value,
+                               bool case_jni_env,
+                               bool case_object_or_class,
+                               /* out parameters */
+                               bool* return_value) const;
 };
 
 }  // namespace art

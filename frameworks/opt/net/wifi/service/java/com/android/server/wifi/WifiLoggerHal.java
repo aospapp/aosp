@@ -46,4 +46,9 @@ public class WifiLoggerHal {
     public static final byte RX_PKT_FATE_DRV_DROP_INVALID = 8;
     public static final byte RX_PKT_FATE_DRV_DROP_NOBUFS = 9;
     public static final byte RX_PKT_FATE_DRV_DROP_OTHER = 10;
+
+    /** These aren't formally part of the HAL. But they probably should be, eventually. */
+    public static final byte WIFI_ALERT_REASON_RESERVED = 0;
+    public static final byte WIFI_ALERT_REASON_MIN = 0;
+    public static final byte WIFI_ALERT_REASON_MAX = 64;
 }

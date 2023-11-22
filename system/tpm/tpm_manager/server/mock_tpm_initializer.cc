@@ -22,6 +22,7 @@ namespace tpm_manager {
 
 MockTpmInitializer::MockTpmInitializer() {
   ON_CALL(*this, InitializeTpm()).WillByDefault(Return(true));
+  ON_CALL(*this, ResetDictionaryAttackLock()).WillByDefault(Return(true));
 }
 MockTpmInitializer::~MockTpmInitializer() {}
 

@@ -12,6 +12,7 @@ import signal
 import string
 import StringIO
 import subprocess
+import sys
 import time
 
 # fcntl is not available on Windows.
@@ -19,6 +20,8 @@ try:
   import fcntl
 except ImportError:
   fcntl = None
+
+logger = logging.getLogger(__name__)
 
 _SafeShellChars = frozenset(string.ascii_letters + string.digits + '@%_-+=:,./')
 
@@ -91,10 +94,15 @@ def ShrinkToSnippet(cmd_parts, var_name, var_value):
 
 
 def Popen(args, stdout=None, stderr=None, shell=None, cwd=None, env=None):
+  # preexec_fn isn't supported on windows.
+  if sys.platform == 'win32':
+    preexec_fn = None
+  else:
+    preexec_fn = lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
   return subprocess.Popen(
       args=args, cwd=cwd, stdout=stdout, stderr=stderr,
-      shell=shell, close_fds=True, env=env,
-      preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL))
+      shell=shell, close_fds=True, env=env, preexec_fn=preexec_fn)
 
 
 def Call(args, stdout=None, stderr=None, shell=None, cwd=None, env=None):
@@ -116,7 +124,7 @@ def RunCmd(args, cwd=None):
   Returns:
     Return code from the command execution.
   """
-  logging.info(str(args) + ' ' + (cwd or ''))
+  logger.info(str(args) + ' ' + (cwd or ''))
   return Call(args, cwd=cwd)
 
 
@@ -150,7 +158,7 @@ def _ValidateAndLogCommand(args, cwd, shell):
     cwd = ''
   else:
     cwd = ':' + cwd
-  logging.info('[host]%s> %s', cwd, args)
+  logger.info('[host]%s> %s', cwd, args)
   return args
 
 
@@ -172,10 +180,9 @@ def GetCmdStatusAndOutput(args, cwd=None, shell=False):
       args, cwd=cwd, shell=shell)
 
   if stderr:
-    logging.critical(stderr)
-  if len(stdout) > 4096:
-    logging.debug('Truncated output:')
-  logging.debug(stdout[:4096])
+    logger.critical('STDERR: %s', stderr)
+  logger.debug('STDOUT: %s%s', stdout[:4096].rstrip(),
+               '<truncated>' if len(stdout) > 4096 else '')
   return (status, stdout)
 
 
@@ -212,8 +219,30 @@ class TimeoutError(Exception):
     return self._output
 
 
-def _IterProcessStdout(process, timeout=None, buffer_size=4096,
-                       poll_interval=1):
+def _IterProcessStdout(process, iter_timeout=None, timeout=None,
+                       buffer_size=4096, poll_interval=1):
+  """Iterate over a process's stdout.
+
+  This is intentionally not public.
+
+  Args:
+    process: The process in question.
+    iter_timeout: An optional length of time, in seconds, to wait in
+      between each iteration. If no output is received in the given
+      time, this generator will yield None.
+    timeout: An optional length of time, in seconds, during which
+      the process must finish. If it fails to do so, a TimeoutError
+      will be raised.
+    buffer_size: The maximum number of bytes to read (and thus yield) at once.
+    poll_interval: The length of time to wait in calls to `select.select`.
+      If iter_timeout is set, the remaining length of time in the iteration
+      may take precedence.
+  Raises:
+    TimeoutError: if timeout is set and the process does not complete.
+  Yields:
+    basestrings of data or None.
+  """
+
   assert fcntl, 'fcntl module is required'
   try:
     # Enable non-blocking reads from the child's stdout.
@@ -222,10 +251,24 @@ def _IterProcessStdout(process, timeout=None, buffer_size=4096,
     fcntl.fcntl(child_fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
     end_time = (time.time() + timeout) if timeout else None
+    iter_end_time = (time.time() + iter_timeout) if iter_timeout else None
+
     while True:
       if end_time and time.time() > end_time:
         raise TimeoutError()
-      read_fds, _, _ = select.select([child_fd], [], [], poll_interval)
+      if iter_end_time and time.time() > iter_end_time:
+        yield None
+        iter_end_time = time.time() + iter_timeout
+
+      if iter_end_time:
+        iter_aware_poll_interval = min(
+            poll_interval,
+            max(0, iter_end_time - time.time()))
+      else:
+        iter_aware_poll_interval = poll_interval
+
+      read_fds, _, _ = select.select(
+          [child_fd], [], [], iter_aware_poll_interval)
       if child_fd in read_fds:
         data = os.read(child_fd, buffer_size)
         if not data:
@@ -235,9 +278,10 @@ def _IterProcessStdout(process, timeout=None, buffer_size=4096,
         break
   finally:
     try:
-      # Make sure the process doesn't stick around if we fail with an
-      # exception.
-      process.kill()
+      if process.returncode is None:
+        # Make sure the process doesn't stick around if we fail with an
+        # exception.
+        process.kill()
     except OSError:
       pass
     process.wait()
@@ -260,6 +304,8 @@ def GetCmdStatusAndOutputWithTimeout(args, timeout, cwd=None, shell=False,
 
   Returns:
     The 2-tuple (exit code, output).
+  Raises:
+    TimeoutError on timeout.
   """
   _ValidateAndLogCommand(args, cwd, shell)
   output = StringIO.StringIO()
@@ -273,23 +319,27 @@ def GetCmdStatusAndOutputWithTimeout(args, timeout, cwd=None, shell=False,
   except TimeoutError:
     raise TimeoutError(output.getvalue())
 
-  return process.returncode, output.getvalue()
+  str_output = output.getvalue()
+  logger.debug('STDOUT+STDERR: %s%s', str_output[:4096].rstrip(),
+               '<truncated>' if len(str_output) > 4096 else '')
+  return process.returncode, str_output
 
 
-def IterCmdOutputLines(args, timeout=None, cwd=None, shell=False,
-                       check_status=True):
+def IterCmdOutputLines(args, iter_timeout=None, timeout=None, cwd=None,
+                       shell=False, check_status=True):
   """Executes a subprocess and continuously yields lines from its output.
 
   Args:
     args: List of arguments to the program, the program to execute is the first
       element.
+    iter_timeout: Timeout for each iteration, in seconds.
+    timeout: Timeout for the entire command, in seconds.
     cwd: If not None, the subprocess's current directory will be changed to
       |cwd| before it's executed.
     shell: Whether to execute args as a shell command. Must be True if args
       is a string and False if args is a sequence.
     check_status: A boolean indicating whether to check the exit status of the
       process after all output has been read.
-
   Yields:
     The output of the subprocess, line by line.
 
@@ -300,14 +350,44 @@ def IterCmdOutputLines(args, timeout=None, cwd=None, shell=False,
   cmd = _ValidateAndLogCommand(args, cwd, shell)
   process = Popen(args, cwd=cwd, shell=shell, stdout=subprocess.PIPE,
                   stderr=subprocess.STDOUT)
+  return _IterCmdOutputLines(
+      process, cmd, iter_timeout=iter_timeout, timeout=timeout,
+      check_status=check_status)
+
+def _IterCmdOutputLines(process, cmd, iter_timeout=None, timeout=None,
+                        check_status=True):
   buffer_output = ''
-  for data in _IterProcessStdout(process, timeout=timeout):
+
+  iter_end = None
+  cur_iter_timeout = None
+  if iter_timeout:
+    iter_end = time.time() + iter_timeout
+    cur_iter_timeout = iter_timeout
+
+  for data in _IterProcessStdout(process, iter_timeout=cur_iter_timeout,
+                                 timeout=timeout):
+    if iter_timeout:
+      # Check whether the current iteration has timed out.
+      cur_iter_timeout = iter_end - time.time()
+      if data is None or cur_iter_timeout < 0:
+        yield None
+        iter_end = time.time() + iter_timeout
+        continue
+    else:
+      assert data is not None, (
+          'Iteration received no data despite no iter_timeout being set. '
+          'cmd: %s' % cmd)
+
+    # Construct lines to yield from raw data.
     buffer_output += data
     has_incomplete_line = buffer_output[-1] not in '\r\n'
     lines = buffer_output.splitlines()
     buffer_output = lines.pop() if has_incomplete_line else ''
     for line in lines:
       yield line
+      if iter_timeout:
+        iter_end = time.time() + iter_timeout
+
   if buffer_output:
     yield buffer_output
   if check_status and process.returncode:

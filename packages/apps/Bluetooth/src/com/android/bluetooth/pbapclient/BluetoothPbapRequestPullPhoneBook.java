@@ -20,7 +20,7 @@ import android.accounts.Account;
 import android.util.Log;
 
 import com.android.vcard.VCardEntry;
-import com.android.bluetooth.pbapclient.utils.ObexAppParameters;
+import com.android.bluetooth.pbapclient.ObexAppParameters;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +30,7 @@ import javax.obex.HeaderSet;
 
 final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
 
-    private static final boolean DBG = true;
+    private static final boolean VDBG = false;
 
     private static final String TAG = "BluetoothPbapRequestPullPhoneBook";
 
@@ -63,9 +63,9 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
         ObexAppParameters oap = new ObexAppParameters();
 
         /* make sure format is one of allowed values */
-        if (format != BluetoothPbapClient.VCARD_TYPE_21
-                && format != BluetoothPbapClient.VCARD_TYPE_30) {
-            format = BluetoothPbapClient.VCARD_TYPE_21;
+        if (format != PbapClientConnectionHandler.VCARD_TYPE_21
+                && format != PbapClientConnectionHandler.VCARD_TYPE_30) {
+            format = PbapClientConnectionHandler.VCARD_TYPE_21;
         }
 
         if (filter != 0) {
@@ -98,7 +98,7 @@ final class BluetoothPbapRequestPullPhoneBook extends BluetoothPbapRequest {
         Log.v(TAG, "readResponse");
 
         mResponse = new BluetoothPbapVcardList(mAccount, stream, mFormat);
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "Read " + mResponse.getCount() + " entries.");
         }
     }

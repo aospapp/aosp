@@ -5,7 +5,6 @@
 AUTHOR = 'chromeos-gfx'
 NAME = 'telemetry_GpuTests.webgl_robustness'
 ATTRIBUTES = "suite:graphics, suite:perf_v2"
-SUITE = 'graphics, perf_v2'
 TIME = 'LONG'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'gl'

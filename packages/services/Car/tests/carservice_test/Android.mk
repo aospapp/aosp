@@ -20,6 +20,10 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+LOCAL_RESOURCE_DIR += packages/services/Car/service/res
+
+LOCAL_AAPT_FLAGS += --extra-packages com.android.car --auto-add-overlay
+
 LOCAL_PACKAGE_NAME := CarServiceTest
 
 # for system|priviledged permission.
@@ -32,8 +36,11 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES += android.support.car
-LOCAL_STATIC_JAVA_LIBRARIES += car-service-lib-for-test car-systemtest
+LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
+LOCAL_STATIC_JAVA_LIBRARIES += car-service-lib-for-test \
+                               vehicle-hal-support-lib \
+                               car-systemtest \
+                               android-support-test
 
 LOCAL_JAVA_LIBRARIES := android.car android.test.runner
 

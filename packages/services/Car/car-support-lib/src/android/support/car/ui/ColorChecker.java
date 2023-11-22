@@ -19,6 +19,9 @@ import android.content.Context;
 import android.graphics.Color;
 import android.util.Log;
 
+/**
+ * @hide
+ */
 public class ColorChecker {
     private static final String TAG = "GH.ColorChecker";
     private static final double MIN_CONTRAST_RATIO = 4.5;

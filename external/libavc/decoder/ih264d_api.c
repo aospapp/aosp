@@ -1002,7 +1002,6 @@ void ih264d_init_decoder(void * ps_dec_params)
     ps_dec->ps_cur_sps = NULL;
     ps_dec->u1_init_dec_flag = 0;
     ps_dec->u1_first_slice_in_stream = 1;
-    ps_dec->u1_first_pb_nal_in_pic = 1;
     ps_dec->u1_last_pic_not_decoded = 0;
     ps_dec->u4_app_disp_width = 0;
     ps_dec->i4_header_decoded = 0;
@@ -1409,15 +1408,14 @@ WORD32 ih264d_allocate_static_bufs(iv_obj_t **dec_hdl, void *pv_api_ip, void *pv
     pu1_buf += size / 2;
     ps_dec->ps_dpb_mgr->ps_init_dpb[1][0] = (struct pic_buffer_t *)pu1_buf;
 
-    size = (sizeof(UWORD32) * 3
-                        * (MAX_FRAMES * MAX_FRAMES))
-                        << 3;
+    size = (sizeof(UWORD32) * 2 * 3
+                        * ((MAX_FRAMES << 1) * (MAX_FRAMES << 1)) * 2);
     pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
     ps_dec->pu4_mbaff_wt_mat = pv_buf;
 
     size = sizeof(UWORD32) * 2 * 3
-                        * (MAX_FRAMES * MAX_FRAMES);
+                        * ((MAX_FRAMES << 1) * (MAX_FRAMES << 1));
     pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
     ps_dec->pu4_wts_ofsts_mat = pv_buf;
@@ -1625,6 +1623,89 @@ UWORD32 ih264d_map_error(UWORD32 i4_err_status)
 
 }
 
+UWORD32 ih264d_get_outbuf_size(WORD32 pic_wd,
+                               UWORD32 pic_ht,
+                               UWORD8 u1_chroma_format,
+                               UWORD32 *p_buf_size)
+{
+    UWORD32 u4_min_num_out_bufs = 0;
+
+    if(u1_chroma_format == IV_YUV_420P)
+        u4_min_num_out_bufs = MIN_OUT_BUFS_420;
+    else if(u1_chroma_format == IV_YUV_422ILE)
+        u4_min_num_out_bufs = MIN_OUT_BUFS_422ILE;
+    else if(u1_chroma_format == IV_RGB_565)
+        u4_min_num_out_bufs = MIN_OUT_BUFS_RGB565;
+    else if((u1_chroma_format == IV_YUV_420SP_UV)
+                    || (u1_chroma_format == IV_YUV_420SP_VU))
+        u4_min_num_out_bufs = MIN_OUT_BUFS_420SP;
+
+    if(u1_chroma_format == IV_YUV_420P)
+    {
+        p_buf_size[0] = (pic_wd * pic_ht);
+        p_buf_size[1] = (pic_wd * pic_ht) >> 2;
+        p_buf_size[2] = (pic_wd * pic_ht) >> 2;
+    }
+    else if(u1_chroma_format == IV_YUV_422ILE)
+    {
+        p_buf_size[0] = (pic_wd * pic_ht) * 2;
+        p_buf_size[1] = p_buf_size[2] = 0;
+    }
+    else if(u1_chroma_format == IV_RGB_565)
+    {
+        p_buf_size[0] = (pic_wd * pic_ht) * 2;
+        p_buf_size[1] = p_buf_size[2] = 0;
+    }
+    else if((u1_chroma_format == IV_YUV_420SP_UV)
+                    || (u1_chroma_format == IV_YUV_420SP_VU))
+    {
+        p_buf_size[0] = (pic_wd * pic_ht);
+        p_buf_size[1] = (pic_wd * pic_ht) >> 1;
+        p_buf_size[2] = 0;
+    }
+
+    return u4_min_num_out_bufs;
+}
+
+WORD32 check_app_out_buf_size(dec_struct_t *ps_dec)
+{
+    UWORD32 au4_min_out_buf_size[IVD_VIDDEC_MAX_IO_BUFFERS];
+    UWORD32 u4_min_num_out_bufs, i;
+    UWORD32 pic_wd, pic_ht;
+
+    if(0 == ps_dec->u4_share_disp_buf)
+    {
+        pic_wd = ps_dec->u2_disp_width;
+        pic_ht = ps_dec->u2_disp_height;
+
+    }
+    else
+    {
+        /* In case of shared mode, do not check validity of ps_dec->ps_out_buffer */
+        return (IV_SUCCESS);
+    }
+
+    if(ps_dec->u4_app_disp_width > pic_wd)
+        pic_wd = ps_dec->u4_app_disp_width;
+
+    u4_min_num_out_bufs = ih264d_get_outbuf_size(pic_wd, pic_ht,
+                                                 ps_dec->u1_chroma_format,
+                                                 &au4_min_out_buf_size[0]);
+
+    if(ps_dec->ps_out_buffer->u4_num_bufs < u4_min_num_out_bufs)
+        return IV_FAIL;
+
+    for(i = 0; i < u4_min_num_out_bufs; i++)
+    {
+        if(ps_dec->ps_out_buffer->u4_min_out_buf_size[i]
+                        < au4_min_out_buf_size[i])
+            return (IV_FAIL);
+    }
+
+    return (IV_SUCCESS);
+}
+
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name :  ih264d_video_decode                                     */
@@ -1765,15 +1846,7 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
 
     ps_dec->i4_frametype = -1;
     ps_dec->i4_content_type = -1;
-    /*
-     * For field pictures, set the bottom and top picture decoded u4_flag correctly.
-     */
-    {
-        if((TOP_FIELD_ONLY | BOT_FIELD_ONLY) == ps_dec->u1_top_bottom_decoded)
-        {
-            ps_dec->u1_top_bottom_decoded = 0;
-        }
-    }
+
     ps_dec->u4_slice_start_code_found = 0;
 
     /* In case the deocder is not in flush mode(in shared mode),
@@ -1868,13 +1941,28 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
 
     }
 
-    if(ps_dec->u1_flushfrm && ps_dec->u1_init_dec_flag)
+    if(ps_dec->u1_flushfrm)
     {
+        if(ps_dec->u1_init_dec_flag == 0)
+        {
+            /*Come out of flush mode and return*/
+            ps_dec->u1_flushfrm = 0;
+            return (IV_FAIL);
+        }
+
+
 
         ih264d_get_next_display_field(ps_dec, ps_dec->ps_out_buffer,
                                       &(ps_dec->s_disp_op));
         if(0 == ps_dec->s_disp_op.u4_error_code)
         {
+            /* check output buffer size given by the application */
+            if(check_app_out_buf_size(ps_dec) != IV_SUCCESS)
+            {
+                ps_dec_op->u4_error_code= IVD_DISP_FRM_ZERO_OP_BUF_SIZE;
+                return (IV_FAIL);
+            }
+
             ps_dec->u4_fmt_conv_cur_row = 0;
             ps_dec->u4_fmt_conv_num_rows = ps_dec->s_disp_frame_info.u4_y_ht;
             ih264d_format_convert(ps_dec, &(ps_dec->s_disp_op),
@@ -1927,8 +2015,7 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
     ps_dec->u2_cur_slice_num = 0;
     ps_dec->cur_dec_mb_num = 0;
     ps_dec->cur_recon_mb_num = 0;
-    ps_dec->u4_first_slice_in_pic = 2;
-    ps_dec->u1_first_pb_nal_in_pic = 1;
+    ps_dec->u4_first_slice_in_pic = 1;
     ps_dec->u1_slice_header_done = 0;
     ps_dec->u1_dangling_field = 0;
 
@@ -1936,6 +2023,7 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
     ps_dec->u4_bs_deblk_thread_created = 0;
     ps_dec->u4_cur_bs_mb_num = 0;
     ps_dec->u4_start_recon_deblk  = 0;
+    ps_dec->u4_sps_cnt_in_process = 0;
 
     DEBUG_THREADS_PRINTF(" Starting process call\n");
 
@@ -1989,7 +2077,9 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
         if(buflen == -1)
             buflen = 0;
         /* Ignore bytes beyond the allocated size of intermediate buffer */
-        buflen = MIN(buflen, buf_size);
+        /* Since 8 bytes are read ahead, ensure 8 bytes are free at the
+        end of the buffer, which will be memset to 0 after emulation prevention */
+        buflen = MIN(buflen, buf_size - 8);
 
         bytes_consumed = buflen + u4_length_of_start_code;
         ps_dec_op->u4_num_bytes_consumed += bytes_consumed;
@@ -2083,6 +2173,7 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
             {
                 /* a start code has already been found earlier in the same process call*/
                 frame_data_left = 0;
+                header_data_left = 0;
                 continue;
             }
 
@@ -2101,7 +2192,8 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
                             || (ret == IVD_MEM_ALLOC_FAILED)
                             || (ret == ERROR_UNAVAIL_PICBUF_T)
                             || (ret == ERROR_UNAVAIL_MVBUF_T)
-                            || (ret == ERROR_INV_SPS_PPS_T))
+                            || (ret == ERROR_INV_SPS_PPS_T)
+                            || (ret == IVD_DISP_FRM_ZERO_OP_BUF_SIZE))
             {
                 ps_dec->u4_slice_start_code_found = 0;
                 break;
@@ -2164,8 +2256,9 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
         WORD32 prev_slice_err;
         pocstruct_t temp_poc;
         WORD32 ret1;
-
-        num_mb_skipped = (ps_dec->u2_frm_ht_in_mbs * ps_dec->u2_frm_wd_in_mbs)
+        WORD32 ht_in_mbs;
+        ht_in_mbs = ps_dec->u2_pic_ht >> (4 + ps_dec->ps_cur_slice->u1_field_pic_flag);
+        num_mb_skipped = (ht_in_mbs * ps_dec->u2_frm_wd_in_mbs)
                             - ps_dec->u2_total_mbs_coded;
 
         if(ps_dec->u4_first_slice_in_pic && (ps_dec->u4_pic_buf_got == 0))
@@ -2179,9 +2272,10 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
         ret1 = ih264d_mark_err_slice_skip(ps_dec, num_mb_skipped, ps_dec->u1_nal_unit_type == IDR_SLICE_NAL, ps_dec->ps_cur_slice->u2_frame_num,
                                    &temp_poc, prev_slice_err);
 
-        if((ret1 == ERROR_UNAVAIL_PICBUF_T) || (ret1 == ERROR_UNAVAIL_MVBUF_T))
+        if((ret1 == ERROR_UNAVAIL_PICBUF_T) || (ret1 == ERROR_UNAVAIL_MVBUF_T) ||
+                       (ret1 == ERROR_INV_SPS_PPS_T))
         {
-            return IV_FAIL;
+            ret = ret1;
         }
     }
 
@@ -2313,18 +2407,19 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
                 ps_dec->u1_top_bottom_decoded |= TOP_FIELD_ONLY;
             }
         }
+        else
+        {
+                ps_dec->u1_top_bottom_decoded = TOP_FIELD_ONLY | BOT_FIELD_ONLY;
+        }
 
         /* if new frame in not found (if we are still getting slices from previous frame)
          * ih264d_deblock_display is not called. Such frames will not be added to reference /display
          */
-        if((ps_dec->ps_dec_err_status->u1_err_flag & REJECT_CUR_PIC) == 0)
+        if (((ps_dec->ps_dec_err_status->u1_err_flag & REJECT_CUR_PIC) == 0)
+                && (ps_dec->u4_pic_buf_got == 1))
         {
             /* Calling Function to deblock Picture and Display */
             ret = ih264d_deblock_display(ps_dec);
-            if(ret != 0)
-            {
-                return IV_FAIL;
-            }
         }
 
 
@@ -2420,6 +2515,37 @@ WORD32 ih264d_video_decode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
 
         }
     }
+
+    if((TOP_FIELD_ONLY | BOT_FIELD_ONLY) == ps_dec->u1_top_bottom_decoded)
+    {
+        ps_dec->u1_top_bottom_decoded = 0;
+    }
+    /*--------------------------------------------------------------------*/
+    /* Do End of Pic processing.                                          */
+    /* Should be called only if frame was decoded in previous process call*/
+    /*--------------------------------------------------------------------*/
+    if(ps_dec->u4_pic_buf_got == 1)
+    {
+        if(1 == ps_dec->u1_last_pic_not_decoded)
+        {
+            ret = ih264d_end_of_pic_dispbuf_mgr(ps_dec);
+
+            if(ret != OK)
+                return ret;
+
+            ret = ih264d_end_of_pic(ps_dec);
+            if(ret != OK)
+                return ret;
+        }
+        else
+        {
+            ret = ih264d_end_of_pic(ps_dec);
+            if(ret != OK)
+                return ret;
+        }
+
+    }
+
 
     /*Data memory barrier instruction,so that yuv write by the library is complete*/
     DATA_SYNC();
@@ -2606,6 +2732,9 @@ WORD32 ih264d_set_flush_mode(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op
     }
 
     ps_ctl_op->u4_error_code = 0;
+
+    /* Ignore dangling fields during flush */
+    ps_dec->u1_top_bottom_decoded = 0;
 
     return IV_SUCCESS;
 }
@@ -2816,27 +2945,15 @@ WORD32 ih264d_get_buf_info(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
     UWORD16 pic_wd, pic_ht;
     ivd_ctl_getbufinfo_op_t *ps_ctl_op =
                     (ivd_ctl_getbufinfo_op_t*)pv_api_op;
+    UWORD32 au4_min_out_buf_size[IVD_VIDDEC_MAX_IO_BUFFERS];
     UNUSED(pv_api_ip);
+
     ps_ctl_op->u4_error_code = 0;
 
     ps_dec = (dec_struct_t *)(dec_hdl->pv_codec_handle);
 
     ps_ctl_op->u4_min_num_in_bufs = MIN_IN_BUFS;
-    if(ps_dec->u1_chroma_format == IV_YUV_420P)
-        ps_ctl_op->u4_min_num_out_bufs = MIN_OUT_BUFS_420;
-    else if(ps_dec->u1_chroma_format == IV_YUV_422ILE)
-        ps_ctl_op->u4_min_num_out_bufs = MIN_OUT_BUFS_422ILE;
-    else if(ps_dec->u1_chroma_format == IV_RGB_565)
-        ps_ctl_op->u4_min_num_out_bufs = MIN_OUT_BUFS_RGB565;
-    else if((ps_dec->u1_chroma_format == IV_YUV_420SP_UV)
-                    || (ps_dec->u1_chroma_format == IV_YUV_420SP_VU))
-        ps_ctl_op->u4_min_num_out_bufs = MIN_OUT_BUFS_420SP;
 
-    else
-    {
-        //Invalid chroma format; Error code may be updated, verify in testing if needed
-        return IV_FAIL;
-    }
 
     ps_ctl_op->u4_num_disp_bufs = 1;
 
@@ -2903,37 +3020,15 @@ WORD32 ih264d_get_buf_info(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
                         ps_ctl_op->u4_num_disp_bufs, 32);
     }
 
-    /*!*/
-    if(ps_dec->u1_chroma_format == IV_YUV_420P)
+    ps_ctl_op->u4_min_num_out_bufs = ih264d_get_outbuf_size(
+                    pic_wd, pic_ht, ps_dec->u1_chroma_format,
+                    &au4_min_out_buf_size[0]);
+
+    for(i = 0; i < ps_ctl_op->u4_min_num_out_bufs; i++)
     {
-        ps_ctl_op->u4_min_out_buf_size[0] = (pic_wd * pic_ht);
-        ps_ctl_op->u4_min_out_buf_size[1] = (pic_wd * pic_ht)
-                        >> 2;
-        ps_ctl_op->u4_min_out_buf_size[2] = (pic_wd * pic_ht)
-                        >> 2;
+        ps_ctl_op->u4_min_out_buf_size[i] = au4_min_out_buf_size[i];
     }
-    else if(ps_dec->u1_chroma_format == IV_YUV_422ILE)
-    {
-        ps_ctl_op->u4_min_out_buf_size[0] = (pic_wd * pic_ht)
-                        * 2;
-        ps_ctl_op->u4_min_out_buf_size[1] =
-                        ps_ctl_op->u4_min_out_buf_size[2] = 0;
-    }
-    else if(ps_dec->u1_chroma_format == IV_RGB_565)
-    {
-        ps_ctl_op->u4_min_out_buf_size[0] = (pic_wd * pic_ht)
-                        * 2;
-        ps_ctl_op->u4_min_out_buf_size[1] =
-                        ps_ctl_op->u4_min_out_buf_size[2] = 0;
-    }
-    else if((ps_dec->u1_chroma_format == IV_YUV_420SP_UV)
-                    || (ps_dec->u1_chroma_format == IV_YUV_420SP_VU))
-    {
-        ps_ctl_op->u4_min_out_buf_size[0] = (pic_wd * pic_ht);
-        ps_ctl_op->u4_min_out_buf_size[1] = (pic_wd * pic_ht)
-                        >> 1;
-        ps_ctl_op->u4_min_out_buf_size[2] = 0;
-    }
+
     ps_dec->u4_num_disp_bufs_requested = ps_ctl_op->u4_num_disp_bufs;
 
     return IV_SUCCESS;
@@ -3004,40 +3099,30 @@ WORD32 ih264d_set_params(iv_obj_t *dec_hdl, void *pv_api_ip, void *pv_api_op)
         }
     }
 
-    if((0 != ps_dec->u4_app_disp_width)
-                    && (ps_ctl_ip->u4_disp_wd
-                                    != ps_dec->u4_app_disp_width))
+    if(ps_ctl_ip->u4_disp_wd >= ps_dec->u2_pic_wd)
     {
+        ps_dec->u4_app_disp_width = ps_ctl_ip->u4_disp_wd;
+    }
+    else if(0 == ps_dec->i4_header_decoded)
+    {
+        ps_dec->u4_app_disp_width = ps_ctl_ip->u4_disp_wd;
+    }
+    else if(ps_ctl_ip->u4_disp_wd == 0)
+    {
+        ps_dec->u4_app_disp_width = 0;
+    }
+    else
+    {
+        /*
+         * Set the display width to zero. This will ensure that the wrong value we had stored (0xFFFFFFFF)
+         * does not propogate.
+         */
+        ps_dec->u4_app_disp_width = 0;
         ps_ctl_op->u4_error_code |= (1 << IVD_UNSUPPORTEDPARAM);
         ps_ctl_op->u4_error_code |= ERROR_DISP_WIDTH_INVALID;
         ret = IV_FAIL;
     }
-    else
-    {
-        if(ps_ctl_ip->u4_disp_wd >= ps_dec->u2_pic_wd)
-        {
-            ps_dec->u4_app_disp_width = ps_ctl_ip->u4_disp_wd;
-        }
-        else if(0 == ps_dec->i4_header_decoded)
-        {
-            ps_dec->u4_app_disp_width = ps_ctl_ip->u4_disp_wd;
-        }
-        else if(ps_ctl_ip->u4_disp_wd == 0)
-        {
-            ps_dec->u4_app_disp_width = 0;
-        }
-        else
-        {
-            /*
-             * Set the display width to zero. This will ensure that the wrong value we had stored (0xFFFFFFFF)
-             * does not propogate.
-             */
-            ps_dec->u4_app_disp_width = 0;
-            ps_ctl_op->u4_error_code |= (1 << IVD_UNSUPPORTEDPARAM);
-            ps_ctl_op->u4_error_code |= ERROR_DISP_WIDTH_INVALID;
-            ret = IV_FAIL;
-        }
-    }
+
     if(ps_ctl_ip->e_vid_dec_mode == IVD_DECODE_FRAME)
         ps_dec->i4_decode_header = 0;
     else if(ps_ctl_ip->e_vid_dec_mode == IVD_DECODE_HEADER)

@@ -19,7 +19,7 @@
 
 #include <hardware/hardware.h>
 #include <hardware/power.h>
-#include <hardware/qemud.h>
+#include "qemud.h"
 #include <fcntl.h>
 #include <errno.h>
 

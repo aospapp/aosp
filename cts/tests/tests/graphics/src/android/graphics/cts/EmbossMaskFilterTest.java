@@ -16,19 +16,26 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.EmbossMaskFilter;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
-import android.graphics.Bitmap.Config;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class EmbossMaskFilterTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class EmbossMaskFilterTest {
     private static final int BITMAP_WIDTH = 100;
     private static final int BITMAP_HEIGHT = 100;
     private static final int START_X = 10;
@@ -37,6 +44,7 @@ public class EmbossMaskFilterTest extends TestCase {
     private static final int CENTER_Y = BITMAP_HEIGHT / 2;
     private static final int STROKE_WIDTH = 10;
 
+    @Test
     public void testEmbossMaskFilter() {
         EmbossMaskFilter filter = new EmbossMaskFilter(new float[] { 1, 1, 1 }, 0.5f, 8, 3);
 

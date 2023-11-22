@@ -800,6 +800,7 @@ public class PriorityQueueTest extends TestCase {
 
         SpliteratorTester.runSizedTests(list, 16 /* expected size */);
         SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
+        SpliteratorTester.assertSupportsTrySplit(list);
     }
 
     public void test_spliterator_CME() throws Exception {

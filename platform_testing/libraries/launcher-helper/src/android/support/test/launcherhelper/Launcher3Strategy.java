@@ -50,6 +50,6 @@ public class Launcher3Strategy extends BaseLauncher3Strategy {
      */
     @Override
     public BySelector getAllAppsButtonSelector() {
-        return By.desc("Apps");
+        return By.res(getSupportedLauncherPackage(), "all_apps_handle");
     }
 }

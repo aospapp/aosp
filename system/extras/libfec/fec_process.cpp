@@ -62,11 +62,13 @@ ssize_t process(fec_handle *f, uint8_t *buf, size_t count, uint64_t offset,
     uint64_t start = (offset / FEC_BLOCKSIZE) * FEC_BLOCKSIZE;
     size_t blocks = fec_div_round_up(count, FEC_BLOCKSIZE);
 
-    if ((size_t)threads > blocks) {
-        threads = (int)blocks;
+    size_t count_per_thread = fec_div_round_up(blocks, threads) * FEC_BLOCKSIZE;
+    size_t max_threads = fec_div_round_up(count, count_per_thread);
+
+    if ((size_t)threads > max_threads) {
+        threads = (int)max_threads;
     }
 
-    size_t count_per_thread = fec_div_round_up(blocks, threads) * FEC_BLOCKSIZE;
     size_t left = count;
     uint64_t pos = offset;
     uint64_t end = start + count_per_thread;

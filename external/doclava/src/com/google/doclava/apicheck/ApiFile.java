@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -163,12 +164,17 @@ class ApiFile {
     }
     assertIdent(tokenizer, token);
     name = token;
-    token = tokenizer.requireToken();
     qname = qualifiedName(pkg.name(), name, null);
-    cl = new ClassInfo(null/*classDoc*/, ""/*rawCommentText*/, tokenizer.pos(), pub, prot, 
-        pkgpriv, false/*isPrivate*/, stat, iface, abs, true/*isOrdinaryClass*/, 
+    final TypeInfo typeInfo = Converter.obtainTypeFromString(qname);
+    // Simple type info excludes the package name (but includes enclosing class names)
+    final TypeInfo simpleTypeInfo = Converter.obtainTypeFromString(name);
+    token = tokenizer.requireToken();
+    cl = new ClassInfo(null/*classDoc*/, ""/*rawCommentText*/, tokenizer.pos(), pub, prot,
+        pkgpriv, false/*isPrivate*/, stat, iface, abs, true/*isOrdinaryClass*/,
         false/*isException*/, false/*isError*/, false/*isEnum*/, false/*isAnnotation*/,
-        fin, false/*isIncluded*/, name, qname, null/*qualifiedTypeName*/, false/*isPrimitive*/);
+        fin, false/*isIncluded*/, simpleTypeInfo.qualifiedTypeName(), typeInfo.qualifiedTypeName(),
+        null/*qualifiedTypeName*/, false/*isPrimitive*/);
+    cl.setTypeInfo(typeInfo);
     cl.setDeprecated(dep);
     if ("extends".equals(token)) {
       token = tokenizer.requireToken();
@@ -178,8 +184,6 @@ class ApiFile {
     }
     // Resolve superclass after done parsing
     api.mapClassToSuper(cl, ext);
-    final TypeInfo typeInfo = Converter.obtainTypeFromString(qname) ;
-    cl.setTypeInfo(typeInfo);
     cl.setAnnotations(new ArrayList<AnnotationInstanceInfo>());
     if ("implements".equals(token)) {
       while (true) {
@@ -261,7 +265,7 @@ class ApiFile {
         new ArrayList<AnnotationInstanceInfo>()/*annotations*/);
     method.setDeprecated(dep);
     token = tokenizer.requireToken();
-    parseParameterList(tokenizer, method, token);
+    parseParameterList(tokenizer, method, new HashSet<String>(), token);
     token = tokenizer.requireToken();
     if ("throws".equals(token)) {
       token = parseThrows(tokenizer, method);
@@ -283,7 +287,9 @@ class ApiFile {
     boolean dep = false;
     boolean syn = false;
     boolean def = false;
-    String type;
+    ArrayList<TypeInfo> typeParameters = new ArrayList<>();
+    TypeInfo returnType;
+    HashSet<String> typeVariableNames;
     String name;
     String ext = null;
     MethodInfo method;
@@ -321,25 +327,32 @@ class ApiFile {
       syn = true;
       token = tokenizer.requireToken();
     }
+    if ("<".equals(token)) {
+      parseTypeParameterList(tokenizer, typeParameters, cl);
+      token = tokenizer.requireToken();
+    }
     assertIdent(tokenizer, token);
-    type = token;
+    returnType = Converter.obtainTypeFromString(token);
+    typeVariableNames = TypeInfo.typeVariables(typeParameters);
+    if (typeVariableNames.contains(returnType.qualifiedTypeName())) {
+      returnType.setIsTypeVariable(true);
+    }
     token = tokenizer.requireToken();
     assertIdent(tokenizer, token);
     name = token;
-    method = new MethodInfo(""/*rawCommentText*/, new ArrayList<TypeInfo>()/*typeParameters*/,
-        name, null/*signature*/, cl, cl, pub, prot, pkgpriv, false/*isPrivate*/, fin,
-        stat, false/*isSynthetic*/, abs/*isAbstract*/, syn, false/*isNative*/, def/*isDefault*/,
-        false /*isAnnotationElement*/, "method", null/*flatSignature*/, null/*overriddenMethod*/,
-        Converter.obtainTypeFromString(type), new ArrayList<ParameterInfo>(),
-        new ArrayList<ClassInfo>()/*thrownExceptions*/, tokenizer.pos(),
-        new ArrayList<AnnotationInstanceInfo>()/*annotations*/);
+    method = new MethodInfo(""/*rawCommentText*/, typeParameters, name, null/*signature*/, cl, cl,
+        pub, prot, pkgpriv, false/*isPrivate*/, fin, stat, false/*isSynthetic*/, abs/*isAbstract*/,
+        syn, false/*isNative*/, def/*isDefault*/, false /*isAnnotationElement*/, "method",
+        null/*flatSignature*/, null/*overriddenMethod*/, returnType,
+        new ArrayList<ParameterInfo>(), new ArrayList<ClassInfo>()/*thrownExceptions*/,
+        tokenizer.pos(), new ArrayList<AnnotationInstanceInfo>()/*annotations*/);
     method.setDeprecated(dep);
     token = tokenizer.requireToken();
     if (!"(".equals(token)) {
       throw new ApiParseException("expected (", tokenizer.getLine());
     }
     token = tokenizer.requireToken();
-    parseParameterList(tokenizer, method, token);
+    parseParameterList(tokenizer, method, typeVariableNames, token);
     token = tokenizer.requireToken();
     if ("throws".equals(token)) {
       token = parseThrows(tokenizer, method);
@@ -475,8 +488,47 @@ class ApiFile {
     }
   }
 
+  private static void parseTypeParameterList(Tokenizer tokenizer,
+      List<TypeInfo> methodTypeParameters, ClassInfo cl) throws ApiParseException {
+    String token;
+    HashSet<String> variables = cl.typeVariables();
+    do {
+      token = tokenizer.requireToken();
+      assertIdent(tokenizer, token);
+      TypeInfo type = new TypeInfo(token);
+      type.setIsTypeVariable(true);
+      variables.add(type.qualifiedTypeName());
+      ArrayList<TypeInfo> extendsBounds = new ArrayList<>();
+      token = tokenizer.requireToken();
+      if ("extends".equals(token)) {
+        do {
+          token = tokenizer.requireToken();
+          assertIdent(tokenizer, token);
+          extendsBounds.add(new TypeInfo(token));
+          token = tokenizer.requireToken();
+        } while ("&".equals(token));
+      }
+      if (!extendsBounds.isEmpty()) {
+        type.setBounds(null, extendsBounds);
+      }
+      methodTypeParameters.add(type);
+    } while (",".equals(token));
+
+    // Type variables aren't guaranteed to be declared before they're referenced so we need to wait
+    // until after we've processed them all to figure out which ones are type variables and which
+    // ones are classes (which we may not have processed yet either).
+    for (TypeInfo type : methodTypeParameters) {
+      type.resolveTypeVariables(variables);
+    }
+
+    if (!">".equals(token)) {
+      throw new ApiParseException("Expected '>' to end type parameter list, found "
+          + token, tokenizer.getLine());
+    }
+  }
+
   private static void parseParameterList(Tokenizer tokenizer, AbstractMethodInfo method,
-      String token) throws ApiParseException {
+      HashSet<String> typeParameters, String token) throws ApiParseException {
     while (true) {
       if (")".equals(token)) {
         return;
@@ -497,8 +549,12 @@ class ApiFile {
       }
       // api file does not preserve annotations.
       List<AnnotationInstanceInfo> annotations = Collections.emptyList();
+      TypeInfo typeInfo = Converter.obtainTypeFromString(type);
+      if (typeParameters.contains(typeInfo.qualifiedTypeName())) {
+        typeInfo.setIsTypeVariable(true);
+      }
       method.addParameter(new ParameterInfo(name, type,
-            Converter.obtainTypeFromString(type),
+            typeInfo,
             type.endsWith("..."),
             tokenizer.pos(),
             annotations));
@@ -660,10 +716,10 @@ class ApiFile {
             if (mBuf[mPos] == '<') {
               genericDepth++;
               mPos++;
-            } else if (mBuf[mPos] == '>') {
-              genericDepth--;
-              mPos++;
             } else if (genericDepth != 0) {
+              if (mBuf[mPos] == '>') {
+                genericDepth--;
+              }
               mPos++;
             }
           }
@@ -701,4 +757,3 @@ class ApiFile {
     return true;
   }
 }
-

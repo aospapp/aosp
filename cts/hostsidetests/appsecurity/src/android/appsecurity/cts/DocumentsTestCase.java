@@ -16,7 +16,7 @@
 
 package android.appsecurity.cts;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -27,7 +27,7 @@ import com.android.tradefed.testtype.IBuildReceiver;
 /**
  * Base class for {@link android.provider.DocumentsContract} and related test cases.
  */
-abstract  class DocumentsTestCase extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+abstract class DocumentsTestCase extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
     protected static final String CLIENT_PKG = "com.android.cts.documentclient";
     protected static final String CLIENT_APK = "CtsDocumentClient.apk";
 
@@ -48,13 +48,11 @@ abstract  class DocumentsTestCase extends DeviceTestCase implements IAbiReceiver
     protected void setUp() throws Exception {
         super.setUp();
 
+        Utils.prepareSingleUser(getDevice());
         assertNotNull(mAbi);
         assertNotNull(mCtsBuild);
 
-        getDevice().uninstallPackage(CLIENT_PKG);
-
-        assertNull(getDevice().installPackage(
-                MigrationHelper.getTestFile(mCtsBuild, CLIENT_APK), false));
+        reinstallClientPackage();
     }
 
     @Override
@@ -67,5 +65,11 @@ abstract  class DocumentsTestCase extends DeviceTestCase implements IAbiReceiver
     public void runDeviceTests(String packageName, String testClassName, String testMethodName)
             throws DeviceNotAvailableException {
         Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
+    }
+
+    protected void reinstallClientPackage() throws Exception {
+        getDevice().uninstallPackage(CLIENT_PKG);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        assertNull(getDevice().installPackage(buildHelper.getTestFile(CLIENT_APK), false));
     }
 }

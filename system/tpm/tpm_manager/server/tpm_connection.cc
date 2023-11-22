@@ -34,6 +34,9 @@ const int kTpmConnectIntervalMs = 100;
 
 namespace tpm_manager {
 
+TpmConnection::TpmConnection(const std::string& authorization_value)
+    : authorization_value_(authorization_value) {}
+
 TSS_HCONTEXT TpmConnection::GetContext() {
   if (!ConnectContextIfNeeded()) {
     return 0;
@@ -47,34 +50,10 @@ TSS_HTPM TpmConnection::GetTpm() {
   }
   TSS_RESULT result;
   TSS_HTPM tpm_handle;
-  if (TPM_ERROR(result = Tspi_Context_GetTpmObject(context_.value(),
-                                                   &tpm_handle))) {
+  if (TPM_ERROR(result =
+                    Tspi_Context_GetTpmObject(context_.value(), &tpm_handle))) {
     TPM_LOG(ERROR, result) << "Error getting a handle to the TPM.";
     return 0;
-  }
-  return tpm_handle;
-}
-
-TSS_HTPM TpmConnection::GetTpmWithAuth(const std::string& owner_password) {
-  TSS_HTPM tpm_handle = GetTpm();
-  if (tpm_handle == 0) {
-    return 0;
-  }
-  TSS_RESULT result;
-  TSS_HPOLICY tpm_usage_policy;
-  if (TPM_ERROR(result = Tspi_GetPolicyObject(tpm_handle,
-                                              TSS_POLICY_USAGE,
-                                              &tpm_usage_policy))) {
-    TPM_LOG(ERROR, result) << "Error calling Tspi_GetPolicyObject";
-    return false;
-  }
-  if (TPM_ERROR(result = Tspi_Policy_SetSecret(
-      tpm_usage_policy,
-      TSS_SECRET_MODE_PLAIN,
-      owner_password.size(),
-      reinterpret_cast<BYTE *>(const_cast<char*>(owner_password.data()))))) {
-    TPM_LOG(ERROR, result) << "Error calling Tspi_Policy_SetSecret";
-    return false;
   }
   return tpm_handle;
 }
@@ -102,7 +81,39 @@ bool TpmConnection::ConnectContextIfNeeded() {
       break;
     }
   }
-  return (context_.value() != 0);
+  if (context_.value() == 0) {
+    LOG(ERROR) << "Unexpected NULL context.";
+    return false;
+  }
+  // If we don't need to set an authorization value, we're done.
+  if (authorization_value_.empty()) {
+    return true;
+  }
+
+  TSS_HTPM tpm_handle;
+  if (TPM_ERROR(result =
+                    Tspi_Context_GetTpmObject(context_.value(), &tpm_handle))) {
+    TPM_LOG(ERROR, result) << "Error getting a handle to the TPM.";
+    context_.reset();
+    return false;
+  }
+  TSS_HPOLICY tpm_usage_policy;
+  if (TPM_ERROR(result = Tspi_GetPolicyObject(tpm_handle, TSS_POLICY_USAGE,
+                                              &tpm_usage_policy))) {
+    TPM_LOG(ERROR, result) << "Error calling Tspi_GetPolicyObject";
+    context_.reset();
+    return false;
+  }
+  if (TPM_ERROR(result = Tspi_Policy_SetSecret(
+                    tpm_usage_policy, TSS_SECRET_MODE_PLAIN,
+                    authorization_value_.size(),
+                    reinterpret_cast<BYTE*>(
+                        const_cast<char*>(authorization_value_.data()))))) {
+    TPM_LOG(ERROR, result) << "Error calling Tspi_Policy_SetSecret";
+    context_.reset();
+    return false;
+  }
+  return true;
 }
 
 }  // namespace tpm_manager

@@ -30,20 +30,20 @@ class MockBlobParser : public BlobParser {
   MockBlobParser();
   ~MockBlobParser() override;
 
-  MOCK_METHOD3(SerializeKeyBlob, bool(const TPM2B_PUBLIC&,
-                                      const TPM2B_PRIVATE&,
-                                      std::string*));
-  MOCK_METHOD3(ParseKeyBlob, bool(const std::string&,
-                                  TPM2B_PUBLIC*,
-                                  TPM2B_PRIVATE*));
-  MOCK_METHOD4(SerializeCreationBlob, bool(const TPM2B_CREATION_DATA&,
-                                           const TPM2B_DIGEST&,
-                                           const TPMT_TK_CREATION&,
-                                           std::string*));
-  MOCK_METHOD4(ParseCreationBlob, bool(const std::string&,
-                                       TPM2B_CREATION_DATA*,
-                                       TPM2B_DIGEST*,
-                                       TPMT_TK_CREATION*));
+  MOCK_METHOD3(SerializeKeyBlob,
+               bool(const TPM2B_PUBLIC&, const TPM2B_PRIVATE&, std::string*));
+  MOCK_METHOD3(ParseKeyBlob,
+               bool(const std::string&, TPM2B_PUBLIC*, TPM2B_PRIVATE*));
+  MOCK_METHOD4(SerializeCreationBlob,
+               bool(const TPM2B_CREATION_DATA&,
+                    const TPM2B_DIGEST&,
+                    const TPMT_TK_CREATION&,
+                    std::string*));
+  MOCK_METHOD4(ParseCreationBlob,
+               bool(const std::string&,
+                    TPM2B_CREATION_DATA*,
+                    TPM2B_DIGEST*,
+                    TPMT_TK_CREATION*));
 };
 
 }  // namespace trunks

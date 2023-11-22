@@ -15,6 +15,8 @@
 #
 LOCAL_PATH:= $(call my-dir)
 
+ifeq ($(VN_AUDIO_HELPER_BLAH), true)
+
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(patsubst ./%,%, $(shell cd $(LOCAL_PATH); \
@@ -35,3 +37,5 @@ LOCAL_MODULE := libvehiclenetwork-audio-helper
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_STATIC_LIBRARY)
+
+endif  #ifeq ($(VN_AUDIO_HELPER_BLAH), true)

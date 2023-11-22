@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "kernel_weekly_regression"
 PURPOSE = "Test required functionality - longer running than bvt tests usually."
-CRITERIA = "All tests with SUITE=kernel_weekly_regression must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "General"

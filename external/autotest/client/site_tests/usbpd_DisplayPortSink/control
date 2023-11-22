@@ -7,7 +7,7 @@ PURPOSE = 'Test USB-PD DisplayPort sink'
 DOC = """
 Integration test for USB-PD DisplayPort sink.
 """
-SUITE = 'experimental'
+ATTRIBUTES = 'suite:experimental'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'usbpd'

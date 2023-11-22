@@ -25,10 +25,10 @@ LOCAL_SUITE_BUILD_NUMBER := $(BUILD_NUMBER_FROM_FILE)
 LOCAL_SUITE_TARGET_ARCH := $(TARGET_ARCH)
 LOCAL_SUITE_NAME := CTS
 LOCAL_SUITE_FULLNAME := "Compatibility Test Suite"
-LOCAL_SUITE_VERSION := 7.1_r1
+LOCAL_SUITE_VERSION := 8.0_r1
 
 LOCAL_MODULE := cts-tradefed
-
+include cts/error_prone_rules.mk
 include $(BUILD_COMPATIBILITY_SUITE)
 
 # Build all sub-directories

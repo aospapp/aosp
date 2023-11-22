@@ -16,6 +16,10 @@ class StrBoolAttr<string S> : Attr<S>;
 /// 0 means unaligned (different from align(1)).
 def Alignment : EnumAttr<"align">;
 
+/// The result of the function is guaranteed to point to a number of bytes that
+/// we can determine if we know the value of the function's arguments.
+def AllocSize : EnumAttr<"allocsize">;
+
 /// inline=always.
 def AlwaysInline : EnumAttr<"alwaysinline">;
 
@@ -154,8 +158,17 @@ def SanitizeThread : EnumAttr<"sanitize_thread">;
 /// MemorySanitizer is on.
 def SanitizeMemory : EnumAttr<"sanitize_memory">;
 
+/// Argument is swift error.
+def SwiftError : EnumAttr<"swifterror">;
+
+/// Argument is swift self/context.
+def SwiftSelf : EnumAttr<"swiftself">;
+
 /// Function must be in a unwind table.
 def UWTable : EnumAttr<"uwtable">;
+
+/// Function only writes to memory.
+def WriteOnly : EnumAttr<"writeonly">;
 
 /// Zero extended before/after call.
 def ZExt : EnumAttr<"zeroext">;
@@ -165,3 +178,36 @@ def LessPreciseFPMAD : StrBoolAttr<"less-precise-fpmad">;
 def NoInfsFPMath : StrBoolAttr<"no-infs-fp-math">;
 def NoNansFPMath : StrBoolAttr<"no-nans-fp-math">;
 def UnsafeFPMath : StrBoolAttr<"unsafe-fp-math">;
+def NoJumpTables : StrBoolAttr<"no-jump-tables">;
+
+class CompatRule<string F> {
+  // The name of the function called to check the attribute of the caller and
+  // callee and decide whether inlining should be allowed. The function's
+  // signature must match "bool(const Function&, const Function &)", where the
+  // first parameter is the reference to the caller and the second parameter is
+  // the reference to the callee. It must return false if the attributes of the
+  // caller and callee are incompatible, and true otherwise.
+  string CompatFunc = F;
+}
+
+def : CompatRule<"isEqual<SanitizeAddressAttr>">;
+def : CompatRule<"isEqual<SanitizeThreadAttr>">;
+def : CompatRule<"isEqual<SanitizeMemoryAttr>">;
+def : CompatRule<"isEqual<SafeStackAttr>">;
+
+class MergeRule<string F> {
+  // The name of the function called to merge the attributes of the caller and
+  // callee. The function's signature must match
+  // "void(Function&, const Function &)", where the first parameter is the
+  // reference to the caller and the second parameter is the reference to the
+  // callee.
+  string MergeFunc = F;
+}
+
+def : MergeRule<"setAND<LessPreciseFPMADAttr>">;
+def : MergeRule<"setAND<NoInfsFPMathAttr>">;
+def : MergeRule<"setAND<NoNansFPMathAttr>">;
+def : MergeRule<"setAND<UnsafeFPMathAttr>">;
+def : MergeRule<"setOR<NoImplicitFloatAttr>">;
+def : MergeRule<"setOR<NoJumpTablesAttr>">;
+def : MergeRule<"adjustCallerSSPLevel">;

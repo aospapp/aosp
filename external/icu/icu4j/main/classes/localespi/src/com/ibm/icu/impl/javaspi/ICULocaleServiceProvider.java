@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2008-2015, International Business Machines Corporation and
@@ -205,7 +207,7 @@ public class ICULocaleServiceProvider {
                 locBld.setVariant(var.toString());
                 ULocale ulocWithVar = locBld.build();
                 locales.add(ulocWithVar.toLocale());
-            } catch (Exception e) {
+            } catch (Exception ignored) {
                 // ignore
             }
         }

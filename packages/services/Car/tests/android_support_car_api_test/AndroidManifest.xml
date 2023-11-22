@@ -19,6 +19,7 @@
         package="com.android.support.car.apitest"
         android:sharedUserId="android.uid.system" >
 
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
     <instrumentation android:name="android.test.InstrumentationTestRunner"
             android:targetPackage="com.android.support.car.apitest"
             android:label="Tests for Car APIs"/>

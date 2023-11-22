@@ -16,15 +16,16 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
-import android.app.Instrumentation;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -35,38 +36,39 @@ import android.view.animation.AnimationSet;
 import android.widget.RelativeLayout;
 import android.widget.ViewAnimator;
 
-public class ViewAnimatorTest extends
-        ActivityInstrumentationTestCase2<ViewAnimatorCtsActivity> {
-    private ViewAnimator mViewAnimator;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ViewAnimatorTest {
     private Activity mActivity;
-    private Instrumentation mInstrumentation;
+    private ViewAnimator mViewAnimator;
     private AttributeSet mAttributeSet;
 
-    public ViewAnimatorTest() {
-        super("android.widget.cts", ViewAnimatorCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ViewAnimatorCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ViewAnimatorCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
 
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.viewanimator_layout);
         mAttributeSet = Xml.asAttributeSet(parser);
         mViewAnimator = new ViewAnimator(mActivity, mAttributeSet);
-
-        assertNotNull(mActivity);
-        assertNotNull(mInstrumentation);
-        assertNotNull(mViewAnimator);
     }
 
+    @Test
     public void testConstructor() {
         new ViewAnimator(mActivity);
         new ViewAnimator(mActivity, mAttributeSet);
     }
 
+    @Test
     public void testAccessInAnimation() {
         AnimationSet expected = new AnimationSet(mActivity, mAttributeSet);
         assertNull(mViewAnimator.getInAnimation());
@@ -85,6 +87,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testShowNext() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);
@@ -122,6 +125,7 @@ public class ViewAnimatorTest extends
         assertEquals(0, mViewAnimator.getChildCount());
     }
 
+    @Test
     public void testSetAnimateFirstView() {
         mViewAnimator.setAnimateFirstView(true);
         mViewAnimator.setAnimateFirstView(false);
@@ -130,6 +134,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testAccessDisplayedChild() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);
@@ -164,6 +169,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testAccessDisplayedChildBoundary() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);
@@ -192,6 +198,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testGetBaseline() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);
@@ -218,6 +225,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testShowPrevious() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);
@@ -257,6 +265,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testGetCurrentView() {
         final View v = mActivity.findViewById(R.id.label);
         final RelativeLayout parent = (RelativeLayout) v.getParent();
@@ -276,6 +285,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testAddView() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);
@@ -299,6 +309,7 @@ public class ViewAnimatorTest extends
         assertEquals(0, mViewAnimator.getChildCount());
     }
 
+    @Test
     public void testAccessOutAnimation() {
         AnimationSet expected = new AnimationSet(mActivity, mAttributeSet);
         assertNull(mViewAnimator.getOutAnimation());
@@ -316,6 +327,7 @@ public class ViewAnimatorTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testRemoveViews() {
         final View v1 = mActivity.findViewById(R.id.ok);
         final View v2 = mActivity.findViewById(R.id.cancel);

@@ -18,10 +18,12 @@
 // does not provide direct access to the trunksd D-Bus interface.
 
 #include <stdio.h>
+#include <memory>
 #include <string>
 
 #include <base/command_line.h>
 #include <base/logging.h>
+#include <base/strings/string_number_conversions.h>
 #include <brillo/syslog_logging.h>
 
 #include "trunks/error_codes.h"
@@ -38,6 +40,7 @@ namespace {
 
 using trunks::CommandTransceiver;
 using trunks::TrunksFactory;
+using trunks::TrunksFactoryImpl;
 
 void PrintUsage() {
   puts("Options:");
@@ -53,37 +56,43 @@ void PrintUsage() {
   puts("  --startup - Performs startup and self-tests.");
   puts("  --status - Prints TPM status information.");
   puts("  --stress_test - Runs some basic stress tests.");
+  puts("  --read_pcr --index=<N> - Reads a PCR and prints the value.");
+  puts("  --extend_pcr --index=<N> --value=<value> - Extends a PCR.");
 }
 
-int Startup(TrunksFactory* factory) {
-  factory->GetTpmUtility()->Shutdown();
-  return factory->GetTpmUtility()->Startup();
+std::string HexEncode(const std::string& bytes) {
+  return base::HexEncode(bytes.data(), bytes.size());
 }
 
-int Clear(TrunksFactory* factory) {
-  return factory->GetTpmUtility()->Clear();
+int Startup(const TrunksFactory& factory) {
+  factory.GetTpmUtility()->Shutdown();
+  return factory.GetTpmUtility()->Startup();
 }
 
-int InitializeTpm(TrunksFactory* factory) {
-  return factory->GetTpmUtility()->InitializeTpm();
+int Clear(const TrunksFactory& factory) {
+  return factory.GetTpmUtility()->Clear();
 }
 
-int AllocatePCR(TrunksFactory* factory) {
+int InitializeTpm(const TrunksFactory& factory) {
+  return factory.GetTpmUtility()->InitializeTpm();
+}
+
+int AllocatePCR(const TrunksFactory& factory) {
   trunks::TPM_RC result;
-  result = factory->GetTpmUtility()->AllocatePCR("");
+  result = factory.GetTpmUtility()->AllocatePCR("");
   if (result != trunks::TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error allocating PCR:" << trunks::GetErrorString(result);
     return result;
   }
-  factory->GetTpmUtility()->Shutdown();
-  return factory->GetTpmUtility()->Startup();
+  factory.GetTpmUtility()->Shutdown();
+  return factory.GetTpmUtility()->Startup();
 }
 
-int TakeOwnership(const std::string& owner_password, TrunksFactory* factory) {
+int TakeOwnership(const std::string& owner_password,
+                  const TrunksFactory& factory) {
   trunks::TPM_RC rc;
-  rc = factory->GetTpmUtility()->TakeOwnership(owner_password,
-                                               owner_password,
-                                               owner_password);
+  rc = factory.GetTpmUtility()->TakeOwnership(owner_password, owner_password,
+                                              owner_password);
   if (rc) {
     LOG(ERROR) << "Error taking ownership: " << trunks::GetErrorString(rc);
     return rc;
@@ -91,8 +100,8 @@ int TakeOwnership(const std::string& owner_password, TrunksFactory* factory) {
   return 0;
 }
 
-int DumpStatus(TrunksFactory* factory) {
-  scoped_ptr<trunks::TpmState> state = factory->GetTpmState();
+int DumpStatus(const TrunksFactory& factory) {
+  std::unique_ptr<trunks::TpmState> state = factory.GetTpmState();
   trunks::TPM_RC result = state->Initialize();
   if (result != trunks::TPM_RC_SUCCESS) {
     LOG(ERROR) << "Failed to read TPM state: "
@@ -105,24 +114,19 @@ int DumpStatus(TrunksFactory* factory) {
          state->IsEndorsementPasswordSet() ? "true" : "false");
   printf("Lockout password set: %s\n",
          state->IsLockoutPasswordSet() ? "true" : "false");
-  printf("Ownership status: %s\n",
-         state->IsOwned() ? "true" : "false");
-  printf("In lockout: %s\n",
-         state->IsInLockout() ? "true" : "false");
+  printf("Ownership status: %s\n", state->IsOwned() ? "true" : "false");
+  printf("In lockout: %s\n", state->IsInLockout() ? "true" : "false");
   printf("Platform hierarchy enabled: %s\n",
          state->IsPlatformHierarchyEnabled() ? "true" : "false");
   printf("Storage hierarchy enabled: %s\n",
          state->IsStorageHierarchyEnabled() ? "true" : "false");
   printf("Endorsement hierarchy enabled: %s\n",
          state->IsEndorsementHierarchyEnabled() ? "true" : "false");
-  printf("Is Tpm enabled: %s\n",
-         state->IsEnabled() ? "true" : "false");
+  printf("Is Tpm enabled: %s\n", state->IsEnabled() ? "true" : "false");
   printf("Was shutdown orderly: %s\n",
          state->WasShutdownOrderly() ? "true" : "false");
-  printf("Is RSA supported: %s\n",
-         state->IsRSASupported() ? "true" : "false");
-  printf("Is ECC supported: %s\n",
-         state->IsECCSupported() ? "true" : "false");
+  printf("Is RSA supported: %s\n", state->IsRSASupported() ? "true" : "false");
+  printf("Is ECC supported: %s\n", state->IsECCSupported() ? "true" : "false");
   printf("Lockout Counter: %u\n", state->GetLockoutCounter());
   printf("Lockout Threshold: %u\n", state->GetLockoutThreshold());
   printf("Lockout Interval: %u\n", state->GetLockoutInterval());
@@ -130,43 +134,66 @@ int DumpStatus(TrunksFactory* factory) {
   return 0;
 }
 
+int ReadPCR(const TrunksFactory& factory, int index) {
+  std::unique_ptr<trunks::TpmUtility> tpm_utility = factory.GetTpmUtility();
+  std::string value;
+  trunks::TPM_RC result = tpm_utility->ReadPCR(index, &value);
+  if (result) {
+    LOG(ERROR) << "ReadPCR: " << trunks::GetErrorString(result);
+    return result;
+  }
+  printf("PCR Value: %s\n", HexEncode(value).c_str());
+  return 0;
+}
+
+int ExtendPCR(const TrunksFactory& factory,
+              int index,
+              const std::string& value) {
+  std::unique_ptr<trunks::TpmUtility> tpm_utility = factory.GetTpmUtility();
+  trunks::TPM_RC result = tpm_utility->ExtendPCR(index, value, nullptr);
+  if (result) {
+    LOG(ERROR) << "ExtendPCR: " << trunks::GetErrorString(result);
+    return result;
+  }
+  return 0;
+}
+
 }  // namespace
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   base::CommandLine::Init(argc, argv);
   brillo::InitLog(brillo::kLogToStderr);
-  base::CommandLine *cl = base::CommandLine::ForCurrentProcess();
+  base::CommandLine* cl = base::CommandLine::ForCurrentProcess();
   if (cl->HasSwitch("help")) {
     puts("Trunks Client: A command line tool to access the TPM.");
     PrintUsage();
     return 0;
   }
 
-  scoped_ptr<TrunksFactory> factory = scoped_ptr<TrunksFactory>(
-      new trunks::TrunksFactoryImpl(true /* failure_is_fatal */));
+  TrunksFactoryImpl factory;
+  CHECK(factory.Initialize()) << "Failed to initialize trunks factory.";
 
   if (cl->HasSwitch("status")) {
-    return DumpStatus(factory.get());
+    return DumpStatus(factory);
   }
   if (cl->HasSwitch("startup")) {
-    return Startup(factory.get());
+    return Startup(factory);
   }
   if (cl->HasSwitch("clear")) {
-    return Clear(factory.get());
+    return Clear(factory);
   }
   if (cl->HasSwitch("init_tpm")) {
-    return InitializeTpm(factory.get());
+    return InitializeTpm(factory);
   }
   if (cl->HasSwitch("allocate_pcr")) {
-    return AllocatePCR(factory.get());
+    return AllocatePCR(factory);
   }
 
   if (cl->HasSwitch("own")) {
-    return TakeOwnership(cl->GetSwitchValueASCII("owner_password"),
-                         factory.get());
+    return TakeOwnership(cl->GetSwitchValueASCII("owner_password"), factory);
   }
   if (cl->HasSwitch("regression_test")) {
-    trunks::TrunksClientTest test;
+    trunks::TrunksClientTest test(factory);
     LOG(INFO) << "Running RNG test.";
     if (!test.RNGTest()) {
       LOG(ERROR) << "Error running RNGtest.";
@@ -229,7 +256,7 @@ int main(int argc, char **argv) {
   }
   if (cl->HasSwitch("stress_test")) {
     LOG(INFO) << "Running stress tests.";
-    trunks::TrunksClientTest test;
+    trunks::TrunksClientTest test(factory);
     if (!test.ManyKeysTest()) {
       LOG(ERROR) << "Error running ManyKeysTest.";
       return -1;
@@ -239,6 +266,14 @@ int main(int argc, char **argv) {
       return -1;
     }
     return 0;
+  }
+  if (cl->HasSwitch("read_pcr") && cl->HasSwitch("index")) {
+    return ReadPCR(factory, atoi(cl->GetSwitchValueASCII("index").c_str()));
+  }
+  if (cl->HasSwitch("extend_pcr") && cl->HasSwitch("index") &&
+      cl->HasSwitch("value")) {
+    return ExtendPCR(factory, atoi(cl->GetSwitchValueASCII("index").c_str()),
+                     cl->GetSwitchValueASCII("value"));
   }
   puts("Invalid options!");
   PrintUsage();

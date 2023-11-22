@@ -16,8 +16,7 @@
 
 package android.appsecurity.cts;
 
-import com.android.compatibility.common.util.AbiUtils;
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -25,9 +24,18 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiUtils;
+import com.android.tradefed.util.RunUtil;
 
+import java.io.BufferedReader;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Set of tests that verify various security checks involving multiple apps are
@@ -95,13 +103,15 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
     }
 
     private File getTestAppFile(String fileName) throws FileNotFoundException {
-        return MigrationHelper.getTestFile(mCtsBuild, fileName);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        return buildHelper.getTestFile(fileName);
     }
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        // ensure build has been set before test is run
+
+        Utils.prepareSingleUser(getDevice());
         assertNotNull(mCtsBuild);
     }
 
@@ -289,6 +299,26 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
         }
     }
 
+    /**
+     * Tests that an arbitrary file cannot be installed using the 'cmd' command.
+     */
+    public void testAdbInstallFile() throws Exception {
+        final List<String> output = AdbOutputReader.getOutput(5000L, new String[] {
+                "adb",
+                "-s",
+                getDevice().getSerialNumber(),
+                "shell",
+                "cmd",
+                "package",
+                "install",
+                "-S",
+                "1024",
+                "/data/local/tmp/foo.apk",
+        });
+        assertEquals("Line count", 1, output.size());
+        assertEquals("Error text", "Error: APK content must be streamed", output.get(0));
+    }
+
     private void runDeviceTests(String packageName) throws DeviceNotAvailableException {
         Utils.runDeviceTests(getDevice(), packageName);
     }
@@ -296,5 +326,67 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
     private void runDeviceTests(String packageName, String testClassName, String testMethodName)
             throws DeviceNotAvailableException {
         Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
+    }
+
+    /** Helper class to collect the output from a command. */
+    private static class AdbOutputReader {
+        public static List<String> getOutput(long timeout, String... command) throws Exception {
+            final Process adbProcess = RunUtil.getDefault().runCmdInBackground(command);
+            final InputStream in = adbProcess.getInputStream();
+            final List<String> lines = new ArrayList<>();
+            final Object threadLock = new Object();
+            final Thread t = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    synchronized (threadLock) {
+                        readLines(in, lines);
+                        threadLock.notify();
+                    }
+                }
+            });
+            final long end = System.currentTimeMillis() + timeout;
+            synchronized (threadLock) {
+                t.start();
+                long now = System.currentTimeMillis();
+                while (now < end) {
+                    try {
+                        threadLock.wait(end - now);
+                    } catch (InterruptedException e) {
+                        now = System.currentTimeMillis();
+                        continue;
+                    }
+                    break;
+                }
+            }
+            adbProcess.destroy();
+            t.join();
+            return lines;
+        }
+
+        private static void readLines(InputStream in, List<String> lines) {
+            BufferedReader br = null;
+            try {
+                br = new BufferedReader(new InputStreamReader(in));
+                String line;
+                while ((line = readLineIgnoreException(br)) != null) {
+                    lines.add(line);
+                }
+            } catch (IOException ignore) {
+            } finally {
+                if (br != null) {
+                    try {
+                        br.close();
+                    } catch (IOException ignore) { }
+                }
+            }
+        }
+
+        private static String readLineIgnoreException(BufferedReader reader) throws IOException {
+            try {
+                return reader.readLine();
+            } catch (EOFException ignore) {
+                return null;
+            }
+        }
     }
 }

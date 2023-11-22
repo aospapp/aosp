@@ -1,40 +1,39 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
- * Copyright (C) 2009-2014, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2009-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package android.icu.dev.test.util;
 
 import java.util.MissingResourceException;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.text.Collator;
 import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 
-@RunWith(IcuTestFmwkRunner.class)
 public final class ICUResourceBundleCollationTest extends TestFmwk {
     private static final String COLLATION_RESNAME = "collations";
     private static final String COLLATION_KEYWORD = "collation";
     private static final String DEFAULT_NAME = "default";
     private static final String STANDARD_NAME = "standard";
 
-    public static void main(String args[]) throws Exception {
-        new ICUResourceBundleCollationTest().run(args);
-    }
-
+    @Test
     public void TestFunctionalEquivalent(){
        // Android patch: Add exceptions for big5han and gb2312han in genrb.
        String[] collCases = {
        //  avail   locale                               equiv
            "f",     "sv_US_CALIFORNIA",                 "sv",
-       //  "f",     "zh_TW@collation=stroke",           "zh@collation=stroke", /* alias of zh_Hant_TW */
+           "f",     "zh_TW@collation=stroke",           "zh@collation=stroke", /* alias of zh_Hant_TW */
            "f",     "zh_Hant_TW@collation=stroke",      "zh@collation=stroke",
            "f",     "sv_CN@collation=pinyin",           "sv",
            "t",     "zh@collation=pinyin",              "zh",
@@ -76,11 +75,12 @@ public final class ICUResourceBundleCollationTest extends TestFmwk {
        // Android patch end.
 
        logln("Testing functional equivalents for collation...");
-       getFunctionalEquivalentTestCases(ICUResourceBundle.ICU_COLLATION_BASE_NAME,
+       getFunctionalEquivalentTestCases(ICUData.ICU_COLLATION_BASE_NAME,
                                         Collator.class.getClassLoader(),
                COLLATION_RESNAME, COLLATION_KEYWORD, true, collCases);
     }
 
+    @Test
     public void TestGetWithFallback(){
         /*
         UResourceBundle bundle =(UResourceBundle) UResourceBundle.getBundleInstance("com/ibm/icu/dev/data/testdata","te_IN");
@@ -96,7 +96,7 @@ public final class ICUResourceBundleCollationTest extends TestFmwk {
         ICUResourceBundle bundle = null;
         String key = null;
         try{
-            bundle = (ICUResourceBundle) UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_COLLATION_BASE_NAME,ULocale.canonicalize("de__PHONEBOOK"));
+            bundle = (ICUResourceBundle) UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME,ULocale.canonicalize("de__PHONEBOOK"));
 
             if(!bundle.getULocale().getName().equals("de")){
                 errln("did not get the expected bundle");
@@ -111,20 +111,21 @@ public final class ICUResourceBundleCollationTest extends TestFmwk {
         }
 
 
-        bundle = (ICUResourceBundle) UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_COLLATION_BASE_NAME,"fr_FR");
+        bundle = (ICUResourceBundle) UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME,"fr_FR");
         key = bundle.getStringWithFallback("collations/default");
         if(!key.equals("standard")){
             errln("Did not get the expected result from getStringWithFallback method.");
         }
     }
 
+    @Test
     public void TestKeywordValues(){
         String kwVals[];
         boolean foundStandard = false;
         int n;
 
         logln("Testing getting collation values:");
-        kwVals = ICUResourceBundle.getKeywordValues(ICUResourceBundle.ICU_COLLATION_BASE_NAME,COLLATION_RESNAME);
+        kwVals = ICUResourceBundle.getKeywordValues(ICUData.ICU_COLLATION_BASE_NAME,COLLATION_RESNAME);
         for(n=0;n<kwVals.length;n++) {
             logln(new Integer(n).toString() + ": " + kwVals[n]);
             if(DEFAULT_NAME.equals(kwVals[n])) {
@@ -146,8 +147,9 @@ public final class ICUResourceBundleCollationTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestOpen(){
-        UResourceBundle bundle = (UResourceBundle)UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_COLLATION_BASE_NAME, "en_US_POSIX");
+        UResourceBundle bundle = (UResourceBundle)UResourceBundle.getBundleInstance(ICUData.ICU_COLLATION_BASE_NAME, "en_US_POSIX");
         if(bundle==null){
             errln("could not load the stream");
         }

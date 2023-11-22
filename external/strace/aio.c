@@ -36,13 +36,13 @@ SYS_FUNC(io_setup)
 	if (entering(tcp))
 		tprintf("%u, ", (unsigned int) tcp->u_arg[0]);
 	else
-		printnum_ulong(tcp, tcp->u_arg[1]);
+		printnum_ptr(tcp, tcp->u_arg[1]);
 	return 0;
 }
 
 SYS_FUNC(io_destroy)
 {
-	tprintf("%lu", tcp->u_arg[0]);
+	printaddr(tcp->u_arg[0]);
 
 	return RVAL_DECODED;
 }
@@ -78,14 +78,16 @@ tprint_lio_opcode(unsigned cmd)
 }
 
 static void
-print_common_flags(const struct iocb *cb)
+print_common_flags(struct tcb *tcp, const struct iocb *cb)
 {
 /* IOCB_FLAG_RESFD is available since v2.6.22-rc1~47 */
 #ifdef IOCB_FLAG_RESFD
-	if (cb->aio_flags & IOCB_FLAG_RESFD)
-		tprintf(", resfd=%d", cb->aio_resfd);
+	if (cb->aio_flags & IOCB_FLAG_RESFD) {
+		tprints(", resfd=");
+		printfd(tcp, cb->aio_resfd);
+	}
 	if (cb->aio_flags & ~IOCB_FLAG_RESFD)
-		tprintf(", flags=%x", cb->aio_flags);
+		tprintf(", flags=%#x", cb->aio_flags);
 #endif
 }
 
@@ -98,7 +100,7 @@ iocb_is_valid(const struct iocb *cb)
 }
 
 static enum iocb_sub
-print_iocb_header(const struct iocb *cb)
+print_iocb_header(struct tcb *tcp, const struct iocb *cb)
 {
 	enum iocb_sub sub;
 
@@ -113,7 +115,8 @@ print_iocb_header(const struct iocb *cb)
 	if (cb->aio_reqprio)
 		tprintf(", reqprio=%hd", cb->aio_reqprio);
 
-	tprintf(", fildes=%d", cb->aio_fildes);
+	tprints(", fildes=");
+	printfd(tcp, cb->aio_fildes);
 
 	return sub;
 }
@@ -121,101 +124,111 @@ print_iocb_header(const struct iocb *cb)
 static void
 print_iocb(struct tcb *tcp, const struct iocb *cb)
 {
-	enum iocb_sub sub = print_iocb_header(cb);
+	enum iocb_sub sub = print_iocb_header(tcp, cb);
 
 	switch (sub) {
 	case SUB_COMMON:
 		if (cb->aio_lio_opcode == 1 && iocb_is_valid(cb)) {
 			tprints(", str=");
-			printstr(tcp, (unsigned long) cb->aio_buf,
-				 (unsigned long) cb->aio_nbytes);
+			printstrn(tcp, cb->aio_buf, cb->aio_nbytes);
 		} else {
 			tprintf(", buf=%#" PRIx64, (uint64_t) cb->aio_buf);
 		}
 		tprintf(", nbytes=%" PRIu64 ", offset=%" PRId64,
 			(uint64_t) cb->aio_nbytes, (int64_t) cb->aio_offset);
-		print_common_flags(cb);
+		print_common_flags(tcp, cb);
 		break;
 	case SUB_VECTOR:
 		if (iocb_is_valid(cb)) {
 			tprints(", iovec=");
 			tprint_iov(tcp, cb->aio_nbytes, cb->aio_buf,
-				   cb->aio_lio_opcode == 8);
+				   cb->aio_lio_opcode == 8
+				   ? IOV_DECODE_STR
+				   : IOV_DECODE_ADDR);
 		} else {
 			tprintf(", buf=%#" PRIx64 ", nbytes=%" PRIu64,
 				(uint64_t) cb->aio_buf,
 				(uint64_t) cb->aio_nbytes);
 		}
 		tprintf(", offset=%" PRId64, (int64_t) cb->aio_offset);
-		print_common_flags(cb);
+		print_common_flags(tcp, cb);
 		break;
 	case SUB_NONE:
 		break;
 	}
 }
 
+static bool
+print_iocbp(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
+{
+	kernel_ulong_t addr;
+	struct iocb cb;
+
+	if (elem_size < sizeof(kernel_ulong_t)) {
+		addr = * (unsigned int *) elem_buf;
+	} else {
+		addr = * (kernel_ulong_t *) elem_buf;
+	}
+
+	tprints("{");
+	if (!umove_or_printaddr(tcp, addr, &cb))
+		print_iocb(tcp, &cb);
+	tprints("}");
+
+	return true;
+}
+
 SYS_FUNC(io_submit)
 {
-	long nr = tcp->u_arg[1];
-	/* if nr <= 0, we end up printing just "[]" */
-	tprintf("%lu, %ld, [", tcp->u_arg[0], nr);
-	{
-		long i;
-		long iocbs = tcp->u_arg[2];
+	const kernel_long_t nr =
+		truncate_klong_to_current_wordsize(tcp->u_arg[1]);
+	const kernel_ulong_t addr = tcp->u_arg[2];
+	kernel_ulong_t iocbp;
 
-		for (i = 0; i < nr; ++i, iocbs += current_wordsize) {
-			unsigned long iocbp;
-			struct iocb cb;
+	printaddr(tcp->u_arg[0]);
+	tprintf(", %" PRI_kld ", ", nr);
 
-			if (i)
-				tprints(", ");
+	if (nr < 0)
+		printaddr(addr);
+	else
+		print_array(tcp, addr, nr, &iocbp, current_wordsize,
+			    umoven_or_printaddr, print_iocbp, 0);
 
-			if (umove_ulong_or_printaddr(tcp, iocbs, &iocbp)) {
-				/*
-				 * No point in trying to read the whole array
-				 * because nr can be ridiculously large.
-				 */
-				break;
-			}
-
-			tprints("{");
-			if (!umove_or_printaddr(tcp, iocbp, &cb))
-				print_iocb(tcp, &cb);
-			tprints("}");
-		}
-	}
-	tprints("]");
 	return RVAL_DECODED;
 }
 
-static int
-print_io_event(struct tcb *tcp, const long addr)
+static bool
+print_io_event(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 {
-	struct io_event event;
+	struct io_event *event = elem_buf;
 
-	if (umove_or_printaddr(tcp, addr, &event))
-		return -1;
 	tprintf("{data=%#" PRIx64 ", obj=%#" PRIx64
 		", res=%" PRId64 ", res2=%" PRId64 "}",
-		(uint64_t) event.data, (uint64_t) event.obj,
-		(int64_t) event.res, (int64_t) event.res2);
-	return 0;
+		(uint64_t) event->data, (uint64_t) event->obj,
+		(int64_t) event->res, (int64_t) event->res2);
+
+	return true;
 }
 
 SYS_FUNC(io_cancel)
 {
 	if (entering(tcp)) {
-		tprintf("%lu, ", tcp->u_arg[0]);
+		printaddr(tcp->u_arg[0]);
+		tprints(", ");
+
 		struct iocb cb;
 
 		if (!umove_or_printaddr(tcp, tcp->u_arg[1], &cb)) {
 			tprints("{");
-			print_iocb_header(&cb);
+			print_iocb_header(tcp, &cb);
 			tprints("}");
 		}
 		tprints(", ");
 	} else {
-		print_io_event(tcp, tcp->u_arg[2]);
+		struct io_event event;
+
+		if (!umove_or_printaddr(tcp, tcp->u_arg[2], &event))
+			print_io_event(tcp, &event, sizeof(event), 0);
 	}
 	return 0;
 }
@@ -223,27 +236,15 @@ SYS_FUNC(io_cancel)
 SYS_FUNC(io_getevents)
 {
 	if (entering(tcp)) {
-		tprintf("%lu, %ld, %ld, ",
-			tcp->u_arg[0], tcp->u_arg[1], tcp->u_arg[2]);
+		printaddr(tcp->u_arg[0]);
+		tprintf(", %" PRI_kld ", %" PRI_kld ", ",
+			truncate_klong_to_current_wordsize(tcp->u_arg[1]),
+			truncate_klong_to_current_wordsize(tcp->u_arg[2]));
 	} else {
-		if (tcp->u_rval == 0) {
-			tprints("[]");
-		} else {
-			struct io_event *events = (void *)tcp->u_arg[3];
-			long i, nr = tcp->u_rval;
-
-			for (i = 0; i < nr; i++, events++) {
-				if (i == 0)
-					tprints("[");
-				else
-					tprints(", ");
-
-				if (print_io_event(tcp, (long)events))
-					break;
-			}
-			tprints("], ");
-		}
-
+		struct io_event buf;
+		print_array(tcp, tcp->u_arg[3], tcp->u_rval, &buf, sizeof(buf),
+			    umoven_or_printaddr, print_io_event, 0);
+		tprints(", ");
 		/*
 		 * Since the timeout parameter is read by the kernel
 		 * on entering syscall, it has to be decoded the same way

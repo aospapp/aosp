@@ -16,41 +16,44 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Paint.Align;
 import android.graphics.PaintFlagsDrawFilter;
 import android.graphics.Rect;
-import android.graphics.Bitmap.Config;
-import android.graphics.Paint.Align;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PaintFlagsDrawFilterTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PaintFlagsDrawFilterTest {
     private static final float TEXT_SIZE = 20;
     private static final float TEXT_X = 50;
     private static final float TEXT_Y = 50;
     private static final String TEXT = "Test";
     private static final int BITMAP_WIDTH = 100;
     private static final int BITMAP_HEIGHT = 100;
+
     private float mTextWidth;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
+    @Test
     public void testPaintFlagsDrawFilter() {
-
         Bitmap bitmapWithoutFilter = drawText(null);
 
         PaintFlagsDrawFilter filter = new PaintFlagsDrawFilter(Paint.UNDERLINE_TEXT_FLAG, 0);
         Bitmap bitmapWithFilter = drawText(filter);
 
         Bitmap combined = delta(bitmapWithoutFilter, bitmapWithFilter);
-        assertUnderline(combined);
+        verifyUnderline(combined);
     }
 
     private Bitmap drawText(PaintFlagsDrawFilter filter) {
@@ -86,7 +89,7 @@ public class PaintFlagsDrawFilterTest extends AndroidTestCase {
         return combinedBitmap;
     }
 
-    private void assertUnderline(Bitmap bitmap) {
+    private void verifyUnderline(Bitmap bitmap) {
         // Find smallest rectangle containing all RED pixels
         Rect rect = new Rect(BITMAP_WIDTH, BITMAP_HEIGHT, 0, 0);
         for (int y = 0; y < BITMAP_HEIGHT; y++) {
@@ -109,6 +112,7 @@ public class PaintFlagsDrawFilterTest extends AndroidTestCase {
     }
 
     // Tests that FILTER_BITMAP_FLAG is handled properly.
+    @Test
     public void testPaintFlagsDrawFilter2() {
         // Create a bitmap with alternating black and white pixels.
         int kWidth = 5;
@@ -135,13 +139,13 @@ public class PaintFlagsDrawFilterTest extends AndroidTestCase {
         Paint simplePaint = new Paint();
         canvas.drawBitmap(grid, 0, 0, simplePaint);
 
-        assertContainsOnlyBlackAndWhite(dst);
+        verifyContainsOnlyBlackAndWhite(dst);
 
         // Drawn with FILTER_BITMAP_FLAG, some pixels will be somewhere in between.
         Paint filterBitmapPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
         canvas.drawBitmap(grid, 0, 0, filterBitmapPaint);
 
-        assertContainsNonBW(dst);
+        verifyContainsNonBW(dst);
 
         // Drawing with a paint that FILTER_BITMAP_FLAG set and a DrawFilter that removes
         // FILTER_BITMAP_FLAG should remove the effect of the flag, resulting in all pixels being
@@ -149,19 +153,19 @@ public class PaintFlagsDrawFilterTest extends AndroidTestCase {
         canvas.setDrawFilter(new PaintFlagsDrawFilter(Paint.FILTER_BITMAP_FLAG, 0));
         canvas.drawBitmap(grid, 0, 0, filterBitmapPaint);
 
-        assertContainsOnlyBlackAndWhite(dst);
+        verifyContainsOnlyBlackAndWhite(dst);
 
         // Likewise, drawing with a DrawFilter that sets FILTER_BITMAP_FLAG should filter,
         // resulting in gray pixels.
         canvas.setDrawFilter(new PaintFlagsDrawFilter(0, Paint.FILTER_BITMAP_FLAG));
         canvas.drawBitmap(grid, 0, 0, simplePaint);
 
-        assertContainsNonBW(dst);
+        verifyContainsNonBW(dst);
     }
 
     // Assert that at least one pixel is neither black nor white. This is used to verify that
     // filtering was done, since the original bitmap only contained black and white pixels.
-    private void assertContainsNonBW(Bitmap bitmap) {
+    private void verifyContainsNonBW(Bitmap bitmap) {
         for (int i = 0; i < bitmap.getWidth(); ++i) {
             for (int j = 0; j < bitmap.getHeight(); ++j) {
                 int color = bitmap.getPixel(i, j);
@@ -177,7 +181,7 @@ public class PaintFlagsDrawFilterTest extends AndroidTestCase {
 
     // Assert that every pixel is either black or white. Used to verify that no filtering was
     // done, since the original bitmap contained only black and white pixels.
-    private void assertContainsOnlyBlackAndWhite(Bitmap bitmap) {
+    private void verifyContainsOnlyBlackAndWhite(Bitmap bitmap) {
         for (int i = 0; i < bitmap.getWidth(); ++i) {
             for (int j = 0; j < bitmap.getHeight(); ++j) {
                 int color = bitmap.getPixel(i, j);

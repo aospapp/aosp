@@ -1,4 +1,4 @@
-# Copyright (C) 2008 The Android Open Source Project
+# Copyright (C) 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,62 +14,35 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-# Reusable Sensor test classes and helpers
-
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := cts-sensors-tests
-
+# don't include this package in any target
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
-
-LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil
-
-LOCAL_JAVA_LIBRARIES := platform-test-annotations
-
-LOCAL_SDK_VERSION := current
-
-# TODO: sensors need to be refactored out into their own namespace: android.hardware.sensors.cts
-LOCAL_SRC_FILES := $(call all-java-files-under, src/android/hardware/cts/helpers)
-LOCAL_SRC_FILES += \
-    src/android/hardware/cts/SensorTestCase.java \
-    src/android/hardware/cts/SingleSensorTests.java \
-    src/android/hardware/cts/SensorIntegrationTests.java \
-    src/android/hardware/cts/SensorBatchingTests.java \
-    src/android/hardware/cts/SensorTest.java \
-    src/android/hardware/cts/SensorManagerStaticTest.java \
-    src/android/hardware/cts/SensorAdditionalInfoTest.java
-
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-
-# CtsHardwareTestCases package
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE_TAGS := tests
-
+# and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctsdeviceutil \
-    compatibility-device-util \
-    ctstestrunner \
-    mockito-target \
-    android-ex-camera2
-
-LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-files-under, src)
-
-LOCAL_PACKAGE_NAME := CtsHardwareTestCases
-
-LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
-
-LOCAL_SDK_VERSION := current
+LOCAL_MULTILIB := both
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    android-support-test \
+    compatibility-device-util \
+    ctstestrunner \
+    mockito-target-minus-junit4 \
+    platform-test-annotations \
+    ub-uiautomator \
+    legacy-android-test
+
+LOCAL_JNI_SHARED_LIBRARIES := libctshardware_jni libnativehelper_compat_libc++
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+LOCAL_PACKAGE_NAME := CtsHardwareTestCases
+
 include $(BUILD_CTS_PACKAGE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

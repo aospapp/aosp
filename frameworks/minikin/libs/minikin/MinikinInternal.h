@@ -25,34 +25,44 @@
 
 #include <minikin/MinikinFont.h>
 
-namespace android {
+namespace minikin {
 
 // All external Minikin interfaces are designed to be thread-safe.
 // Presently, that's implemented by through a global lock, and having
 // all external interfaces take that lock.
 
-extern Mutex gMinikinLock;
+extern android::Mutex gMinikinLock;
 
 // Aborts if gMinikinLock is not acquired. Do nothing on the release build.
 void assertMinikinLocked();
 
-// Returns true if c is emoji.
-bool isEmoji(uint32_t c);
+hb_blob_t* getFontTable(const MinikinFont* minikinFont, uint32_t tag);
 
-// Returns true if c is emoji modifier base.
-bool isEmojiBase(uint32_t c);
+constexpr uint32_t MAX_UNICODE_CODE_POINT = 0x10FFFF;
 
-// Returns true if c is emoji modifier.
-bool isEmojiModifier(uint32_t c);
+constexpr uint32_t VS1 = 0xFE00;
+constexpr uint32_t VS16 = 0xFE0F;
+constexpr uint32_t VS17 = 0xE0100;
+constexpr uint32_t VS256 = 0xE01EF;
 
-hb_blob_t* getFontTable(MinikinFont* minikinFont, uint32_t tag);
+// Returns variation selector index. This is one unit less than the variation selector number. For
+// example, VARIATION SELECTOR-25 maps to 24.
+// [0x00-0x0F] for U+FE00..U+FE0F
+// [0x10-0xFF] for U+E0100..U+E01EF
+// INVALID_VS_INDEX for other input.
+constexpr uint16_t INVALID_VS_INDEX = 0xFFFF;
+uint16_t getVsIndex(uint32_t codePoint);
+
+// Returns true if the code point is a variation selector.
+// Note that this function returns false for Mongolian free variation selectors.
+bool isVariationSelector(uint32_t codePoint);
 
 // An RAII wrapper for hb_blob_t
 class HbBlob {
 public:
     // Takes ownership of hb_blob_t object, caller is no longer
     // responsible for calling hb_blob_destroy().
-    HbBlob(hb_blob_t* blob) : mBlob(blob) {
+    explicit HbBlob(hb_blob_t* blob) : mBlob(blob) {
     }
 
     ~HbBlob() {
@@ -65,15 +75,13 @@ public:
     }
 
     size_t size() const {
-        unsigned int length = 0;
-        hb_blob_get_data(mBlob, &length);
-        return (size_t)length;
+        return (size_t)hb_blob_get_length(mBlob);
     }
 
 private:
     hb_blob_t* mBlob;
 };
 
-}
+}  // namespace minikin
 
 #endif  // MINIKIN_INTERNAL_H

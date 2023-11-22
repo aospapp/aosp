@@ -252,6 +252,14 @@ struct eapol_callbacks {
 	 * @ctx: eapol_ctx from eap_peer_sm_init() call
 	 */
 	void (*eap_proxy_cb)(void *ctx);
+
+	/**
+	 * eap_proxy_notify_sim_status - Notification of SIM status change
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @sim_state: One of enum value from sim_state
+	 */
+	void (*eap_proxy_notify_sim_status)(void *ctx,
+					    enum eap_proxy_sim_state sim_state);
 #endif /* CONFIG_EAP_PROXY */
 
 	/**
@@ -348,6 +356,8 @@ void eap_sm_set_ext_pw_ctx(struct eap_sm *sm, struct ext_password_data *ext);
 void eap_set_anon_id(struct eap_sm *sm, const u8 *id, size_t len);
 int eap_peer_was_failure_expected(struct eap_sm *sm);
 void eap_peer_erp_free_keys(struct eap_sm *sm);
+struct wpabuf * eap_peer_build_erp_reauth_start(struct eap_sm *sm, u8 eap_id);
+void eap_peer_finish(struct eap_sm *sm, const struct eap_hdr *hdr, size_t len);
 
 #endif /* IEEE8021X_EAPOL */
 

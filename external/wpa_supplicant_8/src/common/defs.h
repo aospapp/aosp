@@ -51,6 +51,10 @@ typedef enum { FALSE = 0, TRUE = 1 } Boolean;
 #define WPA_KEY_MGMT_OSEN BIT(15)
 #define WPA_KEY_MGMT_IEEE8021X_SUITE_B BIT(16)
 #define WPA_KEY_MGMT_IEEE8021X_SUITE_B_192 BIT(17)
+#define WPA_KEY_MGMT_FILS_SHA256 BIT(18)
+#define WPA_KEY_MGMT_FILS_SHA384 BIT(19)
+#define WPA_KEY_MGMT_FT_FILS_SHA256 BIT(20)
+#define WPA_KEY_MGMT_FT_FILS_SHA384 BIT(21)
 
 static inline int wpa_key_mgmt_wpa_ieee8021x(int akm)
 {
@@ -60,7 +64,11 @@ static inline int wpa_key_mgmt_wpa_ieee8021x(int akm)
 			 WPA_KEY_MGMT_OSEN |
 			 WPA_KEY_MGMT_IEEE8021X_SHA256 |
 			 WPA_KEY_MGMT_IEEE8021X_SUITE_B |
-			 WPA_KEY_MGMT_IEEE8021X_SUITE_B_192));
+			 WPA_KEY_MGMT_IEEE8021X_SUITE_B_192 |
+			 WPA_KEY_MGMT_FILS_SHA256 |
+			 WPA_KEY_MGMT_FILS_SHA384 |
+			 WPA_KEY_MGMT_FT_FILS_SHA256 |
+			 WPA_KEY_MGMT_FT_FILS_SHA384));
 }
 
 static inline int wpa_key_mgmt_wpa_psk(int akm)
@@ -76,7 +84,14 @@ static inline int wpa_key_mgmt_ft(int akm)
 {
 	return !!(akm & (WPA_KEY_MGMT_FT_PSK |
 			 WPA_KEY_MGMT_FT_IEEE8021X |
-			 WPA_KEY_MGMT_FT_SAE));
+			 WPA_KEY_MGMT_FT_SAE |
+			 WPA_KEY_MGMT_FT_FILS_SHA256 |
+			 WPA_KEY_MGMT_FT_FILS_SHA384));
+}
+
+static inline int wpa_key_mgmt_ft_psk(int akm)
+{
+	return !!(akm & WPA_KEY_MGMT_FT_PSK);
 }
 
 static inline int wpa_key_mgmt_sae(int akm)
@@ -85,17 +100,29 @@ static inline int wpa_key_mgmt_sae(int akm)
 			 WPA_KEY_MGMT_FT_SAE));
 }
 
+static inline int wpa_key_mgmt_fils(int akm)
+{
+	return !!(akm & (WPA_KEY_MGMT_FILS_SHA256 |
+			 WPA_KEY_MGMT_FILS_SHA384 |
+			 WPA_KEY_MGMT_FT_FILS_SHA256 |
+			 WPA_KEY_MGMT_FT_FILS_SHA384));
+}
+
 static inline int wpa_key_mgmt_sha256(int akm)
 {
 	return !!(akm & (WPA_KEY_MGMT_PSK_SHA256 |
 			 WPA_KEY_MGMT_IEEE8021X_SHA256 |
 			 WPA_KEY_MGMT_OSEN |
-			 WPA_KEY_MGMT_IEEE8021X_SUITE_B));
+			 WPA_KEY_MGMT_IEEE8021X_SUITE_B |
+			 WPA_KEY_MGMT_FILS_SHA256 |
+			 WPA_KEY_MGMT_FT_FILS_SHA256));
 }
 
 static inline int wpa_key_mgmt_sha384(int akm)
 {
-	return !!(akm & WPA_KEY_MGMT_IEEE8021X_SUITE_B_192);
+	return !!(akm & (WPA_KEY_MGMT_IEEE8021X_SUITE_B_192 |
+			 WPA_KEY_MGMT_FILS_SHA384 |
+			 WPA_KEY_MGMT_FT_FILS_SHA384));
 }
 
 static inline int wpa_key_mgmt_suite_b(int akm)
@@ -108,6 +135,7 @@ static inline int wpa_key_mgmt_wpa(int akm)
 {
 	return wpa_key_mgmt_wpa_ieee8021x(akm) ||
 		wpa_key_mgmt_wpa_psk(akm) ||
+		wpa_key_mgmt_fils(akm) ||
 		wpa_key_mgmt_sae(akm);
 }
 
@@ -132,6 +160,7 @@ static inline int wpa_key_mgmt_cckm(int akm)
 #define WPA_AUTH_ALG_LEAP BIT(2)
 #define WPA_AUTH_ALG_FT BIT(3)
 #define WPA_AUTH_ALG_SAE BIT(4)
+#define WPA_AUTH_ALG_FILS BIT(5)
 
 
 enum wpa_alg {
@@ -320,13 +349,13 @@ enum wpa_ctrl_req_type {
 #define EAP_MAX_METHODS 8
 
 enum mesh_plink_state {
-	PLINK_LISTEN = 1,
-	PLINK_OPEN_SENT,
-	PLINK_OPEN_RCVD,
+	PLINK_IDLE = 1,
+	PLINK_OPN_SNT,
+	PLINK_OPN_RCVD,
 	PLINK_CNF_RCVD,
 	PLINK_ESTAB,
 	PLINK_HOLDING,
-	PLINK_BLOCKED,
+	PLINK_BLOCKED, /* not defined in the IEEE 802.11 standard */
 };
 
 enum set_band {
@@ -339,6 +368,16 @@ enum wpa_radio_work_band {
 	BAND_2_4_GHZ = BIT(0),
 	BAND_5_GHZ = BIT(1),
 	BAND_60_GHZ = BIT(2),
+};
+
+enum beacon_rate_type {
+	BEACON_RATE_LEGACY,
+	BEACON_RATE_HT,
+	BEACON_RATE_VHT
+};
+
+enum eap_proxy_sim_state {
+	SIM_STATE_ERROR,
 };
 
 #endif /* DEFS_H */

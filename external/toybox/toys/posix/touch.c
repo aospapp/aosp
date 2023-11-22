@@ -3,10 +3,8 @@
  * Copyright 2012 Choubey Ji <warior.linux@gmail.com>
  *
  * See http://pubs.opengroup.org/onlinepubs/9699919799/utilities/touch.html
- *
- * TODO: have another go at merging the -t and -d stanzas
 
-USE_TOUCH(NEWTOY(touch, "acd:mr:t:h[!dtr]", TOYFLAG_BIN))
+USE_TOUCH(NEWTOY(touch, "<1acd:mr:t:h[!dtr]", TOYFLAG_BIN))
 
 config TOUCH
   bool "touch"
@@ -43,58 +41,61 @@ void touch_main(void)
   // use current time if no -t or -d
   ts[0].tv_nsec = UTIME_NOW;
   if (toys.optflags & (FLAG_t|FLAG_d)) {
-    char *s, *date;
+    char *s, *date, **format;
     struct tm tm;
     int len = 0;
 
-    localtime_r(&(ts->tv_sec), &tm);
+    // Initialize default values for time fields
+    ts->tv_sec = time(0);
+    ts->tv_nsec = 0;
 
-    // Set time from -d?
-
+    // List of search types
     if (toys.optflags & FLAG_d) {
+      format = (char *[]){"%Y-%m-%dT%T", "%Y-%m-%d %T", 0};
       date = TT.date;
-      i = strlen(date);
-      if (i) {
-        // Trailing Z means UTC timezone, don't expect libc to know this.
-        if (toupper(date[i-1])=='Z') {
-          date[i-1] = 0;
-          setenv("TZ", "UTC0", 1);
-          localtime_r(&(ts->tv_sec), &tm);
-        }
-        s = strptime(date, "%Y-%m-%dT%T", &tm);
-        ts->tv_nsec = 0;
-        if (s && *s=='.' && isdigit(s[1])) 
-          sscanf(s, ".%lu%n", &ts->tv_nsec, &len);
-        else len = 0;
-      } else s = 0;
-
-    // Set time from -t?
-
     } else {
-      strcpy(toybuf, "%Y%m%d%H%M");
+      format = (char *[]){"%m%d%H%M", "%y%m%d%H%M", "%C%y%m%d%H%M", 0};
       date = TT.time;
-      i = ((s = strchr(date, '.'))) ? s-date : strlen(date);
-      if (i < 8 || i%2) error_exit("bad '%s'", date);
-      for (i=0;i<3;i++) {
-        s = strptime(date, toybuf+(i&2), &tm);
-        if (s) break;
-        toybuf[1]='y';
-      }
-      ts->tv_nsec = 0;
-      if (s && *s=='.' && sscanf(s, ".%2u%n", &(tm.tm_sec), &len) == 1) {
-        sscanf(s += len, "%lu%n", &ts->tv_nsec, &len);
-        len++;
-      } else len = 0;
     }
-    if (len) {
-      s += len;
-      if (ts->tv_nsec > 999999999) s = 0;
-      else while (len++ < 10) ts->tv_nsec *= 10;
+
+    // Trailing Z means UTC timezone, don't expect libc to know this.
+    i = strlen(s = date);
+    if (i && toupper(date[i-1])=='Z') {
+      date[i-1] = 0;
+      setenv("TZ", "UTC0", 1);
+    }
+
+    while (*format) {
+      if (toys.optflags&FLAG_t) {
+        s = strchr(date, '.');
+        if ((s ? s-date : strlen(date)) != strlen(*format)) {
+          format++;
+          continue;
+        }
+      }
+      localtime_r(&(ts->tv_sec), &tm);
+      // Adjusting for daylight savings time gives the wrong answer.
+      tm.tm_isdst = 0;
+      tm.tm_sec = 0;
+      s = strptime(date, *format++, &tm);
+
+      // parse nanoseconds
+      if (s && *s=='.' && isdigit(s[1])) {
+        s++;
+        if (toys.optflags&FLAG_t)
+          if (1 == sscanf(s, "%2u%n", &(tm.tm_sec), &len)) s += len;
+        if (1 == sscanf(s, "%lu%n", &ts->tv_nsec, &len)) {
+          s += len;
+          if (ts->tv_nsec > 999999999) s = 0;
+          else while (len++ < 9) ts->tv_nsec *= 10;
+        }
+      }
+      if (s && !*s) break;
     }
 
     errno = 0;
     ts->tv_sec = mktime(&tm);
-    if (!s || *s || errno == EOVERFLOW) perror_exit("bad '%s'", date);
+    if (!s || *s || ts->tv_sec == -1) perror_exit("bad '%s'", date);
   }
   ts[1]=ts[0];
 
@@ -114,13 +115,21 @@ void touch_main(void)
 
   // Loop through files on command line
   for (ss = toys.optargs; *ss;) {
+    char *s = *ss++;
 
-    // cheat: FLAG_h is rightmost flag, so its value is 1
-    if (!utimensat(AT_FDCWD, *ss, ts,
-        (toys.optflags & FLAG_h)*AT_SYMLINK_NOFOLLOW)) ss++;
-    else if (toys.optflags & FLAG_c) ss++;
-    else if (access(*ss, F_OK) && (-1!=(fd = open(*ss, O_CREAT, 0666))))
-      close(fd);
-    else perror_msg("'%s'", *ss++);
+    if (!strcmp(s, "-")) {
+      if (!futimens(1, ts)) continue;
+    } else {
+      // cheat: FLAG_h is rightmost flag, so its value is 1
+      if (!utimensat(AT_FDCWD, s, ts,
+          (toys.optflags & FLAG_h)*AT_SYMLINK_NOFOLLOW)) continue;
+      if (toys.optflags & FLAG_c) continue;
+      if (access(s, F_OK) && (-1!=(fd = open(s, O_CREAT, 0666)))) {
+        close(fd);
+        if (toys.optflags) ss--;
+        continue;
+      }
+    }
+    perror_msg("'%s'", s);
   }
 }

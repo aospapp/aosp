@@ -17,18 +17,27 @@
 #include "concurrent_copying.h"
 
 #include "art_field-inl.h"
+#include "base/enums.h"
+#include "base/histogram-inl.h"
 #include "base/stl_util.h"
+#include "base/systrace.h"
 #include "debugger.h"
+#include "gc/accounting/atomic_stack.h"
 #include "gc/accounting/heap_bitmap-inl.h"
+#include "gc/accounting/mod_union_table-inl.h"
+#include "gc/accounting/read_barrier_table.h"
 #include "gc/accounting/space_bitmap-inl.h"
+#include "gc/gc_pause_listener.h"
 #include "gc/reference_processor.h"
 #include "gc/space/image_space.h"
 #include "gc/space/space-inl.h"
+#include "gc/verification.h"
 #include "image-inl.h"
 #include "intern_table.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
-#include "scoped_thread_state_change.h"
+#include "mirror/object-refvisitor-inl.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread-inl.h"
 #include "thread_list.h"
 #include "well_known_classes.h"
@@ -38,26 +47,62 @@ namespace gc {
 namespace collector {
 
 static constexpr size_t kDefaultGcMarkStackSize = 2 * MB;
+// If kFilterModUnionCards then we attempt to filter cards that don't need to be dirty in the mod
+// union table. Disabled since it does not seem to help the pause much.
+static constexpr bool kFilterModUnionCards = kIsDebugBuild;
+// If kDisallowReadBarrierDuringScan is true then the GC aborts if there are any that occur during
+// ConcurrentCopying::Scan. May be used to diagnose possibly unnecessary read barriers.
+// Only enabled for kIsDebugBuild to avoid performance hit.
+static constexpr bool kDisallowReadBarrierDuringScan = kIsDebugBuild;
+// Slow path mark stack size, increase this if the stack is getting full and it is causing
+// performance problems.
+static constexpr size_t kReadBarrierMarkStackSize = 512 * KB;
+// Verify that there are no missing card marks.
+static constexpr bool kVerifyNoMissingCardMarks = kIsDebugBuild;
 
-ConcurrentCopying::ConcurrentCopying(Heap* heap, const std::string& name_prefix)
+ConcurrentCopying::ConcurrentCopying(Heap* heap,
+                                     const std::string& name_prefix,
+                                     bool measure_read_barrier_slow_path)
     : GarbageCollector(heap,
                        name_prefix + (name_prefix.empty() ? "" : " ") +
-                       "concurrent copying + mark sweep"),
+                       "concurrent copying"),
       region_space_(nullptr), gc_barrier_(new Barrier(0)),
       gc_mark_stack_(accounting::ObjectStack::Create("concurrent copying gc mark stack",
                                                      kDefaultGcMarkStackSize,
                                                      kDefaultGcMarkStackSize)),
+      rb_mark_bit_stack_(accounting::ObjectStack::Create("rb copying gc mark stack",
+                                                         kReadBarrierMarkStackSize,
+                                                         kReadBarrierMarkStackSize)),
+      rb_mark_bit_stack_full_(false),
       mark_stack_lock_("concurrent copying mark stack lock", kMarkSweepMarkStackLock),
       thread_running_gc_(nullptr),
-      is_marking_(false), is_active_(false), is_asserting_to_space_invariant_(false),
-      heap_mark_bitmap_(nullptr), live_stack_freeze_size_(0), mark_stack_mode_(kMarkStackModeOff),
+      is_marking_(false),
+      is_active_(false),
+      is_asserting_to_space_invariant_(false),
+      region_space_bitmap_(nullptr),
+      heap_mark_bitmap_(nullptr),
+      live_stack_freeze_size_(0),
+      from_space_num_objects_at_first_pause_(0),
+      from_space_num_bytes_at_first_pause_(0),
+      mark_stack_mode_(kMarkStackModeOff),
       weak_ref_access_enabled_(true),
       skipped_blocks_lock_("concurrent copying bytes blocks lock", kMarkSweepMarkStackLock),
+      measure_read_barrier_slow_path_(measure_read_barrier_slow_path),
+      mark_from_read_barrier_measurements_(false),
+      rb_slow_path_ns_(0),
+      rb_slow_path_count_(0),
+      rb_slow_path_count_gc_(0),
+      rb_slow_path_histogram_lock_("Read barrier histogram lock"),
+      rb_slow_path_time_histogram_("Mutator time in read barrier slow path", 500, 32),
+      rb_slow_path_count_total_(0),
+      rb_slow_path_count_gc_total_(0),
       rb_table_(heap_->GetReadBarrierTable()),
-      force_evacuate_all_(false) {
+      force_evacuate_all_(false),
+      gc_grays_immune_objects_(false),
+      immune_gray_stack_lock_("concurrent copying immune gray stack lock",
+                              kMarkSweepMarkStackLock) {
   static_assert(space::RegionSpace::kRegionSize == accounting::ReadBarrierTable::kRegionSize,
                 "The region space size and the read barrier table region size must match");
-  cc_heap_bitmap_.reset(new accounting::HeapBitmap(heap));
   Thread* self = Thread::Current();
   {
     ReaderMutexLock mu(self, *Locks::heap_bitmap_lock_);
@@ -78,12 +123,29 @@ ConcurrentCopying::ConcurrentCopying(Heap* heap, const std::string& name_prefix)
   }
 }
 
-void ConcurrentCopying::MarkHeapReference(mirror::HeapReference<mirror::Object>* from_ref) {
-  // Used for preserving soft references, should be OK to not have a CAS here since there should be
-  // no other threads which can trigger read barriers on the same referent during reference
-  // processing.
-  from_ref->Assign(Mark(from_ref->AsMirrorPtr()));
-  DCHECK(!from_ref->IsNull());
+void ConcurrentCopying::MarkHeapReference(mirror::HeapReference<mirror::Object>* field,
+                                          bool do_atomic_update) {
+  if (UNLIKELY(do_atomic_update)) {
+    // Used to mark the referent in DelayReferenceReferent in transaction mode.
+    mirror::Object* from_ref = field->AsMirrorPtr();
+    if (from_ref == nullptr) {
+      return;
+    }
+    mirror::Object* to_ref = Mark(from_ref);
+    if (from_ref != to_ref) {
+      do {
+        if (field->AsMirrorPtr() != from_ref) {
+          // Concurrently overwritten by a mutator.
+          break;
+        }
+      } while (!field->CasWeakRelaxed(from_ref, to_ref));
+    }
+  } else {
+    // Used for preserving soft references, should be OK to not have a CAS here since there should be
+    // no other threads which can trigger read barriers on the same referent during reference
+    // processing.
+    field->Assign(Mark(field->AsMirrorPtr()));
+  }
 }
 
 ConcurrentCopying::~ConcurrentCopying() {
@@ -107,9 +169,9 @@ void ConcurrentCopying::RunPhases() {
     MarkingPhase();
   }
   // Verify no from space refs. This causes a pause.
-  if (kEnableNoFromSpaceRefsVerification || kIsDebugBuild) {
+  if (kEnableNoFromSpaceRefsVerification) {
     TimingLogger::ScopedTiming split("(Paused)VerifyNoFromSpaceReferences", GetTimings());
-    ScopedPause pause(this);
+    ScopedPause pause(this, false);
     CheckEmptyMarkStack();
     if (kVerboseMode) {
       LOG(INFO) << "Verifying no from-space refs";
@@ -139,20 +201,11 @@ void ConcurrentCopying::BindBitmaps() {
         space->GetGcRetentionPolicy() == space::kGcRetentionPolicyFullCollect) {
       CHECK(space->IsZygoteSpace() || space->IsImageSpace());
       immune_spaces_.AddSpace(space);
-      const char* bitmap_name = space->IsImageSpace() ? "cc image space bitmap" :
-          "cc zygote space bitmap";
-      // TODO: try avoiding using bitmaps for image/zygote to save space.
-      accounting::ContinuousSpaceBitmap* bitmap =
-          accounting::ContinuousSpaceBitmap::Create(bitmap_name, space->Begin(), space->Capacity());
-      cc_heap_bitmap_->AddContinuousSpaceBitmap(bitmap);
-      cc_bitmaps_.push_back(bitmap);
     } else if (space == region_space_) {
-      accounting::ContinuousSpaceBitmap* bitmap =
-          accounting::ContinuousSpaceBitmap::Create("cc region space bitmap",
-                                                    space->Begin(), space->Capacity());
-      cc_heap_bitmap_->AddContinuousSpaceBitmap(bitmap);
-      cc_bitmaps_.push_back(bitmap);
-      region_space_bitmap_ = bitmap;
+      // It is OK to clear the bitmap with mutators running since the only place it is read is
+      // VisitObjects which has exclusion with CC.
+      region_space_bitmap_ = region_space_->GetMarkBitmap();
+      region_space_bitmap_->Clear();
     }
   }
 }
@@ -165,15 +218,39 @@ void ConcurrentCopying::InitializePhase() {
               << reinterpret_cast<void*>(region_space_->Limit());
   }
   CheckEmptyMarkStack();
+  if (kIsDebugBuild) {
+    MutexLock mu(Thread::Current(), mark_stack_lock_);
+    CHECK(false_gray_stack_.empty());
+  }
+
+  rb_mark_bit_stack_full_ = false;
+  mark_from_read_barrier_measurements_ = measure_read_barrier_slow_path_;
+  if (measure_read_barrier_slow_path_) {
+    rb_slow_path_ns_.StoreRelaxed(0);
+    rb_slow_path_count_.StoreRelaxed(0);
+    rb_slow_path_count_gc_.StoreRelaxed(0);
+  }
+
   immune_spaces_.Reset();
   bytes_moved_.StoreRelaxed(0);
   objects_moved_.StoreRelaxed(0);
-  if (GetCurrentIteration()->GetGcCause() == kGcCauseExplicit ||
-      GetCurrentIteration()->GetGcCause() == kGcCauseForNativeAlloc ||
+  GcCause gc_cause = GetCurrentIteration()->GetGcCause();
+  if (gc_cause == kGcCauseExplicit ||
+      gc_cause == kGcCauseForNativeAlloc ||
+      gc_cause == kGcCauseCollectorTransition ||
       GetCurrentIteration()->GetClearSoftReferences()) {
     force_evacuate_all_ = true;
   } else {
     force_evacuate_all_ = false;
+  }
+  if (kUseBakerReadBarrier) {
+    updated_all_immune_objects_.StoreRelaxed(false);
+    // GC may gray immune objects in the thread flip.
+    gc_grays_immune_objects_ = true;
+    if (kIsDebugBuild) {
+      MutexLock mu(Thread::Current(), immune_gray_stack_lock_);
+      DCHECK(immune_gray_stack_.empty());
+    }
   }
   BindBitmaps();
   if (kVerboseMode) {
@@ -185,21 +262,23 @@ void ConcurrentCopying::InitializePhase() {
     }
     LOG(INFO) << "GC end of InitializePhase";
   }
+  // Mark all of the zygote large objects without graying them.
+  MarkZygoteLargeObjects();
 }
 
 // Used to switch the thread roots of a thread from from-space refs to to-space refs.
-class ConcurrentCopying::ThreadFlipVisitor : public Closure {
+class ConcurrentCopying::ThreadFlipVisitor : public Closure, public RootVisitor {
  public:
   ThreadFlipVisitor(ConcurrentCopying* concurrent_copying, bool use_tlab)
       : concurrent_copying_(concurrent_copying), use_tlab_(use_tlab) {
   }
 
-  virtual void Run(Thread* thread) OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
+  virtual void Run(Thread* thread) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     // Note: self is not necessarily equal to thread since thread may be suspended.
     Thread* self = Thread::Current();
     CHECK(thread == self || thread->IsSuspended() || thread->GetState() == kWaitingPerformingGc)
         << thread->GetState() << " thread " << thread << " self " << self;
-    thread->SetIsGcMarking(true);
+    thread->SetIsGcMarkingAndUpdateEntrypoints(true);
     if (use_tlab_ && thread->HasTlab()) {
       if (ConcurrentCopying::kEnableFromSpaceAccountingCheck) {
         // This must come before the revoke.
@@ -215,8 +294,42 @@ class ConcurrentCopying::ThreadFlipVisitor : public Closure {
       thread->RevokeThreadLocalAllocationStack();
     }
     ReaderMutexLock mu(self, *Locks::heap_bitmap_lock_);
-    thread->VisitRoots(concurrent_copying_);
+    // We can use the non-CAS VisitRoots functions below because we update thread-local GC roots
+    // only.
+    thread->VisitRoots(this);
     concurrent_copying_->GetBarrier().Pass(self);
+  }
+
+  void VisitRoots(mirror::Object*** roots,
+                  size_t count,
+                  const RootInfo& info ATTRIBUTE_UNUSED)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    for (size_t i = 0; i < count; ++i) {
+      mirror::Object** root = roots[i];
+      mirror::Object* ref = *root;
+      if (ref != nullptr) {
+        mirror::Object* to_ref = concurrent_copying_->Mark(ref);
+        if (to_ref != ref) {
+          *root = to_ref;
+        }
+      }
+    }
+  }
+
+  void VisitRoots(mirror::CompressedReference<mirror::Object>** roots,
+                  size_t count,
+                  const RootInfo& info ATTRIBUTE_UNUSED)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    for (size_t i = 0; i < count; ++i) {
+      mirror::CompressedReference<mirror::Object>* const root = roots[i];
+      if (!root->IsNull()) {
+        mirror::Object* ref = root->AsMirrorPtr();
+        mirror::Object* to_ref = concurrent_copying_->Mark(ref);
+        if (to_ref != ref) {
+          root->Assign(to_ref);
+        }
+      }
+    }
   }
 
  private:
@@ -236,6 +349,9 @@ class ConcurrentCopying::FlipCallback : public Closure {
     TimingLogger::ScopedTiming split("(Paused)FlipCallback", cc->GetTimings());
     // Note: self is not necessarily equal to thread since thread may be suspended.
     Thread* self = Thread::Current();
+    if (kVerifyNoMissingCardMarks) {
+      cc->VerifyNoMissingCardMarks();
+    }
     CHECK(thread == self);
     Locks::mutator_lock_->AssertExclusiveHeld(self);
     cc->region_space_->SetFromSpace(cc->rb_table_, cc->force_evacuate_all_);
@@ -247,33 +363,206 @@ class ConcurrentCopying::FlipCallback : public Closure {
     }
     cc->is_marking_ = true;
     cc->mark_stack_mode_.StoreRelaxed(ConcurrentCopying::kMarkStackModeThreadLocal);
+    if (kIsDebugBuild) {
+      cc->region_space_->AssertAllRegionLiveBytesZeroOrCleared();
+    }
     if (UNLIKELY(Runtime::Current()->IsActiveTransaction())) {
       CHECK(Runtime::Current()->IsAotCompiler());
       TimingLogger::ScopedTiming split2("(Paused)VisitTransactionRoots", cc->GetTimings());
       Runtime::Current()->VisitTransactionRoots(cc);
     }
+    if (kUseBakerReadBarrier && kGrayDirtyImmuneObjects) {
+      cc->GrayAllDirtyImmuneObjects();
+      if (kIsDebugBuild) {
+        // Check that all non-gray immune objects only refernce immune objects.
+        cc->VerifyGrayImmuneObjects();
+      }
+    }
+    cc->java_lang_Object_ = down_cast<mirror::Class*>(cc->Mark(
+        WellKnownClasses::ToClass(WellKnownClasses::java_lang_Object).Ptr()));
   }
 
  private:
   ConcurrentCopying* const concurrent_copying_;
 };
 
+class ConcurrentCopying::VerifyGrayImmuneObjectsVisitor {
+ public:
+  explicit VerifyGrayImmuneObjectsVisitor(ConcurrentCopying* collector)
+      : collector_(collector) {}
+
+  void operator()(ObjPtr<mirror::Object> obj, MemberOffset offset, bool /* is_static */)
+      const ALWAYS_INLINE REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
+    CheckReference(obj->GetFieldObject<mirror::Object, kVerifyNone, kWithoutReadBarrier>(offset),
+                   obj, offset);
+  }
+
+  void operator()(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> ref) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
+    CHECK(klass->IsTypeOfReferenceClass());
+    CheckReference(ref->GetReferent<kWithoutReadBarrier>(),
+                   ref,
+                   mirror::Reference::ReferentOffset());
+  }
+
+  void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
+      ALWAYS_INLINE
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (!root->IsNull()) {
+      VisitRoot(root);
+    }
+  }
+
+  void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
+      ALWAYS_INLINE
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    CheckReference(root->AsMirrorPtr(), nullptr, MemberOffset(0));
+  }
+
+ private:
+  ConcurrentCopying* const collector_;
+
+  void CheckReference(ObjPtr<mirror::Object> ref,
+                      ObjPtr<mirror::Object> holder,
+                      MemberOffset offset) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (ref != nullptr) {
+      if (!collector_->immune_spaces_.ContainsObject(ref.Ptr())) {
+        // Not immune, must be a zygote large object.
+        CHECK(Runtime::Current()->GetHeap()->GetLargeObjectsSpace()->IsZygoteLargeObject(
+            Thread::Current(), ref.Ptr()))
+            << "Non gray object references non immune, non zygote large object "<< ref << " "
+            << mirror::Object::PrettyTypeOf(ref) << " in holder " << holder << " "
+            << mirror::Object::PrettyTypeOf(holder) << " offset=" << offset.Uint32Value();
+      } else {
+        // Make sure the large object class is immune since we will never scan the large object.
+        CHECK(collector_->immune_spaces_.ContainsObject(
+            ref->GetClass<kVerifyNone, kWithoutReadBarrier>()));
+      }
+    }
+  }
+};
+
+void ConcurrentCopying::VerifyGrayImmuneObjects() {
+  TimingLogger::ScopedTiming split(__FUNCTION__, GetTimings());
+  for (auto& space : immune_spaces_.GetSpaces()) {
+    DCHECK(space->IsImageSpace() || space->IsZygoteSpace());
+    accounting::ContinuousSpaceBitmap* live_bitmap = space->GetLiveBitmap();
+    VerifyGrayImmuneObjectsVisitor visitor(this);
+    live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(space->Begin()),
+                                  reinterpret_cast<uintptr_t>(space->Limit()),
+                                  [&visitor](mirror::Object* obj)
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      // If an object is not gray, it should only have references to things in the immune spaces.
+      if (obj->GetReadBarrierState() != ReadBarrier::GrayState()) {
+        obj->VisitReferences</*kVisitNativeRoots*/true,
+                             kDefaultVerifyFlags,
+                             kWithoutReadBarrier>(visitor, visitor);
+      }
+    });
+  }
+}
+
+class ConcurrentCopying::VerifyNoMissingCardMarkVisitor {
+ public:
+  VerifyNoMissingCardMarkVisitor(ConcurrentCopying* cc, ObjPtr<mirror::Object> holder)
+    : cc_(cc),
+      holder_(holder) {}
+
+  void operator()(ObjPtr<mirror::Object> obj,
+                  MemberOffset offset,
+                  bool is_static ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
+    if (offset.Uint32Value() != mirror::Object::ClassOffset().Uint32Value()) {
+     CheckReference(obj->GetFieldObject<mirror::Object, kDefaultVerifyFlags, kWithoutReadBarrier>(
+         offset), offset.Uint32Value());
+    }
+  }
+  void operator()(ObjPtr<mirror::Class> klass,
+                  ObjPtr<mirror::Reference> ref) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
+    CHECK(klass->IsTypeOfReferenceClass());
+    this->operator()(ref, mirror::Reference::ReferentOffset(), false);
+  }
+
+  void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (!root->IsNull()) {
+      VisitRoot(root);
+    }
+  }
+
+  void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    CheckReference(root->AsMirrorPtr());
+  }
+
+  void CheckReference(mirror::Object* ref, int32_t offset = -1) const
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    CHECK(ref == nullptr || !cc_->region_space_->IsInNewlyAllocatedRegion(ref))
+        << holder_->PrettyTypeOf() << "(" << holder_.Ptr() << ") references object "
+        << ref->PrettyTypeOf() << "(" << ref << ") in newly allocated region at offset=" << offset;
+  }
+
+ private:
+  ConcurrentCopying* const cc_;
+  ObjPtr<mirror::Object> const holder_;
+};
+
+void ConcurrentCopying::VerifyNoMissingCardMarkCallback(mirror::Object* obj, void* arg) {
+  auto* collector = reinterpret_cast<ConcurrentCopying*>(arg);
+  // Objects not on dirty cards should never have references to newly allocated regions.
+  if (!collector->heap_->GetCardTable()->IsDirty(obj)) {
+    VerifyNoMissingCardMarkVisitor visitor(collector, /*holder*/ obj);
+    obj->VisitReferences</*kVisitNativeRoots*/true, kVerifyNone, kWithoutReadBarrier>(
+        visitor,
+        visitor);
+  }
+}
+
+void ConcurrentCopying::VerifyNoMissingCardMarks() {
+  TimingLogger::ScopedTiming split(__FUNCTION__, GetTimings());
+  region_space_->Walk(&VerifyNoMissingCardMarkCallback, this);
+  {
+    ReaderMutexLock rmu(Thread::Current(), *Locks::heap_bitmap_lock_);
+    heap_->GetLiveBitmap()->Walk(&VerifyNoMissingCardMarkCallback, this);
+  }
+}
+
 // Switch threads that from from-space to to-space refs. Forward/mark the thread roots.
 void ConcurrentCopying::FlipThreadRoots() {
   TimingLogger::ScopedTiming split("FlipThreadRoots", GetTimings());
   if (kVerboseMode) {
     LOG(INFO) << "time=" << region_space_->Time();
-    region_space_->DumpNonFreeRegions(LOG(INFO));
+    region_space_->DumpNonFreeRegions(LOG_STREAM(INFO));
   }
   Thread* self = Thread::Current();
   Locks::mutator_lock_->AssertNotHeld(self);
   gc_barrier_->Init(self, 0);
   ThreadFlipVisitor thread_flip_visitor(this, heap_->use_tlab_);
   FlipCallback flip_callback(this);
-  heap_->ThreadFlipBegin(self);  // Sync with JNI critical calls.
+
+  // This is the point where Concurrent-Copying will pause all threads. We report a pause here, if
+  // necessary. This is slightly over-reporting, as this includes the time to actually suspend
+  // threads.
+  {
+    GcPauseListener* pause_listener = GetHeap()->GetGcPauseListener();
+    if (pause_listener != nullptr) {
+      pause_listener->StartPause();
+    }
+  }
+
   size_t barrier_count = Runtime::Current()->FlipThreadRoots(
       &thread_flip_visitor, &flip_callback, this);
-  heap_->ThreadFlipEnd(self);
+
+  {
+    GcPauseListener* pause_listener = GetHeap()->GetGcPauseListener();
+    if (pause_listener != nullptr) {
+      pause_listener->EndPause();
+    }
+  }
+
   {
     ScopedThreadStateChange tsc(self, kWaitingForCheckPointsToRun);
     gc_barrier_->Increment(self, barrier_count);
@@ -282,9 +571,60 @@ void ConcurrentCopying::FlipThreadRoots() {
   QuasiAtomic::ThreadFenceForConstructor();
   if (kVerboseMode) {
     LOG(INFO) << "time=" << region_space_->Time();
-    region_space_->DumpNonFreeRegions(LOG(INFO));
+    region_space_->DumpNonFreeRegions(LOG_STREAM(INFO));
     LOG(INFO) << "GC end of FlipThreadRoots";
   }
+}
+
+class ConcurrentCopying::GrayImmuneObjectVisitor {
+ public:
+  explicit GrayImmuneObjectVisitor() {}
+
+  ALWAYS_INLINE void operator()(mirror::Object* obj) const REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (kUseBakerReadBarrier) {
+      if (kIsDebugBuild) {
+        Locks::mutator_lock_->AssertExclusiveHeld(Thread::Current());
+      }
+      obj->SetReadBarrierState(ReadBarrier::GrayState());
+    }
+  }
+
+  static void Callback(mirror::Object* obj, void* arg) REQUIRES_SHARED(Locks::mutator_lock_) {
+    reinterpret_cast<GrayImmuneObjectVisitor*>(arg)->operator()(obj);
+  }
+};
+
+void ConcurrentCopying::GrayAllDirtyImmuneObjects() {
+  TimingLogger::ScopedTiming split(__FUNCTION__, GetTimings());
+  gc::Heap* const heap = Runtime::Current()->GetHeap();
+  accounting::CardTable* const card_table = heap->GetCardTable();
+  WriterMutexLock mu(Thread::Current(), *Locks::heap_bitmap_lock_);
+  for (space::ContinuousSpace* space : immune_spaces_.GetSpaces()) {
+    DCHECK(space->IsImageSpace() || space->IsZygoteSpace());
+    GrayImmuneObjectVisitor visitor;
+    accounting::ModUnionTable* table = heap->FindModUnionTableFromSpace(space);
+    // Mark all the objects on dirty cards since these may point to objects in other space.
+    // Once these are marked, the GC will eventually clear them later.
+    // Table is non null for boot image and zygote spaces. It is only null for application image
+    // spaces.
+    if (table != nullptr) {
+      // TODO: Consider adding precleaning outside the pause.
+      table->ProcessCards();
+      table->VisitObjects(GrayImmuneObjectVisitor::Callback, &visitor);
+      // Since the cards are recorded in the mod-union table and this is paused, we can clear
+      // the cards for the space (to madvise).
+      TimingLogger::ScopedTiming split2("(Paused)ClearCards", GetTimings());
+      card_table->ClearCardRange(space->Begin(),
+                                 AlignDown(space->End(), accounting::CardTable::kCardSize));
+    } else {
+      // TODO: Consider having a mark bitmap for app image spaces and avoid scanning during the
+      // pause because app image spaces are all dirty pages anyways.
+      card_table->Scan<false>(space->GetMarkBitmap(), space->Begin(), space->End(), visitor);
+    }
+  }
+  // Since all of the objects that may point to other spaces are marked, we can avoid all the read
+  // barriers in the immune spaces.
+  updated_all_immune_objects_.StoreRelaxed(true);
 }
 
 void ConcurrentCopying::SwapStacks() {
@@ -297,57 +637,38 @@ void ConcurrentCopying::RecordLiveStackFreezeSize(Thread* self) {
 }
 
 // Used to visit objects in the immune spaces.
-class ConcurrentCopying::ImmuneSpaceObjVisitor {
- public:
-  explicit ImmuneSpaceObjVisitor(ConcurrentCopying* cc) : collector_(cc) {}
+inline void ConcurrentCopying::ScanImmuneObject(mirror::Object* obj) {
+  DCHECK(obj != nullptr);
+  DCHECK(immune_spaces_.ContainsObject(obj));
+  // Update the fields without graying it or pushing it onto the mark stack.
+  Scan(obj);
+}
 
-  void operator()(mirror::Object* obj) const SHARED_REQUIRES(Locks::mutator_lock_)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
-    DCHECK(obj != nullptr);
-    DCHECK(collector_->immune_spaces_.ContainsObject(obj));
-    accounting::ContinuousSpaceBitmap* cc_bitmap =
-        collector_->cc_heap_bitmap_->GetContinuousSpaceBitmap(obj);
-    DCHECK(cc_bitmap != nullptr)
-        << "An immune space object must have a bitmap";
-    if (kIsDebugBuild) {
-      DCHECK(collector_->heap_->GetMarkBitmap()->Test(obj))
-          << "Immune space object must be already marked";
-    }
-    // This may or may not succeed, which is ok.
-    if (kUseBakerReadBarrier) {
-      obj->AtomicSetReadBarrierPointer(ReadBarrier::WhitePtr(), ReadBarrier::GrayPtr());
-    }
-    if (cc_bitmap->AtomicTestAndSet(obj)) {
-      // Already marked. Do nothing.
+class ConcurrentCopying::ImmuneSpaceScanObjVisitor {
+ public:
+  explicit ImmuneSpaceScanObjVisitor(ConcurrentCopying* cc)
+      : collector_(cc) {}
+
+  ALWAYS_INLINE void operator()(mirror::Object* obj) const REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (kUseBakerReadBarrier && kGrayDirtyImmuneObjects) {
+      if (obj->GetReadBarrierState() == ReadBarrier::GrayState()) {
+        collector_->ScanImmuneObject(obj);
+        // Done scanning the object, go back to white.
+        bool success = obj->AtomicSetReadBarrierState(ReadBarrier::GrayState(),
+                                                      ReadBarrier::WhiteState());
+        CHECK(success);
+      }
     } else {
-      // Newly marked. Set the gray bit and push it onto the mark stack.
-      CHECK(!kUseBakerReadBarrier || obj->GetReadBarrierPointer() == ReadBarrier::GrayPtr());
-      collector_->PushOntoMarkStack(obj);
+      collector_->ScanImmuneObject(obj);
     }
+  }
+
+  static void Callback(mirror::Object* obj, void* arg) REQUIRES_SHARED(Locks::mutator_lock_) {
+    reinterpret_cast<ImmuneSpaceScanObjVisitor*>(arg)->operator()(obj);
   }
 
  private:
   ConcurrentCopying* const collector_;
-};
-
-class EmptyCheckpoint : public Closure {
- public:
-  explicit EmptyCheckpoint(ConcurrentCopying* concurrent_copying)
-      : concurrent_copying_(concurrent_copying) {
-  }
-
-  virtual void Run(Thread* thread) OVERRIDE NO_THREAD_SAFETY_ANALYSIS {
-    // Note: self is not necessarily equal to thread since thread may be suspended.
-    Thread* self = Thread::Current();
-    CHECK(thread == self || thread->IsSuspended() || thread->GetState() == kWaitingPerformingGc)
-        << thread->GetState() << " thread " << thread << " self " << self;
-    // If thread is a running mutator, then act on behalf of the garbage collector.
-    // See the code in ThreadList::RunCheckpoint.
-    concurrent_copying_->GetBarrier().Pass(self);
-  }
-
- private:
-  ConcurrentCopying* const concurrent_copying_;
 };
 
 // Concurrently mark roots that are guarded by read barriers and process the mark stack.
@@ -356,26 +677,59 @@ void ConcurrentCopying::MarkingPhase() {
   if (kVerboseMode) {
     LOG(INFO) << "GC MarkingPhase";
   }
-  CHECK(weak_ref_access_enabled_);
+  Thread* self = Thread::Current();
+  if (kIsDebugBuild) {
+    MutexLock mu(self, *Locks::thread_list_lock_);
+    CHECK(weak_ref_access_enabled_);
+  }
+
+  // Scan immune spaces.
+  // Update all the fields in the immune spaces first without graying the objects so that we
+  // minimize dirty pages in the immune spaces. Note mutators can concurrently access and gray some
+  // of the objects.
+  if (kUseBakerReadBarrier) {
+    gc_grays_immune_objects_ = false;
+  }
   {
-    // Mark the image root. The WB-based collectors do not need to
-    // scan the image objects from roots by relying on the card table,
-    // but it's necessary for the RB to-space invariant to hold.
-    TimingLogger::ScopedTiming split1("VisitImageRoots", GetTimings());
-    for (space::ContinuousSpace* space : heap_->GetContinuousSpaces()) {
-      if (space->IsImageSpace()) {
-        gc::space::ImageSpace* image = space->AsImageSpace();
-        if (image != nullptr) {
-          mirror::ObjectArray<mirror::Object>* image_root = image->GetImageHeader().GetImageRoots();
-          mirror::Object* marked_image_root = Mark(image_root);
-          CHECK_EQ(image_root, marked_image_root) << "An image object does not move";
-          if (ReadBarrier::kEnableToSpaceInvariantChecks) {
-            AssertToSpaceInvariant(nullptr, MemberOffset(0), marked_image_root);
-          }
-        }
+    TimingLogger::ScopedTiming split2("ScanImmuneSpaces", GetTimings());
+    for (auto& space : immune_spaces_.GetSpaces()) {
+      DCHECK(space->IsImageSpace() || space->IsZygoteSpace());
+      accounting::ContinuousSpaceBitmap* live_bitmap = space->GetLiveBitmap();
+      accounting::ModUnionTable* table = heap_->FindModUnionTableFromSpace(space);
+      ImmuneSpaceScanObjVisitor visitor(this);
+      if (kUseBakerReadBarrier && kGrayDirtyImmuneObjects && table != nullptr) {
+        table->VisitObjects(ImmuneSpaceScanObjVisitor::Callback, &visitor);
+      } else {
+        live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(space->Begin()),
+                                      reinterpret_cast<uintptr_t>(space->Limit()),
+                                      visitor);
       }
     }
   }
+  if (kUseBakerReadBarrier) {
+    // This release fence makes the field updates in the above loop visible before allowing mutator
+    // getting access to immune objects without graying it first.
+    updated_all_immune_objects_.StoreRelease(true);
+    // Now whiten immune objects concurrently accessed and grayed by mutators. We can't do this in
+    // the above loop because we would incorrectly disable the read barrier by whitening an object
+    // which may point to an unscanned, white object, breaking the to-space invariant.
+    //
+    // Make sure no mutators are in the middle of marking an immune object before whitening immune
+    // objects.
+    IssueEmptyCheckpoint();
+    MutexLock mu(Thread::Current(), immune_gray_stack_lock_);
+    if (kVerboseMode) {
+      LOG(INFO) << "immune gray stack size=" << immune_gray_stack_.size();
+    }
+    for (mirror::Object* obj : immune_gray_stack_) {
+      DCHECK(obj->GetReadBarrierState() == ReadBarrier::GrayState());
+      bool success = obj->AtomicSetReadBarrierState(ReadBarrier::GrayState(),
+                                                    ReadBarrier::WhiteState());
+      DCHECK(success);
+    }
+    immune_gray_stack_.clear();
+  }
+
   {
     TimingLogger::ScopedTiming split2("VisitConcurrentRoots", GetTimings());
     Runtime::Current()->VisitConcurrentRoots(this, kVisitRootFlagAllRoots);
@@ -386,17 +740,6 @@ void ConcurrentCopying::MarkingPhase() {
     Runtime::Current()->VisitNonThreadRoots(this);
   }
 
-  // Immune spaces.
-  for (auto& space : immune_spaces_.GetSpaces()) {
-    DCHECK(space->IsImageSpace() || space->IsZygoteSpace());
-    accounting::ContinuousSpaceBitmap* live_bitmap = space->GetLiveBitmap();
-    ImmuneSpaceObjVisitor visitor(this);
-    live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(space->Begin()),
-                                  reinterpret_cast<uintptr_t>(space->Limit()),
-                                  visitor);
-  }
-
-  Thread* self = Thread::Current();
   {
     TimingLogger::ScopedTiming split7("ProcessMarkStack", GetTimings());
     // We transition through three mark stack modes (thread-local, shared, GC-exclusive). The
@@ -458,10 +801,16 @@ void ConcurrentCopying::MarkingPhase() {
     Runtime::Current()->GetClassLinker()->CleanupClassLoaders();
     // Marking is done. Disable marking.
     DisableMarking();
+    if (kUseBakerReadBarrier) {
+      ProcessFalseGrayStack();
+    }
     CheckEmptyMarkStack();
   }
 
-  CHECK(weak_ref_access_enabled_);
+  if (kIsDebugBuild) {
+    MutexLock mu(self, *Locks::thread_list_lock_);
+    CHECK(weak_ref_access_enabled_);
+  }
   if (kVerboseMode) {
     LOG(INFO) << "GC end of MarkingPhase";
   }
@@ -471,11 +820,10 @@ void ConcurrentCopying::ReenableWeakRefAccess(Thread* self) {
   if (kVerboseMode) {
     LOG(INFO) << "ReenableWeakRefAccess";
   }
-  weak_ref_access_enabled_.StoreRelaxed(true);  // This is for new threads.
-  QuasiAtomic::ThreadFenceForConstructor();
   // Iterate all threads (don't need to or can't use a checkpoint) and re-enable weak ref access.
   {
     MutexLock mu(self, *Locks::thread_list_lock_);
+    weak_ref_access_enabled_ = true;  // This is for new threads.
     std::list<Thread*> thread_list = Runtime::Current()->GetThreadList()->GetList();
     for (Thread* thread : thread_list) {
       thread->SetWeakRefAccessEnabled(true);
@@ -500,10 +848,27 @@ class ConcurrentCopying::DisableMarkingCheckpoint : public Closure {
     // Disable the thread-local is_gc_marking flag.
     // Note a thread that has just started right before this checkpoint may have already this flag
     // set to false, which is ok.
-    thread->SetIsGcMarking(false);
+    thread->SetIsGcMarkingAndUpdateEntrypoints(false);
     // If thread is a running mutator, then act on behalf of the garbage collector.
     // See the code in ThreadList::RunCheckpoint.
     concurrent_copying_->GetBarrier().Pass(self);
+  }
+
+ private:
+  ConcurrentCopying* const concurrent_copying_;
+};
+
+class ConcurrentCopying::DisableMarkingCallback : public Closure {
+ public:
+  explicit DisableMarkingCallback(ConcurrentCopying* concurrent_copying)
+      : concurrent_copying_(concurrent_copying) {
+  }
+
+  void Run(Thread* self ATTRIBUTE_UNUSED) OVERRIDE REQUIRES(Locks::thread_list_lock_) {
+    // This needs to run under the thread_list_lock_ critical section in ThreadList::RunCheckpoint()
+    // to avoid a race with ThreadList::Register().
+    CHECK(concurrent_copying_->is_marking_);
+    concurrent_copying_->is_marking_ = false;
   }
 
  private:
@@ -515,7 +880,8 @@ void ConcurrentCopying::IssueDisableMarkingCheckpoint() {
   DisableMarkingCheckpoint check_point(this);
   ThreadList* thread_list = Runtime::Current()->GetThreadList();
   gc_barrier_->Init(self, 0);
-  size_t barrier_count = thread_list->RunCheckpoint(&check_point);
+  DisableMarkingCallback dmc(this);
+  size_t barrier_count = thread_list->RunCheckpoint(&check_point, &dmc);
   // If there are no threads to wait which implies that all the checkpoint functions are finished,
   // then no need to release the mutator lock.
   if (barrier_count == 0) {
@@ -531,13 +897,9 @@ void ConcurrentCopying::IssueDisableMarkingCheckpoint() {
 }
 
 void ConcurrentCopying::DisableMarking() {
-  // Change the global is_marking flag to false. Do a fence before doing a checkpoint to update the
-  // thread-local flags so that a new thread starting up will get the correct is_marking flag.
-  is_marking_ = false;
-  QuasiAtomic::ThreadFenceForConstructor();
-  // Use a checkpoint to turn off the thread-local is_gc_marking flags and to ensure no threads are
-  // still in the middle of a read barrier which may have a from-space ref cached in a local
-  // variable.
+  // Use a checkpoint to turn off the global is_marking and the thread-local is_gc_marking flags and
+  // to ensure no threads are still in the middle of a read barrier which may have a from-space ref
+  // cached in a local variable.
   IssueDisableMarkingCheckpoint();
   if (kUseTableLookupReadBarrier) {
     heap_->rb_table_->ClearAll();
@@ -547,23 +909,37 @@ void ConcurrentCopying::DisableMarking() {
   mark_stack_mode_.StoreSequentiallyConsistent(kMarkStackModeOff);
 }
 
+void ConcurrentCopying::PushOntoFalseGrayStack(mirror::Object* ref) {
+  CHECK(kUseBakerReadBarrier);
+  DCHECK(ref != nullptr);
+  MutexLock mu(Thread::Current(), mark_stack_lock_);
+  false_gray_stack_.push_back(ref);
+}
+
+void ConcurrentCopying::ProcessFalseGrayStack() {
+  CHECK(kUseBakerReadBarrier);
+  // Change the objects on the false gray stack from gray to white.
+  MutexLock mu(Thread::Current(), mark_stack_lock_);
+  for (mirror::Object* obj : false_gray_stack_) {
+    DCHECK(IsMarked(obj));
+    // The object could be white here if a thread got preempted after a success at the
+    // AtomicSetReadBarrierState in Mark(), GC started marking through it (but not finished so
+    // still gray), and the thread ran to register it onto the false gray stack.
+    if (obj->GetReadBarrierState() == ReadBarrier::GrayState()) {
+      bool success = obj->AtomicSetReadBarrierState(ReadBarrier::GrayState(),
+                                                    ReadBarrier::WhiteState());
+      DCHECK(success);
+    }
+  }
+  false_gray_stack_.clear();
+}
+
 void ConcurrentCopying::IssueEmptyCheckpoint() {
   Thread* self = Thread::Current();
-  EmptyCheckpoint check_point(this);
   ThreadList* thread_list = Runtime::Current()->GetThreadList();
-  gc_barrier_->Init(self, 0);
-  size_t barrier_count = thread_list->RunCheckpoint(&check_point);
-  // If there are no threads to wait which implys that all the checkpoint functions are finished,
-  // then no need to release the mutator lock.
-  if (barrier_count == 0) {
-    return;
-  }
   // Release locks then wait for all mutator threads to pass the barrier.
   Locks::mutator_lock_->SharedUnlock(self);
-  {
-    ScopedThreadStateChange tsc(self, kWaitingForCheckPointsToRun);
-    gc_barrier_->Increment(self, barrier_count);
-  }
+  thread_list->RunEmptyCheckpoint();
   Locks::mutator_lock_->SharedLock(self);
 }
 
@@ -581,7 +957,7 @@ void ConcurrentCopying::ExpandGcMarkStack() {
 
 void ConcurrentCopying::PushOntoMarkStack(mirror::Object* to_ref) {
   CHECK_EQ(is_mark_stack_push_disallowed_.LoadRelaxed(), 0)
-      << " " << to_ref << " " << PrettyTypeOf(to_ref);
+      << " " << to_ref << " " << mirror::Object::PrettyTypeOf(to_ref);
   Thread* self = Thread::Current();  // TODO: pass self as an argument from call sites?
   CHECK(thread_running_gc_ != nullptr);
   MarkStackMode mark_stack_mode = mark_stack_mode_.LoadRelaxed();
@@ -654,40 +1030,31 @@ accounting::ObjectStack* ConcurrentCopying::GetLiveStack() {
   return heap_->live_stack_.get();
 }
 
-// The following visitors are that used to verify that there's no
-// references to the from-space left after marking.
+// The following visitors are used to verify that there's no references to the from-space left after
+// marking.
 class ConcurrentCopying::VerifyNoFromSpaceRefsVisitor : public SingleRootVisitor {
  public:
   explicit VerifyNoFromSpaceRefsVisitor(ConcurrentCopying* collector)
       : collector_(collector) {}
 
-  void operator()(mirror::Object* ref) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+  void operator()(mirror::Object* ref,
+                  MemberOffset offset = MemberOffset(0),
+                  mirror::Object* holder = nullptr) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     if (ref == nullptr) {
       // OK.
       return;
     }
-    collector_->AssertToSpaceInvariant(nullptr, MemberOffset(0), ref);
+    collector_->AssertToSpaceInvariant(holder, offset, ref);
     if (kUseBakerReadBarrier) {
-      if (collector_->RegionSpace()->IsInToSpace(ref)) {
-        CHECK(ref->GetReadBarrierPointer() == nullptr)
-            << "To-space ref " << ref << " " << PrettyTypeOf(ref)
-            << " has non-white rb_ptr " << ref->GetReadBarrierPointer();
-      } else {
-        CHECK(ref->GetReadBarrierPointer() == ReadBarrier::BlackPtr() ||
-              (ref->GetReadBarrierPointer() == ReadBarrier::WhitePtr() &&
-               collector_->IsOnAllocStack(ref)))
-            << "Non-moving/unevac from space ref " << ref << " " << PrettyTypeOf(ref)
-            << " has non-black rb_ptr " << ref->GetReadBarrierPointer()
-            << " but isn't on the alloc stack (and has white rb_ptr)."
-            << " Is it in the non-moving space="
-            << (collector_->GetHeap()->GetNonMovingSpace()->HasAddress(ref));
-      }
+      CHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::WhiteState())
+          << "Ref " << ref << " " << ref->PrettyTypeOf()
+          << " has non-white rb_state ";
     }
   }
 
   void VisitRoot(mirror::Object* root, const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_) {
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(root != nullptr);
     operator()(root);
   }
@@ -701,28 +1068,31 @@ class ConcurrentCopying::VerifyNoFromSpaceRefsFieldVisitor {
   explicit VerifyNoFromSpaceRefsFieldVisitor(ConcurrentCopying* collector)
       : collector_(collector) {}
 
-  void operator()(mirror::Object* obj, MemberOffset offset, bool is_static ATTRIBUTE_UNUSED) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+  void operator()(ObjPtr<mirror::Object> obj,
+                  MemberOffset offset,
+                  bool is_static ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     mirror::Object* ref =
         obj->GetFieldObject<mirror::Object, kDefaultVerifyFlags, kWithoutReadBarrier>(offset);
     VerifyNoFromSpaceRefsVisitor visitor(collector_);
-    visitor(ref);
+    visitor(ref, offset, obj.Ptr());
   }
-  void operator()(mirror::Class* klass, mirror::Reference* ref) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+  void operator()(ObjPtr<mirror::Class> klass,
+                  ObjPtr<mirror::Reference> ref) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     CHECK(klass->IsTypeOfReferenceClass());
     this->operator()(ref, mirror::Reference::ReferentOffset(), false);
   }
 
   void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!root->IsNull()) {
       VisitRoot(root);
     }
   }
 
   void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     VerifyNoFromSpaceRefsVisitor visitor(collector_);
     visitor(root->AsMirrorPtr());
   }
@@ -736,30 +1106,22 @@ class ConcurrentCopying::VerifyNoFromSpaceRefsObjectVisitor {
   explicit VerifyNoFromSpaceRefsObjectVisitor(ConcurrentCopying* collector)
       : collector_(collector) {}
   void operator()(mirror::Object* obj) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     ObjectCallback(obj, collector_);
   }
   static void ObjectCallback(mirror::Object* obj, void *arg)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     CHECK(obj != nullptr);
     ConcurrentCopying* collector = reinterpret_cast<ConcurrentCopying*>(arg);
     space::RegionSpace* region_space = collector->RegionSpace();
     CHECK(!region_space->IsInFromSpace(obj)) << "Scanning object " << obj << " in from space";
     VerifyNoFromSpaceRefsFieldVisitor visitor(collector);
-    obj->VisitReferences(visitor, visitor);
+    obj->VisitReferences</*kVisitNativeRoots*/true, kDefaultVerifyFlags, kWithoutReadBarrier>(
+        visitor,
+        visitor);
     if (kUseBakerReadBarrier) {
-      if (collector->RegionSpace()->IsInToSpace(obj)) {
-        CHECK(obj->GetReadBarrierPointer() == nullptr)
-            << "obj=" << obj << " non-white rb_ptr " << obj->GetReadBarrierPointer();
-      } else {
-        CHECK(obj->GetReadBarrierPointer() == ReadBarrier::BlackPtr() ||
-              (obj->GetReadBarrierPointer() == ReadBarrier::WhitePtr() &&
-               collector->IsOnAllocStack(obj)))
-            << "Non-moving space/unevac from space ref " << obj << " " << PrettyTypeOf(obj)
-            << " has non-black rb_ptr " << obj->GetReadBarrierPointer()
-            << " but isn't on the alloc stack (and has white rb_ptr). Is it in the non-moving space="
-            << (collector->GetHeap()->GetNonMovingSpace()->HasAddress(obj));
-      }
+      CHECK_EQ(obj->GetReadBarrierState(), ReadBarrier::WhiteState())
+          << "obj=" << obj << " non-white rb_state " << obj->GetReadBarrierState();
     }
   }
 
@@ -816,7 +1178,7 @@ class ConcurrentCopying::AssertToSpaceInvariantRefsVisitor {
       : collector_(collector) {}
 
   void operator()(mirror::Object* ref) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     if (ref == nullptr) {
       // OK.
       return;
@@ -833,27 +1195,29 @@ class ConcurrentCopying::AssertToSpaceInvariantFieldVisitor {
   explicit AssertToSpaceInvariantFieldVisitor(ConcurrentCopying* collector)
       : collector_(collector) {}
 
-  void operator()(mirror::Object* obj, MemberOffset offset, bool is_static ATTRIBUTE_UNUSED) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+  void operator()(ObjPtr<mirror::Object> obj,
+                  MemberOffset offset,
+                  bool is_static ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     mirror::Object* ref =
         obj->GetFieldObject<mirror::Object, kDefaultVerifyFlags, kWithoutReadBarrier>(offset);
     AssertToSpaceInvariantRefsVisitor visitor(collector_);
     visitor(ref);
   }
-  void operator()(mirror::Class* klass, mirror::Reference* ref ATTRIBUTE_UNUSED) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+  void operator()(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> ref ATTRIBUTE_UNUSED) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     CHECK(klass->IsTypeOfReferenceClass());
   }
 
   void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!root->IsNull()) {
       VisitRoot(root);
     }
   }
 
   void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     AssertToSpaceInvariantRefsVisitor visitor(collector_);
     visitor(root->AsMirrorPtr());
   }
@@ -867,18 +1231,20 @@ class ConcurrentCopying::AssertToSpaceInvariantObjectVisitor {
   explicit AssertToSpaceInvariantObjectVisitor(ConcurrentCopying* collector)
       : collector_(collector) {}
   void operator()(mirror::Object* obj) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     ObjectCallback(obj, collector_);
   }
   static void ObjectCallback(mirror::Object* obj, void *arg)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     CHECK(obj != nullptr);
     ConcurrentCopying* collector = reinterpret_cast<ConcurrentCopying*>(arg);
     space::RegionSpace* region_space = collector->RegionSpace();
     CHECK(!region_space->IsInFromSpace(obj)) << "Scanning object " << obj << " in from space";
     collector->AssertToSpaceInvariant(nullptr, MemberOffset(0), obj);
     AssertToSpaceInvariantFieldVisitor visitor(collector);
-    obj->VisitReferences(visitor, visitor);
+    obj->VisitReferences</*kVisitNativeRoots*/true, kDefaultVerifyFlags, kWithoutReadBarrier>(
+        visitor,
+        visitor);
   }
 
  private:
@@ -919,12 +1285,13 @@ class ConcurrentCopying::RevokeThreadLocalMarkStackCheckpoint : public Closure {
   const bool disable_weak_ref_access_;
 };
 
-void ConcurrentCopying::RevokeThreadLocalMarkStacks(bool disable_weak_ref_access) {
+void ConcurrentCopying::RevokeThreadLocalMarkStacks(bool disable_weak_ref_access,
+                                                    Closure* checkpoint_callback) {
   Thread* self = Thread::Current();
   RevokeThreadLocalMarkStackCheckpoint check_point(this, disable_weak_ref_access);
   ThreadList* thread_list = Runtime::Current()->GetThreadList();
   gc_barrier_->Init(self, 0);
-  size_t barrier_count = thread_list->RunCheckpoint(&check_point);
+  size_t barrier_count = thread_list->RunCheckpoint(&check_point, checkpoint_callback);
   // If there are no threads to wait which implys that all the checkpoint functions are finished,
   // then no need to release the mutator lock.
   if (barrier_count == 0) {
@@ -974,7 +1341,7 @@ bool ConcurrentCopying::ProcessMarkStackOnce() {
   MarkStackMode mark_stack_mode = mark_stack_mode_.LoadRelaxed();
   if (mark_stack_mode == kMarkStackModeThreadLocal) {
     // Process the thread-local mark stacks and the GC mark stack.
-    count += ProcessThreadLocalMarkStacks(false);
+    count += ProcessThreadLocalMarkStacks(false, nullptr);
     while (!gc_mark_stack_->IsEmpty()) {
       mirror::Object* to_ref = gc_mark_stack_->PopBack();
       ProcessMarkStackRef(to_ref);
@@ -982,6 +1349,10 @@ bool ConcurrentCopying::ProcessMarkStackOnce() {
     }
     gc_mark_stack_->Reset();
   } else if (mark_stack_mode == kMarkStackModeShared) {
+    // Do an empty checkpoint to avoid a race with a mutator preempted in the middle of a read
+    // barrier but before pushing onto the mark stack. b/32508093. Note the weak ref access is
+    // disabled at this point.
+    IssueEmptyCheckpoint();
     // Process the shared GC mark stack with a lock.
     {
       MutexLock mu(self, mark_stack_lock_);
@@ -1026,9 +1397,10 @@ bool ConcurrentCopying::ProcessMarkStackOnce() {
   return count == 0;
 }
 
-size_t ConcurrentCopying::ProcessThreadLocalMarkStacks(bool disable_weak_ref_access) {
+size_t ConcurrentCopying::ProcessThreadLocalMarkStacks(bool disable_weak_ref_access,
+                                                       Closure* checkpoint_callback) {
   // Run a checkpoint to collect all thread local mark stacks and iterate over them all.
-  RevokeThreadLocalMarkStacks(disable_weak_ref_access);
+  RevokeThreadLocalMarkStacks(disable_weak_ref_access, checkpoint_callback);
   size_t count = 0;
   std::vector<accounting::AtomicStack<mirror::Object>*> mark_stacks;
   {
@@ -1061,62 +1433,82 @@ size_t ConcurrentCopying::ProcessThreadLocalMarkStacks(bool disable_weak_ref_acc
 inline void ConcurrentCopying::ProcessMarkStackRef(mirror::Object* to_ref) {
   DCHECK(!region_space_->IsInFromSpace(to_ref));
   if (kUseBakerReadBarrier) {
-    DCHECK(to_ref->GetReadBarrierPointer() == ReadBarrier::GrayPtr())
-        << " " << to_ref << " " << to_ref->GetReadBarrierPointer()
+    DCHECK(to_ref->GetReadBarrierState() == ReadBarrier::GrayState())
+        << " " << to_ref << " " << to_ref->GetReadBarrierState()
         << " is_marked=" << IsMarked(to_ref);
   }
-  // Scan ref fields.
-  Scan(to_ref);
-  // Mark the gray ref as white or black.
+  bool add_to_live_bytes = false;
+  if (region_space_->IsInUnevacFromSpace(to_ref)) {
+    // Mark the bitmap only in the GC thread here so that we don't need a CAS.
+    if (!kUseBakerReadBarrier || !region_space_bitmap_->Set(to_ref)) {
+      // It may be already marked if we accidentally pushed the same object twice due to the racy
+      // bitmap read in MarkUnevacFromSpaceRegion.
+      Scan(to_ref);
+      // Only add to the live bytes if the object was not already marked.
+      add_to_live_bytes = true;
+    }
+  } else {
+    Scan(to_ref);
+  }
   if (kUseBakerReadBarrier) {
-    DCHECK(to_ref->GetReadBarrierPointer() == ReadBarrier::GrayPtr())
-        << " " << to_ref << " " << to_ref->GetReadBarrierPointer()
+    DCHECK(to_ref->GetReadBarrierState() == ReadBarrier::GrayState())
+        << " " << to_ref << " " << to_ref->GetReadBarrierState()
         << " is_marked=" << IsMarked(to_ref);
   }
 #ifdef USE_BAKER_OR_BROOKS_READ_BARRIER
+  mirror::Object* referent = nullptr;
   if (UNLIKELY((to_ref->GetClass<kVerifyNone, kWithoutReadBarrier>()->IsTypeOfReferenceClass() &&
-                to_ref->AsReference()->GetReferent<kWithoutReadBarrier>() != nullptr &&
-                !IsInToSpace(to_ref->AsReference()->GetReferent<kWithoutReadBarrier>())))) {
-    // Leave this Reference gray in the queue so that GetReferent() will trigger a read barrier. We
-    // will change it to black or white later in ReferenceQueue::DequeuePendingReference().
+                (referent = to_ref->AsReference()->GetReferent<kWithoutReadBarrier>()) != nullptr &&
+                !IsInToSpace(referent)))) {
+    // Leave this reference gray in the queue so that GetReferent() will trigger a read barrier. We
+    // will change it to white later in ReferenceQueue::DequeuePendingReference().
     DCHECK(to_ref->AsReference()->GetPendingNext() != nullptr) << "Left unenqueued ref gray " << to_ref;
   } else {
-    // We may occasionally leave a Reference black or white in the queue if its referent happens to
-    // be concurrently marked after the Scan() call above has enqueued the Reference, in which case
-    // the above IsInToSpace() evaluates to true and we change the color from gray to black or white
-    // here in this else block.
+    // We may occasionally leave a reference white in the queue if its referent happens to be
+    // concurrently marked after the Scan() call above has enqueued the Reference, in which case the
+    // above IsInToSpace() evaluates to true and we change the color from gray to white here in this
+    // else block.
     if (kUseBakerReadBarrier) {
-      if (region_space_->IsInToSpace(to_ref)) {
-        // If to-space, change from gray to white.
-        bool success = to_ref->AtomicSetReadBarrierPointer</*kCasRelease*/true>(
-            ReadBarrier::GrayPtr(),
-            ReadBarrier::WhitePtr());
-        DCHECK(success) << "Must succeed as we won the race.";
-        DCHECK(to_ref->GetReadBarrierPointer() == ReadBarrier::WhitePtr());
-      } else {
-        // If non-moving space/unevac from space, change from gray
-        // to black. We can't change gray to white because it's not
-        // safe to use CAS if two threads change values in opposite
-        // directions (A->B and B->A). So, we change it to black to
-        // indicate non-moving objects that have been marked
-        // through. Note we'd need to change from black to white
-        // later (concurrently).
-        bool success = to_ref->AtomicSetReadBarrierPointer</*kCasRelease*/true>(
-            ReadBarrier::GrayPtr(),
-            ReadBarrier::BlackPtr());
-        DCHECK(success) << "Must succeed as we won the race.";
-        DCHECK(to_ref->GetReadBarrierPointer() == ReadBarrier::BlackPtr());
-      }
+      bool success = to_ref->AtomicSetReadBarrierState</*kCasRelease*/true>(
+          ReadBarrier::GrayState(),
+          ReadBarrier::WhiteState());
+      DCHECK(success) << "Must succeed as we won the race.";
     }
   }
 #else
   DCHECK(!kUseBakerReadBarrier);
 #endif
-  if (ReadBarrier::kEnableToSpaceInvariantChecks || kIsDebugBuild) {
+
+  if (add_to_live_bytes) {
+    // Add to the live bytes per unevacuated from space. Note this code is always run by the
+    // GC-running thread (no synchronization required).
+    DCHECK(region_space_bitmap_->Test(to_ref));
+    size_t obj_size = to_ref->SizeOf<kDefaultVerifyFlags>();
+    size_t alloc_size = RoundUp(obj_size, space::RegionSpace::kAlignment);
+    region_space_->AddLiveBytes(to_ref, alloc_size);
+  }
+  if (ReadBarrier::kEnableToSpaceInvariantChecks) {
     AssertToSpaceInvariantObjectVisitor visitor(this);
     visitor(to_ref);
   }
 }
+
+class ConcurrentCopying::DisableWeakRefAccessCallback : public Closure {
+ public:
+  explicit DisableWeakRefAccessCallback(ConcurrentCopying* concurrent_copying)
+      : concurrent_copying_(concurrent_copying) {
+  }
+
+  void Run(Thread* self ATTRIBUTE_UNUSED) OVERRIDE REQUIRES(Locks::thread_list_lock_) {
+    // This needs to run under the thread_list_lock_ critical section in ThreadList::RunCheckpoint()
+    // to avoid a deadlock b/31500969.
+    CHECK(concurrent_copying_->weak_ref_access_enabled_);
+    concurrent_copying_->weak_ref_access_enabled_ = false;
+  }
+
+ private:
+  ConcurrentCopying* const concurrent_copying_;
+};
 
 void ConcurrentCopying::SwitchToSharedMarkStackMode() {
   Thread* self = Thread::Current();
@@ -1127,12 +1519,10 @@ void ConcurrentCopying::SwitchToSharedMarkStackMode() {
   CHECK_EQ(static_cast<uint32_t>(before_mark_stack_mode),
            static_cast<uint32_t>(kMarkStackModeThreadLocal));
   mark_stack_mode_.StoreRelaxed(kMarkStackModeShared);
-  CHECK(weak_ref_access_enabled_.LoadRelaxed());
-  weak_ref_access_enabled_.StoreRelaxed(false);
-  QuasiAtomic::ThreadFenceForConstructor();
+  DisableWeakRefAccessCallback dwrac(this);
   // Process the thread local mark stacks one last time after switching to the shared mark stack
   // mode and disable weak ref accesses.
-  ProcessThreadLocalMarkStacks(true);
+  ProcessThreadLocalMarkStacks(true, &dwrac);
   if (kVerboseMode) {
     LOG(INFO) << "Switched to shared mark stack mode and disabled weak ref access";
   }
@@ -1161,18 +1551,18 @@ void ConcurrentCopying::CheckEmptyMarkStack() {
   MarkStackMode mark_stack_mode = mark_stack_mode_.LoadRelaxed();
   if (mark_stack_mode == kMarkStackModeThreadLocal) {
     // Thread-local mark stack mode.
-    RevokeThreadLocalMarkStacks(false);
+    RevokeThreadLocalMarkStacks(false, nullptr);
     MutexLock mu(Thread::Current(), mark_stack_lock_);
     if (!revoked_mark_stacks_.empty()) {
       for (accounting::AtomicStack<mirror::Object>* mark_stack : revoked_mark_stacks_) {
         while (!mark_stack->IsEmpty()) {
           mirror::Object* obj = mark_stack->PopBack();
           if (kUseBakerReadBarrier) {
-            mirror::Object* rb_ptr = obj->GetReadBarrierPointer();
-            LOG(INFO) << "On mark queue : " << obj << " " << PrettyTypeOf(obj) << " rb_ptr=" << rb_ptr
-                      << " is_marked=" << IsMarked(obj);
+            uint32_t rb_state = obj->GetReadBarrierState();
+            LOG(INFO) << "On mark queue : " << obj << " " << obj->PrettyTypeOf() << " rb_state="
+                      << rb_state << " is_marked=" << IsMarked(obj);
           } else {
-            LOG(INFO) << "On mark queue : " << obj << " " << PrettyTypeOf(obj)
+            LOG(INFO) << "On mark queue : " << obj << " " << obj->PrettyTypeOf()
                       << " is_marked=" << IsMarked(obj);
           }
         }
@@ -1219,62 +1609,33 @@ void ConcurrentCopying::Sweep(bool swap_bitmaps) {
   SweepLargeObjects(swap_bitmaps);
 }
 
-void ConcurrentCopying::SweepLargeObjects(bool swap_bitmaps) {
-  TimingLogger::ScopedTiming split("SweepLargeObjects", GetTimings());
-  RecordFreeLOS(heap_->GetLargeObjectsSpace()->Sweep(swap_bitmaps));
+void ConcurrentCopying::MarkZygoteLargeObjects() {
+  TimingLogger::ScopedTiming split(__FUNCTION__, GetTimings());
+  Thread* const self = Thread::Current();
+  WriterMutexLock rmu(self, *Locks::heap_bitmap_lock_);
+  space::LargeObjectSpace* const los = heap_->GetLargeObjectsSpace();
+  if (los != nullptr) {
+    // Pick the current live bitmap (mark bitmap if swapped).
+    accounting::LargeObjectBitmap* const live_bitmap = los->GetLiveBitmap();
+    accounting::LargeObjectBitmap* const mark_bitmap = los->GetMarkBitmap();
+    // Walk through all of the objects and explicitly mark the zygote ones so they don't get swept.
+    std::pair<uint8_t*, uint8_t*> range = los->GetBeginEndAtomic();
+    live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(range.first),
+                                  reinterpret_cast<uintptr_t>(range.second),
+                                  [mark_bitmap, los, self](mirror::Object* obj)
+        REQUIRES(Locks::heap_bitmap_lock_)
+        REQUIRES_SHARED(Locks::mutator_lock_) {
+      if (los->IsZygoteLargeObject(self, obj)) {
+        mark_bitmap->Set(obj);
+      }
+    });
+  }
 }
 
-class ConcurrentCopying::ClearBlackPtrsVisitor {
- public:
-  explicit ClearBlackPtrsVisitor(ConcurrentCopying* cc) : collector_(cc) {}
-  void operator()(mirror::Object* obj) const SHARED_REQUIRES(Locks::mutator_lock_)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
-    DCHECK(obj != nullptr);
-    DCHECK(collector_->heap_->GetMarkBitmap()->Test(obj)) << obj;
-    DCHECK_EQ(obj->GetReadBarrierPointer(), ReadBarrier::BlackPtr()) << obj;
-    obj->AtomicSetReadBarrierPointer(ReadBarrier::BlackPtr(), ReadBarrier::WhitePtr());
-    DCHECK_EQ(obj->GetReadBarrierPointer(), ReadBarrier::WhitePtr()) << obj;
-  }
-
- private:
-  ConcurrentCopying* const collector_;
-};
-
-// Clear the black ptrs in non-moving objects back to white.
-void ConcurrentCopying::ClearBlackPtrs() {
-  CHECK(kUseBakerReadBarrier);
-  TimingLogger::ScopedTiming split("ClearBlackPtrs", GetTimings());
-  ClearBlackPtrsVisitor visitor(this);
-  for (auto& space : heap_->GetContinuousSpaces()) {
-    if (space == region_space_) {
-      continue;
-    }
-    accounting::ContinuousSpaceBitmap* mark_bitmap = space->GetMarkBitmap();
-    if (kVerboseMode) {
-      LOG(INFO) << "ClearBlackPtrs: " << *space << " bitmap: " << *mark_bitmap;
-    }
-    mark_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(space->Begin()),
-                                  reinterpret_cast<uintptr_t>(space->Limit()),
-                                  visitor);
-  }
-  space::LargeObjectSpace* large_object_space = heap_->GetLargeObjectsSpace();
-  large_object_space->GetMarkBitmap()->VisitMarkedRange(
-      reinterpret_cast<uintptr_t>(large_object_space->Begin()),
-      reinterpret_cast<uintptr_t>(large_object_space->End()),
-      visitor);
-  // Objects on the allocation stack?
-  if (ReadBarrier::kEnableReadBarrierInvariantChecks || kIsDebugBuild) {
-    size_t count = GetAllocationStack()->Size();
-    auto* it = GetAllocationStack()->Begin();
-    auto* end = GetAllocationStack()->End();
-    for (size_t i = 0; i < count; ++i, ++it) {
-      CHECK_LT(it, end);
-      mirror::Object* obj = it->AsMirrorPtr();
-      if (obj != nullptr) {
-        // Must have been cleared above.
-        CHECK_EQ(obj->GetReadBarrierPointer(), ReadBarrier::WhitePtr()) << obj;
-      }
-    }
+void ConcurrentCopying::SweepLargeObjects(bool swap_bitmaps) {
+  TimingLogger::ScopedTiming split("SweepLargeObjects", GetTimings());
+  if (heap_->GetLargeObjectsSpace() != nullptr) {
+    RecordFreeLOS(heap_->GetLargeObjectsSpace()->Sweep(swap_bitmaps));
   }
 }
 
@@ -1296,6 +1657,9 @@ void ConcurrentCopying::ReclaimPhase() {
     IssueEmptyCheckpoint();
     // Disable the check.
     is_mark_stack_push_disallowed_.StoreSequentiallyConsistent(0);
+    if (kUseBakerReadBarrier) {
+      updated_all_immune_objects_.StoreSequentiallyConsistent(false);
+    }
     CheckEmptyMarkStack();
   }
 
@@ -1303,20 +1667,32 @@ void ConcurrentCopying::ReclaimPhase() {
     // Record freed objects.
     TimingLogger::ScopedTiming split2("RecordFree", GetTimings());
     // Don't include thread-locals that are in the to-space.
-    uint64_t from_bytes = region_space_->GetBytesAllocatedInFromSpace();
-    uint64_t from_objects = region_space_->GetObjectsAllocatedInFromSpace();
-    uint64_t unevac_from_bytes = region_space_->GetBytesAllocatedInUnevacFromSpace();
-    uint64_t unevac_from_objects = region_space_->GetObjectsAllocatedInUnevacFromSpace();
+    const uint64_t from_bytes = region_space_->GetBytesAllocatedInFromSpace();
+    const uint64_t from_objects = region_space_->GetObjectsAllocatedInFromSpace();
+    const uint64_t unevac_from_bytes = region_space_->GetBytesAllocatedInUnevacFromSpace();
+    const uint64_t unevac_from_objects = region_space_->GetObjectsAllocatedInUnevacFromSpace();
     uint64_t to_bytes = bytes_moved_.LoadSequentiallyConsistent();
+    cumulative_bytes_moved_.FetchAndAddRelaxed(to_bytes);
     uint64_t to_objects = objects_moved_.LoadSequentiallyConsistent();
+    cumulative_objects_moved_.FetchAndAddRelaxed(to_objects);
     if (kEnableFromSpaceAccountingCheck) {
       CHECK_EQ(from_space_num_objects_at_first_pause_, from_objects + unevac_from_objects);
       CHECK_EQ(from_space_num_bytes_at_first_pause_, from_bytes + unevac_from_bytes);
     }
     CHECK_LE(to_objects, from_objects);
     CHECK_LE(to_bytes, from_bytes);
-    int64_t freed_bytes = from_bytes - to_bytes;
-    int64_t freed_objects = from_objects - to_objects;
+    // cleared_bytes and cleared_objects may be greater than the from space equivalents since
+    // ClearFromSpace may clear empty unevac regions.
+    uint64_t cleared_bytes;
+    uint64_t cleared_objects;
+    {
+      TimingLogger::ScopedTiming split4("ClearFromSpace", GetTimings());
+      region_space_->ClearFromSpace(&cleared_bytes, &cleared_objects);
+      CHECK_GE(cleared_bytes, from_bytes);
+      CHECK_GE(cleared_objects, from_objects);
+    }
+    int64_t freed_bytes = cleared_bytes - to_bytes;
+    int64_t freed_objects = cleared_objects - to_objects;
     if (kVerboseMode) {
       LOG(INFO) << "RecordFree:"
                 << " from_bytes=" << from_bytes << " from_objects=" << from_objects
@@ -1335,31 +1711,13 @@ void ConcurrentCopying::ReclaimPhase() {
   }
 
   {
-    TimingLogger::ScopedTiming split3("ComputeUnevacFromSpaceLiveRatio", GetTimings());
-    ComputeUnevacFromSpaceLiveRatio();
-  }
-
-  {
-    TimingLogger::ScopedTiming split4("ClearFromSpace", GetTimings());
-    region_space_->ClearFromSpace();
-  }
-
-  {
     WriterMutexLock mu(self, *Locks::heap_bitmap_lock_);
-    if (kUseBakerReadBarrier) {
-      ClearBlackPtrs();
-    }
     Sweep(false);
     SwapBitmaps();
     heap_->UnBindBitmaps();
 
-    // Remove bitmaps for the immune spaces.
-    while (!cc_bitmaps_.empty()) {
-      accounting::ContinuousSpaceBitmap* cc_bitmap = cc_bitmaps_.back();
-      cc_heap_bitmap_->RemoveContinuousSpaceBitmap(cc_bitmap);
-      delete cc_bitmap;
-      cc_bitmaps_.pop_back();
-    }
+    // The bitmap was cleared at the start of the GC, there is nothing we need to do here.
+    DCHECK(region_space_bitmap_ != nullptr);
     region_space_bitmap_ = nullptr;
   }
 
@@ -1370,56 +1728,26 @@ void ConcurrentCopying::ReclaimPhase() {
   }
 }
 
-class ConcurrentCopying::ComputeUnevacFromSpaceLiveRatioVisitor {
- public:
-  explicit ComputeUnevacFromSpaceLiveRatioVisitor(ConcurrentCopying* cc)
-      : collector_(cc) {}
-  void operator()(mirror::Object* ref) const SHARED_REQUIRES(Locks::mutator_lock_)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
-    DCHECK(ref != nullptr);
-    DCHECK(collector_->region_space_bitmap_->Test(ref)) << ref;
-    DCHECK(collector_->region_space_->IsInUnevacFromSpace(ref)) << ref;
-    if (kUseBakerReadBarrier) {
-      DCHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::BlackPtr()) << ref;
-      // Clear the black ptr.
-      ref->AtomicSetReadBarrierPointer(ReadBarrier::BlackPtr(), ReadBarrier::WhitePtr());
-      DCHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::WhitePtr()) << ref;
-    }
-    size_t obj_size = ref->SizeOf();
-    size_t alloc_size = RoundUp(obj_size, space::RegionSpace::kAlignment);
-    collector_->region_space_->AddLiveBytes(ref, alloc_size);
-  }
-
- private:
-  ConcurrentCopying* const collector_;
-};
-
-// Compute how much live objects are left in regions.
-void ConcurrentCopying::ComputeUnevacFromSpaceLiveRatio() {
-  region_space_->AssertAllRegionLiveBytesZeroOrCleared();
-  ComputeUnevacFromSpaceLiveRatioVisitor visitor(this);
-  region_space_bitmap_->VisitMarkedRange(reinterpret_cast<uintptr_t>(region_space_->Begin()),
-                                         reinterpret_cast<uintptr_t>(region_space_->Limit()),
-                                         visitor);
-}
-
 // Assert the to-space invariant.
-void ConcurrentCopying::AssertToSpaceInvariant(mirror::Object* obj, MemberOffset offset,
+void ConcurrentCopying::AssertToSpaceInvariant(mirror::Object* obj,
+                                               MemberOffset offset,
                                                mirror::Object* ref) {
-  CHECK(heap_->collector_type_ == kCollectorTypeCC) << static_cast<size_t>(heap_->collector_type_);
+  CHECK_EQ(heap_->collector_type_, kCollectorTypeCC);
   if (is_asserting_to_space_invariant_) {
-    if (region_space_->IsInToSpace(ref)) {
+    using RegionType = space::RegionSpace::RegionType;
+    space::RegionSpace::RegionType type = region_space_->GetRegionType(ref);
+    if (type == RegionType::kRegionTypeToSpace) {
       // OK.
       return;
-    } else if (region_space_->IsInUnevacFromSpace(ref)) {
-      CHECK(region_space_bitmap_->Test(ref)) << ref;
-    } else if (region_space_->IsInFromSpace(ref)) {
+    } else if (type == RegionType::kRegionTypeUnevacFromSpace) {
+      CHECK(IsMarkedInUnevacFromSpace(ref)) << ref;
+    } else if (UNLIKELY(type == RegionType::kRegionTypeFromSpace)) {
       // Not OK. Do extra logging.
       if (obj != nullptr) {
         LogFromSpaceRefHolder(obj, offset);
       }
-      ref->GetLockWord(false).Dump(LOG(INTERNAL_FATAL));
-      CHECK(false) << "Found from-space ref " << ref << " " << PrettyTypeOf(ref);
+      ref->GetLockWord(false).Dump(LOG_STREAM(FATAL_WITHOUT_ABORT));
+      CHECK(false) << "Found from-space ref " << ref << " " << ref->PrettyTypeOf();
     } else {
       AssertToSpaceInvariantInNonMovingSpace(obj, ref);
     }
@@ -1432,7 +1760,7 @@ class RootPrinter {
 
   template <class MirrorType>
   ALWAYS_INLINE void VisitRootIfNonNull(mirror::CompressedReference<MirrorType>* root)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!root->IsNull()) {
       VisitRoot(root);
     }
@@ -1440,14 +1768,14 @@ class RootPrinter {
 
   template <class MirrorType>
   void VisitRoot(mirror::Object** root)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    LOG(INTERNAL_FATAL) << "root=" << root << " ref=" << *root;
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    LOG(FATAL_WITHOUT_ABORT) << "root=" << root << " ref=" << *root;
   }
 
   template <class MirrorType>
   void VisitRoot(mirror::CompressedReference<MirrorType>* root)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    LOG(INTERNAL_FATAL) << "root=" << root << " ref=" << root->AsMirrorPtr();
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    LOG(FATAL_WITHOUT_ABORT) << "root=" << root << " ref=" << root->AsMirrorPtr();
   }
 };
 
@@ -1459,27 +1787,29 @@ void ConcurrentCopying::AssertToSpaceInvariant(GcRootSource* gc_root_source,
       // OK.
       return;
     } else if (region_space_->IsInUnevacFromSpace(ref)) {
-      CHECK(region_space_bitmap_->Test(ref)) << ref;
+      CHECK(IsMarkedInUnevacFromSpace(ref)) << ref;
     } else if (region_space_->IsInFromSpace(ref)) {
       // Not OK. Do extra logging.
       if (gc_root_source == nullptr) {
         // No info.
       } else if (gc_root_source->HasArtField()) {
         ArtField* field = gc_root_source->GetArtField();
-        LOG(INTERNAL_FATAL) << "gc root in field " << field << " " << PrettyField(field);
+        LOG(FATAL_WITHOUT_ABORT) << "gc root in field " << field << " "
+                                 << ArtField::PrettyField(field);
         RootPrinter root_printer;
         field->VisitRoots(root_printer);
       } else if (gc_root_source->HasArtMethod()) {
         ArtMethod* method = gc_root_source->GetArtMethod();
-        LOG(INTERNAL_FATAL) << "gc root in method " << method << " " << PrettyMethod(method);
+        LOG(FATAL_WITHOUT_ABORT) << "gc root in method " << method << " "
+                                 << ArtMethod::PrettyMethod(method);
         RootPrinter root_printer;
-        method->VisitRoots(root_printer, sizeof(void*));
+        method->VisitRoots(root_printer, kRuntimePointerSize);
       }
-      ref->GetLockWord(false).Dump(LOG(INTERNAL_FATAL));
-      region_space_->DumpNonFreeRegions(LOG(INTERNAL_FATAL));
-      PrintFileToLog("/proc/self/maps", LogSeverity::INTERNAL_FATAL);
-      MemMap::DumpMaps(LOG(INTERNAL_FATAL), true);
-      CHECK(false) << "Found from-space ref " << ref << " " << PrettyTypeOf(ref);
+      ref->GetLockWord(false).Dump(LOG_STREAM(FATAL_WITHOUT_ABORT));
+      region_space_->DumpNonFreeRegions(LOG_STREAM(FATAL_WITHOUT_ABORT));
+      PrintFileToLog("/proc/self/maps", LogSeverity::FATAL_WITHOUT_ABORT);
+      MemMap::DumpMaps(LOG_STREAM(FATAL_WITHOUT_ABORT), true);
+      CHECK(false) << "Found from-space ref " << ref << " " << ref->PrettyTypeOf();
     } else {
       AssertToSpaceInvariantInNonMovingSpace(nullptr, ref);
     }
@@ -1488,10 +1818,10 @@ void ConcurrentCopying::AssertToSpaceInvariant(GcRootSource* gc_root_source,
 
 void ConcurrentCopying::LogFromSpaceRefHolder(mirror::Object* obj, MemberOffset offset) {
   if (kUseBakerReadBarrier) {
-    LOG(INFO) << "holder=" << obj << " " << PrettyTypeOf(obj)
-              << " holder rb_ptr=" << obj->GetReadBarrierPointer();
+    LOG(INFO) << "holder=" << obj << " " << obj->PrettyTypeOf()
+              << " holder rb_state=" << obj->GetReadBarrierState();
   } else {
-    LOG(INFO) << "holder=" << obj << " " << PrettyTypeOf(obj);
+    LOG(INFO) << "holder=" << obj << " " << obj->PrettyTypeOf();
   }
   if (region_space_->IsInFromSpace(obj)) {
     LOG(INFO) << "holder is in the from-space.";
@@ -1499,7 +1829,7 @@ void ConcurrentCopying::LogFromSpaceRefHolder(mirror::Object* obj, MemberOffset 
     LOG(INFO) << "holder is in the to-space.";
   } else if (region_space_->IsInUnevacFromSpace(obj)) {
     LOG(INFO) << "holder is in the unevac from-space.";
-    if (region_space_bitmap_->Test(obj)) {
+    if (IsMarkedInUnevacFromSpace(obj)) {
       LOG(INFO) << "holder is marked in the region space bitmap.";
     } else {
       LOG(INFO) << "holder is not marked in the region space bitmap.";
@@ -1508,15 +1838,6 @@ void ConcurrentCopying::LogFromSpaceRefHolder(mirror::Object* obj, MemberOffset 
     // In a non-moving space.
     if (immune_spaces_.ContainsObject(obj)) {
       LOG(INFO) << "holder is in an immune image or the zygote space.";
-      accounting::ContinuousSpaceBitmap* cc_bitmap =
-          cc_heap_bitmap_->GetContinuousSpaceBitmap(obj);
-      CHECK(cc_bitmap != nullptr)
-          << "An immune space object must have a bitmap.";
-      if (cc_bitmap->Test(obj)) {
-        LOG(INFO) << "holder is marked in the bit map.";
-      } else {
-        LOG(INFO) << "holder is NOT marked in the bit map.";
-      }
     } else {
       LOG(INFO) << "holder is in a non-immune, non-moving (or main) space.";
       accounting::ContinuousSpaceBitmap* mark_bitmap =
@@ -1547,24 +1868,23 @@ void ConcurrentCopying::AssertToSpaceInvariantInNonMovingSpace(mirror::Object* o
                                                                mirror::Object* ref) {
   // In a non-moving spaces. Check that the ref is marked.
   if (immune_spaces_.ContainsObject(ref)) {
-    accounting::ContinuousSpaceBitmap* cc_bitmap =
-        cc_heap_bitmap_->GetContinuousSpaceBitmap(ref);
-    CHECK(cc_bitmap != nullptr)
-        << "An immune space ref must have a bitmap. " << ref;
     if (kUseBakerReadBarrier) {
-      CHECK(cc_bitmap->Test(ref))
-          << "Unmarked immune space ref. obj=" << obj << " rb_ptr="
-          << obj->GetReadBarrierPointer() << " ref=" << ref;
-    } else {
-      CHECK(cc_bitmap->Test(ref))
-          << "Unmarked immune space ref. obj=" << obj << " ref=" << ref;
+      // Immune object may not be gray if called from the GC.
+      if (Thread::Current() == thread_running_gc_ && !gc_grays_immune_objects_) {
+        return;
+      }
+      bool updated_all_immune_objects = updated_all_immune_objects_.LoadSequentiallyConsistent();
+      CHECK(updated_all_immune_objects || ref->GetReadBarrierState() == ReadBarrier::GrayState())
+          << "Unmarked immune space ref. obj=" << obj << " rb_state="
+          << (obj != nullptr ? obj->GetReadBarrierState() : 0U)
+          << " ref=" << ref << " ref rb_state=" << ref->GetReadBarrierState()
+          << " updated_all_immune_objects=" << updated_all_immune_objects;
     }
   } else {
     accounting::ContinuousSpaceBitmap* mark_bitmap =
         heap_mark_bitmap_->GetContinuousSpaceBitmap(ref);
     accounting::LargeObjectBitmap* los_bitmap =
         heap_mark_bitmap_->GetLargeObjectBitmap(ref);
-    CHECK(los_bitmap != nullptr) << "LOS bitmap covers the entire address range";
     bool is_los = mark_bitmap == nullptr;
     if ((!is_los && mark_bitmap->Test(ref)) ||
         (is_los && los_bitmap->Test(ref))) {
@@ -1586,20 +1906,20 @@ class ConcurrentCopying::RefFieldsVisitor {
       : collector_(collector) {}
 
   void operator()(mirror::Object* obj, MemberOffset offset, bool /* is_static */)
-      const ALWAYS_INLINE SHARED_REQUIRES(Locks::mutator_lock_)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_) {
+      const ALWAYS_INLINE REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
     collector_->Process(obj, offset);
   }
 
-  void operator()(mirror::Class* klass, mirror::Reference* ref) const
-      SHARED_REQUIRES(Locks::mutator_lock_) ALWAYS_INLINE {
+  void operator()(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> ref) const
+      REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE {
     CHECK(klass->IsTypeOfReferenceClass());
     collector_->DelayReferenceReferent(klass, ref);
   }
 
   void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
       ALWAYS_INLINE
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!root->IsNull()) {
       VisitRoot(root);
     }
@@ -1607,8 +1927,8 @@ class ConcurrentCopying::RefFieldsVisitor {
 
   void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
       ALWAYS_INLINE
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    collector_->MarkRoot(root);
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    collector_->MarkRoot</*kGrayImmuneObject*/false>(root);
   }
 
  private:
@@ -1617,18 +1937,32 @@ class ConcurrentCopying::RefFieldsVisitor {
 
 // Scan ref fields of an object.
 inline void ConcurrentCopying::Scan(mirror::Object* to_ref) {
+  if (kDisallowReadBarrierDuringScan && !Runtime::Current()->IsActiveTransaction()) {
+    // Avoid all read barriers during visit references to help performance.
+    // Don't do this in transaction mode because we may read the old value of an field which may
+    // trigger read barriers.
+    Thread::Current()->ModifyDebugDisallowReadBarrier(1);
+  }
   DCHECK(!region_space_->IsInFromSpace(to_ref));
+  DCHECK_EQ(Thread::Current(), thread_running_gc_);
   RefFieldsVisitor visitor(this);
   // Disable the read barrier for a performance reason.
   to_ref->VisitReferences</*kVisitNativeRoots*/true, kDefaultVerifyFlags, kWithoutReadBarrier>(
       visitor, visitor);
+  if (kDisallowReadBarrierDuringScan && !Runtime::Current()->IsActiveTransaction()) {
+    Thread::Current()->ModifyDebugDisallowReadBarrier(-1);
+  }
 }
 
 // Process a field.
 inline void ConcurrentCopying::Process(mirror::Object* obj, MemberOffset offset) {
+  DCHECK_EQ(Thread::Current(), thread_running_gc_);
   mirror::Object* ref = obj->GetFieldObject<
       mirror::Object, kVerifyNone, kWithoutReadBarrier, false>(offset);
-  mirror::Object* to_ref = Mark(ref);
+  mirror::Object* to_ref = Mark</*kGrayImmuneObject*/false, /*kFromGCThread*/true>(
+      ref,
+      /*holder*/ obj,
+      offset);
   if (to_ref == ref) {
     return;
   }
@@ -1641,8 +1975,11 @@ inline void ConcurrentCopying::Process(mirror::Object* obj, MemberOffset offset)
       // It was updated by the mutator.
       break;
     }
-  } while (!obj->CasFieldWeakRelaxedObjectWithoutWriteBarrier<
-      false, false, kVerifyNone>(offset, expected_ref, new_ref));
+    // Use release cas to make sure threads reading the reference see contents of copied objects.
+  } while (!obj->CasFieldWeakReleaseObjectWithoutWriteBarrier<false, false, kVerifyNone>(
+      offset,
+      expected_ref,
+      new_ref));
 }
 
 // Process some roots.
@@ -1667,10 +2004,11 @@ inline void ConcurrentCopying::VisitRoots(
   }
 }
 
+template<bool kGrayImmuneObject>
 inline void ConcurrentCopying::MarkRoot(mirror::CompressedReference<mirror::Object>* root) {
   DCHECK(!root->IsNull());
   mirror::Object* const ref = root->AsMirrorPtr();
-  mirror::Object* to_ref = Mark(ref);
+  mirror::Object* to_ref = Mark<kGrayImmuneObject>(ref);
   if (to_ref != ref) {
     auto* addr = reinterpret_cast<Atomic<mirror::CompressedReference<mirror::Object>>*>(root);
     auto expected_ref = mirror::CompressedReference<mirror::Object>::FromMirrorPtr(ref);
@@ -1691,39 +2029,74 @@ inline void ConcurrentCopying::VisitRoots(
   for (size_t i = 0; i < count; ++i) {
     mirror::CompressedReference<mirror::Object>* const root = roots[i];
     if (!root->IsNull()) {
-      MarkRoot(root);
+      // kGrayImmuneObject is true because this is used for the thread flip.
+      MarkRoot</*kGrayImmuneObject*/true>(root);
     }
   }
 }
 
+// Temporary set gc_grays_immune_objects_ to true in a scope if the current thread is GC.
+class ConcurrentCopying::ScopedGcGraysImmuneObjects {
+ public:
+  explicit ScopedGcGraysImmuneObjects(ConcurrentCopying* collector)
+      : collector_(collector), enabled_(false) {
+    if (kUseBakerReadBarrier &&
+        collector_->thread_running_gc_ == Thread::Current() &&
+        !collector_->gc_grays_immune_objects_) {
+      collector_->gc_grays_immune_objects_ = true;
+      enabled_ = true;
+    }
+  }
+
+  ~ScopedGcGraysImmuneObjects() {
+    if (kUseBakerReadBarrier &&
+        collector_->thread_running_gc_ == Thread::Current() &&
+        enabled_) {
+      DCHECK(collector_->gc_grays_immune_objects_);
+      collector_->gc_grays_immune_objects_ = false;
+    }
+  }
+
+ private:
+  ConcurrentCopying* const collector_;
+  bool enabled_;
+};
+
 // Fill the given memory block with a dummy object. Used to fill in a
 // copy of objects that was lost in race.
 void ConcurrentCopying::FillWithDummyObject(mirror::Object* dummy_obj, size_t byte_size) {
+  // GC doesn't gray immune objects while scanning immune objects. But we need to trigger the read
+  // barriers here because we need the updated reference to the int array class, etc. Temporary set
+  // gc_grays_immune_objects_ to true so that we won't cause a DCHECK failure in MarkImmuneSpace().
+  ScopedGcGraysImmuneObjects scoped_gc_gray_immune_objects(this);
   CHECK_ALIGNED(byte_size, kObjectAlignment);
   memset(dummy_obj, 0, byte_size);
-  mirror::Class* int_array_class = mirror::IntArray::GetArrayClass();
+  // Avoid going through read barrier for since kDisallowReadBarrierDuringScan may be enabled.
+  // Explicitly mark to make sure to get an object in the to-space.
+  mirror::Class* int_array_class = down_cast<mirror::Class*>(
+      Mark(mirror::IntArray::GetArrayClass<kWithoutReadBarrier>()));
   CHECK(int_array_class != nullptr);
   AssertToSpaceInvariant(nullptr, MemberOffset(0), int_array_class);
-  size_t component_size = int_array_class->GetComponentSize();
+  size_t component_size = int_array_class->GetComponentSize<kWithoutReadBarrier>();
   CHECK_EQ(component_size, sizeof(int32_t));
   size_t data_offset = mirror::Array::DataOffset(component_size).SizeValue();
   if (data_offset > byte_size) {
     // An int array is too big. Use java.lang.Object.
-    mirror::Class* java_lang_Object = WellKnownClasses::ToClass(WellKnownClasses::java_lang_Object);
-    AssertToSpaceInvariant(nullptr, MemberOffset(0), java_lang_Object);
-    CHECK_EQ(byte_size, java_lang_Object->GetObjectSize());
-    dummy_obj->SetClass(java_lang_Object);
-    CHECK_EQ(byte_size, dummy_obj->SizeOf());
+    AssertToSpaceInvariant(nullptr, MemberOffset(0), java_lang_Object_);
+    CHECK_EQ(byte_size, (java_lang_Object_->GetObjectSize<kVerifyNone, kWithoutReadBarrier>()));
+    dummy_obj->SetClass(java_lang_Object_);
+    CHECK_EQ(byte_size, (dummy_obj->SizeOf<kVerifyNone>()));
   } else {
     // Use an int array.
     dummy_obj->SetClass(int_array_class);
-    CHECK(dummy_obj->IsArrayInstance());
+    CHECK((dummy_obj->IsArrayInstance<kVerifyNone, kWithoutReadBarrier>()));
     int32_t length = (byte_size - data_offset) / component_size;
-    dummy_obj->AsArray()->SetLength(length);
-    CHECK_EQ(dummy_obj->AsArray()->GetLength(), length)
+    mirror::Array* dummy_arr = dummy_obj->AsArray<kVerifyNone, kWithoutReadBarrier>();
+    dummy_arr->SetLength(length);
+    CHECK_EQ(dummy_arr->GetLength(), length)
         << "byte_size=" << byte_size << " length=" << length
         << " component_size=" << component_size << " data_offset=" << data_offset;
-    CHECK_EQ(byte_size, dummy_obj->SizeOf())
+    CHECK_EQ(byte_size, (dummy_obj->SizeOf<kVerifyNone>()))
         << "byte_size=" << byte_size << " length=" << length
         << " component_size=" << component_size << " data_offset=" << data_offset;
   }
@@ -1735,14 +2108,16 @@ mirror::Object* ConcurrentCopying::AllocateInSkippedBlock(size_t alloc_size) {
   CHECK_ALIGNED(alloc_size, space::RegionSpace::kAlignment);
   Thread* self = Thread::Current();
   size_t min_object_size = RoundUp(sizeof(mirror::Object), space::RegionSpace::kAlignment);
-  MutexLock mu(self, skipped_blocks_lock_);
-  auto it = skipped_blocks_map_.lower_bound(alloc_size);
-  if (it == skipped_blocks_map_.end()) {
-    // Not found.
-    return nullptr;
-  }
+  size_t byte_size;
+  uint8_t* addr;
   {
-    size_t byte_size = it->first;
+    MutexLock mu(self, skipped_blocks_lock_);
+    auto it = skipped_blocks_map_.lower_bound(alloc_size);
+    if (it == skipped_blocks_map_.end()) {
+      // Not found.
+      return nullptr;
+    }
+    byte_size = it->first;
     CHECK_GE(byte_size, alloc_size);
     if (byte_size > alloc_size && byte_size - alloc_size < min_object_size) {
       // If remainder would be too small for a dummy object, retry with a larger request size.
@@ -1755,37 +2130,51 @@ mirror::Object* ConcurrentCopying::AllocateInSkippedBlock(size_t alloc_size) {
       CHECK_GE(it->first - alloc_size, min_object_size)
           << "byte_size=" << byte_size << " it->first=" << it->first << " alloc_size=" << alloc_size;
     }
+    // Found a block.
+    CHECK(it != skipped_blocks_map_.end());
+    byte_size = it->first;
+    addr = it->second;
+    CHECK_GE(byte_size, alloc_size);
+    CHECK(region_space_->IsInToSpace(reinterpret_cast<mirror::Object*>(addr)));
+    CHECK_ALIGNED(byte_size, space::RegionSpace::kAlignment);
+    if (kVerboseMode) {
+      LOG(INFO) << "Reusing skipped bytes : " << reinterpret_cast<void*>(addr) << ", " << byte_size;
+    }
+    skipped_blocks_map_.erase(it);
   }
-  // Found a block.
-  CHECK(it != skipped_blocks_map_.end());
-  size_t byte_size = it->first;
-  uint8_t* addr = it->second;
-  CHECK_GE(byte_size, alloc_size);
-  CHECK(region_space_->IsInToSpace(reinterpret_cast<mirror::Object*>(addr)));
-  CHECK_ALIGNED(byte_size, space::RegionSpace::kAlignment);
-  if (kVerboseMode) {
-    LOG(INFO) << "Reusing skipped bytes : " << reinterpret_cast<void*>(addr) << ", " << byte_size;
-  }
-  skipped_blocks_map_.erase(it);
   memset(addr, 0, byte_size);
   if (byte_size > alloc_size) {
     // Return the remainder to the map.
     CHECK_ALIGNED(byte_size - alloc_size, space::RegionSpace::kAlignment);
     CHECK_GE(byte_size - alloc_size, min_object_size);
+    // FillWithDummyObject may mark an object, avoid holding skipped_blocks_lock_ to prevent lock
+    // violation and possible deadlock. The deadlock case is a recursive case:
+    // FillWithDummyObject -> IntArray::GetArrayClass -> Mark -> Copy -> AllocateInSkippedBlock.
     FillWithDummyObject(reinterpret_cast<mirror::Object*>(addr + alloc_size),
                         byte_size - alloc_size);
     CHECK(region_space_->IsInToSpace(reinterpret_cast<mirror::Object*>(addr + alloc_size)));
-    skipped_blocks_map_.insert(std::make_pair(byte_size - alloc_size, addr + alloc_size));
+    {
+      MutexLock mu(self, skipped_blocks_lock_);
+      skipped_blocks_map_.insert(std::make_pair(byte_size - alloc_size, addr + alloc_size));
+    }
   }
   return reinterpret_cast<mirror::Object*>(addr);
 }
 
-mirror::Object* ConcurrentCopying::Copy(mirror::Object* from_ref) {
+mirror::Object* ConcurrentCopying::Copy(mirror::Object* from_ref,
+                                        mirror::Object* holder,
+                                        MemberOffset offset) {
   DCHECK(region_space_->IsInFromSpace(from_ref));
-  // No read barrier to avoid nested RB that might violate the to-space
-  // invariant. Note that from_ref is a from space ref so the SizeOf()
-  // call will access the from-space meta objects, but it's ok and necessary.
-  size_t obj_size = from_ref->SizeOf<kDefaultVerifyFlags, kWithoutReadBarrier>();
+  // If the class pointer is null, the object is invalid. This could occur for a dangling pointer
+  // from a previous GC that is either inside or outside the allocated region.
+  mirror::Class* klass = from_ref->GetClass<kVerifyNone, kWithoutReadBarrier>();
+  if (UNLIKELY(klass == nullptr)) {
+    heap_->GetVerification()->LogHeapCorruption(holder, offset, from_ref, /* fatal */ true);
+  }
+  // There must not be a read barrier to avoid nested RB that might violate the to-space invariant.
+  // Note that from_ref is a from space ref so the SizeOf() call will access the from-space meta
+  // objects, but it's ok and necessary.
+  size_t obj_size = from_ref->SizeOf<kDefaultVerifyFlags>();
   size_t region_space_alloc_size = RoundUp(obj_size, space::RegionSpace::kAlignment);
   size_t region_space_bytes_allocated = 0U;
   size_t non_moving_space_bytes_allocated = 0U;
@@ -1819,7 +2208,12 @@ mirror::Object* ConcurrentCopying::Copy(mirror::Object* from_ref) {
       fall_back_to_non_moving = true;
       to_ref = heap_->non_moving_space_->Alloc(Thread::Current(), obj_size,
                                                &non_moving_space_bytes_allocated, nullptr, &dummy);
-      CHECK(to_ref != nullptr) << "Fall-back non-moving space allocation failed";
+      if (UNLIKELY(to_ref == nullptr)) {
+        LOG(FATAL_WITHOUT_ABORT) << "Fall-back non-moving space allocation failed for a "
+                                 << obj_size << " byte object in region type "
+                                 << region_space_->GetRegionType(from_ref);
+        LOG(FATAL) << "Object address=" << from_ref << " type=" << from_ref->PrettyTypeOf();
+      }
       bytes_allocated = non_moving_space_bytes_allocated;
       // Mark it in the mark bitmap.
       accounting::ContinuousSpaceBitmap* mark_bitmap =
@@ -1830,13 +2224,23 @@ mirror::Object* ConcurrentCopying::Copy(mirror::Object* from_ref) {
   }
   DCHECK(to_ref != nullptr);
 
+  // Copy the object excluding the lock word since that is handled in the loop.
+  to_ref->SetClass(klass);
+  const size_t kObjectHeaderSize = sizeof(mirror::Object);
+  DCHECK_GE(obj_size, kObjectHeaderSize);
+  static_assert(kObjectHeaderSize == sizeof(mirror::HeapReference<mirror::Class>) +
+                    sizeof(LockWord),
+                "Object header size does not match");
+  // Memcpy can tear for words since it may do byte copy. It is only safe to do this since the
+  // object in the from space is immutable other than the lock word. b/31423258
+  memcpy(reinterpret_cast<uint8_t*>(to_ref) + kObjectHeaderSize,
+         reinterpret_cast<const uint8_t*>(from_ref) + kObjectHeaderSize,
+         obj_size - kObjectHeaderSize);
+
   // Attempt to install the forward pointer. This is in a loop as the
   // lock word atomic write can fail.
   while (true) {
-    // Copy the object. TODO: copy only the lockword in the second iteration and on?
-    memcpy(to_ref, from_ref, obj_size);
-
-    LockWord old_lock_word = to_ref->GetLockWord(false);
+    LockWord old_lock_word = from_ref->GetLockWord(false);
 
     if (old_lock_word.GetState() == LockWord::kForwardingAddress) {
       // Lost the race. Another thread (either GC or mutator) stored
@@ -1874,24 +2278,31 @@ mirror::Object* ConcurrentCopying::Copy(mirror::Object* from_ref) {
       to_ref = reinterpret_cast<mirror::Object*>(old_lock_word.ForwardingAddress());
       CHECK(to_ref != nullptr);
       CHECK_NE(to_ref, lost_fwd_ptr);
-      CHECK(region_space_->IsInToSpace(to_ref) || heap_->non_moving_space_->HasAddress(to_ref));
+      CHECK(region_space_->IsInToSpace(to_ref) || heap_->non_moving_space_->HasAddress(to_ref))
+          << "to_ref=" << to_ref << " " << heap_->DumpSpaces();
       CHECK_NE(to_ref->GetLockWord(false).GetState(), LockWord::kForwardingAddress);
       return to_ref;
     }
 
+    // Copy the old lock word over since we did not copy it yet.
+    to_ref->SetLockWord(old_lock_word, false);
     // Set the gray ptr.
     if (kUseBakerReadBarrier) {
-      to_ref->SetReadBarrierPointer(ReadBarrier::GrayPtr());
+      to_ref->SetReadBarrierState(ReadBarrier::GrayState());
     }
+
+    // Do a fence to prevent the field CAS in ConcurrentCopying::Process from possibly reordering
+    // before the object copy.
+    QuasiAtomic::ThreadFenceRelease();
 
     LockWord new_lock_word = LockWord::FromForwardingAddress(reinterpret_cast<size_t>(to_ref));
 
     // Try to atomically write the fwd ptr.
-    bool success = from_ref->CasLockWordWeakSequentiallyConsistent(old_lock_word, new_lock_word);
+    bool success = from_ref->CasLockWordWeakRelaxed(old_lock_word, new_lock_word);
     if (LIKELY(success)) {
       // The CAS succeeded.
-      objects_moved_.FetchAndAddSequentiallyConsistent(1);
-      bytes_moved_.FetchAndAddSequentiallyConsistent(region_space_alloc_size);
+      objects_moved_.FetchAndAddRelaxed(1);
+      bytes_moved_.FetchAndAddRelaxed(region_space_alloc_size);
       if (LIKELY(!fall_back_to_non_moving)) {
         DCHECK(region_space_->IsInToSpace(to_ref));
       } else {
@@ -1899,7 +2310,7 @@ mirror::Object* ConcurrentCopying::Copy(mirror::Object* from_ref) {
         DCHECK_EQ(bytes_allocated, non_moving_space_bytes_allocated);
       }
       if (kUseBakerReadBarrier) {
-        DCHECK(to_ref->GetReadBarrierPointer() == ReadBarrier::GrayPtr());
+        DCHECK(to_ref->GetReadBarrierState() == ReadBarrier::GrayState());
       }
       DCHECK(GetFwdPtr(from_ref) == to_ref);
       CHECK_NE(to_ref->GetLockWord(false).GetState(), LockWord::kForwardingAddress);
@@ -1926,7 +2337,7 @@ mirror::Object* ConcurrentCopying::IsMarked(mirror::Object* from_ref) {
            heap_->non_moving_space_->HasAddress(to_ref))
         << "from_ref=" << from_ref << " to_ref=" << to_ref;
   } else if (rtype == space::RegionSpace::RegionType::kRegionTypeUnevacFromSpace) {
-    if (region_space_bitmap_->Test(from_ref)) {
+    if (IsMarkedInUnevacFromSpace(from_ref)) {
       to_ref = from_ref;
     } else {
       to_ref = nullptr;
@@ -1934,21 +2345,8 @@ mirror::Object* ConcurrentCopying::IsMarked(mirror::Object* from_ref) {
   } else {
     // from_ref is in a non-moving space.
     if (immune_spaces_.ContainsObject(from_ref)) {
-      accounting::ContinuousSpaceBitmap* cc_bitmap =
-          cc_heap_bitmap_->GetContinuousSpaceBitmap(from_ref);
-      DCHECK(cc_bitmap != nullptr)
-          << "An immune space object must have a bitmap";
-      if (kIsDebugBuild) {
-        DCHECK(heap_mark_bitmap_->GetContinuousSpaceBitmap(from_ref)->Test(from_ref))
-            << "Immune space object must be already marked";
-      }
-      if (cc_bitmap->Test(from_ref)) {
-        // Already marked.
-        to_ref = from_ref;
-      } else {
-        // Newly marked.
-        to_ref = nullptr;
-      }
+      // An immune object is alive.
+      to_ref = from_ref;
     } else {
       // Non-immune non-moving space. Use the mark bitmap.
       accounting::ContinuousSpaceBitmap* mark_bitmap =
@@ -1984,81 +2382,83 @@ bool ConcurrentCopying::IsOnAllocStack(mirror::Object* ref) {
   return alloc_stack->Contains(ref);
 }
 
-mirror::Object* ConcurrentCopying::MarkNonMoving(mirror::Object* ref) {
+mirror::Object* ConcurrentCopying::MarkNonMoving(mirror::Object* ref,
+                                                 mirror::Object* holder,
+                                                 MemberOffset offset) {
   // ref is in a non-moving space (from_ref == to_ref).
   DCHECK(!region_space_->HasAddress(ref)) << ref;
-  if (immune_spaces_.ContainsObject(ref)) {
-    accounting::ContinuousSpaceBitmap* cc_bitmap =
-        cc_heap_bitmap_->GetContinuousSpaceBitmap(ref);
-    DCHECK(cc_bitmap != nullptr)
-        << "An immune space object must have a bitmap";
-    if (kIsDebugBuild) {
-      DCHECK(heap_mark_bitmap_->GetContinuousSpaceBitmap(ref)->Test(ref))
-          << "Immune space object must be already marked";
-    }
-    // This may or may not succeed, which is ok.
+  DCHECK(!immune_spaces_.ContainsObject(ref));
+  // Use the mark bitmap.
+  accounting::ContinuousSpaceBitmap* mark_bitmap =
+      heap_mark_bitmap_->GetContinuousSpaceBitmap(ref);
+  accounting::LargeObjectBitmap* los_bitmap =
+      heap_mark_bitmap_->GetLargeObjectBitmap(ref);
+  bool is_los = mark_bitmap == nullptr;
+  if (!is_los && mark_bitmap->Test(ref)) {
+    // Already marked.
     if (kUseBakerReadBarrier) {
-      ref->AtomicSetReadBarrierPointer(ReadBarrier::WhitePtr(), ReadBarrier::GrayPtr());
+      DCHECK(ref->GetReadBarrierState() == ReadBarrier::GrayState() ||
+             ref->GetReadBarrierState() == ReadBarrier::WhiteState());
     }
-    if (cc_bitmap->AtomicTestAndSet(ref)) {
-      // Already marked.
-    } else {
-      // Newly marked.
-      if (kUseBakerReadBarrier) {
-        DCHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::GrayPtr());
-      }
-      PushOntoMarkStack(ref);
+  } else if (is_los && los_bitmap->Test(ref)) {
+    // Already marked in LOS.
+    if (kUseBakerReadBarrier) {
+      DCHECK(ref->GetReadBarrierState() == ReadBarrier::GrayState() ||
+             ref->GetReadBarrierState() == ReadBarrier::WhiteState());
     }
   } else {
-    // Use the mark bitmap.
-    accounting::ContinuousSpaceBitmap* mark_bitmap =
-        heap_mark_bitmap_->GetContinuousSpaceBitmap(ref);
-    accounting::LargeObjectBitmap* los_bitmap =
-        heap_mark_bitmap_->GetLargeObjectBitmap(ref);
-    CHECK(los_bitmap != nullptr) << "LOS bitmap covers the entire address range";
-    bool is_los = mark_bitmap == nullptr;
-    if (!is_los && mark_bitmap->Test(ref)) {
-      // Already marked.
-      if (kUseBakerReadBarrier) {
-        DCHECK(ref->GetReadBarrierPointer() == ReadBarrier::GrayPtr() ||
-               ref->GetReadBarrierPointer() == ReadBarrier::BlackPtr());
+    // Not marked.
+    if (IsOnAllocStack(ref)) {
+      // If it's on the allocation stack, it's considered marked. Keep it white.
+      // Objects on the allocation stack need not be marked.
+      if (!is_los) {
+        DCHECK(!mark_bitmap->Test(ref));
+      } else {
+        DCHECK(!los_bitmap->Test(ref));
       }
-    } else if (is_los && los_bitmap->Test(ref)) {
-      // Already marked in LOS.
       if (kUseBakerReadBarrier) {
-        DCHECK(ref->GetReadBarrierPointer() == ReadBarrier::GrayPtr() ||
-               ref->GetReadBarrierPointer() == ReadBarrier::BlackPtr());
+        DCHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::WhiteState());
       }
     } else {
-      // Not marked.
-      if (IsOnAllocStack(ref)) {
-        // If it's on the allocation stack, it's considered marked. Keep it white.
-        // Objects on the allocation stack need not be marked.
-        if (!is_los) {
-          DCHECK(!mark_bitmap->Test(ref));
-        } else {
-          DCHECK(!los_bitmap->Test(ref));
+      // For the baker-style RB, we need to handle 'false-gray' cases. See the
+      // kRegionTypeUnevacFromSpace-case comment in Mark().
+      if (kUseBakerReadBarrier) {
+        // Test the bitmap first to reduce the chance of false gray cases.
+        if ((!is_los && mark_bitmap->Test(ref)) ||
+            (is_los && los_bitmap->Test(ref))) {
+          return ref;
         }
-        if (kUseBakerReadBarrier) {
-          DCHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::WhitePtr());
+      }
+      if (is_los && !IsAligned<kPageSize>(ref)) {
+        // Ref is a large object that is not aligned, it must be heap corruption. Dump data before
+        // AtomicSetReadBarrierState since it will fault if the address is not valid.
+        heap_->GetVerification()->LogHeapCorruption(holder, offset, ref, /* fatal */ true);
+      }
+      // Not marked or on the allocation stack. Try to mark it.
+      // This may or may not succeed, which is ok.
+      bool cas_success = false;
+      if (kUseBakerReadBarrier) {
+        cas_success = ref->AtomicSetReadBarrierState(ReadBarrier::WhiteState(),
+                                                     ReadBarrier::GrayState());
+      }
+      if (!is_los && mark_bitmap->AtomicTestAndSet(ref)) {
+        // Already marked.
+        if (kUseBakerReadBarrier && cas_success &&
+            ref->GetReadBarrierState() == ReadBarrier::GrayState()) {
+          PushOntoFalseGrayStack(ref);
+        }
+      } else if (is_los && los_bitmap->AtomicTestAndSet(ref)) {
+        // Already marked in LOS.
+        if (kUseBakerReadBarrier && cas_success &&
+            ref->GetReadBarrierState() == ReadBarrier::GrayState()) {
+          PushOntoFalseGrayStack(ref);
         }
       } else {
-        // Not marked or on the allocation stack. Try to mark it.
-        // This may or may not succeed, which is ok.
+        // Newly marked.
         if (kUseBakerReadBarrier) {
-          ref->AtomicSetReadBarrierPointer(ReadBarrier::WhitePtr(), ReadBarrier::GrayPtr());
+          DCHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::GrayState());
         }
-        if (!is_los && mark_bitmap->AtomicTestAndSet(ref)) {
-          // Already marked.
-        } else if (is_los && los_bitmap->AtomicTestAndSet(ref)) {
-          // Already marked in LOS.
-        } else {
-          // Newly marked.
-          if (kUseBakerReadBarrier) {
-            DCHECK_EQ(ref->GetReadBarrierPointer(), ReadBarrier::GrayPtr());
-          }
-          PushOntoMarkStack(ref);
-        }
+        PushOntoMarkStack(ref);
       }
     }
   }
@@ -2071,26 +2471,76 @@ void ConcurrentCopying::FinishPhase() {
     MutexLock mu(self, mark_stack_lock_);
     CHECK_EQ(pooled_mark_stacks_.size(), kMarkStackPoolSize);
   }
-  region_space_ = nullptr;
+  // kVerifyNoMissingCardMarks relies on the region space cards not being cleared to avoid false
+  // positives.
+  if (!kVerifyNoMissingCardMarks) {
+    TimingLogger::ScopedTiming split("ClearRegionSpaceCards", GetTimings());
+    // We do not currently use the region space cards at all, madvise them away to save ram.
+    heap_->GetCardTable()->ClearCardRange(region_space_->Begin(), region_space_->Limit());
+  }
   {
-    MutexLock mu(Thread::Current(), skipped_blocks_lock_);
+    MutexLock mu(self, skipped_blocks_lock_);
     skipped_blocks_map_.clear();
   }
-  ReaderMutexLock mu(self, *Locks::mutator_lock_);
-  WriterMutexLock mu2(self, *Locks::heap_bitmap_lock_);
-  heap_->ClearMarkedObjects();
+  {
+    ReaderMutexLock mu(self, *Locks::mutator_lock_);
+    {
+      WriterMutexLock mu2(self, *Locks::heap_bitmap_lock_);
+      heap_->ClearMarkedObjects();
+    }
+    if (kUseBakerReadBarrier && kFilterModUnionCards) {
+      TimingLogger::ScopedTiming split("FilterModUnionCards", GetTimings());
+      ReaderMutexLock mu2(self, *Locks::heap_bitmap_lock_);
+      for (space::ContinuousSpace* space : immune_spaces_.GetSpaces()) {
+        DCHECK(space->IsImageSpace() || space->IsZygoteSpace());
+        accounting::ModUnionTable* table = heap_->FindModUnionTableFromSpace(space);
+        // Filter out cards that don't need to be set.
+        if (table != nullptr) {
+          table->FilterCards();
+        }
+      }
+    }
+    if (kUseBakerReadBarrier) {
+      TimingLogger::ScopedTiming split("EmptyRBMarkBitStack", GetTimings());
+      DCHECK(rb_mark_bit_stack_ != nullptr);
+      const auto* limit = rb_mark_bit_stack_->End();
+      for (StackReference<mirror::Object>* it = rb_mark_bit_stack_->Begin(); it != limit; ++it) {
+        CHECK(it->AsMirrorPtr()->AtomicSetMarkBit(1, 0));
+      }
+      rb_mark_bit_stack_->Reset();
+    }
+  }
+  if (measure_read_barrier_slow_path_) {
+    MutexLock mu(self, rb_slow_path_histogram_lock_);
+    rb_slow_path_time_histogram_.AdjustAndAddValue(rb_slow_path_ns_.LoadRelaxed());
+    rb_slow_path_count_total_ += rb_slow_path_count_.LoadRelaxed();
+    rb_slow_path_count_gc_total_ += rb_slow_path_count_gc_.LoadRelaxed();
+  }
 }
 
-bool ConcurrentCopying::IsMarkedHeapReference(mirror::HeapReference<mirror::Object>* field) {
+bool ConcurrentCopying::IsNullOrMarkedHeapReference(mirror::HeapReference<mirror::Object>* field,
+                                                    bool do_atomic_update) {
   mirror::Object* from_ref = field->AsMirrorPtr();
+  if (from_ref == nullptr) {
+    return true;
+  }
   mirror::Object* to_ref = IsMarked(from_ref);
   if (to_ref == nullptr) {
     return false;
   }
   if (from_ref != to_ref) {
-    QuasiAtomic::ThreadFenceRelease();
-    field->Assign(to_ref);
-    QuasiAtomic::ThreadFenceSequentiallyConsistent();
+    if (do_atomic_update) {
+      do {
+        if (field->AsMirrorPtr() != from_ref) {
+          // Concurrently overwritten by a mutator.
+          break;
+        }
+      } while (!field->CasWeakRelaxed(from_ref, to_ref));
+    } else {
+      QuasiAtomic::ThreadFenceRelease();
+      field->Assign(to_ref);
+      QuasiAtomic::ThreadFenceSequentiallyConsistent();
+    }
   }
   return true;
 }
@@ -2099,7 +2549,8 @@ mirror::Object* ConcurrentCopying::MarkObject(mirror::Object* from_ref) {
   return Mark(from_ref);
 }
 
-void ConcurrentCopying::DelayReferenceReferent(mirror::Class* klass, mirror::Reference* reference) {
+void ConcurrentCopying::DelayReferenceReferent(ObjPtr<mirror::Class> klass,
+                                               ObjPtr<mirror::Reference> reference) {
   heap_->GetReferenceProcessor()->DelayReferenceReferent(klass, reference, this);
 }
 
@@ -2114,6 +2565,39 @@ void ConcurrentCopying::ProcessReferences(Thread* self) {
 void ConcurrentCopying::RevokeAllThreadLocalBuffers() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
   region_space_->RevokeAllThreadLocalBuffers();
+}
+
+mirror::Object* ConcurrentCopying::MarkFromReadBarrierWithMeasurements(mirror::Object* from_ref) {
+  if (Thread::Current() != thread_running_gc_) {
+    rb_slow_path_count_.FetchAndAddRelaxed(1u);
+  } else {
+    rb_slow_path_count_gc_.FetchAndAddRelaxed(1u);
+  }
+  ScopedTrace tr(__FUNCTION__);
+  const uint64_t start_time = measure_read_barrier_slow_path_ ? NanoTime() : 0u;
+  mirror::Object* ret = Mark(from_ref);
+  if (measure_read_barrier_slow_path_) {
+    rb_slow_path_ns_.FetchAndAddRelaxed(NanoTime() - start_time);
+  }
+  return ret;
+}
+
+void ConcurrentCopying::DumpPerformanceInfo(std::ostream& os) {
+  GarbageCollector::DumpPerformanceInfo(os);
+  MutexLock mu(Thread::Current(), rb_slow_path_histogram_lock_);
+  if (rb_slow_path_time_histogram_.SampleSize() > 0) {
+    Histogram<uint64_t>::CumulativeData cumulative_data;
+    rb_slow_path_time_histogram_.CreateHistogram(&cumulative_data);
+    rb_slow_path_time_histogram_.PrintConfidenceIntervals(os, 0.99, cumulative_data);
+  }
+  if (rb_slow_path_count_total_ > 0) {
+    os << "Slow path count " << rb_slow_path_count_total_ << "\n";
+  }
+  if (rb_slow_path_count_gc_total_ > 0) {
+    os << "GC slow path count " << rb_slow_path_count_gc_total_ << "\n";
+  }
+  os << "Cumulative bytes moved " << cumulative_bytes_moved_.LoadRelaxed() << "\n";
+  os << "Cumulative objects moved " << cumulative_objects_moved_.LoadRelaxed() << "\n";
 }
 
 }  // namespace collector

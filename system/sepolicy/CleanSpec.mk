@@ -50,3 +50,24 @@
 
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/file_contexts)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/file_contexts)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/service_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/service_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/nonplat_property_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/nonplat_property_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/plat_property_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/plat_property_contexts)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/property_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/property_contexts)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/property_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/property_contexts)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/selinux/plat_property_contexts)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/selinux/nonplat_property_contexts)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/selinux/mapping_sepolicy.cil)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/selinux/plat_sepolicy.cil.sha256)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/selinux/precompiled_sepolicy.plat.sha256)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/selinux/mapping_sepolicy.cil)

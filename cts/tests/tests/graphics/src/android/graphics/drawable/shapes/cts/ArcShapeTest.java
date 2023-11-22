@@ -16,7 +16,9 @@
 
 package android.graphics.drawable.shapes.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -25,10 +27,16 @@ import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.drawable.shapes.ArcShape;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class ArcShapeTest extends TestCase {
-    private static final int TEST_WIDTH  = 100;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ArcShapeTest {
+    private static final int TEST_WIDTH = 100;
     private static final int TEST_HEIGHT = 200;
 
     private static final int TEST_COLOR_1 = 0xFF00FF00;
@@ -36,7 +44,7 @@ public class ArcShapeTest extends TestCase {
 
     private static final int TOLERANCE = 4; // tolerance in pixels
 
-    @SmallTest
+    @Test
     public void testConstructor() {
         new ArcShape(1f, 5f);
 
@@ -45,7 +53,19 @@ public class ArcShapeTest extends TestCase {
         new ArcShape(-1f, -1f);
     }
 
-    @SmallTest
+    @Test
+    public void testGetSweepAngle() {
+        ArcShape shape = new ArcShape(100.0f, 360.0f);
+        assertEquals(360.0f, shape.getSweepAngle(), 0.0f);
+    }
+
+    @Test
+    public void testGetStartAngle() {
+        ArcShape shape = new ArcShape(100.0f, 360.0f);
+        assertEquals(100.0f, shape.getStartAngle(), 0.0f);
+    }
+
+    @Test
     public void testDraw() {
         // draw completely.
         ArcShape arcShape = new ArcShape(0.0f, 360.0f);
@@ -72,10 +92,10 @@ public class ArcShapeTest extends TestCase {
                 count += 1;
             }
         }
-        assertEquals((double)SQUARE / 2 / Math.sqrt(2), count, TOLERANCE);
+        assertEquals((double) SQUARE / 2 / Math.sqrt(2), count, TOLERANCE);
     }
 
-    @SmallTest
+    @Test
     public void testGetOutline() {
         Outline outline = new Outline();
         ArcShape shape;
@@ -85,5 +105,14 @@ public class ArcShapeTest extends TestCase {
         shape = new ArcShape(0.0f, 360.0f);
         shape.getOutline(outline);
         assertTrue(outline.isEmpty());
+    }
+
+    @Test
+    public void testClone() throws Exception {
+        ArcShape shape = new ArcShape(0.0f, 360.0f);
+        ArcShape clone = shape.clone();
+        assertNotNull(clone);
+        assertEquals(0.0f, clone.getStartAngle(), 0.0f);
+        assertEquals(360.0f, clone.getSweepAngle(), 0.0f);
     }
 }

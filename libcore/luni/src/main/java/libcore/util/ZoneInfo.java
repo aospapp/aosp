@@ -43,7 +43,7 @@ import libcore.io.BufferIterator;
  * reading the index and creating a {@link BufferIterator} that provides access to an entry for a
  * specific file. This class is responsible for reading the data from that {@link BufferIterator}
  * and storing it a representation to support the {@link TimeZone} and {@link GregorianCalendar}
- * implementations. See {@link ZoneInfo#makeTimeZone(String, BufferIterator)}.
+ * implementations. See {@link ZoneInfo#readTimeZone(String, BufferIterator, long)}.
  *
  * <p>The main difference between {@code tzfile} and the compacted form is that the
  * {@code struct ttinfo} only uses a single byte for {@code tt_isdst} and {@code tt_abbrind}.
@@ -115,8 +115,8 @@ public final class ZoneInfo extends TimeZone {
      * in the offset from UTC or a change in the DST.
      *
      * <p>These times are pre-calculated externally from a set of rules (both historical and
-     * future) and stored in a file from which {@link ZoneInfo#makeTimeZone(String, BufferIterator)}
-     * reads the data. That is quite different to {@link java.util.SimpleTimeZone}, which has
+     * future) and stored in a file from which {@link ZoneInfo#readTimeZone(String, BufferIterator,
+     * long)} reads the data. That is quite different to {@link java.util.SimpleTimeZone}, which has
      * essentially human readable rules (e.g. DST starts at 01:00 on the first Sunday in March and
      * ends at 01:00 on the last Sunday in October) that can be used to determine the DST transition
      * times across a number of years
@@ -178,19 +178,14 @@ public final class ZoneInfo extends TimeZone {
      */
     private final byte[] mIsDsts;
 
-    public static ZoneInfo makeTimeZone(String id, BufferIterator it) {
-        return makeTimeZone(id, it, System.currentTimeMillis());
-    }
-
-    /**
-     * Visible for testing.
-     */
-    public static ZoneInfo makeTimeZone(String id, BufferIterator it, long currentTimeMillis) {
+    public static ZoneInfo readTimeZone(String id, BufferIterator it, long currentTimeMillis)
+            throws IOException {
         // Variable names beginning tzh_ correspond to those in "tzfile.h".
 
         // Check tzh_magic.
-        if (it.readInt() != 0x545a6966) { // "TZif"
-            return null;
+        int tzh_magic = it.readInt();
+        if (tzh_magic != 0x545a6966) { // "TZif"
+            throw new IOException("Timezone id=" + id + " has an invalid header=" + tzh_magic);
         }
 
         // Skip the uninteresting part of the header.
@@ -198,9 +193,22 @@ public final class ZoneInfo extends TimeZone {
 
         // Read the sizes of the arrays we're about to read.
         int tzh_timecnt = it.readInt();
+        // Arbitrary ceiling to prevent allocating memory for corrupt data.
+        // 2 per year with 2^32 seconds would give ~272 transitions.
+        final int MAX_TRANSITIONS = 2000;
+        if (tzh_timecnt < 0 || tzh_timecnt > MAX_TRANSITIONS) {
+            throw new IOException(
+                    "Timezone id=" + id + " has an invalid number of transitions=" + tzh_timecnt);
+        }
+
         int tzh_typecnt = it.readInt();
-        if (tzh_typecnt > 256) {
-            throw new IllegalStateException(id + " has more than 256 different types");
+        final int MAX_TYPES = 256;
+        if (tzh_typecnt < 1) {
+            throw new IOException("ZoneInfo requires at least one type "
+                    + "to be provided for each timezone but could not find one for '" + id + "'");
+        } else if (tzh_typecnt > MAX_TYPES) {
+            throw new IOException(
+                    "Timezone with id " + id + " has too many types=" + tzh_typecnt);
         }
 
         it.skip(4); // Skip tzh_charcnt.
@@ -217,20 +225,32 @@ public final class ZoneInfo extends TimeZone {
         long[] transitions64 = new long[tzh_timecnt];
         for (int i = 0; i < tzh_timecnt; ++i) {
             transitions64[i] = transitions32[i];
+            if (i > 0 && transitions64[i] <= transitions64[i - 1]) {
+                throw new IOException(
+                        id + " transition at " + i + " is not sorted correctly, is "
+                                + transitions64[i] + ", previous is " + transitions64[i - 1]);
+            }
         }
 
         byte[] type = new byte[tzh_timecnt];
         it.readByteArray(type, 0, type.length);
+        for (int i = 0; i < type.length; i++) {
+            int typeIndex = type[i] & 0xff;
+            if (typeIndex >= tzh_typecnt) {
+                throw new IOException(
+                        id + " type at " + i + " is not < " + tzh_typecnt + ", is " + typeIndex);
+            }
+        }
 
         int[] gmtOffsets = new int[tzh_typecnt];
         byte[] isDsts = new byte[tzh_typecnt];
         for (int i = 0; i < tzh_typecnt; ++i) {
             gmtOffsets[i] = it.readInt();
-            byte b = it.readByte();
-            if (b != 0 && b != 1) {
-                throw new IllegalStateException(id + " dst at " + i + " is not 0 or 1, is " + b);
+            byte isDst = it.readByte();
+            if (isDst != 0 && isDst != 1) {
+                throw new IOException(id + " dst at " + i + " is not 0 or 1, is " + isDst);
             }
-            isDsts[i] = b;
+            isDsts[i] = isDst;
             // We skip the abbreviation index. This would let us provide historically-accurate
             // time zone abbreviations (such as "AHST", "YST", and "AKST" for standard time in
             // America/Anchorage in 1982, 1983, and 1984 respectively). ICU only knows the current
@@ -247,7 +267,7 @@ public final class ZoneInfo extends TimeZone {
     private ZoneInfo(String name, long[] transitions, byte[] types, int[] gmtOffsets, byte[] isDsts,
             long currentTimeMillis) {
         if (gmtOffsets.length == 0) {
-            throw new IllegalStateException("ZoneInfo requires at least one offset "
+            throw new IllegalArgumentException("ZoneInfo requires at least one offset "
                     + "to be provided for each timezone but could not find one for '" + name + "'");
         }
         mTransitions = transitions;

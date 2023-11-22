@@ -21,13 +21,11 @@
 #include "jni.h"
 #include "jvm.h"
 #include "JNIHelp.h"
+#include "nativehelper/jni_macros.h"
 #include "unicode/uchar.h"
 #include "unicode/uscript.h"
 #include <math.h>
 #include <stdio.h> // For BUFSIZ
-
-#define NATIVE_METHOD(className, functionName, signature) \
-{ #functionName, signature, (void*)(className ## _ ## functionName) }
 
 JNIEXPORT jboolean JNICALL
 Character_isLowerCaseImpl(JNIEnv* env, jclass, jint codePoint) {
@@ -161,29 +159,29 @@ Character_getNameImpl(JNIEnv* env, jclass, jint codePoint) {
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(Character, digitImpl, "!(II)I"),
-  NATIVE_METHOD(Character, getDirectionalityImpl, "!(I)B"),
+  FAST_NATIVE_METHOD(Character, digitImpl, "(II)I"),
+  FAST_NATIVE_METHOD(Character, getDirectionalityImpl, "(I)B"),
   NATIVE_METHOD(Character, getNameImpl, "(I)Ljava/lang/String;"),
-  NATIVE_METHOD(Character, getNumericValueImpl, "!(I)I"),
-  NATIVE_METHOD(Character, getTypeImpl, "!(I)I"),
-  NATIVE_METHOD(Character, isAlphabeticImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isDefinedImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isDigitImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isIdentifierIgnorableImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isIdeographicImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isLetterImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isLetterOrDigitImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isLowerCaseImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isMirroredImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isSpaceCharImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isTitleCaseImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isUnicodeIdentifierPartImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isUnicodeIdentifierStartImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isUpperCaseImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, isWhitespaceImpl, "!(I)Z"),
-  NATIVE_METHOD(Character, toLowerCaseImpl, "!(I)I"),
-  NATIVE_METHOD(Character, toTitleCaseImpl, "!(I)I"),
-  NATIVE_METHOD(Character, toUpperCaseImpl, "!(I)I"),
+  FAST_NATIVE_METHOD(Character, getNumericValueImpl, "(I)I"),
+  FAST_NATIVE_METHOD(Character, getTypeImpl, "(I)I"),
+  FAST_NATIVE_METHOD(Character, isAlphabeticImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isDefinedImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isDigitImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isIdentifierIgnorableImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isIdeographicImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isLetterImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isLetterOrDigitImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isLowerCaseImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isMirroredImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isSpaceCharImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isTitleCaseImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isUnicodeIdentifierPartImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isUnicodeIdentifierStartImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isUpperCaseImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, isWhitespaceImpl, "(I)Z"),
+  FAST_NATIVE_METHOD(Character, toLowerCaseImpl, "(I)I"),
+  FAST_NATIVE_METHOD(Character, toTitleCaseImpl, "(I)I"),
+  FAST_NATIVE_METHOD(Character, toUpperCaseImpl, "(I)I"),
 };
 
 void register_java_lang_Character(JNIEnv* env) {

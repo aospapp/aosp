@@ -22,7 +22,11 @@ include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_CPPFLAGS := $(simpleperf_runtest_cppflags)
 LOCAL_SRC_FILES := $(module_src_files)
+LOCAL_SHARED_LIBRARIES := libsimpleperf_inplace_sampler
 LOCAL_MODULE := $(module)
+LOCAL_MULTILIB := both
+LOCAL_MODULE_STEM_32 := $(module)32
+LOCAL_MODULE_STEM_64 := $(module)64
 LOCAL_STRIP_MODULE := false
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.build.mk
 include $(BUILD_EXECUTABLE)
@@ -32,7 +36,11 @@ include $(CLEAR_VARS)
 LOCAL_CLANG := true
 LOCAL_CPPFLAGS := $(simpleperf_runtest_cppflags)
 LOCAL_SRC_FILES := $(module_src_files)
+LOCAL_SHARED_LIBRARIES := libsimpleperf_inplace_sampler
 LOCAL_MODULE := $(module)
+LOCAL_MULTILIB := both
+LOCAL_MODULE_STEM_32 := $(module)32
+LOCAL_MODULE_STEM_64 := $(module)64
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.build.mk
 include $(BUILD_HOST_EXECUTABLE)
 endif

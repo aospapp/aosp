@@ -99,12 +99,19 @@ public class RingtoneManagerTest
         return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
     }
 
+    private boolean isTV() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY);
+    }
+
     public void testConstructors() {
         new RingtoneManager(mActivity);
         new RingtoneManager(mContext);
     }
 
     public void testAccessMethods() {
+        if (isTV()) {
+            return;
+        }
         if (!hasAudioOutput()) {
             Log.i(TAG, "Skipping testAccessMethods(): device doesn't have audio output.");
             return;
@@ -145,6 +152,9 @@ public class RingtoneManagerTest
     }
 
     public void testStopPreviousRingtone() {
+        if (isTV()) {
+            return;
+        }
         if (!hasAudioOutput()) {
             Log.i(TAG, "Skipping testStopPreviousRingtone(): device doesn't have audio output.");
             return;

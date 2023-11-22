@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
@@ -14,7 +13,6 @@ class touch_TouchscreenTaps(touch_playback_test_base.touch_playback_test_base):
     """Checks that touchscreen presses are translated into clicks."""
     version = 1
 
-    _TEST_TIMEOUT = 1  # Number of seconds the test will wait for a click.
     _CLICK_NAME = 'tap'
 
 
@@ -24,12 +22,14 @@ class touch_TouchscreenTaps(touch_playback_test_base.touch_playback_test_base):
         @raises: TestFail if no click occurred.
 
         """
-        self._reload_page()
+        self._events.clear_previous_events()
         self._blocking_playback(filepath=self._filepaths[self._CLICK_NAME],
                                 touch_type='touchscreen')
-        time.sleep(self._TEST_TIMEOUT)
-        actual_count = int(self._tab.EvaluateJavaScript('clickCount'))
+        self._events.wait_for_events_to_complete()
+
+        actual_count = self._events.get_click_count()
         if actual_count is not 1:
+            self._events.log_events()
             raise error.TestFail('Saw %d clicks!' % actual_count)
 
 
@@ -59,6 +59,7 @@ class touch_TouchscreenTaps(touch_playback_test_base.touch_playback_test_base):
             return
 
         # Log in and start test.
-        with chrome.Chrome() as cr:
-            self._open_test_page(cr)
+        with chrome.Chrome(init_network_controller=True) as cr:
+            self._open_events_page(cr)
+            self._events.set_prevent_defaults(False)
             self._check_for_click()

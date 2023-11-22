@@ -16,17 +16,29 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.RegionIterator;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class RegionIteratorTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RegionIteratorTest {
+    @Test
     public void testConstructor() {
         new RegionIterator(new Region());
     }
 
+    @Test
     public void testNext() {
         Region region = new Region();
         region.set(1, 1, 10, 10);
@@ -35,8 +47,8 @@ public class RegionIteratorTest extends AndroidTestCase {
         RegionIterator regionIterator = new RegionIterator(region);
         try {
             regionIterator.next(null);
-            fail("should throw exception");
-        } catch (Exception e) {
+            fail("should throw NullPointerException");
+        } catch (NullPointerException e) {
         }
         assertTrue(regionIterator.next(rect));
         assertEquals(1, rect.left);
@@ -170,5 +182,4 @@ public class RegionIteratorTest extends AndroidTestCase {
         assertEquals(1, rect.right);
         assertEquals(1, rect.bottom);
     }
-
 }

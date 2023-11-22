@@ -82,7 +82,6 @@ int main(int argc, char **argv)
         }
     }
 
-    klog_init();
     klog_set_level(KLOG_INFO_LEVEL);
 
     if (optind < argc) {

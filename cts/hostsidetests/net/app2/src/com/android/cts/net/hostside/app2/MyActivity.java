@@ -17,30 +17,48 @@ package com.android.cts.net.hostside.app2;
 
 import static com.android.cts.net.hostside.app2.Common.ACTION_FINISH_ACTIVITY;
 import static com.android.cts.net.hostside.app2.Common.TAG;
+import static com.android.cts.net.hostside.app2.Common.TEST_PKG;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.util.Log;
+
+import com.android.cts.net.hostside.INetworkStateObserver;
 
 /**
  * Activity used to bring process to foreground.
  */
 public class MyActivity extends Activity {
 
+    private BroadcastReceiver finishCommandReceiver = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        registerReceiver(new BroadcastReceiver() {
-
+        Log.d(TAG, "MyActivity.onCreate()");
+        Common.notifyNetworkStateObserver(this, getIntent());
+        finishCommandReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 Log.d(TAG, "Finishing MyActivity");
                 MyActivity.this.finish();
-            }}, new IntentFilter(ACTION_FINISH_ACTIVITY));
+            }
+        };
+        registerReceiver(finishCommandReceiver, new IntentFilter(ACTION_FINISH_ACTIVITY));
+    }
+
+    @Override
+    public void finish() {
+        if (finishCommandReceiver != null) {
+            unregisterReceiver(finishCommandReceiver);
+        }
+        super.finish();
     }
 
     @Override

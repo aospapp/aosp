@@ -76,7 +76,7 @@ status_t AudioHardwareInput::getMicMute(bool* mute)
 }
 
 // milliseconds per ALSA period
-const uint32_t AudioHardwareInput::kPeriodMsec = 10;
+const uint32_t AudioHardwareInput::kPeriodMsec = 20;
 
 size_t AudioHardwareInput::calculateInputBufferSize(uint32_t outputSampleRate,
                                                     audio_format_t format,
@@ -257,6 +257,7 @@ void AudioHardwareInput::onDeviceRemoved(unsigned int pcmCard, unsigned int pcmD
 const AudioHotplugThread::DeviceInfo* AudioHardwareInput::getBestDevice(int inputSource)
 {
     bool doVoiceRecognition = (inputSource == AUDIO_SOURCE_VOICE_RECOGNITION);
+    const bool favorNoVoiceRecognition = (inputSource == AUDIO_SOURCE_UNPROCESSED);
     int chosenDeviceIndex = -1;
     Mutex::Autolock _l(mLock);
 
@@ -266,9 +267,18 @@ const AudioHotplugThread::DeviceInfo* AudioHardwareInput::getBestDevice(int inpu
     // and no other devices are used for voice recognition.
     // Currently the RemoteControl is the only device marked with forVoiceRecognition=true.
     // A connected USB mic could be used for anything but voice recognition.
+    // For UNPROCESSED source, a connected USB microphone will be favored over the remote mic.
     for (int i=0; i<kMaxDevices; i++) {
         if (mDeviceInfos[i].valid) {
-            if (mDeviceInfos[i].forVoiceRecognition == doVoiceRecognition) {
+            if (favorNoVoiceRecognition) {
+                if (mDeviceInfos[i].forVoiceRecognition) {
+                    chosenDeviceIndex = i;
+                    //continue matching
+                } else {
+                    chosenDeviceIndex = i;
+                    break;
+                }
+            } else if (mDeviceInfos[i].forVoiceRecognition == doVoiceRecognition) {
                 chosenDeviceIndex = i;
                 break;
             }

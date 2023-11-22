@@ -18,7 +18,7 @@ import its.objects
 import its.caps
 import os.path
 import numpy
-import pylab
+from matplotlib import pylab
 import matplotlib
 import matplotlib.pyplot
 

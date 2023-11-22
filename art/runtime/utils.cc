@@ -25,30 +25,23 @@
 #include <unistd.h>
 #include <memory>
 
-#include "art_field-inl.h"
-#include "art_method-inl.h"
+#include "android-base/stringprintf.h"
+#include "android-base/strings.h"
+
 #include "base/stl_util.h"
 #include "base/unix_file/fd_file.h"
 #include "dex_file-inl.h"
 #include "dex_instruction.h"
-#include "mirror/class-inl.h"
-#include "mirror/class_loader.h"
-#include "mirror/object-inl.h"
-#include "mirror/object_array-inl.h"
-#include "mirror/string.h"
 #include "oat_quick_method_header.h"
 #include "os.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "utf-inl.h"
 
 #if defined(__APPLE__)
 #include "AvailabilityMacros.h"  // For MAC_OS_X_VERSION_MAX_ALLOWED
 #include <sys/syscall.h>
+#include <crt_externs.h>
 #endif
-
-// For DumpNativeStack.
-#include <backtrace/Backtrace.h>
-#include <backtrace/BacktraceMap.h>
 
 #if defined(__linux__)
 #include <linux/unistd.h>
@@ -56,9 +49,8 @@
 
 namespace art {
 
-#if defined(__linux__)
-static constexpr bool kUseAddr2line = !kIsTargetBuild;
-#endif
+using android::base::StringAppendF;
+using android::base::StringPrintf;
 
 pid_t GetTid() {
 #if defined(__APPLE__)
@@ -82,62 +74,9 @@ std::string GetThreadName(pid_t tid) {
   return result;
 }
 
-void GetThreadStack(pthread_t thread, void** stack_base, size_t* stack_size, size_t* guard_size) {
-#if defined(__APPLE__)
-  *stack_size = pthread_get_stacksize_np(thread);
-  void* stack_addr = pthread_get_stackaddr_np(thread);
-
-  // Check whether stack_addr is the base or end of the stack.
-  // (On Mac OS 10.7, it's the end.)
-  int stack_variable;
-  if (stack_addr > &stack_variable) {
-    *stack_base = reinterpret_cast<uint8_t*>(stack_addr) - *stack_size;
-  } else {
-    *stack_base = stack_addr;
-  }
-
-  // This is wrong, but there doesn't seem to be a way to get the actual value on the Mac.
-  pthread_attr_t attributes;
-  CHECK_PTHREAD_CALL(pthread_attr_init, (&attributes), __FUNCTION__);
-  CHECK_PTHREAD_CALL(pthread_attr_getguardsize, (&attributes, guard_size), __FUNCTION__);
-  CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attributes), __FUNCTION__);
-#else
-  pthread_attr_t attributes;
-  CHECK_PTHREAD_CALL(pthread_getattr_np, (thread, &attributes), __FUNCTION__);
-  CHECK_PTHREAD_CALL(pthread_attr_getstack, (&attributes, stack_base, stack_size), __FUNCTION__);
-  CHECK_PTHREAD_CALL(pthread_attr_getguardsize, (&attributes, guard_size), __FUNCTION__);
-  CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attributes), __FUNCTION__);
-
-#if defined(__GLIBC__)
-  // If we're the main thread, check whether we were run with an unlimited stack. In that case,
-  // glibc will have reported a 2GB stack for our 32-bit process, and our stack overflow detection
-  // will be broken because we'll die long before we get close to 2GB.
-  bool is_main_thread = (::art::GetTid() == getpid());
-  if (is_main_thread) {
-    rlimit stack_limit;
-    if (getrlimit(RLIMIT_STACK, &stack_limit) == -1) {
-      PLOG(FATAL) << "getrlimit(RLIMIT_STACK) failed";
-    }
-    if (stack_limit.rlim_cur == RLIM_INFINITY) {
-      size_t old_stack_size = *stack_size;
-
-      // Use the kernel default limit as our size, and adjust the base to match.
-      *stack_size = 8 * MB;
-      *stack_base = reinterpret_cast<uint8_t*>(*stack_base) + (old_stack_size - *stack_size);
-
-      VLOG(threads) << "Limiting unlimited stack (reported as " << PrettySize(old_stack_size) << ")"
-                    << " to " << PrettySize(*stack_size)
-                    << " with base " << *stack_base;
-    }
-  }
-#endif
-
-#endif
-}
-
 bool ReadFileToString(const std::string& file_name, std::string* result) {
-  File file;
-  if (!file.Open(file_name, O_RDONLY)) {
+  File file(file_name, O_RDONLY, false);
+  if (!file.IsOpened()) {
     return false;
   }
 
@@ -155,8 +94,8 @@ bool ReadFileToString(const std::string& file_name, std::string* result) {
 }
 
 bool PrintFileToLog(const std::string& file_name, LogSeverity level) {
-  File file;
-  if (!file.Open(file_name, O_RDONLY)) {
+  File file(file_name, O_RDONLY, false);
+  if (!file.IsOpened()) {
     return false;
   }
 
@@ -205,21 +144,6 @@ bool PrintFileToLog(const std::string& file_name, LogSeverity level) {
       }
     }
   }
-}
-
-std::string PrettyDescriptor(mirror::String* java_descriptor) {
-  if (java_descriptor == nullptr) {
-    return "null";
-  }
-  return PrettyDescriptor(java_descriptor->ToModifiedUtf8().c_str());
-}
-
-std::string PrettyDescriptor(mirror::Class* klass) {
-  if (klass == nullptr) {
-    return "null";
-  }
-  std::string temp;
-  return PrettyDescriptor(klass->GetDescriptor(&temp));
 }
 
 std::string PrettyDescriptor(const char* descriptor) {
@@ -271,46 +195,6 @@ std::string PrettyDescriptor(const char* descriptor) {
   return result;
 }
 
-std::string PrettyField(ArtField* f, bool with_type) {
-  if (f == nullptr) {
-    return "null";
-  }
-  std::string result;
-  if (with_type) {
-    result += PrettyDescriptor(f->GetTypeDescriptor());
-    result += ' ';
-  }
-  std::string temp;
-  result += PrettyDescriptor(f->GetDeclaringClass()->GetDescriptor(&temp));
-  result += '.';
-  result += f->GetName();
-  return result;
-}
-
-std::string PrettyField(uint32_t field_idx, const DexFile& dex_file, bool with_type) {
-  if (field_idx >= dex_file.NumFieldIds()) {
-    return StringPrintf("<<invalid-field-idx-%d>>", field_idx);
-  }
-  const DexFile::FieldId& field_id = dex_file.GetFieldId(field_idx);
-  std::string result;
-  if (with_type) {
-    result += dex_file.GetFieldTypeDescriptor(field_id);
-    result += ' ';
-  }
-  result += PrettyDescriptor(dex_file.GetFieldDeclaringClassDescriptor(field_id));
-  result += '.';
-  result += dex_file.GetFieldName(field_id);
-  return result;
-}
-
-std::string PrettyType(uint32_t type_idx, const DexFile& dex_file) {
-  if (type_idx >= dex_file.NumTypeIds()) {
-    return StringPrintf("<<invalid-type-idx-%d>>", type_idx);
-  }
-  const DexFile::TypeId& type_id = dex_file.GetTypeId(type_idx);
-  return PrettyDescriptor(dex_file.GetTypeDescriptor(type_id));
-}
-
 std::string PrettyArguments(const char* signature) {
   std::string result;
   result += '(';
@@ -348,91 +232,6 @@ std::string PrettyReturnType(const char* signature) {
   return PrettyDescriptor(return_type);
 }
 
-std::string PrettyMethod(ArtMethod* m, bool with_signature) {
-  if (m == nullptr) {
-    return "null";
-  }
-  if (!m->IsRuntimeMethod()) {
-    m = m->GetInterfaceMethodIfProxy(Runtime::Current()->GetClassLinker()->GetImagePointerSize());
-  }
-  std::string result(PrettyDescriptor(m->GetDeclaringClassDescriptor()));
-  result += '.';
-  result += m->GetName();
-  if (UNLIKELY(m->IsFastNative())) {
-    result += "!";
-  }
-  if (with_signature) {
-    const Signature signature = m->GetSignature();
-    std::string sig_as_string(signature.ToString());
-    if (signature == Signature::NoSignature()) {
-      return result + sig_as_string;
-    }
-    result = PrettyReturnType(sig_as_string.c_str()) + " " + result +
-        PrettyArguments(sig_as_string.c_str());
-  }
-  return result;
-}
-
-std::string PrettyMethod(uint32_t method_idx, const DexFile& dex_file, bool with_signature) {
-  if (method_idx >= dex_file.NumMethodIds()) {
-    return StringPrintf("<<invalid-method-idx-%d>>", method_idx);
-  }
-  const DexFile::MethodId& method_id = dex_file.GetMethodId(method_idx);
-  std::string result(PrettyDescriptor(dex_file.GetMethodDeclaringClassDescriptor(method_id)));
-  result += '.';
-  result += dex_file.GetMethodName(method_id);
-  if (with_signature) {
-    const Signature signature = dex_file.GetMethodSignature(method_id);
-    std::string sig_as_string(signature.ToString());
-    if (signature == Signature::NoSignature()) {
-      return result + sig_as_string;
-    }
-    result = PrettyReturnType(sig_as_string.c_str()) + " " + result +
-        PrettyArguments(sig_as_string.c_str());
-  }
-  return result;
-}
-
-std::string PrettyTypeOf(mirror::Object* obj) {
-  if (obj == nullptr) {
-    return "null";
-  }
-  if (obj->GetClass() == nullptr) {
-    return "(raw)";
-  }
-  std::string temp;
-  std::string result(PrettyDescriptor(obj->GetClass()->GetDescriptor(&temp)));
-  if (obj->IsClass()) {
-    result += "<" + PrettyDescriptor(obj->AsClass()->GetDescriptor(&temp)) + ">";
-  }
-  return result;
-}
-
-std::string PrettyClass(mirror::Class* c) {
-  if (c == nullptr) {
-    return "null";
-  }
-  std::string result;
-  result += "java.lang.Class<";
-  result += PrettyDescriptor(c);
-  result += ">";
-  return result;
-}
-
-std::string PrettyClassAndClassLoader(mirror::Class* c) {
-  if (c == nullptr) {
-    return "null";
-  }
-  std::string result;
-  result += "java.lang.Class<";
-  result += PrettyDescriptor(c);
-  result += ",";
-  result += PrettyTypeOf(c->GetClassLoader());
-  // TODO: add an identifying hash value for the loader
-  result += ">";
-  return result;
-}
-
 std::string PrettyJavaAccessFlags(uint32_t access_flags) {
   std::string result;
   if ((access_flags & kAccPublic) != 0) {
@@ -449,6 +248,12 @@ std::string PrettyJavaAccessFlags(uint32_t access_flags) {
   }
   if ((access_flags & kAccStatic) != 0) {
     result += "static ";
+  }
+  if ((access_flags & kAccAbstract) != 0) {
+    result += "abstract ";
+  }
+  if ((access_flags & kAccInterface) != 0) {
+    result += "interface ";
   }
   if ((access_flags & kAccTransient) != 0) {
     result += "transient ";
@@ -486,6 +291,10 @@ std::string PrettySize(int64_t byte_count) {
   }
   return StringPrintf("%s%" PRId64 "%s",
                       negative_str, byte_count / kBytesPerUnit[i], kUnitStrings[i]);
+}
+
+static inline constexpr bool NeedsEscaping(uint16_t ch) {
+  return (ch < ' ' || ch > '~');
 }
 
 std::string PrintableChar(uint16_t ch) {
@@ -533,6 +342,22 @@ std::string PrintableString(const char* utf) {
   }
   result += '"';
   return result;
+}
+
+std::string GetJniShortName(const std::string& class_descriptor, const std::string& method) {
+  // Remove the leading 'L' and trailing ';'...
+  std::string class_name(class_descriptor);
+  CHECK_EQ(class_name[0], 'L') << class_name;
+  CHECK_EQ(class_name[class_name.size() - 1], ';') << class_name;
+  class_name.erase(0, 1);
+  class_name.erase(class_name.size() - 1, 1);
+
+  std::string short_name;
+  short_name += "Java_";
+  short_name += MangleForJni(class_name);
+  short_name += "_";
+  short_name += MangleForJni(method);
+  return short_name;
 }
 
 // See http://java.sun.com/j2se/1.5.0/docs/guide/jni/spec/design.html#wp615 for the full rules.
@@ -600,38 +425,6 @@ std::string DescriptorToName(const char* descriptor) {
     return result;
   }
   return descriptor;
-}
-
-std::string JniShortName(ArtMethod* m) {
-  std::string class_name(m->GetDeclaringClassDescriptor());
-  // Remove the leading 'L' and trailing ';'...
-  CHECK_EQ(class_name[0], 'L') << class_name;
-  CHECK_EQ(class_name[class_name.size() - 1], ';') << class_name;
-  class_name.erase(0, 1);
-  class_name.erase(class_name.size() - 1, 1);
-
-  std::string method_name(m->GetName());
-
-  std::string short_name;
-  short_name += "Java_";
-  short_name += MangleForJni(class_name);
-  short_name += "_";
-  short_name += MangleForJni(method_name);
-  return short_name;
-}
-
-std::string JniLongName(ArtMethod* m) {
-  std::string long_name;
-  long_name += JniShortName(m);
-  long_name += "__";
-
-  std::string signature(m->GetSignature().ToString());
-  signature.erase(0, 1);
-  signature.erase(signature.begin() + signature.find(')'), signature.end());
-
-  long_name += MangleForJni(signature);
-
-  return long_name;
 }
 
 // Helper for IsValidPartOfMemberNameUtf8(), a bit vector indicating valid low ascii.
@@ -891,67 +684,6 @@ void Split(const std::string& s, char separator, std::vector<std::string>* resul
   }
 }
 
-std::string Trim(const std::string& s) {
-  std::string result;
-  unsigned int start_index = 0;
-  unsigned int end_index = s.size() - 1;
-
-  // Skip initial whitespace.
-  while (start_index < s.size()) {
-    if (!isspace(s[start_index])) {
-      break;
-    }
-    start_index++;
-  }
-
-  // Skip terminating whitespace.
-  while (end_index >= start_index) {
-    if (!isspace(s[end_index])) {
-      break;
-    }
-    end_index--;
-  }
-
-  // All spaces, no beef.
-  if (end_index < start_index) {
-    return "";
-  }
-  // Start_index is the first non-space, end_index is the last one.
-  return s.substr(start_index, end_index - start_index + 1);
-}
-
-template <typename StringT>
-std::string Join(const std::vector<StringT>& strings, char separator) {
-  if (strings.empty()) {
-    return "";
-  }
-
-  std::string result(strings[0]);
-  for (size_t i = 1; i < strings.size(); ++i) {
-    result += separator;
-    result += strings[i];
-  }
-  return result;
-}
-
-// Explicit instantiations.
-template std::string Join<std::string>(const std::vector<std::string>& strings, char separator);
-template std::string Join<const char*>(const std::vector<const char*>& strings, char separator);
-
-bool StartsWith(const std::string& s, const char* prefix) {
-  return s.compare(0, strlen(prefix), prefix) == 0;
-}
-
-bool EndsWith(const std::string& s, const char* suffix) {
-  size_t suffix_length = strlen(suffix);
-  size_t string_length = s.size();
-  if (suffix_length > string_length) {
-    return false;
-  }
-  size_t offset = string_length - suffix_length;
-  return s.compare(offset, suffix_length, suffix) == 0;
-}
-
 void SetThreadName(const char* thread_name) {
   int hasAt = 0;
   int hasDot = 0;
@@ -1001,278 +733,58 @@ void GetTaskStats(pid_t tid, char* state, int* utime, int* stime, int* task_cpu)
   *task_cpu = strtoull(fields[36].c_str(), nullptr, 10);
 }
 
-std::string GetSchedulerGroupName(pid_t tid) {
-  // /proc/<pid>/cgroup looks like this:
-  // 2:devices:/
-  // 1:cpuacct,cpu:/
-  // We want the third field from the line whose second field contains the "cpu" token.
-  std::string cgroup_file;
-  if (!ReadFileToString(StringPrintf("/proc/self/task/%d/cgroup", tid), &cgroup_file)) {
-    return "";
-  }
-  std::vector<std::string> cgroup_lines;
-  Split(cgroup_file, '\n', &cgroup_lines);
-  for (size_t i = 0; i < cgroup_lines.size(); ++i) {
-    std::vector<std::string> cgroup_fields;
-    Split(cgroup_lines[i], ':', &cgroup_fields);
-    std::vector<std::string> cgroups;
-    Split(cgroup_fields[1], ',', &cgroups);
-    for (size_t j = 0; j < cgroups.size(); ++j) {
-      if (cgroups[j] == "cpu") {
-        return cgroup_fields[2].substr(1);  // Skip the leading slash.
-      }
-    }
-  }
-  return "";
-}
-
-#if defined(__linux__)
-
-ALWAYS_INLINE
-static inline void WritePrefix(std::ostream* os, const char* prefix, bool odd) {
-  if (prefix != nullptr) {
-    *os << prefix;
-  }
-  *os << "  ";
-  if (!odd) {
-    *os << " ";
-  }
-}
-
-static bool RunCommand(std::string cmd, std::ostream* os, const char* prefix) {
-  FILE* stream = popen(cmd.c_str(), "r");
-  if (stream) {
-    if (os != nullptr) {
-      bool odd_line = true;               // We indent them differently.
-      bool wrote_prefix = false;          // Have we already written a prefix?
-      constexpr size_t kMaxBuffer = 128;  // Relatively small buffer. Should be OK as we're on an
-                                          // alt stack, but just to be sure...
-      char buffer[kMaxBuffer];
-      while (!feof(stream)) {
-        if (fgets(buffer, kMaxBuffer, stream) != nullptr) {
-          // Split on newlines.
-          char* tmp = buffer;
-          for (;;) {
-            char* new_line = strchr(tmp, '\n');
-            if (new_line == nullptr) {
-              // Print the rest.
-              if (*tmp != 0) {
-                if (!wrote_prefix) {
-                  WritePrefix(os, prefix, odd_line);
-                }
-                wrote_prefix = true;
-                *os << tmp;
-              }
-              break;
-            }
-            if (!wrote_prefix) {
-              WritePrefix(os, prefix, odd_line);
-            }
-            char saved = *(new_line + 1);
-            *(new_line + 1) = 0;
-            *os << tmp;
-            *(new_line + 1) = saved;
-            tmp = new_line + 1;
-            odd_line = !odd_line;
-            wrote_prefix = false;
-          }
-        }
-      }
-    }
-    pclose(stream);
-    return true;
-  } else {
-    return false;
-  }
-}
-
-static void Addr2line(const std::string& map_src, uintptr_t offset, std::ostream& os,
-                      const char* prefix) {
-  std::string cmdline(StringPrintf("addr2line --functions --inlines --demangle -e %s %zx",
-                                   map_src.c_str(), offset));
-  RunCommand(cmdline.c_str(), &os, prefix);
-}
-
-static bool PcIsWithinQuickCode(ArtMethod* method, uintptr_t pc) NO_THREAD_SAFETY_ANALYSIS {
-  uintptr_t code = reinterpret_cast<uintptr_t>(EntryPointToCodePointer(
-      method->GetEntryPointFromQuickCompiledCode()));
-  if (code == 0) {
-    return pc == 0;
-  }
-  uintptr_t code_size = reinterpret_cast<const OatQuickMethodHeader*>(code)[-1].code_size_;
-  return code <= pc && pc <= (code + code_size);
-}
-#endif
-
-void DumpNativeStack(std::ostream& os, pid_t tid, BacktraceMap* existing_map, const char* prefix,
-    ArtMethod* current_method, void* ucontext_ptr) {
-#if __linux__
-  // b/18119146
-  if (RUNNING_ON_MEMORY_TOOL != 0) {
-    return;
-  }
-
-  BacktraceMap* map = existing_map;
-  std::unique_ptr<BacktraceMap> tmp_map;
-  if (map == nullptr) {
-    tmp_map.reset(BacktraceMap::Create(getpid()));
-    map = tmp_map.get();
-  }
-  std::unique_ptr<Backtrace> backtrace(Backtrace::Create(BACKTRACE_CURRENT_PROCESS, tid, map));
-  if (!backtrace->Unwind(0, reinterpret_cast<ucontext*>(ucontext_ptr))) {
-    os << prefix << "(backtrace::Unwind failed for thread " << tid
-       << ": " <<  backtrace->GetErrorString(backtrace->GetError()) << ")\n";
-    return;
-  } else if (backtrace->NumFrames() == 0) {
-    os << prefix << "(no native stack frames for thread " << tid << ")\n";
-    return;
-  }
-
-  // Check whether we have and should use addr2line.
-  bool use_addr2line;
-  if (kUseAddr2line) {
-    // Try to run it to see whether we have it. Push an argument so that it doesn't assume a.out
-    // and print to stderr.
-    use_addr2line = (gAborting > 0) && RunCommand("addr2line -h", nullptr, nullptr);
-  } else {
-    use_addr2line = false;
-  }
-
-  for (Backtrace::const_iterator it = backtrace->begin();
-       it != backtrace->end(); ++it) {
-    // We produce output like this:
-    // ]    #00 pc 000075bb8  /system/lib/libc.so (unwind_backtrace_thread+536)
-    // In order for parsing tools to continue to function, the stack dump
-    // format must at least adhere to this format:
-    //  #XX pc <RELATIVE_ADDR>  <FULL_PATH_TO_SHARED_LIBRARY> ...
-    // The parsers require a single space before and after pc, and two spaces
-    // after the <RELATIVE_ADDR>. There can be any prefix data before the
-    // #XX. <RELATIVE_ADDR> has to be a hex number but with no 0x prefix.
-    os << prefix << StringPrintf("#%02zu pc ", it->num);
-    bool try_addr2line = false;
-    if (!BacktraceMap::IsValid(it->map)) {
-      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  ???"
-                                                            : "%08" PRIxPTR "  ???",
-                         it->pc);
+static const char* GetAndroidDirSafe(const char* env_var,
+                                     const char* default_dir,
+                                     std::string* error_msg) {
+  const char* android_dir = getenv(env_var);
+  if (android_dir == nullptr) {
+    if (OS::DirectoryExists(default_dir)) {
+      android_dir = default_dir;
     } else {
-      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  "
-                                                            : "%08" PRIxPTR "  ",
-                         BacktraceMap::GetRelativePc(it->map, it->pc));
-      os << it->map.name;
-      os << " (";
-      if (!it->func_name.empty()) {
-        os << it->func_name;
-        if (it->func_offset != 0) {
-          os << "+" << it->func_offset;
-        }
-        try_addr2line = true;
-      } else if (current_method != nullptr &&
-          Locks::mutator_lock_->IsSharedHeld(Thread::Current()) &&
-          PcIsWithinQuickCode(current_method, it->pc)) {
-        const void* start_of_code = current_method->GetEntryPointFromQuickCompiledCode();
-        os << JniLongName(current_method) << "+"
-           << (it->pc - reinterpret_cast<uintptr_t>(start_of_code));
-      } else {
-        os << "???";
-      }
-      os << ")";
-    }
-    os << "\n";
-    if (try_addr2line && use_addr2line) {
-      Addr2line(it->map.name, it->pc - it->map.start, os, prefix);
+      *error_msg = StringPrintf("%s not set and %s does not exist", env_var, default_dir);
+      return nullptr;
     }
   }
-#else
-  UNUSED(os, tid, existing_map, prefix, current_method, ucontext_ptr);
-#endif
+  if (!OS::DirectoryExists(android_dir)) {
+    *error_msg = StringPrintf("Failed to find %s directory %s", env_var, android_dir);
+    return nullptr;
+  }
+  return android_dir;
 }
 
-#if defined(__APPLE__)
-
-// TODO: is there any way to get the kernel stack on Mac OS?
-void DumpKernelStack(std::ostream&, pid_t, const char*, bool) {}
-
-#else
-
-void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool include_count) {
-  if (tid == GetTid()) {
-    // There's no point showing that we're reading our stack out of /proc!
-    return;
-  }
-
-  std::string kernel_stack_filename(StringPrintf("/proc/self/task/%d/stack", tid));
-  std::string kernel_stack;
-  if (!ReadFileToString(kernel_stack_filename, &kernel_stack)) {
-    os << prefix << "(couldn't read " << kernel_stack_filename << ")\n";
-    return;
-  }
-
-  std::vector<std::string> kernel_stack_frames;
-  Split(kernel_stack, '\n', &kernel_stack_frames);
-  // We skip the last stack frame because it's always equivalent to "[<ffffffff>] 0xffffffff",
-  // which looking at the source appears to be the kernel's way of saying "that's all, folks!".
-  kernel_stack_frames.pop_back();
-  for (size_t i = 0; i < kernel_stack_frames.size(); ++i) {
-    // Turn "[<ffffffff8109156d>] futex_wait_queue_me+0xcd/0x110"
-    // into "futex_wait_queue_me+0xcd/0x110".
-    const char* text = kernel_stack_frames[i].c_str();
-    const char* close_bracket = strchr(text, ']');
-    if (close_bracket != nullptr) {
-      text = close_bracket + 2;
-    }
-    os << prefix;
-    if (include_count) {
-      os << StringPrintf("#%02zd ", i);
-    }
-    os << text << "\n";
-  }
-}
-
-#endif
-
-const char* GetAndroidRoot() {
-  const char* android_root = getenv("ANDROID_ROOT");
-  if (android_root == nullptr) {
-    if (OS::DirectoryExists("/system")) {
-      android_root = "/system";
-    } else {
-      LOG(FATAL) << "ANDROID_ROOT not set and /system does not exist";
-      return "";
-    }
-  }
-  if (!OS::DirectoryExists(android_root)) {
-    LOG(FATAL) << "Failed to find ANDROID_ROOT directory " << android_root;
-    return "";
-  }
-  return android_root;
-}
-
-const char* GetAndroidData() {
+const char* GetAndroidDir(const char* env_var, const char* default_dir) {
   std::string error_msg;
-  const char* dir = GetAndroidDataSafe(&error_msg);
+  const char* dir = GetAndroidDirSafe(env_var, default_dir, &error_msg);
   if (dir != nullptr) {
     return dir;
   } else {
     LOG(FATAL) << error_msg;
-    return "";
+    return nullptr;
   }
 }
 
+const char* GetAndroidRoot() {
+  return GetAndroidDir("ANDROID_ROOT", "/system");
+}
+
+const char* GetAndroidRootSafe(std::string* error_msg) {
+  return GetAndroidDirSafe("ANDROID_ROOT", "/system", error_msg);
+}
+
+const char* GetAndroidData() {
+  return GetAndroidDir("ANDROID_DATA", "/data");
+}
+
 const char* GetAndroidDataSafe(std::string* error_msg) {
-  const char* android_data = getenv("ANDROID_DATA");
-  if (android_data == nullptr) {
-    if (OS::DirectoryExists("/data")) {
-      android_data = "/data";
-    } else {
-      *error_msg = "ANDROID_DATA not set and /data does not exist";
-      return nullptr;
-    }
+  return GetAndroidDirSafe("ANDROID_DATA", "/data", error_msg);
+}
+
+std::string GetDefaultBootImageLocation(std::string* error_msg) {
+  const char* android_root = GetAndroidRootSafe(error_msg);
+  if (android_root == nullptr) {
+    return "";
   }
-  if (!OS::DirectoryExists(android_data)) {
-    *error_msg = StringPrintf("Failed to find ANDROID_DATA directory %s", android_data);
-    return nullptr;
-  }
-  return android_data;
+  return StringPrintf("%s/framework/boot.art", android_root);
 }
 
 void GetDalvikCache(const char* subdir, const bool create_if_absent, std::string* dalvik_cache,
@@ -1299,56 +811,16 @@ void GetDalvikCache(const char* subdir, const bool create_if_absent, std::string
   }
 }
 
-static std::string GetDalvikCacheImpl(const char* subdir,
-                                      const bool create_if_absent,
-                                      const bool abort_on_error) {
+std::string GetDalvikCache(const char* subdir) {
   CHECK(subdir != nullptr);
   const char* android_data = GetAndroidData();
   const std::string dalvik_cache_root(StringPrintf("%s/dalvik-cache/", android_data));
   const std::string dalvik_cache = dalvik_cache_root + subdir;
   if (!OS::DirectoryExists(dalvik_cache.c_str())) {
-    if (!create_if_absent) {
-      // TODO: Check callers. Traditional behavior is to not to abort, even when abort_on_error.
-      return "";
-    }
-
-    // Don't create the system's /data/dalvik-cache/... because it needs special permissions.
-    if (strcmp(android_data, "/data") == 0) {
-      if (abort_on_error) {
-        LOG(FATAL) << "Failed to find dalvik-cache directory " << dalvik_cache
-                   << ", cannot create /data dalvik-cache.";
-        UNREACHABLE();
-      }
-      return "";
-    }
-
-    int result = mkdir(dalvik_cache_root.c_str(), 0700);
-    if (result != 0 && errno != EEXIST) {
-      if (abort_on_error) {
-        PLOG(FATAL) << "Failed to create dalvik-cache root directory " << dalvik_cache_root;
-        UNREACHABLE();
-      }
-      return "";
-    }
-
-    result = mkdir(dalvik_cache.c_str(), 0700);
-    if (result != 0) {
-      if (abort_on_error) {
-        PLOG(FATAL) << "Failed to create dalvik-cache directory " << dalvik_cache;
-        UNREACHABLE();
-      }
-      return "";
-    }
+    // TODO: Check callers. Traditional behavior is to not abort.
+    return "";
   }
   return dalvik_cache;
-}
-
-std::string GetDalvikCache(const char* subdir, const bool create_if_absent) {
-  return GetDalvikCacheImpl(subdir, create_if_absent, false);
-}
-
-std::string GetDalvikCacheOrDie(const char* subdir, const bool create_if_absent) {
-  return GetDalvikCacheImpl(subdir, create_if_absent, true);
 }
 
 bool GetDalvikCacheFilename(const char* location, const char* cache_location,
@@ -1358,7 +830,9 @@ bool GetDalvikCacheFilename(const char* location, const char* cache_location,
     return false;
   }
   std::string cache_file(&location[1]);  // skip leading slash
-  if (!EndsWith(location, ".dex") && !EndsWith(location, ".art") && !EndsWith(location, ".oat")) {
+  if (!android::base::EndsWith(location, ".dex") &&
+      !android::base::EndsWith(location, ".art") &&
+      !android::base::EndsWith(location, ".oat")) {
     cache_file += "/";
     cache_file += DexFile::kClassesDex;
   }
@@ -1367,13 +841,8 @@ bool GetDalvikCacheFilename(const char* location, const char* cache_location,
   return true;
 }
 
-std::string GetDalvikCacheFilenameOrDie(const char* location, const char* cache_location) {
-  std::string ret;
-  std::string error_msg;
-  if (!GetDalvikCacheFilename(location, cache_location, &ret, &error_msg)) {
-    LOG(FATAL) << error_msg;
-  }
-  return ret;
+std::string GetVdexFilename(const std::string& oat_location) {
+  return ReplaceFileExtension(oat_location, "vdex");
 }
 
 static void InsertIsaDirectory(const InstructionSet isa, std::string* filename) {
@@ -1393,67 +862,6 @@ std::string GetSystemImageFilename(const char* location, const InstructionSet is
   return filename;
 }
 
-int ExecAndReturnCode(std::vector<std::string>& arg_vector, std::string* error_msg) {
-  const std::string command_line(Join(arg_vector, ' '));
-  CHECK_GE(arg_vector.size(), 1U) << command_line;
-
-  // Convert the args to char pointers.
-  const char* program = arg_vector[0].c_str();
-  std::vector<char*> args;
-  for (size_t i = 0; i < arg_vector.size(); ++i) {
-    const std::string& arg = arg_vector[i];
-    char* arg_str = const_cast<char*>(arg.c_str());
-    CHECK(arg_str != nullptr) << i;
-    args.push_back(arg_str);
-  }
-  args.push_back(nullptr);
-
-  // fork and exec
-  pid_t pid = fork();
-  if (pid == 0) {
-    // no allocation allowed between fork and exec
-
-    // change process groups, so we don't get reaped by ProcessManager
-    setpgid(0, 0);
-
-    execv(program, &args[0]);
-    PLOG(ERROR) << "Failed to execv(" << command_line << ")";
-    // _exit to avoid atexit handlers in child.
-    _exit(1);
-  } else {
-    if (pid == -1) {
-      *error_msg = StringPrintf("Failed to execv(%s) because fork failed: %s",
-                                command_line.c_str(), strerror(errno));
-      return -1;
-    }
-
-    // wait for subprocess to finish
-    int status = -1;
-    pid_t got_pid = TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
-    if (got_pid != pid) {
-      *error_msg = StringPrintf("Failed after fork for execv(%s) because waitpid failed: "
-                                "wanted %d, got %d: %s",
-                                command_line.c_str(), pid, got_pid, strerror(errno));
-      return -1;
-    }
-    if (WIFEXITED(status)) {
-      return WEXITSTATUS(status);
-    }
-    return -1;
-  }
-}
-
-bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg) {
-  int status = ExecAndReturnCode(arg_vector, error_msg);
-  if (status != 0) {
-    const std::string command_line(Join(arg_vector, ' '));
-    *error_msg = StringPrintf("Failed execv(%s) because non-0 exit status",
-                              command_line.c_str());
-    return false;
-  }
-  return true;
-}
-
 bool FileExists(const std::string& filename) {
   struct stat buffer;
   return stat(filename.c_str(), &buffer) == 0;
@@ -1467,379 +875,17 @@ bool FileExistsAndNotEmpty(const std::string& filename) {
   return buffer.st_size > 0;
 }
 
+std::string ReplaceFileExtension(const std::string& filename, const std::string& new_extension) {
+  const size_t last_ext = filename.find_last_of('.');
+  if (last_ext == std::string::npos) {
+    return filename + "." + new_extension;
+  } else {
+    return filename.substr(0, last_ext + 1) + new_extension;
+  }
+}
+
 std::string PrettyDescriptor(Primitive::Type type) {
   return PrettyDescriptor(Primitive::Descriptor(type));
-}
-
-static void DumpMethodCFGImpl(const DexFile* dex_file,
-                              uint32_t dex_method_idx,
-                              const DexFile::CodeItem* code_item,
-                              std::ostream& os) {
-  os << "digraph {\n";
-  os << "  # /* " << PrettyMethod(dex_method_idx, *dex_file, true) << " */\n";
-
-  std::set<uint32_t> dex_pc_is_branch_target;
-  {
-    // Go and populate.
-    const Instruction* inst = Instruction::At(code_item->insns_);
-    for (uint32_t dex_pc = 0;
-         dex_pc < code_item->insns_size_in_code_units_;
-         dex_pc += inst->SizeInCodeUnits(), inst = inst->Next()) {
-      if (inst->IsBranch()) {
-        dex_pc_is_branch_target.insert(dex_pc + inst->GetTargetOffset());
-      } else if (inst->IsSwitch()) {
-        const uint16_t* insns = code_item->insns_ + dex_pc;
-        int32_t switch_offset = insns[1] | (static_cast<int32_t>(insns[2]) << 16);
-        const uint16_t* switch_insns = insns + switch_offset;
-        uint32_t switch_count = switch_insns[1];
-        int32_t targets_offset;
-        if ((*insns & 0xff) == Instruction::PACKED_SWITCH) {
-          /* 0=sig, 1=count, 2/3=firstKey */
-          targets_offset = 4;
-        } else {
-          /* 0=sig, 1=count, 2..count*2 = keys */
-          targets_offset = 2 + 2 * switch_count;
-        }
-        for (uint32_t targ = 0; targ < switch_count; targ++) {
-          int32_t offset =
-              static_cast<int32_t>(switch_insns[targets_offset + targ * 2]) |
-              static_cast<int32_t>(switch_insns[targets_offset + targ * 2 + 1] << 16);
-          dex_pc_is_branch_target.insert(dex_pc + offset);
-        }
-      }
-    }
-  }
-
-  // Create nodes for "basic blocks."
-  std::map<uint32_t, uint32_t> dex_pc_to_node_id;  // This only has entries for block starts.
-  std::map<uint32_t, uint32_t> dex_pc_to_incl_id;  // This has entries for all dex pcs.
-
-  {
-    const Instruction* inst = Instruction::At(code_item->insns_);
-    bool first_in_block = true;
-    bool force_new_block = false;
-    for (uint32_t dex_pc = 0;
-         dex_pc < code_item->insns_size_in_code_units_;
-         dex_pc += inst->SizeInCodeUnits(), inst = inst->Next()) {
-      if (dex_pc == 0 ||
-          (dex_pc_is_branch_target.find(dex_pc) != dex_pc_is_branch_target.end()) ||
-          force_new_block) {
-        uint32_t id = dex_pc_to_node_id.size();
-        if (id > 0) {
-          // End last node.
-          os << "}\"];\n";
-        }
-        // Start next node.
-        os << "  node" << id << " [shape=record,label=\"{";
-        dex_pc_to_node_id.insert(std::make_pair(dex_pc, id));
-        first_in_block = true;
-        force_new_block = false;
-      }
-
-      // Register instruction.
-      dex_pc_to_incl_id.insert(std::make_pair(dex_pc, dex_pc_to_node_id.size() - 1));
-
-      // Print instruction.
-      if (!first_in_block) {
-        os << " | ";
-      } else {
-        first_in_block = false;
-      }
-
-      // Dump the instruction. Need to escape '"', '<', '>', '{' and '}'.
-      os << "<" << "p" << dex_pc << ">";
-      os << " 0x" << std::hex << dex_pc << std::dec << ": ";
-      std::string inst_str = inst->DumpString(dex_file);
-      size_t cur_start = 0;  // It's OK to start at zero, instruction dumps don't start with chars
-                             // we need to escape.
-      while (cur_start != std::string::npos) {
-        size_t next_escape = inst_str.find_first_of("\"{}<>", cur_start + 1);
-        if (next_escape == std::string::npos) {
-          os << inst_str.substr(cur_start, inst_str.size() - cur_start);
-          break;
-        } else {
-          os << inst_str.substr(cur_start, next_escape - cur_start);
-          // Escape all necessary characters.
-          while (next_escape < inst_str.size()) {
-            char c = inst_str.at(next_escape);
-            if (c == '"' || c == '{' || c == '}' || c == '<' || c == '>') {
-              os << '\\' << c;
-            } else {
-              break;
-            }
-            next_escape++;
-          }
-          if (next_escape >= inst_str.size()) {
-            next_escape = std::string::npos;
-          }
-          cur_start = next_escape;
-        }
-      }
-
-      // Force a new block for some fall-throughs and some instructions that terminate the "local"
-      // control flow.
-      force_new_block = inst->IsSwitch() || inst->IsBasicBlockEnd();
-    }
-    // Close last node.
-    if (dex_pc_to_node_id.size() > 0) {
-      os << "}\"];\n";
-    }
-  }
-
-  // Create edges between them.
-  {
-    std::ostringstream regular_edges;
-    std::ostringstream taken_edges;
-    std::ostringstream exception_edges;
-
-    // Common set of exception edges.
-    std::set<uint32_t> exception_targets;
-
-    // These blocks (given by the first dex pc) need exception per dex-pc handling in a second
-    // pass. In the first pass we try and see whether we can use a common set of edges.
-    std::set<uint32_t> blocks_with_detailed_exceptions;
-
-    {
-      uint32_t last_node_id = std::numeric_limits<uint32_t>::max();
-      uint32_t old_dex_pc = 0;
-      uint32_t block_start_dex_pc = std::numeric_limits<uint32_t>::max();
-      const Instruction* inst = Instruction::At(code_item->insns_);
-      for (uint32_t dex_pc = 0;
-          dex_pc < code_item->insns_size_in_code_units_;
-          old_dex_pc = dex_pc, dex_pc += inst->SizeInCodeUnits(), inst = inst->Next()) {
-        {
-          auto it = dex_pc_to_node_id.find(dex_pc);
-          if (it != dex_pc_to_node_id.end()) {
-            if (!exception_targets.empty()) {
-              // It seems the last block had common exception handlers. Add the exception edges now.
-              uint32_t node_id = dex_pc_to_node_id.find(block_start_dex_pc)->second;
-              for (uint32_t handler_pc : exception_targets) {
-                auto node_id_it = dex_pc_to_incl_id.find(handler_pc);
-                if (node_id_it != dex_pc_to_incl_id.end()) {
-                  exception_edges << "  node" << node_id
-                      << " -> node" << node_id_it->second << ":p" << handler_pc
-                      << ";\n";
-                }
-              }
-              exception_targets.clear();
-            }
-
-            block_start_dex_pc = dex_pc;
-
-            // Seems to be a fall-through, connect to last_node_id. May be spurious edges for things
-            // like switch data.
-            uint32_t old_last = last_node_id;
-            last_node_id = it->second;
-            if (old_last != std::numeric_limits<uint32_t>::max()) {
-              regular_edges << "  node" << old_last << ":p" << old_dex_pc
-                  << " -> node" << last_node_id << ":p" << dex_pc
-                  << ";\n";
-            }
-          }
-
-          // Look at the exceptions of the first entry.
-          CatchHandlerIterator catch_it(*code_item, dex_pc);
-          for (; catch_it.HasNext(); catch_it.Next()) {
-            exception_targets.insert(catch_it.GetHandlerAddress());
-          }
-        }
-
-        // Handle instruction.
-
-        // Branch: something with at most two targets.
-        if (inst->IsBranch()) {
-          const int32_t offset = inst->GetTargetOffset();
-          const bool conditional = !inst->IsUnconditional();
-
-          auto target_it = dex_pc_to_node_id.find(dex_pc + offset);
-          if (target_it != dex_pc_to_node_id.end()) {
-            taken_edges << "  node" << last_node_id << ":p" << dex_pc
-                << " -> node" << target_it->second << ":p" << (dex_pc + offset)
-                << ";\n";
-          }
-          if (!conditional) {
-            // No fall-through.
-            last_node_id = std::numeric_limits<uint32_t>::max();
-          }
-        } else if (inst->IsSwitch()) {
-          // TODO: Iterate through all switch targets.
-          const uint16_t* insns = code_item->insns_ + dex_pc;
-          /* make sure the start of the switch is in range */
-          int32_t switch_offset = insns[1] | (static_cast<int32_t>(insns[2]) << 16);
-          /* offset to switch table is a relative branch-style offset */
-          const uint16_t* switch_insns = insns + switch_offset;
-          uint32_t switch_count = switch_insns[1];
-          int32_t targets_offset;
-          if ((*insns & 0xff) == Instruction::PACKED_SWITCH) {
-            /* 0=sig, 1=count, 2/3=firstKey */
-            targets_offset = 4;
-          } else {
-            /* 0=sig, 1=count, 2..count*2 = keys */
-            targets_offset = 2 + 2 * switch_count;
-          }
-          /* make sure the end of the switch is in range */
-          /* verify each switch target */
-          for (uint32_t targ = 0; targ < switch_count; targ++) {
-            int32_t offset =
-                static_cast<int32_t>(switch_insns[targets_offset + targ * 2]) |
-                static_cast<int32_t>(switch_insns[targets_offset + targ * 2 + 1] << 16);
-            int32_t abs_offset = dex_pc + offset;
-            auto target_it = dex_pc_to_node_id.find(abs_offset);
-            if (target_it != dex_pc_to_node_id.end()) {
-              // TODO: value label.
-              taken_edges << "  node" << last_node_id << ":p" << dex_pc
-                  << " -> node" << target_it->second << ":p" << (abs_offset)
-                  << ";\n";
-            }
-          }
-        }
-
-        // Exception edges. If this is not the first instruction in the block
-        if (block_start_dex_pc != dex_pc) {
-          std::set<uint32_t> current_handler_pcs;
-          CatchHandlerIterator catch_it(*code_item, dex_pc);
-          for (; catch_it.HasNext(); catch_it.Next()) {
-            current_handler_pcs.insert(catch_it.GetHandlerAddress());
-          }
-          if (current_handler_pcs != exception_targets) {
-            exception_targets.clear();  // Clear so we don't do something at the end.
-            blocks_with_detailed_exceptions.insert(block_start_dex_pc);
-          }
-        }
-
-        if (inst->IsReturn() ||
-            (inst->Opcode() == Instruction::THROW) ||
-            (inst->IsBranch() && inst->IsUnconditional())) {
-          // No fall-through.
-          last_node_id = std::numeric_limits<uint32_t>::max();
-        }
-      }
-      // Finish up the last block, if it had common exceptions.
-      if (!exception_targets.empty()) {
-        // It seems the last block had common exception handlers. Add the exception edges now.
-        uint32_t node_id = dex_pc_to_node_id.find(block_start_dex_pc)->second;
-        for (uint32_t handler_pc : exception_targets) {
-          auto node_id_it = dex_pc_to_incl_id.find(handler_pc);
-          if (node_id_it != dex_pc_to_incl_id.end()) {
-            exception_edges << "  node" << node_id
-                << " -> node" << node_id_it->second << ":p" << handler_pc
-                << ";\n";
-          }
-        }
-        exception_targets.clear();
-      }
-    }
-
-    // Second pass for detailed exception blocks.
-    // TODO
-    // Exception edges. If this is not the first instruction in the block
-    for (uint32_t dex_pc : blocks_with_detailed_exceptions) {
-      const Instruction* inst = Instruction::At(&code_item->insns_[dex_pc]);
-      uint32_t this_node_id = dex_pc_to_incl_id.find(dex_pc)->second;
-      while (true) {
-        CatchHandlerIterator catch_it(*code_item, dex_pc);
-        if (catch_it.HasNext()) {
-          std::set<uint32_t> handled_targets;
-          for (; catch_it.HasNext(); catch_it.Next()) {
-            uint32_t handler_pc = catch_it.GetHandlerAddress();
-            auto it = handled_targets.find(handler_pc);
-            if (it == handled_targets.end()) {
-              auto node_id_it = dex_pc_to_incl_id.find(handler_pc);
-              if (node_id_it != dex_pc_to_incl_id.end()) {
-                exception_edges << "  node" << this_node_id << ":p" << dex_pc
-                    << " -> node" << node_id_it->second << ":p" << handler_pc
-                    << ";\n";
-              }
-
-              // Mark as done.
-              handled_targets.insert(handler_pc);
-            }
-          }
-        }
-        if (inst->IsBasicBlockEnd()) {
-          break;
-        }
-
-        // Loop update. Have a break-out if the next instruction is a branch target and thus in
-        // another block.
-        dex_pc += inst->SizeInCodeUnits();
-        if (dex_pc >= code_item->insns_size_in_code_units_) {
-          break;
-        }
-        if (dex_pc_to_node_id.find(dex_pc) != dex_pc_to_node_id.end()) {
-          break;
-        }
-        inst = inst->Next();
-      }
-    }
-
-    // Write out the sub-graphs to make edges styled.
-    os << "\n";
-    os << "  subgraph regular_edges {\n";
-    os << "    edge [color=\"#000000\",weight=.3,len=3];\n\n";
-    os << "    " << regular_edges.str() << "\n";
-    os << "  }\n\n";
-
-    os << "  subgraph taken_edges {\n";
-    os << "    edge [color=\"#00FF00\",weight=.3,len=3];\n\n";
-    os << "    " << taken_edges.str() << "\n";
-    os << "  }\n\n";
-
-    os << "  subgraph exception_edges {\n";
-    os << "    edge [color=\"#FF0000\",weight=.3,len=3];\n\n";
-    os << "    " << exception_edges.str() << "\n";
-    os << "  }\n\n";
-  }
-
-  os << "}\n";
-}
-
-void DumpMethodCFG(ArtMethod* method, std::ostream& os) {
-  const DexFile* dex_file = method->GetDexFile();
-  const DexFile::CodeItem* code_item = dex_file->GetCodeItem(method->GetCodeItemOffset());
-
-  DumpMethodCFGImpl(dex_file, method->GetDexMethodIndex(), code_item, os);
-}
-
-void DumpMethodCFG(const DexFile* dex_file, uint32_t dex_method_idx, std::ostream& os) {
-  // This is painful, we need to find the code item. That means finding the class, and then
-  // iterating the table.
-  if (dex_method_idx >= dex_file->NumMethodIds()) {
-    os << "Could not find method-idx.";
-    return;
-  }
-  const DexFile::MethodId& method_id = dex_file->GetMethodId(dex_method_idx);
-
-  const DexFile::ClassDef* class_def = dex_file->FindClassDef(method_id.class_idx_);
-  if (class_def == nullptr) {
-    os << "Could not find class-def.";
-    return;
-  }
-
-  const uint8_t* class_data = dex_file->GetClassData(*class_def);
-  if (class_data == nullptr) {
-    os << "No class data.";
-    return;
-  }
-
-  ClassDataItemIterator it(*dex_file, class_data);
-  // Skip fields
-  while (it.HasNextStaticField() || it.HasNextInstanceField()) {
-    it.Next();
-  }
-
-  // Find method, and dump it.
-  while (it.HasNextDirectMethod() || it.HasNextVirtualMethod()) {
-    uint32_t method_idx = it.GetMemberIndex();
-    if (method_idx == dex_method_idx) {
-      DumpMethodCFGImpl(dex_file, dex_method_idx, it.GetMethodCodeItem(), os);
-      return;
-    }
-    it.Next();
-  }
-
-  // Otherwise complain.
-  os << "Something went wrong, didn't find the method in the class data.";
 }
 
 static void ParseStringAfterChar(const std::string& s,

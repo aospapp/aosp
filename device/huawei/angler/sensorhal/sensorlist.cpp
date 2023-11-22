@@ -26,12 +26,14 @@ const int kVersion = 1;
 
 const float kMinSampleRateHzAccel = 6.250f;
 const float kMaxSampleRateHzAccel = 400.0f;
+extern const float kScaleAccel = (8.0f * 9.81f / 32768.0f);
 
 const float kMinSampleRateHzGyro = 6.250f;
 const float kMaxSampleRateHzGyro = 400.0f;
 
 const float kMinSampleRateHzMag = 3.125f;
 const float kMaxSampleRateHzMag = 50.0f;
+extern const float kScaleMag = 0.0625f;         // 1.0f / 16.0f
 
 const float kMinSampleRateHzPolling = 0.1f;
 const float kMaxSampleRateHzPolling = 25.0f;
@@ -505,6 +507,24 @@ extern const sensor_t kSensorList[] = {
         "",                                     // requiredPermission
         0,                                      // maxDelay
         SENSOR_FLAG_ON_CHANGE_MODE,
+        { NULL, NULL }
+    },
+    {
+        "BMI160 accelerometer (uncalibrated)",
+        "Bosch",
+        kVersion,
+        COMMS_SENSOR_ACCEL_UNCALIBRATED,
+        SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED,
+        GRAVITY_EARTH * 8.0f,                      // maxRange
+        GRAVITY_EARTH * 8.0f / 32768.0f,           // resolution
+        0.0f,                                      // XXX power
+        (int32_t)(1.0E6f / kMaxSampleRateHzAccel), // minDelay
+        3000,                                      // XXX fifoReservedEventCount
+        kMaxRawThreeAxisEventCount,                // XXX fifoMaxEventCount
+        SENSOR_STRING_TYPE_ACCELEROMETER_UNCALIBRATED,
+        "",                                        // requiredPermission
+        (long)(1.0E6f / kMinSampleRateHzAccel),    // maxDelay
+        SENSOR_FLAG_CONTINUOUS_MODE,
         { NULL, NULL }
     },
 };

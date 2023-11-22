@@ -26,6 +26,8 @@ namespace bluetooth {
 
 class GattClientFactory;
 class GattServerFactory;
+class LowEnergyAdvertiserFactory;
+class LowEnergyScannerFactory;
 class LowEnergyClientFactory;
 
 // Represents the local Bluetooth adapter.
@@ -124,6 +126,15 @@ class Adapter {
   // register per-application LowEnergyClient instances to perform BLE GAP
   // operations.
   virtual LowEnergyClientFactory* GetLowEnergyClientFactory() const = 0;
+
+  // Returns a pointer to the LowEnergyScannerFactory. This can be used to
+  // register per-application LowEnergyScanner instances to perform scanning.
+  virtual LowEnergyScannerFactory* GetLeScannerFactory() const = 0;
+
+  // Returns a pointer to the LowEnergyAdvertiserFactory. This can be used to
+  // register per-application LowEnergyAdvertiser instances to perform
+  // advertising.
+  virtual LowEnergyAdvertiserFactory* GetLeAdvertiserFactory() const = 0;
 
   // Returns a pointer to the GattClientFactory. This can be used to register
   // per-application GATT server instances.

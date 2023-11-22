@@ -23,10 +23,12 @@
 
 #include <stdlib.h>
 #include <string.h>
+
 #include <algorithm>
 #include <mutex>
 #include <new>
 #include <utility>
+
 #include <cutils/properties.h>
 #include <log/log.h>
 
@@ -1048,7 +1050,8 @@ VkBool32 LayerChain::DebugReportCallback(VkDebugReportFlagsEXT flags,
 VkResult LayerChain::CreateInstance(const VkInstanceCreateInfo* create_info,
                                     const VkAllocationCallbacks* allocator,
                                     VkInstance* instance_out) {
-    LayerChain chain(true, driver::DebugReportLogger(*create_info),
+    const driver::DebugReportLogger logger(*create_info);
+    LayerChain chain(true, logger,
                      (allocator) ? *allocator : driver::GetDefaultAllocator());
 
     VkResult result = chain.ActivateLayers(create_info->ppEnabledLayerNames,
@@ -1073,8 +1076,9 @@ VkResult LayerChain::CreateDevice(VkPhysicalDevice physical_dev,
                                   const VkDeviceCreateInfo* create_info,
                                   const VkAllocationCallbacks* allocator,
                                   VkDevice* dev_out) {
+    const driver::DebugReportLogger logger = driver::Logger(physical_dev);
     LayerChain chain(
-        false, driver::Logger(physical_dev),
+        false, logger,
         (allocator) ? *allocator : driver::GetData(physical_dev).allocator);
 
     VkResult result = chain.ActivateLayers(

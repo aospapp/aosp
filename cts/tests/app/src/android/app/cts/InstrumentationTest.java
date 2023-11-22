@@ -51,9 +51,15 @@ import java.util.List;
 
 import android.app.stubs.R;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 public class InstrumentationTest extends InstrumentationTestCase {
 
     private static final int WAIT_TIME = 1000;
+
+    // Secondary apk we can run tests against.
+    static final String SIMPLE_PACKAGE_NAME = "com.android.cts.launcherapps.simpleapp";
+
     private Instrumentation mInstrumentation;
     private InstrumentationTestActivity mActivity;
     private Intent mIntent;
@@ -81,8 +87,34 @@ public class InstrumentationTest extends InstrumentationTestCase {
         super.tearDown();
     }
 
-    public void testConstructor() throws Exception {
-        new Instrumentation();
+    public void testDefaultProcessInstrumentation() throws Exception {
+        String cmd = "am instrument -w android.app.cts/.DefaultProcessInstrumentation";
+        String result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
+        assertEquals("INSTRUMENTATION_RESULT: " + SIMPLE_PACKAGE_NAME + "=true" +
+                "\nINSTRUMENTATION_CODE: -1\n", result);
+    }
+
+    public void testAltProcessInstrumentation() throws Exception {
+        String cmd = "am instrument -w android.app.cts/.AltProcessInstrumentation";
+        String result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
+        assertEquals("INSTRUMENTATION_RESULT: " + SIMPLE_PACKAGE_NAME + ":other=true" +
+                "\nINSTRUMENTATION_CODE: -1\n", result);
+    }
+
+    public void testWildcardProcessInstrumentation() throws Exception {
+        String cmd = "am instrument -w android.app.cts/.WildcardProcessInstrumentation";
+        String result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
+        assertEquals("INSTRUMENTATION_RESULT: " + SIMPLE_PACKAGE_NAME + "=true" +
+                "\nINSTRUMENTATION_RESULT: " + SIMPLE_PACKAGE_NAME + ":receiver=true" +
+                "\nINSTRUMENTATION_CODE: -1\n", result);
+    }
+
+    public void testMultiProcessInstrumentation() throws Exception {
+        String cmd = "am instrument -w android.app.cts/.MultiProcessInstrumentation";
+        String result = SystemUtil.runShellCommand(getInstrumentation(), cmd);
+        assertEquals("INSTRUMENTATION_RESULT: " + SIMPLE_PACKAGE_NAME + "=true" +
+                "\nINSTRUMENTATION_RESULT: " + SIMPLE_PACKAGE_NAME + ":other=true" +
+                "\nINSTRUMENTATION_CODE: -1\n", result);
     }
 
     public void testMonitor() throws Exception {
@@ -358,9 +390,11 @@ public class InstrumentationTest extends InstrumentationTestCase {
         assertTrue(mRunOnMainSyncResult);
     }
 
-    public void testCallActivityOnPause() throws Exception {
+    public void testCallActivityOnPause() throws Throwable {
         mActivity.setOnPauseCalled(false);
-        mInstrumentation.callActivityOnPause(mActivity);
+        runTestOnUiThread(() -> {
+            mInstrumentation.callActivityOnPause(mActivity);
+        });
         mInstrumentation.waitForIdleSync();
         assertTrue(mActivity.isOnPauseCalled());
     }

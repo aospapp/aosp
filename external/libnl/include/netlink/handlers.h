@@ -108,6 +108,8 @@ enum nl_cb_type {
 	NL_CB_SEQ_CHECK,
 	/** Sending of an acknowledge message has been requested */
 	NL_CB_SEND_ACK,
+	/** Flag NLM_F_DUMP_INTR is set in message */
+	NL_CB_DUMP_INTR,
 	__NL_CB_TYPE_MAX,
 };
 
@@ -136,6 +138,8 @@ extern void nl_cb_overwrite_recv(struct nl_cb *,
 extern void nl_cb_overwrite_send(struct nl_cb *,
 				 int (*func)(struct nl_sock *,
 					     struct nl_msg *));
+
+extern enum nl_cb_type nl_cb_active_type(struct nl_cb *cb);
 
 #ifdef __cplusplus
 }

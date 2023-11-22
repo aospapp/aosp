@@ -16,9 +16,11 @@
 
 package android.media.cts;
 
-import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.os.Parcel;
+
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 public class AudioAttributesTest extends CtsAndroidTestCase {
 
@@ -63,5 +65,18 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
                 srcAttr.getFlags(), targetAttr.getFlags());
         assertTrue("Source and target attributes are not considered equal",
                 srcAttr.equals(targetAttr));
+    }
+
+    // Test case 3: verify going from AudioAttributes to stream type, with attributes built from
+    //    stream type.
+    public void testGetVolumeControlStreamVsLegacyStream() throws Exception {
+        for (int testType : new int[] { AudioManager.STREAM_ALARM, AudioManager.STREAM_MUSIC,
+                AudioManager.STREAM_NOTIFICATION, AudioManager.STREAM_RING,
+                AudioManager.STREAM_SYSTEM, AudioManager.STREAM_VOICE_CALL}) {
+            final AudioAttributes aa = new AudioAttributes.Builder().setLegacyStreamType(testType)
+                    .build();
+            final int stream = aa.getVolumeControlStream();
+            assertEquals("Volume control from attributes, stream doesn't match", testType, stream);
+        }
     }
 }

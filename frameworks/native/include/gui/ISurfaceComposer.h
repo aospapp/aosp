@@ -28,21 +28,23 @@
 #include <binder/IInterface.h>
 
 #include <ui/FrameStats.h>
+#include <ui/PixelFormat.h>
 
-#include <gui/IGraphicBufferAlloc.h>
-#include <gui/ISurfaceComposerClient.h>
+#include <vector>
 
 namespace android {
 // ----------------------------------------------------------------------------
 
-class ComposerState;
-class DisplayState;
+struct ComposerState;
+struct DisplayState;
 struct DisplayInfo;
 struct DisplayStatInfo;
 class HdrCapabilities;
 class IDisplayEventConnection;
-class IMemoryHeap;
+class IGraphicBufferProducer;
+class ISurfaceComposerClient;
 class Rect;
+enum class FrameEvent;
 
 /*
  * This class defines the Binder IPC interface for accessing various
@@ -50,7 +52,7 @@ class Rect;
  */
 class ISurfaceComposer: public IInterface {
 public:
-    DECLARE_META_INTERFACE(SurfaceComposer);
+    DECLARE_META_INTERFACE(SurfaceComposer)
 
     // flags for setTransactionState()
     enum {
@@ -70,17 +72,30 @@ public:
         eRotate270  = 3
     };
 
+    enum VsyncSource {
+        eVsyncSourceApp = 0,
+        eVsyncSourceSurfaceFlinger = 1
+    };
+
     /* create connection with surface flinger, requires
      * ACCESS_SURFACE_FLINGER permission
      */
     virtual sp<ISurfaceComposerClient> createConnection() = 0;
 
-    /* create a graphic buffer allocator
+    /** create a scoped connection with surface flinger.
+     * Surfaces produced with this connection will act
+     * as children of the passed in GBP. That is to say
+     * SurfaceFlinger will draw them relative and confined to
+     * drawing of buffers from the layer associated with parent.
+     * As this is graphically equivalent in reach to just drawing
+     * pixels into the parent buffers, it requires no special permission.
      */
-    virtual sp<IGraphicBufferAlloc> createGraphicBufferAlloc() = 0;
+    virtual sp<ISurfaceComposerClient> createScopedConnection(
+            const sp<IGraphicBufferProducer>& parent) = 0;
 
     /* return an IDisplayEventConnection */
-    virtual sp<IDisplayEventConnection> createDisplayEventConnection() = 0;
+    virtual sp<IDisplayEventConnection> createDisplayEventConnection(
+            VsyncSource vsyncSource = eVsyncSourceApp) = 0;
 
     /* create a virtual display
      * requires ACCESS_SURFACE_FLINGER permission.
@@ -111,6 +126,11 @@ public:
      */
     virtual bool authenticateSurfaceTexture(
             const sp<IGraphicBufferProducer>& surface) const = 0;
+
+    /* Returns the frame timestamps supported by SurfaceFlinger.
+     */
+    virtual status_t getSupportedFrameTimestamps(
+            std::vector<FrameEvent>* outSupported) const = 0;
 
     /* set display power mode. depending on the mode, it can either trigger
      * screen on, off or low power mode and wait for it to complete.
@@ -149,7 +169,7 @@ public:
     virtual status_t captureScreen(const sp<IBinder>& display,
             const sp<IGraphicBufferProducer>& producer,
             Rect sourceCrop, uint32_t reqWidth, uint32_t reqHeight,
-            uint32_t minLayerZ, uint32_t maxLayerZ,
+            int32_t minLayerZ, int32_t maxLayerZ,
             bool useIdentityTransform,
             Rotation rotation = eRotateNone) = 0;
 
@@ -171,6 +191,10 @@ public:
      */
     virtual status_t getHdrCapabilities(const sp<IBinder>& display,
             HdrCapabilities* outCapabilities) const = 0;
+
+    virtual status_t enableVSyncInjections(bool enable) = 0;
+
+    virtual status_t injectVSync(nsecs_t when) = 0;
 };
 
 // ----------------------------------------------------------------------------
@@ -182,13 +206,14 @@ public:
         // Java by ActivityManagerService.
         BOOT_FINISHED = IBinder::FIRST_CALL_TRANSACTION,
         CREATE_CONNECTION,
-        CREATE_GRAPHIC_BUFFER_ALLOC,
+        UNUSED, // formerly CREATE_GRAPHIC_BUFFER_ALLOC
         CREATE_DISPLAY_EVENT_CONNECTION,
         CREATE_DISPLAY,
         DESTROY_DISPLAY,
         GET_BUILT_IN_DISPLAY,
         SET_TRANSACTION_STATE,
         AUTHENTICATE_SURFACE,
+        GET_SUPPORTED_FRAME_TIMESTAMPS,
         GET_DISPLAY_CONFIGS,
         GET_ACTIVE_CONFIG,
         SET_ACTIVE_CONFIG,
@@ -202,6 +227,9 @@ public:
         GET_DISPLAY_COLOR_MODES,
         GET_ACTIVE_COLOR_MODE,
         SET_ACTIVE_COLOR_MODE,
+        ENABLE_VSYNC_INJECTIONS,
+        INJECT_VSYNC,
+        CREATE_SCOPED_CONNECTION
     };
 
     virtual status_t onTransact(uint32_t code, const Parcel& data,

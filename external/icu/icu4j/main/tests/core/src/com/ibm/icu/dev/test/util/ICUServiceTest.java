@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2001-2013, International Business Machines Corporation and    *
@@ -20,6 +22,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.ICULocaleService;
 import com.ibm.icu.impl.ICULocaleService.ICUResourceBundleFactory;
@@ -38,11 +42,6 @@ import com.ibm.icu.util.ULocale;
 
 public class ICUServiceTest extends TestFmwk
 {
-    public static void main(String[] args) throws Exception {
-    ICUServiceTest test = new ICUServiceTest();
-    test.run(args);
-    }
-
     private String lrmsg(String message, Object lhs, Object rhs) {
     return message + " lhs: " + lhs + " rhs: " + rhs;
     }
@@ -105,6 +104,7 @@ public class ICUServiceTest extends TestFmwk
     }
     }
 
+    @Test
     public void TestAPI() {
     // create a service using locale keys,
     ICUService service = new TestService();
@@ -661,6 +661,7 @@ public class ICUServiceTest extends TestFmwk
     }
     }
 
+    @Test
     public void TestLocale() {
     ICULocaleService service = new ICULocaleService("test locale");
     service.registerObject("root", ULocale.ROOT);
@@ -779,6 +780,7 @@ public class ICUServiceTest extends TestFmwk
         }
     }
 
+    @Test
     public void TestWrapFactory() {
         final String greeting = "Hello There";
         final String greetingID = "greeting";
@@ -811,6 +813,7 @@ public class ICUServiceTest extends TestFmwk
     }
 
     // misc coverage tests
+    @Test
     public void TestCoverage() {
     // Key
     Key key = new Key("foobar");

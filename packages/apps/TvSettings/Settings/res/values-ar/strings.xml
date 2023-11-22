@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"البحث عن شبكة متوفّر دائمًا"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"السماح لخدمة مواقع Google والتطبيقات الأخرى بالبحث عن شبكات، حتى في حالة تعطيل Wi-Fi"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"السماح لخدمة الموقع في Google والتطبيقات الأخرى بالبحث عن شبكات، حتى عند عدم تشغيل Wi-Fi"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"شاشة التوقف"</string>
     <string name="device_display" msgid="101455384386372747">"العرض"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"البطارية <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"جارٍ إلغاء إقران الجهاز…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"متصل"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"تغيير الاسم"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"إدخال اسم جديد لهذا الملحق"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"البحث عن ملحقات…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"قبل إقران أجهزة Bluetooth، تأكّد أنّها في وضع الإقران"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"تمّ العثور على الجهاز وسيتم الإقران تلقائيًا في غضون <xliff:g id="COUNTDOWN">%1$s</xliff:g> من الثواني"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"لوحة المفاتيح"</string>
     <string name="system_home" msgid="2858989138172296012">"الشاشة الرئيسية"</string>
     <string name="system_search" msgid="2837264654143247611">"بحث"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"الأمان والقيود"</string>
     <string name="system_speech" msgid="8128688499687306982">"الكلام"</string>
     <string name="system_inputs" msgid="2413907183796651102">"أجهزة الإدخال"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"خيارات مطور البرامج"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"غير متوفر"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"الاستخدام ومعلومات التشخيص"</string>
+    <string name="tutorials" msgid="3731493987558093244">"برامج تعليمية"</string>
     <string name="about_system_update" msgid="7282772247661356586">"تحديث النظام"</string>
     <string name="about_preference" msgid="4131396784531360434">"حول"</string>
     <string name="device_name" msgid="2670488158531273028">"اسم الجهاز"</string>
@@ -173,7 +177,7 @@
     <string name="security_type" msgid="524443802004143058">"نوع الأمان"</string>
     <string name="wps_network" msgid="1052148085426051873">"اتصال عبر WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"شبكة أخرى..."</string>
-    <string name="skip_network" msgid="6380260543776712357">"تخطٍ"</string>
+    <string name="skip_network" msgid="6380260543776712357">"تخطي"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"بدون"</string>
     <string name="wifi_security_type_wep" msgid="3836879161029325671">"WEP"</string>
     <string name="wifi_security_type_wpa" msgid="4948411057925876780">"WPA/WPA2 PSK"</string>
@@ -376,6 +380,7 @@
     <string name="display_options" msgid="5504549024985225774">"خيارات العرض"</string>
     <string name="captions_configure" msgid="5537548915977371014">"تهيئة"</string>
     <string name="captions_language" msgid="2835554055388996343">"اللغة"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"الافتراضية"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"حجم النص"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"نمط التسمية التوضيحية"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"خيارات مخصصة"</string>
@@ -452,7 +457,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"حجم الرسوم المتحركة للنقل"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"طول مدة الرسوم المتحركة"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"تم تمكين الوضع المتشدد"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"عرض استخدام CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"رسم مخطط لعرض GPU"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"تمكين الآثار"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"عدم الاحتفاظ بالأنشطة"</string>
@@ -470,7 +474,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"من الأفضل إلى الأسوأ: أزرق، أخضر، أحمر فاتح، أحمر"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"وميض أسطح النوافذ بالكامل عندما يتم تحديثها"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"وميض الشاشة لإجراء تطبيق عملية طويلة بسلسلة رئيسية"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"عرض تراكب الشاشة للاستخدام الحالي لوحدة المعالجة المركزية (CPU)"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"قياس وقت العرض بـ adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"تشغيل"</string>
     <string name="action_off_title" msgid="3157728958166559966">"إيقاف"</string>
@@ -618,7 +621,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"فرض الإيقاف"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"في حالة فرض إيقاف التطبيق، ربما لا يعمل بشكل صحيح."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"إزالة"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"هل تريد إزالة هذا التطبيق؟"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"إزالة التحديثات"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"ستتم إزالة جميع تحديثات تطبيق نظام Android هذا."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"تعطيل"</string>
@@ -635,6 +637,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"محو ذاكرة التخزين المؤقت"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"الإشعارات"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"الأذونات"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"التطبيق غير متاح"</string>
     <string name="settings_ok" msgid="3321630456511355983">"موافق"</string>
     <string name="settings_cancel" msgid="304280412158061225">"إلغاء"</string>
     <string name="settings_on" msgid="6892236264945435013">"تشغيل"</string>
@@ -658,17 +661,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"هل تريد محو جميع المعلومات الشخصية والتطبيقات التي تم تنزيلها؟ لا يمكنك التراجع عن هذا الإجراء!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"محو كل شيء"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"اختيار اسم لجهاز <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"سيساعد الاسم في تعريف جهاز <xliff:g id="DEVICEMODEL">%1$s</xliff:g> عند الوصول إليه من أجهزة أخرى مثل الهاتف أو الجهاز اللوحي أو الكمبيوتر."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"اختر اسمًا لـ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> للمساعدة في التعرف عليه عند الإرسال إليه أو الاتصال به من أجهزة أخرى."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"غرفة المعيشة"</item>
-    <item msgid="3722089849939477581">"غرفة الوسائط"</item>
-    <item msgid="6108590585438763574">"غرفة الأسرة"</item>
-    <item msgid="2581035245390468625">"غرفة تناول الطعام"</item>
-    <item msgid="3127487827308695324">"غرفة صغيرة"</item>
-    <item msgid="6172018430592195063">"غرفة النوم"</item>
-    <item msgid="8120010459866284578">"المطبخ"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"تلفزيون غرفة المعيشة"</item>
+    <item msgid="8122798759665439456">"تلفزيون غرفة العائلة"</item>
+    <item msgid="1389347662738182100">"تلفزيون غرفة النوم"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"إدخال اسم مخصص…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"إدخال اسم مخصص…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"إعادة تسمية جهاز <xliff:g id="DEVICEMODEL">%1$s</xliff:g> هذا"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"جهاز <xliff:g id="DEVICEMODEL">%1$s</xliff:g> هذا يحمل الاسم \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\" حاليًا"</string>
     <string name="change_setting" msgid="2047402388786162246">"تغيير"</string>
@@ -683,4 +683,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"إعادة تشغيل في الوضع الآمن"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"هل تريد إعادة التشغيل في الوضع الآمن؟"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"سيؤدي هذا إلى تعطيل كل تطبيقات الجهات الخارجية التي ثبَّتَها. وستتم استعادتها بعد إعادة التشغيل مرة أخرى."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"جارٍ تسجيل تقرير الأخطاء"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"لوحات المفاتيح الظاهرية المتاحة"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"إدارة لوحات المفاتيح"</string>
 </resources>

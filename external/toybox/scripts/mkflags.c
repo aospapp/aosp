@@ -19,12 +19,21 @@ struct flag {
   struct flag *lopt;
 };
 
+int chrtype(char c)
+{
+  if (strchr("?&^-:#|@*; ", c)) return 1;
+  if (strchr("=<>", c)) return 2;
+
+  return 0;
+}
+
 // replace chopped out USE_BLAH() sections with low-ascii characters
 // showing how many flags got skipped
 
 char *mark_gaps(char *flags, char *all)
 {
   char *n, *new, c;
+  int bare = 1;
 
   // Shell feeds in " " for blank args, leading space not meaningful.
   while (isspace(*flags)) flags++;
@@ -32,17 +41,33 @@ char *mark_gaps(char *flags, char *all)
 
   n = new = strdup(all);
   while (*all) {
-    if (*flags == *all) {
-      *(new++) = *(all++);
+    // --longopt parentheticals dealt with as a unit
+    if (*all == '(') {
+      int len = 0;
+
+      while (all[len++] != ')');
+      if (strncmp(flags, all, len)) {
+        // bare longopts need their own skip placeholders
+        if (bare) *(new++) = 1;
+      } else {
+        memcpy(new, all, len);
+        new += len;
+        flags += len;
+      }
+      all += len;
+      continue;
+    }
+    c = *(all++);
+    if (bare) bare = chrtype(c);
+    if (*flags == c) {
+      *(new++) = c;
       *flags++;
       continue;
     }
 
-    c = *(all++);
-    if (strchr("?&^-:#|@*; ", c));
-    else if (strchr("=<>", c)) while (isdigit(*all)) all++;
-    else if (c == '(') while(*(all++) != ')');
-    else *(new++) = 1;
+    c = chrtype(c);
+    if (!c) *(new++) = 1;
+    else if (c==2) while (isdigit(*all)) all++;
   }
   *new = 0;
 
@@ -122,7 +147,7 @@ int main(int argc, char *argv[])
 
   for (;;) {
     struct flag *flist, *aflist, *offlist;
-    char *gaps, *mgaps, c;
+    char *mgaps = 0;
     unsigned bit;
 
     *command = *flags = *allflags = 0;
@@ -141,16 +166,13 @@ int main(int argc, char *argv[])
 
     bit = 0;
     printf("// %s %s %s\n", command, flags, allflags);
-    mgaps = mark_gaps(flags, allflags);
-    for (gaps = mgaps; *gaps == 1; gaps++);
-    if (*gaps) c = '"';
-    else {
-      c = ' ';
-      gaps = "0";
-    }
-    printf("#undef OPTSTR_%s\n#define OPTSTR_%s %c%s%c\n",
-            command, command, c, gaps, c);
-    free(mgaps);
+    if (*flags != ' ') mgaps = mark_gaps(flags, allflags);
+    else if (*allflags != ' ') mgaps = allflags;
+    // If command disabled, use allflags for OLDTOY()
+    printf("#undef OPTSTR_%s\n#define OPTSTR_%s ", command, command);
+    if (mgaps) printf("\"%s\"\n", mgaps);
+    else printf("0\n");
+    if (mgaps != allflags) free(mgaps);
 
     flist = digest(flags);
     offlist = aflist = digest(allflags);
@@ -194,7 +216,7 @@ int main(int argc, char *argv[])
         }
       // Output normal flag macro
       } else if (aflist->command) {
-        if (flist && (!flist->command || *aflist->command == *flist->command)) {
+        if (flist && flist->command && *aflist->command == *flist->command) {
           if (aflist->command)
             sprintf(out, "#define FLAG_%c (1%s<<%d)\n", *aflist->command,
               llstr, bit);

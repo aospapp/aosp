@@ -4,8 +4,7 @@
 
 AUTHOR = 'pstew, wiley, quiche'
 NAME = 'network_VPNConnect.l2tpipsec_psk'
-ATTRIBUTES = "suite:bvt-perbuild, suite:network_nightly"
-SUITE = 'bvt-perbuild, network_nightly'
+ATTRIBUTES = "suite:bvt-perbuild, suite:network_nightly, suite:toolchain-tests"
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

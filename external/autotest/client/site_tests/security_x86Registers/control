@@ -11,7 +11,6 @@ to expected values.
 """
 TIME = "SHORT"
 ATTRIBUTES = "suite:security"
-SUITE = "security"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "security"
 TEST_TYPE = "client"

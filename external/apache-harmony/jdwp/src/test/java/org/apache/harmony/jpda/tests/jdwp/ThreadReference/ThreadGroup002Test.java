@@ -43,6 +43,7 @@ public class ThreadGroup002Test extends JDWPSyncTestCase {
     static final String debuggeeSignature =
             "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/ThreadGroup002Debuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ThreadGroup002Debuggee";
     }

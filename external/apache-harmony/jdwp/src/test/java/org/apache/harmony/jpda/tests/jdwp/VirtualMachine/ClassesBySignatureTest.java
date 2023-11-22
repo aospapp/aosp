@@ -40,6 +40,7 @@ public class ClassesBySignatureTest extends JDWPSyncTestCase {
 
     static final String SIGNATURE001 = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

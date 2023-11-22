@@ -1,8 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 1996-2015, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package android.icu.text;
@@ -17,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 
+import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
 import android.icu.impl.Utility;
 import android.icu.impl.UtilityExtensions;
@@ -33,16 +36,16 @@ import android.icu.util.UResourceBundle;
  * changes Russian text written in Cyrillic characters to phonetically equivalent Latin characters. It does not
  * <em>translate</em> Russian to English! Transliteration, unlike translation, operates on characters, without reference
  * to the meanings of words and sentences.
- * 
+ *
  * <p>
  * Although script conversion is its most common use, a transliterator can actually perform a more general class of
  * tasks. In fact, <code>Transliterator</code> defines a very general API which specifies only that a segment of the
  * input text is replaced by new text. The particulars of this conversion are determined entirely by subclasses of
  * <code>Transliterator</code>.
- * 
+ *
  * <p>
  * <b>Transliterators are stateless</b>
- * 
+ *
  * <p>
  * <code>Transliterator</code> objects are <em>stateless</em>; they retain no information between calls to
  * <code>transliterate()</code>. As a result, threads may share transliterators without synchronizing them. This might
@@ -50,56 +53,56 @@ import android.icu.util.UResourceBundle;
  * transliterations by delaying the replacement of text until it is known that no other replacements are possible. In
  * other words, although the <code>Transliterator</code> objects are stateless, the source text itself embodies all the
  * needed information, and delayed operation allows arbitrary complexity.
- * 
+ *
  * <p>
  * <b>Batch transliteration</b>
- * 
+ *
  * <p>
  * The simplest way to perform transliteration is all at once, on a string of existing text. This is referred to as
  * <em>batch</em> transliteration. For example, given a string <code>input</code> and a transliterator <code>t</code>,
  * the call
- * 
+ *
  * <blockquote><code>String result = t.transliterate(input);
  * </code></blockquote>
- * 
+ *
  * will transliterate it and return the result. Other methods allow the client to specify a substring to be
  * transliterated and to use {@link Replaceable} objects instead of strings, in order to preserve out-of-band
  * information (such as text styles).
- * 
+ *
  * <p>
  * <b>Keyboard transliteration</b>
- * 
+ *
  * <p>
  * Somewhat more involved is <em>keyboard</em>, or incremental transliteration. This is the transliteration of text that
  * is arriving from some source (typically the user's keyboard) one character at a time, or in some other piecemeal
  * fashion.
- * 
+ *
  * <p>
  * In keyboard transliteration, a <code>Replaceable</code> buffer stores the text. As text is inserted, as much as
  * possible is transliterated on the fly. This means a GUI that displays the contents of the buffer may show text being
  * modified as each new character arrives.
- * 
+ *
  * <p>
  * Consider the simple <code>RuleBasedTransliterator</code>:
- * 
+ *
  * <blockquote><code>
  * th&gt;{theta}<br>
  * t&gt;{tau}
  * </code></blockquote>
- * 
+ *
  * When the user types 't', nothing will happen, since the transliterator is waiting to see if the next character is
  * 'h'. To remedy this, we introduce the notion of a cursor, marked by a '|' in the output string:
- * 
+ *
  * <blockquote><code>
  * t&gt;|{tau}<br>
  * {tau}h&gt;{theta}
  * </code></blockquote>
- * 
+ *
  * Now when the user types 't', tau appears, and if the next character is 'h', the tau changes to a theta. This is
  * accomplished by maintaining a cursor position (independent of the insertion point, and invisible in the GUI) across
  * calls to <code>transliterate()</code>. Typically, the cursor will be coincident with the insertion point, but in a
  * case like the one above, it will precede the insertion point.
- * 
+ *
  * <p>
  * Keyboard transliteration methods maintain a set of three indices that are updated with each call to
  * <code>transliterate()</code>, including the cursor, start, and limit. These indices are changed by the method, and
@@ -111,48 +114,48 @@ import android.icu.util.UResourceBundle;
  * <code>RuleBasedTransliterator</code>. Any characters before the <code>cursor</code> index are frozen; future keyboard
  * transliteration calls within this input sequence will not change them. New text is inserted at the <code>limit</code>
  * index, which marks the end of the substring that the transliterator looks at.
- * 
+ *
  * <p>
  * Because keyboard transliteration assumes that more characters are to arrive, it is conservative in its operation. It
  * only transliterates when it can do so unambiguously. Otherwise it waits for more characters to arrive. When the
  * client code knows that no more characters are forthcoming, perhaps because the user has performed some input
  * termination operation, then it should call <code>finishTransliteration()</code> to complete any pending
  * transliterations.
- * 
+ *
  * <p>
  * <b>Inverses</b>
- * 
+ *
  * <p>
  * Pairs of transliterators may be inverses of one another. For example, if transliterator <b>A</b> transliterates
  * characters by incrementing their Unicode value (so "abc" -&gt; "def"), and transliterator <b>B</b> decrements character
  * values, then <b>A</b> is an inverse of <b>B</b> and vice versa. If we compose <b>A</b> with <b>B</b> in a compound
  * transliterator, the result is the indentity transliterator, that is, a transliterator that does not change its input
  * text.
- * 
+ *
  * The <code>Transliterator</code> method <code>getInverse()</code> returns a transliterator's inverse, if one exists,
  * or <code>null</code> otherwise. However, the result of <code>getInverse()</code> usually will <em>not</em> be a true
  * mathematical inverse. This is because true inverse transliterators are difficult to formulate. For example, consider
  * two transliterators: <b>AB</b>, which transliterates the character 'A' to 'B', and <b>BA</b>, which transliterates
  * 'B' to 'A'. It might seem that these are exact inverses, since
- * 
+ *
  * <blockquote>"A" x <b>AB</b> -&gt; "B"<br>
  * "B" x <b>BA</b> -&gt; "A"</blockquote>
- * 
+ *
  * where 'x' represents transliteration. However,
- * 
+ *
  * <blockquote>"ABCD" x <b>AB</b> -&gt; "BBCD"<br>
  * "BBCD" x <b>BA</b> -&gt; "AACD"</blockquote>
- * 
+ *
  * so <b>AB</b> composed with <b>BA</b> is not the identity. Nonetheless, <b>BA</b> may be usefully considered to be
  * <b>AB</b>'s inverse, and it is on this basis that <b>AB</b><code>.getInverse()</code> could legitimately return
  * <b>BA</b>.
- * 
+ *
  * <p>
  * <b>Filtering</b>
  * <p>Each transliterator has a filter, which restricts changes to those characters selected by the filter. The
  * filter affects just the characters that are changed -- the characters outside of the filter are still part of the
  * context for the filter. For example, in the following even though 'x' is filtered out, and doesn't convert to y, it does affect the conversion of 'a'.
- * 
+ *
  * <pre>
  * String rules = &quot;x &gt; y; x{a} &gt; b; &quot;;
  * Transliterator tempTrans = Transliterator.createFromRules(&quot;temp&quot;, rules, Transliterator.FORWARD);
@@ -162,7 +165,7 @@ import android.icu.util.UResourceBundle;
  *</pre>
  * <p>
  * <b>IDs and display names</b>
- * 
+ *
  * <p>
  * A transliterator is designated by a short identifier string or <em>ID</em>. IDs follow the format
  * <em>source-destination</em>, where <em>source</em> describes the entity being replaced, and <em>destination</em>
@@ -171,27 +174,27 @@ import android.icu.util.UResourceBundle;
  * Russian to Latin might be named "Russian-Latin". A transliterator from keyboard escape sequences to Latin-1
  * characters might be named "KeyboardEscape-Latin1". By convention, system entity names are in English, with the
  * initial letters of words capitalized; user entity names may follow any format so long as they do not contain dashes.
- * 
+ *
  * <p>
  * In addition to programmatic IDs, transliterator objects have display names for presentation in user interfaces,
  * returned by {@link #getDisplayName}.
- * 
+ *
  * <p>
  * <b>Factory methods and registration</b>
- * 
+ *
  * <p>
  * In general, client code should use the factory method <code>getInstance()</code> to obtain an instance of a
  * transliterator given its ID. Valid IDs may be enumerated using <code>getAvailableIDs()</code>. Since transliterators
  * are stateless, multiple calls to <code>getInstance()</code> with the same ID will return the same object.
- * 
+ *
  * <p>
  * In addition to the system transliterators registered at startup, user transliterators may be registered by calling
  * <code>registerInstance()</code> at run time. To register a transliterator subclass without instantiating it (until it
  * is needed), users may call <code>registerClass()</code>.
- * 
+ *
  * <p>
  * <b>Composed transliterators</b>
- * 
+ *
  * <p>
  * In addition to built-in system transliterators like "Latin-Greek", there are also built-in <em>composed</em>
  * transliterators. These are implemented by composing two or more component transliterators. For example, if we have
@@ -202,26 +205,26 @@ import android.icu.util.UResourceBundle;
  * <sup>2</sup> - <em>n</em>, so as <em>n</em> gets larger the gain becomes significant. With 9 scripts, it's 18 vs. 72
  * rule sets, a big difference.) Note the use of "~" rather than "-" for the script separator here; this indicates that
  * the given transliterator is intended to be composed with others, rather than be used as is.
- * 
+ *
  * <p>
  * Composed transliterators can be instantiated as usual. For example, the system transliterator "Devanagari-Gujarati"
  * is a composed transliterator built internally as "Devanagari~InterIndic;InterIndic~Gujarati". When this
  * transliterator is instantiated, it appears externally to be a standard transliterator (e.g., getID() returns
  * "Devanagari-Gujarati").
- * 
+ *
  * <p>
  * <b>Subclassing</b>
- * 
+ *
  * <p>
  * Subclasses must implement the abstract method <code>handleTransliterate()</code>.
  * <p>
  * Subclasses should override the <code>transliterate()</code> method taking a <code>Replaceable</code> and the
  * <code>transliterate()</code> method taking a <code>String</code> and <code>StringBuffer</code> if the performance of
  * these methods can be improved over the performance obtained by the default implementations in this class.
- * 
+ *
  * <p>
  * Copyright &copy; IBM Corporation 1999. All rights reserved.
- * 
+ *
  * @author Alan Liu
  * @hide Only a subset of ICU is exposed in Android
  */
@@ -347,6 +350,7 @@ public abstract class Transliterator implements StringTransform  {
         /**
          * Returns true if this Position is equal to the given object.
          */
+        @Override
         public boolean equals(Object obj) {
             if (obj instanceof Position) {
                 Position pos = (Position) obj;
@@ -357,13 +361,14 @@ public abstract class Transliterator implements StringTransform  {
             }
             return false;
         }
-        
+
         /**
          * Mock implementation of hashCode(). This implementation always returns a constant
          * value. When Java assertion is enabled, this method triggers an assertion failure.
          * @deprecated This API is ICU internal only.
          * @hide draft / provisional / internal are hidden on Android
          */
+        @Override
         @Deprecated
         public int hashCode() {
             assert false : "hashCode not designed";
@@ -373,6 +378,7 @@ public abstract class Transliterator implements StringTransform  {
         /**
          * Returns a string representation of this Position.
          */
+        @Override
         public String toString() {
             return "[cs=" + contextStart
                 + ", s=" + start
@@ -1195,7 +1201,7 @@ public abstract class Transliterator implements StringTransform  {
         // root will change to sun.text.resources.LocaleElements
 
         ICUResourceBundle bundle = (ICUResourceBundle)UResourceBundle.
-            getBundleInstance(ICUResourceBundle.ICU_TRANSLIT_BASE_NAME, inLocale);
+            getBundleInstance(ICUData.ICU_TRANSLIT_BASE_NAME, inLocale);
 
         // Normalize the ID
         String stv[] = TransliteratorIDParser.IDtoSTV(id);
@@ -1605,7 +1611,7 @@ public abstract class Transliterator implements StringTransform  {
     }
 
     /**
-     * Returns the intersectionof this instance's filter intersected with an external filter. 
+     * Returns the intersectionof this instance's filter intersected with an external filter.
      * The externalFilter must be frozen (it is frozen if not).
      * The result may be frozen, so don't attempt to modify.
      * @deprecated  This API is ICU internal only.
@@ -1672,11 +1678,11 @@ public abstract class Transliterator implements StringTransform  {
     /**
      * Register a factory object with the given ID.  The factory
      * method should return a new instance of the given transliterator.
-     * 
+     *
      * <p>Because ICU may choose to cache Transliterator objects internally, this must
      * be called at application startup, prior to any calls to
      * Transliterator.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param ID the ID of this transliterator
      * @param factory the factory object
      */
@@ -1686,11 +1692,11 @@ public abstract class Transliterator implements StringTransform  {
 
     /**
      * Register a Transliterator object with the given ID.
-     * 
+     *
      * <p>Because ICU may choose to cache Transliterator objects internally, this must
      * be called at application startup, prior to any calls to
      * Transliterator.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param trans the Transliterator object
      */
     public static void registerInstance(Transliterator trans) {
@@ -1699,11 +1705,11 @@ public abstract class Transliterator implements StringTransform  {
 
     /**
      * Register a Transliterator object.
-     * 
+     *
      * <p>Because ICU may choose to cache Transliterator objects internally, this must
      * be called at application startup, prior to any calls to
      * Transliterator.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param trans the Transliterator object
      */
     static void registerInstance(Transliterator trans, boolean visible) {
@@ -1714,11 +1720,11 @@ public abstract class Transliterator implements StringTransform  {
      * Register an ID as an alias of another ID.  Instantiating
      * alias ID produces the same result as instantiating the original ID.
      * This is generally used to create short aliases of compound IDs.
-     * 
+     *
      * <p>Because ICU may choose to cache Transliterator objects internally, this must
      * be called at application startup, prior to any calls to
      * Transliterator.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param aliasID The new ID being registered.
      * @param realID The existing ID that the new ID should be an alias of.
      */
@@ -1847,13 +1853,13 @@ public abstract class Transliterator implements StringTransform  {
          * <id> is the ID of the system transliterator being defined.  These
          * are public IDs enumerated by Transliterator.getAvailableIDs(),
          * unless the second field is "internal".
-         * 
+         *
          * <resource> is a ResourceReader resource name.  Currently these refer
          * to file names under com/ibm/text/resources.  This string is passed
          * directly to ResourceReader, together with <encoding>.
-         * 
+         *
          * <direction> is either "FORWARD" or "REVERSE".
-         * 
+         *
          * <getInstanceArg> is a string to be passed directly to
          * Transliterator.getInstance().  The returned Transliterator object
          * then has its ID changed to <id> and is returned.
@@ -1861,7 +1867,7 @@ public abstract class Transliterator implements StringTransform  {
          * The extra blank field on "alias" lines is to make the array square.
          */
         UResourceBundle bundle, transIDs, colBund;
-        bundle = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_TRANSLIT_BASE_NAME, ROOT);
+        bundle = UResourceBundle.getBundleInstance(ICUData.ICU_TRANSLIT_BASE_NAME, ROOT);
         transIDs = bundle.get(RB_RULE_BASED_IDS);
 
         int row, maxRows;
@@ -1869,6 +1875,9 @@ public abstract class Transliterator implements StringTransform  {
         for (row = 0; row < maxRows; row++) {
             colBund = transIDs.get(row);
             String ID = colBund.getKey();
+            if (ID.indexOf("-t-") >= 0) {
+                continue;
+            }
             UResourceBundle res = colBund.get(0);
             String type = res.getKey();
             if (type.equals("file") || type.equals("internal")) {
@@ -1889,7 +1898,6 @@ public abstract class Transliterator implements StringTransform  {
                 }
                 registry.put(ID,
                              resString, // resource
-                             "UTF-16", // encoding
                              dir,
                              !type.equals("internal"));
             } else if (type.equals("alias")) {
@@ -1920,7 +1928,7 @@ public abstract class Transliterator implements StringTransform  {
         BreakTransliterator.register();
         AnyTransliterator.register(); // do this last!
     }
-    
+
     /**
      * Register the script-based "Any" transliterators: Any-Latin, Any-Greek
      * @deprecated This API is ICU internal only.
@@ -1946,12 +1954,13 @@ public abstract class Transliterator implements StringTransform  {
          */
         Transliterator getInstance(String ID);
     }
-    
+
     /**
      * Implements StringTransform via this method.
      * @param source text to be transformed (eg lowercased)
      * @return result
      */
+    @Override
     public String transform(String source) {
         return transliterate(source);
     }

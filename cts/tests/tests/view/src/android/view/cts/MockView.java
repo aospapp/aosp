@@ -25,12 +25,12 @@ import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ContextMenu.ContextMenuInfo;
 
 public class MockView extends View {
     private boolean mCalledOnCreateContextMenu = false;
@@ -71,6 +71,7 @@ public class MockView extends View {
     private boolean mCalledOnKeyPreIme = false;
     private boolean mCalledOnResolvePointerIcon = false;
     private boolean mCalledOnVisibilityAggregated = false;
+    private boolean mCalledRequestFocus = false;
 
     private int mOldWidth = -1;
     private int mOldHeight = -1;
@@ -626,8 +627,18 @@ public class MockView extends View {
         mLastAggregatedVisibility = isVisible;
     }
 
+    @Override
+    public boolean requestFocus(int direction, Rect previouslyFocusedRect) {
+        mCalledRequestFocus = true;
+        return super.requestFocus(direction, previouslyFocusedRect);
+    }
+
     public boolean hasCalledOnVisibilityAggregated() {
         return mCalledOnVisibilityAggregated;
+    }
+
+    public boolean hasCalledRequestFocus() {
+        return mCalledRequestFocus;
     }
 
     public boolean getLastAggregatedVisibility() {
@@ -674,7 +685,7 @@ public class MockView extends View {
         mCalledOnKeyPreIme = false;
         mCalledOnResolvePointerIcon = false;
         mCalledOnVisibilityAggregated = false;
-        mCalledOnVisibilityAggregated = false;
+        mCalledRequestFocus = false;
 
         mOldWidth = -1;
         mOldHeight = -1;

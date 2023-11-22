@@ -41,13 +41,13 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "private/KernelArgumentBlock.h"
+#include "private/WriteProtected.h"
 #include "private/bionic_auxv.h"
 #include "private/bionic_globals.h"
-#include "private/bionic_ssp.h"
 #include "private/bionic_tls.h"
-#include "private/KernelArgumentBlock.h"
 #include "private/libc_logging.h"
-#include "private/WriteProtected.h"
+#include "private/thread_private.h"
 #include "pthread_internal.h"
 
 extern "C" abort_msg_t** __abort_message_ptr;
@@ -61,24 +61,19 @@ const char* __progname;
 // Declared in <unistd.h>.
 char** environ;
 
-// Declared in "private/bionic_ssp.h".
-uintptr_t __stack_chk_guard = 0;
-
-void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args) {
-  // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
-  // Take the first 4/8 for the -fstack-protector implementation.
-  __stack_chk_guard = *reinterpret_cast<uintptr_t*>(args.getauxval(AT_RANDOM));
+#if defined(__i386__)
+__attribute__((__naked__)) static void __libc_int0x80() {
+  __asm__ volatile("int $0x80; ret");
 }
 
-#if defined(__i386__)
-__LIBC_HIDDEN__ void* __libc_sysinfo = nullptr;
+__LIBC_HIDDEN__ void* __libc_sysinfo = reinterpret_cast<void*>(__libc_int0x80);
 
 __LIBC_HIDDEN__ void __libc_init_sysinfo(KernelArgumentBlock& args) {
   __libc_sysinfo = reinterpret_cast<void*>(args.getauxval(AT_SYSINFO));
 }
 
 // TODO: lose this function and just access __libc_sysinfo directly.
-extern "C" void* __kernel_syscall() {
+__LIBC_HIDDEN__ extern "C" void* __kernel_syscall() {
   return __libc_sysinfo;
 }
 #endif
@@ -90,13 +85,26 @@ void __libc_init_globals(KernelArgumentBlock& args) {
   // Initialize libc globals that are needed in both the linker and in libc.
   // In dynamic binaries, this is run at least twice for different copies of the
   // globals, once for the linker's copy and once for the one in libc.so.
-  __libc_init_global_stack_chk_guard(args);
   __libc_auxv = args.auxv;
   __libc_globals.initialize();
   __libc_globals.mutate([&args](libc_globals* globals) {
     __libc_init_vdso(globals, args);
     __libc_init_setjmp_cookie(globals, args);
   });
+}
+
+#if !defined(__LP64__)
+static void __check_max_thread_id() {
+  if (gettid() > 65535) {
+    __libc_fatal("Limited by the size of pthread_mutex_t, 32 bit bionic libc only accepts "
+                 "pid <= 65535, but current pid is %d", gettid());
+  }
+}
+#endif
+
+static void arc4random_fork_handler() {
+  _rs_forked = 1;
+  _thread_arc4_lock();
 }
 
 void __libc_init_common(KernelArgumentBlock& args) {
@@ -106,9 +114,16 @@ void __libc_init_common(KernelArgumentBlock& args) {
   __progname = args.argv[0] ? args.argv[0] : "<unknown>";
   __abort_message_ptr = args.abort_message_ptr;
 
+#if !defined(__LP64__)
+  __check_max_thread_id();
+#endif
+
   // Get the main thread from TLS and add it to the thread list.
   pthread_internal_t* main_thread = __get_thread();
   __pthread_internal_add(main_thread);
+
+  // Register atfork handlers to take and release the arc4random lock.
+  pthread_atfork(arc4random_fork_handler, _thread_arc4_unlock, _thread_arc4_unlock);
 
   __system_properties_init(); // Requires 'environ'.
 }
@@ -298,6 +313,7 @@ static void __initialize_personality() {
 
 void __libc_init_AT_SECURE(KernelArgumentBlock& args) {
   __libc_auxv = args.auxv;
+  __abort_message_ptr = args.abort_message_ptr;
 
   // Check that the kernel provided a value for AT_SECURE.
   bool found_AT_SECURE = false;

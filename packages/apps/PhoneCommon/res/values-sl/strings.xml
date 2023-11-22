@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Brez"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Neznan ton zvonjenja"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Vse razpoložljive povezave so zasedene. Če želite opraviti klic, prekinite enega od klicev v tej napravi ali v kateri koli od vaših drugih naprav."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Klic je bil končan, ker je bil onemogočen prenos podatkov v mobilnih omrežjih"</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Klic je bil končan, ker je bila dosežena omejitev prenosa podatkov v mobilnih omrežjih."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Dosežena je omejitev prenosa podatkov. Klic je bil končan."</string>
 </resources>

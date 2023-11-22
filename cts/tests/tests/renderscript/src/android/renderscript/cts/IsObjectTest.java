@@ -50,6 +50,19 @@ public class IsObjectTest extends RSBaseCompute {
         ms_is_object = new ScriptC_is_object(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mIn != null) {
+            mIn.destroy();
+        }
+        if (mOut != null) {
+            mOut.destroy();
+        }
+        allocation.destroy();
+        ms_is_object.destroy();
+        super.tearDown();
+    }
+
     /**
      * is object test
      */

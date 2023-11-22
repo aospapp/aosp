@@ -16,9 +16,11 @@
 
 package android.support.v7.view.menu;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.support.v4.content.ContextCompat;
+import android.support.annotation.RestrictTo;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SubMenu;
@@ -30,6 +32,7 @@ import android.view.View;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class SubMenuBuilder extends MenuBuilder implements SubMenu {
     private MenuBuilder mParentMenu;
     private MenuItemImpl mItem;
@@ -65,6 +68,7 @@ public class SubMenuBuilder extends MenuBuilder implements SubMenu {
         return mParentMenu;
     }
 
+    @Override
     public MenuItem getItem() {
         return mItem;
     }
@@ -85,32 +89,39 @@ public class SubMenuBuilder extends MenuBuilder implements SubMenu {
                 mParentMenu.dispatchMenuItemSelected(menu, item);
     }
 
+    @Override
     public SubMenu setIcon(Drawable icon) {
         mItem.setIcon(icon);
         return this;
     }
 
+    @Override
     public SubMenu setIcon(int iconRes) {
         mItem.setIcon(iconRes);
         return this;
     }
 
+    @Override
     public SubMenu setHeaderIcon(Drawable icon) {
         return (SubMenu) super.setHeaderIconInt(icon);
     }
 
+    @Override
     public SubMenu setHeaderIcon(int iconRes) {
         return (SubMenu) super.setHeaderIconInt(iconRes);
     }
 
+    @Override
     public SubMenu setHeaderTitle(CharSequence title) {
         return (SubMenu) super.setHeaderTitleInt(title);
     }
 
+    @Override
     public SubMenu setHeaderTitle(int titleRes) {
         return (SubMenu) super.setHeaderTitleInt(titleRes);
     }
 
+    @Override
     public SubMenu setHeaderView(View view) {
         return (SubMenu) super.setHeaderViewInt(view);
     }

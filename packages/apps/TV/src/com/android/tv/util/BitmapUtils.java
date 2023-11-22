@@ -33,6 +33,7 @@ import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -84,9 +85,20 @@ public final class BitmapUtils {
             return null;
         }
 
+        Uri uri = Uri.parse(uriString).normalizeScheme();
+        boolean isResourceUri = isContentResolverUri(uri);
+        URLConnection urlConnection = null;
         InputStream inputStream = null;
         try {
-            inputStream = new BufferedInputStream(getInputStream(context, uriString));
+            if (isResourceUri) {
+                inputStream = context.getContentResolver().openInputStream(uri);
+            } else {
+                // If the URLConnection is HttpURLConnection, disconnect() should be called
+                // explicitly.
+                urlConnection = getUrlConnection(uriString);
+                inputStream = urlConnection.getInputStream();
+            }
+            inputStream = new BufferedInputStream(inputStream);
             inputStream.mark(MARK_READ_LIMIT);
 
             // Check the bitmap dimensions.
@@ -98,13 +110,16 @@ public final class BitmapUtils {
             try {
                 inputStream.reset();
             } catch (IOException e) {
-                if (DEBUG) {
-                    Log.i(TAG, "Failed to rewind stream: " + uriString, e);
-                }
+                if (DEBUG) Log.i(TAG, "Failed to rewind stream: " + uriString, e);
 
                 // Failed to rewind the stream, try to reopen it.
-                close(inputStream);
-                inputStream = getInputStream(context, uriString);
+                close(inputStream, urlConnection);
+                if (isResourceUri) {
+                    inputStream = context.getContentResolver().openInputStream(uri);
+                } else {
+                    urlConnection = getUrlConnection(uriString);
+                    inputStream = urlConnection.getInputStream();
+                }
             }
 
             // Decode the bitmap possibly resizing it.
@@ -126,8 +141,15 @@ public final class BitmapUtils {
             Log.e(TAG, "Failed to open stream: " + uriString, e);
             return null;
         } finally {
-            close(inputStream);
+            close(inputStream, urlConnection);
         }
+    }
+
+    private static URLConnection getUrlConnection(String uriString) throws IOException {
+        URLConnection urlConnection = new URL(uriString).openConnection();
+        urlConnection.setConnectTimeout(CONNECTION_TIMEOUT_MS_FOR_URLCONNECTION);
+        urlConnection.setReadTimeout(READ_TIMEOUT_MS_FOR_URLCONNECTION);
+        return urlConnection;
     }
 
     private static int calculateInSampleSize(BitmapFactory.Options options, int reqWidth,
@@ -142,20 +164,6 @@ public final class BitmapUtils {
         return Math.max(1, Integer.highestOneBit(ratio));
     }
 
-    private static InputStream getInputStream(Context context, String uriString)
-            throws IOException {
-        Uri uri = Uri.parse(uriString).normalizeScheme();
-        if (isContentResolverUri(uri)) {
-            return context.getContentResolver().openInputStream(uri);
-        } else {
-            // TODO We should disconnect() the URLConnection in order to allow connection reuse.
-            URLConnection urlConnection = new URL(uriString).openConnection();
-            urlConnection.setConnectTimeout(CONNECTION_TIMEOUT_MS_FOR_URLCONNECTION);
-            urlConnection.setReadTimeout(READ_TIMEOUT_MS_FOR_URLCONNECTION);
-            return urlConnection.getInputStream();
-        }
-    }
-
     private static boolean isContentResolverUri(Uri uri) {
         String scheme = uri.getScheme();
         return ContentResolver.SCHEME_CONTENT.equals(scheme)
@@ -163,7 +171,7 @@ public final class BitmapUtils {
                 || ContentResolver.SCHEME_FILE.equals(scheme);
     }
 
-    private static void close(Closeable closeable) {
+    private static void close(Closeable closeable, URLConnection urlConnection) {
         if (closeable != null) {
             try {
                 closeable.close();
@@ -171,6 +179,9 @@ public final class BitmapUtils {
                 // Log and continue.
                 Log.w(TAG,"Error closing " + closeable, e);
             }
+        }
+        if (urlConnection instanceof HttpURLConnection) {
+            ((HttpURLConnection) urlConnection).disconnect();
         }
     }
 

@@ -16,9 +16,8 @@
 
 #include "rsMutex.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+namespace android {
+namespace renderscript {
 
 Mutex::Mutex() {
 }
@@ -56,4 +55,5 @@ bool Mutex::unlock() {
     return true;
 }
 
-
+} // namespace renderscript
+} // namespace android

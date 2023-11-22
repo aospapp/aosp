@@ -7,13 +7,13 @@ NAME = "video_WebRtcMediaRecorder"
 PURPOSE = "Check WebRTC MediaRecorder on local and remote streams"
 CRITERIA = "This test will fail if WebRTC MediaRecorder cannot record"
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "MEDIUM"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
 BUG_TEMPLATE = {
-    "labels": ["OS-Chrome", "Cr-OS-Kernel-Video"],
+    "labels": ["OS-Chrome"],
+    "components": ["OS>Kernel>Video"],
 }
 
 DOC = """

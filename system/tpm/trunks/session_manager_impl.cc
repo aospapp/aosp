@@ -24,7 +24,9 @@
 #include <crypto/scoped_openssl_types.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#if defined(OPENSSL_IS_BORINGSSL)
 #include <openssl/mem.h>
+#endif
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 
@@ -49,8 +51,7 @@ std::string GetOpenSSLError() {
 namespace trunks {
 
 SessionManagerImpl::SessionManagerImpl(const TrunksFactory& factory)
-    : factory_(factory),
-      session_handle_(kUninitializedHandle) {
+    : factory_(factory), session_handle_(kUninitializedHandle) {
   crypto::EnsureOpenSSLInit();
 }
 
@@ -117,30 +118,22 @@ TPM_RC SessionManagerImpl::StartSession(
   // The TPM2 command below needs no authorization. This is why we can use
   // the empty string "", when referring to the handle names for the salting
   // key and the bind entity.
-  TPM_RC tpm_result = tpm->StartAuthSessionSync(kSaltingKey,
-                                                "",  // salt_handle_name.
-                                                bind_entity,
-                                                "",  // bind_entity_name.
-                                                nonce_caller,
-                                                encrypted_secret,
-                                                session_type,
-                                                symmetric_algorithm,
-                                                hash_algorithm,
-                                                &session_handle_,
-                                                &nonce_tpm,
-                                                nullptr);  // No Authorization.
+  TPM_RC tpm_result = tpm->StartAuthSessionSync(
+      kSaltingKey,
+      "",  // salt_handle_name.
+      bind_entity,
+      "",  // bind_entity_name.
+      nonce_caller, encrypted_secret, session_type, symmetric_algorithm,
+      hash_algorithm, &session_handle_, &nonce_tpm,
+      nullptr);  // No Authorization.
   if (tpm_result) {
     LOG(ERROR) << "Error creating an authorization session: "
                << GetErrorString(tpm_result);
     return tpm_result;
   }
-  bool hmac_result = delegate->InitSession(
-    session_handle_,
-    nonce_tpm,
-    nonce_caller,
-    salt,
-    bind_authorization_value,
-    enable_encryption);
+  bool hmac_result =
+      delegate->InitSession(session_handle_, nonce_tpm, nonce_caller, salt,
+                            bind_authorization_value, enable_encryption);
   if (!hmac_result) {
     LOG(ERROR) << "Failed to initialize an authorization session delegate.";
     return TPM_RC_FAILURE;
@@ -161,6 +154,11 @@ TPM_RC SessionManagerImpl::EncryptSalt(const std::string& salt,
     LOG(ERROR) << "Error fetching salting key public info: "
                << GetErrorString(result);
     return result;
+  }
+  if (public_data.public_area.type != TPM_ALG_RSA ||
+      public_data.public_area.unique.rsa.size != 256) {
+    LOG(ERROR) << "Invalid salting key attributes.";
+    return TRUNKS_RC_SESSION_SETUP_ERROR;
   }
   crypto::ScopedRSA salting_key_rsa(RSA_new());
   salting_key_rsa->e = BN_new();

@@ -16,8 +16,6 @@
 package android.telephony.cts;
 
 import android.content.Context;
-import android.cts.util.ReadElf;
-import android.cts.util.TestThread;
 import android.os.Looper;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
@@ -28,6 +26,9 @@ import android.net.ConnectivityManager;
 import android.test.InstrumentationTestCase;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.ReadElf;
+import com.android.compatibility.common.util.TestThread;
 
 public class PhoneStateListenerTest extends  AndroidTestCase{
 

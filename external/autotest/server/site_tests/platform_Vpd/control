@@ -11,7 +11,6 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:regression"
-SUITE = "regression"
 
 DOC = """
 This test checks that vpd can run correctly, generates the cache when it

@@ -31,5 +31,5 @@ LOCAL_CFLAGS += \
 LOCAL_MODULE := akmdfs
 LOCAL_MODULE_TAGS := optional
 LOCAL_FORCE_STATIC_EXECUTABLE := false
-LOCAL_SHARED_LIBRARIES := libc libm libutils libcutils
+LOCAL_SHARED_LIBRARIES := libc libm liblog libutils libcutils
 include $(BUILD_EXECUTABLE)

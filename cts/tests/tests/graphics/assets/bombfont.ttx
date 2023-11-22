@@ -152,7 +152,7 @@
   <cmap ERROR="decompilation error" raw="True">
     <!-- An error occurred during the decompilation of this table -->
     <hexdata>
-      00000002 00030001 00000014 00030001
+      00000002 00030001 00000014 0003000a
       00000034 00040020 00000004 00040001
       00000065 ffff0000 0061ffff ffa00001
       00000000 000c0000 00000028 00000000

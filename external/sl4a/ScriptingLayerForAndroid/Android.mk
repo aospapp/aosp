@@ -47,8 +47,6 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_JNI_SHARED_LIBRARIES := libcom_googlecode_android_scripting_Exec
 
-include $(PREBUILT_SHARED_LIBRARY)
-
 include $(BUILD_PACKAGE)
 
 include $(CLEAR_VARS)

@@ -32,9 +32,7 @@ public:
 
     void set();
 
-    // returns true if the signal occured
-    // false for timeout
-    bool wait(uint64_t timeout = 0);
+    void wait();
 
 protected:
     bool mSet;
@@ -42,8 +40,8 @@ protected:
     pthread_cond_t mCondition;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif
 

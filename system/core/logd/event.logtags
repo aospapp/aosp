@@ -34,4 +34,5 @@
 # TODO: generate ".java" and ".h" files with integer constants from this file.
 
 1003  auditd (avc|3)
-1004  logd (dropped|3)
+1004  chatty (dropped|3)
+1005  tag_def (tag|1),(name|3),(format|3)

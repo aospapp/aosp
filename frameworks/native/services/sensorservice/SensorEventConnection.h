@@ -31,10 +31,10 @@
 
 #include <binder/BinderService.h>
 
-#include <gui/Sensor.h>
-#include <gui/BitTube.h>
-#include <gui/ISensorServer.h>
-#include <gui/ISensorEventConnection.h>
+#include <sensor/Sensor.h>
+#include <sensor/BitTube.h>
+#include <sensor/ISensorServer.h>
+#include <sensor/ISensorEventConnection.h>
 
 #include "SensorService.h"
 
@@ -52,7 +52,7 @@ public:
                           bool isDataInjectionMode, const String16& opPackageName);
 
     status_t sendEvents(sensors_event_t const* buffer, size_t count, sensors_event_t* scratch,
-                        SensorEventConnection const * const * mapFlushEventsToConnections = NULL);
+                        wp<const SensorEventConnection> const * mapFlushEventsToConnections = NULL);
     bool hasSensor(int32_t handle) const;
     bool hasAnySensor() const;
     bool hasOneShotSensors() const;
@@ -74,6 +74,8 @@ private:
                                    nsecs_t maxBatchReportLatencyNs, int reservedFlags);
     virtual status_t setEventRate(int handle, nsecs_t samplingPeriodNs);
     virtual status_t flush();
+    virtual int32_t configureChannel(int handle, int rateLevel);
+
     // Count the number of flush complete events which are about to be dropped in the buffer.
     // Increment mPendingFlushEventsToSend in mSensorInfo. These flush complete events will be sent
     // separately before the next batch of events.

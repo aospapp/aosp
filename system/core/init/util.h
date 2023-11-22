@@ -20,51 +20,70 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <string>
+#include <chrono>
 #include <functional>
-
-#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
+#include <ostream>
+#include <string>
 
 #define COLDBOOT_DONE "/dev/.coldboot_done"
 
-int mtd_name_to_number(const char *name);
+const std::string kAndroidDtDir("/proc/device-tree/firmware/android/");
+
+using namespace std::chrono_literals;
+
 int create_socket(const char *name, int type, mode_t perm,
                   uid_t uid, gid_t gid, const char *socketcon);
 
-bool read_file(const char* path, std::string* content);
-int write_file(const char* path, const char* content);
+bool read_file(const std::string& path, std::string* content);
+bool write_file(const std::string& path, const std::string& content);
 
-time_t gettime();
-uint64_t gettime_ns();
+// A std::chrono clock based on CLOCK_BOOTTIME.
+class boot_clock {
+ public:
+  typedef std::chrono::nanoseconds duration;
+  typedef std::chrono::time_point<boot_clock, duration> time_point;
+  static constexpr bool is_steady = true;
+
+  static time_point now();
+};
 
 class Timer {
  public:
-  Timer() : t0(gettime_ns()) {
+  Timer() : start_(boot_clock::now()) {
   }
 
-  double duration() {
-    return static_cast<double>(gettime_ns() - t0) / 1000000000.0;
+  double duration_s() const {
+    typedef std::chrono::duration<double> double_duration;
+    return std::chrono::duration_cast<double_duration>(boot_clock::now() - start_).count();
+  }
+
+  int64_t duration_ms() const {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(boot_clock::now() - start_).count();
   }
 
  private:
-  uint64_t t0;
+  boot_clock::time_point start_;
 };
+
+std::ostream& operator<<(std::ostream& os, const Timer& t);
 
 unsigned int decode_uid(const char *s);
 
 int mkdir_recursive(const char *pathname, mode_t mode);
 void sanitize(char *p);
-void make_link_init(const char *oldpath, const char *newpath);
-void remove_link(const char *oldpath, const char *newpath);
-int wait_for_file(const char *filename, int timeout);
-void open_devnull_stdio(void);
+int wait_for_file(const char *filename, std::chrono::nanoseconds timeout);
 void import_kernel_cmdline(bool in_qemu,
-                           std::function<void(const std::string&, const std::string&, bool)>);
+                           const std::function<void(const std::string&, const std::string&, bool)>&);
 int make_dir(const char *path, mode_t mode);
-int restorecon(const char *pathname);
-int restorecon_recursive(const char *pathname);
-int restorecon_recursive_skipce(const char *pathname);
+int restorecon(const char *pathname, int flags = 0);
 std::string bytes_to_hex(const uint8_t *bytes, size_t bytes_len);
 bool is_dir(const char* pathname);
 bool expand_props(const std::string& src, std::string* dst);
+
+void panic() __attribute__((__noreturn__));
+
+// Reads or compares the content of device tree file under kAndroidDtDir directory.
+bool read_android_dt_file(const std::string& sub_path, std::string* dt_content);
+bool is_android_dt_value_expected(const std::string& sub_path, const std::string& expected_content);
+
 #endif

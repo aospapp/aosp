@@ -1,23 +1,17 @@
 /*
  * Copyright (C) 2016 Google, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #include <cassert>
@@ -40,9 +34,7 @@ Shell::Shell(Game &game)
 
     // require "standard" validation layers
     if (settings_.validate) {
-        device_layers_.push_back("VK_LAYER_LUNARG_standard_validation");
         instance_layers_.push_back("VK_LAYER_LUNARG_standard_validation");
-
         instance_extensions_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
     }
 }
@@ -138,25 +130,6 @@ void Shell::assert_all_instance_extensions() const
     }
 }
 
-bool Shell::has_all_device_layers(VkPhysicalDevice phy) const
-{
-    // enumerate device layers
-    std::vector<VkLayerProperties> layers;
-    vk::enumerate(phy, layers);
-
-    std::set<std::string> layer_names;
-    for (const auto &layer : layers)
-        layer_names.insert(layer.layerName);
-
-    // all listed device layers are required
-    for (const auto &name : device_layers_) {
-        if (layer_names.find(name) == layer_names.end())
-            return false;
-    }
-
-    return true;
-}
-
 bool Shell::has_all_device_extensions(VkPhysicalDevice phy) const
 {
     // enumerate device extensions
@@ -229,7 +202,7 @@ void Shell::init_physical_dev()
 
     ctx_.physical_dev = VK_NULL_HANDLE;
     for (auto phy : phys) {
-        if (!has_all_device_layers(phy) || !has_all_device_extensions(phy))
+        if (!has_all_device_extensions(phy))
             continue;
 
         // get queue properties
@@ -327,8 +300,6 @@ void Shell::create_dev()
 
     dev_info.pQueueCreateInfos = queue_info.data();
 
-    dev_info.enabledLayerCount = static_cast<uint32_t>(device_layers_.size());
-    dev_info.ppEnabledLayerNames = device_layers_.data();
     dev_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions_.size());
     dev_info.ppEnabledExtensionNames = device_extensions_.data();
 

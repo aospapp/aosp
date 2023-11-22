@@ -2,9 +2,27 @@
 # generic implementations of the core runtime library along with optimized
 # architecture-specific code in various subdirectories.
 
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  cmake_minimum_required(VERSION 3.4.3)
+
+  project(CompilerRTBuiltins C ASM)
+  set(COMPILER_RT_STANDALONE_BUILD TRUE)
+  set(COMPILER_RT_BUILTINS_STANDALONE_BUILD TRUE)
+  list(INSERT CMAKE_MODULE_PATH 0
+    "${CMAKE_SOURCE_DIR}/../../cmake"
+    "${CMAKE_SOURCE_DIR}/../../cmake/Modules")
+  include(base-config-ix)
+  include(CompilerRTUtils)
+  if(APPLE)
+    include(CompilerRTDarwinUtils)
+  endif()
+  include(AddCompilerRT)
+endif()
+
+include(builtin-config-ix)
+
 # TODO: Need to add a mechanism for logging errors when builtin source files are
 # added to a sub-directory and not this CMakeLists file.
-
 set(GENERIC_SOURCES
   absvdi2.c
   absvsi2.c
@@ -143,6 +161,15 @@ set(GENERIC_SOURCES
   umodsi3.c
   umodti3.c)
 
+set(MSVC_SOURCES
+ divsc3.c
+ divdc3.c
+ divxc3.c
+ mulsc3.c
+ muldc3.c
+ mulxc3.c)
+
+
 if(APPLE)
   set(GENERIC_SOURCES
     ${GENERIC_SOURCES}
@@ -216,14 +243,15 @@ if (NOT MSVC)
       ${i386_SOURCES})
 else () # MSVC
   # Use C versions of functions when building on MSVC
-  # MSVC's assembler takes Intel syntax, not AT&T syntax
+  # MSVC's assembler takes Intel syntax, not AT&T syntax.
+  # Also use only MSVC compilable builtin implementations.
   set(x86_64_SOURCES
       x86_64/floatdidf.c
       x86_64/floatdisf.c
       x86_64/floatdixf.c
-      ${GENERIC_SOURCES})
+      ${MSVC_SOURCES})
   set(x86_64h_SOURCES ${x86_64_SOURCES})
-  set(i386_SOURCES ${GENERIC_SOURCES})
+  set(i386_SOURCES ${MSVC_SOURCES})
   set(i686_SOURCES ${i386_SOURCES})
 endif () # if (NOT MSVC)
 
@@ -341,6 +369,7 @@ set(aarch64_SOURCES
 set(armhf_SOURCES ${arm_SOURCES})
 set(armv7_SOURCES ${arm_SOURCES})
 set(armv7s_SOURCES ${arm_SOURCES})
+set(armv7k_SOURCES ${arm_SOURCES})
 set(arm64_SOURCES ${aarch64_SOURCES})
 
 # macho_embedded archs
@@ -353,13 +382,17 @@ set(mipsel_SOURCES ${mips_SOURCES})
 set(mips64_SOURCES ${mips_SOURCES})
 set(mips64el_SOURCES ${mips_SOURCES})
 
+set(wasm32_SOURCES ${GENERIC_SOURCES})
+set(wasm64_SOURCES ${GENERIC_SOURCES})
+
 add_custom_target(builtins)
+set_target_properties(builtins PROPERTIES FOLDER "Compiler-RT Misc")
 
 if (APPLE)
   add_subdirectory(Darwin-excludes)
   add_subdirectory(macho_embedded)
   darwin_add_builtin_libraries(${BUILTIN_SUPPORTED_OS})
-elseif (NOT WIN32 OR MINGW)
+else ()
   append_string_if(COMPILER_RT_HAS_STD_C99_FLAG -std=c99 maybe_stdc99)
 
   foreach (arch ${BUILTIN_SUPPORTED_ARCH})

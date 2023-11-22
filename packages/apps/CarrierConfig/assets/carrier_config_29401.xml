@@ -4,5 +4,6 @@
 <int name="maxImageHeight" value="1944" />
 <int name="maxMessageSize" value="102400" />
 <int name="maxImageWidth" value="2592" />
+<boolean name="display_hd_audio_property_bool" value="false" />
 </carrier_config>
 </carrier_config_list>

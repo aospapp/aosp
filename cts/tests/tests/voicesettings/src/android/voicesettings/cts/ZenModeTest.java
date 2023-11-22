@@ -20,8 +20,9 @@ import static android.provider.Settings.ACTION_VOICE_CONTROL_DO_NOT_DISTURB_MODE
 import static android.provider.Settings.EXTRA_DO_NOT_DISTURB_MODE_ENABLED;
 import static android.provider.Settings.EXTRA_DO_NOT_DISTURB_MODE_MINUTES;
 
-import android.cts.util.BroadcastTestBase;
-import android.cts.util.BroadcastUtils;
+import com.android.compatibility.common.util.BroadcastTestBase;
+import com.android.compatibility.common.util.BroadcastUtils;
+
 import android.provider.Settings;
 import android.provider.Settings.Global;
 import android.util.Log;

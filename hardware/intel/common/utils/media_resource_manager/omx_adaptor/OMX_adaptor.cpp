@@ -109,7 +109,7 @@ void MRM_OMX_Adaptor::MRM_OMX_SetComponent(
                           OMX_STRING cComponentName) {
     ALOGV("MRM_OMX_SetComponent: %s", cComponentName);
     String8 sComponentName(cComponentName);
-    ALOGV("pComponentHandle = 0x%x, componentName = %s", pComponentHandle, sComponentName.string());
+    ALOGV("pComponentHandle = %p, componentName = %s", pComponentHandle, sComponentName.string());
     mComponentNameMap.add(pComponentHandle, sComponentName);
 }
 
@@ -119,7 +119,7 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_SetParameter(
                          OMX_INDEXTYPE nIndex,
                          OMX_PTR pComponentParameterStructure) {
     ALOGV("MRM_OMX_SetParameter");
-    ALOGV("hComponent = 0x%x", hComponent);
+    ALOGV("hComponent = %p", hComponent);
     OMX_ERRORTYPE err = OMX_ErrorNone;
 
     Mutex::Autolock lock(sLock);
@@ -131,7 +131,7 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_SetParameter(
         if (def->nPortIndex == kPortIndexInput) {
             ALOGV("MRM_OMX_SetParameter for inport param def");
             if (mComponentFramerateMap.indexOfKey(hComponent) >= 0) {
-                ALOGV("setParameter is called again for component 0x%x inport", hComponent);
+                ALOGV("setParameter is called again for component %p inport", hComponent);
                 return OMX_ErrorNone;
             }
 
@@ -147,7 +147,7 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_SetParameter(
             // if setParameter is not first called to this component's outport
             // do not try to record its info for the second time
             if (mComponentInfoMap.indexOfKey(hComponent) >= 0) {
-                ALOGV("setParameter is called again for component 0x%x outport", hComponent);
+                ALOGV("setParameter is called again for component %p outport", hComponent);
                 return OMX_ErrorNone;
             }
 
@@ -161,7 +161,7 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_SetParameter(
                 return OMX_ErrorInsufficientResources;
             }
 
-            ResolutionType resolution;
+            ResolutionType resolution = Resolution_CIF;
             unsigned int height = video_def->nFrameHeight;
             ALOGV("video resulotion = %d x %d", video_def->nFrameWidth, video_def->nFrameHeight);
             if (height <= 480) {
@@ -216,6 +216,18 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_UseBuffer(
                          OMX_U32 nSizeBytes,
                          OMX_U8 *pBuffer) {
     ALOGV("MRM_OMX_UseBuffer");
+    if(pBuffer == 0 || ppBufferHdr == 0) {
+        ALOGV("%s: Null buffer. hComponent:%p, ppBufferHdr:%p, "
+            "nPortIndex:%d, pAppPrivate:%p, nSizeBytes:%d, pBuffer:%p",
+            __FUNCTION__,
+            hComponent,
+            ppBufferHdr,
+            nPortIndex,
+            pAppPrivate,
+            nSizeBytes,
+            pBuffer);
+    }
+
     OMX_ERRORTYPE err = OMX_ErrorNone;
     return err;
 }
@@ -223,11 +235,11 @@ OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_UseBuffer(
 
 OMX_ERRORTYPE MRM_OMX_Adaptor::MRM_OMX_RemoveComponent(
                                    OMX_HANDLETYPE pComponentHandle) {
-    ALOGV("MRM_OMX_RemoveComponent 0x%x", pComponentHandle);
+    ALOGV("MRM_OMX_RemoveComponent %p", pComponentHandle);
     OMX_ERRORTYPE err = OMX_ErrorNone;
 
     if (mComponentInfoMap.indexOfKey(pComponentHandle) < 0) {
-        ALOGE("component 0x%x was not added by setParameter before! something is wrong?",pComponentHandle);
+        ALOGE("component %p was not added by setParameter before! something is wrong?", pComponentHandle);
         return OMX_ErrorNone; // TODO: change to specific error.
     }
 

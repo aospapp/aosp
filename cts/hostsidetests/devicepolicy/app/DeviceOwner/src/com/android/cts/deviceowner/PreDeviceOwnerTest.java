@@ -39,8 +39,8 @@ public class PreDeviceOwnerTest extends AndroidTestCase {
         assertFalse(mDevicePolicyManager.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE));
     }
 
-    public void testIsProvisioningAllowedFalseForManagedProfileAction() {
-        assertFalse(mDevicePolicyManager
+    public void testIsProvisioningAllowedTrueForManagedProfileAction() {
+        assertTrue(mDevicePolicyManager
                 .isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE));
     }
 

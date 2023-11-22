@@ -97,6 +97,7 @@ public class MethodExitWithReturnValueDebuggee extends SyncDebuggee {
         logWriter.println("--> calling voidMethod()");
     }
     
+    @Override
     public void run() {
         logWriter.println("--> MethodExitWithReturnValueDebuggee started");
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

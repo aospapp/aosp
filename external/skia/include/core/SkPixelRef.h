@@ -20,7 +20,6 @@
 #include "SkString.h"
 
 class SkColorTable;
-class SkData;
 struct SkIRect;
 
 class GrTexture;
@@ -167,18 +166,6 @@ public:
     */
     void setURI(const SkString& uri) { fURI = uri; }
 
-    /**
-     *  If the pixelRef has an encoded (i.e. compressed) representation,
-     *  return a ref to its data. If the pixelRef
-     *  is uncompressed or otherwise does not have this form, return NULL.
-     *
-     *  If non-null is returned, the caller is responsible for calling unref()
-     *  on the data when it is finished.
-     */
-    SkData* refEncodedData() {
-        return this->onRefEncodedData();
-    }
-
     struct LockRequest {
         SkISize         fSize;
         SkFilterQuality fQuality;
@@ -204,43 +191,6 @@ public:
     };
 
     bool requestLock(const LockRequest&, LockResult*);
-
-    /** Are we really wrapping a texture instead of a bitmap?
-     */
-    virtual GrTexture* getTexture() { return NULL; }
-
-    /**
-     *  If any planes or rowBytes is NULL, this should output the sizes and return true
-     *  if it can efficiently return YUV planar data. If it cannot, it should return false.
-     *
-     *  If all planes and rowBytes are not NULL, then it should copy the associated Y,U,V data
-     *  into those planes of memory supplied by the caller. It should validate that the sizes
-     *  match what it expected. If the sizes do not match, it should return false.
-     *
-     *  If colorSpace is not NULL, the YUV color space of the data should be stored in the address
-     *  it points at.
-     */
-    bool getYUV8Planes(SkISize sizes[3], void* planes[3], size_t rowBytes[3],
-                       SkYUVColorSpace* colorSpace) {
-        return this->onGetYUV8Planes(sizes, planes, rowBytes, colorSpace);
-    }
-
-    /** Populates dst with the pixels of this pixelRef, converting them to colorType. */
-    bool readPixels(SkBitmap* dst, SkColorType colorType, const SkIRect* subset = NULL);
-
-    /**
-     *  Makes a deep copy of this PixelRef, respecting the requested config.
-     *  @param colorType Desired colortype.
-     *  @param profileType Desired colorprofiletype.
-     *  @param subset Subset of this PixelRef to copy. Must be fully contained within the bounds of
-     *         of this PixelRef.
-     *  @return A new SkPixelRef, or NULL if either there is an error (e.g. the destination could
-     *          not be created with the given config), or this PixelRef does not support deep
-     *          copies.
-     */
-    virtual SkPixelRef* deepCopy(SkColorType, SkColorProfileType, const SkIRect* /*subset*/) {
-        return NULL;
-    }
 
     // Register a listener that may be called the next time our generation ID changes.
     //
@@ -294,23 +244,8 @@ protected:
     /** Default impl returns true */
     virtual bool onLockPixelsAreWritable() const;
 
-    /**
-     *  For pixelrefs that don't have access to their raw pixels, they may be
-     *  able to make a copy of them (e.g. if the pixels are on the GPU).
-     *
-     *  The base class implementation returns false;
-     */
-    virtual bool onReadPixels(SkBitmap* dst, SkColorType colorType, const SkIRect* subsetOrNull);
-
-    // default impl returns NULL.
-    virtual SkData* onRefEncodedData();
-
     // default impl does nothing.
     virtual void onNotifyPixelsChanged();
-
-    // default impl returns false.
-    virtual bool onGetYUV8Planes(SkISize sizes[3], void* planes[3], size_t rowBytes[3],
-                                 SkYUVColorSpace* colorSpace);
 
     /**
      *  Returns the size (in bytes) of the internally allocated memory.
@@ -391,6 +326,7 @@ private:
     void setImmutableWithID(uint32_t genID);
     friend class SkImage_Gpu;
     friend class SkImageCacherator;
+    friend class SkSpecialImage_Gpu;
 
     typedef SkRefCnt INHERITED;
 };

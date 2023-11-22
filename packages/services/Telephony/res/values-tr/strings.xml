@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Hücresel Veriler"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"Mobil Veriler"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Telefon Hizmetleri"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Acil Durum Çeviricisi"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Telefon"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Eksik sesli mesaj numarası"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM kartta depolanan sesli mesaj numarası yok."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Numara ekle"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"Sesli Mesaj Ayarları yalnızca Birincil Kullanıcı tarafından değiştirilebilir."</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"SIM kartınızın engellemesi kaldırıldı. Telefonunuzun kilidi açılıyor..."</string>
     <string name="label_ndp" msgid="780479633159517250">"SIM ağı kilit açma PIN kodu"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"Kilit Aç"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"Ağ kilidini açma isteği yapılıyor..."</string>
     <string name="unlock_failed" msgid="6490531697031504225">"Ağ kilidi açma isteği başarısız."</string>
     <string name="unlock_success" msgid="6770085622238180152">"Ağ kilidi açılamadı."</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Bu kullanıcı için hücresel ağ ayarları kullanılamıyor"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"Bu kullanıcı için mobil ağ ayarları kullanılamıyor"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM çağrı ayarları"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM çağrı ayarları (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA çağrı ayarları"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"Sesli mesaj"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Sesli mesaj (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Bildirimler"</string>
     <string name="networks" msgid="8873030692174541976">"Ağ operatörleri"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Acil durum yayınları"</string>
     <string name="call_settings" msgid="6112441768261754562">"Çağrı ayarları"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"Ulaşılamadığında"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"Ulaşılamadığında kullanılacak numara"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Şuraya yönlendiriliyor: <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Devre dışı"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Kapalı"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Operatörünüz, telefonunuza ulaşılamadığında çağrı yönlendirmenin devre dışı bırakılmasını desteklemiyor."</string>
     <string name="updating_title" msgid="6146755386174019046">"Çağrı ayarları"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Çağrı ayarları sadece yönetici tarafından değiştirilebilir."</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Yeni PIN, geçersiz karakterler içeriyor."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"PIN değiştirilemedi"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Desteklenmeyen mesaj türü. Dinlemek için <xliff:g id="NUMBER">%s</xliff:g> numaralı telefonu arayın."</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"Hücresel ağ ayarları"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"Mobil ağ ayarları"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"Mobil ağ"</string>
     <string name="label_available" msgid="1181658289009300430">"Kullanılabilir ağlar"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Aranıyor..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Hiçbir ağ bulunamadı."</string>
@@ -231,7 +234,7 @@
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"Maksimum değer <xliff:g id="USED_0">%1$s</xliff:g> aşıldı\nVeri hızı <xliff:g id="USED_1">%2$d</xliff:g> Kb/s\'ye düşürüldü"</string>
     <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"Dönemin tamamlanan bölümü:٪ <xliff:g id="USED_0">%1$d</xliff:g>\nBir sonraki dönem <xliff:g id="USED_1">%2$d</xliff:g> gün sonra başlıyor (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Veri kullanım sınırı aşılırsa veri hızı <xliff:g id="USED">%1$d</xliff:g> Kb/s\'ye düşürülür"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"Operatörünüzün hücresel ağ üzerinden veri kullanımı politikası hakkında daha fazla bilgi edinin"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"Operatörünüzün mobil ağ üzerinden veri kullanımı politikası hakkında daha fazla bilgi edinin"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"Hücre Yayını SMS\'i"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"Hücre Yayını SMS\'i"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"Hücre Yayını SMS\'si etkinleştirildi"</string>
@@ -368,6 +371,7 @@
     <string name="menu_add" msgid="1882023737425114762">"Kişi ekle"</string>
     <string name="menu_edit" msgid="7143003705504672374">"Kişiyi düzenle"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Kişiyi sil"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"Kişiye telefon et"</string>
     <string name="get_pin2" msgid="8204677063922225311">"PIN2\'yi yazın"</string>
     <string name="name" msgid="7329028332786872378">"Ad"</string>
     <string name="number" msgid="7905950798349903858">"Numara"</string>
@@ -382,7 +386,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Sabit arama numarası siliniyor..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Sabit arama numarası silindi."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"Yanlış PIN girdiğiniz için FDN güncellenmedi."</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"Sayı 20 basamaktan uzun olamayacağından FDN güncellenmedi."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"Sayı boş veya 20 basamaktan uzun olduğundan FDN güncellenmedi."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN güncellenmedi. PIN2 doğru değildi veya telefon numarası reddedildi."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN işlemi başarısız oldu."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"SIM karttan okunuyor..."</string>
@@ -439,16 +443,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Sesli mesaj numarası bilinmiyor"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Hizmet yok"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Seçili ağ (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) kullanılamıyor"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"Telefon etmek için uçak modunu kapatın."</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Telefon etmek için mobil ağı açın, uçak modunu veya pil tasarrufu modunu kapatın."</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Telefon etmek için uçak modunu kapatın."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Telefon etmek için uçak modunu kapatın veya kablosuz ağa bağlanın."</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Acil durum çağrısı dışında bir çağrı yapmak için acil durumda geri aranma modundan çıkın."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Ağda kayıtlı değil."</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"Hücresel ağ kullanılamıyor."</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Hücresel ağ kullanılamıyor. Telefon etmek için kablosuz ağa bağlanın."</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"Mobil ağ kullanılamıyor."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobil ağ kullanılamıyor. Telefon etmek için kablosuz ağa bağlanın."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Arama yapmak için geçerli bir numara girin."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Sesli arama başarısız oldu."</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Çağrı şu anda eklenemiyor."</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI dizisi başlatılıyor..."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Hizmet desteklenmiyor"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Çağrı geçişi yapılamıyor."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Çağrı ayrılamıyor."</string>
@@ -523,10 +527,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"Acil Geri Arama Moduna Girildi"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"Acil Geri Arama Modu"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"Veri bağlantısı devre dışı bırakıldı"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g> dakika boyunca veri bağlantısı yok</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%s</xliff:g> dakika boyunca veri bağlantısı yok</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"Şu saate kadar veri bağlantısı olmayacak: <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">Telefon <xliff:g id="COUNT_1">%s</xliff:g> dakika boyunca bu modda olacak. Bu moddayken veri bağlantısı kullanan hiçbir uygulama kullanılamaz. Şimdi çıkmak istiyor musunuz?</item>
       <item quantity="one">Telefon <xliff:g id="COUNT_0">%s</xliff:g> dakika boyunca bu modda olacak. Bu moddayken veri bağlantısı kullanan hiçbir uygulama kullanılamaz. Şimdi çıkmak istiyor musunuz?</item>
@@ -550,12 +551,9 @@
     <string name="selectContact" msgid="781975788478987237">"kişi seçin"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Sesli arama desteklenmiyor"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"çevir"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Titreşim"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Titreşim"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Görsel Sesli Mesaj"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"PIN\'i ayarlayın"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"PIN\'i değiştirin"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Ses"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Zil Sesi ve Titreşim"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Yerleşik SIM kartlar"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Video görüşmesini aç"</string>
@@ -566,12 +564,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Yalnızca acil durum çağrısı"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM kart, yuva: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Erişilebilirlik"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Gelen kablosuz çağrı"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Gelen çağrı (kablosuz):"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Kablosuz çağrı"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Açmak için tekrar dokunun"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"İletinin kodu çözülürken bir hata oluştu."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"Bir SIM kart, hizmetinizi etkinleştirdi ve telefonunuzun dolaşım özelliklerini güncelledi."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Etkin çağrıların sayısı çok fazla. Yeni bir çağrı yapmadan önce lütfen mevcut çağrıları sonlandırın veya birleştirin."</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Bağlantı kurulamadı. Lütfen geçerli bir SIM kart takın."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Kablosuz bağlantı koptu. Çağrı sona erdi."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Sesli Mesaj PIN\'ini Değiştirin"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Devam"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"İptal"</string>

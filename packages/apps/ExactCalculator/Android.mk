@@ -17,19 +17,34 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
+LOCAL_RESOURCE_DIR := packages/apps/ExactCalculator/res
+
+ifeq ($(TARGET_BUILD_APPS),)
+LOCAL_RESOURCE_DIR += frameworks/support/v7/gridlayout/res
+LOCAL_RESOURCE_DIR += frameworks/support/v7/recyclerview/res
+else
+LOCAL_RESOURCE_DIR += prebuilts/sdk/current/support/v7/gridlayout/res
+LOCAL_RESOURCE_DIR += prebuilts/sdk/current/support/v7/recyclerview/res
+endif
+
 LOCAL_MODULE_TAGS := optional
-
-LOCAL_OVERRIDES_PACKAGES := Calculator
-LOCAL_PACKAGE_NAME := ExactCalculator
-
 LOCAL_SDK_VERSION := current
+
+LOCAL_PACKAGE_NAME := ExactCalculator
+LOCAL_OVERRIDES_PACKAGES := Calculator
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := cr android-support-v4
-
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
+LOCAL_PROGUARD_FLAG_FILES += ../../../frameworks/support/v7/recyclerview/proguard-rules.pro
+
+LOCAL_STATIC_JAVA_LIBRARIES := cr
+LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
+LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-gridlayout
+LOCAL_STATIC_JAVA_LIBRARIES += android-support-v7-recyclerview
+
+LOCAL_AAPT_FLAGS := --auto-add-overlay
+LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.gridlayout
+LOCAL_AAPT_FLAGS += --extra-packages android.support.v7.recyclerview
 
 include $(BUILD_PACKAGE)
-
-include $(call all-makefiles-under,$(LOCAL_PATH))

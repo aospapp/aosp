@@ -16,8 +16,6 @@
 
 package android.video.cts;
 
-import android.cts.util.MediaPerfUtils;
-import android.cts.util.MediaUtils;
 import android.graphics.ImageFormat;
 import android.graphics.Point;
 import android.media.Image;
@@ -34,8 +32,10 @@ import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
 
-import android.cts.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.MediaPerfUtils;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;

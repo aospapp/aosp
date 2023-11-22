@@ -16,41 +16,40 @@
 
 package android.text.cts;
 
-import android.app.Activity;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.TextView;
 
-public class MyanmarTest extends ActivityInstrumentationTestCase2<Activity> {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    public MyanmarTest() {
-        super("android.text.cts", Activity.class);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MyanmarTest {
     /**
      * Tests Unicode composition semantics.
      */
+    @UiThreadTest
+    @Test
     public void testCompositionSemantics() {
+        Context context = InstrumentationRegistry.getTargetContext();
         String textA = "\u1019\u102d\u102f";
         String textB = "\u1019\u102f\u102d"; // wrong order for Unicode
 
-        CaptureTextView cviewA = new CaptureTextView(getInstrumentation().getContext());
+        CaptureTextView cviewA = new CaptureTextView(context);
         Bitmap bitmapA = cviewA.capture(textA);
-        CaptureTextView cviewB = new CaptureTextView(getInstrumentation().getContext());
+        CaptureTextView cviewB = new CaptureTextView(context);
         Bitmap bitmapB = cviewB.capture(textB);
         if (bitmapA.sameAs(bitmapB)) {
             // if textA and textB render identically, test against replacement characters
             String textC = "\ufffd\ufffd\ufffd"; // replacement characters are acceptable
-            CaptureTextView cviewC = new CaptureTextView(getInstrumentation().getContext());
+            CaptureTextView cviewC = new CaptureTextView(context);
             Bitmap bitmapC = cviewC.capture(textC);
             if (!bitmapA.sameAs(bitmapC)) {
                 // ...or against blank/empty glyphs
@@ -61,7 +60,7 @@ public class MyanmarTest extends ActivityInstrumentationTestCase2<Activity> {
         }
     }
 
-    private class CaptureTextView extends TextView {
+    private static class CaptureTextView extends TextView {
 
         CaptureTextView(Context context) {
             super(context);

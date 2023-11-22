@@ -20,7 +20,7 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"小区广播设置"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"此用户无权修改小区广播设置"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"确定"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"您所在的区域没有任何活动的警报。您可以使用“设置”菜单选项更改警报设置。"</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"您所在的区域没有任何事件警报。您可以使用“设置”菜单选项更改警报设置。"</string>
     <string name="menu_preferences" msgid="3596514894131599202">"设置"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"删除广播"</string>
     <string name="message_options" msgid="3178489901903589574">"短信选项"</string>
@@ -46,22 +46,23 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"紧急警报"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"小区广播"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"紧急警报设置"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"广播消息"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"开启通知"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"显示紧急警报广播"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"警报提醒"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"读出警报消息"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"使用文字转语音功能读出紧急警报消息"</string>
-    <string name="category_etws_settings_title" msgid="4072774251965938576">"地震海啸警报系统设置"</string>
-    <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"显示ETWS测试广播"</string>
+    <string name="category_etws_settings_title" msgid="4072774251965938576">"地震海啸警报系统 (ETWS) 设置"</string>
+    <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"显示 ETWS 测试广播"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"显示地震海啸警报系统的测试广播"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"显示极端威胁"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"针对生命和财产遭到极端威胁的情况显示警报"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"显示有关生命财产遭受极端威胁的警报"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"显示严重威胁"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"针对生命和财产遭到严重威胁的情况显示警报"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"显示有关生命财产遭受严重威胁的警报"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"显示安珀警报"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"显示儿童绑架/拐骗紧急公告（安珀警报）"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"显示儿童遭绑架/拐骗的紧急公告（安珀警报）"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"显示CMAS测试广播"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"显示商业移动警报系统的测试广播"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"显示商业移动警报系统 (CMAS) 的测试广播"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"振动"</string>
     <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"收到警报时振动"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"针对巴西的设置"</string>
@@ -108,8 +109,8 @@
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"是"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"否"</string>
   <string-array name="alert_reminder_interval_entries">
-    <item msgid="6595211083588795160">"1次"</item>
-    <item msgid="9097229303902157183">"每隔2分钟"</item>
+    <item msgid="6595211083588795160">"1 次"</item>
+    <item msgid="9097229303902157183">"每隔 2 分钟"</item>
     <item msgid="5718214950343391480">"每隔 5 分钟"</item>
     <item msgid="3863339891188103437">"每隔 15 分钟"</item>
     <item msgid="6868848414437854609">"关闭"</item>

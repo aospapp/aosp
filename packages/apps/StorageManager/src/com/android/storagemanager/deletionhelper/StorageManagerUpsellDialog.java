@@ -23,6 +23,7 @@ import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.support.annotation.VisibleForTesting;
 import android.text.format.Formatter;
 import com.android.storagemanager.R;
 
@@ -49,12 +50,19 @@ public class StorageManagerUpsellDialog extends DialogFragment
     private static final long NO_THANKS_LONG_DELAY = NEVER;
     private static final int NO_THANKS_LONG_THRESHOLD = 3;
 
+    private Clock mClock;
+
     public static StorageManagerUpsellDialog newInstance(long freedBytes) {
         StorageManagerUpsellDialog dialog = new StorageManagerUpsellDialog();
         Bundle args = new Bundle(1);
         args.putLong(ARGS_FREED_BYTES, freedBytes);
         dialog.setArguments(args);
         return dialog;
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.NONE)
+    protected void setClock(Clock clock) {
+        mClock = clock;
     }
 
     @Override
@@ -82,8 +90,9 @@ public class StorageManagerUpsellDialog extends DialogFragment
             int noThanksCount = sp.getInt(NO_THANKS_COUNT, 0) + 1;
             SharedPreferences.Editor editor = sp.edit();
             editor.putInt(NO_THANKS_COUNT, noThanksCount);
-            editor.putLong(NEXT_SHOW_TIME,
-                    System.currentTimeMillis() + getNoThanksDelay(noThanksCount));
+            long noThanksDelay = getNoThanksDelay(noThanksCount);
+            long nextShowTime = noThanksDelay == NEVER ? NEVER : getCurrentTime() + noThanksDelay;
+            editor.putLong(NEXT_SHOW_TIME, nextShowTime);
             editor.apply();
         }
 
@@ -96,8 +105,7 @@ public class StorageManagerUpsellDialog extends DialogFragment
         int dismissCount = sp.getInt(DISMISSED_COUNT, 0) + 1;
         SharedPreferences.Editor editor = sp.edit();
         editor.putInt(DISMISSED_COUNT, dismissCount);
-        editor.putLong(NEXT_SHOW_TIME,
-                System.currentTimeMillis() + getDismissDelay(dismissCount));
+        editor.putLong(NEXT_SHOW_TIME, getCurrentTime() + getDismissDelay(dismissCount));
         editor.apply();
 
         finishActivity();
@@ -106,8 +114,9 @@ public class StorageManagerUpsellDialog extends DialogFragment
     /**
      * Returns if the dialog should be shown, given the delays between when it is shown.
      * @param context Context to get shared preferences for determining the next show time.
+     * @param time The current time in millis.
      */
-    public static boolean shouldShow(Context context) {
+    public static boolean shouldShow(Context context, long time) {
         boolean isEnabled =
                 Settings.Secure.getInt(context.getContentResolver(),
                         Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED, 0) != 0;
@@ -116,12 +125,11 @@ public class StorageManagerUpsellDialog extends DialogFragment
         }
 
         long nextTimeToShow = getSharedPreferences(context).getLong(NEXT_SHOW_TIME, 0);
-
         if (nextTimeToShow == NEVER) {
             return false;
         }
 
-        return System.currentTimeMillis() > nextTimeToShow;
+        return time >= nextTimeToShow;
     }
 
     private static SharedPreferences getSharedPreferences(Context context) {
@@ -142,6 +150,26 @@ public class StorageManagerUpsellDialog extends DialogFragment
         Activity activity = getActivity();
         if (activity != null) {
             activity.finish();
+        }
+    }
+
+    private long getCurrentTime() {
+        if (mClock == null) {
+            mClock = new Clock();
+        }
+
+        return mClock.currentTimeMillis();
+    }
+
+    /**
+     * Clock provides the current time.
+     */
+    protected static class Clock {
+        /**
+         * Returns the current time in milliseconds.
+         */
+        public long currentTimeMillis() {
+            return System.currentTimeMillis();
         }
     }
 }

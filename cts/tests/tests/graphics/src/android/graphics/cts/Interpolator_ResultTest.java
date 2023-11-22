@@ -16,19 +16,28 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Interpolator.Result;
-import android.graphics.Shader.TileMode;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
+import junit.framework.TestCase;
 
-public class Interpolator_ResultTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Interpolator_ResultTest {
+    @Test
     public void testValueOf() {
         assertEquals(Result.FREEZE_START, Result.valueOf("FREEZE_START"));
         assertEquals(Result.FREEZE_END, Result.valueOf("FREEZE_END"));
         assertEquals(Result.NORMAL, Result.valueOf("NORMAL"));
     }
 
+    @Test
     public void testValues() {
         Result[] result = Result.values();
         assertEquals(3, result.length);

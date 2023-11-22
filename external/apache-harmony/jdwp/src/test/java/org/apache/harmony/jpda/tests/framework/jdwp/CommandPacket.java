@@ -118,6 +118,7 @@ public class CommandPacket extends Packet {
      * @return the representation of the CommandPacket as array of bytes in the
      *         JDWP format.
      */
+    @Override
     public byte[] toBytesArray() {
         byte res[] = super.toBytesArray();
         res[COMMAND_SET_INDEX] = command_set;

@@ -31,6 +31,7 @@
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/prefs.h"
 #include "update_engine/common/utils.h"
+#include "update_engine/connection_manager_interface.h"
 #include "update_engine/metrics_utils.h"
 #include "update_engine/omaha_request_params.h"
 #include "update_engine/payload_consumer/install_plan.h"
@@ -186,8 +187,8 @@ void PayloadState::AttemptStarted(AttemptType attempt_type) {
   attempt_num_bytes_downloaded_ = 0;
 
   metrics::ConnectionType type;
-  NetworkConnectionType network_connection_type;
-  NetworkTethering tethering;
+  ConnectionType network_connection_type;
+  ConnectionTethering tethering;
   ConnectionManagerInterface* connection_manager =
       system_state_->connection_manager();
   if (!connection_manager->GetConnectionProperties(&network_connection_type,
@@ -246,6 +247,7 @@ void PayloadState::UpdateFailed(ErrorCode error) {
   ErrorCode base_error = utils::GetBaseErrorCode(error);
   LOG(INFO) << "Updating payload state for error code: " << base_error
             << " (" << utils::ErrorCodeToString(base_error) << ")";
+  attempt_error_code_ = base_error;
 
   if (candidate_urls_.size() == 0) {
     // This means we got this error even before we got a valid Omaha response
@@ -267,7 +269,6 @@ void PayloadState::UpdateFailed(ErrorCode error) {
       break;
   }
 
-  attempt_error_code_ = base_error;
 
   switch (base_error) {
     // Errors which are good indicators of a problem with a particular URL or
@@ -340,6 +341,7 @@ void PayloadState::UpdateFailed(ErrorCode error) {
     case ErrorCode::kOmahaResponseInvalid:
     case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
     case ErrorCode::kOmahaUpdateDeferredPerPolicy:
+    case ErrorCode::kNonCriticalUpdateInOOBE:
     case ErrorCode::kOmahaUpdateDeferredForBackoff:
     case ErrorCode::kPostinstallPowerwashError:
     case ErrorCode::kUpdateCanceledByChannelChange:

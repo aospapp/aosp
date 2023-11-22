@@ -22,8 +22,8 @@ def  verify(cr, histogram_name, histogram_bucket_value):
 
      """
      bucket_pattern = '\n'+ str(histogram_bucket_value) +'.*100\.0%.*'
-     error_msg_format = ('{} not loaded or bucket not found '
-                         'or bucket found at < 100%')
+     error_msg_format = ('{} not loaded or histogram bucket not found '
+                         'or histogram bucket found at < 100%')
      tab = cr.browser.tabs.New()
 
      def loaded():

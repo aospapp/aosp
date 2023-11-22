@@ -16,7 +16,7 @@
  */
 
 #define LOG_TAG "Reverb"
-#define ARRAY_SIZE(array) (sizeof array / sizeof array[0])
+#define ARRAY_SIZE(array) (sizeof (array) / sizeof (array)[0])
 //#define LOG_NDEBUG 0
 
 #include <assert.h>
@@ -25,7 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
+
 #include "EffectReverb.h"
 // from Reverb/lib
 #include "LVREV.h"
@@ -34,15 +35,15 @@
 extern "C" const struct effect_interface_s gReverbInterface;
 
 #define LVM_ERROR_CHECK(LvmStatus, callingFunc, calledFunc){\
-        if (LvmStatus == LVREV_NULLADDRESS){\
+        if ((LvmStatus) == LVREV_NULLADDRESS){\
             ALOGV("\tLVREV_ERROR : Parameter error - "\
                     "null pointer returned by %s in %s\n\n\n\n", callingFunc, calledFunc);\
         }\
-        if (LvmStatus == LVREV_INVALIDNUMSAMPLES){\
+        if ((LvmStatus) == LVREV_INVALIDNUMSAMPLES){\
             ALOGV("\tLVREV_ERROR : Parameter error - "\
                     "bad number of samples returned by %s in %s\n\n\n\n", callingFunc, calledFunc);\
         }\
-        if (LvmStatus == LVREV_OUTOFRANGE){\
+        if ((LvmStatus) == LVREV_OUTOFRANGE){\
             ALOGV("\tLVREV_ERROR : Parameter error - "\
                     "out of range returned by %s in %s\n", callingFunc, calledFunc);\
         }\
@@ -326,6 +327,7 @@ extern "C" int EffectGetDescriptor(const effect_uuid_t *uuid,
     }                                         \
 }
 
+#if 0
 //----------------------------------------------------------------------------
 // MonoTo2I_32()
 //----------------------------------------------------------------------------
@@ -384,6 +386,7 @@ void From2iToMono_32( const LVM_INT32 *src,
 
    return;
 }
+#endif
 
 static inline int16_t clamp16(int32_t sample)
 {
@@ -559,7 +562,6 @@ int process( LVM_INT16     *pIn,
 void Reverb_free(ReverbContext *pContext){
 
     LVREV_ReturnStatus_en     LvmStatus=LVREV_SUCCESS;         /* Function call status */
-    LVREV_ControlParams_st    params;                        /* Control Parameters */
     LVREV_MemoryTable_st      MemTab;
 
     /* Free the algorithm memory */
@@ -708,8 +710,6 @@ void Reverb_getConfig(ReverbContext *pContext, effect_config_t *pConfig)
 //----------------------------------------------------------------------------
 
 int Reverb_init(ReverbContext *pContext){
-    int status;
-
     ALOGV("\tReverb_init start");
 
     CHECK_ARG(pContext != NULL);
@@ -1542,7 +1542,6 @@ int Reverb_getParameter(ReverbContext *pContext,
     int status = 0;
     int32_t *pParamTemp = (int32_t *)pParam;
     int32_t param = *pParamTemp++;
-    char *name;
     t_reverb_settings *pProperties;
 
     //ALOGV("\tReverb_getParameter start");
@@ -1898,7 +1897,6 @@ int Reverb_command(effect_handle_t  self,
                               uint32_t            *replySize,
                               void                *pReplyData){
     android::ReverbContext * pContext = (android::ReverbContext *) self;
-    int retsize;
     LVREV_ControlParams_st    ActiveParams;              /* Current control Parameters */
     LVREV_ReturnStatus_en     LvmStatus=LVREV_SUCCESS;     /* Function call status */
 

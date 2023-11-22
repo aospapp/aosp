@@ -87,6 +87,12 @@ int FirmwareImage::Initialize(const char * filename)
 	m_io = m_memBlock[RMI_IMG_IO_OFFSET];
 	m_bootloaderVersion = m_memBlock[RMI_IMG_BOOTLOADER_VERSION_OFFSET];
 	m_firmwareSize = extract_long(&m_memBlock[RMI_IMG_IMAGE_SIZE_OFFSET]);
+
+	if ((unsigned long)m_imageSize - RMI_IMG_FW_OFFSET - 1 < m_firmwareSize) {
+		fprintf(stderr, "Supplied firmware image size too large, goes out of image file size bound\n");
+		return UPDATE_FAIL_VERIFY_FIRMWARE_SIZE;
+	}
+
 	m_configSize = extract_long(&m_memBlock[RMI_IMG_CONFIG_SIZE_OFFSET]);
 	if (m_io == 1) {
 		m_firmwareBuildID = extract_long(&m_memBlock[RMI_IMG_FW_BUILD_ID_OFFSET]);

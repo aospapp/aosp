@@ -17,7 +17,7 @@ package com.android.compatibility.common.tradefed.result;
 
 import com.android.compatibility.common.tradefed.testtype.IModuleDef;
 import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
@@ -49,9 +49,9 @@ public class ModuleListener implements IModuleListener {
      * {@inheritDoc}
      */
     @Override
-    public void invocationStarted(IBuildInfo buildInfo) {
-        CLog.d("ModuleListener.invocationStarted(%s)", buildInfo.toString());
-        mListener.invocationStarted(buildInfo);
+    public void invocationStarted(IInvocationContext context) {
+        CLog.d("ModuleListener.invocationStarted(%s)", context.getBuildInfos());
+        mListener.invocationStarted(context);
     }
 
     /**

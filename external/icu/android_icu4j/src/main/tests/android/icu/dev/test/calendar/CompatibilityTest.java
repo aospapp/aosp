@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2000-2009,2011 International Business Machines Corporation and    *
@@ -16,21 +18,15 @@ import java.io.ObjectOutputStream;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.text.DateFormat;
 import android.icu.util.Calendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.SimpleTimeZone;
 import android.icu.util.TimeZone;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
-
-    public static void main(String argv[]) throws Exception {
-        new CompatibilityTest().run(argv);
-    }
-
     static final String[] FIELD_NAME = {
         "ERA", "YEAR", "MONTH", "WEEK_OF_YEAR", "WEEK_OF_MONTH",
         "DAY_OF_MONTH", "DAY_OF_YEAR", "DAY_OF_WEEK",
@@ -43,6 +39,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     /**
      * Test the behavior of the GregorianCalendar around the changeover.
      */
+    @Test
     public void TestGregorianChangeover() {
     
         java.util.TimeZone jdkGMT = java.util.TimeZone.getTimeZone("GMT");
@@ -113,6 +110,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
      * of this test, we don't care about timezones and week data
      * (first day of week, minimal days in first week).
      */
+    @Test
     public void TestMapping() {
         if (false) {
             Date PURE_GREGORIAN = new Date(Long.MIN_VALUE);
@@ -264,6 +262,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
                   year2 + "-" + (month2+1) + "-" + dom2);
     }
 
+    @Test
     public void TestGenericAPI() {
         // not used String str;
 
@@ -444,6 +443,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Verify Roger Webster's bug
+    @Test
     public void TestRog() {
         GregorianCalendar gc = new GregorianCalendar();
 
@@ -464,6 +464,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Verify DAY_OF_WEEK
+    @Test
     public void TestDOW943() {
         dowTest(false);
         dowTest(true);
@@ -487,6 +488,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
 
     // Verify that the clone method produces distinct objects with no
     // unintentionally shared fields.
+    @Test
     public void TestClonesUnique908() {
         Calendar c = Calendar.getInstance();
         Calendar d = (Calendar)c.clone();
@@ -499,6 +501,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Verify effect of Gregorian cutoff value
+    @Test
     public void TestGregorianChange768() {
         boolean b;
         GregorianCalendar c = new GregorianCalendar();
@@ -517,6 +520,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Test the correct behavior of the disambiguation algorithm.
+    @Test
     public void TestDisambiguation765() throws Exception {
         Calendar c = Calendar.getInstance();
         c.setLenient(false);
@@ -632,6 +636,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Test the behavior of GMT vs. local time
+    @Test
     public void TestGMTvsLocal4064654() {
         // Sample output 1:
         // % /usr/local/java/jdk1.1.3/solaris/bin/java test 1997 1 1 12 0 0
@@ -687,6 +692,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
 
     // Verify that add and set work regardless of the order in which
     // they are called.
+    @Test
     public void TestAddSetOrder621() {
         java.util.Calendar tempcal = java.util.Calendar.getInstance();
         tempcal.clear();
@@ -718,6 +724,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Verify that add works.
+    @Test
     public void TestAdd520() {
         int y = 1997, m = Calendar.FEBRUARY, d = 1;
         GregorianCalendar temp = new GregorianCalendar( y, m, d );
@@ -759,6 +766,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Verify that add works across ZONE_OFFSET and DST_OFFSET transitions
+    @Test
     public void TestAddAcrossOffsetTransitions() {
         class TransitionItem {
             private String zoneName;
@@ -809,6 +817,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Verify that setting fields works.  This test fails when an exception is thrown.
+    @Test
     public void TestFieldSet4781() {
         try {
             GregorianCalendar g = new GregorianCalendar();
@@ -832,6 +841,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Test serialization of a Calendar object
+    @Test
     public void TestSerialize337() {
         Calendar cal = Calendar.getInstance();
 
@@ -872,6 +882,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     static final String FILENAME = "tmp337.bin";
 
     // Try to zero out the seconds field
+    @Test
     public void TestSecondsZero121() {
         Calendar        cal = new GregorianCalendar();
         // Initialize with current date/time
@@ -884,6 +895,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Try various sequences of add, set, and get method calls.
+    @Test
     public void TestAddSetGet0610() {
         //
         // Error case 1:
@@ -947,6 +959,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
     static String EXPECTED_0610 = "1993/0/5";
 
     // Test that certain fields on a certain date are as expected.
+    @Test
     public void TestFields060() {
         int year = 1997;
         int month = java.util.Calendar.OCTOBER;  //october
@@ -974,6 +987,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
 
     // Verify that the fields are as expected (mostly zero) at the epoch start.
     // Note that we adjust for the default timezone to get most things to zero.
+    @Test
     public void TestEpochStartFields() {
         TimeZone z = TimeZone.getDefault();
         Calendar c = Calendar.getInstance();
@@ -1003,6 +1017,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
 
     // Verify that as you add days to the calendar (e.g., 24 day periods),
     // the day of the week shifts in the expected pattern.
+    @Test
     public void TestDOWProgression() {
         Calendar cal =
             new GregorianCalendar(1972, Calendar.OCTOBER, 26);
@@ -1030,6 +1045,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
         while (newDOW != initialDOW);
     }
 
+    @Test
     public void TestActualMinMax() {
         Calendar cal = new GregorianCalendar(1967, Calendar.MARCH, 10);
         cal.setFirstDayOfWeek(Calendar.SUNDAY);
@@ -1070,6 +1086,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
                   cal.getActualMaximum(Calendar.WEEK_OF_YEAR));
     }
 
+    @Test
     public void TestRoll() {
         Calendar cal = new GregorianCalendar(1997, Calendar.JANUARY, 31);
 
@@ -1130,6 +1147,7 @@ public class CompatibilityTest extends android.icu.dev.test.TestFmwk {
         if (f != 0) errln("Rolling HOUR=3 delta=9 gave " + f + " Wanted 0");
     }
 
+    @Test
     public void TestComputeJulianDay4406() {
         // jb4406 is probably not a bug, this is to document the behavior
         GregorianCalendar cal = new GregorianCalendar();

@@ -40,7 +40,7 @@ import android.widget.FrameLayout;
 import java.io.IOException;
 
 /**
- * Activity that plays a video and allows the user to select pass/fail after 60 seconds.
+ * Activity that plays a video and allows the user to select pass/fail after 5 seconds.
  */
 public class PlayVideoActivity extends PassFailButtons.Activity
         implements SurfaceHolder.Callback, OnErrorListener, OnPreparedListener,
@@ -51,7 +51,7 @@ public class PlayVideoActivity extends PassFailButtons.Activity
     static final String EXTRA_STREAM = "com.android.cts.verifier.streamquality.EXTRA_STREAM";
 
     private static final String TAG = PlayVideoActivity.class.getName();
-    private static final long ENABLE_PASS_DELAY = 60 * 1000;
+    private static final long ENABLE_PASS_DELAY = 5 * 1000;
 
     private static final int FAIL_DIALOG_ID = 1;
 
@@ -177,7 +177,7 @@ public class PlayVideoActivity extends PassFailButtons.Activity
     private void startVideoPlayback() {
         mPlayer.start();
 
-        // Enable Pass button after 60 seconds
+        // Enable Pass button after 5 seconds
         mHandler.postDelayed(enablePassButton, ENABLE_PASS_DELAY);
     }
 

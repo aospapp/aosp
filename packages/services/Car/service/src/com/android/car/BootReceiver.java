@@ -23,8 +23,6 @@ import android.content.Intent;
 import android.os.UserHandle;
 import android.util.Log;
 
-import com.android.car.hal.VehicleHal;
-
 
 /**
  *  When system boots up, start car service.
@@ -34,10 +32,9 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.w(CarLog.TAG_SERVICE, "Starting...");
-        VehicleHal hal = VehicleHal.getInstance();
-        Intent carServiceintent = new Intent();
-        carServiceintent.setPackage(context.getPackageName());
-        carServiceintent.setAction(Car.CAR_SERVICE_INTERFACE_NAME);
-        context.startServiceAsUser(carServiceintent, UserHandle.SYSTEM);
+        Intent carServiceIntent = new Intent();
+        carServiceIntent.setPackage(context.getPackageName());
+        carServiceIntent.setAction(Car.CAR_SERVICE_INTERFACE_NAME);
+        context.startServiceAsUser(carServiceIntent, UserHandle.SYSTEM);
     }
 }

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+vg_local_android_arch :=
+vg_local_arch :=
 vg_local_module :=
 vg_local_target :=
 vg_local_module_class :=

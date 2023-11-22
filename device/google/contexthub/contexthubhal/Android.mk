@@ -14,6 +14,10 @@ LOCAL_MODULE_OWNER := google
 # Include target-specific files.
 LOCAL_SRC_FILES += nanohubhal_default.cpp
 
+LOCAL_STATIC_LIBRARIES += libnanohub_common
+
 LOCAL_MODULE := context_hub.default
 LOCAL_MODULE_TAGS := optional
+LOCAL_PROPRIETARY_MODULE := true
+
 include $(BUILD_SHARED_LIBRARY)

@@ -15,7 +15,6 @@
  */
 package android.support.v7.media;
 
-import android.content.IntentFilter;
 import android.os.Bundle;
 
 import java.util.ArrayList;
@@ -33,10 +32,10 @@ import java.util.List;
 public final class MediaRouteProviderDescriptor {
     static final String KEY_ROUTES = "routes";
 
-    private final Bundle mBundle;
-    private List<MediaRouteDescriptor> mRoutes;
+    final Bundle mBundle;
+    List<MediaRouteDescriptor> mRoutes;
 
-    private MediaRouteProviderDescriptor(Bundle bundle,
+    MediaRouteProviderDescriptor(Bundle bundle,
             List<MediaRouteDescriptor> routes) {
         mBundle = bundle;
         mRoutes = routes;
@@ -50,7 +49,7 @@ public final class MediaRouteProviderDescriptor {
         return mRoutes;
     }
 
-    private void ensureRoutes() {
+    void ensureRoutes() {
         if (mRoutes == null) {
             ArrayList<Bundle> routeBundles = mBundle.<Bundle>getParcelableArrayList(KEY_ROUTES);
             if (routeBundles == null || routeBundles.isEmpty()) {

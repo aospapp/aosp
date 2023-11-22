@@ -30,6 +30,9 @@ public class StructArrayTest extends RSBaseCompute {
         pad.bind_s(S);
         pad.invoke_verify();
         waitForMessage();
+
+        pad.destroy();
+
         checkForErrors();
     }
 }

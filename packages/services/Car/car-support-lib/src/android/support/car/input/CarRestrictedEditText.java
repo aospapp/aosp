@@ -33,6 +33,7 @@ import android.widget.TextView;
  *     <li>Disables Cut/Copy/Paste</li>
  *     <li>Force-disables suggestions</li>
  * </ul>
+ * @hide
  */
 public class CarRestrictedEditText extends EditText implements CarEditable {
 

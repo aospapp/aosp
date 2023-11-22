@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "push_to_prod"
 PURPOSE = "Test Autotest before push to prod."
-CRITERIA = ""
 
 TIME = "LONG"
 TEST_CATEGORY = "General"
@@ -51,10 +50,10 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'ccs': []
+    'cc': []
 }
 
-args_dict['max_runtime_mins'] = 20
+args_dict['max_runtime_mins'] = 30
 args_dict['file_bugs'] = True
 args_dict['name'] = 'push_to_prod'
 args_dict['job'] = job

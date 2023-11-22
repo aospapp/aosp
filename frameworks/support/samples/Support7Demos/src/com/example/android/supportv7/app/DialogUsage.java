@@ -15,12 +15,9 @@
  */
 package com.example.android.supportv7.app;
 
-import com.example.android.supportv7.R;
-
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v4.view.WindowCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.app.AppCompatDialog;
 import android.view.Menu;
@@ -28,6 +25,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Spinner;
 import android.widget.Toast;
+
+import com.example.android.supportv7.R;
 
 /**
  * This demonstrates idiomatic usage of AppCompatDialog.
@@ -41,7 +40,7 @@ public class DialogUsage extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dialog_usage);
 
-        mSpinner = (Spinner) findViewById(R.id.spinner_dialogs);
+        mSpinner = findViewById(R.id.spinner_dialogs);
 
         // Add an OnClickListener to show our selected dialog
         findViewById(R.id.btn_show_dialog).setOnClickListener(new View.OnClickListener() {

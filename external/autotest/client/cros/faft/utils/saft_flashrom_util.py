@@ -48,6 +48,9 @@ class LayoutScraper(object):
         "VBLOCK_B": "VBOOTB",
         "FW_MAIN_A": "FVMAIN",
         "FW_MAIN_B": "FVMAINB",
+        # Memory Training data cache for recovery boots
+        # Added on Nov 09, 2016
+        "RECOVERY_MRC_CACHE": "RECOVERY_MRC_CACHE",
         # New sections in Depthcharge.
         "EC_MAIN_A": "ECMAINA",
         "EC_MAIN_B": "ECMAINB",

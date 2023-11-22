@@ -208,10 +208,10 @@ static status_t readMetadata(const std::string& path, std::string& fsType,
     }
 
     char value[128];
-    for (auto line : output) {
+    for (const auto& line : output) {
         // Extract values from blkid output, if defined
         const char* cline = line.c_str();
-        char* start = strstr(cline, "TYPE=");
+        const char* start = strstr(cline, "TYPE=");
         if (start != nullptr && sscanf(start + 5, "\"%127[^\"]\"", value) == 1) {
             fsType = value;
         }
@@ -432,7 +432,7 @@ status_t NormalizeHex(const std::string& in, std::string& out) {
 uint64_t GetFreeBytes(const std::string& path) {
     struct statvfs sb;
     if (statvfs(path.c_str(), &sb) == 0) {
-        return (uint64_t)sb.f_bfree * sb.f_bsize;
+        return (uint64_t) sb.f_bavail * sb.f_frsize;
     } else {
         return -1;
     }
@@ -483,7 +483,7 @@ int64_t calculate_dir_size(int dfd) {
                     continue;
             }
 
-            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY);
+            subfd = openat(dfd, name, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
             if (subfd >= 0) {
                 size += calculate_dir_size(subfd);
             }
@@ -494,7 +494,7 @@ int64_t calculate_dir_size(int dfd) {
 }
 
 uint64_t GetTreeBytes(const std::string& path) {
-    int dirfd = open(path.c_str(), O_DIRECTORY, O_RDONLY);
+    int dirfd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (dirfd < 0) {
         PLOG(WARNING) << "Failed to open " << path;
         return -1;
@@ -589,11 +589,6 @@ std::string BuildDataProfilesDePath(userid_t userId) {
     return StringPrintf("%s/misc/profiles/cur/%u", BuildDataPath(nullptr).c_str(), userId);
 }
 
-std::string BuildDataProfilesForeignDexDePath(userid_t userId) {
-    std::string profiles_path = BuildDataProfilesDePath(userId);
-    return StringPrintf("%s/foreign-dex", profiles_path.c_str());
-}
-
 std::string BuildDataPath(const char* volumeUuid) {
     // TODO: unify with installd path generation logic
     if (volumeUuid == nullptr) {
@@ -640,12 +635,6 @@ dev_t GetDevice(const std::string& path) {
     }
 }
 
-std::string DefaultFstabPath() {
-    char hardware[PROPERTY_VALUE_MAX];
-    property_get("ro.hardware", hardware, "");
-    return StringPrintf("/fstab.%s", hardware);
-}
-
 status_t RestoreconRecursive(const std::string& path) {
     LOG(VERBOSE) << "Starting restorecon of " << path;
 
@@ -676,20 +665,6 @@ status_t SaneReadLinkAt(int dirfd, const char* path, char* buf, size_t bufsiz) {
     } else {
         buf[len] = '\0';
         return 0;
-    }
-}
-
-ScopedFd::ScopedFd(int fd) : fd_(fd) {}
-
-ScopedFd::~ScopedFd() {
-    close(fd_);
-}
-
-ScopedDir::ScopedDir(DIR* dir) : dir_(dir) {}
-
-ScopedDir::~ScopedDir() {
-    if (dir_ != nullptr) {
-        closedir(dir_);
     }
 }
 

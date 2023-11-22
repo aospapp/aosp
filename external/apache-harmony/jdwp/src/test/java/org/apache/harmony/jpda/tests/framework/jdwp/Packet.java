@@ -1076,48 +1076,37 @@ public class Packet {
      * @return the next value of the data of the Packet as VM-sensitive value.
      */
     public Value getNextValueAsUntaggedValue(byte tag) {
-        Value value = null;
         switch (tag) {
-        case JDWPConstants.Tag.BOOLEAN_TAG:
-            value = new Value(this.getNextValueAsBoolean());
-            break;
-        case JDWPConstants.Tag.BYTE_TAG:
-            value = new Value(this.getNextValueAsByte());
-            break;
-        case JDWPConstants.Tag.CHAR_TAG:
-            value = new Value(this.getNextValueAsChar());
-            break;
-        case JDWPConstants.Tag.DOUBLE_TAG:
-            value = new Value(this.getNextValueAsDouble());
-            break;
-        case JDWPConstants.Tag.FLOAT_TAG:
-            value = new Value(this.getNextValueAsFloat());
-            break;
-        case JDWPConstants.Tag.INT_TAG:
-            value = new Value(this.getNextValueAsInt());
-            break;
-        case JDWPConstants.Tag.LONG_TAG:
-            value = new Value(this.getNextValueAsLong());
-            break;
-        case JDWPConstants.Tag.SHORT_TAG:
-            value = new Value(this.getNextValueAsShort());
-            break;
-        case JDWPConstants.Tag.STRING_TAG:
-        case JDWPConstants.Tag.ARRAY_TAG:
-        case JDWPConstants.Tag.CLASS_LOADER_TAG:
-        case JDWPConstants.Tag.CLASS_OBJECT_TAG:
-        case JDWPConstants.Tag.OBJECT_TAG:
-        case JDWPConstants.Tag.THREAD_GROUP_TAG:
-        case JDWPConstants.Tag.THREAD_TAG:
-            value = new Value(tag, this.getNextValueAsObjectID());
-            break;
-        case JDWPConstants.Tag.VOID_TAG:
-            // no bytes to read.
-            break;
-        default:
-            throw new TestErrorException("Illegal tag value = " + tag);
+            case JDWPConstants.Tag.BOOLEAN_TAG:
+                return Value.createBoolean(this.getNextValueAsBoolean());
+            case JDWPConstants.Tag.BYTE_TAG:
+                return Value.createByte(this.getNextValueAsByte());
+            case JDWPConstants.Tag.CHAR_TAG:
+                return Value.createChar(this.getNextValueAsChar());
+            case JDWPConstants.Tag.DOUBLE_TAG:
+                return Value.createDouble(this.getNextValueAsDouble());
+            case JDWPConstants.Tag.FLOAT_TAG:
+                return Value.createFloat(this.getNextValueAsFloat());
+            case JDWPConstants.Tag.INT_TAG:
+                return Value.createInt(this.getNextValueAsInt());
+            case JDWPConstants.Tag.LONG_TAG:
+                return Value.createLong(this.getNextValueAsLong());
+            case JDWPConstants.Tag.SHORT_TAG:
+                return Value.createShort(this.getNextValueAsShort());
+            case JDWPConstants.Tag.STRING_TAG:
+            case JDWPConstants.Tag.ARRAY_TAG:
+            case JDWPConstants.Tag.CLASS_LOADER_TAG:
+            case JDWPConstants.Tag.CLASS_OBJECT_TAG:
+            case JDWPConstants.Tag.OBJECT_TAG:
+            case JDWPConstants.Tag.THREAD_GROUP_TAG:
+            case JDWPConstants.Tag.THREAD_TAG:
+                return Value.createObjectValue(tag, this.getNextValueAsObjectID());
+            case JDWPConstants.Tag.VOID_TAG:
+                // no bytes to read.
+                return null;
+            default:
+                throw new TestErrorException("Illegal tag value = " + tag);
         }
-        return value;
     }
 
     /**

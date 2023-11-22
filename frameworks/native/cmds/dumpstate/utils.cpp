@@ -14,43 +14,65 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "dumpstate"
+
+#include "dumpstate.h"
+
 #include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
+#include <libgen.h>
+#include <math.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include <string.h>
 #include <sys/capability.h>
 #include <sys/inotify.h>
+#include <sys/klog.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
-#include <sys/sysconf.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include <sys/klog.h>
 #include <time.h>
 #include <unistd.h>
-#include <vector>
-#include <sys/prctl.h>
 
-#define LOG_TAG "dumpstate"
+#include <set>
+#include <string>
+#include <vector>
 
 #include <android-base/file.h>
-#include <cutils/debugger.h>
-#include <cutils/log.h>
+#include <android-base/properties.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <android/hidl/manager/1.0/IServiceManager.h>
 #include <cutils/properties.h>
 #include <cutils/sockets.h>
+#include <debuggerd/client.h>
+#include <log/log.h>
 #include <private/android_filesystem_config.h>
 
-#include <selinux/android.h>
+#include "DumpstateInternal.h"
 
-#include "dumpstate.h"
+// TODO: remove once moved to namespace
+using android::os::dumpstate::CommandOptions;
+using android::os::dumpstate::DumpFileToFd;
+using android::os::dumpstate::PropertiesHelper;
 
-static const int64_t NANOS_PER_SEC = 1000000000;
+// Keep in sync with
+// frameworks/base/services/core/java/com/android/server/am/ActivityManagerService.java
+static const int TRACE_DUMP_TIMEOUT_MS = 10000; // 10 seconds
+
+/* Most simple commands have 10 as timeout, so 5 is a good estimate */
+static const int32_t WEIGHT_FILE = 5;
+
+// TODO: temporary variables and functions used during C++ refactoring
+static Dumpstate& ds = Dumpstate::GetInstance();
+static int RunCommand(const std::string& title, const std::vector<std::string>& full_command,
+                      const CommandOptions& options = CommandOptions::DEFAULT) {
+    return ds.RunCommand(title, full_command, options);
+}
 
 /* list of native processes to include in the native dumps */
 // This matches the /proc/pid/exe link instead of /proc/pid/cmdline.
@@ -58,47 +80,190 @@ static const char* native_processes_to_dump[] = {
         "/system/bin/audioserver",
         "/system/bin/cameraserver",
         "/system/bin/drmserver",
-        "/system/bin/mediacodec",     // media.codec
         "/system/bin/mediadrmserver",
         "/system/bin/mediaextractor", // media.extractor
         "/system/bin/mediaserver",
         "/system/bin/sdcard",
         "/system/bin/surfaceflinger",
         "/system/bin/vehicle_network_service",
+        "/vendor/bin/hw/android.hardware.media.omx@1.0-service", // media.codec
         NULL,
 };
 
-DurationReporter::DurationReporter(const char *title) : DurationReporter(title, stdout) {}
+/* list of hal interface to dump containing process during native dumps */
+static const char* hal_interfaces_to_dump[] {
+        "android.hardware.audio@2.0::IDevicesFactory",
+        "android.hardware.bluetooth@1.0::IBluetoothHci",
+        "android.hardware.camera.provider@2.4::ICameraProvider",
+        "android.hardware.graphics.composer@2.1::IComposer",
+        "android.hardware.vr@1.0::IVr",
+        "android.hardware.media.omx@1.0::IOmx",
+        NULL,
+};
 
-DurationReporter::DurationReporter(const char *title, FILE *out) {
-    title_ = title;
-    if (title) {
-        started_ = DurationReporter::nanotime();
+// Reasonable value for max stats.
+static const int STATS_MAX_N_RUNS = 1000;
+static const long STATS_MAX_AVERAGE = 100000;
+
+CommandOptions Dumpstate::DEFAULT_DUMPSYS = CommandOptions::WithTimeout(30).Build();
+
+Dumpstate::Dumpstate(const std::string& version)
+    : pid_(getpid()), version_(version), now_(time(nullptr)) {
+}
+
+Dumpstate& Dumpstate::GetInstance() {
+    static Dumpstate singleton_(android::base::GetProperty("dumpstate.version", VERSION_CURRENT));
+    return singleton_;
+}
+
+DurationReporter::DurationReporter(const std::string& title, bool log_only)
+    : title_(title), log_only_(log_only) {
+    if (!title_.empty()) {
+        started_ = Nanotime();
     }
-    out_ = out;
 }
 
 DurationReporter::~DurationReporter() {
-    if (title_) {
-        uint64_t elapsed = DurationReporter::nanotime() - started_;
-        // Use "Yoda grammar" to make it easier to grep|sort sections.
-        if (out_) {
-            fprintf(out_, "------ %.3fs was the duration of '%s' ------\n",
-                   (float) elapsed / NANOS_PER_SEC, title_);
+    if (!title_.empty()) {
+        uint64_t elapsed = Nanotime() - started_;
+        if (log_only_) {
+            MYLOGD("Duration of '%s': %.3fs\n", title_.c_str(), (float)elapsed / NANOS_PER_SEC);
         } else {
-            MYLOGD("Duration of '%s': %.3fs\n", title_, (float) elapsed / NANOS_PER_SEC);
+            // Use "Yoda grammar" to make it easier to grep|sort sections.
+            printf("------ %.3fs was the duration of '%s' ------\n", (float)elapsed / NANOS_PER_SEC,
+                   title_.c_str());
         }
     }
 }
 
-uint64_t DurationReporter::DurationReporter::nanotime() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t) ts.tv_sec * NANOS_PER_SEC + ts.tv_nsec;
+const int32_t Progress::kDefaultMax = 5000;
+
+Progress::Progress(const std::string& path) : Progress(Progress::kDefaultMax, 1.1, path) {
+}
+
+Progress::Progress(int32_t initial_max, int32_t progress, float growth_factor)
+    : Progress(initial_max, growth_factor, "") {
+    progress_ = progress;
+}
+
+Progress::Progress(int32_t initial_max, float growth_factor, const std::string& path)
+    : initial_max_(initial_max),
+      progress_(0),
+      max_(initial_max),
+      growth_factor_(growth_factor),
+      n_runs_(0),
+      average_max_(0),
+      path_(path) {
+    if (!path_.empty()) {
+        Load();
+    }
+}
+
+void Progress::Load() {
+    MYLOGD("Loading stats from %s\n", path_.c_str());
+    std::string content;
+    if (!android::base::ReadFileToString(path_, &content)) {
+        MYLOGI("Could not read stats from %s; using max of %d\n", path_.c_str(), max_);
+        return;
+    }
+    if (content.empty()) {
+        MYLOGE("No stats (empty file) on %s; using max of %d\n", path_.c_str(), max_);
+        return;
+    }
+    std::vector<std::string> lines = android::base::Split(content, "\n");
+
+    if (lines.size() < 1) {
+        MYLOGE("Invalid stats on file %s: not enough lines (%d). Using max of %d\n", path_.c_str(),
+               (int)lines.size(), max_);
+        return;
+    }
+    char* ptr;
+    n_runs_ = strtol(lines[0].c_str(), &ptr, 10);
+    average_max_ = strtol(ptr, nullptr, 10);
+    if (n_runs_ <= 0 || average_max_ <= 0 || n_runs_ > STATS_MAX_N_RUNS ||
+        average_max_ > STATS_MAX_AVERAGE) {
+        MYLOGE("Invalid stats line on file %s: %s\n", path_.c_str(), lines[0].c_str());
+        initial_max_ = Progress::kDefaultMax;
+    } else {
+        initial_max_ = average_max_;
+    }
+    max_ = initial_max_;
+
+    MYLOGI("Average max progress: %d in %d runs; estimated max: %d\n", average_max_, n_runs_, max_);
+}
+
+void Progress::Save() {
+    int32_t total = n_runs_ * average_max_ + progress_;
+    int32_t runs = n_runs_ + 1;
+    int32_t average = floor(((float)total) / runs);
+    MYLOGI("Saving stats (total=%d, runs=%d, average=%d) on %s\n", total, runs, average,
+           path_.c_str());
+    if (path_.empty()) {
+        return;
+    }
+
+    std::string content = android::base::StringPrintf("%d %d\n", runs, average);
+    if (!android::base::WriteStringToFile(content, path_)) {
+        MYLOGE("Could not save stats on %s\n", path_.c_str());
+    }
+}
+
+int32_t Progress::Get() const {
+    return progress_;
+}
+
+bool Progress::Inc(int32_t delta) {
+    bool changed = false;
+    if (delta >= 0) {
+        progress_ += delta;
+        if (progress_ > max_) {
+            int32_t old_max = max_;
+            max_ = floor((float)progress_ * growth_factor_);
+            MYLOGD("Adjusting max progress from %d to %d\n", old_max, max_);
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+int32_t Progress::GetMax() const {
+    return max_;
+}
+
+int32_t Progress::GetInitialMax() const {
+    return initial_max_;
+}
+
+void Progress::Dump(int fd, const std::string& prefix) const {
+    const char* pr = prefix.c_str();
+    dprintf(fd, "%sprogress: %d\n", pr, progress_);
+    dprintf(fd, "%smax: %d\n", pr, max_);
+    dprintf(fd, "%sinitial_max: %d\n", pr, initial_max_);
+    dprintf(fd, "%sgrowth_factor: %0.2f\n", pr, growth_factor_);
+    dprintf(fd, "%spath: %s\n", pr, path_.c_str());
+    dprintf(fd, "%sn_runs: %d\n", pr, n_runs_);
+    dprintf(fd, "%saverage_max: %d\n", pr, average_max_);
+}
+
+bool Dumpstate::IsZipping() const {
+    return zip_writer_ != nullptr;
+}
+
+std::string Dumpstate::GetPath(const std::string& suffix) const {
+    return android::base::StringPrintf("%s/%s-%s%s", bugreport_dir_.c_str(), base_name_.c_str(),
+                                       name_.c_str(), suffix.c_str());
+}
+
+void Dumpstate::SetProgress(std::unique_ptr<Progress> progress) {
+    progress_ = std::move(progress);
 }
 
 void for_each_userid(void (*func)(int), const char *header) {
-    ON_DRY_RUN_RETURN();
+    std::string title = header == nullptr ? "for_each_userid" : android::base::StringPrintf(
+                                                                    "for_each_userid(%s)", header);
+    DurationReporter duration_reporter(title);
+    if (PropertiesHelper::IsDryRun()) return;
+
     DIR *d;
     struct dirent *de;
 
@@ -180,8 +345,12 @@ static void for_each_pid_helper(int pid, const char *cmdline, void *arg) {
 }
 
 void for_each_pid(for_each_pid_func func, const char *header) {
-    ON_DRY_RUN_RETURN();
-  __for_each_pid(for_each_pid_helper, header, (void *)func);
+    std::string title = header == nullptr ? "for_each_pid"
+                                          : android::base::StringPrintf("for_each_pid(%s)", header);
+    DurationReporter duration_reporter(title);
+    if (PropertiesHelper::IsDryRun()) return;
+
+    __for_each_pid(for_each_pid_helper, header, (void *) func);
 }
 
 static void for_each_tid_helper(int pid, const char *cmdline, void *arg) {
@@ -233,12 +402,18 @@ static void for_each_tid_helper(int pid, const char *cmdline, void *arg) {
 }
 
 void for_each_tid(for_each_tid_func func, const char *header) {
-    ON_DRY_RUN_RETURN();
+    std::string title = header == nullptr ? "for_each_tid"
+                                          : android::base::StringPrintf("for_each_tid(%s)", header);
+    DurationReporter duration_reporter(title);
+
+    if (PropertiesHelper::IsDryRun()) return;
+
     __for_each_pid(for_each_tid_helper, header, (void *) func);
 }
 
 void show_wchan(int pid, int tid, const char *name) {
-    ON_DRY_RUN_RETURN();
+    if (PropertiesHelper::IsDryRun()) return;
+
     char path[255];
     char buffer[255];
     int fd, ret, save_errno;
@@ -304,7 +479,8 @@ static void snprdec(char *buffer, size_t len, size_t spc, unsigned permille) {
 }
 
 void show_showtime(int pid, const char *name) {
-    ON_DRY_RUN_RETURN();
+    if (PropertiesHelper::IsDryRun()) return;
+
     char path[255];
     char buffer[1023];
     int fd, ret, save_errno;
@@ -361,7 +537,7 @@ void show_showtime(int pid, const char *name) {
     if (iotime) {
         snprdec(buffer, sizeof(buffer), 79, permille);
     }
-    puts(buffer); // adds a trailing newline
+    puts(buffer);  // adds a trailing newline
 
     return;
 }
@@ -371,7 +547,8 @@ void do_dmesg() {
     DurationReporter duration_reporter(title);
     printf("------ %s ------\n", title);
 
-    ON_DRY_RUN_RETURN();
+    if (PropertiesHelper::IsDryRun()) return;
+
     /* Get size of kernel buffer */
     int size = klogctl(KLOG_SIZE_BUFFER, NULL, 0);
     if (size <= 0) {
@@ -401,84 +578,17 @@ void do_showmap(int pid, const char *name) {
 
     snprintf(title, sizeof(title), "SHOW MAP %d (%s)", pid, name);
     snprintf(arg, sizeof(arg), "%d", pid);
-    run_command(title, 10, SU_PATH, "root", "showmap", "-q", arg, NULL);
+    RunCommand(title, {"showmap", "-q", arg}, CommandOptions::AS_ROOT);
 }
 
-static int _dump_file_from_fd(const char *title, const char *path, int fd) {
-    if (title) {
-        printf("------ %s (%s", title, path);
-
-        struct stat st;
-        // Only show the modification time of non-device files.
-        size_t path_len = strlen(path);
-        if ((path_len < 6 || memcmp(path, "/proc/", 6)) &&
-                (path_len < 5 || memcmp(path, "/sys/", 5)) &&
-                (path_len < 3 || memcmp(path, "/d/", 3)) &&
-                !fstat(fd, &st)) {
-            char stamp[80];
-            time_t mtime = st.st_mtime;
-            strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", localtime(&mtime));
-            printf(": %s", stamp);
-        }
-        printf(") ------\n");
-    }
-    ON_DRY_RUN({ update_progress(WEIGHT_FILE); close(fd); return 0; });
-
-    bool newline = false;
-    fd_set read_set;
-    struct timeval tm;
-    while (1) {
-        FD_ZERO(&read_set);
-        FD_SET(fd, &read_set);
-        /* Timeout if no data is read for 30 seconds. */
-        tm.tv_sec = 30;
-        tm.tv_usec = 0;
-        uint64_t elapsed = DurationReporter::nanotime();
-        int ret = TEMP_FAILURE_RETRY(select(fd + 1, &read_set, NULL, NULL, &tm));
-        if (ret == -1) {
-            printf("*** %s: select failed: %s\n", path, strerror(errno));
-            newline = true;
-            break;
-        } else if (ret == 0) {
-            elapsed = DurationReporter::nanotime() - elapsed;
-            printf("*** %s: Timed out after %.3fs\n", path,
-                   (float) elapsed / NANOS_PER_SEC);
-            newline = true;
-            break;
-        } else {
-            char buffer[65536];
-            ssize_t bytes_read = TEMP_FAILURE_RETRY(read(fd, buffer, sizeof(buffer)));
-            if (bytes_read > 0) {
-                fwrite(buffer, bytes_read, 1, stdout);
-                newline = (buffer[bytes_read-1] == '\n');
-            } else {
-                if (bytes_read == -1) {
-                    printf("*** %s: Failed to read from fd: %s", path, strerror(errno));
-                    newline = true;
-                }
-                break;
-            }
-        }
-    }
-    update_progress(WEIGHT_FILE);
-    close(fd);
-
-    if (!newline) printf("\n");
-    if (title) printf("\n");
-    return 0;
-}
-
-/* prints the contents of a file */
-int dump_file(const char *title, const char *path) {
+int Dumpstate::DumpFile(const std::string& title, const std::string& path) {
     DurationReporter duration_reporter(title);
-    int fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
-    if (fd < 0) {
-        int err = errno;
-        printf("*** %s: %s\n", path, strerror(err));
-        if (title) printf("\n");
-        return -1;
-    }
-    return _dump_file_from_fd(title, path, fd);
+
+    int status = DumpFileToFd(STDOUT_FILENO, title, path);
+
+    UpdateProgress(WEIGHT_FILE);
+
+    return status;
 }
 
 int read_file_as_long(const char *path, long int *output) {
@@ -508,9 +618,8 @@ int read_file_as_long(const char *path, long int *output) {
  * to false when set to NULL. dump_from_fd will always be
  * called with title NULL.
  */
-int dump_files(const char *title, const char *dir,
-        bool (*skip)(const char *path),
-        int (*dump_from_fd)(const char *title, const char *path, int fd)) {
+int dump_files(const std::string& title, const char* dir, bool (*skip)(const char* path),
+               int (*dump_from_fd)(const char* title, const char* path, int fd)) {
     DurationReporter duration_reporter(title);
     DIR *dirp;
     struct dirent *d;
@@ -518,10 +627,10 @@ int dump_files(const char *title, const char *dir,
     const char *slash = "/";
     int fd, retval = 0;
 
-    if (title) {
-        printf("------ %s (%s) ------\n", title, dir);
+    if (!title.empty()) {
+        printf("------ %s (%s) ------\n", title.c_str(), dir);
     }
-    ON_DRY_RUN_RETURN(0);
+    if (PropertiesHelper::IsDryRun()) return 0;
 
     if (dir[strlen(dir) - 1] == '/') {
         ++slash;
@@ -552,7 +661,7 @@ int dump_files(const char *title, const char *dir,
             continue;
         }
         if (d->d_type == DT_DIR) {
-            int ret = dump_files(NULL, newpath, skip, dump_from_fd);
+            int ret = dump_files("", newpath, skip, dump_from_fd);
             if (ret < 0) {
                 retval = ret;
             }
@@ -567,7 +676,7 @@ int dump_files(const char *title, const char *dir,
         (*dump_from_fd)(NULL, newpath, fd);
     }
     closedir(dirp);
-    if (title) {
+    if (!title.empty()) {
         printf("\n");
     }
     return retval;
@@ -578,6 +687,8 @@ int dump_files(const char *title, const char *dir,
  * stuck.
  */
 int dump_file_from_fd(const char *title, const char *path, int fd) {
+    if (PropertiesHelper::IsDryRun()) return 0;
+
     int flags = fcntl(fd, F_GETFL);
     if (flags == -1) {
         printf("*** %s: failed to get flags on fd %d: %s\n", path, fd, strerror(errno));
@@ -588,331 +699,30 @@ int dump_file_from_fd(const char *title, const char *path, int fd) {
         close(fd);
         return -1;
     }
-    return _dump_file_from_fd(title, path, fd);
+    return DumpFileFromFdToFd(title, path, fd, STDOUT_FILENO, PropertiesHelper::IsDryRun());
 }
 
-bool waitpid_with_timeout(pid_t pid, int timeout_seconds, int* status) {
-    sigset_t child_mask, old_mask;
-    sigemptyset(&child_mask);
-    sigaddset(&child_mask, SIGCHLD);
-
-    if (sigprocmask(SIG_BLOCK, &child_mask, &old_mask) == -1) {
-        printf("*** sigprocmask failed: %s\n", strerror(errno));
-        return false;
-    }
-
-    struct timespec ts;
-    ts.tv_sec = timeout_seconds;
-    ts.tv_nsec = 0;
-    int ret = TEMP_FAILURE_RETRY(sigtimedwait(&child_mask, NULL, &ts));
-    int saved_errno = errno;
-    // Set the signals back the way they were.
-    if (sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1) {
-        printf("*** sigprocmask failed: %s\n", strerror(errno));
-        if (ret == 0) {
-            return false;
-        }
-    }
-    if (ret == -1) {
-        errno = saved_errno;
-        if (errno == EAGAIN) {
-            errno = ETIMEDOUT;
-        } else {
-            printf("*** sigtimedwait failed: %s\n", strerror(errno));
-        }
-        return false;
-    }
-
-    pid_t child_pid = waitpid(pid, status, WNOHANG);
-    if (child_pid != pid) {
-        if (child_pid != -1) {
-            printf("*** Waiting for pid %d, got pid %d instead\n", pid, child_pid);
-        } else {
-            printf("*** waitpid failed: %s\n", strerror(errno));
-        }
-        return false;
-    }
-    return true;
-}
-
-// TODO: refactor all those commands that convert args
-void format_args(const char* command, const char *args[], std::string *string);
-
-int run_command(const char *title, int timeout_seconds, const char *command, ...) {
+int Dumpstate::RunCommand(const std::string& title, const std::vector<std::string>& full_command,
+                          const CommandOptions& options) {
     DurationReporter duration_reporter(title);
-    fflush(stdout);
 
-    const char *args[1024] = {command};
-    size_t arg;
-    va_list ap;
-    va_start(ap, command);
-    if (title) printf("------ %s (%s", title, command);
-    bool null_terminated = false;
-    for (arg = 1; arg < sizeof(args) / sizeof(args[0]); ++arg) {
-        args[arg] = va_arg(ap, const char *);
-        if (args[arg] == nullptr) {
-            null_terminated = true;
-            break;
-        }
-        // TODO: null_terminated check is not really working; line below would crash dumpstate if
-        // nullptr is missing
-        if (title) printf(" %s", args[arg]);
-    }
-    if (title) printf(") ------\n");
-    fflush(stdout);
-    if (!null_terminated) {
-        // Fail now, otherwise execvp() call on run_command_always() might hang.
-        std::string cmd;
-        format_args(command, args, &cmd);
-        MYLOGE("skipping command %s because its args were not NULL-terminated", cmd.c_str());
-        return -1;
-    }
+    int status = RunCommandToFd(STDOUT_FILENO, title, full_command, options);
 
-    ON_DRY_RUN({ update_progress(timeout_seconds); va_end(ap); return 0; });
+    /* TODO: for now we're simplifying the progress calculation by using the
+     * timeout as the weight. It's a good approximation for most cases, except when calling dumpsys,
+     * where its weight should be much higher proportionally to its timeout.
+     * Ideally, it should use a options.EstimatedDuration() instead...*/
+    UpdateProgress(options.Timeout());
 
-    int status = run_command_always(title, DONT_DROP_ROOT, NORMAL_STDOUT, timeout_seconds, args);
-    va_end(ap);
     return status;
 }
 
-int run_command_as_shell(const char *title, int timeout_seconds, const char *command, ...) {
-    DurationReporter duration_reporter(title);
-    fflush(stdout);
-
-    const char *args[1024] = {command};
-    size_t arg;
-    va_list ap;
-    va_start(ap, command);
-    if (title) printf("------ %s (%s", title, command);
-    bool null_terminated = false;
-    for (arg = 1; arg < sizeof(args) / sizeof(args[0]); ++arg) {
-        args[arg] = va_arg(ap, const char *);
-        if (args[arg] == nullptr) {
-            null_terminated = true;
-            break;
-        }
-        // TODO: null_terminated check is not really working; line below would crash dumpstate if
-        // nullptr is missing
-        if (title) printf(" %s", args[arg]);
-    }
-    if (title) printf(") ------\n");
-    fflush(stdout);
-    if (!null_terminated) {
-        // Fail now, otherwise execvp() call on run_command_always() might hang.
-        std::string cmd;
-        format_args(command, args, &cmd);
-        MYLOGE("skipping command %s because its args were not NULL-terminated", cmd.c_str());
-        return -1;
-    }
-
-    ON_DRY_RUN({ update_progress(timeout_seconds); va_end(ap); return 0; });
-
-    int status = run_command_always(title, DROP_ROOT, NORMAL_STDOUT, timeout_seconds, args);
-    va_end(ap);
-    return status;
-}
-
-/* forks a command and waits for it to finish */
-int run_command_always(const char *title, RootMode root_mode, StdoutMode stdout_mode,
-        int timeout_seconds, const char *args[]) {
-    bool silent = (stdout_mode == REDIRECT_TO_STDERR);
-    // TODO: need to check if args is null-terminated, otherwise execvp will crash dumpstate
-
-    /* TODO: for now we're simplifying the progress calculation by using the timeout as the weight.
-     * It's a good approximation for most cases, except when calling dumpsys, where its weight
-     * should be much higher proportionally to its timeout. */
-    int weight = timeout_seconds;
-
-    const char *command = args[0];
-    uint64_t start = DurationReporter::nanotime();
-    pid_t pid = fork();
-
-    /* handle error case */
-    if (pid < 0) {
-        if (!silent) printf("*** fork: %s\n", strerror(errno));
-        MYLOGE("*** fork: %s\n", strerror(errno));
-        return pid;
-    }
-
-    /* handle child case */
-    if (pid == 0) {
-        if (root_mode == DROP_ROOT && !drop_root_user()) {
-        if (!silent) printf("*** fail todrop root before running %s: %s\n", command,
-                strerror(errno));
-            MYLOGE("*** could not drop root before running %s: %s\n", command, strerror(errno));
-            return -1;
-        }
-
-        if (silent) {
-            // Redirect stderr to stdout
-            dup2(STDERR_FILENO, STDOUT_FILENO);
-        }
-
-        /* make sure the child dies when dumpstate dies */
-        prctl(PR_SET_PDEATHSIG, SIGKILL);
-
-        /* just ignore SIGPIPE, will go down with parent's */
-        struct sigaction sigact;
-        memset(&sigact, 0, sizeof(sigact));
-        sigact.sa_handler = SIG_IGN;
-        sigaction(SIGPIPE, &sigact, NULL);
-
-        execvp(command, (char**) args);
-        // execvp's result will be handled after waitpid_with_timeout() below, but if it failed,
-        // it's safer to exit dumpstate.
-        MYLOGD("execvp on command '%s' failed (error: %s)", command, strerror(errno));
-        fflush(stdout);
-        // Must call _exit (instead of exit), otherwise it will corrupt the zip file.
-        _exit(EXIT_FAILURE);
-    }
-
-    /* handle parent case */
-    int status;
-    bool ret = waitpid_with_timeout(pid, timeout_seconds, &status);
-    uint64_t elapsed = DurationReporter::nanotime() - start;
-    std::string cmd; // used to log command and its args
-    if (!ret) {
-        if (errno == ETIMEDOUT) {
-            format_args(command, args, &cmd);
-            if (!silent) printf("*** command '%s' timed out after %.3fs (killing pid %d)\n",
-            cmd.c_str(), (float) elapsed / NANOS_PER_SEC, pid);
-            MYLOGE("command '%s' timed out after %.3fs (killing pid %d)\n", cmd.c_str(),
-                   (float) elapsed / NANOS_PER_SEC, pid);
-        } else {
-            format_args(command, args, &cmd);
-            if (!silent) printf("*** command '%s': Error after %.4fs (killing pid %d)\n",
-            cmd.c_str(), (float) elapsed / NANOS_PER_SEC, pid);
-            MYLOGE("command '%s': Error after %.4fs (killing pid %d)\n", cmd.c_str(),
-                   (float) elapsed / NANOS_PER_SEC, pid);
-        }
-        kill(pid, SIGTERM);
-        if (!waitpid_with_timeout(pid, 5, NULL)) {
-            kill(pid, SIGKILL);
-            if (!waitpid_with_timeout(pid, 5, NULL)) {
-                if (!silent) printf("could not kill command '%s' (pid %d) even with SIGKILL.\n",
-                        command, pid);
-                MYLOGE("could not kill command '%s' (pid %d) even with SIGKILL.\n", command, pid);
-            }
-        }
-        return -1;
-    } else if (status) {
-        format_args(command, args, &cmd);
-        if (!silent) printf("*** command '%s' failed: %s\n", cmd.c_str(), strerror(errno));
-        MYLOGE("command '%s' failed: %s\n", cmd.c_str(), strerror(errno));
-        return -2;
-    }
-
-    if (WIFSIGNALED(status)) {
-        if (!silent) printf("*** %s: Killed by signal %d\n", command, WTERMSIG(status));
-        MYLOGE("*** %s: Killed by signal %d\n", command, WTERMSIG(status));
-    } else if (WIFEXITED(status) && WEXITSTATUS(status) > 0) {
-        if (!silent) printf("*** %s: Exit code %d\n", command, WEXITSTATUS(status));
-        MYLOGE("*** %s: Exit code %d\n", command, WEXITSTATUS(status));
-    }
-
-    if (weight > 0) {
-        update_progress(weight);
-    }
-    return status;
-}
-
-bool drop_root_user() {
-    if (getgid() == AID_SHELL && getuid() == AID_SHELL) {
-        MYLOGD("drop_root_user(): already running as Shell");
-        return true;
-    }
-    /* ensure we will keep capabilities when we drop root */
-    if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
-        MYLOGE("prctl(PR_SET_KEEPCAPS) failed: %s\n", strerror(errno));
-        return false;
-    }
-
-    gid_t groups[] = { AID_LOG, AID_SDCARD_R, AID_SDCARD_RW,
-            AID_MOUNT, AID_INET, AID_NET_BW_STATS, AID_READPROC };
-    if (setgroups(sizeof(groups)/sizeof(groups[0]), groups) != 0) {
-        MYLOGE("Unable to setgroups, aborting: %s\n", strerror(errno));
-        return false;
-    }
-    if (setgid(AID_SHELL) != 0) {
-        MYLOGE("Unable to setgid, aborting: %s\n", strerror(errno));
-        return false;
-    }
-    if (setuid(AID_SHELL) != 0) {
-        MYLOGE("Unable to setuid, aborting: %s\n", strerror(errno));
-        return false;
-    }
-
-    struct __user_cap_header_struct capheader;
-    struct __user_cap_data_struct capdata[2];
-    memset(&capheader, 0, sizeof(capheader));
-    memset(&capdata, 0, sizeof(capdata));
-    capheader.version = _LINUX_CAPABILITY_VERSION_3;
-    capheader.pid = 0;
-
-    capdata[CAP_TO_INDEX(CAP_SYSLOG)].permitted = CAP_TO_MASK(CAP_SYSLOG);
-    capdata[CAP_TO_INDEX(CAP_SYSLOG)].effective = CAP_TO_MASK(CAP_SYSLOG);
-    capdata[0].inheritable = 0;
-    capdata[1].inheritable = 0;
-
-    if (capset(&capheader, &capdata[0]) < 0) {
-        MYLOGE("capset failed: %s\n", strerror(errno));
-        return false;
-    }
-
-    return true;
-}
-
-void send_broadcast(const std::string& action, const std::vector<std::string>& args) {
-    if (args.size() > 1000) {
-        MYLOGE("send_broadcast: too many arguments (%d)\n", (int) args.size());
-        return;
-    }
-    const char *am_args[1024] = { "/system/bin/am", "broadcast", "--user", "0", "-a",
-                                  action.c_str() };
-    size_t am_index = 5; // Starts at the index of last initial value above.
-    for (const std::string& arg : args) {
-        am_args[++am_index] = arg.c_str();
-    }
-    // Always terminate with NULL.
-    am_args[am_index + 1] = NULL;
-    std::string args_string;
-    format_args(am_index + 1, am_args, &args_string);
-    MYLOGD("send_broadcast command: %s\n", args_string.c_str());
-    run_command_always(NULL, DROP_ROOT, REDIRECT_TO_STDERR, 20, am_args);
-}
-
-size_t num_props = 0;
-static char* props[2000];
-
-static void print_prop(const char *key, const char *name, void *user) {
-    (void) user;
-    if (num_props < sizeof(props) / sizeof(props[0])) {
-        char buf[PROPERTY_KEY_MAX + PROPERTY_VALUE_MAX + 10];
-        snprintf(buf, sizeof(buf), "[%s]: [%s]\n", key, name);
-        props[num_props++] = strdup(buf);
-    }
-}
-
-static int compare_prop(const void *a, const void *b) {
-    return strcmp(*(char * const *) a, *(char * const *) b);
-}
-
-/* prints all the system properties */
-void print_properties() {
-    const char* title = "SYSTEM PROPERTIES";
-    DurationReporter duration_reporter(title);
-    printf("------ %s ------\n", title);
-    ON_DRY_RUN_RETURN();
-    size_t i;
-    num_props = 0;
-    property_list(print_prop, NULL);
-    qsort(&props, num_props, sizeof(props[0]), compare_prop);
-
-    for (i = 0; i < num_props; ++i) {
-        fputs(props[i], stdout);
-        free(props[i]);
-    }
-    printf("\n");
+void Dumpstate::RunDumpsys(const std::string& title, const std::vector<std::string>& dumpsys_args,
+                           const CommandOptions& options, long dumpsysTimeout) {
+    long timeout = dumpsysTimeout > 0 ? dumpsysTimeout : options.Timeout();
+    std::vector<std::string> dumpsys = {"/system/bin/dumpsys", "-t", std::to_string(timeout)};
+    dumpsys.insert(dumpsys.end(), dumpsys_args.begin(), dumpsys_args.end());
+    RunCommand(title, dumpsys, options);
 }
 
 int open_socket(const char *service) {
@@ -973,11 +783,11 @@ void create_parent_dirs(const char *path) {
     }
 }
 
-/* redirect output to a file */
-void redirect_to_file(FILE *redirect, char *path) {
+void _redirect_to_file(FILE *redirect, char *path, int truncate_flag) {
     create_parent_dirs(path);
 
-    int fd = TEMP_FAILURE_RETRY(open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+    int fd = TEMP_FAILURE_RETRY(open(path,
+                                     O_WRONLY | O_CREAT | truncate_flag | O_CLOEXEC | O_NOFOLLOW,
                                      S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH));
     if (fd < 0) {
         MYLOGE("%s: %s\n", path, strerror(errno));
@@ -986,6 +796,23 @@ void redirect_to_file(FILE *redirect, char *path) {
 
     TEMP_FAILURE_RETRY(dup2(fd, fileno(redirect)));
     close(fd);
+}
+
+void redirect_to_file(FILE *redirect, char *path) {
+    _redirect_to_file(redirect, path, O_TRUNC);
+}
+
+void redirect_to_existing_file(FILE *redirect, char *path) {
+    _redirect_to_file(redirect, path, O_APPEND);
+}
+
+static bool should_dump_hal_interface(const char* interface) {
+    for (const char** i = hal_interfaces_to_dump; *i; i++) {
+        if (!strcmp(*i, interface)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static bool should_dump_native_traces(const char* path) {
@@ -997,42 +824,70 @@ static bool should_dump_native_traces(const char* path) {
     return false;
 }
 
+std::set<int> get_interesting_hal_pids() {
+    using android::hidl::manager::V1_0::IServiceManager;
+    using android::sp;
+    using android::hardware::Return;
+
+    sp<IServiceManager> manager = IServiceManager::getService();
+    std::set<int> pids;
+
+    Return<void> ret = manager->debugDump([&](auto& hals) {
+        for (const auto &info : hals) {
+            if (info.pid == static_cast<int>(IServiceManager::PidConstant::NO_PID)) {
+                continue;
+            }
+
+            if (!should_dump_hal_interface(info.interfaceName.c_str())) {
+                continue;
+            }
+
+            pids.insert(info.pid);
+        }
+    });
+
+    if (!ret.isOk()) {
+        MYLOGE("Could not get list of HAL PIDs: %s\n", ret.description().c_str());
+    }
+
+    return pids; // whether it was okay or not
+}
+
 /* dump Dalvik and native stack traces, return the trace file location (NULL if none) */
 const char *dump_traces() {
-    DurationReporter duration_reporter("DUMP TRACES", NULL);
-    ON_DRY_RUN_RETURN(NULL);
-    const char* result = NULL;
+    DurationReporter duration_reporter("DUMP TRACES");
 
-    char traces_path[PROPERTY_VALUE_MAX] = "";
-    property_get("dalvik.vm.stack-trace-file", traces_path, "");
-    if (!traces_path[0]) return NULL;
+    const char* result = nullptr;
+
+    std::string traces_path = android::base::GetProperty("dalvik.vm.stack-trace-file", "");
+    if (traces_path.empty()) return nullptr;
 
     /* move the old traces.txt (if any) out of the way temporarily */
-    char anr_traces_path[PATH_MAX];
-    strlcpy(anr_traces_path, traces_path, sizeof(anr_traces_path));
-    strlcat(anr_traces_path, ".anr", sizeof(anr_traces_path));
-    if (rename(traces_path, anr_traces_path) && errno != ENOENT) {
-        MYLOGE("rename(%s, %s): %s\n", traces_path, anr_traces_path, strerror(errno));
-        return NULL;  // Can't rename old traces.txt -- no permission? -- leave it alone instead
+    std::string anrtraces_path = traces_path + ".anr";
+    if (rename(traces_path.c_str(), anrtraces_path.c_str()) && errno != ENOENT) {
+        MYLOGE("rename(%s, %s): %s\n", traces_path.c_str(), anrtraces_path.c_str(), strerror(errno));
+        return nullptr;  // Can't rename old traces.txt -- no permission? -- leave it alone instead
     }
 
     /* create a new, empty traces.txt file to receive stack dumps */
-    int fd = TEMP_FAILURE_RETRY(open(traces_path, O_CREAT | O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC,
-                                     0666));  /* -rw-rw-rw- */
+    int fd = TEMP_FAILURE_RETRY(
+        open(traces_path.c_str(), O_CREAT | O_WRONLY | O_APPEND | O_TRUNC | O_NOFOLLOW | O_CLOEXEC,
+             0666)); /* -rw-rw-rw- */
     if (fd < 0) {
-        MYLOGE("%s: %s\n", traces_path, strerror(errno));
-        return NULL;
+        MYLOGE("%s: %s\n", traces_path.c_str(), strerror(errno));
+        return nullptr;
     }
     int chmod_ret = fchmod(fd, 0666);
     if (chmod_ret < 0) {
-        MYLOGE("fchmod on %s failed: %s\n", traces_path, strerror(errno));
+        MYLOGE("fchmod on %s failed: %s\n", traces_path.c_str(), strerror(errno));
         close(fd);
-        return NULL;
+        return nullptr;
     }
 
     /* Variables below must be initialized before 'goto' statements */
     int dalvik_found = 0;
     int ifd, wfd = -1;
+    std::set<int> hal_pids = get_interesting_hal_pids();
 
     /* walk /proc and kill -QUIT all Dalvik processes */
     DIR *proc = opendir("/proc");
@@ -1048,9 +903,9 @@ const char *dump_traces() {
         goto error_close_fd;
     }
 
-    wfd = inotify_add_watch(ifd, traces_path, IN_CLOSE_WRITE);
+    wfd = inotify_add_watch(ifd, traces_path.c_str(), IN_CLOSE_WRITE);
     if (wfd < 0) {
-        MYLOGE("inotify_add_watch(%s): %s\n", traces_path, strerror(errno));
+        MYLOGE("inotify_add_watch(%s): %s\n", traces_path.c_str(), strerror(errno));
         goto error_close_ifd;
     }
 
@@ -1083,7 +938,7 @@ const char *dump_traces() {
             }
 
             ++dalvik_found;
-            uint64_t start = DurationReporter::nanotime();
+            uint64_t start = Nanotime();
             if (kill(pid, SIGQUIT)) {
                 MYLOGE("kill(%d, SIGQUIT): %s\n", pid, strerror(errno));
                 continue;
@@ -1091,7 +946,7 @@ const char *dump_traces() {
 
             /* wait for the writable-close notification from inotify */
             struct pollfd pfd = { ifd, POLLIN, 0 };
-            int ret = poll(&pfd, 1, 5000);  /* 5 sec timeout */
+            int ret = poll(&pfd, 1, TRACE_DUMP_TIMEOUT_MS);
             if (ret < 0) {
                 MYLOGE("poll: %s\n", strerror(errno));
             } else if (ret == 0) {
@@ -1104,16 +959,17 @@ const char *dump_traces() {
             if (lseek(fd, 0, SEEK_END) < 0) {
                 MYLOGE("lseek: %s\n", strerror(errno));
             } else {
-                dprintf(fd, "[dump dalvik stack %d: %.3fs elapsed]\n",
-                        pid, (float)(DurationReporter::nanotime() - start) / NANOS_PER_SEC);
+                dprintf(fd, "[dump dalvik stack %d: %.3fs elapsed]\n", pid,
+                        (float)(Nanotime() - start) / NANOS_PER_SEC);
             }
-        } else if (should_dump_native_traces(data)) {
+        } else if (should_dump_native_traces(data) ||
+                   hal_pids.find(pid) != hal_pids.end()) {
             /* dump native process if appropriate */
             if (lseek(fd, 0, SEEK_END) < 0) {
                 MYLOGE("lseek: %s\n", strerror(errno));
             } else {
                 static uint16_t timeout_failures = 0;
-                uint64_t start = DurationReporter::nanotime();
+                uint64_t start = Nanotime();
 
                 /* If 3 backtrace dumps fail in a row, consider debuggerd dead. */
                 if (timeout_failures == 3) {
@@ -1124,8 +980,8 @@ const char *dump_traces() {
                 } else {
                     timeout_failures = 0;
                 }
-                dprintf(fd, "[dump native stack %d: %.3fs elapsed]\n",
-                        pid, (float)(DurationReporter::nanotime() - start) / NANOS_PER_SEC);
+                dprintf(fd, "[dump native stack %d: %.3fs elapsed]\n", pid,
+                        (float)(Nanotime() - start) / NANOS_PER_SEC);
             }
         }
     }
@@ -1134,17 +990,17 @@ const char *dump_traces() {
         MYLOGE("Warning: no Dalvik processes found to dump stacks\n");
     }
 
-    static char dump_traces_path[PATH_MAX];
-    strlcpy(dump_traces_path, traces_path, sizeof(dump_traces_path));
-    strlcat(dump_traces_path, ".bugreport", sizeof(dump_traces_path));
-    if (rename(traces_path, dump_traces_path)) {
-        MYLOGE("rename(%s, %s): %s\n", traces_path, dump_traces_path, strerror(errno));
+    static std::string dumptraces_path = android::base::StringPrintf(
+        "%s/bugreport-%s", dirname(traces_path.c_str()), basename(traces_path.c_str()));
+    if (rename(traces_path.c_str(), dumptraces_path.c_str())) {
+        MYLOGE("rename(%s, %s): %s\n", traces_path.c_str(), dumptraces_path.c_str(),
+               strerror(errno));
         goto error_close_ifd;
     }
-    result = dump_traces_path;
+    result = dumptraces_path.c_str();
 
     /* replace the saved [ANR] traces.txt file */
-    rename(anr_traces_path, traces_path);
+    rename(anrtraces_path.c_str(), traces_path.c_str());
 
 error_close_ifd:
     close(ifd);
@@ -1155,9 +1011,9 @@ error_close_fd:
 
 void dump_route_tables() {
     DurationReporter duration_reporter("DUMP ROUTE TABLES");
-    ON_DRY_RUN_RETURN();
+    if (PropertiesHelper::IsDryRun()) return;
     const char* const RT_TABLES_PATH = "/data/misc/net/rt_tables";
-    dump_file("RT_TABLES", RT_TABLES_PATH);
+    ds.DumpFile("RT_TABLES", RT_TABLES_PATH);
     FILE* fp = fopen(RT_TABLES_PATH, "re");
     if (!fp) {
         printf("*** %s: %s\n", RT_TABLES_PATH, strerror(errno));
@@ -1168,72 +1024,67 @@ void dump_route_tables() {
     // need the table number. It's a 32-bit unsigned number, so max 10 chars. Skip the table name.
     // Add a fixed max limit so this doesn't go awry.
     for (int i = 0; i < 64 && fscanf(fp, " %10s %*s", table) == 1; ++i) {
-        run_command("ROUTE TABLE IPv4", 10, "ip", "-4", "route", "show", "table", table, NULL);
-        run_command("ROUTE TABLE IPv6", 10, "ip", "-6", "route", "show", "table", table, NULL);
+        RunCommand("ROUTE TABLE IPv4", {"ip", "-4", "route", "show", "table", table});
+        RunCommand("ROUTE TABLE IPv6", {"ip", "-6", "route", "show", "table", table});
     }
     fclose(fp);
 }
 
-/* overall progress */
-int progress = 0;
-int do_update_progress = 0; // Set by dumpstate.cpp
-int weight_total = WEIGHT_TOTAL;
-
 // TODO: make this function thread safe if sections are generated in parallel.
-void update_progress(int delta) {
-    if (!do_update_progress) return;
+void Dumpstate::UpdateProgress(int32_t delta) {
+    if (progress_ == nullptr) {
+        MYLOGE("UpdateProgress: progress_ not set\n");
+        return;
+    }
 
-    progress += delta;
+    // Always update progess so stats can be tuned...
+    bool max_changed = progress_->Inc(delta);
 
-    char key[PROPERTY_KEY_MAX];
-    char value[PROPERTY_VALUE_MAX];
+    // ...but only notifiy listeners when necessary.
+    if (!update_progress_) return;
+
+    int progress = progress_->Get();
+    int max = progress_->GetMax();
 
     // adjusts max on the fly
-    if (progress > weight_total) {
-        int new_total = weight_total * 1.2;
-        MYLOGD("Adjusting total weight from %d to %d\n", weight_total, new_total);
-        weight_total = new_total;
-        snprintf(key, sizeof(key), "dumpstate.%d.max", getpid());
-        snprintf(value, sizeof(value), "%d", weight_total);
-        int status = property_set(key, value);
-        if (status) {
-            MYLOGE("Could not update max weight by setting system property %s to %s: %d\n",
-                    key, value, status);
+    if (max_changed && listener_ != nullptr) {
+        listener_->onMaxProgressUpdated(max);
+    }
+
+    int32_t last_update_delta = progress - last_updated_progress_;
+    if (last_updated_progress_ > 0 && last_update_delta < update_progress_threshold_) {
+        return;
+    }
+    last_updated_progress_ = progress;
+
+    if (control_socket_fd_ >= 0) {
+        dprintf(control_socket_fd_, "PROGRESS:%d/%d\n", progress, max);
+        fsync(control_socket_fd_);
+    }
+
+    if (listener_ != nullptr) {
+        if (progress % 100 == 0) {
+            // We don't want to spam logcat, so only log multiples of 100.
+            MYLOGD("Setting progress (%s): %d/%d\n", listener_name_.c_str(), progress, max);
+        } else {
+            // stderr is ignored on normal invocations, but useful when calling
+            // /system/bin/dumpstate directly for debuggging.
+            fprintf(stderr, "Setting progress (%s): %d/%d\n", listener_name_.c_str(), progress, max);
         }
+        listener_->onProgressUpdated(progress);
     }
+}
 
-    snprintf(key, sizeof(key), "dumpstate.%d.progress", getpid());
-    snprintf(value, sizeof(value), "%d", progress);
-
-    if (progress % 100 == 0) {
-        // We don't want to spam logcat, so only log multiples of 100.
-        MYLOGD("Setting progress (%s): %s/%d\n", key, value, weight_total);
+void Dumpstate::TakeScreenshot(const std::string& path) {
+    const std::string& real_path = path.empty() ? screenshot_path_ : path;
+    int status =
+        RunCommand("", {"/system/bin/screencap", "-p", real_path},
+                   CommandOptions::WithTimeout(10).Always().DropRoot().RedirectStderr().Build());
+    if (status == 0) {
+        MYLOGD("Screenshot saved on %s\n", real_path.c_str());
     } else {
-        // stderr is ignored on normal invocations, but useful when calling /system/bin/dumpstate
-        // directly for debuggging.
-        fprintf(stderr, "Setting progress (%s): %s/%d\n", key, value, weight_total);
+        MYLOGE("Failed to take screenshot on %s\n", real_path.c_str());
     }
-
-    if (control_socket_fd >= 0) {
-        dprintf(control_socket_fd, "PROGRESS:%d/%d\n", progress, weight_total);
-        fsync(control_socket_fd);
-    }
-
-    int status = property_set(key, value);
-    if (status) {
-        MYLOGE("Could not update progress by setting system property %s to %s: %d\n",
-                key, value, status);
-    }
-}
-
-void take_screenshot(const std::string& path) {
-    const char *args[] = { "/system/bin/screencap", "-p", path.c_str(), NULL };
-    run_command_always(NULL, DONT_DROP_ROOT, REDIRECT_TO_STDERR, 10, args);
-}
-
-void vibrate(FILE* vibrator, int ms) {
-    fprintf(vibrator, "%d\n", ms);
-    fflush(vibrator);
 }
 
 bool is_dir(const char* pathname) {
@@ -1277,19 +1128,16 @@ void dump_emmc_ecsd(const char *ext_csd_path) {
     int ext_csd_rev = 0;
     std::string sub = buffer.substr(EXT_CSD_REV, sizeof(hex));
     if (sscanf(sub.c_str(), "%2x", &ext_csd_rev) != 1) {
-        printf("*** %s: EXT_CSD_REV parse error \"%s\"\n\n",
-               ext_csd_path, sub.c_str());
+        printf("*** %s: EXT_CSD_REV parse error \"%s\"\n\n", ext_csd_path, sub.c_str());
         return;
     }
 
     static const char *ver_str[] = {
         "4.0", "4.1", "4.2", "4.3", "Obsolete", "4.41", "4.5", "5.0"
     };
-    printf("rev 1.%d (MMC %s)\n",
-           ext_csd_rev,
-           (ext_csd_rev < (int)(sizeof(ver_str) / sizeof(ver_str[0]))) ?
-               ver_str[ext_csd_rev] :
-               "Unknown");
+    printf("rev 1.%d (MMC %s)\n", ext_csd_rev,
+           (ext_csd_rev < (int)(sizeof(ver_str) / sizeof(ver_str[0]))) ? ver_str[ext_csd_rev]
+                                                                       : "Unknown");
     if (ext_csd_rev < 7) {
         printf("\n");
         return;
@@ -1303,8 +1151,7 @@ void dump_emmc_ecsd(const char *ext_csd_path) {
     int ext_pre_eol_info = 0;
     sub = buffer.substr(EXT_PRE_EOL_INFO, sizeof(hex));
     if (sscanf(sub.c_str(), "%2x", &ext_pre_eol_info) != 1) {
-        printf("*** %s: PRE_EOL_INFO parse error \"%s\"\n\n",
-               ext_csd_path, sub.c_str());
+        printf("*** %s: PRE_EOL_INFO parse error \"%s\"\n\n", ext_csd_path, sub.c_str());
         return;
     }
 
@@ -1314,11 +1161,10 @@ void dump_emmc_ecsd(const char *ext_csd_path) {
         "Warning (consumed 80% of reserve)",
         "Urgent (consumed 90% of reserve)"
     };
-    printf("PRE_EOL_INFO %d (MMC %s)\n",
-           ext_pre_eol_info,
-           eol_str[(ext_pre_eol_info < (int)
-                       (sizeof(eol_str) / sizeof(eol_str[0]))) ?
-                           ext_pre_eol_info : 0]);
+    printf(
+        "PRE_EOL_INFO %d (MMC %s)\n", ext_pre_eol_info,
+        eol_str[(ext_pre_eol_info < (int)(sizeof(eol_str) / sizeof(eol_str[0]))) ? ext_pre_eol_info
+                                                                                 : 0]);
 
     for (size_t lifetime = EXT_DEVICE_LIFE_TIME_EST_TYP_A;
             lifetime <= EXT_DEVICE_LIFE_TIME_EST_TYP_B;
@@ -1347,48 +1193,18 @@ void dump_emmc_ecsd(const char *ext_csd_path) {
         ext_device_life_time_est = 0;
         sub = buffer.substr(lifetime, sizeof(hex));
         if (sscanf(sub.c_str(), "%2x", &ext_device_life_time_est) != 1) {
-            printf("*** %s: DEVICE_LIFE_TIME_EST_TYP_%c parse error \"%s\"\n",
-                   ext_csd_path,
-                   (unsigned)((lifetime - EXT_DEVICE_LIFE_TIME_EST_TYP_A) /
-                              sizeof(hex)) + 'A',
+            printf("*** %s: DEVICE_LIFE_TIME_EST_TYP_%c parse error \"%s\"\n", ext_csd_path,
+                   (unsigned)((lifetime - EXT_DEVICE_LIFE_TIME_EST_TYP_A) / sizeof(hex)) + 'A',
                    sub.c_str());
             continue;
         }
         printf("DEVICE_LIFE_TIME_EST_TYP_%c %d (MMC %s)\n",
-               (unsigned)((lifetime - EXT_DEVICE_LIFE_TIME_EST_TYP_A) /
-                          sizeof(hex)) + 'A',
+               (unsigned)((lifetime - EXT_DEVICE_LIFE_TIME_EST_TYP_A) / sizeof(hex)) + 'A',
                ext_device_life_time_est,
-               est_str[(ext_device_life_time_est < (int)
-                           (sizeof(est_str) / sizeof(est_str[0]))) ?
-                               ext_device_life_time_est : 0]);
+               est_str[(ext_device_life_time_est < (int)(sizeof(est_str) / sizeof(est_str[0])))
+                           ? ext_device_life_time_est
+                           : 0]);
     }
 
     printf("\n");
-}
-
-// TODO: refactor all those commands that convert args
-void format_args(int argc, const char *argv[], std::string *args) {
-    LOG_ALWAYS_FATAL_IF(args == nullptr);
-    for (int i = 0; i < argc; i++) {
-        args->append(argv[i]);
-        if (i < argc -1) {
-          args->append(" ");
-        }
-    }
-}
-void format_args(const char* command, const char *args[], std::string *string) {
-    LOG_ALWAYS_FATAL_IF(args == nullptr || command == nullptr);
-    string->append(command);
-    if (args[0] == nullptr) return;
-    string->append(" ");
-
-    for (int arg = 1; arg <= 1000; ++arg) {
-        if (args[arg] == nullptr) return;
-        string->append(args[arg]);
-        if (args[arg+1] != nullptr) {
-            string->append(" ");
-        }
-    }
-    // TODO: not really working: if NULL is missing, it will crash dumpstate.
-    MYLOGE("internal error: missing NULL entry on %s", string->c_str());
 }

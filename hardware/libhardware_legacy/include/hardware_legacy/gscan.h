@@ -21,7 +21,6 @@ typedef enum {
 #define MAX_SIGNIFICANT_CHANGE_APS  64
 #define MAX_EPNO_NETWORKS           64
 #define MAX_HOTLIST_SSID            8
-#define MAX_BLACKLIST_BSSID         16
 #define MAX_AP_CACHE_PER_SCAN       32
 
 wifi_error wifi_get_valid_channels(wifi_interface_handle handle,
@@ -266,16 +265,6 @@ typedef struct {
     int num_ssid;                                   // number of hotlist SSIDs
     ssid_threshold_param ssid[MAX_HOTLIST_SSID];    // hotlist SSIDs
 } wifi_ssid_hotlist_params;
-
-/* BSSID blacklist */
-typedef struct {
-    int num_bssid;                           // number of blacklisted BSSIDs
-    mac_addr bssids[MAX_BLACKLIST_BSSID];    // blacklisted BSSIDs
-} wifi_bssid_params;
-
-/* Set the BSSID blacklist */
-wifi_error wifi_set_bssid_blacklist(wifi_request_id id, wifi_interface_handle iface,
-        wifi_bssid_params params);
 
 /* Significant wifi change */
 typedef struct {

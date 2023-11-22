@@ -16,6 +16,7 @@
 -->
 
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -53,5 +54,15 @@
         android:nextFocusUp="@id/view2"
         android:nextFocusLeft="@id/view3"
         android:text="@string/id_ok"/>
+
+    <LinearLayout
+        android:id="@+id/auto_test_area"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_below="@id/view4"
+        android:layout_alignParentLeft="true">
+    </LinearLayout>
+
 </RelativeLayout>
 

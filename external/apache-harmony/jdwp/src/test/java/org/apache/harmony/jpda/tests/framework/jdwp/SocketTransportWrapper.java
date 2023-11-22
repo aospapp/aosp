@@ -59,6 +59,7 @@ public class SocketTransportWrapper implements TransportWrapper {
      *            no semi-colon.
      * @return string representation of listening address
      */
+    @Override
     public String startListening(String address) throws IOException {
         String hostName = null;
         InetAddress hostAddr = null;
@@ -101,6 +102,7 @@ public class SocketTransportWrapper implements TransportWrapper {
     /**
      * Stops listening for connection on current address.
      */
+    @Override
     public void stopListening() throws IOException {
         if (serverSocket != null) {
             serverSocket.close();
@@ -114,6 +116,7 @@ public class SocketTransportWrapper implements TransportWrapper {
      * @param acceptTimeout timeout for accepting in milliseconds
      * @param handshakeTimeout timeout for handshaking in milliseconds
      */
+    @Override
     public void accept(long acceptTimeout, long handshakeTimeout) throws IOException {
         synchronized (serverSocket) {
             serverSocket.setSoTimeout((int) acceptTimeout);
@@ -135,6 +138,7 @@ public class SocketTransportWrapper implements TransportWrapper {
      * @param attachTimeout timeout for attaching in milliseconds
      * @param handshakeTimeout timeout for handshaking in milliseconds
      */
+    @Override
     public void attach(String address, long attachTimeout, long handshakeTimeout) throws IOException {
         if (address == null) {
             throw new IOException("Illegal socket address: " + address);
@@ -159,7 +163,7 @@ public class SocketTransportWrapper implements TransportWrapper {
         }
 
         long finishTime = System.currentTimeMillis() + attachTimeout;
-        long sleepTime = 4 * 1000; // millesecinds
+        long sleepTime = 4 * 1000; // milliseconds
         IOException exception = null;
         try {
             do {
@@ -189,6 +193,7 @@ public class SocketTransportWrapper implements TransportWrapper {
     /**
      * Closes transport connection.
      */
+    @Override
     public void close() throws IOException {
         if (input != null) {
             input.close();
@@ -210,6 +215,7 @@ public class SocketTransportWrapper implements TransportWrapper {
      * 
      * @return true if transport connection is open
      */
+    @Override
     public boolean isOpen() {
         return (transportSocket != null 
                     && transportSocket.isConnected() 
@@ -221,6 +227,7 @@ public class SocketTransportWrapper implements TransportWrapper {
      * 
      * @return packet as byte array or null or empty packet if connection was closed
      */
+    @Override
     public byte[] readPacket() throws IOException {
 
         // read packet header
@@ -278,6 +285,7 @@ public class SocketTransportWrapper implements TransportWrapper {
      * @param packet
      *            packet as byte array
      */
+    @Override
     public void writePacket(byte[] packet) throws IOException {
         output.write(packet);
         output.flush();

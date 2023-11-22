@@ -30,6 +30,13 @@ LOCAL_SRC_FILES := \
 		android_os_cts_NoExecutePermissionTest.cpp \
 		android_os_cts_SeccompTest.cpp
 
+LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
+
+LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libdl
+LOCAL_CXX_STL := none
+
+LOCAL_STATIC_LIBRARIES := libc++_static libminijail
+
 # Select the architectures on which seccomp-bpf are supported. This is used to
 # include extra test files that will not compile on architectures where it is
 # not supported.
@@ -42,20 +49,10 @@ ifeq ($(strip $(TARGET_ARCH)),mips64)
 endif
 
 ifeq ($(ARCH_SUPPORTS_SECCOMP),1)
-	LOCAL_SRC_FILES += seccomp-tests/tests/seccomp_bpf_tests.c \
-			seccomp_sample_program.cpp
+	LOCAL_STATIC_LIBRARIES += external_seccomp_tests
 
 	# This define controls the behavior of OSFeatures.needsSeccompSupport().
 	LOCAL_CFLAGS += -DARCH_SUPPORTS_SECCOMP
 endif
-
-LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
-
-LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog libdl
-LOCAL_CXX_STL := none
-
-LOCAL_SRC_FILES += android_os_cts_CpuFeatures.cpp
-LOCAL_C_INCLUDES += ndk/sources/cpufeatures
-LOCAL_STATIC_LIBRARIES := cpufeatures libc++_static
 
 include $(BUILD_SHARED_LIBRARY)

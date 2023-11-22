@@ -505,11 +505,11 @@ void NegativeTextureApiTests::init (void)
 
 				for (int formatNdx = 0; formatNdx < DE_LENGTH_OF_ARRAY(s_astcFormats); formatNdx++)
 				{
-					const GLuint 				format 		= s_astcFormats[formatNdx];
-					const CompressedTexFormat 	tcuFormat 	= mapGLCompressedTexFormat(format);
-					const IVec3 				blockPixels = getBlockPixelSize(tcuFormat);
+					const GLuint				format		= s_astcFormats[formatNdx];
+					const CompressedTexFormat	tcuFormat	= mapGLCompressedTexFormat(format);
+					const IVec3					blockPixels = getBlockPixelSize(tcuFormat);
 					{
-						const size_t 			blockBytes 	= getBlockSize(tcuFormat);
+						const size_t			blockBytes	= getBlockSize(tcuFormat);
 						const vector<deUint8>	dummyData	(blockBytes);
 
 						glCompressedTexImage2D(GL_TEXTURE_2D, 0, format, blockPixels.x(), blockPixels.y(), 0, (int)blockBytes, &dummyData[0]);
@@ -517,8 +517,8 @@ void NegativeTextureApiTests::init (void)
 					}
 					FOR_CUBE_FACES(faceGL,
 					{
-						const deInt32 			cubeSize 	= blockPixels.x() * blockPixels.y(); // Divisible by the block size and square
-						const size_t 			blockBytes 	= getBlockSize(tcuFormat) * cubeSize; // We have a x * y grid of blocks
+						const deInt32			cubeSize	= blockPixels.x() * blockPixels.y(); // Divisible by the block size and square
+						const size_t			blockBytes	= getBlockSize(tcuFormat) * cubeSize; // We have a x * y grid of blocks
 						const vector<deUint8>	dummyData	(blockBytes);
 
 						glCompressedTexImage2D(faceGL, 0, format, cubeSize, cubeSize, 0, (int)blockBytes, &dummyData[0]);
@@ -2065,9 +2065,9 @@ void NegativeTextureApiTests::init (void)
 			m_log << TestLog::EndSection;
 
 			m_log << TestLog::Section("", "GL_INVALID_OPERATION is generated if target is GL_TEXTURE_3D and format is GL_DEPTH_COMPONENT, or GL_DEPTH_STENCIL.");
-			glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, 1, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_BYTE, 0);
+			glTexImage3D(GL_TEXTURE_3D, 0, GL_DEPTH_STENCIL, 1, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, 0);
 			expectError(GL_INVALID_OPERATION);
-			glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, 1, 1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+			glTexImage3D(GL_TEXTURE_3D, 0, GL_DEPTH_COMPONENT, 1, 1, 1, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
 			expectError(GL_INVALID_OPERATION);
 			m_log << TestLog::EndSection;
 
@@ -2686,10 +2686,10 @@ void NegativeTextureApiTests::init (void)
 
 				for (int formatNdx = 0; formatNdx < DE_LENGTH_OF_ARRAY(s_astcFormats); formatNdx++)
 				{
-					const GLuint 				format 		= s_astcFormats[formatNdx];
-					const CompressedTexFormat 	tcuFormat 	= mapGLCompressedTexFormat(format);
-					const IVec3 				blockPixels = getBlockPixelSize(tcuFormat);
-					const size_t 				blockBytes 	= getBlockSize(tcuFormat);
+					const GLuint				format		= s_astcFormats[formatNdx];
+					const CompressedTexFormat	tcuFormat	= mapGLCompressedTexFormat(format);
+					const IVec3					blockPixels = getBlockPixelSize(tcuFormat);
+					const size_t				blockBytes	= getBlockSize(tcuFormat);
 					const vector<deUint8>		dummyData	(blockBytes);
 
 					glCompressedTexImage3D(GL_TEXTURE_3D, 0, format, blockPixels.x(), blockPixels.y(), blockPixels.z(), 0, (int)blockBytes, &dummyData[0]);
@@ -2999,10 +2999,10 @@ void NegativeTextureApiTests::init (void)
 
 				for (int formatNdx = 0; formatNdx < DE_LENGTH_OF_ARRAY(s_astcFormats); formatNdx++)
 				{
-					const GLuint 				format 		= s_astcFormats[formatNdx];
-					const CompressedTexFormat 	tcuFormat 	= mapGLCompressedTexFormat(format);
-					const IVec3 				blockPixels = getBlockPixelSize(tcuFormat);
-					const deInt32				cubeSize 	= blockPixels.x() * blockPixels.y(); // Divisible by the block size and square
+					const GLuint				format		= s_astcFormats[formatNdx];
+					const CompressedTexFormat	tcuFormat	= mapGLCompressedTexFormat(format);
+					const IVec3					blockPixels = getBlockPixelSize(tcuFormat);
+					const deInt32				cubeSize	= blockPixels.x() * blockPixels.y(); // Divisible by the block size and square
 					deUint32					texture		= 0;
 
 					glGenTextures	(1, &texture);
@@ -3142,9 +3142,9 @@ void NegativeTextureApiTests::init (void)
 
 				for (int formatNdx = 0; formatNdx < DE_LENGTH_OF_ARRAY(s_astcFormats); formatNdx++)
 				{
-					const GLuint 				format 		= s_astcFormats[formatNdx];
-					const CompressedTexFormat 	tcuFormat 	= mapGLCompressedTexFormat(format);
-					const IVec3 				blockPixels = getBlockPixelSize(tcuFormat);
+					const GLuint				format		= s_astcFormats[formatNdx];
+					const CompressedTexFormat	tcuFormat	= mapGLCompressedTexFormat(format);
+					const IVec3					blockPixels = getBlockPixelSize(tcuFormat);
 					deUint32					texture		= 0;
 
 					glGenTextures	(1, &texture);

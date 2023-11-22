@@ -4,11 +4,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE_CLASS:=JAVA_LIBRARIES
 LOCAL_DROIDDOC_HTML_DIR:=src
+LOCAL_ADDITIONAL_HTML_DIR:=src-intl intl/
 # Droiddoc needs java source to run. Just pointing to a dummy location
 # and deleting output later in delete-ref target
 LOCAL_ADDITIONAL_JAVA_DIR := frameworks/base/core/java/android/annotation
 # FIXME FIXME FIXME LOCAL_ADDITIONAL_DEPENDENCIES := tradefed-docs
-LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := build/tools/droiddoc/templates-sac
+LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := build/make/tools/droiddoc/templates-sac
 LOCAL_MODULE := online-sac
 LOCAL_DROIDDOC_OPTIONS:= \
         -toroot / \

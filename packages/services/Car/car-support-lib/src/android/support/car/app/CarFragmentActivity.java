@@ -27,6 +27,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.car.Car;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentController;
 import android.support.v4.app.FragmentHostCallback;
 import android.support.v4.app.FragmentManager;
@@ -39,20 +40,18 @@ import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
-
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * This is mostly a copy of {@link android.support.v4.app.FragmentActivity}, so that fragments
- * are hosted in a {@link android.support.car.app.CarActivity}.
+ * Base class for CarActivities that want to use the support-based Fragment and Loader APIs.
+ * <p/>
+ * This is mostly a copy of {@link android.support.v4.app.FragmentActivity} retro fitted for use
+ * with {@link CarActivity}.
  *
- * <p>Very often, we need to access the car activity inside a fragment, by calling
- * (CarActivity) fragment.getHost(), so we cannot directly use fragments inside
- * {@link android.support.v4.app.FragmentActivity} or any other proxy activity that backs
- * a car activity </p>
+ * @hide
  */
 public class CarFragmentActivity extends CarActivity implements
         CarActivity.RequestPermissionsRequestCodeValidator {
@@ -117,7 +116,7 @@ public class CarFragmentActivity extends CarActivity implements
     // ------------------------------------------------------------------------
 
     /**
-     * Dispatch incoming result to the correct fragment.
+     * See {@link FragmentActivity#onActivityResult(int, int, Intent)}
      */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -147,10 +146,9 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Called by Fragment.startActivityForResult() to implement its behavior.
+     * See {@link FragmentActivity#startActivityFromFragment(android.app.Fragment, Intent, int)}
      */
-    public void startActivityFromFragment(Fragment fragment, Intent intent,
-                                          int requestCode) {
+    public void startActivityFromFragment(Fragment fragment, Intent intent, int requestCode) {
         if (requestCode == -1) {
             startActivityForResult(intent, -1);
             return;
@@ -163,8 +161,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Modifies the standard behavior to allow results to be delivered to fragments.
-     * This imposes a restriction that requestCode be <= 0xffff.
+     * See {@link FragmentActivity#startActivityForResult(Intent, int)}
      */
     @Override
     public void startActivityForResult(Intent intent, int requestCode) {
@@ -175,9 +172,9 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Take care of popping the fragment back stack or finishing the activity
-     * as appropriate.
+     * See {@link FragmentActivity#onBackPressed()}
      */
+    @Override
     public void onBackPressed() {
         if (!mFragments.getSupportFragmentManager().popBackStackImmediate()) {
             supportFinishAfterTransition();
@@ -185,20 +182,14 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Reverses the Activity Scene entry Transition and triggers the calling Activity
-     * to reverse its exit Transition. When the exit Transition completes,
-     * {@link #finish()} is called. If no entry Transition was used, finish() is called
-     * immediately and the Activity exit Transition is run.
-     *
-     * <p>On Android 4.4 or lower, this method only finishes the Activity with no
-     * special exit transition.</p>
+     * See {@link FragmentActivity#supportFinishAfterTransition()}
      */
     public void supportFinishAfterTransition() {
         super.finishAfterTransition();
     }
 
     /**
-     * Dispatch configuration change to all fragments.
+     * See {@link FragmentActivity#onConfigurationChanged(Configuration)}
      */
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -229,7 +220,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Dispatch to Fragment.onCreateOptionsMenu().
+     * See {@link FragmentActivity#onCreatePanelMenu(int, Menu)}
      */
     @Override
     public boolean onCreatePanelMenu(int featureId, Menu menu) {
@@ -247,6 +238,10 @@ public class CarFragmentActivity extends CarActivity implements
         return super.onCreatePanelMenu(featureId, menu);
     }
 
+    /**
+     * See
+     * {@link FragmentActivity#dispatchFragmentsOnCreateView(View, String, Context, AttributeSet)}
+     */
     final View dispatchFragmentsOnCreateView(View parent, String name, Context context,
                                              AttributeSet attrs) {
         return mFragments.onCreateView(parent, name, context, attrs);
@@ -266,7 +261,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Destroy all fragments and loaders.
+     * See {@link FragmentActivity#onDestroy()}
      */
     @Override
     protected void onDestroy() {
@@ -279,7 +274,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Dispatch onLowMemory() to all fragments.
+     * See {@link FragmentActivity#onLowMemory()}
      */
     @Override
     public void onLowMemory() {
@@ -287,7 +282,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Dispatch onPause() to fragments.
+     * See {@link FragmentActivity#onPause()}
      */
     @Override
     protected void onPause() {
@@ -301,14 +296,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Handle onNewIntent() to inform the fragment manager that the
-     * state is not saved.  If you are handling new intents and may be
-     * making changes to the fragment state, you want to be sure to call
-     * through to the super-class here first.  Otherwise, if your state
-     * is saved but the activity is not stopped, you could get an
-     * onNewIntent() call which happens before onResume() and trying to
-     * perform fragment operations at that point will throw IllegalStateException
-     * because the fragment manager thinks the state is still saved.
+     * See {@link FragmentActivity#onNewIntent(Intent)}
      */
     @Override
     protected void onNewIntent(Intent intent) {
@@ -317,20 +305,14 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Hook in to note that fragment state is no longer saved.
+     * See {@link FragmentActivity#onStateNotSaved()}
      */
     public void onStateNotSaved() {
         mFragments.noteStateNotSaved();
     }
 
     /**
-     * Dispatch onResume() to fragments.  Note that for better inter-operation
-     * with older versions of the platform, at the point of this call the
-     * fragments attached to the activity are <em>not</em> resumed.  This means
-     * that in some cases the previous state may still be saved, not allowing
-     * fragment transactions that modify the state.  To correctly interact
-     * with fragments in their proper state, you should instead override
-     * {@link #onResumeFragments()}.
+     * See {@link FragmentActivity#onResume()}
      */
     @Override
     protected void onResume() {
@@ -341,7 +323,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Dispatch onResume() to fragments.
+     * See {@link FragmentActivity#onPostResume()}
      */
     @Override
     protected void onPostResume() {
@@ -352,19 +334,14 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * This is the fragment-orientated version of {@link #onResume()} that you
-     * can override to perform operations in the Activity at the same point
-     * where its fragments are resumed.  Be sure to always call through to
-     * the super-class.
+     * See {@link FragmentActivity#onResumeFragments()}
      */
     protected void onResumeFragments() {
         mFragments.dispatchResume();
     }
 
     /**
-     * Retain all appropriate fragment and loader state.  You can NOT
-     * override this yourself!  Use {@link #onRetainCustomNonConfigurationInstance()}
-     * if you want to retain your own state.
+     * See {@link FragmentActivity#onRetainNonConfigurationInstance()}
      */
     @Override
     public final Object onRetainNonConfigurationInstance() {
@@ -389,7 +366,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Save all appropriate fragment state.
+     * See {@link FragmentActivity#onSaveInstanceState(Bundle)}
      */
     @Override
     protected void onSaveInstanceState(Bundle outState) {
@@ -401,8 +378,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Dispatch onStart() to all fragments.  Ensure any created loaders are
-     * now started.
+     * See {@link FragmentActivity#onStart()}
      */
     @Override
     protected void onStart() {
@@ -429,7 +405,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Dispatch onStop() to all fragments.  Ensure all loaders are stopped.
+     * See {@link FragmentActivity#onStop()}
      */
     @Override
     protected void onStop() {
@@ -446,16 +422,14 @@ public class CarFragmentActivity extends CarActivity implements
     // ------------------------------------------------------------------------
 
     /**
-     * Use this instead of {@link #onRetainNonConfigurationInstance()}.
-     * Retrieve later with {@link #getLastCustomNonConfigurationInstance()}.
+     * See {@link FragmentActivity#onRetainNonConfigurationInstance()}
      */
     public Object onRetainCustomNonConfigurationInstance() {
         return null;
     }
 
     /**
-     * Return the value previously returned from
-     * {@link #onRetainCustomNonConfigurationInstance()}.
+     * See {@link FragmentActivity#getLastNonConfigurationInstance()}
      */
     @SuppressWarnings("deprecation")
     public Object getLastCustomNonConfigurationInstance() {
@@ -465,14 +439,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Print the Activity's state into the given stream.  This gets invoked if
-     * you run "adb shell dumpsys activity <activity_component_name>".
-     *
-     * @param prefix Desired prefix to prepend at each line of output.
-     * @param fd The raw file descriptor that the dump is being sent to.
-     * @param writer The PrintWriter to which you should dump your state.  This will be
-     * closed for you after you return.
-     * @param args additional arguments to the dump request.
+     * See {@link FragmentActivity#dump(String, FileDescriptor, PrintWriter, String[])}
      */
     public void dump(String prefix, FileDescriptor fd, PrintWriter writer, String[] args) {
         if (android.os.Build.VERSION.SDK_INT >= HONEYCOMB) {
@@ -613,6 +580,7 @@ public class CarFragmentActivity extends CarActivity implements
      * This is a workaround for getting {@link android.support.v4.app.Fragment}'s internal index,
      * which is package visible.
      */
+    @SuppressWarnings("ReferenceEquality")
     private int getFragmentIndex(Fragment f) {
         List<Fragment> fragments = mFragments.getActiveFragments(null);
         int index = 0;
@@ -647,22 +615,9 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Callback for the result from requesting permissions. This method
-     * is invoked for every call on {@link #requestPermissions(String[], int)}.
-     * <p>
-     * <strong>Note:</strong> It is possible that the permissions request interaction
-     * with the user is interrupted. In this case you will receive empty permissions
-     * and results arrays which should be treated as a cancellation.
-     * </p>
-     *
-     * @param requestCode The request code passed in {@link #requestPermissions(String[], int)}.
-     * @param permissions The requested permissions. Never null.
-     * @param grantResults The grant results for the corresponding permissions
-     *     which is either {@link android.content.pm.PackageManager#PERMISSION_GRANTED}
-     *     or {@link android.content.pm.PackageManager#PERMISSION_DENIED}. Never null.
-     *
-     * @see #requestPermissions(String[], int)
+     * See {@link FragmentActivity#onRequestPermissionsResult(int, String[], int[])}
      */
+    @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         int index = (requestCode>>8)&0xff;
@@ -705,8 +660,7 @@ public class CarFragmentActivity extends CarActivity implements
     }
 
     /**
-     * Return the FragmentManager for interacting with fragments associated
-     * with this activity.
+     * See {@link FragmentActivity#getSupportFragmentManager()}
      */
     public FragmentManager getSupportFragmentManager() {
         return mFragments.getSupportFragmentManager();

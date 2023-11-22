@@ -27,8 +27,9 @@ class MirrorComparer(object):
         int_capturer = screen_capture.CrosInternalScreenCapturer(display_facade)
         ext_capturer = screen_capture.CrosExternalScreenCapturer(display_facade)
         # The frame buffers of screens should be perfectly matched.
+        # Skip if the image sizes are different.
         self._screen_comparer = screen_comparison.ScreenComparer(
-                int_capturer, ext_capturer, output_dir, 0, 0)
+                int_capturer, ext_capturer, output_dir, 0, 0, True)
 
 
     def compare(self):

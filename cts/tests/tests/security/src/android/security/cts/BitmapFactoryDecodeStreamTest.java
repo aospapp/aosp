@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import android.graphics.BitmapFactory;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 import android.security.cts.R;
@@ -24,6 +25,7 @@ import android.security.cts.R;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 
+@SecurityTest
 public class BitmapFactoryDecodeStreamTest extends AndroidTestCase {
     /*
      * This test case reproduces the bug in CVE-2015-1532.

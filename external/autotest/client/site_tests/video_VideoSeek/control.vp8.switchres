@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if a resolution-changing VP8 video fails to seek in Chrome HTML5 page.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

@@ -37,6 +37,13 @@ public class TestCopysign extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestCopysignRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inMagnitudeValue;
         public float inSignValue;
@@ -44,13 +51,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignFloatFloatFloat() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xcf086614l, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x9d8d3ef5l, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x4218ae4ccf086614l, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xd95dacad9d8d3ef5l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignFloatFloatFloat(inMagnitudeValue, out);
             verifyResultsCopysignFloatFloatFloat(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignFloatFloatFloat(inMagnitudeValue, out);
             verifyResultsCopysignFloatFloatFloat(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloatFloatFloat: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignFloatFloatFloat(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignFloat2Float2Float2() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x22e9f786l, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x20cec72bl, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x8efe093722e9f786l, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xb33b4a8420cec72bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignFloat2Float2Float2(inMagnitudeValue, out);
             verifyResultsCopysignFloat2Float2Float2(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloat2Float2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignFloat2Float2Float2(inMagnitudeValue, out);
             verifyResultsCopysignFloat2Float2Float2(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloat2Float2Float2: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignFloat2Float2Float2(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignFloat3Float3Float3() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x1b468741l, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xc39ab32cl, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x9a9db55e1b468741l, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x8ec9f3bdc39ab32cl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignFloat3Float3Float3(inMagnitudeValue, out);
             verifyResultsCopysignFloat3Float3Float3(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloat3Float3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignFloat3Float3Float3(inMagnitudeValue, out);
             verifyResultsCopysignFloat3Float3Float3(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloat3Float3Float3: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignFloat3Float3Float3(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignFloat4Float4Float4() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x13a316fcl, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x66669f2dl, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xa63d618513a316fcl, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x6a589cf766669f2dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignFloat4Float4Float4(inMagnitudeValue, out);
             verifyResultsCopysignFloat4Float4Float4(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloat4Float4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignFloat4Float4Float4(inMagnitudeValue, out);
             verifyResultsCopysignFloat4Float4Float4(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignFloat4Float4Float4: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignFloat4Float4Float4(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -368,13 +391,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignHalfHalfHalf() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x9e87c031l, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x523236fcl, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x8e7128339e87c031l, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x366d1274523236fcl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignHalfHalfHalf(inMagnitudeValue, out);
             verifyResultsCopysignHalfHalfHalf(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalfHalfHalf: " + e.toString());
         }
@@ -383,9 +407,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignHalfHalfHalf(inMagnitudeValue, out);
             verifyResultsCopysignHalfHalfHalf(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalfHalfHalf: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignHalfHalfHalf(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -452,13 +479,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignHalf2Half2Half2() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x5c704fabl, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa73ce4cal, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x5b9a5dd65c704fabl, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa119f9e5a73ce4cal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignHalf2Half2Half2(inMagnitudeValue, out);
             verifyResultsCopysignHalf2Half2Half2(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalf2Half2Half2: " + e.toString());
         }
@@ -467,9 +495,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignHalf2Half2Half2(inMagnitudeValue, out);
             verifyResultsCopysignHalf2Half2Half2(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalf2Half2Half2: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignHalf2Half2Half2(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -536,13 +567,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignHalf3Half3Half3() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x38955c0l, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xf2af1539l, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x13bcaf2d038955c0l, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x5bb8caf4f2af1539l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignHalf3Half3Half3(inMagnitudeValue, out);
             verifyResultsCopysignHalf3Half3Half3(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalf3Half3Half3: " + e.toString());
         }
@@ -551,9 +583,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignHalf3Half3Half3(inMagnitudeValue, out);
             verifyResultsCopysignHalf3Half3Half3(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalf3Half3Half3: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignHalf3Half3Half3(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {
@@ -620,13 +655,14 @@ public class TestCopysign extends RSBaseCompute {
     }
 
     private void checkCopysignHalf4Half4Half4() {
-        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xaaa25bd5l, false);
-        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x3e2145a8l, false);
+        Allocation inMagnitudeValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xcbdf0083aaa25bd5l, false);
+        Allocation inSignValue = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x16579c043e2145a8l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInSignValue(inSignValue);
             script.forEach_testCopysignHalf4Half4Half4(inMagnitudeValue, out);
             verifyResultsCopysignHalf4Half4Half4(inMagnitudeValue, inSignValue, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalf4Half4Half4: " + e.toString());
         }
@@ -635,9 +671,12 @@ public class TestCopysign extends RSBaseCompute {
             scriptRelaxed.set_gAllocInSignValue(inSignValue);
             scriptRelaxed.forEach_testCopysignHalf4Half4Half4(inMagnitudeValue, out);
             verifyResultsCopysignHalf4Half4Half4(inMagnitudeValue, inSignValue, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testCopysignHalf4Half4Half4: " + e.toString());
         }
+        inMagnitudeValue.destroy();
+        inSignValue.destroy();
     }
 
     private void verifyResultsCopysignHalf4Half4Half4(Allocation inMagnitudeValue, Allocation inSignValue, Allocation out, boolean relaxed) {

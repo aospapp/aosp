@@ -19,6 +19,7 @@
 #define _GNU_SOURCE
 #endif
 
+#include "config.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <endian.h>
@@ -33,13 +34,11 @@
 #include <unistd.h>
 #include <ext2fs/ext2_types.h>
 #include <ext2fs/ext2fs.h>
-#include <linux/fs.h>
 #include <sys/ioctl.h>
 #include <ext2fs/fiemap.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
-#include <sys/syscall.h>
 #include <sys/vfs.h>
 
 /* A relatively new ioctl interface ... */
@@ -182,76 +181,21 @@ static ext4_fsblk_t	files_block_count;
 static struct frag_statistic_ino	frag_rank[SHOW_FRAG_FILES];
 
 
-/* Local definitions of some syscalls glibc may not yet have */
-
-#ifndef HAVE_POSIX_FADVISE
-#warning Using locally defined posix_fadvise interface.
-
-#ifndef __NR_fadvise64_64
-#error Your kernel headers dont define __NR_fadvise64_64
-#endif
-
 /*
- * fadvise() -		Give advice about file access.
- *
- * @fd:			defrag target file's descriptor.
- * @offset:		file offset.
- * @len:		area length.
- * @advise:		process flag.
+ * We prefer posix_fadvise64 when available, as it allows 64bit offset on
+ * 32bit systems
  */
-static int posix_fadvise(int fd, loff_t offset, size_t len, int advise)
-{
-	return syscall(__NR_fadvise64_64, fd, offset, len, advise);
-}
-#endif /* ! HAVE_FADVISE64_64 */
-
-#ifndef HAVE_SYNC_FILE_RANGE
-#warning Using locally defined sync_file_range interface.
-
-#ifndef __NR_sync_file_range
-#ifndef __NR_sync_file_range2 /* ppc */
-#error Your kernel headers dont define __NR_sync_file_range
+#if defined(HAVE_POSIX_FADVISE64)
+#define posix_fadvise	posix_fadvise64
+#elif defined(HAVE_FADVISE64)
+#define posix_fadvise	fadvise64
+#elif !defined(HAVE_POSIX_FADVISE)
+#error posix_fadvise not available!
 #endif
-#endif
-
-/*
- * sync_file_range() -	Sync file region.
- *
- * @fd:			defrag target file's descriptor.
- * @offset:		file offset.
- * @length:		area length.
- * @flag:		process flag.
- */
-int sync_file_range(int fd, loff_t offset, loff_t length, unsigned int flag)
-{
-#ifdef __NR_sync_file_range
-	return syscall(__NR_sync_file_range, fd, offset, length, flag);
-#else
-	return syscall(__NR_sync_file_range2, fd, flag, offset, length);
-#endif
-}
-#endif /* ! HAVE_SYNC_FILE_RANGE */
 
 #ifndef HAVE_FALLOCATE64
-#warning Using locally defined fallocate syscall interface.
-
-#ifndef __NR_fallocate
-#error Your kernel headers dont define __NR_fallocate
-#endif
-
-/*
- * fallocate64() -	Manipulate file space.
- *
- * @fd:			defrag target file's descriptor.
- * @mode:		process flag.
- * @offset:		file offset.
- * @len:		file size.
- */
-static int fallocate64(int fd, int mode, loff_t offset, loff_t len)
-{
-	return syscall(__NR_fallocate, fd, mode, offset, len);
-}
-#endif /* ! HAVE_FALLOCATE */
+#error fallocate64 not available!
+#endif /* ! HAVE_FALLOCATE64 */
 
 /*
  * get_mount_point() -	Get device's mount point.
@@ -439,8 +383,10 @@ static int page_in_core(int fd, struct move_extent defrag_data,
 	*page_num = 0;
 	*page_num = (length + pagesize - 1) / pagesize;
 	*vec = (unsigned char *)calloc(*page_num, 1);
-	if (*vec == NULL)
+	if (*vec == NULL) {
+		munmap(page, length);
 		return -1;
+	}
 
 	/* Get information on whether pages are in core */
 	if (mincore(page, (size_t)length, *vec) == -1 ||
@@ -478,10 +424,12 @@ static int defrag_fadvise(int fd, struct move_extent defrag_data,
 	offset = (loff_t)defrag_data.orig_start * block_size;
 	offset = (offset / pagesize) * pagesize;
 
+#ifdef HAVE_SYNC_FILE_RANGE
 	/* Sync file for fadvise process */
 	if (sync_file_range(fd, offset,
 		(loff_t)pagesize * page_num, sync_flag) < 0)
 		return -1;
+#endif
 
 	/* Try to release buffer cache which this process used,
 	 * then other process can use the released buffer
@@ -940,7 +888,9 @@ static int get_physical_count(struct fiemap_extent_list *physical_list_head)
 
 	do {
 		if ((ext_list_tmp->data.physical + ext_list_tmp->data.len)
-				!= ext_list_tmp->next->data.physical) {
+				!= ext_list_tmp->next->data.physical ||
+		    (ext_list_tmp->data.logical + ext_list_tmp->data.len)
+				!= ext_list_tmp->next->data.logical) {
 			/* This extent and next extent are not continuous. */
 			ret++;
 		}
@@ -1846,13 +1796,13 @@ int main(int argc, char *argv[])
 
 		if (current_uid == ROOT_UID) {
 			/* Get super block info */
-			ret = ext2fs_open(dev_name, 0, 0, block_size,
-					unix_io_manager, &fs);
+			ret = ext2fs_open(dev_name, EXT2_FLAG_64BITS, 0,
+					  block_size, unix_io_manager, &fs);
 			if (ret) {
-				if (mode_flag & DETAIL) {
-					perror("Can't get super block info");
-					PRINT_FILE_NAME(argv[i]);
-				}
+				if (mode_flag & DETAIL)
+					com_err(argv[1], ret,
+						"while trying to open file system: %s",
+						dev_name);
 				continue;
 			}
 
@@ -1860,7 +1810,7 @@ int main(int argc, char *argv[])
 			feature_incompat = fs->super->s_feature_incompat;
 			log_groups_per_flex = fs->super->s_log_groups_per_flex;
 
-			ext2fs_close(fs);
+			ext2fs_close_free(&fs);
 		}
 
 		switch (arg_type) {

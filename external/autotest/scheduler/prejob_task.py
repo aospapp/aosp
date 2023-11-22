@@ -1,4 +1,4 @@
-#pylint: disable-msg=C0111
+#pylint: disable=C0111
 
 """
 Prejob tasks.
@@ -55,7 +55,7 @@ or Archiving postjob task, and an eventual Failed status for the HQE.
 """
 
 import logging
-import os
+import re
 
 from autotest_lib.client.common_lib import host_protections
 from autotest_lib.frontend.afe import models
@@ -65,30 +65,16 @@ from autotest_lib.server.cros import provision
 
 
 class PreJobTask(agent_task.SpecialAgentTask):
-    def _copy_to_results_repository(self):
-        if not self.queue_entry or self.queue_entry.meta_host:
-            return
-
-        self.queue_entry.set_execution_subdir()
-        log_name = os.path.basename(self.task.execution_path())
-        source = os.path.join(self.task.execution_path(), 'debug',
-                              'autoserv.DEBUG')
-        destination = os.path.join(
-                self.queue_entry.execution_path(), log_name)
-
-        self.monitor.try_copy_to_results_repository(
-                source, destination_path=destination)
-
-
     def epilog(self):
         super(PreJobTask, self).epilog()
-
-        if self.success:
-            return
 
         if self.host.protection == host_protections.Protection.DO_NOT_VERIFY:
             # effectively ignore failure for these hosts
             self.success = True
+
+        if self.success:
+            self.host.record_working_state(True,
+                                           self.task.time_finished)
             return
 
         if self.queue_entry:
@@ -313,6 +299,55 @@ class ResetTask(PreJobTask):
                 self.host.set_status(models.Host.Status.READY)
 
 
+# TODO (ayatane): Refactor using server/cros/provision
+def _is_cros_version(label):
+    """Return whether the label is a cros-version: label."""
+    return label.startswith('cros-version:')
+
+
+# TODO (ayatane): Refactor using server/cros/provision
+def _get_cros_version(label):
+    """Return cros-version from cros-version label."""
+    return label[len('cros-version:'):]
+
+
+# TODO (ayatane): Refactor into server/cros/provision
+class _CrosImage(object):
+    """The name of a CrOS image."""
+
+    _name_pattern = re.compile(
+        r'^'
+        r'(?P<group>[a-z0-9-]+)'
+        r'/'
+        r'(?P<milestone>LATEST|R[0-9]+)'
+        r'-'
+        r'(?P<version>[0-9.]+)'
+        r'(-(?P<rc>rc[0-9]+))?'
+        r'$'
+    )
+
+    def __init__(self, name):
+        """Initialize instance.
+
+        @param name: Image name string (lumpy-release/R27-3773.0.0)
+        """
+        self._name = name
+        match = self._name_pattern.search(name)
+        if match is None:
+            raise ValueError('Invalid CrOS image name: %r' % name)
+        self.group = match.group('group')
+        self.milestone = match.group('milestone')
+        self.version = match.group('version')
+        self.rc = match.group('rc')
+
+    def __repr__(self):
+        return '{cls}({name!r})'.format(cls=type(self).__name__,
+                                        name=self._name)
+
+    def __str__(self):
+        return self._name
+
+
 class ProvisionTask(PreJobTask):
     TASK_TYPE = models.SpecialTask.Task.PROVISION
 
@@ -325,11 +360,31 @@ class ProvisionTask(PreJobTask):
         # yet.  Therefore, we're stuck pulling labels off of the afe model
         # so that we can pass the --provision args into the __init__ call.
         labels = {x.name for x in task.queue_entry.job.labels}
-        _, provisionable = provision.filter_labels(labels)
+        _, provisionable = provision.Provision.partition(labels)
         extra_command_args = ['--provision',
                               '--job-labels', ','.join(provisionable)]
         super(ProvisionTask, self).__init__(task, extra_command_args)
+        self._set_milestone(labels)
         self._set_ids(host=self.host, queue_entries=[self.queue_entry])
+
+
+    def _set_milestone(self, labels):
+        """Set build milestone from the labels.
+
+        @param labels: iterable of labels.
+        """
+        labels = (label
+                  for label in labels
+                  if _is_cros_version(label))
+        for label in labels:
+            try:
+                cros_image = _CrosImage(_get_cros_version(label))
+            except ValueError as e:
+                logging.warning('Could not parse cros-version. Error msg: %s', e)
+                self._milestone = 'N/A'
+            else:
+                self._milestone = cros_image.milestone
+            break
 
 
     def _command_line(self):
@@ -412,3 +467,5 @@ class RepairTask(agent_task.SpecialAgentTask):
             self.host.set_status(models.Host.Status.REPAIR_FAILED)
             if self.queue_entry:
                 self._fail_queue_entry()
+        self.host.record_working_state(bool(self.success),
+                                       self.task.time_finished)

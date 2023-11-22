@@ -6,7 +6,6 @@
 #define _BSDIFF_MEMORY_FILE_H_
 
 #include <memory>
-#include <vector>
 
 #include "file_interface.h"
 
@@ -14,14 +13,12 @@ namespace bsdiff {
 
 class MemoryFile : public FileInterface {
  public:
-  // Creates a MemoryFile based on the underlying |file| passed. The MemoryFile
-  // will cache all the write in memory and write it to to |file| when it's
-  // closed. MemoryFile does not support read and seek.
-  // |size| should be the estimated total file size, it is used to reserve
-  // buffer space.
-  MemoryFile(std::unique_ptr<FileInterface> file, size_t size);
+  // Creates a read only MemoryFile based on the underlying |data| passed.
+  // The MemoryFile will use data starting from |data| with length of |size| as
+  // the file content. Write is not supported.
+  MemoryFile(const uint8_t* data, size_t size);
 
-  ~MemoryFile() override;
+  ~MemoryFile() = default;
 
   // FileInterface overrides.
   bool Read(void* buf, size_t count, size_t* bytes_read) override;
@@ -31,10 +28,9 @@ class MemoryFile : public FileInterface {
   bool GetSize(uint64_t* size) override;
 
  private:
-  // The underlying FileInterace instance.
-  std::unique_ptr<FileInterface> file_;
-
-  std::vector<uint8_t> buffer_;
+  const uint8_t* data_ = nullptr;
+  size_t size_ = 0;
+  off_t offset_ = 0;
 };
 
 }  // namespace bsdiff

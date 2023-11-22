@@ -16,6 +16,8 @@
 
 #include "dex_to_dex_compiler.h"
 
+#include "android-base/stringprintf.h"
+
 #include "art_field-inl.h"
 #include "art_method-inl.h"
 #include "base/logging.h"
@@ -25,12 +27,13 @@
 #include "dex_instruction-inl.h"
 #include "driver/compiler_driver.h"
 #include "driver/dex_compilation_unit.h"
-#include "mirror/class-inl.h"
 #include "mirror/dex_cache.h"
 #include "thread-inl.h"
 
 namespace art {
 namespace optimizer {
+
+using android::base::StringPrintf;
 
 // Controls quickening activation.
 const bool kEnableQuickening = true;
@@ -66,10 +69,6 @@ class DexCompiler {
     return *unit_.GetDexFile();
   }
 
-  bool PerformOptimizations() const {
-    return dex_to_dex_compilation_level_ >= DexToDexCompilationLevel::kOptimize;
-  }
-
   // Compiles a RETURN-VOID into a RETURN-VOID-BARRIER within a constructor where
   // a barrier is required.
   void CompileReturnVoid(Instruction* inst, uint32_t dex_pc);
@@ -90,7 +89,7 @@ class DexCompiler {
 
   // Compiles a virtual method invocation into a quick virtual method invocation.
   // The method index is replaced by the vtable index where the corresponding
-  // AbstractMethod can be found. Therefore, this does not involve any resolution
+  // Executable can be found. Therefore, this does not involve any resolution
   // at runtime.
   // Since the method index is encoded with 16 bits, we can replace it only if the
   // vtable index can be encoded with 16 bits too.
@@ -110,7 +109,7 @@ class DexCompiler {
 };
 
 void DexCompiler::Compile() {
-  DCHECK_GE(dex_to_dex_compilation_level_, DexToDexCompilationLevel::kRequired);
+  DCHECK_EQ(dex_to_dex_compilation_level_, DexToDexCompilationLevel::kOptimize);
   const DexFile::CodeItem* code_item = unit_.GetCodeItem();
   const uint16_t* insns = code_item->insns_;
   const uint32_t insns_size = code_item->insns_size_in_code_units_;
@@ -212,12 +211,12 @@ void DexCompiler::CompileReturnVoid(Instruction* inst, uint32_t dex_pc) {
   VLOG(compiler) << "Replacing " << Instruction::Name(inst->Opcode())
                  << " by " << Instruction::Name(Instruction::RETURN_VOID_NO_BARRIER)
                  << " at dex pc " << StringPrintf("0x%x", dex_pc) << " in method "
-                 << PrettyMethod(unit_.GetDexMethodIndex(), GetDexFile(), true);
+                 << GetDexFile().PrettyMethod(unit_.GetDexMethodIndex(), true);
   inst->SetOpcode(Instruction::RETURN_VOID_NO_BARRIER);
 }
 
 Instruction* DexCompiler::CompileCheckCast(Instruction* inst, uint32_t dex_pc) {
-  if (!kEnableCheckCastEllision || !PerformOptimizations()) {
+  if (!kEnableCheckCastEllision) {
     return inst;
   }
   if (!driver_.IsSafeCast(&unit_, dex_pc)) {
@@ -232,7 +231,9 @@ Instruction* DexCompiler::CompileCheckCast(Instruction* inst, uint32_t dex_pc) {
   VLOG(compiler) << "Removing " << Instruction::Name(inst->Opcode())
                  << " by replacing it with 2 NOPs at dex pc "
                  << StringPrintf("0x%x", dex_pc) << " in method "
-                 << PrettyMethod(unit_.GetDexMethodIndex(), GetDexFile(), true);
+                 << GetDexFile().PrettyMethod(unit_.GetDexMethodIndex(), true);
+  quickened_info_.push_back(QuickenedInfo(dex_pc, inst->VRegA_21c()));
+  quickened_info_.push_back(QuickenedInfo(dex_pc, inst->VRegB_21c()));
   // We are modifying 4 consecutive bytes.
   inst->SetOpcode(Instruction::NOP);
   inst->SetVRegA_10x(0u);  // keep compliant with verifier.
@@ -248,7 +249,7 @@ void DexCompiler::CompileInstanceFieldAccess(Instruction* inst,
                                              uint32_t dex_pc,
                                              Instruction::Code new_opcode,
                                              bool is_put) {
-  if (!kEnableQuickening || !PerformOptimizations()) {
+  if (!kEnableQuickening) {
     return;
   }
   uint32_t field_idx = inst->VRegC_22c();
@@ -262,7 +263,7 @@ void DexCompiler::CompileInstanceFieldAccess(Instruction* inst,
                    << " by replacing field index " << field_idx
                    << " by field offset " << field_offset.Int32Value()
                    << " at dex pc " << StringPrintf("0x%x", dex_pc) << " in method "
-                   << PrettyMethod(unit_.GetDexMethodIndex(), GetDexFile(), true);
+                   << GetDexFile().PrettyMethod(unit_.GetDexMethodIndex(), true);
     // We are modifying 4 consecutive bytes.
     inst->SetOpcode(new_opcode);
     // Replace field index by field offset.
@@ -273,43 +274,45 @@ void DexCompiler::CompileInstanceFieldAccess(Instruction* inst,
 
 void DexCompiler::CompileInvokeVirtual(Instruction* inst, uint32_t dex_pc,
                                        Instruction::Code new_opcode, bool is_range) {
-  if (!kEnableQuickening || !PerformOptimizations()) {
+  if (!kEnableQuickening) {
     return;
   }
   uint32_t method_idx = is_range ? inst->VRegB_3rc() : inst->VRegB_35c();
-  MethodReference target_method(&GetDexFile(), method_idx);
-  InvokeType invoke_type = kVirtual;
-  InvokeType original_invoke_type = invoke_type;
-  int vtable_idx;
-  uintptr_t direct_code;
-  uintptr_t direct_method;
-  // TODO: support devirtualization.
-  const bool kEnableDevirtualization = false;
-  bool fast_path = driver_.ComputeInvokeInfo(&unit_, dex_pc,
-                                             false, kEnableDevirtualization,
-                                             &invoke_type,
-                                             &target_method, &vtable_idx,
-                                             &direct_code, &direct_method);
-  if (fast_path && original_invoke_type == invoke_type) {
-    if (vtable_idx >= 0 && IsUint<16>(vtable_idx)) {
-      VLOG(compiler) << "Quickening " << Instruction::Name(inst->Opcode())
-                     << "(" << PrettyMethod(method_idx, GetDexFile(), true) << ")"
-                     << " to " << Instruction::Name(new_opcode)
-                     << " by replacing method index " << method_idx
-                     << " by vtable index " << vtable_idx
-                     << " at dex pc " << StringPrintf("0x%x", dex_pc) << " in method "
-                     << PrettyMethod(unit_.GetDexMethodIndex(), GetDexFile(), true);
-      // We are modifying 4 consecutive bytes.
-      inst->SetOpcode(new_opcode);
-      // Replace method index by vtable index.
-      if (is_range) {
-        inst->SetVRegB_3rc(static_cast<uint16_t>(vtable_idx));
-      } else {
-        inst->SetVRegB_35c(static_cast<uint16_t>(vtable_idx));
-      }
-      quickened_info_.push_back(QuickenedInfo(dex_pc, method_idx));
-    }
+  ScopedObjectAccess soa(Thread::Current());
+
+  ClassLinker* class_linker = unit_.GetClassLinker();
+  ArtMethod* resolved_method = class_linker->ResolveMethod<ClassLinker::kForceICCECheck>(
+      GetDexFile(),
+      method_idx,
+      unit_.GetDexCache(),
+      unit_.GetClassLoader(),
+      /* referrer */ nullptr,
+      kVirtual);
+
+  if (UNLIKELY(resolved_method == nullptr)) {
+    // Clean up any exception left by type resolution.
+    soa.Self()->ClearException();
+    return;
   }
+
+  uint32_t vtable_idx = resolved_method->GetMethodIndex();
+  DCHECK(IsUint<16>(vtable_idx));
+  VLOG(compiler) << "Quickening " << Instruction::Name(inst->Opcode())
+                 << "(" << GetDexFile().PrettyMethod(method_idx, true) << ")"
+                 << " to " << Instruction::Name(new_opcode)
+                 << " by replacing method index " << method_idx
+                 << " by vtable index " << vtable_idx
+                 << " at dex pc " << StringPrintf("0x%x", dex_pc) << " in method "
+                 << GetDexFile().PrettyMethod(unit_.GetDexMethodIndex(), true);
+  // We are modifying 4 consecutive bytes.
+  inst->SetOpcode(new_opcode);
+  // Replace method index by vtable index.
+  if (is_range) {
+    inst->SetVRegB_3rc(static_cast<uint16_t>(vtable_idx));
+  } else {
+    inst->SetVRegB_35c(static_cast<uint16_t>(vtable_idx));
+  }
+  quickened_info_.push_back(QuickenedInfo(dex_pc, method_idx));
 }
 
 CompiledMethod* ArtCompileDEX(
@@ -319,7 +322,7 @@ CompiledMethod* ArtCompileDEX(
     InvokeType invoke_type ATTRIBUTE_UNUSED,
     uint16_t class_def_idx,
     uint32_t method_idx,
-    jobject class_loader,
+    Handle<mirror::ClassLoader> class_loader,
     const DexFile& dex_file,
     DexToDexCompilationLevel dex_to_dex_compilation_level) {
   DCHECK(driver != nullptr);
@@ -362,7 +365,7 @@ CompiledMethod* ArtCompileDEX(
         0,
         0,
         0,
-        ArrayRef<const SrcMapElem>(),                // src_mapping_table
+        ArrayRef<const uint8_t>(),                   // method_info
         ArrayRef<const uint8_t>(builder.GetData()),  // vmap_table
         ArrayRef<const uint8_t>(),                   // cfi data
         ArrayRef<const LinkerPatch>());

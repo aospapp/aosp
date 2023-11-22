@@ -16,15 +16,22 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.InputFilter;
-import android.text.SpannableStringBuilder;
 import android.text.InputFilter.AllCaps;
+import android.text.SpannableStringBuilder;
 
-public class InputFilter_AllCapsTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class InputFilter_AllCapsTest {
+    @Test
     public void testFilter() {
-
         // Implicitly invoked
         CharSequence source = "Caps";
         SpannableStringBuilder dest = new SpannableStringBuilder("AllTest");

@@ -27,8 +27,8 @@
 namespace android {
 
 // Burst Preamble defined in IEC61937-1
-const unsigned short SPDIFEncoder::kSPDIFSync1 = 0xF872; // Pa
-const unsigned short SPDIFEncoder::kSPDIFSync2 = 0x4E1F; // Pb
+const uint16_t SPDIFEncoder::kSPDIFSync1 = 0xF872; // Pa
+const uint16_t SPDIFEncoder::kSPDIFSync2 = 0x4E1F; // Pb
 
 static int32_t sEndianDetector = 1;
 #define isLittleEndian()  (*((uint8_t *)&sEndianDetector))
@@ -48,7 +48,7 @@ SPDIFEncoder::SPDIFEncoder(audio_format_t format)
     switch(format) {
         case AUDIO_FORMAT_AC3:
         case AUDIO_FORMAT_E_AC3:
-            mFramer = new AC3FrameScanner();
+            mFramer = new AC3FrameScanner(format);
             break;
         case AUDIO_FORMAT_DTS:
         case AUDIO_FORMAT_DTS_HD:

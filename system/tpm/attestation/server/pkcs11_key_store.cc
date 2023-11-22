@@ -76,13 +76,9 @@ class ScopedSession {
     }
   }
 
-  CK_SESSION_HANDLE handle() const {
-    return handle_;
-  }
+  CK_SESSION_HANDLE handle() const { return handle_; }
 
-  bool IsValid() const {
-    return (handle_ != CK_INVALID_HANDLE);
-  }
+  bool IsValid() const { return (handle_ != CK_INVALID_HANDLE); }
 
  private:
   CK_SESSION_HANDLE handle_;
@@ -115,17 +111,15 @@ bool Pkcs11KeyStore::Read(const std::string& username,
   }
   // First get the attribute with a NULL buffer which will give us the length.
   CK_ATTRIBUTE attribute = {CKA_VALUE, nullptr, 0};
-  if (C_GetAttributeValue(session.handle(),
-                          key_handle,
-                          &attribute, 1) != CKR_OK) {
+  if (C_GetAttributeValue(session.handle(), key_handle, &attribute, 1) !=
+      CKR_OK) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to read key data: " << key_name;
     return false;
   }
   key_data->resize(attribute.ulValueLen);
   attribute.pValue = string_as_array(key_data);
-  if (C_GetAttributeValue(session.handle(),
-                          key_handle,
-                          &attribute, 1) != CKR_OK) {
+  if (C_GetAttributeValue(session.handle(), key_handle, &attribute, 1) !=
+      CKR_OK) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to read key data: " << key_name;
     return false;
   }
@@ -158,30 +152,16 @@ bool Pkcs11KeyStore::Write(const std::string& username,
   CK_BBOOL true_value = CK_TRUE;
   CK_BBOOL false_value = CK_FALSE;
   CK_ATTRIBUTE attributes[] = {
-    {CKA_CLASS, &object_class, sizeof(object_class)},
-    {
-      CKA_LABEL,
-      string_as_array(&mutable_key_name),
-      mutable_key_name.size()
-    },
-    {
-      CKA_VALUE,
-      string_as_array(&mutable_key_data),
-      mutable_key_data.size()
-    },
-    {
-      CKA_APPLICATION,
-      string_as_array(&mutable_application_id),
-      mutable_application_id.size()
-    },
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_PRIVATE, &true_value, sizeof(true_value)},
-    {CKA_MODIFIABLE, &false_value, sizeof(false_value)}
-  };
+      {CKA_CLASS, &object_class, sizeof(object_class)},
+      {CKA_LABEL, string_as_array(&mutable_key_name), mutable_key_name.size()},
+      {CKA_VALUE, string_as_array(&mutable_key_data), mutable_key_data.size()},
+      {CKA_APPLICATION, string_as_array(&mutable_application_id),
+       mutable_application_id.size()},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_PRIVATE, &true_value, sizeof(true_value)},
+      {CKA_MODIFIABLE, &false_value, sizeof(false_value)}};
   CK_OBJECT_HANDLE key_handle = CK_INVALID_HANDLE;
-  if (C_CreateObject(session.handle(),
-                     attributes,
-                     arraysize(attributes),
+  if (C_CreateObject(session.handle(), attributes, arraysize(attributes),
                      &key_handle) != CKR_OK) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to write key data: " << key_name;
     return false;
@@ -223,11 +203,9 @@ bool Pkcs11KeyStore::DeleteByPrefix(const std::string& username,
     LOG(ERROR) << "Pkcs11KeyStore: Failed to open token session.";
     return false;
   }
-  EnumObjectsCallback callback = base::Bind(
-      &Pkcs11KeyStore::DeleteIfMatchesPrefix,
-      base::Unretained(this),
-      session.handle(),
-      key_prefix);
+  EnumObjectsCallback callback =
+      base::Bind(&Pkcs11KeyStore::DeleteIfMatchesPrefix, base::Unretained(this),
+                 session.handle(), key_prefix);
   if (!EnumObjects(session.handle(), callback)) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to delete key data.";
     return false;
@@ -260,18 +238,18 @@ bool Pkcs11KeyStore::Register(const std::string& username,
   }
 
   // Extract the modulus from the public key.
-  const unsigned char* asn1_ptr = reinterpret_cast<const unsigned char*>(
-      public_key_der.data());
-  crypto::ScopedRSA public_key(d2i_RSAPublicKey(nullptr,
-                                                &asn1_ptr,
-                                                public_key_der.size()));
+  const unsigned char* asn1_ptr =
+      reinterpret_cast<const unsigned char*>(public_key_der.data());
+  crypto::ScopedRSA public_key(
+      d2i_RSAPublicKey(nullptr, &asn1_ptr, public_key_der.size()));
   if (!public_key.get()) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to decode public key.";
     return false;
   }
   std::string modulus(BN_num_bytes(public_key.get()->n), 0);
-  int length = BN_bn2bin(public_key.get()->n, reinterpret_cast<unsigned char*>(
-      string_as_array(&modulus)));
+  int length =
+      BN_bn2bin(public_key.get()->n,
+                reinterpret_cast<unsigned char*>(string_as_array(&modulus)));
   if (length <= 0) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to extract public key modulus.";
     return false;
@@ -290,24 +268,22 @@ bool Pkcs11KeyStore::Register(const std::string& username,
   CK_BBOOL decrypt_usage = (key_usage == KEY_USAGE_DECRYPT);
   unsigned char public_exponent[] = {1, 0, 1};
   CK_ATTRIBUTE public_key_attributes[] = {
-    {CKA_CLASS, &public_key_class, sizeof(public_key_class)},
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_DERIVE, &false_value, sizeof(false_value)},
-    {CKA_WRAP, &false_value, sizeof(false_value)},
-    {CKA_VERIFY, &sign_usage, sizeof(sign_usage)},
-    {CKA_VERIFY_RECOVER, &false_value, sizeof(false_value)},
-    {CKA_ENCRYPT, &decrypt_usage, sizeof(decrypt_usage)},
-    {CKA_KEY_TYPE, &p11_key_type, sizeof(p11_key_type)},
-    {CKA_ID, string_as_array(&id), id.size()},
-    {CKA_LABEL, string_as_array(&mutable_label), mutable_label.size()},
-    {CKA_MODULUS_BITS, &modulus_bits, sizeof(modulus_bits)},
-    {CKA_PUBLIC_EXPONENT, public_exponent, arraysize(public_exponent)},
-    {CKA_MODULUS, string_as_array(&modulus), modulus.size()}
-  };
+      {CKA_CLASS, &public_key_class, sizeof(public_key_class)},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_DERIVE, &false_value, sizeof(false_value)},
+      {CKA_WRAP, &false_value, sizeof(false_value)},
+      {CKA_VERIFY, &sign_usage, sizeof(sign_usage)},
+      {CKA_VERIFY_RECOVER, &false_value, sizeof(false_value)},
+      {CKA_ENCRYPT, &decrypt_usage, sizeof(decrypt_usage)},
+      {CKA_KEY_TYPE, &p11_key_type, sizeof(p11_key_type)},
+      {CKA_ID, string_as_array(&id), id.size()},
+      {CKA_LABEL, string_as_array(&mutable_label), mutable_label.size()},
+      {CKA_MODULUS_BITS, &modulus_bits, sizeof(modulus_bits)},
+      {CKA_PUBLIC_EXPONENT, public_exponent, arraysize(public_exponent)},
+      {CKA_MODULUS, string_as_array(&modulus), modulus.size()}};
 
   CK_OBJECT_HANDLE object_handle = CK_INVALID_HANDLE;
-  if (C_CreateObject(session.handle(),
-                     public_key_attributes,
+  if (C_CreateObject(session.handle(), public_key_attributes,
                      arraysize(public_key_attributes),
                      &object_handle) != CKR_OK) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to create public key object.";
@@ -318,30 +294,25 @@ bool Pkcs11KeyStore::Register(const std::string& username,
   std::string mutable_private_key_blob(private_key_blob);
   CK_OBJECT_CLASS private_key_class = CKO_PRIVATE_KEY;
   CK_ATTRIBUTE private_key_attributes[] = {
-    {CKA_CLASS, &private_key_class, sizeof(private_key_class)},
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_PRIVATE, &true_value, sizeof(true_value)},
-    {CKA_SENSITIVE, &true_value, sizeof(true_value)},
-    {CKA_EXTRACTABLE, &false_value, sizeof(false_value)},
-    {CKA_DERIVE, &false_value, sizeof(false_value)},
-    {CKA_UNWRAP, &false_value, sizeof(false_value)},
-    {CKA_SIGN, &sign_usage, sizeof(sign_usage)},
-    {CKA_SIGN_RECOVER, &false_value, sizeof(false_value)},
-    {CKA_DECRYPT, &decrypt_usage, sizeof(decrypt_usage)},
-    {CKA_KEY_TYPE, &p11_key_type, sizeof(p11_key_type)},
-    {CKA_ID, string_as_array(&id), id.size()},
-    {CKA_LABEL, string_as_array(&mutable_label), mutable_label.size()},
-    {CKA_PUBLIC_EXPONENT, public_exponent, arraysize(public_exponent)},
-    {CKA_MODULUS, string_as_array(&modulus), modulus.size()},
-    {
-      kKeyBlobAttribute,
-      string_as_array(&mutable_private_key_blob),
-      mutable_private_key_blob.size()
-    }
-  };
+      {CKA_CLASS, &private_key_class, sizeof(private_key_class)},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_PRIVATE, &true_value, sizeof(true_value)},
+      {CKA_SENSITIVE, &true_value, sizeof(true_value)},
+      {CKA_EXTRACTABLE, &false_value, sizeof(false_value)},
+      {CKA_DERIVE, &false_value, sizeof(false_value)},
+      {CKA_UNWRAP, &false_value, sizeof(false_value)},
+      {CKA_SIGN, &sign_usage, sizeof(sign_usage)},
+      {CKA_SIGN_RECOVER, &false_value, sizeof(false_value)},
+      {CKA_DECRYPT, &decrypt_usage, sizeof(decrypt_usage)},
+      {CKA_KEY_TYPE, &p11_key_type, sizeof(p11_key_type)},
+      {CKA_ID, string_as_array(&id), id.size()},
+      {CKA_LABEL, string_as_array(&mutable_label), mutable_label.size()},
+      {CKA_PUBLIC_EXPONENT, public_exponent, arraysize(public_exponent)},
+      {CKA_MODULUS, string_as_array(&modulus), modulus.size()},
+      {kKeyBlobAttribute, string_as_array(&mutable_private_key_blob),
+       mutable_private_key_blob.size()}};
 
-  if (C_CreateObject(session.handle(),
-                     private_key_attributes,
+  if (C_CreateObject(session.handle(), private_key_attributes,
                      arraysize(private_key_attributes),
                      &object_handle) != CKR_OK) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to create private key object.";
@@ -360,28 +331,20 @@ bool Pkcs11KeyStore::Register(const std::string& username,
     CK_OBJECT_CLASS certificate_class = CKO_CERTIFICATE;
     CK_CERTIFICATE_TYPE certificate_type = CKC_X_509;
     CK_ATTRIBUTE certificate_attributes[] = {
-      {CKA_CLASS, &certificate_class, sizeof(certificate_class)},
-      {CKA_TOKEN, &true_value, sizeof(true_value)},
-      {CKA_PRIVATE, &false_value, sizeof(false_value)},
-      {CKA_ID, string_as_array(&id), id.size()},
-      {CKA_LABEL, string_as_array(&mutable_label), mutable_label.size()},
-      {CKA_CERTIFICATE_TYPE, &certificate_type, sizeof(certificate_type)},
-      {CKA_SUBJECT, string_as_array(&subject), subject.size()},
-      {CKA_ISSUER, string_as_array(&issuer), issuer.size()},
-      {
-        CKA_SERIAL_NUMBER,
-        string_as_array(&serial_number),
-        serial_number.size()
-      },
-      {
-        CKA_VALUE,
-        string_as_array(&mutable_certificate),
-        mutable_certificate.size()
-      }
-    };
+        {CKA_CLASS, &certificate_class, sizeof(certificate_class)},
+        {CKA_TOKEN, &true_value, sizeof(true_value)},
+        {CKA_PRIVATE, &false_value, sizeof(false_value)},
+        {CKA_ID, string_as_array(&id), id.size()},
+        {CKA_LABEL, string_as_array(&mutable_label), mutable_label.size()},
+        {CKA_CERTIFICATE_TYPE, &certificate_type, sizeof(certificate_type)},
+        {CKA_SUBJECT, string_as_array(&subject), subject.size()},
+        {CKA_ISSUER, string_as_array(&issuer), issuer.size()},
+        {CKA_SERIAL_NUMBER, string_as_array(&serial_number),
+         serial_number.size()},
+        {CKA_VALUE, string_as_array(&mutable_certificate),
+         mutable_certificate.size()}};
 
-    if (C_CreateObject(session.handle(),
-                       certificate_attributes,
+    if (C_CreateObject(session.handle(), certificate_attributes,
                        arraysize(certificate_attributes),
                        &object_handle) != CKR_OK) {
       LOG(ERROR) << "Pkcs11KeyStore: Failed to create certificate object.";
@@ -426,22 +389,18 @@ bool Pkcs11KeyStore::RegisterCertificate(const std::string& username,
   CK_BBOOL true_value = CK_TRUE;
   CK_BBOOL false_value = CK_FALSE;
   CK_ATTRIBUTE certificate_attributes[] = {
-    {CKA_CLASS, &certificate_class, sizeof(certificate_class)},
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_PRIVATE, &false_value, sizeof(false_value)},
-    {CKA_CERTIFICATE_TYPE, &certificate_type, sizeof(certificate_type)},
-    {CKA_SUBJECT, string_as_array(&subject), subject.size()},
-    {CKA_ISSUER, string_as_array(&issuer), issuer.size()},
-    {CKA_SERIAL_NUMBER, string_as_array(&serial_number), serial_number.size()},
-    {
-      CKA_VALUE,
-      string_as_array(&mutable_certificate),
-      mutable_certificate.size()
-    }
-  };
+      {CKA_CLASS, &certificate_class, sizeof(certificate_class)},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_PRIVATE, &false_value, sizeof(false_value)},
+      {CKA_CERTIFICATE_TYPE, &certificate_type, sizeof(certificate_type)},
+      {CKA_SUBJECT, string_as_array(&subject), subject.size()},
+      {CKA_ISSUER, string_as_array(&issuer), issuer.size()},
+      {CKA_SERIAL_NUMBER, string_as_array(&serial_number),
+       serial_number.size()},
+      {CKA_VALUE, string_as_array(&mutable_certificate),
+       mutable_certificate.size()}};
   CK_OBJECT_HANDLE object_handle = CK_INVALID_HANDLE;
-  if (C_CreateObject(session.handle(),
-                     certificate_attributes,
+  if (C_CreateObject(session.handle(), certificate_attributes,
                      arraysize(certificate_attributes),
                      &object_handle) != CKR_OK) {
     LOG(ERROR) << "Pkcs11KeyStore: Failed to create certificate object.";
@@ -459,26 +418,17 @@ CK_OBJECT_HANDLE Pkcs11KeyStore::FindObject(CK_SESSION_HANDLE session_handle,
   CK_BBOOL true_value = CK_TRUE;
   CK_BBOOL false_value = CK_FALSE;
   CK_ATTRIBUTE attributes[] = {
-    {CKA_CLASS, &object_class, sizeof(object_class)},
-    {
-      CKA_LABEL,
-      string_as_array(&mutable_key_name),
-      mutable_key_name.size()
-    },
-    {
-      CKA_APPLICATION,
-      string_as_array(&mutable_application_id),
-      mutable_application_id.size()
-    },
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_PRIVATE, &true_value, sizeof(true_value)},
-    {CKA_MODIFIABLE, &false_value, sizeof(false_value)}
-  };
+      {CKA_CLASS, &object_class, sizeof(object_class)},
+      {CKA_LABEL, string_as_array(&mutable_key_name), mutable_key_name.size()},
+      {CKA_APPLICATION, string_as_array(&mutable_application_id),
+       mutable_application_id.size()},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_PRIVATE, &true_value, sizeof(true_value)},
+      {CKA_MODIFIABLE, &false_value, sizeof(false_value)}};
   CK_OBJECT_HANDLE key_handle = CK_INVALID_HANDLE;
   CK_ULONG count = 0;
-  if ((C_FindObjectsInit(session_handle,
-                         attributes,
-                         arraysize(attributes)) != CKR_OK) ||
+  if ((C_FindObjectsInit(session_handle, attributes, arraysize(attributes)) !=
+       CKR_OK) ||
       (C_FindObjects(session_handle, &key_handle, 1, &count) != CKR_OK) ||
       (C_FindObjectsFinal(session_handle) != CKR_OK)) {
     LOG(ERROR) << "Key search failed: " << key_name;
@@ -493,9 +443,10 @@ bool Pkcs11KeyStore::GetUserSlot(const std::string& username,
                                  CK_SLOT_ID_PTR slot) {
   const char kChapsDaemonName[] = "chaps";
   const char kChapsSystemToken[] = "/var/lib/chaps";
-  base::FilePath token_path = username.empty() ?
-      base::FilePath(kChapsSystemToken) :
-      brillo::cryptohome::home::GetDaemonPath(username, kChapsDaemonName);
+  base::FilePath token_path =
+      username.empty()
+          ? base::FilePath(kChapsSystemToken)
+          : brillo::cryptohome::home::GetDaemonPath(username, kChapsDaemonName);
   CK_RV rv;
   rv = C_Initialize(nullptr);
   if (rv != CKR_OK && rv != CKR_CRYPTOKI_ALREADY_INITIALIZED) {
@@ -518,9 +469,9 @@ bool Pkcs11KeyStore::GetUserSlot(const std::string& username,
   for (CK_ULONG i = 0; i < num_slots; ++i) {
     base::FilePath slot_path;
     if (token_manager_->GetTokenPath(
-        chaps::IsolateCredentialManager::GetDefaultIsolateCredential(),
-        slot_list[i],
-        &slot_path) && (token_path == slot_path)) {
+            chaps::IsolateCredentialManager::GetDefaultIsolateCredential(),
+            slot_list[i], &slot_path) &&
+        (token_path == slot_path)) {
       *slot = slot_list[i];
       return true;
     }
@@ -538,22 +489,17 @@ bool Pkcs11KeyStore::EnumObjects(
   CK_BBOOL true_value = CK_TRUE;
   CK_BBOOL false_value = CK_FALSE;
   CK_ATTRIBUTE attributes[] = {
-    {CKA_CLASS, &object_class, sizeof(object_class)},
-    {
-      CKA_APPLICATION,
-      string_as_array(&mutable_application_id),
-      mutable_application_id.size()
-    },
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_PRIVATE, &true_value, sizeof(true_value)},
-    {CKA_MODIFIABLE, &false_value, sizeof(false_value)}
-  };
+      {CKA_CLASS, &object_class, sizeof(object_class)},
+      {CKA_APPLICATION, string_as_array(&mutable_application_id),
+       mutable_application_id.size()},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_PRIVATE, &true_value, sizeof(true_value)},
+      {CKA_MODIFIABLE, &false_value, sizeof(false_value)}};
   const CK_ULONG kMaxHandles = 100;  // Arbitrary.
   CK_OBJECT_HANDLE handles[kMaxHandles];
   CK_ULONG count = 0;
-  if ((C_FindObjectsInit(session_handle,
-                         attributes,
-                         arraysize(attributes)) != CKR_OK) ||
+  if ((C_FindObjectsInit(session_handle, attributes, arraysize(attributes)) !=
+       CKR_OK) ||
       (C_FindObjects(session_handle, handles, kMaxHandles, &count) != CKR_OK)) {
     LOG(ERROR) << "Key search failed.";
     return false;
@@ -615,8 +561,8 @@ bool Pkcs11KeyStore::GetCertificateFields(const std::string& certificate,
                                           std::string* subject,
                                           std::string* issuer,
                                           std::string* serial_number) {
-  const unsigned char* asn1_ptr = reinterpret_cast<const unsigned char*>(
-      certificate.data());
+  const unsigned char* asn1_ptr =
+      reinterpret_cast<const unsigned char*>(certificate.data());
   ScopedX509 x509(d2i_X509(nullptr, &asn1_ptr, certificate.size()));
   if (!x509.get() || !x509->cert_info || !x509->cert_info->subject) {
     LOG(WARNING) << "Pkcs11KeyStore: Failed to decode certificate.";
@@ -641,8 +587,8 @@ bool Pkcs11KeyStore::GetCertificateFields(const std::string& certificate,
   issuer->assign(reinterpret_cast<char*>(issuer_buffer), length);
 
   unsigned char* serial_number_buffer = nullptr;
-  length = i2d_ASN1_INTEGER(x509->cert_info->serialNumber,
-                            &serial_number_buffer);
+  length =
+      i2d_ASN1_INTEGER(x509->cert_info->serialNumber, &serial_number_buffer);
   crypto::ScopedOpenSSLBytes scoped_serial_number_buffer(serial_number_buffer);
   if (length <= 0) {
     LOG(WARNING) << "Pkcs11KeyStore: Failed to encode certificate serial "
@@ -653,28 +599,22 @@ bool Pkcs11KeyStore::GetCertificateFields(const std::string& certificate,
   return true;
 }
 
-bool Pkcs11KeyStore::DoesCertificateExist(
-    CK_SESSION_HANDLE session_handle,
-    const std::string& certificate) {
+bool Pkcs11KeyStore::DoesCertificateExist(CK_SESSION_HANDLE session_handle,
+                                          const std::string& certificate) {
   CK_OBJECT_CLASS object_class = CKO_CERTIFICATE;
   CK_BBOOL true_value = CK_TRUE;
   CK_BBOOL false_value = CK_FALSE;
   std::string mutable_certificate = certificate;
   CK_ATTRIBUTE attributes[] = {
-    {CKA_CLASS, &object_class, sizeof(object_class)},
-    {CKA_TOKEN, &true_value, sizeof(true_value)},
-    {CKA_PRIVATE, &false_value, sizeof(false_value)},
-    {
-      CKA_VALUE,
-      string_as_array(&mutable_certificate),
-      mutable_certificate.size()
-    }
-  };
+      {CKA_CLASS, &object_class, sizeof(object_class)},
+      {CKA_TOKEN, &true_value, sizeof(true_value)},
+      {CKA_PRIVATE, &false_value, sizeof(false_value)},
+      {CKA_VALUE, string_as_array(&mutable_certificate),
+       mutable_certificate.size()}};
   CK_OBJECT_HANDLE object_handle = CK_INVALID_HANDLE;
   CK_ULONG count = 0;
-  if ((C_FindObjectsInit(session_handle,
-                         attributes,
-                         arraysize(attributes)) != CKR_OK) ||
+  if ((C_FindObjectsInit(session_handle, attributes, arraysize(attributes)) !=
+       CKR_OK) ||
       (C_FindObjects(session_handle, &object_handle, 1, &count) != CKR_OK) ||
       (C_FindObjectsFinal(session_handle) != CKR_OK)) {
     return false;

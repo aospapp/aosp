@@ -27,6 +27,12 @@ MEDIA_GVD_INIT_STATUS = 'Media.GpuVideoDecoderInitializeStatus'
 RTC_INIT_HISTOGRAM = 'Media.RTCVideoDecoderInitDecodeSuccess'
 MEDIA_GVD_BUCKET = 0
 RTC_VIDEO_INIT_BUCKET = 1
+MEDIA_AGVDA_INIT_STATUS = 'Media.ArcGpuVideoDecodeAccelerator.InitializeResult'
+MEDIA_AGVDA_BUCKET = 0
 
 #Path for video HTML file which helps for video operations
-VIDEO_HTML_FILEPATH = '/usr/local/autotest/cros/video/video.html'
+CROS_VIDEO_DIR = '/usr/local/autotest/cros/video'
+VIDEO_HTML_FILEPATH = CROS_VIDEO_DIR + '/video.html'
+
+#Playback duration to check video can play
+PLAYBACK_TEST_TIME_S = 10

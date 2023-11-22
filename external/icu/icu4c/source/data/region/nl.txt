@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/nl.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 nl{
     Countries{
         001{"wereld"}
@@ -46,7 +40,6 @@ nl{
         AI{"Anguilla"}
         AL{"Albanië"}
         AM{"Armenië"}
-        AN{"Nederlandse Antillen"}
         AO{"Angola"}
         AQ{"Antarctica"}
         AR{"Argentinië"}
@@ -96,7 +89,7 @@ nl{
         CW{"Curaçao"}
         CX{"Christmaseiland"}
         CY{"Cyprus"}
-        CZ{"Tsjechië"}
+        CZ{"Tsjechische Republiek"}
         DE{"Duitsland"}
         DG{"Diego Garcia"}
         DJ{"Djibouti"}
@@ -115,7 +108,7 @@ nl{
         EU{"Europese Unie"}
         FI{"Finland"}
         FJ{"Fiji"}
-        FK{"Falklandeilanden"}
+        FK{"Falklandeilanden (Islas Malvinas)"}
         FM{"Micronesia"}
         FO{"Faeröer"}
         FR{"Frankrijk"}
@@ -168,7 +161,7 @@ nl{
         KP{"Noord-Korea"}
         KR{"Zuid-Korea"}
         KW{"Koeweit"}
-        KY{"Caymaneilanden"}
+        KY{"Kaaimaneilanden"}
         KZ{"Kazachstan"}
         LA{"Laos"}
         LB{"Libanon"}
@@ -188,7 +181,7 @@ nl{
         MF{"Saint-Martin"}
         MG{"Madagaskar"}
         MH{"Marshalleilanden"}
-        MK{"Macedonië"}
+        MK{"Macedonië (FYROM)"}
         ML{"Mali"}
         MM{"Myanmar (Birma)"}
         MN{"Mongolië"}
@@ -279,6 +272,7 @@ nl{
         UA{"Oekraïne"}
         UG{"Oeganda"}
         UM{"Kleine afgelegen eilanden van de Verenigde Staten"}
+        UN{"verenigde naties"}
         US{"Verenigde Staten"}
         UY{"Uruguay"}
         UZ{"Oezbekistan"}
@@ -301,13 +295,13 @@ nl{
     }
     Countries%short{
         GB{"VK"}
+        UN{"vn"}
         US{"VS"}
     }
     Countries%variant{
         CD{"Congo (DRC)"}
         CG{"Congo (Republiek)"}
-        FK{"Falklandeilanden (Islas Malvinas)"}
-        MK{"Macedonië (FYROM)"}
+        CZ{"Tsjechië"}
     }
-    Version{"2.1.19.96"}
+    Version{"2.1.28.79"}
 }

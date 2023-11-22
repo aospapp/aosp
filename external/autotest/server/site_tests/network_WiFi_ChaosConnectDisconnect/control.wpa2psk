@@ -6,8 +6,8 @@ AUTHOR = 'krisr, wiley, jabele'
 NAME = 'network_WiFi_ChaosConnectDisconnect.wpa2psk'
 TIME = 'LONG'
 TEST_TYPE = 'server'
-ATTRIBUTES = 'suite:wifi_interop'
-SUITE = 'wifi_interop'
+ATTRIBUTES = ('suite:wifi_interop, suite:android_wifi_interop, '
+              'suite:wifi_interop_wpa2')
 DEPENDENCIES = 'chaos_nightly, chaos_dut'
 
 DOC = """

@@ -78,7 +78,7 @@
     <string name="medical_conditions" msgid="3555690011498283592">"Madokezo ya matibabu"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"Haijulikani"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Kwa mfano, pumu"</string>
-    <string name="organ_donor" msgid="5953509460007124827">"Mfadhili wa kiungo cha mwili"</string>
+    <string name="organ_donor" msgid="5953509460007124827">"Mchangia kiungo cha mwili"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"Haijulikani"</string>
     <string name="yes" msgid="5829765567799916128">"Ndiyo"</string>
     <string name="no" msgid="1681689233660683509">"Hapana"</string>
@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Anwani za dharura"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Ongeza anwani"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Imeshindwa kupata kiteua anwani"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Imeshindwa kuonyesha anwani"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Ungependa kuondoa <xliff:g id="CONTACT_NAME">%1$s</xliff:g> kwenye anwani za dharura?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Ondoa anwani"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Imeshindwa kusoma anwani ya mawasiliano vizuri"</string>
     <string name="remove" msgid="1243949503772376064">"Ondoa"</string>
     <string name="cancel" msgid="7401575239009060939">"Ghairi"</string>
     <string name="ok" msgid="163967937451981024">"Sawa"</string>
@@ -96,8 +99,9 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Maelezo ya dharura"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Maelezo unayoandika hapa yanaweza kuwasaidia watu wa kwanza kuchukua hatua jambo la dharura likitokea. Maelezo haya huhifadhiwa kwenye kifaa chako pekee na mtu yeyote anaweza kuyasoma kutoka kipiga simu ya dharura bila kufungua simu yako."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Endelea"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Hakuna maelezo ya dharura yaliyotolewa"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Hatuna maelezo kuhusu mwenye simu hii"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Ikiwa hii ni simu yako, gonga aikoni ya penseli ili uongeze maelezo ambayo yataonekana hapa wakati wa dharura."</string>
     <string name="clear_all" msgid="8899013032870561633">"Futa yote"</string>
     <string name="clear" msgid="3648880442502887163">"Futa"</string>
-    <string name="clear_all_message" msgid="1548432000373861295">"Ungependa kufuta maelezo na anwani zote?"</string>
+    <string name="clear_all_message" msgid="1548432000373861295">"Je, ungependa kufuta maelezo na anwani zote?"</string>
 </resources>

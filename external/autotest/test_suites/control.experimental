@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "experimental"
 PURPOSE = "Staging ground for BVT candidates"
-CRITERIA = "Failures in this suite do not block release of a build"
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

@@ -80,12 +80,56 @@
                 android:textColor="@color/program_guide_table_detail_time_text_color" />
 
             <include layout="@layout/program_track_meta"
+                android:id="@+id/program_track_meta"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignBottom="@id/time"
                 android:layout_toEndOf="@id/time"
                 android:layout_marginStart="@dimen/program_guide_table_detail_meta_margin_start"
                 android:layout_marginBottom="@dimen/program_guide_table_detail_meta_margin_bottom" />
+
+            <LinearLayout android:id="@+id/dvr_indicator"
+                android:orientation="horizontal"
+                android:layout_alignBottom="@id/time"
+                android:layout_toEndOf="@id/program_track_meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:visibility="gone" >
+
+                <ImageView android:id="@+id/dvr_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/program_guide_table_detail_dvr_drawable_padding"
+                    android:layout_marginTop="@dimen/program_guide_table_detail_dvr_icon_margin_top"
+                    android:layout_gravity="center" />
+
+                <TextView android:id="@+id/dvr_text_icon"
+                    style="@style/track_meta_text"
+                    android:text="@string/dvr_epg_program_icon_text"
+                    android:layout_marginEnd="@dimen/program_guide_table_detail_dvr_drawable_padding"
+                    android:layout_marginTop="@dimen/program_guide_table_detail_dvr_icon_margin_top"
+                    android:layout_gravity="center"
+                    android:visibility="gone" />
+
+                <TextView android:id="@+id/dvr_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:textSize="@dimen/program_guide_table_detail_dvr_text_size"
+                    android:textColor="@color/program_guide_table_detail_dvr_text_color" />
+            </LinearLayout>
+
+            <!-- layout for the rotten tomatoes score -->
+            <LinearLayout
+                android:id="@+id/critic_scores"
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignBottom="@id/time"
+                android:layout_toEndOf="@id/dvr_indicator"
+                android:layout_marginStart="@dimen/program_guide_table_detail_critic_scores_margin_start" >
+            </LinearLayout>
 
             <LinearLayout
                 android:orientation="horizontal"

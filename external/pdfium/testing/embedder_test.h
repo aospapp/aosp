@@ -51,12 +51,9 @@ class EmbedderTest : public ::testing::Test,
     virtual void KillTimer(int id) {}
 
     // Equivalent to FPDF_FORMFILLINFO::FFI_GetPage().
-    virtual FPDF_PAGE GetPage(FPDF_FORMHANDLE form_handle,
+    virtual FPDF_PAGE GetPage(FPDF_FORMFILLINFO* info,
                               FPDF_DOCUMENT document,
                               int page_index);
-
-   private:
-    std::map<int, FPDF_PAGE> m_pageMap;
   };
 
   EmbedderTest();
@@ -88,6 +85,7 @@ class EmbedderTest : public ::testing::Test,
   // The filename is relative to the test data directory where we store all the
   // test files.
   virtual bool OpenDocument(const std::string& filename,
+                            const char* password = nullptr,
                             bool must_linearize = false);
 
   // Perform JavaScript actions that are to run at document open time.
@@ -100,16 +98,18 @@ class EmbedderTest : public ::testing::Test,
   // Load a specific page of the open document.
   virtual FPDF_PAGE LoadPage(int page_number);
 
-  // Load a specific page of the open document using delegate_->GetPage.
-  // delegate_->GetPage also caches loaded page.
-  virtual FPDF_PAGE LoadAndCachePage(int page_number);
-
   // Convert a loaded page into a bitmap.
   virtual FPDF_BITMAP RenderPage(FPDF_PAGE page);
 
   // Relese the resources obtained from LoadPage(). Further use of |page|
   // is prohibited after this call is made.
   virtual void UnloadPage(FPDF_PAGE page);
+
+  // Check |bitmap| to make sure it has the right dimensions and content.
+  static void CompareBitmap(FPDF_BITMAP bitmap,
+                            int expected_width,
+                            int expected_height,
+                            const char* expected_md5sum);
 
  protected:
   void SetupFormFillEnvironment();
@@ -124,13 +124,13 @@ class EmbedderTest : public ::testing::Test,
   FX_FILEAVAIL file_avail_;
 #ifdef PDF_ENABLE_V8
   v8::Platform* platform_;
-  v8::StartupData natives_;
-  v8::StartupData snapshot_;
 #endif  // PDF_ENABLE_V8
   void* external_isolate_;
   TestLoader* loader_;
   size_t file_length_;
   std::unique_ptr<char, pdfium::FreeDeleter> file_contents_;
+  std::map<int, FPDF_PAGE> page_map_;
+  std::map<FPDF_PAGE, int> page_reverse_map_;
 
  private:
   static void UnsupportedHandlerTrampoline(UNSUPPORT_INFO*, int type);

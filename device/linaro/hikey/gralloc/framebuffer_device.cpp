@@ -94,9 +94,11 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 #define FBIO_WAITFORVSYNC       _IOW('F', 0x20, __u32)
 #define S3CFB_SET_VSYNC_INT _IOW('F', 206, unsigned int)
 
-		if (ioctl(m->framebuffer->fd, FBIOPAN_DISPLAY, &m->info) == -1)
+		int fbdev_fd = m->framebuffer->shallow_fbdev_fd;
+
+		if (ioctl(fbdev_fd, FBIOPAN_DISPLAY, &m->info) == -1)
 		{
-			AERR("FBIOPAN_DISPLAY failed for fd: %d", m->framebuffer->fd);
+			AERR("FBIOPAN_DISPLAY failed for fd: %d", fbdev_fd);
 			m->base.unlock(&m->base, buffer);
 			return 0;
 		}
@@ -106,9 +108,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 			// enable VSYNC
 			interrupt = 1;
 
-			if (ioctl(m->framebuffer->fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
+			if (ioctl(fbdev_fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
 			{
-				//      AERR("S3CFB_SET_VSYNC_INT enable failed for fd: %d", m->framebuffer->fd);
+				//      AERR("S3CFB_SET_VSYNC_INT enable failed for fd: %d", fbdev_fd);
 				return 0;
 			}
 
@@ -118,9 +120,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 #endif
 			int crtc = 0;
 
-			if (ioctl(m->framebuffer->fd, FBIO_WAITFORVSYNC, &crtc) < 0)
+			if (ioctl(fbdev_fd, FBIO_WAITFORVSYNC, &crtc) < 0)
 			{
-				AERR("FBIO_WAITFORVSYNC failed for fd: %d", m->framebuffer->fd);
+				AERR("FBIO_WAITFORVSYNC failed for fd: %d", fbdev_fd);
 #ifdef MALI_VSYNC_EVENT_REPORT_ENABLE
 				gralloc_mali_vsync_report(MALI_VSYNC_EVENT_END_WAIT);
 #endif
@@ -133,9 +135,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 			// disable VSYNC
 			interrupt = 0;
 
-			if (ioctl(m->framebuffer->fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
+			if (ioctl(fbdev_fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
 			{
-				AERR("S3CFB_SET_VSYNC_INT disable failed for fd: %d", m->framebuffer->fd);
+				AERR("S3CFB_SET_VSYNC_INT disable failed for fd: %d", fbdev_fd);
 				return 0;
 			}
 		}
@@ -146,9 +148,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 		gralloc_mali_vsync_report(MALI_VSYNC_EVENT_BEGIN_WAIT);
 #endif
 
-		if (ioctl(m->framebuffer->fd, FBIOPUT_VSCREENINFO, &m->info) == -1)
+		if (ioctl(fbdev_fd, FBIOPUT_VSCREENINFO, &m->info) == -1)
 		{
-			AERR("FBIOPUT_VSCREENINFO failed for fd: %d", m->framebuffer->fd);
+			AERR("FBIOPUT_VSCREENINFO failed for fd: %d", fbdev_fd);
 #ifdef MALI_VSYNC_EVENT_REPORT_ENABLE
 			gralloc_mali_vsync_report(MALI_VSYNC_EVENT_END_WAIT);
 #endif
@@ -383,7 +385,7 @@ int init_frame_buffer_locked(struct private_module_t *module)
 
 	// Create a "fake" buffer object for the entire frame buffer memory, and store it in the module
 	module->framebuffer = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, 0, fbSize, vaddr,
-	        0, dup(fd), 0);
+	        0, fd, 0);
 
 	module->numBuffers = info.yres_virtual / info.yres;
 	module->bufferMask = 0;

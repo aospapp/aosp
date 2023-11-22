@@ -85,23 +85,35 @@ class ProjectHostingApiClient():
     _start_index = 1
 
 
-    def __init__(self, oauth_credentials, project_name):
+    def __init__(self, oauth_credentials, project_name,
+                 monorail_server='staging'):
         if apiclient_build is None:
             raise ProjectHostingApiException('Cannot get apiclient library.')
 
         if not oauth_credentials:
             raise ProjectHostingApiException('No oauth_credentials is provided.')
 
-        storage = oauth_client_fileio.Storage(oauth_credentials)
-        credentials = storage.get()
+        # TODO(akeshet): This try-except is due to incompatibility of phapi_lib
+        # with oauth2client > 2. Until this is fixed, this is expected to fail
+        # and bug filing will be effectively disabled. crbug.com/648489
+        try:
+          storage = oauth_client_fileio.Storage(oauth_credentials)
+          credentials = storage.get()
+        except Exception as e:
+          raise ProjectHostingApiException('Incompaible credentials format, '
+                                           'or other exception. Will not file '
+                                           'bugs.')
         if credentials is None or credentials.invalid:
             raise ProjectHostingApiException('Invalid credentials for Project '
                                              'Hosting api. Cannot file bugs.')
 
         http = credentials.authorize(httplib2.Http())
         try:
-            self._codesite_service = apiclient_build('projecthosting',
-                                                     'v2', http=http)
+            url = ('https://monorail-%s.appspot.com/_ah/api/discovery/v1/'
+                   'apis/{api}/{apiVersion}/rest' % monorail_server)
+            self._codesite_service = apiclient_build(
+                "monorail", "v1", http=http,
+                discoveryServiceUrl=url)
         except (apiclient_errors.Error, httplib2.HttpLib2Error,
                 httplib.BadStatusLine) as e:
             raise ProjectHostingApiException(str(e))
@@ -352,7 +364,8 @@ class ProjectHostingApiClient():
                                 'description': 'bug description',
                                 'labels': ['Type-Bug'],
                                 'owner': {'name': 'owner@'},
-                                'cc': [{'name': 'cc1'}, {'name': 'cc2'}]
+                                'cc': [{'name': 'cc1'}, {'name': 'cc2'}],
+                                'components': ["Internals->Components"]
                              }
                              Note the title and descriptions fields of a
                              new bug are not optional, all other fields are.

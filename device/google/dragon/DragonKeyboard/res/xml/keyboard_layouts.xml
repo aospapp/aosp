@@ -34,7 +34,8 @@
             android:label="@string/keyboard_layout_dragon_english_us_intl_label"
             android:keyboardLayout="@raw/keyboard_layout_dragon_english_us_intl"
             androidprv:vendorId="0x18d1"
-            androidprv:productId="0x5018" />
+            androidprv:productId="0x5018"
+            androidprv:locale="fr-CA" />
     <keyboard-layout android:name="keyboard_layout_dragon_finnish"
             android:label="@string/keyboard_layout_dragon_finnish_label"
             android:keyboardLayout="@raw/keyboard_layout_dragon_swedish"

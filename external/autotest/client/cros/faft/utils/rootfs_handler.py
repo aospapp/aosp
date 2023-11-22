@@ -48,7 +48,8 @@ class RootfsHandler(object):
         table = match.group(1)
         partition_size = int(match.group(2)) * 512
 
-        assert 'PARTUUID=%U/PARTNROFF=1' in table
+        if table.find('PARTUUID=%U/PARTNROFF=1') < 0:
+            return False
         table = table.replace('PARTUUID=%U/PARTNROFF=1', rootfs_path)
         # Cause I/O error on invalid bytes
         table += ' error_behavior=eio'

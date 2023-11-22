@@ -11,22 +11,26 @@ from autotest_lib.client.cros.bluetooth import bluetooth_semiauto_helper
 
 
 class bluetooth_IDCheck(bluetooth_semiauto_helper.BluetoothSemiAutoHelper):
-    """Checks whether the Bluetooth ID is in the correct format."""
+    """Checks whether the Bluetooth ID and Alias are in the correct format."""
     version = 1
 
     # Boards which only support bluetooth version 3 and below
     _BLUETOOTH_3_BOARDS = ['x86-mario', 'x86-zgb']
 
     # Boards which are not shipped to customers and don't need an id.
-    _REFERENCE_ONLY = ['rambi', 'nyan']
+    _REFERENCE_ONLY = ['rambi', 'nyan', 'oak', 'reef']
 
     def warmup(self):
         """Overwrite parent warmup; no need to log in."""
         pass
 
-    def _check_id(self):
-        """Fail if the Bluetooth ID is not in the correct format."""
-        adapter_info = self._get_adapter_info()
+    def _check_id(self, adapter_info):
+        """Fail if the Bluetooth ID is not in the correct format.
+
+        @param adapter_info: a dict of information about this device's adapter
+        @raises: error.TestFail if incorrect format is found.
+
+        """
         modalias = adapter_info['Modalias']
         logging.info('Saw Bluetooth ID of: %s', modalias)
 
@@ -36,8 +40,24 @@ class bluetooth_IDCheck(bluetooth_semiauto_helper.BluetoothSemiAutoHelper):
             bt_format = 'bluetooth:v00E0p24..d0400'
 
         if not re.match(bt_format, modalias):
-            raise error.TestError('%s does not match expected format: %s '
+            raise error.TestFail('%s does not match expected format: %s'
                                  % (modalias, bt_format))
+
+    def _check_name(self, adapter_info):
+        """Fail if the Bluetooth name is not in the correct format.
+
+        @param adapter_info: a dict of information about this device's adapter
+        @raises: error.TestFail if incorrect format is found.
+
+        """
+        alias = adapter_info['Alias']
+        logging.info('Saw Bluetooth Alias of: %s', alias)
+
+        device_type = utils.get_device_type().lower()
+        alias_format = '%s_[a-z0-9]{4}' % device_type
+        if not re.match(alias_format, alias.lower()):
+            raise error.TestFail('%s does not match expected format: %s'
+                                 % (alias, alias_format))
 
     def run_once(self):
         """Entry point of this test."""
@@ -49,4 +69,6 @@ class bluetooth_IDCheck(bluetooth_semiauto_helper.BluetoothSemiAutoHelper):
             return
 
         self.poll_adapter_presence()
-        self._check_id()
+        adapter_info = self._get_adapter_info()
+        self._check_id(adapter_info)
+        self._check_name(adapter_info)

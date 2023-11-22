@@ -192,6 +192,7 @@ static char *help_CallBooleanMethod(JNIEnv *env, callType ct, ...) {
             "returnBoolean", "()Z");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -240,6 +241,7 @@ static char *help_CallBooleanMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -295,6 +297,7 @@ static char *help_CallByteMethod(JNIEnv *env, callType ct, ...) {
             "returnByte", "()B");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -343,6 +346,7 @@ static char *help_CallByteMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -398,6 +402,7 @@ static char *help_CallShortMethod(JNIEnv *env, callType ct, ...) {
             "returnShort", "()S");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -446,6 +451,7 @@ static char *help_CallShortMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -501,6 +507,7 @@ static char *help_CallCharMethod(JNIEnv *env, callType ct, ...) {
             "returnChar", "()C");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -549,6 +556,7 @@ static char *help_CallCharMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -604,6 +612,7 @@ static char *help_CallIntMethod(JNIEnv *env, callType ct, ...) {
             "returnInt", "()I");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -652,6 +661,7 @@ static char *help_CallIntMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -707,6 +717,7 @@ static char *help_CallLongMethod(JNIEnv *env, callType ct, ...) {
             "returnLong", "()J");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -755,6 +766,7 @@ static char *help_CallLongMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -810,6 +822,7 @@ static char *help_CallFloatMethod(JNIEnv *env, callType ct, ...) {
             "returnFloat", "()F");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -858,6 +871,7 @@ static char *help_CallFloatMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -913,6 +927,7 @@ static char *help_CallDoubleMethod(JNIEnv *env, callType ct, ...) {
             "returnDouble", "()D");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -961,6 +976,7 @@ static char *help_CallDoubleMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -1016,6 +1032,7 @@ static char *help_CallVoidMethod(JNIEnv *env, callType ct, ...) {
             "nop", "()V");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -1064,6 +1081,7 @@ static char *help_CallVoidMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -1119,6 +1137,7 @@ static char *help_CallObjectMethod(JNIEnv *env, callType ct, ...) {
             "returnString", "()Ljava/lang/String;");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -1171,6 +1190,7 @@ static char *help_CallObjectMethod(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -1240,6 +1260,7 @@ static char *help_TakeOneOfEach(JNIEnv *env, callType ct, ...) {
             "takeOneOfEach", "(DFJICSBZLjava/lang/String;)Z");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -1299,6 +1320,7 @@ static char *help_TakeOneOfEach(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }
@@ -1361,6 +1383,7 @@ static char *help_TakeCoolHandLuke(JNIEnv *env, callType ct, ...) {
             "(IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII)Z");
 
     if (method == NULL) {
+        va_end(args);
         return msg;
     }
 
@@ -1441,6 +1464,7 @@ static char *help_TakeCoolHandLuke(JNIEnv *env, callType ct, ...) {
             break;
         }
         default: {
+            va_end(args);
             return failure("shouldn't happen");
         }
     }

@@ -28,7 +28,6 @@ import android.content.DialogInterface.OnKeyListener;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.cts.util.PollingCheck;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.Rect;
@@ -51,6 +50,8 @@ import android.view.WindowManager;
 import android.widget.LinearLayout;
 
 import android.app.stubs.R;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.lang.ref.WeakReference;
 

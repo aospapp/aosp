@@ -9,36 +9,47 @@ from autotest_lib.client.bin import site_utils, test, utils
 from autotest_lib.client.common_lib import error
 
 class hardware_SsdDetection(test.test):
+    """Verify that a flash device is present. """
+
     version = 1
     # Keep a list of boards that are expected to ship with hard drive.
     boards_with_hdd = ['butterfly', 'kiev', 'parrot', 'stout']
 
     def setup(self):
-        # create a empty srcdir to prevent the error that checks .version file
+        """
+        create a empty srcdir to prevent the error that checks
+        .version file
+        """
         if not os.path.exists(self.srcdir):
             utils.system('mkdir %s' % self.srcdir)
 
 
     def run_once(self, check_link_speed=()):
-        # Use rootdev to find the underlying block device even if the
-        # system booted to /dev/dm-0.
+        """
+        Use rootdev to find the underlying block device even if the
+        system booted to /dev/dm-0.
+        """
         device = site_utils.get_root_device()
 
-        # Check the device is fixed
+        def is_fixed(dev):
+            """ Check the device is fixed.
 
-        def IsFixed(dev):
+            @param dev: device to check, i.e. 'sda'.
+            """
             sysfs_path = '/sys/block/%s/removable' % dev
             return (os.path.exists(sysfs_path) and
                     open(sysfs_path).read().strip() == '0')
 
-        alpha_re = re.compile(r'^/dev/([a-zA-Z]+)$')
-        alnum_re = re.compile(r'^/dev/([a-zA-Z]+[0-9]+)$')
-        dev = alpha_re.findall(device) + alnum_re.findall(device)
-        if len(dev) != 1 or not IsFixed(dev[0]):
+        # Catch device name like sda, mmcblk0, nvme0n1.
+        device_re = re.compile(r'^/dev/([a-zA-Z0-9]+)$')
+        dev = device_re.findall(device)
+        if len(dev) != 1 or not is_fixed(dev[0]):
             raise error.TestFail('The main disk %s is not fixed' % dev)
 
-        # If it is an mmcblk device, then it is SSD.
+        # If it is an mmcblk or nvme device, then it is SSD.
         # Else run hdparm to check for SSD.
+        if re.search("nvme", device):
+            return
 
         if re.search("mmcblk", device):
             return

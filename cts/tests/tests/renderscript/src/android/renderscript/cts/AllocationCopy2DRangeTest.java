@@ -55,6 +55,9 @@ public class AllocationCopy2DRangeTest extends RSBaseCompute {
         mOutAllocation.copyTo(outArray);
         assertTrue("testAllocationCopy2DRange failed, output array does not match input",
                 compareTwoArrays(inArray, outArray, width*height));
+
+        mInAllocation.destroy();
+        mOutAllocation.destroy();
     }
 
     private boolean compareTwoArrays(int[] src, int[] dest, int size) {

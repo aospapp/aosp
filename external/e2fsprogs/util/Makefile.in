@@ -17,10 +17,17 @@ SRCS = $(srcdir)/subst.c
 	$(E) "	CC $<"
 	$(Q) $(BUILD_CC) -c $(BUILD_CFLAGS) $< -o $@
 	$(Q) $(CHECK_CMD) $(ALL_CFLAGS) $<
+	$(Q) $(CPPCHECK_CMD) $(CPPFLAGS) $<
 
 PROGS=		subst symlinks
 
 all:: $(PROGS) gen-tarball
+
+dirpaths.h:
+	$(E) "	CREATE dirpaths.h"
+	$(Q) echo "/* fake dirpaths.h for config.h */" > dirpaths.h
+
+subst.o: dirpaths.h
 
 subst: subst.o
 	$(E) "	LD $@"
@@ -44,9 +51,9 @@ tarballs: gen-tarball
 	sh gen-tarball all
 	sh gen-tarball subset
 
-clean:
+clean::
 	$(RM) -f $(PROGS) \#* *.s *.o *.a *~ core *.tar.gz gen-tarball \
-		copy-sparse
+		copy-sparse dirpaths.h install-symlink
 
 mostlyclean: clean
 
@@ -58,4 +65,4 @@ distclean: clean
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-subst.o: $(srcdir)/subst.c
+subst.o: $(srcdir)/subst.c $(top_builddir)/lib/config.h dirpaths.h

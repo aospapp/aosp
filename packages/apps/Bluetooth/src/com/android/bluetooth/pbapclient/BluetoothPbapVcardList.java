@@ -60,7 +60,7 @@ class BluetoothPbapVcardList {
     private void parse(InputStream in, byte format) throws IOException {
         VCardParser parser;
 
-        if (format == BluetoothPbapClient.VCARD_TYPE_30) {
+        if (format == PbapClientConnectionHandler.VCARD_TYPE_30) {
             parser = new VCardParser_V30();
         } else {
             parser = new VCardParser_V21();

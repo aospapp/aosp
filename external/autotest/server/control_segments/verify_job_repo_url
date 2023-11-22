@@ -7,7 +7,7 @@ def install(machine):
         return
 
     logging.info('Verifying job repo url for machine %s', machine)
-    host = hosts.create_host(machine, initialize=False, auto_monitor=False)
+    host = hosts.create_host(machine)
     host.verify_job_repo_url(job.tag)
 
 

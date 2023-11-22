@@ -20,24 +20,23 @@ This file generates all telemetry_Benchmarks control files from a master list.
 # For adding a new test to any of these lists, please add rohitbm, lafeenstra,
 # haddowk in the change.
 
-PERF_TESTS = [
+PERF_PER_BUILD_TESTS = (
     'jetstream',
     'kraken',
     'octane',
-    'page_cycler.typical_25',
-    'session_restore.cold.typical_25',
     'smoothness.top_25_smooth',
     'speedometer',
     'startup.cold.blank_page',
-]
+)
 
-PERF_DAILY_RUN_TESTS = [
+PERF_DAILY_RUN_TESTS = (
     'dromaeo.domcoreattr',
     'dromaeo.domcoremodify',
     'dromaeo.domcorequery',
     'dromaeo.domcoretraverse',
     'image_decoding.image_decoding_measurement',
     'memory.top_7_stress',
+    'page_cycler_v2.typical_25',
     'robohornet_pro',
     'smoothness.tough_animation_cases',
     'smoothness.tough_canvas_cases',
@@ -47,8 +46,15 @@ PERF_DAILY_RUN_TESTS = [
     'smoothness.tough_webgl_cases',
     'sunspider',
     'tab_switching.top_10',
-    'webrtc.webrtc_cases',
-]
+    'webrtc.peerconnection',
+    'webrtc.stress',
+)
+
+PERF_NO_SUITE = (
+    'page_cycler.typical_25',
+)
+
+ALL_TESTS = PERF_PER_BUILD_TESTS + PERF_DAILY_RUN_TESTS + PERF_NO_SUITE
 
 CONTROLFILE_TEMPLATE = (
 """# Copyright 2014 The Chromium OS Authors. All rights reserved.
@@ -60,8 +66,8 @@ CONTROLFILE_TEMPLATE = (
 from autotest_lib.client.common_lib import utils
 
 AUTHOR = 'sbasi, achuith, rohitbm'
-NAME = 'telemetry_Benchmarks.{1}'
-SUITE = '{0}'
+NAME = 'telemetry_Benchmarks.{test}'
+{attributes}
 TIME = 'LONG'
 TEST_CATEGORY = 'Benchmark'
 TEST_CLASS = 'performance'
@@ -69,7 +75,7 @@ TEST_TYPE = 'server'
 
 DOC = '''
 This server side test suite executes the Telemetry Benchmark:
-{1}
+{test}
 This is part of Chrome for Chrome OS performance testing.
 
 Pass local=True to run with local telemetry and no AFE server.
@@ -78,17 +84,25 @@ Pass local=True to run with local telemetry and no AFE server.
 def run_benchmark(machine):
     host = hosts.create_host(machine)
     job.run_test('telemetry_Benchmarks', host=host,
-                 benchmark='{1}',
-                 tag='{1}',
+                 benchmark='{test}',
+                 tag='{test}',
                  args=utils.args_to_dict(args))
 
 parallel_simple(run_benchmark, machines)""")
 
-for test in PERF_TESTS + PERF_DAILY_RUN_TESTS:
+
+def _get_suite(test):
+    if test in PERF_PER_BUILD_TESTS:
+        return 'ATTRIBUTES = \'suite:crosbolt_perf_perbuild\''
+    elif test in PERF_DAILY_RUN_TESTS:
+        return 'ATTRIBUTES = \'suite:crosbolt_perf_nightly\''
+    return ''
+
+
+for test in ALL_TESTS:
     filename = 'control.%s' % test
     with open(filename, 'w+') as f:
-        if test in PERF_TESTS:
-            content = CONTROLFILE_TEMPLATE.format('crosbolt_perf_perbuild', test)
-        else:
-            content = CONTROLFILE_TEMPLATE.format('crosbolt_perf_nightly', test)
+        content = CONTROLFILE_TEMPLATE.format(
+                test=test,
+                attributes=_get_suite(test))
         f.write(content)

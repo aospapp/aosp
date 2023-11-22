@@ -28,10 +28,9 @@ namespace bluetooth {
 class ScanResult {
  public:
   ScanResult(const std::string& device_address,
-             const std::vector<uint8_t> scan_record,
-             int rssi);
+             const std::vector<uint8_t>& scan_record, int rssi);
   ScanResult() = default;
-  ~ScanResult() = default;
+  virtual ~ScanResult() = default;
 
   // Returns the remote BD_ADDR associated with this scan result.
   const std::string& device_address() const { return device_address_; }
@@ -46,7 +45,7 @@ class ScanResult {
   // Comparison operator.
   bool operator==(const ScanResult& rhs) const;
 
- private:
+ protected:
   std::string device_address_;
   std::vector<uint8_t> scan_record_;
   int rssi_;

@@ -14,33 +14,48 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="match_parent">
 
-    <TextView android:id="@+id/headerview1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/header_view" />
-
-    <TextView android:id="@+id/headerview2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/header_view" />
-
-    <ListView android:id="@+id/listview_default"
+    <!-- This child is marked as GONE so that it won't interfere with the visuals of our
+         ListView on the screen. It's here to "hold" views that will be used as headers and
+         footers for the relevant tests. -->
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <TextView android:id="@+id/footerview1"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/footer_view" />
+        android:visibility="gone">
 
-    <TextView android:id="@+id/footerview2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/footer_view" />
-</LinearLayout>
+        <TextView
+            android:id="@+id/headerview1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/header_view" />
+
+        <TextView
+            android:id="@+id/headerview2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/header_view" />
+
+        <TextView
+            android:id="@+id/footerview1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/footer_view" />
+
+        <TextView
+            android:id="@+id/footerview2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/footer_view" />
+    </FrameLayout>
+
+    <ListView
+        android:id="@+id/listview_default"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+</FrameLayout>
 

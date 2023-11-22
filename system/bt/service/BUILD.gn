@@ -16,40 +16,43 @@
 
 source_set("service") {
   sources = [
-    "adapter.cpp",
-    "daemon.cpp",
-    "gatt_client.cpp",
-    "gatt_server.cpp",
-    "gatt_server_old.cpp",
-    "logging_helpers.cpp",
-    "low_energy_client.cpp",
-    "settings.cpp",
-    "common/bluetooth/advertise_data.cpp",
-    "common/bluetooth/adapter_state.cpp",
-    "common/bluetooth/uuid.cpp",
-    "common/bluetooth/scan_filter.cpp",
-    "common/bluetooth/scan_result.cpp",
-    "common/bluetooth/scan_settings.cpp",
-    "common/bluetooth/gatt_identifier.cpp",
-    "common/bluetooth/advertise_settings.cpp",
-    "common/bluetooth/util/atomic_string.cpp",
-    "common/bluetooth/util/address_helper.cpp",
-    "hal/bluetooth_interface.cpp",
-    "hal/bluetooth_gatt_interface.cpp",
-    "hal/fake_bluetooth_gatt_interface.cpp",
-    "hal/fake_bluetooth_interface.cpp",
-    "hal/gatt_helpers.cpp",
-    "ipc/ipc_handler.cpp",
-    "ipc/linux_ipc_host.cpp",
-    "ipc/ipc_manager.cpp",
-    "ipc/ipc_handler_linux.cpp",
+    "adapter.cc",
+    "common/bluetooth/adapter_state.cc",
+    "common/bluetooth/advertise_data.cc",
+    "common/bluetooth/advertise_settings.cc",
+    "common/bluetooth/characteristic.cc",
+    "common/bluetooth/descriptor.cc",
+    "common/bluetooth/scan_filter.cc",
+    "common/bluetooth/scan_result.cc",
+    "common/bluetooth/scan_settings.cc",
+    "common/bluetooth/service.cc",
+    "common/bluetooth/util/address_helper.cc",
+    "common/bluetooth/util/atomic_string.cc",
+    "common/bluetooth/uuid.cc",
+    "daemon.cc",
+    "gatt_client.cc",
+    "gatt_server.cc",
+    "gatt_server_old.cc",
+    "hal/bluetooth_gatt_interface.cc",
+    "hal/bluetooth_interface.cc",
+    "hal/fake_bluetooth_gatt_interface.cc",
+    "hal/fake_bluetooth_interface.cc",
+    "ipc/ipc_handler.cc",
+    "ipc/ipc_handler_linux.cc",
+    "ipc/ipc_manager.cc",
+    "ipc/linux_ipc_host.cc",
+    "logging_helpers.cc",
+    "low_energy_advertiser.cc",
+    "low_energy_scanner.cc",
+    "low_energy_client.cc",
+    "settings.cc",
   ]
 
   include_dirs = [
     "//",
     "//service/common",
     "//third_party/modp_b64/modp64",
-    libhw_include_path,
+    "//third_party/libhardware/include",
   ]
 
   deps = [
@@ -59,7 +62,7 @@ source_set("service") {
 
 executable("bluetoothtbd") {
   sources = [
-    "main.cpp",
+    "main.cc",
   ]
 
   deps = [
@@ -81,10 +84,9 @@ executable("bluetoothtbd") {
 executable("service_unittests") {
   testonly = true
   sources = [
-    "test/fake_hal_util.cpp",
-    "test/ipc_linux_unittest.cpp",
-    "test/settings_unittest.cpp",
-    "test/uuid_unittest.cpp",
+    "test/fake_hal_util.cc",
+    "test/settings_unittest.cc",
+    "test/uuid_unittest.cc",
   ]
 
   include_dirs = [ "//" ]

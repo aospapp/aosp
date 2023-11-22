@@ -32,28 +32,28 @@
 #define AES_H
 
 #if 1
-#  define AES_ENC_PREKEYED  /* AES encryption with a precomputed key schedule  */
+#define AES_ENC_PREKEYED /* AES encryption with a precomputed key schedule  */
 #endif
 #if 1
-#  define AES_DEC_PREKEYED  /* AES decryption with a precomputed key schedule  */
+#define AES_DEC_PREKEYED /* AES decryption with a precomputed key schedule  */
 #endif
 #if 1
-#  define AES_ENC_128_OTFK  /* AES encryption with 'on the fly' 128 bit keying */
+#define AES_ENC_128_OTFK /* AES encryption with 'on the fly' 128 bit keying */
 #endif
 #if 1
-#  define AES_DEC_128_OTFK  /* AES decryption with 'on the fly' 128 bit keying */
+#define AES_DEC_128_OTFK /* AES decryption with 'on the fly' 128 bit keying */
 #endif
 #if 1
-#  define AES_ENC_256_OTFK  /* AES encryption with 'on the fly' 256 bit keying */
+#define AES_ENC_256_OTFK /* AES encryption with 'on the fly' 256 bit keying */
 #endif
 #if 1
-#  define AES_DEC_256_OTFK  /* AES decryption with 'on the fly' 256 bit keying */
+#define AES_DEC_256_OTFK /* AES decryption with 'on the fly' 256 bit keying */
 #endif
 
-#define N_ROW                   4
-#define N_COL                   4
-#define N_BLOCK   (N_ROW * N_COL)
-#define N_MAX_ROUNDS           14
+#define N_ROW 4
+#define N_COL 4
+#define N_BLOCK (N_ROW * N_COL)
+#define N_MAX_ROUNDS 14
 
 typedef unsigned char uint_8t;
 
@@ -65,9 +65,9 @@ typedef uint_8t return_type;
 
 typedef uint_8t length_type;
 
-typedef struct
-{   uint_8t ksch[(N_MAX_ROUNDS + 1) * N_BLOCK];
-    uint_8t rnd;
+typedef struct {
+  uint_8t ksch[(N_MAX_ROUNDS + 1) * N_BLOCK];
+  uint_8t rnd;
 } aes_context;
 
 /*  The following calls are for a precomputed key schedule
@@ -78,37 +78,30 @@ typedef struct
     128, 192, 16, 24 and 32).
 */
 
-#if defined( AES_ENC_PREKEYED ) || defined( AES_DEC_PREKEYED )
+#if defined(AES_ENC_PREKEYED) || defined(AES_DEC_PREKEYED)
 
-return_type aes_set_key( const unsigned char key[],
-                         length_type keylen,
-                         aes_context ctx[1] );
+return_type aes_set_key(const unsigned char key[], length_type keylen,
+                        aes_context ctx[1]);
 #endif
 
-#if defined( AES_ENC_PREKEYED )
+#if defined(AES_ENC_PREKEYED)
 
-return_type aes_encrypt( const unsigned char in[N_BLOCK],
-                         unsigned char out[N_BLOCK],
-                         const aes_context ctx[1] );
+return_type aes_encrypt(const unsigned char in[N_BLOCK],
+                        unsigned char out[N_BLOCK], const aes_context ctx[1]);
 
-return_type aes_cbc_encrypt( const unsigned char *in,
-                         unsigned char *out,
-                         int n_block,
-                         unsigned char iv[N_BLOCK],
-                         const aes_context ctx[1] );
+return_type aes_cbc_encrypt(const unsigned char* in, unsigned char* out,
+                            int n_block, unsigned char iv[N_BLOCK],
+                            const aes_context ctx[1]);
 #endif
 
-#if defined( AES_DEC_PREKEYED )
+#if defined(AES_DEC_PREKEYED)
 
-return_type aes_decrypt( const unsigned char in[N_BLOCK],
-                         unsigned char out[N_BLOCK],
-                         const aes_context ctx[1] );
+return_type aes_decrypt(const unsigned char in[N_BLOCK],
+                        unsigned char out[N_BLOCK], const aes_context ctx[1]);
 
-return_type aes_cbc_decrypt( const unsigned char *in,
-                         unsigned char *out,
-                         int n_block,
-                         unsigned char iv[N_BLOCK],
-                         const aes_context ctx[1] );
+return_type aes_cbc_decrypt(const unsigned char* in, unsigned char* out,
+                            int n_block, unsigned char iv[N_BLOCK],
+                            const aes_context ctx[1]);
 #endif
 
 /*  The following calls are for 'on the fly' keying.  In this case the
@@ -131,32 +124,31 @@ return_type aes_cbc_decrypt( const unsigned char *in,
     modes.
 */
 
-#if defined( AES_ENC_128_OTFK )
-void aes_encrypt_128( const unsigned char in[N_BLOCK],
-                      unsigned char out[N_BLOCK],
-                      const unsigned char key[N_BLOCK],
-                      uint_8t o_key[N_BLOCK] );
+#if defined(AES_ENC_128_OTFK)
+void aes_encrypt_128(const unsigned char in[N_BLOCK],
+                     unsigned char out[N_BLOCK],
+                     const unsigned char key[N_BLOCK], uint_8t o_key[N_BLOCK]);
 #endif
 
-#if defined( AES_DEC_128_OTFK )
-void aes_decrypt_128( const unsigned char in[N_BLOCK],
-                      unsigned char out[N_BLOCK],
-                      const unsigned char key[N_BLOCK],
-                      unsigned char o_key[N_BLOCK] );
+#if defined(AES_DEC_128_OTFK)
+void aes_decrypt_128(const unsigned char in[N_BLOCK],
+                     unsigned char out[N_BLOCK],
+                     const unsigned char key[N_BLOCK],
+                     unsigned char o_key[N_BLOCK]);
 #endif
 
-#if defined( AES_ENC_256_OTFK )
-void aes_encrypt_256( const unsigned char in[N_BLOCK],
-                      unsigned char out[N_BLOCK],
-                      const unsigned char key[2 * N_BLOCK],
-                      unsigned char o_key[2 * N_BLOCK] );
+#if defined(AES_ENC_256_OTFK)
+void aes_encrypt_256(const unsigned char in[N_BLOCK],
+                     unsigned char out[N_BLOCK],
+                     const unsigned char key[2 * N_BLOCK],
+                     unsigned char o_key[2 * N_BLOCK]);
 #endif
 
-#if defined( AES_DEC_256_OTFK )
-void aes_decrypt_256( const unsigned char in[N_BLOCK],
-                      unsigned char out[N_BLOCK],
-                      const unsigned char key[2 * N_BLOCK],
-                      unsigned char o_key[2 * N_BLOCK] );
+#if defined(AES_DEC_256_OTFK)
+void aes_decrypt_256(const unsigned char in[N_BLOCK],
+                     unsigned char out[N_BLOCK],
+                     const unsigned char key[2 * N_BLOCK],
+                     unsigned char o_key[2 * N_BLOCK]);
 #endif
 
 #endif

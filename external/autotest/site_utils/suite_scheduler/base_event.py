@@ -6,6 +6,8 @@ import logging
 
 import common
 from autotest_lib.client.common_lib import priorities
+from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.server import utils
 
 
 """Module containing base class and methods for working with scheduler events.
@@ -17,14 +19,22 @@ from autotest_lib.client.common_lib import priorities
 
 _SECTION_SUFFIX = '_params'
 
+# Pattern of latest Launch Control build for a branch and a target.
+_LATEST_LAUNCH_CONTROL_BUILD_FMT = '%s/%s/LATEST'
 
 def SectionName(keyword):
-    """Generate a section name for a *Event config stanza."""
+    """Generate a section name for a *Event config stanza.
+
+    @param keyword: Name of the event, e.g., nightly, weekly etc.
+    """
     return keyword + _SECTION_SUFFIX
 
 
 def HonoredSection(section):
-    """Returns True if section is something _ParseConfig() might consume."""
+    """Returns True if section is something _ParseConfig() might consume.
+
+    @param section: Name of the config section.
+    """
     return section.endswith(_SECTION_SUFFIX)
 
 
@@ -61,7 +71,12 @@ class BaseEvent(object):
 
     @classmethod
     def CreateFromConfig(cls, config, manifest_versions):
-        """Instantiate a cls object, options from |config|."""
+        """Instantiate a cls object, options from |config|.
+
+        @param config: A ForgivingConfigParser instance.
+        @param manifest_versions: ManifestVersions instance used to query for
+                new builds, etc.
+        """
         return cls(manifest_versions, **cls._ParseConfig(config))
 
 
@@ -100,7 +115,23 @@ class BaseEvent(object):
 
     @property
     def tasks(self):
+        """Getter for private |self._tasks| property."""
         return self._tasks
+
+
+    @property
+    def launch_control_branches_targets(self):
+        """Get a dict of branch:targets for Launch Control from all tasks.
+
+        branch: Name of a Launch Control branch.
+        targets: A list of targets for the given branch.
+        """
+        branches = {}
+        for task in self._tasks:
+            for branch in task.launch_control_branches:
+                branches.setdefault(branch, []).extend(
+                        task.launch_control_targets)
+        return branches
 
 
     @tasks.setter
@@ -146,6 +177,20 @@ class BaseEvent(object):
         raise NotImplementedError()
 
 
+    def GetLaunchControlBuildsForBoard(self, board):
+        """Get per-branch, per-board builds since last run of this event.
+
+        @param board: the board whose builds we want.
+
+        @return: A list of Launch Control builds for the given board, e.g.,
+                ['git_mnc_release/shamu-eng/123',
+                 'git_mnc_release/shamu-eng/124'].
+
+        Must be implemented by subclasses.
+        """
+        raise NotImplementedError()
+
+
     def ShouldHandle(self):
         """Returns True if this BaseEvent should be Handle()'d, False if not.
 
@@ -174,7 +219,8 @@ class BaseEvent(object):
         return list(self.tasks)
 
 
-    def Handle(self, scheduler, branch_builds, board, force=False):
+    def Handle(self, scheduler, branch_builds, board, force=False,
+               launch_control_builds=None):
         """Runs all tasks in self._tasks that if scheduled, can be
         successfully run.
 
@@ -187,14 +233,44 @@ class BaseEvent(object):
                                'factory': ['x86-alex-factory/R19-2077.0.5']}
         @param board: the board against which to Run() all of self._tasks.
         @param force: Tell every Task to always Run().
+        @param launch_control_builds: A list of Launch Control builds.
         """
         logging.info('Handling %s for %s', self.keyword, board)
         # we need to iterate over an immutable copy of self._tasks
-        for task in self.FilterTasks():
+        tasks = list(self.tasks) if force else self.FilterTasks()
+        for task in tasks:
             if task.AvailableHosts(scheduler, board):
                 if not task.Run(scheduler, branch_builds, board, force,
-                                self._mv):
+                                self._mv, launch_control_builds):
                     self._tasks.remove(task)
             elif task.ShouldHaveAvailableHosts():
                 logging.warning('Skipping %s on %s, due to lack of hosts.',
                                 task, board)
+
+
+    def _LatestLaunchControlBuilds(self, board):
+        """Get latest per-branch, per-board builds.
+
+        @param board: the board whose builds we want, e.g., shamu.
+
+        @return: A list of Launch Control builds for the given board, e.g.,
+                ['git_mnc_release/shamu-eng/123',
+                 'git_mnc_release/shamu-eng/124'].
+        """
+        # Translate board name to the actual board name in build target.
+        board = utils.ANDROID_BOARD_TO_TARGET_MAP.get(board, board)
+        # Pick a random devserver based on tick, this is to help load balancing
+        # across all devservers.
+        devserver = dev_server.AndroidBuildServer.random()
+        builds = []
+        for branch, targets in self.launch_control_branches_targets.items():
+            # targets is a list of Launch Control targets, e.g., shamu-eng.
+            # The first part should match the board name.
+            match_targets = [
+                    t for t in targets
+                    if board == utils.parse_launch_control_target(t)[0]]
+            for target in match_targets:
+                latest_build = (_LATEST_LAUNCH_CONTROL_BUILD_FMT %
+                                (branch, target))
+                builds.append(devserver.translate(latest_build))
+        return builds

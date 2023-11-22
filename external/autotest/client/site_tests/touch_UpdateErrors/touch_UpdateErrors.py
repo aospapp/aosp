@@ -18,7 +18,10 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
                        'x86-mario', 'stout']
 
     # Devices which have errors in older builds but not newer ones.
-    _IGNORE_OLDER_LOGS = ['expresso', 'enguarde', 'cyan']
+    _IGNORE_OLDER_LOGS = ['expresso', 'enguarde', 'cyan', 'wizpig']
+
+    # Devices which have errors in the first build after update.
+    _IGNORE_AFTER_UPDATE_LOGS = ['link']
 
     def _find_logs_start_line(self):
         """Find where in /var/log/messages this build's logs start.
@@ -33,7 +36,8 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
         @returns: string of the line number to start looking at logs
 
         """
-        if self._platform not in self._IGNORE_OLDER_LOGS:
+        if not (self._platform in self._IGNORE_OLDER_LOGS or
+                self._platform in self._IGNORE_AFTER_UPDATE_LOGS):
             return '0'
 
         log_cmd = 'grep -ni "Linux version " /var/log/messages'
@@ -47,6 +51,7 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
             dates.append(entry[entry.find('Linux version '):])
         latest = dates[-1]
         start_line = lines[-1]
+        start_line_index = -1
 
         # Find where logs from this build start by checking backwards for the
         # first change in build.  Some of these dates may be duplicated.
@@ -54,6 +59,22 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
             if dates[i] != latest:
                 break
             start_line = lines[i]
+            start_line_index = i
+
+        if start_line_index == 0:
+            return '0'
+
+        logging.info('This build has an older build; skipping some logs, '
+                     'as was hardcoded for this platform.')
+
+        # Ignore the first build after update if required.
+        if self._platform in self._IGNORE_AFTER_UPDATE_LOGS:
+            start_line_index += 1
+            if start_line_index >= len(lines):
+                raise error.TestError(
+                        'Insufficent logs: aborting test to avoid a known '
+                        'issue!  Please reboot and try again.')
+            start_line = lines[start_line_index]
 
         return start_line
 
@@ -72,9 +93,17 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
         start_line = self._find_logs_start_line()
         log_cmd = 'tail -n +%s /var/log/messages | grep -i touch' % start_line
 
-        pass_terms = ['touch-firmware-update',
-                      '"Product[^a-z0-9]ID[^a-z0-9]*%s"' % hw_id]
+        pass_terms = ['touch-firmware-update']
+        if hw_id == 'wacom': # Wacom styluses don't have Product ids.
+            pass_terms.append(hw_id)
+        else:
+            pass_terms.append('"Product[^a-z0-9]ID[^a-z0-9]*%s"' % hw_id)
         fail_terms = ['error[^s]', 'err[^a-z]']
+        ignore_terms = ['touchview','autotest']
+
+        # Remove lines that match ignore_terms.
+        for term in ignore_terms:
+            log_cmd += ' | grep -v -i %s' % term
 
         # Check for key terms in touch logs.
         for term in pass_terms + fail_terms:

@@ -32,18 +32,20 @@ enum {
 class BpSchedulingPolicyService : public BpInterface<ISchedulingPolicyService>
 {
 public:
-    BpSchedulingPolicyService(const sp<IBinder>& impl)
+    explicit BpSchedulingPolicyService(const sp<IBinder>& impl)
         : BpInterface<ISchedulingPolicyService>(impl)
     {
     }
 
-    virtual int requestPriority(int32_t pid, int32_t tid, int32_t prio, bool asynchronous)
+    virtual int requestPriority(int32_t pid, int32_t tid,
+                                int32_t prio, bool isForApp, bool asynchronous)
     {
         Parcel data, reply;
         data.writeInterfaceToken(ISchedulingPolicyService::getInterfaceDescriptor());
         data.writeInt32(pid);
         data.writeInt32(tid);
         data.writeInt32(prio);
+        data.writeBool(isForApp);
         uint32_t flags = asynchronous ? IBinder::FLAG_ONEWAY : 0;
         status_t status = remote()->transact(REQUEST_PRIORITY_TRANSACTION, data, &reply, flags);
         if (status != NO_ERROR) {

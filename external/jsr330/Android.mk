@@ -38,7 +38,7 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(jsr330_src_files)
 LOCAL_MODULE := jsr330-hostdex
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
 
 #
 # TCK (Test Compatibility Kit)
@@ -46,5 +46,5 @@ include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, tck)
 LOCAL_MODULE := jsr330-tck-host
-LOCAL_JAVA_LIBRARIES := jsr330-host junit
+LOCAL_JAVA_LIBRARIES := jsr330-host junit-host
 include $(BUILD_HOST_JAVA_LIBRARY)

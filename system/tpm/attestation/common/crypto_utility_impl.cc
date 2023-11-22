@@ -142,9 +142,8 @@ bool CryptoUtilityImpl::DecryptData(const std::string& encrypted_data,
     LOG(ERROR) << __func__ << ": Failed to parse protobuf.";
     return false;
   }
-  std::string mac = HmacSha512(
-      encrypted_pb.iv() + encrypted_pb.encrypted_data(),
-      aes_key);
+  std::string mac =
+      HmacSha512(encrypted_pb.iv() + encrypted_pb.encrypted_data(), aes_key);
   if (mac.length() != encrypted_pb.mac().length()) {
     LOG(ERROR) << __func__ << ": Corrupted data in encrypted pb.";
     return false;
@@ -166,18 +165,18 @@ bool CryptoUtilityImpl::GetRSASubjectPublicKeyInfo(
     const std::string& public_key,
     std::string* public_key_info) {
   auto asn1_ptr = reinterpret_cast<const unsigned char*>(public_key.data());
-  crypto::ScopedRSA rsa(d2i_RSAPublicKey(nullptr, &asn1_ptr,
-                                         public_key.size()));
+  crypto::ScopedRSA rsa(
+      d2i_RSAPublicKey(nullptr, &asn1_ptr, public_key.size()));
   if (!rsa.get()) {
-    LOG(ERROR) << __func__ << ": Failed to decode public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to decode public key: " << GetOpenSSLError();
     return false;
   }
   unsigned char* buffer = nullptr;
   int length = i2d_RSA_PUBKEY(rsa.get(), &buffer);
   if (length <= 0) {
-    LOG(ERROR) << __func__ << ": Failed to encode public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to encode public key: " << GetOpenSSLError();
     return false;
   }
   crypto::ScopedOpenSSLBytes scoped_buffer(buffer);
@@ -187,20 +186,20 @@ bool CryptoUtilityImpl::GetRSASubjectPublicKeyInfo(
 
 bool CryptoUtilityImpl::GetRSAPublicKey(const std::string& public_key_info,
                                         std::string* public_key) {
-  auto asn1_ptr = reinterpret_cast<const unsigned char*>(
-      public_key_info.data());
-  crypto::ScopedRSA rsa(d2i_RSA_PUBKEY(NULL, &asn1_ptr,
-                                       public_key_info.size()));
+  auto asn1_ptr =
+      reinterpret_cast<const unsigned char*>(public_key_info.data());
+  crypto::ScopedRSA rsa(
+      d2i_RSA_PUBKEY(NULL, &asn1_ptr, public_key_info.size()));
   if (!rsa.get()) {
-    LOG(ERROR) << __func__ << ": Failed to decode public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to decode public key: " << GetOpenSSLError();
     return false;
   }
   unsigned char* buffer = NULL;
   int length = i2d_RSAPublicKey(rsa.get(), &buffer);
   if (length <= 0) {
-    LOG(ERROR) << __func__ << ": Failed to encode public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to encode public key: " << GetOpenSSLError();
     return false;
   }
   crypto::ScopedOpenSSLBytes scoped_buffer(buffer);
@@ -213,10 +212,10 @@ bool CryptoUtilityImpl::EncryptIdentityCredential(
     const std::string& ek_public_key_info,
     const std::string& aik_public_key,
     EncryptedIdentityCredential* encrypted) {
-  const char kAlgAES256 = 9;  // This comes from TPM_ALG_AES256.
+  const char kAlgAES256 = 9;   // This comes from TPM_ALG_AES256.
   const char kEncModeCBC = 2;  // This comes from TPM_SYM_MODE_CBC.
-  const char kAsymContentHeader[] =
-      {0, 0, 0, kAlgAES256, 0, kEncModeCBC, 0, kAesKeySize};
+  const char kAsymContentHeader[] = {0, 0,           0, kAlgAES256,
+                                     0, kEncModeCBC, 0, kAesKeySize};
   const char kSymContentHeader[12] = {};
 
   // Generate an AES key and encrypt the credential.
@@ -234,17 +233,17 @@ bool CryptoUtilityImpl::EncryptIdentityCredential(
   // Construct a TPM_ASYM_CA_CONTENTS structure.
   std::string asym_header(std::begin(kAsymContentHeader),
                           std::end(kAsymContentHeader));
-  std::string asym_content = asym_header + aes_key +
-                             base::SHA1HashString(aik_public_key);
+  std::string asym_content =
+      asym_header + aes_key + base::SHA1HashString(aik_public_key);
 
   // Encrypt the TPM_ASYM_CA_CONTENTS with the EK public key.
-  auto asn1_ptr = reinterpret_cast<const unsigned char*>(
-      ek_public_key_info.data());
-  crypto::ScopedRSA rsa(d2i_RSA_PUBKEY(NULL, &asn1_ptr,
-                                       ek_public_key_info.size()));
+  auto asn1_ptr =
+      reinterpret_cast<const unsigned char*>(ek_public_key_info.data());
+  crypto::ScopedRSA rsa(
+      d2i_RSA_PUBKEY(NULL, &asn1_ptr, ek_public_key_info.size()));
   if (!rsa.get()) {
-    LOG(ERROR) << __func__ << ": Failed to decode EK public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to decode EK public key: " << GetOpenSSLError();
     return false;
   }
   std::string encrypted_asym_content;
@@ -279,8 +278,8 @@ bool CryptoUtilityImpl::EncryptForUnbind(const std::string& public_key,
   auto asn1_ptr = reinterpret_cast<const unsigned char*>(public_key.data());
   crypto::ScopedRSA rsa(d2i_RSA_PUBKEY(NULL, &asn1_ptr, public_key.size()));
   if (!rsa.get()) {
-    LOG(ERROR) << __func__ << ": Failed to decode public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to decode public key: " << GetOpenSSLError();
     return false;
   }
   if (!TpmCompatibleOAEPEncrypt(bound_data, rsa.get(), encrypted_data)) {
@@ -296,16 +295,16 @@ bool CryptoUtilityImpl::VerifySignature(const std::string& public_key,
   auto asn1_ptr = reinterpret_cast<const unsigned char*>(public_key.data());
   crypto::ScopedRSA rsa(d2i_RSA_PUBKEY(NULL, &asn1_ptr, public_key.size()));
   if (!rsa.get()) {
-    LOG(ERROR) << __func__ << ": Failed to decode public key: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to decode public key: " << GetOpenSSLError();
     return false;
   }
   std::string digest = crypto::SHA256HashString(data);
   auto digest_buffer = reinterpret_cast<const unsigned char*>(digest.data());
   std::string mutable_signature(signature);
   unsigned char* signature_buffer = StringAsOpenSSLBuffer(&mutable_signature);
-  return (RSA_verify(NID_sha256, digest_buffer, digest.size(),
-                     signature_buffer, signature.size(), rsa.get()) == 1);
+  return (RSA_verify(NID_sha256, digest_buffer, digest.size(), signature_buffer,
+                     signature.size(), rsa.get()) == 1);
 }
 
 bool CryptoUtilityImpl::AesEncrypt(const std::string& data,
@@ -327,8 +326,8 @@ bool CryptoUtilityImpl::AesEncrypt(const std::string& data,
   unsigned char* iv_buffer = StringAsOpenSSLBuffer(&mutable_iv);
   // Allocate enough space for the output (including padding).
   encrypted_data->resize(data.size() + kAesBlockSize);
-  auto output_buffer = reinterpret_cast<unsigned char*>(
-      string_as_array(encrypted_data));
+  auto output_buffer =
+      reinterpret_cast<unsigned char*>(string_as_array(encrypted_data));
   int output_size = 0;
   const EVP_CIPHER* cipher = EVP_aes_256_cbc();
   EVP_CIPHER_CTX encryption_context;
@@ -445,22 +444,22 @@ bool CryptoUtilityImpl::TpmCompatibleOAEPEncrypt(const std::string& input,
   const unsigned char oaep_param[4] = {'T', 'C', 'P', 'A'};
   std::string padded_input;
   padded_input.resize(RSA_size(key));
-  auto padded_buffer = reinterpret_cast<unsigned char*>(
-      string_as_array(&padded_input));
+  auto padded_buffer =
+      reinterpret_cast<unsigned char*>(string_as_array(&padded_input));
   auto input_buffer = reinterpret_cast<const unsigned char*>(input.data());
   int result = RSA_padding_add_PKCS1_OAEP(padded_buffer, padded_input.size(),
                                           input_buffer, input.size(),
                                           oaep_param, arraysize(oaep_param));
   if (!result) {
-    LOG(ERROR) << __func__ << ": Failed to add OAEP padding: "
-               << GetOpenSSLError();
+    LOG(ERROR) << __func__
+               << ": Failed to add OAEP padding: " << GetOpenSSLError();
     return false;
   }
   output->resize(padded_input.size());
-  auto output_buffer = reinterpret_cast<unsigned char*>(
-      string_as_array(output));
-  result = RSA_public_encrypt(padded_input.size(), padded_buffer,
-                              output_buffer, key, RSA_NO_PADDING);
+  auto output_buffer =
+      reinterpret_cast<unsigned char*>(string_as_array(output));
+  result = RSA_public_encrypt(padded_input.size(), padded_buffer, output_buffer,
+                              key, RSA_NO_PADDING);
   if (result == -1) {
     LOG(ERROR) << __func__ << ": Failed to encrypt OAEP padded input: "
                << GetOpenSSLError();

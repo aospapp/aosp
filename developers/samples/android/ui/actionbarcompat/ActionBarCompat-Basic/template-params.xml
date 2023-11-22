@@ -56,7 +56,7 @@
     for more details. -->
     <api_refs>
         <android>android.app.ActionBar</android>
-        <android>android.support.v7.app.ActionBarActivity</android>
+        <android>android.support.v7.app.AppCompatActivity</android>
         <android>android.support.v4.view.MenuItemCompat</android>
     </api_refs>
     <description>
@@ -81,7 +81,7 @@ This sample demonstrates using the support library APIs.
 
 Using an ActionBar with the support library requires the following steps:
 
-1. Create your activity by extending ActionBarActivity.
+1. Create your activity by extending AppCompatActivity.
 2. Use (or extend) one of the Theme.AppCompat themes for your activity.
 
 Once this is done, action items will be created for any options menu items that

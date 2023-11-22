@@ -16,6 +16,10 @@
 
 package libcore.java.security.cert;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import sun.security.provider.X509Factory;
+import sun.security.x509.X509CRLImpl;
 import tests.support.resource.Support_Resources;
 
 import java.io.BufferedReader;
@@ -28,7 +32,6 @@ import java.io.PrintStream;
 import java.security.InvalidKeyException;
 import java.security.Provider;
 import java.security.Security;
-import java.security.SignatureException;
 import java.security.cert.CRL;
 import java.security.cert.CRLReason;
 import java.security.cert.CertificateFactory;
@@ -127,7 +130,7 @@ public class X509CRLTest extends TestCase {
         final InputStream ris = Support_Resources.getStream(name);
         try {
 
-            final BufferedReader buf = new BufferedReader(new InputStreamReader(ris));
+            final BufferedReader buf = new BufferedReader(new InputStreamReader(ris, UTF_8));
 
             String line;
             while ((line = buf.readLine()) != null) {
@@ -144,6 +147,14 @@ public class X509CRLTest extends TestCase {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    public void test_X509CRLImpl_verify() throws Exception {
+        CertificateFactory f = CertificateFactory.getInstance("X.509");
+        X509CRL crlRsa = getCRL(f, CRL_RSA);
+        X509CRLImpl interned = X509Factory.intern(crlRsa);
+        X509Certificate caCert = getCertificate(f, CERT_CRL_CA);
+        interned.verify(caCert.getPublicKey(), f.getProvider());
     }
 
     public void test_Provider() throws Exception {
@@ -184,13 +195,44 @@ public class X509CRLTest extends TestCase {
         X509CRL crlRsa = getCRL(f, CRL_RSA);
 
         X509Certificate caCert = getCertificate(f, CERT_CRL_CA);
+
+        // Test the "verify" method that doesn't specify the provider.
         crlRsa.verify(caCert.getPublicKey());
 
+        // Test the "verify" method that does specify the provider.
+        try {
+            crlRsa.verify(caCert.getPublicKey(), f.getProvider());
+        } catch (UnsupportedOperationException unsupportedOperationException) {
+            // TODO(31294527): X590CRL objects from AndroidOpenSSL do not have this method.
+            // The "default" implementation from OpenJDK results in an infinite loop, so in libcore
+            // we throw an UnsupportedOperationException instead.
+            if (!f.getProvider().getName().equals("AndroidOpenSSL")) {
+                throw unsupportedOperationException;
+            }
+        }
+
         X509Certificate dsaCert = getCertificate(f, CERT_DSA);
+
+        // Test the "verify" method that does specify the provider.
         try {
             crlRsa.verify(dsaCert.getPublicKey());
             fail("should not verify using incorrect key type");
         } catch (InvalidKeyException expected) {
+        }
+
+        // Test the "verify" method that does specify the provider.
+        try {
+            crlRsa.verify(dsaCert.getPublicKey(), f.getProvider());
+            fail("should not verify using incorrect key type");
+        } catch (InvalidKeyException expected) {
+
+        } catch (UnsupportedOperationException unsupportedOperationException) {
+            // TODO(31294527): X590CRL objects from AndroidOpenSSL do not have this method.
+            // The "default" implementation from OpenJDK results in an infinite loop, so in libcore
+            // we throw an UnsupportedOperationException instead.
+            if (!f.getProvider().getName().equals("AndroidOpenSSL")) {
+                throw unsupportedOperationException;
+            }
         }
     }
 

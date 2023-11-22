@@ -6,11 +6,12 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/callback.h"
 #include "base/macros.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -62,7 +63,7 @@ static const int kChildValue = 2;
 
 class Parent {
  public:
-  virtual ~Parent() = default;
+  virtual ~Parent() {}
   void AddRef() const {}
   void Release() const {}
   virtual void VirtualSet() { value = kParentValue; }
@@ -72,14 +73,14 @@ class Parent {
 
 class Child : public Parent {
  public:
-  ~Child() override = default;
+  ~Child() override {}
   void VirtualSet() override { value = kChildValue; }
   void NonVirtualSet() { value = kChildValue; }
 };
 
 class NoRefParent {
  public:
-  virtual ~NoRefParent() = default;
+  virtual ~NoRefParent() {}
   virtual void VirtualSet() { value = kParentValue; }
   void NonVirtualSet() { value = kParentValue; }
   int value;
@@ -87,48 +88,93 @@ class NoRefParent {
 
 class NoRefChild : public NoRefParent {
  public:
-  ~NoRefChild() override = default;
+  ~NoRefChild() override {}
+ private:
   void VirtualSet() override { value = kChildValue; }
   void NonVirtualSet() { value = kChildValue; }
 };
 
-// Used for probing the number of copies that occur if a type must be coerced
-// during argument forwarding in the Run() methods.
-struct DerivedCopyCounter {
-  DerivedCopyCounter(int* copies, int* assigns)
-      : copies_(copies), assigns_(assigns) {
-  }
+// Used for probing the number of copies and moves that occur if a type must be
+// coerced during argument forwarding in the Run() methods.
+struct DerivedCopyMoveCounter {
+  DerivedCopyMoveCounter(int* copies,
+                         int* assigns,
+                         int* move_constructs,
+                         int* move_assigns)
+      : copies_(copies),
+        assigns_(assigns),
+        move_constructs_(move_constructs),
+        move_assigns_(move_assigns) {}
   int* copies_;
   int* assigns_;
+  int* move_constructs_;
+  int* move_assigns_;
 };
 
-// Used for probing the number of copies in an argument.
-class CopyCounter {
+// Used for probing the number of copies and moves in an argument.
+class CopyMoveCounter {
  public:
-  CopyCounter(int* copies, int* assigns)
-      : copies_(copies), assigns_(assigns) {
+  CopyMoveCounter(int* copies,
+                  int* assigns,
+                  int* move_constructs,
+                  int* move_assigns)
+      : copies_(copies),
+        assigns_(assigns),
+        move_constructs_(move_constructs),
+        move_assigns_(move_assigns) {}
+
+  CopyMoveCounter(const CopyMoveCounter& other)
+      : copies_(other.copies_),
+        assigns_(other.assigns_),
+        move_constructs_(other.move_constructs_),
+        move_assigns_(other.move_assigns_) {
+    (*copies_)++;
   }
 
-  CopyCounter(const CopyCounter& other)
+  CopyMoveCounter(CopyMoveCounter&& other)
       : copies_(other.copies_),
-        assigns_(other.assigns_) {
-    (*copies_)++;
+        assigns_(other.assigns_),
+        move_constructs_(other.move_constructs_),
+        move_assigns_(other.move_assigns_) {
+    (*move_constructs_)++;
   }
 
   // Probing for copies from coercion.
-  explicit CopyCounter(const DerivedCopyCounter& other)
+  explicit CopyMoveCounter(const DerivedCopyMoveCounter& other)
       : copies_(other.copies_),
-        assigns_(other.assigns_) {
+        assigns_(other.assigns_),
+        move_constructs_(other.move_constructs_),
+        move_assigns_(other.move_assigns_) {
     (*copies_)++;
   }
 
-  const CopyCounter& operator=(const CopyCounter& rhs) {
+  // Probing for moves from coercion.
+  explicit CopyMoveCounter(DerivedCopyMoveCounter&& other)
+      : copies_(other.copies_),
+        assigns_(other.assigns_),
+        move_constructs_(other.move_constructs_),
+        move_assigns_(other.move_assigns_) {
+    (*move_constructs_)++;
+  }
+
+  const CopyMoveCounter& operator=(const CopyMoveCounter& rhs) {
     copies_ = rhs.copies_;
     assigns_ = rhs.assigns_;
+    move_constructs_ = rhs.move_constructs_;
+    move_assigns_ = rhs.move_assigns_;
 
-    if (assigns_) {
-      (*assigns_)++;
-    }
+    (*assigns_)++;
+
+    return *this;
+  }
+
+  const CopyMoveCounter& operator=(CopyMoveCounter&& rhs) {
+    copies_ = rhs.copies_;
+    assigns_ = rhs.assigns_;
+    move_constructs_ = rhs.move_constructs_;
+    move_assigns_ = rhs.move_assigns_;
+
+    (*move_assigns_)++;
 
     return *this;
   }
@@ -140,6 +186,47 @@ class CopyCounter {
  private:
   int* copies_;
   int* assigns_;
+  int* move_constructs_;
+  int* move_assigns_;
+};
+
+// Used for probing the number of copies in an argument. The instance is a
+// copyable and non-movable type.
+class CopyCounter {
+ public:
+  CopyCounter(int* copies, int* assigns)
+      : counter_(copies, assigns, nullptr, nullptr) {}
+  CopyCounter(const CopyCounter& other) : counter_(other.counter_) {}
+  CopyCounter& operator=(const CopyCounter& other) {
+    counter_ = other.counter_;
+    return *this;
+  }
+
+  explicit CopyCounter(const DerivedCopyMoveCounter& other) : counter_(other) {}
+
+  int copies() const { return counter_.copies(); }
+
+ private:
+  CopyMoveCounter counter_;
+};
+
+// Used for probing the number of moves in an argument. The instance is a
+// non-copyable and movable type.
+class MoveCounter {
+ public:
+  MoveCounter(int* move_constructs, int* move_assigns)
+      : counter_(nullptr, nullptr, move_constructs, move_assigns) {}
+  MoveCounter(MoveCounter&& other) : counter_(std::move(other.counter_)) {}
+  MoveCounter& operator=(MoveCounter&& other) {
+    counter_ = std::move(other.counter_);
+    return *this;
+  }
+
+  explicit MoveCounter(DerivedCopyMoveCounter&& other)
+      : counter_(std::move(other)) {}
+
+ private:
+  CopyMoveCounter counter_;
 };
 
 class DeleteCounter {
@@ -190,7 +277,7 @@ const char* CStringIdentity(const char* s) {
   return s;
 }
 
-int GetCopies(const CopyCounter& counter) {
+int GetCopies(const CopyMoveCounter& counter) {
   return counter.copies();
 }
 
@@ -338,8 +425,8 @@ TEST_F(BindTest, CurryingRvalueResultOfBind) {
 //     preserve virtual dispatch).
 TEST_F(BindTest, FunctionTypeSupport) {
   EXPECT_CALL(static_func_mock_, VoidMethod0());
-  EXPECT_CALL(has_ref_, AddRef()).Times(5);
-  EXPECT_CALL(has_ref_, Release()).Times(5);
+  EXPECT_CALL(has_ref_, AddRef()).Times(4);
+  EXPECT_CALL(has_ref_, Release()).Times(4);
   EXPECT_CALL(has_ref_, VoidMethod0()).Times(2);
   EXPECT_CALL(has_ref_, VoidConstMethod0()).Times(2);
 
@@ -569,28 +656,6 @@ TEST_F(BindTest, ArrayArgumentBinding) {
   EXPECT_EQ(3, const_array_cb.Run());
 }
 
-// Verify SupportsAddRefAndRelease correctly introspects the class type for
-// AddRef() and Release().
-//  - Class with AddRef() and Release()
-//  - Class without AddRef() and Release()
-//  - Derived Class with AddRef() and Release()
-//  - Derived Class without AddRef() and Release()
-//  - Derived Class with AddRef() and Release() and a private destructor.
-TEST_F(BindTest, SupportsAddRefAndRelease) {
-  EXPECT_TRUE(internal::SupportsAddRefAndRelease<HasRef>::value);
-  EXPECT_FALSE(internal::SupportsAddRefAndRelease<NoRef>::value);
-
-  // StrictMock<T> is a derived class of T.  So, we use StrictMock<HasRef> and
-  // StrictMock<NoRef> to test that SupportsAddRefAndRelease works over
-  // inheritance.
-  EXPECT_TRUE(internal::SupportsAddRefAndRelease<StrictMock<HasRef> >::value);
-  EXPECT_FALSE(internal::SupportsAddRefAndRelease<StrictMock<NoRef> >::value);
-
-  // This matters because the implementation creates a dummy class that
-  // inherits from the template type.
-  EXPECT_TRUE(internal::SupportsAddRefAndRelease<HasRefPrivateDtor>::value);
-}
-
 // Unretained() wrapper support.
 //   - Method bound to Unretained() non-const object.
 //   - Const method bound to Unretained() non-const object.
@@ -669,24 +734,23 @@ TEST_F(BindTest, ConstRef) {
 
   int copies = 0;
   int assigns = 0;
-  CopyCounter counter(&copies, &assigns);
+  int move_constructs = 0;
+  int move_assigns = 0;
+  CopyMoveCounter counter(&copies, &assigns, &move_constructs, &move_assigns);
   Callback<int()> all_const_ref_cb =
       Bind(&GetCopies, ConstRef(counter));
   EXPECT_EQ(0, all_const_ref_cb.Run());
   EXPECT_EQ(0, copies);
   EXPECT_EQ(0, assigns);
+  EXPECT_EQ(0, move_constructs);
+  EXPECT_EQ(0, move_assigns);
 }
 
 TEST_F(BindTest, ScopedRefptr) {
-  // BUG: The scoped_refptr should cause the only AddRef()/Release() pair. But
-  // due to a bug in base::Bind(), there's an extra call when invoking the
-  // callback.
-  // https://code.google.com/p/chromium/issues/detail?id=251937
-  EXPECT_CALL(has_ref_, AddRef()).Times(2);
-  EXPECT_CALL(has_ref_, Release()).Times(2);
+  EXPECT_CALL(has_ref_, AddRef()).Times(1);
+  EXPECT_CALL(has_ref_, Release()).Times(1);
 
-  const scoped_refptr<StrictMock<HasRef> > refptr(&has_ref_);
-
+  const scoped_refptr<HasRef> refptr(&has_ref_);
   Callback<int()> scoped_refptr_const_ref_cb =
       Bind(&FunctionWithScopedRefptrFirstParam, base::ConstRef(refptr), 1);
   EXPECT_EQ(1, scoped_refptr_const_ref_cb.Run());
@@ -717,37 +781,63 @@ TEST_F(BindTest, Owned) {
   EXPECT_EQ(1, deletes);
 }
 
-// Passed() wrapper support.
+TEST_F(BindTest, UniquePtrReceiver) {
+  std::unique_ptr<StrictMock<NoRef>> no_ref(new StrictMock<NoRef>);
+  EXPECT_CALL(*no_ref, VoidMethod0()).Times(1);
+  Bind(&NoRef::VoidMethod0, std::move(no_ref)).Run();
+}
+
+// Tests for Passed() wrapper support:
 //   - Passed() can be constructed from a pointer to scoper.
 //   - Passed() can be constructed from a scoper rvalue.
 //   - Using Passed() gives Callback Ownership.
 //   - Ownership is transferred from Callback to callee on the first Run().
 //   - Callback supports unbound arguments.
-TEST_F(BindTest, ScopedPtr) {
+template <typename T>
+class BindMoveOnlyTypeTest : public ::testing::Test {
+};
+
+struct CustomDeleter {
+  void operator()(DeleteCounter* c) { delete c; }
+};
+
+using MoveOnlyTypesToTest =
+    ::testing::Types<std::unique_ptr<DeleteCounter>,
+                     std::unique_ptr<DeleteCounter>,
+                     std::unique_ptr<DeleteCounter, CustomDeleter>>;
+TYPED_TEST_CASE(BindMoveOnlyTypeTest, MoveOnlyTypesToTest);
+
+TYPED_TEST(BindMoveOnlyTypeTest, PassedToBoundCallback) {
   int deletes = 0;
 
-  // Tests the Passed() function's support for pointers.
-  scoped_ptr<DeleteCounter> ptr(new DeleteCounter(&deletes));
-  Callback<scoped_ptr<DeleteCounter>()> unused_callback =
-      Bind(&PassThru<scoped_ptr<DeleteCounter> >, Passed(&ptr));
+  TypeParam ptr(new DeleteCounter(&deletes));
+  Callback<TypeParam()> callback = Bind(&PassThru<TypeParam>, Passed(&ptr));
   EXPECT_FALSE(ptr.get());
   EXPECT_EQ(0, deletes);
 
   // If we never invoke the Callback, it retains ownership and deletes.
-  unused_callback.Reset();
+  callback.Reset();
   EXPECT_EQ(1, deletes);
+}
 
-  // Tests the Passed() function's support for rvalues.
-  deletes = 0;
-  DeleteCounter* counter = new DeleteCounter(&deletes);
-  Callback<scoped_ptr<DeleteCounter>()> callback =
-      Bind(&PassThru<scoped_ptr<DeleteCounter> >,
-           Passed(scoped_ptr<DeleteCounter>(counter)));
-  EXPECT_FALSE(ptr.get());
+TYPED_TEST(BindMoveOnlyTypeTest, PassedWithRvalue) {
+  int deletes = 0;
+  Callback<TypeParam()> callback = Bind(
+      &PassThru<TypeParam>, Passed(TypeParam(new DeleteCounter(&deletes))));
   EXPECT_EQ(0, deletes);
 
-  // Check that ownership can be transferred back out.
-  scoped_ptr<DeleteCounter> result = callback.Run();
+  // If we never invoke the Callback, it retains ownership and deletes.
+  callback.Reset();
+  EXPECT_EQ(1, deletes);
+}
+
+// Check that ownership can be transferred back out.
+TYPED_TEST(BindMoveOnlyTypeTest, ReturnMoveOnlyType) {
+  int deletes = 0;
+  DeleteCounter* counter = new DeleteCounter(&deletes);
+  Callback<TypeParam()> callback =
+      Bind(&PassThru<TypeParam>, Passed(TypeParam(counter)));
+  TypeParam result = callback.Run();
   ASSERT_EQ(counter, result.get());
   EXPECT_EQ(0, deletes);
 
@@ -758,58 +848,49 @@ TEST_F(BindTest, ScopedPtr) {
   // Ensure that we actually did get ownership.
   result.reset();
   EXPECT_EQ(1, deletes);
-
-  // Test unbound argument forwarding.
-  Callback<scoped_ptr<DeleteCounter>(scoped_ptr<DeleteCounter>)> cb_unbound =
-      Bind(&PassThru<scoped_ptr<DeleteCounter> >);
-  ptr.reset(new DeleteCounter(&deletes));
-  cb_unbound.Run(std::move(ptr));
 }
 
-TEST_F(BindTest, UniquePtr) {
+TYPED_TEST(BindMoveOnlyTypeTest, UnboundForwarding) {
   int deletes = 0;
-
-  // Tests the Passed() function's support for pointers.
-  std::unique_ptr<DeleteCounter> ptr(new DeleteCounter(&deletes));
-  Callback<std::unique_ptr<DeleteCounter>()> unused_callback =
-      Bind(&PassThru<std::unique_ptr<DeleteCounter>>, Passed(&ptr));
-  EXPECT_FALSE(ptr.get());
-  EXPECT_EQ(0, deletes);
-
-  // If we never invoke the Callback, it retains ownership and deletes.
-  unused_callback.Reset();
-  EXPECT_EQ(1, deletes);
-
-  // Tests the Passed() function's support for rvalues.
-  deletes = 0;
-  DeleteCounter* counter = new DeleteCounter(&deletes);
-  Callback<std::unique_ptr<DeleteCounter>()> callback =
-      Bind(&PassThru<std::unique_ptr<DeleteCounter>>,
-           Passed(std::unique_ptr<DeleteCounter>(counter)));
-  EXPECT_FALSE(ptr.get());
-  EXPECT_EQ(0, deletes);
-
-  // Check that ownership can be transferred back out.
-  std::unique_ptr<DeleteCounter> result = callback.Run();
-  ASSERT_EQ(counter, result.get());
-  EXPECT_EQ(0, deletes);
-
-  // Resetting does not delete since ownership was transferred.
-  callback.Reset();
-  EXPECT_EQ(0, deletes);
-
-  // Ensure that we actually did get ownership.
-  result.reset();
-  EXPECT_EQ(1, deletes);
-
+  TypeParam ptr(new DeleteCounter(&deletes));
   // Test unbound argument forwarding.
-  Callback<std::unique_ptr<DeleteCounter>(std::unique_ptr<DeleteCounter>)>
-      cb_unbound = Bind(&PassThru<std::unique_ptr<DeleteCounter>>);
-  ptr.reset(new DeleteCounter(&deletes));
+  Callback<TypeParam(TypeParam)> cb_unbound = Bind(&PassThru<TypeParam>);
   cb_unbound.Run(std::move(ptr));
+  EXPECT_EQ(1, deletes);
 }
 
-// Argument Copy-constructor usage for non-reference parameters.
+void VerifyVector(const std::vector<std::unique_ptr<int>>& v) {
+  ASSERT_EQ(1u, v.size());
+  EXPECT_EQ(12345, *v[0]);
+}
+
+std::vector<std::unique_ptr<int>> AcceptAndReturnMoveOnlyVector(
+    std::vector<std::unique_ptr<int>> v) {
+  VerifyVector(v);
+  return v;
+}
+
+// Test that a vector containing move-only types can be used with Callback.
+TEST_F(BindTest, BindMoveOnlyVector) {
+  using MoveOnlyVector = std::vector<std::unique_ptr<int>>;
+
+  MoveOnlyVector v;
+  v.push_back(WrapUnique(new int(12345)));
+
+  // Early binding should work:
+  base::Callback<MoveOnlyVector()> bound_cb =
+      base::Bind(&AcceptAndReturnMoveOnlyVector, Passed(&v));
+  MoveOnlyVector intermediate_result = bound_cb.Run();
+  VerifyVector(intermediate_result);
+
+  // As should passing it as an argument to Run():
+  base::Callback<MoveOnlyVector(MoveOnlyVector)> unbound_cb =
+      base::Bind(&AcceptAndReturnMoveOnlyVector);
+  MoveOnlyVector final_result = unbound_cb.Run(std::move(intermediate_result));
+  VerifyVector(final_result);
+}
+
+// Argument copy-constructor usage for non-reference copy-only parameters.
 //   - Bound arguments are only copied once.
 //   - Forwarded arguments are only copied once.
 //   - Forwarded arguments with coercions are only copied twice (once for the
@@ -819,28 +900,178 @@ TEST_F(BindTest, ArgumentCopies) {
   int assigns = 0;
 
   CopyCounter counter(&copies, &assigns);
-
-  Callback<void()> copy_cb =
-      Bind(&VoidPolymorphic<CopyCounter>::Run, counter);
-  EXPECT_GE(1, copies);
+  Bind(&VoidPolymorphic<CopyCounter>::Run, counter);
+  EXPECT_EQ(1, copies);
   EXPECT_EQ(0, assigns);
 
   copies = 0;
   assigns = 0;
-  Callback<void(CopyCounter)> forward_cb =
-      Bind(&VoidPolymorphic<CopyCounter>::Run);
-  forward_cb.Run(counter);
-  EXPECT_GE(1, copies);
+  Bind(&VoidPolymorphic<CopyCounter>::Run, CopyCounter(&copies, &assigns));
+  EXPECT_EQ(1, copies);
   EXPECT_EQ(0, assigns);
 
   copies = 0;
   assigns = 0;
-  DerivedCopyCounter derived(&copies, &assigns);
-  Callback<void(CopyCounter)> coerce_cb =
-      Bind(&VoidPolymorphic<CopyCounter>::Run);
-  coerce_cb.Run(CopyCounter(derived));
-  EXPECT_GE(2, copies);
+  Bind(&VoidPolymorphic<CopyCounter>::Run).Run(counter);
+  EXPECT_EQ(2, copies);
   EXPECT_EQ(0, assigns);
+
+  copies = 0;
+  assigns = 0;
+  Bind(&VoidPolymorphic<CopyCounter>::Run).Run(CopyCounter(&copies, &assigns));
+  EXPECT_EQ(1, copies);
+  EXPECT_EQ(0, assigns);
+
+  copies = 0;
+  assigns = 0;
+  DerivedCopyMoveCounter derived(&copies, &assigns, nullptr, nullptr);
+  Bind(&VoidPolymorphic<CopyCounter>::Run).Run(CopyCounter(derived));
+  EXPECT_EQ(2, copies);
+  EXPECT_EQ(0, assigns);
+
+  copies = 0;
+  assigns = 0;
+  Bind(&VoidPolymorphic<CopyCounter>::Run)
+      .Run(CopyCounter(
+          DerivedCopyMoveCounter(&copies, &assigns, nullptr, nullptr)));
+  EXPECT_EQ(2, copies);
+  EXPECT_EQ(0, assigns);
+}
+
+// Argument move-constructor usage for move-only parameters.
+//   - Bound arguments passed by move are not copied.
+TEST_F(BindTest, ArgumentMoves) {
+  int move_constructs = 0;
+  int move_assigns = 0;
+
+  Bind(&VoidPolymorphic<const MoveCounter&>::Run,
+       MoveCounter(&move_constructs, &move_assigns));
+  EXPECT_EQ(1, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  // TODO(tzik): Support binding move-only type into a non-reference parameter
+  // of a variant of Callback.
+
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<MoveCounter>::Run)
+      .Run(MoveCounter(&move_constructs, &move_assigns));
+  EXPECT_EQ(1, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<MoveCounter>::Run)
+      .Run(MoveCounter(DerivedCopyMoveCounter(
+          nullptr, nullptr, &move_constructs, &move_assigns)));
+  EXPECT_EQ(2, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+}
+
+// Argument constructor usage for non-reference movable-copyable
+// parameters.
+//   - Bound arguments passed by move are not copied.
+//   - Forwarded arguments are only copied once.
+//   - Forwarded arguments with coercions are only copied once and moved once.
+TEST_F(BindTest, ArgumentCopiesAndMoves) {
+  int copies = 0;
+  int assigns = 0;
+  int move_constructs = 0;
+  int move_assigns = 0;
+
+  CopyMoveCounter counter(&copies, &assigns, &move_constructs, &move_assigns);
+  Bind(&VoidPolymorphic<CopyMoveCounter>::Run, counter);
+  EXPECT_EQ(1, copies);
+  EXPECT_EQ(0, assigns);
+  EXPECT_EQ(0, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  copies = 0;
+  assigns = 0;
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<CopyMoveCounter>::Run,
+       CopyMoveCounter(&copies, &assigns, &move_constructs, &move_assigns));
+  EXPECT_EQ(0, copies);
+  EXPECT_EQ(0, assigns);
+  EXPECT_EQ(1, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  copies = 0;
+  assigns = 0;
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<CopyMoveCounter>::Run).Run(counter);
+  EXPECT_EQ(1, copies);
+  EXPECT_EQ(0, assigns);
+  EXPECT_EQ(1, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  copies = 0;
+  assigns = 0;
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<CopyMoveCounter>::Run)
+      .Run(CopyMoveCounter(&copies, &assigns, &move_constructs, &move_assigns));
+  EXPECT_EQ(0, copies);
+  EXPECT_EQ(0, assigns);
+  EXPECT_EQ(1, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  DerivedCopyMoveCounter derived_counter(&copies, &assigns, &move_constructs,
+                                         &move_assigns);
+  copies = 0;
+  assigns = 0;
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<CopyMoveCounter>::Run)
+      .Run(CopyMoveCounter(derived_counter));
+  EXPECT_EQ(1, copies);
+  EXPECT_EQ(0, assigns);
+  EXPECT_EQ(1, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+
+  copies = 0;
+  assigns = 0;
+  move_constructs = 0;
+  move_assigns = 0;
+  Bind(&VoidPolymorphic<CopyMoveCounter>::Run)
+      .Run(CopyMoveCounter(DerivedCopyMoveCounter(
+          &copies, &assigns, &move_constructs, &move_assigns)));
+  EXPECT_EQ(0, copies);
+  EXPECT_EQ(0, assigns);
+  EXPECT_EQ(2, move_constructs);
+  EXPECT_EQ(0, move_assigns);
+}
+
+TEST_F(BindTest, CapturelessLambda) {
+  EXPECT_FALSE(internal::IsConvertibleToRunType<void>::value);
+  EXPECT_FALSE(internal::IsConvertibleToRunType<int>::value);
+  EXPECT_FALSE(internal::IsConvertibleToRunType<void(*)()>::value);
+  EXPECT_FALSE(internal::IsConvertibleToRunType<void(NoRef::*)()>::value);
+
+  auto f = []() {};
+  EXPECT_TRUE(internal::IsConvertibleToRunType<decltype(f)>::value);
+
+  int i = 0;
+  auto g = [i]() {};
+  EXPECT_FALSE(internal::IsConvertibleToRunType<decltype(g)>::value);
+
+  auto h = [](int, double) { return 'k'; };
+  EXPECT_TRUE((std::is_same<
+      char(int, double),
+      internal::ExtractCallableRunType<decltype(h)>>::value));
+
+  EXPECT_EQ(42, Bind([] { return 42; }).Run());
+  EXPECT_EQ(42, Bind([](int i) { return i * 7; }, 6).Run());
+
+  int x = 1;
+  base::Callback<void(int)> cb =
+      Bind([](int* x, int i) { *x *= i; }, Unretained(&x));
+  cb.Run(6);
+  EXPECT_EQ(6, x);
+  cb.Run(7);
+  EXPECT_EQ(42, x);
 }
 
 // Callback construction and assignment tests.

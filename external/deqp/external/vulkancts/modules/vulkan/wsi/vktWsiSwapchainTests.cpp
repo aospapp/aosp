@@ -96,6 +96,19 @@ Move<VkInstance> createInstanceWithWsi (const PlatformInterface&		vkp,
 	extensions.push_back("VK_KHR_surface");
 	extensions.push_back(getExtensionName(wsiType));
 
+	// VK_EXT_swapchain_colorspace adds new surface formats. Driver can enumerate
+	// the formats regardless of whether VK_EXT_swapchain_colorspace was enabled,
+	// but using them without enabling the extension is not allowed. Thus we have
+	// two options:
+	//
+	// 1) Filter out non-core formats to stay within valid usage.
+	//
+	// 2) Enable VK_EXT_swapchain colorspace if advertised by the driver.
+	//
+	// We opt for (2) as it provides basic coverage for the extension as a bonus.
+	if (isExtensionSupported(supportedExtensions, RequiredExtension("VK_EXT_swapchain_colorspace")))
+		extensions.push_back("VK_EXT_swapchain_colorspace");
+
 	checkAllSupported(supportedExtensions, extensions);
 
 	return createDefaultInstance(vkp, vector<string>(), extensions, pAllocator);
@@ -334,7 +347,7 @@ struct TestParameters
 };
 
 vector<VkSwapchainCreateInfoKHR> generateSwapchainParameterCases (Type								wsiType,
-														 		  TestDimension						dimension,
+																  TestDimension						dimension,
 																  const VkSurfaceCapabilitiesKHR&	capabilities,
 																  const vector<VkSurfaceFormatKHR>&	formats,
 																  const vector<VkPresentModeKHR>&	presentModes)
@@ -578,93 +591,84 @@ tcu::TestStatus createSwapchainTest (Context& context, TestParameters params)
 	return tcu::TestStatus::pass("Creating swapchain succeeded");
 }
 
-class CreateSwapchainSimulateOOMTest : public TestInstance
+tcu::TestStatus createSwapchainSimulateOOMTest (Context& context, TestParameters params)
 {
-public:
-							CreateSwapchainSimulateOOMTest	(Context& context, TestParameters params)
-			: TestInstance			(context)
-			, m_params				(params)
-			, m_numPassingAllocs	(0)
+	const size_t				maxCases			= 300u;
+	const deUint32				maxAllocs			= 1024u;
+
+	tcu::TestLog&				log					= context.getTestContext().getLog();
+	tcu::ResultCollector		results				(log);
+
+	AllocationCallbackRecorder	allocationRecorder	(getSystemAllocator());
+	DeterministicFailAllocator	failingAllocator	(allocationRecorder.getCallbacks(),
+													 DeterministicFailAllocator::MODE_DO_NOT_COUNT,
+													 0);
 	{
-	}
+		const InstanceHelper					instHelper	(context, params.wsiType, failingAllocator.getCallbacks());
+		const NativeObjects						native		(context, instHelper.supportedExtensions, params.wsiType);
+		const Unique<VkSurfaceKHR>				surface		(createSurface(instHelper.vki,
+																			*instHelper.instance,
+																			params.wsiType,
+																			*native.display,
+																			*native.window,
+																			failingAllocator.getCallbacks()));
+		const DeviceHelper						devHelper	(context, instHelper.vki, *instHelper.instance, *surface, failingAllocator.getCallbacks());
+		const vector<VkSwapchainCreateInfoKHR>	allCases	(generateSwapchainParameterCases(params.wsiType, params.dimension, instHelper.vki, devHelper.physicalDevice, *surface));
 
-	tcu::TestStatus			iterate							(void);
+		if (maxCases < allCases.size())
+			log << TestLog::Message << "Note: Will only test first " << maxCases << " cases out of total of " << allCases.size() << " parameter combinations" << TestLog::EndMessage;
 
-private:
-	const TestParameters	m_params;
-	deUint32				m_numPassingAllocs;
-};
-
-tcu::TestStatus CreateSwapchainSimulateOOMTest::iterate (void)
-{
-	tcu::TestLog&	log	= m_context.getTestContext().getLog();
-
-	// \note This is a little counter-intuitive order (iterating on callback count until all cases pass)
-	//		 but since cases depend on what device reports, it is the only easy way. In practice
-	//		 we should see same number of total callbacks (and executed code) regardless of the
-	//		 loop order.
-
-	if (m_numPassingAllocs <= 16*1024u)
-	{
-		AllocationCallbackRecorder	allocationRecorder	(getSystemAllocator());
-		DeterministicFailAllocator	failingAllocator	(allocationRecorder.getCallbacks(), m_numPassingAllocs);
-		bool						gotOOM				= false;
-
-		log << TestLog::Message << "Testing with " << m_numPassingAllocs << " first allocations succeeding" << TestLog::EndMessage;
-
-		try
+		for (size_t caseNdx = 0; caseNdx < de::min(maxCases, allCases.size()); ++caseNdx)
 		{
-			const InstanceHelper					instHelper	(m_context, m_params.wsiType, failingAllocator.getCallbacks());
-			const NativeObjects						native		(m_context, instHelper.supportedExtensions, m_params.wsiType);
-			const Unique<VkSurfaceKHR>				surface		(createSurface(instHelper.vki,
-																			   *instHelper.instance,
-																			   m_params.wsiType,
-																			   *native.display,
-																			   *native.window,
-																			   failingAllocator.getCallbacks()));
-			const DeviceHelper						devHelper	(m_context, instHelper.vki, *instHelper.instance, *surface, failingAllocator.getCallbacks());
-			const vector<VkSwapchainCreateInfoKHR>	cases		(generateSwapchainParameterCases(m_params.wsiType, m_params.dimension, instHelper.vki, devHelper.physicalDevice, *surface));
+			log << TestLog::Message << "Testing parameter case " << caseNdx << ": " << allCases[caseNdx] << TestLog::EndMessage;
 
-			for (size_t caseNdx = 0; caseNdx < cases.size(); ++caseNdx)
+			for (deUint32 numPassingAllocs = 0; numPassingAllocs <= maxAllocs; ++numPassingAllocs)
 			{
-				VkSwapchainCreateInfoKHR	curParams	= cases[caseNdx];
+				bool	gotOOM	= false;
 
-				curParams.surface				= *surface;
-				curParams.queueFamilyIndexCount	= 1u;
-				curParams.pQueueFamilyIndices	= &devHelper.queueFamilyIndex;
+				failingAllocator.reset(DeterministicFailAllocator::MODE_COUNT_AND_FAIL, numPassingAllocs);
 
-				log
-					<< TestLog::Message << "Sub-case " << (caseNdx+1) << " / " << cases.size() << TestLog::EndMessage;
+				log << TestLog::Message << "Testing with " << numPassingAllocs << " first allocations succeeding" << TestLog::EndMessage;
 
+				try
 				{
-					const Unique<VkSwapchainKHR>	swapchain	(createSwapchainKHR(devHelper.vkd, *devHelper.device, &curParams, failingAllocator.getCallbacks()));
+					VkSwapchainCreateInfoKHR	curParams	= allCases[caseNdx];
+
+					curParams.surface				= *surface;
+					curParams.queueFamilyIndexCount	= 1u;
+					curParams.pQueueFamilyIndices	= &devHelper.queueFamilyIndex;
+
+					{
+						const Unique<VkSwapchainKHR>	swapchain	(createSwapchainKHR(devHelper.vkd, *devHelper.device, &curParams, failingAllocator.getCallbacks()));
+					}
 				}
+				catch (const OutOfMemoryError& e)
+				{
+					log << TestLog::Message << "Got " << e.getError() << TestLog::EndMessage;
+					gotOOM = true;
+				}
+
+				if (!gotOOM)
+				{
+					log << TestLog::Message << "Creating swapchain succeeded!" << TestLog::EndMessage;
+
+					if (numPassingAllocs == 0)
+						results.addResult(QP_TEST_RESULT_QUALITY_WARNING, "Allocation callbacks were not used");
+
+					break;
+				}
+				else if (numPassingAllocs == maxAllocs)
+					results.addResult(QP_TEST_RESULT_QUALITY_WARNING, "Creating swapchain did not succeed, callback limit exceeded");
 			}
 		}
-		catch (const OutOfMemoryError& e)
-		{
-			log << TestLog::Message << "Got " << e.getError() << TestLog::EndMessage;
-			gotOOM = true;
-		}
 
-		if (!validateAndLog(log, allocationRecorder, 0u))
-			return tcu::TestStatus::fail("Detected invalid system allocation callback");
-
-		if (!gotOOM)
-		{
-			log << TestLog::Message << "Creating surface succeeded!" << TestLog::EndMessage;
-
-			if (m_numPassingAllocs == 0)
-				return tcu::TestStatus(QP_TEST_RESULT_QUALITY_WARNING, "Allocation callbacks were not used");
-			else
-				return tcu::TestStatus::pass("OOM simulation completed");
-		}
-
-		m_numPassingAllocs++;
-		return tcu::TestStatus::incomplete();
+		context.getTestContext().touchWatchdog();
 	}
-	else
-		return tcu::TestStatus(QP_TEST_RESULT_QUALITY_WARNING, "Creating swapchain did not succeed, callback limit exceeded");
+
+	if (!validateAndLog(log, allocationRecorder, 0u))
+		results.fail("Detected invalid system allocation callback");
+
+	return tcu::TestStatus(results.getResult(), results.getMessage());
 }
 
 struct GroupParameters
@@ -692,16 +696,6 @@ void populateSwapchainGroup (tcu::TestCaseGroup* testGroup, GroupParameters para
 		const TestDimension		testDimension	= (TestDimension)dimensionNdx;
 
 		addFunctionCase(testGroup, getTestDimensionName(testDimension), "", params.function, TestParameters(params.wsiType, testDimension));
-	}
-}
-
-void populateSwapchainOOMGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
-{
-	for (int dimensionNdx = 0; dimensionNdx < TEST_DIMENSION_LAST; ++dimensionNdx)
-	{
-		const TestDimension		testDimension	= (TestDimension)dimensionNdx;
-
-		testGroup->addChild(new InstanceFactory1<CreateSwapchainSimulateOOMTest, TestParameters>(testGroup->getTestContext(), tcu::NODETYPE_SELF_VALIDATE, getTestDimensionName(testDimension), "", TestParameters(wsiType, testDimension)));
 	}
 }
 
@@ -1514,7 +1508,7 @@ tcu::TestStatus basicRenderTest (Context& context, Type wsiType)
 		throw;
 	}
 
-	return tcu::TestStatus::pass("Rendering tests suceeded");
+	return tcu::TestStatus::pass("Rendering tests succeeded");
 }
 
 vector<tcu::UVec2> getSwapchainSizeSequence (const VkSurfaceCapabilitiesKHR& capabilities, const tcu::UVec2& defaultSize)
@@ -1549,6 +1543,7 @@ tcu::TestStatus resizeSwapchainTest (Context& context, Type wsiType)
 	Move<VkSwapchainKHR>			prevSwapchain;
 
 	DE_ASSERT(platformProperties.swapchainExtent != PlatformProperties::SWAPCHAIN_EXTENT_MUST_MATCH_WINDOW_SIZE);
+	DE_UNREF(platformProperties);
 
 	for (deUint32 sizeNdx = 0; sizeNdx < sizes.size(); ++sizeNdx)
 	{
@@ -1665,7 +1660,55 @@ tcu::TestStatus resizeSwapchainTest (Context& context, Type wsiType)
 		}
 	}
 
-	return tcu::TestStatus::pass("Resizing tests suceeded");
+	return tcu::TestStatus::pass("Resizing tests succeeded");
+}
+
+tcu::TestStatus getImagesIncompleteResultTest (Context& context, Type wsiType)
+{
+	const tcu::UVec2				desiredSize		(256, 256);
+	const InstanceHelper			instHelper		(context, wsiType);
+	const NativeObjects				native			(context, instHelper.supportedExtensions, wsiType, tcu::just(desiredSize));
+	const Unique<VkSurfaceKHR>		surface			(createSurface(instHelper.vki, *instHelper.instance, wsiType, *native.display, *native.window));
+	const DeviceHelper				devHelper		(context, instHelper.vki, *instHelper.instance, *surface);
+	const VkSwapchainCreateInfoKHR	swapchainInfo	= getBasicSwapchainParameters(wsiType, instHelper.vki, devHelper.physicalDevice, *surface, desiredSize, 2);
+	const Unique<VkSwapchainKHR>	swapchain		(createSwapchainKHR(devHelper.vkd, *devHelper.device, &swapchainInfo));
+
+	vector<VkImage>		swapchainImages	= getSwapchainImages(devHelper.vkd, *devHelper.device, *swapchain);
+
+	ValidateQueryBits::fillBits(swapchainImages.begin(), swapchainImages.end());
+
+	const deUint32		usedCount		= static_cast<deUint32>(swapchainImages.size() / 2);
+	deUint32			count			= usedCount;
+	const VkResult		result			= devHelper.vkd.getSwapchainImagesKHR(*devHelper.device, *swapchain, &count, &swapchainImages[0]);
+
+	if (count != usedCount || result != VK_INCOMPLETE || !ValidateQueryBits::checkBits(swapchainImages.begin() + count, swapchainImages.end()))
+		return tcu::TestStatus::fail("Get swapchain images didn't return VK_INCOMPLETE");
+	else
+		return tcu::TestStatus::pass("Get swapchain images tests succeeded");
+}
+
+tcu::TestStatus destroyNullHandleSwapchainTest (Context& context, Type wsiType)
+{
+	const InstanceHelper		instHelper	(context, wsiType);
+	const NativeObjects			native		(context, instHelper.supportedExtensions, wsiType);
+	const Unique<VkSurfaceKHR>	surface		(createSurface(instHelper.vki, *instHelper.instance, wsiType, *native.display, *native.window));
+	const DeviceHelper			devHelper	(context, instHelper.vki, *instHelper.instance, *surface);
+	const VkSwapchainKHR		nullHandle	= DE_NULL;
+
+	// Default allocator
+	devHelper.vkd.destroySwapchainKHR(*devHelper.device, nullHandle, DE_NULL);
+
+	// Custom allocator
+	{
+		AllocationCallbackRecorder	recordingAllocator	(getSystemAllocator(), 1u);
+
+		devHelper.vkd.destroySwapchainKHR(*devHelper.device, nullHandle, recordingAllocator.getCallbacks());
+
+		if (recordingAllocator.getNumRecords() != 0u)
+			return tcu::TestStatus::fail("Implementation allocated/freed the memory");
+	}
+
+	return tcu::TestStatus::pass("Destroying a VK_NULL_HANDLE surface has no effect");
 }
 
 void getBasicRenderPrograms (SourceCollections& dst, Type)
@@ -1676,6 +1719,11 @@ void getBasicRenderPrograms (SourceCollections& dst, Type)
 void populateRenderGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
 {
 	addFunctionCaseWithPrograms(testGroup, "basic", "Basic Rendering Test", getBasicRenderPrograms, basicRenderTest, wsiType);
+}
+
+void populateGetImagesGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
+{
+	addFunctionCase(testGroup, "incomplete", "Test VK_INCOMPLETE return code", getImagesIncompleteResultTest, wsiType);
 }
 
 void populateModifyGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
@@ -1690,14 +1738,21 @@ void populateModifyGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
 	// \todo [2016-05-30 jesse] Add tests for modifying preTransform, compositeAlpha, presentMode
 }
 
+void populateDestroyGroup (tcu::TestCaseGroup* testGroup, Type wsiType)
+{
+	addFunctionCase(testGroup, "null_handle", "Destroying a VK_NULL_HANDLE swapchain", destroyNullHandleSwapchainTest, wsiType);
+}
+
 } // anonymous
 
 void createSwapchainTests (tcu::TestCaseGroup* testGroup, vk::wsi::Type wsiType)
 {
 	addTestGroup(testGroup, "create",			"Create VkSwapchain with various parameters",					populateSwapchainGroup,		GroupParameters(wsiType, createSwapchainTest));
-	addTestGroup(testGroup, "simulate_oom",		"Simulate OOM using callbacks during swapchain construction",	populateSwapchainOOMGroup,	wsiType);
+	addTestGroup(testGroup, "simulate_oom",		"Simulate OOM using callbacks during swapchain construction",	populateSwapchainGroup,		GroupParameters(wsiType, createSwapchainSimulateOOMTest));
 	addTestGroup(testGroup, "render",			"Rendering Tests",												populateRenderGroup,		wsiType);
 	addTestGroup(testGroup, "modify",			"Modify VkSwapchain",											populateModifyGroup,		wsiType);
+	addTestGroup(testGroup, "destroy",			"Destroy VkSwapchain",											populateDestroyGroup,		wsiType);
+	addTestGroup(testGroup, "get_images",		"Get swapchain images",											populateGetImagesGroup,		wsiType);
 }
 
 } // wsi

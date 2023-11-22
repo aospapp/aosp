@@ -11,4 +11,6 @@
     <string name="vis" translatable="false">vis</string>
     <string name="invis" translatable="false">invis</string>
 
+    <string name="circle_mask" translatable="false">Toggle Circle Mask</string>
+
 </resources>

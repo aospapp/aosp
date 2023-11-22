@@ -87,6 +87,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
         self.switcher.mode_aware_reboot(wait_for_dut_up=False)
         self.run_shutdown_process(self.wait_fw_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
+                                  run_power_action=False,
                                   post_power_action=self.switcher.bypass_dev_mode)
         self.switcher.wait_for_client()
 
@@ -101,6 +102,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
         self.switcher.mode_aware_reboot(wait_for_dut_up=False)
         self.run_shutdown_process(self.wait_second_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
+                                  run_power_action=False,
                                   post_power_action=self.switcher.bypass_dev_mode,
                                   shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
@@ -115,6 +117,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
         self.switcher.mode_aware_reboot(wait_for_dut_up=False)
         self.run_shutdown_process(self.wait_longer_fw_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
+                                  run_power_action=False,
                                   post_power_action=self.switcher.bypass_dev_mode,
                                   shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()
@@ -130,6 +133,7 @@ class firmware_FwScreenCloseLid(FirmwareTest):
         self.switcher.mode_aware_reboot(wait_for_dut_up=False)
         self.run_shutdown_process(self.wait_yuck_screen_and_close_lid,
                                   pre_power_action=self.servo.lid_open,
+                                  run_power_action=False,
                                   post_power_action=self.switcher.bypass_dev_mode,
                                   shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
         self.switcher.wait_for_client()

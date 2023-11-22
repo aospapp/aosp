@@ -34,6 +34,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
  */
 public class NewInstanceDebuggee extends SyncDebuggee {
 
+    @Override
     public void run() {
         String[] checkString = {"line1"};
         int[] checkInt = {1};

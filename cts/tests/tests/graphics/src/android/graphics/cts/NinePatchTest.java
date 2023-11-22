@@ -16,8 +16,11 @@
 
 package android.graphics.cts;
 
-import android.graphics.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -29,25 +32,32 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class NinePatchTest extends AndroidTestCase {
-    private static int ALPHA_OPAQUE = 0xFF;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class NinePatchTest {
+    private static final int ALPHA_OPAQUE = 0xFF;
+    private static final String NAME = "TESTNAME";
+    private static final int WIDTH = 80;
+    private static final int HEIGTH = 120;
+    private static final int[] COLOR = new int[WIDTH * HEIGTH];
 
     private NinePatch mNinePatch;
     private Bitmap mBitmap;
     private BitmapFactory.Options mOptNoScale;
     private Resources mRes;
-    private final String NAME = "TESTNAME";
-    private final int WIDTH = 80;
-    private final int HEIGTH = 120;
-    private final int[] COLOR = new int[WIDTH * HEIGTH];
     private byte[] mChunk;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mRes = getContext().getResources();
+    @Before
+    public void setup() {
+        mRes = InstrumentationRegistry.getTargetContext().getResources();
         mOptNoScale = new BitmapFactory.Options();
         mOptNoScale.inDensity = mOptNoScale.inTargetDensity = mRes.getDisplayMetrics().densityDpi;
         mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.opaque, mOptNoScale);
@@ -56,24 +66,49 @@ public class NinePatchTest extends AndroidTestCase {
         mNinePatch = new NinePatch(mBitmap, mChunk, NAME);
     }
 
-    public void testConstructor() {
-        mNinePatch = null;
-        try {
-            mNinePatch = new NinePatch(mBitmap, new byte[2], NAME);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
-        mNinePatch = new NinePatch(mBitmap, mChunk, NAME);
+    @Test(expected=Exception.class)
+    public void testConstructorTooShort() {
+        mNinePatch = new NinePatch(mBitmap, new byte[2]);
     }
 
+    @Test(expected=Exception.class)
+    public void testConstructorNamedTooShort() {
+        mNinePatch = new NinePatch(mBitmap, new byte[2], NAME);
+    }
+
+    @Test
+    public void testConstructor() {
+        mNinePatch = new NinePatch(mBitmap, mChunk);
+        assertEquals(mBitmap, mNinePatch.getBitmap());
+        assertEquals(null, mNinePatch.getName());
+
+        mNinePatch = new NinePatch(mBitmap, mChunk, NAME);
+        assertEquals(mBitmap, mNinePatch.getBitmap());
+        assertEquals(NAME, mNinePatch.getName());
+    }
+
+    @Test
+    public void testPaintAccessors() {
+        Paint p = new Paint();
+        mNinePatch = new NinePatch(mBitmap, mChunk, NAME);
+        assertNull(mNinePatch.getPaint());
+
+        mNinePatch.setPaint(p);
+        assertEquals(p, mNinePatch.getPaint());
+
+        mNinePatch.setPaint(null);
+        assertNull(mNinePatch.getPaint());
+    }
+
+    @Test
     public void testIsNinePatchChunk() {
         assertTrue(NinePatch.isNinePatchChunk(mChunk));
         Bitmap bitmap = Bitmap.createBitmap(COLOR, 10, 10, Bitmap.Config.ARGB_4444);
         assertFalse(NinePatch.isNinePatchChunk(bitmap.getNinePatchChunk()));
         assertFalse(NinePatch.isNinePatchChunk(null));
-
     }
 
+    @Test
     public void testDraw() {
         Bitmap expected = BitmapFactory.decodeResource(mRes, R.drawable.scaled1, mOptNoScale);
 
@@ -82,7 +117,7 @@ public class NinePatchTest extends AndroidTestCase {
         Canvas c = new Canvas(bitmap);
         RectF rectf = new RectF(0, 0, c.getWidth(), c.getHeight());
         mNinePatch.draw(c, rectf);
-        checkBitmapWithAlpha(expected, bitmap, ALPHA_OPAQUE);
+        verifyBitmapWithAlpha(expected, bitmap, ALPHA_OPAQUE);
 
         expected = BitmapFactory.decodeResource(mRes, R.drawable.scaled2, mOptNoScale);
         bitmap = Bitmap.createBitmap(expected.getWidth(), expected.getHeight(),
@@ -90,7 +125,7 @@ public class NinePatchTest extends AndroidTestCase {
         c = new Canvas(bitmap);
         Rect rect = new Rect(0, 0, c.getWidth(), c.getHeight());
         mNinePatch.draw(c, rect);
-        checkBitmapWithAlpha(expected, bitmap, ALPHA_OPAQUE);
+        verifyBitmapWithAlpha(expected, bitmap, ALPHA_OPAQUE);
 
         bitmap = Bitmap.createBitmap(expected.getWidth(), expected.getHeight(),
                 Bitmap.Config.ARGB_8888);
@@ -100,7 +135,7 @@ public class NinePatchTest extends AndroidTestCase {
         Paint p = new Paint();
         p.setAlpha(alpha);
         mNinePatch.draw(c, rect, p);
-        checkBitmapWithAlpha(expected, bitmap, alpha);
+        verifyBitmapWithAlpha(expected, bitmap, alpha);
 
         bitmap = Bitmap.createBitmap(expected.getWidth(), expected.getHeight(),
                 Bitmap.Config.ARGB_8888);
@@ -108,10 +143,10 @@ public class NinePatchTest extends AndroidTestCase {
         rectf = new RectF(0, 0, c.getWidth(), c.getHeight());
         mNinePatch.setPaint(p);
         mNinePatch.draw(c, rectf);
-        checkBitmapWithAlpha(expected, bitmap, alpha);
+        verifyBitmapWithAlpha(expected, bitmap, alpha);
     }
 
-    private void checkBitmapWithAlpha(Bitmap expected, Bitmap bitmap, int alpha) {
+    private void verifyBitmapWithAlpha(Bitmap expected, Bitmap bitmap, int alpha) {
         assertEquals(expected.getWidth(), bitmap.getWidth());
         assertEquals(expected.getHeight(), bitmap.getHeight());
         int width = expected.getWidth();
@@ -131,6 +166,7 @@ public class NinePatchTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testHasAlpha() {
         assertFalse(mNinePatch.hasAlpha());
         assertEquals(mNinePatch.hasAlpha(), mBitmap.hasAlpha());
@@ -143,16 +179,19 @@ public class NinePatchTest extends AndroidTestCase {
         assertEquals(ninePatch.hasAlpha(), bitmap.hasAlpha());
     }
 
+    @Test
     public void testGetHeight() {
         assertEquals(5, mNinePatch.getHeight());
         assertEquals(mNinePatch.getHeight(), mBitmap.getHeight());
     }
 
+    @Test
     public void testGetWidth() {
         assertEquals(5, mNinePatch.getHeight());
         assertEquals(mNinePatch.getWidth(), mBitmap.getWidth());
     }
 
+    @Test
     public void testGetDensity() {
         mBitmap.setDensity(11);
         assertEquals(11, mNinePatch.getDensity());
@@ -160,6 +199,7 @@ public class NinePatchTest extends AndroidTestCase {
         assertEquals(mNinePatch.getDensity(), mBitmap.getDensity());
     }
 
+    @Test
     public void testGetTransparentRegion() {
         // no transparency in opaque bitmap
         Rect location = new Rect(0, 0, mBitmap.getWidth(), mBitmap.getHeight());
@@ -176,13 +216,13 @@ public class NinePatchTest extends AndroidTestCase {
         region = mNinePatch.getTransparentRegion(location);
         assertNotNull(region);
         Rect regionBounds = region.getBounds();
-        assertBounds(regionBounds, 0, 0, 5, 5);
+        verifyBounds(regionBounds, 0, 0, 5, 5);
 
         location = new Rect(0, 0, mBitmap.getWidth() * 2, mBitmap.getHeight() * 2);
         region = mNinePatch.getTransparentRegion(location);
         assertNotNull(region);
         regionBounds = region.getBounds();
-        assertBounds(regionBounds, 0, 0, 10, 10);
+        verifyBounds(regionBounds, 0, 0, 10, 10);
 
         // transparent padding of 1px on the right side
         mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.transparent_right, mOptNoScale);
@@ -194,15 +234,15 @@ public class NinePatchTest extends AndroidTestCase {
         region = mNinePatch.getTransparentRegion(location);
         assertNotNull(region);
         regionBounds = region.getBounds();
-        assertBounds(regionBounds, 4, 0, 5, 5);
+        verifyBounds(regionBounds, 4, 0, 5, 5);
 
         location = new Rect(0, 0, mBitmap.getWidth() * 2, mBitmap.getHeight() * 2);
         region = mNinePatch.getTransparentRegion(location);
         regionBounds = region.getBounds();
-        assertBounds(regionBounds, 9, 0, 10, 10);
+        verifyBounds(regionBounds, 9, 0, 10, 10);
     }
 
-    private void assertBounds(Rect regionBounds, int left, int top, int right, int bottom) {
+    private void verifyBounds(Rect regionBounds, int left, int top, int right, int bottom) {
         assertEquals(left, regionBounds.left);
         assertEquals(top, regionBounds.top);
         assertEquals(right, regionBounds.right);

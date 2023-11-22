@@ -22,18 +22,15 @@ libminijailSrcFiles := \
 	libminijail.c \
 	signal_handler.c \
 	syscall_filter.c \
+	syscall_wrapper.c \
 	util.c
+
+hostUnittestSrcFiles := \
+	linux-x86/libconstants.gen.c \
+	linux-x86/libsyscalls.gen.c
 
 minijailCommonCFlags := -DHAVE_SECUREBITS_H -Wall -Werror
 minijailCommonLibraries := libcap
-
-# Android devices running kernel version < 3.8 are not required to
-# support seccomp. Brillo devices must support seccomp regardless of
-# kernel version.
-# TODO: remove when no longer supporting kernel versions < 3.8.
-ifndef BRILLO
-minijailCommonCFlags += -DUSE_SECCOMP_SOFTFAIL
-endif
 
 
 # Static library for generated code.
@@ -47,12 +44,14 @@ generated_sources_dir := $(local-generated-sources-dir)
 my_gen := $(generated_sources_dir)/$(TARGET_ARCH)/libsyscalls.c
 # We need the quotes so the shell script treats the following as one argument.
 my_cc := "$(lastword $(CLANG)) \
-    $(addprefix -isystem ,$(TARGET_C_INCLUDES)) \
+    $(addprefix -I ,$(TARGET_C_INCLUDES)) \
+    $(addprefix -isystem ,$(TARGET_C_SYSTEM_INCLUDES)) \
     $(CLANG_TARGET_GLOBAL_CFLAGS)"
 $(my_gen): PRIVATE_CC := $(my_cc)
 $(my_gen): PRIVATE_CUSTOM_TOOL = $< $(PRIVATE_CC) $@
 $(my_gen): $(LOCAL_PATH)/gen_syscalls.sh
 	$(transform-generated-source)
+$(call include-depfile,$(my_gen).d,$(my_gen))
 LOCAL_GENERATED_SOURCES_$(TARGET_ARCH) += $(my_gen)
 
 my_gen := $(generated_sources_dir)/$(TARGET_ARCH)/libconstants.c
@@ -60,13 +59,15 @@ $(my_gen): PRIVATE_CC := $(my_cc)
 $(my_gen): PRIVATE_CUSTOM_TOOL = $< $(PRIVATE_CC) $@
 $(my_gen): $(LOCAL_PATH)/gen_constants.sh
 	$(transform-generated-source)
+$(call include-depfile,$(my_gen).d,$(my_gen))
 LOCAL_GENERATED_SOURCES_$(TARGET_ARCH) += $(my_gen)
 
 # For processes running in 32-bit compat mode on 64-bit processors.
 ifdef TARGET_2ND_ARCH
 my_gen := $(generated_sources_dir)/$(TARGET_2ND_ARCH)/libsyscalls.c
 my_cc := "$(lastword $(CLANG)) \
-    $(addprefix -isystem ,$($(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_C_INCLUDES)) \
+    $(addprefix -I ,$($(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_C_INCLUDES)) \
+    $(addprefix -isystem ,$($(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_C_SYSTEM_INCLUDES)) \
     $($(TARGET_2ND_ARCH_VAR_PREFIX)CLANG_TARGET_GLOBAL_CFLAGS)"
 $(my_gen): PRIVATE_CC := $(my_cc)
 $(my_gen): PRIVATE_CUSTOM_TOOL = $< $(PRIVATE_CC) $@
@@ -135,59 +136,89 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_STATIC_LIBRARY)
 
 
-# libminijail native unit tests. Run with:
-# adb shell /data/nativetest/libminijail_unittest/libminijail_unittest
+# libminijail native unit tests using gtest. Run with:
+# adb shell /data/nativetest/libminijail_unittest_gtest/libminijail_unittest_gtest
 # =========================================================
 include $(CLEAR_VARS)
-LOCAL_MODULE := libminijail_unittest
-ifdef BRILLO
-  LOCAL_MODULE_TAGS := eng
-endif
+LOCAL_MODULE := libminijail_unittest_gtest
 
-LOCAL_CFLAGS := $(minijailCommonCFlags)
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CFLAGS := $(minijailCommonCFlags) -Wno-writable-strings
 LOCAL_CLANG := true
 LOCAL_SRC_FILES := \
-	bpf.c \
-	libminijail.c \
-	libminijail_unittest.c \
-	signal_handler.c \
-	syscall_filter.c \
-	util.c \
+	$(libminijailSrcFiles) \
+	libminijail_unittest.cc \
 
 LOCAL_STATIC_LIBRARIES := libminijail_generated
 LOCAL_SHARED_LIBRARIES := $(minijailCommonLibraries)
 include $(BUILD_NATIVE_TEST)
 
 
-# Syscall filtering native unit tests. Run with:
-# adb shell /data/nativetest/syscall_filter_unittest/syscall_filter_unittest
+# # libminijail native unit tests for the host. Run with:
+# # out/host/linux-x86/nativetest(64)/libminijail_unittest/libminijail_unittest_gtest
+# # TODO(b/31395668): Re-enable once the seccomp(2) syscall becomes available.
+# # =========================================================
+# include $(CLEAR_VARS)
+# LOCAL_MODULE := libminijail_unittest_gtest
+# LOCAL_MODULE_HOST_OS := linux
+
+# LOCAL_CPP_EXTENSION := .cc
+# LOCAL_CFLAGS := $(minijailCommonCFlags) -DPRELOADPATH=\"/invalid\"
+# LOCAL_CLANG := true
+# LOCAL_SRC_FILES := \
+# 	$(libminijailSrcFiles) \
+# 	libminijail_unittest.cc \
+# 	$(hostUnittestSrcFiles)
+
+# LOCAL_SHARED_LIBRARIES := $(minijailCommonLibraries)
+# include $(BUILD_HOST_NATIVE_TEST)
+
+
+# Syscall filtering native unit tests using gtest. Run with:
+# adb shell /data/nativetest/syscall_filter_unittest_gtest/syscall_filter_unittest_gtest
 # =========================================================
 include $(CLEAR_VARS)
-LOCAL_MODULE := syscall_filter_unittest
-ifdef BRILLO
-  LOCAL_MODULE_TAGS := eng
-endif
+LOCAL_MODULE := syscall_filter_unittest_gtest
 
+LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS := $(minijailCommonCFlags)
 LOCAL_CLANG := true
 LOCAL_SRC_FILES := \
 	bpf.c \
 	syscall_filter.c \
-	syscall_filter_unittest.c \
 	util.c \
+	syscall_filter_unittest.cc \
 
 LOCAL_STATIC_LIBRARIES := libminijail_generated
 LOCAL_SHARED_LIBRARIES := $(minijailCommonLibraries)
 include $(BUILD_NATIVE_TEST)
 
 
-# test_minijail executable for brillo_Minijail test.
+# Syscall filtering native unit tests for the host. Run with:
+# out/host/linux-x86/nativetest(64)/syscall_filter_unittest_gtest/syscall_filter_unittest_gtest
+# =========================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := syscall_filter_unittest_gtest
+LOCAL_MODULE_HOST_OS := linux
+
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CFLAGS := $(minijailCommonCFlags)
+LOCAL_CLANG := true
+LOCAL_SRC_FILES := \
+	bpf.c \
+	syscall_filter.c \
+	util.c \
+	syscall_filter_unittest.cc \
+	$(hostUnittestSrcFiles)
+
+LOCAL_SHARED_LIBRARIES := $(minijailCommonLibraries)
+include $(BUILD_HOST_NATIVE_TEST)
+
+
+# libminijail_test executable for brillo_Minijail test.
 # =========================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libminijail_test
-ifdef BRILLO
-  LOCAL_MODULE_TAGS := eng
-endif
 
 LOCAL_CFLAGS := $(minijailCommonCFlags)
 LOCAL_CLANG := true

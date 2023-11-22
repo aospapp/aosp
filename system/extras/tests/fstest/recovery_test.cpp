@@ -29,15 +29,14 @@
 #include <unistd.h>
 
 #include "cutils/properties.h"
-#include "ext4.h"
-#include "ext4_utils.h"
+#include <ext4_utils/ext4.h>
+#include <ext4_utils/ext4_utils.h>
 
 #define LOG_TAG "fsRecoveryTest"
 #include <utils/Log.h>
 #include <testUtil.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-#define FSTAB_PREFIX "/fstab."
 #define SB_OFFSET 1024
 static char UMOUNT_BIN[] = "/system/bin/umount";
 static char VDC_BIN[] = "/system/bin/vdc";
@@ -48,7 +47,7 @@ namespace android {
 
 class DataFileVerifier {
  public:
-  DataFileVerifier(const char* file_name) {
+  explicit DataFileVerifier(const char* file_name) {
     strncpy(test_file_, file_name, FILENAME_MAX);
   }
 
@@ -188,14 +187,10 @@ class FsRecoveryTest : public ::testing::Test {
 
   bool setCacheInfoFromFstab() {
     fs_type = FS_UNKNOWN;
-    char propbuf[PROPERTY_VALUE_MAX];
-    property_get("ro.hardware", propbuf, "");
-    char fstab_filename[PROPERTY_VALUE_MAX + sizeof(FSTAB_PREFIX)];
-    snprintf(fstab_filename, sizeof(fstab_filename), FSTAB_PREFIX"%s", propbuf);
 
-    struct fstab *fstab = fs_mgr_read_fstab(fstab_filename);
+    struct fstab *fstab = fs_mgr_read_fstab_default();
     if (!fstab) {
-      testPrintE("failed to open %s\n", fstab_filename);
+      testPrintE("failed to open default fstab\n");
     } else {
       // Loop through entries looking for cache.
       for (int i = 0; i < fstab->num_entries; ++i) {

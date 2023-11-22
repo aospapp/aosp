@@ -15,8 +15,7 @@
  */
 package com.android.cts.usb;
 
-import com.android.compatibility.common.util.AbiUtils;
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
@@ -27,6 +26,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.RunUtil;
@@ -62,7 +62,8 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         super.setUp();
         mDevice = getDevice();
         mDevice.uninstallPackage(PACKAGE_NAME);
-        File app = MigrationHelper.getTestFile(mBuild, APK_NAME);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
+        File app = buildHelper.getTestFile(APK_NAME);
         String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
         mDevice.installPackage(app, false, options);
     }

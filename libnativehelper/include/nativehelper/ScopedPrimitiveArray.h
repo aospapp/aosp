@@ -19,6 +19,18 @@
 
 #include "JNIHelp.h"
 
+#ifdef POINTER_TYPE
+#error POINTER_TYPE is defined.
+#else
+#define POINTER_TYPE(T) T*  /* NOLINT */
+#endif
+
+#ifdef REFERENCE_TYPE
+#error REFERENCE_TYPE is defined.
+#else
+#define REFERENCE_TYPE(T) T&  /* NOLINT */
+#endif
+
 // ScopedBooleanArrayRO, ScopedByteArrayRO, ScopedCharArrayRO, ScopedDoubleArrayRO,
 // ScopedFloatArrayRO, ScopedIntArrayRO, ScopedLongArrayRO, and ScopedShortArrayRO provide
 // convenient read-only access to Java arrays from JNI code. This is cheaper than read-write
@@ -62,7 +74,7 @@
         static const jsize buffer_size = 1024; \
         JNIEnv* const mEnv; \
         PRIMITIVE_TYPE ## Array mJavaArray; \
-        PRIMITIVE_TYPE* mRawArray; \
+        POINTER_TYPE(PRIMITIVE_TYPE) mRawArray; \
         jsize mSize; \
         PRIMITIVE_TYPE mBuffer[buffer_size]; \
         DISALLOW_COPY_AND_ASSIGN(Scoped ## NAME ## ArrayRO); \
@@ -108,13 +120,13 @@ INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RO(jshort, Short);
         const PRIMITIVE_TYPE* get() const { return mRawArray; } \
         PRIMITIVE_TYPE ## Array getJavaArray() const { return mJavaArray; } \
         const PRIMITIVE_TYPE& operator[](size_t n) const { return mRawArray[n]; } \
-        PRIMITIVE_TYPE* get() { return mRawArray; } \
-        PRIMITIVE_TYPE& operator[](size_t n) { return mRawArray[n]; } \
+        POINTER_TYPE(PRIMITIVE_TYPE) get() { return mRawArray; }  \
+        REFERENCE_TYPE(PRIMITIVE_TYPE) operator[](size_t n) { return mRawArray[n]; } \
         size_t size() const { return mEnv->GetArrayLength(mJavaArray); } \
     private: \
         JNIEnv* const mEnv; \
         PRIMITIVE_TYPE ## Array mJavaArray; \
-        PRIMITIVE_TYPE* mRawArray; \
+        POINTER_TYPE(PRIMITIVE_TYPE) mRawArray; \
         DISALLOW_COPY_AND_ASSIGN(Scoped ## NAME ## ArrayRW); \
     }
 
@@ -128,5 +140,7 @@ INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RW(jlong, Long);
 INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RW(jshort, Short);
 
 #undef INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RW
+#undef POINTER_TYPE
+#undef REFERENCE_TYPE
 
 #endif  // SCOPED_PRIMITIVE_ARRAY_H_included

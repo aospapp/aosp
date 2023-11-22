@@ -55,22 +55,14 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/src/include-glibc \
 	$(LOCAL_PATH)/src/libipsec \
 	$(LOCAL_PATH)/src/racoon \
-	$(LOCAL_PATH)/src/racoon/missing
+	$(LOCAL_PATH)/src/racoon/missing \
+	system/netd/include
 
 LOCAL_STATIC_LIBRARIES := libipsec
 
-LOCAL_SHARED_LIBRARIES := libcutils liblog libcrypto
+LOCAL_SHARED_LIBRARIES := libcutils liblog libcrypto libkeystore-engine libnetd_client
 
-ifneq (,$(wildcard $(TOP)/external/boringssl/flavor.mk))
-	include $(TOP)/external/boringssl/flavor.mk
-else
-	include $(TOP)/external/openssl/flavor.mk
-endif
-ifeq ($(OPENSSL_FLAVOR),BoringSSL)
-	LOCAL_SHARED_LIBRARIES += libkeystore-engine
-endif
-
-LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H -D_BSD_SOURCE=1
+LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -D_BSD_SOURCE=1
 
 LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-pointer-sign -Werror
 
@@ -95,7 +87,7 @@ LOCAL_SRC_FILES := \
 	src/libipsec/pfkey.c \
 	src/libipsec/ipsec_strerror.c
 
-LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H
+LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H
 
 LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-pointer-sign -Werror
 

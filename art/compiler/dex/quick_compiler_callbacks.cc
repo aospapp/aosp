@@ -16,7 +16,6 @@
 
 #include "quick_compiler_callbacks.h"
 
-#include "quick/dex_file_to_method_inliner_map.h"
 #include "verifier/method_verifier-inl.h"
 #include "verification_results.h"
 
@@ -24,8 +23,6 @@ namespace art {
 
 void QuickCompilerCallbacks::MethodVerified(verifier::MethodVerifier* verifier) {
   verification_results_->ProcessVerifiedMethod(verifier);
-  MethodReference ref = verifier->GetMethodReference();
-  method_inliner_map_->GetMethodInliner(ref.dex_file)->AnalyseMethodCode(verifier);
 }
 
 void QuickCompilerCallbacks::ClassRejected(ClassReference ref) {

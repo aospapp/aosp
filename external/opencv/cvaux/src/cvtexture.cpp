@@ -469,7 +469,7 @@ icvCreateGLCMDescriptors_AllowDoubleNest( CvGLCM* destGLCM, int matrixIndex )
             descriptors[ CV_GLCMDESC_ENERGY ] += entryValue*entryValue;
         }
 
-        if( marginalProbability>0 )
+        if( marginalProbability )
             marginalProbabilityEntropy += marginalProbability[ actualSideLoop1 ]*log(marginalProbability[ actualSideLoop1 ]);
     }
 
@@ -515,8 +515,8 @@ icvCreateGLCMDescriptors_AllowDoubleNest( CvGLCM* destGLCM, int matrixIndex )
         correlationStdDeviation += (actualSideLoop1-correlationMean) * (actualSideLoop1-correlationMean) * sideEntryValueSum;
     }
 
-    HXY1 =- HXY1;
-    HXY2 =- HXY2;
+    HXY1 = -HXY1;
+    HXY2 = -HXY2;
 
     descriptors[ CV_GLCMDESC_CORRELATIONINFO1 ] = ( HXY - HXY1 ) / ( correlationMean );
     descriptors[ CV_GLCMDESC_CORRELATIONINFO2 ] = sqrt( 1.0 - exp( -2.0 * (HXY2 - HXY ) ) );

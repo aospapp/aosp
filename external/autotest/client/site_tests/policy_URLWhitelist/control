@@ -2,39 +2,27 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "krishnargv"
-NAME = "policy_URLWhitelist"
-ATTRIBUTES = "suite:regression"
-SUITE = "regression"
-TIME = "SHORT"
-TEST_CATEGORY = "General"
-TEST_CLASS = "enterprise"
-TEST_TYPE = "client"
+AUTHOR = 'krishnargv'
+NAME = 'policy_URLWhitelist'
+TIME = 'SHORT'
+TEST_CATEGORY = 'General'
+TEST_CLASS = 'enterprise'
+TEST_TYPE = 'client'
 
-DOC = """
-Verify effects of policy_URLWhitelist policy on client behavior & appearance.
+DOC = '''
+Verify effects of policy_URLWhitelist policy on client behavior.
 
 This test verifies the effect of the URLWhitelist user policy on Chrome OS
-client behavior and appearance. It exercises a range of policy values using
-three unique test cases, named: NotSet, SingleWhitelistedFile and
-MultipleWhitelistedFiles.
+client behavior. It exercises a range of policy values using three unique test
+cases, named: NotSet_Blocked, SinglePage_Allowed, and MultiplePages_Allowed.
 See the test file for a full description of what each test case does.
 
-The test case shall pass if:
- -only the URLs that are part of the URLWhitelist policy value are not blocked.
- -all other URLs are blocked.
-The test case shall fail if the above behavior is not enforced.
+A test case shall pass iff only URLs that are in the URLWhitelist policy value
+are allowed, and all other URLs are blocked. The test case shall fail if the
+above behavior is not enforced.
 
-Usage example:
-$ test_that <IPAddress> policy_URLWhitelist --args="mode=single
-case=MultipleWhitelistedFiles nv=dm-test dms_name=xot-dmst
-username=test@crosprqa1.com password=test1234"
+'''
 
-This command runs a single test case (e.g., MultipleWhitelistedFiles) using
-the specified test DM Server environment, signing in with the specified
-username and password.
+args_dict = utils.args_to_dict(args)
 
-"""
-
-job.run_test("policy_URLWhitelist", args=args)
-
+job.run_test('policy_URLWhitelist', **args_dict)

@@ -27,8 +27,8 @@ class MediaLogService : public BinderService<MediaLogService>, public BnMediaLog
 {
     friend class BinderService<MediaLogService>;    // for MediaLogService()
 public:
-    MediaLogService() : BnMediaLogService() { }
-    virtual ~MediaLogService() { }
+    MediaLogService();
+    virtual ~MediaLogService() override;
     virtual void onFirstRef() { }
 
     static const char*  getServiceName() { return "media.log"; }
@@ -42,28 +42,23 @@ public:
     virtual status_t    onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                                 uint32_t flags);
 
+    virtual void        requestMergeWakeup() override;
+
 private:
 
     // Internal dump
     static const int kDumpLockRetries = 50;
     static const int kDumpLockSleepUs = 20000;
+    static const size_t kMergeBufferSize = 16 * 1024; // TODO determine good value for this
     static bool dumpTryLock(Mutex& mutex);
 
     Mutex               mLock;
-    class NamedReader {
-    public:
-        NamedReader() : mReader(0) { mName[0] = '\0'; } // for Vector
-        NamedReader(const sp<NBLog::Reader>& reader, const char *name) : mReader(reader)
-            { strlcpy(mName, name, sizeof(mName)); }
-        ~NamedReader() { }
-        const sp<NBLog::Reader>&  reader() const { return mReader; }
-        const char*               name() const { return mName; }
-    private:
-        sp<NBLog::Reader>   mReader;
-        static const size_t kMaxName = 32;
-        char                mName[kMaxName];
-    };
-    Vector<NamedReader> mNamedReaders;
+
+    Vector<NBLog::NamedReader> mNamedReaders;
+    NBLog::Shared *mMergerShared;
+    NBLog::Merger mMerger;
+    NBLog::MergeReader mMergeReader;
+    const sp<NBLog::MergeThread> mMergeThread;
 };
 
 }   // namespace android

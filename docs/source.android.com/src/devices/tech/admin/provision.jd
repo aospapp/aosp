@@ -25,7 +25,7 @@ page.title=Provisioning for Device Administration
 </div>
 
 <p>This page describes the process for deploying devices to corporate users
-using NFC or with an activation code (for a complete list of requirements, see
+using NFC or via cloud services (for a complete list of requirements, see
 <a href="{@docRoot}devices/tech/admin/implement.html">Implementing Device
 Administration</a>).</p>
 
@@ -136,11 +136,11 @@ mimetype from the setup experience:</p>
 </pre>
 
 <h3 id=do_provision_cs>Provisioning via Cloud Services</h2>
-<p>Device owner provisioning via cloud services includes the ability to
-provision a device in device owner mode during out-of-the-box setup. The device
-can collect credentials (or tokens) and use them to perform a lookup to a cloud
-service, which can then be used to initiate the device owner provisioning
-process.</p>
+<p>Device owner provisioning via cloud services is another method through which
+a device can be provisioned in device owner mode during out-of-the-box setup.
+The device can collect credentials (or tokens) and use them to perform a lookup
+to a cloud service, which can then be used to initiate the device owner
+provisioning process.</p>
 
 <h2 id=emm_benefits>EMM benefits</h2>
 

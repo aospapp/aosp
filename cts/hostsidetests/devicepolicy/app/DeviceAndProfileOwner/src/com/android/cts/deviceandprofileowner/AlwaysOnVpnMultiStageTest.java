@@ -47,8 +47,9 @@ public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
             VpnTestHelper.tryPosixConnect(TEST_ADDRESS);
             fail("sendIcmpMessage doesn't throw Exception during network lockdown");
         } catch (ErrnoException e) {
-            // Os.connect returns ENETUNREACH errno after the vpn app process is killed
-            assertEquals(OsConstants.ENETUNREACH, e.errno);
+            // Os.connect returns ENETUNREACH or EACCES errno after the vpn app process is killed
+            assertTrue((e.errno == OsConstants.ENETUNREACH) ||
+                       (e.errno == OsConstants.EACCES));
         }
     }
 

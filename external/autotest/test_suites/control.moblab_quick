@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "moblab_quick"
 PURPOSE = "Quickly test basic moblab functionality."
-CRITERIA = "All tests with SUITE=moblab_quick must pass."
 
 TIME = "MEDIUM"
 TEST_CATEGORY = "General"

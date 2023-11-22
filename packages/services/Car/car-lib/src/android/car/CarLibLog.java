@@ -19,6 +19,9 @@ package android.car;
 /** @hide */
 public class CarLibLog {
     public static final String TAG_CAR = "CAR.L";
-    public static final String TAG_SENSOR = TAG_CAR + ".SENSOR";
+    public static final String TAG_CLUSTER = TAG_CAR + ".CLUSTER";
+    public static final String TAG_INPUT = TAG_CAR + ".INPUT";
     public static final String TAG_NAV = TAG_CAR + ".NAV";
+    public static final String TAG_SENSOR = TAG_CAR + ".SENSOR";
+    public static final String TAG_DIAGNOSTIC = TAG_CAR + ".DIAGNOSTIC";
 }

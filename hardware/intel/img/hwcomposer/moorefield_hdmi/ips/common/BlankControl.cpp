@@ -33,10 +33,8 @@ BlankControl::~BlankControl()
 
 bool BlankControl::blank(int disp, bool blank)
 {
-    // current do nothing but return true
-    // use PM to trigger screen blank/unblank
-    VLOGTRACE("blank is not supported yet, disp %d, blank %d", disp, blank);
-    return true;
+    Drm *drm = Hwcomposer::getInstance().getDrm();
+    return drm->setDpmsMode(disp, !blank);
 }
 
 } // namespace intel

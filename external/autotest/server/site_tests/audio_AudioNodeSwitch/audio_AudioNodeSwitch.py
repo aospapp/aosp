@@ -15,6 +15,7 @@ from autotest_lib.client.cros.chameleon import chameleon_port_finder
 
 from autotest_lib.client.cros.chameleon import edid as edid_lib
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 
@@ -88,9 +89,10 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
         self.host = host
         chameleon_board = host.chameleon
         audio_board = chameleon_board.get_audio_board()
-        factory = self.create_remote_facade_factory(host)
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         self.audio_facade = factory.create_audio_facade()
         self.display_facade = factory.create_display_facade()
 
@@ -111,7 +113,7 @@ class audio_AudioNodeSwitch(audio_test.AudioTest):
             hdmi_port.apply_edid(edid_lib.Edid.from_file(edid_path))
             time.sleep(self._APPLY_EDID_DELAY)
             hdmi_port.set_plug(True)
-            time.sleep(self._PLUG_DELAY)
+            time.sleep(self._PLUG_DELAY * 2)
 
             audio_test_utils.check_audio_nodes(self.audio_facade,
                                                (['HDMI'], None))

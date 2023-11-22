@@ -38,14 +38,14 @@
             android:layout_marginTop="@dimen/suw_description_glif_margin_top">
 
             <TextView
-                style="@style/TextAppearance.FingerprintMessage"
+                style="@style/SuwDescription.Glif"
                 android:id="@+id/start_message"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/security_settings_fingerprint_enroll_start_message"/>
 
             <TextView
-                style="@style/TextAppearance.FingerprintMessage"
+                style="@style/SuwDescription.Glif"
                 android:id="@+id/repeat_message"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -55,8 +55,9 @@
         </FrameLayout>
 
         <include layout="@layout/fingerprint_enroll_enrolling_content"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="@dimen/fingerprint_progress_bar_max_size"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="@dimen/fingerprint_enrolling_content_margin_top"/>
 
@@ -69,14 +70,6 @@
             android:layout_gravity="center_horizontal"
             android:accessibilityLiveRegion="polite"
             android:visibility="invisible"/>
-
-        <Button
-            android:id="@+id/skip_button"
-            style="@style/SetupWizardButton.Negative"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/skip_label"
-            android:visibility="gone" />
 
     </LinearLayout>
 

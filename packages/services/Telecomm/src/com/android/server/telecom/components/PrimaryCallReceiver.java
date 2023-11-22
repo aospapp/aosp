@@ -1,11 +1,11 @@
 package com.android.server.telecom.components;
 
-import com.android.server.telecom.Log;
 import com.android.server.telecom.TelecomSystem;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.telecom.Log;
 
 /**
  * Single point of entry for all outgoing and incoming calls. {@link UserCallIntentProcessor} serves

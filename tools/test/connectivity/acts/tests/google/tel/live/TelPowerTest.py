@@ -19,25 +19,28 @@ import os
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts.test_utils.tel.tel_test_utils import call_setup_teardown
-from acts.test_utils.tel.tel_test_utils import ensure_phone_default_state
+from acts.test_utils.tel.tel_test_utils import ensure_phones_default_state
 from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
 from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
+from acts.test_utils.tel.tel_test_utils import hangup_call
 from acts.test_utils.tel.tel_test_utils import is_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import set_phone_screen_on
+from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
+from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_2g
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
+from acts.test_utils.tel.tel_voice_utils import phone_idle_2g
 from acts.test_utils.tel.tel_voice_utils import phone_idle_3g
 from acts.test_utils.tel.tel_voice_utils import phone_idle_iwlan
 from acts.test_utils.tel.tel_voice_utils import phone_idle_volte
-from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
-from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_csfb
 from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan
+from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_3g
+from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_2g
 from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts.test_utils.tel.tel_voice_utils import phone_setup_voice_general
 from acts.utils import create_dir
 from acts.utils import disable_doze
 from acts.utils import get_current_human_time
@@ -69,6 +72,14 @@ IDLE_TEST_SAMPLE_TIME = 2400
 # Offset time in seconds
 IDLE_TEST_OFFSET_TIME = 360
 
+# Constant for RAT
+RAT_LTE = 'lte'
+RAT_3G = '3g'
+RAT_2G = '2g'
+# Constant for WIFI
+WIFI_5G = '5g'
+WIFI_2G = '2g'
+
 # For wakeup ping test, the frequency to wakeup. In unit of second.
 WAKEUP_PING_TEST_WAKEUP_FREQ = 60
 
@@ -80,38 +91,6 @@ WAKEUP_PING_TEST_NUMBER_OF_ALARM = math.ceil(
 class TelPowerTest(TelephonyBaseTest):
     def __init__(self, controllers):
         TelephonyBaseTest.__init__(self, controllers)
-        self.tests = (
-            # Note: For all these power tests, please do environment calibration
-            # and baseline for pass criteria.
-            # All pass criteria information should be included in test config file.
-            # The test result will be meaning less if pass criteria is not correct.
-            "test_power_active_call_3g",
-            "test_power_active_call_volte",
-            "test_power_active_call_wfc_2g_apm",
-            "test_power_active_call_wfc_2g_lte_volte_on",
-            "test_power_active_call_wfc_5g_apm",
-            "test_power_active_call_wfc_5g_lte_volte_on",
-            "test_power_idle_baseline",
-            "test_power_idle_baseline_wifi_connected",
-            "test_power_idle_wfc_2g_apm",
-            "test_power_idle_wfc_2g_lte",
-            "test_power_idle_lte_volte_enabled",
-            "test_power_idle_lte_volte_disabled",
-            "test_power_idle_3g",
-            "test_power_idle_lte_volte_enabled_wakeup_ping",
-            "test_power_idle_lte_volte_disabled_wakeup_ping",
-            "test_power_idle_3g_wakeup_ping",
-
-            # Mobile Data Always On
-            "test_power_mobile_data_always_on_lte",
-            "test_power_mobile_data_always_on_wcdma",
-            "test_power_mobile_data_always_on_gsm",
-            "test_power_mobile_data_always_on_1x",
-            "test_power_mobile_data_always_on_lte_wifi_on",
-            "test_power_mobile_data_always_on_wcdma_wifi_on",
-            "test_power_mobile_data_always_on_gsm_wifi_on",
-            "test_power_mobile_data_always_on_1x_wifi_on"
-            )
 
     def setup_class(self):
         super().setup_class()
@@ -120,6 +99,7 @@ class TelPowerTest(TelephonyBaseTest):
         self.mon.set_max_current(MONSOON_MAX_CURRENT)
         # Monsoon phone
         self.mon.dut = self.ad = self.android_devices[0]
+        self.ad.reboot()
         set_adaptive_brightness(self.ad, False)
         set_ambient_display(self.ad, False)
         set_auto_rotate(self.ad, False)
@@ -137,216 +117,201 @@ class TelPowerTest(TelephonyBaseTest):
         create_dir(self.monsoon_log_path)
         return True
 
-    def _save_logs_for_power_test(self, test_name, monsoon_result):
-        current_time = get_current_human_time()
-        file_name = "{}_{}".format(test_name, current_time)
-        if "monsoon_log_for_power_test" in self.user_params:
+    def _save_logs_for_power_test(self, monsoon_result, bug_report):
+        if monsoon_result and "monsoon_log_for_power_test" in self.user_params:
             monsoon_result.save_to_text_file(
                 [monsoon_result],
-                os.path.join(self.monsoon_log_path, file_name))
-        if "bug_report_for_power_test" in self.user_params:
-            self.android_devices[0].take_bug_report(test_name, current_time)
+                os.path.join(self.monsoon_log_path, self.test_id))
+        if bug_report and "bug_report_for_power_test" in self.user_params:
+            self.android_devices[0].take_bug_report(self.test_name,
+                                                    self.begin_time)
 
-    def _test_power_active_call(self,
-                                test_name,
-                                test_setup_func,
-                                pass_criteria=DEFAULT_POWER_PASS_CRITERIA,
-                                phone_check_func_after_power_test=None,
-                                *args,
-                                **kwargs):
-        average_current = 0
-        try:
-            ensure_phone_default_state(self.log, self.android_devices[0])
-            ensure_phone_default_state(self.log, self.android_devices[1])
-            if not phone_setup_voice_general(self.log,
-                                             self.android_devices[1]):
-                self.log.error("PhoneB Failed to Set Up Properly.")
-                return False
-            if not test_setup_func(self.android_devices[0], *args, **kwargs):
-                self.log.error("DUT Failed to Set Up Properly.")
-                return False
-            result = self.mon.measure_power(
-                ACTIVE_CALL_TEST_SAMPLING_RATE,
-                ACTIVE_CALL_TEST_SAMPLE_TIME,
-                test_name,
-                ACTIVE_CALL_TEST_OFFSET_TIME
-                )
-            self._save_logs_for_power_test(test_name, result)
-            average_current = result.average_current
-            if not verify_incall_state(self.log, [self.android_devices[0],
-                                                  self.android_devices[1]],
-                                       True):
-                self.log.error("Call drop during power test.")
-                return False
-            if ((phone_check_func_after_power_test is not None) and
-                (not phone_check_func_after_power_test(
-                    self.log, self.android_devices[0]))):
-                self.log.error(
-                    "Phone is not in correct status after power test.")
-                return False
-            return (average_current <= pass_criteria)
-        finally:
-            self.android_devices[1].droid.telecomEndCall()
-            self.log.info("Result: {} mA, pass criteria: {} mA".format(
-                average_current, pass_criteria))
-
-    def _test_power_idle(self,
-                         test_name,
-                         test_setup_func,
-                         pass_criteria=DEFAULT_POWER_PASS_CRITERIA,
-                         phone_check_func_after_power_test=None,
-                         *args,
-                         **kwargs):
-        average_current = 0
-        try:
-            ensure_phone_default_state(self.log, self.android_devices[0])
-            if not test_setup_func(self.android_devices[0], *args, **kwargs):
-                self.log.error("DUT Failed to Set Up Properly.")
-                return False
-            result = self.mon.measure_power(
-                IDLE_TEST_SAMPLING_RATE,
-                IDLE_TEST_SAMPLE_TIME,
-                test_name,
-                IDLE_TEST_OFFSET_TIME
-                )
-            self._save_logs_for_power_test(test_name, result)
-            average_current = result.average_current
-            if ((phone_check_func_after_power_test is not None) and
-                (not phone_check_func_after_power_test(
-                    self.log, self.android_devices[0]))):
-                self.log.error(
-                    "Phone is not in correct status after power test.")
-                return False
-            return (average_current <= pass_criteria)
-        finally:
-            self.log.info("Result: {} mA, pass criteria: {} mA".format(
-                average_current, pass_criteria))
-
-    def _start_alarm(self):
-        alarm_id = self.ad.droid.phoneStartRecurringAlarm(
-            WAKEUP_PING_TEST_NUMBER_OF_ALARM,
-            1000 * WAKEUP_PING_TEST_WAKEUP_FREQ, "PING_GOOGLE", None)
-        if alarm_id is None:
-            self.log.error("Start alarm failed.")
+    def _setup_apm(self):
+        if not toggle_airplane_mode(self.log, self.ad, True):
+            self.log.error("Phone failed to turn on airplane mode.")
             return False
+        else:
+            self.log.info("Airplane mode is enabled successfully.")
+            return True
+
+    def _setup_wifi(self, wifi):
+        if wifi == WIFI_5G:
+            network_ssid = self.wifi_network_ssid_5g
+            network_pass = self.wifi_network_pass_5g
+        else:
+            network_ssid = self.wifi_network_ssid_2g
+            network_pass = self.wifi_network_pass_2g
+        if not ensure_wifi_connected(
+                self.log, self.ad, network_ssid, network_pass, retry=3):
+            self.log.error("Wifi %s connection fails." % wifi)
+            return False
+        self.log.info("WIFI %s is connected successfully." % wifi)
         return True
 
-    def _setup_phone_idle_and_wakeup_ping(self, ad, phone_setup_func):
-        if not phone_setup_func(self.log, ad):
-            self.log.error("Phone failed to setup {}.".format(
-                phone_setup_func.__name__))
+    def _setup_wfc(self):
+        if not set_wfc_mode(self.log, self.ad, WFC_MODE_WIFI_PREFERRED):
+            self.log.error("Phone failed to enable Wifi-Calling.")
             return False
-        if not self._start_alarm():
-            return False
-        ad.droid.goToSleepNow()
-        return True
-
-    def _setup_phone_mobile_data_always_on(self, ad, phone_setup_func,
-                                           connect_wifi,
-                                           wifi_ssid=None,
-                                           wifi_password=None,
-                                           mobile_data_always_on=True):
-        set_mobile_data_always_on(ad, mobile_data_always_on)
-        if not phone_setup_func(self.log, ad):
-            self.log.error("Phone failed to setup {}.".format(
-                phone_setup_func.__name__))
-            return False
-        if (connect_wifi and
-            not ensure_wifi_connected(self.log, ad, wifi_ssid, wifi_password)):
-            self.log.error("WiFi connect failed")
-            return False
-        # simulate normal user behavior -- wake up every 1 minutes and do ping
-        # (transmit data)
-        if not self._start_alarm():
-            return False
-        ad.droid.goToSleepNow()
-        return True
-
-    def _setup_phone_active_call(self, ad, phone_setup_func,
-                                 phone_idle_check_func,
-                                 phone_in_call_check_func):
-        if not phone_setup_func(self.log, ad):
-            self.log.error("DUT Failed to Set Up Properly: {}".format(
-                phone_setup_func.__name__))
-            return False
-        ensure_phones_idle(self.log, [ad, self.android_devices[1]])
-        if not phone_idle_check_func(self.log, ad):
-            self.log.error("DUT not in correct idle state: {}".format(
-                phone_idle_check_func.__name__))
-            return False
-        if not call_setup_teardown(
-                self.log,
-                ad,
-                self.android_devices[1],
-                ad_hangup=None,
-                verify_caller_func=phone_in_call_check_func):
-            self.log.error("Setup Call failed.")
-            return False
-        ad.droid.goToSleepNow()
-        return True
-
-    def _setup_phone_active_call_wfc(self,
-                                     ad,
-                                     ssid,
-                                     password,
-                                     airplane_mode,
-                                     wfc_mode,
-                                     setup_volte=False):
-        if setup_volte and (not phone_setup_volte(self.log, ad)):
-            self.log.error("Phone failed to setup VoLTE.")
-            return False
-        if not phone_setup_iwlan(self.log, ad, airplane_mode, wfc_mode, ssid,
-                                 password):
-            self.log.error("DUT Failed to Set Up WiFi Calling")
-            return False
-        ensure_phones_idle(self.log, [ad, self.android_devices[1]])
-        if not phone_idle_iwlan(self.log, ad):
+        self.log.info("Phone is set in Wifi-Calling successfully.")
+        if not phone_idle_iwlan(self.log, self.ad):
             self.log.error("DUT not in WFC enabled state.")
             return False
-        if not call_setup_teardown(self.log,
-                                   ad,
-                                   self.android_devices[1],
-                                   ad_hangup=None,
-                                   verify_caller_func=is_phone_in_call_iwlan):
-            self.log.error("Setup Call failed.")
-            return False
-        ad.droid.goToSleepNow()
         return True
 
-    @TelephonyBaseTest.tel_test_wrap
-    def test_power_active_call_3g(self):
-        """Power measurement test for active CS(3G) call.
+    def _setup_lte_volte_enabled(self):
+        if not phone_setup_volte(self.log, self.ad):
+            self.log.error("Phone failed to enable VoLTE.")
+            return False
+        self.log.info("VOLTE is enabled successfully.")
+        return True
 
-        Steps:
-        1. DUT idle, in 3G mode.
-        2. Make a phone Call from DUT to PhoneB. Answer on PhoneB.
-            Make sure DUT is in CS(3G) call.
-        3. Turn off screen and wait for 3 minutes.
-            Then measure power consumption for 5 minutes and get average.
+    def _setup_lte_volte_disabled(self):
+        if not phone_setup_csfb(self.log, self.ad):
+            self.log.error("Phone failed to setup CSFB.")
+            return False
+        self.log.info("VOLTE is disabled successfully.")
+        return True
 
-        Expected Results:
-        Average power consumption should be within pre-defined limit.
+    def _setup_3g(self):
+        if not phone_setup_voice_3g(self.log, self.ad):
+            self.log.error("Phone failed to setup 3g.")
+            return False
+        self.log.info("RAT 3G is enabled successfully.")
+        return True
 
-        Returns:
-        True if Pass, False if Fail.
+    def _setup_2g(self):
+        if not phone_setup_voice_2g(self.log, self.ad):
+            self.log.error("Phone failed to setup 2g.")
+            return False
+        self.log.info("RAT 2G is enabled successfully.")
+        return True
 
-        Note: Please calibrate your test environment and baseline pass criteria.
-        Pass criteria info should be in test config file.
+    def _setup_rat(self, rat, volte):
+        if rat == RAT_3G:
+            return self._setup_3g()
+        elif rat == RAT_2G:
+            return self._setup_2g()
+        elif rat == RAT_LTE and volte:
+            return self._setup_lte_volte_enabled()
+        elif rat == RAT_LTE and not volte:
+            return self._setup_lte_volte_disabled()
+
+    def _start_alarm(self):
+        # TODO: This one works with a temporary SL4A API to start alarm.
+        # https://googleplex-android-review.git.corp.google.com/#/c/1562684/
+        # simulate normal user behavior -- wake up every 1 minutes and do ping
+        # (transmit data)
+        try:
+            alarm_id = self.ad.droid.telephonyStartRecurringAlarm(
+                WAKEUP_PING_TEST_NUMBER_OF_ALARM,
+                1000 * WAKEUP_PING_TEST_WAKEUP_FREQ, "PING_GOOGLE", None)
+        except:
+            self.log.error("Failed to setup periodic ping.")
+            return False
+        if alarm_id is None:
+            self.log.error("Start alarm for periodic ping failed.")
+            return False
+        self.log.info("Set up periodic ping successfully.")
+        return True
+
+    def _setup_phone_active_call(self):
+        if not call_setup_teardown(
+                self.log, self.ad, self.android_devices[1], ad_hangup=None):
+            self.log.error("Setup Call failed.")
+            return False
+        self.log.info("Setup active call successfully.")
+        return True
+
+    def _test_setup(self,
+                    apm=False,
+                    rat=None,
+                    volte=False,
+                    wifi=None,
+                    wfc=False,
+                    mobile_data_always_on=False,
+                    periodic_ping=False,
+                    active_call=False):
+        if not ensure_phones_default_state(self.log, self.android_devices):
+            self.log.error("Fail to set phones in default state")
+            return False
+        else:
+            self.log.info("Set phones in default state successfully")
+        if apm and not self._setup_apm(): return False
+        if rat and not self._setup_rat(rat, volte): return False
+        if wifi and not self._setup_wifi(wifi): return False
+        if wfc and not self._setup_wfc(): return False
+        if mobile_data_always_on: set_mobile_data_always_on(self.ad, True)
+        if periodic_ping and not self._start_alarm(): return False
+        if active_call and not self._setup_phone_active_call(): return False
+        self.ad.droid.goToSleepNow()
+        return True
+
+    def _power_test(self, phone_check_func_after_power_test=None, **kwargs):
+        # Test passing criteria can be defined in test config file with the
+        # maximum mA allowed for the test case in "pass_criteria"->test_name
+        # field. By default it will set to 999.
+        pass_criteria = self._get_pass_criteria(self.test_name)
+        bug_report = True
+        active_call = kwargs.get('active_call')
+        average_current = 0
+        result = None
+        self.log.info("Test %s: %s" % (self.test_name, kwargs))
+        if active_call:
+            sample_rate = ACTIVE_CALL_TEST_SAMPLING_RATE
+            sample_time = ACTIVE_CALL_TEST_SAMPLE_TIME
+            offset_time = ACTIVE_CALL_TEST_OFFSET_TIME
+        else:
+            sample_rate = IDLE_TEST_SAMPLING_RATE
+            sample_time = IDLE_TEST_SAMPLE_TIME
+            offset_time = IDLE_TEST_OFFSET_TIME
+        try:
+            if not self._test_setup(**kwargs):
+                self.log.error("DUT Failed to Set Up Properly.")
+                return False
+
+            if ((phone_check_func_after_power_test is not None) and
+                (not phone_check_func_after_power_test(
+                    self.log, self.android_devices[0]))):
+                self.log.error(
+                    "Phone is not in correct status before power test.")
+                return False
+
+            result = self.mon.measure_power(sample_rate, sample_time,
+                                            self.test_id, offset_time)
+            average_current = result.average_current
+            if ((phone_check_func_after_power_test is not None) and
+                (not phone_check_func_after_power_test(
+                    self.log, self.android_devices[0]))):
+                self.log.error(
+                    "Phone is not in correct status after power test.")
+                return False
+            if active_call:
+                if not verify_incall_state(self.log, [
+                        self.android_devices[0], self.android_devices[1]
+                ], True):
+                    self.log.error("Call drop during power test.")
+                    return False
+                else:
+                    hangup_call(self.log, self.android_devices[1])
+            if (average_current <= pass_criteria):
+                bug_report = False
+                return True
+        finally:
+            self._save_logs_for_power_test(result, bug_report)
+            self.log.info("{} Result: {} mA, pass criteria: {} mA".format(
+                self.test_id, average_current, pass_criteria))
+
+    def _get_pass_criteria(self, test_name):
+        """Get the test passing criteria.
+           Test passing criteria can be defined in test config file with the
+           maximum mA allowed for the test case in "pass_criteria"->test_name
+           field. By default it will set to 999.
         """
         try:
-            PASS_CRITERIA = int(self.user_params["pass_criteria_call_3g"][
-                "pass_criteria"])
+            pass_criteria = int(self.user_params["pass_criteria"][test_name])
         except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        return self._test_power_active_call(
-            "test_power_active_call_3g",
-            self._setup_phone_active_call,
-            PASS_CRITERIA,
-            phone_check_func_after_power_test=is_phone_in_call_3g,
-            phone_setup_func=phone_setup_voice_3g,
-            phone_idle_check_func=phone_idle_3g,
-            phone_in_call_check_func=is_phone_in_call_3g)
+            pass_criteria = DEFAULT_POWER_PASS_CRITERIA
+        return pass_criteria
 
     @TelephonyBaseTest.tel_test_wrap
     def test_power_active_call_volte(self):
@@ -368,23 +333,64 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params["pass_criteria_call_volte"][
-                "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        return self._test_power_active_call(
-            "test_power_active_call_volte",
-            self._setup_phone_active_call,
-            PASS_CRITERIA,
-            phone_check_func_after_power_test=is_phone_in_call_volte,
-            phone_setup_func=phone_setup_volte,
-            phone_idle_check_func=phone_idle_volte,
-            phone_in_call_check_func=is_phone_in_call_volte)
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_volte)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_active_call_wfc_2g_apm(self):
+    def test_power_active_call_3g(self):
+        """Power measurement test for active CS(3G) call.
+
+        Steps:
+        1. DUT idle, in 3G mode.
+        2. Make a phone Call from DUT to PhoneB. Answer on PhoneB.
+            Make sure DUT is in CS(3G) call.
+        3. Turn off screen and wait for 3 minutes.
+            Then measure power consumption for 5 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_3G,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_3g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_active_call_2g(self):
+        """Power measurement test for active CS(2G) call.
+
+        Steps:
+        1. DUT idle, in 2G mode.
+        2. Make a phone Call from DUT to PhoneB. Answer on PhoneB.
+            Make sure DUT is in CS(2G) call.
+        3. Turn off screen and wait for 3 minutes.
+            Then measure power consumption for 5 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_2g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_active_call_wfc_wifi2g_apm(self):
         """Power measurement test for active WiFi call.
 
         Steps:
@@ -404,25 +410,15 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_call_wfc_2g_apm"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        return self._test_power_active_call(
-            "test_power_active_call_wfc_2g_apm",
-            self._setup_phone_active_call_wfc,
-            PASS_CRITERIA,
-            phone_check_func_after_power_test=is_phone_in_call_iwlan,
-            ssid=self.wifi_network_ssid_2g,
-            password=self.wifi_network_pass_2g,
-            airplane_mode=True,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            setup_volte=False)
+        return self._power_test(
+            apm=True,
+            wifi=WIFI_2G,
+            wfc=True,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_iwlan)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_active_call_wfc_2g_lte_volte_on(self):
+    def test_power_active_call_wfc_wifi2g_lte_volte_enabled(self):
         """Power measurement test for active WiFi call.
 
         Steps:
@@ -442,25 +438,16 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_call_wfc_2g_lte_volte_on"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        return self._test_power_active_call(
-            "test_power_active_call_wfc_2g_lte_volte_on",
-            self._setup_phone_active_call_wfc,
-            PASS_CRITERIA,
-            phone_check_func_after_power_test=is_phone_in_call_iwlan,
-            ssid=self.wifi_network_ssid_2g,
-            password=self.wifi_network_pass_2g,
-            airplane_mode=False,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            setup_volte=True)
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            wifi=WIFI_2G,
+            wfc=True,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_iwlan)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_active_call_wfc_5g_apm(self):
+    def test_power_active_call_wfc_wifi5g_apm(self):
         """Power measurement test for active WiFi call.
 
         Steps:
@@ -480,25 +467,15 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_call_wfc_5g_apm"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        return self._test_power_active_call(
-            "test_power_active_call_wfc_5g_apm",
-            self._setup_phone_active_call_wfc,
-            PASS_CRITERIA,
-            phone_check_func_after_power_test=is_phone_in_call_iwlan,
-            ssid=self.wifi_network_ssid_5g,
-            password=self.wifi_network_pass_5g,
-            airplane_mode=True,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            setup_volte=False)
+        return self._power_test(
+            apm=True,
+            wifi=WIFI_5G,
+            wfc=True,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_iwlan)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_active_call_wfc_5g_lte_volte_on(self):
+    def test_power_active_call_wfc_wifi5g_lte_volte_enabled(self):
         """Power measurement test for active WiFi call.
 
         Steps:
@@ -518,23 +495,13 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_call_wfc_5g_lte_volte_on"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        return self._test_power_active_call(
-            "test_power_active_call_wfc_5g_lte_volte_on",
-            self._setup_phone_active_call_wfc,
-            PASS_CRITERIA,
-            phone_check_func_after_power_test=is_phone_in_call_iwlan,
-            ssid=self.wifi_network_ssid_5g,
-            password=self.wifi_network_pass_5g,
-            airplane_mode=False,
-            wfc_mode=WFC_MODE_WIFI_PREFERRED,
-            setup_volte=True)
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            wifi=WIFI_5G,
+            wfc=True,
+            active_call=True,
+            phone_check_func_after_power_test=is_phone_in_call_iwlan)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_power_idle_baseline(self):
@@ -554,24 +521,10 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_baseline"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        def _idle_baseline(ad):
-            if not toggle_airplane_mode(self.log, ad, True):
-                self.log.error("Phone failed to turn on airplane mode.")
-                return False
-            ad.droid.goToSleepNow()
-            return True
-
-        return self._test_power_idle("test_power_idle_baseline",
-                                     _idle_baseline, PASS_CRITERIA)
+        return self._power_test(apm=True)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_idle_baseline_wifi_connected(self):
+    def test_power_idle_baseline_wifi2g_connected(self):
         """Power measurement test for phone idle baseline (WiFi connected).
 
         Steps:
@@ -589,29 +542,10 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_baseline_wifi_connected"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        def _idle_baseline_wifi_connected(ad):
-            if not toggle_airplane_mode(self.log, ad, True):
-                self.log.error("Phone failed to turn on airplane mode.")
-                return False
-            if not ensure_wifi_connected(self.log, ad,
-                self.wifi_network_ssid_2g, self.wifi_network_pass_2g):
-                self.log.error("WiFi connect failed")
-                return False
-            ad.droid.goToSleepNow()
-            return True
-
-        return self._test_power_idle("test_power_idle_baseline_wifi_connected",
-                                     _idle_baseline_wifi_connected,
-                                     PASS_CRITERIA)
+        return self._power_test(apm=True, wifi=WIFI_2G)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_idle_wfc_2g_apm(self):
+    def test_power_idle_wfc_wifi2g_apm(self):
         """Power measurement test for phone idle WiFi Calling Airplane Mode.
 
         Steps:
@@ -629,27 +563,14 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_wfc_2g_apm"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        def _idle_wfc_2g_apm(ad):
-            if not phone_setup_iwlan(
-                    self.log, ad, True, WFC_MODE_WIFI_PREFERRED,
-                    self.wifi_network_ssid_2g, self.wifi_network_pass_2g):
-                self.log.error("Phone failed to setup WFC.")
-                return False
-            ad.droid.goToSleepNow()
-            return True
-
-        return self._test_power_idle("test_power_idle_wfc_2g_apm",
-                                     _idle_wfc_2g_apm, PASS_CRITERIA,
-                                     is_wfc_enabled)
+        return self._power_test(
+            apm=True,
+            wifi=WIFI_2G,
+            wfc=True,
+            phone_check_func_after_power_test=phone_idle_iwlan)
 
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_idle_wfc_2g_lte(self):
+    def test_power_idle_wfc_wifi2g_lte_volte_enabled(self):
         """Power measurement test for phone idle WiFi Calling LTE VoLTE enabled.
 
         Steps:
@@ -667,27 +588,12 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_wfc_2g_lte"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        def _idle_wfc_2g_lte(ad):
-            if not phone_setup_volte(self.log, ad):
-                self.log.error("Phone failed to setup VoLTE.")
-                return False
-            if not phone_setup_iwlan(
-                    self.log, ad, False, WFC_MODE_WIFI_PREFERRED,
-                    self.wifi_network_ssid_2g, self.wifi_network_pass_2g):
-                self.log.error("Phone failed to setup WFC.")
-                return False
-            ad.droid.goToSleepNow()
-            return True
-
-        return self._test_power_idle("test_power_idle_wfc_2g_lte",
-                                     _idle_wfc_2g_lte, PASS_CRITERIA,
-                                     is_wfc_enabled)
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            wifi=WIFI_2G,
+            wfc=True,
+            phone_check_func_after_power_test=phone_idle_iwlan)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_power_idle_lte_volte_enabled(self):
@@ -708,21 +614,35 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_lte_volte_enabled"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            phone_check_func_after_power_test=phone_idle_volte)
 
-        def _idle_lte_volte_enabled(ad):
-            if not phone_setup_volte(self.log, ad):
-                self.log.error("Phone failed to setup VoLTE.")
-                return False
-            ad.droid.goToSleepNow()
-            return True
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_lte_volte_enabled_wifi2g(self):
+        """Power measurement test for phone idle LTE VoLTE enabled.
 
-        return self._test_power_idle("test_power_idle_lte_volte_enabled",
-                                     _idle_lte_volte_enabled, PASS_CRITERIA)
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE enabled. WiFi enabled,
+            WiFi Calling disabled.
+        2. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            wifi=WIFI_2G,
+            phone_check_func_after_power_test=phone_idle_volte)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_power_idle_lte_volte_disabled(self):
@@ -743,21 +663,7 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_lte_volte_disabled"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-
-        def _idle_lte_volte_disabled(ad):
-            if not phone_setup_csfb(self.log, ad):
-                self.log.error("Phone failed to setup CSFB.")
-                return False
-            ad.droid.goToSleepNow()
-            return True
-
-        return self._test_power_idle("test_power_idle_lte_volte_disabled",
-                                     _idle_lte_volte_disabled, PASS_CRITERIA)
+        return self._power_test(rat=RAT_LTE)
 
     @TelephonyBaseTest.tel_test_wrap
     def test_power_idle_3g(self):
@@ -777,21 +683,75 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params["pass_criteria_idle_3g"][
-                "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
+        return self._power_test(
+            rat=RAT_3G, phone_check_func_after_power_test=phone_idle_3g)
 
-        def _idle_3g(ad):
-            if not phone_setup_voice_3g(self.log, ad):
-                self.log.error("Phone failed to setup 3g.")
-                return False
-            ad.droid.goToSleepNow()
-            return True
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_3g_wifi2g(self):
+        """Power measurement test for phone idle 3G.
 
-        return self._test_power_idle("test_power_idle_3g", _idle_3g,
-                                     PASS_CRITERIA)
+        Steps:
+        1. DUT idle, in 3G mode. WiFi enabled, WiFi Calling disabled.
+        2. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_3G,
+            wifi=WIFI_2G,
+            phone_check_func_after_power_test=phone_idle_3g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_2g(self):
+        """Power measurement test for phone idle 3G.
+
+        Steps:
+        1. DUT idle, in 2G mode. WiFi disabled, WiFi Calling disabled.
+        2. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G, phone_check_func_after_power_test=phone_idle_2g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_2g_wifi2g(self):
+        """Power measurement test for phone idle 3G.
+
+        Steps:
+        1. DUT idle, in 2G mode. WiFi disabled, WiFi Calling disabled.
+        2. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G,
+            wifi=WIFI_2G,
+            phone_check_func_after_power_test=phone_idle_2g)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
@@ -816,20 +776,11 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_lte_volte_enabled_wakeup_ping"][
-                    "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        # TODO: b/26338146 need a SL4A API to clear all existing alarms.
-
-        result = self._test_power_idle(
-            "test_power_idle_lte_volte_enabled_wakeup_ping",
-            self._setup_phone_idle_and_wakeup_ping,
-            PASS_CRITERIA,
-            phone_setup_func=phone_setup_volte)
-        return result
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_iwlan)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
@@ -854,20 +805,7 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_lte_volte_disabled_wakeup_ping"][
-                    "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        # TODO: b/26338146 need a SL4A API to clear all existing alarms.
-
-        result = self._test_power_idle(
-            "test_power_idle_lte_volte_disabled_wakeup_ping",
-            self._setup_phone_idle_and_wakeup_ping,
-            PASS_CRITERIA,
-            phone_setup_func=phone_setup_csfb)
-        return result
+        return self._power_test(rat=RAT_LTE, periodic_ping=True)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
@@ -890,159 +828,381 @@ class TelPowerTest(TelephonyBaseTest):
         Note: Please calibrate your test environment and baseline pass criteria.
         Pass criteria info should be in test config file.
         """
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_idle_3g_wakeup_ping"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        # TODO: b/26338146 need a SL4A API to clear all existing alarms.
+        return self._power_test(
+            rat=RAT_3G,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_3g)
 
-        result = self._test_power_idle("test_power_idle_3g_wakeup_ping",
-                                       self._setup_phone_idle_and_wakeup_ping,
-                                       PASS_CRITERIA,
-                                       phone_setup_func=phone_setup_voice_3g)
-        return result
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_lte_volte_enabled_mobile_data_always_on(self):
+        """Power measurement test for phone idle LTE VoLTE enabled.
+
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE enabled. WiFi disabled,
+            WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            mobile_data_always_on=True,
+            phone_check_func_after_power_test=phone_idle_volte)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_lte_volte_enabled_wifi2g_mobile_data_always_on(self):
+        """Power measurement test for phone idle LTE VoLTE enabled.
+
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE enabled. WiFi enabled,
+            WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            wifi=WIFI_2G,
+            mobile_data_always_on=True,
+            phone_check_func_after_power_test=phone_idle_volte)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_lte_volte_disabled_mobile_data_always_on(self):
+        """Power measurement test for phone idle LTE VoLTE disabled.
+
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE disabled. WiFi disabled,
+            WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(rat=RAT_LTE, mobile_data_always_on=True)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_3g_mobile_data_always_on(self):
+        """Power measurement test for phone idle 3G.
+
+        Steps:
+        1. DUT idle, in 3G mode. WiFi disabled, WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_3G,
+            mobile_data_always_on=True,
+            phone_check_func_after_power_test=phone_idle_3g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_3g_wifi2g_mobile_data_always_on(self):
+        """Power measurement test for phone idle 3G.
+
+        Steps:
+        1. DUT idle, in 3G mode. WiFi enabled, WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_3G,
+            wifi=WIFI_2G,
+            mobile_data_always_on=True,
+            phone_check_func_after_power_test=phone_idle_3g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_2g_mobile_data_always_on(self):
+        """Power measurement test for phone idle 3G.
+
+        Steps:
+        1. DUT idle, in 2G mode. WiFi disabled, WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G,
+            mobile_data_always_on=True,
+            phone_check_func_after_power_test=phone_idle_2g)
+
+    @TelephonyBaseTest.tel_test_wrap
+    def test_power_idle_2g_wifi2g_mobile_data_always_on(self):
+        """Power measurement test for phone idle 3G.
+
+        Steps:
+        1. DUT idle, in 2G mode. WiFi enabled, WiFi Calling disabled.
+        2. Turn on mobile data always on
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G,
+            wifi=WIFI_2G,
+            mobile_data_always_on=True,
+            phone_check_func_after_power_test=phone_idle_2g)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_lte(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_lte"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle("test_power_mobile_data_always_on_lte",
-                                       self._setup_phone_mobile_data_always_on,
-                                       PASS_CRITERIA,
-                                       phone_setup_func=phone_setup_csfb,
-                                       connect_wifi=False)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_lte_volte_enabled_wakeup_ping_mobile_data_always_on(
+            self):
+        """Power measurement test for phone LTE VoLTE enabled Wakeup Ping every
+        1 minute.
+
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE enabled. WiFi disabled,
+            WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            mobile_data_always_on=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_volte)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_wcdma(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_wcdma"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle("test_power_mobile_data_always_on_wcdma",
-                                       self._setup_phone_mobile_data_always_on,
-                                       PASS_CRITERIA,
-                                       phone_setup_func=phone_setup_voice_3g,
-                                       connect_wifi=False)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_lte_volte_enabled_wifi2g_wakeup_ping_mobile_data_always_on(
+            self):
+        """Power measurement test for phone LTE VoLTE enabled Wakeup Ping every
+        1 minute.
+
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE enabled. WiFi enabled,
+            WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_LTE,
+            volte=True,
+            wifi=WIFI_2G,
+            mobile_data_always_on=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_volte)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_1xevdo(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_1xevdo"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle("test_power_mobile_data_always_on_1xevdo",
-                                       self._setup_phone_mobile_data_always_on,
-                                       PASS_CRITERIA,
-                                       phone_setup_func=phone_setup_voice_3g,
-                                       connect_wifi=False)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_lte_volte_disabled_wakeup_ping_mobile_data_always_on(
+            self):
+        """Power measurement test for phone LTE VoLTE disabled Wakeup Ping every
+        1 minute.
+
+        Steps:
+        1. DUT idle, in LTE mode, VoLTE disabled. WiFi disabled,
+            WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_LTE, mobile_data_always_on=True, periodic_ping=True)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_gsm(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_gsm"]["pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle("test_power_mobile_data_always_on_gsm",
-                                       self._setup_phone_mobile_data_always_on,
-                                       PASS_CRITERIA,
-                                       phone_setup_func=phone_setup_voice_2g,
-                                       connect_wifi=False)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_3g_wakeup_ping_mobile_data_always_on(self):
+        """Power measurement test for phone 3G Wakeup Ping every 1 minute.
+
+        Steps:
+        1. DUT idle, in 3G mode. WiFi disabled, WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_3G,
+            mobile_data_always_on=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_3g)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_lte_wifi_on(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_lte_wifi_on"][
-                "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle(
-            "test_power_mobile_data_always_on_lte_wifi_on",
-            self._setup_phone_mobile_data_always_on,
-            PASS_CRITERIA,
-            phone_setup_func=phone_setup_csfb,
-            connect_wifi=True,
-            wifi_ssid=self.wifi_network_ssid_2g,
-            wifi_password=self.wifi_network_pass_2g)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_3g_wifi2g_wakeup_ping_mobile_data_always_on(self):
+        """Power measurement test for phone 3G Wakeup Ping every 1 minute.
+
+        Steps:
+        1. DUT idle, in 3G mode. WiFi enabled, WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_3G,
+            wifi=WIFI_2G,
+            mobile_data_always_on=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_3g)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_wcdma_wifi_on(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_wcdma_wifi_on"][
-                "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle(
-            "test_power_mobile_data_always_on_wcdma_wifi_on",
-            self._setup_phone_mobile_data_always_on,
-            PASS_CRITERIA,
-            phone_setup_func=phone_setup_voice_3g,
-            connect_wifi=True,
-            wifi_ssid=self.wifi_network_ssid_2g,
-            wifi_password=self.wifi_network_pass_2g)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_2g_wakeup_ping_mobile_data_always_on(self):
+        """Power measurement test for phone 3G Wakeup Ping every 1 minute.
+
+        Steps:
+        1. DUT idle, in 2G mode. WiFi disabled, WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G,
+            mobile_data_always_on=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_2g)
 
     # TODO: This one is not working right now. Requires SL4A API to start alarm.
     @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_1xevdo_wifi_on(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_1xevdo_wifi_on"][
-                "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle(
-            "test_power_mobile_data_always_on_1xevdo_wifi_on",
-            self._setup_phone_mobile_data_always_on,
-            PASS_CRITERIA,
-            phone_setup_func=phone_setup_voice_3g,
-            connect_wifi=True,
-            wifi_ssid=self.wifi_network_ssid_2g,
-            wifi_password=self.wifi_network_pass_2g)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+    def test_power_idle_2g_wifi2g_wakeup_ping_mobile_data_always_on(self):
+        """Power measurement test for phone 3G Wakeup Ping every 1 minute.
 
-    # TODO: This one is not working right now. Requires SL4A API to start alarm.
-    @TelephonyBaseTest.tel_test_wrap
-    def test_power_mobile_data_always_on_gsm_wifi_on(self):
-        try:
-            PASS_CRITERIA = int(self.user_params[
-                "pass_criteria_mobile_data_always_on_gsm_wifi_on"][
-                "pass_criteria"])
-        except KeyError:
-            PASS_CRITERIA = DEFAULT_POWER_PASS_CRITERIA
-        result = self._test_power_idle(
-            "test_power_mobile_data_always_on_gsm_wifi_on",
-            self._setup_phone_mobile_data_always_on,
-            PASS_CRITERIA,
-            phone_setup_func=phone_setup_voice_2g,
-            connect_wifi=True,
-            wifi_ssid=self.wifi_network_ssid_2g,
-            wifi_password=self.wifi_network_pass_2g)
-        set_mobile_data_always_on(self.ad, False)
-        return result
+        Steps:
+        1. DUT idle, in 2G mode. WiFi enabled, WiFi Calling disabled.
+        2. Start script to wake up AP every 1 minute, after wakeup,
+            DUT send http Request to Google.com then go to sleep.
+        3. Turn off screen and wait for 6 minutes. Then measure power
+            consumption for 40 minutes and get average.
+
+        Expected Results:
+        Average power consumption should be within pre-defined limit.
+
+        Returns:
+        True if Pass, False if Fail.
+
+        Note: Please calibrate your test environment and baseline pass criteria.
+        Pass criteria info should be in test config file.
+        """
+        return self._power_test(
+            rat=RAT_2G,
+            wifi=WIFI_2G,
+            mobile_data_always_on=True,
+            periodic_ping=True,
+            phone_check_func_after_power_test=phone_idle_2g)
+

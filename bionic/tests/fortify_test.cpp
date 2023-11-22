@@ -560,6 +560,12 @@ TEST_F(DEATHTEST, memcpy_fortified) {
   ASSERT_FORTIFY(memcpy(bufb, bufa, n));
 }
 
+TEST_F(DEATHTEST, memset_fortified) {
+  char buf[10];
+  size_t n = atoi("11");
+  ASSERT_FORTIFY(memset(buf, 0, n));
+}
+
 TEST_F(DEATHTEST, stpncpy_fortified) {
   char bufa[15];
   char bufb[10];
@@ -615,6 +621,12 @@ TEST_F(DEATHTEST, recv_fortified) {
   size_t data_len = atoi("11"); // suppress compiler optimizations
   char buf[10];
   ASSERT_FORTIFY(recv(0, buf, data_len, 0));
+}
+
+TEST_F(DEATHTEST, send_fortified) {
+  size_t data_len = atoi("11"); // suppress compiler optimizations
+  char buf[10] = {0};
+  ASSERT_FORTIFY(send(0, buf, data_len, 0));
 }
 
 TEST_F(DEATHTEST, FD_ISSET_fortified) {

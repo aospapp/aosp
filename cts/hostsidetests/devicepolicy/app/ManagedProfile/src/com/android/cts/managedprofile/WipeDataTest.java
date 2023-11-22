@@ -15,12 +15,6 @@
  */
 package com.android.cts.managedprofile;
 
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.os.Process;
-import android.os.UserHandle;
-import android.os.UserManager;
 
 import com.android.cts.managedprofile.BaseManagedProfileTest.BasicAdminReceiver;
 
@@ -32,8 +26,6 @@ import org.junit.Ignore;
  */
 public class WipeDataTest extends BaseManagedProfileTest {
 
-    private UserManager mUserManager;
-
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -41,27 +33,10 @@ public class WipeDataTest extends BaseManagedProfileTest {
         // data.
         assertTrue(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
         assertTrue(mDevicePolicyManager.isProfileOwnerApp(ADMIN_RECEIVER_COMPONENT.getPackageName()));
-        mUserManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
     }
 
     public void testWipeData() throws InterruptedException {
-        UserHandle currentUser = Process.myUserHandle();
-        assertTrue(mUserManager.getUserProfiles().contains(currentUser));
-
         mDevicePolicyManager.wipeData(0);
-
-        // ACTION_MANAGED_PROFILE_REMOVED is only sent to parent user.
-        // As a result, we have to poll in order to know when the profile
-        // is actually removed.
-        long epoch = System.currentTimeMillis();
-        while (System.currentTimeMillis() - epoch <= 10 * 1000) {
-            if (!mUserManager.getUserProfiles().contains(currentUser)) {
-                break;
-            }
-            Thread.sleep(250);
-        }
-
-        // Verify the profile is deleted
-        assertFalse(mUserManager.getUserProfiles().contains(currentUser));
+        // the test that the profile will indeed be removed is done in the host.
     }
 }

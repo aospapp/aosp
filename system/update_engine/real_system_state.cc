@@ -37,14 +37,6 @@ using brillo::MessageLoop;
 
 namespace chromeos_update_engine {
 
-RealSystemState::RealSystemState(const scoped_refptr<dbus::Bus>& bus)
-    : debugd_proxy_(bus),
-      power_manager_proxy_(bus),
-      session_manager_proxy_(bus),
-      shill_proxy_(bus),
-      libcros_proxy_(bus) {
-}
-
 RealSystemState::~RealSystemState() {
   // Prevent any DBus communication from UpdateAttempter when shutting down the
   // daemon.
@@ -71,8 +63,15 @@ bool RealSystemState::Initialize() {
   LOG_IF(INFO, !hardware_->IsNormalBootMode()) << "Booted in dev mode.";
   LOG_IF(INFO, !hardware_->IsOfficialBuild()) << "Booted non-official build.";
 
-  if (!shill_proxy_.Init()) {
-    LOG(ERROR) << "Failed to initialize shill proxy.";
+  connection_manager_ = connection_manager::CreateConnectionManager(this);
+  if (!connection_manager_) {
+    LOG(ERROR) << "Error intializing the ConnectionManagerInterface.";
+    return false;
+  }
+
+  power_manager_ = power_manager::CreatePowerManager();
+  if (!power_manager_) {
+    LOG(ERROR) << "Error intializing the PowerManagerInterface.";
     return false;
   }
 
@@ -130,10 +129,15 @@ bool RealSystemState::Initialize() {
       new CertificateChecker(prefs_.get(), &openssl_wrapper_));
   certificate_checker_->Init();
 
+#if USE_LIBCROS
+  LibCrosProxy* libcros_proxy = &libcros_proxy_;
+#else
+  LibCrosProxy* libcros_proxy = nullptr;
+#endif  // USE_LIBCROS
+
   // Initialize the UpdateAttempter before the UpdateManager.
   update_attempter_.reset(
-      new UpdateAttempter(this, certificate_checker_.get(), &libcros_proxy_,
-                          &debugd_proxy_));
+      new UpdateAttempter(this, certificate_checker_.get(), libcros_proxy));
   update_attempter_->Init();
 
   weave_service_ = ConstructWeaveService(update_attempter_.get());
@@ -143,7 +147,7 @@ bool RealSystemState::Initialize() {
   // Initialize the Update Manager using the default state factory.
   chromeos_update_manager::State* um_state =
       chromeos_update_manager::DefaultStateFactory(
-          &policy_provider_, &shill_proxy_, &session_manager_proxy_, this);
+          &policy_provider_, libcros_proxy, this);
   if (!um_state) {
     LOG(ERROR) << "Failed to initialize the Update Manager.";
     return false;

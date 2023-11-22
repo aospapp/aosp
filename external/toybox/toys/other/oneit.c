@@ -68,18 +68,18 @@ void oneit_main(void)
   for (i = 0; i<ARRAY_LEN(pipes); i++) xsignal(pipes[i], oneit_signaled);
 
   if (toys.optflags & FLAG_3) {
-    // Ensure next available filehandle is #3
-    while (open("/", 0) < 3);
+    // Ensure next available filehandles are #3 and #4
+    while (xopen_stdio("/", 0) < 3);
     close(3);
     close(4);
-    if (pipe(pipes)) perror_exit("pipe");
+    xpipe(pipes);
     fcntl(4, F_SETFD, FD_CLOEXEC);
   }
 
   while (!toys.signal) {
 
     // Create a new child process.
-    pid = vfork();
+    pid = XVFORK();
     if (pid) {
 
       // pid 1 reaps zombies until it gets its child, then halts system.
@@ -96,7 +96,7 @@ void oneit_main(void)
       for (i=0; i<3; i++) {
         close(i);
         // Remember, O_CLOEXEC is backwards for xopen()
-        xopen(TT.console ? TT.console : "/dev/tty0", O_RDWR|O_CLOEXEC);
+        xopen_stdio(TT.console ? TT.console : "/dev/tty0", O_RDWR|O_CLOEXEC);
       }
 
       // Can't xexec() here, we vforked so we don't want to error_exit().

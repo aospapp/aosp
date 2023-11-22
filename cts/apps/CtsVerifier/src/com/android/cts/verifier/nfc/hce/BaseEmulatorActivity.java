@@ -55,6 +55,8 @@ public abstract class BaseEmulatorActivity extends PassFailButtons.Activity {
 
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         mCardEmulation = CardEmulation.getInstance(mAdapter);
+        IntentFilter filter = new IntentFilter(HceUtils.ACTION_APDU_SEQUENCE_COMPLETE);
+        registerReceiver(mReceiver, filter);
     }
 
     abstract void onServicesSetup(boolean result);
@@ -66,16 +68,24 @@ public abstract class BaseEmulatorActivity extends PassFailButtons.Activity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mReceiver);
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(mReceiver);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        IntentFilter filter = new IntentFilter(HceUtils.ACTION_APDU_SEQUENCE_COMPLETE);
-        registerReceiver(mReceiver, filter);
     }
 
     final void setupServices(Context context, ComponentName... components) {

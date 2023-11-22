@@ -1,4 +1,4 @@
-#!/system/bin/sh
+#!/vendor/bin/sh
 
 ################################################################################
 # helper functions to allow Android init like script
@@ -65,7 +65,6 @@ write /sys/module/cpu_boost/parameters/input_boost_freq "0:1324800 2:1324800"
 write /sys/module/cpu_boost/parameters/input_boost_ms 40
 
 # Setting b.L scheduler parameters
-write /proc/sys/kernel/sched_boost 0
 write /proc/sys/kernel/sched_migration_fixup 1
 write /proc/sys/kernel/sched_upmigrate 95
 write /proc/sys/kernel/sched_downmigrate 90
@@ -100,3 +99,10 @@ done
 # Enable all LPMs by default
 # This will enable C4, D4, D3, E4 and M3 LPMs
 write /sys/module/lpm_levels/parameters/sleep_disabled N
+
+# On debuggable builds, enable console_suspend if uart is enabled to save power
+# Otherwise, disable console_suspend to get better logging for kernel crashes
+if [[ $(getprop ro.debuggable) == "1" && ! -e /sys/class/tty/ttyHSL0 ]]
+then
+    write /sys/module/printk/parameters/console_suspend N
+fi

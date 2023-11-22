@@ -19,7 +19,7 @@ package android.provider.cts;
 import android.provider.cts.R;
 
 import android.content.Context;
-import android.cts.util.FileUtils;
+import com.android.compatibility.common.util.FileUtils;
 
 import java.io.InputStream;
 

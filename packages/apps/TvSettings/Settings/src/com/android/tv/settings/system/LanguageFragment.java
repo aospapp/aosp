@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.system;
 
-import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
@@ -67,7 +67,7 @@ public class LanguageFragment extends LeanbackPreferenceFragment {
 
         Locale currentLocale = null;
         try {
-            currentLocale = ActivityManagerNative.getDefault().getConfiguration()
+            currentLocale = ActivityManager.getService().getConfiguration()
                     .getLocales().get(0);
         } catch (RemoteException e) {
             Log.e(TAG, "Could not retrieve locale", e);

@@ -19,6 +19,7 @@
 
 #include <inttypes.h>
 
+#include <memory>
 #include <string>
 
 #include <base/memory/ref_counted.h>
@@ -91,6 +92,12 @@ class DBusUpdateEngineService
                   bool in_get_current_channel,
                   std::string* out_channel) override;
 
+  bool SetCohortHint(brillo::ErrorPtr* error,
+                     const std::string& in_cohort_hint) override;
+
+  bool GetCohortHint(brillo::ErrorPtr* error,
+                     std::string* out_cohort_hint) override;
+
   // Enables or disables the sharing and consuming updates over P2P feature
   // according to the |enabled| argument passed.
   bool SetP2PUpdatePermission(brillo::ErrorPtr* error,
@@ -133,6 +140,10 @@ class DBusUpdateEngineService
   // ErrorCode will be returned.
   bool GetLastAttemptError(brillo::ErrorPtr* error,
                            int32_t* out_last_attempt_error) override;
+
+  // Returns the current end-of-life status of the device in |out_eol_status|.
+  bool GetEolStatus(brillo::ErrorPtr* error, int32_t* out_eol_status) override;
+
  private:
   std::unique_ptr<UpdateEngineService> common_;
 };
@@ -143,8 +154,7 @@ class DBusUpdateEngineService
 class UpdateEngineAdaptor : public org::chromium::UpdateEngineInterfaceAdaptor,
                             public ServiceObserverInterface {
  public:
-  UpdateEngineAdaptor(SystemState* system_state,
-                      const scoped_refptr<dbus::Bus>& bus);
+  UpdateEngineAdaptor(SystemState* system_state);
   ~UpdateEngineAdaptor() = default;
 
   // Register the DBus object with the update engine service asynchronously.

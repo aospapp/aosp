@@ -19,16 +19,12 @@ package com.android.tv.menu;
 import android.content.Context;
 import android.util.AttributeSet;
 
-import com.android.tv.R;
 import com.android.tv.data.Channel;
 
 /**
  * A view to render a guide card.
  */
 public class SimpleCardView extends BaseCardView<Channel> {
-    private static final String TAG = "GuideCardView";
-    private static final boolean DEBUG = false;
-    private final float mCardHeight;
 
     public SimpleCardView(Context context) {
         this(context, null, 0);
@@ -40,11 +36,5 @@ public class SimpleCardView extends BaseCardView<Channel> {
 
     public SimpleCardView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        mCardHeight = getResources().getDimension(R.dimen.card_layout_height);
-    }
-
-    @Override
-    protected float getCardHeight() {
-        return mCardHeight;
     }
 }

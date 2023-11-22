@@ -8,7 +8,7 @@ namespace renderscript {
 
 class ScriptGroupBase : public ObjectBase {
  public:
-  ScriptGroupBase(Context* rsc) : ObjectBase(rsc) {}
+  explicit ScriptGroupBase(Context* rsc) : ObjectBase(rsc) {}
   virtual ~ScriptGroupBase() {}
 
   virtual void serialize(Context *rsc, OStream *stream) const {}

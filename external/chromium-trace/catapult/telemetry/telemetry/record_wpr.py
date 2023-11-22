@@ -9,28 +9,37 @@ import sys
 from telemetry import benchmark
 from telemetry import story
 from telemetry.core import discover
-from telemetry.core import util
 from telemetry.internal.browser import browser_options
 from telemetry.internal.results import results_options
 from telemetry.internal import story_runner
 from telemetry.internal.util import binary_manager
-from telemetry.page import page_test
+from telemetry.page import legacy_page_test
 from telemetry.util import matching
 from telemetry.util import wpr_modes
 from telemetry.web_perf import timeline_based_measurement
 from telemetry.web_perf import timeline_based_page_test
 
+import py_utils
 
-class RecorderPageTest(page_test.PageTest):
+DEFAULT_LOG_FORMAT = (
+  '(%(levelname)s) %(asctime)s %(module)s.%(funcName)s:%(lineno)d  '
+  '%(message)s')
+
+
+class RecorderPageTest(legacy_page_test.LegacyPageTest):
   def __init__(self):
     super(RecorderPageTest, self).__init__()
     self.page_test = None
+    self.platform = None
 
   def CustomizeBrowserOptions(self, options):
     if self.page_test:
       self.page_test.CustomizeBrowserOptions(options)
 
   def WillStartBrowser(self, browser):
+    if self.platform is not None:
+      assert browser.GetOSName() == self.platform
+    self.platform = browser.GetOSName()
     if self.page_test:
       self.page_test.WillStartBrowser(browser)
 
@@ -48,7 +57,7 @@ class RecorderPageTest(page_test.PageTest):
     if self.page_test:
       self.page_test.DidNavigateToPage(page, tab)
     tab.WaitForDocumentReadyStateToBeComplete()
-    util.WaitFor(tab.HasReachedQuiescence, 30)
+    py_utils.WaitFor(tab.HasReachedQuiescence, 30)
 
   def CleanUpAfterPage(self, page, tab):
     if self.page_test:
@@ -148,7 +157,6 @@ class WprRecorder(object):
   def _CreateOptions(self):
     options = browser_options.BrowserFinderOptions()
     options.browser_options.wpr_mode = wpr_modes.WPR_RECORD
-    options.browser_options.no_proxy_server = True
     return options
 
   def CreateResults(self):
@@ -233,10 +241,15 @@ class WprRecorder(object):
     results.PrintSummary()
     self._story_set.wpr_archive_info.AddRecordedStories(
         results.pages_that_succeeded,
-        upload_to_cloud_storage)
+        upload_to_cloud_storage,
+        target_platform=self._record_page_test.platform)
 
 
-def Main(environment):
+def Main(environment, **log_config_kwargs):
+  # the log level is set in browser_options
+  log_config_kwargs.pop('level', None)
+  log_config_kwargs.setdefault('format', DEFAULT_LOG_FORMAT)
+  logging.basicConfig(**log_config_kwargs)
 
   parser = argparse.ArgumentParser(
       usage='Record a benchmark or a story (page set).')
@@ -270,8 +283,7 @@ def Main(environment):
     parser.print_help()
     return 0
 
-  binary_manager.InitDependencyManager(environment.client_config)
-
+  binary_manager.InitDependencyManager(environment.client_configs)
 
   # TODO(nednguyen): update WprRecorder so that it handles the difference
   # between recording a benchmark vs recording a story better based on

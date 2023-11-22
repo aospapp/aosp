@@ -2,46 +2,19 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import time
+
+from battor import battor_wrapper
 from telemetry import decorators
 from telemetry.core import platform as platform_module
 from telemetry.testing import browser_test_case
 from telemetry.testing import tab_test_case
 from telemetry.timeline import model as model_module
 from telemetry.timeline import tracing_config
+from tracing.trace_data import trace_data as trace_data_module
 
 
 class TracingControllerTest(tab_test_case.TabTestCase):
-
-  @decorators.Isolated
-  def testModifiedConsoleTime(self):
-    tracing_controller = self._tab.browser.platform.tracing_controller
-    config = tracing_config.TracingConfig()
-    config.enable_chrome_trace = True
-    tracing_controller.StartTracing(config)
-    self.Navigate('blank.html')
-    self.assertEquals(
-        self._tab.EvaluateJavaScript('document.location.pathname;'),
-        '/blank.html')
-
-    self._tab.EvaluateJavaScript("""
-        window.__console_time = console.time;
-        console.time = function() { };
-        """)
-    with self.assertRaisesRegexp(Exception, 'Page stomped on console.time'):
-      tracing_controller.StopTracing()
-
-    # Restore console.time
-    self._tab.EvaluateJavaScript("""
-        console.time = window.__console_time;
-        delete window.__console_time;
-        """)
-
-    # Check that subsequent tests will be able to use tracing normally.
-    self.assertFalse(tracing_controller.is_tracing_running)
-    tracing_controller.StartTracing(config)
-    self.assertTrue(tracing_controller.is_tracing_running)
-    tracing_controller.StopTracing()
-    self.assertFalse(tracing_controller.is_tracing_running)
 
   @decorators.Isolated
   def testExceptionRaisedInStopTracing(self):
@@ -51,15 +24,19 @@ class TracingControllerTest(tab_test_case.TabTestCase):
     tracing_controller.StartTracing(config)
 
     self.Navigate('blank.html')
-    self._tab.EvaluateJavaScript("""
-        window.__console_time = console.time;
-        console.time = function() { };
-        """)
-    with self.assertRaisesRegexp(Exception, 'Page stomped on console.time'):
+
+    def _FakeStopChromeTracing(*args):
+      del args  # Unused
+      raise Exception('Intentional Tracing Exception')
+
+    self._tab._inspector_backend._devtools_client.StopChromeTracing = (
+      _FakeStopChromeTracing)
+    with self.assertRaisesRegexp(Exception, 'Intentional Tracing Exception'):
       tracing_controller.StopTracing()
 
     # Tracing is stopped even if there is exception.
     self.assertFalse(tracing_controller.is_tracing_running)
+
 
   @decorators.Isolated
   def testGotTrace(self):
@@ -95,8 +72,8 @@ class TracingControllerTest(tab_test_case.TabTestCase):
     tab = self._browser.tabs[0]
     def InjectMarker(index):
       marker = 'test-marker-%d' % index
-      tab.EvaluateJavaScript('console.time("%s");' % marker)
-      tab.EvaluateJavaScript('console.timeEnd("%s");' % marker)
+      tab.EvaluateJavaScript('console.time({{ marker }});', marker=marker)
+      tab.EvaluateJavaScript('console.timeEnd({{ marker }});', marker=marker)
 
     # Set up the tracing config.
     tracing_controller = self._browser.platform.tracing_controller
@@ -173,13 +150,38 @@ class TracingControllerTest(tab_test_case.TabTestCase):
         self._browser.Close()
         self._browser = None
 
-  @decorators.Enabled('android')
+  # https://github.com/catapult-project/catapult/issues/3099 (Android)
+  @decorators.Disabled('all')
   @decorators.Isolated
   def testStartupTracingOnAndroid(self):
     self._StartupTracing(self._browser.platform)
 
-  # Not enabled on win because of crbug.com/570955
-  @decorators.Enabled('linux', 'mac')
+  @decorators.Enabled('chromeos')
+  @decorators.Isolated
+  def testStartupTracingOnCrOS(self):
+    self._StartupTracing(self._browser.platform)
+
+  @decorators.Enabled('linux', 'mac', 'win')
   @decorators.Isolated
   def testStartupTracingOnDesktop(self):
     self._StartupTracing(platform_module.GetHostPlatform())
+
+  @decorators.Disabled('linux')  # crbug.com/673761
+  def testBattOrTracing(self):
+    test_platform = self._browser.platform.GetOSName()
+    device = (self._browser.platform._platform_backend.device
+              if test_platform == 'android' else None)
+    if (not battor_wrapper.IsBattOrConnected(test_platform,
+                                             android_device=device)):
+      return # Do not run the test if no BattOr is connected.
+
+    tracing_controller = self._browser.platform.tracing_controller
+    config = tracing_config.TracingConfig()
+    config.enable_battor_trace = True
+    tracing_controller.StartTracing(config)
+    # We wait 1s before starting and stopping tracing to avoid crbug.com/602266,
+    # which would cause a crash otherwise.
+    time.sleep(1)
+    trace_data = tracing_controller.StopTracing()
+    self.assertTrue(
+        trace_data.HasTracesFor(trace_data_module.BATTOR_TRACE_PART))

@@ -19,12 +19,14 @@
 
 namespace art {
 
-class HArmDexCacheArraysBase : public HExpression<0> {
+class HArmDexCacheArraysBase FINAL : public HExpression<0> {
  public:
   explicit HArmDexCacheArraysBase(const DexFile& dex_file)
       : HExpression(Primitive::kPrimInt, SideEffects::None(), kNoDexPc),
         dex_file_(&dex_file),
         element_offset_(static_cast<size_t>(-1)) { }
+
+  bool CanBeMoved() const OVERRIDE { return true; }
 
   void UpdateElementOffset(size_t element_offset) {
     // Use the lowest offset from the requested elements so that all offsets from

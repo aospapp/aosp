@@ -18,7 +18,7 @@
 
 #include "Debug.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
 
 namespace android {
 namespace uirenderer {
@@ -27,7 +27,7 @@ namespace uirenderer {
 #if DEBUG_OPENGL
 #define GL_CHECKPOINT(LEVEL) \
     do { if (DEBUG_OPENGL >= DEBUG_LEVEL_##LEVEL) {\
-    LOG_ALWAYS_FATAL_IF(GLUtils::dumpGLErrors(),\
+    LOG_ALWAYS_FATAL_IF(android::uirenderer::GLUtils::dumpGLErrors(),\
             "GL errors! %s:%d", __FILE__, __LINE__);\
     } } while (0)
 #else

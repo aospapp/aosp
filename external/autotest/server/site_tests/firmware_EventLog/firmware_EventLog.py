@@ -6,7 +6,10 @@ import logging, re, time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.watchdog_tester import WatchdogTester
 
+POWER_DIR = '/var/lib/power_manager'
+TMP_POWER_DIR = '/tmp/power_manager'
 
 class firmware_EventLog(FirmwareTest):
     """
@@ -18,6 +21,7 @@ class firmware_EventLog(FirmwareTest):
 
     def initialize(self, host, cmdline_args):
         super(firmware_EventLog, self).initialize(host, cmdline_args)
+        self.host = host
         self.switcher.setup_mode('normal')
 
     def _has_event(self, pattern):
@@ -48,6 +52,21 @@ class firmware_EventLog(FirmwareTest):
         logging.debug('Current local system time on DUT is "%s"', time_string)
         return time.strptime(time_string, self._TIME_FORMAT)
 
+    def disable_suspend_to_idle(self):
+        """Disable the powerd preference for suspend_to_idle."""
+        logging.info('Disabling suspend_to_idle')
+        # Make temporary directory to hold powerd preferences so we
+        # do not leave behind any state if the test is aborted.
+        self.host.run('mkdir -p %s' % TMP_POWER_DIR)
+        self.host.run('echo 0 > %s/suspend_to_idle' % TMP_POWER_DIR)
+        self.host.run('mount --bind %s %s' % (TMP_POWER_DIR, POWER_DIR))
+        self.host.run('restart powerd')
+
+    def teardown_powerd_prefs(self):
+        """Clean up custom powerd preference changes."""
+        self.host.run('umount %s' % POWER_DIR)
+        self.host.run('restart powerd')
+
     def run_once(self):
         if not self.faft_config.has_eventlog:
             raise error.TestNAError('This board has no eventlog support.')
@@ -61,10 +80,10 @@ class firmware_EventLog(FirmwareTest):
                               }))
         self._gather_events()
         if not self._has_event(r'System boot'):
-            raise error.TestError('No "System boot" event on normal boot.')
+            raise error.TestFail('No "System boot" event on normal boot.')
         # ' Wake' to match 'FW Wake' and 'ACPI Wake' but not 'Wake Source'
         if self._has_event(r'Developer Mode|Recovery Mode|Sleep| Wake'):
-            raise error.TestError('Incorrect event logged on normal boot.')
+            raise error.TestFail('Incorrect event logged on normal boot.')
 
         logging.debug('Transitioning to dev mode for next test')
         self.switcher.reboot_to_mode(to_mode='dev')
@@ -79,9 +98,9 @@ class firmware_EventLog(FirmwareTest):
         self._gather_events()
         if (not self._has_event(r'System boot') or
             not self._has_event(r'Chrome OS Developer Mode')):
-            raise error.TestError('Missing required event on dev mode boot.')
+            raise error.TestFail('Missing required event on dev mode boot.')
         if self._has_event(r'Recovery Mode|Sleep| Wake'):
-            raise error.TestError('Incorrect event logged on dev mode boot.')
+            raise error.TestFail('Incorrect event logged on dev mode boot.')
 
         logging.debug('Transitioning back to normal mode for final tests')
         self.switcher.reboot_to_mode(to_mode='normal')
@@ -99,19 +118,35 @@ class firmware_EventLog(FirmwareTest):
         self._gather_events()
         if (not self._has_event(r'System boot') or
             not self._has_event(r'Chrome OS Recovery Mode \| Recovery Button')):
-            raise error.TestError('Missing required event in recovery mode.')
+            raise error.TestFail('Missing required event in recovery mode.')
         if self._has_event(r'Developer Mode|Sleep|FW Wake|ACPI Wake \| S3'):
-            raise error.TestError('Incorrect event logged in recovery mode.')
+            raise error.TestFail('Incorrect event logged in recovery mode.')
 
         logging.info('Verifying eventlog behavior on suspend/resume')
+        self.disable_suspend_to_idle()
         self._cutoff_time = self._now()
         self.faft_client.system.run_shell_command(
                 'powerd_dbus_suspend -wakeup_timeout=10')
         time.sleep(5)   # a little slack time for powerd to write the 'Wake'
+        self.teardown_powerd_prefs()
         self._gather_events()
         if ((not self._has_event(r'^Wake') or not self._has_event(r'Sleep')) and
             (not self._has_event(r'ACPI Enter \| S3') or
              not self._has_event(r'ACPI Wake \| S3'))):
-            raise error.TestError('Missing required event on suspend/resume.')
+            raise error.TestFail('Missing required event on suspend/resume.')
         if self._has_event(r'System |Developer Mode|Recovery Mode'):
-            raise error.TestError('Incorrect event logged on suspend/resume.')
+            raise error.TestFail('Incorrect event logged on suspend/resume.')
+
+        watchdog = WatchdogTester(self.host)
+        if not watchdog.is_supported():
+            logging.info('No hardware watchdog on this platform, skipping')
+        elif self.faft_client.system.run_shell_command_get_output(
+                'crossystem arch')[0] != 'x86': # TODO: Implement event on x86
+            logging.info('Verifying eventlog behavior with hardware watchdog')
+            self._cutoff_time = self._now()
+            with watchdog:
+                watchdog.trigger_watchdog()
+            self._gather_events()
+            if (not self._has_event(r'System boot') or
+                not self._has_event(r'Hardware watchdog reset')):
+                raise error.TestFail('Did not log hardware watchdog event')

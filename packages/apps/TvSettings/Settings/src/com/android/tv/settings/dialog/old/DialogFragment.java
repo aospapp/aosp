@@ -62,7 +62,6 @@ public class DialogFragment extends Fragment implements ActionAdapter.Listener, 
                 ContentFragment cf = (ContentFragment) fragment;
                 mBase.performEntryTransition(getRealActivity(),
                         (ViewGroup) getRealActivity().findViewById(android.R.id.content),
-                        cf.getIconResourceId(), cf.getIconResourceUri(),
                         cf.getIcon(), cf.getTitle(), cf.getDescription(), cf.getBreadCrumb());
             }
         }

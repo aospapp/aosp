@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Búsqueda siempre disponible"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Permite que el servicio de ubicación de Google y otras aplicaciones busquen redes aunque la conexión Wi-Fi esté desactivada."</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Permite al servicio de ubicaciones y a otras apps de Google la búsqueda de redes, incluso con el Wi-Fi desactivado"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Protector de pantalla"</string>
     <string name="device_display" msgid="101455384386372747">"Pantalla"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Batería <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Desincronizando dispositivo…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Conectado"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Cambiar nombre"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Ingresa un nombre nuevo para este accesorio"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Buscando accesorios…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Antes de sincronizar los dispositivos Bluetooth, asegúrate de que el modo de sincronización esté activado."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Se encontró un dispositivo que se sincronizará de forma automática en <xliff:g id="COUNTDOWN">%1$s</xliff:g> segundos."</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Teclado"</string>
     <string name="system_home" msgid="2858989138172296012">"Pantalla principal"</string>
     <string name="system_search" msgid="2837264654143247611">"Búsqueda"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Seguridad y restricciones"</string>
     <string name="system_speech" msgid="8128688499687306982">"Voz"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Entradas"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Opciones del programador"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ninguno"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Uso y diagnóstico"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Instructivos"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Actualización del sistema"</string>
     <string name="about_preference" msgid="4131396784531360434">"Acerca de"</string>
     <string name="device_name" msgid="2670488158531273028">"Nombre del dispositivo"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Opciones de pantalla"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Configurar"</string>
     <string name="captions_language" msgid="2835554055388996343">"Idioma"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Predeterminado"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Tamaño del texto"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Estilo de subtítulos"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Opciones personalizadas"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Escala de animación de transición"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Escala de duración del animador"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"El modo estricto está habilitado"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Mostrar uso de CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Representación GPU del perfil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Habilitar seguimientos"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Eliminar actividades"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"De mejor a peor: azul, verde, rojo claro, rojo"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Mostrar superficies de ventana al actualizar"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Mostrar pantalla con oper. largas en conv. princ."</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Muestra la superposición en pantalla con el uso actual de la CPU."</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mide tiempo de repr. en adb shell dumpsys gfxinfo."</string>
     <string name="action_on_title" msgid="6852389884236870765">"Activar"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Desactivar"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Forzar detención"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Si fuerzas la detención de una aplicación, es posible que funcione incorrectamente."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Desinstalar"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"¿Quieres desinstalar esta aplicación?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Desinstalar actualizaciones"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Se desinstalarán todas las actualizaciones de esta aplicación del sistema Android."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Inhabilitar"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Borrar memoria caché"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Notificaciones"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Permisos"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"La aplicación no está disponible"</string>
     <string name="settings_ok" msgid="3321630456511355983">"Aceptar"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Cancelar"</string>
     <string name="settings_on" msgid="6892236264945435013">"Activar"</string>
@@ -629,7 +632,7 @@
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"La pantalla se apaga después de este período de inactividad."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"En este momento, ninguna cuenta almacena copias de seguridad de los datos."</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
-    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"¿Quieres dejar de guardar copias de seguridad de tus contraseñas de Wi-Fi, marcadores, configuraciones y datos de aplicaciones, y eliminar todas las copias de los servidores de Google?"</string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"¿Quieres dejar de guardar copias de seguridad de tus contraseñas de Wi-Fi, favoritos, configuraciones y datos de aplicaciones, y eliminar todas las copias de los servidores de Google?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Crear copia de seguridad de mis datos"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"Cuenta de copia de seguridad"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Restauración automática"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"¿Quieres borrar tu información personal y las aplicaciones que descargaste? Esta acción no se puede deshacer."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Borrar todo"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Elegir un nombre para <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Un nombre ayuda a identificar tu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> cuando accedas a él desde otros dispositivos, como el teléfono, la tablet o la computadora."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Asígnale un nombre a tu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> para identificarlo cuando transmita contenido o te conectes a él desde otros dispositivos."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Sala de estar"</item>
-    <item msgid="3722089849939477581">"Sala multimedia"</item>
-    <item msgid="6108590585438763574">"Sala familiar"</item>
-    <item msgid="2581035245390468625">"Comedor"</item>
-    <item msgid="3127487827308695324">"Estudio"</item>
-    <item msgid="6172018430592195063">"Dormitorio"</item>
-    <item msgid="8120010459866284578">"Cocina"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV de la sala de estar"</item>
+    <item msgid="8122798759665439456">"TV de la sala familiar"</item>
+    <item msgid="1389347662738182100">"TV del dormitorio"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Ingresar nombre personalizado…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Ingresar nombre personalizado…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Cambiar el nombre de <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Actualmente, <xliff:g id="DEVICEMODEL">%1$s</xliff:g> se llama \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Cambiar"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Reiniciar en modo seguro"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"¿Deseas reiniciar el dispositivo en modo seguro?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Las apps de terceros que instalaste se inhabilitarán y se restablecerán cuando vuelvas a reiniciar el dispositivo."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Realizando informe de errores"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclados virtuales disponibles"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Administrar teclados"</string>
 </resources>

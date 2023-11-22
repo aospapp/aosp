@@ -20,12 +20,12 @@ import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
  * Helper for writing standard Java collection interfaces to a data
  * structure like {@link ArrayMap}.
- * @hide
  */
 abstract class MapCollections<K, V> {
     EntrySet mEntrySet;
@@ -50,6 +50,7 @@ abstract class MapCollections<K, V> {
 
         @Override
         public T next() {
+            if (!hasNext()) throw new NoSuchElementException();
             Object res = colGetEntry(mIndex, mOffset);
             mIndex++;
             mCanRemove = true;
@@ -85,6 +86,7 @@ abstract class MapCollections<K, V> {
 
         @Override
         public Map.Entry<K, V> next() {
+            if (!hasNext()) throw new NoSuchElementException();
             mIndex++;
             mEntryValid = true;
             return this;

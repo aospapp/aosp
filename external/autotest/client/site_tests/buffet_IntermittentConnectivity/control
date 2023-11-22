@@ -7,7 +7,6 @@ NAME = 'buffet_IntermittentConnectivity'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:tendo_experimental"
-SUITE = 'tendo_experimental'
 
 DOC = """
 Test that buffet reconnects if it loses connectivity.

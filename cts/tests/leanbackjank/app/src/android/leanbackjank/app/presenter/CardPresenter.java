@@ -30,8 +30,8 @@ import android.leanbackjank.app.model.Movie;
  * It contains an Image CardView
  */
 public class CardPresenter extends Presenter {
-    private static int CARD_WIDTH = 313;
-    private static int CARD_HEIGHT = 176;
+    private static int CARD_WIDTH = 560;
+    private static int CARD_HEIGHT = 320;
     private static int sSelectedBackgroundColor;
     private static int sDefaultBackgroundColor;
     private Drawable mDefaultCardImage;

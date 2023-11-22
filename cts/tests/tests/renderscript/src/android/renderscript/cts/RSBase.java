@@ -18,6 +18,7 @@ package android.renderscript.cts;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.StrictMode;
 import android.renderscript.RenderScript.RSErrorHandler;
 import android.renderscript.RenderScript.RSMessageHandler;
 import android.renderscript.RSRuntimeException;
@@ -80,6 +81,12 @@ public class RSBase extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+
+        StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
+                               .detectLeakedClosableObjects()
+                               .penaltyLog()
+                               .build());
+
         result = 0;
         msgHandled = false;
         mCtx = getContext();

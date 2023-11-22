@@ -130,6 +130,9 @@ class platform_ToolchainOptions(test.test):
                     # positives, and since that's noexec anyways, it should
                     # be skipped.
                     " -wholename '/home/chronos' -prune -o "
+                    " -wholename "
+                    "/opt/google/containers/android/rootfs/root/vendor"
+                    " -prune -o "
                     " %s "
                     " -not -name 'libstdc++.so.*' "
                     " -not -name 'libgcc_s.so.*' "
@@ -215,10 +218,7 @@ class platform_ToolchainOptions(test.test):
         now_cmd = ("(%s {} | grep -q statically) ||"
                    "%s -d {} 2>&1 | "
                    "egrep -q \"BIND_NOW\"" % (FILE_CMD, readelf_cmd))
-        if utils.is_freon():
-            now_whitelist = os.path.join(self.bindir, "now_whitelist")
-        else:
-            now_whitelist = os.path.join(self.bindir, "now_whitelist_x")
+        now_whitelist = os.path.join(self.bindir, "now_whitelist")
         option_sets.append(self.create_and_filter("-Wl,-z,now",
                                                   now_cmd,
                                                   now_whitelist))
@@ -242,6 +242,20 @@ class platform_ToolchainOptions(test.test):
                                                   pie_cmd,
                                                   pie_whitelist))
 
+        # Verify ELFs don't include TEXTRELs.
+        # FIXME: Remove the i?86 filter after the bug is fixed.
+        # crbug.com/686926
+        if (utils.get_current_kernel_arch() not in
+                ('i%d86' % i for i in xrange(3,7))):
+            textrel_cmd = ("(%s {} | grep -q statically) ||"
+                           "%s -d {} 2>&1 | "
+                           "(egrep -q \"0x0+16..TEXTREL\"; [ $? -ne 0 ])"
+                           % (FILE_CMD, readelf_cmd))
+            textrel_whitelist = os.path.join(self.bindir, "textrel_whitelist")
+            option_sets.append(self.create_and_filter("TEXTREL",
+                                                      textrel_cmd,
+                                                      textrel_whitelist))
+
         # Verify all binaries have non-exec STACK program header.
         stack_cmd = ("%s -lW {} 2>&1 | "
                      "egrep -q \"GNU_STACK.*RW \"" % readelf_cmd)
@@ -254,10 +268,7 @@ class platform_ToolchainOptions(test.test):
         loadwx_cmd = ("%s -lW {} 2>&1 | "
                       "grep \"LOAD\" | egrep -v \"(RW |R E)\" | "
                       "wc -l | grep -q \"^0$\"" % readelf_cmd)
-        if utils.is_freon():
-            loadwx_whitelist = os.path.join(self.bindir, "loadwx_whitelist")
-        else:
-            loadwx_whitelist = os.path.join(self.bindir, "loadwx_whitelist_x")
+        loadwx_whitelist = os.path.join(self.bindir, "loadwx_whitelist")
         option_sets.append(self.create_and_filter("LOAD Writable and Exec",
                                                   loadwx_cmd,
                                                   loadwx_whitelist))

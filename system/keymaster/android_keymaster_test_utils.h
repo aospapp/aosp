@@ -58,7 +58,7 @@ template <keymaster_tag_t Tag, typename KeymasterEnum>
 bool contains(const AuthorizationSet& set, TypedEnumTag<KM_ENUM, Tag, KeymasterEnum> tag,
               KeymasterEnum val) {
     int pos = set.find(tag);
-    return pos != -1 && set[pos].enumerated == val;
+    return pos != -1 && static_cast<KeymasterEnum>(set[pos].enumerated) == val;
 }
 
 template <keymaster_tag_t Tag, typename KeymasterEnum>
@@ -66,7 +66,7 @@ bool contains(const AuthorizationSet& set, TypedEnumTag<KM_ENUM_REP, Tag, Keymas
               KeymasterEnum val) {
     int pos = -1;
     while ((pos = set.find(tag, pos)) != -1)
-        if (set[pos].enumerated == val)
+        if (static_cast<KeymasterEnum>(set[pos].enumerated) == val)
             return true;
     return false;
 }
@@ -166,10 +166,14 @@ class Keymaster2TestInstanceCreator {
     virtual int minimal_digest_set() const { return false; }
     virtual bool is_keymaster1_hw() const = 0;
     virtual KeymasterContext* keymaster_context() const = 0;
+
+    virtual std::string name() const = 0;
 };
 
 // Use a shared_ptr because it's copyable.
 typedef std::shared_ptr<Keymaster2TestInstanceCreator> InstanceCreatorPtr;
+
+std::ostream& operator<<(std::ostream& os, const InstanceCreatorPtr& instance_creator);
 
 const uint64_t OP_HANDLE_SENTINEL = 0xFFFFFFFFFFFFFFFF;
 class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
@@ -201,14 +205,17 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
                                       std::string* output, size_t* input_consumed);
 
     keymaster_error_t FinishOperation(std::string* output);
-    keymaster_error_t FinishOperation(const std::string& signature, std::string* output);
+    keymaster_error_t FinishOperation(const std::string& input, const std::string& signature,
+                                      std::string* output);
     keymaster_error_t FinishOperation(const AuthorizationSet& additional_params,
-                                      const std::string& signature, std::string* output) {
-        return FinishOperation(additional_params, signature, nullptr /* output_params */, output);
+                                      const std::string& input, const std::string& signature,
+                                      std::string* output) {
+        return FinishOperation(additional_params, input, signature, nullptr /* output_params */,
+                               output);
     }
     keymaster_error_t FinishOperation(const AuthorizationSet& additional_params,
-                                      const std::string& signature, AuthorizationSet* output_params,
-                                      std::string* output);
+                                      const std::string& input, const std::string& signature,
+                                      AuthorizationSet* output_params, std::string* output);
 
     keymaster_error_t AbortOperation();
 
@@ -217,7 +224,6 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
     keymaster_error_t UpgradeKey(const AuthorizationSet& upgrade_params);
 
     keymaster_error_t GetVersion(uint8_t* major, uint8_t* minor, uint8_t* subminor);
-
     std::string ProcessMessage(keymaster_purpose_t purpose, const std::string& message);
     std::string ProcessMessage(keymaster_purpose_t purpose, const std::string& message,
                                const AuthorizationSet& begin_params,
@@ -274,8 +280,8 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
                                keymaster_block_mode_t block_mode, keymaster_padding_t padding,
                                const std::string& nonce);
 
-    void CheckHmacTestVector(std::string key, std::string message, keymaster_digest_t digest,
-                             std::string expected_mac);
+    void CheckHmacTestVector(const std::string& key, const std::string& message,
+                             keymaster_digest_t digest, std::string expected_mac);
     void CheckAesOcbTestVector(const std::string& key, const std::string& nonce,
                                const std::string& associated_data, const std::string& message,
                                const std::string& expected_ciphertext);
@@ -326,7 +332,7 @@ class Keymaster2Test : public testing::TestWithParam<InstanceCreatorPtr> {
 };
 
 struct Keymaster0CountingWrapper : public keymaster0_device_t {
-    Keymaster0CountingWrapper(keymaster0_device_t* device) : device_(device), counter_(0) {
+    explicit Keymaster0CountingWrapper(keymaster0_device_t* device) : device_(device), counter_(0) {
         common = device_->common;
         common.close = counting_close_device;
         client_version = device_->client_version;

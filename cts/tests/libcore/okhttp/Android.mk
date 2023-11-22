@@ -48,6 +48,4 @@ LOCAL_JAVA_RESOURCE_FILES := \
     libcore/expectations/knownfailures.txt \
     libcore/expectations/taggedtests.txt
 
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-
 include $(BUILD_CTS_SUPPORT_PACKAGE)

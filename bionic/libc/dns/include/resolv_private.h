@@ -63,9 +63,6 @@
 #include <net/if.h>
 #include <time.h>
 
-/* Despite this file's name, it's part of libresolv. On Android, that means it's part of libc :-( */
-#pragma GCC visibility push(default)
-
 // Linux defines MAXHOSTNAMELEN as 64, while the domain name limit in
 // RFC 1034 and RFC 1035 is 255 octets.
 #ifdef MAXHOSTNAMELEN
@@ -536,8 +533,15 @@ __socketcall int __connect(int, const struct sockaddr*, socklen_t);
 
 #undef __socketcall
 
-__END_DECLS
+// Symbols that are supposed to be in resolv.h, but that we aren't exporting.
+int ns_parserr2(ns_msg*, ns_sect, int, ns_rr2*);
+int ns_name_pton2(const char*, u_char*, size_t, size_t*);
+int ns_name_unpack2(const u_char*, const u_char*, const u_char*, u_char*, size_t, size_t*);
+int ns_name_eq(ns_nname_ct, size_t, ns_nname_ct, size_t);
+int ns_name_owned(ns_namemap_ct, int, ns_namemap_ct, int);
+int ns_name_map(ns_nname_ct, size_t, ns_namemap_t, int);
+int ns_name_labels(ns_nname_ct, size_t);
 
-#pragma GCC visibility pop
+__END_DECLS
 
 #endif /* !_RESOLV_PRIVATE_H_ */

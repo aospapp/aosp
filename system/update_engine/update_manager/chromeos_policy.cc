@@ -33,6 +33,8 @@
 
 using base::Time;
 using base::TimeDelta;
+using chromeos_update_engine::ConnectionTethering;
+using chromeos_update_engine::ConnectionType;
 using chromeos_update_engine::ErrorCode;
 using std::get;
 using std::max;
@@ -125,6 +127,7 @@ bool HandleErrorCode(ErrorCode err_code, int* url_num_error_p) {
     case ErrorCode::kOmahaResponseInvalid:
     case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
     case ErrorCode::kOmahaUpdateDeferredPerPolicy:
+    case ErrorCode::kNonCriticalUpdateInOOBE:
     case ErrorCode::kOmahaUpdateDeferredForBackoff:
     case ErrorCode::kPostinstallPowerwashError:
     case ErrorCode::kUpdateCanceledByChannelChange:
@@ -211,19 +214,49 @@ EvalStatus ChromeOSPolicy::UpdateCheckAllowed(
   const bool* device_policy_is_loaded_p = ec->GetValue(
       dp_provider->var_device_policy_is_loaded());
   if (device_policy_is_loaded_p && *device_policy_is_loaded_p) {
+    bool kiosk_app_control_chrome_version = false;
+
     // Check whether updates are disabled by policy.
     const bool* update_disabled_p = ec->GetValue(
         dp_provider->var_update_disabled());
     if (update_disabled_p && *update_disabled_p) {
-      LOG(INFO) << "Updates disabled by policy, blocking update checks.";
-      return EvalStatus::kAskMeAgainLater;
+      // Check whether allow kiosk app to control chrome version policy. This
+      // policy is only effective when AU is disabled by admin.
+      const bool* allow_kiosk_app_control_chrome_version_p = ec->GetValue(
+          dp_provider->var_allow_kiosk_app_control_chrome_version());
+      kiosk_app_control_chrome_version =
+          allow_kiosk_app_control_chrome_version_p &&
+          *allow_kiosk_app_control_chrome_version_p;
+      if (!kiosk_app_control_chrome_version) {
+        // No kiosk pin chrome version policy. AU is really disabled.
+        LOG(INFO) << "Updates disabled by policy, blocking update checks.";
+        return EvalStatus::kAskMeAgainLater;
+      }
     }
 
-    // Determine whether a target version prefix is dictated by policy.
-    const string* target_version_prefix_p = ec->GetValue(
-        dp_provider->var_target_version_prefix());
-    if (target_version_prefix_p)
-      result->target_version_prefix = *target_version_prefix_p;
+    if (kiosk_app_control_chrome_version) {
+      // Get the required platform version from Chrome.
+      const string* kiosk_required_platform_version_p =
+          ec->GetValue(system_provider->var_kiosk_required_platform_version());
+      if (!kiosk_required_platform_version_p) {
+        LOG(INFO) << "Kiosk app required platform version is not fetched, "
+                     "blocking update checks";
+        return EvalStatus::kAskMeAgainLater;
+      }
+
+      result->target_version_prefix = *kiosk_required_platform_version_p;
+      LOG(INFO) << "Allow kiosk app to control Chrome version policy is set,"
+                << ", target version is "
+                << (kiosk_required_platform_version_p
+                        ? *kiosk_required_platform_version_p
+                        : std::string("latest"));
+    } else {
+      // Determine whether a target version prefix is dictated by policy.
+      const string* target_version_prefix_p = ec->GetValue(
+          dp_provider->var_target_version_prefix());
+      if (target_version_prefix_p)
+        result->target_version_prefix = *target_version_prefix_p;
+    }
 
     // Determine whether a target channel is dictated by policy.
     const bool* release_channel_delegated_p = ec->GetValue(

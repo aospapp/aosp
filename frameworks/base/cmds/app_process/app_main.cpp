@@ -14,10 +14,9 @@
 #include <unistd.h>
 
 #include <binder/IPCThreadState.h>
-#include <binder/ProcessState.h>
+#include <hwbinder/IPCThreadState.h>
 #include <utils/Log.h>
 #include <cutils/memory.h>
-#include <cutils/process_name.h>
 #include <cutils/properties.h>
 #include <cutils/trace.h>
 #include <android_runtime/AndroidRuntime.h>
@@ -86,6 +85,7 @@ public:
         ar->callMain(mClassName, mClass, mArgs);
 
         IPCThreadState::self()->stopProcess();
+        hardware::IPCThreadState::self()->stopProcess();
     }
 
     virtual void onZygoteInit()
@@ -100,6 +100,7 @@ public:
         if (mClassName.isEmpty()) {
             // if zygote
             IPCThreadState::self()->stopProcess();
+            hardware::IPCThreadState::self()->stopProcess();
         }
 
         AndroidRuntime::onExit(code);
@@ -185,13 +186,14 @@ static const char ZYGOTE_NICE_NAME[] = "zygote";
 
 int main(int argc, char* const argv[])
 {
-    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
-        // Older kernels don't understand PR_SET_NO_NEW_PRIVS and return
-        // EINVAL. Don't die on such kernels.
-        if (errno != EINVAL) {
-            LOG_ALWAYS_FATAL("PR_SET_NO_NEW_PRIVS failed: %s", strerror(errno));
-            return 12;
-        }
+    if (!LOG_NDEBUG) {
+      String8 argv_String;
+      for (int i = 0; i < argc; ++i) {
+        argv_String.append("\"");
+        argv_String.append(argv[i]);
+        argv_String.append("\" ");
+      }
+      ALOGV("app_process main with argv: %s", argv_String.string());
     }
 
     AppRuntime runtime(argv[0], computeArgBlockSize(argc, argv));
@@ -222,9 +224,31 @@ int main(int argc, char* const argv[])
     //
     // Note that we must copy argument string values since we will rewrite the
     // entire argument block when we apply the nice name to argv0.
+    //
+    // As an exception to the above rule, anything in "spaced commands"
+    // goes to the vm even though it has a space in it.
+    const char* spaced_commands[] = { "-cp", "-classpath" };
+    // Allow "spaced commands" to be succeeded by exactly 1 argument (regardless of -s).
+    bool known_command = false;
 
     int i;
     for (i = 0; i < argc; i++) {
+        if (known_command == true) {
+          runtime.addOption(strdup(argv[i]));
+          ALOGV("app_process main add known option '%s'", argv[i]);
+          known_command = false;
+          continue;
+        }
+
+        for (int j = 0;
+             j < static_cast<int>(sizeof(spaced_commands) / sizeof(spaced_commands[0]));
+             ++j) {
+          if (strcmp(argv[i], spaced_commands[j]) == 0) {
+            known_command = true;
+            ALOGV("app_process main found known command '%s'", argv[i]);
+          }
+        }
+
         if (argv[i][0] != '-') {
             break;
         }
@@ -232,7 +256,9 @@ int main(int argc, char* const argv[])
             ++i; // Skip --.
             break;
         }
+
         runtime.addOption(strdup(argv[i]));
+        ALOGV("app_process main add option '%s'", argv[i]);
     }
 
     // Parse runtime arguments.  Stop at first unrecognized option.
@@ -272,6 +298,18 @@ int main(int argc, char* const argv[])
         // copies of them before we overwrite them with the process name.
         args.add(application ? String8("application") : String8("tool"));
         runtime.setClassNameAndArgs(className, argc - i, argv + i);
+
+        if (!LOG_NDEBUG) {
+          String8 restOfArgs;
+          char* const* argv_new = argv + i;
+          int argc_new = argc - i;
+          for (int k = 0; k < argc_new; ++k) {
+            restOfArgs.append("\"");
+            restOfArgs.append(argv_new[k]);
+            restOfArgs.append("\" ");
+          }
+          ALOGV("Class name = %s, args = %s", className.string(), restOfArgs.string());
+        }
     } else {
         // We're in zygote mode.
         maybeCreateDalvikCache();
@@ -299,8 +337,7 @@ int main(int argc, char* const argv[])
     }
 
     if (!niceName.isEmpty()) {
-        runtime.setArgv0(niceName.string());
-        set_process_name(niceName.string());
+        runtime.setArgv0(niceName.string(), true /* setProcName */);
     }
 
     if (zygote) {
@@ -311,6 +348,5 @@ int main(int argc, char* const argv[])
         fprintf(stderr, "Error: no class name or --zygote supplied.\n");
         app_usage();
         LOG_ALWAYS_FATAL("app_process: no class name or --zygote supplied.");
-        return 10;
     }
 }

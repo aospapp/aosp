@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007, International Business Machines Corporation and        *
@@ -9,20 +11,12 @@
 
 package com.ibm.icu.dev.test.duration.languages;
 
-import com.ibm.icu.dev.test.duration.LanguageTestRoot;
+import com.ibm.icu.dev.test.duration.LanguageTestFmwk;
 
 /**
  * Test cases for en
  */
-public class Test_en extends LanguageTestRoot {
-
-  public static void main(String[] args) {
-      new Test_en().run(args);
-  }
-
-  /**
-   * Constructor.
-   */
+public class Test_en extends LanguageTestFmwk {
   public Test_en() {
     super("en", false);
   }

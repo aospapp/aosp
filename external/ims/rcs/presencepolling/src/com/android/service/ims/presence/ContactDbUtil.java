@@ -46,92 +46,6 @@ import com.android.ims.internal.Logger;
 public class ContactDbUtil {
     private static Logger logger = Logger.getLogger("ContactDbUtil");
 
-    public static void addVideoCallingContactGroup(Context context, Account vCallingAccount) {
-        logger.info("addVideoCallingContactGroup");
-        ContentResolver contentResolver = context.getContentResolver();
-        if (vCallingAccount == null) {
-            logger.error("vCallingAccount == null");
-            return;
-        }
-        long videoCallingGroupId = 0;
-        final Cursor cursor = contentResolver.query(Groups.CONTENT_URI,
-                new String[] { Groups._ID },
-                Groups.ACCOUNT_NAME + "=? AND " + Groups.ACCOUNT_TYPE + "=? AND " +
-                Groups.TITLE + "=?",
-                new String[] { AccountUtil.ACCOUNT_NAME, AccountUtil.ACCOUNT_TYPE,
-                context.getString(R.string.video_calling_contact_group) }, null);
-        if (cursor != null) {
-            try {
-                if (cursor.moveToFirst()) {
-                    videoCallingGroupId = cursor.getLong(0);
-                }
-            } finally {
-                cursor.close();
-            }
-        }
-        if (videoCallingGroupId == 0) {
-            logger.debug("addVideoCallingContactGroup, creating group");
-
-            // Video Calling group doesn't exist yet, so create it
-            final ContentValues contentValues = new ContentValues();
-            contentValues.put(Groups.ACCOUNT_NAME, AccountUtil.ACCOUNT_NAME);
-            contentValues.put(Groups.ACCOUNT_TYPE, AccountUtil.ACCOUNT_TYPE);
-            contentValues.put(Groups.TITLE, context.getString(R.string.video_calling_contact_group));
-            contentValues.put(Groups.GROUP_IS_READ_ONLY, 1);
-            contentValues.put(Groups.GROUP_VISIBLE, 1);
-            contentValues.put(Groups.SYSTEM_ID, "com.android.vt.eab");
-
-            final Uri newGroupUri = contentResolver.insert(Groups.CONTENT_URI, contentValues);
-            if (null != newGroupUri) {
-                videoCallingGroupId = ContentUris.parseId(newGroupUri);
-            } else {
-                logger.error("newGroupUri is null.");
-            }
-        } else {
-            logger.debug("addVideoCallingContactGroup, Video Calling Group, already exists!!!");
-
-        }
-
-        logger.debug("videoCallingGroupId: " + videoCallingGroupId);
-        SharedPrefUtil.setVideoCallingGroupId(context, videoCallingGroupId);
-    }
-
-    public static void removeVideoCallingContactGroup(Context context) {
-        logger.debug("removeVideoCallingContactGroup");
-        long storedVideoCallingGroupId = SharedPrefUtil.getVideoCallingGroupId(context);
-        long videoCallingGroupId = 0;
-        ContentResolver contentResolver = context.getContentResolver();
-        final Cursor cursor = contentResolver.query(Groups.CONTENT_URI,
-                new String[] { Groups._ID },
-                Groups.ACCOUNT_NAME + "=? AND " + Groups.ACCOUNT_TYPE + "=? AND " +
-                Groups.TITLE + "=?",
-                new String[] { AccountUtil.ACCOUNT_NAME, AccountUtil.ACCOUNT_TYPE,
-                context.getString(R.string.video_calling_contact_group) }, null);
-        if (cursor != null) {
-            try {
-                if (cursor.moveToFirst()) {
-                    videoCallingGroupId = cursor.getLong(0);
-                }
-            } finally {
-                cursor.close();
-            }
-        }
-        logger.debug("videoCallingGroupId : " + videoCallingGroupId);
-        logger.debug("storedVideoCallingGroupId : " + storedVideoCallingGroupId);
-        if (videoCallingGroupId == 0) {
-            logger.debug("videoCallingGroupId : " + videoCallingGroupId +
-                    " not present. Do nothing. ");
-        } else {
-            if (storedVideoCallingGroupId == videoCallingGroupId) {
-                String deleteWhereClause = Groups._ID + "='" + videoCallingGroupId + "'";
-                contentResolver.delete(Groups.CONTENT_URI, deleteWhereClause, null);
-                logger.debug("Removing Video Calling Group.");
-            }
-            SharedPrefUtil.setVideoCallingGroupId(context, 0);
-        }
-        logger.debug("videoCallingGroupId: " + videoCallingGroupId);
-    }
-
     public static int resetVtCapability(ContentResolver resolver) {
         if(resolver == null) {
             logger.error("resetVtCapability, resolver = null");
@@ -145,44 +59,6 @@ public class ContactDbUtil {
         int count = resolver.update(ContactsContract.Data.CONTENT_URI, values, selection, null);
         logger.debug("resetVtCapability count=" + count);
         return count;
-    }
-
-    public static int updateVtCapability(ContentResolver resolver, String number, boolean enable) {
-        String[] projection = new String[] {EABContract.EABColumns.DATA_ID};
-
-        int updatedCount = 0;
-        Cursor cursor = null;
-        try {
-            cursor = resolver.query(Contacts.Impl.CONTENT_URI,
-                   projection, "PHONE_NUMBERS_EQUAL(contact_number, ?, 0)",
-                   new String[] {number}, null);
-            if(null != cursor) {
-                int count = cursor.getCount();
-                logger.debug("updateVtCapability to Contact DB, count=" + count);
-                if(count <= 0) {
-                    logger.error("updateVtCapability, no number to be updated");
-                    cursor.close();
-                    cursor = null;
-                    return updatedCount;
-                }
-
-                while(cursor.moveToNext()) {
-                    long dataId = cursor.getLong(cursor.getColumnIndex(
-                            EABContract.EABColumns.DATA_ID));
-                    // update one by one to avoid loosing matching error.
-                    updatedCount += updateVtCapability(resolver, dataId, enable);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("updateVtCapability exception", e);
-        } finally {
-            if(cursor != null) {
-                cursor.close();
-            }
-        }
-
-        logger.debug("updateVtCapability updatedCount=" + updatedCount);
-        return updatedCount;
     }
 
     public static int updateVtCapability(ContentResolver resolver, long dataId, boolean enable) {

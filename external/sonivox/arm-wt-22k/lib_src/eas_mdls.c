@@ -114,6 +114,8 @@
 /* this define allows us to use the sndlib.h structures as RW memory */
 #define SCNST
 
+#include "log/log.h"
+
 #include "eas_data.h"
 #include "eas_host.h"
 #include "eas_mdls.h"
@@ -322,6 +324,7 @@ static const S_CONNECTION connTable[] =
 
 static const S_DLS_ART_VALUES defaultArt =
 {
+    {
     0,              /* not modified */
     -851,           /* Mod LFO frequency: 5 Hz */
     -7973,          /* Mod LFO delay: 10 milliseconds */
@@ -379,6 +382,7 @@ static const S_DLS_ART_VALUES defaultArt =
     1000,           /* Default CC91 to reverb send: 100.0% */
     0,              /* Default chorus send: 0.0% */
     1000            /* Default CC93 to chorus send: 100.0% */
+    }
 };
 
 /*------------------------------------
@@ -565,7 +569,7 @@ EAS_RESULT DLSParser (EAS_HW_DATA_HANDLE hwInstData, EAS_FILE_HANDLE fileHandle,
     }
 
     /* must have a ptbl chunk */
-    if ((ptblSize == 0) || (ptblSize > DLS_MAX_WAVE_COUNT * sizeof(POOLCUE) + sizeof(POOLTABLE)))
+    if ((ptblSize == 0) || (ptblSize > (EAS_I32) (DLS_MAX_WAVE_COUNT * sizeof(POOLCUE) + sizeof(POOLTABLE))))
     {
         { /* dpp: EAS_ReportEx(_EAS_SEVERITY_ERROR, "No ptbl chunk found"); */ }
         return EAS_ERROR_UNRECOGNIZED_FORMAT;
@@ -782,6 +786,11 @@ static EAS_RESULT NextChunk (SDLS_SYNTHESIZER_DATA *pDLSData, EAS_I32 *pPos, EAS
     /* read the chunk size */
     if ((result = EAS_HWGetDWord(pDLSData->hwInstData, pDLSData->fileHandle, pSize, EAS_FALSE)) != EAS_SUCCESS)
         return result;
+
+    if (*pSize < 0) {
+        ALOGE("b/37093318");
+        return EAS_ERROR_FILE_FORMAT;
+    }
 
     /* get form type for RIFF and LIST types */
     if ((*pChunkType == CHUNK_RIFF) || (*pChunkType == CHUNK_LIST))
@@ -2086,8 +2095,11 @@ static EAS_RESULT PushcdlStack (EAS_U32 *pStack, EAS_INT *pStackPtr, EAS_U32 val
 {
 
     /* stack overflow, return an error */
-    if (*pStackPtr >= CDL_STACK_SIZE)
+    if (*pStackPtr >= (CDL_STACK_SIZE - 1)) {
+        ALOGE("b/34031018, stackPtr(%d)", *pStackPtr);
+        android_errorWriteLog(0x534e4554, "34031018");
         return EAS_ERROR_FILE_FORMAT;
+    }
 
     /* push the value onto the stack */
     *pStackPtr = *pStackPtr + 1;

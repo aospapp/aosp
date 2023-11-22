@@ -25,10 +25,11 @@
 #include "vendor.h"
 
 typedef enum {
+  DATA_TYPE_UNKNOWN = 0,
   DATA_TYPE_COMMAND = 1,
-  DATA_TYPE_ACL     = 2,
-  DATA_TYPE_SCO     = 3,
-  DATA_TYPE_EVENT   = 4
+  DATA_TYPE_ACL = 2,
+  DATA_TYPE_SCO = 3,
+  DATA_TYPE_EVENT = 4
 } serial_data_type_t;
 
 typedef void (*data_ready_cb)(serial_data_type_t type);
@@ -47,8 +48,10 @@ typedef struct {
 } hci_hal_callbacks_t;
 
 typedef struct hci_hal_t {
-  // Initialize the HAL, with |upper_callbacks| and |upper_thread| to run in the context of.
-  bool (*init)(const hci_hal_callbacks_t *upper_callbacks, thread_t *upper_thread);
+  // Initialize the HAL, with |upper_callbacks| and |upper_thread| to run in the
+  // context of.
+  bool (*init)(const hci_hal_callbacks_t* upper_callbacks,
+               thread_t* upper_thread);
 
   // Connect to the underlying hardware, and let data start flowing.
   bool (*open)(void);
@@ -59,7 +62,8 @@ typedef struct hci_hal_t {
   // Retrieve up to |max_size| bytes for ACL, SCO, or EVENT data packets into
   // |buffer|. Only guaranteed to be correct in the context of a data_ready
   // callback of the corresponding type.
-  size_t (*read_data)(serial_data_type_t type, uint8_t *buffer, size_t max_size);
+  size_t (*read_data)(serial_data_type_t type, uint8_t* buffer,
+                      size_t max_size);
   // The upper layer must call this to notify the HAL that it has finished
   // reading a packet of the specified |type|. Underlying implementations that
   // use shared channels for multiple data types depend on this to know when
@@ -74,14 +78,15 @@ typedef struct hci_hal_t {
   // and then restored to its original value.
   // This is safe in the bluetooth context, because there is always a buffer
   // header that prefixes data you're sending.
-  uint16_t (*transmit_data)(serial_data_type_t type, uint8_t *data, uint16_t length);
+  uint16_t (*transmit_data)(serial_data_type_t type, uint8_t* data,
+                            uint16_t length);
 } hci_hal_t;
 
 // Gets the correct hal implementation, as compiled for.
-const hci_hal_t *hci_hal_get_interface(void);
+const hci_hal_t* hci_hal_get_interface(void);
 
-const hci_hal_t *hci_hal_h4_get_interface(void);
-const hci_hal_t *hci_hal_h4_get_test_interface(vendor_t *vendor_interface);
+const hci_hal_t* hci_hal_h4_get_interface(void);
+const hci_hal_t* hci_hal_h4_get_test_interface(vendor_t* vendor_interface);
 
-const hci_hal_t *hci_hal_mct_get_interface(void);
-const hci_hal_t *hci_hal_mct_get_test_interface(vendor_t *vendor_interface);
+const hci_hal_t* hci_hal_mct_get_interface(void);
+const hci_hal_t* hci_hal_mct_get_test_interface(vendor_t* vendor_interface);

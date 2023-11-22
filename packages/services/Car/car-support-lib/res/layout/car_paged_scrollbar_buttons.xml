@@ -22,9 +22,9 @@
     android:orientation="vertical" >
     <ImageView
         android:id="@+id/page_up"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:scaleType="center"
+        android:layout_width="@dimen/scroll_button_size"
+        android:layout_height="@dimen/scroll_button_size"
+        android:scaleType="fitCenter"
         android:background="@drawable/car_pagination_background"
         android:focusable="false"
         android:hapticFeedbackEnabled="false" />
@@ -37,16 +37,16 @@
         android:layout_marginBottom="@dimen/car_paged_list_view_scrollbar_thumb_margin" >
         <ImageView
             android:id="@+id/scrollbar_thumb"
-            android:layout_width="6dp"
+            android:layout_width="@dimen/scroll_bar_thumb_width"
             android:layout_height="0dp"
             android:layout_gravity="center_horizontal"
             android:src="@color/car_scrollbar_thumb" />
     </FrameLayout>
     <ImageView
         android:id="@+id/page_down"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:scaleType="center"
+        android:layout_width="@dimen/scroll_button_size"
+        android:layout_height="@dimen/scroll_button_size"
+        android:scaleType="fitCenter"
         android:background="@drawable/car_pagination_background"
         android:focusable="false"
         android:hapticFeedbackEnabled="false" />

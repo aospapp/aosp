@@ -28,7 +28,6 @@ package org.apache.harmony.jpda.tests.jdwp.VirtualMachine;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPTestCase;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 
 
 /**
@@ -40,6 +39,7 @@ public class ExitTest extends JDWPTestCase {
      */
     private static final int EXIT_CODE = 99;
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.SimpleHelloWorld";
     }

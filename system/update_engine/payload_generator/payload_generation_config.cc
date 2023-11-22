@@ -21,7 +21,9 @@
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
+#include "update_engine/payload_generator/delta_diff_utils.h"
 #include "update_engine/payload_generator/ext2_filesystem.h"
+#include "update_engine/payload_generator/mapfile_filesystem.h"
 #include "update_engine/payload_generator/raw_filesystem.h"
 
 namespace chromeos_update_engine {
@@ -37,16 +39,6 @@ bool PartitionConfig::ValidateExists() const {
   // The requested size is within the limits of the file.
   TEST_AND_RETURN_FALSE(static_cast<off_t>(size) <=
                         utils::FileSize(path.c_str()));
-  // TODO(deymo): The delta generator algorithm doesn't support a block size
-  // different than 4 KiB. Remove this check once that's fixed. crbug.com/455045
-  int block_count, block_size;
-  if (utils::GetFilesystemSize(path, &block_count, &block_size) &&
-      block_size != 4096) {
-   LOG(ERROR) << "The filesystem provided in " << path
-              << " has a block size of " << block_size
-              << " but delta_generator only supports 4096.";
-   return false;
-  }
   return true;
 }
 
@@ -54,18 +46,28 @@ bool PartitionConfig::OpenFilesystem() {
   if (path.empty())
     return true;
   fs_interface.reset();
-  if (utils::IsExtFilesystem(path)) {
+  if (diff_utils::IsExtFilesystem(path)) {
     fs_interface = Ext2Filesystem::CreateFromFile(path);
+    // TODO(deymo): The delta generator algorithm doesn't support a block size
+    // different than 4 KiB. Remove this check once that's fixed. b/26972455
+    if (fs_interface) {
+      TEST_AND_RETURN_FALSE(fs_interface->GetBlockSize() == kBlockSize);
+      return true;
+    }
   }
 
-  if (!fs_interface) {
-    // Fall back to a RAW filesystem.
-    TEST_AND_RETURN_FALSE(size % kBlockSize == 0);
-    fs_interface = RawFilesystem::Create(
-      "<" + name + "-partition>",
-      kBlockSize,
-      size / kBlockSize);
+  if (!mapfile_path.empty()) {
+    fs_interface = MapfileFilesystem::CreateFromFile(path, mapfile_path);
+    if (fs_interface) {
+      TEST_AND_RETURN_FALSE(fs_interface->GetBlockSize() == kBlockSize);
+      return true;
+    }
   }
+
+  // Fall back to a RAW filesystem.
+  TEST_AND_RETURN_FALSE(size % kBlockSize == 0);
+  fs_interface = RawFilesystem::Create(
+      "<" + name + "-partition>", kBlockSize, size / kBlockSize);
   return true;
 }
 

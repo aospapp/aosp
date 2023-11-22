@@ -24,6 +24,10 @@ import socket
 import subprocess
 import hashlib
 import numpy
+import string
+
+CMD_DELAY = 1  # seconds
+
 
 class ItsSession(object):
     """Controls a device over adb to run ITS scripts.
@@ -67,9 +71,18 @@ class ItsSession(object):
     PACKAGE = 'com.android.cts.verifier.camera.its'
     INTENT_START = 'com.android.cts.verifier.camera.its.START'
     ACTION_ITS_RESULT = 'com.android.cts.verifier.camera.its.ACTION_ITS_RESULT'
+    EXTRA_VERSION = 'camera.its.extra.VERSION'
+    CURRENT_ITS_VERSION = '1.0' # version number to sync with CtsVerifier
     EXTRA_CAMERA_ID = 'camera.its.extra.CAMERA_ID'
-    EXTRA_SUCCESS = 'camera.its.extra.SUCCESS'
-    EXTRA_SUMMARY = 'camera.its.extra.SUMMARY'
+    EXTRA_RESULTS = 'camera.its.extra.RESULTS'
+    ITS_TEST_ACTIVITY = 'com.android.cts.verifier/.camera.its.ItsTestActivity'
+
+    RESULT_PASS = 'PASS'
+    RESULT_FAIL = 'FAIL'
+    RESULT_NOT_EXECUTED = 'NOT_EXECUTED'
+    RESULT_VALUES = {RESULT_PASS, RESULT_FAIL, RESULT_NOT_EXECUTED}
+    RESULT_KEY = 'result'
+    SUMMARY_KEY = 'summary'
 
     adb = "adb -d"
     device_id = ""
@@ -190,6 +203,10 @@ class ItsSession(object):
 
         # TODO: Figure out why "--user 0" is needed, and fix the problem.
         _run('%s shell am force-stop --user 0 %s' % (self.adb, self.PACKAGE))
+        _run(('%s shell am start --user 0 '
+              'com.android.cts.verifier/.camera.its.ItsTestActivity '
+              '--activity-brought-to-front') % self.adb)
+        time.sleep(CMD_DELAY)
         _run(('%s shell am startservice --user 0 -t text/plain '
               '-a %s') % (self.adb, self.INTENT_START))
 
@@ -379,6 +396,7 @@ class ItsSession(object):
 
         Triggers some or all of AE, AWB, and AF, and returns once they have
         converged. Uses the vendor 3A that is implemented inside the HAL.
+        Note: do_awb is always enabled regardless of do_awb flag
 
         Throws an assertion if 3A fails to converge.
 
@@ -406,8 +424,8 @@ class ItsSession(object):
             Five values are returned if get_results is true::
             * AE sensitivity; None if do_ae is False
             * AE exposure time; None if do_ae is False
-            * AWB gains (list); None if do_awb is False
-            * AWB transform (list); None if do_awb is false
+            * AWB gains (list);
+            * AWB transform (list);
             * AF focus position; None if do_af is false
             Otherwise, it returns five None values.
         """
@@ -437,9 +455,11 @@ class ItsSession(object):
             data,_ = self.__read_response_from_socket()
             vals = data['strValue'].split()
             if data['tag'] == 'aeResult':
-                ae_sens, ae_exp = [int(i) for i in vals]
+                if do_ae:
+                    ae_sens, ae_exp = [int(i) for i in vals]
             elif data['tag'] == 'afResult':
-                af_dist = float(vals[0])
+                if do_af:
+                    af_dist = float(vals[0])
             elif data['tag'] == 'awbResult':
                 awb_gains = [float(f) for f in vals[:4]]
                 awb_transform = [float(f) for f in vals[4:]]
@@ -569,7 +589,10 @@ class ItsSession(object):
         channel is computed, and the do_capture call returns two 4-element float
         images of dimensions (rawWidth / gridWidth, rawHeight / gridHeight),
         concatenated back-to-back, where the first iamge contains the 4-channel
-        means and the second contains the 4-channel variances.
+        means and the second contains the 4-channel variances. Note that only
+        pixels in the active array crop region are used; pixels outside this
+        region (for example optical black rows) are cropped out before the
+        gridding and statistics computation is performed.
 
         For the rawStats format, if the gridWidth is not provided then the raw
         image width is used as the default, and similarly for gridHeight. With
@@ -746,15 +769,24 @@ def get_device_id():
     Return the device ID provided in the command line if it's connected. If no
     device ID is provided in the command line and there is only one device
     connected, return the device ID by parsing the result of "adb devices".
+    Also, if the environment variable ANDROID_SERIAL is set, use it as device
+    id. When both ANDROID_SERIAL and device argument present, device argument
+    takes priority.
 
     Raise an exception if no device is connected; or the device ID provided in
     the command line is not connected; or no device ID is provided in the
-    command line and there are more than 1 device connected.
+    command line or environment variable and there are more than 1 device
+    connected.
 
     Returns:
         Device ID string.
     """
     device_id = None
+
+    # Check if device id is set in env
+    if "ANDROID_SERIAL" in os.environ:
+        device_id = os.environ["ANDROID_SERIAL"]
+
     for s in sys.argv[1:]:
         if s[:7] == "device=" and len(s) > 7:
             device_id = str(s[7:])
@@ -781,34 +813,76 @@ def get_device_id():
 
     return device_id
 
-def report_result(device_id, camera_id, success, summary_path=None):
+def report_result(device_id, camera_id, results):
     """Send a pass/fail result to the device, via an intent.
 
     Args:
         device_id: The ID string of the device to report the results to.
         camera_id: The ID string of the camera for which to report pass/fail.
-        success: Boolean, indicating if the result was pass or fail.
-        summary_path: (Optional) path to ITS summary file on host PC
-
+        results: a dictionary contains all ITS scenes as key and result/summary
+                 of current ITS run. See test_report_result unit test for
+                 an example.
     Returns:
         Nothing.
     """
     adb = "adb -s " + device_id
-    device_summary_path = "/sdcard/camera_" + camera_id + "_its_summary.txt"
-    if summary_path is not None:
-        _run("%s push %s %s" % (
-                adb, summary_path, device_summary_path))
-        _run("%s shell am broadcast -a %s --es %s %s --es %s %s --es %s %s" % (
-                adb, ItsSession.ACTION_ITS_RESULT,
-                ItsSession.EXTRA_CAMERA_ID, camera_id,
-                ItsSession.EXTRA_SUCCESS, 'True' if success else 'False',
-                ItsSession.EXTRA_SUMMARY, device_summary_path))
-    else:
-        _run("%s shell am broadcast -a %s --es %s %s --es %s %s --es %s %s" % (
-                adb, ItsSession.ACTION_ITS_RESULT,
-                ItsSession.EXTRA_CAMERA_ID, camera_id,
-                ItsSession.EXTRA_SUCCESS, 'True' if success else 'False',
-                ItsSession.EXTRA_SUMMARY, "null"))
+
+    # Start ItsTestActivity to prevent flaky
+    cmd = "%s shell am start %s --activity-brought-to-front" % (adb, ItsSession.ITS_TEST_ACTIVITY)
+    _run(cmd)
+
+    # Validate/process results argument
+    for scene in results:
+        result_key = ItsSession.RESULT_KEY
+        summary_key = ItsSession.SUMMARY_KEY
+        if result_key not in results[scene]:
+            raise its.error.Error('ITS result not found for ' + scene)
+        if results[scene][result_key] not in ItsSession.RESULT_VALUES:
+            raise its.error.Error('Unknown ITS result for %s: %s' % (
+                    scene, results[result_key]))
+        if summary_key in results[scene]:
+            device_summary_path = "/sdcard/its_camera%s_%s.txt" % (
+                    camera_id, scene)
+            _run("%s push %s %s" % (
+                    adb, results[scene][summary_key], device_summary_path))
+            results[scene][summary_key] = device_summary_path
+
+    json_results = json.dumps(results)
+    cmd = "%s shell am broadcast -a %s --es %s %s --es %s %s --es %s \'%s\'" % (
+            adb, ItsSession.ACTION_ITS_RESULT,
+            ItsSession.EXTRA_VERSION, ItsSession.CURRENT_ITS_VERSION,
+            ItsSession.EXTRA_CAMERA_ID, camera_id,
+            ItsSession.EXTRA_RESULTS, json_results)
+    if len(cmd) > 4095:
+        print "ITS command string might be too long! len:", len(cmd)
+    _run(cmd)
+
+def get_device_fingerprint(device_id):
+    """ Return the Build FingerPrint of the device that the test is running on.
+
+    Returns:
+        Device Build Fingerprint string.
+    """
+    device_bfp = None
+
+    # Get a list of connected devices
+
+    com = ('adb -s %s shell getprop | grep ro.build.fingerprint' % device_id)
+    proc = subprocess.Popen(com.split(), stdout=subprocess.PIPE)
+    output, error = proc.communicate()
+    assert error is None
+
+    lst = string.split( \
+            string.replace( \
+            string.replace( \
+            string.replace(output,
+            '\n', ''), '[', ''), ']', ''), \
+            ' ')
+
+    if lst[0].find('ro.build.fingerprint') != -1:
+        device_bfp = lst[1]
+
+    return device_bfp
 
 def _run(cmd):
     """Replacement for os.system, with hiding of stdout+stderr messages.
@@ -821,8 +895,20 @@ class __UnitTest(unittest.TestCase):
     """Run a suite of unit tests on this module.
     """
 
-    # TODO: Add some unit tests.
-    None
+    """
+    # TODO: this test currently needs connected device to pass
+    #       Need to remove that dependency before enabling the test
+    def test_report_result(self):
+        device_id = get_device_id()
+        camera_id = "1"
+        result_key = ItsSession.RESULT_KEY
+        results = {"scene0":{result_key:"PASS"},
+                   "scene1":{result_key:"PASS"},
+                   "scene2":{result_key:"PASS"},
+                   "scene3":{result_key:"PASS"},
+                   "sceneNotExist":{result_key:"FAIL"}}
+        report_result(device_id, camera_id, results)
+    """
 
 if __name__ == '__main__':
     unittest.main()

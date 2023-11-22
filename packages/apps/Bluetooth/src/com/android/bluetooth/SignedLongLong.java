@@ -16,9 +16,9 @@
 
 package com.android.bluetooth;
 
-import java.io.UnsupportedEncodingException;
-
 import com.android.bluetooth.map.BluetoothMapUtils;
+
+import java.io.UnsupportedEncodingException;
 
 /**
  * Class to represent a 128bit value using two long member variables.

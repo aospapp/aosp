@@ -16,15 +16,22 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Patterns;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link Patterns}.
  */
-public class PatternsTest extends TestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PatternsTest {
+    @Test
     public void testWebUrl_matchesUrlsWithCommasInRequestParameterValues() throws Exception {
         String url = "https://android.com/path?ll=37.4221,-122.0836&z=17&pll=37.4221,-122.0836";
         assertTrue("WEB_URL pattern should match commas", Patterns.WEB_URL.matcher(url).matches());

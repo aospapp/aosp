@@ -226,7 +226,7 @@ protected:
     }
 
     void onDraw(int loops, SkCanvas* canvas) override {
-        SkISize dim = canvas->getDeviceSize();
+        SkISize dim = canvas->getBaseLayerSize();
         if (fFlags & kScale_Flag) {
             const SkScalar x = SkIntToScalar(dim.fWidth) / 2;
             const SkScalar y = SkIntToScalar(dim.fHeight) / 2;
@@ -239,10 +239,7 @@ protected:
         if (fFlags & kRotate_Flag) {
             const SkScalar x = SkIntToScalar(dim.fWidth) / 2;
             const SkScalar y = SkIntToScalar(dim.fHeight) / 2;
-
-            canvas->translate(x, y);
-            canvas->rotate(SkIntToScalar(35));
-            canvas->translate(-x, -y);
+            canvas->rotate(SkIntToScalar(35), x, y);
         }
         INHERITED::onDraw(loops, canvas);
     }

@@ -26,8 +26,10 @@ enum {
     HAL_PIXEL_FORMAT_YCrCb_420_SP       = 0x11,       // NV21
 };
 
-using namespace android;
-using namespace RSC;
+using android::RSC::Element;
+using android::RSC::RS;
+using android::RSC::Type;
+using android::RSC::sp;
 
 void Type::calcElementCount() {
     bool hasLod = hasMipmaps();
@@ -107,7 +109,7 @@ void Type::updateFromNative() {
     calcElementCount();
 }
 
-sp<const Type> Type::create(sp<RS> rs, sp<const Element> e, uint32_t dimX, uint32_t dimY, uint32_t dimZ) {
+sp<const Type> Type::create(const sp<RS>& rs, const sp<const Element>& e, uint32_t dimX, uint32_t dimY, uint32_t dimZ) {
     void * id = RS::dispatch->TypeCreate(rs->getContext(), e->getID(), dimX, dimY, dimZ, false, false, 0);
     Type *t = new Type(id, rs);
 

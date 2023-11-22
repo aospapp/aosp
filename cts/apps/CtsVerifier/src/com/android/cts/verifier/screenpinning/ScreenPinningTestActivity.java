@@ -84,10 +84,6 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
         } else {
             mTestIndex = 0;
         }
-        // Display any pre-existing text.
-        for (int i = 0; i < mTestIndex; i++) {
-            mTests[i].showText();
-        }
         mTests[mTestIndex].run();
     };
 
@@ -117,9 +113,6 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
                 mTestIndex++;
                 if (mTestIndex < mTests.length) {
                     mTests[mTestIndex].run();
-                } else {
-                    mNextButton.setVisibility(View.GONE);
-                    findViewById(R.id.pass_button).setVisibility(View.VISIBLE);
                 }
             }
         });
@@ -222,9 +215,13 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
     };
 
     private final Test mDone = new Test(R.string.screen_pinning_done) {
+        @Override
         protected void run() {
-            showText();
-            succeed();
+            super.run();
+            // On test completion, hide "next" button, and show "pass" button
+            // instead.
+            mNextButton.setVisibility(View.GONE);
+            findViewById(R.id.pass_button).setVisibility(View.VISIBLE);
         };
     };
 

@@ -4,6 +4,7 @@
 
 import logging
 
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import ping_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.common_lib.cros.network  import xmlrpc_security_types
@@ -15,12 +16,12 @@ class network_WiFi_PTK(wifi_cell_test_base.WiFiCellTestBase):
     """Test that pairwise temporal key rotations work as expected."""
     version = 1
 
-    # These settings combine to give us around 30 seconds of ping time,
-    # which should be around 6 rekeys.
+    # These settings combine to give us around 75 seconds of ping time,
+    # which should be around 15 rekeys.
     PING_COUNT = 150
-    PING_INTERVAL = 0.2
+    PING_INTERVAL = 0.5
     REKEY_PERIOD = 5
-
+    PING_LOSS_THRESHOLD=20
 
     def run_once(self):
         """Test body."""
@@ -37,7 +38,7 @@ class network_WiFi_PTK(wifi_cell_test_base.WiFiCellTestBase):
                     security_config=wpa_config)
         # TODO(wiley) This is just until we find the source of these
         #             test failures.
-        self.context.router.start_capture(ap_config.frequency)
+        self.context.capture_host.start_capture(ap_config.frequency)
         self.context.configure(ap_config)
         assoc_params = xmlrpc_datatypes.AssociationParameters(
                 ssid=self.context.router.get_ssid(),
@@ -45,11 +46,19 @@ class network_WiFi_PTK(wifi_cell_test_base.WiFiCellTestBase):
         self.context.assert_connect_wifi(assoc_params)
         ping_config = ping_runner.PingConfig(self.context.get_wifi_addr(),
                                              count=self.PING_COUNT,
-                                             interval=self.PING_INTERVAL)
+                                             interval=self.PING_INTERVAL,
+                                             ignore_result=True)
         logging.info('Pinging DUT for %d seconds and rekeying '
                      'every %d seconds.',
                      self.PING_COUNT * self.PING_INTERVAL,
                      self.REKEY_PERIOD)
-        self.context.assert_ping_from_dut(ping_config=ping_config)
+        ping_result = self.context.client.ping(ping_config=ping_config)
+        logging.info('Ping loss percentage: %d.', ping_result.loss)
+        self.output_perf_value(description='Network_wifi_PTK_PingLoss',
+                value=ping_result.loss, units='percent', higher_is_better=False)
+        if ping_result.loss > self.PING_LOSS_THRESHOLD:
+            raise error.TestNAError('Lost ping packets %r percentage.' %
+                                    ping_result.loss)
         self.context.client.shill.disconnect(assoc_params.ssid)
         self.context.router.deconfig()
+        self.context.capture_host.stop_capture()

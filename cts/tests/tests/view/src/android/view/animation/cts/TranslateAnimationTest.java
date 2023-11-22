@@ -16,10 +16,19 @@
 
 package android.view.animation.cts;
 
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
 import android.graphics.Matrix;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -27,15 +36,17 @@ import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.Transformation;
 import android.view.animation.TranslateAnimation;
-
 import android.view.cts.R;
 
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class TranslateAnimationTest
-        extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
-
-    private Activity mActivity;
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TranslateAnimationTest {
     private static final long DURATION = 1000;
     private static final float POSITION_DELTA = 0.001f;
     private static final float FROM_X_DETLTA = 0.0f;
@@ -47,25 +58,28 @@ public class TranslateAnimationTest
     private static final float RELATIVE_FROM_Y_DELTA = 0.0f;
     private static final float RELATIVE_TO_Y_DELTA = 0.4f;
 
-    public TranslateAnimationTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructors() {
-
         // Test with null AttributeSet
         new TranslateAnimation(mActivity, null);
 
         final XmlResourceParser parser = mActivity.getResources().getAnimation(
                 R.anim.anim_translate);
         final AttributeSet attr = Xml.asAttributeSet(parser);
-        assertNotNull(attr);
+        Assert.assertNotNull(attr);
         // Test with real AttributeSet
         new TranslateAnimation(mActivity, attr);
 
@@ -83,7 +97,8 @@ public class TranslateAnimationTest
                 Animation.RELATIVE_TO_SELF, -0.6f, Animation.RELATIVE_TO_SELF, -0.6f);
     }
 
-    public void testApplyTransformation(){
+    @Test
+    public void testApplyTransformation() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final Transformation transformation = new Transformation();
         final MyTranslateAnimation translateAnimation =
@@ -94,7 +109,8 @@ public class TranslateAnimationTest
         translateAnimation.initialize(0, 0, 0, 0);
         assertTrue(translateAnimation.isInitialized());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, translateAnimation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                translateAnimation);
         final long startTime = translateAnimation.getStartTime();
 
         float values[] = new float[9];
@@ -141,7 +157,8 @@ public class TranslateAnimationTest
         assertEquals(TO_Y_DELTA, values[Matrix.MTRANS_Y], POSITION_DELTA);
     }
 
-    public void testInitialize() {
+    @Test
+    public void testInitialize() throws Throwable {
         final View parent = mActivity.findViewById(R.id.anim_window_parent);
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final Transformation transformation = new Transformation();
@@ -162,7 +179,8 @@ public class TranslateAnimationTest
         translateAnimation.setDuration(DURATION);
         translateAnimation.setInterpolator(new LinearInterpolator());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, translateAnimation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                translateAnimation);
         final long startTime = translateAnimation.getStartTime();
 
         float values[] = new float[9];
@@ -187,7 +205,6 @@ public class TranslateAnimationTest
     }
 
     private static class MyTranslateAnimation extends TranslateAnimation {
-
         public MyTranslateAnimation(float fromXDelta, float toXDelta, float fromYDelta,
                 float toYDelta) {
             super(fromXDelta, toXDelta, fromYDelta, toYDelta);

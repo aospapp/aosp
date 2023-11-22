@@ -27,8 +27,6 @@ PROVISIONING_PROFILE=""
 # Code Signing identity - this needs to be set up on the local machine.
 CODE_SIGN_IDENTITY="iPhone Developer"
 
-IOS_BUNDLE_ID="com.google.iOSShell.`hostname | md5`"
-
 IOS_RESULTS_DIR="results"
 
 # BUILDTYPE is 'Debug' by default.
@@ -36,24 +34,41 @@ if [[ -z "$BUILDTYPE" ]]; then
   BUILDTYPE="Debug"
 fi
 
-# Out dir is $SKIA_SRC_DIR/out by default. 
-if [[ -z "$SKIA_OUT" ]]; then 
+# Out dir is $SKIA_SRC_DIR/out by default.
+if [[ -z "$SKIA_OUT" ]]; then
   SKIA_OUT="$SKIA_SRC_DIR/out"
-fi 
+fi
+
+# Location of XCode build products.
+if [[ -z "$XCODEBUILD" ]]; then
+  XCODEBUILD="${SKIA_SRC_DIR}/xcodebuild"
+fi
+
+# Name of the iOS app.
+IOS_APP=iOSShell.ipa
+
+# Location of the compiled iOS code.
+IOS_OUT=${XCODEBUILD}/${BUILDTYPE}-iphoneos
+
+# Location of the compiled iOS app.
+IOS_APP_PATH=${IOS_OUT}/${IOS_APP}
 
 ios_uninstall_app() {
   ideviceinstaller -U "$IOS_BUNDLE_ID"
 }
 
-ios_install_app() {
+ios_package_app() {
   rm -rf $IOS_PCKG_DIR
   mkdir -p $IOS_PCKG_DIR/Payload  # this directory must be named 'Payload'
-  cp -rf "${SKIA_SRC_DIR}/xcodebuild/${BUILDTYPE}-iphoneos/iOSShell.app" "${IOS_PCKG_DIR}/Payload/"
-  local RET_DIR=`pwd`
-  cd $IOS_PCKG_DIR
-  zip -r iOSShell.ipa Payload
-  ideviceinstaller -i ./iOSShell.ipa
-  cd $RET_DIR
+  cp -rf "${IOS_OUT}/iOSShell.app" "${IOS_PCKG_DIR}/Payload/"
+  pushd $IOS_PCKG_DIR
+  zip -r ${IOS_APP} Payload
+  cp ${IOS_APP} ${IOS_APP_PATH}
+  popd
+}
+
+ios_install_app() {
+  ideviceinstaller -i ${IOS_APP_PATH}
 }
 
 ios_rm() {
@@ -84,7 +99,7 @@ ios_mount() {
   # If this is already mounted we unmount it.
   if $(mount | grep --quiet "$IOS_MOUNT_POINT"); then
     >&2 echo "Device already mounted at: $IOS_MOUNT_POINT - Unmounting."
-    ios_umount || true   
+    ios_umount || true
   fi
 
   # Ensure there is a mount directory.
@@ -94,6 +109,7 @@ ios_mount() {
   ifuse --container $IOS_BUNDLE_ID $IOS_MOUNT_POINT
   sleep 1
   >&2 echo "Successfully mounted device."
+  #find $IOS_MOUNT_POINT
 }
 
 # ios_umount: unmounts the ios device.
@@ -104,7 +120,7 @@ ios_umount() {
 
 # ios_restart: restarts the iOS device.
 ios_restart() {
-  ios_umount || true 
+  ios_umount || true
   idevicediagnostics restart
 }
 

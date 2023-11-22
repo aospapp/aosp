@@ -192,4 +192,3 @@ static JNINativeMethod gMethods[] = {
 void register_java_io_ObjectOutputStream(JNIEnv* env) {
     jniRegisterNativeMethods(env, "java/io/ObjectOutputStream", gMethods, NELEM(gMethods));
 }
-

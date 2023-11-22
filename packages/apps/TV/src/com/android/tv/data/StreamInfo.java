@@ -16,6 +16,8 @@
 
 package com.android.tv.data;
 
+import android.media.tv.TvContentRating;
+
 public interface StreamInfo {
     int VIDEO_DEFINITION_LEVEL_UNKNOWN = 0;
     int VIDEO_DEFINITION_LEVEL_SD = 1;
@@ -26,6 +28,7 @@ public interface StreamInfo {
     int AUDIO_CHANNEL_COUNT_UNKNOWN = 0;
 
     Channel getCurrentChannel();
+    TvContentRating getBlockedContentRating();
 
     int getVideoWidth();
     int getVideoHeight();

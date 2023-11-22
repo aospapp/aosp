@@ -38,11 +38,12 @@ public class GetValues003Debuggee extends SyncDebuggee {
     String stringField; // JDWP_TAG_STRING = 115
     Thread threadField; // JDWP_TAG_THREAD = 116
     ThreadGroup threadGroupField; // JDWP_TAG_THREAD_GROUP = 103
-    Class classField; // JDWP_TAG_CLASS_OBJECT = 99
+    Class<?> classField; // JDWP_TAG_CLASS_OBJECT = 99
     ClassLoader classLoaderField; // DWP_TAG_CLASS_LOADER = 108
-    
-    
-    
+
+
+
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: GetValues003Debuggee: START");
         testedObject = new GetValues003Debuggee();

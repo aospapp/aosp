@@ -17,19 +17,23 @@
 #ifndef ANDROID_GUI_CONSUMERBASE_H
 #define ANDROID_GUI_CONSUMERBASE_H
 
-#include <gui/BufferQueue.h>
+#include <gui/BufferQueueDefs.h>
+#include <gui/IConsumerListener.h>
+#include <gui/IGraphicBufferConsumer.h>
+#include <gui/OccupancyTracker.h>
 
-#include <ui/GraphicBuffer.h>
+#include <ui/PixelFormat.h>
 
 #include <utils/String8.h>
 #include <utils/Vector.h>
 #include <utils/threads.h>
-#include <gui/IConsumerListener.h>
+
 
 namespace android {
 // ----------------------------------------------------------------------------
 
 class String8;
+class GraphicBuffer;
 
 // ConsumerBase is a base class for BufferQueue consumer end-points. It
 // handles common tasks like management of the connection to the BufferQueue
@@ -63,11 +67,11 @@ public:
     // log messages.
     void setName(const String8& name);
 
-    // dump writes the current state to a string. Child classes should add
+    // dumpState writes the current state to a string. Child classes should add
     // their state to the dump by overriding the dumpLocked method, which is
     // called by these methods after locking the mutex.
-    void dump(String8& result) const;
-    void dump(String8& result, const char* prefix) const;
+    void dumpState(String8& result) const;
+    void dumpState(String8& result, const char* prefix) const;
 
     // setFrameAvailableListener sets the listener object that will be notified
     // when a new frame becomes available.
@@ -101,7 +105,7 @@ protected:
     // buffers from the given IGraphicBufferConsumer.
     // The controlledByApp flag indicates that this consumer is under the application's
     // control.
-    ConsumerBase(const sp<IGraphicBufferConsumer>& consumer, bool controlledByApp = false);
+    explicit ConsumerBase(const sp<IGraphicBufferConsumer>& consumer, bool controlledByApp = false);
 
     // onLastStrongRef gets called by RefBase just before the dtor of the most
     // derived class.  It is used to clean up the buffers so that ConsumerBase
@@ -180,7 +184,7 @@ protected:
     // Derived classes should override this method to perform any cleanup that
     // must take place when a buffer is released back to the BufferQueue.  If
     // it is overridden the derived class's implementation must call
-    // ConsumerBase::releaseBufferLocked.e
+    // ConsumerBase::releaseBufferLocked.
     virtual status_t releaseBufferLocked(int slot,
             const sp<GraphicBuffer> graphicBuffer,
             EGLDisplay display, EGLSyncKHR eglFence);
@@ -222,7 +226,7 @@ protected:
     // slot that has not yet been used. The buffer allocated to a slot will also
     // be replaced if the requested buffer usage or geometry differs from that
     // of the buffer allocated to a slot.
-    Slot mSlots[BufferQueue::NUM_BUFFER_SLOTS];
+    Slot mSlots[BufferQueueDefs::NUM_BUFFER_SLOTS];
 
     // mAbandoned indicates that the BufferQueue will no longer be used to
     // consume images buffers pushed to it using the IGraphicBufferProducer
@@ -237,12 +241,18 @@ protected:
 
     // mFrameAvailableListener is the listener object that will be called when a
     // new frame becomes available. If it is not NULL it will be called from
-    // queueBuffer.
+    // queueBuffer. The listener object is protected by mFrameAvailableMutex
+    // (not mMutex).
+    Mutex mFrameAvailableMutex;
     wp<FrameAvailableListener> mFrameAvailableListener;
 
     // The ConsumerBase has-a BufferQueue and is responsible for creating this object
     // if none is supplied
     sp<IGraphicBufferConsumer> mConsumer;
+
+    // The final release fence of the most recent buffer released by
+    // releaseBufferLocked.
+    sp<Fence> mPrevFinalReleaseFence;
 
     // mMutex is the mutex used to prevent concurrent access to the member
     // variables of ConsumerBase objects. It must be locked whenever the

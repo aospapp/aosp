@@ -9,6 +9,7 @@ The valid actions are:
 create:      creates shard
 remove:      deletes shard(s)
 list:        lists shards with label
+add_boards:  add boards to a given shard
 
 See topic_common.py for a High Level Design and Algorithm.
 """
@@ -19,8 +20,8 @@ from autotest_lib.cli import topic_common, action_common
 
 class shard(topic_common.atest):
     """shard class
-    atest shard [create|delete|list] <options>"""
-    usage_action = '[create|delete|list]'
+    atest shard [create|delete|list|add_boards] <options>"""
+    usage_action = '[create|delete|list|add_boards]'
     topic = msg_topic = 'shard'
     msg_items = '<shards>'
 
@@ -95,14 +96,30 @@ class shard_create(action_common.atest_create, shard):
     def parse(self):
         (options, leftover) = super(shard_create, self).parse(
                 req_items='shards')
-        if not options.labels:
-            print ('Must provide one or more labels separated by a comma '
-                  'with -l <labels>')
-            self.parser.print_help()
-            sys.exit(1)
         self.data_item_key = 'hostname'
-        self.data['labels'] = options.labels
+        self.data['labels'] = options.labels or ''
         return (options, leftover)
+
+
+class shard_add_boards(shard_create):
+    """Class for running atest shard add_boards -l <label> <shard>"""
+    usage_action = 'add_boards'
+    op_action = 'add_boards'
+    msg_done = 'Added boards for'
+
+    def execute(self):
+        """Running the rpc to add boards to the target shard.
+
+        Returns:
+          A tuple, 1st element is the target shard. 2nd element is the list of
+          boards labels to be added to the shard.
+        """
+        target_shard = self.shards[0]
+        self.data[self.data_item_key] = target_shard
+        super(shard_add_boards, self).execute_rpc(op='add_board_to_shard',
+                                                  item=target_shard,
+                                                  **self.data)
+        return (target_shard, self.data['labels'])
 
 
 class shard_delete(action_common.atest_delete, shard):

@@ -7,6 +7,7 @@
 #ifndef PUBLIC_FPDF_FORMFILL_H_
 #define PUBLIC_FPDF_FORMFILL_H_
 
+// NOLINTNEXTLINE(build/include)
 #include "fpdfview.h"
 
 typedef void* FPDF_FORMHANDLE;
@@ -148,10 +149,8 @@ typedef struct _IPDF_JsPlatform {
   *       The filePath should be always input in local encoding.
   *
   *       The return value always indicated number of bytes required for the
-  * buffer, even when there is
-  *       no buffer specified, or the buffer size is less then required. In this
-  * case, the buffer will not
-  *       be modified.
+  *       buffer , even when there is no buffer specified, or the buffer size is
+  *       less than required. In this case, the buffer will not be modified.
   */
   int (*Doc_getFilePath)(struct _IPDF_JsPlatform* pThis,
                          void* filePath,
@@ -305,7 +304,6 @@ typedef struct _IPDF_JsPlatform {
 
   /* Version 3. */
   /* Version 3 moves m_Isolate and m_v8EmbedderSlot to FPDF_LIBRARY_CONFIG. */
-
 } IPDF_JSPLATFORM;
 
 // Flags for Cursor type
@@ -317,8 +315,8 @@ typedef struct _IPDF_JsPlatform {
 #define FXCT_HAND 5
 
 /**
- * Declares of a pointer type to the callback function for the FFI_SetTimer
- *method.
+ * Function signature for the callback function passed to the FFI_SetTimer
+ * method.
  * Parameters:
  *          idEvent     -   Identifier of the timer.
  * Return value:
@@ -357,12 +355,12 @@ typedef struct _FPDF_SYSTEMTIME {
  * @name Macro Definitions for Right Context Menu Features Of XFA Fields
  */
 /*@{*/
-#define FXFA_MEMU_COPY 1
-#define FXFA_MEMU_CUT 2
-#define FXFA_MEMU_SELECTALL 4
-#define FXFA_MEMU_UNDO 8
-#define FXFA_MEMU_REDO 16
-#define FXFA_MEMU_PASTE 32
+#define FXFA_MENU_COPY 1
+#define FXFA_MENU_CUT 2
+#define FXFA_MENU_SELECTALL 4
+#define FXFA_MENU_UNDO 8
+#define FXFA_MENU_REDO 16
+#define FXFA_MENU_PASTE 32
 /*@}*/
 
 // file type
@@ -491,19 +489,18 @@ typedef struct _FPDF_FORMFILLINFO {
 
   /**
   * Method: FFI_SetTimer
-  *           This method installs a system timer. A time-out value is
-  * specified,
-  *           and every time a time-out occurs, the system passes a message to
-  *           the TimerProc callback function.
+  *       This method installs a system timer. An interval value is specified,
+  *       and every time that interval elapses, the system must call into the
+  *       callback function with the timer ID as returned by this function.
   * Interface Version:
-  *           1
+  *       1
   * Implementation Required:
-  *           yes
+  *       yes
   * Parameters:
   *       pThis       -   Pointer to the interface structure itself.
   *       uElapse     -   Specifies the time-out value, in milliseconds.
   *       lpTimerFunc -   A pointer to the callback function-TimerCallback.
-  *   Return value:
+  * Return value:
   *       The timer identifier of the new timer if the function is successful.
   *       An application passes this value to the FFI_KillTimer method to kill
   *       the timer. Nonzero if it is successful; otherwise, it is zero.
@@ -514,16 +511,16 @@ typedef struct _FPDF_FORMFILLINFO {
 
   /**
   * Method: FFI_KillTimer
-  *           This method kills the timer event identified by nIDEvent, set by
-  * an earlier call to FFI_SetTimer.
+  *       This method uninstalls a system timer identified by nIDEvent, as
+  *       set by an earlier call to FFI_SetTimer.
   * Interface Version:
-  *           1
+  *       1
   * Implementation Required:
-  *           yes
+  *       yes
   * Parameters:
   *       pThis       -   Pointer to the interface structure itself.
-  *       nTimerID    -   The timer ID return by FFI_SetTimer function.
-  *   Return value:
+  *       nTimerID    -   The timer ID returned by FFI_SetTimer function.
+  * Return value:
   *       None.
   * */
   void (*FFI_KillTimer)(struct _FPDF_FORMFILLINFO* pThis, int nTimerID);
@@ -578,7 +575,9 @@ typedef struct _FPDF_FORMFILLINFO {
   *       To successfully run the javascript action, implementation need to load
   * the page for SDK.
   * */
-  FPDF_PAGE   (*FFI_GetPage)(struct _FPDF_FORMFILLINFO* pThis, FPDF_DOCUMENT document, int nPageIndex);
+  FPDF_PAGE (*FFI_GetPage)(struct _FPDF_FORMFILLINFO* pThis,
+                             FPDF_DOCUMENT document,
+                             int nPageIndex);
 
   /**
   * Method: FFI_GetCurrentPage
@@ -594,7 +593,8 @@ typedef struct _FPDF_FORMFILLINFO {
   * Return value:
   *       Handle to the page. Returned by FPDF_LoadPage function.
   * */
-  FPDF_PAGE   (*FFI_GetCurrentPage)(struct _FPDF_FORMFILLINFO* pThis, FPDF_DOCUMENT document);
+  FPDF_PAGE (*FFI_GetCurrentPage)(struct _FPDF_FORMFILLINFO* pThis,
+                                    FPDF_DOCUMENT document);
 
   /**
   * Method: FFI_GetRotation
@@ -609,6 +609,8 @@ typedef struct _FPDF_FORMFILLINFO {
   * Return value:
   *       The page rotation. Should be 0(0 degree),1(90 degree),2(180
   * degree),3(270 degree), in a clockwise direction.
+  *
+  * Note: Unused.
   * */
   int (*FFI_GetRotation)(struct _FPDF_FORMFILLINFO* pThis, FPDF_PAGE page);
 
@@ -682,10 +684,20 @@ typedef struct _FPDF_FORMFILLINFO {
   * Parameters:
   *       pThis           -   Pointer to the interface structure itself.
   *       nPageIndex      -   The index of the PDF page.
-  *       zoomMode        -   The zoom mode for viewing page.See Macros
-  *"PDFZOOM_XXX" defined in "fpdfdoc.h".
+  *       zoomMode        -   The zoom mode for viewing page. See below.
   *       fPosArray       -   The float array which carries the position info.
   *       sizeofArray     -   The size of float array.
+  *
+  * PDFZoom values:
+  *   - XYZ = 1
+  *   - FITPAGE = 2
+  *   - FITHORZ = 3
+  *   - FITVERT = 4
+  *   - FITRECT = 5
+  *   - FITBBOX = 6
+  *   - FITBHORZ = 7
+  *   - FITBVERT = 8
+  *
   * Return value:
   *       None.
   * Comments:
@@ -709,7 +721,7 @@ typedef struct _FPDF_FORMFILLINFO {
     * Method: FFI_DisplayCaret
     *           This method will show the caret at specified position.
     * Interface Version:
-    *           1
+    *           2
     * Implementation Required:
     *           yes
     * Parameters:
@@ -739,7 +751,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_GetCurrentPageIndex
   *           This method will get the current page index.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -756,7 +768,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_SetCurrentPage
   *           This method will set the current page.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -775,7 +787,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_GotoURL
   *           This method will link to the specified URL.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           no
   * Parameters:
@@ -794,7 +806,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_GetPageViewRect
   *           This method will get the current page view rectangle.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -818,11 +830,39 @@ typedef struct _FPDF_FORMFILLINFO {
                               double* top,
                               double* right,
                               double* bottom);
+
+  /**
+  * Method: FFI_PageEvent
+  *     This method fires when pages have been added to or deleted from the XFA
+  *     document.
+  * Interface Version:
+  *     2
+  * Implementation Required:
+  *     yes
+  * Parameters:
+  *     pThis       -   Pointer to the interface structure itself.
+  *     page_count  -   The number of pages to be added to or deleted from the
+  *                     document.
+  *     event_type  -   See FXFA_PAGEVIEWEVENT_* above.
+  * Return value:
+  *       None.
+  * Comments:
+  *           The pages to be added or deleted always start from the last page
+  *           of document. This means that if parameter page_count is 2 and
+  *           event type is FXFA_PAGEVIEWEVENT_POSTADDED, 2 new pages have been
+  *           appended to the tail of document; If page_count is 2 and
+  *           event type is FXFA_PAGEVIEWEVENT_POSTREMOVED, the last 2 pages
+  *           have been deleted.
+  **/
+  void (*FFI_PageEvent)(struct _FPDF_FORMFILLINFO* pThis,
+                        int page_count,
+                        FPDF_DWORD event_type);
+
   /**
   * Method: FFI_PopupMenu
   *           This method will track the right context menu for XFA fields.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -831,7 +871,7 @@ typedef struct _FPDF_FORMFILLINFO {
   *function.
   *       hWidget         -   Handle to XFA fields.
   *       menuFlag        -   The menu flags. Please refer to macro definition
-  *of FXFA_MEMU_XXX and this can be one or a combination of these macros.
+  *of FXFA_MENU_XXX and this can be one or a combination of these macros.
   *       x               -   X position of the client area in PDF page
   *coordinate.
   *       y               -   Y position of the client area in PDF page
@@ -839,13 +879,18 @@ typedef struct _FPDF_FORMFILLINFO {
   * Return value:
   *       TRUE indicates success; otherwise false.
   **/
-  FPDF_BOOL (*FFI_PopupMenu)(struct _FPDF_FORMFILLINFO* pThis, FPDF_PAGE page, FPDF_WIDGET hWidget, int menuFlag, float x, float y);
+  FPDF_BOOL (*FFI_PopupMenu)(struct _FPDF_FORMFILLINFO* pThis,
+                             FPDF_PAGE page,
+                             FPDF_WIDGET hWidget,
+                             int menuFlag,
+                             float x,
+                             float y);
 
   /**
   * Method: FFI_OpenFile
   *           This method will open the specified file with the specified mode.
   * Interface Version
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -868,7 +913,7 @@ typedef struct _FPDF_FORMFILLINFO {
   *           This method will email the specified file stream to the specified
   *contacter.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -899,7 +944,7 @@ typedef struct _FPDF_FORMFILLINFO {
   *           This method will get upload the specified file stream to the
   *specified URL.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -920,7 +965,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_GetPlatform
   *           This method will get the current platform.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -940,7 +985,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_GetLanguage
   *           This method will get the current language.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -960,7 +1005,7 @@ typedef struct _FPDF_FORMFILLINFO {
   * Method: FFI_DownloadFromURL
   *           This method will download the specified file from the URL.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -970,12 +1015,13 @@ typedef struct _FPDF_FORMFILLINFO {
   * Return value:
   *       The handle to FPDF_FILEHANDLER.
   **/
-  FPDF_LPFILEHANDLER  (*FFI_DownloadFromURL)(struct _FPDF_FORMFILLINFO* pThis, FPDF_WIDESTRING URL);
+  FPDF_LPFILEHANDLER (*FFI_DownloadFromURL)(struct _FPDF_FORMFILLINFO* pThis,
+                                             FPDF_WIDESTRING URL);
   /**
   * Method: FFI_PostRequestURL
   *           This method will post the request to the server URL.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -992,13 +1038,19 @@ typedef struct _FPDF_FORMFILLINFO {
   * Return value:
   *       TRUE indicates success, otherwise FALSE.
   **/
-  FPDF_BOOL   (*FFI_PostRequestURL)(struct _FPDF_FORMFILLINFO* pThis, FPDF_WIDESTRING wsURL, FPDF_WIDESTRING wsData, FPDF_WIDESTRING wsContentType, FPDF_WIDESTRING wsEncode, FPDF_WIDESTRING wsHeader, FPDF_BSTR* respone);
+  FPDF_BOOL (*FFI_PostRequestURL)(struct _FPDF_FORMFILLINFO* pThis,
+                                    FPDF_WIDESTRING wsURL,
+                                    FPDF_WIDESTRING wsData,
+                                    FPDF_WIDESTRING wsContentType,
+                                    FPDF_WIDESTRING wsEncode,
+                                    FPDF_WIDESTRING wsHeader,
+                                    FPDF_BSTR* respone);
 
   /**
   * Method: FFI_PutRequestURL
   *           This method will put the request to the server URL.
   * Interface Version:
-  *           1
+  *           2
   * Implementation Required:
   *           yes
   * Parameters:
@@ -1010,9 +1062,11 @@ typedef struct _FPDF_FORMFILLINFO {
   * Return value:
   *       TRUE indicates success, otherwise FALSE.
   **/
-  FPDF_BOOL   (*FFI_PutRequestURL)(struct _FPDF_FORMFILLINFO* pThis, FPDF_WIDESTRING wsURL, FPDF_WIDESTRING wsData, FPDF_WIDESTRING wsEncode);
+  FPDF_BOOL (*FFI_PutRequestURL)(struct _FPDF_FORMFILLINFO* pThis,
+                                   FPDF_WIDESTRING wsURL,
+                                   FPDF_WIDESTRING wsData,
+                                   FPDF_WIDESTRING wsEncode);
 #endif  // PDF_ENABLE_XFA
-
 } FPDF_FORMFILLINFO;
 
 /**
@@ -1430,7 +1484,8 @@ DLLEXPORT void STDCALL FPDF_RemoveFormFieldHighlight(FPDF_FORMHANDLE hHandle);
 
 /**
 * Function: FPDF_FFLDraw
-*           Render FormFeilds on a page to a device independent bitmap.
+*           Render FormFields and popup window on a page to a device independent
+*bitmap.
 * Parameters:
 *           hHandle     -   Handle to the form fill module. Returned by
 *FPDFDOC_InitFormFillEnvironment.
@@ -1455,13 +1510,15 @@ DLLEXPORT void STDCALL FPDF_RemoveFormFieldHighlight(FPDF_FORMHANDLE hHandle);
 * Return Value:
 *           None.
 * Comments:
-*           This method is designed to only render annotations and FormFields on
-*the page.
-*           Without FPDF_ANNOT specified for flags, Rendering functions such as
-*FPDF_RenderPageBitmap or FPDF_RenderPageBitmap_Start will only render page
-*contents(without annotations) to a bitmap.
-*           In order to implement the FormFill functions,Implementation should
-*call this method after rendering functions finish rendering the page contents.
+*           This function is designed to render annotations that are
+*user-interactive, which are widget annotation (for FormFields) and popup
+*annotation.
+*           With FPDF_ANNOT flag, this function will render popup annotation
+*when users mouse-hover on non-widget annotation. Regardless of FPDF_ANNOT flag,
+*this function will always render widget annotations for FormFields.
+*           In order to implement the FormFill functions, implementation should
+*call this function after rendering functions, such as FPDF_RenderPageBitmap or
+*FPDF_RenderPageBitmap_Start, finish rendering the page contents.
 **/
 DLLEXPORT void STDCALL FPDF_FFLDraw(FPDF_FORMHANDLE hHandle,
                                     FPDF_BITMAP bitmap,
@@ -1472,6 +1529,18 @@ DLLEXPORT void STDCALL FPDF_FFLDraw(FPDF_FORMHANDLE hHandle,
                                     int size_y,
                                     int rotate,
                                     int flags);
+
+#ifdef _SKIA_SUPPORT_
+DLLEXPORT void STDCALL FPDF_FFLRecord(FPDF_FORMHANDLE hHandle,
+                                      FPDF_RECORDER recorder,
+                                      FPDF_PAGE page,
+                                      int start_x,
+                                      int start_y,
+                                      int size_x,
+                                      int size_y,
+                                      int rotate,
+                                      int flags);
+#endif
 
 #ifdef PDF_ENABLE_XFA
 /**

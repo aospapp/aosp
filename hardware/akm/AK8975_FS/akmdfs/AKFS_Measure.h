@@ -23,14 +23,14 @@
 #include "AKFS_Compass.h"
 
 /*** Constant definition ******************************************************/
-#define AK8975_SELFTEST_MIN_X	-100
+#define AK8975_SELFTEST_MIN_X	(-100)
 #define AK8975_SELFTEST_MAX_X	100
 
-#define AK8975_SELFTEST_MIN_Y	-100
+#define AK8975_SELFTEST_MIN_Y	(-100)
 #define AK8975_SELFTEST_MAX_Y	100
 
-#define AK8975_SELFTEST_MIN_Z	-1000
-#define AK8975_SELFTEST_MAX_Z	-300
+#define AK8975_SELFTEST_MIN_Z	(-1000)
+#define AK8975_SELFTEST_MAX_Z	(-300)
 
 #define CONVERT_ACC(a)	((int)((a) * 720 / 9.8f))
 #define CONVERT_MAG(m)	((int)((m) / 0.06f))

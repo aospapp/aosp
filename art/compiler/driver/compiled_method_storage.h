@@ -20,16 +20,15 @@
 #include <iosfwd>
 #include <memory>
 
+#include "base/array_ref.h"
 #include "base/length_prefixed_array.h"
 #include "base/macros.h"
-#include "utils/array_ref.h"
 #include "utils/dedupe_set.h"
 #include "utils/swap_space.h"
 
 namespace art {
 
 class LinkerPatch;
-class SrcMapElem;
 
 class CompiledMethodStorage {
  public:
@@ -52,9 +51,9 @@ class CompiledMethodStorage {
   const LengthPrefixedArray<uint8_t>* DeduplicateCode(const ArrayRef<const uint8_t>& code);
   void ReleaseCode(const LengthPrefixedArray<uint8_t>* code);
 
-  const LengthPrefixedArray<SrcMapElem>* DeduplicateSrcMappingTable(
-      const ArrayRef<const SrcMapElem>& src_map);
-  void ReleaseSrcMappingTable(const LengthPrefixedArray<SrcMapElem>* src_map);
+  const LengthPrefixedArray<uint8_t>* DeduplicateMethodInfo(
+      const ArrayRef<const uint8_t>& method_info);
+  void ReleaseMethodInfo(const LengthPrefixedArray<uint8_t>* method_info);
 
   const LengthPrefixedArray<uint8_t>* DeduplicateVMapTable(const ArrayRef<const uint8_t>& table);
   void ReleaseVMapTable(const LengthPrefixedArray<uint8_t>* table);
@@ -96,7 +95,7 @@ class CompiledMethodStorage {
   bool dedupe_enabled_;
 
   ArrayDedupeSet<uint8_t> dedupe_code_;
-  ArrayDedupeSet<SrcMapElem> dedupe_src_mapping_table_;
+  ArrayDedupeSet<uint8_t> dedupe_method_info_;
   ArrayDedupeSet<uint8_t> dedupe_vmap_table_;
   ArrayDedupeSet<uint8_t> dedupe_cfi_info_;
   ArrayDedupeSet<LinkerPatch> dedupe_linker_patches_;

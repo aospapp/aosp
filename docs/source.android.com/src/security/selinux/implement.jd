@@ -107,17 +107,15 @@ labels may also be assigned to specific mounts such as vfat using the context=
 mount option.
   <li><em>property_contexts</em> - Located in the sepolicy subdirectory. This
 file assigns labels to Android system properties to control what processes can
-set them.  This configuration is read by the init process during startup and
-whenever the selinux.reload_policy property is set to 1.
+set them.  This configuration is read by the init process during startup.
   <li><em>service_contexts</em> - Located in the sepolicy subdirectory. This
 file assigns labels to Android binder services to control what processes can
 add (register) and find (lookup) a binder reference for the service.  This
-configuration is read by the servicemanager process during startup and whenever
-the selinux.reload_policy property is set to 1.
+configuration is read by the servicemanager process during startup.
   <li><em>seapp_contexts</em> - Located in the sepolicy subdirectory. This file
 assigns labels to app processes and /data/data directories.  This configuration
-is read by the zygote process on each app launch and by installd during startup
-and whenever the selinux.reload_policy property is set to 1.
+is read by the zygote process on each app launch and by installd during
+startup.
   <li><em>mac_permissions.xml</em> - Located in the sepolicy subdirectory. This
 file assigns a seinfo tag to apps based on their signature and optionally their
 package name.  The seinfo tag can then be used as a key in the seapp_contexts

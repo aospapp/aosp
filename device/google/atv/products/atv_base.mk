@@ -84,7 +84,6 @@ PRODUCT_PACKAGES += \
     SystemUI \
     librs_jni \
     audio.primary.default \
-    audio_policy.default \
     clatd \
     clatd.conf \
     local_time.default \
@@ -115,7 +114,18 @@ endif
 # To enable access to /dev/dvb*
 BOARD_SEPOLICY_DIRS += device/google/atv/sepolicy
 
-$(call inherit-product-if-exists, frameworks/base/data/sounds/AllAudio.mk)
+# This property defines the tutorial content for this device
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.tutorials_content.android=android8
+
+# Content for ATV Tutorials / Post-Setup Tour
+PRODUCT_COPY_FILES += \
+    device/google/atv/tutorial-library-google.zip.etag:system/media/tutorial-library-google.zip.etag
+
+PRODUCT_COPY_FILES += \
+    device/google/atv/tutorial-library-google.zip:system/media/tutorial-library-google.zip
+
+$(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
 $(call inherit-product-if-exists, external/svox/pico/lang/all_pico_languages.mk)
 $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/dancing-script/fonts.mk)

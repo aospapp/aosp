@@ -22,6 +22,8 @@ import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.nio.charset.Charset;
+
 /**
  * Stores values broken down by area for a vehicle property.
  *
@@ -32,6 +34,9 @@ import android.os.Parcelable;
  */
 @SystemApi
 public class CarPropertyValue<T> implements Parcelable {
+
+    private final static Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
+
     private final int mPropertyId;
     private final int mAreaId;
     private final T mValue;
@@ -50,7 +55,22 @@ public class CarPropertyValue<T> implements Parcelable {
     public CarPropertyValue(Parcel in) {
         mPropertyId = in.readInt();
         mAreaId = in.readInt();
-        mValue = (T) in.readValue(getClass().getClassLoader());
+        String valueClassName = in.readString();
+        Class<?> valueClass;
+        try {
+            valueClass = Class.forName(valueClassName);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Class not found: " + valueClassName);
+        }
+
+        if (String.class.equals(valueClass)) {
+            byte[] bytes = in.readBlob();
+            mValue = (T) new String(bytes, DEFAULT_CHARSET);
+        } else if (byte[].class.equals(valueClass)) {
+            mValue = (T) in.readBlob();
+        } else {
+            mValue = (T) in.readValue(valueClass.getClassLoader());
+        }
     }
 
     public static final Creator<CarPropertyValue> CREATOR = new Creator<CarPropertyValue>() {
@@ -74,7 +94,18 @@ public class CarPropertyValue<T> implements Parcelable {
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mPropertyId);
         dest.writeInt(mAreaId);
-        dest.writeValue(mValue);
+
+        Class<?> valueClass = mValue == null ? null : mValue.getClass();
+        dest.writeString(valueClass == null ? null : valueClass.getName());
+
+        // Special handling for String and byte[] to mitigate transaction buffer limitations.
+        if (String.class.equals(valueClass)) {
+            dest.writeBlob(((String)mValue).getBytes(DEFAULT_CHARSET));
+        } else if (byte[].class.equals(valueClass)) {
+            dest.writeBlob((byte[]) mValue);
+        } else {
+            dest.writeValue(mValue);
+        }
     }
 
     public int getPropertyId() {

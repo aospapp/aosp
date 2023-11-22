@@ -18,18 +18,18 @@ package com.android.functional.permissiontests;
 
 import android.app.UiAutomation;
 import android.content.Context;
-import android.os.RemoteException;
+import android.os.SystemClock;
+import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+import android.system.helpers.PackageHelper;
+import android.system.helpers.PermissionHelper;
 import android.test.InstrumentationTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import com.android.functional.permissiontests.PermissionHelper.PermissionOp;
-import com.android.functional.permissiontests.PermissionHelper.PermissionStatus;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,7 +42,9 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
     private UiDevice mDevice = null;
     private Context mContext = null;
     private UiAutomation mUiAutomation = null;
-    private PermissionHelper pHelper;
+    private PermissionHelper pHelper = null;
+    private PackageHelper pkgHelper = null;
+    private ILauncherStrategy mILauncherStrategy = null;
     private final String[] mDefaultPermittedGroups = new String[] {
             "CONTACTS", "SMS", "STORAGE"
     };
@@ -61,7 +63,8 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
         mContext = getInstrumentation().getContext();
         mUiAutomation = getInstrumentation().getUiAutomation();
         mDevice.setOrientationNatural();
-        pHelper = PermissionHelper.getInstance(mDevice, mContext, mUiAutomation);
+        pHelper = PermissionHelper.getInstance();
+        pkgHelper = PackageHelper.getInstance(getInstrumentation());
         mDefaultGrantedPermissions = pHelper.getPermissionByPackage(TARGET_APP_PKG, Boolean.TRUE);
     }
 
@@ -84,12 +87,13 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
     public void testToggleAppPermisssionOFF() {
         pHelper.togglePermissionSetting(PERMISSION_TEST_APP, "Contacts", Boolean.FALSE);
         pHelper.verifyPermissionSettingStatus(
-                PERMISSION_TEST_APP, "Contacts", PermissionStatus.OFF);
+                PERMISSION_TEST_APP, "Contacts", PermissionHelper.PermissionStatus.OFF);
     }
 
     public void testToggleAppPermisssionON() {
         pHelper.togglePermissionSetting(PERMISSION_TEST_APP, "Contacts", Boolean.TRUE);
-        pHelper.verifyPermissionSettingStatus(PERMISSION_TEST_APP, "Contacts", PermissionStatus.ON);
+        pHelper.verifyPermissionSettingStatus(PERMISSION_TEST_APP, "Contacts",
+                PermissionHelper.PermissionStatus.ON);
     }
 
     @MediumTest
@@ -101,8 +105,10 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
     }
 
     public void testPermissionDialogAllow() {
-        pHelper.cleanPackage(PERMISSION_TEST_APP_PKG);
-        pHelper.launchApp(PERMISSION_TEST_APP_PKG, PERMISSION_TEST_APP);
+        pkgHelper.cleanPackage(PERMISSION_TEST_APP_PKG);
+        if (!mDevice.hasObject(By.pkg(PERMISSION_TEST_APP_PKG).depth(0))) {
+            mILauncherStrategy.launch(PERMISSION_TEST_APP, PERMISSION_TEST_APP_PKG);
+        }
         mDevice.wait(Until.findObject(By.text("GET CONTACT PERMISSION")), pHelper.TIMEOUT).click();
         mDevice.wait(Until.findObject(
                 By.res(PACKAGE_INSTALLER, "permission_allow_button")), pHelper.TIMEOUT).click();
@@ -112,10 +118,13 @@ public class GenericAppPermissionTests extends InstrumentationTestCase {
     }
 
     public void testPermissionDialogDenyFlow() {
-        pHelper.cleanPackage(PERMISSION_TEST_APP_PKG);
-        pHelper.launchApp(PERMISSION_TEST_APP_PKG, PERMISSION_TEST_APP);
+        pkgHelper.cleanPackage(PERMISSION_TEST_APP_PKG);
+        if (!mDevice.hasObject(By.pkg(PERMISSION_TEST_APP_PKG).depth(0))) {
+            mILauncherStrategy.launch(PERMISSION_TEST_APP, PERMISSION_TEST_APP_PKG);
+        }
         pHelper.grantOrRevokePermissionViaAdb(
-                PERMISSION_TEST_APP_PKG, "android.permission.READ_CONTACTS", PermissionOp.REVOKE);
+                PERMISSION_TEST_APP_PKG, "android.permission.READ_CONTACTS",
+                PermissionHelper.PermissionOp.REVOKE);
         BySelector getContactSelector = By.text("GET CONTACT PERMISSION");
         BySelector dontAskChkSelector = By.res(PACKAGE_INSTALLER, "do_not_ask_checkbox");
         BySelector denySelctor = By.res(PACKAGE_INSTALLER, "permission_deny_button");

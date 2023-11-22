@@ -27,7 +27,9 @@
 
 namespace keymaster {
 
-const int kMaximumRsaKeySize = 16 * 1024;  // 16kbits should be enough for anyone.
+const int kMaximumRsaKeySize = 4096;  // OpenSSL fails above 4096.
+const int kMinimumRsaKeySize = 16;    // OpenSSL goes into an infinite loop if key size < 10
+const int kMinimumRsaExponent = 3;
 
 static RsaSigningOperationFactory sign_factory;
 static RsaVerificationOperationFactory verify_factory;
@@ -56,11 +58,15 @@ keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_descrip
     if (!key_blob || !hw_enforced || !sw_enforced)
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
-    AuthorizationSet authorizations(key_description);
+    const AuthorizationSet& authorizations(key_description);
 
     uint64_t public_exponent;
     if (!authorizations.GetTagValue(TAG_RSA_PUBLIC_EXPONENT, &public_exponent)) {
-        LOG_E("%s", "No public exponent specified for RSA key generation");
+        LOG_E("No public exponent specified for RSA key generation", 0);
+        return KM_ERROR_INVALID_ARGUMENT;
+    }
+    if (public_exponent < kMinimumRsaExponent || public_exponent % 2 != 1) {
+        LOG_E("Invalid public exponent specified for RSA key generation", 0);
         return KM_ERROR_INVALID_ARGUMENT;
     }
 
@@ -69,7 +75,7 @@ keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_descrip
         LOG_E("No key size specified for RSA key generation", 0);
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
     }
-    if (key_size % 8 != 0 || key_size > kMaximumRsaKeySize) {
+    if (key_size % 8 != 0 || key_size > kMaximumRsaKeySize || key_size < kMinimumRsaKeySize) {
         LOG_E("Invalid key size of %u bits specified for RSA key generation", key_size);
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
     }

@@ -37,6 +37,7 @@
 
 #include <sepol/policydb/services.h>
 #include <sepol/policydb/policydb.h>
+#include <sepol/policydb/flask_types.h>
 
 #include <cil/cil.h>
 
@@ -101,6 +102,7 @@ char *CIL_KEY_OBJECT_R;
 char *CIL_KEY_STAR;
 char *CIL_KEY_TCP;
 char *CIL_KEY_UDP;
+char *CIL_KEY_DCCP;
 char *CIL_KEY_AUDITALLOW;
 char *CIL_KEY_TUNABLEIF;
 char *CIL_KEY_ALLOW;
@@ -225,6 +227,9 @@ char *CIL_KEY_NEVERALLOWX;
 char *CIL_KEY_PERMISSIONX;
 char *CIL_KEY_IOCTL;
 char *CIL_KEY_UNORDERED;
+char *CIL_KEY_SRC_INFO;
+char *CIL_KEY_SRC_CIL;
+char *CIL_KEY_SRC_HLL;
 
 /*
 	Symbol Table Array Indices
@@ -266,6 +271,7 @@ enum cil_sym_array {
 extern int cil_sym_sizes[CIL_SYM_ARRAY_NUM][CIL_SYM_NUM];
 
 #define CIL_CLASS_SYM_SIZE	256
+#define CIL_PERMS_PER_CLASS (sizeof(sepol_access_vector_t) * 8)
 
 struct cil_db {
 	struct cil_tree *parse;
@@ -300,6 +306,8 @@ struct cil_db {
 	struct cil_user **val_to_user;
 	int disable_dontaudit;
 	int disable_neverallow;
+	int attrs_expand_generated;
+	unsigned attrs_expand_size;
 	int preserve_tunables;
 	int handle_unknown;
 	int mls;
@@ -507,11 +515,14 @@ struct cil_type	{
 	int value;
 };
 
+#define CIL_ATTR_AVRULE     0x01
+#define CIL_ATTR_NEVERALLOW 0x02
+#define CIL_ATTR_CONSTRAINT 0x04
 struct cil_typeattribute {
 	struct cil_symtab_datum datum;
 	struct cil_list *expr_list;
 	ebitmap_t *types;
-	int used;	// whether or not this typeattribute was used and should be added to the binary
+	int used;	// whether or not this attribute was used in a binary policy rule
 };
 
 struct cil_typeattributeset {
@@ -713,7 +724,8 @@ struct cil_filecon {
 
 enum cil_protocol {
 	CIL_PROTOCOL_UDP = 1,
-	CIL_PROTOCOL_TCP	
+	CIL_PROTOCOL_TCP,
+	CIL_PROTOCOL_DCCP
 };
 
 struct cil_portcon {
@@ -915,6 +927,11 @@ struct cil_mls {
 	int value;
 };
 
+struct cil_src_info {
+	int is_cil;
+	char *path;
+};
+
 void cil_db_init(struct cil_db **db);
 void cil_db_destroy(struct cil_db **db);
 
@@ -1017,6 +1034,7 @@ void cil_default_init(struct cil_default **def);
 void cil_defaultrange_init(struct cil_defaultrange **def);
 void cil_handleunknown_init(struct cil_handleunknown **unk);
 void cil_mls_init(struct cil_mls **mls);
+void cil_src_info_init(struct cil_src_info **info);
 void cil_userattribute_init(struct cil_userattribute **attribute);
 void cil_userattributeset_init(struct cil_userattributeset **attrset);
 

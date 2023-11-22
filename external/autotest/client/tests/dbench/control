@@ -14,7 +14,6 @@ the higher level I/O systems but barely touches the disk right now.
 """
 NAME = 'dbench'
 ATTRIBUTES = "suite:kernel_daily_benchmarks"
-SUITE = "kernel_daily_benchmarks"
 TEST_CLASS = 'kernel'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'

@@ -16,6 +16,7 @@
 
 package dalvik.system;
 
+import dalvik.annotation.optimization.FastNative;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.HashMap;
@@ -106,6 +107,7 @@ public final class VMDebug {
      *
      * @return the time in milliseconds, or -1 if the debugger is not connected
      */
+    @FastNative
     public static native long lastDebuggerActivity();
 
     /**
@@ -114,6 +116,7 @@ public final class VMDebug {
      *
      * @return true if debugging is enabled
      */
+    @FastNative
     public static native boolean isDebuggingEnabled();
 
     /**
@@ -121,6 +124,7 @@ public final class VMDebug {
      *
      * @return true if (and only if) a debugger is connected
      */
+    @FastNative
     public static native boolean isDebuggerConnected();
 
     /**
@@ -172,11 +176,26 @@ public final class VMDebug {
      * FileDescriptor in which the trace is written.  The file name is also
      * supplied simply for logging.  Makes a dup of the file descriptor.
      */
-    public static void startMethodTracing(String traceFileName, FileDescriptor fd, int bufferSize, int flags, boolean samplingEnabled, int intervalUs) {
+    public static void startMethodTracing(String traceFileName, FileDescriptor fd, int bufferSize,
+                                          int flags, boolean samplingEnabled, int intervalUs) {
+        startMethodTracing(traceFileName, fd, bufferSize, flags, samplingEnabled, intervalUs,
+                           false);
+    }
+
+    /**
+     * Like startMethodTracing(String, int, int), but taking an already-opened
+     * FileDescriptor in which the trace is written.  The file name is also
+     * supplied simply for logging.  Makes a dup of the file descriptor.
+     * Streams tracing data to the file if streamingOutput is true.
+     */
+    public static void startMethodTracing(String traceFileName, FileDescriptor fd, int bufferSize,
+                                          int flags, boolean samplingEnabled, int intervalUs,
+                                          boolean streamingOutput) {
         if (fd == null) {
             throw new NullPointerException("fd == null");
         }
-        startMethodTracingFd(traceFileName, fd, checkBufferSize(bufferSize), flags, samplingEnabled, intervalUs);
+        startMethodTracingFd(traceFileName, fd, checkBufferSize(bufferSize), flags,
+                             samplingEnabled, intervalUs, streamingOutput);
     }
 
     /**
@@ -200,7 +219,7 @@ public final class VMDebug {
     }
 
     private static native void startMethodTracingDdmsImpl(int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
-    private static native void startMethodTracingFd(String traceFileName, FileDescriptor fd, int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
+    private static native void startMethodTracingFd(String traceFileName, FileDescriptor fd, int bufferSize, int flags, boolean samplingEnabled, int intervalUs, boolean streamingOutput);
     private static native void startMethodTracingFilename(String traceFileName, int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
 
     /**
@@ -236,6 +255,7 @@ public final class VMDebug {
      * @return the CPU usage. A value of -1 means the system does not support
      *         this feature.
      */
+    @FastNative
     public static native long threadCpuTimeNanos();
 
     /**
@@ -276,6 +296,7 @@ public final class VMDebug {
     /**
      * Dumps a list of loaded class to the log file.
      */
+    @FastNative
     public static native void printLoadedClasses(int flags);
 
     /**
@@ -283,6 +304,7 @@ public final class VMDebug {
      *
      * @return the number of loaded classes
      */
+    @FastNative
     public static native int getLoadedClassCount();
 
     /**
@@ -461,4 +483,11 @@ public final class VMDebug {
 
     private static native String getRuntimeStatInternal(int statId);
     private static native String[] getRuntimeStatsInternal();
+
+    /**
+     * Attaches an agent to the VM.
+     *
+     * @param agent The path to the agent .so file plus optional agent arguments.
+     */
+    public static native void attachAgent(String agent) throws IOException;
 }

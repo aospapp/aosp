@@ -103,6 +103,7 @@ public class CommonExternalStorageTest extends AndroidTestCase {
      * Verify we can write to our own package dirs.
      */
     public void testAllPackageDirsWritable() throws Exception {
+        final long testValue = 12345000;
         final List<File> paths = getAllPackageSpecificPaths(getContext());
         for (File path : paths) {
             assertNotNull("Valid media must be inserted during CTS", path);
@@ -122,6 +123,12 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
             assertEquals(32, readInt(directChild));
             assertEquals(64, readInt(subdirChild));
+
+            assertTrue("Must be able to set last modified", directChild.setLastModified(testValue));
+            assertTrue("Must be able to set last modified", subdirChild.setLastModified(testValue));
+
+            assertEquals(testValue, directChild.lastModified());
+            assertEquals(testValue, subdirChild.lastModified());
         }
 
         for (File path : paths) {

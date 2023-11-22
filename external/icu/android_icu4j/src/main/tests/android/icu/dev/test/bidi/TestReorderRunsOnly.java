@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2001-2007, International Business Machines
@@ -8,9 +10,9 @@
 
 package android.icu.dev.test.bidi;
 
+import org.junit.Test;
+
 import android.icu.text.Bidi;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Regression test for variants to the UBA.
@@ -18,9 +20,7 @@ import android.icu.junit.IcuTestFmwkRunner;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
-@RunWith(IcuTestFmwkRunner.class)
-public class TestReorderRunsOnly extends BidiTest {
-
+public class TestReorderRunsOnly extends BidiFmwk {
 
     static class TestCase {
         String textIn;
@@ -111,6 +111,8 @@ public class TestReorderRunsOnly extends BidiTest {
                      new int[] {0, 0})
     };
 
+
+    @Test
     public void testReorderRunsOnly() {
 
         Bidi bidi = new Bidi();
@@ -179,16 +181,5 @@ public class TestReorderRunsOnly extends BidiTest {
 
         logln("\nExiting TestReorderRunsOnly\n");
     }
-
-
-    public static void main(String[] args) {
-        try {
-            new TestReorderRunsOnly().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
-    }
-
 }
 

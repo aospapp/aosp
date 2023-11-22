@@ -52,7 +52,6 @@ enum AllocatorTag {
   kAllocatorTagMonitorList,
   kAllocatorTagClassTable,
   kAllocatorTagInternTable,
-  kAllocatorTagLambdaBoxTable,
   kAllocatorTagMaps,
   kAllocatorTagLOS,
   kAllocatorTagSafeMap,
@@ -117,7 +116,8 @@ class TrackingAllocatorImpl : public std::allocator<T> {
 
   // Used internally by STL data structures.
   template <class U>
-  TrackingAllocatorImpl(const TrackingAllocatorImpl<U, kTag>& alloc ATTRIBUTE_UNUSED) noexcept {}
+  TrackingAllocatorImpl( // NOLINT, implicit
+      const TrackingAllocatorImpl<U, kTag>& alloc ATTRIBUTE_UNUSED) noexcept {}
 
   // Used internally by STL data structures.
   TrackingAllocatorImpl() noexcept {

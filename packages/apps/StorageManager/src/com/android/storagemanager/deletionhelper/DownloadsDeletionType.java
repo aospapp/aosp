@@ -20,16 +20,20 @@ import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
 import android.content.Loader;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.annotation.Nullable;
 import android.util.ArraySet;
+
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.storagemanager.deletionhelper.FetchDownloadsLoader.DownloadsResult;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Set;
 
 /**
@@ -44,8 +48,11 @@ public class DownloadsDeletionType implements DeletionType, LoaderCallbacks<Down
     private Context mContext;
     private ArraySet<File> mFiles;
     private ArraySet<String> mUncheckedFiles;
+    private HashMap<File, Bitmap> mThumbnails;
+    private int mLoadingStatus;
 
     public DownloadsDeletionType(Context context, String[] uncheckedFiles) {
+        mLoadingStatus = LoadingStatus.LOADING;
         mContext = context;
         mFiles = new ArraySet<>();
         mUncheckedFiles = new ArraySet<>();
@@ -99,6 +106,21 @@ public class DownloadsDeletionType implements DeletionType, LoaderCallbacks<Down
     }
 
     @Override
+    public int getLoadingStatus() {
+        return mLoadingStatus;
+    }
+
+    @Override
+    public int getContentCount() {
+        return mFiles.size();
+    }
+
+    @Override
+    public void setLoadingStatus(@LoadingStatus int loadingStatus) {
+        mLoadingStatus = loadingStatus;
+    }
+
+    @Override
     public Loader<DownloadsResult> onCreateLoader(int id, Bundle args) {
         return new FetchDownloadsLoader(mContext,
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS));
@@ -111,6 +133,8 @@ public class DownloadsDeletionType implements DeletionType, LoaderCallbacks<Down
             mFiles.add(file);
         }
         mBytes = data.totalSize;
+        mThumbnails = data.thumbnails;
+        updateLoadingStatus();
         maybeUpdateListener();
     }
 
@@ -137,9 +161,9 @@ public class DownloadsDeletionType implements DeletionType, LoaderCallbacks<Down
     }
 
     /**
-     * Toggle if a file should be deleted when the service is asked to clear files.
+     * Set if a file should be deleted when the service is asked to clear files.
      */
-    public void toggleFile(File file, boolean checked) {
+    public void setFileChecked(File file, boolean checked) {
         if (checked) {
             mUncheckedFiles.remove(file.getPath());
         } else {
@@ -147,21 +171,28 @@ public class DownloadsDeletionType implements DeletionType, LoaderCallbacks<Down
         }
     }
 
-    /**
-     * Returns the number of bytes that would be cleared if the deletion tasks runs.
-     */
-    public long getFreeableBytes() {
+    /** Returns the number of bytes that would be cleared if the deletion tasks runs. */
+    public long getFreeableBytes(boolean countUnchecked) {
         long freedBytes = 0;
         for (File file : mFiles) {
-            if (isChecked(file)) {
+            if (isChecked(file) || countUnchecked) {
                 freedBytes += file.length();
             }
         }
         return freedBytes;
     }
 
+    /** Returns a thumbnail for a given file, if it exists. If it does not exist, returns null. */
+    public @Nullable Bitmap getCachedThumbnail(File imageFile) {
+        if (mThumbnails == null) {
+            return null;
+        }
+        return mThumbnails.get(imageFile);
+    }
+
     /**
      * Return if a given file is checked for deletion.
+     *
      * @param file The file to check.
      */
     public boolean isChecked(File file) {

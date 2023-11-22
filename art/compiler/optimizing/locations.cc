@@ -16,10 +16,15 @@
 
 #include "locations.h"
 
+#include <type_traits>
+
 #include "nodes.h"
 #include "code_generator.h"
 
 namespace art {
+
+// Verify that Location is trivially copyable.
+static_assert(std::is_trivially_copyable<Location>::value, "Location should be trivially copyable");
 
 LocationSummary::LocationSummary(HInstruction* instruction,
                                  CallKind call_kind,
@@ -27,12 +32,14 @@ LocationSummary::LocationSummary(HInstruction* instruction,
     : inputs_(instruction->InputCount(),
               instruction->GetBlock()->GetGraph()->GetArena()->Adapter(kArenaAllocLocationSummary)),
       temps_(instruction->GetBlock()->GetGraph()->GetArena()->Adapter(kArenaAllocLocationSummary)),
-      output_overlaps_(Location::kOutputOverlap),
       call_kind_(call_kind),
+      intrinsified_(intrinsified),
+      has_custom_slow_path_calling_convention_(false),
+      output_overlaps_(Location::kOutputOverlap),
       stack_mask_(nullptr),
       register_mask_(0),
-      live_registers_(),
-      intrinsified_(intrinsified) {
+      live_registers_(RegisterSet::Empty()),
+      custom_slow_path_caller_saves_(RegisterSet::Empty()) {
   instruction->SetLocations(this);
 
   if (NeedsSafepoint()) {

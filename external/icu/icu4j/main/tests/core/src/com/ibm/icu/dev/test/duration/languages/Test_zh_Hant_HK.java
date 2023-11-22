@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007, International Business Machines Corporation and        *
@@ -9,24 +11,13 @@
 
 package com.ibm.icu.dev.test.duration.languages;
 
-import com.ibm.icu.dev.test.duration.LanguageTestRoot;
+import com.ibm.icu.dev.test.duration.LanguageTestFmwk;
 
 
 /**
  * Test cases for zh_Hant_HK
  */
-public class Test_zh_Hant_HK extends LanguageTestRoot {
-
-  /**
-   * Invoke the tests.
-   */
-  public static void main(String[] args) {
-      new Test_zh_Hant_HK().run(args);
-  }
-
-  /**
-   * Constructor.
-   */
+public class Test_zh_Hant_HK extends LanguageTestFmwk {
   public Test_zh_Hant_HK() {
     super("zh_Hant_HK", false);
   }

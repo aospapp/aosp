@@ -36,10 +36,8 @@ import android.text.util.Rfc822Token;
 import android.text.util.Rfc822Tokenizer;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.SparseArray;
 
 import com.android.bluetooth.SignedLongLong;
-import com.android.bluetooth.map.BluetoothMapContentObserver.Msg;
 import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
 import com.android.bluetooth.map.BluetoothMapbMessageMime.MimePart;
 import com.android.bluetooth.mapapi.BluetoothMapContract;
@@ -54,13 +52,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 @TargetApi(19)
 public class BluetoothMapContent {
@@ -117,7 +112,6 @@ public class BluetoothMapContent {
     // MAP specification states that the default value for parameter mask are
     // the #REQUIRED attributes in the DTD, and not all enabled
     public static final long PARAMETER_MASK_ALL_ENABLED = 0xFFFFFFFFL;
-    public static final long PARAMETER_MASK_DEFAULT = 0x5EBL;
     public static final long CONVO_PARAMETER_MASK_ALL_ENABLED = 0xFFFFFFFFL;
     public static final long CONVO_PARAMETER_MASK_DEFAULT =
             CONVO_PARAM_MASK_CONVO_NAME |
@@ -1656,10 +1650,8 @@ public class BluetoothMapContent {
 
     private String setWhereFilterFolderType(BluetoothMapFolderElement folderElement,
                                             FilterInfo fi) {
-        String where = "";
-        if(folderElement.shouldIgnore()) {
-            where = "1=1";
-        } else {
+        String where = "1=1";
+        if (!folderElement.shouldIgnore()) {
             if (fi.mMsgType == FilterInfo.TYPE_SMS) {
                 where = setWhereFilterFolderTypeSms(folderElement.getName());
             } else if (fi.mMsgType == FilterInfo.TYPE_MMS) {
@@ -1670,6 +1662,7 @@ public class BluetoothMapContent {
                 where = setWhereFilterFolderTypeIm(folderElement.getFolderId());
             }
         }
+
         return where;
     }
 
@@ -2064,9 +2057,9 @@ public class BluetoothMapContent {
          * should cause all parameters to be included in the message list. */
         if(ap.getParameterMask() == BluetoothMapAppParams.INVALID_VALUE_PARAMETER ||
                 ap.getParameterMask() == 0) {
-            ap.setParameterMask(PARAMETER_MASK_DEFAULT);
+            ap.setParameterMask(PARAMETER_MASK_ALL_ENABLED);
             if (V) Log.v(TAG, "msgListing(): appParameterMask is zero or not present, " +
-                    "changing to default: " + ap.getParameterMask());
+                    "changing to all enabled by default: " + ap.getParameterMask());
         }
         if (V) Log.v(TAG, "folderElement hasSmsMmsContent = " + folderElement.hasSmsMmsContent() +
                 " folderElement.hasEmailContent = " + folderElement.hasEmailContent() +

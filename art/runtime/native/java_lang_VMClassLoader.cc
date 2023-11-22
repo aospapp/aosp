@@ -20,55 +20,99 @@
 #include "jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
-#include "scoped_fast_native_object_access.h"
+#include "obj_ptr.h"
+#include "scoped_fast_native_object_access-inl.h"
 #include "ScopedUtfChars.h"
+#include "well_known_classes.h"
 #include "zip_archive.h"
 
 namespace art {
 
+// A class so we can be friends with ClassLinker and access internal methods.
+class VMClassLoader {
+ public:
+  static mirror::Class* LookupClass(ClassLinker* cl,
+                                    Thread* self,
+                                    const char* descriptor,
+                                    size_t hash,
+                                    ObjPtr<mirror::ClassLoader> class_loader)
+      REQUIRES(!Locks::classlinker_classes_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    return cl->LookupClass(self, descriptor, hash, class_loader);
+  }
+
+  static ObjPtr<mirror::Class> FindClassInPathClassLoader(ClassLinker* cl,
+                                                          ScopedObjectAccessAlreadyRunnable& soa,
+                                                          Thread* self,
+                                                          const char* descriptor,
+                                                          size_t hash,
+                                                          Handle<mirror::ClassLoader> class_loader)
+      REQUIRES_SHARED(Locks::mutator_lock_) {
+    ObjPtr<mirror::Class> result;
+    if (cl->FindClassInBaseDexClassLoader(soa, self, descriptor, hash, class_loader, &result)) {
+      return result;
+    }
+    return nullptr;
+  }
+};
+
 static jclass VMClassLoader_findLoadedClass(JNIEnv* env, jclass, jobject javaLoader,
                                             jstring javaName) {
   ScopedFastNativeObjectAccess soa(env);
-  mirror::ClassLoader* loader = soa.Decode<mirror::ClassLoader*>(javaLoader);
+  ObjPtr<mirror::ClassLoader> loader = soa.Decode<mirror::ClassLoader>(javaLoader);
   ScopedUtfChars name(env, javaName);
   if (name.c_str() == nullptr) {
     return nullptr;
   }
   ClassLinker* cl = Runtime::Current()->GetClassLinker();
+
+  // Compute hash once.
   std::string descriptor(DotToDescriptor(name.c_str()));
   const size_t descriptor_hash = ComputeModifiedUtf8Hash(descriptor.c_str());
-  mirror::Class* c = cl->LookupClass(soa.Self(), descriptor.c_str(), descriptor_hash, loader);
+
+  ObjPtr<mirror::Class> c = VMClassLoader::LookupClass(cl,
+                                                       soa.Self(),
+                                                       descriptor.c_str(),
+                                                       descriptor_hash,
+                                                       loader);
   if (c != nullptr && c->IsResolved()) {
     return soa.AddLocalReference<jclass>(c);
   }
   // If class is erroneous, throw the earlier failure, wrapped in certain cases. See b/28787733.
   if (c != nullptr && c->IsErroneous()) {
-    cl->ThrowEarlierClassFailure(c);
+    cl->ThrowEarlierClassFailure(c.Ptr());
     Thread* self = soa.Self();
-    mirror::Class* eiie_class =
-        self->DecodeJObject(WellKnownClasses::java_lang_ExceptionInInitializerError)->AsClass();
-    mirror::Class* iae_class =
+    ObjPtr<mirror::Class> iae_class =
         self->DecodeJObject(WellKnownClasses::java_lang_IllegalAccessError)->AsClass();
-    mirror::Class* ncdfe_class =
+    ObjPtr<mirror::Class> ncdfe_class =
         self->DecodeJObject(WellKnownClasses::java_lang_NoClassDefFoundError)->AsClass();
-    mirror::Class* exception = self->GetException()->GetClass();
-    if (exception == eiie_class || exception == iae_class || exception == ncdfe_class) {
+    ObjPtr<mirror::Class> exception = self->GetException()->GetClass();
+    if (exception == iae_class || exception == ncdfe_class) {
       self->ThrowNewWrappedException("Ljava/lang/ClassNotFoundException;",
-                                     PrettyDescriptor(c).c_str());
+                                     c->PrettyDescriptor().c_str());
     }
     return nullptr;
   }
+
+  // Hard-coded performance optimization: We know that all failed libcore calls to findLoadedClass
+  //                                      are followed by a call to the the classloader to actually
+  //                                      load the class.
   if (loader != nullptr) {
     // Try the common case.
     StackHandleScope<1> hs(soa.Self());
-    cl->FindClassInPathClassLoader(soa, soa.Self(), descriptor.c_str(), descriptor_hash,
-                                   hs.NewHandle(loader), &c);
+    c = VMClassLoader::FindClassInPathClassLoader(cl,
+                                                  soa,
+                                                  soa.Self(),
+                                                  descriptor.c_str(),
+                                                  descriptor_hash,
+                                                  hs.NewHandle(loader));
     if (c != nullptr) {
       return soa.AddLocalReference<jclass>(c);
     }
   }
-  // Class wasn't resolved so it may be erroneous or not yet ready, force the caller to go into
-  // the regular loadClass code.
+
+  // The class wasn't loaded, yet, and our fast-path did not apply (e.g., we didn't understand the
+  // classloader chain).
   return nullptr;
 }
 
@@ -93,7 +137,7 @@ static jobjectArray VMClassLoader_getBootClassPathEntries(JNIEnv* env, jclass) {
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(VMClassLoader, findLoadedClass, "!(Ljava/lang/ClassLoader;Ljava/lang/String;)Ljava/lang/Class;"),
+  FAST_NATIVE_METHOD(VMClassLoader, findLoadedClass, "(Ljava/lang/ClassLoader;Ljava/lang/String;)Ljava/lang/Class;"),
   NATIVE_METHOD(VMClassLoader, getBootClassPathEntries, "()[Ljava/lang/String;"),
 };
 

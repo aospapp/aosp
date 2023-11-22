@@ -115,6 +115,10 @@ unw_step (unw_cursor_t *cursor)
 	}
       else
 	c->dwarf.ip = 0;
+
+      /* Adjust the return value because the functions above return zero for success. */
+      if (ret == 0)
+        ret = 1;
     }
 #endif
 

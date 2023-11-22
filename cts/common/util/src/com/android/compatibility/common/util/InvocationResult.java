@@ -15,6 +15,7 @@
  */
 package com.android.compatibility.common.util;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -37,6 +38,8 @@ public class InvocationResult implements IInvocationResult {
     private String mTestPlan;
     private String mCommandLineArgs;
     private int mNotExecuted = 0;
+    private RetryChecksumStatus mRetryChecksumStatus = RetryChecksumStatus.NotRetry;
+    private File mRetryDirectory = null;
 
     /**
      * {@inheritDoc}
@@ -200,5 +203,37 @@ public class InvocationResult implements IInvocationResult {
             }
         }
         return completeModules;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RetryChecksumStatus getRetryChecksumStatus() {
+        return mRetryChecksumStatus;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setRetryChecksumStatus(RetryChecksumStatus retryStatus) {
+        mRetryChecksumStatus = retryStatus;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public File getRetryDirectory() {
+        return mRetryDirectory;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setRetryDirectory(File resultDir) {
+        mRetryDirectory = resultDir;
     }
 }

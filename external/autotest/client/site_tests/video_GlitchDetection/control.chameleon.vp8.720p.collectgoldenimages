@@ -12,7 +12,7 @@ TIME = "LONG"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
-DEPENDENCIES = "video_glitch_detection, chameleon:hdmi"
+DEPENDENCIES = "video_glitch_detection"
 
 DOC = """
 Run this test to collect golden images for a certain device and  build. This

@@ -70,15 +70,7 @@ keymaster_error_t ConfigureDevice(keymaster2_device_t* dev, uint32_t os_version,
 }
 
 keymaster_error_t ConfigureDevice(keymaster2_device_t* dev) {
-    char version_str[PROPERTY_VALUE_MAX];
-    property_get(kPlatformVersionProp, version_str, "" /* default */);
-    uint32_t version = GetOsVersion(version_str);
-
-    char patchlevel_str[PROPERTY_VALUE_MAX];
-    property_get(kPlatformPatchlevelProp, patchlevel_str, "" /* default */);
-    uint32_t patchlevel = GetOsPatchlevel(patchlevel_str);
-
-    return ConfigureDevice(dev, version, patchlevel);
+    return ConfigureDevice(dev, GetOsVersion(), GetOsPatchlevel());
 }
 
 uint32_t GetOsVersion(const char* version_str) {
@@ -89,7 +81,10 @@ uint32_t GetOsVersion(const char* version_str) {
     }
 
     regmatch_t matches[kPlatformVersionMatchCount];
-    if (regexec(&regex, version_str, kPlatformVersionMatchCount, matches, 0 /* flags */)) {
+    int not_match =
+        regexec(&regex, version_str, kPlatformVersionMatchCount, matches, 0 /* flags */);
+    regfree(&regex);
+    if (not_match) {
         ALOGI("Platform version string does not match expected format.  Using version 0.");
         return 0;
     }
@@ -101,6 +96,12 @@ uint32_t GetOsVersion(const char* version_str) {
     return (major * 100 + minor) * 100 + subminor;
 }
 
+uint32_t GetOsVersion() {
+    char version_str[PROPERTY_VALUE_MAX];
+    property_get(kPlatformVersionProp, version_str, "" /* default */);
+    return GetOsVersion(version_str);
+}
+
 uint32_t GetOsPatchlevel(const char* patchlevel_str) {
     regex_t regex;
     if (regcomp(&regex, kPlatformPatchlevelRegex, REG_EXTENDED) != 0) {
@@ -109,7 +110,10 @@ uint32_t GetOsPatchlevel(const char* patchlevel_str) {
     }
 
     regmatch_t matches[kPlatformPatchlevelMatchCount];
-    if (regexec(&regex, patchlevel_str, kPlatformPatchlevelMatchCount, matches, 0 /* flags */)) {
+    int not_match =
+        regexec(&regex, patchlevel_str, kPlatformPatchlevelMatchCount, matches, 0 /* flags */);
+    regfree(&regex);
+    if (not_match) {
         ALOGI("Platform patchlevel string does not match expected format.  Using patchlevel 0");
         return 0;
     }
@@ -122,6 +126,12 @@ uint32_t GetOsPatchlevel(const char* patchlevel_str) {
         return 0;
     }
     return year * 100 + month;
+}
+
+uint32_t GetOsPatchlevel() {
+    char patchlevel_str[PROPERTY_VALUE_MAX];
+    property_get(kPlatformPatchlevelProp, patchlevel_str, "" /* default */);
+    return GetOsPatchlevel(patchlevel_str);
 }
 
 }  // namespace keymaster

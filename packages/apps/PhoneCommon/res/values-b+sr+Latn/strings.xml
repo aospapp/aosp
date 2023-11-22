@@ -30,7 +30,7 @@
     <string name="callFailed_number_unreachable" msgid="1243366438388873914">"Broj je nedostupan"</string>
     <string name="callFailed_invalid_credentials" msgid="6115412108261660271">"Nevažeće korisničko ime ili lozinka"</string>
     <string name="callFailed_out_of_network" msgid="6970725831030399542">"Poziv van mreže"</string>
-    <string name="callFailed_server_error" msgid="1391421251190688379">"Greška servera. Pokušajte ponovo kasnije."</string>
+    <string name="callFailed_server_error" msgid="1391421251190688379">"Greška servera. Probajte ponovo kasnije."</string>
     <string name="callFailed_noSignal" msgid="1758972490451048086">"Nema signala"</string>
     <string name="callFailed_limitExceeded" msgid="8796663077702587664">"Prekoračeno je ACM ograničenje"</string>
     <string name="callFailed_powerOff" msgid="9179061328562234362">"Radio je isključen"</string>
@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Bez zvuka"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Nepoznati zvuk zvona"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Sve dostupne linije su zauzete. Da biste uputili poziv, prekinite neki od poziva na ovom uređaju ili na nekom od drugih uređaja."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Poziv je završen jer su mobilni podaci isključeni."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Poziv je završen jer ste dostigli ograničenje mobilnih podataka."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Dostigli ste ograničenje mobilnih podataka. Poziv je završen."</string>
 </resources>

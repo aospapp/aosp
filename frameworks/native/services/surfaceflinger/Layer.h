@@ -40,13 +40,14 @@
 
 #include "FrameTracker.h"
 #include "Client.h"
+#include "LayerVector.h"
 #include "MonitoredProducer.h"
 #include "SurfaceFlinger.h"
 #include "SurfaceFlingerConsumer.h"
 #include "Transform.h"
 
 #include "DisplayHardware/HWComposer.h"
-#include "DisplayHardware/FloatRect.h"
+#include "DisplayHardware/HWComposerBufferCache.h"
 #include "RenderEngine/Mesh.h"
 #include "RenderEngine/Texture.h"
 
@@ -108,8 +109,15 @@ public:
     struct State {
         Geometry active;
         Geometry requested;
-        uint32_t z;
+        int32_t z;
+
+        // The identifier of the layer stack this layer belongs to. A layer can
+        // only be associated to a single layer stack. A layer stack is a
+        // z-ordered group of layers which can be associated to one or more
+        // displays. Using the same layer stack on different displays is a way
+        // to achieve mirroring.
         uint32_t layerStack;
+
 #ifdef USE_HWC2
         float alpha;
 #else
@@ -121,14 +129,17 @@ public:
         int32_t sequence; // changes when visible regions can change
         bool modified;
 
+        // Crop is expressed in layer space coordinate.
         Rect crop;
         Rect requestedCrop;
 
+        // finalCrop is expressed in display space coordinate.
         Rect finalCrop;
+        Rect requestedFinalCrop;
 
-        // If set, defers this state update until the Layer identified by handle
+        // If set, defers this state update until the identified Layer
         // receives a frame with the given frameNumber
-        wp<IBinder> handle;
+        wp<Layer> barrierLayer;
         uint64_t frameNumber;
 
         // the transparentRegion hint is a bit special, it's latched only
@@ -136,6 +147,16 @@ public:
         // dependent.
         Region activeTransparentRegion;
         Region requestedTransparentRegion;
+        android_dataspace dataSpace;
+
+        uint32_t appId;
+        uint32_t type;
+
+        // If non-null, a Surface this Surface's Z-order is interpreted relative to.
+        wp<Layer> zOrderRelativeOf;
+
+        // A list of surfaces whose Z-order is interpreted relative to ours.
+        SortedVector<wp<Layer>> zOrderRelatives;
     };
 
     // -----------------------------------------------------------------------
@@ -148,23 +169,75 @@ public:
     // the this layer's size and format
     status_t setBuffers(uint32_t w, uint32_t h, PixelFormat format, uint32_t flags);
 
-    // modify current state
-    bool setPosition(float x, float y, bool immediate);
-    bool setLayer(uint32_t z);
+    // ------------------------------------------------------------------------
+    // Geometry setting functions.
+    //
+    // The following group of functions are used to specify the layers
+    // bounds, and the mapping of the texture on to those bounds. According
+    // to various settings changes to them may apply immediately, or be delayed until
+    // a pending resize is completed by the producer submitting a buffer. For example
+    // if we were to change the buffer size, and update the matrix ahead of the
+    // new buffer arriving, then we would be stretching the buffer to a different
+    // aspect before and after the buffer arriving, which probably isn't what we wanted.
+    //
+    // The first set of geometry functions are controlled by the scaling mode, described
+    // in window.h. The scaling mode may be set by the client, as it submits buffers.
+    // This value may be overriden through SurfaceControl, with setOverrideScalingMode.
+    //
+    // Put simply, if our scaling mode is SCALING_MODE_FREEZE, then
+    // matrix updates will not be applied while a resize is pending
+    // and the size and transform will remain in their previous state
+    // until a new buffer is submitted. If the scaling mode is another value
+    // then the old-buffer will immediately be scaled to the pending size
+    // and the new matrix will be immediately applied following this scaling
+    // transformation.
+
+    // Set the default buffer size for the assosciated Producer, in pixels. This is
+    // also the rendered size of the layer prior to any transformations. Parent
+    // or local matrix transformations will not affect the size of the buffer,
+    // but may affect it's on-screen size or clipping.
     bool setSize(uint32_t w, uint32_t h);
+    // Set a 2x2 transformation matrix on the layer. This transform
+    // will be applied after parent transforms, but before any final
+    // producer specified transform.
+    bool setMatrix(const layer_state_t::matrix22_t& matrix);
+
+    // This second set of geometry attributes are controlled by
+    // setGeometryAppliesWithResize, and their default mode is to be
+    // immediate. If setGeometryAppliesWithResize is specified
+    // while a resize is pending, then update of these attributes will
+    // be delayed until the resize completes.
+
+    // setPosition operates in parent buffer space (pre parent-transform) or display
+    // space for top-level layers.
+    bool setPosition(float x, float y, bool immediate);
+    // Buffer space
+    bool setCrop(const Rect& crop, bool immediate);
+    // Parent buffer space/display space
+    bool setFinalCrop(const Rect& crop, bool immediate);
+
+    // TODO(b/38182121): Could we eliminate the various latching modes by
+    // using the layer hierarchy?
+    // -----------------------------------------------------------------------
+    bool setLayer(int32_t z);
+    bool setRelativeLayer(const sp<IBinder>& relativeToHandle, int32_t relativeZ);
+
 #ifdef USE_HWC2
     bool setAlpha(float alpha);
 #else
     bool setAlpha(uint8_t alpha);
 #endif
-    bool setMatrix(const layer_state_t::matrix22_t& matrix);
     bool setTransparentRegionHint(const Region& transparent);
     bool setFlags(uint8_t flags, uint8_t mask);
-    bool setCrop(const Rect& crop, bool immediate);
-    bool setFinalCrop(const Rect& crop);
     bool setLayerStack(uint32_t layerStack);
-    void deferTransactionUntil(const sp<IBinder>& handle, uint64_t frameNumber);
+    bool setDataSpace(android_dataspace dataSpace);
+    uint32_t getLayerStack() const;
+    void deferTransactionUntil(const sp<IBinder>& barrierHandle, uint64_t frameNumber);
+    void deferTransactionUntil(const sp<Layer>& barrierLayer, uint64_t frameNumber);
     bool setOverrideScalingMode(int32_t overrideScalingMode);
+    void setInfo(uint32_t type, uint32_t appId);
+    bool reparentChildren(const sp<IBinder>& layer);
+    bool detachChildren();
 
     // If we have received a new buffer this frame, we will pass its surface
     // damage down to hardware composer. Otherwise, we must send a region with
@@ -179,11 +252,6 @@ public:
             bool useIdentityTransform) const;
     Rect computeBounds(const Region& activeTransparentRegion) const;
     Rect computeBounds() const;
-
-    class Handle;
-    sp<IBinder> getHandle();
-    sp<IGraphicBufferProducer> getProducer() const;
-    const String8& getName() const;
 
     int32_t getSequence() const { return sequence; }
 
@@ -219,6 +287,14 @@ public:
     virtual bool isVisible() const;
 
     /*
+     * isHiddenByPolicy - true if this layer has been forced invisible.
+     * just because this is false, doesn't mean isVisible() is true.
+     * For example if this layer has no active buffer, it may not be hidden by
+     * policy, but it still can not be visible.
+     */
+    virtual bool isHiddenByPolicy() const;
+
+    /*
      * isFixedSize - true if content has a fixed size
      */
     virtual bool isFixedSize() const;
@@ -234,9 +310,11 @@ public:
     // -----------------------------------------------------------------------
 
 #ifdef USE_HWC2
-    void setGeometry(const sp<const DisplayDevice>& displayDevice);
+    void setGeometry(const sp<const DisplayDevice>& displayDevice, uint32_t z);
     void forceClientComposition(int32_t hwcId);
     void setPerFrameData(const sp<const DisplayDevice>& displayDevice);
+
+    android_dataspace getDataSpace() const;
 
     // callIntoHwc exists so we can update our local state and call
     // acceptDisplayChanges without unnecessarily updating the device's state
@@ -275,17 +353,19 @@ public:
      * called before composition.
      * returns true if the layer has pending updates.
      */
-    bool onPreComposition();
+    bool onPreComposition(nsecs_t refreshStartTime);
 
     /*
      * called after composition.
      * returns true if the layer latched a new buffer this frame.
      */
-    bool onPostComposition();
+    bool onPostComposition(const std::shared_ptr<FenceTime>& glDoneFence,
+            const std::shared_ptr<FenceTime>& presentFence,
+            const CompositorTiming& compositorTiming);
 
 #ifdef USE_HWC2
     // If a buffer was replaced this frame, release the former buffer
-    void releasePendingBuffer();
+    void releasePendingBuffer(nsecs_t dequeueReadyTime);
 #endif
 
     /*
@@ -328,7 +408,7 @@ public:
      * operation, so this should be set only if needed). Typically this is used
      * to figure out if the content or size of a surface has changed.
      */
-    Region latchBuffer(bool& recomputeVisibleRegions);
+    Region latchBuffer(bool& recomputeVisibleRegions, nsecs_t latchTime);
 
     bool isPotentialCursor() const { return mPotentialCursor;}
 
@@ -385,10 +465,14 @@ public:
         }
     }
 
+    void clearHwcLayers() {
+        mHwcLayers.clear();
+    }
+
 #endif
     // -----------------------------------------------------------------------
 
-    void clearWithOpenGL(const sp<const DisplayDevice>& hw, const Region& clip) const;
+    void clearWithOpenGL(const sp<const DisplayDevice>& hw) const;
     void setFiltering(bool filtering);
     bool getFiltering() const;
 
@@ -402,30 +486,58 @@ public:
 
     /* always call base class first */
     void dump(String8& result, Colorizer& colorizer) const;
+#ifdef USE_HWC2
+    static void miniDumpHeader(String8& result);
+    void miniDump(String8& result, int32_t hwcId) const;
+#endif
     void dumpFrameStats(String8& result) const;
+    void dumpFrameEvents(String8& result);
     void clearFrameStats();
     void logFrameStats();
     void getFrameStats(FrameStats* outStats) const;
 
-    void getFenceData(String8* outName, uint64_t* outFrameNumber,
-            bool* outIsGlesComposition, nsecs_t* outPostedTime,
-            sp<Fence>* outAcquireFence, sp<Fence>* outPrevReleaseFence) const;
-
     std::vector<OccupancyTracker::Segment> getOccupancyHistory(bool forceFlush);
 
-    bool getFrameTimestamps(uint64_t frameNumber,
-            FrameTimestamps* outTimestamps) const {
-        return mFlinger->getFrameTimestamps(*this, frameNumber, outTimestamps);
-    }
+    void onDisconnect();
+    void addAndGetFrameTimestamps(const NewFrameEventsEntry* newEntry,
+            FrameEventHistoryDelta* outDelta);
 
     bool getTransformToDisplayInverse() const;
 
+    Transform getTransform() const;
+
+    // Returns the Alpha of the Surface, accounting for the Alpha
+    // of parent Surfaces in the hierarchy (alpha's will be multiplied
+    // down the hierarchy).
+#ifdef USE_HWC2
+    float getAlpha() const;
+#else
+    uint8_t getAlpha() const;
+#endif
+
+    void traverseInReverseZOrder(LayerVector::StateSet stateSet,
+                                 const LayerVector::Visitor& visitor);
+    void traverseInZOrder(LayerVector::StateSet stateSet, const LayerVector::Visitor& visitor);
+
+    size_t getChildrenCount() const;
+    void addChild(const sp<Layer>& layer);
+    // Returns index if removed, or negative value otherwise
+    // for symmetry with Vector::remove
+    ssize_t removeChild(const sp<Layer>& layer);
+    sp<Layer> getParent() const { return mCurrentParent.promote(); }
+    bool hasParent() const { return getParent() != nullptr; }
+
+    Rect computeScreenBounds(bool reduceTransparentRegion = true) const;
+    bool setChildLayer(const sp<Layer>& childLayer, int32_t z);
+
+    // Copy the current list of children to the drawing state. Called by
+    // SurfaceFlinger to complete a transaction.
+    void commitChildList();
+
+    int32_t getZ() const;
 protected:
     // constant
     sp<SurfaceFlinger> mFlinger;
-
-    virtual void onFirstRef();
-
     /*
      * Trivial class, used to ensure that mFlinger->onLayerDestroyed(mLayer)
      * is called.
@@ -434,13 +546,24 @@ protected:
         sp<SurfaceFlinger> mFlinger;
         wp<Layer> mLayer;
     protected:
-        ~LayerCleaner();
+        ~LayerCleaner() {
+            // destroy client resources
+            mFlinger->onLayerDestroyed(mLayer);
+        }
     public:
-        LayerCleaner(const sp<SurfaceFlinger>& flinger, const sp<Layer>& layer);
+        LayerCleaner(const sp<SurfaceFlinger>& flinger,
+                const sp<Layer>& layer)
+            : mFlinger(flinger), mLayer(layer) {
+        }
     };
 
 
+    virtual void onFirstRef();
+
+
+
 private:
+    friend class SurfaceInterceptor;
     // Interface implementation for SurfaceFlingerConsumer::ContentsChangedListener
     virtual void onFrameAvailable(const BufferItem& item) override;
     virtual void onFrameReplaced(const BufferItem& item) override;
@@ -452,14 +575,19 @@ private:
     bool needsFiltering(const sp<const DisplayDevice>& hw) const;
 
     uint32_t getEffectiveUsage(uint32_t usage) const;
+
     FloatRect computeCrop(const sp<const DisplayDevice>& hw) const;
+    // Compute the initial crop as specified by parent layers and the SurfaceControl
+    // for this layer. Does not include buffer crop from the IGraphicBufferProducer
+    // client, as that should not affect child clipping. Returns in screen space.
+    Rect computeInitialCrop(const sp<const DisplayDevice>& hw) const;
     bool isCropped() const;
     static bool getOpacityForFormat(uint32_t format);
 
     // drawing
-    void clearWithOpenGL(const sp<const DisplayDevice>& hw, const Region& clip,
+    void clearWithOpenGL(const sp<const DisplayDevice>& hw,
             float r, float g, float b, float alpha) const;
-    void drawWithOpenGL(const sp<const DisplayDevice>& hw, const Region& clip,
+    void drawWithOpenGL(const sp<const DisplayDevice>& hw,
             bool useIdentityTransform) const;
 
     // Temporary - Used only for LEGACY camera mode.
@@ -468,12 +596,18 @@ private:
     // Loads the corresponding system property once per process
     static bool latchUnsignaledBuffers();
 
+    void setParent(const sp<Layer>& layer);
+
+    LayerVector makeTraversalList(LayerVector::StateSet stateSet);
+    void addZOrderRelative(const wp<Layer>& relative);
+    void removeZOrderRelative(const wp<Layer>& relative);
+
     // -----------------------------------------------------------------------
 
     class SyncPoint
     {
     public:
-        SyncPoint(uint64_t frameNumber) : mFrameNumber(frameNumber),
+        explicit SyncPoint(uint64_t frameNumber) : mFrameNumber(frameNumber),
                 mFrameIsAvailable(false), mTransactionIsApplied(false) {}
 
         uint64_t getFrameNumber() const {
@@ -522,15 +656,41 @@ private:
     void popPendingState(State* stateToCommit);
     bool applyPendingStates(State* stateToCommit);
 
+    void clearSyncPoints();
+
     // Returns mCurrentScaling mode (originating from the
     // Client) or mOverrideScalingMode mode (originating from
     // the Surface Controller) if set.
     uint32_t getEffectiveScalingMode() const;
 public:
+    /*
+     * The layer handle is just a BBinder object passed to the client
+     * (remote process) -- we don't keep any reference on our side such that
+     * the dtor is called when the remote side let go of its reference.
+     *
+     * LayerCleaner ensures that mFlinger->onLayerDestroyed() is called for
+     * this layer when the handle is destroyed.
+     */
+    class Handle : public BBinder, public LayerCleaner {
+        public:
+            Handle(const sp<SurfaceFlinger>& flinger, const sp<Layer>& layer)
+                : LayerCleaner(flinger, layer), owner(layer) {}
+
+            wp<Layer> owner;
+    };
+
+    sp<IBinder> getHandle();
+    sp<IGraphicBufferProducer> getProducer() const;
+    const String8& getName() const;
     void notifyAvailableFrames();
 private:
 
     // -----------------------------------------------------------------------
+
+    // Check all of the local sync points to ensure that all transactions
+    // which need to have been applied prior to the frame which is about to
+    // be latched have signaled
+    bool allTransactionsSignaled();
 
     // constants
     sp<SurfaceFlingerConsumer> mSurfaceFlingerConsumer;
@@ -552,9 +712,19 @@ private:
     // thread-safe
     volatile int32_t mQueuedFrames;
     volatile int32_t mSidebandStreamChanged; // used like an atomic boolean
+
+    // Timestamp history for UIAutomation. Thread safe.
     FrameTracker mFrameTracker;
 
+    // Timestamp history for the consumer to query.
+    // Accessed by both consumer and producer on main and binder threads.
+    Mutex mFrameEventHistoryMutex;
+    ConsumerFrameEventHistory mFrameEventHistory;
+    FenceTimeline mAcquireTimeline;
+    FenceTimeline mReleaseTimeline;
+
     // main thread
+    int mActiveBufferSlot;
     sp<GraphicBuffer> mActiveBuffer;
     sp<NativeHandle> mSidebandStream;
     Rect mCurrentCrop;
@@ -563,7 +733,9 @@ private:
     // We encode unset as -1.
     int32_t mOverrideScalingMode;
     bool mCurrentOpacity;
+    bool mBufferLatched = false;  // TODO: Use mActiveBuffer?
     std::atomic<uint64_t> mCurrentFrameNumber;
+    uint64_t mPreviousFrameNumber; // Only accessed on the main thread.
     bool mRefreshPending;
     bool mFrameLatencyNeeded;
     // Whether filtering is forced on or not
@@ -588,7 +760,15 @@ private:
         bool forceClientComposition;
         HWC2::Composition compositionType;
         bool clearClientTarget;
+        Rect displayFrame;
+        FloatRect sourceCrop;
+        HWComposerBufferCache bufferCache;
     };
+
+    // A layer can be attached to multiple displays when operating in mirror mode
+    // (a.k.a: when several displays are attached with equal layerStack). In this
+    // case we need to keep track. In non-mirror mode, a layer will have only one
+    // HWCInfo. This map key is a display layerStack.
     std::unordered_map<int32_t, HWCInfo> mHwcLayers;
 #else
     bool mIsGlesComposition;
@@ -611,10 +791,18 @@ private:
     Condition mQueueItemCondition;
     Vector<BufferItem> mQueueItems;
     std::atomic<uint64_t> mLastFrameNumberReceived;
-    bool mUpdateTexImageFailed; // This is only modified from the main thread
+    bool mUpdateTexImageFailed; // This is only accessed on the main thread.
 
     bool mAutoRefresh;
-    bool mFreezePositionUpdates;
+    bool mFreezeGeometryUpdates;
+
+    // Child list about to be committed/used for editing.
+    LayerVector mCurrentChildren;
+    // Child list used for rendering.
+    LayerVector mDrawingChildren;
+
+    wp<Layer> mCurrentParent;
+    wp<Layer> mDrawingParent;
 };
 
 // ---------------------------------------------------------------------------

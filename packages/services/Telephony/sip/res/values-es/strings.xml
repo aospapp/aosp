@@ -48,8 +48,8 @@
     <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"Registro de cuenta incorrecto: nombre de usuario o contraseña incorrectos."</string>
     <string name="registration_status_server_unreachable" msgid="7710275557045148634">"Error al registrar la cuenta: comprueba el nombre del servidor."</string>
     <string name="third_party_account_summary" msgid="9041060473615403041">"La aplicación <xliff:g id="ACCOUNT_OWNER">%s</xliff:g> está utilizando esta cuenta en este momento."</string>
-    <string name="sip_edit_title" msgid="1967247832635750410">"Detalles de cuenta SIP"</string>
-    <string name="sip_edit_new_title" msgid="266414118302574305">"Detalles de cuenta SIP"</string>
+    <string name="sip_edit_title" msgid="1967247832635750410">"Cuenta SIP"</string>
+    <string name="sip_edit_new_title" msgid="266414118302574305">"Cuenta SIP"</string>
     <string name="domain_address_title" msgid="1968479941328225423">"Servidor"</string>
     <string name="username_title" msgid="6770064611005663470">"Nombre de usuario"</string>
     <string name="password_title" msgid="5289013731515564295">"Contraseña"</string>
@@ -63,12 +63,12 @@
     <string name="auth_username_summary" msgid="941160241371436473">"Nombre de usuario utilizado para la autenticación"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;No configurado&gt;"</string>
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;No configurada&gt;"</string>
-    <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;No configurada&gt;"</string>
+    <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;No configurado&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;Igual que el nombre de usuario&gt;"</string>
     <string name="optional_summary" msgid="2363105560396317624">"&lt;Opcional&gt;"</string>
     <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Tocar para mostrar todo"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ Toca para ocultar todo"</string>
-    <string name="all_empty_alert" msgid="4087734950375192387">"Introduce la información de la cuenta de SIP nueva."</string>
+    <string name="all_empty_alert" msgid="4087734950375192387">"Introduce la información de la nueva cuenta de SIP."</string>
     <string name="empty_alert" msgid="6659484914371384024">"El campo <xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> es obligatorio y no se puede dejar en blanco."</string>
     <string name="not_a_valid_port" msgid="7931422555587011830">"El número de puerto debe estar comprendido entre 1.000 y 65.534."</string>
     <string name="no_internet_available" msgid="5523747991760017298">"Antes de realizar una llamada SIP, comprueba tu conexión a Internet."</string>

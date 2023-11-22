@@ -3,14 +3,16 @@
 # found in the LICENSE file.
 
 from telemetry.timeline import importer
-from telemetry.timeline import trace_data as trace_data_module
+from tracing.trace_data import trace_data as trace_data_module
+
 
 class SurfaceFlingerTimelineImporter(importer.TimelineImporter):
   def __init__(self, model, trace_data):
     super(SurfaceFlingerTimelineImporter, self).__init__(
         model, trace_data, import_order=2)
-    self._events = trace_data.GetEventsFor(
-        trace_data_module.SURFACE_FLINGER_PART)
+    traces = trace_data.GetTracesFor(trace_data_module.SURFACE_FLINGER_PART)
+    assert len(traces) == 1
+    self._events = traces[0]
     self._surface_flinger_process = None
 
   @staticmethod

@@ -57,9 +57,7 @@ public abstract class SetupGuidedStepFragment extends GuidedStepFragment {
                     R.dimen.setup_done_button_container_width);
             // Guided actions list
             View list = view.findViewById(R.id.guidedactions_list);
-            View list2 = view.findViewById(R.id.guidedactions_list2);
-            MarginLayoutParams marginLayoutParams = (MarginLayoutParams) view.findViewById(
-                    R.id.guidedactions_list).getLayoutParams();
+            MarginLayoutParams marginLayoutParams = (MarginLayoutParams) list.getLayoutParams();
             // Use content view to check layout direction while view is being created.
             if (getResources().getConfiguration().getLayoutDirection()
                     == View.LAYOUT_DIRECTION_LTR) {
@@ -74,6 +72,9 @@ public abstract class SetupGuidedStepFragment extends GuidedStepFragment {
         }
         // gridView Alignment
         VerticalGridView gridView = getGuidedActionsStylist().getActionsGridView();
+        // Workaround of b/28274171
+        // TODO: Remove the following line once b/28274171 is resolved.
+        gridView.setFocusable(true);
         int offset = getResources().getDimensionPixelOffset(
                 R.dimen.setup_guidedactions_selector_margin_top);
         gridView.setWindowAlignmentOffset(offset);

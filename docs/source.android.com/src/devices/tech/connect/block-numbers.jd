@@ -212,7 +212,7 @@ Config</a></code>
 <h3 id="user-interface">User interface</h3>
 <p>
 The BlockedNumbersActivity.java user interface provided in AOSP can be used as
-is. Partners may also implement their own version of the UI, as long as it
+is. Device implementers may also implement their own version of the UI, as long as it
 satisfies related CDD requirements.
 </p>
 

@@ -19,7 +19,6 @@ package com.squareup.okhttp;
 import com.squareup.okhttp.internal.Internal;
 import com.squareup.okhttp.internal.SslContextBuilder;
 import com.squareup.okhttp.internal.Util;
-import com.squareup.okhttp.internal.io.FileSystem;
 import com.squareup.okhttp.internal.io.InMemoryFileSystem;
 import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.MockWebServer;
@@ -81,9 +80,9 @@ public final class UrlConnectionCacheTest {
 
   @Rule public MockWebServer server = new MockWebServer();
   @Rule public MockWebServer server2 = new MockWebServer();
+  @Rule public InMemoryFileSystem fileSystem = new InMemoryFileSystem();
 
   private final SSLContext sslContext = SslContextBuilder.localhost();
-  private final FileSystem fileSystem = new InMemoryFileSystem();
   private final OkUrlFactory client = new OkUrlFactory(new OkHttpClient());
   private Cache cache;
   private final CookieManager cookieManager = new CookieManager();
@@ -98,6 +97,7 @@ public final class UrlConnectionCacheTest {
   @After public void tearDown() throws Exception {
     ResponseCache.setDefault(null);
     CookieHandler.setDefault(null);
+    cache.delete();
   }
 
   @Test public void responseCacheAccessWithOkHttpMember() throws IOException {
@@ -855,7 +855,7 @@ public final class UrlConnectionCacheTest {
 
     assertEquals("A", readAscii(client.open(server.getUrl("/"))));
     assertEquals("A", readAscii(client.open(server.getUrl("/"))));
-    assertEquals(1, client.client().getConnectionPool().getConnectionCount());
+    assertEquals(1, client.client().getConnectionPool().getIdleConnectionCount());
   }
 
   @Test public void expiresDateBeforeModifiedDate() throws Exception {
@@ -1586,6 +1586,7 @@ public final class UrlConnectionCacheTest {
 
     HttpURLConnection connection = client.open(server.getUrl("/"));
     assertEquals("A", connection.getHeaderField(""));
+    assertEquals("body", readAscii(connection));
   }
 
   /**

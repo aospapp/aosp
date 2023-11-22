@@ -107,13 +107,24 @@
             android:fontFamily="@string/condensed_font"
             android:textSize="@dimen/channel_banner_small_text_size" />
 
+        <TextView android:id="@+id/recording_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:layout_alignBottom="@id/channel_name"
+            android:layout_toEndOf="@id/program_time_text"
+            android:drawableStart="@drawable/ic_recording_program"
+            android:textColor="@color/channel_banner_dim_text_color"
+            android:fontFamily="@string/condensed_font"
+            android:textSize="@dimen/channel_banner_small_text_size" />
+
         <ProgressBar
             android:id="@+id/remaining_time"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="60dp"
             android:layout_height="4dp"
             android:layout_alignBottom="@id/anchor"
-            android:layout_toEndOf="@id/program_time_text"
+            android:layout_toEndOf="@id/recording_indicator"
             android:layout_marginEnd="12dp"
             android:layout_marginBottom="0.5dp"
             android:mirrorForRtl="false"

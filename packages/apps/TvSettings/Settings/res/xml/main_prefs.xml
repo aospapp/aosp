@@ -80,7 +80,7 @@
             android:icon="@drawable/ic_keyboard"
             android:key="keyboard"
             android:title="@string/system_keyboard"
-            android:fragment="com.android.tv.settings.system.KeyboardFragment" />
+            android:fragment="com.android.tv.settings.inputmethod.KeyboardFragment" />
         <Preference
             android:icon="@drawable/ic_home"
             android:key="home"
@@ -94,10 +94,10 @@
             <intent android:action="android.search.action.SEARCH_SETTINGS" />
         </Preference>
         <Preference
-            android:key="googleSettings">
+            android:key="google_settings"
+            android:title="@string/system_google" >
             <intent
-                android:action="com.android.settings.action.TV_SETTINGS"
-                android:targetPackage="com.google.android.gms" />
+                android:action="com.google.assistant.GOOGLE_SETTINGS" />
         </Preference>
         <Preference
             android:icon="@drawable/ic_mic"

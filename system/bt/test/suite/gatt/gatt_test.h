@@ -25,10 +25,14 @@ namespace bttest {
 // helpers and callbacks for GUnit to use for testing gatt.
 class GattTest : public BluetoothTest,
                  public bluetooth::hal::BluetoothGattInterface::ClientObserver,
+                 public bluetooth::hal::BluetoothGattInterface::ScannerObserver,
                  public bluetooth::hal::BluetoothGattInterface::ServerObserver {
  protected:
   GattTest() = default;
   virtual ~GattTest() = default;
+
+  // Gets the gatt_scanner_interface
+  const BleScannerInterface* gatt_scanner_interface();
 
   // Gets the gatt_client_interface
   const btgatt_client_interface_t* gatt_client_interface();
@@ -54,40 +58,25 @@ class GattTest : public BluetoothTest,
 
   // bluetooth::hal::BluetoothGattInterface::ClientObserver overrides
   void RegisterClientCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int clientIf, const bt_uuid_t& app_uuid) override;
-  void ScanResultCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      const bt_bdaddr_t& bda, int rssi, uint8_t* adv_data) override;
-  void ListenCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int client_if) override;
+      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
+      int clientIf, const bt_uuid_t& app_uuid) override;
+  void ScanResultCallback(bluetooth::hal::BluetoothGattInterface* /* unused */,
+                          const bt_bdaddr_t& bda, int rssi,
+                          std::vector<uint8_t> adv_data) override;
 
   // bluetooth::hal::BluetoothGattInterface::ServerObserver overrides
   void RegisterServerCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, const bt_uuid_t& uuid) override;
+      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
+      int server_if, const bt_uuid_t& uuid) override;
   void ServiceAddedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, const btgatt_srvc_id_t& srvc_id,
-      int srvc_handle) override;
-  void CharacteristicAddedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, const bt_uuid_t& char_id,
-      int srvc_handle, int char_handle) override;
-  void DescriptorAddedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, const bt_uuid_t& descr_id,
-      int srvc_handle, int descr_handle) override;
-  void ServiceStartedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, int srvc_handle) override;
+      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
+      int server_if, std::vector<btgatt_db_element_t> service) override;
   void ServiceStoppedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, int srvc_handle) override;
+      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
+      int server_if, int srvc_handle) override;
   void ServiceDeletedCallback(
-      bluetooth::hal::BluetoothGattInterface* /* unused */,
-      int status, int server_if, int srvc_handle) override;
+      bluetooth::hal::BluetoothGattInterface* /* unused */, int status,
+      int server_if, int srvc_handle) override;
 
   // Semaphores used to wait for specific callback execution. Each callback
   // has its own semaphore associated with it
@@ -104,6 +93,10 @@ class GattTest : public BluetoothTest,
   semaphore_t* service_deleted_callback_sem_;
 
  private:
+  // The btgatt_scanner_interface_t that all the tests use to interact with the
+  // HAL
+  const BleScannerInterface* gatt_scanner_interface_;
+
   // The gatt_client_interface that all the tests use to interact with the HAL
   const btgatt_client_interface_t* gatt_client_interface_;
 

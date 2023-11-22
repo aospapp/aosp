@@ -16,19 +16,14 @@
 
 package android.content.cts;
 
-import android.content.cts.R;
-
-
 import android.accounts.Account;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
-import android.cts.util.PollingCheck;
 import android.database.ContentObserver;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -37,6 +32,9 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.PollingCheck;
+import com.android.internal.util.ArrayUtils;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -55,8 +53,6 @@ public class ContentResolverTest extends AndroidTestCase {
     private static final Uri TABLE1_CROSS_URI =
             Uri.parse("content://" + AUTHORITY + "/testtable1/cross");
     private static final Uri TABLE2_URI = Uri.parse("content://" + AUTHORITY + "/testtable2/");
-    private static final Uri SELF_URI = Uri.parse("content://" + AUTHORITY + "/self/");
-    private static final Uri CRASH_URI = Uri.parse("content://" + AUTHORITY + "/crash/");
 
     private static final Uri LEVEL1_URI = Uri.parse("content://" + AUTHORITY + "/level/");
     private static final Uri LEVEL2_URI = Uri.parse("content://" + AUTHORITY + "/level/child");
@@ -215,7 +211,7 @@ public class ContentResolverTest extends AndroidTestCase {
         // Verify we can still access it.
         String type1 = mContentResolver.getType(REMOTE_TABLE1_URI);
         assertTrue(type1.startsWith(ContentResolver.CURSOR_DIR_BASE_TYPE, 0));
-        
+
         // Get an unstable refrence on the remote content provider.
         ContentProviderClient uClient = mContentResolver.acquireUnstableContentProviderClient(
                 REMOTE_AUTHORITY);
@@ -305,7 +301,7 @@ public class ContentResolverTest extends AndroidTestCase {
     }
 
     public void testQuery() {
-        mCursor = mContentResolver.query(TABLE1_URI, null, null, null, null);
+        mCursor = mContentResolver.query(TABLE1_URI, null, null, null);
 
         assertNotNull(mCursor);
         assertEquals(3, mCursor.getCount());
@@ -321,9 +317,14 @@ public class ContentResolverTest extends AndroidTestCase {
         assertEquals(KEY2, mCursor.getString(mCursor.getColumnIndexOrThrow(COLUMN_KEY_NAME)));
         assertEquals(VALUE2, mCursor.getInt(mCursor.getColumnIndexOrThrow(COLUMN_VALUE_NAME)));
         mCursor.close();
+    }
 
-        String selection = COLUMN_ID_NAME + "=1";
-        mCursor = mContentResolver.query(TABLE1_URI, null, selection, null, null);
+    public void testQuery_WithSqlSelectionArgs() {
+        Bundle queryArgs = new Bundle();
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, COLUMN_ID_NAME + "=?");
+        queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, new String[] {"1"});
+
+        mCursor = mContentResolver.query(TABLE1_URI, null, queryArgs, null);
         assertNotNull(mCursor);
         assertEquals(1, mCursor.getCount());
         assertEquals(3, mCursor.getColumnCount());
@@ -334,8 +335,9 @@ public class ContentResolverTest extends AndroidTestCase {
         assertEquals(VALUE1, mCursor.getInt(mCursor.getColumnIndexOrThrow(COLUMN_VALUE_NAME)));
         mCursor.close();
 
-        selection = COLUMN_KEY_NAME + "=\"" + KEY3 + "\"";
-        mCursor = mContentResolver.query(TABLE1_URI, null, selection, null, null);
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, COLUMN_KEY_NAME + "=?");
+        queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, new String[] {KEY3});
+        mCursor = mContentResolver.query(TABLE1_URI, null, queryArgs, null);
         assertNotNull(mCursor);
         assertEquals(1, mCursor.getCount());
         assertEquals(3, mCursor.getColumnCount());
@@ -345,7 +347,118 @@ public class ContentResolverTest extends AndroidTestCase {
         assertEquals(KEY3, mCursor.getString(mCursor.getColumnIndexOrThrow(COLUMN_KEY_NAME)));
         assertEquals(VALUE3, mCursor.getInt(mCursor.getColumnIndexOrThrow(COLUMN_VALUE_NAME)));
         mCursor.close();
+    }
 
+    /*
+     * NOTE: this test is implicitly coupled to the implementation
+     * of MockContentProvider#query, specifically the facts:
+     *
+     * - it does *not* override the query w/ Bundle methods
+     * - it receives the auto-generated sql format arguments (supplied by the framework)
+     * - it is backed by sqlite and forwards the sql formatted args.
+     */
+    public void testQuery_SqlSortingFromBundleArgs() {
+
+        mContentResolver.delete(TABLE1_URI, null, null);
+        ContentValues values = new ContentValues();
+
+        values.put(COLUMN_KEY_NAME, "0");
+        values.put(COLUMN_VALUE_NAME, "abc");
+        mContentResolver.insert(TABLE1_URI, values);
+
+        values.put(COLUMN_KEY_NAME, "1");
+        values.put(COLUMN_VALUE_NAME, "DEF");
+        mContentResolver.insert(TABLE1_URI, values);
+
+        values.put(COLUMN_KEY_NAME, "2");
+        values.put(COLUMN_VALUE_NAME, "ghi");
+        mContentResolver.insert(TABLE1_URI, values);
+
+        String[] sortCols = new String[] { COLUMN_VALUE_NAME };
+        Bundle queryArgs = new Bundle();
+        queryArgs.putStringArray(
+                ContentResolver.QUERY_ARG_SORT_COLUMNS,
+                sortCols);
+
+        // Sort ascending...
+        queryArgs.putInt(
+                ContentResolver.QUERY_ARG_SORT_DIRECTION,
+                ContentResolver.QUERY_SORT_DIRECTION_ASCENDING);
+
+        mCursor = mContentResolver.query(TABLE1_URI, sortCols, queryArgs, null);
+        int col = mCursor.getColumnIndexOrThrow(COLUMN_VALUE_NAME);
+
+        mCursor.moveToNext();
+        assertEquals("DEF", mCursor.getString(col));
+        mCursor.moveToNext();
+        assertEquals("abc", mCursor.getString(col));
+        mCursor.moveToNext();
+        assertEquals("ghi", mCursor.getString(col));
+
+        mCursor.close();
+
+        // Nocase collation, descending...
+        queryArgs.putInt(
+                ContentResolver.QUERY_ARG_SORT_DIRECTION,
+                ContentResolver.QUERY_SORT_DIRECTION_DESCENDING);
+        queryArgs.putInt(
+                ContentResolver.QUERY_ARG_SORT_COLLATION,
+                java.text.Collator.SECONDARY);
+
+        mCursor = mContentResolver.query(TABLE1_URI, null, queryArgs, null);
+        col = mCursor.getColumnIndexOrThrow(COLUMN_VALUE_NAME);
+
+        mCursor.moveToNext();
+        assertEquals("ghi", mCursor.getString(col));
+        mCursor.moveToNext();
+        assertEquals("DEF", mCursor.getString(col));
+        mCursor.moveToNext();
+        assertEquals("abc", mCursor.getString(col));
+
+        mCursor.close();
+    }
+
+    /**
+     * Verifies that paging information is correctly relayed, and that
+     * honored arguments from a supporting client are returned correctly.
+     */
+    public void testQuery_PagedResults() {
+
+        Bundle queryArgs = new Bundle();
+        queryArgs.putInt(ContentResolver.QUERY_ARG_OFFSET, 10);
+        queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, 3);
+        queryArgs.putInt(TestPagingContentProvider.RECORD_COUNT, 100);
+
+        mCursor = mContentResolver.query(
+                TestPagingContentProvider.PAGED_DATA_URI, null, queryArgs, null);
+
+        Bundle extras = mCursor.getExtras();
+        extras = extras != null ? extras : Bundle.EMPTY;
+
+        assertEquals(3, mCursor.getCount());
+        assertTrue(extras.containsKey(ContentResolver.EXTRA_TOTAL_COUNT));
+        assertEquals(100, extras.getInt(ContentResolver.EXTRA_TOTAL_COUNT));
+
+        String[] honoredArgs = extras.getStringArray(ContentResolver.EXTRA_HONORED_ARGS);
+        assertNotNull(honoredArgs);
+        assertTrue(ArrayUtils.contains(honoredArgs, ContentResolver.QUERY_ARG_OFFSET));
+        assertTrue(ArrayUtils.contains(honoredArgs, ContentResolver.QUERY_ARG_LIMIT));
+
+        int col = mCursor.getColumnIndexOrThrow(TestPagingContentProvider.COLUMN_POS);
+
+        mCursor.moveToNext();
+        assertEquals(10, mCursor.getInt(col));
+        mCursor.moveToNext();
+        assertEquals(11, mCursor.getInt(col));
+        mCursor.moveToNext();
+        assertEquals(12, mCursor.getInt(col));
+
+        assertFalse(mCursor.moveToNext());
+
+        mCursor.close();
+    }
+
+    public void testQuery_NullUriThrows() {
         try {
             mContentResolver.query(null, null, null, null, null);
             fail("did not throw NullPointerException when uri is null.");
@@ -567,7 +680,7 @@ public class ContentResolverTest extends AndroidTestCase {
                 }
             }
         }
-        
+
     }
 
     public void testCrashingOpenAssetFileDescriptor() throws IOException {
@@ -907,6 +1020,44 @@ public class ContentResolverTest extends AndroidTestCase {
             fail("did not throw IllegalArgumentException when values are null.");
         } catch (IllegalArgumentException e) {
             //expected.
+        }
+    }
+
+    public void testRefresh_DefaultImplReturnsFalse() {
+        boolean refreshed = mContentResolver.refresh(TABLE1_URI, null, null);
+        assertFalse(refreshed);
+        MockContentProvider.assertRefreshed(TABLE1_URI);
+    }
+
+    public void testRefresh_ReturnsProviderValue() {
+        try {
+            MockContentProvider.setRefreshReturnValue(true);
+            boolean refreshed = mContentResolver.refresh(TABLE1_URI, null, null);
+            assertTrue(refreshed);
+            MockContentProvider.assertRefreshed(TABLE1_URI);
+        } finally {
+            MockContentProvider.setRefreshReturnValue(false);
+        }
+    }
+
+    public void testRefresh_NullUriThrowsImmediately() {
+        try {
+            mContentResolver.refresh(null, null, null);
+            fail("did not throw NullPointerException when uri is null.");
+        } catch (NullPointerException e) {
+            //expected.
+        }
+    }
+
+    public void testRefresh_CancellableThrowsImmediately() {
+        CancellationSignal cancellationSignal = new CancellationSignal();
+        cancellationSignal.cancel();
+
+        try {
+            mContentResolver.refresh(TABLE1_URI, null, cancellationSignal);
+            fail("Expected OperationCanceledException");
+        } catch (OperationCanceledException ex) {
+            // expected
         }
     }
 

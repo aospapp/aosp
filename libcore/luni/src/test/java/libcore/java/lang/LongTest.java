@@ -16,6 +16,7 @@
 
 package libcore.java.lang;
 
+import java.math.BigInteger;
 import java.util.Properties;
 
 public class LongTest extends junit.framework.TestCase {
@@ -162,5 +163,111 @@ public class LongTest extends junit.framework.TestCase {
 
     public void testBYTES() {
         assertEquals(8, Long.BYTES);
+    }
+
+    public void testCompareUnsigned() {
+        long[] ordVals = {0L, 1L, 23L, 456L, 0x7fff_ffff_ffff_ffffL, 0x8000_0000_0000_0000L,
+                0xffff_ffff_ffff_ffffL};
+        for(int i = 0; i < ordVals.length; ++i) {
+            for(int j = 0; j < ordVals.length; ++j) {
+                assertEquals(Integer.compare(i, j),
+                        Long.compareUnsigned(ordVals[i], ordVals[j]));
+            }
+        }
+    }
+
+    public void testDivideAndRemainderUnsigned() {
+        BigInteger[] vals = {
+                BigInteger.ONE,
+                BigInteger.valueOf(23L),
+                BigInteger.valueOf(456L),
+                BigInteger.valueOf(0x7fff_ffff_ffff_ffffL),
+                BigInteger.valueOf(0x7fff_ffff_ffff_ffffL).add(BigInteger.ONE),
+                BigInteger.valueOf(2).shiftLeft(63).subtract(BigInteger.ONE)
+        };
+
+        for(BigInteger dividend : vals) {
+            for(BigInteger divisor : vals) {
+                long uq = Long.divideUnsigned(dividend.longValue(), divisor.longValue());
+                long ur = Long.remainderUnsigned(dividend.longValue(), divisor.longValue());
+                assertEquals(dividend.divide(divisor).longValue(), uq);
+                assertEquals(dividend.remainder(divisor).longValue(), ur);
+                assertEquals(dividend.longValue(), uq * divisor.longValue() + ur);
+            }
+        }
+
+        for(BigInteger dividend : vals) {
+            try {
+                Long.divideUnsigned(dividend.longValue(), 0);
+                fail();
+            } catch (ArithmeticException expected) { }
+            try {
+                Long.remainderUnsigned(dividend.longValue(), 0);
+                fail();
+            } catch (ArithmeticException expected) { }
+        }
+    }
+
+    public void testParseUnsignedLong() {
+        long[] vals = {0L, 1L, 23L, 456L, 0x7fff_ffff_ffff_ffffL, 0x8000_0000_0000_0000L,
+                0xffff_ffff_ffff_ffffL};
+
+        for(long val : vals) {
+            // Special radices
+            assertEquals(val, Long.parseUnsignedLong(Long.toBinaryString(val), 2));
+            assertEquals(val, Long.parseUnsignedLong(Long.toOctalString(val), 8));
+            assertEquals(val, Long.parseUnsignedLong(Long.toUnsignedString(val)));
+            assertEquals(val, Long.parseUnsignedLong(Long.toHexString(val), 16));
+
+            for(int radix = Character.MIN_RADIX; radix <= Character.MAX_RADIX; ++radix) {
+                assertEquals(val,
+                        Long.parseUnsignedLong(Long.toUnsignedString(val, radix), radix));
+            }
+        }
+
+        try {
+            Long.parseUnsignedLong("-1");
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Long.parseUnsignedLong("123", 2);
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Long.parseUnsignedLong(null, 2);
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Long.parseUnsignedLong("0", Character.MAX_RADIX + 1);
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Long.parseUnsignedLong("0", Character.MIN_RADIX - 1);
+            fail();
+        } catch (NumberFormatException expected) { }
+    }
+
+    public void testToUnsignedString() {
+        long[] vals = {0L, 1L, 23L, 456L, 0x7fff_ffff_ffff_ffffL, 0x8000_0000_0000_0000L,
+                0xffff_ffff_ffff_ffffL};
+
+        for(long val : vals) {
+            // Special radices
+            assertTrue(Long.toUnsignedString(val, 2).equals(Long.toBinaryString(val)));
+            assertTrue(Long.toUnsignedString(val, 8).equals(Long.toOctalString(val)));
+            assertTrue(Long.toUnsignedString(val, 10).equals(Long.toUnsignedString(val)));
+            assertTrue(Long.toUnsignedString(val, 16).equals(Long.toHexString(val)));
+
+            for(int radix = Character.MIN_RADIX; radix <= Character.MAX_RADIX; ++radix) {
+                int upper = (int) (val >>> 32), lower = (int) val;
+                BigInteger b = (BigInteger.valueOf(Integer.toUnsignedLong(upper))).shiftLeft(32).
+                        add(BigInteger.valueOf(Integer.toUnsignedLong(lower)));
+
+                assertTrue(Long.toUnsignedString(val, radix).equals(b.toString(radix)));
+            }
+
+            // Behavior is not defined by Java API specification if the radix falls outside of valid
+            // range, thus we don't test for such cases.
+        }
     }
 }

@@ -31,7 +31,8 @@ clcore_base_files := \
     rs_convert.c \
     rs_quaternion.c
 
-clcore_cflags := -Iframeworks/rs/cpu_ref -DRS_DECLARE_EXPIRED_APIS
+clcore_cflags := -Werror -Wall -Wextra \
+	         -Iframeworks/rs/cpu_ref -DRS_DECLARE_EXPIRED_APIS
 
 clcore_base_files_32 := \
     ll32/allocation.ll
@@ -169,7 +170,7 @@ include $(CLEAR_VARS)
 # FIXME for 64-bit
 LOCAL_32_BIT_ONLY := true
 
-BCC_RS_TRIPLE := armv7-linux-androideabi
+BCC_RS_TRIPLE := renderscript32-linux-androideabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm.bc
 LOCAL_IS_HOST_MODULE := true
@@ -183,7 +184,7 @@ include $(CLEAR_VARS)
 # FIXME for 64-bit
 LOCAL_32_BIT_ONLY := true
 
-BCC_RS_TRIPLE := armv7-linux-androideabi
+BCC_RS_TRIPLE := renderscript32-linux-androideabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_mips.bc
 LOCAL_IS_HOST_MODULE := true
@@ -197,7 +198,7 @@ include $(CLEAR_VARS)
 # FIXME for 64-bit
 LOCAL_32_BIT_ONLY := true
 
-BCC_RS_TRIPLE := armv7-linux-androideabi
+BCC_RS_TRIPLE := renderscript32-linux-androideabi
 RS_TRIPLE_CFLAGS := -D__i386__
 LOCAL_MODULE := librsrt_x86.bc
 LOCAL_IS_HOST_MODULE := true
@@ -207,7 +208,7 @@ include $(LOCAL_PATH)/build_bc_lib.mk
 
 include $(CLEAR_VARS)
 
-BCC_RS_TRIPLE := aarch64-linux-android
+BCC_RS_TRIPLE := renderscript64-linux-android
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm64.bc
 LOCAL_IS_HOST_MODULE := true
@@ -218,7 +219,7 @@ include $(LOCAL_PATH)/build_bc_lib.mk
 # Build the x86_64 version of the library
 include $(CLEAR_VARS)
 
-BCC_RS_TRIPLE := aarch64-linux-android
+BCC_RS_TRIPLE := renderscript64-linux-android
 RS_TRIPLE_CFLAGS := -D__x86_64__
 LOCAL_MODULE := librsrt_x86_64.bc
 LOCAL_IS_HOST_MODULE := true

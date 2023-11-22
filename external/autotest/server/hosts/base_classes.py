@@ -17,11 +17,8 @@ poirier@google.com (Benjamin Poirier),
 stutsman@google.com (Ryan Stutsman)
 """
 
-import os
-
 from autotest_lib.client.common_lib import hosts
 from autotest_lib.server import utils
-from autotest_lib.server.hosts import bootloader
 
 
 class Host(hosts.Host):
@@ -52,6 +49,7 @@ class Host(hosts.Host):
     """
 
     bootloader = None
+    support_devserver_provision = False
 
 
     def __init__(self, *args, **dargs):
@@ -62,15 +60,11 @@ class Host(hosts.Host):
             self.job.hosts.add(self)
 
 
-    def _initialize(self, target_file_owner=None,
-                    *args, **dargs):
+    def _initialize(self, *args, **dargs):
         super(Host, self)._initialize(*args, **dargs)
 
         self.serverdir = utils.get_server_dir()
-        self.monitordir = os.path.join(os.path.dirname(__file__), "monitors")
-        self.bootloader = bootloader.Bootloader(self)
         self.env = {}
-        self.target_file_owner = target_file_owner
 
 
     def close(self):

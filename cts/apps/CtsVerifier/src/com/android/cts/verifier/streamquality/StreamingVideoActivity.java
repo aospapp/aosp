@@ -109,7 +109,7 @@ public class StreamingVideoActivity extends PassFailButtons.TestListActivity {
             "618FBB112E1B2FBB66DA9F203AE8CC7DF93C7400" +
             ".20498AA006E999F42BE69D66E3596F2C7CA18114";
     private static final String RTSP_LOOKUP_URI_TEMPLATE =
-            "http://redirector.c.youtube.com/videoplayback?id=271de9756065677e" +
+            "http://redirector.gvt1.com/videoplayback?id=271de9756065677e" +
             "&source=youtube&protocol=rtsp&sparams=ip,ipbits,expire,id,itag,source" +
             "&ip=0.0.0.0&ipbits=0&expire=19000000000&key=ik0&alr=yes" +
             "&itag=%d" +

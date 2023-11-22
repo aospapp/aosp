@@ -38,6 +38,7 @@ public class DisposeDuringInvokeDebuggee extends SyncDebuggee {
             super("DebuggeeThread");
         }
 
+        @Override
         public void run() {
             breakpointMethod();
         }
@@ -52,6 +53,7 @@ public class DisposeDuringInvokeDebuggee extends SyncDebuggee {
     /**
      * The method called by the DebuggeeThread through JDWP.
      */
+    @SuppressWarnings("unused")
     private void invokeMethodWithSynchronization() {
         logWriter.println("#START invokeMethodWithSynchronization");
 

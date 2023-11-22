@@ -16,202 +16,84 @@
 
 package com.android.cts.verifier.security;
 
-import android.app.Service;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
-import android.os.Bundle;
-import android.os.IBinder;
+import android.security.KeyChain;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
-import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
 
-import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.LinkedBlockingQueue;
 
-public class CAInstallNotificationVerifierActivity extends PassFailButtons.Activity
-implements Runnable {
+import com.android.cts.verifier.ArrayTestListAdapter;
+import com.android.cts.verifier.DialogTestListActivity;
+import com.android.cts.verifier.TestListActivity;
+import com.android.cts.verifier.TestListAdapter.TestListItem;
+import com.android.cts.verifier.TestResult;
+
+public class CAInstallNotificationVerifierActivity extends DialogTestListActivity {
     static final String TAG = CAInstallNotificationVerifierActivity.class.getSimpleName();
-    private static final String STATE = "state";
-    private static final int PASS = 1;
-    private static final int FAIL = 2;
-    private static final int WAIT_FOR_USER = 3;
-    private static LinkedBlockingQueue<String> sDeletedQueue = new LinkedBlockingQueue<String>();
-
-    private int mState;
-    private int[] mStatus;
-    private LayoutInflater mInflater;
-    private ViewGroup mItemList;
-    private Runnable mRunner;
-    private View mHandler;
 
     private static final String CERT_ASSET_NAME = "myCA.cer";
-    private File certStagingFile = new File("/sdcard/", CERT_ASSET_NAME);
 
-    protected boolean doneInstallingCert = false;
-    protected boolean doneCheckingInSettings = false;
-    protected boolean doneRemovingScreenLock = false;
-    protected boolean doneCheckingNotification = false;
-    protected boolean doneDismissingNotification = false;
+    // From @hidden field in android.provider.Settings
+    private static final String ACTION_TRUSTED_CREDENTIALS_USER
+            = "com.android.settings.TRUSTED_CREDENTIALS_USER";
 
-
-    public static class DismissService extends Service {
-        @Override
-        public IBinder onBind(Intent intent) {
-            return null;
-        }
-
-        @Override
-        public void onStart(Intent intent, int startId) {
-            sDeletedQueue.offer(intent.getAction());
-        }
+    public CAInstallNotificationVerifierActivity() {
+        super(R.layout.cainstallnotify_main, R.string.cacert_test, R.string.cacert_info,
+                R.string.cacert_info);
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        if (savedInstanceState != null) {
-            mState = savedInstanceState.getInt(STATE, 0);
-        }
-        mRunner = this;
-        mInflater = getLayoutInflater();
-        View view = mInflater.inflate(R.layout.cainstallnotify_main, null);
-        mItemList = (ViewGroup) view.findViewById(R.id.ca_notify_test_items);
-        mHandler = mItemList;
-        createTestItems();
-        mStatus = new int[mItemList.getChildCount()];
-        setContentView(view);
-
-        setPassFailButtonClickListeners();
-        setInfoResources(R.string.cacert_test, R.string.cacert_info, -1);
+    protected void setupTests(final ArrayTestListAdapter testAdapter) {
+        testAdapter.add(new InstallCertItem(this,
+                R.string.cacert_install_cert,
+                "install_cert",
+                KeyChain.createInstallIntent()));
+        testAdapter.add(new DialogTestListItem(this,
+                R.string.cacert_check_cert_in_settings,
+                "check_cert",
+                R.string.cacert_check_cert_in_settings,
+                new Intent(ACTION_TRUSTED_CREDENTIALS_USER)));
+        testAdapter.add(new DialogTestListItem(this,
+                R.string.cacert_remove_screen_lock,
+                "remove_screen_lock",
+                R.string.cacert_remove_screen_lock,
+                new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD)));
+        testAdapter.add(new DialogTestListItem(this,
+                R.string.cacert_check_notification,
+                "check_notification") {
+                    @Override
+                    public void performTest(DialogTestListActivity activity) {
+                        setTestResult(this, TestResult.TEST_RESULT_PASSED);
+                    }
+                });
+        testAdapter.add(new DialogTestListItem(this,
+                R.string.cacert_dismiss_notification,
+                "dismiss_notification") {
+                    @Override
+                    public void performTest(DialogTestListActivity activity) {
+                        setTestResult(this, TestResult.TEST_RESULT_PASSED);
+                    }
+                });
     }
 
-    @Override
-    protected void onSaveInstanceState (Bundle outState) {
-        outState.putInt(STATE, mState);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        next();
-    }
-
-    // Interface Utilities
-
-    private void createTestItems() {
-        createUserItem(R.string.cacert_install_cert, new InstallCert());
-        createUserItem(R.string.cacert_check_cert_in_settings, new OpenTrustedCredentials());
-        createUserItem(R.string.cacert_remove_screen_lock, new RemoveScreenLock());
-        createUserItem(R.string.cacert_check_notification,
-                new DoneCheckingNotification(), R.string.cacert_done);
-        createUserItem(R.string.cacert_dismiss_notification,
-                new DoneCheckingDismissed(), R.string.cacert_done);
-    }
-
-    private void setItemState(int index, boolean passed) {
-        ViewGroup item = (ViewGroup) mItemList.getChildAt(index);
-        ImageView status = (ImageView) item.findViewById(R.id.ca_notify_status);
-        status.setImageResource(passed ? R.drawable.fs_good : R.drawable.fs_error);
-        View button = item.findViewById(R.id.ca_notify_do_something);
-        button.setClickable(false);
-        button.setEnabled(false);
-        status.invalidate();
-    }
-
-    private void markItemWaiting(int index) {
-        ViewGroup item = (ViewGroup) mItemList.getChildAt(index);
-        ImageView status = (ImageView) item.findViewById(R.id.ca_notify_status);
-        status.setImageResource(R.drawable.fs_warning);
-        status.invalidate();
-    }
-
-    private View createUserItem(int stringId, OnClickListener listener) {
-        return createUserItem(stringId, listener, 0);
-    }
-
-    private View createUserItem(int stringId, OnClickListener listener, int buttonLabel) {
-        View item = mInflater.inflate(R.layout.cainstallnotify_item, mItemList, false);
-        TextView instructions = (TextView) item.findViewById(R.id.ca_notify_instructions);
-        instructions.setText(stringId);
-        Button button = (Button) item.findViewById(R.id.ca_notify_do_something);
-        if (buttonLabel != 0) {
-            button.setText(buttonLabel);
-        }
-        button.setOnClickListener(listener);
-        mItemList.addView(item);
-        return item;
-    }
-
-    // Test management
-
-    public void run() {
-        while (mState < mStatus.length && mStatus[mState] != WAIT_FOR_USER) {
-            if (mStatus[mState] == PASS) {
-                setItemState(mState, true);
-                mState++;
-            } else if (mStatus[mState] == FAIL) {
-                setItemState(mState, false);
-                return;
-            } else {
-                break;
-            }
+    private class InstallCertItem extends DialogTestListItem {
+        public InstallCertItem(Context context, int nameResId, String testId, Intent intent) {
+            super(context, nameResId, testId, nameResId, intent);
         }
 
-        if (mState < mStatus.length && mStatus[mState] == WAIT_FOR_USER) {
-            markItemWaiting(mState);
-        }
-
-        switch (mState) {
-            case 0:
-                testInstalledCert(0);
-                break;
-            case 1:
-                testCheckedSettings(1);
-                break;
-            case 2:
-                testRemovedScreenLock(2);
-                break;
-            case 3:
-                testCheckedNotification(3);
-                break;
-            case 4:
-                testNotificationDismissed(4);
-                break;
-        }
-    }
-
-    /**
-     * Return to the state machine to progress through the tests.
-     */
-    private void next() {
-        mHandler.post(mRunner);
-    }
-
-    /**
-     * Wait for things to settle before returning to the state machine.
-     */
-    private void delay() {
-        mHandler.postDelayed(mRunner, 2000);
-    }
-
-    // Listeners
-
-    class InstallCert implements OnClickListener {
         @Override
-        public void onClick(View v) {
+        public void performTest(DialogTestListActivity activity) {
+            final File certStagingFile = new File("/sdcard/", CERT_ASSET_NAME);
             InputStream is = null;
             FileOutputStream os = null;
             try {
@@ -232,97 +114,7 @@ implements Runnable {
                 Log.w(TAG, "Problem moving cert file to /sdcard/", ioe);
                 return;
             }
-            try {
-                startActivity(new Intent("android.credentials.INSTALL"));
-            } catch (ActivityNotFoundException e) {
-                // do nothing
-            }
-            doneInstallingCert = true;
-        }
-    }
-
-    class OpenTrustedCredentials implements OnClickListener {
-        @Override
-        public void onClick(View v) {
-            try {
-                startActivity(new Intent("com.android.settings.TRUSTED_CREDENTIALS_USER"));
-            } catch (ActivityNotFoundException e) {
-                // do nothing
-            }
-            doneCheckingInSettings = true;
-        }
-    }
-
-    class RemoveScreenLock implements OnClickListener {
-        @Override
-        public void onClick(View v) {
-            try {
-                startActivity(new Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD));
-            } catch (ActivityNotFoundException e) {
-                Log.w(TAG, "Activity not found for ACTION_SET_NEW_PASSWORD");
-            }
-            doneRemovingScreenLock = true;
-        }
-    }
-
-    class DoneCheckingNotification implements OnClickListener {
-        @Override
-        public void onClick(View v) {
-            doneCheckingNotification = true;
-        }
-    }
-
-    class DoneCheckingDismissed implements OnClickListener {
-        @Override
-        public void onClick(View v) {
-            doneDismissingNotification = true;
-        }
-    }
-
-    // Tests
-
-    private void testInstalledCert(final int i) {
-        if (doneInstallingCert) {
-            mStatus[i] = PASS;
-            next();
-        } else {
-            delay();
-        }
-    }
-
-    private void testCheckedSettings(final int i) {
-        if (doneCheckingInSettings) {
-            mStatus[i] = PASS;
-            next();
-        } else {
-            delay();
-        }
-    }
-
-    private void testRemovedScreenLock(final int i) {
-        if (doneRemovingScreenLock) {
-            mStatus[i] = PASS;
-            next();
-        } else {
-            delay();
-        }
-    }
-
-    private void testCheckedNotification(final int i) {
-        if (doneCheckingNotification) {
-            mStatus[i] = PASS;
-            next();
-        } else {
-            delay();
-        }
-    }
-
-    private void testNotificationDismissed(final int i) {
-        if (doneDismissingNotification) {
-            mStatus[i] = PASS;
-            next();
-        } else {
-            delay();
+            super.performTest(activity);
         }
     }
 }

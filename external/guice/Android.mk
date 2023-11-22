@@ -89,7 +89,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := guava-hostdex jsr330-hostdex
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 munge_src_arguments := $(guice_src_files)
 include $(LOCAL_PATH)/AndroidCallMunge.mk
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
 
 ###################################
 #           Munge                 #
@@ -111,7 +111,7 @@ munge_zipped_src_files := $(filter-out $(munge_zipped_unsupported_files),$(munge
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := # None because we get everything by unzipping the munge jar first.
 LOCAL_MODULE := munge-host
-LOCAL_JAVA_LIBRARIES := junit
+LOCAL_JAVA_LIBRARIES := junit-host
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 # Unzip munge and build it
 intermediates:= $(local-generated-sources-dir)

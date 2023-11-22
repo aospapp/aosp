@@ -15,6 +15,7 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -25,16 +26,24 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PathEffect;
 import android.graphics.Bitmap.Config;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
 import junit.framework.TestCase;
 
-public class ComposePathEffectTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ComposePathEffectTest {
     private static final int BITMAP_WIDTH = 110;
     private static final int BITMAP_HEIGHT = 20;
     private static final int START_X = 10;
     private static final int END_X = BITMAP_WIDTH - 10;
     private static final int CENTER = BITMAP_HEIGHT / 2;
 
+    @Test
     public void testComposePathEffect() {
         Path path = new Path();
         path.moveTo(START_X, CENTER);

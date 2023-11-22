@@ -71,7 +71,9 @@ class ReferringObjectsReferree001 {
 }
 
 class ReferringObjectsReferrer001 {
+    @SuppressWarnings("unused")
     private boolean isReferrer;
+    @SuppressWarnings("unused")
     private ReferringObjectsReferree001 reference;
     
     ReferringObjectsReferrer001(ReferringObjectsReferree001 reference) {

@@ -22,26 +22,41 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ProxyFileDescriptorCallback;
 import android.os.Parcel;
-import android.cts.util.FileUtils;
+import android.os.ParcelFileDescriptor;
 import android.os.storage.OnObbStateChangeListener;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 import android.test.AndroidTestCase;
 import android.test.ComparisonFailure;
 import android.util.Log;
+
+import com.android.compatibility.common.util.FileUtils;
 
 import libcore.io.Streams;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
+import java.io.SyncFailedException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.SynchronousQueue;
+import junit.framework.AssertionFailedError;
 
 public class StorageManagerTest extends AndroidTestCase {
 
@@ -240,6 +255,366 @@ public class StorageManagerTest extends AndroidTestCase {
         StorageVolume childVolume = mStorageManager.getStorageVolume(child);
         assertNotNull("No volume for child (" + child + ")", childVolume);
         assertStorageVolumesEquals(primary, childVolume);
+    }
+
+    private void assertNoUuid(File file) {
+        try {
+            final UUID uuid = mStorageManager.getUuidForPath(file);
+            fail("Unexpected UUID " + uuid + " for " + file);
+        } catch (IOException expected) {
+        }
+    }
+
+    public void testGetUuidForPath() throws Exception {
+        assertEquals(StorageManager.UUID_DEFAULT,
+                mStorageManager.getUuidForPath(Environment.getDataDirectory()));
+        assertEquals(StorageManager.UUID_DEFAULT,
+                mStorageManager.getUuidForPath(mContext.getDataDir()));
+
+        final UUID extUuid = mStorageManager
+                .getUuidForPath(Environment.getExternalStorageDirectory());
+        if (Environment.isExternalStorageEmulated()) {
+            assertEquals(StorageManager.UUID_DEFAULT, extUuid);
+        }
+
+        assertEquals(extUuid, mStorageManager.getUuidForPath(mContext.getExternalCacheDir()));
+        assertEquals(extUuid, mStorageManager.getUuidForPath(new File("/sdcard/")));
+
+        assertNoUuid(new File("/"));
+        assertNoUuid(new File("/proc/"));
+    }
+
+    private static class TestProxyFileDescriptorCallback extends ProxyFileDescriptorCallback {
+        final byte[] bytes;
+        int fsyncCount;
+        int releaseCount;
+        ErrnoException onGetSizeError = null;
+        ErrnoException onReadError = null;
+        ErrnoException onWriteError = null;
+        ErrnoException onFsyncError = null;
+
+        TestProxyFileDescriptorCallback(int size, String seed) {
+            final byte[] seedBytes = seed.getBytes();
+            bytes = new byte[size];
+            for (int i = 0; i < size; i++) {
+                bytes[i] = seedBytes[i % seedBytes.length];
+            }
+        }
+
+        @Override
+        public int onWrite(long offset, int size, byte[] data) throws ErrnoException {
+            if (onWriteError != null) {
+                throw onWriteError;
+            }
+            for (int i = 0; i < size; i++) {
+                bytes[(int)(i + offset)] = data[i];
+            }
+            return size;
+        }
+
+        @Override
+        public int onRead(long offset, int size, byte[] data) throws ErrnoException {
+            if (onReadError != null) {
+                throw onReadError;
+            }
+            final int len = (int)(Math.min(size, data.length - offset));
+            for (int i = 0; i < len; i++) {
+                data[i] = bytes[(int)(i + offset)];
+            }
+            return len;
+        }
+
+        @Override
+        public long onGetSize() throws ErrnoException {
+            if (onGetSizeError != null) {
+                throw onGetSizeError;
+            }
+            return bytes.length;
+        }
+
+        @Override
+        public void onFsync() throws ErrnoException {
+            if (onFsyncError != null) {
+                throw onFsyncError;
+            }
+            fsyncCount++;
+        }
+
+        @Override
+        public void onRelease() {
+            releaseCount++;
+        }
+    }
+
+    public void testOpenProxyFileDescriptor() throws Exception {
+        final TestProxyFileDescriptorCallback appleCallback =
+                new TestProxyFileDescriptorCallback(1024 * 1024, "Apple");
+        final TestProxyFileDescriptorCallback orangeCallback =
+                new TestProxyFileDescriptorCallback(1024 * 128, "Orange");
+        final TestProxyFileDescriptorCallback cherryCallback =
+                new TestProxyFileDescriptorCallback(1024 * 1024, "Cherry");
+        try (final ParcelFileDescriptor appleFd = mStorageManager.openProxyFileDescriptor(
+                     ParcelFileDescriptor.MODE_READ_ONLY, appleCallback);
+             final ParcelFileDescriptor orangeFd = mStorageManager.openProxyFileDescriptor(
+                     ParcelFileDescriptor.MODE_WRITE_ONLY, orangeCallback);
+             final ParcelFileDescriptor cherryFd = mStorageManager.openProxyFileDescriptor(
+                     ParcelFileDescriptor.MODE_READ_WRITE, cherryCallback)) {
+            // Stat
+            assertEquals(appleCallback.onGetSize(), appleFd.getStatSize());
+            assertEquals(orangeCallback.onGetSize(), orangeFd.getStatSize());
+            assertEquals(cherryCallback.onGetSize(), cherryFd.getStatSize());
+
+            final byte[] bytes = new byte[100];
+
+            // Read
+            for (int i = 0; i < 2; i++) {
+                Os.read(appleFd.getFileDescriptor(), bytes, 0, 100);
+                for (int j = 0; j < 100; j++) {
+                    assertEquals(appleCallback.bytes[i * 100 + j], bytes[j]);
+                }
+            }
+            try {
+                Os.read(orangeFd.getFileDescriptor(), bytes, 0, 100);
+                fail();
+            } catch (ErrnoException exp) {
+                assertEquals(OsConstants.EBADF, exp.errno);
+            }
+            for (int i = 0; i < 2; i++) {
+                Os.read(cherryFd.getFileDescriptor(), bytes, 0, 100);
+                for (int j = 0; j < 100; j++) {
+                    assertEquals(cherryCallback.bytes[i * 100 + j], bytes[j]);
+                }
+            }
+
+            // Pread
+            Os.pread(appleFd.getFileDescriptor(), bytes, 0, 100, 500);
+            for (int j = 0; j < 100; j++) {
+                assertEquals(appleCallback.bytes[500 + j], bytes[j]);
+            }
+            try {
+                Os.pread(orangeFd.getFileDescriptor(), bytes, 0, 100, 500);
+                fail();
+            } catch (ErrnoException exp) {
+                assertEquals(OsConstants.EBADF, exp.errno);
+            }
+            Os.pread(cherryFd.getFileDescriptor(), bytes, 0, 100, 500);
+            for (int j = 0; j < 100; j++) {
+                assertEquals(cherryCallback.bytes[500 + j], bytes[j]);
+            }
+
+            // Write
+            final byte[] writeSeed = "Strawberry".getBytes();
+            for (int i = 0; i < bytes.length; i++) {
+                bytes[i] = writeSeed[i % writeSeed.length];
+            }
+            try {
+                Os.write(appleFd.getFileDescriptor(), bytes, 0, 100);
+                fail();
+            } catch (ErrnoException exp) {
+                assertEquals(OsConstants.EBADF, exp.errno);
+            }
+            for (int i = 0; i < 2; i++) {
+                Os.write(orangeFd.getFileDescriptor(), bytes, 0, 100);
+                for (int j = 0; j < 100; j++) {
+                    assertEquals(bytes[j], orangeCallback.bytes[i * 100 + j]);
+                }
+            }
+            Os.lseek(cherryFd.getFileDescriptor(), 0, OsConstants.SEEK_SET);
+            for (int i = 0; i < 2; i++) {
+                Os.write(cherryFd.getFileDescriptor(), bytes, 0, 100);
+                for (int j = 0; j < 100; j++) {
+                    assertEquals(bytes[j], cherryCallback.bytes[i * 100 + j]);
+                }
+            }
+
+            // Pwrite
+            try {
+                Os.pwrite(appleFd.getFileDescriptor(), bytes, 0, 100, 500);
+                fail();
+            } catch (ErrnoException exp) {
+                assertEquals(OsConstants.EBADF, exp.errno);
+            }
+            Os.pwrite(orangeFd.getFileDescriptor(), bytes, 0, 100, 500);
+            for (int j = 0; j < 100; j++) {
+                assertEquals(bytes[j], orangeCallback.bytes[500 + j]);
+            }
+            Os.pwrite(cherryFd.getFileDescriptor(), bytes, 0, 100, 500);
+            for (int j = 0; j < 100; j++) {
+                assertEquals(bytes[j], cherryCallback.bytes[500 + j]);
+            }
+
+            // Flush
+            assertEquals(0, appleCallback.fsyncCount);
+            assertEquals(0, orangeCallback.fsyncCount);
+            assertEquals(0, cherryCallback.fsyncCount);
+            appleFd.getFileDescriptor().sync();
+            orangeFd.getFileDescriptor().sync();
+            cherryFd.getFileDescriptor().sync();
+            assertEquals(1, appleCallback.fsyncCount);
+            assertEquals(1, orangeCallback.fsyncCount);
+            assertEquals(1, cherryCallback.fsyncCount);
+
+            // Before release
+            assertEquals(0, appleCallback.releaseCount);
+            assertEquals(0, orangeCallback.releaseCount);
+            assertEquals(0, cherryCallback.releaseCount);
+        }
+
+        // Release
+        int retry = 3;
+        while (true) {
+            try {
+                assertEquals(1, appleCallback.releaseCount);
+                assertEquals(1, orangeCallback.releaseCount);
+                assertEquals(1, cherryCallback.releaseCount);
+                break;
+            } catch (AssertionFailedError error) {
+                if (retry-- > 0) {
+                   Thread.sleep(500);
+                   continue;
+                } else {
+                    throw error;
+                }
+            }
+        }
+    }
+
+    public void testOpenProxyFileDescriptor_error() throws Exception {
+        final TestProxyFileDescriptorCallback callback =
+                new TestProxyFileDescriptorCallback(1024 * 1024, "Error");
+        final byte[] bytes = new byte[128];
+        callback.onGetSizeError = new ErrnoException("onGetSize", OsConstants.ENOENT);
+        try {
+            try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
+                    ParcelFileDescriptor.MODE_READ_WRITE, callback)) {}
+            fail();
+        } catch (IOException exp) {}
+        callback.onGetSizeError = null;
+
+        try (final ParcelFileDescriptor fd = mStorageManager.openProxyFileDescriptor(
+                ParcelFileDescriptor.MODE_READ_WRITE, callback)) {
+            callback.onReadError = new ErrnoException("onRead", OsConstants.EIO);
+            try {
+                Os.read(fd.getFileDescriptor(), bytes, 0, bytes.length);
+                fail();
+            } catch (ErrnoException error) {}
+
+            callback.onReadError = new ErrnoException("onRead", OsConstants.ENOSYS);
+            try {
+                Os.read(fd.getFileDescriptor(), bytes, 0, bytes.length);
+                fail();
+            } catch (ErrnoException error) {}
+
+            callback.onReadError = null;
+            Os.read(fd.getFileDescriptor(), bytes, 0, bytes.length);
+
+            callback.onWriteError = new ErrnoException("onWrite", OsConstants.EIO);
+            try {
+                Os.write(fd.getFileDescriptor(), bytes, 0, bytes.length);
+                fail();
+            } catch (ErrnoException error) {}
+
+            callback.onWriteError = new ErrnoException("onWrite", OsConstants.ENOSYS);
+            try {
+                Os.write(fd.getFileDescriptor(), bytes, 0, bytes.length);
+                fail();
+            } catch (ErrnoException error) {}
+
+            callback.onWriteError = null;
+            Os.write(fd.getFileDescriptor(), bytes, 0, bytes.length);
+
+            callback.onFsyncError = new ErrnoException("onFsync", OsConstants.EIO);
+            try {
+                fd.getFileDescriptor().sync();
+                fail();
+            } catch (SyncFailedException error) {}
+
+            callback.onFsyncError = new ErrnoException("onFsync", OsConstants.ENOSYS);
+            try {
+                fd.getFileDescriptor().sync();
+                fail();
+            } catch (SyncFailedException error) {}
+
+            callback.onFsyncError = null;
+            fd.getFileDescriptor().sync();
+        }
+    }
+
+    public void testOpenProxyFileDescriptor_async() throws Exception {
+        final CountDownLatch blockReadLatch = new CountDownLatch(1);
+        final CountDownLatch readBlockedLatch = new CountDownLatch(1);
+        final CountDownLatch releaseLatch = new CountDownLatch(2);
+        final TestProxyFileDescriptorCallback blockCallback =
+                new TestProxyFileDescriptorCallback(1024 * 1024, "Block") {
+            @Override
+            public int onRead(long offset, int size, byte[] data) throws ErrnoException {
+                try {
+                    readBlockedLatch.countDown();
+                    blockReadLatch.await();
+                } catch (InterruptedException e) {
+                    fail(e.getMessage());
+                }
+                return super.onRead(offset, size, data);
+            }
+
+            @Override
+            public void onRelease() {
+                releaseLatch.countDown();
+            }
+        };
+        final TestProxyFileDescriptorCallback asyncCallback =
+                new TestProxyFileDescriptorCallback(1024 * 1024, "Async") {
+            @Override
+            public void onRelease() {
+                releaseLatch.countDown();
+            }
+        };
+        final SynchronousQueue<Handler> handlerChannel = new SynchronousQueue<>();
+        final Thread looperThread = new Thread(() -> {
+            Looper.prepare();
+            try {
+                handlerChannel.put(new Handler());
+            } catch (InterruptedException e) {
+                fail(e.getMessage());
+            }
+            Looper.loop();
+        });
+        looperThread.start();
+
+        final Handler handler = handlerChannel.take();
+
+        try (final ParcelFileDescriptor blockFd =
+                    mStorageManager.openProxyFileDescriptor(
+                            ParcelFileDescriptor.MODE_READ_ONLY, blockCallback);
+             final ParcelFileDescriptor asyncFd =
+                    mStorageManager.openProxyFileDescriptor(
+                            ParcelFileDescriptor.MODE_READ_ONLY, asyncCallback, handler)) {
+            final Thread readingThread = new Thread(() -> {
+                final byte[] bytes = new byte[128];
+                try {
+
+                    Os.read(blockFd.getFileDescriptor(), bytes, 0, 128);
+                } catch (ErrnoException | InterruptedIOException e) {
+                    fail(e.getMessage());
+                }
+            });
+            readingThread.start();
+
+            readBlockedLatch.countDown();
+            assertEquals(Thread.State.RUNNABLE, readingThread.getState());
+
+            final byte[] bytes = new byte[128];
+            Log.d("StorageManagerTest", "start read async");
+            assertEquals(128, Os.read(asyncFd.getFileDescriptor(), bytes, 0, 128));
+            Log.d("StorageManagerTest", "stop read async");
+
+            blockReadLatch.countDown();
+            readingThread.join();
+        }
+
+        releaseLatch.await();
+        handler.getLooper().quit();
+        looperThread.join();
     }
 
     private void assertStorageVolumesEquals(StorageVolume volume, StorageVolume clone)

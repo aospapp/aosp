@@ -33,8 +33,6 @@ import vogar.android.ActivityMode;
 import vogar.android.AndroidSdk;
 import vogar.android.DeviceRuntime;
 import vogar.android.HostRuntime;
-import vogar.commands.CommandFailedException;
-import vogar.commands.Jack;
 import vogar.commands.Mkdir;
 import vogar.commands.Rm;
 import vogar.tasks.TaskQueue;
@@ -83,6 +81,8 @@ public final class Run {
     public final Integer debugPort;
     public final Language language;
     public final List<String> javacArgs;
+    public final List<String> jackArgs;
+    public final boolean multidex;
     public final boolean benchmark;
     public final File runnerDir;
     public final boolean cleanBefore;
@@ -108,7 +108,7 @@ public final class Run {
     public final ClassFileIndex classFileIndex;
     public final OutcomeStore outcomeStore;
     public final TaskQueue taskQueue;
-    public final boolean testOnly;
+    public final RunnerType runnerType;
     public final boolean useJack;
     public final boolean checkJni;
     public final boolean debugging;
@@ -142,6 +142,8 @@ public final class Run {
         this.invokeWith = vogar.invokeWith;
         this.language = vogar.language;
         this.javacArgs = vogar.javacArgs;
+        this.jackArgs = vogar.jackArgs;
+        this.multidex = vogar.multidex;
         this.javaHome = vogar.javaHome;
         this.largeTimeoutSeconds = vogar.timeoutSeconds * Vogar.LARGE_TIMEOUT_MULTIPLIER;
         this.maxConcurrentActions = (vogar.stream || vogar.modeId == ModeId.ACTIVITY)
@@ -167,7 +169,7 @@ public final class Run {
         this.keystore = localFile("activity", "vogar.keystore");
         this.classpath = Classpath.of(vogar.classpath);
         this.classpath.addAll(vogarJar());
-        this.testOnly = vogar.testOnly;
+        this.runnerType = vogar.runnerType;
 
         this.androidSdk = androidSdk;
 

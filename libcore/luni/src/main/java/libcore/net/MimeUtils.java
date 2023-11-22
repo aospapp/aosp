@@ -17,6 +17,7 @@
 package libcore.net;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -210,6 +211,12 @@ public final class MimeUtils {
         add("application/x-xcf", "xcf");
         add("application/x-xfig", "fig");
         add("application/xhtml+xml", "xhtml");
+        // Video mime types for 3GPP first so they'll be default for guessMimeTypeFromExtension
+        // See RFC 3839 for 3GPP and RFC 4393 for 3GPP2
+        add("video/3gpp", "3gpp");
+        add("video/3gpp", "3gp");
+        add("video/3gpp2", "3gpp2");
+        add("video/3gpp2", "3g2");
         add("audio/3gpp", "3gpp");
         add("audio/aac", "aac");
         add("audio/aac-adts", "aac");
@@ -353,10 +360,6 @@ public final class MimeUtils {
         add("text/x-tex", "cls");
         add("text/x-vcalendar", "vcs");
         add("text/x-vcard", "vcf");
-        add("video/3gpp", "3gpp");
-        add("video/3gpp", "3gp");
-        add("video/3gpp2", "3gpp2");
-        add("video/3gpp2", "3g2");
         add("video/avi", "avi");
         add("video/dl", "dl");
         add("video/dv", "dif");
@@ -407,52 +410,52 @@ public final class MimeUtils {
     }
 
     /**
-     * Returns true if the given MIME type has an entry in the map.
+     * Returns true if the given case insensitive MIME type has an entry in the map.
      * @param mimeType A MIME type (i.e. text/plain)
-     * @return True iff there is a mimeType entry in the map.
+     * @return True if a extension has been registered for
+     * the given case insensitive MIME type.
      */
     public static boolean hasMimeType(String mimeType) {
-        if (mimeType == null || mimeType.isEmpty()) {
-            return false;
-        }
-        return mimeTypeToExtensionMap.containsKey(mimeType);
+        return (guessExtensionFromMimeType(mimeType) != null);
     }
 
     /**
-     * Returns the MIME type for the given extension.
+     * Returns the MIME type for the given case insensitive file extension.
      * @param extension A file extension without the leading '.'
-     * @return The MIME type for the given extension or null iff there is none.
+     * @return The MIME type has been registered for
+     * the given case insensitive file extension or null if there is none.
      */
     public static String guessMimeTypeFromExtension(String extension) {
         if (extension == null || extension.isEmpty()) {
             return null;
         }
+        extension = extension.toLowerCase(Locale.US);
         return extensionToMimeTypeMap.get(extension);
     }
 
     /**
-     * Returns true if the given extension has a registered MIME type.
+     * Returns true if the given case insensitive extension has a registered MIME type.
      * @param extension A file extension without the leading '.'
-     * @return True iff there is an extension entry in the map.
+     * @return True if a MIME type has been registered for
+     * the given case insensitive file extension.
      */
     public static boolean hasExtension(String extension) {
-        if (extension == null || extension.isEmpty()) {
-            return false;
-        }
-        return extensionToMimeTypeMap.containsKey(extension);
+        return (guessMimeTypeFromExtension(extension) != null);
     }
 
     /**
-     * Returns the registered extension for the given MIME type. Note that some
+     * Returns the registered extension for the given case insensitive MIME type. Note that some
      * MIME types map to multiple extensions. This call will return the most
      * common extension for the given MIME type.
      * @param mimeType A MIME type (i.e. text/plain)
-     * @return The extension for the given MIME type or null iff there is none.
+     * @return The extension has been registered for
+     * the given case insensitive MIME type or null if there is none.
      */
     public static String guessExtensionFromMimeType(String mimeType) {
         if (mimeType == null || mimeType.isEmpty()) {
             return null;
         }
+        mimeType = mimeType.toLowerCase(Locale.US);
         return mimeTypeToExtensionMap.get(mimeType);
     }
 }

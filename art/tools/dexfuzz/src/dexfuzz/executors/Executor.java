@@ -39,9 +39,10 @@ public abstract class Executor {
   protected Architecture architecture;
   protected Device device;
   private boolean needsCleanCodeCache;
+  private boolean isBisectable;
 
   protected Executor(String name, int timeout, BaseListener listener, Architecture architecture,
-      Device device, boolean needsCleanCodeCache) {
+      Device device, boolean needsCleanCodeCache, boolean isBisectable) {
     executeClass = Options.executeClass;
 
     if (Options.shortTimeouts) {
@@ -55,6 +56,7 @@ public abstract class Executor {
     this.architecture = architecture;
     this.device = device;
     this.needsCleanCodeCache = needsCleanCodeCache;
+    this.isBisectable = isBisectable;
 
     if (Options.executeOnHost) {
       this.testLocation = System.getProperty("user.dir");
@@ -115,7 +117,7 @@ public abstract class Executor {
     commandBuilder.append("--runtime-arg -classpath ");
     commandBuilder.append("--runtime-arg ").append(programName).append(" ");
     commandBuilder.append("--dex-file=").append(programName).append(" ");
-    commandBuilder.append("--compiler-filter=interpret-only --runtime-arg -Xnorelocate ");
+    commandBuilder.append("--compiler-filter=quicken --runtime-arg -Xnorelocate ");
 
     ExecutionResult verificationResult = device.executeCommand(commandBuilder.toString(), true,
         outputConsumer, errorConsumer);
@@ -169,7 +171,41 @@ public abstract class Executor {
    * Executor subclasses need to override this, to construct their arguments for dalvikvm
    * invocation correctly.
    */
-  public abstract void execute(String programName);
+  protected abstract String constructCommand(String programName);
+
+  /**
+   * Executes runtime.
+   */
+  public void execute(String programName) {
+    String command = "";
+    String androidRoot = Options.androidRoot.trim();
+    if (androidRoot.length() != 0) {
+      command = "PATH=" + androidRoot + "/bin ";
+      command += "ANDROID_ROOT=" + androidRoot + " ";
+      command += "LD_LIBRARY_PATH="+ androidRoot + "/lib:" + androidRoot + "/lib64 ";
+    }
+    command += constructCommand(programName);
+    executionResult = executeCommandWithTimeout(command, true);
+  }
+
+  /**
+   * Runs bisection bug search.
+   */
+  public ExecutionResult runBisectionSearch(String programName, String expectedOutputFile, String logFile) {
+    assert(isBisectable);
+    String runtimeCommand = constructCommand(programName);
+    StringBuilder commandBuilder = new StringBuilder();
+    commandBuilder.append("bisection_search.py --raw-cmd '").append(runtimeCommand);
+    commandBuilder.append("' --expected-output=").append(expectedOutputFile);
+    commandBuilder.append(" --logfile=").append(logFile);
+    if (!device.isHost()) {
+      commandBuilder.append(" --device");
+      if (device.isUsingSpecificDevice()) {
+        commandBuilder.append(" --specific-device=").append(device.getName());
+      }
+    }
+    return device.executeCommand(commandBuilder.toString(), true, outputConsumer, errorConsumer);
+  }
 
   /**
    * Fuzzer.checkForArchitectureSplit() will use this determine the architecture of the Executor.
@@ -206,5 +242,9 @@ public abstract class Executor {
 
   public void finishedWithProgramOnDevice() {
     device.resetProgramPushed();
+  }
+
+  public boolean isBisectable() {
+    return isBisectable;
   }
 }

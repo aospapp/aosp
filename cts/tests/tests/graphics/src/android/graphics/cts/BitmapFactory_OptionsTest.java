@@ -15,19 +15,93 @@
  */
 package android.graphics.cts;
 
+import android.app.Instrumentation;
+import android.content.res.AssetManager;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class BitmapFactory_OptionsTest extends AndroidTestCase{
-    public void testOptions(){
+import java.io.IOException;
+import java.io.InputStream;
+
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BitmapFactory_OptionsTest {
+    @Test
+    public void testOptions() {
         new BitmapFactory.Options();
     }
 
-    public void testRequestCancelDecode(){
+    @Test
+    public void testRequestCancelDecode() {
         BitmapFactory.Options option = new BitmapFactory.Options();
 
         assertFalse(option.mCancel);
         option.requestCancelDecode();
         assertTrue(option.mCancel);
+    }
+
+    @Test
+    public void testExtractMetaData() {
+        Bitmap b;
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+
+        Instrumentation instrumentation = getInstrumentation();
+        Resources resources = instrumentation.getTargetContext().getResources();
+
+        // Config from source file, RGBA_F16
+        AssetManager assets = resources.getAssets();
+        try (InputStream in = assets.open("prophoto-rgba16f.png")) {
+            b = BitmapFactory.decodeStream(in, null, options);
+        } catch (IOException e) {
+            throw new RuntimeException("Test failed: ", e);
+        }
+        assertNull(b);
+        assertEquals(64, options.outWidth);
+        assertEquals(64, options.outHeight);
+        assertEquals("image/png", options.outMimeType);
+        assertEquals(Bitmap.Config.RGBA_F16, options.outConfig);
+
+        // Config from source file, ARGB_8888
+        b = BitmapFactory.decodeResource(resources, R.drawable.alpha, options);
+        assertNull(b);
+        assertEquals(Bitmap.Config.ARGB_8888, options.outConfig);
+
+        // Force config to 565
+        options.inPreferredConfig = Bitmap.Config.RGB_565;
+        b = BitmapFactory.decodeResource(resources, R.drawable.icon_green, options);
+        assertNull(b);
+        assertEquals(Bitmap.Config.RGB_565, options.outConfig);
+
+        options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+
+        // Unscaled, indexed bitmap
+        b = BitmapFactory.decodeResource(resources, R.drawable.bitmap_indexed, options);
+        assertNull(b);
+        assertEquals("image/gif", options.outMimeType);
+        assertEquals(null, options.outConfig);
+
+        // Scaled, indexed bitmap
+        options.inScaled = true;
+        options.inDensity = 160;
+        options.inScreenDensity = 480;
+        options.inTargetDensity = 320;
+
+        b = BitmapFactory.decodeResource(resources, R.drawable.bitmap_indexed, options);
+        assertNull(b);
+        assertEquals(Bitmap.Config.ARGB_8888, options.outConfig);
     }
 }

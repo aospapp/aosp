@@ -21,6 +21,8 @@ import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.test.suitebuilder.annotation.SmallTest;
+import android.telecom.Logging.Session;
 
 import com.android.internal.telephony.CallerInfo;
 import com.android.internal.telephony.CallerInfoAsyncQuery;
@@ -28,7 +30,6 @@ import com.android.server.telecom.Call;
 import com.android.server.telecom.CallerInfoAsyncQueryFactory;
 import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.ContactsAsyncHelper;
-import com.android.server.telecom.Session;
 import com.android.server.telecom.TelecomSystem;
 
 import org.mockito.ArgumentCaptor;
@@ -43,6 +44,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -91,6 +93,16 @@ public class CallerInfoLookupHelperTest extends TelecomTestCase {
             Drawable d = Drawable.createFromStream(is, CONTACTS_PHOTO_URI.toString());
             mBitmap = ((BitmapDrawable) d).getBitmap();
         }
+    }
+
+    @SmallTest
+    public void testLookupWithEmptyHandle() {
+        CallerInfoLookupHelper.OnQueryCompleteListener listener = mock(
+                CallerInfoLookupHelper.OnQueryCompleteListener.class);
+        mCallerInfoLookupHelper.startLookup(Uri.EMPTY, listener);
+
+        verify(listener).onCallerInfoQueryComplete(eq(Uri.EMPTY), isNull(CallerInfo.class));
+        verifyProperCleanup();
     }
 
     public void testSimpleLookup() {

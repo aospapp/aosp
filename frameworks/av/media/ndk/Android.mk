@@ -34,27 +34,39 @@ LOCAL_MODULE:= libmediandk
 
 LOCAL_C_INCLUDES := \
     bionic/libc/private \
+    external/piex \
     frameworks/base/core/jni \
+    frameworks/base/media/jni \
     frameworks/av/include/ndk \
-    system/media/camera/include
+    frameworks/native/include \
+    frameworks/native/include/media/openmax \
+    system/media/camera/include \
+    $(call include-path-for, libhardware)/hardware \
 
 LOCAL_CFLAGS += -fvisibility=hidden -D EXPORT='__attribute__ ((visibility ("default")))'
 
 LOCAL_CFLAGS += -Werror -Wall
 
+LOCAL_STATIC_LIBRARIES := \
+    libgrallocusage \
+
 LOCAL_SHARED_LIBRARIES := \
     libbinder \
     libmedia \
+    libmedia_jni \
     libmediadrm \
+    libskia \
     libstagefright \
     libstagefright_foundation \
     liblog \
     libutils \
     libcutils \
+    libandroid \
     libandroid_runtime \
     libbinder \
     libgui \
     libui \
+    libandroid \
 
 include $(BUILD_SHARED_LIBRARY)
 

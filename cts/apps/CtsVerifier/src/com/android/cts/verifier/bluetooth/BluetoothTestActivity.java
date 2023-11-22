@@ -16,13 +16,13 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.ManifestTestListAdapter;
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
 import android.bluetooth.BluetoothAdapter;
 import android.os.Bundle;
 import android.widget.Toast;
+
+import com.android.cts.verifier.ManifestTestListAdapter;
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,14 +54,20 @@ public class BluetoothTestActivity extends PassFailButtons.TestListActivity {
             disabledTestArray.add(
                   "com.android.cts.verifier.bluetooth.BleClientTestActivity");
             disabledTestArray.add(
-                  "com.android.cts.verifier.bluetooth.BleServerStartActivity");
+                  "com.android.cts.verifier.bluetooth.BleServerTestBaseActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleConnectionPriorityServerBaseActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleConnectionPriorityClientBaseActivity");
         } else if (!bluetoothAdapter.isMultipleAdvertisementSupported()) {
             disabledTestArray.add(
                   "com.android.cts.verifier.bluetooth.BleAdvertiserTestActivity");
             disabledTestArray.add(
-                  "com.android.cts.verifier.bluetooth.BleServerStartActivity");
+                  "com.android.cts.verifier.bluetooth.BleServerTestBaseActivity");
             disabledTestArray.add(
                   "com.android.cts.verifier.bluetooth.BleScannerTestActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleConnectionPriorityServerBaseActivity");
         }
         setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),
                 disabledTestArray.toArray(new String[disabledTestArray.size()])));

@@ -72,6 +72,10 @@
             android:name="android.os.cts.ParcelFileDescriptorPeer$Blue"
             android:process=":blue"
             android:exported="true" />
+        <service
+            android:name="android.os.cts.CrossProcessExceptionService"
+            android:process=":green"
+            android:exported="true" />
 
         <service android:name="android.os.cts.LocalService">
             <intent-filter>

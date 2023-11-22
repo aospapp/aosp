@@ -5,7 +5,6 @@
 AUTHOR = 'wiley, avakulenko, keybuk'
 NAME = 'tendo_experimental'
 PURPOSE = 'Staging ground for Tendo BVT candidates'
-CRITERIA = 'Failures in this suite do not block release of a build'
 
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'

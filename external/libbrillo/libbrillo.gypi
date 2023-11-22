@@ -165,6 +165,7 @@
         'brillo/http/http_transport_fake.cc',
         'brillo/message_loops/fake_message_loop.cc',
         'brillo/streams/fake_stream.cc',
+        'brillo/unittest_utils.cc',
       ],
       'includes': ['../common-mk/deps.gypi'],
     },

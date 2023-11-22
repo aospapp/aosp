@@ -16,6 +16,14 @@
 
 #include "update_engine/payload_generator/delta_diff_utils.h"
 
+#include <endian.h>
+// TODO: Remove these pragmas when b/35721782 is fixed.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmacro-redefined"
+#include <ext2fs/ext2fs.h>
+#pragma clang diagnostic pop
+
+
 #include <algorithm>
 #include <map>
 
@@ -112,19 +120,9 @@ size_t RemoveIdenticalBlockRanges(vector<Extent>* src_extents,
   size_t src_idx = 0;
   size_t dst_idx = 0;
   uint64_t src_offset = 0, dst_offset = 0;
-  bool new_src = true, new_dst = true;
   size_t removed_bytes = 0, nonfull_block_bytes;
   bool do_remove = false;
   while (src_idx < src_extents->size() && dst_idx < dst_extents->size()) {
-    if (new_src) {
-      src_offset = 0;
-      new_src = false;
-    }
-    if (new_dst) {
-      dst_offset = 0;
-      new_dst = false;
-    }
-
     do_remove = ((*src_extents)[src_idx].start_block() + src_offset ==
                  (*dst_extents)[dst_idx].start_block() + dst_offset);
 
@@ -137,10 +135,17 @@ size_t RemoveIdenticalBlockRanges(vector<Extent>* src_extents,
     src_offset += min_num_blocks;
     dst_offset += min_num_blocks;
 
-    new_src = ProcessExtentBlockRange(src_extents, &src_idx, do_remove,
-                                      prev_src_offset, src_offset);
-    new_dst = ProcessExtentBlockRange(dst_extents, &dst_idx, do_remove,
-                                      prev_dst_offset, dst_offset);
+    bool new_src = ProcessExtentBlockRange(src_extents, &src_idx, do_remove,
+                                           prev_src_offset, src_offset);
+    bool new_dst = ProcessExtentBlockRange(dst_extents, &dst_idx, do_remove,
+                                           prev_dst_offset, dst_offset);
+    if (new_src) {
+      src_offset = 0;
+    }
+    if (new_dst) {
+      dst_offset = 0;
+    }
+
     if (do_remove)
       removed_bytes += min_num_blocks * kBlockSize;
   }
@@ -367,7 +372,7 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
   // TODO(deymo): Produce ZERO operations instead of calling DeltaReadFile().
   size_t num_ops = aops->size();
   new_visited_blocks->AddExtents(new_zeros);
-  for (Extent extent : new_zeros) {
+  for (const Extent& extent : new_zeros) {
     TEST_AND_RETURN_FALSE(DeltaReadFile(aops,
                                         "",
                                         new_part,
@@ -388,7 +393,7 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
   uint64_t used_blocks = 0;
   old_visited_blocks->AddExtents(old_identical_blocks);
   new_visited_blocks->AddExtents(new_identical_blocks);
-  for (Extent extent : new_identical_blocks) {
+  for (const Extent& extent : new_identical_blocks) {
     // We split the operation at the extent boundary or when bigger than
     // chunk_blocks.
     for (uint64_t op_block_offset = 0; op_block_offset < extent.num_blocks();
@@ -401,8 +406,8 @@ bool DeltaMovedAndZeroBlocks(vector<AnnotatedOperation>* aops,
                            : InstallOperation::MOVE);
 
       uint64_t chunk_num_blocks =
-        std::min(extent.num_blocks() - op_block_offset,
-                 static_cast<uint64_t>(chunk_blocks));
+          std::min(static_cast<uint64_t>(extent.num_blocks()) - op_block_offset,
+                   static_cast<uint64_t>(chunk_blocks));
 
       // The current operation represents the move/copy operation for the
       // sublist starting at |used_blocks| of length |chunk_num_blocks| where
@@ -709,7 +714,6 @@ bool DiffFiles(const string& diff_path,
   cmd.push_back(patch_file_path);
 
   int rc = 1;
-  brillo::Blob patch_file;
   string stdout;
   TEST_AND_RETURN_FALSE(Subprocess::SynchronousExec(cmd, &rc, &stdout));
   if (rc != 0) {
@@ -763,6 +767,44 @@ bool CompareAopsByDestination(AnnotatedOperation first_aop,
   uint32_t first_dst_start = first_aop.op.dst_extents(0).start_block();
   uint32_t second_dst_start = second_aop.op.dst_extents(0).start_block();
   return first_dst_start < second_dst_start;
+}
+
+bool IsExtFilesystem(const string& device) {
+  brillo::Blob header;
+  // See include/linux/ext2_fs.h for more details on the structure. We obtain
+  // ext2 constants from ext2fs/ext2fs.h header but we don't link with the
+  // library.
+  if (!utils::ReadFileChunk(
+          device, 0, SUPERBLOCK_OFFSET + SUPERBLOCK_SIZE, &header) ||
+      header.size() < SUPERBLOCK_OFFSET + SUPERBLOCK_SIZE)
+    return false;
+
+  const uint8_t* superblock = header.data() + SUPERBLOCK_OFFSET;
+
+  // ext3_fs.h: ext3_super_block.s_blocks_count
+  uint32_t block_count =
+      *reinterpret_cast<const uint32_t*>(superblock + 1 * sizeof(int32_t));
+
+  // ext3_fs.h: ext3_super_block.s_log_block_size
+  uint32_t log_block_size =
+      *reinterpret_cast<const uint32_t*>(superblock + 6 * sizeof(int32_t));
+
+  // ext3_fs.h: ext3_super_block.s_magic
+  uint16_t magic =
+      *reinterpret_cast<const uint16_t*>(superblock + 14 * sizeof(int32_t));
+
+  block_count = le32toh(block_count);
+  log_block_size = le32toh(log_block_size) + EXT2_MIN_BLOCK_LOG_SIZE;
+  magic = le16toh(magic);
+
+  if (magic != EXT2_SUPER_MAGIC)
+    return false;
+
+  // Sanity check the parameters.
+  TEST_AND_RETURN_FALSE(log_block_size >= EXT2_MIN_BLOCK_LOG_SIZE &&
+                        log_block_size <= EXT2_MAX_BLOCK_LOG_SIZE);
+  TEST_AND_RETURN_FALSE(block_count > 0);
+  return true;
 }
 
 }  // namespace diff_utils

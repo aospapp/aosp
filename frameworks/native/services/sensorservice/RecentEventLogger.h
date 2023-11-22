@@ -35,7 +35,7 @@ namespace SensorServiceUtil {
 // behavior.
 class RecentEventLogger : public Dumpable {
 public:
-    RecentEventLogger(int sensorType);
+    explicit RecentEventLogger(int sensorType);
     void addEvent(const sensors_event_t& event);
     bool populateLastEvent(sensors_event_t *event) const;
     bool isEmpty() const;
@@ -43,10 +43,11 @@ public:
 
     // Dumpable interface
     virtual std::string dump() const override;
+    virtual void setFormat(std::string format) override;
 
 protected:
     struct SensorEventLog {
-        SensorEventLog(const sensors_event_t& e);
+        explicit SensorEventLog(const sensors_event_t& e);
         timespec mWallTime;
         sensors_event_t mEvent;
     };
@@ -56,6 +57,8 @@ protected:
 
     mutable std::mutex mLock;
     RingBuffer<SensorEventLog> mRecentEvents;
+
+    bool mMaskData;
 
 private:
     static size_t logSizeBySensorType(int sensorType);

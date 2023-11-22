@@ -23,6 +23,9 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Simple activity that sets or unsets a policy depending on the value of the extras.
@@ -35,6 +38,7 @@ public class SetPolicyActivity extends Activity {
     private static final String EXTRA_COMMAND = "extra-command";
     private static final String EXTRA_ACCOUNT_TYPE = "extra-account-type";
     private static final String EXTRA_PACKAGE_NAME = "extra-package-name";
+    private static final String EXTRA_SCOPES_LIST = "extra-scopes-list";
 
     private static final String COMMAND_ADD_USER_RESTRICTION = "add-restriction";
     private static final String COMMAND_CLEAR_USER_RESTRICTION = "clear-restriction";
@@ -42,6 +46,7 @@ public class SetPolicyActivity extends Activity {
     private static final String COMMAND_UNBLOCK_ACCOUNT_TYPE = "unblock-accounttype";
     private static final String COMMAND_SET_APP_RESTRICTIONS_MANAGER =
             "set-app-restrictions-manager";
+    private static final String COMMAND_SET_DELEGATED_SCOPES = "set-delegated-scopes";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -102,6 +107,14 @@ public class SetPolicyActivity extends Activity {
                 throw new IllegalArgumentException(e);
             }
             Log.i(TAG, "Setting the application restrictions managing package to " + packageName);
+        } else if (COMMAND_SET_DELEGATED_SCOPES.equals(command)) {
+            String packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME);
+            String scopeArray[] = intent.getStringArrayExtra(EXTRA_SCOPES_LIST);
+            List<String> scopes = scopeArray == null ? new ArrayList() : Arrays.asList(scopeArray);
+            dpm.setDelegatedScopes(BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT,
+                    packageName, scopes);
+            Log.i(TAG, "Setting delegated scopes for package: " + packageName + " "
+                    + Arrays.toString(scopeArray));
         } else {
             Log.e(TAG, "Invalid command: " + command);
         }

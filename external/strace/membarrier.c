@@ -43,6 +43,7 @@ SYS_FUNC(membarrier)
 	if (syserror(tcp) || !tcp->u_rval)
 		return 0;
 
-	tcp->auxstr = sprintflags("", membarrier_cmds, tcp->u_rval);
+	tcp->auxstr = sprintflags("", membarrier_cmds,
+				  (kernel_ulong_t) tcp->u_rval);
 	return RVAL_HEX | RVAL_STR;
 }

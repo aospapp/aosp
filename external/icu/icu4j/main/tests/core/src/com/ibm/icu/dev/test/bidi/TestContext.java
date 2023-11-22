@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2007-2011, International Business Machines
@@ -7,6 +9,8 @@
 
 package com.ibm.icu.dev.test.bidi;
 
+import org.junit.Test;
+
 import com.ibm.icu.text.Bidi;
 
 /**
@@ -15,7 +19,7 @@ import com.ibm.icu.text.Bidi;
  * @author Matitiahu Allouche
  */
 
-public class TestContext extends BidiTest {
+public class TestContext extends BidiFmwk {
 
     private class ContextCase {
         String prologue;
@@ -63,6 +67,7 @@ public class TestContext extends BidiTest {
     };
     private final int CONTEXT_COUNT = contextData.length;
 
+    @Test
     public void testContext()
     {
         String prologue, epilogue, src, dest;
@@ -95,14 +100,5 @@ public class TestContext extends BidiTest {
         }
 
         logln("\nExiting TestContext\n");
-    }
-
-    public static void main(String[] args) {
-        try {
-            new TestContext().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
     }
 }

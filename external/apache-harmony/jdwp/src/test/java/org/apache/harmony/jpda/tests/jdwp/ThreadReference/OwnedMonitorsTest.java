@@ -39,6 +39,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class OwnedMonitorsTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.OwnedMonitorsDebuggee";
     }

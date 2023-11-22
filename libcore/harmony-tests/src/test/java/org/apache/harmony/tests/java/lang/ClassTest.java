@@ -21,6 +21,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -34,7 +36,9 @@ import java.security.ProtectionDomain;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.Vector;
+import java.util.function.Function;
 
 public class ClassTest extends junit.framework.TestCase {
 
@@ -544,27 +548,6 @@ public class ClassTest extends junit.framework.TestCase {
             // expected
         }
     }
-
-    /**
-     * java.lang.Class#toString()
-     */
-    public void test_toString() throws ClassNotFoundException {
-        assertEquals("Class toString printed wrong value",
-                "int", int.class.toString());
-        Class<?> clazz = null;
-        clazz = Class.forName("[I");
-        assertEquals("Class toString printed wrong value",
-                "class [I", clazz.toString());
-
-        clazz = Class.forName("java.lang.Object");
-        assertEquals("Class toString printed wrong value",
-                "class java.lang.Object", clazz.toString());
-
-        clazz = Class.forName("[Ljava.lang.Object;");
-        assertEquals("Class toString printed wrong value",
-                "class [Ljava.lang.Object;", clazz.toString());
-    }
-
 
     // Regression Test for JIRA-2047
     public void test_getResourceAsStream_withSharpChar() throws Exception {

@@ -165,8 +165,7 @@ public class CustomizeChannelListFragment extends SideFragment {
             if (item instanceof SelectGroupItem) {
                 SelectGroupItem selectGroupItem = (SelectGroupItem) item;
                 if (selectGroupItem.mChannelItemsInGroup.size() == 1) {
-                    ((ChannelItem) selectGroupItem.mChannelItemsInGroup.get(0))
-                            .mSelectGroupItem = null;
+                    selectGroupItem.mChannelItemsInGroup.get(0).mSelectGroupItem = null;
                     iter.remove();
                 }
             }

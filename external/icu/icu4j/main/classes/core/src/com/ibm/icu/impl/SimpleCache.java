@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ****************************************************************************
  * Copyright (c) 2007-2015 International Business Machines Corporation and  *
@@ -37,6 +39,7 @@ public class SimpleCache<K, V> implements ICUCache<K, V> {
         }
     }
 
+    @Override
     public V get(Object key) {
         Reference<Map<K, V>> ref = cacheRef;
         if (ref != null) {
@@ -48,6 +51,7 @@ public class SimpleCache<K, V> implements ICUCache<K, V> {
         return null;
     }
 
+    @Override
     public void put(K key, V value) {
         Reference<Map<K, V>> ref = cacheRef;
         Map<K, V> map = null;
@@ -66,6 +70,7 @@ public class SimpleCache<K, V> implements ICUCache<K, V> {
         map.put(key, value);
     }
 
+    @Override
     public void clear() {
         cacheRef = null;
     }

@@ -12,9 +12,9 @@
 #include <limits>
 
 #include "base/logging.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/numerics/safe_math.h"
-#include "base/strings/utf_string_conversions.h"
+#include "base/scoped_clear_errno.h"
+#include "base/scoped_clear_errno.h"
 
 namespace base {
 
@@ -144,6 +144,7 @@ class IteratorRangeToNumber {
 
     if (begin != end && *begin == '-') {
       if (!std::numeric_limits<value_type>::is_signed) {
+        *output = 0;
         valid = false;
       } else if (!Negative::Invoke(begin + 1, end, output)) {
         valid = false;

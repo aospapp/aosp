@@ -97,7 +97,7 @@ private:
   ValueEnumerator(const ValueEnumerator &) = delete;
   void operator=(const ValueEnumerator &) = delete;
 public:
-  ValueEnumerator(const llvm::Module &M);
+  explicit ValueEnumerator(const llvm::Module &M);
 
   void dump() const;
   void print(llvm::raw_ostream &OS, const ValueMapType &Map, const char *Name) const;

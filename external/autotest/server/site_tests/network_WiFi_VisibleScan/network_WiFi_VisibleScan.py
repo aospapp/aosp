@@ -33,14 +33,14 @@ class network_WiFi_VisibleScan(wifi_cell_test_base.WiFiCellTestBase):
         ap_config = hostap_config.HostapConfig(channel=1)
         # Set up the router and associate the client with it.
         self.context.configure(ap_config)
-        self.context.router.start_capture(
-                ap_config.frequency,
-                ht_type=ap_config.ht_packet_capture_mode,
-                snaplen=packet_capturer.SNAPLEN_WIFI_PROBE_REQUEST)
+        self.context.capture_host.start_capture(
+                    ap_config.frequency,
+                    ht_type=ap_config.ht_packet_capture_mode,
+                    snaplen=packet_capturer.SNAPLEN_WIFI_PROBE_REQUEST)
         assoc_params = xmlrpc_datatypes.AssociationParameters(
                 ssid=self.context.router.get_ssid())
         self.context.assert_connect_wifi(assoc_params)
-        results = self.context.router.stop_capture()
+        results = self.context.capture_host.stop_capture()
         if len(results) != 1:
             raise error.TestError('Expected to generate one packet '
                                   'capture but got %d instead.' %

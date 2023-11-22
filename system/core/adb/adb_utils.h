@@ -20,23 +20,19 @@
 #include <string>
 
 #include <android-base/macros.h>
-#include <android-base/unique_fd.h>
+
+int usage(const char*, ...);
 
 void close_stdin();
 
 bool getcwd(std::string* cwd);
 bool directory_exists(const std::string& path);
 
-// Like the regular basename and dirname, but thread-safe on all
-// platforms and capable of correctly handling exotic Windows paths.
-std::string adb_basename(const std::string& path);
-std::string adb_dirname(const std::string& path);
-
 // Return the user's home directory.
-// |check_env_first| - if true, on Windows check the ANDROID_SDK_HOME
-// environment variable before trying the WinAPI call (useful when looking for
-// the .android directory)
-std::string adb_get_homedir_path(bool check_env_first);
+std::string adb_get_homedir_path();
+
+// Return the adb user directory.
+std::string adb_get_android_dir_path();
 
 bool mkdirs(const std::string& path);
 
@@ -50,51 +46,11 @@ bool set_file_block_mode(int fd, bool block);
 
 extern int adb_close(int fd);
 
-// Helper to automatically close an FD when it goes out of scope.
-struct AdbCloser {
-    static void Close(int fd) {
-        adb_close(fd);
-    }
-};
-
-using unique_fd = android::base::unique_fd_impl<AdbCloser>;
-
-class ScopedFd {
-  public:
-    ScopedFd() {
-    }
-
-    ~ScopedFd() {
-        Reset();
-    }
-
-    void Reset(int fd = -1) {
-        if (fd != fd_) {
-            if (valid()) {
-                adb_close(fd_);
-            }
-            fd_ = fd;
-        }
-    }
-
-    int Release() {
-        int temp = fd_;
-        fd_ = -1;
-        return temp;
-    }
-
-    bool valid() const {
-        return fd_ >= 0;
-    }
-
-    int fd() const {
-        return fd_;
-    }
-
-  private:
-    int fd_ = -1;
-
-    DISALLOW_COPY_AND_ASSIGN(ScopedFd);
-};
+// Given forward/reverse targets, returns true if they look sane. If an error is found, fills
+// |error| and returns false.
+// Currently this only checks "tcp:" targets. Additional checking could be added for other targets
+// if needed.
+bool forward_targets_are_valid(const std::string& source, const std::string& dest,
+                               std::string* error);
 
 #endif

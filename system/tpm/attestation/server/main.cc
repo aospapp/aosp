@@ -43,9 +43,8 @@ const char kAttestationSeccompPath[] =
 void InitMinijailSandbox() {
   uid_t attestation_uid;
   gid_t attestation_gid;
-  CHECK(brillo::userdb::GetUserInfo(kAttestationUser,
-                                      &attestation_uid,
-                                      &attestation_gid))
+  CHECK(brillo::userdb::GetUserInfo(kAttestationUser, &attestation_uid,
+                                    &attestation_gid))
       << "Error getting attestation uid and gid.";
   CHECK_EQ(getuid(), kRootUID) << "AttestationDaemon not initialized as root.";
   brillo::Minijail* minijail = brillo::Minijail::GetInstance();
@@ -86,9 +85,8 @@ class AttestationDaemon : public brillo::DBusServiceDaemon {
   }
 
   void RegisterDBusObjectsAsync(AsyncEventSequencer* sequencer) override {
-    dbus_service_.reset(new attestation::DBusService(
-        bus_,
-        attestation_service_.get()));
+    dbus_service_.reset(
+        new attestation::DBusService(bus_, attestation_service_.get()));
     dbus_service_->Register(sequencer->GetHandler("Register() failed.", true));
   }
 
@@ -101,7 +99,7 @@ class AttestationDaemon : public brillo::DBusServiceDaemon {
 
 int main(int argc, char* argv[]) {
   base::CommandLine::Init(argc, argv);
-  base::CommandLine *cl = base::CommandLine::ForCurrentProcess();
+  base::CommandLine* cl = base::CommandLine::ForCurrentProcess();
   int flags = brillo::kLogToSyslog;
   if (cl->HasSwitch("log_to_stderr")) {
     flags |= brillo::kLogToStderr;

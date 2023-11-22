@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,7 +6,6 @@
 import unittest
 
 import common
-from autotest_lib.client.common_lib.test_utils import unittest
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
 from autotest_lib.scheduler import rdb
@@ -339,3 +339,6 @@ class RDBCacheTest(test_utils.AbstractBaseRDBTester, unittest.TestCase):
                            'get_response', local_get_response)
         self.check_hosts(rdb_lib.acquire_hosts(queue_entries))
 
+
+if __name__ == '__main__':
+    unittest.main()

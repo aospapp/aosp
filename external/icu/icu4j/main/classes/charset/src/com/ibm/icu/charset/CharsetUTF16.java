@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2006-2011, International Business Machines Corporation and    *
@@ -36,7 +38,7 @@ class CharsetUTF16 extends CharsetICU {
     private int endianXOR;
     private byte[] bom;
     private byte[] fromUSubstitution;
-    
+
     private int version;
 
     public CharsetUTF16(String icuCanonicalName, String javaCanonicalName, String[] aliases) {
@@ -49,7 +51,7 @@ class CharsetUTF16 extends CharsetICU {
         } else {
             version = 0;
         }
-        
+
         this.isEndianSpecified = (this instanceof CharsetUTF16BE || this instanceof CharsetUTF16LE);
         this.isBigEndian = !(this instanceof CharsetUTF16LE);
 
@@ -62,21 +64,21 @@ class CharsetUTF16 extends CharsetICU {
             this.fromUSubstitution = fromUSubstitution_LE;
             this.endianXOR = ENDIAN_XOR_LE;
         }
-        
+
         /* UnicodeBig and UnicodeLittle requires maxBytesPerChar set to 4 in Java 5 or less */
         if ((VersionInfo.javaVersion().getMajor() == 1 && VersionInfo.javaVersion().getMinor() <= 5)
-                && (isEndianSpecified && version == 1)) { 
-            maxBytesPerChar = 4; 
-        } else { 
-            maxBytesPerChar = 2; 
-        } 
+                && (isEndianSpecified && version == 1)) {
+            maxBytesPerChar = 4;
+        } else {
+            maxBytesPerChar = 2;
+        }
 
         minBytesPerChar = 2;
         maxCharsPerByte = 1;
     }
 
     class CharsetDecoderUTF16 extends CharsetDecoderICU {
-        
+
         private boolean isBOMReadYet;
         private int actualEndianXOR;
         private byte[] actualBOM;
@@ -85,12 +87,14 @@ class CharsetUTF16 extends CharsetICU {
             super(cs);
         }
 
+        @Override
         protected void implReset() {
             super.implReset();
             isBOMReadYet = false;
             actualBOM = null;
         }
 
+        @Override
         protected CoderResult decodeLoop(ByteBuffer source, CharBuffer target, IntBuffer offsets, boolean flush) {
             /*
              * If we detect a BOM in this buffer, then we must add the BOM size to the offsets because the actual
@@ -165,7 +169,7 @@ class CharsetUTF16 extends CharsetICU {
                         return CoderResult.UNDERFLOW;
                     toUBytesArray[toULength++] = source.get();
                 }
-                
+
                 if (isEndianSpecified && version == 1 && (toUBytesArray[toULength - 1] == actualBOM[toULength - 2] && toUBytesArray[toULength - 2] == actualBOM[toULength - 1])) {
                     return CoderResult.malformedForLength(2);
                 } else if (isEndianSpecified && version == 1 && (toUBytesArray[toULength - 1] == actualBOM[toULength - 1] && toUBytesArray[toULength - 2] == actualBOM[toULength - 2])) {
@@ -244,11 +248,13 @@ class CharsetUTF16 extends CharsetICU {
             fromUnicodeStatus = (isEndianSpecified && version != 1) ? 0 : NEED_TO_WRITE_BOM;
         }
 
+        @Override
         protected void implReset() {
             super.implReset();
             fromUnicodeStatus = (isEndianSpecified && version != 1) ? 0 : NEED_TO_WRITE_BOM;
         }
 
+        @Override
         protected CoderResult encodeLoop(CharBuffer source, ByteBuffer target, IntBuffer offsets, boolean flush) {
             CoderResult cr;
 
@@ -313,15 +319,18 @@ class CharsetUTF16 extends CharsetICU {
         }
     }
 
+    @Override
     public CharsetDecoder newDecoder() {
         return new CharsetDecoderUTF16(this);
     }
 
+    @Override
     public CharsetEncoder newEncoder() {
         return new CharsetEncoderUTF16(this);
     }
-    
+
+    @Override
     void getUnicodeSetImpl( UnicodeSet setFillIn, int which){
-        getNonSurrogateUnicodeSet(setFillIn);            
+        getNonSurrogateUnicodeSet(setFillIn);
     }
 }

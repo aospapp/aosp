@@ -219,6 +219,7 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
 
     private void showAuthenticationScreen() {
         mFingerprintDialog = new FingerprintAuthDialogFragment();
+        mFingerprintDialog.setActivity(this);
         mFingerprintDialog.show(getFragmentManager(), "fingerprint_dialog");
     }
 
@@ -227,9 +228,11 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
             .show();
     }
 
-    public class FingerprintAuthDialogFragment extends DialogFragment {
+    public static class FingerprintAuthDialogFragment extends DialogFragment {
 
+        private FingerprintBoundKeysTest mActivity;
         private CancellationSignal mCancellationSignal;
+        private FingerprintManager mFingerprintManager;
         private FingerprintManagerCallback mFingerprintManagerCallback;
         private boolean mSelfCancelled;
 
@@ -262,9 +265,9 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
                 if (DEBUG) {
                     Log.i(TAG,"onAuthenticationSucceeded");
                 }
-                if (tryEncrypt()) {
+                if (mActivity.tryEncrypt()) {
                     showToast("Test passed.");
-                    getPassButton().setEnabled(true);
+                    mActivity.getPassButton().setEnabled(true);
                     FingerprintAuthDialogFragment.this.dismiss();
                 } else {
                     showToast("Test failed. Key not accessible after auth");
@@ -278,12 +281,24 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
             mSelfCancelled = true;
         }
 
+        private void setActivity(FingerprintBoundKeysTest activity) {
+            mActivity = activity;
+        }
+
+        private void showToast(String message) {
+            Toast.makeText(getContext(), message, Toast.LENGTH_LONG)
+                .show();
+        }
+
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
             mCancellationSignal = new CancellationSignal();
             mSelfCancelled = false;
+            mFingerprintManager =
+                    (FingerprintManager) getContext().getSystemService(Context.FINGERPRINT_SERVICE);
             mFingerprintManagerCallback = new FingerprintManagerCallback();
-            mFingerprintManager.authenticate(new FingerprintManager.CryptoObject(mCipher),
+            mFingerprintManager.authenticate(
+                    new FingerprintManager.CryptoObject(mActivity.mCipher),
                     mCancellationSignal, 0, mFingerprintManagerCallback, null);
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
             builder.setMessage(R.string.sec_fp_dialog_message);

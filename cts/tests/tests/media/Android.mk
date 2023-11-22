@@ -44,12 +44,28 @@ LOCAL_PROGUARD_ENABLED := disabled
 # include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctsmediautil ctsdeviceutil compatibility-device-util ctstestserver ctstestrunner ndkaudio
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util \
+    ctsdeviceutillegacy \
+    ctsmediautil \
+    ctstestrunner \
+    ctstestserver \
+    junit \
+    legacy-android-test \
+    ndkaudio \
+    testng
 
-LOCAL_JNI_SHARED_LIBRARIES := libctsmediacodec_jni libaudio_jni libnativehelper_compat_libc++ libndkaudioLib
+LOCAL_JNI_SHARED_LIBRARIES := \
+    libaudio_jni \
+    libctsimagereader_jni \
+    libctsmediadrm_jni \
+    libctsmediacodec_jni \
+    libnativehelper_compat_libc++ \
+    libndkaudioLib
 
 # do not compress VP9 video files
 LOCAL_AAPT_FLAGS := -0 .vp9
+LOCAL_AAPT_FLAGS += -0 .ts
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

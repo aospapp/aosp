@@ -54,8 +54,7 @@ public class CdmaSystemSelectListPreference extends ListPreference {
 
     @Override
     protected void showDialog(Bundle state) {
-        if (Boolean.parseBoolean(
-                    SystemProperties.get(TelephonyProperties.PROPERTY_INECM_MODE))) {
+        if (mPhone.isInEcm()) {
             // In ECM mode do not show selection options
         } else {
             super.showDialog(state);

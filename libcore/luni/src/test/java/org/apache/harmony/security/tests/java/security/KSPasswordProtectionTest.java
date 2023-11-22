@@ -23,7 +23,9 @@
 package org.apache.harmony.security.tests.java.security;
 
 import java.security.KeyStore;
+import java.security.spec.AlgorithmParameterSpec;
 
+import javax.crypto.spec.IvParameterSpec;
 import javax.security.auth.DestroyFailedException;
 
 import junit.framework.TestCase;
@@ -67,5 +69,50 @@ public class KSPasswordProtectionTest extends TestCase {
         } catch (Exception e) {
             fail("Unexpected exception for NULL parameter");
         }
+    }
+
+    /**
+     * Test for <code>KeyStore.PasswordProtection(char[] password, String protectionAlgorithm,
+     * AlgorithmParameterSpec protectionParameters)</code> constructor
+     * and the method <code>getProtectionAlgorithm()</code>
+
+     * Assertions: constructor throws NullPointerException if protectionAlgorithm is null.
+     * getProtectionAlgorithm() returns the protection algorithm passed in the constructor.
+     */
+    public void testGetProtectionAlgorithm() throws DestroyFailedException {
+        char [] pass = {'a', 'b', 'c'};
+        String protectionAlgorithm = "ThisBeautifulAlgorithm";
+        AlgorithmParameterSpec protectionParameters = new IvParameterSpec(new byte[]{});
+        KeyStore.PasswordProtection ksPWP;
+        try {
+            ksPWP = new KeyStore.PasswordProtection(
+                    pass, null /* protectionAlgorithm */, protectionParameters);
+            fail("Expected null pointer exception");
+        } catch (NullPointerException expected) {
+        }
+        ksPWP = new KeyStore.PasswordProtection(
+                pass, protectionAlgorithm, null /* protectionParameters */);
+        assertSame(protectionAlgorithm, ksPWP.getProtectionAlgorithm());
+    }
+
+    /**
+     * Test for <code>KeyStore.PasswordProtection(char[] password, String protectionAlgorithm,
+     * AlgorithmParameterSpec protectionParameters)</code> constructor
+     * and the method <code>getProtectionParameters()</code>
+
+     * Assertions: constructor creates new PasswordProtection object, even if protectionParameters
+     * is null. getProtectionParameterrs() returns the protection algorithm passed in the
+     * constructor.
+     */
+    public void testGetProtectionParameters() throws DestroyFailedException {
+        char [] pass = {'a', 'b', 'c'};
+        AlgorithmParameterSpec protectionParameters = new IvParameterSpec(new byte[]{});
+        KeyStore.PasswordProtection ksPWP =
+                new KeyStore.PasswordProtection(
+                        pass, "protectionAlgorithm", null /* protectionParameters */);
+        assertNull(ksPWP.getProtectionParameters());
+        ksPWP = new KeyStore.PasswordProtection(
+                pass, "protectionAlgorithm", protectionParameters);
+        assertSame(protectionParameters, ksPWP.getProtectionParameters());
     }
 }

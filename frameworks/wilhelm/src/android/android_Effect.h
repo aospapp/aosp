@@ -19,10 +19,10 @@
  ****************************/
 extern void android_eq_init(audio_session_t sessionId, IEqualizer* ieq);
 
-extern android::status_t android_eq_setParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_eq_setParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, int32_t param2, void *pValue);
 
-extern android::status_t android_eq_getParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_eq_getParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, int32_t param2, void *pValue);
 
 /**************************************************************************************************
@@ -30,10 +30,10 @@ extern android::status_t android_eq_getParam(android::sp<android::AudioEffect> p
  ****************************/
 extern void android_bb_init(audio_session_t sessionId, IBassBoost* ibb);
 
-extern android::status_t android_bb_setParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_bb_setParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, void *pValue);
 
-extern android::status_t android_bb_getParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_bb_getParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, void *pValue);
 
 /**************************************************************************************************
@@ -41,10 +41,10 @@ extern android::status_t android_bb_getParam(android::sp<android::AudioEffect> p
  ****************************/
 extern void android_virt_init(audio_session_t sessionId, IVirtualizer* ivi);
 
-extern android::status_t android_virt_setParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_virt_setParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, void *pValue);
 
-extern android::status_t android_virt_getParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_virt_getParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, void *pValue);
 
 /**************************************************************************************************
@@ -52,10 +52,10 @@ extern android::status_t android_virt_getParam(android::sp<android::AudioEffect>
  ****************************/
 extern void android_prev_init(IPresetReverb* ipr);
 
-extern android::status_t android_prev_setPreset(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_prev_setPreset(const android::sp<android::AudioEffect>& pFx,
         uint16_t preset);
 
-extern android::status_t android_prev_getPreset(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_prev_getPreset(const android::sp<android::AudioEffect>& pFx,
         uint16_t* preset);
 
 /**************************************************************************************************
@@ -63,10 +63,10 @@ extern android::status_t android_prev_getPreset(android::sp<android::AudioEffect
  ****************************/
 extern void android_erev_init(IEnvironmentalReverb* ier);
 
-extern android::status_t android_erev_setParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_erev_setParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, void *pValue);
 
-extern android::status_t android_erev_getParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_erev_getParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, void *pValue);
 
 /**************************************************************************************************
@@ -117,7 +117,7 @@ extern bool android_genericFx_hasEffect(IAndroidEffect* iae, SLInterfaceID pUuid
  *   should be combined with the send level for the aux level to follow volume changes.
  */
 extern android::status_t android_fxSend_attach(CAudioPlayer* ap, bool attach,
-        android::sp<android::AudioEffect> pFx, SLmillibel sendLevel);
+        const android::sp<android::AudioEffect>& pFx, SLmillibel sendLevel);
 
 /**
  * sendLevel is the total energy going to the send bus. This implies that the volume attenuation
@@ -136,10 +136,10 @@ extern android::status_t android_fxSend_setSendLevel(CAudioPlayer* ap, SLmillibe
 /**************************************************************************************************
  * Effect-agnostic functions
  ****************************/
-extern android::status_t android_fx_setParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_fx_setParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, uint32_t paramSizeMax, void *pValue, uint32_t valueSize);
 
-extern android::status_t android_fx_getParam(android::sp<android::AudioEffect> pFx,
+extern android::status_t android_fx_getParam(const android::sp<android::AudioEffect>& pFx,
         int32_t param, uint32_t paramSizeMax, void *pValue, uint32_t valueSize);
 
 extern SLresult android_fx_statusToResult(android::status_t status);

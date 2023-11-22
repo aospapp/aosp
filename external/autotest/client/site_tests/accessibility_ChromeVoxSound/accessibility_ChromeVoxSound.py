@@ -4,62 +4,65 @@
 
 import os
 import logging
+import time
 
-from autotest_lib.client.bin import test
-from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.a11y import a11y_test_base
 from autotest_lib.client.cros.audio import cras_utils
 from autotest_lib.client.cros.audio import sox_utils
 
 
-class accessibility_ChromeVoxSound(test.test):
+class accessibility_ChromeVoxSound(a11y_test_base.a11y_test_base):
     """Check whether ChromeVox makes noise on real hardware."""
     version = 1
 
     _audio_chunk_size = 1 # Length of chunk size in seconds.
-    _detect_time = 20 # Max length of time to spend detecting audio in seconds.
+    _detect_time = 40 # Max length of time to spend detecting audio in seconds.
 
 
-    def _enable_ChromeVox(self):
-        """Enable ChromeVox using a11y API call."""
-        cmd = '''
-            window.__result = false;
-            chrome.accessibilityFeatures.spokenFeedback.set({value: true});
-            chrome.accessibilityFeatures.spokenFeedback.get({},
-                function(d) {window.__result = d[\'value\'];}
-            );
-        '''
-        self._extension.ExecuteJavaScript(cmd)
-        utils.poll_for_condition(
-                lambda: self._extension.EvaluateJavaScript('window.__result'),
-                exception = error.TestError(
-                        'Timeout waiting for ChromeVox to be enabled.'))
-
-
-    def _detect_audio(self):
+    def _detect_audio(self, name, min_time, max_time):
         """Detects whether audio was heard and returns the approximate time.
 
         Runs for at most self._detect_time, checking each chunk for sound.
         After first detecting a chunk that has audio, counts the subsequent
         chunks that also do.
 
-        @return: Approximate length of time in seconds there was audio.
+        Finally, check whether the found audio matches the expected length.
+
+        @param name: a string representing which sound is expected.
+        @param min_time: the minimum allowed sound length in seconds.
+        @param max_time: the maximum allowed sound length in seconds.
+
+        @raises: error.TestFail if the observed behavior doesn't match
+                 expected: either no sound or sound of bad length.
 
         """
         count = 0
         counting = False
+
         for i in xrange(self._detect_time / self._audio_chunk_size):
             rms = self._rms_of_next_audio_chunk()
             if rms > 0:
                 logging.info('Found passing chunk: %d.', i)
+                if not counting:
+                    start_time = time.time()
+                    counting = True
                 count += 1
-                counting = True
             elif counting:
-                return count * self._audio_chunk_size
+                audio_length = time.time() - start_time
+                break
+        if not counting:
+            raise error.TestFail('No audio for %s was found!' % name)
 
-        logging.warning('Timeout before end of audio!')
-        return count * self._audio_chunk_size
+        logging.info('Time taken - %s: %f', name, audio_length)
+        if audio_length < min_time:
+            raise error.TestFail(
+                    '%s audio was only %f seconds long!' % (name, audio_length))
+        elif audio_length > max_time:
+            raise error.TestFail(
+                    '%s audio was too long: %f seconds!' % (name, audio_length))
+        return
 
 
     def _rms_of_next_audio_chunk(self):
@@ -71,50 +74,51 @@ class accessibility_ChromeVoxSound(test.test):
         return vars(stat_output)['rms']
 
 
-    def warmup(self):
-        self._loopback_file = os.path.join(self.bindir, 'cras_loopback.wav')
+    def _check_chromevox_sound(self, cr):
+        """Test contents.
+
+        Enable ChromeVox, navigate to a new page, and open a new tab.  Check
+        the audio output at each point.
+
+        @param cr: the chrome.Chrome() object
+
+        """
+        chromevox_start_time = time.time()
+        self._toggle_chromevox()
+        self._confirm_chromevox_state(True)
+
+        # TODO: this sound doesn't play for Telemetry user.  crbug.com/590403
+        # Welcome ding
+        # self._detect_audio('enable ChromeVox ding', 1, 2)
+
+        # "ChromeVox Spoken Feedback is ready!"
+        self._detect_audio('welcome message', 2, 6)
+        chromevox_open_time = time.time() - chromevox_start_time
+        logging.info('ChromeVox took %f seconds to start.')
+
+        # Page navigation sound.
+        cr.browser.tabs[0].Navigate('chrome://version')
+        self._detect_audio('page navigation sound', 2, 6)
+
+        # New tab sound
+        tab = cr.browser.tabs.New()
+        self._detect_audio('new tab ding', 2, 6)
 
 
     def run_once(self):
         """Entry point of this test."""
-        extension_path = os.path.join(os.path.dirname(__file__), 'a11y_ext')
+        self._loopback_file = os.path.join(self.bindir, 'cras_loopback.wav')
+        extension_path = self._get_extension_path()
 
-        with chrome.Chrome(extension_paths=[extension_path],
-                           is_component=False) as cr:
-            # Setup ChromeVox extension
+        with chrome.Chrome(extension_paths=[extension_path]) as cr:
             self._extension = cr.get_extension(extension_path)
-
-            # Begin actual test
-            logging.info('Detecting initial ChromeVox welcome sound.')
-            self._enable_ChromeVox()
-            audio_length = self._detect_audio()
-            if audio_length < 1:
-                raise error.TestError('No sound after enabling Chromevox!')
-
-            logging.info('Detecting initial ChromeVox welcome speech.')
-            audio_length = self._detect_audio()
-            if audio_length < 2:
-                raise error.TestError('Speech after enabling ChromeVox was <= '
-                                      '%f seconds long!' % audio_length)
-
-            logging.info('Detecting page navigation sound.')
-            cr.browser.tabs[0].Navigate('chrome://version')
-            audio_length = self._detect_audio()
-            if audio_length < 2:
-                raise error.TestError('Speech after loading a page was <= '
-                                      '%f seconds long!' % audio_length)
-
-            logging.info('Detecting new tab sound.')
-            tab = cr.browser.tabs.New()
-            audio_length = self._detect_audio()
-            if audio_length < 1:
-                raise error.TestError('No sound after opening new tab!')
+            cr.browser.tabs[0].WaitForDocumentReadyStateToBeComplete()
+            self._confirm_chromevox_state(False)
+            self._check_chromevox_sound(cr)
 
 
-    def cleanup(self):
+    def _child_test_cleanup(self):
         try:
             os.remove(self._loopback_file)
         except OSError:
             pass
-
-

@@ -21,9 +21,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "base/stringprintf.h"
 #include "common_runtime_test.h"
 #include "runtime/arch/instruction_set.h"
+#include "runtime/exec_utils.h"
 #include "runtime/gc/heap.h"
 #include "runtime/gc/space/image_space.h"
 #include "runtime/os.h"
@@ -43,11 +43,7 @@ class DexListTest : public CommonRuntimeTest {
   // Runs test with given arguments.
   bool Exec(const std::vector<std::string>& args, std::string* error_msg) {
     std::string file_path = GetTestAndroidRoot();
-    if (IsHost()) {
-      file_path += "/bin/dexlist";
-    } else {
-      file_path += "/xbin/dexlist";
-    }
+    file_path += "/bin/dexlist";
     EXPECT_TRUE(OS::FileExists(file_path.c_str())) << file_path << " should be a valid file path";
     std::vector<std::string> exec_argv = { file_path };
     exec_argv.insert(exec_argv.end(), args.begin(), args.end());

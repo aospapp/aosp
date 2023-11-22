@@ -15,12 +15,21 @@
  */
 package android.transition.cts;
 
+import static org.junit.Assert.assertSame;
+
 import android.graphics.Path;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.PatternPathMotion;
 
-public class PatternPathMotionTest extends PathMotionTest {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    public void testStraightPath() throws Throwable {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PatternPathMotionTest extends PathMotionTest {
+    @Test
+    public void testStraightPath() {
         Path pattern = new Path();
         pattern.moveTo(100, 500);
         pattern.lineTo(300, 1000);
@@ -35,7 +44,8 @@ public class PatternPathMotionTest extends PathMotionTest {
         assertPathMatches(expected, pathMotion.getPath(0, 0, 100, 100));
     }
 
-    public void testCurve() throws Throwable {
+    @Test
+    public void testCurve() {
         Path pattern = new Path();
         pattern.addArc(0, 0, 100, 100, 0, 180);
 
@@ -46,6 +56,16 @@ public class PatternPathMotionTest extends PathMotionTest {
         expected.addArc(-50, 0, 50, 100, -90, 180);
 
         assertPathMatches(expected, pathMotion.getPath(0, 0, 0, 100));
+    }
+
+    @Test
+    public void testSetPatternPath() {
+        Path pattern = new Path();
+        pattern.addArc(0, 0, 100, 100, 0, 180);
+
+        PatternPathMotion patternPathMotion = new PatternPathMotion();
+        patternPathMotion.setPatternPath(pattern);
+        assertSame(pattern, patternPathMotion.getPatternPath());
     }
 }
 

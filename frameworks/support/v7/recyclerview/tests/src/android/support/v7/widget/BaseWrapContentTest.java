@@ -15,8 +15,6 @@
  */
 package android.support.v7.widget;
 
-import static android.support.v7.widget.StaggeredGridLayoutManager.HORIZONTAL;
-
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -24,7 +22,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
-import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.support.annotation.Nullable;
@@ -37,16 +34,10 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import org.hamcrest.CoreMatchers;
-import org.junit.Test;
-
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Class to test any generic wrap content behavior.
@@ -501,43 +492,6 @@ abstract public class BaseWrapContentTest extends BaseRecyclerViewInstrumentatio
         return true;
     }
 
-    static class WrappedRecyclerView extends RecyclerView {
-
-        public WrappedRecyclerView(Context context) {
-            super(context);
-        }
-
-        public void waitUntilLayout() {
-            while (isLayoutRequested()) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        public void waitUntilAnimations() throws InterruptedException {
-            final CountDownLatch latch = new CountDownLatch(1);
-            if (mItemAnimator == null || !mItemAnimator.isRunning(
-                    new ItemAnimator.ItemAnimatorFinishedListener() {
-                        @Override
-                        public void onAnimationsFinished() {
-                            latch.countDown();
-                        }
-                    })) {
-                latch.countDown();
-            }
-            MatcherAssert.assertThat("waiting too long for animations",
-                    latch.await(60, TimeUnit.SECONDS), CoreMatchers.is(true));
-        }
-
-        @Override
-        protected void onLayout(boolean changed, int l, int t, int r, int b) {
-            super.onLayout(changed, l, t, r, b);
-        }
-    }
-
     static class WrapContentConfig {
 
         public boolean unlimitedWidth;
@@ -577,8 +531,8 @@ abstract public class BaseWrapContentTest extends BaseRecyclerViewInstrumentatio
         public String toString() {
             return "WrapContentConfig{"
                     + "unlimitedWidth=" + unlimitedWidth
-                    + ", unlimitedHeight=" + unlimitedHeight
-                    + ", padding=" + padding
+                    + ",unlimitedHeight=" + unlimitedHeight
+                    + ",padding=" + padding
                     + '}';
         }
 

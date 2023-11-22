@@ -20,6 +20,8 @@
 #include "rsProgramBase.h"
 #include "rsStream.h"
 
+#include <vector>
+
 // ---------------------------------------------------------------------------
 namespace android {
 namespace renderscript {
@@ -92,11 +94,11 @@ public:
     ObjectBaseRef<ProgramStore> mLast;
 
     // Cache of all existing store programs.
-    Vector<ProgramStore *> mStorePrograms;
+    std::vector<ProgramStore *> mStorePrograms;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif
 
 

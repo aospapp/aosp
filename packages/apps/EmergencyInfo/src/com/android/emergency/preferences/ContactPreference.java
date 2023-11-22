@@ -16,9 +16,13 @@
 package com.android.emergency.preferences;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -29,20 +33,26 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
+import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
+import com.android.emergency.CircleFramedDrawable;
 import com.android.emergency.EmergencyContactManager;
 import com.android.emergency.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
-import com.android.settingslib.drawable.CircleFramedDrawable;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+
+import java.util.List;
 
 
 /**
  * A {@link Preference} to display or call a contact using the specified URI string.
  */
 public class ContactPreference extends Preference {
+
+    private static final String TAG = "ContactPreference";
 
     private EmergencyContactManager.Contact mContact;
     @Nullable private RemoveContactPreferenceListener mRemoveContactPreferenceListener;
@@ -62,26 +72,25 @@ public class ContactPreference extends Preference {
      * Instantiates a ContactPreference that displays an emergency contact, taking in a Context and
      * the Uri.
      */
-    public ContactPreference(Context context, @NonNull Uri contactUri) {
+    public ContactPreference(Context context, @NonNull Uri phoneUri) {
         super(context);
         setOrder(DEFAULT_ORDER);
 
-        setUri(contactUri);
+        setPhoneUri(phoneUri);
 
         setWidgetLayoutResource(R.layout.preference_user_delete_widget);
         setPersistent(false);
     }
 
-    public void setUri(@NonNull Uri contactUri) {
-        if (mContact != null && !contactUri.equals(mContact.getContactUri()) &&
+    public void setPhoneUri(@NonNull Uri phoneUri) {
+        if (mContact != null && !phoneUri.equals(mContact.getPhoneUri()) &&
                 mRemoveContactDialog != null) {
             mRemoveContactDialog.dismiss();
         }
-
-        mContact = EmergencyContactManager.getContact(getContext(), contactUri);
+        mContact = EmergencyContactManager.getContact(getContext(), phoneUri);
 
         setTitle(mContact.getName());
-        setKey(mContact.getContactUri().toString());
+        setKey(mContact.getPhoneUri().toString());
         String summary = mContact.getPhoneType() == null ?
                 mContact.getPhoneNumber() :
                 String.format(
@@ -156,8 +165,8 @@ public class ContactPreference extends Preference {
         }
     }
 
-    public Uri getContactUri() {
-        return mContact.getContactUri();
+    public Uri getPhoneUri() {
+        return mContact.getPhoneUri();
     }
 
     @VisibleForTesting
@@ -176,6 +185,15 @@ public class ContactPreference extends Preference {
     public void callContact() {
         Intent callIntent =
                 new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + mContact.getPhoneNumber()));
+        PackageManager packageManager = getContext().getPackageManager();
+        List<ResolveInfo> infos =
+                packageManager.queryIntentActivities(callIntent, PackageManager.MATCH_SYSTEM_ONLY);
+        if (infos == null || infos.isEmpty()) {
+            return;
+        }
+        callIntent.setComponent(new ComponentName(infos.get(0).activityInfo.packageName,
+                infos.get(0).activityInfo.name));
+
         MetricsLogger.action(getContext(), MetricsEvent.ACTION_CALL_EMERGENCY_CONTACT);
         getContext().startActivity(callIntent);
     }
@@ -184,9 +202,18 @@ public class ContactPreference extends Preference {
      * Displays a contact card for the contact.
      */
     public void displayContact() {
-        Intent contactIntent = new Intent(Intent.ACTION_VIEW);
-        contactIntent.setData(mContact.getContactLookupUri());
-        getContext().startActivity(contactIntent);
+        Intent displayIntent = new Intent(Intent.ACTION_VIEW);
+        displayIntent.setData(mContact.getContactLookupUri());
+        try {
+            getContext().startActivity(displayIntent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(getContext(),
+                           getContext().getString(R.string.fail_display_contact),
+                           Toast.LENGTH_LONG).show();
+            Log.w(TAG, "No contact app available to display the contact", e);
+            return;
+        }
+
     }
 
     /** Shows the dialog to remove the contact, restoring it from {@code state} if it's not null. */

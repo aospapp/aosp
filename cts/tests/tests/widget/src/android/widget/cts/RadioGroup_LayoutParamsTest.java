@@ -16,82 +16,82 @@
 
 package android.widget.cts;
 
-import android.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.Gravity;
 import android.view.ViewGroup;
-import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.RadioGroup;
-import android.widget.RadioGroup.LayoutParams;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
 /**
- * Test {@link LayoutParams}.
+ * Test {@link RadioGroup.LayoutParams}.
  */
-public class RadioGroup_LayoutParamsTest extends AndroidTestCase {
-    private LayoutParams mLayoutParams;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RadioGroup_LayoutParamsTest {
+    private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mLayoutParams = null;
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
+    @Test
     public void testConstructor() {
-        mLayoutParams = new RadioGroup.LayoutParams(Integer.MIN_VALUE, Integer.MAX_VALUE);
+        RadioGroup.LayoutParams mLayoutParams =
+                new RadioGroup.LayoutParams(Integer.MIN_VALUE, Integer.MAX_VALUE);
         assertEquals(Integer.MIN_VALUE, mLayoutParams.width);
         assertEquals(Integer.MAX_VALUE, mLayoutParams.height);
-        assertEquals(0.0f, mLayoutParams.weight);
+        assertEquals(0.0f, mLayoutParams.weight, 0.0f);
 
         mLayoutParams = new RadioGroup.LayoutParams(Integer.MAX_VALUE, Integer.MIN_VALUE);
         assertEquals(Integer.MAX_VALUE, mLayoutParams.width);
         assertEquals(Integer.MIN_VALUE, mLayoutParams.height);
-        assertEquals(0.0f, mLayoutParams.weight);
+        assertEquals(0.0f, mLayoutParams.weight, 0.0f);
 
         mLayoutParams = new RadioGroup.LayoutParams(Integer.MIN_VALUE, Integer.MAX_VALUE,
                 Float.MAX_VALUE);
         assertEquals(Integer.MIN_VALUE, mLayoutParams.width);
         assertEquals(Integer.MAX_VALUE, mLayoutParams.height);
-        assertEquals(Float.MAX_VALUE, mLayoutParams.weight);
+        assertEquals(Float.MAX_VALUE, mLayoutParams.weight, 0.0f);
 
         mLayoutParams = new RadioGroup.LayoutParams(Integer.MIN_VALUE, Integer.MAX_VALUE,
                 Float.MIN_VALUE);
         assertEquals(Integer.MIN_VALUE, mLayoutParams.width);
         assertEquals(Integer.MAX_VALUE, mLayoutParams.height);
-        assertEquals(Float.MIN_VALUE, mLayoutParams.weight);
+        assertEquals(Float.MIN_VALUE, mLayoutParams.weight, 0.0f);
 
         mLayoutParams = new RadioGroup.LayoutParams(new ViewGroup.LayoutParams(40, 60));
         assertEquals(40, mLayoutParams.width);
         assertEquals(60, mLayoutParams.height);
-        assertEquals(0.0f, mLayoutParams.weight);
+        assertEquals(0.0f, mLayoutParams.weight, 0.0f);
 
-        try {
-            new RadioGroup.LayoutParams((ViewGroup.LayoutParams) null);
-            fail("The constructor should throw NullPointerException when param "
-                    + "ViewGroup.LayoutParams is null.");
-        } catch (NullPointerException e) {
-        }
-
-        mLayoutParams = new RadioGroup.LayoutParams(new MarginLayoutParams(100, 200));
+        mLayoutParams = new RadioGroup.LayoutParams(new ViewGroup.MarginLayoutParams(100, 200));
         assertEquals(100, mLayoutParams.width);
         assertEquals(200, mLayoutParams.height);
-        assertEquals(0.0f, mLayoutParams.weight);
+        assertEquals(0.0f, mLayoutParams.weight, 0.0f);
         assertEquals(0, mLayoutParams.leftMargin);
         assertEquals(0, mLayoutParams.topMargin);
         assertEquals(0, mLayoutParams.rightMargin);
         assertEquals(0, mLayoutParams.bottomMargin);
 
-        MarginLayoutParams source = new MarginLayoutParams(10, 20);
+        ViewGroup.MarginLayoutParams source = new ViewGroup.MarginLayoutParams(10, 20);
         source.leftMargin = 1;
         source.topMargin = 2;
         source.rightMargin = 3;
@@ -100,57 +100,60 @@ public class RadioGroup_LayoutParamsTest extends AndroidTestCase {
         mLayoutParams = new RadioGroup.LayoutParams(source);
         assertEquals(10, mLayoutParams.width);
         assertEquals(20, mLayoutParams.height);
-        assertEquals(0.0f, mLayoutParams.weight);
+        assertEquals(0.0f, mLayoutParams.weight, 0.0f);
         assertEquals(1, mLayoutParams.leftMargin);
         assertEquals(2, mLayoutParams.topMargin);
         assertEquals(3, mLayoutParams.rightMargin);
         assertEquals(4, mLayoutParams.bottomMargin);
 
-        try {
-            new RadioGroup.LayoutParams((MarginLayoutParams) null);
-            fail("The constructor should throw NullPointerException when param "
-                    + "MarginLayoutParams is null.");
-        } catch (NullPointerException e) {
-        }
-
-        mLayoutParams = new LayoutParams(getContext(),
-                getAttributeSet(android.widget.cts.R.layout.radiogroup_1));
+        mLayoutParams = new RadioGroup.LayoutParams(mContext,
+                getAttributeSet(R.layout.radiogroup_1));
         assertNotNull(mLayoutParams);
-        assertEquals(0.5, mLayoutParams.weight, 0);
+        assertEquals(0.5, mLayoutParams.weight, 0.0f);
         assertEquals(Gravity.BOTTOM, mLayoutParams.gravity);
         assertEquals(5, mLayoutParams.leftMargin);
         assertEquals(5, mLayoutParams.topMargin);
         assertEquals(5, mLayoutParams.rightMargin);
         assertEquals(5, mLayoutParams.bottomMargin);
-        assertEquals(LayoutParams.MATCH_PARENT, mLayoutParams.width);
-        assertEquals(LayoutParams.MATCH_PARENT, mLayoutParams.height);
+        assertEquals(RadioGroup.LayoutParams.MATCH_PARENT, mLayoutParams.width);
+        assertEquals(RadioGroup.LayoutParams.MATCH_PARENT, mLayoutParams.height);
 
-        mLayoutParams = new RadioGroup.LayoutParams(getContext(), null);
+        mLayoutParams = new RadioGroup.LayoutParams(mContext, null);
         assertEquals(RadioGroup.LayoutParams.WRAP_CONTENT, mLayoutParams.width);
         assertEquals(RadioGroup.LayoutParams.WRAP_CONTENT, mLayoutParams.height);
-
-        try {
-            new RadioGroup.LayoutParams(null,
-                    getAttributeSet(android.widget.cts.R.layout.radiogroup_1));
-            fail("The constructor should throw NullPointerException when param Context is null.");
-        } catch (NullPointerException e) {
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullViewGroupLayoutParams() {
+        new RadioGroup.LayoutParams((ViewGroup.LayoutParams) null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullMarginLayoutParams() {
+        new RadioGroup.LayoutParams((ViewGroup.MarginLayoutParams) null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext() {
+        new RadioGroup.LayoutParams(null, getAttributeSet(R.layout.radiogroup_1));
+    }
+
+    @Test
     public void testSetBaseAttributes() {
-        MockLayoutParams layoutParams = new MockLayoutParams(getContext(), null);
+        MockLayoutParams layoutParams = new MockLayoutParams(mContext, null);
         // default values
-        assertEquals(LayoutParams.WRAP_CONTENT, layoutParams.width);
-        assertEquals(LayoutParams.WRAP_CONTENT, layoutParams.height);
+        assertEquals(RadioGroup.LayoutParams.WRAP_CONTENT, layoutParams.width);
+        assertEquals(RadioGroup.LayoutParams.WRAP_CONTENT, layoutParams.height);
 
         AttributeSet attrs = getAttributeSet(android.widget.cts.R.layout.radiogroup_1);
-        TypedArray a = mContext.obtainStyledAttributes(attrs, R.styleable.ViewGroup_MarginLayout);
+        TypedArray a = mContext.obtainStyledAttributes(attrs,
+                android.R.styleable.ViewGroup_MarginLayout);
         layoutParams.setBaseAttributes(a,
-                R.styleable.ViewGroup_MarginLayout_layout_width,
-                R.styleable.ViewGroup_MarginLayout_layout_height);
+                android.R.styleable.ViewGroup_MarginLayout_layout_width,
+                android.R.styleable.ViewGroup_MarginLayout_layout_height);
         // check the attributes from the layout file
-        assertEquals(LayoutParams.MATCH_PARENT, layoutParams.width);
-        assertEquals(LayoutParams.MATCH_PARENT, layoutParams.height);
+        assertEquals(RadioGroup.LayoutParams.MATCH_PARENT, layoutParams.width);
+        assertEquals(RadioGroup.LayoutParams.MATCH_PARENT, layoutParams.height);
     }
 
     private AttributeSet getAttributeSet(int resId) {

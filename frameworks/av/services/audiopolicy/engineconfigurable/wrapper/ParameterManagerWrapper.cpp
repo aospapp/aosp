@@ -22,7 +22,7 @@
 #include <ParameterMgrPlatformConnector.h>
 #include <SelectionCriterionTypeInterface.h>
 #include <SelectionCriterionInterface.h>
-#include <convert.h>
+#include <media/convert.h>
 #include <algorithm>
 #include <cutils/config_utils.h>
 #include <cutils/misc.h>
@@ -48,7 +48,7 @@ public:
 
     virtual void info(const string &log)
     {
-        ALOGD("policy-parameter-manager: %s", log.c_str());
+        ALOGV("policy-parameter-manager: %s", log.c_str());
     }
     virtual void warning(const string &log)
     {

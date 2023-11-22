@@ -23,29 +23,33 @@ import com.android.tv.testing.dvr.RecordingTestUtils;
 
 import junit.framework.TestCase;
 
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
 import java.util.concurrent.TimeUnit;
 
 /**
  * Tests for {@link ScheduledProgramReaper}.
  */
 public class ScheduledProgramReaperTest extends TestCase {
-    public static final int CHANNEL_ID = 273;
-    public static final long DURATION = TimeUnit.HOURS.toMillis(1);
+    private static final String INPUT_ID = "input_id";
+    private static final int CHANNEL_ID = 273;
+    private static final long DURATION = TimeUnit.HOURS.toMillis(1);
 
     private ScheduledProgramReaper mReaper;
     private FakeClock mFakeClock;
     private DvrDataManagerInMemoryImpl mDvrDataManager;
-    private ScheduledRecording mScheduledRecordingDay1;
+    @Mock private DvrManager mDvrManager;
 
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        MockitoAnnotations.initMocks(this);
         mFakeClock = FakeClock.createWithTimeOne();
         mDvrDataManager = new DvrDataManagerInMemoryImpl(null, mFakeClock);
         mReaper = new ScheduledProgramReaper(mDvrDataManager, mFakeClock);
     }
-
 
     public void testRun_noRecordings() {
         MoreAsserts.assertContentsInAnyOrder(mDvrDataManager.getAllScheduledRecordings());
@@ -101,7 +105,10 @@ public class ScheduledProgramReaperTest extends TestCase {
 
     private ScheduledRecording addNewScheduledRecordingForTomorrow() {
         long startTime = mFakeClock.currentTimeMillis() + TimeUnit.DAYS.toMillis(1);
-        return RecordingTestUtils.addScheduledRecording(mDvrDataManager, CHANNEL_ID, startTime,
-                startTime + DURATION);
+        ScheduledRecording recording = RecordingTestUtils.createTestRecordingWithPeriod(INPUT_ID,
+                CHANNEL_ID, startTime, startTime + DURATION);
+        return mDvrDataManager.addScheduledRecordingInternal(
+                ScheduledRecording.buildFrom(recording)
+                        .setState(ScheduledRecording.STATE_RECORDING_FINISHED).build());
     }
 }

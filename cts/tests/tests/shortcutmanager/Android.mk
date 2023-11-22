@@ -24,7 +24,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     android-support-v4 \
     mockito-target-minus-junit4 \
-    ctsdeviceutil \
+    compatibility-device-util \
     ctstestrunner \
     ub-uiautomator \
     ShortcutManagerTestUtils

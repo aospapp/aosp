@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Етернет"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Скенирање је увек доступно"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Дозволите Google-овој услузи локације и другим апликацијама да скенирају мреже, чак и када је Wi-Fi искључен"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Дозволите Google-овој услузи лоцирања и другим апликацијама да траже мреже, чак и када је Wi-Fi искључен"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Чувар екрана"</string>
     <string name="device_display" msgid="101455384386372747">"Приказ"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Батерија <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Опозивање упаривања уређаја…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Повезано је"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Промени назив"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Унесите нови назив за ову додатну опрему"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Претражују се пом.уређаји…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Пре него што упарите Bluetooth уређаје, проверите да ли су у режиму упаривања"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Пронађен је уређај и аутоматски ће се упарити за <xliff:g id="COUNTDOWN">%1$s</xliff:g> секунде(и)"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Тастатура"</string>
     <string name="system_home" msgid="2858989138172296012">"Почетни екран"</string>
     <string name="system_search" msgid="2837264654143247611">"Претражи"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Безбедност и ограничења"</string>
     <string name="system_speech" msgid="8128688499687306982">"Говор"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Улази"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Опције за програмера"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ништа"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Коришћење и дијагностика"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Водичи"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Ажурирање система"</string>
     <string name="about_preference" msgid="4131396784531360434">"Основни подаци"</string>
     <string name="device_name" msgid="2670488158531273028">"Назив уређаја"</string>
@@ -195,7 +199,7 @@
     <string name="title_wifi_proxy_settings_invalid" msgid="7380479044141040849">"Подешавања проксија нису важећа"</string>
     <string name="title_wifi_ip_settings_invalid" msgid="7228948551397955678">"Подешавања за IP нису важећа"</string>
     <string name="title_wifi_known_network" msgid="819998498700202436">"<xliff:g id="SSID">%1$s</xliff:g> је сачувана мрежа"</string>
-    <string name="wifi_action_try_again" msgid="3308643222864163092">"Покушај поново"</string>
+    <string name="wifi_action_try_again" msgid="3308643222864163092">"Пробај поново"</string>
     <string name="wifi_action_view_available_networks" msgid="560074338908947419">"Прикажи доступне мреже"</string>
     <string name="wifi_connecting" msgid="1299861268647323455">"Повезивање са <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_saving" msgid="1269061570772019215">"Чување конфигурације за <xliff:g id="SSID">%1$s</xliff:g>"</string>
@@ -314,7 +318,7 @@
     <string name="system_package" msgid="9200255718634512790">"Није могуће инсталирати ажурирања система на спољашњим медијима."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Администратор уређаја не може да се инсталира на спољним медијумима."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Сазнајте више"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Покушај поново"</string>
+    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Пробај поново"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Претрага WPS рутера…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Притисните дугме Заштићено подешавање Wi-Fi-ја на рутеру.\nМожда је наведено као „WPS“ или има симбол са леве стране."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Унесите PIN <xliff:g id="NUMBER">%1$s</xliff:g> на Wi-Fi рутеру"</string>
@@ -338,7 +342,7 @@
   </string-array>
   <string-array name="auto_date_time_ts_entries">
     <item msgid="8463479794795616025">"Користи време мреже"</item>
-    <item msgid="2475903014233987786">"Користи време транспортног стрима"</item>
+    <item msgid="2475903014233987786">"Користи време превозног стрима"</item>
     <item msgid="150957081326946463">"Искључи"</item>
   </string-array>
     <string name="system_location" msgid="502463575930545806">"Локација"</string>
@@ -373,6 +377,7 @@
     <string name="display_options" msgid="5504549024985225774">"Опције приказа"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Конфигуриши"</string>
     <string name="captions_language" msgid="2835554055388996343">"Језик"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Подразумевано"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Величина текста"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Стил титла"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Прилагођене опције"</string>
@@ -449,7 +454,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Размера анимације прелаза"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Animator размера трајања"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Омогућен је строги режим"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Прикажи коришћење процесора"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Приказивање профила помоћу GPU-а"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Омогући трагове"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Не чувај активности"</string>
@@ -467,7 +471,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Најбоље ка најгорем: плаво, зелено, светлоцрвено, црвено"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Осветли све површине прозора када се ажурирају"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Екран трепери код дугих операција аплик. на глав. нити"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Елемент постављен преко екрана који приказује тренутну употребу процесора"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Мери време приказивања у adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Укључи"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Искључи"</string>
@@ -592,9 +595,9 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Подесите нови PIN"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"Поново унесите нови PIN"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"Унесите стари PIN"</string>
-    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Унели сте погрешан PIN 5 пута.\nПокушајте поново за <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> сек."</string>
-    <string name="pin_toast_wrong" msgid="4628358195224633248">"Погрешан PIN. Покушајте поново"</string>
-    <string name="pin_toast_not_match" msgid="5886041789737632996">"Покушајте поново, PIN се не подудара"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Унели сте погрешан PIN 5 пута.\nПробајте поново за <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> сек."</string>
+    <string name="pin_toast_wrong" msgid="4628358195224633248">"Погрешан PIN. Пробајте поново"</string>
+    <string name="pin_toast_not_match" msgid="5886041789737632996">"Пробајте поново, PIN се не подудара"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"Унесите лозинку за <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_setup_connection_success" msgid="3846993789166071184">"Веза је успостављена"</string>
     <string name="wifi_setup_save_success" msgid="4785799603638549254">"Сачувано је"</string>
@@ -603,7 +606,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Принудно заустави"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ако принудно зауставите апликацију, можда ће се понашати неочекивано."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Деинсталирај"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Желите ли да деинсталирате ову апликацију?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Деинсталирајте ажурирања"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Сва ажурирања ове Android системске апликације биће деинсталирана."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Онемогући"</string>
@@ -620,6 +622,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Обриши кеш"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Обавештења"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Дозволе"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Апликација није доступна"</string>
     <string name="settings_ok" msgid="3321630456511355983">"Потврди"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Откажи"</string>
     <string name="settings_on" msgid="6892236264945435013">"Укључено"</string>
@@ -643,17 +646,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Желите ли да избришете све личне податке и преузете апликације? Не можете да опозовете ову радњу!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Избриши све"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Изаберите назив за <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Назив ће вам помоћи да препознате <xliff:g id="DEVICEMODEL">%1$s</xliff:g> када му приступате са других уређаја, попут телефона, таблета или рачунара."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Дајте назив уређају <xliff:g id="DEVICEMODEL">%1$s</xliff:g> да бисте могли да га идентификујете при пребацивању или повезивању са другим уређајима."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Дневна соба"</item>
-    <item msgid="3722089849939477581">"Соба за забаву"</item>
-    <item msgid="6108590585438763574">"Дневни боравак"</item>
-    <item msgid="2581035245390468625">"Трпезарија"</item>
-    <item msgid="3127487827308695324">"Радна соба"</item>
-    <item msgid="6172018430592195063">"Спаваћа соба"</item>
-    <item msgid="8120010459866284578">"Кухиња"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"ТВ у дневној соби"</item>
+    <item msgid="8122798759665439456">"ТВ у соби за породицу"</item>
+    <item msgid="1389347662738182100">"ТВ у спаваћој соби"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Унесите прилагођен назив..."</string>
+    <string name="custom_room" msgid="8655516733933892458">"Унесите прилагођени назив…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Преименујте <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> тренутно има назив „<xliff:g id="DEVICENAME">%2$s</xliff:g>“"</string>
     <string name="change_setting" msgid="2047402388786162246">"Промени"</string>
@@ -668,4 +668,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Рестартуј систем у безбедном режиму"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Желите ли да рестартујете систем у безбедном режиму?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Ово ће онемогућити све инсталиране апликације независних произвођача. Оне ће бити враћене када поново рестартујете систем."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Извештај о грешци се прави"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Доступне виртуелне тастатуре"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Управљајте тастатурама"</string>
 </resources>

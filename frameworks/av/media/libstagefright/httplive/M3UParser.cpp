@@ -46,7 +46,7 @@ struct M3UParser::MediaGroup : public RefBase {
         FLAG_HAS_URI            = 16,
     };
 
-    MediaGroup(Type type);
+    explicit MediaGroup(Type type);
 
     Type type() const;
 
@@ -498,8 +498,8 @@ static bool MakeURL(const char *baseURL, const char *url, AString *out) {
     if (url[0] == '/') {
         // URL is an absolute path.
 
-        char *protocolEnd = strstr(baseURL, "//") + 2;
-        char *pathStart = strchr(protocolEnd, '/');
+        const char *protocolEnd = strstr(baseURL, "//") + 2;
+        const char *pathStart = strchr(protocolEnd, '/');
 
         if (pathStart != NULL) {
             out->setTo(baseURL, pathStart - baseURL);

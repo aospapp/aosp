@@ -36,6 +36,7 @@ import android.util.LruCache;
 import com.android.tv.common.MemoryManageable;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.epg.EpgFetcher;
+import com.android.tv.experiments.Experiments;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.Clock;
 import com.android.tv.util.MultiLongSparseArray;
@@ -108,17 +109,17 @@ public class ProgramDataManager implements MemoryManageable {
 
     private boolean mPauseProgramUpdate = false;
     private final LruCache<Long, Program> mZeroLengthProgramCache = new LruCache<>(10);
-
-    // TODO: Change to final.
-    private EpgFetcher mEpgFetcher;
+    private final EpgFetcher mEpgFetcher;
 
     public ProgramDataManager(Context context) {
-        this(context.getContentResolver(), Clock.SYSTEM, Looper.myLooper());
-        mEpgFetcher = new EpgFetcher(context);
+        this(context.getContentResolver(), Clock.SYSTEM, Looper.myLooper(),
+                EpgFetcher.getInstance(context));
     }
 
     @VisibleForTesting
-    ProgramDataManager(ContentResolver contentResolver, Clock time, Looper looper) {
+    ProgramDataManager(ContentResolver contentResolver, Clock time, Looper looper,
+            EpgFetcher epgFetcher) {
+        mEpgFetcher = epgFetcher;
         mClock = time;
         mContentResolver = contentResolver;
         mHandler = new MyHandler(looper);
@@ -174,7 +175,7 @@ public class ProgramDataManager implements MemoryManageable {
         }
         mContentResolver.registerContentObserver(Programs.CONTENT_URI,
                 true, mProgramObserver);
-        if (mEpgFetcher != null) {
+        if (mEpgFetcher != null && Experiments.CLOUD_EPG.get()) {
             mEpgFetcher.start();
         }
     }
@@ -621,22 +622,6 @@ public class ProgramDataManager implements MemoryManageable {
         protected void onPostExecute(Program program) {
             mProgramUpdateTaskMap.remove(mChannelId);
             updateCurrentProgram(mChannelId, program);
-        }
-    }
-
-    /**
-     * Gets an single {@link Program} from {@link TvContract.Programs#CONTENT_URI}.
-     */
-    public static class QueryProgramTask extends AsyncDbTask.AsyncQueryItemTask<Program> {
-
-        public QueryProgramTask(ContentResolver contentResolver, long programId) {
-            super(contentResolver, TvContract.buildProgramUri(programId), Program.PROJECTION, null,
-                    null, null);
-        }
-
-        @Override
-        protected Program fromCursor(Cursor c) {
-            return  Program.fromCursor(c);
         }
     }
 

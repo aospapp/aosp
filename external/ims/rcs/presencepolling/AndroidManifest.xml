@@ -39,6 +39,7 @@
             android:protectionLevel="signatureOrSystem" />
 
     <protected-broadcast android:name="android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED" />
+    <protected-broadcast android:name="android.provider.rcs.eab.EAB_DATABASE_RESET" />
     <protected-broadcast android:name="com.android.service.ims.presence.capability_polling_retry" />
     <protected-broadcast android:name="com.android.service.ims.presence.periodical_capability_discovery" />
 
@@ -73,7 +74,6 @@
 
         <receiver android:name=".DeviceBoot" androidprv:systemUserOnly="true">
             <intent-filter android:priority="103">
-                 <action android:name="com.android.ims.ACTION_PUBLISH_STATUS_CHANGED"/>
                  <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
@@ -92,14 +92,6 @@
                 <action android:name="com.android.service.ims.presence.capability_polling_retry"/>
                 <action android:name="android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED" />
             </intent-filter>
-        </receiver>
-
-        <receiver android:name=".PresenceBroadcastReceiver"
-            androidprv:systemUserOnly="true"
-            android:permission="com.android.ims.permission.PRESENCE_ACCESS">
-             <intent-filter>
-                 <action android:name="com.android.ims.ACTION_PUBLISH_STATUS_CHANGED"/>
-             </intent-filter>
         </receiver>
 
         <service android:name=".PersistService"

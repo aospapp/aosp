@@ -27,7 +27,6 @@
 package org.apache.harmony.jpda.tests.framework.jdwp;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 
 /**
  * This class provides description of frame.
@@ -41,7 +40,7 @@ public class Frame {
 
     protected long id;
 
-    protected ArrayList vars;
+    protected ArrayList<Variable> vars;
 
     /**
      * Default constructor.
@@ -65,7 +64,7 @@ public class Frame {
      * @param vars
      *            list of variables
      */
-    Frame(long threadID, long id, Location location, ArrayList vars) {
+    Frame(long threadID, long id, Location location, ArrayList<Variable> vars) {
         this.threadID = threadID;
         this.id = id;
         this.loc = location;
@@ -134,7 +133,7 @@ public class Frame {
      * 
      * @return list of frame variables
      */
-    public ArrayList getVars() {
+    public ArrayList<Variable> getVars() {
         return vars;
     }
 
@@ -144,7 +143,7 @@ public class Frame {
      * @param vars
      *            list of new frame variables
      */
-    public void setVars(ArrayList vars) {
+    public void setVars(ArrayList<Variable> vars) {
         this.vars = vars;
     }
 
@@ -154,13 +153,13 @@ public class Frame {
      * @see java.lang.Object#toString()
      * @return String
      */
+    @Override
     public String toString() {
         String string = "Frame: id=" + id + ", threadID=" + threadID
                 + ", location=" + loc.toString() + "\n";
         string += "--- Variables ---";
-        Iterator it = vars.iterator();
-        while (it.hasNext()) {
-            string += ((Variable) it.next()).toString();
+        for (Variable var : vars) {
+            string += var.toString();
         }
         return string;
     }
@@ -171,6 +170,7 @@ public class Frame {
      * @see java.lang.Object#equals(java.lang.Object)
      * @return boolean
      */
+    @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Frame)) {
             return false;
@@ -482,6 +482,7 @@ public class Frame {
          * @see java.lang.Object#toString()
          * @return String
          */
+        @Override
         public String toString() {
             return "Variable: codeIndex=" + codeIndex + ", name=" + name
                     + ", signature=" + signature + ", length=" + length
@@ -495,6 +496,7 @@ public class Frame {
          * @see java.lang.Object#equals(java.lang.Object)
          * @return boolean
          */
+        @Override
         public boolean equals(Object obj) {
             if (!(obj instanceof Variable)) {
                 return false;

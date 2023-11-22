@@ -14,7 +14,6 @@
  * the License.
  */
 
-#include <UniquePtr.h>
 #include "Log.h"
 #include "audio/AudioSignalFactory.h"
 #include "audio/RemoteAudio.h"

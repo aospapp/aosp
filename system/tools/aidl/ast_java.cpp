@@ -417,9 +417,14 @@ void Method::Write(CodeWriter* to) const {
   }
 }
 
-void Constant::Write(CodeWriter* to) const {
+void IntConstant::Write(CodeWriter* to) const {
   WriteModifiers(to, STATIC | FINAL | PUBLIC, ALL_MODIFIERS);
   to->Write("int %s = %d;\n", name.c_str(), value);
+}
+
+void StringConstant::Write(CodeWriter* to) const {
+  WriteModifiers(to, STATIC | FINAL | PUBLIC, ALL_MODIFIERS);
+  to->Write("String %s = %s;\n", name.c_str(), value.c_str());
 }
 
 void Class::Write(CodeWriter* to) const {

@@ -25,8 +25,11 @@ import android.util.Log;
 
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.TvCommonConstants;
+import com.android.tv.data.epg.EpgFetcher;
+import com.android.tv.experiments.Experiments;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
+import com.android.tv.util.Utils;
 
 /**
  * An activity to launch a TV input setup activity.
@@ -74,7 +77,25 @@ public class SetupPassthroughActivity extends Activity {
         Bundle extras = intent.getExtras();
         extras.remove(TvCommonConstants.EXTRA_SETUP_INTENT);
         setupIntent.putExtras(extras);
-        startActivityForResult(setupIntent, REQUEST_START_SETUP_ACTIVITY);
+        try {
+            startActivityForResult(setupIntent, REQUEST_START_SETUP_ACTIVITY);
+        } catch (ActivityNotFoundException e) {
+            Log.e(TAG, "Can't find activity: " + setupIntent.getComponent());
+            finish();
+            return;
+        }
+        if (Utils.isInternalTvInput(this, mTvInputInfo.getId()) && Experiments.CLOUD_EPG.get()) {
+            EpgFetcher.getInstance(this).stop();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mTvInputInfo != null && Utils.isInternalTvInput(this, mTvInputInfo.getId())
+                && Experiments.CLOUD_EPG.get()) {
+            EpgFetcher.getInstance(this).start();
+        }
+        super.onDestroy();
     }
 
     @Override

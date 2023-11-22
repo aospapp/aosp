@@ -6,7 +6,7 @@ TIME='FAST'
 AUTHOR = 'deymo,zeuthen,chromeos-installer'
 BUG_TEMPLATE = {
     'cc': ['chromeos-installer-alerts@google.com'],
-    'labels': ['Cr-Internals-Installer'],
+    'components': ['Internals>Installer'],
 }
 
 DOC = """\
@@ -18,7 +18,6 @@ NAME = 'p2p_ServeFiles'
 PURPOSE = 'Check that p2p-http-server daemon serves files over HTTP.'
 CRITERIA = "Fails if the DUT can't serve a HTTP request from the network."
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = 'bvt-cq'
 # See chromium:337726 for ongoing work to remove the experimental tag.
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Functional'

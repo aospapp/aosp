@@ -27,15 +27,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LinearLayoutWithDefaultTouchRecepient;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternUtils.RequestThrottledException;
 import com.android.internal.widget.LockPatternView;
 import com.android.internal.widget.LockPatternView.Cell;
 import com.android.internal.widget.LockPatternView.DisplayMode;
+import com.android.settings.core.InstrumentedPreferenceFragment;
 import com.android.settings.notification.RedactionInterstitial;
 import com.android.setupwizardlib.GlifLayout;
 import com.google.android.collect.Lists;
@@ -125,7 +127,7 @@ public class ChooseLockPattern extends SettingsActivity {
         return super.onKeyDown(keyCode, event);
     }
 
-    public static class ChooseLockPatternFragment extends InstrumentedFragment
+    public static class ChooseLockPatternFragment extends InstrumentedPreferenceFragment
             implements View.OnClickListener, SaveAndFinishWorker.Listener {
 
         public static final int CONFIRM_EXISTING_REQUEST = 55;
@@ -150,6 +152,9 @@ public class ChooseLockPattern extends SettingsActivity {
         private TextView mFooterRightButton;
         protected List<LockPatternView.Cell> mChosenPattern = null;
         private boolean mHideDrawer = false;
+
+        // ScrollView that contains title and header, only exist in land mode
+        private ScrollView mTitleHeaderScrollView;
 
         /**
          * The patten used during the help screen to show how to draw a pattern.
@@ -236,11 +241,20 @@ public class ChooseLockPattern extends SettingsActivity {
                     mFooterText.setText("");
                     mFooterLeftButton.setEnabled(false);
                     mFooterRightButton.setEnabled(false);
+
+                    if (mTitleHeaderScrollView != null) {
+                        mTitleHeaderScrollView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                mTitleHeaderScrollView.fullScroll(ScrollView.FOCUS_DOWN);
+                            }
+                        });
+                    }
                 }
          };
 
         @Override
-        protected int getMetricsCategory() {
+        public int getMetricsCategory() {
             return MetricsEvent.CHOOSE_LOCK_PATTERN;
         }
 
@@ -413,6 +427,9 @@ public class ChooseLockPattern extends SettingsActivity {
 
             mFooterLeftButton = (TextView) view.findViewById(R.id.footerLeftButton);
             mFooterRightButton = (TextView) view.findViewById(R.id.footerRightButton);
+
+            mTitleHeaderScrollView = (ScrollView) view.findViewById(R.id
+                    .scroll_layout_title_header);
 
             mFooterLeftButton.setOnClickListener(this);
             mFooterRightButton.setOnClickListener(this);
@@ -690,7 +707,7 @@ public class ChooseLockPattern extends SettingsActivity {
         }
     }
 
-    private static class SaveAndFinishWorker extends SaveChosenLockWorkerBase {
+    public static class SaveAndFinishWorker extends SaveChosenLockWorkerBase {
 
         private List<LockPatternView.Cell> mChosenPattern;
         private String mCurrentPattern;

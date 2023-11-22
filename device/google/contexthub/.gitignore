@@ -5,7 +5,6 @@
 *~
 *.d
 *.bin
-firmware/links
 *.napp
 # exclude IDE project files/directories
 .*

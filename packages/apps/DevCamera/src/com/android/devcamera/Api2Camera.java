@@ -41,8 +41,11 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+import android.media.Image.Plane;
 
 import java.nio.ByteBuffer;
+import java.nio.BufferUnderflowException;
+import java.lang.IndexOutOfBoundsException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -120,6 +123,11 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
     private int mYuv2ImageCounter;
     private ImageReader mRawImageReader;
     private int mRawImageCounter;
+    private boolean mIsDepthCloudSupported = false;
+    private ImageReader mDepthCloudImageReader;
+    private int mDepthCloudImageCounter = 0;
+    private static int STORE_NTH_DEPTH_CLOUD = 30;
+    private static boolean DEPTH_CLOUD_STORE_ENABLED = false;
 
     // Starting the preview requires each of these 3 to be true/non-null:
     volatile private Surface mPreviewSurface;
@@ -175,6 +183,10 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
             mReprocessingNoiseMode = CameraCharacteristics.NOISE_REDUCTION_MODE_HIGH_QUALITY;
             mReprocessingEdgeMode = CameraCharacteristics.EDGE_MODE_HIGH_QUALITY;
         }
+
+        if (null != mCameraInfoCache.getDepthCloudSize()) {
+            mIsDepthCloudSupported = true;
+        }
     }
 
     // Ugh, why is this stuff so slow?
@@ -200,6 +212,14 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
                 ImageFormat.YUV_420_888,
                 YUV1_IMAGEREADER_SIZE);
         mYuv1ImageReader.setOnImageAvailableListener(mYuv1ImageListener, mOpsHandler);
+
+        if (mIsDepthCloudSupported) {
+            mDepthCloudImageReader = ImageReader.newInstance(
+                    mCameraInfoCache.getDepthCloudSize().getWidth(),
+                    mCameraInfoCache.getDepthCloudSize().getHeight(),
+                    ImageFormat.DEPTH_POINT_CLOUD, 2);
+            mDepthCloudImageReader.setOnImageAvailableListener(mDepthCloudImageListener, mOpsHandler);
+        }
 
         if (SECOND_YUV_IMAGEREADER_STREAM) {
             // Create ImageReader to receive YUV image buffers.
@@ -382,7 +402,7 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
         CameraTimer.t_session_go = SystemClock.elapsedRealtime();
 
         Log.v(TAG, "Configuring session..");
-        List<Surface> outputSurfaces = new ArrayList<Surface>(3);
+        List<Surface> outputSurfaces = new ArrayList<Surface>(4);
 
         outputSurfaces.add(mPreviewSurface);
         Log.v(TAG, "  .. added SurfaceView " + mCameraInfoCache.getPreviewSize().getWidth() +
@@ -391,6 +411,11 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
         outputSurfaces.add(mYuv1ImageReader.getSurface());
         Log.v(TAG, "  .. added YUV ImageReader " + mCameraInfoCache.getYuvStream1Size().getWidth() +
                 " x " + mCameraInfoCache.getYuvStream1Size().getHeight());
+
+        if (mIsDepthCloudSupported) {
+            outputSurfaces.add(mDepthCloudImageReader.getSurface());
+            Log.v(TAG, "  .. added Depth cloud ImageReader");
+        }
 
         if (SECOND_YUV_IMAGEREADER_STREAM) {
             outputSurfaces.add(mYuv2ImageReader.getSurface());
@@ -531,6 +556,10 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
 
             b1.addTarget(mPreviewSurface);
 
+            if (mIsDepthCloudSupported && !mCaptureYuv1 && !mCaptureYuv2 && !mCaptureRaw) {
+                b1.addTarget(mDepthCloudImageReader.getSurface());
+            }
+
             if (mCaptureYuv2) {
                 if (SECOND_SURFACE_TEXTURE_STREAM) {
                     b1.addTarget(mSurfaceTextureSurface);
@@ -601,6 +630,31 @@ public class Api2Camera implements CameraInterface, SurfaceTexture.OnFrameAvaila
                 }
             };
 
+    ImageReader.OnImageAvailableListener mDepthCloudImageListener =
+            new ImageReader.OnImageAvailableListener() {
+                @Override
+                public void onImageAvailable(ImageReader reader)
+                        throws BufferUnderflowException, IndexOutOfBoundsException {
+                    Image img = reader.acquireLatestImage();
+                    if (img == null) {
+                        Log.e(TAG, "Null image returned Depth");
+                        return;
+                    }
+                    Plane[] planes = img.getPlanes();
+                    if (0 < planes.length) {
+                        if (DEPTH_CLOUD_STORE_ENABLED) {
+                            if ((mDepthCloudImageCounter % STORE_NTH_DEPTH_CLOUD) == 0) {
+                                ByteBuffer b = planes[0].getBuffer();
+                                MediaSaver.saveDepth(mContext, b);
+                            }
+                        }
+                    } else {
+                        Log.e(TAG, "Depth buffer with empty planes!");
+                    }
+                    img.close();
+                    mDepthCloudImageCounter++;
+                }
+            };
 
     ImageReader.OnImageAvailableListener mJpegImageListener =
             new ImageReader.OnImageAvailableListener() {

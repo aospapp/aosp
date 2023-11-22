@@ -353,6 +353,8 @@ size_t ReadPerfSampleFromData(const perf_event_type event_type,
                               const uint64_t sample_fields,
                               const uint64_t read_format,
                               bool swap_bytes,
+                              const perf_event_attr &attr0,
+                              size_t n_attrs,
                               struct perf_sample* sample) {
   const uint64_t* initial_array_ptr = array;
 
@@ -460,9 +462,34 @@ size_t ReadPerfSampleFromData(const perf_event_type event_type,
     array = ReadBranchStack(array, swap_bytes, sample);
   }
 
+  // { u64                   abi,
+  //   u64                   regs[nr];  } && PERF_SAMPLE_REGS_USER
+  if (sample_fields & PERF_SAMPLE_REGS_USER) {
+    uint64_t abi = MaybeSwap(*array++, swap_bytes);
+    if (abi != 0) {
+      assert(n_attrs == 1);
+      uint64_t reg_mask = attr0.sample_regs_user;
+      size_t bit_nr = 0;
+      for (size_t i = 0; i < 64; ++i) {
+        if ((reg_mask >> i) & 1) {
+          bit_nr++;
+        }
+      }
+      array += bit_nr;
+    }
+  }
+
+  // { u64                   size,
+  //   u64                   regs[nr];  } && PERF_SAMPLE_STACK_USER
+  if (sample_fields & PERF_SAMPLE_STACK_USER) {
+    uint64_t size = MaybeSwap(*array++, swap_bytes);
+    if (size != 0) {
+      array += (size / sizeof(uint64_t));
+      array += 1;  // for dyn_size
+    }
+  }
+
   static const u64 kUnimplementedSampleFields =
-      PERF_SAMPLE_REGS_USER  |
-      PERF_SAMPLE_STACK_USER |
       PERF_SAMPLE_WEIGHT     |
       PERF_SAMPLE_DATA_SRC   |
       PERF_SAMPLE_TRANSACTION;
@@ -615,6 +642,11 @@ size_t WritePerfSampleToData(const perf_event_type event_type,
       }
     }
   }
+
+  //
+  // Unsupported sample types.
+  //
+  CHECK(!(sample_fields & PERF_SAMPLE_STACK_USER|PERF_SAMPLE_REGS_USER));
 
   return (array - initial_array_ptr) * sizeof(uint64_t);
 }
@@ -769,6 +801,11 @@ bool PerfReader::IsSupportedEventType(uint32_t type) {
   case PERF_RECORD_LOST:
   case PERF_RECORD_THROTTLE:
   case PERF_RECORD_UNTHROTTLE:
+  case SIMPLE_PERF_RECORD_KERNEL_SYMBOL:
+  case SIMPLE_PERF_RECORD_DSO:
+  case SIMPLE_PERF_RECORD_SYMBOL:
+  case SIMPLE_PERF_RECORD_SPLIT:
+  case SIMPLE_PERF_RECORD_SPLIT_END:
     return true;
   case PERF_RECORD_READ:
   case PERF_RECORD_MAX:
@@ -788,6 +825,14 @@ bool PerfReader::ReadPerfSampleInfo(const event_t& event,
     return false;
   }
 
+  // We want to completely ignore these records
+  if (event.header.type == SIMPLE_PERF_RECORD_KERNEL_SYMBOL ||
+      event.header.type == SIMPLE_PERF_RECORD_DSO ||
+      event.header.type == SIMPLE_PERF_RECORD_SYMBOL ||
+      event.header.type == SIMPLE_PERF_RECORD_SPLIT ||
+      event.header.type == SIMPLE_PERF_RECORD_SPLIT_END)
+    return true;
+
   uint64_t sample_format = GetSampleFieldsForEventType(event.header.type,
                                                        sample_type_);
   uint64_t offset = GetPerfSampleDataOffset(event);
@@ -797,6 +842,8 @@ bool PerfReader::ReadPerfSampleInfo(const event_t& event,
       sample_format,
       read_format_,
       is_cross_endian_,
+      attrs_[0].attr,
+      attrs_.size(),
       sample);
 
   size_t expected_size = event.header.size - offset;
@@ -1391,7 +1438,22 @@ bool PerfReader::ReadPerfEventBlock(const event_t& event) {
   if (is_cross_endian_)
     ByteSwap(&size);
 
-  if (size > sizeof(event_t)) {
+  //
+  // Upstream linux perf limits the size of an event record to 2^16 bytes,
+  // however simpleperf includes extensions to support larger (2^32) record
+  // sizes via a split record scheme (the larger records are split up
+  // into chunks and then embedded into a series of SIMPLE_PERF_RECORD_SPLIT
+  // records followed by a terminating SIMPLE_PERF_RECORD_SPLIT_END record.
+  // At the moment none of the larger records are of interest to perfprofd, so
+  // the main thing we're doing here is ignoring/bypassing them.
+  //
+  if (event.header.type == SIMPLE_PERF_RECORD_KERNEL_SYMBOL ||
+      event.header.type == SIMPLE_PERF_RECORD_DSO ||
+      event.header.type == SIMPLE_PERF_RECORD_SYMBOL ||
+      event.header.type == SIMPLE_PERF_RECORD_SPLIT ||
+      event.header.type == SIMPLE_PERF_RECORD_SPLIT_END)
+    size = sizeof(event_t);
+  else if (size > sizeof(event_t)) {
     LOG(INFO) << "Data size: " << size << " sizeof(event_t): "
               << sizeof(event_t);
     return false;
@@ -1451,6 +1513,8 @@ bool PerfReader::ReadPerfEventBlock(const event_t& event) {
       ByteSwap(&event_copy->read.time_enabled);
       ByteSwap(&event_copy->read.time_running);
       ByteSwap(&event_copy->read.id);
+      break;
+    case SIMPLE_PERF_RECORD_KERNEL_SYMBOL:
       break;
     default:
       LOG(FATAL) << "Unknown event type: " << type;

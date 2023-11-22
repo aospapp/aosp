@@ -161,6 +161,9 @@ public class IntrinsicConvolve3x3 extends IntrinsicBase {
         mVerify.invoke_verify(mAllocRef, mAllocDst, mAllocSrc);
 
         mRS.finish();
+
+        si.destroy();
+        sr.destroy();
     }
 
 
@@ -258,6 +261,8 @@ public class IntrinsicConvolve3x3 extends IntrinsicBase {
         if (fid == null) {
             throw new IllegalStateException("fid must be valid");
         }
+
+        s.destroy();
     }
 
 }

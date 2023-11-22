@@ -24,6 +24,7 @@
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -83,6 +84,47 @@
                 <data android:scheme="mmsto" />
             </intent-filter>
         </service>
+
+        <service
+          android:name="android.telephony.cts.StubInCallService"
+          android:permission="android.permission.BIND_INCALL_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.InCallService"/>
+            </intent-filter>
+            <meta-data
+              android:name="android.telecom.IN_CALL_SERVICE_UI"
+              android:value="true"/>
+        </service>
+
+        <service
+          android:name=".MockVisualVoicemailService"
+          android:permission="android.permission.BIND_VISUAL_VOICEMAIL_SERVICE"
+          android:exported="true">
+            <intent-filter>
+                <action android:name="android.telephony.VisualVoicemailService"/>
+            </intent-filter>
+
+        </service>
+
+        <service
+            android:name=".PermissionlessVisualVoicemailService"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telephony.VisualVoicemailService"/>
+            </intent-filter>
+
+        </service>
+
+        <activity android:name="android.telephony.cts.StubDialerActvity">
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL"/>
+                <data android:scheme="tel"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL"/>
+            </intent-filter>
+        </activity>
 
         <uses-library android:name="android.test.runner" />
     </application>

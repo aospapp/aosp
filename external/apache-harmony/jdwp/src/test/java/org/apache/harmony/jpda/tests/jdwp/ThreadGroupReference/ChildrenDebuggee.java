@@ -50,7 +50,8 @@ public class ChildrenDebuggee extends SyncDebuggee {
     
     static Object waitForStart = new Object();
     static Object waitForFinish = new Object();
-    
+
+    @Override
     public void run() {
         ThreadGroup thrdGroupParent = new ThreadGroup(PARENT_GROUP);
         ThreadGroup thrdGroupChild = new ThreadGroup(thrdGroupParent, CHILD_GROUP);
@@ -73,7 +74,7 @@ public class ChildrenDebuggee extends SyncDebuggee {
         logWriter.println("DUMP{" + thrdGroupChild + "}");
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -85,6 +86,7 @@ public class ChildrenDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             synchronized(ChildrenDebuggee.waitForFinish){

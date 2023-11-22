@@ -161,7 +161,7 @@ def download_file(remote_path, local_path):
     except urllib2.URLError as e:
         e.msg = (("""URLError raised while retrieving file %s\n.
                         Reason = %s\n. Original Message = %s\n.""")
-                 % (remote_path, e.reason, e.msg))
+                 % (remote_path, e.reason, e.message))
         raise
 
     with open(local_path, 'wb') as local_file:

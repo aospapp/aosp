@@ -773,7 +773,6 @@ public:
 		FEATURE_ARRAY_FIRST_ELEM_NAME_NO_INDEX	= 1<<7
 	};
 
-								UniformCase		(Context& context, const char* name, const char* description, CaseShaderType caseType, const SharedPtr<const UniformCollection>& uniformCollection);
 								UniformCase		(Context& context, const char* name, const char* description, CaseShaderType caseType, const SharedPtr<const UniformCollection>& uniformCollection, deUint32 features);
 								UniformCase		(Context& context, const char* name, const char* description, deUint32 seed); // \note Randomizes caseType, uniformCollection and features.
 	virtual						~UniformCase	(void);
@@ -924,7 +923,7 @@ deUint32 UniformCase::randomFeatures (const deUint32 seed)
 
 	deUint32 result = 0;
 
-#define ARRAY_CHOICE(ARR) (ARR[rnd.getInt(0, DE_LENGTH_OF_ARRAY(ARR)-1)])
+#define ARRAY_CHOICE(ARR) ((ARR)[rnd.getInt(0, DE_LENGTH_OF_ARRAY(ARR)-1)])
 
 	result |= ARRAY_CHOICE(arrayUsageChoices);
 	result |= ARRAY_CHOICE(uniformFuncChoices);
@@ -942,15 +941,6 @@ UniformCase::UniformCase (Context& context, const char* const name, const char* 
 	: TestCase				(context, name, description)
 	, CallLogWrapper		(context.getRenderContext().getFunctions(), m_testCtx.getLog())
 	, m_features			(features)
-	, m_uniformCollection	(uniformCollection)
-	, m_caseShaderType		(caseShaderType)
-{
-}
-
-UniformCase::UniformCase (Context& context, const char* const name, const char* const description, const CaseShaderType caseShaderType, const SharedPtr<const UniformCollection>& uniformCollection)
-	: TestCase				(context, name, description)
-	, CallLogWrapper		(context.getRenderContext().getFunctions(), m_testCtx.getLog())
-	, m_features			(0)
 	, m_uniformCollection	(uniformCollection)
 	, m_caseShaderType		(caseShaderType)
 {
@@ -1445,7 +1435,7 @@ bool UniformCase::checkUniformDefaultValues (const vector<VarValue>& values, con
 	{																																		\
 		for (int i = 0; i < valSize; i++)																									\
 		{																																	\
-			if (unifValue.val.VAR_VALUE_MEMBER[i] != ZERO)																					\
+			if (unifValue.val.VAR_VALUE_MEMBER[i] != (ZERO))																				\
 			{																																\
 				log << TestLog::Message << "// FAILURE: uniform " << uniform.name << " has non-zero initial value" << TestLog::EndMessage;	\
 				success = false;																											\

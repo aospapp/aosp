@@ -46,8 +46,8 @@ bool TpmStatusImpl::GetDictionaryAttackInfo(int* counter,
                                             bool* lockout,
                                             int* seconds_remaining) {
   std::string capability_data;
-  if (!GetCapability(TSS_TPMCAP_DA_LOGIC, TPM_ET_KEYHANDLE,
-                     &capability_data, nullptr) ||
+  if (!GetCapability(TSS_TPMCAP_DA_LOGIC, TPM_ET_KEYHANDLE, &capability_data,
+                     nullptr) ||
       capability_data.size() < kMinimumDaInfoSize) {
     LOG(ERROR) << "Error getting tpm capability data.";
     return false;
@@ -57,10 +57,18 @@ bool TpmStatusImpl::GetDictionaryAttackInfo(int* counter,
     uint64_t offset = 0;
     std::vector<BYTE> bytes(capability_data.begin(), capability_data.end());
     Trspi_UnloadBlob_DA_INFO(&offset, bytes.data(), &da_info);
-    if (counter) { *counter = da_info.currentCount; }
-    if (threshold) { *threshold = da_info.thresholdCount; }
-    if (lockout) { *lockout = (da_info.state == TPM_DA_STATE_ACTIVE); }
-    if (seconds_remaining) { *seconds_remaining = da_info.actionDependValue; }
+    if (counter) {
+      *counter = da_info.currentCount;
+    }
+    if (threshold) {
+      *threshold = da_info.thresholdCount;
+    }
+    if (lockout) {
+      *lockout = (da_info.state == TPM_DA_STATE_ACTIVE);
+    }
+    if (seconds_remaining) {
+      *seconds_remaining = da_info.actionDependValue;
+    }
   }
   return true;
 }
@@ -100,8 +108,7 @@ bool TpmStatusImpl::GetCapability(uint32_t capability,
   trousers::ScopedTssMemory buf(tpm_connection_.GetContext());
   TSS_RESULT result = Tspi_TPM_GetCapability(
       tpm_handle, capability, sizeof(uint32_t),
-      reinterpret_cast<BYTE*>(&sub_capability),
-      &length, buf.ptr());
+      reinterpret_cast<BYTE*>(&sub_capability), &length, buf.ptr());
   if (tpm_result) {
     *tpm_result = result;
   }

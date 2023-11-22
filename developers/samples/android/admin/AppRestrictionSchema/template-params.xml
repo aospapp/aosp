@@ -45,7 +45,7 @@
         <languages>Java</languages>
         <solutions>Mobile</solutions>
         <level>ADVANCED</level>
-        <icon>Application/main/big_icon.png</icon>
+        <icon>screenshots/big_icon.png</icon>
         <screenshots>
             <img>screenshots/main.png</img>
         </screenshots>

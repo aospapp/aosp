@@ -22,6 +22,9 @@
 #include <android-base/strings.h>
 #include <sstream>
 
+namespace android {
+namespace net {
+
 Network::~Network() {
     if (!mInterfaces.empty()) {
         ALOGE("deleting network with netId %u without clearing its interfaces", mNetId);
@@ -86,3 +89,6 @@ std::string Network::toString() const {
 
 Network::Network(unsigned netId) : mNetId(netId) {
 }
+
+}  // namespace net
+}  // namespace android

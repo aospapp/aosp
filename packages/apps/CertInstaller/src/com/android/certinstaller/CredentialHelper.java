@@ -365,6 +365,7 @@ class CredentialHelper {
 
         Enumeration<String> aliases = keystore.aliases();
         if (!aliases.hasMoreElements()) {
+            Log.e(TAG, "PKCS12 file has no elements");
             return false;
         }
 

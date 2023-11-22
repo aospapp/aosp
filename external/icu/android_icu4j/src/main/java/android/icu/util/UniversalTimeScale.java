@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *********************************************************************************
  * Copyright (C) 2004-2016, International Business Machines Corporation and    *
@@ -47,8 +49,6 @@ import android.icu.math.BigDecimal;
  * <p>For more details and background, see the
  * <a href="http://www.icu-project.org/userguide/universalTimeScale.html">Universal Time Scale</a>
  * chapter in the ICU User Guide.
- *
- * @hide Only a subset of ICU is exposed in Android
  */
 
 public final class UniversalTimeScale

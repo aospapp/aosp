@@ -17,43 +17,88 @@ package com.android.compatibility.common.tradefed;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelperTest;
 import com.android.compatibility.common.tradefed.command.CompatibilityConsoleTest;
+import com.android.compatibility.common.tradefed.config.ConfigurationFactoryTest;
+import com.android.compatibility.common.tradefed.presubmit.CtsConfigLoadingTest;
+import com.android.compatibility.common.tradefed.presubmit.IntegrationTest;
+import com.android.compatibility.common.tradefed.presubmit.PresubmitSetupValidation;
+import com.android.compatibility.common.tradefed.presubmit.ValidateTestsAbi;
+import com.android.compatibility.common.tradefed.result.ChecksumReporterTest;
 import com.android.compatibility.common.tradefed.result.ConsoleReporterTest;
+import com.android.compatibility.common.tradefed.result.MetadataReporterTest;
 import com.android.compatibility.common.tradefed.result.ResultReporterTest;
+import com.android.compatibility.common.tradefed.result.SubPlanHelperTest;
 import com.android.compatibility.common.tradefed.targetprep.PropertyCheckTest;
 import com.android.compatibility.common.tradefed.targetprep.SettingsPreparerTest;
+import com.android.compatibility.common.tradefed.testtype.CompatibilityHostTestBaseTest;
 import com.android.compatibility.common.tradefed.testtype.CompatibilityTestTest;
+import com.android.compatibility.common.tradefed.testtype.JarHostTestTest;
 import com.android.compatibility.common.tradefed.testtype.ModuleDefTest;
 import com.android.compatibility.common.tradefed.testtype.ModuleRepoTest;
-import com.android.compatibility.common.tradefed.util.OptionHelperTest;
+import com.android.compatibility.common.tradefed.testtype.SubPlanTest;
+import com.android.compatibility.common.tradefed.testtype.retry.RetryFactoryTestTest;
+import com.android.compatibility.common.tradefed.testtype.suite.CompatibilityTestSuiteTest;
 import com.android.compatibility.common.tradefed.util.CollectorUtilTest;
+import com.android.compatibility.common.tradefed.util.OptionHelperTest;
+import com.android.compatibility.common.tradefed.util.RetryFilterHelperTest;
+import com.android.compatibility.common.tradefed.util.UniqueModuleCountUtilTest;
 
-import junit.framework.Test;
-import junit.framework.TestSuite;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.Suite.SuiteClasses;
 
 /**
  * A test suite for all compatibility tradefed unit tests.
  * <p/>
  * All tests listed here should be self-contained, and do not require any external dependencies.
  */
-public class UnitTests extends TestSuite {
+@RunWith(Suite.class)
+@SuiteClasses({
+    // build
+    CompatibilityBuildHelperTest.class,
 
-    public UnitTests() {
-        super();
-        addTestSuite(CompatibilityBuildHelperTest.class);
-        addTestSuite(CompatibilityConsoleTest.class);
-        addTestSuite(CompatibilityTestTest.class);
-        addTestSuite(ConsoleReporterTest.class);
-        addTestSuite(ResultReporterTest.class);
-        addTestSuite(CompatibilityTestTest.class);
-        addTestSuite(OptionHelperTest.class);
-        addTestSuite(CollectorUtilTest.class);
-        addTestSuite(ModuleDefTest.class);
-        addTestSuite(ModuleRepoTest.class);
-        addTestSuite(PropertyCheckTest.class);
-        addTestSuite(SettingsPreparerTest.class);
-    }
+    // command
+    CompatibilityConsoleTest.class,
 
-    public static Test suite() {
-        return new UnitTests();
-    }
+    //config
+    ConfigurationFactoryTest.class,
+
+    // presubmit
+    CtsConfigLoadingTest.class,
+    IntegrationTest.class,
+    PresubmitSetupValidation.class,
+    ValidateTestsAbi.class,
+
+    //result
+    ChecksumReporterTest.class,
+    ConsoleReporterTest.class,
+    MetadataReporterTest.class,
+    ResultReporterTest.class,
+    SubPlanHelperTest.class,
+
+    // targetprep
+    PropertyCheckTest.class,
+    SettingsPreparerTest.class,
+
+    // testtype
+    CompatibilityHostTestBaseTest.class,
+    CompatibilityTestTest.class,
+    JarHostTestTest.class,
+    ModuleDefTest.class,
+    ModuleRepoTest.class,
+    SubPlanTest.class,
+
+    // testtype.retry
+    RetryFactoryTestTest.class,
+
+    // testype.suite
+    CompatibilityTestSuiteTest.class,
+
+    // util
+    CollectorUtilTest.class,
+    OptionHelperTest.class,
+    RetryFilterHelperTest.class,
+    UniqueModuleCountUtilTest.class,
+})
+public class UnitTests {
+    // empty on purpose
 }

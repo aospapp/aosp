@@ -21,8 +21,15 @@ intermediates := $(call intermediates-dir-for,STATIC_LIBRARIES,libRS,TARGET,)
 LOCAL_C_INCLUDES += $(intermediates)
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
-LOCAL_CLANG := true
+
+LOCAL_SHARED_LIBRARIES := \
+        libgui \
+        libmedia \
+        libhidlmemory \
 
 LOCAL_MODULE:= libstagefright_mediafilter
+
+LOCAL_SANITIZE := cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 include $(BUILD_STATIC_LIBRARY)

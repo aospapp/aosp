@@ -16,15 +16,24 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Color;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.ClickableSpan;
 import android.view.View;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class ClickableSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ClickableSpanTest {
+    @Test
     public void testUpdateDrawState() {
         ClickableSpan clickableSpan = new MyClickableSpan();
 
@@ -41,22 +50,19 @@ public class ClickableSpanTest extends TestCase {
         clickableSpan.updateDrawState(tp);
         assertEquals(Color.BLUE, tp.getColor());
         assertTrue(tp.isUnderlineText());
-
-        try {
-            clickableSpan.updateDrawState(null);
-            fail("should throw NullPointerException when TextPaint is null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
-    /**
-     * MyClickableSpan for test.
-     */
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        ClickableSpan clickableSpan = new MyClickableSpan();
+
+        // Should throw NullPointerException when TextPaint is null
+        clickableSpan.updateDrawState(null);
+    }
+
     private class MyClickableSpan extends ClickableSpan {
         @Override
         public void onClick(View widget) {
-            // implement abstract method.
         }
     }
 }

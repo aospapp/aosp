@@ -101,6 +101,7 @@
     <string name="status_protocol_error" msgid="3245444473429269539">"无法正确处理请求。"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"未知错误。"</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"通过蓝牙接收的文件"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"蓝牙共享"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g>接收完成。"</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g>发送完成。"</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"传入"</string>
@@ -130,4 +131,5 @@
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"无法选择帐号，目前没有任何空档"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"蓝牙音频已连接"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"蓝牙音频已断开连接"</string>
+    <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"蓝牙音频"</string>
 </resources>

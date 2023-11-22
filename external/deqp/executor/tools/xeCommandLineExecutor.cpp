@@ -31,6 +31,7 @@
 #include "deCommandLine.hpp"
 #include "deDirectoryIterator.hpp"
 #include "deStringUtil.hpp"
+#include "deUniquePtr.hpp"
 
 #include "deString.h"
 
@@ -307,7 +308,7 @@ void addMatchingCases (const xe::TestGroup& group, xe::TestSet& testSet, const c
 	{
 		const xe::TestNode* child		= group.getChild(childNdx);
 		const bool			isGroup		= child->getNodeType() == xe::TESTNODETYPE_GROUP;
-		const string	 	fullPath	= child->getFullPath();
+		const string		fullPath	= child->getFullPath();
 
 		if (checkCasePathPatternMatch(filter, fullPath.c_str(), isGroup))
 		{
@@ -604,7 +605,7 @@ void runExecutor (const CommandLine& cmdLine)
 		readLogFile(&batchResult, cmdLine.inFile.c_str());
 
 	// Initialize commLink.
-	std::auto_ptr<xe::CommLink> commLink(createCommLink(cmdLine));
+	de::UniquePtr<xe::CommLink> commLink(createCommLink(cmdLine));
 
 	xe::BatchExecutor executor(cmdLine.targetCfg, commLink.get(), &root, testSet, &batchResult, &infoLog);
 

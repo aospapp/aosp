@@ -25,15 +25,14 @@
 #include "rsElement.h"
 #include "rsScriptC.h"
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include "utils/Vector.h"
-#include "utils/Timers.h"
-#include "utils/StopWatch.h"
-#endif
-
-using namespace android;
-using namespace android::renderscript;
-
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::Element;
+using android::renderscript::ObjectBase;
+using android::renderscript::RsdCpuReference;
+using android::renderscript::Script;
+using android::renderscript::ScriptC;
+using android::renderscript::rs_script;
 
 bool rsdScriptInit(const Context *rsc,
                      ScriptC *script,
@@ -184,12 +183,8 @@ void rsdScriptUpdateCachedObject(const Context *rsc,
 {
     obj->p = script;
 #ifdef __LP64__
-    obj->r = nullptr;
-    if (script != nullptr) {
-        obj->v1 = script->mHal.drv;
-    } else {
-        obj->v1 = nullptr;
-    }
-    obj->v2 = nullptr;
+    obj->unused1 = nullptr;
+    obj->unused2 = nullptr;
+    obj->unused3 = nullptr;
 #endif
 }

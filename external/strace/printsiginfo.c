@@ -74,18 +74,15 @@ printsigsource(const siginfo_t *sip)
 }
 
 static void
-printsigval(const siginfo_t *sip, bool verbose)
+printsigval(const siginfo_t *sip)
 {
-	if (!verbose)
-		tprints(", ...");
-	else
-		tprintf(", si_value={int=%d, ptr=%#lx}",
-			sip->si_int,
-			(unsigned long) sip->si_ptr);
+	tprintf(", si_value={int=%d, ptr=", sip->si_int);
+	printaddr(ptr_to_kulong(sip->si_ptr));
+	tprints("}");
 }
 
 static void
-print_si_code(int si_signo, int si_code)
+print_si_code(int si_signo, unsigned int si_code)
 {
 	const char *code = xlookup(siginfo_codes, si_code);
 
@@ -133,7 +130,7 @@ print_si_code(int si_signo, int si_code)
 }
 
 static void
-print_si_info(const siginfo_t *sip, bool verbose)
+print_si_info(const siginfo_t *sip)
 {
 	if (sip->si_errno) {
 		tprints(", si_errno=");
@@ -156,13 +153,13 @@ print_si_info(const siginfo_t *sip, bool verbose)
 		case SI_TIMER:
 			tprintf(", si_timerid=%#x, si_overrun=%d",
 				sip->si_timerid, sip->si_overrun);
-			printsigval(sip, verbose);
+			printsigval(sip);
 			break;
 #endif
 		default:
 			printsigsource(sip);
 			if (sip->si_ptr)
-				printsigval(sip, verbose);
+				printsigval(sip);
 			break;
 		}
 	} else {
@@ -174,17 +171,14 @@ print_si_info(const siginfo_t *sip, bool verbose)
 				tprintf("%d", sip->si_status);
 			else
 				printsignal(sip->si_status);
-			if (!verbose)
-				tprints(", ...");
-			else
-				tprintf(", si_utime=%llu, si_stime=%llu",
-					(unsigned long long) sip->si_utime,
-					(unsigned long long) sip->si_stime);
+			tprintf(", si_utime=%llu, si_stime=%llu",
+				zero_extend_signed_to_ull(sip->si_utime),
+				zero_extend_signed_to_ull(sip->si_stime));
 			break;
 		case SIGILL: case SIGFPE:
 		case SIGSEGV: case SIGBUS:
-			tprintf(", si_addr=%#lx",
-				(unsigned long) sip->si_addr);
+			tprints(", si_addr=");
+			printaddr(ptr_to_kulong(sip->si_addr));
 			break;
 		case SIGPOLL:
 			switch (sip->si_code) {
@@ -195,18 +189,27 @@ print_si_info(const siginfo_t *sip, bool verbose)
 			}
 			break;
 #ifdef HAVE_SIGINFO_T_SI_SYSCALL
-		case SIGSYS:
-			tprintf(", si_call_addr=%#lx, si_syscall=__NR_%s, si_arch=",
-				(unsigned long) sip->si_call_addr,
-				syscall_name(sip->si_syscall));
+		case SIGSYS: {
+			const char *scname =
+				syscall_name((unsigned) sip->si_syscall);
+
+			tprints(", si_call_addr=");
+			printaddr(ptr_to_kulong(sip->si_call_addr));
+			tprints(", si_syscall=");
+			if (scname)
+				tprintf("__NR_%s", scname);
+			else
+				tprintf("%u", (unsigned) sip->si_syscall);
+			tprints(", si_arch=");
 			printxval(audit_arch, sip->si_arch, "AUDIT_ARCH_???");
 			break;
+		}
 #endif
 		default:
 			if (sip->si_pid || sip->si_uid)
 				printsigsource(sip);
 			if (sip->si_ptr)
-				printsigval(sip, verbose);
+				printsigval(sip);
 		}
 	}
 }
@@ -215,7 +218,7 @@ print_si_info(const siginfo_t *sip, bool verbose)
 static
 #endif
 void
-printsiginfo(const siginfo_t *sip, bool verbose)
+printsiginfo(const siginfo_t *sip)
 {
 	if (sip->si_signo == 0) {
 		tprints("{}");
@@ -230,15 +233,32 @@ printsiginfo(const siginfo_t *sip, bool verbose)
 #ifdef SI_NOINFO
 	if (sip->si_code != SI_NOINFO)
 #endif
-		print_si_info(sip, verbose);
+		print_si_info(sip);
 
 	tprints("}");
 }
 
-MPERS_PRINTER_DECL(void, printsiginfo_at)(struct tcb *tcp, long addr)
+MPERS_PRINTER_DECL(void, printsiginfo_at,
+		   struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	siginfo_t si;
 
 	if (!umove_or_printaddr(tcp, addr, &si))
-		printsiginfo(&si, verbose(tcp));
+		printsiginfo(&si);
+}
+
+static bool
+print_siginfo_t(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
+{
+	printsiginfo((const siginfo_t *) elem_buf);
+	return true;
+}
+
+MPERS_PRINTER_DECL(void, print_siginfo_array, struct tcb *const tcp,
+		   const kernel_ulong_t addr, const kernel_ulong_t len)
+{
+	siginfo_t si;
+
+	print_array(tcp, addr, len, &si, sizeof(si),
+		    umoven_or_printaddr, print_siginfo_t, 0);
 }

@@ -92,12 +92,13 @@ const uint16_t
 // -----------------------------------------------------------------------------
 
 // Scanner for AC3 byte streams.
-AC3FrameScanner::AC3FrameScanner()
+AC3FrameScanner::AC3FrameScanner(audio_format_t format)
  : FrameScanner(SPDIF_DATA_TYPE_AC3,
         AC3FrameScanner::kSyncBytes,
         sizeof(AC3FrameScanner::kSyncBytes), 6)
  , mStreamType(0)
  , mSubstreamID(0)
+ , mFormat(format)
 {
     mAudioBlocksPerSyncFrame = 6;
     memset(mSubstreamBlockCounts, 0, sizeof(mSubstreamBlockCounts));
@@ -240,6 +241,14 @@ bool AC3FrameScanner::parseHeader()
                     * kAC3FrameSizeTable[frmsizcod][fscod];
         }
         mAudioBlocksPerSyncFrame = 6;
+        if (mFormat == AUDIO_FORMAT_E_AC3) {
+            ALOGV("Its a Ac3 substream in EAC3 stream");
+            mStreamType = 2;
+            mSubstreamID = 0;
+            mSubstreamBlockCounts[0] += mAudioBlocksPerSyncFrame;
+            mDataType = SPDIF_DATA_TYPE_E_AC3;
+            mRateMultiplier = EAC3_RATE_MULTIPLIER;
+        }
     }
     ALOGI_IF((mFormatDumpCount == 0),
             "AC3 frame rate = %d * %d, size = %zu, audioBlocksPerSyncFrame = %d",

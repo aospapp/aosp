@@ -28,6 +28,7 @@
 #define BOOLEAN 3
 #define CONSTRAINT 4
 #define RBAC 5
+#define BOUNDS 6
 
 struct boolean_t {
 	char *name;
@@ -343,8 +344,8 @@ static PyObject *analyze(PyObject *self __attribute__((unused)) , PyObject *args
 	if (rc < 0)
 		RETURN(BADTCON)
 
-	tclass = string_to_security_class(tclassstr);
-	if (!tclass)
+	rc = sepol_string_to_security_class(tclassstr, &tclass);
+	if (rc < 0)
 		RETURN(BADTCLASS)
 
 	/* Convert the permission list to an AV. */
@@ -365,8 +366,8 @@ static PyObject *analyze(PyObject *self __attribute__((unused)) , PyObject *args
 		permstr = PyString_AsString( strObj );
 #endif
 		
-		perm = string_to_av_perm(tclass, permstr);
-		if (!perm)
+		rc = sepol_string_to_av_perm(tclass, permstr, &perm);
+		if (rc < 0)
 			RETURN(BADPERM)
 
 		av |= perm;
@@ -425,6 +426,9 @@ static PyObject *analyze(PyObject *self __attribute__((unused)) , PyObject *args
 	if (reason & SEPOL_COMPUTEAV_RBAC)
 		RETURN(RBAC)
 
+	if (reason & SEPOL_COMPUTEAV_BOUNDS)
+		RETURN(BOUNDS)
+
         RETURN(BADCOMPUTE)
 }
 
@@ -440,14 +444,11 @@ static PyMethodDef audit2whyMethods[] = {
 
 #if PY_MAJOR_VERSION >= 3
 /* Module-initialization logic specific to Python 3 */
-struct module_state {
-	/* empty for now */
-};
 static struct PyModuleDef moduledef = {
 	PyModuleDef_HEAD_INIT,
 	"audit2why",
 	NULL,
-	sizeof(struct module_state),
+	0,
 	audit2whyMethods,
 	NULL,
 	NULL,
@@ -484,6 +485,7 @@ PyMODINIT_FUNC initaudit2why(void)
 	PyModule_AddIntConstant(m,"BOOLEAN", BOOLEAN);
 	PyModule_AddIntConstant(m,"CONSTRAINT", CONSTRAINT);
 	PyModule_AddIntConstant(m,"RBAC", RBAC);
+	PyModule_AddIntConstant(m,"BOUNDS", BOUNDS);
 
 #if PY_MAJOR_VERSION >= 3
 	return m;

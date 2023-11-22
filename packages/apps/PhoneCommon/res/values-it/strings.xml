@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Nessuno"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Suoneria sconosciuta"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Tutte le linee disponibili sono in uso. Per effettuare una chiamata, scollega una delle chiamate su questo dispositivo o uno dei tuoi altri dispositivi."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"La chiamata è stata terminata perché la rete dati è stata disattivata."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"La chiamata è stata terminata perché è stato raggiunto il limite di dati del cellulare."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Limite di dati raggiunto. Chiamata terminata."</string>
 </resources>

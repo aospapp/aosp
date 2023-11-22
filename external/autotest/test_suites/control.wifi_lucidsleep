@@ -5,7 +5,6 @@
 AUTHOR = 'samueltan@chromium.org'
 NAME = 'wifi_lucidsleep'
 PURPOSE = 'Group of WiFi tests that verify Lucid Sleep functionality'
-CRITERIA = 'All tests with SUITE=wifi_lucidsleep must pass.'
 
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'

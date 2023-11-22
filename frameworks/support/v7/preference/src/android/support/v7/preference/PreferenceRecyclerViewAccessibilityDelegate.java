@@ -16,19 +16,22 @@
 
 package android.support.v7.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.os.Bundle;
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.AccessibilityDelegateCompat;
 import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerViewAccessibilityDelegate;
 import android.view.View;
-import android.view.accessibility.AccessibilityEvent;
 
 /**
  * The AccessibilityDelegate used by the RecyclerView that displays Views for Preferences.
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class PreferenceRecyclerViewAccessibilityDelegate
         extends RecyclerViewAccessibilityDelegate {
     final RecyclerView mRecyclerView;

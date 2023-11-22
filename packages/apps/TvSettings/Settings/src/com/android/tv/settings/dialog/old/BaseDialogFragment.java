@@ -22,11 +22,9 @@ import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
-import android.net.Uri;
 import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
@@ -34,21 +32,16 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.util.TransitionImage;
-import com.android.tv.settings.util.TransitionImageAnimation;
-import com.android.tv.settings.util.UriUtils;
 import com.android.tv.settings.widget.FrameLayoutWithShadows;
-
-import java.util.List;
 
 /**
  * This class exists to make extending both v4 DialogFragments and regular DialogFragments easy
  */
 public class BaseDialogFragment {
 
-    public static final int ANIMATE_IN_DURATION = 250;
-    public static final int ANIMATE_DELAY = 550;
-    public static final int SLIDE_IN_DISTANCE = 120;
+    private static final int ANIMATE_IN_DURATION = 250;
+    private static final int ANIMATE_DELAY = 550;
+    private static final int SLIDE_IN_DISTANCE = 120;
 
     public static final String TAG_CONTENT = "content";
     public static final String TAG_ACTION = "action";
@@ -56,14 +49,14 @@ public class BaseDialogFragment {
     public int mContentAreaId = R.id.content_fragment;
     public int mActionAreaId = R.id.action_fragment;
 
-    public FrameLayoutWithShadows mShadowLayer;
+    private FrameLayoutWithShadows mShadowLayer;
     public boolean mFirstOnStart = true;
-    public boolean mIntroAnimationInProgress = false;
+    private boolean mIntroAnimationInProgress = false;
 
     private final LiteFragment mFragment;
 
     // Related to activity entry transition
-    public ColorDrawable mBgDrawable = new ColorDrawable();
+    private ColorDrawable mBgDrawable = new ColorDrawable();
 
     public BaseDialogFragment(LiteFragment fragment) {
         mFragment = fragment;
@@ -100,7 +93,7 @@ public class BaseDialogFragment {
     }
 
     public void performEntryTransition(final Activity activity, final ViewGroup contentView,
-            int iconResourceId, Uri iconResourceUri, final ImageView icon, final TextView title,
+            final ImageView icon, final TextView title,
             final TextView description, final TextView breadcrumb) {
         // Pull out the root layout of the dialog and set the background drawable, to be
         // faded in during the transition.
@@ -112,39 +105,11 @@ public class BaseDialogFragment {
         // position. Otherwise, we perform a simpler transition in which the ActionFragment
         // slides in and the ContentFragment text fields slide in.
         mIntroAnimationInProgress = true;
-        List<TransitionImage> images = TransitionImage.readMultipleFromIntent(
-                activity, activity.getIntent());
-        TransitionImageAnimation ltransitionAnimation = null;
-        final Uri iconUri;
-        final int color;
-        if (images != null && images.size() > 0) {
-            if (iconResourceId != 0) {
-                iconUri = Uri.parse(UriUtils.getAndroidResourceUri(
-                        activity, iconResourceId));
-            } else if (iconResourceUri != null) {
-                iconUri = iconResourceUri;
-            } else {
-                iconUri = null;
-            }
-            TransitionImage src = images.get(0);
-            color = src.getBackground();
-            if (iconUri != null) {
-                ltransitionAnimation = new TransitionImageAnimation(contentView);
-                ltransitionAnimation.addTransitionSource(src);
-                ltransitionAnimation.transitionDurationMs(ANIMATE_IN_DURATION)
-                        .transitionStartDelayMs(0)
-                        .interpolator(new DecelerateInterpolator(1f));
-            }
-        } else {
-            iconUri = null;
-            color = 0;
-        }
-        final TransitionImageAnimation transitionAnimation = ltransitionAnimation;
 
         // Fade out the old activity, and hard cut the new activity.
         activity.overridePendingTransition(R.anim.hard_cut_in, R.anim.fade_out);
 
-        int bgColor = mFragment.getResources().getColor(R.color.dialog_activity_background);
+        int bgColor = mFragment.getActivity().getColor(R.color.dialog_activity_background);
         mBgDrawable.setColor(bgColor);
         mBgDrawable.setAlpha(0);
         twoPane.setBackground(mBgDrawable);
@@ -152,36 +117,6 @@ public class BaseDialogFragment {
         // If we're animating the icon, we create a new ImageView in which to place the embedded
         // bitmap. We place it in the root layout to match its location in the previous activity.
         mShadowLayer = (FrameLayoutWithShadows) twoPane.findViewById(R.id.shadow_layout);
-        if (transitionAnimation != null) {
-            transitionAnimation.listener(new TransitionImageAnimation.Listener() {
-                @Override
-                public void onRemovedView(TransitionImage src, TransitionImage dst) {
-                    if (icon != null) {
-                        //want to make sure that users still see at least the source image
-                        // if the dst image is too large to finish downloading before the
-                        // animation is done. Check if the icon is not visible. This mean
-                        // BaseContentFragement have not finish downloading the image yet.
-                        if (icon.getVisibility() != View.VISIBLE) {
-                            icon.setImageDrawable(src.getBitmap());
-                            int intrinsicWidth = icon.getDrawable().getIntrinsicWidth();
-                            LayoutParams lp = icon.getLayoutParams();
-                            lp.height = lp.width * icon.getDrawable().getIntrinsicHeight()
-                                    / intrinsicWidth;
-                            icon.setVisibility(View.VISIBLE);
-                        }
-                        icon.setAlpha(1f);
-                    }
-                    if (mShadowLayer != null) {
-                        mShadowLayer.setShadowsAlpha(1f);
-                    }
-                    onIntroAnimationFinished();
-                }
-            });
-            icon.setAlpha(0f);
-            if (mShadowLayer != null) {
-                mShadowLayer.setShadowsAlpha(0f);
-            }
-        }
 
         // We need to defer the remainder of the animation preparation until the first
         // layout has occurred, as we don't yet know the final location of the icon.
@@ -242,18 +177,7 @@ public class BaseDialogFragment {
                             ANIMATE_IN_DURATION, new DecelerateInterpolator(1.0f),
                             false);
 
-                    if (icon != null && transitionAnimation != null) {
-                        // now we get the icon view in place,  update the transition target
-                        TransitionImage target = new TransitionImage();
-                        target.setUri(iconUri);
-                        target.createFromImageView(icon);
-                        if (icon.getBackground() instanceof ColorDrawable) {
-                            ColorDrawable d = (ColorDrawable) icon.getBackground();
-                            target.setBackground(d.getColor());
-                        }
-                        transitionAnimation.addTransitionTarget(target);
-                        transitionAnimation.startTransition();
-                    } else if (icon != null) {
+                    if (icon != null) {
                         prepareAndAnimateView(icon, 0, startDist,
                                 secondaryDelay, ANIMATE_IN_DURATION,
                                 new DecelerateInterpolator(1.0f), true /* is the icon */);

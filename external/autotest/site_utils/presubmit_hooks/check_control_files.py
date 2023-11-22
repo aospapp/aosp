@@ -11,13 +11,20 @@ that edits a control file.
 """
 
 
-import glob, os, re, subprocess
+import argparse
+import glob
+import os
+import re
+import subprocess
+
 import common
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 
 
-SUITES_NEED_RETRY = set(['bvt-cq', 'bvt-inline'])
+DEPENDENCY_ARC = 'arc'
+SUITES_NEED_RETRY = set(['bvt-cq', 'bvt-inline', 'arc-bvt-cq'])
+TESTS_NEED_ARC = 'cheets_'
 
 
 class ControlFileCheckerError(Exception):
@@ -37,17 +44,33 @@ def CommandPrefix():
         return ['cros_sdk', '--']
 
 
-def GetOverlayPath():
-    """Return the path to the chromiumos-overlay directory."""
-    ourpath = os.path.abspath(__file__)
-    overlay = os.path.join(os.path.dirname(ourpath),
-                           "../../../../chromiumos-overlay/")
+def GetOverlayPath(overlay=None):
+    """
+    Return the path to the overlay directory.
+
+    If the overlay path is not given, the default chromiumos-overlay path
+    will be returned instead.
+
+    @param overlay: The overlay repository path for autotest ebuilds.
+
+    @return normalized absolutized path of the overlay repository.
+    """
+    if not overlay:
+        ourpath = os.path.abspath(__file__)
+        overlay = os.path.join(os.path.dirname(ourpath),
+                               "../../../../chromiumos-overlay/")
     return os.path.normpath(overlay)
 
 
-def GetAutotestTestPackages():
-    """Return a list of ebuilds which should be checked for test existance."""
-    overlay = GetOverlayPath()
+def GetAutotestTestPackages(overlay=None):
+    """
+    Return a list of ebuilds which should be checked for test existance.
+
+    @param overlay: The overlay repository path for autotest ebuilds.
+
+    @return autotest packages in overlay repository.
+    """
+    overlay = GetOverlayPath(overlay)
     packages = glob.glob(os.path.join(overlay, "chromeos-base/autotest-*"))
     # Return the packages list with the leading overlay path removed.
     return [x[(len(overlay) + 1):] for x in packages]
@@ -66,12 +89,17 @@ def GetEqueryWrappers():
     return ['equery'] + wrappers
 
 
-def GetUseFlags():
-    """Get the set of all use flags from autotest packages."""
+def GetUseFlags(overlay=None):
+    """Get the set of all use flags from autotest packages.
+
+    @param overlay: The overlay repository path for autotest ebuilds.
+
+    @returns: useflags
+    """
     useflags = set()
     for equery in GetEqueryWrappers():
         cmd_args = (CommandPrefix() + [equery, '-qC', 'uses'] +
-                    GetAutotestTestPackages())
+                    GetAutotestTestPackages(overlay))
         child = subprocess.Popen(cmd_args, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
         new_useflags = child.communicate()[0].splitlines()
@@ -117,12 +145,12 @@ def CheckSuites(ctrl_data, test_name, useflags):
                 '<your_ebuild>. 3. emerge-<board> <your_ebuild>' % test_name)
 
 
-def CheckSuitesAttrMatch(ctrl_data, whitelist, test_name):
+def CheckValidAttr(ctrl_data, whitelist, test_name):
     """
-    Check whether ATTRIBUTES match to SUITE and also in the whitelist.
+    Check whether ATTRIBUTES are in the whitelist.
 
-    Throw a ControlFileCheckerError if suite tags in ATTRIBUTES doesn't match to
-    SUITE. This check is needed until SUITE is eliminated from control files.
+    Throw a ControlFileCheckerError if tags in ATTRIBUTES don't exist in the
+    whitelist.
 
     @param ctrl_data: The control_data object for a test.
     @param whitelist: whitelist set parsed from the attribute_whitelist file.
@@ -130,29 +158,30 @@ def CheckSuitesAttrMatch(ctrl_data, whitelist, test_name):
 
     @returns: None
     """
-    # unmatch case 1: attributes not in the whitelist.
     if not (whitelist >= ctrl_data.attributes):
         attribute_diff = ctrl_data.attributes - whitelist
         raise ControlFileCheckerError(
-            'Attribute(s): %s not in the whitelist in control file for test'
-            'named %s.' % (attribute_diff, test_name))
-    suite_in_attr = set(
-            [a for a in ctrl_data.attributes if a.startswith('suite:')])
-    # unmatch case 2: ctrl_data has suite, but not match to attributes.
-    if hasattr(ctrl_data, 'suite'):
-        target_attrs = set(
-            'suite:' + x.strip() for x in ctrl_data.suite.split(',')
-            if x.strip())
-        if target_attrs != suite_in_attr:
-            raise ControlFileCheckerError(
-                'suite tags in ATTRIBUTES : %s does not match to SUITE : %s in '
-                'the control file for %s.' % (suite_in_attr, ctrl_data.suite,
-                                              test_name))
-    # unmatch case 3: ctrl_data doesn't have suite, suite_in_attr is not empty.
-    elif suite_in_attr:
-        raise ControlFileCheckerError(
-            'SUITE does not exist in the control file %s, ATTRIBUTES = %s'
-            'should not have suite tags.' % (test_name, ctrl_data.attributes))
+            'Attribute(s): %s not in the whitelist in control file for test '
+            'named %s. If this is a new attribute, please add it into '
+            'AUTOTEST_DIR/site_utils/attribute_whitelist.txt file'
+            % (attribute_diff, test_name))
+
+
+def CheckSuiteLineRemoved(ctrl_file_path):
+    """
+    Check whether the SUITE line has been removed since it is obsolete.
+
+    @param ctrl_file_path: The path to the control file.
+
+    @raises: ControlFileCheckerError if check fails.
+    """
+    with open(ctrl_file_path, 'r') as f:
+        for line in f.readlines():
+            if line.startswith('SUITE'):
+                raise ControlFileCheckerError(
+                    'SUITE is an obsolete variable, please remove it from %s. '
+                    'Instead, add suite:<your_suite> to the ATTRIBUTES field.'
+                    % ctrl_file_path)
 
 
 def CheckRetry(ctrl_data, test_name):
@@ -169,8 +198,23 @@ def CheckRetry(ctrl_data, test_name):
         if ctrl_data.job_retries < 2 and SUITES_NEED_RETRY.intersection(suites):
             raise ControlFileCheckerError(
                 'Setting JOB_RETRIES to 2 or greater for test in '
-                'bvt-cq or bvt-inline is recommended. Please '
-                'set it in the control file for %s.' % test_name)
+                '%s is recommended. Please set it in the control '
+                'file for %s.' % (' or '.join(SUITES_NEED_RETRY), test_name))
+
+
+def CheckDependencies(ctrl_data, test_name):
+    """
+    Check if any dependencies of a test is required
+
+    @param ctrl_data: The control_data object for a test.
+    @param test_name: A string with the name of the test.
+
+    @raises: ControlFileCheckerError if check fails.
+    """
+    if test_name.startswith(TESTS_NEED_ARC):
+        if not DEPENDENCY_ARC in ctrl_data.dependencies:
+            raise ControlFileCheckerError(
+                    'DEPENDENCIES = \'arc\' for %s is needed' % test_name)
 
 
 def main():
@@ -178,6 +222,9 @@ def main():
     Checks if all control files that are a part of this commit conform to the
     ChromeOS autotest guidelines.
     """
+    parser = argparse.ArgumentParser(description='Process overlay arguments.')
+    parser.add_argument('--overlay', default=None, help='the overlay directory path')
+    args = parser.parse_args()
     file_list = os.environ.get('PRESUBMIT_FILES')
     if file_list is None:
         raise ControlFileCheckerError('Expected a list of presubmit files in '
@@ -195,7 +242,9 @@ def main():
     for file_path in file_list.split('\n'):
         control_file = re.search(r'.*/control(?:\.\w+)?$', file_path)
         if control_file:
-            ctrl_data = control_data.parse_control(control_file.group(0),
+            ctrl_file_path = control_file.group(0)
+            CheckSuiteLineRemoved(ctrl_file_path)
+            ctrl_data = control_data.parse_control(ctrl_file_path,
                                                    raise_warnings=True)
             test_name = os.path.basename(os.path.split(file_path)[0])
             try:
@@ -206,10 +255,11 @@ def main():
                 pass
 
             if not useflags:
-                useflags = GetUseFlags()
+                useflags = GetUseFlags(args.overlay)
             CheckSuites(ctrl_data, test_name, useflags)
-            CheckSuitesAttrMatch(ctrl_data, whitelist, test_name)
+            CheckValidAttr(ctrl_data, whitelist, test_name)
             CheckRetry(ctrl_data, test_name)
+            CheckDependencies(ctrl_data, test_name)
 
 
 if __name__ == '__main__':

@@ -17,20 +17,26 @@
 #ifndef ART_RUNTIME_ART_METHOD_H_
 #define ART_RUNTIME_ART_METHOD_H_
 
+#include <cstddef>
+
 #include "base/bit_utils.h"
 #include "base/casts.h"
+#include "base/enums.h"
 #include "dex_file.h"
 #include "gc_root.h"
 #include "invoke_type.h"
 #include "method_reference.h"
 #include "modifiers.h"
+#include "mirror/dex_cache.h"
 #include "mirror/object.h"
+#include "obj_ptr.h"
 #include "read_barrier_option.h"
-#include "stack.h"
 #include "utils.h"
 
 namespace art {
 
+template<class T> class Handle;
+class ImtConflictTable;
 union JValue;
 class OatQuickMethodHeader;
 class ProfilingInfo;
@@ -45,202 +51,41 @@ class IfTable;
 class PointerArray;
 }  // namespace mirror
 
-// Table to resolve IMT conflicts at runtime. The table is attached to
-// the jni entrypoint of IMT conflict ArtMethods.
-// The table contains a list of pairs of { interface_method, implementation_method }
-// with the last entry being null to make an assembly implementation of a lookup
-// faster.
-class ImtConflictTable {
-  enum MethodIndex {
-    kMethodInterface,
-    kMethodImplementation,
-    kMethodCount,  // Number of elements in enum.
-  };
-
- public:
-  // Build a new table copying `other` and adding the new entry formed of
-  // the pair { `interface_method`, `implementation_method` }
-  ImtConflictTable(ImtConflictTable* other,
-                   ArtMethod* interface_method,
-                   ArtMethod* implementation_method,
-                   size_t pointer_size) {
-    const size_t count = other->NumEntries(pointer_size);
-    for (size_t i = 0; i < count; ++i) {
-      SetInterfaceMethod(i, pointer_size, other->GetInterfaceMethod(i, pointer_size));
-      SetImplementationMethod(i, pointer_size, other->GetImplementationMethod(i, pointer_size));
-    }
-    SetInterfaceMethod(count, pointer_size, interface_method);
-    SetImplementationMethod(count, pointer_size, implementation_method);
-    // Add the null marker.
-    SetInterfaceMethod(count + 1, pointer_size, nullptr);
-    SetImplementationMethod(count + 1, pointer_size, nullptr);
-  }
-
-  // num_entries excludes the header.
-  ImtConflictTable(size_t num_entries, size_t pointer_size) {
-    SetInterfaceMethod(num_entries, pointer_size, nullptr);
-    SetImplementationMethod(num_entries, pointer_size, nullptr);
-  }
-
-  // Set an entry at an index.
-  void SetInterfaceMethod(size_t index, size_t pointer_size, ArtMethod* method) {
-    SetMethod(index * kMethodCount + kMethodInterface, pointer_size, method);
-  }
-
-  void SetImplementationMethod(size_t index, size_t pointer_size, ArtMethod* method) {
-    SetMethod(index * kMethodCount + kMethodImplementation, pointer_size, method);
-  }
-
-  ArtMethod* GetInterfaceMethod(size_t index, size_t pointer_size) const {
-    return GetMethod(index * kMethodCount + kMethodInterface, pointer_size);
-  }
-
-  ArtMethod* GetImplementationMethod(size_t index, size_t pointer_size) const {
-    return GetMethod(index * kMethodCount + kMethodImplementation, pointer_size);
-  }
-
-  // Return true if two conflict tables are the same.
-  bool Equals(ImtConflictTable* other, size_t pointer_size) const {
-    size_t num = NumEntries(pointer_size);
-    if (num != other->NumEntries(pointer_size)) {
-      return false;
-    }
-    for (size_t i = 0; i < num; ++i) {
-      if (GetInterfaceMethod(i, pointer_size) != other->GetInterfaceMethod(i, pointer_size) ||
-          GetImplementationMethod(i, pointer_size) !=
-              other->GetImplementationMethod(i, pointer_size)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // Visit all of the entries.
-  // NO_THREAD_SAFETY_ANALYSIS for calling with held locks. Visitor is passed a pair of ArtMethod*
-  // and also returns one. The order is <interface, implementation>.
-  template<typename Visitor>
-  void Visit(const Visitor& visitor, size_t pointer_size) NO_THREAD_SAFETY_ANALYSIS {
-    uint32_t table_index = 0;
-    for (;;) {
-      ArtMethod* interface_method = GetInterfaceMethod(table_index, pointer_size);
-      if (interface_method == nullptr) {
-        break;
-      }
-      ArtMethod* implementation_method = GetImplementationMethod(table_index, pointer_size);
-      auto input = std::make_pair(interface_method, implementation_method);
-      std::pair<ArtMethod*, ArtMethod*> updated = visitor(input);
-      if (input.first != updated.first) {
-        SetInterfaceMethod(table_index, pointer_size, updated.first);
-      }
-      if (input.second != updated.second) {
-        SetImplementationMethod(table_index, pointer_size, updated.second);
-      }
-      ++table_index;
-    }
-  }
-
-  // Lookup the implementation ArtMethod associated to `interface_method`. Return null
-  // if not found.
-  ArtMethod* Lookup(ArtMethod* interface_method, size_t pointer_size) const {
-    uint32_t table_index = 0;
-    for (;;) {
-      ArtMethod* current_interface_method = GetInterfaceMethod(table_index, pointer_size);
-      if (current_interface_method == nullptr) {
-        break;
-      }
-      if (current_interface_method == interface_method) {
-        return GetImplementationMethod(table_index, pointer_size);
-      }
-      ++table_index;
-    }
-    return nullptr;
-  }
-
-  // Compute the number of entries in this table.
-  size_t NumEntries(size_t pointer_size) const {
-    uint32_t table_index = 0;
-    while (GetInterfaceMethod(table_index, pointer_size) != nullptr) {
-      ++table_index;
-    }
-    return table_index;
-  }
-
-  // Compute the size in bytes taken by this table.
-  size_t ComputeSize(size_t pointer_size) const {
-    // Add the end marker.
-    return ComputeSize(NumEntries(pointer_size), pointer_size);
-  }
-
-  // Compute the size in bytes needed for copying the given `table` and add
-  // one more entry.
-  static size_t ComputeSizeWithOneMoreEntry(ImtConflictTable* table, size_t pointer_size) {
-    return table->ComputeSize(pointer_size) + EntrySize(pointer_size);
-  }
-
-  // Compute size with a fixed number of entries.
-  static size_t ComputeSize(size_t num_entries, size_t pointer_size) {
-    return (num_entries + 1) * EntrySize(pointer_size);  // Add one for null terminator.
-  }
-
-  static size_t EntrySize(size_t pointer_size) {
-    return pointer_size * static_cast<size_t>(kMethodCount);
-  }
-
- private:
-  ArtMethod* GetMethod(size_t index, size_t pointer_size) const {
-    if (pointer_size == 8) {
-      return reinterpret_cast<ArtMethod*>(static_cast<uintptr_t>(data64_[index]));
-    } else {
-      DCHECK_EQ(pointer_size, 4u);
-      return reinterpret_cast<ArtMethod*>(static_cast<uintptr_t>(data32_[index]));
-    }
-  }
-
-  void SetMethod(size_t index, size_t pointer_size, ArtMethod* method) {
-    if (pointer_size == 8) {
-      data64_[index] = dchecked_integral_cast<uint64_t>(reinterpret_cast<uintptr_t>(method));
-    } else {
-      DCHECK_EQ(pointer_size, 4u);
-      data32_[index] = dchecked_integral_cast<uint32_t>(reinterpret_cast<uintptr_t>(method));
-    }
-  }
-
-  // Array of entries that the assembly stubs will iterate over. Note that this is
-  // not fixed size, and we allocate data prior to calling the constructor
-  // of ImtConflictTable.
-  union {
-    uint32_t data32_[0];
-    uint64_t data64_[0];
-  };
-
-  DISALLOW_COPY_AND_ASSIGN(ImtConflictTable);
-};
-
 class ArtMethod FINAL {
  public:
-  ArtMethod() : access_flags_(0), dex_code_item_offset_(0), dex_method_index_(0),
-      method_index_(0) { }
+  static constexpr bool kCheckDeclaringClassState = kIsDebugBuild;
 
-  ArtMethod(ArtMethod* src, size_t image_pointer_size) {
+  // The runtime dex_method_index is kDexNoIndex. To lower dependencies, we use this
+  // constexpr, and ensure that the value is correct in art_method.cc.
+  static constexpr uint32_t kRuntimeMethodDexMethodIndex = 0xFFFFFFFF;
+
+  ArtMethod() : access_flags_(0), dex_code_item_offset_(0), dex_method_index_(0),
+      method_index_(0), hotness_count_(0) { }
+
+  ArtMethod(ArtMethod* src, PointerSize image_pointer_size) {
     CopyFrom(src, image_pointer_size);
   }
 
   static ArtMethod* FromReflectedMethod(const ScopedObjectAccessAlreadyRunnable& soa,
                                         jobject jlr_method)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-  ALWAYS_INLINE mirror::Class* GetDeclaringClass() SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE mirror::Class* GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   ALWAYS_INLINE mirror::Class* GetDeclaringClassUnchecked()
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void SetDeclaringClass(mirror::Class *new_declaring_class)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::CompressedReference<mirror::Object>* GetDeclaringClassAddressWithoutBarrier() {
+    return declaring_class_.AddressWithoutBarrier();
+  }
+
+  void SetDeclaringClass(ObjPtr<mirror::Class> new_declaring_class)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool CASDeclaringClass(mirror::Class* expected_class, mirror::Class* desired_class)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   static MemberOffset DeclaringClassOffset() {
     return MemberOffset(OFFSETOF_MEMBER(ArtMethod, declaring_class_));
@@ -249,15 +94,42 @@ class ArtMethod FINAL {
   // Note: GetAccessFlags acquires the mutator lock in debug mode to check that it is not called for
   // a proxy method.
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-  ALWAYS_INLINE uint32_t GetAccessFlags();
+  uint32_t GetAccessFlags() {
+    if (kCheckDeclaringClassState) {
+      GetAccessFlagsDCheck<kReadBarrierOption>();
+    }
+    return access_flags_.load(std::memory_order_relaxed);
+  }
 
+  // This version should only be called when it's certain there is no
+  // concurrency so there is no need to guarantee atomicity. For example,
+  // before the method is linked.
   void SetAccessFlags(uint32_t new_access_flags) {
-    // Not called within a transaction.
-    access_flags_ = new_access_flags;
+    access_flags_.store(new_access_flags, std::memory_order_relaxed);
+  }
+
+  // This setter guarantees atomicity.
+  void AddAccessFlags(uint32_t flag) {
+    uint32_t old_access_flags;
+    uint32_t new_access_flags;
+    do {
+      old_access_flags = access_flags_.load(std::memory_order_relaxed);
+      new_access_flags = old_access_flags | flag;
+    } while (!access_flags_.compare_exchange_weak(old_access_flags, new_access_flags));
+  }
+
+  // This setter guarantees atomicity.
+  void ClearAccessFlags(uint32_t flag) {
+    uint32_t old_access_flags;
+    uint32_t new_access_flags;
+    do {
+      old_access_flags = access_flags_.load(std::memory_order_relaxed);
+      new_access_flags = old_access_flags & ~flag;
+    } while (!access_flags_.compare_exchange_weak(old_access_flags, new_access_flags));
   }
 
   // Approximate what kind of method call would be used for this method.
-  InvokeType GetInvokeType() SHARED_REQUIRES(Locks::mutator_lock_);
+  InvokeType GetInvokeType() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns true if the method is declared public.
   bool IsPublic() {
@@ -274,12 +146,12 @@ class ArtMethod FINAL {
     return (GetAccessFlags() & kAccStatic) != 0;
   }
 
-  // Returns true if the method is a constructor.
+  // Returns true if the method is a constructor according to access flags.
   bool IsConstructor() {
     return (GetAccessFlags() & kAccConstructor) != 0;
   }
 
-  // Returns true if the method is a class initializer.
+  // Returns true if the method is a class initializer according to access flags.
   bool IsClassInitializer() {
     return IsConstructor() && IsStatic();
   }
@@ -304,7 +176,20 @@ class ArtMethod FINAL {
     return (GetAccessFlags() & kAccFinal) != 0;
   }
 
+  bool IsIntrinsic() {
+    return (GetAccessFlags() & kAccIntrinsic) != 0;
+  }
+
+  ALWAYS_INLINE void SetIntrinsic(uint32_t intrinsic) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  uint32_t GetIntrinsic() {
+    DCHECK(IsIntrinsic());
+    return (GetAccessFlags() >> POPCOUNT(kAccFlagsNotUsedByIntrinsic)) & kAccMaxIntrinsic;
+  }
+
   bool IsCopied() {
+    static_assert((kAccCopied & kAccFlagsNotUsedByIntrinsic) == kAccCopied,
+                  "kAccCopied conflicts with intrinsic modifier");
     const bool copied = (GetAccessFlags() & kAccCopied) != 0;
     // (IsMiranda() || IsDefaultConflicting()) implies copied
     DCHECK(!(IsMiranda() || IsDefaultConflicting()) || copied)
@@ -313,6 +198,8 @@ class ArtMethod FINAL {
   }
 
   bool IsMiranda() {
+    static_assert((kAccMiranda & kAccFlagsNotUsedByIntrinsic) == kAccMiranda,
+                  "kAccMiranda conflicts with intrinsic modifier");
     return (GetAccessFlags() & kAccMiranda) != 0;
   }
 
@@ -323,19 +210,39 @@ class ArtMethod FINAL {
   }
 
   bool IsCompilable() {
+    if (IsIntrinsic()) {
+      return true;
+    }
     return (GetAccessFlags() & kAccCompileDontBother) == 0;
+  }
+
+  void SetDontCompile() {
+    AddAccessFlags(kAccCompileDontBother);
   }
 
   // A default conflict method is a special sentinel method that stands for a conflict between
   // multiple default methods. It cannot be invoked, throwing an IncompatibleClassChangeError if one
   // attempts to do so.
   bool IsDefaultConflicting() {
+    if (IsIntrinsic()) {
+      return false;
+    }
     return (GetAccessFlags() & kAccDefaultConflict) != 0u;
   }
 
   // This is set by the class linker.
   bool IsDefault() {
+    static_assert((kAccDefault & kAccFlagsNotUsedByIntrinsic) == kAccDefault,
+                  "kAccDefault conflicts with intrinsic modifier");
     return (GetAccessFlags() & kAccDefault) != 0;
+  }
+
+  bool IsObsolete() {
+    return (GetAccessFlags() & kAccObsoleteMethod) != 0;
+  }
+
+  void SetIsObsolete() {
+    AddAccessFlags(kAccObsoleteMethod);
   }
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
@@ -356,42 +263,56 @@ class ArtMethod FINAL {
     return (GetAccessFlags() & kAccSynthetic) != 0;
   }
 
-  bool IsProxyMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsVarargs() {
+    return (GetAccessFlags() & kAccVarargs) != 0;
+  }
+
+  bool IsProxyMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool SkipAccessChecks() {
     return (GetAccessFlags() & kAccSkipAccessChecks) != 0;
   }
 
   void SetSkipAccessChecks() {
-    DCHECK(!SkipAccessChecks());
-    SetAccessFlags(GetAccessFlags() | kAccSkipAccessChecks);
+    AddAccessFlags(kAccSkipAccessChecks);
   }
 
   // Should this method be run in the interpreter and count locks (e.g., failed structured-
   // locking verification)?
   bool MustCountLocks() {
+    if (IsIntrinsic()) {
+      return false;
+    }
     return (GetAccessFlags() & kAccMustCountLocks) != 0;
   }
 
-  // Returns true if this method could be overridden by a default method.
-  bool IsOverridableByDefaultMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  // Checks to see if the method was annotated with @dalvik.annotation.optimization.FastNative
+  // -- Independent of kAccFastNative access flags.
+  bool IsAnnotatedWithFastNative();
 
-  bool CheckIncompatibleClassChange(InvokeType type) SHARED_REQUIRES(Locks::mutator_lock_);
+  // Checks to see if the method was annotated with @dalvik.annotation.optimization.CriticalNative
+  // -- Unrelated to the GC notion of "critical".
+  bool IsAnnotatedWithCriticalNative();
+
+  // Returns true if this method could be overridden by a default method.
+  bool IsOverridableByDefaultMethod() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  bool CheckIncompatibleClassChange(InvokeType type) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Throws the error that would result from trying to invoke this method (i.e.
   // IncompatibleClassChangeError or AbstractMethodError). Only call if !IsInvokable();
-  void ThrowInvocationTimeError() SHARED_REQUIRES(Locks::mutator_lock_);
+  void ThrowInvocationTimeError() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  uint16_t GetMethodIndex() SHARED_REQUIRES(Locks::mutator_lock_);
+  uint16_t GetMethodIndex() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Doesn't do erroneous / unresolved class checks.
-  uint16_t GetMethodIndexDuringLinking() SHARED_REQUIRES(Locks::mutator_lock_);
+  uint16_t GetMethodIndexDuringLinking() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  size_t GetVtableIndex() SHARED_REQUIRES(Locks::mutator_lock_) {
+  size_t GetVtableIndex() REQUIRES_SHARED(Locks::mutator_lock_) {
     return GetMethodIndex();
   }
 
-  void SetMethodIndex(uint16_t new_method_index) SHARED_REQUIRES(Locks::mutator_lock_) {
+  void SetMethodIndex(uint16_t new_method_index) REQUIRES_SHARED(Locks::mutator_lock_) {
     // Not called within a transaction.
     method_index_ = new_method_index;
   }
@@ -416,50 +337,45 @@ class ArtMethod FINAL {
   // Number of 32bit registers that would be required to hold all the arguments
   static size_t NumArgRegisters(const StringPiece& shorty);
 
-  ALWAYS_INLINE uint32_t GetDexMethodIndex() SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE uint32_t GetDexMethodIndexUnchecked() {
+    return dex_method_index_;
+  }
+  ALWAYS_INLINE uint32_t GetDexMethodIndex() REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetDexMethodIndex(uint32_t new_idx) {
     // Not called within a transaction.
     dex_method_index_ = new_idx;
   }
 
-  ALWAYS_INLINE ArtMethod** GetDexCacheResolvedMethods(size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  ALWAYS_INLINE ArtMethod* GetDexCacheResolvedMethod(uint16_t method_index, size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE ArtMethod** GetDexCacheResolvedMethods(PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  ALWAYS_INLINE ArtMethod* GetDexCacheResolvedMethod(uint16_t method_index,
+                                                     PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   ALWAYS_INLINE void SetDexCacheResolvedMethod(uint16_t method_index,
                                                ArtMethod* new_method,
-                                               size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  ALWAYS_INLINE void SetDexCacheResolvedMethods(ArtMethod** new_dex_cache_methods, size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool HasDexCacheResolvedMethods(size_t pointer_size) SHARED_REQUIRES(Locks::mutator_lock_);
-  bool HasSameDexCacheResolvedMethods(ArtMethod* other, size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool HasSameDexCacheResolvedMethods(ArtMethod** other_cache, size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template <bool kWithCheck = true>
-  mirror::Class* GetDexCacheResolvedType(uint32_t type_idx, size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  void SetDexCacheResolvedTypes(GcRoot<mirror::Class>* new_dex_cache_types, size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool HasDexCacheResolvedTypes(size_t pointer_size) SHARED_REQUIRES(Locks::mutator_lock_);
-  bool HasSameDexCacheResolvedTypes(ArtMethod* other, size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool HasSameDexCacheResolvedTypes(GcRoot<mirror::Class>* other_cache, size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+                                               PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  ALWAYS_INLINE void SetDexCacheResolvedMethods(ArtMethod** new_dex_cache_methods,
+                                                PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  bool HasDexCacheResolvedMethods(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
+  bool HasSameDexCacheResolvedMethods(ArtMethod* other, PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  bool HasSameDexCacheResolvedMethods(ArtMethod** other_cache, PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the Class* from the type index into this method's dex cache.
-  mirror::Class* GetClassFromTypeIndex(uint16_t type_idx, bool resolve, size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::Class* GetClassFromTypeIndex(dex::TypeIndex type_idx, bool resolve)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns true if this method has the same name and signature of the other method.
-  bool HasSameNameAndSignature(ArtMethod* other) SHARED_REQUIRES(Locks::mutator_lock_);
+  bool HasSameNameAndSignature(ArtMethod* other) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Find the method that this method overrides.
-  ArtMethod* FindOverriddenMethod(size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ArtMethod* FindOverriddenMethod(PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Find the method index for this method within other_dexfile. If this method isn't present then
   // return DexFile::kDexNoIndex. The name_and_signature_idx MUST refer to a MethodId with the same
@@ -467,108 +383,148 @@ class ArtMethod FINAL {
   // in the other_dexfile.
   uint32_t FindDexMethodIndexInOtherDexFile(const DexFile& other_dexfile,
                                             uint32_t name_and_signature_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue* result, const char* shorty)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   const void* GetEntryPointFromQuickCompiledCode() {
-    return GetEntryPointFromQuickCompiledCodePtrSize(sizeof(void*));
+    return GetEntryPointFromQuickCompiledCodePtrSize(kRuntimePointerSize);
   }
-  ALWAYS_INLINE const void* GetEntryPointFromQuickCompiledCodePtrSize(size_t pointer_size) {
+  ALWAYS_INLINE const void* GetEntryPointFromQuickCompiledCodePtrSize(PointerSize pointer_size) {
     return GetNativePointer<const void*>(
         EntryPointFromQuickCompiledCodeOffset(pointer_size), pointer_size);
   }
 
   void SetEntryPointFromQuickCompiledCode(const void* entry_point_from_quick_compiled_code) {
     SetEntryPointFromQuickCompiledCodePtrSize(entry_point_from_quick_compiled_code,
-                                              sizeof(void*));
+                                              kRuntimePointerSize);
   }
   ALWAYS_INLINE void SetEntryPointFromQuickCompiledCodePtrSize(
-      const void* entry_point_from_quick_compiled_code, size_t pointer_size) {
+      const void* entry_point_from_quick_compiled_code, PointerSize pointer_size) {
     SetNativePointer(EntryPointFromQuickCompiledCodeOffset(pointer_size),
-                     entry_point_from_quick_compiled_code, pointer_size);
+                     entry_point_from_quick_compiled_code,
+                     pointer_size);
   }
 
-  void RegisterNative(const void* native_method, bool is_fast)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  // Registers the native method and returns the new entry point. NB The returned entry point might
+  // be different from the native_method argument if some MethodCallback modifies it.
+  const void* RegisterNative(const void* native_method, bool is_fast)
+      REQUIRES_SHARED(Locks::mutator_lock_) WARN_UNUSED;
 
-  void UnregisterNative() SHARED_REQUIRES(Locks::mutator_lock_);
+  void UnregisterNative() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static MemberOffset DexCacheResolvedMethodsOffset(size_t pointer_size) {
+  static MemberOffset DexCacheResolvedMethodsOffset(PointerSize pointer_size) {
     return MemberOffset(PtrSizedFieldsOffset(pointer_size) + OFFSETOF_MEMBER(
-        PtrSizedFields, dex_cache_resolved_methods_) / sizeof(void*) * pointer_size);
+        PtrSizedFields, dex_cache_resolved_methods_) / sizeof(void*)
+            * static_cast<size_t>(pointer_size));
   }
 
-  static MemberOffset DexCacheResolvedTypesOffset(size_t pointer_size) {
+  static MemberOffset DataOffset(PointerSize pointer_size) {
     return MemberOffset(PtrSizedFieldsOffset(pointer_size) + OFFSETOF_MEMBER(
-        PtrSizedFields, dex_cache_resolved_types_) / sizeof(void*) * pointer_size);
+        PtrSizedFields, data_) / sizeof(void*) * static_cast<size_t>(pointer_size));
   }
 
-  static MemberOffset EntryPointFromJniOffset(size_t pointer_size) {
+  static MemberOffset EntryPointFromJniOffset(PointerSize pointer_size) {
+    return DataOffset(pointer_size);
+  }
+
+  static MemberOffset EntryPointFromQuickCompiledCodeOffset(PointerSize pointer_size) {
     return MemberOffset(PtrSizedFieldsOffset(pointer_size) + OFFSETOF_MEMBER(
-        PtrSizedFields, entry_point_from_jni_) / sizeof(void*) * pointer_size);
+        PtrSizedFields, entry_point_from_quick_compiled_code_) / sizeof(void*)
+            * static_cast<size_t>(pointer_size));
   }
 
-  static MemberOffset EntryPointFromQuickCompiledCodeOffset(size_t pointer_size) {
-    return MemberOffset(PtrSizedFieldsOffset(pointer_size) + OFFSETOF_MEMBER(
-        PtrSizedFields, entry_point_from_quick_compiled_code_) / sizeof(void*) * pointer_size);
-  }
-
-  ProfilingInfo* GetProfilingInfo(size_t pointer_size) {
-    return reinterpret_cast<ProfilingInfo*>(GetEntryPointFromJniPtrSize(pointer_size));
-  }
-
-  ImtConflictTable* GetImtConflictTable(size_t pointer_size) {
+  ImtConflictTable* GetImtConflictTable(PointerSize pointer_size) {
     DCHECK(IsRuntimeMethod());
-    return reinterpret_cast<ImtConflictTable*>(GetEntryPointFromJniPtrSize(pointer_size));
+    return reinterpret_cast<ImtConflictTable*>(GetDataPtrSize(pointer_size));
   }
 
-  ALWAYS_INLINE void SetImtConflictTable(ImtConflictTable* table, size_t pointer_size) {
-    SetEntryPointFromJniPtrSize(table, pointer_size);
+  ALWAYS_INLINE void SetImtConflictTable(ImtConflictTable* table, PointerSize pointer_size) {
+    DCHECK(IsRuntimeMethod());
+    SetDataPtrSize(table, pointer_size);
+  }
+
+  ProfilingInfo* GetProfilingInfo(PointerSize pointer_size) {
+    DCHECK(!IsNative());
+    return reinterpret_cast<ProfilingInfo*>(GetDataPtrSize(pointer_size));
   }
 
   ALWAYS_INLINE void SetProfilingInfo(ProfilingInfo* info) {
-    SetEntryPointFromJniPtrSize(info, sizeof(void*));
+    SetDataPtrSize(info, kRuntimePointerSize);
   }
 
-  ALWAYS_INLINE void SetProfilingInfoPtrSize(ProfilingInfo* info, size_t pointer_size) {
-    SetEntryPointFromJniPtrSize(info, pointer_size);
+  ALWAYS_INLINE void SetProfilingInfoPtrSize(ProfilingInfo* info, PointerSize pointer_size) {
+    SetDataPtrSize(info, pointer_size);
   }
 
   static MemberOffset ProfilingInfoOffset() {
-    return EntryPointFromJniOffset(sizeof(void*));
+    DCHECK(IsImagePointerSize(kRuntimePointerSize));
+    return DataOffset(kRuntimePointerSize);
+  }
+
+  ALWAYS_INLINE bool HasSingleImplementation() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ALWAYS_INLINE void SetHasSingleImplementation(bool single_impl) {
+    DCHECK(!IsIntrinsic()) << "conflict with intrinsic bits";
+    if (single_impl) {
+      AddAccessFlags(kAccSingleImplementation);
+    } else {
+      ClearAccessFlags(kAccSingleImplementation);
+    }
+  }
+
+  ArtMethod* GetSingleImplementation(PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ALWAYS_INLINE void SetSingleImplementation(ArtMethod* method, PointerSize pointer_size) {
+    DCHECK(!IsNative());
+    DCHECK(IsAbstract());  // Non-abstract method's single implementation is just itself.
+    SetDataPtrSize(method, pointer_size);
   }
 
   void* GetEntryPointFromJni() {
-    return GetEntryPointFromJniPtrSize(sizeof(void*));
+    DCHECK(IsNative());
+    return GetEntryPointFromJniPtrSize(kRuntimePointerSize);
   }
 
-  ALWAYS_INLINE void* GetEntryPointFromJniPtrSize(size_t pointer_size) {
-    return GetNativePointer<void*>(EntryPointFromJniOffset(pointer_size), pointer_size);
+  ALWAYS_INLINE void* GetEntryPointFromJniPtrSize(PointerSize pointer_size) {
+    return GetDataPtrSize(pointer_size);
   }
 
   void SetEntryPointFromJni(const void* entrypoint) {
     DCHECK(IsNative());
-    SetEntryPointFromJniPtrSize(entrypoint, sizeof(void*));
+    SetEntryPointFromJniPtrSize(entrypoint, kRuntimePointerSize);
   }
 
-  ALWAYS_INLINE void SetEntryPointFromJniPtrSize(const void* entrypoint, size_t pointer_size) {
-    SetNativePointer(EntryPointFromJniOffset(pointer_size), entrypoint, pointer_size);
+  ALWAYS_INLINE void SetEntryPointFromJniPtrSize(const void* entrypoint, PointerSize pointer_size) {
+    SetDataPtrSize(entrypoint, pointer_size);
+  }
+
+  ALWAYS_INLINE void* GetDataPtrSize(PointerSize pointer_size) {
+    DCHECK(IsImagePointerSize(pointer_size));
+    return GetNativePointer<void*>(DataOffset(pointer_size), pointer_size);
+  }
+
+  ALWAYS_INLINE void SetDataPtrSize(const void* data, PointerSize pointer_size) {
+    DCHECK(IsImagePointerSize(pointer_size));
+    SetNativePointer(DataOffset(pointer_size), data, pointer_size);
   }
 
   // Is this a CalleSaveMethod or ResolutionMethod and therefore doesn't adhere to normal
   // conventions for a method of managed code. Returns false for Proxy methods.
-  ALWAYS_INLINE bool IsRuntimeMethod();
+  ALWAYS_INLINE bool IsRuntimeMethod() {
+    return dex_method_index_ == kRuntimeMethodDexMethodIndex;;
+  }
 
   // Is this a hand crafted method used for something like describing callee saves?
-  bool IsCalleeSaveMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsCalleeSaveMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool IsResolutionMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsResolutionMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool IsImtUnimplementedMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsImtUnimplementedMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  MethodReference ToMethodReference() SHARED_REQUIRES(Locks::mutator_lock_) {
+  MethodReference ToMethodReference() REQUIRES_SHARED(Locks::mutator_lock_) {
     return MethodReference(GetDexFile(), GetDexMethodIndex());
   }
 
@@ -577,84 +533,81 @@ class ArtMethod FINAL {
   // a move-exception instruction is present.
   uint32_t FindCatchBlock(Handle<mirror::Class> exception_type, uint32_t dex_pc,
                           bool* has_no_move_exception)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // NO_THREAD_SAFETY_ANALYSIS since we don't know what the callback requires.
-  template<typename RootVisitorType>
-  void VisitRoots(RootVisitorType& visitor, size_t pointer_size) NO_THREAD_SAFETY_ANALYSIS;
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename RootVisitorType>
+  void VisitRoots(RootVisitorType& visitor, PointerSize pointer_size) NO_THREAD_SAFETY_ANALYSIS;
 
-  const DexFile* GetDexFile() SHARED_REQUIRES(Locks::mutator_lock_);
+  const DexFile* GetDexFile() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetDeclaringClassDescriptor() SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetDeclaringClassDescriptor() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetShorty() SHARED_REQUIRES(Locks::mutator_lock_) {
-    uint32_t unused_length;
-    return GetShorty(&unused_length);
-  }
+  ALWAYS_INLINE const char* GetShorty() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetShorty(uint32_t* out_length) SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetShorty(uint32_t* out_length) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const Signature GetSignature() SHARED_REQUIRES(Locks::mutator_lock_);
+  const Signature GetSignature() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE const char* GetName() SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE const char* GetName() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::String* GetNameAsString(Thread* self) SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::String* GetNameAsString(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const DexFile::CodeItem* GetCodeItem() SHARED_REQUIRES(Locks::mutator_lock_);
+  const DexFile::CodeItem* GetCodeItem() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool IsResolvedTypeIdx(uint16_t type_idx, size_t ptr_size) SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsResolvedTypeIdx(dex::TypeIndex type_idx) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int32_t GetLineNumFromDexPC(uint32_t dex_pc) SHARED_REQUIRES(Locks::mutator_lock_);
+  int32_t GetLineNumFromDexPC(uint32_t dex_pc) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const DexFile::ProtoId& GetPrototype() SHARED_REQUIRES(Locks::mutator_lock_);
+  const DexFile::ProtoId& GetPrototype() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const DexFile::TypeList* GetParameterTypeList() SHARED_REQUIRES(Locks::mutator_lock_);
+  const DexFile::TypeList* GetParameterTypeList() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetDeclaringClassSourceFile() SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetDeclaringClassSourceFile() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  uint16_t GetClassDefIndex() SHARED_REQUIRES(Locks::mutator_lock_);
+  uint16_t GetClassDefIndex() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const DexFile::ClassDef& GetClassDef() SHARED_REQUIRES(Locks::mutator_lock_);
+  const DexFile::ClassDef& GetClassDef() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetReturnTypeDescriptor() SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetReturnTypeDescriptor() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetTypeDescriptorFromTypeIdx(uint16_t type_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetTypeDescriptorFromTypeIdx(dex::TypeIndex type_idx)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // May cause thread suspension due to GetClassFromTypeIdx calling ResolveType this caused a large
   // number of bugs at call sites.
-  mirror::Class* GetReturnType(bool resolve, size_t ptr_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::Class* GetReturnType(bool resolve) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::ClassLoader* GetClassLoader() SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::ClassLoader* GetClassLoader() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::DexCache* GetDexCache() SHARED_REQUIRES(Locks::mutator_lock_);
+  template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  mirror::DexCache* GetDexCache() REQUIRES_SHARED(Locks::mutator_lock_);
+  mirror::DexCache* GetObsoleteDexCache() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE ArtMethod* GetInterfaceMethodIfProxy(size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE ArtMethod* GetInterfaceMethodIfProxy(PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ArtMethod* GetNonObsoleteMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // May cause thread suspension due to class resolution.
   bool EqualParameters(Handle<mirror::ObjectArray<mirror::Class>> params)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Size of an instance of this native class.
-  static size_t Size(size_t pointer_size) {
-    return RoundUp(OFFSETOF_MEMBER(ArtMethod, ptr_sized_fields_), pointer_size) +
-        (sizeof(PtrSizedFields) / sizeof(void*)) * pointer_size;
+  static size_t Size(PointerSize pointer_size) {
+    return PtrSizedFieldsOffset(pointer_size) +
+        (sizeof(PtrSizedFields) / sizeof(void*)) * static_cast<size_t>(pointer_size);
   }
 
   // Alignment of an instance of this native class.
-  static size_t Alignment(size_t pointer_size) {
+  static size_t Alignment(PointerSize pointer_size) {
     // The ArtMethod alignment is the same as image pointer size. This differs from
     // alignof(ArtMethod) if cross-compiling with pointer_size != sizeof(void*).
-    return pointer_size;
+    return static_cast<size_t>(pointer_size);
   }
 
-  void CopyFrom(ArtMethod* src, size_t image_pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  ALWAYS_INLINE GcRoot<mirror::Class>* GetDexCacheResolvedTypes(size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  void CopyFrom(ArtMethod* src, PointerSize image_pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Note, hotness_counter_ updates are non-atomic but it doesn't need to be precise.  Also,
   // given that the counter is only 16 bits wide we can expect wrap-around in some
@@ -675,26 +628,43 @@ class ArtMethod FINAL {
     return hotness_count_;
   }
 
-  const uint8_t* GetQuickenedInfo() SHARED_REQUIRES(Locks::mutator_lock_);
+  const uint8_t* GetQuickenedInfo(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns the method header for the compiled code containing 'pc'. Note that runtime
   // methods will return null for this method, as they are not oat based.
   const OatQuickMethodHeader* GetOatQuickMethodHeader(uintptr_t pc)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Get compiled code for the method, return null if no code exists.
+  const void* GetOatMethodQuickCode(PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns whether the method has any compiled code, JIT or AOT.
-  bool HasAnyCompiledCode() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool HasAnyCompiledCode() REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Returns a human-readable signature for 'm'. Something like "a.b.C.m" or
+  // "a.b.C.m(II)V" (depending on the value of 'with_signature').
+  static std::string PrettyMethod(ArtMethod* m, bool with_signature = true)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string PrettyMethod(bool with_signature = true)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  // Returns the JNI native function name for the non-overloaded method 'm'.
+  std::string JniShortName()
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  // Returns the JNI native function name for the overloaded method 'm'.
+  std::string JniLongName()
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Update heap objects and non-entrypoint pointers by the passed in visitor for image relocation.
   // Does not use read barrier.
   template <typename Visitor>
-  ALWAYS_INLINE void UpdateObjectsForImageRelocation(const Visitor& visitor, size_t pointer_size)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ALWAYS_INLINE void UpdateObjectsForImageRelocation(const Visitor& visitor,
+                                                     PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Update entry points by passing them through the visitor.
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
-  ALWAYS_INLINE void UpdateEntrypoints(const Visitor& visitor, size_t pointer_size);
+  ALWAYS_INLINE void UpdateEntrypoints(const Visitor& visitor, PointerSize pointer_size);
 
  protected:
   // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
@@ -702,7 +672,10 @@ class ArtMethod FINAL {
   GcRoot<mirror::Class> declaring_class_;
 
   // Access flags; low 16 bits are defined by spec.
-  uint32_t access_flags_;
+  // Getting and setting this flag needs to be atomic when concurrency is
+  // possible, e.g. after this method's class is linked. Such as when setting
+  // verifier flags and single-implementation flag.
+  std::atomic<std::uint32_t> access_flags_;
 
   /* Dex file fields. The defining dex file is available via declaring_class_->dex_cache_ */
 
@@ -726,18 +699,14 @@ class ArtMethod FINAL {
   // Fake padding field gets inserted here.
 
   // Must be the last fields in the method.
-  // PACKED(4) is necessary for the correctness of
-  // RoundUp(OFFSETOF_MEMBER(ArtMethod, ptr_sized_fields_), pointer_size).
-  struct PACKED(4) PtrSizedFields {
+  struct PtrSizedFields {
     // Short cuts to declaring_class_->dex_cache_ member for fast compiled code access.
     ArtMethod** dex_cache_resolved_methods_;
 
-    // Short cuts to declaring_class_->dex_cache_ member for fast compiled code access.
-    GcRoot<mirror::Class>* dex_cache_resolved_types_;
-
     // Pointer to JNI function registered to this method, or a function to resolve the JNI function,
-    // or the profiling data for non-native methods, or an ImtConflictTable.
-    void* entry_point_from_jni_;
+    // or the profiling data for non-native methods, or an ImtConflictTable, or the
+    // single-implementation of an abstract/interface method.
+    void* data_;
 
     // Method dispatch from quick compiled code invokes this pointer which may cause bridging into
     // the interpreter.
@@ -745,17 +714,27 @@ class ArtMethod FINAL {
   } ptr_sized_fields_;
 
  private:
-  static size_t PtrSizedFieldsOffset(size_t pointer_size) {
-    // Round up to pointer size for padding field.
-    return RoundUp(OFFSETOF_MEMBER(ArtMethod, ptr_sized_fields_), pointer_size);
+  uint16_t FindObsoleteDexClassDefIndex() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // If `lookup_in_resolved_boot_classes` is true, look up any of the
+  // method's annotations' classes in the bootstrap class loader's
+  // resolved types; otherwise, resolve them as a side effect.
+  bool IsAnnotatedWith(jclass klass, uint32_t visibility, bool lookup_in_resolved_boot_classes);
+
+  static constexpr size_t PtrSizedFieldsOffset(PointerSize pointer_size) {
+    // Round up to pointer size for padding field. Tested in art_method.cc.
+    return RoundUp(offsetof(ArtMethod, hotness_count_) + sizeof(hotness_count_),
+                   static_cast<size_t>(pointer_size));
   }
 
+  // Compare given pointer size to the image pointer size.
+  static bool IsImagePointerSize(PointerSize pointer_size);
+
   template<typename T>
-  ALWAYS_INLINE T GetNativePointer(MemberOffset offset, size_t pointer_size) const {
+  ALWAYS_INLINE T GetNativePointer(MemberOffset offset, PointerSize pointer_size) const {
     static_assert(std::is_pointer<T>::value, "T must be a pointer type");
-    DCHECK(ValidPointerSize(pointer_size)) << pointer_size;
     const auto addr = reinterpret_cast<uintptr_t>(this) + offset.Uint32Value();
-    if (pointer_size == sizeof(uint32_t)) {
+    if (pointer_size == PointerSize::k32) {
       return reinterpret_cast<T>(*reinterpret_cast<const uint32_t*>(addr));
     } else {
       auto v = *reinterpret_cast<const uint64_t*>(addr);
@@ -764,11 +743,10 @@ class ArtMethod FINAL {
   }
 
   template<typename T>
-  ALWAYS_INLINE void SetNativePointer(MemberOffset offset, T new_value, size_t pointer_size) {
+  ALWAYS_INLINE void SetNativePointer(MemberOffset offset, T new_value, PointerSize pointer_size) {
     static_assert(std::is_pointer<T>::value, "T must be a pointer type");
-    DCHECK(ValidPointerSize(pointer_size)) << pointer_size;
     const auto addr = reinterpret_cast<uintptr_t>(this) + offset.Uint32Value();
-    if (pointer_size == sizeof(uint32_t)) {
+    if (pointer_size == PointerSize::k32) {
       uintptr_t ptr = reinterpret_cast<uintptr_t>(new_value);
       *reinterpret_cast<uint32_t*>(addr) = dchecked_integral_cast<uint32_t>(ptr);
     } else {
@@ -776,7 +754,19 @@ class ArtMethod FINAL {
     }
   }
 
+  template <ReadBarrierOption kReadBarrierOption> void GetAccessFlagsDCheck();
+
   DISALLOW_COPY_AND_ASSIGN(ArtMethod);  // Need to use CopyFrom to deal with 32 vs 64 bits.
+};
+
+class MethodCallback {
+ public:
+  virtual ~MethodCallback() {}
+
+  virtual void RegisterNativeMethod(ArtMethod* method,
+                                    const void* original_implementation,
+                                    /*out*/void** new_implementation)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
 };
 
 }  // namespace art

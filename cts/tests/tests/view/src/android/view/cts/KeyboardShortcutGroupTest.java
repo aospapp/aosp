@@ -1,25 +1,51 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.os.Parcel;
-import android.test.InstrumentationTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
 import android.view.KeyboardShortcutInfo;
 
 import com.google.android.collect.Lists;
 
-import java.util.ArrayList;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.List;
 
 /**
  * Tests for {@link android.view.KeyboardShortcutGroup}.
  */
-public class KeyboardShortcutGroupTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class KeyboardShortcutGroupTest {
     private static final CharSequence TEST_LABEL = "Test Group Label";
     private final List<KeyboardShortcutInfo> TEST_ITEMS = Lists.newArrayList(
             new KeyboardShortcutInfo("Item 1", KeyEvent.KEYCODE_U, KeyEvent.META_CTRL_ON),
             new KeyboardShortcutInfo("Item 2", KeyEvent.KEYCODE_F, KeyEvent.META_CTRL_ON));
 
+    @Test
     public void testConstructor() {
         KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL, TEST_ITEMS);
 
@@ -29,6 +55,7 @@ public class KeyboardShortcutGroupTest extends InstrumentationTestCase {
         assertEquals(0, group.describeContents());
     }
 
+    @Test
     public void testShortConstructor() {
         KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL);
 
@@ -38,6 +65,7 @@ public class KeyboardShortcutGroupTest extends InstrumentationTestCase {
         assertEquals(0, group.describeContents());
     }
 
+    @Test
     public void testSystemConstructor() {
         KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL, TEST_ITEMS, true);
 
@@ -47,6 +75,7 @@ public class KeyboardShortcutGroupTest extends InstrumentationTestCase {
         assertEquals(0, group.describeContents());
     }
 
+    @Test
     public void testSystemShortConstructor() {
         KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL, true);
 
@@ -56,15 +85,12 @@ public class KeyboardShortcutGroupTest extends InstrumentationTestCase {
         assertEquals(0, group.describeContents());
     }
 
+    @Test(expected=NullPointerException.class)
     public void testConstructorChecksList() {
-        try {
-            KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL, null);
-        } catch (NullPointerException expected) {
-            return;
-        }
-        fail();
+        new KeyboardShortcutGroup(TEST_LABEL, null);
     }
 
+    @Test
     public void testAddItem() {
         KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL, TEST_ITEMS);
 
@@ -76,6 +102,7 @@ public class KeyboardShortcutGroupTest extends InstrumentationTestCase {
         assertEquals("Additional item", group.getItems().get(newSize - 1).getLabel());
     }
 
+    @Test
     public void testWriteToParcelAndRead() {
         Parcel dest = Parcel.obtain();
         KeyboardShortcutGroup group = new KeyboardShortcutGroup(TEST_LABEL, TEST_ITEMS, true);

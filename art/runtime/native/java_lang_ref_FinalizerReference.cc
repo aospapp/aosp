@@ -21,18 +21,27 @@
 #include "jni_internal.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
-#include "scoped_fast_native_object_access.h"
+#include "scoped_fast_native_object_access-inl.h"
 
 namespace art {
 
 static jboolean FinalizerReference_makeCircularListIfUnenqueued(JNIEnv* env, jobject javaThis) {
   ScopedFastNativeObjectAccess soa(env);
-  mirror::FinalizerReference* const ref = soa.Decode<mirror::FinalizerReference*>(javaThis);
+  ObjPtr<mirror::FinalizerReference> ref = soa.Decode<mirror::FinalizerReference>(javaThis);
   return Runtime::Current()->GetHeap()->GetReferenceProcessor()->MakeCircularListIfUnenqueued(ref);
 }
 
+static jobject FinalizerReference_getReferent(JNIEnv* env, jobject javaThis) {
+  ScopedFastNativeObjectAccess soa(env);
+  ObjPtr<mirror::Reference> ref = soa.Decode<mirror::Reference>(javaThis);
+  ObjPtr<mirror::Object> const referent =
+      Runtime::Current()->GetHeap()->GetReferenceProcessor()->GetReferent(soa.Self(), ref);
+  return soa.AddLocalReference<jobject>(referent);
+}
+
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(FinalizerReference, makeCircularListIfUnenqueued, "!()Z"),
+  FAST_NATIVE_METHOD(FinalizerReference, makeCircularListIfUnenqueued, "()Z"),
+  FAST_NATIVE_METHOD(FinalizerReference, getReferent, "()Ljava/lang/Object;"),
 };
 
 void register_java_lang_ref_FinalizerReference(JNIEnv* env) {

@@ -41,12 +41,11 @@
 #include "private/bionic_tls.h"
 #include "private/libc_logging.h"
 #include "private/ErrnoRestorer.h"
-#include "private/ScopedPthreadMutexLocker.h"
 
 // x86 uses segment descriptors rather than a direct pointer to TLS.
-#if __i386__
+#if defined(__i386__)
 #include <asm/ldt.h>
-extern "C" __LIBC_HIDDEN__ void __init_user_desc(struct user_desc*, int, void*);
+void __init_user_desc(struct user_desc*, bool, void*);
 #endif
 
 extern "C" int __isthreaded;
@@ -56,6 +55,23 @@ void __init_tls(pthread_internal_t* thread) {
   // Slot 0 must point to itself. The x86 Linux kernel reads the TLS from %fs:0.
   thread->tls[TLS_SLOT_SELF] = thread->tls;
   thread->tls[TLS_SLOT_THREAD_ID] = thread;
+
+  // Add a guard page before and after.
+  size_t allocation_size = BIONIC_TLS_SIZE + 2 * PAGE_SIZE;
+  void* allocation = mmap(nullptr, allocation_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (allocation == MAP_FAILED) {
+    __libc_fatal("failed to allocate TLS");
+  }
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, allocation, allocation_size, "bionic TLS guard page");
+
+  thread->bionic_tls = reinterpret_cast<bionic_tls*>(static_cast<char*>(allocation) + PAGE_SIZE);
+  if (mprotect(thread->bionic_tls, BIONIC_TLS_SIZE, PROT_READ | PROT_WRITE) != 0) {
+    __libc_fatal("failed to mprotect TLS");
+  }
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, thread->bionic_tls, BIONIC_TLS_SIZE, "bionic TLS");
+}
+
+void __init_thread_stack_guard(pthread_internal_t* thread) {
   // GCC looks in the TLS for the stack guard on x86, so copy it there from our global.
   thread->tls[TLS_SLOT_STACK_GUARD] = reinterpret_cast<void*>(__stack_chk_guard);
 }
@@ -98,7 +114,7 @@ int __init_thread(pthread_internal_t* thread) {
     sched_param param;
     param.sched_priority = thread->attr.sched_priority;
     if (sched_setscheduler(thread->tid, thread->attr.sched_policy, &param) == -1) {
-#if __LP64__
+#if defined(__LP64__)
       // For backwards compatibility reasons, we only report failures on 64-bit devices.
       error = errno;
 #endif
@@ -178,6 +194,7 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
   thread->mmap_size = mmap_size;
   thread->attr = *attr;
   __init_tls(thread);
+  __init_thread_stack_guard(thread);
 
   *threadp = thread;
   *child_stack = stack_top;

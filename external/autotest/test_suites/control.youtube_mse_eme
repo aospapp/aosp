@@ -5,7 +5,6 @@
 AUTHOR = "dunno@chromium.org"
 NAME = "youtube_mse_eme"
 PURPOSE = "Verify that YouTube page HTML5 MSE/EME works"
-CRITERIA = "This test will fail if HTML5 MSE/EME fails conformance."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

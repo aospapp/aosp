@@ -42,6 +42,10 @@ public class ServerSocketFactoryTest extends TestCase {
         testSocket(serverSocket, 50);
     }
 
+    // This test may fail on kernel versions between 4.4 and 4.9, due to a kernel implementation
+    // detail change. Backporting the following kernel change will fix the behavior.
+    // http://b/31960002
+    // https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=5ea8ea2cb7f1d0db15762c9b0bb9e7330425a071
     public void testCreateServerSocketWithPortNoBacklog() throws IOException {
         ServerSocket serverSocket = ServerSocketFactory.getDefault().createServerSocket(0, 1);
         testSocket(serverSocket, 1);
@@ -102,13 +106,13 @@ public class ServerSocketFactoryTest extends TestCase {
             }
             fail("Failed to exhaust backlog after " + max + " connections!");
         } catch (IOException expected) {
+        } finally {
+            for (Socket socket : backlog) {
+                socket.close();
+            }
         }
 
         System.out.println("backlog peaked at " + peak);
-
-        for (Socket socket : backlog) {
-            socket.close();
-        }
 
         /*
          * In 4.5 of UNIX Network Programming, Stevens says:

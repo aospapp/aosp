@@ -10,7 +10,6 @@ This test will fail if it finds unexpected permissions on system files or
 directories.
 """
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

@@ -16,28 +16,20 @@
 package com.android.bluetooth.map;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
-import com.android.bluetooth.R;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Handler;
-import com.android.bluetooth.mapapi.BluetoothMapContract;
 import android.util.Log;
-import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.BaseExpandableListAdapter;
 import android.widget.CheckBox;
-import android.widget.CheckedTextView;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.ExpandableListView;
 import android.widget.ExpandableListView.OnGroupExpandListener;
@@ -45,8 +37,12 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.CompoundButton;
+
+import com.android.bluetooth.R;
+
 import com.android.bluetooth.map.BluetoothMapAccountItem;
-import com.android.bluetooth.map.BluetoothMapAccountLoader;
+import com.android.bluetooth.mapapi.BluetoothMapContract;
+
 public class BluetoothMapSettingsAdapter extends BaseExpandableListAdapter {
     private static final boolean D = BluetoothMapService.DEBUG;
     private static final boolean V = BluetoothMapService.VERBOSE;

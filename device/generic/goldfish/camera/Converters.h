@@ -79,34 +79,34 @@ static const uint32_t kWhite32  = kRed8 | kGreen8 | kBlue8;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 /* Extract red, green, and blue bytes from RGB565 word. */
-#define R16(rgb)    static_cast<uint8_t>(rgb & kRed5)
-#define G16(rgb)    static_cast<uint8_t>((rgb & kGreen6) >> 5)
-#define B16(rgb)    static_cast<uint8_t>((rgb & kBlue5) >> 11)
+#define R16(rgb)    static_cast<uint8_t>((rgb) & kRed5)
+#define G16(rgb)    static_cast<uint8_t>(((rgb) & kGreen6) >> 5)
+#define B16(rgb)    static_cast<uint8_t>(((rgb) & kBlue5) >> 11)
 /* Make 8 bits red, green, and blue, extracted from RGB565 word. */
-#define R16_32(rgb) static_cast<uint8_t>(((rgb & kRed5) << 3) | ((rgb & kRed5) >> 2))
-#define G16_32(rgb) static_cast<uint8_t>(((rgb & kGreen6) >> 3) | ((rgb & kGreen6) >> 9))
-#define B16_32(rgb) static_cast<uint8_t>(((rgb & kBlue5) >> 8) | ((rgb & kBlue5) >> 14))
+#define R16_32(rgb) static_cast<uint8_t>((((rgb) & kRed5) << 3) | (((rgb) & kRed5) >> 2))
+#define G16_32(rgb) static_cast<uint8_t>((((rgb) & kGreen6) >> 3) | (((rgb) & kGreen6) >> 9))
+#define B16_32(rgb) static_cast<uint8_t>((((rgb) & kBlue5) >> 8) | (((rgb) & kBlue5) >> 14))
 /* Extract red, green, and blue bytes from RGB32 dword. */
-#define R32(rgb)    static_cast<uint8_t>(rgb & kRed8)
-#define G32(rgb)    static_cast<uint8_t>(((rgb & kGreen8) >> 8) & 0xff)
-#define B32(rgb)    static_cast<uint8_t>(((rgb & kBlue8) >> 16) & 0xff)
+#define R32(rgb)    static_cast<uint8_t>((rgb) & kRed8)
+#define G32(rgb)    static_cast<uint8_t>((((rgb) & kGreen8) >> 8) & 0xff)
+#define B32(rgb)    static_cast<uint8_t>((((rgb) & kBlue8) >> 16) & 0xff)
 /* Build RGB565 word from red, green, and blue bytes. */
-#define RGB565(r, g, b) static_cast<uint16_t>((((static_cast<uint16_t>(b) << 6) | g) << 5) | r)
+#define RGB565(r, g, b) static_cast<uint16_t>((((static_cast<uint16_t>(b) << 6) | (g)) << 5) | (r))
 /* Build RGB32 dword from red, green, and blue bytes. */
-#define RGB32(r, g, b) static_cast<uint32_t>((((static_cast<uint32_t>(b) << 8) | g) << 8) | r)
+#define RGB32(r, g, b) static_cast<uint32_t>((((static_cast<uint32_t>(b) << 8) | (g)) << 8) | (r))
 #else   // __BYTE_ORDER
 /* Extract red, green, and blue bytes from RGB565 word. */
-#define R16(rgb)    static_cast<uint8_t>((rgb & kRed5) >> 11)
-#define G16(rgb)    static_cast<uint8_t>((rgb & kGreen6) >> 5)
-#define B16(rgb)    static_cast<uint8_t>(rgb & kBlue5)
+#define R16(rgb)    static_cast<uint8_t>(((rgb) & kRed5) >> 11)
+#define G16(rgb)    static_cast<uint8_t>(((rgb) & kGreen6) >> 5)
+#define B16(rgb)    static_cast<uint8_t>((rgb) & kBlue5)
 /* Make 8 bits red, green, and blue, extracted from RGB565 word. */
-#define R16_32(rgb) static_cast<uint8_t>(((rgb & kRed5) >> 8) | ((rgb & kRed5) >> 14))
-#define G16_32(rgb) static_cast<uint8_t>(((rgb & kGreen6) >> 3) | ((rgb & kGreen6) >> 9))
-#define B16_32(rgb) static_cast<uint8_t>(((rgb & kBlue5) << 3) | ((rgb & kBlue5) >> 2))
+#define R16_32(rgb) static_cast<uint8_t>((((rgb) & kRed5) >> 8) | (((rgb) & kRed5) >> 14))
+#define G16_32(rgb) static_cast<uint8_t>((((rgb) & kGreen6) >> 3) | (((rgb) & kGreen6) >> 9))
+#define B16_32(rgb) static_cast<uint8_t>((((rgb) & kBlue5) << 3) | (((rgb) & kBlue5) >> 2))
 /* Extract red, green, and blue bytes from RGB32 dword. */
-#define R32(rgb)    static_cast<uint8_t>((rgb & kRed8) >> 16)
-#define G32(rgb)    static_cast<uint8_t>((rgb & kGreen8) >> 8)
-#define B32(rgb)    static_cast<uint8_t>(rgb & kBlue8)
+#define R32(rgb)    static_cast<uint8_t>(((rgb) & kRed8) >> 16)
+#define G32(rgb)    static_cast<uint8_t>(((rgb) & kGreen8) >> 8)
+#define B32(rgb)    static_cast<uint8_t>((rgb) & kBlue8)
 /* Build RGB565 word from red, green, and blue bytes. */
 #define RGB565(r, g, b) static_cast<uint16_t>((((static_cast<uint16_t>(r) << 6) | g) << 5) | b)
 /* Build RGB32 dword from red, green, and blue bytes. */

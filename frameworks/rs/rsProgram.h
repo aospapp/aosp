@@ -83,8 +83,8 @@ protected:
     void initMemberVars();
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif // ANDROID_RS_PROGRAM_H
 
 

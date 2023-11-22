@@ -175,8 +175,13 @@ template <typename T> class ArrayWrapper {
     T* begin_;
     T* end_;
 };
+
 template <typename T> ArrayWrapper<T> array_range(T* begin, size_t length) {
     return ArrayWrapper<T>(begin, length);
+}
+
+template <typename T, size_t n> ArrayWrapper<T> array_range(T (&a)[n]) {
+    return ArrayWrapper<T>(a, n);
 }
 
 /**

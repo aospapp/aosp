@@ -1,7 +1,8 @@
 /******************************************************************************
  *
  *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights reserved.
+ *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights
+ *                        reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,14 +28,14 @@
  * where this functionality is not available in stdlib.
  */
 
-/**********************************************************************************
+/*******************************************************************************
   $Revision: #1 $
-***********************************************************************************/
+ ******************************************************************************/
 
 #include <stdarg.h>
+#include "oi_bt_spec.h"
 #include "oi_common.h"
 #include "oi_string.h"
-#include "oi_bt_spec.h"
 
 /** \addtogroup Misc Miscellaneous APIs */
 /**@{*/
@@ -46,79 +47,85 @@ extern "C" {
 /**
  * Opaque type for a callback function handle. See OI_ScheduleCallbackFunction()
  */
-typedef OI_UINT32 OI_CALLBACK_HANDLE;
-
+typedef uint32_t OI_CALLBACK_HANDLE;
 
 /**
  * Function prototype for a timed procedure callback.
  *
- * @param arg                 Value that was passed into the OI_ScheduleCallback() function
+ * @param arg   Value that was passed into the OI_ScheduleCallback() function
  *
  */
-typedef void (*OI_SCHEDULED_CALLBACK)(void *arg);
-
+typedef void (*OI_SCHEDULED_CALLBACK)(void* arg);
 
 /**
- * Registers a function to be called when a timeout expires. This API uses BLUEmagic's internal
- * function dispatch mechanism, so applications that make extensive use of this facility may need to
- * increase the value of DispatchTableSize in the configuration block for the dispatcher (see
+ * Registers a function to be called when a timeout expires. This API uses
+ * BLUEmagic's internal function dispatch mechanism, so applications that make
+ * extensive use of this facility may need to increase the value of
+ * DispatchTableSize in the configuration block for the dispatcher (see
  * oi_bt_stack_config.h).
  *
- * @param callbackFunction    The function that will be called when the timeout expires
+ * @param callbackFunction    The function that will be called when the timeout
+ *                            expires
  *
- * @param arg                 Value that will be returned as the parameter to the callback function.
+ * @param arg                 Value that will be returned as the parameter to
+ *                            the callback function.
  *
- * @param timeout             A timeout expressed in OI_INTERVALs (tenths of seconds). This can be
- *                            zero in which case the callback function will be called as soon as
+ * @param timeout             A timeout expressed in OI_INTERVALs (tenths of
+ *                            seconds). This can be zero in which case the
+ *                            callback function will be called as soon as
  *                            possible.
  *
  * @param handle              NULL or a pointer receive the callback handle.
  *
- * @return                    OI_OK if the function was reqistered, or an error status.
+ * @return                    OI_OK if the function was registered, or an error
+ *                            status.
  */
 OI_STATUS OI_ScheduleCallbackFunction(OI_SCHEDULED_CALLBACK callbackFunction,
-                                      void                 *arg,
-                                      OI_INTERVAL           timeout,
-                                      OI_CALLBACK_HANDLE   *handle);
-
+                                      void* arg, OI_INTERVAL timeout,
+                                      OI_CALLBACK_HANDLE* handle);
 
 /**
- * Cancels a function registered with OI_ScheduleCallbackFunction() before its timer expires.
+ * Cancels a function registered with OI_ScheduleCallbackFunction() before its
+ * timer expires.
  *
  * @param handle              handle returned by  OI_ScheduleCallbackFunction().
  *
- * @return                    OI_OK if the function was cancelled, or an error status.
+ * @return                    OI_OK if the function was cancelled, or an error
+ *                            status.
  */
 OI_STATUS OI_CancelCallbackFunction(OI_CALLBACK_HANDLE handle);
 
-
 /**
- * Registers a function to be called when a timeout expires. This version does not return a handle
- * so can only be canceled by calling OI_CancelCallback().
+ * Registers a function to be called when a timeout expires. This version does
+ * not return a handle so can only be canceled by calling OI_CancelCallback().
  *
- * @param callbackFunction    The function that will be called when the timeout expires
+ * @param callbackFunction    The function that will be called when the timeout
+ *                            expires
  *
- * @param arg                 Value that will be returned as the parameter to the callback function.
+ * @param arg                 Value that will be returned as the parameter to
+ *                            the callback function.
  *
- * @param timeout             A timeout expressed in OI_INTERVALs (tenths of seconds). This can be
- *                            zero in which case the callback function will be called as soon as
+ * @param timeout             A timeout expressed in OI_INTERVALs (tenths of
+ *                            seconds). This can be zero in which case the
+ *                            callback function will be called as soon as
  *                            possible.
  *
- * @return                    OI_OK if the function was reqistered, or an error status.
+ * @return                    OI_OK if the function was reqistered, or an error
+ *                            status.
  */
-#define OI_ScheduleCallback(f, a, t)  OI_ScheduleCallbackFunction(f, a, t, NULL);
-
+#define OI_ScheduleCallback(f, a, t) OI_ScheduleCallbackFunction(f, a, t, NULL);
 
 /**
- * Cancels a function registered with OI_ScheduleCallback() before its timer expires. This
- * function will cancel the first entry matches the indicated callback function pointer.
+ * Cancels a function registered with OI_ScheduleCallback() before its timer
+ * expires. This function will cancel the first entry matches the indicated
+ * callback function pointer.
  *
  * @param callbackFunction    The function that was originally registered
  *
- * @return                    OI_OK if the function was cancelled, or an error status.
+ * @return                    OI_OK if the function was cancelled, or an error
+ *                            status.
  */
 OI_STATUS OI_CancelCallback(OI_SCHEDULED_CALLBACK callbackFunction);
-
 
 /**
  * Parse a Bluetooth device address from the specified string.
@@ -126,11 +133,10 @@ OI_STATUS OI_CancelCallback(OI_SCHEDULED_CALLBACK callbackFunction);
  * @param str   the string to parse
  * @param addr  the parsed address, if successful
  *
- * @return TRUE if an address was successfully parsed, FALSE otherwise
+ * @return true if an address was successfully parsed, false otherwise
  */
 
-OI_BOOL OI_ParseBdAddr(const OI_CHAR *str,
-                       OI_BD_ADDR    *addr) ;
+OI_BOOL OI_ParseBdAddr(const OI_CHAR* str, OI_BD_ADDR* addr);
 
 /**
  * Printf function for platforms which have no stdio or printf available.
@@ -145,7 +151,8 @@ OI_BOOL OI_ParseBdAddr(const OI_CHAR *str,
  *       Requires a pointer to the buffer and a signed integer length
  *       (0 for default length). If the buffer is large, only an excerpt will
  *       be printed.
- *       @code OI_Printf("Contents of buffer %@", buffer, sizeof(buffer)); @endcode
+ *       @code OI_Printf("Contents of buffer %@", buffer, sizeof(buffer));
+ *       @endcode
  *
  * \%:   prints a Bluetooth address in the form "HH:HH:HH:HH:HH:HH".
  *       Requires a pointer to an #OI_BD_ADDR.
@@ -153,7 +160,8 @@ OI_BOOL OI_ParseBdAddr(const OI_CHAR *str,
  *
  * \%^   decodes and prints a data element as formatted XML.
  *       Requires a pointer to an #OI_DATAELEM.
- *       @code OI_Printf("Service attribute list is:\n%^", &attributes); @endcode
+ *       @code OI_Printf("Service attribute list is:\n%^", &attributes);
+ *       @endcode
  *
  * \%/   prints the base file name of a path, that is, the final substring
  *       following a '/' or '\\' character. Requires a pointer to a null
@@ -206,8 +214,7 @@ OI_BOOL OI_ParseBdAddr(const OI_CHAR *str,
  *  @param format   The format string
  *
  */
-void OI_Printf(const OI_CHAR *format, ...);
-
+void OI_Printf(const OI_CHAR* format, ...);
 
 /**
  * Var-args version OI_Printf
@@ -216,12 +223,11 @@ void OI_Printf(const OI_CHAR *format, ...);
  *
  * @param argp     Var-args list.
  */
-void OI_VPrintf(const OI_CHAR *format, va_list argp);
-
+void OI_VPrintf(const OI_CHAR* format, va_list argp);
 
 /**
- * Writes a formatted string to a buffer. This function supports the same format specifiers as
- * OI_Printf().
+ * Writes a formatted string to a buffer. This function supports the same format
+ * specifiers as OI_Printf().
  *
  * @param buffer   Destination buffer for the formatted string.
  *
@@ -231,10 +237,8 @@ void OI_VPrintf(const OI_CHAR *format, va_list argp);
  *
  * @return   Number of characters written or -1 in the case of an error.
  */
-OI_INT32 OI_SNPrintf(OI_CHAR *buffer,
-                    OI_UINT16 bufLen,
-                    const OI_CHAR* format, ...);
-
+int32_t OI_SNPrintf(OI_CHAR* buffer, uint16_t bufLen, const OI_CHAR* format,
+                    ...);
 
 /**
  * Var-args version OI_SNPrintf
@@ -249,53 +253,52 @@ OI_INT32 OI_SNPrintf(OI_CHAR *buffer,
  *
  * @return   Number of characters written or -1 in the case of an error.
  */
-OI_INT32 OI_VSNPrintf(OI_CHAR *buffer,
-                     OI_UINT16 bufLen,
-                     const OI_CHAR *format, va_list argp);
-
+int32_t OI_VSNPrintf(OI_CHAR* buffer, uint16_t bufLen, const OI_CHAR* format,
+                     va_list argp);
 
 /**
  * Convert a string to an integer.
  *
  * @param str  the string to parse
  *
- * @return the integer value of the string or 0 if the string could not be parsed
+ * @return the integer value of the string or 0 if the string could not be
+ *         parsed
  */
-OI_INT OI_atoi(const OI_CHAR *str);
-
+OI_INT OI_atoi(const OI_CHAR* str);
 
 /**
  * Parse a signed integer in a string.
  *
- * Skips leading whitespace (space and tabs only) and parses a decimal or hex string. Hex string
- * must be prefixed by "0x". Returns pointer to first character following the integer. Returns the
- * pointer passed in if the string does not describe an integer.
+ * Skips leading whitespace (space and tabs only) and parses a decimal or hex
+ * string. Hex string must be prefixed by "0x". Returns pointer to first
+ * character following the integer. Returns the pointer passed in if the string
+ * does not describe an integer.
  *
  * @param str    String to parse.
  *
  * @param val    Pointer to receive the parsed integer value.
  *
- * @return       A pointer to the first character following the integer or the pointer passed in.
+ * @return       A pointer to the first character following the integer or the
+ *               pointer passed in.
  */
-const OI_CHAR* OI_ScanInt(const OI_CHAR *str,
-                          OI_INT32 *val);
-
+const OI_CHAR* OI_ScanInt(const OI_CHAR* str, int32_t* val);
 
 /**
  * Parse an unsigned integer in a string.
  *
- * Skips leading whitespace (space and tabs only) and parses a decimal or hex string. Hex string
- * must be prefixed by "0x". Returns pointer to first character following the integer. Returns the
- * pointer passed in if the string does not describe an integer.
+ * Skips leading whitespace (space and tabs only) and parses a decimal or hex
+ * string. Hex string must be prefixed by "0x". Returns pointer to first
+ * character following the integer. Returns the pointer passed in if the
+ * string does not describe an integer.
  *
  * @param str    String to parse.
  *
  * @param val    Pointer to receive the parsed unsigned integer value.
  *
- * @return       A pointer to the first character following the unsigned integer or the pointer passed in.
+ * @return       A pointer to the first character following the unsigned
+ *               integer or the pointer passed in.
  */
-const OI_CHAR* OI_ScanUInt(const OI_CHAR *str,
-                           OI_UINT32 *val);
+const OI_CHAR* OI_ScanUInt(const OI_CHAR* str, uint32_t* val);
 
 /**
  * Parse a whitespace delimited substring out of a string.
@@ -305,46 +308,43 @@ const OI_CHAR* OI_ScanUInt(const OI_CHAR *str,
  * @param len     Length of outStr
  *
  *
- * @return       A pointer to the first character following the substring or the pointer passed in.
+ * @return       A pointer to the first character following the substring or
+ *               the pointer passed in.
  */
-const OI_CHAR* OI_ScanStr(const OI_CHAR *str,
-                          OI_CHAR *outStr,
-                          OI_UINT16 len);
-
+const OI_CHAR* OI_ScanStr(const OI_CHAR* str, OI_CHAR* outStr, uint16_t len);
 
 /**
- * Parse a string for one of a set of alternative value. Skips leading whitespace (space and tabs
- * only) and parses text matching one of the alternative strings. Returns pointer to first character
- * following the matched text.
+ * Parse a string for one of a set of alternative value. Skips leading
+ * whitespace (space and tabs only) and parses text matching one of the
+ * alternative strings. Returns pointer to first character following the
+ * matched text.
  *
  * @param str    String to parse.
  *
  * @param alts   Alternative matching strings separated by '|'
  *
- * @param index  Pointer to receive the index of the matching alternative, return value is -1 if
- *               there is no match.
+ * @param index  Pointer to receive the index of the matching alternative,
+ *               return value is -1 if there is no match.
  *
- * @return       A pointer to the first character following the matched value or the pointer passed in
- *               if there was no matching text.
+ * @return       A pointer to the first character following the matched value or
+ *               the pointer passed in if there was no matching text.
  */
-const OI_CHAR* OI_ScanAlt(const OI_CHAR *str,
-                          const OI_CHAR *alts,
-                          OI_INT *index);
+const OI_CHAR* OI_ScanAlt(const OI_CHAR* str, const OI_CHAR* alts,
+                          OI_INT* index);
 
 /**
- * Parse a string for a BD Addr. Skips leading whitespace (space and tabs only) and parses a
- * Bluetooth device address with nibbles optionally separated by colons. Return pointet to first
- * character following the BD Addr.
+ * Parse a string for a BD Addr. Skips leading whitespace (space and tabs only)
+ * and parses a Bluetooth device address with nibbles optionally separated by
+ * colons. Return pointet to first character following the BD Addr.
  *
  * @param str    String to parse.
  *
  * @param addr   Pointer to receive the Bluetooth device address
  *
- * @return       A pointer to the first character following the BD Addr or the pointer passed in.
+ * @return       A pointer to the first character following the BD Addr or the
+ *               pointer passed in.
  */
-const OI_CHAR* OI_ScanBdAddr(const OI_CHAR *str,
-                             OI_BD_ADDR *addr);
-
+const OI_CHAR* OI_ScanBdAddr(const OI_CHAR* str, OI_BD_ADDR* addr);
 
 /** Get a character from a digit integer value (0 - 9). */
 #define OI_DigitToChar(d) ((d) + '0')
@@ -357,15 +357,15 @@ const OI_CHAR* OI_ScanBdAddr(const OI_CHAR *str,
  *
  * @return the max or min value between a & b
  */
-#define OI_MAX(a, b) (((a) < (b)) ? (b) : (a) )
-#define OI_MIN(a, b) (((a) > (b)) ? (b) : (a) )
+#define OI_MAX(a, b) (((a) < (b)) ? (b) : (a))
+#define OI_MIN(a, b) (((a) > (b)) ? (b) : (a))
 
 /**
  * Compare two BD_ADDRs
- * SAME_BD_ADDR - Boolean: TRUE if they are the same address
+ * SAME_BD_ADDR - Boolean: true if they are the same address
  */
 
-#define SAME_BD_ADDR(x, y)      (0 == OI_MemCmp((x),(y),OI_BD_ADDR_BYTE_SIZE) )
+#define SAME_BD_ADDR(x, y) (0 == OI_MemCmp((x), (y), OI_BD_ADDR_BYTE_SIZE))
 
 #ifdef __cplusplus
 }
@@ -374,4 +374,3 @@ const OI_CHAR* OI_ScanBdAddr(const OI_CHAR *str,
 /**@}*/
 
 #endif /* _OI_UTILS_H */
-

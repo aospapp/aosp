@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include "ext4_utils.h"
 #include "extent.h"
-
-#include <sparse/sparse.h>
 
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <sparse/sparse.h>
+
+#include "allocate.h"
+#include "ext4_utils/ext4_utils.h"
 
 /* Creates data buffers for the first backing_len bytes of a block allocation
    and queues them to be written */

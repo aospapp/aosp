@@ -20,52 +20,41 @@
 #include <va/va_drmcommon.h>
 
 #ifdef IMG_GFX
-#include <hal/hal_public.h>
-#include <hardware/gralloc.h>
+#include "hal_public.h"
 #include <sync/sync.h>
 
 //#define GFX_DUMP
 
 #define OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar 0x7FA00E00
 
-static hw_module_t const *gModule = NULL;
-static gralloc_module_t const *gAllocMod = NULL; /* get by force hw_module_t */
-static alloc_device_t  *gAllocDev = NULL;
+static const hw_device_t *gGralloc;
 
 static int gfx_init(void) {
 
-    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &gModule);
+    int err = gralloc_open_img(&gGralloc);
     if (err) {
         LOG_E("FATAL: can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
         return -1;
     } else
         LOG_V("hw_get_module returned\n");
-    gAllocMod = (gralloc_module_t const *)gModule;
 
     return 0;
 }
 
 static int gfx_alloc(uint32_t w, uint32_t h, int format,
-          int usage, buffer_handle_t* handle, int32_t* stride) {
+                     int usage, buffer_handle_t* handle, int32_t* stride) {
 
     int err;
 
-    if (!gAllocDev) {
-        if (!gModule) {
-            if (gfx_init()) {
-                LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
-                return -1;
-            }
-        }
-
-        err = gralloc_open(gModule, &gAllocDev);
-        if (err) {
-            LOG_E("FATAL: gralloc open failed\n");
+    if (!gGralloc) {
+        if (gfx_init()) {
+            LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
             return -1;
         }
     }
 
-    err = gAllocDev->alloc(gAllocDev, w, h, format, usage, handle, stride);
+    err = gralloc_device_alloc_img(gGralloc, w, h, format, usage, handle,
+                                   stride);
     if (err) {
         LOG_E("alloc(%u, %u, %d, %08x, ...) failed %d (%s)\n",
                w, h, format, usage, err, strerror(-err));
@@ -78,22 +67,14 @@ static int gfx_free(buffer_handle_t handle) {
 
     int err;
 
-    if (!gAllocDev) {
-        if (!gModule) {
-            if (gfx_init()) {
-                LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
-                return -1;
-            }
-        }
-
-        err = gralloc_open(gModule, &gAllocDev);
-        if (err) {
-            LOG_E("FATAL: gralloc open failed\n");
+    if (!gGralloc) {
+        if (gfx_init()) {
+            LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
             return -1;
         }
     }
 
-    err = gAllocDev->free(gAllocDev, handle);
+    err = gralloc_device_free_img(gGralloc, handle);
     if (err) {
         LOG_E("free(...) failed %d (%s)\n", err, strerror(-err));
     }
@@ -102,22 +83,30 @@ static int gfx_free(buffer_handle_t handle) {
 }
 
 static int gfx_lock(buffer_handle_t handle, int usage,
-                      int left, int top, int width, int height, void** vaddr) {
+                    int left, int top, int width, int height, void** vaddr) {
 
     int err;
 
-    if (!gAllocMod) {
+    if (!gGralloc) {
         if (gfx_init()) {
             LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
             return -1;
         }
     }
 
-    err = gAllocMod->lock(gAllocMod, handle, usage,
-                          left, top, width, height, vaddr);
-    LOG_V("gfx_lock: handle is %x, usage is %x, vaddr is %x.\n", (unsigned int)handle, usage, (unsigned int)*vaddr);
+    const gralloc1_rect_t r = {
+        .left   = left,
+        .top    = top,
+        .width  = width,
+        .height = height
+    };
 
-    if (err){
+    err = gralloc_lock_async_img(gGralloc, handle, usage, &r, vaddr, -1);
+
+    LOG_V("gfx_lock: handle is %x, usage is %x, vaddr is %x.\n",
+          (unsigned int)handle, usage, (unsigned int)*vaddr);
+
+    if (err) {
         LOG_E("lock(...) failed %d (%s).\n", err, strerror(-err));
         return -1;
     } else
@@ -128,16 +117,20 @@ static int gfx_lock(buffer_handle_t handle, int usage,
 
 static int gfx_unlock(buffer_handle_t handle) {
 
-    int err;
+    int err, releaseFence = -1;
 
-    if (!gAllocMod) {
+    if (!gGralloc) {
         if (gfx_init()) {
             LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
             return -1;
         }
     }
 
-    err = gAllocMod->unlock(gAllocMod, handle);
+    err = gralloc_unlock_async_img(gGralloc, handle, &releaseFence);
+    if (releaseFence >= 0) {
+        sync_wait(releaseFence, -1);
+        close(releaseFence);
+    }
     if (err) {
         LOG_E("unlock(...) failed %d (%s)", err, strerror(-err));
         return -1;
@@ -150,29 +143,21 @@ static int gfx_unlock(buffer_handle_t handle) {
 static int gfx_Blit(buffer_handle_t src, buffer_handle_t dest,
                       int w, int h, int , int )
 {
-    int err;
+    int err, releaseFence = -1;
 
-    if (!gAllocMod) {
+    if (!gGralloc) {
         if (gfx_init()) {
             LOG_E("can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
             return -1;
         }
     }
 
-#ifdef MRFLD_GFX
-    {
-        int fenceFd;
-        err = gAllocMod->perform(gAllocMod, GRALLOC_MODULE_BLIT_HANDLE_TO_HANDLE_IMG, src, dest, w, h, 0, 0, 0, -1, &fenceFd);
-        if (!err) {
-            sync_wait(fenceFd, -1);
-            close(fenceFd);
-        }
+    err = gralloc_blit_handle_to_handle_img(gGralloc, src, dest, w, h, 0, 0,
+                                            0, -1, &releaseFence);
+    if (releaseFence >= 0) {
+        sync_wait(releaseFence, -1);
+        close(releaseFence);
     }
-#else
-    IMG_gralloc_module_public_t* GrallocMod = (IMG_gralloc_module_public_t*)gModule;
-    err = GrallocMod->Blit2(GrallocMod, src, dest, w, h, 0, 0);
-#endif
-
     if (err) {
         LOG_E("Blit failed %d (%s)", err, strerror(-err));
         return -1;

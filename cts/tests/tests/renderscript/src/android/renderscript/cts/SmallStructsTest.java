@@ -54,6 +54,12 @@ public class SmallStructsTest extends RSBaseCompute {
         mScript = new ScriptC_small_structs(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        mScript.destroy();
+        super.tearDown();
+    }
+
     void checkForErrorsInScript() {
         mRS.finish();
         mScript.invoke_checkError();
@@ -176,6 +182,9 @@ public class SmallStructsTest extends RSBaseCompute {
             // Run the test.
             modify.invoke(mScript, alloc, alloc);
             verify.invoke(mScript, alloc);
+
+            mRS.finish();
+            alloc.destroy();
         }
 
         checkForErrorsInScript();
@@ -235,6 +244,9 @@ public class SmallStructsTest extends RSBaseCompute {
                 // Run the test.
                 modify.invoke(mScript, alloc, alloc);
                 verify.invoke(mScript, alloc);
+
+                mRS.finish();
+                alloc.destroy();
             }
         }
 

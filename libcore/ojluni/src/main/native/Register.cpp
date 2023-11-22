@@ -25,11 +25,12 @@
 
 #define LOG_TAG "libcore" // We'll be next to "dalvikvm" in the log; make the distinction clear.
 
-#include "cutils/log.h"
+#include <stdlib.h>
+
+#include <log/log.h>
+
 #include "JniConstants.h"
 #include "ScopedLocalFrame.h"
-
-#include <stdlib.h>
 
 extern "C" {
 
@@ -37,7 +38,6 @@ extern void register_java_io_Console(JNIEnv* env);
 extern void register_java_io_FileDescriptor(JNIEnv*);
 extern void register_java_io_FileInputStream(JNIEnv*);
 extern void register_java_io_FileOutputStream(JNIEnv*);
-extern void register_java_io_FileSystem(JNIEnv*);
 extern void register_java_io_ObjectInputStream(JNIEnv*);
 extern void register_java_io_ObjectOutputStream(JNIEnv*);
 extern void register_java_io_ObjectStreamClass(JNIEnv*);
@@ -46,7 +46,6 @@ extern void register_java_lang_Double(JNIEnv*);
 extern void register_java_lang_Float(JNIEnv*);
 extern void register_java_lang_ProcessEnvironment(JNIEnv*);
 extern void register_java_lang_Runtime(JNIEnv*);
-extern void register_java_lang_Shutdown(JNIEnv*);
 extern void register_java_lang_StrictMath(JNIEnv*);
 extern void register_java_lang_Math(JNIEnv*);
 extern void register_java_lang_System(JNIEnv*);
@@ -55,11 +54,8 @@ extern void register_java_lang_UNIXProcess(JNIEnv*);
 extern void register_java_net_DatagramPacket(JNIEnv*);
 extern void register_java_net_Inet4Address(JNIEnv*);
 extern void register_java_net_Inet6Address(JNIEnv*);
-extern void register_java_net_Inet6AddressImpl(JNIEnv*);
 extern void register_java_net_InetAddress(JNIEnv*);
-extern void register_java_net_NetworkInterface(JNIEnv*);
 extern void register_java_net_PlainDatagramSocketImpl(JNIEnv*);
-extern void register_java_net_PlainSocketImpl(JNIEnv*);
 extern void register_java_net_SocketInputStream(JNIEnv*);
 extern void register_java_net_SocketOutputStream(JNIEnv*);
 extern void register_java_nio_Bits(JNIEnv* env);
@@ -78,10 +74,8 @@ extern void register_sun_nio_ch_FileKey(JNIEnv*);
 extern void register_sun_nio_ch_IOUtil(JNIEnv*);
 extern void register_sun_nio_ch_NativeThread(JNIEnv*);
 extern void register_sun_nio_ch_Net(JNIEnv*);
-extern void register_sun_nio_ch_ServerSocketChannelImpl(JNIEnv* env);
+extern void register_sun_nio_ch_ServerSocketChannelImpl(JNIEnv*);
 extern void register_sun_nio_ch_SocketChannelImpl(JNIEnv* env);
-extern void register_sun_nio_ch_InheritedChannel(JNIEnv* env);
-extern void register_sun_nio_ch_PollArrayWrapper(JNIEnv* env);
 
 extern jint net_JNI_OnLoad(JavaVM*, void*);
 
@@ -102,7 +96,6 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_java_util_zip_Deflater(env);
     register_java_util_zip_CRC32(env);
     register_java_util_zip_Adler32(env);
-    register_java_io_FileSystem(env);
     register_sun_nio_ch_IOUtil(env);
     register_sun_nio_ch_FileChannelImpl(env);
     register_sun_nio_ch_FileDispatcherImpl(env);
@@ -124,7 +117,6 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_java_lang_ProcessEnvironment(env);
     register_java_lang_Runtime(env);
     register_java_lang_System(env);
-    register_java_lang_Shutdown(env);
     register_java_lang_UNIXProcess(env);
     // register_java_net_InetAddress depends on java_lang_Float & Math being
     // fully registered (getMethodId on InetAddress class triggers its
@@ -132,22 +124,15 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_java_net_InetAddress(env);
     register_java_net_Inet4Address(env);
     register_java_net_Inet6Address(env);
-    register_java_net_PlainSocketImpl(env);
-    register_java_net_PlainDatagramSocketImpl(env);
-    register_java_net_NetworkInterface(env);
-    register_java_net_DatagramPacket(env);
-    register_java_net_Inet6AddressImpl(env);
     register_java_net_SocketInputStream(env);
     register_java_net_SocketOutputStream(env);
     register_java_nio_Bits(env);
     register_java_util_prefs_FileSystemPreferences(env);
     register_sun_nio_ch_ServerSocketChannelImpl(env);
     register_sun_nio_ch_SocketChannelImpl(env);
-    register_sun_nio_ch_InheritedChannel(env);
     register_sun_nio_ch_Net(env);
     register_sun_nio_ch_DatagramChannelImpl(env);
     register_sun_nio_ch_DatagramDispatcher(env);
-    register_sun_nio_ch_PollArrayWrapper(env);
     register_java_nio_MappedByteBuffer(env);
     net_JNI_OnLoad(vm, NULL);
     return JNI_VERSION_1_6;

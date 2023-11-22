@@ -17,7 +17,7 @@
 # and that the unit tests for the modules passed (indicating that the setup
 # is correct).
 
-CAMERA_ITS_TOP=$PWD
+export CAMERA_ITS_TOP=$PWD
 
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] || \
     { echo ">> Script must be sourced with 'source $0'" >&2; exit 1; }
@@ -31,11 +31,22 @@ command -v python >/dev/null 2>&1 || \
 python -V 2>&1 | grep -q "Python 2.7" || \
     echo ">> Require python 2.7" >&2
 
-for M in numpy PIL Image matplotlib pylab cv2 scipy.stats scipy.spatial
+for M in numpy PIL Image matplotlib pylab scipy.stats scipy.spatial
 do
     python -c "import $M" >/dev/null 2>&1 || \
         echo ">> Require Python $M module" >&2
 done
+
+CV2_VER=$(python -c "\
+try:
+    import cv2
+    print cv2.__version__
+except:
+    print \"N/A\"
+")
+
+echo $CV2_VER | grep -q "^2.4" || \
+    echo ">> Require python opencv 2.4. Got $CV2_VER" >&2
 
 export PYTHONPATH="$PWD/pymodules:$PYTHONPATH"
 

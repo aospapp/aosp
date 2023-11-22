@@ -7,7 +7,6 @@ AUTHOR = 'The Chromium OS Authors'
 PURPOSE = 'Verify there is enough memory to run Chrome OS.'
 CRITERIA = 'Fails if memory size >= 1G.'
 ATTRIBUTES = "suite:bvt-cq, suite:hwqual"
-SUITE = "bvt-cq, hwqual"
 TIME='SHORT'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "hardware"

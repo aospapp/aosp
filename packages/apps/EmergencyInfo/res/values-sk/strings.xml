@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"Núdzové informácie"</string>
-    <string name="edit_info" msgid="5973929805855224805">"Upraviť núdzové informácie"</string>
+    <string name="app_label" msgid="1090682794607161063">"Tiesňové informácie"</string>
+    <string name="edit_info" msgid="5973929805855224805">"Upraviť tiesňové informácie"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informácie"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontakty"</string>
     <string name="name" msgid="4286267457738861977">"Meno"</string>
@@ -87,16 +87,20 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Tiesňové kontakty"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Pridať kontakt"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Nenašiel sa žiadny výber kontaktov"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Kontakt sa nedá zobraziť"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Odstrániť kontakt <xliff:g id="CONTACT_NAME">%1$s</xliff:g> z tiesňových kontaktov?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Odstrániť kontakt"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Nepodarilo sa správne prečítať kontaktné informácie"</string>
     <string name="remove" msgid="1243949503772376064">"Odstrániť"</string>
     <string name="cancel" msgid="7401575239009060939">"Zrušiť"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Núdzové informácie"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Tu uvedené informácie pomôžu záchranárom, ak sa ocitnete v núdzovej situácii. Sú uložené iba na zariadení. Ktokoľvek si ich môže prečítať na obrazovke tiesňového vytáčania bez nutnosti odomknúť telefón."</string>
+    <string name="user_emergency_info_title" msgid="7827058167207376581">"Tiesňové informácie"</string>
+    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Tu uvedené informácie pomôžu záchranárom, ak sa ocitnete v tiesňovej situácii. Sú uložené iba na zariadení. Ktokoľvek si ich môže prečítať na obrazovke tiesňového vytáčania bez nutnosti odomknúť telefón."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Pokračovať"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Neposkytli ste žiadne informácie pre prípad núdze"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Žiadne informácie o vlastníkovi telefónu"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Ak je toto váš telefón, klepnite na ikonu ceruzky a pridajte informácie, ktoré sa tu zobrazia v prípade tiesne"</string>
     <string name="clear_all" msgid="8899013032870561633">"Vymazať všetko"</string>
     <string name="clear" msgid="3648880442502887163">"Vymazať"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vymazať všetky informácie a kontakty?"</string>

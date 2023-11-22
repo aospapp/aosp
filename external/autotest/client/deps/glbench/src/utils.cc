@@ -112,6 +112,12 @@ double get_temperature_input() {
       FilePath("/sys/devices/virtual/hwmon/hwmon2/temp1_input"),
       FilePath("/sys/devices/virtual/hwmon/hwmon3/temp1_input"),
       FilePath("/sys/devices/virtual/hwmon/hwmon4/temp1_input"),
+      // kevin & elm
+      FilePath("/sys/devices/virtual/thermal/thermal_zone0/temp"),
+      FilePath("/sys/devices/virtual/thermal/thermal_zone1/temp"),
+      FilePath("/sys/devices/virtual/thermal/thermal_zone2/temp"),
+      FilePath("/sys/devices/virtual/thermal/thermal_zone3/temp"),
+      FilePath("/sys/devices/virtual/thermal/thermal_zone4/temp"),
   };
 
   int temperature_mCelsius = 0;

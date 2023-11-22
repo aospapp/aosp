@@ -14,7 +14,6 @@ Fail if any files are found which are unaccounted for by given owner-specific
 criteria.
 """
 ATTRIBUTES = "suite:bvt-inline"
-SUITE = "bvt-inline"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

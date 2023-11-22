@@ -150,15 +150,18 @@ public final class Spdy3ConnectionTest {
 
     // play it back
     final AtomicInteger receiveCount = new AtomicInteger();
-    IncomingStreamHandler handler = new IncomingStreamHandler() {
-      @Override public void receive(FramedStream stream) throws IOException {
+    FramedConnection.Listener handler = new FramedConnection.Listener() {
+      @Override public void onStream(FramedStream stream) throws IOException {
         receiveCount.incrementAndGet();
         assertEquals(pushHeaders, stream.getRequestHeaders());
         assertEquals(null, stream.getErrorCode());
         stream.reply(headerEntries("b", "banana"), true);
       }
     };
-    new FramedConnection.Builder(true, peer.openSocket()).handler(handler).build();
+    new FramedConnection.Builder(true)
+        .socket(peer.openSocket())
+        .listener(handler)
+        .build();
 
     // verify the peer received what was expected
     MockSpdyPeer.InFrame reply = peer.takeFrame();
@@ -178,14 +181,14 @@ public final class Spdy3ConnectionTest {
 
     // play it back
     final AtomicInteger receiveCount = new AtomicInteger();
-    IncomingStreamHandler handler = new IncomingStreamHandler() {
-      @Override public void receive(FramedStream stream) throws IOException {
+    FramedConnection.Listener listener = new FramedConnection.Listener() {
+      @Override public void onStream(FramedStream stream) throws IOException {
         stream.reply(headerEntries("b", "banana"), false);
         receiveCount.incrementAndGet();
       }
     };
 
-    connectionBuilder(peer, SPDY3).handler(handler).build();
+    connectionBuilder(peer, SPDY3).listener(listener).build();
 
     // verify the peer received what was expected
     MockSpdyPeer.InFrame reply = peer.takeFrame();
@@ -254,7 +257,7 @@ public final class Spdy3ConnectionTest {
 
   @Test public void serverSendsSettingsToClient() throws Exception {
     // write the mocking script
-    Settings settings = new Settings();
+    final Settings settings = new Settings();
     settings.set(Settings.MAX_CONCURRENT_STREAMS, PERSIST_VALUE, 10);
     peer.sendFrame().settings(settings);
     peer.sendFrame().ping(false, 2, 0);
@@ -262,12 +265,24 @@ public final class Spdy3ConnectionTest {
     peer.play();
 
     // play it back
-    FramedConnection connection = connection(peer, SPDY3);
+    final AtomicInteger maxConcurrentStreams = new AtomicInteger();
+    FramedConnection.Listener listener = new FramedConnection.Listener() {
+      @Override public void onStream(FramedStream stream) throws IOException {
+        throw new AssertionError();
+      }
+      @Override public void onSettings(FramedConnection connection) {
+        maxConcurrentStreams.set(connection.maxConcurrentStreams());
+      }
+    };
+    FramedConnection connection = connectionBuilder(peer, SPDY3)
+        .listener(listener)
+        .build();
 
     peer.takeFrame(); // Guarantees that the peer Settings frame has been processed.
     synchronized (connection) {
       assertEquals(10, connection.peerSettings.getMaxConcurrentStreams(-1));
     }
+    assertEquals(10, maxConcurrentStreams.get());
   }
 
   @Test public void multipleSettingsFramesAreMerged() throws Exception {
@@ -613,15 +628,18 @@ public final class Spdy3ConnectionTest {
 
     // play it back
     final AtomicInteger receiveCount = new AtomicInteger();
-    IncomingStreamHandler handler = new IncomingStreamHandler() {
-      @Override public void receive(FramedStream stream) throws IOException {
+    FramedConnection.Listener listener = new FramedConnection.Listener() {
+      @Override public void onStream(FramedStream stream) throws IOException {
         receiveCount.incrementAndGet();
         assertEquals(headerEntries("a", "android"), stream.getRequestHeaders());
         assertEquals(null, stream.getErrorCode());
         stream.reply(headerEntries("c", "cola"), true);
       }
     };
-    new FramedConnection.Builder(true, peer.openSocket()).handler(handler).build();
+    new FramedConnection.Builder(true)
+        .socket(peer.openSocket())
+        .listener(listener)
+        .build();
 
     // verify the peer received what was expected
     MockSpdyPeer.InFrame reply = peer.takeFrame();
@@ -1315,7 +1333,8 @@ public final class Spdy3ConnectionTest {
 
     String longString = ByteString.of(randomBytes(2048)).base64();
     Socket socket = peer.openSocket();
-    FramedConnection connection = new FramedConnection.Builder(true, socket)
+    FramedConnection connection = new FramedConnection.Builder(true)
+        .socket(socket)
         .protocol(SPDY3.getProtocol())
         .build();
     socket.shutdownOutput();
@@ -1343,7 +1362,8 @@ public final class Spdy3ConnectionTest {
 
   private FramedConnection.Builder connectionBuilder(MockSpdyPeer peer, Variant variant)
       throws IOException {
-    return new FramedConnection.Builder(true, peer.openSocket())
+    return new FramedConnection.Builder(true)
+        .socket(peer.openSocket())
         .protocol(variant.getProtocol());
   }
 

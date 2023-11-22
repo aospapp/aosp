@@ -31,7 +31,7 @@ import logging, re, os, sys, optparse, compiler
 
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import models
-from autotest_lib.client.common_lib import control_data, utils
+from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import logging_config, logging_manager
 
 
@@ -196,6 +196,27 @@ def update_profilers_in_db(profilers, description='NA',
         _log_or_execute(repr(model), model.save)
 
 
+def _set_attributes_custom(test, data):
+    # We set the test name to the dirname of the control file.
+    test_new_name = test.path.split('/')
+    if test_new_name[-1] == 'control' or test_new_name[-1] == 'control.srv':
+        test.name = test_new_name[-2]
+    else:
+        control_name = "%s:%s"
+        control_name %= (test_new_name[-2],
+                         test_new_name[-1])
+        test.name = re.sub('control.*\.', '', control_name)
+
+    # We set verify to always False (0).
+    test.run_verify = 0
+
+    if hasattr(data, 'test_parameters'):
+        for para_name in data.test_parameters:
+            test_parameter = models.TestParameter.objects.get_or_create(
+                test=test, name=para_name)[0]
+            test_parameter.save()
+
+
 def update_tests_in_db(tests, dry_run=False, add_experimental=False,
                        add_noncompliant=False, autotest_dir=None):
     """
@@ -210,9 +231,6 @@ def update_tests_in_db(tests, dry_run=False, add_experimental=False,
     @param add_noncompliant: attempt adding test with invalid control files.
     @param autotest_dir: prepended to path strings (/usr/local/autotest).
     """
-    site_set_attributes_module = utils.import_site_module(
-        __file__, 'autotest_lib.utils.site_test_importer_attributes')
-
     for test in tests:
         new_test = models.Test.objects.get_or_create(
                 path=test.replace(autotest_dir, '').lstrip('/'))[0]
@@ -223,8 +241,7 @@ def update_tests_in_db(tests, dry_run=False, add_experimental=False,
         _set_attributes_clean(new_test, data)
 
         # Custom Attribute Update
-        if site_set_attributes_module:
-            site_set_attributes_module._set_attributes_custom(new_test, data)
+        _set_attributes_custom(new_test, data)
 
         # This only takes place if --add-noncompliant is provided on the CLI
         if not new_test.name:

@@ -44,34 +44,35 @@ class TpmStatus;
 class TpmInitializerImpl : public TpmInitializer {
  public:
   // Does not take ownership of |local_data_store| or |tpm_status|.
-  TpmInitializerImpl(LocalDataStore* local_data_store,
-                     TpmStatus* tpm_status);
+  TpmInitializerImpl(LocalDataStore* local_data_store, TpmStatus* tpm_status);
   ~TpmInitializerImpl() override = default;
 
   // TpmInitializer methods.
   bool InitializeTpm() override;
+  void VerifiedBootHelper() override;
+  bool ResetDictionaryAttackLock() override;
 
  private:
   // This method checks if an EndorsementKey exists on the Tpm and creates it
-  // if not. Returns true on success, else false. |tpm_handle| is a handle to
-  // the Tpm with the owner_password injected.
-  bool InitializeEndorsementKey(TSS_HTPM tpm_handle);
+  // if not. Returns true on success, else false. The |connection| already has
+  // the owner password injected.
+  bool InitializeEndorsementKey(TpmConnection* connection);
 
   // This method takes ownership of the Tpm with the default TSS password.
-  // Returns true on success, else false. |tpm_handle| is a handle to the Tpm
-  // with the owner_password injected.
-  bool TakeOwnership(TSS_HTPM tpm_handle);
+  // Returns true on success, else false. The |connection| already has the
+  // default owner password injected.
+  bool TakeOwnership(TpmConnection* connection);
 
   // This method initializes the SRK if it does not exist, zero's the SRK
   // password and unrestricts its usage. Returns true on success, else false.
-  // |tpm_handle| is a handle to the Tpm with the owner_password injected.
-  bool InitializeSrk(TSS_HTPM tpm_handle);
+  // The |connection| already has the current owner password injected.
+  bool InitializeSrk(TpmConnection* connection);
 
   // This method changes the Tpm owner password from the default TSS password
   // to the password provided in the |owner_password| argument.
-  // Returns true on success, else false. |tpm_handle| is a handle to the Tpm
-  // with the old owner_password injected.
-  bool ChangeOwnerPassword(TSS_HTPM tpm_handle,
+  // Returns true on success, else false. The |connection| already has the old
+  // owner password injected.
+  bool ChangeOwnerPassword(TpmConnection* connection,
                            const std::string& owner_password);
 
   // This method return true iff the provided |owner_password| is the current
@@ -80,7 +81,6 @@ class TpmInitializerImpl : public TpmInitializer {
   bool TestTpmAuth(const std::string& owner_password);
 
   OpensslCryptoUtilImpl openssl_util_;
-  TpmConnection tpm_connection_;
   LocalDataStore* local_data_store_;
   TpmStatus* tpm_status_;
 

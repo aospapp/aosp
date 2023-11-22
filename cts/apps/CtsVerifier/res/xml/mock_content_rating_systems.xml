@@ -19,9 +19,9 @@
     <rating-system-definition android:name="CTS_VERIFIER"
         android:title="CtsVerifier"
         android:description="@string/app_name">
-        <rating-definition android:name="MOCK_FAKE"
-            android:title="Fake"
+        <rating-definition android:name="MOCK_CUSTOM"
+            android:title="Custom Rating"
             android:contentAgeHint="0"
-            android:description="@string/fake_rating" />
+            android:description="@string/custom_rating" />
     </rating-system-definition>
 </rating-system-definitions>

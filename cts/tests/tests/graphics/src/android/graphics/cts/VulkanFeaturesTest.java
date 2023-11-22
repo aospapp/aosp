@@ -16,21 +16,34 @@
 
 package android.graphics.cts;
 
-import android.content.Context;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
-import java.io.UnsupportedEncodingException;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.io.UnsupportedEncodingException;
 
 /**
  * Test that the Vulkan loader is present, supports the required extensions, and that system
  * features accurately indicate the capabilities of the Vulkan driver if one exists.
  */
-public class VulkanFeaturesTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class VulkanFeaturesTest {
 
     static {
         System.loadLibrary("ctsgraphics_jni");
@@ -43,20 +56,15 @@ public class VulkanFeaturesTest extends AndroidTestCase {
     // and there was an important bugfix relative to 1.0.2.
     private static final int VULKAN_1_0 = 0x00400003; // 1.0.3
 
-    PackageManager mPm;
-    FeatureInfo mVulkanHardwareLevel = null;
-    FeatureInfo mVulkanHardwareVersion = null;
-    JSONObject mVulkanDevices[];
+    private PackageManager mPm;
+    private FeatureInfo mVulkanHardwareLevel = null;
+    private FeatureInfo mVulkanHardwareVersion = null;
+    private FeatureInfo mVulkanHardwareCompute = null;
+    private JSONObject mVulkanDevices[];
 
-    public VulkanFeaturesTest() {
-        super();
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mPm = getContext().getPackageManager();
+    @Before
+    public void setup() throws Throwable {
+        mPm = InstrumentationRegistry.getTargetContext().getPackageManager();
         FeatureInfo features[] = mPm.getSystemAvailableFeatures();
         if (features != null) {
             for (FeatureInfo feature : features) {
@@ -70,6 +78,11 @@ public class VulkanFeaturesTest extends AndroidTestCase {
                     if (DEBUG) {
                         Log.d(TAG, feature.name + "=0x" + Integer.toHexString(feature.version));
                     }
+                } else if (PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE.equals(feature.name)) {
+                    mVulkanHardwareCompute = feature;
+                    if (DEBUG) {
+                        Log.d(TAG, feature.name + "=" + feature.version);
+                    }
                 }
             }
         }
@@ -77,6 +90,7 @@ public class VulkanFeaturesTest extends AndroidTestCase {
         mVulkanDevices = getVulkanDevices();
     }
 
+    @Test
     public void testVulkanHardwareFeatures() throws JSONException {
         if (DEBUG) {
             Log.d(TAG, "Inspecting " + mVulkanDevices.length + " devices");
@@ -88,6 +102,9 @@ public class VulkanFeaturesTest extends AndroidTestCase {
             assertNull("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_VERSION +
                        " is supported, but no Vulkan physical devices are available",
                        mVulkanHardwareLevel);
+            assertNull("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE +
+                       " is supported, but no Vulkan physical devices are available",
+                       mVulkanHardwareCompute);
             return;
         }
         assertNotNull("Vulkan physical devices are available, but system feature " +
@@ -108,20 +125,31 @@ public class VulkanFeaturesTest extends AndroidTestCase {
                    " version 0x" + Integer.toHexString(mVulkanHardwareVersion.version) + " is not" +
                    " one of the versions allowed",
                    isHardwareVersionAllowed(mVulkanHardwareVersion.version));
+        if (mVulkanHardwareCompute != null) {
+            assertTrue("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE +
+                       " version " + mVulkanHardwareCompute.version +
+                       " is not one of the versions allowed",
+                       mVulkanHardwareCompute.version == 0);
+        }
 
         JSONObject bestDevice = null;
         int bestDeviceLevel = -1;
+        int bestComputeLevel = -1;
         int bestDeviceVersion = -1;
         for (JSONObject device : mVulkanDevices) {
             int level = determineHardwareLevel(device);
+            int compute = determineHardwareCompute(device);
             int version = determineHardwareVersion(device);
             if (DEBUG) {
                 Log.d(TAG, device.getJSONObject("properties").getString("deviceName") +
-                    ": level=" + level + " version=0x" + Integer.toHexString(version));
+                    ": level=" + level + " compute=" + compute +
+                    " version=0x" + Integer.toHexString(version));
             }
-            if (level >= bestDeviceLevel && version >= bestDeviceVersion) {
+            if (level >= bestDeviceLevel && compute >= bestComputeLevel &&
+                    version >= bestDeviceVersion) {
                 bestDevice = device;
                 bestDeviceLevel = level;
+                bestComputeLevel = compute;
                 bestDeviceVersion = version;
             }
         }
@@ -136,8 +164,19 @@ public class VulkanFeaturesTest extends AndroidTestCase {
             " isn't close enough (same major and minor version, less or equal patch version)" +
             " to best physical device version 0x" + Integer.toHexString(bestDeviceVersion),
             isVersionCompatible(bestDeviceVersion, mVulkanHardwareVersion.version));
+        if (mVulkanHardwareCompute == null) {
+            assertEquals("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE +
+                " not present, but required features are supported",
+                bestComputeLevel, -1);
+        } else {
+            assertEquals("System feature " + PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE +
+                " version " + mVulkanHardwareCompute.version +
+                " doesn't match best physical device hardware compute " + bestComputeLevel,
+                bestComputeLevel, mVulkanHardwareCompute.version);
+        }
     }
 
+    @Test
     public void testVulkanVersionForVrHighPerformance() {
         if (!mPm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE))
             return;
@@ -179,6 +218,23 @@ public class VulkanFeaturesTest extends AndroidTestCase {
             return 0;
         }
         return 1;
+    }
+
+    private int determineHardwareCompute(JSONObject device) throws JSONException {
+        boolean have16bitStorage = false;
+        boolean haveVariablePointers = false;
+        JSONArray extensions = device.getJSONArray("extensions");
+        for (int i = 0; i < extensions.length(); i++) {
+            String name = extensions.getJSONObject(i).getString("extensionName");
+            if (name.equals("VK_KHR_16bit_storage"))
+                have16bitStorage = true;
+            else if (name.equals("VK_KHR_variable_pointers"))
+                haveVariablePointers = true;
+        }
+        if (!have16bitStorage || !haveVariablePointers) {
+            return -1;
+        }
+        return 0;
     }
 
     private int determineHardwareVersion(JSONObject device) throws JSONException {

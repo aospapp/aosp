@@ -15,13 +15,14 @@
  */
 package android.media.cts;
 
-import android.cts.util.MediaUtils;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.webkit.cts.CtsTestServer;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import org.apache.http.HttpServerConnection;
 

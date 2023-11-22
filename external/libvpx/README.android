@@ -1,12 +1,12 @@
 Name: libvpx
 URL: http://www.webmproject.org
-Version: v1.5.0
+Version: v1.6.1-665-gbcfd9c975
 License: BSD
 License File: libvpx/LICENSE
 
-Date: Thursday November 19 2015
-Branch: javanwhistlingduck
-Commit: cbecf57f3e0d85a7b7f97f3ab7c507f6fe640a93
+Date: Tuesday May 23 2017
+Branch: origin/master
+Commit: bcfd9c97508531a81cc2f5d393edb9eb1b00ce79
 
 Description:
 Contains the sources used to compile libvpx.
@@ -31,10 +31,7 @@ Please follow these steps to update libvpx source code:
 3. Update this file with any Version, Date, Branch, or Commit changes. The
    version is in the file source/config/vpx_version.h
 
-4. Remove the following unwanted files/directories:
-   * external/libvpx/libvpx/vp10
-
-5. Commit the changes. The commit message should look like this and is printed
+4. Commit the changes. The commit message should look like this and is printed
    by update_libvpx.sh:
    libvpx: Pull from upstream
 

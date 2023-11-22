@@ -128,8 +128,12 @@ public class ExternalStorageTest extends AndroidTestCase {
                     getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "meow");
 
             final long id = dm.enqueue(new Request(source).setDestinationUri(Uri.fromFile(target)));
-            receiver.waitForDownloadComplete(30 * DateUtils.SECOND_IN_MILLIS, id);
-            assertSuccessfulDownload(id, target);
+            try {
+                receiver.waitForDownloadComplete(30 * DateUtils.SECOND_IN_MILLIS, id);
+                assertSuccessfulDownload(id, target);
+            } finally {
+                dm.remove(id);
+            }
         } finally {
             mContext.unregisterReceiver(receiver);
         }

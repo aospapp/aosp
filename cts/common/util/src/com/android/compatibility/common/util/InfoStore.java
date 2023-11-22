@@ -15,7 +15,6 @@
  */
 package com.android.compatibility.common.util;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -188,5 +187,9 @@ public abstract class InfoStore {
             throw new NullPointerException();
         }
         return value;
+    }
+
+    protected static boolean isDoubleNaNOrInfinite(Double value) {
+        return Double.isNaN(value) || Double.isInfinite(value);
     }
 }

@@ -20,6 +20,6 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
 LOCAL_SRC_FILES := $(call all-java-files-under,src) $(call all-java-files-under,../../utils/tests)
 LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2-portability android-ex-camera2-utils \
-                               android-support-test mockito-target
+                               android-support-test mockito-target-minus-junit4
 
 include $(BUILD_PACKAGE)

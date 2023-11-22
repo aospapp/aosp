@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and    *
@@ -15,6 +17,7 @@ package com.ibm.icu.text;
  * transformation.
  * @stable ICU 2.0
  */
+@SuppressWarnings("javadoc")    // com.imb.icu.text.Transliterator is in another project
 public abstract class UnicodeFilter implements UnicodeMatcher {
 
     /**
@@ -31,6 +34,7 @@ public abstract class UnicodeFilter implements UnicodeMatcher {
      * filters.  Matches a single 16-bit code unit at offset.
      * @stable ICU 2.0
      */
+    @Override
     public int matches(Replaceable text,
                        int[] offset,
                        int limit,

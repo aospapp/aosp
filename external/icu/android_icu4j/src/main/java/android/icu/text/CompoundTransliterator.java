@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -116,7 +118,7 @@ class CompoundTransliterator extends Transliterator {
     /**
      * Internal method for safeClone...
      * @param id
-     * @param filter2 
+     * @param filter2
      * @param trans2
      * @param numAnonymousRBTs2
      */
@@ -125,7 +127,7 @@ class CompoundTransliterator extends Transliterator {
         trans = trans2;
         numAnonymousRBTs = numAnonymousRBTs2;
     }
-    
+
     /**
      * Finish constructing a transliterator: only to be called by
      * constructors.  Before calling init(), set trans and filter to NULL.
@@ -262,6 +264,7 @@ class CompoundTransliterator extends Transliterator {
      * U+000A, U+0020..U+007E.
      * @return the rule string
      */
+    @Override
     public String toRules(boolean escapeUnprintable) {
         // We do NOT call toRules() on our component transliterators, in
         // general.  If we have several rule-based transliterators, this
@@ -338,6 +341,7 @@ class CompoundTransliterator extends Transliterator {
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
+    @Override
     protected void handleTransliterate(Replaceable text,
                                        Position index, boolean incremental) {
         /* Call each transliterator with the same start value and

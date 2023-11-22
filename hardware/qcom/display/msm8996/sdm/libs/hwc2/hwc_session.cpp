@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright 2015 The Android Open Source Project
@@ -28,8 +28,6 @@
 #include <sys/prctl.h>
 #include <binder/Parcel.h>
 #include <QService.h>
-#include <gr.h>
-#include <gralloc_priv.h>
 #include <display_config.h>
 #include <utils/debug.h>
 #include <sync/sync.h>
@@ -94,7 +92,9 @@ int HWCSession::Init() {
     return -EINVAL;
   }
 
-  DisplayError error = CoreInterface::CreateCore(HWCDebugHandler::Get(), &buffer_allocator_,
+  buffer_allocator_ = new HWCBufferAllocator();
+
+  DisplayError error = CoreInterface::CreateCore(HWCDebugHandler::Get(), buffer_allocator_,
                                                  &buffer_sync_handler_, &core_intf_);
   if (error != kErrorNone) {
     DLOGE("Display core initialization failed. Error = %d", error);
@@ -109,11 +109,11 @@ int HWCSession::Init() {
   if (error == kErrorNone && hw_disp_info.type == kHDMI && hw_disp_info.is_connected) {
     // HDMI is primary display. If already connected, then create it and store in
     // primary display slot. If not connected, create a NULL display for now.
-    status = HWCDisplayExternal::Create(core_intf_, &callbacks_, qservice_,
+    status = HWCDisplayExternal::Create(core_intf_, buffer_allocator_, &callbacks_, qservice_,
                                         &hwc_display_[HWC_DISPLAY_PRIMARY]);
   } else {
     // Create and power on primary display
-    status = HWCDisplayPrimary::Create(core_intf_, &buffer_allocator_, &callbacks_, qservice_,
+    status = HWCDisplayPrimary::Create(core_intf_, buffer_allocator_, &callbacks_, qservice_,
                                        &hwc_display_[HWC_DISPLAY_PRIMARY]);
   }
 
@@ -122,7 +122,7 @@ int HWCSession::Init() {
     return status;
   }
 
-  color_mgr_ = HWCColorManager::CreateColorManager();
+  color_mgr_ = HWCColorManager::CreateColorManager(buffer_allocator_);
   if (!color_mgr_) {
     DLOGW("Failed to load HWCColorManager.");
   }
@@ -145,12 +145,18 @@ int HWCSession::Deinit() {
     color_mgr_->DestroyColorManager();
   }
   uevent_thread_exit_ = true;
-  pthread_join(uevent_thread_, NULL);
+  DLOGD("Terminating uevent thread");
+  Sys::pthread_cancel_(uevent_thread_);
 
   DisplayError error = CoreInterface::DestroyCore();
   if (error != kErrorNone) {
     DLOGE("Display core de-initialization failed. Error = %d", error);
   }
+
+  if (buffer_allocator_ != nullptr) {
+    delete buffer_allocator_;
+  }
+  buffer_allocator_ = nullptr;
 
   return 0;
 }
@@ -171,7 +177,6 @@ int HWCSession::Open(const hw_module_t *module, const char *name, hw_device_t **
 
     int status = hwc_session->Init();
     if (status != 0) {
-      delete hwc_session;
       return status;
     }
 
@@ -193,17 +198,17 @@ int HWCSession::Close(hw_device_t *device) {
   HWCSession *hwc_session = static_cast<HWCSession *>(composer_device);
 
   hwc_session->Deinit();
-  delete hwc_session;
 
   return 0;
 }
 
 void HWCSession::GetCapabilities(struct hwc2_device *device, uint32_t *outCount,
                                  int32_t *outCapabilities) {
-  if (outCapabilities != nullptr && *outCount >= 1) {
+  if (outCapabilities != nullptr && *outCount >= 2) {
     outCapabilities[0] = HWC2_CAPABILITY_SKIP_CLIENT_COLOR_TRANSFORM;
+    outCapabilities[1] = HWC2_CAPABILITY_SKIP_VALIDATE;
   }
-  *outCount = 1;
+  *outCount = 2;
 }
 
 template <typename PFN, typename T>
@@ -215,7 +220,9 @@ static hwc2_function_pointer_t AsFP(T function) {
 // HWC2 functions returned in GetFunction
 // Defined in the same order as in the HWC2 header
 
-static int32_t AcceptDisplayChanges(hwc2_device_t *device, hwc2_display_t display) {
+int32_t HWCSession::AcceptDisplayChanges(hwc2_device_t *device,
+                                         hwc2_display_t display) {
+  SCOPE_LOCK(locker_);
   return HWCSession::CallDisplayFunction(device, display, &HWCDisplay::AcceptDisplayChanges);
 }
 
@@ -276,9 +283,10 @@ void HWCSession::Dump(hwc2_device_t *device, uint32_t *out_size, char *out_buffe
     return;
   }
   auto *hwc_session = static_cast<HWCSession *>(device);
+  const size_t max_dump_size = 8192;
 
   if (out_buffer == nullptr) {
-    *out_size = 8192;  // TODO(user): Adjust required dump size
+    *out_size = max_dump_size;
   } else {
     char sdm_dump[4096];
     DumpInterface::GetDump(sdm_dump, 4096);  // TODO(user): Fix this workaround
@@ -289,8 +297,8 @@ void HWCSession::Dump(hwc2_device_t *device, uint32_t *out_size, char *out_buffe
       }
     }
     s += sdm_dump;
-    s.copy(out_buffer, s.size(), 0);
-    *out_size = sizeof(out_buffer);
+    auto copied = s.copy(out_buffer, std::min(s.size(), max_dump_size), 0);
+    *out_size = UINT32(copied);
   }
 }
 
@@ -590,7 +598,7 @@ hwc2_function_pointer_t HWCSession::GetFunction(struct hwc2_device *device,
 
   switch (descriptor) {
     case HWC2::FunctionDescriptor::AcceptDisplayChanges:
-      return AsFP<HWC2_PFN_ACCEPT_DISPLAY_CHANGES>(AcceptDisplayChanges);
+      return AsFP<HWC2_PFN_ACCEPT_DISPLAY_CHANGES>(HWCSession::AcceptDisplayChanges);
     case HWC2::FunctionDescriptor::CreateLayer:
       return AsFP<HWC2_PFN_CREATE_LAYER>(CreateLayer);
     case HWC2::FunctionDescriptor::CreateVirtualDisplay:
@@ -690,8 +698,8 @@ HWC2::Error HWCSession::CreateVirtualDisplayObject(uint32_t width, uint32_t heig
   if (hwc_display_[HWC_DISPLAY_VIRTUAL]) {
     return HWC2::Error::NoResources;
   }
-  auto status = HWCDisplayVirtual::Create(core_intf_, &callbacks_, width, height, format,
-                                          &hwc_display_[HWC_DISPLAY_VIRTUAL]);
+  auto status = HWCDisplayVirtual::Create(core_intf_, buffer_allocator_, &callbacks_, width,
+                                          height, format, &hwc_display_[HWC_DISPLAY_VIRTUAL]);
   // TODO(user): validate width and height support
   if (status)
     return HWC2::Error::Unsupported;
@@ -709,8 +717,8 @@ int32_t HWCSession::ConnectDisplay(int disp) {
   hwc_display_[HWC_DISPLAY_PRIMARY]->GetFrameBufferResolution(&primary_width, &primary_height);
 
   if (disp == HWC_DISPLAY_EXTERNAL) {
-    status = HWCDisplayExternal::Create(core_intf_, &callbacks_, primary_width, primary_height,
-                                        qservice_, false, &hwc_display_[disp]);
+    status = HWCDisplayExternal::Create(core_intf_, buffer_allocator_, &callbacks_, primary_width,
+                                        primary_height, qservice_, false, &hwc_display_[disp]);
   } else {
     DLOGE("Invalid display type");
     return -1;

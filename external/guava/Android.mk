@@ -40,4 +40,4 @@ LOCAL_SRC_FILES := $(call all-java-files-under, guava/src)
 LOCAL_MODULE := guava-hostdex
 LOCAL_STATIC_JAVA_LIBRARIES := jsr305-hostdex
 
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)

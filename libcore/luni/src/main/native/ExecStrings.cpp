@@ -20,7 +20,8 @@
 
 #include <stdlib.h>
 
-#include "cutils/log.h"
+#include <log/log.h>
+
 #include "ScopedLocalRef.h"
 
 ExecStrings::ExecStrings(JNIEnv* env, jobjectArray java_string_array)

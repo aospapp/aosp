@@ -56,6 +56,16 @@ const char* kCompileJavaCommand[] = {
 };
 const char kCompileCommandJavaOutput[] = "directory/ITool.java";
 
+const char kCompileDepFileNinja[] = "-ninja";
+const char* kCompileJavaCommandNinja[] = {
+    "aidl",
+    "-b",
+    kCompileDepFileNinja,
+    kCompileCommandIncludePath,
+    kCompileCommandInput,
+    nullptr,
+};
+
 const char kCompileDepFile[] = "-doutput.deps";
 const char kCompileCommandHeaderDir[] = "output/dir";
 const char kCompileCommandCppOutput[] = "some/file.cpp";
@@ -63,6 +73,16 @@ const char* kCompileCppCommand[] = {
     "aidl-cpp",
     kCompileCommandIncludePath,
     kCompileDepFile,
+    kCompileCommandInput,
+    kCompileCommandHeaderDir,
+    kCompileCommandCppOutput,
+    nullptr,
+};
+const char* kCompileCppCommandNinja[] = {
+    "aidl-cpp",
+    kCompileCommandIncludePath,
+    kCompileDepFile,
+    kCompileDepFileNinja,
     kCompileCommandInput,
     kCompileCommandHeaderDir,
     kCompileCommandCppOutput,
@@ -113,6 +133,20 @@ TEST(JavaOptionsTests, ParsesCompileJava) {
   EXPECT_EQ(string{kCompileCommandInput}, options->input_file_name_);
   EXPECT_EQ(string{kCompileCommandJavaOutput}, options->output_file_name_);
   EXPECT_EQ(false, options->auto_dep_file_);
+  EXPECT_EQ(false, options->DependencyFileNinja());
+}
+
+TEST(JavaOptionsTests, ParsesCompileJavaNinja) {
+  unique_ptr<JavaOptions> options =
+      GetOptions<JavaOptions>(kCompileJavaCommandNinja);
+  EXPECT_EQ(JavaOptions::COMPILE_AIDL_TO_JAVA, options->task);
+  EXPECT_EQ(true, options->fail_on_parcelable_);
+  EXPECT_EQ(1u, options->import_paths_.size());
+  EXPECT_EQ(0u, options->preprocessed_files_.size());
+  EXPECT_EQ(string{kCompileCommandInput}, options->input_file_name_);
+  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->output_file_name_);
+  EXPECT_EQ(false, options->auto_dep_file_);
+  EXPECT_EQ(true, options->DependencyFileNinja());
 }
 
 TEST(CppOptionsTests, ParsesCompileCpp) {
@@ -121,6 +155,19 @@ TEST(CppOptionsTests, ParsesCompileCpp) {
   EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2),
             options->import_paths_[0]);
   EXPECT_EQ(string{kCompileDepFile}.substr(2), options->dep_file_name_);
+  EXPECT_EQ(false, options->DependencyFileNinja());
+  EXPECT_EQ(kCompileCommandInput, options->InputFileName());
+  EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
+  EXPECT_EQ(kCompileCommandCppOutput, options->OutputCppFilePath());
+}
+
+TEST(CppOptionsTests, ParsesCompileCppNinja) {
+  unique_ptr<CppOptions> options = GetOptions<CppOptions>(kCompileCppCommandNinja);
+  ASSERT_EQ(1u, options->import_paths_.size());
+  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2),
+            options->import_paths_[0]);
+  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->dep_file_name_);
+  EXPECT_EQ(true, options->DependencyFileNinja());
   EXPECT_EQ(kCompileCommandInput, options->InputFileName());
   EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
   EXPECT_EQ(kCompileCommandCppOutput, options->OutputCppFilePath());

@@ -41,7 +41,7 @@ import android.widget.RadioButton;
 import android.widget.Switch;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.widget.SwitchBar;
 import com.android.settingslib.dream.DreamBackend;
 import com.android.settingslib.dream.DreamBackend.DreamInfo;
@@ -76,7 +76,7 @@ public class DreamSettings extends SettingsPreferenceFragment implements
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.DREAM;
     }
 
@@ -181,6 +181,14 @@ public class DreamSettings extends SettingsPreferenceFragment implements
         if (dialogId == DIALOG_WHEN_TO_DREAM)
             return createWhenToDreamDialog();
         return super.onCreateDialog(dialogId);
+    }
+
+    @Override
+    public int getDialogMetricsCategory(int dialogId) {
+        if (dialogId == DIALOG_WHEN_TO_DREAM) {
+            return MetricsEvent.DIALOG_DREAM_START_DELAY;
+        }
+        return 0;
     }
 
     private Dialog createWhenToDreamDialog() {

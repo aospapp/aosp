@@ -26,7 +26,7 @@ def main():
 
     # There should be 3 identical frames followed by a different set of
     # 3 identical frames.
-    MAX_SAME_DELTA = 0.015
+    MAX_SAME_DELTA = 0.03  # match number in test_burst_sameness_manual
     MIN_DIFF_DELTA = 0.10
 
     with its.device.ItsSession() as cam:
@@ -35,6 +35,14 @@ def main():
                              its.caps.manual_post_proc(props) and
                              its.caps.per_frame_control(props))
 
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
+
         sens, exp_time, _,_,f_dist = cam.do_3a(do_af=True,get_results=True)
 
         means = []
@@ -42,7 +50,7 @@ def main():
         # Capture 3 manual shots with a linear tonemap.
         req = its.objects.manual_capture_request(sens, exp_time, f_dist, True, props)
         for i in [0,1,2]:
-            cap = cam.do_capture(req)
+            cap = cam.do_capture(req, fmt)
             img = its.image.convert_capture_to_rgb_image(cap)
             its.image.write_image(img, "%s_i=%d.jpg" % (NAME, i))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
@@ -51,7 +59,7 @@ def main():
         # Capture 3 manual shots with the default tonemap.
         req = its.objects.manual_capture_request(sens, exp_time, f_dist, False)
         for i in [3,4,5]:
-            cap = cam.do_capture(req)
+            cap = cam.do_capture(req, fmt)
             img = its.image.convert_capture_to_rgb_image(cap)
             its.image.write_image(img, "%s_i=%d.jpg" % (NAME, i))
             tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)

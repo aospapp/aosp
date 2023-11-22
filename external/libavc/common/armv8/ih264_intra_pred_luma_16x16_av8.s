@@ -98,9 +98,9 @@
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_16x16_mode_vert_av8
@@ -108,6 +108,7 @@
 ih264_intra_pred_luma_16x16_mode_vert_av8:
 
     push_v_regs
+    sxtw      x3, w3
 
 
     add       x0, x0, #17
@@ -181,9 +182,9 @@ ih264_intra_pred_luma_16x16_mode_vert_av8:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
     .global ih264_intra_pred_luma_16x16_mode_horz_av8
 
@@ -192,6 +193,7 @@ ih264_intra_pred_luma_16x16_mode_horz_av8:
 
 
     push_v_regs
+    sxtw      x3, w3
 
     ld1       {v0.16b}, [x0]
 
@@ -283,9 +285,9 @@ ih264_intra_pred_luma_16x16_mode_horz_av8:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
     .global ih264_intra_pred_luma_16x16_mode_dc_av8
 
@@ -295,18 +297,19 @@ ih264_intra_pred_luma_16x16_mode_dc_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
 
     sub       v0.16b, v0.16b, v0.16b
     sub       v1.16b, v1.16b, v1.16b
     mov       w10, #0
     mov       w11 , #3
-    ands      x6, x4, #0x01
+    ands      w6, w4, #0x01
     beq       top_available             //LEFT NOT AVAILABLE
     ld1       {v0.16b}, [x0]
     add       w10, w10, #8
     add       w11, w11, #1
 top_available:
-    ands      x6, x4, #0x04
+    ands      w6, w4, #0x04
     beq       none_available
     add       x6, x0, #17
     ld1       {v1.16b}, [x6]
@@ -314,7 +317,7 @@ top_available:
     add       w11, w11, #1
     b         summation
 none_available:
-    cmp       x4, #0
+    cmp       w4, #0
     bne       summation
     mov       w15, #128
     dup       v20.16b, w15
@@ -410,15 +413,16 @@ end_func:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
     .global ih264_intra_pred_luma_16x16_mode_plane_av8
 ih264_intra_pred_luma_16x16_mode_plane_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
     mov       x2, x1
     add       x1, x0, #17
     add       x0, x0, #15
@@ -440,76 +444,58 @@ ih264_intra_pred_luma_16x16_mode_plane_av8:
     uxtl      v18.8h, v7.8b
     add       x7, x0, x4, lsl #3
     sub       x0, x7, x4, lsl #1
-    sub       x20, x4, #0x0
-    neg       x14, x20
+    neg       x14, x4
     addp      v0.8h, v0.8h, v1.8h
     ldrb      w8, [x7], #-1
-    sxtw      x8, w8
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
     saddlp    v0.2s, v0.4h
-    sub       x12, x8, x9
+    sub       w12, w8, w9
     ldrb      w8, [x7], #-1
-    sxtw      x8, w8
     saddlp    v0.1d, v0.2s
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
-    sub       x8, x8, x9
+    sub       w8, w8, w9
     shl       v2.2s, v0.2s, #2
-    add       x12, x12, x8, lsl #1
+    add       w12, w12, w8, lsl #1
     add       v0.2s, v0.2s , v2.2s
     ldrb      w8, [x7], #-1
-    sxtw      x8, w8
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
     srshr     v0.2s, v0.2s, #6          // i_b = D0[0]
-    sub       x8, x8, x9
+    sub       w8, w8, w9
     ldrb      w5, [x7], #-1
-    sxtw      x5, w5
-    add       x8, x8, x8, lsl #1
+    add       w8, w8, w8, lsl #1
     dup       v4.8h, v0.h[0]
-    add       x12, x12, x8
+    add       w12, w12, w8
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
     mul       v0.8h, v4.8h , v16.8h
-    sub       x5, x5, x9
+    sub       w5, w5, w9
     mul       v2.8h, v4.8h , v18.8h
-    add       x12, x12, x5, lsl #2
+    add       w12, w12, w5, lsl #2
     ldrb      w8, [x7], #-1
-    sxtw      x8, w8
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
-    sub       x8, x8, x9
+    sub       w8, w8, w9
     ldrb      w5, [x7], #-1
-    sxtw      x5, w5
-    add       x8, x8, x8, lsl #2
+    add       w8, w8, w8, lsl #2
     ldrb      w6, [x0], #1
-    sxtw      x6, w6
-    add       x12, x12, x8
+    add       w12, w12, w8
     ldrb      w8, [x7], #-1
-    sxtw      x8, w8
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
-    sub       x5, x5, x6
-    sub       x8, x8, x9
-    add       x5, x5, x5, lsl #1
-    sub       x20, x8, x8, lsl #3
-    neg       x8, x20
-    add       x12, x12, x5, lsl #1
+    sub       w5, w5, w6
+    sub       w8, w8, w9
+    add       w5, w5, w5, lsl #1
+    sub       w20, w8, w8, lsl #3
+    neg       w8, w20
+    add       w12, w12, w5, lsl #1
     ldrb      w5, [x7], #-1
-    sxtw      x5, w5
     ldrb      w6, [x10]                 //top_left
-    sxtw      x6, w6
-    add       x12, x12, x8
-    sub       x9, x5, x6
+    add       w12, w12, w8
+    sub       w9, w5, w6
     ldrb      w6, [x1, #7]
-    sxtw      x6, w6
-    add       x12, x12, x9, lsl #3      // i_c = x12
-    add       x8, x5, x6
-    add       x12, x12, x12, lsl #2
-    lsl       x8, x8, #4                // i_a = x8
-    add       x12, x12, #0x20
-    lsr       x12, x12, #6
+    add       w12, w12, w9, lsl #3      // i_c = w12
+    add       w8, w5, w6
+    add       w12, w12, w12, lsl #2
+    lsl       w8, w8, #4                // i_a = w8
+    add       w12, w12, #0x20
+    lsr       w12, w12, #6
     shl       v28.8h, v4.8h, #3
     dup       v6.8h, w12
     dup       v30.8h, w8

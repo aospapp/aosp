@@ -46,7 +46,7 @@ struct Matrix2x2 : public rs_matrix2x2 {
     }
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif  // ANDROID_RS_MATRIX_2x2_H

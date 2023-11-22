@@ -147,6 +147,7 @@ public:
 
 	RecordIterator			getRecordsBegin				(void) const { return m_records.begin();	}
 	RecordIterator			getRecordsEnd				(void) const { return m_records.end();		}
+	std::size_t				getNumRecords				(void) const { return m_records.size();		}
 
 private:
 	typedef de::AppendList<AllocationCallbackRecord> Records;
@@ -158,14 +159,25 @@ private:
 class DeterministicFailAllocator : public ChainedAllocator
 {
 public:
-							DeterministicFailAllocator	(const VkAllocationCallbacks* allocator, deUint32 numPassingAllocs);
+	enum Mode
+	{
+		MODE_DO_NOT_COUNT = 0,	//!< Do not count allocations, all allocs will succeed
+		MODE_COUNT_AND_FAIL,	//!< Count allocations, fail when reaching alloc N
+
+		MODE_LAST
+	};
+
+							DeterministicFailAllocator	(const VkAllocationCallbacks* allocator, Mode mode, deUint32 numPassingAllocs);
 							~DeterministicFailAllocator	(void);
+
+	void					reset						(Mode mode, deUint32 numPassingAllocs);
 
 	void*					allocate					(size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
 	void*					reallocate					(void* original, size_t size, size_t alignment, VkSystemAllocationScope allocationScope);
 
 private:
-	const deUint32			m_numPassingAllocs;
+	Mode					m_mode;
+	deUint32				m_numPassingAllocs;
 	volatile deUint32		m_allocationNdx;
 };
 

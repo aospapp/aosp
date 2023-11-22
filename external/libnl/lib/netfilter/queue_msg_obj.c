@@ -9,7 +9,7 @@
  * Copyright (c) 2007, 2008 Patrick McHardy <kaber@trash.net>
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netfilter/nfnl.h>
 #include <netlink/netfilter/netfilter.h>
 #include <netlink/netfilter/queue_msg.h>
@@ -66,7 +66,7 @@ static void nfnl_queue_msg_dump(struct nl_object *a, struct nl_dump_params *p)
 	struct nl_cache *link_cache;
 	char buf[64];
 
-	link_cache = nl_cache_mngt_require("route/link");
+	link_cache = nl_cache_mngt_require_safe("route/link");
 
 	nl_new_line(p);
 
@@ -152,6 +152,9 @@ static void nfnl_queue_msg_dump(struct nl_object *a, struct nl_dump_params *p)
 					 buf, sizeof(buf)));
 
 	nl_dump(p, "\n");
+
+	if (link_cache)
+		nl_cache_put(link_cache);
 }
 
 /**
@@ -451,7 +454,7 @@ unsigned int nfnl_queue_msg_get_verdict(const struct nfnl_queue_msg *msg)
 	return msg->queue_msg_verdict;
 }
 
-static struct trans_tbl nfnl_queue_msg_attrs[] = {
+static const struct trans_tbl nfnl_queue_msg_attrs[] = {
 	__ADD(QUEUE_MSG_ATTR_GROUP,		group)
 	__ADD(QUEUE_MSG_ATTR_FAMILY,		family)
 	__ADD(QUEUE_MSG_ATTR_PACKETID,		packetid)

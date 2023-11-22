@@ -1,5 +1,12 @@
 [
 {
+  description: "Disable ListeningPortsTest",
+  names: [
+    "android.security.cts.ListeningPortsTest"
+  ],
+  bug: 31803630
+},
+{
   description: "some AlarmClockTests are not robust across different device types",
   names: [
     "android.alarmclock.cts.DismissAlarmTest#testAll",
@@ -143,14 +150,6 @@
   bug: 18091590
 },
 {
-  description: "these tests require a good test scene, so they fail if run in random conditions",
-  names: [
-    "android.hardware.camera2.cts.AllocationTest#testBlackWhite",
-    "android.hardware.camera2.cts.AllocationTest#testParamSensitivity"
-  ],
-  bug: 17530117
-},
-{
   description: "Test is not yet properly implemented",
   names: [
     "android.voicesettings.cts.ZenModeTest#testAll"
@@ -202,52 +201,11 @@
   bug: 23427621
 },
 {
-  description: "known failures",
-  names: [
-    "android.hardware.cts.SensorBatchingTests#testAccelerometer_50hz_batching",
-    "android.hardware.cts.SensorBatchingTests#testAccelerometer_fastest_batching",
-    "android.hardware.cts.SensorBatchingTests#testGyroscope_50hz_batching",
-    "android.hardware.cts.SensorBatchingTests#testGyroscope_50hz_flush",
-    "android.hardware.cts.SensorBatchingTests#testMagneticField_50hz_batching",
-    "android.hardware.cts.SensorBatchingTests#testMagneticField_fastest_batching",
-    "android.hardware.cts.SensorBatchingTests#testMagneticFieldUncalibrated_50hz_batching",
-    "android.hardware.cts.SensorBatchingTests#testMagneticFieldUncalibrated_fastest_batching",
-    "android.hardware.cts.SensorBatchingTests#testPressure_50hz_batching",
-    "android.hardware.cts.SensorBatchingTests#testPressure_fastest_batching",
-    "android.hardware.cts.SensorBatchingTests#testRotationVector_50hz_flush",
-    "android.hardware.cts.SensorBatchingTests#testRotationVector_fastest_batching",
-    "android.hardware.cts.SensorIntegrationTests#testSensorsMovingRates",
-    "android.hardware.cts.SensorIntegrationTests#testSensorsWithSeveralClients",
-    "android.hardware.cts.SensorTest#testSensorTimeStamps",
-    "android.hardware.cts.SensorTest#testBatchAndFlush",
-    "android.hardware.cts.SingleSensorTests#testGyroscope_15hz",
-    "android.hardware.cts.SingleSensorTests#testGyroscope_1hz",
-    "android.hardware.cts.SingleSensorTests#testMagneticField_1hz",
-    "android.hardware.cts.SingleSensorTests#testMagneticField_50hz",
-    "android.hardware.cts.SingleSensorTests#testMagneticFieldUncalibrated_200hz",
-    "android.hardware.cts.SingleSensorTests#testOrientation_5hz"
-  ],
-  bug: 22922206
-},
-{
   description: "tests are not yet ready",
   names: [
     "com.android.cts.app.os.OsHostTests#testNonExportedActivities"
   ],
   bug: 23779168
-},
-{
-  description: "New assist tests that do not yet have a track record.",
-  names: [
-    "android.assist.cts.AssistantContentViewTest",
-    "android.assist.cts.ExtraAssistDataTest",
-    "android.assist.cts.FocusChangeTest",
-    "android.assist.cts.LargeViewHierarchyTest",
-    "android.assist.cts.ScreenshotTest",
-    "android.assist.cts.TextViewTest",
-    "android.assist.cts.WebViewTest"
-  ],
-  bug: 21668302
 },
 {
   description: "ConnectivityConstraintTest job scheduler not working.",
@@ -266,19 +224,22 @@
    bug: 23144425
 },
 {
-   description: "Telephony returning wrong value.",
-   names: [
-     "android.telephony.cts.CellInfoTest#testCellInfo"
-   ],
-   bug: 23979591
-},
-{
    description: "Video encoding tests are timing out.",
    names: [
      "android.media.cts.VideoEncoderTest#testGoogH264FlexArbitraryW",
      "android.media.cts.VideoEncoderTest#testGoogH264SurfArbitraryW"
    ],
    bug: 23827982
+},
+{
+   description: "VP9 encoder is not a standard requirement of android as of O.",
+   names: [
+     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf0320x0180",
+     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf0640x0360",
+     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1280x0720",
+     "android.media.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1920x1080"
+   ],
+   bug: 33090965
 },
 {
   description: "protected broadcast not working",
@@ -320,5 +281,12 @@
   description: "Still investigating this, root cause unknown yet",
   bug: 27578806,
   names: ["com.android.cts.cpptools.RunAsHostTest#testRunAs"]
+},
+{
+  description: "Wired headset tests are no longer a requirement per CDD",
+  names: [
+    "android.telecom.cts.WiredHeadsetTest"
+  ],
+  bug: 26149528
 }
 ]

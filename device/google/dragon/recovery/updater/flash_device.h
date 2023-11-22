@@ -23,7 +23,7 @@ extern "C" {
 #include <stdint.h>
 
 struct flash_device_ops {
-	char * const name;
+	const char * const name;
 	void *(*open)(const void *params);
 	void (*close)(void *hnd);
 	int (*read)(void *hnd, off_t offset, void *buffer, size_t count);

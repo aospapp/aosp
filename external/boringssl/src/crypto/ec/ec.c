@@ -73,7 +73,7 @@
 #include <openssl/bn.h>
 #include <openssl/err.h>
 #include <openssl/mem.h>
-#include <openssl/obj.h>
+#include <openssl/nid.h>
 
 #include "internal.h"
 #include "../internal.h"
@@ -82,7 +82,6 @@
 static const struct curve_data P224 = {
     "NIST P-224",
     28,
-    1,
     {/* p */
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -112,7 +111,6 @@ static const struct curve_data P224 = {
 static const struct curve_data P256 = {
     "NIST P-256",
     32,
-    1,
     {/* p */
      0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -141,7 +139,6 @@ static const struct curve_data P256 = {
 static const struct curve_data P384 = {
     "NIST P-384",
     48,
-    1,
     {/* p */
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -176,7 +173,6 @@ static const struct curve_data P384 = {
 static const struct curve_data P521 = {
     "NIST P-521",
     66,
-    1,
     {/* p */
      0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -228,30 +224,48 @@ static const struct curve_data P521 = {
 #endif
 
 const struct built_in_curve OPENSSL_built_in_curves[] = {
-    {NID_secp521r1, &P521, 0},
-    {NID_secp384r1, &P384, 0},
     {
-        NID_X9_62_prime256v1, &P256,
+        NID_secp521r1,
+        /* 1.3.132.0.35 */
+        {0x2b, 0x81, 0x04, 0x00, 0x23}, 5,
+        &P521,
+        &EC_GFp_mont_method,
+      },
+    {
+        NID_secp384r1,
+        /* 1.3.132.0.34 */
+        {0x2b, 0x81, 0x04, 0x00, 0x22}, 5,
+        &P384,
+        &EC_GFp_mont_method,
+    },
+    {
+        NID_X9_62_prime256v1,
+        /* 1.2.840.10045.3.1.7 */
+        {0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07}, 8,
+        &P256,
 #if defined(BORINGSSL_USE_INT128_CODE)
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64) && \
     !defined(OPENSSL_SMALL)
-        EC_GFp_nistz256_method,
+        &EC_GFp_nistz256_method,
 #else
-        EC_GFp_nistp256_method,
+        &EC_GFp_nistp256_method,
 #endif
 #else
-        0,
+        &EC_GFp_mont_method,
 #endif
     },
     {
-        NID_secp224r1, &P224,
+        NID_secp224r1,
+        /* 1.3.132.0.33 */
+        {0x2b, 0x81, 0x04, 0x00, 0x21}, 5,
+        &P224,
 #if defined(BORINGSSL_USE_INT128_CODE) && !defined(OPENSSL_SMALL)
-        EC_GFp_nistp224_method,
+        &EC_GFp_nistp224_method,
 #else
-        0,
+        &EC_GFp_mont_method,
 #endif
     },
-    {NID_undef, 0, 0},
+    {NID_undef, {0}, 0, NULL, NULL},
 };
 
 /* built_in_curve_scalar_field_monts contains Montgomery contexts for
@@ -336,11 +350,10 @@ EC_GROUP *ec_group_new(const EC_METHOD *meth) {
     OPENSSL_PUT_ERROR(EC, ERR_R_MALLOC_FAILURE);
     return NULL;
   }
-  memset(ret, 0, sizeof(EC_GROUP));
+  OPENSSL_memset(ret, 0, sizeof(EC_GROUP));
 
   ret->meth = meth;
   BN_init(&ret->order);
-  BN_init(&ret->cofactor);
 
   if (!meth->group_init(ret)) {
     OPENSSL_free(ret);
@@ -352,10 +365,7 @@ EC_GROUP *ec_group_new(const EC_METHOD *meth) {
 
 EC_GROUP *EC_GROUP_new_curve_GFp(const BIGNUM *p, const BIGNUM *a,
                                  const BIGNUM *b, BN_CTX *ctx) {
-  const EC_METHOD *meth = EC_GFp_mont_method();
-  EC_GROUP *ret;
-
-  ret = ec_group_new(meth);
+  EC_GROUP *ret = ec_group_new(&EC_GFp_mont_method);
   if (ret == NULL) {
     return NULL;
   }
@@ -373,40 +383,22 @@ EC_GROUP *EC_GROUP_new_curve_GFp(const BIGNUM *p, const BIGNUM *a,
 
 int EC_GROUP_set_generator(EC_GROUP *group, const EC_POINT *generator,
                            const BIGNUM *order, const BIGNUM *cofactor) {
-  if (group->curve_name != NID_undef) {
-    /* |EC_GROUP_set_generator| should only be used with |EC_GROUP|s returned
-     * by |EC_GROUP_new_curve_GFp|. */
+  if (group->curve_name != NID_undef || group->generator != NULL) {
+    /* |EC_GROUP_set_generator| may only be used with |EC_GROUP|s returned by
+     * |EC_GROUP_new_curve_GFp| and may only used once on each group. */
     return 0;
   }
 
-  if (group->generator == NULL) {
-    group->generator = EC_POINT_new(group);
-    if (group->generator == NULL) {
-      return 0;
-    }
-  }
-
-  if (!EC_POINT_copy(group->generator, generator)) {
+  /* Require a cofactor of one for custom curves, which implies prime order. */
+  if (!BN_is_one(cofactor)) {
+    OPENSSL_PUT_ERROR(EC, EC_R_INVALID_COFACTOR);
     return 0;
   }
 
-  if (order != NULL) {
-    if (!BN_copy(&group->order, order)) {
-      return 0;
-    }
-  } else {
-    BN_zero(&group->order);
-  }
-
-  if (cofactor != NULL) {
-    if (!BN_copy(&group->cofactor, cofactor)) {
-      return 0;
-    }
-  } else {
-    BN_zero(&group->cofactor);
-  }
-
-  return 1;
+  group->generator = EC_POINT_new(group);
+  return group->generator != NULL &&
+         EC_POINT_copy(group->generator, generator) &&
+         BN_copy(&group->order, order);
 }
 
 static EC_GROUP *ec_group_new_from_data(unsigned built_in_index) {
@@ -414,7 +406,6 @@ static EC_GROUP *ec_group_new_from_data(unsigned built_in_index) {
   EC_GROUP *group = NULL;
   EC_POINT *P = NULL;
   BIGNUM *p = NULL, *a = NULL, *b = NULL, *x = NULL, *y = NULL;
-  const EC_METHOD *meth;
   int ok = 0;
 
   BN_CTX *ctx = BN_CTX_new();
@@ -434,18 +425,11 @@ static EC_GROUP *ec_group_new_from_data(unsigned built_in_index) {
     goto err;
   }
 
-  if (curve->method != 0) {
-    meth = curve->method();
-    if (((group = ec_group_new(meth)) == NULL) ||
-        (!(group->meth->group_set_curve(group, p, a, b, ctx)))) {
-      OPENSSL_PUT_ERROR(EC, ERR_R_EC_LIB);
-      goto err;
-    }
-  } else {
-    if ((group = EC_GROUP_new_curve_GFp(p, a, b, ctx)) == NULL) {
-      OPENSSL_PUT_ERROR(EC, ERR_R_EC_LIB);
-      goto err;
-    }
+  group = ec_group_new(curve->method);
+  if (group == NULL ||
+      !group->meth->group_set_curve(group, p, a, b, ctx)) {
+    OPENSSL_PUT_ERROR(EC, ERR_R_EC_LIB);
+    goto err;
   }
 
   if ((P = EC_POINT_new(group)) == NULL) {
@@ -463,8 +447,7 @@ static EC_GROUP *ec_group_new_from_data(unsigned built_in_index) {
     OPENSSL_PUT_ERROR(EC, ERR_R_EC_LIB);
     goto err;
   }
-  if (!BN_bin2bn(params + 5 * param_len, param_len, &group->order) ||
-      !BN_set_word(&group->cofactor, (BN_ULONG)data->cofactor)) {
+  if (!BN_bin2bn(params + 5 * param_len, param_len, &group->order)) {
     OPENSSL_PUT_ERROR(EC, ERR_R_BN_LIB);
     goto err;
   }
@@ -527,49 +510,8 @@ void EC_GROUP_free(EC_GROUP *group) {
 
   EC_POINT_free(group->generator);
   BN_free(&group->order);
-  BN_free(&group->cofactor);
 
   OPENSSL_free(group);
-}
-
-int ec_group_copy(EC_GROUP *dest, const EC_GROUP *src) {
-  if (dest->meth->group_copy == 0) {
-    OPENSSL_PUT_ERROR(EC, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
-    return 0;
-  }
-  if (dest->meth != src->meth) {
-    OPENSSL_PUT_ERROR(EC, EC_R_INCOMPATIBLE_OBJECTS);
-    return 0;
-  }
-  if (dest == src) {
-    return 1;
-  }
-
-  dest->mont_data = src->mont_data;
-
-  if (src->generator != NULL) {
-    if (dest->generator == NULL) {
-      dest->generator = EC_POINT_new(dest);
-      if (dest->generator == NULL) {
-        return 0;
-      }
-    }
-    if (!EC_POINT_copy(dest->generator, src->generator)) {
-      return 0;
-    }
-  } else {
-    EC_POINT_clear_free(dest->generator);
-    dest->generator = NULL;
-  }
-
-  if (!BN_copy(&dest->order, &src->order) ||
-      !BN_copy(&dest->cofactor, &src->cofactor)) {
-    return 0;
-  }
-
-  dest->curve_name = src->curve_name;
-
-  return dest->meth->group_copy(dest, src);
 }
 
 const BN_MONT_CTX *ec_group_get_mont_data(const EC_GROUP *group) {
@@ -577,30 +519,40 @@ const BN_MONT_CTX *ec_group_get_mont_data(const EC_GROUP *group) {
 }
 
 EC_GROUP *EC_GROUP_dup(const EC_GROUP *a) {
-  EC_GROUP *t = NULL;
-  int ok = 0;
-
   if (a == NULL) {
     return NULL;
   }
 
-  t = ec_group_new(a->meth);
-  if (t == NULL) {
+  if (a->meth->group_copy == NULL) {
+    OPENSSL_PUT_ERROR(EC, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
     return NULL;
   }
-  if (!ec_group_copy(t, a)) {
+
+  EC_GROUP *ret = ec_group_new(a->meth);
+  if (ret == NULL) {
+    return NULL;
+  }
+
+  ret->mont_data = a->mont_data;
+  ret->curve_name = a->curve_name;
+
+  if (a->generator != NULL) {
+    ret->generator = EC_POINT_dup(a->generator, ret);
+    if (ret->generator == NULL) {
+      goto err;
+    }
+  }
+
+  if (!BN_copy(&ret->order, &a->order) ||
+      !ret->meth->group_copy(ret, a)) {
     goto err;
   }
 
-  ok = 1;
+  return ret;
 
 err:
-  if (!ok) {
-    EC_GROUP_free(t);
-    return NULL;
-  } else {
-    return t;
-  }
+  EC_GROUP_free(ret);
+  return NULL;
 }
 
 int EC_GROUP_cmp(const EC_GROUP *a, const EC_GROUP *b, BN_CTX *ignored) {
@@ -627,11 +579,8 @@ int EC_GROUP_get_order(const EC_GROUP *group, BIGNUM *order, BN_CTX *ctx) {
 
 int EC_GROUP_get_cofactor(const EC_GROUP *group, BIGNUM *cofactor,
                           BN_CTX *ctx) {
-  if (!BN_copy(cofactor, &group->cofactor)) {
-    return 0;
-  }
-
-  return !BN_is_zero(&group->cofactor);
+  /* All |EC_GROUP|s have cofactor 1. */
+  return BN_set_word(cofactor, 1);
 }
 
 int EC_GROUP_get_curve_GFp(const EC_GROUP *group, BIGNUM *out_p, BIGNUM *out_a,
@@ -702,25 +651,18 @@ int EC_POINT_copy(EC_POINT *dest, const EC_POINT *src) {
 }
 
 EC_POINT *EC_POINT_dup(const EC_POINT *a, const EC_GROUP *group) {
-  EC_POINT *t;
-  int r;
-
   if (a == NULL) {
     return NULL;
   }
 
-  t = EC_POINT_new(group);
-  if (t == NULL) {
-    OPENSSL_PUT_ERROR(EC, ERR_R_MALLOC_FAILURE);
+  EC_POINT *ret = EC_POINT_new(group);
+  if (ret == NULL ||
+      !EC_POINT_copy(ret, a)) {
+    EC_POINT_free(ret);
     return NULL;
   }
-  r = EC_POINT_copy(t, a);
-  if (!r) {
-    EC_POINT_free(t);
-    return NULL;
-  } else {
-    return t;
-  }
+
+  return ret;
 }
 
 int EC_POINT_set_to_infinity(const EC_GROUP *group, EC_POINT *point) {
@@ -767,9 +709,7 @@ int EC_POINT_make_affine(const EC_GROUP *group, EC_POINT *point, BN_CTX *ctx) {
 
 int EC_POINTs_make_affine(const EC_GROUP *group, size_t num, EC_POINT *points[],
                           BN_CTX *ctx) {
-  size_t i;
-
-  for (i = 0; i < num; i++) {
+  for (size_t i = 0; i < num; i++) {
     if (group->meth != points[i]->meth) {
       OPENSSL_PUT_ERROR(EC, EC_R_INCOMPATIBLE_OBJECTS);
       return 0;
@@ -886,4 +826,22 @@ void EC_GROUP_set_point_conversion_form(EC_GROUP *group,
   if (form != POINT_CONVERSION_UNCOMPRESSED) {
     abort();
   }
+}
+
+size_t EC_get_builtin_curves(EC_builtin_curve *out_curves,
+                             size_t max_num_curves) {
+  unsigned num_built_in_curves;
+  for (num_built_in_curves = 0;; num_built_in_curves++) {
+    if (OPENSSL_built_in_curves[num_built_in_curves].nid == NID_undef) {
+      break;
+    }
+  }
+
+  unsigned i;
+  for (i = 0; i < max_num_curves && i < num_built_in_curves; i++) {
+    out_curves[i].comment = OPENSSL_built_in_curves[i].data->comment;
+    out_curves[i].nid = OPENSSL_built_in_curves[i].nid;
+  }
+
+  return num_built_in_curves;
 }

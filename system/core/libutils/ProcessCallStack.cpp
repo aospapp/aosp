@@ -17,17 +17,14 @@
 #define LOG_TAG "ProcessCallStack"
 // #define LOG_NDEBUG 0
 
-#include <dirent.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-
-#include <utils/Log.h>
-#include <utils/Errors.h>
 #include <utils/ProcessCallStack.h>
-#include <utils/Printer.h>
 
-#include <limits.h>
+#include <dirent.h>
+#include <unistd.h>
+
+#include <memory>
+
+#include <utils/Printer.h>
 
 namespace android {
 
@@ -130,11 +127,7 @@ void ProcessCallStack::clear() {
 }
 
 void ProcessCallStack::update() {
-    DIR *dp;
-    struct dirent *ep;
-    struct dirent entry;
-
-    dp = opendir(PATH_SELF_TASK);
+    std::unique_ptr<DIR, decltype(&closedir)> dp(opendir(PATH_SELF_TASK), closedir);
     if (dp == NULL) {
         ALOGE("%s: Failed to update the process's call stacks: %s",
               __FUNCTION__, strerror(errno));
@@ -158,8 +151,8 @@ void ProcessCallStack::update() {
      * Each tid is a directory inside of /proc/self/task
      * - Read every file in directory => get every tid
      */
-    int code;
-    while ((code = readdir_r(dp, &entry, &ep)) == 0 && ep != NULL) {
+    dirent* ep;
+    while ((ep = readdir(dp.get())) != NULL) {
         pid_t tid = -1;
         sscanf(ep->d_name, "%d", &tid);
 
@@ -194,12 +187,6 @@ void ProcessCallStack::update() {
         ALOGV("%s: Got call stack for tid %d (size %zu)",
               __FUNCTION__, tid, threadInfo.callStack.size());
     }
-    if (code != 0) { // returns positive error value on error
-        ALOGE("%s: Failed to readdir from %s: %s",
-              __FUNCTION__, PATH_SELF_TASK, strerror(code));
-    }
-
-    closedir(dp);
 }
 
 void ProcessCallStack::log(const char* logtag, android_LogPriority priority,

@@ -20,29 +20,27 @@ LOCAL_PATH := $(call my-dir)
 # To update:
 #
 
-#  git remote add strace git://git.code.sf.net/p/strace/code
-#  git fetch strace
-#  git merge strace/master
+#  repo sync .
+#  repo start merge .
+#  git merge aosp/upstream-master --no-ff # resolve any conflicts
+#  ./configure && make
 #  mm -j32
 #  # (Make any necessary Android.mk changes and test the new strace.)
-#  git push aosp HEAD:master  # Push directly, avoiding gerrit.
-#  git push aosp HEAD:refs/for/master  # Push to gerrit.
-#
-#  # Now commit any necessary Android.mk changes like normal:
-#  repo start post-sync .
-#  git commit -a
+#  # Beware the .gitignore files --- xlat especially.
+#  git commit -a --amend
 #
 
 # We don't currently have a good solution for the 'configure' side of things.
 # You can get a list of the HAVE_* variables in use and manually go through it:
 #
-#   find . -name "*.[ch]" | xargs grep HAVE_ | sed 's/.*\(HAVE_[A-Z0-9_]*\).*/\1/p' | sort | uniq -d
+#   find . -name "*.[ch]" | xargs grep HAVE_ | sed 's/.*\(HAVE_[A-Z0-9_]*\).*/\1/p' | grep -v HAVE_DECL_ | sort | uniq -d
 
 # -------------------------------------------------------------------------
 
 include $(CLEAR_VARS)
 
-strace_version := $(shell grep Version $(LOCAL_PATH)/strace.spec | cut -d " " -f 2)
+strace_version := $(shell grep strace $(LOCAL_PATH)/debian/changelog | \
+                          head -1 | cut -d " " -f 2)
 
 LOCAL_SRC_FILES := \
     access.c \
@@ -51,19 +49,21 @@ LOCAL_SRC_FILES := \
     bjm.c \
     block.c \
     bpf.c \
+    btrfs.c \
     cacheflush.c \
     capability.c \
     chdir.c \
     chmod.c \
     clone.c \
+    copy_file_range.c \
     count.c \
     desc.c \
     dirent.c \
     dirent64.c \
     epoll.c \
+    evdev.c \
     eventfd.c \
     execve.c \
-    exit.c \
     fadvise.c \
     fallocate.c \
     fanotify.c \
@@ -71,14 +71,23 @@ LOCAL_SRC_FILES := \
     fcntl.c \
     fetch_seccomp_fprog.c \
     fetch_struct_flock.c \
-    file.c \
+    fetch_struct_mmsghdr.c \
+    fetch_struct_msghdr.c \
+    fetch_struct_stat.c \
+    fetch_struct_stat64.c \
+    fetch_struct_statfs.c \
     file_handle.c \
+    file_ioctl.c \
     flock.c \
+    fstatfs.c \
+    fstatfs64.c \
+    fs_x_ioctl.c \
     futex.c \
     getcpu.c \
     getcwd.c \
     getrandom.c \
     get_robust_list.c \
+    hdio.c \
     hostname.c \
     inotify.c \
     io.c \
@@ -86,6 +95,7 @@ LOCAL_SRC_FILES := \
     ioperm.c \
     iopl.c \
     ioprio.c \
+    ipc.c \
     ipc_msg.c \
     ipc_msgctl.c \
     ipc_sem.c \
@@ -103,20 +113,31 @@ LOCAL_SRC_FILES := \
     membarrier.c \
     memfd_create.c \
     mknod.c \
+    mmsghdr.c \
     mount.c \
     mq.c \
+    msghdr.c \
     mtd.c \
     net.c \
+    netlink.c \
+    numa.c \
+    oldstat.c \
     open.c \
     pathtrace.c \
     perf.c \
     personality.c \
+    pkeys.c \
     poll.c \
     prctl.c \
+    print_dev_t.c \
     print_mq_attr.c \
     print_msgbuf.c \
     print_sigevent.c \
+    print_statfs.c \
+    print_struct_stat.c \
     print_time.c \
+    print_timespec.c \
+    print_timeval.c \
     print_timex.c \
     printmode.c \
     printrusage.c \
@@ -124,6 +145,7 @@ LOCAL_SRC_FILES := \
     process.c \
     process_vm.c \
     ptp.c \
+    qualify.c \
     quota.c \
     readahead.c \
     readlink.c \
@@ -135,17 +157,25 @@ LOCAL_SRC_FILES := \
     scsi.c \
     seccomp.c \
     sendfile.c \
+    sg_io_v3.c \
+    sg_io_v4.c \
     sigaltstack.c \
     signal.c \
     signalfd.c \
     sigreturn.c \
     sock.c \
+    sockaddr.c \
+    socketcall.c \
     socketutils.c \
     sram_alloc.c \
+    stat.c \
+    stat64.c \
     statfs.c \
+    statfs64.c \
     strace.c \
     swapon.c \
     sync_file_range.c \
+    sync_file_range2.c \
     syscall.c \
     sysctl.c \
     sysinfo.c \
@@ -155,57 +185,53 @@ LOCAL_SRC_FILES := \
     time.c \
     times.c \
     truncate.c \
+    ubi.c \
     uid16.c \
     uid.c \
     umask.c \
     umount.c \
     uname.c \
+    upeek.c \
+    upoke.c \
     userfaultfd.c \
+    ustat.c \
     util.c \
     utime.c \
     utimes.c \
     v4l2.c \
-    vsprintf.c \
     wait.c \
     xattr.c \
     xmalloc.c \
 
-LOCAL_SHARED_LIBRARIES :=
-
 LOCAL_CFLAGS := \
     -DGETGROUPS_T=gid_t \
+    \
+    -UHAVE_ASM_CACHECTL_H \
     -DHAVE_ASM_SIGCONTEXT_H=1 \
-    -DHAVE_DECL_PTRACE_EVENT_FORK=1 \
-    -DHAVE_DECL_PTRACE_EVENT_VFORK=1 \
-    -DHAVE_DECL_PTRACE_EVENT_CLONE=1 \
-    -DHAVE_DECL_PTRACE_EVENT_EXEC=1 \
-    -DHAVE_DECL_PTRACE_EVENT_VFORK_DONE=1 \
-    -DHAVE_DECL_PTRACE_EVENT_EXIT=1 \
-    -DHAVE_DECL_PTRACE_GETEVENTMSG=1 \
-    -DHAVE_DECL_PTRACE_GETSIGINFO=1 \
-    -DHAVE_DECL_PTRACE_O_TRACECLONE=1 \
-    -DHAVE_DECL_PTRACE_O_TRACEEXEC=1 \
-    -DHAVE_DECL_PTRACE_O_TRACEEXIT=1 \
-    -DHAVE_DECL_PTRACE_O_TRACEFORK=1 \
-    -DHAVE_DECL_PTRACE_O_TRACESYSGOOD=1 \
-    -DHAVE_DECL_PTRACE_O_TRACEVFORK=1 \
-    -DHAVE_DECL_PTRACE_SETOPTIONS=1 \
-    -UHAVE_DECL_IO_CMD_PWRITE \
-    -UHAVE_DECL_IO_CMD_PWRITEV \
-    -UHAVE_DECL_LO_FLAGS_AUTOCLEAR \
-    -UHAVE_DECL_LO_FLAGS_PARTSCAN \
-    -DHAVE_DECL_SYS_ERRLIST=1 \
+    -DHAVE_BLKGETSIZE64=1 \
+    -UHAVE_BLUETOOTH_BLUETOOTH_H \
+    -DHAVE___BUILTIN_POPCOUNT=1 \
+    -DHAVE_DIRENT_H=1 \
+    -DHAVE_DLADDR=1 \
     -DHAVE_ELF_H=1 \
     -DHAVE_FOPEN64=1 \
     -DHAVE_FORK=1 \
+    -DHAVE_FSTATAT=1 \
+    -DHAVE_FTRUNCATE=1 \
+    -DHAVE_FUTIMENS=1 \
     -DHAVE_IF_INDEXTONAME=1 \
     -DHAVE_INET_NTOP=1 \
-    -DHAVE_LINUX_CAPABILITY_H=1 \
+    -DHAVE_INET_PTON=1 \
+    -DHAVE_INTTYPES_H=1 \
+    -DHAVE_LINUX_BPF_H=1 \
+    -DHAVE_LINUX_BSG_H=1 \
+    -DHAVE_LINUX_BTRFS_H=1 \
     -DHAVE_LINUX_FALLOC_H=1 \
     -DHAVE_LINUX_FILTER_H=1 \
     -DHAVE_LINUX_FUTEX_H=1 \
     -DHAVE_LINUX_ICMP_H=1 \
     -DHAVE_LINUX_IF_PACKET_H=1 \
+    -DHAVE_LINUX_INPUT_H=1 \
     -DHAVE_LINUX_IN6_H=1 \
     -DHAVE_LINUX_IPC_H=1 \
     -DHAVE_LINUX_MQUEUE=1 \
@@ -228,10 +254,11 @@ LOCAL_CFLAGS := \
     -DHAVE_SIGINFO_T_SI_OVERRUN=1 \
     -DHAVE_SIGINFO_T_SI_SYSCALL=1 \
     -DHAVE_SIGINFO_T_SI_TIMERID=1 \
-    -UHAVE_STAT64 \
     -DHAVE_STATFS64=1 \
     -DHAVE_STDBOOL_H=1 \
     -DHAVE_STRERROR=1 \
+    -DHAVE_STRUCT_BTRFS_IOCTL_DEFRAG_RANGE_ARGS_START=1 \
+    -DHAVE_STRUCT_BTRFS_IOCTL_FEATURE_FLAGS_COMPAT_FLAGS=1 \
     -DHAVE_STRUCT_FLOCK=1 \
     -DHAVE_STRUCT_FLOCK64=1 \
     -DHAVE_STRUCT_MMSGHDR=1 \
@@ -258,9 +285,14 @@ LOCAL_CFLAGS := \
     -DHAVE_SYS_REG_H=1 \
     -DHAVE_SYS_VFS_H=1 \
     -DHAVE_SYS_XATTR_H=1 \
+    -DHAVE_UNISTD_H=1 \
+    -DHAVE_UTIMENSAT=1 \
+    \
     -DMAJOR_IN_SYSMACROS \
     -DPACKAGE_NAME='"strace"' \
-    -DVERSION='"$(strace_version)"' \
+    -DPACKAGE_URL='"https://strace.io"' \
+    -DPACKAGE_VERSION='"$(strace_version)"' \
+    -DSIZEOF_KERNEL_LONG_T=SIZEOF_LONG \
     -DSIZEOF_OFF_T=SIZEOF_LONG \
     -DSIZEOF_LONG_LONG=8 \
     -DSTDC_HEADERS=1 \
@@ -271,7 +303,7 @@ LOCAL_CFLAGS += -D_GNU_SOURCE=1 -D_POSIX_SOURCE=1
 
 LOCAL_CFLAGS += -fno-strict-aliasing
 
-LOCAL_CFLAGS_32 += -DSIZEOF_LONG=4 -DSIZEOF_RLIM_T=4 -DHAVE_STAT64=1
+LOCAL_CFLAGS_32 += -DSIZEOF_LONG=4 -DSIZEOF_RLIM_T=4 -DHAVE_STRUCT_STAT64=1
 LOCAL_CFLAGS_64 += -DSIZEOF_LONG=8 -DSIZEOF_RLIM_T=8
 
 LOCAL_CFLAGS_arm += -DARM=1
@@ -295,6 +327,7 @@ LOCAL_CFLAGS += \
     -Wwrite-strings \
     -Wsign-compare \
     -Wno-missing-field-initializers \
+    -Wno-pointer-arith \
     -Wno-unused-parameter \
     -Wno-sign-compare \
 

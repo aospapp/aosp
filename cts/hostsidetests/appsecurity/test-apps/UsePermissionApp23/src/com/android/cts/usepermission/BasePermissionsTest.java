@@ -38,12 +38,14 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Switch;
+import android.widget.ScrollView;
 import junit.framework.Assert;
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -60,7 +62,7 @@ public abstract class BasePermissionsTest {
     private static final long IDLE_TIMEOUT_MILLIS = 500;
     private static final long GLOBAL_TIMEOUT_MILLIS = 5000;
 
-    private static final long RETRY_TIMEOUT = 5000;
+    private static final long RETRY_TIMEOUT = 3 * GLOBAL_TIMEOUT_MILLIS;
     private static final String LOG_TAG = "BasePermissionsTest";
 
     private static Map<String, String> sPermissionToLabelResNameMap = new ArrayMap<>();
@@ -128,6 +130,7 @@ public abstract class BasePermissionsTest {
 
     private Context mContext;
     private Resources mPlatformResources;
+    private boolean mWatch;
 
     protected static Instrumentation getInstrumentation() {
         return InstrumentationRegistry.getInstrumentation();
@@ -172,6 +175,8 @@ public abstract class BasePermissionsTest {
             /* cannot happen */
         }
 
+        mWatch = mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+
         UiObject2 button = getUiDevice().findObject(By.text("Close"));
         if (button != null) {
             button.click();
@@ -205,11 +210,13 @@ public abstract class BasePermissionsTest {
     }
 
     protected void clickAllowButton() throws Exception {
+        scrollToBottomIfWatch();
         getUiDevice().findObject(new UiSelector().resourceId(
                 "com.android.packageinstaller:id/permission_allow_button")).click();
     }
 
     protected void clickDenyButton() throws Exception {
+        scrollToBottomIfWatch();
         getUiDevice().findObject(new UiSelector().resourceId(
                 "com.android.packageinstaller:id/permission_deny_button")).click();
     }
@@ -220,6 +227,7 @@ public abstract class BasePermissionsTest {
     }
 
     protected void clickDontAskAgainButton() throws Exception {
+        scrollToBottomIfWatch();
         getUiDevice().findObject(new UiSelector().resourceId(
                 "com.android.packageinstaller:id/permission_deny_dont_ask_again_button")).click();
     }
@@ -240,6 +248,16 @@ public abstract class BasePermissionsTest {
         setPermissionGrantState(permissions, false, legacyApp);
     }
 
+    private void scrollToBottomIfWatch() throws Exception {
+        if (mWatch) {
+            UiScrollable scrollable =
+                    new UiScrollable(new UiSelector().className(ScrollView.class));
+            if (scrollable.exists()) {
+                scrollable.flingToEnd(10);
+            }
+        }
+    }
+
     private void setPermissionGrantState(String[] permissions, boolean granted,
             boolean legacyApp) throws Exception {
         getUiDevice().pressBack();
@@ -248,6 +266,11 @@ public abstract class BasePermissionsTest {
         waitForIdle();
         getUiDevice().pressBack();
         waitForIdle();
+
+        if (isTv()) {
+            getUiDevice().pressHome();
+            waitForIdle();
+        }
 
         // Open the app details settings
         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
@@ -258,11 +281,12 @@ public abstract class BasePermissionsTest {
         waitForIdle();
 
         // Open the permissions UI
-        AccessibilityNodeInfo permLabelView = getNodeTimed(() -> findByText("Permissions"));
+        String label = mContext.getResources().getString(R.string.Permissions);
+        AccessibilityNodeInfo permLabelView = getNodeTimed(() -> findByText(label), true);
         Assert.assertNotNull("Permissions label should be present", permLabelView);
 
         AccessibilityNodeInfo permItemView = findCollectionItem(permLabelView);
-        Assert.assertNotNull("Permissions item should be present", permLabelView);
+        Assert.assertNotNull("Permissions item should be present", permItemView);
 
         click(permItemView);
 
@@ -272,7 +296,7 @@ public abstract class BasePermissionsTest {
             // Find the permission toggle
             String permissionLabel = getPermissionLabel(permission);
 
-            AccessibilityNodeInfo labelView = getNodeTimed(() -> findByText(permissionLabel));
+            AccessibilityNodeInfo labelView = getNodeTimed(() -> findByText(permissionLabel), true);
             Assert.assertNotNull("Permission label should be present", labelView);
 
             AccessibilityNodeInfo itemView = findCollectionItem(labelView);
@@ -294,6 +318,7 @@ public abstract class BasePermissionsTest {
                 waitForIdle();
 
                 if (wasGranted && legacyApp) {
+                    scrollToBottomIfWatch();
                     String packageName = getInstrumentation().getContext().getPackageManager()
                             .getPermissionControllerPackageName();
                     String resIdName = "com.android.packageinstaller"
@@ -303,7 +328,7 @@ public abstract class BasePermissionsTest {
                     final int confirmResId = resources.getIdentifier(resIdName, null, null);
                     String confirmTitle = resources.getString(confirmResId);
                     UiObject denyAnyway = getUiDevice().findObject(new UiSelector()
-                            .text(confirmTitle.toUpperCase()));
+                            .textStartsWith(confirmTitle));
                     denyAnyway.click();
 
                     waitForIdle();
@@ -367,16 +392,20 @@ public abstract class BasePermissionsTest {
             }
             if (child.getCollectionInfo() != null) {
                 scrollTop(child);
-                result = getNodeTimed(() -> findByText(child, text));
+                result = getNodeTimed(() -> findByText(child, text), false);
                 if (result != null) {
                     return result;
                 }
-                while (child.getActionList().contains(AccessibilityAction.ACTION_SCROLL_FORWARD)) {
-                    scrollForward(child);
-                    result = getNodeTimed(() -> findByText(child, text));
-                    if (result != null) {
-                        return result;
+                try {
+                    while (child.getActionList().contains(AccessibilityAction.ACTION_SCROLL_FORWARD)) {
+                        scrollForward(child);
+                        result = getNodeTimed(() -> findByText(child, text), false);
+                        if (result != null) {
+                            return result;
+                        }
                     }
+                } catch (TimeoutException e) {
+                     /* ignore */
                 }
             } else {
                 result = findByTextInCollection(child, text);
@@ -399,11 +428,7 @@ public abstract class BasePermissionsTest {
     }
 
     private static void scrollForward(AccessibilityNodeInfo node) throws Exception {
-        try {
             scroll(node, true);
-        } catch (TimeoutException e) {
-            /* ignore */
-        }
     }
 
     private static void scroll(AccessibilityNodeInfo node, boolean forward) throws Exception {
@@ -414,6 +439,7 @@ public abstract class BasePermissionsTest {
                 (AccessibilityEvent event) -> event.getEventType()
                         == AccessibilityEvent.TYPE_VIEW_SCROLLED,
                 GLOBAL_TIMEOUT_MILLIS);
+        node.refresh();
         waitForIdle();
     }
 
@@ -422,7 +448,7 @@ public abstract class BasePermissionsTest {
         getInstrumentation().getUiAutomation().executeAndWaitForEvent(
                 () -> node.performAction(AccessibilityNodeInfo.ACTION_CLICK),
                 (AccessibilityEvent event) -> event.getEventType()
-                        == AccessibilityEvent.TYPE_VIEW_CLICKED,
+                        == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                 GLOBAL_TIMEOUT_MILLIS);
     }
 
@@ -460,7 +486,7 @@ public abstract class BasePermissionsTest {
     }
 
     private static AccessibilityNodeInfo getNodeTimed(
-            Callable<AccessibilityNodeInfo> callable) throws Exception {
+            Callable<AccessibilityNodeInfo> callable, boolean retry) throws Exception {
         final long startTimeMillis = SystemClock.uptimeMillis();
         while (true) {
             try {
@@ -474,7 +500,7 @@ public abstract class BasePermissionsTest {
             }
 
             final long elapsedTimeMillis = SystemClock.uptimeMillis() - startTimeMillis;
-            if (elapsedTimeMillis > RETRY_TIMEOUT) {
+            if (!retry || elapsedTimeMillis > RETRY_TIMEOUT) {
                 return null;
             }
             SystemClock.sleep(2 * elapsedTimeMillis);
@@ -484,5 +510,10 @@ public abstract class BasePermissionsTest {
     private static void waitForIdle() throws TimeoutException {
         getInstrumentation().getUiAutomation().waitForIdle(IDLE_TIMEOUT_MILLIS,
                 GLOBAL_TIMEOUT_MILLIS);
+    }
+
+    private static boolean isTv() {
+        return getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
  }

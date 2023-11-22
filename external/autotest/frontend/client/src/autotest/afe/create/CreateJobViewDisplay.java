@@ -51,21 +51,21 @@ public class CreateJobViewDisplay implements CreateJobViewPresenter.Display {
     private ToolTip priorityListToolTip = new ToolTip(
         "?",
         "Lowest to highest: Weekly, Daily, PostBuild, Default.");
-    private TextBoxImpl kernel = new TextBoxImpl();
-    private ToolTip kernelToolTip = new ToolTip(
-        "?",
-        "A URL pointing to a kernel source tarball or a .rpm or .deb package to " +
-        "install on the test machine before testing. Leave blank to skip this step. " +
-        "Example: \"2.6.18-rc3\" or \"http://example.com/kernel-2.6.30.rpm\". " +
-        "Separate multiple kernels with a comma and/or space.");
-    private TextBoxImpl kernel_cmdline = new TextBoxImpl();
     private TextBoxImpl image_url = new TextBoxImpl();
     private ToolTip image_urlToolTip = new ToolTip(
         "?",
         "Name of the test image to use. Example: \"x86-alex-release/R27-3837.0.0\". " +
         "If no image is specified, regular tests will use current image on the Host. " +
         "Please note that an image is required to run a test suite.");
-    private Button fetchImageTestsButton = new Button("Fetch Tests from Build");
+    /**
+     * - When the fetch tests from build checkbox is unchecked (by default), the tests
+     * selection dropdown list is filled up by using the build on Moblab device.
+     * - You can only check the checkbox if a build is selected in the test source build
+     * dropdown list
+     * - Whenever the source build dropdown selection changes, automatically switch back
+     * to fetch tests from Moblab device.
+     */
+    private CheckBoxImpl fetchTestsCheckBox = new CheckBoxImpl("Fetch Tests from Build");
     private TextBox timeout = new TextBox();
     private ToolTip timeoutToolTip = new ToolTip(
         "?",
@@ -211,15 +211,6 @@ public class CreateJobViewDisplay implements CreateJobViewPresenter.Display {
         advancedOptionsLayout.setWidget(0, 0, new Label("Priority:"));
         advancedOptionsLayout.setWidget(0, 1, priorityPanel);
 
-        Panel kernelPanel = new HorizontalPanel();
-        kernelPanel.add(kernel);
-        kernelPanel.add(kernelToolTip);
-        advancedOptionsLayout.setWidget(1, 0, new Label("Kernel(s): (optional)"));
-        advancedOptionsLayout.setWidget(1, 1, kernelPanel);
-
-        advancedOptionsLayout.setWidget(2, 0, new Label("Kernel 'cmd': (optional)"));
-        advancedOptionsLayout.setWidget(2, 1, kernel_cmdline);
-
         Panel timeoutPanel = new HorizontalPanel();
         timeoutPanel.add(timeout);
         timeoutPanel.add(timeoutToolTip);
@@ -347,6 +338,7 @@ public class CreateJobViewDisplay implements CreateJobViewPresenter.Display {
 
         testSourceBuildList.getElement().getStyle().setProperty("minWidth", "15em");
 
+        fetchTestsCheckBox.setEnabled(false);
         // Add the remaining widgets to the main panel
         panel.add(jobName, "create_job_name");
         panel.add(jobNameToolTip, "create_job_name");
@@ -354,7 +346,7 @@ public class CreateJobViewDisplay implements CreateJobViewPresenter.Display {
         panel.add(image_urlToolTip, "create_image_url");
         panel.add(testSourceBuildList, "create_test_source_build");
         panel.add(testSourceBuildListToolTip, "create_test_source_build");
-        panel.add(fetchImageTestsButton, "fetch_image_tests");
+        panel.add(fetchTestsCheckBox, "fetch_tests_from_build");
         panel.add(testSelector, "create_tests");
         panel.add(controlFilePanel, "create_edit_control");
         panel.add(hostSelector, "create_host_selector");
@@ -427,14 +419,6 @@ public class CreateJobViewDisplay implements CreateJobViewPresenter.Display {
         return jobName;
     }
 
-    public ITextBox getKernel() {
-        return kernel;
-    }
-
-    public ITextBox getKernelCmdline() {
-        return kernel_cmdline;
-    }
-
     public ITextBox getImageUrl() {
         return image_url;
     }
@@ -503,8 +487,8 @@ public class CreateJobViewDisplay implements CreateJobViewPresenter.Display {
         controlFilePanel.setOpen(isOpen);
     }
 
-    public HasClickHandlers getFetchImageTestsButton() {
-        return fetchImageTestsButton;
+    public ICheckBox getFetchTestsFromBuildCheckBox() {
+      return fetchTestsCheckBox;
     }
 
     public ITextBox getFirmwareRWBuild() {

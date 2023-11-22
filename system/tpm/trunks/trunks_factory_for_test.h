@@ -19,10 +19,10 @@
 
 #include "trunks/trunks_factory.h"
 
+#include <memory>
 #include <string>
 
 #include <base/macros.h>
-#include <base/memory/scoped_ptr.h>
 
 #include "trunks/password_authorization_delegate.h"
 #include "trunks/trunks_export.h"
@@ -62,28 +62,22 @@ class TRUNKS_EXPORT TrunksFactoryForTest : public TrunksFactory {
 
   // TrunksFactory methods.
   Tpm* GetTpm() const override;
-  scoped_ptr<TpmState> GetTpmState() const override;
-  scoped_ptr<TpmUtility> GetTpmUtility() const override;
-  scoped_ptr<AuthorizationDelegate> GetPasswordAuthorization(
+  std::unique_ptr<TpmState> GetTpmState() const override;
+  std::unique_ptr<TpmUtility> GetTpmUtility() const override;
+  std::unique_ptr<AuthorizationDelegate> GetPasswordAuthorization(
       const std::string& password) const override;
-  scoped_ptr<SessionManager> GetSessionManager() const override;
-  scoped_ptr<HmacSession> GetHmacSession() const override;
-  scoped_ptr<PolicySession> GetPolicySession() const override;
-  scoped_ptr<PolicySession> GetTrialSession() const override;
-  scoped_ptr<BlobParser> GetBlobParser() const override;
+  std::unique_ptr<SessionManager> GetSessionManager() const override;
+  std::unique_ptr<HmacSession> GetHmacSession() const override;
+  std::unique_ptr<PolicySession> GetPolicySession() const override;
+  std::unique_ptr<PolicySession> GetTrialSession() const override;
+  std::unique_ptr<BlobParser> GetBlobParser() const override;
 
   // Mutators to inject custom mocks.
-  void set_tpm(Tpm* tpm) {
-    tpm_ = tpm;
-  }
+  void set_tpm(Tpm* tpm) { tpm_ = tpm; }
 
-  void set_tpm_state(TpmState* tpm_state) {
-    tpm_state_ = tpm_state;
-  }
+  void set_tpm_state(TpmState* tpm_state) { tpm_state_ = tpm_state; }
 
-  void set_tpm_utility(TpmUtility* tpm_utility) {
-    tpm_utility_ = tpm_utility;
-  }
+  void set_tpm_utility(TpmUtility* tpm_utility) { tpm_utility_ = tpm_utility; }
 
   void set_password_authorization_delegate(AuthorizationDelegate* delegate) {
     password_authorization_delegate_ = delegate;
@@ -101,26 +95,31 @@ class TRUNKS_EXPORT TrunksFactoryForTest : public TrunksFactory {
     policy_session_ = policy_session;
   }
 
-  void set_blob_parser(BlobParser* blob_parser) {
-    blob_parser_ = blob_parser;
+  void set_trial_session(PolicySession* trial_session) {
+    trial_session_ = trial_session;
   }
 
+  void set_blob_parser(BlobParser* blob_parser) { blob_parser_ = blob_parser; }
+
  private:
-  scoped_ptr<MockTpm> default_tpm_;
+  std::unique_ptr<MockTpm> default_tpm_;
   Tpm* tpm_;
-  scoped_ptr<MockTpmState> default_tpm_state_;
+  std::unique_ptr<MockTpmState> default_tpm_state_;
   TpmState* tpm_state_;
-  scoped_ptr<MockTpmUtility> default_tpm_utility_;
+  std::unique_ptr<MockTpmUtility> default_tpm_utility_;
   TpmUtility* tpm_utility_;
-  scoped_ptr<PasswordAuthorizationDelegate> default_authorization_delegate_;
+  std::unique_ptr<PasswordAuthorizationDelegate>
+      default_authorization_delegate_;
   AuthorizationDelegate* password_authorization_delegate_;
-  scoped_ptr<MockSessionManager> default_session_manager_;
+  std::unique_ptr<MockSessionManager> default_session_manager_;
   SessionManager* session_manager_;
-  scoped_ptr<MockHmacSession> default_hmac_session_;
+  std::unique_ptr<MockHmacSession> default_hmac_session_;
   HmacSession* hmac_session_;
-  scoped_ptr<MockPolicySession> default_policy_session_;
+  std::unique_ptr<MockPolicySession> default_policy_session_;
   PolicySession* policy_session_;
-  scoped_ptr<MockBlobParser> default_blob_parser_;
+  std::unique_ptr<MockPolicySession> default_trial_session_;
+  PolicySession* trial_session_;
+  std::unique_ptr<MockBlobParser> default_blob_parser_;
   BlobParser* blob_parser_;
 
   DISALLOW_COPY_AND_ASSIGN(TrunksFactoryForTest);

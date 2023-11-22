@@ -32,6 +32,7 @@
  *
  * @par Neighbour Flags
  * @code
+ * NTF_USE
  * NTF_PROXY
  * NTF_ROUTER
  * @endcode
@@ -147,12 +148,14 @@
  * @{
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
+#include <netlink/hashtable.h>
 #include <netlink/route/rtnl.h>
 #include <netlink/route/neighbour.h>
 #include <netlink/route/link.h>
+#include <netlink/hashtable.h>
 
 /** @cond SKIP */
 #define NEIGH_ATTR_FLAGS        0x01
@@ -164,6 +167,7 @@
 #define NEIGH_ATTR_FAMILY       0x40
 #define NEIGH_ATTR_TYPE         0x80
 #define NEIGH_ATTR_PROBES       0x100
+#define NEIGH_ATTR_MASTER       0x200
 
 static struct nl_cache_ops rtnl_neigh_ops;
 static struct nl_object_ops neigh_obj_ops;
@@ -196,6 +200,59 @@ static int neigh_clone(struct nl_object *_dst, struct nl_object *_src)
 	return 0;
 }
 
+static void neigh_keygen(struct nl_object *obj, uint32_t *hashkey,
+			 uint32_t table_sz)
+{
+	struct rtnl_neigh *neigh = (struct rtnl_neigh *) obj;
+	unsigned int nkey_sz;
+	struct nl_addr *addr = NULL;
+	struct neigh_hash_key {
+		uint32_t	n_family;
+		uint32_t	n_ifindex;
+		char		n_addr[0];
+	} __attribute__((packed)) *nkey;
+#ifdef NL_DEBUG
+	char buf[INET6_ADDRSTRLEN+5];
+#endif
+
+	if (neigh->n_family == AF_BRIDGE) {
+		if (neigh->n_lladdr)
+			addr = neigh->n_lladdr;
+	} else if (neigh->n_dst) {
+		addr = neigh->n_dst;
+	}
+
+	nkey_sz = sizeof(*nkey);
+	if (addr)
+		nkey_sz += nl_addr_get_len(addr);
+
+	nkey = calloc(1, nkey_sz);
+	if (!nkey) {
+		*hashkey = 0;
+		return;
+	}
+	nkey->n_family = neigh->n_family;
+	if (neigh->n_family == AF_BRIDGE)
+		nkey->n_ifindex = neigh->n_master;
+	else
+		nkey->n_ifindex = neigh->n_ifindex;
+	if (addr)
+		memcpy(nkey->n_addr,
+			nl_addr_get_binary_addr(addr),
+			nl_addr_get_len(addr));
+
+	*hashkey = nl_hash(nkey, nkey_sz, 0) % table_sz;
+
+	NL_DBG(5, "neigh %p key (fam %d dev %d addr %s) keysz %d hash 0x%x\n",
+		neigh, nkey->n_family, nkey->n_ifindex,
+		nl_addr2str(addr, buf, sizeof(buf)),
+		nkey_sz, *hashkey);
+
+	free(nkey);
+
+	return;
+}
+
 static int neigh_compare(struct nl_object *_a, struct nl_object *_b,
 			uint32_t attrs, int flags)
 {
@@ -210,6 +267,7 @@ static int neigh_compare(struct nl_object *_a, struct nl_object *_b,
 	diff |= NEIGH_DIFF(TYPE,	a->n_type != b->n_type);
 	diff |= NEIGH_DIFF(LLADDR,	nl_addr_cmp(a->n_lladdr, b->n_lladdr));
 	diff |= NEIGH_DIFF(DST,		nl_addr_cmp(a->n_dst, b->n_dst));
+	diff |= NEIGH_DIFF(MASTER,	a->n_master != b->n_master);
 
 	if (flags & LOOSE_COMPARISON) {
 		diff |= NEIGH_DIFF(STATE,
@@ -226,7 +284,7 @@ static int neigh_compare(struct nl_object *_a, struct nl_object *_b,
 	return diff;
 }
 
-static struct trans_tbl neigh_attrs[] = {
+static const struct trans_tbl neigh_attrs[] = {
 	__ADD(NEIGH_ATTR_FLAGS, flags)
 	__ADD(NEIGH_ATTR_STATE, state)
 	__ADD(NEIGH_ATTR_LLADDR, lladdr)
@@ -244,6 +302,16 @@ static char *neigh_attrs2str(int attrs, char *buf, size_t len)
 			   ARRAY_SIZE(neigh_attrs));
 }
 
+static uint32_t neigh_id_attrs_get(struct nl_object *obj)
+{
+	struct rtnl_neigh *neigh = (struct rtnl_neigh *)obj;
+
+	if (neigh->n_family == AF_BRIDGE)
+		return (NEIGH_ATTR_LLADDR | NEIGH_ATTR_FAMILY | NEIGH_ATTR_MASTER);
+	else
+		return (NEIGH_ATTR_IFINDEX | NEIGH_ATTR_DST | NEIGH_ATTR_FAMILY);
+}
+
 static struct nla_policy neigh_policy[NDA_MAX+1] = {
 	[NDA_CACHEINFO]	= { .minlen = sizeof(struct nda_cacheinfo) },
 	[NDA_PROBES]	= { .type = NLA_U32 },
@@ -251,6 +319,21 @@ static struct nla_policy neigh_policy[NDA_MAX+1] = {
 
 static int neigh_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 			    struct nlmsghdr *n, struct nl_parser_param *pp)
+{
+	struct rtnl_neigh *neigh;
+	int err;
+
+	if ((err = rtnl_neigh_parse(n, &neigh)) < 0)
+		return err;
+
+	err = pp->pp_cb((struct nl_object *) neigh, pp);
+
+	rtnl_neigh_put(neigh);
+	return err;
+}
+
+
+int rtnl_neigh_parse(struct nlmsghdr *n, struct rtnl_neigh **result)
 {
 	struct rtnl_neigh *neigh;
 	struct nlattr *tb[NDA_MAX + 1];
@@ -316,7 +399,27 @@ static int neigh_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 		neigh->ce_mask |= NEIGH_ATTR_PROBES;
 	}
 
-	err = pp->pp_cb((struct nl_object *) neigh, pp);
+	/*
+	 * Get the bridge index for AF_BRIDGE family entries
+	 */
+	if (neigh->n_family == AF_BRIDGE) {
+		struct nl_cache *lcache = nl_cache_mngt_require_safe("route/link");
+		if (lcache ) {
+			struct rtnl_link *link = rtnl_link_get(lcache,
+							neigh->n_ifindex);
+			if (link) {
+				neigh->n_master = link->l_master;
+				rtnl_link_put(link);
+				neigh->ce_mask |= NEIGH_ATTR_MASTER;
+			}
+
+			nl_cache_put(lcache);
+		}
+	}
+
+	*result = neigh;
+	return 0;
+
 errout:
 	rtnl_neigh_put(neigh);
 	return err;
@@ -324,7 +427,9 @@ errout:
 
 static int neigh_request_update(struct nl_cache *c, struct nl_sock *h)
 {
-	return nl_rtgen_request(h, RTM_GETNEIGH, AF_UNSPEC, NLM_F_DUMP);
+	int family = c->c_iarg1;
+
+	return nl_rtgen_request(h, RTM_GETNEIGH, family, NLM_F_DUMP);
 }
 
 
@@ -335,9 +440,10 @@ static void neigh_dump_line(struct nl_object *a, struct nl_dump_params *p)
 	struct nl_cache *link_cache;
 	char state[128], flags[64];
 
-	link_cache = nl_cache_mngt_require("route/link");
+	link_cache = nl_cache_mngt_require_safe("route/link");
 
-	nl_dump_line(p, "%s ", nl_addr2str(n->n_dst, dst, sizeof(dst)));
+	if (n->n_family != AF_BRIDGE)
+		nl_dump_line(p, "%s ", nl_addr2str(n->n_dst, dst, sizeof(dst)));
 
 	if (link_cache)
 		nl_dump(p, "dev %s ",
@@ -360,13 +466,16 @@ static void neigh_dump_line(struct nl_object *a, struct nl_dump_params *p)
 	if (state[0] || flags[0])
 		nl_dump(p, ">");
 	nl_dump(p, "\n");
+
+	if (link_cache)
+		nl_cache_put(link_cache);
 }
 
 static void neigh_dump_details(struct nl_object *a, struct nl_dump_params *p)
 {
 	char rtn_type[32];
 	struct rtnl_neigh *n = (struct rtnl_neigh *) a;
-	int hz = nl_get_hz();
+	int hz = nl_get_user_hz();
 
 	neigh_dump_line(a, p);
 
@@ -381,51 +490,6 @@ static void neigh_dump_details(struct nl_object *a, struct nl_dump_params *p)
 static void neigh_dump_stats(struct nl_object *a, struct nl_dump_params *p)
 {
 	neigh_dump_details(a, p);
-}
-
-static void neigh_dump_env(struct nl_object *obj, struct nl_dump_params *p)
-{
-	struct rtnl_neigh *neigh = (struct rtnl_neigh *) obj;
-	char buf[128];
-
-	nl_dump_line(p, "NEIGH_FAMILY=%s\n",
-		     nl_af2str(neigh->n_family, buf, sizeof(buf)));
-
-	if (neigh->ce_mask & NEIGH_ATTR_LLADDR)
-		nl_dump_line(p, "NEIGHT_LLADDR=%s\n",
-			     nl_addr2str(neigh->n_lladdr, buf, sizeof(buf)));
-
-	if (neigh->ce_mask & NEIGH_ATTR_DST)
-		nl_dump_line(p, "NEIGH_DST=%s\n",
-			     nl_addr2str(neigh->n_dst, buf, sizeof(buf)));
-
-	if (neigh->ce_mask & NEIGH_ATTR_IFINDEX) {
-		struct nl_cache *link_cache;
-
-		nl_dump_line(p, "NEIGH_IFINDEX=%u\n", neigh->n_ifindex);
-
-		link_cache = nl_cache_mngt_require("route/link");
-		if (link_cache)
-			nl_dump_line(p, "NEIGH_IFNAME=%s\n",
-				     rtnl_link_i2name(link_cache,
-						      neigh->n_ifindex,
-						      buf, sizeof(buf)));
-	}
-
-	if (neigh->ce_mask & NEIGH_ATTR_PROBES)
-		nl_dump_line(p, "NEIGH_PROBES=%u\n", neigh->n_probes);
-
-	if (neigh->ce_mask & NEIGH_ATTR_TYPE)
-		nl_dump_line(p, "NEIGH_TYPE=%s\n",
-			     nl_rtntype2str(neigh->n_type, buf, sizeof(buf)));
-
-	rtnl_neigh_flags2str(neigh->n_flags, buf, sizeof(buf));
-	if (buf[0])
-		nl_dump_line(p, "NEIGH_FLAGS=%s\n", buf);
-
-	rtnl_neigh_state2str(neigh->n_state, buf, sizeof(buf));
-	if (buf[0])
-		nl_dump_line(p, "NEIGH_STATE=%s\n", buf);
 }
 
 /**
@@ -452,7 +516,7 @@ void rtnl_neigh_put(struct rtnl_neigh *neigh)
 
 /**
  * Build a neighbour cache including all neighbours currently configured in the kernel.
- * @arg sk		Netlink socket.
+ * @arg sock		Netlink socket.
  * @arg result		Pointer to store resulting cache.
  *
  * Allocates a new neighbour cache, initializes it properly and updates it
@@ -470,6 +534,7 @@ int rtnl_neigh_alloc_cache(struct nl_sock *sock, struct nl_cache **result)
  * @arg cache		neighbour cache
  * @arg ifindex		interface index the neighbour is on
  * @arg dst		destination address of the neighbour
+ *
  * @return neighbour handle or NULL if no match was found.
  */
 struct rtnl_neigh * rtnl_neigh_get(struct nl_cache *cache, int ifindex,
@@ -504,10 +569,16 @@ static int build_neigh_msg(struct rtnl_neigh *tmpl, int cmd, int flags,
 		.ndm_state = NUD_PERMANENT,
 	};
 
-	if (!(tmpl->ce_mask & NEIGH_ATTR_DST))
-		return -NLE_MISSING_ATTR;
+	if (tmpl->n_family != AF_BRIDGE) {
+		if (!(tmpl->ce_mask & NEIGH_ATTR_DST))
+			return -NLE_MISSING_ATTR;
+		nhdr.ndm_family = nl_addr_get_family(tmpl->n_dst);
+	}
+	else
+		nhdr.ndm_family = AF_BRIDGE;
 
-	nhdr.ndm_family = nl_addr_get_family(tmpl->n_dst);
+	if (tmpl->ce_mask & NEIGH_ATTR_FLAGS)
+		nhdr.ndm_flags = tmpl->n_flags;
 
 	if (tmpl->ce_mask & NEIGH_ATTR_STATE)
 		nhdr.ndm_state = tmpl->n_state;
@@ -519,7 +590,8 @@ static int build_neigh_msg(struct rtnl_neigh *tmpl, int cmd, int flags,
 	if (nlmsg_append(msg, &nhdr, sizeof(nhdr), NLMSG_ALIGNTO) < 0)
 		goto nla_put_failure;
 
-	NLA_PUT_ADDR(msg, NDA_DST, tmpl->n_dst);
+	if (tmpl->n_family != AF_BRIDGE)
+		NLA_PUT_ADDR(msg, NDA_DST, tmpl->n_dst);
 
 	if (tmpl->ce_mask & NEIGH_ATTR_LLADDR)
 		NLA_PUT_ADDR(msg, NDA_LLADDR, tmpl->n_lladdr);
@@ -655,7 +727,7 @@ int rtnl_neigh_delete(struct nl_sock *sk, struct rtnl_neigh *neigh,
  * @{
  */
 
-static struct trans_tbl neigh_states[] = {
+static const struct trans_tbl neigh_states[] = {
 	__ADD(NUD_INCOMPLETE, incomplete)
 	__ADD(NUD_REACHABLE, reachable)
 	__ADD(NUD_STALE, stale)
@@ -684,7 +756,8 @@ int rtnl_neigh_str2state(const char *name)
  * @{
  */
 
-static struct trans_tbl neigh_flags[] = {
+static const struct trans_tbl neigh_flags[] = {
+	__ADD(NTF_USE, use)
 	__ADD(NTF_PROXY, proxy)
 	__ADD(NTF_ROUTER, router)
 };
@@ -846,15 +919,17 @@ static struct nl_object_ops neigh_obj_ops = {
 	    [NL_DUMP_LINE]	= neigh_dump_line,
 	    [NL_DUMP_DETAILS]	= neigh_dump_details,
 	    [NL_DUMP_STATS]	= neigh_dump_stats,
-	    [NL_DUMP_ENV]	= neigh_dump_env,
 	},
 	.oo_compare		= neigh_compare,
+	.oo_keygen		= neigh_keygen,
 	.oo_attrs2str		= neigh_attrs2str,
 	.oo_id_attrs		= (NEIGH_ATTR_IFINDEX | NEIGH_ATTR_DST | NEIGH_ATTR_FAMILY),
+	.oo_id_attrs_get	= neigh_id_attrs_get
 };
 
 static struct nl_af_group neigh_groups[] = {
 	{ AF_UNSPEC, RTNLGRP_NEIGH },
+	{ AF_BRIDGE, RTNLGRP_NEIGH },
 	{ END_OF_GROUP_LIST },
 };
 

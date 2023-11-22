@@ -17,10 +17,8 @@
 package com.android.settings;
 
 import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.UserHandle;
@@ -33,6 +31,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
 import com.android.internal.widget.LockPatternUtils;
+import com.android.settings.fingerprint.SetupFingerprintEnrollFindSensor;
 import com.android.settings.fingerprint.SetupSkipDialog;
 import com.android.settings.utils.SettingsDividerItemDecoration;
 import com.android.setupwizardlib.GlifPreferenceLayout;
@@ -119,12 +118,6 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
                 data.putExtra(EXTRA_PASSWORD_QUALITY,
                         lockPatternUtils.getKeyguardStoredPasswordQuality(UserHandle.myUserId()));
 
-                PackageManager packageManager = getPackageManager();
-                ComponentName componentName = new ComponentName("com.android.settings",
-                        "com.android.settings.SetupRedactionInterstitial");
-                packageManager.setComponentEnabledSetting(componentName,
-                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                        PackageManager.DONT_KILL_APP);
                 super.onActivityResult(requestCode, resultCode, data);
             }
             // If the started activity was cancelled (e.g. the user presses back), then this
@@ -239,6 +232,13 @@ public class SetupChooseLockGeneric extends ChooseLockGeneric {
                 boolean required, Intent unlockMethodIntent) {
             Intent intent = SetupEncryptionInterstitial.createStartIntent(context, quality,
                     required, unlockMethodIntent);
+            SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
+            return intent;
+        }
+
+        @Override
+        protected Intent getFindSensorIntent(Context context) {
+            final Intent intent = new Intent(context, SetupFingerprintEnrollFindSensor.class);
             SetupWizardUtils.copySetupExtras(getActivity().getIntent(), intent);
             return intent;
         }

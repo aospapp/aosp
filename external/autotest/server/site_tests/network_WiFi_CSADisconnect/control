@@ -6,7 +6,6 @@ AUTHOR = 'zqiu, pstew, wiley, quiche'
 NAME = 'network_WiFi_CSADisconnect'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-SUITE = 'wifi_matfunc, wifi_matfunc_bcm4371'
 ATTRIBUTES = 'suite:wifi_matfunc, suite:wifi_matfunc_bcm4371'
 DEPENDENCIES = 'wificell'
 

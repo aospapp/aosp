@@ -16,11 +16,10 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.VideoView;
+import android.widget.cts.R;
 
 /**
  * A minimal application for {@link VideoView} test.

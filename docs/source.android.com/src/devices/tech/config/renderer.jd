@@ -144,16 +144,6 @@ made of 4 floats, or 16 bytes.</td>
 </tr>
 
 <tr>
-  <td><code>ro.zygote.disable_gl_preload</code></td>
-  <td><code>boolean</code></td>
-  <td><code>false</code></td>
-  <td>Used to enable/disable preloading of EGL/GL drivers in Zygote at boot time. When this property is 
-set to false, Zygote will preload the GL drivers by invoking eglGetDisplay(EGL_DEFAULT_DISPLAY). 
-The goal is to load the dynamic libraries code in Zygote to share it with all the other processes. If a driver
-does not support being shared, set this property to true.</td>
-</tr>
-
-<tr>
   <td><code>hwui.text_gamma_correction</code></td>
   <td><code>string</code></td>
   <td><code>lookup</code></td>

@@ -36,6 +36,7 @@ import org.apache.harmony.jpda.tests.jdwp.share.JDWPTestCase;
  */
 public class IDSizesTest extends JDWPTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.SimpleHelloWorld";
     }

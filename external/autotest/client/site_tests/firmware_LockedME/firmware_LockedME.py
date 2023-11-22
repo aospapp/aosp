@@ -51,6 +51,37 @@ class firmware_LockedME(test.test):
                           ignore_status=True)
             raise error.TestFail('%s is writable, ME is unlocked' % sectname)
 
+    def check_manufacturing_mode(self):
+        """Fail if manufacturing mode is not found or enbaled."""
+
+        # See if coreboot told us that the ME is still in Manufacturing Mode.
+        # It shouldn't be. We have to look only at the last thing it reports
+        # because it reports the values twice and the first one isn't always
+        # reliable.
+        logging.info('Check for Manufacturing Mode...')
+        last = None
+        with open('/sys/firmware/log') as infile:
+            for line in infile:
+                if re.search('ME: Manufacturing Mode', line):
+                    last = line
+        if last is not None and last.find("YES") >= 0:
+            raise error.TestFail("The ME is still in Manufacturing Mode")
+
+    def check_region_inaccessible(self, sectname):
+        """Test and ensure a region is not accessible by host CPU."""
+
+        # flashrom should have read the section as all 0xff's. If not,
+        # the ME is not locked.
+        logging.info('%s should be all 0xff...' % sectname)
+        with open(sectname, 'rb') as f:
+            for c in f.read():
+                if c != chr(0xff):
+                    err_string = "%s was readable by flashrom" % sectname
+                    raise error.TestFail(err_string)
+
+        # See if it is writable.
+        self.try_to_rewrite(sectname)
+
     def run_once(self, expect_me_present=True):
         """Fail unless the ME is locked.
 
@@ -68,36 +99,33 @@ class firmware_LockedME(test.test):
                 logging.info('We expected no ME and we have no ME, so pass.')
                 return
 
-        # See if coreboot told us that the ME is still in Manufacturing Mode.
-        # It shouldn't be. We have to look only at the last thing it reports
-        # because it reports the values twice and the first one isn't always
-        # reliable.
-        logging.info('Check for Manufacturing Mode...')
-        last = None
-        with open('/sys/firmware/log') as infile:
-            for line in infile:
-                if re.search('ME: Manufacturing Mode', line):
-                    last = line
-        if last is not None and last.find("YES") >= 0:
-            raise error.TestFail("The ME is still in Manufacturing Mode")
+        # Make sure manufacturing mode is off.
+        self.check_manufacturing_mode()
+
+        # Read the image using flashrom.
+        self.flashrom(args=('-r', self.BIOS_FILE))
+
+        # Use 'IFWI' fmap region as a proxy for a device which doesn't
+        # have a dedicated ME region in the boot media.
+        r = utils.run('dump_fmap', args=('-p', self.BIOS_FILE))
+        is_IFWI_platform = r.stdout.find("IFWI") >= 0
 
         # Get the bios image and extract the ME components
         logging.info('Pull the ME components from the BIOS...')
-        self.flashrom(args=('-r', self.BIOS_FILE))
-        utils.run('dump_fmap', args=('-x', self.BIOS_FILE, 'SI_ME', 'SI_DESC'))
-
-        # flashrom should have read the SI_ME section as all 0xff's. If not,
-        # the ME is not locked.
-        logging.info('SI_ME should be all 0xff...')
-        with open('SI_ME', 'rb') as f:
-            for c in f.read():
-                if c != chr(0xff):
-                    raise error.TestFail("SI_ME was readable by flashrom")
+        dump_fmap_args = ['-x', self.BIOS_FILE, 'SI_DESC']
+        inaccessible_sections = []
+        if is_IFWI_platform:
+            inaccessible_sections.append('DEVICE_EXTENSION')
+        else:
+            inaccessible_sections.append('SI_ME')
+        dump_fmap_args.extend(inaccessible_sections)
+        utils.run('dump_fmap', args=tuple(dump_fmap_args))
 
         # So far, so good, but we need to be certain. Rather than parse what
         # flashrom tells us about the ME-related registers, we'll just try to
         # change the ME components. We shouldn't be able to.
         self.try_to_rewrite('SI_DESC')
-        self.try_to_rewrite('SI_ME')
+        for sectname in inaccessible_sections:
+            self.check_region_inaccessible(sectname)
 
         # Okay, that's about all we can try. Looks like it's locked.

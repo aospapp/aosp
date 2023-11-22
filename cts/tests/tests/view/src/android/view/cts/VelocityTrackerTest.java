@@ -16,15 +16,25 @@
 
 package android.view.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
-import android.util.Log;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link VelocityTracker}.
  */
-public class VelocityTrackerTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class VelocityTrackerTest {
     private static final String TAG = "VelocityTrackerTest";
 
     private static final float TOLERANCE_EXACT = 0.01f;
@@ -41,9 +51,8 @@ public class VelocityTrackerTest extends AndroidTestCase {
     private float mVx, mVy;
     private float mAx, mAy;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         mVelocityTracker = VelocityTracker.obtain();
         mTime = 1000;
         mLastTime = 0;
@@ -55,17 +64,18 @@ public class VelocityTrackerTest extends AndroidTestCase {
         mAy = 0;
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void teardown() {
         mVelocityTracker.recycle();
     }
 
+    @Test
     public void testNoMovement() {
         move(100, 10);
         assertVelocity(TOLERANCE_EXACT, "Expect exact bound when no movement occurs.");
     }
 
+    @Test
     public void testLinearMovement() {
         mVx = 2.0f;
         mVy = -4.0f;
@@ -73,6 +83,7 @@ public class VelocityTrackerTest extends AndroidTestCase {
         assertVelocity(TOLERANCE_TIGHT, "Expect tight bound for linear motion.");
     }
 
+    @Test
     public void testAcceleratingMovement() {
         // A very good velocity tracking algorithm will produce a tight bound on
         // simple acceleration.  Certain alternate algorithms will fare less well but
@@ -85,6 +96,7 @@ public class VelocityTrackerTest extends AndroidTestCase {
         assertVelocity(TOLERANCE_WEAK, "Expect weak bound when there is acceleration.");
     }
 
+    @Test
     public void testDeceleratingMovement() {
         // A very good velocity tracking algorithm will produce a tight bound on
         // simple acceleration.  Certain alternate algorithms will fare less well but
@@ -97,6 +109,7 @@ public class VelocityTrackerTest extends AndroidTestCase {
         assertVelocity(TOLERANCE_WEAK, "Expect weak bound when there is deceleration.");
     }
 
+    @Test
     public void testLinearSharpDirectionChange() {
         // After a sharp change of direction we expect the velocity to eventually
         // converge but it might take a moment to get there.
@@ -112,6 +125,7 @@ public class VelocityTrackerTest extends AndroidTestCase {
         assertVelocity(TOLERANCE_TIGHT, "Expect tight bound after 200ms of new direction.");
     }
 
+    @Test
     public void testLinearSharpDirectionChangeAfterALongPause() {
         // Should be able to get a tighter bound if there is a pause before the
         // change of direction.
@@ -127,6 +141,7 @@ public class VelocityTrackerTest extends AndroidTestCase {
                 "Expect tight bound after a 100ms pause and 100ms of new direction.");
     }
 
+    @Test
     public void testChangingAcceleration() {
         // In real circumstances, the acceleration changes continuously throughout a
         // gesture.  Try to model this and see how the algorithm copes.

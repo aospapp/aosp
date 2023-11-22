@@ -21,7 +21,7 @@
 
 class ReferenceRenderer: public Renderer {
 public:
-    ReferenceRenderer(ANativeWindow* window);
+    explicit ReferenceRenderer(ANativeWindow* window);
     virtual ~ReferenceRenderer() {};
     bool setUp(int workload);
     bool tearDown();

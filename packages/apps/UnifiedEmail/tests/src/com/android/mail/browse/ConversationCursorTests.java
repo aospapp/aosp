@@ -25,6 +25,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.OperationApplicationException;
 import android.net.Uri;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.test.ProviderTestCase2;
 import android.test.mock.MockContentResolver;
@@ -47,6 +48,7 @@ public class ConversationCursorTests extends ProviderTestCase2<TestProvider> {
 
     public ConversationCursorTests() {
         super(TestProvider.class, TestProvider.AUTHORITY);
+        Looper.prepare();
         mActivity = new Activity() {
             @Override
             public ContentResolver getContentResolver() {
@@ -60,7 +62,6 @@ public class ConversationCursorTests extends ProviderTestCase2<TestProvider> {
         super.setUp();
         mMockContext = getMockContext();
         mMockResolver = (MockContentResolver)mMockContext.getContentResolver();
-        mMockResolver.addProvider(TestProvider.AUTHORITY, new TestProvider(mMockContext));
     }
 
     @Override

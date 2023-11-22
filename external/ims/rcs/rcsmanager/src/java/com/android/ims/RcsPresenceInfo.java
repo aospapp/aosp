@@ -33,6 +33,8 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.net.Uri;
 
+import com.android.ims.internal.Logger;
+
 /**
  * RcsPresenceInfo is the class for presence information.
  * It is used to pass information to application for inent ACTION_PRESENCE_CHANGED
@@ -341,13 +343,15 @@ public class RcsPresenceInfo implements Parcelable {
     }
 
     public String toString() {
-        return" contactNumber=" + getContactNumber() +
+        return" contactNumber=" + Logger.hidePhoneNumberPii(getContactNumber()) +
             " volteStatus=" + getVolteStatus() +
             " ipVoiceCallSate=" + getServiceState(ServiceType.VOLTE_CALL) +
-            " ipVoiceCallServiceNumber=" + getServiceContact(ServiceType.VOLTE_CALL) +
+            " ipVoiceCallServiceNumber=" +
+                Logger.hidePhoneNumberPii(getServiceContact(ServiceType.VOLTE_CALL)) +
             " ipVoiceCallTimestamp=" + getTimeStamp(ServiceType.VOLTE_CALL) +
             " ipVideoCallSate=" + getServiceState(ServiceType.VT_CALL) +
-            " ipVideoCallServiceNumber=" + getServiceContact(ServiceType.VT_CALL) +
+            " ipVideoCallServiceNumber=" +
+                Logger.hidePhoneNumberPii(getServiceContact(ServiceType.VT_CALL)) +
             " ipVideoCallTimestamp=" + getTimeStamp(ServiceType.VT_CALL);
     }
 }

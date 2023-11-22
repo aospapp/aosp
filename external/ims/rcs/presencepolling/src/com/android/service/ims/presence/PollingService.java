@@ -29,25 +29,40 @@
 package com.android.service.ims.presence;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.telephony.CarrierConfigManager;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.PersistableBundle;
-import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 
 import com.android.ims.internal.Logger;
 
+/**
+ * Manages the CapabilityPolling class. Starts capability polling when a SIM card is inserted that
+ * supports RCS Presence Capability Polling and stops the service otherwise.
+ */
 public class PollingService extends Service {
-    /**
-     * The logger
-     */
+
     private Logger logger = Logger.getLogger(this.getClass().getName());
 
     private CapabilityPolling mCapabilityPolling = null;
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            switch (intent.getAction()) {
+                case CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED: {
+                    checkAndUpdateCapabilityPollStatus();
+                    break;
+                }
+            }
+        }
+    };
 
     /**
      * Constructor
@@ -60,23 +75,9 @@ public class PollingService extends Service {
     public void onCreate() {
         logger.debug("onCreate()");
 
-        if (isEabSupported(this)) {
-            mCapabilityPolling = CapabilityPolling.getInstance(this);
-            mCapabilityPolling.start();
-        }
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        logger.debug("onStartCommand(), intent: " + intent +
-                ", flags: " + flags + ", startId: " + startId);
-
-        if (!isRcsSupported(this)) {
-            stopSelf();
-            return START_NOT_STICKY;
-        }
-
-        return super.onStartCommand(intent, flags, startId);
+        registerBroadcastReceiver();
+        // Check when the service starts in case the SIM info has already been loaded.
+        checkAndUpdateCapabilityPollStatus();
     }
 
     /**
@@ -106,12 +107,31 @@ public class PollingService extends Service {
         return null;
     }
 
-    static boolean isRcsSupported(Context context) {
-        return isRcsSupportedByDevice() && isRcsSupportedByCarrier(context);
+    private void registerBroadcastReceiver() {
+        IntentFilter filter = new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
+        registerReceiver(mReceiver, filter);
     }
 
-    private static boolean isEabSupported(Context context) {
-        return isEabSupportedByDevice() && isRcsSupportedByCarrier(context);
+    private void checkAndUpdateCapabilityPollStatus() {
+        // If the carrier doesn't support RCS Presence, stop polling.
+        if (!isRcsSupportedByCarrier(this)) {
+            logger.info("RCS not supported by carrier. Stopping CapabilityPolling");
+            if (mCapabilityPolling != null) {
+                mCapabilityPolling.stop();
+                mCapabilityPolling = null;
+            }
+            return;
+        }
+        // Carrier supports, so start the service if it hasn't already been started.
+        if (mCapabilityPolling == null) {
+            logger.info("Starting CapabilityPolling...");
+            mCapabilityPolling = CapabilityPolling.getInstance(this);
+            mCapabilityPolling.start();
+        }
+    }
+
+    static boolean isRcsSupported(Context context) {
+        return isRcsSupportedByDevice() && isRcsSupportedByCarrier(context);
     }
 
     private static boolean isRcsSupportedByCarrier(Context context) {
@@ -125,13 +145,8 @@ public class PollingService extends Service {
         return true;
     }
 
-    private static boolean isRcsSupportedByDevice() {
+    public static boolean isRcsSupportedByDevice() {
         String rcsSupported = SystemProperties.get("persist.rcs.supported");
         return "1".equals(rcsSupported);
-    }
-
-    private static boolean isEabSupportedByDevice() {
-        String eabSupported = SystemProperties.get("persist.eab.supported");
-        return ("0".equals(eabSupported)) ? false : true;
     }
 }

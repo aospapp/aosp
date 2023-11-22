@@ -19,4 +19,9 @@
         <item>com.android.cts.verifier.notifications.NotificationAttentionManagementVerifierActivity</item>
         <item>com.android.cts.verifier.notifications.NotificationListenerVerifierActivity</item>
     </string-array>
+
+    <string name="snsr_device_suspend_test_instr">Once you begin the test, disconnect USB, then
+      perform a palm press to turn off display and put device into suspend mode. The screen will
+      turn on and device will vibrate once all the tests are completed.
+    </string>
 </resources>

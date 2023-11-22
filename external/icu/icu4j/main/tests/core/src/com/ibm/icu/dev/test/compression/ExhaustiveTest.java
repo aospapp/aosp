@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -6,16 +8,15 @@
  */
 package com.ibm.icu.dev.test.compression;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.UnicodeCompressor;
 import com.ibm.icu.text.UnicodeDecompressor;
 
 public class ExhaustiveTest extends TestFmwk {
-    public static void main(String args[]) throws Exception {
-        new ExhaustiveTest().run(args);
-    }
-
     /** Test simple compress/decompress API, returning # of errors */
+    @Test
     public void testSimple() throws Exception {
         for(int i = 0; i < fTestCases.length; i++) {
             simpleTest(fTestCases[i]);
@@ -37,6 +38,7 @@ public class ExhaustiveTest extends TestFmwk {
     }
 
     /** Test iterative compress/decompress API, returning # of errors */
+    @Test
     public void testIterative() throws Exception {
         for(int i = 0; i < fTestCases.length; i++) {
             myTest(fTestCases[i].toCharArray(), fTestCases[i].length());
@@ -74,6 +76,7 @@ public class ExhaustiveTest extends TestFmwk {
     }
 
     /** Test iterative compress/decompress API */
+    @Test
     public void testMultipass() throws Exception {
         for(int i = 0; i < fTestCases.length; i++) {
             myMultipassTest(fTestCases[i].toCharArray(), fTestCases[i].length());

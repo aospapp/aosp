@@ -23,7 +23,7 @@ import android.annotation.SystemApi;
  * @hide
  */
 @SystemApi
-public class VehicleDoor {
+public final class VehicleDoor {
     public static final int DOOR_ROW_1_LEFT = 0x00000001;
     public static final int DOOR_ROW_1_RIGHT = 0x00000004;
     public static final int DOOR_ROW_2_LEFT = 0x00000010;
@@ -32,4 +32,6 @@ public class VehicleDoor {
     public static final int DOOR_ROW_3_RIGHT = 0x00000400;
     public static final int DOOR_HOOD = 0x10000000;
     public static final int DOOR_REAR = 0x20000000;
+
+    private VehicleDoor() {}
 }

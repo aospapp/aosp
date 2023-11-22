@@ -31,7 +31,7 @@ public:
     ThreadIO();
     ~ThreadIO();
 
-    void init();
+    bool init();
     void shutdown();
 
     size_t getMaxInlineSize() {
@@ -90,7 +90,7 @@ protected:
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif
 

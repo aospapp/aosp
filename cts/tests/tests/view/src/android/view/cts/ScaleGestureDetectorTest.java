@@ -16,40 +16,49 @@
 
 package android.view.cts;
 
-import android.content.Context;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.os.Handler;
 import android.os.Looper;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ScaleGestureDetector;
 import android.view.ScaleGestureDetector.SimpleOnScaleGestureListener;
 
-public class ScaleGestureDetectorTest extends
-        ActivityInstrumentationTestCase2<ScaleGestureDetectorCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ScaleGestureDetectorTest {
 
     private ScaleGestureDetector mScaleGestureDetector;
     private ScaleGestureDetectorCtsActivity mActivity;
-    private Context mContext;
 
-    public ScaleGestureDetectorTest() {
-        super("android.view.cts", ScaleGestureDetectorCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ScaleGestureDetectorCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ScaleGestureDetectorCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
         mScaleGestureDetector = mActivity.getScaleGestureDetector();
-        mContext = getInstrumentation().getTargetContext();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         new ScaleGestureDetector(
-                mContext, new SimpleOnScaleGestureListener(), new Handler(Looper.getMainLooper()));
-        new ScaleGestureDetector(mContext, new SimpleOnScaleGestureListener());
+                mActivity, new SimpleOnScaleGestureListener(), new Handler(Looper.getMainLooper()));
+        new ScaleGestureDetector(mActivity, new SimpleOnScaleGestureListener());
     }
 
+    @Test
     public void testAccessStylusScaleEnabled() {
         assertTrue(mScaleGestureDetector.isStylusScaleEnabled());
         mScaleGestureDetector.setStylusScaleEnabled(true);

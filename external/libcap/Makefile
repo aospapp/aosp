@@ -8,13 +8,14 @@ include Make.Rules
 # flags
 #
 
-all install clean: %: %-here
+all install clean kdebug: %: %-here
 	$(MAKE) -C libcap $@
 ifneq ($(PAM_CAP),no)
 	$(MAKE) -C pam_cap $@
 endif
 	$(MAKE) -C progs $@
 	$(MAKE) -C doc $@
+	$(MAKE) -C kdebug $@
 
 all-here:
 

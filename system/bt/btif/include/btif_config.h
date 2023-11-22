@@ -27,29 +27,35 @@ static const char BTIF_CONFIG_MODULE[] = "btif_config_module";
 
 typedef struct btif_config_section_iter_t btif_config_section_iter_t;
 
-bool btif_config_has_section(const char *section);
-bool btif_config_exist(const char *section, const char *key);
-bool btif_config_get_int(const char *section, const char *key, int *value);
-bool btif_config_set_int(const char *section, const char *key, int value);
-bool btif_config_get_str(const char *section, const char *key, char *value, int *size_bytes);
-bool btif_config_set_str(const char *section, const char *key, const char *value);
-bool btif_config_get_bin(const char *section, const char *key, uint8_t *value, size_t *length);
-bool btif_config_set_bin(const char *section, const char *key, const uint8_t *value, size_t length);
-bool btif_config_remove(const char *section, const char *key);
+bool btif_config_has_section(const char* section);
+bool btif_config_exist(const char* section, const char* key);
+bool btif_config_get_int(const char* section, const char* key, int* value);
+bool btif_config_set_int(const char* section, const char* key, int value);
+bool btif_config_get_str(const char* section, const char* key, char* value,
+                         int* size_bytes);
+bool btif_config_set_str(const char* section, const char* key,
+                         const char* value);
+bool btif_config_get_bin(const char* section, const char* key, uint8_t* value,
+                         size_t* length);
+bool btif_config_set_bin(const char* section, const char* key,
+                         const uint8_t* value, size_t length);
+bool btif_config_remove(const char* section, const char* key);
 
-size_t btif_config_get_bin_length(const char *section, const char *key);
+size_t btif_config_get_bin_length(const char* section, const char* key);
 
-const btif_config_section_iter_t *btif_config_section_begin(void);
-const btif_config_section_iter_t *btif_config_section_end(void);
-const btif_config_section_iter_t *btif_config_section_next(const btif_config_section_iter_t *section);
-const char *btif_config_section_name(const btif_config_section_iter_t *section);
+const btif_config_section_iter_t* btif_config_section_begin(void);
+const btif_config_section_iter_t* btif_config_section_end(void);
+const btif_config_section_iter_t* btif_config_section_next(
+    const btif_config_section_iter_t* section);
+const char* btif_config_section_name(const btif_config_section_iter_t* section);
 
 void btif_config_save(void);
 void btif_config_flush(void);
 bool btif_config_clear(void);
 
-// TODO(zachoverflow): Eww...we need to move these out. These are peer specific, not config general.
-bool btif_get_address_type(const BD_ADDR bd_addr, int *p_addr_type);
-bool btif_get_device_type(const BD_ADDR bd_addr, int *p_device_type);
+// TODO(zachoverflow): Eww...we need to move these out. These are peer specific,
+// not config general.
+bool btif_get_address_type(const BD_ADDR bd_addr, int* p_addr_type);
+bool btif_get_device_type(const BD_ADDR bd_addr, int* p_device_type);
 
 void btif_debug_config_dump(int fd);

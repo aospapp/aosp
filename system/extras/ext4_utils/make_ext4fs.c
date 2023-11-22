@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-#include "make_ext4fs.h"
-#include "ext4_utils.h"
-#include "allocate.h"
-#include "contents.h"
-#include "wipe.h"
+#include "ext4_utils/make_ext4fs.h"
 
-#include <sparse/sparse.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include <assert.h>
 #include <dirent.h>
@@ -30,11 +28,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
-#ifdef USE_MINGW
+#include <sparse/sparse.h>
+
+#include "allocate.h"
+#include "contents.h"
+#include "ext4_utils/ext4_utils.h"
+#include "ext4_utils/wipe.h"
+
+#ifdef _WIN32
 
 #include <winsock2.h>
 
@@ -116,7 +121,7 @@ static u32 build_default_directory_structure(const char *dir_path,
 	inode_set_permissions(inode, dentries.mode,
 		dentries.uid, dentries.gid, dentries.mtime);
 
-#ifndef USE_MINGW
+#ifndef _WIN32
 	if (sehnd) {
 		char *path = NULL;
 		char *secontext = NULL;
@@ -135,7 +140,7 @@ static u32 build_default_directory_structure(const char *dir_path,
 	return root_inode;
 }
 
-#ifndef USE_MINGW
+#ifndef _WIN32
 /* Read a local directory and create the same tree in the generated filesystem.
    Calls itself recursively with each directory in the given directory.
    full_path is an absolute or relative path, with a trailing slash, to the
@@ -230,7 +235,7 @@ static u32 build_directory_structure(const char *full_path, const char *dir_path
 			error("can't set android permissions - built without android support");
 #endif
 		}
-#ifndef USE_MINGW
+#ifndef _WIN32
 		if (sehnd) {
 			if (selabel_lookup(sehnd, &dentries[i].secon, dentries[i].path, stat.st_mode) < 0) {
 				error("cannot lookup security context for %s", dentries[i].path);
@@ -421,15 +426,32 @@ void reset_ext4fs_info() {
 int make_ext4fs_sparse_fd(int fd, long long len,
 				const char *mountpoint, struct selabel_handle *sehnd)
 {
-	return make_ext4fs_sparse_fd_directory(fd, len, mountpoint, sehnd, NULL);
+	return make_ext4fs_sparse_fd_align(fd, len, mountpoint, sehnd, 0, 0);
+}
+
+int make_ext4fs_sparse_fd_align(int fd, long long len,
+				const char *mountpoint, struct selabel_handle *sehnd,
+				unsigned eraseblk, unsigned logicalblk)
+{
+	return make_ext4fs_sparse_fd_directory_align(fd, len, mountpoint, sehnd, NULL,
+								eraseblk, logicalblk);
 }
 
 int make_ext4fs_sparse_fd_directory(int fd, long long len,
 				const char *mountpoint, struct selabel_handle *sehnd,
 				const char *directory)
 {
+	return make_ext4fs_sparse_fd_directory_align(fd, len, mountpoint, sehnd, directory, 0, 0);
+}
+
+int make_ext4fs_sparse_fd_directory_align(int fd, long long len,
+				const char *mountpoint, struct selabel_handle *sehnd,
+				const char *directory, unsigned eraseblk, unsigned logicalblk)
+{
 	reset_ext4fs_info();
 	info.len = len;
+	info.flash_erase_block_size = eraseblk;
+	info.flash_logical_block_size = logicalblk;
 
 	return make_ext4fs_internal(fd, directory, NULL, mountpoint, NULL,
 								0, 1, 0, 0, 0,
@@ -446,11 +468,21 @@ int make_ext4fs_directory(const char *filename, long long len,
 						  const char *mountpoint, struct selabel_handle *sehnd,
 						  const char *directory)
 {
+	return make_ext4fs_directory_align(filename, len, mountpoint, sehnd, directory, 0, 0);
+}
+
+int make_ext4fs_directory_align(const char *filename, long long len,
+						  const char *mountpoint, struct selabel_handle *sehnd,
+						  const char *directory, unsigned eraseblk,
+						  unsigned logicalblk)
+{
 	int fd;
 	int status;
 
 	reset_ext4fs_info();
 	info.len = len;
+	info.flash_erase_block_size = eraseblk;
+	info.flash_logical_block_size = logicalblk;
 
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0644);
 	if (fd < 0) {
@@ -533,7 +565,8 @@ static int compare_chunks(const void* chunk1, const void* chunk2) {
 }
 
 static int get_block_group(u32 block) {
-	int i, group = 0;
+	unsigned int i, group = 0;
+
 	for(i = 0; i < aux_info.groups; i++) {
 		if (block >= aux_info.bgs[i].first_block)
 			group = i;
@@ -546,7 +579,7 @@ static int get_block_group(u32 block) {
 static void extract_base_fs_allocations(const char *directory, const char *mountpoint,
 										FILE* base_alloc_file_in) {
 #define err_msg "base file badly formatted"
-#ifndef USE_MINGW
+#ifndef _WIN32
 	// FORMAT Version 1.0: filename blk_mapping
 	const char *base_alloc_file_in_format = "%s %s";
 	const int base_file_format_param_count = 2;
@@ -554,7 +587,8 @@ static void extract_base_fs_allocations(const char *directory, const char *mount
 	char stored_file_name[MAX_PATH], real_file_name[MAX_PATH], file_map[MAX_BLK_MAPPING_STR];
 	struct block_allocation *fs_alloc;
 	struct block_group_info *bgs = aux_info.bgs;
-	int i, major_version = 0, minor_version = 0;
+	int major_version = 0, minor_version = 0;
+	unsigned int i;
 	char *base_file_line = NULL;
 	size_t base_file_line_len = 0;
 
@@ -591,7 +625,8 @@ static void extract_base_fs_allocations(const char *directory, const char *mount
 		if (!access(real_file_name, R_OK)) {
 			char *block_range, *end_string;
 			int real_file_fd;
-			u32 start_block, end_block, block_file_size;
+			int start_block, end_block;
+			u32 block_file_size;
 			u32 real_file_block_size;
 
 			real_file_fd = open(real_file_name, O_RDONLY);
@@ -718,16 +753,16 @@ int make_ext4fs_internal(int fd, const char *_directory, const char *_target_out
 	if (info.len <= 0)
 		info.len = get_file_size(fd);
 
-	if (info.len <= 0) {
-		fprintf(stderr, "Need size of filesystem\n");
-		return EXIT_FAILURE;
-	}
-
 	if (info.block_size <= 0)
 		info.block_size = compute_block_size();
 
 	/* Round down the filesystem length to be a multiple of the block size */
 	info.len &= ~((u64)info.block_size - 1);
+
+	if (info.len <= 0) {
+		fprintf(stderr, "filesystem size too small\n");
+		return EXIT_FAILURE;
+	}
 
 	if (info.journal_blocks == 0)
 		info.journal_blocks = compute_journal_blocks();
@@ -800,7 +835,7 @@ int make_ext4fs_internal(int fd, const char *_directory, const char *_target_out
 	if (info.feat_compat & EXT4_FEATURE_COMPAT_RESIZE_INODE)
 		ext4_create_resize_inode();
 
-#ifdef USE_MINGW
+#ifdef _WIN32
 	// Windows needs only 'create an empty fs image' functionality
 	assert(!directory);
 	root_inode_num = build_default_directory_structure(mountpoint, sehnd);
@@ -815,7 +850,7 @@ int make_ext4fs_internal(int fd, const char *_directory, const char *_target_out
 	root_mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
 	inode_set_permissions(root_inode_num, root_mode, 0, 0, 0);
 
-#ifndef USE_MINGW
+#ifndef _WIN32
 	if (sehnd) {
 		char *secontext = NULL;
 

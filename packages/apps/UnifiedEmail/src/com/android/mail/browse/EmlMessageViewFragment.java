@@ -27,7 +27,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.OpenableColumns;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -337,7 +337,7 @@ public class EmlMessageViewFragment extends Fragment
                 return;
             }
 
-            ((ActionBarActivity) getActivity()).getSupportActionBar().setTitle(
+            ((AppCompatActivity) getActivity()).getSupportActionBar().setTitle(
                     data.getString(data.getColumnIndex(OpenableColumns.DISPLAY_NAME)));
         }
 

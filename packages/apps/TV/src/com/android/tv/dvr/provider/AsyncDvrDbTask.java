@@ -22,7 +22,9 @@ import android.os.AsyncTask;
 import android.support.annotation.Nullable;
 
 import com.android.tv.dvr.ScheduledRecording;
-import com.android.tv.dvr.provider.DvrContract.Recordings;
+import com.android.tv.dvr.SeriesRecording;
+import com.android.tv.dvr.provider.DvrContract.Schedules;
+import com.android.tv.dvr.provider.DvrContract.SeriesRecordings;
 import com.android.tv.util.NamedThreadFactory;
 
 import java.util.ArrayList;
@@ -76,61 +78,59 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
     protected abstract Result doInDvrBackground(Params... params);
 
      /**
-     * Inserts recordings returning the list of recordings with id set.
-     * The id will be -1 if there was an error.
+     * Inserts schedules.
      */
-    public abstract static class AsyncAddRecordingTask
-            extends AsyncDvrDbTask<ScheduledRecording, Void, List<ScheduledRecording>> {
-
-        public AsyncAddRecordingTask(Context context) {
+    public static class AsyncAddScheduleTask
+            extends AsyncDvrDbTask<ScheduledRecording, Void, Void> {
+        public AsyncAddScheduleTask(Context context) {
             super(context);
         }
 
         @Override
-        protected final List<ScheduledRecording> doInDvrBackground(ScheduledRecording... params) {
-            return sDbHelper.insertRecordings(params);
+        protected final Void doInDvrBackground(ScheduledRecording... params) {
+            sDbHelper.insertSchedules(params);
+            return null;
         }
     }
 
     /**
-     * Update recordings.
-     *
-     * @return list of row update counts.  The count will be -1 if there was an error or 0
-     * if no match was found. The count is expected to be exactly 1 for each recording.
+     * Update schedules.
      */
-    public abstract static class AsyncUpdateRecordingTask
-            extends AsyncDvrDbTask<ScheduledRecording, Void, List<Integer>> {
-        public AsyncUpdateRecordingTask(Context context) {
+    public static class AsyncUpdateScheduleTask
+            extends AsyncDvrDbTask<ScheduledRecording, Void, Void> {
+        public AsyncUpdateScheduleTask(Context context) {
             super(context);
         }
 
         @Override
-        protected final List<Integer> doInDvrBackground(ScheduledRecording... params) {
-            return sDbHelper.updateRecordings(params);
+        protected final Void doInDvrBackground(ScheduledRecording... params) {
+            sDbHelper.updateSchedules(params);
+            return null;
         }
     }
 
     /**
-     * Delete recordings.
-     *
-     * @return list of row delete counts.  The count will be -1 if there was an error or 0
-     * if no match was found. The count is expected to be exactly 1 for each recording.
+     * Delete schedules.
      */
-    public abstract static class AsyncDeleteRecordingTask
-            extends AsyncDvrDbTask<ScheduledRecording, Void, List<Integer>> {
-        public AsyncDeleteRecordingTask(Context context) {
+    public static class AsyncDeleteScheduleTask
+            extends AsyncDvrDbTask<ScheduledRecording, Void, Void> {
+        public AsyncDeleteScheduleTask(Context context) {
             super(context);
         }
 
         @Override
-        protected final List<Integer> doInDvrBackground(ScheduledRecording... params) {
-            return sDbHelper.deleteRecordings(params);
+        protected final Void doInDvrBackground(ScheduledRecording... params) {
+            sDbHelper.deleteSchedules(params);
+            return null;
         }
     }
 
-    public abstract static class AsyncDvrQueryTask
+    /**
+     * Returns all {@link ScheduledRecording}s.
+     */
+    public abstract static class AsyncDvrQueryScheduleTask
             extends AsyncDvrDbTask<Void, Void, List<ScheduledRecording>> {
-        public AsyncDvrQueryTask(Context context) {
+        public AsyncDvrQueryScheduleTask(Context context) {
             super(context);
         }
 
@@ -140,17 +140,84 @@ public abstract class AsyncDvrDbTask<Params, Progress, Result>
             if (isCancelled()) {
                 return null;
             }
-
-            if (isCancelled()) {
-                return null;
-            }
-            if (isCancelled()) {
-                return null;
-            }
             List<ScheduledRecording> scheduledRecordings = new ArrayList<>();
-            try (Cursor c = sDbHelper.query(Recordings.TABLE_NAME, ScheduledRecording.PROJECTION)) {
+            try (Cursor c = sDbHelper.query(Schedules.TABLE_NAME, ScheduledRecording.PROJECTION)) {
                 while (c.moveToNext() && !isCancelled()) {
                     scheduledRecordings.add(ScheduledRecording.fromCursor(c));
+                }
+            }
+            return scheduledRecordings;
+        }
+    }
+
+    /**
+     * Inserts series recordings.
+     */
+    public static class AsyncAddSeriesRecordingTask
+            extends AsyncDvrDbTask<SeriesRecording, Void, Void> {
+        public AsyncAddSeriesRecordingTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected final Void doInDvrBackground(SeriesRecording... params) {
+            sDbHelper.insertSeriesRecordings(params);
+            return null;
+        }
+    }
+
+    /**
+     * Update series recordings.
+     */
+    public static class AsyncUpdateSeriesRecordingTask
+            extends AsyncDvrDbTask<SeriesRecording, Void, Void> {
+        public AsyncUpdateSeriesRecordingTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected final Void doInDvrBackground(SeriesRecording... params) {
+            sDbHelper.updateSeriesRecordings(params);
+            return null;
+        }
+    }
+
+    /**
+     * Delete series recordings.
+     */
+    public static class AsyncDeleteSeriesRecordingTask
+            extends AsyncDvrDbTask<SeriesRecording, Void, Void> {
+        public AsyncDeleteSeriesRecordingTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected final Void doInDvrBackground(SeriesRecording... params) {
+            sDbHelper.deleteSeriesRecordings(params);
+            return null;
+        }
+    }
+
+    /**
+     * Returns all {@link SeriesRecording}s.
+     */
+    public abstract static class AsyncDvrQuerySeriesRecordingTask
+            extends AsyncDvrDbTask<Void, Void, List<SeriesRecording>> {
+        public AsyncDvrQuerySeriesRecordingTask(Context context) {
+            super(context);
+        }
+
+        @Override
+        @Nullable
+        protected final List<SeriesRecording> doInDvrBackground(Void... params) {
+            if (isCancelled()) {
+                return null;
+            }
+            List<SeriesRecording> scheduledRecordings = new ArrayList<>();
+            try (Cursor c = sDbHelper.query(SeriesRecordings.TABLE_NAME,
+                    SeriesRecording.PROJECTION)) {
+                while (c.moveToNext() && !isCancelled()) {
+                    scheduledRecordings.add(SeriesRecording.fromCursor(c));
                 }
             }
             return scheduledRecordings;

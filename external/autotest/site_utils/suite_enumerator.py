@@ -73,10 +73,10 @@ def main():
     # name that appears in test.path
     PRETEST_LIST = ['firmware_FAFTSetup',]
     for test in filter(lambda test: test.name in \
-                              PRETEST_LIST, suite.stable_tests()):
+                              PRETEST_LIST, suite.stable_tests):
         print test.path
     for test in filter(lambda test: test.name not in \
-                       PRETEST_LIST, suite.stable_tests()):
+                       PRETEST_LIST, suite.stable_tests):
         print test.path
 
     # Check if test_suites/control.suite_name exists.

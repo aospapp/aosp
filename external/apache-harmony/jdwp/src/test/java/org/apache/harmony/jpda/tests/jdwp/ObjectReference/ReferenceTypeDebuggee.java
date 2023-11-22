@@ -35,6 +35,7 @@ public class ReferenceTypeDebuggee extends SyncDebuggee {
     static String[] stringArrayField;
     static String stringField = "stringField";
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: ReferenceTypeDebuggee: START");
         class_ReferenceType001Object = new Class_ReferenceType001();

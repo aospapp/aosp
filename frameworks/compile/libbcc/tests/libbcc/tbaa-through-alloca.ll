@@ -54,6 +54,12 @@ attributes #0 = { nounwind }
 !\23rs_export_type = !{!7}
 !\25int5 = !{!8}
 
+; The following named metadata would not be present in a bitcode file,
+; but instead synthesized by bcc from the bitcode wrapper.  However,
+; for this test case, we're not running bcc, but instead opt, and so
+; we never get the opportunity to synthesize this named metadata.
+!\23rs_wrapper = !{!15}
+
 !0 = !{!"clang version 3.6 "}
 !1 = !{!"version", !"1"}
 !2 = !{!"java_package_name", !"foo"}
@@ -69,3 +75,4 @@ attributes #0 = { nounwind }
 !12 = !{!"Simple C/C++ TBAA"}
 !13 = !{i64 0, i64 20, !14}
 !14 = !{!11, !11, i64 0}
+!15 = !{!"0", !"3"}

@@ -185,6 +185,7 @@ add_extralibs() {
 #
 # Boolean Manipulation Functions
 #
+
 enable_feature(){
   set_all yes $*
 }
@@ -199,6 +200,20 @@ enabled(){
 
 disabled(){
   eval test "x\$$1" = "xno"
+}
+
+enable_codec(){
+  enabled "${1}" || echo "  enabling ${1}"
+  enable_feature "${1}"
+
+  is_in "${1}" vp8 vp9 && enable_feature "${1}_encoder" "${1}_decoder"
+}
+
+disable_codec(){
+  disabled "${1}" || echo "  disabling ${1}"
+  disable_feature "${1}"
+
+  is_in "${1}" vp8 vp9 && disable_feature "${1}_encoder" "${1}_decoder"
 }
 
 # Iterates through positional parameters, checks to confirm the parameter has
@@ -521,22 +536,20 @@ process_common_cmdline() {
         ;;
       --enable-?*|--disable-?*)
         eval `echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g'`
-        if echo "${ARCH_EXT_LIST}" | grep "^ *$option\$" >/dev/null; then
+        if is_in ${option} ${ARCH_EXT_LIST}; then
           [ $action = "disable" ] && RTCD_OPTIONS="${RTCD_OPTIONS}--disable-${option} "
         elif [ $action = "disable" ] && ! disabled $option ; then
-          echo "${CMDLINE_SELECT}" | grep "^ *$option\$" >/dev/null ||
-            die_unknown $opt
+          is_in ${option} ${CMDLINE_SELECT} || die_unknown $opt
           log_echo "  disabling $option"
         elif [ $action = "enable" ] && ! enabled $option ; then
-          echo "${CMDLINE_SELECT}" | grep "^ *$option\$" >/dev/null ||
-            die_unknown $opt
+          is_in ${option} ${CMDLINE_SELECT} || die_unknown $opt
           log_echo "  enabling $option"
         fi
         ${action}_feature $option
         ;;
       --require-?*)
         eval `echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g'`
-        if echo "${ARCH_EXT_LIST}" none | grep "^ *$option\$" >/dev/null; then
+        if is_in ${option} ${ARCH_EXT_LIST}; then
             RTCD_OPTIONS="${RTCD_OPTIONS}${opt} "
         else
             die_unknown $opt
@@ -622,7 +635,7 @@ setup_gnu_toolchain() {
   AS=${AS:-${CROSS}as}
   STRIP=${STRIP:-${CROSS}strip}
   NM=${NM:-${CROSS}nm}
-  AS_SFX=.s
+  AS_SFX=.S
   EXE_SFX=
 }
 
@@ -638,16 +651,35 @@ show_darwin_sdk_major_version() {
   xcrun --sdk $1 --show-sdk-version 2>/dev/null | cut -d. -f1
 }
 
+# Print the Xcode version.
+show_xcode_version() {
+  xcodebuild -version | head -n1 | cut -d' ' -f2
+}
+
+# Fails when Xcode version is less than 6.3.
+check_xcode_minimum_version() {
+  xcode_major=$(show_xcode_version | cut -f1 -d.)
+  xcode_minor=$(show_xcode_version | cut -f2 -d.)
+  xcode_min_major=6
+  xcode_min_minor=3
+  if [ ${xcode_major} -lt ${xcode_min_major} ]; then
+    return 1
+  fi
+  if [ ${xcode_major} -eq ${xcode_min_major} ] \
+    && [ ${xcode_minor} -lt ${xcode_min_minor} ]; then
+    return 1
+  fi
+}
+
 process_common_toolchain() {
   if [ -z "$toolchain" ]; then
     gcctarget="${CHOST:-$(gcc -dumpmachine 2> /dev/null)}"
-
     # detect tgt_isa
     case "$gcctarget" in
-      armv6*)
-        tgt_isa=armv6
+      aarch64*)
+        tgt_isa=arm64
         ;;
-      armv7*-hardfloat*)
+      armv7*-hardfloat* | armv7*-gnueabihf | arm-*-gnueabihf)
         tgt_isa=armv7
         float_abi=hard
         ;;
@@ -663,6 +695,12 @@ process_common_toolchain() {
         ;;
       *sparc*)
         tgt_isa=sparc
+        ;;
+      power*64*-*)
+        tgt_isa=ppc64
+        ;;
+      power*)
+        tgt_isa=ppc
         ;;
     esac
 
@@ -688,7 +726,18 @@ process_common_toolchain() {
         tgt_isa=x86_64
         tgt_os=darwin14
         ;;
+      *darwin15*)
+        tgt_isa=x86_64
+        tgt_os=darwin15
+        ;;
+      *darwin16*)
+        tgt_isa=x86_64
+        tgt_os=darwin16
+        ;;
       x86_64*mingw32*)
+        tgt_os=win64
+        ;;
+      x86_64*cygwin*)
         tgt_os=win64
         ;;
       *mingw32*|*cygwin*)
@@ -738,13 +787,23 @@ process_common_toolchain() {
     mips*)
       enable_feature mips
       ;;
+    ppc*)
+      enable_feature ppc
+      ;;
   esac
 
   # PIC is probably what we want when building shared libs
   enabled shared && soft_enable pic
 
   # Minimum iOS version for all target platforms (darwin and iphonesimulator).
-  IOS_VERSION_MIN="6.0"
+  # Shared library framework builds are only possible on iOS 8 and later.
+  if enabled shared; then
+    IOS_VERSION_OPTIONS="--enable-shared"
+    IOS_VERSION_MIN="8.0"
+  else
+    IOS_VERSION_OPTIONS=""
+    IOS_VERSION_MIN="6.0"
+  fi
 
   # Handle darwin variants. Newer SDKs allow targeting older
   # platforms, so use the newest one available.
@@ -795,6 +854,14 @@ process_common_toolchain() {
       add_cflags  "-mmacosx-version-min=10.10"
       add_ldflags "-mmacosx-version-min=10.10"
       ;;
+    *-darwin15-*)
+      add_cflags  "-mmacosx-version-min=10.11"
+      add_ldflags "-mmacosx-version-min=10.11"
+      ;;
+    *-darwin16-*)
+      add_cflags  "-mmacosx-version-min=10.12"
+      add_ldflags "-mmacosx-version-min=10.12"
+      ;;
     *-iphonesimulator-*)
       add_cflags  "-miphoneos-version-min=${IOS_VERSION_MIN}"
       add_ldflags "-miphoneos-version-min=${IOS_VERSION_MIN}"
@@ -832,36 +899,6 @@ process_common_toolchain() {
           if disabled neon && enabled neon_asm; then
             die "Disabling neon while keeping neon-asm is not supported"
           fi
-          case ${toolchain} in
-            # Apple iOS SDKs no longer support armv6 as of the version 9
-            # release (coincides with release of Xcode 7). Only enable media
-            # when using earlier SDK releases.
-            *-darwin*)
-              if [ "$(show_darwin_sdk_major_version iphoneos)" -lt 9 ]; then
-                soft_enable media
-              else
-                soft_disable media
-                RTCD_OPTIONS="${RTCD_OPTIONS}--disable-media "
-              fi
-              ;;
-            *)
-              soft_enable media
-              ;;
-          esac
-          ;;
-        armv6)
-          case ${toolchain} in
-            *-darwin*)
-              if [ "$(show_darwin_sdk_major_version iphoneos)" -lt 9 ]; then
-                soft_enable media
-              else
-                die "Your iOS SDK does not support armv6."
-              fi
-              ;;
-            *)
-              soft_enable media
-              ;;
-          esac
           ;;
       esac
 
@@ -869,7 +906,6 @@ process_common_toolchain() {
 
       case ${tgt_cc} in
         gcc)
-          CROSS=${CROSS:-arm-none-linux-gnueabi-}
           link_with_cc=gcc
           setup_gnu_toolchain
           arch_int=${tgt_isa##armv}
@@ -891,6 +927,9 @@ EOF
               check_add_cflags -mfpu=neon #-ftree-vectorize
               check_add_asflags -mfpu=neon
             fi
+          elif [ ${tgt_isa} = "arm64" ] || [ ${tgt_isa} = "armv8" ]; then
+            check_add_cflags -march=armv8-a
+            check_add_asflags -march=armv8-a
           else
             check_add_cflags -march=${tgt_isa}
             check_add_asflags -march=${tgt_isa}
@@ -906,7 +945,7 @@ EOF
           ;;
         vs*)
           asm_conversion_cmd="${source_path}/build/make/ads2armasm_ms.pl"
-          AS_SFX=.s
+          AS_SFX=.S
           msvs_arch_dir=arm-msvs
           disable_feature multithread
           disable_feature unit_tests
@@ -916,6 +955,7 @@ EOF
             # only "AppContainerApplication" which requires an AppxManifest.
             # Therefore disable the examples, just build the library.
             disable_feature examples
+            disable_feature tools
           fi
           ;;
         rvct)
@@ -958,41 +998,50 @@ EOF
           ;;
 
         android*)
-          SDK_PATH=${sdk_path}
-          COMPILER_LOCATION=`find "${SDK_PATH}" \
-                             -name "arm-linux-androideabi-gcc*" -print -quit`
-          TOOLCHAIN_PATH=${COMPILER_LOCATION%/*}/arm-linux-androideabi-
-          CC=${TOOLCHAIN_PATH}gcc
-          CXX=${TOOLCHAIN_PATH}g++
-          AR=${TOOLCHAIN_PATH}ar
-          LD=${TOOLCHAIN_PATH}gcc
-          AS=${TOOLCHAIN_PATH}as
-          STRIP=${TOOLCHAIN_PATH}strip
-          NM=${TOOLCHAIN_PATH}nm
+          if [ -n "${sdk_path}" ]; then
+            SDK_PATH=${sdk_path}
+            COMPILER_LOCATION=`find "${SDK_PATH}" \
+              -name "arm-linux-androideabi-gcc*" -print -quit`
+            TOOLCHAIN_PATH=${COMPILER_LOCATION%/*}/arm-linux-androideabi-
+            CC=${TOOLCHAIN_PATH}gcc
+            CXX=${TOOLCHAIN_PATH}g++
+            AR=${TOOLCHAIN_PATH}ar
+            LD=${TOOLCHAIN_PATH}gcc
+            AS=${TOOLCHAIN_PATH}as
+            STRIP=${TOOLCHAIN_PATH}strip
+            NM=${TOOLCHAIN_PATH}nm
 
-          if [ -z "${alt_libc}" ]; then
-            alt_libc=`find "${SDK_PATH}" -name arch-arm -print | \
-              awk '{n = split($0,a,"/"); \
+            if [ -z "${alt_libc}" ]; then
+              alt_libc=`find "${SDK_PATH}" -name arch-arm -print | \
+                awk '{n = split($0,a,"/"); \
                 split(a[n-1],b,"-"); \
                 print $0 " " b[2]}' | \
                 sort -g -k 2 | \
                 awk '{ print $1 }' | tail -1`
-          fi
+            fi
 
-          add_cflags "--sysroot=${alt_libc}"
-          add_ldflags "--sysroot=${alt_libc}"
+            if [ -d "${alt_libc}" ]; then
+              add_cflags "--sysroot=${alt_libc}"
+              add_ldflags "--sysroot=${alt_libc}"
+            fi
 
-          # linker flag that routes around a CPU bug in some
-          # Cortex-A8 implementations (NDK Dev Guide)
-          add_ldflags "-Wl,--fix-cortex-a8"
+            # linker flag that routes around a CPU bug in some
+            # Cortex-A8 implementations (NDK Dev Guide)
+            add_ldflags "-Wl,--fix-cortex-a8"
 
-          enable_feature pic
-          soft_enable realtime_only
-          if [ ${tgt_isa} = "armv7" ]; then
-            soft_enable runtime_cpu_detect
-          fi
-          if enabled runtime_cpu_detect; then
-            add_cflags "-I${SDK_PATH}/sources/android/cpufeatures"
+            enable_feature pic
+            soft_enable realtime_only
+            if [ ${tgt_isa} = "armv7" ]; then
+              soft_enable runtime_cpu_detect
+            fi
+            if enabled runtime_cpu_detect; then
+              add_cflags "-I${SDK_PATH}/sources/android/cpufeatures"
+            fi
+          else
+            echo "Assuming standalone build with NDK toolchain."
+            echo "See build/make/Android.mk for details."
+            check_add_ldflags -static
+            soft_enable unit_tests
           fi
           ;;
 
@@ -1005,19 +1054,8 @@ EOF
           STRIP="$(${XCRUN_FIND} strip)"
           NM="$(${XCRUN_FIND} nm)"
           RANLIB="$(${XCRUN_FIND} ranlib)"
-          AS_SFX=.s
-
-          # Special handling of ld for armv6 because libclang_rt.ios.a does
-          # not contain armv6 support in Apple's clang package:
-          #   Apple LLVM version 5.1 (clang-503.0.40) (based on LLVM 3.4svn).
-          # TODO(tomfinegan): Remove this. Our minimum iOS version (6.0)
-          # renders support for armv6 unnecessary because the 3GS and up
-          # support neon.
-          if [ "${tgt_isa}" = "armv6" ]; then
-            LD="$(${XCRUN_FIND} ld)"
-          else
-            LD="${CXX:-$(${XCRUN_FIND} ld)}"
-          fi
+          AS_SFX=.S
+          LD="${CXX:-$(${XCRUN_FIND} ld)}"
 
           # ASFLAGS is written here instead of using check_add_asflags
           # because we need to overwrite all of ASFLAGS and purge the
@@ -1043,6 +1081,19 @@ EOF
             [ -d "${try_dir}" ] && add_ldflags -L"${try_dir}"
           done
 
+          case ${tgt_isa} in
+            armv7|armv7s|armv8|arm64)
+              if enabled neon && ! check_xcode_minimum_version; then
+                soft_disable neon
+                log_echo "  neon disabled: upgrade Xcode (need v6.3+)."
+                if enabled neon_asm; then
+                  soft_disable neon_asm
+                  log_echo "  neon_asm disabled: upgrade Xcode (need v6.3+)."
+                fi
+              fi
+              ;;
+          esac
+
           asm_conversion_cmd="${source_path}/build/make/ads2gas_apple.pl"
 
           if [ "$(show_darwin_sdk_major_version iphoneos)" -gt 8 ]; then
@@ -1057,7 +1108,7 @@ EOF
           if enabled rvct; then
             # Check if we have CodeSourcery GCC in PATH. Needed for
             # libraries
-            hash arm-none-linux-gnueabi-gcc 2>&- || \
+            which arm-none-linux-gnueabi-gcc 2>&- || \
               die "Couldn't find CodeSourcery GCC from PATH"
 
             # Use armcc as a linker to enable translation of
@@ -1092,13 +1143,13 @@ EOF
       if [ -n "${tune_cpu}" ]; then
         case ${tune_cpu} in
           p5600)
-            check_add_cflags -mips32r5 -funroll-loops -mload-store-pairs
+            check_add_cflags -mips32r5 -mload-store-pairs
             check_add_cflags -msched-weight -mhard-float -mfp64
             check_add_asflags -mips32r5 -mhard-float -mfp64
             check_add_ldflags -mfp64
             ;;
-          i6400)
-            check_add_cflags -mips64r6 -mabi=64 -funroll-loops -msched-weight 
+          i6400|p6600)
+            check_add_cflags -mips64r6 -mabi=64 -msched-weight
             check_add_cflags  -mload-store-pairs -mhard-float -mfp64
             check_add_asflags -mips64r6 -mabi=64 -mhard-float -mfp64
             check_add_ldflags -mips64r6 -mabi=64 -mfp64
@@ -1116,6 +1167,11 @@ EOF
       check_add_asflags -march=${tgt_isa}
       check_add_asflags -KPIC
       ;;
+    ppc*)
+      link_with_cc=gcc
+      setup_gnu_toolchain
+      check_gcc_machine_option "vsx"
+      ;;
     x86*)
       case  ${tgt_os} in
         win*)
@@ -1125,7 +1181,7 @@ EOF
           CC=${CC:-${CROSS}gcc}
           CXX=${CXX:-${CROSS}g++}
           LD=${LD:-${CROSS}gcc}
-          CROSS=${CROSS:-g}
+          CROSS=${CROSS-g}
           ;;
         os2)
           disable_feature pic
@@ -1178,6 +1234,12 @@ EOF
               soft_disable avx2
               ;;
           esac
+          case $vc_version in
+            7|8|9)
+              echo "${tgt_cc} omits stdint.h, disabling webm-io..."
+              soft_disable webm_io
+              ;;
+          esac
           ;;
       esac
 
@@ -1198,33 +1260,43 @@ EOF
       soft_enable runtime_cpu_detect
       # We can't use 'check_cflags' until the compiler is configured and CC is
       # populated.
-      check_gcc_machine_option mmx
-      check_gcc_machine_option sse
-      check_gcc_machine_option sse2
-      check_gcc_machine_option sse3
-      check_gcc_machine_option ssse3
-      check_gcc_machine_option sse4 sse4_1
-      check_gcc_machine_option avx
-      check_gcc_machine_option avx2
-
-      case "${AS}" in
-        auto|"")
-          which nasm >/dev/null 2>&1 && AS=nasm
-          which yasm >/dev/null 2>&1 && AS=yasm
-          if [ "${AS}" = nasm ] ; then
-            # Apple ships version 0.98 of nasm through at least Xcode 6. Revisit
-            # this check if they start shipping a compatible version.
-            apple=`nasm -v | grep "Apple"`
-            [ -n "${apple}" ] \
-              && echo "Unsupported version of nasm: ${apple}" \
-              && AS=""
+      for ext in ${ARCH_EXT_LIST_X86}; do
+        # disable higher order extensions to simplify asm dependencies
+        if [ "$disable_exts" = "yes" ]; then
+          if ! disabled $ext; then
+            RTCD_OPTIONS="${RTCD_OPTIONS}--disable-${ext} "
+            disable_feature $ext
           fi
-          [ "${AS}" = auto ] || [ -z "${AS}" ] \
-            && die "Neither yasm nor nasm have been found." \
-                   "See the prerequisites section in the README for more info."
-          ;;
-      esac
-      log_echo "  using $AS"
+        elif disabled $ext; then
+          disable_exts="yes"
+        else
+          # use the shortened version for the flag: sse4_1 -> sse4
+          check_gcc_machine_option ${ext%_*} $ext
+        fi
+      done
+
+      if enabled external_build; then
+        log_echo "  skipping assembler detection"
+      else
+        case "${AS}" in
+          auto|"")
+            which nasm >/dev/null 2>&1 && AS=nasm
+            which yasm >/dev/null 2>&1 && AS=yasm
+            if [ "${AS}" = nasm ] ; then
+              # Apple ships version 0.98 of nasm through at least Xcode 6. Revisit
+              # this check if they start shipping a compatible version.
+              apple=`nasm -v | grep "Apple"`
+              [ -n "${apple}" ] \
+                && echo "Unsupported version of nasm: ${apple}" \
+                && AS=""
+            fi
+            [ "${AS}" = auto ] || [ -z "${AS}" ] \
+              && die "Neither yasm nor nasm have been found." \
+                     "See the prerequisites section in the README for more info."
+            ;;
+        esac
+        log_echo "  using $AS"
+      fi
       [ "${AS##*/}" = nasm ] && add_asflags -Ox
       AS_SFX=.asm
       case  ${tgt_os} in
@@ -1319,10 +1391,6 @@ EOF
     fi
   fi
 
-  if [ "${tgt_isa}" = "x86_64" ] || [ "${tgt_isa}" = "x86" ]; then
-    soft_enable use_x86inc
-  fi
-
   # Position Independent Code (PIC) support, for building relocatable
   # shared objects
   enabled gcc && enabled pic && check_add_cflags -fPIC
@@ -1352,6 +1420,7 @@ EOF
       *-win*-vs*)
         ;;
       *-android-gcc)
+        # bionic includes basic pthread functionality, obviating -lpthread.
         ;;
       *)
         check_header pthread.h && add_extralibs -lpthread

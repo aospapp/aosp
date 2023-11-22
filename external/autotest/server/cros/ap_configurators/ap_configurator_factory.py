@@ -6,17 +6,13 @@
 
 import logging
 
-from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros.network import ap_constants
+from autotest_lib.server import site_utils
 from autotest_lib.server.cros import ap_config
 from autotest_lib.server.cros.ap_configurators import ap_cartridge
 from autotest_lib.server.cros.ap_configurators import ap_spec
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 
-CONFIG = global_config.global_config
-
-_DEFAULT_AUTOTEST_INSTANCE = CONFIG.get_config_value('SERVER', 'hostname',
-                                                     type=str)
 
 class APConfiguratorFactory(object):
     """Class that instantiates all available APConfigurators.
@@ -84,6 +80,9 @@ class APConfiguratorFactory(object):
         'Buffaloag300hAPConfigurator':
             [PREFIX + 'buffaloag300h_ap_configurator',
                 'Buffaloag300hAPConfigurator'],
+        'BuffaloWSR1166DDAPConfigurator':
+            [PREFIX + 'buffalo_wsr_1166dd_ap_configurator',
+                'BuffaloWSR1166DDAPConfigurator'],
         'AsusAPConfigurator':
             [PREFIX + 'asus_ap_configurator',
                 'AsusAPConfigurator'],
@@ -93,6 +92,9 @@ class APConfiguratorFactory(object):
         'Asus66RAPConfigurator':
             [PREFIX + 'asus_ac66r_ap_configurator',
                 'Asus66RAPConfigurator'],
+        'AsusRTAC68UAPConfigurator':
+            [PREFIX + 'asus_rtac68u_ap_configurator',
+                'AsusRTAC68UAPConfigurator'],
         'Netgear3700APConfigurator':
             [PREFIX + 'netgear3700_ap_configurator',
                 'Netgear3700APConfigurator'],
@@ -114,6 +116,9 @@ class APConfiguratorFactory(object):
         'Netgear4500APConfigurator':
             [PREFIX + 'netgear4500_ap_configurator',
                 'Netgear4500APConfigurator'],
+        'NetgearWNR1000V4APConfigurator':
+            [PREFIX + 'netgearwnr1000v4_ap_configurator',
+                'NetgearWNR1000V4APConfigurator'],
         'LinksyseDualBandAPConfigurator':
             [PREFIX + 'linksyse_dual_band_configurator',
                 'LinksyseDualBandAPConfigurator'],
@@ -372,15 +377,22 @@ class APConfiguratorFactory(object):
         @return a list of APConfigurators
         """
         aps = []
-        afe = frontend_wrappers.RetryingAFE(server=_DEFAULT_AUTOTEST_INSTANCE,
-                                            timeout_min=10,
-                                            delay_sec=5)
+        afe = frontend_wrappers.RetryingAFE(
+                timeout_min=10, delay_sec=5, server=site_utils.get_global_afe_hostname())
         if self.test_type == ap_constants.AP_TEST_TYPE_CHAOS:
             ap_label = 'chaos_ap'
             lab_label = 'chaos_chamber'
-        else:
+        elif self.test_type == ap_constants.AP_TEST_TYPE_CLIQUE:
             ap_label = 'clique_ap'
             lab_label = 'clique_chamber'
+        elif self.test_type == ap_constants.AP_TEST_TYPE_CASEY5:
+            ap_label = 'casey_ap5'
+            lab_label = 'casey_chamber5'
+        elif self.test_type == ap_constants.AP_TEST_TYPE_CASEY7:
+            ap_label = 'casey_ap7'
+            lab_label = 'casey_chamber7'
+        else:
+            return None
         all_aps = set(afe.get_hostnames(label=ap_label))
         chamber_devices = set(afe.get_hostnames(label=lab_label))
         chamber_aps = all_aps.intersection(chamber_devices)
@@ -434,10 +446,13 @@ class APConfiguratorFactory(object):
         return matching_aps
 
 
-    def turn_off_all_routers(self):
-        """Powers down all of the routers."""
+    def turn_off_all_routers(self, broken_pdus):
+        """Powers down all of the routers.
+
+        @param broken_pdus: list of bad/offline PDUs.
+        """
         ap_power_cartridge = ap_cartridge.APCartridge()
         for ap in self.ap_list:
             ap.power_down_router()
             ap_power_cartridge.push_configurator(ap)
-        ap_power_cartridge.run_configurators()
+        ap_power_cartridge.run_configurators(broken_pdus)

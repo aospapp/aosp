@@ -17,6 +17,16 @@
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="action_text_done">Done</string>
-  <!-- The episode title format displayed on the info banner. For example, "S1: Ep. 1 Winter is coming". -->
-  <string name="episode_format">S<xliff:g id="season_number" example="1">%1$s</xliff:g>: Ep. <xliff:g id="episode_number" example="1">%2$s</xliff:g> <xliff:g id="episode_title" example="Winder is coming">%3$s</xliff:g></string>
+    <!-- The episode display format with season and episode number used in series details view. -->
+    <string name="display_episode_number_format">S<xliff:g id="season_number" example="1">%1$s</xliff:g>: Ep.<xliff:g id="episode_number" example="1">%2$s</xliff:g></string>
+    <!-- The episode display format with episode number used in series details view. -->
+    <string name="display_episode_number_format_no_season_number">Ep.<xliff:g id="episode_number" example="1">%1$s</xliff:g></string>
+    <!-- The episode title format displayed on the info banner. For example, "S1: Ep. 1 Winter is coming". -->
+    <string name="display_episode_title_format">S<xliff:g id="season_number" example="1">%1$s</xliff:g>: Ep. <xliff:g id="episode_number" example="1">%2$s</xliff:g> <xliff:g id="episode_title" example="Winter is Coming">%3$s</xliff:g></string>
+    <!-- The episode title format displayed on the info banner when the season number is not available. For example, "Ep. 1807 Headline News". -->
+    <string name="display_episode_title_format_no_season_number">Ep. <xliff:g id="episode_number" example="1807">%1$s</xliff:g> <xliff:g id="episode_title" example="Headline News">%2$s</xliff:g></string>
+    <!-- Program title with season and episode number used in DVR card views. -->
+    <string name="program_title_with_episode_number"><xliff:g id="programName" example="Big bang theory">%1$s</xliff:g> S<xliff:g id="seasonNumber" example="1">%2$s</xliff:g>: Ep. <xliff:g id="episodeNumber" example="12">%3$s</xliff:g></string>
+    <!-- Program title with episode number used in DVR card views. -->
+    <string name="program_title_with_episode_number_no_season"><xliff:g id="programName" example="Big bang theory">%1$s</xliff:g> Ep. <xliff:g id="episodeNumber" example="12">%2$s</xliff:g></string>
 </resources>

@@ -7,7 +7,6 @@ NAME = 'graphics_SanAngeles'
 PURPOSE = 'Benchmark OpenGL object rendering.'
 CRITERIA = 'This test is a benchmark. It will fail if it fails to complete.'
 ATTRIBUTES = "suite:graphics, suite:graphics_per-day, suite:graphics_system"
-SUITE = 'graphics_per-day, graphics, graphics_system'
 TIME='FAST'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "graphics"
@@ -15,7 +14,7 @@ TEST_TYPE = 'client'
 # Reboot in the lab after the test ends.
 DEPENDENCIES='cleanup-reboot'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2014, International Business Machines Corporation and    *
@@ -9,6 +11,9 @@ package android.icu.dev.test.calendar;
 
 import java.util.Date;
 import java.util.Locale;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.LocaleUtility;
@@ -21,29 +26,26 @@ import android.icu.util.SimpleDateRule;
 import android.icu.util.SimpleHoliday;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Tests for the <code>Holiday</code> class.
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class HolidayTest extends TestFmwk {
-    public static void main(String args[]) throws Exception {
-        new HolidayTest().run(args);
-    }
-    protected void init()throws Exception{
+    @Before
+    public void init() throws Exception {
         if(cal==null){
             cal = new GregorianCalendar(1, 0, 1);
             longTimeAgo = cal.getTime();
             now = new Date();
         }
     }
-    static  Calendar cal;
-    static  Date longTimeAgo;
-    static  Date now;
-    static  long awhile = 3600L * 24 * 28; // 28 days
+    
+    private Calendar cal;
+    private Date longTimeAgo;
+    private Date now;
+    private static long awhile = 3600L * 24 * 28; // 28 days
 
+    @Test
     public void TestAPI() {
         {
             // getHolidays
@@ -225,6 +227,7 @@ public class HolidayTest extends TestFmwk {
        // }
     }
 
+    @Test
     public void TestCoverage(){
         Holiday[] h = { new EasterHoliday("Ram's Easter"),
                         new SimpleHoliday(2, 29, 0, "Leap year", 1900, 2100)};
@@ -263,6 +266,7 @@ public class HolidayTest extends TestFmwk {
         exerciseHoliday(h[1], Locale.getDefault());
     }
     
+    @Test
     public void TestEaster(){        
         // Verify that Easter is working. Should be April 20, 2014
         final Holiday h = new EasterHoliday("Easter Sunday");
@@ -282,6 +286,7 @@ public class HolidayTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestIsOn() {
         // jb 1901
         SimpleHoliday sh = new SimpleHoliday(Calendar.AUGUST, 15, "Doug's Day", 1958, 2058);
@@ -326,6 +331,7 @@ public class HolidayTest extends TestFmwk {
         }
     }
     
+    @Test
     public void TestDisplayName() {
         Holiday[] holidays = Holiday.getHolidays(ULocale.US);
         for (int i = 0; i < holidays.length; ++i) {

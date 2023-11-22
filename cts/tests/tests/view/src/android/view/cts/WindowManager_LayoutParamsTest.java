@@ -16,17 +16,28 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.graphics.PixelFormat;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannedString;
 import android.view.Gravity;
 import android.view.WindowManager;
 
-public class WindowManager_LayoutParamsTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class WindowManager_LayoutParamsTest {
     private static final int WINDOW_WIDTH = 320;
     private static final int WINDOW_HEIGHT = 480;
     private static final int XPOS = 10;
@@ -45,6 +56,7 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
 
     private WindowManager.LayoutParams mLayoutParams;
 
+    @Test
     public void testConstructor() {
         new WindowManager.LayoutParams();
 
@@ -87,6 +99,7 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
                 .mayUseInputMethod(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM));
     }
 
+    @Test
     public void testCopyFrom() {
         mLayoutParams = new WindowManager.LayoutParams();
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
@@ -125,8 +138,8 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
                 | WindowManager.LayoutParams.ACCESSIBILITY_TITLE_CHANGED,
                 mLayoutParams.copyFrom(params));
         assertEquals(params.getTitle(), mLayoutParams.getTitle());
-        assertEquals(params.alpha, mLayoutParams.alpha);
-        assertEquals(params.dimAmount, mLayoutParams.dimAmount);
+        assertEquals(params.alpha, mLayoutParams.alpha, 0.0f);
+        assertEquals(params.dimAmount, mLayoutParams.dimAmount, 0.0f);
 
         params = new WindowManager.LayoutParams();
         params.gravity = Gravity.TOP;
@@ -140,36 +153,38 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
         mLayoutParams = new WindowManager.LayoutParams();
         assertEquals(WindowManager.LayoutParams.LAYOUT_CHANGED,
                 mLayoutParams.copyFrom(params));
-        assertEquals(params.horizontalMargin, mLayoutParams.horizontalMargin);
+        assertEquals(params.horizontalMargin, mLayoutParams.horizontalMargin, 0.0f);
 
         params = new WindowManager.LayoutParams();
         params.horizontalWeight = HORIZONTAL_WEIGHT;
         mLayoutParams = new WindowManager.LayoutParams();
         assertEquals(WindowManager.LayoutParams.LAYOUT_CHANGED,
                 mLayoutParams.copyFrom(params));
-        assertEquals(params.horizontalWeight, mLayoutParams.horizontalWeight);
+        assertEquals(params.horizontalWeight, mLayoutParams.horizontalWeight, 0.0f);
 
         params = new WindowManager.LayoutParams();
         params.verticalMargin = MARGIN;
         mLayoutParams = new WindowManager.LayoutParams();
         assertEquals(WindowManager.LayoutParams.LAYOUT_CHANGED,
                 mLayoutParams.copyFrom(params));
-        assertEquals(params.verticalMargin, mLayoutParams.verticalMargin);
+        assertEquals(params.verticalMargin, mLayoutParams.verticalMargin, 0.0f);
 
         params = new WindowManager.LayoutParams();
         params.verticalWeight = VERTICAL_WEIGHT;
         mLayoutParams = new WindowManager.LayoutParams();
         assertEquals(WindowManager.LayoutParams.LAYOUT_CHANGED,
                 mLayoutParams.copyFrom(params));
-        assertEquals(params.verticalWeight, mLayoutParams.verticalWeight);
+        assertEquals(params.verticalWeight, mLayoutParams.verticalWeight, 0.0f);
     }
 
+    @Test
     public void testDescribeContents() {
         mLayoutParams = new WindowManager.LayoutParams();
 
         assertEquals(0, mLayoutParams.describeContents());
     }
 
+    @Test
     public void testAccessTitle() {
         String title = "";
         mLayoutParams = new WindowManager.LayoutParams();
@@ -186,6 +201,7 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
         assertEquals(spannedTitle, mLayoutParams.getTitle());
     }
 
+    @Test
     public void testToString() {
         mLayoutParams = new WindowManager.LayoutParams();
         assertNotNull(mLayoutParams.toString());
@@ -196,6 +212,7 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
         assertNotNull(mLayoutParams.toString());
     }
 
+    @Test
     public void testWriteToParcel() {
         IBinder binder = new Binder();
         mLayoutParams = new WindowManager.LayoutParams(WINDOW_WIDTH, WINDOW_HEIGHT, XPOS, YPOS,
@@ -223,8 +240,5 @@ public class WindowManager_LayoutParamsTest extends AndroidTestCase {
         } catch (NullPointerException e) {
             // expected
         }
-    }
-
-    public void testDebug() {
     }
 }

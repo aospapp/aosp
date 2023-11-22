@@ -203,9 +203,9 @@ public class SetValuesTest extends JDWPStackTraceBaseTest {
 
         packet.setNextValueAsInt(varTags.length-2);
         packet.setNextValueAsInt(varInfoByName("boolLocalVariable").getSlot());
-        packet.setNextValueAsValue(new Value(false));
+        packet.setNextValueAsValue(Value.createBoolean(false));
         packet.setNextValueAsInt(varInfoByName("intLocalVariable").getSlot());
-        packet.setNextValueAsValue(new Value((int)12345));
+        packet.setNextValueAsValue(Value.createInt(12345));
 
         ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
         checkReplyPacket(reply, "StackFrame::SetValues command");

@@ -16,30 +16,38 @@
 
 package android.view.cts;
 
-
 import android.content.Context;
 import android.hardware.SensorManager;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.OrientationListener;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link OrientationListener}.
  */
-public class OrientationListenerTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class OrientationListenerTest {
     private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
+    @Test
     public void testConstructor() {
         new MockOrientationListener(mContext);
 
         new MockOrientationListener(mContext, SensorManager.SENSOR_DELAY_UI);
     }
 
+    @Test
     public void testRegisterationOfOrientationListener() {
         // these methods are called to assure that no exception is thrown
         MockOrientationListener listener = new MockOrientationListener(mContext);
@@ -47,6 +55,7 @@ public class OrientationListenerTest extends AndroidTestCase {
         listener.enable();
     }
 
+    @Test
     public void testOnAccuracyChanged() {
         // this method is called to assure that no exception is thrown
         new MockOrientationListener(mContext).onAccuracyChanged(SensorManager.SENSOR_ACCELEROMETER,
@@ -56,6 +65,7 @@ public class OrientationListenerTest extends AndroidTestCase {
                 SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM);
     }
 
+    @Test
     public void testOnSensorChanged() {
         // this method is called to assure that no exception is thrown
         MockOrientationListener listener = new MockOrientationListener(mContext);
@@ -69,11 +79,11 @@ public class OrientationListenerTest extends AndroidTestCase {
         mockData[SensorManager.RAW_DATA_X] = 4.0f;
         mockData[SensorManager.RAW_DATA_Y] = 4.0f;
         mockData[SensorManager.RAW_DATA_Z] = 5.0f * 2.0f;
-        listener.reset();
         new MockOrientationListener(mContext).onSensorChanged(SensorManager.SENSOR_MAGNETIC_FIELD,
                 mockData);
     }
 
+    @Test
     public void testOnOrientationChanged() {
         MockOrientationListener listener = new MockOrientationListener(mContext);
         listener.enable();
@@ -81,16 +91,6 @@ public class OrientationListenerTest extends AndroidTestCase {
     }
 
     private class MockOrientationListener extends OrientationListener {
-        private boolean mHasCalledOnOrientationChanged;
-
-        public boolean hasCalledOnOrientationChanged() {
-            return mHasCalledOnOrientationChanged;
-        }
-
-        public void reset() {
-            mHasCalledOnOrientationChanged = false;
-        }
-
         public MockOrientationListener(Context context) {
             super(context);
         }
@@ -101,7 +101,6 @@ public class OrientationListenerTest extends AndroidTestCase {
 
         @Override
         public void onOrientationChanged(int orientation) {
-            mHasCalledOnOrientationChanged = true;
         }
     }
 }

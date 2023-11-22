@@ -36,10 +36,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -76,6 +79,69 @@ public class CallAudioManagerTest extends TelecomTestCase {
                 mRinger,
                 mRingbackPlayer,
                 mDtmfLocalTonePlayer);
+    }
+
+    @MediumTest
+    public void testUnmuteOfSecondIncomingCall() {
+        // Start with a single incoming call.
+        Call call = createIncomingCall();
+        when(call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO))
+                .thenReturn(false);
+        when(call.getId()).thenReturn("1");
+
+        ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
+                ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
+        // Answer the incoming call
+        mCallAudioManager.onIncomingCallAnswered(call);
+        when(call.getState()).thenReturn(CallState.ACTIVE);
+        mCallAudioManager.onCallStateChanged(call, CallState.RINGING, CallState.ACTIVE);
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
+        CallAudioModeStateMachine.MessageArgs correctArgs =
+                new CallAudioModeStateMachine.MessageArgs(
+                        true, // hasActiveOrDialingCalls
+                        false, // hasRingingCalls
+                        false, // hasHoldingCalls
+                        false, // isTonePlaying
+                        false, // foregroundCallIsVoip
+                        null // session
+                );
+        assertMessageArgEquality(correctArgs, captor.getValue());
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
+        assertMessageArgEquality(correctArgs, captor.getValue());
+
+        // Mute the current ongoing call.
+        mCallAudioManager.mute(true);
+
+        // Create a second incoming call.
+        Call call2 = mock(Call.class);
+        when(call2.getState()).thenReturn(CallState.RINGING);
+        when(call2.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO))
+                .thenReturn(false);
+        when(call2.getId()).thenReturn("2");
+        mCallAudioManager.onCallAdded(call2);
+
+        // Answer the incoming call
+        mCallAudioManager.onIncomingCallAnswered(call);
+
+        // Capture the calls to sendMessageWithSessionInfo; we want to look for mute on and off
+        // messages and make sure that there was a mute on before the mute off.
+        ArgumentCaptor<Integer> muteCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mCallAudioRouteStateMachine, atLeastOnce())
+                .sendMessageWithSessionInfo(muteCaptor.capture());
+        List<Integer> values = muteCaptor.getAllValues();
+        values = values.stream()
+                .filter(value -> value == CallAudioRouteStateMachine.MUTE_ON ||
+                        value == CallAudioRouteStateMachine.MUTE_OFF)
+                .collect(Collectors.toList());
+
+        // Make sure we got a mute on and a mute off.
+        assertTrue(values.contains(CallAudioRouteStateMachine.MUTE_ON));
+        assertTrue(values.contains(CallAudioRouteStateMachine.MUTE_OFF));
+        // And that the mute on happened before the off.
+        assertTrue(values.indexOf(CallAudioRouteStateMachine.MUTE_ON) < values
+                .lastIndexOf(CallAudioRouteStateMachine.MUTE_OFF));
     }
 
     @MediumTest

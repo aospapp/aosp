@@ -31,6 +31,7 @@ import string
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 import mock
@@ -191,6 +192,22 @@ class ForwardReverseTest(DeviceTest):
         msg = self.device.forward_list()
         self.assertEqual('', msg.strip())
 
+    def test_forward_tcp_port_0(self):
+        self.assertEqual('', self.device.forward_list().strip(),
+                         'Forwarding list must be empty to run this test.')
+
+        try:
+            # If resolving TCP port 0 is supported, `adb forward` will print
+            # the actual port number.
+            port = self.device.forward('tcp:0', 'tcp:8888').strip()
+            if not port:
+                raise unittest.SkipTest('Forwarding tcp:0 is not available.')
+
+            self.assertTrue(re.search(r'tcp:{}.+tcp:8888'.format(port),
+                                      self.device.forward_list()))
+        finally:
+            self.device.forward_remove_all()
+
     def test_reverse(self):
         msg = self.device.reverse_list()
         self.assertEqual('', msg.strip(),
@@ -209,6 +226,22 @@ class ForwardReverseTest(DeviceTest):
         self.device.reverse_remove_all()
         msg = self.device.reverse_list()
         self.assertEqual('', msg.strip())
+
+    def test_reverse_tcp_port_0(self):
+        self.assertEqual('', self.device.reverse_list().strip(),
+                         'Reverse list must be empty to run this test.')
+
+        try:
+            # If resolving TCP port 0 is supported, `adb reverse` will print
+            # the actual port number.
+            port = self.device.reverse('tcp:0', 'tcp:8888').strip()
+            if not port:
+                raise unittest.SkipTest('Reversing tcp:0 is not available.')
+
+            self.assertTrue(re.search(r'tcp:{}.+tcp:8888'.format(port),
+                                      self.device.reverse_list()))
+        finally:
+            self.device.reverse_remove_all()
 
     # Note: If you run this test when adb connect'd to a physical device over
     # TCP, it will fail in adb reverse due to https://code.google.com/p/android/issues/detail?id=189821
@@ -279,7 +312,7 @@ class ShellTest(DeviceTest):
         Raises:
           unittest.SkipTest: The device doesn't support exit codes.
         """
-        if self.device.SHELL_PROTOCOL_FEATURE not in self.device.features:
+        if not self.device.has_shell_protocol():
             raise unittest.SkipTest('exit codes are unavailable on this device')
 
         proc = subprocess.Popen(
@@ -338,15 +371,8 @@ class ShellTest(DeviceTest):
     def test_pty_logic(self):
         """Tests that a PTY is allocated when it should be.
 
-        PTY allocation behavior should match ssh; some behavior requires
-        a terminal stdin to test so this test will be skipped if stdin
-        is not a terminal.
+        PTY allocation behavior should match ssh.
         """
-        if self.device.SHELL_PROTOCOL_FEATURE not in self.device.features:
-            raise unittest.SkipTest('PTY arguments unsupported on this device')
-        if not os.isatty(sys.stdin.fileno()):
-            raise unittest.SkipTest('PTY tests require stdin terminal')
-
         def check_pty(args):
             """Checks adb shell PTY allocation.
 
@@ -376,15 +402,33 @@ class ShellTest(DeviceTest):
         # -T: never allocate PTY.
         self.assertEqual((False, False), check_pty(['-T']))
 
-        # No args: PTY only if stdin is a terminal and shell is interactive,
-        # which is difficult to reliably test from a script.
-        self.assertEqual((False, False), check_pty([]))
+        # These tests require a new device.
+        if self.device.has_shell_protocol() and os.isatty(sys.stdin.fileno()):
+            # No args: PTY only if stdin is a terminal and shell is interactive,
+            # which is difficult to reliably test from a script.
+            self.assertEqual((False, False), check_pty([]))
 
-        # -t: PTY if stdin is a terminal.
-        self.assertEqual((True, False), check_pty(['-t']))
+            # -t: PTY if stdin is a terminal.
+            self.assertEqual((True, False), check_pty(['-t']))
 
         # -t -t: always allocate PTY.
         self.assertEqual((True, True), check_pty(['-t', '-t']))
+
+        # -tt: always allocate PTY, POSIX style (http://b/32216152).
+        self.assertEqual((True, True), check_pty(['-tt']))
+
+        # -ttt: ssh has weird even/odd behavior with multiple -t flags, but
+        # we follow the man page instead.
+        self.assertEqual((True, True), check_pty(['-ttt']))
+
+        # -ttx: -x and -tt aren't incompatible (though -Tx would be an error).
+        self.assertEqual((True, True), check_pty(['-ttx']))
+
+        # -Ttt: -tt cancels out -T.
+        self.assertEqual((True, True), check_pty(['-Ttt']))
+
+        # -ttT: -T cancels out -tt.
+        self.assertEqual((False, False), check_pty(['-ttT']))
 
     def test_shell_protocol(self):
         """Tests the shell protocol on the device.
@@ -394,7 +438,7 @@ class ShellTest(DeviceTest):
 
         Bug: http://b/19734861
         """
-        if self.device.SHELL_PROTOCOL_FEATURE not in self.device.features:
+        if not self.device.has_shell_protocol():
             raise unittest.SkipTest('shell protocol unsupported on this device')
 
         # Shell protocol should be used by default.
@@ -424,7 +468,7 @@ class ShellTest(DeviceTest):
 
         Bug: http://b/23825725
         """
-        if self.device.SHELL_PROTOCOL_FEATURE not in self.device.features:
+        if not self.device.has_shell_protocol():
             raise unittest.SkipTest('shell protocol unsupported on this device')
 
         # Start a long-running process.
@@ -440,12 +484,16 @@ class ShellTest(DeviceTest):
         self.device.shell(proc_query)
         os.kill(sleep_proc.pid, signal.SIGINT)
         sleep_proc.communicate()
-        self.assertEqual(1, self.device.shell_nocheck(proc_query)[0],
-                         'subprocess failed to terminate')
+
+        # It can take some time for the process to receive the signal and die.
+        end_time = time.time() + 3
+        while self.device.shell_nocheck(proc_query)[0] != 1:
+            self.assertFalse(time.time() > end_time,
+                             'subprocess failed to terminate in time')
 
     def test_non_interactive_stdin(self):
         """Tests that non-interactive shells send stdin."""
-        if self.device.SHELL_PROTOCOL_FEATURE not in self.device.features:
+        if not self.device.has_shell_protocol():
             raise unittest.SkipTest('non-interactive stdin unsupported '
                                     'on this device')
 
@@ -462,6 +510,37 @@ class ShellTest(DeviceTest):
             stdout, stderr = proc.communicate(input)
             self.assertEqual(input.splitlines(), stdout.splitlines())
             self.assertEqual('', stderr)
+
+    def test_sighup(self):
+        """Ensure that SIGHUP gets sent upon non-interactive ctrl-c"""
+        log_path = "/data/local/tmp/adb_signal_test.log"
+
+        # Clear the output file.
+        self.device.shell_nocheck(["echo", ">", log_path])
+
+        script = """
+            trap "echo SIGINT > {path}; exit 0" SIGINT
+            trap "echo SIGHUP > {path}; exit 0" SIGHUP
+            echo Waiting
+            read
+        """.format(path=log_path)
+
+        script = ";".join([x.strip() for x in script.strip().splitlines()])
+
+        process = self.device.shell_popen([script], kill_atexit=False,
+                                          stdin=subprocess.PIPE,
+                                          stdout=subprocess.PIPE)
+
+        self.assertEqual("Waiting\n", process.stdout.readline())
+        process.send_signal(signal.SIGINT)
+        process.wait()
+
+        # Waiting for the local adb to finish is insufficient, since it hangs
+        # up immediately.
+        time.sleep(1)
+
+        stdout, _ = self.device.shell(["cat", log_path])
+        self.assertEqual(stdout.strip(), "SIGHUP")
 
 
 class ArgumentEscapingTest(DeviceTest):
@@ -724,6 +803,36 @@ class FileOperationsTest(DeviceTest):
             if host_dir is not None:
                 shutil.rmtree(host_dir)
 
+    @unittest.skipIf(sys.platform == "win32", "symlinks require elevated privileges on windows")
+    def test_push_symlink(self):
+        """Push a symlink.
+
+        Bug: http://b/31491920
+        """
+        try:
+            host_dir = tempfile.mkdtemp()
+
+            # Make sure the temp directory isn't setuid, or else adb will
+            # complain.
+            os.chmod(host_dir, 0o700)
+
+            with open(os.path.join(host_dir, 'foo'), 'w') as f:
+                f.write('foo')
+
+            symlink_path = os.path.join(host_dir, 'symlink')
+            os.symlink('foo', symlink_path)
+
+            self.device.shell(['rm', '-rf', self.DEVICE_TEMP_DIR])
+            self.device.shell(['mkdir', self.DEVICE_TEMP_DIR])
+            self.device.push(symlink_path, self.DEVICE_TEMP_DIR)
+            rc, out, _ = self.device.shell_nocheck(
+                ['cat', posixpath.join(self.DEVICE_TEMP_DIR, 'symlink')])
+            self.assertEqual(0, rc)
+            self.assertEqual(out.strip(), 'foo')
+        finally:
+            if host_dir is not None:
+                shutil.rmtree(host_dir)
+
     def test_multiple_push(self):
         """Push multiple files to the device in one adb push command.
 
@@ -781,7 +890,8 @@ class FileOperationsTest(DeviceTest):
             except subprocess.CalledProcessError as e:
                 output = e.output
 
-            self.assertIn('Permission denied', output)
+            self.assertTrue('Permission denied' in output or
+                            'Read-only file system' in output)
 
     def _test_pull(self, remote_file, checksum):
         tmp_write = tempfile.NamedTemporaryFile(mode='wb', delete=False)

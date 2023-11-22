@@ -11,6 +11,7 @@ from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 from autotest_lib.server.cros.network import netperf_runner
 from autotest_lib.server.cros.network import netperf_session
 from autotest_lib.server.cros.network import wifi_cell_test_base
@@ -63,23 +64,42 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
         logging.info('testing config %s, ap_config %s, BT:%s',
                      config.tag, ap_config_tag, bt_tag)
         test_str = '_'.join([ap_config_tag, bt_tag])
-	time.sleep(1)
+        time.sleep(1)
+
+        # Record the signal level.
         signal_level = self.context.client.wifi_signal_level
         signal_description = '_'.join(['signal', test_str])
         self.write_perf_keyval({signal_description: signal_level})
 
+        # Run netperf and log the results.
         results = session.run(config)
         if not results:
             logging.error('Failed to take measurement for %s',
                           config.tag)
             return
         values = [result.throughput for result in results]
-        self.output_perf_value(config.tag + ' ' + bt_tag, values, units='Mbps',
+        self.output_perf_value(config.tag + '_' + bt_tag, values, units='Mbps',
                                higher_is_better=True,
                                graph=ap_config_tag)
         result = netperf_runner.NetperfResult.from_samples(results)
         self.write_perf_keyval(result.get_keyval(
             prefix='_'.join([config.tag, test_str])))
+
+        # Log the drop in throughput compared with the 'BT_disconnected'
+        # baseline.  Only positive values are valid.  Report the drop as a
+        # whole integer percentage of (base_through-through)/base_through.
+        if bt_tag == 'BT_disconnected':
+            self.base_through = result.throughput
+        elif self.base_through > 0:
+            drop = int( (self.base_through - result.throughput) * 100 /
+                        self.base_through)
+            self.output_perf_value(config.tag + '_' + bt_tag + '_drop',
+                                   drop, units='percent_drop',
+                                   higher_is_better=False,
+                                   graph=ap_config_tag + '_drop')
+            self.write_perf_keyval({'_'.join([config.tag, test_str, 'drop']):
+                                   drop})
+            logging.info('logging drop value as %d%%', drop)
 
         # Test latency with ping.
         result_ping = self.context.client.ping(get_ping_config(3))
@@ -93,11 +113,12 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
         """Test body."""
         start_time = time.time()
 
-	# Setup Bluetooth widgets and their binder, but do not yet connect.
+        # Setup Bluetooth widgets and their binder, but do not yet connect.
         audio_test.audio_test_requirement()
-        factory = audio_test.create_remote_facade_factory(host, self.resultsdir)
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
         chameleon_board = host.chameleon
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 factory, host)
         source = widget_factory.create_widget(
@@ -130,6 +151,7 @@ class network_WiFi_BluetoothStreamPerf(wifi_cell_test_base.WiFiCellTestBase):
             ap_config_tag = ap_config.perf_loggable_description
 
             for config in self.NETPERF_CONFIGS:
+                self.base_through = 0
                 self.test_one(session, config, ap_config_tag, 'BT_disconnected')
                 with chameleon_audio_helper.bind_widgets(binder):
                     self.test_one(session, config, ap_config_tag,

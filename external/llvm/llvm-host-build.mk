@@ -1,16 +1,10 @@
-ifeq ($(FORCE_BUILD_LLVM_DEBUG),true)
-local_optflags = -O0 -g
-else
-local_optflags = -O2
-endif
-
 LOCAL_CFLAGS +=	\
 	-D_GNU_SOURCE	\
 	-D__STDC_LIMIT_MACROS	\
-	$(local_optflags)	\
 	-fomit-frame-pointer	\
 	-Wall	\
 	-W	\
+	-Wno-sign-compare \
 	-Wno-unused-parameter	\
 	-Wno-maybe-uninitialized \
 	-Wno-missing-field-initializers \
@@ -26,6 +20,12 @@ LOCAL_CFLAGS_windows += -Wno-array-bounds \
 			-Wno-comment \
 			-UWIN32_LEAN_AND_MEAN
 
+# Enable debug build only on Linux and Darwin
+ifeq ($(FORCE_BUILD_LLVM_DEBUG),true)
+LOCAL_CFLAGS_linux += -O0 -g
+LOCAL_CFLAGS_darwin += -O0 -g
+endif
+
 ifeq ($(FORCE_BUILD_LLVM_DISABLE_NDEBUG),true)
 LOCAL_CFLAGS :=	\
 	$(LOCAL_CFLAGS) \
@@ -33,18 +33,8 @@ LOCAL_CFLAGS :=	\
 	-UNDEBUG
 endif
 
-ifneq ($(REQUIRES_EH),1)
 LOCAL_CFLAGS += -fno-exceptions
-else
-REQUIRES_EH := 0
-LOCAL_CFLAGS += -fexceptions
-endif
-
-ifneq ($(REQUIRES_RTTI),1)
 LOCAL_CPPFLAGS += -fno-rtti
-else
-REQUIRES_RTTI := 0
-endif
 
 LOCAL_CPPFLAGS :=	\
 	$(LOCAL_CPPFLAGS)	\
@@ -69,16 +59,13 @@ LOCAL_C_INCLUDES :=	\
 LOCAL_LDLIBS_darwin += -lncurses
 LOCAL_LDLIBS_linux += -lncurses
 LOCAL_LDLIBS_linux += -lgcc_s
+LOCAL_LDLIBS_windows += -luuid
 
 LOCAL_IS_HOST_MODULE := true
 
-ifeq ($(HOST_PREFER_32_BIT),true)
-LOCAL_MULTILIB := 32
-else
 ifeq (libLLVM, $(filter libLLVM,$(LOCAL_SHARED_LIBRARIES)$(LOCAL_SHARED_LIBRARIES_$(HOST_OS))))
 # Skip building a 32-bit shared object if they are using libLLVM.
 LOCAL_MULTILIB := first
-endif
 endif
 
 ###########################################################
@@ -94,5 +81,5 @@ $(hide) $(LLVM_TBLGEN) \
 	-I $(LLVM_ROOT_PATH)/lib/Target	\
 	$(if $(strip $(CLANG_ROOT_PATH)),-I $(CLANG_ROOT_PATH)/include,)	\
 	-gen-$(strip $(1))	\
-	-o $@ $<
+	-d $@.d -o $@ $<
 endef

@@ -22,7 +22,9 @@
 #include <stdint.h>
 #include <wchar.h>
 
-#define NUM_WCHARS(num_bytes) (num_bytes/sizeof(wchar_t))
+#include "math_data_test.h"
+
+#define NUM_WCHARS(num_bytes) ((num_bytes)/sizeof(wchar_t))
 
 TEST(wchar, sizeof_wchar_t) {
   EXPECT_EQ(4U, sizeof(wchar_t));
@@ -301,7 +303,7 @@ TEST(wchar, mbrtowc) {
   ASSERT_EQ(EILSEQ, errno);
 }
 
-void test_mbrtowc_incomplete(mbstate_t* ps) {
+static void test_mbrtowc_incomplete(mbstate_t* ps) {
   ASSERT_STREQ("C.UTF-8", setlocale(LC_CTYPE, "C.UTF-8"));
   uselocale(LC_GLOBAL_LOCALE);
 
@@ -338,10 +340,13 @@ TEST(wchar, mbrtowc_incomplete) {
   test_mbrtowc_incomplete(NULL);
 }
 
-void test_mbsrtowcs(mbstate_t* ps) {
+static void test_mbsrtowcs(mbstate_t* ps) {
+  constexpr const char* VALID = "A" "\xc2\xa2" "\xe2\x82\xac" "\xf0\xa4\xad\xa2" "ef";
+  constexpr const char* INVALID = "A" "\xc2\x20" "ef";
+  constexpr const char* INCOMPLETE = "A" "\xc2";
   wchar_t out[4];
 
-  const char* valid = "A" "\xc2\xa2" "\xe2\x82\xac" "\xf0\xa4\xad\xa2" "ef";
+  const char* valid = VALID;
   ASSERT_EQ(4U, mbsrtowcs(out, &valid, 4, ps));
   ASSERT_EQ(L'A', out[0]);
   ASSERT_EQ(static_cast<wchar_t>(0x00a2), out[1]);
@@ -360,15 +365,27 @@ void test_mbsrtowcs(mbstate_t* ps) {
   // Check that valid has advanced to the end of the string.
   ASSERT_EQ(nullptr, valid);
 
-  const char* invalid = "A" "\xc2\x20" "ef";
+  const char* invalid = INVALID;
   ASSERT_EQ(static_cast<size_t>(-1), mbsrtowcs(out, &invalid, 4, ps));
   EXPECT_EQ(EILSEQ, errno);
   ASSERT_EQ('\xc2', *invalid);
 
-  const char* incomplete = "A" "\xc2";
+  const char* incomplete = INCOMPLETE;
   ASSERT_EQ(static_cast<size_t>(-1), mbsrtowcs(out, &incomplete, 2, ps));
   EXPECT_EQ(EILSEQ, errno);
   ASSERT_EQ('\xc2', *incomplete);
+
+  // If dst is null, *src shouldn't be updated.
+  // https://code.google.com/p/android/issues/detail?id=166381
+  const char* mbs = VALID;
+  EXPECT_EQ(6U, mbsrtowcs(nullptr, &mbs, 0, ps));
+  EXPECT_EQ(VALID, mbs);
+  mbs = INVALID;
+  EXPECT_EQ(static_cast<size_t>(-1), mbsrtowcs(nullptr, &mbs, 0, ps));
+  EXPECT_EQ(INVALID, mbs);
+  mbs = INCOMPLETE;
+  EXPECT_EQ(static_cast<size_t>(-1), mbsrtowcs(nullptr, &mbs, 0, ps));
+  EXPECT_EQ(INCOMPLETE, mbs);
 }
 
 TEST(wchar, mbsrtowcs) {
@@ -389,24 +406,12 @@ TEST(wchar, mbsrtowcs) {
   ASSERT_EQ('\x20', *invalid);
 }
 
-TEST(wchar, wcstod) {
-  ASSERT_DOUBLE_EQ(1.23, wcstod(L"1.23", NULL));
-}
-
-TEST(wchar, wcstof) {
-  ASSERT_FLOAT_EQ(1.23f, wcstof(L"1.23", NULL));
-}
-
 TEST(wchar, wcstol) {
   ASSERT_EQ(123L, wcstol(L"123", NULL, 0));
 }
 
 TEST(wchar, wcstoll) {
   ASSERT_EQ(123LL, wcstol(L"123", NULL, 0));
-}
-
-TEST(wchar, wcstold) {
-  ASSERT_DOUBLE_EQ(1.23L, wcstold(L"1.23", NULL));
 }
 
 TEST(wchar, wcstoul) {
@@ -671,4 +676,69 @@ TEST(wchar, wcstoull_l_EINVAL) {
 TEST(wchar, wmempcpy) {
   wchar_t dst[6];
   ASSERT_EQ(&dst[4], wmempcpy(dst, L"hello", 4));
+}
+
+template <typename T>
+static void CheckWcsToFloat(T fn(const wchar_t* s, wchar_t** end)) {
+  FpUlpEq<0, T> pred;
+
+  EXPECT_PRED_FORMAT2(pred, 9.0, fn(L"9.0", nullptr));
+  EXPECT_PRED_FORMAT2(pred, 9.0, fn(L"0.9e1", nullptr));
+  EXPECT_PRED_FORMAT2(pred, 9.0, fn(L"0x1.2p3", nullptr));
+
+  const wchar_t* s = L" \t\v\f\r\n9.0";
+  wchar_t* p;
+  EXPECT_PRED_FORMAT2(pred, 9.0, fn(s, &p));
+  EXPECT_EQ(s + wcslen(s), p);
+
+  EXPECT_TRUE(isnan(fn(L"+nan", nullptr)));
+  EXPECT_TRUE(isnan(fn(L"nan", nullptr)));
+  EXPECT_TRUE(isnan(fn(L"-nan", nullptr)));
+
+  EXPECT_TRUE(isnan(fn(L"+nan(0xff)", nullptr)));
+  EXPECT_TRUE(isnan(fn(L"nan(0xff)", nullptr)));
+  EXPECT_TRUE(isnan(fn(L"-nan(0xff)", nullptr)));
+
+  EXPECT_TRUE(isnan(fn(L"+nanny", &p)));
+  EXPECT_STREQ(L"ny", p);
+  EXPECT_TRUE(isnan(fn(L"nanny", &p)));
+  EXPECT_STREQ(L"ny", p);
+  EXPECT_TRUE(isnan(fn(L"-nanny", &p)));
+  EXPECT_STREQ(L"ny", p);
+
+  EXPECT_EQ(0, fn(L"muppet", &p));
+  EXPECT_STREQ(L"muppet", p);
+  EXPECT_EQ(0, fn(L"  muppet", &p));
+  EXPECT_STREQ(L"  muppet", p);
+
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"+inf", nullptr));
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"inf", nullptr));
+  EXPECT_EQ(-std::numeric_limits<T>::infinity(), fn(L"-inf", nullptr));
+
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"+infinity", nullptr));
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"infinity", nullptr));
+  EXPECT_EQ(-std::numeric_limits<T>::infinity(), fn(L"-infinity", nullptr));
+
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"+infinitude", &p));
+  EXPECT_STREQ(L"initude", p);
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"infinitude", &p));
+  EXPECT_STREQ(L"initude", p);
+  EXPECT_EQ(-std::numeric_limits<T>::infinity(), fn(L"-infinitude", &p));
+  EXPECT_STREQ(L"initude", p);
+
+  // Check case-insensitivity.
+  EXPECT_EQ(std::numeric_limits<T>::infinity(), fn(L"InFiNiTy", nullptr));
+  EXPECT_TRUE(isnan(fn(L"NaN", nullptr)));
+}
+
+TEST(wchar, wcstod) {
+  CheckWcsToFloat(wcstod);
+}
+
+TEST(wchar, wcstof) {
+  CheckWcsToFloat(wcstof);
+}
+
+TEST(wchar, wcstold) {
+  CheckWcsToFloat(wcstold);
 }

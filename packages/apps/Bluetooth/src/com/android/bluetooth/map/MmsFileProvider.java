@@ -32,7 +32,6 @@ import com.google.android.mms.pdu.PduPersister;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URI;
 
 /**
  * Provider to let the MMS subsystem read data from it own database from another process.

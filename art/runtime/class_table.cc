@@ -17,6 +17,7 @@
 #include "class_table.h"
 
 #include "mirror/class-inl.h"
+#include "oat_file.h"
 
 namespace art {
 
@@ -31,10 +32,11 @@ void ClassTable::FreezeSnapshot() {
   classes_.push_back(ClassSet());
 }
 
-bool ClassTable::Contains(mirror::Class* klass) {
+bool ClassTable::Contains(ObjPtr<mirror::Class> klass) {
   ReaderMutexLock mu(Thread::Current(), lock_);
+  TableSlot slot(klass);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(GcRoot<mirror::Class>(klass));
+    auto it = class_set.Find(slot);
     if (it != class_set.end()) {
       return it->Read() == klass;
     }
@@ -42,10 +44,11 @@ bool ClassTable::Contains(mirror::Class* klass) {
   return false;
 }
 
-mirror::Class* ClassTable::LookupByDescriptor(mirror::Class* klass) {
+mirror::Class* ClassTable::LookupByDescriptor(ObjPtr<mirror::Class> klass) {
   ReaderMutexLock mu(Thread::Current(), lock_);
+  TableSlot slot(klass);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(GcRoot<mirror::Class>(klass));
+    auto it = class_set.Find(slot);
     if (it != class_set.end()) {
       return it->Read();
     }
@@ -53,13 +56,20 @@ mirror::Class* ClassTable::LookupByDescriptor(mirror::Class* klass) {
   return nullptr;
 }
 
+// To take into account http://b/35845221
+#pragma clang diagnostic push
+#if __clang_major__ < 4
+#pragma clang diagnostic ignored "-Wunreachable-code"
+#endif
+
 mirror::Class* ClassTable::UpdateClass(const char* descriptor, mirror::Class* klass, size_t hash) {
   WriterMutexLock mu(Thread::Current(), lock_);
   // Should only be updating latest table.
-  auto existing_it = classes_.back().FindWithHash(descriptor, hash);
+  DescriptorHashPair pair(descriptor, hash);
+  auto existing_it = classes_.back().FindWithHash(pair, hash);
   if (kIsDebugBuild && existing_it == classes_.back().end()) {
     for (const ClassSet& class_set : classes_) {
-      if (class_set.FindWithHash(descriptor, hash) != class_set.end()) {
+      if (class_set.FindWithHash(pair, hash) != class_set.end()) {
         LOG(FATAL) << "Updating class found in frozen table " << descriptor;
       }
     }
@@ -73,11 +83,38 @@ mirror::Class* ClassTable::UpdateClass(const char* descriptor, mirror::Class* kl
   VerifyObject(klass);
   // Update the element in the hash set with the new class. This is safe to do since the descriptor
   // doesn't change.
-  *existing_it = GcRoot<mirror::Class>(klass);
+  *existing_it = TableSlot(klass, hash);
   return existing;
 }
 
-size_t ClassTable::NumZygoteClasses() const {
+#pragma clang diagnostic pop
+
+size_t ClassTable::CountDefiningLoaderClasses(ObjPtr<mirror::ClassLoader> defining_loader,
+                                              const ClassSet& set) const {
+  size_t count = 0;
+  for (const TableSlot& root : set) {
+    if (root.Read()->GetClassLoader() == defining_loader) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+size_t ClassTable::NumZygoteClasses(ObjPtr<mirror::ClassLoader> defining_loader) const {
+  ReaderMutexLock mu(Thread::Current(), lock_);
+  size_t sum = 0;
+  for (size_t i = 0; i < classes_.size() - 1; ++i) {
+    sum += CountDefiningLoaderClasses(defining_loader, classes_[i]);
+  }
+  return sum;
+}
+
+size_t ClassTable::NumNonZygoteClasses(ObjPtr<mirror::ClassLoader> defining_loader) const {
+  ReaderMutexLock mu(Thread::Current(), lock_);
+  return CountDefiningLoaderClasses(defining_loader, classes_.back());
+}
+
+size_t ClassTable::NumReferencedZygoteClasses() const {
   ReaderMutexLock mu(Thread::Current(), lock_);
   size_t sum = 0;
   for (size_t i = 0; i < classes_.size() - 1; ++i) {
@@ -86,36 +123,70 @@ size_t ClassTable::NumZygoteClasses() const {
   return sum;
 }
 
-size_t ClassTable::NumNonZygoteClasses() const {
+size_t ClassTable::NumReferencedNonZygoteClasses() const {
   ReaderMutexLock mu(Thread::Current(), lock_);
   return classes_.back().Size();
 }
 
 mirror::Class* ClassTable::Lookup(const char* descriptor, size_t hash) {
+  DescriptorHashPair pair(descriptor, hash);
   ReaderMutexLock mu(Thread::Current(), lock_);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.FindWithHash(descriptor, hash);
+    auto it = class_set.FindWithHash(pair, hash);
     if (it != class_set.end()) {
-     return it->Read();
+      return it->Read();
     }
   }
   return nullptr;
 }
 
-void ClassTable::Insert(mirror::Class* klass) {
+ObjPtr<mirror::Class> ClassTable::TryInsert(ObjPtr<mirror::Class> klass) {
+  TableSlot slot(klass);
   WriterMutexLock mu(Thread::Current(), lock_);
-  classes_.back().Insert(GcRoot<mirror::Class>(klass));
+  for (ClassSet& class_set : classes_) {
+    auto it = class_set.Find(slot);
+    if (it != class_set.end()) {
+      return it->Read();
+    }
+  }
+  classes_.back().Insert(slot);
+  return klass;
 }
 
-void ClassTable::InsertWithHash(mirror::Class* klass, size_t hash) {
+void ClassTable::Insert(ObjPtr<mirror::Class> klass) {
+  const uint32_t hash = TableSlot::HashDescriptor(klass);
   WriterMutexLock mu(Thread::Current(), lock_);
-  classes_.back().InsertWithHash(GcRoot<mirror::Class>(klass), hash);
+  classes_.back().InsertWithHash(TableSlot(klass, hash), hash);
+}
+
+void ClassTable::CopyWithoutLocks(const ClassTable& source_table) {
+  if (kIsDebugBuild) {
+    for (ClassSet& class_set : classes_) {
+      CHECK(class_set.Empty());
+    }
+  }
+  for (const ClassSet& class_set : source_table.classes_) {
+    for (const TableSlot& slot : class_set) {
+      classes_.back().Insert(slot);
+    }
+  }
+}
+
+void ClassTable::InsertWithoutLocks(ObjPtr<mirror::Class> klass) {
+  const uint32_t hash = TableSlot::HashDescriptor(klass);
+  classes_.back().InsertWithHash(TableSlot(klass, hash), hash);
+}
+
+void ClassTable::InsertWithHash(ObjPtr<mirror::Class> klass, size_t hash) {
+  WriterMutexLock mu(Thread::Current(), lock_);
+  classes_.back().InsertWithHash(TableSlot(klass, hash), hash);
 }
 
 bool ClassTable::Remove(const char* descriptor) {
+  DescriptorHashPair pair(descriptor, ComputeModifiedUtf8Hash(descriptor));
   WriterMutexLock mu(Thread::Current(), lock_);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(descriptor);
+    auto it = class_set.Find(pair);
     if (it != class_set.end()) {
       class_set.Erase(it);
       return true;
@@ -124,29 +195,37 @@ bool ClassTable::Remove(const char* descriptor) {
   return false;
 }
 
-uint32_t ClassTable::ClassDescriptorHashEquals::operator()(const GcRoot<mirror::Class>& root)
+uint32_t ClassTable::ClassDescriptorHashEquals::operator()(const TableSlot& slot)
     const {
   std::string temp;
-  return ComputeModifiedUtf8Hash(root.Read()->GetDescriptor(&temp));
+  return ComputeModifiedUtf8Hash(slot.Read()->GetDescriptor(&temp));
 }
 
-bool ClassTable::ClassDescriptorHashEquals::operator()(const GcRoot<mirror::Class>& a,
-                                                       const GcRoot<mirror::Class>& b) const {
-  DCHECK_EQ(a.Read()->GetClassLoader(), b.Read()->GetClassLoader());
+bool ClassTable::ClassDescriptorHashEquals::operator()(const TableSlot& a,
+                                                       const TableSlot& b) const {
+  if (a.Hash() != b.Hash()) {
+    std::string temp;
+    DCHECK(!a.Read()->DescriptorEquals(b.Read()->GetDescriptor(&temp)));
+    return false;
+  }
   std::string temp;
   return a.Read()->DescriptorEquals(b.Read()->GetDescriptor(&temp));
 }
 
-bool ClassTable::ClassDescriptorHashEquals::operator()(const GcRoot<mirror::Class>& a,
-                                                       const char* descriptor) const {
-  return a.Read()->DescriptorEquals(descriptor);
+bool ClassTable::ClassDescriptorHashEquals::operator()(const TableSlot& a,
+                                                       const DescriptorHashPair& b) const {
+  if (!a.MaskedHashEquals(b.second)) {
+    DCHECK(!a.Read()->DescriptorEquals(b.first));
+    return false;
+  }
+  return a.Read()->DescriptorEquals(b.first);
 }
 
-uint32_t ClassTable::ClassDescriptorHashEquals::operator()(const char* descriptor) const {
-  return ComputeModifiedUtf8Hash(descriptor);
+uint32_t ClassTable::ClassDescriptorHashEquals::operator()(const DescriptorHashPair& pair) const {
+  return ComputeModifiedUtf8Hash(pair.first);
 }
 
-bool ClassTable::InsertStrongRoot(mirror::Object* obj) {
+bool ClassTable::InsertStrongRoot(ObjPtr<mirror::Object> obj) {
   WriterMutexLock mu(Thread::Current(), lock_);
   DCHECK(obj != nullptr);
   for (GcRoot<mirror::Object>& root : strong_roots_) {
@@ -155,6 +234,29 @@ bool ClassTable::InsertStrongRoot(mirror::Object* obj) {
     }
   }
   strong_roots_.push_back(GcRoot<mirror::Object>(obj));
+  // If `obj` is a dex cache associated with a new oat file with GC roots, add it to oat_files_.
+  if (obj->IsDexCache()) {
+    const DexFile* dex_file = ObjPtr<mirror::DexCache>::DownCast(obj)->GetDexFile();
+    if (dex_file != nullptr && dex_file->GetOatDexFile() != nullptr) {
+      const OatFile* oat_file = dex_file->GetOatDexFile()->GetOatFile();
+      if (oat_file != nullptr && !oat_file->GetBssGcRoots().empty()) {
+        InsertOatFileLocked(oat_file);  // Ignore return value.
+      }
+    }
+  }
+  return true;
+}
+
+bool ClassTable::InsertOatFile(const OatFile* oat_file) {
+  WriterMutexLock mu(Thread::Current(), lock_);
+  return InsertOatFileLocked(oat_file);
+}
+
+bool ClassTable::InsertOatFileLocked(const OatFile* oat_file) {
+  if (ContainsElement(oat_files_, oat_file)) {
+    return false;
+  }
+  oat_files_.push_back(oat_file);
   return true;
 }
 
@@ -164,7 +266,7 @@ size_t ClassTable::WriteToMemory(uint8_t* ptr) const {
   // Combine all the class sets in case there are multiple, also adjusts load factor back to
   // default in case classes were pruned.
   for (const ClassSet& class_set : classes_) {
-    for (const GcRoot<mirror::Class>& root : class_set) {
+    for (const TableSlot& root : class_set) {
       combined.Insert(root);
     }
   }
@@ -191,6 +293,16 @@ void ClassTable::AddClassSet(ClassSet&& set) {
 
 void ClassTable::ClearStrongRoots() {
   WriterMutexLock mu(Thread::Current(), lock_);
+  oat_files_.clear();
   strong_roots_.clear();
 }
+
+ClassTable::TableSlot::TableSlot(ObjPtr<mirror::Class> klass)
+    : TableSlot(klass, HashDescriptor(klass)) {}
+
+uint32_t ClassTable::TableSlot::HashDescriptor(ObjPtr<mirror::Class> klass) {
+  std::string temp;
+  return ComputeModifiedUtf8Hash(klass->GetDescriptor(&temp));
+}
+
 }  // namespace art

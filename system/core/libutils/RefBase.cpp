@@ -17,19 +17,9 @@
 #define LOG_TAG "RefBase"
 // #define LOG_NDEBUG 0
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <typeinfo>
-#include <unistd.h>
-
 #include <utils/RefBase.h>
 
 #include <utils/CallStack.h>
-#include <utils/Log.h>
-#include <utils/threads.h>
 
 #ifndef __unused
 #define __unused __attribute__((__unused__))
@@ -56,37 +46,44 @@
 
 namespace android {
 
-// Usage, invariants, etc:
+// Observations, invariants, etc:
 
-// It is normally OK just to keep weak pointers to an object.  The object will
-// be deallocated by decWeak when the last weak reference disappears.
-// Once a a strong reference has been created, the object will disappear once
-// the last strong reference does (decStrong).
-// AttemptIncStrong will succeed if the object has a strong reference, or if it
-// has a weak reference and has never had a strong reference.
-// AttemptIncWeak really does succeed only if there is already a WEAK
-// reference, and thus may fail when attemptIncStrong would succeed.
+// By default, obects are destroyed when the last strong reference disappears
+// or, if the object never had a strong reference, when the last weak reference
+// disappears.
+//
 // OBJECT_LIFETIME_WEAK changes this behavior to retain the object
 // unconditionally until the last reference of either kind disappears.  The
 // client ensures that the extendObjectLifetime call happens before the dec
 // call that would otherwise have deallocated the object, or before an
 // attemptIncStrong call that might rely on it.  We do not worry about
 // concurrent changes to the object lifetime.
+//
+// AttemptIncStrong will succeed if the object has a strong reference, or if it
+// has a weak reference and has never had a strong reference.
+// AttemptIncWeak really does succeed only if there is already a WEAK
+// reference, and thus may fail when attemptIncStrong would succeed.
+//
 // mStrong is the strong reference count.  mWeak is the weak reference count.
 // Between calls, and ignoring memory ordering effects, mWeak includes strong
 // references, and is thus >= mStrong.
 //
+// A weakref_impl holds all the information, including both reference counts,
+// required to perform wp<> operations.  Thus these can continue to be performed
+// after the RefBase object has been destroyed.
+//
 // A weakref_impl is allocated as the value of mRefs in a RefBase object on
 // construction.
-// In the OBJECT_LIFETIME_STRONG case, it is deallocated in the RefBase
-// destructor iff the strong reference count was never incremented. The
-// destructor can be invoked either from decStrong, or from decWeak if there
-// was never a strong reference. If the reference count had been incremented,
-// it is deallocated directly in decWeak, and hence still lives as long as
-// the last weak reference.
-// In the OBJECT_LIFETIME_WEAK case, it is always deallocated from the RefBase
-// destructor, which is always invoked by decWeak. DecStrong explicitly avoids
-// the deletion in this case.
+// In the OBJECT_LIFETIME_STRONG case, it is normally deallocated in decWeak,
+// and hence lives as long as the last weak reference. (It can also be
+// deallocated in the RefBase destructor iff the strong reference count was
+// never incremented and the weak count is zero, e.g.  if the RefBase object is
+// explicitly destroyed without decrementing the strong count.  This should be
+// avoided.) In this case, the RefBase destructor should be invoked from
+// decStrong.
+// In the OBJECT_LIFETIME_WEAK case, the weakref_impl is always deallocated in
+// the RefBase destructor, which is always invoked by decWeak. DecStrong
+// explicitly avoids the deletion in this case.
 //
 // Memory ordering:
 // The client must ensure that every inc() call, together with all other
@@ -120,6 +117,19 @@ namespace android {
 
 #define INITIAL_STRONG_VALUE (1<<28)
 
+#define MAX_COUNT 0xfffff
+
+// Test whether the argument is a clearly invalid strong reference count.
+// Used only for error checking on the value before an atomic decrement.
+// Intended to be very cheap.
+// Note that we cannot just check for excess decrements by comparing to zero
+// since the object would be deallocated before that.
+#define BAD_STRONG(c) \
+        ((c) == 0 || ((c) & (~(MAX_COUNT | INITIAL_STRONG_VALUE))) != 0)
+
+// Same for weak counts.
+#define BAD_WEAK(c) ((c) == 0 || ((c) & (~MAX_COUNT)) != 0)
+
 // ---------------------------------------------------------------------------
 
 class RefBase::weakref_impl : public RefBase::weakref_type
@@ -132,7 +142,7 @@ public:
 
 #if !DEBUG_REFS
 
-    weakref_impl(RefBase* base)
+    explicit weakref_impl(RefBase* base)
         : mStrong(INITIAL_STRONG_VALUE)
         , mWeak(0)
         , mBase(base)
@@ -251,17 +261,22 @@ public:
         {
             Mutex::Autolock _l(mMutex);
             char buf[128];
-            sprintf(buf, "Strong references on RefBase %p (weakref_type %p):\n", mBase, this);
+            snprintf(buf, sizeof(buf),
+                     "Strong references on RefBase %p (weakref_type %p):\n",
+                     mBase, this);
             text.append(buf);
             printRefsLocked(&text, mStrongRefs);
-            sprintf(buf, "Weak references on RefBase %p (weakref_type %p):\n", mBase, this);
+            snprintf(buf, sizeof(buf),
+                     "Weak references on RefBase %p (weakref_type %p):\n",
+                     mBase, this);
             text.append(buf);
             printRefsLocked(&text, mWeakRefs);
         }
 
         {
             char name[100];
-            snprintf(name, 100, DEBUG_REFS_CALLSTACK_PATH "/%p.stack", this);
+            snprintf(name, sizeof(name), DEBUG_REFS_CALLSTACK_PATH "/%p.stack",
+                     this);
             int rc = open(name, O_RDWR | O_CREAT | O_APPEND, 644);
             if (rc >= 0) {
                 write(rc, text.string(), text.length());
@@ -354,8 +369,8 @@ private:
         char buf[128];
         while (refs) {
             char inc = refs->ref >= 0 ? '+' : '-';
-            sprintf(buf, "\t%c ID %p (ref %d):\n", 
-                    inc, refs->id, refs->ref);
+            snprintf(buf, sizeof(buf), "\t%c ID %p (ref %d):\n",
+                     inc, refs->id, refs->ref);
             out->append(buf);
 #if DEBUG_REFS_CALLSTACK_ENABLED
             out->append(refs->stack.toString("\t\t"));
@@ -410,15 +425,15 @@ void RefBase::decStrong(const void* id) const
 #if PRINT_REFS
     ALOGD("decStrong of %p from %p: cnt=%d\n", this, id, c);
 #endif
-    ALOG_ASSERT(c >= 1, "decStrong() called on %p too many times", refs);
+    LOG_ALWAYS_FATAL_IF(BAD_STRONG(c), "decStrong() called on %p too many times",
+            refs);
     if (c == 1) {
         std::atomic_thread_fence(std::memory_order_acquire);
         refs->mBase->onLastStrongRef(id);
         int32_t flags = refs->mFlags.load(std::memory_order_relaxed);
         if ((flags&OBJECT_LIFETIME_MASK) == OBJECT_LIFETIME_STRONG) {
             delete this;
-            // Since mStrong had been incremented, the destructor did not
-            // delete refs.
+            // The destructor does not delete refs in this case.
         }
     }
     // Note that even with only strong reference operations, the thread
@@ -481,7 +496,8 @@ void RefBase::weakref_type::decWeak(const void* id)
     weakref_impl* const impl = static_cast<weakref_impl*>(this);
     impl->removeWeakRef(id);
     const int32_t c = impl->mWeak.fetch_sub(1, std::memory_order_release);
-    ALOG_ASSERT(c >= 1, "decWeak called on %p too many times", this);
+    LOG_ALWAYS_FATAL_IF(BAD_WEAK(c), "decWeak called on %p too many times",
+            this);
     if (c != 1) return;
     atomic_thread_fence(std::memory_order_acquire);
 
@@ -489,13 +505,19 @@ void RefBase::weakref_type::decWeak(const void* id)
     if ((flags&OBJECT_LIFETIME_MASK) == OBJECT_LIFETIME_STRONG) {
         // This is the regular lifetime case. The object is destroyed
         // when the last strong reference goes away. Since weakref_impl
-        // outlive the object, it is not destroyed in the dtor, and
+        // outlives the object, it is not destroyed in the dtor, and
         // we'll have to do it here.
         if (impl->mStrong.load(std::memory_order_relaxed)
                 == INITIAL_STRONG_VALUE) {
-            // Special case: we never had a strong reference, so we need to
-            // destroy the object now.
-            delete impl->mBase;
+            // Decrementing a weak count to zero when object never had a strong
+            // reference.  We assume it acquired a weak reference early, e.g.
+            // in the constructor, and will eventually be properly destroyed,
+            // usually via incrementing and decrementing the strong count.
+            // Thus we no longer do anything here.  We log this case, since it
+            // seems to be extremely rare, and should not normally occur. We
+            // used to deallocate mBase here, so this may now indicate a leak.
+            ALOGW("RefBase: Object at %p lost last weak reference "
+                    "before it had a strong reference", impl->mBase);
         } else {
             // ALOGV("Freeing refs %p of old RefBase %p\n", this, impl->mBase);
             delete impl;
@@ -575,15 +597,14 @@ bool RefBase::weakref_type::attemptIncStrong(const void* id)
             // grab a strong-reference, which is always safe due to the
             // extended life-time.
             curCount = impl->mStrong.fetch_add(1, std::memory_order_relaxed);
-        }
-
-        // If the strong reference count has already been incremented by
-        // someone else, the implementor of onIncStrongAttempted() is holding
-        // an unneeded reference.  So call onLastStrongRef() here to remove it.
-        // (No, this is not pretty.)  Note that we MUST NOT do this if we
-        // are in fact acquiring the first reference.
-        if (curCount > 0 && curCount < INITIAL_STRONG_VALUE) {
-            impl->mBase->onLastStrongRef(id);
+            // If the strong reference count has already been incremented by
+            // someone else, the implementor of onIncStrongAttempted() is holding
+            // an unneeded reference.  So call onLastStrongRef() here to remove it.
+            // (No, this is not pretty.)  Note that we MUST NOT do this if we
+            // are in fact acquiring the first reference.
+            if (curCount != 0 && curCount != INITIAL_STRONG_VALUE) {
+                impl->mBase->onLastStrongRef(id);
+            }
         }
     }
     
@@ -593,7 +614,7 @@ bool RefBase::weakref_type::attemptIncStrong(const void* id)
     ALOGD("attemptIncStrong of %p from %p: cnt=%d\n", this, id, curCount);
 #endif
 
-    // curCount is the value of mStrong before we increment ed it.
+    // curCount is the value of mStrong before we incremented it.
     // Now we need to fix-up the count if it was INITIAL_STRONG_VALUE.
     // This must be done safely, i.e.: handle the case where several threads
     // were here in attemptIncStrong().
@@ -665,24 +686,28 @@ RefBase::RefBase()
 
 RefBase::~RefBase()
 {
-    if (mRefs->mStrong.load(std::memory_order_relaxed)
-            == INITIAL_STRONG_VALUE) {
-        // we never acquired a strong (and/or weak) reference on this object.
-        delete mRefs;
-    } else {
-        // life-time of this object is extended to WEAK, in
-        // which case weakref_impl doesn't out-live the object and we
-        // can free it now.
-        int32_t flags = mRefs->mFlags.load(std::memory_order_relaxed);
-        if ((flags & OBJECT_LIFETIME_MASK) != OBJECT_LIFETIME_STRONG) {
-            // It's possible that the weak count is not 0 if the object
-            // re-acquired a weak reference in its destructor
-            if (mRefs->mWeak.load(std::memory_order_relaxed) == 0) {
-                delete mRefs;
-            }
+    int32_t flags = mRefs->mFlags.load(std::memory_order_relaxed);
+    // Life-time of this object is extended to WEAK, in
+    // which case weakref_impl doesn't out-live the object and we
+    // can free it now.
+    if ((flags & OBJECT_LIFETIME_MASK) == OBJECT_LIFETIME_WEAK) {
+        // It's possible that the weak count is not 0 if the object
+        // re-acquired a weak reference in its destructor
+        if (mRefs->mWeak.load(std::memory_order_relaxed) == 0) {
+            delete mRefs;
         }
+    } else if (mRefs->mStrong.load(std::memory_order_relaxed)
+            == INITIAL_STRONG_VALUE) {
+        // We never acquired a strong reference on this object.
+        LOG_ALWAYS_FATAL_IF(mRefs->mWeak.load() != 0,
+                "RefBase: Explicit destruction with non-zero weak "
+                "reference count");
+        // TODO: Always report if we get here. Currently MediaMetadataRetriever
+        // C++ objects are inconsistently managed and sometimes get here.
+        // There may be other cases, but we believe they should all be fixed.
+        delete mRefs;
     }
-    // for debugging purposes, clear this.
+    // For debugging purposes, clear mRefs.  Ineffective against outstanding wp's.
     const_cast<weakref_impl*&>(mRefs) = NULL;
 }
 

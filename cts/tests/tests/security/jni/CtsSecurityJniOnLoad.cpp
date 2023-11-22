@@ -22,6 +22,7 @@ extern int register_android_security_cts_CharDeviceTest(JNIEnv*);
 extern int register_android_security_cts_LinuxRngTest(JNIEnv*);
 extern int register_android_security_cts_NativeCodeTest(JNIEnv*);
 extern int register_android_security_cts_SELinuxTest(JNIEnv*);
+extern int register_android_security_cts_SeccompTest(JNIEnv*);
 extern int register_android_security_cts_MMapExecutableTest(JNIEnv* env);
 extern int register_android_security_cts_EncryptionTest(JNIEnv* env);
 
@@ -48,7 +49,11 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     }
 
-    if (register_android_security_cts_KernelSettingsTest(env)) {
+    if (register_android_security_cts_SeccompTest(env)) {
+        return JNI_ERR;
+    }
+
+     if (register_android_security_cts_KernelSettingsTest(env)) {
         return JNI_ERR;
     }
 

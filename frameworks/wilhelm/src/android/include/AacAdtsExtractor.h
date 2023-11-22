@@ -73,7 +73,7 @@ private:
 
 class AacAdtsExtractor : public MediaExtractor {
 public:
-    AacAdtsExtractor(const sp<DataSource> &source);
+    explicit AacAdtsExtractor(const sp<DataSource> &source);
 
     virtual size_t countTracks();
     virtual sp<IMediaSource> getTrack(size_t index);

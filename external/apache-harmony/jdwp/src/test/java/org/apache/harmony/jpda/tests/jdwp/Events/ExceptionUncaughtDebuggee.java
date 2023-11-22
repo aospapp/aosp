@@ -38,6 +38,7 @@ public class ExceptionUncaughtDebuggee extends SyncDebuggee {
         runDebuggee(ExceptionUncaughtDebuggee.class);
     }
 
+    @Override
     public void run() {
         logWriter.println("-- ExceptionUncaughtDebuggee: STARTED");
 
@@ -51,6 +52,7 @@ public class ExceptionUncaughtDebuggee extends SyncDebuggee {
         logWriter.println("-- ExceptionUncaughtDebuggee: SGNL_CONTINUE has been received!");
 
         Thread t = new Thread(new Runnable() {
+            @Override
             public void run() {
                 // Catch a different exception to test catch location is properly reported.
                 try {

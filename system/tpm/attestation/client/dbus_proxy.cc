@@ -57,12 +57,8 @@ void DBusProxy::CreateGoogleAttestedKey(
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kCreateGoogleAttestedKey,
-      callback,
-      base::Bind(on_error),
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kCreateGoogleAttestedKey, callback, base::Bind(on_error),
       request);
 }
 
@@ -74,13 +70,8 @@ void DBusProxy::GetKeyInfo(const GetKeyInfoRequest& request,
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kGetKeyInfo,
-      callback,
-      base::Bind(on_error),
-      request);
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kGetKeyInfo, callback, base::Bind(on_error), request);
 }
 
 void DBusProxy::GetEndorsementInfo(const GetEndorsementInfoRequest& request,
@@ -91,12 +82,8 @@ void DBusProxy::GetEndorsementInfo(const GetEndorsementInfoRequest& request,
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kGetEndorsementInfo,
-      callback,
-      base::Bind(on_error),
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kGetEndorsementInfo, callback, base::Bind(on_error),
       request);
 }
 
@@ -109,12 +96,8 @@ void DBusProxy::GetAttestationKeyInfo(
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kGetAttestationKeyInfo,
-      callback,
-      base::Bind(on_error),
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kGetAttestationKeyInfo, callback, base::Bind(on_error),
       request);
 }
 
@@ -127,12 +110,8 @@ void DBusProxy::ActivateAttestationKey(
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kActivateAttestationKey,
-      callback,
-      base::Bind(on_error),
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kActivateAttestationKey, callback, base::Bind(on_error),
       request);
 }
 
@@ -145,12 +124,8 @@ void DBusProxy::CreateCertifiableKey(
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kCreateCertifiableKey,
-      callback,
-      base::Bind(on_error),
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kCreateCertifiableKey, callback, base::Bind(on_error),
       request);
 }
 
@@ -162,13 +137,8 @@ void DBusProxy::Decrypt(const DecryptRequest& request,
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kDecrypt,
-      callback,
-      base::Bind(on_error),
-      request);
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kDecrypt, callback, base::Bind(on_error), request);
 }
 
 void DBusProxy::Sign(const SignRequest& request, const SignCallback& callback) {
@@ -178,13 +148,8 @@ void DBusProxy::Sign(const SignRequest& request, const SignCallback& callback) {
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kSign,
-      callback,
-      base::Bind(on_error),
-      request);
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kSign, callback, base::Bind(on_error), request);
 }
 
 void DBusProxy::RegisterKeyWithChapsToken(
@@ -196,12 +161,8 @@ void DBusProxy::RegisterKeyWithChapsToken(
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      attestation::kAttestationInterface,
-      attestation::kRegisterKeyWithChapsToken,
-      callback,
-      base::Bind(on_error),
+      kDBusTimeoutMS, object_proxy_, attestation::kAttestationInterface,
+      attestation::kRegisterKeyWithChapsToken, callback, base::Bind(on_error),
       request);
 }
 

@@ -7,10 +7,10 @@ RewriteEngine On
 RewriteCond %{REQUEST_URI} ^/results/([0-9].*)$
 RewriteCond /usr/local/autotest/%{REQUEST_URI} !-f
 RewriteCond /usr/local/autotest/%{REQUEST_URI} !-d
-RewriteRule ^/results/([0-9].*) https://storage.cloud.google.com/chromeos-autotest-results/$1 [R=301,L]
+RewriteRule ^/results/([0-9].*) https://pantheon.corp.google.com/storage/browser/chromeos-autotest-results/$1 [R=301,L]
 
 # Redirect special task result url.
 RewriteCond %{REQUEST_URI} ^/results/(hosts/.*)$
 RewriteCond /usr/local/autotest/%{REQUEST_URI} !-f
 RewriteCond /usr/local/autotest/%{REQUEST_URI} !-d
-RewriteRule ^/results/hosts/(.*/[0-9].*) https://storage.cloud.google.com/chromeos-autotest-results/hosts/$1 [R=301,L]
+RewriteRule ^/results/hosts/(.*/[0-9].*) https://pantheon.corp.google.com/storage/browser/chromeos-autotest-results/hosts/$1 [R=301,L]

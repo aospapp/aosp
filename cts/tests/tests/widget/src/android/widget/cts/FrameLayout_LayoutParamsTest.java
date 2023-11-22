@@ -16,25 +16,39 @@
 
 package android.widget.cts;
 
-import android.view.Gravity;
-import android.widget.cts.R;
+import static org.junit.Assert.assertEquals;
 
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
-import android.cts.util.WidgetTestUtils;
-import android.test.AndroidTestCase;
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
+import android.view.Gravity;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 
-public class FrameLayout_LayoutParamsTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class FrameLayout_LayoutParamsTest {
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
 
     private AttributeSet getAttributeSet() throws XmlPullParserException, IOException {
         XmlPullParser parser = mContext.getResources().getLayout(R.layout.framelayout_layout);
@@ -42,6 +56,7 @@ public class FrameLayout_LayoutParamsTest extends AndroidTestCase {
         return Xml.asAttributeSet(parser);
     }
 
+    @Test
     public void testConstructor() throws XmlPullParserException, IOException {
         AttributeSet attrs = getAttributeSet();
 
@@ -52,31 +67,26 @@ public class FrameLayout_LayoutParamsTest extends AndroidTestCase {
         new LayoutParams(new LayoutParams(mContext, attrs));
         new LayoutParams(new MarginLayoutParams(mContext, attrs));
 
-        try {
-            new LayoutParams(null, null);
-            fail("did not throw NullPointerException when context and attrs are null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
-
         new LayoutParams(-1, -1);
         new LayoutParams(-1, -1, -1);
-
-        try {
-            new LayoutParams((ViewGroup.LayoutParams) null);
-            fail("did not throw NullPointerException when ViewGroup.LayoutParams is null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
-
-        try {
-            new LayoutParams((ViewGroup.MarginLayoutParams) null);
-            fail("did not throw NullPointerException when ViewGroup.MarginLayoutParams is null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext() {
+        new LayoutParams(null, null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullViewGroupParams() {
+        new LayoutParams((ViewGroup.LayoutParams) null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullViewGroupMarginParams() {
+        new LayoutParams((ViewGroup.MarginLayoutParams) null);
+    }
+
+    @Test
     public void testCopyConstructor() {
         FrameLayout.LayoutParams copy;
 

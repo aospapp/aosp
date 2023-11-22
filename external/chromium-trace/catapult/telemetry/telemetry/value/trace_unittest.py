@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import codecs
+import json
 import os
 import shutil
 import tempfile
@@ -10,8 +12,9 @@ import unittest
 from telemetry import story
 from telemetry import page as page_module
 from telemetry.testing import system_stub
-from telemetry.timeline import trace_data
 from telemetry.value import trace
+from tracing_build import html2trace
+from tracing.trace_data import trace_data
 
 
 class TestBase(unittest.TestCase):
@@ -65,18 +68,33 @@ class TestDefaultDict(object):
 
 class ValueTest(TestBase):
   def testRepr(self):
-    v = trace.TraceValue(self.pages[0], trace_data.TraceData({'test': 1}),
+    v = trace.TraceValue(
+        self.pages[0], trace_data.CreateTraceDataFromRawData([{'test': 1}]),
                          important=True, description='desc')
 
     self.assertEquals('TraceValue(http://www.bar.com/, trace)', str(v))
 
+  def testTraceSerializationContainStoryName(self):
+    tempdir = tempfile.mkdtemp()
+    try:
+      v = trace.TraceValue(self.pages[0],
+                           trace_data.CreateTraceDataFromRawData([{'test': 1}]))
+      fh = v.Serialize(tempdir)
+      self.assertTrue(os.path.basename(fh.GetAbsPath()).startswith(
+          'http___www_bar_com'))
+    finally:
+      shutil.rmtree(tempdir)
+
   def testAsDictWhenTraceSerializedAndUploaded(self):
     tempdir = tempfile.mkdtemp()
     try:
-      v = trace.TraceValue(None, trace_data.TraceData({'test': 1}))
+      v = trace.TraceValue(None,
+                           trace_data.CreateTraceDataFromRawData([{'test': 1}]))
       fh = v.Serialize(tempdir)
+      # pylint: disable=no-member
       trace.cloud_storage.SetCalculatedHashesForTesting(
           {fh.GetAbsPath(): 123})
+      # pylint: enable=no-member
       bucket = trace.cloud_storage.PUBLIC_BUCKET
       cloud_url = v.UploadToCloud(bucket)
       d = v.AsDict()
@@ -88,9 +106,12 @@ class ValueTest(TestBase):
   def testAsDictWhenTraceIsNotSerializedAndUploaded(self):
     test_temp_file = tempfile.NamedTemporaryFile(delete=False)
     try:
-      v = trace.TraceValue(None, trace_data.TraceData({'test': 1}))
+      v = trace.TraceValue(None,
+                           trace_data.CreateTraceDataFromRawData([{'test': 1}]))
+      # pylint: disable=no-member
       trace.cloud_storage.SetCalculatedHashesForTesting(
           TestDefaultDict(123))
+      # pylint: enable=no-member
       bucket = trace.cloud_storage.PUBLIC_BUCKET
       cloud_url = v.UploadToCloud(bucket)
       d = v.AsDict()
@@ -99,6 +120,41 @@ class ValueTest(TestBase):
       if os.path.exists(test_temp_file.name):
         test_temp_file.close()
         os.remove(test_temp_file.name)
+
+  def testFindTraceParts(self):
+    raw_data = {
+      'powerTraceAsString': 'BattOr Data',
+      'traceEvents': [{'trace': 1}],
+      'tabIds': 'Tab Data',
+    }
+    data = trace_data.CreateTraceDataFromRawData(raw_data)
+    v = trace.TraceValue(None, data)
+    tempdir = tempfile.mkdtemp()
+    temp_path = os.path.join(tempdir, 'test.json')
+    battor_seen = False
+    chrome_seen = False
+    tabs_seen = False
+    try:
+      with codecs.open(v.filename, mode='r', encoding='utf-8') as f:
+        trace_files = html2trace.CopyTraceDataFromHTMLFilePath(f, temp_path)
+      for f in trace_files:
+        with open(f, 'r') as trace_file:
+          d = trace_file.read()
+          if d == raw_data['powerTraceAsString']:
+            self.assertFalse(battor_seen)
+            battor_seen = True
+          elif d == json.dumps({'traceEvents': raw_data['traceEvents']}):
+            self.assertFalse(chrome_seen)
+            chrome_seen = True
+          elif d == raw_data['tabIds']:
+            self.assertFalse(tabs_seen)
+            tabs_seen = True
+      self.assertTrue(battor_seen)
+      self.assertTrue(chrome_seen)
+      self.assertTrue(tabs_seen)
+    finally:
+      shutil.rmtree(tempdir)
+      os.remove(v.filename)
 
 
 def _IsEmptyDir(path):
@@ -114,12 +170,14 @@ class NoLeakedTempfilesTests(TestBase):
     trace.tempfile.tempdir = self.temp_test_dir
 
   def testNoLeakedTempFileOnImplicitCleanUp(self):
-    with trace.TraceValue(None, trace_data.TraceData({'test': 1})):
+    with trace.TraceValue(
+        None, trace_data.CreateTraceDataFromRawData([{'test': 1}])):
       pass
     self.assertTrue(_IsEmptyDir(self.temp_test_dir))
 
   def testNoLeakedTempFileWhenUploadingTrace(self):
-    v = trace.TraceValue(None, trace_data.TraceData({'test': 1}))
+    v = trace.TraceValue(
+        None, trace_data.CreateTraceDataFromRawData([{'test': 1}]))
     v.CleanUp()
     self.assertTrue(_IsEmptyDir(self.temp_test_dir))
 

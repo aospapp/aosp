@@ -32,5 +32,8 @@ public interface CarServiceBase {
     /** service should stop and all resources should be released. */
     void release();
 
+    /** Called when connection to Vehicle HAL was restored. */
+    default void vehicleHalReconnected() {}
+
     void dump(PrintWriter writer);
 }

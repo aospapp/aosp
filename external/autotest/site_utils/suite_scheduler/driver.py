@@ -7,16 +7,20 @@ import logging
 import time
 from multiprocessing import pool
 
-import base_event, board_enumerator, build_event
+import base_event, board_enumerator, build_event, deduping_scheduler
 import task, timed_event
 
 import common
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.client.common_lib import utils
 from autotest_lib.server import utils
 
-POOL_SIZE = 32
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
-_timer = autotest_stats.Timer('suite_scheduler')
+
+POOL_SIZE = 32
 
 class Driver(object):
     """Implements the main loop of the suite_scheduler.
@@ -34,6 +38,9 @@ class Driver(object):
                      build_event.NewBuild]
     _LOOP_INTERVAL_SECONDS = 5 * 60
 
+    # Cache for known ChromeOS boards. The cache helps to avoid unnecessary
+    # repeated calls to Launch Control API.
+    _cros_boards = set()
 
     def __init__(self, scheduler, enumerator, is_sanity=False):
         """Constructor
@@ -107,9 +114,9 @@ class Driver(object):
             if not base_event.HonoredSection(section):
                 try:
                     keyword, new_task = task.Task.CreateFromConfigSection(
-                        config, section)
+                            config, section)
                 except task.MalformedConfigEntry as e:
-                    logging.warning('%s is malformed: %s', section, e)
+                    logging.warning('%s is malformed: %s', section, str(e))
                     continue
                 tasks.setdefault(keyword, []).append(new_task)
         return tasks
@@ -128,10 +135,8 @@ class Driver(object):
                 self.HandleEventsOnce(mv)
             except board_enumerator.EnumeratorException as e:
                 logging.warning('Failed to enumerate boards: %r', e)
-            with _timer.get_client('manifest_versions_update'):
-                mv.Update()
-            with _timer.get_client('tot_milestone_manager_refresh'):
-                task.TotMilestoneManager().refresh()
+            mv.Update()
+            task.TotMilestoneManager().refresh()
             time.sleep(self._LOOP_INTERVAL_SECONDS)
             self.RereadAndReprocessConfig(config, mv)
 
@@ -150,14 +155,27 @@ class Driver(object):
         event = inputs['event']
         board = inputs['board']
 
-        logging.info('Handling %s event for board %s', event.keyword, board)
-        branch_builds = event.GetBranchBuildsForBoard(board)
-        event.Handle(scheduler, branch_builds, board)
+        # Try to get builds from LaunchControl first. If failed, the board could
+        # be ChromeOS. Use the cache Driver._cros_boards to avoid unnecessary
+        # repeated call to LaunchControl API.
+        launch_control_builds = None
+        if board not in Driver._cros_boards:
+            launch_control_builds = event.GetLaunchControlBuildsForBoard(board)
+        if launch_control_builds:
+            event.Handle(scheduler, branch_builds=None, board=board,
+                         launch_control_builds=launch_control_builds)
+        else:
+            branch_builds = event.GetBranchBuildsForBoard(board)
+            if branch_builds:
+                Driver._cros_boards.add(board)
+                logging.info('Found ChromeOS build for board %s. This should '
+                             'be a ChromeOS board.', board)
+            event.Handle(scheduler, branch_builds, board)
         logging.info('Finished handling %s event for board %s', event.keyword,
                      board)
 
-
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator('chromeos/autotest/suite_scheduler/'
+                                   'handle_events_once_duration')
     def HandleEventsOnce(self, mv):
         """One turn through the loop.  Separated out for unit testing.
 
@@ -171,6 +189,11 @@ class Driver(object):
             for e in self._events.itervalues():
                 if not e.ShouldHandle():
                     continue
+                # Reset the value of delay_minutes, as this is the beginning of
+                # handling an event for all boards.
+                self._scheduler.delay_minutes = 0
+                self._scheduler.delay_minutes_interval = (
+                        deduping_scheduler.DELAY_MINUTES_INTERVAL)
                 logging.info('Handling %s event for %d boards', e.keyword,
                              len(boards))
                 args = []
@@ -184,16 +207,33 @@ class Driver(object):
                 e.UpdateCriteria()
 
 
-    def ForceEventsOnceForBuild(self, keywords, build_name):
+    def ForceEventsOnceForBuild(self, keywords, build_name,
+                                os_type=task.OS_TYPE_CROS):
         """Force events with provided keywords to happen, with given build.
 
         @param keywords: iterable of event keywords to force
         @param build_name: instead of looking up builds to test, test this one.
+        @param os_type: Type of the OS to test, default to cros.
         """
-        board, type, milestone, manifest = utils.ParseBuildName(build_name)
-        branch_builds = {task.PickBranchName(type, milestone): [build_name]}
-        logging.info('Testing build R%s-%s on %s', milestone, manifest, board)
+        branch_builds = None
+        launch_control_builds = None
+        if os_type == task.OS_TYPE_CROS:
+            board, type, milestone, manifest = utils.ParseBuildName(build_name)
+            branch_builds = {task.PickBranchName(type, milestone): [build_name]}
+            logging.info('Testing build R%s-%s on %s', milestone, manifest,
+                         board)
+        else:
+            logging.info('Build is not a ChromeOS build, try to parse as a '
+                         'Launch Control build.')
+            _,target,_ = utils.parse_launch_control_build(build_name)
+            board = utils.parse_launch_control_target(target)[0]
+            # Translate board name in build target to the actual board name.
+            board = utils.ANDROID_TARGET_TO_BOARD_MAP.get(board, board)
+            launch_control_builds = [build_name]
+            logging.info('Testing Launch Control build %s on %s', build_name,
+                         board)
 
         for e in self._events.itervalues():
             if e.keyword in keywords:
-                e.Handle(self._scheduler, branch_builds, board, force=True)
+                e.Handle(self._scheduler, branch_builds, board, force=True,
+                         launch_control_builds=launch_control_builds)

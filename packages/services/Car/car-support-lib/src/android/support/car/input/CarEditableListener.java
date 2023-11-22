@@ -18,6 +18,7 @@ package android.support.car.input;
 /**
  * Callbacks from the {@link CarEditable} to the Car IME. These methods should be called on
  * the main thread.
+ * @hide
  */
 public interface CarEditableListener {
     /**

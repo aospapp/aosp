@@ -187,6 +187,7 @@ typedef ucontext_t unw_tdep_context_t;
   unw_tdep_context_t *unw_ctx = (uc);					\
   register uint64_t *unw_base asm ("x0") = (uint64_t*) unw_ctx->uc_mcontext.regs;		\
   __asm__ __volatile__ (						\
+     "1:\n" \
      "stp x0, x1, [%[base], #0]\n" \
      "stp x2, x3, [%[base], #16]\n" \
      "stp x4, x5, [%[base], #32]\n" \
@@ -204,8 +205,9 @@ typedef ucontext_t unw_tdep_context_t;
      "stp x28, x29, [%[base], #224]\n" \
      "str x30, [%[base], #240]\n" \
      "mov x1, sp\n" \
-     "stp x1, x30, [%[base], #248]\n" \
-     : [base] "+r" (unw_base) : : "x1", "memory"); \
+     "adr x2, 1b\n" \
+     "stp x1, x2, [%[base], #248]\n" \
+     : [base] "+r" (unw_base) : : "x1", "x2", "memory"); \
   }), 0)
 /* End of ANDROID update. */
 #define unw_tdep_is_fpreg		UNW_ARCH_OBJ(is_fpreg)

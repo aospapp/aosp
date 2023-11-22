@@ -5,7 +5,6 @@
 AUTHOR = 'pstew, wiley, quiche'
 NAME = 'network_VPNConnect.openvpn_user_pass'
 ATTRIBUTES = "suite:bvt-perbuild, suite:network_nightly"
-SUITE = 'bvt-perbuild, network_nightly'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

@@ -37,6 +37,7 @@ class DedupingSchedulerTest(mox.MoxTestBase):
     _NUM = 2
     _PRIORITY = priorities.Priority.POSTBUILD
     _TIMEOUT = 24
+    _TIMEOUT_MINS = 1440
 
 
     def setUp(self):
@@ -68,9 +69,10 @@ class DedupingSchedulerTest(mox.MoxTestBase):
         # Lab is UP!
         self._SetupLabStatus(self._BUILD)
         # A similar suite has not already been scheduled.
-        self.afe.get_jobs(name__startswith=self._BUILD,
-                          name__endswith='control.'+self._SUITE,
-                          created_on__gte=mox.IgnoreArg()).AndReturn([])
+        self.afe.get_jobs(name__istartswith=self._BUILD,
+                          name__iendswith='control.'+self._SUITE,
+                          created_on__gte=mox.IgnoreArg(),
+                          min_rpc_timeout=mox.IgnoreArg()).AndReturn([])
         # Expect an attempt to schedule; allow it to succeed.
         self.afe.run('create_suite_job',
                      name=self._SUITE,
@@ -82,9 +84,14 @@ class DedupingSchedulerTest(mox.MoxTestBase):
                      priority=self._PRIORITY,
                      test_source_build=None,
                      timeout=self._TIMEOUT,
+                     max_runtime_mins=self._TIMEOUT_MINS,
+                     timeout_mins=self._TIMEOUT_MINS,
                      file_bugs=False,
                      wait_for_results=False,
-                     job_retry=False).AndReturn(7)
+                     job_retry=False,
+                     delay_minutes=0,
+                     run_prod_code=False,
+                     min_rpc_timeout=mox.IgnoreArg()).AndReturn(7)
         self.mox.ReplayAll()
         self.assertTrue(self.scheduler.ScheduleSuite(self._SUITE,
                                                      self._BOARD,
@@ -101,9 +108,10 @@ class DedupingSchedulerTest(mox.MoxTestBase):
         self._SetupLabStatus(self._BUILD)
         # A similar suite has already been scheduled.
         self.afe.get_jobs(
-            name__startswith=self._BUILD,
-            name__endswith='control.'+self._SUITE,
-            created_on__gte=mox.IgnoreArg()).AndReturn(['42'])
+            name__istartswith=self._BUILD,
+            name__iendswith='control.'+self._SUITE,
+            created_on__gte=mox.IgnoreArg(),
+            min_rpc_timeout=mox.IgnoreArg()).AndReturn(['42'])
         self.mox.ReplayAll()
         self.assertFalse(self.scheduler.ScheduleSuite(self._SUITE,
                                                       self._BOARD,
@@ -141,9 +149,14 @@ class DedupingSchedulerTest(mox.MoxTestBase):
                      priority=self._PRIORITY,
                      test_source_build=None,
                      timeout=self._TIMEOUT,
+                     max_runtime_mins=self._TIMEOUT_MINS,
+                     timeout_mins=self._TIMEOUT_MINS,
                      file_bugs=False,
                      wait_for_results=False,
-                     job_retry=False).AndReturn(7)
+                     job_retry=False,
+                     delay_minutes=0,
+                     run_prod_code=False,
+                     min_rpc_timeout=mox.IgnoreArg()).AndReturn(7)
         self.mox.ReplayAll()
         self.assertTrue(self.scheduler.ScheduleSuite(self._SUITE,
                                                      self._BOARD,
@@ -161,9 +174,10 @@ class DedupingSchedulerTest(mox.MoxTestBase):
         self._SetupLabStatus(self._BUILD)
         # Barf while checking for similar suites.
         self.afe.get_jobs(
-            name__startswith=self._BUILD,
-            name__endswith='control.'+self._SUITE,
-            created_on__gte=mox.IgnoreArg()).AndRaise(Exception())
+            name__istartswith=self._BUILD,
+            name__iendswith='control.'+self._SUITE,
+            created_on__gte=mox.IgnoreArg(),
+            min_rpc_timeout=mox.IgnoreArg()).AndRaise(Exception())
         self.mox.ReplayAll()
         self.assertRaises(deduping_scheduler.DedupException,
                           self.scheduler.ScheduleSuite,
@@ -181,9 +195,10 @@ class DedupingSchedulerTest(mox.MoxTestBase):
         # Lab is UP!
         self._SetupLabStatus(self._BUILD)
         # A similar suite has not already been scheduled.
-        self.afe.get_jobs(name__startswith=self._BUILD,
-                          name__endswith='control.'+self._SUITE,
-                          created_on__gte=mox.IgnoreArg()).AndReturn([])
+        self.afe.get_jobs(name__istartswith=self._BUILD,
+                          name__iendswith='control.'+self._SUITE,
+                          created_on__gte=mox.IgnoreArg(),
+                          min_rpc_timeout=mox.IgnoreArg()).AndReturn([])
         # Expect an attempt to create a job for the suite; fail it.
         self.afe.run('create_suite_job',
                      name=self._SUITE,
@@ -195,8 +210,12 @@ class DedupingSchedulerTest(mox.MoxTestBase):
                      priority=self._PRIORITY,
                      test_source_build=None,
                      timeout=self._TIMEOUT,
+                     max_runtime_mins=self._TIMEOUT_MINS,
+                     timeout_mins=self._TIMEOUT_MINS,
                      file_bugs=False,
-                     wait_for_results=False).AndReturn(None)
+                     wait_for_results=False,
+                     run_prod_code=False,
+                     min_rpc_timeout=mox.IgnoreArg()).AndReturn(None)
         self.mox.ReplayAll()
         self.assertRaises(deduping_scheduler.ScheduleException,
                           self.scheduler.ScheduleSuite,
@@ -214,9 +233,10 @@ class DedupingSchedulerTest(mox.MoxTestBase):
         # Lab is UP!
         self._SetupLabStatus(self._BUILD)
         # A similar suite has not already been scheduled.
-        self.afe.get_jobs(name__startswith=self._BUILD,
-                          name__endswith='control.'+self._SUITE,
-                          created_on__gte=mox.IgnoreArg()).AndReturn([])
+        self.afe.get_jobs(name__istartswith=self._BUILD,
+                          name__iendswith='control.'+self._SUITE,
+                          created_on__gte=mox.IgnoreArg(),
+                          min_rpc_timeout=mox.IgnoreArg()).AndReturn([])
         # Expect an attempt to create a job for the suite; barf on it.
         self.afe.run('create_suite_job',
                      name=self._SUITE,
@@ -228,8 +248,12 @@ class DedupingSchedulerTest(mox.MoxTestBase):
                      priority=self._PRIORITY,
                      test_source_build=None,
                      timeout=self._TIMEOUT,
+                     max_runtime_mins=self._TIMEOUT_MINS,
+                     timeout_mins=self._TIMEOUT_MINS,
                      file_bugs=False,
-                     wait_for_results=False).AndRaise(Exception())
+                     wait_for_results=False,
+                     run_prod_code=False,
+                     min_rpc_timeout=mox.IgnoreArg()).AndRaise(Exception())
         self.mox.ReplayAll()
         self.assertRaises(deduping_scheduler.ScheduleException,
                           self.scheduler.ScheduleSuite,
@@ -253,15 +277,16 @@ class DedupingSchedulerTest(mox.MoxTestBase):
         self.mox.StubOutWithMock(reporting.Reporter, '__init__')
         self.mox.StubOutWithMock(reporting.Reporter, '_create_bug_report')
         self.mox.StubOutWithMock(reporting.Reporter, '_check_tracker')
-        self.mox.StubOutWithMock(reporting.Reporter, 'find_issue_by_marker')
+        self.mox.StubOutWithMock(reporting.Reporter, '_find_issue_by_marker')
         self.mox.StubOutWithMock(site_utils, 'get_sheriffs')
         self.scheduler._file_bug = True
         # Lab is UP!
         self._SetupLabStatus(self._BUILD)
         # A similar suite has not already been scheduled.
-        self.afe.get_jobs(name__startswith=self._BUILD,
-                          name__endswith='control.'+self._SUITE,
-                          created_on__gte=mox.IgnoreArg()).AndReturn([])
+        self.afe.get_jobs(name__istartswith=self._BUILD,
+                          name__iendswith='control.'+self._SUITE,
+                          created_on__gte=mox.IgnoreArg(),
+                          min_rpc_timeout=mox.IgnoreArg()).AndReturn([])
         message = 'Control file not found.'
         exception = error.ControlFileNotFound(message)
         site_utils.get_sheriffs(lab_only=True).AndReturn(['deputy1', 'deputy2'])
@@ -275,12 +300,18 @@ class DedupingSchedulerTest(mox.MoxTestBase):
                      priority=self._PRIORITY,
                      test_source_build=None,
                      timeout=self._TIMEOUT,
+                     max_runtime_mins=self._TIMEOUT_MINS,
+                     timeout_mins=self._TIMEOUT_MINS,
                      file_bugs=False,
                      wait_for_results=False,
-                     job_retry=False).AndRaise(exception)
+                     job_retry=False,
+                     delay_minutes=0,
+                     run_prod_code=False,
+                     min_rpc_timeout=mox.IgnoreArg()).AndRaise(exception)
         reporting.Reporter.__init__()
         reporting.Reporter._check_tracker().AndReturn(True)
-        reporting.Reporter.find_issue_by_marker(mox.IgnoreArg()).AndReturn(None)
+        (reporting.Reporter._find_issue_by_marker(mox.IgnoreArg())
+         .AndReturn(None))
         reporting.Reporter._create_bug_report(
                 mox.IgnoreArg(), {}, []).AndReturn(mock_bug_id)
 

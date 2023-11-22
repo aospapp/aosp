@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -16,6 +18,8 @@ import java.text.FieldPosition;
 import java.text.ParsePosition;
 import java.util.Date;
 
+import org.junit.Test;
+
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.NumberFormat;
@@ -27,16 +31,12 @@ import com.ibm.icu.text.SimpleDateFormat;
  * verifies that it works on a basic level.
  */
 public class IntlTestDateFormatAPIC extends com.ibm.icu.dev.test.TestFmwk {
-    
-    public static void main(String[] args)  throws Exception {
-        new IntlTestDateFormatAPIC().run(args);
-    }
-    
     /**
      * Test hiding of parse() and format() APIs in the Format hierarchy.
      * We test the entire hierarchy, even though this test is located in
      * the DateFormat API test.
      */
+    @Test
     public void TestNameHiding() {
     
         // N.B.: This test passes if it COMPILES, since it's a test of

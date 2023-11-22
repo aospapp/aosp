@@ -86,21 +86,16 @@ public:
 public:
     /* Next frame is available in the camera device.
      * This is a notification callback that is invoked by the camera device when
-     * a new frame is available.
+     * a new frame is available. The frame is available through the |camera_dev|
+     * object. Remember to use an EmulatedCameraDevice::FrameLock object to
+     * protect access to the frame while using it.
      * Note that most likely this method is called in context of a worker thread
      * that camera device has created for frame capturing.
      * Param:
-     *  frame - Captured frame, or NULL if camera device didn't pull the frame
-     *      yet. If NULL is passed in this parameter use GetCurrentFrame method
-     *      of the camera device class to obtain the next frame. Also note that
-     *      the size of the frame that is passed here (as well as the frame
-     *      returned from the GetCurrentFrame method) is defined by the current
-     *      frame settings (width + height + pixel format) for the camera device.
      * timestamp - Frame's timestamp.
      * camera_dev - Camera device instance that delivered the frame.
      */
-    void onNextFrameAvailable(const void* frame,
-                              nsecs_t timestamp,
+    void onNextFrameAvailable(nsecs_t timestamp,
                               EmulatedCameraDevice* camera_dev);
 
     /***************************************************************************
@@ -127,10 +122,6 @@ protected:
      */
     bool adjustPreviewDimensions(EmulatedCameraDevice* camera_dev);
 
-    /* Checks if it's the time to push new frame to the preview window.
-     * Note that this method must be called while object is locked. */
-    bool isPreviewTime();
-
     /***************************************************************************
      * Data members
      **************************************************************************/
@@ -141,13 +132,6 @@ protected:
 
     /* Preview window instance. */
     preview_stream_ops*             mPreviewWindow;
-
-    /* Timestamp (abs. microseconds) when last frame has been pushed to the
-     * preview window. */
-    uint64_t                        mLastPreviewed;
-
-    /* Preview frequency in microseconds. */
-    uint32_t                        mPreviewAfter;
 
     /*
      * Cached preview window frame dimensions.

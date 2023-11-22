@@ -44,6 +44,7 @@ public class ModifiersTest extends JDWPSyncTestCase {
     static final String debuggeeInterfaceSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorldInterface;";
     static final String debuggeeInterfaceClassName = "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorldInterface";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

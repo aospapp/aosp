@@ -4,6 +4,7 @@
 
 import itertools
 import logging
+import re
 import time
 
 from autotest_lib.client.common_lib import error
@@ -17,7 +18,7 @@ class touch_TapSettings(touch_playback_test_base.touch_playback_test_base):
 
     _TEST_TIMEOUT = 1  # Number of seconds the test will wait for a click.
     _MOUSE_DESCRIPTION = 'apple_mouse.prop'
-    _CLICK_NAME = 'tap-click'
+    _CLICK_NAME = 'tap'
     _DRAG_NAME = 'tap-drag-right'
 
 
@@ -29,11 +30,12 @@ class touch_TapSettings(touch_playback_test_base.touch_playback_test_base):
 
         """
         expected_count = 1 if expected else 0
-        self._reload_page()
+        self._events.clear_previous_events()
         self._playback(self._filepaths[self._CLICK_NAME])
         time.sleep(self._TEST_TIMEOUT)
-        actual_count = int(self._tab.EvaluateJavaScript('clickCount'))
+        actual_count = self._events.get_click_count()
         if actual_count is not expected_count:
+            self._events.log_events()
             raise error.TestFail('Expected clicks=%s, actual=%s.'
                                  % (expected_count, actual_count))
 
@@ -45,13 +47,23 @@ class touch_TapSettings(touch_playback_test_base.touch_playback_test_base):
         @raises: TestFail if actual value does not match expected.
 
         """
-        self._reload_page()
-        self._wait_for_page_ready()
+        self._events.clear_previous_events()
         self._blocking_playback(self._filepaths[self._DRAG_NAME])
-        actual = self._tab.EvaluateJavaScript('movementOccurred')
+        self._events.wait_for_events_to_complete()
+
+        # Find a drag in the reported input events.
+        events_log = self._events.get_events_log()
+        log_search = re.search('mousedown.*\n(mousemove.*\n)+mouseup',
+                               events_log, re.MULTILINE)
+        actual_dragging = log_search != None
+        actual_click_count = self._events.get_click_count()
+        actual = actual_dragging and actual_click_count == 1
+
         if actual is not expected:
-            raise error.TestFail('Tap dragging movement was %s; expected %s.'
-                                 % (actual, expected))
+            self._events.log_events()
+            raise error.TestFail('Tap dragging movement was %s; expected %s.  '
+                                 'Saw %s clicks.'
+                                 % (actual, expected, actual_click_count))
 
 
     def _is_testable(self):
@@ -80,10 +92,11 @@ class touch_TapSettings(touch_playback_test_base.touch_playback_test_base):
             return
 
         # Log in and start test.
-        with chrome.Chrome(autotest_ext=True) as cr:
+        with chrome.Chrome(autotest_ext=True,
+                           init_network_controller=True) as cr:
             # Setup.
             self._set_autotest_ext(cr.autotest_ext)
-            self._open_test_page(cr)
+            self._open_events_page(cr)
             self._emulate_mouse()
             self._center_cursor()
 

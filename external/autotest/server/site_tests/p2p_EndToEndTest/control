@@ -17,7 +17,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 BUG_TEMPLATE = {
     'cc': ['chromeos-installer-alerts@google.com'],
-    'labels': ['Cr-Internals-Installer'],
+    'components': ['Internals>Installer'],
 }
 
 DOC = """

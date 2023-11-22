@@ -57,12 +57,11 @@
 #include <openssl/err.h>
 
 
-/* Returns 'ret' such that
- *      ret^2 == a (mod p),
- * using the Tonelli/Shanks algorithm (cf. Henri Cohen, "A Course
- * in Algebraic Computational Number Theory", algorithm 1.5.1).
- * 'p' must be prime! */
 BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
+  /* Compute a square root of |a| mod |p| using the Tonelli/Shanks algorithm
+   * (cf. Henri Cohen, "A Course in Algebraic Computational Number Theory",
+   * algorithm 1.5.1). |p| is assumed to be a prime. */
+
   BIGNUM *ret = in;
   int err = 1;
   int r;
@@ -149,7 +148,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
     }
     q->neg = 0;
     if (!BN_add_word(q, 1) ||
-        !BN_mod_exp(ret, A, q, p, ctx)) {
+        !BN_mod_exp_mont(ret, A, q, p, ctx, NULL)) {
       goto end;
     }
     err = 0;
@@ -194,7 +193,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
       goto end;
     }
     q->neg = 0;
-    if (!BN_mod_exp(b, t, q, p, ctx)) {
+    if (!BN_mod_exp_mont(b, t, q, p, ctx, NULL)) {
       goto end;
     }
 
@@ -282,7 +281,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
 
   /* Now that we have some non-square, we can find an element
    * of order  2^e  by computing its q'th power. */
-  if (!BN_mod_exp(y, y, q, p, ctx)) {
+  if (!BN_mod_exp_mont(y, y, q, p, ctx, NULL)) {
     goto end;
   }
   if (BN_is_one(y)) {
@@ -328,7 +327,7 @@ BIGNUM *BN_mod_sqrt(BIGNUM *in, const BIGNUM *a, const BIGNUM *p, BN_CTX *ctx) {
       goto end;
     }
   } else {
-    if (!BN_mod_exp(x, A, t, p, ctx)) {
+    if (!BN_mod_exp_mont(x, A, t, p, ctx, NULL)) {
       goto end;
     }
     if (BN_is_zero(x)) {
@@ -457,7 +456,9 @@ int BN_sqrt(BIGNUM *out_sqrt, const BIGNUM *in, BN_CTX *ctx) {
   }
 
   /* We estimate that the square root of an n-bit number is 2^{n/2}. */
-  BN_lshift(estimate, BN_value_one(), BN_num_bits(in)/2);
+  if (!BN_lshift(estimate, BN_value_one(), BN_num_bits(in)/2)) {
+    goto err;
+  }
 
   /* This is Newton's method for finding a root of the equation |estimate|^2 -
    * |in| = 0. */

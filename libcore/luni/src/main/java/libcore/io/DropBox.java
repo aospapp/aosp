@@ -16,6 +16,8 @@
 
 package libcore.io;
 
+import java.util.Base64;
+
 public final class DropBox {
 
     /**
@@ -54,7 +56,7 @@ public final class DropBox {
     private static final class DefaultReporter implements Reporter {
 
         public void addData(String tag, byte[] data, int flags) {
-            System.out.println(tag + ": " + Base64.encode(data));
+            System.out.println(tag + ": " + Base64.getEncoder().encodeToString(data));
         }
 
         public void addText(String tag, String data) {

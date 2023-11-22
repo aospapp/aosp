@@ -17,11 +17,7 @@ package com.squareup.okhttp.internal.http;
 
 import com.squareup.okhttp.Address;
 import com.squareup.okhttp.HttpUrl;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Route;
-import com.squareup.okhttp.internal.Internal;
-import com.squareup.okhttp.internal.Network;
 import com.squareup.okhttp.internal.RouteDatabase;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -41,9 +37,6 @@ import java.util.NoSuchElementException;
  */
 public final class RouteSelector {
   private final Address address;
-  private final HttpUrl url;
-  private final Network network;
-  private final OkHttpClient client;
   private final RouteDatabase routeDatabase;
 
   /* The most recently attempted route. */
@@ -61,19 +54,11 @@ public final class RouteSelector {
   /* State for negotiating failed routes */
   private final List<Route> postponedRoutes = new ArrayList<>();
 
-  private RouteSelector(Address address, HttpUrl url, OkHttpClient client) {
+  public RouteSelector(Address address, RouteDatabase routeDatabase) {
     this.address = address;
-    this.url = url;
-    this.client = client;
-    this.routeDatabase = Internal.instance.routeDatabase(client);
-    this.network = Internal.instance.network(client);
+    this.routeDatabase = routeDatabase;
 
-    resetNextProxy(url, address.getProxy());
-  }
-
-  public static RouteSelector get(Address address, Request request, OkHttpClient client)
-      throws IOException {
-    return new RouteSelector(address, request.httpUrl(), client);
+    resetNextProxy(address.url(), address.getProxy());
   }
 
   /**
@@ -117,7 +102,7 @@ public final class RouteSelector {
     if (failedRoute.getProxy().type() != Proxy.Type.DIRECT && address.getProxySelector() != null) {
       // Tell the proxy selector when we fail to connect on a fresh connection.
       address.getProxySelector().connectFailed(
-          url.uri(), failedRoute.getProxy().address(), failure);
+          address.url().uri(), failedRoute.getProxy().address(), failure);
     }
 
     routeDatabase.failed(failedRoute);
@@ -132,7 +117,7 @@ public final class RouteSelector {
       // Try each of the ProxySelector choices until one connection succeeds. If none succeed
       // then we'll try a direct connection below.
       proxies = new ArrayList<>();
-      List<Proxy> selectedProxies = client.getProxySelector().select(url.uri());
+      List<Proxy> selectedProxies = address.getProxySelector().select(url.uri());
       if (selectedProxies != null) proxies.addAll(selectedProxies);
       // Finally try a direct connection. We only try it once!
       proxies.removeAll(Collections.singleton(Proxy.NO_PROXY));
@@ -149,7 +134,7 @@ public final class RouteSelector {
   /** Returns the next proxy to try. May be PROXY.NO_PROXY but never null. */
   private Proxy nextProxy() throws IOException {
     if (!hasNextProxy()) {
-      throw new SocketException("No route to " + address.getRfc2732Host()
+      throw new SocketException("No route to " + address.getUriHost()
           + "; exhausted proxy configurations: " + proxies);
     }
     Proxy result = proxies.get(nextProxyIndex++);
@@ -165,7 +150,7 @@ public final class RouteSelector {
     String socketHost;
     int socketPort;
     if (proxy.type() == Proxy.Type.DIRECT || proxy.type() == Proxy.Type.SOCKS) {
-      socketHost = address.getRfc2732Host();
+      socketHost = address.getUriHost();
       socketPort = address.getUriPort();
     } else {
       SocketAddress proxyAddress = proxy.address();
@@ -183,9 +168,15 @@ public final class RouteSelector {
           + "; port is out of range");
     }
 
-    // Try each address for best behavior in mixed IPv4/IPv6 environments.
-    for (InetAddress inetAddress : network.resolveInetAddresses(socketHost)) {
-      inetSocketAddresses.add(new InetSocketAddress(inetAddress, socketPort));
+    if (proxy.type() == Proxy.Type.SOCKS) {
+      inetSocketAddresses.add(InetSocketAddress.createUnresolved(socketHost, socketPort));
+    } else {
+      // Try each address for best behavior in mixed IPv4/IPv6 environments.
+      List<InetAddress> addresses = address.getDns().lookup(socketHost);
+      for (int i = 0, size = addresses.size(); i < size; i++) {
+        InetAddress inetAddress = addresses.get(i);
+        inetSocketAddresses.add(new InetSocketAddress(inetAddress, socketPort));
+      }
     }
 
     nextInetSocketAddressIndex = 0;
@@ -217,7 +208,7 @@ public final class RouteSelector {
   /** Returns the next socket address to try. */
   private InetSocketAddress nextInetSocketAddress() throws IOException {
     if (!hasNextInetSocketAddress()) {
-      throw new SocketException("No route to " + address.getRfc2732Host()
+      throw new SocketException("No route to " + address.getUriHost()
           + "; exhausted inet socket addresses: " + inetSocketAddresses);
     }
     return inetSocketAddresses.get(nextInetSocketAddressIndex++);

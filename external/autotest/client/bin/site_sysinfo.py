@@ -67,6 +67,7 @@ class logdir(base_sysinfo.loggable):
                 additional_exclude_str = "--exclude=" + self.additional_exclude
 
             utils.system("rsync --no-perms --chmod=ugo+r -a --exclude=autoserv*"
+                         " --safe-links"
                          " %s %s %s%s" % (additional_exclude_str, self.dir,
                                           log_dir, parent_dir))
 
@@ -215,9 +216,9 @@ class diffable_logdir(logdir):
         if collect_init_status:
             self._get_init_status_of_src_dir(self.dir)
         elif os.path.exists(self.dir):
-            if not collect_all:
-                self._log_diff(self.dir, log_dir)
-            else:
+            # Always create a copy of the new logs to help debugging.
+            self._log_diff(self.dir, log_dir)
+            if collect_all:
                 logdir_temp = logdir(self.dir)
                 logdir_temp.run(log_dir)
 
@@ -304,9 +305,6 @@ class site_sysinfo(base_sysinfo.base_sysinfo):
         for log in self.diffable_loggables:
             log.run(log_dir=None, collect_init_status=True)
 
-        # Start each log with the board name for orientation.
-        logging.info("ChromeOS BOARD = %s",
-                     utils.get_board_with_frequency_and_memory())
 
     @log.log_and_ignore_errors("post-test sysinfo error:")
     def log_after_each_test(self, test):

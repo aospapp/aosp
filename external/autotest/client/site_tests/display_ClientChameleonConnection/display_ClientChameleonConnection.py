@@ -31,8 +31,7 @@ class display_ClientChameleonConnection(test.test):
 
             chameleon_board = chameleon.create_chameleon_board(host.hostname,
                                                                args)
-            chameleon_board.reset()
-
+            chameleon_board.setup_and_reset(self.outputdir)
             finder = chameleon_port_finder.ChameleonVideoInputFinder(
                     chameleon_board, display_facade)
             ports = finder.find_all_ports()

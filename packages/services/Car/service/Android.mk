@@ -21,9 +21,11 @@ ifneq ($(TARGET_BUILD_PDK),true)
 
 LOCAL_PATH:= $(call my-dir)
 
+car_service_sources := $(call all-java-files-under, src)
+
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(car_service_sources)
 
 LOCAL_PACKAGE_NAME := CarService
 
@@ -35,9 +37,11 @@ LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_JAVA_LIBRARIES += android.car
-LOCAL_STATIC_JAVA_LIBRARIES += libvehiclenetwork-java car-systemtest
-
-LOCAL_JNI_SHARED_LIBRARIES := libjni_car_service
+LOCAL_STATIC_JAVA_LIBRARIES += \
+        android.hardware.automotive.vehicle-V2.0-java-static \
+        android.hardware.automotive.vehicle-V2.1-java-static \
+        vehicle-hal-support-lib \
+        car-systemtest \
 
 include $(BUILD_PACKAGE)
 
@@ -46,13 +50,17 @@ include $(BUILD_PACKAGE)
 #####################################################################################
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(car_service_sources)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_MODULE := car-service-lib-for-test
 
 LOCAL_JAVA_LIBRARIES += android.car
-LOCAL_STATIC_JAVA_LIBRARIES += libvehiclenetwork-java car-systemtest
+LOCAL_STATIC_JAVA_LIBRARIES += \
+        android.hardware.automotive.vehicle-V2.0-java-static \
+        android.hardware.automotive.vehicle-V2.1-java-static \
+        vehicle-hal-support-lib \
+        car-systemtest \
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

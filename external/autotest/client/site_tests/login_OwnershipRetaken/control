@@ -5,7 +5,6 @@
 AUTHOR = "cmasone, mnissler"
 NAME = "login_OwnershipRetaken"
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"

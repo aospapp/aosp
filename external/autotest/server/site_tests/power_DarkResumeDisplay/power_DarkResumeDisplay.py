@@ -34,9 +34,17 @@ class power_DarkResumeDisplay(test.test):
         logging.info('Checking platform %s for compatibility with display test',
                      platform)
 
+        # TODO(seanpaul) Look at backporting i915_crtc_errors accounting to
+        # other kernels.
+        kernel_ver = host.run('uname -r').stdout.rstrip()
+        logging.info('kernel version is %s', kernel_ver)
+        if not kernel_ver.startswith('3.14') and \
+           not kernel_ver.startswith('3.18'):
+            raise error.TestNAError('Test support on 3.14 | 3.18 kernels only')
+
         client_attr = FAFTConfig(platform)
         if client_attr.dark_resume_capable == False:
-            raise error.TestError('platform is not capable of dark resume')
+            raise error.TestNAError('platform is not capable of dark resume')
 
         cmd = host.run('test -r %s' % ERROR_FILE, ignore_status=True)
         logging.info("node_exists=%s", str(cmd.exit_status))
@@ -85,15 +93,14 @@ class power_DarkResumeDisplay(test.test):
 
         pre_err_count = self.get_crtc_error_count(host)
 
-        """The DUT will perform a dark resume every SUSPEND_DURATION seconds
-           while it is suspended. Suspend the device and wait for the amount
-           of time to have performed NUM_DARK_RESUMES, plus half the
-           SUSPEND_DURATION to ensure the last dark resume has a chance to
-           complete.
-        """
+        # The DUT will perform a dark resume every SUSPEND_DURATION seconds
+        # while it is suspended. Suspend the device and wait for the amount
+        # of time to have performed NUM_DARK_RESUMES, plus half the
+        # SUSPEND_DURATION to ensure the last dark resume has a chance to
+        # complete.
         wait_time = SUSPEND_DURATION * NUM_DARK_RESUMES + SUSPEND_DURATION / 2
         logging.info('suspending host, and waiting %ds', wait_time)
-        with self.dark_resume_utils.suspend() as suspend_ctx:
+        with self.dark_resume_utils.suspend() as _:
             time.sleep(wait_time)
 
         dark_resume_count = self.dark_resume_utils.count_dark_resumes()
@@ -114,6 +121,6 @@ class power_DarkResumeDisplay(test.test):
                          pre_err_count[k]['pipe'], pre)
 
 
-    def cleanup(self, host):
+    def cleanup(self, _):
         self.dark_resume_utils.teardown()
 

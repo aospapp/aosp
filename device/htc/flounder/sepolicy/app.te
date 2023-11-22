@@ -1,2 +1,0 @@
-allow appdomain sysfs_gpu:file r_file_perms;
-allow appdomain sysfs_socinfo:file r_file_perms;

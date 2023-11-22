@@ -85,7 +85,7 @@ maintain low pauses but has the disadvantage of having longer collections for
 heaps with complex object graphs.
 </ul>
 
-<p>The other main other area where the ART GC is different than Dalvik is the
+<p>The other main area where the ART GC is different than Dalvik is the
 introduction of moving garbage collectors. The goal of moving GCs is to
 reduce memory usage of backgrounded apps through heap compaction. Currently,
 the event that triggers heap compaction is ActivityManager process-state

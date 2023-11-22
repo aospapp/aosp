@@ -927,6 +927,32 @@ public class Main {
     }
   }
 
+  /// CHECK-START: void Main.nonzeroLength(int[]) BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  //
+  /// CHECK-START: void Main.nonzeroLength(int[]) BCE (after)
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-NOT: Deoptimize
+  public static void nonzeroLength(int[] a) {
+    if (a.length != 0) {
+      a[0] = 112;
+    }
+  }
+
+  /// CHECK-START: void Main.knownLength(int[]) BCE (before)
+  /// CHECK-DAG: BoundsCheck
+  /// CHECK-DAG: BoundsCheck
+  //
+  /// CHECK-START: void Main.knownLength(int[]) BCE (after)
+  /// CHECK-NOT: BoundsCheck
+  /// CHECK-NOT: Deoptimize
+  public static void knownLength(int[] a) {
+    if (a.length == 2) {
+      a[0] = -1;
+      a[1] = -2;
+    }
+  }
+
   static int[][] mA;
 
   /// CHECK-START: void Main.dynamicBCEAndIntrinsic(int) BCE (before)
@@ -1022,6 +1048,8 @@ public class Main {
   /// CHECK: Goto
 
   void foo1(int[] array, int start, int end, boolean expectInterpreter) {
+    if (end < 0)
+      throw new Error("");
     // Three HDeoptimize will be added. Two for the index
     // and one for null check on array (to hoist null
     // check and array.length out of loop).
@@ -1060,6 +1088,8 @@ public class Main {
   /// CHECK: Goto
 
   void foo2(int[] array, int start, int end, boolean expectInterpreter) {
+    if (end < 0)
+      throw new Error("");
     // Three HDeoptimize will be added. Two for the index
     // and one for null check on array (to hoist null
     // check and array.length out of loop).
@@ -1098,6 +1128,8 @@ public class Main {
   /// CHECK: Goto
 
   void foo3(int[] array, int end, boolean expectInterpreter) {
+    if (end < 0)
+      throw new Error("");
     // Three HDeoptimize will be added. Two for the index
     // and one for null check on array (to hoist null check
     // and array.length out of loop).
@@ -1137,6 +1169,8 @@ public class Main {
   /// CHECK: Goto
 
   void foo4(int[] array, int end, boolean expectInterpreter) {
+    if (end < 0)
+      throw new Error("");
     // Three HDeoptimize will be added. Two for the index
     // and one for null check on array (to hoist null check
     // and array.length out of loop).
@@ -1178,20 +1212,19 @@ public class Main {
   /// CHECK: Deoptimize
   /// CHECK: Deoptimize
   /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
   /// CHECK-NOT: Deoptimize
   /// CHECK: Goto
   /// CHECK: Goto
   /// CHECK: Goto
 
   void foo5(int[] array, int end, boolean expectInterpreter) {
+    if (end < 0)
+      throw new Error("");
     // Bounds check in this loop can be eliminated without deoptimization.
     for (int i = array.length - 1 ; i >= 0; i--) {
       array[i] = 1;
     }
-    // Several HDeoptimize will be added. Two for each index.
+    // Three HDeoptimize will be added for the bounds.
     // The null check is not necessary.
     for (int i = end - 2 ; i > 0; i--) {
       if (expectInterpreter) {
@@ -1240,20 +1273,14 @@ public class Main {
   /// CHECK: Deoptimize
   /// CHECK: Deoptimize
   /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
-  /// CHECK: Deoptimize
   /// CHECK-NOT: Deoptimize
   /// CHECK: Goto
   /// CHECK: Goto
   /// CHECK: Goto
 
   void foo6(int[] array, int start, int end, boolean expectInterpreter) {
-    // Several HDeoptimize will be added.
+    if (end < 0)
+      throw new Error("");
     for (int i = end; i >= start; i--) {
       if (expectInterpreter) {
         assertIsInterpreted();
@@ -1365,15 +1392,15 @@ public class Main {
   /// CHECK-NOT: BoundsCheck
   /// CHECK: ArrayGet
 
-  /// CHECK-START: void Main.foo9(int[], boolean) instruction_simplifier_after_bce (after)
+  /// CHECK-START: void Main.foo9(int[], boolean) instruction_simplifier$after_bce (after)
   //  Simplification removes the redundant check
   /// CHECK: Deoptimize
   /// CHECK: Deoptimize
   /// CHECK-NOT: Deoptimize
 
   void foo9(int[] array, boolean expectInterpreter) {
-    // Two HDeoptimize will be added. Two for the index
-    // and one for null check on array.
+    // Three HDeoptimize will be added. Two for the index and one for null check on array. Then
+    // simplification removes one redundant HDeoptimize.
     for (int i = 0 ; i < 10; i++) {
       if (expectInterpreter) {
         assertIsInterpreted();
@@ -1585,6 +1612,26 @@ public class Main {
         System.out.println("bubble sort failed!");
       }
     }
+
+    nonzeroLength(array);
+    if (array[0] != 112) {
+      System.out.println("nonzero length failed!");
+    }
+
+    knownLength(array);
+    if (array[0] != 112 || array[1] != 1) {
+      System.out.println("nonzero length failed!");
+    }
+    array = new int[2];
+    knownLength(array);
+    if (array[0] != -1 || array[1] != -2) {
+      System.out.println("nonzero length failed!");
+    }
+
+    // Zero length array does not break.
+    array = new int[0];
+    nonzeroLength(array);
+    knownLength(array);
 
     mA = new int[4][4];
     for (int i = 0; i < 4; i++) {

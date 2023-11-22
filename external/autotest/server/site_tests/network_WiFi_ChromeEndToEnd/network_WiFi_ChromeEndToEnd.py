@@ -46,5 +46,5 @@ class network_WiFi_ChromeEndToEnd(wifi_cell_test_base.WiFiCellTestBase):
         client_at.run_test('network_ChromeWifiEndToEnd',
                            ssid_1=self.context.router.get_ssid(instance=0),
                            ssid_2=self.context.router.get_ssid(instance=1),
-                           test=test)
+                           test=test, check_client_result=True)
         self.context.router.deconfig()

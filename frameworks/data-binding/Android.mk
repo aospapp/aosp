@@ -18,17 +18,6 @@ my_prebuilt_version := 1.0-rc0
 
 #######################################
 include $(CLEAR_VARS)
-LOCAL_MODULE := databinding-compiler
-LOCAL_SRC_FILES := prebuilds/$(my_prebuilt_version)/databinding-compiler-all.jar
-LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-LOCAL_MODULE_SUFFIX := $(COMMON_JAVA_PACKAGE_SUFFIX)
-LOCAL_BUILT_MODULE_STEM := javalib.jar
-LOCAL_IS_HOST_MODULE := true
-
-include $(BUILD_PREBUILT)
-
-#######################################
-include $(CLEAR_VARS)
 LOCAL_MODULE := databinding-baselibrary
 LOCAL_SRC_FILES := prebuilds/$(my_prebuilt_version)/databinding-baseLibrary.jar
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES

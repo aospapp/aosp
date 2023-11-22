@@ -51,7 +51,7 @@ public class HostSelectorDisplay extends Composite implements HostSelector.Displ
         lowerPanel.add(addByHostnameButton);
         lowerPanel.add(allowOneTimeHostsBox);
         hostnamePanel.add(lowerPanel);
-        tabPanel.add(hostnamePanel, "By specifing hostnames");
+        tabPanel.add(hostnamePanel, "By specifying hostnames");
 
         // add metahosts
         Panel labelPanel = new VerticalPanel();
@@ -66,7 +66,7 @@ public class HostSelectorDisplay extends Composite implements HostSelector.Displ
         addByLabelButton.setText("Add hosts");
         labelBottom.add(addByLabelButton);
         labelPanel.add(labelBottom);
-        tabPanel.add(labelPanel, "By specifing host labels");
+        tabPanel.add(labelPanel, "By specifying host labels");
 
         tabPanel.selectTab(0);
 

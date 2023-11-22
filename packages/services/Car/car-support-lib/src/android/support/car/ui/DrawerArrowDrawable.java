@@ -30,6 +30,7 @@ import android.graphics.drawable.Drawable;
  *
  * This is copied from android.support.v7.app.DrawerArrowDrawable except with the styles prefixed
  * with carArrow and the abstract {@link #isLayoutRtl()} set to false.
+ * @hide
  */
 public class DrawerArrowDrawable extends Drawable {
 

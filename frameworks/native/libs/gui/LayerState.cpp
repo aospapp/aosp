@@ -28,7 +28,7 @@ status_t layer_state_t::write(Parcel& output) const
     output.writeUint32(what);
     output.writeFloat(x);
     output.writeFloat(y);
-    output.writeUint32(z);
+    output.writeInt32(z);
     output.writeUint32(w);
     output.writeUint32(h);
     output.writeUint32(layerStack);
@@ -39,9 +39,12 @@ status_t layer_state_t::write(Parcel& output) const
             output.writeInplace(sizeof(layer_state_t::matrix22_t))) = matrix;
     output.write(crop);
     output.write(finalCrop);
-    output.writeStrongBinder(handle);
+    output.writeStrongBinder(barrierHandle);
+    output.writeStrongBinder(reparentHandle);
     output.writeUint64(frameNumber);
     output.writeInt32(overrideScalingMode);
+    output.writeStrongBinder(IInterface::asBinder(barrierGbp));
+    output.writeStrongBinder(relativeLayerHandle);
     output.write(transparentRegion);
     return NO_ERROR;
 }
@@ -52,7 +55,7 @@ status_t layer_state_t::read(const Parcel& input)
     what = input.readUint32();
     x = input.readFloat();
     y = input.readFloat();
-    z = input.readUint32();
+    z = input.readInt32();
     w = input.readUint32();
     h = input.readUint32();
     layerStack = input.readUint32();
@@ -67,9 +70,13 @@ status_t layer_state_t::read(const Parcel& input)
     }
     input.read(crop);
     input.read(finalCrop);
-    handle = input.readStrongBinder();
+    barrierHandle = input.readStrongBinder();
+    reparentHandle = input.readStrongBinder();
     frameNumber = input.readUint64();
     overrideScalingMode = input.readInt32();
+    barrierGbp =
+        interface_cast<IGraphicBufferProducer>(input.readStrongBinder());
+    relativeLayerHandle = input.readStrongBinder();
     input.read(transparentRegion);
     return NO_ERROR;
 }

@@ -23,8 +23,8 @@
     <package>com.example.android.wearable.synchronizednotifications</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>23</targetSdkVersion>
-    <targetSdkVersionWear>22</targetSdkVersionWear>
+    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -46,7 +46,7 @@
     <common src="activities"/>
 
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

@@ -16,12 +16,14 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -38,9 +40,10 @@ import com.android.cts.verifier.TestResult;
 import com.android.cts.verifier.location.LocationListenerActivity;
 
 /**
- * CTS verifier test for BYOD managed provisioning flow.
- * This activity is responsible for starting the managed provisioning flow and verify the outcome of provisioning.
- * It performs the following verifications:
+ * CTS verifier test for BYOD managed provisioning flow
+ *
+ * This activity is responsible for starting the managed provisioning flow and verify the outcome of
+ * provisioning. It performs the following verifications:
  *   Full disk encryption is enabled.
  *   Profile owner is correctly installed.
  *   Profile owner shows up in the Settings app.
@@ -50,14 +53,20 @@ import com.android.cts.verifier.location.LocationListenerActivity;
  */
 public class ByodFlowTestActivity extends DialogTestListActivity {
 
-    private final String TAG = "ByodFlowTestActivity";
+    private static final String TAG = "ByodFlowTestActivity";
+    private static ConnectivityManager mCm;
     private static final int REQUEST_MANAGED_PROVISIONING = 0;
     private static final int REQUEST_PROFILE_OWNER_STATUS = 1;
     private static final int REQUEST_INTENT_FILTERS_STATUS = 2;
+    private static final int REQUEST_CHECK_DISK_ENCRYPTION = 3;
+    private static final int REQUEST_SET_LOCK_FOR_ENCRYPTION = 4;
 
     private ComponentName mAdminReceiverComponent;
+    private KeyguardManager mKeyguardManager;
+    private ByodFlowTestHelper mByodFlowTestHelper;
 
     private DialogTestListItem mProfileOwnerInstalled;
+    private DialogTestListItem mDiskEncryptionTest;
     private DialogTestListItem mProfileAccountVisibleTest;
     private DialogTestListItem mDeviceAdminVisibleTest;
     private DialogTestListItem mWorkAppVisibleTest;
@@ -92,6 +101,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mConfirmWorkCredentials;
     private DialogTestListItem mParentProfilePassword;
     private TestListItem mVpnTest;
+    private TestListItem mRecentsTest;
     private TestListItem mDisallowAppsControlTest;
     private TestListItem mOrganizationInfoTest;
     private TestListItem mPolicyTransparencyTest;
@@ -106,14 +116,18 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mByodFlowTestHelper = new ByodFlowTestHelper(this);
         mAdminReceiverComponent = new ComponentName(this, DeviceAdminTestReceiver.class.getName());
+        mKeyguardManager = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
 
-        enableComponent(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+        mByodFlowTestHelper.setup();
+
         mPrepareTestButton.setText(R.string.provisioning_byod_start);
         mPrepareTestButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                startByodProvisioning();
+                Utils.provisionManagedProfile(ByodFlowTestActivity.this, mAdminReceiverComponent,
+                        REQUEST_MANAGED_PROVISIONING);
             }
         });
 
@@ -145,17 +159,24 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         switch (requestCode) {
             case REQUEST_MANAGED_PROVISIONING:
                 return;
-            case REQUEST_PROFILE_OWNER_STATUS: {
+            case REQUEST_PROFILE_OWNER_STATUS:
                 // Called after queryProfileOwner()
                 handleStatusUpdate(resultCode, data);
-            } break;
-            case REQUEST_INTENT_FILTERS_STATUS: {
+                break;
+            case REQUEST_CHECK_DISK_ENCRYPTION:
+                // Called after checkDiskEncryption()
+                handleDiskEncryptionStatus(resultCode, data);
+                break;
+            case REQUEST_SET_LOCK_FOR_ENCRYPTION:
+                // Called after handleDiskEncryptionStatus() to set screen lock if necessary
+                handleSetLockForEncryption();
+                break;
+            case REQUEST_INTENT_FILTERS_STATUS:
                 // Called after checkIntentFilters()
                 handleIntentFiltersStatus(resultCode);
-            } break;
-            default: {
+                break;
+            default:
                 super.handleActivityResult(requestCode, resultCode, data);
-            }
         }
     }
 
@@ -170,8 +191,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     public void finish() {
         // Pass and fail buttons are known to call finish() when clicked, and this is when we want to
         // clean up the provisioned profile.
-        Utils.requestDeleteManagedProfile(this);
-        enableComponent(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
+        mByodFlowTestHelper.tearDown();
         super.finish();
     }
 
@@ -183,6 +203,15 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             @Override
             public void performTest(DialogTestListActivity activity) {
                 queryProfileOwner(true);
+            }
+        };
+
+        mDiskEncryptionTest = new DialogTestListItem(this,
+                R.string.provisioning_byod_disk_encryption,
+                "BYOD_DiskEncryptionTest") {
+            @Override
+            public void performTest(DialogTestListActivity activity) {
+                checkDiskEncryption();
             }
         };
 
@@ -299,11 +328,13 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_cross_profile_from_work_instruction,
                 new Intent(ByodHelperActivity.ACTION_TEST_CROSS_PROFILE_INTENTS_DIALOG));
 
+        /* Disable due to b/33571176
         mAppLinkingTest = new DialogTestListItem(this,
                 R.string.provisioning_app_linking,
                 "BYOD_AppLinking",
                 R.string.provisioning_byod_app_linking_instruction,
                 new Intent(ByodHelperActivity.ACTION_TEST_APP_LINKING_DIALOG));
+        */
 
         mKeyguardDisabledFeaturesTest = TestListItem.newTest(this,
                 R.string.provisioning_byod_keyguard_disabled_features,
@@ -362,6 +393,12 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_confirm_work_credentials_description,
                 new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME));
 
+        mRecentsTest = TestListItem.newTest(this,
+                R.string.provisioning_byod_recents,
+                RecentsRedactionActivity.class.getName(),
+                new Intent(RecentsRedactionActivity.ACTION_RECENTS),
+                null);
+
         mOrganizationInfoTest = TestListItem.newTest(this,
                 R.string.provisioning_byod_organization_info,
                 OrganizationInfoTestActivity.class.getName(),
@@ -377,7 +414,8 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         final Intent policyTransparencyTestIntent = new Intent(this,
                 PolicyTransparencyTestListActivity.class);
         policyTransparencyTestIntent.putExtra(
-                PolicyTransparencyTestListActivity.EXTRA_IS_DEVICE_OWNER, false);
+                PolicyTransparencyTestListActivity.EXTRA_MODE,
+                PolicyTransparencyTestListActivity.MODE_PROFILE_OWNER);
         policyTransparencyTestIntent.putExtra(
                 PolicyTransparencyTestActivity.EXTRA_TEST_ID, "BYOD_PolicyTransparency");
         mPolicyTransparencyTest = TestListItem.newTest(this,
@@ -386,6 +424,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 policyTransparencyTestIntent, null);
 
         adapter.add(mProfileOwnerInstalled);
+        adapter.add(mDiskEncryptionTest);
 
         // Badge related tests
         adapter.add(mWorkAppVisibleTest);
@@ -399,13 +438,13 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mCredSettingsVisibleTest);
         adapter.add(mAppSettingsVisibleTest);
         adapter.add(mLocationSettingsVisibleTest);
-        adapter.add(mWiFiDataUsageSettingsVisibleTest);
-        adapter.add(mCellularDataUsageSettingsVisibleTest);
         adapter.add(mPrintSettingsVisibleTest);
 
         adapter.add(mCrossProfileIntentFiltersTestFromPersonal);
         adapter.add(mCrossProfileIntentFiltersTestFromWork);
+        /* Disable due to b/33571176
         adapter.add(mAppLinkingTest);
+        */
         adapter.add(mDisableNonMarketTest);
         adapter.add(mEnableNonMarketTest);
         adapter.add(mIntentFiltersTest);
@@ -416,9 +455,19 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         adapter.add(mTurnOffWorkFeaturesTest);
         adapter.add(mSelectWorkChallenge);
         adapter.add(mConfirmWorkCredentials);
+        adapter.add(mRecentsTest);
         adapter.add(mOrganizationInfoTest);
         adapter.add(mParentProfilePassword);
         adapter.add(mPolicyTransparencyTest);
+
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            adapter.add(mWiFiDataUsageSettingsVisibleTest);
+        }
+
+        mCm = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        if(mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) != null) {
+            adapter.add(mCellularDataUsageSettingsVisibleTest);
+        }
 
         if (canResolveIntent(new Intent(Settings.ACTION_APPLICATION_SETTINGS))) {
             adapter.add(mDisallowAppsControlTest);
@@ -568,18 +617,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         }
     }
 
-    private void startByodProvisioning() {
-        Intent sending = new Intent(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE);
-        sending.putExtra(DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
-                mAdminReceiverComponent);
-
-        if (sending.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(sending, REQUEST_MANAGED_PROVISIONING);
-        } else {
-            showToast(R.string.provisioning_byod_disabled);
-        }
-    }
-
     private void queryProfileOwner(boolean showToast) {
         try {
             Intent intent = new Intent(ByodHelperActivity.ACTION_QUERY_PROFILE_OWNER);
@@ -589,8 +626,61 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             Log.d(TAG, "queryProfileOwner: ActivityNotFoundException", e);
             setTestResult(mProfileOwnerInstalled, TestResult.TEST_RESULT_FAILED);
             if (showToast) {
-                showToast(R.string.provisioning_byod_no_activity);
+                Utils.showToast(this, R.string.provisioning_byod_no_activity);
             }
+        }
+    }
+
+    private void checkDiskEncryption() {
+        try {
+            Intent intent = new Intent(ByodHelperActivity.ACTION_CHECK_DISK_ENCRYPTION);
+            startActivityForResult(intent, REQUEST_CHECK_DISK_ENCRYPTION);
+        } catch (ActivityNotFoundException e) {
+            Log.d(TAG, "checkDiskEncryption: ActivityNotFoundException", e);
+            setTestResult(mDiskEncryptionTest, TestResult.TEST_RESULT_FAILED);
+            Utils.showToast(this, R.string.provisioning_byod_no_activity);
+        }
+    }
+
+    private void handleDiskEncryptionStatus(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null) {
+            Log.e(TAG, "Failed to get result for disk encryption, result code: " + resultCode);
+            setTestResult(mDiskEncryptionTest, TestResult.TEST_RESULT_FAILED);
+            return;
+        }
+
+        final int status = data.getIntExtra(ByodHelperActivity.EXTRA_ENCRYPTION_STATUS,
+                DevicePolicyManager.ENCRYPTION_STATUS_UNSUPPORTED);
+        switch (status) {
+            case DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE:
+            case DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_PER_USER:
+                setTestResult(mDiskEncryptionTest, TestResult.TEST_RESULT_PASSED);
+                break;
+            case DevicePolicyManager.ENCRYPTION_STATUS_ACTIVE_DEFAULT_KEY:
+                if (!mKeyguardManager.isDeviceSecure()) {
+                    Utils.setScreenLock(this, REQUEST_SET_LOCK_FOR_ENCRYPTION);
+                    return;
+                }
+                Log.e(TAG, "Disk encryption key is not entangled with lock screen credentials");
+                Toast.makeText(this, R.string.provisioning_byod_disk_encryption_default_key_toast,
+                        Toast.LENGTH_LONG).show();
+                // fall through
+            default:
+                setTestResult(mDiskEncryptionTest, TestResult.TEST_RESULT_FAILED);
+        }
+
+        if (mKeyguardManager.isDeviceSecure()) {
+            Utils.removeScreenLock(this);
+        }
+    }
+
+    private void handleSetLockForEncryption() {
+        if (mKeyguardManager.isDeviceSecure()) {
+            checkDiskEncryption();
+        } else {
+            setTestResult(mDiskEncryptionTest, TestResult.TEST_RESULT_FAILED);
+            Toast.makeText(this, R.string.provisioning_byod_disk_encryption_no_pin_toast,
+                    Toast.LENGTH_LONG).show();
         }
     }
 
@@ -607,7 +697,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             setHandleIntentActivityEnabledSetting(PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
             Log.d(TAG, "checkIntentFilters: ActivityNotFoundException", e);
             setTestResult(mIntentFiltersTest, TestResult.TEST_RESULT_FAILED);
-            showToast(R.string.provisioning_byod_no_activity);
+            Utils.showToast(this, R.string.provisioning_byod_no_activity);
         }
     }
 
@@ -627,28 +717,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 intentFiltersSetForPrimaryIntents & intentFiltersSetForManagedIntents;
         setTestResult(mIntentFiltersTest,
                 intentFiltersSet ? TestResult.TEST_RESULT_PASSED : TestResult.TEST_RESULT_FAILED);
-    }
-
-    /**
-     *  Disable or enable app components in the current profile. When they are disabled only the
-     * counterpart in the other profile can respond (via cross-profile intent filter).
-     * @param enabledState {@link PackageManager#COMPONENT_ENABLED_STATE_DISABLED} or
-     *                      {@link PackageManager#COMPONENT_ENABLED_STATE_DEFAULT}
-     */
-    private void enableComponent(final int enabledState) {
-        final String[] components = {
-            ByodHelperActivity.class.getName(),
-            WorkStatusTestActivity.class.getName(),
-            PermissionLockdownTestActivity.ACTIVITY_ALIAS,
-            AuthenticationBoundKeyTestActivity.class.getName(),
-            VpnTestActivity.class.getName(),
-            CommandReceiverActivity.class.getName(),
-            SetSupportMessageActivity.class.getName()
-        };
-        for (String component : components) {
-            getPackageManager().setComponentEnabledSetting(new ComponentName(this, component),
-                    enabledState, PackageManager.DONT_KILL_APP);
-        }
     }
 
     private void setHandleIntentActivityEnabledSetting(final int enableState) {

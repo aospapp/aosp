@@ -87,6 +87,9 @@ class Values(object):
     # Delay between EC boot and pressing power button
     ec_boot_to_pwr_button = 0.5
 
+    # EC, if present, supports 'powerbtn' console command
+    ec_has_powerbtn_cmd = True
+
     # Delay of EC software sync hash calculating time
     software_sync = 6
 

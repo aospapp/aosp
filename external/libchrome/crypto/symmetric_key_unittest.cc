@@ -4,26 +4,26 @@
 
 #include "crypto/symmetric_key.h"
 
+#include <memory>
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 TEST(SymmetricKeyTest, GenerateRandomKey) {
-  scoped_ptr<crypto::SymmetricKey> key(
+  std::unique_ptr<crypto::SymmetricKey> key(
       crypto::SymmetricKey::GenerateRandomKey(crypto::SymmetricKey::AES, 256));
-  ASSERT_TRUE(NULL != key.get());
+  ASSERT_TRUE(key);
   std::string raw_key;
   EXPECT_TRUE(key->GetRawKey(&raw_key));
   EXPECT_EQ(32U, raw_key.size());
 
   // Do it again and check that the keys are different.
   // (Note: this has a one-in-10^77 chance of failure!)
-  scoped_ptr<crypto::SymmetricKey> key2(
+  std::unique_ptr<crypto::SymmetricKey> key2(
       crypto::SymmetricKey::GenerateRandomKey(crypto::SymmetricKey::AES, 256));
-  ASSERT_TRUE(NULL != key2.get());
+  ASSERT_TRUE(key2);
   std::string raw_key2;
   EXPECT_TRUE(key2->GetRawKey(&raw_key2));
   EXPECT_EQ(32U, raw_key2.size());
@@ -31,15 +31,15 @@ TEST(SymmetricKeyTest, GenerateRandomKey) {
 }
 
 TEST(SymmetricKeyTest, ImportGeneratedKey) {
-  scoped_ptr<crypto::SymmetricKey> key1(
+  std::unique_ptr<crypto::SymmetricKey> key1(
       crypto::SymmetricKey::GenerateRandomKey(crypto::SymmetricKey::AES, 256));
-  ASSERT_TRUE(NULL != key1.get());
+  ASSERT_TRUE(key1);
   std::string raw_key1;
   EXPECT_TRUE(key1->GetRawKey(&raw_key1));
 
-  scoped_ptr<crypto::SymmetricKey> key2(
+  std::unique_ptr<crypto::SymmetricKey> key2(
       crypto::SymmetricKey::Import(crypto::SymmetricKey::AES, raw_key1));
-  ASSERT_TRUE(NULL != key2.get());
+  ASSERT_TRUE(key2);
 
   std::string raw_key2;
   EXPECT_TRUE(key2->GetRawKey(&raw_key2));
@@ -48,16 +48,16 @@ TEST(SymmetricKeyTest, ImportGeneratedKey) {
 }
 
 TEST(SymmetricKeyTest, ImportDerivedKey) {
-  scoped_ptr<crypto::SymmetricKey> key1(
+  std::unique_ptr<crypto::SymmetricKey> key1(
       crypto::SymmetricKey::DeriveKeyFromPassword(
           crypto::SymmetricKey::HMAC_SHA1, "password", "somesalt", 1024, 160));
-  ASSERT_TRUE(NULL != key1.get());
+  ASSERT_TRUE(key1);
   std::string raw_key1;
   EXPECT_TRUE(key1->GetRawKey(&raw_key1));
 
-  scoped_ptr<crypto::SymmetricKey> key2(
+  std::unique_ptr<crypto::SymmetricKey> key2(
       crypto::SymmetricKey::Import(crypto::SymmetricKey::HMAC_SHA1, raw_key1));
-  ASSERT_TRUE(NULL != key2.get());
+  ASSERT_TRUE(key2);
 
   std::string raw_key2;
   EXPECT_TRUE(key2->GetRawKey(&raw_key2));
@@ -80,21 +80,11 @@ class SymmetricKeyDeriveKeyFromPasswordTest
 
 TEST_P(SymmetricKeyDeriveKeyFromPasswordTest, DeriveKeyFromPassword) {
   PBKDF2TestVector test_data(GetParam());
-#if defined(OS_MACOSX) && !defined(OS_IOS)
-  // The OS X crypto libraries have minimum salt and iteration requirements
-  // so some of the tests below will cause them to barf. Skip these.
-  if (strlen(test_data.salt) < 8 || test_data.rounds < 1000) {
-    VLOG(1) << "Skipped test vector for " << test_data.expected;
-    return;
-  }
-#endif  // OS_MACOSX
-
-  scoped_ptr<crypto::SymmetricKey> key(
+  std::unique_ptr<crypto::SymmetricKey> key(
       crypto::SymmetricKey::DeriveKeyFromPassword(
-          test_data.algorithm,
-          test_data.password, test_data.salt,
+          test_data.algorithm, test_data.password, test_data.salt,
           test_data.rounds, test_data.key_size_in_bits));
-  ASSERT_TRUE(NULL != key.get());
+  ASSERT_TRUE(key);
 
   std::string raw_key;
   key->GetRawKey(&raw_key);

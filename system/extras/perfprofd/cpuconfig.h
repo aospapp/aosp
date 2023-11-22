@@ -27,7 +27,7 @@ class HardwireCpuHelper {
   // (anything listed in /sys/devices/system/cpu/possible). The
   // destructor will re-enable the mpdecision service if it was
   // previously disabled.
-  HardwireCpuHelper(bool perform);
+  explicit HardwireCpuHelper(bool perform);
   virtual ~HardwireCpuHelper();
 
  private:

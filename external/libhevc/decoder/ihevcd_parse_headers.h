@@ -42,6 +42,13 @@ void ihevcd_copy_slice_hdr(codec_t *ps_codec, WORD32 slice_idx, WORD32 slice_idx
 IHEVCD_ERROR_T ihevcd_parse_vps(codec_t *ps_codec);
 IHEVCD_ERROR_T ihevcd_parse_sps(codec_t *ps_codec);
 IHEVCD_ERROR_T ihevcd_parse_pps(codec_t *ps_codec);
+IHEVCD_ERROR_T ihevcd_parse_sei(codec_t *ps_codec, nal_header_t *ps_nal);
+IHEVCD_ERROR_T ihevcd_parse_pic_timing_sei(codec_t *ps_codec, sps_t *ps_sps);
+IHEVCD_ERROR_T ihevcd_parse_buffering_period_sei(codec_t *ps_codec, sps_t *ps_sps);
+IHEVCD_ERROR_T ihevcd_parse_time_code_sei(codec_t *ps_codec);
+IHEVCD_ERROR_T ihevcd_parse_user_data_registered_itu_t_t35(codec_t *ps_codec, UWORD32 u4_payload_size);
+IHEVCD_ERROR_T ihevcd_parse_active_parameter_sets_sei(codec_t *ps_codec, sps_t *ps_sps);
+IHEVCD_ERROR_T ihevcd_read_rbsp_trailing_bits(codec_t *ps_codec, UWORD32 u4_bits_left);
 IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                                          nal_header_t *ps_nal);
 

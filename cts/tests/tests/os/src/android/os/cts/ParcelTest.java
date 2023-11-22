@@ -3085,4 +3085,77 @@ public class ParcelTest extends AndroidTestCase {
 
         assertFalse(doesNotImplementParcelableInitializerHasRun);
     }
+
+    public static class SimpleParcelable implements Parcelable {
+        private final int value;
+
+        public SimpleParcelable(int value) {
+            this.value = value;
+        }
+
+        private SimpleParcelable(Parcel in) {
+            this.value = in.readInt();
+        }
+
+        public int getValue() {
+            return value;
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            out.writeInt(value);
+        }
+
+        public static Parcelable.Creator<SimpleParcelable> CREATOR =
+                new Parcelable.Creator<SimpleParcelable>() {
+
+            @Override
+            public SimpleParcelable createFromParcel(Parcel source) {
+                return new SimpleParcelable(source);
+            }
+
+            @Override
+            public SimpleParcelable[] newArray(int size) {
+                return new SimpleParcelable[size];
+            }
+        };
+    }
+
+    public void testReadWriteParcellableList() {
+        Parcel parcel = Parcel.obtain();
+
+        ArrayList<SimpleParcelable> list = new ArrayList<>();
+        list.add(new SimpleParcelable(57));
+
+        // Writing a |null| list to a parcel should work, and reading it back
+        // from a parcel should clear the target list.
+        parcel.writeParcelableList(null, 0);
+        parcel.setDataPosition(0);
+        parcel.readParcelableList(list, SimpleParcelable.class.getClassLoader());
+        assertEquals(0, list.size());
+
+        list.clear();
+        list.add(new SimpleParcelable(42));
+        list.add(new SimpleParcelable(56));
+
+        parcel.setDataPosition(0);
+        parcel.writeParcelableList(list, 0);
+
+        // Populate the list with a value, we will later assert that the
+        // value has been removed.
+        list.clear();
+        list.add(new SimpleParcelable(100));
+
+        parcel.setDataPosition(0);
+        parcel.readParcelableList(list, SimpleParcelable.class.getClassLoader());
+
+        assertEquals(2, list.size());
+        assertEquals(42, list.get(0).getValue());
+        assertEquals(56, list.get(1).getValue());
+    }
 }

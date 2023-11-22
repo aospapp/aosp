@@ -16,7 +16,6 @@
 
 package android.renderscript.cts;
 
-import android.renderscript.Allocation;
 import android.renderscript.BaseObj;
 import android.renderscript.Element;
 import android.renderscript.RSIllegalArgumentException;

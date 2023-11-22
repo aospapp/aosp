@@ -19,13 +19,13 @@ package android.media.cts;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.content.Context;
-import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.AudioRouting;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.ndkaudio.AudioPlayer;
 
 import java.lang.annotation.Retention;

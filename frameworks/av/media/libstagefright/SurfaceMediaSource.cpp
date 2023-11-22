@@ -29,7 +29,6 @@
 #include <ui/GraphicBuffer.h>
 #include <gui/BufferItem.h>
 #include <gui/ISurfaceComposer.h>
-#include <gui/IGraphicBufferAlloc.h>
 #include <OMX_Component.h>
 
 #include <utils/Log.h>
@@ -112,7 +111,7 @@ void SurfaceMediaSource::dump(
     Mutex::Autolock lock(mMutex);
 
     result.append(buffer);
-    mConsumer->dump(result, "");
+    mConsumer->dumpState(result, "");
 }
 
 status_t SurfaceMediaSource::setFrameRate(int32_t fps)

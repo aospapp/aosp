@@ -16,6 +16,8 @@
  */
 package org.apache.harmony.tests.java.text;
 
+import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
 
@@ -44,6 +46,19 @@ public class ParseExceptionTest extends junit.framework.TestCase {
             df.parse("1999HelloWorld");
         } catch (ParseException e) {
             assertEquals("getErrorOffsetFailed.", 4, e.getErrorOffset());
+        }
+    }
+
+    public void test_serialize() throws Exception {
+        try (InputStream inputStream = getClass().getResourceAsStream(
+                "/serialization/org/apache/harmony/tests/java/text/ParseException.ser");
+             ObjectInputStream ois = new ObjectInputStream(inputStream)) {
+
+            Object object = ois.readObject();
+            assertTrue("Not a ParseException", object instanceof ParseException);
+            ParseException parseException = (ParseException) object;
+            assertEquals("fred", parseException.getMessage());
+            assertEquals(4, parseException.getErrorOffset());
         }
     }
 }

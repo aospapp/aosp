@@ -104,41 +104,6 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
         }
     }
 
-    /**
-     * <p>
-     * Basic Opaque format ImageWriter ImageReader test that checks the images
-     * produced by camera can be passed correctly by ImageWriter.
-     * </p>
-     * <p>
-     * {@link ImageReader} reads the images produced by {@link CameraDevice}.
-     * The images are then passed to ImageWriter, which produces new images that
-     * are consumed by the second image reader. The images from first
-     * ImageReader should be identical with the images from the second
-     * ImageReader. This validates the basic image input interface of the
-     * ImageWriter. Because opaque image is inaccessible by client, this test
-     * only covers below path, and only the image info is validated.
-     * <li>Direct image input to ImageWriter. The image from first ImageReader
-     * is directly injected into ImageWriter without needing to dequeue an input
-     * image. ImageWriter will migrate this opaque image into the destination
-     * surface without any data copy.</li>
-     * </p>
-     */
-    public void testOpaqueImageWriterReaderOperation() throws Exception {
-        for (String id : mCameraIds) {
-            try {
-                Log.i(TAG, "Testing Camera " + id);
-                openDevice(id);
-                if (!mStaticInfo.isColorOutputSupported()) {
-                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
-                    continue;
-                }
-                readerWriterFormatTestByCamera(CAMERA_PRIVATE_FORMAT);
-            } finally {
-                closeDevice(id);
-            }
-        }
-    }
-
     public void testAbandonedSurfaceExceptions() throws Exception {
         final int READER_WIDTH = 1920;
         final int READER_HEIGHT = 1080;

@@ -149,7 +149,7 @@ public class PhotoCaptureActivity extends Activity
         previewView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (!mTakingPicture) {
+                if (mPreviewActive && !mTakingPicture) {
                     mTakingPicture = true;
                     shutterStartTime = System.currentTimeMillis();
 

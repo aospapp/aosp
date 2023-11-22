@@ -38,4 +38,8 @@
  */
 uint32_t crc32(const void *buf, size_t size, uint32_t crc);
 
+/* concrete public implementation of crc32() w/o HW acceleration */
+uint32_t soft_crc32(const void *buf, size_t size, uint32_t crc);
+
+
 #endif /* _NANOHUB_CRC_H_ */

@@ -18,7 +18,6 @@
 package org.connectbot.util;
 
 /**
- * @author Kenny Root
  *
  */
 public class Colors {

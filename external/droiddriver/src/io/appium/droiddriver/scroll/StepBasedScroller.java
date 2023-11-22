@@ -15,6 +15,8 @@
  */
 package io.appium.droiddriver.scroll;
 
+import static io.appium.droiddriver.scroll.Direction.LogicalDirection.BACKWARD;
+
 import android.util.Log;
 
 import io.appium.droiddriver.DroidDriver;
@@ -28,8 +30,6 @@ import io.appium.droiddriver.scroll.Direction.Axis;
 import io.appium.droiddriver.scroll.Direction.DirectionConverter;
 import io.appium.droiddriver.scroll.Direction.PhysicalDirection;
 import io.appium.droiddriver.util.Logs;
-
-import static io.appium.droiddriver.scroll.Direction.LogicalDirection.BACKWARD;
 
 /**
  * A {@link Scroller} that looks for the desired item in the currently shown

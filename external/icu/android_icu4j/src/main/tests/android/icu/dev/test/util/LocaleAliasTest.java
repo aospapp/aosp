@@ -1,8 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2005-2009, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2005-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 
@@ -15,16 +17,17 @@ package android.icu.dev.test.util;
 
 import java.util.HashMap;
 
-import android.icu.impl.ICUResourceBundle;
+import org.junit.Before;
+import org.junit.Test;
+
+import android.icu.dev.test.TestFmwk;
+import android.icu.impl.ICUData;
 import android.icu.text.DateFormat;
 import android.icu.util.Calendar;
 import android.icu.util.ULocale;
 import android.icu.util.UResourceBundle;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
-public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
+public class LocaleAliasTest extends TestFmwk {
     private static final ULocale[][] _LOCALES = {
 
             {new ULocale("en", "RH"), new ULocale("en", "ZW")},
@@ -47,17 +50,18 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
     private HashMap availableMap = new HashMap();
     private static final ULocale _DEFAULT_LOCALE = ULocale.US;
     
-    public LocaleAliasTest(){
+    public LocaleAliasTest() {
     }
-    protected void init(){
+    
+    @Before
+    public void init() {
         available = ULocale.getAvailableLocales();
         for(int i=0; i<available.length;i++){
             availableMap.put(available[i].toString(),"");
         }
     }
-    public static void main(String[] args) {
-        new LocaleAliasTest().run(args);
-    }
+
+    @Test
     public void TestCalendar() {
         ULocale defLoc = ULocale.getDefault();
         ULocale.setDefault(_DEFAULT_LOCALE);
@@ -97,6 +101,7 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
         ULocale.setDefault(defLoc);
     }
     
+    @Test
     public void  TestDateFormat() {
         ULocale defLoc = ULocale.getDefault();
         ULocale.setDefault(_DEFAULT_LOCALE);
@@ -122,7 +127,7 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
             if (!df1.equals(df2)) {
                 errln("DateFormatTest: df1!=df2: newLoc= "+newLoc +" oldLoc= "+oldLoc);
             }
-            this.logln("DateFormat(getLocale) old:"+l1+"   new:"+l2);
+            TestFmwk.logln("DateFormat(getLocale) old:"+l1+"   new:"+l2);
             
             //Test function "format"
     //        Date d = new Date();
@@ -136,6 +141,7 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
         ULocale.setDefault(defLoc);
     }
     
+    @Test
     public void TestULocale() {
         ULocale defLoc = ULocale.getDefault();
         ULocale.setDefault(_DEFAULT_LOCALE);
@@ -159,6 +165,7 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
         ULocale.setDefault(defLoc);
     }
     
+    @Test
     public void TestDisplayName() {
         ULocale defLoc = ULocale.getDefault();
         ULocale.setDefault(_DEFAULT_LOCALE);
@@ -188,6 +195,8 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
         }
         ULocale.setDefault(defLoc);
     }
+
+    @Test
     public void TestUResourceBundle() {
         ULocale defLoc = ULocale.getDefault();
         ULocale.setDefault(_DEFAULT_LOCALE);
@@ -201,8 +210,8 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
             UResourceBundle urb1 = null;
             UResourceBundle urb2 = null;
             
-            urb1 = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, oldLoc);
-            urb2 = UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, newLoc);
+            urb1 = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, oldLoc);
+            urb2 = UResourceBundle.getBundleInstance(ICUData.ICU_BASE_NAME, newLoc);
             ULocale l1 = urb1.getULocale();
             ULocale l2 = urb2.getULocale();        
             if (!newLoc.equals(l1)) {
@@ -211,7 +220,7 @@ public class LocaleAliasTest extends android.icu.dev.test.TestFmwk {
             if (!l1.equals(l2)) {
                 errln("ResourceBundleTest: l1!=l2: l1= "+l1 +" l2= "+l2);
             }
-            this.logln("UResourceBundle old:"+l1+"   new:"+l2);
+            TestFmwk.logln("UResourceBundle old:"+l1+"   new:"+l2);
         }
         ULocale.setDefault(defLoc);
     }

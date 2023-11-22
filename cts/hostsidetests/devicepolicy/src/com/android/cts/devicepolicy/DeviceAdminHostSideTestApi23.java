@@ -36,8 +36,7 @@ public class DeviceAdminHostSideTestApi23 extends BaseDeviceAdminHostSideTest {
         try {
             setDeviceAdmin(getUnprotectedAdminReceiverComponent(), mUserId);
         } finally {
-            assertTrue("Failed to remove device admin", runTests(
-                    getDeviceAdminApkPackage(), "ClearDeviceAdminWithNoProtectionTest"));
+            runTests(getDeviceAdminApkPackage(), "ClearDeviceAdminWithNoProtectionTest");
         }
     }
 }

@@ -16,9 +16,17 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(call all-java-files-under, src) \
+    $(call all-Iaidl-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-common-util-devicesidelib
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-common-util-devicesidelib \
+    android-support-test \
+    ub-uiautomator \
+    mockito-target-minus-junit4 \
+    legacy-android-test
+
+LOCAL_JAVA_LIBRARIES := android.test.runner
 
 LOCAL_MODULE_TAGS := optional
 

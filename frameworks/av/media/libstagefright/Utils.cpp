@@ -41,9 +41,9 @@
 #include <media/stagefright/MediaDefs.h>
 #include <media/AudioSystem.h>
 #include <media/MediaPlayerInterface.h>
-#include <hardware/audio.h>
 #include <media/stagefright/Utils.h>
 #include <media/AudioParameter.h>
+#include <system/audio.h>
 
 namespace android {
 
@@ -610,6 +610,31 @@ status_t convertMetaDataToMessage(
     sp<AMessage> msg = new AMessage;
     msg->setString("mime", mime);
 
+    uint32_t type;
+    const void *data;
+    size_t size;
+    if (meta->findData(kKeyCASessionID, &type, &data, &size)) {
+        sp<ABuffer> buffer = new (std::nothrow) ABuffer(size);
+        if (buffer.get() == NULL || buffer->base() == NULL) {
+            return NO_MEMORY;
+        }
+
+        msg->setBuffer("ca-session-id", buffer);
+        memcpy(buffer->data(), data, size);
+    }
+
+    int32_t systemId;
+    if (meta->findInt32(kKeyCASystemID, &systemId)) {
+        msg->setInt32("ca-system-id", systemId);
+    }
+
+    if (!strncasecmp("video/scrambled", mime, 15)
+            || !strncasecmp("audio/scrambled", mime, 15)) {
+
+        *format = msg;
+        return OK;
+    }
+
     int64_t durationUs;
     if (meta->findInt64(kKeyDuration, &durationUs)) {
         msg->setInt64("durationUs", durationUs);
@@ -637,6 +662,11 @@ status_t convertMetaDataToMessage(
         msg->setInt32("track-id", trackID);
     }
 
+    const char *lang;
+    if (meta->findCString(kKeyMediaLanguage, &lang)) {
+        msg->setString("language", lang);
+    }
+
     if (!strncasecmp("video/", mime, 6)) {
         int32_t width, height;
         if (!meta->findInt32(kKeyWidth, &width)
@@ -646,6 +676,13 @@ status_t convertMetaDataToMessage(
 
         msg->setInt32("width", width);
         msg->setInt32("height", height);
+
+        int32_t displayWidth, displayHeight;
+        if (meta->findInt32(kKeyDisplayWidth, &displayWidth)
+                && meta->findInt32(kKeyDisplayHeight, &displayHeight)) {
+            msg->setInt32("display-width", displayWidth);
+            msg->setInt32("display-height", displayHeight);
+        }
 
         int32_t sarWidth, sarHeight;
         if (meta->findInt32(kKeySARWidth, &sarWidth)
@@ -747,9 +784,6 @@ status_t convertMetaDataToMessage(
         msg->setInt32("frame-rate", fps);
     }
 
-    uint32_t type;
-    const void *data;
-    size_t size;
     if (meta->findData(kKeyAVCC, &type, &data, &size)) {
         // Parse the AVCDecoderConfigurationRecord
 
@@ -1070,7 +1104,7 @@ const uint8_t *findNextNalStartCode(const uint8_t *data, size_t length) {
     return res != NULL && res < data + length - 4 ? res : &data[length];
 }
 
-static size_t reassembleAVCC(const sp<ABuffer> &csd0, const sp<ABuffer> csd1, char *avcc) {
+static size_t reassembleAVCC(const sp<ABuffer> &csd0, const sp<ABuffer> &csd1, char *avcc) {
     avcc[0] = 1;        // version
     avcc[1] = 0x64;     // profile (default to high)
     avcc[2] = 0;        // constraints (default to none)
@@ -1273,6 +1307,11 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
         meta->setInt32(kKeyMaxBitRate, maxBitrate);
     }
 
+    AString lang;
+    if (msg->findString("language", &lang)) {
+        meta->setCString(kKeyMediaLanguage, lang.c_str());
+    }
+
     if (mime.startsWith("video/")) {
         int32_t width;
         int32_t height;
@@ -1288,6 +1327,13 @@ void convertMessageToMetaData(const sp<AMessage> &msg, sp<MetaData> &meta) {
                 && msg->findInt32("sar-height", &sarHeight)) {
             meta->setInt32(kKeySARWidth, sarWidth);
             meta->setInt32(kKeySARHeight, sarHeight);
+        }
+
+        int32_t displayWidth, displayHeight;
+        if (msg->findInt32("display-width", &displayWidth)
+                && msg->findInt32("display-height", &displayHeight)) {
+            meta->setInt32(kKeyDisplayWidth, displayWidth);
+            meta->setInt32(kKeyDisplayHeight, displayHeight);
         }
 
         int32_t colorFormat;
@@ -1505,6 +1551,7 @@ static const struct mime_conv_t mimeLookup[] = {
     { MEDIA_MIMETYPE_AUDIO_AAC,         AUDIO_FORMAT_AAC },
     { MEDIA_MIMETYPE_AUDIO_VORBIS,      AUDIO_FORMAT_VORBIS },
     { MEDIA_MIMETYPE_AUDIO_OPUS,        AUDIO_FORMAT_OPUS},
+    { MEDIA_MIMETYPE_AUDIO_AC3,         AUDIO_FORMAT_AC3},
     { 0, AUDIO_FORMAT_INVALID }
 };
 
@@ -1634,9 +1681,7 @@ AString uriDebugString(const AString &uri, bool incognito) {
         return AString("<URI suppressed>");
     }
 
-    char prop[PROPERTY_VALUE_MAX];
-    if (property_get("media.stagefright.log-uri", prop, "false") &&
-        (!strcmp(prop, "1") || !strcmp(prop, "true"))) {
+    if (property_get_bool("media.stagefright.log-uri", false)) {
         return uri;
     }
 
@@ -1713,7 +1758,7 @@ bool operator <(const HLSTime &t0, const HLSTime &t1) {
             || (t0.mSeq == t1.mSeq && t0.mTimeUs < t1.mTimeUs);
 }
 
-void writeToAMessage(sp<AMessage> msg, const AudioPlaybackRate &rate) {
+void writeToAMessage(const sp<AMessage> &msg, const AudioPlaybackRate &rate) {
     msg->setFloat("speed", rate.mSpeed);
     msg->setFloat("pitch", rate.mPitch);
     msg->setInt32("audio-fallback-mode", rate.mFallbackMode);
@@ -1728,7 +1773,7 @@ void readFromAMessage(const sp<AMessage> &msg, AudioPlaybackRate *rate /* nonnul
     CHECK(msg->findInt32("audio-stretch-mode", (int32_t *)&rate->mStretchMode));
 }
 
-void writeToAMessage(sp<AMessage> msg, const AVSyncSettings &sync, float videoFpsHint) {
+void writeToAMessage(const sp<AMessage> &msg, const AVSyncSettings &sync, float videoFpsHint) {
     msg->setInt32("sync-source", sync.mSource);
     msg->setInt32("audio-adjust-mode", sync.mAudioAdjustMode);
     msg->setFloat("tolerance", sync.mTolerance);
@@ -1745,6 +1790,45 @@ void readFromAMessage(
     CHECK(msg->findFloat("tolerance", &settings.mTolerance));
     CHECK(msg->findFloat("video-fps", videoFps));
     *sync = settings;
+}
+
+void writeToAMessage(const sp<AMessage> &msg, const BufferingSettings &buffering) {
+    msg->setInt32("init-mode", buffering.mInitialBufferingMode);
+    msg->setInt32("rebuffer-mode", buffering.mRebufferingMode);
+    msg->setInt32("init-ms", buffering.mInitialWatermarkMs);
+    msg->setInt32("init-kb", buffering.mInitialWatermarkKB);
+    msg->setInt32("rebuffer-low-ms", buffering.mRebufferingWatermarkLowMs);
+    msg->setInt32("rebuffer-high-ms", buffering.mRebufferingWatermarkHighMs);
+    msg->setInt32("rebuffer-low-kb", buffering.mRebufferingWatermarkLowKB);
+    msg->setInt32("rebuffer-high-kb", buffering.mRebufferingWatermarkHighKB);
+}
+
+void readFromAMessage(const sp<AMessage> &msg, BufferingSettings *buffering /* nonnull */) {
+    int32_t value;
+    if (msg->findInt32("init-mode", &value)) {
+        buffering->mInitialBufferingMode = (BufferingMode)value;
+    }
+    if (msg->findInt32("rebuffer-mode", &value)) {
+        buffering->mRebufferingMode = (BufferingMode)value;
+    }
+    if (msg->findInt32("init-ms", &value)) {
+        buffering->mInitialWatermarkMs = value;
+    }
+    if (msg->findInt32("init-kb", &value)) {
+        buffering->mInitialWatermarkKB = value;
+    }
+    if (msg->findInt32("rebuffer-low-ms", &value)) {
+        buffering->mRebufferingWatermarkLowMs = value;
+    }
+    if (msg->findInt32("rebuffer-high-ms", &value)) {
+        buffering->mRebufferingWatermarkHighMs = value;
+    }
+    if (msg->findInt32("rebuffer-low-kb", &value)) {
+        buffering->mRebufferingWatermarkLowKB = value;
+    }
+    if (msg->findInt32("rebuffer-high-kb", &value)) {
+        buffering->mRebufferingWatermarkHighKB = value;
+    }
 }
 
 AString nameForFd(int fd) {

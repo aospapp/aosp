@@ -18,27 +18,36 @@ package libcore.java.util;
 
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.List;
+import java.util.Locale;
 import java.util.Spliterator;
 import java.util.function.Consumer;
 
+import static java.util.Spliterator.ORDERED;
+import static java.util.Spliterator.SIZED;
+import static java.util.Spliterator.SUBSIZED;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 public class SpliteratorTester {
     public static <T> void runBasicIterationTests(Spliterator<T> spliterator,
-            ArrayList<T> expectedElements) {
-        ArrayList<T> recorder = new ArrayList<T>(expectedElements.size());
+            List<T> expectedElements) {
+        List<T> recorder = new ArrayList<T>(expectedElements.size());
         Consumer<T> consumer = (T value) -> recorder.add(value);
 
         // tryAdvance.
-        assertTrue(spliterator.tryAdvance(consumer));
-        assertEquals(expectedElements.get(0), recorder.get(0));
+        boolean didAdvance = spliterator.tryAdvance(consumer);
+        assertEquals(!expectedElements.isEmpty(), didAdvance);
 
         // forEachRemaining.
         spliterator.forEachRemaining(consumer);
@@ -50,13 +59,17 @@ public class SpliteratorTester {
     }
 
     public static <T> void runBasicIterationTests_unordered(Spliterator<T> spliterator,
-            ArrayList<T> expectedElements, Comparator<T> comparator) {
+            List<T> expectedElements, Comparator<T> comparator) {
         ArrayList<T> recorder = new ArrayList<T>(expectedElements.size());
         Consumer<T> consumer = (T value) -> recorder.add(value);
 
         // tryAdvance.
-        assertTrue(spliterator.tryAdvance(consumer));
-        assertTrue(expectedElements.contains(recorder.get(0)));
+        if (expectedElements.isEmpty()) {
+            assertFalse(spliterator.tryAdvance(consumer));
+        } else {
+            assertTrue(spliterator.tryAdvance(consumer));
+            assertTrue(expectedElements.contains(recorder.get(0)));
+        }
 
         // forEachRemaining.
         spliterator.forEachRemaining(consumer);
@@ -97,20 +110,25 @@ public class SpliteratorTester {
     }
 
     public static <T extends Comparable<T>> void runBasicSplitTests(
-            Iterable<T> spliterable, ArrayList<T> expectedElements) {
+            Iterable<T> spliterable, List<T> expectedElements) {
         runBasicSplitTests(spliterable, expectedElements, T::compareTo);
     }
 
     public static <T> void runBasicSplitTests(Spliterator<T> spliterator,
-            ArrayList<T> expectedElements, Comparator<T> comparator) {
+            List<T> expectedElements, Comparator<T> comparator) {
+        boolean empty = expectedElements.isEmpty();
         ArrayList<T> recorder = new ArrayList<>();
 
         // Advance the original spliterator by one element.
-        assertTrue(spliterator.tryAdvance(value -> recorder.add(value)));
+        boolean didAdvance = spliterator.tryAdvance(value -> recorder.add(value));
+        assertEquals(!empty, didAdvance);
 
         // Try splitting it.
         Spliterator<T> split1 = spliterator.trySplit();
-        if (split1 != null) {
+        // trySplit() may always return null, but is only required to when empty
+        if (empty) {
+            assertNull(split1);
+        } else if (split1 != null) {
             // Try to split the resulting split.
             Spliterator<T> split1_1 = split1.trySplit();
             Spliterator<T> split1_2 = split1.trySplit();
@@ -124,7 +142,6 @@ public class SpliteratorTester {
             // Iterate over the remainder of split1.
             recordAndAssertBasicIteration(split1, recorder);
         }
-
         // Try to split the original iterator again.
         Spliterator<T> split2 = spliterator.trySplit();
         if (split2 != null) {
@@ -139,6 +156,13 @@ public class SpliteratorTester {
         assertEquals(expectedElements, recorder);
     }
 
+    public static <T> void assertSupportsTrySplit(Iterable spliterable) {
+        assertNotNull(spliterable.spliterator().trySplit());
+        // only non-empty Iterables may return a non-null value from trySplit()
+        assertTrue("Expected nonempty iterable, got " + spliterable,
+                spliterable.iterator().hasNext());
+    }
+
     /**
      * Note that the contract of trySplit() is generally quite weak (as it must be). There
      * are no demands about when the spliterator can or cannot split itself. In general, this
@@ -147,28 +171,68 @@ public class SpliteratorTester {
      * iterated over.
      */
     public static <T> void runBasicSplitTests(Iterable<T> spliterable,
-            ArrayList<T> expectedElements, Comparator<T> comparator) {
+            List<T> expectedElements, Comparator<T> comparator) {
         runBasicSplitTests(spliterable.spliterator(), expectedElements, comparator);
     }
 
-    public static <T> void runOrderedTests(Iterable<T> spliterable) {
-        ArrayList<T> iteration1 = new ArrayList<>();
-        ArrayList<T> iteration2 = new ArrayList<>();
-
-        spliterable.spliterator().forEachRemaining(value -> iteration1.add(value));
-        spliterable.spliterator().forEachRemaining(value -> iteration2.add(value));
-
-        assertEquals(iteration1, iteration2);
-
-        iteration1.clear();
-        iteration2.clear();
-
-        spliterable.spliterator().trySplit().forEachRemaining(value -> iteration1.add(value));
-        spliterable.spliterator().trySplit().forEachRemaining(value -> iteration2.add(value));
-        assertEquals(iteration1, iteration2);
+    private static<T> List<T> toList(Iterator<T> iterator) {
+        List<T> result = new ArrayList<>();
+        while (iterator.hasNext()) {
+            result.add(iterator.next());
+        }
+        return result;
     }
 
+    private static<T> List<T> toList(Spliterator<T> spliterator) {
+        List<T> result = new ArrayList<>();
+        spliterator.forEachRemaining(value -> result.add(value));
+        return result;
+    }
+
+    public static <T> void runOrderedTests(Iterable<T> spliterable) {
+        List<T> elements = toList(spliterable.spliterator());
+        assertEquals("Ordering should be consistent", elements, toList(spliterable.spliterator()));
+
+        // NOTE: This would fail for some Collections because of b/34757089:
+        // assertTrue(spliterable.spliterator().hasCharacteristics(ORDERED));
+
+        if (spliterable instanceof Collection) {
+            assertEquals("ORDERED Spliterator must be consistent with Iterator: "
+                            + spliterable.getClass(), elements, toList(spliterable.iterator()));
+        }
+
+        boolean isEmpty = !spliterable.iterator().hasNext();
+
+        Spliterator<T> sa = spliterable.spliterator();
+        Spliterator<T> sb = spliterable.spliterator();
+        Spliterator<T> saSplit = sa.trySplit();
+        Spliterator<T> sbSplit = sb.trySplit();
+        // trySplit() may always return null, but is only required to when empty
+        if (isEmpty) {
+            assertNull(saSplit);
+            assertNull(sbSplit);
+        } else {
+            // A non-empty Iterable may still return null from trySplit();
+            // if it does, then the un-split parent spliterators (sa, sb) must
+            // each still contain all of the elements. Regardless of whether
+            // the split was successful, sa and sb must behave the consistently
+            // with each other since they came from the same Iterable.
+            if (saSplit != null) {
+                assertEquals(toList(saSplit), toList(sbSplit));
+                assertEquals(toList(sa), toList(sb));
+            } else {
+                assertEquals(elements, toList(sa));
+                assertEquals(elements, toList(sb));
+            }
+        }
+    }
+
+    /**
+     * Checks that the specified SIZED Spliterator reports containing the
+     * specified number of elements.
+     */
     public static <T> void runSizedTests(Spliterator<T> spliterator, int expectedSize) {
+        assertHasCharacteristics(SIZED, spliterator);
         assertEquals(expectedSize, spliterator.estimateSize());
         assertEquals(expectedSize, spliterator.getExactSizeIfKnown());
     }
@@ -177,14 +241,28 @@ public class SpliteratorTester {
         runSizedTests(spliterable.spliterator(), expectedSize);
     }
 
+    /**
+     * Checks that the specified Spliterator and its {@link Spliterator#trySplit()
+     * children} are SIZED and SUBSIZED and report containing the specified number
+     * of elements.
+     */
     public static <T> void runSubSizedTests(Spliterator<T> spliterator, int expectedSize) {
+        assertHasCharacteristics(SIZED | SUBSIZED, spliterator);
         assertEquals(expectedSize, spliterator.estimateSize());
         assertEquals(expectedSize, spliterator.getExactSizeIfKnown());
 
-
-        Spliterator<T> split1 = spliterator.trySplit();
-        assertEquals(expectedSize, spliterator.estimateSize() + split1.estimateSize());
-        assertEquals(expectedSize, spliterator.getExactSizeIfKnown() + split1.getExactSizeIfKnown());
+        Spliterator<T> child = spliterator.trySplit();
+        assertHasCharacteristics(SIZED | SUBSIZED, spliterator);
+        if (expectedSize == 0) {
+            assertNull(child);
+            assertEquals(expectedSize, spliterator.estimateSize());
+            assertEquals(expectedSize, spliterator.getExactSizeIfKnown());
+        } else {
+            assertHasCharacteristics(SIZED | SUBSIZED, child);
+            assertEquals(expectedSize, spliterator.estimateSize() + child.estimateSize());
+            assertEquals(expectedSize,
+                    spliterator.getExactSizeIfKnown() + child.getExactSizeIfKnown());
+        }
     }
 
     public static <T> void runSubSizedTests(Iterable<T> spliterable, int expectedSize) {
@@ -201,7 +279,10 @@ public class SpliteratorTester {
         // First test that iterating via the spliterator using forEachRemaining
         // yields distinct elements.
         spliterator.forEachRemaining(value -> { distinct.add(value); allElements.add(value); });
-        split1.forEachRemaining(value -> { distinct.add(value); allElements.add(value); });
+        // trySplit() may return null, even when non-empty
+        if (split1 != null) {
+            split1.forEachRemaining(value -> { distinct.add(value); allElements.add(value); });
+        }
         assertEquals(distinct.size(), allElements.size());
 
         distinct.clear();
@@ -213,7 +294,10 @@ public class SpliteratorTester {
         while (spliterator.tryAdvance(value -> { distinct.add(value); allElements.add(value); })) {
         }
 
-        while (split1.tryAdvance(value -> { distinct.add(value); allElements.add(value); })) {
+        // trySplit() may return null, even when non-empty
+        if (split1 != null) {
+            while (split1.tryAdvance(value -> { distinct.add(value); allElements.add(value); })) {
+            }
         }
 
         assertEquals(distinct.size(), allElements.size());
@@ -240,5 +324,14 @@ public class SpliteratorTester {
 
     public static <T extends Comparable<T>> void runSortedTests(Iterable<T> spliterable) {
         runSortedTests(spliterable, T::compareTo);
+    }
+
+    public static void assertHasCharacteristics(int expectedCharacteristics,
+            Spliterator<?> spliterator) {
+        int actualCharacteristics = spliterator.characteristics();
+        String msg = String.format(Locale.US,
+                "Expected expectedCharacteristics containing 0x%x, got 0x%x",
+                expectedCharacteristics, actualCharacteristics);
+        assertTrue(msg, spliterator.hasCharacteristics(expectedCharacteristics));
     }
 }

@@ -251,16 +251,20 @@ public class LinkReference {
       if (DBG) System.out.println("-- they provided ref = " + ref);
       // they provided something, maybe it's a class or a package
       if (cl != null) {
-        if (DBG) System.out.println("-- cl non-null");
-        result.classInfo = cl.extendedFindClass(ref);
-        if (result.classInfo == null) {
-          if (DBG) System.out.println("-- cl.extendedFindClass was null");
-          result.classInfo = cl.findClass(ref);
-        }
-        if (result.classInfo == null) {
-          if (DBG) System.out.println("-- cl.findClass was null");
-          result.classInfo = cl.findInnerClass(ref);
-          if (DBG) if (result.classInfo == null) System.out.println("-- cl.findInnerClass was null");
+        try {
+          if (DBG) System.out.println("-- cl non-null");
+          result.classInfo = cl.extendedFindClass(ref);
+          if (result.classInfo == null) {
+            if (DBG) System.out.println("-- cl.extendedFindClass was null");
+            result.classInfo = cl.findClass(ref);
+          }
+          if (result.classInfo == null) {
+            if (DBG) System.out.println("-- cl.findClass was null");
+            result.classInfo = cl.findInnerClass(ref);
+            if (DBG) if (result.classInfo == null) System.out.println("-- cl.findInnerClass was null");
+          }
+        } catch (RuntimeException e) {
+          throw new RuntimeException("Failed to resolve class at " + pos, e);
         }
       }
       if (result.classInfo == null) {

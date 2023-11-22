@@ -45,7 +45,7 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
      */
     public void testNewInstance_Object() {
         checkNewInstanceTag("Ljava/lang/Object;", "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.OBJECT_TAG);
+                new Checker(JDWPConstants.Tag.OBJECT_TAG));
     }
 
     /**
@@ -54,7 +54,7 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
     public void testNewInstance_MyObject() {
         String subclassSig = getClassSignature(NewInstanceTagDebuggee.MyObject.class);
         checkNewInstanceTag(subclassSig, "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.OBJECT_TAG);
+                new Checker(JDWPConstants.Tag.OBJECT_TAG));
     }
 
     /**
@@ -62,7 +62,7 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
      */
     public void testNewInstance_String() {
         checkNewInstanceTag("Ljava/lang/String;", "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.STRING_TAG);
+                new Checker(JDWPConstants.Tag.STRING_TAG));
     }
 
     /**
@@ -75,7 +75,7 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
     public void testNewInstance_ClassLoader() {
         String subclassSig = getClassSignature(NewInstanceTagDebuggee.MyClassLoader.class);
         checkNewInstanceTag(subclassSig, "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.CLASS_LOADER_TAG);
+                new Checker(JDWPConstants.Tag.CLASS_LOADER_TAG));
     }
 
     /**
@@ -83,7 +83,7 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
      */
     public void testNewInstance_Thread() {
         checkNewInstanceTag("Ljava/lang/Thread;", "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.THREAD_TAG);
+                new Checker(JDWPConstants.Tag.THREAD_TAG));
     }
 
     /**
@@ -93,7 +93,7 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
     public void testNewInstance_MyThread() {
         String subclassSig = getClassSignature(NewInstanceTagDebuggee.MyThread.class);
         checkNewInstanceTag(subclassSig, "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.THREAD_TAG);
+                new Checker(JDWPConstants.Tag.THREAD_TAG));
     }
 
     /**
@@ -110,9 +110,9 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
                         assertTrue("Invalid string id", stringId != -1);
                         assertTrue("Null string id", stringId != 0);
                         // Pass created string to constructor.
-                        constructorArguments.add(new Value(JDWPConstants.Tag.STRING_TAG, stringId));
+                        constructorArguments.add(Value.createObjectValue(JDWPConstants.Tag.STRING_TAG, stringId));
                     }
-                }, JDWPConstants.Tag.THREAD_GROUP_TAG);
+                }, new Checker(JDWPConstants.Tag.THREAD_GROUP_TAG));
     }
 
     /**
@@ -122,6 +122,6 @@ public class NewInstanceTagTest extends AbstractNewInstanceTestCase {
     public void testNewInstance_MyThreadGroup() {
         String subclassSig = getClassSignature(NewInstanceTagDebuggee.MyThreadGroup.class);
         checkNewInstanceTag(subclassSig, "()V", new NoConstructorArgumentProvider(),
-                JDWPConstants.Tag.THREAD_GROUP_TAG);
+                new Checker(JDWPConstants.Tag.THREAD_GROUP_TAG));
     }
 }

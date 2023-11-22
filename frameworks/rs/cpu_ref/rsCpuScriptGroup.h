@@ -41,9 +41,9 @@ protected:
     struct ScriptList {
         size_t count;
         Allocation *const* ins;
-        bool const* inExts;
+        uint8_t const* inExts;
         Allocation *const* outs;
-        bool const* outExts;
+        uint8_t const* outExts;
         const void *const* usrPtrs;
         size_t const *usrSizes;
         uint32_t const *sigs;
@@ -56,7 +56,7 @@ protected:
     RsdCpuReferenceImpl *mCtx;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif // RSD_SCRIPT_GROUP_H

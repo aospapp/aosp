@@ -21,14 +21,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 
 /**
  * Activity to view the contents of an album.
  */
-public class PhotoViewActivity extends ActionBarActivity
+public class PhotoViewActivity extends AppCompatActivity
         implements PhotoViewController.ActivityInterface {
 
     private PhotoViewController mController;

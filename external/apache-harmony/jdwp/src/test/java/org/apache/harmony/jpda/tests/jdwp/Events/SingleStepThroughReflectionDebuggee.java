@@ -43,6 +43,7 @@ public class SingleStepThroughReflectionDebuggee extends SyncDebuggee {
         logWriter.println("methodCalledThroughReflection");
     }
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

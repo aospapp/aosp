@@ -22,15 +22,10 @@ LOCAL_SRC_FILES := com_googlecode_android_scripting_Exec.cpp
 
 LOCAL_CFLAGS += -Wno-unused-parameter
 
-LOCAL_C_INCLUDES += \
-    $(JNI_H_INCLUDE) \
-
 LOCAL_SHARED_LIBRARIES := \
-    libandroid_runtime \
-    libnativehelper \
-    libcutils \
-    libutils \
     liblog
+
+LOCAL_SDK_VERSION := 23
 
 LOCAL_MODULE    := libcom_googlecode_android_scripting_Exec
 

@@ -16,19 +16,27 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Paint;
 import android.graphics.Paint.Cap;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Paint_CapTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Paint_CapTest {
+    @Test
     public void testValueOf() {
-
         assertEquals(Cap.BUTT, Cap.valueOf("BUTT"));
         assertEquals(Cap.ROUND, Cap.valueOf("ROUND"));
         assertEquals(Cap.SQUARE, Cap.valueOf("SQUARE"));
     }
 
+    @Test
     public void testValues() {
         // set the actual value
         Cap[] actual = Cap.values();

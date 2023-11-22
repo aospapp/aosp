@@ -28,11 +28,9 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "cache.h"
+#include <private/bionic_asm.h>
 
-#ifndef MEMSET
-# define MEMSET memset
-#endif
+#include "cache.h"
 
 #ifndef L
 # define L(label)	.L##label
@@ -42,68 +40,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # define ALIGN(n)	.p2align n
 #endif
 
-#ifndef cfi_startproc
-# define cfi_startproc			.cfi_startproc
-#endif
-
-#ifndef cfi_endproc
-# define cfi_endproc			.cfi_endproc
-#endif
-
-#ifndef cfi_rel_offset
-# define cfi_rel_offset(reg, off)	.cfi_rel_offset reg, off
-#endif
-
-#ifndef cfi_restore
-# define cfi_restore(reg)		.cfi_restore reg
-#endif
-
-#ifndef cfi_adjust_cfa_offset
-# define cfi_adjust_cfa_offset(off)	.cfi_adjust_cfa_offset off
-#endif
-
-#ifndef ENTRY
-# define ENTRY(name)			\
-	.type name,  @function;		\
-	.globl name;			\
-	.p2align 4;			\
-name:					\
-	cfi_startproc
-#endif
-
-#ifndef END
-# define END(name)			\
-	cfi_endproc;			\
-	.size name, .-name
-#endif
-
 #define CFI_PUSH(REG)						\
-  cfi_adjust_cfa_offset (4);					\
-  cfi_rel_offset (REG, 0)
+  .cfi_adjust_cfa_offset 4;					\
+  .cfi_rel_offset REG, 0
 
 #define CFI_POP(REG)						\
-  cfi_adjust_cfa_offset (-4);					\
-  cfi_restore (REG)
+  .cfi_adjust_cfa_offset -4;					\
+  .cfi_restore REG
 
-#define PUSH(REG)	pushl REG; CFI_PUSH (REG)
-#define POP(REG)	popl REG; CFI_POP (REG)
+#define PUSH(REG)	pushl REG; CFI_PUSH(REG)
+#define POP(REG)	popl REG; CFI_POP(REG)
 
-#ifdef USE_AS_BZERO
-# define DEST		PARMS
-# define LEN		DEST+4
-# define SETRTNVAL
-#else
-# define DEST		PARMS
-# define CHR		DEST+4
-# define LEN		CHR+4
-# define SETRTNVAL	movl DEST(%esp), %eax
-#endif
+#define PARMS 8 /* Preserve EBX. */
+#define DST PARMS
+#define CHR (DST+4)
+#define LEN (CHR+4)
+#define CHK_DST_LEN (LEN+4)
+#define SETRTNVAL	movl DST(%esp), %eax
 
-#if (defined SHARED || defined __PIC__)
-# define ENTRANCE	PUSH (%ebx);
-# define RETURN_END	POP (%ebx); ret
-# define RETURN		RETURN_END; CFI_PUSH (%ebx)
-# define PARMS		8		/* Preserve EBX.  */
+# define ENTRANCE	PUSH(%ebx);
+# define RETURN_END	POP(%ebx); ret
+# define RETURN		RETURN_END; CFI_PUSH(%ebx)
 # define JMPTBL(I, B)	I - B
 
 /* Load an entry in a jump table into EBX and branch to it.  TABLE is a
@@ -117,54 +74,49 @@ name:					\
        absolute address.  */					\
     add		(%ebx,%ecx,4), %ebx;				\
     add		%ecx, %edx;					\
-    /* We loaded the jump table and adjuested EDX. Go.  */	\
+    /* We loaded the jump table and adjusted EDX. Go.  */	\
     jmp		*%ebx
 
 	.section	.gnu.linkonce.t.__x86.get_pc_thunk.bx,"ax",@progbits
 	.globl	__x86.get_pc_thunk.bx
 	.hidden	__x86.get_pc_thunk.bx
-	ALIGN (4)
+	ALIGN(4)
 	.type	__x86.get_pc_thunk.bx,@function
 __x86.get_pc_thunk.bx:
 	movl	(%esp), %ebx
 	ret
-#else
-# define ENTRANCE
-# define RETURN_END	ret
-# define RETURN		RETURN_END
-# define PARMS		4
-# define JMPTBL(I, B)	I
 
-/* Branch to an entry in a jump table.  TABLE is a jump table with
-   absolute offsets.  */
-# define BRANCH_TO_JMPTBL_ENTRY(TABLE)				\
-    add		%ecx, %edx;					\
-    jmp		*TABLE(,%ecx,4)
-#endif
+ENTRY(__memset_chk)
+  ENTRANCE
+
+  movl LEN(%esp), %ecx
+  cmpl CHK_DST_LEN(%esp), %ecx
+  jna L(memset_length_loaded)
+
+  POP(%ebx) // Undo ENTRANCE without returning.
+  jmp __memset_chk_fail
+END(__memset_chk)
 
 	.section .text.sse2,"ax",@progbits
-	ALIGN (4)
-ENTRY (MEMSET)
+	ALIGN(4)
+ENTRY(memset)
 	ENTRANCE
 
 	movl	LEN(%esp), %ecx
+L(memset_length_loaded):
 	cmp	$0, %ecx
 	ja	L(1byteormore)
 	SETRTNVAL
 	RETURN
 
 L(1byteormore):
-#ifdef USE_AS_BZERO
-	xor	%eax, %eax
-#else
 	movzbl	CHR(%esp), %eax
 	movb	%al, %ah
 	/* Fill the whole EAX with pattern.  */
 	movl	%eax, %edx
 	shl	 $16, %eax
 	or	%edx, %eax
-#endif
-	movl	DEST(%esp), %edx
+	movl	DST(%esp), %edx
 	cmp	$1, %ecx
 	je	L(1byte)
 	cmp	$16, %ecx
@@ -193,14 +145,10 @@ L(1byte):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(16bytesormore):
-#ifdef USE_AS_BZERO
-	pxor	%xmm0, %xmm0
-#else
 	movd	%eax, %xmm0
 	pshufd	$0, %xmm0, %xmm0
-#endif
 
 	cmp	$64, %ecx
 	ja	L(64bytesmore)
@@ -226,47 +174,25 @@ L(not_aligned_16):
 	add	%eax, %ecx
 	movd	%xmm0, %eax
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16):
 	cmp	$128, %ecx
 	jae	L(128bytesormore)
 
 L(aligned_16_less128bytes):
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	BRANCH_TO_JMPTBL_ENTRY(L(table_16_128bytes))
 
-	ALIGN (4)
+	ALIGN(4)
 L(128bytesormore):
-#ifdef SHARED_CACHE_SIZE
-	PUSH (%ebx)
+	PUSH(%ebx)
 	mov	$SHARED_CACHE_SIZE, %ebx
-#else
-# if (defined SHARED || defined __PIC__)
-	call	__x86.get_pc_thunk.bx
-	add	$_GLOBAL_OFFSET_TABLE_, %ebx
-	mov	$__x86_shared_cache_size@GOTOFF(%ebx), %ebx
-# else
-	PUSH (%ebx)
-	mov	$__x86_shared_cache_size, %ebx
-# endif
-#endif
 	cmp	%ebx, %ecx
 	jae	L(128bytesormore_nt_start)
 
-	POP (%ebx)
+	POP(%ebx)
 
-#ifdef DATA_CACHE_SIZE
-	PUSH (%ebx)
+	PUSH(%ebx)
 	mov	$DATA_CACHE_SIZE, %ebx
-#else
-# if (defined SHARED || defined __PIC__)
-	call	__x86.get_pc_thunk.bx
-	add	$_GLOBAL_OFFSET_TABLE_, %ebx
-	mov	$__x86_data_cache_size@GOTOFF(%ebx), %ebx
-# else
-	PUSH (%ebx)
-	mov	$__x86_data_cache_size, %ebx
-# endif
-#endif
 
 	cmp	%ebx, %ecx
 	jae	L(128bytes_L2_normal)
@@ -299,12 +225,10 @@ L(128bytesormore_normal):
 
 L(128bytesless_normal):
 	lea	128(%ecx), %ecx
-#if defined DATA_CACHE_SIZE || !(defined SHARED || defined __PIC__)
-	POP (%ebx)
-#endif
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	POP(%ebx)
+	BRANCH_TO_JMPTBL_ENTRY(L(table_16_128bytes))
 
-	ALIGN (4)
+	ALIGN(4)
 L(128bytes_L2_normal):
 	prefetchnta	0x380(%edx)
 	prefetchnta	0x3c0(%edx)
@@ -322,14 +246,12 @@ L(128bytes_L2_normal):
 	jae	L(128bytes_L2_normal)
 
 L(128bytesless_L2_normal):
-#if defined DATA_CACHE_SIZE || !(defined SHARED || defined __PIC__)
-	POP (%ebx)
-#endif
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	POP(%ebx)
+	BRANCH_TO_JMPTBL_ENTRY(L(table_16_128bytes))
 
 L(128bytesormore_nt_start):
 	sub	%ebx, %ecx
-	ALIGN (4)
+	ALIGN(4)
 L(128bytesormore_shared_cache_loop):
 	prefetchnta	0x3c0(%edx)
 	prefetchnta	0x380(%edx)
@@ -347,7 +269,7 @@ L(128bytesormore_shared_cache_loop):
 	jae	L(128bytesormore_shared_cache_loop)
 	cmp	$0x80, %ecx
 	jb	L(shared_cache_loop_end)
-	ALIGN (4)
+	ALIGN(4)
 L(128bytesormore_nt):
 	sub	$0x80, %ecx
 	movntdq	%xmm0, (%edx)
@@ -363,146 +285,144 @@ L(128bytesormore_nt):
 	jae	L(128bytesormore_nt)
 	sfence
 L(shared_cache_loop_end):
-#if defined SHARED_CACHE_SIZE || !(defined SHARED || defined __PIC__)
-	POP (%ebx)
-#endif
-	BRANCH_TO_JMPTBL_ENTRY (L(table_16_128bytes))
+	POP(%ebx)
+	BRANCH_TO_JMPTBL_ENTRY(L(table_16_128bytes))
 
 
 	.pushsection .rodata.sse2,"a",@progbits
-	ALIGN (2)
+	ALIGN(2)
 L(table_16_128bytes):
-	.int	JMPTBL (L(aligned_16_0bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_1bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_2bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_3bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_4bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_5bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_6bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_7bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_8bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_9bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_10bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_11bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_12bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_13bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_14bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_15bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_16bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_17bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_18bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_19bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_20bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_21bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_22bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_23bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_24bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_25bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_26bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_27bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_28bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_29bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_30bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_31bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_32bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_33bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_34bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_35bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_36bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_37bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_38bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_39bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_40bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_41bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_42bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_43bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_44bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_45bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_46bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_47bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_48bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_49bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_50bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_51bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_52bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_53bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_54bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_55bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_56bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_57bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_58bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_59bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_60bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_61bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_62bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_63bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_64bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_65bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_66bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_67bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_68bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_69bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_70bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_71bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_72bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_73bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_74bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_75bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_76bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_77bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_78bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_79bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_80bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_81bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_82bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_83bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_84bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_85bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_86bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_87bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_88bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_89bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_90bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_91bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_92bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_93bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_94bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_95bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_96bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_97bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_98bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_99bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_100bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_101bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_102bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_103bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_104bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_105bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_106bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_107bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_108bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_109bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_110bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_111bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_112bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_113bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_114bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_115bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_116bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_117bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_118bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_119bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_120bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_121bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_122bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_123bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_124bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_125bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_126bytes), L(table_16_128bytes))
-	.int	JMPTBL (L(aligned_16_127bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_0bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_1bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_2bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_3bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_4bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_5bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_6bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_7bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_8bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_9bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_10bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_11bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_12bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_13bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_14bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_15bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_16bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_17bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_18bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_19bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_20bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_21bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_22bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_23bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_24bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_25bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_26bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_27bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_28bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_29bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_30bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_31bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_32bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_33bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_34bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_35bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_36bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_37bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_38bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_39bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_40bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_41bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_42bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_43bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_44bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_45bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_46bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_47bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_48bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_49bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_50bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_51bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_52bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_53bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_54bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_55bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_56bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_57bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_58bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_59bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_60bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_61bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_62bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_63bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_64bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_65bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_66bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_67bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_68bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_69bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_70bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_71bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_72bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_73bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_74bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_75bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_76bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_77bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_78bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_79bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_80bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_81bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_82bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_83bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_84bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_85bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_86bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_87bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_88bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_89bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_90bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_91bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_92bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_93bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_94bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_95bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_96bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_97bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_98bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_99bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_100bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_101bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_102bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_103bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_104bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_105bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_106bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_107bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_108bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_109bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_110bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_111bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_112bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_113bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_114bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_115bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_116bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_117bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_118bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_119bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_120bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_121bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_122bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_123bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_124bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_125bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_126bytes), L(table_16_128bytes))
+	.int	JMPTBL(L(aligned_16_127bytes), L(table_16_128bytes))
 	.popsection
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_112bytes):
 	movdqa	%xmm0, -112(%edx)
 L(aligned_16_96bytes):
@@ -521,7 +441,7 @@ L(aligned_16_0bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_113bytes):
 	movdqa	%xmm0, -113(%edx)
 L(aligned_16_97bytes):
@@ -541,7 +461,7 @@ L(aligned_16_1bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_114bytes):
 	movdqa	%xmm0, -114(%edx)
 L(aligned_16_98bytes):
@@ -561,7 +481,7 @@ L(aligned_16_2bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_115bytes):
 	movdqa	%xmm0, -115(%edx)
 L(aligned_16_99bytes):
@@ -582,7 +502,7 @@ L(aligned_16_3bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_116bytes):
 	movdqa	%xmm0, -116(%edx)
 L(aligned_16_100bytes):
@@ -602,7 +522,7 @@ L(aligned_16_4bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_117bytes):
 	movdqa	%xmm0, -117(%edx)
 L(aligned_16_101bytes):
@@ -623,7 +543,7 @@ L(aligned_16_5bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_118bytes):
 	movdqa	%xmm0, -118(%edx)
 L(aligned_16_102bytes):
@@ -644,7 +564,7 @@ L(aligned_16_6bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_119bytes):
 	movdqa	%xmm0, -119(%edx)
 L(aligned_16_103bytes):
@@ -666,7 +586,7 @@ L(aligned_16_7bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_120bytes):
 	movdqa	%xmm0, -120(%edx)
 L(aligned_16_104bytes):
@@ -686,7 +606,7 @@ L(aligned_16_8bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_121bytes):
 	movdqa	%xmm0, -121(%edx)
 L(aligned_16_105bytes):
@@ -707,7 +627,7 @@ L(aligned_16_9bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_122bytes):
 	movdqa	%xmm0, -122(%edx)
 L(aligned_16_106bytes):
@@ -728,7 +648,7 @@ L(aligned_16_10bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_123bytes):
 	movdqa	%xmm0, -123(%edx)
 L(aligned_16_107bytes):
@@ -750,7 +670,7 @@ L(aligned_16_11bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_124bytes):
 	movdqa	%xmm0, -124(%edx)
 L(aligned_16_108bytes):
@@ -771,7 +691,7 @@ L(aligned_16_12bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_125bytes):
 	movdqa	%xmm0, -125(%edx)
 L(aligned_16_109bytes):
@@ -793,7 +713,7 @@ L(aligned_16_13bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_126bytes):
 	movdqa	%xmm0, -126(%edx)
 L(aligned_16_110bytes):
@@ -815,7 +735,7 @@ L(aligned_16_14bytes):
 	SETRTNVAL
 	RETURN
 
-	ALIGN (4)
+	ALIGN(4)
 L(aligned_16_127bytes):
 	movdqa	%xmm0, -127(%edx)
 L(aligned_16_111bytes):
@@ -838,4 +758,4 @@ L(aligned_16_15bytes):
 	SETRTNVAL
 	RETURN_END
 
-END (MEMSET)
+END(memset)

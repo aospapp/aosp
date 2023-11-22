@@ -27,54 +27,45 @@
 #include "bta_api.h"
 
 /*****************************************************************************
-**  Function Declarations
-*****************************************************************************/
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
+ *  Function Declarations
+ ****************************************************************************/
 /*******************************************************************************
-**
-** Function         bta_dm_ci_io_req
-**
-** Description      This function must be called in response to function
-**                  bta_dm_co_io_req(), if *p_oob_data is set to BTA_OOB_UNKNOWN
-**                  by bta_dm_co_io_req().
-**
-** Returns          void
-**
-*******************************************************************************/
+ *
+ * Function         bta_dm_ci_io_req
+ *
+ * Description      This function must be called in response to function
+ *                  bta_dm_co_io_req(), if *p_oob_data is set to BTA_OOB_UNKNOWN
+ *                  by bta_dm_co_io_req().
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
 extern void bta_dm_ci_io_req(BD_ADDR bd_addr, tBTA_IO_CAP io_cap,
-                                     tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req);
+                             tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req);
 
 /*******************************************************************************
-**
-** Function         bta_dm_ci_rmt_oob
-**
-** Description      This function must be called in response to function
-**                  bta_dm_co_rmt_oob() to provide the OOB data associated
-**                  with the remote device.
-**
-** Returns          void
-**
-*******************************************************************************/
-extern void bta_dm_ci_rmt_oob(BOOLEAN accept, BD_ADDR bd_addr,
-                              BT_OCTET16 c, BT_OCTET16 r);
+ *
+ * Function         bta_dm_ci_rmt_oob
+ *
+ * Description      This function must be called in response to function
+ *                  bta_dm_co_rmt_oob() to provide the OOB data associated
+ *                  with the remote device.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void bta_dm_ci_rmt_oob(bool accept, BD_ADDR bd_addr, BT_OCTET16 c,
+                              BT_OCTET16 r);
 /*******************************************************************************
-**
-** Function         bta_dm_sco_ci_data_ready
-**
-** Description      This function sends an event to indicating that the phone
-**                  has SCO data ready..
-**
-** Returns          void
-**
-*******************************************************************************/
-extern void bta_dm_sco_ci_data_ready(UINT16 event, UINT16 sco_handle);
-
-#ifdef __cplusplus
-}
-#endif
+ *
+ * Function         bta_dm_sco_ci_data_ready
+ *
+ * Description      This function sends an event to indicating that the phone
+ *                  has SCO data ready..
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+extern void bta_dm_sco_ci_data_ready(uint16_t event, uint16_t sco_handle);
 
 #endif

@@ -38,8 +38,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define ARRAY_SIZE(x)           (sizeof(x)/sizeof(x[0]))
-
 #define OP_DOWNLOAD   1
 #define OP_COMMAND    2
 #define OP_QUERY      3
@@ -351,21 +349,21 @@ int fb_execute_queue(Transport* transport)
         }
         if (a->op == OP_DOWNLOAD) {
             status = fb_download_data(transport, a->data, a->size);
-            status = a->func(a, status, status ? fb_get_error() : "");
+            status = a->func(a, status, status ? fb_get_error().c_str() : "");
             if (status) break;
         } else if (a->op == OP_COMMAND) {
             status = fb_command(transport, a->cmd);
-            status = a->func(a, status, status ? fb_get_error() : "");
+            status = a->func(a, status, status ? fb_get_error().c_str() : "");
             if (status) break;
         } else if (a->op == OP_QUERY) {
             status = fb_command_response(transport, a->cmd, resp);
-            status = a->func(a, status, status ? fb_get_error() : resp);
+            status = a->func(a, status, status ? fb_get_error().c_str() : resp);
             if (status) break;
         } else if (a->op == OP_NOTICE) {
             fprintf(stderr,"%s\n",(char*)a->data);
         } else if (a->op == OP_DOWNLOAD_SPARSE) {
             status = fb_download_data_sparse(transport, reinterpret_cast<sparse_file*>(a->data));
-            status = a->func(a, status, status ? fb_get_error() : "");
+            status = a->func(a, status, status ? fb_get_error().c_str() : "");
             if (status) break;
         } else if (a->op == OP_WAIT_FOR_DISCONNECT) {
             transport->WaitForDisconnect();

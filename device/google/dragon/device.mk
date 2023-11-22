@@ -35,7 +35,11 @@ else
 LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
 
+ifeq ($(TARGET_PRODUCT), ryu_kasan)
+LOCAL_FSTAB := $(LOCAL_PATH)/fstab.dragon.nocrypt
+else
 LOCAL_FSTAB := $(LOCAL_PATH)/fstab.dragon
+endif
 
 TARGET_RECOVERY_FSTAB = $(LOCAL_FSTAB)
 
@@ -55,8 +59,11 @@ PRODUCT_COPY_FILES := \
     $(LOCAL_PATH)/com.nvidia.nvsi.xml:system/etc/permissions/com.nvidia.nvsi.xml
 
 PRODUCT_PACKAGES += \
+    android.hardware.wifi@1.0-service \
     libwpa_client \
     hostapd \
+    wificond \
+    wifilogd \
     wpa_supplicant \
     wpa_supplicant.conf \
     fs_config_files \
@@ -116,6 +123,11 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/bluetooth/BCM4350C0_003.001.012.0364.0754.hcd:$(TARGET_COPY_OUT_VENDOR)/firmware/bcm4350c0.hcd \
     $(LOCAL_PATH)/bluetooth/bt_vendor.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/bluetooth/bt_vendor.conf
 
+# Bluetooth HAL
+PRODUCT_PACKAGES += \
+    libbt-vendor \
+    android.hardware.bluetooth@1.0-impl
+
 # Copy dsp firmware to the vendor parition so it is available when hotwording
 # starts
 PRODUCT_COPY_FILES += \
@@ -126,6 +138,10 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_COPY_FILES += \
     device/google/dragon/audio_effects.conf:system/etc/audio_effects.conf
+
+# Vendor Interface Manifest
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/manifest.xml:vendor/manifest.xml
 
 PRODUCT_AAPT_CONFIG := normal large xlarge hdpi xhdpi xxhdpi
 PRODUCT_AAPT_PREF_CONFIG := xhdpi
@@ -143,8 +159,36 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_PACKAGES += \
     power.dragon \
+    sensors.dragon \
+    android.hardware.sensors@1.0-impl \
+    android.hardware.power@1.0-impl
+
+# Health HAL
+PRODUCT_PACKAGES += \
+    android.hardware.health@1.0-impl
+
+# Light HAL
+PRODUCT_PACKAGES += \
     lights.dragon \
-    sensors.dragon
+    android.hardware.light@2.0-impl
+
+# Keymaster HAL
+PRODUCT_PACKAGES += \
+    android.hardware.keymaster@3.0-impl
+
+# Gatekeeper HAL
+PRODUCT_PACKAGES += \
+    android.hardware.gatekeeper@1.0-impl
+
+# Dumpstate HAL
+PRODUCT_PACKAGES += \
+    android.hardware.dumpstate@1.0-service.dragon
+
+# Gralloc HAL
+PRODUCT_PACKAGES += \
+    android.hardware.graphics.mapper@2.0-impl \
+    android.hardware.graphics.allocator@2.0-impl \
+    android.hardware.graphics.allocator@2.0-service
 
 #TODO(dgreid) is this right?
 PRODUCT_PROPERTY_OVERRIDES := \
@@ -167,7 +211,7 @@ PRODUCT_SYSTEM_PROPERTY_BLACKLIST := \
     ro.product.locale
 
 # OEM Unlock reporting
-ADDITIONAL_DEFAULT_PROPERTIES += \
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     ro.oem_unlock_supported=1
 
 # setup dalvik vm configs.
@@ -175,10 +219,9 @@ $(call inherit-product, frameworks/native/build/tablet-10in-xhdpi-2048-dalvik-he
 
 # set default USB configuration
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
-    persist.sys.usb.config=mtp \
     ro.adb.secure=1 \
     ro.sf.lcd_density=320 \
-    ro.opengles.version=196609
+    ro.opengles.version=196610
 
 # for audio
 #TODO(dgreid) do we need libnvvisualizer?
@@ -189,13 +232,37 @@ PRODUCT_PACKAGES += \
     audio.usb.default \
     audio.r_submix.default
 
+PRODUCT_PACKAGES += \
+    android.hardware.audio@2.0-impl \
+    android.hardware.audio.effect@2.0-impl \
+    android.hardware.broadcastradio@1.0-impl \
+    android.hardware.soundtrigger@2.0-impl
+
+PRODUCT_PACKAGES += \
+    android.hardware.drm@1.0-impl
+
+PRODUCT_PACKAGES += \
+    android.hardware.graphics.composer@2.1-impl
+
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.audio.monitorRotation=true \
     ro.frp.pst=/dev/block/platform/700b0600.sdhci/by-name/PST
 
+# Default OMX service to non-Treble
+PRODUCT_PROPERTY_OVERRIDES += \
+    persist.media.treble_omx=false
+
+# ro.product.first_api_level indicates the first api level the device has commercially launched on.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.product.first_api_level=23
+
 # for keyboard key mappings
 PRODUCT_PACKAGES += \
     DragonKeyboard
+
+# Vibrator HAL
+PRODUCT_PACKAGES += \
+    android.hardware.vibrator@1.0-impl
 
 # Allows healthd to boot directly from charger mode rather than initiating a reboot.
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
@@ -237,5 +304,9 @@ PRODUCT_PACKAGES += \
     libdrm \
     rmi4update \
     rmihidtool
+
+# Vendor seccomp policy files for media components:
+PRODUCT_COPY_FILES += \
+    device/google/dragon/seccomp_policy/mediacodec.policy:$(TARGET_COPY_OUT_VENDOR)/etc/seccomp_policy/mediacodec.policy
 
 $(call inherit-product-if-exists, vendor/nvidia/dragon/dragon-vendor.mk)

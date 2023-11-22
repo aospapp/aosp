@@ -22,7 +22,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
-import android.preference.PreferenceManager;
 
 import com.android.deskclock.R;
 import com.android.deskclock.Utils;
@@ -45,6 +44,8 @@ final class CityModel {
 
     private final Context mContext;
 
+    private final SharedPreferences mPrefs;
+
     /** The model from which settings are fetched. */
     private final SettingsModel mSettingsModel;
 
@@ -52,10 +53,15 @@ final class CityModel {
      * Retain a hard reference to the shared preference observer to prevent it from being garbage
      * collected. See {@link SharedPreferences#registerOnSharedPreferenceChangeListener} for detail.
      */
+    @SuppressWarnings("FieldCanBeLocal")
     private final OnSharedPreferenceChangeListener mPreferenceListener = new PreferenceListener();
 
     /** Clears data structures containing data that is locale-sensitive. */
+    @SuppressWarnings("FieldCanBeLocal")
     private final BroadcastReceiver mLocaleChangedReceiver = new LocaleChangedReceiver();
+
+    /** List of listeners to invoke upon world city list change */
+    private final List<CityListener> mCityListeners = new ArrayList<>();
 
     /** Maps city ID to city instance. */
     private Map<String, City> mCityMap;
@@ -72,8 +78,9 @@ final class CityModel {
     /** A city instance representing the home timezone of the user. */
     private City mHomeCity;
 
-    CityModel(Context context, SettingsModel settingsModel) {
+    CityModel(Context context, SharedPreferences prefs, SettingsModel settingsModel) {
         mContext = context;
+        mPrefs = prefs;
         mSettingsModel = settingsModel;
 
         // Clear caches affected by locale when locale changes.
@@ -81,8 +88,15 @@ final class CityModel {
         mContext.registerReceiver(mLocaleChangedReceiver, localeBroadcastFilter);
 
         // Clear caches affected by preferences when preferences change.
-        final SharedPreferences prefs = Utils.getDefaultSharedPreferences(mContext);
         prefs.registerOnSharedPreferenceChangeListener(mPreferenceListener);
+    }
+
+    void addCityListener(CityListener cityListener) {
+        mCityListeners.add(cityListener);
+    }
+
+    void removeCityListener(CityListener cityListener) {
+        mCityListeners.remove(cityListener);
     }
 
     /**
@@ -107,29 +121,13 @@ final class CityModel {
     }
 
     /**
-     * @param cityName the case-insensitive city name to search for
-     * @return the city with the given {@code cityName}; {@code null} if no such city exists
-     */
-    City getCity(String cityName) {
-        cityName = cityName.toUpperCase();
-
-        for (City city : getAllCities()) {
-            if (cityName.equals(city.getNameUpperCase())) {
-                return city;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * @return a city representing the user's home timezone
      */
     City getHomeCity() {
         if (mHomeCity == null) {
             final String name = mContext.getString(R.string.home_label);
             final TimeZone timeZone = mSettingsModel.getHomeTimeZone();
-            mHomeCity = new City(null, -1, null, name, name, timeZone.getID());
+            mHomeCity = new City(null, -1, null, name, name, timeZone);
         }
 
         return mHomeCity;
@@ -165,7 +163,7 @@ final class CityModel {
      */
     List<City> getSelectedCities() {
         if (mSelectedCities == null) {
-            final List<City> selectedCities = CityDAO.getSelectedCities(mContext, getCityMap());
+            final List<City> selectedCities = CityDAO.getSelectedCities(mPrefs, getCityMap());
             Collections.sort(selectedCities, new City.UtcOffsetComparator());
             mSelectedCities = Collections.unmodifiableList(selectedCities);
         }
@@ -177,7 +175,8 @@ final class CityModel {
      * @param cities the new collection of cities selected for display by the user
      */
     void setSelectedCities(Collection<City> cities) {
-        CityDAO.setSelectedCities(mContext, cities);
+        final List<City> oldCities = getAllCities();
+        CityDAO.setSelectedCities(mPrefs, cities);
 
         // Clear caches affected by this update.
         mAllCities = null;
@@ -185,7 +184,7 @@ final class CityModel {
         mUnselectedCities = null;
 
         // Broadcast the change to the selected cities for the benefit of widgets.
-        sendCitiesChangedBroadcast();
+        fireCitiesChanged(oldCities, getAllCities());
     }
 
     /**
@@ -235,8 +234,11 @@ final class CityModel {
         throw new IllegalStateException("unexpected city sort: " + citySort);
     }
 
-    private void sendCitiesChangedBroadcast() {
-        mContext.sendBroadcast(new Intent(DataModel.ACTION_DIGITAL_WIDGET_CHANGED));
+    private void fireCitiesChanged(List<City> oldCities, List<City> newCities) {
+        mContext.sendBroadcast(new Intent(DataModel.ACTION_WORLD_CITIES_CHANGED));
+        for (CityListener cityListener : mCityListeners) {
+            cityListener.citiesChanged(oldCities, newCities);
+        }
     }
 
     /**
@@ -264,7 +266,8 @@ final class CityModel {
                 case SettingsActivity.KEY_HOME_TZ:
                     mHomeCity = null;
                 case SettingsActivity.KEY_AUTO_HOME_CLOCK:
-                    sendCitiesChangedBroadcast();
+                    final List<City> cities = getAllCities();
+                    fireCitiesChanged(cities, cities);
                     break;
             }
         }

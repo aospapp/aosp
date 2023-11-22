@@ -27,9 +27,14 @@
 #include <binder/IServiceManager.h>
 #include <utils/Log.h>
 
+// FIXME: remove when BUG 31748996 is fixed
+#include <hwbinder/IPCThreadState.h>
+#include <hwbinder/ProcessState.h>
+
 // from LOCAL_C_INCLUDES
 #include "AudioFlinger.h"
 #include "AudioPolicyService.h"
+#include "AAudioService.h"
 #include "MediaLogService.h"
 #include "RadioService.h"
 #include "SoundTriggerHwService.h"
@@ -127,9 +132,14 @@ int main(int argc __unused, char **argv)
         ALOGI("ServiceManager: %p", sm.get());
         AudioFlinger::instantiate();
         AudioPolicyService::instantiate();
+        AAudioService::instantiate();
         RadioService::instantiate();
         SoundTriggerHwService::instantiate();
         ProcessState::self()->startThreadPool();
+
+// FIXME: remove when BUG 31748996 is fixed
+        android::hardware::ProcessState::self()->startThreadPool();
+
         IPCThreadState::self()->joinThreadPool();
     }
 }

@@ -24,6 +24,9 @@ import android.telephony.SmsCbEtwsInfo;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.StyleSpan;
+import com.android.cellbroadcastreceiver.CellBroadcastOtherChannelsManager.CellBroadcastChannelRange;
+
+import java.util.ArrayList;
 
 /**
  * Returns the string resource ID's for CMAS and ETWS emergency alerts.
@@ -236,7 +239,7 @@ public class CellBroadcastResources {
         }
     }
 
-    public static int getDialogTitleResource(CellBroadcastMessage cbm) {
+    public static int getDialogTitleResource(Context context, CellBroadcastMessage cbm) {
         // ETWS warning types
         SmsCbEtwsInfo etwsInfo = cbm.getEtwsWarningInfo();
         if (etwsInfo != null) {
@@ -289,7 +292,29 @@ public class CellBroadcastResources {
             }
         }
 
-        if (cbm.isEmergencyAlertMessage()) {
+        if (CellBroadcastAlertService.isEmergencyMessage(context, cbm)) {
+            ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastOtherChannelsManager.
+                    getInstance().getCellBroadcastChannelRanges(context, cbm.getSubId());
+            if (ranges != null) {
+                for (CellBroadcastChannelRange range : ranges) {
+                    if (cbm.getServiceCategory() >= range.mStartId &&
+                            cbm.getServiceCategory() <= range.mEndId) {
+                        // Apply the closest title to the specified tones.
+                        switch (range.mToneType) {
+                            case CMAS_DEFAULT:
+                                return R.string.pws_other_message_identifiers;
+                            case EARTHQUAKE:
+                                return R.string.etws_earthquake_warning;
+                            case TSUNAMI:
+                                return R.string.etws_tsunami_warning;
+                            case ETWS_DEFAULT:
+                            case OTHER:
+                                return R.string.etws_other_emergency_type;
+                        }
+                    }
+                }
+
+            }
             return R.string.pws_other_message_identifiers;
         } else {
             return R.string.cb_other_message_identifiers;

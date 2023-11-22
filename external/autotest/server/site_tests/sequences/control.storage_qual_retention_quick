@@ -5,7 +5,6 @@
 AUTHOR = "gwendal"
 NAME = "StorageQualRetention.quick"
 ATTRIBUTES = "suite:kernel_weekly_regression, suite:storage_qual_quick"
-SUITE = "storage_qual_quick, kernel_weekly_regression"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"

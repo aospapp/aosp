@@ -5,8 +5,8 @@
 from telemetry import decorators
 from telemetry.testing import browser_test_case
 from telemetry.timeline import model
-from telemetry.timeline import trace_data
 from telemetry.timeline import tracing_config
+from tracing.trace_data import trace_data
 
 
 class DevToolsClientBackendTest(browser_test_case.BrowserTestCase):
@@ -26,8 +26,10 @@ class DevToolsClientBackendTest(browser_test_case.BrowserTestCase):
   def testIsAlive(self):
     self.assertTrue(self._devtools_client.IsAlive())
 
+  # https://github.com/catapult-project/catapult/issues/3099 (Android)
+  # crbug.com/483212 (CrOS)
   @decorators.Enabled('has tabs')
-  @decorators.Disabled('chromeos')  # crbug.com/483212
+  @decorators.Disabled('android', 'chromeos')
   def testGetUpdatedInspectableContexts(self):
     self._browser.tabs.New()
     c1 = self._devtools_client.GetUpdatedInspectableContexts()
@@ -62,7 +64,9 @@ class DevToolsClientBackendTest(browser_test_case.BrowserTestCase):
     self.assertEqual(tabs4[0], tabs3[0])
     self.assertEqual(tabs4[1], tabs3[2])
 
-  @decorators.Disabled('chromeos')  # crbug.com/483212
+  # https://github.com/catapult-project/catapult/issues/3099 (Android)
+  # crbug.com/483212 (CrOS)
+  @decorators.Disabled('android', 'chromeos')
   def testGetUpdatedInspectableContextsUpdateContextsData(self):
     c1 = self._devtools_client.GetUpdatedInspectableContexts()
     self.assertEqual(len(c1.contexts), 1)
@@ -88,5 +92,6 @@ class DevToolsClientBackendTest(browser_test_case.BrowserTestCase):
 
     # Stop Chrome tracing and check that the resulting data is valid.
     builder = trace_data.TraceDataBuilder()
-    devtools_client.StopChromeTracing(builder)
+    devtools_client.StopChromeTracing()
+    devtools_client.CollectChromeTracingData(builder)
     model.TimelineModel(builder.AsData())

@@ -58,6 +58,22 @@ extern const char kExpectedBnHeaderOutput[];
 
 }  // namespace ping_responder
 
+namespace string_constants {
+
+extern const char kCanonicalName[];
+extern const char kInterfaceDefinition[];
+
+extern const char kJavaOutputPath[];
+extern const char kExpectedJavaOutput[];
+
+extern const char kCppOutputPath[];
+extern const char kGenHeaderDir[];
+extern const char kGenInterfaceHeaderPath[];
+extern const char kExpectedIHeaderOutput[];
+extern const char kExpectedCppOutput[];
+
+}  // namespace string_constants
+
 }  // namespace test_data
 }  // namespace aidl
 }  // namespace android

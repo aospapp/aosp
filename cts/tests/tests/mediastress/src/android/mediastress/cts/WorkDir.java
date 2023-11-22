@@ -16,13 +16,18 @@
 
 package android.mediastress.cts;
 
+import android.os.Bundle;
 import android.os.Environment;
+import android.support.test.InstrumentationRegistry;
 
 import java.io.File;
 
 import junit.framework.Assert;
 
 public class WorkDir {
+
+    private static final String MEDIA_PATH_INSTR_ARG_KEY = "media-path";
+
     static final File getTopDir() {
         Assert.assertEquals(Environment.getExternalStorageState(), Environment.MEDIA_MOUNTED);
         return Environment.getExternalStorageDirectory();
@@ -33,6 +38,13 @@ public class WorkDir {
     }
 
     static final String getMediaDirString() {
-        return (getTopDirString() + "test/");
+        Bundle bundle = InstrumentationRegistry.getArguments();
+        String mediaDirString = bundle.getString(MEDIA_PATH_INSTR_ARG_KEY);
+        if (mediaDirString != null) {
+            // user has specified the mediaDirString via instrumentation-arg
+            return mediaDirString + ((mediaDirString.endsWith("/")) ? "" : "/");
+        } else {
+            return (getTopDirString() + "test/");
+        }
     }
 }

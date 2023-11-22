@@ -44,13 +44,15 @@ class ChromeNetworkingTestContext(object):
     CHROME_NETWORK_TYPE_VPN = 'VPN'
     CHROME_NETWORK_TYPE_ALL = 'All'
 
-    def __init__(self, extensions=None, username=None, password=None):
+    def __init__(self, extensions=None, username=None, password=None,
+                 gaia_login=False):
         if extensions is None:
             extensions = []
         extensions.append(self.NETWORK_TEST_EXTENSION_PATH)
         self._extension_paths = extensions
         self._username = username
         self._password = password
+        self._gaia_login = gaia_login
         self._chrome = None
 
     def __enter__(self):
@@ -61,7 +63,8 @@ class ChromeNetworkingTestContext(object):
         self.teardown()
 
     def _create_browser(self):
-        self._chrome = chrome.Chrome(logged_in=True, gaia_login=True,
+        self._chrome = chrome.Chrome(logged_in=True,
+                                     gaia_login=self._gaia_login,
                                      extension_paths=self._extension_paths,
                                      username=self._username,
                                      password=self._password)
@@ -71,8 +74,8 @@ class ChromeNetworkingTestContext(object):
         self._ensure_network_test_extension_is_ready()
 
     def _ensure_network_test_extension_is_ready(self):
-        self.network_test_extension.WaitForJavaScriptExpression(
-            "typeof chromeTesting != 'undefined'")
+        self.network_test_extension.WaitForJavaScriptCondition(
+            "typeof chromeTesting != 'undefined'", timeout=30)
 
     def _get_extension(self, path):
         if self._chrome is None:

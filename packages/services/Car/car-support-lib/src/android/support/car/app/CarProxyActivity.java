@@ -17,15 +17,13 @@
 package android.support.car.app;
 
 import android.app.Activity;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.support.car.Car;
-import android.support.car.ServiceConnectionListener;
+import android.support.car.CarConnectionCallback;
 import android.support.car.input.CarInputManager;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -36,7 +34,6 @@ import android.view.View;
 import android.view.Window;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -45,11 +42,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * android Activity controlling / proxying {@link CarActivity}. Applications should have its own
  * {@link android.app.Activity} overriding only constructor.
+ *
+ * @hide
  */
 public class CarProxyActivity extends Activity {
     private static final String TAG = "CarProxyActivity";
 
-    private final Class mCarActivityClass;
+    private final Class<? extends CarActivity> mCarActivityClass;
     private final boolean mNeedConnectedCar;
     private Car mCar;
     // no synchronization, but main thread only
@@ -58,26 +57,16 @@ public class CarProxyActivity extends Activity {
     private CarInputManager mInputManager;
 
     private final CopyOnWriteArrayList<Pair<Integer, Object[]>> mCmds =
-            new CopyOnWriteArrayList<Pair<Integer, Object[]>>();
-    private final ServiceConnectionListener mConnectionListener= new ServiceConnectionListener() {
+            new CopyOnWriteArrayList<>();
+    private final CarConnectionCallback mConnectionListener= new CarConnectionCallback() {
 
         @Override
-        public void onServiceSuspended(int cause) {
-            Log.w(TAG, "Car service suspended: " + cause);
+        public void onDisconnected(Car car) {
+            Log.w(TAG, "Car service disconnected");
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.w(TAG, "Car service disconnected: " + name.toString());
-        }
-
-        @Override
-        public void onServiceConnectionFailed(int cause) {
-            Log.w(TAG, "Car service connection failed: " + cause);
-        }
-
-        @Override
-        public void onServiceConnected(ComponentName name) {
+        public void onConnected(Car car) {
             for (Pair<Integer, Object[]> cmd: mCmds) {
                 mCarActivity.dispatchCmd(cmd.first, cmd.second);
             }
@@ -177,11 +166,11 @@ public class CarProxyActivity extends Activity {
         }
     };
 
-    public CarProxyActivity(Class carActivityClass) {
+    public CarProxyActivity(Class<? extends CarActivity> carActivityClass) {
         this(carActivityClass, false);
     }
 
-    public CarProxyActivity(Class carActivityClass, boolean needCar) {
+    public CarProxyActivity(Class<? extends CarActivity> carActivityClass, boolean needCar) {
         mCarActivityClass = carActivityClass;
         mNeedConnectedCar = needCar;
     }
@@ -191,7 +180,7 @@ public class CarProxyActivity extends Activity {
             mCar = Car.createCar(this, mConnectionListener);
             mCar.connect();
         }
-        Constructor<?> ctor;
+        Constructor<? extends CarActivity> ctor;
         try {
             ctor = mCarActivityClass.getDeclaredConstructor(CarActivity.Proxy.class,
                         Context.class, Car.class);
@@ -209,7 +198,7 @@ public class CarProxyActivity extends Activity {
             throw new RuntimeException(msg.toString(), e);
         }
         try {
-            mCarActivity = (CarActivity) ctor.newInstance(mCarActivityProxy, this, mCar);
+            mCarActivity = ctor.newInstance(mCarActivityProxy, this, mCar);
         } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
                 | InvocationTargetException e) {
             throw new RuntimeException("Cannot construct given CarActivity, constructor failed for "
@@ -284,6 +273,10 @@ public class CarProxyActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         handleCmd(CarActivity.CMD_ON_DESTROY);
+        if (mCar != null) {
+            mCar.disconnect();
+            mCar = null;
+        }
     }
 
     @Override
@@ -305,10 +298,9 @@ public class CarProxyActivity extends Activity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            int[] results) {
-        handleCmd(CarActivity.CMD_ON_REQUEST_PERMISSIONS_RESULT,
-                new Integer(requestCode), permissions, convertArray(results));
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        handleCmd(CarActivity.CMD_ON_REQUEST_PERMISSIONS_RESULT, requestCode, permissions,
+                convertArray(results));
     }
 
     @Override
@@ -329,7 +321,7 @@ public class CarProxyActivity extends Activity {
         private final WeakReference<CarProxyActivity> mActivity;
 
         public EmbeddedInputManager(CarProxyActivity activity) {
-            mActivity = new WeakReference<CarProxyActivity>(activity);
+            mActivity = new WeakReference<>(activity);
             mInputManager = (InputMethodManager) mActivity.get()
                     .getSystemService(Context.INPUT_METHOD_SERVICE);
         }
@@ -375,8 +367,7 @@ public class CarProxyActivity extends Activity {
             mCarActivity.dispatchCmd(cmd, args);
         } else {
             // not connected yet. queue it and return.
-            Pair<Integer, Object[]> cmdToQ =
-                    new Pair<Integer, Object[]>(Integer.valueOf(cmd), args);
+            Pair<Integer, Object[]> cmdToQ = new Pair<>(Integer.valueOf(cmd), args);
             mCmds.add(cmdToQ);
         }
     }

@@ -76,6 +76,8 @@ def spectral_analysis(signal, rate, min_peak_ratio=DEFAULT_MIN_PEAK_RATIO,
         raise RMSTooSmallError(
                 'RMS %s is too small to be meaningful' % signal_rms)
 
+    logging.debug('Doing spectral analysis ...')
+
     # First, pass signal through a window function to mitigate spectral leakage.
     y_conv_w = signal * numpy.hanning(len(signal))
 
@@ -99,7 +101,7 @@ def spectral_analysis(signal, rate, min_peak_ratio=DEFAULT_MIN_PEAK_RATIO,
     peak_window_size = int(peak_window_size_hz / x_f[1])
 
     # Detects peaks.
-    peaks = _peak_detection(abs_y_f, peak_window_size)
+    peaks = peak_detection(abs_y_f, peak_window_size)
 
     # Transform back the peak location from index to frequency.
     results = []
@@ -125,13 +127,14 @@ def _rfft_freq(length, rate):
     return numpy.linspace(0, (result_length - 1) * val, result_length)
 
 
-def _peak_detection(array, window_size):
+def peak_detection(array, window_size):
     """Detects peaks in an array.
 
     A point (i, array[i]) is a peak if array[i] is the maximum among
     array[i - half_window_size] to array[i + half_window_size].
     If array[i - half_window_size] to array[i + half_window_size] are all equal,
     then there is no peak in this window.
+    Note that we only consider peak with value greater than 0.
 
     @param window_size: The window to detect peaks.
 
@@ -143,31 +146,71 @@ def _peak_detection(array, window_size):
     half_window_size = window_size / 2
     length = len(array)
 
-    def find_max(numbers):
-        """Gets the index where maximum value happens.
+    def mid_is_peak(array, mid, left, right):
+        """Checks if value at mid is the largest among left to right in array.
 
-        @param numbers: A list of numbers.
+        @param array: A list of numbers.
+        @param mid: The mid index.
+        @param left: The left index.
+        @param rigth: The right index.
 
-        @returns: (index, value) where value = numbers[index] is the maximum
-                  among numbers.
+        @returns: A tuple (is_peak, next_candidate)
+                  is_peak is True if array[index] is the maximum among numbers
+                  in array between index [left, right] inclusively.
+                  next_candidate is the index of next candidate for peak if
+                  is_peak is False. It is the index of maximum value in
+                  [mid + 1, right]. If is_peak is True, next_candidate is
+                  right + 1.
 
         """
-        index, value = max(enumerate(numbers), key=lambda x: x[1])
-        return index, value
+        value_mid = array[mid]
+        is_peak = True
+        next_peak_candidate_index = None
+
+        # Check the left half window.
+        for index in xrange(left, mid):
+            if array[index] >= value_mid:
+                is_peak = False
+                break
+
+        # Mid is at the end of array.
+        if mid == right:
+            return is_peak, right + 1
+
+        # Check the right half window and also record next candidate.
+        # Favor the larger index for next_peak_candidate_index.
+        for index in xrange(right, mid, -1):
+            if (next_peak_candidate_index is None or
+                array[index] > array[next_peak_candidate_index]):
+                next_peak_candidate_index = index
+
+        if array[next_peak_candidate_index] >= value_mid:
+            is_peak = False
+
+        if is_peak:
+            next_peak_candidate_index = right + 1
+
+        return is_peak, next_peak_candidate_index
 
     results = []
-    for mid in xrange(length):
+    mid = 0
+    next_candidate_idx = None
+    while mid < length:
         left = max(0, mid - half_window_size)
         right = min(length - 1, mid + half_window_size)
-        numbers_in_window = array[left:right + 1]
-        max_index, max_value = find_max(numbers_in_window)
 
-        # Add the offset back.
-        max_index = max_index + left
+        # Only consider value greater than 0.
+        if array[mid] == 0:
+            mid = mid + 1
+            continue;
 
-        # If all values are the same then there is no peak in this window.
-        if max_value != min(numbers_in_window) and max_index == mid:
-            results.append((mid, max_value))
+        is_peak, next_candidate_idx = mid_is_peak(array, mid, left, right)
+
+        if is_peak:
+            results.append((mid, array[mid]))
+
+        # Use the next candidate found in [mid + 1, right], or right + 1.
+        mid = next_candidate_idx
 
     # Sort the peaks by values.
     return sorted(results, key=lambda x: x[1], reverse=True)

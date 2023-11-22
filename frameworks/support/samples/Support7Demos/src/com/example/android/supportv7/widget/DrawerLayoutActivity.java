@@ -20,6 +20,7 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.os.Bundle;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -90,10 +91,10 @@ public class DrawerLayoutActivity extends AppCompatActivity {
 
         setContentView(R.layout.drawer_layout);
 
-        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        mStartDrawer = (ListView) findViewById(R.id.start_drawer);
-        mEndDrawer = (FrameLayout) findViewById(R.id.end_drawer);
-        mContent = (TextView) findViewById(R.id.content_text);
+        mDrawerLayout = findViewById(R.id.drawer_layout);
+        mStartDrawer = findViewById(R.id.start_drawer);
+        mEndDrawer = findViewById(R.id.end_drawer);
+        mContent = findViewById(R.id.content_text);
 
         mDrawerLayout.setDrawerShadow(R.drawable.drawer_shadow, GravityCompat.START);
         mDrawerLayout.setDrawerShadow(R.drawable.drawer_shadow_end, GravityCompat.END);
@@ -109,7 +110,7 @@ public class DrawerLayoutActivity extends AppCompatActivity {
 
         // Find the toolbar in our layout and set it as the support action bar on the activity.
         // This is required to have the drawer slide "over" the toolbar.
-        mToolbar = (Toolbar) findViewById(R.id.toolbar);
+        mToolbar = findViewById(R.id.toolbar);
         mToolbar.setTitle(R.string.drawer_title);
         setSupportActionBar(mToolbar);
 
@@ -146,7 +147,7 @@ public class DrawerLayoutActivity extends AppCompatActivity {
         // Configure the background color fill of the system status bar (on supported platform
         // versions) and the toolbar itself. We're using the same color, and android:statusBar
         // from the theme makes the status bar slightly darker.
-        final int metalBlueColor = getResources().getColor(R.color.drawer_sample_metal_blue);
+        final int metalBlueColor = ContextCompat.getColor(this, R.color.drawer_sample_metal_blue);
         mDrawerLayout.setStatusBarBackgroundColor(metalBlueColor);
         mToolbar.setBackgroundColor(metalBlueColor);
 

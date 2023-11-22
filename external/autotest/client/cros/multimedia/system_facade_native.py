@@ -6,7 +6,7 @@
 
 import os
 
-from autotest_lib.client.bin import utils
+from autotest_lib.client.bin import utils, site_utils
 
 
 class SystemFacadeNativeError(Exception):
@@ -52,3 +52,57 @@ class SystemFacadeNative(object):
         utils.open_write_close(governor_path, mode)
 
         return original_mode
+
+
+    def get_cpu_usage(self):
+        """Returns machine's CPU usage.
+
+        Returns:
+            A dictionary with 'user', 'nice', 'system' and 'idle' values.
+            Sample dictionary:
+            {
+                'user': 254544,
+                'nice': 9,
+                'system': 254768,
+                'idle': 2859878,
+            }
+        """
+        return site_utils.get_cpu_usage()
+
+
+    def compute_active_cpu_time(self, cpu_usage_start, cpu_usage_end):
+        """Computes the fraction of CPU time spent non-idling.
+
+        This function should be invoked using before/after values from calls to
+        get_cpu_usage().
+        """
+        return site_utils.compute_active_cpu_time(cpu_usage_start,
+                                                  cpu_usage_end)
+
+
+    def get_mem_total(self):
+        """Returns the total memory available in the system in MBytes."""
+        return site_utils.get_mem_total()
+
+
+    def get_mem_free(self):
+        """Returns the currently free memory in the system in MBytes."""
+        return site_utils.get_mem_free()
+
+
+    def get_ec_temperatures(self):
+        """Uses ectool to return a list of all sensor temperatures in Celsius.
+        """
+        return site_utils.get_ec_temperatures()
+
+
+    def get_current_board(self):
+        """Returns the current device board name."""
+        return utils.get_current_board()
+
+
+    def get_chromeos_release_version(self):
+        """Returns chromeos version in device under test as string. None on
+        fail.
+        """
+        return utils.get_chromeos_release_version()

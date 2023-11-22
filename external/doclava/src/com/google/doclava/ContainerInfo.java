@@ -19,5 +19,10 @@ package com.google.doclava;
 public interface ContainerInfo {
   public String qualifiedName();
 
+  public default boolean qualifiedNameMatches(String prefix, String suffix) {
+    final String qualifiedName = qualifiedName();
+    return (qualifiedName.startsWith(prefix) && qualifiedName.endsWith(suffix));
+  }
+
   public boolean checkLevel();
 }

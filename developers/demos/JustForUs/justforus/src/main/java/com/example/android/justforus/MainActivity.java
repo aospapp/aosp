@@ -21,7 +21,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.ShareCompat;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -45,7 +45,7 @@ import java.util.List;
  * <p>Tapping on a coupon to redeem it brings up the Android "share"
  * dialog with a pre-populated message based on the coupon text.
  */
-public class MainActivity extends ActionBarActivity implements OnItemClickListener {
+public class MainActivity extends AppCompatActivity implements OnItemClickListener {
 
     // Name of person giving out these coupons. When the user clicks on a coupon and shares
     // to another app, this name will be part of the pre-populated text.

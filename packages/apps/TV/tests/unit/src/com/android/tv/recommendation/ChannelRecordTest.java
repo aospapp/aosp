@@ -16,8 +16,8 @@
 
 package com.android.tv.recommendation;
 
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.tv.testing.Utils;
 

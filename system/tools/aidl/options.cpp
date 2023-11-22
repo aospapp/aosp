@@ -43,6 +43,8 @@ unique_ptr<JavaOptions> java_usage() {
           "   -d<FILE>   generate dependency file.\n"
           "   -a         generate dependency file next to the output file with "
           "the name based on the input file.\n"
+          "   -ninja     generate dependency file in a format ninja "
+          "understands.\n"
           "   -p<FILE>   file created by --preprocess to import.\n"
           "   -o<FOLDER> base output folder for generated files.\n"
           "   -b         fail when trying to compile a parcelable.\n"
@@ -122,6 +124,8 @@ unique_ptr<JavaOptions> JavaOptions::Parse(int argc, const char* const* argv) {
       }
     } else if (strcmp(s, "-b") == 0) {
       options->fail_on_parcelable_ = true;
+    } else if (strcmp(s, "-ninja") == 0) {
+      options->dep_file_ninja_ = true;
     } else {
       // s[1] is not known
       fprintf(stderr, "unknown option (%d): %s\n", i, s);
@@ -186,6 +190,8 @@ unique_ptr<CppOptions> cpp_usage() {
        << "OPTIONS:" << endl
        << "   -I<DIR>   search path for import statements" << endl
        << "   -d<FILE>  generate dependency file" << endl
+       << "   -ninja    generate dependency file in a format ninja "
+          "understands" << endl
        << endl
        << "INPUT_FILE:" << endl
        << "   an aidl interface file" << endl
@@ -218,6 +224,8 @@ unique_ptr<CppOptions> CppOptions::Parse(int argc, const char* const* argv) {
       options->import_paths_.push_back(the_rest);
     } else if (s[1] == 'd') {
       options->dep_file_name_ = the_rest;
+    } else if (strcmp(s, "-ninja") == 0) {
+      options->dep_file_ninja_ = true;
     } else {
       cerr << "Invalid argument '" << s << "'." << endl;
       return cpp_usage();

@@ -163,6 +163,15 @@ IHEVCD_ERROR_T ihevcd_cabac_init(cab_ctxt_t *ps_cabac,
            pu1_init_ctxt,
            IHEVC_CAB_CTXT_END);
     DEBUG_RANGE_OFST("init", ps_cabac->u4_range, ps_cabac->u4_ofst);
+
+    /*
+     * If the offset is greater than or equal to range, return fail.
+     */
+    if(ps_cabac->u4_ofst >= ps_cabac->u4_range)
+    {
+        return ((IHEVCD_ERROR_T)IHEVCD_FAIL);
+    }
+
     return ((IHEVCD_ERROR_T)IHEVCD_SUCCESS);
 }
 
@@ -669,14 +678,13 @@ UWORD32 ihevcd_cabac_decode_bypass_bins_egk(cab_ctxt_t *ps_cabac,
     numones = k;
     bin = 1;
     u4_sym = 0;
-    while(bin)
+    while(bin && (numones <= 16))
     {
         IHEVCD_CABAC_DECODE_BYPASS_BIN(bin, ps_cabac, ps_bitstrm);
         u4_sym += bin << numones++;
     }
 
     numones -= 1;
-    numones = CLIP3(numones, 0, 16);
 
     if(numones)
     {

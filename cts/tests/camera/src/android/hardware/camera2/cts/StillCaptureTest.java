@@ -103,7 +103,7 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     /**
      * Test normal still capture sequence.
      * <p>
-     * Preview and and jpeg output streams are configured. Max still capture
+     * Preview and jpeg output streams are configured. Max still capture
      * size is used for jpeg capture. The sequence of still capture being test
      * is: start preview, auto focus, precapture metering (if AE is not
      * converged), then capture jpeg. The AWB and AE are in auto modes. AF mode
@@ -128,6 +128,38 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
+     * Test ZSL still capture sequence.
+     * <p>
+     * Preview and jpeg output streams are configured. Max still capture
+     * size is used for jpeg capture. The sequence of still capture being test
+     * is: start preview, auto focus, precapture metering (if AE is not
+     * converged), then capture jpeg. The AWB and AE are in auto modes. AF mode
+     * is CONTINUOUS_PICTURE. Same as testTakePicture, but with enableZSL set.
+     * </p>
+     */
+    public void testTakePictureZsl() throws Exception{
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing basic ZSL take picture for Camera " + id);
+                openDevice(id);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+                CaptureRequest.Builder stillRequest =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                stillRequest.set(CaptureRequest.CONTROL_ENABLE_ZSL, true);
+                takePictureTestByCamera(/*aeRegions*/null, /*awbRegions*/null, /*afRegions*/null,
+                        /*addAeTriggerCancel*/false, /*allocateBitmap*/false,
+                        /*previewRequest*/null, stillRequest);
+            } finally {
+                closeDevice();
+                closeImageReader();
+            }
+        }
+    }
+
+    /**
      * Test basic Raw capture. Raw buffer avaiablility is checked, but raw buffer data is not.
      */
     public void testBasicRawCapture()  throws Exception {
@@ -143,7 +175,33 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                    continue;
                }
 
-               rawCaptureTestByCamera();
+               rawCaptureTestByCamera(/*stillRequest*/null);
+           } finally {
+               closeDevice();
+               closeImageReader();
+           }
+       }
+    }
+
+    /**
+     * Test basic Raw ZSL capture. Raw buffer avaiablility is checked, but raw buffer data is not.
+     */
+    public void testBasicRawZslCapture()  throws Exception {
+       for (int i = 0; i < mCameraIds.length; i++) {
+           try {
+               Log.i(TAG, "Testing raw ZSL capture for Camera " + mCameraIds[i]);
+               openDevice(mCameraIds[i]);
+
+               if (!mStaticInfo.isCapabilitySupported(
+                       CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
+                   Log.i(TAG, "RAW capability is not supported in camera " + mCameraIds[i] +
+                           ". Skip the test.");
+                   continue;
+               }
+               CaptureRequest.Builder stillRequest =
+                       mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+               stillRequest.set(CaptureRequest.CONTROL_ENABLE_ZSL, true);
+               rawCaptureTestByCamera(stillRequest);
            } finally {
                closeDevice();
                closeImageReader();
@@ -163,7 +221,7 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     public void testFullRawCapture() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                Log.i(TAG, "Testing raw capture for Camera " + mCameraIds[i]);
+                Log.i(TAG, "Testing raw+JPEG capture for Camera " + mCameraIds[i]);
                 openDevice(mCameraIds[i]);
                 if (!mStaticInfo.isCapabilitySupported(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
@@ -172,13 +230,44 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                     continue;
                 }
 
-                fullRawCaptureTestByCamera();
+                fullRawCaptureTestByCamera(/*stillRequest*/null);
             } finally {
                 closeDevice();
                 closeImageReader();
             }
         }
     }
+
+    /**
+     * Test the full raw capture ZSL use case.
+     *
+     * This includes:
+     * - Configuring the camera with a preview, jpeg, and raw output stream.
+     * - Running preview until AE/AF can settle.
+     * - Capturing with a request targeting all three output streams.
+     */
+    public void testFullRawZSLCapture() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                Log.i(TAG, "Testing raw+JPEG ZSL capture for Camera " + mCameraIds[i]);
+                openDevice(mCameraIds[i]);
+                if (!mStaticInfo.isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
+                    Log.i(TAG, "RAW capability is not supported in camera " + mCameraIds[i] +
+                            ". Skip the test.");
+                    continue;
+                }
+                CaptureRequest.Builder stillRequest =
+                        mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                stillRequest.set(CaptureRequest.CONTROL_ENABLE_ZSL, true);
+                fullRawCaptureTestByCamera(stillRequest);
+            } finally {
+                closeDevice();
+                closeImageReader();
+            }
+        }
+    }
+
     /**
      * Test touch for focus.
      * <p>
@@ -376,7 +465,8 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                     continue;
                 }
                 takePictureTestByCamera(/*aeRegions*/null, /*awbRegions*/null, /*afRegions*/null,
-                        /*addAeTriggerCancel*/true, /*allocateBitmap*/false);
+                        /*addAeTriggerCancel*/true, /*allocateBitmap*/false,
+                        /*previewRequest*/null, /*stillRequest*/null);
             } finally {
                 closeDevice();
                 closeImageReader();
@@ -402,7 +492,8 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                     continue;
                 }
                 takePictureTestByCamera(/*aeRegions*/null, /*awbRegions*/null, /*afRegions*/null,
-                        /*addAeTriggerCancel*/false, /*allocateBitmap*/true);
+                        /*addAeTriggerCancel*/false, /*allocateBitmap*/true,
+                        /*previewRequest*/null, /*stillRequest*/null);
             } finally {
                 closeDevice();
                 closeImageReader();
@@ -469,7 +560,8 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             MeteringRectangle[] aeRegions, MeteringRectangle[] awbRegions,
             MeteringRectangle[] afRegions) throws Exception {
         takePictureTestByCamera(aeRegions, awbRegions, afRegions,
-                /*addAeTriggerCancel*/false, /*allocateBitmap*/false);
+                /*addAeTriggerCancel*/false, /*allocateBitmap*/false,
+                /*previewRequest*/null, /*stillRequest*/null);
     }
 
     /**
@@ -488,10 +580,13 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
      * @param afRegions AF regions for this capture
      * @param addAeTriggerCancel If a AE precapture trigger cancel is sent after the trigger.
      * @param allocateBitmap If a set of bitmaps are allocated during the test for memory test.
+     * @param previewRequest The preview request builder to use, or null to use the default
+     * @param stillRequest The still capture request to use, or null to use the default
      */
     private void takePictureTestByCamera(
             MeteringRectangle[] aeRegions, MeteringRectangle[] awbRegions,
-            MeteringRectangle[] afRegions, boolean addAeTriggerCancel, boolean allocateBitmap)
+            MeteringRectangle[] afRegions, boolean addAeTriggerCancel, boolean allocateBitmap,
+            CaptureRequest.Builder previewRequest, CaptureRequest.Builder stillRequest)
                     throws Exception {
 
         boolean hasFocuser = mStaticInfo.hasFocuser();
@@ -501,10 +596,12 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
         CaptureResult result;
         SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
         SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
-        CaptureRequest.Builder previewRequest =
-                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        CaptureRequest.Builder stillRequest =
-                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+        if (previewRequest == null) {
+            previewRequest = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        }
+        if (stillRequest == null) {
+            stillRequest = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+        }
         prepareStillCaptureAndStartPreview(previewRequest, stillRequest, maxPreviewSz,
                 maxStillSz, resultListener, imageListener);
 
@@ -734,14 +831,14 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     /**
      * Basic raw capture test for each camera.
      */
-    private void rawCaptureTestByCamera() throws Exception {
+    private void rawCaptureTestByCamera(CaptureRequest.Builder stillRequest) throws Exception {
         Size maxPreviewSz = mOrderedPreviewSizes.get(0);
         Size size = mStaticInfo.getRawDimensChecked();
 
         // Prepare raw capture and start preview.
         CaptureRequest.Builder previewBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        CaptureRequest.Builder rawBuilder =
+        CaptureRequest.Builder rawBuilder = (stillRequest != null) ? stillRequest :
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
         SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
         SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
@@ -772,7 +869,7 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
         stopPreview();
     }
 
-    private void fullRawCaptureTestByCamera() throws Exception {
+    private void fullRawCaptureTestByCamera(CaptureRequest.Builder stillRequest) throws Exception {
         Size maxPreviewSz = mOrderedPreviewSizes.get(0);
         Size maxStillSz = mOrderedStillSizes.get(0);
 
@@ -790,7 +887,7 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
         // Prepare raw capture and start preview.
         CaptureRequest.Builder previewBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        CaptureRequest.Builder multiBuilder =
+        CaptureRequest.Builder multiBuilder = (stillRequest != null) ? stillRequest :
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
 
         ImageReader rawReader = null;
@@ -1165,7 +1262,11 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
     private long getExposureValue(CaptureResult result) throws Exception {
         int expTimeUs = (int) (getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME) / 1000);
         int sensitivity = getValueNotNull(result, CaptureResult.SENSOR_SENSITIVITY);
-        return expTimeUs * sensitivity;
+        Integer postRawSensitivity = result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
+        if (postRawSensitivity != null) {
+            return (long) sensitivity * postRawSensitivity / 100 * expTimeUs;
+        }
+        return (long) sensitivity * expTimeUs;
     }
 
     private long getMaxExposureValue(CaptureRequest.Builder request, long maxExposureTimeUs,

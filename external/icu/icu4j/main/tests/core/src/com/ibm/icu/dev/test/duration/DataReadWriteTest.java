@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -12,19 +14,13 @@ package com.ibm.icu.dev.test.duration;
 import java.io.StringReader;
 import java.io.StringWriter;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.duration.impl.XMLRecordReader;
 import com.ibm.icu.impl.duration.impl.XMLRecordWriter;
 
 public class DataReadWriteTest extends TestFmwk {
-
-    /**
-     * Invoke the tests.
-     */
-    public static void main(String[] args) {
-        new DataReadWriteTest().run(args);
-    }
-
     // strip line ends and trailing spaces
     private String normalize(String str) {
         StringBuffer sb = new StringBuffer();
@@ -44,6 +40,7 @@ public class DataReadWriteTest extends TestFmwk {
         return sb.toString();
     }
 
+    @Test
     public void testOpenClose() {
         StringWriter sw = new StringWriter();
         XMLRecordWriter xrw = new XMLRecordWriter(sw);
@@ -59,6 +56,7 @@ public class DataReadWriteTest extends TestFmwk {
         assertTrue(null, xrr.close());
     }
 
+    @Test
     public void testBool() {
         StringWriter sw = new StringWriter();
         XMLRecordWriter xrw = new XMLRecordWriter(sw);
@@ -74,6 +72,7 @@ public class DataReadWriteTest extends TestFmwk {
         assertFalse(null, xrr.bool("y"));
     }
 
+    @Test
     public void testBoolArray() {
         boolean[][] datas = {
             {},
@@ -113,6 +112,7 @@ public class DataReadWriteTest extends TestFmwk {
         }
     }
 
+    @Test
     public void testCharacter() {
         StringWriter sw = new StringWriter();
         XMLRecordWriter xrw = new XMLRecordWriter(sw);
@@ -128,6 +128,7 @@ public class DataReadWriteTest extends TestFmwk {
         assertEquals(null, 'b', xrr.character("y"));
     }
 
+    @Test
     public void testCharacterArray() {
         char[][] datas = {
             {},
@@ -167,6 +168,7 @@ public class DataReadWriteTest extends TestFmwk {
         }
     }
 
+    @Test
     public void testNamedIndex() {
         StringWriter sw = new StringWriter();
         XMLRecordWriter xrw = new XMLRecordWriter(sw);
@@ -184,6 +186,7 @@ public class DataReadWriteTest extends TestFmwk {
         assertEquals(null, 1, xrr.namedIndex("y", names));
     }
 
+    @Test
     public void testNamedIndexArray() {
         String[] names = { "zero", "one" };
         byte[][] datas = {
@@ -224,6 +227,7 @@ public class DataReadWriteTest extends TestFmwk {
         }
     }
 
+    @Test
     public void testString() {
         StringWriter sw = new StringWriter();
         XMLRecordWriter xrw = new XMLRecordWriter(sw);
@@ -243,6 +247,7 @@ public class DataReadWriteTest extends TestFmwk {
         assertEquals("\n'" + res + "' == \n'" + s1 + "'", s1, res);
     }
 
+    @Test
     public void testStringArray() {
         String s1 = "";
         String s2 = " ";
@@ -299,6 +304,7 @@ public class DataReadWriteTest extends TestFmwk {
         }
     }
 
+    @Test
     public void testStringTable() {
         String s1 = "";
         String s2 = " ";
@@ -333,6 +339,7 @@ public class DataReadWriteTest extends TestFmwk {
         assertEquals("'" + str + "'", target, normalize(str));
     }
 
+    @Test
     public void testOmittedFields() {
         StringWriter sw = new StringWriter();
         XMLRecordWriter xrw = new XMLRecordWriter(sw);

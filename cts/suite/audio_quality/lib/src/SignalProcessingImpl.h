@@ -17,7 +17,7 @@
 #ifndef CTSAUDIO_SIGNALPROCESSINGIMPL_H
 #define CTSAUDIO_SIGNALPROCESSINGIMPL_H
 
-#include <UniquePtr.h>
+#include <memory>
 #include <utils/String8.h>
 
 #include "SignalProcessingInterface.h"
@@ -46,7 +46,7 @@ private:
 
 private:
     static const int SCRIPT_PORT = 15010;
-    UniquePtr<ClientSocket> mSocket;
+    std::unique_ptr<ClientSocket> mSocket;
     pid_t mChildPid;
     bool mChildRunning;
     RWBuffer mBuffer;

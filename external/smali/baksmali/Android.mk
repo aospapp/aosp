@@ -38,16 +38,10 @@ LOCAL_JAR_MANIFEST := manifest.txt
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	dexlib2
 
-#read in the version number
-BAKSMALI_VERSION := $(shell cat $(LOCAL_PATH)/../build.gradle | \
-    grep -o -e "^version = '\(.*\)'" | grep -o -e "[0-9.]\+")
-
-BAKSMALI_VERSION := $(BAKSMALI_VERSION)-aosp
-
 #create a new baksmali.properties file using the correct version
-$(intermediates)/resources/baksmali.properties:
+$(intermediates)/resources/baksmali.properties: $(LOCAL_PATH)/../build.gradle
 	$(hide) mkdir -p $(dir $@)
-	$(hide) echo "application.version=$(BAKSMALI_VERSION)" > $@
+	$(hide) echo "application.version=$$(grep -o -e "^version = '\(.*\)'" $< | grep -o -e "[0-9.]\+")-aosp" >$@
 
 LOCAL_JAVA_RESOURCE_FILES := $(intermediates)/resources/baksmali.properties
 

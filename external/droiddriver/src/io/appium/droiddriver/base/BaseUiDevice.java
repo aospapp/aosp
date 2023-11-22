@@ -22,14 +22,13 @@ import android.graphics.Bitmap.CompressFormat;
 import android.os.PowerManager;
 import android.util.Log;
 import android.view.KeyEvent;
-
-import java.io.BufferedOutputStream;
-
 import io.appium.droiddriver.UiDevice;
 import io.appium.droiddriver.actions.Action;
 import io.appium.droiddriver.actions.SingleKeyAction;
 import io.appium.droiddriver.util.FileUtils;
+import io.appium.droiddriver.util.InstrumentationUtils;
 import io.appium.droiddriver.util.Logs;
+import java.io.BufferedOutputStream;
 
 /**
  * Base implementation of {@link UiDevice}.
@@ -54,7 +53,14 @@ public abstract class BaseUiDevice implements UiDevice {
   @Override
   public void wakeUp() {
     if (!isScreenOn()) {
-      perform(POWER_ON);
+      // Cannot call perform(POWER_ON) because perform() checks the UiElement is visible.
+      POWER_ON.perform(getContext().getDriver().getInjector(), null);
+      InstrumentationUtils.tryWaitForIdleSync(POWER_ON.getTimeoutMillis());
+
+      Logs.log(
+          Log.WARN,
+          "After wakeUp, root AccessibilityNodeInfo may not be available. This is seen"
+              + " on api 23 devices, but could also happen on earlier devices.");
     }
   }
 

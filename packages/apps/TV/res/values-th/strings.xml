@@ -31,7 +31,6 @@
     <string name="play_controls_description_skip_previous" msgid="3858447678278021381">"ก่อนหน้า"</string>
     <string name="channels_item_program_guide" msgid="2889807207930678418">"คู่มือโปรแกรม"</string>
     <string name="channels_item_setup" msgid="6557412175737379022">"มีช่องใหม่ให้บริการ"</string>
-    <string name="channels_item_app_link_no_app_link" msgid="1884830234777824408">"ไม่มีลิงก์"</string>
     <string name="channels_item_app_link_app_launcher" msgid="1395352122187670523">"เปิด <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="options_item_closed_caption" msgid="5945274655046367170">"คำบรรยาย"</string>
     <string name="options_item_display_mode" msgid="7989243076748680140">"โหมดการแสดงผล"</string>
@@ -124,6 +123,7 @@
     <string name="option_subrating_header" msgid="4637961301549615855">"การจัดประเภทย่อย"</string>
     <string name="pin_enter_unlock_channel" msgid="4797922378296393173">"ป้อน PIN ของคุณเพื่อดูช่องนี้"</string>
     <string name="pin_enter_unlock_program" msgid="7311628843209871203">"ป้อน PIN ของคุณเพื่อดูโปรแกรมนี้"</string>
+    <string name="pin_enter_unlock_dvr" msgid="1637468108723176684">"รายการนี้จัดอยู่ในประเภท <xliff:g id="RATING">%1$s</xliff:g> ป้อน PIN เพื่อดูรายการนี้"</string>
     <string name="pin_enter_pin" msgid="249314665028035038">"ป้อน PIN ของคุณ"</string>
     <string name="pin_enter_create_pin" msgid="3385754356793309946">"หากต้องการตั้งค่าการควบคุมโดยผู้ปกครอง โปรดสร้าง PIN"</string>
     <string name="pin_enter_new_pin" msgid="1739471585849790384">"ป้อน PIN ใหม่"</string>
@@ -144,8 +144,6 @@
     <string name="settings_menu_licenses" msgid="1257646083838406103">"ใบอนุญาตโอเพนซอร์ส"</string>
     <string name="dialog_title_licenses" msgid="4471754920475076623">"ใบอนุญาตโอเพนซอร์ส"</string>
     <string name="settings_menu_version" msgid="2604030372029921403">"เวอร์ชัน"</string>
-    <string name="about_menu_improve" msgid="3712578027009311401">"ช่วยปรับปรุง Live TV"</string>
-    <string name="about_menu_improve_summary" msgid="7548489011760588571">"แชร์ข้อมูลการใช้งานและการวินิจฉัยที่ไม่ระบุชื่อกับ Google เพื่อให้เราสามารถทำให้รายการถ่ายทอดสดดีขึ้น และป้องกันปัญหาต่างๆ เช่น การขัดข้องและการค้าง"</string>
     <string name="tvview_channel_locked" msgid="6486375335718400728">"หากต้องการดูช่องนี้ ให้กดขวาและป้อน PIN"</string>
     <string name="tvview_content_locked" msgid="391823084917017730">"หากต้องการดูโปรแกรมนี้ ให้กดขวาและป้อน PIN"</string>
     <string name="tvview_content_locked_format" msgid="3741874636031338247">"โปรแกรมนี้เรต <xliff:g id="RATING">%1$s</xliff:g>\nในการดูโปรแกรมนี้ โปรดกดขวาและป้อน PIN"</string>
@@ -157,6 +155,10 @@
     <string name="tvview_msg_audio_only" msgid="1356866203687173329">"เฉพาะเสียง"</string>
     <string name="tvview_msg_weak_signal" msgid="1095050812622908976">"สัญญาณไม่ดี"</string>
     <string name="tvview_msg_no_internet_connection" msgid="7655994401188888231">"ไม่มีการเชื่อมต่ออินเทอร์เน็ต"</string>
+    <plurals name="tvview_msg_input_no_resource" formatted="false" msgid="8581894855153658823">
+      <item quantity="other">ช่องนี้ไม่สามารถเล่นได้จนถึง <xliff:g id="END_TIME_1">%1$s</xliff:g> เพราะกำลังบันทึกช่องอื่นๆ อยู่ \n\nกดขวาเพื่อปรับกำหนดการบันทึก</item>
+      <item quantity="one">ช่องนี้ไม่สามารถเล่นได้จนถึง <xliff:g id="END_TIME_0">%1$s</xliff:g> เพราะกำลังบันทึกอีกช่องอยู่ \n\nกดขวาเพื่อปรับกำหนดการบันทึก</item>
+    </plurals>
     <string name="channel_banner_no_title" msgid="8660301979190693176">"ไม่มีชื่อ"</string>
     <string name="channel_banner_locked_channel_title" msgid="2006564967318945980">"บล็อกช่องแล้ว"</string>
     <string name="setup_category_new" msgid="2899355289563443627">"ใหม่"</string>
@@ -168,8 +170,8 @@
     <string name="setup_input_no_channels" msgid="1669327912393163331">"ไม่มีช่องให้บริการ"</string>
     <string name="setup_input_new" msgid="3337725672277046798">"ใหม่"</string>
     <string name="setup_input_setup_now" msgid="1772000402336958967">"ไม่ได้ตั้งค่า"</string>
-    <string name="setup_play_store_action_title" msgid="859347291072224673">"รับแหล่งที่มาเพิ่มเติม"</string>
-    <string name="setup_play_store_action_description" msgid="2472226338824629506">"เรียกดูแอปที่เสนอรายการถ่ายทอดสด"</string>
+    <string name="setup_store_action_title" msgid="4083402039720973414">"รับแหล่งที่มาเพิ่มเติม"</string>
+    <string name="setup_store_action_description" msgid="6820482635042445297">"เรียกดูแอปที่เสนอรายการถ่ายทอดสด"</string>
     <string name="new_sources_title" msgid="3878933676500061895">"มีแหล่งที่มาของช่องใหม่"</string>
     <string name="new_sources_description" msgid="749649005588426813">"แหล่งที่มาของช่องใหม่มีหลายช่องมาให้ใช้งาน\nตั้งค่าช่องเลยตอนนี้ หรือทำในภายหลังในการตั้งค่าแหล่งที่มาของช่อง"</string>
     <string name="new_sources_action_setup" msgid="177693761664016811">"ตั้งค่าเลย"</string>
@@ -187,8 +189,162 @@
     <string name="msg_all_channels_hidden" msgid="777397634062471936">"ช่องแหล่งที่มาทั้งหมดซ่อนอยู่\nเลือกอย่างน้อย 1 ช่องเพื่อดู"</string>
     <string name="msg_channel_unavailable_unknown" msgid="765586450831081871">"วิดีโอไม่พร้อมใช้งานด้วยเหตุบางประการ"</string>
     <string name="msg_back_key_guide" msgid="7404682718828721924">"แป้นกลับมีไว้สำหรับอุปกรณ์ที่เชื่อมต่อ กดปุ่มหน้าแรกเพื่อออก"</string>
-    <string name="msg_not_supported_device" msgid="4469404625040284722">"Live TV ไม่ได้รับการสนับสนุนบนอุปกรณ์นี้ซึ่งมี Android Lollipop"</string>
     <string name="msg_read_tv_listing_permission_denied" msgid="8882813301235518909">"Live TV ต้องใช้สิทธิ์ในการอ่านรายการทีวี"</string>
     <string name="setup_sources_text" msgid="4988039637873759839">"ตั้งค่าแหล่งที่มา"</string>
-    <string name="setup_sources_description" msgid="5695518946225445202">"รายการถ่ายทอดสดมอบประสบการณ์ที่ผสมผสานระหว่างช่องทีวีแบบดั้งเดิมกับช่องแบบสตรีมโดยแอป\n\nเริ่มต้นใช้งานได้โดยตั้งค่าแหล่งที่มาของช่องที่ติดตั้งไว้แล้ว หรือเรียกดู Google Play สโตร์เพื่อค้นหาแอปอื่นๆ ที่เสนอรายการถ่ายทอดสด"</string>
+    <string name="setup_sources_description" msgid="5695518946225445202">"รายการถ่ายทอดสดมอบประสบการณ์ที่ผสมผสานระหว่างช่องทีวีแบบดั้งเดิมกับช่องแบบสตรีมโดยแอป\n\nเริ่มต้นใช้งานได้โดยตั้งค่าแหล่งที่มาของช่องที่ติดตั้งไว้แล้ว หรือเรียกดู Google Play Store เพื่อค้นหาแอปอื่นๆ ที่เสนอรายการถ่ายทอดสด"</string>
+    <string name="channels_item_dvr" msgid="8911915252648532469">"การบันทึกและกำหนดการ"</string>
+    <string name="recording_start_dialog_10_min_duration" msgid="5739636508245795292">"10 นาที"</string>
+    <string name="recording_start_dialog_30_min_duration" msgid="4691127772622189977">"30 นาที"</string>
+    <string name="recording_start_dialog_1_hour_duration" msgid="7159533207022355641">"1 ชั่วโมง"</string>
+    <string name="recording_start_dialog_3_hours_duration" msgid="295984419320006238">"3 ชั่วโมง"</string>
+    <string name="dvr_main_recent" msgid="2553805424822806495">"ล่าสุด"</string>
+    <string name="dvr_main_scheduled" msgid="7837260963086408492">"กำหนดเวลาไว้"</string>
+    <string name="dvr_main_series" msgid="8278256687595691676">"ซีรี่ส์"</string>
+    <string name="dvr_main_others" msgid="2970835573614038153">"อื่นๆ"</string>
+    <string name="dvr_msg_cannot_record_channel" msgid="6836291367918532447">"ไม่สามารถบันทึกช่องได้"</string>
+    <string name="dvr_msg_cannot_record_program" msgid="4184046342810946090">"ไม่สามารถบันทึกรายการได้"</string>
+    <string name="dvr_msg_program_scheduled" msgid="3800847542300367572">"ตั้งกำหนดการบันทึก <xliff:g id="PROGRAMNAME">%1$s</xliff:g> แล้ว"</string>
+    <string name="dvr_msg_current_program_scheduled" msgid="2505247201782991463">"กำลังบันทึก <xliff:g id="PROGRAMNAME">%1$s</xliff:g> ตั้งแต่ตอนนี้ถึง <xliff:g id="ENDTIME">%2$s</xliff:g>"</string>
+    <string name="dvr_full_schedule_card_view_title" msgid="7198521806965950089">"กำหนดการทั้งหมด"</string>
+    <plurals name="dvr_full_schedule_card_view_content" formatted="false" msgid="790788122541080768">
+      <item quantity="other">%1$d วันถัดไป</item>
+      <item quantity="one">%1$d วันถัดไป</item>
+    </plurals>
+    <plurals name="dvr_program_duration" formatted="false" msgid="6742119148312354741">
+      <item quantity="other">%1$d นาที</item>
+      <item quantity="one">%1$d นาที</item>
+    </plurals>
+    <plurals name="dvr_count_new_recordings" formatted="false" msgid="3569310208305402815">
+      <item quantity="other">การบันทึกใหม่ %1$d รายการ</item>
+      <item quantity="one">การบันทึกใหม่ %1$d รายการ</item>
+    </plurals>
+    <plurals name="dvr_count_recordings" formatted="false" msgid="7417379223468131391">
+      <item quantity="other">การบันทึก %1$d รายการ</item>
+      <item quantity="one">การบันทึก %1$d รายการ</item>
+    </plurals>
+    <plurals name="dvr_count_scheduled_recordings" formatted="false" msgid="1650330290765214511">
+      <item quantity="other">กำหนดเวลาบันทึกแล้ว %1$d รายการ</item>
+      <item quantity="one">กำหนดเวลาบันทึกแล้ว %1$d รายการ</item>
+    </plurals>
+    <string name="dvr_detail_watch" msgid="7085694764364338215">"ดู"</string>
+    <string name="dvr_detail_play_from_beginning" msgid="8475543568260411836">"เล่นจากจุดเริ่มต้น"</string>
+    <string name="dvr_detail_resume_play" msgid="875591300274416373">"เล่นต่อจากที่ค้างไว้"</string>
+    <string name="dvr_detail_delete" msgid="4535881013528321898">"ลบ"</string>
+    <string name="dvr_detail_series_delete" msgid="4831926831670312674">"ลบการบันทึก"</string>
+    <string name="dvr_detail_series_resume" msgid="6935136228671386246">"เล่นต่อ"</string>
+    <string name="dvr_detail_series_season_title" msgid="5474850936497854790">"ซีซัน <xliff:g id="SEASON_NUMBER">%1$s</xliff:g>"</string>
+    <string name="dvr_detail_view_schedule" msgid="7137536927421904426">"ดูกำหนดเวลา"</string>
+    <string name="dvr_detail_read_more" msgid="2588920758094498544">"อ่านเพิ่มเติม"</string>
+    <string name="dvr_series_deletion_title" msgid="7672649492494507574">"ลบการบันทึก"</string>
+    <string name="dvr_series_deletion_description" msgid="994839237906552969">"เลือกตอนที่ต้องการลบ โปรดทราบว่าเมื่อลบแล้วจะกู้คืนไม่ได้"</string>
+    <string name="dvr_series_deletion_no_recordings" msgid="481210819034514">"ไม่มีการบันทึกที่จะลบ"</string>
+    <string name="dvr_series_select_watched" msgid="3608122404146716502">"เลือกตอนที่เคยดู"</string>
+    <string name="dvr_series_select_all" msgid="5415749261739544048">"เลือกทุกตอน"</string>
+    <string name="dvr_series_deselect_all" msgid="1680395960166387572">"ยกเลิกทุกตอนที่เลือกไว้"</string>
+    <string name="dvr_series_watched_info_minutes" msgid="5656926431901526030">"ดูแล้ว <xliff:g id="WATCHED">%1$d</xliff:g> จาก <xliff:g id="DURATION">%2$d</xliff:g> นาที"</string>
+    <string name="dvr_series_watched_info_seconds" msgid="2667537184197566662">"ดูแล้ว <xliff:g id="WATCHED">%1$d</xliff:g> จาก <xliff:g id="DURATION">%2$d</xliff:g> วินาที"</string>
+    <string name="dvr_series_never_watched" msgid="6086008065876122655">"ไม่เคยดู"</string>
+    <plurals name="dvr_msg_episodes_deleted" formatted="false" msgid="5627112959798353905">
+      <item quantity="other">ลบแล้ว %1$d จาก %2$d ตอน</item>
+      <item quantity="one">ลบแล้ว %1$d จาก %2$d ตอน</item>
+    </plurals>
+    <string name="dvr_series_settings_priority" msgid="5836437092774185710">"ความสำคัญ"</string>
+    <string name="dvr_series_settings_priority_highest" msgid="1072006447796648382">"สูงสุด"</string>
+    <string name="dvr_series_settings_priority_lowest" msgid="6003996497908810225">"ต่ำสุด"</string>
+    <string name="dvr_series_settings_priority_rank" msgid="667778382820956116">"อันดับที่ <xliff:g id="RANK">%1$d</xliff:g>"</string>
+    <string name="dvr_series_settings_channels" msgid="3164900110165729909">"ช่อง"</string>
+    <string name="dvr_series_settings_channels_all" msgid="656434955168572976">"ทั้งหมด"</string>
+    <string name="dvr_priority_title" msgid="1537886929061487213">"เลือกลำดับความสำคัญ"</string>
+    <string name="dvr_priority_description" msgid="8362040921417154645">"เมื่อต้องบันทึกรายการหลายรายการพร้อมกันมากเกินไป ระบบจะบันทึกเฉพาะรายการที่มีลำดับความสำคัญสูงกว่าเท่านั้น"</string>
+    <string name="dvr_priority_button_action_save" msgid="4773524273649733008">"บันทึก"</string>
+    <string name="dvr_priority_action_one_time_recording" msgid="8174297042282719478">"การบันทึกครั้งเดียวมีความสำคัญสูงสุด"</string>
+    <string name="dvr_action_cancel" msgid="8094060199570272625">"ยกเลิก"</string>
+    <string name="dvr_action_error_cancel" msgid="6822474458738023531">"ยกเลิก"</string>
+    <string name="dvr_action_error_forget_storage" msgid="5869994565663655638">"ไม่จำ"</string>
+    <string name="dvr_action_stop" msgid="1378723485295471381">"หยุด"</string>
+    <string name="dvr_action_view_schedules" msgid="7442990695392774263">"ดูกำหนดการบันทึก"</string>
+    <string name="dvr_action_record_episode" msgid="8596182676610326327">"โปรแกรมนี้เท่านั้น"</string>
+    <string name="dvr_action_record_episode_from_now_description" msgid="5125122951529985697">"ตอนนี้ - <xliff:g id="ENDTIME">%1$s</xliff:g>"</string>
+    <string name="dvr_action_record_series" msgid="8501991316179436899">"ทุกตอน…"</string>
+    <string name="dvr_action_record_anyway" msgid="991470058034937231">"กำหนดเวลาต่อไป"</string>
+    <string name="dvr_action_record_instead" msgid="6821164728752215738">"บันทึกรายการนี้แทน"</string>
+    <string name="dvr_action_record_cancel" msgid="8644254745772185288">"ยกเลิกการบันทึกนี้"</string>
+    <string name="dvr_action_watch_now" msgid="7181211920959075976">"ดูตอนนี้"</string>
+    <string name="dvr_epg_program_recordable" msgid="609229576209476903">"สามารถบันทึกได้"</string>
+    <string name="dvr_epg_program_recording_scheduled" msgid="1367741844291055016">"กำหนดเวลาบันทึกแล้ว"</string>
+    <string name="dvr_epg_program_recording_conflict" msgid="4827911748865195373">"ตารางบันทึกชนกัน"</string>
+    <string name="dvr_epg_program_recording_in_progress" msgid="2158340443975313745">"กำลังบันทึก"</string>
+    <string name="dvr_epg_program_recording_failed" msgid="5589124519442328896">"การบันทึกล้มเหลว"</string>
+    <string name="dvr_schedule_progress_message_reading_programs" msgid="6502513156469172313">"กำลังอ่านรายการเพื่อสร้างกำหนดเวลาการบันทึก"</string>
+    <string name="dvr_series_schedules_progress_message_reading_programs" msgid="7221275889560136115">"กำลังอ่านรายการ"</string>
+    <!-- no translation found for dvr_series_schedules_progress_message_updating_programs (6670286486601662465) -->
+    <skip />
+    <string name="dvr_error_small_sized_storage_title" msgid="5020225460011469011">"DVR ต้องการพื้นที่เก็บข้อมูลเพิ่มเติม"</string>
+    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"คุณจะสามารถบันทึกรายการด้วย DVR ได้ อย่างไรก็ตาม ตอนนี้อุปกรณ์ของคุณมีพื้นที่เก็บข้อมูลไม่เพียงพอสำหรับให้ DVR ทำงาน โปรดเชื่อมต่อไดรฟ์ภายนอกที่มีขนาด <xliff:g id="STORAGE_SIZE">%1$s</xliff:g> GB ขึ้นไป และทำตามขั้นตอนเพื่อฟอร์แมตไดรฟ์ให้เป็นพื้นที่เก็บข้อมูลของอุปกรณ์"</string>
+    <string name="dvr_error_missing_storage_title" msgid="691914341845362669">"พื้นที่เก็บข้อมูลหายไป"</string>
+    <string name="dvr_error_missing_storage_description" msgid="1036680750969954236">"พื้นที่เก็บข้อมูลบางส่วนที่ DVR ใช้หายไป โปรดเชื่อมต่อไดรฟ์ภายนอกที่คุณใช้ก่อนเปิดใช้ DVR อีกครั้ง หรือคุณอาจเลือกไม่จำพื้นที่เก็บข้อมูลหากพื้นที่เก็บข้อมูลไม่พร้อมใช้งานอีกต่อไป"</string>
+    <string name="dvr_error_forget_storage_title" msgid="4996547357826788002">"ไม่จำพื้นที่เก็บข้อมูลใช่ไหม"</string>
+    <string name="dvr_error_forget_storage_description" msgid="3973761741009546142">"เนื้อหาและกำหนดการทั้งหมดที่คุณบันทึกไว้จะหายไป"</string>
+    <string name="dvr_stop_recording_dialog_title" msgid="2587018956502704278">"หยุดบันทึกใช่ไหม"</string>
+    <string name="dvr_stop_recording_dialog_description" msgid="4637830189399967761">"ระบบจะเก็บเนื้อหาที่บันทึกไว้"</string>
+    <!-- no translation found for dvr_stop_recording_dialog_description_on_conflict (7876857267536083760) -->
+    <skip />
+    <string name="dvr_program_conflict_dialog_title" msgid="109323740107060379">"กำหนดการบันทึกรายการชนกัน"</string>
+    <string name="dvr_channel_conflict_dialog_title" msgid="7461033430572027786">"เริ่มบันทึกรายการแล้ว แต่กำหนดการชนกัน"</string>
+    <string name="dvr_program_conflict_dialog_description_prefix" msgid="5520062013211648196">"ระบบจะบันทึก <xliff:g id="PROGRAMNAME">%1$s</xliff:g>"</string>
+    <string name="dvr_channel_conflict_dialog_description_prefix" msgid="212344250779878791">"กำลังบันทึก <xliff:g id="CHANNELNAME">%1$s</xliff:g>"</string>
+    <string name="dvr_program_conflict_dialog_description_1" msgid="2278200346765501164">"บางส่วนของ <xliff:g id="CONFLICTPROGRAMNAME">%1$s</xliff:g> จะไม่มีการบันทึก"</string>
+    <string name="dvr_program_conflict_dialog_description_2" msgid="5648524408147235696">"บางส่วนของ <xliff:g id="CONFLICTPROGRAMNAME_1">%1$s</xliff:g> และ <xliff:g id="CONFLICTPROGRAMNAME_2">%2$s</xliff:g> จะไม่มีการบันทึก"</string>
+    <string name="dvr_program_conflict_dialog_description_3" msgid="6879199850098595108">"บางส่วนของ <xliff:g id="CONFLICTPROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2">%2$s</xliff:g> และอีก 1 รายการที่กำหนดไว้จะไม่มีการบันทึก"</string>
+    <plurals name="dvr_program_conflict_dialog_description_many" formatted="false" msgid="1008340710252647947">
+      <item quantity="other">บางส่วนของ <xliff:g id="CONFLICTPROGRAMNAME_1_2">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_3">%2$s</xliff:g> และอีก %3$d รายการที่กำหนดไว้จะไม่มีการบันทึก</item>
+      <item quantity="one">บางส่วนของ <xliff:g id="CONFLICTPROGRAMNAME_1_0">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_1">%2$s</xliff:g> และอีก %3$d รายการที่กำหนดไว้จะไม่มีการบันทึก</item>
+    </plurals>
+    <string name="dvr_schedule_dialog_title" msgid="5235629824986156058">"คุณต้องการบันทึกอะไร"</string>
+    <string name="dvr_channel_record_duration_dialog_title" msgid="4601361040431047918">"คุณต้องการบันทึกนานแค่ไหน"</string>
+    <string name="dvr_already_scheduled_dialog_title" msgid="4525318291210934311">"กำหนดเวลาไว้แล้ว"</string>
+    <string name="dvr_already_scheduled_dialog_description" msgid="8170126125996414810">"มีกำหนดบันทึกรายการเดียวกันนี้แล้วเวลา <xliff:g id="PROGRAMSTARTTIME">%1$s</xliff:g>"</string>
+    <string name="dvr_already_recorded_dialog_title" msgid="2760294707162057216">"บันทึกไว้แล้ว"</string>
+    <string name="dvr_already_recorded_dialog_description" msgid="8966051583682746434">"บันทึกรายการนี้ไว้แล้ว สามารถดูได้ที่ห้องสมุด DVR"</string>
+    <!-- no translation found for dvr_series_recording_dialog_title (3521956660855853797) -->
+    <skip />
+    <!-- no translation found for dvr_series_recording_scheduled_no_conflict (2796926724821316879) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_this_series_conflict (2800805130979023066) -->
+    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_one_conflict (3632394665556633158) -->
+    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_conflict (2331412040101938479) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_one_conflict (5213169239215104024) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_conflict (5159645486201045330) -->
+    <string name="dvr_program_not_found" msgid="3282879532038010202">"ไม่พบโปรแกรมที่บันทึกไว้"</string>
+    <string name="dvr_playback_related_recordings" msgid="6978658039329924961">"การบันทึกที่เกี่ยวข้อง"</string>
+    <string name="dvr_msg_no_program_description" msgid="2521723281247322645">"(ไม่มีรายละเอียดรายการ)"</string>
+    <plurals name="dvr_schedules_section_subtitle" formatted="false" msgid="9180744010405976007">
+      <item quantity="other">การบันทึก %1$d รายการ</item>
+      <item quantity="one">การบันทึก %1$d รายการ</item>
+    </plurals>
+    <string name="dvr_schedules_information_separator" msgid="1669116853379998479">" / "</string>
+    <string name="dvr_schedules_deletion_info" msgid="2837586459900271031">"นำ <xliff:g id="PROGRAMNAME">%1$s</xliff:g> ออกจากกำหนดการบันทึกแล้ว"</string>
+    <string name="dvr_schedules_tuner_conflict_will_be_partially_recorded" msgid="5280490298546908729">"ระบบจะบันทึกไว้บางส่วนเนื่องจากมีข้อขัดแย้งของตัวรับสัญญาณ"</string>
+    <string name="dvr_schedules_tuner_conflict_will_not_be_recorded_info" msgid="5065400564003201095">"ระบบจะไม่บันทึกเนื่องจากมีข้อขัดแย้งของตัวรับสัญญาณ"</string>
+    <string name="dvr_schedules_empty_state" msgid="1291529283469462741">"ยังไม่มีการบันทึกในกำหนดการ\nคุณสามารถกำหนดเวลาบันทึกจากคู่มือรายการทีวี"</string>
+    <plurals name="dvr_series_schedules_header_description" formatted="false" msgid="9077188267856194114">
+      <item quantity="other">ตารางบันทึกชนกัน %1$d รายการ</item>
+      <item quantity="one">ตารางบันทึกชนกัน %1$d รายการ</item>
+    </plurals>
+    <string name="dvr_series_schedules_settings" msgid="4868501926847903985">"การตั้งค่าซีรีส์"</string>
+    <string name="dvr_series_schedules_start" msgid="8458768834047133835">"เริ่มบันทึกซีรีส์"</string>
+    <string name="dvr_series_schedules_stop" msgid="3427479298317584961">"หยุดบันทึกซีรีส์"</string>
+    <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"หยุดบันทึกซีรีส์ไหม"</string>
+    <string name="dvr_series_schedules_stop_dialog_description" msgid="7547266283366940085">"ตอนที่บันทึกไว้จะยังคงอยู่ในไลบรารี DVR"</string>
+    <string name="dvr_series_schedules_stop_dialog_action_stop" msgid="2351839914865142478">"หยุด"</string>
+    <string name="dvr_series_schedules_empty_state" msgid="3407962945399698707">"ไม่มีตอนที่พร้อมรับชม\nระบบจะเริ่มบันทึกเมื่อมีตอนที่พร้อมรับชม"</string>
+    <plurals name="dvr_schedules_recording_duration" formatted="false" msgid="3701771573063918552">
+      <item quantity="other">(%1$d นาที)</item>
+      <item quantity="one">(%1$d นาที) </item>
+    </plurals>
+    <string name="dvr_date_today" msgid="7691050705354303471">"วันนี้"</string>
+    <string name="dvr_date_tomorrow" msgid="4136735681186981844">"พรุ่งนี้"</string>
+    <string name="dvr_date_yesterday" msgid="2127672919053118239">"เมื่อวานนี้"</string>
+    <string name="dvr_date_today_time" msgid="8359696776305244535">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> วันนี้"</string>
+    <string name="dvr_date_tomorrow_time" msgid="8364654556105292594">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> พรุ่งนี้"</string>
+    <string name="program_guide_critic_score" msgid="340530743913585150">"คะแนน"</string>
 </resources>

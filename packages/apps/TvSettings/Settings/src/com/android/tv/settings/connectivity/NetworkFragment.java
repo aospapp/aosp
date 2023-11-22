@@ -25,6 +25,7 @@ import android.provider.Settings;
 import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceCategory;
+import android.support.v7.preference.PreferenceManager;
 import android.support.v7.preference.TwoStatePreference;
 
 import com.android.settingslib.wifi.AccessPoint;
@@ -113,7 +114,17 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mConnectivityListener != null) {
+            mConnectivityListener.destroy();
+        }
+    }
+
+    @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+        getPreferenceManager().setPreferenceComparisonCallback(
+                new PreferenceManager.SimplePreferenceComparisonCallback());
         setPreferencesFromResource(R.xml.network, null);
 
         mEnableWifiPref = (TwoStatePreference) findPreference(KEY_WIFI_ENABLE);
@@ -164,7 +175,7 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
             return;
         }
 
-        final boolean wifiEnabled = mConnectivityListener.isWifiEnabled();
+        final boolean wifiEnabled = mConnectivityListener.isWifiEnabledOrEnabling();
         mEnableWifiPref.setChecked(wifiEnabled);
 
         mWifiNetworksCategory.setVisible(wifiEnabled);
@@ -193,7 +204,7 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
 
         if (ethernetAvailable) {
             final boolean ethernetConnected =
-                    mConnectivityListener.getConnectivityStatus().isEthernetConnected();
+                    mConnectivityListener.isEthernetConnected();
             mEthernetStatusPref.setTitle(ethernetConnected
                     ? R.string.connected : R.string.not_connected);
             mEthernetStatusPref.setSummary(mConnectivityListener.getEthernetIpAddress());
@@ -205,7 +216,7 @@ public class NetworkFragment extends LeanbackPreferenceFragment implements
             return;
         }
 
-        if (!mConnectivityListener.isWifiEnabled()) {
+        if (!mConnectivityListener.isWifiEnabledOrEnabling()) {
             mWifiNetworksCategory.removeAll();
             mNoWifiUpdateBeforeMillis = 0;
             return;

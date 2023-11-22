@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2011-2016, International Business Machines Corporation and    *
@@ -20,6 +22,7 @@ public class Output<T> {
     /**
      * {@inheritDoc}
      */
+    @Override
     public String toString() {
         return value == null ? "null" : value.toString();
     }
@@ -28,7 +31,7 @@ public class Output<T> {
      * Constructs an empty <code>Output</code>
      */
     public Output() {
-        
+
     }
 
     /**

@@ -16,45 +16,44 @@
 
 package android.widget.cts;
 
-import org.xmlpull.v1.XmlPullParser;
-
 import android.content.Context;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.Button;
 
-import android.widget.cts.R;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
 
-
-public class ButtonTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ButtonTest {
+    @Test
     public void testConstructor() {
-        XmlPullParser parser = mContext.getResources().getXml(R.layout.togglebutton_layout);
+        Context context = InstrumentationRegistry.getTargetContext();
+        XmlPullParser parser = context.getResources().getXml(R.layout.togglebutton_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
 
-        new Button(mContext, attrs, 0);
-        new Button(mContext, attrs);
-        new Button(mContext);
+        new Button(context, attrs, 0);
+        new Button(context, attrs);
+        new Button(context);
+    }
 
-        try {
-            new Button(null, null, -1);
-            fail("Should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext1() {
+        new Button(null);
+    }
 
-        try {
-            new Button(null, null);
-            fail("Should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext2() {
+        new Button(null, null);
+    }
 
-        try {
-            new Button(null);
-            fail("Should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext3() {
+        new Button(null, null, -1);
     }
 }

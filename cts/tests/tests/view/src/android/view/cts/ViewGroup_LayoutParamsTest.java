@@ -16,24 +16,36 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
 
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
-import android.test.AndroidTestCase;
-import android.util.AttributeSet;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.cts.util.XmlUtils;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 
-public class ViewGroup_LayoutParamsTest extends AndroidTestCase {
-    private ViewGroup.LayoutParams mLayoutParams;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ViewGroup_LayoutParamsTest {
+    private Context mContext;
 
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testConstructor() throws XmlPullParserException, IOException {
         // new the MarginLayoutParams instance
         XmlResourceParser parser = mContext.getResources().getLayout(
@@ -47,6 +59,7 @@ public class ViewGroup_LayoutParamsTest extends AndroidTestCase {
         new ViewGroup.LayoutParams(temp);
     }
 
+    @Test
     public void testSetBaseAttributes() throws XmlPullParserException, IOException {
         MockLayoutParams mockLayoutParams = new MockLayoutParams(240, 320);
 
@@ -63,16 +76,8 @@ public class ViewGroup_LayoutParamsTest extends AndroidTestCase {
     }
 
     private class MockLayoutParams extends LayoutParams {
-        public MockLayoutParams(Context c, AttributeSet attrs) {
-            super(c, attrs);
-        }
-
         public MockLayoutParams(int width, int height) {
             super(width, height);
-        }
-
-        public MockLayoutParams(LayoutParams source) {
-            super(source);
         }
 
         protected void setBaseAttributes(TypedArray a, int widthAttr, int heightAttr) {

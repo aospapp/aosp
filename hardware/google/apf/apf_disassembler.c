@@ -92,7 +92,7 @@ int main(void) {
       if (len_field != 0) {
           const uint32_t imm_len = 1 << (len_field - 1);
           uint32_t i;
-          for (i = 0; i < imm_len; i++)
+          for (i = 0; i < imm_len && pc < program_len; i++)
               imm = (imm << 8) | program[pc++];
           // Sign extend imm into signed_imm.
           signed_imm = imm << ((4 - imm_len) * 8);
@@ -132,7 +132,7 @@ int main(void) {
               } else {
                   uint32_t cmp_imm_len = 1 << (len_field - 1);
                   uint32_t i;
-                  for (i = 0; i < cmp_imm_len; i++)
+                  for (i = 0; i < cmp_imm_len && pc < program_len; i++)
                       cmp_imm = (cmp_imm << 8) | program[pc++];
                   printf("0x%x, ", cmp_imm);
               }

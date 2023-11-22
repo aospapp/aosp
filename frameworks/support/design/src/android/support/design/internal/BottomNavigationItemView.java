@@ -16,22 +16,25 @@
 
 package android.support.design.internal;
 
-import android.annotation.TargetApi;
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.design.R;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.view.animation.LinearOutSlowInInterpolator;
+import android.support.v4.view.PointerIconCompat;
+import android.support.v4.view.ViewCompat;
 import android.support.v7.view.menu.MenuItemImpl;
 import android.support.v7.view.menu.MenuView;
+import android.support.v7.widget.TooltipCompat;
 import android.util.AttributeSet;
-import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.LayoutInflater;
-import android.view.ViewPropertyAnimator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -39,21 +42,23 @@ import android.widget.TextView;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class BottomNavigationItemView extends FrameLayout implements MenuView.ItemView {
-    public static final int INVALID_ITEM_POSTION = -1;
+    public static final int INVALID_ITEM_POSITION = -1;
 
     private static final int[] CHECKED_STATE_SET = { android.R.attr.state_checked };
-    private static final long ACTIVE_ANIMATION_DURATION_MS = 115L;
 
-    private final float mShiftAmount;
+    private final int mDefaultMargin;
+    private final int mShiftAmount;
     private final float mScaleUpFactor;
     private final float mScaleDownFactor;
-    private final float mInactiveLabelSize;
-    private final float mActiveLabelSize;
+
+    private boolean mShiftingMode;
 
     private ImageView mIcon;
-    private TextView mLabel;
-    private int mItemPosition = INVALID_ITEM_POSTION;
+    private final TextView mSmallLabel;
+    private final TextView mLargeLabel;
+    private int mItemPosition = INVALID_ITEM_POSITION;
 
     private MenuItemImpl mItemData;
 
@@ -69,29 +74,34 @@ public class BottomNavigationItemView extends FrameLayout implements MenuView.It
 
     public BottomNavigationItemView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        mInactiveLabelSize =
-                getResources().getDimension(R.dimen.design_bottom_navigation_text_size);
-        mActiveLabelSize =
-                getResources().getDimension(R.dimen.design_bottom_navigation_active_text_size);
-        mShiftAmount = mInactiveLabelSize - mActiveLabelSize;
-        mScaleUpFactor = mActiveLabelSize / mInactiveLabelSize;
-        mScaleDownFactor = mInactiveLabelSize / mActiveLabelSize;
+        final Resources res = getResources();
+        int inactiveLabelSize =
+                res.getDimensionPixelSize(R.dimen.design_bottom_navigation_text_size);
+        int activeLabelSize = res.getDimensionPixelSize(
+                R.dimen.design_bottom_navigation_active_text_size);
+        mDefaultMargin = res.getDimensionPixelSize(R.dimen.design_bottom_navigation_margin);
+        mShiftAmount = inactiveLabelSize - activeLabelSize;
+        mScaleUpFactor = 1f * activeLabelSize / inactiveLabelSize;
+        mScaleDownFactor = 1f * inactiveLabelSize / activeLabelSize;
 
         LayoutInflater.from(context).inflate(R.layout.design_bottom_navigation_item, this, true);
         setBackgroundResource(R.drawable.design_bottom_navigation_item_background);
-        mIcon = (ImageView) findViewById(R.id.icon);
-        mLabel = (TextView) findViewById(R.id.label);
+        mIcon = findViewById(R.id.icon);
+        mSmallLabel = findViewById(R.id.smallLabel);
+        mLargeLabel = findViewById(R.id.largeLabel);
     }
 
     @Override
     public void initialize(MenuItemImpl itemData, int menuType) {
         mItemData = itemData;
         setCheckable(itemData.isCheckable());
-        setChecked(itemData.isChecked(), false);
+        setChecked(itemData.isChecked());
         setEnabled(itemData.isEnabled());
         setIcon(itemData.getIcon());
         setTitle(itemData.getTitle());
         setId(itemData.getItemId());
+        setContentDescription(itemData.getContentDescription());
+        TooltipCompat.setTooltipText(this, itemData.getTooltipText());
     }
 
     public void setItemPosition(int position) {
@@ -102,6 +112,10 @@ public class BottomNavigationItemView extends FrameLayout implements MenuView.It
         return mItemPosition;
     }
 
+    public void setShiftingMode(boolean enabled) {
+        mShiftingMode = enabled;
+    }
+
     @Override
     public MenuItemImpl getItemData() {
         return mItemData;
@@ -109,7 +123,9 @@ public class BottomNavigationItemView extends FrameLayout implements MenuView.It
 
     @Override
     public void setTitle(CharSequence title) {
-        mLabel.setText(title);
+        mSmallLabel.setText(title);
+        mLargeLabel.setText(title);
+        setContentDescription(title);
     }
 
     @Override
@@ -119,19 +135,54 @@ public class BottomNavigationItemView extends FrameLayout implements MenuView.It
 
     @Override
     public void setChecked(boolean checked) {
-        setChecked(checked, true);
-    }
-
-    public void setChecked(boolean checked, boolean animate) {
-        mItemData.setChecked(checked);
-
-        mLabel.setTextSize(TypedValue.COMPLEX_UNIT_PX,
-                checked ? mActiveLabelSize : mInactiveLabelSize);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
-            if (animate) {
-                animate(checked);
+        mLargeLabel.setPivotX(mLargeLabel.getWidth() / 2);
+        mLargeLabel.setPivotY(mLargeLabel.getBaseline());
+        mSmallLabel.setPivotX(mSmallLabel.getWidth() / 2);
+        mSmallLabel.setPivotY(mSmallLabel.getBaseline());
+        if (mShiftingMode) {
+            if (checked) {
+                LayoutParams iconParams = (LayoutParams) mIcon.getLayoutParams();
+                iconParams.gravity = Gravity.CENTER_HORIZONTAL | Gravity.TOP;
+                iconParams.topMargin = mDefaultMargin;
+                mIcon.setLayoutParams(iconParams);
+                mLargeLabel.setVisibility(VISIBLE);
+                mLargeLabel.setScaleX(1f);
+                mLargeLabel.setScaleY(1f);
             } else {
-                mIcon.setTranslationY(checked ? mShiftAmount : 0f);
+                LayoutParams iconParams = (LayoutParams) mIcon.getLayoutParams();
+                iconParams.gravity = Gravity.CENTER;
+                iconParams.topMargin = mDefaultMargin;
+                mIcon.setLayoutParams(iconParams);
+                mLargeLabel.setVisibility(INVISIBLE);
+                mLargeLabel.setScaleX(0.5f);
+                mLargeLabel.setScaleY(0.5f);
+            }
+            mSmallLabel.setVisibility(INVISIBLE);
+        } else {
+            if (checked) {
+                LayoutParams iconParams = (LayoutParams) mIcon.getLayoutParams();
+                iconParams.gravity = Gravity.CENTER_HORIZONTAL | Gravity.TOP;
+                iconParams.topMargin = mDefaultMargin + mShiftAmount;
+                mIcon.setLayoutParams(iconParams);
+                mLargeLabel.setVisibility(VISIBLE);
+                mSmallLabel.setVisibility(INVISIBLE);
+
+                mLargeLabel.setScaleX(1f);
+                mLargeLabel.setScaleY(1f);
+                mSmallLabel.setScaleX(mScaleUpFactor);
+                mSmallLabel.setScaleY(mScaleUpFactor);
+            } else {
+                LayoutParams iconParams = (LayoutParams) mIcon.getLayoutParams();
+                iconParams.gravity = Gravity.CENTER_HORIZONTAL | Gravity.TOP;
+                iconParams.topMargin = mDefaultMargin;
+                mIcon.setLayoutParams(iconParams);
+                mLargeLabel.setVisibility(INVISIBLE);
+                mSmallLabel.setVisibility(VISIBLE);
+
+                mLargeLabel.setScaleX(mScaleDownFactor);
+                mLargeLabel.setScaleY(mScaleDownFactor);
+                mSmallLabel.setScaleX(1f);
+                mSmallLabel.setScaleY(1f);
             }
         }
 
@@ -141,8 +192,17 @@ public class BottomNavigationItemView extends FrameLayout implements MenuView.It
     @Override
     public void setEnabled(boolean enabled) {
         super.setEnabled(enabled);
-        mLabel.setEnabled(enabled);
+        mSmallLabel.setEnabled(enabled);
+        mLargeLabel.setEnabled(enabled);
         mIcon.setEnabled(enabled);
+
+        if (enabled) {
+            ViewCompat.setPointerIcon(this,
+                    PointerIconCompat.getSystemIcon(getContext(), PointerIconCompat.TYPE_HAND));
+        } else {
+            ViewCompat.setPointerIcon(this, null);
+        }
+
     }
 
     @Override
@@ -187,34 +247,13 @@ public class BottomNavigationItemView extends FrameLayout implements MenuView.It
     }
 
     public void setTextColor(ColorStateList color) {
-        mLabel.setTextColor(color);
+        mSmallLabel.setTextColor(color);
+        mLargeLabel.setTextColor(color);
     }
 
     public void setItemBackground(int background) {
         Drawable backgroundDrawable = background == 0
                 ? null : ContextCompat.getDrawable(getContext(), background);
-        setBackgroundDrawable(backgroundDrawable);
-    }
-
-    @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
-    private void animate(final boolean active) {
-        final float startingTextScale = active ? mScaleDownFactor : mScaleUpFactor;
-
-        // Grow or shrink the text of the tab.
-        mLabel.setScaleX(startingTextScale);
-        mLabel.setScaleY(startingTextScale);
-        ViewPropertyAnimator textAnimator = mLabel.animate()
-                .setDuration(ACTIVE_ANIMATION_DURATION_MS)
-                .setInterpolator(new LinearOutSlowInInterpolator())
-                .scaleX(1f)
-                .scaleY(1f);
-
-        ViewPropertyAnimator translationAnimation = mIcon.animate()
-                .setDuration(ACTIVE_ANIMATION_DURATION_MS)
-                .setInterpolator(new LinearOutSlowInInterpolator())
-                .translationY(active ? mShiftAmount : 0);
-
-        textAnimator.start();
-        translationAnimation.start();
+        ViewCompat.setBackground(this, backgroundDrawable);
     }
 }

@@ -27,43 +27,30 @@ class CrOSInterfaceTest(unittest.TestCase):
         remote, remote_ssh_port,
         options_for_unittests.GetCopy().cros_ssh_identity)
 
-  @decorators.Enabled('cros-chrome')
+  @decorators.Enabled('chromeos')
   def testPushContents(self):
     with self._GetCRI() as cri:
-      cri.RunCmdOnDevice(['rm', '-rf', '/tmp/testPushContents'])
-      cri.PushContents('hello world', '/tmp/testPushContents')
-      contents = cri.GetFileContents('/tmp/testPushContents')
-      self.assertEquals(contents, 'hello world')
+      tmp_file = '/tmp/testPushContents'
+      test_contents = 'hello world'
+      cri.RmRF(tmp_file)
+      cri.PushContents(test_contents, tmp_file)
+      contents = cri.GetFileContents(tmp_file)
+      self.assertEquals(contents, test_contents)
 
-  @decorators.Enabled('cros-chrome')
+  @decorators.Enabled('chromeos')
   def testExists(self):
     with self._GetCRI() as cri:
       self.assertTrue(cri.FileExistsOnDevice('/proc/cpuinfo'))
       self.assertTrue(cri.FileExistsOnDevice('/etc/passwd'))
       self.assertFalse(cri.FileExistsOnDevice('/etc/sdlfsdjflskfjsflj'))
 
-  @decorators.Enabled('linux')
-  def testExistsLocal(self):
-    with cros_interface.CrOSInterface() as cri:
-      self.assertTrue(cri.FileExistsOnDevice('/proc/cpuinfo'))
-      self.assertTrue(cri.FileExistsOnDevice('/etc/passwd'))
-      self.assertFalse(cri.FileExistsOnDevice('/etc/sdlfsdjflskfjsflj'))
-
-  @decorators.Enabled('cros-chrome')
-  def testGetFileContents(self):  # pylint: disable=no-self-use
+  @decorators.Enabled('chromeos')
+  def testGetFileContents(self):
     with self._GetCRI() as cri:
       hosts = cri.GetFileContents('/etc/lsb-release')
       self.assertTrue('CHROMEOS' in hosts)
 
-  @decorators.Enabled('cros-chrome')
-  def testGetFileContentsNonExistent(self):
-    with self._GetCRI() as cri:
-      f = tempfile.NamedTemporaryFile()
-      cri.PushContents('testGetFileNonExistent', f.name)
-      cri.RmRF(f.name)
-      self.assertRaises(OSError, lambda: cri.GetFileContents(f.name))
-
-  @decorators.Enabled('cros-chrome')
+  @decorators.Enabled('chromeos')
   def testGetFile(self):  # pylint: disable=no-self-use
     with self._GetCRI() as cri:
       f = tempfile.NamedTemporaryFile()
@@ -72,7 +59,7 @@ class CrOSInterfaceTest(unittest.TestCase):
         res = f2.read()
         self.assertTrue('CHROMEOS' in res)
 
-  @decorators.Enabled('cros-chrome')
+  @decorators.Enabled('chromeos')
   def testGetFileNonExistent(self):
     with self._GetCRI() as cri:
       f = tempfile.NamedTemporaryFile()
@@ -80,17 +67,13 @@ class CrOSInterfaceTest(unittest.TestCase):
       cri.RmRF(f.name)
       self.assertRaises(OSError, lambda: cri.GetFile(f.name))
 
-  @decorators.Enabled('cros-chrome')
+  @decorators.Enabled('chromeos')
   def testIsServiceRunning(self):
     with self._GetCRI() as cri:
       self.assertTrue(cri.IsServiceRunning('openssh-server'))
 
-  @decorators.Enabled('linux')
-  def testIsServiceRunningLocal(self):
-    with cros_interface.CrOSInterface() as cri:
-      self.assertTrue(cri.IsServiceRunning('dbus'))
-
-  @decorators.Enabled('cros-chrome')
+  # TODO(achuith): Fix this test. crbug.com/619767.
+  @decorators.Disabled('all')
   def testGetRemotePortAndIsHTTPServerRunningOnPort(self):
     with self._GetCRI() as cri:
       # Create local server.
@@ -124,7 +107,7 @@ class CrOSInterfaceTest(unittest.TestCase):
       # longer in use.
       self.assertFalse(cri.IsHTTPServerRunningOnPort(remote_port))
 
-  @decorators.Enabled('cros-chrome')
+  @decorators.Enabled('chromeos')
   def testGetRemotePortReservedPorts(self):
     with self._GetCRI() as cri:
       # Should return 2 separate ports even though the first one isn't
@@ -134,22 +117,28 @@ class CrOSInterfaceTest(unittest.TestCase):
 
       self.assertTrue(remote_port_1 != remote_port_2)
 
-  @decorators.Enabled('cros-chrome')
-  def testTakeScreenShot(self):
+  # TODO(achuith): Doesn't work in VMs.
+  @decorators.Disabled('all')
+  def testTakeScreenshotWithPrefix(self):
     with self._GetCRI() as cri:
-
       def _Cleanup():
         cri.RmRF('/var/log/screenshots/test-prefix*')
 
       _Cleanup()
-      cri.TakeScreenShot('test-prefix')
+      self.assertTrue(cri.TakeScreenshotWithPrefix('test-prefix'))
       self.assertTrue(cri.FileExistsOnDevice(
           '/var/log/screenshots/test-prefix-0.png'))
       _Cleanup()
 
-  # TODO(tengs): It would be best if we can filter this test and other tests
-  # that need to be run locally based on the platform of the system browser.
-  @decorators.Enabled('linux')
+  @decorators.Enabled('chromeos')
+  def testLsbReleaseValue(self):
+    with self._GetCRI() as cri:
+      build_num = cri.LsbReleaseValue('CHROMEOS_RELEASE_BUILD_NUMBER', None)
+      self.assertTrue(build_num.isdigit())
+      device_type = cri.GetDeviceTypeName()
+      self.assertTrue(device_type.isalpha())
+
+  @decorators.Enabled('chromeos')
   def testEscapeCmdArguments(self):
     """Commands and their arguments that are executed through the cros
     interface should follow bash syntax. This test needs to run on remotely
@@ -173,7 +162,7 @@ class CrOSInterfaceTest(unittest.TestCase):
       stdout, _ = cri.RunCmdOnDevice(['echo', "--arg='$HOME;;$PATH'"])
       assert stdout.strip() == "--arg=$HOME;;$PATH"
 
-  @decorators.Enabled('cros-chrome', 'linux')
+  @decorators.Enabled('chromeos')
   @mock.patch.object(cros_interface.CrOSInterface, 'RunCmdOnDevice')
   def testTryLoginSuccess(self, mock_run_cmd):
     mock_run_cmd.return_value = ('root\n', '')
@@ -182,7 +171,7 @@ class CrOSInterfaceTest(unittest.TestCase):
     cri.TryLogin()
     mock_run_cmd.assert_called_once_with(['echo', '$USER'], quiet=True)
 
-  @decorators.Enabled('cros-chrome', 'linux')
+  @decorators.Enabled('chromeos')
   @mock.patch.object(cros_interface.CrOSInterface, 'RunCmdOnDevice')
   def testTryLoginStderr(self, mock_run_cmd):
     cri = cros_interface.CrOSInterface(
@@ -216,7 +205,7 @@ class CrOSInterfaceTest(unittest.TestCase):
                             r'Unable to resolve the hostname for:.*',
                             cri.TryLogin)
 
-  @decorators.Enabled('cros-chrome', 'linux')
+  @decorators.Enabled('chromeos')
   @mock.patch.object(cros_interface.CrOSInterface, 'RunCmdOnDevice')
   def testTryLoginStdout(self, mock_run_cmd):
     mock_run_cmd.return_value = ('notrooot', '')
@@ -225,3 +214,40 @@ class CrOSInterfaceTest(unittest.TestCase):
     self.assertRaisesRegexp(cros_interface.LoginException,
                             r'Logged into .*, expected \$USER=root, but got .*',
                             cri.TryLogin)
+
+  @decorators.Enabled('chromeos')
+  @mock.patch.object(cros_interface.CrOSInterface, 'RunCmdOnDevice')
+  def testIsCryptohomeMounted(self, mock_run_cmd):
+    # The device's mount state is checked by the command
+    #   /bin/df --someoption `cryptohome-path user $username`.
+    # The following mock replaces RunCmdOnDevice() to return mocked mount states
+    # from the command execution.
+    def mockRunCmdOnDevice(args):
+      if args[0] == 'cryptohome-path':
+        return ('/home/user/%s' % args[2], '')
+      elif args[0] == '/bin/df':
+        if 'unmount' in args[2]:
+          # For the user unmount@gmail.com, returns the unmounted state.
+          source, target = '/dev/sda1', '/home'
+        elif 'mount' in args[2]:
+          # For the user mount@gmail.com, returns the mounted state.
+          source, target = '/dev/sda1', args[2]
+        elif 'guest' in args[2]:
+          # For the user $guest, returns the guest-mounted state.
+          source, target = 'guestfs', args[2]
+        return ('Filesystem Mounted on\n%s %s\n' % (source, target), '')
+    mock_run_cmd.side_effect = mockRunCmdOnDevice
+
+    cri = cros_interface.CrOSInterface(
+        "testhostname", 22, options_for_unittests.GetCopy().cros_ssh_identity)
+    # Returns False if the user's cryptohome is not mounted.
+    self.assertFalse(cri.IsCryptohomeMounted('unmount@gmail.com', False))
+    # Returns True if the user's cryptohome is mounted.
+    self.assertTrue(cri.IsCryptohomeMounted('mount@gmail.com', False))
+    # Returns True if the guest cryptohome is mounted.
+    self.assertTrue(cri.IsCryptohomeMounted('$guest', True))
+    # Sanity check. Returns False if the |is_guest| parameter does not match
+    # with whether or not the user is really a guest.
+    self.assertFalse(cri.IsCryptohomeMounted('unmount@gmail.com', True))
+    self.assertFalse(cri.IsCryptohomeMounted('mount@gmail.com', True))
+    self.assertFalse(cri.IsCryptohomeMounted('$guest', False))

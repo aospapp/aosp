@@ -15,6 +15,7 @@
  */
 package com.android.car.test;
 
+import android.car.settings.CarSettings;
 import android.content.Context;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
@@ -92,7 +93,7 @@ public class GarageModeTest extends AndroidTestCase {
         }
 
         public long getMaintenanceWindow() {
-            return MAINTENANCE_WINDOW;
+            return CarSettings.DEFAULT_GARAGE_MODE_MAINTENANCE_WINDOW;
         }
 
         public boolean isInGarageMode() {

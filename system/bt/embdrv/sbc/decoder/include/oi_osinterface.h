@@ -1,7 +1,8 @@
 /******************************************************************************
  *
  *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights reserved.
+ *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights
+ *                        reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -29,14 +30,14 @@
  *
  */
 
-/**********************************************************************************
+/*******************************************************************************
   $Revision: #1 $
-***********************************************************************************/
+ ******************************************************************************/
 
+#include "oi_modules.h"
+#include "oi_status.h"
 #include "oi_stddefs.h"
 #include "oi_time.h"
-#include "oi_status.h"
-#include "oi_modules.h"
 
 /** \addtogroup Misc Miscellaneous APIs */
 /**@{*/
@@ -44,7 +45,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 /**
  * Terminates execution.
@@ -76,7 +76,6 @@ void OI_LogError(OI_MODULE module, OI_INT lineno, OI_STATUS status);
  */
 void OI_InitDebugCodeHandler(void);
 
-
 /**
  * This function reads the time from the real time clock.
  *
@@ -86,7 +85,7 @@ void OI_InitDebugCodeHandler(void);
  * @param[out] now  Pointer to the buffer to which the current
  *       time will be returned
  */
-void OI_Time_Now(OI_TIME *now);
+void OI_Time_Now(OI_TIME* now);
 
 /**
  * This function causes the current thread to sleep for the
@@ -97,23 +96,23 @@ void OI_Time_Now(OI_TIME *now);
  * OI_Sleep. The use of OI_Sleep is limited to applications and
  * platform-specific code.
  *
- * If your port and applications never use OI_Sleep, this function can be left unimplemented.
+ * If your port and applications never use OI_Sleep, this function can be left
+ * unimplemented.
  *
  * @param milliseconds  Number of milliseconds to sleep
  */
-void OI_Sleep(OI_UINT32 milliseconds);
-
+void OI_Sleep(uint32_t milliseconds);
 
 /**
  * Defines for message type codes.
  */
-#define OI_MSG_CODE_APPLICATION               0   /**< Application output */
-#define OI_MSG_CODE_ERROR                     1   /**< Error message output */
-#define OI_MSG_CODE_WARNING                   2   /**< Warning message output */
-#define OI_MSG_CODE_TRACE                     3   /**< User API function trace output */
-#define OI_MSG_CODE_PRINT1                    4   /**< Catagory 1 debug print output */
-#define OI_MSG_CODE_PRINT2                    5   /**< Catagory 2 debug print output */
-#define OI_MSG_CODE_HEADER                    6   /**< Error/Debug output header */
+#define OI_MSG_CODE_APPLICATION 0 /**< Application output */
+#define OI_MSG_CODE_ERROR 1       /**< Error message output */
+#define OI_MSG_CODE_WARNING 2     /**< Warning message output */
+#define OI_MSG_CODE_TRACE 3       /**< User API function trace output */
+#define OI_MSG_CODE_PRINT1 4      /**< Catagory 1 debug print output */
+#define OI_MSG_CODE_PRINT2 5      /**< Catagory 2 debug print output */
+#define OI_MSG_CODE_HEADER 6      /**< Error/Debug output header */
 
 /**
  * This function is used to indicate the type of text being output with
@@ -124,7 +123,7 @@ void OI_Sleep(OI_UINT32 milliseconds);
  *
  * @param code  OI_MSG_CODE_* indicating setting the message type.
  */
-void OI_SetMsgCode(OI_UINT8 code);
+void OI_SetMsgCode(uint8_t code);
 
 /**
  * All output from OI_Printf() and all debug output is sent to OI_Print.
@@ -133,11 +132,11 @@ void OI_SetMsgCode(OI_UINT8 code);
  *
  * @param str  String to print
  */
-void OI_Print(OI_CHAR const *str);
+void OI_Print(OI_CHAR const* str);
 
 /**
- *  In cases where OI_Print() is sending output to a logfile in addition to console,
- *  it is desirable to also put console input into the logfile.
+ *  In cases where OI_Print() is sending output to a logfile in addition to
+ *  console, it is desirable to also put console input into the logfile.
  *  This function can be called by the console input process.
  *
  *  @note This is an optional API which is strictly
@@ -148,12 +147,12 @@ void OI_Print(OI_CHAR const *str);
  * @param str  Console input string
  */
 
-void OI_Print_ConsoleInput(OI_CHAR const *str);
+void OI_Print_ConsoleInput(OI_CHAR const* str);
 
 /**
  *  This function computes the CRC16 of the program image.
  */
-OI_UINT16  OI_ProgramImageCRC16(void);
+uint16_t OI_ProgramImageCRC16(void);
 
 /**
  * Writes an integer to stdout in hex. This macro is intended
@@ -164,16 +163,19 @@ OI_UINT16  OI_ProgramImageCRC16(void);
  * @param n  the integer to print
  */
 
-#define OI_Print_Int(n) \
-{ \
+#define OI_Print_Int(n)                                  \
+  {                                                      \
     static const OI_CHAR _digits[] = "0123456789ABCDEF"; \
-    OI_CHAR _buf[9]; \
-    OI_CHAR *_str = &_buf[8]; \
-    OI_UINT32 _i = n; \
-    *_str = 0; \
-    do { *(--_str) = _digits[(_i & 0xF)]; _i >>= 4; } while (_i); \
-    OI_Print(_str); \
-}
+    OI_CHAR _buf[9];                                     \
+    OI_CHAR* _str = &_buf[8];                            \
+    uint32_t _i = n;                                     \
+    *_str = 0;                                           \
+    do {                                                 \
+      *(--_str) = _digits[(_i & 0xF)];                   \
+      _i >>= 4;                                          \
+    } while (_i);                                        \
+    OI_Print(_str);                                      \
+  }
 
 /**
  *  Application Dynamic Memory allocation.
@@ -183,8 +185,8 @@ OI_UINT16  OI_ProgramImageCRC16(void);
  *  allocated from the pool-based heap managed by the stack's
  *  internal memory manager.
  */
-void *OI_APP_Malloc(OI_INT32 size);
-void OI_APP_Free(void *ptr);
+void* OI_APP_Malloc(int32_t size);
+void OI_APP_Free(void* ptr);
 
 /*****************************************************************************/
 #ifdef __cplusplus
@@ -194,4 +196,3 @@ void OI_APP_Free(void *ptr);
 /**@}*/
 
 #endif /* _OI_OSINTERFACE_H */
-

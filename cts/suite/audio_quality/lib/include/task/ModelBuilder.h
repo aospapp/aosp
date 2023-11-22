@@ -21,8 +21,9 @@
 #include <utils/String8.h>
 #include "TaskAll.h"
 
-class TiXmlElement;
-
+namespace tinyxml2 {
+class XMLElement;
+};
 
 class GenericFactory;
 
@@ -33,7 +34,7 @@ class GenericFactory;
 class ModelBuilder {
 public:
     ModelBuilder();
-    ModelBuilder(GenericFactory* factory);
+    explicit ModelBuilder(GenericFactory* factory);
     virtual ~ModelBuilder();
 
     /**
@@ -48,11 +49,11 @@ public:
     };
 
 private:
-    virtual bool parseAttributes(const TiXmlElement& elem, TaskGeneric& task);
-    virtual TaskGeneric* parseGeneric(const TiXmlElement& elem, int tableIndex);
-    virtual TaskCase* parseCase(const TiXmlElement& root);
-    virtual TaskBatch* parseBatch(const TiXmlElement& root, const android::String8& xmlFileName);
-    virtual TaskCase* parseInclude(const TiXmlElement& elem, const android::String8& path);
+    virtual bool parseAttributes(const tinyxml2::XMLElement& elem, TaskGeneric& task);
+    virtual TaskGeneric* parseGeneric(const tinyxml2::XMLElement& elem, int tableIndex);
+    virtual TaskCase* parseCase(const tinyxml2::XMLElement& root);
+    virtual TaskBatch* parseBatch(const tinyxml2::XMLElement& root, const android::String8& xmlFileName);
+    virtual TaskCase* parseInclude(const tinyxml2::XMLElement& elem, const android::String8& path);
 
     struct ParsingInfo {
         const char* name; // XML element name

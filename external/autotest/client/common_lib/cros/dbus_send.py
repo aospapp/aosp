@@ -161,7 +161,7 @@ def _build_arg_string(raw_args):
 
 
 def dbus_send(bus_name, interface, object_path, method_name, args=None,
-              host=None, timeout_seconds=2, tolerate_failures=False):
+              host=None, timeout_seconds=2, tolerate_failures=False, user=None):
     """Call dbus-send without arguments.
 
     @param bus_name: string identifier of DBus connection to send a message to.
@@ -174,12 +174,16 @@ def dbus_send(bus_name, interface, object_path, method_name, args=None,
     @param timeout_seconds: number of seconds to wait for a response.
     @param tolerate_failures: boolean True to ignore problems receiving a
             response.
+    @param user: An option argument to run dbus-send as a given user.
 
     """
     run = utils.run if host is None else host.run
     cmd = ('dbus-send --system --print-reply --reply-timeout=%d --dest=%s '
            '%s %s.%s' % (int(timeout_seconds * 1000), bus_name,
                          object_path, interface, method_name))
+
+    if user is not None:
+        cmd = ('sudo -u %s %s' % (user, cmd))
     if args is not None:
         cmd = cmd + ' ' + _build_arg_string(args)
     result = run(cmd, ignore_status=tolerate_failures)

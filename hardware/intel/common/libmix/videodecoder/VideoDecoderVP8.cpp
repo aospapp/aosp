@@ -18,6 +18,9 @@
 #include "VideoDecoderTrace.h"
 #include <string.h>
 
+#define MAX_PICTURE_WIDTH_VP8   1920
+#define MAX_PICTURE_HEIGHT_VP8  1088
+
 VideoDecoderVP8::VideoDecoderVP8(const char *mimeType)
     : VideoDecoderBase(mimeType, VBP_VP8) {
     invalidateReferenceFrames(0);
@@ -132,6 +135,11 @@ Decode_Status VideoDecoderVP8::start(VideoConfigBuffer *buffer) {
     status = VideoDecoderBase::parseBuffer(buffer->data, buffer->size, true, (void**)&data);
     CHECK_STATUS("VideoDecoderBase::parseBuffer");
 
+    if (data->codec_data->frame_width > MAX_PICTURE_WIDTH_VP8 ||
+            data->codec_data->frame_height > MAX_PICTURE_HEIGHT_VP8) {
+        return DECODE_INVALID_DATA;
+    }
+
     status = startVA(data);
     return status;
 }
@@ -164,6 +172,11 @@ Decode_Status VideoDecoderVP8::decode(VideoDecodeBuffer *buffer) {
                  false,
                  (void**)&data);
     CHECK_STATUS("VideoDecoderBase::parseBuffer");
+
+    if (data->codec_data->frame_width > MAX_PICTURE_WIDTH_VP8 ||
+            data->codec_data->frame_height > MAX_PICTURE_HEIGHT_VP8) {
+        return DECODE_INVALID_DATA;
+    }
 
     mShowFrame = data->codec_data->show_frame;
 

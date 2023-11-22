@@ -375,6 +375,15 @@ _plat__GetEntropy(
       uint32_t                amount                    // amount requested
 );
 
+//
+// Get firmware version numbers from the platform.
+//
+LIB_EXPORT void
+_plat__GetFwVersion(
+      uint32_t          *fw1,
+      uint32_t          *fw2
+);
+
 int uart_printf(const char *format, ...);
 #define ecprintf(format, args...) uart_printf(format, ## args);
 

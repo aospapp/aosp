@@ -12,19 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS)
-
-# Uncomment to be able to use ALOG* with #include "cutils/log.h".
-optional_android_logging_includes :=
-optional_android_logging_libraries :=
-#optional_android_logging_includes := system/core/include
-#optional_android_logging_libraries := liblog
-
-subdirs := $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, \
-		common   \
-		i18n     \
-		stubdata \
-	))
-
-include $(subdirs)
+include $(call all-subdir-makefiles)

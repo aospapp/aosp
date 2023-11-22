@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2014, International Business Machines Corporation and
@@ -14,15 +16,14 @@ package com.ibm.icu.dev.test.collator;
  
 import java.util.Locale;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.CollationKey;
 import com.ibm.icu.text.Collator;
  
 public class LotusCollationKoreanTest extends TestFmwk{
-    public static void main(String[] args) throws Exception{
-        new LotusCollationKoreanTest().run(args);
-    }
-    
     private static char[][] testSourceCases = {
         {0xac00}
     };
@@ -39,11 +40,15 @@ public class LotusCollationKoreanTest extends TestFmwk{
     
     public LotusCollationKoreanTest() {
     }
-    protected void init()throws Exception{
+    
+    @Before
+    public void init()throws Exception {
         myCollation = Collator.getInstance(Locale.KOREAN);
         myCollation.setDecomposition(Collator.CANONICAL_DECOMPOSITION);
     }
+    
     // performs test with strength TERIARY
+    @Test
     public void TestTertiary() {
         int i = 0;
         myCollation.setStrength(Collator.TERTIARY);

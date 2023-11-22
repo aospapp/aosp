@@ -17,52 +17,40 @@
 package com.android.server.wifi;
 
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyInt;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import android.os.Handler;
 import android.os.Message;
 import android.util.SparseArray;
 
-import com.android.server.wifi.MockAnswerUtil.AnswerWithArguments;
-
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Creates a WifiMonitor and installs it as the current WifiMonitor instance
+ * Creates a mock WifiMonitor.
  * WARNING: This does not perfectly mock the behavior of WifiMonitor at the moment
- *          ex. startMoniroting does nothing and will not send a connection/disconnection event
+ *          ex. startMonitoring does nothing and will not send a connection/disconnection event
  */
-public class MockWifiMonitor {
-    private final WifiMonitor mWifiMonitor;
+public class MockWifiMonitor extends  WifiMonitor {
+    private final Map<String, SparseArray<Handler>> mHandlerMap = new HashMap<>();
 
-    public MockWifiMonitor() throws Exception {
-        mWifiMonitor = mock(WifiMonitor.class);
-
-        Field field = WifiMonitor.class.getDeclaredField("sWifiMonitor");
-        field.setAccessible(true);
-        field.set(null, mWifiMonitor);
-
-        doAnswer(new RegisterHandlerAnswer())
-                .when(mWifiMonitor).registerHandler(anyString(), anyInt(), any(Handler.class));
-
+    public MockWifiMonitor() {
+        super(mock(WifiInjector.class));
     }
 
-    private final Map<String, SparseArray<Handler>> mHandlerMap = new HashMap<>();
-    private class RegisterHandlerAnswer extends AnswerWithArguments {
-        public void answer(String iface, int what, Handler handler) {
-            SparseArray<Handler> ifaceHandlers = mHandlerMap.get(iface);
-            if (ifaceHandlers == null) {
-                ifaceHandlers = new SparseArray<>();
-                mHandlerMap.put(iface, ifaceHandlers);
-            }
-            ifaceHandlers.put(what, handler);
+    @Override
+    public void registerHandler(String iface, int what, Handler handler) {
+        SparseArray<Handler> ifaceHandlers = mHandlerMap.get(iface);
+        if (ifaceHandlers == null) {
+            ifaceHandlers = new SparseArray<>();
+            mHandlerMap.put(iface, ifaceHandlers);
         }
+        ifaceHandlers.put(what, handler);
+    }
+
+    @Override
+    public synchronized void startMonitoring(String iface, boolean isStaIface) {
+        return;
     }
 
     /**
@@ -71,6 +59,7 @@ public class MockWifiMonitor {
     public void sendMessage(String iface, int what) {
         sendMessage(iface, Message.obtain(null, what));
     }
+
     public void sendMessage(String iface, Message message) {
         SparseArray<Handler> ifaceHandlers = mHandlerMap.get(iface);
         if (ifaceHandlers != null) {
@@ -87,6 +76,7 @@ public class MockWifiMonitor {
                     + ",what=" + message.what, sent);
         }
     }
+
     private boolean sendMessage(SparseArray<Handler> ifaceHandlers, Message message) {
         Handler handler = ifaceHandlers.get(message.what);
         if (handler != null) {

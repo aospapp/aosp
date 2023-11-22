@@ -4,7 +4,10 @@
 {
   'variables': {
     'trace_event_sources' : [
+      'trace_event/blame_context.cc',
+      'trace_event/blame_context.h',
       'trace_event/common/trace_event_common.h',
+      'trace_event/heap_profiler.h',
       'trace_event/heap_profiler_allocation_context.cc',
       'trace_event/heap_profiler_allocation_context.h',
       'trace_event/heap_profiler_allocation_context_tracker.cc',
@@ -32,15 +35,14 @@
       'trace_event/memory_dump_request_args.h',
       'trace_event/memory_dump_session_state.cc',
       'trace_event/memory_dump_session_state.h',
+      'trace_event/memory_infra_background_whitelist.cc',
+      'trace_event/memory_infra_background_whitelist.h',
       'trace_event/process_memory_dump.cc',
       'trace_event/process_memory_dump.h',
       'trace_event/process_memory_maps.cc',
       'trace_event/process_memory_maps.h',
-      'trace_event/process_memory_maps_dump_provider.h',
       'trace_event/process_memory_totals.cc',
       'trace_event/process_memory_totals.h',
-      'trace_event/process_memory_totals_dump_provider.cc',
-      'trace_event/process_memory_totals_dump_provider.h',
       'trace_event/trace_buffer.cc',
       'trace_event/trace_buffer.h',
       'trace_event/trace_config.cc',
@@ -70,6 +72,7 @@
       'trace_event/winheap_dump_provider_win.h',
     ],
     'trace_event_test_sources' : [
+      'trace_event/blame_context_unittest.cc',
       'trace_event/heap_profiler_allocation_context_tracker_unittest.cc',
       'trace_event/heap_profiler_allocation_register_unittest.cc',
       'trace_event/heap_profiler_heap_dump_writer_unittest.cc',
@@ -79,7 +82,6 @@
       'trace_event/memory_allocator_dump_unittest.cc',
       'trace_event/memory_dump_manager_unittest.cc',
       'trace_event/process_memory_dump_unittest.cc',
-      'trace_event/process_memory_totals_dump_provider_unittest.cc',
       'trace_event/trace_config_memory_test_util.h',
       'trace_event/trace_config_unittest.cc',
       'trace_event/trace_event_argument_unittest.cc',
@@ -89,19 +91,11 @@
       'trace_event/winheap_dump_provider_win_unittest.cc',
     ],
     'conditions': [
-      ['OS == "linux" or OS=="android" or OS=="mac"', {
+      ['OS == "linux" or OS=="android" or OS=="mac" or OS=="ios"', {
         'trace_event_sources': [
           'trace_event/malloc_dump_provider.cc',
           'trace_event/malloc_dump_provider.h',
         ],
-      }],
-      ['OS == "linux" or OS == "android"', {
-          'trace_event_sources': [
-            'trace_event/process_memory_maps_dump_provider.cc',
-          ],
-          'trace_event_test_sources' : [
-            'trace_event/process_memory_maps_dump_provider_unittest.cc',
-          ],
       }],
       ['OS == "android"', {
         'trace_event_test_sources' : [

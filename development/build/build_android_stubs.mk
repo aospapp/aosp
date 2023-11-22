@@ -55,7 +55,7 @@ $(full_target): $(stub_timestamp) $(framework_res_package)
 	$(hide) $(ACP) libcore/ojluni/NOTICE $(PRIVATE_CLASS_INTERMEDIATES_DIR)/NOTICES/ojluni-NOTICE
 	$(hide) find $(PRIVATE_SRC_DIR) -name "*.java" > \
         $(PRIVATE_INTERMEDIATES_DIR)/java-source-list
-	$(hide) $(TARGET_JAVAC) -source 1.8 -target 1.8 -encoding ascii -bootclasspath "" \
+	$(hide) $(TARGET_JAVAC) -source 1.8 -target 1.8 -encoding UTF-8 -bootclasspath "" \
 			-g -extdirs "" -d $(PRIVATE_CLASS_INTERMEDIATES_DIR) \
 			\@$(PRIVATE_INTERMEDIATES_DIR)/java-source-list \
 		|| ( rm -rf $(PRIVATE_CLASS_INTERMEDIATES_DIR) ; exit 41 )
@@ -70,12 +70,11 @@ $(full_target): $(stub_timestamp) $(framework_res_package)
 	$(hide) jar -cf $@ -C $(PRIVATE_CLASS_INTERMEDIATES_DIR) .
 	$(hide) jar -u0f $@ -C $(PRIVATE_CLASS_INTERMEDIATES_DIR) resources.arsc
 
-$(jack_lib) : $(stub_timestamp) $(framework_res_package) $(JACK) | setup-jack-server
+$(jack_lib) : $(stub_timestamp) $(framework_res_package) $(JACK_DEFAULT_ARGS) $(JACK) | setup-jack-server
 	@echo Compiling SDK Stubs with Jack: $@
 	rm -rf $(PRIVATE_INTERMEDIATES_DIR)/jack-rsc.tmp
 	$(hide) if [ ! -f $(PRIVATE_FRAMEWORK_RES_PACKAGE) ]; then \
 		echo Missing file $(PRIVATE_FRAMEWORK_RES_PACKAGE); \
-		rm -rf $(PRIVATE_CLASS_INTERMEDIATES_DIR); \
 		exit 1; \
 	fi;
 	mkdir -p $(PRIVATE_INTERMEDIATES_DIR)/jack-rsc.tmp

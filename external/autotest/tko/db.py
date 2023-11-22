@@ -2,21 +2,46 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import re, os, sys, time, random
+import math
+import os
+import random
+import re
+import sys
+import time
 
 import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend import database_settings_helper
-from autotest_lib.server import site_utils
 from autotest_lib.tko import utils
 
 
+def _log_error(msg):
+    """Log an error message.
+
+    @param msg: Message string
+    """
+    print >> sys.stderr, msg
+    sys.stderr.flush()  # we want these msgs to show up immediately
+
+
+def _format_operational_error(e):
+    """Format OperationalError.
+
+    @param e: OperationalError instance.
+    """
+    return ("%s: An operational error occurred during a database "
+            "operation: %s" % (time.strftime("%X %x"), str(e)))
+
+
 class MySQLTooManyRows(Exception):
+    """Too many records."""
     pass
 
 
 class db_sql(object):
+    """Data access."""
+
     def __init__(self, debug=False, autocommit=True, host=None,
                  database=None, user=None, password=None):
         self.debug = debug
@@ -129,7 +154,12 @@ class db_sql(object):
 
         It can be safely used with transactions, but the
         transaction start & end must be completely contained
-        within the call to 'function'."""
+        within the call to 'function'.
+
+        @param function: The function to run with retry.
+        @param args: The arguments
+        @param dargs: The named arguments.
+        """
         OperationalError = _get_error_class("OperationalError")
 
         success = False
@@ -138,7 +168,8 @@ class db_sql(object):
             try:
                 result = function(*args, **dargs)
             except OperationalError, e:
-                self._log_operational_error(e)
+                _log_error("%s; retrying, don't panic yet"
+                           % _format_operational_error(e))
                 stop_time = time.time()
                 elapsed_time = stop_time - start_time
                 if elapsed_time > self.query_timeout:
@@ -149,20 +180,18 @@ class db_sql(object):
                         self._init_db()
                         autotest_stats.Counter('tko_db_error').increment()
                     except OperationalError, e:
-                        self._log_operational_error(e)
+                        _log_error('%s; panic now'
+                                   % _format_operational_error(e))
             else:
                 success = True
         return result
 
 
-    def _log_operational_error(self, e):
-        msg = ("%s: An operational error occured during a database "
-               "operation: %s" % (time.strftime("%X %x"), str(e)))
-        print >> sys.stderr, msg
-        sys.stderr.flush() # we want these msgs to show up immediately
-
-
     def dprint(self, value):
+        """Print out debug value.
+
+        @param value: The value to print out.
+        """
         if self.debug:
             sys.stdout.write('SQL: ' + str(value) + '\n')
 
@@ -174,6 +203,7 @@ class db_sql(object):
 
 
     def commit(self):
+        """Commit the sql transaction."""
         if self.autocommit:
             return self.run_with_retry(self._commit)
         else:
@@ -181,10 +211,15 @@ class db_sql(object):
 
 
     def rollback(self):
+        """Rollback the sql transaction."""
         self.con.rollback()
 
 
     def get_last_autonumber_value(self):
+        """Gets the last auto number.
+
+        @return: The last auto number.
+        """
         self.cur.execute('SELECT LAST_INSERT_ID()', [])
         return self.cur.fetchall()[0][0]
 
@@ -240,6 +275,13 @@ class db_sql(object):
                   where = ("a = %s AND b = %s", ['val', 'val'])
                 is better than
                   where = "a = 'val' AND b = 'val'"
+
+        @param fields: The list of selected fields string.
+        @param table: The name of the database table.
+        @param where: The where clause string.
+        @param distinct: If select distinct values.
+        @param group_by: Group by clause.
+        @param max_rows: unused.
         """
         cmd = ['select']
         if distinct:
@@ -256,6 +298,7 @@ class db_sql(object):
 
         # create a re-runable function for executing the query
         def exec_sql():
+            """Exeuctes an the sql command."""
             sql = ' '.join(cmd)
             numRec = self.cur.execute(sql, values)
             if max_rows is not None and numRec > max_rows:
@@ -273,29 +316,34 @@ class db_sql(object):
     def select_sql(self, fields, table, sql, values):
         """\
                 select fields from table "sql"
+
+        @param fields: The list of selected fields string.
+        @param table: The name of the database table.
+        @param sql: The sql string.
+        @param values: The sql string parameter values.
         """
         cmd = 'select %s from %s %s' % (fields, table, sql)
         self.dprint(cmd)
 
         # create a -re-runable function for executing the query
-        def exec_sql():
+        def _exec_sql():
             self.cur.execute(cmd, values)
             return self.cur.fetchall()
 
         # run the query, re-trying after operational errors
         if self.autocommit:
-            return self.run_with_retry(exec_sql)
+            return self.run_with_retry(_exec_sql)
         else:
-            return exec_sql()
+            return _exec_sql()
 
 
     def _exec_sql_with_commit(self, sql, values, commit):
         if self.autocommit:
             # re-run the query until it succeeds
-            def exec_sql():
+            def _exec_sql():
                 self.cur.execute(sql, values)
                 self.con.commit()
-            self.run_with_retry(exec_sql)
+            self.run_with_retry(_exec_sql)
         else:
             # take one shot at running the query
             self.cur.execute(sql, values)
@@ -309,6 +357,10 @@ class db_sql(object):
 
                 data:
                         dictionary of fields and data
+
+        @param table: The name of the table.
+        @param data: The insert data.
+        @param commit: If commit the transaction .
         """
         fields = data.keys()
         refs = ['%s' for field in fields]
@@ -322,6 +374,12 @@ class db_sql(object):
 
 
     def delete(self, table, where, commit = None):
+        """Delete entries.
+
+        @param table: The name of the table.
+        @param where: The where clause.
+        @param commit: If commit the transaction .
+        """
         cmd = ['delete from', table]
         if commit is None:
             commit = self.autocommit
@@ -339,6 +397,11 @@ class db_sql(object):
 
                 data:
                         dictionary of fields and data
+
+        @param table: The name of the table.
+        @param data: The sql parameter values.
+        @param where: The where clause.
+        @param commit: If commit the transaction .
         """
         if commit is None:
             commit = self.autocommit
@@ -358,6 +421,11 @@ class db_sql(object):
 
 
     def delete_job(self, tag, commit = None):
+        """Delete a tko job.
+
+        @param tag: The job tag.
+        @param commit: If commit the transaction .
+        """
         job_idx = self.find_job(tag)
         for test_idx in self.find_tests(job_idx):
             where = {'test_idx' : test_idx}
@@ -372,6 +440,15 @@ class db_sql(object):
 
 
     def insert_job(self, tag, job, parent_job_id=None, commit=None):
+        """Insert a tko job.
+
+        @param tag: The job tag.
+        @param job: The job object.
+        @param parent_job_id: The parent job id.
+        @param commit: If commit the transaction .
+
+        @return The dict of data inserted into the tko_jobs table.
+        """
         job.machine_idx = self.lookup_machine(job.machine)
         if not job.machine_idx:
             job.machine_idx = self.insert_machine(job, commit=commit)
@@ -390,14 +467,16 @@ class db_sql(object):
                 'started_time': job.started_time,
                 'finished_time': job.finished_time,
                 'afe_job_id': afe_job_id,
-                'afe_parent_job_id': parent_job_id}
-        if job.label:
-            label_info = site_utils.parse_job_name(job.label)
-            if label_info:
-                data['build'] = label_info.get('build', None)
-                data['build_version'] = label_info.get('build_version', None)
-                data['board'] = label_info.get('board', None)
-                data['suite'] = label_info.get('suite', None)
+                'afe_parent_job_id': parent_job_id,
+                'build': job.build,
+                'build_version': job.build_version,
+                'board': job.board,
+                'suite': job.suite}
+        job.afe_job_id = afe_job_id
+        if parent_job_id:
+            job.afe_parent_job_id = str(parent_job_id)
+
+        # TODO(ntang): check job.index directly.
         is_update = hasattr(job, 'index')
         if is_update:
             self.update('tko_jobs', data, {'job_idx': job.index}, commit=commit)
@@ -408,8 +487,15 @@ class db_sql(object):
         for test in job.tests:
             self.insert_test(job, test, commit=commit)
 
+        return data
+
 
     def update_job_keyvals(self, job, commit=None):
+        """Updates the job key values.
+
+        @param job: The job object.
+        @param commit: If commit the transaction .
+        """
         for key, value in job.keyval_dict.iteritems():
             where = {'job_id': job.index, 'key': key}
             data = dict(where, value=value)
@@ -422,6 +508,12 @@ class db_sql(object):
 
 
     def insert_test(self, job, test, commit = None):
+        """Inserts a job test.
+
+        @param job: The job object.
+        @param test: The test object.
+        @param commit: If commit the transaction .
+        """
         kver = self.insert_kernel(test.kernel, commit=commit)
         data = {'job_idx':job.index, 'test':test.testname,
                 'subdir':test.subdir, 'kernel_idx':kver,
@@ -454,27 +546,14 @@ class db_sql(object):
                             commit=commit)
             for key, value in i.perf_keyval.iteritems():
                 data['attribute'] = key
-                data['value'] = value
+                if math.isnan(value) or math.isinf(value):
+                    data['value'] = None
+                else:
+                    data['value'] = value
                 self.insert('tko_iteration_result', data,
                             commit=commit)
 
         data = {'test_idx': test_idx}
-        for i in test.perf_values:
-            data['iteration'] = i.index
-            for perf_dict in i.perf_measurements:
-                data['description'] = perf_dict['description']
-                data['value'] = perf_dict['value']
-                data['stddev'] = perf_dict['stddev']
-                data['units'] = perf_dict['units']
-                # TODO(fdeng): In db, higher_is_better doesn't allow null,
-                # This is a workaround to avoid altering the
-                # table (very expensive) while still allows test to send
-                # higher_is_better=None. Ideally, the table should be
-                # altered to allow this.
-                if perf_dict['higher_is_better'] is not None:
-                    data['higher_is_better'] = perf_dict['higher_is_better']
-                data['graph'] = perf_dict['graph']
-                self.insert('tko_iteration_perf_value', data, commit=commit)
 
         for key, value in test.attributes.iteritems():
             data = {'test_idx': test_idx, 'attribute': key,
@@ -488,6 +567,7 @@ class db_sql(object):
 
 
     def read_machine_map(self):
+        """Reads the machine map."""
         if self.machine_group or not self.machine_map:
             return
         for line in open(self.machine_map, 'r').readlines():
@@ -496,6 +576,12 @@ class db_sql(object):
 
 
     def machine_info_dict(self, job):
+        """Reads the machine information of a job.
+
+        @param job: The job object.
+
+        @return: The machine info dictionary.
+        """
         hostname = job.machine
         group = job.machine_group
         owner = job.machine_owner
@@ -510,12 +596,22 @@ class db_sql(object):
 
 
     def insert_machine(self, job, commit = None):
+        """Inserts the job machine.
+
+        @param job: The job object.
+        @param commit: If commit the transaction .
+        """
         machine_info = self.machine_info_dict(job)
         self.insert('tko_machines', machine_info, commit=commit)
         return self.get_last_autonumber_value()
 
 
     def update_machine_information(self, job, commit = None):
+        """Updates the job machine information.
+
+        @param job: The job object.
+        @param commit: If commit the transaction .
+        """
         machine_info = self.machine_info_dict(job)
         self.update('tko_machines', machine_info,
                     where={'hostname': machine_info['hostname']},
@@ -523,6 +619,10 @@ class db_sql(object):
 
 
     def lookup_machine(self, hostname):
+        """Look up the machine information.
+
+        @param hostname: The hostname as string.
+        """
         where = { 'hostname' : hostname }
         rows = self.select('machine_idx', 'tko_machines', where)
         if rows:
@@ -532,6 +632,10 @@ class db_sql(object):
 
 
     def lookup_kernel(self, kernel):
+        """Look up the kernel.
+
+        @param kernel: The kernel object.
+        """
         rows = self.select('kernel_idx', 'tko_kernels',
                                 {'kernel_hash':kernel.kernel_hash})
         if rows:
@@ -541,6 +645,11 @@ class db_sql(object):
 
 
     def insert_kernel(self, kernel, commit = None):
+        """Insert a kernel.
+
+        @param kernel: The kernel object.
+        @param commit: If commit the transaction .
+        """
         kver = self.lookup_kernel(kernel)
         if kver:
             return kver
@@ -574,6 +683,12 @@ class db_sql(object):
 
 
     def insert_patch(self, kver, patch, commit = None):
+        """Insert a kernel patch.
+
+        @param kver: The kernel version.
+        @param patch: The kernel patch object.
+        @param commit: If commit the transaction .
+        """
         print patch.reference
         name = os.path.basename(patch.reference)[:80]
         self.insert('tko_patches',
@@ -585,6 +700,12 @@ class db_sql(object):
 
 
     def find_test(self, job_idx, testname, subdir):
+        """Find a test by name.
+
+        @param job_idx: The job index.
+        @param testname: The test name.
+        @param subdir: The test sub directory under the job directory.
+        """
         where = {'job_idx': job_idx , 'test': testname, 'subdir': subdir}
         rows = self.select('test_idx', 'tko_tests', where)
         if rows:
@@ -594,6 +715,11 @@ class db_sql(object):
 
 
     def find_tests(self, job_idx):
+        """Find all tests by job index.
+
+        @param job_idx: The job index.
+        @return: A list of tests.
+        """
         where = { 'job_idx':job_idx }
         rows = self.select('test_idx', 'tko_tests', where)
         if rows:
@@ -603,6 +729,11 @@ class db_sql(object):
 
 
     def find_job(self, tag):
+        """Find a job by tag.
+
+        @param tag: The job tag name.
+        @return: The job object or None.
+        """
         rows = self.select('job_idx', 'tko_jobs', {'tag': tag})
         if rows:
             return rows[0][0]
@@ -628,7 +759,13 @@ def _get_error_class(class_name):
 def db(*args, **dargs):
     """Creates an instance of the database class with the arguments
     provided in args and dargs, using the database type specified by
-    the global configuration (defaulting to mysql)."""
+    the global configuration (defaulting to mysql).
+
+    @param args: The db_type arguments.
+    @param dargs: The db_type named arguments.
+
+    @return: An db object.
+    """
     db_type = _get_db_type()
     db_module = __import__("autotest_lib.tko." + db_type, globals(),
                            locals(), [db_type])

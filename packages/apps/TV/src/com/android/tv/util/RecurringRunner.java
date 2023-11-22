@@ -52,13 +52,13 @@ public final class RecurringRunner {
         mRunnable = runnable;
         mOnStopRunnable = onStopRunnable;
         mIntervalMs = intervalMs;
-        if (DEBUG) Log.i(TAG, "Delaying " + (intervalMs / 1000.0) + " seconds");
         mName = runnable.getClass().getCanonicalName();
+        if (DEBUG) Log.i(TAG, " Delaying " + mName + " " + (intervalMs / 1000.0) + " seconds");
         mHandler = new Handler(mContext.getMainLooper());
     }
 
     public void start() {
-        SoftPreconditions.checkState(!mRunning, TAG, "start is called twice.");
+        SoftPreconditions.checkState(!mRunning, TAG, mName + " start is called twice.");
         if (mRunning) {
             return;
         }
@@ -107,7 +107,7 @@ public final class RecurringRunner {
         if (!posted) {
             Log.w(TAG, "Scheduling a future run of " + mName + " at " + new Date(next) + "failed");
         }
-        if (DEBUG) Log.i(TAG, "Actual delay is " + (delay / 1000.0) + " seconds.");
+        if (DEBUG) Log.i(TAG, "Actual delay of " + mName + " is " + (delay / 1000.0) + " seconds.");
     }
 
     private SharedPreferences getSharedPreferences() {

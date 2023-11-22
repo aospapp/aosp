@@ -555,7 +555,7 @@ uint32_t roundOff(uint32_t refreshRate) {
     int count =  (int) (sizeof(stdRefreshRates)/sizeof(stdRefreshRates[0]));
     uint32_t rate = refreshRate;
     for(int i=0; i< count; i++) {
-        if(abs(stdRefreshRates[i] - refreshRate) < 2) {
+        if(abs((int)(stdRefreshRates[i] - refreshRate)) < 2) {
             // Most likely used for video, the fps can fluctuate
             // Ex: b/w 29 and 30 for 30 fps clip
             rate = stdRefreshRates[i];
@@ -1600,11 +1600,13 @@ int hwc_sync(hwc_context_t *ctx, hwc_display_contents_1_t* list, int dpy,
     data.retire_fen_fd = &retireFd;
     data.flags = MDP_BUF_SYNC_FLAG_RETIRE_FENCE;
 
+#ifdef DEBUG_SWAPINTERVAL
     char property[PROPERTY_VALUE_MAX];
     if(property_get("debug.egl.swapinterval", property, "1") > 0) {
         if(atoi(property) == 0)
             swapzero = true;
     }
+#endif
 
     bool isExtAnimating = false;
     if(dpy)

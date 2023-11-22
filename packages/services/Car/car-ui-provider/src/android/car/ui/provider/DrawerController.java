@@ -362,7 +362,8 @@ public class DrawerController
     }
 
     public boolean isTruncatedList() {
-        return mItemsNumber > mAdapter.getMaxItemsNumber();
+        int maxItems = mAdapter.getMaxItemsNumber();
+        return maxItems != PagedListView.ItemCap.UNLIMITED && mItemsNumber > maxItems;
     }
 
     private void clearMenu() {

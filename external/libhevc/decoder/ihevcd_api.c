@@ -1247,18 +1247,21 @@ WORD32 ihevcd_allocate_static_bufs(iv_obj_t **pps_codec_obj,
     size = MAX_VPS_CNT * sizeof(vps_t);
     pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
     ps_codec->ps_vps_base = pv_buf;
     ps_codec->s_parse.ps_vps_base = ps_codec->ps_vps_base;
 
     size = MAX_SPS_CNT * sizeof(sps_t);
     pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
     ps_codec->ps_sps_base = pv_buf;
     ps_codec->s_parse.ps_sps_base = ps_codec->ps_sps_base;
 
     size = MAX_PPS_CNT * sizeof(pps_t);
     pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
     ps_codec->ps_pps_base = pv_buf;
     ps_codec->s_parse.ps_pps_base = ps_codec->ps_pps_base;
 
@@ -1311,6 +1314,7 @@ WORD32 ihevcd_allocate_static_bufs(iv_obj_t **pps_codec_obj,
     size =  3 * 16 * sizeof(UWORD8);
     pu1_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pu1_buf), IV_FAIL);
+    memset(pu1_buf, 0, size);
     ps_codec->s_parse.pu1_luma_intra_pred_mode_left = pu1_buf;
     ps_codec->s_parse.pu1_luma_intra_pred_mode_top  = pu1_buf + 16;
 
@@ -1917,6 +1921,7 @@ WORD32 ihevcd_allocate_dynamic_bufs(codec_t *ps_codec)
     size = ihevcd_get_tu_data_size(wd * ht);
     pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
     ps_codec->pv_tu_data = pv_buf;
 
     {

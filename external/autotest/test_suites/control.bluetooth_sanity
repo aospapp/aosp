@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "bluetooth_sanity"
 PURPOSE = "Automated sanity testing of Bluetooth."
-CRITERIA = "All tests with SUITE=bluetooth_sanity must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

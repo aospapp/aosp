@@ -178,11 +178,6 @@ static struct state gmtmem;
 static char lcl_TZname[TZ_STRLEN_MAX + 1];
 static int  lcl_is_set;
 
-char * tzname[2] = {
-    (char *) wildabbr,
-    (char *) wildabbr
-};
-
 /*
 ** Section 4.12.3 of X3.159-1989 requires that
 **  Except for the strftime function, these functions [asctime,
@@ -193,10 +188,16 @@ char * tzname[2] = {
 
 static struct tm	tm;
 
+#if !HAVE_POSIX_DECLS
+char *			tzname[2] = {
+	(char *) wildabbr,
+	(char *) wildabbr
+};
 #ifdef USG_COMPAT
 long			timezone;
 int			daylight;
-#endif /* defined USG_COMPAT */
+# endif
+#endif
 
 #ifdef ALTZONE
 long			altzone;
@@ -368,7 +369,7 @@ union local_storage {
   } u;
 };
 
-static int __bionic_open_tzdata(const char*);
+static int __bionic_open_tzdata(const char*, int32_t*);
 
 /* Load tz data from the file named NAME into *SP.  Read extended
    format if DOEXTEND.  Use *LSP for temporary storage.  Return 0 on
@@ -381,7 +382,7 @@ tzloadbody(char const *name, struct state *sp, bool doextend,
 	register int			fid;
 	register int			stored;
 	register ssize_t		nread;
-#if !defined(__ANDROID__)
+#if !defined(__BIONIC__)
 	register bool doaccess;
 	register char *fullname = lsp->fullname;
 #endif
@@ -396,8 +397,9 @@ tzloadbody(char const *name, struct state *sp, bool doextend,
 		  return EINVAL;
 	}
 
-#if defined(__ANDROID__)
-	fid = __bionic_open_tzdata(name);
+#if defined(__BIONIC__)
+	int32_t entry_length;
+	fid = __bionic_open_tzdata(name, &entry_length);
 #else
 	if (name[0] == ':')
 		++name;
@@ -423,7 +425,11 @@ tzloadbody(char const *name, struct state *sp, bool doextend,
 	if (fid < 0)
 	  return errno;
 
+#if defined(__BIONIC__)
+	nread = TEMP_FAILURE_RETRY(read(fid, up->buf, entry_length));
+#else
 	nread = read(fid, up->buf, sizeof up->buf);
+#endif
 	if (nread < tzheadsize) {
 	  int err = nread < 0 ? errno : EINVAL;
 	  close(fid);
@@ -1307,7 +1313,7 @@ tzsetwall(void)
 }
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__BIONIC__)
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h> // For __system_property_serial.
 #endif
@@ -1315,33 +1321,43 @@ tzsetwall(void)
 static void
 tzset_unlocked(void)
 {
-#if defined(__ANDROID__)
+#if defined(__BIONIC__)
   // The TZ environment variable is meant to override the system-wide setting.
-  const char * name = getenv("TZ");
+  const char* name = getenv("TZ");
 
   // If that's not set, look at the "persist.sys.timezone" system property.
   if (name == NULL) {
-    static const prop_info *pi;
+    // The lookup is the most expensive part by several orders of magnitude, so we cache it.
+    // We check for null more than once because the system property may not have been set
+    // yet, so our first lookup may fail.
+    static const prop_info* pi;
+    if (pi == NULL) pi = __system_property_find("persist.sys.timezone");
 
-    if (!pi) {
-      pi = __system_property_find("persist.sys.timezone");
-    }
     if (pi) {
-      static char buf[PROP_VALUE_MAX];
-      static uint32_t s = -1;
-      static bool ok = false;
+      // If the property hasn't changed since the last time we read it, there's nothing else to do.
+      static uint32_t last_serial = -1;
       uint32_t serial = __system_property_serial(pi);
-      if (serial != s) {
-        ok = __system_property_read(pi, 0, buf) > 0;
-        s = serial;
-      }
-      if (ok) {
+      if (serial == last_serial) return;
+
+      // Otherwise read the new value...
+      last_serial = serial;
+      char buf[PROP_VALUE_MAX];
+      if (__system_property_read(pi, NULL, buf) > 0) {
+        // POSIX and Java disagree about the sign in a timezone string. For POSIX, "GMT+3" means
+        // "3 hours west/behind", but for Java it means "3 hours east/ahead". Since (a) Java is
+        // the one that matches human expectations and (b) this system property is used directly
+        // by Java, we flip the sign here to translate from Java to POSIX. http://b/25463955.
+        if (buf[3] == '-') {
+          buf[3] = '+';
+        } else if (buf[3] == '+') {
+          buf[3] = '-';
+        }
         name = buf;
       }
     }
   }
 
-  // If that's not available (because you're running AOSP on a WiFi-only
+  // If the system property is also not available (because you're running AOSP on a WiFi-only
   // device, say), fall back to GMT.
   if (name == NULL) name = gmt;
 
@@ -1517,16 +1533,22 @@ localtime_rz(struct state *sp, time_t const *timep, struct tm *tmp)
 #endif
 
 static struct tm *
-localtime_tzset(time_t const *timep, struct tm *tmp, bool setname)
+localtime_tzset(time_t const *timep, struct tm *tmp)
 {
   int err = lock();
   if (err) {
     errno = err;
     return NULL;
   }
-  if (setname || !lcl_is_set)
-    tzset_unlocked();
-  tmp = localsub(lclptr, timep, setname, tmp);
+
+  // http://b/31339449: POSIX says localtime(3) acts as if it called tzset(3), but upstream
+  // and glibc both think it's okay for localtime_r(3) to not do so (presumably because of
+  // the "not required to set tzname" clause). It's unclear that POSIX actually intended this,
+  // the BSDs disagree with glibc, and it's confusing to developers to have localtime_r(3)
+  // behave differently than other time zone-sensitive functions in <time.h>.
+  tzset_unlocked();
+
+  tmp = localsub(lclptr, timep, true, tmp);
   unlock();
   return tmp;
 }
@@ -1534,13 +1556,13 @@ localtime_tzset(time_t const *timep, struct tm *tmp, bool setname)
 struct tm *
 localtime(const time_t *timep)
 {
-  return localtime_tzset(timep, &tm, true);
+  return localtime_tzset(timep, &tm);
 }
 
 struct tm *
 localtime_r(const time_t *timep, struct tm *tmp)
 {
-  return localtime_tzset(timep, tmp, false);
+  return localtime_tzset(timep, tmp);
 }
 
 /*
@@ -2164,6 +2186,10 @@ mktime_z(struct state *sp, struct tm *tmp)
 time_t
 mktime(struct tm *tmp)
 {
+#if defined(__BIONIC__)
+  int saved_errno = errno;
+#endif
+
   time_t t;
   int err = lock();
   if (err) {
@@ -2173,6 +2199,10 @@ mktime(struct tm *tmp)
   tzset_unlocked();
   t = mktime_tzname(lclptr, tmp, true);
   unlock();
+
+#if defined(__BIONIC__)
+  errno = (t == -1) ? EOVERFLOW : saved_errno;
+#endif
   return t;
 }
 
@@ -2323,8 +2353,9 @@ time(time_t *p)
 #include <stdint.h>
 #include <arpa/inet.h> // For ntohl(3).
 
-static int __bionic_open_tzdata_path(const char* path_prefix_variable, const char* path_suffix,
-                                     const char* olson_id) {
+#if !defined(__ANDROID__)
+static char* make_path(const char* path_prefix_variable,
+                       const char* path_suffix) {
   const char* path_prefix = getenv(path_prefix_variable);
   if (path_prefix == NULL) {
     fprintf(stderr, "%s: %s not set!\n", __FUNCTION__, path_prefix_variable);
@@ -2337,9 +2368,15 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
     return -1;
   }
   snprintf(path, path_length, "%s/%s", path_prefix, path_suffix);
-  int fd = TEMP_FAILURE_RETRY(open(path, OPEN_MODE));
+  return path;
+}
+#endif
+
+static int __bionic_open_tzdata_path(const char* path,
+                                     const char* olson_id,
+                                     int32_t* entry_length) {
+  int fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY | O_CLOEXEC));
   if (fd == -1) {
-    free(path);
     return -2; // Distinguish failure to find any data from failure to find a specific id.
   }
 
@@ -2358,7 +2395,6 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
   if (bytes_read != sizeof(header)) {
     fprintf(stderr, "%s: could not read header of \"%s\": %s\n",
             __FUNCTION__, path, (bytes_read == -1) ? strerror(errno) : "short read");
-    free(path);
     close(fd);
     return -1;
   }
@@ -2366,7 +2402,6 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
   if (strncmp(header.tzdata_version, "tzdata", 6) != 0 || header.tzdata_version[11] != 0) {
     fprintf(stderr, "%s: bad magic in \"%s\": \"%.6s\"\n",
             __FUNCTION__, path, header.tzdata_version);
-    free(path);
     close(fd);
     return -1;
   }
@@ -2381,7 +2416,6 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
   if (TEMP_FAILURE_RETRY(lseek(fd, ntohl(header.index_offset), SEEK_SET)) == -1) {
     fprintf(stderr, "%s: couldn't seek to index in \"%s\": %s\n",
             __FUNCTION__, path, strerror(errno));
-    free(path);
     close(fd);
     return -1;
   }
@@ -2392,14 +2426,12 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
   if (index == NULL) {
     fprintf(stderr, "%s: couldn't allocate %zd-byte index for \"%s\"\n",
             __FUNCTION__, index_size, path);
-    free(path);
     close(fd);
     return -1;
   }
   if (TEMP_FAILURE_RETRY(read(fd, index, index_size)) != index_size) {
     fprintf(stderr, "%s: could not read index of \"%s\": %s\n",
             __FUNCTION__, path, (bytes_read == -1) ? strerror(errno) : "short read");
-    free(path);
     free(index);
     close(fd);
     return -1;
@@ -2422,6 +2454,7 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
 
     if (strcmp(this_id, olson_id) == 0) {
       specific_zone_offset = ntohl(entry->start) + ntohl(header.data_offset);
+      *entry_length = ntohl(entry->length);
       break;
     }
 
@@ -2430,7 +2463,6 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
   free(index);
 
   if (specific_zone_offset == -1) {
-    free(path);
     close(fd);
     return -1;
   }
@@ -2438,27 +2470,50 @@ static int __bionic_open_tzdata_path(const char* path_prefix_variable, const cha
   if (TEMP_FAILURE_RETRY(lseek(fd, specific_zone_offset, SEEK_SET)) == -1) {
     fprintf(stderr, "%s: could not seek to %ld in \"%s\": %s\n",
             __FUNCTION__, specific_zone_offset, path, strerror(errno));
-    free(path);
     close(fd);
     return -1;
   }
 
   // TODO: check that there's TZ_MAGIC at this offset, so we can fall back to the other file if not.
 
-  free(path);
   return fd;
 }
 
-static int __bionic_open_tzdata(const char* olson_id) {
-  int fd = __bionic_open_tzdata_path("ANDROID_DATA", "/misc/zoneinfo/current/tzdata", olson_id);
-  if (fd < 0) {
-    fd = __bionic_open_tzdata_path("ANDROID_ROOT", "/usr/share/zoneinfo/tzdata", olson_id);
-    if (fd == -2) {
-      // The first thing that 'recovery' does is try to format the current time. It doesn't have
-      // any tzdata available, so we must not abort here --- doing so breaks the recovery image!
-      fprintf(stderr, "%s: couldn't find any tzdata when looking for %s!\n", __FUNCTION__, olson_id);
-    }
+static int __bionic_open_tzdata(const char* olson_id, int32_t* entry_length) {
+  int fd;
+
+#if defined(__ANDROID__)
+  // On Android, try the two hard-coded locations.
+  fd = __bionic_open_tzdata_path("/data/misc/zoneinfo/current/tzdata",
+                                 olson_id, entry_length);
+  if (fd >= 0) return fd;
+
+  fd = __bionic_open_tzdata_path("/system/usr/share/zoneinfo/tzdata",
+                                 olson_id, entry_length);
+  if (fd >= 0) return fd;
+#else
+  // On the host, we don't expect those locations to exist, and we're not
+  // worried about security so we trust $ANDROID_DATA and $ANDROID_ROOT to
+  // point us in the right direction.
+  char* path = make_path("ANDROID_DATA", "/misc/zoneinfo/current/tzdata");
+  fd = __bionic_open_tzdata_path(path, olson_id, entry_length);
+  free(path);
+  if (fd >= 0) return fd;
+
+  path = make_path("ANDROID_ROOT", "/usr/share/zoneinfo/tzdata");
+  fd = __bionic_open_tzdata_path(path, olson_id, entry_length);
+  free(path);
+  if (fd >= 0) return fd;
+#endif
+
+  // Not finding any tzdata is more serious that not finding a specific zone,
+  // and worth logging.
+  if (fd == -2) {
+    // The first thing that 'recovery' does is try to format the current time. It doesn't have
+    // any tzdata available, so we must not abort here --- doing so breaks the recovery image!
+    fprintf(stderr, "%s: couldn't find any tzdata when looking for %s!\n", __FUNCTION__, olson_id);
   }
+
   return fd;
 }
 

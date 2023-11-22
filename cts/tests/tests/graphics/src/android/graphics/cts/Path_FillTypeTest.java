@@ -16,12 +16,19 @@
 
 package android.graphics.cts;
 
-import android.graphics.Path;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Path.FillType;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Path_FillTypeTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Path_FillTypeTest {
+    @Test
     public void testValueOf() {
         assertEquals(FillType.WINDING, FillType.valueOf("WINDING"));
         assertEquals(FillType.EVEN_ODD, FillType.valueOf("EVEN_ODD"));
@@ -30,18 +37,18 @@ public class Path_FillTypeTest extends AndroidTestCase {
         // Every FillType element will be tested somewhere else.
     }
 
+    @Test
     public void testValues() {
         // set the expected value
         FillType[] expected = {
                 FillType.WINDING,
                 FillType.EVEN_ODD,
                 FillType.INVERSE_WINDING,
-                FillType.INVERSE_EVEN_ODD};
+                FillType.INVERSE_EVEN_ODD };
         FillType[] actual = FillType.values();
         assertEquals(expected.length, actual.length);
         for (int i = 0; i < actual.length; i ++) {
             assertEquals(expected[i], actual[i]);
         }
     }
-
 }

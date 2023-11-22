@@ -19,22 +19,17 @@
 
 #include <jni.h>
 #include <iosfwd>
+#include "nativehelper/jni_macros.h"
 
-#ifndef NATIVE_METHOD
-#define NATIVE_METHOD(className, functionName, signature) \
-  { #functionName, signature, reinterpret_cast<void*>(className ## _ ## functionName) }
-#endif
-
-// TODO: Can we do a better job of supporting overloading ?
-#ifndef OVERLOADED_NATIVE_METHOD
-#define OVERLOADED_NATIVE_METHOD(className, functionName, signature, identifier) \
-    { #functionName, signature, reinterpret_cast<void*>(className ## _ ## identifier) }
-#endif
+#include "base/macros.h"
 
 #define REGISTER_NATIVE_METHODS(jni_class_name) \
   RegisterNativeMethods(env, jni_class_name, gMethods, arraysize(gMethods))
 
 namespace art {
+
+class ArtField;
+class ArtMethod;
 
 const JNINativeInterface* GetJniNativeInterface();
 const JNINativeInterface* GetRuntimeShutdownNativeInterface();
@@ -46,6 +41,29 @@ void RegisterNativeMethods(JNIEnv* env, const char* jni_class_name, const JNINat
 
 int ThrowNewException(JNIEnv* env, jclass exception_class, const char* msg, jobject cause);
 
+namespace jni {
+
+ALWAYS_INLINE
+static inline ArtField* DecodeArtField(jfieldID fid) {
+  return reinterpret_cast<ArtField*>(fid);
+}
+
+ALWAYS_INLINE
+static inline jfieldID EncodeArtField(ArtField* field) {
+  return reinterpret_cast<jfieldID>(field);
+}
+
+ALWAYS_INLINE
+static inline jmethodID EncodeArtMethod(ArtMethod* art_method) {
+  return reinterpret_cast<jmethodID>(art_method);
+}
+
+ALWAYS_INLINE
+static inline ArtMethod* DecodeArtMethod(jmethodID method_id) {
+  return reinterpret_cast<ArtMethod*>(method_id);
+}
+
+}  // namespace jni
 }  // namespace art
 
 std::ostream& operator<<(std::ostream& os, const jobjectRefType& rhs);

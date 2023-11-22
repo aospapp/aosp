@@ -16,6 +16,7 @@
 
 package com.android.ahat;
 
+import com.android.ahat.heapdump.AhatSnapshot;
 import java.io.IOException;
 
 class RootedHandler implements AhatHandler {

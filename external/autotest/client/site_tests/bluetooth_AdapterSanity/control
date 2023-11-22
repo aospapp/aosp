@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if there are any basic problems with the Bluetooth adapter.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

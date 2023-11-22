@@ -45,10 +45,10 @@ class JobQueryManager(object):
         job_id = queue_entry.job_id
         job_deps, job_preferred_deps = [], []
         for dep in self._job_deps.get(job_id, []):
-           if not provision.is_for_special_action(self._labels[dep].name):
-               job_deps.append(dep)
-           elif provision.Provision.acts_on(self._labels[dep].name):
-               job_preferred_deps.append(dep)
+            if not provision.is_for_special_action(self._labels[dep].name):
+                job_deps.append(dep)
+            elif provision.Provision.acts_on(self._labels[dep].name):
+                job_preferred_deps.append(dep)
 
         job_acls = self._job_acls.get(job_id, [])
         parent_id = queue_entry.job.parent_job_id

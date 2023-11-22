@@ -92,6 +92,7 @@ public class JPDALogWriter extends LogWriter {
      * @param prefix
      *            to be set
      */
+    @Override
     public void setPrefix(String prefix) {
         super.setPrefix(prefix);
         if (prefix == null || prefix.length() <= 0) {
@@ -107,6 +108,7 @@ public class JPDALogWriter extends LogWriter {
      * @param message
      *            error message to be printed
      */
+    @Override
     public void printError(String message) {
         if (null == errorMessage) {
             errorMessage = message;
@@ -122,6 +124,7 @@ public class JPDALogWriter extends LogWriter {
      * @param throwable
      *            exception to be printed
      */
+    @Override
     public void printError(String message, Throwable throwable) {
         if (null == errorMessage) {
             errorMessage = message;
@@ -135,6 +138,7 @@ public class JPDALogWriter extends LogWriter {
      * @param throwable
      *            exception to be printed
      */
+    @Override
     public void printError(Throwable throwable) {
         logStream.printStackTrace(null, throwable);
     }
@@ -145,6 +149,7 @@ public class JPDALogWriter extends LogWriter {
      * @param message
      *            to be printed
      */
+    @Override
     public void print(String message) {
         if (enablePrint) {
             logStream.print(printPrefix + message);
@@ -157,6 +162,7 @@ public class JPDALogWriter extends LogWriter {
      * @param message
      *            to be printed
      */
+    @Override
     public void println(String message) {
         if (enablePrint) {
             logStream.println(printPrefix + message);

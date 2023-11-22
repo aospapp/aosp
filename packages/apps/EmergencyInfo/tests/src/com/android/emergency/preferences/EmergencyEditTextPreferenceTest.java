@@ -51,7 +51,7 @@ public class EmergencyEditTextPreferenceTest
                 }
             });
         } catch (Throwable throwable) {
-            fail("Should not throw exception");
+            fail("Should not throw exception: " + throwable.getMessage());
         }
     }
 

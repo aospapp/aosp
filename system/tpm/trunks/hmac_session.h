@@ -42,10 +42,9 @@ class HmacSession {
   // |bind_authorization_value|. Encryption is enabled if |enable_encryption| is
   // true. The session remains active until this object is destroyed or another
   // session is started with a call to Start*Session.
-  virtual TPM_RC StartBoundSession(
-      TPMI_DH_ENTITY bind_entity,
-      const std::string& bind_authorization_value,
-      bool enable_encryption) = 0;
+  virtual TPM_RC StartBoundSession(TPMI_DH_ENTITY bind_entity,
+                                   const std::string& bind_authorization_value,
+                                   bool enable_encryption) = 0;
 
   // Starts a salted, unbound session. Encryption is enabled if
   // |enable_encryption| is true. The session remains active until this object

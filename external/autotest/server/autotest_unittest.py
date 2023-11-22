@@ -23,7 +23,6 @@ class TestBaseAutotest(unittest.TestCase):
         self.host.job = self.god.create_mock_class(server_job.server_job,
                                                    "job")
         self.host.job.run_test_cleanup = True
-        self.host.job.last_boot_tag = 'Autotest'
         self.host.job.sysinfo = self.god.create_mock_class(
             sysinfo.sysinfo, "sysinfo")
         self.host.job.profilers = self.god.create_mock_class(

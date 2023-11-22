@@ -142,4 +142,7 @@
     <attr name="themeGravity" />
     <attr name="themeTileMode" />
     <attr name="themeAngle" />
+
+    <attr name="chronometerStyle" format="string" />
+
 </resources>

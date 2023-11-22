@@ -16,23 +16,32 @@
 
 package android.widget;
 
+import android.annotation.IntDef;
+import android.annotation.IntRange;
 import android.annotation.NonNull;
-import android.annotation.Nullable;
+import android.annotation.TestApi;
 import android.annotation.Widget;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.content.res.TypedArray;
+import android.icu.util.Calendar;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.Parcelable.Creator;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.util.MathUtils;
 import android.view.View;
+import android.view.ViewStructure;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.autofill.AutofillManager;
+import android.view.autofill.AutofillValue;
+
 import com.android.internal.R;
 
-import java.util.Locale;
-
 import libcore.icu.LocaleData;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.util.Locale;
 
 /**
  * A widget for selecting the time of day, in either 24-hour or AM/PM mode.
@@ -45,10 +54,37 @@ import libcore.icu.LocaleData;
  */
 @Widget
 public class TimePicker extends FrameLayout {
-    private static final int MODE_SPINNER = 1;
-    private static final int MODE_CLOCK = 2;
+    private static final String LOG_TAG = TimePicker.class.getSimpleName();
+
+    /**
+     * Presentation mode for the Holo-style time picker that uses a set of
+     * {@link android.widget.NumberPicker}s.
+     *
+     * @see #getMode()
+     * @hide Visible for testing only.
+     */
+    @TestApi
+    public static final int MODE_SPINNER = 1;
+
+    /**
+     * Presentation mode for the Material-style time picker that uses a clock
+     * face.
+     *
+     * @see #getMode()
+     * @hide Visible for testing only.
+     */
+    @TestApi
+    public static final int MODE_CLOCK = 2;
+
+    /** @hide */
+    @IntDef({MODE_SPINNER, MODE_CLOCK})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface TimePickerMode {}
 
     private final TimePickerDelegate mDelegate;
+
+    @TimePickerMode
+    private final int mMode;
 
     /**
      * The callback interface used to indicate the time has been adjusted.
@@ -78,12 +114,26 @@ public class TimePicker extends FrameLayout {
     public TimePicker(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
 
+        // DatePicker is important by default, unless app developer overrode attribute.
+        if (getImportantForAutofill() == IMPORTANT_FOR_AUTOFILL_AUTO) {
+            setImportantForAutofill(IMPORTANT_FOR_AUTOFILL_YES);
+        }
+
         final TypedArray a = context.obtainStyledAttributes(
                 attrs, R.styleable.TimePicker, defStyleAttr, defStyleRes);
-        final int mode = a.getInt(R.styleable.TimePicker_timePickerMode, MODE_SPINNER);
+        final boolean isDialogMode = a.getBoolean(R.styleable.TimePicker_dialogMode, false);
+        final int requestedMode = a.getInt(R.styleable.TimePicker_timePickerMode, MODE_SPINNER);
         a.recycle();
 
-        switch (mode) {
+        if (requestedMode == MODE_CLOCK && isDialogMode) {
+            // You want MODE_CLOCK? YOU CAN'T HANDLE MODE_CLOCK! Well, maybe
+            // you can depending on your screen size. Let's check...
+            mMode = context.getResources().getInteger(R.integer.time_picker_mode);
+        } else {
+            mMode = requestedMode;
+        }
+
+        switch (mMode) {
             case MODE_CLOCK:
                 mDelegate = new TimePickerClockDelegate(
                         this, context, attrs, defStyleAttr, defStyleRes);
@@ -94,6 +144,24 @@ public class TimePicker extends FrameLayout {
                         this, context, attrs, defStyleAttr, defStyleRes);
                 break;
         }
+        mDelegate.setAutoFillChangeListener((v, h, m) -> {
+            final AutofillManager afm = context.getSystemService(AutofillManager.class);
+            if (afm != null) {
+                afm.notifyValueChanged(this);
+            }
+        });
+    }
+
+    /**
+     * @return the picker's presentation mode, one of {@link #MODE_CLOCK} or
+     *         {@link #MODE_SPINNER}
+     * @attr ref android.R.styleable#TimePicker_timePickerMode
+     * @hide Visible for testing only.
+     */
+    @TimePickerMode
+    @TestApi
+    public int getMode() {
+        return mMode;
     }
 
     /**
@@ -102,8 +170,8 @@ public class TimePicker extends FrameLayout {
      * @param hour the hour to set, in the range (0-23)
      * @see #getHour()
      */
-    public void setHour(int hour) {
-        mDelegate.setHour(hour);
+    public void setHour(@IntRange(from = 0, to = 23) int hour) {
+        mDelegate.setHour(MathUtils.constrain(hour, 0, 23));
     }
 
     /**
@@ -117,13 +185,13 @@ public class TimePicker extends FrameLayout {
     }
 
     /**
-     * Sets the currently selected minute..
+     * Sets the currently selected minute.
      *
      * @param minute the minute to set, in the range (0-59)
      * @see #getMinute()
      */
-    public void setMinute(int minute) {
-        mDelegate.setMinute(minute);
+    public void setMinute(@IntRange(from = 0, to = 59) int minute) {
+        mDelegate.setMinute(MathUtils.constrain(minute, 0, 59));
     }
 
     /**
@@ -137,8 +205,9 @@ public class TimePicker extends FrameLayout {
     }
 
     /**
-     * Sets the current hour.
+     * Sets the currently selected hour using 24-hour time.
      *
+     * @param currentHour the hour to set, in the range (0-23)
      * @deprecated Use {@link #setHour(int)}
      */
     @Deprecated
@@ -147,33 +216,34 @@ public class TimePicker extends FrameLayout {
     }
 
     /**
-     * @return the current hour in the range (0-23)
+     * @return the currently selected hour, in the range (0-23)
      * @deprecated Use {@link #getHour()}
      */
     @NonNull
     @Deprecated
     public Integer getCurrentHour() {
-        return mDelegate.getHour();
+        return getHour();
     }
 
     /**
-     * Set the current minute (0-59).
+     * Sets the currently selected minute.
      *
+     * @param currentMinute the minute to set, in the range (0-59)
      * @deprecated Use {@link #setMinute(int)}
      */
     @Deprecated
     public void setCurrentMinute(@NonNull Integer currentMinute) {
-        mDelegate.setMinute(currentMinute);
+        setMinute(currentMinute);
     }
 
     /**
-     * @return the current minute
+     * @return the currently selected minute, in the range (0-59)
      * @deprecated Use {@link #getMinute()}
      */
     @NonNull
     @Deprecated
     public Integer getCurrentMinute() {
-        return mDelegate.getMinute();
+        return getMinute();
     }
 
     /**
@@ -226,6 +296,16 @@ public class TimePicker extends FrameLayout {
         return mDelegate.getBaseline();
     }
 
+    /**
+     * Validates whether current input by the user is a valid time based on the locale. TimePicker
+     * will show an error message to the user if the time is not valid.
+     *
+     * @return {@code true} if the input is valid, {@code false} otherwise
+     */
+    public boolean validateInput() {
+        return mDelegate.validateInput();
+    }
+
     @Override
     protected Parcelable onSaveInstanceState() {
         Parcelable superState = super.onSaveInstanceState();
@@ -250,22 +330,52 @@ public class TimePicker extends FrameLayout {
         return mDelegate.dispatchPopulateAccessibilityEvent(event);
     }
 
+    /** @hide */
+    @TestApi
+    public View getHourView() {
+        return mDelegate.getHourView();
+    }
+
+    /** @hide */
+    @TestApi
+    public View getMinuteView() {
+        return mDelegate.getMinuteView();
+    }
+
+    /** @hide */
+    @TestApi
+    public View getAmView() {
+        return mDelegate.getAmView();
+    }
+
+    /** @hide */
+    @TestApi
+    public View getPmView() {
+        return mDelegate.getPmView();
+    }
+
     /**
      * A delegate interface that defined the public API of the TimePicker. Allows different
      * TimePicker implementations. This would need to be implemented by the TimePicker delegates
      * for the real behavior.
      */
     interface TimePickerDelegate {
-        void setHour(int hour);
+        void setHour(@IntRange(from = 0, to = 23) int hour);
         int getHour();
 
-        void setMinute(int minute);
+        void setMinute(@IntRange(from = 0, to = 59) int minute);
         int getMinute();
+
+        void setDate(long date);
+        long getDate();
 
         void setIs24Hour(boolean is24Hour);
         boolean is24Hour();
 
+        boolean validateInput();
+
         void setOnTimeChangedListener(OnTimeChangedListener onTimeChangedListener);
+        void setAutoFillChangeListener(OnTimeChangedListener autoFillChangeListener);
 
         void setEnabled(boolean enabled);
         boolean isEnabled();
@@ -277,6 +387,18 @@ public class TimePicker extends FrameLayout {
 
         boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event);
         void onPopulateAccessibilityEvent(AccessibilityEvent event);
+
+        /** @hide */
+        @TestApi View getHourView();
+
+        /** @hide */
+        @TestApi View getMinuteView();
+
+        /** @hide */
+        @TestApi View getAmView();
+
+        /** @hide */
+        @TestApi View getPmView();
     }
 
     static String[] getAmPmStrings(Context context) {
@@ -298,11 +420,38 @@ public class TimePicker extends FrameLayout {
         protected final Locale mLocale;
 
         protected OnTimeChangedListener mOnTimeChangedListener;
+        protected OnTimeChangedListener mAutoFillChangeListener;
 
         public AbstractTimePickerDelegate(@NonNull TimePicker delegator, @NonNull Context context) {
             mDelegator = delegator;
             mContext = context;
             mLocale = context.getResources().getConfiguration().locale;
+        }
+
+        @Override
+        public void setOnTimeChangedListener(OnTimeChangedListener callback) {
+            mOnTimeChangedListener = callback;
+        }
+
+        @Override
+        public void setAutoFillChangeListener(OnTimeChangedListener callback) {
+            mAutoFillChangeListener = callback;
+        }
+
+        @Override
+        public void setDate(long date) {
+            Calendar cal = Calendar.getInstance(mLocale);
+            cal.setTimeInMillis(date);
+            setHour(cal.get(Calendar.HOUR_OF_DAY));
+            setMinute(cal.get(Calendar.MINUTE));
+        }
+
+        @Override
+        public long getDate() {
+            Calendar cal = Calendar.getInstance(mLocale);
+            cal.set(Calendar.HOUR_OF_DAY, getHour());
+            cal.set(Calendar.MINUTE, getMinute());
+            return cal.getTimeInMillis();
         }
 
         protected static class SavedState extends View.BaseSavedState {
@@ -368,5 +517,36 @@ public class TimePicker extends FrameLayout {
                 }
             };
         }
+    }
+
+    @Override
+    public void dispatchProvideAutofillStructure(ViewStructure structure, int flags) {
+        // This view is self-sufficient for autofill, so it needs to call
+        // onProvideAutoFillStructure() to fill itself, but it does not need to call
+        // dispatchProvideAutoFillStructure() to fill its children.
+        structure.setAutofillId(getAutofillId());
+        onProvideAutofillStructure(structure, flags);
+    }
+
+    @Override
+    public void autofill(AutofillValue value) {
+        if (!isEnabled()) return;
+
+        if (!value.isDate()) {
+            Log.w(LOG_TAG, value + " could not be autofilled into " + this);
+            return;
+        }
+
+        mDelegate.setDate(value.getDateValue());
+    }
+
+    @Override
+    public @AutofillType int getAutofillType() {
+        return isEnabled() ? AUTOFILL_TYPE_DATE : AUTOFILL_TYPE_NONE;
+    }
+
+    @Override
+    public AutofillValue getAutofillValue() {
+        return isEnabled() ? AutofillValue.forDate(mDelegate.getDate()) : null;
     }
 }

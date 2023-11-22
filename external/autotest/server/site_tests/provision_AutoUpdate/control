@@ -37,7 +37,7 @@ def run(machine):
     # Save preserved log after autoupdate is completed.
     job.sysinfo.add_logdir(constants.AUTOUPDATE_PRESERVE_LOG)
 
-    host = hosts.create_host(machine, initialize=False)
+    host = hosts.create_host(machine)
     # Only collect pre-test sysinfo to save time.
     job.run_test('provision_AutoUpdate', host=host, value=value,
                  disable_sysinfo=False,

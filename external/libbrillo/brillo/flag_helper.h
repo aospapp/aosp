@@ -204,7 +204,7 @@ class BRILLO_EXPORT StringFlag final : public Flag {
 // for defining bool flags
 #define DEFINE_bool(name, value, help)                                  \
   bool FLAGS_##name = value;                                            \
-  bool FLAGS_no##name = !value;                                         \
+  bool FLAGS_no##name = !(value);                                       \
   brillo::FlagHelper::GetInstance()->AddFlag(                           \
       std::unique_ptr<brillo::Flag>(new brillo::BoolFlag(               \
           #name, &FLAGS_##name, &FLAGS_no##name, #value, help, true))); \

@@ -1465,10 +1465,11 @@ void ih264d_init_ref_idx_lx_b(dec_struct_t *ps_dec)
         /* 2.3 Arrange all Long term buffers in ascending order, in LongtermIndex */
         /* Start from ST head */
         u1_num_short_term_bufs = u1_L1;
-        ps_next_dpb = ps_dpb_mgr->ps_dpb_ht_head;
+
         for(u1_lt_index = u1_min_lt_index; u1_lt_index <= u1_max_lt_index;
                         u1_lt_index++)
         {
+            ps_next_dpb = ps_dpb_mgr->ps_dpb_ht_head;
             for(i = 0; i < ps_dpb_mgr->u1_num_lt_ref_bufs; i++)
             {
                 if(ps_next_dpb->u1_lt_idx == u1_lt_index)
@@ -1493,7 +1494,7 @@ void ih264d_init_ref_idx_lx_b(dec_struct_t *ps_dec)
                 UWORD8 u1_i;
                 pic_buffer_t *ps_ref_pic;
 
-                ps_ref_pic = ps_dpb_mgr->ps_init_dpb[1][0] + MAX_REF_BUFS;
+                ps_ref_pic = ps_dpb_mgr->ps_init_dpb[0][0] + MAX_REF_BUFS;
 
                 if(NULL == ps_ref_pic->pu1_buf1)
                 {
@@ -1520,7 +1521,7 @@ void ih264d_init_ref_idx_lx_b(dec_struct_t *ps_dec)
             UWORD8 u1_i;
             pic_buffer_t *ps_ref_pic;
 
-            ps_ref_pic = ps_dpb_mgr->ps_init_dpb[1][0];
+            ps_ref_pic = ps_dpb_mgr->ps_init_dpb[0][0];
 
             if(NULL == ps_ref_pic->pu1_buf1)
             {

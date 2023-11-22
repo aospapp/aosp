@@ -21,7 +21,10 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    ctstestrunner \
+    android-support-test \
+    legacy-android-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -30,7 +33,7 @@ LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_PACKAGE_NAME := CtsSpeechTestCases
 
-# Needed for testing M API
-#LOCAL_SDK_VERSION := current
+# Needed for testing O API
+#LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)

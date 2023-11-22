@@ -219,25 +219,8 @@ public class TestOptions {
     }
 
     /**
-     * Returns string with all options for agent including specified connection
-     * address (only for debugger in listening mode). It just calls
-     * <ul>
-     * <li><code>getDebuggeeAgentOptions(address, true)</code></li>
-     * </ul>
-     *  
-     * @deprecated This method is used as workaround for old tests and will be removed soon. 
-     *  
-     * @param address - address to attach
-     * 
-     * @return string with all agent options
-     */
-    public String getDebuggeeAgentOptions(String address) {
-        return getDebuggeeAgentOptions(address, true);
-    }
-    
-    /**
      * Returns VM classpath value to run debuggee with.
-     * 
+     *
      * @return system property "java.class.path" by default.
      */
     public String getDebuggeeClassPath() {
@@ -485,7 +468,7 @@ public class TestOptions {
      * @return string value of given property or default value if no such property found 
      */
     protected String getProperty(String name, String defaultValue) {
-        String value = (String)internalProperties.get(name);
+        String value = internalProperties.get(name);
         if (value != null) {
             return value;
         }

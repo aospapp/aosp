@@ -33,7 +33,6 @@
 #include <linux/perf_event.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <linux/sysctl.h>
 #include <arpa/inet.h>
 #include <linux/ipc.h>
 #include <pthread.h>
@@ -84,45 +83,6 @@ static jboolean android_security_cts_NativeCodeTest_doPerfEventTest2(JNIEnv* env
     close(fd[0]);
     close(fd[1]);
     return true;
-}
-
-/*
- * Prior to https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/arch/arm/include/asm/uaccess.h?id=8404663f81d212918ff85f493649a7991209fa04
- * there was a flaw in the kernel's handling of get_user and put_user
- * requests. Normally, get_user and put_user are supposed to guarantee
- * that reads/writes outside the process's address space are not
- * allowed.
- *
- * In this test, we use sysctl to force a read from an address outside
- * of our address space (but in the kernel's address space). Without the
- * patch applied, this read succeeds, because sysctl uses the
- * vulnerable get_user call.
- *
- * This function returns true if the patch above is applied, or false
- * otherwise.
- *
- * Credit: https://twitter.com/grsecurity/status/401443359912239105
- */
-static jboolean android_security_cts_NativeCodeTest_doVrootTest(JNIEnv*, jobject)
-{
-#ifdef __arm__
-    ALOGE("Starting doVrootTest");
-
-    struct __sysctl_args args;
-    char osname[100];
-    int name[] = { CTL_KERN, KERN_OSTYPE };
-
-    memset(&args, 0, sizeof(struct __sysctl_args));
-    args.name = name;
-    args.nlen = sizeof(name)/sizeof(name[0]);
-    args.oldval = osname;
-    args.oldlenp = (size_t *) 0xc0000000; // PAGE_OFFSET
-
-    int result = syscall(__NR__sysctl, &args);
-    return ((result == -1) && (errno == EFAULT || errno == ENOSYS));
-#else
-    return true;
-#endif
 }
 
 static void* mmap_syscall(void* addr, size_t len, int prot, int flags, int fd, off_t offset)
@@ -395,8 +355,6 @@ static JNINativeMethod gMethods[] = {
             (void *) android_security_cts_NativeCodeTest_doPerfEventTest },
     {  "doPerfEventTest2", "()Z",
             (void *) android_security_cts_NativeCodeTest_doPerfEventTest2 },
-    {  "doVrootTest", "()Z",
-            (void *) android_security_cts_NativeCodeTest_doVrootTest },
     {  "doCVE20141710Test", "()Z",
             (void *) android_security_cts_NativeCodeTest_doCVE20141710Test },
     {  "doFutexTest", "()Z",

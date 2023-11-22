@@ -19,6 +19,7 @@
 
 #include "trunks/policy_session.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -32,7 +33,6 @@ namespace trunks {
 // keeping track of the HmacAuthorizationDelegate used for commands, and to
 // provide authorization for commands that need it. It can also be used to
 // create custom policies to restrict the usage of keys.
-// TrunksFactoryImpl factory;
 // PolicySessionImpl session(factory);
 // session.StartBoundSession(bind_entity, bind_authorization, true);
 // session.PolicyPCR(pcr_index, pcr_value);
@@ -40,7 +40,7 @@ namespace trunks {
 // NOTE: StartBoundSession/StartUnboundSession should not be called before
 // TPM Ownership is taken. This is because starting a session uses the
 // SaltingKey, which is only created after ownership is taken.
-class TRUNKS_EXPORT PolicySessionImpl: public PolicySession {
+class TRUNKS_EXPORT PolicySessionImpl : public PolicySession {
  public:
   explicit PolicySessionImpl(const TrunksFactory& factory);
   // |session_type| specifies what type of session this is. It can only
@@ -60,6 +60,7 @@ class TRUNKS_EXPORT PolicySessionImpl: public PolicySession {
   TPM_RC PolicyPCR(uint32_t pcr_index, const std::string& pcr_value) override;
   TPM_RC PolicyCommandCode(TPM_CC command_code) override;
   TPM_RC PolicyAuthValue() override;
+  TPM_RC PolicyRestart() override;
   void SetEntityAuthorizationValue(const std::string& value) override;
 
  private:
@@ -74,7 +75,7 @@ class TRUNKS_EXPORT PolicySessionImpl: public PolicySession {
   HmacAuthorizationDelegate hmac_delegate_;
   // This object is used to manage the TPM session associated with this
   // AuthorizationSession.
-  scoped_ptr<SessionManager> session_manager_;
+  std::unique_ptr<SessionManager> session_manager_;
 
   friend class PolicySessionTest;
   DISALLOW_COPY_AND_ASSIGN(PolicySessionImpl);

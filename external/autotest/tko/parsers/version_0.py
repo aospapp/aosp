@@ -1,9 +1,6 @@
 import re, os
-
-from autotest_lib.client.common_lib import utils as common_utils
 from autotest_lib.tko import utils as tko_utils, models, status_lib
 from autotest_lib.tko.parsers import base
-
 
 class NoHostnameError(Exception):
     pass
@@ -82,8 +79,10 @@ class job(models.job):
                 labels = host_keyval['labels'].split(',')
                 board_labels = [l[8:] for l in labels
                                if l.startswith('board%3A')]
-                if board_labels and len(board_labels) == 1:
-                    machine_groups.add(board_labels[0])
+                if board_labels:
+                    # Testbeds have multiple boards so concat them into a
+                    # single string then add it to the machine_groups list.
+                    machine_groups.add(','.join(board_labels))
                 else:
                     error = ('Failed to retrieve board label from host labels: '
                              '%s' % host_keyval['labels'])

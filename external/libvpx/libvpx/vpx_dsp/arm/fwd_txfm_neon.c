@@ -12,8 +12,12 @@
 
 #include "./vpx_config.h"
 #include "vpx_dsp/txfm_common.h"
+#include "vpx_dsp/vpx_dsp_common.h"
+#include "vpx_dsp/arm/idct_neon.h"
+#include "vpx_dsp/arm/mem_neon.h"
 
-void vpx_fdct8x8_neon(const int16_t *input, int16_t *final_output, int stride) {
+void vpx_fdct8x8_neon(const int16_t *input, tran_low_t *final_output,
+                      int stride) {
   int i;
   // stage 1
   int16x8_t input_0 = vshlq_n_s16(vld1q_s16(&input[0 * stride]), 2);
@@ -52,10 +56,10 @@ void vpx_fdct8x8_neon(const int16_t *input, int16_t *final_output, int stride) {
     v_t2_hi = vmlal_n_s16(v_t2_hi, vget_high_s16(v_x3), (int16_t)cospi_8_64);
     v_t3_lo = vmlsl_n_s16(v_t3_lo, vget_low_s16(v_x2), (int16_t)cospi_8_64);
     v_t3_hi = vmlsl_n_s16(v_t3_hi, vget_high_s16(v_x2), (int16_t)cospi_8_64);
-    v_t0_lo = vmulq_n_s32(v_t0_lo, cospi_16_64);
-    v_t0_hi = vmulq_n_s32(v_t0_hi, cospi_16_64);
-    v_t1_lo = vmulq_n_s32(v_t1_lo, cospi_16_64);
-    v_t1_hi = vmulq_n_s32(v_t1_hi, cospi_16_64);
+    v_t0_lo = vmulq_n_s32(v_t0_lo, (int32_t)cospi_16_64);
+    v_t0_hi = vmulq_n_s32(v_t0_hi, (int32_t)cospi_16_64);
+    v_t1_lo = vmulq_n_s32(v_t1_lo, (int32_t)cospi_16_64);
+    v_t1_hi = vmulq_n_s32(v_t1_hi, (int32_t)cospi_16_64);
     {
       const int16x4_t a = vrshrn_n_s32(v_t0_lo, DCT_CONST_BITS);
       const int16x4_t b = vrshrn_n_s32(v_t0_hi, DCT_CONST_BITS);
@@ -122,6 +126,8 @@ void vpx_fdct8x8_neon(const int16_t *input, int16_t *final_output, int stride) {
       out_7 = vcombine_s16(f, h);  // 34 35 36 37 74 75 76 77
     }
     // transpose 8x8
+    // Can't use transpose_s16_8x8() because the values are arranged in two 4x8
+    // columns.
     {
       // 00 01 02 03 40 41 42 43
       // 10 11 12 13 50 51 52 53
@@ -131,14 +137,14 @@ void vpx_fdct8x8_neon(const int16_t *input, int16_t *final_output, int stride) {
       // 14 15 16 17 54 55 56 57
       // 24 25 26 27 64 65 66 67
       // 34 35 36 37 74 75 76 77
-      const int32x4x2_t r02_s32 = vtrnq_s32(vreinterpretq_s32_s16(out_0),
-                                            vreinterpretq_s32_s16(out_2));
-      const int32x4x2_t r13_s32 = vtrnq_s32(vreinterpretq_s32_s16(out_1),
-                                            vreinterpretq_s32_s16(out_3));
-      const int32x4x2_t r46_s32 = vtrnq_s32(vreinterpretq_s32_s16(out_4),
-                                            vreinterpretq_s32_s16(out_6));
-      const int32x4x2_t r57_s32 = vtrnq_s32(vreinterpretq_s32_s16(out_5),
-                                            vreinterpretq_s32_s16(out_7));
+      const int32x4x2_t r02_s32 =
+          vtrnq_s32(vreinterpretq_s32_s16(out_0), vreinterpretq_s32_s16(out_2));
+      const int32x4x2_t r13_s32 =
+          vtrnq_s32(vreinterpretq_s32_s16(out_1), vreinterpretq_s32_s16(out_3));
+      const int32x4x2_t r46_s32 =
+          vtrnq_s32(vreinterpretq_s32_s16(out_4), vreinterpretq_s32_s16(out_6));
+      const int32x4x2_t r57_s32 =
+          vtrnq_s32(vreinterpretq_s32_s16(out_5), vreinterpretq_s32_s16(out_7));
       const int16x8x2_t r01_s16 =
           vtrnq_s16(vreinterpretq_s16_s32(r02_s32.val[0]),
                     vreinterpretq_s16_s32(r13_s32.val[0]));
@@ -191,18 +197,18 @@ void vpx_fdct8x8_neon(const int16_t *input, int16_t *final_output, int stride) {
     input_6 = vhsubq_s16(input_6, sign_in6);
     input_7 = vhsubq_s16(input_7, sign_in7);
     // store results
-    vst1q_s16(&final_output[0 * 8], input_0);
-    vst1q_s16(&final_output[1 * 8], input_1);
-    vst1q_s16(&final_output[2 * 8], input_2);
-    vst1q_s16(&final_output[3 * 8], input_3);
-    vst1q_s16(&final_output[4 * 8], input_4);
-    vst1q_s16(&final_output[5 * 8], input_5);
-    vst1q_s16(&final_output[6 * 8], input_6);
-    vst1q_s16(&final_output[7 * 8], input_7);
+    store_s16q_to_tran_low(final_output + 0 * 8, input_0);
+    store_s16q_to_tran_low(final_output + 1 * 8, input_1);
+    store_s16q_to_tran_low(final_output + 2 * 8, input_2);
+    store_s16q_to_tran_low(final_output + 3 * 8, input_3);
+    store_s16q_to_tran_low(final_output + 4 * 8, input_4);
+    store_s16q_to_tran_low(final_output + 5 * 8, input_5);
+    store_s16q_to_tran_low(final_output + 6 * 8, input_6);
+    store_s16q_to_tran_low(final_output + 7 * 8, input_7);
   }
 }
 
-void vpx_fdct8x8_1_neon(const int16_t *input, int16_t *output, int stride) {
+void vpx_fdct8x8_1_neon(const int16_t *input, tran_low_t *output, int stride) {
   int r;
   int16x8_t sum = vld1q_s16(&input[0]);
   for (r = 1; r < 8; ++r) {
@@ -214,7 +220,11 @@ void vpx_fdct8x8_1_neon(const int16_t *input, int16_t *output, int stride) {
     const int64x2_t b = vpaddlq_s32(a);
     const int32x2_t c = vadd_s32(vreinterpret_s32_s64(vget_low_s64(b)),
                                  vreinterpret_s32_s64(vget_high_s64(b)));
+#if CONFIG_VP9_HIGHBITDEPTH
+    output[0] = vget_lane_s32(c, 0);
+#else
     output[0] = vget_lane_s16(vreinterpret_s16_s32(c), 0);
+#endif
     output[1] = 0;
   }
 }

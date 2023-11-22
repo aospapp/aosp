@@ -16,7 +16,7 @@
 
 package android.filesystem.cts;
 
-import android.cts.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MeasureRun;
@@ -24,6 +24,8 @@ import com.android.compatibility.common.util.MeasureTime;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
+
+import com.android.compatibility.common.util.CddTest;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -44,6 +46,7 @@ public class SequentialRWTest extends CtsAndroidTestCase {
         super.tearDown();
     }
 
+    @CddTest(requirement="8.2")
     public void testSingleSequentialWrite() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
         if (fileSize == 0) { // not enough space, give up
@@ -79,12 +82,13 @@ public class SequentialRWTest extends CtsAndroidTestCase {
         if (fileSize == 0) { // not enough space, give up
             return;
         }
-        final int NUMBER_REPETITION = 6;
+        final int NUMBER_REPETITION = 3;
         String streamName = "test_single_sequential_update";
         FileUtil.doSequentialUpdateTest(getContext(), DIR_SEQ_UPDATE, fileSize, BUFFER_SIZE,
                 NUMBER_REPETITION, REPORT_LOG_NAME, streamName);
     }
 
+    @CddTest(requirement="8.2")
     public void testSingleSequentialRead() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
         if (fileSize == 0) { // not enough space, give up

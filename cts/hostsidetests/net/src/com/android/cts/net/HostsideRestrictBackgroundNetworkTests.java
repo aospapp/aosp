@@ -171,6 +171,22 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
                 "testBackgroundNetworkAccess_enabled");
     }
 
+    public void testAppIdleNonMetered_whenCharging() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleNonMeteredTest",
+                "testAppIdleNetworkAccess_whenCharging");
+    }
+
+    public void testAppIdleMetered_whenCharging() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleMeteredTest",
+                "testAppIdleNetworkAccess_whenCharging");
+    }
+
+    public void testAppIdle_toast() throws Exception {
+        // Check that showing a toast doesn't bring an app out of standby
+        runDeviceTests(TEST_PKG, TEST_PKG + ".AppIdleNonMeteredTest",
+                "testAppIdle_toast");
+    }
+
     /********************
      * Doze Mode tests. *
      ********************/
@@ -233,6 +249,16 @@ public class HostsideRestrictBackgroundNetworkTests extends HostsideNetworkTestC
     public void testDataAndBatterySaverModes_nonMeteredNetwork() throws Exception {
         runDeviceTests(TEST_PKG, TEST_PKG + ".MixedModesTest",
                 "testDataAndBatterySaverModes_nonMeteredNetwork");
+    }
+
+    public void testDozeAndBatterySaverMode_powerSaveWhitelists() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".MixedModesTest",
+                "testDozeAndBatterySaverMode_powerSaveWhitelists");
+    }
+
+    public void testDozeAndAppIdle_powerSaveWhitelists() throws Exception {
+        runDeviceTests(TEST_PKG, TEST_PKG + ".MixedModesTest",
+                "testDozeAndAppIdle_powerSaveWhitelists");
     }
 
     /*******************

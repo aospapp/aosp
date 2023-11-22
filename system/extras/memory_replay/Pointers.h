@@ -27,7 +27,7 @@ struct pointer_data {
 
 class Pointers {
  public:
-  Pointers(size_t max_allocs);
+  explicit Pointers(size_t max_allocs);
   virtual ~Pointers();
 
   void Add(uintptr_t key_pointer, void* pointer);

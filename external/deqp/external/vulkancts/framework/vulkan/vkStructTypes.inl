@@ -1363,6 +1363,126 @@ struct VkWin32SurfaceCreateInfoKHR
 	pt::Win32WindowHandle			hwnd;
 };
 
+struct VkPhysicalDeviceFeatures2KHR
+{
+	VkStructureType				sType;
+	void*						pNext;
+	VkPhysicalDeviceFeatures	features;
+};
+
+struct VkPhysicalDeviceProperties2KHR
+{
+	VkStructureType				sType;
+	void*						pNext;
+	VkPhysicalDeviceProperties	properties;
+};
+
+struct VkFormatProperties2KHR
+{
+	VkStructureType		sType;
+	void*				pNext;
+	VkFormatProperties	formatProperties;
+};
+
+struct VkImageFormatProperties2KHR
+{
+	VkStructureType			sType;
+	void*					pNext;
+	VkImageFormatProperties	imageFormatProperties;
+};
+
+struct VkPhysicalDeviceImageFormatInfo2KHR
+{
+	VkStructureType		sType;
+	const void*			pNext;
+	VkFormat			format;
+	VkImageType			type;
+	VkImageTiling		tiling;
+	VkImageUsageFlags	usage;
+	VkImageCreateFlags	flags;
+};
+
+struct VkQueueFamilyProperties2KHR
+{
+	VkStructureType			sType;
+	void*					pNext;
+	VkQueueFamilyProperties	queueFamilyProperties;
+};
+
+struct VkPhysicalDeviceMemoryProperties2KHR
+{
+	VkStructureType						sType;
+	void*								pNext;
+	VkPhysicalDeviceMemoryProperties	memoryProperties;
+};
+
+struct VkSparseImageFormatProperties2KHR
+{
+	VkStructureType					sType;
+	void*							pNext;
+	VkSparseImageFormatProperties	properties;
+};
+
+struct VkPhysicalDeviceSparseImageFormatInfo2KHR
+{
+	VkStructureType			sType;
+	const void*				pNext;
+	VkFormat				format;
+	VkImageType				type;
+	VkSampleCountFlagBits	samples;
+	VkImageUsageFlags		usage;
+	VkImageTiling			tiling;
+};
+
+struct VkRectLayerKHR
+{
+	VkOffset2D	offset;
+	VkExtent2D	extent;
+	deUint32	layer;
+};
+
+struct VkPresentRegionKHR
+{
+	deUint32				rectangleCount;
+	const VkRectLayerKHR*	pRectangles;
+};
+
+struct VkPresentRegionsKHR
+{
+	VkStructureType				sType;
+	const void*					pNext;
+	deUint32					swapchainCount;
+	const VkPresentRegionKHR*	pRegions;
+};
+
+struct VkPhysicalDeviceSurfaceInfo2KHR
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	VkSurfaceKHR	surface;
+};
+
+struct VkSurfaceCapabilities2KHR
+{
+	VkStructureType				sType;
+	void*						pNext;
+	VkSurfaceCapabilitiesKHR	surfaceCapabilities;
+};
+
+struct VkSurfaceFormat2KHR
+{
+	VkStructureType		sType;
+	void*				pNext;
+	VkSurfaceFormatKHR	surfaceFormat;
+};
+
+struct VkSharedPresentSurfaceCapabilitiesKHR
+{
+	VkStructureType		sType;
+	void*				pNext;
+	VkImageUsageFlags	sharedPresentSupportedUsageFlags;
+};
+
 struct VkDebugReportCallbackCreateInfoEXT
 {
 	VkStructureType					sType;
@@ -1370,5 +1490,306 @@ struct VkDebugReportCallbackCreateInfoEXT
 	VkDebugReportFlagsEXT			flags;
 	PFN_vkDebugReportCallbackEXT	pfnCallback;
 	void*							pUserData;
+};
+
+struct VkPipelineRasterizationStateRasterizationOrderAMD
+{
+	VkStructureType			sType;
+	const void*				pNext;
+	VkRasterizationOrderAMD	rasterizationOrder;
+};
+
+struct VkDebugMarkerObjectNameInfoEXT
+{
+	VkStructureType				sType;
+	const void*					pNext;
+	VkDebugReportObjectTypeEXT	objectType;
+	deUint64					object;
+	const char*					pObjectName;
+};
+
+struct VkDebugMarkerObjectTagInfoEXT
+{
+	VkStructureType				sType;
+	const void*					pNext;
+	VkDebugReportObjectTypeEXT	objectType;
+	deUint64					object;
+	deUint64					tagName;
+	deUintptr					tagSize;
+	const void*					pTag;
+};
+
+struct VkDebugMarkerMarkerInfoEXT
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	const char*		pMarkerName;
+	float			color[4];
+};
+
+struct VkDedicatedAllocationImageCreateInfoNV
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	VkBool32		dedicatedAllocation;
+};
+
+struct VkDedicatedAllocationBufferCreateInfoNV
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	VkBool32		dedicatedAllocation;
+};
+
+struct VkDedicatedAllocationMemoryAllocateInfoNV
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	VkImage			image;
+	VkBuffer		buffer;
+};
+
+struct VkExternalImageFormatPropertiesNV
+{
+	VkImageFormatProperties				imageFormatProperties;
+	VkExternalMemoryFeatureFlagsNV		externalMemoryFeatures;
+	VkExternalMemoryHandleTypeFlagsNV	exportFromImportedHandleTypes;
+	VkExternalMemoryHandleTypeFlagsNV	compatibleHandleTypes;
+};
+
+struct VkExternalMemoryImageCreateInfoNV
+{
+	VkStructureType						sType;
+	const void*							pNext;
+	VkExternalMemoryHandleTypeFlagsNV	handleTypes;
+};
+
+struct VkExportMemoryAllocateInfoNV
+{
+	VkStructureType						sType;
+	const void*							pNext;
+	VkExternalMemoryHandleTypeFlagsNV	handleTypes;
+};
+
+struct VkImportMemoryWin32HandleInfoNV
+{
+	VkStructureType						sType;
+	const void*							pNext;
+	VkExternalMemoryHandleTypeFlagsNV	handleType;
+	pt::Win32Handle						handle;
+};
+
+struct VkExportMemoryWin32HandleInfoNV
+{
+	VkStructureType					sType;
+	const void*						pNext;
+	pt::Win32SecurityAttributesPtr	pAttributes;
+	deUint32						dwAccess;
+};
+
+struct VkWin32KeyedMutexAcquireReleaseInfoNV
+{
+	VkStructureType			sType;
+	const void*				pNext;
+	deUint32				acquireCount;
+	const VkDeviceMemory*	pAcquireSyncs;
+	const deUint64*			pAcquireKeys;
+	const deUint32*			pAcquireTimeoutMilliseconds;
+	deUint32				releaseCount;
+	const VkDeviceMemory*	pReleaseSyncs;
+	const deUint64*			pReleaseKeys;
+};
+
+struct VkValidationFlagsEXT
+{
+	VkStructureType			sType;
+	const void*				pNext;
+	deUint32				disabledValidationCheckCount;
+	VkValidationCheckEXT*	pDisabledValidationChecks;
+};
+
+struct VkDeviceGeneratedCommandsFeaturesNVX
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	VkBool32		computeBindingPointSupport;
+};
+
+struct VkDeviceGeneratedCommandsLimitsNVX
+{
+	VkStructureType	sType;
+	const void*		pNext;
+	deUint32		maxIndirectCommandsLayoutTokenCount;
+	deUint32		maxObjectEntryCounts;
+	deUint32		minSequenceCountBufferOffsetAlignment;
+	deUint32		minSequenceIndexBufferOffsetAlignment;
+	deUint32		minCommandsTokenBufferOffsetAlignment;
+};
+
+struct VkIndirectCommandsTokenNVX
+{
+	VkIndirectCommandsTokenTypeNVX	tokenType;
+	VkBuffer						buffer;
+	VkDeviceSize					offset;
+};
+
+struct VkIndirectCommandsLayoutTokenNVX
+{
+	VkIndirectCommandsTokenTypeNVX	tokenType;
+	deUint32						bindingUnit;
+	deUint32						dynamicCount;
+	deUint32						divisor;
+};
+
+struct VkIndirectCommandsLayoutCreateInfoNVX
+{
+	VkStructureType							sType;
+	const void*								pNext;
+	VkPipelineBindPoint						pipelineBindPoint;
+	VkIndirectCommandsLayoutUsageFlagsNVX	flags;
+	deUint32								tokenCount;
+	const VkIndirectCommandsLayoutTokenNVX*	pTokens;
+};
+
+struct VkCmdProcessCommandsInfoNVX
+{
+	VkStructureType						sType;
+	const void*							pNext;
+	VkObjectTableNVX					objectTable;
+	VkIndirectCommandsLayoutNVX			indirectCommandsLayout;
+	deUint32							indirectCommandsTokenCount;
+	const VkIndirectCommandsTokenNVX*	pIndirectCommandsTokens;
+	deUint32							maxSequencesCount;
+	VkCommandBuffer						targetCommandBuffer;
+	VkBuffer							sequencesCountBuffer;
+	VkDeviceSize						sequencesCountOffset;
+	VkBuffer							sequencesIndexBuffer;
+	VkDeviceSize						sequencesIndexOffset;
+};
+
+struct VkCmdReserveSpaceForCommandsInfoNVX
+{
+	VkStructureType				sType;
+	const void*					pNext;
+	VkObjectTableNVX			objectTable;
+	VkIndirectCommandsLayoutNVX	indirectCommandsLayout;
+	deUint32					maxSequencesCount;
+};
+
+struct VkObjectTableCreateInfoNVX
+{
+	VkStructureType						sType;
+	const void*							pNext;
+	deUint32							objectCount;
+	const VkObjectEntryTypeNVX*			pObjectEntryTypes;
+	const deUint32*						pObjectEntryCounts;
+	const VkObjectEntryUsageFlagsNVX*	pObjectEntryUsageFlags;
+	deUint32							maxUniformBuffersPerDescriptor;
+	deUint32							maxStorageBuffersPerDescriptor;
+	deUint32							maxStorageImagesPerDescriptor;
+	deUint32							maxSampledImagesPerDescriptor;
+	deUint32							maxPipelineLayouts;
+};
+
+struct VkObjectTableEntryNVX
+{
+	VkObjectEntryTypeNVX		type;
+	VkObjectEntryUsageFlagsNVX	flags;
+};
+
+struct VkObjectTablePipelineEntryNVX
+{
+	VkObjectEntryTypeNVX		type;
+	VkObjectEntryUsageFlagsNVX	flags;
+	VkPipeline					pipeline;
+};
+
+struct VkObjectTableDescriptorSetEntryNVX
+{
+	VkObjectEntryTypeNVX		type;
+	VkObjectEntryUsageFlagsNVX	flags;
+	VkPipelineLayout			pipelineLayout;
+	VkDescriptorSet				descriptorSet;
+};
+
+struct VkObjectTableVertexBufferEntryNVX
+{
+	VkObjectEntryTypeNVX		type;
+	VkObjectEntryUsageFlagsNVX	flags;
+	VkBuffer					buffer;
+};
+
+struct VkObjectTableIndexBufferEntryNVX
+{
+	VkObjectEntryTypeNVX		type;
+	VkObjectEntryUsageFlagsNVX	flags;
+	VkBuffer					buffer;
+};
+
+struct VkObjectTablePushConstantEntryNVX
+{
+	VkObjectEntryTypeNVX		type;
+	VkObjectEntryUsageFlagsNVX	flags;
+	VkPipelineLayout			pipelineLayout;
+	VkShaderStageFlags			stageFlags;
+};
+
+struct VkPhysicalDevicePushDescriptorPropertiesKHR
+{
+	VkStructureType	sType;
+	void*			pNext;
+	deUint32		maxPushDescriptors;
+};
+
+struct VkDescriptorUpdateTemplateEntryKHR
+{
+	deUint32			dstBinding;
+	deUint32			dstArrayElement;
+	deUint32			descriptorCount;
+	VkDescriptorType	descriptorType;
+	deUintptr			offset;
+	deUintptr			stride;
+};
+
+struct VkDescriptorUpdateTemplateCreateInfoKHR
+{
+	VkStructureType								sType;
+	void*										pNext;
+	VkDescriptorUpdateTemplateCreateFlagsKHR	flags;
+	deUint32									descriptorUpdateEntryCount;
+	const VkDescriptorUpdateTemplateEntryKHR*	pDescriptorUpdateEntries;
+	VkDescriptorUpdateTemplateTypeKHR			templateType;
+	VkDescriptorSetLayout						descriptorSetLayout;
+	VkPipelineBindPoint							pipelineBindPoint;
+	VkPipelineLayout							pipelineLayout;
+	deUint32									set;
+};
+
+struct VkRefreshCycleDurationGOOGLE
+{
+	deUint64	refreshDuration;
+};
+
+struct VkPastPresentationTimingGOOGLE
+{
+	deUint32	presentID;
+	deUint64	desiredPresentTime;
+	deUint64	actualPresentTime;
+	deUint64	earliestPresentTime;
+	deUint64	presentMargin;
+};
+
+struct VkPresentTimeGOOGLE
+{
+	deUint32	presentID;
+	deUint64	desiredPresentTime;
+};
+
+struct VkPresentTimesInfoGOOGLE
+{
+	VkStructureType				sType;
+	const void*					pNext;
+	deUint32					swapchainCount;
+	const VkPresentTimeGOOGLE*	pTimes;
 };
 

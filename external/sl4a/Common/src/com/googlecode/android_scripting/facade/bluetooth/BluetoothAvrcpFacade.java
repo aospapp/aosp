@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2016 Google Inc.
+ * Copyright (C) 2017 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.googlecode.android_scripting.facade.bluetooth;
@@ -32,7 +32,6 @@ import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
-import com.googlecode.android_scripting.rpc.RpcParameter;
 
 public class BluetoothAvrcpFacade extends RpcReceiver {
   static final ParcelUuid[] AVRCP_UUIDS = {
@@ -90,24 +89,6 @@ public class BluetoothAvrcpFacade extends RpcReceiver {
       }
       Method m = sAvrcpProfile.getClass().getMethod("close");
       m.invoke(sAvrcpProfile);
-  }
-
-  @Rpc(description = "Send AVRPC passthrough command.")
-  public void bluetoothAvrcpSendPassThroughCmd(
-          @RpcParameter(name = "deviceID",
-                        description = "Name or MAC address of a bluetooth device.")
-          String deviceID,
-          @RpcParameter(name = "keyCode")
-          Integer keyCode,
-          @RpcParameter(name = "keyState")
-          Integer keyState) throws Exception {
-      if (!sIsAvrcpReady) {
-          Log.d("AVRCP profile is not ready.");
-          return;
-      }
-      BluetoothDevice mDevice = BluetoothFacade.getDevice(sAvrcpProfile.getConnectedDevices(),
-                                                          deviceID);
-      sAvrcpProfile.sendPassThroughCmd(mDevice, keyCode, keyState);
   }
 
   @Override

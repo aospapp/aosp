@@ -49,12 +49,12 @@ public class CaliperRunnerFactory implements RunnerFactory {
     }
 
     @Override @Nullable
-    public Runner newRunner(TargetMonitor monitor, String qualification,
+    public TargetRunner newRunner(TargetMonitor monitor, String qualification,
             Class<?> klass, AtomicReference<String> skipPastReference,
             TestEnvironment testEnvironment, int timeoutSeconds, boolean profile,
             String[] args) {
         if (benchmarkClassChecker != null && benchmarkClassChecker.isBenchmark(klass)) {
-            return new CaliperRunner(monitor, profile, klass, args);
+            return new CaliperTargetRunner(monitor, profile, klass, args);
         } else {
             return null;
         }

@@ -27,7 +27,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 
@@ -47,7 +47,7 @@ public final class DevicePickerFragment extends DeviceListPreferenceFragment {
     private boolean mNeedAuth;
     private String mLaunchPackage;
     private String mLaunchClass;
-    private boolean mStartScanOnResume;
+    private boolean mStartScanOnStart;
 
     @Override
     void addPreferencesForActivity() {
@@ -59,11 +59,6 @@ public final class DevicePickerFragment extends DeviceListPreferenceFragment {
                 BluetoothDevicePicker.FILTER_TYPE_ALL));
         mLaunchPackage = intent.getStringExtra(BluetoothDevicePicker.EXTRA_LAUNCH_PACKAGE);
         mLaunchClass = intent.getStringExtra(BluetoothDevicePicker.EXTRA_LAUNCH_CLASS);
-    }
-
-    @Override
-    void initDevicePreference(BluetoothDevicePreference preference) {
-        preference.setWidgetLayoutResource(R.layout.preference_empty_list);
     }
 
     @Override
@@ -85,7 +80,7 @@ public final class DevicePickerFragment extends DeviceListPreferenceFragment {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.BLUETOOTH_DEVICE_PICKER;
     }
 
@@ -94,18 +89,18 @@ public final class DevicePickerFragment extends DeviceListPreferenceFragment {
         super.onCreate(savedInstanceState);
         getActivity().setTitle(getString(R.string.device_picker));
         UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);
-        mStartScanOnResume = !um.hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)
+        mStartScanOnStart = !um.hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)
                 && (savedInstanceState == null);  // don't start scan after rotation
         setHasOptionsMenu(true);
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
         addCachedDevices();
-        if (mStartScanOnResume) {
+        if (mStartScanOnStart) {
             mLocalAdapter.startScanning(true);
-            mStartScanOnResume = false;
+            mStartScanOnStart = false;
         }
     }
 

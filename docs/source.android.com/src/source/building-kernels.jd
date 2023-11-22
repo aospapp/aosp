@@ -29,9 +29,10 @@ assume you have not downloaded all of AOSP; if you have already done so, you can
 skip the <code>git clone</code> steps except the step that downloads the kernel
 sources.</p>
 
-<p>All examples in this section use the <code>panda</code> kernel.</p>
+<p>All examples in this section use the
+<a href="{@docRoot}source/devices.html#hikey-boards">hikey</a> kernel.</p>
 
-<h2 id="figuring-out-which-kernel-to-build">Figuring out which kernel to build</h2>
+<h2 id="figuring-out-which-kernel-to-build">Selecting a kernel</h2>
 <p>This table lists the name and locations of the kernel sources and binaries:
 <table>
   <tr>
@@ -39,6 +40,24 @@ sources.</p>
     <th>Binary location</th>
     <th>Source location</th>
     <th>Build configuration</th>
+  </tr>
+  <tr>
+    <td>marlin</td>
+    <td>device/google/marlin-kernel</td>
+    <td>kernel/msm</td>
+    <td>marlin_defconfig</td>
+  </tr>
+  <tr>
+    <td>sailfish</td>
+    <td>device/google/marlin-kernel</td>
+    <td>kernel/msm</td>
+    <td>marlin_defconfig</td>
+  </tr>
+  <tr>
+    <td>hikey</td>
+    <td>device/linaro/hikey-kernel</td>
+    <td>kernel/hikey-linaro</td>
+    <td>hikey_defconfig</td>
   </tr>
   <tr>
     <td>angler</td>
@@ -160,8 +179,8 @@ sources.</p>
 for the kernel binary. Device projects use the form
 <code>device/&lt;vendor&gt;/&lt;name&gt;</code>.</p>
 
-<pre><code>$ git clone https://android.googlesource.com/device/ti/panda
-$ cd panda
+<pre><code>$ git clone https://android.googlesource.com/kernel/hikey-linaro
+$ cd hikey-linaro
 $ git log --max-count=1 kernel
 </code></pre>
 
@@ -188,6 +207,7 @@ command against the kernel file:</p>
 <code>git clone</code> command:</p>
 
 <pre><code>$ git clone https://android.googlesource.com/kernel/common.git
+$ git clone https://android.googlesource.com/kernel/hikey-linaro
 $ git clone https://android.googlesource.com/kernel/x86_64.git
 $ git clone https://android.googlesource.com/kernel/exynos.git
 $ git clone https://android.googlesource.com/kernel/goldfish.git
@@ -198,21 +218,24 @@ $ git clone https://android.googlesource.com/kernel/tegra.git
 </code></pre>
 
 <ul>
-<li>The <code>goldfish</code> project contains the kernel sources for the emulated
-platforms.</li>
-<li>The <code>msm</code> project has the sources for ADP1, ADP2, Nexus One, Nexus 4, Nexus 5, Nexus 6,
-Nexus 5X, Nexus 6P,
-and can be used as a starting point for work on Qualcomm MSM chipsets.</li>
+<li>The <code>goldfish</code> project contains the kernel sources for the
+emulated platforms.</li>
+<li>The <code>msm</code> project has the sources for ADP1, ADP2, Nexus One,
+Nexus 4, Nexus 5, Nexus 6, Nexus 5X, Nexus 6P, Nexus 7 (2013), Pixel,
+and Pixel XL, and can be used
+as a starting point for work on Qualcomm MSM chipsets.</li>
 <li>The <code>omap</code> project is used for PandaBoard and Galaxy Nexus,
 and can be used as a starting point for work on TI OMAP chipsets.</li>
-<li>The <code>samsung</code> project is used for Nexus S,
-and can be used as a starting point for work on Samsung Hummingbird chipsets.</li>
-<li>The <code>tegra</code> project is for Xoom, Nexus 7, Nexus 9,
+<li>The <code>samsung</code> project is used for Nexus S, and can be used as a
+starting point for work on Samsung Hummingbird chipsets.</li>
+<li>The <code>tegra</code> project is for Xoom, Nexus 7 (2012), Nexus 9,
 and can be used as a starting point for work on NVIDIA Tegra chipsets.</li>
 <li>The <code>exynos</code> project has the kernel sources for Nexus 10,
 and can be used as a starting point for work on Samsung Exynos chipsets.</li>
 <li>The <code>x86_64</code> project has the kernel sources for Nexus Player,
 and can be used as a starting point for work on Intel x86_64 chipsets.</li>
+<li>The <code>hikey-linaro</code> project is used for HiKey reference boards,
+and can be used as a starting point for work on HiSilicon 620 chipsets.</li>
 </ul>
 
 <h2 id="downloading-a-prebuilt-gcc">Downloading a prebuilt gcc</h2>
@@ -228,26 +251,29 @@ the prebuilt toolchain from:
 <h2 id="building">Building the kernel</h2>
 <p>When you know the last commit message for a kernel and have successfully
 downloaded the kernel source and prebuilt gcc, you are ready to build the
-kernel. The following build commands use the panda kernel:</p>
-<pre><code>$ export ARCH=arm
-$ export SUBARCH=arm
-$ export CROSS_COMPILE=arm-eabi-
-$ cd omap
-$ git checkout &lt;commit_from_first_step&gt;
-$ make panda_defconfig
+kernel. The following build commands use the hikey kernel:</p>
+<pre><code>$ export ARCH=arm64
+$ export CROSS_COMPILE=aarch64-linux-android-
+$ cd hikey-linaro
+$ git checkout -b android-hikey-linaro-4.1 origin/android-hikey-linaro-4.1
+$ make hikey_defconfig
 $ make
 </code></pre>
 
-<p>To build a different kernel, simply replace <code>panda</code> with the name
-of the kernel you want to build.</p>
+<p>To build a different kernel, simply replace <code>hikey-linaro</code> with
+the name of the kernel you want to build.</p>
 
-<p>The kernel binary is output as <code>arch/arm/boot/&lt;kernel_name&gt;</code>
-and can be copied into the Android source tree to build the matching boot image.
-Alternatively, you can include the <code>TARGET_PREBUILT_KERNEL</code>
-variable while using <code>make bootimage</code> (or any other make command line
-that builds a boot image). This variable is supported by all devices
-as it is set up via <code>device/common/populate-new-device.sh</code>. For
-example:</p>
+<p>The image outputs to the <code>arch/arm64/boot/Image</code> directory; the
+kernel binary outputs to the
+<code>arch/arm64/boot/dts/hisilicon/hi6220-hikey.dtb</code> fle. Copy the
+<code>Image</code> directory and the <code>hi6220-hikey.dtb</code> file to the
+<code>hikey-kernel</code> directory.</p>
+
+<p>Alternatively, you can include the <code>TARGET_PREBUILT_KERNEL</code>
+variable while using <code>make bootimage</code> (or any other <code>make</code>
+command line that builds a boot image). This variable is supported by all
+devices as it is set up via <code>device/common/populate-new-device.sh</code>.
+For example:</p>
 
 <pre><code>$ export TARGET_PREBUILT_KERNEL=$your_kernel_path/arch/arm/boot/zImage-dtb
 </code></pre>

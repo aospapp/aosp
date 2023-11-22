@@ -18,6 +18,8 @@ package android.widget.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.Menu;
 import android.widget.Toolbar;
 
 /**
@@ -25,6 +27,10 @@ import android.widget.Toolbar;
  */
 public class ToolbarCtsActivity extends Activity {
     private Toolbar mMainToolbar;
+
+    public int mCreateMenuCount;
+    public int mPrepareMenuCount;
+    public int mKeyShortcutCount;
 
     /**
      * Called with the activity is first created.
@@ -40,6 +46,28 @@ public class ToolbarCtsActivity extends Activity {
 
     public Toolbar getMainToolbar() {
         return mMainToolbar;
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        ++mCreateMenuCount;
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        ++mPrepareMenuCount;
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onKeyShortcut(int keyCode, KeyEvent event) {
+        ++mKeyShortcutCount;
+        return super.onKeyShortcut(keyCode, event);
+    }
+
+    public void resetCounts() {
+        mCreateMenuCount = mPrepareMenuCount = mKeyShortcutCount = 0;
     }
 }
 

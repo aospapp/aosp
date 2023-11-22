@@ -30,6 +30,7 @@ public class StatsImage {
     }
 
     public native static float[] computeStatsImage(
-            byte[] img, int width, int height, int gridW, int gridH);
+            byte[] img, int width, int height,
+            int aaX, int aaY, int aaW, int aaH, int gridW, int gridH);
 
 }

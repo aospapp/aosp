@@ -16,7 +16,6 @@
 
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.tradefed.build.DeviceBuildInfo;
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
@@ -27,6 +26,9 @@ import junit.framework.TestCase;
 
 import org.easymock.EasyMock;
 
+/**
+ * Tests for {@link SettingsPreparer}
+ */
 public class SettingsPreparerTest extends TestCase {
 
     private SettingsPreparer mSettingsPreparer;
@@ -43,6 +45,7 @@ public class SettingsPreparerTest extends TestCase {
         super.setUp();
         mSettingsPreparer = new SettingsPreparer();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
+        EasyMock.expect(mMockDevice.getDeviceDescriptor()).andReturn(null).anyTimes();
         mMockBuildInfo = new BuildInfo("0", "", "");
         mOptionSetter = new OptionSetter(mSettingsPreparer);
         mOptionSetter.setOptionValue("device-setting", "stay_on_while_plugged_in");

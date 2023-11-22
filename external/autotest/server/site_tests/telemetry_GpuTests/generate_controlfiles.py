@@ -31,7 +31,7 @@ CONTROLFILE_TEMPLATE = """\
 
 AUTHOR = 'chromeos-gfx'
 NAME = 'telemetry_GpuTests.{0}'
-SUITE = 'graphics_per-day, graphics, graphics_browser'
+ATTRIBUTES = 'suite:graphics_per-day, suite:graphics_browser'
 TIME = 'LONG'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'gl'

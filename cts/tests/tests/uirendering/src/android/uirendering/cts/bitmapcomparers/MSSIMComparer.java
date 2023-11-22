@@ -15,12 +15,7 @@
  */
 package android.uirendering.cts.bitmapcomparers;
 
-import android.uirendering.cts.ScriptC_MSSIMComparer;
-
-import android.content.res.Resources;
 import android.graphics.Color;
-import android.renderscript.Allocation;
-import android.renderscript.RenderScript;
 import android.util.Log;
 
 /**
@@ -29,7 +24,7 @@ import android.util.Log;
  *
  * https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf
  */
-public class MSSIMComparer extends BaseRenderScriptComparer {
+public class MSSIMComparer extends BitmapComparer {
     // These values were taken from the publication
     public static final String TAG_NAME = "MSSIM";
     public static final double CONSTANT_L = 254;
@@ -40,7 +35,6 @@ public class MSSIMComparer extends BaseRenderScriptComparer {
     public static final int WINDOW_SIZE = 10;
 
     private double mThreshold;
-    private ScriptC_MSSIMComparer mScript;
 
     public MSSIMComparer(double threshold) {
         mThreshold = threshold;
@@ -80,31 +74,6 @@ public class MSSIMComparer extends BaseRenderScriptComparer {
         Log.d(TAG_NAME, "MSSIM = " + SSIMTotal);
 
         return (SSIMTotal >= mThreshold);
-    }
-
-    @Override
-    public boolean verifySameRowsRS(Resources resources, Allocation ideal,
-            Allocation given, int offset, int stride, int width, int height,
-            RenderScript renderScript, Allocation inputAllocation, Allocation outputAllocation) {
-        if (mScript == null) {
-            mScript = new ScriptC_MSSIMComparer(renderScript);
-        }
-        mScript.set_WIDTH(width);
-        mScript.set_HEIGHT(height);
-
-        //Set the bitmap allocations
-        mScript.set_ideal(ideal);
-        mScript.set_given(given);
-
-        //Call the renderscript function on each row
-        mScript.forEach_calcSSIM(inputAllocation, outputAllocation);
-
-        float MSSIM = sum1DFloatAllocation(outputAllocation);
-        MSSIM /= height;
-
-        Log.d(TAG_NAME, "MSSIM RS : " + MSSIM);
-
-        return (MSSIM >= mThreshold);
     }
 
     private boolean isWindowWhite(int[] colors, int start, int stride) {

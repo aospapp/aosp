@@ -16,20 +16,31 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
 
-import android.content.Context;
-import android.test.InstrumentationTestCase;
+import android.app.Activity;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ViewGroup;
 import android.widget.ListView;
 import android.widget.TextSwitcher;
 import android.widget.TextView;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link TextSwitcher}.
  */
-public class TextSwitcherTest extends InstrumentationTestCase {
-    private Context mContext;
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TextSwitcherTest {
     /**
      * test width to be used in addView() method.
      */
@@ -39,157 +50,165 @@ public class TextSwitcherTest extends InstrumentationTestCase {
      */
     private static final int PARAMS_HEIGHT = 300;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getContext();
+    private Activity mActivity;
+    private TextSwitcher mTextSwitcher;
+
+    @Rule
+    public ActivityTestRule<TextSwitcherCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TextSwitcherCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mTextSwitcher = (TextSwitcher) mActivity.findViewById(R.id.switcher);
     }
 
+    @Test
     public void testConstructor() {
-        new TextSwitcher(mContext);
+        new TextSwitcher(mActivity);
 
-        new TextSwitcher(mContext, null);
+        new TextSwitcher(mActivity, null);
     }
 
+    @UiThreadTest
+    @Test
     public void testSetText() {
         final String viewText1 = "Text 1";
         final String viewText2 = "Text 2";
         final String changedText = "Changed";
 
-        TextSwitcher textSwitcher = new TextSwitcher(mContext);
-
-        TextView tv1 = new TextView(mContext);
-        TextView tv2 = new TextView(mContext);
+        TextView tv1 = new TextView(mActivity);
+        TextView tv2 = new TextView(mActivity);
         tv1.setText(viewText1);
         tv2.setText(viewText2);
-        textSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
-        textSwitcher.addView(tv2, 1, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+        mTextSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+        mTextSwitcher.addView(tv2, 1, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
 
-        TextView tvChild1 = (TextView) textSwitcher.getChildAt(0);
-        TextView tvChild2 = (TextView) textSwitcher.getChildAt(1);
+        TextView tvChild1 = (TextView) mTextSwitcher.getChildAt(0);
+        TextView tvChild2 = (TextView) mTextSwitcher.getChildAt(1);
         assertEquals(viewText1, (tvChild1.getText().toString()));
         assertEquals(viewText2, (tvChild2.getText().toString()));
-        assertSame(tv1, textSwitcher.getCurrentView());
+        assertSame(tv1, mTextSwitcher.getCurrentView());
 
         // tvChild2's text is changed
-        textSwitcher.setText(changedText);
+        mTextSwitcher.setText(changedText);
         assertEquals(viewText1, (tvChild1.getText().toString()));
         assertEquals(changedText, (tvChild2.getText().toString()));
-        assertSame(tv2, textSwitcher.getCurrentView());
+        assertSame(tv2, mTextSwitcher.getCurrentView());
 
         // tvChild1's text is changed
-        textSwitcher.setText(changedText);
+        mTextSwitcher.setText(changedText);
         assertEquals(changedText, (tvChild1.getText().toString()));
         assertEquals(changedText, (tvChild2.getText().toString()));
-        assertSame(tv1, textSwitcher.getCurrentView());
+        assertSame(tv1, mTextSwitcher.getCurrentView());
 
         // tvChild2's text is changed
-        textSwitcher.setText(null);
+        mTextSwitcher.setText(null);
         assertEquals(changedText, (tvChild1.getText().toString()));
         assertEquals("", (tvChild2.getText().toString()));
-        assertSame(tv2, textSwitcher.getCurrentView());
+        assertSame(tv2, mTextSwitcher.getCurrentView());
     }
 
+    @UiThreadTest
+    @Test
     public void testSetCurrentText() {
         final String viewText1 = "Text 1";
         final String viewText2 = "Text 2";
         final String changedText1 = "Changed 1";
         final String changedText2 = "Changed 2";
 
-        TextSwitcher textSwitcher = new TextSwitcher(mContext);
-
-        TextView tv1 = new TextView(mContext);
-        TextView tv2 = new TextView(mContext);
+        TextView tv1 = new TextView(mActivity);
+        TextView tv2 = new TextView(mActivity);
         tv1.setText(viewText1);
         tv2.setText(viewText2);
-        textSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
-        textSwitcher.addView(tv2, 1, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+        mTextSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+        mTextSwitcher.addView(tv2, 1, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
 
-        TextView tvChild1 = (TextView) textSwitcher.getChildAt(0);
-        TextView tvChild2 = (TextView) textSwitcher.getChildAt(1);
+        TextView tvChild1 = (TextView) mTextSwitcher.getChildAt(0);
+        TextView tvChild2 = (TextView) mTextSwitcher.getChildAt(1);
         assertEquals(viewText1, (tvChild1.getText().toString()));
         assertEquals(viewText2, (tvChild2.getText().toString()));
-        assertSame(tv1, textSwitcher.getCurrentView());
+        assertSame(tv1, mTextSwitcher.getCurrentView());
 
         // tvChild1's text is changed
-        textSwitcher.setCurrentText(changedText1);
+        mTextSwitcher.setCurrentText(changedText1);
         assertEquals(changedText1, (tvChild1.getText().toString()));
         assertEquals(viewText2, (tvChild2.getText().toString()));
-        assertSame(tv1, textSwitcher.getCurrentView());
+        assertSame(tv1, mTextSwitcher.getCurrentView());
 
         // tvChild1's text is changed
-        textSwitcher.setCurrentText(changedText2);
+        mTextSwitcher.setCurrentText(changedText2);
         assertEquals(changedText2, (tvChild1.getText().toString()));
         assertEquals(viewText2, (tvChild2.getText().toString()));
-        assertSame(tv1, textSwitcher.getCurrentView());
+        assertSame(tv1, mTextSwitcher.getCurrentView());
 
         // tvChild1's text is changed
-        textSwitcher.setCurrentText(null);
+        mTextSwitcher.setCurrentText(null);
         assertEquals("", (tvChild1.getText().toString()));
         assertEquals(viewText2, (tvChild2.getText().toString()));
-        assertSame(tv1, textSwitcher.getCurrentView());
+        assertSame(tv1, mTextSwitcher.getCurrentView());
     }
 
+    @UiThreadTest
+    @Test
     public void testAddView() {
-        TextSwitcher textSwitcher = new TextSwitcher(mContext);
+        TextView tv1 = new TextView(mActivity);
+        TextView tv2 = new TextView(mActivity);
 
-        TextView tv1 = new TextView(mContext);
-        TextView tv2 = new TextView(mContext);
-
-        textSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
-        assertSame(tv1, textSwitcher.getChildAt(0));
-        assertEquals(1, textSwitcher.getChildCount());
+        mTextSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+        assertSame(tv1, mTextSwitcher.getChildAt(0));
+        assertEquals(1, mTextSwitcher.getChildCount());
 
         try {
             // tv1 already has a parent
-            textSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+            mTextSwitcher.addView(tv1, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
             fail("Should throw IllegalStateException");
         } catch (IllegalStateException e) {
             // expected
         }
 
         try {
-            textSwitcher.addView(tv2, Integer.MAX_VALUE,
+            mTextSwitcher.addView(tv2, Integer.MAX_VALUE,
                     new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
             fail("Should throw IndexOutOfBoundsException");
         } catch (IndexOutOfBoundsException e) {
             // expected
         }
 
-        textSwitcher.addView(tv2, 1,
+        mTextSwitcher.addView(tv2, 1,
                 new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
-        assertSame(tv2, textSwitcher.getChildAt(1));
-        assertEquals(2, textSwitcher.getChildCount());
+        assertSame(tv2, mTextSwitcher.getChildAt(1));
+        assertEquals(2, mTextSwitcher.getChildCount());
 
-        TextView tv3 = new TextView(mContext);
+        TextView tv3 = new TextView(mActivity);
 
         try {
-            // textSwitcher already has 2 children.
-            textSwitcher.addView(tv3, 2, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+            // mTextSwitcher already has 2 children.
+            mTextSwitcher.addView(tv3, 2, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
             fail("Should throw IllegalStateException");
         } catch (IllegalStateException e) {
             // expected
         }
 
-        textSwitcher = new TextSwitcher(mContext);
-        ListView lv = new ListView(mContext);
+        mTextSwitcher = new TextSwitcher(mActivity);
+        ListView lv = new ListView(mActivity);
 
         try {
-            textSwitcher.addView(lv, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+            mTextSwitcher.addView(lv, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
             fail("Should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
 
         try {
-            textSwitcher.addView(null, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
+            mTextSwitcher.addView(null, 0, new ViewGroup.LayoutParams(PARAMS_WIDTH, PARAMS_HEIGHT));
             fail("Should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
 
         try {
-            textSwitcher.addView(tv3, 0, null);
+            mTextSwitcher.addView(tv3, 0, null);
             fail("Should throw NullPointerException");
         } catch (NullPointerException e) {
             // expected

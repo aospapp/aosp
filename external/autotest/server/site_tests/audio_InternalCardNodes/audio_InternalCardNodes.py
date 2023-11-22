@@ -4,15 +4,11 @@
 
 """This is a server side test to check nodes created for internal card."""
 
-import logging
-import os
 import time
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.chameleon import audio_test_utils
-from autotest_lib.client.cros.chameleon import chameleon_audio_ids
-from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_InternalCardNodes(audio_test.AudioTest):
@@ -28,10 +24,11 @@ class audio_InternalCardNodes(audio_test.AudioTest):
 
     def run_once(self, host):
         chameleon_board = host.chameleon
-        factory = self.create_remote_facade_factory(host)
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
         audio_facade = factory.create_audio_facade()
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
 
         jack_plugger = chameleon_board.get_audio_board().get_jack_plugger()
 
@@ -65,8 +62,8 @@ class audio_InternalCardNodes(audio_test.AudioTest):
             expected_plugged_nodes_with_audio_jack[1].append('KEYBOARD_MIC')
 
         if board_name == 'samus':
-            expected_plugged_nodes_without_audio_jack[1].append('AOKR')
-            expected_plugged_nodes_with_audio_jack[1].append('AOKR')
+            expected_plugged_nodes_without_audio_jack[1].append('HOTWORD')
+            expected_plugged_nodes_with_audio_jack[1].append('HOTWORD')
 
         audio_test_utils.check_plugged_nodes(
                 audio_facade, expected_plugged_nodes_without_audio_jack)
@@ -87,4 +84,3 @@ class audio_InternalCardNodes(audio_test.AudioTest):
 
         audio_test_utils.check_plugged_nodes(
                 audio_facade, expected_plugged_nodes_without_audio_jack)
-

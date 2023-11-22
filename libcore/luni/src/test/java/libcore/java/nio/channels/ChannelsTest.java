@@ -17,12 +17,25 @@
 package libcore.java.nio.channels;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousByteChannel;
 import java.nio.channels.Channels;
 import java.nio.channels.IllegalBlockingModeException;
 import java.nio.channels.Pipe;
 import java.nio.channels.WritableByteChannel;
+import java.util.Arrays;
+import java.util.concurrent.Future;
 import junit.framework.TestCase;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+import static org.mockito.Mockito.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 
 public final class ChannelsTest extends TestCase {
 
@@ -56,5 +69,60 @@ public final class ChannelsTest extends TestCase {
         sourceChannel.configureBlocking(false);
         return sourceChannel;
     }
-}
 
+    public void testInputStreamAsynchronousByteChannel() throws Exception {
+        AsynchronousByteChannel abc = mock(AsynchronousByteChannel.class);
+        InputStream is = Channels.newInputStream(abc);
+        Future<Integer> result = mock(Future.class);
+        ArgumentCaptor<ByteBuffer> bbCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+        final byte[] bytesRead = new byte[10];
+
+        when(abc.read(bbCaptor.capture())).thenReturn(result);
+        when(result.get()).thenAnswer(
+            new Answer<Integer>() {
+                public Integer answer(InvocationOnMock invocation) {
+                    ByteBuffer bb = bbCaptor.getValue();
+                    assertEquals(bytesRead.length, bb.remaining());
+                    // Write '7' bytes
+                    bb.put(new byte[] {0, 1, 2, 3, 4, 5, 6});
+                    return 7;
+                }
+            });
+
+        assertEquals(7, is.read(bytesRead));
+        // Only 7 bytes of data should be written into the buffer
+        byte[] bytesExpected = new byte[] { 0, 1, 2, 3, 4, 5, 6, 0, 0, 0 };
+        assertTrue(Arrays.equals(bytesExpected, bytesRead));
+
+        Mockito.verify(abc).read(isA(ByteBuffer.class));
+        Mockito.verify(result).get();
+    }
+
+    public void testOutputStreamAsynchronousByteChannel() throws Exception {
+        AsynchronousByteChannel abc = mock(AsynchronousByteChannel.class);
+        OutputStream os = Channels.newOutputStream(abc);
+        Future<Integer> result = mock(Future.class);
+        ArgumentCaptor<ByteBuffer> bbCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
+        final byte[] data = "world".getBytes();
+
+        when(abc.write(bbCaptor.capture())).thenReturn(result);
+        when(result.get()).thenAnswer(
+            new Answer<Integer>() {
+                public Integer answer(InvocationOnMock invocation) {
+                    ByteBuffer bb = bbCaptor.getValue();
+                    assertEquals(data.length, bb.remaining());
+                    byte[] readData = new byte[data.length];
+                    // Read the whole thing
+                    bb.get(readData);
+                    assertTrue(Arrays.equals(data, readData));
+                    return data.length;
+                }
+            });
+
+        os.write(data);
+
+        Mockito.verify(abc).write(isA(ByteBuffer.class));
+        Mockito.verify(result).get();
+  }
+
+}

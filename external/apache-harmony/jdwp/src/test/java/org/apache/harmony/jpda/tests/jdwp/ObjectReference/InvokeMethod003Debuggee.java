@@ -37,9 +37,11 @@ public class InvokeMethod003Debuggee extends SyncDebuggee {
         logWriter.println("InvokeMethod003Debuggee.execMethod()");
     }
 
+    @Override
     public void run() {
         // Preload TestClass so it is available during the test.
-        Class c = null;
+        @SuppressWarnings("unused")
+        Class<?> c = null;
         try {
             c = Class.forName("org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethod003Debuggee$TestClass");
         } catch (ClassNotFoundException e) {

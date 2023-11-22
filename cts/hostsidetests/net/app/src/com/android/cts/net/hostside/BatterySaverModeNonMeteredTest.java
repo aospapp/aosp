@@ -19,7 +19,7 @@ package com.android.cts.net.hostside;
 public class BatterySaverModeNonMeteredTest extends AbstractBatterySaverModeTestCase {
 
     @Override
-    protected void setUpMeteredNetwork() throws Exception {
-        resetMeteredNetwork();
+    protected boolean setUpActiveNetworkMeteringState() throws Exception {
+        return setUnmeteredNetwork();
     }
 }

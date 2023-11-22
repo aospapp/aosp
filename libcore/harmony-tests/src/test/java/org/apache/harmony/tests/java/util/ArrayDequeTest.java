@@ -928,6 +928,7 @@ public class ArrayDequeTest extends TestCase {
         SpliteratorTester.runOrderedTests(adq);
         SpliteratorTester.runSizedTests(adq, 16 /* expected size */);
         SpliteratorTester.runSubSizedTests(adq, 16 /* expected size */);
+        SpliteratorTester.assertSupportsTrySplit(adq);
     }
 
     public void test_spliterator_CME() throws Exception {

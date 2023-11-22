@@ -255,22 +255,9 @@ public class OldSystemTest extends junit.framework.TestCase {
         }
     }
 
-    public void test_gc() {
-        Runtime rt =  Runtime.getRuntime();
-        Vector<StringBuffer> vec = new Vector<StringBuffer>();
-        long beforeTest = rt.freeMemory();
-        while(rt.freeMemory() < beforeTest * 2/3) {
-             vec.add(new StringBuffer(1000));
-        }
-        long beforeGC = rt.totalMemory() - rt.freeMemory();
-        vec = null;
-        System.gc();
-        System.runFinalization();
-        long afterGC = rt.totalMemory() - rt.freeMemory();
-        assertTrue("memory was not released after calling System.gc()." +
-                "before gc: " + beforeGC + "; after gc: " + afterGC,
-                beforeGC > afterGC);
-    }
+    // Android-changed: test_gc() was deleted. PhantomReferenceTest provides basic
+    // coverage for the fact that System.gc() executes a garbage collection if
+    // followed by System.runFinalization().
 
     public void test_getenv() {
         // String[] props = { "PATH", "HOME", "USER"};
@@ -321,15 +308,26 @@ public class OldSystemTest extends junit.framework.TestCase {
         } catch(NullPointerException expected) {
         }
 
-        // Trivial positive test for System.load: Attempt to load a libc.so - it's guaranteed
-        // to exist and is whitelisted for use from applications.
+        // Trivial positive test for System.load: Attempt to load a liblog.so - it's guaranteed
+        // to exist and is whitelisted for use from applications. Also, it's in the library search
+        // path for host builds.
         final ClassLoader cl = getClass().getClassLoader();
         // ClassLoader.findLibrary has protected access, so it's guaranteed to exist.
         final Method m = ClassLoader.class.getDeclaredMethod("findLibrary", String.class);
         assertNotNull(m);
-        String libPath = (String) m.invoke(cl, "c");
+        String libPath = (String) m.invoke(cl, "log");
         assertNotNull(libPath);
         System.load(new File(libPath).getAbsolutePath());
+
+        // A negative test for a library that exists but isn't specified as an absolute path.
+        // In other words, a name for which System.loadLibrary(libname) would suceed and
+        // System.load(libname) would fail.
+        String libName = new File(libPath).getName();
+        try {
+            System.load(libName);
+            fail();
+        } catch (UnsatisfiedLinkError expected) {
+        }
     }
 
     public void test_loadLibrary() {

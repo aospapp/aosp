@@ -30,4 +30,9 @@ public class OsConstantsTest extends TestCase {
 
         assertTrue(OsConstants.IFA_F_TENTATIVE > 0);
     }
+
+    // introduced for http://b/30402085
+    public void testTcpUserTimeoutIsDefined() {
+        assertTrue(OsConstants.TCP_USER_TIMEOUT > 0);
+    }
 }

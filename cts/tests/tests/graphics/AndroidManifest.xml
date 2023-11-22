@@ -31,26 +31,9 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.graphics.cts.MockActivity" android:label="MockActivity" />
-
-        <activity android:name="android.opengl.cts.CompressedTextureCtsActivity"
-            android:label="CompressedTextureCtsActivity"
-            android:screenOrientation="nosensor">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity android:name="android.opengl.cts.EglConfigCtsActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize|uiMode" />
-
-        <activity android:name="android.opengl.cts.GLSurfaceViewCtsActivity"
-                  android:label="GLSurfaceViewCts"/>
-
-        <activity android:name="android.opengl.cts.OpenGlEsVersionCtsActivity"/>
-
-        <activity android:name="android.graphics.drawable.cts.DrawableStubActivity"/>
+        <activity android:name="android.graphics.drawable.cts.DrawableStubActivity"
+                  android:theme="@style/WhiteBackgroundNoWindowAnimation"
+                  android:screenOrientation="locked"/>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

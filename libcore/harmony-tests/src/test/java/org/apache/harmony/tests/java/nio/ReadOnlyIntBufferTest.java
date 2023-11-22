@@ -138,8 +138,8 @@ public class ReadOnlyIntBufferTest extends IntBufferTest {
         }
         try {
             buf.put(buf);
-            fail("Should throw ReadOnlyBufferException"); //$NON-NLS-1$
-        } catch (ReadOnlyBufferException e) {
+            fail("Should throw IllegalArgumentException"); //$NON-NLS-1$
+        } catch (IllegalArgumentException e) {
             // expected
         }
     }

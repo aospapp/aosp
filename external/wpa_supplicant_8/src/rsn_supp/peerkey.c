@@ -65,10 +65,9 @@ static int wpa_supplicant_send_smk_error(struct wpa_sm *sm, const u8 *dst,
 {
 	size_t rlen;
 	struct wpa_eapol_key *err;
-	struct wpa_eapol_key_192 *err192;
 	struct rsn_error_kde error;
-	u8 *rbuf, *pos;
-	size_t kde_len;
+	u8 *rbuf, *pos, *mic;
+	size_t kde_len, mic_len = 16;
 	u16 key_info;
 
 	kde_len = 2 + RSN_SELECTOR_LEN + sizeof(error);
@@ -76,11 +75,11 @@ static int wpa_supplicant_send_smk_error(struct wpa_sm *sm, const u8 *dst,
 		kde_len += 2 + RSN_SELECTOR_LEN + ETH_ALEN;
 
 	rbuf = wpa_sm_alloc_eapol(sm, IEEE802_1X_TYPE_EAPOL_KEY,
-				  NULL, sizeof(*err) + kde_len, &rlen,
-				  (void *) &err);
+				  NULL, sizeof(*err) + mic_len + 2 + kde_len,
+				  &rlen, (void *) &err);
 	if (rbuf == NULL)
 		return -1;
-	err192 = (struct wpa_eapol_key_192 *) err;
+	mic = (u8 *) (err + 1);
 
 	err->type = EAPOL_KEY_TYPE_RSN;
 	key_info = ver | WPA_KEY_INFO_SMK_MESSAGE | WPA_KEY_INFO_MIC |
@@ -92,8 +91,8 @@ static int wpa_supplicant_send_smk_error(struct wpa_sm *sm, const u8 *dst,
 		  WPA_REPLAY_COUNTER_LEN);
 	inc_byte_array(sm->request_counter, WPA_REPLAY_COUNTER_LEN);
 
-	WPA_PUT_BE16(err->key_data_length, (u16) kde_len);
-	pos = (u8 *) (err + 1);
+	WPA_PUT_BE16(mic + mic_len, (u16) kde_len);
+	pos = mic + mic_len + 2;
 
 	if (peer) {
 		/* Peer MAC Address KDE */
@@ -114,8 +113,8 @@ static int wpa_supplicant_send_smk_error(struct wpa_sm *sm, const u8 *dst,
 			   "(mui %d error_type %d)", mui, error_type);
 	}
 
-	wpa_eapol_key_send(sm, sm->ptk.kck, sm->ptk.kck_len, ver, dst,
-			   ETH_P_EAPOL, rbuf, rlen, err192->key_mic);
+	wpa_eapol_key_send(sm, &sm->ptk, ver, dst, ETH_P_EAPOL, rbuf, rlen,
+			   mic);
 
 	return 0;
 }
@@ -128,9 +127,8 @@ static int wpa_supplicant_send_smk_m3(struct wpa_sm *sm,
 {
 	size_t rlen;
 	struct wpa_eapol_key *reply;
-	struct wpa_eapol_key_192 *reply192;
-	u8 *rbuf, *pos;
-	size_t kde_len;
+	u8 *rbuf, *pos, *mic;
+	size_t kde_len, mic_len = 16;
 	u16 key_info;
 
 	/* KDEs: Peer RSN IE, Initiator MAC Address, Initiator Nonce */
@@ -139,11 +137,10 @@ static int wpa_supplicant_send_smk_m3(struct wpa_sm *sm,
 		2 + RSN_SELECTOR_LEN + WPA_NONCE_LEN;
 
 	rbuf = wpa_sm_alloc_eapol(sm, IEEE802_1X_TYPE_EAPOL_KEY,
-				  NULL, sizeof(*reply) + kde_len, &rlen,
-				  (void *) &reply);
+				  NULL, sizeof(*reply) + mic_len + 2 + kde_len,
+				  &rlen, (void *) &reply);
 	if (rbuf == NULL)
 		return -1;
-	reply192 = (struct wpa_eapol_key_192 *) reply;
 
 	reply->type = EAPOL_KEY_TYPE_RSN;
 	key_info = ver | WPA_KEY_INFO_SMK_MESSAGE | WPA_KEY_INFO_MIC |
@@ -155,8 +152,9 @@ static int wpa_supplicant_send_smk_m3(struct wpa_sm *sm,
 
 	os_memcpy(reply->key_nonce, peerkey->pnonce, WPA_NONCE_LEN);
 
-	WPA_PUT_BE16(reply->key_data_length, (u16) kde_len);
-	pos = (u8 *) (reply + 1);
+	mic = (u8 *) (reply + 1);
+	WPA_PUT_BE16(mic + mic_len, (u16) kde_len);
+	pos = mic + mic_len + 2;
 
 	/* Peer RSN IE */
 	pos = wpa_add_ie(pos, peerkey->rsnie_p, peerkey->rsnie_p_len);
@@ -168,8 +166,8 @@ static int wpa_supplicant_send_smk_m3(struct wpa_sm *sm,
 	wpa_add_kde(pos, RSN_KEY_DATA_NONCE, peerkey->inonce, WPA_NONCE_LEN);
 
 	wpa_printf(MSG_DEBUG, "RSN: Sending EAPOL-Key SMK M3");
-	wpa_eapol_key_send(sm, sm->ptk.kck, sm->ptk.kck_len, ver, src_addr,
-			   ETH_P_EAPOL, rbuf, rlen, reply192->key_mic);
+	wpa_eapol_key_send(sm, &sm->ptk, ver, src_addr, ETH_P_EAPOL, rbuf, rlen,
+			   mic);
 
 	return 0;
 }
@@ -177,7 +175,8 @@ static int wpa_supplicant_send_smk_m3(struct wpa_sm *sm,
 
 static int wpa_supplicant_process_smk_m2(
 	struct wpa_sm *sm, const unsigned char *src_addr,
-	const struct wpa_eapol_key *key, size_t extra_len, int ver)
+	const struct wpa_eapol_key *key, const u8 *key_data,
+	size_t key_data_len, int ver)
 {
 	struct wpa_peerkey *peerkey;
 	struct wpa_eapol_ie_parse kde;
@@ -194,8 +193,7 @@ static int wpa_supplicant_process_smk_m2(
 		return -1;
 	}
 
-	if (wpa_supplicant_parse_ies((const u8 *) (key + 1), extra_len, &kde) <
-	    0) {
+	if (wpa_supplicant_parse_ies(key_data, key_data_len, &kde) < 0) {
 		wpa_printf(MSG_INFO, "RSN: Failed to parse KDEs in SMK M2");
 		return -1;
 	}
@@ -324,18 +322,19 @@ static void wpa_supplicant_send_stk_1_of_4(struct wpa_sm *sm,
 {
 	size_t mlen;
 	struct wpa_eapol_key *msg;
-	u8 *mbuf;
-	size_t kde_len;
+	u8 *mbuf, *mic;
+	size_t kde_len, mic_len = 16;
 	u16 key_info, ver;
 
 	kde_len = 2 + RSN_SELECTOR_LEN + PMKID_LEN;
 
 	mbuf = wpa_sm_alloc_eapol(sm, IEEE802_1X_TYPE_EAPOL_KEY, NULL,
-				  sizeof(*msg) + kde_len, &mlen,
+				  sizeof(*msg) + mic_len + 2 + kde_len, &mlen,
 				  (void *) &msg);
 	if (mbuf == NULL)
 		return;
 
+	mic = (u8 *) (msg + 1);
 	msg->type = EAPOL_KEY_TYPE_RSN;
 
 	if (peerkey->cipher != WPA_CIPHER_TKIP)
@@ -355,8 +354,8 @@ static void wpa_supplicant_send_stk_1_of_4(struct wpa_sm *sm,
 		  WPA_REPLAY_COUNTER_LEN);
 	inc_byte_array(peerkey->replay_counter, WPA_REPLAY_COUNTER_LEN);
 
-	WPA_PUT_BE16(msg->key_data_length, kde_len);
-	wpa_add_kde((u8 *) (msg + 1), RSN_KEY_DATA_PMKID,
+	WPA_PUT_BE16(mic + mic_len, kde_len);
+	wpa_add_kde(mic + mic_len + 2, RSN_KEY_DATA_PMKID,
 		    peerkey->smkid, PMKID_LEN);
 
 	if (random_get_bytes(peerkey->inonce, WPA_NONCE_LEN)) {
@@ -371,7 +370,7 @@ static void wpa_supplicant_send_stk_1_of_4(struct wpa_sm *sm,
 
 	wpa_printf(MSG_DEBUG, "RSN: Sending EAPOL-Key STK 1/4 to " MACSTR,
 		   MAC2STR(peerkey->addr));
-	wpa_eapol_key_send(sm, NULL, 0, ver, peerkey->addr, ETH_P_EAPOL,
+	wpa_eapol_key_send(sm, NULL, ver, peerkey->addr, ETH_P_EAPOL,
 			   mbuf, mlen, NULL);
 }
 
@@ -381,8 +380,8 @@ static void wpa_supplicant_send_stk_3_of_4(struct wpa_sm *sm,
 {
 	size_t mlen;
 	struct wpa_eapol_key *msg;
-	u8 *mbuf, *pos;
-	size_t kde_len;
+	u8 *mbuf, *pos, *mic;
+	size_t kde_len, mic_len = 16;
 	u16 key_info, ver;
 	be32 lifetime;
 
@@ -390,11 +389,12 @@ static void wpa_supplicant_send_stk_3_of_4(struct wpa_sm *sm,
 		2 + RSN_SELECTOR_LEN + sizeof(lifetime);
 
 	mbuf = wpa_sm_alloc_eapol(sm, IEEE802_1X_TYPE_EAPOL_KEY, NULL,
-				  sizeof(*msg) + kde_len, &mlen,
+				  sizeof(*msg) + mic_len + 2 + kde_len, &mlen,
 				  (void *) &msg);
 	if (mbuf == NULL)
 		return;
 
+	mic = (u8 *) (msg + 1);
 	msg->type = EAPOL_KEY_TYPE_RSN;
 
 	if (peerkey->cipher != WPA_CIPHER_TKIP)
@@ -415,8 +415,8 @@ static void wpa_supplicant_send_stk_3_of_4(struct wpa_sm *sm,
 		  WPA_REPLAY_COUNTER_LEN);
 	inc_byte_array(peerkey->replay_counter, WPA_REPLAY_COUNTER_LEN);
 
-	WPA_PUT_BE16(msg->key_data_length, kde_len);
-	pos = (u8 *) (msg + 1);
+	WPA_PUT_BE16(mic + mic_len, kde_len);
+	pos = mic + mic_len + 2;
 	pos = wpa_add_ie(pos, peerkey->rsnie_i, peerkey->rsnie_i_len);
 	lifetime = host_to_be32(peerkey->lifetime);
 	wpa_add_kde(pos, RSN_KEY_DATA_LIFETIME,
@@ -426,9 +426,8 @@ static void wpa_supplicant_send_stk_3_of_4(struct wpa_sm *sm,
 
 	wpa_printf(MSG_DEBUG, "RSN: Sending EAPOL-Key STK 3/4 to " MACSTR,
 		   MAC2STR(peerkey->addr));
-	wpa_eapol_key_send(sm, peerkey->stk.kck, peerkey->stk.kck_len, ver,
-			   peerkey->addr, ETH_P_EAPOL, mbuf, mlen,
-			   msg->key_mic);
+	wpa_eapol_key_send(sm, &peerkey->stk, ver, peerkey->addr, ETH_P_EAPOL,
+			   mbuf, mlen, mic);
 }
 
 
@@ -512,7 +511,8 @@ static int wpa_supplicant_process_smk_m5(struct wpa_sm *sm,
 
 static int wpa_supplicant_process_smk_m45(
 	struct wpa_sm *sm, const unsigned char *src_addr,
-	const struct wpa_eapol_key *key, size_t extra_len, int ver)
+	const struct wpa_eapol_key *key, const u8 *key_data,
+	size_t key_data_len, int ver)
 {
 	struct wpa_peerkey *peerkey;
 	struct wpa_eapol_ie_parse kde;
@@ -524,8 +524,7 @@ static int wpa_supplicant_process_smk_m45(
 		return -1;
 	}
 
-	if (wpa_supplicant_parse_ies((const u8 *) (key + 1), extra_len, &kde) <
-	    0) {
+	if (wpa_supplicant_parse_ies(key_data, key_data_len, &kde) < 0) {
 		wpa_printf(MSG_INFO, "RSN: Failed to parse KDEs in SMK M4/M5");
 		return -1;
 	}
@@ -591,7 +590,7 @@ static int wpa_supplicant_process_smk_m45(
 
 static int wpa_supplicant_process_smk_error(
 	struct wpa_sm *sm, const unsigned char *src_addr,
-	const struct wpa_eapol_key *key, size_t extra_len)
+	const u8 *key_data, size_t key_data_len)
 {
 	struct wpa_eapol_ie_parse kde;
 	struct rsn_error_kde error;
@@ -606,8 +605,7 @@ static int wpa_supplicant_process_smk_error(
 		return -1;
 	}
 
-	if (wpa_supplicant_parse_ies((const u8 *) (key + 1), extra_len, &kde) <
-	    0) {
+	if (wpa_supplicant_parse_ies(key_data, key_data_len, &kde) < 0) {
 		wpa_printf(MSG_INFO, "RSN: Failed to parse KDEs in SMK Error");
 		return -1;
 	}
@@ -717,7 +715,8 @@ static void wpa_supplicant_process_stk_1_of_4(struct wpa_sm *sm,
 
 	if (wpa_supplicant_send_2_of_4(sm, peerkey->addr, key, ver,
 				       peerkey->pnonce, kde_buf, kde_buf_len,
-				       stk)) {
+				       stk) < 0) {
+		wpa_printf(MSG_INFO, "RSN: Failed to send STK message 2/4");
 		os_free(kde_buf);
 		return;
 	}
@@ -845,6 +844,10 @@ static void wpa_supplicant_process_stk_3_of_4(struct wpa_sm *sm,
 			   "4-Way Handshake differs from 3 of STK 4-Way "
 			   "Handshake - drop packet (src=" MACSTR ")",
 			   MAC2STR(peerkey->addr));
+		wpa_hexdump(MSG_DEBUG, "RSN: INonce from message 1",
+			    peerkey->inonce, WPA_NONCE_LEN);
+		wpa_hexdump(MSG_DEBUG, "RSN: INonce from message 3",
+			    key->key_nonce, WPA_NONCE_LEN);
 		return;
 	}
 
@@ -852,8 +855,10 @@ static void wpa_supplicant_process_stk_3_of_4(struct wpa_sm *sm,
 
 	if (wpa_supplicant_send_4_of_4(sm, peerkey->addr, key, ver,
 				       WPA_GET_BE16(key->key_info),
-				       &peerkey->stk))
+				       &peerkey->stk) < 0) {
+		wpa_printf(MSG_INFO, "RSN: Failed to send STK message 4/4");
 		return;
+	}
 
 	_key = peerkey->stk.tk;
 	if (peerkey->cipher == WPA_CIPHER_TKIP) {
@@ -911,10 +916,10 @@ static void wpa_supplicant_process_stk_4_of_4(struct wpa_sm *sm,
  */
 int peerkey_verify_eapol_key_mic(struct wpa_sm *sm,
 				 struct wpa_peerkey *peerkey,
-				 struct wpa_eapol_key_192 *key, u16 ver,
+				 struct wpa_eapol_key *key, u16 ver,
 				 const u8 *buf, size_t len)
 {
-	u8 mic[WPA_EAPOL_KEY_MIC_MAX_LEN];
+	u8 mic[WPA_EAPOL_KEY_MIC_MAX_LEN], *mic_pos;
 	size_t mic_len = 16;
 	int ok = 0;
 
@@ -926,12 +931,13 @@ int peerkey_verify_eapol_key_mic(struct wpa_sm *sm,
 		peerkey->stk_set = 1;
 	}
 
-	os_memcpy(mic, key->key_mic, mic_len);
+	mic_pos = (u8 *) (key + 1);
+	os_memcpy(mic, mic_pos, mic_len);
 	if (peerkey->tstk_set) {
-		os_memset(key->key_mic, 0, mic_len);
+		os_memset(mic_pos, 0, mic_len);
 		wpa_eapol_key_mic(peerkey->tstk.kck, peerkey->tstk.kck_len,
-				  sm->key_mgmt, ver, buf, len, key->key_mic);
-		if (os_memcmp_const(mic, key->key_mic, mic_len) != 0) {
+				  sm->key_mgmt, ver, buf, len, mic_pos);
+		if (os_memcmp_const(mic, mic_pos, mic_len) != 0) {
 			wpa_printf(MSG_WARNING, "RSN: Invalid EAPOL-Key MIC "
 				   "when using TSTK - ignoring TSTK");
 		} else {
@@ -945,10 +951,10 @@ int peerkey_verify_eapol_key_mic(struct wpa_sm *sm,
 	}
 
 	if (!ok && peerkey->stk_set) {
-		os_memset(key->key_mic, 0, mic_len);
+		os_memset(mic_pos, 0, mic_len);
 		wpa_eapol_key_mic(peerkey->stk.kck, peerkey->stk.kck_len,
-				  sm->key_mgmt, ver, buf, len, key->key_mic);
-		if (os_memcmp_const(mic, key->key_mic, mic_len) != 0) {
+				  sm->key_mgmt, ver, buf, len, mic_pos);
+		if (os_memcmp_const(mic, mic_pos, mic_len) != 0) {
 			wpa_printf(MSG_WARNING, "RSN: Invalid EAPOL-Key MIC "
 				   "- dropping packet");
 			return -1;
@@ -980,10 +986,10 @@ int peerkey_verify_eapol_key_mic(struct wpa_sm *sm,
  */
 int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 {
-	size_t rlen, kde_len;
+	size_t rlen, kde_len, mic_len;
 	struct wpa_eapol_key *req;
 	int key_info, ver;
-	u8 bssid[ETH_ALEN], *rbuf, *pos, *count_pos;
+	u8 bssid[ETH_ALEN], *rbuf, *pos, *count_pos, *mic;
 	u16 count;
 	struct rsn_ie_hdr *hdr;
 	struct wpa_peerkey *peerkey;
@@ -999,6 +1005,7 @@ int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 		return -1;
 	}
 
+	mic_len = wpa_mic_len(sm->key_mgmt);
 	if (sm->pairwise_cipher != WPA_CIPHER_TKIP)
 		ver = WPA_KEY_INFO_TYPE_HMAC_SHA1_AES;
 	else
@@ -1047,7 +1054,7 @@ int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 	kde_len = peerkey->rsnie_i_len + 2 + RSN_SELECTOR_LEN + ETH_ALEN;
 
 	rbuf = wpa_sm_alloc_eapol(sm, IEEE802_1X_TYPE_EAPOL_KEY, NULL,
-				  sizeof(*req) + kde_len, &rlen,
+				  sizeof(*req) + mic_len + 2 + kde_len, &rlen,
 				  (void *) &req);
 	if (rbuf == NULL) {
 		wpa_supplicant_peerkey_free(sm, peerkey);
@@ -1074,8 +1081,10 @@ int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 	wpa_hexdump(MSG_DEBUG, "WPA: INonce for SMK handshake",
 		    req->key_nonce, WPA_NONCE_LEN);
 
-	WPA_PUT_BE16(req->key_data_length, (u16) kde_len);
-	pos = (u8 *) (req + 1);
+	mic = pos = (u8 *) (req + 1);
+	pos += mic_len;
+	WPA_PUT_BE16(pos, (u16) kde_len);
+	pos += 2;
 
 	/* Initiator RSN IE */
 	pos = wpa_add_ie(pos, peerkey->rsnie_i, peerkey->rsnie_i_len);
@@ -1084,8 +1093,8 @@ int wpa_sm_stkstart(struct wpa_sm *sm, const u8 *peer)
 
 	wpa_printf(MSG_INFO, "RSN: Sending EAPOL-Key SMK M1 Request (peer "
 		   MACSTR ")", MAC2STR(peer));
-	wpa_eapol_key_send(sm, sm->ptk.kck, sm->ptk.kck_len, ver, bssid,
-			   ETH_P_EAPOL, rbuf, rlen, req->key_mic);
+	wpa_eapol_key_send(sm, &sm->ptk, ver, bssid, ETH_P_EAPOL, rbuf, rlen,
+			   mic);
 
 	peerkey->next = sm->peerkey;
 	sm->peerkey = peerkey;
@@ -1135,20 +1144,22 @@ void peerkey_rx_eapol_4way(struct wpa_sm *sm, struct wpa_peerkey *peerkey,
 
 
 void peerkey_rx_eapol_smk(struct wpa_sm *sm, const u8 *src_addr,
-			  struct wpa_eapol_key *key, size_t extra_len,
+			  struct wpa_eapol_key *key, const u8 *key_data,
+			  size_t key_data_len,
 			  u16 key_info, u16 ver)
 {
 	if (key_info & WPA_KEY_INFO_ERROR) {
 		/* SMK Error */
-		wpa_supplicant_process_smk_error(sm, src_addr, key, extra_len);
+		wpa_supplicant_process_smk_error(sm, src_addr, key_data,
+						 key_data_len);
 	} else if (key_info & WPA_KEY_INFO_ACK) {
 		/* SMK M2 */
-		wpa_supplicant_process_smk_m2(sm, src_addr, key, extra_len,
-					      ver);
+		wpa_supplicant_process_smk_m2(sm, src_addr, key, key_data,
+					      key_data_len, ver);
 	} else {
 		/* SMK M4 or M5 */
-		wpa_supplicant_process_smk_m45(sm, src_addr, key, extra_len,
-					       ver);
+		wpa_supplicant_process_smk_m45(sm, src_addr, key, key_data,
+					       key_data_len, ver);
 	}
 }
 

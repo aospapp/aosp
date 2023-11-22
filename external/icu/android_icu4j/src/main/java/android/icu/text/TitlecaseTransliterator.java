@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  * Copyright (C) 1996-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
@@ -20,12 +22,14 @@ import android.icu.util.ULocale;
 class TitlecaseTransliterator extends Transliterator {
 
     static final String _ID = "Any-Title";
+    // TODO: Add variants for tr/az, lt, default = default locale: ICU ticket #12720
 
     /**
      * System registration hook.
      */
     static void register() {
         Transliterator.registerFactory(_ID, new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new TitlecaseTransliterator(ULocale.US);
             }
@@ -34,12 +38,12 @@ class TitlecaseTransliterator extends Transliterator {
         registerSpecialInverse("Title", "Lower", false);
     }
 
-    private ULocale locale;
+    private final ULocale locale;
 
-    private UCaseProps csp;
+    private final UCaseProps csp;
     private ReplaceableContextIterator iter;
     private StringBuilder result;
-    private int[] locCache;
+    private int caseLocale;
 
    /**
      * Constructs a transliterator.
@@ -52,13 +56,13 @@ class TitlecaseTransliterator extends Transliterator {
         csp=UCaseProps.INSTANCE;
         iter=new ReplaceableContextIterator();
         result = new StringBuilder();
-        locCache = new int[1];
-        locCache[0]=0;
+        caseLocale = UCaseProps.getCaseLocale(locale);
     }
-     
+
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
+    @Override
     protected synchronized void handleTransliterate(Replaceable text,
                                        Position offsets, boolean isIncremental) {
         // TODO reimplement, see ustrcase.c
@@ -115,9 +119,9 @@ class TitlecaseTransliterator extends Transliterator {
             type=csp.getTypeOrIgnorable(c);
             if(type>=0) { // not case-ignorable
                 if(doTitle) {
-                    c=csp.toFullTitle(c, iter, result, locale, locCache);
+                    c=csp.toFullTitle(c, iter, result, caseLocale);
                 } else {
-                    c=csp.toFullLower(c, iter, result, locale, locCache);
+                    c=csp.toFullLower(c, iter, result, caseLocale);
                 }
                 doTitle = type==0; // doTitle=isUncased
 
@@ -149,10 +153,10 @@ class TitlecaseTransliterator extends Transliterator {
         }
         offsets.start = offsets.limit;
     }
-    
+
     // NOTE: normally this would be static, but because the results vary by locale....
     SourceTargetUtility sourceTargetUtility = null;
-    
+
     /* (non-Javadoc)
      * @see android.icu.text.Transliterator#addSourceTargetSet(android.icu.text.UnicodeSet, android.icu.text.UnicodeSet, android.icu.text.UnicodeSet)
      */
@@ -161,8 +165,9 @@ class TitlecaseTransliterator extends Transliterator {
         synchronized (this) {
             if (sourceTargetUtility == null) {
                 sourceTargetUtility = new SourceTargetUtility(new Transform<String,String>() {
+                    @Override
                     public String transform(String source) {
-                        return UCharacter.toTitleCase(locale, source, null);                    
+                        return UCharacter.toTitleCase(locale, source, null);
                     }
                 });
             }

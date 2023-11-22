@@ -31,7 +31,6 @@
 
 #include <gui/BufferItem.h>
 #include <gui/GLConsumer.h>
-#include <gui/IGraphicBufferAlloc.h>
 #include <gui/ISurfaceComposer.h>
 #include <gui/SurfaceComposerClient.h>
 
@@ -157,6 +156,7 @@ GLConsumer::GLConsumer(const sp<IGraphicBufferConsumer>& bq, uint32_t tex,
     mCurrentScalingMode(NATIVE_WINDOW_SCALING_MODE_FREEZE),
     mCurrentFence(Fence::NO_FENCE),
     mCurrentTimestamp(0),
+    mCurrentDataSpace(HAL_DATASPACE_UNKNOWN),
     mCurrentFrameNumber(0),
     mDefaultWidth(1),
     mDefaultHeight(1),
@@ -185,6 +185,7 @@ GLConsumer::GLConsumer(const sp<IGraphicBufferConsumer>& bq, uint32_t texTarget,
     mCurrentScalingMode(NATIVE_WINDOW_SCALING_MODE_FREEZE),
     mCurrentFence(Fence::NO_FENCE),
     mCurrentTimestamp(0),
+    mCurrentDataSpace(HAL_DATASPACE_UNKNOWN),
     mCurrentFrameNumber(0),
     mDefaultWidth(1),
     mDefaultHeight(1),
@@ -321,7 +322,9 @@ status_t GLConsumer::releaseTexImage() {
         mCurrentCrop.makeInvalid();
         mCurrentTransform = 0;
         mCurrentTimestamp = 0;
+        mCurrentDataSpace = HAL_DATASPACE_UNKNOWN;
         mCurrentFence = Fence::NO_FENCE;
+        mCurrentFenceTime = FenceTime::NO_FENCE;
 
         if (mAttached) {
             // This binds a dummy buffer (mReleasedTexImage).
@@ -487,7 +490,9 @@ status_t GLConsumer::updateAndReleaseLocked(const BufferItem& item,
     mCurrentTransform = item.mTransform;
     mCurrentScalingMode = item.mScalingMode;
     mCurrentTimestamp = item.mTimestamp;
+    mCurrentDataSpace = item.mDataSpace;
     mCurrentFence = item.mFence;
+    mCurrentFenceTime = item.mFenceTime;
     mCurrentFrameNumber = item.mFrameNumber;
 
     computeCurrentTransformMatrixLocked();
@@ -856,6 +861,8 @@ void GLConsumer::computeTransformMatrix(float outTransform[16],
             switch (buf->getPixelFormat()) {
                 case PIXEL_FORMAT_RGBA_8888:
                 case PIXEL_FORMAT_RGBX_8888:
+                case PIXEL_FORMAT_RGBA_FP16:
+                case PIXEL_FORMAT_RGBA_1010102:
                 case PIXEL_FORMAT_RGB_888:
                 case PIXEL_FORMAT_RGB_565:
                 case PIXEL_FORMAT_BGRA_8888:
@@ -911,15 +918,26 @@ nsecs_t GLConsumer::getTimestamp() {
     return mCurrentTimestamp;
 }
 
+android_dataspace GLConsumer::getCurrentDataSpace() {
+    GLC_LOGV("getCurrentDataSpace");
+    Mutex::Autolock lock(mMutex);
+    return mCurrentDataSpace;
+}
+
 uint64_t GLConsumer::getFrameNumber() {
     GLC_LOGV("getFrameNumber");
     Mutex::Autolock lock(mMutex);
     return mCurrentFrameNumber;
 }
 
-sp<GraphicBuffer> GLConsumer::getCurrentBuffer() const {
+sp<GraphicBuffer> GLConsumer::getCurrentBuffer(int* outSlot) const {
     Mutex::Autolock lock(mMutex);
-    return (mCurrentTextureImage == NULL) ?
+
+    if (outSlot != nullptr) {
+        *outSlot = mCurrentTexture;
+    }
+
+    return (mCurrentTextureImage == nullptr) ?
             NULL : mCurrentTextureImage->graphicBuffer();
 }
 
@@ -979,6 +997,11 @@ uint32_t GLConsumer::getCurrentScalingMode() const {
 sp<Fence> GLConsumer::getCurrentFence() const {
     Mutex::Autolock lock(mMutex);
     return mCurrentFence;
+}
+
+std::shared_ptr<FenceTime> GLConsumer::getCurrentFenceTime() const {
+    Mutex::Autolock lock(mMutex);
+    return mCurrentFenceTime;
 }
 
 status_t GLConsumer::doGLFenceWait() const {
@@ -1228,14 +1251,19 @@ EGLImageKHR GLConsumer::EglImage::createImage(EGLDisplay dpy,
         EGL_NONE,
     };
     if (!crop.isValid()) {
-        // No crop rect to set, so terminate the attrib array before the crop.
-        attrs[2] = EGL_NONE;
+        // No crop rect to set, so leave the crop out of the attrib array. Make
+        // sure to propagate the protected content attrs if they are set.
+        attrs[2] = attrs[10];
+        attrs[3] = attrs[11];
+        attrs[4] = EGL_NONE;
     } else if (!isEglImageCroppable(crop)) {
         // The crop rect is not at the origin, so we can't set the crop on the
         // EGLImage because that's not allowed by the EGL_ANDROID_image_crop
         // extension.  In the future we can add a layered extension that
         // removes this restriction if there is hardware that can support it.
-        attrs[2] = EGL_NONE;
+        attrs[2] = attrs[10];
+        attrs[3] = attrs[11];
+        attrs[4] = EGL_NONE;
     }
     eglInitialize(dpy, 0, 0);
     EGLImageKHR image = eglCreateImageKHR(dpy, EGL_NO_CONTEXT,

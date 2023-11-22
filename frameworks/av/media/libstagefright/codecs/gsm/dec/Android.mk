@@ -10,11 +10,11 @@ LOCAL_C_INCLUDES := \
         external/libgsm/inc
 
 LOCAL_CFLAGS += -Werror
-LOCAL_CLANG := true
-LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow
+LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 LOCAL_SHARED_LIBRARIES := \
-        libstagefright libstagefright_omx libstagefright_foundation libutils liblog
+        libmedia libstagefright_omx libutils liblog
 
 LOCAL_STATIC_LIBRARIES := \
         libgsm

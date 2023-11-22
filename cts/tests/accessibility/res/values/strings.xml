@@ -23,7 +23,13 @@
     <!-- String title for the vibrating accessibility service -->
     <string name="title_vibrating_accessibility_service">Vibrating Accessibility Service</string>
 
+    <!-- String title for the vibrating accessibility service -->
+    <string name="title_speaking_and_vibrating_accessibility_service">Speaking and Vibrating Accessibility Service</string>
+
     <!-- Description of the speaking accessibility service -->
     <string name="some_description">Some description</string>
+
+    <!-- Summary of the speaking accessibility service -->
+    <string name="some_summary">Some summary</string>
 
 </resources>

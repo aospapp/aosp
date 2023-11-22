@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
-from autotest_lib.server import frontend
+import re
 
+import common
 from constants import Labels
 
 
@@ -57,4 +57,8 @@ class BoardEnumerator(object):
         if not labels:
             raise NoBoardException()
 
-        return map(lambda l: l.name.split(':', 1)[1], labels)
+        # Filter out all board labels tailing with -number, which is used for
+        # testbed only.
+        label_names = set([re.match(r'(.*?)(?:-\d+)?$', l.name).group(1)
+                           for l in labels])
+        return map(lambda l: l.split(':', 1)[1], label_names)

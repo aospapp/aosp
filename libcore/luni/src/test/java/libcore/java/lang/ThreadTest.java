@@ -16,9 +16,17 @@
 
 package libcore.java.lang;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
+
 import junit.framework.Assert;
 import junit.framework.TestCase;
+
+import org.mockito.InOrder;
+import org.mockito.Mockito;
+
 import libcore.java.lang.ref.FinalizationTester;
 
 public final class ThreadTest extends TestCase {
@@ -128,6 +136,46 @@ public final class ThreadTest extends TestCase {
         assertSame(Thread.currentThread().getContextClassLoader(), other.getContextClassLoader());
     }
 
+    public void testUncaughtExceptionPreHandler_calledBeforeDefaultHandler() {
+        UncaughtExceptionHandler initialHandler = Mockito.mock(UncaughtExceptionHandler.class);
+        UncaughtExceptionHandler defaultHandler = Mockito.mock(UncaughtExceptionHandler.class);
+        InOrder inOrder = Mockito.inOrder(initialHandler, defaultHandler);
+
+        UncaughtExceptionHandler originalDefaultHandler
+                = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setUncaughtExceptionPreHandler(initialHandler);
+        Thread.setDefaultUncaughtExceptionHandler(defaultHandler);
+        try {
+            Thread t = new Thread();
+            Throwable e = new Throwable();
+            t.dispatchUncaughtException(e);
+            inOrder.verify(initialHandler).uncaughtException(t, e);
+            inOrder.verify(defaultHandler).uncaughtException(t, e);
+            inOrder.verifyNoMoreInteractions();
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(originalDefaultHandler);
+            Thread.setUncaughtExceptionPreHandler(null);
+        }
+    }
+
+    public void testUncaughtExceptionPreHandler_noDefaultHandler() {
+        UncaughtExceptionHandler initialHandler = Mockito.mock(UncaughtExceptionHandler.class);
+        UncaughtExceptionHandler originalDefaultHandler
+                = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setUncaughtExceptionPreHandler(initialHandler);
+        Thread.setDefaultUncaughtExceptionHandler(null);
+        try {
+            Thread t = new Thread();
+            Throwable e = new Throwable();
+            t.dispatchUncaughtException(e);
+            Mockito.verify(initialHandler).uncaughtException(t, e);
+            Mockito.verifyNoMoreInteractions(initialHandler);
+        } finally {
+            Thread.setDefaultUncaughtExceptionHandler(originalDefaultHandler);
+            Thread.setUncaughtExceptionPreHandler(null);
+        }
+    }
+
     /**
      * Thread.getStackTrace() is broken. http://b/1252043
      */
@@ -137,11 +185,9 @@ public final class ThreadTest extends TestCase {
                 doSomething();
             }
             public void doSomething() {
-                for (int i = 0; i < 20;) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException ignored) {
-                    }
+                try {
+                    Thread.sleep(4000);
+                } catch (InterruptedException ignored) {
                 }
             }
         };
@@ -153,6 +199,7 @@ public final class ThreadTest extends TestCase {
         // Expect to find MyThread.doSomething in the trace
         assertTrue(trace.getClassName().contains("ThreadTest")
                 && trace.getMethodName().equals("doSomething"));
+        t1.join();
     }
 
     public void testGetAllStackTracesIncludesAllGroups() throws Exception {
@@ -176,6 +223,89 @@ public final class ThreadTest extends TestCase {
         // Not using assertNull here because this results in a better error message.
         if (testResult != null) {
             fail(testResult);
+        }
+    }
+
+    // http://b/29746125
+    public void testParkUntilWithUnderflowValue() throws Exception {
+        final Thread current = Thread.currentThread();
+
+        // watchdog to unpark the tread in case it will be parked
+        AtomicBoolean afterPark = new AtomicBoolean(false);
+        AtomicBoolean wasParkedForLongTime = new AtomicBoolean(false);
+        Thread watchdog = new Thread() {
+            @Override public void run() {
+                try {
+                    sleep(5000);
+                } catch(InterruptedException expected) {}
+
+                if (!afterPark.get()) {
+                    wasParkedForLongTime.set(true);
+                    current.unpark$();
+                }
+            }
+        };
+        watchdog.start();
+
+        // b/29746125 is caused by underflow: parkUntilArg - System.currentTimeMillis() > 0.
+        // parkUntil$ should return immediately for everyargument that's <=
+        // System.currentTimeMillis().
+        current.parkUntil$(Long.MIN_VALUE);
+        if (wasParkedForLongTime.get()) {
+            fail("Current thread was parked, but was expected to return immediately");
+        }
+        afterPark.set(true);
+        watchdog.interrupt();
+        watchdog.join();
+    }
+
+    /**
+     * Check that call Thread.start for already started thread
+     * throws {@code IllegalThreadStateException}
+     */
+    public void testThreadDoubleStart() {
+        final ReentrantLock lock = new ReentrantLock();
+        Thread thread = new Thread() {
+            public void run() {
+                // Lock should be acquired by the main thread and
+                // this thread should block on this operation.
+                lock.lock();
+            }
+        };
+        // Acquire lock to ensure that new thread is not finished
+        // when we call start() second time.
+        lock.lock();
+        try {
+            thread.start();
+            try {
+                thread.start();
+                fail();
+            } catch (IllegalThreadStateException expected) {
+            }
+        } finally {
+            lock.unlock();
+        }
+        try {
+            thread.join();
+        } catch (InterruptedException ignored) {
+        }
+    }
+
+    /**
+     * Check that call Thread.start for already finished thread
+     * throws {@code IllegalThreadStateException}
+     */
+    public void testThreadRestart() {
+        Thread thread = new Thread();
+        thread.start();
+        try {
+            thread.join();
+        } catch (InterruptedException ignored) {
+        }
+        try {
+            thread.start();
+            fail();
+        } catch (IllegalThreadStateException expected) {
         }
     }
 

@@ -16,156 +16,162 @@
 
 package com.android.tv.dvr.ui;
 
-import android.app.AlertDialog;
+import android.app.Activity;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.media.tv.TvContract;
-import android.support.annotation.Nullable;
-import android.support.v17.leanback.widget.Presenter;
-import android.view.View;
+import android.os.Handler;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.TextUtils;
+import android.text.style.TextAppearanceSpan;
 import android.view.ViewGroup;
-import android.widget.Toast;
 
 import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
 import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
-import com.android.tv.data.Program;
-import com.android.tv.data.ProgramDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.ScheduledRecording;
 import com.android.tv.util.Utils;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Presents a {@link ScheduledRecording} in the {@link DvrBrowseFragment}.
  */
-public class ScheduledRecordingPresenter extends Presenter {
+public class ScheduledRecordingPresenter extends DvrItemPresenter {
+    private static final long PROGRESS_UPDATE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(5);
+
     private final ChannelDataManager mChannelDataManager;
+    private final DvrManager mDvrManager;
+    private final Context mContext;
+    private final int mProgressBarColor;
 
     private static final class ScheduledRecordingViewHolder extends ViewHolder {
-        private ProgramDataManager.QueryProgramTask mQueryProgramTask;
+        private final Handler mHandler = new Handler();
+        private ScheduledRecording mScheduledRecording;
+        private final Runnable mProgressBarUpdater = new Runnable() {
+            @Override
+            public void run() {
+                updateProgressBar();
+                mHandler.postDelayed(this, PROGRESS_UPDATE_INTERVAL_MS);
+            }
+        };
 
-        ScheduledRecordingViewHolder(RecordingCardView view) {
+        ScheduledRecordingViewHolder(RecordingCardView view, int progressBarColor) {
             super(view);
+            view.setProgressBarColor(progressBarColor);
+        }
+
+        private void updateProgressBar() {
+            if (mScheduledRecording == null) {
+                return;
+            }
+            int recordingState = mScheduledRecording.getState();
+            RecordingCardView cardView = (RecordingCardView) view;
+            if (recordingState == ScheduledRecording.STATE_RECORDING_IN_PROGRESS) {
+                cardView.setProgressBar(Math.max(0, Math.min((int) (100 *
+                        (System.currentTimeMillis() - mScheduledRecording.getStartTimeMs())
+                        / mScheduledRecording.getDuration()), 100)));
+            } else if (recordingState == ScheduledRecording.STATE_RECORDING_FINISHED) {
+                cardView.setProgressBar(100);
+            } else {
+                // Hides progress bar.
+                cardView.setProgressBar(null);
+            }
+        }
+
+        private void startUpdateProgressBar() {
+            mHandler.post(mProgressBarUpdater);
+        }
+
+        private void stopUpdateProgressBar() {
+            mHandler.removeCallbacks(mProgressBarUpdater);
         }
     }
 
     public ScheduledRecordingPresenter(Context context) {
         ApplicationSingletons singletons = TvApplication.getSingletons(context);
         mChannelDataManager = singletons.getChannelDataManager();
+        mDvrManager = singletons.getDvrManager();
+        mContext = context;
+        mProgressBarColor = context.getResources()
+                .getColor(R.color.play_controls_recording_icon_color_on_focus);
     }
 
     @Override
     public ViewHolder onCreateViewHolder(ViewGroup parent) {
         Context context = parent.getContext();
         RecordingCardView view = new RecordingCardView(context);
-        return new ScheduledRecordingViewHolder(view);
+        return new ScheduledRecordingViewHolder(view, mProgressBarColor);
     }
 
     @Override
     public void onBindViewHolder(ViewHolder baseHolder, Object o) {
-        ScheduledRecordingViewHolder viewHolder = (ScheduledRecordingViewHolder) baseHolder;
+        final ScheduledRecordingViewHolder viewHolder = (ScheduledRecordingViewHolder) baseHolder;
         final ScheduledRecording recording = (ScheduledRecording) o;
         final RecordingCardView cardView = (RecordingCardView) viewHolder.view;
         final Context context = viewHolder.view.getContext();
 
-        long programId = recording.getProgramId();
-        if (programId == ScheduledRecording.ID_NOT_SET) {
-            setTitleAndImage(cardView, recording, null);
+        setTitleAndImage(cardView, recording);
+        int dateDifference = Utils.computeDateDifference(System.currentTimeMillis(),
+                recording.getStartTimeMs());
+        if (dateDifference <= 0) {
+            cardView.setContent(mContext.getString(R.string.dvr_date_today_time,
+                    Utils.getDurationString(context, recording.getStartTimeMs(),
+                            recording.getEndTimeMs(), false, false, true, 0)), null);
+        } else if (dateDifference == 1) {
+            cardView.setContent(mContext.getString(R.string.dvr_date_tomorrow_time,
+                    Utils.getDurationString(context, recording.getStartTimeMs(),
+                            recording.getEndTimeMs(), false, false, true, 0)), null);
         } else {
-            viewHolder.mQueryProgramTask = new ProgramDataManager.QueryProgramTask(
-                    context.getContentResolver(), programId) {
-                @Override
-                protected void onPostExecute(Program program) {
-                    super.onPostExecute(program);
-                    setTitleAndImage(cardView, recording, program);
-                }
-            };
-            viewHolder.mQueryProgramTask.executeOnDbThread();
-
+            cardView.setContent(Utils.getDurationString(context, recording.getStartTimeMs(),
+                    recording.getStartTimeMs(), false, true, false, 0), null);
         }
-        cardView.setContent(Utils.getDurationString(context, recording.getStartTimeMs(),
-                recording.getEndTimeMs(), true));
-        //TODO: replace with a detail card
-        View.OnClickListener clickListener = new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                switch (recording.getState()) {
-                    case ScheduledRecording.STATE_RECORDING_NOT_STARTED: {
-                        showScheduledRecordingDialog(v.getContext(), recording);
-                        break;
-                    }
-                    case ScheduledRecording.STATE_RECORDING_IN_PROGRESS: {
-                        showCurrentlyRecordingDialog(v.getContext(), recording);
-                        break;
-                    }
-                }
-            }
-        };
-        baseHolder.view.setOnClickListener(clickListener);
-    }
-
-    private void setTitleAndImage(RecordingCardView cardView, ScheduledRecording recording,
-            @Nullable Program program) {
-        if (program != null) {
-            cardView.setTitle(program.getTitle());
-            cardView.setImageUri(program.getPosterArtUri());
+        if (mDvrManager.isConflicting(recording)) {
+            cardView.setAffiliatedIcon(R.drawable.ic_warning_white_32dp);
         } else {
-            cardView.setTitle(
-                    cardView.getResources().getString(R.string.dvr_msg_program_title_unknown));
-            Channel channel = mChannelDataManager.getChannel(recording.getChannelId());
-            if (channel != null) {
-                cardView.setImageUri(TvContract.buildChannelLogoUri(channel.getId()).toString());
-            }
+            cardView.setAffiliatedIcon(0);
         }
+        viewHolder.updateProgressBar();
+        viewHolder.mScheduledRecording = recording;
+        viewHolder.startUpdateProgressBar();
+        super.onBindViewHolder(viewHolder, o);
     }
 
     @Override
     public void onUnbindViewHolder(ViewHolder baseHolder) {
         ScheduledRecordingViewHolder viewHolder = (ScheduledRecordingViewHolder) baseHolder;
+        viewHolder.stopUpdateProgressBar();
         final RecordingCardView cardView = (RecordingCardView) viewHolder.view;
-        if (viewHolder.mQueryProgramTask != null) {
-            viewHolder.mQueryProgramTask.cancel(true);
-            viewHolder.mQueryProgramTask = null;
-        }
+        viewHolder.mScheduledRecording = null;
         cardView.reset();
+        super.onUnbindViewHolder(viewHolder);
     }
 
-    private void showScheduledRecordingDialog(final Context context,
-            final ScheduledRecording recording) {
-        DialogInterface.OnClickListener removeScheduleListener
-                = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                // TODO(DVR) handle success/failure.
-                DvrManager dvrManager = TvApplication.getSingletons(context)
-                        .getDvrManager();
-                dvrManager.removeScheduledRecording((ScheduledRecording) recording);
-            }
-        };
-        new AlertDialog.Builder(context)
-                .setMessage(R.string.epg_dvr_dialog_message_remove_recording_schedule)
-                .setNegativeButton(android.R.string.no, null)
-                .setPositiveButton(android.R.string.yes, removeScheduleListener)
-                .show();
-    }
-
-    private void showCurrentlyRecordingDialog(final Context context,
-            final ScheduledRecording recording) {
-        DialogInterface.OnClickListener stopRecordingListener
-                = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                DvrManager dvrManager = TvApplication.getSingletons(context)
-                        .getDvrManager();
-                dvrManager.stopRecording((ScheduledRecording) recording);
-            }
-        };
-        new AlertDialog.Builder(context)
-                .setMessage(R.string.epg_dvr_dialog_message_stop_recording)
-                .setNegativeButton(android.R.string.no, null)
-                .setPositiveButton(android.R.string.yes, stopRecordingListener)
-                .show();
+    private void setTitleAndImage(RecordingCardView cardView, ScheduledRecording recording) {
+        Channel channel = mChannelDataManager.getChannel(recording.getChannelId());
+        SpannableString title = recording.getProgramTitleWithEpisodeNumber(mContext) == null ?
+                null : new SpannableString(recording.getProgramTitleWithEpisodeNumber(mContext));
+        if (TextUtils.isEmpty(title)) {
+            title = new SpannableString(channel != null ? channel.getDisplayName()
+                    : mContext.getResources().getString(R.string.no_program_information));
+        } else {
+            String programTitle = recording.getProgramTitle();
+            title.setSpan(new TextAppearanceSpan(mContext,
+                    R.style.text_appearance_card_view_episode_number),
+                    programTitle == null ? 0 : programTitle.length(), title.length(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        String imageUri = recording.getProgramPosterArtUri();
+        boolean isChannelLogo = false;
+        if (TextUtils.isEmpty(imageUri)) {
+            imageUri = channel != null ?
+                    TvContract.buildChannelLogoUri(channel.getId()).toString() : null;
+            isChannelLogo = true;
+        }
+        cardView.setTitle(title);
+        cardView.setImageUri(imageUri, isChannelLogo);
     }
 }

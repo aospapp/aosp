@@ -19,6 +19,7 @@
 identifier  [_a-zA-Z][_a-zA-Z0-9]*
 whitespace  ([ \t\r]+)
 intvalue    [-+]?(0|[1-9][0-9]*)
+hexvalue    0[x|X][0-9a-fA-F]+
 
 %%
 %{
@@ -67,6 +68,7 @@ parcelable            { return yy::parser::token::PARCELABLE; }
 import                { return yy::parser::token::IMPORT; }
 package               { return yy::parser::token::PACKAGE; }
 int                   { return yy::parser::token::INT; }
+String                { return yy::parser::token::STRING; }
 in                    { return yy::parser::token::IN; }
 out                   { return yy::parser::token::OUT; }
 inout                 { return yy::parser::token::INOUT; }
@@ -89,6 +91,8 @@ oneway                { yylval->token = new AidlToken("oneway", extra_text);
                       }
 {intvalue}            { yylval->integer = std::stoi(yytext);
                         return yy::parser::token::INTVALUE; }
+{hexvalue}            { yylval->token = new AidlToken(yytext, extra_text);
+                        return yy::parser::token::HEXVALUE; }
 
     /* syntax error! */
 .                     { printf("UNKNOWN(%s)", yytext);

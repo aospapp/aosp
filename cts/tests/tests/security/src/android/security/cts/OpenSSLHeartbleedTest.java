@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import android.content.Context;
+import android.platform.test.annotations.SecurityTest;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
@@ -57,6 +58,7 @@ import javax.net.ssl.X509TrustManager;
 /**
  * Tests for the OpenSSL Heartbleed vulnerability.
  */
+@SecurityTest
 public class OpenSSLHeartbleedTest extends InstrumentationTestCase {
 
     // IMPLEMENTATION NOTE: This test spawns an SSLSocket client, SSLServerSocket server, and a

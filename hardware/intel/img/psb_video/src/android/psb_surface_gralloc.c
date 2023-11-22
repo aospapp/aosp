@@ -60,6 +60,7 @@ VAStatus psb_DestroySurfaceGralloc(object_surface_p obj_surface)
     void *vaddr[GRALLOC_SUB_BUFFER_MAX];
     int usage = GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_COMPOSER;
     buffer_handle_t handle = obj_surface->psb_surface->buf.handle;
+    VAStatus vaStatus = VA_STATUS_SUCCESS;
 
 #ifdef PSBVIDEO_MRFL
     usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
@@ -82,10 +83,13 @@ VAStatus psb_DestroySurfaceGralloc(object_surface_p obj_surface)
             obj_surface->share_info->bob_deinterlace = bob_deinterlace;
         }
         gralloc_unlock(handle);
+
+        if (gralloc_unregister(handle))
+            vaStatus = VA_STATUS_ERROR_UNKNOWN;
     }
     pthread_mutex_unlock(&gralloc_mutex);
 
-    return VA_STATUS_SUCCESS;
+    return vaStatus;
 }
 
 #ifdef BAYTRAIL
@@ -364,100 +368,103 @@ VAStatus psb_CreateSurfacesFromGralloc(
         handle = (unsigned long)external_buffers->buffers[i];
         pthread_mutex_lock(&gralloc_mutex);
 
-        if (gralloc_lock((buffer_handle_t)handle, usage, 0, 0, width, height, (void **)&vaddr[GRALLOC_SUB_BUFFER0])) {
-            vaStatus = VA_STATUS_ERROR_UNKNOWN;
+        if (gralloc_register((buffer_handle_t)handle)) {
+            vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
         } else {
-            int cache_flag = PSB_USER_BUFFER_UNCACHED;
-            int buf_fd = gralloc_getbuffd((buffer_handle_t)handle);
+            if (gralloc_lock((buffer_handle_t)handle, usage, 0, 0, width, height, (void **)&vaddr[GRALLOC_SUB_BUFFER0])) {
+                vaStatus = VA_STATUS_ERROR_UNKNOWN;
+                gralloc_unregister((buffer_handle_t)handle);
+            } else {
+                int cache_flag = PSB_USER_BUFFER_UNCACHED;
+                int buf_fd = gralloc_getbuffd((buffer_handle_t)handle);
 #ifdef PSBVIDEO_MRFL
-            //cache_flag = 0;
+                //cache_flag = 0;
 #endif
-            vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
-                    (VASurfaceAttributeTPI *)external_buffers, psb_surface,
-                    vaddr[GRALLOC_SUB_BUFFER0], buf_fd, cache_flag);
-            psb_surface->buf.handle = (void *)handle;
-            obj_surface->share_info = NULL;
+                vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
+                        (VASurfaceAttributeTPI *)external_buffers, psb_surface,
+                        vaddr[GRALLOC_SUB_BUFFER0], buf_fd, cache_flag);
+                psb_surface->buf.handle = (void *)handle;
+                obj_surface->share_info = NULL;
 
-            if ((gfx_colorformat != HAL_PIXEL_FORMAT_NV12) &&
-                (gfx_colorformat != HAL_PIXEL_FORMAT_YV12) &&
-                (format != VA_RT_FORMAT_RGB32)) {
+                if ((gfx_colorformat != HAL_PIXEL_FORMAT_NV12) &&
+                        (gfx_colorformat != HAL_PIXEL_FORMAT_YV12) &&
+                        (format != VA_RT_FORMAT_RGB32)) {
+                    unsigned int decoder_share_info = (unsigned int)external_buffers->reserved[2];
+                    drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer initialized share info %d", __FUNCTION__, decoder_share_info);
+                    obj_surface->share_info = (psb_surface_share_info_t *)vaddr[GRALLOC_SUB_BUFFER1];
 
-                unsigned int decoder_share_info = (unsigned int)external_buffers->reserved[2];
-                drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer initialized share info %d",__FUNCTION__, decoder_share_info);
-                obj_surface->share_info = (psb_surface_share_info_t *)vaddr[GRALLOC_SUB_BUFFER1];
-
-                if (obj_surface->share_info->initialized != SHARE_INFO_INIT_VALUE) {
-                    memset(obj_surface->share_info, 0, sizeof(struct psb_surface_share_info_s));
-                    // Set clear video the default output method as OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE
-                    // if the video can be decoded by HW, will reset the output method as 0 in psb_BeginPicture
+                    if (obj_surface->share_info->initialized != SHARE_INFO_INIT_VALUE) {
+                        memset(obj_surface->share_info, 0, sizeof(struct psb_surface_share_info_s));
+                        // Set clear video the default output method as OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE
+                        // if the video can be decoded by HW, will reset the output method as 0 in psb_BeginPicture
 #ifdef PSBVIDEO_MSVDX_DEC_TILING
-                    obj_surface->share_info->tiling = external_buffers->tiling;
+                        obj_surface->share_info->tiling = external_buffers->tiling;
 #endif
-                    obj_surface->share_info->width = obj_surface->width;
-                    obj_surface->share_info->height = obj_surface->height_origin;
+                        obj_surface->share_info->width = obj_surface->width;
+                        obj_surface->share_info->height = obj_surface->height_origin;
 
-                    obj_surface->share_info->luma_stride = psb_surface->stride;
-                    obj_surface->share_info->chroma_u_stride = psb_surface->stride;
-                    obj_surface->share_info->chroma_v_stride = psb_surface->stride;
-                    obj_surface->share_info->format = VA_FOURCC_NV12;
+                        obj_surface->share_info->luma_stride = psb_surface->stride;
+                        obj_surface->share_info->chroma_u_stride = psb_surface->stride;
+                        obj_surface->share_info->chroma_v_stride = psb_surface->stride;
+                        obj_surface->share_info->format = VA_FOURCC_NV12;
 
-                    obj_surface->share_info->khandle = (uint32_t)(wsbmKBufHandle(wsbmKBuf(psb_surface->buf.drm_buf)));
+                        obj_surface->share_info->khandle = (uint32_t)(wsbmKBufHandle(wsbmKBuf(psb_surface->buf.drm_buf)));
 
-                    obj_surface->share_info->initialized = SHARE_INFO_INIT_VALUE;
+                        obj_surface->share_info->initialized = SHARE_INFO_INIT_VALUE;
+                    }
+
+                    if (decoder_share_info) {
+                        obj_surface->share_info->force_output_method = protected ? OUTPUT_FORCE_OVERLAY : OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE;
+                        obj_surface->share_info->native_window = (void *)external_buffers->reserved[0];
+
+                        attribute_tpi->reserved[1] = (unsigned long)obj_surface->share_info;
+
+                        if (vaddr[GRALLOC_SUB_BUFFER0] == NULL) {
+                            drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to lock graphic buffer in psb_video");
+                        } else {
+                            size = psb_surface->chroma_offset;
+                            // the following memset was used to work-around Bug 19197299 on L.
+                            // on DDK-1.5 we didn't observe the problem so comment it out.
+                            // memset((char *)vaddr[GRALLOC_SUB_BUFFER0], 0, size);
+                            // memset((char *)vaddr[GRALLOC_SUB_BUFFER0] + size, 0x80, psb_surface->size - size);
+                        }
+                        // overlay only support BT.601 and BT.709
+                        if (driver_data->load_csc_matrix == 1) {
+                            obj_surface->share_info->csc_mode = (driver_data->is_BT601 == 1) ? 0 : 1;
+                        } else {
+                            // if csc matrix is not set, use BT601 by default
+                            obj_surface->share_info->csc_mode = 0;
+                        }
+
+                        if (driver_data->set_video_range == 1) {
+                            obj_surface->share_info->video_range = driver_data->video_range;
+                        } else {
+                            // if video range is not set, use limited range by default
+                            obj_surface->share_info->video_range = 0;
+                        }
+
+                        obj_surface->share_info->surface_protected = driver_data->protected;
+                        if (driver_data->render_rect.width == 0 || driver_data->render_rect.height == 0) {
+                            obj_surface->share_info->crop_width = obj_surface->share_info->width;
+                            obj_surface->share_info->crop_height = obj_surface->share_info->height;
+                        } else {
+                            obj_surface->share_info->crop_width = driver_data->render_rect.width;
+                            obj_surface->share_info->crop_height = driver_data->render_rect.height;
+                        }
+
+                        if (obj_surface->share_info->coded_width == 0 || obj_surface->share_info->coded_height == 0) {
+                            obj_surface->share_info->coded_width = (obj_surface->share_info->width + 0xf) & ~0xf;
+                            obj_surface->share_info->coded_height = (obj_surface->share_info->height + 0xf) & ~0xf;
+                        }
+
+                        drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer success"
+                                "surface_id= 0x%x, vaddr[0] (0x%x), vaddr[1] (0x%x)\n",
+                                __FUNCTION__, surfaceID, vaddr[GRALLOC_SUB_BUFFER0], vaddr[GRALLOC_SUB_BUFFER1]);
+                    }
                 }
-
-                if (decoder_share_info) {
-                    obj_surface->share_info->force_output_method = protected ? OUTPUT_FORCE_OVERLAY : OUTPUT_FORCE_OVERLAY_FOR_SW_DECODE;
-                    obj_surface->share_info->native_window = (void *)external_buffers->reserved[0];
-
-                    attribute_tpi->reserved[1] = (unsigned long)obj_surface->share_info;
-
-                    if (vaddr[GRALLOC_SUB_BUFFER0] == NULL) {
-                        drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to lock graphic buffer in psb_video");
-                    }
-                    else {
-                        size = psb_surface->chroma_offset;
-                        // the following memset was used to work-around Bug 19197299 on L.
-                        // on DDK-1.5 we didn't observe the problem so comment it out.
-                        // memset((char *)vaddr[GRALLOC_SUB_BUFFER0], 0, size);
-                        // memset((char *)vaddr[GRALLOC_SUB_BUFFER0] + size, 0x80, psb_surface->size - size);
-                    }
-                    // overlay only support BT.601 and BT.709
-                    if (driver_data->load_csc_matrix == 1) {
-                        obj_surface->share_info->csc_mode = (driver_data->is_BT601 == 1) ? 0 : 1;
-                    } else {
-                        // if csc matrix is not set, use BT601 by default
-                        obj_surface->share_info->csc_mode = 0;
-                    }
-
-                    if (driver_data->set_video_range == 1) {
-                        obj_surface->share_info->video_range = driver_data->video_range;
-                    } else {
-                        // if video range is not set, use limited range by default
-                        obj_surface->share_info->video_range = 0;
-                    }
-
-                    obj_surface->share_info->surface_protected = driver_data->protected;
-                    if (driver_data->render_rect.width == 0 || driver_data->render_rect.height == 0) {
-                        obj_surface->share_info->crop_width = obj_surface->share_info->width;
-                        obj_surface->share_info->crop_height = obj_surface->share_info->height;
-                    } else {
-                        obj_surface->share_info->crop_width = driver_data->render_rect.width;
-                        obj_surface->share_info->crop_height = driver_data->render_rect.height;
-                    }
-
-                    if (obj_surface->share_info->coded_width == 0 || obj_surface->share_info->coded_height == 0) {
-                        obj_surface->share_info->coded_width = (obj_surface->share_info->width + 0xf) & ~0xf;
-                        obj_surface->share_info->coded_height = (obj_surface->share_info->height + 0xf) & ~0xf;
-                    }
-
-                    drv_debug_msg(VIDEO_DEBUG_GENERAL, "%s : Create graphic buffer success"
-                            "surface_id= 0x%x, vaddr[0] (0x%x), vaddr[1] (0x%x)\n",
-                            __FUNCTION__, surfaceID, vaddr[GRALLOC_SUB_BUFFER0], vaddr[GRALLOC_SUB_BUFFER1]);
-                }
+                gralloc_unlock((buffer_handle_t)handle);
+                psb_surface->buf.user_ptr = NULL;
             }
-            gralloc_unlock((buffer_handle_t)handle);
-            psb_surface->buf.user_ptr = NULL;
         }
         pthread_mutex_unlock(&gralloc_mutex);
 

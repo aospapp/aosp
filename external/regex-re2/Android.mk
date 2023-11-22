@@ -57,7 +57,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/re2
 LOCAL_SRC_FILES := $(regexp_re2_files)
-LOCAL_CFLAGS += -frtti
+LOCAL_CFLAGS += -frtti -Wno-unused-parameter
 LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_SDK_VERSION := 14
 include $(BUILD_STATIC_LIBRARY)

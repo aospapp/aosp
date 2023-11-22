@@ -154,7 +154,7 @@ class GitRepo(object):
         return rv
 
 
-    def clone(self):
+    def clone(self, remote_branch=None):
         """
         Clones a repo using giturl and repodir.
 
@@ -162,10 +162,15 @@ class GitRepo(object):
         make sure the getter of the gitcmd doesn't think we do by setting
         work_tree to None.
 
+        @param remote_branch: Specify the remote branch to clone. None if to
+                              clone master branch.
+
         @raises GitCloneError: if cloning the master repo fails.
         """
         logging.info('Cloning git repo %s', self.giturl)
         cmd = 'clone %s %s ' % (self.giturl, self.repodir)
+        if remote_branch:
+            cmd += '-b %s' % remote_branch
         abs_work_tree = self.work_tree
         self.work_tree = None
         try:
@@ -209,7 +214,7 @@ class GitRepo(object):
         rv = self.gitcmd('commit -a -m %s' % msg)
         if rv.exit_status != 0:
             logging.error(rv.stderr)
-            raise revision_control.GitCommitError('Unable to commit', rv)
+            raise GitCommitError('Unable to commit', rv)
 
 
     def reset(self, branch_or_sha):
@@ -262,6 +267,8 @@ class GitRepo(object):
         This will try to be nice and detect any local changes and bail early.
         OTOH, if it finishes successfully, it'll blow away anything and
         everything so that local repo reflects the upstream branch requested.
+
+        @param remote_branch: branch to check out.
         """
         if not self.is_repo_initialized():
             self.clone()
@@ -279,7 +286,7 @@ class GitRepo(object):
                 error_class=GitError,
                 error_msg='Failed to check for local changes.')
         if rv.stdout:
-            loggin.error(rv.stdout)
+            logging.error(rv.stdout)
             e_msg = 'Local checkout dirty. (%s)'
             raise GitError(e_msg % rv.stdout)
 

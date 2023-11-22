@@ -9,7 +9,7 @@
 #include "SkCanvas.h"
 #include "SkData.h"
 #include "SkDiscardableMemoryPool.h"
-#include "SkImageGeneratorPriv.h"
+#include "SkImageGenerator.h"
 #include "SkMatrixUtils.h"
 #include "SkPaint.h"
 #include "SkPath.h"
@@ -32,16 +32,16 @@ protected:
 //
 static void test_faulty_pixelref(skiatest::Reporter* reporter) {
     // need a cache, but don't expect to use it, so the budget is not critical
-    SkAutoTUnref<SkDiscardableMemoryPool> pool(
+    sk_sp<SkDiscardableMemoryPool> pool(
         SkDiscardableMemoryPool::Create(10 * 1000, nullptr));
 
     SkBitmap bm;
     const SkImageInfo info = SkImageInfo::MakeN32Premul(100, 100);
     bm.setInfo(info);
-    bm.setPixelRef(new FailurePixelRef(info), 0, 0)->unref();
+    bm.setPixelRef(sk_make_sp<FailurePixelRef>(info), 0, 0);
     // now our bitmap has a pixelref, but we know it will fail to lock
 
-    SkAutoTUnref<SkSurface> surface(SkSurface::NewRasterN32Premul(200, 200));
+    auto surface(SkSurface::MakeRasterN32Premul(200, 200));
     SkCanvas* canvas = surface->getCanvas();
 
     const SkFilterQuality levels[] = {
@@ -195,11 +195,9 @@ static void test_wacky_bitmapshader(skiatest::Reporter* reporter,
                   0.0078740157f,
                   SkIntToScalar(239),
                   0, 0, SK_Scalar1);
-    SkShader* s = SkShader::CreateBitmapShader(bm, SkShader::kRepeat_TileMode,
-                                               SkShader::kRepeat_TileMode, &matrix);
-
     SkPaint paint;
-    paint.setShader(s)->unref();
+    paint.setShader(SkShader::MakeBitmapShader(bm, SkShader::kRepeat_TileMode,
+                                               SkShader::kRepeat_TileMode, &matrix));
 
     SkRect r = SkRect::MakeXYWH(681, 239, 695, 253);
     c.drawRect(r, paint);

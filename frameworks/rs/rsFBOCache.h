@@ -63,7 +63,7 @@ protected:
 
 };
 
-} // renderscript
-} // android
+} // namespace renderscript
+} // namespace android
 
 #endif //ANDROID_FRAME_BUFFER_OBJECT_CACHE_H

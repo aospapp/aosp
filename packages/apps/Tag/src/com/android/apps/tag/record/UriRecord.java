@@ -23,6 +23,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.primitives.Bytes;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -107,6 +108,9 @@ public class UriRecord extends ParsedNdefRecord implements OnClickListener {
     @Override
     public void onClick(View view) {
         RecordUtils.ClickInfo info = (RecordUtils.ClickInfo) view.getTag();
+        if (requestPermissionIfNeeded(info.activity, info.intent)) {
+            return;
+        }
         try {
             info.activity.startActivity(info.intent);
             info.activity.finish();
@@ -143,5 +147,17 @@ public class UriRecord extends ParsedNdefRecord implements OnClickListener {
      */
     public static NdefRecord newUriRecord(Uri uri) {
         return NdefRecord.createUri(uri);
+    }
+
+    private boolean requestPermissionIfNeeded(Activity activity, Intent intent) {
+        boolean needRequestPermission = false;
+        if (Intent.ACTION_CALL.equals(intent.getAction())) {
+            if (activity.checkSelfPermission(Manifest.permission.CALL_PHONE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                needRequestPermission = true;
+                activity.requestPermissions(new String[]{Manifest.permission.CALL_PHONE}, 1);
+            }
+        }
+        return needRequestPermission;
     }
 }

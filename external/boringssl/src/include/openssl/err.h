@@ -120,7 +120,7 @@ extern "C" {
 
 /* Error queue handling functions.
  *
- * Errors in OpenSSL are generally signalled by the return value of a function.
+ * Errors in OpenSSL are generally signaled by the return value of a function.
  * When a function fails it may add an entry to a per-thread error queue,
  * which is managed by the functions in this header.
  *
@@ -306,7 +306,7 @@ OPENSSL_EXPORT void ERR_clear_system_error(void);
   ERR_put_error(ERR_LIB_SYS, 0, 0, __FILE__, __LINE__);
 
 /* ERR_put_error adds an error to the error queue, dropping the least recent
- * error if neccessary for space reasons. */
+ * error if necessary for space reasons. */
 OPENSSL_EXPORT void ERR_put_error(int library, int unused, int reason,
                                   const char *file, unsigned line);
 
@@ -317,7 +317,8 @@ OPENSSL_EXPORT void ERR_add_error_data(unsigned count, ...);
 
 /* ERR_add_error_dataf takes a printf-style format and arguments, and sets the
  * result as the data on the most recent error. */
-OPENSSL_EXPORT void ERR_add_error_dataf(const char *format, ...);
+OPENSSL_EXPORT void ERR_add_error_dataf(const char *format, ...)
+    OPENSSL_PRINTF_FORMAT_FUNC(1, 2);
 
 /* ERR_set_mark "marks" the most recent error for use with |ERR_pop_to_mark|.
  * It returns one if an error was marked and zero if there are no errors. */
@@ -330,14 +331,14 @@ OPENSSL_EXPORT int ERR_set_mark(void);
 OPENSSL_EXPORT int ERR_pop_to_mark(void);
 
 struct err_error_st {
-  /* file contains the filename where the error occured. */
+  /* file contains the filename where the error occurred. */
   const char *file;
   /* data contains optional data. It must be freed with |OPENSSL_free| if
    * |flags&ERR_FLAG_MALLOCED|. */
   char *data;
   /* packed contains the error library and reason, as packed by ERR_PACK. */
   uint32_t packed;
-  /* line contains the line number where the error occured. */
+  /* line contains the line number where the error occurred. */
   uint16_t line;
   /* flags contains a bitwise-OR of ERR_FLAG_* values. */
   uint8_t flags;
@@ -367,7 +368,7 @@ struct err_error_st {
 /* ERR_NUM_ERRORS is the limit of the number of errors in the queue. */
 #define ERR_NUM_ERRORS 16
 
-/* ERR_STATE contains the per-thread, error queue. */
+/* err_state_st (aka |ERR_STATE|) contains the per-thread, error queue. */
 typedef struct err_state_st {
   /* errors contains the ERR_NUM_ERRORS most recent errors, organised as a ring
    * buffer. */
@@ -466,7 +467,7 @@ enum {
 #define ERR_R_OVERFLOW (5 | ERR_R_FATAL)
 
 #define ERR_PACK(lib, reason)                                              \
-  (((((uint32_t)lib) & 0xff) << 24) | ((((uint32_t)reason) & 0xfff)))
+  (((((uint32_t)(lib)) & 0xff) << 24) | ((((uint32_t)(reason)) & 0xfff)))
 
 #define ERR_GET_LIB(packed_error) ((int)(((packed_error) >> 24) & 0xff))
 #define ERR_GET_FUNC(packed_error) 0

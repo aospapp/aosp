@@ -47,29 +47,28 @@ bool TpmOwnershipDBusProxy::Initialize() {
   return (object_proxy_ != nullptr);
 }
 
-void TpmOwnershipDBusProxy::GetTpmStatus(
-    const GetTpmStatusRequest& request,
-    const GetTpmStatusCallback& callback) {
+void TpmOwnershipDBusProxy::GetTpmStatus(const GetTpmStatusRequest& request,
+                                         const GetTpmStatusCallback& callback) {
   CallMethod<GetTpmStatusReply>(tpm_manager::kGetTpmStatus, request, callback);
 }
 
 void TpmOwnershipDBusProxy::TakeOwnership(
     const TakeOwnershipRequest& request,
     const TakeOwnershipCallback& callback) {
-  CallMethod<TakeOwnershipReply>(
-      tpm_manager::kTakeOwnership, request, callback);
+  CallMethod<TakeOwnershipReply>(tpm_manager::kTakeOwnership, request,
+                                 callback);
 }
 
 void TpmOwnershipDBusProxy::RemoveOwnerDependency(
     const RemoveOwnerDependencyRequest& request,
     const RemoveOwnerDependencyCallback& callback) {
-  CallMethod<RemoveOwnerDependencyReply>(
-      tpm_manager::kRemoveOwnerDependency, request, callback);
+  CallMethod<RemoveOwnerDependencyReply>(tpm_manager::kRemoveOwnerDependency,
+                                         request, callback);
 }
 
-template<typename ReplyProtobufType,
-         typename RequestProtobufType,
-         typename CallbackType>
+template <typename ReplyProtobufType,
+          typename RequestProtobufType,
+          typename CallbackType>
 void TpmOwnershipDBusProxy::CallMethod(const std::string& method_name,
                                        const RequestProtobufType& request,
                                        const CallbackType& callback) {
@@ -79,13 +78,8 @@ void TpmOwnershipDBusProxy::CallMethod(const std::string& method_name,
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      tpm_manager::kTpmOwnershipInterface,
-      method_name,
-      callback,
-      base::Bind(on_error),
-      request);
+      kDBusTimeoutMS, object_proxy_, tpm_manager::kTpmOwnershipInterface,
+      method_name, callback, base::Bind(on_error), request);
 }
 
 }  // namespace tpm_manager

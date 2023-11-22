@@ -25,6 +25,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.REGISTER_CALL_PROVIDER" />
@@ -65,7 +66,8 @@
             <intent-filter>
                 <action android:name="android.server.telecom.testapps.ACTION_SEND_UPDATE_REQUEST_FROM_TEST_INCALL_SERVICE"/>
                 <action android:name="android.server.telecom.testapps.ACTION_SEND_UPGRADE_RESPONSE"/>
-                <data android:scheme="int" />
+                <action android:name="android.telecom.action.PHONE_ACCOUNT_REGISTERED"/>
+                <action android:name="android.telecom.action.PHONE_ACCOUNT_UNREGISTERED"/>
             </intent-filter>
         </receiver>
 
@@ -77,6 +79,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.server.telecom.testapps.TestRttActivity"
+                  android:process="com.android.server.telecom.testapps.TestInCallService"
+                  android:label="@string/rttUiLabel"
+                  android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
@@ -103,6 +115,15 @@
                 <action android:name="android.telecom.testapps.ACTION_SEND_UPGRADE_REQUEST" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="int" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.telecom.testapps.ACTION_RTT_CALL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="tel" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.telecom.testapps.ACTION_REMOTE_RTT_UPGRADE" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
@@ -146,5 +167,46 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name="com.android.server.telecom.testapps.TestUssdActivity"
+                android:label="@string/UssdUiAppLabel"
+                android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+          </activity>
+
+        <activity android:name="com.android.server.telecom.testapps.SelfManagedCallingActivity"
+                  android:label="@string/selfManagedCallingActivityLabel"
+                  android:process="com.android.server.telecom.testapps.SelfMangingCallingApp"
+                  android:theme="@android:style/Theme.Material.Light">
+          <intent-filter>
+              <action android:name="android.intent.action.MAIN" />
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.LAUNCHER" />
+          </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.server.telecom.testapps.IncomingSelfManagedCallActivity"
+                  android:label="@string/selfManagedCallingActivityLabel"
+                  android:process="com.android.server.telecom.testapps.SelfMangingCallingApp">
+          <intent-filter>
+              <action android:name="android.intent.action.MAIN" />
+          </intent-filter>
+        </activity>
+
+        <service android:name="com.android.server.telecom.testapps.SelfManagedConnectionService"
+                 android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
+                 android:process="com.android.server.telecom.testapps.SelfMangingCallingApp">
+          <intent-filter>
+              <action android:name="android.telecom.ConnectionService" />
+          </intent-filter>
+        </service>
+
+        <receiver android:exported="false"
+            android:process="com.android.server.telecom.testapps.SelfMangingCallingApp"
+            android:name="com.android.server.telecom.testapps.SelfManagedCallNotificationReceiver" />
     </application>
 </manifest>

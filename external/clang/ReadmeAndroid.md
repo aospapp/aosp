@@ -1,6 +1,9 @@
 Android Clang/LLVM
 ==================
 
+For the latest version of this doc, please make sure to visit:
+[Android Clang/LLVM Toolchain Readme Doc](https://android.googlesource.com/platform/external/clang/+/dev/ReadmeAndroid.md)
+
 Platform Projects
 -----------------
 
@@ -94,6 +97,13 @@ Looking at Upstream
 
 The upstream repositories are automatically mirrored to the
 *aosp/upstream-master* branch. Update with `git fetch aosp upstream-master`.
+
+
+Communication
+-------------
+
+We have a public mailing list that you can subscribe to:
+[android-llvm@googlegroups.com](https://groups.google.com/forum/#!forum/android-llvm)
 
 
 Guides for Updating Toolchains

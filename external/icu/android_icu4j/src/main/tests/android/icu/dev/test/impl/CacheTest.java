@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2016, International Business Machines Corporation and
@@ -7,21 +9,17 @@
  */
 package android.icu.dev.test.impl;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.CacheValue;
 import android.icu.impl.CacheValue.Strength;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class CacheTest extends TestFmwk {
     public CacheTest() {}
 
-    public static void main(String[] args) throws Exception {
-        new CacheTest().run(args);
-    }
-
     /** Code coverage for CacheValue. */
+    @Test
     public void testNullCacheValue() {
         CacheValue<Object> nv = CacheValue.getInstance(null);
         assertTrue("null CacheValue isNull()", nv.isNull());
@@ -36,6 +34,7 @@ public class CacheTest extends TestFmwk {
     }
 
     /** Code coverage for CacheValue. */
+    @Test
     public void testStrongCacheValue() {
         boolean wasStrong = CacheValue.futureInstancesWillBeStrong();
         CacheValue.setStrength(Strength.STRONG);
@@ -54,6 +53,7 @@ public class CacheTest extends TestFmwk {
     }
 
     /** Code coverage for CacheValue. */
+    @Test
     public void testSoftCacheValue() {
         boolean wasStrong = CacheValue.futureInstancesWillBeStrong();
         CacheValue.setStrength(Strength.SOFT);

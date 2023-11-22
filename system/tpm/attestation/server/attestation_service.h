@@ -96,27 +96,19 @@ class AttestationService : public AttestationInterface {
     crypto_utility_ = crypto_utility;
   }
 
-  void set_database(Database* database) {
-    database_ = database;
-  }
+  void set_database(Database* database) { database_ = database; }
 
   void set_http_transport(
       const std::shared_ptr<brillo::http::Transport>& transport) {
     http_transport_ = transport;
   }
 
-  void set_key_store(KeyStore* key_store) {
-    key_store_ = key_store;
-  }
+  void set_key_store(KeyStore* key_store) { key_store_ = key_store; }
 
-  void set_tpm_utility(TpmUtility* tpm_utility) {
-    tpm_utility_ = tpm_utility;
-  }
+  void set_tpm_utility(TpmUtility* tpm_utility) { tpm_utility_ = tpm_utility; }
 
   // So tests don't need to duplicate URL decisions.
-  const std::string& attestation_ca_origin() {
-    return attestation_ca_origin_;
-  }
+  const std::string& attestation_ca_origin() { return attestation_ca_origin_; }
 
  private:
   enum ACARequestType {
@@ -126,7 +118,7 @@ class AttestationService : public AttestationInterface {
 
   // A relay callback which allows the use of weak pointer semantics for a reply
   // to TaskRunner::PostTaskAndReply.
-  template<typename ReplyProtobufType>
+  template <typename ReplyProtobufType>
   void TaskRelayCallback(
       const base::Callback<void(const ReplyProtobufType&)> callback,
       const std::shared_ptr<ReplyProtobufType>& reply) {
@@ -140,9 +132,8 @@ class AttestationService : public AttestationInterface {
       const std::shared_ptr<CreateGoogleAttestedKeyReply>& result);
 
   // A blocking implementation of GetKeyInfo.
-  void GetKeyInfoTask(
-      const GetKeyInfoRequest& request,
-      const std::shared_ptr<GetKeyInfoReply>& result);
+  void GetKeyInfoTask(const GetKeyInfoRequest& request,
+                      const std::shared_ptr<GetKeyInfoReply>& result);
 
   // A blocking implementation of GetEndorsementInfo.
   void GetEndorsementInfoTask(
@@ -245,8 +236,7 @@ class AttestationService : public AttestationInterface {
                const CertifiedKey& key);
 
   // Deletes the key associated with |username| and |key_label|.
-  void DeleteKey(const std::string& username,
-                 const std::string& key_label);
+  void DeleteKey(const std::string& username, const std::string& key_label);
 
   // Adds named device-wide key to the attestation database.
   bool AddDeviceKey(const std::string& key_label, const CertifiedKey& key);
@@ -276,7 +266,6 @@ class AttestationService : public AttestationInterface {
                                std::string* public_key_info) const;
 
   base::WeakPtr<AttestationService> GetWeakPtr();
-
 
   const std::string attestation_ca_origin_;
 

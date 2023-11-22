@@ -16,15 +16,15 @@
  */
 
 #define LOG_TAG "write_lst"
-#include <sys/types.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
 
-#include <cutils/log.h>
-
 #include <diskconfig/diskconfig.h>
+#include <log/log.h>
 
 struct write_list *
 alloc_wl(uint32_t data_len)

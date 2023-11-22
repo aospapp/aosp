@@ -17,6 +17,7 @@ package android.support.car.app.menu;
 
 /**
  * A listener that listens the user input to the search box.
+ * @hide
  */
 public abstract class SearchBoxEditListener {
     /**

@@ -15,7 +15,7 @@
 import its.image
 import its.device
 import its.objects
-import pylab
+from matplotlib import pylab
 import os.path
 import matplotlib
 import matplotlib.pyplot

@@ -15,7 +15,7 @@
  */
 package com.android.tv;
 
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
 import android.view.View;
 import android.widget.TextView;
 

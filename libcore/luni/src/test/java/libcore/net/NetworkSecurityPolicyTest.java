@@ -28,8 +28,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.ErrorManager;
@@ -214,6 +215,7 @@ public class NetworkSecurityPolicyTest extends TestCase {
             logger.publish(record);
             assertNull(mockErrorManager.getMostRecentException());
             server.assertDataTransmittedByClient();
+            logger.close();
         }
 
         // Assert that client does not transmit any data when cleartext traffic is not permitted.
@@ -235,8 +237,8 @@ public class NetworkSecurityPolicyTest extends TestCase {
     private static class CapturingServerSocket implements Closeable {
         private final ServerSocket mSocket;
         private final int mPort;
-        private final Thread mListeningThread;
-        private final FutureTask<byte[]> mFirstChunkReceivedFuture;
+        private final ExecutorService executor;
+        private final Future<byte[]> mFirstChunkReceivedFuture;
 
         /**
          * Constructs a new socket listening on a local port.
@@ -252,32 +254,29 @@ public class NetworkSecurityPolicyTest extends TestCase {
         public CapturingServerSocket(final byte[] replyOnConnect) throws IOException {
             mSocket = new ServerSocket(0);
             mPort = mSocket.getLocalPort();
-            mFirstChunkReceivedFuture = new FutureTask<byte[]>(new Callable<byte[]>() {
-                @Override
-                public byte[] call() throws Exception {
-                    try (Socket client = mSocket.accept()) {
-                        // Reply (if requested)
-                        if (replyOnConnect != null) {
-                            client.getOutputStream().write(replyOnConnect);
-                            client.getOutputStream().flush();
-                        }
-
-                        // Read request
-                        byte[] buf = new byte[64 * 1024];
-                        int chunkSize = client.getInputStream().read(buf);
-                        if (chunkSize == -1) {
-                            // Connection closed without any data received
-                            return new byte[0];
-                        }
-                        // Received some data
-                        return Arrays.copyOf(buf, chunkSize);
-                    } finally {
-                        IoUtils.closeQuietly(mSocket);
+            Callable<byte[]> callable = () -> {
+                try (Socket client = mSocket.accept()) {
+                    // Reply (if requested)
+                    if (replyOnConnect != null) {
+                        client.getOutputStream().write(replyOnConnect);
+                        client.getOutputStream().flush();
                     }
+
+                    // Read request
+                    byte[] buf = new byte[64 * 1024];
+                    int chunkSize = client.getInputStream().read(buf);
+                    if (chunkSize == -1) {
+                        // Connection closed without any data received
+                        return new byte[0];
+                    }
+                    // Received some data
+                    return Arrays.copyOf(buf, chunkSize);
+                } finally {
+                    IoUtils.closeQuietly(mSocket);
                 }
-            });
-            mListeningThread = new Thread(mFirstChunkReceivedFuture);
-            mListeningThread.start();
+            };
+            executor = Executors.newSingleThreadExecutor();
+            mFirstChunkReceivedFuture = executor.submit(callable);
         }
 
         public int getPort() {
@@ -291,12 +290,12 @@ public class NetworkSecurityPolicyTest extends TestCase {
         @Override
         public void close() {
             IoUtils.closeQuietly(mSocket);
-            mListeningThread.interrupt();
+            executor.shutdown();
         }
 
         private void assertDataTransmittedByClient()
                 throws Exception {
-            byte[] firstChunkFromClient = getFirstReceivedChunkFuture().get(2, TimeUnit.SECONDS);
+            byte[] firstChunkFromClient = getFirstReceivedChunkFuture().get(4, TimeUnit.SECONDS);
             if ((firstChunkFromClient == null) || (firstChunkFromClient.length == 0)) {
                 fail("Client did not transmit any data to server");
             }
@@ -306,7 +305,7 @@ public class NetworkSecurityPolicyTest extends TestCase {
                 throws Exception {
             byte[] firstChunkFromClient;
             try {
-                firstChunkFromClient = getFirstReceivedChunkFuture().get(2, TimeUnit.SECONDS);
+                firstChunkFromClient = getFirstReceivedChunkFuture().get(4, TimeUnit.SECONDS);
             } catch (TimeoutException expected) {
                 return;
             }
@@ -358,6 +357,11 @@ public class NetworkSecurityPolicyTest extends TestCase {
             }
 
             return isCleartextTrafficPermitted();
+        }
+
+        @Override
+        public boolean isCertificateTransparencyVerificationRequired(String hostname) {
+            return false;
         }
     }
 }

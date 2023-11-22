@@ -16,7 +16,6 @@
  */
 
 /**
- * @author modified by raaar
  *
  */
 

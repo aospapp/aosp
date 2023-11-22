@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Notfallkontakte"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Kontakt hinzufügen"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Kontakt-Picker konnte nicht gefunden werden"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Kontakt kann nicht angezeigt werden"</string>
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> aus Notfallkontakten entfernen?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Kontakt entfernen"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Kontaktdaten können nicht richtig gelesen werden"</string>
     <string name="remove" msgid="1243949503772376064">"Entfernen"</string>
     <string name="cancel" msgid="7401575239009060939">"Abbrechen"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Notfallinformationen"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Hier eingegebene Informationen können Ersthelfer in einer Notsituation unterstützen. Die Informationen werden nur auf deinem Gerät gespeichert und sind für alle über den Notruf einsehbar, ohne dass dein Telefon entsperrt werden muss."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Weiter"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Keine Notfallinformationen angegeben"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Keine Informationen über den Eigentümer des Smartphones verfügbar"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Wenn du der Eigentümer dieses Smartphones bist, tippe auf das Bleistiftsymbol, um Informationen hinzuzufügen, die im Notfall eingeblendet werden"</string>
     <string name="clear_all" msgid="8899013032870561633">"Alle löschen"</string>
     <string name="clear" msgid="3648880442502887163">"Löschen"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Möchtest du alle Informationen und Kontakte löschen?"</string>

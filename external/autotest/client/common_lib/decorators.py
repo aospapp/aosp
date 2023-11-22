@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import functools
+import logging
 
 
 def in_context(context_name):
@@ -81,3 +82,32 @@ def cached_property(func):
     """
     return _Property(func)
 
+
+def test_module_available(module, raise_error=False):
+    """A decorator to test if the given module is available first before
+    calling a function.
+
+    @param module: Module object. The value should be None if the module is
+                   failed to be imported.
+    @param raise_error: If true an import error will be raised on call if module
+                        is not imported.
+    """
+
+    def decorator(f):
+        """The actual decorator.
+
+        @param f: The function to call.
+
+        @return: The function to call based on the value of `module`
+        """
+
+        def dummy_func(*args, **kargs):
+            """A dummy function silently pass."""
+            logging.debug('Module %s is not found. Call %s is skipped.', module,
+                          f)
+            if raise_error:
+                raise ImportError('Module %s is not found.' % module)
+
+        return f if module else dummy_func
+
+    return decorator

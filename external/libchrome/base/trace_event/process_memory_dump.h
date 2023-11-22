@@ -7,16 +7,16 @@
 
 #include <stddef.h>
 
+#include <unordered_map>
 #include <vector>
 
 #include "base/base_export.h"
-#include "base/containers/hash_tables.h"
-#include "base/containers/small_map.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_vector.h"
 #include "base/trace_event/memory_allocator_dump.h"
 #include "base/trace_event/memory_allocator_dump_guid.h"
+#include "base/trace_event/memory_dump_request_args.h"
 #include "base/trace_event/memory_dump_session_state.h"
 #include "base/trace_event/process_memory_maps.h"
 #include "base/trace_event/process_memory_totals.h"
@@ -24,16 +24,13 @@
 
 // Define COUNT_RESIDENT_BYTES_SUPPORTED if platform supports counting of the
 // resident memory.
-// TODO(crbug.com/542671): COUNT_RESIDENT_BYTES_SUPPORTED is disabled on iOS
-// as it cause memory corruption on iOS 9.0+ devices.
-#if defined(OS_POSIX) && !defined(OS_NACL) && !defined(OS_IOS)
+#if (defined(OS_POSIX) && !defined(OS_NACL)) || defined(OS_WIN)
 #define COUNT_RESIDENT_BYTES_SUPPORTED
 #endif
 
 namespace base {
 namespace trace_event {
 
-class ConvertableToTraceFormat;
 class MemoryDumpManager;
 class MemoryDumpSessionState;
 class TracedValue;
@@ -52,12 +49,18 @@ class BASE_EXPORT ProcessMemoryDump {
   // Maps allocator dumps absolute names (allocator_name/heap/subheap) to
   // MemoryAllocatorDump instances.
   using AllocatorDumpsMap =
-      SmallMap<hash_map<std::string, MemoryAllocatorDump*>>;
+      std::unordered_map<std::string, std::unique_ptr<MemoryAllocatorDump>>;
 
   using HeapDumpsMap =
-      SmallMap<hash_map<std::string, scoped_refptr<TracedValue>>>;
+      std::unordered_map<std::string, std::unique_ptr<TracedValue>>;
 
 #if defined(COUNT_RESIDENT_BYTES_SUPPORTED)
+  // Returns the number of bytes in a kernel memory page. Some platforms may
+  // have a different value for kernel page sizes from user page sizes. It is
+  // important to use kernel memory page sizes for resident bytes calculation.
+  // In most cases, the two are the same.
+  static size_t GetSystemPageSize();
+
   // Returns the total bytes resident for a virtual address range, with given
   // |start_address| and |mapped_size|. |mapped_size| is specified in bytes. The
   // value returned is valid only if the given range is currently mmapped by the
@@ -65,7 +68,8 @@ class BASE_EXPORT ProcessMemoryDump {
   static size_t CountResidentBytes(void* start_address, size_t mapped_size);
 #endif
 
-  ProcessMemoryDump(const scoped_refptr<MemoryDumpSessionState>& session_state);
+  ProcessMemoryDump(scoped_refptr<MemoryDumpSessionState> session_state,
+                    const MemoryDumpArgs& dump_args);
   ~ProcessMemoryDump();
 
   // Creates a new MemoryAllocatorDump with the given name and returns the
@@ -98,6 +102,15 @@ class BASE_EXPORT ProcessMemoryDump {
   MemoryAllocatorDump* CreateSharedGlobalAllocatorDump(
       const MemoryAllocatorDumpGuid& guid);
 
+  // Creates a shared MemoryAllocatorDump as CreateSharedGlobalAllocatorDump,
+  // but with a WEAK flag. A weak dump will be discarded unless a non-weak dump
+  // is created using CreateSharedGlobalAllocatorDump by at least one process.
+  // The WEAK flag does not apply if a non-weak dump with the same GUID already
+  // exists or is created later. All owners and children of the discarded dump
+  // will also be discarded transitively.
+  MemoryAllocatorDump* CreateWeakSharedGlobalAllocatorDump(
+      const MemoryAllocatorDumpGuid& guid);
+
   // Looks up a shared MemoryAllocatorDump given its guid.
   MemoryAllocatorDump* GetSharedGlobalAllocatorDump(
       const MemoryAllocatorDumpGuid& guid) const;
@@ -105,11 +118,12 @@ class BASE_EXPORT ProcessMemoryDump {
   // Returns the map of the MemoryAllocatorDumps added to this dump.
   const AllocatorDumpsMap& allocator_dumps() const { return allocator_dumps_; }
 
-  // Adds a heap dump for the allocator with |absolute_name|. The |TracedValue|
-  // must have the correct format. |trace_event::HeapDumper| will generate such
-  // a value from a |trace_event::AllocationRegister|.
-  void AddHeapDump(const std::string& absolute_name,
-                   scoped_refptr<TracedValue> heap_dump);
+  // Dumps heap usage with |allocator_name|.
+  void DumpHeapUsage(const base::hash_map<base::trace_event::AllocationContext,
+                                          base::trace_event::AllocationMetrics>&
+                         metrics_by_context,
+                     base::trace_event::TraceEventMemoryOverhead& overhead,
+                     const char* allocator_name);
 
   // Adds an ownership relationship between two MemoryAllocatorDump(s) with the
   // semantics: |source| owns |target|, and has the effect of attributing
@@ -161,8 +175,17 @@ class BASE_EXPORT ProcessMemoryDump {
   bool has_process_mmaps() const { return has_process_mmaps_; }
   void set_has_process_mmaps() { has_process_mmaps_ = true; }
 
+  const HeapDumpsMap& heap_dumps() const { return heap_dumps_; }
+
+  const MemoryDumpArgs& dump_args() const { return dump_args_; }
+
  private:
-  void AddAllocatorDumpInternal(MemoryAllocatorDump* mad);
+  FRIEND_TEST_ALL_PREFIXES(ProcessMemoryDumpTest, BackgroundModeTest);
+
+  MemoryAllocatorDump* AddAllocatorDumpInternal(
+      std::unique_ptr<MemoryAllocatorDump> mad);
+
+  MemoryAllocatorDump* GetBlackHoleMad();
 
   ProcessMemoryTotals process_totals_;
   bool has_process_totals_;
@@ -173,14 +196,23 @@ class BASE_EXPORT ProcessMemoryDump {
   AllocatorDumpsMap allocator_dumps_;
   HeapDumpsMap heap_dumps_;
 
-  // ProcessMemoryDump handles the memory ownership of all its belongings.
-  ScopedVector<MemoryAllocatorDump> allocator_dumps_storage_;
-
   // State shared among all PMDs instances created in a given trace session.
   scoped_refptr<MemoryDumpSessionState> session_state_;
 
   // Keeps track of relationships between MemoryAllocatorDump(s).
   std::vector<MemoryAllocatorDumpEdge> allocator_dumps_edges_;
+
+  // Level of detail of the current dump.
+  const MemoryDumpArgs dump_args_;
+
+  // This allocator dump is returned when an invalid dump is created in
+  // background mode. The attributes of the dump are ignored and not added to
+  // the trace.
+  std::unique_ptr<MemoryAllocatorDump> black_hole_mad_;
+
+  // When set to true, the DCHECK(s) for invalid dump creations on the
+  // background mode are disabled for testing.
+  static bool is_black_hole_non_fatal_for_testing_;
 
   DISALLOW_COPY_AND_ASSIGN(ProcessMemoryDump);
 };

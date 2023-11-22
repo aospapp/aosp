@@ -27,20 +27,21 @@ import android.util.Log;
 import com.android.cts.core.runner.support.ExtendedAndroidRunnerBuilder;
 import com.google.common.base.Splitter;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.HashSet;
-import javax.annotation.Nullable;
 import org.junit.runner.Computer;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Request;
+import org.junit.runner.Result;
 import org.junit.runner.Runner;
 import org.junit.runner.manipulation.Filter;
 import org.junit.runner.manipulation.Filterable;
@@ -48,8 +49,6 @@ import org.junit.runner.manipulation.NoTestsRemainException;
 import org.junit.runner.notification.RunListener;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
-import vogar.ExpectationStore;
-import vogar.ModeId;
 
 import static com.android.cts.core.runner.AndroidJUnitRunnerConstants.ARGUMENT_COUNT;
 import static com.android.cts.core.runner.AndroidJUnitRunnerConstants.ARGUMENT_DEBUG;
@@ -69,11 +68,9 @@ import static com.android.cts.core.runner.AndroidJUnitRunnerConstants.ARGUMENT_T
  */
 public class CoreTestRunner extends Instrumentation {
 
-    public static final String TAG = "LibcoreTestRunner";
+    static final String TAG = "LibcoreTestRunner";
 
     private static final java.lang.String ARGUMENT_ROOT_CLASSES = "core-root-classes";
-
-    private static final String ARGUMENT_EXPECTATIONS = "core-expectations";
 
     private static final String ARGUMENT_CORE_LISTENER = "core-listener";
 
@@ -82,20 +79,11 @@ public class CoreTestRunner extends Instrumentation {
     /** The args for the runner. */
     private Bundle args;
 
-    /** Only count the number of tests, and not run them. */
-    private boolean testCountOnly;
-
-    /** Only log the number of tests, and not run them. */
+    /** Only log the number and names of tests, and not run them. */
     private boolean logOnly;
 
     /** The amount of time in millis to wait for a single test to complete. */
     private long testTimeout;
-
-    /**
-     * The container for any test expectations.
-     */
-    @Nullable
-    private ExpectationStore expectationStore;
 
     /**
      * The list of tests to run.
@@ -106,6 +94,7 @@ public class CoreTestRunner extends Instrumentation {
      * The list of {@link RunListener} classes to create.
      */
     private List<Class<? extends RunListener>> listenerClasses;
+    private Filter expectationFilter;
 
     @Override
     public void onCreate(final Bundle args) {
@@ -123,19 +112,16 @@ public class CoreTestRunner extends Instrumentation {
         // unparceled.
         Log.d(TAG, "In OnCreate: " + args);
 
-        this.logOnly = "true".equalsIgnoreCase(args.getString(ARGUMENT_LOG_ONLY));
-        this.testCountOnly = args.getBoolean(ARGUMENT_COUNT);
+        // Treat logOnly and count as the same. This is not quite true as count should only send
+        // the host the number of tests but logOnly should send the name and number. However,
+        // this is how this has always behaved and it does not appear to have caused any problems.
+        // Changing it seems unnecessary given that count is CTSv1 only and CTSv1 will be removed
+        // soon now that CTSv2 is ready.
+        boolean testCountOnly = args.getBoolean(ARGUMENT_COUNT);
+        this.logOnly = "true".equalsIgnoreCase(args.getString(ARGUMENT_LOG_ONLY)) || testCountOnly;
         this.testTimeout = parseUnsignedLong(args.getString(ARGUMENT_TIMEOUT), ARGUMENT_TIMEOUT);
 
-        try {
-            // Get the set of resource names containing the expectations.
-            Set<String> expectationResources = new LinkedHashSet<>(
-                    getExpectationResourcePaths(args));
-            expectationStore = ExpectationStore.parseResources(
-                    getClass(), expectationResources, ModeId.DEVICE);
-        } catch (IOException e) {
-            Log.e(TAG, "Could not initialize ExpectationStore: ", e);
-        }
+        expectationFilter = new ExpectationBasedFilter(args);
 
         // The test can be run specifying a list of tests to run, or as cts-tradefed does it,
         // by passing a fileName with a test to run on each line.
@@ -220,11 +206,7 @@ public class CoreTestRunner extends Instrumentation {
         start();
     }
 
-    protected List<String> getExpectationResourcePaths(Bundle args) {
-        return CLASS_LIST_SPLITTER.splitToList(args.getString(ARGUMENT_EXPECTATIONS));
-    }
-
-    protected List<String> getRootClassNames(Bundle args) {
+    private List<String> getRootClassNames(Bundle args) {
         String rootClasses = args.getString(ARGUMENT_ROOT_CLASSES);
         List<String> roots;
         if (rootClasses == null) {
@@ -237,40 +219,46 @@ public class CoreTestRunner extends Instrumentation {
 
     @Override
     public void onStart() {
-        if (logOnly || testCountOnly) {
+        if (logOnly) {
             Log.d(TAG, "Counting/logging tests only");
         } else {
             Log.d(TAG, "Running tests");
         }
 
         AndroidRunnerParams runnerParams = new AndroidRunnerParams(this, args,
-                logOnly || testCountOnly, testTimeout, false /*ignoreSuiteMethods*/);
+                false, testTimeout, false /*ignoreSuiteMethods*/);
 
-        JUnitCore core = new JUnitCore();
-
-        Request request;
+        Runner runner;
         try {
             RunnerBuilder runnerBuilder = new ExtendedAndroidRunnerBuilder(runnerParams);
             Class[] classes = testList.getClassesToRun();
             for (Class cls : classes) {
               Log.d(TAG, "Found class to run: " + cls.getName());
             }
-            Runner suite = new Computer().getSuite(runnerBuilder, classes);
+            runner = new Computer().getSuite(runnerBuilder, classes);
 
-            if (suite instanceof Filterable) {
-                Filterable filterable = (Filterable) suite;
+            if (runner instanceof Filterable) {
+                Log.d(TAG, "Applying filters");
+                Filterable filterable = (Filterable) runner;
 
                 // Filter out all the tests that are expected to fail.
-                Filter filter = new TestFilter(testList, expectationStore);
-
                 try {
-                    filterable.filter(filter);
+                    filterable.filter(expectationFilter);
                 } catch (NoTestsRemainException e) {
                     // Sometimes filtering will remove all tests but we do not care about that.
                 }
+                Log.d(TAG, "Applied filters");
             }
 
-            request = Request.runner(suite);
+            // If the tests are only supposed to be logged and not actually run then replace the
+            // runner with a runner that will fire notifications for all the tests that would have
+            // been run. This is needed because CTSv2 does a log only run through a CTS module in
+            // order to generate a list of tests that will be run so that it can monitor them.
+            // Encapsulating that in a Runner implementation makes it easier to leverage the
+            // existing code for running tests.
+            if (logOnly) {
+                runner = new DescriptionHierarchyNotifier(runner.getDescription());
+            }
 
         } catch (InitializationError e) {
             throw new RuntimeException("Could not create a suite", e);
@@ -279,30 +267,51 @@ public class CoreTestRunner extends Instrumentation {
         InstrumentationResultPrinter instrumentationResultPrinter =
                 new InstrumentationResultPrinter();
         instrumentationResultPrinter.setInstrumentation(this);
+
+        JUnitCore core = new JUnitCore();
         core.addListener(instrumentationResultPrinter);
 
-        for (Class<? extends RunListener> listenerClass : listenerClasses) {
-            try {
-                RunListener runListener = listenerClass.newInstance();
-                if (runListener instanceof InstrumentationRunListener) {
-                    ((InstrumentationRunListener) runListener).setInstrumentation(this);
+        // If not logging the list of tests then add any additional configured listeners. These
+        // must be added before firing any events.
+        if (!logOnly) {
+            // Add additional configured listeners.
+            for (Class<? extends RunListener> listenerClass : listenerClasses) {
+                try {
+                    RunListener runListener = listenerClass.newInstance();
+                    if (runListener instanceof InstrumentationRunListener) {
+                        ((InstrumentationRunListener) runListener).setInstrumentation(this);
+                    }
+                    core.addListener(runListener);
+                } catch (InstantiationException | IllegalAccessException e) {
+                    Log.e(TAG,
+                            "Could not create instance of listener: " + listenerClass, e);
                 }
-                core.addListener(runListener);
-            } catch (InstantiationException | IllegalAccessException e) {
-                Log.e(TAG, "Could not create instance of listener: " + listenerClass, e);
             }
         }
 
+        Log.d(TAG, "Finished preparations, running/listing tests");
+
         Bundle results = new Bundle();
+        Result junitResults = new Result();
         try {
-            core.run(request);
+            junitResults = core.run(Request.runner(runner));
         } catch (RuntimeException e) {
             final String msg = "Fatal exception when running tests";
             Log.e(TAG, msg, e);
             // report the exception to instrumentation out
             results.putString(Instrumentation.REPORT_KEY_STREAMRESULT,
                     msg + "\n" + Log.getStackTraceString(e));
+        } finally {
+            ByteArrayOutputStream summaryStream = new ByteArrayOutputStream();
+            // create the stream used to output summary data to the user
+            PrintStream summaryWriter = new PrintStream(summaryStream);
+            instrumentationResultPrinter.instrumentationRunFinished(summaryWriter,
+                    results, junitResults);
+            summaryWriter.close();
+            results.putString(Instrumentation.REPORT_KEY_STREAMRESULT,
+                    String.format("\n%s", summaryStream.toString()));
         }
+
 
         Log.d(TAG, "Finished");
         finish(Activity.RESULT_OK, results);
@@ -343,5 +352,4 @@ public class CoreTestRunner extends Instrumentation {
         }
         return -1;
     }
-
 }

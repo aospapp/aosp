@@ -25,10 +25,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PersistableBundle;
-import android.preference.CheckBoxPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
+import android.preference.SwitchPreference;
 import android.telephony.CarrierConfigManager;
 import android.util.Log;
 import android.view.MenuItem;
@@ -38,7 +38,7 @@ public class CdmaCallOptions extends PreferenceActivity {
     private final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
 
     private static final String BUTTON_VP_KEY = "button_voice_privacy_key";
-    private CheckBoxPreference mButtonVoicePrivacy;
+    private SwitchPreference mButtonVoicePrivacy;
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -50,7 +50,7 @@ public class CdmaCallOptions extends PreferenceActivity {
         subInfoHelper.setActionBarTitle(
                 getActionBar(), getResources(), R.string.labelCdmaMore_with_label);
 
-        mButtonVoicePrivacy = (CheckBoxPreference) findPreference(BUTTON_VP_KEY);
+        mButtonVoicePrivacy = (SwitchPreference) findPreference(BUTTON_VP_KEY);
         PersistableBundle carrierConfig;
         if (subInfoHelper.hasSubId()) {
             carrierConfig = PhoneGlobals.getInstance().getCarrierConfigForSubId(

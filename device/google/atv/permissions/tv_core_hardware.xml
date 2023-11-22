@@ -31,6 +31,9 @@
     <feature name="android.software.leanback_only" />
     <feature name="android.software.live_tv" />
     <feature name="android.software.picture_in_picture" />
+    <feature name="android.software.activities_on_secondary_displays" />
     <feature name="android.software.voice_recognizers" />
+
+    <feature name="android.software.cts" />
 
 </permissions>

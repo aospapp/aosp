@@ -82,16 +82,6 @@ static const glu::ShaderType s_shaders[] =
 	glu::SHADERTYPE_COMPUTE
 };
 
-static const gls::TextureTestUtil::TextureType s_imageTypes[] =
-{
-	gls::TextureTestUtil::TEXTURETYPE_2D,
-	gls::TextureTestUtil::TEXTURETYPE_3D,
-	gls::TextureTestUtil::TEXTURETYPE_CUBE,
-	gls::TextureTestUtil::TEXTURETYPE_2D_ARRAY,
-	gls::TextureTestUtil::TEXTURETYPE_BUFFER,
-	gls::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY
-};
-
 std::string getShaderImageLayoutQualifier (const tcu::TextureFormat& format)
 {
 	std::ostringstream qualifier;
@@ -107,16 +97,16 @@ std::string getShaderImageLayoutQualifier (const tcu::TextureFormat& format)
 
 	switch (format.type)
 	{
-		case tcu::TextureFormat::FLOAT: 			qualifier << "32f";			break;
-		case tcu::TextureFormat::HALF_FLOAT: 		qualifier << "16f";			break;
-		case tcu::TextureFormat::UNORM_INT8: 		qualifier << "8";			break;
-		case tcu::TextureFormat::SNORM_INT8: 		qualifier << "8_snorm";		break;
-		case tcu::TextureFormat::SIGNED_INT32: 		qualifier << "32i";			break;
-		case tcu::TextureFormat::SIGNED_INT16: 		qualifier << "16i";			break;
-		case tcu::TextureFormat::SIGNED_INT8: 		qualifier << "8i";			break;
-		case tcu::TextureFormat::UNSIGNED_INT32: 	qualifier << "32ui";		break;
-		case tcu::TextureFormat::UNSIGNED_INT16: 	qualifier << "16ui";		break;
-		case tcu::TextureFormat::UNSIGNED_INT8: 	qualifier << "8ui";			break;
+		case tcu::TextureFormat::FLOAT:				qualifier << "32f";			break;
+		case tcu::TextureFormat::HALF_FLOAT:		qualifier << "16f";			break;
+		case tcu::TextureFormat::UNORM_INT8:		qualifier << "8";			break;
+		case tcu::TextureFormat::SNORM_INT8:		qualifier << "8_snorm";		break;
+		case tcu::TextureFormat::SIGNED_INT32:		qualifier << "32i";			break;
+		case tcu::TextureFormat::SIGNED_INT16:		qualifier << "16i";			break;
+		case tcu::TextureFormat::SIGNED_INT8:		qualifier << "8i";			break;
+		case tcu::TextureFormat::UNSIGNED_INT32:	qualifier << "32ui";		break;
+		case tcu::TextureFormat::UNSIGNED_INT16:	qualifier << "16ui";		break;
+		case tcu::TextureFormat::UNSIGNED_INT8:		qualifier << "8ui";			break;
 		default:
 			DE_ASSERT(false);
 			return std::string("");
@@ -125,7 +115,7 @@ std::string getShaderImageLayoutQualifier (const tcu::TextureFormat& format)
 	return qualifier.str();
 }
 
-std::string getShaderImageTypeDeclaration (const tcu::TextureFormat& format, gls::TextureTestUtil::TextureType imageType)
+std::string getShaderImageTypeDeclaration (const tcu::TextureFormat& format, glu::TextureTestUtil::TextureType imageType)
 {
 	std::ostringstream declaration;
 
@@ -134,7 +124,7 @@ std::string getShaderImageTypeDeclaration (const tcu::TextureFormat& format, gls
 		case tcu::TextureFormat::FLOAT:
 		case tcu::TextureFormat::HALF_FLOAT:
 		case tcu::TextureFormat::UNORM_INT8:
-		case tcu::TextureFormat::SNORM_INT8: 		declaration << "";		break;
+		case tcu::TextureFormat::SNORM_INT8:		declaration << "";		break;
 
 		case tcu::TextureFormat::SIGNED_INT32:
 		case tcu::TextureFormat::SIGNED_INT16:
@@ -153,12 +143,12 @@ std::string getShaderImageTypeDeclaration (const tcu::TextureFormat& format, gls
 
 	switch(imageType)
 	{
-		case gls::TextureTestUtil::TEXTURETYPE_2D:			declaration << "2D";			break;
-		case gls::TextureTestUtil::TEXTURETYPE_3D:			declaration << "3D";			break;
-		case gls::TextureTestUtil::TEXTURETYPE_CUBE:		declaration << "Cube";			break;
-		case gls::TextureTestUtil::TEXTURETYPE_2D_ARRAY:	declaration << "2DArray";		break;
-		case gls::TextureTestUtil::TEXTURETYPE_BUFFER:		declaration << "Buffer";		break;
-		case gls::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY:	declaration << "CubeArray";		break;
+		case glu::TextureTestUtil::TEXTURETYPE_2D:			declaration << "2D";			break;
+		case glu::TextureTestUtil::TEXTURETYPE_3D:			declaration << "3D";			break;
+		case glu::TextureTestUtil::TEXTURETYPE_CUBE:		declaration << "Cube";			break;
+		case glu::TextureTestUtil::TEXTURETYPE_2D_ARRAY:	declaration << "2DArray";		break;
+		case glu::TextureTestUtil::TEXTURETYPE_BUFFER:		declaration << "Buffer";		break;
+		case glu::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY:	declaration << "CubeArray";		break;
 		default:
 			DE_ASSERT(false);
 			return std::string("");
@@ -167,24 +157,24 @@ std::string getShaderImageTypeDeclaration (const tcu::TextureFormat& format, gls
 	return declaration.str();
 }
 
-std::string getShaderImageTypeExtensionString (gls::TextureTestUtil::TextureType imageType)
+std::string getShaderImageTypeExtensionString (glu::TextureTestUtil::TextureType imageType)
 {
 	std::string extension;
 
 	switch(imageType)
 	{
-		case gls::TextureTestUtil::TEXTURETYPE_2D:
-		case gls::TextureTestUtil::TEXTURETYPE_3D:
-		case gls::TextureTestUtil::TEXTURETYPE_CUBE:
-		case gls::TextureTestUtil::TEXTURETYPE_2D_ARRAY:
+		case glu::TextureTestUtil::TEXTURETYPE_2D:
+		case glu::TextureTestUtil::TEXTURETYPE_3D:
+		case glu::TextureTestUtil::TEXTURETYPE_CUBE:
+		case glu::TextureTestUtil::TEXTURETYPE_2D_ARRAY:
 			extension = "";
 			break;
 
-		case gls::TextureTestUtil::TEXTURETYPE_BUFFER:
+		case glu::TextureTestUtil::TEXTURETYPE_BUFFER:
 			extension = "#extension GL_EXT_texture_buffer : enable";
 			break;
 
-		case gls::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY:
+		case glu::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY:
 			extension = "#extension GL_EXT_texture_cube_map_array : enable";
 			break;
 
@@ -196,20 +186,20 @@ std::string getShaderImageTypeExtensionString (gls::TextureTestUtil::TextureType
 	return extension;
 }
 
-std::string getShaderImageParamP (gls::TextureTestUtil::TextureType imageType)
+std::string getShaderImageParamP (glu::TextureTestUtil::TextureType imageType)
 {
 	switch(imageType)
 	{
-		case gls::TextureTestUtil::TEXTURETYPE_2D:
+		case glu::TextureTestUtil::TEXTURETYPE_2D:
 			return "ivec2(1, 1)";
 
-		case gls::TextureTestUtil::TEXTURETYPE_3D:
-		case gls::TextureTestUtil::TEXTURETYPE_CUBE:
-		case gls::TextureTestUtil::TEXTURETYPE_2D_ARRAY:
-		case gls::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY:
+		case glu::TextureTestUtil::TEXTURETYPE_3D:
+		case glu::TextureTestUtil::TEXTURETYPE_CUBE:
+		case glu::TextureTestUtil::TEXTURETYPE_2D_ARRAY:
+		case glu::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY:
 			return "ivec3(1, 1, 1)";
 
-		case gls::TextureTestUtil::TEXTURETYPE_BUFFER:
+		case glu::TextureTestUtil::TEXTURETYPE_BUFFER:
 			return "1";
 
 		default:
@@ -349,9 +339,9 @@ std::string getFunctionName (ImageOperation function)
 	return std::string("");
 }
 
-std::string generateShaderSource (ImageOperation function, MemoryQualifier memory, gls::TextureTestUtil::TextureType imageType, const tcu::TextureFormat& format, glu::ShaderType shaderType)
+std::string generateShaderSource (ImageOperation function, MemoryQualifier memory, glu::TextureTestUtil::TextureType imageType, const tcu::TextureFormat& format, glu::ShaderType shaderType)
 {
-	const char* shaderTemplate = 	"${GLSL_VERSION_DECL}\n"
+	const char* shaderTemplate =	"${GLSL_VERSION_DECL}\n"
 									"${GLSL_TYPE_EXTENSION}\n"
 									"${GLSL_FUNCTION_EXTENSION}\n"
 									"${GEOMETRY_SHADER_LAYOUT}\n"
@@ -377,7 +367,7 @@ std::string generateShaderSource (ImageOperation function, MemoryQualifier memor
 	return tcu::StringTemplate(shaderTemplate).specialize(params);
 }
 
-void testShader (NegativeTestContext& ctx, ImageOperation function, MemoryQualifier memory, gls::TextureTestUtil::TextureType imageType, const tcu::TextureFormat& format)
+void testShader (NegativeTestContext& ctx, ImageOperation function, MemoryQualifier memory, glu::TextureTestUtil::TextureType imageType, const tcu::TextureFormat& format)
 {
 	tcu::TestLog& log = ctx.getLog();
 	ctx.beginSection(getFunctionName(function) + " " + getMemoryQualifier(memory) + " " + getShaderImageLayoutQualifier(format));
@@ -386,7 +376,7 @@ void testShader (NegativeTestContext& ctx, ImageOperation function, MemoryQualif
 		if (ctx.isShaderSupported(s_shaders[ndx]))
 		{
 			ctx.beginSection(std::string("Verify shader: ") + glu::getShaderTypeName(s_shaders[ndx]));
-			std::string 				shaderSource(generateShaderSource(function, memory, imageType, format, s_shaders[ndx]));
+			std::string					shaderSource(generateShaderSource(function, memory, imageType, format, s_shaders[ndx]));
 			const glu::ShaderProgram	program(ctx.getRenderContext(), glu::ProgramSources() << glu::ShaderSource(s_shaders[ndx], shaderSource));
 			if (program.getShaderInfo(s_shaders[ndx]).compileOk)
 			{
@@ -400,7 +390,7 @@ void testShader (NegativeTestContext& ctx, ImageOperation function, MemoryQualif
 	ctx.endSection();
 }
 
-void image_store (NegativeTestContext& ctx)
+void image_store (NegativeTestContext& ctx, glu::TextureTestUtil::TextureType imageType)
 {
 	const tcu::TextureFormat formats[] =
 	{
@@ -432,16 +422,13 @@ void image_store (NegativeTestContext& ctx)
 	{
 		for (int fmtNdx = 0; fmtNdx < DE_LENGTH_OF_ARRAY(formats); ++fmtNdx)
 		{
-			for (int typeNdx = 0; typeNdx < DE_LENGTH_OF_ARRAY(s_imageTypes); ++typeNdx)
-			{
-				testShader(ctx, IMAGE_OPERATION_STORE, memoryOptions[memoryNdx], s_imageTypes[typeNdx], formats[fmtNdx]);
-			}
+			testShader(ctx, IMAGE_OPERATION_STORE, memoryOptions[memoryNdx], imageType, formats[fmtNdx]);
 		}
 	}
 	ctx.endSection();
 }
 
-void image_load (NegativeTestContext& ctx)
+void image_load (NegativeTestContext& ctx, glu::TextureTestUtil::TextureType imageType)
 {
 	const tcu::TextureFormat formats[] =
 	{
@@ -473,16 +460,13 @@ void image_load (NegativeTestContext& ctx)
 	{
 		for (int fmtNdx = 0; fmtNdx < DE_LENGTH_OF_ARRAY(formats); ++fmtNdx)
 		{
-			for (int typeNdx = 0; typeNdx < DE_LENGTH_OF_ARRAY(s_imageTypes); ++typeNdx)
-			{
-				testShader(ctx, IMAGE_OPERATION_LOAD, memoryOptions[memoryNdx], s_imageTypes[typeNdx], formats[fmtNdx]);
-			}
+			testShader(ctx, IMAGE_OPERATION_LOAD, memoryOptions[memoryNdx], imageType, formats[fmtNdx]);
 		}
 	}
 	ctx.endSection();
 }
 
-void image_atomic (NegativeTestContext& ctx)
+void image_atomic (NegativeTestContext& ctx, glu::TextureTestUtil::TextureType imageType)
 {
 	const tcu::TextureFormat formats[] =
 	{
@@ -520,19 +504,16 @@ void image_atomic (NegativeTestContext& ctx)
 	{
 		for (int fmtNdx = 0; fmtNdx < DE_LENGTH_OF_ARRAY(formats); ++fmtNdx)
 		{
-			for (int typeNdx = 0; typeNdx < DE_LENGTH_OF_ARRAY(s_imageTypes); ++typeNdx)
+			for (int functionNdx = 0; functionNdx < DE_LENGTH_OF_ARRAY(imageOperations); ++functionNdx)
 			{
-				for (int functionNdx = 0; functionNdx < DE_LENGTH_OF_ARRAY(imageOperations); ++functionNdx)
-				{
-					testShader(ctx, imageOperations[functionNdx], memoryOptions[memoryNdx], s_imageTypes[typeNdx], formats[fmtNdx]);
-				}
+				testShader(ctx, imageOperations[functionNdx], memoryOptions[memoryNdx], imageType, formats[fmtNdx]);
 			}
 		}
 	}
 	ctx.endSection();
 }
 
-void image_atomic_exchange (NegativeTestContext& ctx)
+void image_atomic_exchange (NegativeTestContext& ctx, glu::TextureTestUtil::TextureType imageType)
 {
 	const tcu::TextureFormat formats[] =
 	{
@@ -565,27 +546,73 @@ void image_atomic_exchange (NegativeTestContext& ctx)
 	{
 		for (int fmtNdx = 0; fmtNdx < DE_LENGTH_OF_ARRAY(formats); ++fmtNdx)
 		{
-			for (int typeNdx = 0; typeNdx < DE_LENGTH_OF_ARRAY(s_imageTypes); ++typeNdx)
-			{
-				testShader(ctx, IMAGE_OPERATION_ATOMIC_EXCHANGE, memoryOptions[memoryNdx], s_imageTypes[typeNdx], formats[fmtNdx]);
-			}
+			testShader(ctx, IMAGE_OPERATION_ATOMIC_EXCHANGE, memoryOptions[memoryNdx], imageType, formats[fmtNdx]);
 		}
 	}
 	ctx.endSection();
 }
 
+// Re-routing function template for generating the standard negative
+// test function signature with texture type added.
+
+template <int Type>
+void loadFuncWrapper (NegativeTestContext& ctx)
+{
+	image_load(ctx, (glu::TextureTestUtil::TextureType)Type);
+}
+
+template <int Type>
+void storeFuncWrapper (NegativeTestContext& ctx)
+{
+	image_store(ctx, (glu::TextureTestUtil::TextureType)Type);
+}
+
+template <int Type>
+void atomicFuncWrapper (NegativeTestContext& ctx)
+{
+	image_atomic(ctx, (glu::TextureTestUtil::TextureType)Type);
+}
+
+template <int Type>
+void atomicExchangeFuncWrapper (NegativeTestContext& ctx)
+{
+	image_atomic_exchange(ctx, (glu::TextureTestUtil::TextureType)Type);
+}
+
 } // anonymous
 
-std::vector<FunctionContainer> getNegativeShaderImageLoadStoreTestFunctions (void)
-{
-	const FunctionContainer funcs[] =
-	{
-		{image_store,				"image_store",				"Test incorrect usage of imageStore()"			},
-		{image_load,				"image_load",				"Test incorrect usage of imageLoad()"			},
-		{image_atomic,				"image_atomic",				"Test incorrect usage of imageAtomic*()"		},
-		{image_atomic_exchange,		"image_atomic_exchange",	"Test incorrect usage of imageAtomicExchange()"	},
-	};
+// Set of texture types to create tests for.
+#define CREATE_TEST_FUNC_PER_TEXTURE_TYPE(NAME, FUNC) const FunctionContainer NAME[] =									\
+	{																													\
+		{FUNC<glu::TextureTestUtil::TEXTURETYPE_2D>,			"texture_2d",	"Texture2D negative tests."},			\
+		{FUNC<glu::TextureTestUtil::TEXTURETYPE_3D>,			"texture_3d",	"Texture3D negative tests."},			\
+		{FUNC<glu::TextureTestUtil::TEXTURETYPE_CUBE>,			"cube",			"Cube texture negative tests."},		\
+		{FUNC<glu::TextureTestUtil::TEXTURETYPE_2D_ARRAY>,		"2d_array",		"2D array texture negative tests."},	\
+		{FUNC<glu::TextureTestUtil::TEXTURETYPE_BUFFER>,		"buffer",		"Buffer negative tests."},				\
+		{FUNC<glu::TextureTestUtil::TEXTURETYPE_CUBE_ARRAY>,	"cube_array",	"Cube array texture negative tests."}	\
+	}
 
+std::vector<FunctionContainer> getNegativeShaderImageLoadTestFunctions (void)
+{
+	CREATE_TEST_FUNC_PER_TEXTURE_TYPE(funcs, loadFuncWrapper);
+	return std::vector<FunctionContainer>(DE_ARRAY_BEGIN(funcs), DE_ARRAY_END(funcs));
+}
+
+std::vector<FunctionContainer> getNegativeShaderImageStoreTestFunctions (void)
+{
+	CREATE_TEST_FUNC_PER_TEXTURE_TYPE(funcs, storeFuncWrapper);
+	return std::vector<FunctionContainer>(DE_ARRAY_BEGIN(funcs), DE_ARRAY_END(funcs));
+}
+
+std::vector<FunctionContainer> getNegativeShaderImageAtomicTestFunctions (void)
+{
+	CREATE_TEST_FUNC_PER_TEXTURE_TYPE(funcs, atomicFuncWrapper);
+	return std::vector<FunctionContainer>(DE_ARRAY_BEGIN(funcs), DE_ARRAY_END(funcs));
+}
+
+std::vector<FunctionContainer> getNegativeShaderImageAtomicExchangeTestFunctions (void)
+{
+	CREATE_TEST_FUNC_PER_TEXTURE_TYPE(funcs, atomicExchangeFuncWrapper);
 	return std::vector<FunctionContainer>(DE_ARRAY_BEGIN(funcs), DE_ARRAY_END(funcs));
 }
 

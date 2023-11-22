@@ -21,7 +21,7 @@ class brillo_Invariants(test.test):
         @param test: the test to perform, without leading dash.
         @param negative: if True, test for the negative.
         """
-        self.dut.run('test %s -%s %s' % ('!' if negative else '', test, path))
+        self.host.run('test %s -%s %s' % ('!' if negative else '', test, path))
 
 
     def assert_selinux_context(self, path, ctx):
@@ -32,9 +32,9 @@ class brillo_Invariants(test.test):
 
         @raises error.TestFail
         """
-        # Example output of 'ls -Z /dev/block/by-name/misc' is:
+        # Example output of 'ls -LZ /dev/block/by-name/misc' is:
         # u:object_r:misc_block_device:s0 /dev/block/by-name/misc
-        tokens = self.dut.run_output('ls -Z %s' % path).split()
+        tokens = self.host.run_output('ls -LZ %s' % path).split()
         path_ctx = tokens[0]
         if not ctx in path_ctx:
             raise error.TestFail('Context "%s" for path "%s" does not '
@@ -44,7 +44,7 @@ class brillo_Invariants(test.test):
     def check_fstab_name(self):
         """Checks that the fstab file has the name /fstab.<ro.hardware>.
         """
-        hardware = self.dut.run_output('getprop ro.hardware')
+        hardware = self.host.run_output('getprop ro.hardware')
         self.assert_path_test('/fstab.%s' % hardware, 'e')
         self.assert_path_test('/fstab.device', 'e', negative=True)
 
@@ -63,11 +63,11 @@ class brillo_Invariants(test.test):
         self.assert_path_test('/dev/block/by-name/userdata', 'b')
 
 
-    def run_once(self, dut=None):
+    def run_once(self, host=None):
         """Check for things that should look the same on all Brillo devices.
 
         @param dut: host object representing the device under test.
         """
-        self.dut = dut
+        self.host = host
         self.check_fstab_name()
         self.check_block_devices()

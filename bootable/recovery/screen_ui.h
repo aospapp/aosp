@@ -20,8 +20,12 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include <string>
+
 #include "ui.h"
-#include "minui/minui.h"
+
+// From minui/minui.h.
+struct GRSurface;
 
 // Implementation of RecoveryUI appropriate for devices with a screen
 // (shows an icon + a progress bar, text logging, menu, etc.)
@@ -29,24 +33,23 @@ class ScreenRecoveryUI : public RecoveryUI {
   public:
     ScreenRecoveryUI();
 
-    void Init();
-    void SetLocale(const char* locale);
+    bool Init(const std::string& locale) override;
 
     // overall recovery state ("background image")
     void SetBackground(Icon icon);
     void SetSystemUpdateText(bool security_update);
 
     // progress indicator
-    void SetProgressType(ProgressType type);
-    void ShowProgress(float portion, float seconds);
-    void SetProgress(float fraction);
+    void SetProgressType(ProgressType type) override;
+    void ShowProgress(float portion, float seconds) override;
+    void SetProgress(float fraction) override;
 
-    void SetStage(int current, int max);
+    void SetStage(int current, int max) override;
 
     // text log
-    void ShowText(bool visible);
-    bool IsTextVisible();
-    bool WasTextEverVisible();
+    void ShowText(bool visible) override;
+    bool IsTextVisible() override;
+    bool WasTextEverVisible() override;
 
     // printing messages
     void Print(const char* fmt, ...) __printflike(2, 3);
@@ -70,10 +73,6 @@ class ScreenRecoveryUI : public RecoveryUI {
 
   protected:
     Icon currentIcon;
-
-    const char* locale;
-    bool intro_done;
-    int current_frame;
 
     // The scale factor from dp to pixels. 1.0 for mdpi, 4.0 for xxxhdpi.
     float density_;
@@ -123,8 +122,11 @@ class ScreenRecoveryUI : public RecoveryUI {
     pthread_t progress_thread_;
 
     // Number of intro frames and loop frames in the animation.
-    int intro_frames;
-    int loop_frames;
+    size_t intro_frames;
+    size_t loop_frames;
+
+    size_t current_frame;
+    bool intro_done;
 
     // Number of frames per sec (default: 30) for both parts of the animation.
     int animation_fps;
@@ -134,13 +136,14 @@ class ScreenRecoveryUI : public RecoveryUI {
     int char_width_;
     int char_height_;
     pthread_mutex_t updateMutex;
-    bool rtl_locale;
 
-    void draw_background_locked();
-    void draw_foreground_locked();
-    void draw_screen_locked();
-    void update_screen_locked();
-    void update_progress_locked();
+    virtual bool InitTextParams();
+
+    virtual void draw_background_locked();
+    virtual void draw_foreground_locked();
+    virtual void draw_screen_locked();
+    virtual void update_screen_locked();
+    virtual void update_progress_locked();
 
     GRSurface* GetCurrentFrame();
     GRSurface* GetCurrentText();
@@ -148,8 +151,8 @@ class ScreenRecoveryUI : public RecoveryUI {
     static void* ProgressThreadStartRoutine(void* data);
     void ProgressThreadLoop();
 
-    void ShowFile(FILE*);
-    void PrintV(const char*, bool, va_list);
+    virtual void ShowFile(FILE*);
+    virtual void PrintV(const char*, bool, va_list);
     void PutChar(char);
     void ClearText();
 
@@ -157,14 +160,14 @@ class ScreenRecoveryUI : public RecoveryUI {
     void LoadBitmap(const char* filename, GRSurface** surface);
     void LoadLocalizedBitmap(const char* filename, GRSurface** surface);
 
-    int PixelsFromDp(int dp);
-    int GetAnimationBaseline();
-    int GetProgressBaseline();
-    int GetTextBaseline();
+    int PixelsFromDp(int dp) const;
+    virtual int GetAnimationBaseline();
+    virtual int GetProgressBaseline();
+    virtual int GetTextBaseline();
 
     void DrawHorizontalRule(int* y);
-    void DrawTextLine(int x, int* y, const char* line, bool bold);
-    void DrawTextLines(int x, int* y, const char* const* lines);
+    void DrawTextLine(int x, int* y, const char* line, bool bold) const;
+    void DrawTextLines(int x, int* y, const char* const* lines) const;
 };
 
 #endif  // RECOVERY_UI_H

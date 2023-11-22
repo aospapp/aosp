@@ -18,6 +18,7 @@
 #define __ADB_H
 
 #include <limits.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #include <string>
@@ -27,10 +28,13 @@
 #include "adb_trace.h"
 #include "fdevent.h"
 #include "socket.h"
+#include "usb.h"
 
 constexpr size_t MAX_PAYLOAD_V1 = 4 * 1024;
 constexpr size_t MAX_PAYLOAD_V2 = 256 * 1024;
 constexpr size_t MAX_PAYLOAD = MAX_PAYLOAD_V2;
+
+constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 
 #define A_SYNC 0x434e5953
 #define A_CNXN 0x4e584e43
@@ -50,30 +54,31 @@ constexpr size_t MAX_PAYLOAD = MAX_PAYLOAD_V2;
 std::string adb_version();
 
 // Increment this when we want to force users to start a new adb server.
-#define ADB_SERVER_VERSION 36
+#define ADB_SERVER_VERSION 39
 
 class atransport;
-struct usb_handle;
 
 struct amessage {
-    unsigned command;       /* command identifier constant      */
-    unsigned arg0;          /* first argument                   */
-    unsigned arg1;          /* second argument                  */
-    unsigned data_length;   /* length of payload (0 is allowed) */
-    unsigned data_check;    /* checksum of data payload         */
-    unsigned magic;         /* command ^ 0xffffffff             */
+    uint32_t command;     /* command identifier constant      */
+    uint32_t arg0;        /* first argument                   */
+    uint32_t arg1;        /* second argument                  */
+    uint32_t data_length; /* length of payload (0 is allowed) */
+    uint32_t data_check;  /* checksum of data payload         */
+    uint32_t magic;       /* command ^ 0xffffffff             */
 };
 
 struct apacket
 {
     apacket *next;
 
-    unsigned len;
-    unsigned char *ptr;
+    size_t len;
+    char* ptr;
 
     amessage msg;
-    unsigned char data[MAX_PAYLOAD];
+    char data[MAX_PAYLOAD];
 };
+
+uint32_t calculate_apacket_checksum(const apacket* packet);
 
 /* the adisconnect structure is used to record a callback that
 ** will be called whenever a transport is disconnected (e.g. by the user)
@@ -116,29 +121,6 @@ enum ConnectionState {
     kCsUnauthorized,
 };
 
-/* A listener is an entity which binds to a local port
-** and, upon receiving a connection on that port, creates
-** an asocket to connect the new local connection to a
-** specific remote service.
-**
-** TODO: some listeners read from the new connection to
-** determine what exact service to connect to on the far
-** side.
-*/
-struct alistener
-{
-    alistener *next;
-    alistener *prev;
-
-    fdevent fde;
-    int fd;
-
-    char *local_name;
-    char *connect_to;
-    atransport *transport;
-    adisconnect  disconnect;
-};
-
 
 void print_packet(const char *label, apacket *p);
 
@@ -149,9 +131,8 @@ void fatal_errno(const char* fmt, ...) __attribute__((noreturn, format(__printf_
 
 void handle_packet(apacket *p, atransport *t);
 
-void get_my_path(char *s, size_t maxLen);
-int launch_server(int server_port);
-int adb_server_main(int is_daemon, int server_port, int ack_reply_fd);
+int launch_server(const std::string& socket_spec);
+int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply_fd);
 
 /* initialize a transport object's func pointers and state */
 #if ADB_HOST
@@ -160,8 +141,10 @@ int get_available_local_transport_index();
 int  init_socket_transport(atransport *t, int s, int port, int local);
 void init_usb_transport(atransport *t, usb_handle *usb, ConnectionState state);
 
+std::string getEmulatorSerialString(int console_port);
 #if ADB_HOST
 atransport* find_emulator_transport_by_adb_port(int adb_port);
+atransport* find_emulator_transport_by_console_port(int console_port);
 #endif
 
 int service_to_fd(const char* name, const atransport* transport);
@@ -211,20 +194,8 @@ void put_apacket(apacket *p);
 
 
 void local_init(int port);
-void local_connect(int port);
+bool local_connect(int port);
 int  local_connect_arbitrary_ports(int console_port, int adb_port, std::string* error);
-
-// USB host/client interface.
-void usb_init();
-int usb_write(usb_handle *h, const void *data, int len);
-int usb_read(usb_handle *h, void *data, int len);
-int usb_close(usb_handle *h);
-void usb_kick(usb_handle *h);
-
-// USB device detection.
-#if ADB_HOST
-int is_adb_interface(int vid, int pid, int usb_class, int usb_subclass, int usb_protocol);
-#endif
 
 ConnectionState connection_state(atransport *t);
 
@@ -237,8 +208,6 @@ extern int SHELL_EXIT_NOTIFY_FD;
 #define CHUNK_SIZE (64*1024)
 
 #if !ADB_HOST
-#define USB_ADB_PATH     "/dev/android_adb"
-
 #define USB_FFS_ADB_PATH  "/dev/usb-ffs/adb/"
 #define USB_FFS_ADB_EP(x) USB_FFS_ADB_PATH#x
 

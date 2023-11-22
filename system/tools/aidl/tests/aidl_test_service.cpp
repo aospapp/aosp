@@ -21,12 +21,13 @@
 
 #include <unistd.h>
 
+#include <android-base/unique_fd.h>
 #include <binder/IInterface.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 #include <binder/ProcessState.h>
 #include <binder/Status.h>
-#include <nativehelper/ScopedFd.h>
+#include <binder/Value.h>
 #include <utils/Errors.h>
 #include <utils/Log.h>
 #include <utils/Looper.h>
@@ -41,6 +42,9 @@
 // Used implicitly.
 #undef LOG_TAG
 #define LOG_TAG "aidl_native_service"
+
+// libbase
+using android::base::unique_fd;
 
 // libutils:
 using android::Looper;
@@ -64,6 +68,7 @@ using android::aidl::tests::BnTestService;
 using android::aidl::tests::INamedCallback;
 using android::aidl::tests::SimpleParcelable;
 using android::os::PersistableBundle;
+using android::binder::Map;
 
 // Standard library
 using std::map;
@@ -86,7 +91,7 @@ class BinderCallback : public LooperCallback {
 
 class NamedCallback : public BnNamedCallback {
  public:
-  NamedCallback(String16 name) : name_(name) {}
+  explicit NamedCallback(String16 name) : name_(name) {}
 
   Status GetName(String16* ret) {
     *ret = name_;
@@ -112,6 +117,10 @@ class NativeService : public BnTestService {
     std::ostringstream token_str;
     token_str << token;
     ALOGI("Repeating token %s", token_str.str().c_str());
+  }
+
+  void LogRepeatedMapToken(const Map& token) {
+    ALOGI("Repeating Map with %d elements", (int)token.size());
   }
 
   Status RepeatBoolean(bool token, bool* _aidl_return) override {
@@ -151,6 +160,11 @@ class NativeService : public BnTestService {
   }
   Status RepeatString(const String16& token, String16* _aidl_return) override {
     LogRepeatedStringToken(token);
+    *_aidl_return = token;
+    return Status::ok();
+  }
+  Status RepeatMap(const Map& token, Map* _aidl_return) override {
+    LogRepeatedMapToken(token);
     *_aidl_return = token;
     return Status::ok();
   }
@@ -282,20 +296,20 @@ class NativeService : public BnTestService {
     return ReverseArray(input, repeated, _aidl_return);
   }
 
-  Status RepeatFileDescriptor(const ScopedFd& read,
-                              ScopedFd* _aidl_return) override {
+  Status RepeatFileDescriptor(const unique_fd& read,
+                              unique_fd* _aidl_return) override {
     ALOGE("Repeating file descriptor");
-    *_aidl_return = ScopedFd(dup(read.get()));
+    *_aidl_return = unique_fd(dup(read.get()));
     return Status::ok();
   }
 
-  Status ReverseFileDescriptorArray(const vector<ScopedFd>& input,
-                                    vector<ScopedFd>* repeated,
-                                    vector<ScopedFd>* _aidl_return) override {
+  Status ReverseFileDescriptorArray(const vector<unique_fd>& input,
+                                    vector<unique_fd>* repeated,
+                                    vector<unique_fd>* _aidl_return) override {
     ALOGI("Reversing descriptor array of length %zu", input.size());
     for (const auto& item : input) {
-      repeated->push_back(ScopedFd(dup(item.get())));
-      _aidl_return->push_back(ScopedFd(dup(item.get())));
+      repeated->push_back(unique_fd(dup(item.get())));
+      _aidl_return->push_back(unique_fd(dup(item.get())));
     }
     std::reverse(_aidl_return->begin(), _aidl_return->end());
     return Status::ok();
@@ -340,6 +354,23 @@ class NativeService : public BnTestService {
   Status RepeatNullableParcelable(const unique_ptr<SimpleParcelable>& input,
                               unique_ptr<SimpleParcelable>* _aidl_return) {
     return RepeatNullable(input, _aidl_return);
+  }
+
+  Status TakesAnIBinder(const sp<IBinder>& input) override {
+    (void)input;
+    return Status::ok();
+  }
+  Status TakesAnIBinderList(const vector<sp<IBinder>>& input) override {
+    (void)input;
+    return Status::ok();
+  }
+  Status TakesANullableIBinder(const sp<IBinder>& input) {
+    (void)input;
+    return Status::ok();
+  }
+  Status TakesANullableIBinderList(const unique_ptr<vector<sp<IBinder>>>& input) {
+    (void)input;
+    return Status::ok();
   }
 
   Status RepeatUtf8CppString(const string& token,
@@ -389,6 +420,13 @@ class NativeService : public BnTestService {
     }
     std::reverse((*_aidl_return)->begin(), (*_aidl_return)->end());
 
+    return Status::ok();
+  }
+
+  Status GetCallback(bool return_null, sp<INamedCallback>* ret) {
+    if (!return_null) {
+      return GetOtherTestService(String16("ABT: always be testing"), ret);
+    }
     return Status::ok();
   }
 

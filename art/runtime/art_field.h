@@ -19,8 +19,10 @@
 
 #include <jni.h>
 
+#include "dex_file_types.h"
 #include "gc_root.h"
 #include "modifiers.h"
+#include "obj_ptr.h"
 #include "offsets.h"
 #include "primitive.h"
 #include "read_barrier_option.h"
@@ -39,29 +41,37 @@ class String;
 
 class ArtField FINAL {
  public:
-  ArtField();
+  template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
+  ObjPtr<mirror::Class> GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::Class* GetDeclaringClass() SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetDeclaringClass(ObjPtr<mirror::Class> new_declaring_class)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void SetDeclaringClass(mirror::Class *new_declaring_class)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::CompressedReference<mirror::Object>* GetDeclaringClassAddressWithoutBarrier() {
+    return declaring_class_.AddressWithoutBarrier();
+  }
 
-  uint32_t GetAccessFlags() SHARED_REQUIRES(Locks::mutator_lock_);
+  uint32_t GetAccessFlags() REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (kIsDebugBuild) {
+      GetAccessFlagsDCheck();
+    }
+    return access_flags_;
+  }
 
-  void SetAccessFlags(uint32_t new_access_flags) SHARED_REQUIRES(Locks::mutator_lock_) {
+  void SetAccessFlags(uint32_t new_access_flags) REQUIRES_SHARED(Locks::mutator_lock_) {
     // Not called within a transaction.
     access_flags_ = new_access_flags;
   }
 
-  bool IsPublic() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool IsPublic() REQUIRES_SHARED(Locks::mutator_lock_) {
     return (GetAccessFlags() & kAccPublic) != 0;
   }
 
-  bool IsStatic() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool IsStatic() REQUIRES_SHARED(Locks::mutator_lock_) {
     return (GetAccessFlags() & kAccStatic) != 0;
   }
 
-  bool IsFinal() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool IsFinal() REQUIRES_SHARED(Locks::mutator_lock_) {
     return (GetAccessFlags() & kAccFinal) != 0;
   }
 
@@ -75,86 +85,95 @@ class ArtField FINAL {
   }
 
   // Offset to field within an Object.
-  MemberOffset GetOffset() SHARED_REQUIRES(Locks::mutator_lock_);
+  MemberOffset GetOffset() REQUIRES_SHARED(Locks::mutator_lock_) {
+    if (kIsDebugBuild) {
+      GetOffsetDCheck();
+    }
+    return MemberOffset(offset_);
+  }
 
   static MemberOffset OffsetOffset() {
     return MemberOffset(OFFSETOF_MEMBER(ArtField, offset_));
   }
 
-  MemberOffset GetOffsetDuringLinking() SHARED_REQUIRES(Locks::mutator_lock_);
+  MemberOffset GetOffsetDuringLinking() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void SetOffset(MemberOffset num_bytes) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetOffset(MemberOffset num_bytes) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // field access, null object for static fields
-  uint8_t GetBoolean(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  uint8_t GetBoolean(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void SetBoolean(mirror::Object* object, uint8_t z) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetBoolean(ObjPtr<mirror::Object> object, uint8_t z) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int8_t GetByte(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template<bool kTransactionActive>
-  void SetByte(mirror::Object* object, int8_t b) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  uint16_t GetChar(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  int8_t GetByte(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void SetChar(mirror::Object* object, uint16_t c) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetByte(ObjPtr<mirror::Object> object, int8_t b) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int16_t GetShort(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template<bool kTransactionActive>
-  void SetShort(mirror::Object* object, int16_t s) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  int32_t GetInt(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  uint16_t GetChar(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void SetInt(mirror::Object* object, int32_t i) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetChar(ObjPtr<mirror::Object> object, uint16_t c) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int64_t GetLong(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template<bool kTransactionActive>
-  void SetLong(mirror::Object* object, int64_t j) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  float GetFloat(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  int16_t GetShort(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void SetFloat(mirror::Object* object, float f) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetShort(ObjPtr<mirror::Object> object, int16_t s) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  double GetDouble(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template<bool kTransactionActive>
-  void SetDouble(mirror::Object* object, double d) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  mirror::Object* GetObject(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  int32_t GetInt(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void SetObject(mirror::Object* object, mirror::Object* l)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetInt(ObjPtr<mirror::Object> object, int32_t i) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  int64_t GetLong(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<bool kTransactionActive>
+  void SetLong(ObjPtr<mirror::Object> object, int64_t j) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  float GetFloat(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<bool kTransactionActive>
+  void SetFloat(ObjPtr<mirror::Object> object, float f) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  double GetDouble(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<bool kTransactionActive>
+  void SetDouble(ObjPtr<mirror::Object> object, double d) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ObjPtr<mirror::Object> GetObject(ObjPtr<mirror::Object> object)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<bool kTransactionActive>
+  void SetObject(ObjPtr<mirror::Object> object, ObjPtr<mirror::Object> l)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Raw field accesses.
-  uint32_t Get32(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  uint32_t Get32(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void Set32(mirror::Object* object, uint32_t new_value)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  void Set32(ObjPtr<mirror::Object> object, uint32_t new_value)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  uint64_t Get64(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template<bool kTransactionActive>
-  void Set64(mirror::Object* object, uint64_t new_value) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  mirror::Object* GetObj(mirror::Object* object) SHARED_REQUIRES(Locks::mutator_lock_);
+  uint64_t Get64(ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void SetObj(mirror::Object* object, mirror::Object* new_value)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  void Set64(ObjPtr<mirror::Object> object, uint64_t new_value)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<class MirrorType = mirror::Object>
+  ObjPtr<MirrorType> GetObj(ObjPtr<mirror::Object> object)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<bool kTransactionActive>
+  void SetObj(ObjPtr<mirror::Object> object, ObjPtr<mirror::Object> new_value)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // NO_THREAD_SAFETY_ANALYSIS since we don't know what the callback requires.
   template<typename RootVisitorType>
   void VisitRoots(RootVisitorType& visitor) NO_THREAD_SAFETY_ANALYSIS;
 
-  bool IsVolatile() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool IsVolatile() REQUIRES_SHARED(Locks::mutator_lock_) {
     return (GetAccessFlags() & kAccVolatile) != 0;
   }
 
@@ -162,63 +181,74 @@ class ArtField FINAL {
   // If kExactOffset is true then we only find the matching offset, not the field containing the
   // offset.
   template <bool kExactOffset = true>
-  static ArtField* FindInstanceFieldWithOffset(mirror::Class* klass, uint32_t field_offset)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  static ArtField* FindInstanceFieldWithOffset(ObjPtr<mirror::Class> klass, uint32_t field_offset)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns a static field with this offset in the given class or null if not found.
   // If kExactOffset is true then we only find the matching offset, not the field containing the
   // offset.
   template <bool kExactOffset = true>
-  static ArtField* FindStaticFieldWithOffset(mirror::Class* klass, uint32_t field_offset)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  static ArtField* FindStaticFieldWithOffset(ObjPtr<mirror::Class> klass, uint32_t field_offset)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetName() SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetName() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolves / returns the name from the dex cache.
-  mirror::String* GetStringName(Thread* self, bool resolve)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ObjPtr<mirror::String> GetStringName(Thread* self, bool resolve)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const char* GetTypeDescriptor() SHARED_REQUIRES(Locks::mutator_lock_);
+  const char* GetTypeDescriptor() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  Primitive::Type GetTypeAsPrimitiveType() SHARED_REQUIRES(Locks::mutator_lock_);
+  Primitive::Type GetTypeAsPrimitiveType() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool IsPrimitiveType() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsPrimitiveType() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <bool kResolve>
-  mirror::Class* GetType() SHARED_REQUIRES(Locks::mutator_lock_);
+  ObjPtr<mirror::Class> GetType() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  size_t FieldSize() SHARED_REQUIRES(Locks::mutator_lock_);
+  size_t FieldSize() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::DexCache* GetDexCache() SHARED_REQUIRES(Locks::mutator_lock_);
+  ObjPtr<mirror::DexCache> GetDexCache() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  const DexFile* GetDexFile() SHARED_REQUIRES(Locks::mutator_lock_);
+  const DexFile* GetDexFile() REQUIRES_SHARED(Locks::mutator_lock_);
 
   GcRoot<mirror::Class>& DeclaringClassRoot() {
     return declaring_class_;
   }
 
+  // Returns a human-readable signature. Something like "a.b.C.f" or
+  // "int a.b.C.f" (depending on the value of 'with_type').
+  static std::string PrettyField(ArtField* f, bool with_type = true)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string PrettyField(bool with_type = true)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Update the declaring class with the passed in visitor. Does not use read barrier.
   template <typename Visitor>
   ALWAYS_INLINE void UpdateObjects(const Visitor& visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  mirror::Class* ProxyFindSystemClass(const char* descriptor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Class* ResolveGetType(uint32_t type_idx) SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::String* ResolveGetStringName(Thread* self, const DexFile& dex_file, uint32_t string_idx,
-                                       mirror::DexCache* dex_cache)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  ObjPtr<mirror::Class> ProxyFindSystemClass(const char* descriptor)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::String> ResolveGetStringName(Thread* self,
+                                              const DexFile& dex_file,
+                                              dex::StringIndex string_idx,
+                                              ObjPtr<mirror::DexCache> dex_cache)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void GetAccessFlagsDCheck() REQUIRES_SHARED(Locks::mutator_lock_);
+  void GetOffsetDCheck() REQUIRES_SHARED(Locks::mutator_lock_);
 
   GcRoot<mirror::Class> declaring_class_;
 
-  uint32_t access_flags_;
+  uint32_t access_flags_ = 0;
 
   // Dex cache index of field id
-  uint32_t field_dex_idx_;
+  uint32_t field_dex_idx_ = 0;
 
   // Offset of field within an instance or in the Class' static fields
-  uint32_t offset_;
+  uint32_t offset_ = 0;
 };
 
 }  // namespace art

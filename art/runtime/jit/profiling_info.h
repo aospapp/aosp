@@ -39,46 +39,13 @@ class Class;
 // Once the classes_ array is full, we consider the INVOKE to be megamorphic.
 class InlineCache {
  public:
-  bool IsMonomorphic() const {
-    DCHECK_GE(kIndividualCacheSize, 2);
-    return !classes_[0].IsNull() && classes_[1].IsNull();
-  }
-
-  bool IsMegamorphic() const {
-    for (size_t i = 0; i < kIndividualCacheSize; ++i) {
-      if (classes_[i].IsNull()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  mirror::Class* GetMonomorphicType() const SHARED_REQUIRES(Locks::mutator_lock_) {
-    // Note that we cannot ensure the inline cache is actually monomorphic
-    // at this point, as other threads may have updated it.
-    DCHECK(!classes_[0].IsNull());
-    return classes_[0].Read();
-  }
-
-  bool IsUninitialized() const {
-    return classes_[0].IsNull();
-  }
-
-  bool IsPolymorphic() const {
-    DCHECK_GE(kIndividualCacheSize, 3);
-    return !classes_[1].IsNull() && classes_[kIndividualCacheSize - 1].IsNull();
-  }
-
-  mirror::Class* GetTypeAt(size_t i) const SHARED_REQUIRES(Locks::mutator_lock_) {
-    return classes_[i].Read();
-  }
-
-  static constexpr uint16_t kIndividualCacheSize = 5;
+  static constexpr uint8_t kIndividualCacheSize = 5;
 
  private:
   uint32_t dex_pc_;
   GcRoot<mirror::Class> classes_[kIndividualCacheSize];
 
+  friend class jit::JitCodeCache;
   friend class ProfilingInfo;
 
   DISALLOW_COPY_AND_ASSIGN(InlineCache);
@@ -93,31 +60,22 @@ class ProfilingInfo {
   // Create a ProfilingInfo for 'method'. Return whether it succeeded, or if it is
   // not needed in case the method does not have virtual/interface invocations.
   static bool Create(Thread* self, ArtMethod* method, bool retry_allocation)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Add information from an executed INVOKE instruction to the profile.
   void AddInvokeInfo(uint32_t dex_pc, mirror::Class* cls)
       // Method should not be interruptible, as it manipulates the ProfilingInfo
       // which can be concurrently collected.
       REQUIRES(Roles::uninterruptible_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // NO_THREAD_SAFETY_ANALYSIS since we don't know what the callback requires.
-  template<typename RootVisitorType>
-  void VisitRoots(RootVisitorType& visitor) NO_THREAD_SAFETY_ANALYSIS {
-    for (size_t i = 0; i < number_of_inline_caches_; ++i) {
-      InlineCache* cache = &cache_[i];
-      for (size_t j = 0; j < InlineCache::kIndividualCacheSize; ++j) {
-        visitor.VisitRootIfNonNull(cache->classes_[j].AddressWithoutBarrier());
-      }
-    }
-  }
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* GetMethod() const {
     return method_;
   }
 
-  InlineCache* GetInlineCache(uint32_t dex_pc);
+  // Mutator lock only required for debugging output.
+  InlineCache* GetInlineCache(uint32_t dex_pc)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsMethodBeingCompiled(bool osr) const {
     return osr
@@ -150,9 +108,15 @@ class ProfilingInfo {
     }
   }
 
-  void IncrementInlineUse() {
-    DCHECK_NE(current_inline_uses_, std::numeric_limits<uint16_t>::max());
+  // Increments the number of times this method is currently being inlined.
+  // Returns whether it was successful, that is it could increment without
+  // overflowing.
+  bool IncrementInlineUse() {
+    if (current_inline_uses_ == std::numeric_limits<uint16_t>::max()) {
+      return false;
+    }
     current_inline_uses_++;
+    return true;
   }
 
   void DecrementInlineUse() {
@@ -166,24 +130,15 @@ class ProfilingInfo {
   }
 
  private:
-  ProfilingInfo(ArtMethod* method, const std::vector<uint32_t>& entries)
-      : number_of_inline_caches_(entries.size()),
-        method_(method),
-        is_method_being_compiled_(false),
-        is_osr_method_being_compiled_(false),
-        current_inline_uses_(0),
-        saved_entry_point_(nullptr) {
-    memset(&cache_, 0, number_of_inline_caches_ * sizeof(InlineCache));
-    for (size_t i = 0; i < number_of_inline_caches_; ++i) {
-      cache_[i].dex_pc_ = entries[i];
-    }
-  }
+  ProfilingInfo(ArtMethod* method, const std::vector<uint32_t>& entries);
 
   // Number of instructions we are profiling in the ArtMethod.
   const uint32_t number_of_inline_caches_;
 
   // Method this profiling info is for.
-  ArtMethod* const method_;
+  // Not 'const' as JVMTI introduces obsolete methods that we implement by creating new ArtMethods.
+  // See JitCodeCache::MoveObsoleteMethod.
+  ArtMethod* method_;
 
   // Whether the ArtMethod is currently being compiled. This flag
   // is implicitly guarded by the JIT code cache lock.

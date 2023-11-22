@@ -29,15 +29,14 @@ LOCAL_PACKAGE_NAME := CtsLeanbackJankTestCases
 LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctsdeviceutil \
+    compatibility-device-util \
     ctstestrunner \
     ub-uiautomator \
     ub-janktesthelper \
     android-support-v17-leanback \
     android-support-v7-recyclerview \
-    android-support-v4
-
-LOCAL_CTS_MODULE_CONFIG := $(LOCAL_PATH)/Old$(CTS_MODULE_TEST_CONFIG)
+    android-support-v4 \
+    legacy-android-test
 
 include $(BUILD_CTS_PACKAGE)
 

@@ -15,6 +15,7 @@
  */
 package com.android.deskclock.alarms;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
@@ -32,14 +33,13 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v4.graphics.ColorUtils;
 import android.support.v4.view.animation.PathInterpolatorCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -51,18 +51,25 @@ import android.widget.TextClock;
 import android.widget.TextView;
 
 import com.android.deskclock.AnimatorUtils;
+import com.android.deskclock.BaseActivity;
 import com.android.deskclock.LogUtils;
 import com.android.deskclock.R;
+import com.android.deskclock.ThemeUtils;
 import com.android.deskclock.Utils;
+import com.android.deskclock.data.DataModel;
+import com.android.deskclock.data.DataModel.AlarmVolumeButtonBehavior;
 import com.android.deskclock.events.Events;
 import com.android.deskclock.provider.AlarmInstance;
-import com.android.deskclock.settings.SettingsActivity;
 import com.android.deskclock.widget.CircleView;
 
-public class AlarmActivity extends AppCompatActivity
+import java.util.List;
+
+import static android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_GENERIC;
+
+public class AlarmActivity extends BaseActivity
         implements View.OnClickListener, View.OnTouchListener {
 
-    private static final String LOGTAG = AlarmActivity.class.getSimpleName();
+    private static final LogUtils.Logger LOGGER = new LogUtils.Logger("AlarmActivity");
 
     private static final TimeInterpolator PULSE_INTERPOLATOR =
             PathInterpolatorCompat.create(0.4f, 0.0f, 0.2f, 1.0f);
@@ -83,7 +90,7 @@ public class AlarmActivity extends AppCompatActivity
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            LogUtils.v(LOGTAG, "Received broadcast: %s", action);
+            LOGGER.v("Received broadcast: %s", action);
 
             if (!mAlarmHandled) {
                 switch (action) {
@@ -97,11 +104,11 @@ public class AlarmActivity extends AppCompatActivity
                         finish();
                         break;
                     default:
-                        LogUtils.i(LOGTAG, "Unknown broadcast: %s", action);
+                        LOGGER.i("Unknown broadcast: %s", action);
                         break;
                 }
             } else {
-                LogUtils.v(LOGTAG, "Ignored broadcast: %s", action);
+                LOGGER.v("Ignored broadcast: %s", action);
             }
         }
     };
@@ -109,18 +116,18 @@ public class AlarmActivity extends AppCompatActivity
     private final ServiceConnection mConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            LogUtils.i("Finished binding to AlarmService");
+            LOGGER.i("Finished binding to AlarmService");
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            LogUtils.i("Disconnected from AlarmService");
+            LOGGER.i("Disconnected from AlarmService");
         }
     };
 
     private AlarmInstance mAlarmInstance;
     private boolean mAlarmHandled;
-    private String mVolumeBehavior;
+    private AlarmVolumeButtonBehavior mVolumeBehavior;
     private int mCurrentHourColor;
     private boolean mReceiverRegistered;
     /** Whether the AlarmService is currently bound */
@@ -143,29 +150,30 @@ public class AlarmActivity extends AppCompatActivity
     private ValueAnimator mDismissAnimator;
     private ValueAnimator mPulseAnimator;
 
+    private int mInitialPointerIndex = MotionEvent.INVALID_POINTER_ID;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        setVolumeControlStream(AudioManager.STREAM_ALARM);
         final long instanceId = AlarmInstance.getId(getIntent().getData());
         mAlarmInstance = AlarmInstance.getInstance(getContentResolver(), instanceId);
         if (mAlarmInstance == null) {
             // The alarm was deleted before the activity got created, so just finish()
-            LogUtils.e(LOGTAG, "Error displaying alarm for intent: %s", getIntent());
+            LOGGER.e("Error displaying alarm for intent: %s", getIntent());
             finish();
             return;
         } else if (mAlarmInstance.mAlarmState != AlarmInstance.FIRED_STATE) {
-            LogUtils.i(LOGTAG, "Skip displaying alarm for instance: %s", mAlarmInstance);
+            LOGGER.i("Skip displaying alarm for instance: %s", mAlarmInstance);
             finish();
             return;
         }
 
-        LogUtils.i(LOGTAG, "Displaying alarm for instance: %s", mAlarmInstance);
+        LOGGER.i("Displaying alarm for instance: %s", mAlarmInstance);
 
         // Get the volume/camera button behavior setting
-        mVolumeBehavior = Utils.getDefaultSharedPreferences(this)
-                .getString(SettingsActivity.KEY_VOLUME_BUTTONS,
-                        SettingsActivity.DEFAULT_VOLUME_BEHAVIOR);
+        mVolumeBehavior = DataModel.getDataModel().getAlarmVolumeButtonBehavior();
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
@@ -179,13 +187,8 @@ public class AlarmActivity extends AppCompatActivity
         // Close dialogs and window shade, so this is fully visible
         sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
 
-        // In order to allow tablets to freely rotate and phones to stick
-        // with "nosensor" (use default device orientation) we have to have
-        // the manifest start with an orientation of unspecified" and only limit
-        // to "nosensor" for phones. Otherwise we get behavior like in b/8728671
-        // where tablets start off in their default orientation and then are
-        // able to freely rotate.
-        if (!getResources().getBoolean(R.bool.config_rotateAlarmAlert)) {
+        // Honor rotation on tablets; fix the orientation on phones.
+        if (!getResources().getBoolean(R.bool.rotateAlarmAlert)) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
         }
 
@@ -208,9 +211,9 @@ public class AlarmActivity extends AppCompatActivity
         final CircleView pulseView = (CircleView) mContentView.findViewById(R.id.pulse);
 
         titleView.setText(mAlarmInstance.getLabelOrDefault(this));
-        Utils.setTimeFormat(this, digitalClock);
+        Utils.setTimeFormat(digitalClock, false);
 
-        mCurrentHourColor = Utils.getCurrentHourColor();
+        mCurrentHourColor = ThemeUtils.resolveColor(this, android.R.attr.windowBackground);
         getWindow().setBackgroundDrawable(new ColorDrawable(mCurrentHourColor));
 
         mAlarmButton.setOnTouchListener(this);
@@ -239,14 +242,14 @@ public class AlarmActivity extends AppCompatActivity
         mAlarmInstance = AlarmInstance.getInstance(getContentResolver(), instanceId);
 
         if (mAlarmInstance == null) {
-            LogUtils.i(LOGTAG, "No alarm instance for instanceId: %d", instanceId);
+            LOGGER.i("No alarm instance for instanceId: %d", instanceId);
             finish();
             return;
         }
 
         // Verify that the alarm is still firing before showing the activity
         if (mAlarmInstance.mAlarmState != AlarmInstance.FIRED_STATE) {
-            LogUtils.i(LOGTAG, "Skip displaying alarm for instance: %s", mAlarmInstance);
+            LOGGER.i("Skip displaying alarm for instance: %s", mAlarmInstance);
             finish();
             return;
         }
@@ -281,32 +284,33 @@ public class AlarmActivity extends AppCompatActivity
     @Override
     public boolean dispatchKeyEvent(@NonNull KeyEvent keyEvent) {
         // Do this in dispatch to intercept a few of the system keys.
-        LogUtils.v(LOGTAG, "dispatchKeyEvent: %s", keyEvent);
+        LOGGER.v("dispatchKeyEvent: %s", keyEvent);
 
-        switch (keyEvent.getKeyCode()) {
+        final int keyCode = keyEvent.getKeyCode();
+        switch (keyCode) {
             // Volume keys and camera keys dismiss the alarm.
-            case KeyEvent.KEYCODE_POWER:
             case KeyEvent.KEYCODE_VOLUME_UP:
             case KeyEvent.KEYCODE_VOLUME_DOWN:
             case KeyEvent.KEYCODE_VOLUME_MUTE:
+            case KeyEvent.KEYCODE_HEADSETHOOK:
             case KeyEvent.KEYCODE_CAMERA:
             case KeyEvent.KEYCODE_FOCUS:
-                if (!mAlarmHandled && keyEvent.getAction() == KeyEvent.ACTION_UP) {
+                if (!mAlarmHandled) {
                     switch (mVolumeBehavior) {
-                        case SettingsActivity.VOLUME_BEHAVIOR_SNOOZE:
-                            snooze();
-                            break;
-                        case SettingsActivity.VOLUME_BEHAVIOR_DISMISS:
-                            dismiss();
-                            break;
-                        default:
-                            break;
+                        case SNOOZE:
+                            if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
+                                snooze();
+                            }
+                            return true;
+                        case DISMISS:
+                            if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
+                                dismiss();
+                            }
+                            return true;
                     }
                 }
-                return true;
-            default:
-                return super.dispatchKeyEvent(keyEvent);
         }
+        return super.dispatchKeyEvent(keyEvent);
     }
 
     @Override
@@ -317,13 +321,13 @@ public class AlarmActivity extends AppCompatActivity
     @Override
     public void onClick(View view) {
         if (mAlarmHandled) {
-            LogUtils.v(LOGTAG, "onClick ignored: %s", view);
+            LOGGER.v("onClick ignored: %s", view);
             return;
         }
-        LogUtils.v(LOGTAG, "onClick: %s", view);
+        LOGGER.v("onClick: %s", view);
 
         // If in accessibility mode, allow snooze/dismiss by double tapping on respective icons.
-        if (mAccessibilityManager != null && mAccessibilityManager.isTouchExplorationEnabled()) {
+        if (isAccessibilityEnabled()) {
             if (view == mSnoozeButton) {
                 snooze();
             } else if (view == mDismissButton) {
@@ -340,17 +344,43 @@ public class AlarmActivity extends AppCompatActivity
     }
 
     @Override
-    public boolean onTouch(View view, MotionEvent motionEvent) {
+    public boolean onTouch(View view, MotionEvent event) {
         if (mAlarmHandled) {
-            LogUtils.v(LOGTAG, "onTouch ignored: %s", motionEvent);
+            LOGGER.v("onTouch ignored: %s", event);
             return false;
+        }
+
+        final int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            LOGGER.v("onTouch started: %s", event);
+
+            // Track the pointer that initiated the touch sequence.
+            mInitialPointerIndex = event.getPointerId(event.getActionIndex());
+
+            // Stop the pulse, allowing the last pulse to finish.
+            mPulseAnimator.setRepeatCount(0);
+        } else if (action == MotionEvent.ACTION_CANCEL) {
+            LOGGER.v("onTouch canceled: %s", event);
+
+            // Clear the pointer index.
+            mInitialPointerIndex = MotionEvent.INVALID_POINTER_ID;
+
+            // Reset everything.
+            resetAnimations();
+        }
+
+        final int actionIndex = event.getActionIndex();
+        if (mInitialPointerIndex == MotionEvent.INVALID_POINTER_ID
+                || mInitialPointerIndex != event.getPointerId(actionIndex)) {
+            // Ignore any pointers other than the initial one, bail early.
+            return true;
         }
 
         final int[] contentLocation = {0, 0};
         mContentView.getLocationOnScreen(contentLocation);
 
-        final float x = motionEvent.getRawX() - contentLocation[0];
-        final float y = motionEvent.getRawY() - contentLocation[1];
+        final float x = event.getRawX() - contentLocation[0];
+        final float y = event.getRawY() - contentLocation[1];
 
         final int alarmLeft = mAlarmButton.getLeft() + mAlarmButton.getPaddingLeft();
         final int alarmRight = mAlarmButton.getRight() - mAlarmButton.getPaddingRight();
@@ -365,41 +395,29 @@ public class AlarmActivity extends AppCompatActivity
         }
         setAnimatedFractions(snoozeFraction, dismissFraction);
 
-        switch (motionEvent.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-                LogUtils.v(LOGTAG, "onTouch started: %s", motionEvent);
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP) {
+            LOGGER.v("onTouch ended: %s", event);
 
-                // Stop the pulse, allowing the last pulse to finish.
-                mPulseAnimator.setRepeatCount(0);
-                break;
-            case MotionEvent.ACTION_UP:
-                LogUtils.v(LOGTAG, "onTouch ended: %s", motionEvent);
-
-                if (snoozeFraction == 1.0f) {
-                    snooze();
-                } else if (dismissFraction == 1.0f) {
-                    dismiss();
-                } else {
-                    if (snoozeFraction > 0.0f || dismissFraction > 0.0f) {
-                        // Animate back to the initial state.
-                        AnimatorUtils.reverse(mAlarmAnimator, mSnoozeAnimator, mDismissAnimator);
-                    } else if (mAlarmButton.getTop() <= y && y <= mAlarmButton.getBottom()) {
-                        // User touched the alarm button, hint the dismiss action
-                        hintDismiss();
-                    }
-
-                    // Restart the pulse.
-                    mPulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
-                    if (!mPulseAnimator.isStarted()) {
-                        mPulseAnimator.start();
-                    }
+            mInitialPointerIndex = MotionEvent.INVALID_POINTER_ID;
+            if (snoozeFraction == 1.0f) {
+                snooze();
+            } else if (dismissFraction == 1.0f) {
+                dismiss();
+            } else {
+                if (snoozeFraction > 0.0f || dismissFraction > 0.0f) {
+                    // Animate back to the initial state.
+                    AnimatorUtils.reverse(mAlarmAnimator, mSnoozeAnimator, mDismissAnimator);
+                } else if (mAlarmButton.getTop() <= y && y <= mAlarmButton.getBottom()) {
+                    // User touched the alarm button, hint the dismiss action.
+                    hintDismiss();
                 }
-                break;
-            case MotionEvent.ACTION_CANCEL:
-                resetAnimations();
-                break;
-            default:
-                break;
+
+                // Restart the pulse.
+                mPulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
+                if (!mPulseAnimator.isStarted()) {
+                    mPulseAnimator.start();
+                }
+            }
         }
 
         return true;
@@ -409,6 +427,25 @@ public class AlarmActivity extends AppCompatActivity
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+    }
+
+    /**
+     * Returns {@code true} if accessibility is enabled, to enable alternate behavior for click
+     * handling, etc.
+     */
+    private boolean isAccessibilityEnabled() {
+        if (mAccessibilityManager == null || !mAccessibilityManager.isEnabled()) {
+            // Accessibility is unavailable or disabled.
+            return false;
+        } else if (mAccessibilityManager.isTouchExplorationEnabled()) {
+            // TalkBack's touch exploration mode is enabled.
+            return true;
+        }
+
+        // Check if "Switch Access" is enabled.
+        final List<AccessibilityServiceInfo> enabledAccessibilityServices =
+                mAccessibilityManager.getEnabledAccessibilityServiceList(FEEDBACK_GENERIC);
+        return !enabledAccessibilityServices.isEmpty();
     }
 
     private void hintSnooze() {
@@ -447,19 +484,19 @@ public class AlarmActivity extends AppCompatActivity
      */
     private void snooze() {
         mAlarmHandled = true;
-        LogUtils.v(LOGTAG, "Snoozed: %s", mAlarmInstance);
+        LOGGER.v("Snoozed: %s", mAlarmInstance);
 
-        final int accentColor = Utils.obtainStyledColor(this, R.attr.colorAccent, Color.RED);
+        final int colorAccent = ThemeUtils.resolveColor(this, R.attr.colorAccent);
         setAnimatedFractions(1.0f /* snoozeFraction */, 0.0f /* dismissFraction */);
 
-        final int snoozeMinutes = AlarmStateManager.getSnoozedMinutes(this);
+        final int snoozeMinutes = DataModel.getDataModel().getSnoozeLength();
         final String infoText = getResources().getQuantityString(
                 R.plurals.alarm_alert_snooze_duration, snoozeMinutes, snoozeMinutes);
         final String accessibilityText = getResources().getQuantityString(
                 R.plurals.alarm_alert_snooze_set, snoozeMinutes, snoozeMinutes);
 
         getAlertAnimator(mSnoozeButton, R.string.alarm_alert_snoozed_text, infoText,
-                accessibilityText, accentColor, accentColor).start();
+                accessibilityText, colorAccent, colorAccent).start();
 
         AlarmStateManager.setSnoozeState(this, mAlarmInstance, false /* showToast */);
 
@@ -474,7 +511,7 @@ public class AlarmActivity extends AppCompatActivity
      */
     private void dismiss() {
         mAlarmHandled = true;
-        LogUtils.v(LOGTAG, "Dismissed: %s", mAlarmInstance);
+        LOGGER.v("Dismissed: %s", mAlarmInstance);
 
         setAnimatedFractions(0.0f /* snoozeFraction */, 1.0f /* dismissFraction */);
 

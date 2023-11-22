@@ -27,12 +27,9 @@
 #include <gtest/gtest.h>
 #include <utils/Log.h>
 
-#if !defined(BUILD_ONLY)
 #include "OMXAL/OpenMAXAL.h"
 #include "OMXAL/OpenMAXAL_Android.h"
-#endif
 
-#if !defined(BUILD_ONLY)
 //-----------------------------------------------------------------
 /* Checks for error and displays the error code if any */
 bool IsOk(XAresult res) {
@@ -118,12 +115,6 @@ protected:
     }
 
 };
-#else
-class XAObjectCreationTest : public ::testing::Test {
-protected:
-    void OutputMixCreation() { }
-};
-#endif
 
 //-------------------------------------------------------------------------------------------------
 TEST_F(XAObjectCreationTest, testEngineCreation) {

@@ -2,11 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, socket, subprocess, tempfile, threading, time
+import logging, os, re, socket, subprocess, tempfile, threading, time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.server import autotest, hosts, site_host_attributes
-from autotest_lib.server import subcommand, test, utils
+from autotest_lib.server import autotest, hosts, test
 
 
 class WolWake(threading.Thread):
@@ -41,7 +40,7 @@ class WolWake(threading.Thread):
             elapsed_time = 0
             while not ping_good and elapsed_time < timeout:
                 ping_good = subprocess.call(
-                    ['ping', '-c', '1', '-W', str(timeout), hostname],
+                    ['ping', '-c', '1', '-W', str(timeout), str(hostname)],
                     stdout=fnull, stderr=fnull) == 0
                 time.sleep(1)
                 elapsed_time += 1
@@ -84,6 +83,7 @@ class WolWake(threading.Thread):
 
 
 class network_EthCapsServer(test.test):
+    """test class"""
     version = 1
 
     def _parse_ifconfig(self, filename):
@@ -95,13 +95,13 @@ class network_EthCapsServer(test.test):
         self._mac_addr = None
 
         fd = open(filename)
+        re_mac = re.compile(r'.*(HWaddr|ether)\s+(\S+:\S+:\S+:\S+:\S+:\S+).*')
         for ln in fd.readlines():
-            info_str = ln.strip()
             logging.debug(ln)
-            index = info_str.find('HWaddr ')
-            if index != -1:
-                self._mac_addr = info_str[index + len('HWaddr '):]
-                logging.info("mac addr = %s" % self._mac_addr)
+            mat = re.match(re_mac, ln)
+            if mat:
+                self._mac_addr = mat.group(2)
+                logging.info("mac addr = %s", self._mac_addr)
                 break
         fd.close()
 

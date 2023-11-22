@@ -22,10 +22,23 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
 
+import com.android.compatibility.common.util.FileUtil;
+import com.android.compatibility.common.util.IInvocationResult;
+import com.android.compatibility.common.util.InvocationResult;
+import com.android.compatibility.common.util.ResultHandler;
+import com.android.compatibility.common.util.ZipUtil;
+
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.System;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -38,6 +51,20 @@ import java.util.zip.ZipOutputStream;
  * Background task to generate a report and save it to external storage.
  */
 class ReportExporter extends AsyncTask<Void, Void, String> {
+
+    private static final String COMMAND_LINE_ARGS = "";
+    private static final String LOG_URL = null;
+    private static final String REFERENCE_URL = null;
+    private static final String SUITE_NAME_METADATA_KEY = "SuiteName";
+    private static final String SUITE_PLAN = "verifier";
+    private static final String SUITE_BUILD = "0";
+
+    private static final long START_MS = System.currentTimeMillis();
+    private static final long END_MS = START_MS;
+
+    private static final String REPORT_DIRECTORY = "verifierReports";
+    private static final String ZIP_EXTENSION = ".zip";
+
     protected static final Logger LOG = Logger.getLogger(ReportExporter.class.getName());
 
     private final Context mContext;
@@ -54,50 +81,80 @@ class ReportExporter extends AsyncTask<Void, Void, String> {
             LOG.log(Level.WARNING, "External storage is not writable.");
             return mContext.getString(R.string.no_storage);
         }
-        byte[] contents;
+        IInvocationResult result;
         try {
             TestResultsReport report = new TestResultsReport(mContext, mAdapter);
-            contents = report.getContents().getBytes();
+            result = report.generateResult();
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Couldn't create test results report", e);
             return mContext.getString(R.string.test_results_error);
         }
-        File reportPath = new File(Environment.getExternalStorageDirectory(), "ctsVerifierReports");
-        reportPath.mkdirs();
+        // create a directory for CTS Verifier reports
+        File externalStorageDirectory = Environment.getExternalStorageDirectory();
+        File verifierReportsDir = new File(externalStorageDirectory, REPORT_DIRECTORY);
+        verifierReportsDir.mkdirs();
 
-        String baseName = getReportBaseName();
-        File reportFile = new File(reportPath, baseName + ".zip");
-        ZipOutputStream out = null;
+        String suiteName = Version.getMetadata(mContext, SUITE_NAME_METADATA_KEY);
+        // create a temporary directory for this particular report
+        File tempDir = new File(verifierReportsDir, getReportName(suiteName));
+        tempDir.mkdirs();
+
+        // create a File object for a report ZIP file
+        File reportZipFile = new File(
+                verifierReportsDir, getReportName(suiteName) + ZIP_EXTENSION);
+
         try {
-            out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(reportFile)));
-            ZipEntry entry = new ZipEntry(baseName + ".xml");
-            out.putNextEntry(entry);
-            out.write(contents);
-        } catch (IOException e) {
+            // Serialize the report
+            String versionName = Version.getVersionName(mContext);
+            ResultHandler.writeResults(suiteName, versionName, SUITE_PLAN, SUITE_BUILD,
+                    result, tempDir, START_MS, END_MS, REFERENCE_URL, LOG_URL,
+                    COMMAND_LINE_ARGS);
+
+            // copy formatting files to the temporary report directory
+            copyFormattingFiles(tempDir);
+
+            // create a compressed ZIP file containing the temporary report directory
+            ZipUtil.createZip(tempDir, reportZipFile);
+        } catch (IOException | XmlPullParserException e) {
             LOG.log(Level.WARNING, "I/O exception writing report to storage.", e);
             return mContext.getString(R.string.no_storage);
         } finally {
-            try {
-                if (out != null) {
-                    out.close();
-                }
-            } catch (IOException e) {
-                LOG.log(Level.WARNING, "I/O exception closing report.", e);
-            }
+            // delete the temporary directory and its files made for the report
+            FileUtil.recursiveDelete(tempDir);
         }
-
-        return mContext.getString(R.string.report_saved, reportFile.getPath());
+        return mContext.getString(R.string.report_saved, reportZipFile.getPath());
     }
 
-    private String getReportBaseName() {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd-HH.mm.ss", Locale.ENGLISH);
+    /**
+     * Copy the XML formatting files stored in the assets directory to the result output.
+     *
+     * @param resultsDir
+     */
+    private void copyFormattingFiles(File resultsDir) {
+        for (String resultFileName : ResultHandler.RESULT_RESOURCES) {
+            InputStream rawStream = null;
+            try {
+                rawStream = mContext.getAssets().open(
+                        String.format("report/%s", resultFileName));
+            } catch (IOException e) {
+                LOG.log(Level.WARNING, "Failed to load " + resultFileName + " from assets.");
+            }
+            if (rawStream != null) {
+                File resultFile = new File(resultsDir, resultFileName);
+                try {
+                    FileUtil.writeToFile(rawStream, resultFile);
+                } catch (IOException e) {
+                    LOG.log(Level.WARNING, "Failed to write " + resultFileName + " to a file.");
+                }
+            }
+        }
+    }
+
+    private String getReportName(String suiteName) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.ENGLISH);
         String date = dateFormat.format(new Date());
-        return "ctsVerifierReport"
-                + "-" + date
-                + "-" + Build.MANUFACTURER
-                + "-" + Build.PRODUCT
-                + "-" + Build.DEVICE
-                + "-" + Build.ID;
+        return String.format( "%s-%s-%s-%s-%s-%s",
+                date, suiteName, Build.MANUFACTURER, Build.PRODUCT, Build.DEVICE, Build.ID);
     }
 
     @Override

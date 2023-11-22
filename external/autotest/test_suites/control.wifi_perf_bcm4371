@@ -5,7 +5,6 @@
 AUTHOR = "tienchang@chromium.org, bmahadev@chromium.org"
 NAME = "wifi_perf_bcm4371"
 PURPOSE = "Verify WiFi performance."
-CRITERIA = "All tests with SUITE=wifi_perf_bcm4371 must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

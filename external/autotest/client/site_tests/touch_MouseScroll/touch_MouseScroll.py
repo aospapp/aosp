@@ -32,14 +32,21 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
         @raise: TestFail if scrolling did not occur in expected direction.
 
         """
-        self._set_default_scroll_position(scroll_vertical)
+        self._events.clear_previous_events()
+        self._events.set_default_scroll_position(scroll_vertical)
+        start_scroll = self._events.get_scroll_position(scroll_vertical)
+        self._events.clear_previous_events()
+
         self._playback(self._gest_file_path[name], touch_type='mouse')
-        self._wait_for_scroll_position_to_settle(scroll_vertical)
-        delta = self._get_scroll_position(scroll_vertical) - self._DEFAULT_SCROLL
+
+        self._events.wait_for_events_to_complete()
+        end_scroll = self._events.get_scroll_position(scroll_vertical)
+        delta = end_scroll - start_scroll
         logging.info('Test %s: saw scroll delta of %d.  Expected direction %d.',
                      name, delta, expected_direction)
 
         if delta * expected_direction < 0:
+            self._events.log_events()
             raise error.TestFail('Scroll was in wrong direction!  Delta '
                                  'for %s was %d.' % (name, delta))
         return delta
@@ -62,6 +69,7 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
                                        scroll_vertical)
 
         if delta != expected_value:
+            self._events.log_events()
             raise error.TestFail('One tick scroll was wrong size: actual=%d, '
                                  'expected=%d.' % (delta, expected_value))
 
@@ -84,6 +92,7 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
         fast_delta = self._get_scroll_delta(fast, expected, scroll_vertical)
 
         if abs(fast_delta) < self._TOLLERANCE * abs(slow_delta):
+            self._events.log_events()
             raise error.TestFail('Fast scroll should be much farther than '
                                  'slow! (%s).  %d vs. %d.' %
                                   (direction, slow_delta, fast_delta))
@@ -99,9 +108,11 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
             self._gest_file_path[filename] = os.path.join(gestures_dir,
                                                           filename)
 
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             # Open test page.
-            self._open_test_page(cr)
+            self._open_events_page(cr)
+            self._events.expand_page()
+            self._events.set_prevent_defaults(False)
 
             # Emulate mouse with vertical scroll feature.
             mouse_file = os.path.join(self.bindir, self._MOUSE_DESCRIPTION)
@@ -111,6 +122,7 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
             # In test page, position cursor to center.
             self._blocking_playback(self._gest_file_path['center_cursor'],
                                     touch_type='mouse')
+            self._events.wait_for_events_to_complete()
 
             # Test vertical scrolling.
             for direction in ['down', 'up']:

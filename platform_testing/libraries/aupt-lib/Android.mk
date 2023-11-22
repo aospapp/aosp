@@ -18,8 +18,10 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := AuptLib
-LOCAL_SDK_VERSION := 21
-LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator
+LOCAL_JAVA_LIBRARIES := ub-uiautomator \
+    junit \
+    legacy-android-test \
+    android.test.runner
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -30,8 +32,10 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_PACKAGE_NAME := AuptRunner
-LOCAL_SDK_VERSION := 21
-LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator
+LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator \
+    junit \
+    legacy-android-test \
+    android.test.runner
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 include $(BUILD_PACKAGE)

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -17,30 +19,25 @@ import java.text.FieldPosition;
 import java.text.ParsePosition;
 import java.util.Date;
 
+import org.junit.Test;
+
 import android.icu.text.DateFormat;
 import android.icu.text.DecimalFormat;
 import android.icu.text.NumberFormat;
 import android.icu.text.SimpleDateFormat;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /*
  * This is an API test, not a unit test.  It doesn't test very many cases, and doesn't
  * try to test the full functionality.  It just calls each function in the class and
  * verifies that it works on a basic level.
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class IntlTestDateFormatAPIC extends android.icu.dev.test.TestFmwk {
-    
-    public static void main(String[] args)  throws Exception {
-        new IntlTestDateFormatAPIC().run(args);
-    }
-    
     /**
      * Test hiding of parse() and format() APIs in the Format hierarchy.
      * We test the entire hierarchy, even though this test is located in
      * the DateFormat API test.
      */
+    @Test
     public void TestNameHiding() {
     
         // N.B.: This test passes if it COMPILES, since it's a test of

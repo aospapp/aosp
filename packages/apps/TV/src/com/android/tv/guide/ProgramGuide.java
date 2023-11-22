@@ -22,7 +22,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
-import android.animation.ValueAnimator;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.graphics.Point;
@@ -42,6 +42,7 @@ import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
+import android.view.accessibility.AccessibilityManager;
 
 import com.android.tv.ChannelTuner;
 import com.android.tv.Features;
@@ -54,7 +55,9 @@ import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.GenreItems;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.dvr.DvrDataManager;
+import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.ui.HardwareLayerAnimatorListenerAdapter;
+import com.android.tv.ui.ViewUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
 
@@ -89,6 +92,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
 
     private final MainActivity mActivity;
     private final ProgramManager mProgramManager;
+    private final AccessibilityManager mAccessibilityManager;
     private final ChannelTuner mChannelTuner;
     private final Tracker mTracker;
     private final DurationTimer mVisibleDuration = new DurationTimer();
@@ -163,10 +167,11 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     public ProgramGuide(MainActivity activity, ChannelTuner channelTuner,
             TvInputManagerHelper tvInputManagerHelper, ChannelDataManager channelDataManager,
             ProgramDataManager programDataManager, @Nullable DvrDataManager dvrDataManager,
-            Tracker tracker, Runnable preShowRunnable, Runnable postHideRunnable) {
+            @Nullable DvrScheduleManager dvrScheduleManager, Tracker tracker,
+            Runnable preShowRunnable, Runnable postHideRunnable) {
         mActivity = activity;
         mProgramManager = new ProgramManager(tvInputManagerHelper, channelDataManager,
-                programDataManager, dvrDataManager);
+                programDataManager, dvrDataManager, dvrScheduleManager);
         mChannelTuner = channelTuner;
         mTracker = tracker;
         mPreShowRunnable = preShowRunnable;
@@ -372,7 +377,10 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         mProgramTableFadeInAnimator.setTarget(mTable);
         mProgramTableFadeInAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(mTable));
         mSharedPreference = PreferenceManager.getDefaultSharedPreferences(mActivity);
-        mShowGuidePartial = mSharedPreference.getBoolean(KEY_SHOW_GUIDE_PARTIAL, true);
+        mAccessibilityManager =
+                (AccessibilityManager) mActivity.getSystemService(Context.ACCESSIBILITY_SERVICE);
+        mShowGuidePartial = mAccessibilityManager.isEnabled()
+                || mSharedPreference.getBoolean(KEY_SHOW_GUIDE_PARTIAL, true);
     }
 
     private void updateGuidePosition() {
@@ -604,7 +612,9 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     }
 
     private void startFull() {
-        if (isFull()) {
+        if (isFull() || mAccessibilityManager.isEnabled()) {
+            // If accessibility service is enabled, focus cannot be moved to side panel due to it's
+            // hidden. Therefore, we don't hide side panel when accessibility service is enabled.
             return;
         }
         mShowGuidePartial = false;
@@ -741,7 +751,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
             View detailView = row.findViewById(R.id.detail);
             detailView.findViewById(R.id.detail_content_full).setAlpha(1);
             detailView.findViewById(R.id.detail_content_full).setTranslationY(0);
-            setLayoutHeight(detailView, mDetailHeight);
+            ViewUtils.setLayoutHeight(detailView, mDetailHeight);
             detailView.setVisibility(View.VISIBLE);
 
             final ProgramRow programRow = (ProgramRow) row.findViewById(R.id.row);
@@ -783,8 +793,8 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
             fadeOutAnimator.setDuration(mAnimationDuration);
             fadeOutAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(outDetailContent));
 
-            Animator collapseAnimator =
-                    createHeightAnimator(outDetail, getLayoutHeight(outDetail), 0);
+            Animator collapseAnimator = ViewUtils
+                    .createHeightAnimator(outDetail, ViewUtils.getLayoutHeight(outDetail), 0);
             collapseAnimator.setStartDelay(mAnimationDuration);
             collapseAnimator.setDuration(mTableFadeAnimDuration);
             collapseAnimator.addListener(new AnimatorListenerAdapter() {
@@ -815,7 +825,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         if (inDetail != null) {
             final View inDetailContent = inDetail.findViewById(R.id.detail_content_full);
 
-            Animator expandAnimator = createHeightAnimator(inDetail, 0, mDetailHeight);
+            Animator expandAnimator = ViewUtils.createHeightAnimator(inDetail, 0, mDetailHeight);
             expandAnimator.setStartDelay(mAnimationDuration);
             expandAnimator.setDuration(mTableFadeAnimDuration);
             expandAnimator.addListener(new AnimatorListenerAdapter() {
@@ -830,17 +840,15 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
                     inDetailContent.setAlpha(0);
                 }
             });
-
             Animator fadeInAnimator = ObjectAnimator.ofPropertyValuesHolder(inDetailContent,
                     PropertyValuesHolder.ofFloat(View.ALPHA, 0f, 1f),
                     PropertyValuesHolder.ofFloat(View.TRANSLATION_Y,
                             direction * -mDetailPadding, 0f));
-            fadeInAnimator.setStartDelay(mAnimationDuration + mTableFadeAnimDuration);
             fadeInAnimator.setDuration(mAnimationDuration);
             fadeInAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(inDetailContent));
 
             AnimatorSet inAnimator = new AnimatorSet();
-            inAnimator.playTogether(expandAnimator, fadeInAnimator);
+            inAnimator.playSequentially(expandAnimator, fadeInAnimator);
             inAnimator.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animator) {
@@ -849,41 +857,6 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
             });
             mDetailInAnimator = inAnimator;
             inAnimator.start();
-        }
-    }
-
-    private Animator createHeightAnimator(
-            final View target, int initialHeight, int targetHeight) {
-        ValueAnimator animator = ValueAnimator.ofInt(initialHeight, targetHeight);
-        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                int value = (Integer) animation.getAnimatedValue();
-                if (value == 0) {
-                    if (target.getVisibility() != View.GONE) {
-                        target.setVisibility(View.GONE);
-                    }
-                } else {
-                    if (target.getVisibility() != View.VISIBLE) {
-                        target.setVisibility(View.VISIBLE);
-                    }
-                    setLayoutHeight(target, value);
-                }
-            }
-        });
-        return animator;
-    }
-
-    private int getLayoutHeight(View view) {
-        LayoutParams layoutParams = view.getLayoutParams();
-        return layoutParams.height;
-    }
-
-    private void setLayoutHeight(View view, int height) {
-        LayoutParams layoutParams = view.getLayoutParams();
-        if (height != layoutParams.height) {
-            layoutParams.height = height;
-            view.setLayoutParams(layoutParams);
         }
     }
 

@@ -16,30 +16,43 @@
 
 package android.text.cts;
 
-import java.util.ArrayList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Html;
+import android.text.Layout;
 import android.text.SpanWatcher;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.method.SingleLineTransformationMethod;
+import android.text.method.TransformationMethod;
+import android.text.style.AlignmentSpan;
 import android.text.style.ParagraphStyle;
 import android.text.style.QuoteSpan;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
 
 /**
  * Test {@link SpannableStringBuilder}.
  */
-public class SpannableStringBuilderSpanTest extends AndroidTestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SpannableStringBuilderSpanTest {
     private static final boolean DEBUG = false;
 
     private SpanSet mSpanSet = new SpanSet();
     private SpanSet mReplacementSpanSet = new SpanSet();
     private int testCounter;
 
+    @Test
     public void testReplaceWithSpans() {
         testCounter = 0;
         String originals[] = { "", "A", "here", "Well, hello there" };
@@ -116,13 +129,13 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
 
         assertEquals(expected, originalSpannable.toString());
 
-        checkSpanPositions(originalSpannable, replaceStart, replaceEnd, subReplacement.length(),
+        verifySpanPositions(originalSpannable, replaceStart, replaceEnd, subReplacement.length(),
                 flag);
-        checkReplacementSpanPositions(originalSpannable, replaceStart, replacementSpannable,
+        verifyReplacementSpanPositions(originalSpannable, replaceStart, replacementSpannable,
                 replacementStart, replacementEnd, flag);
     }
 
-    private void checkSpanPositions(Spannable spannable, int replaceStart, int replaceEnd,
+    private void verifySpanPositions(Spannable spannable, int replaceStart, int replaceEnd,
             int replacementLength, int flag) {
         int count = 0;
         int replacedLength = replaceEnd - replaceStart;
@@ -154,7 +167,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
                     // 0-length spans should have been removed
                     assertEquals(-1, start);
                     assertEquals(-1, end);
-                    mSpanSet.mRecorder.assertRemoved(span, originalStart, originalEnd);
+                    mSpanSet.mRecorder.verifyRemoved(span, originalStart, originalEnd);
                     continue;
                 }
 
@@ -227,15 +240,15 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
                 }
 
                 if (start != originalStart || end != originalEnd) {
-                    mSpanSet.mRecorder.assertChanged(span, originalStart, originalEnd, start, end);
+                    mSpanSet.mRecorder.verifyChanged(span, originalStart, originalEnd, start, end);
                 } else {
-                    mSpanSet.mRecorder.assertUnmodified(span);
+                    mSpanSet.mRecorder.verifyUnmodified(span);
                 }
             }
         }
     }
 
-    private void checkReplacementSpanPositions(Spannable originalSpannable, int replaceStart,
+    private void verifyReplacementSpanPositions(Spannable originalSpannable, int replaceStart,
             Spannable replacementSpannable, int replStart, int replEnd, int flag) {
 
         // Get all spans overlapping the replacement substring region
@@ -257,7 +270,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
                         " -> " + start + "," + end);
 
                 // There should be no change reported to the replacement string spanWatcher
-                mReplacementSpanSet.mRecorder.assertUnmodified(span);
+                mReplacementSpanSet.mRecorder.verifyUnmodified(span);
 
                 boolean shouldBeAdded = false;
                 for (int i = 0; i < addedSpans.length; i++) {
@@ -273,12 +286,12 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
                     if (isValidSpan(newStart, newEnd, flag)) {
                         assertEquals(start, newStart);
                         assertEquals(end, newEnd);
-                        mSpanSet.mRecorder.assertAdded(span, start, end);
+                        mSpanSet.mRecorder.verifyAdded(span, start, end);
                         continue;
                     }
                 }
 
-                mSpanSet.mRecorder.assertUnmodified(span);
+                mSpanSet.mRecorder.verifyUnmodified(span);
             }
         }
     }
@@ -392,7 +405,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
 
         private Spannable mSpannable;
 
-        private class AddedRemoved {
+        private static class AddedRemoved {
             Object span;
             int start;
             int end;
@@ -404,7 +417,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
             }
         }
 
-        private class Changed {
+        private static class Changed {
             Object span;
             int oldStart;
             int oldEnd;
@@ -443,7 +456,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
             if (text == mSpannable) mChanged.add(new Changed(span, ostart, oend, nstart, nend));
         }
 
-        public void assertUnmodified(Object span) {
+        public void verifyUnmodified(Object span) {
             for (AddedRemoved added: mAdded) {
                 if (added.span == span)
                     fail("Span " + span + " was added and not unmodified");
@@ -458,7 +471,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
             }
         }
 
-        public void assertChanged(Object span, int oldStart, int oldEnd, int newStart, int newEnd) {
+        public void verifyChanged(Object span, int oldStart, int oldEnd, int newStart, int newEnd) {
             for (Changed changed : mChanged) {
                 if (changed.span == span) {
                     assertEquals(changed.newStart, newStart);
@@ -473,7 +486,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
             fail("Span " + span + " was not changed");
         }
 
-        public void assertAdded(Object span, int start, int end) {
+        public void verifyAdded(Object span, int start, int end) {
             for (AddedRemoved added : mAdded) {
                 if (added.span == span) {
                     assertEquals(added.start, start);
@@ -484,7 +497,7 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
             fail("Span " + span + " was not added");
         }
 
-        public void assertRemoved(Object span, int start, int end) {
+        public void verifyRemoved(Object span, int start, int end) {
             for (AddedRemoved removed : mRemoved) {
                 if (removed.span == span) {
                     assertEquals(removed.start, start);
@@ -499,10 +512,8 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
     // TODO Thoroughly test the SPAN_PARAGRAPH span flag.
 
 
-    @SmallTest
-    public void
-    testReplace_discardsParagraphSpanInSourceIfThereIsNoNewLineBefore()
-            throws Exception {
+    @Test
+    public void testReplace_discardsParagraphSpanInSourceIfThereIsNoNewLineBefore() {
         SpannableStringBuilder spannable = new SpannableStringBuilder("1 selection_to_replace");
         Spanned newText = Html.fromHtml("<blockquote>new text</blockquote>");
         assertEquals(1, newText.getSpans(0, newText.length(), ParagraphStyle.class).length);
@@ -514,9 +525,8 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
         assertEquals(0, paragraphSpans.length);
     }
 
-    @SmallTest
-    public void testReplace_retainsParagraphSpanInSourceIfThereIsNewLineBefore()
-            throws Exception {
+    @Test
+    public void testReplace_retainsParagraphSpanInSourceIfThereIsNewLineBefore() {
         SpannableStringBuilder spannable = new SpannableStringBuilder("1\nselection_to_replace");
         Spanned newText = Html.fromHtml("<blockquote>new text</blockquote>");
         assertTrue(newText.getSpans(0, newText.length(), ParagraphStyle.class).length > 0);
@@ -528,9 +538,8 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
         assertEquals(1, paragraphSpans.length);
     }
 
-    @SmallTest
-    public void testReplace_retainsParagraphSpanInSourceIfStartIsZero()
-            throws Exception {
+    @Test
+    public void testReplace_retainsParagraphSpanInSourceIfStartIsZero() {
         // copy the paragraph span even if there is no previous character - start is equal to 0
 
         SpannableStringBuilder spannable = new SpannableStringBuilder("selection_to_replace");
@@ -544,9 +553,8 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
         assertEquals(1, paragraphSpans.length);
     }
 
-    @SmallTest
-    public void testReplace_retainsParagraphSpanInSourceIfEndIsEqualToLengthOfString()
-            throws Exception {
+    @Test
+    public void testReplace_retainsParagraphSpanInSourceIfEndIsEqualToLengthOfString() {
         // copy the paragraph span even if the final char is not next line, and if the end is
         // equal to the string length
 
@@ -564,9 +572,8 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
         assertEquals(1, paragraphSpans.length);
     }
 
-    @SmallTest
-    public void testReplace_discardsParagraphSpanInSourceIfThereIsNoNewLineAfter()
-            throws Exception {
+    @Test
+    public void testReplace_discardsParagraphSpanInSourceIfThereIsNoNewLineAfter() {
         SpannableStringBuilder spannable = new SpannableStringBuilder("r remaining\n");
         // create a spannable that does not have \n at the end. Html.fromHtml adds \n to the end of
         // the text
@@ -581,4 +588,26 @@ public class SpannableStringBuilderSpanTest extends AndroidTestCase {
         assertEquals(0, paragraphSpans.length);
     }
 
+    @Test
+    public void testCopyConstructorDoesNotEnforceParagraphStyleConstraint() {
+        final SpannableStringBuilder original = new SpannableStringBuilder("\ntest data\nb");
+        final AlignmentSpan.Standard span = new AlignmentSpan.Standard(
+                Layout.Alignment.ALIGN_NORMAL);
+        original.setSpan(span, 1, original.length() - 1, Spanned.SPAN_PARAGRAPH);
+
+        // test that paragraph style is in the copied when it is valid
+        SpannableStringBuilder copied = new SpannableStringBuilder(original);
+        AlignmentSpan.Standard[] copiedSpans = copied.getSpans(0, copied.length(),
+                AlignmentSpan.Standard.class);
+
+        assertEquals(1, copiedSpans.length);
+
+        // test that paragraph style is in not in the copied when it is invalid
+        final TransformationMethod transformation = SingleLineTransformationMethod.getInstance();
+        final CharSequence transformed = transformation.getTransformation(original, null);
+        copied = new SpannableStringBuilder(transformed);
+        copiedSpans = copied.getSpans(0, copied.length(), AlignmentSpan.Standard.class);
+
+        assertEquals(0, copiedSpans.length);
+    }
 }

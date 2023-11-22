@@ -21,9 +21,6 @@ import android.media.cts.R;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.cts.util.MediaUtils;
-import android.media.cts.CodecUtils;
-import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
@@ -32,15 +29,14 @@ import android.util.Log;
 import android.util.Range;
 
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
@@ -115,7 +111,7 @@ public class DecoderConformanceTest extends MediaPlayerTestBase {
         return readResourceLines(md5FileName);
     }
 
-    private void releaseMediacodec() {
+    private void release() {
         try {
             mDecoder.stop();
         } catch (Exception e) {
@@ -137,26 +133,16 @@ public class DecoderConformanceTest extends MediaPlayerTestBase {
         int resId = mResources.getIdentifier(vectorName, "raw", mContext.getPackageName());
         AssetFileDescriptor testFd = mResources.openRawResourceFd(resId);
         mExtractor = new MediaExtractor();
-        mExtractor.setDataSource(testFd.getFileDescriptor(), testFd.getStartOffset(),
-                                 testFd.getLength());
+        mExtractor.setDataSource(testFd.getFileDescriptor(), testFd.getStartOffset(), testFd.getLength());
         mExtractor.selectTrack(0);
-        int trackIndex = mExtractor.getSampleTrackIndex();
-        MediaFormat format = mExtractor.getTrackFormat(trackIndex);
-        mDecoder = MediaCodec.createByCodecName(decoderName);
 
         MediaCodecInfo codecInfo = mDecoder.getCodecInfo();
         MediaCodecInfo.CodecCapabilities caps = codecInfo.getCapabilitiesForType(mime);
-        if (!caps.isFormatSupported(format)) {
+        if (!caps.isFormatSupported(mExtractor.getTrackFormat(0))) {
             return Status.SKIP;
         }
 
-        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-        int decodeFrameCount = 0;
-        boolean sawInputEOS = false;
-        boolean sawOutputEOS = false;
-        final long kTimeOutUs = 5000; // 5ms timeout
         List<String> frameMD5Sums;
-
         try {
             frameMD5Sums = readVectorMD5Sums(mime, vectorName);
         } catch(Exception e) {
@@ -164,80 +150,16 @@ public class DecoderConformanceTest extends MediaPlayerTestBase {
             return Status.FAIL;
         }
 
-        int expectFrameCount = frameMD5Sums.size();
-        mDecoder.configure(format, null /* surface */, null /* crypto */, 0 /* flags */);
-        mDecoder.start();
-
-        while (!sawOutputEOS) {
-            // handle input
-            if (!sawInputEOS) {
-                int inputIndex = mDecoder.dequeueInputBuffer(kTimeOutUs);
-                if (inputIndex >= 0) {
-                    ByteBuffer buffer = mDecoder.getInputBuffer(inputIndex);
-                    int sampleSize = mExtractor.readSampleData(buffer, 0);
-                    if (sampleSize < 0) {
-                        mDecoder.queueInputBuffer(inputIndex, 0, 0, 0,
-                                                  MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                        sawInputEOS = true;
-                    } else {
-                        mDecoder.queueInputBuffer(inputIndex, 0, sampleSize, mExtractor.getSampleTime(), 0);
-                        mExtractor.advance();
-                    }
-                }
+        try {
+            mDecoder = MediaCodec.createByCodecName(decoderName);
+            if (MediaUtils.verifyDecoder(mDecoder, mExtractor, frameMD5Sums)) {
+                return Status.PASS;
             }
-
-            // handle output
-            int outputBufIndex = mDecoder.dequeueOutputBuffer(info, kTimeOutUs);
-            if (outputBufIndex >= 0) {
-                if (info.size > 0) { // Disregard 0-sized buffers at the end.
-                    MediaFormat bufferFormat = mDecoder.getOutputFormat(outputBufIndex);
-                    int width = bufferFormat.getInteger(MediaFormat.KEY_WIDTH);
-                    int height = bufferFormat.getInteger(MediaFormat.KEY_HEIGHT);
-                    int colorFmt = bufferFormat.getInteger(MediaFormat.KEY_COLOR_FORMAT);
-
-                    String md5CheckSum = "";
-                    try  {
-                        Image image = mDecoder.getOutputImage(outputBufIndex);
-                        md5CheckSum = CodecUtils.getImageMD5Checksum(image);
-                    } catch (Exception e) {
-                        Log.e(TAG, "getOutputImage md5CheckSum failed", e);
-                        return Status.FAIL;
-                    }
-
-                    if (!md5CheckSum.equals(frameMD5Sums.get(decodeFrameCount))) {
-                        Log.d(TAG, "Frame " + decodeFrameCount + " md5sum mismatch");
-                        return Status.FAIL;
-                    }
-
-                    decodeFrameCount++;
-                }
-                mDecoder.releaseOutputBuffer(outputBufIndex, false /* render */);
-                if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    sawOutputEOS = true;
-                }
-            } else if (outputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                MediaFormat decOutputFormat = mDecoder.getOutputFormat();
-                int width = decOutputFormat.getInteger(MediaFormat.KEY_WIDTH);
-                int height = decOutputFormat.getInteger(MediaFormat.KEY_HEIGHT);
-                Log.d(TAG, "output format " + decOutputFormat);
-            } else if (outputBufIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                Log.i(TAG, "Skip handling MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED");
-            } else {
-                assertEquals(
-                        "decoder.dequeueOutputBuffer() unrecognized return index: " + outputBufIndex,
-                        MediaCodec.INFO_TRY_AGAIN_LATER, outputBufIndex);
-            }
-        }
-
-        if (decodeFrameCount != expectFrameCount) {
-            Log.d(TAG, vectorName + " decode frame count not match");
+            Log.d(TAG, vectorName + " decoded frames do not match");
             return Status.FAIL;
+        } finally {
+            release();
         }
-
-        mDecoder.stop();
-        mDecoder.release();
-        mExtractor.release();
-        return Status.PASS;
     }
 
     void decodeTestVectors(String mime, boolean isGoog) throws Exception {
@@ -272,7 +194,7 @@ public class DecoderConformanceTest extends MediaPlayerTestBase {
 
                 if (!pass) {
                     // Release mediacodec in failure or exception cases.
-                    releaseMediacodec();
+                    release();
                 }
             }
 

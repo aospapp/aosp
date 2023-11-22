@@ -2,425 +2,171 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>ICU4J API Comparison: ICU4J 55.1 with ICU4J 56.1</title>
-<!-- Copyright 2015, IBM, All Rights Reserved. -->
+<!-- © 2016 and later: Unicode, Inc. and others. -->
+<!-- License & terms of use: http://www.unicode.org/copyright.html#License -->
+<title>ICU4J API Comparison: ICU4J 57.1 with ICU4J 58.1</title>
 </head>
 <body>
-<h1>ICU4J API Comparison: ICU4J 55.1 with ICU4J 56.1</h1>
+<h1>ICU4J API Comparison: ICU4J 57.1 with ICU4J 58.1</h1>
 
 <hr/>
-<h2>Removed from ICU4J 55.1</h2>
+<h2>Removed from ICU4J 57.1</h2>
 
 <h3>Package com.ibm.icu.text</h3>
 <ul>
-DateFormat.BooleanAttribute
+ChineseDateFormatSymbols
 <ul>
-<li><span style='color:orange'>(draft)</span> public static final DateFormat.BooleanAttribute PARSE_PARTIAL_MATCH</li>
+<li><span style='color:gray'>(deprecated)</span> protected void <i>initializeData</i>(ULocale, CalendarData)</li>
 </ul>
 </ul>
 
 
 <hr/>
-<h2>Deprecated or Obsoleted in ICU4J 56.1</h2>
-
-<h3>Package com.ibm.icu.text</h3>
-<ul>
-<li><span style='color:gray'>(deprecated)</span> public abstract class <i>DurationFormat</i></li>
-<li><span style='color:gray'>(deprecated)</span> public static abstract class <i>Normalizer.Mode</i></li>
-Normalizer
-<ul>
-<li><span style='color:gray'>(deprecated)</span> public static final int COMPARE_NORM_OPTIONS_SHIFT</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode DEFAULT</li>
-<li><span style='color:gray'>(deprecated)</span> public static final int DONE</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode FCD</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode NFC</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode NFD</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode NFKC</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode NFKD</li>
-<li><span style='color:gray'>(deprecated)</span> public static final Normalizer.Mode NONE</li>
-<li><span style='color:gray'>(deprecated)</span> public static final int UNICODE_3_2</li>
-<li><span style='color:gray'>(deprecated)</span> public <i>Normalizer</i>(UCharacterIterator, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public <i>Normalizer</i>(java.lang.String, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public <i>Normalizer</i>(java.text.CharacterIterator, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public java.lang.Object <i>clone</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>compose</i>(char[], char[], boolean, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>compose</i>(char[], int, int, char[], int, int, boolean, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>compose</i>(java.lang.String, boolean)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>compose</i>(java.lang.String, boolean, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>concatenate</i>(char[], int, int, char[], int, int, char[], int, int, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>concatenate</i>(char[], char[], Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>concatenate</i>(java.lang.String, java.lang.String, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>current</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>decompose</i>(char[], char[], boolean, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>decompose</i>(char[], int, int, char[], int, int, boolean, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>decompose</i>(java.lang.String, boolean)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>decompose</i>(java.lang.String, boolean, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>endIndex</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>first</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>getFC_NFKC_Closure</i>(int, char[])</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>getFC_NFKC_Closure</i>(int)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>getIndex</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>getLength</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public Normalizer.Mode <i>getMode</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>getOption</i>(int)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>getText</i>(char[])</li>
-<li><span style='color:gray'>(deprecated)</span> public java.lang.String <i>getText</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public static boolean <i>isNormalized</i>(char[], int, int, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static boolean <i>isNormalized</i>(int, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static boolean <i>isNormalized</i>(java.lang.String, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>last</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>next</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>normalize</i>(char[], char[], Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static int <i>normalize</i>(char[], int, int, char[], int, int, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>normalize</i>(int, Normalizer.Mode)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>normalize</i>(int, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>normalize</i>(java.lang.String, Normalizer.Mode)</li>
-<li><span style='color:gray'>(deprecated)</span> public static java.lang.String <i>normalize</i>(java.lang.String, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>previous</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public static Normalizer.QuickCheckResult <i>quickCheck</i>(char[], Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static Normalizer.QuickCheckResult <i>quickCheck</i>(char[], int, int, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public static Normalizer.QuickCheckResult <i>quickCheck</i>(java.lang.String, Normalizer.Mode)</li>
-<li><span style='color:gray'>(deprecated)</span> public static Normalizer.QuickCheckResult <i>quickCheck</i>(java.lang.String, Normalizer.Mode, int)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>reset</i>()</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setIndexOnly</i>(int)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setMode</i>(Normalizer.Mode)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setOption</i>(int, boolean)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setText</i>(char[])</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setText</i>(UCharacterIterator)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setText</i>(java.lang.String)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setText</i>(java.lang.StringBuffer)</li>
-<li><span style='color:gray'>(deprecated)</span> public void <i>setText</i>(java.text.CharacterIterator)</li>
-<li><span style='color:gray'>(deprecated)</span> public int <i>startIndex</i>()</li>
-</ul>
-</ul>
-
-
-<hr/>
-<h2>Changed in ICU4J 56.1 (old, new)</h2>
-<p>(no API changed)</p>
-
-<hr/>
-<h2>Promoted to stable in ICU4J 56.1</h2>
+<h2>Deprecated or Obsoleted in ICU4J 58.1</h2>
 
 <h3>Package com.ibm.icu.lang</h3>
 <ul>
-UCharacter
+UCharacter.BidiPairedBracketType
 <ul>
-<li><span style='color:green'>(stable)</span> public static java.lang.String <i>toTitleCase</i>(java.util.Locale, java.lang.String, BreakIterator, int)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.DecompositionType
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.EastAsianWidth
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.GraphemeClusterBreak
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.HangulSyllableType
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.JoiningGroup
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.JoiningType
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.LineBreak
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.NumericType
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.SentenceBreak
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.UnicodeBlock
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacter.WordBreak
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+UCharacterEnums.ECharacterDirection
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int CHAR_DIRECTION_COUNT</li>
+</ul>
+UProperty
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int BINARY_LIMIT</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int DOUBLE_LIMIT</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int INT_LIMIT</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int MASK_LIMIT</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int OTHER_PROPERTY_LIMIT</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int STRING_LIMIT</li>
+</ul>
+UProperty.NameChoice
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
 </ul>
 UScript
 <ul>
-<li><span style='color:green'>(stable)</span> public static final int <i>getCodeFromName</i>(java.lang.String)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int CODE_LIMIT</li>
 </ul>
 </ul>
 
 <h3>Package com.ibm.icu.text</h3>
 <ul>
-<li><span style='color:green'>(stable)</span> public abstract class <i>UFormat</i></li>
-<li><span style='color:green'>(stable)</span> public static class <i>UnicodeSet.EntryRange</i></li>
-<li><span style='color:green'>(stable)</span> public class <i>UnicodeSetSpanner</i></li>
-<li><span style='color:green'>(stable)</span> public static enum <i>RelativeDateTimeFormatter.Style</i></li>
-<li><span style='color:green'>(stable)</span> public static enum <i>UnicodeSetSpanner.CountMethod</i></li>
-<li><span style='color:green'>(stable)</span> public static enum <i>UnicodeSetSpanner.TrimOption</i></li>
-CurrencyDisplayNames
+Bidi
 <ul>
-<li><span style='color:green'>(stable)</span> public static CurrencyDisplayNames <i>getInstance</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static CurrencyDisplayNames <i>getInstance</i>(java.util.Locale, boolean)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int CLASS_DEFAULT</li>
 </ul>
-CurrencyMetaInfo
+CollationKey.BoundMode
 <ul>
-<li><span style='color:green'>(stable)</span> public CurrencyMetaInfo.CurrencyDigits <i>currencyDigits</i>(java.lang.String, Currency.CurrencyUsage)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int COUNT</li>
+</ul>
+Collator.ReorderCodes
+<ul>
+<li><span style='color:gray'>(deprecated)</span> public static final int LIMIT</li>
 </ul>
 DateFormat
 <ul>
-<li><span style='color:green'>(stable)</span> public static final DateFormat <i>getInstanceForSkeleton</i>(Calendar, java.lang.String, ULocale)</li>
-<li><span style='color:green'>(stable)</span> public static final DateFormat <i>getInstanceForSkeleton</i>(Calendar, java.lang.String, java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static final DateFormat <i>getInstanceForSkeleton</i>(java.lang.String)</li>
-<li><span style='color:green'>(stable)</span> public static final DateFormat <i>getInstanceForSkeleton</i>(java.lang.String, ULocale)</li>
-<li><span style='color:green'>(stable)</span> public static final DateFormat <i>getInstanceForSkeleton</i>(java.lang.String, java.util.Locale)</li>
-</ul>
-DateFormatSymbols
-<ul>
-<li><span style='color:green'>(stable)</span> public java.lang.String[] <i>getYearNames</i>(int, int)</li>
-<li><span style='color:green'>(stable)</span> public java.lang.String[] <i>getZodiacNames</i>(int, int)</li>
-<li><span style='color:green'>(stable)</span> public void <i>setYearNames</i>(java.lang.String[], int, int)</li>
-<li><span style='color:green'>(stable)</span> public void <i>setZodiacNames</i>(java.lang.String[], int, int)</li>
-</ul>
-DateIntervalInfo
-<ul>
-<li><span style='color:green'>(stable)</span> public <i>DateIntervalInfo</i>(java.util.Locale)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int FIELD_COUNT</li>
 </ul>
 DateTimePatternGenerator
 <ul>
-<li><span style='color:green'>(stable)</span> public static DateTimePatternGenerator <i>getInstance</i>(java.util.Locale)</li>
-</ul>
-DecimalFormat
-<ul>
-<li><span style='color:green'>(stable)</span> public Currency.CurrencyUsage <i>getCurrencyUsage</i>()</li>
-<li><span style='color:green'>(stable)</span> public boolean <i>isDecimalPatternMatchRequired</i>()</li>
-<li><span style='color:green'>(stable)</span> public void <i>setCurrencyUsage</i>(Currency.CurrencyUsage)</li>
-<li><span style='color:green'>(stable)</span> public void <i>setDecimalPatternMatchRequired</i>(boolean)</li>
-</ul>
-DecimalFormatSymbols
-<ul>
-<li><span style='color:green'>(stable)</span> public java.lang.String <i>getExponentMultiplicationSign</i>()</li>
-<li><span style='color:green'>(stable)</span> public void <i>setExponentMultiplicationSign</i>(java.lang.String)</li>
-</ul>
-DisplayContext
-<ul>
-<li><span style='color:green'>(stable)</span> public static final DisplayContext LENGTH_FULL</li>
-<li><span style='color:green'>(stable)</span> public static final DisplayContext LENGTH_SHORT</li>
-</ul>
-DisplayContext.Type
-<ul>
-<li><span style='color:green'>(stable)</span> public static final DisplayContext.Type DISPLAY_LENGTH</li>
-</ul>
-LocaleDisplayNames
-<ul>
-<li><span style='color:green'>(stable)</span> public static LocaleDisplayNames <i>getInstance</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static LocaleDisplayNames <i>getInstance</i>(java.util.Locale, DisplayContext...)</li>
-</ul>
-MeasureFormat
-<ul>
-<li><span style='color:green'>(stable)</span> public static MeasureFormat <i>getCurrencyFormat</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static MeasureFormat <i>getInstance</i>(java.util.Locale, MeasureFormat.FormatWidth)</li>
-<li><span style='color:green'>(stable)</span> public static MeasureFormat <i>getInstance</i>(java.util.Locale, MeasureFormat.FormatWidth, NumberFormat)</li>
-</ul>
-NumberFormat
-<ul>
-<li><span style='color:green'>(stable)</span> public static final int CASHCURRENCYSTYLE</li>
-</ul>
-PluralFormat
-<ul>
-<li><span style='color:green'>(stable)</span> public <i>PluralFormat</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public <i>PluralFormat</i>(java.util.Locale, PluralRules)</li>
-<li><span style='color:green'>(stable)</span> public <i>PluralFormat</i>(java.util.Locale, PluralRules.PluralType)</li>
-</ul>
-PluralRules
-<ul>
-<li><span style='color:green'>(stable)</span> public static PluralRules <i>forLocale</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static PluralRules <i>forLocale</i>(java.util.Locale, PluralRules.PluralType)</li>
-</ul>
-RelativeDateTimeFormatter
-<ul>
-<li><span style='color:green'>(stable)</span> public DisplayContext <i>getCapitalizationContext</i>()</li>
-<li><span style='color:green'>(stable)</span> public RelativeDateTimeFormatter.Style <i>getFormatStyle</i>()</li>
-<li><span style='color:green'>(stable)</span> public static RelativeDateTimeFormatter <i>getInstance</i>(ULocale, NumberFormat, RelativeDateTimeFormatter.Style, DisplayContext)</li>
-<li><span style='color:green'>(stable)</span> public static RelativeDateTimeFormatter <i>getInstance</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static RelativeDateTimeFormatter <i>getInstance</i>(java.util.Locale, NumberFormat)</li>
-</ul>
-RelativeDateTimeFormatter.Style
-<ul>
-<li><span style='color:green'>(stable)</span> public static final RelativeDateTimeFormatter.Style LONG</li>
-<li><span style='color:green'>(stable)</span> public static final RelativeDateTimeFormatter.Style NARROW</li>
-<li><span style='color:green'>(stable)</span> public static final RelativeDateTimeFormatter.Style SHORT</li>
-</ul>
-SimpleDateFormat
-<ul>
-<li><span style='color:green'>(stable)</span> public NumberFormat <i>getNumberFormat</i>(char)</li>
-<li><span style='color:green'>(stable)</span> public void <i>setNumberFormat</i>(java.lang.String, NumberFormat)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int TYPE_LIMIT</li>
 </ul>
 SpoofChecker
 <ul>
-<li><span style='color:green'>(stable)</span> public java.util.Set&lt;java.util.Locale&gt; <i>getAllowedJavaLocales</i>()</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int ANY_CASE</li>
+<li><span style='color:gray'>(deprecated)</span> public java.lang.String <i>getSkeleton</i>(int, java.lang.String)</li>
 </ul>
 SpoofChecker.Builder
 <ul>
-<li><span style='color:green'>(stable)</span> public SpoofChecker.Builder <i>setAllowedJavaLocales</i>(java.util.Set&lt;java.util.Locale&gt;)</li>
-</ul>
-TimeZoneFormat
-<ul>
-<li><span style='color:green'>(stable)</span> public static TimeZoneFormat <i>getInstance</i>(java.util.Locale)</li>
-</ul>
-TimeZoneFormat.ParseOption
-<ul>
-<li><span style='color:green'>(stable)</span> public static final TimeZoneFormat.ParseOption TZ_DATABASE_ABBREVIATIONS</li>
-</ul>
-TimeZoneNames
-<ul>
-<li><span style='color:green'>(stable)</span> public static TimeZoneNames <i>getInstance</i>(java.util.Locale)</li>
-<li><span style='color:green'>(stable)</span> public static TimeZoneNames <i>getTZDBInstance</i>(ULocale)</li>
-</ul>
-UTF16
-<ul>
-<li><span style='color:green'>(stable)</span> public static int <i>compareCodePoint</i>(int, java.lang.CharSequence)</li>
-<li><span style='color:green'>(stable)</span> public static int <i>getSingleCodePoint</i>(java.lang.CharSequence)</li>
-</ul>
-UnicodeSet
-<ul>
-<li><span style='color:green'>(stable)</span> public java.lang.Iterable&lt;UnicodeSet.EntryRange&gt; <i>ranges</i>()</li>
-</ul>
-UnicodeSetSpanner.CountMethod
-<ul>
-<li><span style='color:green'>(stable)</span> public static final UnicodeSetSpanner.CountMethod MIN_ELEMENTS</li>
-<li><span style='color:green'>(stable)</span> public static final UnicodeSetSpanner.CountMethod WHOLE_SPAN</li>
-</ul>
-UnicodeSetSpanner.TrimOption
-<ul>
-<li><span style='color:green'>(stable)</span> public static final UnicodeSetSpanner.TrimOption BOTH</li>
-<li><span style='color:green'>(stable)</span> public static final UnicodeSetSpanner.TrimOption LEADING</li>
-<li><span style='color:green'>(stable)</span> public static final UnicodeSetSpanner.TrimOption TRAILING</li>
+<li><span style='color:gray'>(deprecated)</span> public SpoofChecker.Builder <i>setData</i>(java.io.Reader, java.io.Reader)</li>
 </ul>
 </ul>
 
 <h3>Package com.ibm.icu.util</h3>
 <ul>
-<li><span style='color:green'>(stable)</span> public static final class <i>Calendar.WeekData</i></li>
-<li><span style='color:green'>(stable)</span> public static enum <i>Currency.CurrencyUsage</i></li>
 Calendar
 <ul>
-<li><span style='color:green'>(stable)</span> public Calendar.WeekData <i>getWeekData</i>()</li>
-<li><span style='color:green'>(stable)</span> public static Calendar.WeekData <i>getWeekDataForRegion</i>(java.lang.String)</li>
-<li><span style='color:green'>(stable)</span> public Calendar <i>setWeekData</i>(Calendar.WeekData)</li>
+<li><span style='color:gray'>(deprecated)</span> protected static final int BASE_FIELD_COUNT</li>
+<li><span style='color:gray'>(deprecated)</span> protected static final int MAX_FIELD_COUNT</li>
 </ul>
-Currency
+LocaleData
 <ul>
-<li><span style='color:green'>(stable)</span> public static java.lang.String[] <i>getAvailableCurrencyCodes</i>(java.util.Locale, java.util.Date)</li>
-<li><span style='color:green'>(stable)</span> public int <i>getDefaultFractionDigits</i>(Currency.CurrencyUsage)</li>
-<li><span style='color:green'>(stable)</span> public double <i>getRoundingIncrement</i>(Currency.CurrencyUsage)</li>
-</ul>
-Currency.CurrencyUsage
-<ul>
-<li><span style='color:green'>(stable)</span> public static final Currency.CurrencyUsage CASH</li>
-<li><span style='color:green'>(stable)</span> public static final Currency.CurrencyUsage STANDARD</li>
-</ul>
-MeasureUnit
-<ul>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit ACRE_FOOT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit AMPERE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit ASTRONOMICAL_UNIT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit BIT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit BUSHEL</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit BYTE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CALORIE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CARAT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CENTILITER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUBIC_CENTIMETER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUBIC_FOOT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUBIC_INCH</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUBIC_METER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUBIC_YARD</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUP</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit DECILITER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit DECIMETER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit FATHOM</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit FLUID_OUNCE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit FOODCALORIE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit FURLONG</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit GALLON</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit GIGABIT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit GIGABYTE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit GIGAHERTZ</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit GIGAWATT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit HECTOLITER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit HERTZ</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit JOULE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KARAT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KELVIN</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KILOBIT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KILOBYTE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KILOCALORIE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KILOHERTZ</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KILOJOULE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit KILOWATT_HOUR</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit LITER_PER_KILOMETER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit LUX</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MEGABIT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MEGABYTE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MEGAHERTZ</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MEGALITER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MEGAWATT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit METER_PER_SECOND_SQUARED</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit METRIC_TON</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MICROGRAM</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MICROMETER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MICROSECOND</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILE_PER_GALLON</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILLIAMPERE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILLIGRAM</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILLILITER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILLIMETER_OF_MERCURY</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILLIWATT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit NANOMETER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit NANOSECOND</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit NAUTICAL_MILE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit OHM</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit OUNCE_TROY</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit PARSEC</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit PINT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit POUND_PER_SQUARE_INCH</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit QUART</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit RADIAN</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit SQUARE_CENTIMETER</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit SQUARE_INCH</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit SQUARE_YARD</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit STONE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit TABLESPOON</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit TEASPOON</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit TERABIT</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit TERABYTE</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit TON</li>
-<li><span style='color:green'>(stable)</span> public static final MeasureUnit VOLT</li>
-</ul>
-ULocale
-<ul>
-<li><span style='color:green'>(stable)</span> public boolean <i>isRightToLeft</i>()</li>
-<li><span style='color:green'>(stable)</span> public static java.lang.String <i>toLegacyKey</i>(java.lang.String)</li>
-<li><span style='color:green'>(stable)</span> public static java.lang.String <i>toLegacyType</i>(java.lang.String, java.lang.String)</li>
-<li><span style='color:green'>(stable)</span> public static java.lang.String <i>toUnicodeLocaleKey</i>(java.lang.String)</li>
-<li><span style='color:green'>(stable)</span> public static java.lang.String <i>toUnicodeLocaleType</i>(java.lang.String, java.lang.String)</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int DELIMITER_COUNT</li>
+<li><span style='color:gray'>(deprecated)</span> public static final int ES_COUNT</li>
 </ul>
 </ul>
 
 
 <hr/>
-<h2>Added in ICU4J 56.1</h2>
+<h2>Changed in ICU4J 58.1 (old, new)</h2>
+<p>(no API changed)</p>
 
-<h3>Package com.ibm.icu.lang</h3>
-<ul>
-UCharacter.UnicodeBlock
-<ul>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock AHOM</li>
-<li><span style='color:green'>(stable)</span> public static final int AHOM_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock ANATOLIAN_HIEROGLYPHS</li>
-<li><span style='color:green'>(stable)</span> public static final int ANATOLIAN_HIEROGLYPHS_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock CHEROKEE_SUPPLEMENT</li>
-<li><span style='color:green'>(stable)</span> public static final int CHEROKEE_SUPPLEMENT_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E</li>
-<li><span style='color:green'>(stable)</span> public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock EARLY_DYNASTIC_CUNEIFORM</li>
-<li><span style='color:green'>(stable)</span> public static final int EARLY_DYNASTIC_CUNEIFORM_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock HATRAN</li>
-<li><span style='color:green'>(stable)</span> public static final int HATRAN_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock MULTANI</li>
-<li><span style='color:green'>(stable)</span> public static final int MULTANI_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock OLD_HUNGARIAN</li>
-<li><span style='color:green'>(stable)</span> public static final int OLD_HUNGARIAN_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS</li>
-<li><span style='color:green'>(stable)</span> public static final int SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS_ID</li>
-<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock SUTTON_SIGNWRITING</li>
-<li><span style='color:green'>(stable)</span> public static final int SUTTON_SIGNWRITING_ID</li>
-</ul>
-</ul>
+<hr/>
+<h2>Promoted to stable in ICU4J 58.1</h2>
 
 <h3>Package com.ibm.icu.text</h3>
 <ul>
 DateFormat.BooleanAttribute
 <ul>
-<li><span style='color:orange'>(draft)</span> public static final DateFormat.BooleanAttribute PARSE_PARTIAL_LITERAL_MATCH</li>
+<li><span style='color:green'>(stable)</span> public static final DateFormat.BooleanAttribute PARSE_MULTIPLE_PATTERNS_FOR_MATCH</li>
+<li><span style='color:green'>(stable)</span> public static final DateFormat.BooleanAttribute PARSE_PARTIAL_LITERAL_MATCH</li>
 </ul>
 NumberFormat
 <ul>
-<li><span style='color:orange'>(draft)</span> public static final int STANDARDCURRENCYSTYLE</li>
+<li><span style='color:green'>(stable)</span> public static final int STANDARDCURRENCYSTYLE</li>
 </ul>
 RuleBasedNumberFormat
 <ul>
-<li><span style='color:orange'>(draft)</span> public int <i>getRoundingMode</i>()</li>
-<li><span style='color:orange'>(draft)</span> public void <i>setRoundingMode</i>(int)</li>
-</ul>
-SpoofChecker.CheckResult
-<ul>
-<li><span style='color:green'>(stable)</span> public java.lang.String <i>toString</i>()</li>
+<li><span style='color:green'>(stable)</span> public int <i>getRoundingMode</i>()</li>
+<li><span style='color:green'>(stable)</span> public void <i>setRoundingMode</i>(int)</li>
 </ul>
 </ul>
 
@@ -428,22 +174,186 @@ SpoofChecker.CheckResult
 <ul>
 MeasureUnit
 <ul>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit CENTURY</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit CUP_METRIC</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit GENERIC_TEMPERATURE</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit KNOT</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit LITER_PER_100KILOMETERS</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit MILE_SCANDINAVIAN</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit PINT_METRIC</li>
-<li><span style='color:orange'>(draft)</span> public static final MeasureUnit REVOLUTION_ANGLE</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit CENTURY</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit CUP_METRIC</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit GENERIC_TEMPERATURE</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit KNOT</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit LITER_PER_100KILOMETERS</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit MILE_SCANDINAVIAN</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit PINT_METRIC</li>
+<li><span style='color:green'>(stable)</span> public static final MeasureUnit REVOLUTION_ANGLE</li>
+</ul>
+</ul>
+
+
+<hr/>
+<h2>Added in ICU4J 58.1</h2>
+
+<h3>Package com.ibm.icu.lang</h3>
+<ul>
+UCharacter.GraphemeClusterBreak
+<ul>
+<li><span style='color:green'>(stable)</span> public static final int E_BASE</li>
+<li><span style='color:green'>(stable)</span> public static final int E_BASE_GAZ</li>
+<li><span style='color:green'>(stable)</span> public static final int E_MODIFIER</li>
+<li><span style='color:green'>(stable)</span> public static final int GLUE_AFTER_ZWJ</li>
+<li><span style='color:green'>(stable)</span> public static final int ZWJ</li>
+</ul>
+UCharacter.JoiningGroup
+<ul>
+<li><span style='color:green'>(stable)</span> public static final int AFRICAN_FEH</li>
+<li><span style='color:green'>(stable)</span> public static final int AFRICAN_NOON</li>
+<li><span style='color:green'>(stable)</span> public static final int AFRICAN_QAF</li>
+</ul>
+UCharacter.LineBreak
+<ul>
+<li><span style='color:green'>(stable)</span> public static final int E_BASE</li>
+<li><span style='color:green'>(stable)</span> public static final int E_MODIFIER</li>
+<li><span style='color:green'>(stable)</span> public static final int ZWJ</li>
+</ul>
+UCharacter.UnicodeBlock
+<ul>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock ADLAM</li>
+<li><span style='color:green'>(stable)</span> public static final int ADLAM_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock BHAIKSUKI</li>
+<li><span style='color:green'>(stable)</span> public static final int BHAIKSUKI_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock CYRILLIC_EXTENDED_C</li>
+<li><span style='color:green'>(stable)</span> public static final int CYRILLIC_EXTENDED_C_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock GLAGOLITIC_SUPPLEMENT</li>
+<li><span style='color:green'>(stable)</span> public static final int GLAGOLITIC_SUPPLEMENT_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock IDEOGRAPHIC_SYMBOLS_AND_PUNCTUATION</li>
+<li><span style='color:green'>(stable)</span> public static final int IDEOGRAPHIC_SYMBOLS_AND_PUNCTUATION_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock MARCHEN</li>
+<li><span style='color:green'>(stable)</span> public static final int MARCHEN_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock MONGOLIAN_SUPPLEMENT</li>
+<li><span style='color:green'>(stable)</span> public static final int MONGOLIAN_SUPPLEMENT_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock NEWA</li>
+<li><span style='color:green'>(stable)</span> public static final int NEWA_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock OSAGE</li>
+<li><span style='color:green'>(stable)</span> public static final int OSAGE_ID</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock TANGUT</li>
+<li><span style='color:green'>(stable)</span> public static final UCharacter.UnicodeBlock TANGUT_COMPONENTS</li>
+<li><span style='color:green'>(stable)</span> public static final int TANGUT_COMPONENTS_ID</li>
+<li><span style='color:green'>(stable)</span> public static final int TANGUT_ID</li>
+</ul>
+UCharacter.WordBreak
+<ul>
+<li><span style='color:green'>(stable)</span> public static final int E_BASE</li>
+<li><span style='color:green'>(stable)</span> public static final int E_BASE_GAZ</li>
+<li><span style='color:green'>(stable)</span> public static final int E_MODIFIER</li>
+<li><span style='color:green'>(stable)</span> public static final int GLUE_AFTER_ZWJ</li>
+<li><span style='color:green'>(stable)</span> public static final int ZWJ</li>
+</ul>
+UScript
+<ul>
+<li><span style='color:green'>(stable)</span> public static final int ADLAM</li>
+<li><span style='color:green'>(stable)</span> public static final int BHAIKSUKI</li>
+<li><span style='color:green'>(stable)</span> public static final int HAN_WITH_BOPOMOFO</li>
+<li><span style='color:green'>(stable)</span> public static final int JAMO</li>
+<li><span style='color:green'>(stable)</span> public static final int MARCHEN</li>
+<li><span style='color:green'>(stable)</span> public static final int NEWA</li>
+<li><span style='color:green'>(stable)</span> public static final int OSAGE</li>
+<li><span style='color:green'>(stable)</span> public static final int SYMBOLS_EMOJI</li>
+</ul>
+</ul>
+
+<h3>Package com.ibm.icu.text</h3>
+<ul>
+<li><span style='color:orange'>(draft)</span> public class <i>BidiTransform</i></li>
+<li><span style='color:orange'>(draft)</span> public static enum <i>BidiTransform.Mirroring</i></li>
+<li><span style='color:orange'>(draft)</span> public static enum <i>BidiTransform.Order</i></li>
+BidiTransform.Mirroring
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final BidiTransform.Mirroring OFF</li>
+<li><span style='color:orange'>(draft)</span> public static final BidiTransform.Mirroring ON</li>
+</ul>
+BidiTransform.Order
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final BidiTransform.Order LOGICAL</li>
+<li><span style='color:orange'>(draft)</span> public static final BidiTransform.Order VISUAL</li>
+</ul>
+ChineseDateFormatSymbols
+<ul>
+<li><span style='color:gray'>(deprecated)</span> protected void <i>initializeData</i>(ULocale, ICUResourceBundle, java.lang.String)</li>
+</ul>
+Collator
+<ul>
+<li><span style='color:green'>(stable)</span> public int <i>hashCode</i>()</li>
+</ul>
+DecimalFormatSymbols
+<ul>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getDecimalSeparatorString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String[] <i>getDigitStrings</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getGroupingSeparatorString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getMinusSignString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getMonetaryDecimalSeparatorString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getMonetaryGroupingSeparatorString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getPerMillString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getPercentString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getPlusSignString</i>()</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setDecimalSeparatorString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setDigitStrings</i>(java.lang.String[])</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setGroupingSeparatorString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setMinusSignString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setMonetaryDecimalSeparatorString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setMonetaryGroupingSeparatorString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setPerMillString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setPercentString</i>(java.lang.String)</li>
+<li><span style='color:orange'>(draft)</span> public void <i>setPlusSignString</i>(java.lang.String)</li>
+</ul>
+DisplayContext
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final DisplayContext NO_SUBSTITUTE</li>
+<li><span style='color:orange'>(draft)</span> public static final DisplayContext SUBSTITUTE</li>
+</ul>
+DisplayContext.Type
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final DisplayContext.Type SUBSTITUTE_HANDLING</li>
+</ul>
+MeasureFormat
+<ul>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getUnitDisplayName</i>(MeasureUnit)</li>
+</ul>
+SpoofChecker
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final int CONFUSABLE</li>
+<li><span style='color:orange'>(draft)</span> public static final UnicodeSet INCLUSION</li>
+<li><span style='color:orange'>(draft)</span> public static final int MIXED_NUMBERS</li>
+<li><span style='color:orange'>(draft)</span> public static final UnicodeSet RECOMMENDED</li>
+<li><span style='color:orange'>(draft)</span> public static final int RESTRICTION_LEVEL</li>
+<li><span style='color:orange'>(draft)</span> public boolean <i>equals</i>(java.lang.Object)</li>
+<li><span style='color:orange'>(draft)</span> public java.lang.String <i>getSkeleton</i>(java.lang.CharSequence)</li>
+<li><span style='color:orange'>(draft)</span> public int <i>hashCode</i>()</li>
+</ul>
+SpoofChecker.Builder
+<ul>
+<li><span style='color:orange'>(draft)</span> public SpoofChecker.Builder <i>setData</i>(java.io.Reader)</li>
+<li><span style='color:orange'>(draft)</span> public SpoofChecker.Builder <i>setRestrictionLevel</i>(SpoofChecker.RestrictionLevel)</li>
+</ul>
+SpoofChecker.CheckResult
+<ul>
+<li><span style='color:orange'>(draft)</span> public UnicodeSet numerics</li>
+<li><span style='color:orange'>(draft)</span> public SpoofChecker.RestrictionLevel restrictionLevel</li>
+</ul>
+</ul>
+
+<h3>Package com.ibm.icu.util</h3>
+<ul>
+MeasureUnit
+<ul>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit EAST</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit NORTH</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit SOUTH</li>
+<li><span style='color:orange'>(draft)</span> public static final MeasureUnit WEST</li>
 </ul>
 VersionInfo
 <ul>
-<li><span style='color:green'>(stable)</span> public static final VersionInfo UNICODE_8_0</li>
+<li><span style='color:green'>(stable)</span> public static final VersionInfo UNICODE_9_0</li>
+<li><span style='color:green'>(stable)</span> public int <i>hashCode</i>()</li>
 </ul>
 </ul>
 
 <hr/>
-<p><i><font size="-1">Contents generated by ReportAPI tool on Wed Sep 23 17:51:23 EDT 2015<br/>Copyright (C) 2015, International Business Machines Corporation, All Rights Reserved.</font></i></p>
+<p><i><font size="-1">Contents generated by ReportAPI tool on Thu Sep 29 06:32:57 EDT 2016<br/>© 2016 and later: Unicode, Inc. and others. License & terms of use: <a href="http://www.unicode.org/copyright.html#License">http://www.unicode.org/copyright.html#License</a></font></i></p>
 </body>
 </html>

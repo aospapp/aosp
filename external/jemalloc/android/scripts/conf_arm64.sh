@@ -15,6 +15,7 @@ includes=(
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libstdc++/include"
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi"
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libc/kernel/uapi/asm-arm64"
+  "-isystem ${ANDROID_BUILD_TOP}/bionic/libc/kernel/android/uapi"
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libm/include"
   "-isystem ${ANDROID_BUILD_TOP}/bionic/libm/include/arm64"
 )

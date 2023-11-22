@@ -19,11 +19,12 @@ package android.webkit.cts;
 import android.webkit.cts.R;
 
 import android.app.Activity;
-import android.cts.util.NullWebViewUtils;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.webkit.WebView;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
 
 public class WebViewCtsActivity extends Activity {
     private WebView mWebView;

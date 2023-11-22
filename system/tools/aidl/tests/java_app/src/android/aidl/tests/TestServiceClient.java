@@ -17,6 +17,8 @@
 package android.aidl.tests;
 
 import android.aidl.tests.SimpleParcelable;
+import android.aidl.tests.TestFailException;
+import android.aidl.tests.TestLogger;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -32,11 +34,12 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 // Generated
 import android.aidl.tests.INamedCallback;
@@ -45,50 +48,13 @@ import android.aidl.tests.ITestService;
 public class TestServiceClient extends Activity {
     private static final String TAG = "TestServiceClient";
 
-    public class TestFailException extends Exception {
-        public TestFailException(String message) {
-            super(message);
-        }
-    }
-
-    private class Logger {
-      private PrintWriter mLogFile;
-
-      public Logger() {
-        try {
-            mLogFile = new PrintWriter(openFileOutput(
-                    "test-client.log", Context.MODE_WORLD_READABLE));
-        } catch (IOException ex) {
-            throw new RuntimeException("Failed to open log file for writing.");
-        }
-      }
-
-      public void log(String line) {
-          Log.i(TAG, line);
-          mLogFile.println(line);
-      }
-
-      public void logAndThrow(String line) throws TestFailException {
-          Log.e(TAG, line);
-          mLogFile.println(line);
-          throw new TestFailException(line);
-      }
-
-      public void close() {
-          if (mLogFile != null) {
-              mLogFile.close();
-          }
-      }
-    }
-
-
-    private Logger mLog;
+    private TestLogger mLog;
     private String mSuccessSentinel;
     private String mFailureSentinel;
 
     private void init() {
         Intent intent = getIntent();
-        mLog = new Logger();
+        mLog = new TestLogger(this);
         mLog.log("Reading sentinels from intent...");
         mSuccessSentinel = intent.getStringExtra("sentinel.success");
         mFailureSentinel = intent.getStringExtra("sentinel.failure");
@@ -167,7 +133,7 @@ public class TestServiceClient extends Activity {
                 }
             }
             {
-                long query = 1 << 60;
+                long query = 1L << 60;
                 long response = service.RepeatLong(query);
                 if (query != response) {
                     mLog.logAndThrow("Repeat with " + query +
@@ -190,7 +156,23 @@ public class TestServiceClient extends Activity {
                                      " responded " + response);
                 }
             }
-            for (String query : Arrays.asList("not empty", "", "\0")) {
+            {
+                Map<String, Object> query = new HashMap<String, Object>();
+                query.put("first_val", new Byte((byte)-128));
+                query.put("second_val", new Integer(1<<30));
+                query.put("third_val", "OHAI");
+                Object response = service.RepeatMap(query);
+                if (!query.equals(response)) {
+                    mLog.logAndThrow("Repeat with " + query +
+                                     " responded " + response);
+                }
+            }
+
+            List<String> queries = Arrays.asList(
+                "not empty", "", "\0",
+                ITestService.STRING_TEST_CONSTANT,
+                ITestService.STRING_TEST_CONSTANT2);
+            for (String query : queries) {
                 String response = service.RepeatString(query);
                 if (!query.equals(response)) {
                     mLog.logAndThrow("Repeat request with '" + query + "'" +
@@ -204,24 +186,6 @@ public class TestServiceClient extends Activity {
             mLog.logAndThrow("Service failed to repeat a primitive back.");
         }
         mLog.log("...Basic primitive repeating works.");
-    }
-
-    private void checkNullHandling(ITestService service)
-            throws TestFailException {
-        mLog.log("Checking that sending null strings reports an error...");
-        try {
-            String response = service.RepeatString(null);
-            mLog.logAndThrow("Expected to fail on null string input!");
-        } catch (NullPointerException ex) {
-            mLog.log("Caught an exception on null string parameter (expected)");
-            mLog.log("null strings behave as expected");
-            return;
-        } catch (Exception ex) {
-            mLog.logAndThrow("Expected to receive NullPointerException on " +
-                             "null parameter, but got " + ex.toString());
-        }
-        mLog.logAndThrow("Expected to receive NullPointerException on " +
-                         "null parameter, but nothing was thrown??");
     }
 
     private void checkArrayReversal(ITestService service)
@@ -711,7 +675,6 @@ public class TestServiceClient extends Activity {
           init();
           ITestService service = getService();
           checkPrimitiveRepeat(service);
-          checkNullHandling(service);
           checkArrayReversal(service);
           checkBinderExchange(service);
           checkListReversal(service);
@@ -720,6 +683,8 @@ public class TestServiceClient extends Activity {
           checkFileDescriptorPassing(service);
           checkServiceSpecificExceptions(service);
           checkUtf8Strings(service);
+          new NullableTests(service, mLog).runTests();
+
           mLog.log(mSuccessSentinel);
         } catch (TestFailException e) {
             mLog.log(mFailureSentinel);

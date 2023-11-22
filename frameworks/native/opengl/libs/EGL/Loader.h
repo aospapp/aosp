@@ -17,13 +17,7 @@
 #ifndef ANDROID_EGL_LOADER_H
 #define ANDROID_EGL_LOADER_H
 
-#include <ctype.h>
-#include <string.h>
-#include <errno.h>
-
-#include <utils/Errors.h>
-#include <utils/Singleton.h>
-#include <utils/String8.h>
+#include <stdint.h>
 
 #include <EGL/egl.h>
 
@@ -33,12 +27,8 @@ namespace android {
 
 struct egl_connection_t;
 
-class Loader : public Singleton<Loader>
-{
-    friend class Singleton<Loader>;
-
-    typedef __eglMustCastToProperFunctionPointerType (*getProcAddressType)(
-            const char*);
+class Loader {
+    typedef __eglMustCastToProperFunctionPointerType (* getProcAddressType)(const char*);
    
     enum {
         EGL         = 0x01,
@@ -46,19 +36,21 @@ class Loader : public Singleton<Loader>
         GLESv2      = 0x04
     };
     struct driver_t {
-        driver_t(void* gles);
+        explicit driver_t(void* gles);
         ~driver_t();
-        status_t set(void* hnd, int32_t api);
+        // returns -errno
+        int set(void* hnd, int32_t api);
         void* dso[3];
     };
     
     getProcAddressType getProcAddress;
-    
+
 public:
+    static Loader& getInstance();
     ~Loader();
     
     void* open(egl_connection_t* cnx);
-    status_t close(void* driver);
+    void close(void* driver);
     
 private:
     Loader();

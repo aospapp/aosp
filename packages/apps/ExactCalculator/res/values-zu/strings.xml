@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"susa"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"bonisa imisebenzi yemuva"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"fihla imisebenzi yemuva"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Ayikho ifomula"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Awukho umphumela"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Izinombolo nokusebenza okuyisisekelo"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Ukusebenza okuthuthukisiwe"</string>
     <string name="error_nan" msgid="5674077944929888710">"Akuyona inombolo"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Ukusho okubi"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Kukhanseliwe"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Ukungapheleli?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Ayikwazi ukuhlukanisa ngo-0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Umbhalo okopishiwe"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Ukubala ngekhompuyutha kukhanseliwe"</string>
-    <string name="timeout" msgid="802690170415591535">"Ikusikhathi sokuvala. Inani kungenzeka lingapheli noma lingachazeki."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Ukubala ngekhompuyutha kukhanseliwe."</string>
+    <string name="timeout" msgid="5461892570729418573">"Inani kungenzeka alipheli noma alichaziwe."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Sebenzisa izikhathi zokuvala ezinde"</string>
     <string name="dismiss" msgid="7872443888515066216">"Cashisa"</string>
     <string name="exact" msgid="2597237880041789948">"(ukuqonda)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Phendula ngokuhola kwamadijithi"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Phendula njenge-fraction"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Amalayisense womthombo ovulekile"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Umlando"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Sula"</string>
+    <string name="title_history" msgid="7820912156315181539">"Umlando"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Zulazulela phezulu"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Isikhathi sokuvala"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Sula umlando nememori?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Ukuvezwa kwamanje"</string>
+    <string name="no_history" msgid="4331262030447527188">"Awukho umlando"</string>
 </resources>

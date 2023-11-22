@@ -341,7 +341,7 @@ class RawDBusInterfaceMethodHandler
  public:
   // A constructor that takes a |handler| to be called when HandleMethod()
   // virtual function is invoked.
-  RawDBusInterfaceMethodHandler(
+  explicit RawDBusInterfaceMethodHandler(
       const base::Callback<void(dbus::MethodCall*, ResponseSender)>& handler)
       : handler_(handler) {}
 

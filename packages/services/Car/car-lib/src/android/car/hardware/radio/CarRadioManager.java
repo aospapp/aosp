@@ -42,9 +42,9 @@ import java.lang.ref.WeakReference;
  * @hide
  */
 @SystemApi
-public class CarRadioManager implements CarManagerBase {
-    public final static boolean DBG = true;
-    public final static String TAG = "CarRadioManager";
+public final class CarRadioManager implements CarManagerBase {
+    private final static boolean DBG = false;
+    private final static String TAG = "CarRadioManager";
 
     // Constants handled in the handler (see mHandler below).
     private final static int MSG_RADIO_EVENT = 0;
@@ -109,12 +109,12 @@ public class CarRadioManager implements CarManagerBase {
     /**
      * Get an instance of the CarRadioManager.
      *
-     * Should not be obtained directly by clients, use {@link Car.getCarManager()} instead.
+     * Should not be obtained directly by clients, use {@link Car#getCarManager(String)} instead.
      * @hide
      */
-    public CarRadioManager(IBinder service, Looper looper) throws CarNotConnectedException {
+    public CarRadioManager(IBinder service, Handler handler) throws CarNotConnectedException {
         mService = ICarRadio.Stub.asInterface(service);
-        mHandler = new EventCallbackHandler(this, looper);
+        mHandler = new EventCallbackHandler(this, handler.getLooper());
 
         // Populate the fixed values.
         try {
@@ -151,7 +151,7 @@ public class CarRadioManager implements CarManagerBase {
     /**
      * Unregister {@link CarRadioEventListener}.
      */
-    public synchronized void unregisterListener() throws CarNotConnectedException {
+    public synchronized void unregisterListener() {
         if (DBG) {
             Log.d(TAG, "unregisterListener");
         }
@@ -159,7 +159,7 @@ public class CarRadioManager implements CarManagerBase {
             mService.unregisterListener(mListenerToService);
         } catch (RemoteException ex) {
             Log.e(TAG, "Could not connect: " + ex.toString());
-            throw new CarNotConnectedException(ex);
+            //ignore
         }
         mListenerToService = null;
         mListener = null;
@@ -170,7 +170,7 @@ public class CarRadioManager implements CarManagerBase {
      *
      * @return: A positive value if the call succeeded, -1 if it failed.
      */
-    public int getPresetCount() {
+    public int getPresetCount() throws CarNotConnectedException {
         return mCount;
     }
 

@@ -56,4 +56,9 @@ public class ImageBuffersForRenderScript {
     imageWidthPadded = inputImage.getWidth() + 2 * margin;
     imageHeightPadded = inputImage.getHeight() + 2 * margin;
   }
+
+  public void destroy() {
+    inAllocation.destroy();
+    outAllocation.destroy();
+  }
 }

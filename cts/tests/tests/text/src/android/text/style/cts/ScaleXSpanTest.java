@@ -16,14 +16,21 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.ScaleXSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class ScaleXSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ScaleXSpanTest {
+    @Test
     public void testConstructor() {
         ScaleXSpan scaleXSpan = new ScaleXSpan(1.5f);
 
@@ -39,6 +46,7 @@ public class ScaleXSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateDrawState() {
         float proportion = 3.0f;
         ScaleXSpan scaleXSpan = new ScaleXSpan(proportion);
@@ -46,20 +54,21 @@ public class ScaleXSpanTest extends TestCase {
         TextPaint tp = new TextPaint();
         tp.setTextScaleX(2.0f);
         scaleXSpan.updateDrawState(tp);
-        assertEquals(2.0f * proportion, tp.getTextScaleX());
+        assertEquals(2.0f * proportion, tp.getTextScaleX(), 0.0f);
 
         tp.setTextScaleX(-3.0f);
         scaleXSpan.updateDrawState(tp);
-        assertEquals(-3.0f * proportion, tp.getTextScaleX());
-
-        try {
-            scaleXSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+        assertEquals(-3.0f * proportion, tp.getTextScaleX(), 0.0f);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        ScaleXSpan scaleXSpan = new ScaleXSpan(3.0f);
+
+        scaleXSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testUpdateMeasureState() {
         float proportion = 3.0f;
         ScaleXSpan scaleXSpan = new ScaleXSpan(proportion);
@@ -67,38 +76,42 @@ public class ScaleXSpanTest extends TestCase {
         TextPaint tp = new TextPaint();
         tp.setTextScaleX(2.0f);
         scaleXSpan.updateMeasureState(tp);
-        assertEquals(2.0f * proportion, tp.getTextScaleX());
+        assertEquals(2.0f * proportion, tp.getTextScaleX(), 0.0f);
 
         tp.setTextScaleX(-3.0f);
         scaleXSpan.updateMeasureState(tp);
-        assertEquals(-3.0f * proportion, tp.getTextScaleX());
-
-        try {
-            scaleXSpan.updateMeasureState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+        assertEquals(-3.0f * proportion, tp.getTextScaleX(), 0.0f);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        ScaleXSpan scaleXSpan = new ScaleXSpan(3.0f);
+
+        scaleXSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testGetScaleX() {
         ScaleXSpan scaleXSpan = new ScaleXSpan(5.0f);
-        assertEquals(5.0f, scaleXSpan.getScaleX());
+        assertEquals(5.0f, scaleXSpan.getScaleX(), 0.0f);
 
         scaleXSpan = new ScaleXSpan(-5.0f);
-        assertEquals(-5.0f, scaleXSpan.getScaleX());
+        assertEquals(-5.0f, scaleXSpan.getScaleX(), 0.0f);
     }
 
+    @Test
     public void testDescribeContents() {
         ScaleXSpan scaleXSpan = new ScaleXSpan(5.0f);
         scaleXSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         ScaleXSpan scaleXSpan = new ScaleXSpan(5.0f);
         scaleXSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {
@@ -107,7 +120,7 @@ public class ScaleXSpanTest extends TestCase {
             scaleXSpan.writeToParcel(p, 0);
             p.setDataPosition(0);
             ScaleXSpan newSpan = new ScaleXSpan(p);
-            assertEquals(proportion, newSpan.getScaleX());
+            assertEquals(proportion, newSpan.getScaleX(), 0.0f);
         } finally {
             p.recycle();
         }

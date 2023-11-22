@@ -29,10 +29,6 @@ public interface IConnectionStatus {
 
     public boolean isConnected();
 
-    public boolean isEnabled();
-
-    public void printConnectionInfo();
-
     public void testConnection(Uri uri);
 }
 

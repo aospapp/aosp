@@ -13,16 +13,25 @@ config TOYBOX
 	bool
 	default y
 	help
-	  usage: toybox [--long | --version | [command] [arguments...]]
+	  usage: toybox [--long | --help | --version | [command] [arguments...]]
 
 	  With no arguments, shows available commands. First argument is
 	  name of a command to run, followed by any arguments to that command.
 
 	  --long	Show path to each command
-	  --version	Show toybox version
 
 	  To install command symlinks, try:
 	    for i in $(/bin/toybox --long); do ln -s /bin/toybox $i; done
+
+	  Most toybox commands also understand the following arguments:
+
+	  --help		Show command help (only)
+	  --version	Show toybox version (only)
+
+	  The filename "-" means stdin, "--" stops argument parsing,
+	  and numerical arguments accept a single letter suffix for
+	  kilo, mega, giga, tera, peta, and exabytes, plus an additional
+	  "d" to indicate decimal 1000's instead of 1024.
 
 config TOYBOX_SUID
 	bool "SUID support"
@@ -62,6 +71,12 @@ config TOYBOX_SMACK
 
 endchoice
 
+config TOYBOX_LIBCRYPTO
+       bool "Use libcrypto (OpenSSL/BoringSSL)"
+       default n
+       help
+         Use faster hash functions out of exteral -lcrypto library.
+
 config TOYBOX_FLOAT
 	bool "Floating point support"
 	default y
@@ -76,12 +91,13 @@ config TOYBOX_HELP
 	  Include help text for each command.
 
 config TOYBOX_HELP_DASHDASH
-	bool "--help"
+	bool "--help and --version"
 	default y
 	depends on TOYBOX_HELP
 	help
 	  Support --help argument in all commands, even ones with a NULL
-	  optstring. Produces the same output as "help command".
+	  optstring. (Use TOYFLAG_NOHELP to disable.) Produces the same output
+	  as "help command". --version shows toybox version.
 
 config TOYBOX_I18N
 	bool "Internationalization support"
@@ -118,6 +134,12 @@ config TOYBOX_DEBUG
 	help
 	  Enable extra checks for debugging purposes. All of them catch
 	  things that can only go wrong at development time, not runtime.
+
+config TOYBOX_PEDANTIC_ARGS
+	bool "Pedantic argument checking"
+	default n
+	help
+	  Check arguments for commands that have no arguments.
 
 config TOYBOX_UID_SYS
 	int "First system UID"

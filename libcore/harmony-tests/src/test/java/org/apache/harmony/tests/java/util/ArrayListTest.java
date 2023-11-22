@@ -344,7 +344,7 @@ public class ArrayListTest extends junit.framework.TestCase {
         }
     }
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // The spec does not mandate that IndexOutOfBoundsException be thrown in
 // preference to NullPointerException when the caller desserves both.
 //
@@ -360,7 +360,7 @@ public class ArrayListTest extends junit.framework.TestCase {
 //        } catch (IndexOutOfBoundsException e) {
 //        }
 //    }
-// END android-removed
+// END Android-removed
 
     /**
      * java.util.ArrayList#addAll(java.util.Collection)
@@ -1129,6 +1129,7 @@ public class ArrayListTest extends junit.framework.TestCase {
         SpliteratorTester.runOrderedTests(list);
         SpliteratorTester.runSizedTests(list, 16 /* expected size */);
         SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
+        SpliteratorTester.assertSupportsTrySplit(list);
     }
 
     public void test_spliterator_CME() throws Exception {
@@ -1178,6 +1179,7 @@ public class ArrayListTest extends junit.framework.TestCase {
         SpliteratorTester.runOrderedTests(list);
         SpliteratorTester.runSizedTests(list, 8 /* expected size */);
         SpliteratorTester.runSubSizedTests(list, 8 /* expected size */);
+        SpliteratorTester.assertSupportsTrySplit(list);
     }
 
     /**

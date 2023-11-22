@@ -29,40 +29,42 @@
 #include "bt_utils.h"
 
 /*******************************************************************************
-**  Constants & Macros
-********************************************************************************/
+ *  Constants & Macros
+ ******************************************************************************/
 
-#define CASE_RETURN_STR(const) case const: return #const;
-
-
-/*******************************************************************************
-**  Type definitions for callback functions
-********************************************************************************/
+#define CASE_RETURN_STR(const) \
+  case const:                  \
+    return #const;
 
 /*******************************************************************************
-**  Functions
-********************************************************************************/
+ *  Type definitions for callback functions
+ ******************************************************************************/
+
+/*******************************************************************************
+ *  Functions
+ ******************************************************************************/
 
 const char* dump_bt_status(bt_status_t status);
-const char* dump_dm_search_event(UINT16 event);
-const char* dump_dm_event(UINT16 event);
-const char* dump_hf_event(UINT16 event);
-const char* dump_hf_client_event(UINT16 event);
-const char* dump_hh_event(UINT16 event);
-const char* dump_hf_conn_state(UINT16 event);
+const char* dump_dm_search_event(uint16_t event);
+const char* dump_dm_event(uint16_t event);
+const char* dump_hf_event(uint16_t event);
+const char* dump_hf_client_event(uint16_t event);
+const char* dump_hh_event(uint16_t event);
+const char* dump_hd_event(uint16_t event);
+const char* dump_hf_conn_state(uint16_t event);
 const char* dump_hf_call_state(bthf_call_state_t call_state);
 const char* dump_property_type(bt_property_type_t type);
-const char* dump_hf_audio_state(UINT16 event);
+const char* dump_hf_audio_state(uint16_t event);
 const char* dump_adapter_scan_mode(bt_scan_mode_t mode);
 const char* dump_thread_evt(bt_cb_thread_evt evt);
-const char* dump_av_conn_state(UINT16 event);
-const char* dump_av_audio_state(UINT16 event);
-const char* dump_rc_event(UINT8 event);
-const char* dump_rc_notification_event_id(UINT8 event_id);
-const char* dump_rc_pdu(UINT8 pdu);
+const char* dump_av_conn_state(uint16_t event);
+const char* dump_av_audio_state(uint16_t event);
+const char* dump_rc_event(uint8_t event);
+const char* dump_rc_notification_event_id(uint8_t event_id);
+const char* dump_rc_pdu(uint8_t pdu);
 
-UINT32 devclass2uint(DEV_CLASS dev_class);
-void uint2devclass(UINT32 dev, DEV_CLASS dev_class);
+uint32_t devclass2uint(DEV_CLASS dev_class);
+void uint2devclass(uint32_t dev, DEV_CLASS dev_class);
 void uuid16_to_uuid128(uint16_t uuid16, bt_uuid_t* uuid128);
 
 // Takes a |str| containing a 128-bit GUID formatted UUID and stores the
@@ -70,9 +72,10 @@ void uuid16_to_uuid128(uint16_t uuid16, bt_uuid_t* uuid128);
 //   "12345678-1234-1234-1234-123456789012"
 // |p_uuid| cannot be null. Returns true if parsing was successful, false
 // otherwise. Returns false if |str| is null.
-bool string_to_uuid(const char *str, bt_uuid_t *p_uuid);
+bool string_to_uuid(const char* str, bt_uuid_t* p_uuid);
 
-void uuid_to_string_legacy(bt_uuid_t *p_uuid, char *str);
-int ascii_2_hex (const char *p_ascii, int len, UINT8 *p_hex);
+int ascii_2_hex(const char* p_ascii, int len, uint8_t* p_hex);
+
+void uuid_to_string_legacy(bt_uuid_t* p_uuid, char* str, size_t str_len);
 
 #endif /* BTIF_UTIL_H */

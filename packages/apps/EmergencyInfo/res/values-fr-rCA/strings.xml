@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Contacts en cas d\'urgence"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Ajouter un contact"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Impossible de trouver un sélecteur de contact"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Impossible d\'afficher le contact"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Supprimer <xliff:g id="CONTACT_NAME">%1$s</xliff:g> des contacts d\'urgence?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Supprimer le contact"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Impossible de lire les données de contact correctement"</string>
     <string name="remove" msgid="1243949503772376064">"Supprimer"</string>
     <string name="cancel" msgid="7401575239009060939">"Annuler"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Données d\'urgence"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Les données que vous entrez ici peuvent aider les premiers intervenants en cas d\'urgence. Elles sont stockées sur votre appareil seulement, et tout le monde peut y accéder à partir du composeur d\'urgence sans devoir déverrouiller votre téléphone."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Continuer"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Les données en cas d\'urgence n\'ont pas été définies"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Aucun renseignement sur le propriétaire du téléphone"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"S\'il s\'agit de votre téléphone, touchez l\'icône représentant un crayon pour ajouter des renseignements qui seront affichés ici en cas d\'urgence."</string>
     <string name="clear_all" msgid="8899013032870561633">"Effacer tout"</string>
     <string name="clear" msgid="3648880442502887163">"Effacer"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Effacer toutes les données et tous les contacts?"</string>

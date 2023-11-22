@@ -50,4 +50,13 @@ public class DefaultRule implements Rule {
   public boolean mustModify() {
     return mustModify;
   }
+
+  @Override
+  public String toString() {
+    return "DefaultRule{" +
+        "matcher=" + matcher +
+        ", mustModify=" + mustModify +
+        ", processor=" + processor +
+        '}';
+  }
 }

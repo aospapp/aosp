@@ -6,8 +6,8 @@
 Run a control file through the server side engine
 """
 
-import ast
 import datetime
+import contextlib
 import getpass
 import logging
 import os
@@ -19,14 +19,19 @@ import traceback
 import time
 import urllib2
 
-import common
 
+import common
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.graphite import autotest_es
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
 try:
     from autotest_lib.puppylab import results_mocker
 except ImportError:
@@ -34,40 +39,23 @@ except ImportError:
 
 _CONFIG = global_config.global_config
 
-require_atfork = _CONFIG.get_config_value(
-        'AUTOSERV', 'require_atfork_module', type=bool, default=True)
-
 
 # Number of seconds to wait before returning if testing mode is enabled
 TESTING_MODE_SLEEP_SECS = 1
 
-try:
-    import atfork
-    atfork.monkeypatch_os_fork_functions()
-    import atfork.stdlib_fixer
-    # Fix the Python standard library for threading+fork safety with its
-    # internal locks.  http://code.google.com/p/python-atfork/
-    import warnings
-    warnings.filterwarnings('ignore', 'logging module already imported')
-    atfork.stdlib_fixer.fix_logging_module()
-except ImportError, e:
-    from autotest_lib.client.common_lib import global_config
-    if _CONFIG.get_config_value(
-            'AUTOSERV', 'require_atfork_module', type=bool, default=False):
-        print >>sys.stderr, 'Please run utils/build_externals.py'
-        print e
-        sys.exit(1)
 
 from autotest_lib.server import frontend
 from autotest_lib.server import server_logging_config
 from autotest_lib.server import server_job, utils, autoserv_parser, autotest
 from autotest_lib.server import utils as server_utils
+from autotest_lib.server import site_utils
+from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.site_utils import job_directories
 from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils import lxc
 from autotest_lib.site_utils import lxc_utils
 from autotest_lib.client.common_lib import pidfile, logging_manager
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+
 
 # Control segment to stage server-side package.
 STAGE_SERVER_SIDE_PACKAGE_CONTROL_FILE = server_job._control_segment_path(
@@ -127,20 +115,28 @@ def _stage_ssp(parser):
 
     @param parser: Command line arguments parser passed in the autoserv process.
 
-    @return: url of the staged server-side package. Return None if server-
-             side package is not found for the build.
+    @return: (ssp_url, error_msg), where
+              ssp_url is a url to the autotest server-side package. None if
+              server-side package is not supported.
+              error_msg is a string indicating the failures. None if server-
+              side package is staged successfully.
     """
+    machines_list = _get_machines(parser)
+    machines_list = server_job.get_machine_dicts(
+            machines_list, parser.options.lab, parser.options.host_attributes)
+
     # If test_source_build is not specified, default to use server-side test
     # code from build specified in --image.
-    namespace = {'machines': _get_machines(parser),
+    namespace = {'machines': machines_list,
                  'image': (parser.options.test_source_build or
                            parser.options.image),}
     script_locals = {}
     execfile(STAGE_SERVER_SIDE_PACKAGE_CONTROL_FILE, namespace, script_locals)
-    return script_locals['ssp_url']
+    return script_locals['ssp_url'], script_locals['error_msg']
 
 
-def _run_with_ssp(job, container_name, job_id, results, parser, ssp_url):
+def _run_with_ssp(job, container_name, job_id, results, parser, ssp_url,
+                  job_folder, machines):
     """Run the server job with server-side packaging.
 
     @param job: The server job object.
@@ -153,13 +149,18 @@ def _run_with_ssp(job, container_name, job_id, results, parser, ssp_url):
                     results can be None for autoserv run requires no logging.
     @param parser: Command line parser that contains the options.
     @param ssp_url: url of the staged server-side package.
+    @param job_folder: Name of the job result folder.
+    @param machines: A list of machines to run the test.
     """
     bucket = lxc.ContainerBucket()
     control = (parser.args[0] if len(parser.args) > 0 and parser.args[0] != ''
                else None)
     try:
+        dut_name = machines[0] if len(machines) >= 1 else None
         test_container = bucket.setup_test(container_name, job_id, ssp_url,
-                                           results, control=control)
+                                           results, control=control,
+                                           job_folder=job_folder,
+                                           dut_name=dut_name)
     except Exception as e:
         job.record('FAIL', None, None,
                    'Failed to setup container for test: %s. Check logs in '
@@ -186,13 +187,12 @@ def _run_with_ssp(job, container_name, job_id, results, parser, ssp_url):
                 lxc.CONTROL_TEMP_PATH, os.path.basename(control))
         paths_to_replace[control] = container_control_filename
     # Update result directory with the one in container.
+    container_result_dir = os.path.join(lxc.RESULT_DIR_FMT % job_folder)
     if parser.options.results:
-        container_result_dir = os.path.join(lxc.RESULT_DIR_FMT % job_id)
         paths_to_replace[parser.options.results] = container_result_dir
     # Update parse_job directory with the one in container. The assumption is
     # that the result folder to be parsed is always the same as the results_dir.
     if parser.options.parse_job:
-        container_parse_dir = os.path.join(lxc.RESULT_DIR_FMT % job_id)
         paths_to_replace[parser.options.parse_job] = container_result_dir
 
     args = [paths_to_replace.get(arg, arg) for arg in args]
@@ -222,9 +222,9 @@ def _run_with_ssp(job, container_name, job_id, results, parser, ssp_url):
                        'logs in ssp_logs folder for more details.' % e)
         raise
     finally:
-        counter_key = '%s.%s' % (lxc.STATS_KEY,
-                                 'success' if success else 'fail')
-        autotest_stats.Counter(counter_key).increment()
+        metrics.Counter(
+            'chromeos/autotest/experimental/execute_job_in_ssp').increment(
+                fields={'success': success})
         # metadata is uploaded separately so it can use http to upload.
         metadata = {'drone': socket.gethostname(),
                     'job_id': job_id,
@@ -331,8 +331,11 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     os.dup2(dev_null, sys.stdin.fileno())
     os.close(dev_null)
 
-    # Create separate process group
-    os.setpgrp()
+    # Create separate process group if the process is not a process group
+    # leader. This allows autoserv process to keep running after the caller
+    # process (drone manager call) exits.
+    if os.getpid() != os.getpgid(0):
+        os.setsid()
 
     # Container name is predefined so the container can be destroyed in
     # handle_sigterm.
@@ -340,6 +343,7 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
             parser.options.results)
     container_name = (lxc.TEST_CONTAINER_NAME_FMT %
                       (job_or_task_id, time.time(), os.getpid()))
+    job_folder = job_directories.get_job_folder_name(parser.options.results)
 
     # Implement SIGTERM handler
     def handle_sigterm(signum, frame):
@@ -376,10 +380,10 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
                     logging.debug('Container %s is not found.', container_name)
             except:
                 metadata['success'] = False
-                metadata['error'] = 'Exception: %s' % sys.exc_info()
+                metadata['error'] = 'Exception: %s' % str(sys.exc_info())
                 # Handle any exception so the autoserv process can be aborted.
-                logging.error('Failed to destroy container %s. Error: %s',
-                              container_name, sys.exc_info())
+                logging.exception('Failed to destroy container %s.',
+                                  container_name)
             autotest_es.post(use_http=True,
                              type_str=lxc.CONTAINER_RUN_TEST_METADB_TYPE,
                              metadata=metadata)
@@ -499,6 +503,9 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     exit_code = 0
     auto_start_servod = _CONFIG.get_config_value(
             'AUTOSERV', 'auto_start_servod', type=bool, default=False)
+
+    site_utils.SetupTsMonGlobalState('autoserv', indirect=False,
+                                     short_lived=True)
     try:
         try:
             if repair:
@@ -519,17 +526,36 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
                 if use_ssp:
                     try:
                         _run_with_ssp(job, container_name, job_or_task_id,
-                                      results, parser, ssp_url)
+                                        results, parser, ssp_url, job_folder,
+                                        machines)
                     finally:
                         # Update the ownership of files in result folder.
                         correct_results_folder_permission(results)
                 else:
-                    job.run(install_before, install_after,
-                            verify_job_repo_url=verify_job_repo_url,
-                            only_collect_crashinfo=collect_crashinfo,
-                            skip_crash_collection=skip_crash_collection,
-                            job_labels=job_labels,
-                            use_packaging=(not no_use_packaging))
+                    if collect_crashinfo:
+                        # Update the ownership of files in result folder. If the
+                        # job to collect crashinfo was running inside container
+                        # (SSP) and crashed before correcting folder permission,
+                        # the result folder might have wrong permission setting.
+                        try:
+                            correct_results_folder_permission(results)
+                        except:
+                            # Ignore any error as the user may not have root
+                            # permission to run sudo command.
+                            pass
+                    metric_name = ('chromeos/autotest/experimental/'
+                                   'autoserv_job_run_duration')
+                    f = {'in_container': utils.is_in_container(),
+                         'success': False}
+                    with metrics.SecondsTimer(metric_name, fields=f) as c:
+                        job.run(install_before, install_after,
+                                verify_job_repo_url=verify_job_repo_url,
+                                only_collect_crashinfo=collect_crashinfo,
+                                skip_crash_collection=skip_crash_collection,
+                                job_labels=job_labels,
+                                use_packaging=(not no_use_packaging))
+                        c['success'] = True
+
         finally:
             while job.hosts:
                 host = job.hosts.pop()
@@ -537,6 +563,8 @@ def run_autoserv(pid_file_manager, results, parser, ssp_url, use_ssp):
     except:
         exit_code = 1
         traceback.print_exc()
+    finally:
+        metrics.Flush()
 
     if pid_file_manager:
         pid_file_manager.num_tests_failed = job.num_tests_failed
@@ -580,14 +608,6 @@ def record_autoserv(options, duration_secs):
 
 def main():
     start_time = datetime.datetime.now()
-    # White list of tests with run time measurement enabled.
-    measure_run_time_tests_names = _CONFIG.get_config_value(
-            'AUTOSERV', 'measure_run_time_tests', type=str)
-    if measure_run_time_tests_names:
-        measure_run_time_tests = [t.strip() for t in
-                                  measure_run_time_tests_names.split(',')]
-    else:
-        measure_run_time_tests = []
     # grab the parser
     parser = autoserv_parser.autoserv_parser
     parser.parse_args()
@@ -605,7 +625,7 @@ def main():
     ssp_url = None
     ssp_url_warning = False
     if (not parser.options.warn_no_ssp and parser.options.require_ssp):
-        ssp_url = _stage_ssp(parser)
+        ssp_url, ssp_error_msg = _stage_ssp(parser)
         # The build does not have autotest server package. Fall back to not
         # to use server-side package. Logging is postponed until logging being
         # set up.
@@ -617,7 +637,7 @@ def main():
         results = parser.options.results
         if not results:
             results = 'results.' + time.strftime('%Y-%m-%d-%H.%M.%S')
-        results  = os.path.abspath(results)
+        results = os.path.abspath(results)
         resultdir_exists = False
         for filename in ('control.srv', 'status.log', '.autoserv_execute'):
             if os.path.exists(os.path.join(results, filename)):
@@ -657,9 +677,11 @@ def main():
         logging.warn(
                 'Autoserv is required to run with server-side packaging. '
                 'However, no server-side package can be found based on '
-                '`--image`, host attribute job_repo_url or host label of '
-                'cros-version. The test will be executed without '
-                'server-side packaging supported.')
+                '`--image`, host attribute job_repo_url or host OS version '
+                'label. It could be that the build to test is older than the '
+                'minimum version that supports server-side packaging. The test '
+                'will be executed without using erver-side packaging. '
+                'Following is the detailed error:\n%s', ssp_error_msg)
 
     if results:
         logging.info("Results placed in %s" % results)
@@ -683,11 +705,9 @@ def main():
     autotest.BaseAutotest.set_install_in_tmpdir(
         parser.options.install_in_tmpdir)
 
-    timer = None
     try:
         # Take the first argument as control file name, get the test name from
-        # the control file. If the test name exists in the list of tests with
-        # run time measurement enabled, start a timer to begin measurement.
+        # the control file.
         if (len(parser.args) > 0 and parser.args[0] != '' and
             parser.options.machines):
             try:
@@ -696,18 +716,6 @@ def main():
             except control_data.ControlVariableException:
                 logging.debug('Failed to retrieve test name from control file.')
                 test_name = None
-            if test_name in measure_run_time_tests:
-                machines = parser.options.machines.replace(',', ' '
-                                                           ).strip().split()
-                try:
-                    afe = frontend.AFE()
-                    board = server_utils.get_board_from_afe(machines[0], afe)
-                    timer = autotest_stats.Timer('autoserv_run_time.%s.%s' %
-                                                 (board, test_name))
-                    timer.start()
-                except (urllib2.HTTPError, urllib2.URLError):
-                    # Ignore error if RPC failed to get board
-                    pass
     except control_data.ControlVariableException as e:
         logging.error(str(e))
     exit_code = 0
@@ -763,8 +771,6 @@ def main():
     finally:
         if pid_file_manager:
             pid_file_manager.close_file(exit_code)
-        if timer:
-            timer.stop()
         # Record the autoserv duration time. Must be called
         # just before the system exits to ensure accuracy.
         duration_secs = (datetime.datetime.now() - start_time).total_seconds()

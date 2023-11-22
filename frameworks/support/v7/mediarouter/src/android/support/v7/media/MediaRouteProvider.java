@@ -16,6 +16,9 @@
 
 package android.support.v7.media;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+import static android.support.v4.utils.ObjectUtils.objectEquals;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -23,6 +26,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v7.media.MediaRouter.ControlRequestCallback;
 
 /**
@@ -55,8 +59,8 @@ import android.support.v7.media.MediaRouter.ControlRequestCallback;
  * </p>
  */
 public abstract class MediaRouteProvider {
-    private static final int MSG_DELIVER_DESCRIPTOR_CHANGED = 1;
-    private static final int MSG_DELIVER_DISCOVERY_REQUEST_CHANGED = 2;
+    static final int MSG_DELIVER_DESCRIPTOR_CHANGED = 1;
+    static final int MSG_DELIVER_DISCOVERY_REQUEST_CHANGED = 2;
 
     private final Context mContext;
     private final ProviderMetadata mMetadata;
@@ -147,8 +151,7 @@ public abstract class MediaRouteProvider {
     public final void setDiscoveryRequest(MediaRouteDiscoveryRequest request) {
         MediaRouter.checkCallingThread();
 
-        if (mDiscoveryRequest == request
-                || (mDiscoveryRequest != null && mDiscoveryRequest.equals(request))) {
+        if (objectEquals(mDiscoveryRequest, request)) {
             return;
         }
 
@@ -159,7 +162,7 @@ public abstract class MediaRouteProvider {
         }
     }
 
-    private void deliverDiscoveryRequestChanged() {
+    void deliverDiscoveryRequestChanged() {
         mPendingDiscoveryRequestChange = false;
         onDiscoveryRequestChanged(mDiscoveryRequest);
     }
@@ -230,7 +233,7 @@ public abstract class MediaRouteProvider {
         }
     }
 
-    private void deliverDescriptorChanged() {
+    void deliverDescriptorChanged() {
         mPendingDescriptorChange = false;
 
         if (mCallback != null) {
@@ -271,6 +274,7 @@ public abstract class MediaRouteProvider {
      * cannot be controlled using the route controller interface.
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Nullable
     public RouteController onCreateRouteController(@NonNull String routeId,
             @NonNull String routeGroupId) {
@@ -427,6 +431,9 @@ public abstract class MediaRouteProvider {
     }
 
     private final class ProviderHandler extends Handler {
+        ProviderHandler() {
+        }
+
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {

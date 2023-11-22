@@ -41,19 +41,23 @@ from autotest_lib.server.cros import telemetry_runner
 # as possible and takes a short time to execute. At this point the
 # list of benchmarks is in flux.
 TELEMETRY_AFDO_BENCHMARKS = (
-    ('page_cycler.typical_25', ('--pageset-repeat=2',)),
-    ('page_cycler.intl_ja_zh', ('--pageset-repeat=1',)),
-    ('page_cycler.intl_ar_fa_he', ('--pageset-repeat=1',)),
-    ('page_cycler.intl_es_fr_pt-BR', ('--pageset-repeat=1',)),
-    ('page_cycler.intl_ko_th_vi', ('--pageset-repeat=1',)),
-    ('page_cycler.intl_hi_ru', ('--pageset-repeat=1',)),
+    ('page_cycler_v2.typical_25', ('--pageset-repeat=1',)),
+    ('page_cycler_v2.intl_ja_zh', ('--pageset-repeat=1',)),
+    # Temporarily disable these two benchmarks to finish in 60 minutes.
+    # ('page_cycler_v2.intl_ar_fa_he', ('--pageset-repeat=1',)),
+    # ('page_cycler_v2.intl_es_fr_pt-BR', ('--pageset-repeat=1',)),
+    # ('page_cycler_v2.intl_ko_th_vi', ('--pageset-repeat=1',)),
+    # ('page_cycler_v2.intl_hi_ru', ('--pageset-repeat=1',)),
     ('octane',),
     ('kraken',),
     ('speedometer',),
     ('dromaeo.domcoreattr',),
     ('dromaeo.domcoremodify',),
-    ('smoothness.tough_webgl_cases',)
     )
+
+# Temporarily disable this benchmark because it is failing a
+# lot. Filed chromium:590127
+# ('smoothness.tough_webgl_cases',)
 
 # Some benchmarks removed from the profile set:
 # 'page_cycler.morejs' -> uninteresting, seems to fail frequently,
@@ -61,9 +65,13 @@ TELEMETRY_AFDO_BENCHMARKS = (
 # 'media.tough_video_cases' -> removed this because it does not bring
 #                              any benefit and takes more than 12 mins
 
-# List of boards where this test can be run.
-# Currently, this has only been tested on 'sandybridge' boards.
-VALID_BOARDS = ['butterfly', 'lumpy', 'parrot', 'stumpy']
+# List of boards where this test can be run.  Currently, it needs a
+# machines with at least 4GB of memory or 2GB of /tmp.
+# This must be consistent with chromite.
+GCC_BOARDS = ['samus', 'link', 'lumpy']
+
+# Should be disjoint with GCC_BOARDS
+LLVM_BOARDS = ['chell']
 
 class telemetry_AFDOGenerate(test.test):
     """
@@ -84,7 +92,8 @@ class telemetry_AFDOGenerate(test.test):
         """
         self._host = host
         host_board = host.get_board().split(':')[1]
-        if not host_board in VALID_BOARDS:
+
+        if not (host_board in LLVM_BOARDS or host_board in GCC_BOARDS):
             raise error.TestFail(
                     'This test cannot be run on board %s' % host_board)
 
@@ -94,7 +103,7 @@ class telemetry_AFDOGenerate(test.test):
             self._run_tests_minimal_telemetry()
         else:
             self._telemetry_runner = telemetry_runner.TelemetryRunner(
-                    self._host, self._local)
+                    self._host, self._local, telemetry_on_dut=False)
 
             for benchmark_info in TELEMETRY_AFDO_BENCHMARKS:
                 benchmark = benchmark_info[0]
@@ -306,11 +315,23 @@ class telemetry_AFDOGenerate(test.test):
         @raises error.TestFail if upload failed.
         @returns nothing.
         """
-        GS_DEST = 'gs://chromeos-prebuilt/afdo-job/canonicals/%s'
+        GS_GCC_DEST = 'gs://chromeos-prebuilt/afdo-job/canonicals/%s'
+        GS_LLVM_DEST = 'gs://chromeos-prebuilt/afdo-job/llvm/%s'
         GS_TEST_DEST = 'gs://chromeos-throw-away-bucket/afdo-job/canonicals/%s'
         GS_ACL = 'project-private'
 
-        gs_dest = GS_TEST_DEST if self._gs_test_location else GS_DEST
+        board = self._host.get_board().split(':')[1]
+
+        if self._gs_test_location:
+            gs_dest = GS_TEST_DEST
+        elif board in GCC_BOARDS:
+            gs_dest = GS_GCC_DEST
+        elif board in LLVM_BOARDS:
+            gs_dest = GS_LLVM_DEST
+        else:
+            raise error.TestFail(
+                    'This test cannot be run on board %s' % board)
+
         remote_file = gs_dest % remote_basename
 
         logging.info('About to upload to GS: %s', remote_file)

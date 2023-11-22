@@ -80,10 +80,15 @@ if [ -z ${CTS_ROOT} ]; then
 fi;
 
 JAR_DIR=${CTS_ROOT}/android-cts/tools
-JARS="tradefed-prebuilt
+JARS="tradefed
   hosttestlib
   compatibility-host-util
-  cts-tradefed"
+  compatibility-host-util-tests
+  cts-tradefed
+  cts-tradefed-tests
+  compatibility-common-util-tests
+  compatibility-tradefed-tests
+  host-libprotobuf-java-full"
 
 for JAR in $JARS; do
     checkFile ${JAR_DIR}/${JAR}.jar
@@ -96,7 +101,7 @@ OPTIONAL_JARS="
   google-tf-prod-tests"
 
 for JAR in $OPTIONAL_JARS; do
-    if [ -f "$JAR.jar" ]; then
+    if [ -f "${JAR_DIR}/${JAR}.jar" ]; then
         JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}.jar
     fi;
 done
@@ -116,5 +121,5 @@ for j in ${CTS_ROOT}/android-cts/testcases/*.jar; do
     JAR_PATH=${JAR_PATH}:$j
 done
 
-java $RDBG_FLAG -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+java $RDBG_FLAG -Xmx4g -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
 

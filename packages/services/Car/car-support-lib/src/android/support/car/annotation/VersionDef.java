@@ -22,8 +22,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation for specifying supported version of member for a Parcelable.
- * Version defaults to 1 if only @VersionDef is used without specifying version.
+ * Annotation for specifying supported version of a member for a Parcelable.
+ * Version defaults to 1 if @VersionDef is used without specifying a version.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.SOURCE)

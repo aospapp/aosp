@@ -61,7 +61,6 @@
 #include <sepol/policydb/context.h>
 #include <sepol/policydb/constraint.h>
 #include <sepol/policydb/sidtab.h>
-#include <sys/cdefs.h>
 
 #define ERRMSG_LEN 1024
 
@@ -69,7 +68,9 @@
 #define POLICYDB_ERROR       -1
 #define POLICYDB_UNSUPPORTED -2
 
-__BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*
  * A datum type is defined for each kind of symbol 
@@ -162,9 +163,11 @@ typedef struct filename_trans {
 	uint32_t ttype;
 	uint32_t tclass;
 	char *name;
-	uint32_t otype;
-	struct filename_trans *next;
 } filename_trans_t;
+
+typedef struct filename_trans_datum {
+	uint32_t otype;		/* expected of new object */
+} filename_trans_datum_t;
 
 /* Type attributes */
 typedef struct type_datum {
@@ -218,8 +221,6 @@ typedef struct range_trans {
 	uint32_t source_type;
 	uint32_t target_type;
 	uint32_t target_class;
-	mls_range_t target_range;
-	struct range_trans *next;
 } range_trans_t;
 
 /* Boolean data type */
@@ -258,20 +259,20 @@ typedef struct av_extended_perms {
 typedef struct avrule {
 /* these typedefs are almost exactly the same as those in avtab.h - they are
  * here because of the need to include neverallow and dontaudit messages */
-#define AVRULE_ALLOWED			0x0001
-#define AVRULE_AUDITALLOW		0x0002
-#define AVRULE_AUDITDENY		0x0004
+#define AVRULE_ALLOWED			AVTAB_ALLOWED
+#define AVRULE_AUDITALLOW		AVTAB_AUDITALLOW
+#define AVRULE_AUDITDENY		AVTAB_AUDITDENY
 #define AVRULE_DONTAUDIT		0x0008
-#define AVRULE_NEVERALLOW		0x0080
+#define AVRULE_NEVERALLOW		AVTAB_NEVERALLOW
 #define AVRULE_AV         (AVRULE_ALLOWED | AVRULE_AUDITALLOW | AVRULE_AUDITDENY | AVRULE_DONTAUDIT | AVRULE_NEVERALLOW)
-#define AVRULE_TRANSITION		0x0010
-#define AVRULE_MEMBER			0x0020
-#define AVRULE_CHANGE			0x0040
+#define AVRULE_TRANSITION		AVTAB_TRANSITION
+#define AVRULE_MEMBER			AVTAB_MEMBER
+#define AVRULE_CHANGE			AVTAB_CHANGE
 #define AVRULE_TYPE       (AVRULE_TRANSITION | AVRULE_MEMBER | AVRULE_CHANGE)
-#define AVRULE_XPERMS_ALLOWED 		0x0100
-#define AVRULE_XPERMS_AUDITALLOW	0x0200
-#define AVRULE_XPERMS_DONTAUDIT		0x0400
-#define AVRULE_XPERMS_NEVERALLOW	0x0800
+#define AVRULE_XPERMS_ALLOWED 		AVTAB_XPERMS_ALLOWED
+#define AVRULE_XPERMS_AUDITALLOW	AVTAB_XPERMS_AUDITALLOW
+#define AVRULE_XPERMS_DONTAUDIT		AVTAB_XPERMS_DONTAUDIT
+#define AVRULE_XPERMS_NEVERALLOW	AVTAB_XPERMS_NEVERALLOW
 #define AVRULE_XPERMS	(AVRULE_XPERMS_ALLOWED | AVRULE_XPERMS_AUDITALLOW | \
 				AVRULE_XPERMS_DONTAUDIT | AVRULE_XPERMS_NEVERALLOW)
 	uint32_t specified;
@@ -555,9 +556,6 @@ typedef struct policydb {
 	/* role transitions */
 	role_trans_t *role_tr;
 
-	/* type transition rules with a 'name' component */
-	filename_trans_t *filename_trans;
-
 	/* role allows */
 	role_allow_t *role_allow;
 
@@ -570,8 +568,11 @@ typedef struct policydb {
 	   fixed labeling behavior. */
 	genfs_t *genfs;
 
-	/* range transitions */
-	range_trans_t *range_tr;
+	/* range transitions table (range_trans_key -> mls_range) */
+	hashtab_t range_tr;
+
+	/* file transitions with the last path component */
+	hashtab_t filename_trans;
 
 	ebitmap_t *type_attr_map;
 
@@ -607,6 +608,14 @@ extern int policydb_index_bools(policydb_t * p);
 
 extern int policydb_index_others(sepol_handle_t * handle, policydb_t * p,
 				 unsigned int verbose);
+
+extern int policydb_role_cache(hashtab_key_t key,
+			       hashtab_datum_t datum,
+			       void *arg);
+
+extern int policydb_user_cache(hashtab_key_t key,
+			       hashtab_datum_t datum,
+			       void *arg);
 
 extern int policydb_reindex_users(policydb_t * p);
 
@@ -768,7 +777,10 @@ extern int policydb_set_target_platform(policydb_t *p, int platform);
 #define POLICYDB_MOD_MAGIC SELINUX_MOD_MAGIC
 #define POLICYDB_MOD_STRING "SE Linux Module"
 
-__END_DECLS
+#ifdef __cplusplus
+}
+#endif
+
 #endif				/* _POLICYDB_H_ */
 
 /* FLASK */

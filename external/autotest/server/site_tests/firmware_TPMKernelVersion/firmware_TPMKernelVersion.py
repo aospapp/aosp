@@ -43,16 +43,17 @@ class firmware_TPMKernelVersion(FirmwareTest):
         super(firmware_TPMKernelVersion, self).cleanup()
 
     def run_once(self):
-        # tcsd already shutdown by test framework.
-
-        # Should return 1 4c 57 52 47 1 0 1 0 0 0 0 0
-        command = 'tpmc read 0x1008 0x0d'
-        self.dut_run_cmd(command)
+        # Get the kernel version and its datakey version.
+        # TODO(twreid): Verify the results.
+        version = self.faft_client.tpm.get_kernel_version()
+        logging.info('Kernel version: %d', version)
+        version = self.faft_client.tpm.get_kernel_datakey_version()
+        logging.info('Kernel datakey version: %d', version)
 
         self.dut_run_cmd('crossystem kernkey_vfy dev_boot_usb')
         # Boot CrOS from USB
         self.faft_client.system.set_dev_boot_usb(1)
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.switcher.bypass_dev_boot_usb()
         self.switcher.wait_for_client()
 

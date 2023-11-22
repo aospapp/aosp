@@ -39,7 +39,3 @@ libhevcd_srcs_c_x86    +=  common/x86/ihevc_tables_x86_intr.c
 LOCAL_SRC_FILES_x86 += $(libhevcd_srcs_c_x86) $(libhevcd_srcs_asm_x86)
 LOCAL_C_INCLUDES_x86 += $(libhevcd_inc_dir_x86)
 LOCAL_CFLAGS_x86 += $(libhevcd_cflags_x86)
-
-# Bug: 25132373
-LOCAL_CLANG := false
-

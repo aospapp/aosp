@@ -15,7 +15,6 @@ import string
 import subprocess
 
 pipes = {}
-load_addresses = {}
 next_inline_frameno = 0
 
 def patch_address(frameno, addr_s):
@@ -32,23 +31,6 @@ def patch_address(frameno, addr_s):
     addr -= 1
     return hex(addr)
   return addr_s
-
-def android_get_load_address(path):
-  if load_addresses.has_key(path):
-    return load_addresses[path]
-  readelf_glob = os.path.join(os.environ['ANDROID_TOOLCHAIN'], '*-readelf')
-  readelf = glob.glob(readelf_glob)[0]
-  readelf_pipe = subprocess.Popen([readelf, "-l", path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-  for line in readelf_pipe.stdout:
-      if ('LOAD' in line) and (' E ' in line):
-          match = re.match(r'\s*LOAD\s+0x[01-9a-zA-Z]+\s+(0x[01-9a-zA-Z]+)', line, re.UNICODE)
-          if match:
-              load_addr = int(match.group(1), 16)
-              load_addresses[path] = load_addr
-              return load_addr
-          else: break
-  print 'Could not make sense of readelf output!'
-  sys.exit(1)
 
 def postprocess_file_name(file_name, paths_to_cut):
   for path_to_cut in paths_to_cut:
@@ -78,8 +60,7 @@ def symbolize_addr2line(line, binary_prefix, paths_to_cut):
       print line.rstrip().encode('utf-8')
       return
 
-    load_addr = android_get_load_address(binary)
-    addr = hex(int(addr, 16) + load_addr)
+    addr = hex(int(addr, 16))
 
     if not pipes.has_key(binary):
       pipes[binary] = subprocess.Popen(["addr2line", "-i", "-f", "-e", binary],

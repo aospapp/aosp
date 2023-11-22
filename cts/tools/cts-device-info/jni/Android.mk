@@ -24,11 +24,7 @@ LOCAL_SRC_FILES := \
 	CtsDeviceInfoJniOnLoad.cpp \
 	com_android_cts_deviceinfo_VulkanDeviceInfo.cpp
 
-LOCAL_C_INCLUDES := \
-	$(JNI_H_INCLUDE) \
-	external/vulkan-validation-layers/libs/vkjson
-
-LOCAL_STATIC_LIBRARIES := libvkjson
+LOCAL_STATIC_LIBRARIES := libvkjson_ndk
 LOCAL_SHARED_LIBRARIES := libvulkan liblog libdl
 LOCAL_NDK_STL_VARIANT := c++_static
 

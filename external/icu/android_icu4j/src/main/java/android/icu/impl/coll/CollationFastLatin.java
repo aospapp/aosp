@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2013-2015, International Business Machines
@@ -206,8 +208,10 @@ public final class CollationFastLatin /* all static */ {
         char[] header = data.fastLatinTableHeader;
         if(header == null) { return -1; }
         assert((header[0] >> 8) == VERSION);
-        assert(primaries.length == LATIN_LIMIT);
-        if(primaries.length != LATIN_LIMIT) { return -1; }
+        if(primaries.length != LATIN_LIMIT) {
+            assert false;
+            return -1;
+        }
 
         int miniVarTop;
         if((settings.options & CollationSettings.ALTERNATE_MASK) == 0) {

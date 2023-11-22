@@ -16,10 +16,11 @@
 
 package com.google.doclava;
 
-import com.google.doclava.apicheck.ApiParseException;
 import com.google.clearsilver.jsilver.data.Data;
-import java.util.Comparator;
+import com.google.doclava.apicheck.ApiParseException;
+
 import java.util.ArrayList;
+import java.util.Comparator;
 
 public class FieldInfo extends MemberInfo {
   public static final Comparator<FieldInfo> comparator = new Comparator<FieldInfo>() {
@@ -53,7 +54,7 @@ public class FieldInfo extends MemberInfo {
   {
     return isConstant(isFinal, isStatic, constantValue) ? "constant" : "field";
   }
-  
+
   public String qualifiedName() {
     String parentQName
         = (containingClass() != null) ? (containingClass().qualifiedName() + ".") : "";
@@ -101,7 +102,7 @@ public class FieldInfo extends MemberInfo {
     mDeprecatedKnown = true;
     mIsDeprecated = deprecated;
   }
-  
+
   public boolean isDeprecated() {
     if (!mDeprecatedKnown) {
       boolean commentDeprecated = comment().isDeprecated();
@@ -113,10 +114,18 @@ public class FieldInfo extends MemberInfo {
         }
       }
 
-      if (commentDeprecated != annotationDeprecated) {
+      // Check to see that the JavaDoc contains @deprecated AND the method is marked as @Deprecated.
+      // Otherwise, warn.
+      // Note: We only do this for "included" classes (i.e. those we have source code for); we do
+      // not have comments for classes from .class files but we do know whether a field is marked
+      // as @Deprecated.
+      if (mContainingClass.isIncluded() && !isHiddenOrRemoved()
+          && commentDeprecated != annotationDeprecated) {
         Errors.error(Errors.DEPRECATION_MISMATCH, position(), "Field "
             + mContainingClass.qualifiedName() + "." + name()
-            + ": @Deprecated annotation and @deprecated comment do not match");
+            + ": @Deprecated annotation (" + (annotationDeprecated ? "" : "not ")
+            + "present) and @deprecated doc tag (" + (commentDeprecated ? "" : "not ")
+            + "present) do not match");
       }
 
       mIsDeprecated = commentDeprecated | annotationDeprecated;
@@ -323,6 +332,7 @@ public class FieldInfo extends MemberInfo {
     data.setValue(base + ".anchor", anchor());
     TagInfo.makeHDF(data, base + ".shortDescr", firstSentenceTags());
     TagInfo.makeHDF(data, base + ".descr", inlineTags());
+    TagInfo.makeHDF(data, base + ".descrAux", Doclava.auxSource.fieldAuxTags(this));
     TagInfo.makeHDF(data, base + ".deprecated", comment().deprecatedTags());
     TagInfo.makeHDF(data, base + ".seeAlso", comment().seeTags());
     data.setValue(base + ".since", getSince());
@@ -388,6 +398,8 @@ public class FieldInfo extends MemberInfo {
       showAnnotations().toArray(new AnnotationInstanceInfo[showAnnotations().size()]));
 
     setFederatedReferences(data, base);
+
+    Doclava.linter.lintField(this);
   }
 
   @Override
@@ -402,14 +414,14 @@ public class FieldInfo extends MemberInfo {
   public boolean isVolatile() {
     return mIsVolatile;
   }
-  
+
   // Check the declared value with a typed comparison, not a string comparison,
   // to accommodate toolchains with different fp -> string conversions.
   private boolean valueEquals(FieldInfo other) {
     if ((mConstantValue == null) != (other.mConstantValue == null)) {
       return false;
     }
-    
+
     // Null values are considered equal
     if (mConstantValue == null) {
       return true;
@@ -418,7 +430,7 @@ public class FieldInfo extends MemberInfo {
     return mType.equals(other.mType)
         && mConstantValue.equals(other.mConstantValue);
   }
-  
+
   public boolean isConsistent(FieldInfo fInfo) {
     boolean consistent = true;
     if (!mType.equals(fInfo.mType)) {

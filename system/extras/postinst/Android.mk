@@ -21,10 +21,4 @@ LOCAL_MODULE:= postinst_example
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_SRC_FILES := postinst.sh
-
-# Create a symlink from /postinst to our default post-install script in the
-# same filesystem as /postinst.
-# TODO(deymo): Remove this symlink and add the path to the product config.
-LOCAL_POST_INSTALL_CMD := \
-    $(hide) ln -sf bin/postinst_example $(TARGET_OUT)/postinst
 include $(BUILD_PREBUILT)

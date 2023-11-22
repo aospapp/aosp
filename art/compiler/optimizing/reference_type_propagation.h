@@ -21,6 +21,7 @@
 #include "driver/dex_compilation_unit.h"
 #include "handle_scope-inl.h"
 #include "nodes.h"
+#include "obj_ptr.h"
 #include "optimization.h"
 #include "optimizing_compiler_stats.h"
 
@@ -32,8 +33,9 @@ namespace art {
 class ReferenceTypePropagation : public HOptimization {
  public:
   ReferenceTypePropagation(HGraph* graph,
+                           Handle<mirror::ClassLoader> class_loader,
                            Handle<mirror::DexCache> hint_dex_cache,
-                           StackHandleScopeCollection* handles,
+                           VariableSizedHandleScope* handles,
                            bool is_first_run,
                            const char* name = kReferenceTypePropagationPassName);
 
@@ -42,15 +44,28 @@ class ReferenceTypePropagation : public HOptimization {
 
   void Run() OVERRIDE;
 
+  // Returns true if klass is admissible to the propagation: non-null and resolved.
+  // For an array type, we also check if the component type is admissible.
+  static bool IsAdmissible(mirror::Class* klass) REQUIRES_SHARED(Locks::mutator_lock_) {
+    return klass != nullptr &&
+           klass->IsResolved() &&
+           (!klass->IsArrayClass() || IsAdmissible(klass->GetComponentType()));
+  }
+
   static constexpr const char* kReferenceTypePropagationPassName = "reference_type_propagation";
 
  private:
   class HandleCache {
    public:
-    explicit HandleCache(StackHandleScopeCollection* handles) : handles_(handles) { }
+    explicit HandleCache(VariableSizedHandleScope* handles) : handles_(handles) { }
 
     template <typename T>
-    MutableHandle<T> NewHandle(T* object) SHARED_REQUIRES(Locks::mutator_lock_) {
+    MutableHandle<T> NewHandle(T* object) REQUIRES_SHARED(Locks::mutator_lock_) {
+      return handles_->NewHandle(object);
+    }
+
+    template <typename T>
+    MutableHandle<T> NewHandle(ObjPtr<T> object) REQUIRES_SHARED(Locks::mutator_lock_) {
       return handles_->NewHandle(object);
     }
 
@@ -60,7 +75,7 @@ class ReferenceTypePropagation : public HOptimization {
     ReferenceTypeInfo::TypeHandle GetThrowableClassHandle();
 
    private:
-    StackHandleScopeCollection* handles_;
+    VariableSizedHandleScope* handles_;
 
     ReferenceTypeInfo::TypeHandle object_class_handle_;
     ReferenceTypeInfo::TypeHandle class_class_handle_;
@@ -72,8 +87,8 @@ class ReferenceTypePropagation : public HOptimization {
 
   void VisitPhi(HPhi* phi);
   void VisitBasicBlock(HBasicBlock* block);
-  void UpdateBoundType(HBoundType* bound_type) SHARED_REQUIRES(Locks::mutator_lock_);
-  void UpdatePhi(HPhi* phi) SHARED_REQUIRES(Locks::mutator_lock_);
+  void UpdateBoundType(HBoundType* bound_type) REQUIRES_SHARED(Locks::mutator_lock_);
+  void UpdatePhi(HPhi* phi) REQUIRES_SHARED(Locks::mutator_lock_);
   void BoundTypeForIfNotNull(HBasicBlock* block);
   void BoundTypeForIfInstanceOf(HBasicBlock* block);
   void ProcessWorklist();
@@ -84,12 +99,14 @@ class ReferenceTypePropagation : public HOptimization {
   bool UpdateReferenceTypeInfo(HInstruction* instr);
 
   static void UpdateArrayGet(HArrayGet* instr, HandleCache* handle_cache)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   ReferenceTypeInfo MergeTypes(const ReferenceTypeInfo& a, const ReferenceTypeInfo& b)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void ValidateTypes();
+
+  Handle<mirror::ClassLoader> class_loader_;
 
   // Note: hint_dex_cache_ is usually, but not necessarily, the dex cache associated with
   // graph_->GetDexFile(). Since we may look up also in other dex files, it's used only

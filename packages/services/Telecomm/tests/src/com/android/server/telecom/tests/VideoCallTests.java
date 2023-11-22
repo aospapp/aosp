@@ -18,10 +18,12 @@ package com.android.server.telecom.tests;
 
 import org.mockito.ArgumentCaptor;
 
+import android.os.RemoteException;
 import android.telecom.CallAudioState;
 import android.telecom.VideoProfile;
 import android.test.suitebuilder.annotation.MediumTest;
 
+import com.android.server.telecom.CallAudioModeStateMachine;
 import com.android.server.telecom.CallAudioRouteStateMachine;
 
 import java.util.List;
@@ -134,13 +136,25 @@ public class VideoCallTests extends TelecomSystemTest {
     private void verifyAudioRoute(int expectedRoute) throws Exception {
         // Capture all onCallAudioStateChanged callbacks to InCall.
         CallAudioRouteStateMachine carsm = mTelecomSystem.getCallsManager()
-                        .getCallAudioManager().getCallAudioRouteStateMachine();
+                .getCallAudioManager().getCallAudioRouteStateMachine();
+        CallAudioModeStateMachine camsm = mTelecomSystem.getCallsManager()
+                .getCallAudioManager().getCallAudioModeStateMachine();
+        waitForHandlerAction(camsm.getHandler(), TEST_TIMEOUT);
+        final boolean[] success = {true};
+        carsm.sendMessage(CallAudioRouteStateMachine.RUN_RUNNABLE, (Runnable) () -> {
+            ArgumentCaptor<CallAudioState> callAudioStateArgumentCaptor = ArgumentCaptor.forClass(
+                    CallAudioState.class);
+            try {
+                verify(mInCallServiceFixtureX.getTestDouble(), atLeastOnce())
+                        .onCallAudioStateChanged(callAudioStateArgumentCaptor.capture());
+            } catch (RemoteException e) {
+                fail("Remote exception in InCallServiceFixture");
+            }
+            List<CallAudioState> changes = callAudioStateArgumentCaptor.getAllValues();
+            assertEquals(expectedRoute, changes.get(changes.size() - 1).getRoute());
+            success[0] = true;
+        });
         waitForHandlerAction(carsm.getHandler(), TEST_TIMEOUT);
-        ArgumentCaptor<CallAudioState> callAudioStateArgumentCaptor = ArgumentCaptor.forClass(
-                CallAudioState.class);
-        verify(mInCallServiceFixtureX.getTestDouble(), atLeastOnce()).onCallAudioStateChanged(
-                callAudioStateArgumentCaptor.capture());
-        List<CallAudioState> changes = callAudioStateArgumentCaptor.getAllValues();
-        assertEquals(expectedRoute, changes.get(changes.size() - 1).getRoute());
+        assertTrue(success[0]);
     }
 }

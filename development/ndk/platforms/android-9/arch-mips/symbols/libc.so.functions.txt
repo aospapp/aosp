@@ -2,7 +2,6 @@ __assert
 __assert2
 __b64_ntop
 __b64_pton
-__brk
 __cxa_atexit
 __cxa_finalize
 __dn_comp
@@ -162,7 +161,6 @@ clock_getres
 clock_gettime
 clock_nanosleep
 clock_settime
-clone
 close
 closedir
 closelog
@@ -616,10 +614,8 @@ sigaction
 sigaltstack
 sigblock
 siginterrupt
-siglongjmp
 sigpending
 sigprocmask
-sigsetjmp
 sigsetmask
 sigsuspend
 sigwait

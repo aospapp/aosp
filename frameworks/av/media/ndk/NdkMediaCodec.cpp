@@ -30,10 +30,12 @@
 
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/stagefright/foundation/ABuffer.h>
 
+#include <media/stagefright/PersistentSurface.h>
 #include <media/stagefright/MediaCodec.h>
 #include <media/stagefright/MediaErrors.h>
+#include <media/MediaCodecBuffer.h>
+#include <android/native_window.h>
 
 using namespace android;
 
@@ -54,12 +56,24 @@ enum {
     kWhatStopActivityNotifications,
 };
 
+struct AMediaCodecPersistentSurface : public Surface {
+    sp<PersistentSurface> mPersistentSurface;
+    AMediaCodecPersistentSurface(
+            const sp<IGraphicBufferProducer>& igbp,
+            const sp<PersistentSurface>& ps)
+            : Surface(igbp) {
+        mPersistentSurface = ps;
+    }
+    virtual ~AMediaCodecPersistentSurface() {
+        //mPersistentSurface ref will be let go off here
+    }
+};
 
 class CodecHandler: public AHandler {
 private:
     AMediaCodec* mCodec;
 public:
-    CodecHandler(AMediaCodec *codec);
+    explicit CodecHandler(AMediaCodec *codec);
     virtual void onMessageReceived(const sp<AMessage> &msg);
 };
 
@@ -268,11 +282,15 @@ ssize_t AMediaCodec_dequeueInputBuffer(AMediaCodec *mData, int64_t timeoutUs) {
 
 EXPORT
 uint8_t* AMediaCodec_getInputBuffer(AMediaCodec *mData, size_t idx, size_t *out_size) {
-    android::Vector<android::sp<android::ABuffer> > abufs;
+    android::Vector<android::sp<android::MediaCodecBuffer> > abufs;
     if (mData->mCodec->getInputBuffers(&abufs) == 0) {
         size_t n = abufs.size();
         if (idx >= n) {
             ALOGE("buffer index %zu out of range", idx);
+            return NULL;
+        }
+        if (abufs[idx] == NULL) {
+            ALOGE("buffer index %zu is NULL", idx);
             return NULL;
         }
         if (out_size != NULL) {
@@ -286,7 +304,7 @@ uint8_t* AMediaCodec_getInputBuffer(AMediaCodec *mData, size_t idx, size_t *out_
 
 EXPORT
 uint8_t* AMediaCodec_getOutputBuffer(AMediaCodec *mData, size_t idx, size_t *out_size) {
-    android::Vector<android::sp<android::ABuffer> > abufs;
+    android::Vector<android::sp<android::MediaCodecBuffer> > abufs;
     if (mData->mCodec->getOutputBuffers(&abufs) == 0) {
         size_t n = abufs.size();
         if (idx >= n) {
@@ -371,6 +389,94 @@ media_status_t AMediaCodec_setOutputSurface(AMediaCodec *mData, ANativeWindow* w
         surface = (Surface*) window;
     }
     return translate_error(mData->mCodec->setSurface(surface));
+}
+
+EXPORT
+media_status_t AMediaCodec_createInputSurface(AMediaCodec *mData, ANativeWindow **surface) {
+    if (surface == NULL || mData == NULL) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+    *surface = NULL;
+
+    sp<IGraphicBufferProducer> igbp = NULL;
+    status_t err = mData->mCodec->createInputSurface(&igbp);
+    if (err != NO_ERROR) {
+        return translate_error(err);
+    }
+
+    *surface = new Surface(igbp);
+    ANativeWindow_acquire(*surface);
+    return AMEDIA_OK;
+}
+
+EXPORT
+media_status_t AMediaCodec_createPersistentInputSurface(ANativeWindow **surface) {
+    if (surface == NULL) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+    *surface = NULL;
+
+    sp<PersistentSurface> ps = MediaCodec::CreatePersistentInputSurface();
+    if (ps == NULL) {
+        return AMEDIA_ERROR_UNKNOWN;
+    }
+
+    sp<IGraphicBufferProducer> igbp = ps->getBufferProducer();
+    if (igbp == NULL) {
+        return AMEDIA_ERROR_UNKNOWN;
+    }
+
+    *surface = new AMediaCodecPersistentSurface(igbp, ps);
+    ANativeWindow_acquire(*surface);
+
+    return AMEDIA_OK;
+}
+
+EXPORT
+media_status_t AMediaCodec_setInputSurface(
+        AMediaCodec *mData, ANativeWindow *surface) {
+
+    if (surface == NULL || mData == NULL) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+
+    AMediaCodecPersistentSurface *aMediaPersistentSurface =
+            static_cast<AMediaCodecPersistentSurface *>(surface);
+    if (aMediaPersistentSurface->mPersistentSurface == NULL) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+
+    return translate_error(mData->mCodec->setInputSurface(
+            aMediaPersistentSurface->mPersistentSurface));
+}
+
+EXPORT
+media_status_t AMediaCodec_setParameters(
+        AMediaCodec *mData, const AMediaFormat* params) {
+    if (params == NULL || mData == NULL) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+    sp<AMessage> nativeParams;
+    AMediaFormat_getFormat(params, &nativeParams);
+    ALOGV("setParameters: %s", nativeParams->debugString(0).c_str());
+
+    return translate_error(mData->mCodec->setParameters(nativeParams));
+}
+
+EXPORT
+media_status_t AMediaCodec_signalEndOfInputStream(AMediaCodec *mData) {
+
+    if (mData == NULL) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+
+    status_t err = mData->mCodec->signalEndOfInputStream();
+    if (err == INVALID_OPERATION) {
+        return AMEDIA_ERROR_INVALID_OPERATION;
+    }
+
+    return translate_error(err);
+
 }
 
 //EXPORT

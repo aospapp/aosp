@@ -24,12 +24,12 @@ class BRWriter(properties: Set<String>, val useFinal : Boolean) {
     val klass: String by lazy {
         kcode("") {
             val prefix = if (useFinal) "final " else "";
-            nl("public class BR {") {
+            block("public class BR") {
                 tab("public static ${prefix}int _all = 0;")
                 indexedProps.forEach {
                     tab ("public static ${prefix}int ${it.value} = ${it.index + 1};")
                 }
-            } nl ("}")
+            }
         }.generate()
     }
 }

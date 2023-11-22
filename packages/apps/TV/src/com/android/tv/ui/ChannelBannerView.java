@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Bitmap;
+import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.net.Uri;
@@ -50,10 +51,14 @@ import android.widget.TextView;
 
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.common.recording.RecordedProgram;
+import com.android.tv.TvApplication;
+import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
 import com.android.tv.data.StreamInfo;
+import com.android.tv.dvr.DvrManager;
+import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.parental.ContentRatingsManager;
 import com.android.tv.util.ImageCache;
 import com.android.tv.util.ImageLoader;
 import com.android.tv.util.ImageLoader.ImageLoaderCallback;
@@ -89,6 +94,8 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
      */
     public static final int LOCK_CHANNEL_INFO = 2;
 
+    private static final int DISPLAYED_CONTENT_RATINGS_COUNT = 3;
+
     private static final String EMPTY_STRING = "";
 
     private static Program sNoProgram;
@@ -106,17 +113,21 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
     private TextView mChannelNameTextView;
     private TextView mProgramTimeTextView;
     private ProgressBar mRemainingTimeView;
+    private TextView mRecordingIndicatorView;
     private TextView mClosedCaptionTextView;
     private TextView mAspectRatioTextView;
     private TextView mResolutionTextView;
     private TextView mAudioChannelTextView;
+    private TextView[] mContentRatingsTextViews = new TextView[DISPLAYED_CONTENT_RATINGS_COUNT];
     private TextView mProgramDescriptionTextView;
     private String mProgramDescriptionText;
     private View mAnchorView;
     private Channel mCurrentChannel;
     private Program mLastUpdatedProgram;
-    private RecordedProgram mLastUpdatedRecordedProgram;
     private final Handler mHandler = new Handler();
+    private final DvrManager mDvrManager;
+    private ContentRatingsManager mContentRatingsManager;
+    private TvContentRating mBlockingContentRating;
 
     private int mLockType;
 
@@ -147,6 +158,7 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
     private final int mChannelBannerTextColor;
     private final int mChannelBannerDimTextColor;
     private final int mResizeAnimDuration;
+    private final int mRecordingIconPadding;
     private final Interpolator mResizeInterpolator;
 
     private final AnimatorListenerAdapter mResizeAnimatorListener = new AnimatorListenerAdapter() {
@@ -208,10 +220,12 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
                 R.dimen.channel_banner_channel_logo_margin_start);
         mProgramDescriptionTextViewWidth = mResources.getDimensionPixelSize(
                 R.dimen.channel_banner_program_description_width);
-        mChannelBannerTextColor = Utils.getColor(mResources, R.color.channel_banner_text_color);
-        mChannelBannerDimTextColor = Utils.getColor(mResources,
-                R.color.channel_banner_dim_text_color);
+        mChannelBannerTextColor = mResources.getColor(R.color.channel_banner_text_color, null);
+        mChannelBannerDimTextColor = mResources.getColor(R.color.channel_banner_dim_text_color,
+                null);
         mResizeAnimDuration = mResources.getInteger(R.integer.channel_banner_fast_anim_duration);
+        mRecordingIconPadding = mResources.getDimensionPixelOffset(
+                R.dimen.channel_banner_recording_icon_padding);
 
         mResizeInterpolator = AnimationUtils.loadInterpolator(context,
                 android.R.interpolator.linear_out_slow_in);
@@ -220,6 +234,14 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
                 R.animator.channel_banner_program_description_fade_in);
         mProgramDescriptionFadeOutAnimator = AnimatorInflater.loadAnimator(mMainActivity,
                 R.animator.channel_banner_program_description_fade_out);
+
+        if (CommonFeatures.DVR.isEnabled(mMainActivity)) {
+            mDvrManager = TvApplication.getSingletons(mMainActivity).getDvrManager();
+        } else {
+            mDvrManager = null;
+        }
+        mContentRatingsManager = TvApplication.getSingletons(getContext())
+                .getTvInputManagerHelper().getContentRatingsManager();
 
         if (sNoProgram == null) {
             sNoProgram = new Program.Builder()
@@ -266,10 +288,14 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
         mChannelNameTextView = (TextView) findViewById(R.id.channel_name);
         mProgramTimeTextView = (TextView) findViewById(R.id.program_time_text);
         mRemainingTimeView = (ProgressBar) findViewById(R.id.remaining_time);
+        mRecordingIndicatorView = (TextView) findViewById(R.id.recording_indicator);
         mClosedCaptionTextView = (TextView) findViewById(R.id.closed_caption);
         mAspectRatioTextView = (TextView) findViewById(R.id.aspect_ratio);
         mResolutionTextView = (TextView) findViewById(R.id.resolution);
         mAudioChannelTextView = (TextView) findViewById(R.id.audio_channel);
+        mContentRatingsTextViews[0] = (TextView) findViewById(R.id.content_ratings_0);
+        mContentRatingsTextViews[1] = (TextView) findViewById(R.id.content_ratings_1);
+        mContentRatingsTextViews[2] = (TextView) findViewById(R.id.content_ratings_2);
         mProgramDescriptionTextView = (TextView) findViewById(R.id.program_description);
         mAnchorView = findViewById(R.id.anchor);
 
@@ -335,6 +361,15 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
     }
 
     /**
+     * Sets the content rating that blocks the current watched channel for displaying it in the
+     * channel banner.
+     */
+    public void setBlockingContentRating(TvContentRating rating) {
+        mBlockingContentRating = rating;
+        updateProgramRatings(mMainActivity.getCurrentProgram());
+    }
+
+    /**
      * Update channel banner view.
      *
      * @param info A StreamInfo that includes stream information.
@@ -343,8 +378,11 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
     public void updateViews(StreamInfo info) {
         resetAnimationEffects();
         Channel channel = mMainActivity.getCurrentChannel();
-        if (!Objects.equals(mCurrentChannel, channel) && isShown()) {
-            scheduleHide();
+        if (!Objects.equals(mCurrentChannel, channel)) {
+            mBlockingContentRating = null;
+            if (isShown()) {
+                scheduleHide();
+            }
         }
         mCurrentChannel = channel;
         mChannelView.setVisibility(VISIBLE);
@@ -355,11 +393,7 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
                     : null);
             updateChannelInfo();
         }
-        if (mMainActivity.isRecordingPlayback()) {
-            updateProgramInfo(mMainActivity.getPlayingRecordedProgram());
-        } else {
-            updateProgramInfo(mMainActivity.getCurrentProgram());
-        }
+        updateProgramInfo(mMainActivity.getCurrentProgram());
     }
 
     private void updateStreamInfo(StreamInfo info) {
@@ -380,6 +414,9 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
             mAspectRatioTextView.setVisibility(View.GONE);
             mResolutionTextView.setVisibility(View.GONE);
             mAudioChannelTextView.setVisibility(View.GONE);
+            for (int i = 0; i < DISPLAYED_CONTENT_RATINGS_COUNT; i++) {
+                mContentRatingsTextViews[i].setVisibility(View.GONE);
+            }
         }
     }
 
@@ -439,15 +476,7 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
 
     private String getCurrentInputId() {
         Channel channel = mMainActivity.getCurrentChannel();
-        if (channel != null) {
-            return channel.getInputId();
-        } else if (mMainActivity.isRecordingPlayback()) {
-            RecordedProgram recordedProgram = mMainActivity.getPlayingRecordedProgram();
-            if (recordedProgram != null) {
-                return recordedProgram.getInputId();
-            }
-        }
-        return null;
+        return channel != null ? channel.getInputId() : null;
     }
 
     private void updateTvInputLogo(Bitmap bitmap) {
@@ -531,7 +560,7 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
     private void updateProgramInfo(Program program) {
         if (mLockType == LOCK_CHANNEL_INFO) {
             program = sLockedChannelProgram;
-        } else if (!Program.isValid(program) || TextUtils.isEmpty(program.getTitle())) {
+        } else if (program == null || !program.isValid() || TextUtils.isEmpty(program.getTitle())) {
             program = sNoProgram;
         }
 
@@ -542,10 +571,12 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
             updateProgramTextView(program);
         }
         updateProgramTimeInfo(program);
+        updateRecordingStatus(program);
+        updateProgramRatings(program);
 
         // When the program is changed, but the previous resize animation has not ended yet,
         // cancel the animation.
-        boolean isProgramChanged = !Objects.equals(mLastUpdatedProgram, program);
+        boolean isProgramChanged = !program.equals(mLastUpdatedProgram);
         if (mResizeAnimator != null && isProgramChanged) {
             setLastUpdatedProgram(program);
             mProgramInfoUpdatePendingByResizing = true;
@@ -568,67 +599,15 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
         setLastUpdatedProgram(program);
     }
 
-    private void updateProgramInfo(RecordedProgram recordedProgram) {
-        if (mLockType == LOCK_CHANNEL_INFO) {
-            updateProgramInfo(sLockedChannelProgram);
-            return;
-        } else if (recordedProgram == null) {
-            updateProgramInfo(sNoProgram);
-            return;
-        }
-
-        if (mLastUpdatedRecordedProgram == null
-                || !TextUtils.equals(recordedProgram.getTitle(),
-                mLastUpdatedRecordedProgram.getTitle())
-                || !TextUtils.equals(recordedProgram.getEpisodeDisplayTitle(getContext()),
-                mLastUpdatedRecordedProgram.getEpisodeDisplayTitle(getContext()))) {
-            updateProgramTextView(recordedProgram);
-        }
-        updateProgramTimeInfo(recordedProgram);
-
-        // When the program is changed, but the previous resize animation has not ended yet,
-        // cancel the animation.
-        boolean isProgramChanged = !Objects.equals(mLastUpdatedRecordedProgram, recordedProgram);
-        if (mResizeAnimator != null && isProgramChanged) {
-            setLastUpdatedRecordedProgram(recordedProgram);
-            mProgramInfoUpdatePendingByResizing = true;
-            mResizeAnimator.cancel();
-        } else if (mResizeAnimator == null) {
-            if (mLockType != LOCK_NONE
-                    || TextUtils.isEmpty(recordedProgram.getShortDescription())) {
-                mProgramDescriptionTextView.setVisibility(GONE);
-                mProgramDescriptionText = "";
-            } else {
-                mProgramDescriptionTextView.setVisibility(VISIBLE);
-                mProgramDescriptionText = recordedProgram.getShortDescription();
-            }
-            String description = mProgramDescriptionTextView.getText().toString();
-            boolean needFadeAnimation = isProgramChanged
-                    || !description.equals(mProgramDescriptionText);
-            updateBannerHeight(needFadeAnimation);
-        } else {
-            mProgramInfoUpdatePendingByResizing = true;
-        }
-        setLastUpdatedRecordedProgram(recordedProgram);
-    }
-
     private void updateProgramTextView(Program program) {
         if (program == null) {
             return;
         }
         updateProgramTextView(program == sLockedChannelProgram, program.getTitle(),
-                program.getEpisodeTitle(), program.getEpisodeDisplayTitle(getContext()));
+                program.getEpisodeDisplayTitle(getContext()));
     }
 
-    private void updateProgramTextView(RecordedProgram recordedProgram) {
-        if (recordedProgram == null) {
-            return;
-        }
-        updateProgramTextView(false, recordedProgram.getTitle(), recordedProgram.getEpisodeTitle(),
-                recordedProgram.getEpisodeDisplayTitle(getContext()));
-    }
-
-    private void updateProgramTextView(boolean dimText, String title, String episodeTitle,
+    private void updateProgramTextView(boolean dimText, String title,
             String episodeDisplayTitle) {
         mProgramTextView.setVisibility(View.VISIBLE);
         if (dimText) {
@@ -639,7 +618,7 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
         updateTextView(mProgramTextView,
                 R.dimen.channel_banner_program_large_text_size,
                 R.dimen.channel_banner_program_large_margin_top);
-        if (TextUtils.isEmpty(episodeTitle)) {
+        if (TextUtils.isEmpty(episodeDisplayTitle)) {
             mProgramTextView.setText(title);
         } else {
             String fullTitle = title + "  " + episodeDisplayTitle;
@@ -675,61 +654,119 @@ public class ChannelBannerView extends FrameLayout implements TvTransitionManage
                 : R.dimen.channel_banner_anchor_two_line_y);
     }
 
+    private void updateProgramRatings(Program program) {
+        if (mBlockingContentRating != null) {
+            mContentRatingsTextViews[0].setText(
+                    mContentRatingsManager.getDisplayNameForRating(mBlockingContentRating));
+            mContentRatingsTextViews[0].setVisibility(View.VISIBLE);
+            for (int i = 1; i < DISPLAYED_CONTENT_RATINGS_COUNT; i++) {
+                mContentRatingsTextViews[i].setVisibility(View.GONE);
+            }
+            return;
+        }
+        TvContentRating[] ratings = (program == null) ? null : program.getContentRatings();
+        for (int i = 0; i < DISPLAYED_CONTENT_RATINGS_COUNT; i++) {
+            if (ratings == null || ratings.length <= i) {
+                mContentRatingsTextViews[i].setVisibility(View.GONE);
+            } else {
+                mContentRatingsTextViews[i].setText(
+                        mContentRatingsManager.getDisplayNameForRating(ratings[i]));
+                mContentRatingsTextViews[i].setVisibility(View.VISIBLE);
+            }
+        }
+    }
+
     private void updateProgramTimeInfo(Program program) {
-        long startTime = program.getStartTimeUtcMillis();
-        long endTime = program.getEndTimeUtcMillis();
-        if (mLockType != LOCK_CHANNEL_INFO && startTime > 0 && endTime > startTime) {
+        long durationMs = program.getDurationMillis();
+        long startTimeMs = program.getStartTimeUtcMillis();
+        long endTimeMs = program.getEndTimeUtcMillis();
+
+        if (mLockType != LOCK_CHANNEL_INFO && durationMs > 0 && startTimeMs > 0) {
             mProgramTimeTextView.setVisibility(View.VISIBLE);
             mRemainingTimeView.setVisibility(View.VISIBLE);
-
             mProgramTimeTextView.setText(Utils.getDurationString(
-                    getContext(), startTime, endTime, true));
-
-            long currTime = mMainActivity.getCurrentPlayingPosition();
-            if (currTime <= startTime) {
-                mRemainingTimeView.setProgress(0);
-            } else if (currTime >= endTime) {
-                mRemainingTimeView.setProgress(100);
-            } else {
-                mRemainingTimeView.setProgress(
-                        (int) (100 * (currTime - startTime) / (endTime - startTime)));
-            }
+                    getContext(), startTimeMs, endTimeMs, true));
         } else {
             mProgramTimeTextView.setVisibility(View.GONE);
             mRemainingTimeView.setVisibility(View.GONE);
         }
     }
 
-    private void updateProgramTimeInfo(RecordedProgram recordedProgram) {
-        long durationMs = recordedProgram.getDurationMillis();
-        if (mLockType != LOCK_CHANNEL_INFO && durationMs > 0) {
-            mProgramTimeTextView.setVisibility(View.VISIBLE);
-            mRemainingTimeView.setVisibility(View.VISIBLE);
-
-            mProgramTimeTextView.setText(DateUtils.formatElapsedTime(durationMs / 1000));
-
-            long currTimeMs = mMainActivity.getCurrentPlayingPosition();
-            if (currTimeMs <= 0) {
-                mRemainingTimeView.setProgress(0);
-            } else if (currTimeMs >= durationMs) {
-                mRemainingTimeView.setProgress(100);
-            } else {
-                mRemainingTimeView.setProgress((int) (100 * currTimeMs / durationMs));
-            }
+    private int getProgressPercent(long currTime, long startTime, long endTime) {
+        if (currTime <= startTime) {
+            return 0;
+        } else if (currTime >= endTime) {
+            return 100;
         } else {
-            mProgramTimeTextView.setVisibility(View.GONE);
-            mRemainingTimeView.setVisibility(View.GONE);
+            return (int) (100 * (currTime - startTime) / (endTime - startTime));
         }
+    }
+
+    private void updateRecordingStatus(Program program) {
+        if (mDvrManager == null) {
+            updateProgressBarAndRecIcon(program, null);
+            return;
+        }
+        ScheduledRecording currentRecording = (mCurrentChannel == null) ? null
+                : mDvrManager.getCurrentRecording(mCurrentChannel.getId());
+        if (DEBUG) {
+            Log.d(TAG, currentRecording == null ? "No Recording" : "Recording:" + currentRecording);
+        }
+        if (currentRecording != null && isCurrentProgram(currentRecording, program)) {
+            updateProgressBarAndRecIcon(program, currentRecording);
+        } else {
+            updateProgressBarAndRecIcon(program, null);
+        }
+    }
+
+    private void updateProgressBarAndRecIcon(Program program,
+            @Nullable ScheduledRecording recording) {
+        long programStartTime = program.getStartTimeUtcMillis();
+        long programEndTime = program.getEndTimeUtcMillis();
+        long currentPosition = mMainActivity.getCurrentPlayingPosition();
+        updateRecordingIndicator(recording);
+        if (recording != null) {
+            // Recording now. Use recording-style progress bar.
+            mRemainingTimeView.setProgress(getProgressPercent(recording.getStartTimeMs(),
+                    programStartTime, programEndTime));
+            mRemainingTimeView.setSecondaryProgress(getProgressPercent(currentPosition,
+                    programStartTime, programEndTime));
+        } else {
+            // No recording is going now. Recover progress bar.
+            mRemainingTimeView.setProgress(getProgressPercent(currentPosition,
+                    programStartTime, programEndTime));
+            mRemainingTimeView.setSecondaryProgress(0);
+        }
+    }
+
+    private void updateRecordingIndicator(@Nullable ScheduledRecording recording) {
+        if (recording != null) {
+            if (mRemainingTimeView.getVisibility() == View.GONE) {
+                mRecordingIndicatorView.setText(mMainActivity.getResources().getString(
+                        R.string.dvr_recording_till_format, DateUtils.formatDateTime(mMainActivity,
+                                recording.getEndTimeMs(), DateUtils.FORMAT_SHOW_TIME)));
+                mRecordingIndicatorView.setCompoundDrawablePadding(mRecordingIconPadding);
+            } else {
+                mRecordingIndicatorView.setText("");
+                mRecordingIndicatorView.setCompoundDrawablePadding(0);
+            }
+            mRecordingIndicatorView.setVisibility(View.VISIBLE);
+        } else {
+            mRecordingIndicatorView.setVisibility(View.GONE);
+        }
+    }
+
+    private boolean isCurrentProgram(ScheduledRecording recording, Program program) {
+        long currentPosition = mMainActivity.getCurrentPlayingPosition();
+        return (recording.getType() == ScheduledRecording.TYPE_PROGRAM
+                && recording.getProgramId() == program.getId())
+                || (recording.getType() == ScheduledRecording.TYPE_TIMED
+                && currentPosition >= recording.getStartTimeMs()
+                && currentPosition <= recording.getEndTimeMs());
     }
 
     private void setLastUpdatedProgram(Program program) {
         mLastUpdatedProgram = program;
-        mLastUpdatedRecordedProgram = null;
-    }
-
-    private void setLastUpdatedRecordedProgram(RecordedProgram recordedProgram) {
-        mLastUpdatedProgram = null;
-        mLastUpdatedRecordedProgram = recordedProgram;
     }
 
     private void updateBannerHeight(boolean needFadeAnimation) {

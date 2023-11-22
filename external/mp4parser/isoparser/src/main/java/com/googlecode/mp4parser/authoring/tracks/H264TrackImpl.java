@@ -55,10 +55,10 @@ public class H264TrackImpl extends AbstractTrack {
     private boolean determineFrameRate = true;
     private String lang = "und";
 
-    public H264TrackImpl(InputStream inputStream, String lang, long timescale) throws IOException {
+    public H264TrackImpl(InputStream inputStream, String lang, int timescale) throws IOException {
         this.lang = lang;
         if (timescale > 1000) {
-            timescale = timescale; //e.g. 23976
+            this.timescale = timescale; //e.g. 23976
             frametick = 1000;
             determineFrameRate = false;
         } else {

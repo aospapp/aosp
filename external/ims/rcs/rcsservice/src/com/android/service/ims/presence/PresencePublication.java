@@ -170,8 +170,14 @@ public class PresencePublication extends PresenceBase {
         this.mContext = context;
 
         mVtEnabled = ImsManager.isVtEnabledByUser(mContext);
+
         mDataEnabled = Settings.Global.getInt(mContext.getContentResolver(),
                     Settings.Global.MOBILE_DATA, 1) == 1;
+        new Thread(() -> {
+            RcsSettingUtils.setMobileDataEnabled(mContext, mDataEnabled);
+        }).start();
+        logger.debug("The current mobile data is: " + (mDataEnabled ? "enabled" : "disabled"));
+
         mPreferredTtyMode = Settings.Secure.getInt(
                 mContext.getContentResolver(),
                 Settings.Secure.PREFERRED_TTY_MODE,

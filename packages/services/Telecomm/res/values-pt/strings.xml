@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Não é possível bloquear o número de emergência."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"O número <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> já está bloqueado."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Usando o discador pessoal para fazer a chamada"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Chamada de <xliff:g id="CALL_FROM">%2$s</xliff:g> no <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videochamada de <xliff:g id="CALL_FROM">%2$s</xliff:g> no <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Se você atender, sua chamada será encerrada no <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Se você atender, suas chamadas serão encerradas no <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Se você atender, sua videochamada será encerrada no <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Se você atender, a chamada em andamento será encerrada"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Se você atender, as chamadas em andamento serão encerradas"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Se você atender, a videochamada em andamento será encerrada"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Atender"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Recusar"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Não é possível ligar com uma chamada em andamento no <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Não é possível ligar com chamadas em andamento no <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Não é possível ligar com uma chamada em andamento em outro aplicativo."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Chamadas recebidas"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Chamadas perdidas"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Se você ligar agora, sua chamada será encerrada no <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

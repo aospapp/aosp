@@ -19,6 +19,7 @@ from acts.base_test import BaseTestClass
 from acts.test_utils.wifi.wifi_test_utils import wifi_toggle_state
 from acts.test_utils.wifi.wifi_test_utils import WifiEnums
 
+
 class Sl4aSanityTest(BaseTestClass):
     """Tests for sl4a basic sanity.
 
@@ -27,10 +28,8 @@ class Sl4aSanityTest(BaseTestClass):
 
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
-        self.tests = (
-            "test_bring_up_and_shutdown",
-            "test_message_then_shutdown_stress"
-        )
+        self.tests = ("test_bring_up_and_shutdown",
+                      "test_message_then_shutdown_stress")
 
     def test_bring_up_and_shutdown(self):
         """Constantly start and terminate sl4a sessions.

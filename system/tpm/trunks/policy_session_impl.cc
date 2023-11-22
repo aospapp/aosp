@@ -31,15 +31,13 @@
 namespace trunks {
 
 PolicySessionImpl::PolicySessionImpl(const TrunksFactory& factory)
-    : factory_(factory),
-      session_type_(TPM_SE_POLICY) {
+    : factory_(factory), session_type_(TPM_SE_POLICY) {
   session_manager_ = factory_.GetSessionManager();
 }
 
 PolicySessionImpl::PolicySessionImpl(const TrunksFactory& factory,
                                      TPM_SE session_type)
-    : factory_(factory),
-      session_type_(session_type) {
+    : factory_(factory), session_type_(session_type) {
   session_manager_ = factory_.GetSessionManager();
 }
 
@@ -80,8 +78,7 @@ TPM_RC PolicySessionImpl::GetDigest(std::string* digest) {
   TPM_RC result = factory_.GetTpm()->PolicyGetDigestSync(
       session_manager_->GetSessionHandle(),
       "",  // No name is needed for this command, as it does no authorization.
-      &policy_digest,
-      nullptr);
+      &policy_digest, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error getting policy digest: " << GetErrorString(result);
     return result;
@@ -103,8 +100,7 @@ TPM_RC PolicySessionImpl::PolicyOR(const std::vector<std::string>& digests) {
   TPM_RC result = factory_.GetTpm()->PolicyORSync(
       session_manager_->GetSessionHandle(),
       "",  // No policy name is needed as we do no authorization checks.
-      tpm_digests,
-      nullptr);
+      tpm_digests, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error performing PolicyOR: " << GetErrorString(result);
     return result;
@@ -139,9 +135,7 @@ TPM_RC PolicySessionImpl::PolicyPCR(uint32_t pcr_index,
   TPM_RC result = factory_.GetTpm()->PolicyPCRSync(
       session_manager_->GetSessionHandle(),
       "",  // No policy name is needed as we do no authorization checks.
-      pcr_digest,
-      pcr_select,
-      nullptr);
+      pcr_digest, pcr_select, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error performing PolicyPCR: " << GetErrorString(result);
     return result;
@@ -153,8 +147,7 @@ TPM_RC PolicySessionImpl::PolicyCommandCode(TPM_CC command_code) {
   TPM_RC result = factory_.GetTpm()->PolicyCommandCodeSync(
       session_manager_->GetSessionHandle(),
       "",  // No policy name is needed as we do no authorization checks.
-      command_code,
-      nullptr);
+      command_code, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error performing PolicyCommandCode: "
                << GetErrorString(result);
@@ -174,6 +167,18 @@ TPM_RC PolicySessionImpl::PolicyAuthValue() {
     return result;
   }
   hmac_delegate_.set_use_entity_authorization_for_encryption_only(false);
+  return TPM_RC_SUCCESS;
+}
+
+TPM_RC PolicySessionImpl::PolicyRestart() {
+  TPM_RC result = factory_.GetTpm()->PolicyAuthValueSync(
+      session_manager_->GetSessionHandle(),
+      "",  // No policy name is needed as we do no authorization checks.
+      nullptr);
+  if (result != TPM_RC_SUCCESS) {
+    LOG(ERROR) << "Error performing PolicyRestart: " << GetErrorString(result);
+    return result;
+  }
   return TPM_RC_SUCCESS;
 }
 

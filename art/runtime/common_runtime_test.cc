@@ -24,11 +24,12 @@
 #include <stdlib.h>
 
 #include "../../external/icu/icu4c/source/common/unicode/uvernum.h"
+#include "android-base/stringprintf.h"
+
 #include "art_field-inl.h"
 #include "base/macros.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
-#include "base/stringprintf.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
 #include "compiler_callbacks.h"
@@ -38,6 +39,7 @@
 #include "gtest/gtest.h"
 #include "handle_scope-inl.h"
 #include "interpreter/unstarted_runtime.h"
+#include "java_vm_ext.h"
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
@@ -47,7 +49,7 @@
 #include "os.h"
 #include "primitive.h"
 #include "runtime-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 #include "well_known_classes.h"
 
@@ -57,13 +59,83 @@ int main(int argc, char **argv) {
   // everything else. In case you want to see all messages, comment out the line.
   setenv("ANDROID_LOG_TAGS", "*:e", 1);
 
-  art::InitLogging(argv);
-  LOG(::art::INFO) << "Running main() from common_runtime_test.cc...";
+  art::InitLogging(argv, art::Runtime::Aborter);
+  LOG(INFO) << "Running main() from common_runtime_test.cc...";
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
 
 namespace art {
+
+using android::base::StringPrintf;
+
+static const uint8_t kBase64Map[256] = {
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255,  62, 255, 255, 255,  63,
+  52,  53,  54,  55,  56,  57,  58,  59,  60,  61, 255, 255,
+  255, 254, 255, 255, 255,   0,   1,   2,   3,   4,   5,   6,
+    7,   8,   9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  // NOLINT
+   19,  20,  21,  22,  23,  24,  25, 255, 255, 255, 255, 255,  // NOLINT
+  255,  26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,
+   37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  // NOLINT
+   49,  50,  51, 255, 255, 255, 255, 255, 255, 255, 255, 255,  // NOLINT
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+  255, 255, 255, 255
+};
+
+uint8_t* DecodeBase64(const char* src, size_t* dst_size) {
+  CHECK(dst_size != nullptr);
+  std::vector<uint8_t> tmp;
+  uint32_t t = 0, y = 0;
+  int g = 3;
+  for (size_t i = 0; src[i] != '\0'; ++i) {
+    uint8_t c = kBase64Map[src[i] & 0xFF];
+    if (c == 255) continue;
+    // the final = symbols are read and used to trim the remaining bytes
+    if (c == 254) {
+      c = 0;
+      // prevent g < 0 which would potentially allow an overflow later
+      if (--g < 0) {
+        *dst_size = 0;
+        return nullptr;
+      }
+    } else if (g != 3) {
+      // we only allow = to be at the end
+      *dst_size = 0;
+      return nullptr;
+    }
+    t = (t << 6) | c;
+    if (++y == 4) {
+      tmp.push_back((t >> 16) & 255);
+      if (g > 1) {
+        tmp.push_back((t >> 8) & 255);
+      }
+      if (g > 2) {
+        tmp.push_back(t & 255);
+      }
+      y = t = 0;
+    }
+  }
+  if (y != 0) {
+    *dst_size = 0;
+    return nullptr;
+  }
+  std::unique_ptr<uint8_t[]> dst(new uint8_t[tmp.size()]);
+  *dst_size = tmp.size();
+  std::copy(tmp.begin(), tmp.end(), dst.get());
+  return dst.release();
+}
 
 ScratchFile::ScratchFile() {
   // ANDROID_DATA needs to be set
@@ -76,9 +148,10 @@ ScratchFile::ScratchFile() {
   file_.reset(new File(fd, GetFilename(), true));
 }
 
-ScratchFile::ScratchFile(const ScratchFile& other, const char* suffix) {
-  filename_ = other.GetFilename();
-  filename_ += suffix;
+ScratchFile::ScratchFile(const ScratchFile& other, const char* suffix)
+    : ScratchFile(other.GetFilename() + suffix) {}
+
+ScratchFile::ScratchFile(const std::string& filename) : filename_(filename) {
   int fd = open(filename_.c_str(), O_RDWR | O_CREAT, 0666);
   CHECK_NE(-1, fd);
   file_.reset(new File(fd, GetFilename(), true));
@@ -88,6 +161,18 @@ ScratchFile::ScratchFile(File* file) {
   CHECK(file != nullptr);
   filename_ = file->GetPath();
   file_.reset(file);
+}
+
+ScratchFile::ScratchFile(ScratchFile&& other) {
+  *this = std::move(other);
+}
+
+ScratchFile& ScratchFile::operator=(ScratchFile&& other) {
+  if (GetFile() != other.GetFile()) {
+    std::swap(filename_, other.filename_);
+    std::swap(file_, other.file_);
+  }
+  return *this;
 }
 
 ScratchFile::~ScratchFile() {
@@ -117,7 +202,9 @@ void ScratchFile::Unlink() {
 
 static bool unstarted_initialized_ = false;
 
-CommonRuntimeTestImpl::CommonRuntimeTestImpl() {}
+CommonRuntimeTestImpl::CommonRuntimeTestImpl()
+    : class_linker_(nullptr), java_lang_dex_file_(nullptr) {
+}
 
 CommonRuntimeTestImpl::~CommonRuntimeTestImpl() {
   // Ensure the dex files are cleaned up before the runtime.
@@ -284,7 +371,8 @@ std::unique_ptr<const DexFile> CommonRuntimeTestImpl::LoadExpectSingleDexFile(
   std::vector<std::unique_ptr<const DexFile>> dex_files;
   std::string error_msg;
   MemMap::Init();
-  if (!DexFile::Open(location, location, &error_msg, &dex_files)) {
+  static constexpr bool kVerifyChecksum = true;
+  if (!DexFile::Open(location, location, kVerifyChecksum, &error_msg, &dex_files)) {
     LOG(FATAL) << "Could not open .dex file '" << location << "': " << error_msg << "\n";
     UNREACHABLE();
   } else {
@@ -408,16 +496,9 @@ void CommonRuntimeTestImpl::TearDown() {
   TearDownAndroidData(android_data_, true);
   dalvik_cache_.clear();
 
-  // icu4c has a fixed 10-element array "gCommonICUDataArray".
-  // If we run > 10 tests, we fill that array and u_setCommonData fails.
-  // There's a function to clear the array, but it's not public...
-  typedef void (*IcuCleanupFn)();
-  void* sym = dlsym(RTLD_DEFAULT, "u_cleanup_" U_ICU_VERSION_SHORT);
-  CHECK(sym != nullptr) << dlerror();
-  IcuCleanupFn icu_cleanup_fn = reinterpret_cast<IcuCleanupFn>(sym);
-  (*icu_cleanup_fn)();
-
-  Runtime::Current()->GetHeap()->VerifyHeap();  // Check for heap corruption after the test
+  if (runtime_ != nullptr) {
+    runtime_->GetHeap()->VerifyHeap();  // Check for heap corruption after the test
+  }
 }
 
 static std::string GetDexFileName(const std::string& jar_prefix, bool host) {
@@ -480,9 +561,11 @@ std::string CommonRuntimeTestImpl::GetTestDexFileName(const char* name) const {
 std::vector<std::unique_ptr<const DexFile>> CommonRuntimeTestImpl::OpenTestDexFiles(
     const char* name) {
   std::string filename = GetTestDexFileName(name);
+  static constexpr bool kVerifyChecksum = true;
   std::string error_msg;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
-  bool success = DexFile::Open(filename.c_str(), filename.c_str(), &error_msg, &dex_files);
+  bool success = DexFile::Open(
+      filename.c_str(), filename.c_str(), kVerifyChecksum, &error_msg, &dex_files);
   CHECK(success) << "Failed to open '" << filename << "': " << error_msg;
   for (auto& dex_file : dex_files) {
     CHECK_EQ(PROT_READ, dex_file->GetPermissions());
@@ -504,40 +587,40 @@ std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(jobject jclass_lo
 
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader = hs.NewHandle(
-      soa.Decode<mirror::ClassLoader*>(jclass_loader));
+      soa.Decode<mirror::ClassLoader>(jclass_loader));
 
   DCHECK_EQ(class_loader->GetClass(),
-            soa.Decode<mirror::Class*>(WellKnownClasses::dalvik_system_PathClassLoader));
+            soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader));
   DCHECK_EQ(class_loader->GetParent()->GetClass(),
-            soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_BootClassLoader));
+            soa.Decode<mirror::Class>(WellKnownClasses::java_lang_BootClassLoader));
 
   // The class loader is a PathClassLoader which inherits from BaseDexClassLoader.
   // We need to get the DexPathList and loop through it.
-  ArtField* cookie_field = soa.DecodeField(WellKnownClasses::dalvik_system_DexFile_cookie);
+  ArtField* cookie_field = jni::DecodeArtField(WellKnownClasses::dalvik_system_DexFile_cookie);
   ArtField* dex_file_field =
-      soa.DecodeField(WellKnownClasses::dalvik_system_DexPathList__Element_dexFile);
-  mirror::Object* dex_path_list =
-      soa.DecodeField(WellKnownClasses::dalvik_system_PathClassLoader_pathList)->
-      GetObject(class_loader.Get());
+      jni::DecodeArtField(WellKnownClasses::dalvik_system_DexPathList__Element_dexFile);
+  ObjPtr<mirror::Object> dex_path_list =
+      jni::DecodeArtField(WellKnownClasses::dalvik_system_BaseDexClassLoader_pathList)->
+          GetObject(class_loader.Get());
   if (dex_path_list != nullptr && dex_file_field!= nullptr && cookie_field != nullptr) {
     // DexPathList has an array dexElements of Elements[] which each contain a dex file.
-    mirror::Object* dex_elements_obj =
-        soa.DecodeField(WellKnownClasses::dalvik_system_DexPathList_dexElements)->
-        GetObject(dex_path_list);
+    ObjPtr<mirror::Object> dex_elements_obj =
+        jni::DecodeArtField(WellKnownClasses::dalvik_system_DexPathList_dexElements)->
+            GetObject(dex_path_list);
     // Loop through each dalvik.system.DexPathList$Element's dalvik.system.DexFile and look
     // at the mCookie which is a DexFile vector.
     if (dex_elements_obj != nullptr) {
       Handle<mirror::ObjectArray<mirror::Object>> dex_elements =
           hs.NewHandle(dex_elements_obj->AsObjectArray<mirror::Object>());
       for (int32_t i = 0; i < dex_elements->GetLength(); ++i) {
-        mirror::Object* element = dex_elements->GetWithoutChecks(i);
+        ObjPtr<mirror::Object> element = dex_elements->GetWithoutChecks(i);
         if (element == nullptr) {
           // Should never happen, fall back to java code to throw a NPE.
           break;
         }
-        mirror::Object* dex_file = dex_file_field->GetObject(element);
+        ObjPtr<mirror::Object> dex_file = dex_file_field->GetObject(element);
         if (dex_file != nullptr) {
-          mirror::LongArray* long_array = cookie_field->GetObject(dex_file)->AsLongArray();
+          ObjPtr<mirror::LongArray> long_array = cookie_field->GetObject(dex_file)->AsLongArray();
           DCHECK(long_array != nullptr);
           int32_t long_array_size = long_array->GetLength();
           for (int32_t j = kDexFileIndexStart; j < long_array_size; ++j) {
@@ -563,6 +646,29 @@ const DexFile* CommonRuntimeTestImpl::GetFirstDexFile(jobject jclass_loader) {
   const DexFile* ret = tmp[0];
   DCHECK(ret != nullptr);
   return ret;
+}
+
+jobject CommonRuntimeTestImpl::LoadMultiDex(const char* first_dex_name,
+                                            const char* second_dex_name) {
+  std::vector<std::unique_ptr<const DexFile>> first_dex_files = OpenTestDexFiles(first_dex_name);
+  std::vector<std::unique_ptr<const DexFile>> second_dex_files = OpenTestDexFiles(second_dex_name);
+  std::vector<const DexFile*> class_path;
+  CHECK_NE(0U, first_dex_files.size());
+  CHECK_NE(0U, second_dex_files.size());
+  for (auto& dex_file : first_dex_files) {
+    class_path.push_back(dex_file.get());
+    loaded_dex_files_.push_back(std::move(dex_file));
+  }
+  for (auto& dex_file : second_dex_files) {
+    class_path.push_back(dex_file.get());
+    loaded_dex_files_.push_back(std::move(dex_file));
+  }
+
+  Thread* self = Thread::Current();
+  jobject class_loader = Runtime::Current()->GetClassLinker()->CreatePathClassLoader(self,
+                                                                                     class_path);
+  self->SetClassLoaderOverride(class_loader);
+  return class_loader;
 }
 
 jobject CommonRuntimeTestImpl::LoadDex(const char* dex_name) {
@@ -603,6 +709,10 @@ CheckJniAbortCatcher::CheckJniAbortCatcher() : vm_(Runtime::Current()->GetJavaVM
 CheckJniAbortCatcher::~CheckJniAbortCatcher() {
   vm_->SetCheckJniAbortHook(nullptr, nullptr);
   EXPECT_TRUE(actual_.empty()) << actual_;
+}
+
+void CheckJniAbortCatcher::Check(const std::string& expected_text) {
+  Check(expected_text.c_str());
 }
 
 void CheckJniAbortCatcher::Check(const char* expected_text) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -154,6 +154,7 @@
  * - If pos <= 0 then it is the position of entry LOC header.
  *   If pos > 0 then it is the position of entry data.
  *   pos should not be accessed directly, but only by ZIP_GetEntryDataOffset.
+ * - entry name may include embedded null character, use nlen for length
  */
 
 typedef struct jzentry {  /* Zip file entry */
@@ -166,6 +167,7 @@ typedef struct jzentry {  /* Zip file entry */
     jbyte *extra;         /* optional extra data */
     jlong pos;            /* position of LOC header or entry data */
     jint flag;            /* general purpose flag */
+    jint nlen;            /* length of the entry name */
 } jzentry;
 
 /*
@@ -274,5 +276,6 @@ void ZIP_Unlock(jzfile *zip);
 jint ZIP_Read(jzfile *zip, jzentry *entry, jlong pos, void *buf, jint len);
 void ZIP_FreeEntry(jzfile *zip, jzentry *ze);
 jlong ZIP_GetEntryDataOffset(jzfile *zip, jzentry *entry);
+jzentry * ZIP_GetEntry2(jzfile *zip, char *name, jint ulen, jboolean addSlash);
 
 #endif /* !_ZIP_H_ */

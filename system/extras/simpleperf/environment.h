@@ -18,6 +18,12 @@
 #define SIMPLE_PERF_ENVIRONMENT_H_
 
 #include <sys/types.h>
+#include <time.h>
+
+#if defined(__linux__)
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
 
 #include <functional>
 #include <set>
@@ -25,11 +31,10 @@
 #include <vector>
 
 #include "build_id.h"
+#include "perf_regs.h"
 
 std::vector<int> GetOnlineCpus();
 std::vector<int> GetCpusFromString(const std::string& s);
-
-constexpr char DEFAULT_KERNEL_MMAP_NAME[] = "[kernel.kallsyms]_text";
 
 struct KernelMmap {
   std::string name;
@@ -39,15 +44,6 @@ struct KernelMmap {
 };
 
 void GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<KernelMmap>* module_mmaps);
-
-struct ThreadComm {
-  pid_t pid, tid;
-  std::string comm;
-};
-
-bool GetThreadComms(std::vector<ThreadComm>* thread_comms);
-
-constexpr char DEFAULT_EXECNAME_FOR_THREAD_MMAP[] = "//anon";
 
 struct ThreadMmap {
   uint64_t start_addr;
@@ -64,21 +60,34 @@ constexpr char DEFAULT_KERNEL_FILENAME_FOR_BUILD_ID[] = "[kernel.kallsyms]";
 bool GetKernelBuildId(BuildId* build_id);
 bool GetModuleBuildId(const std::string& module_name, BuildId* build_id);
 
-bool GetValidThreadsFromProcessString(const std::string& pid_str, std::set<pid_t>* tid_set);
+bool IsThreadAlive(pid_t tid);
+std::vector<pid_t> GetAllProcesses();
+std::vector<pid_t> GetThreadsInProcess(pid_t pid);
+bool GetProcessForThread(pid_t tid, pid_t* pid);
+bool GetThreadName(pid_t tid, std::string* name);
+
 bool GetValidThreadsFromThreadString(const std::string& tid_str, std::set<pid_t>* tid_set);
 
-bool GetExecPath(std::string* exec_path);
-
-// Expose the following functions for unit tests.
-struct KernelSymbol {
-  uint64_t addr;
-  char type;
-  const char* name;
-  const char* module;  // If nullptr, the symbol is not in a kernel module.
-};
-
-bool ProcessKernelSymbols(const std::string& symbol_file,
-                          std::function<bool(const KernelSymbol&)> callback);
 bool CheckPerfEventLimit();
+bool GetMaxSampleFrequency(uint64_t* max_sample_freq);
+bool CheckSampleFrequency(uint64_t sample_freq);
+bool CheckKernelSymbolAddresses();
+
+#if defined(__linux__)
+static inline uint64_t GetSystemClock() {
+  timespec ts;
+  // Assume clock_gettime() doesn't fail.
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
+#if !defined(__ANDROID__)
+static inline int gettid() {
+  return syscall(__NR_gettid);
+}
+#endif
+#endif
+
+ArchType GetMachineArch();
 
 #endif  // SIMPLE_PERF_ENVIRONMENT_H_

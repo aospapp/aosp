@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <array>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <array>
 #include <sstream>
 #include <vector>
 
 #include <vulkan/vulkan.h>
-
-#define LOG_TAG "vkinfo"
-#include <log/log.h>
 
 namespace {
 
@@ -177,7 +176,7 @@ void GatherGpuInfo(VkPhysicalDevice gpu,
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = 0,
         .queueCount = 1,
-        queue_priorities
+        .pQueuePriorities = queue_priorities
     };
     // clang-format off
     const char *kValidationLayers[] = {

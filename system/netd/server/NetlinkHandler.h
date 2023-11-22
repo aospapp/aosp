@@ -21,6 +21,9 @@
 #include <sysutils/NetlinkListener.h>
 #include "NetlinkManager.h"
 
+namespace android {
+namespace net {
+
 class NetlinkHandler: public NetlinkListener {
     NetlinkManager *mNm;
 
@@ -49,4 +52,8 @@ protected:
     void notifyRouteChange(NetlinkEvent::Action action, const char *route, const char *gateway, const char *iface);
     void notifyStrictCleartext(const char* uid, const char* hex);
 };
+
+}  // namespace net
+}  // namespace android
+
 #endif

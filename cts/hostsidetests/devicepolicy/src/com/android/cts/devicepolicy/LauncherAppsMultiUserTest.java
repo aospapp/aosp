@@ -64,11 +64,11 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
             return;
         }
         installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS,
                 "testGetActivitiesForUserFails",
                 mPrimaryUserId,
-                Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber)));
+                Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber));
     }
 
     public void testNoLauncherCallbackPackageAddedSecondaryUser() throws Exception {
@@ -77,10 +77,10 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
         }
         startCallbackService();
         installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS,
                 "testNoPackageAddedCallbackForUser",
                 mPrimaryUserId,
-                Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber)));
+                Collections.singletonMap(PARAM_TEST_USER, mSecondaryUserSerialNumber));
     }
 }

@@ -21,6 +21,7 @@ import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
 import static android.support.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 
@@ -29,14 +30,17 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.SmallTest;
+import android.support.v4.view.MenuItemCompat;
 import android.support.v7.appcompat.test.R;
 import android.support.v7.testutils.BaseTestActivity;
 import android.support.v7.view.ActionMode;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -90,27 +94,26 @@ public abstract class BaseKeyEventsTestCase<A extends BaseTestActivity>
     }
 
     @Test
-    @SmallTest
-    public void testBackCollapsesSearchView() throws InterruptedException {
-        final String itemTitle = getActivity().getString(R.string.search_menu_title);
-
+    @LargeTest
+    public void testBackCollapsesActionView() throws InterruptedException {
         // Click on the Search menu item
-        onView(withContentDescription(itemTitle)).perform(click());
-        // Check that the SearchView is displayed
-        onView(withId(R.id.search_bar)).check(matches(isDisplayed()));
+        onView(withId(R.id.action_search)).perform(click());
+        // Check that the action view is displayed (expanded)
+        onView(withClassName(Matchers.is(CustomCollapsibleView.class.getName())))
+                .check(matches(isDisplayed()));
 
-        // Wait for the IME to show
+        // Let things settle
         getInstrumentation().waitForIdleSync();
-        // Now send a back event to dismiss the IME
+        // Now send a back event to collapse the custom action view
         getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
-        // ...and another to collapse the SearchView
-        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+        getInstrumentation().waitForIdleSync();
 
         // Check that the Activity is still running
         assertFalse(getActivity().isFinishing());
         assertFalse(getActivity().isDestroyed());
-        // ...and that the SearchView is not attached
-        onView(withId(R.id.search_bar)).check(doesNotExist());
+        // ... and that our action view is not attached
+        onView(withClassName(Matchers.is(CustomCollapsibleView.class.getName())))
+                .check(doesNotExist());
     }
 
     @Test
@@ -177,6 +180,36 @@ public abstract class BaseKeyEventsTestCase<A extends BaseTestActivity>
         KeyEvent upEvent = getActivity().getInvokedKeyUpEvent();
         assertNotNull("onKeyUp called", upEvent);
         assertEquals("onKeyDown event matches", KeyEvent.KEYCODE_MENU, upEvent.getKeyCode());
+    }
+
+    @Test
+    @SmallTest
+    public void testActionMenuContent() throws Throwable {
+        onView(withId(R.id.action_search))
+                .check(matches(isDisplayed()))
+                .check(matches(withContentDescription(R.string.search_menu_description)));
+
+        onView(withId(R.id.action_alpha_shortcut))
+                .check(matches(isDisplayed()))
+                .check(matches(withContentDescription((String) null)));
+
+        Menu menu = getActivity().getMenu();
+        final MenuItem alphaItem = menu.findItem(R.id.action_alpha_shortcut);
+        assertNotNull(alphaItem);
+
+        mActivityTestRule.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                MenuItemCompat.setContentDescription(alphaItem,
+                        getActivity().getString(R.string.alpha_menu_description));
+                MenuItemCompat.setTooltipText(alphaItem,
+                        getActivity().getString(R.string.alpha_menu_tooltip));
+            }
+        });
+
+        onView(withId(R.id.action_alpha_shortcut))
+                .check(matches(isDisplayed()))
+                .check(matches(withContentDescription(R.string.alpha_menu_description)));
     }
 
     private void repopulateWithEmptyMenu() throws InterruptedException {

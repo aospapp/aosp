@@ -133,6 +133,40 @@ it is required by product configuration with <code>PRODUCT_PACKAGES</code>.
 </tr>
 </table>
 
+<h2 id="use-resource-overlays">Customize the Build with Resource Overlays</h2>
+
+<p>The Android build system uses resource overlays to customize
+a product at build time. Resource overlays specify resource
+files that are applied on top of the defaults. To use resource overlays, modify the project
+buildfile to set <code>PRODUCT_PACKAGE_OVERLAYS</code> to a
+path relative to your top-level directory. That path becomes a shadow root searched along with
+the current root  when the build system searches for resources.</p>
+
+<p>The most commonly customized settings are contained in the file <a
+href="https://android.googlesource.com/platform/frameworks/base/+/master/core/res/res/values/config.xml">frameworks/base/core/res/res/config.xml</a>.</p>
+
+<p> To set up a resource overlay on this file, add the overlay directory to the
+project buildfile, as follows:</p>
+
+<pre>
+PRODUCT_PACKAGE_OVERLAYS := device/<i>device_implementer</i>/<i>device_name</i>/overlay
+</pre>
+
+<p>or</p>
+
+<pre>
+PRODUCT_PACKAGE_OVERLAYS := vendor/<i>vendor_name</i>/overlay
+</pre>
+
+<p> Then, add an overlay file to the directory, for example:</p>
+
+<pre>
+vendor/foobar/overlay/frameworks/base/core/res/res/config.xml
+</pre>
+
+<p> Any strings or string arrays found in the overlay <code>config.xml</code> file replace
+those found in the original file.</p>
+
 <h2 id="build-a-product">Build a Product</h2>
 
 <p>

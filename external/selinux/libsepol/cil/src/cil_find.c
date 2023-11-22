@@ -69,7 +69,11 @@ static int cil_type_match_any(struct cil_symtab_datum *d1, struct cil_symtab_dat
 		/* Both are attributes */
 		struct cil_typeattribute *a1 = (struct cil_typeattribute *)d1;
 		struct cil_typeattribute *a2 = (struct cil_typeattribute *)d2;
-		return ebitmap_match_any(a1->types, a2->types);
+		if (d1 == d2) {
+			return CIL_TRUE;
+		} else if (ebitmap_match_any(a1->types, a2->types)) {
+			return CIL_TRUE;
+		}
 	}
 	return CIL_FALSE;
 }
@@ -379,7 +383,7 @@ int cil_find_matching_avrule_in_ast(struct cil_tree_node *current, enum cil_flav
 
 	rc = cil_tree_walk(current, __cil_find_matching_avrule_in_ast, NULL, NULL, &args);
 	if (rc) {
-		cil_log(CIL_ERR, "An error occured while searching for avrule in AST\n");
+		cil_log(CIL_ERR, "An error occurred while searching for avrule in AST\n");
 	}
 
 	return rc;

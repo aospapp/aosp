@@ -40,10 +40,7 @@
 #define IPv6 AF_INET6
 
 #define NET_ERROR(env, ex, msg) \
-{ if (!(*env)->ExceptionOccurred(env)) JNU_ThrowByName(env, ex, msg) }
-
-#define CHECK_NULL(x) if ((x) == NULL) return;
-#define CHECK_NULL_RETURN(x, y) if ((x) == NULL) return y;
+{ if (!(*env)->ExceptionOccurred(env)) JNU_ThrowByName(env, ex, msg); }
 
 /************************************************************************
  * Cached field IDs
@@ -57,6 +54,19 @@ extern jfieldID iac_addressID;
 extern jfieldID iac_familyID;
 extern jfieldID iac_hostNameID;
 extern jfieldID ia_preferIPv6AddressID;
+
+/** (Inet6Address accessors)
+ * set_ methods return JNI_TRUE on success JNI_FALSE on error
+ * get_ methods that return int/boolean, return -1 on error
+ * get_ methods that return objects return NULL on error.
+ */
+extern jobject getInet6Address_scopeifname(JNIEnv *env, jobject ia6Obj);
+extern int setInet6Address_scopeifname(JNIEnv *env, jobject ia6Obj, jobject scopeifname);
+extern int getInet6Address_scopeid_set(JNIEnv *env, jobject ia6Obj);
+extern int getInet6Address_scopeid(JNIEnv *env, jobject ia6Obj);
+extern int setInet6Address_scopeid(JNIEnv *env, jobject ia6Obj, int scopeid);
+extern int getInet6Address_ipaddress(JNIEnv *env, jobject ia6Obj, char *dest);
+extern int setInet6Address_ipaddress(JNIEnv *env, jobject ia6Obj, char *address);
 
 extern void setInetAddress_addr(JNIEnv *env, jobject iaObj, int address);
 extern void setInetAddress_family(JNIEnv *env, jobject iaObj, int family);
@@ -83,6 +93,8 @@ extern jfieldID psi_addressID;
 extern jfieldID psi_portID;
 extern jfieldID psi_localportID;
 
+/* Android-removed: DatagramSocket moved away from JNI */
+#if 0
 /* DatagramPacket fields */
 extern jfieldID dp_addressID;
 extern jfieldID dp_portID;
@@ -90,14 +102,15 @@ extern jfieldID dp_bufID;
 extern jfieldID dp_offsetID;
 extern jfieldID dp_lengthID;
 extern jfieldID dp_bufLengthID;
+#endif
 
 /* Inet6Address fields */
 extern jclass ia6_class;
+extern jfieldID ia6_holder6ID;
 extern jfieldID ia6_ipaddressID;
 extern jfieldID ia6_scopeidID;
 extern jfieldID ia6_scopeidsetID;
 extern jfieldID ia6_scopeifnameID;
-extern jfieldID ia6_scopeifnamesetID;
 extern jmethodID ia6_ctrID;
 
 /************************************************************************

@@ -121,7 +121,7 @@
 #define	DT_MIPS_GOTSYM		0x70000013	/* first dynamic sym in got */
 #define DT_MIPS_HIPAGENO	0x70000014
 #define	DT_MIPS_RLD_MAP		0x70000016	/* address of loader map */
-#define DT_MIPS_RLD_MAP2	0x70000035	/* offset of loader map, used for PIE */
+#define DT_MIPS_RLD_MAP_REL	0x70000035	/* offset of loader map, used for PIE */
 
 /*
  * ELF Flags
@@ -151,47 +151,7 @@
 #define	EF_MIPS_ABI_EABI32	0x00003000
 #define	EF_MIPS_ABI_EABI64	0x00004000
 
-#if defined(__MIPSEB__)
-#define	ELF32_MACHDEP_ENDIANNESS	ELFDATA2MSB
-#define	ELF64_MACHDEP_ENDIANNESS	ELFDATA2MSB
-#elif defined(__MIPSEL__)
 #define	ELF32_MACHDEP_ENDIANNESS	ELFDATA2LSB
 #define	ELF64_MACHDEP_ENDIANNESS	ELFDATA2LSB
-#elif !defined(HAVE_NBTOOL_CONFIG_H)
-#error neither __MIPSEL__ nor __MIPSEB__ are defined.
-#endif
-
-#ifdef _KERNEL
-#ifdef _KERNEL_OPT
-#include "opt_compat_netbsd.h"
-#endif
-#ifdef COMPAT_16
-/*
- * Up to 1.6, the ELF dynamic loader (ld.elf_so) was not relocatable.
- * Tell the kernel ELF exec code not to try relocating the interpreter
- * for dynamically-linked ELF binaries.
- */
-#define ELF_INTERP_NON_RELOCATABLE
-#endif /* COMPAT_16 */
-
-/*
- * We need to be able to include the ELF header so we can pick out the
- * ABI being used.
- */
-#ifdef ELFSIZE
-#define	ELF_MD_PROBE_FUNC	ELFNAME2(mips_netbsd,probe)
-#define	ELF_MD_COREDUMP_SETUP	ELFNAME2(coredump,setup)
-#endif
-
-struct exec_package;
-
-int mips_netbsd_elf32_probe(struct lwp *, struct exec_package *, void *, char *,
-	vaddr_t *);
-void coredump_elf32_setup(struct lwp *, void *);
-
-int mips_netbsd_elf64_probe(struct lwp *, struct exec_package *, void *, char *,
-	vaddr_t *);
-void coredump_elf64_setup(struct lwp *, void *);
-#endif /* _KERNEL */
 
 #endif /* _MIPS_ELF_MACHDEP_H_ */

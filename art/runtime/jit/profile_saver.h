@@ -19,7 +19,8 @@
 
 #include "base/mutex.h"
 #include "jit_code_cache.h"
-#include "offline_profiling_info.h"
+#include "profile_compilation_info.h"
+#include "profile_saver_options.h"
 #include "safe_map.h"
 
 namespace art {
@@ -28,11 +29,10 @@ class ProfileSaver {
  public:
   // Starts the profile saver thread if not already started.
   // If the saver is already running it adds (output_filename, code_paths) to its tracked locations.
-  static void Start(const std::string& output_filename,
+  static void Start(const ProfileSaverOptions& options,
+                    const std::string& output_filename,
                     jit::JitCodeCache* jit_code_cache,
-                    const std::vector<std::string>& code_paths,
-                    const std::string& foreign_dex_profile_path,
-                    const std::string& app_data_dir)
+                    const std::vector<std::string>& code_paths)
       REQUIRES(!Locks::profiler_lock_, !wait_lock_);
 
   // Stops the profile saver thread.
@@ -44,8 +44,6 @@ class ProfileSaver {
   // Returns true if the profile saver is started.
   static bool IsStarted() REQUIRES(!Locks::profiler_lock_);
 
-  static void NotifyDexUse(const std::string& dex_location);
-
   // If the profile saver is running, dumps statistics to the `os`. Otherwise it does nothing.
   static void DumpInstanceInfo(std::ostream& os);
 
@@ -54,18 +52,20 @@ class ProfileSaver {
       REQUIRES(!Locks::profiler_lock_, !wait_lock_)
       NO_THREAD_SAFETY_ANALYSIS;
 
-  // Just for testing purpose.
+  // For testing or manual purposes (SIGUSR1).
   static void ForceProcessProfiles();
+
+  // Just for testing purpose.
   static bool HasSeenMethod(const std::string& profile,
                             const DexFile* dex_file,
                             uint16_t method_idx);
 
  private:
-  ProfileSaver(const std::string& output_filename,
+  ProfileSaver(const ProfileSaverOptions& options,
+               const std::string& output_filename,
                jit::JitCodeCache* jit_code_cache,
-               const std::vector<std::string>& code_paths,
-               const std::string& foreign_dex_profile_path,
-               const std::string& app_data_dir);
+               const std::vector<std::string>& code_paths);
+  ~ProfileSaver();
 
   // NO_THREAD_SAFETY_ANALYSIS for static function calling into member function with excludes lock.
   static void* RunProfileSaverThread(void* arg)
@@ -74,9 +74,14 @@ class ProfileSaver {
 
   // The run loop for the saver.
   void Run() REQUIRES(!Locks::profiler_lock_, !wait_lock_);
+
   // Processes the existing profiling info from the jit code cache and returns
   // true if it needed to be saved to disk.
-  bool ProcessProfilingInfo(uint16_t* new_methods)
+  // If number_of_new_methods is not null, after the call it will contain the number of new methods
+  // written to disk.
+  // If force_save is true, the saver will ignore any constraints which limit IO (e.g. will write
+  // the profile to disk even if it's just one new method).
+  bool ProcessProfilingInfo(bool force_save, /*out*/uint16_t* number_of_new_methods)
     REQUIRES(!Locks::profiler_lock_)
     REQUIRES(!Locks::mutator_lock_);
 
@@ -87,25 +92,18 @@ class ProfileSaver {
   bool ShuttingDown(Thread* self) REQUIRES(!Locks::profiler_lock_);
 
   void AddTrackedLocations(const std::string& output_filename,
-                           const std::string& app_data_dir,
                            const std::vector<std::string>& code_paths)
       REQUIRES(Locks::profiler_lock_);
 
-  // Retrieves the cached profile compilation info for the given profile file.
-  // If no entry exists, a new empty one will be created, added to the cache and
-  // then returned.
-  ProfileCompilationInfo* GetCachedProfiledInfo(const std::string& filename);
   // Fetches the current resolved classes and methods from the ClassLinker and stores them in the
   // profile_cache_ for later save.
   void FetchAndCacheResolvedClassesAndMethods();
 
-  static bool MaybeRecordDexUseInternal(
-      const std::string& dex_location,
-      const std::set<std::string>& tracked_locations,
-      const std::string& foreign_dex_profile_path,
-      const std::set<std::string>& app_data_dirs);
-
   void DumpInfo(std::ostream& os);
+
+  // Resolve the realpath of the locations stored in tracked_dex_base_locations_to_be_resolved_
+  // and put the result in tracked_dex_base_locations_.
+  void ResolveTrackedLocations() REQUIRES(!Locks::profiler_lock_);
 
   // The only instance of the saver.
   static ProfileSaver* instance_ GUARDED_BY(Locks::profiler_lock_);
@@ -114,29 +112,27 @@ class ProfileSaver {
 
   jit::JitCodeCache* jit_code_cache_;
 
-  // Collection of code paths that the profiles tracks.
+  // Collection of code paths that the profiler tracks.
   // It maps profile locations to code paths (dex base locations).
   SafeMap<std::string, std::set<std::string>> tracked_dex_base_locations_
       GUARDED_BY(Locks::profiler_lock_);
-  // The directory were the we should store the code paths.
-  std::string foreign_dex_profile_path_;
 
-  // A list of application directories, used to infer if a loaded dex belongs
-  // to the application or not. Multiple application data directories are possible when
-  // different apps share the same runtime.
-  std::set<std::string> app_data_dirs_ GUARDED_BY(Locks::profiler_lock_);
+  // Collection of code paths that the profiler tracks but may note have been resolved
+  // to their realpath. The resolution is done async to minimize the time it takes for
+  // someone to register a path.
+  SafeMap<std::string, std::set<std::string>> tracked_dex_base_locations_to_be_resolved_
+      GUARDED_BY(Locks::profiler_lock_);
 
   bool shutting_down_ GUARDED_BY(Locks::profiler_lock_);
-  uint32_t last_save_number_of_methods_;
-  uint32_t last_save_number_of_classes_;
   uint64_t last_time_ns_saver_woke_up_ GUARDED_BY(wait_lock_);
   uint32_t jit_activity_notifications_;
 
   // A local cache for the profile information. Maps each tracked file to its
-  // profile information. The size of this cache is usually very small and tops
+  // profile information. This is used to cache the startup classes so that
+  // we don't hammer the disk to save them right away.
+  // The size of this cache is usually very small and tops
   // to just a few hundreds entries in the ProfileCompilationInfo objects.
-  // It helps avoiding unnecessary writes to disk.
-  SafeMap<std::string, ProfileCompilationInfo> profile_cache_;
+  SafeMap<std::string, ProfileCompilationInfo*> profile_cache_;
 
   // Save period condition support.
   Mutex wait_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
@@ -149,12 +145,12 @@ class ProfileSaver {
   uint64_t total_number_of_failed_writes_;
   uint64_t total_ms_of_sleep_;
   uint64_t total_ns_of_work_;
-  uint64_t total_number_of_foreign_dex_marks_;
   // TODO(calin): replace with an actual size.
   uint64_t max_number_of_profile_entries_cached_;
   uint64_t total_number_of_hot_spikes_;
   uint64_t total_number_of_wake_ups_;
 
+  const ProfileSaverOptions options_;
   DISALLOW_COPY_AND_ASSIGN(ProfileSaver);
 };
 

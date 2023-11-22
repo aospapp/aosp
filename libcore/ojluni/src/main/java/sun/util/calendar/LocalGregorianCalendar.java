@@ -118,23 +118,12 @@ public class LocalGregorianCalendar extends BaseCalendar {
     }
 
     static LocalGregorianCalendar getLocalGregorianCalendar(String name) {
-        Properties calendarProps = null;
+        // Android-changed: use getCalendarProperties()
+        Properties calendarProps;
         try {
-            String homeDir = AccessController.doPrivileged(
-                new sun.security.action.GetPropertyAction("java.home"));
-            final String fname = homeDir + File.separator + "lib" + File.separator
-                                 + "calendars.properties";
-            calendarProps = (Properties) AccessController.doPrivileged(new PrivilegedExceptionAction() {
-                public Object run() throws IOException {
-                    Properties props = new Properties();
-                    try (FileInputStream fis = new FileInputStream(fname)) {
-                        props.load(fis);
-                    }
-                    return props;
-                }
-            });
-        } catch (PrivilegedActionException e) {
-            throw new RuntimeException(e.getException());
+            calendarProps = getCalendarProperties();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
         // Parse calendar.*.eras
@@ -178,6 +167,11 @@ public class LocalGregorianCalendar extends BaseCalendar {
             }
             Era era = new Era(eraName, abbr, since, localTime);
             eras.add(era);
+        }
+        // Android-changed: Throw if no eras were found, as other code depends on there being
+        // at least one era.
+        if (eras.isEmpty()) {
+            throw new RuntimeException("No eras for " + name);
         }
         Era[] eraArray = new Era[eras.size()];
         eras.toArray(eraArray);
@@ -250,8 +244,17 @@ public class LocalGregorianCalendar extends BaseCalendar {
             if (!validateEra(era)) {
                 return false;
             }
-            ldate.setNormalizedYear(era.getSinceDate().getYear() + ldate.getYear());
+            ldate.setNormalizedYear(era.getSinceDate().getYear() + ldate.getYear() - 1);
+            Date tmp = newCalendarDate(date.getZone());
+            tmp.setEra(era).setDate(date.getYear(), date.getMonth(), date.getDayOfMonth());
+            normalize(tmp);
+            if (tmp.getEra() != era) {
+                return false;
+            }
         } else {
+            if (date.getYear() >= eras[0].getSinceDate().getYear()) {
+                return false;
+            }
             ldate.setNormalizedYear(ldate.getYear());
         }
         return super.validate(ldate);

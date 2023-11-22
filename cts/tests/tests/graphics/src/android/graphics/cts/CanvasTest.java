@@ -15,45 +15,60 @@
  */
 package android.graphics.cts;
 
-import javax.microedition.khronos.opengles.GL;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
+import android.graphics.BitmapShader;
 import android.graphics.Canvas;
-import android.util.DisplayMetrics;
+import android.graphics.Canvas.EdgeType;
+import android.graphics.Canvas.VertexMode;
+import android.graphics.Color;
+import android.graphics.ComposeShader;
 import android.graphics.DrawFilter;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Path.Direction;
 import android.graphics.Picture;
+import android.graphics.PorterDuff.Mode;
+import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.RectF;
-import android.graphics.Region;
-import android.graphics.Bitmap.Config;
-import android.graphics.Canvas.EdgeType;
-import android.graphics.Canvas.VertexMode;
-import android.graphics.Path.Direction;
-import android.graphics.PorterDuff.Mode;
 import android.graphics.Region.Op;
-import android.test.InstrumentationTestCase;
+import android.graphics.Shader;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.SpannedString;
+import android.util.DisplayMetrics;
 
-import android.graphics.cts.R;
+import com.android.compatibility.common.util.ColorUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Vector;
 
-public class CanvasTest extends InstrumentationTestCase {
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class CanvasTest {
     private final static int PAINT_COLOR = 0xff00ff00;
     private final static int BITMAP_WIDTH = 10;
     private final static int BITMAP_HEIGHT = 28;
     private final static int FLOAT_ARRAY_LEN = 9;
-
-    private final Rect mRect = new Rect(0, 0, 10, 31);
-
-    private final RectF mRectF = new RectF(0, 0, 10, 31);
 
     // used for save related methods tests
     private final float[] values1 = {
@@ -69,14 +84,12 @@ public class CanvasTest extends InstrumentationTestCase {
     private Bitmap mImmutableBitmap;
     private Bitmap mMutableBitmap;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setup() {
         mPaint = new Paint();
         mPaint.setColor(PAINT_COLOR);
 
-        final Resources res = getInstrumentation().getTargetContext().getResources();
+        final Resources res = InstrumentationRegistry.getTargetContext().getResources();
         BitmapFactory.Options opt = new BitmapFactory.Options();
         opt.inScaled = false; // bitmap will only be immutable if not scaled during load
         mImmutableBitmap = BitmapFactory.decodeResource(res, R.drawable.start, opt);
@@ -85,77 +98,114 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas = new Canvas(mMutableBitmap);
     }
 
-    public void testCanvas1() {
-        final Canvas c = new Canvas();
-    }
-
-    public void testCanvas2() {
-        // abnormal case: bitmap to be constructed is immutable
-        try {
-            new Canvas(mImmutableBitmap);
-            fail("should throw out IllegalStateException when creating Canvas with an ImmutableBitmap");
-        } catch (IllegalStateException e) {
-            // expected
-        }
-
-        // abnormal case: bitmap to be constructed is recycled
-        mMutableBitmap.recycle();
-        try {
-            new Canvas(mMutableBitmap);
-            fail("should throw out RuntimeException when creating Canvas with a"
-                     + " MutableBitmap which is recycled");
-        } catch (RuntimeException e) {
-            // expected
-        }
+    @Test
+    public void testCanvas() {
+        new Canvas();
 
         mMutableBitmap = Bitmap.createBitmap(BITMAP_WIDTH, BITMAP_HEIGHT, Config.ARGB_8888);
         new Canvas(mMutableBitmap);
     }
 
-    public void testSetBitmap() {
-        // abnormal case: bitmap to be set is immutable
-        try {
-            mCanvas.setBitmap(mImmutableBitmap);
-            fail("should throw out IllegalStateException when setting an "
-                    + "ImmutableBitmap to a Canvas");
-        } catch (IllegalStateException e) {
-            // expected
-        }
+    @Test(expected=IllegalStateException.class)
+    public void testCanvasFromImmutableBitmap() {
+        // Should throw out IllegalStateException when creating Canvas with an ImmutableBitmap
+        new Canvas(mImmutableBitmap);
+    }
 
-        // abnormal case: bitmap to be set has been recycled
+    @Test(expected=RuntimeException.class)
+    public void testCanvasFromRecycledBitmap() {
+        // Should throw out RuntimeException when creating Canvas with a MutableBitmap which
+        // is recycled
         mMutableBitmap.recycle();
-        try {
-            mCanvas.setBitmap(mMutableBitmap);
-            fail("should throw out RuntimeException when setting Bitmap which is recycled"
-                          + " to a Canvas");
-        } catch (RuntimeException e) {
-            // expected
-        }
+        new Canvas(mMutableBitmap);
+    }
 
+    @Test(expected=IllegalStateException.class)
+    public void testSetBitmapToImmutableBitmap() {
+        // Should throw out IllegalStateException when setting an ImmutableBitmap to a Canvas
+        mCanvas.setBitmap(mImmutableBitmap);
+    }
+
+    @Test(expected=RuntimeException.class)
+    public void testSetBitmapToRecycledBitmap() {
+        // Should throw out RuntimeException when setting Bitmap which is recycled to a Canvas
+        mMutableBitmap.recycle();
+        mCanvas.setBitmap(mMutableBitmap);
+    }
+
+    @Test
+    public void testSetBitmap() {
         mMutableBitmap = Bitmap.createBitmap(BITMAP_WIDTH, 31, Config.ARGB_8888);
         mCanvas.setBitmap(mMutableBitmap);
         assertEquals(BITMAP_WIDTH, mCanvas.getWidth());
         assertEquals(31, mCanvas.getHeight());
     }
 
+    @Test
+    public void testSetBitmapFromEmpty() {
+        Canvas canvas = new Canvas();
+        assertEquals(0, canvas.getWidth());
+        assertEquals(0, canvas.getHeight());
+
+        // now ensure that we can "grow" the canvas
+
+        Bitmap normal = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        canvas.setBitmap(normal);
+        assertEquals(10, canvas.getWidth());
+        assertEquals(10, canvas.getHeight());
+
+        // now draw, and check that the clip was "open"
+        canvas.drawColor(0xFFFF0000);
+        assertEquals(0xFFFF0000, normal.getPixel(5, 5));
+    }
+
+    @Test
+    public void testSetBitmapCleanClip() {
+        mCanvas.setBitmap(Bitmap.createBitmap(10, 10, Config.ARGB_8888));
+        Rect r = new Rect(2, 2, 8, 8);
+        mCanvas.save();
+        mCanvas.clipRect(r);
+        assertEquals(r, mCanvas.getClipBounds());
+
+        // "reset" the canvas, and then check that the clip is wide open
+        // and not the previous value
+
+        mCanvas.setBitmap(Bitmap.createBitmap(20, 20, Config.ARGB_8888));
+        r = new Rect(0, 0, 20, 20);
+        assertEquals(r, mCanvas.getClipBounds());
+    }
+
+    @Test
+    public void testSetBitmapSaveCount() {
+        Canvas c = new Canvas(Bitmap.createBitmap(10, 10, Config.ARGB_8888));
+        int initialSaveCount = c.getSaveCount();
+
+        c.save();
+        assertEquals(c.getSaveCount(), initialSaveCount + 1);
+
+        // setBitmap should restore the saveCount to its original/base value
+        c.setBitmap(Bitmap.createBitmap(10, 10, Config.ARGB_8888));
+        assertEquals(c.getSaveCount(), initialSaveCount);
+    }
+
+    @Test
     public void testIsOpaque() {
         assertFalse(mCanvas.isOpaque());
     }
 
-    public void testRestore() {
-        // abnormal case: save not called before restore
-        try {
-            mCanvas.restore();
-            fail("should throw out IllegalStateException because cannot restore Canvas"
-                            + " before save");
-        } catch (IllegalStateException e) {
-            // expected
-        }
+    @Test(expected=IllegalStateException.class)
+    public void testRestoreWithoutSave() {
+        // Should throw out IllegalStateException because cannot restore Canvas before save
+        mCanvas.restore();
+    }
 
+    @Test
+    public void testRestore() {
         mCanvas.save();
         mCanvas.restore();
     }
 
+    @Test
     public void testSave1() {
         final Matrix m1 = new Matrix();
         m1.setValues(values1);
@@ -170,20 +220,17 @@ public class CanvasTest extends InstrumentationTestCase {
         final Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         final float[] values4 = new float[FLOAT_ARRAY_LEN];
         final Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testSave2() {
         // test save current matrix only
         Matrix m1 = new Matrix();
@@ -199,18 +246,14 @@ public class CanvasTest extends InstrumentationTestCase {
         Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         float[] values4 = new float[FLOAT_ARRAY_LEN];
         Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
         // test save current clip only, don't know how to get clip saved,
         // but can make sure Matrix can't be saved in this case
@@ -227,18 +270,14 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values4[i]);
-        }
+        assertArrayEquals(values2, values4, 0.0f);
 
         // test save everything
         m1 = new Matrix();
@@ -254,20 +293,17 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testSaveFlags1() {
         int[] flags = {
             Canvas.MATRIX_SAVE_FLAG,
@@ -275,6 +311,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags2() {
         int[] flags = {
             Canvas.CLIP_SAVE_FLAG,
@@ -282,6 +319,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags3() {
         int[] flags = {
             Canvas.ALL_SAVE_FLAG,
@@ -291,6 +329,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags4() {
         int[] flags = {
             Canvas.ALL_SAVE_FLAG,
@@ -300,6 +339,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags5() {
         int[] flags = {
             Canvas.MATRIX_SAVE_FLAG,
@@ -312,6 +352,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags6() {
         int[] flags = {
             Canvas.CLIP_SAVE_FLAG,
@@ -324,6 +365,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags7() {
         int[] flags = {
             Canvas.MATRIX_SAVE_FLAG,
@@ -336,6 +378,7 @@ public class CanvasTest extends InstrumentationTestCase {
         verifySaveFlagsSequence(flags);
     }
 
+    @Test
     public void testSaveFlags8() {
         int[] flags = {
             Canvas.MATRIX_SAVE_FLAG,
@@ -352,6 +395,7 @@ public class CanvasTest extends InstrumentationTestCase {
     // state across the matching restore call boundary. This is a vanilla
     // test and doesn't exercise any interaction between the clip stack
     // and SkCanvas' deferred save/restore system.
+    @Test
     public void testSaveFlags9() {
         Rect clip0 = new Rect();
         assertTrue(mCanvas.getClipBounds(clip0));
@@ -382,6 +426,7 @@ public class CanvasTest extends InstrumentationTestCase {
     // This test exercises the saveLayer MATRIX_SAVE_FLAG flag and its
     // interaction with the clip stack and SkCanvas deferred save/restore
     // system.
+    @Test
     public void testSaveFlags10() {
         RectF rect1 = new RectF(0, 0, BITMAP_WIDTH / 2, BITMAP_HEIGHT);
         RectF rect2 = new RectF(0, 0, BITMAP_WIDTH, BITMAP_HEIGHT / 2);
@@ -459,6 +504,7 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(clip9, clip0);
     }
 
+    @Test
     public void testSaveLayer1() {
         final Paint p = new Paint();
         final RectF rF = new RectF(0, 10, 31, 0);
@@ -477,21 +523,16 @@ public class CanvasTest extends InstrumentationTestCase {
         Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         float[] values4 = new float[FLOAT_ARRAY_LEN];
         Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
-        // test save current clip only, don't know how to get clip saved,
-        // but can make sure Matrix can't be saved in this case
+        // test save current clip flag only: this should save matrix as well
         m1 = new Matrix();
         m1.setValues(values1);
         mCanvas.setMatrix(m1);
@@ -505,18 +546,14 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
         // test save everything
         m1 = new Matrix();
@@ -532,20 +569,17 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testSaveLayer2() {
         final Paint p = new Paint();
 
@@ -563,21 +597,16 @@ public class CanvasTest extends InstrumentationTestCase {
         Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         float[] values4 = new float[FLOAT_ARRAY_LEN];
         Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
-        // test save current clip only, don't know how to get clip saved,
-        // but can make sure Matrix can't be saved in this case
+        // test save current clip flag only: this should save matrix as well
         m1 = new Matrix();
         m1.setValues(values1);
         mCanvas.setMatrix(m1);
@@ -591,18 +620,14 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
         // test save everything
         m1 = new Matrix();
@@ -618,20 +643,17 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testSaveLayerAlpha1() {
         final RectF rF = new RectF(0, 10, 31, 0);
 
@@ -649,21 +671,16 @@ public class CanvasTest extends InstrumentationTestCase {
         Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         float[] values4 = new float[FLOAT_ARRAY_LEN];
         Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
-        // test save current clip only, don't know how to get clip saved,
-        // but can make sure Matrix can't be saved in this case
+        // test save current clip flag only: this should save matrix as well
         m1 = new Matrix();
         m1.setValues(values1);
         mCanvas.setMatrix(m1);
@@ -677,18 +694,14 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
         // test save everything
         m1 = new Matrix();
@@ -704,20 +717,17 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testSaveLayerAlpha2() {
         // test save current matrix only
         Matrix m1 = new Matrix();
@@ -733,21 +743,16 @@ public class CanvasTest extends InstrumentationTestCase {
         Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         float[] values4 = new float[FLOAT_ARRAY_LEN];
         Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
-        // test save current clip only, don't know how to get clip saved,
-        // but can make sure Matrix can't be saved in this case
+        // test save current clip flag only: this should save matrix as well
         m1 = new Matrix();
         m1.setValues(values1);
         mCanvas.setMatrix(m1);
@@ -761,18 +766,14 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
 
         // test save everything
         m1 = new Matrix();
@@ -788,20 +789,17 @@ public class CanvasTest extends InstrumentationTestCase {
         m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restore();
         values4 = new float[FLOAT_ARRAY_LEN];
         m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testGetSaveCount() {
         // why is 1 not 0
         assertEquals(1, mCanvas.getSaveCount());
@@ -815,15 +813,32 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(5, mCanvas.getSaveCount());
     }
 
-    public void testRestoreToCount() {
-        // abnormal case: saveCount less than 1
+    @Test(expected=IllegalArgumentException.class)
+    public void testRestoreToCountIllegalSaveCount() {
+        // Should throw out IllegalArgumentException because saveCount is less than 1
+        mCanvas.restoreToCount(0);
+    }
+
+    @Test
+    public void testRestoreToCountExceptionBehavior() {
+        int restoreTo = mCanvas.save();
+        mCanvas.save();
+        int beforeCount = mCanvas.getSaveCount();
+
+        boolean exceptionObserved = false;
         try {
-            mCanvas.restoreToCount(0);
-            fail("should throw out IllegalArgumentException because saveCount is less than 1");
+            mCanvas.restoreToCount(restoreTo - 1);
         } catch (IllegalArgumentException e) {
-            // expected
+            exceptionObserved = true;
         }
 
+        // restore to count threw, AND did no restoring
+        assertTrue(exceptionObserved);
+        assertEquals(beforeCount, mCanvas.getSaveCount());
+    }
+
+    @Test
+    public void testRestoreToCount() {
         final Matrix m1 = new Matrix();
         m1.setValues(values1);
         mCanvas.setMatrix(m1);
@@ -838,20 +853,17 @@ public class CanvasTest extends InstrumentationTestCase {
         final Matrix m3 = mCanvas.getMatrix();
         m3.getValues(values3);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values2[i], values3[i]);
-        }
+        assertArrayEquals(values2, values3, 0.0f);
 
         mCanvas.restoreToCount(count);
         final float[] values4 = new float[FLOAT_ARRAY_LEN];
         final Matrix m4 = mCanvas.getMatrix();
         m4.getValues(values4);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(values1[i], values4[i]);
-        }
+        assertArrayEquals(values1, values4, 0.0f);
     }
 
+    @Test
     public void testGetMatrix1() {
         final float[] f1 = {
                 1, 2, 3, 4, 5, 6, 7, 8, 9
@@ -868,11 +880,10 @@ public class CanvasTest extends InstrumentationTestCase {
         final float[] f2 = new float[FLOAT_ARRAY_LEN];
         m2.getValues(f2);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(f1[i], f2[i]);
-        }
+        assertArrayEquals(f1, f2, 0.0f);
     }
 
+    @Test
     public void testGetMatrix2() {
         final float[] f1 = {
                 1, 2, 3, 4, 5, 6, 7, 8, 9
@@ -888,11 +899,10 @@ public class CanvasTest extends InstrumentationTestCase {
         final float[] f2 = new float[FLOAT_ARRAY_LEN];
         m2.getValues(f2);
 
-        for (int i = 0; i < FLOAT_ARRAY_LEN; i++) {
-            assertEquals(f1[i], f2[i]);
-        }
+        assertArrayEquals(f1, f2, 0.0f);
     }
 
+    @Test
     public void testTranslate() {
         preCompare();
 
@@ -900,17 +910,12 @@ public class CanvasTest extends InstrumentationTestCase {
 
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(1.0f, values[0]);
-        assertEquals(0.0f, values[1]);
-        assertEquals(0.1f, values[2]);
-        assertEquals(0.0f, values[3]);
-        assertEquals(1.0f, values[4]);
-        assertEquals(0.28f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+            1.0f, 0.0f, 0.1f, 0.0f, 1.0f, 0.28f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
+    @Test
     public void testScale1() {
         preCompare();
 
@@ -918,17 +923,12 @@ public class CanvasTest extends InstrumentationTestCase {
 
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(0.5f, values[0]);
-        assertEquals(0.0f, values[1]);
-        assertEquals(0.0f, values[2]);
-        assertEquals(0.0f, values[3]);
-        assertEquals(0.5f, values[4]);
-        assertEquals(0.0f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+                0.5f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
+    @Test
     public void testScale2() {
         preCompare();
 
@@ -936,17 +936,12 @@ public class CanvasTest extends InstrumentationTestCase {
 
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(3.0f, values[0]);
-        assertEquals(0.0f, values[1]);
-        assertEquals(-2.0f, values[2]);
-        assertEquals(0.0f, values[3]);
-        assertEquals(3.0f, values[4]);
-        assertEquals(-2.0f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+                3.0f, 0.0f, -2.0f, 0.0f, 3.0f, -2.0f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
+    @Test
     public void testRotate1() {
         preCompare();
 
@@ -954,17 +949,12 @@ public class CanvasTest extends InstrumentationTestCase {
 
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(0.0f, values[0]);
-        assertEquals(-1.0f, values[1]);
-        assertEquals(0.0f, values[2]);
-        assertEquals(1.0f, values[3]);
-        assertEquals(0.0f, values[4]);
-        assertEquals(0.0f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+                0.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
+    @Test
     public void testRotate2() {
         preCompare();
 
@@ -972,17 +962,12 @@ public class CanvasTest extends InstrumentationTestCase {
 
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(0.8660254f, values[0]);
-        assertEquals(-0.5f, values[1]);
-        assertEquals(0.13397461f, values[2]);
-        assertEquals(0.5f, values[3]);
-        assertEquals(0.8660254f, values[4]);
-        assertEquals(-0.5f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+                0.8660254f, -0.5f, 0.13397461f, 0.5f, 0.8660254f, -0.5f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
+    @Test
     public void testSkew() {
         preCompare();
 
@@ -990,17 +975,12 @@ public class CanvasTest extends InstrumentationTestCase {
 
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(1.0f, values[0]);
-        assertEquals(1.0f, values[1]);
-        assertEquals(0.0f, values[2]);
-        assertEquals(3.0f, values[3]);
-        assertEquals(1.0f, values[4]);
-        assertEquals(0.0f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+                1.0f, 1.0f, 0.0f, 3.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
+    @Test
     public void testConcat() {
         preCompare();
 
@@ -1011,117 +991,188 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.concat(m);
 
         mCanvas.getMatrix().getValues(values);
-        assertEquals(0.0f, values[0]);
-        assertEquals(1.0f, values[1]);
-        assertEquals(2.0f, values[2]);
-        assertEquals(3.0f, values[3]);
-        assertEquals(4.0f, values[4]);
-        assertEquals(5.0f, values[5]);
-        assertEquals(6.0f, values[6]);
-        assertEquals(7.0f, values[7]);
-        assertEquals(8.0f, values[8]);
+        assertArrayEquals(new float[] {
+                0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f
+        }, values, 0.0f);
     }
 
-    public void testClipRect1() {
-        assertFalse(mCanvas.clipRect(mRectF, Op.DIFFERENCE));
-        assertFalse(mCanvas.clipRect(mRectF, Op.INTERSECT));
-        assertTrue(mCanvas.clipRect(mRectF, Op.REPLACE));
-        assertFalse(mCanvas.clipRect(mRectF, Op.REVERSE_DIFFERENCE));
-        assertTrue(mCanvas.clipRect(mRectF, Op.UNION));
-        assertFalse(mCanvas.clipRect(mRectF, Op.XOR));
+    @Test
+    public void testClipRectF() {
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipRect(new RectF(0, 0, 10, 31), Op.INTERSECT));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(new RectF(10, 31, 11, 32), Op.INTERSECT));
+        // replace with clip that is larger than canvas
+        assertTrue(mCanvas.clipRect(new RectF(0, 0, 10, 31), Op.REPLACE));
+        // intersect with clip that covers top portion of canvas
+        assertTrue(mCanvas.clipRect(new RectF(0, 0, 20, 10), Op.INTERSECT));
+        // intersect with clip that covers bottom portion of canvas
+        assertFalse(mCanvas.clipRect(new RectF(0, 10, 20, 32), Op.INTERSECT));
+        // ensure that difference doesn't widen already closed clip
+        assertFalse(mCanvas.clipRect(new RectF(0, 0, 10, 31), Op.DIFFERENCE));
     }
 
-    public void testClipRect2() {
-        assertFalse(mCanvas.clipRect(mRect, Op.DIFFERENCE));
-        assertFalse(mCanvas.clipRect(mRect, Op.INTERSECT));
-        assertTrue(mCanvas.clipRect(mRect, Op.REPLACE));
-        assertFalse(mCanvas.clipRect(mRect, Op.REVERSE_DIFFERENCE));
-        assertTrue(mCanvas.clipRect(mRect, Op.UNION));
-        assertFalse(mCanvas.clipRect(mRect, Op.XOR));
+    @Test
+    public void testClipRect() {
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipRect(new Rect(0, 0, 10, 31), Op.INTERSECT));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(new Rect(10, 31, 11, 32), Op.INTERSECT));
+        // replace with clip that is larger than canvas
+        assertTrue(mCanvas.clipRect(new Rect(0, 0, 10, 31), Op.REPLACE));
+        // intersect with clip that covers top portion of canvas
+        assertTrue(mCanvas.clipRect(new Rect(0, 0, 20, 10), Op.INTERSECT));
+        // intersect with clip that covers bottom portion of canvas
+        assertFalse(mCanvas.clipRect(new Rect(0, 10, 20, 32), Op.INTERSECT));
+        // ensure that difference doesn't widen already closed clip
+        assertFalse(mCanvas.clipRect(new Rect(0, 0, 10, 31), Op.DIFFERENCE));
     }
 
-    public void testClipRect3() {
-        assertTrue(mCanvas.clipRect(mRectF));
-    }
-
-    public void testClipRect4() {
-        assertTrue(mCanvas.clipRect(mRect));
-    }
-
-    public void testClipRect5() {
-        assertFalse(mCanvas.clipRect(0, 0, 10, 31, Op.DIFFERENCE));
-        assertFalse(mCanvas.clipRect(0, 0, 10, 31, Op.INTERSECT));
+    @Test
+    public void testClipRect4I() {
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipRect(0, 0, 10, 31, Op.INTERSECT));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(10, 31, 11, 32, Op.INTERSECT));
+        // replace with clip that is larger than canvas
         assertTrue(mCanvas.clipRect(0, 0, 10, 31, Op.REPLACE));
-        assertFalse(mCanvas.clipRect(0, 0, 10, 31, Op.REVERSE_DIFFERENCE));
-        assertTrue(mCanvas.clipRect(0, 0, 10, 31, Op.UNION));
-        assertFalse(mCanvas.clipRect(0, 0, 10, 31, Op.XOR));
+        // intersect with clip that covers top portion of canvas
+        assertTrue(mCanvas.clipRect(0, 0, 20, 10, Op.INTERSECT));
+        // intersect with clip that covers bottom portion of canvas
+        assertFalse(mCanvas.clipRect(0, 10, 20, 32, Op.INTERSECT));
+        // ensure that difference doesn't widen already closed clip
+        assertFalse(mCanvas.clipRect(0, 0, 10, 31, Op.DIFFERENCE));
     }
 
-    public void testClipRect6() {
-        assertTrue(mCanvas.clipRect(0.5f, 0.5f, 10.5f, 31.5f));
+    @Test
+    public void testClipRect4F() {
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipRect(0f, 0f, 10f, 31f, Op.INTERSECT));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(10f, 31f, 11f, 32f, Op.INTERSECT));
+        // replace with clip that is larger than canvas
+        assertTrue(mCanvas.clipRect(0f, 0f, 10f, 31f, Op.REPLACE));
+        // intersect with clip that covers top portion of canvas
+        assertTrue(mCanvas.clipRect(0f, 0f, 20f, 10f, Op.INTERSECT));
+        // intersect with clip that covers bottom portion of canvas
+        assertFalse(mCanvas.clipRect(0f, 10f, 20f, 32f, Op.INTERSECT));
+        // ensure that difference doesn't widen already closed clip
+        assertFalse(mCanvas.clipRect(0f, 0f, 10f, 31f, Op.DIFFERENCE));
     }
 
-    public void testClipRect7() {
+    @Test
+    public void testClipOutRectF() {
+        // remove center, clip not empty
+        assertTrue(mCanvas.clipOutRect(new RectF(1, 1, 9, 27)));
+        // replace clip, verify difference doesn't widen
+        assertFalse(mCanvas.clipRect(new RectF(0, 0, 0, 0), Op.REPLACE));
+        assertFalse(mCanvas.clipOutRect(new RectF(0, 0, 100, 100)));
+    }
+
+    @Test
+    public void testClipOutRect() {
+        // remove center, clip not empty
+        assertTrue(mCanvas.clipOutRect(new Rect(1, 1, 9, 27)));
+        // replace clip, verify difference doesn't widen
+        assertFalse(mCanvas.clipRect(new Rect(0, 0, 0, 0), Op.REPLACE));
+        assertFalse(mCanvas.clipOutRect(new Rect(0, 0, 100, 100)));
+    }
+
+    @Test
+    public void testClipOutRect4I() {
+        // remove center, clip not empty
+        assertTrue(mCanvas.clipOutRect(1, 1, 9, 27));
+        // replace clip, verify difference doesn't widen
+        assertFalse(mCanvas.clipRect(0, 0, 0, 0, Op.REPLACE));
+        assertFalse(mCanvas.clipOutRect(0, 0, 100, 100));
+    }
+
+    @Test
+    public void testClipOutRect4F() {
+        // remove center, clip not empty
+        assertTrue(mCanvas.clipOutRect(1f, 1f, 9f, 27f));
+        // replace clip, verify difference doesn't widen
+        assertFalse(mCanvas.clipRect(0f, 0f, 0f, 0f, Op.REPLACE));
+        assertFalse(mCanvas.clipOutRect(0f, 0f, 100f, 100f));
+    }
+
+    @Test
+    public void testIntersectClipRectF() {
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipRect(new RectF(0, 0, 10, 31)));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(new RectF(10, 31, 11, 32)));
+    }
+
+    @Test
+    public void testIntersectClipRect() {
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipRect(new Rect(0, 0, 10, 31)));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(new Rect(10, 31, 11, 32)));
+    }
+
+    @Test
+    public void testIntersectClipRect4F() {
+        // intersect with clip larger than canvas
         assertTrue(mCanvas.clipRect(0, 0, 10, 31));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipRect(10, 31, 11, 32));
     }
 
+    @Test
     public void testClipPath1() {
         final Path p = new Path();
-        p.addRect(mRectF, Direction.CCW);
+        p.addRect(new RectF(0, 0, 10, 31), Direction.CCW);
         assertTrue(mCanvas.clipPath(p));
     }
 
+    @Test
     public void testClipPath2() {
         final Path p = new Path();
-        p.addRect(mRectF, Direction.CCW);
+        p.addRect(new RectF(0, 0, 10, 31), Direction.CW);
 
-        assertFalse(mCanvas.clipPath(p, Op.DIFFERENCE));
-        assertFalse(mCanvas.clipPath(p, Op.INTERSECT));
+        final Path pIn = new Path();
+        pIn.addOval(new RectF(0, 0, 20, 10), Direction.CW);
+
+        final Path pOut = new Path();
+        pOut.addRoundRect(new RectF(10, 31, 11, 32), 0.5f, 0.5f, Direction.CW);
+
+        // intersect with clip larger than canvas
+        assertTrue(mCanvas.clipPath(p, Op.INTERSECT));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipPath(pOut, Op.INTERSECT));
+        // replace with clip that is larger than canvas
         assertTrue(mCanvas.clipPath(p, Op.REPLACE));
-        assertFalse(mCanvas.clipPath(p, Op.REVERSE_DIFFERENCE));
-        assertTrue(mCanvas.clipPath(p, Op.UNION));
-        assertFalse(mCanvas.clipPath(p, Op.XOR));
+        // intersect with clip that covers top portion of canvas
+        assertTrue(mCanvas.clipPath(pIn, Op.INTERSECT));
+        // intersect with clip outside of canvas bounds
+        assertFalse(mCanvas.clipPath(pOut, Op.INTERSECT));
+        // ensure that difference doesn't widen already closed clip
+        assertFalse(mCanvas.clipPath(p, Op.DIFFERENCE));
     }
 
-    public void testClipRegion1() {
-        assertFalse(mCanvas.clipRegion(new Region(0, 10, 29, 0)));
+    @Test
+    public void testClipOutPath() {
+        final Path p = new Path();
+        p.addRect(new RectF(5, 5, 10, 10), Direction.CW);
+        assertTrue(mCanvas.clipOutPath(p));
     }
 
-    public void testClipRegion2() {
-        final Region r = new Region(0, 10, 29, 0);
+    @Test
+    public void testClipInversePath() {
+        final Path p = new Path();
+        p.addRoundRect(new RectF(0, 0, 10, 10), 0.5f, 0.5f, Direction.CW);
+        p.setFillType(Path.FillType.INVERSE_WINDING);
+        assertTrue(mCanvas.clipPath(p, Op.INTERSECT));
 
-        assertTrue(mCanvas.clipRegion(r, Op.DIFFERENCE));
-        assertFalse(mCanvas.clipRegion(r, Op.INTERSECT));
-        assertFalse(mCanvas.clipRegion(r, Op.REPLACE));
-        assertFalse(mCanvas.clipRegion(r, Op.REVERSE_DIFFERENCE));
-        assertFalse(mCanvas.clipRegion(r, Op.UNION));
-        assertFalse(mCanvas.clipRegion(r, Op.XOR));
+        mCanvas.drawColor(PAINT_COLOR);
+
+        assertEquals(Color.TRANSPARENT, mMutableBitmap.getPixel(0, 0));
+        assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 20));
     }
 
-    public void testClipRegion3() {
-        assertTrue(mCanvas.clipRegion(new Region(0, 0, 10, 10)));
-        final Rect clip = mCanvas.getClipBounds();
-        assertEquals(0, clip.left);
-        assertEquals(0, clip.top);
-        assertEquals(10, clip.right);
-        assertEquals(10, clip.bottom);
-    }
-
-    public void testClipRegion4() {
-        mCanvas.translate(10, 10);
-        mCanvas.scale(2, 2);
-
-        final Matrix beforeMatrix = mCanvas.getMatrix();
-        assertTrue(mCanvas.clipRegion(new Region(0, 0, 10, 10)));
-        assertEquals(beforeMatrix, mCanvas.getMatrix());
-
-        Rect clip = mCanvas.getClipBounds();
-        assertEquals(-5, clip.left);
-        assertEquals(-5, clip.top);
-        assertEquals(0, clip.right);
-        assertEquals(0, clip.bottom);
-    }
-
+    @Test
     public void testGetDrawFilter() {
         assertNull(mCanvas.getDrawFilter());
         final DrawFilter dF = new DrawFilter();
@@ -1130,24 +1181,28 @@ public class CanvasTest extends InstrumentationTestCase {
         assertTrue(dF.equals(mCanvas.getDrawFilter()));
     }
 
+    @Test
     public void testQuickReject1() {
-        assertFalse(mCanvas.quickReject(mRectF, EdgeType.AA));
-        assertFalse(mCanvas.quickReject(mRectF, EdgeType.BW));
+        assertFalse(mCanvas.quickReject(new RectF(0, 0, 10, 31), EdgeType.AA));
+        assertFalse(mCanvas.quickReject(new RectF(0, 0, 10, 31), EdgeType.BW));
     }
 
+    @Test
     public void testQuickReject2() {
         final Path p = new Path();
-        p.addRect(mRectF, Direction.CCW);
+        p.addRect(new RectF(0, 0, 10, 31), Direction.CCW);
 
         assertFalse(mCanvas.quickReject(p, EdgeType.AA));
         assertFalse(mCanvas.quickReject(p, EdgeType.BW));
     }
 
+    @Test
     public void testQuickReject3() {
         assertFalse(mCanvas.quickReject(0, 0, 10, 31, EdgeType.AA));
         assertFalse(mCanvas.quickReject(0, 0, 10, 31, EdgeType.BW));
     }
 
+    @Test
     public void testGetClipBounds1() {
         final Rect r = new Rect();
 
@@ -1156,6 +1211,7 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(BITMAP_HEIGHT, r.height());
     }
 
+    @Test
     public void testGetClipBounds2() {
         final Rect r = mCanvas.getClipBounds();
 
@@ -1163,12 +1219,13 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(BITMAP_HEIGHT, r.height());
     }
 
-    private void checkDrewColor(int color) {
+    private void verifyDrewColor(int color) {
         assertEquals(color, mMutableBitmap.getPixel(0, 0));
         assertEquals(color, mMutableBitmap.getPixel(BITMAP_WIDTH / 2, BITMAP_HEIGHT / 2));
         assertEquals(color, mMutableBitmap.getPixel(BITMAP_WIDTH - 1, BITMAP_HEIGHT - 1));
     }
 
+    @Test
     public void testDrawRGB() {
         final int alpha = 0xff;
         final int red = 0xff;
@@ -1178,9 +1235,10 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawRGB(red, green, blue);
 
         final int color = alpha << 24 | red << 16 | green << 8 | blue;
-        checkDrewColor(color);
+        verifyDrewColor(color);
     }
 
+    @Test
     public void testDrawARGB() {
         final int alpha = 0xff;
         final int red = 0x22;
@@ -1189,62 +1247,62 @@ public class CanvasTest extends InstrumentationTestCase {
 
         mCanvas.drawARGB(alpha, red, green, blue);
         final int color = alpha << 24 | red << 16 | green << 8 | blue;
-        checkDrewColor(color);
+        verifyDrewColor(color);
     }
 
+    @Test
     public void testDrawColor1() {
-        final int color = 0xffff0000;
+        final int color = Color.RED;
 
         mCanvas.drawColor(color);
-        checkDrewColor(color);
+        verifyDrewColor(color);
     }
 
+    @Test
     public void testDrawColor2() {
-        mCanvas.drawColor(0xffff0000, Mode.CLEAR);
-        mCanvas.drawColor(0xffff0000, Mode.DARKEN);
-        mCanvas.drawColor(0xffff0000, Mode.DST);
-        mCanvas.drawColor(0xffff0000, Mode.DST_ATOP);
-        mCanvas.drawColor(0xffff0000, Mode.DST_IN);
-        mCanvas.drawColor(0xffff0000, Mode.DST_OUT);
-        mCanvas.drawColor(0xffff0000, Mode.DST_OVER);
-        mCanvas.drawColor(0xffff0000, Mode.LIGHTEN);
-        mCanvas.drawColor(0xffff0000, Mode.MULTIPLY);
-        mCanvas.drawColor(0xffff0000, Mode.SCREEN);
-        mCanvas.drawColor(0xffff0000, Mode.SRC);
-        mCanvas.drawColor(0xffff0000, Mode.SRC_ATOP);
-        mCanvas.drawColor(0xffff0000, Mode.SRC_IN);
-        mCanvas.drawColor(0xffff0000, Mode.SRC_OUT);
-        mCanvas.drawColor(0xffff0000, Mode.SRC_OVER);
-        mCanvas.drawColor(0xffff0000, Mode.XOR);
+        mCanvas.drawColor(Color.RED, Mode.CLEAR);
+        mCanvas.drawColor(Color.RED, Mode.DARKEN);
+        mCanvas.drawColor(Color.RED, Mode.DST);
+        mCanvas.drawColor(Color.RED, Mode.DST_ATOP);
+        mCanvas.drawColor(Color.RED, Mode.DST_IN);
+        mCanvas.drawColor(Color.RED, Mode.DST_OUT);
+        mCanvas.drawColor(Color.RED, Mode.DST_OVER);
+        mCanvas.drawColor(Color.RED, Mode.LIGHTEN);
+        mCanvas.drawColor(Color.RED, Mode.MULTIPLY);
+        mCanvas.drawColor(Color.RED, Mode.SCREEN);
+        mCanvas.drawColor(Color.RED, Mode.SRC);
+        mCanvas.drawColor(Color.RED, Mode.SRC_ATOP);
+        mCanvas.drawColor(Color.RED, Mode.SRC_IN);
+        mCanvas.drawColor(Color.RED, Mode.SRC_OUT);
+        mCanvas.drawColor(Color.RED, Mode.SRC_OVER);
+        mCanvas.drawColor(Color.RED, Mode.XOR);
     }
 
+    @Test
     public void testDrawPaint() {
         mCanvas.drawPaint(mPaint);
 
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawPointsInvalidOffset() {
+        // Should throw out ArrayIndexOutOfBoundsException because of invalid offset
+        mCanvas.drawPoints(new float[]{
+                10.0f, 29.0f
+        }, -1, 2, mPaint);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawPointsInvalidCount() {
+        // Should throw out ArrayIndexOutOfBoundsException because of invalid count
+        mCanvas.drawPoints(new float[]{
+                10.0f, 29.0f
+        }, 0, 31, mPaint);
+    }
+
+    @Test
     public void testDrawPoints1() {
-        // abnormal case: invalid offset
-        try {
-            mCanvas.drawPoints(new float[] {
-                    10.0f, 29.0f
-            }, -1, 2, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because of invalid offset");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: invalid count
-        try {
-            mCanvas.drawPoints(new float[] {
-                    10.0f, 29.0f
-            }, 0, 31, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because of invalid count");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
         // normal case
         mCanvas.drawPoints(new float[] {
                 0, 0
@@ -1253,45 +1311,45 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
+    @Test
     public void testDrawPoints2() {
         mCanvas.drawPoints(new float[]{0, 0}, mPaint);
 
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
+    @Test
     public void testDrawPoint() {
         mCanvas.drawPoint(0, 0, mPaint);
 
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
+    @Test
     public void testDrawLine() {
         mCanvas.drawLine(0, 0, 10, 12, mPaint);
 
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawLinesInvalidOffset() {
+        // Should throw out ArrayIndexOutOfBoundsException because of invalid offset
+        mCanvas.drawLines(new float[]{
+                0, 0, 10, 31
+        }, 2, 4, new Paint());
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawLinesInvalidCount() {
+        // Should throw out ArrayIndexOutOfBoundsException because of invalid count
+        mCanvas.drawLines(new float[]{
+                0, 0, 10, 31
+        }, 0, 8, new Paint());
+    }
+
+    @Test
     public void testDrawLines1() {
-        // abnormal case: invalid offset
-        try {
-            mCanvas.drawLines(new float[] {
-                    0, 0, 10, 31
-            }, 2, 4, new Paint());
-            fail("should throw out ArrayIndexOutOfBoundsException because of invalid offset");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: invalid count
-        try {
-            mCanvas.drawLines(new float[] {
-                    0, 0, 10, 31
-            }, 0, 8, new Paint());
-            fail("should throw out ArrayIndexOutOfBoundsException because of invalid count");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
         // normal case
         mCanvas.drawLines(new float[] {
                 0, 0, 10, 12
@@ -1300,6 +1358,7 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
+    @Test
     public void testDrawLines2() {
         mCanvas.drawLines(new float[] {
                 0, 0, 10, 12
@@ -1308,43 +1367,46 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
     }
 
-    private void checkDrewPaint() {
+    private void verifyDrewPaint() {
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(0, 0));
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(5, 6));
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(9, 11));
     }
 
+    @Test
     public void testDrawRect1() {
         mCanvas.drawRect(new RectF(0, 0, 10, 12), mPaint);
 
-        checkDrewPaint();
+        verifyDrewPaint();
     }
 
+    @Test
     public void testDrawRect2() {
         mCanvas.drawRect(new Rect(0, 0, 10, 12), mPaint);
 
-        checkDrewPaint();
+        verifyDrewPaint();
     }
 
+    @Test
     public void testDrawRect3() {
         mCanvas.drawRect(0, 0, 10, 12, mPaint);
 
-        checkDrewPaint();
+        verifyDrewPaint();
     }
 
-    public void testDrawOval() {
-        // abnormal case: Oval is null
-        try {
-            mCanvas.drawOval(null, mPaint);
-            fail("should throw out NullPointerException because oval is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
+    @Test(expected=NullPointerException.class)
+    public void testDrawOvalNull() {
+        // Should throw out NullPointerException because oval is null
+        mCanvas.drawOval(null, mPaint);
+    }
 
+    @Test
+    public void testDrawOval() {
         // normal case
         mCanvas.drawOval(new RectF(0, 0, 10, 12), mPaint);
     }
 
+    @Test
     public void testDrawCircle() {
         // special case: circle's radius <= 0
         mCanvas.drawCircle(10.0f, 10.0f, -1.0f, mPaint);
@@ -1355,131 +1417,118 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(PAINT_COLOR, mMutableBitmap.getPixel(9, 11));
     }
 
-    public void testDrawArc() {
-        // abnormal case: oval is null
-        try {
-            mCanvas.drawArc(null, 10.0f, 29.0f, true, mPaint);
-            fail("should throw NullPointerException because oval is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
+    @Test(expected=NullPointerException.class)
+    public void testDrawArcNullOval() {
+        // Should throw NullPointerException because oval is null
+        mCanvas.drawArc(null, 10.0f, 29.0f, true, mPaint);
+    }
 
+    @Test
+    public void testDrawArc() {
         // normal case
         mCanvas.drawArc(new RectF(0, 0, 10, 12), 10, 11, false, mPaint);
         mCanvas.drawArc(new RectF(0, 0, 10, 12), 10, 11, true, mPaint);
     }
 
-    public void testDrawRoundRect() {
-        // abnormal case: RoundRect is null
-        try {
-            mCanvas.drawRoundRect(null, 10.0f, 29.0f, mPaint);
-            fail("should throw out NullPointerException because RoundRect is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
+    @Test(expected=NullPointerException.class)
+    public void testDrawRoundRectNull() {
+        // Should throw out NullPointerException because RoundRect is null
+        mCanvas.drawRoundRect(null, 10.0f, 29.0f, mPaint);
+    }
 
+    @Test
+    public void testDrawRoundRect() {
         mCanvas.drawRoundRect(new RectF(0, 0, 10, 12), 8, 8, mPaint);
     }
 
+    @Test
     public void testDrawPath() {
         mCanvas.drawPath(new Path(), mPaint);
     }
 
-    public void testDrawBitmap1() {
+    @Test(expected=RuntimeException.class)
+    public void testDrawBitmapAtPointRecycled() {
         Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
-
-        // abnormal case: the bitmap to be drawn is recycled
         b.recycle();
-        try {
-            mCanvas.drawBitmap(b, 10.0f, 29.0f, mPaint);
-            fail("should throw out RuntimeException because bitmap has been recycled");
-        } catch (RuntimeException e) {
-            // expected
-        }
 
-        b = Bitmap.createBitmap(BITMAP_WIDTH, 12, Config.ARGB_8888);
+        // Should throw out RuntimeException because bitmap has been recycled
+        mCanvas.drawBitmap(b, 10.0f, 29.0f, mPaint);
+    }
+
+    @Test
+    public void testDrawBitmapAtPoint() {
+        Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 12, Config.ARGB_8888);
         mCanvas.drawBitmap(b, 10, 12, null);
         mCanvas.drawBitmap(b, 5, 12, mPaint);
     }
 
-    public void testDrawBitmap2() {
+    @Test(expected=RuntimeException.class)
+    public void testDrawBitmapSrcDstFloatRecycled() {
         Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
-
-        // abnormal case: the bitmap to be drawn is recycled
         b.recycle();
-        try {
-            mCanvas.drawBitmap(b, null, new RectF(), mPaint);
-            fail("should throw out RuntimeException because bitmap has been recycled");
-        } catch (RuntimeException e) {
-            // expected
-        }
 
-        b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
+        // Should throw out RuntimeException because bitmap has been recycled
+        mCanvas.drawBitmap(b, null, new RectF(), mPaint);
+    }
+
+    @Test
+    public void testDrawBitmapSrcDstFloat() {
+        Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
         mCanvas.drawBitmap(b, new Rect(), new RectF(), null);
         mCanvas.drawBitmap(b, new Rect(), new RectF(), mPaint);
     }
 
-    public void testDrawBitmap3() {
+    @Test(expected=RuntimeException.class)
+    public void testDrawBitmapSrcDstIntRecycled() {
         Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
-
-        // abnormal case: the bitmap to be drawn is recycled
         b.recycle();
-        try {
-            mCanvas.drawBitmap(b, null, new Rect(), mPaint);
-            fail("should throw out RuntimeException because bitmap has been recycled");
-        } catch (RuntimeException e) {
-            // expected
-        }
 
-        b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
+        // Should throw out RuntimeException because bitmap has been recycled
+        mCanvas.drawBitmap(b, null, new Rect(), mPaint);
+    }
+
+    @Test
+    public void testDrawBitmapSrcDstInt() {
+        Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
         mCanvas.drawBitmap(b, new Rect(), new Rect(), null);
         mCanvas.drawBitmap(b, new Rect(), new Rect(), mPaint);
     }
 
-    public void testDrawBitmap4() {
+    @Test(expected=IllegalArgumentException.class)
+    public void testDrawBitmapIntsNegativeWidth() {
+        // Should throw out IllegalArgumentException because width is less than 0
+        mCanvas.drawBitmap(new int[2008], 10, 10, 10, 10, -1, 10, true, null);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testDrawBitmapIntsNegativeHeight() {
+        // Should throw out IllegalArgumentException because height is less than 0
+        mCanvas.drawBitmap(new int[2008], 10, 10, 10, 10, 10, -1, true, null);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testDrawBitmapIntsBadStride() {
+        // Should throw out IllegalArgumentException because stride less than width and
+        // bigger than -width
+        mCanvas.drawBitmap(new int[2008], 10, 5, 10, 10, 10, 10, true, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapIntsNegativeOffset() {
+        // Should throw out ArrayIndexOutOfBoundsException because offset less than 0
+        mCanvas.drawBitmap(new int[2008], -1, 10, 10, 10, 10, 10, true, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapIntsBadOffset() {
+        // Should throw out ArrayIndexOutOfBoundsException because sum of offset and width
+        // is bigger than colors' length
+        mCanvas.drawBitmap(new int[29], 10, 29, 10, 10, 20, 10, true, null);
+    }
+
+    @Test
+    public void testDrawBitmapInts() {
         final int[] colors = new int[2008];
-
-        // abnormal case: width less than 0
-        try {
-            mCanvas.drawBitmap(colors, 10, 10, 10, 10, -1, 10, true, null);
-            fail("should throw out IllegalArgumentException because width is less than 0");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        // abnormal case: height less than 0
-        try {
-            mCanvas.drawBitmap(colors, 10, 10, 10, 10, 10, -1, true, null);
-            fail("should throw out IllegalArgumentException because height is less than 0");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        // abnormal case: stride less than width and bigger than -width
-        try {
-            mCanvas.drawBitmap(colors, 10, 5, 10, 10, 10, 10, true, null);
-            fail("should throw out IllegalArgumentException because stride less than width and"
-                            + " bigger than -width");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        // abnormal case: offset less than 0
-        try {
-            mCanvas.drawBitmap(colors, -1, 10, 10, 10, 10, 10, true, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because offset less than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: (offset + width) bigger than colors' length
-        try {
-            mCanvas.drawBitmap(new int[29], 10, 29, 10, 10, 20, 10, true, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of offset and width"
-                            + " is bigger than colors' length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
 
         // special case: width equals to 0
         mCanvas.drawBitmap(colors, 10, 10, 10, 10, 0, 10, true, null);
@@ -1492,50 +1541,41 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawBitmap(colors, 10, 10, 10, 10, 10, 29, true, mPaint);
     }
 
-    public void testDrawBitmap6() {
+    @Test(expected=IllegalArgumentException.class)
+    public void testDrawBitmapFloatsNegativeWidth() {
+        // Should throw out IllegalArgumentException because width is less than 0
+        mCanvas.drawBitmap(new int[2008], 10, 10, 10.0f, 10.0f, -1, 10, true, null);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testDrawBitmapFloatsNegativeHeight() {
+        // Should throw out IllegalArgumentException because height is less than 0
+        mCanvas.drawBitmap(new int[2008], 10, 10, 10.0f, 10.0f, 10, -1, true, null);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testDrawBitmapFloatsBadStride() {
+        // Should throw out IllegalArgumentException because stride less than width and
+        // bigger than -width
+        mCanvas.drawBitmap(new int[2008], 10, 5, 10.0f, 10.0f, 10, 10, true, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapFloatsNegativeOffset() {
+        // Should throw out ArrayIndexOutOfBoundsException because offset less than 0
+        mCanvas.drawBitmap(new int[2008], -1, 10, 10.0f, 10.0f, 10, 10, true, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapFloatsBadOffset() {
+        // Should throw out ArrayIndexOutOfBoundsException because sum of offset and width
+        // is bigger than colors' length
+        mCanvas.drawBitmap(new int[29], 10, 29, 10.0f, 10.0f, 20, 10, true, null);
+    }
+
+    @Test
+    public void testDrawBitmapFloats() {
         final int[] colors = new int[2008];
-
-        // abnormal case: width less than 0
-        try {
-            mCanvas.drawBitmap(colors, 10, 10, 10.0f, 10.0f, -1, 10, true, null);
-            fail("should throw out IllegalArgumentException because width is less than 0");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        // abnormal case: height less than 0
-        try {
-            mCanvas.drawBitmap(colors, 10, 10, 10.0f, 10.0f, 10, -1, true, null);
-            fail("should throw out IllegalArgumentException because height is less than 0");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        // abnormal case: stride less than width and bigger than -width
-        try {
-            mCanvas.drawBitmap(colors, 10, 5, 10.0f, 10.0f, 10, 10, true, null);
-            fail("should throw out IllegalArgumentException because stride is less than width "
-                                + "and bigger than -width");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        // abnormal case: offset less than 0
-        try {
-            mCanvas.drawBitmap(colors, -1, 10, 10.0f, 10.0f, 10, 10, true, null);
-            fail("should throw out IllegalArgumentException because offset is less than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: (offset + width) bigger than colors' length
-        try {
-            mCanvas.drawBitmap(new int[29], 10, 29, 10.0f, 10.0f, 20, 10, true, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of offset and width"
-                            + " is bigger than colors' length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
 
         // special case: width equals to 0
         mCanvas.drawBitmap(colors, 10, 10, 10.0f, 10.0f, 0, 10, true, null);
@@ -1548,49 +1588,70 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawBitmap(colors, 10, 10, 10.0f, 10.0f, 10, 29, true, mPaint);
     }
 
-    public void testDrawBitmap5() {
+    @Test
+    public void testDrawBitmapMatrix() {
         final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
         mCanvas.drawBitmap(b, new Matrix(), null);
         mCanvas.drawBitmap(b, new Matrix(), mPaint);
     }
 
-    public void testDrawBitmapMesh() {
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapMeshNegativeWidth() {
         final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
 
-        // abnormal case: meshWidth less than 0
-        try {
-            mCanvas.drawBitmapMesh(b, -1, 10, null, 0, null, 0, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because meshWidth less than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out ArrayIndexOutOfBoundsException because meshWidth less than 0
+        mCanvas.drawBitmapMesh(b, -1, 10, null, 0, null, 0, null);
+    }
 
-        // abnormal case: meshHeight less than 0
-        try {
-            mCanvas.drawBitmapMesh(b, 10, -1, null, 0, null, 0, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because meshHeight "
-                                    + "is less than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapMeshNegativeHeight() {
+        final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
 
-        // abnormal case: vertOffset less than 0
-        try {
-            mCanvas.drawBitmapMesh(b, 10, 10, null, -1, null, 0, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because vertOffset "
-                                                + "is less than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out ArrayIndexOutOfBoundsException because meshHeight is less than 0
+        mCanvas.drawBitmapMesh(b, 10, -1, null, 0, null, 0, null);
+    }
 
-        // abnormal case: colorOffset less than 0
-        try {
-            mCanvas.drawBitmapMesh(b, 10, 10, null, 10, null, -1, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because colorOffset is"
-                                    + " less than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapMeshNegativeVertOffset() {
+        final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
+
+        // Should throw out ArrayIndexOutOfBoundsException because vertOffset is less than 0
+        mCanvas.drawBitmapMesh(b, 10, 10, null, -1, null, 0, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapMeshNegativeColorOffset() {
+        final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
+
+        // Should throw out ArrayIndexOutOfBoundsException because colorOffset is less than 0
+        mCanvas.drawBitmapMesh(b, 10, 10, null, 10, null, -1, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapMeshTooFewVerts() {
+        final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
+
+        // Should throw out ArrayIndexOutOfBoundsException because verts' length is too short
+        mCanvas.drawBitmapMesh(b, 10, 10, new float[] {
+                10.0f, 29.0f
+        }, 10, null, 10, null);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawBitmapMeshTooFewColors() {
+        final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
+
+        // Should throw out ArrayIndexOutOfBoundsException because colors' length is too short
+        // abnormal case: colors' length is too short
+        final float[] verts = new float[2008];
+        mCanvas.drawBitmapMesh(b, 10, 10, verts, 10, new int[] {
+                10, 29
+        }, 10, null);
+    }
+
+    @Test
+    public void testDrawBitmapMesh() {
+        final Bitmap b = Bitmap.createBitmap(BITMAP_WIDTH, 29, Config.ARGB_8888);
 
         // special case: meshWidth equals to 0
         mCanvas.drawBitmapMesh(b, 0, 10, null, 10, null, 10, null);
@@ -1598,36 +1659,15 @@ public class CanvasTest extends InstrumentationTestCase {
         // special case: meshHeight equals to 0
         mCanvas.drawBitmapMesh(b, 10, 0, null, 10, null, 10, null);
 
-        // abnormal case: verts' length is too short
-        try {
-            mCanvas.drawBitmapMesh(b, 10, 10, new float[] {
-                    10.0f, 29.0f
-            }, 10, null, 10, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because verts' length"
-                                    + " is too short");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: colors' length is too short
-        final float[] verts = new float[2008];
-        try {
-            mCanvas.drawBitmapMesh(b, 10, 10, verts, 10, new int[] {
-                    10, 29
-            }, 10, null);
-            fail("should throw out ArrayIndexOutOfBoundsException because colors' "
-                        + "length is too short");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
         // normal case
+        final float[] verts = new float[2008];
         final int[] colors = new int[2008];
         mCanvas.drawBitmapMesh(b, 10, 10, verts, 10, colors, 10, null);
         mCanvas.drawBitmapMesh(b, 10, 10, verts, 10, colors, 10, mPaint);
     }
 
-    public void testDrawVertices() {
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawVerticesTooFewVerts() {
         final float[] verts = new float[10];
         final float[] texs = new float[10];
         final int[] colors = new int[10];
@@ -1635,45 +1675,65 @@ public class CanvasTest extends InstrumentationTestCase {
                 0, 1, 2, 3, 4, 1
         };
 
-        // abnormal case: (vertOffset + vertexCount) bigger than verts' length
-        try {
-            mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 8, texs, 0, colors, 0, indices,
-                    0, 4, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of vertOffset and"
-                            + " vertexCount is bigger than verts' length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out ArrayIndexOutOfBoundsException because sum of vertOffset and
+        // vertexCount is bigger than verts' length
+        mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 8, texs, 0, colors, 0, indices,
+                0, 4, mPaint);
+    }
 
-        // abnormal case: (texOffset + vertexCount) bigger than texs' length
-        try {
-            mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 0, texs, 30, colors, 0, indices,
-                    0, 4, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of texOffset and"
-                                    + " vertexCount is bigger thatn texs' length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawVerticesTooFewTexs() {
+        final float[] verts = new float[10];
+        final float[] texs = new float[10];
+        final int[] colors = new int[10];
+        final short[] indices = {
+                0, 1, 2, 3, 4, 1
+        };
 
-        // abnormal case: (colorOffset + vertexCount) bigger than colors' length
-        try {
-            mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 0, texs, 0, colors, 30, indices,
-                    0, 4, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of colorOffset and"
-                                + " vertexCount is bigger than colors' length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out ArrayIndexOutOfBoundsException because sum of texOffset and
+        // vertexCount is bigger thatn texs' length
+        mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 0, texs, 30, colors, 0, indices,
+                0, 4, mPaint);
+    }
 
-        // abnormal case: (indexOffset + indexCount) bigger than indices' length
-        try {
-            mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 0, texs, 0, colors, 0, indices,
-                    10, 30, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of indexOffset and"
-                            + " indexCount is bigger than indices' length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawVerticesTooFewColors() {
+        final float[] verts = new float[10];
+        final float[] texs = new float[10];
+        final int[] colors = new int[10];
+        final short[] indices = {
+                0, 1, 2, 3, 4, 1
+        };
+
+        // Should throw out ArrayIndexOutOfBoundsException because sum of colorOffset and
+        // vertexCount is bigger than colors' length
+        mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 0, texs, 0, colors, 30, indices,
+                0, 4, mPaint);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawVerticesTooFewIndices() {
+        final float[] verts = new float[10];
+        final float[] texs = new float[10];
+        final int[] colors = new int[10];
+        final short[] indices = {
+                0, 1, 2, 3, 4, 1
+        };
+
+        // Should throw out ArrayIndexOutOfBoundsException because sum of indexOffset and
+        // indexCount is bigger than indices' length
+        mCanvas.drawVertices(VertexMode.TRIANGLES, 10, verts, 0, texs, 0, colors, 0, indices,
+                10, 30, mPaint);
+    }
+
+    @Test
+    public void testDrawVertices() {
+        final float[] verts = new float[10];
+        final float[] texs = new float[10];
+        final int[] colors = new int[10];
+        final short[] indices = {
+                0, 1, 2, 3, 4, 1
+        };
 
         // special case: in texs, colors, indices, one of them, two of them and
         // all are null
@@ -1697,85 +1757,71 @@ public class CanvasTest extends InstrumentationTestCase {
                 6, mPaint);
     }
 
-    public void testDrawText1() {
-        final char[] text = {
-                'a', 'n', 'd', 'r', 'o', 'i', 'd'
-        };
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawArrayTextNegativeIndex() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
 
-        // abnormal case: index less than 0
-        try {
-            mCanvas.drawText(text, -1, 7, 10, 10, mPaint);
-            fail("should throw out IndexOutOfBoundsException because index is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out IndexOutOfBoundsException because index is less than 0
+        mCanvas.drawText(text, -1, 7, 10, 10, mPaint);
+    }
 
-        // abnormal case: count less than 0
-        try {
-            mCanvas.drawText(text, 0, -1, 10, 10, mPaint);
-            fail("should throw out IndexOutOfBoundsException because count is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawArrayTextNegativeCount() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
 
-        // abnormal case: (index + count) bigger than text's length
-        try {
-            mCanvas.drawText(text, 0, 10, 10, 10, mPaint);
-            fail("should throw out IndexOutOfBoundsException because sum of index and count "
-                                + "is bigger than text's length");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out IndexOutOfBoundsException because count is less than 0
+        mCanvas.drawText(text, 0, -1, 10, 10, mPaint);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawArrayTextTextLengthTooSmall() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
+
+        // Should throw out IndexOutOfBoundsException because sum of index and count
+        // is bigger than text's length
+        mCanvas.drawText(text, 0, 10, 10, 10, mPaint);
+    }
+
+    @Test
+    public void testDrawArrayText() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
 
         // normal case
         mCanvas.drawText(text, 0, 7, 10, 10, mPaint);
     }
 
-    public void testDrawText2() {
+    @Test
+    public void testDrawStringTextAtPosition() {
         mCanvas.drawText("android", 10, 30, mPaint);
     }
 
-    public void testDrawText3() {
-        final String text = "android";
-
-        // abnormal case: start less than 0
-        try {
-            mCanvas.drawText(text, -1, 7, 10, 30, mPaint);
-            fail("should throw out IndexOutOfBoundsException because start is lesss than 0");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: end less than 0
-        try {
-            mCanvas.drawText(text, 0, -1, 10, 30, mPaint);
-            fail("should throw out IndexOutOfBoundsException because end is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: start bigger than end
-        try {
-            mCanvas.drawText(text, 3, 1, 10, 30, mPaint);
-            fail("should throw out IndexOutOfBoundsException because start is bigger than end");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // abnormal case: (end - start) bigger than text's length
-        try {
-            mCanvas.drawText(text, 0, 10, 10, 30, mPaint);
-            fail("should throw out IndexOutOfBoundsException because end subtracts start should"
-                                + " bigger than text's length");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
-        // normal case
-        mCanvas.drawText(text, 0, 7, 10, 30, mPaint);
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextTextAtPositionWithOffsetsNegativeStart() {
+        // Should throw out IndexOutOfBoundsException because start is less than 0
+        mCanvas.drawText("android", -1, 7, 10, 30, mPaint);
     }
 
-    public void testDrawText4() {
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextTextAtPositionWithOffsetsNegativeEnd() {
+        // Should throw out IndexOutOfBoundsException because end is less than 0
+        mCanvas.drawText("android", 0, -1, 10, 30, mPaint);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextTextAtPositionWithOffsetsStartEndMismatch() {
+        // Should throw out IndexOutOfBoundsException because start is bigger than end
+        mCanvas.drawText("android", 3, 1, 10, 30, mPaint);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextTextAtPositionWithOffsetsTextTooLong() {
+        // Should throw out IndexOutOfBoundsException because end subtracts start should
+        // bigger than text's length
+        mCanvas.drawText("android", 0, 10, 10, 30, mPaint);
+    }
+
+    @Test
+    public void testDrawTextTextAtPositionWithOffsets() {
         final String t1 = "android";
         mCanvas.drawText(t1, 0, 7, 10, 30, mPaint);
 
@@ -1792,6 +1838,7 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawText(t5, 0, 7, 10, 30, mPaint);
     }
 
+    @Test
     public void testDrawTextRun() {
         final String text = "android";
         final Paint paint = new Paint();
@@ -1800,213 +1847,248 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawTextRun(text, 0, text.length(), 0, text.length(), 0.0f, 0.0f, false, paint);
         mCanvas.drawTextRun(text, text.length(), text.length(), text.length(), text.length(),
                 0.0f, 0.0f, false, paint);
-
-        try {
-            mCanvas.drawTextRun((char[])null, 0, 0, 0, 0, 0.0f, 0.0f, false, paint);
-            fail("should throw out NullPointerException because text is null");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun((CharSequence)null, 0, 0, 0, 0, 0.0f, 0.0f, false, paint);
-            fail("should throw out NullPointerException because text is null");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text.toCharArray(), 0, 0, 0, 0, 0.0f, 0.0f, false, null);
-            fail("should throw out NullPointerException because paint is null");
-        } catch (NullPointerException e) {
-        }
-        try {
-            mCanvas.drawTextRun(text, 0, 0, 0, 0, 0.0f, 0.0f, false, null);
-            fail("should throw out NullPointerException because paint is null");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text.toCharArray(), -1, text.length(), 0, text.length(), 0.0f, 0.0f,
-                    false, paint);
-            fail("should throw out IndexOutOfBoundsException because index is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text.toCharArray(), 0, -1, 0, text.length(), 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because count is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text.toCharArray(), 0, text.length(), 1, text.length(), 0.0f, 0.0f,
-                    false, paint);
-            fail("should throw out IndexOutOfBoundsException because contextIndex is bigger than "
-                    + "index");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-
-        try {
-            mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() - 1, 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because contexIndex + contextCount "
-                    + "is less than index + count");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text.toCharArray(), 0, text.length() + 1, 0, text.length() + 1,
-                    0.0f, 0.0f, false, paint);
-            fail("should throw out IndexOutOfBoundsException because index + count is bigger than "
-                    + "text length");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text, 0, text.length(), -1, text.length(), 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because contextStart is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text, 0, text.length(), 1, text.length(), 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because start is less than "
-                    + "contextStart");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text, 1, 0, 0, text.length(), 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because end is less than start");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() - 1, 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because contextEnd is less than end");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() + 1, 0.0f, 0.0f, false,
-                    paint);
-            fail("should throw out IndexOutOfBoundsException because contextEnd is bigger than "
-                    + "text length");
-        } catch (IndexOutOfBoundsException e) {
-        }
     }
 
-    public void testDrawPosText1() {
+    @Test(expected=NullPointerException.class)
+    public void testDrawTextRunNullCharArray() {
+        // Should throw out NullPointerException because text is null
+        mCanvas.drawTextRun((char[]) null, 0, 0, 0, 0, 0.0f, 0.0f, false, new Paint());
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testDrawTextRunNullCharSequence() {
+        // Should throw out NullPointerException because text is null
+        mCanvas.drawTextRun((CharSequence) null, 0, 0, 0, 0, 0.0f, 0.0f, false, new Paint());
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testDrawTextRunCharArrayNullPaint() {
+        // Should throw out NullPointerException because paint is null
+        mCanvas.drawTextRun("android".toCharArray(), 0, 0, 0, 0, 0.0f, 0.0f, false, null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testDrawTextRunCharSequenceNullPaint() {
+        // Should throw out NullPointerException because paint is null
+        mCanvas.drawTextRun("android", 0, 0, 0, 0, 0.0f, 0.0f, false, null);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunNegativeIndex() {
+        final String text = "android";
+        final Paint paint = new Paint();
+
+        // Should throw out IndexOutOfBoundsException because index is less than 0
+        mCanvas.drawTextRun(text.toCharArray(), -1, text.length(), 0, text.length(), 0.0f, 0.0f,
+                false, new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunNegativeCount() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because count is less than 0
+        mCanvas.drawTextRun(text.toCharArray(), 0, -1, 0, text.length(), 0.0f, 0.0f, false,
+                new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunContestIndexTooLarge() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because contextIndex is bigger than index
+        mCanvas.drawTextRun(text.toCharArray(), 0, text.length(), 1, text.length(), 0.0f, 0.0f,
+                false, new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunContestIndexTooSmall() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because contextIndex + contextCount
+        // is less than index + count
+        mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() - 1, 0.0f, 0.0f, false,
+                new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunIndexTooLarge() {
+        final String text = "android";
+        final Paint paint = new Paint();
+
+        // Should throw out IndexOutOfBoundsException because index + count is bigger than
+        // text length
+        mCanvas.drawTextRun(text.toCharArray(), 0, text.length() + 1, 0, text.length() + 1,
+                0.0f, 0.0f, false, new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunNegativeContextStart() {
+        final String text = "android";
+        final Paint paint = new Paint();
+
+        // Should throw out IndexOutOfBoundsException because contextStart is less than 0
+        mCanvas.drawTextRun(text, 0, text.length(), -1, text.length(), 0.0f, 0.0f, false,
+                new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunStartLessThanContextStart() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because start is less than contextStart
+        mCanvas.drawTextRun(text, 0, text.length(), 1, text.length(), 0.0f, 0.0f, false,
+                new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunEndLessThanStart() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because end is less than start
+        mCanvas.drawTextRun(text, 1, 0, 0, text.length(), 0.0f, 0.0f, false, new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunContextEndLessThanEnd() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because contextEnd is less than end
+        mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() - 1, 0.0f, 0.0f, false,
+                new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawTextRunContextEndLargerThanTextLength() {
+        final String text = "android";
+
+        // Should throw out IndexOutOfBoundsException because contextEnd is bigger than
+        // text length
+        mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() + 1, 0.0f, 0.0f, false,
+                new Paint());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawPosTextWithIndexAndCountNegativeIndex() {
         final char[] text = {
                 'a', 'n', 'd', 'r', 'o', 'i', 'd'
         };
-        final float[] pos = new float[] {
+        final float[] pos = new float[]{
                 0.0f, 0.0f, 1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 3.0f, 4.0f, 4.0f, 5.0f, 5.0f, 6.0f, 6.0f,
                 7.0f, 7.0f
         };
 
-        // abnormal case: index less than 0
-        try {
-            mCanvas.drawPosText(text, -1, 7, pos, mPaint);
-            fail("should throw out IndexOutOfBoundsException because index is less than 0");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out IndexOutOfBoundsException because index is less than 0
+        mCanvas.drawPosText(text, -1, 7, pos, mPaint);
+    }
 
-        // abnormal case: index + count > text.length
-        try {
-            mCanvas.drawPosText(text, 1, 10, pos, mPaint);
-            fail("should throw out IndexOutOfBoundsException because sum of index and count is"
-                                + " bigger than text's length");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
 
-        // abnormal case: count*2 > pos.length
-        try {
-            mCanvas.drawPosText(text, 1, 10, new float[] {
-                    10.0f, 30.f
-            }, mPaint);
-            fail("should throw out IndexOutOfBoundsException because 2 times of count is"
-                                + " bigger than pos' length");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawPosTextWithIndexAndCountTextTooShort() {
+        final char[] text = {
+                'a', 'n', 'd', 'r', 'o', 'i', 'd'
+        };
+        final float[] pos = new float[]{
+                0.0f, 0.0f, 1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 3.0f, 4.0f, 4.0f, 5.0f, 5.0f, 6.0f, 6.0f,
+                7.0f, 7.0f
+        };
+
+        // Should throw out IndexOutOfBoundsException because sum of index and count is
+        // bigger than text's length
+        mCanvas.drawPosText(text, 1, 10, pos, mPaint);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawPosTextWithIndexAndCountCountTooLarge() {
+        final char[] text = {
+                'a', 'n', 'd', 'r', 'o', 'i', 'd'
+        };
+
+        // Should throw out IndexOutOfBoundsException because 2 times of count is
+        // bigger than pos' length
+        mCanvas.drawPosText(text, 1, 10, new float[] {
+                10.0f, 30.f
+        }, mPaint);
+    }
+
+    @Test
+    public void testDrawPosTextWithIndexAndCount() {
+        final char[] text = {
+                'a', 'n', 'd', 'r', 'o', 'i', 'd'
+        };
+        final float[] pos = new float[]{
+                0.0f, 0.0f, 1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 3.0f, 4.0f, 4.0f, 5.0f, 5.0f, 6.0f, 6.0f,
+                7.0f, 7.0f
+        };
 
         // normal case
         mCanvas.drawPosText(text, 0, 7, pos, mPaint);
     }
 
-    public void testDrawPosText2() {
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testDrawPosTextCountTooLarge() {
         final String text = "android";
-        final float[] pos = new float[] {
+
+        // Should throw out IndexOutOfBoundsException because 2 times of count is
+        // bigger than pos' length
+        mCanvas.drawPosText(text, new float[]{
+                10.0f, 30.f
+        }, mPaint);
+    }
+
+    @Test
+    public void testDrawPosText() {
+        final String text = "android";
+        final float[] pos = new float[]{
                 0.0f, 0.0f, 1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 3.0f, 4.0f, 4.0f, 5.0f, 5.0f, 6.0f, 6.0f,
                 7.0f, 7.0f
         };
-
-        // abnormal case: text.length()*2 > pos.length
-        try {
-            mCanvas.drawPosText(text, new float[] {
-                    10.0f, 30.f
-            }, mPaint);
-            fail("should throw out IndexOutOfBoundsException because 2 times of text's length is"
-                                + " bigger than pos' length");
-        } catch (IndexOutOfBoundsException e) {
-            // expected
-        }
-
         // normal case
         mCanvas.drawPosText(text, pos, mPaint);
     }
 
-    public void testDrawTextOnPath1() {
-        final Path path = new Path();
-        final char[] text = {
-                'a', 'n', 'd', 'r', 'o', 'i', 'd'
-        };
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawTextOnPathWithIndexAndCountNegativeIndex() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
 
-        // abnormal case: index < 0
-        try {
-            mCanvas.drawTextOnPath(text, -1, 7, path, 10.0f, 10.0f, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because index is smaller than 0");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+        // Should throw out ArrayIndexOutOfBoundsException because index is smaller than 0
+        mCanvas.drawTextOnPath(text, -1, 7, new Path(), 10.0f, 10.0f, mPaint);
+    }
 
-        // abnormal case: index + count > text.length
-        try {
-            mCanvas.drawTextOnPath(text, 0, 10, path, 10.0f, 10.0f, mPaint);
-            fail("should throw out ArrayIndexOutOfBoundsException because sum of index and"
-                            + " count is bigger than text's length");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testDrawTextOnPathWithIndexAndCountTextTooShort() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
+
+        // Should throw out ArrayIndexOutOfBoundsException because sum of index and
+        // count is bigger than text's length
+        mCanvas.drawTextOnPath(text, 0, 10, new Path(), 10.0f, 10.0f, mPaint);
+    }
+
+    @Test
+    public void testDrawTextOnPathWithIndexAndCount() {
+        final char[] text = { 'a', 'n', 'd', 'r', 'o', 'i', 'd' };
 
         // normal case
-        mCanvas.drawTextOnPath(text, 0, 7, path, 10.0f, 10.0f, mPaint);
+        mCanvas.drawTextOnPath(text, 0, 7, new Path(), 10.0f, 10.0f, mPaint);
     }
 
-    public void testDrawTextOnPath2() {
+    @Test
+    public void testDrawTextOnPathtestDrawTextRunNegativeCount() {
         final Path path = new Path();
-        String text = "";
 
         // no character in text
-        mCanvas.drawTextOnPath(text, path, 10.0f, 10.0f, mPaint);
+        mCanvas.drawTextOnPath("", path, 10.0f, 10.0f, mPaint);
 
         // There are characters in text
-        text = "android";
-        mCanvas.drawTextOnPath(text, path, 10.0f, 10.0f, mPaint);
+        mCanvas.drawTextOnPath("android", path, 10.0f, 10.0f, mPaint);
     }
 
+    @Test
     public void testDrawPicture1() {
         mCanvas.drawPicture(new Picture());
     }
 
+    @Test
     public void testDrawPicture2() {
         final RectF dst = new RectF(0, 0, 10, 31);
         final Picture p = new Picture();
@@ -2018,6 +2100,7 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawPicture(p, dst);
     }
 
+    @Test
     public void testDrawPicture3() {
         final Rect dst = new Rect(0, 10, 30, 0);
         final Picture p = new Picture();
@@ -2029,6 +2112,7 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawPicture(p, dst);
     }
 
+    @Test
     public void testDensity() {
         // set Density
         mCanvas.setDensity(DisplayMetrics.DENSITY_DEFAULT);
@@ -2039,18 +2123,44 @@ public class CanvasTest extends InstrumentationTestCase {
         assertEquals(DisplayMetrics.DENSITY_HIGH, mCanvas.getDensity());
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void testDrawHwBitmapInSwCanvas() {
+        Bitmap hwBitmap = mImmutableBitmap.copy(Config.HARDWARE, false);
+        mCanvas.drawBitmap(hwBitmap, 0, 0, null);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testHwBitmapShaderInSwCanvas1() {
+        Bitmap hwBitmap = mImmutableBitmap.copy(Config.HARDWARE, false);
+        BitmapShader bitmapShader = new BitmapShader(hwBitmap, Shader.TileMode.REPEAT,
+                Shader.TileMode.REPEAT);
+        RadialGradient gradientShader = new RadialGradient(10, 10, 30, Color.BLACK, Color.CYAN,
+                Shader.TileMode.REPEAT);
+        Shader shader = new ComposeShader(gradientShader, bitmapShader, Mode.OVERLAY);
+        Paint p = new Paint();
+        p.setShader(shader);
+        mCanvas.drawRect(0, 0, 10, 10, p);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testHwBitmapShaderInSwCanvas2() {
+        Bitmap hwBitmap = mImmutableBitmap.copy(Config.HARDWARE, false);
+        BitmapShader bitmapShader = new BitmapShader(hwBitmap, Shader.TileMode.REPEAT,
+                Shader.TileMode.REPEAT);
+        RadialGradient gradientShader = new RadialGradient(10, 10, 30, Color.BLACK, Color.CYAN,
+                Shader.TileMode.REPEAT);
+        Shader shader = new ComposeShader(bitmapShader, gradientShader, Mode.OVERLAY);
+        Paint p = new Paint();
+        p.setShader(shader);
+        mCanvas.drawRect(0, 0, 10, 10, p);
+    }
+
     private void preCompare() {
         final float[] values = new float[FLOAT_ARRAY_LEN];
         mCanvas.getMatrix().getValues(values);
-        assertEquals(1.0f, values[0]);
-        assertEquals(0.0f, values[1]);
-        assertEquals(0.0f, values[2]);
-        assertEquals(0.0f, values[3]);
-        assertEquals(1.0f, values[4]);
-        assertEquals(0.0f, values[5]);
-        assertEquals(0.0f, values[6]);
-        assertEquals(0.0f, values[7]);
-        assertEquals(1.0f, values[8]);
+        assertArrayEquals(new float[] {
+                1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        }, values, 0.0f);
     }
 
     private RectF getDeviceClip() {
@@ -2096,5 +2206,39 @@ public class CanvasTest extends InstrumentationTestCase {
             assertEquals(clips.elementAt(i), getDeviceClip());
             assertEquals(matrices.elementAt(i), mCanvas.getMatrix());
         }
+    }
+
+    @Test
+    public void testDrawBitmapColorBehavior() {
+        try {
+            // Create a wide gamut bitmap where the pixel value is slightly less than max red.
+            Resources resources = InstrumentationRegistry.getTargetContext().getResources();
+            InputStream in = resources.getAssets().open("almost-red-adobe.png");
+            Bitmap bitmap = BitmapFactory.decodeStream(in);
+
+            // Draw the bitmap to an sRGB canvas.
+            Bitmap canvasBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(canvasBitmap);
+            canvas.drawBitmap(bitmap, 0, 0, null);
+
+            // Verify that the pixel is now max red.
+            Assert.assertEquals(0xFFFF0000, canvasBitmap.getPixel(0, 0));
+        } catch (IOException e) {
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void testShadowLayer_paintColorPreserved() {
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+
+        paint.setShadowLayer(5.0f, 10.0f, 10.0f, 0xFFFF0000);
+        paint.setColor(0xFF0000FF);
+        canvas.drawPaint(paint);
+
+        // Since the shadow is in the background, the canvas should be blue.
+        ColorUtils.verifyColor(0xFF0000FF, bitmap.getPixel(50, 50));
     }
 }

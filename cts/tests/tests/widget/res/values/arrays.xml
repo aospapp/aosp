@@ -54,4 +54,21 @@
         <item>9</item>
         <item>10</item>
     </integer-array>
+
+    <array name="auto_size_predefined_sizes">
+        <item>10px</item>
+        <item>10dip</item>
+        <item>10sp</item>
+        <item>10pt</item>
+        <item>10in</item>
+        <item>10mm</item>
+    </array>
+
+    <array name="auto_size_predefined_sizes_redundant_values">
+        <item>40px</item>
+        <item>10px</item>
+        <item>10px</item>
+        <item>10px</item>
+        <item>0dp</item>
+    </array>
 </resources>

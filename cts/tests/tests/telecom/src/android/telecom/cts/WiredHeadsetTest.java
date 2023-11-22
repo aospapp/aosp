@@ -69,7 +69,7 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
         assertConnectionState(connection, Connection.STATE_DISCONNECTED);
     }
 
-    public void testInCallShortPress_togglesMute() throws Exception {
+    public void testInCallLongPress_togglesMute() throws Exception {
         if (!mShouldTestTelecom) {
             return;
         }
@@ -83,15 +83,15 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
         // Before the audio state is changed for the first time, the connection might not
         // know about its audio state yet.
         assertMuteState(incallService, false);
-        sendMediaButtonShortPress();
+        sendMediaButtonLongPress();
         assertMuteState(connection, true);
         assertMuteState(incallService, true);
-        sendMediaButtonShortPress();
+        sendMediaButtonLongPress();
         assertMuteState(connection, false);
         assertMuteState(incallService, false);
     }
 
-    public void testInCallLongPress_hangupCall() throws Exception {
+    public void testInCallShortPress_hangupCall() throws Exception {
         if (!mShouldTestTelecom) {
             return;
         }
@@ -105,7 +105,7 @@ public class WiredHeadsetTest extends BaseTelecomTestWithMockServices {
         connection.setActive();
         assertCallState(call, Call.STATE_ACTIVE);
 
-        sendMediaButtonLongPress();
+        sendMediaButtonShortPress();
         assertCallState(call, Call.STATE_DISCONNECTED);
         assertConnectionState(connection, Connection.STATE_DISCONNECTED);
     }

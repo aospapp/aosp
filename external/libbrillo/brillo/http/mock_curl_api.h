@@ -45,6 +45,9 @@ class MockCurlInterface : public CurlInterface {
   MOCK_METHOD3(MultiAssign, CURLMcode(CURLM*, curl_socket_t, void*));
   MOCK_METHOD4(MultiSocketAction, CURLMcode(CURLM*, curl_socket_t, int, int*));
   MOCK_CONST_METHOD1(MultiStrError, std::string(CURLMcode));
+  MOCK_METHOD2(MultiPerform, CURLMcode(CURLM*, int*));
+  MOCK_METHOD5(MultiWait,
+               CURLMcode(CURLM*, curl_waitfd[], unsigned int, int, int*));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockCurlInterface);

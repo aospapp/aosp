@@ -1,3 +1,17 @@
+2015-07-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* elfxx-mips.c (_bfd_mips_elf_finish_dynamic_sections)
+	<DT_MIPS_RLD_MAP_REL>: Add target address to host address
+	difference, not to host pointer.
+
+2015-06-26  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* elfxx-mips.c (_bfd_mips_elf_create_dynamic_sections): Use executable
+	instead of !shared to indicate an application vs shared library.
+	(_bfd_mips_elf_size_dynamic_sections): Likewise.
+	(_bfd_mips_elf_finish_dynamic_sections): Handle DT_MIPS_RLD_MAP_REL.
+	(_bfd_mips_elf_get_target_dtag): Likewise.
+
 2014-12-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* elf32-arm.c (elf32_arm_merge_eabi_attributes): Handle new
@@ -5,12 +19,6 @@
 	(elf32_arm_post_process_headers): Set e_flags in ELF header as hard
 	float only when Tag_ABI_VFP_args is 1, using new enum value
 	AEABI_VFP_args_vfp to check that.
-
-2015-07-23  Joseph Myers  <joseph@codesourcery.com>
-
-	* elfxx-mips.c (_bfd_mips_elf_finish_dynamic_sections)
-	<DT_MIPS_RLD_MAP_REL>: Add target address to host address
-	difference, not to host pointer.
 
 2015-04-01  Tejas Belagod  <tejas.belagod@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>

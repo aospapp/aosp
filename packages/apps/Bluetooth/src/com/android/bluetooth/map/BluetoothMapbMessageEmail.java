@@ -15,19 +15,8 @@
 package com.android.bluetooth.map;
 
 import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Locale;
-import java.util.UUID;
 
-import com.android.bluetooth.map.BluetoothMapSmsPdu.SmsPdu;
-
-import android.text.util.Rfc822Token;
-import android.text.util.Rfc822Tokenizer;
-import android.util.Base64;
 import android.util.Log;
 
 

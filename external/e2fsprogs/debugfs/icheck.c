@@ -5,6 +5,7 @@
  * under the terms of the GNU Public License.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -85,7 +86,7 @@ void do_icheck(int argc, char **argv)
 	}
 
 	for (i=1; i < argc; i++) {
-		if (strtoblk(argv[0], argv[i], &bw.barray[i-1].blk))
+		if (strtoblk(argv[0], argv[i], NULL, &bw.barray[i-1].blk))
 			goto error_out;
 	}
 

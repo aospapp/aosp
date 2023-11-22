@@ -22,6 +22,7 @@ import com.google.common.io.Files;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.util.FileUtil;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -36,12 +37,19 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
- * Tests that profile guided compilation succeeds regardless of whether a runtime
- * profile of the target application is present on the device.
+ * Various integration tests for dex to oat compilation, with or without profiles.
+ * When changing this test, make sure it still passes in each of the following
+ * configurations:
+ * <ul>
+ *     <li>On a 'user' build</li>
+ *     <li>On a 'userdebug' build with system property 'dalvik.vm.usejitprofiles' set to false</li>
+ *     <li>On a 'userdebug' build with system property 'dalvik.vm.usejitprofiles' set to true</li>
+ * </ul>
  */
 public class AdbRootDependentCompilationTest extends DeviceTestCase {
-    private static final String TAG = AdbRootDependentCompilationTest.class.getSimpleName();
     private static final String APPLICATION_PACKAGE = "android.cts.compilation";
 
     enum ProfileLocation {
@@ -66,11 +74,8 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
     private ITestDevice mDevice;
     private byte[] profileBytes;
     private File localProfileFile;
-    private String odexFilePath;
-    private byte[] initialOdexFileContents;
     private File apkFile;
-    private boolean mIsRoot;
-    private boolean mNewlyObtainedRoot;
+    private boolean mCanEnableDeviceRootAccess;
 
     @Override
     protected void setUp() throws Exception {
@@ -81,11 +86,8 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         assertTrue("Unknown build type: " + buildType,
                 Arrays.asList("user", "userdebug", "eng").contains(buildType));
         boolean wasRoot = mDevice.isAdbRoot();
-        mIsRoot = (!buildType.equals("user"));
-        mNewlyObtainedRoot = (mIsRoot && !wasRoot);
-        if (mNewlyObtainedRoot) {
-            mDevice.executeAdbCommand("root");
-        }
+        // We can only enable root access on userdebug and eng builds.
+        mCanEnableDeviceRootAccess = buildType.equals("userdebug") || buildType.equals("eng");
 
         apkFile = File.createTempFile("CtsCompilationApp", ".apk");
         try (OutputStream outputStream = new FileOutputStream(apkFile)) {
@@ -101,31 +103,37 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         localProfileFile = File.createTempFile("compilationtest", "prof");
         Files.write(profileBytes, localProfileFile);
         assertTrue("empty profile", profileBytes.length > 0); // sanity check
-
-        if (mIsRoot) {
-            // ensure no profiles initially present
-            for (ProfileLocation profileLocation : ProfileLocation.values()) {
-                String clientPath = profileLocation.getPath();
-                if (mDevice.doesFileExist(clientPath)) {
-                    executeAdbCommand(0, "shell", "rm", clientPath);
-                }
-            }
-            executeCompile(/* force */ true);
-            this.odexFilePath = getOdexFilePath();
-            this.initialOdexFileContents = readFileOnClient(odexFilePath);
-            assertTrue("empty odex file", initialOdexFileContents.length > 0); // sanity check
-        }
     }
 
     @Override
     protected void tearDown() throws Exception {
-        if (mNewlyObtainedRoot) {
-            mDevice.executeAdbCommand("unroot");
-        }
-        apkFile.delete();
-        localProfileFile.delete();
+        FileUtil.deleteFile(apkFile);
+        FileUtil.deleteFile(localProfileFile);
         mDevice.uninstallPackage(APPLICATION_PACKAGE);
         super.tearDown();
+    }
+
+    /**
+     * Tests compilation using {@code -r bg-dexopt -f}.
+     */
+    public void testCompile_bgDexopt() throws Exception {
+        if (!canRunTest(EnumSet.noneOf(ProfileLocation.class))) {
+            return;
+        }
+        // Usually "interpret-only"
+        String expectedInstallFilter = checkNotNull(mDevice.getProperty("pm.dexopt.install"));
+        // Usually "speed-profile"
+        String expectedBgDexoptFilter = checkNotNull(mDevice.getProperty("pm.dexopt.bg-dexopt"));
+
+        String odexPath = getOdexFilePath();
+        assertEquals(expectedInstallFilter, getCompilerFilter(odexPath));
+
+        // Without -f, the compiler would only run if it judged the bg-dexopt filter to
+        // be "better" than the install filter. However manufacturers can change those
+        // values so we don't want to depend here on the resulting filter being better.
+        executeCompile("-r", "bg-dexopt", "-f");
+
+        assertEquals(expectedBgDexoptFilter, getCompilerFilter(odexPath));
     }
 
     /*
@@ -140,96 +148,103 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
      profile_assistant, it may only be available in "ref".
      */
 
-    public void testForceCompile_noProfile() throws Exception {
-        Set<ProfileLocation> profileLocations = EnumSet.noneOf(ProfileLocation.class);
-        if (!canRunTest(profileLocations)) {
-            return;
-        }
-        compileWithProfilesAndCheckFilter(profileLocations);
-        byte[] odexFileContents = readFileOnClient(odexFilePath);
-        assertBytesEqual(initialOdexFileContents, odexFileContents);
+    public void testCompile_noProfile() throws Exception {
+        compileWithProfilesAndCheckFilter(false /* expectOdexChange */,
+                EnumSet.noneOf(ProfileLocation.class));
     }
 
-    public void testForceCompile_curProfile() throws Exception {
-        Set<ProfileLocation> profileLocations = EnumSet.of(ProfileLocation.CUR);
-        if (!canRunTest(profileLocations)) {
-            return;
+    public void testCompile_curProfile() throws Exception {
+        boolean didRun = compileWithProfilesAndCheckFilter(true  /* expectOdexChange */,
+                 EnumSet.of(ProfileLocation.CUR));
+        if (didRun) {
+            assertTrue("ref profile should have been created by the compiler",
+                    doesFileExist(ProfileLocation.REF.getPath()));
         }
-        compileWithProfilesAndCheckFilter(profileLocations);
-        assertTrue("ref profile should have been created by the compiler",
-                mDevice.doesFileExist(ProfileLocation.REF.getPath()));
-        assertFalse("odex compiled with cur profile should differ from the initial one without",
-                Arrays.equals(initialOdexFileContents, readFileOnClient(odexFilePath)));
     }
 
-    public void testForceCompile_refProfile() throws Exception {
-        Set<ProfileLocation> profileLocations = EnumSet.of(ProfileLocation.REF);
-        if (!canRunTest(profileLocations)) {
-            return;
-        }
-        compileWithProfilesAndCheckFilter(profileLocations);
+    public void testCompile_refProfile() throws Exception {
+        compileWithProfilesAndCheckFilter(false /* expectOdexChange */,
+                 EnumSet.of(ProfileLocation.REF));
         // We assume that the compiler isn't smart enough to realize that the
         // previous odex was compiled before the ref profile was in place, even
         // though theoretically it could be.
-        byte[] odexFileContents = readFileOnClient(odexFilePath);
-        assertBytesEqual(initialOdexFileContents, odexFileContents);
     }
 
-    public void testForceCompile_curAndRefProfile() throws Exception {
-        Set<ProfileLocation> profileLocations = EnumSet.of(
-                ProfileLocation.CUR, ProfileLocation.REF);
-        if (!canRunTest(profileLocations)) {
-            return;
-        }
-        compileWithProfilesAndCheckFilter(profileLocations);
-        // We assume that the compiler isn't smart enough to realize that the
-        // previous odex was compiled before the ref profile was in place, even
-        // though theoretically it could be.
-        byte[] odexFileContents = readFileOnClient(odexFilePath);
-        assertBytesEqual(initialOdexFileContents, odexFileContents);
+    public void testCompile_curAndRefProfile() throws Exception {
+        compileWithProfilesAndCheckFilter(false /* expectOdexChange */,
+                EnumSet.of(ProfileLocation.CUR, ProfileLocation.REF));
     }
 
     private byte[] readFileOnClient(String clientPath) throws Exception {
         assertTrue("File not found on client: " + clientPath,
-                mDevice.doesFileExist(clientPath));
+                doesFileExist(clientPath));
         File copyOnHost = File.createTempFile("host", "copy");
         try {
-            executeAdbCommand("pull", clientPath, copyOnHost.getPath());
+            executePull(clientPath, copyOnHost.getPath());
             return Files.toByteArray(copyOnHost);
         } finally {
-            boolean successIgnored = copyOnHost.delete();
+            FileUtil.deleteFile(copyOnHost);
         }
     }
 
     /**
      * Places {@link #profileBytes} in the specified locations, recompiles (without -f)
      * and checks the compiler-filter in the odex file.
+     *
+     * @return whether the test ran (as opposed to early exit)
      */
-    private void compileWithProfilesAndCheckFilter(Set<ProfileLocation> profileLocations)
+    private boolean compileWithProfilesAndCheckFilter(boolean expectOdexChange,
+            Set<ProfileLocation> profileLocations)
             throws Exception {
+        if (!canRunTest(profileLocations)) {
+            return false;
+        }
+        // ensure no profiles initially present
+        for (ProfileLocation profileLocation : ProfileLocation.values()) {
+            String clientPath = profileLocation.getPath();
+            if (doesFileExist(clientPath)) {
+                executeSuShellAdbCommand(0, "rm", clientPath);
+            }
+        }
+        executeCompile("-m", "speed-profile", "-f");
+        String odexFilePath = getOdexFilePath();
+        byte[] initialOdexFileContents = readFileOnClient(odexFilePath);
+        assertTrue("empty odex file", initialOdexFileContents.length > 0); // sanity check
+
         for (ProfileLocation profileLocation : profileLocations) {
             writeProfile(profileLocation);
         }
-        executeCompile(/* force */ false);
+        executeCompile("-m", "speed-profile");
 
         // Confirm the compiler-filter used in creating the odex file
         String compilerFilter = getCompilerFilter(odexFilePath);
 
         assertEquals("compiler-filter", "speed-profile", compilerFilter);
+
+        byte[] odexFileContents = readFileOnClient(odexFilePath);
+        boolean odexChanged = !(Arrays.equals(initialOdexFileContents, odexFileContents));
+        if (odexChanged && !expectOdexChange) {
+            String msg = String.format(Locale.US, "Odex file without filters (%d bytes) "
+                    + "unexpectedly different from odex file (%d bytes) compiled with filters: %s",
+                    initialOdexFileContents.length, odexFileContents.length, profileLocations);
+            fail(msg);
+        } else if (!odexChanged && expectOdexChange) {
+            fail("odex file should have changed when recompiling with " + profileLocations);
+        }
+        return true;
     }
 
     /**
      * Invokes the dex2oat compiler on the client.
+     *
+     * @param compileOptions extra options to pass to the compiler on the command line
      */
-    private void executeCompile(boolean force) throws Exception {
-        List<String> command = new ArrayList<>(Arrays.asList("shell", "cmd", "package", "compile",
-                "-m", "speed-profile"));
-        if (force) {
-            command.add("-f");
-        }
+    private void executeCompile(String... compileOptions) throws Exception {
+        List<String> command = new ArrayList<>(Arrays.asList("cmd", "package", "compile"));
+        command.addAll(Arrays.asList(compileOptions));
         command.add(APPLICATION_PACKAGE);
         String[] commandArray = command.toArray(new String[0]);
-        assertEquals("Success", executeAdbCommand(1, commandArray)[0]);
+        assertEquals("Success", executeSuShellAdbCommand(1, commandArray)[0]);
     }
 
     /**
@@ -239,21 +254,21 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         String targetPath = location.getPath();
         // Get the owner of the parent directory so we can set it on the file
         String targetDir = location.getDirectory();
-        if (!mDevice.doesFileExist(targetDir)) {
+        if (!doesFileExist(targetDir)) {
             fail("Not found: " + targetPath);
         }
         // in format group:user so we can directly pass it to chown
-        String owner = executeAdbCommand(1, "shell", "stat", "-c", "%U:%g", targetDir)[0];
+        String owner = executeSuShellAdbCommand(1, "stat", "-c", "%U:%g", targetDir)[0];
         // for some reason, I've observed the output starting with a single space
         while (owner.startsWith(" ")) {
             owner = owner.substring(1);
         }
-        mDevice.executeAdbCommand("push", localProfileFile.getAbsolutePath(), targetPath);
-        executeAdbCommand(0, "shell", "chown", owner, targetPath);
+        executePush(localProfileFile.getAbsolutePath(), targetPath, targetDir);
+        executeSuShellAdbCommand(0, "chown", owner, targetPath);
         // Verify that the file was written successfully
-        assertTrue("failed to create profile file", mDevice.doesFileExist(targetPath));
+        assertTrue("failed to create profile file", doesFileExist(targetPath));
         assertEquals(Integer.toString(profileBytes.length),
-                executeAdbCommand(1, "shell", "stat", "-c", "%s", targetPath)[0]);
+                executeSuShellAdbCommand(1, "stat", "-c", "%s", targetPath)[0]);
     }
 
     /**
@@ -261,8 +276,8 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
      * {@code oatdump --header-only}.
      */
     private String getCompilerFilter(String odexFilePath) throws DeviceNotAvailableException {
-        String[] response = executeAdbCommand(
-                "shell", "oatdump", "--header-only", "--oat-file=" + odexFilePath);
+        String[] response = executeSuShellAdbCommand(
+                "oatdump", "--header-only", "--oat-file=" + odexFilePath);
         String prefix = "compiler-filter =";
         for (String line : response) {
             line = line.trim();
@@ -280,20 +295,20 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
      */
     private String getOdexFilePath() throws DeviceNotAvailableException {
         // Something like "package:/data/app/android.cts.compilation-1/base.apk"
-        String pathSpec = executeAdbCommand(1, "shell", "pm", "path", APPLICATION_PACKAGE)[0];
+        String pathSpec = executeSuShellAdbCommand(1, "pm", "path", APPLICATION_PACKAGE)[0];
         Matcher matcher = Pattern.compile("^package:(.+/)base\\.apk$").matcher(pathSpec);
         boolean found = matcher.find();
         assertTrue("Malformed spec: " + pathSpec, found);
         String apkDir = matcher.group(1);
         // E.g. /data/app/android.cts.compilation-1/oat/arm64/base.odex
-        String result = executeAdbCommand(1, "shell", "find", apkDir, "-name", "base.odex")[0];
-        assertTrue("odex file not found: " + result, mDevice.doesFileExist(result));
+        String result = executeSuShellAdbCommand(1, "find", apkDir, "-name", "base.odex")[0];
+        assertTrue("odex file not found: " + result, doesFileExist(result));
         return result;
     }
 
     /**
-     * Returns whether a test can run in the current device configuration
-     * and for the given profileLocations. This allows tests to exit early.
+     * Returns whether a test that uses the given profileLocations can run
+     * in the current device configuration. This allows tests to exit early.
      *
      * <p>Ideally we'd like tests to be marked as skipped/ignored or similar
      * rather than passing if they can't run on the current device, but that
@@ -301,23 +316,24 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
      * TODO: Use Assume.assumeTrue() if this test gets converted to JUnit 4.
      */
     private boolean canRunTest(Set<ProfileLocation> profileLocations) throws Exception {
-        boolean result = mIsRoot && (profileLocations.isEmpty() || isUseJitProfiles());
+        boolean result = mCanEnableDeviceRootAccess &&
+                (profileLocations.isEmpty() || isUseJitProfiles());
         if (!result) {
-            System.err.printf("Skipping test [isRoot=%s, %d profiles] on %s\n",
-                    mIsRoot, profileLocations.size(), mDevice);
+            System.err.printf("Skipping test [mCanEnableDeviceRootAccess=%s, %d profiles] on %s\n",
+                    mCanEnableDeviceRootAccess, profileLocations.size(), mDevice);
         }
         return result;
     }
 
     private boolean isUseJitProfiles() throws Exception {
         boolean propUseJitProfiles = Boolean.parseBoolean(
-                executeAdbCommand(1, "shell", "getprop", "dalvik.vm.usejitprofiles")[0]);
+                executeSuShellAdbCommand(1, "getprop", "dalvik.vm.usejitprofiles")[0]);
         return propUseJitProfiles;
     }
 
-    private String[] executeAdbCommand(int numLinesOutputExpected, String... command)
+    private String[] executeSuShellAdbCommand(int numLinesOutputExpected, String... command)
             throws DeviceNotAvailableException {
-        String[] lines = executeAdbCommand(command);
+        String[] lines = executeSuShellAdbCommand(command);
         assertEquals(
                 String.format(Locale.US, "Expected %d lines output, got %d running %s: %s",
                         numLinesOutputExpected, lines.length, Arrays.toString(command),
@@ -326,16 +342,88 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         return lines;
     }
 
-    private String[] executeAdbCommand(String... command) throws DeviceNotAvailableException {
-        String output = mDevice.executeAdbCommand(command);
+    private String[] executeSuShellAdbCommand(String... command)
+            throws DeviceNotAvailableException {
+        // Add `shell su root` to the adb command.
+        String cmdString = String.join(" ", command);
+        String output = mDevice.executeShellCommand("su root " + cmdString);
         // "".split() returns { "" }, but we want an empty array
         String[] lines = output.equals("") ? new String[0] : output.split("\n");
         return lines;
     }
 
-    private static void assertBytesEqual(byte[] expected, byte[] actual) {
-        String msg = String.format("Expected %d bytes differ from actual %d bytes",
-                expected.length, actual.length);
-        assertTrue(msg, Arrays.equals(expected, actual));
+    private String getSelinuxLabel(String path) throws DeviceNotAvailableException {
+        // ls -aZ (-a so it sees directories, -Z so it prints the label).
+        String[] res = executeSuShellAdbCommand(String.format(
+            "ls -aZ '%s'", path));
+
+        if (res.length == 0) {
+          return null;
+        }
+
+        // For directories, it will print many outputs. Filter to first line which contains '.'
+        // The target line will look like
+        //      "u:object_r:shell_data_file:s0 /data/local/tmp/android.cts.compilation.primary.prof"
+        // Remove the second word to only return "u:object_r:shell_data_file:s0".
+
+        return res[0].replaceAll("\\s+.*","");  // remove everything following the first whitespace
+    }
+
+    private void checkSelinuxLabelMatches(String a, String b) throws DeviceNotAvailableException {
+      String labelA = getSelinuxLabel(a);
+      String labelB = getSelinuxLabel(b);
+
+      assertEquals("expected the selinux labels to match", labelA, labelB);
+    }
+
+    private void executePush(String hostPath, String targetPath, String targetDirectory)
+            throws DeviceNotAvailableException {
+        // Cannot push to a privileged directory with one command.
+        // (i.e. there is no single-command equivalent of 'adb root; adb push src dst')
+        //
+        // Push to a tmp directory and then move it to the final destination
+        // after updating the selinux label.
+        String tmpPath = "/data/local/tmp/" + APPLICATION_PACKAGE + ".push.tmp";
+        assertTrue(mDevice.pushFile(new File(hostPath), tmpPath));
+
+        // Important: Use "cp" here because it newly copied files will inherit the security context
+        // of the targetDirectory according to the default policy.
+        //
+        // (Other approaches, such as moving the file retain the invalid security context
+        // of the tmp directory - b/37425296)
+        //
+        // This mimics the behavior of 'adb root; adb push $targetPath'.
+        executeSuShellAdbCommand("mv", tmpPath, targetPath);
+
+        // Important: Use "restorecon" here because the file in tmpPath retains the
+        // incompatible security context of /data/local/tmp.
+        //
+        // This mimics the behavior of 'adb root; adb push $targetPath'.
+        executeSuShellAdbCommand("restorecon", targetPath);
+
+        // Validate that the security context of the file matches the security context
+        // of the directory it was pushed to.
+        //
+        // This is a reasonable default behavior to check because most selinux policies
+        // are configured to behave like this.
+        checkSelinuxLabelMatches(targetDirectory, targetPath);
+    }
+
+    private void executePull(String targetPath, String hostPath)
+            throws DeviceNotAvailableException {
+        String tmpPath = "/data/local/tmp/" + APPLICATION_PACKAGE + ".pull.tmp";
+        executeSuShellAdbCommand("cp", targetPath, tmpPath);
+        try {
+            executeSuShellAdbCommand("chmod", "606", tmpPath);
+            assertTrue(mDevice.pullFile(tmpPath, new File(hostPath)));
+        } finally {
+            executeSuShellAdbCommand("rm", tmpPath);
+        }
+    }
+
+    private boolean doesFileExist(String path) throws DeviceNotAvailableException {
+        String[] result = executeSuShellAdbCommand("ls", path);
+        // Testing for empty directories will return an empty array.
+        return !(result.length > 0 && result[0].contains("No such file"));
     }
 }

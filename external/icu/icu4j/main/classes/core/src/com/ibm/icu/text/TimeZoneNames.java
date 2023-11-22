@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2011-2016, International Business Machines Corporation and
@@ -86,43 +88,43 @@ public abstract class TimeZoneNames implements Serializable {
     public enum NameType {
         /**
          * Long display name, such as "Eastern Time".
-         * 
+         *
          * @stable ICU 49
          */
         LONG_GENERIC,
         /**
          * Long display name for standard time, such as "Eastern Standard Time".
-         * 
+         *
          * @stable ICU 49
          */
         LONG_STANDARD,
         /**
          * Long display name for daylight saving time, such as "Eastern Daylight Time".
-         * 
+         *
          * @stable ICU 49
          */
         LONG_DAYLIGHT,
         /**
          * Short display name, such as "ET".
-         * 
+         *
          * @stable ICU 49
          */
         SHORT_GENERIC,
         /**
          * Short display name for standard time, such as "EST".
-         * 
+         *
          * @stable ICU 49
          */
         SHORT_STANDARD,
         /**
          * Short display name for daylight saving time, such as "EDT".
-         * 
+         *
          * @stable ICU 49
          */
         SHORT_DAYLIGHT,
         /**
          * Exemplar location name, such as "Los Angeles".
-         * 
+         *
          * @stable ICU 51
          */
         EXEMPLAR_LOCATION,

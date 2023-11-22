@@ -102,15 +102,16 @@
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
     .global ih264_intra_pred_luma_4x4_mode_vert_av8
 
 ih264_intra_pred_luma_4x4_mode_vert_av8:
 
     push_v_regs
+    sxtw      x3, w3
 
     add       x0, x0, #5
 
@@ -171,9 +172,9 @@ ih264_intra_pred_luma_4x4_mode_vert_av8:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
 
@@ -182,6 +183,7 @@ ih264_intra_pred_luma_4x4_mode_vert_av8:
 ih264_intra_pred_luma_4x4_mode_horz_av8:
 
     push_v_regs
+    sxtw      x3, w3
 
     ld1       {v1.s}[0], [x0]
     dup       v0.8b, v1.b[3]
@@ -246,9 +248,9 @@ ih264_intra_pred_luma_4x4_mode_horz_av8:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
 
@@ -261,41 +263,34 @@ ih264_intra_pred_luma_4x4_mode_dc_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
 
-    ands      x5, x4, #0x01
+    ands      w5, w4, #0x01
     beq       top_available             //LEFT NOT AVAILABLE
 
     add       x10, x0, #3
     mov       x2, #-1
     ldrb      w5, [x10], #-1
-    sxtw      x5, w5
     ldrb      w6, [x10], #-1
-    sxtw      x6, w6
     ldrb      w7, [x10], #-1
-    sxtw      x7, w7
-    add       x5, x5, x6
+    add       w5, w5, w6
     ldrb      w8, [x10], #-1
-    sxtw      x8, w8
-    add       x5, x5, x7
-    ands      x11, x4, #0x04            // CHECKING IF TOP_AVAILABLE  ELSE BRANCHING TO ONLY LEFT AVAILABLE
-    add       x5, x5, x8
+    add       w5, w5, w7
+    ands      w11, w4, #0x04            // CHECKING IF TOP_AVAILABLE  ELSE BRANCHING TO ONLY LEFT AVAILABLE
+    add       w5, w5, w8
     beq       left_available
     add       x10, x0, #5
     //    BOTH LEFT AND TOP AVAILABLE
     ldrb      w6, [x10], #1
-    sxtw      x6, w6
     ldrb      w7, [x10], #1
-    sxtw      x7, w7
-    add       x5, x5, x6
+    add       w5, w5, w6
     ldrb      w8, [x10], #1
-    sxtw      x8, w8
-    add       x5, x5, x7
+    add       w5, w5, w7
     ldrb      w9, [x10], #1
-    sxtw      x9, w9
-    add       x5, x5, x8
-    add       x5, x5, x9
-    add       x5, x5, #4
-    lsr       x5, x5, #3
+    add       w5, w5, w8
+    add       w5, w5, w9
+    add       w5, w5, #4
+    lsr       w5, w5, #3
     dup       v0.8b, w5
     st1       {v0.s}[0], [x1], x3
     st1       {v0.s}[0], [x1], x3
@@ -304,23 +299,19 @@ ih264_intra_pred_luma_4x4_mode_dc_av8:
     b         end_func
 
 top_available: // ONLT TOP AVAILABLE
-    ands      x11, x4, #0x04            // CHECKING TOP AVAILABILTY  OR ELSE BRANCH TO NONE AVAILABLE
+    ands      w11, w4, #0x04            // CHECKING TOP AVAILABILTY  OR ELSE BRANCH TO NONE AVAILABLE
     beq       none_available
 
     add       x10, x0, #5
     ldrb      w6, [x10], #1
-    sxtw      x6, w6
     ldrb      w7, [x10], #1
-    sxtw      x7, w7
     ldrb      w8, [x10], #1
-    sxtw      x8, w8
-    add       x5, x6, x7
+    add       w5, w6, w7
     ldrb      w9, [x10], #1
-    sxtw      x9, w9
-    add       x5, x5, x8
-    add       x5, x5, x9
-    add       x5, x5, #2
-    lsr       x5, x5, #2
+    add       w5, w5, w8
+    add       w5, w5, w9
+    add       w5, w5, #2
+    lsr       w5, w5, #2
     dup       v0.8b, w5
     st1       {v0.s}[0], [x1], x3
     st1       {v0.s}[0], [x1], x3
@@ -401,9 +392,9 @@ end_func:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_4x4_mode_diag_dl_av8
@@ -413,6 +404,7 @@ ih264_intra_pred_luma_4x4_mode_diag_dl_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
 
     add       x0, x0, #5
     sub       x5, x3, #2
@@ -488,9 +480,9 @@ end_func_diag_dl:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_4x4_mode_diag_dr_av8
@@ -499,6 +491,7 @@ ih264_intra_pred_luma_4x4_mode_diag_dr_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
 
 
     ld1       {v0.8b}, [x0]
@@ -571,9 +564,9 @@ end_func_diag_dr:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_4x4_mode_vert_r_av8
@@ -582,6 +575,7 @@ ih264_intra_pred_luma_4x4_mode_vert_r_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
 
 
     ld1       {v0.8b}, [x0]
@@ -656,9 +650,9 @@ end_func_vert_r:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_4x4_mode_horz_d_av8
@@ -667,6 +661,7 @@ ih264_intra_pred_luma_4x4_mode_horz_d_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
 
     ld1       {v0.8b}, [x0]
     add       x0, x0, #1
@@ -743,9 +738,9 @@ end_func_horz_d:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_4x4_mode_vert_l_av8
@@ -754,6 +749,7 @@ ih264_intra_pred_luma_4x4_mode_vert_l_av8:
 
     push_v_regs
     stp       x19, x20, [sp, #-16]!
+    sxtw      x3, w3
     add       x0, x0, #4
     ld1       {v0.8b}, [x0]
     add       x0, x0, #1
@@ -825,9 +821,9 @@ end_func_vert_l:
 //**************Variables Vs Registers*****************************************
 //    x0 => *pu1_src
 //    x1 => *pu1_dst
-//    x2 =>  src_strd
-//    x3 =>  dst_strd
-//   x4 =>  ui_neighboravailability
+//    w2 =>  src_strd
+//    w3 =>  dst_strd
+//    w4 =>  ui_neighboravailability
 
 
     .global ih264_intra_pred_luma_4x4_mode_horz_u_av8
@@ -835,11 +831,11 @@ end_func_vert_l:
 ih264_intra_pred_luma_4x4_mode_horz_u_av8:
 
     push_v_regs
+    sxtw      x3, w3
     stp       x19, x20, [sp, #-16]!
     mov       x10, x0
     ld1       {v0.8b}, [x0]
     ldrb      w9, [x0], #1
-    sxtw      x9, w9
     ext       v1.8b, v0.8b , v0.8b , #1
     ld1       {v0.b}[7], [x10]
     ext       v2.8b, v1.8b , v1.8b , #1

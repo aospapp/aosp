@@ -30,24 +30,11 @@
 #include "arch/instruction_set.h"
 #include "base/casts.h"
 #include "base/logging.h"
-#include "base/mutex.h"
 #include "base/stringpiece.h"
 #include "globals.h"
 #include "primitive.h"
 
-class BacktraceMap;
-
 namespace art {
-
-class ArtField;
-class ArtMethod;
-class DexFile;
-
-namespace mirror {
-class Class;
-class Object;
-class String;
-}  // namespace mirror
 
 template <typename T>
 bool ParseUint(const char *in, T* out) {
@@ -77,43 +64,10 @@ bool ParseInt(const char* in, T* out) {
   return true;
 }
 
-// Return whether x / divisor == x * (1.0f / divisor), for every float x.
-static constexpr bool CanDivideByReciprocalMultiplyFloat(int32_t divisor) {
-  // True, if the most significant bits of divisor are 0.
-  return ((divisor & 0x7fffff) == 0);
-}
-
-// Return whether x / divisor == x * (1.0 / divisor), for every double x.
-static constexpr bool CanDivideByReciprocalMultiplyDouble(int64_t divisor) {
-  // True, if the most significant bits of divisor are 0.
-  return ((divisor & ((UINT64_C(1) << 52) - 1)) == 0);
-}
-
 static inline uint32_t PointerToLowMemUInt32(const void* p) {
   uintptr_t intp = reinterpret_cast<uintptr_t>(p);
   DCHECK_LE(intp, 0xFFFFFFFFU);
   return intp & 0xFFFFFFFFU;
-}
-
-static inline bool NeedsEscaping(uint16_t ch) {
-  return (ch < ' ' || ch > '~');
-}
-
-template <typename T> T SafeAbs(T value) {
-  // std::abs has undefined behavior on min limits.
-  DCHECK_NE(value, std::numeric_limits<T>::min());
-  return std::abs(value);
-}
-
-template <typename T> T AbsOrMin(T value) {
-  return (value == std::numeric_limits<T>::min())
-      ? value
-      : std::abs(value);
-}
-
-template <typename T>
-inline typename std::make_unsigned<T>::type MakeUnsigned(T x) {
-  return static_cast<typename std::make_unsigned<T>::type>(x);
 }
 
 std::string PrintableChar(uint16_t ch);
@@ -122,55 +76,17 @@ std::string PrintableChar(uint16_t ch);
 // Java escapes are used for non-ASCII characters.
 std::string PrintableString(const char* utf8);
 
-// Tests whether 's' starts with 'prefix'.
-bool StartsWith(const std::string& s, const char* prefix);
-
-// Tests whether 's' ends with 'suffix'.
-bool EndsWith(const std::string& s, const char* suffix);
-
 // Used to implement PrettyClass, PrettyField, PrettyMethod, and PrettyTypeOf,
 // one of which is probably more useful to you.
 // Returns a human-readable equivalent of 'descriptor'. So "I" would be "int",
 // "[[I" would be "int[][]", "[Ljava/lang/String;" would be
 // "java.lang.String[]", and so forth.
-std::string PrettyDescriptor(mirror::String* descriptor)
-    SHARED_REQUIRES(Locks::mutator_lock_);
 std::string PrettyDescriptor(const char* descriptor);
-std::string PrettyDescriptor(mirror::Class* klass)
-    SHARED_REQUIRES(Locks::mutator_lock_);
 std::string PrettyDescriptor(Primitive::Type type);
 
-// Returns a human-readable signature for 'f'. Something like "a.b.C.f" or
-// "int a.b.C.f" (depending on the value of 'with_type').
-std::string PrettyField(ArtField* f, bool with_type = true)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-std::string PrettyField(uint32_t field_idx, const DexFile& dex_file, bool with_type = true);
-
-// Returns a human-readable signature for 'm'. Something like "a.b.C.m" or
-// "a.b.C.m(II)V" (depending on the value of 'with_signature').
-std::string PrettyMethod(ArtMethod* m, bool with_signature = true)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-std::string PrettyMethod(uint32_t method_idx, const DexFile& dex_file, bool with_signature = true);
-
-// Returns a human-readable form of the name of the *class* of the given object.
-// So given an instance of java.lang.String, the output would
-// be "java.lang.String". Given an array of int, the output would be "int[]".
-// Given String.class, the output would be "java.lang.Class<java.lang.String>".
-std::string PrettyTypeOf(mirror::Object* obj)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-
-// Returns a human-readable form of the type at an index in the specified dex file.
-// Example outputs: char[], java.lang.String.
-std::string PrettyType(uint32_t type_idx, const DexFile& dex_file);
-
-// Returns a human-readable form of the name of the given class.
-// Given String.class, the output would be "java.lang.Class<java.lang.String>".
-std::string PrettyClass(mirror::Class* c)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-
-// Returns a human-readable form of the name of the given class with its class loader.
-std::string PrettyClassAndClassLoader(mirror::Class* c)
-    SHARED_REQUIRES(Locks::mutator_lock_);
+// Utilities for printing the types for method signatures.
+std::string PrettyArguments(const char* signature);
+std::string PrettyReturnType(const char* signature);
 
 // Returns a human-readable version of the Java part of the access flags, e.g., "private static "
 // (note the trailing whitespace).
@@ -182,6 +98,8 @@ std::string PrettySize(int64_t size_in_bytes);
 // Performs JNI name mangling as described in section 11.3 "Linking Native Methods"
 // of the JNI spec.
 std::string MangleForJni(const std::string& s);
+
+std::string GetJniShortName(const std::string& class_name, const std::string& method_name);
 
 // Turn "java.lang.String" into "Ljava/lang/String;".
 std::string DotToDescriptor(const char* class_name);
@@ -203,13 +121,6 @@ bool IsValidDescriptor(const char* s);       // "Ljava/lang/String;"
 // additionally allowing names that begin with '<' and end with '>'.
 bool IsValidMemberName(const char* s);
 
-// Returns the JNI native function name for the non-overloaded method 'm'.
-std::string JniShortName(ArtMethod* m)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-// Returns the JNI native function name for the overloaded method 'm'.
-std::string JniLongName(ArtMethod* m)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-
 bool ReadFileToString(const std::string& file_name, std::string* result);
 bool PrintFileToLog(const std::string& file_name, LogSeverity level);
 
@@ -217,60 +128,36 @@ bool PrintFileToLog(const std::string& file_name, LogSeverity level);
 // strings. Empty strings will be omitted.
 void Split(const std::string& s, char separator, std::vector<std::string>* result);
 
-// Trims whitespace off both ends of the given string.
-std::string Trim(const std::string& s);
-
-// Joins a vector of strings into a single string, using the given separator.
-template <typename StringT> std::string Join(const std::vector<StringT>& strings, char separator);
-
 // Returns the calling thread's tid. (The C libraries don't expose this.)
 pid_t GetTid();
 
 // Returns the given thread's name.
 std::string GetThreadName(pid_t tid);
 
-// Returns details of the given thread's stack.
-void GetThreadStack(pthread_t thread, void** stack_base, size_t* stack_size, size_t* guard_size);
-
 // Reads data from "/proc/self/task/${tid}/stat".
 void GetTaskStats(pid_t tid, char* state, int* utime, int* stime, int* task_cpu);
-
-// Returns the name of the scheduler group for the given thread the current process, or the empty string.
-std::string GetSchedulerGroupName(pid_t tid);
 
 // Sets the name of the current thread. The name may be truncated to an
 // implementation-defined limit.
 void SetThreadName(const char* thread_name);
 
-// Dumps the native stack for thread 'tid' to 'os'.
-void DumpNativeStack(std::ostream& os,
-                     pid_t tid,
-                     BacktraceMap* map = nullptr,
-                     const char* prefix = "",
-                     ArtMethod* current_method = nullptr,
-                     void* ucontext = nullptr)
-    NO_THREAD_SAFETY_ANALYSIS;
-
-// Dumps the kernel stack for thread 'tid' to 'os'. Note that this is only available on linux-x86.
-void DumpKernelStack(std::ostream& os,
-                     pid_t tid,
-                     const char* prefix = "",
-                     bool include_count = true);
-
 // Find $ANDROID_ROOT, /system, or abort.
 const char* GetAndroidRoot();
+// Find $ANDROID_ROOT, /system, or return null.
+const char* GetAndroidRootSafe(std::string* error_msg);
 
 // Find $ANDROID_DATA, /data, or abort.
 const char* GetAndroidData();
 // Find $ANDROID_DATA, /data, or return null.
 const char* GetAndroidDataSafe(std::string* error_msg);
 
+// Returns the default boot image location (ANDROID_ROOT/framework/boot.art).
+// Returns an empty string if ANDROID_ROOT is not set.
+std::string GetDefaultBootImageLocation(std::string* error_msg);
+
 // Returns the dalvik-cache location, with subdir appended. Returns the empty string if the cache
-// could not be found (or created).
-std::string GetDalvikCache(const char* subdir, bool create_if_absent = true);
-// Returns the dalvik-cache location, or dies trying. subdir will be
-// appended to the cache location.
-std::string GetDalvikCacheOrDie(const char* subdir, bool create_if_absent = true);
+// could not be found.
+std::string GetDalvikCache(const char* subdir);
 // Return true if we found the dalvik cache and stored it in the dalvik_cache argument.
 // have_android_data will be set to true if we have an ANDROID_DATA that exists,
 // dalvik_cache_exists will be true if there is a dalvik-cache directory that is present.
@@ -282,21 +169,23 @@ void GetDalvikCache(const char* subdir, bool create_if_absent, std::string* dalv
 // rooted at cache_location.
 bool GetDalvikCacheFilename(const char* file_location, const char* cache_location,
                             std::string* filename, std::string* error_msg);
-// Returns the absolute dalvik-cache path for a DexFile or OatFile, or
-// dies trying. The path returned will be rooted at cache_location.
-std::string GetDalvikCacheFilenameOrDie(const char* file_location,
-                                        const char* cache_location);
 
 // Returns the system location for an image
 std::string GetSystemImageFilename(const char* location, InstructionSet isa);
 
-// Wrapper on fork/execv to run a command in a subprocess.
-bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg);
-int ExecAndReturnCode(std::vector<std::string>& arg_vector, std::string* error_msg);
+// Returns the vdex filename for the given oat filename.
+std::string GetVdexFilename(const std::string& oat_filename);
 
 // Returns true if the file exists.
 bool FileExists(const std::string& filename);
 bool FileExistsAndNotEmpty(const std::string& filename);
+
+// Returns `filename` with the text after the last occurrence of '.' replaced with
+// `extension`. If `filename` does not contain a period, returns a string containing `filename`,
+// a period, and `new_extension`.
+// Example: ReplaceFileExtension("foo.bar", "abc") == "foo.abc"
+//          ReplaceFileExtension("foo", "abc") == "foo.abc"
+std::string ReplaceFileExtension(const std::string& filename, const std::string& new_extension);
 
 class VoidFunctor {
  public:
@@ -313,15 +202,6 @@ class VoidFunctor {
   }
 };
 
-template <typename Vector>
-void Push32(Vector* buf, int32_t data) {
-  static_assert(std::is_same<typename Vector::value_type, uint8_t>::value, "Invalid value type");
-  buf->push_back(data & 0xff);
-  buf->push_back((data >> 8) & 0xff);
-  buf->push_back((data >> 16) & 0xff);
-  buf->push_back((data >> 24) & 0xff);
-}
-
 inline bool TestBitmap(size_t idx, const uint8_t* bitmap) {
   return ((bitmap[idx / kBitsPerByte] >> (idx % kBitsPerByte)) & 0x01) != 0;
 }
@@ -329,9 +209,6 @@ inline bool TestBitmap(size_t idx, const uint8_t* bitmap) {
 static inline constexpr bool ValidPointerSize(size_t pointer_size) {
   return pointer_size == 4 || pointer_size == 8;
 }
-
-void DumpMethodCFG(ArtMethod* method, std::ostream& os) SHARED_REQUIRES(Locks::mutator_lock_);
-void DumpMethodCFG(const DexFile* dex_file, uint32_t dex_method_idx, std::ostream& os);
 
 static inline const void* EntryPointToCodePointer(const void* entry_point) {
   uintptr_t code = reinterpret_cast<uintptr_t>(entry_point);
@@ -344,22 +221,32 @@ static inline const void* EntryPointToCodePointer(const void* entry_point) {
 using UsageFn = void (*)(const char*, ...);
 
 template <typename T>
-static void ParseUintOption(const StringPiece& option,
+static void ParseIntOption(const StringPiece& option,
                             const std::string& option_name,
                             T* out,
-                            UsageFn Usage,
+                            UsageFn usage,
                             bool is_long_option = true) {
   std::string option_prefix = option_name + (is_long_option ? "=" : "");
   DCHECK(option.starts_with(option_prefix)) << option << " " << option_prefix;
   const char* value_string = option.substr(option_prefix.size()).data();
   int64_t parsed_integer_value = 0;
   if (!ParseInt(value_string, &parsed_integer_value)) {
-    Usage("Failed to parse %s '%s' as an integer", option_name.c_str(), value_string);
-  }
-  if (parsed_integer_value < 0) {
-    Usage("%s passed a negative value %d", option_name.c_str(), parsed_integer_value);
+    usage("Failed to parse %s '%s' as an integer", option_name.c_str(), value_string);
   }
   *out = dchecked_integral_cast<T>(parsed_integer_value);
+}
+
+template <typename T>
+static void ParseUintOption(const StringPiece& option,
+                            const std::string& option_name,
+                            T* out,
+                            UsageFn usage,
+                            bool is_long_option = true) {
+  ParseIntOption(option, option_name, out, usage, is_long_option);
+  if (*out < 0) {
+    usage("%s passed a negative value %d", option_name.c_str(), *out);
+    *out = 0;
+  }
 }
 
 void ParseDouble(const std::string& option,
@@ -382,7 +269,7 @@ using RNG = std::random_device;
 #endif
 
 template <typename T>
-T GetRandomNumber(T min, T max) {
+static T GetRandomNumber(T min, T max) {
   CHECK_LT(min, max);
   std::uniform_int_distribution<T> dist(min, max);
   RNG rng;
@@ -396,21 +283,59 @@ int64_t GetFileSizeBytes(const std::string& filename);
 NO_RETURN void SleepForever();
 
 inline void FlushInstructionCache(char* begin, char* end) {
-  // Only use __builtin___clear_cache with Clang or with GCC >= 4.3.0
-  // (__builtin___clear_cache was introduced in GCC 4.3.0).
-#if defined(__clang__) || GCC_VERSION >= 40300
   __builtin___clear_cache(begin, end);
-#else
-  // Only warn on non-Intel platforms, as x86 and x86-64 do not need
-  // cache flush instructions, as long as the "code uses the same
-  // linear address for modifying and fetching the instruction". See
-  // "Intel(R) 64 and IA-32 Architectures Software Developer's Manual
-  // Volume 3A: System Programming Guide, Part 1", section 11.6
-  // "Self-Modifying Code".
-#if !defined(__i386__) && !defined(__x86_64__)
-  UNIMPLEMENTED(WARNING) << "cache flush";
-#endif
-#endif
+}
+
+inline void FlushDataCache(char* begin, char* end) {
+  // Same as FlushInstructionCache for lack of other builtin. __builtin___clear_cache
+  // flushes both caches.
+  __builtin___clear_cache(begin, end);
+}
+
+template <typename T>
+constexpr PointerSize ConvertToPointerSize(T any) {
+  if (any == 4 || any == 8) {
+    return static_cast<PointerSize>(any);
+  } else {
+    LOG(FATAL);
+    UNREACHABLE();
+  }
+}
+
+// Returns a type cast pointer if object pointed to is within the provided bounds.
+// Otherwise returns nullptr.
+template <typename T>
+inline static T BoundsCheckedCast(const void* pointer,
+                                  const void* lower,
+                                  const void* upper) {
+  const uint8_t* bound_begin = static_cast<const uint8_t*>(lower);
+  const uint8_t* bound_end = static_cast<const uint8_t*>(upper);
+  DCHECK(bound_begin <= bound_end);
+
+  T result = reinterpret_cast<T>(pointer);
+  const uint8_t* begin = static_cast<const uint8_t*>(pointer);
+  const uint8_t* end = begin + sizeof(*result);
+  if (begin < bound_begin || end > bound_end || begin > end) {
+    return nullptr;
+  }
+  return result;
+}
+
+template <typename T, size_t size>
+constexpr size_t ArrayCount(const T (&)[size]) {
+  return size;
+}
+
+// Return -1 if <, 0 if ==, 1 if >.
+template <typename T>
+inline static int32_t Compare(T lhs, T rhs) {
+  return (lhs < rhs) ? -1 : ((lhs == rhs) ? 0 : 1);
+}
+
+// Return -1 if < 0, 0 if == 0, 1 if > 0.
+template <typename T>
+inline static int32_t Signum(T opnd) {
+  return (opnd < 0) ? -1 : ((opnd == 0) ? 0 : 1);
 }
 
 }  // namespace art

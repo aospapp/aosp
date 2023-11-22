@@ -555,6 +555,32 @@ IMPEG2D_ERROR_CODES_T impeg2d_pre_pic_dec_proc(dec_state_t *ps_dec)
             ps_dec->as_recent_fld[1][1] = ps_dec->as_recent_fld[0][1];
         }
 
+        /* Error resilience: If forward and backward pictures are going to be NULL*/
+        /* then assign both to the current                                        */
+        /* if one of them NULL then we will assign the non null to the NULL one   */
+
+        if((NULL == ps_dec->as_recent_fld[0][1].pu1_y) && (NULL == ps_dec->as_recent_fld[1][1].pu1_y))
+        {
+            // assign the current picture to both
+            ps_dec->as_recent_fld[1][0] = ps_dec->s_cur_frm_buf;
+            impeg2d_get_bottom_field_buf(&ps_dec->s_cur_frm_buf, &ps_dec->as_recent_fld[1][1],
+                                         ps_dec->u2_frame_width);
+            ps_dec->as_recent_fld[0][0] = ps_dec->s_cur_frm_buf;
+            ps_dec->as_recent_fld[0][1] = ps_dec->as_recent_fld[1][1];
+        }
+        //Assign the non-null picture to the null picture
+
+        else if((NULL == ps_dec->as_recent_fld[0][1].pu1_y) && (NULL != ps_dec->as_recent_fld[1][1].pu1_y))
+        {
+            ps_dec->as_recent_fld[0][0] = ps_dec->as_recent_fld[1][0];
+            ps_dec->as_recent_fld[0][1] = ps_dec->as_recent_fld[1][1];
+        }
+
+        else if((NULL == ps_dec->as_recent_fld[1][1].pu1_y) && (NULL != ps_dec->as_recent_fld[0][1].pu1_y))
+        {
+            ps_dec->as_recent_fld[1][0] = ps_dec->as_recent_fld[0][0];
+            ps_dec->as_recent_fld[1][1] = ps_dec->as_recent_fld[0][1];
+        }
         ps_dec->as_ref_buf[FORW][TOP]    = ps_dec->as_recent_fld[0][0];
         ps_dec->as_ref_buf[FORW][BOTTOM] = ps_dec->as_recent_fld[0][1];
         ps_dec->as_ref_buf[BACK][TOP]    = ps_dec->as_recent_fld[1][0];

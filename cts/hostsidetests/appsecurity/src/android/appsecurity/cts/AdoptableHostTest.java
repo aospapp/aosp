@@ -23,8 +23,6 @@ import static android.appsecurity.cts.SplitTests.APK_xxhdpi;
 import static android.appsecurity.cts.SplitTests.CLASS;
 import static android.appsecurity.cts.SplitTests.PKG;
 
-import android.appsecurity.cts.SplitTests.BaseInstallMultiple;
-import com.android.cts.migration.MigrationHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -57,6 +55,7 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
     protected void setUp() throws Exception {
         super.setUp();
 
+        Utils.prepareSingleUser(getDevice());
         assertNotNull(mAbi);
         assertNotNull(mCtsBuild);
 
@@ -271,10 +270,14 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
             // Kick through a remount cycle, which should purge the adopted app
             getDevice().executeShellCommand("sm mount " + vol.volId);
             runDeviceTests(PKG, CLASS, "testDataInternal");
+            boolean didThrow = false;
             try {
                 runDeviceTests(PKG, CLASS, "testDataRead");
-                fail("Unexpected data from adopted volume picked up");
             } catch (AssertionError expected) {
+                didThrow = true;
+            }
+            if (!didThrow) {
+                fail("Unexpected data from adopted volume picked up");
             }
             getDevice().executeShellCommand("sm unmount " + vol.volId);
 
@@ -293,8 +296,18 @@ public class AdoptableHostTest extends DeviceTestCase implements IAbiReceiver, I
     }
 
     private String getAdoptionDisk() throws Exception {
-        final String disks = getDevice().executeShellCommand("sm list-disks adoptable");
-        if (disks == null || disks.length() == 0) {
+        // In the case where we run multiple test we cleanup the state of the device. This
+        // results in the execution of sm forget all which causes the MountService to "reset"
+        // all its knowledge about available drives. This can cause the adoptable drive to
+        // become temporarily unavailable.
+        int attempt = 0;
+        String disks = getDevice().executeShellCommand("sm list-disks adoptable");
+        while ((disks == null || disks.isEmpty()) && attempt++ < 15) {
+            Thread.sleep(1000);
+            disks = getDevice().executeShellCommand("sm list-disks adoptable");
+        }
+
+        if (disks == null || disks.isEmpty()) {
             throw new AssertionError("Devices that claim to support adoptable storage must have "
                     + "adoptable media inserted during CTS to verify correct behavior");
         }

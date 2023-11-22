@@ -31,12 +31,21 @@ class login_LoginSuccess(test.test):
                 gobject.MainLoop())
 
 
-    def run_once(self, stress_run=False):
-        # For stress runs, we are extending timeout to find other problems
+    def run_once(self, stress_run=False, arc_mode=None):
+        """
+        Runs the test.
+
+        @param stress_run: True if we are doing a stress run and want to
+                           double the timeout.
+        @param arc_mode: This value is passed to Chrome and determines how
+                         the ARC/Android instance should start. Possible values
+                         are defined in common_lib/cros/arc_common.py.
+
+        """
         if stress_run:
             self._SESSION_STOP_TIMEOUT *= 2
         self._listener.listen_for_session_state_change('started')
-        with chrome.Chrome():
+        with chrome.Chrome(arc_mode=arc_mode):
             self._listener.wait_for_signals(desc='Session started.',
                                             timeout=self._SESSION_START_TIMEOUT)
             # To enable use as a 'helper test'.

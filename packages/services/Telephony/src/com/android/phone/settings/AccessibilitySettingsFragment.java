@@ -19,12 +19,11 @@ package com.android.phone.settings;
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
-import android.preference.CheckBoxPreference;
+import android.preference.SwitchPreference;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.provider.Settings;
-import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -35,9 +34,6 @@ import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
-import com.android.phone.settings.TtyModeListPreference;
-
-import java.util.List;
 
 public class AccessibilitySettingsFragment extends PreferenceFragment {
     private static final String LOG_TAG = AccessibilitySettingsFragment.class.getSimpleName();
@@ -60,7 +56,7 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
             if (pref != null) {
                 final boolean isVolteTtySupported = ImsManager.isVolteEnabledByPlatform(mContext)
                         && getVolteTtySupported();
-                pref.setEnabled((isVolteTtySupported && !isVideoCallInProgress()) ||
+                pref.setEnabled((isVolteTtySupported && !isVideoCallOrConferenceInProgress()) ||
                         (state == TelephonyManager.CALL_STATE_IDLE));
             }
         }
@@ -70,7 +66,7 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
     private AudioManager mAudioManager;
 
     private TtyModeListPreference mButtonTty;
-    private CheckBoxPreference mButtonHac;
+    private SwitchPreference mButtonHac;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -83,7 +79,7 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
 
         mButtonTty = (TtyModeListPreference) findPreference(
                 getResources().getString(R.string.tty_mode_key));
-        mButtonHac = (CheckBoxPreference) findPreference(BUTTON_HAC_KEY);
+        mButtonHac = (SwitchPreference) findPreference(BUTTON_HAC_KEY);
 
         if (PhoneGlobals.getInstance().phoneMgr.isTtyModeSupported()) {
             mButtonTty.init();
@@ -144,15 +140,15 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
                 CarrierConfigManager.KEY_CARRIER_VOLTE_TTY_SUPPORTED_BOOL);
     }
 
-    private boolean isVideoCallInProgress() {
+    private boolean isVideoCallOrConferenceInProgress() {
         final Phone[] phones = PhoneFactory.getPhones();
         if (phones == null) {
-            if (DBG) Log.d(LOG_TAG, "isVideoCallInProgress: No phones found. Return false");
+            if (DBG) Log.d(LOG_TAG, "isVideoCallOrConferenceInProgress: No phones found.");
             return false;
         }
 
         for (Phone phone : phones) {
-            if (phone.isVideoCallPresent()) {
+            if (phone.isImsVideoCallOrConferencePresent()) {
                 return true;
             }
         }

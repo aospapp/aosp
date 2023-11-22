@@ -19,11 +19,16 @@ package com.android.compatibility.common.tradefed.targetprep;
 import com.android.compatibility.common.util.MonitoringUtils;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.suite.checker.ISystemStatusChecker;
 
 /**
  * Checks network connectivity status on device after module execution.
  */
-public class NetworkConnectivityChecker extends SystemStatusChecker {
+public class NetworkConnectivityChecker implements ISystemStatusChecker {
+
+    // Only report is as failed (capture bugreport) when status goes from pass-> fail
+    private boolean mIsFailed = false;
 
     /**
      * {@inheritDoc}
@@ -31,9 +36,15 @@ public class NetworkConnectivityChecker extends SystemStatusChecker {
     @Override
     public boolean postExecutionCheck(ITestDevice device) throws DeviceNotAvailableException {
         if (!MonitoringUtils.checkDeviceConnectivity(device)) {
-            setFailureMessage("failed network connectivity check");
+            if (mIsFailed) {
+                CLog.w("NetworkConnectivityChecker is still failing on %s.",
+                        device.getSerialNumber());
+                return true;
+            }
+            mIsFailed = true;
             return false;
         }
+        mIsFailed = false;
         return true;
     }
 }

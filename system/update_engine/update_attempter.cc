@@ -32,13 +32,11 @@
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <brillo/bind_lambda.h>
+#include <brillo/errors/error_codes.h>
 #include <brillo/make_unique_ptr.h>
 #include <brillo/message_loops/message_loop.h>
-#include <debugd/dbus-constants.h>
 #include <policy/device_policy.h>
 #include <policy/libpolicy.h>
-#include <power_manager/dbus-constants.h>
-#include <power_manager/dbus-proxies.h>
 #include <update_engine/dbus-constants.h>
 
 #include "update_engine/certificate_checker.h"
@@ -51,7 +49,6 @@
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/dbus_service.h"
 #include "update_engine/libcurl_http_fetcher.h"
 #include "update_engine/metrics.h"
 #include "update_engine/omaha_request_action.h"
@@ -62,6 +59,7 @@
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
 #include "update_engine/payload_consumer/postinstall_runner_action.h"
 #include "update_engine/payload_state_interface.h"
+#include "update_engine/power_manager_interface.h"
 #include "update_engine/system_state.h"
 #include "update_engine/update_manager/policy.h"
 #include "update_engine/update_manager/update_manager.h"
@@ -121,18 +119,17 @@ ErrorCode GetErrorCodeForAction(AbstractAction* action,
   return code;
 }
 
-UpdateAttempter::UpdateAttempter(
-    SystemState* system_state,
-    CertificateChecker* cert_checker,
-    LibCrosProxy* libcros_proxy,
-    org::chromium::debugdProxyInterface* debugd_proxy)
+UpdateAttempter::UpdateAttempter(SystemState* system_state,
+                                 CertificateChecker* cert_checker,
+                                 LibCrosProxy* libcros_proxy)
     : processor_(new ActionProcessor()),
       system_state_(system_state),
-      cert_checker_(cert_checker),
 #if USE_LIBCROS
-      chrome_proxy_resolver_(libcros_proxy),
+      cert_checker_(cert_checker),
+      chrome_proxy_resolver_(libcros_proxy) {
+#else
+      cert_checker_(cert_checker) {
 #endif  // USE_LIBCROS
-      debugd_proxy_(debugd_proxy) {
 }
 
 UpdateAttempter::~UpdateAttempter() {
@@ -479,8 +476,10 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
     LOG(INFO) << "Scattering disabled since scatter factor is set to 0";
   } else if (interactive) {
     LOG(INFO) << "Scattering disabled as this is an interactive update check";
-  } else if (!system_state_->hardware()->IsOOBEComplete(nullptr)) {
-    LOG(INFO) << "Scattering disabled since OOBE is not complete yet";
+  } else if (system_state_->hardware()->IsOOBEEnabled() &&
+             !system_state_->hardware()->IsOOBEComplete(nullptr)) {
+    LOG(INFO) << "Scattering disabled since OOBE is enabled but not complete "
+                 "yet";
   } else {
     is_scatter_enabled = true;
     LOG(INFO) << "Scattering is enabled";
@@ -611,9 +610,6 @@ void UpdateAttempter::BuildUpdateActions(bool interactive) {
                              false));
   shared_ptr<OmahaResponseHandlerAction> response_handler_action(
       new OmahaResponseHandlerAction(system_state_));
-  shared_ptr<FilesystemVerifierAction> src_filesystem_verifier_action(
-      new FilesystemVerifierAction(system_state_->boot_control(),
-                                   VerifierMode::kComputeSourceHash));
 
   shared_ptr<OmahaRequestAction> download_started_action(
       new OmahaRequestAction(system_state_,
@@ -641,9 +637,8 @@ void UpdateAttempter::BuildUpdateActions(bool interactive) {
               new LibcurlHttpFetcher(GetProxyResolver(),
                                      system_state_->hardware())),
           false));
-  shared_ptr<FilesystemVerifierAction> dst_filesystem_verifier_action(
-      new FilesystemVerifierAction(system_state_->boot_control(),
-                                   VerifierMode::kVerifyTargetHash));
+  shared_ptr<FilesystemVerifierAction> filesystem_verifier_action(
+      new FilesystemVerifierAction());
   shared_ptr<OmahaRequestAction> update_complete_action(
       new OmahaRequestAction(
           system_state_,
@@ -659,25 +654,20 @@ void UpdateAttempter::BuildUpdateActions(bool interactive) {
 
   actions_.push_back(shared_ptr<AbstractAction>(update_check_action));
   actions_.push_back(shared_ptr<AbstractAction>(response_handler_action));
-  actions_.push_back(shared_ptr<AbstractAction>(
-      src_filesystem_verifier_action));
   actions_.push_back(shared_ptr<AbstractAction>(download_started_action));
   actions_.push_back(shared_ptr<AbstractAction>(download_action));
   actions_.push_back(shared_ptr<AbstractAction>(download_finished_action));
-  actions_.push_back(shared_ptr<AbstractAction>(
-      dst_filesystem_verifier_action));
+  actions_.push_back(shared_ptr<AbstractAction>(filesystem_verifier_action));
 
   // Bond them together. We have to use the leaf-types when calling
   // BondActions().
   BondActions(update_check_action.get(),
               response_handler_action.get());
   BondActions(response_handler_action.get(),
-              src_filesystem_verifier_action.get());
-  BondActions(src_filesystem_verifier_action.get(),
               download_action.get());
   BondActions(download_action.get(),
-              dst_filesystem_verifier_action.get());
-  BuildPostInstallActions(dst_filesystem_verifier_action.get());
+              filesystem_verifier_action.get());
+  BuildPostInstallActions(filesystem_verifier_action.get());
 
   actions_.push_back(shared_ptr<AbstractAction>(update_complete_action));
 
@@ -825,7 +815,7 @@ bool UpdateAttempter::RebootIfNeeded() {
     return false;
   }
 
-  if (USE_POWER_MANAGEMENT && RequestPowerManagerReboot())
+  if (system_state_->power_manager()->RequestReboot())
     return true;
 
   return RebootDirectly();
@@ -839,20 +829,6 @@ void UpdateAttempter::WriteUpdateCompletedMarker() {
 
   int64_t value = system_state_->clock()->GetBootTime().ToInternalValue();
   prefs_->SetInt64(kPrefsUpdateCompletedBootTime, value);
-}
-
-bool UpdateAttempter::RequestPowerManagerReboot() {
-  org::chromium::PowerManagerProxyInterface* power_manager_proxy =
-      system_state_->power_manager_proxy();
-  if (!power_manager_proxy) {
-    LOG(WARNING) << "No PowerManager proxy defined, skipping reboot.";
-    return false;
-  }
-  LOG(INFO) << "Calling " << power_manager::kPowerManagerInterface << "."
-            << power_manager::kRequestRestartMethod;
-  brillo::ErrorPtr error;
-  return power_manager_proxy->RequestRestart(
-      power_manager::REQUEST_RESTART_FOR_UPDATE, &error);
 }
 
 bool UpdateAttempter::RebootDirectly() {
@@ -887,14 +863,12 @@ void UpdateAttempter::OnUpdateScheduled(EvalStatus status,
               << (params.is_interactive ? "interactive" : "periodic")
               << " update.";
 
-    string app_version, omaha_url;
-    if (params.is_interactive) {
-      app_version = forced_app_version_;
-      omaha_url = forced_omaha_url_;
-    }
-
-    Update(app_version, omaha_url, params.target_channel,
+    Update(forced_app_version_, forced_omaha_url_, params.target_channel,
            params.target_version_prefix, false, params.is_interactive);
+    // Always clear the forced app_version and omaha_url after an update attempt
+    // so the next update uses the defaults.
+    forced_app_version_.clear();
+    forced_omaha_url_.clear();
   } else {
     LOG(WARNING)
         << "Update check scheduling failed (possibly timed out); retrying.";
@@ -1166,6 +1140,12 @@ bool UpdateAttempter::ResetStatus() {
       if (!boot_control->SetActiveBootSlot(boot_control->GetCurrentSlot()))
         ret_value = false;
 
+      // Mark the current slot as successful again, since marking it as active
+      // may reset the successful bit. We ignore the result of whether marking
+      // the current slot as successful worked.
+      if (!boot_control->MarkBootSuccessfulAsync(Bind([](bool successful){})))
+        ret_value = false;
+
       // Notify the PayloadState that the successful payload was canceled.
       system_state_->payload_state()->ResetUpdateStatus();
 
@@ -1364,7 +1344,8 @@ void UpdateAttempter::ScheduleProcessingStart() {
   start_action_processor_ = false;
   MessageLoop::current()->PostTask(
       FROM_HERE,
-      Bind([this] { this->processor_->StartProcessing(); }));
+      Bind([](ActionProcessor* processor) { processor->StartProcessing(); },
+           base::Unretained(processor_.get())));
 }
 
 void UpdateAttempter::DisableDeltaUpdateIfNeeded() {
@@ -1604,28 +1585,13 @@ bool UpdateAttempter::IsAnyUpdateSourceAllowed() {
     return true;
   }
 
-  // Even though the debugd tools are also gated on devmode, checking here can
-  // save us a D-Bus call so it's worth doing explicitly.
-  if (system_state_->hardware()->IsNormalBootMode()) {
-    LOG(INFO) << "Not in devmode; disallowing custom update sources.";
-    return false;
-  }
-
-  // Official images in devmode are allowed a custom update source iff the
-  // debugd dev tools are enabled.
-  if (!debugd_proxy_)
-    return false;
-  int32_t dev_features = debugd::DEV_FEATURES_DISABLED;
-  brillo::ErrorPtr error;
-  bool success = debugd_proxy_->QueryDevFeatures(&dev_features, &error);
-
-  // Some boards may not include debugd so it's expected that this may fail,
-  // in which case we default to disallowing custom update sources.
-  if (success && !(dev_features & debugd::DEV_FEATURES_DISABLED)) {
-    LOG(INFO) << "Debugd dev tools enabled; allowing any update source.";
+  if (system_state_->hardware()->AreDevFeaturesEnabled()) {
+    LOG(INFO) << "Developer features enabled; allowing custom update sources.";
     return true;
   }
-  LOG(INFO) << "Debugd dev tools disabled; disallowing custom update sources.";
+
+  LOG(INFO)
+      << "Developer features disabled; disallowing custom update sources.";
   return false;
 }
 

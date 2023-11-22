@@ -16,8 +16,6 @@
 
 package android.webkit.cts;
 
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.net.Uri;
 import android.net.http.SslCertificate;
 import android.net.http.SslError;
@@ -33,6 +31,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;

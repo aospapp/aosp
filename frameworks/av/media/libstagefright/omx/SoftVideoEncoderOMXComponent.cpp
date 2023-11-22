@@ -30,8 +30,11 @@
 #include <media/stagefright/foundation/AUtils.h>
 #include <media/stagefright/MediaDefs.h>
 
-#include <ui/GraphicBuffer.h>
+#include <ui/Fence.h>
 #include <ui/GraphicBufferMapper.h>
+#include <ui/Rect.h>
+
+#include <hardware/gralloc.h>
 
 #include <OMX_IndexExt.h>
 
@@ -480,18 +483,25 @@ void SoftVideoEncoderOMXComponent::ConvertRGB32ToPlanar(
             unsigned green = src[greenOffset];
             unsigned blue  = src[blueOffset];
 
-            // using ITU-R BT.601 conversion matrix
+            // Using ITU-R BT.601-7 (03/2011)
+            //   2.5.1: Ey'  = ( 0.299*R + 0.587*G + 0.114*B)
+            //   2.5.2: ECr' = ( 0.701*R - 0.587*G - 0.114*B) / 1.402
+            //          ECb' = (-0.299*R - 0.587*G + 0.886*B) / 1.772
+            //   2.5.3: Y  = 219 * Ey'  +  16
+            //          Cr = 224 * ECr' + 128
+            //          Cb = 224 * ECb' + 128
+
             unsigned luma =
-                ((red * 66 + green * 129 + blue * 25) >> 8) + 16;
+                ((red * 65 + green * 129 + blue * 25 + 128) >> 8) + 16;
 
             dstY[x] = luma;
 
             if ((x & 1) == 0 && (y & 1) == 0) {
                 unsigned U =
-                    ((-red * 38 - green * 74 + blue * 112) >> 8) + 128;
+                    ((-red * 38 - green * 74 + blue * 112 + 128) >> 8) + 128;
 
                 unsigned V =
-                    ((red * 112 - green * 94 - blue * 18) >> 8) + 128;
+                    ((red * 112 - green * 94 - blue * 18 + 128) >> 8) + 128;
 
                 dstU[x >> 1] = U;
                 dstV[x >> 1] = V;
@@ -541,6 +551,7 @@ const uint8_t *SoftVideoEncoderOMXComponent::extractGraphicBuffer(
         srcVStride = buffer->height;
         // convert stride from pixels to bytes
         if (format != HAL_PIXEL_FORMAT_YV12 &&
+            format != HAL_PIXEL_FORMAT_YCrCb_420_SP &&
             format != HAL_PIXEL_FORMAT_YCbCr_420_888) {
             // TODO do we need to support other formats?
             srcStride *= 4;
@@ -603,26 +614,24 @@ const uint8_t *SoftVideoEncoderOMXComponent::extractGraphicBuffer(
 
     switch (format) {
         case HAL_PIXEL_FORMAT_YV12:  // YCrCb / YVU planar
-            // convert to flex YUV
             ycbcr.y = bits;
             ycbcr.cr = (uint8_t *)bits + srcStride * srcVStride;
             ycbcr.cb = (uint8_t *)ycbcr.cr + (srcStride >> 1) * (srcVStride >> 1);
             ycbcr.chroma_step = 1;
-            ycbcr.cstride = srcVStride >> 1;
-            ycbcr.ystride = srcVStride;
+            ycbcr.cstride = srcStride >> 1;
+            ycbcr.ystride = srcStride;
             ConvertFlexYUVToPlanar(dst, dstStride, dstVStride, &ycbcr, width, height);
             break;
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:  // YCrCb / YVU semiplanar, NV21
-            // convert to flex YUV
             ycbcr.y = bits;
             ycbcr.cr = (uint8_t *)bits + srcStride * srcVStride;
             ycbcr.cb = (uint8_t *)ycbcr.cr + 1;
             ycbcr.chroma_step = 2;
-            ycbcr.cstride = srcVStride;
-            ycbcr.ystride = srcVStride;
+            ycbcr.cstride = srcStride;
+            ycbcr.ystride = srcStride;
             ConvertFlexYUVToPlanar(dst, dstStride, dstVStride, &ycbcr, width, height);
             break;
-        case HAL_PIXEL_FORMAT_YCbCr_420_888:
+        case HAL_PIXEL_FORMAT_YCbCr_420_888:  // YCbCr / YUV planar
             ConvertFlexYUVToPlanar(dst, dstStride, dstVStride, &ycbcr, width, height);
             break;
         case HAL_PIXEL_FORMAT_RGBX_8888:

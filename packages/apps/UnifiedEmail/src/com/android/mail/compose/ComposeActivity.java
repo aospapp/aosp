@@ -36,6 +36,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.Loader;
 import android.content.pm.ActivityInfo;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Rect;
@@ -50,7 +51,7 @@ import android.os.ParcelFileDescriptor;
 import android.provider.BaseColumns;
 import android.support.v4.app.RemoteInput;
 import android.support.v7.app.ActionBar;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.text.Editable;
 import android.text.Html;
@@ -137,7 +138,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class ComposeActivity extends ActionBarActivity
+public class ComposeActivity extends AppCompatActivity
         implements OnClickListener, ActionBar.OnNavigationListener,
         RespondInlineListener, TextWatcher,
         AttachmentAddedOrDeletedListener, OnAccountChangedListener,
@@ -1834,12 +1835,16 @@ public class ComposeActivity extends ActionBarActivity
         addAttachments(refMessage.getAttachments());
     }
 
-    public long addAttachments(List<Attachment> attachments) {
-        long size = 0;
+    /**
+     * @return true if at least one file is attached.
+     */
+    public boolean addAttachments(List<Attachment> attachments) {
+        boolean attached = false;
         AttachmentFailureException error = null;
         for (Attachment a : attachments) {
             try {
-                size += mAttachmentsView.addAttachment(mAccount, a);
+                mAttachmentsView.addAttachment(mAccount, a);
+                attached = true;
             } catch (AttachmentFailureException e) {
                 error = e;
             }
@@ -1852,7 +1857,7 @@ public class ComposeActivity extends ActionBarActivity
                 showAttachmentTooBigToast(error.getErrorRes());
             }
         }
-        return size;
+        return attached;
     }
 
     /**
@@ -1881,33 +1886,30 @@ public class ComposeActivity extends ActionBarActivity
         }
         final String action = intent.getAction();
         if (!mAttachmentsChanged) {
-            long totalSize = 0;
+            boolean attached = false;
             if (extras.containsKey(EXTRA_ATTACHMENTS)) {
                 final String[] uris = (String[]) extras.getSerializable(EXTRA_ATTACHMENTS);
                 final ArrayList<Uri> parsedUris = Lists.newArrayListWithCapacity(uris.length);
                 for (String uri : uris) {
                     parsedUris.add(Uri.parse(uri));
                 }
-                totalSize += handleAttachmentUrisFromIntent(parsedUris);
+                attached |= handleAttachmentUrisFromIntent(parsedUris);
             }
             if (extras.containsKey(Intent.EXTRA_STREAM)) {
                 if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
                     final ArrayList<Uri> uris = extras
                             .getParcelableArrayList(Intent.EXTRA_STREAM);
-                    totalSize += handleAttachmentUrisFromIntent(uris);
+                    attached |= handleAttachmentUrisFromIntent(uris);
                 } else {
                     final Uri uri = extras.getParcelable(Intent.EXTRA_STREAM);
                     final ArrayList<Uri> uris = Lists.newArrayList(uri);
-                    totalSize += handleAttachmentUrisFromIntent(uris);
+                    attached |= handleAttachmentUrisFromIntent(uris);
                 }
             }
 
-            if (totalSize > 0) {
+            if (attached) {
                 mAttachmentsChanged = true;
                 updateSaveUi();
-
-                Analytics.getInstance().sendEvent("send_intent_with_attachments",
-                        Integer.toString(getAttachments().size()), null, totalSize);
             }
         }
     }
@@ -1923,9 +1925,9 @@ public class ComposeActivity extends ActionBarActivity
 
     /**
      * Helper function to handle a list of uris to attach.
-     * @return the total size of all successfully attached files.
+     * @return true if anything has been attached.
      */
-    private long handleAttachmentUrisFromIntent(List<Uri> uris) {
+    private boolean handleAttachmentUrisFromIntent(List<Uri> uris) {
         ArrayList<Attachment> attachments = Lists.newArrayList();
         for (Uri uri : uris) {
             try {
@@ -2018,19 +2020,15 @@ public class ComposeActivity extends ActionBarActivity
         if (contentUri == null) {
             return;
         }
-        try {
 
-            if (handleSpecialAttachmentUri(contentUri)) {
-                return;
-            }
+        if (handleSpecialAttachmentUri(contentUri)) {
+            return;
+        }
 
-            addAttachmentAndUpdateView(mAttachmentsView.generateLocalAttachment(contentUri));
-        } catch (AttachmentFailureException e) {
-            LogUtils.e(LOG_TAG, e, "Error adding attachment");
-            showErrorToast(getResources().getString(
-                    e.getErrorRes(),
-                    AttachmentUtils.convertToHumanReadableSize(
-                            getApplicationContext(), mAccount.settings.getMaxAttachmentSize())));
+        final boolean attached = handleAttachmentUrisFromIntent(Arrays.asList(contentUri));
+        if (attached) {
+            mAttachmentsChanged = true;
+            updateSaveUi();
         }
     }
 
@@ -2046,11 +2044,9 @@ public class ComposeActivity extends ActionBarActivity
 
     private void addAttachmentAndUpdateView(Attachment attachment) {
         try {
-            long size = mAttachmentsView.addAttachment(mAccount, attachment);
-            if (size > 0) {
-                mAttachmentsChanged = true;
-                updateSaveUi();
-            }
+            mAttachmentsView.addAttachment(mAccount, attachment);
+            mAttachmentsChanged = true;
+            updateSaveUi();
         } catch (AttachmentFailureException e) {
             LogUtils.e(LOG_TAG, e, "Error adding attachment");
             showAttachmentTooBigToast(e.getErrorRes());
@@ -2609,7 +2605,7 @@ public class ComposeActivity extends ActionBarActivity
         if (openedFds != null) {
             final Set<String> keys = openedFds.keySet();
             for (final String key : keys) {
-                final ParcelFileDescriptor fd = openedFds.getParcelable(key);
+                final AssetFileDescriptor fd = openedFds.getParcelable(key);
                 if (fd != null) {
                     try {
                         fd.close();
@@ -2719,9 +2715,16 @@ public class ComposeActivity extends ActionBarActivity
                 continue;
             }
 
-            ParcelFileDescriptor fileDescriptor;
+            AssetFileDescriptor fileDescriptor;
             try {
-                fileDescriptor = resolver.openFileDescriptor(attachment.contentUri, "r");
+                if (attachment.virtualMimeType == null) {
+                    fileDescriptor = new AssetFileDescriptor(
+                        resolver.openFileDescriptor(attachment.contentUri, "r"), 0,
+                        AssetFileDescriptor.UNKNOWN_LENGTH);
+                } else {
+                    fileDescriptor = resolver.openTypedAssetFileDescriptor(
+                            attachment.contentUri, attachment.virtualMimeType, null, null);
+                }
             } catch (FileNotFoundException e) {
                 LogUtils.e(LOG_TAG, e, "Exception attempting to open attachment");
                 fileDescriptor = null;
@@ -3428,7 +3431,6 @@ public class ComposeActivity extends ActionBarActivity
     @SuppressLint("NewApi")
     private void doAttach(String type) {
         Intent i = new Intent(Intent.ACTION_GET_CONTENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
         i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         i.setType(type);

@@ -17,13 +17,16 @@
 #define LOG_TAG "EffectProxy"
 //#define LOG_NDEBUG 0
 
-#include <cutils/log.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <new>
+
 #include <EffectProxy.h>
+
+#include <log/log.h>
 #include <utils/threads.h>
+
 #include <media/EffectsFactoryApi.h>
 
 namespace android {
@@ -41,12 +44,6 @@ const effect_descriptor_t gProxyDescriptor = {
         1, // Data memory
         "Proxy", //effect name
         "AOSP", //implementor name
-};
-
-
-static const effect_descriptor_t *const gDescriptors[] =
-{
-    &gProxyDescriptor,
 };
 
 
@@ -91,6 +88,7 @@ int EffectProxyCreate(const effect_uuid_t *uuid,
        delete[] pContext->sube;
        delete[] pContext->desc;
        delete[] pContext->aeli;
+       delete pContext;
        return -EINVAL;
     }
     // Check which is the HW descriptor and copy the descriptors
@@ -241,6 +239,11 @@ int Effect_command(effect_handle_t  self,
     // pCmdData points to a memory holding effect_offload_param_t structure
     if (cmdCode == EFFECT_CMD_OFFLOAD) {
         ALOGV("Effect_command() cmdCode = EFFECT_CMD_OFFLOAD");
+        if (replySize == NULL || *replySize < sizeof(int)) {
+            ALOGV("effectsOffload: Effect_command: CMD_OFFLOAD has no reply");
+            android_errorWriteLog(0x534e4554, "32448121");
+            return FAILED_TRANSACTION;
+        }
         if (cmdSize == 0 || pCmdData == NULL) {
             ALOGV("effectsOffload: Effect_command: CMD_OFFLOAD has no data");
              *(int*)pReplyData = FAILED_TRANSACTION;

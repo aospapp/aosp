@@ -17,8 +17,8 @@
 #include "rsContext.h"
 #include <time.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 Script::Script(Context *rsc) : ObjectBase(rsc) {
     memset(&mEnviroment, 0, sizeof(mEnviroment));
@@ -145,9 +145,6 @@ RsA3DClassID ScriptFieldID::getClassId() const {
     return RS_A3D_CLASS_ID_SCRIPT_FIELD_ID;
 }
 
-
-namespace android {
-namespace renderscript {
 
 RsScriptKernelID rsi_ScriptKernelIDCreate(Context *rsc, RsScript vs, int slot, int sig) {
     ScriptKernelID *kid = new ScriptKernelID(rsc, (Script *)vs, slot, sig);
@@ -296,5 +293,5 @@ void rsi_ScriptSetVarVE(Context *rsc, RsScript vs, uint32_t slot,
     s->setVar(slot, data, len, e, dims, dimLen);
 }
 
-}
-}
+} // namespace renderscript
+} // namespace android

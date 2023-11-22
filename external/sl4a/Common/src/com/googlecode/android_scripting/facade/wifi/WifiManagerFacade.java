@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package com.googlecode.android_scripting.facade.wifi;
 
@@ -12,6 +27,8 @@ import android.net.DhcpInfo;
 import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
+import android.net.wifi.hotspot2.ConfigParser;
+import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiActivityEnergyInfo;
 import android.net.wifi.WifiConfiguration;
@@ -26,12 +43,14 @@ import android.os.Bundle;
 import android.provider.Settings.Global;
 import android.provider.Settings.SettingNotFoundException;
 import android.util.Base64;
+import java.util.Arrays;
 
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
 import com.googlecode.android_scripting.facade.FacadeManager;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
+import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
@@ -45,7 +64,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
-import java.net.ConnectException;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -60,7 +78,6 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
 
-
 /**
  * WifiManager functions.
  */
@@ -68,6 +85,8 @@ import java.util.List;
 // e.g. wifi connection result will be null when flight mode is on
 public class WifiManagerFacade extends RpcReceiver {
     private final static String mEventType = "WifiManager";
+    // MIME type for passpoint config.
+    private final static String TYPE_WIFICONFIG = "application/x-wifi-config";
     private final Service mService;
     private final WifiManager mWifi;
     private final EventFacade mEventFacade;
@@ -330,7 +349,9 @@ public class WifiManagerFacade extends RpcReceiver {
         config.allowedKeyManagement.set(KeyMgmt.WPA_EAP);
         config.allowedKeyManagement.set(KeyMgmt.IEEE8021X);
         if (j.has("SSID")) {
-            config.SSID = j.getString("SSID");
+            config.SSID = "\"" + j.getString("SSID") + "\"";
+        } else if (j.has("ssid")) {
+            config.SSID = "\"" + j.getString("ssid") + "\"";
         }
         if (j.has("FQDN")) {
             config.FQDN = j.getString("FQDN");
@@ -485,16 +506,6 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.addNetwork(genWifiConfig(wifiConfig));
     }
 
-    @Rpc(description = "Builds a WifiConfiguration from Hotspot 2.0 MIME file.")
-    public WifiConfiguration wifiBuildConfig(
-            @RpcParameter(name = "uriString") String uriString,
-            @RpcParameter(name = "mimeType") String mimeType,
-            String dataString)
-                    throws JSONException {
-        byte[] data = base64StrToBytes(dataString);
-        return mWifi.buildWifiConfig(uriString, mimeType, data);
-    }
-
     @Rpc(description = "Cancel Wi-fi Protected Setup.")
     public void wifiCancelWps() throws JSONException {
         WifiWpsCallback listener = new WifiWpsCallback();
@@ -507,25 +518,127 @@ public class WifiManagerFacade extends RpcReceiver {
     }
 
     /**
-     * Connects to a WPA protected wifi network
-     *
-     * @param wifiSSID SSID of the wifi network
-     * @param wifiPassword password for the wifi network
-     * @return true on success
-     * @throws ConnectException
+    * @deprecated Use {@link #wifiConnectByConfig(config)} instead.
+    */
+    @Rpc(description = "Connects to the network with the given configuration")
+    @Deprecated
+    public Boolean wifiConnect(@RpcParameter(name = "config") JSONObject config)
+            throws JSONException {
+        try {
+            wifiConnectByConfig(config);
+        } catch (GeneralSecurityException e) {
+            String msg = "Caught GeneralSecurityException with the provided"
+                         + "configuration";
+            throw new RuntimeException(msg);
+        }
+        return true;
+    }
+
+    /**
+    * @deprecated Use {@link #wifiConnectByConfig(config)} instead.
+    */
+    @Rpc(description = "Connects to the network with the given configuration")
+    @Deprecated
+    public Boolean wifiEnterpriseConnect(@RpcParameter(name = "config")
+            JSONObject config) throws JSONException, GeneralSecurityException {
+        try {
+            wifiConnectByConfig(config);
+        } catch (GeneralSecurityException e) {
+            throw e;
+        }
+        return true;
+    }
+
+    /**
+     * Connects to a wifi network using configuration.
+     * @param config JSONObject Dictionary of wifi connection parameters
+     * @throws JSONException
+     * @throws GeneralSecurityException
+     */
+    @Rpc(description = "Connects to the network with the given configuration")
+    public void wifiConnectByConfig(@RpcParameter(name = "config") JSONObject config)
+            throws JSONException, GeneralSecurityException {
+        WifiConfiguration wifiConfig;
+        WifiActionListener listener;
+        // Check if this is 802.1x or 802.11x config.
+        if (config.has(WifiEnterpriseConfig.EAP_KEY)) {
+            wifiConfig = genWifiEnterpriseConfig(config);
+        } else {
+            wifiConfig = genWifiConfig(config);
+        }
+        listener = new WifiActionListener(mEventFacade,
+                WifiConstants.WIFI_CONNECT_BY_CONFIG_CALLBACK);
+        mWifi.connect(wifiConfig, listener);
+    }
+
+   /**
+     * Generate a Passpoint configuration from JSON config.
+     * @param config JSON config containing base64 encoded Passpoint profile
+     */
+    @Rpc(description = "Generate Passpoint configuration", returns = "PasspointConfiguration object")
+    public PasspointConfiguration genWifiPasspointConfig(@RpcParameter(
+            name = "config") JSONObject config)
+            throws JSONException,CertificateException, IOException {
+        String profileStr = "";
+        if (config == null) {
+            return null;
+        }
+        if (config.has("profile")) {
+            profileStr =  config.getString("profile");
+        }
+        return ConfigParser.parsePasspointConfig(TYPE_WIFICONFIG,
+                profileStr.getBytes());
+    }
+
+   /**
+     * Add or update a Passpoint configuration.
+     * @param config base64 encoded message containing Passpoint profile
      * @throws JSONException
      */
-    @Rpc(description = "Connects a wifi network by ssid", returns = "True if the operation succeeded.")
-    public Boolean wifiConnect(@RpcParameter(name = "config") JSONObject config)
-            throws ConnectException, JSONException {
-        WifiConfiguration wifiConfig = genWifiConfig(config);
-        int nId = mWifi.addNetwork(wifiConfig);
-        if (nId < 0) {
-            Log.e("Got negative network Id.");
-            return false;
+    @Rpc(description = "Add or update a Passpoint configuration")
+    public void addUpdatePasspointConfig(@RpcParameter(
+            name = "config") JSONObject config)
+            throws JSONException,CertificateException, IOException {
+        PasspointConfiguration passpointConfig = genWifiPasspointConfig(config);
+        mWifi.addOrUpdatePasspointConfiguration(passpointConfig);
+    }
+
+    /**
+     * Remove a Passpoint configuration.
+     * @param fqdn The FQDN of the passpoint configuration to be removed
+     * @return true on success; false otherwise
+     */
+    @Rpc(description = "Remove a Passpoint configuration")
+    public void removePasspointConfig(
+            @RpcParameter(name = "fqdn") String fqdn) {
+        mWifi.removePasspointConfiguration(fqdn);
+    }
+
+    /**
+     * Get list of Passpoint configurations.
+     * @return A list of FQDNs of the Passpoint configurations
+     */
+    @Rpc(description = "Return the list of installed Passpoint configurations", returns = "A list of Passpoint configurations")
+    public List<String> getPasspointConfigs() {
+        List<String> fqdnList = new ArrayList<String>();
+        for(PasspointConfiguration passpoint :
+            mWifi.getPasspointConfigurations()) {
+            fqdnList.add(passpoint.getHomeSp().getFqdn());
         }
-        mWifi.enableNetwork(nId, true);
-        return mWifi.reconnect();
+        return fqdnList;
+    }
+
+     /**
+     * Connects to a wifi network using networkId.
+     * @param networkId the network identity for the network in the supplicant
+     */
+    @Rpc(description = "Connects to the network with the given networkId")
+    public void wifiConnectByNetworkId(
+            @RpcParameter(name = "networkId") Integer networkId) {
+        WifiActionListener listener;
+        listener = new WifiActionListener(mEventFacade,
+                WifiConstants.WIFI_CONNECT_BY_NETID_CALLBACK);
+        mWifi.connect(networkId, listener);
     }
 
     @Rpc(description = "Disconnects from the currently active access point.", returns = "True if the operation succeeded.")
@@ -549,46 +662,26 @@ public class WifiManagerFacade extends RpcReceiver {
         mWifi.enableVerboseLogging(level);
     }
 
-    @Rpc(description = "Connect to a wifi network that uses Enterprise authentication methods.")
-    public void wifiEnterpriseConnect(@RpcParameter(name = "config") JSONObject config)
-            throws JSONException, GeneralSecurityException {
-        // Create Certificate
-        WifiActionListener listener = new WifiActionListener(mEventFacade, "EnterpriseConnect");
-        WifiConfiguration wifiConfig = genWifiEnterpriseConfig(config);
-        if (wifiConfig.isPasspoint()) {
-            Log.d("Got a passpoint config, add it and save config.");
-            mWifi.addNetwork(wifiConfig);
-            mWifi.saveConfiguration();
-        } else {
-            Log.d("Got a non-passpoint enterprise config, connect directly.");
-            mWifi.connect(wifiConfig, listener);
-        }
-    }
-
     @Rpc(description = "Resets all WifiManager settings.")
     public void wifiFactoryReset() {
         mWifi.factoryReset();
     }
 
     /**
-     * Forget a wifi network with priority
+     * Forget a wifi network by networkId.
      *
-     * @param networkID Id of wifi network
+     * @param networkId Id of wifi network
      */
-    @Rpc(description = "Forget a wifi network with priority")
-    public void wifiForgetNetwork(@RpcParameter(name = "wifiSSID") Integer newtorkId) {
-        WifiActionListener listener = new WifiActionListener(mEventFacade, "ForgetNetwork");
-        mWifi.forget(newtorkId, listener);
+    @Rpc(description = "Forget a wifi network by networkId")
+    public void wifiForgetNetwork(@RpcParameter(name = "wifiSSID") Integer networkId) {
+        WifiActionListener listener = new WifiActionListener(mEventFacade,
+                WifiConstants.WIFI_FORGET_NETWORK_CALLBACK);
+        mWifi.forget(networkId, listener);
     }
 
     @Rpc(description = "Gets the Wi-Fi AP Configuration.")
     public WifiConfiguration wifiGetApConfiguration() {
         return mWifi.getWifiApConfiguration();
-    }
-
-    @Rpc(description = "Returns the file in which IP and proxy configuration data is stored.")
-    public String wifiGetConfigFile() {
-        return mWifi.getConfigFile();
     }
 
     @Rpc(description = "Return a list of all the configured wifi networks.")
@@ -651,6 +744,11 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.isAdditionalStaSupported();
     }
 
+    @Rpc(description = "Return true if WiFi is enabled.")
+    public Boolean wifiGetisWifiEnabled() {
+        return mWifi.isWifiEnabled();
+    }
+
     @Rpc(description = "Return whether Wi-Fi AP is enabled or disabled.")
     public Boolean wifiIsApEnabled() {
         return mWifi.isWifiApEnabled();
@@ -681,9 +779,9 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.isMulticastEnabled();
     }
 
-    @Rpc(description = "true if this adapter supports Neighbour Awareness Network APIs.")
-    public Boolean wifiIsNanSupported() {
-        return mWifi.isNanSupported();
+    @Rpc(description = "true if this adapter supports Wi-Fi Aware APIs.")
+    public Boolean wifiIsAwareSupported() {
+        return mWifi.isWifiAwareSupported();
     }
 
     @Rpc(description = "true if this adapter supports Off Channel Tunnel Directed Link Setup.")
@@ -739,21 +837,6 @@ public class WifiManagerFacade extends RpcReceiver {
         }
     }
 
-    /**
-     * Connects to a wifi network with priority
-     *
-     * @param wifiSSID SSID of the wifi network
-     * @param wifiPassword password for the wifi network
-     * @throws JSONException
-     */
-    @Rpc(description = "Connects a wifi network as priority by pasing ssid")
-    public void wifiPriorityConnect(@RpcParameter(name = "config") JSONObject config)
-            throws JSONException {
-        WifiConfiguration wifiConfig = genWifiConfig(config);
-        WifiActionListener listener = new WifiActionListener(mEventFacade, "PriorityConnect");
-        mWifi.connect(wifiConfig, listener);
-    }
-
     @Rpc(description = "Reassociates with the currently active access point.", returns = "True if the operation succeeded.")
     public Boolean wifiReassociate() {
         return mWifi.reassociate();
@@ -777,8 +860,7 @@ public class WifiManagerFacade extends RpcReceiver {
         if (ssid != null) {
             config.SSID = ssid.substring(1, ssid.length() - 1);
         }
-        String pwd = config.preSharedKey;
-        if (pwd != null) {
+        String pwd = config.preSharedKey;                                                                      if (pwd != null) {
             config.preSharedKey = pwd.substring(1, pwd.length() - 1);
         }
         return config;

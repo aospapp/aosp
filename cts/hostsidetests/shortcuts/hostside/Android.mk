@@ -24,9 +24,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := tools-common-prebuilt cts-tradefed tradefed-prebuilt
-
-LOCAL_STATIC_JAVA_LIBRARIES := cts-migration-lib
+LOCAL_JAVA_LIBRARIES := tools-common-prebuilt cts-tradefed tradefed
 
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts

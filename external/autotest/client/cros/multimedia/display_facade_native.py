@@ -101,12 +101,12 @@ class DisplayFacadeNative(object):
         @raise TimeoutException when the operation is timed out.
         """
 
-        tab.WaitForJavaScriptExpression(
+        tab.WaitForJavaScriptCondition(
                     "typeof options !== 'undefined' &&"
                     "typeof options.DisplayOptions !== 'undefined' &&"
                     "typeof options.DisplayOptions.instance_ !== 'undefined' &&"
                     "typeof options.DisplayOptions.instance_"
-                    "       .displays_ !== 'undefined'", timeout)
+                    "       .displays_ !== 'undefined'", timeout=timeout)
 
         if not tab.EvaluateJavaScript(
                     "options.DisplayOptions.instance_.displays_.length > %d"
@@ -115,25 +115,26 @@ class DisplayFacadeNative(object):
                     + str(tab.EvaluateJavaScript(
                     "options.DisplayOptions.instance_.displays_.length")))
 
-        tab.WaitForJavaScriptExpression(
+        tab.WaitForJavaScriptCondition(
                 "typeof options.DisplayOptions.instance_"
                 "         .displays_[%(index)d] !== 'undefined' &&"
                 "typeof options.DisplayOptions.instance_"
                 "         .displays_[%(index)d].id !== 'undefined' &&"
                 "typeof options.DisplayOptions.instance_"
                 "         .displays_[%(index)d].resolutions !== 'undefined'"
-                % {'index': display_index}, timeout)
+                % {'index': display_index}, timeout=timeout)
 
 
-    def get_display_modes(self, display_index):
-        """Gets all the display modes for the specified display.
+    def _evaluate_display_expression(self, expression, display_index):
+        """Evaluate an expression on Chrome display settings page.
 
-        The modes are obtained from chrome://settings-frame/display via
-        telemetry.
+        The result of the expression is obtained from
+        chrome://settings-frame/display via telemetry.
 
+        @param expression: Javascript expression.
         @param display_index: index of the display to get modes from.
 
-        @return: A list of DisplayMode dicts.
+        @return: A object of the result.
 
         @raise TimeoutException when the operation is timed out.
         """
@@ -141,10 +142,64 @@ class DisplayFacadeNative(object):
             tab_descriptor = self.load_url('chrome://settings-frame/display')
             tab = self._resource.get_tab_by_descriptor(tab_descriptor)
             self._wait_for_display_options_to_appear(tab, display_index)
-            return tab.EvaluateJavaScript(
-                    "options.DisplayOptions.instance_"
-                    "         .displays_[%(index)d].resolutions"
-                    % {'index': display_index})
+            return tab.EvaluateJavaScript(expression % {'index': display_index})
+        finally:
+            self.close_tab(tab_descriptor)
+
+
+    def get_display_modes(self, display_index):
+        """Gets all the display modes for the specified display.
+
+        @param display_index: index of the display to get modes from.
+
+        @return: A list of DisplayMode dicts.
+        """
+        return self._evaluate_display_expression(
+                "options.DisplayOptions.instance_"
+                "         .displays_[%(index)d].resolutions",
+                display_index)
+
+
+    def get_display_rotation(self, display_index):
+        """Gets the display rotation for the specified display.
+
+        @param display_index: index of the display to get modes from.
+
+        @return: Degree of rotation.
+        """
+        return self._evaluate_display_expression(
+                "options.DisplayOptions.instance_"
+                "         .displays_[%(index)d].rotation",
+                display_index)
+
+
+    def set_display_rotation(self, display_index, rotation,
+                             delay_before_rotation=0, delay_after_rotation=0):
+        """Sets the display rotation for the specified display.
+
+        @param display_index: index of the display to get modes from.
+        @param rotation: degree of rotation
+        @param delay_before_rotation: time in second for delay before rotation
+        @param delay_after_rotation: time in second for delay after rotation
+        """
+        try:
+            tab_descriptor = self.load_url('chrome://settings-frame/display')
+            tab = self._resource.get_tab_by_descriptor(tab_descriptor)
+            self._wait_for_display_options_to_appear(tab, display_index)
+
+            # Hide the typing cursor to reduce interference.
+            self.hide_typing_cursor()
+
+            time.sleep(delay_before_rotation)
+            tab.ExecuteJavaScript(
+                    """
+                    var display = options.DisplayOptions.instance_
+                            .displays_[%(index)d];
+                    chrome.send('setRotation', [display.id, %(rotation)d]);
+                    """
+                    % {'index': display_index, 'rotation': rotation}
+            )
+            time.sleep(delay_after_rotation)
         finally:
             self.close_tab(tab_descriptor)
 
@@ -395,6 +450,12 @@ class DisplayFacadeNative(object):
         return True
 
 
+    def hide_typing_cursor(self):
+        """Hides typing cursor."""
+        graphics_utils.hide_typing_cursor()
+        return True
+
+
     def is_mirrored_enabled(self):
         """Checks the mirrored state.
 
@@ -409,13 +470,19 @@ class DisplayFacadeNative(object):
         @param is_mirrored: True or False to indicate mirrored state.
         @return True if success, False otherwise.
         """
-        # TODO: Do some experiments to minimize waiting time after toggling.
-        retries = 3
-        while self.is_mirrored_enabled() != is_mirrored and retries > 0:
+        if self.is_mirrored_enabled() == is_mirrored:
+            return True
+
+        retries = 4
+        while retries > 0:
             self.toggle_mirrored()
-            time.sleep(3)
+            result = utils.wait_for_value(self.is_mirrored_enabled,
+                                          expected_value=is_mirrored,
+                                          timeout_sec=3)
+            if result == is_mirrored:
+                return True
             retries -= 1
-        return self.is_mirrored_enabled() == is_mirrored
+        return False
 
 
     def is_display_primary(self, internal=True):
@@ -521,9 +588,9 @@ class DisplayFacadeNative(object):
                 % (target_bounds['left'], target_bounds['top'],
                    target_bounds['left'], target_bounds['top'])
         )
-        extension.WaitForJavaScriptExpression(
+        extension.WaitForJavaScriptCondition(
                 "__status == 'Done'",
-                web_contents.DEFAULT_WEB_CONTENTS_TIMEOUT)
+                timeout=web_contents.DEFAULT_WEB_CONTENTS_TIMEOUT)
         return True
 
 
@@ -630,10 +697,11 @@ class DisplayFacadeNative(object):
         #    rate will decrease by half, so here we set it to be a
         #    little less than 30 (= 60/2) to make it more tolerant.
         # 2. DELAY_TIME: extra wait time for timeout.
-        tab.WaitForJavaScriptExpression(
+        tab.WaitForJavaScriptCondition(
                 'window.count == color_sequence.length',
-                (len(color_sequence) / self.MINIMUM_REFRESH_RATE_EXPECTED)
-                + self.DELAY_TIME)
+                timeout=(
+                    (len(color_sequence) / self.MINIMUM_REFRESH_RATE_EXPECTED)
+                    + self.DELAY_TIME))
         return tab.EvaluateJavaScript("window.timestamp_list")
 
 

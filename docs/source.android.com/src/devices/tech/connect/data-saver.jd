@@ -85,19 +85,17 @@ These screenshots show the Data Saver mode in use.
 
 <h3 id="apps">Apps</h3>
 
-<strong>Important</strong>: Partners should not whitelist apps.
-Even if they do, users may remove them. Including other
-apps forces users to decide on which to apply Data Saver.
-</p>
+<strong>Important</strong>: Device implementers should not whitelist apps.
+Even if they do, users may remove them. Including other apps forces users to
+decide on which to apply Data Saver.  </p>
 
 <p>
-All app developers must act to implement Data Saver, including OEMs and carrier
-partners with preloaded apps. See <a
-href="https://developer.android.com/preview/features/data-saver.html">Data Saver
-on developer.android.com</a> for app developer instructions on detecting and
-monitoring Data Saver states. See the sections below for additional details
-helpful to partners.
-</p>
+All app developers must act to implement Data Saver, including OEMs and
+carriers with preloaded apps. See
+<a href="https://developer.android.com/preview/features/data-saver.html">Data
+Saver on developer.android.com</a> for app developer instructions on detecting
+and monitoring Data Saver states. See the sections below for additional details
+helpful to partners.  </p>
 
 <p>
 To optimize for Data Saver mode, apps should:

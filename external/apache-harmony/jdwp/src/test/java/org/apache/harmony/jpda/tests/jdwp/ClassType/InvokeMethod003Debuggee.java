@@ -35,6 +35,7 @@ public class InvokeMethod003Debuggee extends SyncDebuggee {
         logWriter.println("InvokeMethod003Debuggee.execMethod()");
     }
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("InvokeMethod003Debuggee");

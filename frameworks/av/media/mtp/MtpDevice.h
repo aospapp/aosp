@@ -62,10 +62,17 @@ private:
     bool                    mProcessingEvent;
     int                     mCurrentEventHandle;
 
+    // to check if a sendObject request follows the last sendObjectInfo request.
+    MtpTransactionID        mLastSendObjectInfoTransactionID;
+    MtpObjectHandle         mLastSendObjectInfoObjectHandle;
+
     // to ensure only one MTP transaction at a time
     Mutex                   mMutex;
     Mutex                   mEventMutex;
     Mutex                   mEventMutexForInterrupt;
+
+    // Remember the device's packet division mode.
+    UrbPacketDivisionMode   mPacketDivisionMode;
 
 public:
     typedef bool (*ReadObjectCallback)
@@ -100,7 +107,7 @@ public:
     bool                    sendObject(MtpObjectHandle handle, int size, int srcFD);
     bool                    deleteObject(MtpObjectHandle handle);
     MtpObjectHandle         getParent(MtpObjectHandle handle);
-    MtpObjectHandle         getStorageID(MtpObjectHandle handle);
+    MtpStorageID            getStorageID(MtpObjectHandle handle);
 
     MtpObjectPropertyList*  getObjectPropsSupported(MtpObjectFormat format);
 

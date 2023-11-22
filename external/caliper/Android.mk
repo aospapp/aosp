@@ -90,7 +90,7 @@ LOCAL_IS_HOST_MODULE := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
   caliper-host \
-  junit \
+  junit-host \
   mockito-host
 
 # Use Dagger2 annotation processor
@@ -114,7 +114,7 @@ LOCAL_IS_HOST_MODULE := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
   caliper-host \
-  junit \
+  junit-host \
   mockito-host
 
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7

@@ -19,7 +19,7 @@ from telemetry.internal.backends.chrome_inspector import websocket
 from telemetry.internal.platform.tracing_agent import chrome_tracing_agent
 from telemetry.internal.platform.tracing_agent import (
     chrome_tracing_devtools_manager)
-from telemetry.timeline import trace_data as trace_data_module
+from tracing.trace_data import trace_data as trace_data_module
 
 
 BROWSER_INSPECTOR_WEBSOCKET_URL = 'ws://127.0.0.1:%i/devtools/browser'
@@ -49,7 +49,8 @@ def IsDevToolsAgentAvailable(port, app_backend):
 
 def _IsInspectorWebsocketAvailable(inspector_websocket_instance, port):
   try:
-    inspector_websocket_instance.Connect(BROWSER_INSPECTOR_WEBSOCKET_URL % port)
+    inspector_websocket_instance.Connect(
+        BROWSER_INSPECTOR_WEBSOCKET_URL % port, timeout=10)
   except websocket.WebSocketException:
     return False
   except socket.error:
@@ -103,6 +104,8 @@ class DevToolsClientBackend(object):
     self._devtools_context_map_backend = _DevToolsContextMapBackend(
         self._app_backend, self)
 
+    self._tab_ids = None
+
     if not self.supports_tracing:
       return
     chrome_tracing_devtools_manager.RegisterDevToolsClient(
@@ -121,9 +124,7 @@ class DevToolsClientBackend(object):
       return
 
     self._CreateTracingBackendIfNeeded(is_tracing_running=False)
-    self.StartChromeTracing(
-        trace_config=trace_config,
-        custom_categories=trace_config.tracing_category_filter.filter_string)
+    self.StartChromeTracing(trace_config)
 
   @property
   def remote_port(self):
@@ -161,6 +162,14 @@ class DevToolsClientBackend(object):
     # TODO(zhenw): Remove this once stable Chrome and reference browser have
     # passed 2512.
     return self.GetChromeBranchNumber() >= 2512
+
+  @property
+  def support_modern_devtools_tracing_start_api(self):
+    # Modern DevTools Tracing.start API (via 'traceConfig' parameter) was not
+    # supported until Chromium branch number 2683 (see crrev.com/1808353002).
+    # TODO(petrcermak): Remove this once stable Chrome and reference browser
+    # have passed 2683.
+    return self.GetChromeBranchNumber() >= 2683
 
   def IsAlive(self):
     """Whether the DevTools server is available and connectable."""
@@ -295,7 +304,8 @@ class DevToolsClientBackend(object):
     if not self._tracing_backend:
       self._CreateAndConnectBrowserInspectorWebsocketIfNeeded()
       self._tracing_backend = tracing_backend.TracingBackend(
-          self._browser_inspector_websocket, is_tracing_running)
+          self._browser_inspector_websocket, is_tracing_running,
+          self.support_modern_devtools_tracing_start_api)
 
   def _CreateMemoryBackendIfNeeded(self):
     assert self.supports_overriding_memory_pressure_notifications
@@ -309,7 +319,7 @@ class DevToolsClientBackend(object):
       self._browser_inspector_websocket = (
           inspector_websocket.InspectorWebsocket())
       self._browser_inspector_websocket.Connect(
-          BROWSER_INSPECTOR_WEBSOCKET_URL % self._devtools_port)
+          BROWSER_INSPECTOR_WEBSOCKET_URL % self._devtools_port, timeout=10)
 
   def IsChromeTracingSupported(self):
     if not self.supports_tracing:
@@ -317,24 +327,23 @@ class DevToolsClientBackend(object):
     self._CreateTracingBackendIfNeeded()
     return self._tracing_backend.IsTracingSupported()
 
-  def StartChromeTracing(
-      self, trace_config, custom_categories=None, timeout=10):
+  def StartChromeTracing(self, trace_config, timeout=10):
     """
     Args:
         trace_config: An tracing_config.TracingConfig instance.
-        custom_categories: An optional string containing a list of
-                         comma separated categories that will be traced
-                         instead of the default category set.  Example: use
-                         "webkit,cc,disabled-by-default-cc.debug" to trace only
-                         those three event categories.
     """
     assert trace_config and trace_config.enable_chrome_trace
     self._CreateTracingBackendIfNeeded()
     return self._tracing_backend.StartTracing(
-        trace_config, custom_categories, timeout)
+        trace_config.chrome_trace_config, timeout)
 
-  def StopChromeTracing(self, trace_data_builder, timeout=30):
+  def RecordChromeClockSyncMarker(self, sync_id):
+    assert self.is_tracing_running, 'Tracing must be running to clock sync.'
+    self._tracing_backend.RecordClockSyncMarker(sync_id)
+
+  def StopChromeTracing(self):
     assert self.is_tracing_running
+    self._tab_ids = []
     try:
       context_map = self.GetUpdatedInspectableContexts()
       for context in context_map.contexts:
@@ -342,16 +351,23 @@ class DevToolsClientBackend(object):
           continue
         context_id = context['id']
         backend = context_map.GetInspectorBackend(context_id)
-        success = backend.EvaluateJavaScript(
-            "console.time('" + backend.id + "');" +
-            "console.timeEnd('" + backend.id + "');" +
-            "console.time.toString().indexOf('[native code]') != -1;")
-        if not success:
-          raise Exception('Page stomped on console.time')
-        trace_data_builder.AddEventsTo(
-            trace_data_module.TAB_ID_PART, [backend.id])
+        backend.EvaluateJavaScript("""
+            console.time({{ backend_id }});
+            console.timeEnd({{ backend_id }});
+            console.time.toString().indexOf('[native code]') != -1;
+            """,
+            backend_id=backend.id)
+        self._tab_ids.append(backend.id)
     finally:
-      self._tracing_backend.StopTracing(trace_data_builder, timeout)
+      self._tracing_backend.StopTracing()
+
+  def CollectChromeTracingData(self, trace_data_builder, timeout=60):
+    try:
+      trace_data_builder.AddTraceFor(
+          trace_data_module.TAB_ID_PART, self._tab_ids[:])
+      self._tab_ids = None
+    finally:
+      self._tracing_backend.CollectTraceData(trace_data_builder, timeout)
 
   def DumpMemory(self, timeout=30):
     """Dumps memory.

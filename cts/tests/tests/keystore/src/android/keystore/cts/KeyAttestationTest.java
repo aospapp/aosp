@@ -50,10 +50,13 @@ import static org.junit.matchers.JUnitMatchers.either;
 import static org.junit.matchers.JUnitMatchers.hasItems;
 
 import com.google.common.collect.ImmutableSet;
-
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.Context;
 import android.os.Build;
 import android.os.SystemProperties;
 import android.security.KeyStoreException;
+import android.security.keystore.AttestationUtils;
+import android.security.keystore.DeviceIdAttestationException;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.test.AndroidTestCase;
@@ -106,6 +109,7 @@ public class KeyAttestationTest extends AndroidTestCase {
             .compile("([0-9]{4})-([0-9]{2})-[0-9]{2}");
 
     private static final int KM_ERROR_INVALID_INPUT_LENGTH = -21;
+    private static final int KM_ERROR_PERMISSION_DENIED = 6;
 
     public void testVersionParser() throws Exception {
         // Non-numerics/empty give version 0
@@ -204,6 +208,29 @@ public class KeyAttestationTest extends AndroidTestCase {
             X509Certificate attestationCert = (X509Certificate) certificates[0];
             assertNull(attestationCert.getExtensionValue(Attestation.KEY_DESCRIPTION_OID));
         } finally {
+            keyStore.deleteEntry(keystoreAlias);
+        }
+    }
+
+    public void testEcAttestation_KeyStoreExceptionWhenRequestingUniqueId() throws Exception {
+        String keystoreAlias = "test_key";
+        KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(keystoreAlias, PURPOSE_SIGN)
+                .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
+                .setDigests(DIGEST_NONE, DIGEST_SHA256, DIGEST_SHA512)
+                .setAttestationChallenge(new byte[128])
+                .setUniqueIdIncluded(true)
+                .build();
+
+        try {
+            generateKeyPair(KEY_ALGORITHM_EC, spec);
+            fail("Attestation should have failed.");
+        } catch (ProviderException e) {
+            // Attestation is expected to fail because of lack of permissions.
+            KeyStoreException cause = (KeyStoreException) e.getCause();
+            assertEquals(KM_ERROR_PERMISSION_DENIED, cause.getErrorCode());
+        } finally {
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
             keyStore.deleteEntry(keystoreAlias);
         }
     }
@@ -354,6 +381,12 @@ public class KeyAttestationTest extends AndroidTestCase {
         }
     }
 
+    public void testDeviceIdAttestation() throws Exception {
+        testDeviceIdAttestationFailure(AttestationUtils.ID_TYPE_SERIAL, null);
+        testDeviceIdAttestationFailure(AttestationUtils.ID_TYPE_IMEI, "Unable to retrieve IMEI");
+        testDeviceIdAttestationFailure(AttestationUtils.ID_TYPE_MEID, "Unable to retrieve MEID");
+    }
+
     @SuppressWarnings("deprecation")
     private void testRsaAttestation(byte[] challenge, boolean includeValidityDates, int keySize,
             int purposes, String[] paddingModes) throws Exception {
@@ -457,8 +490,28 @@ public class KeyAttestationTest extends AndroidTestCase {
         }
     }
 
+    private void checkAttestationApplicationId(Attestation attestation)
+            throws NoSuchAlgorithmException, NameNotFoundException {
+        AttestationApplicationId aaid = null;
+        int kmVersion = attestation.getKeymasterVersion();
+        assertNull(attestation.getTeeEnforced().getAttestationApplicationId());
+        aaid = attestation.getSoftwareEnforced().getAttestationApplicationId();
+        if (kmVersion >= 3) {
+            // must be present and correct
+            assertNotNull(aaid);
+            assertEquals(new AttestationApplicationId(getContext()), aaid);
+        } else {
+            // may be present and
+            // must be correct if present
+            if (aaid != null) {
+                assertEquals(new AttestationApplicationId(getContext()), aaid);
+            }
+        }
+    }
+
     private void checkKeyIndependentAttestationInfo(byte[] challenge, int purposes, Date startTime,
-            boolean includesValidityDates, Attestation attestation) {
+            boolean includesValidityDates, Attestation attestation)
+            throws NoSuchAlgorithmException, NameNotFoundException {
         checkAttestationSecurityLevelDependentParams(attestation);
         assertNotNull(attestation.getAttestationChallenge());
         assertTrue(Arrays.equals(challenge, attestation.getAttestationChallenge()));
@@ -470,6 +523,7 @@ public class KeyAttestationTest extends AndroidTestCase {
         checkValidityPeriod(attestation, startTime, includesValidityDates);
         checkFlags(attestation);
         checkOrigin(attestation);
+        checkAttestationApplicationId(attestation);
     }
 
     private int getSystemPatchLevel() {
@@ -631,6 +685,7 @@ public class KeyAttestationTest extends AndroidTestCase {
                     break;
 
                 case 2:
+                case 3:
                     assertThat(teeEnforcedDigests, is(expectedDigests));
                     break;
 
@@ -659,7 +714,8 @@ public class KeyAttestationTest extends AndroidTestCase {
 
     @SuppressWarnings("unchecked")
     private void checkAttestationSecurityLevelDependentParams(Attestation attestation) {
-        assertEquals("Attestation version must be 1", 1, attestation.getAttestationVersion());
+        assertThat("Attestation version must be 1 or 2", attestation.getAttestationVersion(),
+                either(is(1)).or(is(2)));
 
         AuthorizationList teeEnforced = attestation.getTeeEnforced();
         AuthorizationList softwareEnforced = attestation.getSoftwareEnforced();
@@ -672,7 +728,7 @@ public class KeyAttestationTest extends AndroidTestCase {
                 assertThat("TEE attestation can only come from TEE keymaster",
                         attestation.getKeymasterSecurityLevel(),
                         is(KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT));
-                assertThat(attestation.getKeymasterVersion(), is(2));
+                assertThat(attestation.getKeymasterVersion(), either(is(2)).or(is(3)));
 
                 checkRootOfTrust(attestation);
                 assertThat(teeEnforced.getOsVersion(), is(systemOsVersion));
@@ -685,8 +741,8 @@ public class KeyAttestationTest extends AndroidTestCase {
                     assertThat("TEE KM version must be 0 or 1 with software attestation",
                             attestation.getKeymasterVersion(), either(is(0)).or(is(1)));
                 } else {
-                    assertThat("Software KM is version 2", attestation.getKeymasterVersion(),
-                            is(2));
+                    assertThat("Software KM is version 3", attestation.getKeymasterVersion(),
+                            is(3));
                     assertThat(softwareEnforced.getOsVersion(), is(systemOsVersion));
                     assertThat(softwareEnforced.getOsPatchLevel(), is(systemPatchLevel));
                 }
@@ -832,6 +888,26 @@ public class KeyAttestationTest extends AndroidTestCase {
                     | NoSuchProviderException | SignatureException e) {
                 throw new GeneralSecurityException("Failed to verify certificate "
                         + certChain[i - 1] + " with public key " + certChain[i].getPublicKey(), e);
+            }
+        }
+    }
+
+    private void testDeviceIdAttestationFailure(int idType,
+            String acceptableDeviceIdAttestationFailureMessage) throws Exception {
+        try {
+            AttestationUtils.attestDeviceIds(getContext(), new int[] {idType}, "123".getBytes());
+            fail("Attestation should have failed.");
+        } catch (SecurityException e) {
+            // Attestation is expected to fail. If the device has the device ID type we are trying
+            // to attest, it should fail with a SecurityException as we do not hold
+            // READ_PRIVILEGED_PHONE_STATE permission.
+        } catch (DeviceIdAttestationException e) {
+            // Attestation is expected to fail. If the device does not have the device ID type we
+            // are trying to attest (e.g. no IMEI on devices without a radio), it should fail with
+            // a corresponding DeviceIdAttestationException.
+            if (acceptableDeviceIdAttestationFailureMessage == null ||
+                    !acceptableDeviceIdAttestationFailureMessage.equals(e.getMessage())) {
+                throw e;
             }
         }
     }

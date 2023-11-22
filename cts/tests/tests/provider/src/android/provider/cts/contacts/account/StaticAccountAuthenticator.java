@@ -25,9 +25,7 @@ import android.content.Context;
 import android.os.Bundle;
 
 /**
- * Account authenticator with 1 hard coded account.
- *
- * Also adds the account to the account manager on instantiation.
+ * Account authenticator with for CTS.
  */
 public class StaticAccountAuthenticator extends AbstractAccountAuthenticator {
 

@@ -20,16 +20,16 @@ import android.app.Fragment;
 import android.app.FragmentManager;
 import android.content.res.Configuration;
 import android.support.annotation.LayoutRes;
+import android.support.annotation.VisibleForTesting;
 import android.support.design.widget.TabLayout;
 import android.support.design.widget.TabLayout.TabLayoutOnPageChangeListener;
 import android.support.design.widget.TabLayout.ViewPagerOnTabSelectedListener;
 import android.support.v13.app.FragmentStatePagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.util.Pair;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toolbar;
-
-import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 /**
@@ -39,6 +39,7 @@ import java.util.ArrayList;
 public abstract class EmergencyTabActivity extends Activity {
     private ViewPagerAdapter mTabsAdapter;
     private TabLayout mTabLayout;
+    private Menu mMenu;
 
     private ArrayList<Pair<String, Fragment>> mFragments;
 
@@ -51,6 +52,17 @@ public abstract class EmergencyTabActivity extends Activity {
             mTabLayout.setTabMode(TabLayout.MODE_FIXED);
             mTabLayout.setTabGravity(TabLayout.GRAVITY_FILL);
         }
+    }
+
+    @VisibleForTesting
+    public Menu getMenu() {
+        return mMenu;
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        mMenu = menu;
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override
@@ -116,6 +128,7 @@ public abstract class EmergencyTabActivity extends Activity {
     }
 
     /** Return the fragments. */
+    @VisibleForTesting
     public ArrayList<Pair<String, Fragment>> getFragments() {
         return mFragments;
     }
@@ -125,11 +138,16 @@ public abstract class EmergencyTabActivity extends Activity {
         return mFragments.size();
     }
 
+    /** Return the adapter. */
+    protected ViewPagerAdapter getTabsAdapter() {
+        return mTabsAdapter;
+    }
+
     /** Returns the fragments to show in the tabs. */
     protected abstract ArrayList<Pair<String, Fragment>> setUpFragments();
 
     /** The adapter used to handle the two fragments. */
-    private class ViewPagerAdapter extends FragmentStatePagerAdapter {
+    protected class ViewPagerAdapter extends FragmentStatePagerAdapter {
         public ViewPagerAdapter(FragmentManager fm) {
             super(fm);
         }

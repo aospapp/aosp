@@ -30,8 +30,6 @@
 */
 package com.example.android.mediabrowserservice.test;
 
-import com.example.android.mediabrowserservice.*;
-
 import android.test.ActivityInstrumentationTestCase2;
 
 /**

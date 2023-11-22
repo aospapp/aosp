@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging
+import logging, time
 
 from autotest_lib.server import autotest, test
 from autotest_lib.client.common_lib import error
@@ -12,6 +12,7 @@ _CHROME_PATH = '/opt/google/chrome/chrome'
 class platform_TotalMemory(test.test):
     version = 1
     ALLOWED_VARIANCE = 4
+    WAIT_BEFORE_GET_MEMINFO = 10
 
     def action_login(self):
         """Login i.e. runs running client test"""
@@ -53,6 +54,7 @@ class platform_TotalMemory(test.test):
             self.host.reboot()
             if self.is_chrome_available():
                 self.action_login()
+            time.sleep(self.WAIT_BEFORE_GET_MEMINFO)
 
             mem_total_size = self.get_meminfo('MemTotal')
             mem_total_list.append((mem_total_size))
@@ -69,10 +71,10 @@ class platform_TotalMemory(test.test):
                           mem_total_diff)
 
         mem_free_diff = max(mem_free_list) - min(mem_free_list)
-        quarter_mem_total = max(mem_total_list) / 4
+        quarter_mem_total = max(mem_total_list) / 3
         if mem_free_diff > quarter_mem_total:
             errors.append('The difference between Free Memory readings '
-                          '[%d] is bigger than 1/4 of Total Memory [%d]' %
+                          '[%d] is bigger than 1/3 of Total Memory [%d]' %
                           (mem_free_diff, quarter_mem_total))
 
         if errors:

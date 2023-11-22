@@ -28,7 +28,9 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 
-import static junit.framework.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * APN retry manager tests
@@ -51,31 +53,42 @@ public class CellBroadcastOtherChannelsManagerTest extends CellBroadcastTest {
     @Test
     @SmallTest
     public void testGetCellBroadcastChannelRanges() throws Exception {
-        int subId = 1;
+        int subId = 1234;
         carrierConfigSetStringArray(subId,
                 CarrierConfigManager.KEY_CARRIER_ADDITIONAL_CBS_CHANNELS_STRINGS,
                 new String[]{
-                        "12:type=earthquake",
-                        "456:type=tsunami",
-                        "0xAC00-0xAFED:type=other",
-                        "54-60"});
+                        "12:type=earthquake, emergency=true",
+                        "456:type=tsunami, emergency=true",
+                        "0xAC00-0xAFED:type=other, emergency=false",
+                        "54-60:emergency=true",
+                        "100-200"
+                });
         ArrayList<CellBroadcastChannelRange> list = CellBroadcastOtherChannelsManager.getInstance().
                 getCellBroadcastChannelRanges(mContext, subId);
 
         assertEquals(12, list.get(0).mStartId);
         assertEquals(12, list.get(0).mEndId);
         assertEquals(ToneType.EARTHQUAKE, list.get(0).mToneType);
+        assertTrue(list.get(0).mIsEmergency);
 
         assertEquals(456, list.get(1).mStartId);
         assertEquals(456, list.get(1).mEndId);
         assertEquals(ToneType.TSUNAMI, list.get(1).mToneType);
+        assertTrue(list.get(1).mIsEmergency);
 
         assertEquals(0xAC00, list.get(2).mStartId);
         assertEquals(0xAFED, list.get(2).mEndId);
         assertEquals(ToneType.OTHER, list.get(2).mToneType);
+        assertFalse(list.get(2).mIsEmergency);
 
         assertEquals(54, list.get(3).mStartId);
         assertEquals(60, list.get(3).mEndId);
         assertEquals(ToneType.CMAS_DEFAULT, list.get(3).mToneType);
+        assertTrue(list.get(3).mIsEmergency);
+
+        assertEquals(100, list.get(4).mStartId);
+        assertEquals(200, list.get(4).mEndId);
+        assertEquals(ToneType.CMAS_DEFAULT, list.get(4).mToneType);
+        assertFalse(list.get(4).mIsEmergency);
     }
 }

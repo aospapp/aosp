@@ -33,7 +33,8 @@ import java.util.stream.Collectors;
 class XmlReport {
 
     public static void printXmlReport(List<File> testApks, ApiCoverage apiCoverage,
-            PackageFilter packageFilter, String reportTitle, OutputStream outputStream) {
+            CddCoverage cddCoverage, PackageFilter packageFilter, String reportTitle,
+            OutputStream outputStream) {
         PrintStream out = new PrintStream(outputStream);
         out.println("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         out.println("<?xml-stylesheet type=\"text/xsl\"  href=\"api-coverage.xsl\"?>");
@@ -137,6 +138,20 @@ class XmlReport {
         }
 
         out.println("</api>");
+        out.println("<cdd>");
+        for (CddCoverage.CddRequirement requirement : cddCoverage.getCddRequirements()) {
+            out.println("<requirement id=\"" + requirement.getRequirementId() + "\">");
+            for (CddCoverage.TestMethod method : requirement.getTestMethods()) {
+                out.print("<test module=\"" + method.getTestModule()
+                        + "\" class=\"" + method.getTestClass() + "\" ");
+                if (method.getTestMethod() != null) {
+                    out.print("method=\"" + method.getTestMethod() + "\"");
+                }
+                out.println("/>" );
+            }
+            out.println("</requirement>");
+        }
+        out.println("</cdd>");
         out.println("<total numCovered=\"" + totalCoveredMethods + "\" "
                 + "numTotal=\"" + totalMethods + "\" "
                 + "coveragePercentage=\""

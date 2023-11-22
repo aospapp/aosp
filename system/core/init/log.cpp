@@ -16,54 +16,42 @@
 
 #include "log.h"
 
-#include <stdlib.h>
+#include <fcntl.h>
+#include <linux/audit.h>
 #include <string.h>
-#include <sys/uio.h>
 
+#include <android-base/logging.h>
 #include <selinux/selinux.h>
 
-#include <android-base/stringprintf.h>
-
-static void init_klog_vwrite(int level, const char* fmt, va_list ap) {
-    static const char* tag = basename(getprogname());
-
-    if (level > klog_get_level()) return;
-
-    // The kernel's printk buffer is only 1024 bytes.
-    // TODO: should we automatically break up long lines into multiple lines?
-    // Or we could log but with something like "..." at the end?
-    char buf[1024];
-    size_t prefix_size = snprintf(buf, sizeof(buf), "<%d>%s: ", level, tag);
-    size_t msg_size = vsnprintf(buf + prefix_size, sizeof(buf) - prefix_size, fmt, ap);
-    if (msg_size >= sizeof(buf) - prefix_size) {
-        msg_size = snprintf(buf + prefix_size, sizeof(buf) - prefix_size,
-                            "(%zu-byte message too long for printk)\n", msg_size);
+void InitKernelLogging(char* argv[]) {
+    // Make stdin/stdout/stderr all point to /dev/null.
+    int fd = open("/sys/fs/selinux/null", O_RDWR);
+    if (fd == -1) {
+        int saved_errno = errno;
+        android::base::InitLogging(argv, &android::base::KernelLogger);
+        errno = saved_errno;
+        PLOG(FATAL) << "Couldn't open /sys/fs/selinux/null";
     }
+    dup2(fd, 0);
+    dup2(fd, 1);
+    dup2(fd, 2);
+    if (fd > 2) close(fd);
 
-    iovec iov[1];
-    iov[0].iov_base = buf;
-    iov[0].iov_len = prefix_size + msg_size;
-
-    klog_writev(level, iov, 1);
-}
-
-void init_klog_write(int level, const char* fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    init_klog_vwrite(level, fmt, ap);
-    va_end(ap);
+    android::base::InitLogging(argv, &android::base::KernelLogger);
 }
 
 int selinux_klog_callback(int type, const char *fmt, ...) {
-    int level = KLOG_ERROR_LEVEL;
+    android::base::LogSeverity severity = android::base::ERROR;
     if (type == SELINUX_WARNING) {
-        level = KLOG_WARNING_LEVEL;
+        severity = android::base::WARNING;
     } else if (type == SELINUX_INFO) {
-        level = KLOG_INFO_LEVEL;
+        severity = android::base::INFO;
     }
+    char buf[1024];
     va_list ap;
     va_start(ap, fmt);
-    init_klog_vwrite(level, fmt, ap);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
+    android::base::KernelLogger(android::base::MAIN, severity, "selinux", nullptr, 0, buf);
     return 0;
 }

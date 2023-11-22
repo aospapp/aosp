@@ -18,7 +18,11 @@ package dexfuzz.executors;
 
 import java.io.IOException;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import dexfuzz.ExecutionResult;
 import dexfuzz.Log;
@@ -68,7 +72,13 @@ public class Device {
     return envVars.get(key);
   }
 
-  private String getHostCoreImagePath() {
+  private String getHostCoreImagePathWithArch() {
+    // TODO: Using host currently implies x86 (see Options.java), change this when generalized.
+    assert(Options.useArchX86);
+    return androidHostOut + "/framework/x86/core.art";
+  }
+
+  private String getHostCoreImagePathNoArch() {
     return androidHostOut + "/framework/core.art";
   }
 
@@ -80,7 +90,7 @@ public class Device {
     androidHostOut = checkForEnvVar(envVars, "ANDROID_HOST_OUT");
 
     if (Options.executeOnHost) {
-      File coreImage = new File(getHostCoreImagePath());
+      File coreImage = new File(getHostCoreImagePathWithArch());
       if (!coreImage.exists()) {
         Log.errorAndQuit("Host core image not found at " + coreImage.getPath()
             + ". Did you forget to build it?");
@@ -133,6 +143,10 @@ public class Device {
     return isHost;
   }
 
+  public boolean isUsingSpecificDevice() {
+    return usingSpecificDevice;
+  }
+
   /**
    * Certain AOSP builds of Android may not have a full boot.art built. This will be set if
    * we use --no-boot-image, and is used by Executors when deciding the arguments for dalvikvm
@@ -156,7 +170,7 @@ public class Device {
    * Get any extra flags required to execute ART on the host.
    */
   public String getHostExecutionFlags() {
-    return String.format("-Xnorelocate -Ximage:%s", getHostCoreImagePath());
+    return String.format("-Xnorelocate -Ximage:%s", getHostCoreImagePathNoArch());
   }
 
   public String getAndroidHostOut() {
@@ -180,7 +194,7 @@ public class Device {
     Log.info("Executing: " + command);
 
     try {
-      ProcessBuilder processBuilder = new ProcessBuilder(command.split(" "));
+      ProcessBuilder processBuilder = new ProcessBuilder(splitCommand(command));
       processBuilder.environment().put("ANDROID_ROOT", androidHostOut);
       if (Options.executeOnHost) {
         processBuilder.environment().put("ANDROID_DATA", androidData);
@@ -223,6 +237,17 @@ public class Device {
     return result;
   }
 
+  /**
+   * Splits command respecting single quotes.
+   */
+  private List<String> splitCommand(String command) {
+    List<String> ret = new ArrayList<String>();
+    Matcher m = Pattern.compile("(\'[^\']+\'| *[^ ]+ *)").matcher(command);
+    while (m.find())
+      ret.add(m.group(1).trim().replace("\'", ""));
+    return ret;
+  }
+
   private String getExecutionPrefixWithAdb(String command) {
     if (usingSpecificDevice) {
       return String.format("adb -s %s %s ", deviceName, command);
@@ -247,7 +272,7 @@ public class Device {
   }
 
   public void cleanCodeCache(Architecture architecture, String testLocation, String programName) {
-    String command = "rm -f " + getCacheLocation(architecture)
+    String command = getExecutionPrefixWithAdb("shell") + "rm -f " + getCacheLocation(architecture)
         + getOatFileName(testLocation, programName);
     executeCommand(command, false);
   }
@@ -255,7 +280,11 @@ public class Device {
   public void pushProgramToDevice(String programName, String testLocation) {
     assert(!isHost);
     if (!programPushed) {
-      executeCommand(getExecutionPrefixWithAdb("push") + programName + " " + testLocation, false);
+      String command = getExecutionPrefixWithAdb("push") + programName + " " + testLocation;
+      ExecutionResult result = executeCommand(command, false);
+      if (result.returnValue != 0) {
+        Log.errorAndQuit("Could not ADB PUSH program to device.");
+      }
       programPushed = true;
     }
   }

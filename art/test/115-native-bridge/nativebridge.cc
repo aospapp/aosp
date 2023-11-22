@@ -26,6 +26,7 @@
 #include "stdio.h"
 #include "unistd.h"
 #include "sys/stat.h"
+#include "setjmp.h"
 
 #include "base/macros.h"
 #include "nativebridge/native_bridge.h"
@@ -191,6 +192,19 @@ char *go_away_compiler = nullptr;
   abort();
 }
 
+static void raise_sigsegv() {
+#if defined(__arm__) || defined(__i386__) || defined(__aarch64__)
+  *go_away_compiler = 'a';
+#elif defined(__x86_64__)
+  // Cause a SEGV using an instruction known to be 2 bytes long to account for hardcoded jump
+  // in the signal handler
+  asm volatile("movl $0, %%eax;" "movb %%ah, (%%rax);" : : : "%eax");
+#else
+  // On other architectures we simulate SEGV.
+  kill(getpid(), SIGSEGV);
+#endif
+}
+
 static jint trampoline_Java_Main_testSignal(JNIEnv*, jclass) {
   // Install the sigaction handler above, which should *not* be reached as the native-bridge
   // handler should be called first. Note: we won't chain at all, if we ever get here, we'll die.
@@ -203,22 +217,142 @@ static jint trampoline_Java_Main_testSignal(JNIEnv*, jclass) {
 
   // Test segv
   sigaction(SIGSEGV, &tmp, nullptr);
-#if defined(__arm__) || defined(__i386__) || defined(__aarch64__)
-  *go_away_compiler = 'a';
-#elif defined(__x86_64__)
-  // Cause a SEGV using an instruction known to be 2 bytes long to account for hardcoded jump
-  // in the signal handler
-  asm volatile("movl $0, %%eax;" "movb %%ah, (%%rax);" : : : "%eax");
-#else
-  // On other architectures we simulate SEGV.
-  kill(getpid(), SIGSEGV);
-#endif
+  raise_sigsegv();
 
   // Test sigill
   sigaction(SIGILL, &tmp, nullptr);
   kill(getpid(), SIGILL);
 
   return 1234;
+}
+
+// Status of the tricky control path of testSignalHandlerNotReturn.
+//
+// "kNone" is the default status except testSignalHandlerNotReturn,
+// others are used by testSignalHandlerNotReturn.
+enum class TestStatus {
+  kNone,
+  kRaiseFirst,
+  kHandleFirst,
+  kRaiseSecond,
+  kHandleSecond,
+};
+
+// State transition helper for testSignalHandlerNotReturn.
+class SignalHandlerTestStatus {
+ public:
+  SignalHandlerTestStatus() : state_(TestStatus::kNone) {
+  }
+
+  TestStatus Get() {
+    return state_;
+  }
+
+  void Reset() {
+    Set(TestStatus::kNone);
+  }
+
+  void Set(TestStatus state) {
+    switch (state) {
+      case TestStatus::kNone:
+        AssertState(TestStatus::kHandleSecond);
+        break;
+
+      case TestStatus::kRaiseFirst:
+        AssertState(TestStatus::kNone);
+        break;
+
+      case TestStatus::kHandleFirst:
+        AssertState(TestStatus::kRaiseFirst);
+        break;
+
+      case TestStatus::kRaiseSecond:
+        AssertState(TestStatus::kHandleFirst);
+        break;
+
+      case TestStatus::kHandleSecond:
+        AssertState(TestStatus::kRaiseSecond);
+        break;
+
+      default:
+        printf("ERROR: unknown state\n");
+        abort();
+    }
+
+    state_ = state;
+  }
+
+ private:
+  TestStatus state_;
+
+  void AssertState(TestStatus expected) {
+    if (state_ != expected) {
+      printf("ERROR: unexpected state, was %d, expected %d\n", state_, expected);
+    }
+  }
+};
+
+static SignalHandlerTestStatus gSignalTestStatus;
+// The context is used to jump out from signal handler.
+static sigjmp_buf gSignalTestJmpBuf;
+
+// Test whether NativeBridge can receive future signal when its handler doesn't return.
+//
+// Control path:
+//  1. Raise first SIGSEGV in test function.
+//  2. Raise another SIGSEGV in NativeBridge's signal handler which is handling
+//     the first SIGSEGV.
+//  3. Expect that NativeBridge's signal handler invokes again. And jump back
+//     to test function in when handling second SIGSEGV.
+//  4. Exit test.
+//
+// NOTE: sigchain should be aware that "special signal handler" may not return.
+//       Pay attention if this case fails.
+static void trampoline_Java_Main_testSignalHandlerNotReturn(JNIEnv*, jclass) {
+  if (gSignalTestStatus.Get() != TestStatus::kNone) {
+    printf("ERROR: test already started?\n");
+    return;
+  }
+  printf("start testSignalHandlerNotReturn\n");
+
+  if (sigsetjmp(gSignalTestJmpBuf, 1) == 0) {
+    gSignalTestStatus.Set(TestStatus::kRaiseFirst);
+    printf("raising first SIGSEGV\n");
+    raise_sigsegv();
+  } else {
+    // jump to here from signal handler when handling second SIGSEGV.
+    if (gSignalTestStatus.Get() != TestStatus::kHandleSecond) {
+      printf("ERROR: not jump from second SIGSEGV?\n");
+      return;
+    }
+    gSignalTestStatus.Reset();
+    printf("back to test from signal handler via siglongjmp(), and done!\n");
+  }
+}
+
+// Signal handler for testSignalHandlerNotReturn.
+// This handler won't return.
+static bool NotReturnSignalHandler() {
+  if (gSignalTestStatus.Get() == TestStatus::kRaiseFirst) {
+    // handling first SIGSEGV
+    gSignalTestStatus.Set(TestStatus::kHandleFirst);
+    printf("handling first SIGSEGV, will raise another\n");
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGSEGV);
+    printf("unblock SIGSEGV in handler\n");
+    sigprocmask(SIG_UNBLOCK, &set, nullptr);
+    gSignalTestStatus.Set(TestStatus::kRaiseSecond);
+    printf("raising second SIGSEGV\n");
+    raise_sigsegv();    // raise second SIGSEGV
+  } else if (gSignalTestStatus.Get() == TestStatus::kRaiseSecond) {
+    // handling second SIGSEGV
+    gSignalTestStatus.Set(TestStatus::kHandleSecond);
+    printf("handling second SIGSEGV, will jump back to test function\n");
+    siglongjmp(gSignalTestJmpBuf, 1);
+  }
+  printf("ERROR: should not reach here!\n");
+  return false;
 }
 
 NativeBridgeMethod gNativeBridgeMethods[] = {
@@ -246,6 +380,8 @@ NativeBridgeMethod gNativeBridgeMethods[] = {
     reinterpret_cast<void*>(trampoline_Java_Main_testZeroLengthByteBuffers) },
   { "testSignal", "()I", true, nullptr,
     reinterpret_cast<void*>(trampoline_Java_Main_testSignal) },
+  { "testSignalHandlerNotReturn", "()V", true, nullptr,
+    reinterpret_cast<void*>(trampoline_Java_Main_testSignalHandlerNotReturn) },
 };
 
 static NativeBridgeMethod* find_native_bridge_method(const char *name) {
@@ -285,6 +421,10 @@ extern "C" bool native_bridge_initialize(const android::NativeBridgeRuntimeCallb
 }
 
 extern "C" void* native_bridge_loadLibrary(const char* libpath, int flag) {
+  if (strstr(libpath, "libinvalid.so") != nullptr) {
+    printf("Was to load 'libinvalid.so', force fail.\n");
+    return nullptr;
+  }
   size_t len = strlen(libpath);
   char* tmp = new char[len + 10];
   strncpy(tmp, libpath, len);
@@ -300,7 +440,7 @@ extern "C" void* native_bridge_loadLibrary(const char* libpath, int flag) {
     printf("Handle = nullptr!\n");
     printf("Was looking for %s.\n", libpath);
     printf("Error = %s.\n", dlerror());
-    char cwd[1024];
+    char cwd[1024] = {'\0'};
     if (getcwd(cwd, sizeof(cwd)) != nullptr) {
       printf("Current working dir: %s\n", cwd);
     }
@@ -370,7 +510,7 @@ extern "C" const struct android::NativeBridgeRuntimeValues* native_bridge_getApp
 
 // v2 parts.
 
-extern "C" bool nb_is_compatible(uint32_t bridge_version ATTRIBUTE_UNUSED) {
+extern "C" bool native_bridge_isCompatibleWith(uint32_t bridge_version ATTRIBUTE_UNUSED) {
   return true;
 }
 
@@ -395,24 +535,8 @@ extern "C" bool nb_is_compatible(uint32_t bridge_version ATTRIBUTE_UNUSED) {
 #endif
 #endif
 
-static bool cannot_be_blocked(int signum) {
-  // These two sigs cannot be blocked anywhere.
-  if ((signum == SIGKILL) || (signum == SIGSTOP)) {
-      return true;
-  }
-
-  // The invalid rt_sig cannot be blocked.
-  if (((signum >= 32) && (signum < SIGRTMIN)) || (signum > SIGRTMAX)) {
-      return true;
-  }
-
-  return false;
-}
-
-// A dummy special handler, continueing after the faulting location. This code comes from
-// 004-SignalTest.
-static bool nb_signalhandler(int sig, siginfo_t* info ATTRIBUTE_UNUSED, void* context) {
-  printf("NB signal handler with signal %d.\n", sig);
+static bool StandardSignalHandler(int sig, siginfo_t* info ATTRIBUTE_UNUSED,
+                                     void* context) {
   if (sig == SIGSEGV) {
 #if defined(__arm__)
     struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
@@ -433,27 +557,26 @@ static bool nb_signalhandler(int sig, siginfo_t* info ATTRIBUTE_UNUSED, void* co
 #endif
   }
 
-  // Before invoking this handler, all other unclaimed signals must be blocked.
-  // We're trying to check the signal mask to verify its status here.
-  sigset_t tmpset;
-  sigemptyset(&tmpset);
-  sigprocmask(SIG_SETMASK, nullptr, &tmpset);
-  int other_claimed = (sig == SIGSEGV) ? SIGILL : SIGSEGV;
-  for (int signum = 0; signum < NSIG; ++signum) {
-    if (cannot_be_blocked(signum)) {
-        continue;
-    } else if ((sigismember(&tmpset, signum)) && (signum == other_claimed)) {
-      printf("ERROR: The claimed signal %d is blocked\n", signum);
-    } else if ((!sigismember(&tmpset, signum)) && (signum != other_claimed)) {
-      printf("ERROR: The unclaimed signal %d is not blocked\n", signum);
-    }
-  }
-
   // We handled this...
   return true;
 }
 
-static ::android::NativeBridgeSignalHandlerFn native_bridge_get_signal_handler(int signal) {
+// A dummy special handler, continueing after the faulting location. This code comes from
+// 004-SignalTest.
+static bool nb_signalhandler(int sig, siginfo_t* info, void* context) {
+  printf("NB signal handler with signal %d.\n", sig);
+
+  if (gSignalTestStatus.Get() == TestStatus::kNone) {
+    return StandardSignalHandler(sig, info, context);
+  } else if (sig == SIGSEGV) {
+    return NotReturnSignalHandler();
+  } else {
+    printf("ERROR: should not reach here!\n");
+    return false;
+  }
+}
+
+static ::android::NativeBridgeSignalHandlerFn native_bridge_getSignalHandler(int signal) {
   // Test segv for already claimed signal, and sigill for not claimed signal
   if ((signal == SIGSEGV) || (signal == SIGILL)) {
     return &nb_signalhandler;
@@ -461,16 +584,71 @@ static ::android::NativeBridgeSignalHandlerFn native_bridge_get_signal_handler(i
   return nullptr;
 }
 
+extern "C" int native_bridge_unloadLibrary(void* handle ATTRIBUTE_UNUSED) {
+  printf("dlclose() in native bridge.\n");
+  return 0;
+}
+
+extern "C" const char* native_bridge_getError() {
+  printf("getError() in native bridge.\n");
+  return "";
+}
+
+extern "C" bool native_bridge_isPathSupported(const char* library_path ATTRIBUTE_UNUSED) {
+  printf("Checking for path support in native bridge.\n");
+  return false;
+}
+
+extern "C" bool native_bridge_initAnonymousNamespace(const char* public_ns_sonames ATTRIBUTE_UNUSED,
+                                                     const char* anon_ns_library_path ATTRIBUTE_UNUSED) {
+  printf("Initializing anonymous namespace in native bridge.\n");
+  return false;
+}
+
+extern "C" android::native_bridge_namespace_t*
+native_bridge_createNamespace(const char* name ATTRIBUTE_UNUSED,
+                              const char* ld_library_path ATTRIBUTE_UNUSED,
+                              const char* default_library_path ATTRIBUTE_UNUSED,
+                              uint64_t type ATTRIBUTE_UNUSED,
+                              const char* permitted_when_isolated_path ATTRIBUTE_UNUSED,
+                              android::native_bridge_namespace_t* parent_ns ATTRIBUTE_UNUSED) {
+  printf("Creating namespace in native bridge.\n");
+  return nullptr;
+}
+
+extern "C" bool native_bridge_linkNamespaces(android::native_bridge_namespace_t* from ATTRIBUTE_UNUSED,
+                                             android::native_bridge_namespace_t* to ATTRIBUTE_UNUSED,
+                                             const char* shared_libs_sonames ATTRIBUTE_UNUSED) {
+  printf("Linking namespaces in native bridge.\n");
+  return false;
+}
+
+extern "C" void* native_bridge_loadLibraryExt(const char* libpath ATTRIBUTE_UNUSED,
+                                               int flag ATTRIBUTE_UNUSED,
+                                               android::native_bridge_namespace_t* ns ATTRIBUTE_UNUSED) {
+    printf("Loading library with Extension in native bridge.\n");
+    return nullptr;
+}
 
 // "NativeBridgeItf" is effectively an API (it is the name of the symbol that will be loaded
 // by the native bridge library).
 android::NativeBridgeCallbacks NativeBridgeItf {
-  .version = 2,
+  // v1
+  .version = 3,
   .initialize = &native_bridge_initialize,
   .loadLibrary = &native_bridge_loadLibrary,
   .getTrampoline = &native_bridge_getTrampoline,
   .isSupported = &native_bridge_isSupported,
   .getAppEnv = &native_bridge_getAppEnv,
-  .isCompatibleWith = &nb_is_compatible,
-  .getSignalHandler = &native_bridge_get_signal_handler
+  // v2
+  .isCompatibleWith = &native_bridge_isCompatibleWith,
+  .getSignalHandler = &native_bridge_getSignalHandler,
+  // v3
+  .unloadLibrary = &native_bridge_unloadLibrary,
+  .getError = &native_bridge_getError,
+  .isPathSupported = &native_bridge_isPathSupported,
+  .initAnonymousNamespace = &native_bridge_initAnonymousNamespace,
+  .createNamespace = &native_bridge_createNamespace,
+  .linkNamespaces = &native_bridge_linkNamespaces,
+  .loadLibraryExt = &native_bridge_loadLibraryExt
 };

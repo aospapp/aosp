@@ -45,13 +45,12 @@ void DBusMethodResponseBase::SendRawResponse(
     std::unique_ptr<dbus::Response> response) {
   CheckCanSendResponse();
   method_call_ = nullptr;  // Mark response as sent.
-  sender_.Run(scoped_ptr<dbus::Response>{response.release()});
+  sender_.Run(std::move(response));
 }
 
 std::unique_ptr<dbus::Response>
 DBusMethodResponseBase::CreateCustomResponse() const {
-  return std::unique_ptr<dbus::Response>{
-      dbus::Response::FromMethodCall(method_call_).release()};
+  return dbus::Response::FromMethodCall(method_call_);
 }
 
 bool DBusMethodResponseBase::IsResponseSent() const {

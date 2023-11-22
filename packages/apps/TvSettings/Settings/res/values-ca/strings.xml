@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Cercar xarxes sempre"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Permet que el servei d\'ubicacions de Google i altres aplicacions cerquin xarxes, fins i tot si la Wi-Fi està desactivada."</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Permet que el servei d\'ubicacions de Google i altres aplicacions cerquin xarxes, fins i tot si la Wi-Fi està desactivada"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Estalvi de pantalla"</string>
     <string name="device_display" msgid="101455384386372747">"Pantalla"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"<xliff:g id="PERCENTAGE">%1$d</xliff:g>%% de bateria"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"S\'està anul·lant la sincronització del dispositiu…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Connectat"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Canvia el nom"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Introdueix un nom nou per a aquest accessori"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"S\'estan cercant accessoris…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Abans d\'emparellar els dispositius Bluetooth, assegura\'t que estiguin en mode d\'emparellament."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"S\'ha trobat un dispositiu i s\'hi emparellarà automàticament d\'aquí a <xliff:g id="COUNTDOWN">%1$s</xliff:g> segons."</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Teclat"</string>
     <string name="system_home" msgid="2858989138172296012">"Pantalla d\'inici"</string>
     <string name="system_search" msgid="2837264654143247611">"Cerca"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Seguretat i restriccions"</string>
     <string name="system_speech" msgid="8128688499687306982">"Veu"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Entrades"</string>
@@ -98,8 +101,9 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Opcions per a desenvolupadors"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Cap"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Ús i diagnòstic"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Tutorials"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Actualització del sistema"</string>
-    <string name="about_preference" msgid="4131396784531360434">"Quant a"</string>
+    <string name="about_preference" msgid="4131396784531360434">"Informació"</string>
     <string name="device_name" msgid="2670488158531273028">"Nom del dispositiu"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Reinicia"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Informació legal"</string>
@@ -355,12 +359,12 @@
     <string name="off" msgid="5264189545064767245">"Desactivat"</string>
     <string name="google_location_services_title" msgid="3382840371861269146">"Serveis d\'ubicació de Google"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Serveis d\'ubicació de tercers"</string>
-    <string name="location_reporting" msgid="3054236612250063073">"Informes d\'Ubicació"</string>
-    <string name="location_history" msgid="2946680949724247804">"Historial d\'Ubicacions"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google utilitza aquesta funció en productes com ara Google Now i Google Maps. Si actives els Informes d\'Ubicació, qualsevol producte de Google que faci servir aquesta funció podrà desar i fer servir les dades d\'ubicació més recents del dispositiu associades amb el teu compte de Google."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"Si l\'Historial d\'Ubicacions està activat per a aquest compte, Google pot desar les dades d\'ubicació del dispositiu perquè les teves aplicacions les utilitzin.\n\nPer exemple, Google Maps et pot donar indicacions i Google Now et pot informar sobre l\'estat del trànsit al trajecte de casa a la feina.\n\nPots desactivar l\'Historial d\'Ubicacions en qualsevol moment, però aquesta acció no n\'esborra les dades. Per consultar i gestionar l\'Historial d\'Ubicacions, accedeix a maps.google.com/locationhistory."</string>
-    <string name="delete_location_history_title" msgid="5804802702252280549">"Suprimeix l\'Historial d\'Ubicacions"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"Així se suprimirà tot l\'Historial d\'Ubicacions d\'aquest dispositiu que hi hagi emmagatzemat en aquest compte de Google. L\'acció no es pot desfer. Algunes aplicacions, com ara Google Now, deixaran de funcionar."</string>
+    <string name="location_reporting" msgid="3054236612250063073">"Informes d\'ubicació"</string>
+    <string name="location_history" msgid="2946680949724247804">"Historial d\'ubicacions"</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google utilitza aquesta funció en productes com ara Google Now i Google Maps. Si actives els informes d\'ubicació, qualsevol producte de Google que faci servir aquesta funció podrà desar i fer servir les dades d\'ubicació més recents del dispositiu associades amb el teu compte de Google."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"Si l\'historial d\'ubicacions està activat per a aquest compte, Google pot desar les dades d\'ubicació del dispositiu perquè les teves aplicacions les utilitzin.\n\nPer exemple, Google Maps et pot donar indicacions i Google Now et pot informar sobre l\'estat del trànsit al trajecte de casa a la feina.\n\nPots desactivar l\'historial d\'ubicacions en qualsevol moment, però aquesta acció no n\'esborra les dades. Per consultar i gestionar l\'historial d\'ubicacions, accedeix a maps.google.com/locationhistory."</string>
+    <string name="delete_location_history_title" msgid="5804802702252280549">"Suprimeix l\'historial d\'ubicacions"</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"Així se suprimirà tot l\'historial d\'ubicacions d\'aquest dispositiu que hi hagi emmagatzemat en aquest compte de Google. L\'acció no es pot desfer. Algunes aplicacions, com ara Google Now, deixaran de funcionar."</string>
     <string name="system_services" msgid="7230571820151215779">"Serveis"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Configuració del servei"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Text d\'alt contrast"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Opcions de visualització"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Configura"</string>
     <string name="captions_language" msgid="2835554055388996343">"Idioma"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Predeterminat"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Mida del text"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Estil dels subtítols"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Opcions personalitzades"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Escala de l\'animació de transició"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Escala de durada de l\'animació"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Mode estricte activat"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Mostra l\'ús de la CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Perfil de representació de GPU"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Activa les traces"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"No desis les activitats"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"De millor a pitjor: blau, verd, vermell clar, vermell"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Actualitza superfície de finestres en actualitzar-se"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Centelleja si les aplicacions triguen molt al procés principal"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Superposició en pantalla en què es mostra l\'ús de la CPU"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mesura temps represen. a adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Activa"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Desactiva"</string>
@@ -474,10 +477,10 @@
     <string name="action_off_description" msgid="4364261457368041502">"Desactivada"</string>
     <string name="agree" msgid="1235622082275451350">"Accepto"</string>
     <string name="disagree" msgid="9170636026862400981">"No accepto"</string>
-    <string name="security_unknown_sources_title" msgid="769762478057744545">"Orígens desconeguts"</string>
+    <string name="security_unknown_sources_title" msgid="769762478057744545">"Fonts desconegudes"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Permet instal·lar aplicacions que no siguin de Play Store"</string>
-    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Permet els orígens desconeguts"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"El teu dispositiu i les dades personals són més vulnerables als atacs d\'aplicacions d\'origen desconegut. Acceptes que ets l\'únic responsable dels danys que es puguin causar al dispositiu o de les pèrdues de dades que es puguin produir amb l\'ús d\'aquestes aplicacions."</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Permet les fonts desconegudes"</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"El teu dispositiu i les dades personals són més vulnerables als atacs d\'aplicacions de fonts desconegudes. Acceptes que ets l\'únic responsable dels danys que es puguin causar al dispositiu o de les pèrdues de dades que es puguin produir amb l\'ús d\'aquestes aplicacions."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verifica les aplicacions"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"No permetis la instal·lació d\'aplicacions que puguin causar danys o bé mostra una advertència abans de fer-ho"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Mai"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Força l\'aturada"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Si forces l\'aturada d\'una aplicació, és possible que no funcioni correctament."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Desinstal·la"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Vols desinstal·lar aquesta aplicació?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Desinstal·la les actualitzacions"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Es desinstal·laran totes les actualitzacions d\'aquesta aplicació del sistema Android."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Desactiva"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Esborra la memòria cau"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Notificacions"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Permisos"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"L\'aplicació no està disponible"</string>
     <string name="settings_ok" msgid="3321630456511355983">"D\'acord"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Cancel·la"</string>
     <string name="settings_on" msgid="6892236264945435013">"Activada"</string>
@@ -630,7 +633,7 @@
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Actualment no hi ha cap compte que emmagatzemi dades de còpia de seguretat."</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Vols deixar de crear còpies de seguretat de les contrasenyes de Wi-Fi, de les adreces d\'interès, d\'altres configuracions i dades d\'aplicacions i, a més, esborrar totes les còpies dels servidors de Google?"</string>
-    <string name="privacy_backup_data" msgid="1796662583830120812">"Copia les meves dades"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Còpia de seguretat de les meves dades"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"Compte de còpia de seguretat"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Restauració automàtica"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Restableix el dispositiu"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vols esborrar tota la informació personal i les aplicacions baixades? Aquesta acció no es pot desfer."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Esborra-ho tot"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Tria un nom per al teu <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"El nom et permetrà identificar el teu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> més fàcilment quan hi accedeixis des d\'altres dispositius, com ara el telèfon, la tauleta o l\'ordinador."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Assigna un nom al dispositiu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> per ajudar-te a identificar-lo quan estigui emetent contingut o t\'hi connectis des d\'altres dispositius."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Sala d\'estar"</item>
-    <item msgid="3722089849939477581">"Sala multimèdia"</item>
-    <item msgid="6108590585438763574">"Saleta"</item>
-    <item msgid="2581035245390468625">"Menjador"</item>
-    <item msgid="3127487827308695324">"Estudi"</item>
-    <item msgid="6172018430592195063">"Dormitori"</item>
-    <item msgid="8120010459866284578">"Cuina"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Televisor de la sala d\'estar"</item>
+    <item msgid="8122798759665439456">"Televisor de la saleta"</item>
+    <item msgid="1389347662738182100">"Televisor del dormitori"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Escriu un nom personalitzat..."</string>
+    <string name="custom_room" msgid="8655516733933892458">"Introdueix un nom personalitzat…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Canvia el nom d\'aquest <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Actualment, aquest <xliff:g id="DEVICEMODEL">%1$s</xliff:g> s\'anomena <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
     <string name="change_setting" msgid="2047402388786162246">"Canvia"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Reinicia en mode segur"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Vols reiniciar en mode segur?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Es desactivaran les aplicacions de tercers que hagis instal·lat. Tot aquest contingut es restablirà quan tornis a reiniciar el dispositiu."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"S\'està capturant l\'informe d\'errors"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclats virtuals disponibles"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Gestiona els teclats"</string>
 </resources>

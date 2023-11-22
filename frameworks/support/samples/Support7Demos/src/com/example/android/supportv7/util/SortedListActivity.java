@@ -15,9 +15,8 @@
  */
 package com.example.android.supportv7.util;
 
-import com.example.android.supportv7.R;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.util.SortedList;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -32,10 +31,12 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.example.android.supportv7.R;
+
 /**
  * A sample activity that uses {@link SortedList} in combination with RecyclerView.
  */
-public class SortedListActivity extends ActionBarActivity {
+public class SortedListActivity extends AppCompatActivity {
     private RecyclerView mRecyclerView;
     private LinearLayoutManager mLinearLayoutManager;
     private SortedListAdapter mAdapter;
@@ -43,7 +44,7 @@ public class SortedListActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.sorted_list_activity);
-        mRecyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        mRecyclerView = findViewById(R.id.recycler_view);
         mRecyclerView.setHasFixedSize(true);
         mLinearLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLinearLayoutManager);
@@ -52,7 +53,7 @@ public class SortedListActivity extends ActionBarActivity {
                 new Item("wash the dishes"));
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.setHasFixedSize(true);
-        final EditText newItemTextView = (EditText) findViewById(R.id.new_item_text_view);
+        final EditText newItemTextView = findViewById(R.id.new_item_text_view);
         newItemTextView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {

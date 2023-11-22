@@ -37,7 +37,7 @@ import com.android.emergency.PreferenceKeys;
 import com.android.emergency.R;
 import com.android.emergency.view.ViewInfoActivity;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 import java.util.ArrayList;
 
@@ -89,7 +89,7 @@ public class EditInfoActivity extends EmergencyTabActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.edit_info_menu, menu);
-        return true;
+        return super.onCreateOptionsMenu(menu);
     }
 
     @Override
@@ -143,13 +143,10 @@ public class EditInfoActivity extends EmergencyTabActivity {
         sharedPreferences.edit().remove(PreferenceKeys.KEY_EMERGENCY_CONTACTS).commit();
 
         // Refresh the UI.
-        ArrayList<Pair<String, Fragment>> fragments = getFragments();
-        EditEmergencyInfoFragment editEmergencyInfoFragment =
-                (EditEmergencyInfoFragment) fragments.get(0).second;
-        editEmergencyInfoFragment.reloadFromPreference();
-        EditEmergencyContactsFragment editEmergencyContactsFragment =
-                (EditEmergencyContactsFragment) fragments.get(1).second;
-        editEmergencyContactsFragment.reloadFromPreference();
+        ViewPagerAdapter adapter = getTabsAdapter();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
     }
 
     /**

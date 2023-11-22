@@ -26,7 +26,7 @@ import android.content.Intent;
 import android.database.DataSetObservable;
 import android.database.DataSetObserver;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -50,7 +50,7 @@ import java.util.ArrayList;
 /**
  * This activity displays the list of available folders for the current account.
  */
-public class FolderSelectionActivity extends ActionBarActivity implements OnClickListener,
+public class FolderSelectionActivity extends AppCompatActivity implements OnClickListener,
         DialogInterface.OnClickListener, ControllableActivity,
         FolderSelector {
     public static final String EXTRA_ACCOUNT_SHORTCUT = "account-shortcut";

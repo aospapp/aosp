@@ -16,11 +16,14 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-
-import android.content.Context;
-import android.test.ActivityInstrumentationTestCase2;
+import android.app.Activity;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -28,22 +31,28 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.GridLayoutAnimationController;
 import android.view.animation.Interpolator;
 import android.view.animation.LayoutAnimationController;
+import android.view.cts.R;
 
-public class AnimationUtilsTest extends
-        ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private AnimationTestCtsActivity mActivity;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class AnimationUtilsTest {
+    private Activity mActivity;
 
-    public AnimationUtilsTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = (AnimationTestCtsActivity) getActivity();
-    }
-
+    @Test
     public void testLoad() {
         // XML file of android.view.cts.R.anim.anim_alpha
         // <alpha xmlns:android="http://schemas.android.com/apk/res/android"
@@ -74,6 +83,7 @@ public class AnimationUtilsTest extends
         assertEquals(0.1f, controller.getDelay(), 0.001f);
     }
 
+    @Test
     public void testMakeAnimation() {
         Animation inAnimation = AnimationUtils.makeInAnimation(mActivity, true);
         assertNotNull(inAnimation);
@@ -84,6 +94,7 @@ public class AnimationUtilsTest extends
         // TODO: How to assert these Animations.
     }
 
+    @Test
     public void testCurrentAnimationTimeMillis() {
         long time1 = AnimationUtils.currentAnimationTimeMillis();
         assertTrue(time1 > 0);

@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "stress_experimental"
 PURPOSE = "Experimental suite to test stress tests."
-CRITERIA = "All tests with SUITE=stress_experimental must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "Stress"

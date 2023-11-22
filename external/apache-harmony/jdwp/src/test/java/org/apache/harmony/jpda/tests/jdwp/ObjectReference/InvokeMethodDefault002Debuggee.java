@@ -62,9 +62,11 @@ public class InvokeMethodDefault002Debuggee extends SyncDebuggee {
         logWriter.println("InvokeMethodDefault002Debuggee.execMethod()");
     }
 
+    @Override
     public void run() {
         // Preload TestClass so it is available during the test.
-        Class c = null;
+        @SuppressWarnings("unused")
+        Class<?> c = null;
         String packageName = "org.apache.harmony.jpda.tests.jdwp.";
         try {
             c = Class.forName(

@@ -463,6 +463,10 @@ wsbmAllocSlab(struct _WsbmSlabSizeHeader *header)
     }
 
     numBuffers = slab->kbo->actualSize / header->bufSize;
+    if (!numBuffers) {
+        ret = -ENOMEM;
+        goto out_err1;
+    }
 
     slab->buffers = calloc(numBuffers, sizeof(*slab->buffers));
     if (!slab->buffers) {

@@ -26,7 +26,6 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 
 import com.android.internal.annotations.Immutable;
-import com.android.managedprovisioning.ProvisionLogger;
 
 /**
  * Information relating to the currently installed MDM package manager.

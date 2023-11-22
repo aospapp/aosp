@@ -15,22 +15,24 @@
  */
 package com.squareup.okhttp.internal.ws;
 
+import com.squareup.okhttp.ResponseBody;
 import com.squareup.okhttp.ws.WebSocketRecorder;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.ProtocolException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
 import org.junit.After;
 import org.junit.Test;
 
-import static com.squareup.okhttp.ws.WebSocket.PayloadType;
 import static com.squareup.okhttp.ws.WebSocketRecorder.MessageDelegate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public final class WebSocketReaderTest {
@@ -151,11 +153,12 @@ public final class WebSocketReaderTest {
 
     final Buffer sink = new Buffer();
     callback.setNextMessageDelegate(new MessageDelegate() {
-      @Override public void onMessage(BufferedSource payload, PayloadType type) throws IOException {
-        payload.readFully(sink, 3); // Read "Hel"
+      @Override public void onMessage(ResponseBody message) throws IOException {
+        BufferedSource source = message.source();
+        source.readFully(sink, 3); // Read "Hel"
         data.write(ByteString.decodeHex("5158")); // lo
-        payload.readFully(sink, 2); // Read "lo"
-        payload.close();
+        source.readFully(sink, 2); // Read "lo"
+        source.close();
       }
     });
     serverReader.processNextFrame();
@@ -251,8 +254,8 @@ public final class WebSocketReaderTest {
   @Test public void noCloseErrors() throws IOException {
     data.write(ByteString.decodeHex("810548656c6c6f")); // Hello
     callback.setNextMessageDelegate(new MessageDelegate() {
-      @Override public void onMessage(BufferedSource payload, PayloadType type) throws IOException {
-        payload.readAll(new Buffer());
+      @Override public void onMessage(ResponseBody body) throws IOException {
+        body.source().readAll(new Buffer());
       }
     });
     try {
@@ -269,9 +272,9 @@ public final class WebSocketReaderTest {
 
     final Buffer sink = new Buffer();
     callback.setNextMessageDelegate(new MessageDelegate() {
-      @Override public void onMessage(BufferedSource payload, PayloadType type) throws IOException {
-        payload.read(sink, 3);
-        payload.close();
+      @Override public void onMessage(ResponseBody message) throws IOException {
+        message.source().read(sink, 3);
+        message.close();
       }
     });
 
@@ -291,9 +294,9 @@ public final class WebSocketReaderTest {
 
     final Buffer sink = new Buffer();
     callback.setNextMessageDelegate(new MessageDelegate() {
-      @Override public void onMessage(BufferedSource payload, PayloadType type) throws IOException {
-        payload.read(sink, 2);
-        payload.close();
+      @Override public void onMessage(ResponseBody message) throws IOException {
+        message.source().read(sink, 2);
+        message.close();
       }
     });
 
@@ -311,10 +314,10 @@ public final class WebSocketReaderTest {
 
     final AtomicReference<Exception> exception = new AtomicReference<>();
     callback.setNextMessageDelegate(new MessageDelegate() {
-      @Override public void onMessage(BufferedSource payload, PayloadType type) throws IOException {
-        payload.close();
+      @Override public void onMessage(ResponseBody message) throws IOException {
+        message.close();
         try {
-          payload.readAll(new Buffer());
+          message.source().readAll(new Buffer());
           fail();
         } catch (IllegalStateException e) {
           exception.set(e);
@@ -341,13 +344,61 @@ public final class WebSocketReaderTest {
   @Test public void emptyCloseCallsCallback() throws IOException {
     data.write(ByteString.decodeHex("8800")); // Empty close
     clientReader.processNextFrame();
-    callback.assertClose(0, "");
+    callback.assertClose(1000, "");
+  }
+
+  @Test public void closeLengthOfOneThrows() throws IOException {
+    data.write(ByteString.decodeHex("880100")); // Close with invalid 1-byte payload
+    try {
+      clientReader.processNextFrame();
+      fail();
+    } catch (ProtocolException e) {
+      assertEquals("Malformed close payload length of 1.", e.getMessage());
+    }
   }
 
   @Test public void closeCallsCallback() throws IOException {
     data.write(ByteString.decodeHex("880703e848656c6c6f")); // Close with code and reason
     clientReader.processNextFrame();
     callback.assertClose(1000, "Hello");
+  }
+
+  @Test public void closeOutOfRangeThrows() throws IOException {
+    data.write(ByteString.decodeHex("88020001")); // Close with code 1
+    try {
+      clientReader.processNextFrame();
+      fail();
+    } catch (ProtocolException e) {
+      assertEquals("Code must be in range [1000,5000): 1", e.getMessage());
+    }
+    data.write(ByteString.decodeHex("88021388")); // Close with code 5000
+    try {
+      clientReader.processNextFrame();
+      fail();
+    } catch (ProtocolException e) {
+      assertEquals("Code must be in range [1000,5000): 5000", e.getMessage());
+    }
+  }
+
+  @Test public void closeReservedSetThrows() throws IOException {
+    data.write(ByteString.decodeHex("880203ec")); // Close with code 1004
+    data.write(ByteString.decodeHex("880203ed")); // Close with code 1005
+    data.write(ByteString.decodeHex("880203ee")); // Close with code 1006
+    for (int i = 1012; i <= 2999; i++) {
+      data.write(ByteString.decodeHex("8802" + String.format("%04X", i))); // Close with code 'i'
+    }
+
+    int count = 0;
+    for (; !data.exhausted(); count++) {
+      try {
+        clientReader.processNextFrame();
+        fail();
+      } catch (ProtocolException e) {
+        String message = e.getMessage();
+        assertTrue(message, Pattern.matches("Code \\d+ is reserved and may not be used.", message));
+      }
+    }
+    assertEquals(1991, count);
   }
 
   private byte[] binaryData(int length) {

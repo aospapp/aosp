@@ -5,7 +5,6 @@
 import logging
 import os
 import random
-import shutil
 import time
 
 from autotest_lib.client.bin import test
@@ -39,7 +38,7 @@ class audio_ActiveStreamStress(test.test):
         # Collect existing cras crash reports.
         self._existing_cras_reports = self.collect_cras_crash()
 
-        with chrome.Chrome() as self._cr:
+        with chrome.Chrome(init_network_controller=True) as self._cr:
             self._cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             self.push_new_stream(self._cr.browser.tabs[0])
             # TODO(rohitbm): decide whether to perform verification on each

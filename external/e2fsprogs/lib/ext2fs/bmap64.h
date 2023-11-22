@@ -13,7 +13,7 @@ struct ext2_bmap_statistics {
 	int		type;
 	struct timeval	created;
 
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 	unsigned long	copy_count;
 	unsigned long	resize_count;
 	unsigned long	mark_count;
@@ -33,7 +33,7 @@ struct ext2_bmap_statistics {
 
 	unsigned long	mark_seq;
 	unsigned long	test_seq;
-#endif /* BMAP_STATS_OPS */
+#endif /* ENABLE_BMAP_STATS_OPS */
 };
 
 
@@ -48,7 +48,7 @@ struct ext2fs_struct_generic_bitmap {
 	char			*description;
 	void			*private;
 	errcode_t		base_error_code;
-#ifdef BMAP_STATS
+#ifdef ENABLE_BMAP_STATS
 	struct ext2_bmap_statistics	stats;
 #endif
 };
@@ -94,6 +94,10 @@ struct ext2_bitmap_ops {
 	 * May be NULL, in which case a generic function is used. */
 	errcode_t (*find_first_zero)(ext2fs_generic_bitmap bitmap,
 				     __u64 start, __u64 end, __u64 *out);
+	/* Find the first set bit between start and end, inclusive.
+	 * May be NULL, in which case a generic function is used. */
+	errcode_t (*find_first_set)(ext2fs_generic_bitmap bitmap,
+				    __u64 start, __u64 end, __u64 *out);
 };
 
 extern struct ext2_bitmap_ops ext2fs_blkmap64_bitarray;

@@ -15,22 +15,25 @@
  */
 package android.uirendering.cts.testinfrastructure;
 
-import android.annotation.Nullable;
+import com.android.compatibility.common.util.SynchronousPixelCopy;
+
 import android.app.Instrumentation;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Point;
-import android.renderscript.Allocation;
-import android.renderscript.RenderScript;
-import android.support.test.rule.ActivityTestRule;
+import android.graphics.Rect;
+import android.support.annotation.Nullable;
+import android.support.test.InstrumentationRegistry;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
-import android.uirendering.cts.differencevisualizers.DifferenceVisualizer;
-import android.uirendering.cts.differencevisualizers.PassFailVisualizer;
-import android.uirendering.cts.util.BitmapDumper;
+import android.uirendering.cts.util.BitmapAsserter;
 import android.util.Log;
+import android.view.PixelCopy;
 
-import android.support.test.InstrumentationRegistry;
 import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TestName;
@@ -40,8 +43,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertTrue;
-
 /**
  * This class contains the basis for the graphics hardware test classes. Contained within this class
  * are several methods that help with the execution of tests, and should be extended to gain the
@@ -50,44 +51,21 @@ import static org.junit.Assert.assertTrue;
 public abstract class ActivityTestBase {
     public static final String TAG = "ActivityTestBase";
     public static final boolean DEBUG = false;
-    public static final boolean USE_RS = false;
 
     //The minimum height and width of a device
     public static final int TEST_WIDTH = 90;
     public static final int TEST_HEIGHT = 90;
 
-    private int[] mHardwareArray = new int[TEST_HEIGHT * TEST_WIDTH];
-    private int[] mSoftwareArray = new int[TEST_HEIGHT * TEST_WIDTH];
-    private DifferenceVisualizer mDifferenceVisualizer;
-    private RenderScript mRenderScript;
     private TestCaseBuilder mTestCaseBuilder;
+    private Screenshotter mScreenshotter;
 
-    @Rule
-    public ActivityTestRule<DrawActivity> mActivityRule = new ActivityTestRule<>(
-            DrawActivity.class);
+    private static DrawActivity sActivity;
 
     @Rule
     public TestName name = new TestName();
 
-    /**
-     * The default constructor creates the package name and sets the DrawActivity as the class that
-     * we would use.
-     */
-    public ActivityTestBase() {
-        mDifferenceVisualizer = new PassFailVisualizer();
-
-        // Create a location for the files to be held, if it doesn't exist already
-        BitmapDumper.createSubDirectory(this.getClass().getSimpleName());
-
-        // If we have a test currently, let's remove the older files if they exist
-        if (getName() != null) {
-            BitmapDumper.deleteFileInClassFolder(this.getClass().getSimpleName(), getName());
-        }
-    }
-
-    protected DrawActivity getActivity() {
-        return mActivityRule.getActivity();
-    }
+    private BitmapAsserter mBitmapAsserter = new BitmapAsserter(this.getClass().getSimpleName(),
+            name.getMethodName());
 
     protected String getName() {
         return name.getMethodName();
@@ -97,12 +75,30 @@ public abstract class ActivityTestBase {
         return InstrumentationRegistry.getInstrumentation();
     }
 
+    protected DrawActivity getActivity() {
+        if (sActivity == null) {
+            Instrumentation instrumentation = getInstrumentation();
+            instrumentation.setInTouchMode(true);
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.setClass(instrumentation.getTargetContext(), DrawActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            sActivity = (DrawActivity) instrumentation.startActivitySync(intent);
+        }
+        return sActivity;
+    }
+
+    @AfterClass
+    public static void tearDownClass() {
+        if (sActivity != null) {
+            // All tests are finished, tear down the activity
+            sActivity.allTestsFinished();
+            sActivity = null;
+        }
+    }
+
     @Before
     public void setUp() {
-        mDifferenceVisualizer = new PassFailVisualizer();
-        if (USE_RS) {
-            mRenderScript = RenderScript.create(getActivity().getApplicationContext());
-        }
+        mBitmapAsserter.setUp(getActivity());
     }
 
     @After
@@ -125,15 +121,25 @@ public abstract class ActivityTestBase {
     }
 
     public Bitmap takeScreenshot(Point testOffset) {
-        getInstrumentation().waitForIdleSync();
-        Bitmap source = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(source, testOffset.x, testOffset.y, TEST_WIDTH, TEST_HEIGHT);
+        if (mScreenshotter == null) {
+            SynchronousPixelCopy copy = new SynchronousPixelCopy();
+            Bitmap dest = Bitmap.createBitmap(
+                    TEST_WIDTH, TEST_HEIGHT, Config.ARGB_8888);
+            Rect srcRect = new Rect(testOffset.x, testOffset.y,
+                    testOffset.x + TEST_WIDTH, testOffset.y + TEST_HEIGHT);
+            Log.d("UiRendering", "capturing screenshot of " + srcRect.toShortString());
+            int copyResult = copy.request(getActivity().getWindow(), srcRect, dest);
+            Assert.assertEquals(PixelCopy.SUCCESS, copyResult);
+            return dest;
+        } else {
+            return mScreenshotter.takeScreenshot(testOffset);
+        }
     }
 
     protected Point runRenderSpec(TestCase testCase) {
         Point testOffset = getActivity().enqueueRenderSpecAndWait(
                 testCase.layoutID, testCase.canvasClient,
-                null, testCase.viewInitializer, testCase.useHardware);
+                testCase.viewInitializer, testCase.useHardware, testCase.usePicture);
         testCase.wasTestRan = true;
         if (testCase.readyFence != null) {
             try {
@@ -153,57 +159,14 @@ public abstract class ActivityTestBase {
         return takeScreenshot(testOffset);
     }
 
-    /**
-     * Compares the two bitmaps saved using the given test. If they fail, the files are saved using
-     * the test name.
-     */
-    protected void assertBitmapsAreSimilar(Bitmap bitmap1, Bitmap bitmap2,
-            BitmapComparer comparer, String debugMessage) {
-        boolean success;
-
-        if (USE_RS && comparer.supportsRenderScript()) {
-            Allocation idealAllocation = Allocation.createFromBitmap(mRenderScript, bitmap1,
-                    Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
-            Allocation givenAllocation = Allocation.createFromBitmap(mRenderScript, bitmap2,
-                    Allocation.MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
-            success = comparer.verifySameRS(getActivity().getResources(), idealAllocation,
-                    givenAllocation, 0, TEST_WIDTH, TEST_WIDTH, TEST_HEIGHT, mRenderScript);
-        } else {
-            bitmap1.getPixels(mSoftwareArray, 0, TEST_WIDTH, 0, 0, TEST_WIDTH, TEST_HEIGHT);
-            bitmap2.getPixels(mHardwareArray, 0, TEST_WIDTH, 0, 0, TEST_WIDTH, TEST_HEIGHT);
-            success = comparer.verifySame(mSoftwareArray, mHardwareArray, 0, TEST_WIDTH, TEST_WIDTH,
-                    TEST_HEIGHT);
-        }
-
-        if (!success) {
-            BitmapDumper.dumpBitmaps(bitmap1, bitmap2, getName(), this.getClass().getSimpleName(),
-                    mDifferenceVisualizer);
-        }
-
-        assertTrue(debugMessage, success);
-    }
-
-    /**
-     * Tests to see if a bitmap passes a verifier's test. If it doesn't the bitmap is saved to the
-     * sdcard.
-     */
-    protected void assertBitmapIsVerified(Bitmap bitmap, BitmapVerifier bitmapVerifier,
-            String debugMessage) {
-        bitmap.getPixels(mSoftwareArray, 0, TEST_WIDTH, 0, 0,
-                TEST_WIDTH, TEST_HEIGHT);
-        boolean success = bitmapVerifier.verify(mSoftwareArray, 0, TEST_WIDTH, TEST_WIDTH, TEST_HEIGHT);
-        if (!success) {
-            Bitmap croppedBitmap = Bitmap.createBitmap(bitmap, 0, 0, TEST_WIDTH, TEST_HEIGHT);
-            BitmapDumper.dumpBitmap(croppedBitmap, getName(), this.getClass().getSimpleName());
-            BitmapDumper.dumpBitmap(bitmapVerifier.getDifferenceBitmap(), getName() + "_verifier",
-                    this.getClass().getSimpleName());
-        }
-        assertTrue(debugMessage, success);
-    }
-
     protected TestCaseBuilder createTest() {
         mTestCaseBuilder = new TestCaseBuilder();
+        mScreenshotter = null;
         return mTestCaseBuilder;
+    }
+
+    public interface Screenshotter {
+        Bitmap takeScreenshot(Point point);
     }
 
     /**
@@ -229,8 +192,8 @@ public abstract class ActivityTestBase {
 
             for (TestCase testCase : mTestCases) {
                 Bitmap testCaseBitmap = captureRenderSpec(testCase);
-                assertBitmapsAreSimilar(idealBitmap, testCaseBitmap, bitmapComparer,
-                        testCase.getDebugString());
+                mBitmapAsserter.assertBitmapsAreSimilar(idealBitmap, testCaseBitmap, bitmapComparer,
+                        getName(), testCase.getDebugString());
             }
         }
 
@@ -245,8 +208,10 @@ public abstract class ActivityTestBase {
 
             for (TestCase testCase : mTestCases) {
                 Bitmap testCaseBitmap = captureRenderSpec(testCase);
-                assertBitmapIsVerified(testCaseBitmap, bitmapVerifier, testCase.getDebugString());
+                mBitmapAsserter.assertBitmapIsVerified(testCaseBitmap, bitmapVerifier,
+                        getName(), testCase.getDebugString());
             }
+            getActivity().reset();
         }
 
         private static final int VERIFY_ANIMATION_LOOP_COUNT = 20;
@@ -274,8 +239,8 @@ public abstract class ActivityTestBase {
                         e.printStackTrace();
                     }
                     Bitmap testCaseBitmap = takeScreenshot(testOffset);
-                    assertBitmapIsVerified(testCaseBitmap, bitmapVerifier,
-                            testCase.getDebugString());
+                    mBitmapAsserter.assertBitmapIsVerified(testCaseBitmap, bitmapVerifier,
+                            getName(), testCase.getDebugString());
                 }
             }
         }
@@ -292,6 +257,12 @@ public abstract class ActivityTestBase {
                     return true;
                 }
             });
+        }
+
+        public TestCaseBuilder withScreenshotter(Screenshotter screenshotter) {
+            Assert.assertNull("Screenshotter is already set!", mScreenshotter);
+            mScreenshotter = screenshotter;
+            return this;
         }
 
         public TestCaseBuilder addLayout(int layoutId, @Nullable ViewInitializer viewInitializer) {
@@ -328,7 +299,28 @@ public abstract class ActivityTestBase {
 
         public TestCaseBuilder addCanvasClient(String debugString,
                     CanvasClient canvasClient, boolean useHardware) {
-            mTestCases.add(new TestCase(canvasClient, debugString, useHardware));
+            return addCanvasClientInternal(debugString, canvasClient, useHardware, false)
+                    .addCanvasClientInternal(debugString, canvasClient, useHardware, true);
+        }
+
+        public TestCaseBuilder addCanvasClientWithoutUsingPicture(CanvasClient canvasClient) {
+            return addCanvasClientWithoutUsingPicture(null, canvasClient);
+        }
+
+        public TestCaseBuilder addCanvasClientWithoutUsingPicture(String debugString,
+                CanvasClient canvasClient) {
+            return addCanvasClientInternal(debugString, canvasClient, false, false)
+                    .addCanvasClientInternal(debugString, canvasClient, true, false);
+        }
+
+        public TestCaseBuilder addCanvasClientWithoutUsingPicture(CanvasClient canvasClient,
+                boolean useHardware) {
+            return addCanvasClientInternal(null, canvasClient, useHardware, false);
+        }
+
+        private TestCaseBuilder addCanvasClientInternal(String debugString,
+                CanvasClient canvasClient, boolean useHardware, boolean usePicture) {
+            mTestCases.add(new TestCase(canvasClient, debugString, useHardware, usePicture));
             return this;
         }
 
@@ -350,6 +342,7 @@ public abstract class ActivityTestBase {
         public String canvasClientDebugString;
 
         public boolean useHardware;
+        public boolean usePicture = false;
         public boolean wasTestRan = false;
 
         public TestCase(int layoutId, ViewInitializer viewInitializer, boolean useHardware) {
@@ -358,10 +351,12 @@ public abstract class ActivityTestBase {
             this.useHardware = useHardware;
         }
 
-        public TestCase(CanvasClient client, String debugString, boolean useHardware) {
+        public TestCase(CanvasClient client, String debugString, boolean useHardware,
+                boolean usePicture) {
             this.canvasClient = client;
             this.canvasClientDebugString = debugString;
             this.useHardware = useHardware;
+            this.usePicture = usePicture;
         }
 
         public String getDebugString() {
@@ -377,7 +372,8 @@ public abstract class ActivityTestBase {
                 debug += "Layout resource : " +
                         getActivity().getResources().getResourceName(layoutID);
             }
-            debug += "\nTest ran in " + (useHardware ? "hardware" : "software") + "\n";
+            debug += "\nTest ran in " + (useHardware ? "hardware" : "software") +
+                    (usePicture ? " with picture" : " without picture") + "\n";
             return debug;
         }
     }

@@ -55,6 +55,7 @@ import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
 import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -79,7 +80,7 @@ public class Camera2SurfaceViewTestCase extends
     protected static final String DEBUG_FILE_NAME_BASE =
             Environment.getExternalStorageDirectory().getPath();
     protected static final int WAIT_FOR_RESULT_TIMEOUT_MS = 3000;
-    protected static final float FRAME_DURATION_ERROR_MARGIN = 0.005f; // 0.5 percent error margin.
+    protected static final float FRAME_DURATION_ERROR_MARGIN = 0.01f; // 1 percent error margin.
     protected static final int NUM_RESULTS_WAIT_TIMEOUT = 100;
     protected static final int NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY = 8;
     protected static final int MIN_FRAME_DURATION_ERROR_MARGIN = 100; // ns
@@ -99,6 +100,7 @@ public class Camera2SurfaceViewTestCase extends
     protected ImageReader mReader;
     protected Surface mReaderSurface;
     protected Surface mPreviewSurface;
+    protected SurfaceHolder mPreviewHolder;
     protected Size mPreviewSize;
     protected List<Size> mOrderedPreviewSizes; // In descending order.
     protected List<Size> m1080pBoundedOrderedPreviewSizes; // In descending order.
@@ -222,9 +224,11 @@ public class Camera2SurfaceViewTestCase extends
      * Does _not_ wait for the device to go idle
      */
     protected void stopPreview() throws Exception {
-        if (VERBOSE) Log.v(TAG, "Stopping preview");
         // Stop repeat, wait for captures to complete, and disconnect from surfaces
-        mSession.close();
+        if (mSession != null) {
+            if (VERBOSE) Log.v(TAG, "Stopping preview");
+            mSession.close();
+        }
     }
 
     /**
@@ -232,11 +236,13 @@ public class Camera2SurfaceViewTestCase extends
      * resulting in an idle device.
      */
     protected void stopPreviewAndDrain() throws Exception {
-        if (VERBOSE) Log.v(TAG, "Stopping preview and waiting for idle");
         // Stop repeat, wait for captures to complete, and disconnect from surfaces
-        mSession.close();
-        mSessionListener.getStateWaiter().waitForState(BlockingSessionCallback.SESSION_CLOSED,
-                /*timeoutMs*/WAIT_FOR_RESULT_TIMEOUT_MS);
+        if (mSession != null) {
+            if (VERBOSE) Log.v(TAG, "Stopping preview and waiting for idle");
+            mSession.close();
+            mSessionListener.getStateWaiter().waitForState(BlockingSessionCallback.SESSION_CLOSED,
+                    /*timeoutMs*/WAIT_FOR_RESULT_TIMEOUT_MS);
+        }
     }
 
     /**
@@ -636,6 +642,7 @@ public class Camera2SurfaceViewTestCase extends
                 WAIT_FOR_SURFACE_CHANGE_TIMEOUT_MS, mPreviewSize.getWidth(),
                 mPreviewSize.getHeight());
         assertTrue("wait for surface change to " + mPreviewSize.toString() + " timed out", res);
+        mPreviewHolder = holder;
         mPreviewSurface = holder.getSurface();
         assertNotNull("Preview surface is null", mPreviewSurface);
         assertTrue("Preview surface is invalid", mPreviewSurface.isValid());
@@ -692,6 +699,27 @@ public class Camera2SurfaceViewTestCase extends
             CaptureRequest.Builder stillRequest, Size previewSz, Size captureSz, int format,
             CaptureCallback resultListener, int maxNumImages,
             ImageReader.OnImageAvailableListener imageListener) throws Exception {
+        prepareCaptureAndStartPreview(previewRequest, stillRequest, previewSz, captureSz,
+            format, resultListener, null, maxNumImages, imageListener);
+    }
+
+    /**
+     * Setup single capture configuration and start preview.
+     *
+     * @param previewRequest The capture request to be used for preview
+     * @param stillRequest The capture request to be used for still capture
+     * @param previewSz Preview size
+     * @param captureSz Still capture size
+     * @param format The single capture image format
+     * @param resultListener Capture result listener
+     * @param sessionListener Session listener
+     * @param maxNumImages The max number of images set to the image reader
+     * @param imageListener The single capture capture image listener
+     */
+    protected void prepareCaptureAndStartPreview(CaptureRequest.Builder previewRequest,
+            CaptureRequest.Builder stillRequest, Size previewSz, Size captureSz, int format,
+            CaptureCallback resultListener, CameraCaptureSession.StateCallback sessionListener,
+            int maxNumImages, ImageReader.OnImageAvailableListener imageListener) throws Exception {
         if (VERBOSE) {
             Log.v(TAG, String.format("Prepare single capture (%s) and preview (%s)",
                     captureSz.toString(), previewSz.toString()));
@@ -707,7 +735,11 @@ public class Camera2SurfaceViewTestCase extends
         List<Surface> outputSurfaces = new ArrayList<Surface>();
         outputSurfaces.add(mPreviewSurface);
         outputSurfaces.add(mReaderSurface);
-        mSessionListener = new BlockingSessionCallback();
+        if (sessionListener == null) {
+            mSessionListener = new BlockingSessionCallback();
+        } else {
+            mSessionListener = new BlockingSessionCallback(sessionListener);
+        }
         mSession = configureCameraSession(mCamera, outputSurfaces, mSessionListener, mHandler);
 
         // Configure the requests.
@@ -786,5 +818,34 @@ public class Camera2SurfaceViewTestCase extends
             cap = CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING;
         }
         return info.isCapabilitySupported(cap);
+    }
+
+    protected Range<Integer> getSuitableFpsRangeForDuration(String cameraId, long frameDuration) {
+        // Add 0.05 here so Fps like 29.99 evaluated to 30
+        int minBurstFps = (int) Math.floor(1e9 / frameDuration + 0.05f);
+        boolean foundConstantMaxYUVRange = false;
+        boolean foundYUVStreamingRange = false;
+
+        // Find suitable target FPS range - as high as possible that covers the max YUV rate
+        // Also verify that there's a good preview rate as well
+        List<Range<Integer> > fpsRanges = Arrays.asList(
+                mStaticInfo.getAeAvailableTargetFpsRangesChecked());
+        Range<Integer> targetRange = null;
+        for (Range<Integer> fpsRange : fpsRanges) {
+            if (fpsRange.getLower() == minBurstFps && fpsRange.getUpper() == minBurstFps) {
+                foundConstantMaxYUVRange = true;
+                targetRange = fpsRange;
+            }
+            if (fpsRange.getLower() <= 15 && fpsRange.getUpper() == minBurstFps) {
+                foundYUVStreamingRange = true;
+            }
+        }
+
+        assertTrue(String.format("Cam %s: Target FPS range of (%d, %d) must be supported",
+                cameraId, minBurstFps, minBurstFps), foundConstantMaxYUVRange);
+        assertTrue(String.format(
+                "Cam %s: Target FPS range of (x, %d) where x <= 15 must be supported",
+                cameraId, minBurstFps), foundYUVStreamingRange);
+        return targetRange;
     }
 }

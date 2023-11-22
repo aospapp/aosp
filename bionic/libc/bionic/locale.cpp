@@ -37,17 +37,20 @@
 
 #include "private/bionic_macros.h"
 
-// We currently support a single locale, the "C" locale (also known as "POSIX").
+#include "bionic/pthread_internal.h"
+
+// We only support two locales, the "C" locale (also known as "POSIX"),
+// and the "C.UTF-8" locale (also known as "en_US.UTF-8").
 
 static bool __bionic_current_locale_is_utf8 = true;
 
 struct __locale_t {
   size_t mb_cur_max;
 
-  __locale_t(size_t mb_cur_max) : mb_cur_max(mb_cur_max) {
+  explicit __locale_t(size_t mb_cur_max) : mb_cur_max(mb_cur_max) {
   }
 
-  __locale_t(const __locale_t* other) {
+  explicit __locale_t(const __locale_t* other) {
     if (other == LC_GLOBAL_LOCALE) {
       mb_cur_max = __bionic_current_locale_is_utf8 ? 4 : 1;
     } else {
@@ -100,12 +103,16 @@ static void __locale_init() {
   g_locale.int_n_sign_posn = CHAR_MAX;
 }
 
-static bool __is_supported_locale(const char* locale) {
-  return (strcmp(locale, "") == 0 ||
-          strcmp(locale, "C") == 0 ||
-          strcmp(locale, "C.UTF-8") == 0 ||
-          strcmp(locale, "en_US.UTF-8") == 0 ||
-          strcmp(locale, "POSIX") == 0);
+static bool __is_supported_locale(const char* locale_name) {
+  return (strcmp(locale_name, "") == 0 ||
+          strcmp(locale_name, "C") == 0 ||
+          strcmp(locale_name, "C.UTF-8") == 0 ||
+          strcmp(locale_name, "en_US.UTF-8") == 0 ||
+          strcmp(locale_name, "POSIX") == 0);
+}
+
+static bool __is_utf8_locale(const char* locale_name) {
+  return (*locale_name == '\0' || strstr(locale_name, "UTF-8"));
 }
 
 lconv* localeconv() {
@@ -133,7 +140,7 @@ locale_t newlocale(int category_mask, const char* locale_name, locale_t /*base*/
     return NULL;
   }
 
-  return new __locale_t(strstr(locale_name, "UTF-8") != NULL ? 4 : 1);
+  return new __locale_t(__is_utf8_locale(locale_name) ? 4 : 1);
 }
 
 char* setlocale(int category, const char* locale_name) {
@@ -150,23 +157,15 @@ char* setlocale(int category, const char* locale_name) {
       errno = ENOENT;
       return NULL;
     }
-    __bionic_current_locale_is_utf8 = (strstr(locale_name, "UTF-8") != NULL);
+    __bionic_current_locale_is_utf8 = __is_utf8_locale(locale_name);
   }
 
   return const_cast<char*>(__bionic_current_locale_is_utf8 ? "C.UTF-8" : "C");
 }
 
-// We can't use a constructor to create g_uselocal_key, because it may be used in constructors.
-static pthread_once_t g_uselocale_once = PTHREAD_ONCE_INIT;
-static pthread_key_t g_uselocale_key;
-
-static void g_uselocale_key_init() {
-  pthread_key_create(&g_uselocale_key, NULL);
-}
-
 locale_t uselocale(locale_t new_locale) {
-  pthread_once(&g_uselocale_once, g_uselocale_key_init);
-  locale_t old_locale = static_cast<locale_t>(pthread_getspecific(g_uselocale_key));
+  locale_t* locale_storage = &__get_bionic_tls().locale;
+  locale_t old_locale = *locale_storage;
 
   // If this is the first call to uselocale(3) on this thread, we return LC_GLOBAL_LOCALE.
   if (old_locale == NULL) {
@@ -174,7 +173,7 @@ locale_t uselocale(locale_t new_locale) {
   }
 
   if (new_locale != NULL) {
-    pthread_setspecific(g_uselocale_key, new_locale);
+    *locale_storage = new_locale;
   }
 
   return old_locale;
@@ -192,12 +191,20 @@ char* strerror_l(int error, locale_t) {
   return strerror(error);
 }
 
-size_t strftime_l(char* s, size_t max, const char* format, const struct tm* tm, locale_t) {
-  return strftime(s, max, format, tm);
-}
-
 int strncasecmp_l(const char* s1, const char* s2, size_t n, locale_t) {
   return strncasecmp(s1, s2, n);
+}
+
+double strtod_l(const char* s, char** end_ptr, locale_t) {
+  return strtod(s, end_ptr);
+}
+
+float strtof_l(const char* s, char** end_ptr, locale_t) {
+  return strtof(s, end_ptr);
+}
+
+long strtol_l(const char* s, char** end_ptr, int base, locale_t) {
+  return strtol(s, end_ptr, base);
 }
 
 long double strtold_l(const char* s, char** end_ptr, locale_t) {
@@ -206,6 +213,10 @@ long double strtold_l(const char* s, char** end_ptr, locale_t) {
 
 long long strtoll_l(const char* s, char** end_ptr, int base, locale_t) {
   return strtoll(s, end_ptr, base);
+}
+
+unsigned long strtoul_l(const char* s, char** end_ptr, int base, locale_t) {
+  return strtoul(s, end_ptr, base);
 }
 
 unsigned long long strtoull_l(const char* s, char** end_ptr, int base, locale_t) {

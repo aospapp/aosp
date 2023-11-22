@@ -5,7 +5,6 @@
 AUTHOR = "achuith"
 NAME = "login_GaiaLogin"
 ATTRIBUTES = "suite:regression"
-SUITE = "regression"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "login"

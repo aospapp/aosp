@@ -18,6 +18,7 @@
 #define TRUNKS_TPM_UTILITY_H_
 
 #include <string>
+#include <vector>
 
 #include <base/macros.h>
 
@@ -39,11 +40,7 @@ const int kNoCreationPCR = -1;
 // An interface which provides convenient methods for common TPM operations.
 class TRUNKS_EXPORT TpmUtility {
  public:
-  enum AsymmetricKeyUsage {
-    kDecryptKey,
-    kSignKey,
-    kDecryptAndSignKey
-  };
+  enum AsymmetricKeyUsage { kDecryptKey, kSignKey, kDecryptAndSignKey };
 
   TpmUtility() {}
   virtual ~TpmUtility() {}
@@ -114,7 +111,7 @@ class TRUNKS_EXPORT TpmUtility {
                                    AuthorizationDelegate* delegate,
                                    std::string* ciphertext) = 0;
 
-  // This method performs a decyption operating using a loaded RSA key
+  // This method performs a decryption operating using a loaded RSA key
   // referenced by its handle |key_handle|. The |ciphertext| is then decrypted
   // to give us the |plaintext|. |scheme| refers to the decryption scheme
   // used. By default it is OAEP, but TPM_ALG_RSAES can be specified.
@@ -251,11 +248,15 @@ class TRUNKS_EXPORT TpmUtility {
 
   // This method defines a non-volatile storage area in the TPM, referenced
   // by |index| of size |num_bytes|. This command needs owner authorization.
-  // By default non-volatile space created is unlocked and anyone can write to
-  // it. The space can be permanently locked for writing by calling the
-  // LockNVSpace method.
+  // The |attributes| of the space must be specified as a combination of
+  // TPMA_NV_* values. Optionally, an |authorization_value| and / or
+  // |policy_digest| can be specified which will be associated with the space.
+  // These values must either be a valid SHA256 digest (or empty).
   virtual TPM_RC DefineNVSpace(uint32_t index,
                                size_t num_bytes,
+                               TPMA_NV attributes,
+                               const std::string& authorization_value,
+                               const std::string& policy_digest,
                                AuthorizationDelegate* delegate) = 0;
 
   // This method destroys the non-volatile space referred to by |index|.
@@ -263,26 +264,34 @@ class TRUNKS_EXPORT TpmUtility {
   virtual TPM_RC DestroyNVSpace(uint32_t index,
                                 AuthorizationDelegate* delegate) = 0;
 
-  // This method locks the non-volatile space referred to by |index|. After a
-  // non-volatile space has been locked, it cannot be written to. Locked spaces
-  // can still be freely read. This command needs owner authorization.
+  // This method locks the non-volatile space referred to by |index|. The caller
+  // needs indicate whether they want to |lock_read| and / or |lock_write|. They
+  // also need to indicate if they are |using_owner_authorization|.
   virtual TPM_RC LockNVSpace(uint32_t index,
+                             bool lock_read,
+                             bool lock_write,
+                             bool using_owner_authorization,
                              AuthorizationDelegate* delegate) = 0;
 
   // This method writes |nvram_data| to the non-volatile space referenced by
-  // |index|, at |offset| bytes from the start of the non-volatile space.
+  // |index|, at |offset| bytes from the start of the non-volatile space. The
+  // caller needs to indicate if they are |using_owner_authorization|. If
+  // |extend| is set, the value will be extended and offset ignored.
   virtual TPM_RC WriteNVSpace(uint32_t index,
                               uint32_t offset,
                               const std::string& nvram_data,
+                              bool using_owner_authorization,
+                              bool extend,
                               AuthorizationDelegate* delegate) = 0;
 
   // This method reads |num_bytes| of data from the |offset| located at the
   // non-volatile space defined by |index|. This method returns an error if
   // |length| + |offset| is larger than the size of the defined non-volatile
-  // space.
+  // space. The caller needs to indicate if they are |using_owner_authorization|
   virtual TPM_RC ReadNVSpace(uint32_t index,
                              uint32_t offset,
                              size_t num_bytes,
+                             bool using_owner_authorization,
                              std::string* nvram_data,
                              AuthorizationDelegate* delegate) = 0;
 
@@ -294,6 +303,21 @@ class TRUNKS_EXPORT TpmUtility {
   // the TPM.
   virtual TPM_RC GetNVSpacePublicArea(uint32_t index,
                                       TPMS_NV_PUBLIC* public_data) = 0;
+
+  // Lists all defined NV indexes.
+  virtual TPM_RC ListNVSpaces(std::vector<uint32_t>* index_list) = 0;
+
+  // Sets dictionary attack parameters. Requires lockout authorization.
+  // Parameters map directly to TPM2_DictionaryAttackParameters in the TPM 2.0
+  // specification.
+  virtual TPM_RC SetDictionaryAttackParameters(
+      uint32_t max_tries,
+      uint32_t recovery_time,
+      uint32_t lockout_recovery,
+      AuthorizationDelegate* delegate) = 0;
+
+  // Reset dictionary attack lockout. Requires lockout authorization.
+  virtual TPM_RC ResetDictionaryAttackLock(AuthorizationDelegate* delegate) = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TpmUtility);

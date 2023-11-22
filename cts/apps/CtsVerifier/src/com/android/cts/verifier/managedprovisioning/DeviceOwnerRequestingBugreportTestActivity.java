@@ -80,6 +80,9 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
             return;
         }
 
+        // Tidy up in case previous run crashed.
+        new ByodFlowTestHelper(this).tearDown();
+
         setContentView(R.layout.requesting_bugreport_device_owner);
         setInfoResources(R.string.device_owner_requesting_bugreport_tests,
                 R.string.device_owner_requesting_bugreport_tests_info, 0);

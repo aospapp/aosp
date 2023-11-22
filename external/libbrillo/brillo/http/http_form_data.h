@@ -155,7 +155,7 @@ class BRILLO_EXPORT MultiPartFormField : public FormField {
   //  content_type: valid content type. If omitted, "multipart/mixed" is used.
   //  boundary: multipart boundary separator.
   //      If omitted/empty, a random string is generated.
-  MultiPartFormField(const std::string& name,
+  explicit MultiPartFormField(const std::string& name,
                      const std::string& content_type = {},
                      const std::string& boundary = {});
 

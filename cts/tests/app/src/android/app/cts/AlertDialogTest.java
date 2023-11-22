@@ -20,11 +20,12 @@ import android.app.AlertDialog;
 import android.app.Instrumentation;
 import android.app.stubs.DialogStubActivity;
 import android.content.DialogInterface;
-import android.cts.util.PollingCheck;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.KeyEvent;
 import android.widget.Button;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import android.app.stubs.R;
 /*

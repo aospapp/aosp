@@ -6,6 +6,8 @@ and formatting.
 @author: Martin Bligh (mbligh@google.com)
 """
 
+# pylint: disable=missing-docstring
+
 import os, re, string, sys, fcntl, logging
 from autotest_lib.client.bin import os_dep, utils
 from autotest_lib.client.common_lib import error
@@ -159,15 +161,15 @@ def get_partition_list(job, min_blocks=0, filter_func=None, exclude_swap=True,
 
         device = partname_to_device(partname)
         if exclude_swap and device in active_swap_devices:
-            logging.debug('Skipping %s - Active swap.' % partname)
+            logging.debug('Skipping %s - Active swap.', partname)
             continue
 
         if min_blocks and blocks < min_blocks:
-            logging.debug('Skipping %s - Too small.' % partname)
+            logging.debug('Skipping %s - Too small.', partname)
             continue
 
         if filter_func and not filter_func(partname):
-            logging.debug('Skipping %s - Filter func.' % partname)
+            logging.debug('Skipping %s - Filter func.', partname)
             continue
 
         partitions.append(partition(job, device))
@@ -264,8 +266,8 @@ def parallel(partitions, method_name, *args, **dargs):
     for p in partitions:
         print_args = list(args)
         print_args += ['%s=%s' % (key, dargs[key]) for key in dargs.keys()]
-        logging.debug('%s.%s(%s)' % (str(p), method_name,
-                                     ', '.join(print_args)))
+        logging.debug('%s.%s(%s)', str(p), method_name,
+                                     ', '.join(print_args))
         sys.stdout.flush()
         def _run_named_method(function, part=p):
             getattr(part, method_name)(*args, **dargs)
@@ -375,26 +377,9 @@ class partition(object):
         """
         @param job: A L{client.bin.job} instance.
         @param device: The device in question (e.g."/dev/hda2"). If device is a
-                file it will be mounted as loopback. If you have job config
-                'partition.partitions', e.g.,
-            job.config_set('partition.partitions', ["/dev/sda2", "/dev/sda3"])
-                you may specify a partition in the form of "partN" e.g. "part0",
-                "part1" to refer to elements of the partition list. This is
-                specially useful if you run a test in various machines and you
-                don't want to hardcode device names as those may vary.
+                file it will be mounted as loopback.
         @param loop_size: Size of loopback device (in MB). Defaults to 0.
         """
-        # NOTE: This code is used by IBM / ABAT. Do not remove.
-        part = re.compile(r'^part(\d+)$')
-        m = part.match(device)
-        if m:
-            number = int(m.groups()[0])
-            partitions = job.config_get('partition.partitions')
-            try:
-                device = partitions[number]
-            except:
-                raise NameError("Partition '" + device + "' not available")
-
         self.device = device
         self.name = os.path.basename(device)
         self.job = job
@@ -732,7 +717,7 @@ class partition(object):
                 (pid, usage) = (m.group(1), m.group(2))
                 try:
                     ps = utils.system_output('ps -p %s | sed 1d' % pid)
-                    logging.debug('%s %s %s' % (usage, pid, ps))
+                    logging.debug('%s %s %s', usage, pid, ps)
                 except Exception:
                     pass
                 utils.system('ls -l ' + self.device)
@@ -740,7 +725,7 @@ class partition(object):
                 utils.system(umount_cmd)
                 return True
         except error.CmdError:
-            logging.debug('Umount_force failed for %s' % self.device)
+            logging.debug('Umount_force failed for %s', self.device)
             return False
 
 

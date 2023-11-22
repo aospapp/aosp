@@ -14,124 +14,116 @@
  * limitations under the License.
  */
 
-
 #define LOG_TAG "BtGatt.JNI"
 
 #define LOG_NDEBUG 0
 
-#define CHECK_CALLBACK_ENV                                                      \
-   if (!checkCallbackThread()) {                                                \
-       error("Callback: '%s' is not called on the correct thread", __FUNCTION__);\
-       return;                                                                  \
-   }
-
+#include "android_runtime/AndroidRuntime.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_gatt.h"
 #include "utils/Log.h"
-#include "android_runtime/AndroidRuntime.h"
 
+#include <base/bind.h>
 #include <string.h>
+#include <memory>
 
 #include <cutils/log.h>
-#define info(fmt, ...)  ALOGI ("%s(L%d): " fmt,__FUNCTION__, __LINE__,  ## __VA_ARGS__)
-#define debug(fmt, ...) ALOGD ("%s(L%d): " fmt,__FUNCTION__, __LINE__,  ## __VA_ARGS__)
-#define warn(fmt, ...) ALOGW ("WARNING: %s(L%d): " fmt "##",__FUNCTION__, __LINE__, ## __VA_ARGS__)
-#define error(fmt, ...) ALOGE ("ERROR: %s(L%d): " fmt "##",__FUNCTION__, __LINE__, ## __VA_ARGS__)
-#define asrt(s) if(!(s)) ALOGE ("%s(L%d): ASSERT %s failed! ##",__FUNCTION__, __LINE__, #s)
+#define info(fmt, ...) ALOGI("%s(L%d): " fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define debug(fmt, ...) \
+  ALOGD("%s(L%d): " fmt, __func__, __LINE__, ##__VA_ARGS__)
+#define warn(fmt, ...) \
+  ALOGW("WARNING: %s(L%d): " fmt "##", __func__, __LINE__, ##__VA_ARGS__)
+#define error(fmt, ...) \
+  ALOGE("ERROR: %s(L%d): " fmt "##", __func__, __LINE__, ##__VA_ARGS__)
+#define asrt(s) \
+  if (!(s)) ALOGE("%s(L%d): ASSERT %s failed! ##", __func__, __LINE__, #s)
 
 #define BD_ADDR_LEN 6
 
-#define UUID_PARAMS(uuid_ptr) \
-    uuid_lsb(uuid_ptr),  uuid_msb(uuid_ptr)
+#define UUID_PARAMS(uuid_ptr) uuid_lsb(uuid_ptr), uuid_msb(uuid_ptr)
 
-#define GATT_ID_PARAMS(attr_ptr) \
-    attr_ptr->inst_id, \
-    UUID_PARAMS((&attr_ptr->uuid))
-
-#define SRVC_ID_PARAMS(srvc_ptr) \
-    (srvc_ptr->is_primary ? \
-    BTGATT_SERVICE_TYPE_PRIMARY : BTGATT_SERVICE_TYPE_SECONDARY), \
-    GATT_ID_PARAMS((&srvc_ptr->id))
-
-
-static void set_uuid(uint8_t* uuid, jlong uuid_msb, jlong uuid_lsb)
-{
-    for (int i = 0; i != 8; ++i)
-    {
-        uuid[i]     = (uuid_lsb >> (8 * i)) & 0xFF;
-        uuid[i + 8] = (uuid_msb >> (8 * i)) & 0xFF;
-    }
+static void set_uuid(uint8_t* uuid, jlong uuid_msb, jlong uuid_lsb) {
+  for (int i = 0; i != 8; ++i) {
+    uuid[i] = (uuid_lsb >> (8 * i)) & 0xFF;
+    uuid[i + 8] = (uuid_msb >> (8 * i)) & 0xFF;
+  }
 }
 
-static uint64_t uuid_lsb(const bt_uuid_t* uuid)
-{
-    uint64_t  lsb = 0;
-    int i;
+static uint64_t uuid_lsb(const bt_uuid_t* uuid) {
+  uint64_t lsb = 0;
 
-    for (i = 7; i >= 0; i--)
-    {
-        lsb <<= 8;
-        lsb |= uuid->uu[i];
-    }
+  for (int i = 7; i >= 0; i--) {
+    lsb <<= 8;
+    lsb |= uuid->uu[i];
+  }
 
-    return lsb;
+  return lsb;
 }
 
-static uint64_t uuid_msb(const bt_uuid_t* uuid)
-{
-    uint64_t msb = 0;
-    int i;
+static uint64_t uuid_msb(const bt_uuid_t* uuid) {
+  uint64_t msb = 0;
 
-    for (i = 15; i >= 8; i--)
-    {
-        msb <<= 8;
-        msb |= uuid->uu[i];
-    }
+  for (int i = 15; i >= 8; i--) {
+    msb <<= 8;
+    msb |= uuid->uu[i];
+  }
 
-    return msb;
+  return msb;
 }
 
-static void bd_addr_str_to_addr(const char* str, uint8_t *bd_addr)
-{
-    int    i;
-    char   c;
+static void bd_addr_str_to_addr(const char* str, uint8_t* bd_addr) {
+  int i;
+  char c;
+
+  c = *str++;
+  for (i = 0; i < BD_ADDR_LEN; i++) {
+    if (c >= '0' && c <= '9')
+      bd_addr[i] = c - '0';
+    else if (c >= 'a' && c <= 'z')
+      bd_addr[i] = c - 'a' + 10;
+    else  // (c >= 'A' && c <= 'Z')
+      bd_addr[i] = c - 'A' + 10;
 
     c = *str++;
-    for (i = 0; i < BD_ADDR_LEN; i++)
-    {
-        if (c >= '0' && c <= '9')
-            bd_addr[i] = c - '0';
-        else if (c >= 'a' && c <= 'z')
-            bd_addr[i] = c - 'a' + 10;
-        else   // (c >= 'A' && c <= 'Z')
-            bd_addr[i] = c - 'A' + 10;
+    if (c != ':') {
+      bd_addr[i] <<= 4;
+      if (c >= '0' && c <= '9')
+        bd_addr[i] |= c - '0';
+      else if (c >= 'a' && c <= 'z')
+        bd_addr[i] |= c - 'a' + 10;
+      else  // (c >= 'A' && c <= 'Z')
+        bd_addr[i] |= c - 'A' + 10;
 
-        c = *str++;
-        if (c != ':')
-        {
-            bd_addr[i] <<= 4;
-            if (c >= '0' && c <= '9')
-                bd_addr[i] |= c - '0';
-            else if (c >= 'a' && c <= 'z')
-                bd_addr[i] |= c - 'a' + 10;
-            else   // (c >= 'A' && c <= 'Z')
-                bd_addr[i] |= c - 'A' + 10;
-
-            c = *str++;
-        }
-
-        c = *str++;
+      c = *str++;
     }
+
+    c = *str++;
+  }
 }
 
-static void jstr2bdaddr(JNIEnv* env, bt_bdaddr_t *bda, jstring address)
-{
-    const char* c_bda = env->GetStringUTFChars(address, NULL);
-    if (c_bda != NULL && bda != NULL && strlen(c_bda) == 17)
-    {
-        bd_addr_str_to_addr(c_bda, bda->address);
-        env->ReleaseStringUTFChars(address, c_bda);
-    }
+static void jstr2bdaddr(JNIEnv* env, bt_bdaddr_t* bda, jstring address) {
+  const char* c_bda = env->GetStringUTFChars(address, NULL);
+  if (c_bda != NULL && bda != NULL && strlen(c_bda) == 17) {
+    bd_addr_str_to_addr(c_bda, bda->address);
+    env->ReleaseStringUTFChars(address, c_bda);
+  }
+}
+
+static jstring bdaddr2newjstr(JNIEnv* env, bt_bdaddr_t* bda) {
+  char c_address[32];
+  snprintf(c_address, sizeof(c_address), "%02X:%02X:%02X:%02X:%02X:%02X",
+           bda->address[0], bda->address[1], bda->address[2], bda->address[3],
+           bda->address[4], bda->address[5]);
+
+  return env->NewStringUTF(c_address);
+}
+
+static std::vector<uint8_t> toVector(JNIEnv* env, jbyteArray ba) {
+  jbyte* data_data = env->GetByteArrayElements(ba, NULL);
+  uint16_t data_len = (uint16_t)env->GetArrayLength(ba);
+  std::vector<uint8_t> data_vec(data_data, data_data + data_len);
+  env->ReleaseByteArrayElements(ba, data_data, JNI_ABORT);
+  return data_vec;
 }
 
 namespace android {
@@ -141,6 +133,7 @@ namespace android {
  */
 
 static jmethodID method_onClientRegistered;
+static jmethodID method_onScannerRegistered;
 static jmethodID method_onScanResult;
 static jmethodID method_onConnected;
 static jmethodID method_onDisconnected;
@@ -153,15 +146,10 @@ static jmethodID method_onWriteDescriptor;
 static jmethodID method_onNotify;
 static jmethodID method_onRegisterForNotifications;
 static jmethodID method_onReadRemoteRssi;
-static jmethodID method_onAdvertiseCallback;
 static jmethodID method_onConfigureMTU;
 static jmethodID method_onScanFilterConfig;
 static jmethodID method_onScanFilterParamsConfigured;
 static jmethodID method_onScanFilterEnableDisabled;
-static jmethodID method_onMultiAdvEnable;
-static jmethodID method_onMultiAdvUpdate;
-static jmethodID method_onMultiAdvSetAdvData;
-static jmethodID method_onMultiAdvDisable;
 static jmethodID method_onClientCongestion;
 static jmethodID method_onBatchScanStorageConfigured;
 static jmethodID method_onBatchScanStartStopped;
@@ -173,6 +161,9 @@ static jmethodID method_onTrackAdvFoundLost;
 static jmethodID method_onScanParamSetupCompleted;
 static jmethodID method_getSampleGattDbElement;
 static jmethodID method_onGetGattDb;
+static jmethodID method_onClientPhyUpdate;
+static jmethodID method_onClientPhyRead;
+static jmethodID method_onClientConnUpdate;
 
 /**
  * Server callback methods
@@ -180,441 +171,391 @@ static jmethodID method_onGetGattDb;
 static jmethodID method_onServerRegistered;
 static jmethodID method_onClientConnected;
 static jmethodID method_onServiceAdded;
-static jmethodID method_onIncludedServiceAdded;
-static jmethodID method_onCharacteristicAdded;
-static jmethodID method_onDescriptorAdded;
-static jmethodID method_onServiceStarted;
 static jmethodID method_onServiceStopped;
 static jmethodID method_onServiceDeleted;
 static jmethodID method_onResponseSendCompleted;
-static jmethodID method_onAttributeRead;
-static jmethodID method_onAttributeWrite;
+static jmethodID method_onServerReadCharacteristic;
+static jmethodID method_onServerReadDescriptor;
+static jmethodID method_onServerWriteCharacteristic;
+static jmethodID method_onServerWriteDescriptor;
 static jmethodID method_onExecuteWrite;
 static jmethodID method_onNotificationSent;
 static jmethodID method_onServerCongestion;
 static jmethodID method_onServerMtuChanged;
+static jmethodID method_onServerPhyUpdate;
+static jmethodID method_onServerPhyRead;
+static jmethodID method_onServerConnUpdate;
+
+/**
+ * Advertiser callback methods
+ */
+static jmethodID method_onAdvertisingSetStarted;
+static jmethodID method_onOwnAddressRead;
+static jmethodID method_onAdvertisingEnabled;
+static jmethodID method_onAdvertisingDataSet;
+static jmethodID method_onScanResponseDataSet;
+static jmethodID method_onAdvertisingParametersUpdated;
+static jmethodID method_onPeriodicAdvertisingParametersUpdated;
+static jmethodID method_onPeriodicAdvertisingDataSet;
+static jmethodID method_onPeriodicAdvertisingEnabled;
+
+/**
+ * Periodic scanner callback methods
+ */
+static jmethodID method_onSyncLost;
+static jmethodID method_onSyncReport;
+static jmethodID method_onSyncStarted;
 
 /**
  * Static variables
  */
 
-static const btgatt_interface_t *sGattIf = NULL;
+static const btgatt_interface_t* sGattIf = NULL;
 static jobject mCallbacksObj = NULL;
-static JNIEnv *sCallbackEnv = NULL;
-
-static bool checkCallbackThread() {
-    sCallbackEnv = getCallbackEnv();
-
-    JNIEnv* env = AndroidRuntime::getJNIEnv();
-    if (sCallbackEnv != env || sCallbackEnv == NULL) return false;
-    return true;
-}
+static jobject mAdvertiseCallbacksObj = NULL;
+static jobject mPeriodicScanCallbacksObj = NULL;
 
 /**
  * BTA client callbacks
  */
 
-void btgattc_register_app_cb(int status, int clientIf, bt_uuid_t *app_uuid)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientRegistered, status,
-        clientIf, UUID_PARAMS(app_uuid));
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_register_app_cb(int status, int clientIf, bt_uuid_t* app_uuid) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientRegistered, status,
+                               clientIf, UUID_PARAMS(app_uuid));
 }
 
-void btgattc_scan_result_cb(bt_bdaddr_t* bda, int rssi, uint8_t* adv_data)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_scan_result_cb(uint16_t event_type, uint8_t addr_type,
+                            bt_bdaddr_t* bda, uint8_t primary_phy,
+                            uint8_t secondary_phy, uint8_t advertising_sid,
+                            int8_t tx_power, int8_t rssi,
+                            uint16_t periodic_adv_int,
+                            std::vector<uint8_t> adv_data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    char c_address[32];
-    snprintf(c_address, sizeof(c_address),"%02X:%02X:%02X:%02X:%02X:%02X",
-        bda->address[0], bda->address[1], bda->address[2],
-        bda->address[3], bda->address[4], bda->address[5]);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(),
+                                sCallbackEnv->NewByteArray(adv_data.size()));
+  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, adv_data.size(),
+                                   (jbyte*)adv_data.data());
 
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    jbyteArray jb = sCallbackEnv->NewByteArray(62);
-    sCallbackEnv->SetByteArrayRegion(jb, 0, 62, (jbyte *) adv_data);
-
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanResult
-        , address, rssi, jb);
-
-    sCallbackEnv->DeleteLocalRef(address);
-    sCallbackEnv->DeleteLocalRef(jb);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanResult, event_type,
+                               addr_type, address.get(), primary_phy,
+                               secondary_phy, advertising_sid, tx_power, rssi,
+                               periodic_adv_int, jb.get());
 }
 
-void btgattc_open_cb(int conn_id, int status, int clientIf, bt_bdaddr_t* bda)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_open_cb(int conn_id, int status, int clientIf, bt_bdaddr_t* bda) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    char c_address[32];
-    snprintf(c_address, sizeof(c_address),"%02X:%02X:%02X:%02X:%02X:%02X",
-        bda->address[0], bda->address[1], bda->address[2],
-        bda->address[3], bda->address[4], bda->address[5]);
-
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnected,
-        clientIf, conn_id, status, address);
-    sCallbackEnv->DeleteLocalRef(address);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnected, clientIf,
+                               conn_id, status, address.get());
 }
 
-void btgattc_close_cb(int conn_id, int status, int clientIf, bt_bdaddr_t* bda)
-{
-    CHECK_CALLBACK_ENV
-    char c_address[32];
-    snprintf(c_address, sizeof(c_address),"%02X:%02X:%02X:%02X:%02X:%02X",
-        bda->address[0], bda->address[1], bda->address[2],
-        bda->address[3], bda->address[4], bda->address[5]);
+void btgattc_close_cb(int conn_id, int status, int clientIf, bt_bdaddr_t* bda) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onDisconnected,
-        clientIf, conn_id, status, address);
-    sCallbackEnv->DeleteLocalRef(address);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onDisconnected, clientIf,
+                               conn_id, status, address.get());
 }
 
-void btgattc_search_complete_cb(int conn_id, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSearchCompleted,
-                                 conn_id, status);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_search_complete_cb(int conn_id, int status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onSearchCompleted, conn_id,
+                               status);
 }
 
-void btgattc_register_for_notification_cb(int conn_id, int registered, int status, uint16_t handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onRegisterForNotifications,
-        conn_id, status, registered, handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_register_for_notification_cb(int conn_id, int registered,
+                                          int status, uint16_t handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onRegisterForNotifications,
+                               conn_id, status, registered, handle);
 }
 
-void btgattc_notify_cb(int conn_id, btgatt_notify_params_t *p_data)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_notify_cb(int conn_id, btgatt_notify_params_t* p_data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    char c_address[32];
-    snprintf(c_address, sizeof(c_address), "%02X:%02X:%02X:%02X:%02X:%02X",
-        p_data->bda.address[0], p_data->bda.address[1], p_data->bda.address[2],
-        p_data->bda.address[3], p_data->bda.address[4], p_data->bda.address[5]);
+  ScopedLocalRef<jstring> address(
+      sCallbackEnv.get(), bdaddr2newjstr(sCallbackEnv.get(), &p_data->bda));
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(),
+                                sCallbackEnv->NewByteArray(p_data->len));
+  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data->len,
+                                   (jbyte*)p_data->value);
 
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    jbyteArray jb = sCallbackEnv->NewByteArray(p_data->len);
-    sCallbackEnv->SetByteArrayRegion(jb, 0, p_data->len, (jbyte *) p_data->value);
-
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNotify
-        , conn_id, address, p_data->handle, p_data->is_notify, jb);
-
-    sCallbackEnv->DeleteLocalRef(address);
-    sCallbackEnv->DeleteLocalRef(jb);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNotify, conn_id,
+                               address.get(), p_data->handle, p_data->is_notify,
+                               jb.get());
 }
 
-void btgattc_read_characteristic_cb(int conn_id, int status, btgatt_read_params_t *p_data)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_read_characteristic_cb(int conn_id, int status,
+                                    btgatt_read_params_t* p_data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    jbyteArray jb;
-    if ( status == 0 )      //successful
-    {
-        jb = sCallbackEnv->NewByteArray(p_data->value.len);
-        sCallbackEnv->SetByteArrayRegion(jb, 0, p_data->value.len,
-            (jbyte *) p_data->value.value);
-    } else {
-        uint8_t value = 0;
-        jb = sCallbackEnv->NewByteArray(1);
-        sCallbackEnv->SetByteArrayRegion(jb, 0, 1, (jbyte *) &value);
-    }
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(), NULL);
+  if (status == 0) {  // Success
+    jb.reset(sCallbackEnv->NewByteArray(p_data->value.len));
+    sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data->value.len,
+                                     (jbyte*)p_data->value.value);
+  } else {
+    uint8_t value = 0;
+    jb.reset(sCallbackEnv->NewByteArray(1));
+    sCallbackEnv->SetByteArrayRegion(jb.get(), 0, 1, (jbyte*)&value);
+  }
 
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadCharacteristic,
-        conn_id, status, p_data->handle, jb);
-    sCallbackEnv->DeleteLocalRef(jb);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadCharacteristic,
+                               conn_id, status, p_data->handle, jb.get());
 }
 
-void btgattc_write_characteristic_cb(int conn_id, int status, uint16_t handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onWriteCharacteristic
-        , conn_id, status, handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_write_characteristic_cb(int conn_id, int status, uint16_t handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onWriteCharacteristic,
+                               conn_id, status, handle);
 }
 
-void btgattc_execute_write_cb(int conn_id, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onExecuteCompleted
-        , conn_id, status);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_execute_write_cb(int conn_id, int status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onExecuteCompleted,
+                               conn_id, status);
 }
 
-void btgattc_read_descriptor_cb(int conn_id, int status, btgatt_read_params_t *p_data)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_read_descriptor_cb(int conn_id, int status,
+                                btgatt_read_params_t* p_data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    jbyteArray jb;
-    if ( p_data->value.len != 0 )
-    {
-        jb = sCallbackEnv->NewByteArray(p_data->value.len);
-        sCallbackEnv->SetByteArrayRegion(jb, 0, p_data->value.len,
-                                (jbyte *) p_data->value.value);
-    } else {
-        jb = sCallbackEnv->NewByteArray(1);
-    }
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(), NULL);
+  if (p_data->value.len != 0) {
+    jb.reset(sCallbackEnv->NewByteArray(p_data->value.len));
+    sCallbackEnv->SetByteArrayRegion(jb.get(), 0, p_data->value.len,
+                                     (jbyte*)p_data->value.value);
+  } else {
+    jb.reset(sCallbackEnv->NewByteArray(1));
+  }
 
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadDescriptor,
-        conn_id, status, p_data->handle, jb);
-
-    sCallbackEnv->DeleteLocalRef(jb);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadDescriptor, conn_id,
+                               status, p_data->handle, jb.get());
 }
 
-void btgattc_write_descriptor_cb(int conn_id, int status, uint16_t handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onWriteDescriptor
-        , conn_id, status, handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_write_descriptor_cb(int conn_id, int status, uint16_t handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onWriteDescriptor, conn_id,
+                               status, handle);
 }
 
-void btgattc_remote_rssi_cb(int client_if,bt_bdaddr_t* bda, int rssi, int status)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_remote_rssi_cb(int client_if, bt_bdaddr_t* bda, int rssi,
+                            int status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    char c_address[32];
-    snprintf(c_address, sizeof(c_address),"%02X:%02X:%02X:%02X:%02X:%02X",
-        bda->address[0], bda->address[1], bda->address[2],
-        bda->address[3], bda->address[4], bda->address[5]);
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadRemoteRssi,
-       client_if, address, rssi, status);
-    sCallbackEnv->DeleteLocalRef(address);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onReadRemoteRssi,
+                               client_if, address.get(), rssi, status);
 }
 
-void btgattc_advertise_cb(int status, int client_if)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAdvertiseCallback, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_configure_mtu_cb(int conn_id, int status, int mtu) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConfigureMTU, conn_id,
+                               status, mtu);
 }
 
-void btgattc_configure_mtu_cb(int conn_id, int status, int mtu)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConfigureMTU,
-                                 conn_id, status, mtu);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_scan_filter_cfg_cb(int action, int client_if, int status, int filt_type,
-                                int avbl_space)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanFilterConfig,
-                                 action, status, client_if, filt_type, avbl_space);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_scan_filter_param_cb(int action, int client_if, int status, int avbl_space)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanFilterParamsConfigured,
-            action, status, client_if, avbl_space);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_scan_filter_status_cb(int action, int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanFilterEnableDisabled,
-            action, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_multiadv_enable_cb(int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onMultiAdvEnable, status,client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_multiadv_update_cb(int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onMultiAdvUpdate, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_multiadv_setadv_data_cb(int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onMultiAdvSetAdvData, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_multiadv_disable_cb(int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onMultiAdvDisable, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_congestion_cb(int conn_id, bool congested)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientCongestion, conn_id, congested);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_batchscan_cfg_storage_cb(int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatchScanStorageConfigured, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-}
-
-void btgattc_batchscan_startstop_cb(int startstop_action, int client_if, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatchScanStartStopped, startstop_action,
-                                 status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_congestion_cb(int conn_id, bool congested) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientCongestion,
+                               conn_id, congested);
 }
 
 void btgattc_batchscan_reports_cb(int client_if, int status, int report_format,
-                        int num_records, int data_len, uint8_t *p_rep_data)
-{
-    CHECK_CALLBACK_ENV
-    jbyteArray jb = sCallbackEnv->NewByteArray(data_len);
-    sCallbackEnv->SetByteArrayRegion(jb, 0, data_len, (jbyte *) p_rep_data);
+                                  int num_records, std::vector<uint8_t> data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(),
+                                sCallbackEnv->NewByteArray(data.size()));
+  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, data.size(),
+                                   (jbyte*)data.data());
 
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatchScanReports, status, client_if,
-                                report_format, num_records, jb);
-    sCallbackEnv->DeleteLocalRef(jb);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatchScanReports, status,
+                               client_if, report_format, num_records, jb.get());
 }
 
-void btgattc_batchscan_threshold_cb(int client_if)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatchScanThresholdCrossed, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgattc_batchscan_threshold_cb(int client_if) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj,
+                               method_onBatchScanThresholdCrossed, client_if);
 }
 
-void btgattc_track_adv_event_cb(btgatt_track_adv_info_t *p_adv_track_info)
-{
-    CHECK_CALLBACK_ENV
-    char c_address[32];
-    jobject trackadv_obj = NULL;
+void btgattc_track_adv_event_cb(btgatt_track_adv_info_t* p_adv_track_info) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    snprintf(c_address, sizeof(c_address),"%02X:%02X:%02X:%02X:%02X:%02X",
-        p_adv_track_info->bd_addr.address[0], p_adv_track_info->bd_addr.address[1],
-        p_adv_track_info->bd_addr.address[2], p_adv_track_info->bd_addr.address[3],
-        p_adv_track_info->bd_addr.address[4], p_adv_track_info->bd_addr.address[5]);
+  ScopedLocalRef<jstring> address(
+      sCallbackEnv.get(),
+      bdaddr2newjstr(sCallbackEnv.get(), &p_adv_track_info->bd_addr));
 
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
+  ScopedLocalRef<jbyteArray> jb_adv_pkt(
+      sCallbackEnv.get(),
+      sCallbackEnv->NewByteArray(p_adv_track_info->adv_pkt_len));
+  ScopedLocalRef<jbyteArray> jb_scan_rsp(
+      sCallbackEnv.get(),
+      sCallbackEnv->NewByteArray(p_adv_track_info->scan_rsp_len));
 
-    jbyteArray jb_adv_pkt = sCallbackEnv->NewByteArray(p_adv_track_info->adv_pkt_len);
-    jbyteArray jb_scan_rsp = sCallbackEnv->NewByteArray(p_adv_track_info->scan_rsp_len);
+  sCallbackEnv->SetByteArrayRegion(jb_adv_pkt.get(), 0,
+                                   p_adv_track_info->adv_pkt_len,
+                                   (jbyte*)p_adv_track_info->p_adv_pkt_data);
 
-    sCallbackEnv->SetByteArrayRegion(jb_adv_pkt, 0, p_adv_track_info->adv_pkt_len,
-                                     (jbyte *) p_adv_track_info->p_adv_pkt_data);
+  sCallbackEnv->SetByteArrayRegion(jb_scan_rsp.get(), 0,
+                                   p_adv_track_info->scan_rsp_len,
+                                   (jbyte*)p_adv_track_info->p_scan_rsp_data);
 
-    sCallbackEnv->SetByteArrayRegion(jb_scan_rsp, 0, p_adv_track_info->scan_rsp_len,
-                                     (jbyte *) p_adv_track_info->p_scan_rsp_data);
+  ScopedLocalRef<jobject> trackadv_obj(
+      sCallbackEnv.get(),
+      sCallbackEnv->CallObjectMethod(
+          mCallbacksObj, method_CreateonTrackAdvFoundLostObject,
+          p_adv_track_info->client_if, p_adv_track_info->adv_pkt_len,
+          jb_adv_pkt.get(), p_adv_track_info->scan_rsp_len, jb_scan_rsp.get(),
+          p_adv_track_info->filt_index, p_adv_track_info->advertiser_state,
+          p_adv_track_info->advertiser_info_present, address.get(),
+          p_adv_track_info->addr_type, p_adv_track_info->tx_power,
+          p_adv_track_info->rssi_value, p_adv_track_info->time_stamp));
 
-    trackadv_obj = sCallbackEnv->CallObjectMethod(mCallbacksObj, method_CreateonTrackAdvFoundLostObject,
-                    p_adv_track_info->client_if, p_adv_track_info->adv_pkt_len, jb_adv_pkt,
-                    p_adv_track_info->scan_rsp_len, jb_scan_rsp, p_adv_track_info->filt_index,
-                    p_adv_track_info->advertiser_state, p_adv_track_info->advertiser_info_present,
-                    address, p_adv_track_info->addr_type, p_adv_track_info->tx_power,
-                    p_adv_track_info->rssi_value, p_adv_track_info->time_stamp);
-
-    if (NULL != trackadv_obj) {
-        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onTrackAdvFoundLost, trackadv_obj);
-        sCallbackEnv->DeleteLocalRef(trackadv_obj);
-    }
-    sCallbackEnv->DeleteLocalRef(address);
-    sCallbackEnv->DeleteLocalRef(jb_adv_pkt);
-    sCallbackEnv->DeleteLocalRef(jb_scan_rsp);
-
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  if (NULL != trackadv_obj.get()) {
+    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onTrackAdvFoundLost,
+                                 trackadv_obj.get());
+  }
 }
 
-void btgattc_scan_parameter_setup_completed_cb(int client_if, btgattc_error_t status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanParamSetupCompleted, status, client_if);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __func__);
+void fillGattDbElementArray(JNIEnv* env, jobject* array,
+                            const btgatt_db_element_t* db, int count) {
+  // Because JNI uses a different class loader in the callback context, we
+  // cannot simply get the class.
+  // As a workaround, we have to make sure we obtain an object of the class
+  // first, as this will cause
+  // class loader to load it.
+  ScopedLocalRef<jobject> objectForClass(
+      env, env->CallObjectMethod(mCallbacksObj, method_getSampleGattDbElement));
+  ScopedLocalRef<jclass> gattDbElementClazz(
+      env, env->GetObjectClass(objectForClass.get()));
+
+  jmethodID gattDbElementConstructor =
+      env->GetMethodID(gattDbElementClazz.get(), "<init>", "()V");
+
+  ScopedLocalRef<jclass> arrayListclazz(env,
+                                        env->FindClass("java/util/ArrayList"));
+  jmethodID arrayAdd =
+      env->GetMethodID(arrayListclazz.get(), "add", "(Ljava/lang/Object;)Z");
+
+  ScopedLocalRef<jclass> uuidClazz(env, env->FindClass("java/util/UUID"));
+  jmethodID uuidConstructor =
+      env->GetMethodID(uuidClazz.get(), "<init>", "(JJ)V");
+
+  for (int i = 0; i < count; i++) {
+    const btgatt_db_element_t& curr = db[i];
+
+    ScopedLocalRef<jobject> element(
+        env,
+        env->NewObject(gattDbElementClazz.get(), gattDbElementConstructor));
+
+    jfieldID fid = env->GetFieldID(gattDbElementClazz.get(), "id", "I");
+    env->SetIntField(element.get(), fid, curr.id);
+
+    fid = env->GetFieldID(gattDbElementClazz.get(), "attributeHandle", "I");
+    env->SetIntField(element.get(), fid, curr.attribute_handle);
+
+    ScopedLocalRef<jobject> uuid(
+        env, env->NewObject(uuidClazz.get(), uuidConstructor,
+                            uuid_msb(&curr.uuid), uuid_lsb(&curr.uuid)));
+    fid = env->GetFieldID(gattDbElementClazz.get(), "uuid", "Ljava/util/UUID;");
+    env->SetObjectField(element.get(), fid, uuid.get());
+
+    fid = env->GetFieldID(gattDbElementClazz.get(), "type", "I");
+    env->SetIntField(element.get(), fid, curr.type);
+
+    fid = env->GetFieldID(gattDbElementClazz.get(), "attributeHandle", "I");
+    env->SetIntField(element.get(), fid, curr.attribute_handle);
+
+    fid = env->GetFieldID(gattDbElementClazz.get(), "startHandle", "I");
+    env->SetIntField(element.get(), fid, curr.start_handle);
+
+    fid = env->GetFieldID(gattDbElementClazz.get(), "endHandle", "I");
+    env->SetIntField(element.get(), fid, curr.end_handle);
+
+    fid = env->GetFieldID(gattDbElementClazz.get(), "properties", "I");
+    env->SetIntField(element.get(), fid, curr.properties);
+
+    env->CallBooleanMethod(*array, arrayAdd, element.get());
+  }
 }
 
-void btgattc_get_gatt_db_cb(int conn_id, btgatt_db_element_t *db, int count)
-{
-    CHECK_CALLBACK_ENV
+void btgattc_get_gatt_db_cb(int conn_id, btgatt_db_element_t* db, int count) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    // Because JNI uses a different class loader in the callback context, we cannot simply get the class.
-    // As a workaround, we have to make sure we obtain an object of the class first, as this will cause
-    // class loader to load it.
-    jobject objectForClass = sCallbackEnv->CallObjectMethod(mCallbacksObj, method_getSampleGattDbElement);
-    jclass gattDbElementClazz = sCallbackEnv->GetObjectClass(objectForClass);
-    sCallbackEnv->DeleteLocalRef(objectForClass);
+  jclass arrayListclazz = sCallbackEnv->FindClass("java/util/ArrayList");
+  ScopedLocalRef<jobject> array(
+      sCallbackEnv.get(),
+      sCallbackEnv->NewObject(
+          arrayListclazz,
+          sCallbackEnv->GetMethodID(arrayListclazz, "<init>", "()V")));
 
-    jmethodID gattDbElementConstructor = sCallbackEnv->GetMethodID(gattDbElementClazz, "<init>", "()V");
+  jobject arrayPtr = array.get();
+  fillGattDbElementArray(sCallbackEnv.get(), &arrayPtr, db, count);
 
-    jclass arrayListclazz = sCallbackEnv->FindClass("java/util/ArrayList");
-    jobject array = sCallbackEnv->NewObject(arrayListclazz, sCallbackEnv->GetMethodID(arrayListclazz, "<init>", "()V"));
-    jmethodID arrayAdd = sCallbackEnv->GetMethodID(arrayListclazz, "add", "(Ljava/lang/Object;)Z");
-    sCallbackEnv->DeleteLocalRef(arrayListclazz);
-
-    jclass uuidClazz = sCallbackEnv->FindClass("java/util/UUID");
-    jmethodID uuidConstructor = sCallbackEnv->GetMethodID(uuidClazz, "<init>", "(JJ)V");
-
-    for (int i = 0; i < count; i++) {
-        const btgatt_db_element_t &curr = db[i];
-
-        jobject element = sCallbackEnv->NewObject(gattDbElementClazz, gattDbElementConstructor);
-
-        jfieldID fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "id", "I");
-        sCallbackEnv->SetIntField(element, fid, curr.id);
-
-        jobject uuid = sCallbackEnv->NewObject(uuidClazz, uuidConstructor, uuid_msb(&curr.uuid), uuid_lsb(&curr.uuid));
-        fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "uuid", "java/util/UUID");
-        sCallbackEnv->SetObjectField(element, fid, uuid);
-        sCallbackEnv->DeleteLocalRef(uuid);
-
-        fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "type", "I");
-        sCallbackEnv->SetIntField(element, fid, curr.type);
-
-        fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "attributeHandle", "I");
-        sCallbackEnv->SetIntField(element, fid, curr.attribute_handle);
-
-        fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "startHandle", "I");
-        sCallbackEnv->SetIntField(element, fid, curr.start_handle);
-
-        fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "endHandle", "I");
-        sCallbackEnv->SetIntField(element, fid, curr.end_handle);
-
-        fid = sCallbackEnv->GetFieldID(gattDbElementClazz, "properties", "I");
-        sCallbackEnv->SetIntField(element, fid, curr.properties);
-
-        sCallbackEnv->CallBooleanMethod(array, arrayAdd, element);
-        sCallbackEnv->DeleteLocalRef(element);
-    }
-
-    sCallbackEnv->DeleteLocalRef(gattDbElementClazz);
-    sCallbackEnv->DeleteLocalRef(uuidClazz);
-
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onGetGattDb, conn_id, array);
-    sCallbackEnv->DeleteLocalRef(array);
-
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onGetGattDb, conn_id,
+                               array.get());
 }
+
+void btgattc_phy_updated_cb(int conn_id, uint8_t tx_phy, uint8_t rx_phy,
+                            uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientPhyUpdate, conn_id,
+                               tx_phy, rx_phy, status);
+}
+
+void btgattc_conn_updated_cb(int conn_id, uint16_t interval, uint16_t latency,
+                             uint16_t timeout, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientConnUpdate,
+                               conn_id, interval, latency, timeout, status);
+}
+
+static const btgatt_scanner_callbacks_t sGattScannerCallbacks = {
+    btgattc_scan_result_cb,
+    btgattc_batchscan_reports_cb,
+    btgattc_batchscan_threshold_cb,
+    btgattc_track_adv_event_cb,
+};
 
 static const btgatt_client_callbacks_t sGattClientCallbacks = {
     btgattc_register_app_cb,
-    btgattc_scan_result_cb,
     btgattc_open_cb,
     btgattc_close_cb,
     btgattc_search_complete_cb,
@@ -626,1034 +567,1522 @@ static const btgatt_client_callbacks_t sGattClientCallbacks = {
     btgattc_write_descriptor_cb,
     btgattc_execute_write_cb,
     btgattc_remote_rssi_cb,
-    btgattc_advertise_cb,
     btgattc_configure_mtu_cb,
-    btgattc_scan_filter_cfg_cb,
-    btgattc_scan_filter_param_cb,
-    btgattc_scan_filter_status_cb,
-    btgattc_multiadv_enable_cb,
-    btgattc_multiadv_update_cb,
-    btgattc_multiadv_setadv_data_cb,
-    btgattc_multiadv_disable_cb,
     btgattc_congestion_cb,
-    btgattc_batchscan_cfg_storage_cb,
-    btgattc_batchscan_startstop_cb,
-    btgattc_batchscan_reports_cb,
-    btgattc_batchscan_threshold_cb,
-    btgattc_track_adv_event_cb,
-    btgattc_scan_parameter_setup_completed_cb,
     btgattc_get_gatt_db_cb,
     NULL, /* services_removed_cb */
-    NULL  /* services_added_cb */
-};
-
+    NULL, /* services_added_cb */
+    btgattc_phy_updated_cb,
+    btgattc_conn_updated_cb};
 
 /**
  * BTA server callbacks
  */
 
-void btgatts_register_app_cb(int status, int server_if, bt_uuid_t *uuid)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerRegistered
-        , status, server_if, UUID_PARAMS(uuid));
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_register_app_cb(int status, int server_if, bt_uuid_t* uuid) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerRegistered, status,
+                               server_if, UUID_PARAMS(uuid));
 }
 
-void btgatts_connection_cb(int conn_id, int server_if, int connected, bt_bdaddr_t *bda)
-{
-    CHECK_CALLBACK_ENV
+void btgatts_connection_cb(int conn_id, int server_if, int connected,
+                           bt_bdaddr_t* bda) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    char c_address[32];
-    sprintf(c_address, "%02X:%02X:%02X:%02X:%02X:%02X",
-            bda->address[0], bda->address[1], bda->address[2],
-            bda->address[3], bda->address[4], bda->address[5]);
-
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientConnected,
-                                 address, connected, conn_id, server_if);
-    sCallbackEnv->DeleteLocalRef(address);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientConnected,
+                               address.get(), connected, conn_id, server_if);
 }
 
 void btgatts_service_added_cb(int status, int server_if,
-                              btgatt_srvc_id_t *srvc_id, int srvc_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceAdded, status,
-                                 server_if, SRVC_ID_PARAMS(srvc_id),
-                                 srvc_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+                              std::vector<btgatt_db_element_t> service) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  jclass arrayListclazz = sCallbackEnv->FindClass("java/util/ArrayList");
+  ScopedLocalRef<jobject> array(
+      sCallbackEnv.get(),
+      sCallbackEnv->NewObject(
+          arrayListclazz,
+          sCallbackEnv->GetMethodID(arrayListclazz, "<init>", "()V")));
+  jobject arrayPtr = array.get();
+  fillGattDbElementArray(sCallbackEnv.get(), &arrayPtr, service.data(),
+                         service.size());
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceAdded, status,
+                               server_if, array.get());
 }
 
-void btgatts_included_service_added_cb(int status, int server_if,
-                                   int srvc_handle,
-                                   int incl_srvc_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onIncludedServiceAdded,
-                                 status, server_if, srvc_handle, incl_srvc_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_service_stopped_cb(int status, int server_if, int srvc_handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceStopped, status,
+                               server_if, srvc_handle);
 }
 
-void btgatts_characteristic_added_cb(int status, int server_if, bt_uuid_t *char_id,
-                                     int srvc_handle, int char_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCharacteristicAdded,
-                                 status, server_if, UUID_PARAMS(char_id),
-                                 srvc_handle, char_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_service_deleted_cb(int status, int server_if, int srvc_handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceDeleted, status,
+                               server_if, srvc_handle);
 }
 
-void btgatts_descriptor_added_cb(int status, int server_if,
-                                 bt_uuid_t *descr_id, int srvc_handle,
-                                 int descr_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onDescriptorAdded,
-                                 status, server_if, UUID_PARAMS(descr_id),
-                                 srvc_handle, descr_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_request_read_characteristic_cb(int conn_id, int trans_id,
+                                            bt_bdaddr_t* bda, int attr_handle,
+                                            int offset, bool is_long) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerReadCharacteristic,
+                               address.get(), conn_id, trans_id, attr_handle,
+                               offset, is_long);
 }
 
-void btgatts_service_started_cb(int status, int server_if, int srvc_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceStarted, status,
-                                 server_if, srvc_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_request_read_descriptor_cb(int conn_id, int trans_id,
+                                        bt_bdaddr_t* bda, int attr_handle,
+                                        int offset, bool is_long) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerReadDescriptor,
+                               address.get(), conn_id, trans_id, attr_handle,
+                               offset, is_long);
 }
 
-void btgatts_service_stopped_cb(int status, int server_if, int srvc_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceStopped, status,
-                                 server_if, srvc_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_request_write_characteristic_cb(int conn_id, int trans_id,
+                                             bt_bdaddr_t* bda, int attr_handle,
+                                             int offset, bool need_rsp,
+                                             bool is_prep,
+                                             std::vector<uint8_t> value) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  ScopedLocalRef<jbyteArray> val(sCallbackEnv.get(),
+                                 sCallbackEnv->NewByteArray(value.size()));
+  if (val.get())
+    sCallbackEnv->SetByteArrayRegion(val.get(), 0, value.size(),
+                                     (jbyte*)value.data());
+  sCallbackEnv->CallVoidMethod(
+      mCallbacksObj, method_onServerWriteCharacteristic, address.get(), conn_id,
+      trans_id, attr_handle, offset, value.size(), need_rsp, is_prep,
+      val.get());
 }
 
-void btgatts_service_deleted_cb(int status, int server_if, int srvc_handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServiceDeleted, status,
-                                 server_if, srvc_handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_request_write_descriptor_cb(int conn_id, int trans_id,
+                                         bt_bdaddr_t* bda, int attr_handle,
+                                         int offset, bool need_rsp,
+                                         bool is_prep,
+                                         std::vector<uint8_t> value) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  ScopedLocalRef<jbyteArray> val(sCallbackEnv.get(),
+                                 sCallbackEnv->NewByteArray(value.size()));
+  if (val.get())
+    sCallbackEnv->SetByteArrayRegion(val.get(), 0, value.size(),
+                                     (jbyte*)value.data());
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerWriteDescriptor,
+                               address.get(), conn_id, trans_id, attr_handle,
+                               offset, value.size(), need_rsp, is_prep,
+                               val.get());
 }
 
-void btgatts_request_read_cb(int conn_id, int trans_id, bt_bdaddr_t *bda,
-                             int attr_handle, int offset, bool is_long)
-{
-    CHECK_CALLBACK_ENV
+void btgatts_request_exec_write_cb(int conn_id, int trans_id, bt_bdaddr_t* bda,
+                                   int exec_write) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    char c_address[32];
-    sprintf(c_address, "%02X:%02X:%02X:%02X:%02X:%02X",
-            bda->address[0], bda->address[1], bda->address[2],
-            bda->address[3], bda->address[4], bda->address[5]);
-
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAttributeRead,
-                                 address, conn_id, trans_id, attr_handle,
-                                 offset, is_long);
-    sCallbackEnv->DeleteLocalRef(address);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+  ScopedLocalRef<jstring> address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), bda));
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onExecuteWrite,
+                               address.get(), conn_id, trans_id, exec_write);
 }
 
-void btgatts_request_write_cb(int conn_id, int trans_id,
-                              bt_bdaddr_t *bda, int attr_handle,
-                              int offset, int length,
-                              bool need_rsp, bool is_prep, uint8_t* value)
-{
-    CHECK_CALLBACK_ENV
-
-    char c_address[32];
-    sprintf(c_address, "%02X:%02X:%02X:%02X:%02X:%02X",
-            bda->address[0], bda->address[1], bda->address[2],
-            bda->address[3], bda->address[4], bda->address[5]);
-
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-
-    jbyteArray val = sCallbackEnv->NewByteArray(length);
-    if (val) sCallbackEnv->SetByteArrayRegion(val, 0, length, (jbyte*)value);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAttributeWrite,
-                                 address, conn_id, trans_id, attr_handle,
-                                 offset, length, need_rsp, is_prep, val);
-    sCallbackEnv->DeleteLocalRef(address);
-    sCallbackEnv->DeleteLocalRef(val);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_response_confirmation_cb(int status, int handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onResponseSendCompleted,
+                               status, handle);
 }
 
-void btgatts_request_exec_write_cb(int conn_id, int trans_id,
-                                   bt_bdaddr_t *bda, int exec_write)
-{
-    CHECK_CALLBACK_ENV
-
-    char c_address[32];
-    sprintf(c_address, "%02X:%02X:%02X:%02X:%02X:%02X",
-            bda->address[0], bda->address[1], bda->address[2],
-            bda->address[3], bda->address[4], bda->address[5]);
-
-    jstring address = sCallbackEnv->NewStringUTF(c_address);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onExecuteWrite,
-                                 address, conn_id, trans_id, exec_write);
-    sCallbackEnv->DeleteLocalRef(address);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_indication_sent_cb(int conn_id, int status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNotificationSent,
+                               conn_id, status);
 }
 
-void btgatts_response_confirmation_cb(int status, int handle)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onResponseSendCompleted,
-                                 status, handle);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_congestion_cb(int conn_id, bool congested) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerCongestion,
+                               conn_id, congested);
 }
 
-void btgatts_indication_sent_cb(int conn_id, int status)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onNotificationSent,
-                                 conn_id, status);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_mtu_changed_cb(int conn_id, int mtu) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerMtuChanged,
+                               conn_id, mtu);
 }
 
-void btgatts_congestion_cb(int conn_id, bool congested)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerCongestion, conn_id, congested);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_phy_updated_cb(int conn_id, uint8_t tx_phy, uint8_t rx_phy,
+                            uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerPhyUpdate, conn_id,
+                               tx_phy, rx_phy, status);
 }
 
-void btgatts_mtu_changed_cb(int conn_id, int mtu)
-{
-    CHECK_CALLBACK_ENV
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerMtuChanged, conn_id, mtu);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
+void btgatts_conn_updated_cb(int conn_id, uint16_t interval, uint16_t latency,
+                             uint16_t timeout, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerConnUpdate,
+                               conn_id, interval, latency, timeout, status);
 }
 
 static const btgatt_server_callbacks_t sGattServerCallbacks = {
     btgatts_register_app_cb,
     btgatts_connection_cb,
     btgatts_service_added_cb,
-    btgatts_included_service_added_cb,
-    btgatts_characteristic_added_cb,
-    btgatts_descriptor_added_cb,
-    btgatts_service_started_cb,
     btgatts_service_stopped_cb,
     btgatts_service_deleted_cb,
-    btgatts_request_read_cb,
-    btgatts_request_write_cb,
+    btgatts_request_read_characteristic_cb,
+    btgatts_request_read_descriptor_cb,
+    btgatts_request_write_characteristic_cb,
+    btgatts_request_write_descriptor_cb,
     btgatts_request_exec_write_cb,
     btgatts_response_confirmation_cb,
     btgatts_indication_sent_cb,
     btgatts_congestion_cb,
-    btgatts_mtu_changed_cb
-};
+    btgatts_mtu_changed_cb,
+    btgatts_phy_updated_cb,
+    btgatts_conn_updated_cb};
 
 /**
  * GATT callbacks
  */
 
 static const btgatt_callbacks_t sGattCallbacks = {
-    sizeof(btgatt_callbacks_t),
-    &sGattClientCallbacks,
-    &sGattServerCallbacks
+    sizeof(btgatt_callbacks_t), &sGattClientCallbacks, &sGattServerCallbacks,
+    &sGattScannerCallbacks,
 };
 
 /**
  * Native function definitions
  */
 static void classInitNative(JNIEnv* env, jclass clazz) {
+  // Client callbacks
 
-    // Client callbacks
+  method_onClientRegistered =
+      env->GetMethodID(clazz, "onClientRegistered", "(IIJJ)V");
+  method_onScannerRegistered =
+      env->GetMethodID(clazz, "onScannerRegistered", "(IIJJ)V");
+  method_onScanResult = env->GetMethodID(clazz, "onScanResult",
+                                         "(IILjava/lang/String;IIIIII[B)V");
+  method_onConnected =
+      env->GetMethodID(clazz, "onConnected", "(IIILjava/lang/String;)V");
+  method_onDisconnected =
+      env->GetMethodID(clazz, "onDisconnected", "(IIILjava/lang/String;)V");
+  method_onReadCharacteristic =
+      env->GetMethodID(clazz, "onReadCharacteristic", "(III[B)V");
+  method_onWriteCharacteristic =
+      env->GetMethodID(clazz, "onWriteCharacteristic", "(III)V");
+  method_onExecuteCompleted =
+      env->GetMethodID(clazz, "onExecuteCompleted", "(II)V");
+  method_onSearchCompleted =
+      env->GetMethodID(clazz, "onSearchCompleted", "(II)V");
+  method_onReadDescriptor =
+      env->GetMethodID(clazz, "onReadDescriptor", "(III[B)V");
+  method_onWriteDescriptor =
+      env->GetMethodID(clazz, "onWriteDescriptor", "(III)V");
+  method_onNotify =
+      env->GetMethodID(clazz, "onNotify", "(ILjava/lang/String;IZ[B)V");
+  method_onRegisterForNotifications =
+      env->GetMethodID(clazz, "onRegisterForNotifications", "(IIII)V");
+  method_onReadRemoteRssi =
+      env->GetMethodID(clazz, "onReadRemoteRssi", "(ILjava/lang/String;II)V");
+  method_onConfigureMTU = env->GetMethodID(clazz, "onConfigureMTU", "(III)V");
+  method_onScanFilterConfig =
+      env->GetMethodID(clazz, "onScanFilterConfig", "(IIIII)V");
+  method_onScanFilterParamsConfigured =
+      env->GetMethodID(clazz, "onScanFilterParamsConfigured", "(IIII)V");
+  method_onScanFilterEnableDisabled =
+      env->GetMethodID(clazz, "onScanFilterEnableDisabled", "(III)V");
+  method_onClientCongestion =
+      env->GetMethodID(clazz, "onClientCongestion", "(IZ)V");
+  method_onBatchScanStorageConfigured =
+      env->GetMethodID(clazz, "onBatchScanStorageConfigured", "(II)V");
+  method_onBatchScanStartStopped =
+      env->GetMethodID(clazz, "onBatchScanStartStopped", "(III)V");
+  method_onBatchScanReports =
+      env->GetMethodID(clazz, "onBatchScanReports", "(IIII[B)V");
+  method_onBatchScanThresholdCrossed =
+      env->GetMethodID(clazz, "onBatchScanThresholdCrossed", "(I)V");
+  method_CreateonTrackAdvFoundLostObject =
+      env->GetMethodID(clazz, "CreateonTrackAdvFoundLostObject",
+                       "(II[BI[BIIILjava/lang/String;IIII)Lcom/android/"
+                       "bluetooth/gatt/AdvtFilterOnFoundOnLostInfo;");
+  method_onTrackAdvFoundLost = env->GetMethodID(
+      clazz, "onTrackAdvFoundLost",
+      "(Lcom/android/bluetooth/gatt/AdvtFilterOnFoundOnLostInfo;)V");
+  method_onScanParamSetupCompleted =
+      env->GetMethodID(clazz, "onScanParamSetupCompleted", "(II)V");
+  method_getSampleGattDbElement =
+      env->GetMethodID(clazz, "GetSampleGattDbElement",
+                       "()Lcom/android/bluetooth/gatt/GattDbElement;");
+  method_onGetGattDb =
+      env->GetMethodID(clazz, "onGetGattDb", "(ILjava/util/ArrayList;)V");
+  method_onClientPhyRead =
+      env->GetMethodID(clazz, "onClientPhyRead", "(IIII)V");
+  method_onClientPhyUpdate =
+      env->GetMethodID(clazz, "onClientPhyUpdate", "(IIII)V");
+  method_onClientConnUpdate =
+      env->GetMethodID(clazz, "onClientConnUpdate", "(IIIII)V");
 
-    method_onClientRegistered = env->GetMethodID(clazz, "onClientRegistered", "(IIJJ)V");
-    method_onScanResult = env->GetMethodID(clazz, "onScanResult", "(Ljava/lang/String;I[B)V");
-    method_onConnected   = env->GetMethodID(clazz, "onConnected", "(IIILjava/lang/String;)V");
-    method_onDisconnected = env->GetMethodID(clazz, "onDisconnected", "(IIILjava/lang/String;)V");
-    method_onReadCharacteristic = env->GetMethodID(clazz, "onReadCharacteristic", "(III[B)V");
-    method_onWriteCharacteristic = env->GetMethodID(clazz, "onWriteCharacteristic", "(III)V");
-    method_onExecuteCompleted = env->GetMethodID(clazz, "onExecuteCompleted",  "(II)V");
-    method_onSearchCompleted = env->GetMethodID(clazz, "onSearchCompleted",  "(II)V");
-    method_onReadDescriptor = env->GetMethodID(clazz, "onReadDescriptor", "(III[B)V");
-    method_onWriteDescriptor = env->GetMethodID(clazz, "onWriteDescriptor", "(III)V");
-    method_onNotify = env->GetMethodID(clazz, "onNotify", "(ILjava/lang/String;IZ[B)V");
-    method_onRegisterForNotifications = env->GetMethodID(clazz, "onRegisterForNotifications", "(IIII)V");
-    method_onReadRemoteRssi = env->GetMethodID(clazz, "onReadRemoteRssi", "(ILjava/lang/String;II)V");
-    method_onConfigureMTU = env->GetMethodID(clazz, "onConfigureMTU", "(III)V");
-    method_onAdvertiseCallback = env->GetMethodID(clazz, "onAdvertiseCallback", "(II)V");
-    method_onScanFilterConfig = env->GetMethodID(clazz, "onScanFilterConfig", "(IIIII)V");
-    method_onScanFilterParamsConfigured = env->GetMethodID(clazz, "onScanFilterParamsConfigured", "(IIII)V");
-    method_onScanFilterEnableDisabled = env->GetMethodID(clazz, "onScanFilterEnableDisabled", "(III)V");
-    method_onMultiAdvEnable = env->GetMethodID(clazz, "onAdvertiseInstanceEnabled", "(II)V");
-    method_onMultiAdvUpdate = env->GetMethodID(clazz, "onAdvertiseDataUpdated", "(II)V");
-    method_onMultiAdvSetAdvData = env->GetMethodID(clazz, "onAdvertiseDataSet", "(II)V");
-    method_onMultiAdvDisable = env->GetMethodID(clazz, "onAdvertiseInstanceDisabled", "(II)V");
-    method_onClientCongestion = env->GetMethodID(clazz, "onClientCongestion", "(IZ)V");
-    method_onBatchScanStorageConfigured = env->GetMethodID(clazz, "onBatchScanStorageConfigured", "(II)V");
-    method_onBatchScanStartStopped = env->GetMethodID(clazz, "onBatchScanStartStopped", "(III)V");
-    method_onBatchScanReports = env->GetMethodID(clazz, "onBatchScanReports", "(IIII[B)V");
-    method_onBatchScanThresholdCrossed = env->GetMethodID(clazz, "onBatchScanThresholdCrossed", "(I)V");
-    method_CreateonTrackAdvFoundLostObject = env->GetMethodID(clazz, "CreateonTrackAdvFoundLostObject", "(II[BI[BIIILjava/lang/String;IIII)Lcom/android/bluetooth/gatt/AdvtFilterOnFoundOnLostInfo;");
-    method_onTrackAdvFoundLost = env->GetMethodID(clazz, "onTrackAdvFoundLost",
-                                                         "(Lcom/android/bluetooth/gatt/AdvtFilterOnFoundOnLostInfo;)V");
-    method_onScanParamSetupCompleted = env->GetMethodID(clazz, "onScanParamSetupCompleted", "(II)V");
-    method_getSampleGattDbElement = env->GetMethodID(clazz, "GetSampleGattDbElement", "()Lcom/android/bluetooth/gatt/GattDbElement;");
-    method_onGetGattDb = env->GetMethodID(clazz, "onGetGattDb", "(ILjava/util/ArrayList;)V");
+  // Server callbacks
 
-    // Server callbacks
+  method_onServerRegistered =
+      env->GetMethodID(clazz, "onServerRegistered", "(IIJJ)V");
+  method_onClientConnected =
+      env->GetMethodID(clazz, "onClientConnected", "(Ljava/lang/String;ZII)V");
+  method_onServiceAdded =
+      env->GetMethodID(clazz, "onServiceAdded", "(IILjava/util/List;)V");
+  method_onServiceStopped =
+      env->GetMethodID(clazz, "onServiceStopped", "(III)V");
+  method_onServiceDeleted =
+      env->GetMethodID(clazz, "onServiceDeleted", "(III)V");
+  method_onResponseSendCompleted =
+      env->GetMethodID(clazz, "onResponseSendCompleted", "(II)V");
+  method_onServerReadCharacteristic = env->GetMethodID(
+      clazz, "onServerReadCharacteristic", "(Ljava/lang/String;IIIIZ)V");
+  method_onServerReadDescriptor = env->GetMethodID(
+      clazz, "onServerReadDescriptor", "(Ljava/lang/String;IIIIZ)V");
+  method_onServerWriteCharacteristic = env->GetMethodID(
+      clazz, "onServerWriteCharacteristic", "(Ljava/lang/String;IIIIIZZ[B)V");
+  method_onServerWriteDescriptor = env->GetMethodID(
+      clazz, "onServerWriteDescriptor", "(Ljava/lang/String;IIIIIZZ[B)V");
+  method_onExecuteWrite =
+      env->GetMethodID(clazz, "onExecuteWrite", "(Ljava/lang/String;III)V");
+  method_onNotificationSent =
+      env->GetMethodID(clazz, "onNotificationSent", "(II)V");
+  method_onServerCongestion =
+      env->GetMethodID(clazz, "onServerCongestion", "(IZ)V");
+  method_onServerMtuChanged = env->GetMethodID(clazz, "onMtuChanged", "(II)V");
+  method_onServerPhyRead =
+      env->GetMethodID(clazz, "onServerPhyRead", "(IIII)V");
+  method_onServerPhyUpdate =
+      env->GetMethodID(clazz, "onServerPhyUpdate", "(IIII)V");
+  method_onServerConnUpdate =
+      env->GetMethodID(clazz, "onServerConnUpdate", "(IIIII)V");
 
-    method_onServerRegistered = env->GetMethodID(clazz, "onServerRegistered", "(IIJJ)V");
-    method_onClientConnected = env->GetMethodID(clazz, "onClientConnected", "(Ljava/lang/String;ZII)V");
-    method_onServiceAdded = env->GetMethodID(clazz, "onServiceAdded", "(IIIIJJI)V");
-    method_onIncludedServiceAdded = env->GetMethodID(clazz, "onIncludedServiceAdded", "(IIII)V");
-    method_onCharacteristicAdded  = env->GetMethodID(clazz, "onCharacteristicAdded", "(IIJJII)V");
-    method_onDescriptorAdded = env->GetMethodID(clazz, "onDescriptorAdded", "(IIJJII)V");
-    method_onServiceStarted = env->GetMethodID(clazz, "onServiceStarted", "(III)V");
-    method_onServiceStopped = env->GetMethodID(clazz, "onServiceStopped", "(III)V");
-    method_onServiceDeleted = env->GetMethodID(clazz, "onServiceDeleted", "(III)V");
-    method_onResponseSendCompleted = env->GetMethodID(clazz, "onResponseSendCompleted", "(II)V");
-    method_onAttributeRead= env->GetMethodID(clazz, "onAttributeRead", "(Ljava/lang/String;IIIIZ)V");
-    method_onAttributeWrite= env->GetMethodID(clazz, "onAttributeWrite", "(Ljava/lang/String;IIIIIZZ[B)V");
-    method_onExecuteWrite= env->GetMethodID(clazz, "onExecuteWrite", "(Ljava/lang/String;III)V");
-    method_onNotificationSent = env->GetMethodID(clazz, "onNotificationSent", "(II)V");
-    method_onServerCongestion = env->GetMethodID(clazz, "onServerCongestion", "(IZ)V");
-    method_onServerMtuChanged = env->GetMethodID(clazz, "onMtuChanged", "(II)V");
-
-    info("classInitNative: Success!");
+  info("classInitNative: Success!");
 }
 
 static const bt_interface_t* btIf;
 
-static void initializeNative(JNIEnv *env, jobject object) {
-    if(btIf)
-        return;
+static void initializeNative(JNIEnv* env, jobject object) {
+  if (btIf) return;
 
-    if ( (btIf = getBluetoothInterface()) == NULL) {
-        error("Bluetooth module is not loaded");
-        return;
-    }
+  btIf = getBluetoothInterface();
+  if (btIf == NULL) {
+    error("Bluetooth module is not loaded");
+    return;
+  }
 
-    if (sGattIf != NULL) {
-         ALOGW("Cleaning up Bluetooth GATT Interface before initializing...");
-         sGattIf->cleanup();
-         sGattIf = NULL;
-    }
+  if (sGattIf != NULL) {
+    ALOGW("Cleaning up Bluetooth GATT Interface before initializing...");
+    sGattIf->cleanup();
+    sGattIf = NULL;
+  }
 
-    if (mCallbacksObj != NULL) {
-         ALOGW("Cleaning up Bluetooth GATT callback object");
-         env->DeleteGlobalRef(mCallbacksObj);
-         mCallbacksObj = NULL;
-    }
+  if (mCallbacksObj != NULL) {
+    ALOGW("Cleaning up Bluetooth GATT callback object");
+    env->DeleteGlobalRef(mCallbacksObj);
+    mCallbacksObj = NULL;
+  }
 
-    if ( (sGattIf = (btgatt_interface_t *)
-          btIf->get_profile_interface(BT_PROFILE_GATT_ID)) == NULL) {
-        error("Failed to get Bluetooth GATT Interface");
-        return;
-    }
+  sGattIf =
+      (btgatt_interface_t*)btIf->get_profile_interface(BT_PROFILE_GATT_ID);
+  if (sGattIf == NULL) {
+    error("Failed to get Bluetooth GATT Interface");
+    return;
+  }
 
-    bt_status_t status;
-    if ( (status = sGattIf->init(&sGattCallbacks)) != BT_STATUS_SUCCESS) {
-        error("Failed to initialize Bluetooth GATT, status: %d", status);
-        sGattIf = NULL;
-        return;
-    }
+  bt_status_t status = sGattIf->init(&sGattCallbacks);
+  if (status != BT_STATUS_SUCCESS) {
+    error("Failed to initialize Bluetooth GATT, status: %d", status);
+    sGattIf = NULL;
+    return;
+  }
 
-    mCallbacksObj = env->NewGlobalRef(object);
+  mCallbacksObj = env->NewGlobalRef(object);
 }
 
-static void cleanupNative(JNIEnv *env, jobject object) {
-    if (!btIf) return;
+static void cleanupNative(JNIEnv* env, jobject object) {
+  if (!btIf) return;
 
-    if (sGattIf != NULL) {
-        sGattIf->cleanup();
-        sGattIf = NULL;
-    }
+  if (sGattIf != NULL) {
+    sGattIf->cleanup();
+    sGattIf = NULL;
+  }
 
-    if (mCallbacksObj != NULL) {
-        env->DeleteGlobalRef(mCallbacksObj);
-        mCallbacksObj = NULL;
-    }
-    btIf = NULL;
+  if (mCallbacksObj != NULL) {
+    env->DeleteGlobalRef(mCallbacksObj);
+    mCallbacksObj = NULL;
+  }
+  btIf = NULL;
 }
 
 /**
  * Native Client functions
  */
 
-static int gattClientGetDeviceTypeNative(JNIEnv* env, jobject object, jstring address)
-{
-    if (!sGattIf) return 0;
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
-    return sGattIf->client->get_device_type(&bda);
+static int gattClientGetDeviceTypeNative(JNIEnv* env, jobject object,
+                                         jstring address) {
+  if (!sGattIf) return 0;
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
+  return sGattIf->client->get_device_type(&bda);
 }
 
 static void gattClientRegisterAppNative(JNIEnv* env, jobject object,
-                                        jlong app_uuid_lsb, jlong app_uuid_msb )
-{
-    bt_uuid_t uuid;
+                                        jlong app_uuid_lsb,
+                                        jlong app_uuid_msb) {
+  bt_uuid_t uuid;
 
-    if (!sGattIf) return;
-    set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
-    sGattIf->client->register_client(&uuid);
+  if (!sGattIf) return;
+  set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
+  sGattIf->client->register_client(&uuid);
 }
 
-static void gattClientUnregisterAppNative(JNIEnv* env, jobject object, jint clientIf)
-{
-    if (!sGattIf) return;
-    sGattIf->client->unregister_client(clientIf);
+static void gattClientUnregisterAppNative(JNIEnv* env, jobject object,
+                                          jint clientIf) {
+  if (!sGattIf) return;
+  sGattIf->client->unregister_client(clientIf);
 }
 
-static void gattClientScanNative(JNIEnv* env, jobject object, jboolean start)
-{
-    if (!sGattIf) return;
-    sGattIf->client->scan(start);
+void btgattc_register_scanner_cb(bt_uuid_t app_uuid, uint8_t scannerId,
+                                 uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScannerRegistered,
+                               status, scannerId, UUID_PARAMS(&app_uuid));
+}
+
+static void registerScannerNative(JNIEnv* env, jobject object,
+                                  jlong app_uuid_lsb, jlong app_uuid_msb) {
+  if (!sGattIf) return;
+
+  bt_uuid_t uuid;
+  set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
+  sGattIf->scanner->RegisterScanner(
+      base::Bind(&btgattc_register_scanner_cb, uuid));
+}
+
+static void unregisterScannerNative(JNIEnv* env, jobject object,
+                                    jint scanner_id) {
+  if (!sGattIf) return;
+
+  sGattIf->scanner->Unregister(scanner_id);
+}
+
+static void gattClientScanNative(JNIEnv* env, jobject object, jboolean start) {
+  if (!sGattIf) return;
+  sGattIf->scanner->Scan(start);
 }
 
 static void gattClientConnectNative(JNIEnv* env, jobject object, jint clientif,
-                                 jstring address, jboolean isDirect, jint transport)
-{
-    if (!sGattIf) return;
+                                    jstring address, jboolean isDirect,
+                                    jint transport, jint initiating_phys) {
+  if (!sGattIf) return;
 
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
-    sGattIf->client->connect(clientif, &bda, isDirect, transport);
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
+  sGattIf->client->connect(clientif, &bda, isDirect, transport,
+                           initiating_phys);
 }
 
-static void gattClientDisconnectNative(JNIEnv* env, jobject object, jint clientIf,
-                                  jstring address, jint conn_id)
-{
-    if (!sGattIf) return;
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
-    sGattIf->client->disconnect(clientIf, &bda, conn_id);
+static void gattClientDisconnectNative(JNIEnv* env, jobject object,
+                                       jint clientIf, jstring address,
+                                       jint conn_id) {
+  if (!sGattIf) return;
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
+  sGattIf->client->disconnect(clientIf, &bda, conn_id);
+}
+
+static void gattClientSetPreferredPhyNative(JNIEnv* env, jobject object,
+                                            jint clientIf, jint conn_id,
+                                            jint tx_phy, jint rx_phy,
+                                            jint phy_options) {
+  if (!sGattIf) return;
+  sGattIf->client->set_preferred_phy(conn_id, tx_phy, rx_phy, phy_options);
+}
+
+static void readClientPhyCb(int conn_id, uint8_t tx_phy, uint8_t rx_phy,
+                            uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onClientPhyRead, conn_id,
+                               tx_phy, rx_phy, status);
+}
+
+static void gattClientReadPhyNative(JNIEnv* env, jobject object, jint clientIf,
+                                    jint conn_id) {
+  if (!sGattIf) return;
+  sGattIf->client->read_phy(conn_id, base::Bind(readClientPhyCb, conn_id));
 }
 
 static void gattClientRefreshNative(JNIEnv* env, jobject object, jint clientIf,
-                                    jstring address)
-{
-    if (!sGattIf) return;
+                                    jstring address) {
+  if (!sGattIf) return;
 
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
-    sGattIf->client->refresh(clientIf, &bda);
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
+  sGattIf->client->refresh(clientIf, &bda);
 }
 
-static void gattClientSearchServiceNative(JNIEnv* env, jobject object, jint conn_id,
-            jboolean search_all, jlong service_uuid_lsb, jlong service_uuid_msb)
-{
-    if (!sGattIf) return;
+static void gattClientSearchServiceNative(JNIEnv* env, jobject object,
+                                          jint conn_id, jboolean search_all,
+                                          jlong service_uuid_lsb,
+                                          jlong service_uuid_msb) {
+  if (!sGattIf) return;
 
-    bt_uuid_t uuid;
-    set_uuid(uuid.uu, service_uuid_msb, service_uuid_lsb);
-    sGattIf->client->search_service(conn_id, search_all ? 0 : &uuid);
+  bt_uuid_t uuid;
+  set_uuid(uuid.uu, service_uuid_msb, service_uuid_lsb);
+  sGattIf->client->search_service(conn_id, search_all ? 0 : &uuid);
+}
+
+static void gattClientDiscoverServiceByUuidNative(JNIEnv* env, jobject object,
+                                                  jint conn_id,
+                                                  jlong service_uuid_lsb,
+                                                  jlong service_uuid_msb) {
+  if (!sGattIf) return;
+
+  bt_uuid_t uuid;
+  set_uuid(uuid.uu, service_uuid_msb, service_uuid_lsb);
+  sGattIf->client->btif_gattc_discover_service_by_uuid(conn_id, &uuid);
 }
 
 static void gattClientGetGattDbNative(JNIEnv* env, jobject object,
-    jint conn_id)
-{
-    if (!sGattIf) return;
+                                      jint conn_id) {
+  if (!sGattIf) return;
 
-    sGattIf->client->get_gatt_db(conn_id);
+  sGattIf->client->get_gatt_db(conn_id);
 }
 
 static void gattClientReadCharacteristicNative(JNIEnv* env, jobject object,
-    jint conn_id, jint handle, jint authReq)
-{
-    if (!sGattIf) return;
+                                               jint conn_id, jint handle,
+                                               jint authReq) {
+  if (!sGattIf) return;
 
-    sGattIf->client->read_characteristic(conn_id, handle, authReq);
+  sGattIf->client->read_characteristic(conn_id, handle, authReq);
+}
+
+static void gattClientReadUsingCharacteristicUuidNative(
+    JNIEnv* env, jobject object, jint conn_id, jlong uuid_lsb, jlong uuid_msb,
+    jint s_handle, jint e_handle, jint authReq) {
+  if (!sGattIf) return;
+
+  bt_uuid_t uuid;
+  set_uuid(uuid.uu, uuid_msb, uuid_lsb);
+  sGattIf->client->read_using_characteristic_uuid(conn_id, &uuid, s_handle,
+                                                  e_handle, authReq);
 }
 
 static void gattClientReadDescriptorNative(JNIEnv* env, jobject object,
-    jint conn_id, jint  handle, jint authReq)
-{
-    if (!sGattIf) return;
+                                           jint conn_id, jint handle,
+                                           jint authReq) {
+  if (!sGattIf) return;
 
-    sGattIf->client->read_descriptor(conn_id, handle, authReq);
+  sGattIf->client->read_descriptor(conn_id, handle, authReq);
 }
 
 static void gattClientWriteCharacteristicNative(JNIEnv* env, jobject object,
-    jint conn_id, jint handle, jint write_type, jint auth_req, jbyteArray value)
-{
-    if (!sGattIf) return;
+                                                jint conn_id, jint handle,
+                                                jint write_type, jint auth_req,
+                                                jbyteArray value) {
+  if (!sGattIf) return;
 
-    if (value == NULL) {
-        warn("gattClientWriteCharacteristicNative() ignoring NULL array");
-        return;
-    }
+  if (value == NULL) {
+    warn("gattClientWriteCharacteristicNative() ignoring NULL array");
+    return;
+  }
 
-    uint16_t len = (uint16_t) env->GetArrayLength(value);
-    jbyte *p_value = env->GetByteArrayElements(value, NULL);
-    if (p_value == NULL) return;
+  uint16_t len = (uint16_t)env->GetArrayLength(value);
+  jbyte* p_value = env->GetByteArrayElements(value, NULL);
+  if (p_value == NULL) return;
 
-    sGattIf->client->write_characteristic(conn_id, handle, write_type, len, auth_req, (char*)p_value);
-    env->ReleaseByteArrayElements(value, p_value, 0);
+  std::vector<uint8_t> vect_val(p_value, p_value + len);
+  env->ReleaseByteArrayElements(value, p_value, 0);
+
+  sGattIf->client->write_characteristic(conn_id, handle, write_type, auth_req,
+                                        std::move(vect_val));
 }
 
 static void gattClientExecuteWriteNative(JNIEnv* env, jobject object,
-    jint conn_id, jboolean execute)
-{
-    if (!sGattIf) return;
-    sGattIf->client->execute_write(conn_id, execute ? 1 : 0);
+                                         jint conn_id, jboolean execute) {
+  if (!sGattIf) return;
+  sGattIf->client->execute_write(conn_id, execute ? 1 : 0);
 }
 
 static void gattClientWriteDescriptorNative(JNIEnv* env, jobject object,
-    jint conn_id, jint handle, jint write_type, jint auth_req, jbyteArray value)
-{
-    if (!sGattIf) return;
+                                            jint conn_id, jint handle,
+                                            jint auth_req, jbyteArray value) {
+  if (!sGattIf) return;
 
-    if (value == NULL) {
-        warn("gattClientWriteDescriptorNative() ignoring NULL array");
-        return;
-    }
+  if (value == NULL) {
+    warn("gattClientWriteDescriptorNative() ignoring NULL array");
+    return;
+  }
 
-    uint16_t len = (uint16_t) env->GetArrayLength(value);
-    jbyte *p_value = env->GetByteArrayElements(value, NULL);
-    if (p_value == NULL) return;
+  uint16_t len = (uint16_t)env->GetArrayLength(value);
+  jbyte* p_value = env->GetByteArrayElements(value, NULL);
+  if (p_value == NULL) return;
 
-    sGattIf->client->write_descriptor(conn_id, handle, write_type, len, auth_req, (char*)p_value);
-    env->ReleaseByteArrayElements(value, p_value, 0);
+  std::vector<uint8_t> vect_val(p_value, p_value + len);
+  env->ReleaseByteArrayElements(value, p_value, 0);
+
+  sGattIf->client->write_descriptor(conn_id, handle, auth_req,
+                                    std::move(vect_val));
 }
 
-static void gattClientRegisterForNotificationsNative(JNIEnv* env, jobject object,
-    jint clientIf, jstring address, jint handle, jboolean enable)
-{
-    if (!sGattIf) return;
+static void gattClientRegisterForNotificationsNative(
+    JNIEnv* env, jobject object, jint clientIf, jstring address, jint handle,
+    jboolean enable) {
+  if (!sGattIf) return;
 
-    bt_bdaddr_t bd_addr;
-    const char *c_address = env->GetStringUTFChars(address, NULL);
-    bd_addr_str_to_addr(c_address, bd_addr.address);
+  bt_bdaddr_t bd_addr;
+  const char* c_address = env->GetStringUTFChars(address, NULL);
+  bd_addr_str_to_addr(c_address, bd_addr.address);
 
-    if (enable)
-        sGattIf->client->register_for_notification(clientIf, &bd_addr, handle);
-    else
-        sGattIf->client->deregister_for_notification(clientIf, &bd_addr, handle);
+  if (enable)
+    sGattIf->client->register_for_notification(clientIf, &bd_addr, handle);
+  else
+    sGattIf->client->deregister_for_notification(clientIf, &bd_addr, handle);
 }
 
-static void gattClientReadRemoteRssiNative(JNIEnv* env, jobject object, jint clientif,
-                                 jstring address)
-{
-    if (!sGattIf) return;
+static void gattClientReadRemoteRssiNative(JNIEnv* env, jobject object,
+                                           jint clientif, jstring address) {
+  if (!sGattIf) return;
 
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
 
-    sGattIf->client->read_remote_rssi(clientif, &bda);
+  sGattIf->client->read_remote_rssi(clientif, &bda);
 }
 
-static void gattAdvertiseNative(JNIEnv *env, jobject object,
-        jint client_if, jboolean start)
-{
-    if (!sGattIf) return;
-    sGattIf->client->listen(client_if, start);
-}
-
-static void gattSetAdvDataNative(JNIEnv *env, jobject object, jint client_if,
-        jboolean setScanRsp, jboolean inclName, jboolean inclTxPower, jint minInterval,
-        jint maxInterval, jint appearance, jbyteArray manufacturerData, jbyteArray serviceData,
-        jbyteArray serviceUuid)
-{
-    if (!sGattIf) return;
-    jbyte* arr_data = env->GetByteArrayElements(manufacturerData, NULL);
-    uint16_t arr_len = (uint16_t) env->GetArrayLength(manufacturerData);
-
-    jbyte* service_data = env->GetByteArrayElements(serviceData, NULL);
-    uint16_t service_data_len = (uint16_t) env->GetArrayLength(serviceData);
-
-    jbyte* service_uuid = env->GetByteArrayElements(serviceUuid, NULL);
-    uint16_t service_uuid_len = (uint16_t) env->GetArrayLength(serviceUuid);
-
-    sGattIf->client->set_adv_data(client_if, setScanRsp, inclName, inclTxPower,
-        minInterval, maxInterval, appearance, arr_len, (char*)arr_data,
-        service_data_len, (char*)service_data, service_uuid_len,
-        (char*)service_uuid);
-
-    env->ReleaseByteArrayElements(manufacturerData, arr_data, JNI_ABORT);
-    env->ReleaseByteArrayElements(serviceData, service_data, JNI_ABORT);
-    env->ReleaseByteArrayElements(serviceUuid, service_uuid, JNI_ABORT);
+void set_scan_params_cmpl_cb(int client_if, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanParamSetupCompleted,
+                               status, client_if);
 }
 
 static void gattSetScanParametersNative(JNIEnv* env, jobject object,
                                         jint client_if, jint scan_interval_unit,
-                                        jint scan_window_unit)
-{
-    if (!sGattIf) return;
-    sGattIf->client->set_scan_parameters(client_if, scan_interval_unit, scan_window_unit);
+                                        jint scan_window_unit) {
+  if (!sGattIf) return;
+  sGattIf->scanner->SetScanParameters(
+      scan_interval_unit, scan_window_unit,
+      base::Bind(&set_scan_params_cmpl_cb, client_if));
 }
 
-static void gattClientScanFilterParamAddNative(JNIEnv* env, jobject object, jobject params)
-{
-    if (!sGattIf) return;
-    const int add_scan_filter_params_action = 0;
-    btgatt_filt_param_setup_t filt_params;
+void scan_filter_param_cb(uint8_t client_if, uint8_t avbl_space, uint8_t action,
+                          uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj,
+                               method_onScanFilterParamsConfigured, action,
+                               status, client_if, avbl_space);
+}
 
-    jmethodID methodId = 0;
-    jclass filtparam = env->GetObjectClass(params);
+static void gattClientScanFilterParamAddNative(JNIEnv* env, jobject object,
+                                               jobject params) {
+  if (!sGattIf) return;
+  const int add_scan_filter_params_action = 0;
+  auto filt_params = std::make_unique<btgatt_filt_param_setup_t>();
 
-    methodId = env->GetMethodID(filtparam, "getClientIf", "()I");
-    filt_params.client_if = env->CallIntMethod(params, methodId);;
+  jmethodID methodId = 0;
+  ScopedLocalRef<jclass> filtparam(env, env->GetObjectClass(params));
 
-    filt_params.action = add_scan_filter_params_action;
+  methodId = env->GetMethodID(filtparam.get(), "getClientIf", "()I");
+  uint8_t client_if = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getFiltIndex", "()I");
-    filt_params.filt_index = env->CallIntMethod(params, methodId);;
+  methodId = env->GetMethodID(filtparam.get(), "getFiltIndex", "()I");
+  uint8_t filt_index = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getFeatSeln", "()I");
-    filt_params.feat_seln = env->CallIntMethod(params, methodId);;
+  methodId = env->GetMethodID(filtparam.get(), "getFeatSeln", "()I");
+  filt_params->feat_seln = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getListLogicType", "()I");
-    filt_params.list_logic_type = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getListLogicType", "()I");
+  filt_params->list_logic_type = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getFiltLogicType", "()I");
-    filt_params.filt_logic_type = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getFiltLogicType", "()I");
+  filt_params->filt_logic_type = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getDelyMode", "()I");
-    filt_params.dely_mode = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getDelyMode", "()I");
+  filt_params->dely_mode = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getFoundTimeout", "()I");
-    filt_params.found_timeout = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getFoundTimeout", "()I");
+  filt_params->found_timeout = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getLostTimeout", "()I");
-    filt_params.lost_timeout = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getLostTimeout", "()I");
+  filt_params->lost_timeout = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getFoundTimeOutCnt", "()I");
-    filt_params.found_timeout_cnt = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getFoundTimeOutCnt", "()I");
+  filt_params->found_timeout_cnt = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getNumOfTrackEntries", "()I");
-    filt_params.num_of_tracking_entries = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getNumOfTrackEntries", "()I");
+  filt_params->num_of_tracking_entries = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getRSSIHighValue", "()I");
-    filt_params.rssi_high_thres = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getRSSIHighValue", "()I");
+  filt_params->rssi_high_thres = env->CallIntMethod(params, methodId);
 
-    methodId = env->GetMethodID(filtparam, "getRSSILowValue", "()I");
-    filt_params.rssi_low_thres = env->CallIntMethod(params, methodId);
+  methodId = env->GetMethodID(filtparam.get(), "getRSSILowValue", "()I");
+  filt_params->rssi_low_thres = env->CallIntMethod(params, methodId);
 
-    env->DeleteLocalRef(filtparam);
-    sGattIf->client->scan_filter_param_setup(filt_params);
+  sGattIf->scanner->ScanFilterParamSetup(
+      client_if, add_scan_filter_params_action, filt_index,
+      std::move(filt_params), base::Bind(&scan_filter_param_cb, client_if));
 }
 
 static void gattClientScanFilterParamDeleteNative(JNIEnv* env, jobject object,
-        jint client_if, jint filt_index)
-{
-    if (!sGattIf) return;
-    const int delete_scan_filter_params_action = 1;
-    btgatt_filt_param_setup_t filt_params;
-    memset(&filt_params, 0, sizeof(btgatt_filt_param_setup_t));
-    filt_params.client_if = client_if;
-    filt_params.action = delete_scan_filter_params_action;
-    filt_params.filt_index = filt_index;
-    sGattIf->client->scan_filter_param_setup(filt_params);
+                                                  jint client_if,
+                                                  jint filt_index) {
+  if (!sGattIf) return;
+  const int delete_scan_filter_params_action = 1;
+  sGattIf->scanner->ScanFilterParamSetup(
+      client_if, delete_scan_filter_params_action, filt_index, nullptr,
+      base::Bind(&scan_filter_param_cb, client_if));
 }
 
-static void gattClientScanFilterParamClearAllNative(JNIEnv* env, jobject object, jint client_if)
-{
-    if (!sGattIf) return;
-    const int clear_scan_filter_params_action = 2;
-    btgatt_filt_param_setup_t filt_params;
-    memset(&filt_params, 0, sizeof(btgatt_filt_param_setup_t));
-    filt_params.client_if = client_if;
-    filt_params.action = clear_scan_filter_params_action;
-    sGattIf->client->scan_filter_param_setup(filt_params);
+static void gattClientScanFilterParamClearAllNative(JNIEnv* env, jobject object,
+                                                    jint client_if) {
+  if (!sGattIf) return;
+  const int clear_scan_filter_params_action = 2;
+  sGattIf->scanner->ScanFilterParamSetup(
+      client_if, clear_scan_filter_params_action, 0 /* index, unused */,
+      nullptr, base::Bind(&scan_filter_param_cb, client_if));
 }
 
-static void gattClientScanFilterAddRemoveNative(JNIEnv* env, jobject object,
-        jint client_if, jint action, jint filt_type, jint filt_index, jint company_id,
-        jint company_id_mask, jlong uuid_lsb,  jlong uuid_msb, jlong uuid_mask_lsb,
-        jlong uuid_mask_msb, jstring name, jstring address, jbyte addr_type,
-        jbyteArray data, jbyteArray mask)
-{
-    switch(filt_type)
+static void scan_filter_cfg_cb(uint8_t client_if, uint8_t filt_type,
+                               uint8_t avbl_space, uint8_t action,
+                               uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanFilterConfig, action,
+                               status, client_if, filt_type, avbl_space);
+}
+
+static void gattClientScanFilterAddRemoveNative(
+    JNIEnv* env, jobject object, jint client_if, jint action, jint filt_type,
+    jint filt_index, jint company_id, jint company_id_mask, jlong uuid_lsb,
+    jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb, jstring name,
+    jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask) {
+  switch (filt_type) {
+    case 0:  // BTM_BLE_PF_ADDR_FILTER
     {
-        case 0: // BTM_BLE_PF_ADDR_FILTER
-        {
-            bt_bdaddr_t bda;
-            jstr2bdaddr(env, &bda, address);
-            sGattIf->client->scan_filter_add_remove(client_if, action, filt_type, filt_index, 0,
-                                             0, NULL, NULL, &bda, addr_type,0, NULL,0, NULL);
-            break;
-        }
-
-        case 1: // BTM_BLE_PF_SRVC_DATA
-        {
-            jbyte* data_array = env->GetByteArrayElements(data, 0);
-            int data_len = env->GetArrayLength(data);
-            jbyte* mask_array = env->GetByteArrayElements(mask, NULL);
-            uint16_t mask_len = (uint16_t) env->GetArrayLength(mask);
-            sGattIf->client->scan_filter_add_remove(client_if, action, filt_type, filt_index,
-               0, 0, NULL, NULL, NULL, 0, data_len, (char*)data_array, mask_len,(char*) mask_array);
-            env->ReleaseByteArrayElements(data, data_array, JNI_ABORT);
-            env->ReleaseByteArrayElements(mask, mask_array, JNI_ABORT);
-            break;
-        }
-
-        case 2: // BTM_BLE_PF_SRVC_UUID
-        case 3: // BTM_BLE_PF_SRVC_SOL_UUID
-        {
-            bt_uuid_t uuid, uuid_mask;
-            set_uuid(uuid.uu, uuid_msb, uuid_lsb);
-            set_uuid(uuid_mask.uu, uuid_mask_msb, uuid_mask_lsb);
-            if (uuid_mask_lsb != 0 && uuid_mask_msb != 0)
-                sGattIf->client->scan_filter_add_remove(client_if, action, filt_type, filt_index,
-                                 0, 0, &uuid, &uuid_mask, NULL,0,0, NULL,0, NULL);
-            else
-                sGattIf->client->scan_filter_add_remove(client_if, action, filt_type, filt_index,
-                                 0, 0, &uuid, NULL, NULL, 0,0, NULL,0, NULL);
-            break;
-        }
-
-        case 4: // BTM_BLE_PF_LOCAL_NAME
-        {
-            const char* c_name = env->GetStringUTFChars(name, NULL);
-            if (c_name != NULL && strlen(c_name) != 0)
-            {
-                sGattIf->client->scan_filter_add_remove(client_if, action, filt_type,
-                                 filt_index, 0, 0, NULL, NULL, NULL, 0, strlen(c_name),
-                                 (char*)c_name, 0, NULL);
-                env->ReleaseStringUTFChars(name, c_name);
-            }
-            break;
-        }
-
-        case 5: // BTM_BLE_PF_MANU_DATA
-        case 6: // BTM_BLE_PF_SRVC_DATA_PATTERN
-        {
-            jbyte* data_array = env->GetByteArrayElements(data, 0);
-            int data_len = env->GetArrayLength(data); // Array contains mask
-            jbyte* mask_array = env->GetByteArrayElements(mask, NULL);
-            uint16_t mask_len = (uint16_t) env->GetArrayLength(mask);
-            sGattIf->client->scan_filter_add_remove(client_if, action, filt_type, filt_index,
-                company_id, company_id_mask, NULL, NULL, NULL, 0, data_len, (char*)data_array,
-                mask_len, (char*) mask_array);
-            env->ReleaseByteArrayElements(data, data_array, JNI_ABORT);
-            env->ReleaseByteArrayElements(mask, mask_array, JNI_ABORT);
-            break;
-        }
-
-        default:
-            break;
+      bt_bdaddr_t bda;
+      jstr2bdaddr(env, &bda, address);
+      sGattIf->scanner->ScanFilterAddRemove(
+          action, filt_type, filt_index, 0, 0, NULL, NULL, &bda, addr_type, {},
+          {}, base::Bind(&scan_filter_cfg_cb, client_if));
+      break;
     }
+
+    case 1:  // BTM_BLE_PF_SRVC_DATA
+    {
+      jbyte* data_array = env->GetByteArrayElements(data, 0);
+      int data_len = env->GetArrayLength(data);
+      std::vector<uint8_t> vec_data(data_array, data_array + data_len);
+      env->ReleaseByteArrayElements(data, data_array, JNI_ABORT);
+
+      jbyte* mask_array = env->GetByteArrayElements(mask, NULL);
+      uint16_t mask_len = (uint16_t)env->GetArrayLength(mask);
+      std::vector<uint8_t> vec_mask(mask_array, mask_array + mask_len);
+      env->ReleaseByteArrayElements(mask, mask_array, JNI_ABORT);
+
+      sGattIf->scanner->ScanFilterAddRemove(
+          action, filt_type, filt_index, 0, 0, NULL, NULL, NULL, 0,
+          std::move(vec_data), std::move(vec_mask),
+          base::Bind(&scan_filter_cfg_cb, client_if));
+      break;
+    }
+
+    case 2:  // BTM_BLE_PF_SRVC_UUID
+    case 3:  // BTM_BLE_PF_SRVC_SOL_UUID
+    {
+      bt_uuid_t uuid, uuid_mask;
+      set_uuid(uuid.uu, uuid_msb, uuid_lsb);
+      set_uuid(uuid_mask.uu, uuid_mask_msb, uuid_mask_lsb);
+      if (uuid_mask_lsb != 0 && uuid_mask_msb != 0)
+        sGattIf->scanner->ScanFilterAddRemove(
+            action, filt_type, filt_index, 0, 0, &uuid, &uuid_mask, NULL, 0, {},
+            {}, base::Bind(&scan_filter_cfg_cb, client_if));
+      else
+        sGattIf->scanner->ScanFilterAddRemove(
+            action, filt_type, filt_index, 0, 0, &uuid, NULL, NULL, 0, {}, {},
+            base::Bind(&scan_filter_cfg_cb, client_if));
+      break;
+    }
+
+    case 4:  // BTM_BLE_PF_LOCAL_NAME
+    {
+      const char* c_name = env->GetStringUTFChars(name, NULL);
+      if (c_name != NULL && strlen(c_name) != 0) {
+        std::vector<uint8_t> vec_name(c_name, c_name + strlen(c_name));
+        env->ReleaseStringUTFChars(name, c_name);
+        sGattIf->scanner->ScanFilterAddRemove(
+            action, filt_type, filt_index, 0, 0, NULL, NULL, NULL, 0,
+            std::move(vec_name), {},
+            base::Bind(&scan_filter_cfg_cb, client_if));
+      }
+      break;
+    }
+
+    case 5:  // BTM_BLE_PF_MANU_DATA
+    case 6:  // BTM_BLE_PF_SRVC_DATA_PATTERN
+    {
+      jbyte* data_array = env->GetByteArrayElements(data, 0);
+      int data_len = env->GetArrayLength(data);
+      std::vector<uint8_t> vec_data(data_array, data_array + data_len);
+      env->ReleaseByteArrayElements(data, data_array, JNI_ABORT);
+
+      jbyte* mask_array = env->GetByteArrayElements(mask, NULL);
+      uint16_t mask_len = (uint16_t)env->GetArrayLength(mask);
+      std::vector<uint8_t> vec_mask(mask_array, mask_array + mask_len);
+      env->ReleaseByteArrayElements(mask, mask_array, JNI_ABORT);
+
+      sGattIf->scanner->ScanFilterAddRemove(
+          action, filt_type, filt_index, company_id, company_id_mask, NULL,
+          NULL, NULL, 0, std::move(vec_data), std::move(vec_mask),
+          base::Bind(&scan_filter_cfg_cb, client_if));
+      break;
+    }
+
+    default:
+      break;
+  }
 }
 
-static void gattClientScanFilterAddNative(JNIEnv* env, jobject object, jint client_if,
-                jint filt_type, jint filt_index, jint company_id, jint company_id_mask,
-                jlong uuid_lsb,  jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb,
-                jstring name, jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask)
-{
-    if (!sGattIf) return;
-    int action = 0;
-    gattClientScanFilterAddRemoveNative(env, object, client_if, action, filt_type, filt_index,
-                    company_id, company_id_mask, uuid_lsb, uuid_msb, uuid_mask_lsb, uuid_mask_msb,
-                    name, address, addr_type, data, mask);
-
+static void gattClientScanFilterAddNative(
+    JNIEnv* env, jobject object, jint client_if, jint filt_type,
+    jint filt_index, jint company_id, jint company_id_mask, jlong uuid_lsb,
+    jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb, jstring name,
+    jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask) {
+  if (!sGattIf) return;
+  int action = 0;
+  gattClientScanFilterAddRemoveNative(
+      env, object, client_if, action, filt_type, filt_index, company_id,
+      company_id_mask, uuid_lsb, uuid_msb, uuid_mask_lsb, uuid_mask_msb, name,
+      address, addr_type, data, mask);
 }
 
-static void gattClientScanFilterDeleteNative(JNIEnv* env, jobject object, jint client_if,
-                jint filt_type, jint filt_index, jint company_id, jint company_id_mask,
-                jlong uuid_lsb,  jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb,
-                jstring name, jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask)
-{
-    if (!sGattIf) return;
-    int action = 1;
-    gattClientScanFilterAddRemoveNative(env, object, client_if, action, filt_type, filt_index,
-                    company_id, company_id_mask, uuid_lsb, uuid_msb, uuid_mask_lsb, uuid_mask_msb,
-                    name, address, addr_type, data, mask);
+static void gattClientScanFilterDeleteNative(
+    JNIEnv* env, jobject object, jint client_if, jint filt_type,
+    jint filt_index, jint company_id, jint company_id_mask, jlong uuid_lsb,
+    jlong uuid_msb, jlong uuid_mask_lsb, jlong uuid_mask_msb, jstring name,
+    jstring address, jbyte addr_type, jbyteArray data, jbyteArray mask) {
+  if (!sGattIf) return;
+  int action = 1;
+  gattClientScanFilterAddRemoveNative(
+      env, object, client_if, action, filt_type, filt_index, company_id,
+      company_id_mask, uuid_lsb, uuid_msb, uuid_mask_lsb, uuid_mask_msb, name,
+      address, addr_type, data, mask);
 }
 
-static void gattClientScanFilterClearNative(JNIEnv* env, jobject object, jint client_if,
-                        jint filt_index)
-{
-    if (!sGattIf) return;
-    sGattIf->client->scan_filter_clear(client_if, filt_index);
+static void gattClientScanFilterClearNative(JNIEnv* env, jobject object,
+                                            jint client_if, jint filt_index) {
+  if (!sGattIf) return;
+  sGattIf->scanner->ScanFilterClear(filt_index,
+                                    base::Bind(&scan_filter_cfg_cb, client_if));
 }
 
-static void gattClientScanFilterEnableNative (JNIEnv* env, jobject object, jint client_if,
-                          jboolean enable)
-{
-    if (!sGattIf) return;
-    sGattIf->client->scan_filter_enable(client_if, enable);
+void scan_enable_cb(uint8_t client_if, uint8_t action, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanFilterEnableDisabled,
+                               action, status, client_if);
 }
 
-static void gattClientConfigureMTUNative(JNIEnv *env, jobject object,
-        jint conn_id, jint mtu)
-{
-    if (!sGattIf) return;
-    sGattIf->client->configure_mtu(conn_id, mtu);
+static void gattClientScanFilterEnableNative(JNIEnv* env, jobject object,
+                                             jint client_if, jboolean enable) {
+  if (!sGattIf) return;
+  sGattIf->scanner->ScanFilterEnable(enable,
+                                     base::Bind(&scan_enable_cb, client_if));
 }
 
-static void gattConnectionParameterUpdateNative(JNIEnv *env, jobject object, jint client_if,
-        jstring address, jint min_interval, jint max_interval, jint latency, jint timeout)
-{
-    if (!sGattIf) return;
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
-    sGattIf->client->conn_parameter_update(&bda, min_interval, max_interval, latency, timeout);
+static void gattClientConfigureMTUNative(JNIEnv* env, jobject object,
+                                         jint conn_id, jint mtu) {
+  if (!sGattIf) return;
+  sGattIf->client->configure_mtu(conn_id, mtu);
 }
 
-static void gattClientEnableAdvNative(JNIEnv* env, jobject object, jint client_if,
-       jint min_interval, jint max_interval, jint adv_type, jint chnl_map, jint tx_power,
-       jint timeout_s)
-{
-    if (!sGattIf) return;
-
-    sGattIf->client->multi_adv_enable(client_if, min_interval, max_interval, adv_type, chnl_map,
-        tx_power, timeout_s);
+static void gattConnectionParameterUpdateNative(JNIEnv* env, jobject object,
+                                                jint client_if, jstring address,
+                                                jint min_interval,
+                                                jint max_interval, jint latency,
+                                                jint timeout) {
+  if (!sGattIf) return;
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
+  sGattIf->client->conn_parameter_update(&bda, min_interval, max_interval,
+                                         latency, timeout);
 }
 
-static void gattClientUpdateAdvNative(JNIEnv* env, jobject object, jint client_if,
-       jint min_interval, jint max_interval, jint adv_type, jint chnl_map, jint tx_power,
-       jint timeout_s)
-{
-    if (!sGattIf) return;
-
-    sGattIf->client->multi_adv_update(client_if, min_interval, max_interval, adv_type, chnl_map,
-        tx_power, timeout_s);
+void batchscan_cfg_storage_cb(uint8_t client_if, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(
+      mCallbacksObj, method_onBatchScanStorageConfigured, status, client_if);
 }
 
-static void gattClientSetAdvDataNative(JNIEnv* env, jobject object , jint client_if,
-        jboolean set_scan_rsp, jboolean incl_name, jboolean incl_txpower, jint appearance,
-        jbyteArray manufacturer_data,jbyteArray service_data, jbyteArray service_uuid)
-{
-    if (!sGattIf) return;
-    jbyte* manu_data = env->GetByteArrayElements(manufacturer_data, NULL);
-    uint16_t manu_len = (uint16_t) env->GetArrayLength(manufacturer_data);
-
-    jbyte* serv_data = env->GetByteArrayElements(service_data, NULL);
-    uint16_t serv_data_len = (uint16_t) env->GetArrayLength(service_data);
-
-    jbyte* serv_uuid = env->GetByteArrayElements(service_uuid, NULL);
-    uint16_t serv_uuid_len = (uint16_t) env->GetArrayLength(service_uuid);
-
-    sGattIf->client->multi_adv_set_inst_data(client_if, set_scan_rsp, incl_name,incl_txpower,
-                                             appearance, manu_len, (char*)manu_data,
-                                             serv_data_len, (char*)serv_data, serv_uuid_len,
-                                             (char*)serv_uuid);
-
-    env->ReleaseByteArrayElements(manufacturer_data, manu_data, JNI_ABORT);
-    env->ReleaseByteArrayElements(service_data, serv_data, JNI_ABORT);
-    env->ReleaseByteArrayElements(service_uuid, serv_uuid, JNI_ABORT);
+static void gattClientConfigBatchScanStorageNative(
+    JNIEnv* env, jobject object, jint client_if, jint max_full_reports_percent,
+    jint max_trunc_reports_percent, jint notify_threshold_level_percent) {
+  if (!sGattIf) return;
+  sGattIf->scanner->BatchscanConfigStorage(
+      client_if, max_full_reports_percent, max_trunc_reports_percent,
+      notify_threshold_level_percent,
+      base::Bind(&batchscan_cfg_storage_cb, client_if));
 }
 
-static void gattClientDisableAdvNative(JNIEnv* env, jobject object, jint client_if)
-{
-    if (!sGattIf) return;
-    sGattIf->client->multi_adv_disable(client_if);
+void batchscan_enable_cb(uint8_t client_if, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onBatchScanStartStopped,
+                               0 /* unused */, status, client_if);
 }
 
-static void gattClientConfigBatchScanStorageNative(JNIEnv* env, jobject object, jint client_if,
-            jint max_full_reports_percent, jint max_trunc_reports_percent,
-            jint notify_threshold_level_percent)
-{
-    if (!sGattIf) return;
-    sGattIf->client->batchscan_cfg_storage(client_if, max_full_reports_percent,
-            max_trunc_reports_percent, notify_threshold_level_percent);
+static void gattClientStartBatchScanNative(JNIEnv* env, jobject object,
+                                           jint client_if, jint scan_mode,
+                                           jint scan_interval_unit,
+                                           jint scan_window_unit,
+                                           jint addr_type, jint discard_rule) {
+  if (!sGattIf) return;
+  sGattIf->scanner->BatchscanEnable(
+      scan_mode, scan_interval_unit, scan_window_unit, addr_type, discard_rule,
+      base::Bind(&batchscan_enable_cb, client_if));
 }
 
-static void gattClientStartBatchScanNative(JNIEnv* env, jobject object, jint client_if,
-            jint scan_mode, jint scan_interval_unit, jint scan_window_unit, jint addr_type,
-            jint discard_rule)
-{
-    if (!sGattIf) return;
-    sGattIf->client->batchscan_enb_batch_scan(client_if, scan_mode, scan_interval_unit,
-            scan_window_unit, addr_type, discard_rule);
+static void gattClientStopBatchScanNative(JNIEnv* env, jobject object,
+                                          jint client_if) {
+  if (!sGattIf) return;
+  sGattIf->scanner->BatchscanDisable(
+      base::Bind(&batchscan_enable_cb, client_if));
 }
 
-static void gattClientStopBatchScanNative(JNIEnv* env, jobject object, jint client_if)
-{
-    if (!sGattIf) return;
-    sGattIf->client->batchscan_dis_batch_scan(client_if);
-}
-
-static void gattClientReadScanReportsNative(JNIEnv* env, jobject object, jint client_if,
-        jint scan_type)
-{
-    if (!sGattIf) return;
-    sGattIf->client->batchscan_read_reports(client_if, scan_type);
+static void gattClientReadScanReportsNative(JNIEnv* env, jobject object,
+                                            jint client_if, jint scan_type) {
+  if (!sGattIf) return;
+  sGattIf->scanner->BatchscanReadReports(client_if, scan_type);
 }
 
 /**
  * Native server functions
  */
 static void gattServerRegisterAppNative(JNIEnv* env, jobject object,
-                                        jlong app_uuid_lsb, jlong app_uuid_msb )
-{
-    bt_uuid_t uuid;
-    if (!sGattIf) return;
-    set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
-    sGattIf->server->register_server(&uuid);
+                                        jlong app_uuid_lsb,
+                                        jlong app_uuid_msb) {
+  bt_uuid_t uuid;
+  if (!sGattIf) return;
+  set_uuid(uuid.uu, app_uuid_msb, app_uuid_lsb);
+  sGattIf->server->register_server(&uuid);
 }
 
-static void gattServerUnregisterAppNative(JNIEnv* env, jobject object, jint serverIf)
-{
-    if (!sGattIf) return;
-    sGattIf->server->unregister_server(serverIf);
+static void gattServerUnregisterAppNative(JNIEnv* env, jobject object,
+                                          jint serverIf) {
+  if (!sGattIf) return;
+  sGattIf->server->unregister_server(serverIf);
 }
 
-static void gattServerConnectNative(JNIEnv *env, jobject object,
-                                 jint server_if, jstring address, jboolean is_direct, jint transport)
-{
-    if (!sGattIf) return;
+static void gattServerConnectNative(JNIEnv* env, jobject object, jint server_if,
+                                    jstring address, jboolean is_direct,
+                                    jint transport) {
+  if (!sGattIf) return;
 
-    bt_bdaddr_t bd_addr;
-    const char *c_address = env->GetStringUTFChars(address, NULL);
-    bd_addr_str_to_addr(c_address, bd_addr.address);
+  bt_bdaddr_t bd_addr;
+  const char* c_address = env->GetStringUTFChars(address, NULL);
+  bd_addr_str_to_addr(c_address, bd_addr.address);
 
-    sGattIf->server->connect(server_if, &bd_addr, is_direct, transport);
+  sGattIf->server->connect(server_if, &bd_addr, is_direct, transport);
 }
 
-static void gattServerDisconnectNative(JNIEnv* env, jobject object, jint serverIf,
-                                  jstring address, jint conn_id)
-{
-    if (!sGattIf) return;
-    bt_bdaddr_t bda;
-    jstr2bdaddr(env, &bda, address);
-    sGattIf->server->disconnect(serverIf, &bda, conn_id);
+static void gattServerDisconnectNative(JNIEnv* env, jobject object,
+                                       jint serverIf, jstring address,
+                                       jint conn_id) {
+  if (!sGattIf) return;
+  bt_bdaddr_t bda;
+  jstr2bdaddr(env, &bda, address);
+  sGattIf->server->disconnect(serverIf, &bda, conn_id);
 }
 
-static void gattServerAddServiceNative (JNIEnv *env, jobject object,
-        jint server_if, jint service_type, jint service_id_inst_id,
-        jlong service_id_uuid_lsb, jlong service_id_uuid_msb,
-        jint num_handles)
-{
-    if (!sGattIf) return;
-
-    btgatt_srvc_id_t srvc_id;
-    srvc_id.id.inst_id = (uint8_t) service_id_inst_id;
-    srvc_id.is_primary = (service_type == BTGATT_SERVICE_TYPE_PRIMARY ? 1 : 0);
-    set_uuid(srvc_id.id.uuid.uu, service_id_uuid_msb, service_id_uuid_lsb);
-
-    sGattIf->server->add_service(server_if, &srvc_id, num_handles);
+static void gattServerSetPreferredPhyNative(JNIEnv* env, jobject object,
+                                            jint serverIf, jint conn_id,
+                                            jint tx_phy, jint rx_phy,
+                                            jint phy_options) {
+  if (!sGattIf) return;
+  sGattIf->server->set_preferred_phy(conn_id, tx_phy, rx_phy, phy_options);
 }
 
-static void gattServerAddIncludedServiceNative (JNIEnv *env, jobject object,
-        jint server_if, jint svc_handle, jint included_svc_handle)
-{
-    if (!sGattIf) return;
-    sGattIf->server->add_included_service(server_if, svc_handle,
-                                          included_svc_handle);
+static void readServerPhyCb(int conn_id, uint8_t tx_phy, uint8_t rx_phy,
+                            uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onServerPhyRead, conn_id,
+                               tx_phy, rx_phy, status);
 }
 
-static void gattServerAddCharacteristicNative (JNIEnv *env, jobject object,
-        jint server_if, jint svc_handle,
-        jlong char_uuid_lsb, jlong char_uuid_msb,
-        jint properties, jint permissions)
-{
-    if (!sGattIf) return;
-
-    bt_uuid_t uuid;
-    set_uuid(uuid.uu, char_uuid_msb, char_uuid_lsb);
-
-    sGattIf->server->add_characteristic(server_if, svc_handle,
-                                        &uuid, properties, permissions);
+static void gattServerReadPhyNative(JNIEnv* env, jobject object, jint serverIf,
+                                    jint conn_id) {
+  if (!sGattIf) return;
+  sGattIf->server->read_phy(conn_id, base::Bind(readServerPhyCb, conn_id));
 }
 
-static void gattServerAddDescriptorNative (JNIEnv *env, jobject object,
-        jint server_if, jint svc_handle,
-        jlong desc_uuid_lsb, jlong desc_uuid_msb,
-        jint permissions)
-{
-    if (!sGattIf) return;
+static void gattServerAddServiceNative(JNIEnv* env, jobject object,
+                                       jint server_if,
+                                       jobject gatt_db_elements) {
+  if (!sGattIf) return;
 
-    bt_uuid_t uuid;
-    set_uuid(uuid.uu, desc_uuid_msb, desc_uuid_lsb);
+  jclass arrayListclazz = env->FindClass("java/util/List");
+  jmethodID arrayGet =
+      env->GetMethodID(arrayListclazz, "get", "(I)Ljava/lang/Object;");
+  jmethodID arraySize = env->GetMethodID(arrayListclazz, "size", "()I");
 
-    sGattIf->server->add_descriptor(server_if, svc_handle, &uuid, permissions);
+  int count = env->CallIntMethod(gatt_db_elements, arraySize);
+  std::vector<btgatt_db_element_t> db;
+
+  jclass uuidClazz = env->FindClass("java/util/UUID");
+  jmethodID uuidGetMsb =
+      env->GetMethodID(uuidClazz, "getMostSignificantBits", "()J");
+  jmethodID uuidGetLsb =
+      env->GetMethodID(uuidClazz, "getLeastSignificantBits", "()J");
+
+  jobject objectForClass =
+      env->CallObjectMethod(mCallbacksObj, method_getSampleGattDbElement);
+  jclass gattDbElementClazz = env->GetObjectClass(objectForClass);
+
+  for (int i = 0; i < count; i++) {
+    btgatt_db_element_t curr;
+
+    jint index = i;
+    ScopedLocalRef<jobject> element(
+        env, env->CallObjectMethod(gatt_db_elements, arrayGet, index));
+
+    jfieldID fid;
+
+    fid = env->GetFieldID(gattDbElementClazz, "id", "I");
+    curr.id = env->GetIntField(element.get(), fid);
+
+    fid = env->GetFieldID(gattDbElementClazz, "uuid", "Ljava/util/UUID;");
+    ScopedLocalRef<jobject> uuid(env, env->GetObjectField(element.get(), fid));
+
+    jlong uuid_msb = env->CallLongMethod(uuid.get(), uuidGetMsb);
+    jlong uuid_lsb = env->CallLongMethod(uuid.get(), uuidGetLsb);
+    set_uuid(curr.uuid.uu, uuid_msb, uuid_lsb);
+
+    fid = env->GetFieldID(gattDbElementClazz, "type", "I");
+    curr.type =
+        (bt_gatt_db_attribute_type_t)env->GetIntField(element.get(), fid);
+
+    fid = env->GetFieldID(gattDbElementClazz, "attributeHandle", "I");
+    curr.attribute_handle = env->GetIntField(element.get(), fid);
+
+    fid = env->GetFieldID(gattDbElementClazz, "startHandle", "I");
+    curr.start_handle = env->GetIntField(element.get(), fid);
+
+    fid = env->GetFieldID(gattDbElementClazz, "endHandle", "I");
+    curr.end_handle = env->GetIntField(element.get(), fid);
+
+    fid = env->GetFieldID(gattDbElementClazz, "properties", "I");
+    curr.properties = env->GetIntField(element.get(), fid);
+
+    fid = env->GetFieldID(gattDbElementClazz, "permissions", "I");
+    curr.permissions = env->GetIntField(element.get(), fid);
+
+    db.push_back(curr);
+  }
+
+  sGattIf->server->add_service(server_if, std::move(db));
 }
 
-static void gattServerStartServiceNative (JNIEnv *env, jobject object,
-        jint server_if, jint svc_handle, jint transport )
-{
-    if (!sGattIf) return;
-    sGattIf->server->start_service(server_if, svc_handle, transport);
+static void gattServerStopServiceNative(JNIEnv* env, jobject object,
+                                        jint server_if, jint svc_handle) {
+  if (!sGattIf) return;
+  sGattIf->server->stop_service(server_if, svc_handle);
 }
 
-static void gattServerStopServiceNative (JNIEnv *env, jobject object,
-                                         jint server_if, jint svc_handle)
-{
-    if (!sGattIf) return;
-    sGattIf->server->stop_service(server_if, svc_handle);
+static void gattServerDeleteServiceNative(JNIEnv* env, jobject object,
+                                          jint server_if, jint svc_handle) {
+  if (!sGattIf) return;
+  sGattIf->server->delete_service(server_if, svc_handle);
 }
 
-static void gattServerDeleteServiceNative (JNIEnv *env, jobject object,
-                                           jint server_if, jint svc_handle)
-{
-    if (!sGattIf) return;
-    sGattIf->server->delete_service(server_if, svc_handle);
+static void gattServerSendIndicationNative(JNIEnv* env, jobject object,
+                                           jint server_if, jint attr_handle,
+                                           jint conn_id, jbyteArray val) {
+  if (!sGattIf) return;
+
+  jbyte* array = env->GetByteArrayElements(val, 0);
+  int val_len = env->GetArrayLength(val);
+
+  std::vector<uint8_t> vect_val((uint8_t*)array, (uint8_t*)array + val_len);
+  env->ReleaseByteArrayElements(val, array, JNI_ABORT);
+
+  sGattIf->server->send_indication(server_if, attr_handle, conn_id,
+                                   /*confirm*/ 1, std::move(vect_val));
 }
 
-static void gattServerSendIndicationNative (JNIEnv *env, jobject object,
-        jint server_if, jint attr_handle, jint conn_id, jbyteArray val)
-{
-    if (!sGattIf) return;
+static void gattServerSendNotificationNative(JNIEnv* env, jobject object,
+                                             jint server_if, jint attr_handle,
+                                             jint conn_id, jbyteArray val) {
+  if (!sGattIf) return;
 
+  jbyte* array = env->GetByteArrayElements(val, 0);
+  int val_len = env->GetArrayLength(val);
+
+  std::vector<uint8_t> vect_val((uint8_t*)array, (uint8_t*)array + val_len);
+  env->ReleaseByteArrayElements(val, array, JNI_ABORT);
+
+  sGattIf->server->send_indication(server_if, attr_handle, conn_id,
+                                   /*confirm*/ 0, std::move(vect_val));
+}
+
+static void gattServerSendResponseNative(JNIEnv* env, jobject object,
+                                         jint server_if, jint conn_id,
+                                         jint trans_id, jint status,
+                                         jint handle, jint offset,
+                                         jbyteArray val, jint auth_req) {
+  if (!sGattIf) return;
+
+  btgatt_response_t response;
+
+  response.attr_value.handle = handle;
+  response.attr_value.auth_req = auth_req;
+  response.attr_value.offset = offset;
+  response.attr_value.len = 0;
+
+  if (val != NULL) {
+    response.attr_value.len = (uint16_t)env->GetArrayLength(val);
     jbyte* array = env->GetByteArrayElements(val, 0);
-    int val_len = env->GetArrayLength(val);
 
-    sGattIf->server->send_indication(server_if, attr_handle, conn_id, val_len,
-                                     /*confirm*/ 1, (char*)array);
+    for (int i = 0; i != response.attr_value.len; ++i)
+      response.attr_value.value[i] = (uint8_t)array[i];
     env->ReleaseByteArrayElements(val, array, JNI_ABORT);
+  }
+
+  sGattIf->server->send_response(conn_id, trans_id, status, &response);
 }
 
-static void gattServerSendNotificationNative (JNIEnv *env, jobject object,
-        jint server_if, jint attr_handle, jint conn_id, jbyteArray val)
-{
-    if (!sGattIf) return;
-
-    jbyte* array = env->GetByteArrayElements(val, 0);
-    int val_len = env->GetArrayLength(val);
-
-    sGattIf->server->send_indication(server_if, attr_handle, conn_id, val_len,
-                                     /*confirm*/ 0, (char*)array);
-    env->ReleaseByteArrayElements(val, array, JNI_ABORT);
+static void advertiseClassInitNative(JNIEnv* env, jclass clazz) {
+  method_onAdvertisingSetStarted =
+      env->GetMethodID(clazz, "onAdvertisingSetStarted", "(IIII)V");
+  method_onOwnAddressRead =
+      env->GetMethodID(clazz, "onOwnAddressRead", "(IILjava/lang/String;)V");
+  method_onAdvertisingEnabled =
+      env->GetMethodID(clazz, "onAdvertisingEnabled", "(IZI)V");
+  method_onAdvertisingDataSet =
+      env->GetMethodID(clazz, "onAdvertisingDataSet", "(II)V");
+  method_onScanResponseDataSet =
+      env->GetMethodID(clazz, "onScanResponseDataSet", "(II)V");
+  method_onAdvertisingParametersUpdated =
+      env->GetMethodID(clazz, "onAdvertisingParametersUpdated", "(III)V");
+  method_onPeriodicAdvertisingParametersUpdated = env->GetMethodID(
+      clazz, "onPeriodicAdvertisingParametersUpdated", "(II)V");
+  method_onPeriodicAdvertisingDataSet =
+      env->GetMethodID(clazz, "onPeriodicAdvertisingDataSet", "(II)V");
+  method_onPeriodicAdvertisingEnabled =
+      env->GetMethodID(clazz, "onPeriodicAdvertisingEnabled", "(IZI)V");
 }
 
-static void gattServerSendResponseNative (JNIEnv *env, jobject object,
-        jint server_if, jint conn_id, jint trans_id, jint status,
-        jint handle, jint offset, jbyteArray val, jint auth_req)
-{
-    if (!sGattIf) return;
+static void advertiseInitializeNative(JNIEnv* env, jobject object) {
+  if (mAdvertiseCallbacksObj != NULL) {
+    ALOGW("Cleaning up Advertise callback object");
+    env->DeleteGlobalRef(mAdvertiseCallbacksObj);
+    mAdvertiseCallbacksObj = NULL;
+  }
 
-    btgatt_response_t response;
-
-    response.attr_value.handle = handle;
-    response.attr_value.auth_req = auth_req;
-    response.attr_value.offset = offset;
-    response.attr_value.len = 0;
-
-    if (val != NULL)
-    {
-        response.attr_value.len = (uint16_t) env->GetArrayLength(val);
-        jbyte* array = env->GetByteArrayElements(val, 0);
-
-        for (int i = 0; i != response.attr_value.len; ++i)
-            response.attr_value.value[i] = (uint8_t) array[i];
-        env->ReleaseByteArrayElements(val, array, JNI_ABORT);
-    }
-
-    sGattIf->server->send_response(conn_id, trans_id, status, &response);
+  mAdvertiseCallbacksObj = env->NewGlobalRef(object);
 }
 
-static void gattTestNative(JNIEnv *env, jobject object, jint command,
+static void advertiseCleanupNative(JNIEnv* env, jobject object) {
+  if (mAdvertiseCallbacksObj != NULL) {
+    env->DeleteGlobalRef(mAdvertiseCallbacksObj);
+    mAdvertiseCallbacksObj = NULL;
+  }
+}
+
+static AdvertiseParameters parseParams(JNIEnv* env, jobject i) {
+  AdvertiseParameters p;
+
+  jclass clazz = env->GetObjectClass(i);
+  jmethodID methodId;
+
+  methodId = env->GetMethodID(clazz, "isConnectable", "()Z");
+  jboolean isConnectable = env->CallBooleanMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "isScannable", "()Z");
+  jboolean isScannable = env->CallBooleanMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "isLegacy", "()Z");
+  jboolean isLegacy = env->CallBooleanMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "isAnonymous", "()Z");
+  jboolean isAnonymous = env->CallBooleanMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "includeTxPower", "()Z");
+  jboolean includeTxPower = env->CallBooleanMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "getPrimaryPhy", "()I");
+  uint8_t primaryPhy = env->CallIntMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "getSecondaryPhy", "()I");
+  uint8_t secondaryPhy = env->CallIntMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "getInterval", "()I");
+  uint32_t interval = env->CallIntMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "getTxPowerLevel", "()I");
+  int8_t txPowerLevel = env->CallIntMethod(i, methodId);
+
+  uint16_t props = 0;
+  if (isConnectable) props |= 0x01;
+  if (isScannable) props |= 0x02;
+  if (isLegacy) props |= 0x10;
+  if (isAnonymous) props |= 0x20;
+  if (includeTxPower) props |= 0x40;
+
+  p.advertising_event_properties = props;
+  p.min_interval = interval;
+  p.max_interval = interval + 50;
+  p.channel_map = 0x07; /* all channels */
+  p.tx_power = txPowerLevel;
+  p.primary_advertising_phy = primaryPhy;
+  p.secondary_advertising_phy = secondaryPhy;
+  p.scan_request_notification_enable = false;
+  return p;
+}
+
+static PeriodicAdvertisingParameters parsePeriodicParams(JNIEnv* env,
+                                                         jobject i) {
+  PeriodicAdvertisingParameters p;
+
+  if (i == NULL) {
+    p.enable = false;
+    return p;
+  }
+
+  jclass clazz = env->GetObjectClass(i);
+  jmethodID methodId;
+
+  methodId = env->GetMethodID(clazz, "getIncludeTxPower", "()Z");
+  jboolean includeTxPower = env->CallBooleanMethod(i, methodId);
+  methodId = env->GetMethodID(clazz, "getInterval", "()I");
+  uint16_t interval = env->CallIntMethod(i, methodId);
+
+  p.enable = true;
+  p.min_interval = interval;
+  p.max_interval = interval + 16; /* 20ms difference betwen min and max */
+  uint16_t props = 0;
+  if (includeTxPower) props |= 0x40;
+  p.periodic_advertising_properties = props;
+  return p;
+}
+
+static void ble_advertising_set_started_cb(int reg_id, uint8_t advertiser_id,
+                                           int8_t tx_power, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj,
+                               method_onAdvertisingSetStarted, reg_id,
+                               advertiser_id, tx_power, status);
+}
+
+static void ble_advertising_set_timeout_cb(uint8_t advertiser_id,
+                                           uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj,
+                               method_onAdvertisingEnabled, advertiser_id,
+                               false, status);
+}
+
+static void startAdvertisingSetNative(JNIEnv* env, jobject object,
+                                      jobject parameters, jbyteArray adv_data,
+                                      jbyteArray scan_resp,
+                                      jobject periodic_parameters,
+                                      jbyteArray periodic_data, jint duration,
+                                      jint maxExtAdvEvents, jint reg_id) {
+  if (!sGattIf) return;
+
+  jbyte* scan_resp_data = env->GetByteArrayElements(scan_resp, NULL);
+  uint16_t scan_resp_len = (uint16_t)env->GetArrayLength(scan_resp);
+  std::vector<uint8_t> scan_resp_vec(scan_resp_data,
+                                     scan_resp_data + scan_resp_len);
+  env->ReleaseByteArrayElements(scan_resp, scan_resp_data, JNI_ABORT);
+
+  AdvertiseParameters params = parseParams(env, parameters);
+  PeriodicAdvertisingParameters periodicParams =
+      parsePeriodicParams(env, periodic_parameters);
+
+  jbyte* adv_data_data = env->GetByteArrayElements(adv_data, NULL);
+  uint16_t adv_data_len = (uint16_t)env->GetArrayLength(adv_data);
+  std::vector<uint8_t> data_vec(adv_data_data, adv_data_data + adv_data_len);
+  env->ReleaseByteArrayElements(adv_data, adv_data_data, JNI_ABORT);
+
+  jbyte* periodic_data_data = env->GetByteArrayElements(periodic_data, NULL);
+  uint16_t periodic_data_len = (uint16_t)env->GetArrayLength(periodic_data);
+  std::vector<uint8_t> periodic_data_vec(
+      periodic_data_data, periodic_data_data + periodic_data_len);
+  env->ReleaseByteArrayElements(periodic_data, periodic_data_data, JNI_ABORT);
+
+  sGattIf->advertiser->StartAdvertisingSet(
+      base::Bind(&ble_advertising_set_started_cb, reg_id), params, data_vec,
+      scan_resp_vec, periodicParams, periodic_data_vec, duration,
+      maxExtAdvEvents, base::Bind(ble_advertising_set_timeout_cb));
+}
+
+static void stopAdvertisingSetNative(JNIEnv* env, jobject object,
+                                     jint advertiser_id) {
+  if (!sGattIf) return;
+
+  sGattIf->advertiser->Unregister(advertiser_id);
+}
+
+static void getOwnAddressCb(uint8_t advertiser_id, uint8_t address_type,
+                            bt_bdaddr_t address) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jstring> addr(sCallbackEnv.get(),
+                               bdaddr2newjstr(sCallbackEnv.get(), &address));
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj, method_onOwnAddressRead,
+                               advertiser_id, address_type, addr.get());
+}
+
+static void getOwnAddressNative(JNIEnv* env, jobject object,
+                                jint advertiser_id) {
+  if (!sGattIf) return;
+  sGattIf->advertiser->GetOwnAddress(
+      advertiser_id, base::Bind(&getOwnAddressCb, advertiser_id));
+}
+
+static void callJniCallback(jmethodID method, uint8_t advertiser_id,
+                            uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj, method, advertiser_id,
+                               status);
+}
+
+static void enableSetCb(uint8_t advertiser_id, bool enable, uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj,
+                               method_onAdvertisingEnabled, advertiser_id,
+                               enable, status);
+}
+
+static void enableAdvertisingSetNative(JNIEnv* env, jobject object,
+                                       jint advertiser_id, jboolean enable,
+                                       jint duration, jint maxExtAdvEvents) {
+  if (!sGattIf) return;
+
+  sGattIf->advertiser->Enable(advertiser_id, enable,
+                              base::Bind(&enableSetCb, advertiser_id, enable),
+                              duration, maxExtAdvEvents,
+                              base::Bind(&enableSetCb, advertiser_id, false));
+}
+
+static void setAdvertisingDataNative(JNIEnv* env, jobject object,
+                                     jint advertiser_id, jbyteArray data) {
+  if (!sGattIf) return;
+
+  sGattIf->advertiser->SetData(
+      advertiser_id, false, toVector(env, data),
+      base::Bind(&callJniCallback, method_onAdvertisingDataSet, advertiser_id));
+}
+
+static void setScanResponseDataNative(JNIEnv* env, jobject object,
+                                      jint advertiser_id, jbyteArray data) {
+  if (!sGattIf) return;
+
+  sGattIf->advertiser->SetData(
+      advertiser_id, true, toVector(env, data),
+      base::Bind(&callJniCallback, method_onScanResponseDataSet,
+                 advertiser_id));
+}
+
+static void setAdvertisingParametersNativeCb(uint8_t advertiser_id,
+                                             uint8_t status, int8_t tx_power) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj,
+                               method_onAdvertisingParametersUpdated,
+                               advertiser_id, tx_power, status);
+}
+
+static void setAdvertisingParametersNative(JNIEnv* env, jobject object,
+                                           jint advertiser_id,
+                                           jobject parameters) {
+  if (!sGattIf) return;
+
+  AdvertiseParameters params = parseParams(env, parameters);
+  sGattIf->advertiser->SetParameters(
+      advertiser_id, params,
+      base::Bind(&setAdvertisingParametersNativeCb, advertiser_id));
+}
+
+static void setPeriodicAdvertisingParametersNative(
+    JNIEnv* env, jobject object, jint advertiser_id,
+    jobject periodic_parameters) {
+  if (!sGattIf) return;
+
+  PeriodicAdvertisingParameters periodicParams =
+      parsePeriodicParams(env, periodic_parameters);
+  sGattIf->advertiser->SetPeriodicAdvertisingParameters(
+      advertiser_id, periodicParams,
+      base::Bind(&callJniCallback,
+                 method_onPeriodicAdvertisingParametersUpdated, advertiser_id));
+}
+
+static void setPeriodicAdvertisingDataNative(JNIEnv* env, jobject object,
+                                             jint advertiser_id,
+                                             jbyteArray data) {
+  if (!sGattIf) return;
+
+  sGattIf->advertiser->SetPeriodicAdvertisingData(
+      advertiser_id, toVector(env, data),
+      base::Bind(&callJniCallback, method_onPeriodicAdvertisingDataSet,
+                 advertiser_id));
+}
+
+static void enablePeriodicSetCb(uint8_t advertiser_id, bool enable,
+                                uint8_t status) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  sCallbackEnv->CallVoidMethod(mAdvertiseCallbacksObj,
+                               method_onPeriodicAdvertisingEnabled,
+                               advertiser_id, enable, status);
+}
+
+static void setPeriodicAdvertisingEnableNative(JNIEnv* env, jobject object,
+                                               jint advertiser_id,
+                                               jboolean enable) {
+  if (!sGattIf) return;
+
+  sGattIf->advertiser->SetPeriodicAdvertisingEnable(
+      advertiser_id, enable,
+      base::Bind(&enablePeriodicSetCb, advertiser_id, enable));
+}
+
+static void periodicScanClassInitNative(JNIEnv* env, jclass clazz) {
+  method_onSyncStarted =
+      env->GetMethodID(clazz, "onSyncStarted", "(IIIILjava/lang/String;III)V");
+  method_onSyncReport = env->GetMethodID(clazz, "onSyncReport", "(IIII[B)V");
+  method_onSyncLost = env->GetMethodID(clazz, "onSyncLost", "(I)V");
+}
+
+static void periodicScanInitializeNative(JNIEnv* env, jobject object) {
+  if (mPeriodicScanCallbacksObj != NULL) {
+    ALOGW("Cleaning up periodic scan callback object");
+    env->DeleteGlobalRef(mPeriodicScanCallbacksObj);
+    mPeriodicScanCallbacksObj = NULL;
+  }
+
+  mPeriodicScanCallbacksObj = env->NewGlobalRef(object);
+}
+
+static void periodicScanCleanupNative(JNIEnv* env, jobject object) {
+  if (mPeriodicScanCallbacksObj != NULL) {
+    env->DeleteGlobalRef(mPeriodicScanCallbacksObj);
+    mPeriodicScanCallbacksObj = NULL;
+  }
+}
+
+static void onSyncStarted(int reg_id, uint8_t status, uint16_t sync_handle,
+                          uint8_t sid, uint8_t address_type,
+                          bt_bdaddr_t address, uint8_t phy, uint16_t interval) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onSyncStarted,
+                               reg_id, sync_handle, sid, address_type, address,
+                               phy, interval, status);
+}
+
+static void onSyncReport(uint16_t sync_handle, int8_t tx_power, int8_t rssi,
+                         uint8_t data_status, std::vector<uint8_t> data) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jbyteArray> jb(sCallbackEnv.get(),
+                                sCallbackEnv->NewByteArray(data.size()));
+  sCallbackEnv->SetByteArrayRegion(jb.get(), 0, data.size(),
+                                   (jbyte*)data.data());
+
+  sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onSyncReport,
+                               sync_handle, tx_power, rssi, data_status,
+                               jb.get());
+}
+
+static void onSyncLost(uint16_t sync_handle) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onSyncLost,
+                               sync_handle);
+}
+
+static void startSyncNative(JNIEnv* env, jobject object, jint sid,
+                            jstring address, jint skip, jint timeout,
+                            jint reg_id) {
+  if (!sGattIf) return;
+
+  bt_bdaddr_t tmp;
+  jstr2bdaddr(env, &tmp, address);
+
+  sGattIf->scanner->StartSync(
+      sid, tmp, skip, timeout, base::Bind(&onSyncStarted, reg_id),
+      base::Bind(&onSyncReport), base::Bind(&onSyncLost));
+}
+
+static void stopSyncNative(int sync_handle) {
+  if (!sGattIf) return;
+
+  sGattIf->scanner->StopSync(sync_handle);
+}
+
+static void gattTestNative(JNIEnv* env, jobject object, jint command,
                            jlong uuid1_lsb, jlong uuid1_msb, jstring bda1,
-                           jint p1, jint p2, jint p3, jint p4, jint p5 )
-{
-    if (!sGattIf) return;
+                           jint p1, jint p2, jint p3, jint p4, jint p5) {
+  if (!sGattIf) return;
 
-    bt_bdaddr_t bt_bda1;
-    jstr2bdaddr(env, &bt_bda1, bda1);
+  bt_bdaddr_t bt_bda1;
+  jstr2bdaddr(env, &bt_bda1, bda1);
 
-    bt_uuid_t uuid1;
-    set_uuid(uuid1.uu, uuid1_msb, uuid1_lsb);
+  bt_uuid_t uuid1;
+  set_uuid(uuid1.uu, uuid1_msb, uuid1_lsb);
 
-    btgatt_test_params_t params;
-    params.bda1 = &bt_bda1;
-    params.uuid1 = &uuid1;
-    params.u1 = p1;
-    params.u2 = p2;
-    params.u3 = p3;
-    params.u4 = p4;
-    params.u5 = p5;
-    sGattIf->client->test_command(command, &params);
+  btgatt_test_params_t params;
+  params.bda1 = &bt_bda1;
+  params.uuid1 = &uuid1;
+  params.u1 = p1;
+  params.u2 = p2;
+  params.u3 = p3;
+  params.u4 = p4;
+  params.u5 = p5;
+  sGattIf->client->test_command(command, &params);
 }
 
 /**
@@ -1662,83 +2091,160 @@ static void gattTestNative(JNIEnv *env, jobject object, jint command,
 
 // JNI functions defined in AdvertiseManager class.
 static JNINativeMethod sAdvertiseMethods[] = {
-    {"gattClientEnableAdvNative", "(IIIIIII)V", (void *) gattClientEnableAdvNative},
-    {"gattClientUpdateAdvNative", "(IIIIIII)V", (void *) gattClientUpdateAdvNative},
-    {"gattClientSetAdvDataNative", "(IZZZI[B[B[B)V", (void *) gattClientSetAdvDataNative},
-    {"gattClientDisableAdvNative", "(I)V", (void *) gattClientDisableAdvNative},
-    {"gattSetAdvDataNative", "(IZZZIII[B[B[B)V", (void *) gattSetAdvDataNative},
-    {"gattAdvertiseNative", "(IZ)V", (void *) gattAdvertiseNative},
+    {"classInitNative", "()V", (void*)advertiseClassInitNative},
+    {"initializeNative", "()V", (void*)advertiseInitializeNative},
+    {"cleanupNative", "()V", (void*)advertiseCleanupNative},
+    {"startAdvertisingSetNative",
+     "(Landroid/bluetooth/le/AdvertisingSetParameters;[B[BLandroid/bluetooth/"
+     "le/PeriodicAdvertisingParameters;[BIII)V",
+     (void*)startAdvertisingSetNative},
+    {"getOwnAddressNative", "(I)V", (void*)getOwnAddressNative},
+    {"stopAdvertisingSetNative", "(I)V", (void*)stopAdvertisingSetNative},
+    {"enableAdvertisingSetNative", "(IZII)V",
+     (void*)enableAdvertisingSetNative},
+    {"setAdvertisingDataNative", "(I[B)V", (void*)setAdvertisingDataNative},
+    {"setScanResponseDataNative", "(I[B)V", (void*)setScanResponseDataNative},
+    {"setAdvertisingParametersNative",
+     "(ILandroid/bluetooth/le/AdvertisingSetParameters;)V",
+     (void*)setAdvertisingParametersNative},
+    {"setPeriodicAdvertisingParametersNative",
+     "(ILandroid/bluetooth/le/PeriodicAdvertisingParameters;)V",
+     (void*)setPeriodicAdvertisingParametersNative},
+    {"setPeriodicAdvertisingDataNative", "(I[B)V",
+     (void*)setPeriodicAdvertisingDataNative},
+    {"setPeriodicAdvertisingEnableNative", "(IZ)V",
+     (void*)setPeriodicAdvertisingEnableNative},
+};
+
+// JNI functions defined in PeriodicScanManager class.
+static JNINativeMethod sPeriodicScanMethods[] = {
+    {"classInitNative", "()V", (void*)periodicScanClassInitNative},
+    {"initializeNative", "()V", (void*)periodicScanInitializeNative},
+    {"cleanupNative", "()V", (void*)periodicScanCleanupNative},
+    {"startSyncNative", "(ILjava/lang/String;III)V", (void*)startSyncNative},
+    {"stopSyncNative", "(I)V", (void*)stopSyncNative},
 };
 
 // JNI functions defined in ScanManager class.
 static JNINativeMethod sScanMethods[] = {
-    {"gattClientScanNative", "(Z)V", (void *) gattClientScanNative},
+    {"registerScannerNative", "(JJ)V", (void*)registerScannerNative},
+    {"unregisterScannerNative", "(I)V", (void*)unregisterScannerNative},
+    {"gattClientScanNative", "(Z)V", (void*)gattClientScanNative},
     // Batch scan JNI functions.
-    {"gattClientConfigBatchScanStorageNative", "(IIII)V",(void *) gattClientConfigBatchScanStorageNative},
-    {"gattClientStartBatchScanNative", "(IIIIII)V", (void *) gattClientStartBatchScanNative},
-    {"gattClientStopBatchScanNative", "(I)V", (void *) gattClientStopBatchScanNative},
-    {"gattClientReadScanReportsNative", "(II)V", (void *) gattClientReadScanReportsNative},
+    {"gattClientConfigBatchScanStorageNative", "(IIII)V",
+     (void*)gattClientConfigBatchScanStorageNative},
+    {"gattClientStartBatchScanNative", "(IIIIII)V",
+     (void*)gattClientStartBatchScanNative},
+    {"gattClientStopBatchScanNative", "(I)V",
+     (void*)gattClientStopBatchScanNative},
+    {"gattClientReadScanReportsNative", "(II)V",
+     (void*)gattClientReadScanReportsNative},
     // Scan filter JNI functions.
-    {"gattClientScanFilterParamAddNative", "(Lcom/android/bluetooth/gatt/FilterParams;)V", (void *) gattClientScanFilterParamAddNative},
-    {"gattClientScanFilterParamDeleteNative", "(II)V", (void *) gattClientScanFilterParamDeleteNative},
-    {"gattClientScanFilterParamClearAllNative", "(I)V", (void *) gattClientScanFilterParamClearAllNative},
-    {"gattClientScanFilterAddNative", "(IIIIIJJJJLjava/lang/String;Ljava/lang/String;B[B[B)V", (void *) gattClientScanFilterAddNative},
-    {"gattClientScanFilterDeleteNative", "(IIIIIJJJJLjava/lang/String;Ljava/lang/String;B[B[B)V", (void *) gattClientScanFilterDeleteNative},
-    {"gattClientScanFilterClearNative", "(II)V", (void *) gattClientScanFilterClearNative},
-    {"gattClientScanFilterEnableNative", "(IZ)V", (void *) gattClientScanFilterEnableNative},
-    {"gattSetScanParametersNative", "(III)V", (void *) gattSetScanParametersNative},
+    {"gattClientScanFilterParamAddNative",
+     "(Lcom/android/bluetooth/gatt/FilterParams;)V",
+     (void*)gattClientScanFilterParamAddNative},
+    {"gattClientScanFilterParamDeleteNative", "(II)V",
+     (void*)gattClientScanFilterParamDeleteNative},
+    {"gattClientScanFilterParamClearAllNative", "(I)V",
+     (void*)gattClientScanFilterParamClearAllNative},
+    {"gattClientScanFilterAddNative",
+     "(IIIIIJJJJLjava/lang/String;Ljava/lang/String;B[B[B)V",
+     (void*)gattClientScanFilterAddNative},
+    {"gattClientScanFilterDeleteNative",
+     "(IIIIIJJJJLjava/lang/String;Ljava/lang/String;B[B[B)V",
+     (void*)gattClientScanFilterDeleteNative},
+    {"gattClientScanFilterClearNative", "(II)V",
+     (void*)gattClientScanFilterClearNative},
+    {"gattClientScanFilterEnableNative", "(IZ)V",
+     (void*)gattClientScanFilterEnableNative},
+    {"gattSetScanParametersNative", "(III)V",
+     (void*)gattSetScanParametersNative},
 };
 
 // JNI functions defined in GattService class.
 static JNINativeMethod sMethods[] = {
-    {"classInitNative", "()V", (void *) classInitNative},
-    {"initializeNative", "()V", (void *) initializeNative},
-    {"cleanupNative", "()V", (void *) cleanupNative},
-    {"gattClientGetDeviceTypeNative", "(Ljava/lang/String;)I", (void *) gattClientGetDeviceTypeNative},
-    {"gattClientRegisterAppNative", "(JJ)V", (void *) gattClientRegisterAppNative},
-    {"gattClientUnregisterAppNative", "(I)V", (void *) gattClientUnregisterAppNative},
-    {"gattClientConnectNative", "(ILjava/lang/String;ZI)V", (void *) gattClientConnectNative},
-    {"gattClientDisconnectNative", "(ILjava/lang/String;I)V", (void *) gattClientDisconnectNative},
-    {"gattClientRefreshNative", "(ILjava/lang/String;)V", (void *) gattClientRefreshNative},
-    {"gattClientSearchServiceNative", "(IZJJ)V", (void *) gattClientSearchServiceNative},
-    {"gattClientGetGattDbNative", "(I)V", (void *) gattClientGetGattDbNative},
-    {"gattClientReadCharacteristicNative", "(III)V", (void *) gattClientReadCharacteristicNative},
-    {"gattClientReadDescriptorNative", "(III)V", (void *) gattClientReadDescriptorNative},
-    {"gattClientWriteCharacteristicNative", "(IIII[B)V", (void *) gattClientWriteCharacteristicNative},
-    {"gattClientWriteDescriptorNative", "(IIII[B)V", (void *) gattClientWriteDescriptorNative},
-    {"gattClientExecuteWriteNative", "(IZ)V", (void *) gattClientExecuteWriteNative},
-    {"gattClientRegisterForNotificationsNative", "(ILjava/lang/String;IZ)V", (void *) gattClientRegisterForNotificationsNative},
-    {"gattClientReadRemoteRssiNative", "(ILjava/lang/String;)V", (void *) gattClientReadRemoteRssiNative},
-    {"gattClientConfigureMTUNative", "(II)V", (void *) gattClientConfigureMTUNative},
-    {"gattConnectionParameterUpdateNative", "(ILjava/lang/String;IIII)V", (void *) gattConnectionParameterUpdateNative},
-    {"gattServerRegisterAppNative", "(JJ)V", (void *) gattServerRegisterAppNative},
-    {"gattServerUnregisterAppNative", "(I)V", (void *) gattServerUnregisterAppNative},
-    {"gattServerConnectNative", "(ILjava/lang/String;ZI)V", (void *) gattServerConnectNative},
-    {"gattServerDisconnectNative", "(ILjava/lang/String;I)V", (void *) gattServerDisconnectNative},
-    {"gattServerAddServiceNative", "(IIIJJI)V", (void *) gattServerAddServiceNative},
-    {"gattServerAddIncludedServiceNative", "(III)V", (void *) gattServerAddIncludedServiceNative},
-    {"gattServerAddCharacteristicNative", "(IIJJII)V", (void *) gattServerAddCharacteristicNative},
-    {"gattServerAddDescriptorNative", "(IIJJI)V", (void *) gattServerAddDescriptorNative},
-    {"gattServerStartServiceNative", "(III)V", (void *) gattServerStartServiceNative},
-    {"gattServerStopServiceNative", "(II)V", (void *) gattServerStopServiceNative},
-    {"gattServerDeleteServiceNative", "(II)V", (void *) gattServerDeleteServiceNative},
-    {"gattServerSendIndicationNative", "(III[B)V", (void *) gattServerSendIndicationNative},
-    {"gattServerSendNotificationNative", "(III[B)V", (void *) gattServerSendNotificationNative},
-    {"gattServerSendResponseNative", "(IIIIII[BI)V", (void *) gattServerSendResponseNative},
+    {"classInitNative", "()V", (void*)classInitNative},
+    {"initializeNative", "()V", (void*)initializeNative},
+    {"cleanupNative", "()V", (void*)cleanupNative},
+    {"gattClientGetDeviceTypeNative", "(Ljava/lang/String;)I",
+     (void*)gattClientGetDeviceTypeNative},
+    {"gattClientRegisterAppNative", "(JJ)V",
+     (void*)gattClientRegisterAppNative},
+    {"gattClientUnregisterAppNative", "(I)V",
+     (void*)gattClientUnregisterAppNative},
+    {"gattClientConnectNative", "(ILjava/lang/String;ZII)V",
+     (void*)gattClientConnectNative},
+    {"gattClientDisconnectNative", "(ILjava/lang/String;I)V",
+     (void*)gattClientDisconnectNative},
+    {"gattClientSetPreferredPhyNative", "(IIIII)V",
+     (void*)gattClientSetPreferredPhyNative},
+    {"gattClientReadPhyNative", "(II)V", (void*)gattClientReadPhyNative},
+    {"gattClientRefreshNative", "(ILjava/lang/String;)V",
+     (void*)gattClientRefreshNative},
+    {"gattClientSearchServiceNative", "(IZJJ)V",
+     (void*)gattClientSearchServiceNative},
+    {"gattClientDiscoverServiceByUuidNative", "(IJJ)V",
+     (void*)gattClientDiscoverServiceByUuidNative},
+    {"gattClientGetGattDbNative", "(I)V", (void*)gattClientGetGattDbNative},
+    {"gattClientReadCharacteristicNative", "(III)V",
+     (void*)gattClientReadCharacteristicNative},
+    {"gattClientReadUsingCharacteristicUuidNative", "(IJJIII)V",
+     (void*)gattClientReadUsingCharacteristicUuidNative},
+    {"gattClientReadDescriptorNative", "(III)V",
+     (void*)gattClientReadDescriptorNative},
+    {"gattClientWriteCharacteristicNative", "(IIII[B)V",
+     (void*)gattClientWriteCharacteristicNative},
+    {"gattClientWriteDescriptorNative", "(III[B)V",
+     (void*)gattClientWriteDescriptorNative},
+    {"gattClientExecuteWriteNative", "(IZ)V",
+     (void*)gattClientExecuteWriteNative},
+    {"gattClientRegisterForNotificationsNative", "(ILjava/lang/String;IZ)V",
+     (void*)gattClientRegisterForNotificationsNative},
+    {"gattClientReadRemoteRssiNative", "(ILjava/lang/String;)V",
+     (void*)gattClientReadRemoteRssiNative},
+    {"gattClientConfigureMTUNative", "(II)V",
+     (void*)gattClientConfigureMTUNative},
+    {"gattConnectionParameterUpdateNative", "(ILjava/lang/String;IIII)V",
+     (void*)gattConnectionParameterUpdateNative},
+    {"gattServerRegisterAppNative", "(JJ)V",
+     (void*)gattServerRegisterAppNative},
+    {"gattServerUnregisterAppNative", "(I)V",
+     (void*)gattServerUnregisterAppNative},
+    {"gattServerConnectNative", "(ILjava/lang/String;ZI)V",
+     (void*)gattServerConnectNative},
+    {"gattServerDisconnectNative", "(ILjava/lang/String;I)V",
+     (void*)gattServerDisconnectNative},
+    {"gattServerSetPreferredPhyNative", "(IIIII)V",
+     (void*)gattServerSetPreferredPhyNative},
+    {"gattServerReadPhyNative", "(II)V", (void*)gattServerReadPhyNative},
+    {"gattServerAddServiceNative", "(ILjava/util/List;)V",
+     (void*)gattServerAddServiceNative},
+    {"gattServerStopServiceNative", "(II)V",
+     (void*)gattServerStopServiceNative},
+    {"gattServerDeleteServiceNative", "(II)V",
+     (void*)gattServerDeleteServiceNative},
+    {"gattServerSendIndicationNative", "(III[B)V",
+     (void*)gattServerSendIndicationNative},
+    {"gattServerSendNotificationNative", "(III[B)V",
+     (void*)gattServerSendNotificationNative},
+    {"gattServerSendResponseNative", "(IIIIII[BI)V",
+     (void*)gattServerSendResponseNative},
 
-    {"gattTestNative", "(IJJLjava/lang/String;IIIII)V", (void *) gattTestNative},
+    {"gattTestNative", "(IJJLjava/lang/String;IIIII)V", (void*)gattTestNative},
 };
 
-int register_com_android_bluetooth_gatt(JNIEnv* env)
-{
-    int register_success =
-        jniRegisterNativeMethods(env, "com/android/bluetooth/gatt/ScanManager$ScanNative",
-                sScanMethods, NELEM(sScanMethods));
-    register_success &=
-        jniRegisterNativeMethods(env, "com/android/bluetooth/gatt/AdvertiseManager$AdvertiseNative",
-                sAdvertiseMethods, NELEM(sAdvertiseMethods));
-    return register_success &
-        jniRegisterNativeMethods(env, "com/android/bluetooth/gatt/GattService",
-                sMethods, NELEM(sMethods));
+int register_com_android_bluetooth_gatt(JNIEnv* env) {
+  int register_success = jniRegisterNativeMethods(
+      env, "com/android/bluetooth/gatt/ScanManager$ScanNative", sScanMethods,
+      NELEM(sScanMethods));
+  register_success &= jniRegisterNativeMethods(
+      env, "com/android/bluetooth/gatt/AdvertiseManager", sAdvertiseMethods,
+      NELEM(sAdvertiseMethods));
+  register_success &= jniRegisterNativeMethods(
+      env, "com/android/bluetooth/gatt/PeriodicScanManager",
+      sPeriodicScanMethods, NELEM(sPeriodicScanMethods));
+  return register_success &
+         jniRegisterNativeMethods(env, "com/android/bluetooth/gatt/GattService",
+                                  sMethods, NELEM(sMethods));
 }
 }

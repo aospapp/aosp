@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -10,37 +12,27 @@
 
 package android.icu.dev.test.duration.languages;
 
-import android.icu.dev.test.duration.LanguageTestRoot;
+import org.junit.Test;
+
+import android.icu.dev.test.duration.LanguageTestFmwk;
 import android.icu.impl.duration.BasicPeriodFormatterFactory;
 import android.icu.impl.duration.Period;
 import android.icu.impl.duration.PeriodFormatter;
 import android.icu.impl.duration.TimeUnitConstants;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Test cases for en
  */
-@RunWith(IcuTestFmwkRunner.class)
-public class Test_ja extends LanguageTestRoot implements TimeUnitConstants {
+public class Test_ja extends LanguageTestFmwk implements TimeUnitConstants {
   private BasicPeriodFormatterFactory pff;
 
-  /**
-   * Invoke the tests.
-   */
-  public static void main(String[] args) {
-      new Test_ja().run(args);
-  }
-
-  /**
-   * Constructor.
-   */
   public Test_ja() {
     super("ja", false);
     this.pff = (BasicPeriodFormatterFactory)BasicPeriodFormatterFactory.getDefault().
         setLocale("ja");
   }
 
+  @Test
   public void testNoMillis() {
     // explicit test that japanese doesn't use both seconds
     // and milliseconds when formatting.  if both appear,
@@ -59,6 +51,7 @@ public class Test_ja extends LanguageTestRoot implements TimeUnitConstants {
       */
   }
 
+  @Test
   public void testOmitZeros() {
     // zeros are treated as omitted
 

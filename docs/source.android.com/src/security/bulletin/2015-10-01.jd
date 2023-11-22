@@ -24,7 +24,7 @@ page.title=Nexus Security Bulletin - October 2015
   </div>
 </div>
 
-<p><em>Published October 05, 2015 | Updated January 22, 2016</em></p>
+<p><em>Published October 05, 2015 | Updated April 28, 2016</em></p>
 
 <p>We have released a security update to Nexus devices through an over-the-air
 (OTA) update as part of our Android Security Bulletin Monthly Release process.
@@ -70,7 +70,7 @@ development purposes or if successfully bypassed. </p>
         CVE-2015-6598<br />
         CVE-2015-6599<br />
         CVE-2015-6600<br />
-        CVE-2015-3870<br />
+        CVE-2015-6603<br />
         CVE-2015-6601<br />
         CVE-2015-3876<br />
         CVE-2015-6604</td>
@@ -94,7 +94,7 @@ development purposes or if successfully bypassed. </p>
  </tr>
  <tr>
     <td>Remote Code Execution Vulnerability in libFLAC</td>
-    <td>CVE-2014-9082</td>
+    <td>CVE-2014-9028</td>
     <td>Critical</td>
  </tr>
  <tr>
@@ -793,8 +793,9 @@ resulting in a local temporary denial of service.</p>
 <ul>
   <li> October 05, 2015: Bulletin published.
   <li> October 07, 2015: Bulletin updated with AOSP references. Clarified the bug
-references for CVE-2014-9082.
+references for CVE-2014-9028.
   <li> October 12, 2015: Updated acknowledgements for CVE-2015-3868, CVE-2015-3869,
 CVE-2015-3865, CVE-2015-3862.
   <li> January 22, 2016: Updated acknowledgements for CVE-2015-6606.
+  <li> April 28, 2016: Added CVE-2015-6603 and corrected typo with CVE-2014-9028.
 </ul>

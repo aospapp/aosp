@@ -190,6 +190,8 @@
             ><a href="#controls_android.control.videoStabilizationMode">android.control.videoStabilizationMode</a></li>
             <li
             ><a href="#controls_android.control.postRawSensitivityBoost">android.control.postRawSensitivityBoost</a></li>
+            <li
+            ><a href="#controls_android.control.enableZsl">android.control.enableZsl</a></li>
           </ul>
         </li>
         <li>
@@ -290,6 +292,8 @@
             ><a href="#dynamic_android.control.videoStabilizationMode">android.control.videoStabilizationMode</a></li>
             <li
             ><a href="#dynamic_android.control.postRawSensitivityBoost">android.control.postRawSensitivityBoost</a></li>
+            <li
+            ><a href="#dynamic_android.control.enableZsl">android.control.enableZsl</a></li>
           </ul>
         </li>
       </ul> <!-- toc_section -->
@@ -4222,6 +4226,93 @@ OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
             </td>
           </tr>
 
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="controls_android.control.enableZsl">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>enable<wbr/>Zsl
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name entry_type_name_enum">byte</span>
+
+              <span class="entry_type_visibility"> [public as boolean]</span>
+
+
+
+
+
+                <ul class="entry_type_enum">
+                  <li>
+                    <span class="entry_type_enum_name">FALSE</span>
+                    <span class="entry_type_enum_notes"><p>Requests with <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE must be captured
+after previous requests.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">TRUE</span>
+                    <span class="entry_type_enum_notes"><p>Requests with <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE may or may not be
+captured before previous requests.<wbr/></p></span>
+                  </li>
+                </ul>
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Allow camera device to enable zero-shutter-lag mode for requests with
+<a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>If enableZsl is <code>true</code>,<wbr/> the camera device may enable zero-shutter-lag mode for requests with
+STILL_<wbr/>CAPTURE capture intent.<wbr/> The camera device may use images captured in the past to
+produce output images for a zero-shutter-lag request.<wbr/> The result metadata including the
+<a href="#dynamic_android.sensor.timestamp">android.<wbr/>sensor.<wbr/>timestamp</a> reflects the source frames used to produce output images.<wbr/>
+Therefore,<wbr/> the contents of the output images and the result metadata may be out of order
+compared to previous regular requests.<wbr/> enableZsl does not affect requests with other
+capture intents.<wbr/></p>
+<p>For example,<wbr/> when requests are submitted in the following order:
+  Request A: enableZsl is ON,<wbr/> <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> is PREVIEW
+  Request B: enableZsl is ON,<wbr/> <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> is STILL_<wbr/>CAPTURE</p>
+<p>The output images for request B may have contents captured before the output images for
+request A,<wbr/> and the result metadata for request B may be older than the result metadata for
+request A.<wbr/></p>
+<p>Note that when enableZsl is <code>true</code>,<wbr/> it is not guaranteed to get output images captured in
+the past for requests with STILL_<wbr/>CAPTURE capture intent.<wbr/></p>
+<p>For applications targeting SDK versions O and newer,<wbr/> the value of enableZsl in
+TEMPLATE_<wbr/>STILL_<wbr/>CAPTURE template may be <code>true</code>.<wbr/> The value in other templates is always
+<code>false</code> if present.<wbr/></p>
+<p>For applications targeting SDK versions older than O,<wbr/> the value of enableZsl in all
+capture templates is always <code>false</code> if present.<wbr/></p>
+<p>For application-operated ZSL,<wbr/> use CAMERA3_<wbr/>TEMPLATE_<wbr/>ZERO_<wbr/>SHUTTER_<wbr/>LAG template.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>It is valid for HAL to produce regular output images for requests with STILL_<wbr/>CAPTURE
+capture intent.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
            <!-- end of entry -->
@@ -8868,6 +8959,93 @@ OFF; otherwise the auto-exposure algorithm will override this value.<wbr/></p>
             </td>
           </tr>
 
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="dynamic_android.control.enableZsl">
+            <td class="entry_name
+             " rowspan="5">
+              android.<wbr/>control.<wbr/>enable<wbr/>Zsl
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name entry_type_name_enum">byte</span>
+
+              <span class="entry_type_visibility"> [public as boolean]</span>
+
+
+
+
+
+                <ul class="entry_type_enum">
+                  <li>
+                    <span class="entry_type_enum_name">FALSE</span>
+                    <span class="entry_type_enum_notes"><p>Requests with <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE must be captured
+after previous requests.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">TRUE</span>
+                    <span class="entry_type_enum_notes"><p>Requests with <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE may or may not be
+captured before previous requests.<wbr/></p></span>
+                  </li>
+                </ul>
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>Allow camera device to enable zero-shutter-lag mode for requests with
+<a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> == STILL_<wbr/>CAPTURE.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>If enableZsl is <code>true</code>,<wbr/> the camera device may enable zero-shutter-lag mode for requests with
+STILL_<wbr/>CAPTURE capture intent.<wbr/> The camera device may use images captured in the past to
+produce output images for a zero-shutter-lag request.<wbr/> The result metadata including the
+<a href="#dynamic_android.sensor.timestamp">android.<wbr/>sensor.<wbr/>timestamp</a> reflects the source frames used to produce output images.<wbr/>
+Therefore,<wbr/> the contents of the output images and the result metadata may be out of order
+compared to previous regular requests.<wbr/> enableZsl does not affect requests with other
+capture intents.<wbr/></p>
+<p>For example,<wbr/> when requests are submitted in the following order:
+  Request A: enableZsl is ON,<wbr/> <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> is PREVIEW
+  Request B: enableZsl is ON,<wbr/> <a href="#controls_android.control.captureIntent">android.<wbr/>control.<wbr/>capture<wbr/>Intent</a> is STILL_<wbr/>CAPTURE</p>
+<p>The output images for request B may have contents captured before the output images for
+request A,<wbr/> and the result metadata for request B may be older than the result metadata for
+request A.<wbr/></p>
+<p>Note that when enableZsl is <code>true</code>,<wbr/> it is not guaranteed to get output images captured in
+the past for requests with STILL_<wbr/>CAPTURE capture intent.<wbr/></p>
+<p>For applications targeting SDK versions O and newer,<wbr/> the value of enableZsl in
+TEMPLATE_<wbr/>STILL_<wbr/>CAPTURE template may be <code>true</code>.<wbr/> The value in other templates is always
+<code>false</code> if present.<wbr/></p>
+<p>For applications targeting SDK versions older than O,<wbr/> the value of enableZsl in all
+capture templates is always <code>false</code> if present.<wbr/></p>
+<p>For application-operated ZSL,<wbr/> use CAMERA3_<wbr/>TEMPLATE_<wbr/>ZERO_<wbr/>SHUTTER_<wbr/>LAG template.<wbr/></p>
+            </td>
+          </tr>
+
+          <tr class="entries_header">
+            <th class="th_details" colspan="5">HAL Implementation Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="5">
+              <p>It is valid for HAL to produce regular output images for requests with STILL_<wbr/>CAPTURE
+capture intent.<wbr/></p>
+            </td>
+          </tr>
 
           <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
            <!-- end of entry -->

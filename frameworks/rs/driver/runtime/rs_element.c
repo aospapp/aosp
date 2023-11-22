@@ -17,11 +17,16 @@ extern rs_element __attribute__((overloadable))
         rsElementGetSubElement(rs_element e, uint32_t index) {
     Element_t *element = (Element_t *)e.p;
     if (element == NULL || index >= element->mHal.state.fieldsCount) {
-        rs_element nullElem = {0};
+        rs_element nullElem = RS_NULL_OBJ;
         return nullElem;
     }
-    rs_element returnElem = {element->mHal.state.fields[index]};
-    rs_element rs_retval = {0};
+    rs_element returnElem = {
+        element->mHal.state.fields[index]
+#ifdef __LP64__
+        , 0, 0, 0
+#endif
+    };
+    rs_element rs_retval = RS_NULL_OBJ;
     rsSetObject(&rs_retval, returnElem);
     return rs_retval;
 }

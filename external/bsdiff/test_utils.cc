@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <gtest/gtest.h>
@@ -50,6 +51,16 @@ bool MakeTempFile(const string& base_filename_template, string* filename) {
 }  // namespace
 
 namespace test_utils {
+
+void BsdiffTestEnvironment::SetUp() {
+#ifdef BSDIFF_TARGET_UNITTEST
+#define BSDIFF_TARGET_TMP_BASE "/data/tmp"
+      if (access(BSDIFF_TARGET_TMP_BASE, F_OK) == -1) {
+        mkdir(BSDIFF_TARGET_TMP_BASE, S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH);
+      }
+      setenv("TMPDIR", BSDIFF_TARGET_TMP_BASE, 1);
+#endif // defined (BSDIFF_TARGET_UNITTEST)
+}
 
 bool ReadFile(const string& path, vector<uint8_t>* out) {
   FILE* fp = fopen(path.c_str(), "r");
@@ -101,12 +112,14 @@ bool BsdiffPatchFile::LoadFromFile(const string& filename) {
   memcpy(&diff_len, contents.data() + 16, sizeof(diff_len));
   memcpy(&new_file_len, contents.data() + 24, sizeof(new_file_len));
 
-  TEST_AND_RETURN_FALSE(file_size >= kHeaderSize + ctrl_len + diff_len);
-  extra_len = file_size - kHeaderSize - ctrl_len - diff_len;
-
   // Sanity check before we attempt to parse the bz2 streams.
   TEST_AND_RETURN_FALSE(ctrl_len >= 0);
   TEST_AND_RETURN_FALSE(diff_len >= 0);
+
+  // The cast is safe since ctrl_len and diff_len are both positive.
+  TEST_AND_RETURN_FALSE(file_size >=
+        static_cast<uint64_t>(kHeaderSize + ctrl_len + diff_len));
+  extra_len = file_size - kHeaderSize - ctrl_len - diff_len;
 
   uint8_t* ptr = contents.data() + kHeaderSize;
   bz2_ctrl = vector<uint8_t>(ptr, ptr + ctrl_len);

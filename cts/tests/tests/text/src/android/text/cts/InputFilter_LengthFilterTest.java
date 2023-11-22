@@ -16,13 +16,21 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.InputFilter;
-import android.text.SpannableStringBuilder;
 import android.text.InputFilter.LengthFilter;
+import android.text.SpannableStringBuilder;
 
-public class InputFilter_LengthFilterTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class InputFilter_LengthFilterTest {
+    @Test
     public void testFilter() {
         // Define the variables
         CharSequence source;
@@ -30,6 +38,8 @@ public class InputFilter_LengthFilterTest extends AndroidTestCase {
         // Constructor to create a LengthFilter
         LengthFilter lengthFilter = new LengthFilter(10);
         InputFilter[] filters = {lengthFilter};
+
+        assertEquals(10, lengthFilter.getMax());
 
         // filter() implicitly invoked. If the total length > filter length, the filter will
         // cut off the source CharSequence from beginning to fit the filter length.

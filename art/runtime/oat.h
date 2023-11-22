@@ -32,18 +32,18 @@ class InstructionSetFeatures;
 class PACKED(4) OatHeader {
  public:
   static constexpr uint8_t kOatMagic[] = { 'o', 'a', 't', '\n' };
-  static constexpr uint8_t kOatVersion[] = { '0', '7', '9', '\0' };
+  static constexpr uint8_t kOatVersion[] = { '1', '2', '4', '\0' };  // New compiler filter names.
 
   static constexpr const char* kImageLocationKey = "image-location";
   static constexpr const char* kDex2OatCmdLineKey = "dex2oat-cmdline";
   static constexpr const char* kDex2OatHostKey = "dex2oat-host";
   static constexpr const char* kPicKey = "pic";
-  static constexpr const char* kHasPatchInfoKey = "has-patch-info";
   static constexpr const char* kDebuggableKey = "debuggable";
   static constexpr const char* kNativeDebuggableKey = "native-debuggable";
   static constexpr const char* kCompilerFilter = "compiler-filter";
   static constexpr const char* kClassPathKey = "classpath";
   static constexpr const char* kBootClassPathKey = "bootclasspath";
+  static constexpr const char* kConcurrentCopying = "concurrent-copying";
 
   static constexpr const char kTrueValue[] = "true";
   static constexpr const char kFalseValue[] = "false";
@@ -110,10 +110,10 @@ class PACKED(4) OatHeader {
 
   size_t GetHeaderSize() const;
   bool IsPic() const;
-  bool HasPatchInfo() const;
   bool IsDebuggable() const;
   bool IsNativeDebuggable() const;
   CompilerFilter::Filter GetCompilerFilter() const;
+  bool IsConcurrentCopying() const;
 
  private:
   bool KeyHasValue(const char* key, const char* value, size_t value_size) const;
@@ -171,7 +171,7 @@ std::ostream& operator<<(std::ostream& os, const OatClassType& rhs);
 
 class PACKED(4) OatMethodOffsets {
  public:
-  OatMethodOffsets(uint32_t code_offset = 0);
+  explicit OatMethodOffsets(uint32_t code_offset = 0);
 
   ~OatMethodOffsets();
 

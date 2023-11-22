@@ -16,77 +16,50 @@
 
 from builtins import str
 
+import logging
 import random
+import re
+import shellescape
 import socket
-import subprocess
 import time
+
+from acts.controllers.utils_lib import host_utils
+from acts.controllers.utils_lib.ssh import connection
+from acts.libs.proc import job
+
+DEFAULT_ADB_TIMEOUT = 60
+DEFAULT_ADB_PULL_TIMEOUT = 180
+
+
+def parsing_parcel_output(output):
+    """Parsing the adb output in Parcel format.
+
+    Parsing the adb output in format:
+      Result: Parcel(
+        0x00000000: 00000000 00000014 00390038 00340031 '........8.9.1.4.'
+        0x00000010: 00300038 00300030 00300030 00340032 '8.0.0.0.0.0.2.4.'
+        0x00000020: 00350034 00330035 00320038 00310033 '4.5.5.3.8.2.3.1.'
+        0x00000030: 00000000                            '....            ')
+    """
+    output = ''.join(re.findall(r"'(.*)'", output))
+    return re.sub(r'[.\s]', '', output)
+
 
 class AdbError(Exception):
     """Raised when there is an error in adb operations."""
 
-SL4A_LAUNCH_CMD=("am start -a com.googlecode.android_scripting.action.LAUNCH_SERVER "
-    "--ei com.googlecode.android_scripting.extra.USE_SERVICE_PORT {} "
-    "com.googlecode.android_scripting/.activity.ScriptingLayerServiceLauncher" )
+    def __init__(self, cmd, stdout, stderr, ret_code):
+        self.cmd = cmd
+        self.stdout = stdout
+        self.stderr = stderr
+        self.ret_code = ret_code
 
-def get_available_host_port():
-    """Gets a host port number available for adb forward.
+    def __str__(self):
+        return ("Error executing adb cmd '%s'. ret: %d, stdout: %s, stderr: %s"
+                ) % (self.cmd, self.ret_code, self.stdout, self.stderr)
 
-    Returns:
-        An integer representing a port number on the host available for adb
-        forward.
-    """
-    while True:
-        port = random.randint(1024, 9900)
-        if is_port_available(port):
-            return port
 
-def is_port_available(port):
-    """Checks if a given port number is available on the system.
-
-    Args:
-        port: An integer which is the port number to check.
-
-    Returns:
-        True if the port is available; False otherwise.
-    """
-    # Make sure adb is not using this port so we don't accidentally interrupt
-    # ongoing runs by trying to bind to the port.
-    if port in list_occupied_adb_ports():
-        return False
-    s = None
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('localhost', port))
-        return True
-    except socket.error:
-        return False
-    finally:
-        if s:
-            s.close()
-
-def list_occupied_adb_ports():
-    """Lists all the host ports occupied by adb forward.
-
-    This is useful because adb will silently override the binding if an attempt
-    to bind to a port already used by adb was made, instead of throwing binding
-    error. So one should always check what ports adb is using before trying to
-    bind to a port with adb.
-
-    Returns:
-        A list of integers representing occupied host ports.
-    """
-    out = AdbProxy().forward("--list")
-    clean_lines = str(out, 'utf-8').strip().split('\n')
-    used_ports = []
-    for line in clean_lines:
-        tokens = line.split(" tcp:")
-        if len(tokens) != 3:
-            continue
-        used_ports.append(int(tokens[1]))
-    return used_ports
-
-class AdbProxy():
+class AdbProxy(object):
     """Proxy class for ADB.
 
     For syntactic reasons, the '-' in adb commands need to be replaced with
@@ -95,15 +68,43 @@ class AdbProxy():
     >> adb.start_server()
     >> adb.devices() # will return the console output of "adb devices".
     """
-    def __init__(self, serial="", log=None):
-        self.serial = serial
-        if serial:
-            self.adb_str = "adb -s {}".format(serial)
-        else:
-            self.adb_str = "adb"
-        self.log = log
 
-    def _exec_cmd(self, cmd):
+    _SERVER_LOCAL_PORT = None
+
+    def __init__(self, serial="", ssh_connection=None):
+        """Construct an instance of AdbProxy.
+
+        Args:
+            serial: str serial number of Android device from `adb devices`
+            ssh_connection: SshConnection instance if the Android device is
+                            conected to a remote host that we can reach via SSH.
+        """
+        self.serial = serial
+        adb_path = self._exec_cmd("which adb")
+        adb_cmd = [adb_path]
+        if serial:
+            adb_cmd.append("-s %s" % serial)
+        if ssh_connection is not None and not AdbProxy._SERVER_LOCAL_PORT:
+            # Kill all existing adb processes on the remote host (if any)
+            # Note that if there are none, then pkill exits with non-zero status
+            ssh_connection.run("pkill adb", ignore_status=True)
+            # Copy over the adb binary to a temp dir
+            temp_dir = ssh_connection.run("mktemp -d").stdout.strip()
+            ssh_connection.send_file(adb_path, temp_dir)
+            # Start up a new adb server running as root from the copied binary.
+            remote_adb_cmd = "%s/adb %s root" % (temp_dir, "-s %s" % serial
+                                                 if serial else "")
+            ssh_connection.run(remote_adb_cmd)
+            # Proxy a local port to the adb server port
+            local_port = ssh_connection.create_ssh_tunnel(5037)
+            AdbProxy._SERVER_LOCAL_PORT = local_port
+
+        if AdbProxy._SERVER_LOCAL_PORT:
+            adb_cmd.append("-P %d" % local_port)
+        self.adb_str = " ".join(adb_cmd)
+        self._ssh_connection = ssh_connection
+
+    def _exec_cmd(self, cmd, ignore_status=False, timeout=DEFAULT_ADB_TIMEOUT):
         """Executes adb commands in a new shell.
 
         This is specific to executing adb binary because stderr is not a good
@@ -118,61 +119,92 @@ class AdbProxy():
         Raises:
             AdbError is raised if the adb command exit code is not 0.
         """
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
-        (out, err) = proc.communicate()
-        ret = proc.returncode
-        total_output = "stdout: {}, stderr: {}, ret: {}".format(out, err, ret)
-        # TODO(angli): Fix this when global logger is done.
-        if self.log:
-            self.log.debug("{}\n{}".format(cmd, total_output))
-        if ret == 0:
-            return out
-        else:
-            raise AdbError(total_output)
+        result = job.run(cmd, ignore_status=True, timeout=timeout)
+        ret, out, err = result.exit_status, result.stdout, result.stderr
 
-    def _exec_adb_cmd(self, name, arg_str):
-        return self._exec_cmd(' '.join((self.adb_str, name, arg_str)))
+        logging.debug("cmd: %s, stdout: %s, stderr: %s, ret: %s", cmd, out,
+                      err, ret)
+
+        if ret == 0 or ignore_status:
+            if "Result: Parcel" in out:
+                return parsing_parcel_output(out)
+            else:
+                return out
+        else:
+            raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
+
+    def _exec_adb_cmd(self, name, arg_str, **kwargs):
+        return self._exec_cmd(' '.join((self.adb_str, name, arg_str)),
+                              **kwargs)
 
     def tcp_forward(self, host_port, device_port):
-        """Starts tcp forwarding.
+        """Starts tcp forwarding from localhost to this android device.
 
         Args:
-            host_port: Port number to use on the computer.
+            host_port: Port number to use on localhost
             device_port: Port number to use on the android device.
         """
-        self.forward("tcp:{} tcp:{}".format(host_port, device_port))
+        if self._ssh_connection:
+            # We have to hop through a remote host first.
+            #  1) Find some free port on the remote host's localhost
+            #  2) Setup forwarding between that remote port and the requested
+            #     device port
+            remote_port = self._ssh_connection.find_free_port()
+            self._ssh_connection.create_ssh_tunnel(
+                remote_port, local_port=host_port)
+            host_port = remote_port
+        self.forward("tcp:%d tcp:%d" % (host_port, device_port))
 
-    def start_sl4a(self, port=8080):
-        """Starts sl4a server on the android device.
+    def remove_tcp_forward(self, host_port):
+        """Stop tcp forwarding a port from localhost to this android device.
 
         Args:
-            port: Port number to use on the android device.
+            host_port: Port number to use on localhost
         """
-        MAX_SL4A_WAIT_TIME = 10
-        print(self.shell(SL4A_LAUNCH_CMD.format(port)))
-
-        for _ in range(MAX_SL4A_WAIT_TIME):
-            time.sleep(1)
-            if self.is_sl4a_running():
+        if self._ssh_connection:
+            remote_port = self._ssh_connection.close_ssh_tunnel(host_port)
+            if remote_port is None:
+                logging.warning("Cannot close unknown forwarded tcp port: %d",
+                                host_port)
                 return
-        raise AdbError(
-                "com.googlecode.android_scripting process never started.")
+            # The actual port we need to disable via adb is on the remote host.
+            host_port = remote_port
+        self.forward("--remove tcp:%d" % host_port)
 
-    def is_sl4a_running(self):
-        """Checks if the sl4a app is running on an android device.
+    def getprop(self, prop_name):
+        """Get a property of the device.
+
+        This is a convenience wrapper for "adb shell getprop xxx".
+
+        Args:
+            prop_name: A string that is the name of the property to get.
 
         Returns:
-            True if the sl4a app is running, False otherwise.
+            A string that is the value of the property, or None if the property
+            doesn't exist.
         """
-        #Grep for process with a preceding S which means it is truly started.
-        out = self.shell('ps | grep "S com.googlecode.android_scripting"')
-        if len(out)==0:
-          return False
-        return True
+        return self.shell("getprop %s" % prop_name)
+
+    # TODO: This should be abstracted out into an object like the other shell
+    # command.
+    def shell(self, command, ignore_status=False, timeout=DEFAULT_ADB_TIMEOUT):
+        return self._exec_adb_cmd(
+            'shell',
+            shellescape.quote(command),
+            ignore_status=ignore_status,
+            timeout=timeout)
+
+    def pull(self,
+             command,
+             ignore_status=False,
+             timeout=DEFAULT_ADB_PULL_TIMEOUT):
+        return self._exec_adb_cmd(
+            'pull', command, ignore_status=ignore_status, timeout=timeout)
 
     def __getattr__(self, name):
-        def adb_call(*args):
+        def adb_call(*args, **kwargs):
             clean_name = name.replace('_', '-')
             arg_str = ' '.join(str(elem) for elem in args)
-            return self._exec_adb_cmd(clean_name, arg_str)
+            return self._exec_adb_cmd(clean_name, arg_str, **kwargs)
+
         return adb_call

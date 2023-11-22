@@ -8,6 +8,26 @@ import time
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 
+# en-US key matrix (from "kb membrane pin matrix.pdf")
+KEYMATRIX = {'`': (3, 1), '1': (6, 1), '2': (6, 4), '3': (6, 2), '4': (6, 3),
+             '5': (3, 3), '6': (3, 6), '7': (6, 6), '8': (6, 5), '9': (6, 9),
+             '0': (6, 8), '-': (3, 8), '=': (0, 8), 'q': (7, 1), 'w': (7, 4),
+             'e': (7, 2), 'r': (7, 3), 't': (2, 3), 'y': (2, 6), 'u': (7, 6),
+             'i': (7, 5), 'o': (7, 9), 'p': (7, 8), '[': (2, 8), ']': (2, 5),
+             '\\': (3, 11), 'a': (4, 1), 's': (4, 4), 'd': (4, 2), 'f': (4, 3),
+             'g': (1, 3), 'h': (1, 6), 'j': (4, 6), 'k': (4, 5), 'l': (4, 9),
+             ';': (4, 8), '\'': (1, 8), 'z': (5, 1), 'x': (5, 4), 'c': (5, 2),
+             'v': (5, 3), 'b': (0, 3), 'n': (0, 6), 'm': (5, 6), ',': (5, 5),
+             '.': (5, 9), '/': (5, 8), ' ': (5, 11), '<right>': (6, 12),
+             '<alt_r>': (0, 10), '<down>': (6, 11), '<tab>': (2, 1),
+             '<f10>': (0, 4), '<shift_r>': (7, 7), '<ctrl_r>': (4, 0),
+             '<esc>': (1, 1), '<backspace>': (1, 11), '<f2>': (3, 2),
+             '<alt_l>': (6, 10), '<ctrl_l>': (2, 0), '<f1>': (0, 2),
+             '<search>': (0, 1), '<f3>': (2, 2), '<f4>': (1, 2), '<f5>': (3, 4),
+             '<f6>': (2, 4), '<f7>': (1, 4), '<f8>': (2, 9), '<f9>': (1, 9),
+             '<up>': (7, 11), '<shift_l>': (5, 7), '<enter>': (4, 11),
+             '<left>': (7, 12)}
+
 
 def has_ectool():
     """Determine if ectool shell command is present.
@@ -146,6 +166,34 @@ class EC(EC_Common):
         response = self.ec_command('lightbar')
         self.ec_command('lightbar off')
         return (re.search(self.LIGHTBAR_RE, response, re.MULTILINE) is not None)
+
+    def key_press(self, key):
+        """Emit key down and up signal of the keyboard.
+
+        @param key: name of a key defined in KEYMATRIX.
+        """
+        self.key_down(key)
+        self.key_up(key)
+
+    def _key_action(self, key, action_type):
+        if not key in KEYMATRIX:
+            raise error.TestError('Unknown key: ' + key)
+        row, col = KEYMATRIX[key]
+        self.ec_command('kbpress %d %d %d' % (row, col, action_type))
+
+    def key_down(self, key):
+        """Emit key down signal of the keyboard.
+
+        @param key: name of a key defined in KEYMATRIX.
+        """
+        self._key_action(key, 1)
+
+    def key_up(self, key):
+        """Emit key up signal of the keyboard.
+
+        @param key: name of a key defined in KEYMATRIX.
+        """
+        self._key_action(key, 0)
 
 
 class EC_USBPD_Port(EC_Common):

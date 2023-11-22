@@ -19,16 +19,19 @@ ifeq ($(HOST_OS),linux)
 
 CTS_AUDIO_TOP:= $(call my-dir)
 
+include $(call all-makefiles-under,$(CTS_AUDIO_TOP))
+
 CTS_AUDIO_INSTALL_DIR := $(HOST_OUT)/cts-audio-quality/android-cts-audio-quality
 CTS_AUDIO_QUALITY_ZIP := $(HOST_OUT)/cts-audio-quality/android-cts-audio-quality.zip
 
 cts_audio_quality_client_apk := $(TARGET_OUT_DATA_APPS)/CtsAudioClient/CtsAudioClient.apk
-cts_audio_quality_host_bins := $(HOST_OUT)/bin/cts_audio_quality_test $(HOST_OUT)/bin/cts_audio_quality
+cts_audio_quality_host_bins := $(ALL_MODULES.cts_audio_quality_test.INSTALLED) $(ALL_MODULES.cts_audio_quality.INSTALLED)
 $(CTS_AUDIO_QUALITY_ZIP): PRIVATE_CLIENT_APK := $(cts_audio_quality_client_apk)
 $(CTS_AUDIO_QUALITY_ZIP): PRIVATE_HOST_BINS := $(cts_audio_quality_host_bins)
 $(CTS_AUDIO_QUALITY_ZIP): PRIVATE_TEST_DESC := $(CTS_AUDIO_TOP)/test_description
 $(CTS_AUDIO_QUALITY_ZIP): $(cts_audio_quality_client_apk) $(cts_audio_quality_host_bins) \
     $(CTS_AUDIO_TOP)/test_description | $(ACP)
+	$(hide) rm -rf $@ $(CTS_AUDIO_INSTALL_DIR)
 	$(hide) mkdir -p $(CTS_AUDIO_INSTALL_DIR)/client
 	$(hide) $(ACP) -fp $(PRIVATE_CLIENT_APK) \
         $(CTS_AUDIO_INSTALL_DIR)/client
@@ -50,7 +53,5 @@ cts: $(CTS_AUDIO_QUALITY_ZIP)
 ifneq ($(filter cts, $(MAKECMDGOALS)),)
 $(call dist-for-goals, cts, $(CTS_AUDIO_QUALITY_ZIP))
 endif # cts
-
-include $(call all-subdir-makefiles)
 
 endif # linux

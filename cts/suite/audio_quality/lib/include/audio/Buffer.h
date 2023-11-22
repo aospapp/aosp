@@ -32,7 +32,7 @@
  */
 class Buffer: public virtual android::RefBase {
 public:
-    Buffer(size_t capacity, size_t size = 0, bool stereo = true);
+    explicit Buffer(size_t capacity, size_t size = 0, bool stereo = true);
 
     virtual ~Buffer();
 

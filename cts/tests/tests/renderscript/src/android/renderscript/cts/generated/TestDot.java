@@ -37,6 +37,13 @@ public class TestDot extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestDotRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inLeftVector;
         public float inRightVector;
@@ -44,13 +51,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotFloatFloatFloat() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xf7ff2d3el, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x15f562efl, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x38fe5ebdf7ff2d3el, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x948dc35615f562efl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotFloatFloatFloat(inLeftVector, out);
             verifyResultsDotFloatFloatFloat(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotFloatFloatFloat(inLeftVector, out);
             verifyResultsDotFloatFloatFloat(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloatFloatFloat: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotFloatFloatFloat(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -126,13 +137,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotFloat2Float2Float() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xbf79d3a2l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x978f55bbl, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x3a9fadaebf79d3a2l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xdaa605c7978f55bbl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotFloat2Float2Float(inLeftVector, out);
             verifyResultsDotFloat2Float2Float(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloat2Float2Float: " + e.toString());
         }
@@ -141,9 +153,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotFloat2Float2Float(inLeftVector, out);
             verifyResultsDotFloat2Float2Float(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloat2Float2Float: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotFloat2Float2Float(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -212,13 +227,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotFloat3Float3Float() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xe11887f0l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x3d379ed5l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x948d32ce11887f0l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x910f51f73d379ed5l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotFloat3Float3Float(inLeftVector, out);
             verifyResultsDotFloat3Float3Float(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloat3Float3Float: " + e.toString());
         }
@@ -227,9 +243,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotFloat3Float3Float(inLeftVector, out);
             verifyResultsDotFloat3Float3Float(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloat3Float3Float: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotFloat3Float3Float(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -298,13 +317,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotFloat4Float4Float() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x2b73c3el, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xe2dfe7efl, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xd7f1f8ab02b73c3el, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x47789e26e2dfe7efl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotFloat4Float4Float(inLeftVector, out);
             verifyResultsDotFloat4Float4Float(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloat4Float4Float: " + e.toString());
         }
@@ -313,9 +333,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotFloat4Float4Float(inLeftVector, out);
             verifyResultsDotFloat4Float4Float(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotFloat4Float4Float: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotFloat4Float4Float(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -392,13 +415,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotHalfHalfHalf() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xcde53c8dl, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x399f534l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x39e78807cde53c8dl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xbbb7b2bd0399f534l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotHalfHalfHalf(inLeftVector, out);
             verifyResultsDotHalfHalfHalf(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalfHalfHalf: " + e.toString());
         }
@@ -407,9 +431,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotHalfHalfHalf(inLeftVector, out);
             verifyResultsDotHalfHalfHalf(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalfHalfHalf: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotHalfHalfHalf(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -481,13 +508,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotHalf2Half2Half() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xb1799cd3l, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x3d8620f6l, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa7738380b1799cd3l, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x223af00b3d8620f6l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotHalf2Half2Half(inLeftVector, out);
             verifyResultsDotHalf2Half2Half(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalf2Half2Half: " + e.toString());
         }
@@ -496,9 +524,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotHalf2Half2Half(inLeftVector, out);
             verifyResultsDotHalf2Half2Half(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalf2Half2Half: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotHalf2Half2Half(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -574,13 +605,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotHalf3Half3Half() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x7bbe958fl, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x371be88al, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x552cd0d47bbe958fl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x505aed1e371be88al, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotHalf3Half3Half(inLeftVector, out);
             verifyResultsDotHalf3Half3Half(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalf3Half3Half: " + e.toString());
         }
@@ -589,9 +621,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotHalf3Half3Half(inLeftVector, out);
             verifyResultsDotHalf3Half3Half(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalf3Half3Half: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotHalf3Half3Half(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {
@@ -667,13 +702,14 @@ public class TestDot extends RSBaseCompute {
     }
 
     private void checkDotHalf4Half4Half() {
-        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x46038e4bl, false);
-        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x30b1b01el, false);
+        Allocation inLeftVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x2e61e2846038e4bl, false);
+        Allocation inRightVector = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x7e7aea3130b1b01el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInRightVector(inRightVector);
             script.forEach_testDotHalf4Half4Half(inLeftVector, out);
             verifyResultsDotHalf4Half4Half(inLeftVector, inRightVector, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalf4Half4Half: " + e.toString());
         }
@@ -682,9 +718,12 @@ public class TestDot extends RSBaseCompute {
             scriptRelaxed.set_gAllocInRightVector(inRightVector);
             scriptRelaxed.forEach_testDotHalf4Half4Half(inLeftVector, out);
             verifyResultsDotHalf4Half4Half(inLeftVector, inRightVector, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testDotHalf4Half4Half: " + e.toString());
         }
+        inLeftVector.destroy();
+        inRightVector.destroy();
     }
 
     private void verifyResultsDotHalf4Half4Half(Allocation inLeftVector, Allocation inRightVector, Allocation out, boolean relaxed) {

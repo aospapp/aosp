@@ -24,7 +24,7 @@
 #undef HWC2_USE_CPP11
 
 #include <ui/HdrCapabilities.h>
-#include <ui/mat4.h>
+#include <math/mat4.h>
 
 #include <utils/Log.h>
 #include <utils/StrongPointer.h>
@@ -35,6 +35,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <map>
 
 namespace android {
     class Fence;
@@ -42,6 +43,9 @@ namespace android {
     class GraphicBuffer;
     class Rect;
     class Region;
+    namespace Hwc2 {
+        class Composer;
+    }
 }
 
 namespace HWC2 {
@@ -54,10 +58,15 @@ typedef std::function<void(std::shared_ptr<Display>, Connection)>
 typedef std::function<void(std::shared_ptr<Display>)> RefreshCallback;
 typedef std::function<void(std::shared_ptr<Display>, nsecs_t)> VsyncCallback;
 
+// C++ Wrapper around hwc2_device_t. Load all functions pointers
+// and handle callback registration.
 class Device
 {
 public:
-    Device(hwc2_device_t* device);
+    // useVrComposer is passed to the composer HAL. When true, the composer HAL
+    // will use the vr composer service, otherwise it uses the real hardware
+    // composer.
+    Device(bool useVrComposer);
     ~Device();
 
     friend class HWC2::Display;
@@ -95,35 +104,12 @@ public:
 
     bool hasCapability(HWC2::Capability capability) const;
 
+    android::Hwc2::Composer* getComposer() { return mComposer.get(); }
+
 private:
     // Initialization methods
 
-    template <typename PFN>
-    [[clang::warn_unused_result]] bool loadFunctionPointer(
-            FunctionDescriptor desc, PFN& outPFN) {
-        auto intDesc = static_cast<int32_t>(desc);
-        auto pfn = mHwcDevice->getFunction(mHwcDevice, intDesc);
-        if (pfn != nullptr) {
-            outPFN = reinterpret_cast<PFN>(pfn);
-            return true;
-        } else {
-            ALOGE("Failed to load function %s", to_string(desc).c_str());
-            return false;
-        }
-    }
-
-    template <typename PFN, typename HOOK>
-    void registerCallback(Callback callback, HOOK hook) {
-        static_assert(std::is_same<PFN, HOOK>::value,
-                "Incompatible function pointer");
-        auto intCallback = static_cast<int32_t>(callback);
-        auto callbackData = static_cast<hwc2_callback_data_t>(this);
-        auto pfn = reinterpret_cast<hwc2_function_pointer_t>(hook);
-        mRegisterCallback(mHwcDevice, intCallback, callbackData, pfn);
-    }
-
     void loadCapabilities();
-    void loadFunctionPointers();
     void registerCallbacks();
 
     // For use by Display
@@ -131,56 +117,7 @@ private:
     void destroyVirtualDisplay(hwc2_display_t display);
 
     // Member variables
-
-    hwc2_device_t* mHwcDevice;
-
-    // Device function pointers
-    HWC2_PFN_CREATE_VIRTUAL_DISPLAY mCreateVirtualDisplay;
-    HWC2_PFN_DESTROY_VIRTUAL_DISPLAY mDestroyVirtualDisplay;
-    HWC2_PFN_DUMP mDump;
-    HWC2_PFN_GET_MAX_VIRTUAL_DISPLAY_COUNT mGetMaxVirtualDisplayCount;
-    HWC2_PFN_REGISTER_CALLBACK mRegisterCallback;
-
-    // Display function pointers
-    HWC2_PFN_ACCEPT_DISPLAY_CHANGES mAcceptDisplayChanges;
-    HWC2_PFN_CREATE_LAYER mCreateLayer;
-    HWC2_PFN_DESTROY_LAYER mDestroyLayer;
-    HWC2_PFN_GET_ACTIVE_CONFIG mGetActiveConfig;
-    HWC2_PFN_GET_CHANGED_COMPOSITION_TYPES mGetChangedCompositionTypes;
-    HWC2_PFN_GET_COLOR_MODES mGetColorModes;
-    HWC2_PFN_GET_DISPLAY_ATTRIBUTE mGetDisplayAttribute;
-    HWC2_PFN_GET_DISPLAY_CONFIGS mGetDisplayConfigs;
-    HWC2_PFN_GET_DISPLAY_NAME mGetDisplayName;
-    HWC2_PFN_GET_DISPLAY_REQUESTS mGetDisplayRequests;
-    HWC2_PFN_GET_DISPLAY_TYPE mGetDisplayType;
-    HWC2_PFN_GET_DOZE_SUPPORT mGetDozeSupport;
-    HWC2_PFN_GET_HDR_CAPABILITIES mGetHdrCapabilities;
-    HWC2_PFN_GET_RELEASE_FENCES mGetReleaseFences;
-    HWC2_PFN_PRESENT_DISPLAY mPresentDisplay;
-    HWC2_PFN_SET_ACTIVE_CONFIG mSetActiveConfig;
-    HWC2_PFN_SET_CLIENT_TARGET mSetClientTarget;
-    HWC2_PFN_SET_COLOR_MODE mSetColorMode;
-    HWC2_PFN_SET_COLOR_TRANSFORM mSetColorTransform;
-    HWC2_PFN_SET_OUTPUT_BUFFER mSetOutputBuffer;
-    HWC2_PFN_SET_POWER_MODE mSetPowerMode;
-    HWC2_PFN_SET_VSYNC_ENABLED mSetVsyncEnabled;
-    HWC2_PFN_VALIDATE_DISPLAY mValidateDisplay;
-
-    // Layer function pointers
-    HWC2_PFN_SET_CURSOR_POSITION mSetCursorPosition;
-    HWC2_PFN_SET_LAYER_BUFFER mSetLayerBuffer;
-    HWC2_PFN_SET_LAYER_SURFACE_DAMAGE mSetLayerSurfaceDamage;
-    HWC2_PFN_SET_LAYER_BLEND_MODE mSetLayerBlendMode;
-    HWC2_PFN_SET_LAYER_COLOR mSetLayerColor;
-    HWC2_PFN_SET_LAYER_COMPOSITION_TYPE mSetLayerCompositionType;
-    HWC2_PFN_SET_LAYER_DATASPACE mSetLayerDataspace;
-    HWC2_PFN_SET_LAYER_DISPLAY_FRAME mSetLayerDisplayFrame;
-    HWC2_PFN_SET_LAYER_PLANE_ALPHA mSetLayerPlaneAlpha;
-    HWC2_PFN_SET_LAYER_SIDEBAND_STREAM mSetLayerSidebandStream;
-    HWC2_PFN_SET_LAYER_SOURCE_CROP mSetLayerSourceCrop;
-    HWC2_PFN_SET_LAYER_TRANSFORM mSetLayerTransform;
-    HWC2_PFN_SET_LAYER_VISIBLE_REGION mSetLayerVisibleRegion;
-    HWC2_PFN_SET_LAYER_Z_ORDER mSetLayerZOrder;
+    std::unique_ptr<android::Hwc2::Composer> mComposer;
 
     std::unordered_set<Capability> mCapabilities;
     std::unordered_map<hwc2_display_t, std::weak_ptr<Display>> mDisplays;
@@ -194,6 +131,7 @@ private:
     std::vector<std::pair<std::shared_ptr<Display>, nsecs_t>> mPendingVsyncs;
 };
 
+// Convenience C++ class to access hwc2_device_t Display functions directly.
 class Display : public std::enable_shared_from_this<Display>
 {
 public:
@@ -300,11 +238,11 @@ public:
             std::unordered_map<std::shared_ptr<Layer>,
                     android::sp<android::Fence>>* outFences) const;
     [[clang::warn_unused_result]] Error present(
-            android::sp<android::Fence>* outRetireFence);
+            android::sp<android::Fence>* outPresentFence);
     [[clang::warn_unused_result]] Error setActiveConfig(
             const std::shared_ptr<const Config>& config);
     [[clang::warn_unused_result]] Error setClientTarget(
-            buffer_handle_t target,
+            uint32_t slot, const android::sp<android::GraphicBuffer>& target,
             const android::sp<android::Fence>& acquireFence,
             android_dataspace_t dataspace);
     [[clang::warn_unused_result]] Error setColorMode(android_color_mode_t mode);
@@ -317,6 +255,15 @@ public:
     [[clang::warn_unused_result]] Error setVsyncEnabled(Vsync enabled);
     [[clang::warn_unused_result]] Error validate(uint32_t* outNumTypes,
             uint32_t* outNumRequests);
+    [[clang::warn_unused_result]] Error presentOrValidate(uint32_t* outNumTypes,
+                                                 uint32_t* outNumRequests,
+                                                          android::sp<android::Fence>* outPresentFence, uint32_t* state);
+
+    // Most methods in this class write a command to a command buffer.  The
+    // command buffer is implicitly submitted in validate, present, and
+    // presentOrValidate.  This method provides a way to discard the commands,
+    // which can be used to discard stale commands.
+    void discardCommands();
 
     // Other Display methods
 
@@ -326,12 +273,6 @@ public:
 
 private:
     // For use by Device
-
-    // Virtual displays are always connected
-    void setVirtual() {
-        mIsVirtual = true;
-        mIsConnected = true;
-    }
 
     void setConnected(bool connected) { mIsConnected = connected; }
     int32_t getAttribute(hwc2_config_t configId, Attribute attribute);
@@ -350,11 +291,14 @@ private:
     Device& mDevice;
     hwc2_display_t mId;
     bool mIsConnected;
-    bool mIsVirtual;
+    DisplayType mType;
     std::unordered_map<hwc2_layer_t, std::weak_ptr<Layer>> mLayers;
-    std::unordered_map<hwc2_config_t, std::shared_ptr<const Config>> mConfigs;
+    // The ordering in this map matters, for getConfigs(), when it is
+    // converted to a vector
+    std::map<hwc2_config_t, std::shared_ptr<const Config>> mConfigs;
 };
 
+// Convenience C++ class to access hwc2_device_t Layer functions directly.
 class Layer
 {
 public:
@@ -365,7 +309,8 @@ public:
     hwc2_layer_t getId() const { return mId; }
 
     [[clang::warn_unused_result]] Error setCursorPosition(int32_t x, int32_t y);
-    [[clang::warn_unused_result]] Error setBuffer(buffer_handle_t buffer,
+    [[clang::warn_unused_result]] Error setBuffer(uint32_t slot,
+            const android::sp<android::GraphicBuffer>& buffer,
             const android::sp<android::Fence>& acquireFence);
     [[clang::warn_unused_result]] Error setSurfaceDamage(
             const android::Region& damage);
@@ -386,6 +331,7 @@ public:
     [[clang::warn_unused_result]] Error setVisibleRegion(
             const android::Region& region);
     [[clang::warn_unused_result]] Error setZOrder(uint32_t z);
+    [[clang::warn_unused_result]] Error setInfo(uint32_t type, uint32_t appId);
 
 private:
     std::weak_ptr<Display> mDisplay;

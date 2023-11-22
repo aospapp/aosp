@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Сигнал при спешни случаи"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Клетъчно излъчване"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Настройки за сигналите при спешни случаи"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Съобщения за излъчване"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Включване на известията"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Показване на излъчв. на сигнал при спешни случаи"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Напомняне за сигнал"</string>
@@ -54,10 +55,10 @@
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Настройки за СПЗЦ"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Показване на тест. излъчвания за СПЗЦ"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Показване на тестовите излъчвания на системата за предупреждение за земетресения и цунами"</string>
-    <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Показване: Извънредни заплахи"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Показване на сигналите за извънредни заплахи на живота и собствеността"</string>
+    <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Показване на извънредни заплахи"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Показване на сигналите за извънредни заплахи за живота и собствеността"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Показване на сериозни заплахи"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Показване на сигналите за сериозни заплахи на живота и собствеността"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Показване на сигналите за сериозни заплахи за живота и собствеността"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Показване на сигналите за изчезнали деца"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Показване на спешните бюлетини за изчезнали деца (сигнал за изчезнало дете)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"Показване на тест. излъчвания за ССММ"</string>

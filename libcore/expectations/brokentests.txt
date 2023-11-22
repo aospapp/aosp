@@ -45,35 +45,17 @@
   description: "Some tests depend on ICU data, which has changed. Others make assumptions about floating point rounding",
   result: EXEC_FAILED,
   names: [
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_BigDecimalExceptionOrder",
     "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_DateTimeConversion",
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_FloatConversionE",
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_FloatConversionF",
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_FloatConversionG",
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_FloatDoubleBigDecimalExceptionOrder",
     "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_GeneralConversionOther",
     "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_LineSeparator",
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_Percent",
-    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_Width"
+    "org.apache.harmony.tests.java.util.FormatterTest#test_formatLjava_lang_String$Ljava_lang_Object_Percent"
   ]
 },
 {
   description: "(Needs investigation) Some tests make assertions that don't make sense, others use broken port allocation logic.",
   result: EXEC_FAILED,
   names: [
-    "org.apache.harmony.tests.java.net.Inet6AddressTest#test_getByNameLjava_lang_String",
-    "org.apache.harmony.tests.java.net.InetAddressTest#test_getByNameLjava_lang_String",
     "org.apache.harmony.tests.java.net.InetAddressTest#test_isReachableLjava_net_NetworkInterfaceII_loopbackInterface"
-  ]
-},
-{
-  description: "(Needs investigation) Test failures from the harmony import of external/apache-harmony/archive",
-  bug: 12189307,
-  result: EXEC_FAILED,
-  names: [
-    "org.apache.harmony.tests.java.util.jar.ManifestTest#testNul",
-    "org.apache.harmony.tests.java.util.jar.ManifestTest#testRead",
-    "org.apache.harmony.tests.java.util.jar.ManifestTest#testStreamConstructor"
   ]
 },
 {
@@ -120,13 +102,6 @@
   names: [
       "org.apache.harmony.tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKey",
       "org.apache.harmony.tests.api.javax.security.cert.X509CertificateTest#testVerifyPublicKeyString"
-  ]
-},
-{
-  description: "Suffers from side effect of other, currently unknown test",
-  result: EXEC_FAILED,
-  names: [
-      "org.apache.harmony.luni.tests.internal.net.www.protocol.http.HttpURLConnectionTest#testProxyAuthorization"
   ]
 },
 {

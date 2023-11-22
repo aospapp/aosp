@@ -20,11 +20,13 @@ import android.annotation.DrawableRes;
 import android.annotation.LayoutRes;
 import android.annotation.StringRes;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.DialogFragment;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.VisibleForTesting;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -36,17 +38,18 @@ import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto;
+import com.android.internal.logging.nano.MetricsProto;
+import com.android.internal.util.ArrayUtils;
 import com.android.settings.R;
+import com.android.settings.core.instrumentation.MetricsFeatureProvider;
 import com.android.settings.overlay.SupportFeatureProvider;
 import com.android.settings.support.SupportDisclaimerDialogFragment;
 import com.android.settings.support.SupportPhone;
 import com.android.settings.support.SupportPhoneDialogFragment;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 import static com.android.settings.overlay.SupportFeatureProvider.SupportType.CHAT;
 import static com.android.settings.overlay.SupportFeatureProvider.SupportType.PHONE;
@@ -57,6 +60,7 @@ import static com.android.settings.overlay.SupportFeatureProvider.SupportType.PH
 public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAdapter.ViewHolder> {
 
     private static final String STATE_SELECTED_COUNTRY = "STATE_SELECTED_COUNTRY";
+    private static final String ACCOUNT_SELECTED_INDEX = "ACCOUNT_SELECTED_INDEX";
     private static final int TYPE_ESCALATION_OPTIONS = R.layout.support_escalation_options;
     private static final int TYPE_ESCALATION_OPTIONS_OFFLINE =
             R.layout.support_offline_escalation_options;
@@ -66,31 +70,41 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
 
     private final Activity mActivity;
     private final EscalationClickListener mEscalationClickListener;
-    private final SpinnerItemSelectListener mSpinnerItemSelectListener;
+    private final OfflineSpinnerItemSelectListener mOfflineSpinnerItemSelectListener;
+    private final OnlineSpinnerItemSelectListener mOnlineSpinnerItemSelectListener;
     private final SupportFeatureProvider mSupportFeatureProvider;
+    private final MetricsFeatureProvider mMetricsFeatureProvider;
     private final View.OnClickListener mItemClickListener;
     private final List<SupportData> mSupportData;
 
     private String mSelectedCountry;
     private boolean mHasInternet;
-    private Account mAccount;
+    private Account[] mAccounts;
+    private int mSelectedAccountIndex;
 
     public SupportItemAdapter(Activity activity, Bundle savedInstanceState,
-            SupportFeatureProvider supportFeatureProvider, View.OnClickListener itemClickListener) {
+            SupportFeatureProvider supportFeatureProvider,
+            MetricsFeatureProvider metricsFeatureProvider,
+            View.OnClickListener itemClickListener) {
         mActivity = activity;
         mSupportFeatureProvider = supportFeatureProvider;
+        mMetricsFeatureProvider = metricsFeatureProvider;
         mItemClickListener = itemClickListener;
         mEscalationClickListener = new EscalationClickListener();
-        mSpinnerItemSelectListener = new SpinnerItemSelectListener();
+        mOfflineSpinnerItemSelectListener = new OfflineSpinnerItemSelectListener();
+        mOnlineSpinnerItemSelectListener = new OnlineSpinnerItemSelectListener();
         mSupportData = new ArrayList<>();
         // Optimistically assume we have Internet access. It will be updated later to correct value.
         mHasInternet = true;
         if (savedInstanceState != null) {
             mSelectedCountry = savedInstanceState.getString(STATE_SELECTED_COUNTRY);
+            mSelectedAccountIndex = savedInstanceState.getInt(ACCOUNT_SELECTED_INDEX);
         } else {
             mSelectedCountry = mSupportFeatureProvider.getCurrentCountryCodeIfHasConfig(PHONE);
+            mSelectedAccountIndex = 0;
         }
-        mAccount = mSupportFeatureProvider.getSupportEligibleAccount(mActivity);
+
+        mAccounts = mSupportFeatureProvider.getSupportEligibleAccounts(mActivity);
         refreshData();
     }
 
@@ -140,7 +154,7 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
             if (data.intent != null &&
                     mActivity.getPackageManager().resolveActivity(data.intent, 0) != null) {
                 if (data.metricsEvent >= 0) {
-                    MetricsLogger.action(mActivity, data.metricsEvent);
+                    mMetricsFeatureProvider.action(mActivity, data.metricsEvent);
                 }
                 mActivity.startActivityForResult(data.intent, 0);
             }
@@ -154,9 +168,16 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
         }
     }
 
-    public void setAccount(Account account) {
-        if (!Objects.equals(mAccount, account)) {
-            mAccount = account;
+    public void setAccounts(Account accounts[]) {
+        if (!Arrays.equals(mAccounts, accounts)) {
+            if (mAccounts.length == 0) {
+                mSelectedAccountIndex = 0;
+            } else {
+                final int index = ArrayUtils.indexOf(accounts, mAccounts[mSelectedAccountIndex]);
+                mSelectedAccountIndex = index != -1 ? index : 0;
+            }
+
+            mAccounts = accounts;
             mSupportFeatureProvider.refreshOperationRules();
             refreshEscalationCards();
         }
@@ -164,13 +185,14 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
 
     public void onSaveInstanceState(Bundle outState) {
         outState.putString(STATE_SELECTED_COUNTRY, mSelectedCountry);
+        outState.putInt(ACCOUNT_SELECTED_INDEX, mSelectedAccountIndex);
     }
 
     /**
      * Create data for the adapter. If there is already data in the adapter, they will be
      * destroyed and recreated.
      */
-    private void refreshData() {
+    void refreshData() {
         mSupportData.clear();
         addEscalationCards();
         addMoreHelpItems();
@@ -182,7 +204,7 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
      * different content.
      */
     private void addEscalationCards() {
-        if (mAccount == null) {
+        if (mAccounts.length == 0) {
             addSignInPromo();
         } else if (mHasInternet) {
             addOnlineEscalationCards();
@@ -336,6 +358,21 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
             holder.summary2View.setVisibility(mHasInternet && !TextUtils.isEmpty(data.summary2)
                     ? View.VISIBLE : View.GONE);
         }
+
+        bindAccountPicker(holder);
+    }
+
+    @VisibleForTesting
+    public void bindAccountPicker(ViewHolder holder) {
+        final Spinner spinner = (Spinner) holder.itemView.findViewById(R.id.account_spinner);
+
+        final ArrayAdapter<String> adapter = new ArrayAdapter(
+                mActivity, R.layout.support_account_spinner_item,
+                extractAccountNames(mAccounts));
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setOnItemSelectedListener(mOnlineSpinnerItemSelectListener);
+        spinner.setSelection(mSelectedAccountIndex);
     }
 
     private void bindOfflineEscalationOptions(ViewHolder holder, OfflineEscalationData data) {
@@ -355,7 +392,7 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
                 break;
             }
         }
-        spinner.setOnItemSelectedListener(mSpinnerItemSelectListener);
+        spinner.setOnItemSelectedListener(mOfflineSpinnerItemSelectListener);
         // Bind buttons
         if (data.tollFreePhone != null) {
             holder.text1View.setText(data.tollFreePhone.number);
@@ -371,6 +408,13 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
             holder.text2View.setOnClickListener(mEscalationClickListener);
         } else {
             holder.text2View.setVisibility(View.GONE);
+        }
+
+        if (ActivityManager.isUserAMonkey()) {
+            holder.text1View.setVisibility(View.GONE);
+            holder.text2View.setVisibility(View.GONE);
+            spinner.setVisibility(View.GONE);
+            holder.itemView.findViewById(R.id.support_text).setVisibility(View.GONE);
         }
     }
 
@@ -403,11 +447,23 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
      */
     private void tryStartDisclaimerAndSupport(final @SupportFeatureProvider.SupportType int type) {
         if (mSupportFeatureProvider.shouldShowDisclaimerDialog(mActivity)) {
-            DialogFragment fragment = SupportDisclaimerDialogFragment.newInstance(mAccount, type);
+            DialogFragment fragment = SupportDisclaimerDialogFragment.newInstance(
+                    mAccounts[mSelectedAccountIndex], type);
             fragment.show(mActivity.getFragmentManager(), SupportDisclaimerDialogFragment.TAG);
             return;
         }
-        mSupportFeatureProvider.startSupport(mActivity, mAccount, type);
+        mSupportFeatureProvider.startSupport(mActivity, mAccounts[mSelectedAccountIndex], type);
+    }
+
+    private String[] extractAccountNames(Account[] accounts) {
+        String[] accountNames = new String[accounts.length+1];
+        for (int i = 0; i < accounts.length; i++) {
+            accountNames[i] = accounts[i].name;
+        }
+        accountNames[accounts.length] = mActivity.getString(
+                R.string.support_account_picker_add_account);
+
+        return accountNames;
     }
 
     /**
@@ -416,10 +472,10 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
     private final class EscalationClickListener implements View.OnClickListener {
         @Override
         public void onClick(final View v) {
-            if (mAccount == null) {
+            if (mAccounts.length == 0) {
                 switch (v.getId()) {
                     case android.R.id.text1:
-                        MetricsLogger.action(mActivity,
+                        mMetricsFeatureProvider.action(mActivity,
                                 MetricsProto.MetricsEvent.ACTION_SUPPORT_SIGN_IN);
                         mActivity.startActivityForResult(
                                 mSupportFeatureProvider.getAccountLoginIntent(),
@@ -434,12 +490,12 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
             } else if (mHasInternet) {
                 switch (v.getId()) {
                     case android.R.id.text1:
-                        MetricsLogger.action(mActivity,
+                        mMetricsFeatureProvider.action(mActivity,
                                 MetricsProto.MetricsEvent.ACTION_SUPPORT_PHONE);
                         tryStartDisclaimerAndSupport(PHONE);
                         break;
                     case android.R.id.text2:
-                        MetricsLogger.action(mActivity,
+                        mMetricsFeatureProvider.action(mActivity,
                                 MetricsProto.MetricsEvent.ACTION_SUPPORT_CHAT);
                         tryStartDisclaimerAndSupport(CHAT);
                         break;
@@ -455,7 +511,7 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
                                     .queryIntentActivities(intent, 0)
                                     .isEmpty();
                             if (canDial) {
-                                MetricsLogger.action(mActivity,
+                                mMetricsFeatureProvider.action(mActivity,
                                         MetricsProto.MetricsEvent.ACTION_SUPPORT_DAIL_TOLLFREE);
                                 mActivity.startActivity(intent);
                             }
@@ -467,7 +523,7 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
                                 .getSupportPhones(mSelectedCountry, false /* isTollFree */);
                         final SupportPhoneDialogFragment fragment =
                                 SupportPhoneDialogFragment.newInstance(phone);
-                        MetricsLogger.action(mActivity,
+                        mMetricsFeatureProvider.action(mActivity,
                                 MetricsProto.MetricsEvent.ACTION_SUPPORT_VIEW_TRAVEL_ABROAD_DIALOG);
                         fragment.show(mActivity.getFragmentManager(),
                                 SupportPhoneDialogFragment.TAG);
@@ -478,7 +534,8 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
         }
     }
 
-    private final class SpinnerItemSelectListener implements AdapterView.OnItemSelectedListener {
+    private final class OfflineSpinnerItemSelectListener
+            implements AdapterView.OnItemSelectedListener {
 
         @Override
         public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -487,6 +544,26 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
             if (!TextUtils.equals(selectedCountry, mSelectedCountry)) {
                 mSelectedCountry = selectedCountry;
                 refreshEscalationCards();
+            }
+        }
+
+        @Override
+        public void onNothingSelected(AdapterView<?> parent) {
+            // Do nothing.
+        }
+    }
+
+    private final class OnlineSpinnerItemSelectListener
+            implements AdapterView.OnItemSelectedListener {
+
+        @Override
+        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+            if (position == mAccounts.length) {
+                mActivity.startActivity(mSupportFeatureProvider.getAccountLoginIntent());
+                // Make sure "Add account" is not shown as selected item
+                parent.setSelection(mSelectedAccountIndex);
+            } else if (position != mSelectedAccountIndex) {
+                mSelectedAccountIndex = position;
             }
         }
 
@@ -524,7 +601,8 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
     /**
      * Data for a single support item.
      */
-    private static class SupportData {
+    @VisibleForTesting
+    static class SupportData {
 
         final Intent intent;
         final int metricsEvent;
@@ -611,7 +689,8 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
     /**
      * Data model for escalation cards.
      */
-    private static class EscalationData extends SupportData {
+    @VisibleForTesting
+    static class EscalationData extends SupportData {
 
         @StringRes
         final int text1;
@@ -735,5 +814,10 @@ public final class SupportItemAdapter extends RecyclerView.Adapter<SupportItemAd
                 return new OfflineEscalationData(this);
             }
         }
+    }
+
+    @VisibleForTesting
+    List<SupportData> getSupportData() {
+        return mSupportData;
     }
 }

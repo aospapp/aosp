@@ -16,8 +16,23 @@
 
 package android.text.method.cts;
 
-import android.cts.util.KeyEventUtil;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
 import android.os.SystemClock;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.test.UiThreadTest;
 import android.text.Editable;
 import android.text.InputType;
@@ -30,26 +45,27 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.widget.TextView.BufferType;
 
+import com.android.compatibility.common.util.CtsKeyEventUtil;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class TextKeyListenerTest extends KeyListenerTestCase {
     /**
      * time out of MultiTapKeyListener. longer than 2000ms in case the system is sluggish.
      */
     private static final long TIME_OUT = 3000;
 
-    private KeyEventUtil mKeyEventUtil;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mKeyEventUtil = new KeyEventUtil(getInstrumentation());
-    }
-
+    @Test
     public void testConstructor() {
         new TextKeyListener(Capitalize.NONE, true);
 
         new TextKeyListener(null, true);
     }
 
+    @Test
     public void testShouldCap() {
         String str = "hello world! man";
 
@@ -74,33 +90,31 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         assertFalse(TextKeyListener.shouldCap(Capitalize.SENTENCES, str, 14));
         assertFalse(TextKeyListener.shouldCap(Capitalize.WORDS, str, 14));
         assertTrue(TextKeyListener.shouldCap(Capitalize.CHARACTERS, str, 14));
-
-        try {
-            TextKeyListener.shouldCap(Capitalize.WORDS, null, 16);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
     }
 
-    public void testOnSpanAdded() {
-        final MockTextKeyListener mockTextKeyListener
-                = new MockTextKeyListener(Capitalize.CHARACTERS, true);
+    @Test(expected=NullPointerException.class)
+    public void testShouldCapNull() {
+        TextKeyListener.shouldCap(Capitalize.WORDS, null, 16);
+    }
+
+    @Test
+    public void testOnSpanAdded() throws Throwable {
+        final TextKeyListener mockTextKeyListener = spy(
+                new TextKeyListener(Capitalize.CHARACTERS, true));
         final Spannable text = new SpannableStringBuilder("123456");
 
-        assertFalse(mockTextKeyListener.hadAddedSpan());
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setKeyListener(mockTextKeyListener);
-                mTextView.setText(text, BufferType.EDITABLE);
-            }
+        verify(mockTextKeyListener, never()).onSpanAdded(any(), any(), anyInt(), anyInt());
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setKeyListener(mockTextKeyListener);
+            mTextView.setText(text, BufferType.EDITABLE);
         });
         mInstrumentation.waitForIdleSync();
-
-        assertTrue(mockTextKeyListener.hadAddedSpan());
+        verify(mockTextKeyListener, atLeastOnce()).onSpanAdded(any(), any(), anyInt(), anyInt());
 
         mockTextKeyListener.release();
     }
 
+    @Test
     public void testGetInstance1() {
         TextKeyListener listener1 = TextKeyListener.getInstance(true, Capitalize.WORDS);
         TextKeyListener listener2 = TextKeyListener.getInstance(true, Capitalize.WORDS);
@@ -121,6 +135,7 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         listener4.release();
     }
 
+    @Test
     public void testGetInstance2() {
         TextKeyListener listener1 = TextKeyListener.getInstance();
         TextKeyListener listener2 = TextKeyListener.getInstance();
@@ -133,32 +148,35 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         listener2.release();
     }
 
+    @Test
     public void testOnSpanChanged() {
         TextKeyListener textKeyListener = TextKeyListener.getInstance();
         final Spannable text = new SpannableStringBuilder("123456");
         textKeyListener.onSpanChanged(text, Selection.SELECTION_END, 0, 0, 0, 0);
 
-        try {
-            textKeyListener.onSpanChanged(null, Selection.SELECTION_END, 0, 0, 0, 0);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
-
         textKeyListener.release();
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testOnSpanChangedNull() {
+        TextKeyListener textKeyListener = TextKeyListener.getInstance();
+        textKeyListener.onSpanChanged(null, Selection.SELECTION_END, 0, 0, 0, 0);
+    }
+
     @UiThreadTest
+    @Test
     public void testClear() {
         CharSequence text = "123456";
         mTextView.setText(text, BufferType.EDITABLE);
 
-        Editable content = (Editable) mTextView.getText();
+        Editable content = mTextView.getText();
         assertEquals(text, content.toString());
 
         TextKeyListener.clear(content);
         assertEquals("", content.toString());
     }
 
+    @Test
     public void testOnSpanRemoved() {
         TextKeyListener textKeyListener = new TextKeyListener(Capitalize.CHARACTERS, true);
         final Spannable text = new SpannableStringBuilder("123456");
@@ -183,22 +201,21 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
      * 1. press KEYCODE_4 once. if it's ALPHA key board, text will be "4", if it's
      *    NUMERIC key board, text will be "g", else text will be "".
      */
-    public void testPressKey() {
+    @Test
+    public void testPressKey() throws Throwable {
         final TextKeyListener textKeyListener
                 = TextKeyListener.getInstance(false, Capitalize.NONE);
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setText("", BufferType.EDITABLE);
-                Selection.setSelection((Editable) mTextView.getText(), 0, 0);
-                mTextView.setKeyListener(textKeyListener);
-                mTextView.requestFocus();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setText("", BufferType.EDITABLE);
+            Selection.setSelection(mTextView.getText(), 0, 0);
+            mTextView.setKeyListener(textKeyListener);
+            mTextView.requestFocus();
         });
         mInstrumentation.waitForIdleSync();
         assertEquals("", mTextView.getText().toString());
 
-        mKeyEventUtil.sendKeys(mTextView, KeyEvent.KEYCODE_4);
+        CtsKeyEventUtil.sendKeys(mInstrumentation, mTextView, KeyEvent.KEYCODE_4);
         waitForListenerTimeout();
         String text = mTextView.getText().toString();
         int keyType = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD).getKeyboardType();
@@ -214,17 +231,16 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         textKeyListener.release();
     }
 
-    public void testOnKeyOther() {
+    @Test
+    public void testOnKeyOther() throws Throwable {
         final String text = "abcd";
         final TextKeyListener textKeyListener
                 = TextKeyListener.getInstance(false, Capitalize.NONE);
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mTextView.setText("", BufferType.EDITABLE);
-                Selection.setSelection((Editable) mTextView.getText(), 0, 0);
-                mTextView.setKeyListener(textKeyListener);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mTextView.setText("", BufferType.EDITABLE);
+            Selection.setSelection(mTextView.getText(), 0, 0);
+            mTextView.setKeyListener(textKeyListener);
         });
         mInstrumentation.waitForIdleSync();
         assertEquals("", mTextView.getText().toString());
@@ -232,7 +248,7 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         // test ACTION_MULTIPLE KEYCODE_UNKNOWN key event.
         KeyEvent event = new KeyEvent(SystemClock.uptimeMillis(), text,
                 1, KeyEvent.FLAG_WOKE_HERE);
-        mKeyEventUtil.sendKey(mTextView, event);
+        CtsKeyEventUtil.sendKey(mInstrumentation, mTextView, event);
         mInstrumentation.waitForIdleSync();
         // the text of TextView is never changed, onKeyOther never works.
 //        assertEquals(text, mTextView.getText().toString()); issue 1731439
@@ -240,6 +256,7 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         textKeyListener.release();
     }
 
+    @Test
     public void testGetInputType() {
         TextKeyListener listener = TextKeyListener.getInstance(false, Capitalize.NONE);
         int expected = InputType.TYPE_CLASS_TEXT;
@@ -251,29 +268,5 @@ public class TextKeyListenerTest extends KeyListenerTestCase {
         assertEquals(expected, listener.getInputType());
 
         listener.release();
-    }
-
-    /**
-     * A mocked {@link android.text.method.TextKeyListener} for testing purposes.
-     *
-     * Tracks whether {@link MockTextKeyListener#onSpanAdded(Spannable, Object, int, int)} has been
-     * called.
-     */
-    private class MockTextKeyListener extends TextKeyListener {
-        private boolean mHadAddedSpan;
-
-        public MockTextKeyListener(Capitalize cap, boolean autotext) {
-            super(cap, autotext);
-        }
-
-        @Override
-        public void onSpanAdded(Spannable s, Object what, int start, int end) {
-            mHadAddedSpan = true;
-            super.onSpanAdded(s, what, start, end);
-        }
-
-        public boolean hadAddedSpan() {
-            return mHadAddedSpan;
-        }
     }
 }

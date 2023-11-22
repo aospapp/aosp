@@ -19,23 +19,23 @@
     <!-- Age based TV content rating strings used in DVB and ISDB.
          For more info, please see STD-B10 in http://www.dibeg.org/techp/aribstd/aribstd.html (ISDB)
          and Table 81 of DVB SI (EN 300 468 V1.14.1) in https://www.dvb.org/standards (DVB).-->
-    <string name="description_age_4" translatable="false">Recommended for ages 4 and over.</string>
-    <string name="description_age_5" translatable="false">Recommended for ages 5 and over.</string>
-    <string name="description_age_6" translatable="false">Recommended for ages 6 and over.</string>
-    <string name="description_age_7" translatable="false">Recommended for ages 7 and over.</string>
-    <string name="description_age_8" translatable="false">Recommended for ages 8 and over.</string>
-    <string name="description_age_9" translatable="false">Recommended for ages 9 and over.</string>
-    <string name="description_age_10" translatable="false">Recommended for ages 10 and over.</string>
-    <string name="description_age_11" translatable="false">Recommended for ages 11 and over.</string>
-    <string name="description_age_12" translatable="false">Recommended for ages 12 and over.</string>
-    <string name="description_age_13" translatable="false">Recommended for ages 13 and over.</string>
-    <string name="description_age_14" translatable="false">Recommended for ages 14 and over.</string>
-    <string name="description_age_15" translatable="false">Recommended for ages 15 and over.</string>
-    <string name="description_age_16" translatable="false">Recommended for ages 16 and over.</string>
-    <string name="description_age_17" translatable="false">Recommended for ages 17 and over.</string>
-    <string name="description_age_18" translatable="false">Recommended for ages 18 and over.</string>
-    <string name="description_age_19" translatable="false">Recommended for ages 19 and over.</string>
-    <string name="description_age_20" translatable="false">Recommended for ages 20 and over.</string>
+    <string name="description_age_4">Recommended for ages 4 and over.</string>
+    <string name="description_age_5">Recommended for ages 5 and over.</string>
+    <string name="description_age_6">Recommended for ages 6 and over.</string>
+    <string name="description_age_7">Recommended for ages 7 and over.</string>
+    <string name="description_age_8">Recommended for ages 8 and over.</string>
+    <string name="description_age_9">Recommended for ages 9 and over.</string>
+    <string name="description_age_10">Recommended for ages 10 and over.</string>
+    <string name="description_age_11">Recommended for ages 11 and over.</string>
+    <string name="description_age_12">Recommended for ages 12 and over.</string>
+    <string name="description_age_13">Recommended for ages 13 and over.</string>
+    <string name="description_age_14">Recommended for ages 14 and over.</string>
+    <string name="description_age_15">Recommended for ages 15 and over.</string>
+    <string name="description_age_16">Recommended for ages 16 and over.</string>
+    <string name="description_age_17">Recommended for ages 17 and over.</string>
+    <string name="description_age_18">Recommended for ages 18 and over.</string>
+    <string name="description_age_19">Recommended for ages 19 and over.</string>
+    <string name="description_age_20">Recommended for ages 20 and over.</string>
 
     <!-- TV content rating system strings for AR TV. These strings are from Wikipedia.
          See http://en.wikipedia.org/wiki/Television_content_rating_systems -->
@@ -78,13 +78,13 @@
 
     <!-- TV content rating system strings for CA TV. These strings are from
          http://www.cbsc.ca/english/agvot/englishsystem.php -->
-    <string name="description_ca_tv_en_exempt" translatable="false">Exempt programming includes: news, sports, documentaries and other information programming; talk shows, music videos, and variety programming.</string>
-    <string name="description_ca_tv_en_c" translatable="false">This programming is intended for younger children under the age of 8 years.</string>
-    <string name="description_ca_tv_en_c8" translatable="false">This programming is intended for youngsters 8 years and over. It is suggested that a parent/guardian co-view programming assigned this classification with younger children under the age of 8.</string>
-    <string name="description_ca_tv_en_g" translatable="false">This programming is intended for all age groups and appropriate viewing for the entire family.</string>
-    <string name="description_ca_tv_en_pg" translatable="false">This programming, while intended for a general audience, may not be suitable for younger children (under the age of 8). Parents/guardians should be aware that there might be content elements which some could consider inappropriate for unsupervised viewing by children in the 8-13 age range.</string>
-    <string name="description_ca_tv_en_14" translatable="false">Programming with this classification contains themes or content elements which might not be suitable for viewers under the age of 14. Parents are strongly cautioned to exercise discretion in permitting viewing by pre-teens and early teens without parent/guardian supervision, as programming with this classification could deal with mature themes and societal issues in a realistic fashion.</string>
-    <string name="description_ca_tv_en_18" translatable="false">This programming is intended for viewers 18 years and older.</string>
+    <string name="description_ca_tv_en_exempt">Exempt programming includes: news, sports, documentaries and other information programming; talk shows, music videos, and variety programming.</string>
+    <string name="description_ca_tv_en_c">This programming is intended for younger children under the age of 8 years.</string>
+    <string name="description_ca_tv_en_c8">This programming is intended for youngsters 8 years and over. It is suggested that a parent/guardian co-view programming assigned this classification with younger children under the age of 8.</string>
+    <string name="description_ca_tv_en_g">This programming is intended for all age groups and appropriate viewing for the entire family.</string>
+    <string name="description_ca_tv_en_pg">This programming, while intended for a general audience, may not be suitable for younger children (under the age of 8). Parents/guardians should be aware that there might be content elements which some could consider inappropriate for unsupervised viewing by children in the 8-13 age range.</string>
+    <string name="description_ca_tv_en_14">Programming with this classification contains themes or content elements which might not be suitable for viewers under the age of 14. Parents are strongly cautioned to exercise discretion in permitting viewing by pre-teens and early teens without parent/guardian supervision, as programming with this classification could deal with mature themes and societal issues in a realistic fashion.</string>
+    <string name="description_ca_tv_en_18">This programming is intended for viewers 18 years and older.</string>
 
     <!-- TV content rating system strings for CA TV (French). -->
     <!-- A short title of the rating system that appears in the parentheses right next to the

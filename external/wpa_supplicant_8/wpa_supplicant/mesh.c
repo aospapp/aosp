@@ -66,9 +66,11 @@ void wpa_supplicant_mesh_iface_deinit(struct wpa_supplicant *wpa_s,
 }
 
 
-static struct mesh_conf * mesh_config_create(struct wpa_ssid *ssid)
+static struct mesh_conf * mesh_config_create(struct wpa_supplicant *wpa_s,
+					     struct wpa_ssid *ssid)
 {
 	struct mesh_conf *conf;
+	int cipher;
 
 	conf = os_zalloc(sizeof(struct mesh_conf));
 	if (!conf)
@@ -82,6 +84,33 @@ static struct mesh_conf * mesh_config_create(struct wpa_ssid *ssid)
 			MESH_CONF_SEC_AMPE;
 	else
 		conf->security |= MESH_CONF_SEC_NONE;
+	conf->ieee80211w = ssid->ieee80211w;
+	if (conf->ieee80211w == MGMT_FRAME_PROTECTION_DEFAULT) {
+		if (wpa_s->drv_enc & WPA_DRIVER_CAPA_ENC_BIP)
+			conf->ieee80211w = wpa_s->conf->pmf;
+		else
+			conf->ieee80211w = NO_MGMT_FRAME_PROTECTION;
+	}
+
+	cipher = wpa_pick_pairwise_cipher(ssid->pairwise_cipher, 0);
+	if (cipher < 0 || cipher == WPA_CIPHER_TKIP) {
+		wpa_msg(wpa_s, MSG_INFO, "mesh: Invalid pairwise cipher");
+		os_free(conf);
+		return NULL;
+	}
+	conf->pairwise_cipher = cipher;
+
+	cipher = wpa_pick_group_cipher(ssid->group_cipher);
+	if (cipher < 0 || cipher == WPA_CIPHER_TKIP ||
+	    cipher == WPA_CIPHER_GTK_NOT_USED) {
+		wpa_msg(wpa_s, MSG_INFO, "mesh: Invalid group cipher");
+		os_free(conf);
+		return NULL;
+	}
+
+	conf->group_cipher = cipher;
+	if (conf->ieee80211w != NO_MGMT_FRAME_PROTECTION)
+		conf->mgmt_group_cipher = WPA_CIPHER_AES_128_CMAC;
 
 	/* defaults */
 	conf->mesh_pp_id = MESH_PATH_PROTOCOL_HWMP;
@@ -117,7 +146,8 @@ static void wpas_mesh_copy_groups(struct hostapd_data *bss,
 
 
 static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
-				    struct wpa_ssid *ssid)
+				    struct wpa_ssid *ssid,
+				    struct hostapd_freq_params *freq)
 {
 	struct hostapd_iface *ifmsh;
 	struct hostapd_data *bss;
@@ -127,6 +157,7 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 	static int default_groups[] = { 19, 20, 21, 25, 26, -1 };
 	size_t len;
 	int rate_len;
+	int frequency;
 
 	if (!wpa_s->conf->user_mpm) {
 		/* not much for us to do here */
@@ -146,7 +177,7 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 	if (!ifmsh->bss)
 		goto out_free;
 
-	ifmsh->bss[0] = bss = os_zalloc(sizeof(struct hostapd_data));
+	ifmsh->bss[0] = bss = hostapd_alloc_bss_data(NULL, NULL, NULL);
 	if (!bss)
 		goto out_free;
 
@@ -155,7 +186,13 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 	bss->drv_priv = wpa_s->drv_priv;
 	bss->iface = ifmsh;
 	bss->mesh_sta_free_cb = mesh_mpm_free_sta;
-	wpa_s->assoc_freq = ssid->frequency;
+	frequency = ssid->frequency;
+	if (frequency != freq->freq &&
+	    frequency == freq->freq + freq->sec_channel_offset * 20) {
+		wpa_printf(MSG_DEBUG, "mesh: pri/sec channels switched");
+		frequency = freq->freq;
+	}
+	wpa_s->assoc_freq = frequency;
 	wpa_s->current_ssid = ssid;
 
 	/* setup an AP config for auth processing */
@@ -175,22 +212,16 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 		wpa_s->conf->dot11RSNASAERetransPeriod;
 	os_strlcpy(bss->conf->iface, wpa_s->ifname, sizeof(bss->conf->iface));
 
-	mconf = mesh_config_create(ssid);
+	mconf = mesh_config_create(wpa_s, ssid);
 	if (!mconf)
 		goto out_free;
 	ifmsh->mconf = mconf;
 
 	/* need conf->hw_mode for supported rates. */
-	if (ssid->frequency == 0) {
-		conf->hw_mode = HOSTAPD_MODE_IEEE80211G;
-		conf->channel = 1;
-	} else {
-		conf->hw_mode = ieee80211_freq_to_chan(ssid->frequency,
-						       &conf->channel);
-	}
+	conf->hw_mode = ieee80211_freq_to_chan(frequency, &conf->channel);
 	if (conf->hw_mode == NUM_HOSTAPD_MODES) {
 		wpa_printf(MSG_ERROR, "Unsupported mesh mode frequency: %d MHz",
-			   ssid->frequency);
+			   frequency);
 		goto out_free;
 	}
 	if (ssid->ht40)
@@ -201,13 +232,13 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 		case VHT_CHANWIDTH_80MHZ:
 		case VHT_CHANWIDTH_80P80MHZ:
 			ieee80211_freq_to_chan(
-				ssid->frequency,
+				frequency,
 				&conf->vht_oper_centr_freq_seg0_idx);
 			conf->vht_oper_centr_freq_seg0_idx += ssid->ht40 * 2;
 			break;
 		case VHT_CHANWIDTH_160MHZ:
 			ieee80211_freq_to_chan(
-				ssid->frequency,
+				frequency,
 				&conf->vht_oper_centr_freq_seg0_idx);
 			conf->vht_oper_centr_freq_seg0_idx += ssid->ht40 * 2;
 			conf->vht_oper_centr_freq_seg0_idx += 40 / 5;
@@ -341,15 +372,9 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 
 	wpa_supplicant_mesh_deinit(wpa_s);
 
-	if (ssid->key_mgmt & WPA_KEY_MGMT_SAE) {
-		wpa_s->pairwise_cipher = WPA_CIPHER_CCMP;
-		wpa_s->group_cipher = WPA_CIPHER_CCMP;
-		wpa_s->mgmt_group_cipher = 0;
-	} else {
-		wpa_s->pairwise_cipher = WPA_CIPHER_NONE;
-		wpa_s->group_cipher = WPA_CIPHER_NONE;
-		wpa_s->mgmt_group_cipher = 0;
-	}
+	wpa_s->pairwise_cipher = WPA_CIPHER_NONE;
+	wpa_s->group_cipher = WPA_CIPHER_NONE;
+	wpa_s->mgmt_group_cipher = 0;
 
 	os_memset(&params, 0, sizeof(params));
 	params.meshid = ssid->ssid;
@@ -383,7 +408,11 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 		params.beacon_int = ssid->beacon_int;
 	else if (wpa_s->conf->beacon_int > 0)
 		params.beacon_int = wpa_s->conf->beacon_int;
-	params.max_peer_links = wpa_s->conf->max_peer_links;
+	if (ssid->dtim_period > 0)
+		params.dtim_period = ssid->dtim_period;
+	else if (wpa_s->conf->dtim_period > 0)
+		params.dtim_period = wpa_s->conf->dtim_period;
+	params.conf.max_peer_links = wpa_s->conf->max_peer_links;
 
 	if (ssid->key_mgmt & WPA_KEY_MGMT_SAE) {
 		params.flags |= WPA_DRIVER_MESH_FLAG_SAE_AUTH;
@@ -393,34 +422,45 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 
 	if (wpa_s->conf->user_mpm) {
 		params.flags |= WPA_DRIVER_MESH_FLAG_USER_MPM;
-		params.conf.flags &= ~WPA_DRIVER_MESH_CONF_FLAG_AUTO_PLINKS;
+		params.conf.auto_plinks = 0;
 	} else {
 		params.flags |= WPA_DRIVER_MESH_FLAG_DRIVER_MPM;
-		params.conf.flags |= WPA_DRIVER_MESH_CONF_FLAG_AUTO_PLINKS;
+		params.conf.auto_plinks = 1;
 	}
 	params.conf.peer_link_timeout = wpa_s->conf->mesh_max_inactivity;
 
-	if (wpa_supplicant_mesh_init(wpa_s, ssid)) {
+	if (wpa_supplicant_mesh_init(wpa_s, ssid, &params.freq)) {
 		wpa_msg(wpa_s, MSG_ERROR, "Failed to init mesh");
 		wpa_drv_leave_mesh(wpa_s);
 		ret = -1;
 		goto out;
 	}
 
+	if (ssid->key_mgmt & WPA_KEY_MGMT_SAE) {
+		wpa_s->pairwise_cipher = wpa_s->mesh_rsn->pairwise_cipher;
+		wpa_s->group_cipher = wpa_s->mesh_rsn->group_cipher;
+		wpa_s->mgmt_group_cipher = wpa_s->mesh_rsn->mgmt_group_cipher;
+	}
+
 	if (wpa_s->ifmsh) {
 		params.ies = wpa_s->ifmsh->mconf->rsn_ie;
 		params.ie_len = wpa_s->ifmsh->mconf->rsn_ie_len;
 		params.basic_rates = wpa_s->ifmsh->basic_rates;
+		params.conf.flags |= WPA_DRIVER_MESH_CONF_FLAG_HT_OP_MODE;
+		params.conf.ht_opmode = wpa_s->ifmsh->bss[0]->iface->ht_op_mode;
 	}
 
 	wpa_msg(wpa_s, MSG_INFO, "joining mesh %s",
 		wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
 	ret = wpa_drv_join_mesh(wpa_s, &params);
 	if (ret)
-		wpa_msg(wpa_s, MSG_ERROR, "mesh join error=%d\n", ret);
+		wpa_msg(wpa_s, MSG_ERROR, "mesh join error=%d", ret);
 
 	/* hostapd sets the interface down until we associate */
 	wpa_drv_set_operstate(wpa_s, 1);
+
+	if (!ret)
+		wpa_supplicant_set_state(wpa_s, WPA_COMPLETED);
 
 out:
 	return ret;
@@ -591,7 +631,7 @@ int wpas_mesh_add_interface(struct wpa_supplicant *wpa_s, char *ifname,
 	if (!mesh_wpa_s) {
 		wpa_printf(MSG_ERROR,
 			   "mesh: Failed to create new wpa_supplicant interface");
-		wpa_supplicant_remove_iface(wpa_s->global, wpa_s, 0);
+		wpa_drv_if_remove(wpa_s, WPA_IF_MESH, ifname);
 		return -1;
 	}
 	mesh_wpa_s->mesh_if_created = 1;

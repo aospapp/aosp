@@ -16,4 +16,6 @@
     <bool name="profile_supported_pbap">false</bool>
     <bool name="profile_supported_map">false</bool>
     <bool name="profile_supported_opp">false</bool>
+
+    <string name="pairing_ui_package">com.android.tv.settings</string>
 </resources>

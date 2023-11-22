@@ -32,5 +32,5 @@ LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
 
 LOCAL_LDFLAGS := -llog -ldl
-LOCAL_STATIC_LIBRARIES := libRScpp_static libcutils
+LOCAL_STATIC_LIBRARIES := libRScpp_static
 include $(BUILD_SHARED_LIBRARY)

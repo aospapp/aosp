@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Ohne"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Unbekannter Klingelton"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Alle verfügbaren Leitungen sind belegt. Beende einen Anruf auf diesem oder einem deiner anderen Geräte, um einen neuen Anruf zu tätigen."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Der Anruf wurde beendet, weil Mobildaten deaktiviert wurden."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Der Anruf wurde beendet, weil das Mobilfunkdatenlimit erreicht wurde."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Datenlimit erreicht. Anruf wurde beendet."</string>
 </resources>

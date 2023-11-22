@@ -7,17 +7,15 @@ import logging
 import os
 import random
 import shutil
-import StringIO
 import sys
 import tempfile
 
-from catapult_base import cloud_storage  # pylint: disable=import-error
+from py_utils import cloud_storage  # pylint: disable=import-error
 
 from telemetry.internal.util import file_handle
 from telemetry.timeline import trace_data as trace_data_module
 from telemetry import value as value_module
-
-from tracing_build import trace2html
+from tracing.trace_data import trace_data as trace_data_module
 
 
 class TraceValue(value_module.Value):
@@ -36,20 +34,26 @@ class TraceValue(value_module.Value):
     self._cloud_url = None
     self._serialized_file_handle = None
 
+  @property
+  def value(self):
+    if self._cloud_url:
+      return self._cloud_url
+    elif self._serialized_file_handle:
+      return self._serialized_file_handle.GetAbsPath()
+
+  def _GetTraceParts(self, trace_data):
+    return [(trace_data.GetTracesFor(p), p)
+            for p in trace_data_module.ALL_TRACE_PARTS
+            if trace_data.HasTracesFor(p)]
+
   def _GetTempFileHandle(self, trace_data):
+    tf = tempfile.NamedTemporaryFile(delete=False, suffix='.html')
+    tf.close()
+    title = ''
     if self.page:
       title = self.page.display_name
-    else:
-      title = ''
-    content = StringIO.StringIO()
-    trace2html.WriteHTMLForTraceDataToFile(
-        [trace_data.GetEventsFor(trace_data_module.CHROME_TRACE_PART)],
-        title,
-        content)
-    tf = tempfile.NamedTemporaryFile(delete=False, suffix='.html')
-    tf.write(content.getvalue().encode('utf-8'))
-    tf.close()
-    return file_handle.FromTempFile(tf)
+    trace_data.Serialize(tf.name, trace_title=title)
+    return file_handle.FromFilePath(tf.name)
 
   def __repr__(self):
     if self.page:
@@ -121,7 +125,13 @@ class TraceValue(value_module.Value):
   def Serialize(self, dir_path):
     if self._temp_file is None:
       raise ValueError('Tried to serialize nonexistent trace.')
-    file_name = str(self._temp_file.id) + self._temp_file.extension
+    if self.page:
+      file_name = self.page.file_safe_name
+    else:
+      file_name = ''
+    file_name += str(self._temp_file.id)
+    file_name += datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    file_name += self._temp_file.extension
     file_path = os.path.abspath(os.path.join(dir_path, file_name))
     shutil.copy(self._temp_file.GetAbsPath(), file_path)
     self._serialized_file_handle = file_handle.FromFilePath(file_path)

@@ -57,7 +57,7 @@ class Settings {
   // Binder IPC must be used.
   inline bool UseSocketIPC() const {
     return !android_ipc_socket_suffix().empty() ||
-        !create_ipc_socket_path().empty();
+           !create_ipc_socket_path().empty();
   }
 
  private:

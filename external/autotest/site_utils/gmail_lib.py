@@ -26,9 +26,7 @@ from email.mime.text import MIMEText
 
 import common
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
-from autotest_lib.server import utils as server_utils
-from chromite.lib import retry_util
+from autotest_lib.server import site_utils
 
 try:
   from apiclient.discovery import build as apiclient_build
@@ -38,8 +36,17 @@ except ImportError as e:
   apiclient_build = None
   logging.debug("API client for gmail disabled. %s", e)
 
+# TODO(akeshet) These imports needs to come after the apiclient imports, because
+# of a sys.path war between chromite and autotest crbug.com/622988
+from autotest_lib.server import utils as server_utils
+from chromite.lib import retry_util
 
-EMAIL_COUNT_KEY = 'emails.%s'
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = site_utils.metrics_mock
+
+
 DEFAULT_CREDS_FILE = global_config.global_config.get_config_value(
         'NOTIFICATIONS', 'gmail_api_credentials', default=None)
 RETRY_DELAY = 5
@@ -161,14 +168,15 @@ def send_email(to, subject, message_text, retry=True, creds_path=None):
             logging.warning('Will retry error %s', exc)
         return should_retry
 
-    autotest_stats.Counter(EMAIL_COUNT_KEY % 'total').increment()
+    success = False
     try:
         retry_util.GenericRetry(
                 handler, retry_count, _run, sleep=RETRY_DELAY,
                 backoff_factor=RETRY_BACKOFF_FACTOR)
-    except Exception:
-        autotest_stats.Counter(EMAIL_COUNT_KEY % 'fail').increment()
-        raise
+        success = True
+    finally:
+        metrics.Counter('chromeos/autotest/send_email/count').increment(
+                fields={'success': success})
 
 
 if __name__ == '__main__':
@@ -185,4 +193,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     message_text = sys.stdin.read()
-    send_email(','.join(args.recipients), args.subject , message_text)
+
+    with site_utils.SetupTsMonGlobalState('gmail_lib', short_lived=True):
+        send_email(','.join(args.recipients), args.subject , message_text)

@@ -36,6 +36,7 @@ public class SingleStepWithLocationTest extends JDWPEventTestCase {
 
     private static final String BREAKPOINT_METHOD_NAME = "breakpointTest";
 
+    @Override
     protected String getDebuggeeClassName() {
         return SingleStepDebuggee.class.getName();
     }

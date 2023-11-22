@@ -19,8 +19,8 @@
 
 #include <inttypes.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 Program::Program(Context *rsc, const char * shaderText, size_t shaderLength,
                  const uintptr_t * params, size_t paramLength)
@@ -209,9 +209,6 @@ void Program::bindSampler(Context *rsc, uint32_t slot, Sampler *s) {
     mDirty = true;
 }
 
-namespace android {
-namespace renderscript {
-
 void rsi_ProgramBindConstants(Context *rsc, RsProgram vp, uint32_t slot, RsAllocation constants) {
     Program *p = static_cast<Program *>(vp);
     p->bindAllocation(rsc, static_cast<Allocation *>(constants), slot);
@@ -227,6 +224,5 @@ void rsi_ProgramBindSampler(Context *rsc, RsProgram vpf, uint32_t slot, RsSample
     p->bindSampler(rsc, slot, static_cast<Sampler *>(s));
 }
 
-}
-}
-
+} // namespace renderscript
+} // namespace android

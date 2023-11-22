@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Неможливо заблокувати номер екстреної служби."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Номер <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> уже заблоковано."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Для дзвінків використовується особистий додаток набору номерів"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"<xliff:g id="CALL_FROM">%2$s</xliff:g> телефонує в <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"<xliff:g id="CALL_FROM">%2$s</xliff:g> пропонує поспілкуватись у відеочаті <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Якщо відповісти на виклик, дзвінок у <xliff:g id="CALL_VIA">%1$s</xliff:g> буде завершено"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Якщо відповісти на виклик, дзвінки в <xliff:g id="CALL_VIA">%1$s</xliff:g> буде завершено"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Якщо відповісти на виклик, відеодзвінок у <xliff:g id="CALL_VIA">%1$s</xliff:g> завершиться"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Якщо відповісти на виклик, поточний дзвінок буде завершено"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Якщо відповісти на виклик, поточні дзвінки буде завершено"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Якщо відповісти на виклик, поточний відеодзвінок завершиться"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Відповісти"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Відхилити"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Неможливо зателефонувати через поточний виклик у <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Неможливо зателефонувати через поточні виклики в <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Неможливо зателефонувати через поточний виклик в іншому додатку."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Вхідні виклики"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Пропущені виклики"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Якщо здійснити цей виклик, буде завершено виклик у додатку <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

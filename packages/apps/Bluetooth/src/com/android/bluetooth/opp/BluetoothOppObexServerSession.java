@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 
+import android.app.NotificationManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -57,6 +58,7 @@ import javax.obex.ServerRequestHandler;
 import javax.obex.ServerSession;
 
 import com.android.bluetooth.BluetoothObexTransport;
+import com.android.bluetooth.ObexServerSockets;
 
 /**
  * This class runs as an OBEX server
@@ -97,11 +99,16 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
 
     boolean mTimeoutMsgSent = false;
 
-    public BluetoothOppObexServerSession(Context context, ObexTransport transport) {
+    private ObexServerSockets mServerSocket;
+
+    public BluetoothOppObexServerSession(
+            Context context, ObexTransport transport, ObexServerSockets serverSocket) {
         mContext = context;
         mTransport = transport;
+        mServerSocket = serverSocket;
         PowerManager pm = (PowerManager)mContext.getSystemService(Context.POWER_SERVICE);
         mPartialWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
+        mPartialWakeLock.setReferenceCounted(false);
     }
 
     public void unblock() {
@@ -478,7 +485,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
                     }
                 }
             } catch (IOException e1) {
-                Log.e(TAG, "Error when receiving file");
+                Log.e(TAG, "Error when receiving file: " + e1);
                 /* OBEX Abort packet received from remote device */
                 if ("Abort Received".equals(e1.getMessage())) {
                     status = BluetoothShare.STATUS_CANCELED;
@@ -583,8 +590,17 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
 
     @Override
     public void onClose() {
-        if (V) Log.v(TAG, "release WakeLock");
+        if (D) Log.d(TAG, "onClose");
         releaseWakeLocks();
+
+        if (mServerSocket != null) {
+            if (D) Log.d(TAG, "prepareForNewConnect");
+            mServerSocket.prepareForNewConnect();
+        }
+
+        NotificationManager nm =
+                (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.cancel(BluetoothOppNotification.NOTIFICATION_ID_PROGRESS);
 
         /* onClose could happen even before start() where mCallback is set */
         if (mCallback != null) {

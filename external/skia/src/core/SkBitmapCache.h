@@ -8,27 +8,38 @@
 #ifndef SkBitmapCache_DEFINED
 #define SkBitmapCache_DEFINED
 
-#include "SkScalar.h"
 #include "SkBitmap.h"
+#include "SkMipMap.h"
 
 class SkImage;
 class SkResourceCache;
-class SkMipMap;
 
 uint64_t SkMakeResourceCacheSharedIDForBitmap(uint32_t bitmapGenID);
 
 void SkNotifyBitmapGenIDIsStale(uint32_t bitmapGenID);
 
 struct SkBitmapCacheDesc {
-    uint32_t    fImageID;
-    int32_t     fWidth;
-    int32_t     fHeight;
-    SkIRect     fBounds;
+    uint32_t    fImageID;       // != 0
+    int32_t     fScaledWidth;   // 0 for unscaled
+    int32_t     fScaledHeight;  // 0 for unscaled
+    SkIRect     fSubset;        // always set to a valid rect (entire or subset)
 
-    static SkBitmapCacheDesc Make(const SkBitmap&, int width, int height);
+    void validate() const {
+        SkASSERT(fImageID);
+        if (fScaledWidth || fScaledHeight) {
+            SkASSERT(fScaledWidth && fScaledHeight);
+        }
+        SkASSERT(fSubset.fLeft >= 0 && fSubset.fTop >= 0);
+        SkASSERT(fSubset.width() > 0 && fSubset.height() > 0);
+    }
+
+    static SkBitmapCacheDesc Make(const SkBitmap&, int scaledWidth, int scaledHeight);
     static SkBitmapCacheDesc Make(const SkBitmap&);
-    static SkBitmapCacheDesc Make(const SkImage*, int width, int height);
+    static SkBitmapCacheDesc Make(const SkImage*, int scaledWidth, int scaledHeight);
     static SkBitmapCacheDesc Make(const SkImage*);
+
+    // Use with care -- width/height must match the original bitmap/image
+    static SkBitmapCacheDesc Make(uint32_t genID, int origWidth, int origHeight);
 };
 
 class SkBitmapCache {
@@ -43,39 +54,23 @@ public:
      *  Search based on the desc. If found, returns true and
      *  result will be set to the matching bitmap with its pixels already locked.
      */
-    static bool FindWH(const SkBitmapCacheDesc&, SkBitmap* result,
-                       SkResourceCache* localCache = nullptr);
+    static bool Find(const SkBitmapCacheDesc&, SkBitmap* result,
+                    SkResourceCache* localCache = nullptr);
 
     /*
      *  result must be marked isImmutable()
      */
-    static bool AddWH(const SkBitmapCacheDesc&, const SkBitmap& result,
-                      SkResourceCache* localCache = nullptr);
-
-    /**
-     *  Search based on the bitmap's genID and subset. If found, returns true and
-     *  result will be set to the matching bitmap with its pixels already locked.
-     */
-    static bool Find(uint32_t genID, const SkIRect& subset, SkBitmap* result,
-                     SkResourceCache* localCache = nullptr);
-
-    /**
-     * The width and the height of the provided subset must be the same as the result bitmap ones.
-     * result must be marked isImmutable()
-     */
-    static bool Add(SkPixelRef*, const SkIRect& subset, const SkBitmap& result,
+    static bool Add(const SkBitmapCacheDesc&, const SkBitmap& result,
                     SkResourceCache* localCache = nullptr);
-
-    static bool Find(uint32_t genID, SkBitmap* result, SkResourceCache* localCache = nullptr);
-    // todo: eliminate the need to specify ID, since it should == the bitmap's
-    static void Add(uint32_t genID, const SkBitmap&, SkResourceCache* localCache = nullptr);
 };
 
 class SkMipMapCache {
 public:
-    static const SkMipMap* FindAndRef(const SkBitmapCacheDesc&,
+    // Note: the scaled width/height in desc must be 0, as any other value would not make sense.
+    static const SkMipMap* FindAndRef(const SkBitmapCacheDesc&, SkDestinationSurfaceColorMode,
                                       SkResourceCache* localCache = nullptr);
-    static const SkMipMap* AddAndRef(const SkBitmap& src, SkResourceCache* localCache = nullptr);
+    static const SkMipMap* AddAndRef(const SkBitmap& src, SkDestinationSurfaceColorMode,
+                                     SkResourceCache* localCache = nullptr);
 };
 
 #endif

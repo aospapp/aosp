@@ -27,8 +27,7 @@ class desktopui_CameraApp(test.test):
         # Create the browser instance.
         camera_path = os.path.join(os.path.dirname(__file__),
                                    'src/camera/build/camera')
-        browser = chrome.Chrome(extension_paths=[camera_path],
-                                is_component=False)
+        browser = chrome.Chrome(extension_paths=[camera_path])
 
         # Start the Camera app.
         extension = browser.get_extension(camera_path)

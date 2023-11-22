@@ -15,7 +15,9 @@
 -->
 <configuration description="CTS precondition configs">
 
-    <option name="compatibility:plan" value="cts-preconditions" />
+    <include name="cts-device-files" />
+
+    <option name="plan" value="cts-preconditions" />
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher">
         <option name="target" value="host" />
@@ -52,6 +54,8 @@
         <option name="package" value="com.android.compatibility.common.deviceinfo"/>
         <option name="src-dir" value="/sdcard/device-info-files/"/>
         <option name="dest-dir" value="device-info-files/"/>
+        <option name="temp-dir" value="temp-device-info-files/"/>
+        <option name="throw-error" value="false"/>
     </target_preparer>
 
     <!-- The following values are used in cts/common/device-side/util/DeviceReportLog.java,
@@ -63,5 +67,4 @@
         <option name="dest-dir" value="report-log-files/"/>
         <option name="temp-dir" value="temp-report-logs/"/>
     </target_preparer>
-
 </configuration>

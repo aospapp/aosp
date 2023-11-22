@@ -3,7 +3,9 @@
 # found in the LICENSE file.
 import logging
 
-from telemetry.core import exceptions
+from telemetry import decorators
+
+import py_utils
 
 
 class FormBasedCredentialsBackend(object):
@@ -54,28 +56,38 @@ class FormBasedCredentialsBackend(object):
 
   def _WaitForLoginState(self, action_runner):
     """Waits until it can detect either the login form, or already logged in."""
-    condition = '(document.querySelector("#%s") !== null) || (%s)' % (
-        self.login_form_id, self.logged_in_javascript)
-    action_runner.WaitForJavaScriptCondition(condition, 60)
+    action_runner.WaitForJavaScriptCondition(
+        '(document.querySelector({{ form_id }}) !== null) || ({{ @code }})',
+        form_id='#' + self.login_form_id, code=self.logged_in_javascript,
+        timeout=60)
 
   def _SubmitLoginFormAndWait(self, action_runner, tab, username, password):
     """Submits the login form and waits for the navigation."""
     tab.WaitForDocumentReadyStateToBeInteractiveOrBetter()
-    email_id = 'document.querySelector("#%s #%s").value = "%s"; ' % (
-        self.login_form_id, self.login_input_id, username)
-    password = 'document.querySelector("#%s #%s").value = "%s"; ' % (
-        self.login_form_id, self.password_input_id, password)
-    tab.ExecuteJavaScript(email_id)
-    tab.ExecuteJavaScript(password)
+    tab.ExecuteJavaScript(
+        'document.querySelector({{ selector }}).value = {{ username }};',
+        selector='#%s #%s' % (self.login_form_id, self.login_input_id),
+        username=username)
+    tab.ExecuteJavaScript(
+        'document.querySelector({{ selector }}).value = {{ password }};',
+        selector='#%s #%s' % (self.login_form_id, self.password_input_id),
+        password=password)
     if self.login_button_javascript:
       tab.ExecuteJavaScript(self.login_button_javascript)
     else:
       tab.ExecuteJavaScript(
-          'document.getElementById("%s").submit();' % self.login_form_id)
+          'document.getElementById({{ form_id }}).submit();',
+          form_id=self.login_form_id)
     # Wait for the form element to disappear as confirmation of the navigation.
     action_runner.WaitForNavigate()
 
-
+  # pylint: disable=line-too-long
+  @decorators.Deprecated(2017, 5, 5,
+                         'FormBasedCredentialsBackend is deprecated. Use the '
+                         'login helper modules in '
+                         'https://code.google.com/p/chromium/codesearch#chromium/src/tools/perf/page_sets/login_helpers/'
+                         ' instead.')
+  # pylint: enable=line-too-long
   def LoginNeeded(self, tab, action_runner, config):
     """Logs in to a test account.
 
@@ -111,7 +123,7 @@ class FormBasedCredentialsBackend(object):
 
       self._logged_in = True
       return True
-    except exceptions.TimeoutException:
+    except py_utils.TimeoutException:
       logging.warning('Timed out while loading: %s', url)
       return False
 

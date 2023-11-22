@@ -6,6 +6,8 @@
 // Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+//
+// UNSUPPORTED: c++98, c++03, c++11
 
 // <optional>
 
@@ -15,7 +17,7 @@
 #include <type_traits>
 #include <cassert>
 
-#if _LIBCPP_STD_VER > 11
+#include "test_macros.h"
 
 using std::experimental::optional;
 
@@ -41,17 +43,14 @@ public:
 
 class Z
 {
-    int i_;
 public:
-    Z(int i) : i_(i) {}
-    Z(Z&&) {throw 6;}
+    Z(int) {}
+    Z(Z&&) {TEST_THROW(6);}
 };
 
-#endif  // _LIBCPP_STD_VER > 11
 
 int main()
 {
-#if _LIBCPP_STD_VER > 11
     {
         typedef int T;
         constexpr optional<T> opt(T(5));
@@ -94,6 +93,7 @@ int main()
             constexpr test_constexpr_ctor(T&&) {}
         };
     }
+#ifndef TEST_HAS_NO_EXCEPTIONS
     {
         typedef Z T;
         try
@@ -106,5 +106,5 @@ int main()
             assert(i == 6);
         }
     }
-#endif  // _LIBCPP_STD_VER > 11
+#endif
 }

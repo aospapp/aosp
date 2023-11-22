@@ -14,11 +14,13 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Effect test cases">
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <option name="config-descriptor:metadata" key="component" value="media" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsEffectTestCases.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.effect.cts" />
+        <option name="runtime-hint" value="8m30s" />
     </test>
 </configuration>

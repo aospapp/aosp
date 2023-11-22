@@ -31,10 +31,13 @@ import android.support.v7.preference.Preference.OnPreferenceChangeListener;
 import android.support.v7.preference.Preference.OnPreferenceClickListener;
 import android.util.Log;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.applications.AppStateAppOpsBridge.PermissionState;
 import com.android.settings.applications.AppStateOverlayBridge.OverlayState;
+import com.android.settings.core.TouchOverlayManager;
+import com.android.settings.overlay.FeatureFactory;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
 
 public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenceChangeListener,
@@ -59,6 +62,8 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
     private Intent mSettingsIntent;
     private OverlayState mOverlayState;
 
+    private TouchOverlayManager mTouchOverlayManager;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,6 +71,7 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
         Context context = getActivity();
         mOverlayBridge = new AppStateOverlayBridge(context, mState, null);
         mAppOpsManager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+        mTouchOverlayManager = new TouchOverlayManager(context);
 
         // find preferences
         addPreferencesFromResource(R.xml.app_ops_permissions_details);
@@ -85,6 +91,26 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
 
         mSettingsIntent = new Intent(Intent.ACTION_MAIN)
                 .setAction(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        mTouchOverlayManager.setOverlayAllowed(false);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+
+        mTouchOverlayManager.setOverlayAllowed(true);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mOverlayBridge.release();
     }
 
     @Override
@@ -115,9 +141,18 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
     }
 
     private void setCanDrawOverlay(boolean newState) {
+        logSpecialPermissionChange(newState, mPackageName);
         mAppOpsManager.setMode(AppOpsManager.OP_SYSTEM_ALERT_WINDOW,
                 mPackageInfo.applicationInfo.uid, mPackageName, newState
                 ? AppOpsManager.MODE_ALLOWED : AppOpsManager.MODE_ERRORED);
+    }
+
+    @VisibleForTesting
+    void logSpecialPermissionChange(boolean newState, String packageName) {
+        int logCategory = newState ? MetricsEvent.APP_SPECIAL_PERMISSION_APPDRAW_ALLOW
+                : MetricsEvent.APP_SPECIAL_PERMISSION_APPDRAW_DENY;
+        FeatureFactory.getFactory(getContext())
+                .getMetricsFeatureProvider().action(getContext(), logCategory, packageName);
     }
 
     private boolean canDrawOverlay(String pkgName) {
@@ -138,7 +173,7 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
         boolean isAllowed = mOverlayState.isPermissible();
         mSwitchPref.setChecked(isAllowed);
         // you cannot ask a user to grant you a permission you did not have!
-        mSwitchPref.setEnabled(mOverlayState.permissionDeclared);
+        mSwitchPref.setEnabled(mOverlayState.permissionDeclared && mOverlayState.controlEnabled);
         mOverlayPrefs.setEnabled(isAllowed);
         getPreferenceScreen().removePreference(mOverlayPrefs);
 
@@ -151,7 +186,7 @@ public class DrawOverlayDetails extends AppInfoWithHeader implements OnPreferenc
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.SYSTEM_ALERT_WINDOW_APPS;
     }
 

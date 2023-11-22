@@ -45,7 +45,7 @@
 
 #define  E(...)  ALOGE(__VA_ARGS__)
 
-#include <hardware/qemud.h>
+#include "qemud.h"
 
 /** SENSOR IDS AND NAMES
  **/
@@ -216,9 +216,20 @@ static int sensor_device_pick_pending_event_locked(SensorDevice* d,
     if (mask) {
         uint32_t i = 31 - __builtin_clz(mask);
         d->pendingSensors &= ~(1U << i);
+        // Copy the structure
         *event = d->sensors[i];
-        event->sensor = i;
-        event->version = sizeof(*event);
+
+        if (d->sensors[i].type == SENSOR_TYPE_META_DATA) {
+            // sensor_device_poll_event_locked() will leave
+            // the meta-data in place until we have it.
+            // Set |type| to something other than META_DATA
+            // so sensor_device_poll_event_locked() can
+            // continue.
+            d->sensors[i].type = SENSOR_TYPE_META_DATA + 1;
+        } else {
+            event->sensor = i;
+            event->version = sizeof(*event);
+        }
 
         D("%s: %d [%f, %f, %f]", __FUNCTION__,
                 i,
@@ -229,7 +240,7 @@ static int sensor_device_pick_pending_event_locked(SensorDevice* d,
     }
     E("No sensor to return!!! pendingSensors=0x%08x", d->pendingSensors);
     // we may end-up in a busy loop, slow things down, just in case.
-    usleep(100000);
+    usleep(1000);
     return -EINVAL;
 }
 
@@ -290,10 +301,15 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
 
         float params[3];
 
+        // If the existing entry for this sensor is META_DATA,
+        // do not overwrite it. We can resume saving sensor
+        // values after that meta data has been received.
+
         /* "acceleration:<x>:<y>:<z>" corresponds to an acceleration event */
         if (sscanf(buff, "acceleration:%g:%g:%g", params+0, params+1, params+2)
                 == 3) {
             new_sensors |= SENSORS_ACCELERATION;
+            if (events[ID_ACCELERATION].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_ACCELERATION].acceleration.x = params[0];
             events[ID_ACCELERATION].acceleration.y = params[1];
             events[ID_ACCELERATION].acceleration.z = params[2];
@@ -306,6 +322,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         if (sscanf(buff, "orientation:%g:%g:%g", params+0, params+1, params+2)
                 == 3) {
             new_sensors |= SENSORS_ORIENTATION;
+            if (events[ID_ORIENTATION].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_ORIENTATION].orientation.azimuth = params[0];
             events[ID_ORIENTATION].orientation.pitch   = params[1];
             events[ID_ORIENTATION].orientation.roll    = params[2];
@@ -320,6 +337,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         if (sscanf(buff, "magnetic:%g:%g:%g", params+0, params+1, params+2)
                 == 3) {
             new_sensors |= SENSORS_MAGNETIC_FIELD;
+            if (events[ID_MAGNETIC_FIELD].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_MAGNETIC_FIELD].magnetic.x = params[0];
             events[ID_MAGNETIC_FIELD].magnetic.y = params[1];
             events[ID_MAGNETIC_FIELD].magnetic.z = params[2];
@@ -332,14 +350,16 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         /* "temperature:<celsius>" */
         if (sscanf(buff, "temperature:%g", params+0) == 1) {
             new_sensors |= SENSORS_TEMPERATURE;
+            if (events[ID_TEMPERATURE].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_TEMPERATURE].temperature = params[0];
-            events[ID_TEMPERATURE].type = SENSOR_TYPE_TEMPERATURE;
+            events[ID_TEMPERATURE].type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
             continue;
         }
- 
+
         /* "proximity:<value>" */
         if (sscanf(buff, "proximity:%g", params+0) == 1) {
             new_sensors |= SENSORS_PROXIMITY;
+            if (events[ID_PROXIMITY].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_PROXIMITY].distance = params[0];
             events[ID_PROXIMITY].type = SENSOR_TYPE_PROXIMITY;
             continue;
@@ -347,6 +367,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         /* "light:<lux>" */
         if (sscanf(buff, "light:%g", params+0) == 1) {
             new_sensors |= SENSORS_LIGHT;
+            if (events[ID_LIGHT].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_LIGHT].light = params[0];
             events[ID_LIGHT].type = SENSOR_TYPE_LIGHT;
             continue;
@@ -355,6 +376,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         /* "pressure:<hpa>" */
         if (sscanf(buff, "pressure:%g", params+0) == 1) {
             new_sensors |= SENSORS_PRESSURE;
+            if (events[ID_PRESSURE].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_PRESSURE].pressure = params[0];
             events[ID_PRESSURE].type = SENSOR_TYPE_PRESSURE;
             continue;
@@ -363,6 +385,7 @@ static int sensor_device_poll_event_locked(SensorDevice* dev)
         /* "humidity:<percent>" */
         if (sscanf(buff, "humidity:%g", params+0) == 1) {
             new_sensors |= SENSORS_HUMIDITY;
+            if (events[ID_HUMIDITY].type == SENSOR_TYPE_META_DATA) continue;
             events[ID_HUMIDITY].relative_humidity = params[0];
             events[ID_HUMIDITY].type = SENSOR_TYPE_RELATIVE_HUMIDITY;
             continue;
@@ -387,13 +410,28 @@ out:
         dev->pendingSensors |= new_sensors;
         int64_t t = (event_time < 0) ? 0 : event_time * 1000LL;
 
-        /* use the time at the first sync: as the base for later
-         * time values */
+        /* Use the time at the first "sync:" as the base for later
+         * time values.
+         * CTS tests require sensors to return an event timestamp (sync) that is
+         * strictly before the time of the event arrival. We don't actually have
+         * a time syncronization protocol here, and the only data point is the
+         * "sync:" timestamp - which is an emulator's timestamp of a clock that
+         * is synced with the guest clock, and it only the timestamp after all
+         * events were sent.
+         * To make it work, let's compare the calculated timestamp with current
+         * time and take the lower value - we don't believe in events from the
+         * future anyway.
+         */
+        const int64_t now = now_ns();
+
         if (dev->timeStart == 0) {
-            dev->timeStart  = now_ns();
+            dev->timeStart  = now;
             dev->timeOffset = dev->timeStart - t;
         }
         t += dev->timeOffset;
+        if (t > now) {
+            t = now;
+        }
 
         while (new_sensors) {
             uint32_t i = 31 - __builtin_clz(new_sensors);
@@ -525,6 +563,34 @@ static int sensor_device_activate(struct sensors_poll_device_t *dev0,
     return ret;
 }
 
+static int sensor_device_default_flush(
+        struct sensors_poll_device_1* dev0,
+        int handle) {
+
+    SensorDevice* dev = (void*)dev0;
+
+    D("%s: handle=%s (%d)", __FUNCTION__,
+        _sensorIdToName(handle), handle);
+
+    /* Sanity check */
+    if (!ID_CHECK(handle)) {
+        E("%s: bad handle ID", __FUNCTION__);
+        return -EINVAL;
+    }
+
+    pthread_mutex_lock(&dev->lock);
+    dev->sensors[handle].version = META_DATA_VERSION;
+    dev->sensors[handle].type = SENSOR_TYPE_META_DATA;
+    dev->sensors[handle].sensor = 0;
+    dev->sensors[handle].timestamp = 0;
+    dev->sensors[handle].meta_data.sensor = handle;
+    dev->sensors[handle].meta_data.what = META_DATA_FLUSH_COMPLETE;
+    dev->pendingSensors |= (1U << handle);
+    pthread_mutex_unlock(&dev->lock);
+
+    return 0;
+}
+
 static int sensor_device_set_delay(struct sensors_poll_device_t *dev0,
                                    int handle __unused,
                                    int64_t ns)
@@ -544,6 +610,15 @@ static int sensor_device_set_delay(struct sensors_poll_device_t *dev0,
         E("%s: Could not send command: %s", __FUNCTION__, strerror(-ret));
     }
     return ret;
+}
+
+static int sensor_device_default_batch(
+     struct sensors_poll_device_1* dev,
+     int sensor_handle,
+     int flags,
+     int64_t sampling_period_ns,
+     int64_t max_report_latency_ns) {
+    return sensor_device_set_delay(dev, sensor_handle, sampling_period_ns);
 }
 
 /** MODULE REGISTRATION SUPPORT
@@ -571,6 +646,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 2.8f,
           .resolution = 1.0f/4032.0f,
           .power      = 3.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         },
 
@@ -582,6 +664,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 2000.0f,
           .resolution = 1.0f,
           .power      = 6.7f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         },
 
@@ -593,6 +682,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 360.0f,
           .resolution = 1.0f,
           .power      = 9.7f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         },
 
@@ -600,10 +696,17 @@ static const struct sensor_t sSensorListInit[] = {
           .vendor     = "The Android Open Source Project",
           .version    = 1,
           .handle     = ID_TEMPERATURE,
-          .type       = SENSOR_TYPE_TEMPERATURE,
+          .type       = SENSOR_TYPE_AMBIENT_TEMPERATURE,
           .maxRange   = 80.0f,
           .resolution = 1.0f,
           .power      = 0.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         },
 
@@ -615,6 +718,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 1.0f,
           .resolution = 1.0f,
           .power      = 20.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_WAKE_UP | SENSOR_FLAG_ON_CHANGE_MODE,
           .reserved   = {}
         },
 
@@ -626,6 +736,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 40000.0f,
           .resolution = 1.0f,
           .power      = 20.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_ON_CHANGE_MODE,
           .reserved   = {}
         },
 
@@ -637,6 +754,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 800.0f,
           .resolution = 1.0f,
           .power      = 20.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         },
 
@@ -648,6 +772,13 @@ static const struct sensor_t sSensorListInit[] = {
           .maxRange   = 100.0f,
           .resolution = 1.0f,
           .power      = 20.0f,
+          .minDelay   = 10000,
+          .maxDelay   = 60 * 1000 * 1000,
+          .fifoReservedEventCount = 0,
+          .fifoMaxEventCount =   0,
+          .stringType =         0,
+          .requiredPermission = 0,
+          .flags = SENSOR_FLAG_CONTINUOUS_MODE,
           .reserved   = {}
         }
 };
@@ -686,7 +817,6 @@ static int sensors__get_sensors_list(struct sensors_module_t* module __unused,
     for (nn = 0; nn < MAX_NUM_SENSORS; nn++) {
         if (((1 << nn) & mask) == 0)
             continue;
-
         sSensorList[count++] = sSensorListInit[nn];
     }
     D("%s: returned %d sensors (mask=%d)", __FUNCTION__, count, mask);
@@ -716,12 +846,22 @@ open_sensors(const struct hw_module_t* module,
         memset(dev, 0, sizeof(*dev));
 
         dev->device.common.tag     = HARDWARE_DEVICE_TAG;
-        dev->device.common.version = SENSORS_DEVICE_API_VERSION_1_0;
+        dev->device.common.version = SENSORS_DEVICE_API_VERSION_1_3;
         dev->device.common.module  = (struct hw_module_t*) module;
         dev->device.common.close   = sensor_device_close;
         dev->device.poll           = sensor_device_poll;
         dev->device.activate       = sensor_device_activate;
         dev->device.setDelay       = sensor_device_set_delay;
+
+        // (dev->sensors[i].type == SENSOR_TYPE_META_DATA) is
+        // sticky. Don't start off with that setting.
+        for (int idx = 0; idx < MAX_NUM_SENSORS; idx++) {
+            dev->sensors[idx].type = SENSOR_TYPE_META_DATA + 1;
+        }
+
+        // Version 1.3-specific functions
+        dev->device.batch       = sensor_device_default_batch;
+        dev->device.flush       = sensor_device_default_flush;
 
         dev->fd = -1;
         pthread_mutex_init(&dev->lock, NULL);
@@ -741,7 +881,7 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
     .common = {
         .tag = HARDWARE_MODULE_TAG,
         .version_major = 1,
-        .version_minor = 0,
+        .version_minor = 3,
         .id = SENSORS_HARDWARE_MODULE_ID,
         .name = "Goldfish SENSORS Module",
         .author = "The Android Open Source Project",

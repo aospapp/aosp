@@ -23,19 +23,25 @@
 #include <utils/Vector.h>
 #include <utils/threads.h>
 
+#include <binder/MemoryDealer.h>
+#include <android/hidl/allocator/1.0/IAllocator.h>
+#include <android/hidl/memory/1.0/IMemory.h>
 #include <OMX_Component.h>
 
 namespace android {
 
 class MemoryDealer;
 
-struct Harness : public BnOMXObserver {
+struct Harness : public RefBase {
+    typedef hidl::memory::V1_0::IMemory TMemory;
+    typedef hardware::hidl_memory hidl_memory;
     enum BufferFlags {
         kBufferBusy = 1
     };
     struct Buffer {
         IOMX::buffer_id mID;
         sp<IMemory> mMemory;
+        hidl_memory mHidlMemory;
         uint32_t mFlags;
     };
 
@@ -43,25 +49,20 @@ struct Harness : public BnOMXObserver {
 
     status_t initCheck() const;
 
-    status_t dequeueMessageForNode(
-            IOMX::node_id node, omx_message *msg, int64_t timeoutUs = -1);
+    status_t dequeueMessageForNode(omx_message *msg, int64_t timeoutUs = -1);
 
     status_t dequeueMessageForNodeIgnoringBuffers(
-            IOMX::node_id node,
             Vector<Buffer> *inputBuffers,
             Vector<Buffer> *outputBuffers,
             omx_message *msg, int64_t timeoutUs = -1);
 
     status_t getPortDefinition(
-            IOMX::node_id node, OMX_U32 portIndex,
-            OMX_PARAM_PORTDEFINITIONTYPE *def);
+            OMX_U32 portIndex, OMX_PARAM_PORTDEFINITIONTYPE *def);
 
     status_t allocatePortBuffers(
-            const sp<MemoryDealer> &dealer,
-            IOMX::node_id node, OMX_U32 portIndex,
-            Vector<Buffer> *buffers);
+            OMX_U32 portIndex, Vector<Buffer> *buffers);
 
-    status_t setRole(IOMX::node_id node, const char *role);
+    status_t setRole(const char *role);
 
     status_t testStateTransitions(
             const char *componentName, const char *componentRole);
@@ -74,20 +75,27 @@ struct Harness : public BnOMXObserver {
 
     status_t testAll();
 
-    virtual void onMessages(const std::list<omx_message> &messages);
-
 protected:
     virtual ~Harness();
 
 private:
+    typedef hidl::allocator::V1_0::IAllocator IAllocator;
+
     friend struct NodeReaper;
+    struct CodecObserver;
 
     Mutex mLock;
 
     status_t mInitCheck;
     sp<IOMX> mOMX;
+    sp<IOMXNode> mOMXNode;
     List<omx_message> mMessageQueue;
     Condition mMessageAddedCondition;
+    int32_t mLastMsgGeneration;
+    int32_t mCurGeneration;
+    bool mUseTreble;
+    sp<MemoryDealer> mDealer;
+    sp<IAllocator> mAllocator;
 
     status_t initOMX();
 
@@ -95,6 +103,8 @@ private:
             const omx_message &msg,
             Vector<Buffer> *inputBuffers,
             Vector<Buffer> *outputBuffers);
+
+    void handleMessages(int32_t gen, const std::list<omx_message> &messages);
 
     Harness(const Harness &);
     Harness &operator=(const Harness &);

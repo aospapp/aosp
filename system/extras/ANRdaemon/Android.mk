@@ -9,6 +9,7 @@ LOCAL_MODULE := anrd
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 LOCAL_MODULE_TAGS := debug
 LOCAL_SHARED_LIBRARIES := \
+    liblog \
     libbinder \
     libcutils \
     libutils \

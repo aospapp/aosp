@@ -37,6 +37,9 @@
 #include "android_media_AudioErrors.h"
 #include "android_media_PlaybackParams.h"
 #include "android_media_DeviceCallback.h"
+#include "android_media_VolumeShaper.h"
+
+#include <cinttypes>
 
 // ----------------------------------------------------------------------------
 
@@ -62,6 +65,7 @@ struct audio_attributes_fields_t {
 static audio_track_fields_t      javaAudioTrackFields;
 static audio_attributes_fields_t javaAudioAttrFields;
 static PlaybackParams::fields_t gPlaybackParamsFields;
+static VolumeShaperHelper::fields_t gVolumeShaperFields;
 
 struct audiotrack_callback_cookie {
     jclass      audioTrack_class;
@@ -108,11 +112,11 @@ static SortedVector <audiotrack_callback_cookie *> sAudioTrackCallBackCookies;
 // ----------------------------------------------------------------------------
 #define DEFAULT_OUTPUT_SAMPLE_RATE   44100
 
-#define AUDIOTRACK_ERROR_SETUP_AUDIOSYSTEM         -16
-#define AUDIOTRACK_ERROR_SETUP_INVALIDCHANNELMASK  -17
-#define AUDIOTRACK_ERROR_SETUP_INVALIDFORMAT       -18
-#define AUDIOTRACK_ERROR_SETUP_INVALIDSTREAMTYPE   -19
-#define AUDIOTRACK_ERROR_SETUP_NATIVEINITFAILED    -20
+#define AUDIOTRACK_ERROR_SETUP_AUDIOSYSTEM         (-16)
+#define AUDIOTRACK_ERROR_SETUP_INVALIDCHANNELMASK  (-17)
+#define AUDIOTRACK_ERROR_SETUP_INVALIDFORMAT       (-18)
+#define AUDIOTRACK_ERROR_SETUP_INVALIDSTREAMTYPE   (-19)
+#define AUDIOTRACK_ERROR_SETUP_NATIVEINITFAILED    (-20)
 
 // ----------------------------------------------------------------------------
 static void audioCallback(int event, void* user, void *info) {
@@ -219,7 +223,7 @@ android_media_AudioTrack_setup(JNIEnv *env, jobject thiz, jobject weak_this, job
         jlong nativeAudioTrack) {
 
     ALOGV("sampleRates=%p, channel mask=%x, index mask=%x, audioFormat(Java)=%d, buffSize=%d"
-        "nativeAudioTrack=0x%llX",
+        "nativeAudioTrack=0x%" PRIX64,
         jSampleRate, channelPositionMask, channelIndexMask, audioFormat, buffSizeInBytes,
         nativeAudioTrack);
 
@@ -725,8 +729,8 @@ static jint android_media_AudioTrack_get_buffer_size_frames(JNIEnv *env,  jobjec
 
     ssize_t result = lpTrack->getBufferSizeInFrames();
     if (result < 0) {
-        jniThrowException(env, "java/lang/IllegalStateException",
-            "Internal error detected in getBufferSizeInFrames() = " + result);
+        jniThrowExceptionFmt(env, "java/lang/IllegalStateException",
+            "Internal error detected in getBufferSizeInFrames() = %zd", result);
         return (jint)AUDIO_JAVA_ERROR;
     }
     return (jint)result;
@@ -749,8 +753,8 @@ static jint android_media_AudioTrack_set_buffer_size_frames(JNIEnv *env,
     }
     ssize_t result = lpTrack->setBufferSizeInFrames(bufferSizeInFrames);
     if (result < 0) {
-        jniThrowException(env, "java/lang/IllegalStateException",
-            "Internal error detected in setBufferSizeInFrames() = " + result);
+        jniThrowExceptionFmt(env, "java/lang/IllegalStateException",
+            "Internal error detected in setBufferSizeInFrames() = %zd", result);
         return (jint)AUDIO_JAVA_ERROR;
     }
     return (jint)result;
@@ -970,6 +974,18 @@ static jint android_media_AudioTrack_get_underrun_count(JNIEnv *env,  jobject th
 }
 
 // ----------------------------------------------------------------------------
+static jint android_media_AudioTrack_get_flags(JNIEnv *env,  jobject thiz) {
+    sp<AudioTrack> lpTrack = getAudioTrack(env, thiz);
+
+    if (lpTrack == NULL) {
+        jniThrowException(env, "java/lang/IllegalStateException",
+            "Unable to retrieve AudioTrack pointer for getFlags()");
+        return (jint)AUDIO_JAVA_ERROR;
+    }
+    return (jint)lpTrack->getFlags();
+}
+
+// ----------------------------------------------------------------------------
 static jint android_media_AudioTrack_get_timestamp(JNIEnv *env,  jobject thiz, jlongArray jTimestamp) {
     sp<AudioTrack> lpTrack = getAudioTrack(env, thiz);
 
@@ -1164,6 +1180,50 @@ static jint android_media_AudioTrack_get_FCC_8(JNIEnv *env, jobject thiz) {
     return FCC_8;
 }
 
+// Pass through the arguments to the AudioFlinger track implementation.
+static jint android_media_AudioTrack_apply_volume_shaper(JNIEnv *env, jobject thiz,
+        jobject jconfig, jobject joperation) {
+    // NOTE: hard code here to prevent platform issues. Must match VolumeShaper.java
+    const int VOLUME_SHAPER_INVALID_OPERATION = -38;
+
+    sp<AudioTrack> lpTrack = getAudioTrack(env, thiz);
+    if (lpTrack == nullptr) {
+        return (jint)VOLUME_SHAPER_INVALID_OPERATION;
+    }
+
+    sp<VolumeShaper::Configuration> configuration;
+    sp<VolumeShaper::Operation> operation;
+    if (jconfig != nullptr) {
+        configuration = VolumeShaperHelper::convertJobjectToConfiguration(
+                env, gVolumeShaperFields, jconfig);
+        ALOGV("applyVolumeShaper configuration: %s", configuration->toString().c_str());
+    }
+    if (joperation != nullptr) {
+        operation = VolumeShaperHelper::convertJobjectToOperation(
+                env, gVolumeShaperFields, joperation);
+        ALOGV("applyVolumeShaper operation: %s", operation->toString().c_str());
+    }
+    VolumeShaper::Status status = lpTrack->applyVolumeShaper(configuration, operation);
+    if (status == INVALID_OPERATION) {
+        status = VOLUME_SHAPER_INVALID_OPERATION;
+    }
+    return (jint)status; // if status < 0 an error, else a VolumeShaper id
+}
+
+// Pass through the arguments to the AudioFlinger track implementation.
+static jobject android_media_AudioTrack_get_volume_shaper_state(JNIEnv *env, jobject thiz,
+        jint id) {
+    sp<AudioTrack> lpTrack = getAudioTrack(env, thiz);
+    if (lpTrack == nullptr) {
+        return (jobject)nullptr;
+    }
+
+    sp<VolumeShaper::State> state = lpTrack->getVolumeShaperState((int)id);
+    if (state.get() == nullptr) {
+        return (jobject)nullptr;
+    }
+    return VolumeShaperHelper::convertStateToJobject(env, gVolumeShaperFields, state);
+}
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
@@ -1210,6 +1270,7 @@ static const JNINativeMethod gMethods[] = {
     {"native_get_position",  "()I",      (void *)android_media_AudioTrack_get_position},
     {"native_get_latency",   "()I",      (void *)android_media_AudioTrack_get_latency},
     {"native_get_underrun_count", "()I",      (void *)android_media_AudioTrack_get_underrun_count},
+    {"native_get_flags",     "()I",      (void *)android_media_AudioTrack_get_flags},
     {"native_get_timestamp", "([J)I",    (void *)android_media_AudioTrack_get_timestamp},
     {"native_set_loop",      "(III)I",   (void *)android_media_AudioTrack_set_loop},
     {"native_reload_static", "()I",      (void *)android_media_AudioTrack_reload},
@@ -1227,6 +1288,12 @@ static const JNINativeMethod gMethods[] = {
     {"native_enableDeviceCallback", "()V", (void *)android_media_AudioTrack_enableDeviceCallback},
     {"native_disableDeviceCallback", "()V", (void *)android_media_AudioTrack_disableDeviceCallback},
     {"native_get_FCC_8",     "()I",      (void *)android_media_AudioTrack_get_FCC_8},
+    {"native_applyVolumeShaper",
+            "(Landroid/media/VolumeShaper$Configuration;Landroid/media/VolumeShaper$Operation;)I",
+                                         (void *)android_media_AudioTrack_apply_volume_shaper},
+    {"native_getVolumeShaperState",
+            "(I)Landroid/media/VolumeShaper$State;",
+                                        (void *)android_media_AudioTrack_get_volume_shaper_state},
 };
 
 
@@ -1297,6 +1364,7 @@ int register_android_media_AudioTrack(JNIEnv *env)
     // initialize PlaybackParams field info
     gPlaybackParamsFields.init(env);
 
+    gVolumeShaperFields.init(env);
     return res;
 }
 

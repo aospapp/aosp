@@ -36,7 +36,7 @@
  * !! Be very careful when merging or cherry picking between branches!
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  */
-#define RS_HAL_VERSION 100
+#define RS_HAL_VERSION 200
 
 /**
  * The interface for loading RenderScript drivers
@@ -101,15 +101,18 @@ class FBOCache;
  * correctly.
  *
  * p = pointer to internal object implementation
- * r = reserved by libRS runtime
- * v1 = Mirror of p->mHal.drv
- * v2 = reserved for use by vendor drivers
+ * unused1, unused2, unused3 = reserved for ABI compatibility
  */
 
+// RS_BASE_OBJ must have the same layout as _RS_OBJECT_DECL defined in
+// script_api/rs_object_types.spec.
+// TODO(jeanluc) Look at unifying.
 #ifndef __LP64__
 #define RS_BASE_OBJ(_t_) typedef struct { const _t_* p; } __attribute__((packed, aligned(4)))
+#define RS_BASE_NULL_OBJ {0}
 #else
-#define RS_BASE_OBJ(_t_) typedef struct { const _t_* p; const void* r; const void* v1; const void* v2; }
+#define RS_BASE_OBJ(_t_) typedef struct { const _t_* p; const void* unused1; const void* unused2; const void* unused3; }
+#define RS_BASE_NULL_OBJ {0, 0, 0, 0}
 #endif
 
 RS_BASE_OBJ(ObjectBase) rs_object_base;
@@ -136,7 +139,7 @@ typedef void *(*RsHalSymbolLookupFunc)(void *usrptr, char const *symbolName);
  * Script management functions
  */
 typedef struct {
-    bool (*initGraphics)(const Context *);
+    int (*initGraphics)(const Context *);
     void (*shutdownGraphics)(const Context *);
     bool (*setSurface)(const Context *, uint32_t w, uint32_t h, RsNativeWindow);
     void (*swap)(const Context *);
@@ -486,8 +489,8 @@ enum RsHalInitEnums {
     RS_HAL_GRAPHICS_STORE_DESTROY                           = 106002,
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #ifdef __cplusplus
 extern "C" {

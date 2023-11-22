@@ -31,15 +31,17 @@
 
 package org.jf.dexlib2.writer;
 
+import org.jf.dexlib2.iface.reference.MethodProtoReference;
 import org.jf.dexlib2.iface.reference.MethodReference;
 
 import javax.annotation.Nonnull;
 
-public interface MethodSection<StringKey, TypeKey, ProtoKey, MethodRefKey extends MethodReference, MethodKey>
+public interface MethodSection<StringKey, TypeKey, ProtoRefKey extends MethodProtoReference,
+        MethodRefKey extends MethodReference, MethodKey>
         extends IndexSection<MethodRefKey> {
     @Nonnull TypeKey getDefiningClass(@Nonnull MethodRefKey key);
-    @Nonnull ProtoKey getPrototype(@Nonnull MethodRefKey key);
-    @Nonnull ProtoKey getPrototype(@Nonnull MethodKey key);
+    @Nonnull ProtoRefKey getPrototype(@Nonnull MethodRefKey key);
+    @Nonnull ProtoRefKey getPrototype(@Nonnull MethodKey key);
     @Nonnull StringKey getName(@Nonnull MethodRefKey key);
     int getMethodIndex(@Nonnull MethodKey key);
 }

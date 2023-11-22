@@ -2,6 +2,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE:= libttscompat
+LOCAL_MULTILIB := 32
 
 LOCAL_SRC_FILES:= \
 	com_android_tts_compat_SynthProxy.cpp

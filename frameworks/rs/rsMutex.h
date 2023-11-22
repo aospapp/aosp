@@ -36,8 +36,8 @@ protected:
     pthread_mutex_t mMutex;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif
 

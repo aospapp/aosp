@@ -26,6 +26,7 @@ import java.security.Principal;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
+import java.util.Base64;
 
 import javax.net.ssl.ExtendedSSLSession;
 import javax.net.ssl.KeyManager;
@@ -42,7 +43,6 @@ import org.apache.harmony.tests.javax.net.ssl.HandshakeCompletedEventTest.MyHand
 import org.apache.harmony.tests.javax.net.ssl.HandshakeCompletedEventTest.TestTrustManager;
 
 import junit.framework.TestCase;
-import libcore.io.Base64;
 import libcore.java.security.StandardNames;
 
 public class SSLSessionTest extends TestCase {
@@ -643,7 +643,7 @@ public class SSLSessionTest extends TestCase {
      * for the result.
      */
     private KeyStore getKeyStore(String keys) throws Exception {
-        byte[] bytes = Base64.decode(keys.getBytes());
+        byte[] bytes = Base64.getDecoder().decode(keys.getBytes());
         InputStream inputStream = new ByteArrayInputStream(bytes);
 
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());

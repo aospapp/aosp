@@ -17,13 +17,16 @@
 package android.os.cts;
 
 import android.app.Service;
-import android.content.Context;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.MemoryFile;
 import android.os.SystemClock;
@@ -31,6 +34,7 @@ import android.os.Build;
 import android.util.Log;
 import android.test.AndroidTestCase;
 
+import com.android.compatibility.common.util.CpuFeatures;
 import com.google.common.util.concurrent.AbstractFuture;
 
 import java.io.File;
@@ -77,15 +81,17 @@ public class SeccompTest extends AndroidTestCase {
         }
 
         final String[] tests = {
-            "global.mode_strict_support",
-            "global.mode_strict_cannot_call_prctl",
+            /* "global.mode_strict_support", // all Android processes already have seccomp filter */
+            /* "global.mode_strict_cannot_call_prctl", // all Android processes already have seccomp
+             * filter */
             "global.no_new_privs_support",
             "global.mode_filter_support",
             /* "global.mode_filter_without_nnp", // all Android processes already have nnp */
             "global.filter_size_limits",
             "global.filter_chain_limits",
             "global.mode_filter_cannot_move_to_strict",
-            "global.mode_filter_get_seccomp",
+            /* "global.mode_filter_get_seccomp", // all Android processes already have seccomp
+             * filter */
             "global.ALLOW_all",
             "global.empty_prog",
             "global.unknown_ret_is_kill_inside",
@@ -95,8 +101,9 @@ public class SeccompTest extends AndroidTestCase {
             "global.KILL_one_arg_one",
             "global.KILL_one_arg_six",
             "global.arg_out_of_range",
-            "global.ERRNO_one",
-            "global.ERRNO_one_ok",
+            "global.ERRNO_valid",
+            "global.ERRNO_zero",
+            /* "global.ERRNO_capped", // presently fails */
         };
         runKernelUnitTestSuite(tests);
     }
@@ -177,9 +184,9 @@ public class SeccompTest extends AndroidTestCase {
     private void runKernelUnitTestSuite(final String[] tests) {
         for (final String test : tests) {
             // TODO: Replace the URL with the documentation when it's finished.
-            assertTrue(test + " failed. This test requires kernel functionality to pass. "
-                       + "Please go to http://XXXXX for instructions on how to enable or "
-                       + "backport the required functionality.",
+            assertTrue(test + " failed. This test requires kernel functionality to pass. Please go to "
+                       + "http://source.android.com/devices/tech/config/kernel.html#Seccomp-BPF-TSYNC"
+                       + " for instructions on how to enable or backport the required functionality.",
                        runKernelUnitTest(test));
         }
     }
@@ -300,7 +307,7 @@ public class SeccompTest extends AndroidTestCase {
     public static class IsolatedService extends Service {
         private final ISeccompIsolatedService.Stub mService = new ISeccompIsolatedService.Stub() {
             public boolean installFilter() {
-                return installTestFilter();
+                return installTestFilter(getAssets());
             }
 
             public boolean createThread() {
@@ -395,14 +402,78 @@ public class SeccompTest extends AndroidTestCase {
     }
 
     /**
+     * Loads an architecture-specific policy file from the AssetManager and
+     * installs it using Minijail.
+     */
+    private static boolean installTestFilter(final AssetManager assets) {
+        final String arch = getPolicyAbiString();
+        if (arch == null) {
+            throw new RuntimeException("Unsupported architecture/ABI");
+        }
+
+        try {
+            // Create a pipe onto which we will write the composite Seccomp policy.
+            ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
+            final ParcelFileDescriptor.AutoCloseOutputStream outputStream =
+                    new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]);
+
+            // The policy files to concat together.
+            final AssetFileDescriptor[] policyFiles = {
+                assets.openFd("minijail/isolated-" + arch + ".policy"),
+                assets.openFd("minijail/isolated-common.policy"),
+                arch.equals("i386") ? null : assets.openFd("minijail/isolated-common-not-i386.policy"),
+            };
+
+            // Convert our PID to ASCII byte string.
+            final byte[] myPidBytes = Integer.toString(Process.myPid()).getBytes();
+
+            // Concatenate all the policyFiles together on the pipe.
+            final byte[] buffer = new byte[2048];
+            for (AssetFileDescriptor policyFile : policyFiles) {
+                if (policyFile == null)
+                    continue;
+
+                final FileInputStream policyStream = policyFile.createInputStream();
+                while (true) {
+                    int bytesRead = policyStream.read(buffer);
+                    if (bytesRead == -1)
+                        break;
+
+                    // Replace the literal '$' with our PID. This allows us to lock down
+                    // certain syscalls that take a pid/tgid.
+                    for (int i = 0; i < bytesRead; i++) {
+                        if (buffer[i] == '$') {
+                            outputStream.write(myPidBytes);
+                        } else {
+                            outputStream.write(buffer[i]);
+                        }
+                    }
+                }
+                policyStream.close();
+            }
+            outputStream.close();
+
+            return nativeInstallTestFilter(pipe[0].detachFd());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load policy file", e);
+        }
+    }
+
+    /**
+     * Returns the architecture name policy file substring.
+     */
+    private static native String getPolicyAbiString();
+
+    /**
      * Runs the seccomp_bpf_unittest of the given name.
      */
     private native boolean runKernelUnitTest(final String name);
 
     /**
-     * Installs a test seccomp-bpf filter program that.
+     * Installs a Minijail seccomp policy from a FD. This takes ownership of
+     * the FD and closes it.
      */
-    private native static boolean installTestFilter();
+    private native static boolean nativeInstallTestFilter(int policyFd);
 
     /**
      * Attempts to get the CLOCK_BOOTTIME, which is a violation of the

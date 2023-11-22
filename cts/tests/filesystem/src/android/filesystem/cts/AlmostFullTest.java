@@ -18,10 +18,10 @@ package android.filesystem.cts;
 
 import android.util.Log;
 
-import android.cts.util.CtsAndroidTestCase;
-import android.cts.util.SystemUtil;
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;

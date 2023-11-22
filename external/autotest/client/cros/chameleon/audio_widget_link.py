@@ -335,7 +335,8 @@ class USBWidgetLink(WidgetLink):
 
     # This is the default channel map for 2-channel data
     _DEFAULT_CHANNEL_MAP = [0, 1]
-    _DELAY_BEFORE_PLUGGING_CROS_SECONDS = 3
+    # Wait some time for Cros device to detect USB has been plugged.
+    _DELAY_AFTER_PLUGGING_SECS = 0.5
 
     def __init__(self, usb_ctrl):
         """Initializes a USBWidgetLink.
@@ -355,40 +356,24 @@ class USBWidgetLink(WidgetLink):
     def connect(self, source, sink):
         """Connects source widget to sink widget.
 
-        This method first identifies the Chameleon widget and plug it first so
-        that it is visible to the Cros host for it to plug in the Cros widget.
-
         @param source: An AudioWidget object.
         @param sink: An AudioWidget object.
 
         """
-        if source.audio_port.host == 'Chameleon':
-            source.handler.plug()
-            time.sleep(self._DELAY_BEFORE_PLUGGING_CROS_SECONDS)
-            sink.handler.plug()
-        else:
-            sink.handler.plug()
-            time.sleep(self._DELAY_BEFORE_PLUGGING_CROS_SECONDS)
-            source.handler.plug()
+        source.handler.plug()
+        sink.handler.plug()
+        time.sleep(self._DELAY_AFTER_PLUGGING_SECS)
 
 
     def disconnect(self, source, sink):
         """Disconnects source widget from sink widget.
 
-        This method first identifies the Cros widget and unplugs it first while
-        the Chameleon widget is still visible for the Cros host to know which
-        USB port to unplug Cros widget from.
-
         @param source: An AudioWidget object.
         @param sink: An AudioWidget object.
 
         """
-        if source.audio_port.host == 'Cros':
-            source.handler.unplug()
-            sink.handler.unplug()
-        else:
-            sink.handler.unplug()
-            source.handler.unplug()
+        source.handler.unplug()
+        sink.handler.unplug()
 
 
 class USBToCrosWidgetLink(USBWidgetLink):
@@ -419,73 +404,73 @@ class HDMIWidgetLink(WidgetLink):
     _DEFAULT_CHANNEL_MAP = [1, 0, None, None, None, None, None, None]
     _DELAY_AFTER_PLUG_SECONDS = 6
 
-    def __init__(self):
+    def __init__(self, cros_host):
+        """Initializes a HDMI widget link.
+
+        @param cros_host: A CrosHost object to access Cros device.
+
+        """
         super(HDMIWidgetLink, self).__init__()
         self.name = 'HDMI cable'
         self.channel_map = self._DEFAULT_CHANNEL_MAP
+        self._cros_host = cros_host
         logging.debug(
                 'Create an HDMIWidgetLink. Do nothing because HDMI cable'
                 ' is dedicated')
 
 
-    def _plug_input(self, widget):
-        """Plugs input of HDMI cable to the widget using widget handler.
+    # TODO(cychiang) remove this when issue crbug.com/450101 is fixed.
+    def _correction_plug_unplug_for_audio(self, handler):
+        """Plugs/unplugs several times for Cros device to detect audio.
 
-        @param widget: An AudioWidget object.
+        For issue crbug.com/450101, Exynos HDMI driver has problem recognizing
+        HDMI audio, while display can be detected. Do several plug/unplug and
+        wait as a workaround. Note that HDMI port will be in unplugged state
+        in the end if extra plug/unplug is needed.
 
-        """
-        self._check_widget_id(ids.CrosIds.HDMI, widget)
-        logging.info(
-                'Plug HDMI cable input. Do nothing because HDMI cable should '
-                'always be physically plugged to Cros device')
-
-
-    def _unplug_input(self, widget):
-        """Unplugs input of HDMI cable from the widget using widget handler.
-
-        @param widget_handler: A WidgetHandler object.
+        @param handler: A ChameleonHDMIInputWidgetHandler.
 
         """
-        self._check_widget_id(ids.CrosIds.HDMI, widget)
-        logging.info(
-                'Unplug HDMI cable input. Do nothing because HDMI cable should '
-                'always be physically plugged to Cros device')
+        board = self._cros_host.get_board().split(':')[1]
+        if board in ['peach_pit', 'peach_pi', 'daisy', 'daisy_spring',
+                     'daisy_skate']:
+            logging.info('Need extra plug/unplug on board %s', board)
+            for _ in xrange(3):
+                handler.plug()
+                time.sleep(3)
+                handler.unplug()
+                time.sleep(3)
 
 
-    def _plug_output(self, widget):
-        """Plugs output of HDMI cable to the widget using widget handler.
+    def connect(self, source, sink):
+        """Connects source widget to sink widget.
 
-        @param widget: An AudioWidget object.
+        @param source: An AudioWidget object.
+        @param sink: An AudioWidget object.
 
-        @raises: WidgetLinkError if widget handler interface is not HDMI.
         """
-        self._check_widget_id(ids.ChameleonIds.HDMI, widget)
-        # HDMI plugging emulation is done on Chameleon port.
-        logging.info(
-                'Plug HDMI cable output. This is emulated on Chameleon port')
-        widget.handler.plug()
+        sink.handler.set_edid_for_audio()
+        self._correction_plug_unplug_for_audio(sink.handler)
+        sink.handler.plug()
         time.sleep(self._DELAY_AFTER_PLUG_SECONDS)
 
 
-    def _unplug_output(self, widget):
-        """Unplugs output of HDMI cable from the widget using widget handler.
+    def disconnect(self, source, sink):
+        """Disconnects source widget from sink widget.
 
-        @param widget: An AudioWidget object.
+        @param source: An AudioWidget object.
+        @param sink: An AudioWidget object.
 
-        @raises: WidgetLinkError if widget handler interface is not HDMI.
         """
-        self._check_widget_id(ids.ChameleonIds.HDMI, widget)
-        # HDMI plugging emulation is done on Chameleon port.
-        logging.info(
-                'Unplug HDMI cable output. This is emulated on Chameleon port')
-        widget.handler.unplug()
+        sink.handler.unplug()
+        sink.handler.restore_edid()
 
 
 class BluetoothWidgetLink(WidgetLink):
     """The abstraction for bluetooth link between Cros device and bt module."""
     # The delay after connection for cras to process the bluetooth connection
     # event and enumerate the bluetooth nodes.
-    _DELAY_AFTER_CONNECT_SECONDS = 5
+    _DELAY_AFTER_CONNECT_SECONDS = 15
 
     def __init__(self, bt_adapter, audio_board_bt_ctrl, mac_address):
         """Initializes a BluetoothWidgetLink.

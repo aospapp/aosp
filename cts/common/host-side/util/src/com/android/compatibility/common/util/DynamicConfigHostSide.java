@@ -16,20 +16,54 @@
 
 package com.android.compatibility.common.util;
 
+import com.android.tradefed.build.IBuildInfo;
+
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Load dynamic config for device side test cases
  */
-public class DynamicConfigHostSide extends DynamicConfig {
+public class DynamicConfigHostSide {
 
-    private static String LOG_TAG = DynamicConfigHostSide.class.getSimpleName();
+    public static final String CONFIG_PATH_PREFIX = "DYNAMIC_CONFIG_FILE:";
 
-    public DynamicConfigHostSide(String moduleName) throws IOException, XmlPullParserException {
-        File configFile = getConfigFile(new File(CONFIG_FOLDER_ON_HOST), moduleName);
-        initializeConfig(configFile);
+    /**
+     * Returns the value of a key from a downloaded file.
+     *
+     * @param file The file downloaded, can be retrieve via
+     *        {@link #getDynamicConfigFile(IBuildInfo, String)}
+     * @param key the key inside the file which value we want to return
+     * @return the value associated to the key in the config file provided.
+     */
+    public static String getValueFromConfig(File file, String key)
+            throws XmlPullParserException, IOException {
+        Map<String, List<String>> configMap = DynamicConfig.createConfigMap(file);
+        List<String> singleValue = configMap.get(key);
+        if (singleValue == null || singleValue.size() == 0 || singleValue.size() > 1) {
+            // key must exist in the map, and map to a list containing exactly one string
+            return null;
+        }
+        return singleValue.get(0);
+    }
+
+    /**
+     * Returns a dynamic config file downloaded in {@link DynamicConfigPusher} the path is stored
+     * in the build info under a module name.
+     *
+     * @param info the invocation {@link IBuildInfo}
+     * @param moduleName the name of the module of the file.
+     * @return a {@link File} created from the downloaded file.
+     */
+    public static File getDynamicConfigFile(IBuildInfo info, String moduleName) {
+        String path = info.getBuildAttributes().get(CONFIG_PATH_PREFIX + moduleName);
+        if (path!= null && !path.isEmpty()) {
+            return new File(path);
+        }
+        return null;
     }
 }

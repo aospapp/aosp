@@ -1,20 +1,33 @@
 /*
  * Copyright (C) 2015 The Android Open Source Project
+ * All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
 #include "linker_allocator.h"
+#include "linker_debug.h"
 #include "linker.h"
 
 #include <algorithm>
@@ -69,10 +82,12 @@ static inline uint16_t log2(size_t number) {
   return result;
 }
 
-LinkerSmallObjectAllocator::LinkerSmallObjectAllocator()
-    : type_(0), block_size_(0), free_pages_cnt_(0), free_blocks_list_(nullptr) {}
+LinkerSmallObjectAllocator::LinkerSmallObjectAllocator(uint32_t type, size_t block_size)
+    : type_(type), block_size_(block_size), free_pages_cnt_(0), free_blocks_list_(nullptr) {}
 
 void* LinkerSmallObjectAllocator::alloc() {
+  CHECK(block_size_ != 0);
+
   if (free_blocks_list_ == nullptr) {
     alloc_page();
   }
@@ -156,11 +171,6 @@ void LinkerSmallObjectAllocator::free(void* ptr) {
   }
 }
 
-void LinkerSmallObjectAllocator::init(uint32_t type, size_t block_size) {
-  type_ = type;
-  block_size_ = block_size;
-}
-
 linker_vector_t::iterator LinkerSmallObjectAllocator::find_page_record(void* ptr) {
   void* addr = reinterpret_cast<void*>(PAGE_START(reinterpret_cast<uintptr_t>(ptr)));
   small_object_page_record boundary;
@@ -198,8 +208,6 @@ void LinkerSmallObjectAllocator::alloc_page() {
 
   prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, map_ptr, PAGE_SIZE, "linker_alloc_small_objects");
 
-  memset(map_ptr, 0, PAGE_SIZE);
-
   page_info* info = reinterpret_cast<page_info*>(map_ptr);
   memcpy(info->signature, kSignature, sizeof(kSignature));
   info->type = type_;
@@ -218,11 +226,20 @@ void LinkerSmallObjectAllocator::alloc_page() {
 }
 
 
-LinkerMemoryAllocator::LinkerMemoryAllocator() {
+void LinkerMemoryAllocator::initialize_allocators() {
+  if (allocators_ != nullptr) {
+    return;
+  }
+
+  LinkerSmallObjectAllocator* allocators =
+      reinterpret_cast<LinkerSmallObjectAllocator*>(allocators_buf_);
+
   for (size_t i = 0; i < kSmallObjectAllocatorsCount; ++i) {
     uint32_t type = i + kSmallObjectMinSizeLog2;
-    allocators_[i].init(type, 1 << type);
+    new (allocators + i) LinkerSmallObjectAllocator(type, 1 << type);
   }
+
+  allocators_ = allocators;
 }
 
 void* LinkerMemoryAllocator::alloc_mmap(size_t size) {
@@ -235,8 +252,6 @@ void* LinkerMemoryAllocator::alloc_mmap(size_t size) {
   }
 
   prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, map_ptr, allocated_size, "linker_alloc_lob");
-
-  memset(map_ptr, 0, allocated_size);
 
   page_info* info = reinterpret_cast<page_info*>(map_ptr);
   memcpy(info->signature, kSignature, sizeof(kSignature));
@@ -333,5 +348,6 @@ LinkerSmallObjectAllocator* LinkerMemoryAllocator::get_small_object_allocator(ui
     __libc_fatal("invalid type: %u", type);
   }
 
+  initialize_allocators();
   return &allocators_[type - kSmallObjectMinSizeLog2];
 }

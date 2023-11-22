@@ -16,12 +16,20 @@
 
 package android.view.cts;
 
-import android.test.InstrumentationTestCase;
-import android.view.Choreographer;
+import static org.junit.Assert.fail;
 
-public class ChoreographerNativeTest extends InstrumentationTestCase {
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ChoreographerNativeTest {
     private long mChoreographerPtr;
-    private Choreographer mChoreographer;
 
     private static native long nativeGetChoreographer();
     private static native boolean nativePrepareChoreographerTests(long ptr);
@@ -32,24 +40,21 @@ public class ChoreographerNativeTest extends InstrumentationTestCase {
         System.loadLibrary("ctsview_jni");
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mChoreographerPtr = nativeGetChoreographer();
-            }
-        });
+    @UiThreadTest
+    @Before
+    public void setup() {
+        mChoreographerPtr = nativeGetChoreographer();
         if (!nativePrepareChoreographerTests(mChoreographerPtr)) {
             fail("Failed to setup choreographer tests");
         }
     }
 
+    @Test
     public void testPostCallbackWithoutDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks(mChoreographerPtr);
     }
 
+    @Test
     public void testPostCallbackWithDelayEventuallyRunsCallbacks() {
         nativeTestPostCallbackWithDelayEventuallyRunsCallbacks(mChoreographerPtr);
     }

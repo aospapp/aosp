@@ -976,6 +976,16 @@ endif FN_PTRS_IN_SO_WITHOUT_PIC
 
 endif TLS
 
+if DEFAULT_TARGET_X86_64
+
+check_PROGRAMS += pr17704a_test
+pr17704a_test.o: pr17704a_test.s
+	$(TEST_AS) --64  -o $@ $<
+pr17704a_test: pr17704a_test.o gcctestdir/ld
+	gcctestdir/ld --icf=all -o $@ $<
+
+endif DEFAULT_TARGET_X86_64
+
 if DEFAULT_TARGET_I386
 
 check_SCRIPTS += i386_mov_to_lea.sh
@@ -1894,11 +1904,13 @@ endif MCMODEL_MEDIUM
 # referenced by a shared library.
 check_SCRIPTS += hidden_test.sh
 check_DATA += hidden_test.err
-MOSTLYCLEANFILES += hidden_test hidden_test.err
+MOSTLYCLEANFILES += hidden_test hidden_test.err hidden_test.syms
 libhidden.so: hidden_test_1.c gcctestdir/ld
 	$(COMPILE) -Bgcctestdir/ -g -shared -fPIC -w -o $@ $(srcdir)/hidden_test_1.c
 hidden_test: hidden_test_main.o libhidden.so gcctestdir/ld
 	$(LINK) -Bgcctestdir/ -Wl,-R,. hidden_test_main.o libhidden.so 2>hidden_test.err
+hidden_test.syms: hidden_test
+	$(TEST_NM) -D hidden_test > $@
 hidden_test.err: hidden_test
 	@touch hidden_test.err
 

@@ -96,7 +96,8 @@ class network_WiFi_UpdateRouter(test.test):
                      current_release_version)
         logging.info('Staging artifacts.')
         try:
-            ds = dev_server.ImageServer.resolve(desired.builder_version)
+            ds = dev_server.ImageServer.resolve(desired.builder_version,
+                                                router_hostname)
             ds.stage_artifacts(desired.builder_version,
                                ['full_payload', 'stateful'])
         except dev_server.DevServerException as e:

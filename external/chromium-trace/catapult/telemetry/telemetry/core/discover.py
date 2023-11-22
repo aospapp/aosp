@@ -8,12 +8,10 @@ import os
 import re
 import sys
 
-from telemetry import decorators
 from telemetry.internal.util import camel_case
 from telemetry.internal.util import classes as classes_module
 
 
-@decorators.Cache
 def DiscoverModules(start_dir, top_level_dir, pattern='*'):
   """Discover all modules in |start_dir| which match |pattern|.
 
@@ -30,7 +28,13 @@ def DiscoverModules(start_dir, top_level_dir, pattern='*'):
   top_level_dir = os.path.realpath(top_level_dir)
 
   modules = []
-  for dir_path, _, filenames in os.walk(start_dir):
+  sub_paths = list(os.walk(start_dir))
+  # We sort the directories & file paths to ensure a deterministic ordering when
+  # traversing |top_level_dir|.
+  sub_paths.sort(key=lambda paths_tuple: paths_tuple[0])
+  for dir_path, _, filenames in sub_paths:
+    # Sort the directories to walk recursively by the directory path.
+    filenames.sort()
     for filename in filenames:
       # Filter out unwanted filenames.
       if filename.startswith('.') or filename.startswith('_'):
@@ -58,9 +62,17 @@ def DiscoverModules(start_dir, top_level_dir, pattern='*'):
   return modules
 
 
+def AssertNoKeyConflicts(classes_by_key_1, classes_by_key_2):
+  for k in classes_by_key_1:
+    if k in classes_by_key_2:
+      assert classes_by_key_1[k] is classes_by_key_2[k], (
+          'Found conflicting classes for the same key: '
+          'key=%s, class_1=%s, class_2=%s' % (
+              k, classes_by_key_1[k], classes_by_key_2[k]))
+
+
 # TODO(dtu): Normalize all discoverable classes to have corresponding module
 # and class names, then always index by class name.
-@decorators.Cache
 def DiscoverClasses(start_dir,
                     top_level_dir,
                     base_class,
@@ -89,11 +101,20 @@ def DiscoverClasses(start_dir,
   for module in modules:
     new_classes = DiscoverClassesInModule(
         module, base_class, index_by_class_name, directly_constructable)
+    # TODO(nednguyen): we should remove index_by_class_name once
+    # benchmark_smoke_unittest in chromium/src/tools/perf no longer relied
+    # naming collisions to reduce the number of smoked benchmark tests.
+    # crbug.com/548652
+    if index_by_class_name:
+      AssertNoKeyConflicts(classes, new_classes)
     classes = dict(classes.items() + new_classes.items())
   return classes
 
 
-@decorators.Cache
+# TODO(nednguyen): we should remove index_by_class_name once
+# benchmark_smoke_unittest in chromium/src/tools/perf no longer relied
+# naming collisions to reduce the number of smoked benchmark tests.
+# crbug.com/548652
 def DiscoverClassesInModule(module,
                             base_class,
                             index_by_class_name=False,
@@ -136,7 +157,12 @@ def DiscoverClassesInModule(module,
       key_name = module.__name__.split('.')[-1]
     if (not directly_constructable or
         classes_module.IsDirectlyConstructable(obj)):
-      classes[key_name] = obj
+      if key_name in classes and index_by_class_name:
+        assert classes[key_name] is obj, (
+          'Duplicate key_name with different objs detected: '
+          'key=%s, obj1=%s, obj2=%s' % (key_name, classes[key_name], obj))
+      else:
+        classes[key_name] = obj
 
   return classes
 

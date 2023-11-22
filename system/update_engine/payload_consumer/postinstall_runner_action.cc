@@ -23,6 +23,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cmath>
+
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/logging.h>
@@ -111,9 +113,17 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
 #ifdef __ANDROID__
   fs_mount_dir_ = "/postinstall";
 #else   // __ANDROID__
-  TEST_AND_RETURN(
-      utils::MakeTempDirectory("au_postint_mount.XXXXXX", &fs_mount_dir_));
+  base::FilePath temp_dir;
+  TEST_AND_RETURN(base::CreateNewTempDirectory("au_postint_mount", &temp_dir));
+  fs_mount_dir_ = temp_dir.value();
 #endif  // __ANDROID__
+
+  // Double check that the fs_mount_dir is not busy with a previous mounted
+  // filesystem from a previous crashed postinstall step.
+  if (utils::IsMountpoint(fs_mount_dir_)) {
+    LOG(INFO) << "Found previously mounted filesystem at " << fs_mount_dir_;
+    utils::UnmountFilesystem(fs_mount_dir_);
+  }
 
   base::FilePath postinstall_path(partition.postinstall_path);
   if (postinstall_path.IsAbsolute()) {
@@ -237,7 +247,8 @@ void PostinstallRunnerAction::OnProgressFdReady() {
 
 bool PostinstallRunnerAction::ProcessProgressLine(const string& line) {
   double frac = 0;
-  if (sscanf(line.c_str(), "global_progress %lf", &frac) == 1) {
+  if (sscanf(line.c_str(), "global_progress %lf", &frac) == 1 &&
+      !std::isnan(frac)) {
     ReportProgress(frac);
     return true;
   }
@@ -252,7 +263,7 @@ void PostinstallRunnerAction::ReportProgress(double frac) {
     delegate_->ProgressUpdate(1.);
     return;
   }
-  if (!isfinite(frac) || frac < 0)
+  if (!std::isfinite(frac) || frac < 0)
     frac = 0;
   if (frac > 1)
     frac = 1;

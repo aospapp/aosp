@@ -16,21 +16,23 @@
 
 package com.android.compatibility.common.util;
 
+import static android.net.wifi.WifiManager.EXTRA_WIFI_STATE;
+import static android.net.wifi.WifiManager.WIFI_STATE_ENABLED;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.ProxyInfo;
+import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.List;
-
-import static android.net.wifi.WifiManager.EXTRA_WIFI_STATE;
-import static android.net.wifi.WifiManager.WIFI_STATE_ENABLED;
 
 /**
  * A simple activity to create and manage wifi configurations.
@@ -81,6 +83,49 @@ public class WifiConfigCreator {
             Log.w(TAG, "Unable to add SSID '" + ssid + "': netId = " + netId);
         }
         return netId;
+    }
+
+    /**
+     * Adds a new wifiConfiguration with OPEN security type, and the given pacProxy
+     * verifies that the proxy is added by getting the configuration back, and checking it.
+     * @return returns the PAC proxy URL after adding the network and getting it from WifiManager
+     * @throws IllegalStateException if any of the WifiManager operations fail
+     */
+    public String addHttpProxyNetworkVerifyAndRemove(String ssid, String pacProxyUrl)
+            throws IllegalStateException {
+        String retrievedPacProxyUrl = null;
+        int netId = -1;
+        try {
+            WifiConfiguration conf = createConfig(ssid, false, SECURITY_TYPE_NONE, null);
+            if (pacProxyUrl != null) {
+                conf.setHttpProxy(ProxyInfo.buildPacProxy(Uri.parse(pacProxyUrl)));
+            }
+            netId = mWifiManager.addNetwork(conf);
+            if (netId == -1) {
+                throw new IllegalStateException("Failed to addNetwork: " + ssid);
+            }
+            for (final WifiConfiguration w : mWifiManager.getConfiguredNetworks()) {
+                if (w.SSID.equals(ssid)) {
+                    conf = w;
+                    break;
+                }
+            }
+            if (conf == null) {
+                throw new IllegalStateException("Failed to get WifiConfiguration for: " + ssid);
+            }
+            Uri pacProxyFileUri = null;
+            ProxyInfo httpProxy = conf.getHttpProxy();
+            if (httpProxy != null) pacProxyFileUri = httpProxy.getPacFileUrl();
+            if (pacProxyFileUri != null) {
+                retrievedPacProxyUrl = conf.getHttpProxy().getPacFileUrl().toString();
+            }
+            if (!mWifiManager.removeNetwork(netId)) {
+                throw new IllegalStateException("Failed to remove WifiConfiguration: " + ssid);
+            }
+        } finally {
+            mWifiManager.removeNetwork(netId);
+        }
+        return retrievedPacProxyUrl;
     }
 
     /**

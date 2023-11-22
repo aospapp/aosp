@@ -18,6 +18,7 @@
 package org.apache.harmony.tests.java.lang;
 
 import junit.framework.TestCase;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ThreadLocalTest extends TestCase {
 
@@ -146,5 +147,44 @@ public class ThreadLocalTest extends TestCase {
         assertNull("ThreadLocal's value in other Thread should be null",
                 THREADVALUE.result);
 
+    }
+
+    /**
+     * java.lang.ThreadLocal#withInitial()
+     */
+    public void test_withInitial() {
+        // The ThreadLocal has to run once for each thread that touches the
+        // ThreadLocal
+        final String INITIAL_VALUE = "'foo'";
+        final String OTHER_VALUE = "'bar'";
+        final ThreadLocal<String> l1 = ThreadLocal.withInitial(() -> INITIAL_VALUE);
+
+        assertSame(INITIAL_VALUE, l1.get());
+
+        l1.set(OTHER_VALUE);
+        assertSame(OTHER_VALUE, l1.get());
+
+        assertTrue("ThreadLocal's value should be " + OTHER_VALUE
+                + " but is " + l1.get(), l1.get() == OTHER_VALUE);
+
+        AtomicReference<String> threadValue = new AtomicReference<String>();
+
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                threadValue.set(l1.get());
+            }
+        };
+
+        // Wait for the other Thread assign what it observes as the value of the
+        // variable
+        t.start();
+        try {
+            t.join();
+        } catch (InterruptedException ie) {
+            fail("Interrupted!!");
+        }
+
+        assertSame(INITIAL_VALUE, threadValue.get());
     }
 }

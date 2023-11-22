@@ -32,6 +32,7 @@ import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
  */
 abstract class JDWPEventTestCase extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return EventDebuggee.class.getName();
     }

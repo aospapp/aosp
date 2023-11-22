@@ -19,6 +19,7 @@
 #ifndef LIBMEMUNREACHABLE_TARJAN_H_
 #define LIBMEMUNREACHABLE_TARJAN_H_
 
+#include <assert.h>
 #include <algorithm>
 
 #include "Allocator.h"
@@ -62,7 +63,7 @@ using SCCList = allocator::vector<SCC<T>>;
 template<class T>
 class TarjanAlgorithm {
  public:
-  TarjanAlgorithm(Allocator<void> allocator) : index_(0),
+  explicit TarjanAlgorithm(Allocator<void> allocator) : index_(0),
     stack_(allocator), components_(allocator) {}
 
   void Execute(Graph<T>& graph, SCCList<T>& out);

@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <ui/Rect.h>
 #include <ui/Region.h>
 
 #include "RenderEngine.h"
-#include "GLES10RenderEngine.h"
-#include "GLES11RenderEngine.h"
 #include "GLES20RenderEngine.h"
 #include "GLExtensions.h"
 #include "Mesh.h"
+
+#include <vector>
+#include <SurfaceFlinger.h>
 
 EGLAPI const char* eglQueryStringImplementationANDROID(EGLDisplay dpy, EGLint name);
 
@@ -78,18 +79,21 @@ RenderEngine* RenderEngine::create(EGLDisplay display, int hwcFormat) {
         LOG_ALWAYS_FATAL("no supported EGL_RENDERABLE_TYPEs");
     }
 
-    // Also create our EGLContext
-    EGLint contextAttributes[] = {
-            EGL_CONTEXT_CLIENT_VERSION, contextClientVersion,      // MUST be first
+    std::vector<EGLint> contextAttributes;
+    contextAttributes.reserve(6);
+    contextAttributes.push_back(EGL_CONTEXT_CLIENT_VERSION);
+    contextAttributes.push_back(contextClientVersion);
 #ifdef EGL_IMG_context_priority
-#ifdef HAS_CONTEXT_PRIORITY
-#warning "using EGL_IMG_context_priority"
-            EGL_CONTEXT_PRIORITY_LEVEL_IMG, EGL_CONTEXT_PRIORITY_HIGH_IMG,
+    if (SurfaceFlinger::useContextPriority) {
+        contextAttributes.push_back(EGL_CONTEXT_PRIORITY_LEVEL_IMG);
+        contextAttributes.push_back(EGL_CONTEXT_PRIORITY_HIGH_IMG);
+    }
 #endif
-#endif
-            EGL_NONE, EGL_NONE
-    };
-    EGLContext ctxt = eglCreateContext(display, config, NULL, contextAttributes);
+    contextAttributes.push_back(EGL_NONE);
+    contextAttributes.push_back(EGL_NONE);
+
+    EGLContext ctxt = eglCreateContext(display, config, NULL,
+                                       contextAttributes.data());
 
     // if can't create a GL context, we can only abort.
     LOG_ALWAYS_FATAL_IF(ctxt==EGL_NO_CONTEXT, "EGLContext creation failed");
@@ -122,10 +126,8 @@ RenderEngine* RenderEngine::create(EGLDisplay display, int hwcFormat) {
     RenderEngine* engine = NULL;
     switch (version) {
     case GLES_VERSION_1_0:
-        engine = new GLES10RenderEngine();
-        break;
     case GLES_VERSION_1_1:
-        engine = new GLES11RenderEngine();
+        LOG_ALWAYS_FATAL("SurfaceFlinger requires OpenGL ES 2.0 minimum to run.");
         break;
     case GLES_VERSION_2_0:
     case GLES_VERSION_3_0:
@@ -317,7 +319,7 @@ class EGLAttributeVector {
     KeyedVector<Attribute, EGLint> mList;
     struct Attribute {
         Attribute() : v(0) {};
-        Attribute(EGLint v) : v(v) { }
+        explicit Attribute(EGLint v) : v(v) { }
         EGLint v;
         bool operator < (const Attribute& other) const {
             // this places EGL_NONE at the end
@@ -338,18 +340,18 @@ class EGLAttributeVector {
     public:
         void operator = (EGLint value) {
             if (attribute != EGL_NONE) {
-                v.mList.add(attribute, value);
+                v.mList.add(Attribute(attribute), value);
             }
         }
         operator EGLint () const { return v.mList[attribute]; }
     };
 public:
     EGLAttributeVector() {
-        mList.add(EGL_NONE, EGL_NONE);
+        mList.add(Attribute(EGL_NONE), EGL_NONE);
     }
     void remove(EGLint attribute) {
         if (attribute != EGL_NONE) {
-            mList.removeItem(attribute);
+            mList.removeItem(Attribute(attribute));
         }
     }
     Adder operator [] (EGLint attribute) {
@@ -380,6 +382,7 @@ static status_t selectEGLConfig(EGLDisplay display, EGLint format,
         attribs[EGL_RED_SIZE]                   = 8;
         attribs[EGL_GREEN_SIZE]                 = 8;
         attribs[EGL_BLUE_SIZE]                  = 8;
+        attribs[EGL_ALPHA_SIZE]                 = 8;
         wantedAttribute                         = EGL_NONE;
         wantedAttributeValue                    = EGL_NONE;
     } else {

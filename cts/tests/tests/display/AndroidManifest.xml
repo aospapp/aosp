@@ -24,6 +24,7 @@
     <application>
         <uses-library android:name="android.test.runner" />
         <activity android:name=".ScreenOnActivity" />
+        <activity android:name=".DisplayTestActivity" />
     </application>
 
     <!--  self-instrumenting test package. -->

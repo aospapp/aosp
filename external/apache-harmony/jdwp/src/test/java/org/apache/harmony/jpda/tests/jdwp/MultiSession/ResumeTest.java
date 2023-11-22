@@ -27,7 +27,6 @@ package org.apache.harmony.jpda.tests.jdwp.MultiSession;
 
 import org.apache.harmony.jpda.tests.framework.TestOptions;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -36,6 +35,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class ResumeTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.MultiSession.ResumeDebuggee";
     }
@@ -70,6 +70,7 @@ public class ResumeTest extends JDWPSyncTestCase {
         logWriter.println("TEST PASSED");
     }
 
+    @Override
     protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {

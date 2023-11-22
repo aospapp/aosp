@@ -1,9 +1,13 @@
 #!/usr/bin/python
+
+#pylint: disable=C0111
+
 """
 Autotest scheduler
 """
 
 import datetime
+import functools
 import gc
 import logging
 import optparse
@@ -20,8 +24,7 @@ import django.db
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
-from autotest_lib.frontend.afe import models, rpc_utils
+from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import agent_task, drone_manager
 from autotest_lib.scheduler import email_manager, gc_stats, host_scheduler
 from autotest_lib.scheduler import monitor_db_cleanup, prejob_task
@@ -35,6 +38,13 @@ from autotest_lib.server import system_utils
 from autotest_lib.server import utils as server_utils
 from autotest_lib.site_utils import metadata_reporter
 from autotest_lib.site_utils import server_manager_utils
+
+try:
+    from chromite.lib import metrics
+    from chromite.lib import ts_mon_config
+except ImportError:
+    metrics = utils.metrics_mock
+    ts_mon_config = utils.metrics_mock
 
 
 BABYSITTER_PID_FILE_PREFIX = 'monitor_db_babysitter'
@@ -67,13 +77,7 @@ _autoserv_directory = autoserv_utils.autoserv_directory
 _autoserv_path = autoserv_utils.autoserv_path
 _testing_mode = False
 _drone_manager = None
-_inline_host_acquisition = global_config.global_config.get_config_value(
-        scheduler_config.CONFIG_SECTION, 'inline_host_acquisition', type=bool,
-        default=True)
 
-_enable_ssp_container = global_config.global_config.get_config_value(
-        'AUTOSERV', 'enable_ssp_container', type=bool,
-        default=True)
 
 def _site_init_monitor_db_dummy():
     return {}
@@ -167,24 +171,30 @@ def main_without_exception_handling():
     # Start the thread to report metadata.
     metadata_reporter.start()
 
-    try:
-        initialize()
-        dispatcher = Dispatcher()
-        dispatcher.initialize(recover_hosts=options.recover_hosts)
-        minimum_tick_sec = global_config.global_config.get_config_value(
-                scheduler_config.CONFIG_SECTION, 'minimum_tick_sec', type=float)
+    with ts_mon_config.SetupTsMonGlobalState('autotest_scheduler',
+                                             indirect=True):
+      try:
+          initialize()
+          dispatcher = Dispatcher()
+          dispatcher.initialize(recover_hosts=options.recover_hosts)
+          minimum_tick_sec = global_config.global_config.get_config_value(
+                  scheduler_config.CONFIG_SECTION, 'minimum_tick_sec', type=float)
 
-        while not _shutdown and not server._shutdown_scheduler:
-            start = time.time()
-            dispatcher.tick()
-            curr_tick_sec = time.time() - start
-            if (minimum_tick_sec > curr_tick_sec):
-                time.sleep(minimum_tick_sec - curr_tick_sec)
-            else:
-                time.sleep(0.0001)
-    except Exception:
-        email_manager.manager.log_stacktrace(
-            "Uncaught exception; terminating monitor_db")
+          while not _shutdown and not server._shutdown_scheduler:
+              start = time.time()
+              dispatcher.tick()
+              curr_tick_sec = time.time() - start
+              if minimum_tick_sec > curr_tick_sec:
+                  time.sleep(minimum_tick_sec - curr_tick_sec)
+              else:
+                  time.sleep(0.0001)
+      except server_manager_utils.ServerActionError as e:
+          # This error is expected when the server is not in primary status
+          # for scheduler role. Thus do not send email for it.
+          logging.exception(e)
+      except Exception:
+          email_manager.manager.log_stacktrace(
+              "Uncaught exception; terminating monitor_db")
 
     metadata_reporter.abort()
     email_manager.manager.send_queued_emails()
@@ -264,6 +274,15 @@ def _autoserv_command_line(machines, extra_args, job=None, queue_entry=None,
             verbose=verbose, in_lab=True)
     return command
 
+def _calls_log_tick_msg(func):
+    """Used to trace functions called by BaseDispatcher.tick."""
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        self._log_tick_msg('Starting %s' % func.__name__)
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
 
 class BaseDispatcher(object):
 
@@ -290,6 +309,10 @@ class BaseDispatcher(object):
         self._extra_debugging = global_config.global_config.get_config_value(
                 scheduler_config.CONFIG_SECTION, 'extra_debugging', type=bool,
                 default=False)
+        self._inline_host_acquisition = (
+                global_config.global_config.get_config_value(
+                        scheduler_config.CONFIG_SECTION,
+                        'inline_host_acquisition', type=bool, default=True))
 
         # If _inline_host_acquisition is set the scheduler will acquire and
         # release hosts against jobs inline, with the tick. Otherwise the
@@ -297,7 +320,7 @@ class BaseDispatcher(object):
         # will not explicitly unlease a host when a job finishes using it.
         self._job_query_manager = query_managers.AFEJobQueryManager()
         self._host_scheduler = (host_scheduler.BaseHostScheduler()
-                                if _inline_host_acquisition else
+                                if self._inline_host_acquisition else
                                 host_scheduler.DummyHostScheduler())
 
 
@@ -316,73 +339,73 @@ class BaseDispatcher(object):
             self._recover_hosts()
 
 
-    def _log_tick_msg(self, msg):
-        if self._tick_debug:
-            logging.debug(msg)
-
-
-    def _log_extra_msg(self, msg):
-        if self._extra_debugging:
-            logging.debug(msg)
-
-
+    # TODO(pprabhu) Drop this metric once tick_times has been verified.
+    @metrics.SecondsTimerDecorator(
+            'chromeos/autotest/scheduler/tick_durations/tick')
     def tick(self):
         """
         This is an altered version of tick() where we keep track of when each
         major step begins so we can try to figure out where we are using most
         of the tick time.
         """
-        timer = autotest_stats.Timer('scheduler.tick')
-        system_utils.DroneCache.refresh()
-        self._log_tick_msg('Calling new tick, starting garbage collection().')
-        self._garbage_collection()
-        self._log_tick_msg('Calling _drone_manager.trigger_refresh().')
-        _drone_manager.trigger_refresh()
-        self._log_tick_msg('Calling _process_recurring_runs().')
-        self._process_recurring_runs()
-        self._log_tick_msg('Calling _schedule_delay_tasks().')
-        self._schedule_delay_tasks()
-        self._log_tick_msg('Calling _schedule_running_host_queue_entries().')
-        self._schedule_running_host_queue_entries()
-        self._log_tick_msg('Calling _schedule_special_tasks().')
-        self._schedule_special_tasks()
-        self._log_tick_msg('Calling _schedule_new_jobs().')
-        self._schedule_new_jobs()
-        self._log_tick_msg('Calling _drone_manager.sync_refresh().')
-        _drone_manager.sync_refresh()
-        # _run_cleanup must be called between drone_manager.sync_refresh, and
-        # drone_manager.execute_actions, as sync_refresh will clear the calls
-        # queued in drones. Therefore, any action that calls drone.queue_call
-        # to add calls to the drone._calls, should be after drone refresh is
-        # completed and before drone_manager.execute_actions at the end of the
-        # tick.
-        self._log_tick_msg('Calling _run_cleanup().')
-        self._run_cleanup()
-        self._log_tick_msg('Calling _find_aborting().')
-        self._find_aborting()
-        self._log_tick_msg('Calling _find_aborted_special_tasks().')
-        self._find_aborted_special_tasks()
-        self._log_tick_msg('Calling _handle_agents().')
-        self._handle_agents()
-        self._log_tick_msg('Calling _host_scheduler.tick().')
-        self._host_scheduler.tick()
-        self._log_tick_msg('Calling _drone_manager.execute_actions().')
-        _drone_manager.execute_actions()
-        self._log_tick_msg('Calling '
-                           'email_manager.manager.send_queued_emails().')
-        with timer.get_client('email_manager_send_queued_emails'):
-            email_manager.manager.send_queued_emails()
-        self._log_tick_msg('Calling django.db.reset_queries().')
-        with timer.get_client('django_db_reset_queries'):
-            django.db.reset_queries()
-        self._tick_count += 1
+        with metrics.RuntimeBreakdownTimer(
+            'chromeos/autotest/scheduler/tick_times') as breakdown_timer:
+            self._log_tick_msg('New tick')
+            system_utils.DroneCache.refresh()
+
+            with breakdown_timer.Step('garbage_collection'):
+                self._garbage_collection()
+            with breakdown_timer.Step('trigger_refresh'):
+                self._log_tick_msg('Starting _drone_manager.trigger_refresh')
+                _drone_manager.trigger_refresh()
+            with breakdown_timer.Step('schedule_running_host_queue_entries'):
+                self._schedule_running_host_queue_entries()
+            with breakdown_timer.Step('schedule_special_tasks'):
+                self._schedule_special_tasks()
+            with breakdown_timer.Step('schedule_new_jobs'):
+                self._schedule_new_jobs()
+            with breakdown_timer.Step('sync_refresh'):
+                self._log_tick_msg('Starting _drone_manager.sync_refresh')
+                _drone_manager.sync_refresh()
+            # _run_cleanup must be called between drone_manager.sync_refresh,
+            # and drone_manager.execute_actions, as sync_refresh will clear the
+            # calls queued in drones. Therefore, any action that calls
+            # drone.queue_call to add calls to the drone._calls, should be after
+            # drone refresh is completed and before
+            # drone_manager.execute_actions at the end of the tick.
+            with breakdown_timer.Step('run_cleanup'):
+                self._run_cleanup()
+            with breakdown_timer.Step('find_aborting'):
+                self._find_aborting()
+            with breakdown_timer.Step('find_aborted_special_tasks'):
+                self._find_aborted_special_tasks()
+            with breakdown_timer.Step('handle_agents'):
+                self._handle_agents()
+            with breakdown_timer.Step('host_scheduler_tick'):
+                self._log_tick_msg('Starting _host_scheduler.tick')
+                self._host_scheduler.tick()
+            with breakdown_timer.Step('drones_execute_actions'):
+                self._log_tick_msg('Starting _drone_manager.execute_actions')
+                _drone_manager.execute_actions()
+            with breakdown_timer.Step('send_queued_emails'):
+                self._log_tick_msg(
+                    'Starting email_manager.manager.send_queued_emails')
+                email_manager.manager.send_queued_emails()
+            with breakdown_timer.Step('db_reset_queries'):
+                self._log_tick_msg('Starting django.db.reset_queries')
+                django.db.reset_queries()
+
+            self._tick_count += 1
+            metrics.Counter('chromeos/autotest/scheduler/tick').increment()
 
 
+    @_calls_log_tick_msg
     def _run_cleanup(self):
         self._periodic_cleanup.run_cleanup_maybe()
         self._24hr_upkeep.run_cleanup_maybe()
 
 
+    @_calls_log_tick_msg
     def _garbage_collection(self):
         threshold_time = time.time() - self._seconds_between_garbage_stats
         if threshold_time < self._last_garbage_stats_time:
@@ -505,12 +528,13 @@ class BaseDispatcher(object):
         status_list = ','.join("'%s'" % status for status in statuses)
         queue_entries = scheduler_models.HostQueueEntry.fetch(
                 where='status IN (%s)' % status_list)
-        autotest_stats.Gauge('scheduler.jobs_per_tick').send(
-                'running', len(queue_entries))
 
         agent_tasks = []
         used_queue_entries = set()
+        hqe_count_by_status = {}
         for entry in queue_entries:
+            hqe_count_by_status[entry.status] = (
+                hqe_count_by_status.get(entry.status, 0) + 1)
             if self.get_agents_for_entry(entry):
                 # already being handled
                 continue
@@ -520,6 +544,12 @@ class BaseDispatcher(object):
             agent_task = self._get_agent_task_for_queue_entry(entry)
             agent_tasks.append(agent_task)
             used_queue_entries.update(agent_task.queue_entries)
+
+        for status, count in hqe_count_by_status.iteritems():
+            metrics.Gauge(
+                'chromeos/autotest/scheduler/active_host_queue_entries'
+            ).set(count, fields={'status': status})
+
         return agent_tasks
 
 
@@ -637,12 +667,13 @@ class BaseDispatcher(object):
 
 
     def _check_for_remaining_orphan_processes(self, orphans):
+        m = 'chromeos/autotest/errors/unrecovered_orphan_processes'
+        metrics.Gauge(m).set(len(orphans))
+
         if not orphans:
             return
         subject = 'Unrecovered orphan autoserv processes remain'
         message = '\n'.join(str(process) for process in orphans)
-        email_manager.manager.enqueue_notify_email(subject, message)
-
         die_on_orphans = global_config.global_config.get_config_value(
             scheduler_config.CONFIG_SECTION, 'die_on_orphans', type=bool)
 
@@ -677,6 +708,7 @@ class BaseDispatcher(object):
                     (len(unrecovered_hqes), message))
 
 
+    @_calls_log_tick_msg
     def _schedule_special_tasks(self):
         """
         Execute queued SpecialTasks that are ready to run on idle hosts.
@@ -693,7 +725,7 @@ class BaseDispatcher(object):
         # scheduler has vetted the assignment. Note that this doesn't include
         # frontend tasks with hosts leased by other active hqes.
         for task in self._job_query_manager.get_prioritized_special_tasks(
-                only_tasks_with_leased_hosts=not _inline_host_acquisition):
+                only_tasks_with_leased_hosts=not self._inline_host_acquisition):
             if self.host_has_agent(task.host):
                 continue
             self.add_agent_task(self._get_agent_task_for_special_task(task))
@@ -741,7 +773,7 @@ class BaseDispatcher(object):
         @returns A list of pending HostQueueEntries sorted in priority order.
         """
         queue_entries = self._job_query_manager.get_pending_queue_entries(
-                only_hostless=not _inline_host_acquisition)
+                only_hostless=not self._inline_host_acquisition)
         if not queue_entries:
             return []
         return queue_entries
@@ -785,17 +817,11 @@ class BaseDispatcher(object):
         """
         if self.host_has_agent(host):
             host_agent_task = list(self._host_agents.get(host.id))[0].task
-            subject = 'Host with agents assigned to an HQE'
-            message = ('HQE: %s assigned host %s, but the host has '
-                       'agent: %s for queue_entry %s. The HQE '
-                       'will have to try and acquire a host next tick ' %
-                       (queue_entry, host.hostname, host_agent_task,
-                        host_agent_task.queue_entry))
-            email_manager.manager.enqueue_notify_email(subject, message)
         else:
             self._host_scheduler.schedule_host_job(host, queue_entry)
 
 
+    @_calls_log_tick_msg
     def _schedule_new_jobs(self):
         """
         Find any new HQEs and call schedule_pre_job_tasks for it.
@@ -823,28 +849,43 @@ class BaseDispatcher(object):
                 host_jobs.append(queue_entry)
                 new_jobs_need_hosts = new_jobs_need_hosts + 1
 
-        autotest_stats.Gauge(key).send('new_hostless_jobs', new_hostless_jobs)
+        metrics.Counter(
+            'chromeos/autotest/scheduler/scheduled_jobs_hostless'
+        ).increment_by(new_hostless_jobs)
+
         if not host_jobs:
             return
-        if not _inline_host_acquisition:
-            message = ('Found %s jobs that need hosts though '
-                       '_inline_host_acquisition=%s. Will acquire hosts.' %
-                       ([str(job) for job in host_jobs],
-                        _inline_host_acquisition))
-            email_manager.manager.enqueue_notify_email(
-                    'Processing unexpected host acquisition requests', message)
+
+        if not self._inline_host_acquisition:
+          # In this case, host_scheduler is responsible for scheduling
+          # host_jobs. Scheduling the jobs ourselves can lead to DB corruption
+          # since host_scheduler assumes it is the single process scheduling
+          # host jobs.
+          metrics.Gauge(
+              'chromeos/autotest/errors/scheduler/unexpected_host_jobs').set(
+                  len(host_jobs))
+          return
+
         jobs_with_hosts = self._host_scheduler.find_hosts_for_jobs(host_jobs)
         for host_assignment in jobs_with_hosts:
             self._schedule_host_job(host_assignment.host, host_assignment.job)
             new_jobs_with_hosts = new_jobs_with_hosts + 1
 
-        autotest_stats.Gauge(key).send('new_jobs_with_hosts',
-                                       new_jobs_with_hosts)
-        autotest_stats.Gauge(key).send('new_jobs_without_hosts',
-                                       new_jobs_need_hosts -
-                                       new_jobs_with_hosts)
+        metrics.Counter(
+            'chromeos/autotest/scheduler/scheduled_jobs_with_hosts'
+        ).increment_by(new_jobs_with_hosts)
+        # TODO(pprabhu): Decide what to do about this metric. Million dollar
+        # question: What happens to jobs that were not matched. Do they stay in
+        # the queue, and get processed right here in the next tick (then we want
+        # a guage corresponding to the number of outstanding unmatched host
+        # jobs), or are they handled somewhere else (then we need a counter
+        # corresponding to failed_to_match_with_hosts jobs).
+        #autotest_stats.Gauge(key).send('new_jobs_without_hosts',
+        #                               new_jobs_need_hosts -
+        #                               new_jobs_with_hosts)
 
 
+    @_calls_log_tick_msg
     def _schedule_running_host_queue_entries(self):
         """
         Adds agents to the dispatcher.
@@ -864,14 +905,7 @@ class BaseDispatcher(object):
             self.add_agent_task(agent_task)
 
 
-    def _schedule_delay_tasks(self):
-        for entry in scheduler_models.HostQueueEntry.fetch(
-                where='status = "%s"' % models.HostQueueEntry.Status.WAITING):
-            task = entry.job.schedule_delayed_callback_task(entry)
-            if task:
-                self.add_agent_task(task)
-
-
+    @_calls_log_tick_msg
     def _find_aborting(self):
         """
         Looks through the afe_host_queue_entries for an aborted entry.
@@ -910,6 +944,7 @@ class BaseDispatcher(object):
             job.stop_if_necessary()
 
 
+    @_calls_log_tick_msg
     def _find_aborted_special_tasks(self):
         """
         Find SpecialTasks that have been marked for abortion.
@@ -967,6 +1002,7 @@ class BaseDispatcher(object):
         return True
 
 
+    @_calls_log_tick_msg
     def _handle_agents(self):
         """
         Handles agents of the dispatcher.
@@ -1022,54 +1058,29 @@ class BaseDispatcher(object):
                 num_finished_this_tick += agent.task.num_processes
                 self._log_extra_msg("Agent finished")
                 self.remove_agent(agent)
-        autotest_stats.Gauge('scheduler.jobs_per_tick').send(
-                'agents_started', num_started_this_tick)
-        autotest_stats.Gauge('scheduler.jobs_per_tick').send(
-                'agents_finished', num_finished_this_tick)
+
+        metrics.Counter(
+            'chromeos/autotest/scheduler/agent_processes_started'
+        ).increment_by(num_started_this_tick)
+        metrics.Counter(
+            'chromeos/autotest/scheduler/agent_processes_finished'
+        ).increment_by(num_finished_this_tick)
+        num_agent_processes = _drone_manager.total_running_processes()
+        metrics.Gauge(
+            'chromeos/autotest/scheduler/agent_processes'
+        ).set(num_agent_processes)
         logging.info('%d running processes. %d added this tick.',
-                     _drone_manager.total_running_processes(),
-                     num_started_this_tick)
+                     num_agent_processes, num_started_this_tick)
 
 
-    def _process_recurring_runs(self):
-        recurring_runs = models.RecurringRun.objects.filter(
-            start_date__lte=datetime.datetime.now())
-        for rrun in recurring_runs:
-            # Create job from template
-            job = rrun.job
-            info = rpc_utils.get_job_info(job)
-            options = job.get_object_dict()
+    def _log_tick_msg(self, msg):
+        if self._tick_debug:
+            logging.debug(msg)
 
-            host_objects = info['hosts']
-            one_time_hosts = info['one_time_hosts']
-            metahost_objects = info['meta_hosts']
-            dependencies = info['dependencies']
-            atomic_group = info['atomic_group']
 
-            for host in one_time_hosts or []:
-                this_host = models.Host.create_one_time_host(host.hostname)
-                host_objects.append(this_host)
-
-            try:
-                rpc_utils.create_new_job(owner=rrun.owner.login,
-                                         options=options,
-                                         host_objects=host_objects,
-                                         metahost_objects=metahost_objects,
-                                         atomic_group=atomic_group)
-
-            except Exception, ex:
-                logging.exception(ex)
-                #TODO send email
-
-            if rrun.loop_count == 1:
-                rrun.delete()
-            else:
-                if rrun.loop_count != 0: # if not infinite loop
-                    # calculate new start_date
-                    difference = datetime.timedelta(seconds=rrun.loop_period)
-                    rrun.start_date = rrun.start_date + difference
-                    rrun.loop_count -= 1
-                    rrun.save()
+    def _log_extra_msg(self, msg):
+        if self._extra_debugging:
+            logging.debug(msg)
 
 
 SiteDispatcher = utils.import_site_class(
@@ -1195,9 +1206,6 @@ class AbstractQueueTask(agent_task.AgentTask, agent_task.TaskWithJobKeyvals):
         queued_key, queued_time = self._job_queued_keyval(self.job)
         keyval_dict = self.job.keyval_dict()
         keyval_dict[queued_key] = queued_time
-        group_name = self.queue_entries[0].get_group_name()
-        if group_name:
-            keyval_dict['host_group_name'] = group_name
         self._write_keyvals_before_job(keyval_dict)
         for queue_entry in self.queue_entries:
             queue_entry.set_status(models.HostQueueEntry.Status.RUNNING)
@@ -1275,6 +1283,10 @@ class QueueTask(AbstractQueueTask):
     def __init__(self, queue_entries):
         super(QueueTask, self).__init__(queue_entries)
         self._set_ids(queue_entries=queue_entries)
+        self._enable_ssp_container = (
+                global_config.global_config.get_config_value(
+                        'AUTOSERV', 'enable_ssp_container', type=bool,
+                        default=True))
 
 
     def prolog(self):
@@ -1304,7 +1316,7 @@ class QueueTask(AbstractQueueTask):
     def _command_line(self):
         invocation = super(QueueTask, self)._command_line()
         # Check if server-side packaging is needed.
-        if (_enable_ssp_container and
+        if (self._enable_ssp_container and
             self.job.control_type == control_data.CONTROL_TYPE.SERVER and
             self.job.require_ssp != False):
             invocation += ['--require-ssp']

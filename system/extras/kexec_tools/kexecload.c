@@ -21,7 +21,7 @@
 // Physical buffer address cannot overlap with other regions
 #define START_ADDRESS 0x44000000
 
-#define ROUND_TO_PAGE(address,pagesize) ((address + pagesize - 1) & (~(pagesize - 1)))
+#define ROUND_TO_PAGE(address,pagesize) (((address) + (pagesize) - 1) & (~((pagesize) - 1)))
 
 /*
  * Gives file position and resets current position to begining of file

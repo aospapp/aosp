@@ -16,12 +16,15 @@
 
 package android.support.design.internal;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
+import android.support.annotation.RestrictTo;
 import android.support.design.R;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
@@ -32,6 +35,7 @@ import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.support.v4.widget.TextViewCompat;
 import android.support.v7.view.menu.MenuItemImpl;
 import android.support.v7.view.menu.MenuView;
+import android.support.v7.widget.TooltipCompat;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -43,6 +47,7 @@ import android.widget.FrameLayout;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class NavigationMenuItemView extends ForegroundLinearLayout implements MenuView.ItemView {
 
     private static final int[] CHECKED_STATE_SET = {android.R.attr.state_checked};
@@ -51,7 +56,7 @@ public class NavigationMenuItemView extends ForegroundLinearLayout implements Me
 
     private boolean mNeedsEmptyIcon;
 
-    private boolean mCheckable;
+    boolean mCheckable;
 
     private final CheckedTextView mTextView;
 
@@ -91,7 +96,7 @@ public class NavigationMenuItemView extends ForegroundLinearLayout implements Me
         LayoutInflater.from(context).inflate(R.layout.design_navigation_menu_item, this, true);
         mIconSize = context.getResources().getDimensionPixelSize(
                 R.dimen.design_navigation_icon_size);
-        mTextView = (CheckedTextView) findViewById(R.id.design_menu_item_text);
+        mTextView = findViewById(R.id.design_menu_item_text);
         mTextView.setDuplicateParentStateEnabled(true);
         ViewCompat.setAccessibilityDelegate(mTextView, mAccessibilityDelegate);
     }
@@ -103,7 +108,7 @@ public class NavigationMenuItemView extends ForegroundLinearLayout implements Me
         setVisibility(itemData.isVisible() ? VISIBLE : GONE);
 
         if (getBackground() == null) {
-            setBackgroundDrawable(createDefaultBackground());
+            ViewCompat.setBackground(this, createDefaultBackground());
         }
 
         setCheckable(itemData.isCheckable());
@@ -112,6 +117,8 @@ public class NavigationMenuItemView extends ForegroundLinearLayout implements Me
         setTitle(itemData.getTitle());
         setIcon(itemData.getIcon());
         setActionView(itemData.getActionView());
+        setContentDescription(itemData.getContentDescription());
+        TooltipCompat.setTooltipText(this, itemData.getTooltipText());
         adjustAppearance();
     }
 
@@ -250,8 +257,8 @@ public class NavigationMenuItemView extends ForegroundLinearLayout implements Me
         }
     }
 
-    public void setTextAppearance(Context context, int textAppearance) {
-        mTextView.setTextAppearance(context, textAppearance);
+    public void setTextAppearance(int textAppearance) {
+        TextViewCompat.setTextAppearance(mTextView, textAppearance);
     }
 
     public void setTextColor(ColorStateList colors) {

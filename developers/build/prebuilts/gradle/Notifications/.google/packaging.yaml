@@ -9,7 +9,7 @@ technologies: [Android]
 categories:   [Wearable]
 languages:    [Java]
 solutions:    [Mobile]
-github:       android-Wearable Notifications
+github:       android-Notifications
 level:        INTERMEDIATE
 icon:         screenshots/ic_launcher.png
 apiRefs:

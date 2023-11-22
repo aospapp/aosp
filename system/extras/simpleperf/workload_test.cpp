@@ -18,24 +18,20 @@
 
 #include <signal.h>
 
-#include "scoped_signal_handler.h"
+#include "IOEventLoop.h"
 #include "utils.h"
 #include "workload.h"
 
-static volatile bool signaled;
-static void signal_handler(int) {
-  signaled = true;
-}
-
 TEST(workload, success) {
-  signaled = false;
-  ScopedSignalHandler scoped_signal_handler({SIGCHLD}, signal_handler);
+  IOEventLoop loop;
+  ASSERT_TRUE(loop.AddSignalEvent(SIGCHLD, [&]() {
+    return loop.ExitLoop();
+  }));
   auto workload = Workload::CreateWorkload({"sleep", "1"});
   ASSERT_TRUE(workload != nullptr);
   ASSERT_TRUE(workload->GetPid() != 0);
   ASSERT_TRUE(workload->Start());
-  while (!signaled) {
-  }
+  ASSERT_TRUE(loop.RunLoop());
 }
 
 TEST(workload, execvp_failure) {
@@ -46,14 +42,15 @@ TEST(workload, execvp_failure) {
 
 static void run_signaled_workload() {
   {
-    signaled = false;
-    ScopedSignalHandler scoped_signal_handler({SIGCHLD}, signal_handler);
+    IOEventLoop loop;
+    ASSERT_TRUE(loop.AddSignalEvent(SIGCHLD, [&]() {
+      return loop.ExitLoop();
+    }));
     auto workload = Workload::CreateWorkload({"sleep", "10"});
     ASSERT_TRUE(workload != nullptr);
     ASSERT_TRUE(workload->Start());
     ASSERT_EQ(0, kill(workload->GetPid(), SIGKILL));
-    while (!signaled) {
-    }
+    ASSERT_TRUE(loop.RunLoop());
   }
   // Make sure all destructors are called before exit().
   exit(0);
@@ -66,13 +63,14 @@ TEST(workload, signaled_warning) {
 
 static void run_exit_nonzero_workload() {
   {
-    signaled = false;
-    ScopedSignalHandler scoped_signal_handler({SIGCHLD}, signal_handler);
+    IOEventLoop loop;
+    ASSERT_TRUE(loop.AddSignalEvent(SIGCHLD, [&]() {
+      return loop.ExitLoop();
+    }));
     auto workload = Workload::CreateWorkload({"ls", "nonexistdir"});
     ASSERT_TRUE(workload != nullptr);
     ASSERT_TRUE(workload->Start());
-    while (!signaled) {
-    }
+    ASSERT_TRUE(loop.RunLoop());
   }
   // Make sure all destructors are called before exit().
   exit(0);

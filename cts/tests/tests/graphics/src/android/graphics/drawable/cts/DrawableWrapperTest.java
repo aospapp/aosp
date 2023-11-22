@@ -16,23 +16,45 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.drawable.DrawableWrapper;
-import android.graphics.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.cts.R;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.DrawableWrapper;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.StateSet;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Drawable.ConstantState;
-import android.test.AndroidTestCase;
-import android.util.StateSet;
-
-public class DrawableWrapperTest extends AndroidTestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DrawableWrapperTest {
     static class MyWrapper extends DrawableWrapper {
         public MyWrapper(Drawable dr) {
             super(dr);
@@ -40,6 +62,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testConstructor() {
         Drawable d = new BitmapDrawable();
         DrawableWrapper wrapper = new MyWrapper(d);
@@ -49,6 +72,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetDrawable() {
         Drawable d = new BitmapDrawable();
         DrawableWrapper wrapper = new MyWrapper(d);
@@ -56,6 +80,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testSetDrawable() {
         Drawable d = new BitmapDrawable();
         DrawableWrapper wrapper = new MyWrapper(null);
@@ -66,120 +91,81 @@ public class DrawableWrapperTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testInvalidateDrawable() {
         DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
 
-        MockCallback cb = new MockCallback();
+        Drawable.Callback cb = mock(Drawable.Callback.class);
         wrapper.setCallback(cb);
         wrapper.invalidateDrawable(null);
-        assertTrue(cb.hasCalledInvalidate());
+        verify(cb, times(1)).invalidateDrawable(any());
 
-        cb.reset();
+        reset(cb);
         wrapper.invalidateDrawable(new BitmapDrawable());
-        assertTrue(cb.hasCalledInvalidate());
+        verify(cb, times(1)).invalidateDrawable(any());
 
-        cb.reset();
+        reset(cb);
         wrapper.setCallback(null);
         wrapper.invalidateDrawable(null);
-        assertFalse(cb.hasCalledInvalidate());
+        verify(cb, never()).invalidateDrawable(any());
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testScheduleDrawable() {
         DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
 
-        MockCallback cb = new MockCallback();
+        Drawable.Callback cb = mock(Drawable.Callback.class);
         wrapper.setCallback(cb);
         wrapper.scheduleDrawable(null, null, 0);
-        assertTrue(cb.hasCalledSchedule());
+        verify(cb, times(1)).scheduleDrawable(any(), any(), anyLong());
 
-        cb.reset();
-        wrapper.scheduleDrawable(new BitmapDrawable(), new Runnable() {
-            public void run() {
-            }
-        }, 1000L);
-        assertTrue(cb.hasCalledSchedule());
+        reset(cb);
+        wrapper.scheduleDrawable(new BitmapDrawable(), () -> {}, 1000L);
+        verify(cb, times(1)).scheduleDrawable(any(), any(), anyLong());
 
-        cb.reset();
+        reset(cb);
         wrapper.setCallback(null);
         wrapper.scheduleDrawable(null, null, 0);
-        assertFalse(cb.hasCalledSchedule());
+        verify(cb, never()).scheduleDrawable(any(), any(), anyLong());
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testUnscheduleDrawable() {
         DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
 
-        MockCallback cb = new MockCallback();
+        Drawable.Callback cb = mock(Drawable.Callback.class);
         wrapper.setCallback(cb);
         wrapper.unscheduleDrawable(null, null);
-        assertTrue(cb.hasCalledUnschedule());
+        verify(cb, times(1)).unscheduleDrawable(any(), any());
 
-        cb.reset();
-        wrapper.unscheduleDrawable(new BitmapDrawable(), new Runnable() {
-            public void run() {
-            }
-        });
-        assertTrue(cb.hasCalledUnschedule());
+        reset(cb);
+        wrapper.unscheduleDrawable(new BitmapDrawable(), () -> {});
+        verify(cb, times(1)).unscheduleDrawable(any(), any());
 
-        cb.reset();
+        reset(cb);
         wrapper.setCallback(null);
         wrapper.unscheduleDrawable(null, null);
-        assertFalse(cb.hasCalledUnschedule());
+        verify(cb, never()).unscheduleDrawable(any(), any());
     }
 
-    private static class MockCallback implements Drawable.Callback {
-        private boolean mCalledInvalidate;
-        private boolean mCalledSchedule;
-        private boolean mCalledUnschedule;
-
-        public void invalidateDrawable(Drawable who) {
-            mCalledInvalidate = true;
-        }
-
-        public void scheduleDrawable(Drawable who, Runnable what, long when) {
-            mCalledSchedule = true;
-        }
-
-        public void unscheduleDrawable(Drawable who, Runnable what) {
-            mCalledUnschedule = true;
-        }
-
-        public boolean hasCalledInvalidate() {
-            return mCalledInvalidate;
-        }
-
-        public boolean hasCalledSchedule() {
-            return mCalledSchedule;
-        }
-
-        public boolean hasCalledUnschedule() {
-            return mCalledUnschedule;
-        }
-
-        public int getResolvedLayoutDirection(Drawable who) {
-            return 0;
-        }
-
-        public void reset() {
-            mCalledInvalidate = false;
-            mCalledSchedule = false;
-            mCalledUnschedule = false;
-        }
-    }
-
+    @Test
     public void testDraw() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.BLUE));
+        doNothing().when(mockDrawable).draw(any());
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         wrapper.draw(new Canvas());
-        assertTrue(mockDrawable.hasCalledDraw());
+        verify(mockDrawable, times(1)).draw(any());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
+        doNothing().when(mockDrawable).draw(any());
         wrapper.draw(null);
-        assertTrue(mockDrawable.hasCalledDraw());
+        verify(mockDrawable, times(1)).draw(any());
     }
 
+    @Test
     public void testGetChangingConfigurations() {
         final int SUPER_CONFIG = 1;
         final int CONTAINED_DRAWABLE_CONFIG = 2;
@@ -197,91 +183,98 @@ public class DrawableWrapperTest extends AndroidTestCase {
                 wrapper.getChangingConfigurations());
     }
 
+    @Test
     public void testGetPadding() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's getPadding method.
         wrapper.getPadding(new Rect());
-        assertTrue(mockDrawable.hasCalledGetPadding());
-
-        // input null as param
-        try {
-            wrapper.getPadding(null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-        }
+        verify(mockDrawable, times(1)).getPadding(any());
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testGetPaddingNull() {
+        DrawableWrapper wrapper = new MyWrapper(new ColorDrawable(Color.RED));
+
+        wrapper.getPadding(null);
+    }
+
+    @Test
     public void testSetVisible() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.YELLOW));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
         assertTrue(wrapper.isVisible());
 
         assertTrue(wrapper.setVisible(false, false));
         assertFalse(wrapper.isVisible());
-        assertTrue(mockDrawable.hasCalledSetVisible());
+        verify(mockDrawable, times(1)).setVisible(anyBoolean(), anyBoolean());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         assertFalse(wrapper.setVisible(false, false));
         assertFalse(wrapper.isVisible());
-        assertTrue(mockDrawable.hasCalledSetVisible());
+        verify(mockDrawable, times(1)).setVisible(anyBoolean(), anyBoolean());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         assertTrue(wrapper.setVisible(true, false));
         assertTrue(wrapper.isVisible());
-        assertTrue(mockDrawable.hasCalledSetVisible());
+        verify(mockDrawable, times(1)).setVisible(anyBoolean(), anyBoolean());
     }
 
+    @Test
     public void testSetAlpha() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.MAGENTA));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's setAlpha method.
         wrapper.setAlpha(100);
-        assertTrue(mockDrawable.hasCalledSetAlpha());
+        verify(mockDrawable, times(1)).setAlpha(anyInt());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         wrapper.setAlpha(Integer.MAX_VALUE);
-        assertTrue(mockDrawable.hasCalledSetAlpha());
+        verify(mockDrawable, times(1)).setAlpha(anyInt());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         wrapper.setAlpha(-1);
-        assertTrue(mockDrawable.hasCalledSetAlpha());
+        verify(mockDrawable, times(1)).setAlpha(anyInt());
     }
 
+    @Test
     public void testSetColorFilter() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.GRAY));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's setColorFilter method.
         wrapper.setColorFilter(new ColorFilter());
-        assertTrue(mockDrawable.hasCalledSetColorFilter());
+        verify(mockDrawable, times(1)).setColorFilter(any());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         wrapper.setColorFilter(null);
-        assertTrue(mockDrawable.hasCalledSetColorFilter());
+        verify(mockDrawable, times(1)).setColorFilter(any());
     }
 
+    @Test
     public void testGetOpacity() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // This method will call contained drawable's getOpacity method.
         wrapper.setLevel(1);
         wrapper.getOpacity();
-        assertTrue(mockDrawable.hasCalledGetOpacity());
+        verify(mockDrawable, times(1)).getOpacity();
     }
 
+    @Test
     public void testIsStateful() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.BLACK));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's isStateful method.
         wrapper.isStateful();
-        assertTrue(mockDrawable.hasCalledIsStateful());
+        verify(mockDrawable, times(1)).isStateful();
     }
 
+    @Test
     public void testOnStateChange() {
         Drawable d = new MockDrawable();
         MockDrawableWrapper wrapper = new MockDrawableWrapper(d);
@@ -291,7 +284,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
         assertFalse("child did not change", wrapper.onStateChange(state));
         assertEquals("child state did not change", d.getState(), StateSet.WILD_CARD);
 
-        d = mContext.getDrawable(R.drawable.statelistdrawable);
+        d = InstrumentationRegistry.getTargetContext().getDrawable(R.drawable.statelistdrawable);
         wrapper = new MockDrawableWrapper(d);
         assertEquals("initial child state is empty", d.getState(), StateSet.WILD_CARD);
         wrapper.onStateChange(state);
@@ -302,6 +295,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
         // expected, no Exception thrown out, test success
     }
 
+    @Test
     public void testOnLevelChange() {
         MockDrawable mockDrawable = new MockDrawable();
         MockDrawableWrapper mockDrawableWrapper = new MockDrawableWrapper(mockDrawable);
@@ -315,11 +309,11 @@ public class DrawableWrapperTest extends AndroidTestCase {
         assertEquals(1000, mockDrawable.getLevel());
 
         mockDrawable.reset();
-        mockDrawableWrapper.reset();
         assertFalse(mockDrawableWrapper.onLevelChange(Integer.MIN_VALUE));
         assertTrue(mockDrawable.hasCalledOnLevelChange());
     }
 
+    @Test
     public void testOnBoundsChange() {
         MockDrawable mockDrawable = new MockDrawable();
         MockDrawableWrapper mockDrawableWrapper = new MockDrawableWrapper(mockDrawable);
@@ -340,110 +334,64 @@ public class DrawableWrapperTest extends AndroidTestCase {
         assertEquals(2, bounds.top);
         assertEquals(26, bounds.right);
         assertEquals(32, bounds.bottom);
-
-        // input null as param
-        try {
-            mockDrawableWrapper.onBoundsChange(null);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
-
     }
 
-    public void testGetIntrinsicWidth() {
+    @Test(expected=NullPointerException.class)
+    public void testOnBoundsChangeNull() {
         MockDrawable mockDrawable = new MockDrawable();
+        MockDrawableWrapper mockDrawableWrapper = new MockDrawableWrapper(mockDrawable);
+
+        mockDrawableWrapper.onBoundsChange(null);
+    }
+
+    @Test
+    public void testGetIntrinsicWidth() {
+        Drawable mockDrawable = spy(new ColorDrawable(Color.WHITE));
         MyWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's getIntrinsicWidth method.
         wrapper.getIntrinsicWidth();
-        assertTrue(mockDrawable.hasCalledGetIntrinsicWidth());
+        verify(mockDrawable, times(1)).getIntrinsicWidth();
     }
 
+    @Test
     public void testGetIntrinsicHeight() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         DrawableWrapper wrapper = new MyWrapper(mockDrawable);
 
         // this method will call contained drawable's getIntrinsicHeight method.
         wrapper.getIntrinsicHeight();
-        assertTrue(mockDrawable.hasCalledGetIntrinsicHeight());
+        verify(mockDrawable, times(1)).getIntrinsicHeight();
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetConstantState() {
         DrawableWrapper wrapper = new MyWrapper(new BitmapDrawable());
-        ConstantState constantState = wrapper.getConstantState();
+        wrapper.getConstantState();
     }
 
+    // Since Mockito can't mock or spy on protected methods, we have a custom extension
+    // of Drawable to track calls to protected methods. This class also has empty implementations
+    // of the base abstract methods.
     private static class MockDrawable extends Drawable {
-        private boolean mCalledDraw = false;
-        private boolean mCalledGetPadding = false;
-        private boolean mCalledSetVisible = false;
-        private boolean mCalledSetAlpha = false;
-        private boolean mCalledGetOpacity = false;
-        private boolean mCalledSetColorFilter = false;
-        private boolean mCalledIsStateful = false;
-        private boolean mCalledGetIntrinsicWidth = false;
-        private boolean mCalledGetIntrinsicHeight = false;
-        private boolean mCalledSetState = false;
         private boolean mCalledOnLevelChange = false;
 
         @Override
         public void draw(Canvas canvas) {
-            mCalledDraw = true;
         }
 
         @Override
         public int getOpacity() {
-            mCalledGetOpacity = true;
-            return 0;
+            return PixelFormat.OPAQUE;
         }
 
         @Override
         public void setAlpha(int alpha) {
-            mCalledSetAlpha = true;
         }
 
         @Override
         public void setColorFilter(ColorFilter cf) {
-            mCalledSetColorFilter = true;
-        }
-
-        @Override
-        public boolean getPadding(Rect padding) {
-            mCalledGetPadding = true;
-            return super.getPadding(padding);
-        }
-
-        @Override
-        public boolean setVisible(boolean visible, boolean restart) {
-            mCalledSetVisible = true;
-            return super.setVisible(visible, restart);
-        }
-
-        @Override
-        public boolean isStateful() {
-            mCalledIsStateful = true;
-            return super.isStateful();
-        }
-
-        @Override
-        public int getIntrinsicWidth() {
-            mCalledGetIntrinsicWidth = true;
-            return super.getIntrinsicWidth();
-        }
-
-        @Override
-        public int getIntrinsicHeight() {
-            mCalledGetIntrinsicHeight = true;
-            return super.getIntrinsicHeight();
-
-        }
-
-        @Override
-        public boolean setState(final int[] stateSet) {
-            mCalledSetState = true;
-            return super.setState(stateSet);
         }
 
         @Override
@@ -452,68 +400,16 @@ public class DrawableWrapperTest extends AndroidTestCase {
             return super.onLevelChange(level);
         }
 
-        public boolean hasCalledDraw() {
-            return mCalledDraw;
-        }
-
-        public boolean hasCalledGetPadding() {
-            return mCalledGetPadding;
-        }
-
-        public boolean hasCalledSetVisible() {
-            return mCalledSetVisible;
-        }
-
-        public boolean hasCalledSetAlpha() {
-            return mCalledSetAlpha;
-        }
-
-        public boolean hasCalledGetOpacity() {
-            return mCalledGetOpacity;
-        }
-
-        public boolean hasCalledSetColorFilter() {
-            return mCalledSetColorFilter;
-        }
-
-        public boolean hasCalledIsStateful() {
-            return mCalledIsStateful;
-        }
-
-        public boolean hasCalledGetIntrinsicWidth() {
-            return mCalledGetIntrinsicWidth;
-        }
-
-        public boolean hasCalledGetIntrinsicHeight() {
-            return mCalledGetIntrinsicHeight;
-        }
-
-        public boolean hasCalledSetState() {
-            return mCalledSetState;
-        }
-
         public boolean hasCalledOnLevelChange() {
             return mCalledOnLevelChange;
         }
 
         public void reset() {
-            mCalledDraw = false;
-            mCalledGetPadding = false;
-            mCalledSetVisible = false;
-            mCalledSetAlpha = false;
-            mCalledGetOpacity = false;
-            mCalledSetColorFilter = false;
-            mCalledIsStateful = false;
-            mCalledGetIntrinsicWidth = false;
-            mCalledGetIntrinsicHeight = false;
-            mCalledSetState = false;
             mCalledOnLevelChange = false;
         }
     }
 
     private static class MockDrawableWrapper extends DrawableWrapper {
-        private boolean mCalledOnBoundsChange = false;
-
         MockDrawableWrapper() {
             super(null);
         }
@@ -534,16 +430,7 @@ public class DrawableWrapperTest extends AndroidTestCase {
 
         @Override
         protected void onBoundsChange(Rect bounds) {
-            mCalledOnBoundsChange = true;
             super.onBoundsChange(bounds);
-        }
-
-        public boolean hasCalledOnBoundsChange() {
-            return mCalledOnBoundsChange;
-        }
-
-        public void reset() {
-            mCalledOnBoundsChange = false;
         }
     }
 }

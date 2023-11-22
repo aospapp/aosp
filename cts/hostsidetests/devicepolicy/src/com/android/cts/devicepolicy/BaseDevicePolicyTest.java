@@ -16,9 +16,7 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.cts.migration.MigrationHelper;
-import com.android.ddmlib.Log.LogLevel;
-import com.android.ddmlib.testrunner.InstrumentationResultParser;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult;
@@ -26,21 +24,20 @@ import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
@@ -56,10 +53,30 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     protected static final int USER_OWNER = 0;
 
+    private static final long TIMEOUT_USER_REMOVED_MILLIS = TimeUnit.SECONDS.toMillis(15);
+    private static final long WAIT_SAMPLE_INTERVAL_MILLIS = 200;
+
+    /**
+     * The defined timeout (in milliseconds) is used as a maximum waiting time when expecting the
+     * command output from the device. At any time, if the shell command does not output anything
+     * for a period longer than defined timeout the Tradefed run terminates.
+     */
+    private static final long DEFAULT_SHELL_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(20);
+
+    /** instrumentation test runner argument key used for individual test timeout */
+    protected static final String TEST_TIMEOUT_INST_ARGS_KEY = "timeout_msec";
+
+    /**
+     * Sets timeout (in milliseconds) that will be applied to each test. In the
+     * event of a test timeout it will log the results and proceed with executing the next test.
+     */
+    private static final long DEFAULT_TEST_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(10);
+
     // From the UserInfo class
     protected static final int FLAG_PRIMARY = 0x00000001;
     protected static final int FLAG_GUEST = 0x00000004;
     protected static final int FLAG_EPHEMERAL = 0x00000100;
+    protected static final int FLAG_MANAGED_PROFILE = 0x00000020;
 
     protected static interface Settings {
         public static final String GLOBAL_NAMESPACE = "global";
@@ -73,12 +90,18 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     private String mPackageVerifier;
     private HashSet<String> mAvailableFeatures;
 
+    /** Packages installed as part of the tests */
+    private Set<String> mFixedPackages;
+
     /** Whether DPM is supported. */
     protected boolean mHasFeature;
     protected int mPrimaryUserId;
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
+
+    /** Whether file-based encryption (FBE) is supported. */
+    protected boolean mSupportsFbe;
 
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
@@ -95,6 +118,8 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         mHasFeature = getDevice().getApiLevel() >= 21 /* Build.VERSION_CODES.L */
                 && hasDeviceFeature("android.software.device_admin");
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
+        mSupportsFbe = hasDeviceFeature("android.software.file_based_encryption");
+        mFixedPackages = getDevice().getInstalledPackageNames();
 
         // disable the package verifier to avoid the dialog when installing an app
         mPackageVerifier = getDevice().executeShellCommand(
@@ -110,6 +135,8 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         switchUser(mPrimaryUserId);
         removeOwners();
         removeTestUsers();
+        // Unlock keyguard before test
+        wakeupAndDismissKeyguard();
     }
 
     @Override
@@ -119,6 +146,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
                 + mPackageVerifier);
         removeOwners();
         removeTestUsers();
+        removeTestPackages();
         super.tearDown();
     }
 
@@ -130,9 +158,9 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected void installAppAsUser(String appFileName, boolean grantPermissions, int userId)
             throws FileNotFoundException, DeviceNotAvailableException {
         CLog.d("Installing app " + appFileName + " for user " + userId);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         String result = getDevice().installPackageForUser(
-                MigrationHelper.getTestFile(mCtsBuild, appFileName), true, grantPermissions,
-                userId, "-t");
+                buildHelper.getTestFile(appFileName), true, grantPermissions, userId, "-t");
         assertNull("Failed to install " + appFileName + " for user " + userId + ": " + result,
                 result);
     }
@@ -142,7 +170,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         executeShellCommand("am force-stop --user " + userId + " " + packageName);
     }
 
-    private void executeShellCommand(final String command) throws Exception {
+    protected void executeShellCommand(final String command) throws Exception {
         CLog.d("Starting command " + command);
         String commandOutput = getDevice().executeShellCommand(command);
         CLog.d("Output for command " + command + ": " + commandOutput);
@@ -188,11 +216,27 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         return getDevice().listUsers();
     }
 
-    protected void stopUser(int userId) throws Exception  {
+    protected int getFirstManagedProfileUserId() throws DeviceNotAvailableException {
+        for (int userId : listUsers()) {
+            if ((getUserFlags(userId) & FLAG_MANAGED_PROFILE) != 0) {
+                return userId;
+            }
+        }
+        fail("Managed profile not found");
+        return 0;
+    }
+
+    protected void stopUser(int userId) throws Exception {
+        // Wait for the broadcast queue to be idle first to workaround the stop-user timeout issue.
+        waitForBroadcastIdle();
         String stopUserCommand = "am stop-user -w -f " + userId;
         CLog.d("starting command \"" + stopUserCommand + "\" and waiting.");
         CLog.d("Output for command " + stopUserCommand + ": "
                 + getDevice().executeShellCommand(stopUserCommand));
+    }
+
+    private void waitForBroadcastIdle() throws Exception {
+        getDevice().executeShellCommand("am wait-for-broadcast-idle");
     }
 
     protected void removeUser(int userId) throws Exception  {
@@ -207,29 +251,52 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     protected void removeTestUsers() throws Exception {
-        for (int userId : listUsers()) {
-            if (!mFixedUsers.contains(userId)) {
-                removeUser(userId);
-            }
+        for (int userId : getUsersCreatedByTests()) {
+            removeUser(userId);
         }
     }
 
-    /** Returns true if the specified tests passed. Tests are run as given user. */
-    protected boolean runDeviceTestsAsUser(
-            String pkgName, @Nullable String testClassName, int userId)
-            throws DeviceNotAvailableException {
-        return runDeviceTestsAsUser(pkgName, testClassName, null /*testMethodName*/, userId);
+    /**
+     * Returns the users that have been created since running this class' setUp() method.
+     */
+    protected List<Integer> getUsersCreatedByTests() throws Exception {
+        List<Integer> result = listUsers();
+        result.removeAll(mFixedUsers);
+        return result;
     }
 
-    /** Returns true if the specified tests passed. Tests are run as given user. */
-    protected boolean runDeviceTestsAsUser(
+    /** Removes any packages that were installed during the test. */
+    protected void removeTestPackages() throws Exception {
+        for (String packageName : getDevice().getUninstallablePackageNames()) {
+            if (mFixedPackages.contains(packageName)) {
+                continue;
+            }
+            CLog.w("removing leftover package: " + packageName);
+            getDevice().uninstallPackage(packageName);
+        }
+    }
+
+    protected void runDeviceTestsAsUser(
+            String pkgName, @Nullable String testClassName, int userId)
+            throws DeviceNotAvailableException {
+        runDeviceTestsAsUser(pkgName, testClassName, null /*testMethodName*/, userId);
+    }
+
+    protected void runDeviceTestsAsUser(
             String pkgName, @Nullable String testClassName, String testMethodName, int userId)
             throws DeviceNotAvailableException {
         Map<String, String> params = Collections.emptyMap();
-        return runDeviceTestsAsUser(pkgName, testClassName, testMethodName, userId, params);
+        runDeviceTestsAsUser(pkgName, testClassName, testMethodName, userId, params);
     }
 
-    protected boolean runDeviceTestsAsUser(String pkgName, @Nullable String testClassName,
+    protected void runDeviceTests(
+            String pkgName, @Nullable String testClassName, String testMethodName)
+            throws DeviceNotAvailableException {
+        runDeviceTestsAsUser(pkgName, testClassName, testMethodName, mPrimaryUserId);
+    }
+
+    protected void runDeviceTestsAsUser(
+            String pkgName, @Nullable String testClassName,
             @Nullable String testMethodName, int userId,
             Map<String, String> params) throws DeviceNotAvailableException {
         if (testClassName != null && testClassName.startsWith(".")) {
@@ -238,6 +305,9 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
         RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(
                 pkgName, RUNNER, getDevice().getIDevice());
+        testRunner.setMaxTimeToOutputResponse(DEFAULT_SHELL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        testRunner.addInstrumentationArg(
+                TEST_TIMEOUT_INST_ARGS_KEY, Long.toString(DEFAULT_TEST_TIMEOUT_MILLIS));
         if (testClassName != null && testMethodName != null) {
             testRunner.setMethodName(testClassName, testMethodName);
         } else if (testClassName != null) {
@@ -251,9 +321,34 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTestsAsUser(testRunner, userId, listener));
 
-        TestRunResult runResult = listener.getCurrentRunResults();
-        printTestResult(runResult);
-        return !runResult.hasFailedTests() && runResult.getNumTestsInState(TestStatus.PASSED) > 0;
+        final TestRunResult result = listener.getCurrentRunResults();
+        if (result.isRunFailure()) {
+            throw new AssertionError("Failed to successfully run device tests for "
+                    + result.getName() + ": " + result.getRunFailureMessage());
+        }
+        if (result.getNumTests() == 0) {
+            throw new AssertionError("No tests were run on the device");
+        }
+
+        if (result.hasFailedTests()) {
+            // build a meaningful error message
+            StringBuilder errorBuilder = new StringBuilder("On-device tests failed:\n");
+            for (Map.Entry<TestIdentifier, TestResult> resultEntry :
+                    result.getTestResults().entrySet()) {
+                if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
+                    errorBuilder.append(resultEntry.getKey().toString());
+                    errorBuilder.append(":\n");
+                    errorBuilder.append(resultEntry.getValue().getStackTrace());
+                }
+            }
+            throw new AssertionError(errorBuilder.toString());
+        }
+    }
+
+    /** Reboots the device and block until the boot complete flag is set. */
+    protected void rebootAndWaitUntilReady() throws DeviceNotAvailableException {
+        getDevice().executeShellCommand("reboot");
+        assertTrue("Device failed to boot", getDevice().waitForBootComplete(120000));
     }
 
     /** Returns true if the system supports the split between system and primary user. */
@@ -284,17 +379,6 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected boolean canCreateAdditionalUsers(int numberOfUsers)
             throws DeviceNotAvailableException {
         return listUsers().size() + numberOfUsers <= getMaxNumberOfUsersSupported();
-    }
-
-    private void printTestResult(TestRunResult runResult) {
-        for (Map.Entry<TestIdentifier, TestResult> testEntry :
-                runResult.getTestResults().entrySet()) {
-            TestResult testResult = testEntry.getValue();
-            CLog.d("Test " + testEntry.getKey() + ": " + testResult.getStatus());
-            if (testResult.getStatus() != TestStatus.PASSED) {
-                CLog.d(testResult.getStackTrace());
-            }
-        }
     }
 
     protected boolean hasDeviceFeature(String requiredFeature) throws DeviceNotAvailableException {
@@ -348,18 +432,38 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     protected int createManagedProfile(int parentUserId) throws DeviceNotAvailableException {
-        String command = "pm create-user --profileOf " + parentUserId + " --managed "
-                + "TestProfile_" + System.currentTimeMillis();
-        CLog.d("Starting command " + command);
-        String commandOutput = getDevice().executeShellCommand(command);
-        CLog.d("Output for command " + command + ": " + commandOutput);
+        String commandOutput = getCreateManagedProfileCommandOutput(parentUserId);
+        return getUserIdFromCreateUserCommandOutput(commandOutput);
+    }
 
+    protected void assertCannotCreateManagedProfile(int parentUserId)
+            throws Exception {
+        String commandOutput = getCreateManagedProfileCommandOutput(parentUserId);
+        if (commandOutput.startsWith("Error")) {
+            return;
+        }
+        int userId = getUserIdFromCreateUserCommandOutput(commandOutput);
+        removeUser(userId);
+        fail("Expected not to be able to create a managed profile. Output was: " + commandOutput);
+    }
+
+    private int getUserIdFromCreateUserCommandOutput(String commandOutput) {
         // Extract the id of the new user.
         String[] tokens = commandOutput.split("\\s+");
         assertTrue(commandOutput + " expected to have format \"Success: {USER_ID}\"",
                 tokens.length > 0);
         assertEquals(commandOutput, "Success:", tokens[0]);
         return Integer.parseInt(tokens[tokens.length-1]);
+    }
+
+    private String getCreateManagedProfileCommandOutput(int parentUserId)
+            throws DeviceNotAvailableException {
+        String command = "pm create-user --profileOf " + parentUserId + " --managed "
+                + "TestProfile_" + System.currentTimeMillis();
+        CLog.d("Starting command " + command);
+        String commandOutput = getDevice().executeShellCommand(command);
+        CLog.d("Output for command " + command + ": " + commandOutput);
+        return commandOutput;
     }
 
     protected int getPrimaryUser() throws DeviceNotAvailableException {
@@ -404,8 +508,20 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     protected void setProfileOwnerOrFail(String componentName, int userId)
             throws Exception {
         if (!setProfileOwner(componentName, userId, /*expectFailure*/ false)) {
-            removeUser(userId);
+            if (userId != 0) { // don't remove system user.
+                removeUser(userId);
+            }
             fail("Failed to set profile owner");
+        }
+    }
+
+    protected void setProfileOwnerExpectingFailure(String componentName, int userId)
+            throws Exception {
+        if (setProfileOwner(componentName, userId, /* expectFailure =*/ true)) {
+            if (userId != 0) { // don't remove system user.
+                removeUser(userId);
+            }
+            fail("Setting profile owner should have failed.");
         }
     }
 
@@ -446,6 +562,16 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             CLog.d("Command Failed " + command);
         }
         return success;
+    }
+
+    protected void setDeviceOwnerOrFail(String componentName, int userId)
+            throws Exception {
+        assertTrue(setDeviceOwner(componentName, userId, /* expectFailure =*/ false));
+    }
+
+    protected void setDeviceOwnerExpectingFailure(String componentName, int userId)
+            throws Exception {
+        assertFalse(setDeviceOwner(componentName, userId, /* expectFailure =*/ true));
     }
 
     protected String getSettings(String namespace, String name, int userId)
@@ -506,5 +632,145 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
                 removeAdmin(componentName, userId);
             }
         }
+    }
+
+    /**
+     * Runs pm enable command to enable a package or component. Returns the command result.
+     */
+    protected String enableComponentOrPackage(int userId, String packageOrComponent)
+            throws DeviceNotAvailableException {
+        String command = "pm enable --user " + userId + " " + packageOrComponent;
+        String result = getDevice().executeShellCommand(command);
+        CLog.d("Output for command " + command + ": " + result);
+        return result;
+    }
+
+    /**
+     * Runs pm disable command to disable a package or component. Returns the command result.
+     */
+    protected String disableComponentOrPackage(int userId, String packageOrComponent)
+            throws DeviceNotAvailableException {
+        String command = "pm disable --user " + userId + " " + packageOrComponent;
+        String result = getDevice().executeShellCommand(command);
+        CLog.d("Output for command " + command + ": " + result);
+        return result;
+    }
+
+    protected interface SuccessCondition {
+        boolean check() throws Exception;
+    }
+
+    protected void assertUserGetsRemoved(int userId) throws Exception {
+        tryWaitForSuccess(() -> !listUsers().contains(userId),
+                "The user " + userId + " has not been removed",
+                TIMEOUT_USER_REMOVED_MILLIS
+                );
+    }
+
+    protected void tryWaitForSuccess(SuccessCondition successCondition, String failureMessage,
+            long timeoutMillis) throws Exception {
+        long epoch = System.currentTimeMillis();
+        while (System.currentTimeMillis() - epoch <= timeoutMillis) {
+            Thread.sleep(WAIT_SAMPLE_INTERVAL_MILLIS);
+            if (successCondition.check()) {
+                return;
+            }
+        }
+        fail(failureMessage);
+    }
+
+    /**
+     * Sets a user restriction via SetPolicyActivity.
+     * <p>IMPORTANT: The package that contains SetPolicyActivity must have been installed prior to
+     * calling this method.
+     * @param key user restriction key
+     * @param value true if we should set the restriction, false if we should clear it
+     * @param userId userId to set/clear the user restriction on
+     * @param packageName package where SetPolicyActivity is installed
+     * @return The output of the command
+     * @throws DeviceNotAvailableException
+     */
+    protected String changeUserRestriction(String key, boolean value, int userId,
+            String packageName) throws DeviceNotAvailableException {
+        return changePolicy(getUserRestrictionCommand(value),
+                " --es extra-restriction-key " + key, userId, packageName);
+    }
+
+    /**
+     * Same as {@link #changeUserRestriction(String, boolean, int, String)} but asserts that it
+     * succeeds.
+     */
+    protected void changeUserRestrictionOrFail(String key, boolean value, int userId,
+            String packageName) throws DeviceNotAvailableException {
+        changePolicyOrFail(getUserRestrictionCommand(value), " --es extra-restriction-key " + key,
+                userId, packageName);
+    }
+
+    /**
+     * Sets some policy via SetPolicyActivity.
+     * <p>IMPORTANT: The package that contains SetPolicyActivity must have been installed prior to
+     * calling this method.
+     * @param command command to pass to SetPolicyActivity
+     * @param extras extras to pass to SetPolicyActivity
+     * @param userId the userId where we invoke SetPolicyActivity
+     * @param packageName where SetPolicyActivity is installed
+     * @return The output of the command
+     * @throws DeviceNotAvailableException
+     */
+    protected String changePolicy(String command, String extras, int userId, String packageName)
+            throws DeviceNotAvailableException {
+        String adbCommand = "am start -W --user " + userId
+                + " -c android.intent.category.DEFAULT "
+                + " --es extra-command " + command
+                + " " + extras
+                + " " + packageName + "/.SetPolicyActivity";
+        String commandOutput = getDevice().executeShellCommand(adbCommand);
+        CLog.d("Output for command " + adbCommand + ": " + commandOutput);
+        return commandOutput;
+    }
+
+    /**
+     * Same as {@link #changePolicy(String, String, int, String)} but asserts that it succeeds.
+     */
+    protected void changePolicyOrFail(String command, String extras, int userId,
+            String packageName) throws DeviceNotAvailableException {
+        String commandOutput = changePolicy(command, extras, userId, packageName);
+        assertTrue("Command was expected to succeed " + commandOutput,
+                commandOutput.contains("Status: ok"));
+    }
+
+    private String getUserRestrictionCommand(boolean setRestriction) {
+        if (setRestriction) {
+            return "add-restriction";
+        }
+        return "clear-restriction";
+    }
+
+    /**
+     * Set lockscreen password / work challenge for the given user, null or "" means clear
+     */
+    protected void changeUserCredential(String newCredential, String oldCredential, int userId)
+            throws DeviceNotAvailableException {
+        final String oldCredentialArgument = (oldCredential == null || oldCredential.isEmpty()) ? ""
+                : ("--old " + oldCredential);
+        if (newCredential != null && !newCredential.isEmpty()) {
+            String commandOutput = getDevice().executeShellCommand(String.format(
+                    "cmd lock_settings set-password --user %d %s %s", userId, oldCredentialArgument,
+                    newCredential));
+            if (!commandOutput.startsWith("Password set to")) {
+                fail("Failed to set user credential: " + commandOutput);
+            }
+        } else {
+            String commandOutput = getDevice().executeShellCommand(String.format(
+                    "cmd lock_settings clear --user %d %s", userId, oldCredentialArgument));
+            if (!commandOutput.startsWith("Lock credential cleared")) {
+                fail("Failed to clear user credential: " + commandOutput);
+            }
+        }
+    }
+
+    protected void wakeupAndDismissKeyguard() throws Exception {
+        executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        executeShellCommand("wm dismiss-keyguard");
     }
 }

@@ -13,7 +13,6 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
-SUITE = "bvt-perbuild, partners"
 REQUIRE_SSP = False
 
 DOC = """

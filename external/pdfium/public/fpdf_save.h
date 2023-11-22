@@ -7,6 +7,7 @@
 #ifndef PUBLIC_FPDF_SAVE_H_
 #define PUBLIC_FPDF_SAVE_H_
 
+// NOLINTNEXTLINE(build/include)
 #include "fpdfview.h"
 
 #ifdef __cplusplus
@@ -39,7 +40,6 @@ typedef struct FPDF_FILEWRITE_ {
   int (*WriteBlock)(struct FPDF_FILEWRITE_* pThis,
                     const void* pData,
                     unsigned long size);
-
 } FPDF_FILEWRITE;
 
 /** @brief Incremental. */

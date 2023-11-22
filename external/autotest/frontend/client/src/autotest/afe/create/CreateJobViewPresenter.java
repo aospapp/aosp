@@ -37,6 +37,8 @@ import com.google.gwt.event.logical.shared.HasCloseHandlers;
 import com.google.gwt.event.logical.shared.HasOpenHandlers;
 import com.google.gwt.event.logical.shared.OpenEvent;
 import com.google.gwt.event.logical.shared.OpenHandler;
+import com.google.gwt.event.logical.shared.ValueChangeEvent;
+import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.json.client.JSONArray;
 import com.google.gwt.json.client.JSONBoolean;
 import com.google.gwt.json.client.JSONNull;
@@ -84,8 +86,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         public ITextArea getControlFile();
         public void setControlFilePanelOpen(boolean isOpen);
         public ICheckBox getRunNonProfiledIteration();
-        public ITextBox getKernel();
-        public ITextBox getKernelCmdline();
         public ITextBox getImageUrl();
         public HasText getViewLink();
         public HasCloseHandlers<DisclosurePanel> getControlFilePanelClose();
@@ -93,7 +93,7 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         public IButton getSubmitJobButton();
         public HasClickHandlers getCreateTemplateJobButton();
         public HasClickHandlers getResetButton();
-        public HasClickHandlers getFetchImageTestsButton();
+        public ICheckBox getFetchTestsFromBuildCheckBox();
         public ITextBox getFirmwareRWBuild();
         public ITextBox getFirmwareROBuild();
         public ExtendedListBox getTestSourceBuildList();
@@ -150,6 +150,7 @@ public class CreateJobViewPresenter implements TestSelectorListener {
     private JSONArray dependencies = new JSONArray();
 
     private Display display;
+    private boolean cloning;
 
     public void bindDisplay(Display display) {
         this.display = display;
@@ -159,7 +160,16 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         this.listener = listener;
     }
 
+    public void setCloning(boolean cloning) {
+      this.cloning = cloning;
+    }
+
+    public boolean isCloning() {
+      return cloning;
+    }
+
     public void cloneJob(JSONValue cloneInfo) {
+        setCloning(true);
         // reset() fires the TestSelectorListener, which will generate a new control file. We do
         // no want this, so we'll stop listening to it for a bit.
         testSelector.setListener(null);
@@ -335,23 +345,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
     }
 
 
-    private JSONArray getKernelParams(String kernel_list, String cmdline) {
-        JSONArray result = new JSONArray();
-
-        for(String version: kernel_list.split("[, ]+")) {
-            Map<String, String> item = new HashMap<String, String>();
-
-            item.put("version", version);
-            // if there is a cmdline part, put it for all versions in the map
-            if (cmdline.length() > 0) {
-                item.put("cmdline", cmdline);
-            }
-
-            result.set(result.size(), Utils.mapToJsonObject(item));
-        }
-
-        return result;
-    }
     /**
      * Get parameters to submit to the generate_control_file RPC.
      * @param readyForSubmit are we getting a control file that's ready to submit for a job, or just
@@ -360,14 +353,14 @@ public class CreateJobViewPresenter implements TestSelectorListener {
     protected JSONObject getControlFileParams(boolean readyForSubmit) {
         JSONObject params = new JSONObject();
 
-        String kernelString = display.getKernel().getText();
-        if (!kernelString.equals("")) {
-            params.put(
-                    "kernel", getKernelParams(kernelString, display.getKernelCmdline().getText()));
-        }
-
         boolean testsFromBuild = testSelector.usingTestsFromBuild();
         params.put("db_tests", JSONBoolean.getInstance(!testsFromBuild));
+        if (testsFromBuild) {
+          String  testSourceBuild = display.getTestSourceBuildList().getSelectedValue();
+          if (testSourceBuild != null) {
+            params.put("test_source_build", new JSONString(testSourceBuild));
+          }
+        }
 
         JSONArray tests = new JSONArray();
         for (JSONObject test : testSelector.getSelectedTests()) {
@@ -479,6 +472,10 @@ public class CreateJobViewPresenter implements TestSelectorListener {
             @Override
             public void onChange(ChangeEvent event) {
                 String image = display.getImageUrl().getText();
+                ICheckBox fetchTestsFromBuildCheckBox = display.getFetchTestsFromBuildCheckBox();
+                Boolean fetchedFromBuild = fetchTestsFromBuildCheckBox.getValue();
+                String currentTestSourceBuild = display.getTestSourceBuildList().getSelectedValue();
+                boolean sourceBuildChanged = false;
                 if (image.isEmpty()) {
                     display.getFirmwareRWBuild().setText("");
                     display.getFirmwareROBuild().setText("");
@@ -486,6 +483,7 @@ public class CreateJobViewPresenter implements TestSelectorListener {
                     display.getFirmwareRWBuild().setEnabled(false);
                     display.getFirmwareROBuild().setEnabled(false);
                     display.getTestSourceBuildList().setEnabled(false);
+                    sourceBuildChanged = (currentTestSourceBuild != null);
                 }
                 else {
                     display.getFirmwareRWBuild().setEnabled(true);
@@ -497,7 +495,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
                         builds.add(display.getFirmwareRWBuild().getText());
                     if (!display.getFirmwareROBuild().getText().isEmpty())
                         builds.add(display.getFirmwareROBuild().getText());
-                    String currentTestSourceBuild = display.getTestSourceBuildList().getSelectedValue();
                     int testSourceBuildIndex = builds.indexOf(currentTestSourceBuild);
                     display.getTestSourceBuildList().clear();
                     for (String build : builds) {
@@ -505,7 +502,19 @@ public class CreateJobViewPresenter implements TestSelectorListener {
                     }
                     if (testSourceBuildIndex >= 0) {
                         display.getTestSourceBuildList().setSelectedIndex(testSourceBuildIndex);
+                    } else {
+                      sourceBuildChanged = true;
                     }
+                }
+
+                // Updates the fetch test checkbox UI
+                fetchTestsFromBuildCheckBox.setEnabled(!image.isEmpty());
+                if (sourceBuildChanged) {
+                  fetchTestsFromBuildCheckBox.setValue(false);
+                  // Fetch the test again from default Moblab device if necessary
+                  if (fetchedFromBuild) {
+                    fetchImageTests();
+                  }
                 }
             }
         };
@@ -520,16 +529,12 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         profilersPanel.setEnabled(true);
         handleSkipVerify();
         handleSkipReset();
-        display.getKernel().setEnabled(true);
-        display.getKernelCmdline().setEnabled(true);
         display.getImageUrl().setEnabled(true);
     }
 
     protected void disableInputs() {
         testSelector.setEnabled(false);
         profilersPanel.setEnabled(false);
-        display.getKernel().setEnabled(false);
-        display.getKernelCmdline().setEnabled(false);
         display.getImageUrl().setEnabled(false);
     }
 
@@ -555,9 +560,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
             }
         };
 
-        display.getKernel().addBlurHandler(kernelBlurHandler);
-        display.getKernelCmdline().addBlurHandler(kernelBlurHandler);
-
         KeyPressHandler kernelKeyPressHandler = new KeyPressHandler() {
             public void onKeyPress(KeyPressEvent event) {
                 if (event.getCharCode() == (char) KeyCodes.KEY_ENTER) {
@@ -566,18 +568,11 @@ public class CreateJobViewPresenter implements TestSelectorListener {
             }
         };
 
-        display.getKernel().addKeyPressHandler(kernelKeyPressHandler);
-        display.getKernelCmdline().addKeyPressHandler(kernelKeyPressHandler);
-
         populateProfilers();
         updateNonProfiledRunControl();
 
         populateRebootChoices();
         onPreferencesChanged();
-
-        if (parameterizedJobsEnabled()) {
-            display.getEditControlButton().setEnabled(false);
-        }
 
         display.getEditControlButton().addClickHandler(new ClickHandler() {
             public void onClick(ClickEvent event) {
@@ -659,16 +654,29 @@ public class CreateJobViewPresenter implements TestSelectorListener {
             }
         });
 
-        display.getFetchImageTestsButton().addClickHandler(new ClickHandler() {
-            public void onClick(ClickEvent event) {
-                String imageUrl = display.getImageUrl().getText();
-                if (imageUrl == null || imageUrl.isEmpty()) {
-                    NotifyManager.getInstance().showMessage(
-                        "No build was specified for fetching tests.");
-                }
+        display.getTestSourceBuildList().addChangeHandler(new ChangeHandler() {
+          @Override
+          public void onChange(ChangeEvent event) {
+              Boolean fetchedTests = display.getFetchTestsFromBuildCheckBox().getValue();
+              display.getFetchTestsFromBuildCheckBox().setValue(false);
+              if (fetchedTests) {
                 fetchImageTests();
-            }
+              }
+          }
         });
+
+        display.getFetchTestsFromBuildCheckBox()
+            .addValueChangeHandler(new ValueChangeHandler<Boolean>() {
+              @Override
+              public void onValueChange(ValueChangeEvent<Boolean> event) {
+                  String imageUrl = display.getImageUrl().getText();
+                  if (imageUrl == null || imageUrl.isEmpty()) {
+                      NotifyManager.getInstance().showMessage(
+                          "No build was specified for fetching tests.");
+                  }
+                  fetchImageTests();
+              }
+            });
 
         handleBuildChange();
 
@@ -695,8 +703,6 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         display.getHostless().setValue(false);
         // Default require_ssp to False, since it's not applicable to client side test.
         display.getRequireSSP().setValue(false);
-        display.getKernel().setText("");
-        display.getKernelCmdline().setText("");
         display.getImageUrl().setText("");
         display.getTimeout().setText(Utils.jsonToString(repository.getData("job_timeout_mins_default")));
         display.getMaxRuntime().setText(
@@ -861,6 +867,7 @@ public class CreateJobViewPresenter implements TestSelectorListener {
                     args.put(TEST_SOURCE_BUILD, new JSONString(testSourceBuild));
                 }
 
+                args.put("is_cloning", JSONBoolean.getInstance(isCloning()));
                 rpcProxy.rpcCall("create_job_page_handler", args, new JsonRpcCallback() {
                     @Override
                     public void onSuccess(JSONValue result) {
@@ -991,22 +998,22 @@ public class CreateJobViewPresenter implements TestSelectorListener {
         testSelector.reset();
     }
 
-    private boolean parameterizedJobsEnabled() {
-        return staticData.getData("parameterized_jobs").isBoolean().booleanValue();
-    }
-
     private void fetchImageTests() {
         testSelector.setImageTests(new JSONArray());
 
-        String imageUrl = display.getImageUrl().getText();
-        if (imageUrl == null || imageUrl.isEmpty()) {
-            testSelector.reset();
-            return;
+        String currentTestSourceBuild = display.getTestSourceBuildList().getSelectedValue();
+        Boolean fetchedFromBuild = display.getFetchTestsFromBuildCheckBox().getValue();
+        if (!fetchedFromBuild ||
+            currentTestSourceBuild == null || currentTestSourceBuild.isEmpty()) {
+          // Tests are from static Moblab build.
+          testSelector.setImageTests(new JSONArray());
+          testSelector.reset();
+          return;
         }
 
         JSONObject params = new JSONObject();
-        params.put("build", new JSONString(imageUrl));
-
+        params.put("build", new JSONString(currentTestSourceBuild));
+        params.put("ignore_invalid_tests", JSONBoolean.getInstance(true));
         rpcProxy.rpcCall("get_tests_by_build", params, new JsonRpcCallback() {
             @Override
             public void onSuccess(JSONValue result) {

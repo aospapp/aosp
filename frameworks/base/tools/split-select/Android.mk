@@ -51,7 +51,7 @@ hostStaticLibs := \
     liblog \
     libcutils \
     libexpat \
-    libziparchive-host \
+    libziparchive \
     libbase
 
 cFlags := -Wall -Werror
@@ -73,7 +73,7 @@ LOCAL_MODULE := libsplit-select
 LOCAL_MODULE_HOST_OS := darwin linux windows
 
 LOCAL_SRC_FILES := $(sources)
-
+LOCAL_STATIC_LIBRARIES := $(hostStaticLibs)
 LOCAL_C_INCLUDES := $(cIncludes)
 LOCAL_CFLAGS := $(cFlags) -D_DARWIN_UNLIMITED_STREAMS
 

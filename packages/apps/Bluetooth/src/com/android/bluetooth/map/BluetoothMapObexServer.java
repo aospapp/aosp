@@ -155,7 +155,7 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
     /**
      *
      */
-    private ContentProviderClient acquireUnstableContentProviderOrThrow() throws RemoteException{
+    private ContentProviderClient acquireUnstableContentProviderOrThrow() throws RemoteException {
         ContentProviderClient providerClient =
                             mResolver.acquireUnstableContentProviderClient(mAuthority);
         if (providerClient == null) {
@@ -168,7 +168,7 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
     /**
      * Build the default minimal folder structure, as defined in the MAP specification.
      */
-    private void buildFolderStructure() throws RemoteException{
+    private void buildFolderStructure() throws RemoteException {
         mCurrentFolder = new BluetoothMapFolderElement("root", null);//This will be the root element
         mCurrentFolder.setHasSmsMmsContent(mEnableSmsMms);
         boolean hasIM = false;
@@ -195,10 +195,10 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
 
         // Add the mandatory folders
         addBaseFolders(tmpFolder);
-        if(mEnableSmsMms) {
+        if (mEnableSmsMms) {
             addSmsMmsFolders(tmpFolder);
         }
-        if(hasEmail) {
+        if (hasEmail) {
             if (D) Log.d(TAG, "buildFolderStructure(): " + mEmailFolderUri.toString());
             addEmailFolders(tmpFolder);
         }
@@ -208,7 +208,7 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
     }
 
     /**
-     * Add
+     * Add base (Inbox/Outbox/Sent/Deleted)
      * @param root
      */
     private void addBaseFolders(BluetoothMapFolderElement root) {
@@ -219,7 +219,7 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
     }
 
     /**
-     * Add
+     * Add SMS / MMS Base folders
      * @param root
      */
     private void addSmsMmsFolders(BluetoothMapFolderElement root) {
@@ -1209,7 +1209,6 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
                 outAppParams.setConvoListingSize(outList.getCount());
                 // Generate the byte stream
                 outBytes = outList.encode(); // Include thread ID for clients that supports it.
-      //          hasUnread = outList.hasUnread();
                 if(D) Log.d(TAG, "outBytes size:"+ outBytes.length);
             } else {
                 outList = mOutContent.convoListing(appParams, true);

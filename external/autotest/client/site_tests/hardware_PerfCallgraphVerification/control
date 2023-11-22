@@ -16,7 +16,6 @@ TEST_TYPE = "client"
 JOB_RETRIES = 2
 
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = "bvt-cq"
 
 DOC = """
 Verify performance callchain

@@ -20,7 +20,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util \
+    android-support-test \
+    junit \
+    legacy-android-test
 
 LOCAL_MODULE := compatibility-device-info
 

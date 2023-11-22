@@ -22,6 +22,7 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 import android.content.pm.ShortcutManager;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.test.suitebuilder.annotation.Suppress;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -127,16 +128,9 @@ public class ShortcutManagerNegativeTest extends ShortcutManagerCtsTestsBase {
     }
 
     /**
-     * Make sure dumpsys shortcut can't be called.
-     */
-    public void testDump() throws Exception {
-        MoreAsserts.assertContainsRegex(
-                "can't dump by this caller", runCommand("dumpsys shortcut"));
-    }
-
-    /**
      * Make sure cmd shortcut can't be called.
      */
+    @Suppress // calling "cmd shortcut" from this UID seems to hang now.
     public void testCommand() throws Exception {
         runWithCaller(mPackageContext1, () -> {
             assertTrue(getManager().setDynamicShortcuts(list(

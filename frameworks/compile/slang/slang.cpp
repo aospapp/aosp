@@ -86,8 +86,8 @@
 
 namespace {
 
-static const char *kRSTriple32 = "armv7-none-linux-gnueabi";
-static const char *kRSTriple64 = "aarch64-none-linux-gnueabi";
+static const char *kRSTriple32 = "renderscript32-none-linux-gnueabi";
+static const char *kRSTriple64 = "renderscript64-none-linux-gnueabi";
 
 }  // namespace
 
@@ -124,6 +124,10 @@ namespace slang {
 // bcc.cpp)
 const llvm::StringRef Slang::PragmaMetadataName = "#pragma";
 
+static llvm::LLVMContext globalContext;
+
+llvm::LLVMContext &getGlobalLLVMContext() { return globalContext; }
+
 static inline llvm::tool_output_file *
 OpenOutputFile(const char *OutputFile,
                llvm::sys::fs::OpenFlags Flags,
@@ -149,15 +153,10 @@ OpenOutputFile(const char *OutputFile,
 }
 
 void Slang::createTarget(uint32_t BitWidth) {
-  std::vector<std::string> features;
-
   if (BitWidth == 64) {
     mTargetOpts->Triple = kRSTriple64;
   } else {
     mTargetOpts->Triple = kRSTriple32;
-    // Treat long as a 64-bit type for our 32-bit RS code.
-    features.push_back("+long64");
-    mTargetOpts->FeaturesAsWritten = features;
   }
 
   mTarget.reset(clang::TargetInfo::CreateTargetInfo(*mDiagEngine,
@@ -253,7 +252,7 @@ Slang::Slang(uint32_t BitWidth, clang::DiagnosticsEngine *DiagEngine,
   LangOpts.RTTI = 0;  // Turn off the RTTI information support
   LangOpts.LineComment = 1;
   LangOpts.C99 = 1;
-  LangOpts.Renderscript = 1;
+  LangOpts.RenderScript = 1;
   LangOpts.LaxVectorConversions = 0;  // Do not bitcast vectors!
   LangOpts.CharIsSigned = 1;  // Signed char is our default.
 
@@ -439,9 +438,9 @@ int Slang::compile(const RSCCOptions &Opts) {
 
 void Slang::setDebugMetadataEmission(bool EmitDebug) {
   if (EmitDebug)
-    CodeGenOpts.setDebugInfo(clang::CodeGenOptions::FullDebugInfo);
+    CodeGenOpts.setDebugInfo(clang::codegenoptions::FullDebugInfo);
   else
-    CodeGenOpts.setDebugInfo(clang::CodeGenOptions::NoDebugInfo);
+    CodeGenOpts.setDebugInfo(clang::codegenoptions::NoDebugInfo);
 }
 
 void Slang::setOptimizationLevel(llvm::CodeGenOpt::Level OptimizationLevel) {
@@ -501,44 +500,9 @@ bool Slang::checkODR(const char *CurInputFile) {
 
     if (RD != ReflectedDefinitions.end()) {
       const RSExportRecordType *Reflected = RD->getValue().first;
-      // There's a record (struct) with the same name reflected before. Enforce
-      // ODR checking - the Reflected must hold *exactly* the same "definition"
-      // as the one defined previously. We say two record types A and B have the
-      // same definition iff:
-      //
-      //  struct A {              struct B {
-      //    Type(a1) a1,            Type(b1) b1,
-      //    Type(a2) a2,            Type(b1) b2,
-      //    ...                     ...
-      //    Type(aN) aN             Type(b3) b3,
-      //  };                      }
-      //  Cond. #1. They have same number of fields, i.e., N = M;
-      //  Cond. #2. for (i := 1 to N)
-      //              Type(ai) = Type(bi) must hold;
-      //  Cond. #3. for (i := 1 to N)
-      //              Name(ai) = Name(bi) must hold;
-      //
-      // where,
-      //  Type(F) = the type of field F and
-      //  Name(F) = the field name.
 
-      bool PassODR = false;
-      // Cond. #1 and Cond. #2
-      if (Reflected->equals(ERT)) {
-        // Cond #3.
-        RSExportRecordType::const_field_iterator AI = Reflected->fields_begin(),
-                                                 BI = ERT->fields_begin();
-
-        for (unsigned i = 0, e = Reflected->getFields().size(); i != e; i++) {
-          if ((*AI)->getName() != (*BI)->getName())
-            break;
-          AI++;
-          BI++;
-        }
-        PassODR = (AI == (Reflected->fields_end()));
-      }
-
-      if (!PassODR) {
+      // See RSExportRecordType::matchODR for the logic
+      if (!Reflected->matchODR(ERT, true)) {
         unsigned DiagID = mDiagEngine->getCustomDiagID(
             clang::DiagnosticsEngine::Error,
             "type '%0' in different translation unit (%1 v.s. %2) "
@@ -657,6 +621,7 @@ bool Slang::compile(
   }
 
   if (mTargetAPI >= SLANG_M_TARGET_API) {
+    LangOpts.NativeHalfArgsAndReturns = 1;
     LangOpts.NativeHalfType = 1;
     LangOpts.HalfArgsAndReturns = 1;
   }

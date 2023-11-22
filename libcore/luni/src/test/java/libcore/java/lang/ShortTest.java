@@ -39,4 +39,22 @@ public class ShortTest extends junit.framework.TestCase {
     public void testBYTES() {
         assertEquals(2, Short.BYTES);
     }
+
+    public void testToUnsignedInt() {
+        for(int i = Short.MIN_VALUE; i < Short.MAX_VALUE; i++) {
+            final short b = (short) i;
+            final int ui = Short.toUnsignedInt(b);
+            assertEquals(0, ui >>> Short.BYTES * 8);
+            assertEquals(b, Integer.valueOf(b).shortValue());
+        }
+    }
+
+    public void testToUnsignedLong() {
+        for(int i = Short.MIN_VALUE; i < Short.MAX_VALUE; i++) {
+            final short b = (short) i;
+            final long ul = Short.toUnsignedLong(b);
+            assertEquals(0, ul >>> Short.BYTES * 8);
+            assertEquals(b, Long.valueOf(b).shortValue());
+        }
+    }
 }

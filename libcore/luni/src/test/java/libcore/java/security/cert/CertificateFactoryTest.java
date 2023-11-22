@@ -16,6 +16,8 @@
 
 package libcore.java.security.cert;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.android.org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
 import com.android.org.bouncycastle.asn1.x509.BasicConstraints;
 import com.android.org.bouncycastle.asn1.x509.Extension;
@@ -50,6 +52,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -103,7 +106,7 @@ public class CertificateFactoryTest extends TestCase {
             + "-----END CERTIFICATE-----\r\n";
 
     private static final byte[] VALID_CERTIFICATE_PEM_HEADER = "-----BEGIN CERTIFICATE-----\n"
-            .getBytes();
+            .getBytes(UTF_8);
 
     private static final byte[] VALID_CERTIFICATE_PEM_DATA =
              ("MIIDITCCAoqgAwIBAgIQL9+89q6RUm0PmqPfQDQ+mjANBgkqhkiG9w0BAQUFADBM"
@@ -122,10 +125,10 @@ public class CertificateFactoryTest extends TestCase {
             + "ZS5jb20vcmVwb3NpdG9yeS9UaGF3dGVfU0dDX0NBLmNydDANBgkqhkiG9w0BAQUF"
             + "AAOBgQCfQ89bxFApsb/isJr/aiEdLRLDLE5a+RLizrmCUi3nHX4adpaQedEkUjh5"
             + "u2ONgJd8IyAPkU0Wueru9G2Jysa9zCRo1kNbzipYvzwY4OA8Ys+WAi0oR1A04Se6"
-            + "z5nRUP8pJcA2NhUzUnC+MY+f6H/nEQyNv4SgQhqAibAxWEEHXw==").getBytes();
+            + "z5nRUP8pJcA2NhUzUnC+MY+f6H/nEQyNv4SgQhqAibAxWEEHXw==").getBytes(UTF_8);
 
     private static final byte[] VALID_CERTIFICATE_PEM_FOOTER = "\n-----END CERTIFICATE-----\n"
-            .getBytes();
+            .getBytes(UTF_8);
 
     private static final String INVALID_CERTIFICATE_PEM =
             "-----BEGIN CERTIFICATE-----\n"
@@ -183,19 +186,19 @@ public class CertificateFactoryTest extends TestCase {
 
     private void test_generateCertificate(CertificateFactory cf) throws Exception {
         {
-            byte[] valid = VALID_CERTIFICATE_PEM.getBytes();
+            byte[] valid = VALID_CERTIFICATE_PEM.getBytes(UTF_8);
             Certificate c = cf.generateCertificate(new ByteArrayInputStream(valid));
             assertNotNull(c);
         }
 
         {
-            byte[] valid = VALID_CERTIFICATE_PEM_CRLF.getBytes();
+            byte[] valid = VALID_CERTIFICATE_PEM_CRLF.getBytes(UTF_8);
             Certificate c = cf.generateCertificate(new ByteArrayInputStream(valid));
             assertNotNull(c);
         }
 
         try {
-            byte[] invalid = INVALID_CERTIFICATE_PEM.getBytes();
+            byte[] invalid = INVALID_CERTIFICATE_PEM.getBytes(UTF_8);
             cf.generateCertificate(new ByteArrayInputStream(invalid));
             fail();
         } catch (CertificateException expected) {
@@ -263,7 +266,7 @@ public class CertificateFactoryTest extends TestCase {
             throws Exception {
         try {
             Certificate c = cf.generateCertificate(new ByteArrayInputStream(
-                    "-----BEGIN CERTIFICATE-----".getBytes()));
+                    "-----BEGIN CERTIFICATE-----".getBytes(UTF_8)));
             if (!"BC".equals(cf.getProvider().getName())) {
                 fail("should throw CertificateException: " + cf.getProvider().getName());
             }
@@ -277,7 +280,7 @@ public class CertificateFactoryTest extends TestCase {
 
     private void test_generateCertificate_InputStream_Offset_Correct(CertificateFactory cf)
             throws Exception {
-        byte[] valid = VALID_CERTIFICATE_PEM.getBytes();
+        byte[] valid = VALID_CERTIFICATE_PEM.getBytes(UTF_8);
 
         byte[] doubleCertificateData = new byte[valid.length * 2];
         System.arraycopy(valid, 0, doubleCertificateData, 0, valid.length);

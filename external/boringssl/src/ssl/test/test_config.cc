@@ -46,7 +46,6 @@ T *FindField(TestConfig *config, const Flag<T> (&flags)[N], const char *flag) {
 const Flag<bool> kBoolFlags[] = {
   { "-server", &TestConfig::is_server },
   { "-dtls", &TestConfig::is_dtls },
-  { "-resume", &TestConfig::resume },
   { "-fallback-scsv", &TestConfig::fallback_scsv },
   { "-require-any-client-certificate",
     &TestConfig::require_any_client_certificate },
@@ -56,12 +55,15 @@ const Flag<bool> kBoolFlags[] = {
     &TestConfig::write_different_record_sizes },
   { "-cbc-record-splitting", &TestConfig::cbc_record_splitting },
   { "-partial-write", &TestConfig::partial_write },
+  { "-no-tls13", &TestConfig::no_tls13 },
   { "-no-tls12", &TestConfig::no_tls12 },
   { "-no-tls11", &TestConfig::no_tls11 },
   { "-no-tls1", &TestConfig::no_tls1 },
   { "-no-ssl3", &TestConfig::no_ssl3 },
+  { "-enable-channel-id", &TestConfig::enable_channel_id },
   { "-shim-writes-first", &TestConfig::shim_writes_first },
   { "-expect-session-miss", &TestConfig::expect_session_miss },
+  { "-decline-alpn", &TestConfig::decline_alpn },
   { "-expect-extended-master-secret",
     &TestConfig::expect_extended_master_secret },
   { "-enable-ocsp-stapling", &TestConfig::enable_ocsp_stapling },
@@ -73,13 +75,17 @@ const Flag<bool> kBoolFlags[] = {
   { "-install-ddos-callback", &TestConfig::install_ddos_callback },
   { "-fail-ddos-callback", &TestConfig::fail_ddos_callback },
   { "-fail-second-ddos-callback", &TestConfig::fail_second_ddos_callback },
+  { "-fail-cert-callback", &TestConfig::fail_cert_callback },
   { "-handshake-never-done", &TestConfig::handshake_never_done },
   { "-use-export-context", &TestConfig::use_export_context },
   { "-tls-unique", &TestConfig::tls_unique },
   { "-expect-ticket-renewal", &TestConfig::expect_ticket_renewal },
   { "-expect-no-session", &TestConfig::expect_no_session },
+  { "-expect-early-data-info", &TestConfig::expect_early_data_info },
   { "-use-ticket-callback", &TestConfig::use_ticket_callback },
   { "-renew-ticket", &TestConfig::renew_ticket },
+  { "-enable-early-data", &TestConfig::enable_early_data },
+  { "-enable-resume-early-data", &TestConfig::enable_resume_early_data },
   { "-enable-client-custom-extension",
     &TestConfig::enable_client_custom_extension },
   { "-enable-server-custom-extension",
@@ -94,10 +100,34 @@ const Flag<bool> kBoolFlags[] = {
   { "-renegotiate-once", &TestConfig::renegotiate_once },
   { "-renegotiate-freely", &TestConfig::renegotiate_freely },
   { "-renegotiate-ignore", &TestConfig::renegotiate_ignore },
-  { "-disable-npn", &TestConfig::disable_npn },
   { "-p384-only", &TestConfig::p384_only },
   { "-enable-all-curves", &TestConfig::enable_all_curves },
   { "-use-sparse-dh-prime", &TestConfig::use_sparse_dh_prime },
+  { "-use-old-client-cert-callback",
+    &TestConfig::use_old_client_cert_callback },
+  { "-send-alert", &TestConfig::send_alert },
+  { "-peek-then-read", &TestConfig::peek_then_read },
+  { "-enable-grease", &TestConfig::enable_grease },
+  { "-use-exporter-between-reads", &TestConfig::use_exporter_between_reads },
+  { "-retain-only-sha256-client-cert-initial",
+    &TestConfig::retain_only_sha256_client_cert_initial },
+  { "-retain-only-sha256-client-cert-resume",
+    &TestConfig::retain_only_sha256_client_cert_resume },
+  { "-expect-sha256-client-cert-initial",
+    &TestConfig::expect_sha256_client_cert_initial },
+  { "-expect-sha256-client-cert-resume",
+    &TestConfig::expect_sha256_client_cert_resume },
+  { "-read-with-unfinished-write", &TestConfig::read_with_unfinished_write },
+  { "-expect-secure-renegotiation",
+    &TestConfig::expect_secure_renegotiation },
+  { "-expect-no-secure-renegotiation",
+    &TestConfig::expect_no_secure_renegotiation },
+  { "-expect-session-id", &TestConfig::expect_session_id },
+  { "-expect-no-session-id", &TestConfig::expect_no_session_id },
+  { "-expect-accept-early-data", &TestConfig::expect_accept_early_data },
+  { "-expect-reject-early-data", &TestConfig::expect_reject_early_data },
+  { "-expect-no-alpn", &TestConfig::expect_no_alpn },
+  { "-expect-no-resume-alpn", &TestConfig::expect_no_resume_alpn },
 };
 
 const Flag<std::string> kStringFlags[] = {
@@ -112,16 +142,19 @@ const Flag<std::string> kStringFlags[] = {
   { "-host-name", &TestConfig::host_name },
   { "-advertise-alpn", &TestConfig::advertise_alpn },
   { "-expect-alpn", &TestConfig::expected_alpn },
+  { "-expect-resume-alpn", &TestConfig::expected_resume_alpn },
   { "-expect-advertised-alpn", &TestConfig::expected_advertised_alpn },
   { "-select-alpn", &TestConfig::select_alpn },
+  { "-select-resume-alpn", &TestConfig::select_resume_alpn },
   { "-psk", &TestConfig::psk },
   { "-psk-identity", &TestConfig::psk_identity },
   { "-srtp-profiles", &TestConfig::srtp_profiles },
   { "-cipher", &TestConfig::cipher },
-  { "-cipher-tls10", &TestConfig::cipher_tls10 },
-  { "-cipher-tls11", &TestConfig::cipher_tls11 },
   { "-export-label", &TestConfig::export_label },
   { "-export-context", &TestConfig::export_context },
+  { "-expect-peer-cert-file", &TestConfig::expect_peer_cert_file },
+  { "-use-client-ca-list", &TestConfig::use_client_ca_list },
+  { "-expect-client-ca-list", &TestConfig::expected_client_ca_list },
 };
 
 const Flag<std::string> kBase64Flags[] = {
@@ -132,19 +165,33 @@ const Flag<std::string> kBase64Flags[] = {
     &TestConfig::expected_signed_cert_timestamps },
   { "-ocsp-response", &TestConfig::ocsp_response },
   { "-signed-cert-timestamps", &TestConfig::signed_cert_timestamps },
+  { "-ticket-key", &TestConfig::ticket_key },
 };
 
 const Flag<int> kIntFlags[] = {
   { "-port", &TestConfig::port },
+  { "-resume-count", &TestConfig::resume_count },
   { "-min-version", &TestConfig::min_version },
   { "-max-version", &TestConfig::max_version },
   { "-mtu", &TestConfig::mtu },
   { "-export-keying-material", &TestConfig::export_keying_material },
   { "-expect-total-renegotiations", &TestConfig::expect_total_renegotiations },
-  { "-expect-server-key-exchange-hash",
-    &TestConfig::expect_server_key_exchange_hash },
-  { "-expect-key-exchange-info",
-    &TestConfig::expect_key_exchange_info },
+  { "-expect-peer-signature-algorithm",
+    &TestConfig::expect_peer_signature_algorithm },
+  { "-expect-curve-id", &TestConfig::expect_curve_id },
+  { "-expect-resume-curve-id", &TestConfig::expect_resume_curve_id },
+  { "-initial-timeout-duration-ms", &TestConfig::initial_timeout_duration_ms },
+  { "-max-cert-list", &TestConfig::max_cert_list },
+  { "-expect-cipher-aes", &TestConfig::expect_cipher_aes },
+  { "-expect-cipher-no-aes", &TestConfig::expect_cipher_no_aes },
+  { "-resumption-delay", &TestConfig::resumption_delay },
+  { "-max-send-fragment", &TestConfig::max_send_fragment },
+  { "-read-size", &TestConfig::read_size },
+  { "-expect-ticket-age-skew", &TestConfig::expect_ticket_age_skew },
+};
+
+const Flag<std::vector<int>> kIntVectorFlags[] = {
+  { "-signing-prefs", &TestConfig::signing_prefs },
 };
 
 }  // namespace
@@ -178,12 +225,14 @@ bool ParseConfig(int argc, char **argv, TestConfig *out_config) {
       size_t len;
       if (!EVP_DecodedLength(&len, strlen(argv[i]))) {
         fprintf(stderr, "Invalid base64: %s\n", argv[i]);
+        return false;
       }
       std::unique_ptr<uint8_t[]> decoded(new uint8_t[len]);
       if (!EVP_DecodeBase64(decoded.get(), &len, len,
                             reinterpret_cast<const uint8_t *>(argv[i]),
                             strlen(argv[i]))) {
         fprintf(stderr, "Invalid base64: %s\n", argv[i]);
+        return false;
       }
       base64_field->assign(reinterpret_cast<const char *>(decoded.get()), len);
       continue;
@@ -197,6 +246,20 @@ bool ParseConfig(int argc, char **argv, TestConfig *out_config) {
         return false;
       }
       *int_field = atoi(argv[i]);
+      continue;
+    }
+
+    std::vector<int> *int_vector_field =
+        FindField(out_config, kIntVectorFlags, argv[i]);
+    if (int_vector_field) {
+      i++;
+      if (i >= argc) {
+        fprintf(stderr, "Missing parameter\n");
+        return false;
+      }
+
+      // Each instance of the flag adds to the list.
+      int_vector_field->push_back(atoi(argv[i]));
       continue;
     }
 

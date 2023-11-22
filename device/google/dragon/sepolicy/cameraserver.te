@@ -14,4 +14,5 @@ allow cameraserver { proc proc_meminfo }:{ file lnk_file } r_file_perms;
 r_dir_file(cameraserver, sysfs)
 
 allow cameraserver system_file:dir r_dir_perms;
+allow cameraserver vendor_file_type:dir r_dir_perms;
 allow cameraserver tmpfs:dir search;

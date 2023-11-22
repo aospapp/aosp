@@ -6,7 +6,9 @@ function usage() {
 cat<<EOT
 Usage:
 mkuserimg.sh [-s] SRC_DIR OUTPUT_FILE EXT_VARIANT MOUNT_POINT SIZE [-j <journal_size>]
-             [-T TIMESTAMP] [-C FS_CONFIG] [-D PRODUCT_OUT] [-B BLOCK_LIST_FILE] [-d BASE_ALLOC_FILE_IN ] [-A BASE_ALLOC_FILE_OUT ] [-L LABEL] [FILE_CONTEXTS]
+             [-T TIMESTAMP] [-C FS_CONFIG] [-D PRODUCT_OUT] [-B BLOCK_LIST_FILE]
+             [-d BASE_ALLOC_FILE_IN ] [-A BASE_ALLOC_FILE_OUT ] [-L LABEL]
+             [-i INODES ] [-e ERASE_BLOCK_SIZE] [-o FLASH_BLOCK_SIZE] [FILE_CONTEXTS]
 EOT
 }
 
@@ -85,6 +87,23 @@ if [[ "$1" == "-L" ]]; then
   shift; shift
 fi
 
+INODES=
+if [[ "$1" == "-i" ]]; then
+  INODES=$2
+  shift; shift
+fi
+
+ERASE_SIZE=
+if [[ "$1" == "-e" ]]; then
+    ERASE_SIZE=$2
+    shift; shift
+fi
+
+FLASH_BLOCK_SIZE=
+if [[ "$1" == "-o" ]]; then
+    FLASH_BLOCK_SIZE=$2
+    shift; shift
+fi
 FC=$1
 
 case $EXT_VARIANT in
@@ -120,6 +139,15 @@ if [ -n "$BASE_ALLOC_FILE_OUT" ]; then
 fi
 if [ -n "$LABEL" ]; then
   OPT="$OPT -L $LABEL"
+fi
+if [ -n "$INODES" ]; then
+  OPT="$OPT -i $INODES"
+fi
+if [ -n "$ERASE_SIZE" ]; then
+  OPT="$OPT -e $ERASE_SIZE"
+fi
+if [ -n "$FLASH_BLOCK_SIZE" ]; then
+  OPT="$OPT -o $FLASH_BLOCK_SIZE"
 fi
 
 MAKE_EXT4FS_CMD="make_ext4fs $ENABLE_SPARSE_IMAGE -T $TIMESTAMP $OPT -l $SIZE $JOURNAL_FLAGS -a $MOUNT_POINT $OUTPUT_FILE $SRC_DIR $PRODUCT_OUT"

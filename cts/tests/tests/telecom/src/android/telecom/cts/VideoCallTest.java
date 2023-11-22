@@ -444,6 +444,16 @@ public class VideoCallTest extends BaseTelecomTestWithMockServices {
                                 Connection.VideoProvider.SESSION_EVENT_RX_RESUME);
                     }
                 });
+
+        assertCallSessionEventReceived(inCallService.getVideoCallCallback(call),
+                VideoProvider.SESSION_EVENT_CAMERA_PERMISSION_ERROR,
+                new Work() {
+                    @Override
+                    public void doWork() {
+                        connection.sendMockCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_CAMERA_PERMISSION_ERROR);
+                    }
+                });
     }
 
     /**

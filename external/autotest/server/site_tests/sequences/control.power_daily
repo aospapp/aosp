@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "Power daily tests"
 ATTRIBUTES = "suite:power_daily"
-SUITE = "power_daily"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "suite"
@@ -22,7 +21,7 @@ from autotest_lib.client.common_lib import error, global_config
 
 def _run_client_test(machine):
     client = hosts.create_host(machine)
-    client_attributes = site_host_attributes.HostAttributes(machine)
+    client_attributes = site_host_attributes.HostAttributes(client.hostname)
     client_at = autotest.Autotest(client)
 
     job.run_test('power_RPMTest', verify=True, host=client,

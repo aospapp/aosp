@@ -4,9 +4,10 @@
  * This file was part of the Independent JPEG Group's software:
  * Copyright (C) 1994-1996, Thomas G. Lane.
  * libjpeg-turbo Modifications:
- * Copyright (C) 2010, 2015, D. R. Commander.
+ * Copyright (C) 2010, 2015-2016, D. R. Commander.
  * Copyright (C) 2015, Google, Inc.
- * For conditions of distribution and use, see the accompanying README file.
+ * For conditions of distribution and use, see the accompanying README.ijg
+ * file.
  *
  * This file contains application interface code for the decompression half
  * of the JPEG library.  These are the "standard" API routines that are
@@ -17,6 +18,7 @@
  * whole decompression library into a transcoder.
  */
 
+#include "jinclude.h"
 #include "jdmainct.h"
 #include "jdcoefct.h"
 #include "jdsample.h"
@@ -188,7 +190,7 @@ jpeg_crop_scanline (j_decompress_ptr cinfo, JDIMENSION *xoffset,
    * single-pass decompression case, allowing us to use the same MCU column
    * width for all of the components.
    */
-  align = cinfo->min_DCT_scaled_size * cinfo->max_h_samp_factor;
+  align = cinfo->_min_DCT_scaled_size * cinfo->max_h_samp_factor;
 
   /* Adjust xoffset to the nearest iMCU boundary <= the requested value */
   input_xoffset = *xoffset;

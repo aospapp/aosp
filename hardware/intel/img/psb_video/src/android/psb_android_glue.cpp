@@ -31,14 +31,10 @@
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
-#include <gui/Surface.h>
-#include <gui/SurfaceComposerClient.h>
-#include <gui/ISurfaceComposer.h>
 #include <binder/MemoryHeapBase.h>
 #include "psb_android_glue.h"
 #include "psb_output_android.h"
 #include <cutils/log.h>
-#include <ui/Rect.h>
 #include <system/window.h>
 #include <system/graphics.h>
 #ifdef TARGET_HAS_MULTIPLE_DISPLAY

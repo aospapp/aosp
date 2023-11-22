@@ -18,11 +18,11 @@
 //#define LOG_NDEBUG 0
 
 #include "ConfigParsingUtils.h"
-#include <convert/convert.h>
 #include "AudioGain.h"
 #include "IOProfile.h"
-#include "TypeConverter.h"
-#include <hardware/audio.h>
+#include <system/audio.h>
+#include <media/AudioParameter.h>
+#include <media/TypeConverter.h>
 #include <utils/Log.h>
 #include <cutils/misc.h>
 
@@ -105,7 +105,7 @@ status_t ConfigParsingUtils::loadHwModuleDevice(cnode *root, DeviceVector &devic
     audio_devices_t type = AUDIO_DEVICE_NONE;
     while (node) {
         if (strcmp(node->name, APM_DEVICE_TYPE) == 0) {
-            DeviceConverter::fromString(node->value, type);
+            deviceFromString(node->value, type);
             break;
         }
         node = node->next;
@@ -289,11 +289,11 @@ void ConfigParsingUtils::loadDevicesFromTag(const char *tag, DeviceVector &devic
                                             const DeviceVector &declaredDevices)
 {
     char *tagLiteral = strndup(tag, strlen(tag));
-    char *devTag = strtok(tagLiteral, "|");
+    char *devTag = strtok(tagLiteral, AudioParameter::valueListSeparator);
     while (devTag != NULL) {
         if (strlen(devTag) != 0) {
             audio_devices_t type;
-            if (DeviceConverter::fromString(devTag, type)) {
+            if (deviceFromString(devTag, type)) {
                 uint32_t inBit = type & AUDIO_DEVICE_BIT_IN;
                 type &= ~AUDIO_DEVICE_BIT_IN;
                 while (type) {
@@ -311,7 +311,7 @@ void ConfigParsingUtils::loadDevicesFromTag(const char *tag, DeviceVector &devic
                 }
             }
         }
-        devTag = strtok(NULL, "|");
+        devTag = strtok(NULL, AudioParameter::valueListSeparator);
     }
     free(tagLiteral);
 }
@@ -340,7 +340,7 @@ void ConfigParsingUtils::loadModuleGlobalConfig(cnode *root, const sp<HwModule> 
             config.addAvailableOutputDevices(availableOutputDevices);
         } else if (strcmp(DEFAULT_OUTPUT_DEVICE_TAG, node->name) == 0) {
             audio_devices_t device = AUDIO_DEVICE_NONE;
-            DeviceConverter::fromString(node->value, device);
+            deviceFromString(node->value, device);
             if (device != AUDIO_DEVICE_NONE) {
                 sp<DeviceDescriptor> defaultOutputDevice = new DeviceDescriptor(device);
                 config.setDefaultOutputDevice(defaultOutputDevice);
@@ -356,9 +356,8 @@ void ConfigParsingUtils::loadModuleGlobalConfig(cnode *root, const sp<HwModule> 
         } else if (strcmp(AUDIO_HAL_VERSION_TAG, node->name) == 0) {
             uint32_t major, minor;
             sscanf((char *)node->value, "%u.%u", &major, &minor);
-            module->setHalVersion(HARDWARE_DEVICE_API_VERSION(major, minor));
-            ALOGV("loadGlobalConfig() mHalVersion = %04x major %u minor %u",
-                  module->getHalVersion(), major, minor);
+            module->setHalVersion(major, minor);
+            ALOGV("loadGlobalConfig() mHalVersion = major %u minor %u", major, minor);
         }
         node = node->next;
     }

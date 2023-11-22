@@ -1,6 +1,5 @@
-allow bluetooth wcnss_filter:unix_stream_socket connectto;
+# Temporarily allow access to /vendor libraries to not break bluetooth, but
+# this must be fixed. (TODO: b/36570346)
+# Bluetooth app depend on /vendor/lib64/libaptX_encoder.so
 
-set_prop(bluetooth, wc_prop)
-
-# Allow access to net_admin ioctls
-allowxperm bluetooth self:udp_socket ioctl priv_sock_ioctls;
+allow bluetooth vendor_file:file { r_file_perms execute };

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2010-2015, International Business Machines Corporation and
@@ -10,26 +12,23 @@ package android.icu.dev.test.bidi;
 import java.io.BufferedReader;
 import java.io.IOException;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.lang.UCharacterDirection;
 import android.icu.text.Bidi;
 import android.icu.text.BidiClassifier;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @author Markus W. Scherer
  * BiDi conformance test, using the Unicode BidiTest.txt and BidiCharacterTest.txt files.
  * Ported from ICU4C intltest/bidiconf.cpp .
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class BiDiConformanceTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new BiDiConformanceTest().run(args);
-    }
     public BiDiConformanceTest() {}
 
+    @Test
     public void TestBidiTest() throws IOException {
         BufferedReader bidiTestFile = TestUtil.getDataReader("unicode/BidiTest.txt");
         try {
@@ -165,6 +164,7 @@ outerLoop:
     *
     *******************************************************************************
     */
+    @Test
     public void TestBidiCharacterTest() throws IOException {
         BufferedReader bidiTestFile = TestUtil.getDataReader("unicode/BidiCharacterTest.txt");
         try {

@@ -16,16 +16,17 @@
  * enforced (but it's not much fun on a character device :-).
  */
 
-#define _XOPEN_SOURCE 600 /* for inclusion of PATH_MAX in Solaris */
+#define _XOPEN_SOURCE 600 /* for inclusion of PATH_MAX */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-#include <fcntl.h>
 #include <ctype.h>
 #include <time.h>
 #ifdef __linux__
 #include <sys/utsname.h>
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #endif
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
@@ -43,24 +44,22 @@ extern int optind;
 #include <errno.h>
 #endif
 #include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <libgen.h>
 #include <limits.h>
 #include <blkid/blkid.h>
 
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fsP.h"
-#include "et/com_err.h"
 #include "uuid/uuid.h"
-#include "e2p/e2p.h"
-#include "ext2fs/ext2fs.h"
 #include "util.h"
-#include "profile.h"
-#include "prof_err.h"
+#include "support/nls-enable.h"
+#include "support/plausible.h"
+#include "support/profile.h"
+#include "support/prof_err.h"
 #include "../version.h"
-#include "nls-enable.h"
-#include "quota/mkquota.h"
+#include "support/quotaio.h"
+#include "mke2fs.h"
+#include "create_inode.h"
 
 #define STRIDE_LENGTH 8
 
@@ -70,35 +69,38 @@ extern int optind;
 #define ZAP_BOOTBLOCK
 #endif
 
-#ifndef ROOT_SYSCONFDIR
-#define ROOT_SYSCONFDIR "/etc"
-#endif
-
 #define DISCARD_STEP_MB		(2048)
 
 extern int isatty(int);
 extern FILE *fpopen(const char *cmd, const char *mode);
 
-static const char * program_name = "mke2fs";
+const char * program_name = "mke2fs";
 static const char * device_name /* = NULL */;
 
 /* Command line options */
 static int	cflag;
-static int	verbose;
-static int	quiet;
+int	verbose;
+int	quiet;
 static int	super_only;
 static int	discard = 1;	/* attempt to discard device before fs creation */
 static int	direct_io;
 static int	force;
 static int	noaction;
+static int	num_backups = 2; /* number of backup bg's for sparse_super2 */
 static uid_t	root_uid;
 static gid_t	root_gid;
 int	journal_size;
 int	journal_flags;
 static int	lazy_itable_init;
+static int	packed_meta_blocks;
 static char	*bad_blocks_filename = NULL;
 static __u32	fs_stride;
-static int	quotatype = -1;  /* Initialize both user and group quotas by default */
+/* Initialize usr/grp quotas by default */
+static unsigned int quotatype_bits = (QUOTA_USR_BIT | QUOTA_GRP_BIT);
+static __u64	offset;
+static blk64_t journal_location = ~0LL;
+static int	proceed_delay = -1;
+static blk64_t	dev_size;
 
 static struct ext2_super_block fs_param;
 static char *fs_uuid = NULL;
@@ -107,25 +109,33 @@ static char *volume_label;
 static char *mount_dir;
 char *journal_device;
 static int sync_kludge;	/* Set using the MKE2FS_SYNC env. option */
-static char **fs_types;
+char **fs_types;
+const char *src_root_dir;  /* Copy files from the specified directory */
+static char *undo_file;
+
+static int android_sparse_file; /* -E android_sparse */
+static char *android_sparse_params;
 
 static profile_t	profile;
 
 static int sys_page_size = 4096;
-static int linux_version_code = 0;
+
+static int errors_behavior = 0;
 
 static void usage(void)
 {
 	fprintf(stderr, _("Usage: %s [-c|-l filename] [-b block-size] "
 	"[-C cluster-size]\n\t[-i bytes-per-inode] [-I inode-size] "
 	"[-J journal-options]\n"
-	"\t[-G flex-group-size] [-N number-of-inodes]\n"
+	"\t[-G flex-group-size] [-N number-of-inodes] "
+	"[-d root-directory]\n"
 	"\t[-m reserved-blocks-percentage] [-o creator-os]\n"
 	"\t[-g blocks-per-group] [-L volume-label] "
 	"[-M last-mounted-directory]\n\t[-O feature[,...]] "
 	"[-r fs-revision] [-E extended-option[,...]]\n"
-	"\t[-t fs-type] [-T usage-type ] [-U UUID] "
-	"[-jnqvDFKSV] device [blocks-count]\n"),
+	"\t[-t fs-type] [-T usage-type ] [-U UUID] [-e errors_behavior]"
+	"[-z undo_file]\n"
+	"\t[-jnqvDFSV] device [blocks-count]\n"),
 		program_name);
 	exit(1);
 }
@@ -142,7 +152,7 @@ static int int_log2(unsigned long long arg)
 	return l;
 }
 
-static int int_log10(unsigned long long arg)
+int int_log10(unsigned long long arg)
 {
 	int	l;
 
@@ -171,7 +181,31 @@ static int parse_version_number(const char *s)
 	rev = strtol(cp, &endptr, 10);
 	if (cp == endptr)
 		return 0;
-	return ((((major * 256) + minor) * 256) + rev);
+	return KERNEL_VERSION(major, minor, rev);
+}
+
+static int is_before_linux_ver(unsigned int major, unsigned int minor,
+			       unsigned int rev)
+{
+	struct		utsname ut;
+	static int	linux_version_code = -1;
+
+	if (uname(&ut)) {
+		perror("uname");
+		exit(1);
+	}
+	if (linux_version_code < 0)
+		linux_version_code = parse_version_number(ut.release);
+	if (linux_version_code == 0)
+		return 0;
+
+	return linux_version_code < (int) KERNEL_VERSION(major, minor, rev);
+}
+#else
+static int is_before_linux_ver(unsigned int major, unsigned int minor,
+			       unsigned int rev)
+{
+	return 0;
 }
 #endif
 
@@ -311,6 +345,60 @@ _("Warning: the backup superblock/group descriptors at block %u contain\n"
 	ext2fs_badblocks_list_iterate_end(bb_iter);
 }
 
+static void write_reserved_inodes(ext2_filsys fs)
+{
+	errcode_t	retval;
+	ext2_ino_t	ino;
+	struct ext2_inode *inode;
+
+	retval = ext2fs_get_memzero(EXT2_INODE_SIZE(fs->super), &inode);
+	if (retval) {
+		com_err("inode_init", retval, _("while allocating memory"));
+		exit(1);
+	}
+
+	for (ino = 1; ino < EXT2_FIRST_INO(fs->super); ino++)
+		ext2fs_write_inode_full(fs, ino, inode,
+					EXT2_INODE_SIZE(fs->super));
+
+	ext2fs_free_mem(&inode);
+}
+
+static errcode_t packed_allocate_tables(ext2_filsys fs)
+{
+	errcode_t	retval;
+	dgrp_t		i;
+	blk64_t		goal = 0;
+
+	for (i = 0; i < fs->group_desc_count; i++) {
+		retval = ext2fs_new_block2(fs, goal, NULL, &goal);
+		if (retval)
+			return retval;
+		ext2fs_block_alloc_stats2(fs, goal, +1);
+		ext2fs_block_bitmap_loc_set(fs, i, goal);
+	}
+	for (i = 0; i < fs->group_desc_count; i++) {
+		retval = ext2fs_new_block2(fs, goal, NULL, &goal);
+		if (retval)
+			return retval;
+		ext2fs_block_alloc_stats2(fs, goal, +1);
+		ext2fs_inode_bitmap_loc_set(fs, i, goal);
+	}
+	for (i = 0; i < fs->group_desc_count; i++) {
+		blk64_t end = ext2fs_blocks_count(fs->super) - 1;
+		retval = ext2fs_get_free_blocks2(fs, goal, end,
+						 fs->inode_blocks_per_group,
+						 fs->block_map, &goal);
+		if (retval)
+			return retval;
+		ext2fs_block_alloc_stats_range(fs, goal,
+					       fs->inode_blocks_per_group, +1);
+		ext2fs_inode_table_loc_set(fs, i, goal);
+		ext2fs_group_desc_csum_set(fs, i);
+	}
+	return 0;
+}
+
 static void write_inode_tables(ext2_filsys fs, int lazy_flag, int itable_zeroed)
 {
 	errcode_t	retval;
@@ -339,12 +427,14 @@ static void write_inode_tables(ext2_filsys fs, int lazy_flag, int itable_zeroed)
 			ext2fs_bg_flags_set(fs, i, EXT2_BG_INODE_ZEROED);
 			ext2fs_group_desc_csum_set(fs, i);
 		}
-		retval = ext2fs_zero_blocks2(fs, blk, num, &blk, &num);
-		if (retval) {
-			fprintf(stderr, _("\nCould not write %d "
-				  "blocks in inode table starting at %llu: %s\n"),
-				num, blk, error_message(retval));
-			exit(1);
+		if (!itable_zeroed) {
+			retval = ext2fs_zero_blocks2(fs, blk, num, &blk, &num);
+			if (retval) {
+				fprintf(stderr, _("\nCould not write %d "
+					  "blocks in inode table starting at %llu: %s\n"),
+					num, blk, error_message(retval));
+				exit(1);
+			}
 		}
 		if (sync_kludge) {
 			if (sync_kludge == 1)
@@ -353,9 +443,12 @@ static void write_inode_tables(ext2_filsys fs, int lazy_flag, int itable_zeroed)
 				sync();
 		}
 	}
-	ext2fs_zero_blocks2(0, 0, 0, 0, 0);
 	ext2fs_numeric_progress_close(fs, &progress,
 				      _("done                            \n"));
+
+	/* Reserved inodes must always have correct checksums */
+	if (ext2fs_has_feature_metadata_csum(fs->super))
+		write_reserved_inodes(fs);
 }
 
 static void create_root_dir(ext2_filsys fs)
@@ -463,7 +556,7 @@ static void zap_sector(ext2_filsys fs, int sect, int nsect)
 	int retval;
 	unsigned int *magic;
 
-	buf = malloc(512*nsect);
+	buf = calloc(512, nsect);
 	if (!buf) {
 		printf(_("Out of memory erasing sectors %d-%d\n"),
 		       sect, sect + nsect - 1);
@@ -536,7 +629,6 @@ static void create_journal_dev(ext2_filsys fs)
 		count -= c;
 		ext2fs_numeric_progress_update(fs, &progress, blk);
 	}
-	ext2fs_zero_blocks2(0, 0, 0, 0, 0);
 
 	ext2fs_numeric_progress_close(fs, &progress, NULL);
 write_superblock:
@@ -559,6 +651,14 @@ static void show_stats(ext2_filsys fs)
 	dgrp_t			i;
 	int			need, col_left;
 
+	if (!verbose) {
+		printf(_("Creating filesystem with %llu %dk blocks and "
+			 "%u inodes\n"),
+		       ext2fs_blocks_count(s), fs->blocksize >> 10,
+		       s->s_inodes_count);
+		goto skip_details;
+	}
+
 	if (ext2fs_blocks_count(&fs_param) != ext2fs_blocks_count(s))
 		fprintf(stderr, _("warning: %llu blocks unused.\n\n"),
 		       ext2fs_blocks_count(&fs_param) - ext2fs_blocks_count(s));
@@ -572,8 +672,7 @@ static void show_stats(ext2_filsys fs)
 	free(os);
 	printf(_("Block size=%u (log=%u)\n"), fs->blocksize,
 		s->s_log_block_size);
-	if (EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-				       EXT4_FEATURE_RO_COMPAT_BIGALLOC))
+	if (ext2fs_has_feature_bigalloc(fs->super))
 		printf(_("Cluster size=%u (log=%u)\n"),
 		       fs->blocksize << fs->cluster_ratio_bits,
 		       s->s_log_cluster_size);
@@ -598,8 +697,7 @@ static void show_stats(ext2_filsys fs)
 		printf(_("%u block groups\n"), fs->group_desc_count);
 	else
 		printf(_("%u block group\n"), fs->group_desc_count);
-	if (EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-				       EXT4_FEATURE_RO_COMPAT_BIGALLOC))
+	if (ext2fs_has_feature_bigalloc(fs->super))
 		printf(_("%u blocks per group, %u clusters per group\n"),
 		       s->s_blocks_per_group, s->s_clusters_per_group);
 	else
@@ -607,11 +705,14 @@ static void show_stats(ext2_filsys fs)
 		       s->s_blocks_per_group, s->s_clusters_per_group);
 	printf(_("%u inodes per group\n"), s->s_inodes_per_group);
 
+skip_details:
 	if (fs->group_desc_count == 1) {
 		printf("\n");
 		return;
 	}
 
+	if (!e2p_is_null_uuid(s->s_uuid))
+		printf(_("Filesystem UUID: %s\n"), e2p_uuid2str(s->s_uuid));
 	printf("%s", _("Superblock backups stored on blocks: "));
 	group_block = s->s_first_data_block;
 	col_left = 0;
@@ -630,6 +731,23 @@ static void show_stats(ext2_filsys fs)
 		printf("%llu", group_block);
 	}
 	printf("\n\n");
+}
+
+/*
+ * Returns true if making a file system for the Hurd, else 0
+ */
+static int for_hurd(const char *os)
+{
+	if (!os) {
+#ifdef __GNU__
+		return 1;
+#else
+		return 0;
+#endif
+	}
+	if (isdigit(*os))
+		return (atoi(os) == EXT2_OS_HURD);
+	return (strcasecmp(os, "GNU") == 0 || strcasecmp(os, "hurd") == 0);
 }
 
 /*
@@ -661,6 +779,7 @@ static void parse_extended_opts(struct ext2_super_block *param,
 	char	*buf, *token, *next, *p, *arg, *badopt = 0;
 	int	len;
 	int	r_usage = 0;
+	int	ret;
 
 	len = strlen(opts);
 	buf = malloc(len+1);
@@ -686,8 +805,7 @@ static void parse_extended_opts(struct ext2_super_block *param,
 		    strcmp(token, "desc_size") == 0) {
 			int desc_size;
 
-			if (!(fs_param.s_feature_incompat &
-			      EXT4_FEATURE_INCOMPAT_64BIT)) {
+			if (!ext2fs_has_feature_64bit(&fs_param)) {
 				fprintf(stderr,
 					_("%s requires '-O 64bit'\n"), token);
 				r_usage++;
@@ -713,6 +831,19 @@ static void parse_extended_opts(struct ext2_super_block *param,
 				continue;
 			}
 			param->s_desc_size = desc_size;
+		} else if (strcmp(token, "offset") == 0) {
+			if (!arg) {
+				r_usage++;
+				badopt = token;
+				continue;
+			}
+			offset = strtoull(arg, &p, 0);
+			if (*p) {
+				fprintf(stderr, _("Invalid offset: %s\n"),
+					arg);
+				r_usage++;
+				continue;
+			}
 		} else if (strcmp(token, "mmp_update_interval") == 0) {
 			if (!arg) {
 				r_usage++;
@@ -727,6 +858,28 @@ static void parse_extended_opts(struct ext2_super_block *param,
 				r_usage++;
 				continue;
 			}
+		} else if (strcmp(token, "num_backup_sb") == 0) {
+			if (!arg) {
+				r_usage++;
+				badopt = token;
+				continue;
+			}
+			num_backups = strtoul(arg, &p, 0);
+			if (*p || num_backups > 2) {
+				fprintf(stderr,
+					_("Invalid # of backup "
+					  "superblocks: %s\n"),
+					arg);
+				r_usage++;
+				continue;
+			}
+		} else if (strcmp(token, "packed_meta_blocks") == 0) {
+			if (arg)
+				packed_meta_blocks = strtoul(arg, &p, 0);
+			else
+				packed_meta_blocks = 1;
+			if (packed_meta_blocks)
+				journal_location = 0;
 		} else if (strcmp(token, "stride") == 0) {
 			if (!arg) {
 				r_usage++;
@@ -809,8 +962,7 @@ static void parse_extended_opts(struct ext2_super_block *param,
 					free(buf);
 					exit(1);
 				}
-				param->s_feature_compat |=
-					EXT2_FEATURE_COMPAT_RESIZE_INODE;
+				ext2fs_set_feature_resize_inode(param);
 
 				param->s_reserved_gdt_blocks = rsv_gdb;
 			}
@@ -855,22 +1007,29 @@ static void parse_extended_opts(struct ext2_super_block *param,
 		} else if (!strcmp(token, "nodiscard")) {
 			discard = 0;
 		} else if (!strcmp(token, "quotatype")) {
+			char *errtok = NULL;
+
 			if (!arg) {
 				r_usage++;
 				badopt = token;
 				continue;
 			}
-			if (!strncmp(arg, "usr", 3)) {
-				quotatype = 0;
-			} else if (!strncmp(arg, "grp", 3)) {
-				quotatype = 1;
-			} else {
-				fprintf(stderr,
-					_("Invalid quotatype parameter: %s\n"),
-					arg);
+			quotatype_bits = 0;
+			ret = parse_quota_types(arg, &quotatype_bits, &errtok);
+			if (ret) {
+				if (errtok) {
+					fprintf(stderr,
+				"Failed to parse quota type at %s", errtok);
+					free(errtok);
+				} else
+					com_err(program_name, ret,
+						"while parsing quota type");
 				r_usage++;
+				badopt = token;
 				continue;
 			}
+		} else if (!strcmp(token, "android_sparse")) {
+			android_sparse_file = 1;
 		} else {
 			r_usage++;
 			badopt = token;
@@ -882,17 +1041,20 @@ static void parse_extended_opts(struct ext2_super_block *param,
 			"and may take an argument which\n"
 			"\tis set off by an equals ('=') sign.\n\n"
 			"Valid extended options are:\n"
+			"\tmmp_update_interval=<interval>\n"
+			"\tnum_backup_sb=<0|1|2>\n"
 			"\tstride=<RAID per-disk data chunk in blocks>\n"
 			"\tstripe-width=<RAID stride * data disks in blocks>\n"
+			"\toffset=<offset to create the file system>\n"
 			"\tresize=<resize maximum size in blocks>\n"
+			"\tpacked_meta_blocks=<0 to disable, 1 to enable>\n"
 			"\tlazy_itable_init=<0 to disable, 1 to enable>\n"
 			"\tlazy_journal_init=<0 to disable, 1 to enable>\n"
-			"\troot_uid=<uid of root directory>\n"
-			"\troot_gid=<gid of root directory>\n"
+			"\troot_owner=<uid of root dir>:<gid of root dir>\n"
 			"\ttest_fs\n"
 			"\tdiscard\n"
 			"\tnodiscard\n"
-			"\tquotatype=<usr OR grp>\n\n"),
+			"\tquotatype=<quota type(s) to be enabled>\n\n"),
 			badopt ? badopt : "");
 		free(buf);
 		exit(1);
@@ -911,7 +1073,8 @@ static __u32 ok_features[3] = {
 	EXT3_FEATURE_COMPAT_HAS_JOURNAL |
 		EXT2_FEATURE_COMPAT_RESIZE_INODE |
 		EXT2_FEATURE_COMPAT_DIR_INDEX |
-		EXT2_FEATURE_COMPAT_EXT_ATTR,
+		EXT2_FEATURE_COMPAT_EXT_ATTR |
+		EXT4_FEATURE_COMPAT_SPARSE_SUPER2,
 	/* Incompat */
 	EXT2_FEATURE_INCOMPAT_FILETYPE|
 		EXT3_FEATURE_INCOMPAT_EXTENTS|
@@ -919,7 +1082,10 @@ static __u32 ok_features[3] = {
 		EXT2_FEATURE_INCOMPAT_META_BG|
 		EXT4_FEATURE_INCOMPAT_FLEX_BG|
 		EXT4_FEATURE_INCOMPAT_MMP |
-		EXT4_FEATURE_INCOMPAT_64BIT,
+		EXT4_FEATURE_INCOMPAT_64BIT|
+		EXT4_FEATURE_INCOMPAT_INLINE_DATA|
+		EXT4_FEATURE_INCOMPAT_ENCRYPT |
+		EXT4_FEATURE_INCOMPAT_CSUM_SEED,
 	/* R/O compat */
 	EXT2_FEATURE_RO_COMPAT_LARGE_FILE|
 		EXT4_FEATURE_RO_COMPAT_HUGE_FILE|
@@ -928,10 +1094,9 @@ static __u32 ok_features[3] = {
 		EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER|
 		EXT4_FEATURE_RO_COMPAT_GDT_CSUM|
 		EXT4_FEATURE_RO_COMPAT_BIGALLOC|
-#ifdef CONFIG_QUOTA
 		EXT4_FEATURE_RO_COMPAT_QUOTA|
-#endif
-		0
+		EXT4_FEATURE_RO_COMPAT_METADATA_CSUM|
+		EXT4_FEATURE_RO_COMPAT_PROJECT
 };
 
 
@@ -1060,14 +1225,10 @@ static char **parse_fs_type(const char *fs_type,
 	const char	*size_type;
 	struct str_list	list;
 	unsigned long long meg;
-	int		is_hurd = 0;
+	int		is_hurd = for_hurd(creator_os);
 
 	if (init_list(&list))
 		return 0;
-
-	if (creator_os && (!strcasecmp(creator_os, "GNU") ||
-			   !strcasecmp(creator_os, "hurd")))
-		is_hurd = 1;
 
 	if (fs_type)
 		ext_type = fs_type;
@@ -1168,7 +1329,7 @@ static char **parse_fs_type(const char *fs_type,
 	return (list.list);
 }
 
-static char *get_string_from_profile(char **types, const char *opt,
+char *get_string_from_profile(char **types, const char *opt,
 				     const char *def_val)
 {
 	char *ret = 0;
@@ -1185,7 +1346,7 @@ static char *get_string_from_profile(char **types, const char *opt,
 	return (ret);
 }
 
-static int get_int_from_profile(char **types, const char *opt, int def_val)
+int get_int_from_profile(char **types, const char *opt, int def_val)
 {
 	int ret;
 	char **cpp;
@@ -1193,6 +1354,18 @@ static int get_int_from_profile(char **types, const char *opt, int def_val)
 	profile_get_integer(profile, "defaults", opt, 0, def_val, &ret);
 	for (cpp = types; *cpp; cpp++)
 		profile_get_integer(profile, "fs_types", *cpp, opt, ret, &ret);
+	return ret;
+}
+
+static unsigned int get_uint_from_profile(char **types, const char *opt,
+					unsigned int def_val)
+{
+	unsigned int ret;
+	char **cpp;
+
+	profile_get_uint(profile, "defaults", opt, 0, def_val, &ret);
+	for (cpp = types; *cpp; cpp++)
+		profile_get_uint(profile, "fs_types", *cpp, opt, ret, &ret);
 	return ret;
 }
 
@@ -1208,7 +1381,7 @@ static double get_double_from_profile(char **types, const char *opt,
 	return ret;
 }
 
-static int get_bool_from_profile(char **types, const char *opt, int def_val)
+int get_bool_from_profile(char **types, const char *opt, int def_val)
 {
 	int ret;
 	char **cpp;
@@ -1228,11 +1401,11 @@ static const char *default_files[] = { "<default>", 0 };
  * device's alignment offset, if any, or a negative error.
  */
 static int get_device_geometry(const char *file,
-			       struct ext2_super_block *fs_param,
-			       int psector_size)
+			       struct ext2_super_block *param,
+			       unsigned int psector_size)
 {
 	int rc = -1;
-	int blocksize;
+	unsigned int blocksize;
 	blkid_probe pr;
 	blkid_topology tp;
 	unsigned long min_io;
@@ -1253,7 +1426,7 @@ static int get_device_geometry(const char *file,
 
 	min_io = blkid_topology_get_minimum_io_size(tp);
 	opt_io = blkid_topology_get_optimal_io_size(tp);
-	blocksize = EXT2_BLOCK_SIZE(fs_param);
+	blocksize = EXT2_BLOCK_SIZE(param);
 	if ((min_io == 0) && (psector_size > blocksize))
 		min_io = psector_size;
 	if ((opt_io == 0) && min_io)
@@ -1263,9 +1436,9 @@ static int get_device_geometry(const char *file,
 
 	/* setting stripe/stride to blocksize is pointless */
 	if (min_io > blocksize)
-		fs_param->s_raid_stride = min_io / blocksize;
+		param->s_raid_stride = min_io / blocksize;
 	if (opt_io > blocksize)
-		fs_param->s_raid_stripe_width = opt_io / blocksize;
+		param->s_raid_stripe_width = opt_io / blocksize;
 
 	rc = blkid_topology_get_alignment_offset(tp);
 out:
@@ -1276,23 +1449,23 @@ out:
 
 static void PRS(int argc, char *argv[])
 {
-	int		b, c;
+	int		b, c, flags;
 	int		cluster_size = 0;
 	char 		*tmp, **cpp;
+	int		explicit_fssize = 0;
 	int		blocksize = 0;
 	int		inode_ratio = 0;
 	int		inode_size = 0;
 	unsigned long	flex_bg_size = 0;
 	double		reserved_ratio = -1.0;
 	int		lsector_size = 0, psector_size = 0;
-	int		show_version_only = 0;
+	int		show_version_only = 0, is_device = 0;
 	unsigned long long num_inodes = 0; /* unsigned long long to catch too-large input */
 	errcode_t	retval;
 	char *		oldpath = getenv("PATH");
 	char *		extended_opts = 0;
 	char *		fs_type = 0;
 	char *		usage_types = 0;
-	blk64_t		dev_size;
 	/*
 	 * NOTE: A few words about fs_blocks_count and blocksize:
 	 *
@@ -1309,12 +1482,10 @@ static void PRS(int argc, char *argv[])
 	 * Finally, we complain about fs_blocks_count > 2^32 on a non-64bit fs.
 	 */
 	blk64_t		fs_blocks_count = 0;
-#ifdef __linux__
-	struct 		utsname ut;
-#endif
 	long		sysval;
 	int		s_opt = -1, r_opt = -1;
 	char		*fs_features = 0;
+	int		fs_features_size = 0;
 	int		use_bsize;
 	char		*newpath;
 	int		pathlen = sizeof(PATH_SET) + 1;
@@ -1377,15 +1548,8 @@ profile_error:
 	memset(&fs_param, 0, sizeof(struct ext2_super_block));
 	fs_param.s_rev_level = 1;  /* Create revision 1 filesystems now */
 
-#ifdef __linux__
-	if (uname(&ut)) {
-		perror("uname");
-		exit(1);
-	}
-	linux_version_code = parse_version_number(ut.release);
-	if (linux_version_code && linux_version_code < (2*65536 + 2*256))
+	if (is_before_linux_ver(2, 2, 0))
 		fs_param.s_rev_level = 0;
-#endif
 
 	if (argc && *argv) {
 		program_name = get_progname(*argv);
@@ -1397,7 +1561,7 @@ profile_error:
 	}
 
 	while ((c = getopt (argc, argv,
-		    "b:cg:i:jl:m:no:qr:s:t:vC:DE:FG:I:J:KL:M:N:O:R:ST:U:V")) != EOF) {
+		    "b:cd:e:g:i:jl:m:no:qr:s:t:vC:DE:FG:I:J:KL:M:N:O:R:ST:U:Vz:")) != EOF) {
 		switch (c) {
 		case 'b':
 			blocksize = parse_num_blocks2(optarg, -1);
@@ -1430,6 +1594,9 @@ profile_error:
 				exit(1);
 			}
 			break;
+		case 'd':
+			src_root_dir = optarg;
+			break;
 		case 'D':
 			direct_io = 1;
 			break;
@@ -1439,6 +1606,20 @@ profile_error:
 			/* fallthrough */
 		case 'E':
 			extended_opts = optarg;
+			break;
+		case 'e':
+			if (strcmp(optarg, "continue") == 0)
+				errors_behavior = EXT2_ERRORS_CONTINUE;
+			else if (strcmp(optarg, "remount-ro") == 0)
+				errors_behavior = EXT2_ERRORS_RO;
+			else if (strcmp(optarg, "panic") == 0)
+				errors_behavior = EXT2_ERRORS_PANIC;
+			else {
+				com_err(program_name, 0,
+					_("bad error behavior - %s"),
+					optarg);
+				usage();
+			}
 			break;
 		case 'F':
 			force++;
@@ -1469,12 +1650,17 @@ profile_error:
 					_("flex_bg size must be a power of 2"));
 				exit(1);
 			}
+			if (flex_bg_size > MAX_32_NUM) {
+				com_err(program_name, 0,
+				_("flex_bg size (%lu) must be less than"
+				" or equal to 2^31"), flex_bg_size);
+				exit(1);
+			}
 			break;
 		case 'i':
-			inode_ratio = strtoul(optarg, &tmp, 0);
+			inode_ratio = parse_num_blocks(optarg, -1);
 			if (inode_ratio < EXT2_MIN_BLOCK_SIZE ||
-			    inode_ratio > EXT2_MAX_BLOCK_SIZE * 1024 ||
-			    *tmp) {
+			    inode_ratio > EXT2_MAX_BLOCK_SIZE * 1024) {
 				com_err(program_name, 0,
 					_("invalid inode ratio %s (min %d/max %d)"),
 					optarg, EXT2_MIN_BLOCK_SIZE,
@@ -1517,6 +1703,11 @@ profile_error:
 			break;
 		case 'L':
 			volume_label = optarg;
+			if (strlen(volume_label) > EXT2_LABEL_LEN) {
+				volume_label[EXT2_LABEL_LEN] = '\0';
+				fprintf(stderr, _("Warning: label too long; will be truncated to '%s'\n\n"),
+					volume_label);
+			}
 			break;
 		case 'm':
 			reserved_ratio = strtod(optarg, &tmp);
@@ -1546,7 +1737,20 @@ profile_error:
 			creator_os = optarg;
 			break;
 		case 'O':
-			fs_features = optarg;
+			retval = ext2fs_resize_mem(fs_features_size,
+				   fs_features_size + 1 + strlen(optarg),
+						   &fs_features);
+			if (retval) {
+				com_err(program_name, retval,
+				     _("while allocating fs_feature string"));
+				exit(1);
+			}
+			if (fs_features_size)
+				strcat(fs_features, ",");
+			else
+				fs_features[0] = 0;
+			strcat(fs_features, optarg);
+			fs_features_size += 1 + strlen(optarg);
 			break;
 		case 'q':
 			quiet = 1;
@@ -1556,6 +1760,11 @@ profile_error:
 			if (*tmp) {
 				com_err(program_name, 0,
 					_("bad revision level - %s"), optarg);
+				exit(1);
+			}
+			if (r_opt > EXT2_MAX_SUPP_REV) {
+				com_err(program_name, EXT2_ET_REV_TOO_HIGH,
+					_("while trying to create revision %d"), r_opt);
 				exit(1);
 			}
 			fs_param.s_rev_level = r_opt;
@@ -1591,6 +1800,9 @@ profile_error:
 		case 'V':
 			/* Print version number and exit */
 			show_version_only++;
+			break;
+		case 'z':
+			undo_file = optarg;
 			break;
 		default:
 			usage();
@@ -1645,7 +1857,7 @@ profile_error:
 		printf(_("Using journal device's blocksize: %d\n"), blocksize);
 		fs_param.s_log_block_size =
 			int_log2(blocksize >> EXT2_MIN_BLOCK_LOG_SIZE);
-		ext2fs_close(jfs);
+		ext2fs_close_free(&jfs);
 	}
 
 	if (optind < argc) {
@@ -1661,8 +1873,22 @@ profile_error:
 	if (optind < argc)
 		usage();
 
-	if (!force)
-		check_plausibility(device_name);
+	profile_get_integer(profile, "options", "proceed_delay", 0, 0,
+			    &proceed_delay);
+
+	/* The isatty() test is so we don't break existing scripts */
+	flags = CREATE_FILE;
+	if (isatty(0) && isatty(1) && !offset)
+		flags |= CHECK_FS_EXIST;
+	if (!quiet)
+		flags |= VERBOSE_CREATE;
+	if (fs_blocks_count == 0)
+		flags |= NO_SIZE;
+	else
+		explicit_fssize = 1;
+	if (!check_plausibility(device_name, flags, &is_device) && !force)
+		proceed_question(proceed_delay);
+
 	check_mount(device_name, force, _("filesystem"));
 
 	/* Determine the size of the device (if possible) */
@@ -1704,10 +1930,10 @@ profile_error:
 				fs_blocks_count &= ~((blk64_t) ((sys_page_size /
 					     EXT2_BLOCK_SIZE(&fs_param))-1));
 		}
-	} else if (!force && (fs_blocks_count > dev_size)) {
+	} else if (!force && is_device && (fs_blocks_count > dev_size)) {
 		com_err(program_name, 0, "%s",
 			_("Filesystem larger than apparent device size."));
-		proceed_question();
+		proceed_question(proceed_delay);
 	}
 
 	if (!fs_type)
@@ -1735,7 +1961,7 @@ profile_error:
 	tmp = NULL;
 	if (fs_param.s_rev_level != EXT2_GOOD_OLD_REV) {
 		tmp = get_string_from_profile(fs_types, "base_features",
-		      "sparse_super,filetype,resize_inode,dir_index");
+		      "sparse_super,large_file,filetype,resize_inode,dir_index");
 		edit_feature(tmp, &fs_param.s_feature_compat);
 		free(tmp);
 
@@ -1758,10 +1984,37 @@ profile_error:
 		tmp = get_string_from_profile(fs_types, "default_features",
 					      "");
 	}
+	/* Mask off features which aren't supported by the Hurd */
+	if (for_hurd(creator_os)) {
+		ext2fs_clear_feature_filetype(&fs_param);
+		ext2fs_clear_feature_huge_file(&fs_param);
+		ext2fs_clear_feature_metadata_csum(&fs_param);
+	}
 	edit_feature(fs_features ? fs_features : tmp,
 		     &fs_param.s_feature_compat);
 	if (tmp)
 		free(tmp);
+	(void) ext2fs_free_mem(&fs_features);
+	/*
+	 * If the user specified features incompatible with the Hurd, complain
+	 */
+	if (for_hurd(creator_os)) {
+		if (ext2fs_has_feature_filetype(&fs_param)) {
+			fprintf(stderr, "%s", _("The HURD does not support the "
+						"filetype feature.\n"));
+			exit(1);
+		}
+		if (ext2fs_has_feature_huge_file(&fs_param)) {
+			fprintf(stderr, "%s", _("The HURD does not support the "
+						"huge_file feature.\n"));
+			exit(1);
+		}
+		if (ext2fs_has_feature_metadata_csum(&fs_param)) {
+			fprintf(stderr, "%s", _("The HURD does not support the "
+						"metadata_csum feature.\n"));
+			exit(1);
+		}
+	}
 
 	/* Get the hardware sector sizes, if available */
 	retval = ext2fs_get_device_sectsize(device_name, &lsector_size);
@@ -1793,8 +2046,7 @@ profile_error:
 
 		if (use_bsize == -1) {
 			use_bsize = sys_page_size;
-			if ((linux_version_code < (2*65536 + 6*256)) &&
-			    (use_bsize > 4096))
+			if (is_before_linux_ver(2, 6, 0) && use_bsize > 4096)
 				use_bsize = 4096;
 		}
 		if (lsector_size && use_bsize < lsector_size)
@@ -1825,13 +2077,16 @@ profile_error:
 	 * 32-bit vs 64-bit block number support.
 	 */
 	if ((fs_blocks_count > MAX_32_NUM) &&
-	    !(fs_param.s_feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT) &&
+	    ext2fs_has_feature_64bit(&fs_param))
+		ext2fs_clear_feature_resize_inode(&fs_param);
+	if ((fs_blocks_count > MAX_32_NUM) &&
+	    !ext2fs_has_feature_64bit(&fs_param) &&
 	    get_bool_from_profile(fs_types, "auto_64-bit_support", 0)) {
-		fs_param.s_feature_incompat |= EXT4_FEATURE_INCOMPAT_64BIT;
-		fs_param.s_feature_compat &= ~EXT2_FEATURE_COMPAT_RESIZE_INODE;
+		ext2fs_set_feature_64bit(&fs_param);
+		ext2fs_clear_feature_resize_inode(&fs_param);
 	}
 	if ((fs_blocks_count > MAX_32_NUM) &&
-	    !(fs_param.s_feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT)) {
+	    !ext2fs_has_feature_64bit(&fs_param)) {
 		fprintf(stderr, _("%s: Size of device (0x%llx blocks) %s "
 				  "too big to be expressed\n\t"
 				  "in 32 bits using a blocksize of %d.\n"),
@@ -1842,7 +2097,7 @@ profile_error:
 
 	ext2fs_blocks_count_set(&fs_param, fs_blocks_count);
 
-	if (fs_param.s_feature_incompat & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
+	if (ext2fs_has_feature_journal_dev(&fs_param)) {
 		fs_types[0] = strdup("journal");
 		fs_types[1] = 0;
 	}
@@ -1867,11 +2122,9 @@ profile_error:
 				  "with revision 0 filesystems\n"));
 			exit(1);
 		}
-		fs_param.s_feature_ro_compat |=
-			EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER;
+		ext2fs_set_feature_sparse_super(&fs_param);
 	} else if (s_opt == 0)
-		fs_param.s_feature_ro_compat &=
-			~EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER;
+		ext2fs_clear_feature_sparse_super(&fs_param);
 
 	if (journal_size != 0) {
 		if (r_opt == EXT2_GOOD_OLD_REV) {
@@ -1879,8 +2132,7 @@ profile_error:
 						"revision 0 filesystems\n"));
 			exit(1);
 		}
-		fs_param.s_feature_compat |=
-			EXT3_FEATURE_COMPAT_HAS_JOURNAL;
+		ext2fs_set_feature_journal(&fs_param);
 	}
 
 	/* Get reserved_ratio from profile if not specified on cmd line. */
@@ -1895,17 +2147,17 @@ profile_error:
 		}
 	}
 
-	if (fs_param.s_feature_incompat &
-	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
+	if (ext2fs_has_feature_journal_dev(&fs_param)) {
 		reserved_ratio = 0;
 		fs_param.s_feature_incompat = EXT3_FEATURE_INCOMPAT_JOURNAL_DEV;
 		fs_param.s_feature_compat = 0;
-		fs_param.s_feature_ro_compat = 0;
+		fs_param.s_feature_ro_compat &=
+					EXT4_FEATURE_RO_COMPAT_METADATA_CSUM;
  	}
 
 	/* Check the user's mkfs options for 64bit */
-	if ((fs_param.s_feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT) &&
-	    !(fs_param.s_feature_incompat & EXT3_FEATURE_INCOMPAT_EXTENTS)) {
+	if (ext2fs_has_feature_64bit(&fs_param) &&
+	    !ext2fs_has_feature_extents(&fs_param)) {
 		printf("%s", _("Extents MUST be enabled for a 64-bit "
 			       "filesystem.  Pass -O extents to rectify.\n"));
 		exit(1);
@@ -1913,10 +2165,10 @@ profile_error:
 
 	/* Set first meta blockgroup via an environment variable */
 	/* (this is mostly for debugging purposes) */
-	if ((fs_param.s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG) &&
-	    ((tmp = getenv("MKE2FS_FIRST_META_BG"))))
+	if (ext2fs_has_feature_meta_bg(&fs_param) &&
+	    (tmp = getenv("MKE2FS_FIRST_META_BG")))
 		fs_param.s_first_meta_bg = atoi(tmp);
-	if (fs_param.s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_BIGALLOC) {
+	if (ext2fs_has_feature_bigalloc(&fs_param)) {
 		if (!cluster_size)
 			cluster_size = get_int_from_profile(fs_types,
 							    "cluster_size",
@@ -1948,7 +2200,8 @@ profile_error:
 	}
 
 #ifdef HAVE_BLKID_PROBE_GET_TOPOLOGY
-	retval = get_device_geometry(device_name, &fs_param, psector_size);
+	retval = get_device_geometry(device_name, &fs_param,
+				     (unsigned int) psector_size);
 	if (retval < 0) {
 		fprintf(stderr,
 			_("warning: Unable to get device geometry for %s\n"),
@@ -1961,6 +2214,8 @@ profile_error:
 	}
 #endif
 
+	num_backups = get_int_from_profile(fs_types, "num_backup_sb", 2);
+
 	blocksize = EXT2_BLOCK_SIZE(&fs_param);
 
 	/*
@@ -1968,7 +2223,7 @@ profile_error:
 	 * can correctly handle "-E resize=NNN" if the 64-bit option
 	 * is set.
 	 */
-	if (fs_param.s_feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT)
+	if (ext2fs_has_feature_64bit(&fs_param))
 		fs_param.s_desc_size = EXT2_MIN_DESC_SIZE_64BIT;
 
 	/* This check should happen beyond the last assignment to blocksize */
@@ -1977,14 +2232,29 @@ profile_error:
 			com_err(program_name, 0,
 				_("%d-byte blocks too big for system (max %d)"),
 				blocksize, sys_page_size);
-			proceed_question();
+			proceed_question(proceed_delay);
 		}
 		fprintf(stderr, _("Warning: %d-byte blocks too big for system "
 				  "(max %d), forced to continue\n"),
 			blocksize, sys_page_size);
 	}
 
-	lazy_itable_init = 0;
+	/* Metadata checksumming wasn't totally stable before 3.18. */
+	if (is_before_linux_ver(3, 18, 0) &&
+	    ext2fs_has_feature_metadata_csum(&fs_param))
+		fprintf(stderr, _("Suggestion: Use Linux kernel >= 3.18 for "
+			"improved stability of the metadata and journal "
+			"checksum features.\n"));
+
+	/*
+	 * On newer kernels we do have lazy_itable_init support. So pick the
+	 * right default in case ext4 module is not loaded.
+	 */
+	if (is_before_linux_ver(2, 6, 37))
+		lazy_itable_init = 0;
+	else
+		lazy_itable_init = 1;
+
 	if (access("/sys/fs/ext4/features/lazy_itable_init", R_OK) == 0)
 		lazy_itable_init = 1;
 
@@ -1996,6 +2266,20 @@ profile_error:
 					       "lazy_journal_init", 0) ?
 					       EXT2_MKJOURNAL_LAZYINIT : 0;
 	journal_flags |= EXT2_MKJOURNAL_NO_MNT_CHECK;
+
+	if (!journal_location_string)
+		journal_location_string = get_string_from_profile(fs_types,
+						"journal_location", "");
+	if ((journal_location == ~0ULL) && journal_location_string &&
+	    *journal_location_string)
+		journal_location = parse_num_blocks2(journal_location_string,
+						fs_param.s_log_block_size);
+	free(journal_location_string);
+
+	packed_meta_blocks = get_bool_from_profile(fs_types,
+						   "packed_meta_blocks", 0);
+	if (packed_meta_blocks)
+		journal_location = 0;
 
 	/* Get options from profile */
 	for (cpp = fs_types; *cpp; cpp++) {
@@ -2009,17 +2293,34 @@ profile_error:
 	if (extended_opts)
 		parse_extended_opts(&fs_param, extended_opts);
 
+	if (explicit_fssize == 0 && offset > 0) {
+		fs_blocks_count -= offset / EXT2_BLOCK_SIZE(&fs_param);
+		ext2fs_blocks_count_set(&fs_param, fs_blocks_count);
+		fprintf(stderr,
+			_("\nWarning: offset specified without an "
+			  "explicit file system size.\n"
+			  "Creating a file system with %llu blocks "
+			  "but this might\n"
+			  "not be what you want.\n\n"),
+			(unsigned long long) fs_blocks_count);
+	}
+
+	/* Don't allow user to set both metadata_csum and uninit_bg bits. */
+	if (ext2fs_has_feature_metadata_csum(&fs_param) &&
+	    ext2fs_has_feature_gdt_csum(&fs_param))
+		ext2fs_clear_feature_gdt_csum(&fs_param);
+
 	/* Can't support bigalloc feature without extents feature */
-	if ((fs_param.s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_BIGALLOC) &&
-	    !(fs_param.s_feature_incompat & EXT3_FEATURE_INCOMPAT_EXTENTS)) {
+	if (ext2fs_has_feature_bigalloc(&fs_param) &&
+	    !ext2fs_has_feature_extents(&fs_param)) {
 		com_err(program_name, 0, "%s",
 			_("Can't support bigalloc feature without "
 			  "extents feature"));
 		exit(1);
 	}
 
-	if ((fs_param.s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG) &&
-	    (fs_param.s_feature_compat & EXT2_FEATURE_COMPAT_RESIZE_INODE)) {
+	if (ext2fs_has_feature_meta_bg(&fs_param) &&
+	    ext2fs_has_feature_resize_inode(&fs_param)) {
 		fprintf(stderr, "%s", _("The resize_inode and meta_bg "
 					"features are not compatible.\n"
 					"They can not be both enabled "
@@ -2027,25 +2328,18 @@ profile_error:
 		exit(1);
 	}
 
-	if (!quiet &&
-	    (fs_param.s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_BIGALLOC))
+	if (!quiet && ext2fs_has_feature_bigalloc(&fs_param))
 		fprintf(stderr, "%s", _("\nWarning: the bigalloc feature is "
 				  "still under development\n"
 				  "See https://ext4.wiki.kernel.org/"
 				  "index.php/Bigalloc for more information\n\n"));
 
-	if (!quiet &&
-	    (fs_param.s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_QUOTA))
-		fprintf(stderr, "%s", _("\nWarning: the quota feature is "
-				  "still under development\n"
-				  "See https://ext4.wiki.kernel.org/"
-				  "index.php/Quota for more information\n\n"));
-
-	/* Since sparse_super is the default, we would only have a problem
+	/*
+	 * Since sparse_super is the default, we would only have a problem
 	 * here if it was explicitly disabled.
 	 */
-	if ((fs_param.s_feature_compat & EXT2_FEATURE_COMPAT_RESIZE_INODE) &&
-	    !(fs_param.s_feature_ro_compat&EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER)) {
+	if (ext2fs_has_feature_resize_inode(&fs_param) &&
+	    !ext2fs_has_feature_sparse_super(&fs_param)) {
 		com_err(program_name, 0, "%s",
 			_("reserved online resize blocks not supported "
 			  "on non-sparse filesystem"));
@@ -2065,20 +2359,18 @@ profile_error:
 	 * If the bigalloc feature is enabled, then the -g option will
 	 * specify the number of clusters per group.
 	 */
-	if (fs_param.s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_BIGALLOC) {
+	if (ext2fs_has_feature_bigalloc(&fs_param)) {
 		fs_param.s_clusters_per_group = fs_param.s_blocks_per_group;
 		fs_param.s_blocks_per_group = 0;
 	}
 
 	if (inode_size == 0)
 		inode_size = get_int_from_profile(fs_types, "inode_size", 0);
-	if (!flex_bg_size && (fs_param.s_feature_incompat &
-			      EXT4_FEATURE_INCOMPAT_FLEX_BG))
-		flex_bg_size = get_int_from_profile(fs_types,
-						    "flex_bg_size", 16);
+	if (!flex_bg_size && ext2fs_has_feature_flex_bg(&fs_param))
+		flex_bg_size = get_uint_from_profile(fs_types,
+						     "flex_bg_size", 16);
 	if (flex_bg_size) {
-		if (!(fs_param.s_feature_incompat &
-		      EXT4_FEATURE_INCOMPAT_FLEX_BG)) {
+		if (!ext2fs_has_feature_flex_bg(&fs_param)) {
 			com_err(program_name, 0, "%s",
 				_("Flex_bg feature not enabled, so "
 				  "flex_bg size may not be specified"));
@@ -2100,13 +2392,38 @@ profile_error:
 		fs_param.s_inode_size = inode_size;
 	}
 
+	/*
+	 * If inode size is 128 and inline data is enabled, we need
+	 * to notify users that inline data will never be useful.
+	 */
+	if (ext2fs_has_feature_inline_data(&fs_param) &&
+	    fs_param.s_inode_size == EXT2_GOOD_OLD_INODE_SIZE) {
+		com_err(program_name, 0,
+			_("%d byte inodes are too small for inline data; "
+			  "specify larger size"),
+			fs_param.s_inode_size);
+		exit(1);
+	}
+
+	/*
+	 * If inode size is 128 and project quota is enabled, we need
+	 * to notify users that project ID will never be useful.
+	 */
+	if (ext2fs_has_feature_project(&fs_param) &&
+	    fs_param.s_inode_size == EXT2_GOOD_OLD_INODE_SIZE) {
+		com_err(program_name, 0,
+			_("%d byte inodes are too small for project quota; "
+			  "specify larger size"),
+			fs_param.s_inode_size);
+		exit(1);
+	}
+
 	/* Make sure number of inodes specified will fit in 32 bits */
 	if (num_inodes == 0) {
 		unsigned long long n;
 		n = ext2fs_blocks_count(&fs_param) * blocksize / inode_ratio;
 		if (n > MAX_32_NUM) {
-			if (fs_param.s_feature_incompat &
-			    EXT4_FEATURE_INCOMPAT_64BIT)
+			if (ext2fs_has_feature_64bit(&fs_param))
 				num_inodes = MAX_32_NUM;
 			else {
 				com_err(program_name, 0,
@@ -2148,6 +2465,13 @@ profile_error:
 	ext2fs_r_blocks_count_set(&fs_param, reserved_ratio *
 				  ext2fs_blocks_count(&fs_param) / 100.0);
 
+	if (ext2fs_has_feature_sparse_super2(&fs_param)) {
+		if (num_backups >= 1)
+			fs_param.s_backup_bgs[0] = 1;
+		if (num_backups >= 2)
+			fs_param.s_backup_bgs[1] = ~0;
+	}
+
 	free(fs_type);
 	free(usage_types);
 }
@@ -2161,8 +2485,8 @@ static int should_do_undo(const char *name)
 	io_manager manager = unix_io_manager;
 	int csum_flag, force_undo;
 
-	csum_flag = EXT2_HAS_RO_COMPAT_FEATURE(&fs_param,
-					       EXT4_FEATURE_RO_COMPAT_GDT_CSUM);
+	csum_flag = ext2fs_has_feature_metadata_csum(&fs_param) ||
+		    ext2fs_has_feature_gdt_csum(&fs_param);
 	force_undo = get_int_from_profile(fs_types, "force_undo", 0);
 	if (!force_undo && (!csum_flag || !lazy_itable_init))
 		return 0;
@@ -2210,6 +2534,21 @@ static int mke2fs_setup_tdb(const char *name, io_manager *io_ptr)
 	char *dev_name, *tmp_name;
 	int free_tdb_dir = 0;
 
+	/* (re)open a specific undo file */
+	if (undo_file && undo_file[0] != 0) {
+		retval = set_undo_io_backing_manager(*io_ptr);
+		if (retval)
+			goto err;
+		*io_ptr = undo_io_manager;
+		retval = set_undo_io_backup_file(undo_file);
+		if (retval)
+			goto err;
+		printf(_("Overwriting existing filesystem; this can be undone "
+			 "using the command:\n"
+			 "    e2undo %s %s\n\n"), undo_file, name);
+		return retval;
+	}
+
 	/*
 	 * Configuration via a conf file would be
 	 * nice
@@ -2241,14 +2580,16 @@ static int mke2fs_setup_tdb(const char *name, io_manager *io_ptr)
 	sprintf(tdb_file, "%s/mke2fs-%s.e2undo", tdb_dir, dev_name);
 	free(tmp_name);
 
-	if (!access(tdb_file, F_OK)) {
-		if (unlink(tdb_file) < 0) {
-			retval = errno;
-			goto errout;
-		}
+	if ((unlink(tdb_file) < 0) && (errno != ENOENT)) {
+		retval = errno;
+		com_err(program_name, retval,
+			_("while trying to delete %s"), tdb_file);
+		goto errout;
 	}
 
-	set_undo_io_backing_manager(*io_ptr);
+	retval = set_undo_io_backing_manager(*io_ptr);
+	if (retval)
+		goto errout;
 	*io_ptr = undo_io_manager;
 	retval = set_undo_io_backup_file(tdb_file);
 	if (retval)
@@ -2266,6 +2607,7 @@ errout:
 	if (free_tdb_dir)
 		free(tdb_dir);
 	free(tdb_file);
+err:
 	com_err(program_name, retval, "%s",
 		_("while trying to setup undo file\n"));
 	return retval;
@@ -2321,41 +2663,97 @@ static int mke2fs_discard_device(ext2_filsys fs)
 
 static void fix_cluster_bg_counts(ext2_filsys fs)
 {
-	blk64_t	cluster, num_clusters, tot_free;
-	unsigned num = 0;
-	int	grp_free, num_free, group;
+	blk64_t		block, num_blocks, last_block, next;
+	blk64_t		tot_free = 0;
+	errcode_t	retval;
+	dgrp_t		group = 0;
+	int		grp_free = 0;
 
-	num_clusters = EXT2FS_B2C(fs, ext2fs_blocks_count(fs->super));
-	tot_free = num_free = group = grp_free = 0;
-	for (cluster = EXT2FS_B2C(fs, fs->super->s_first_data_block);
-	     cluster < num_clusters; cluster++) {
-		if (!ext2fs_test_block_bitmap2(fs->block_map,
-					       EXT2FS_C2B(fs, cluster))) {
-			grp_free++;
-			tot_free++;
+	num_blocks = ext2fs_blocks_count(fs->super);
+	last_block = ext2fs_group_last_block2(fs, group);
+	block = fs->super->s_first_data_block;
+	while (block < num_blocks) {
+		retval = ext2fs_find_first_zero_block_bitmap2(fs->block_map,
+						block, last_block, &next);
+		if (retval == 0)
+			block = next;
+		else {
+			block = last_block + 1;
+			goto next_bg;
 		}
-		num++;
-		if ((num == fs->super->s_clusters_per_group) ||
-		    (cluster == num_clusters-1)) {
+
+		retval = ext2fs_find_first_set_block_bitmap2(fs->block_map,
+						block, last_block, &next);
+		if (retval)
+			next = last_block + 1;
+		grp_free += EXT2FS_NUM_B2C(fs, next - block);
+		tot_free += next - block;
+		block = next;
+
+		if (block > last_block) {
+		next_bg:
 			ext2fs_bg_free_blocks_count_set(fs, group, grp_free);
 			ext2fs_group_desc_csum_set(fs, group);
-			num = 0;
 			grp_free = 0;
 			group++;
+			last_block = ext2fs_group_last_block2(fs, group);
 		}
 	}
-	ext2fs_free_blocks_count_set(fs->super, EXT2FS_C2B(fs, tot_free));
+	ext2fs_free_blocks_count_set(fs->super, tot_free);
 }
 
 static int create_quota_inodes(ext2_filsys fs)
 {
 	quota_ctx_t qctx;
+	errcode_t retval;
 
-	quota_init_context(&qctx, fs, -1);
+	retval = quota_init_context(&qctx, fs, QUOTA_ALL_BIT);
+	if (retval) {
+		com_err(program_name, retval,
+			_("while initializing quota context"));
+		exit(1);
+	}
 	quota_compute_usage(qctx);
-	quota_write_inode(qctx, quotatype);
+	retval = quota_write_inode(qctx, quotatype_bits);
+	if (retval) {
+		com_err(program_name, retval,
+			_("while writing quota inodes"));
+		exit(1);
+	}
 	quota_release_context(&qctx);
 
+	return 0;
+}
+
+static errcode_t set_error_behavior(ext2_filsys fs)
+{
+	char	*arg = NULL;
+	short	errors = fs->super->s_errors;
+
+	arg = get_string_from_profile(fs_types, "errors", NULL);
+	if (arg == NULL)
+		goto try_user;
+
+	if (strcmp(arg, "continue") == 0)
+		errors = EXT2_ERRORS_CONTINUE;
+	else if (strcmp(arg, "remount-ro") == 0)
+		errors = EXT2_ERRORS_RO;
+	else if (strcmp(arg, "panic") == 0)
+		errors = EXT2_ERRORS_PANIC;
+	else {
+		com_err(program_name, 0,
+			_("bad error behavior in profile - %s"),
+			arg);
+		free(arg);
+		return EXT2_ET_INVALID_ARGUMENT;
+	}
+	free(arg);
+
+try_user:
+	if (errors_behavior)
+		errors = errors_behavior;
+
+	fs->super->s_errors = errors;
 	return 0;
 }
 
@@ -2364,14 +2762,14 @@ int main (int argc, char *argv[])
 	errcode_t	retval = 0;
 	ext2_filsys	fs;
 	badblocks_list	bb_list = 0;
-	unsigned int	journal_blocks;
+	unsigned int	journal_blocks = 0;
 	unsigned int	i, checkinterval;
 	int		max_mnt_count;
 	int		val, hash_alg;
 	int		flags;
 	int		old_bitmaps;
 	io_manager	io_ptr;
-	char		tdb_string[40];
+	char		opt_string[40];
 	char		*hash_alg_str;
 	int		itable_zeroed = 0;
 
@@ -2392,7 +2790,7 @@ int main (int argc, char *argv[])
 #endif
 		io_ptr = unix_io_manager;
 
-	if (should_do_undo(device_name)) {
+	if (undo_file != NULL || should_do_undo(device_name)) {
 		retval = mke2fs_setup_tdb(device_name, &io_ptr);
 		if (retval)
 			exit(1);
@@ -2415,21 +2813,74 @@ int main (int argc, char *argv[])
 	 */
 	if (!quiet)
 		flags |= EXT2_FLAG_PRINT_PROGRESS;
-	retval = ext2fs_initialize(device_name, flags, &fs_param, io_ptr, &fs);
+	if (android_sparse_file) {
+		android_sparse_params = malloc(PATH_MAX + 32);
+		if (!android_sparse_params) {
+			com_err(program_name, ENOMEM, "%s",
+				_("in malloc for android_sparse_params"));
+			exit(1);
+		}
+		snprintf(android_sparse_params, PATH_MAX + 32, "%s:%u:%u",
+			 device_name, fs_param.s_blocks_count,
+			 1024 << fs_param.s_log_block_size);
+		retval = ext2fs_initialize(android_sparse_params, flags,
+					   &fs_param, sparse_io_manager, &fs);
+	} else
+		retval = ext2fs_initialize(device_name, flags, &fs_param,
+					   io_ptr, &fs);
 	if (retval) {
 		com_err(device_name, retval, "%s",
 			_("while setting up superblock"));
 		exit(1);
 	}
+	fs->progress_ops = &ext2fs_numeric_progress_ops;
+
+	/* Set the error behavior */
+	retval = set_error_behavior(fs);
+	if (retval)
+		usage();
+
+	/* Check the user's mkfs options for metadata checksumming */
+	if (!quiet &&
+	    !ext2fs_has_feature_journal_dev(fs->super) &&
+	    ext2fs_has_feature_metadata_csum(fs->super)) {
+		if (!ext2fs_has_feature_extents(fs->super))
+			printf("%s",
+			       _("Extents are not enabled.  The file extent "
+				 "tree can be checksummed, whereas block maps "
+				 "cannot.  Not enabling extents reduces the "
+				 "coverage of metadata checksumming.  "
+				 "Pass -O extents to rectify.\n"));
+		if (!ext2fs_has_feature_64bit(fs->super))
+			printf("%s",
+			       _("64-bit filesystem support is not enabled.  "
+				 "The larger fields afforded by this feature "
+				 "enable full-strength checksumming.  "
+				 "Pass -O 64bit to rectify.\n"));
+	}
+
+	if (ext2fs_has_feature_csum_seed(fs->super) &&
+	    !ext2fs_has_feature_metadata_csum(fs->super)) {
+		printf("%s", _("The metadata_csum_seed feature "
+			       "requres the metadata_csum feature.\n"));
+		exit(1);
+	}
 
 	/* Calculate journal blocks */
 	if (!journal_device && ((journal_size) ||
-		(fs_param.s_feature_compat &
-		 EXT3_FEATURE_COMPAT_HAS_JOURNAL)))
+	    ext2fs_has_feature_journal(&fs_param)))
 		journal_blocks = figure_journal_size(journal_size, fs);
 
+	sprintf(opt_string, "tdb_data_size=%d", fs->blocksize <= 4096 ?
+		32768 : fs->blocksize * 8);
+	io_channel_set_options(fs->io, opt_string);
+	if (offset) {
+		sprintf(opt_string, "offset=%llu", offset);
+		io_channel_set_options(fs->io, opt_string);
+	}
+
 	/* Can't undo discard ... */
-	if (!noaction && discard && (io_ptr != undo_io_manager)) {
+	if (!noaction && discard && dev_size && (io_ptr != undo_io_manager)) {
 		retval = mke2fs_discard_device(fs);
 		if (!retval && io_channel_discard_zeroes_data(fs->io)) {
 			if (verbose)
@@ -2438,22 +2889,19 @@ int main (int argc, char *argv[])
 					 "0s - skipping inode table wipe\n"));
 			lazy_itable_init = 1;
 			itable_zeroed = 1;
+			zero_hugefile = 0;
 		}
 	}
-
-	sprintf(tdb_string, "tdb_data_size=%d", fs->blocksize <= 4096 ?
-		32768 : fs->blocksize * 8);
-	io_channel_set_options(fs->io, tdb_string);
 
 	if (fs_param.s_flags & EXT2_FLAGS_TEST_FILESYS)
 		fs->super->s_flags |= EXT2_FLAGS_TEST_FILESYS;
 
-	if ((fs_param.s_feature_incompat &
-	     (EXT3_FEATURE_INCOMPAT_EXTENTS|EXT4_FEATURE_INCOMPAT_FLEX_BG)) ||
-	    (fs_param.s_feature_ro_compat &
-	     (EXT4_FEATURE_RO_COMPAT_HUGE_FILE|EXT4_FEATURE_RO_COMPAT_GDT_CSUM|
-	      EXT4_FEATURE_RO_COMPAT_DIR_NLINK|
-	      EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE)))
+	if (ext2fs_has_feature_flex_bg(&fs_param) ||
+	    ext2fs_has_feature_huge_file(&fs_param) ||
+	    ext2fs_has_feature_gdt_csum(&fs_param) ||
+	    ext2fs_has_feature_dir_nlink(&fs_param) ||
+	    ext2fs_has_feature_metadata_csum(&fs_param) ||
+	    ext2fs_has_feature_extra_isize(&fs_param))
 		fs->super->s_kbytes_written = 1;
 
 	/*
@@ -2473,6 +2921,12 @@ int main (int argc, char *argv[])
 		}
 	} else
 		uuid_generate(fs->super->s_uuid);
+
+	if (ext2fs_has_feature_csum_seed(fs->super))
+		fs->super->s_checksum_seed = ext2fs_crc32c_le(~0,
+				fs->super->s_uuid, sizeof(fs->super->s_uuid));
+
+	ext2fs_init_csum_seed(fs);
 
 	/*
 	 * Initialize the directory index variables
@@ -2526,8 +2980,7 @@ int main (int argc, char *argv[])
 	 * support it.
 	 */
 	if (fs->super->s_creator_os == EXT2_OS_HURD)
-		fs->super->s_feature_incompat &=
-			~EXT2_FEATURE_INCOMPAT_FILETYPE;
+		ext2fs_clear_feature_filetype(fs->super);
 
 	/*
 	 * Set the volume label...
@@ -2549,28 +3002,44 @@ int main (int argc, char *argv[])
 			sizeof(fs->super->s_last_mounted));
 	}
 
+	/* Set current default encryption algorithms for data and
+	 * filename encryption */
+	if (ext2fs_has_feature_encrypt(fs->super)) {
+		fs->super->s_encrypt_algos[0] =
+			EXT4_ENCRYPTION_MODE_AES_256_XTS;
+		fs->super->s_encrypt_algos[1] =
+			EXT4_ENCRYPTION_MODE_AES_256_CTS;
+	}
+
+	if (ext2fs_has_feature_metadata_csum(fs->super))
+		fs->super->s_checksum_type = EXT2_CRC32C_CHKSUM;
+
 	if (!quiet || noaction)
 		show_stats(fs);
 
 	if (noaction)
 		exit(0);
 
-	if (fs->super->s_feature_incompat &
-	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
+	if (ext2fs_has_feature_journal_dev(fs->super)) {
 		create_journal_dev(fs);
-		exit(ext2fs_close(fs) ? 1 : 0);
+		printf("\n");
+		exit(ext2fs_close_free(&fs) ? 1 : 0);
 	}
 
 	if (bad_blocks_filename)
 		read_bb_file(fs, &bb_list, bad_blocks_filename);
 	if (cflag)
 		test_disk(fs, &bb_list);
-
 	handle_bad_blocks(fs, bb_list);
+
 	fs->stride = fs_stride = fs->super->s_raid_stride;
 	if (!quiet)
 		printf("%s", _("Allocating group tables: "));
-	retval = ext2fs_allocate_tables(fs);
+	if (ext2fs_has_feature_flex_bg(fs->super) &&
+	    packed_meta_blocks)
+		retval = packed_allocate_tables(fs);
+	else
+		retval = ext2fs_allocate_tables(fs);
 	if (retval) {
 		com_err(program_name, retval, "%s",
 			_("while trying to allocate filesystem tables"));
@@ -2587,16 +3056,20 @@ int main (int argc, char *argv[])
 	}
 
 	if (super_only) {
+		check_plausibility(device_name, CHECK_FS_EXIST, NULL);
+		printf(_("%s may be further corrupted by superblock rewrite\n"),
+		       device_name);
+		if (!force)
+			proceed_question(proceed_delay);
 		fs->super->s_state |= EXT2_ERROR_FS;
 		fs->flags &= ~(EXT2_FLAG_IB_DIRTY|EXT2_FLAG_BB_DIRTY);
-		/* 
+		/*
 		 * The command "mke2fs -S" is used to recover
 		 * corrupted file systems, so do not mark any of the
 		 * inodes as unused; we want e2fsck to consider all
 		 * inodes as potentially containing recoverable data.
 		 */
-		if (fs->super->s_feature_ro_compat &
-		    EXT4_FEATURE_RO_COMPAT_GDT_CSUM) {
+		if (ext2fs_has_group_desc_csum(fs)) {
 			for (i = 0; i < fs->group_desc_count; i++)
 				ext2fs_bg_itable_unused_set(fs, i, 0);
 		}
@@ -2633,8 +3106,7 @@ int main (int argc, char *argv[])
 		create_lost_and_found(fs);
 		reserve_inodes(fs);
 		create_bad_block_inode(fs, bb_list);
-		if (fs->super->s_feature_compat &
-		    EXT2_FEATURE_COMPAT_RESIZE_INODE) {
+		if (ext2fs_has_feature_resize_inode(fs->super)) {
 			retval = ext2fs_create_resize_inode(fs);
 			if (retval) {
 				com_err("ext2fs_create_resize_inode", retval,
@@ -2648,8 +3120,9 @@ int main (int argc, char *argv[])
 	if (journal_device) {
 		ext2_filsys	jfs;
 
-		if (!force)
-			check_plausibility(journal_device);
+		if (!check_plausibility(journal_device, CHECK_BLOCK_DEV,
+					NULL) && !force)
+			proceed_question(proceed_delay);
 		check_mount(journal_device, force, _("journal"));
 
 		retval = ext2fs_open(journal_device, EXT2_FLAG_RW|
@@ -2675,11 +3148,10 @@ int main (int argc, char *argv[])
 		}
 		if (!quiet)
 			printf("%s", _("done\n"));
-		ext2fs_close(jfs);
+		ext2fs_close_free(&jfs);
 		free(journal_device);
 	} else if ((journal_size) ||
-		   (fs_param.s_feature_compat &
-		    EXT3_FEATURE_COMPAT_HAS_JOURNAL)) {
+		   ext2fs_has_feature_journal(&fs_param)) {
 		if (super_only) {
 			printf("%s", _("Skipping journal creation in super-only mode\n"));
 			fs->super->s_journal_inum = EXT2_JOURNAL_INO;
@@ -2687,8 +3159,7 @@ int main (int argc, char *argv[])
 		}
 
 		if (!journal_blocks) {
-			fs->super->s_feature_compat &=
-				~EXT3_FEATURE_COMPAT_HAS_JOURNAL;
+			ext2fs_clear_feature_journal(fs->super);
 			goto no_journal;
 		}
 		if (!quiet) {
@@ -2696,8 +3167,9 @@ int main (int argc, char *argv[])
 			       journal_blocks);
 			fflush(stdout);
 		}
-		retval = ext2fs_add_journal_inode(fs, journal_blocks,
-						  journal_flags);
+		retval = ext2fs_add_journal_inode2(fs, journal_blocks,
+						   journal_location,
+						   journal_flags);
 		if (retval) {
 			com_err(program_name, retval, "%s",
 				_("\n\twhile trying to create journal"));
@@ -2708,7 +3180,7 @@ int main (int argc, char *argv[])
 	}
 no_journal:
 	if (!super_only &&
-	    fs->super->s_feature_incompat & EXT4_FEATURE_INCOMPAT_MMP) {
+	    ext2fs_has_feature_mmp(fs->super)) {
 		retval = ext2fs_mmp_init(fs);
 		if (retval) {
 			fprintf(stderr, "%s",
@@ -2722,19 +3194,37 @@ no_journal:
 			       fs->super->s_mmp_update_interval);
 	}
 
-	if (EXT2_HAS_RO_COMPAT_FEATURE(&fs_param,
-				       EXT4_FEATURE_RO_COMPAT_BIGALLOC))
+	if (ext2fs_has_feature_bigalloc(&fs_param))
 		fix_cluster_bg_counts(fs);
-	if (EXT2_HAS_RO_COMPAT_FEATURE(&fs_param,
-				       EXT4_FEATURE_RO_COMPAT_QUOTA))
+	if (ext2fs_has_feature_project(&fs_param))
+		quotatype_bits |= QUOTA_PRJ_BIT;
+	if (ext2fs_has_feature_quota(&fs_param))
 		create_quota_inodes(fs);
+
+	retval = mk_hugefiles(fs, device_name);
+	if (retval)
+		com_err(program_name, retval, "while creating huge files");
+	/* Copy files from the specified directory */
+	if (src_root_dir) {
+		if (!quiet)
+			printf("%s", _("Copying files into the device: "));
+
+		retval = populate_fs(fs, EXT2_ROOT_INO, src_root_dir,
+				     EXT2_ROOT_INO);
+		if (retval) {
+			com_err(program_name, retval, "%s",
+				_("while populating file system"));
+			exit(1);
+		} else if (!quiet)
+			printf("%s", _("done\n"));
+	}
 
 	if (!quiet)
 		printf("%s", _("Writing superblocks and "
 		       "filesystem accounting information: "));
 	checkinterval = fs->super->s_checkinterval;
 	max_mnt_count = fs->super->s_max_mnt_count;
-	retval = ext2fs_close(fs);
+	retval = ext2fs_close_free(&fs);
 	if (retval) {
 		fprintf(stderr, "%s",
 			_("\nWarning, had trouble writing out superblocks."));

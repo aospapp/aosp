@@ -18,11 +18,12 @@ LOCAL_MODULE:= libeffectproxy
 LOCAL_MODULE_RELATIVE_PATH := soundfx
 LOCAL_MODULE_TAGS := optional
 
-
+LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := \
         EffectProxy.cpp
 
 LOCAL_CFLAGS+= -fvisibility=hidden
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libeffects
 

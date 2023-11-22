@@ -6,15 +6,15 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
 /**
- * @defgroup rtnl Routing Family
+ * @defgroup rtnl Routing Library (libnl-route)
  * @{
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/route/rtnl.h>
@@ -34,15 +34,20 @@
  * Fills out a routing netlink request message and sends it out
  * using nl_send_simple().
  *
- * @return 0 on success or a negative error code.
+ * @return 0 on success or a negative error code. Due to a bug in
+ * older versions, this returned the number of bytes sent. So for
+ * compatibility, treat positive return values as success too.
  */
 int nl_rtgen_request(struct nl_sock *sk, int type, int family, int flags)
 {
+	int err;
 	struct rtgenmsg gmsg = {
 		.rtgen_family = family,
 	};
 
-	return nl_send_simple(sk, type, flags, &gmsg, sizeof(gmsg));
+	err = nl_send_simple(sk, type, flags, &gmsg, sizeof(gmsg));
+
+	return err >= 0 ? 0 : err;
 }
 
 /** @} */
@@ -52,7 +57,7 @@ int nl_rtgen_request(struct nl_sock *sk, int type, int family, int flags)
  * @{
  */
 
-static struct trans_tbl rtntypes[] = {
+static const struct trans_tbl rtntypes[] = {
 	__ADD(RTN_UNSPEC,unspec)
 	__ADD(RTN_UNICAST,unicast)
 	__ADD(RTN_LOCAL,local)
@@ -84,12 +89,12 @@ int nl_str2rtntype(const char *name)
  * @{
  */
 
-static struct trans_tbl scopes[] = {
+static const struct trans_tbl scopes[] = {
 	__ADD(255,nowhere)
 	__ADD(254,host)
 	__ADD(253,link)
 	__ADD(200,site)
-	__ADD(0,universe)
+	__ADD(0,global)
 };
 
 char *rtnl_scope2str(int scope, char *buf, size_t size)

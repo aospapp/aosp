@@ -49,15 +49,16 @@ public class ClassUnloadDebuggee extends SyncDebuggee {
 	public static void main(String[] args) {
         runDebuggee(ClassUnloadDebuggee.class);
     }
-    
+
+    @Override
     public void run() {
         logWriter.println("--> ClassUnloadDebuggee started");
         
         // Test class prepare
         logWriter.println("--> Load and prepare tested class");
         CustomLoader loader = new CustomLoader(logWriter);
-        
-        Class cls = null;
+
+        Class<?> cls = null;
         try {
 			cls = Class.forName(TESTED_CLASS_NAME, true, loader);
 	        logWriter.println("--> Tested class loaded: " + cls);
@@ -164,6 +165,7 @@ public class ClassUnloadDebuggee extends SyncDebuggee {
             this.logWriter = writer;
         }
 
+        @Override
         public Class<?> loadClass(String name) throws ClassNotFoundException {
             if (TESTED_CLASS_NAME.equals(name)) {
                 // load only tested class with this loader
@@ -172,6 +174,7 @@ public class ClassUnloadDebuggee extends SyncDebuggee {
             return getParent().loadClass(name);
         }
 
+        @Override
         public Class<?> findClass(String name) throws ClassNotFoundException {
             try {
                 logWriter.println("-->> CustomClassLoader: Find class: " + name);
@@ -183,7 +186,7 @@ public class ClassUnloadDebuggee extends SyncDebuggee {
 	            byte bytes[] = new byte[size];
 	            int len = loadClassData(is, bytes, size);
                 logWriter.println("-->> CustomClassLoader: Loaded class bytes: " + len);
-	            Class cls = defineClass(name, bytes, 0, len);
+	            Class<?> cls = defineClass(name, bytes, 0, len);
                 logWriter.println("-->> CustomClassLoader: Defined class: " + cls);
 //	            resolveClass(cls);
 //                logWriter.println("-->> CustomClassLoader: Resolved class: " + cls);
@@ -201,6 +204,7 @@ public class ClassUnloadDebuggee extends SyncDebuggee {
             return len;
         }
 
+        @Override
         protected void finalize() throws Throwable {
             logWriter.println("-->> CustomClassLoader: Class loader finalized => tested class UNLOADED");
             ClassUnloadDebuggee.classUnloaded = true;

@@ -16,18 +16,22 @@
 
 package com.android.cellbroadcastreceiver;
 
-import android.app.ActivityManagerNative;
-import android.app.KeyguardManager;
+import android.app.ActivityManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PersistableBundle;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
@@ -37,14 +41,19 @@ import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbEtwsInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertAudio.ToneType;
 import com.android.cellbroadcastreceiver.CellBroadcastOtherChannelsManager.CellBroadcastChannelRange;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.PhoneConstants;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+
+import static android.text.format.DateUtils.DAY_IN_MILLIS;
 
 /**
  * This service manages the display and animation of broadcast messages.
@@ -61,9 +70,24 @@ public class CellBroadcastAlertService extends Service {
     /** Use the same notification ID for non-emergency alerts. */
     static final int NOTIFICATION_ID = 1;
 
+    /**
+     * Notification channel containing all cellbroadcast broadcast messages notifications.
+     * Use the same notification channel for non-emergency alerts.
+     */
+    static final String NOTIFICATION_CHANNEL_BROADCAST_MESSAGES = "broadcastMessages";
+
     /** Sticky broadcast for latest area info broadcast received. */
     static final String CB_AREA_INFO_RECEIVED_ACTION =
             "android.cellbroadcastreceiver.CB_AREA_INFO_RECEIVED";
+
+    /** Intent extra for passing a SmsCbMessage */
+    private static final String EXTRA_MESSAGE = "message";
+
+    /**
+     * Default message expiration time is 24 hours. Same message arrives within 24 hours will be
+     * treated as a duplicate.
+     */
+    private static final long DEFAULT_EXPIRATION_TIME = DAY_IN_MILLIS;
 
     /**
      *  Container for service category, serial number, location, body hash code, and ETWS primary/
@@ -115,30 +139,27 @@ public class CellBroadcastAlertService extends Service {
         }
     }
 
-    /** Cache of received message IDs, for duplicate message detection. */
-    private static final HashSet<MessageServiceCategoryAndScope> sCmasIdSet =
-            new HashSet<MessageServiceCategoryAndScope>(8);
-
     /** Maximum number of message IDs to save before removing the oldest message ID. */
-    private static final int MAX_MESSAGE_ID_SIZE = 65535;
+    private static final int MAX_MESSAGE_ID_SIZE = 1024;
 
-    /** List of message IDs received, for removing oldest ID when max message IDs are received. */
-    private static final ArrayList<MessageServiceCategoryAndScope> sCmasIdList =
-            new ArrayList<MessageServiceCategoryAndScope>(8);
-
-    /** Index of message ID to replace with new message ID when max message IDs are received. */
-    private static int sCmasIdListIndex = 0;
+    /** Linked hash map of the message identities for duplication detection purposes. The key is the
+     * the collection of different message keys used for duplication detection, and the value
+     * is the timestamp of message arriving time. Some carriers may require shorter expiration time.
+     */
+    private static final LinkedHashMap<MessageServiceCategoryAndScope, Long> sMessagesMap =
+            new LinkedHashMap<>();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent.getAction();
+        Log.d(TAG, "onStartCommand: " + action);
         if (Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION.equals(action) ||
                 Telephony.Sms.Intents.SMS_CB_RECEIVED_ACTION.equals(action)) {
             handleCellBroadcastIntent(intent);
         } else if (SHOW_NEW_ALERT_ACTION.equals(action)) {
             try {
                 if (UserHandle.myUserId() ==
-                        ActivityManagerNative.getDefault().getCurrentUser().id) {
+                        ActivityManager.getService().getCurrentUser().id) {
                     showNewAlert(intent);
                 } else {
                     Log.d(TAG,"Not active user, ignore the alert display");
@@ -152,6 +173,34 @@ public class CellBroadcastAlertService extends Service {
         return START_NOT_STICKY;
     }
 
+    /**
+     * Get the carrier specific message duplicate expiration time.
+     *
+     * @param subId Subscription index
+     * @return The expiration time in milliseconds. Small values like 0 (or negative values)
+     * indicate expiration immediately (meaning the duplicate will always be displayed), while large
+     * values indicate the duplicate will always be ignored. The default value would be 24 hours.
+     */
+    private long getDuplicateExpirationTime(int subId) {
+        CarrierConfigManager configManager = (CarrierConfigManager)
+                getApplicationContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        Log.d(TAG, "manager = " + configManager);
+        if (configManager == null) {
+            Log.e(TAG, "carrier config is not available.");
+            return DEFAULT_EXPIRATION_TIME;
+        }
+
+        PersistableBundle b = configManager.getConfigForSubId(subId);
+        if (b == null) {
+            Log.e(TAG, "expiration key does not exist.");
+            return DEFAULT_EXPIRATION_TIME;
+        }
+
+        long time = b.getLong(CarrierConfigManager.KEY_MESSAGE_EXPIRATION_TIME_LONG,
+                DEFAULT_EXPIRATION_TIME);
+        return time;
+    }
+
     private void handleCellBroadcastIntent(Intent intent) {
         Bundle extras = intent.getExtras();
         if (extras == null) {
@@ -159,7 +208,7 @@ public class CellBroadcastAlertService extends Service {
             return;
         }
 
-        SmsCbMessage message = (SmsCbMessage) extras.get("message");
+        SmsCbMessage message = (SmsCbMessage) extras.get(EXTRA_MESSAGE);
 
         if (message == null) {
             Log.e(TAG, "received SMS_CB_RECEIVED_ACTION with no message extra");
@@ -167,6 +216,12 @@ public class CellBroadcastAlertService extends Service {
         }
 
         final CellBroadcastMessage cbm = new CellBroadcastMessage(message);
+        int subId = intent.getExtras().getInt(PhoneConstants.SUBSCRIPTION_KEY);
+        if (SubscriptionManager.isValidSubscriptionId(subId)) {
+            cbm.setSubId(subId);
+        } else {
+            Log.e(TAG, "Invalid subscription id");
+        }
 
         if (!isMessageEnabledByUser(cbm)) {
             Log.d(TAG, "ignoring alert of type " + cbm.getServiceCategory() +
@@ -196,7 +251,7 @@ public class CellBroadcastAlertService extends Service {
         }
 
         // Check for duplicate message IDs according to CMAS carrier requirements. Message IDs
-        // are stored in volatile memory. If the maximum of 65535 messages is reached, the
+        // are stored in volatile memory. If the maximum of 1024 messages is reached, the
         // message ID of the oldest message is deleted from the list.
         MessageServiceCategoryAndScope newCmasId = new MessageServiceCategoryAndScope(
                 message.getServiceCategory(), message.getSerialNumber(), message.getLocation(),
@@ -204,30 +259,34 @@ public class CellBroadcastAlertService extends Service {
 
         Log.d(TAG, "message ID = " + newCmasId);
 
-        // Add the new message ID to the list. It's okay if this is a duplicate message ID,
-        // because the list is only used for removing old message IDs from the hash set.
-        if (sCmasIdList.size() < MAX_MESSAGE_ID_SIZE) {
-            sCmasIdList.add(newCmasId);
-        } else {
-            // Get oldest message ID from the list and replace with the new message ID.
-            MessageServiceCategoryAndScope oldestCmasId = sCmasIdList.get(sCmasIdListIndex);
-            sCmasIdList.set(sCmasIdListIndex, newCmasId);
-            Log.d(TAG, "message ID limit reached, removing oldest message ID " + oldestCmasId);
-            // Remove oldest message ID from the set.
-            sCmasIdSet.remove(oldestCmasId);
-            if (++sCmasIdListIndex >= MAX_MESSAGE_ID_SIZE) {
-                sCmasIdListIndex = 0;
+        long nowTime = SystemClock.elapsedRealtime();
+        // Check if the identical message arrives again
+        if (sMessagesMap.get(newCmasId) != null) {
+            // And if the previous one has not expired yet, treat it as a duplicate message.
+            long previousTime = sMessagesMap.get(newCmasId);
+            long expirationTime = getDuplicateExpirationTime(subId);
+            if (nowTime - previousTime < expirationTime) {
+                Log.d(TAG, "ignoring the duplicate alert " + newCmasId + ", nowTime=" + nowTime
+                        + ", previous=" + previousTime + ", expiration=" + expirationTime);
+                return;
             }
+            // otherwise, we don't treat it as a duplicate and will show the same message again.
+            Log.d(TAG, "The same message shown up " + (nowTime - previousTime)
+                    + " milliseconds ago. Not a duplicate.");
+        } else if (sMessagesMap.size() >= MAX_MESSAGE_ID_SIZE){
+            // If we reach the maximum, remove the first inserted message key.
+            MessageServiceCategoryAndScope oldestCmasId = sMessagesMap.keySet().iterator().next();
+            Log.d(TAG, "message ID limit reached, removing oldest message ID " + oldestCmasId);
+            sMessagesMap.remove(oldestCmasId);
+        } else {
+            Log.d(TAG, "New message. Not a duplicate. Map size = " + sMessagesMap.size());
         }
-        // Set.add() returns false if message ID has already been added
-        if (!sCmasIdSet.add(newCmasId)) {
-            Log.d(TAG, "ignoring duplicate alert with " + newCmasId);
-            return;
-        }
+
+        sMessagesMap.put(newCmasId, nowTime);
 
         final Intent alertIntent = new Intent(SHOW_NEW_ALERT_ACTION);
         alertIntent.setClass(this, CellBroadcastAlertService.class);
-        alertIntent.putExtra("message", cbm);
+        alertIntent.putExtra(EXTRA_MESSAGE, cbm);
 
         // write to database on a background thread
         new CellBroadcastContentProvider.AsyncCellBroadcastTask(getContentResolver())
@@ -252,14 +311,14 @@ public class CellBroadcastAlertService extends Service {
             return;
         }
 
-        CellBroadcastMessage cbm = (CellBroadcastMessage) intent.getParcelableExtra("message");
+        CellBroadcastMessage cbm = (CellBroadcastMessage) intent.getParcelableExtra(EXTRA_MESSAGE);
 
         if (cbm == null) {
             Log.e(TAG, "received SHOW_NEW_ALERT_ACTION with no message extra");
             return;
         }
 
-        if (cbm.isEmergencyAlertMessage()) {
+        if (isEmergencyMessage(this, cbm)) {
             // start alert sound / vibration / TTS and display full-screen alert
             openEmergencyAlertNotification(cbm);
         } else {
@@ -342,7 +401,7 @@ public class CellBroadcastAlertService extends Service {
             // save latest area info broadcast for Settings display and send as broadcast
             CellBroadcastReceiverApp.setLatestAreaInfo(message);
             Intent intent = new Intent(CB_AREA_INFO_RECEIVED_ACTION);
-            intent.putExtra("message", message);
+            intent.putExtra(EXTRA_MESSAGE, message);
             // Send broadcast twice, once for apps that have PRIVILEGED permission and once
             // for those that have the runtime one
             sendBroadcastAsUser(intent, UserHandle.ALL,
@@ -450,20 +509,19 @@ public class CellBroadcastAlertService extends Service {
         }
         startService(audioIntent);
 
-        // Decide which activity to start based on the state of the keyguard.
-        Class c = CellBroadcastAlertDialog.class;
-        KeyguardManager km = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-        if (km.inKeyguardRestrictedInputMode()) {
-            // Use the full screen activity for security.
-            c = CellBroadcastAlertFullScreen.class;
-        }
-
         ArrayList<CellBroadcastMessage> messageList = new ArrayList<CellBroadcastMessage>(1);
         messageList.add(message);
 
-        Intent alertDialogIntent = createDisplayMessageIntent(this, c, messageList);
-        alertDialogIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(alertDialogIntent);
+        // For FEATURE_WATCH, the dialog doesn't make sense from a UI/UX perspective
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            addToNotificationBar(message, messageList, this, false);
+        } else {
+            Intent alertDialogIntent = createDisplayMessageIntent(this,
+                    CellBroadcastAlertDialog.class, messageList);
+            alertDialogIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(alertDialogIntent);
+        }
+
     }
 
     /**
@@ -474,26 +532,40 @@ public class CellBroadcastAlertService extends Service {
     static void addToNotificationBar(CellBroadcastMessage message,
                                      ArrayList<CellBroadcastMessage> messageList, Context context,
                                      boolean fromSaveState) {
-        int channelTitleId = CellBroadcastResources.getDialogTitleResource(message);
+        int channelTitleId = CellBroadcastResources.getDialogTitleResource(context, message);
         CharSequence channelName = context.getText(channelTitleId);
         String messageBody = message.getMessageBody();
+        final NotificationManager notificationManager = NotificationManager.from(context);
+        createNotificationChannels(context);
 
         // Create intent to show the new messages when user selects the notification.
-        Intent intent = createDisplayMessageIntent(context, CellBroadcastAlertDialog.class,
-                messageList);
-        intent.putExtra(CellBroadcastAlertFullScreen.FROM_NOTIFICATION_EXTRA, true);
-        intent.putExtra(CellBroadcastAlertFullScreen.FROM_SAVE_STATE_NOTIFICATION_EXTRA,
-                fromSaveState);
+        Intent intent;
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            // For FEATURE_WATCH we want to mark as read
+            intent = createMarkAsReadIntent(context, message.getDeliveryTime());
+        } else {
+            // For anything else we handle it normally
+            intent = createDisplayMessageIntent(context, CellBroadcastAlertDialog.class,
+                    messageList);
+        }
 
-        PendingIntent pi = PendingIntent.getActivity(context, NOTIFICATION_ID, intent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
+        intent.putExtra(CellBroadcastAlertDialog.FROM_NOTIFICATION_EXTRA, true);
+        intent.putExtra(CellBroadcastAlertDialog.FROM_SAVE_STATE_NOTIFICATION_EXTRA, fromSaveState);
+
+        PendingIntent pi;
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            pi = PendingIntent.getBroadcast(context, 0, intent, 0);
+        } else {
+            pi = PendingIntent.getActivity(context, NOTIFICATION_ID, intent,
+                    PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
+        }
 
         // use default sound/vibration/lights for non-emergency broadcasts
-        Notification.Builder builder = new Notification.Builder(context)
+        Notification.Builder builder = new Notification.Builder(
+                context, NOTIFICATION_CHANNEL_BROADCAST_MESSAGES)
                 .setSmallIcon(R.drawable.ic_notify_alert)
                 .setTicker(channelName)
                 .setWhen(System.currentTimeMillis())
-                .setContentIntent(pi)
                 .setCategory(Notification.CATEGORY_SYSTEM)
                 .setPriority(Notification.PRIORITY_HIGH)
                 .setColor(context.getResources().getColor(R.color.notification_color))
@@ -501,6 +573,12 @@ public class CellBroadcastAlertService extends Service {
                 .setDefaults(Notification.DEFAULT_ALL);
 
         builder.setDefaults(Notification.DEFAULT_ALL);
+
+        if (context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            builder.setDeleteIntent(pi);
+        } else {
+            builder.setContentIntent(pi);
+        }
 
         // increment unread alert count (decremented when user dismisses alert dialog)
         int unreadCount = messageList.size();
@@ -512,9 +590,19 @@ public class CellBroadcastAlertService extends Service {
             builder.setContentTitle(channelName).setContentText(messageBody);
         }
 
-        NotificationManager notificationManager = NotificationManager.from(context);
-
         notificationManager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    /**
+     * Creates the notification channel and registers it with NotificationManager. If a channel
+     * with the same ID is already registered, NotificationManager will ignore this call.
+     */
+    static void createNotificationChannels(Context context) {
+        NotificationManager.from(context).createNotificationChannel(
+                new NotificationChannel(
+                NOTIFICATION_CHANNEL_BROADCAST_MESSAGES,
+                context.getString(R.string.notification_channel_broadcast_messages),
+                NotificationManager.IMPORTANCE_LOW));
     }
 
     static Intent createDisplayMessageIntent(Context context, Class intentClass,
@@ -525,8 +613,68 @@ public class CellBroadcastAlertService extends Service {
         return intent;
     }
 
+    /**
+     * Creates a delete intent that calls to the {@link CellBroadcastReceiver} in order to mark
+     * a message as read
+     *
+     * @param context context of the caller
+     * @param deliveryTime time the message was sent in order to mark as read
+     * @return delete intent to add to the pending intent
+     */
+    static Intent createMarkAsReadIntent(Context context, long deliveryTime) {
+        Intent deleteIntent = new Intent(context, CellBroadcastReceiver.class);
+        deleteIntent.setAction(CellBroadcastReceiver.ACTION_MARK_AS_READ);
+        deleteIntent.putExtra(CellBroadcastReceiver.EXTRA_DELIVERY_TIME, deliveryTime);
+        return deleteIntent;
+    }
+
+    @VisibleForTesting
     @Override
     public IBinder onBind(Intent intent) {
-        return null;    // clients can't bind to this service
+        return new LocalBinder();
+    }
+
+    @VisibleForTesting
+    class LocalBinder extends Binder {
+        public CellBroadcastAlertService getService() {
+            return CellBroadcastAlertService.this;
+        }
+    }
+
+    /**
+     * Check if the cell broadcast message is an emergency message or not
+     * @param context Device context
+     * @param cbm Cell broadcast message
+     * @return True if the message is an emergency message, otherwise false.
+     */
+    public static boolean isEmergencyMessage(Context context, CellBroadcastMessage cbm) {
+        boolean isEmergency = false;
+
+        if (cbm == null) {
+            return false;
+        }
+
+        int id = cbm.getServiceCategory();
+        int subId = cbm.getSubId();
+
+        if (cbm.isEmergencyAlertMessage()) {
+            isEmergency = true;
+        } else {
+            ArrayList<CellBroadcastChannelRange> ranges = CellBroadcastOtherChannelsManager.
+                    getInstance().getCellBroadcastChannelRanges(context, subId);
+
+            if (ranges != null) {
+                for (CellBroadcastChannelRange range : ranges) {
+                    if (range.mStartId <= id && range.mEndId >= id) {
+                        isEmergency = range.mIsEmergency;
+                        break;
+                    }
+                }
+            }
+        }
+
+        Log.d(TAG, "isEmergencyMessage: " + isEmergency + ", subId = " + subId + ", " +
+                "message id = " + id);
+        return isEmergency;
     }
 }

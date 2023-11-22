@@ -117,9 +117,9 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
         if (!supportedHardware()) return;
 
         for (StorageVolume volume : getVolumes()) {
-            userAcceptsOpenExternalDirectoryTest(volume, DIRECTORY_PICTURES);
+            userAcceptsTest(volume, DIRECTORY_PICTURES);
             if (!volume.isPrimary()) {
-                userAcceptsOpenExternalDirectoryTest(volume, DIRECTORY_ROOT);
+                userAcceptsTest(volume, DIRECTORY_ROOT);
             }
         }
     }
@@ -133,7 +133,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
         if (!output.isEmpty()) {
             fail("Command '" + command + "' failed: '" + output + "'");
         }
-        userAcceptsOpenExternalDirectoryTest(getPrimaryVolume(), DIRECTORY_PICTURES);
+        userAcceptsTest(getPrimaryVolume(), DIRECTORY_PICTURES);
     }
 
     public void testNotAskedAgain() throws Exception {
@@ -141,7 +141,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
 
         for (StorageVolume volume : getVolumes()) {
             final String volumeDesc = volume.getDescription(getInstrumentation().getContext());
-            final Uri grantedUri = userAcceptsOpenExternalDirectoryTest(volume, DIRECTORY_PICTURES);
+            final Uri grantedUri = userAcceptsTest(volume, DIRECTORY_PICTURES);
 
             // Calls it again - since the permission has been granted, it should return right
             // away, without popping up the permissions dialog.
@@ -151,7 +151,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
             assertEquals(grantedUri, newData.getData());
 
             // Make sure other directories still require user permission.
-            final Uri grantedUri2 = userAcceptsOpenExternalDirectoryTest(volume, DIRECTORY_ALARMS);
+            final Uri grantedUri2 = userAcceptsTest(volume, DIRECTORY_ALARMS);
             assertNotEqual(grantedUri, grantedUri2);
         }
     }
@@ -162,7 +162,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
         for (StorageVolume volume : getVolumes()) {
             if (volume.isPrimary()) continue;
             final String volumeDesc = volume.getDescription(getInstrumentation().getContext());
-            final Uri grantedRootUri = userAcceptsOpenExternalDirectoryTest(volume, DIRECTORY_ROOT);
+            final Uri grantedRootUri = userAcceptsTest(volume, DIRECTORY_ROOT);
 
             // Calls it again - since the permission has been granted, it should return right
             // away, without popping up the permissions dialog.
@@ -204,7 +204,7 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
                 assertActivityFailed();
 
                 // Third time is a charm...
-                userAcceptsOpenExternalDirectoryTest(volume, dir);
+                userAcceptsTest(volume, dir);
             }
         }
     }
@@ -216,33 +216,48 @@ public class ScopedDirectoryAccessClientTest extends DocumentsClientTestCase {
         for (StorageVolume volume : getVolumes()) {
             for (String dir : dirs) {
                 if (volume.isPrimary() && dir == DIRECTORY_ROOT) continue;
-                // Rejects the first attempt...
-                UiAlertDialog dialog = openExternalDirectoryValidPath(volume, dir);
-                dialog.assertDoNotAskAgainVisibility(false);
-                dialog.noButton.click();
-                assertActivityFailed();
-
-                // ...and the second, checking the box
-                dialog = openExternalDirectoryValidPath(volume, dir);
-                UiObject checkbox = dialog.assertDoNotAskAgainVisibility(true);
-                assertTrue("checkbox should not be checkable", checkbox.isCheckable());
-                assertFalse("checkbox should not be checked", checkbox.isChecked());
-                checkbox.click();
-                assertTrue("checkbox should be checked", checkbox.isChecked()); // Sanity check
-                assertFalse("allow button should be disabled", dialog.yesButton.isEnabled());
-
-                dialog.noButton.click();
-                assertActivityFailed();
-
-                // Third strike out...
-                sendOpenExternalDirectoryIntent(volume, dir);
-                assertActivityFailed();
+                deniesOnceForAllTest(volume, dir);
             }
         }
     }
 
-    private Uri userAcceptsOpenExternalDirectoryTest(StorageVolume volume, String directoryName)
-            throws Exception {
+    private void deniesOnceForAllTest(StorageVolume volume, String dir) throws Exception {
+        // Rejects the first attempt...
+        UiAlertDialog dialog = openExternalDirectoryValidPath(volume, dir);
+        dialog.assertDoNotAskAgainVisibility(false);
+        dialog.noButton.click();
+        assertActivityFailed();
+
+        // ...and the second, checking the box
+        dialog = openExternalDirectoryValidPath(volume, dir);
+        UiObject checkbox = dialog.assertDoNotAskAgainVisibility(true);
+        assertTrue("checkbox should not be checkable", checkbox.isCheckable());
+        assertFalse("checkbox should not be checked", checkbox.isChecked());
+        checkbox.click();
+        assertTrue("checkbox should be checked", checkbox.isChecked()); // Sanity check
+        assertFalse("allow button should be disabled", dialog.yesButton.isEnabled());
+
+        dialog.noButton.click();
+        assertActivityFailed();
+
+        // Third strike out...
+        sendOpenExternalDirectoryIntent(volume, dir);
+        assertActivityFailed();
+    }
+
+    public void testRemovePackageStep1UserDenies() throws Exception {
+        if (!supportedHardware()) return;
+
+        deniesOnceForAllTest(getPrimaryVolume(), DIRECTORY_NOTIFICATIONS);
+    }
+
+    public void testRemovePackageStep2UserAcceptsDoNotClear() throws Exception {
+        if (!supportedHardware()) return;
+
+        userAcceptsTest(getPrimaryVolume(), DIRECTORY_NOTIFICATIONS);
+    }
+
+    private Uri userAcceptsTest(StorageVolume volume, String directoryName) throws Exception {
         // Asserts dialog contain the proper message.
         final UiAlertDialog dialog = openExternalDirectoryValidPath(volume, directoryName);
         final String message = dialog.messageText.getText();

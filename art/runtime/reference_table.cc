@@ -16,6 +16,8 @@
 
 #include "reference_table.h"
 
+#include "android-base/stringprintf.h"
+
 #include "base/mutex.h"
 #include "indirect_reference_table.h"
 #include "mirror/array.h"
@@ -30,6 +32,9 @@
 
 namespace art {
 
+using android::base::StringAppendF;
+using android::base::StringPrintf;
+
 ReferenceTable::ReferenceTable(const char* name, size_t initial_size, size_t max_size)
     : name_(name), max_size_(max_size) {
   CHECK_LE(initial_size, max_size);
@@ -39,7 +44,7 @@ ReferenceTable::ReferenceTable(const char* name, size_t initial_size, size_t max
 ReferenceTable::~ReferenceTable() {
 }
 
-void ReferenceTable::Add(mirror::Object* obj) {
+void ReferenceTable::Add(ObjPtr<mirror::Object> obj) {
   DCHECK(obj != nullptr);
   VerifyObject(obj);
   if (entries_.size() >= max_size_) {
@@ -49,10 +54,10 @@ void ReferenceTable::Add(mirror::Object* obj) {
   entries_.push_back(GcRoot<mirror::Object>(obj));
 }
 
-void ReferenceTable::Remove(mirror::Object* obj) {
+void ReferenceTable::Remove(ObjPtr<mirror::Object> obj) {
   // We iterate backwards on the assumption that references are LIFO.
   for (int i = entries_.size() - 1; i >= 0; --i) {
-    mirror::Object* entry = entries_[i].Read();
+    ObjPtr<mirror::Object> entry = entries_[i].Read();
     if (entry == obj) {
       entries_.erase(entries_.begin() + i);
       return;
@@ -62,7 +67,7 @@ void ReferenceTable::Remove(mirror::Object* obj) {
 
 // If "obj" is an array, return the number of elements in the array.
 // Otherwise, return zero.
-static size_t GetElementCount(mirror::Object* obj) SHARED_REQUIRES(Locks::mutator_lock_) {
+static size_t GetElementCount(ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_) {
   // We assume the special cleared value isn't an array in the if statement below.
   DCHECK(!Runtime::Current()->GetClearedJniWeakGlobal()->IsArrayInstance());
   if (obj == nullptr || !obj->IsArrayInstance()) {
@@ -76,9 +81,9 @@ static size_t GetElementCount(mirror::Object* obj) SHARED_REQUIRES(Locks::mutato
 // Pass in the number of elements in the array (or 0 if this is not an
 // array object), and the number of additional objects that are identical
 // or equivalent to the original.
-static void DumpSummaryLine(std::ostream& os, mirror::Object* obj, size_t element_count,
+static void DumpSummaryLine(std::ostream& os, ObjPtr<mirror::Object> obj, size_t element_count,
                             int identical, int equiv)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   if (obj == nullptr) {
     os << "    null reference (count=" << equiv << ")\n";
     return;
@@ -88,7 +93,7 @@ static void DumpSummaryLine(std::ostream& os, mirror::Object* obj, size_t elemen
     return;
   }
 
-  std::string className(PrettyTypeOf(obj));
+  std::string className(obj->PrettyTypeOf());
   if (obj->IsClass()) {
     // We're summarizing multiple instances, so using the exemplar
     // Class' type parameter here would be misleading.
@@ -126,8 +131,8 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
       // are no suspend points which can happen during the sorting process. This works since
       // we are guaranteed that the addresses of obj1, obj2, obj1->GetClass, obj2->GetClass wont
       // change during the sorting process. The classes are forwarded by ref->GetClass().
-      mirror::Object* obj1 = root1.Read<kWithoutReadBarrier>();
-      mirror::Object* obj2 = root2.Read<kWithoutReadBarrier>();
+      ObjPtr<mirror::Object> obj1 = root1.Read<kWithoutReadBarrier>();
+      ObjPtr<mirror::Object> obj2 = root2.Read<kWithoutReadBarrier>();
       DCHECK(obj1 != nullptr);
       DCHECK(obj2 != nullptr);
       Runtime* runtime = Runtime::Current();
@@ -144,7 +149,7 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
         return size1 < size2;
       }
       // ...and finally by address.
-      return obj1 < obj2;
+      return obj1.Ptr() < obj2.Ptr();
     }
   };
 
@@ -163,7 +168,7 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
   os << "  Last " << (count - first) << " entries (of " << count << "):\n";
   Runtime* runtime = Runtime::Current();
   for (int idx = count - 1; idx >= first; --idx) {
-    mirror::Object* ref = entries[idx].Read();
+    ObjPtr<mirror::Object> ref = entries[idx].Read();
     if (ref == nullptr) {
       continue;
     }
@@ -174,23 +179,30 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
     if (ref->GetClass() == nullptr) {
       // should only be possible right after a plain dvmMalloc().
       size_t size = ref->SizeOf();
-      os << StringPrintf("    %5d: %p (raw) (%zd bytes)\n", idx, ref, size);
+      os << StringPrintf("    %5d: %p (raw) (%zd bytes)\n", idx, ref.Ptr(), size);
       continue;
     }
 
-    std::string className(PrettyTypeOf(ref));
+    std::string className(ref->PrettyTypeOf());
 
     std::string extras;
     size_t element_count = GetElementCount(ref);
     if (element_count != 0) {
       StringAppendF(&extras, " (%zd elements)", element_count);
     } else if (ref->GetClass()->IsStringClass()) {
-      mirror::String* s = ref->AsString();
+      ObjPtr<mirror::String> s = ref->AsString();
       std::string utf8(s->ToModifiedUtf8());
       if (s->GetLength() <= 16) {
         StringAppendF(&extras, " \"%s\"", utf8.c_str());
       } else {
         StringAppendF(&extras, " \"%.16s... (%d chars)", utf8.c_str(), s->GetLength());
+      }
+    } else if (ref->IsReferenceInstance()) {
+      ObjPtr<mirror::Object> referent = ref->AsReference()->GetReferent();
+      if (referent == nullptr) {
+        extras = " (referent is null)";
+      } else {
+        extras = StringPrintf(" (referent is a %s)", referent->PrettyTypeOf().c_str());
       }
     }
     os << StringPrintf("    %5d: ", idx) << ref << " " << className << extras << "\n";
@@ -208,33 +220,87 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
   }
   std::sort(sorted_entries.begin(), sorted_entries.end(), GcRootComparator());
 
+  class SummaryElement {
+   public:
+    GcRoot<mirror::Object> root;
+    size_t equiv;
+    size_t identical;
+
+    SummaryElement() : equiv(0), identical(0) {}
+    SummaryElement(SummaryElement&& ref) {
+      root = ref.root;
+      equiv = ref.equiv;
+      identical = ref.identical;
+    }
+    SummaryElement(const SummaryElement&) = default;
+    SummaryElement& operator=(SummaryElement&&) = default;
+
+    void Reset(GcRoot<mirror::Object>& _root) {
+      root = _root;
+      equiv = 0;
+      identical = 0;
+    }
+  };
+  std::vector<SummaryElement> sorted_summaries;
+  {
+    SummaryElement prev;
+
+    for (GcRoot<mirror::Object>& root : sorted_entries) {
+      ObjPtr<mirror::Object> current = root.Read<kWithoutReadBarrier>();
+
+      if (UNLIKELY(prev.root.IsNull())) {
+        prev.Reset(root);
+        continue;
+      }
+
+      ObjPtr<mirror::Object> prevObj = prev.root.Read<kWithoutReadBarrier>();
+      if (current == prevObj) {
+        // Same reference, added more than once.
+        ++prev.identical;
+      } else if (current->GetClass() == prevObj->GetClass() &&
+          GetElementCount(current) == GetElementCount(prevObj)) {
+        // Same class / element count, different object.
+        ++prev.equiv;
+      } else {
+        sorted_summaries.push_back(prev);
+        prev.Reset(root);
+      }
+      prev.root = root;
+    }
+    sorted_summaries.push_back(prev);
+
+    // Compare summary elements, first by combined count, then by identical (indicating leaks),
+    // then by class (and size and address).
+    struct SummaryElementComparator {
+      GcRootComparator gc_root_cmp;
+
+      bool operator()(SummaryElement& elem1, SummaryElement& elem2) const
+          NO_THREAD_SAFETY_ANALYSIS {
+        Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
+
+        size_t count1 = elem1.equiv + elem1.identical;
+        size_t count2 = elem2.equiv + elem2.identical;
+        if (count1 != count2) {
+          return count1 > count2;
+        }
+
+        if (elem1.identical != elem2.identical) {
+          return elem1.identical > elem2.identical;
+        }
+
+        // Otherwise, compare the GC roots as before.
+        return gc_root_cmp(elem1.root, elem2.root);
+      }
+    };
+    std::sort(sorted_summaries.begin(), sorted_summaries.end(), SummaryElementComparator());
+  }
+
   // Dump a summary of the whole table.
   os << "  Summary:\n";
-  size_t equiv = 0;
-  size_t identical = 0;
-  mirror::Object* prev = nullptr;
-  for (GcRoot<mirror::Object>& root : sorted_entries) {
-    mirror::Object* current = root.Read<kWithoutReadBarrier>();
-    if (prev != nullptr) {
-      const size_t element_count = GetElementCount(prev);
-      if (current == prev) {
-        // Same reference, added more than once.
-        ++identical;
-      } else if (current->GetClass() == prev->GetClass() &&
-          GetElementCount(current) == element_count) {
-        // Same class / element count, different object.
-        ++equiv;
-      } else {
-        // Different class.
-        DumpSummaryLine(os, prev, element_count, identical, equiv);
-        equiv = 0;
-        identical = 0;
-      }
-    }
-    prev = current;
+  for (SummaryElement& elem : sorted_summaries) {
+    ObjPtr<mirror::Object> elemObj = elem.root.Read<kWithoutReadBarrier>();
+    DumpSummaryLine(os, elemObj, GetElementCount(elemObj), elem.identical, elem.equiv);
   }
-  // Handle the last entry.
-  DumpSummaryLine(os, prev, GetElementCount(prev), identical, equiv);
 }
 
 void ReferenceTable::VisitRoots(RootVisitor* visitor, const RootInfo& root_info) {

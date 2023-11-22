@@ -219,8 +219,8 @@ public class MenuLayoutManager {
      * @param bottom The bottom coordinate of the menu view.
      */
     private List<Rect> getViewLayouts(int left, int top, int right, int bottom) {
-        return getViewLayouts(left, top, right, bottom, Collections.<Integer>emptyList(),
-                Collections.<Integer>emptyList());
+        return getViewLayouts(left, top, right, bottom, Collections.emptyList(),
+                Collections.emptyList());
     }
 
     /**

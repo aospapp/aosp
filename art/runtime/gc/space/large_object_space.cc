@@ -16,18 +16,17 @@
 
 #include "large_object_space.h"
 
-#include <valgrind.h>
 #include <memory>
-#include <memcheck/memcheck.h>
 
 #include "gc/accounting/heap_bitmap-inl.h"
 #include "gc/accounting/space_bitmap-inl.h"
 #include "base/logging.h"
+#include "base/memory_tool.h"
 #include "base/mutex-inl.h"
 #include "base/stl_util.h"
 #include "image.h"
 #include "os.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "space-inl.h"
 #include "thread-inl.h"
 
@@ -141,25 +140,16 @@ mirror::Object* LargeObjectMapSpace::Alloc(Thread* self, size_t num_bytes,
     return nullptr;
   }
   mirror::Object* const obj = reinterpret_cast<mirror::Object*>(mem_map->Begin());
-  if (kIsDebugBuild) {
-    ReaderMutexLock mu2(Thread::Current(), *Locks::heap_bitmap_lock_);
-    auto* heap = Runtime::Current()->GetHeap();
-    auto* live_bitmap = heap->GetLiveBitmap();
-    auto* space_bitmap = live_bitmap->GetContinuousSpaceBitmap(obj);
-    CHECK(space_bitmap == nullptr) << obj << " overlaps with bitmap " << *space_bitmap;
-    auto* obj_end = reinterpret_cast<mirror::Object*>(mem_map->End());
-    space_bitmap = live_bitmap->GetContinuousSpaceBitmap(obj_end - 1);
-    CHECK(space_bitmap == nullptr) << obj_end << " overlaps with bitmap " << *space_bitmap;
-  }
   MutexLock mu(self, lock_);
   large_objects_.Put(obj, LargeObject {mem_map, false /* not zygote */});
   const size_t allocation_size = mem_map->BaseSize();
   DCHECK(bytes_allocated != nullptr);
-  begin_ = std::min(begin_, reinterpret_cast<uint8_t*>(obj));
-  uint8_t* obj_end = reinterpret_cast<uint8_t*>(obj) + allocation_size;
-  if (end_ == nullptr || obj_end > end_) {
-    end_ = obj_end;
+
+  if (begin_ == nullptr || begin_ > reinterpret_cast<uint8_t*>(obj)) {
+    begin_ = reinterpret_cast<uint8_t*>(obj);
   }
+  end_ = std::max(end_, reinterpret_cast<uint8_t*>(obj) + allocation_size);
+
   *bytes_allocated = allocation_size;
   if (usable_size != nullptr) {
     *usable_size = allocation_size;
@@ -192,7 +182,7 @@ size_t LargeObjectMapSpace::Free(Thread* self, mirror::Object* ptr) {
   auto it = large_objects_.find(ptr);
   if (UNLIKELY(it == large_objects_.end())) {
     ScopedObjectAccess soa(self);
-    Runtime::Current()->GetHeap()->DumpSpaces(LOG(INTERNAL_FATAL));
+    Runtime::Current()->GetHeap()->DumpSpaces(LOG_STREAM(FATAL_WITHOUT_ABORT));
     LOG(FATAL) << "Attempted to free large object " << ptr << " which was not live";
   }
   MemMap* mem_map = it->second.mem_map;
@@ -605,15 +595,28 @@ collector::ObjectBytePair LargeObjectSpace::Sweep(bool swap_bitmaps) {
     std::swap(live_bitmap, mark_bitmap);
   }
   AllocSpace::SweepCallbackContext scc(swap_bitmaps, this);
+  std::pair<uint8_t*, uint8_t*> range = GetBeginEndAtomic();
   accounting::LargeObjectBitmap::SweepWalk(*live_bitmap, *mark_bitmap,
-                                           reinterpret_cast<uintptr_t>(Begin()),
-                                           reinterpret_cast<uintptr_t>(End()), SweepCallback, &scc);
+                                           reinterpret_cast<uintptr_t>(range.first),
+                                           reinterpret_cast<uintptr_t>(range.second),
+                                           SweepCallback,
+                                           &scc);
   return scc.freed;
 }
 
 void LargeObjectSpace::LogFragmentationAllocFailure(std::ostream& /*os*/,
                                                     size_t /*failed_alloc_bytes*/) {
   UNIMPLEMENTED(FATAL);
+}
+
+std::pair<uint8_t*, uint8_t*> LargeObjectMapSpace::GetBeginEndAtomic() const {
+  MutexLock mu(Thread::Current(), lock_);
+  return std::make_pair(Begin(), End());
+}
+
+std::pair<uint8_t*, uint8_t*> FreeListSpace::GetBeginEndAtomic() const {
+  MutexLock mu(Thread::Current(), lock_);
+  return std::make_pair(Begin(), End());
 }
 
 }  // namespace space

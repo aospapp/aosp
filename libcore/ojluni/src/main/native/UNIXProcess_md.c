@@ -156,8 +156,8 @@
 /* TODO: Refactor. */
 #define RESTARTABLE(_cmd, _result) do { \
   do { \
-    _result = _cmd; \
-  } while((_result == -1) && (errno == EINTR)); \
+    (_result) = _cmd; \
+  } while(((_result) == -1) && (errno == EINTR)); \
 } while(0)
 
 /* This is one of the rare times it's more portable to declare an

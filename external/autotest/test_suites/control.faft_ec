@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "faft_ec"
 PURPOSE = "Test hard-to-automate firmware and ec scenarios."
-CRITERIA = "All tests with SUITE=faft_ec must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

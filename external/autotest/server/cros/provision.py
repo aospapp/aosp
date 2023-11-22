@@ -3,7 +3,8 @@
 # found in the LICENSE file.
 
 
-import abc
+import re
+import sys
 
 import common
 from autotest_lib.server.cros import provision_actionables as actionables
@@ -12,8 +13,15 @@ from autotest_lib.server.cros import provision_actionables as actionables
 ### Constants for label prefixes
 CROS_VERSION_PREFIX = 'cros-version'
 ANDROID_BUILD_VERSION_PREFIX = 'ab-version'
+TESTBED_BUILD_VERSION_PREFIX = 'testbed-version'
 FW_RW_VERSION_PREFIX = 'fwrw-version'
 FW_RO_VERSION_PREFIX = 'fwro-version'
+
+_ANDROID_BUILD_REGEX = r'.+/.+/P?([0-9]+|LATEST)'
+_ANDROID_TESTBED_BUILD_REGEX = _ANDROID_BUILD_REGEX + '(,|(#[0-9]+))'
+
+# Special label to skip provision and run reset instead.
+SKIP_PROVISION = 'skip_provision'
 
 # Default number of provisions attempts to try if we believe the devserver is
 # flaky.
@@ -21,6 +29,52 @@ FLAKY_DEVSERVER_ATTEMPTS = 2
 
 
 ### Helpers to convert value to label
+def get_version_label_prefix(image):
+    """
+    Determine a version label prefix from a given image name.
+
+    Parses `image` to determine what kind of image it refers
+    to, and returns the corresponding version label prefix.
+
+    Known version label prefixes are:
+      * `CROS_VERSION_PREFIX` for Chrome OS version strings.
+        These images have names like `cave-release/R57-9030.0.0`.
+      * `ANDROID_BUILD_VERSION_PREFIX` for Android build versions
+        These images have names like
+        `git_mnc-release/shamu-userdebug/2457013`.
+      * `TESTBED_BUILD_VERSION_PREFIX` for Android testbed version
+        specifications.  These are either comma separated lists of
+        Android versions, or an Android version with a suffix like
+        '#2', indicating two devices running the given build.
+
+    @param image: The image name to be parsed.
+    @returns: A string that is the prefix of version labels for the type
+              of image identified by `image`.
+
+    """
+    if re.match(_ANDROID_TESTBED_BUILD_REGEX, image, re.I):
+        return TESTBED_BUILD_VERSION_PREFIX
+    elif re.match(_ANDROID_BUILD_REGEX, image, re.I):
+        return ANDROID_BUILD_VERSION_PREFIX
+    else:
+        return CROS_VERSION_PREFIX
+
+
+def image_version_to_label(image):
+    """
+    Return a version label appropriate to the given image name.
+
+    The type of version label is as determined described for
+    `get_version_label_prefix()`, meaning the label will identify a
+    CrOS, Android, or Testbed version.
+
+    @param image: The image name to be parsed.
+    @returns: A string that is the appropriate label name.
+
+    """
+    return get_version_label_prefix(image) + ':' + image
+
+
 def cros_version_to_label(image):
     """
     Returns the proper label name for a ChromeOS build of |image|.
@@ -59,23 +113,19 @@ class _SpecialTaskAction(object):
     Base class to give a template for mapping labels to tests.
     """
 
-    __metaclass__ = abc.ABCMeta
+    # A dictionary mapping labels to test names.
+    _actions = {}
 
+    # The name of this special task to be used in output.
+    name = None;
 
-    # One cannot do
-    #     @abc.abstractproperty
-    #     _actions = {}
-    # so this is the next best thing
-    @abc.abstractproperty
-    def _actions(self):
-        """A dictionary mapping labels to test names."""
-        pass
-
-
-    @abc.abstractproperty
-    def name(self):
-        """The name of this special task to be used in output."""
-        pass
+    # Some special tasks require to run before others, e.g., ChromeOS image
+    # needs to be updated before firmware provision. List `_priorities` defines
+    # the order of each label prefix. An element with a smaller index has higher
+    # priority. Not listed ones have the lowest priority.
+    # This property should be overriden in subclass to define its own priorities
+    # across available label prefixes.
+    _priorities = []
 
 
     @classmethod
@@ -119,12 +169,41 @@ class _SpecialTaskAction(object):
         configurations = set()
 
         for label in labels:
-            if cls.acts_on(label):
+            if label == SKIP_PROVISION:
+                # skip_provision is neither actionable or a capability label.
+                # It doesn't need any handling.
+                continue
+            elif cls.acts_on(label):
                 configurations.add(label)
             else:
                 capabilities.add(label)
 
         return capabilities, configurations
+
+
+    @classmethod
+    def sort_configurations(cls, configurations):
+        """
+        Sort configurations based on the priority defined in cls._priorities.
+
+        @param configurations: A list of actionable labels.
+
+        @return: A sorted list of tuple of (label_prefix, value), the tuples are
+                sorted based on the label_prefix's index in cls._priorities.
+        """
+        # Split a list of labels into a dict mapping name to value.  All labels
+        # must be provisionable labels, or else a ValueError
+        # For example, label 'cros-version:lumpy-release/R28-3993.0.0' is split
+        # to  {'cros-version': 'lumpy-release/R28-3993.0.0'}
+        split_configurations = dict()
+        for label in configurations:
+            name, _, value = label.partition(':')
+            split_configurations[name] = value
+
+        sort_key = (lambda config:
+                (cls._priorities.index(config[0])
+                 if (config[0] in cls._priorities) else sys.maxint))
+        return sorted(split_configurations.items(), key=sort_key)
 
 
 class Verify(_SpecialTaskAction):
@@ -156,6 +235,14 @@ class Provision(_SpecialTaskAction):
     another.  It will only be run on verified DUTs.
     """
 
+    # ChromeOS update must happen before firmware install, so the dut has the
+    # correct ChromeOS version label when firmware install occurs. The ChromeOS
+    # version label is used for firmware update to stage desired ChromeOS image
+    # on to the servo USB stick.
+    _priorities = [CROS_VERSION_PREFIX,
+                   FW_RO_VERSION_PREFIX,
+                   FW_RW_VERSION_PREFIX]
+
     # TODO(milleral): http://crbug.com/249555
     # Create some way to discover and register provisioning tests so that we
     # don't need to hand-maintain a list of all of them.
@@ -171,9 +258,12 @@ class Provision(_SpecialTaskAction):
                 'provision_FirmwareUpdate'),
         FW_RW_VERSION_PREFIX: actionables.TestActionable(
                 'provision_FirmwareUpdate',
-                extra_kwargs={'rw_only': True}),
+                extra_kwargs={'rw_only': True,
+                              'tag': 'rw_only'}),
         ANDROID_BUILD_VERSION_PREFIX : actionables.TestActionable(
                 'provision_AndroidUpdate'),
+        TESTBED_BUILD_VERSION_PREFIX : actionables.TestActionable(
+                'provision_TestbedUpdate'),
     }
 
     name = 'provision'
@@ -205,7 +295,6 @@ class Repair(_SpecialTaskAction):
     name = 'repair'
 
 
-
 # TODO(milleral): crbug.com/364273
 # Label doesn't really mean label in this context.  We're putting things into
 # DEPENDENCIES that really aren't DEPENDENCIES, and we should probably stop
@@ -223,55 +312,8 @@ def is_for_special_action(label):
     return (Verify.acts_on(label) or
             Provision.acts_on(label) or
             Cleanup.acts_on(label) or
-            Repair.acts_on(label))
-
-
-def filter_labels(labels):
-    """
-    Filter a list of labels into two sets: those labels that we know how to
-    change and those that we don't.  For the ones we know how to change, split
-    them apart into the name of configuration type and its value.
-
-    @param labels: A list of strings of labels.
-    @returns: A tuple where the first element is a set of unprovisionable
-              labels, and the second element is a set of the provisionable
-              labels.
-
-    >>> filter_labels(['bluetooth', 'cros-version:lumpy-release/R28-3993.0.0'])
-    (set(['bluetooth']), set(['cros-version:lumpy-release/R28-3993.0.0']))
-
-    """
-    return Provision.partition(labels)
-
-
-def split_labels(labels):
-    """
-    Split a list of labels into a dict mapping name to value.  All labels must
-    be provisionable labels, or else a ValueError
-
-    @param labels: list of strings of label names
-    @returns: A dict of where the key is the configuration name, and the value
-              is the configuration value.
-    @raises: ValueError if a label is not a provisionable label.
-
-    >>> split_labels(['cros-version:lumpy-release/R28-3993.0.0'])
-    {'cros-version': 'lumpy-release/R28-3993.0.0'}
-    >>> split_labels(['bluetooth'])
-    Traceback (most recent call last):
-    ...
-    ValueError: Unprovisionable label bluetooth
-
-    """
-    configurations = dict()
-
-    for label in labels:
-        if Provision.acts_on(label):
-            name, value = label.split(':', 1)
-            configurations[name] = value
-        else:
-            raise ValueError('Unprovisionable label %s' % label)
-
-    return configurations
+            Repair.acts_on(label) or
+            label == SKIP_PROVISION)
 
 
 def join(provision_type, provision_value):
@@ -313,24 +355,16 @@ def run_special_task_actions(job, host, labels, task):
     @raises: SpecialTaskActionException if a test fails.
 
     """
-    capabilities, configuration = filter_labels(labels)
+    capabilities, configurations = task.partition(labels)
 
     for label in capabilities:
-        if task.acts_on(label):
-            action_item = task.test_for(label)
-            success = action_item.execute(job=job, host=host)
-            if not success:
-                raise SpecialTaskActionException()
-        else:
-            job.record('INFO', None, task.name,
-                       "Can't %s label '%s'." % (task.name, label))
+        job.record('INFO', None, task.name,
+                   "Can't %s label '%s'." % (task.name, label))
 
-    for name, value in split_labels(configuration).items():
-        if task.acts_on(name):
-            action_item = task.test_for(name)
-            success = action_item.execute(job=job, host=host, value=value)
-            if not success:
-                raise SpecialTaskActionException()
-        else:
-            job.record('INFO', None, task.name,
-                       "Can't %s label '%s:%s'." % (task.name, name, value))
+    # Sort the configuration labels based on `task._priorities`.
+    sorted_configurations = task.sort_configurations(configurations)
+    for name, value in sorted_configurations:
+        action_item = task.test_for(name)
+        success = action_item.execute(job=job, host=host, value=value)
+        if not success:
+            raise SpecialTaskActionException()

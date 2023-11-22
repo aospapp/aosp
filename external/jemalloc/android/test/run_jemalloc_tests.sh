@@ -17,10 +17,13 @@
 UNIT_TEST_DIR="jemalloc_unittests"
 
 UNIT_TESTS=( \
+  "a0" \
+  "arena_reset" \
   "atomic" \
   "bitmap" \
   "ckh" \
   "decay" \
+  "fork" \
   "hash" \
   "junk" \
   "junk_alloc" \
@@ -31,6 +34,8 @@ UNIT_TESTS=( \
   "mq" \
   "mtx" \
   "nstime" \
+  "pack" \
+  "pages" \
   "prng" \
   "prof_accum" \
   "prof_active" \
@@ -51,6 +56,7 @@ UNIT_TESTS=( \
   "ticker" \
   "tsd" \
   "util" \
+  "witness" \
   "zero" \
 )
 

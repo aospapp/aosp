@@ -19,6 +19,7 @@
 
 #include "base/mutex.h"
 #include "dex_file.h"
+#include "obj_ptr.h"
 
 namespace art {
 namespace mirror {
@@ -36,22 +37,24 @@ namespace interpreter {
 // The optional stay_in_interpreter parameter (false by default) can be used by clients to
 // explicitly force interpretation in the remaining path that implements method invocation.
 extern void EnterInterpreterFromInvoke(Thread* self, ArtMethod* method,
-                                       mirror::Object* receiver, uint32_t* args, JValue* result,
+                                       ObjPtr<mirror::Object> receiver,
+                                       uint32_t* args,
+                                       JValue* result,
                                        bool stay_in_interpreter = false)
-    SHARED_REQUIRES(Locks::mutator_lock_);
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 // 'from_code' denotes whether the deoptimization was explicitly triggered by compiled code.
 extern void EnterInterpreterFromDeoptimize(Thread* self, ShadowFrame* shadow_frame, bool from_code,
                                            JValue* ret_val)
-    SHARED_REQUIRES(Locks::mutator_lock_);
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 extern JValue EnterInterpreterFromEntryPoint(Thread* self, const DexFile::CodeItem* code_item,
                                              ShadowFrame* shadow_frame)
-    SHARED_REQUIRES(Locks::mutator_lock_);
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 void ArtInterpreterToInterpreterBridge(Thread* self, const DexFile::CodeItem* code_item,
                                        ShadowFrame* shadow_frame, JValue* result)
-    SHARED_REQUIRES(Locks::mutator_lock_);
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 // One-time sanity check.
 void CheckInterpreterAsmConstants();

@@ -247,7 +247,7 @@ bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
     return true;
 }
 
-int EmulatedCameraHotplugThread::getCameraId(String8 filePath) const {
+int EmulatedCameraHotplugThread::getCameraId(const String8& filePath) const {
     Vector<int>::const_iterator it, end;
     it = mSubscribedCameraIds.begin();
     end = mSubscribedCameraIds.end();
@@ -335,7 +335,7 @@ bool EmulatedCameraHotplugThread::removeWatch(int cameraId) {
     return true;
 }
 
-int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
+int EmulatedCameraHotplugThread::readFile(const String8& filePath) const {
 
     int fd = TEMP_FAILURE_RETRY(
                 open(filePath.string(), O_RDONLY, /*mode*/0));

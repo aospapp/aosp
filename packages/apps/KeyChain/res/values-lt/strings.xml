@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Programa „%s“ prašo pateikti sertifikatą. Pasirinkus sertifikatą, programa galės dabar ir ateityje jį naudoti serveriuose."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Programa užklausą teikiantį serverį identifikavo kaip %s, bet programai suteikite prieigą prie sertifikato, tik jei pasitikite ja."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Galite įdiegti sertifikatus iš failo PKCS#12 naudodami išorinėje saugykloje esantį plėtinį %1$s arba %2$s."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Įdiegti"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Leisti"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Įdiegti sertifikatą"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Pasirinkti"</string>
     <string name="deny_button" msgid="3766539809121892584">"Atmesti"</string>
 </resources>

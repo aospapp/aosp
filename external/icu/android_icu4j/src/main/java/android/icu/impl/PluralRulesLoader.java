@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2008-2015, International Business Machines Corporation and
+ * Copyright (C) 2008-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -226,7 +228,7 @@ public class PluralRulesLoader extends PluralRules.Factory {
      */
     public UResourceBundle getPluralBundle() throws MissingResourceException {
         return ICUResourceBundle.getBundleInstance(
-                ICUResourceBundle.ICU_BASE_NAME, "plurals",
+                ICUData.ICU_BASE_NAME, "plurals",
                 ICUResourceBundle.ICU_DATA_CLASS_LOADER, true);
     }
 

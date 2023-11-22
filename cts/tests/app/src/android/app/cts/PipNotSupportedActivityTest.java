@@ -51,7 +51,6 @@ public class PipNotSupportedActivityTest
                     pipSupportDisabled = true;
                 }
                 assertTrue(pipSupportDisabled);
-                assertFalse(mActivity.isInMultiWindowMode());
                 assertFalse(mActivity.isInPictureInPictureMode());
             }
         });

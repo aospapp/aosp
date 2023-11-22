@@ -24,6 +24,9 @@ page.title=Testing
   </div>
 </div>
 
+<p>To ensure your headset is compatible with the minimally required
+functionality, conduct these tests.</p>
+
 <h2 id=headset_insertion>Headset insertion</h2>
 
 <ol>
@@ -36,9 +39,9 @@ page.title=Testing
        source</a> <a
        href="https://android-developers.blogspot.com/2015/03/a-new-reference-app-for-multi-device.html">Universal
        Music Player</a>.
-  <li> Press the DUT volume buttons to maximize media volume.
+  <li> Press the device volume buttons to maximize media volume.
   <li> Start playing music and verify audio comes out of the headset.
-  <li> While Music is playing, disconnect the headset and verify music stops.
+  <li> While music is playing, disconnect the headset and verify music stops.
   <li> Reconnect the headset, start playing music again, and verify audio comes out of
 the headset.
 </ol>
@@ -47,14 +50,14 @@ the headset.
 
 <ol>
   <li> Play music and ensure it is coming out of the headset.
-  <li> Press (“short press”) on the volume-down button. Then verify the volume panel
+  <li> Press the volume-down button. Verify the volume panel
 displays the media volume decrease by one notch and the volume output is
 reduced as expected.
-  <li> Long press on the volume-down button. Then verify the volume panel shows media
+  <li> Long press the volume-down button. Verify the volume panel shows media
 volume going all the way down and volume output is reduced gradually to muted.
-  <li> Press on the volume-up button. Then verify the volume panel displays the media
+  <li> Press the volume-up button. Verify the volume panel displays the media
 volume go up one notch and the volume output is increased as expected.
-  <li> Long press on the volume-up button. Then verify the volume panel shows the
+  <li> Long press the volume-up button. Verify the volume panel shows the
 media volume go all the way up to maximum and the volume output is increased as
 expected.
 </ol>
@@ -66,27 +69,29 @@ the headset. If music was not already playing, then it should start playing out
 of the headset.</p>
 
 <h2 id=play_pause_for_telephony>Play/pause for telephony</h2>
+<p>The actions to mute and hang up a phone call may differ across Android
+devices. This test documents the most common behavior.</p>
 
 <ol>
   <li> Make a phone call.
-  <li> Press quickly on the play/pause button while in the call.
-  <li> Verify the microphone mutes. And if you press quickly again, the microphone
+  <li> Long press the play/pause button while in the call.
+  <li> Verify the microphone mutes. And if you long press again, the microphone
 should un-mute.
-  <li> While still in the call, long press on the play/pause button.
-  <li> Verify the long press ends the telephone call
+  <li> While still in the call, short press the play/pause button.
+  <li> Verify the short press ends the telephone call.
   <li> Receive a phone call on the Android device.
-  <li> Press quickly on the play/pause button while the phone is ringing and verify
+  <li> Short press the play/pause button while the phone is ringing and verify
 the call is accepted.
   <li> Receive another phone call on the Android device.
-  <li> Long press on the play/pause button while the phone is ringing and verify the
+  <li> Long press the play/pause button while the phone is ringing and verify the
 call is rejected.
 </ol>
 
 <h2 id=play_pause_for_voice_actions_microphone>Play/pause for voice actions + microphone</h2>
 
 <ol>
-  <li> Open the screen on your Android device, unlock it, and go to the home screen.
-  <li> Long press on the play/pause button.
+  <li> Unlock the Android device and go to the home screen.
+  <li> Long press the play/pause button.
   <li> Verify:
   <ol>
     <li> you hear a beep after which you should be able to make a voice search query,
@@ -98,8 +103,8 @@ such as “What time is it?”
 <h2 id=voice_button_for_voice_actions_microphone>Voice button for voice actions + microphone</h2>
 
 <ol>
-  <li> Open the screen on your Android device, unlock it, and go to the home screen.
-  <li> Short press on the voice button.
+  <li> Unlock the Android device and go to the home screen. 
+  <li> Short press the voice button.
   <li> Verify:
   <ol>
     <li> you hear a beep after which you should be able to make a search query, such as
@@ -108,5 +113,5 @@ such as “What time is it?”
   </ol>
   </ol>
 
-<p><strong>Important</strong>: A press on the voice button can launch launch any search app, for example
+<p class="note"><strong>Important</strong>: A press on the voice button can launch any search app, for example
 Google search.</p>

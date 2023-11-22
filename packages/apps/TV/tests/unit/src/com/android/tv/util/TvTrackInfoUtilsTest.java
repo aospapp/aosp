@@ -18,7 +18,7 @@ package com.android.tv.util;
 import static com.android.tv.util.TvTrackInfoUtils.getBestTrackInfo;
 
 import android.media.tv.TvTrackInfo;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.tv.testing.ComparatorTester;
 
@@ -41,7 +41,11 @@ public class TvTrackInfoUtilsTest extends TestCase {
 
     private static final TvTrackInfo INFO_2_EN_5 = create("2", "en", 5);
 
-    private static final TvTrackInfo INFO_3_FR_5 = create("3", "fr", 5);
+    private static final TvTrackInfo INFO_3_FR_8 = create("3", "fr", 8);
+
+    private static final TvTrackInfo INFO_4_NULL_2 = create("4", null, 2);
+
+    private static final TvTrackInfo INFO_5_NULL_6 = create("5", null, 6);
 
     private static TvTrackInfo create(String id, String fr, int audioChannelCount) {
         return new TvTrackInfo.Builder(TvTrackInfo.TYPE_AUDIO, id)
@@ -50,11 +54,13 @@ public class TvTrackInfoUtilsTest extends TestCase {
                 .build();
     }
 
-    private static final List<TvTrackInfo> ALL = Arrays.asList(INFO_1_EN_1, INFO_2_EN_5, INFO_3_FR_5);
+    private static final List<TvTrackInfo> ALL = Arrays.asList(INFO_1_EN_1, INFO_2_EN_5,
+            INFO_3_FR_8, INFO_4_NULL_2, INFO_5_NULL_6);
+    private static final List<TvTrackInfo> NULL_LANGUAGE_TRACKS = Arrays.asList(INFO_4_NULL_2,
+            INFO_5_NULL_6);
 
     public void testGetBestTrackInfo_empty() {
-        TvTrackInfo result = getBestTrackInfo(Collections.<TvTrackInfo>emptyList(),
-                UN_MATCHED_ID, "en", 1);
+        TvTrackInfo result = getBestTrackInfo(Collections.emptyList(), UN_MATCHED_ID, "en", 1);
         assertEquals("best track ", null, result);
     }
 
@@ -70,7 +76,12 @@ public class TvTrackInfoUtilsTest extends TestCase {
 
     public void testGetBestTrackInfo_languageOnlyMatch() {
         TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, "fr", 1);
-        assertEquals("best track ", INFO_3_FR_5, result);
+        assertEquals("best track ", INFO_3_FR_8, result);
+    }
+
+    public void testGetBestTrackInfo_channelCountOnlyMatchWithNullLanguage() {
+        TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, null, 8);
+        assertEquals("best track ", INFO_3_FR_8, result);
     }
 
     public void testGetBestTrackInfo_noMatches() {
@@ -78,6 +89,15 @@ public class TvTrackInfoUtilsTest extends TestCase {
         assertEquals("best track ", INFO_1_EN_1, result);
     }
 
+    public void testGetBestTrackInfo_noMatchesWithNullLanguage() {
+        TvTrackInfo result = getBestTrackInfo(ALL, UN_MATCHED_ID, null, 0);
+        assertEquals("best track ", INFO_1_EN_1, result);
+    }
+
+    public void testGetBestTrackInfo_channelCountAndIdMatch() {
+        TvTrackInfo result = getBestTrackInfo(NULL_LANGUAGE_TRACKS, "5", null, 6);
+        assertEquals("best track ", INFO_5_NULL_6, result);
+    }
 
     public void testComparator() {
         Comparator<TvTrackInfo> comparator = TvTrackInfoUtils.createComparator("1", "en", 1);

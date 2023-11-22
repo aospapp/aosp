@@ -16,17 +16,29 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
-import android.cts.util.WidgetTestUtils;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,8 +46,12 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
-import android.widget.SimpleCursorAdapter.CursorToStringConverter;
-import android.widget.SimpleCursorAdapter.ViewBinder;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,7 +63,9 @@ import java.io.OutputStream;
  * {@link SimpleCursorAdapterTest#mCursor} It will use internal
  * R.layout.simple_list_item_1.
  */
-public class SimpleCursorAdapterTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SimpleCursorAdapterTest {
     private static final int ADAPTER_ROW_COUNT = 20;
 
     private static final int DEFAULT_COLUMN_COUNT = 2;
@@ -88,10 +106,9 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
      */
     private Cursor mCursor;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
 
         mCursor = createTestCursor(DEFAULT_COLUMN_COUNT, ADAPTER_ROW_COUNT);
     }
@@ -102,6 +119,7 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         new SimpleCursorAdapter(mContext, R.layout.cursoradapter_item0,
                 createTestCursor(DEFAULT_COLUMN_COUNT, ADAPTER_ROW_COUNT),
@@ -109,6 +127,7 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testBindView() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         TextView listItem = (TextView) simpleCursorAdapter.newView(mContext, null, null);
@@ -124,20 +143,20 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
 
         // the binder take care of binding
         listItem.setText("");
-        MockViewBinder binder = new MockViewBinder(true);
+        SimpleCursorAdapter.ViewBinder binder = mock(SimpleCursorAdapter.ViewBinder.class);
+        doReturn(true).when(binder).setViewValue(any(View.class), any(Cursor.class), anyInt());
         simpleCursorAdapter.setViewBinder(binder);
-        binder.reset();
         mCursor.moveToFirst();
         simpleCursorAdapter.bindView(listItem, null, mCursor);
-        assertTrue(binder.hasCalledSetViewValueCalledCount());
+        verify(binder, times(1)).setViewValue(any(View.class), eq(mCursor), eq(1));
         assertEquals("", listItem.getText().toString());
 
         // the binder try to bind but fail
-        binder = new MockViewBinder(false);
-        simpleCursorAdapter.setViewBinder(binder);
+        doReturn(false).when(binder).setViewValue(any(View.class), any(Cursor.class), anyInt());
+        reset(binder);
         mCursor.moveToLast();
         simpleCursorAdapter.bindView(listItem, null, mCursor);
-        assertTrue(binder.hasCalledSetViewValueCalledCount());
+        verify(binder, times(1)).setViewValue(any(View.class), eq(mCursor), eq(1));
         assertEquals("191", listItem.getText().toString());
 
         final int [] to = { R.id.cursorAdapter_host };
@@ -154,15 +173,17 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testAccessViewBinder() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         assertNull(simpleCursorAdapter.getViewBinder());
 
-        MockViewBinder binder = new MockViewBinder(true);
+        SimpleCursorAdapter.ViewBinder binder = mock(SimpleCursorAdapter.ViewBinder.class);
+        doReturn(true).when(binder).setViewValue(any(View.class), any(Cursor.class), anyInt());
         simpleCursorAdapter.setViewBinder(binder);
         assertSame(binder, simpleCursorAdapter.getViewBinder());
 
-        binder = new MockViewBinder(false);
+        doReturn(false).when(binder).setViewValue(any(View.class), any(Cursor.class), anyInt());
         simpleCursorAdapter.setViewBinder(binder);
         assertSame(binder, simpleCursorAdapter.getViewBinder());
 
@@ -171,6 +192,7 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetViewText() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         TextView view = new TextView(mContext);
@@ -182,10 +204,11 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetViewImage() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         // resId
-        int sceneryImgResId = android.widget.cts.R.drawable.scenery;
+        int sceneryImgResId = R.drawable.scenery;
         ImageView view = new ImageView(mContext);
         assertNull(view.getDrawable());
         simpleCursorAdapter.setViewImage(view, String.valueOf(sceneryImgResId));
@@ -216,13 +239,13 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
         view = new ImageView(mContext);
         assertNull(view.getDrawable());
         try {
-            int testimgRawId = android.widget.cts.R.raw.testimage;
+            int testimgRawId = R.raw.testimage;
             simpleCursorAdapter.setViewImage(view,
                     createTestImage(mContext, SAMPLE_IMAGE_NAME, testimgRawId));
             assertNotNull(view.getDrawable());
             Bitmap actualBitmap = ((BitmapDrawable) view.getDrawable()).getBitmap();
-            Bitmap testBitmap = WidgetTestUtils.getUnscaledAndDitheredBitmap(mContext.getResources(),
-                    testimgRawId, actualBitmap.getConfig());
+            Bitmap testBitmap = WidgetTestUtils.getUnscaledAndDitheredBitmap(
+                    mContext.getResources(), testimgRawId, actualBitmap.getConfig());
             WidgetTestUtils.assertEquals(testBitmap, actualBitmap);
         } finally {
             destroyTestImage(mContext, SAMPLE_IMAGE_NAME);
@@ -230,6 +253,7 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testAccessStringConversionColumn() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         // default is -1
@@ -248,12 +272,14 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testAccessCursorToStringConverter() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         // default is null
         assertNull(simpleCursorAdapter.getCursorToStringConverter());
 
-        CursorToStringConverter converter = new MockCursorToStringConverter();
+        SimpleCursorAdapter.CursorToStringConverter converter =
+                mock(SimpleCursorAdapter.CursorToStringConverter.class);
         simpleCursorAdapter.setCursorToStringConverter(converter);
         assertSame(converter, simpleCursorAdapter.getCursorToStringConverter());
 
@@ -262,6 +288,7 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testChangeCursor() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         // have "column1"
@@ -281,6 +308,7 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testConvertToString() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         mCursor.moveToFirst();
@@ -313,21 +341,22 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
         assertEquals("02", simpleCursorAdapter.convertToString(curWith3Columns));
 
         // converter is not null, StringConversionColumn is 1
-        CursorToStringConverter converter = new MockCursorToStringConverter();
+        SimpleCursorAdapter.CursorToStringConverter converter =
+                mock(SimpleCursorAdapter.CursorToStringConverter.class);
         simpleCursorAdapter.setCursorToStringConverter(converter);
         simpleCursorAdapter.setStringConversionColumn(1);
-        ((MockCursorToStringConverter) converter).reset();
         simpleCursorAdapter.convertToString(curWith3Columns);
-        assertTrue(((MockCursorToStringConverter) converter).hasCalledConvertToString());
+        verify(converter, times(1)).convertToString(curWith3Columns);
     }
 
     @UiThreadTest
+    @Test
     public void testNewView() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         LayoutInflater layoutInflater = (LayoutInflater) mContext.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
         ViewGroup viewGroup = (ViewGroup) layoutInflater.inflate(
-                android.widget.cts.R.layout.cursoradapter_host, null);
+                R.layout.cursoradapter_host, null);
         View result = simpleCursorAdapter.newView(mContext, null, viewGroup);
         assertNotNull(result);
         assertEquals(R.id.cursorAdapter_item0, result.getId());
@@ -338,18 +367,20 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testNewDropDownView() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         LayoutInflater layoutInflater = (LayoutInflater) mContext.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
         ViewGroup viewGroup = (ViewGroup) layoutInflater.inflate(
-                android.widget.cts.R.layout.cursoradapter_host, null);
+                R.layout.cursoradapter_host, null);
         View result = simpleCursorAdapter.newDropDownView(null, null, viewGroup);
         assertNotNull(result);
         assertEquals(R.id.cursorAdapter_item0, result.getId());
     }
 
     @UiThreadTest
+    @Test
     public void testChangeCursorAndColumns() {
         SimpleCursorAdapter simpleCursorAdapter = makeSimpleCursorAdapter();
         assertSame(mCursor, simpleCursorAdapter.getCursor());
@@ -407,54 +438,15 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
         return cursor;
     }
 
-    private static class MockViewBinder implements ViewBinder {
-        private boolean mExpectedResult;
-
-        private boolean mHasCalledSetViewValue;
-
-        public MockViewBinder(boolean expectedResult) {
-            mExpectedResult = expectedResult;
-        }
-
-        public void reset(){
-            mHasCalledSetViewValue = false;
-        }
-
-        public boolean hasCalledSetViewValueCalledCount() {
-            return mHasCalledSetViewValue;
-        }
-
-        public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
-            mHasCalledSetViewValue = true;
-            return mExpectedResult;
-        }
-    }
-
     public static String createTestImage(Context context, String fileName, int resId) {
-        InputStream source = null;
-        OutputStream target = null;
-
-        try {
-            source = context.getResources().openRawResource(resId);
-            target = context.openFileOutput(fileName, Context.MODE_PRIVATE);
-
+        try (InputStream source = context.getResources().openRawResource(resId);
+             OutputStream target = context.openFileOutput(fileName, Context.MODE_PRIVATE)) {
             byte[] buffer = new byte[1024];
             for (int len = source.read(buffer); len > 0; len = source.read(buffer)) {
                 target.write(buffer, 0, len);
             }
         } catch (IOException e) {
             fail(e.getMessage());
-        } finally {
-            try {
-                if (source != null) {
-                    source.close();
-                }
-                if (target != null) {
-                    target.close();
-                }
-            } catch (IOException e) {
-                // Ignore the IOException.
-            }
         }
 
         return context.getFileStreamPath(fileName).getAbsolutePath();
@@ -462,22 +454,5 @@ public class SimpleCursorAdapterTest extends InstrumentationTestCase {
 
     public static void destroyTestImage(Context context, String fileName) {
         context.deleteFile(fileName);
-    }
-
-    private static class MockCursorToStringConverter implements CursorToStringConverter {
-        private boolean mHasCalledConvertToString;
-
-        public boolean hasCalledConvertToString() {
-            return mHasCalledConvertToString;
-        }
-
-        public void reset(){
-            mHasCalledConvertToString = false;
-        }
-
-        public CharSequence convertToString(Cursor cursor) {
-            mHasCalledConvertToString = true;
-            return null;
-        }
     }
 }

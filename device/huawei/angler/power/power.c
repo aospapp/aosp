@@ -97,13 +97,8 @@ static int saved_interactive_mode = -1;
 static int slack_node_rw_failed = 0;
 static int display_hint_sent;
 static int sustained_performance_mode = 0;
-static int vr_mode = 0;
 int display_boost;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-static struct hw_module_methods_t power_module_methods = {
-    .open = NULL,
-};
 
 static void power_init(struct power_module *module)
 {
@@ -268,10 +263,10 @@ static void power_hint(struct power_module *module, power_hint_t hint,
             int duration_hint = 0;
             static struct timespec previous_boost_timespec = {0, 0};
 
-            // If we are in sustained performance mode or VR mode, touch boost
+            // If we are in sustained performance mode, touch boost
             // should be ignored.
             pthread_mutex_lock(&lock);
-            if (sustained_performance_mode || vr_mode) {
+            if (sustained_performance_mode) {
                 pthread_mutex_unlock(&lock);
                 return;
             }
@@ -376,52 +371,19 @@ static void power_hint(struct power_module *module, power_hint_t hint,
                                         sizeof(resources)/sizeof(resources[0]),
                                         resources);
                 sysfs_write(GPU_MAX_FREQ_PATH, "305000000");
-                if (vr_mode == 0) {
-                    handle_hotplug = interaction_with_handle(handle_hotplug, duration,
-                                        sizeof(resources_hotplug)/sizeof(resources_hotplug[0]),
-                                        resources_hotplug);
-                }
+                handle_hotplug = interaction_with_handle(handle_hotplug, duration,
+                                    sizeof(resources_hotplug)/sizeof(resources_hotplug[0]),
+                                    resources_hotplug);
                 sustained_performance_mode = 1;
             } else if (sustained_performance_mode == 1){
                 release_request(handle);
                 sysfs_write(GPU_MAX_FREQ_PATH, "600000000");
-                if (vr_mode == 0) {
-                    release_request(handle_hotplug);
-                }
+                release_request(handle_hotplug);
                 sustained_performance_mode = 0;
            }
            pthread_mutex_unlock(&lock);
         }
         break;
-        case POWER_HINT_VR_MODE:
-        {
-            static int handle_vr = 0;
-            pthread_mutex_lock(&lock);
-            if (data && vr_mode == 0) {
-                int resources[] = {0x206};
-                int duration = 0;
-                handle_vr = interaction_with_handle(handle_vr, duration,
-                                        sizeof(resources)/sizeof(resources[0]),
-                                        resources);
-                sysfs_write(GPU_MIN_FREQ_PATH, "305000000");
-                sysfs_write(BUS_SPEED_PATH, "7904");
-                if (sustained_performance_mode == 0) {
-                    handle_hotplug = interaction_with_handle(handle_hotplug, duration,
-                                        sizeof(resources_hotplug)/sizeof(resources_hotplug[0]),
-                                        resources_hotplug);
-                }
-                vr_mode = 1;
-            } else if (vr_mode == 1){
-                release_request(handle_vr);
-                sysfs_write(GPU_MIN_FREQ_PATH, "180000000");
-                sysfs_write(BUS_SPEED_PATH, "0");
-                if (sustained_performance_mode == 0) {
-                    release_request(handle_hotplug);
-                }
-                vr_mode = 0;
-            }
-            pthread_mutex_unlock(&lock);
-        }
     }
 }
 
@@ -749,6 +711,44 @@ static int get_platform_low_power_stats(struct power_module *module,
 
     return 0;
 }
+
+static int power_open(const hw_module_t* module, const char* name,
+                    hw_device_t** device)
+{
+    ALOGD("%s: enter; name=%s", __FUNCTION__, name);
+    int retval = 0; /* 0 is ok; -1 is error */
+
+    if (strcmp(name, POWER_HARDWARE_MODULE_ID) == 0) {
+        power_module_t *dev = (power_module_t *)calloc(1,
+                sizeof(power_module_t));
+
+        if (dev) {
+            /* Common hw_device_t fields */
+            dev->common.tag = HARDWARE_DEVICE_TAG;
+            dev->common.module_api_version = POWER_MODULE_API_VERSION_0_5;
+            dev->common.hal_api_version = HARDWARE_HAL_API_VERSION;
+
+            dev->init = power_init;
+            dev->powerHint = power_hint;
+            dev->setInteractive = set_interactive;
+            dev->get_number_of_platform_modes = get_number_of_platform_modes;
+            dev->get_platform_low_power_stats = get_platform_low_power_stats;
+            dev->get_voter_list = get_voter_list;
+
+            *device = (hw_device_t*)dev;
+        } else
+            retval = -ENOMEM;
+    } else {
+        retval = -EINVAL;
+    }
+
+    ALOGD("%s: exit %d", __FUNCTION__, retval);
+    return retval;
+}
+
+static struct hw_module_methods_t power_module_methods = {
+    .open = power_open,
+};
 
 struct power_module HAL_MODULE_INFO_SYM = {
     .common = {

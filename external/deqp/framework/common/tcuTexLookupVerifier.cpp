@@ -2119,15 +2119,36 @@ Vec4 computeFloatingPointThreshold (const IVec4& bits, const Vec4& value)
 
 Vec2 computeLodBoundsFromDerivates (const float dudx, const float dvdx, const float dwdx, const float dudy, const float dvdy, const float dwdy, const LodPrecision& prec)
 {
-	const float		mu			= de::max(deFloatAbs(dudx), deFloatAbs(dudy));
-	const float		mv			= de::max(deFloatAbs(dvdx), deFloatAbs(dvdy));
-	const float		mw			= de::max(deFloatAbs(dwdx), deFloatAbs(dwdy));
-	const float		minDBound	= de::max(de::max(mu, mv), mw);
-	const float		maxDBound	= mu + mv + mw;
-	const float		minDErr		= computeFloatingPointError(minDBound, prec.derivateBits);
-	const float		maxDErr		= computeFloatingPointError(maxDBound, prec.derivateBits);
-	const float		minLod		= deFloatLog2(minDBound-minDErr);
-	const float		maxLod		= deFloatLog2(maxDBound+maxDErr);
+	const float		mux			= deFloatAbs(dudx);
+	const float		mvx			= deFloatAbs(dvdx);
+	const float		mwx			= deFloatAbs(dwdx);
+	const float		muy			= deFloatAbs(dudy);
+	const float		mvy			= deFloatAbs(dvdy);
+	const float		mwy			= deFloatAbs(dwdy);
+
+	// Ideal:
+	// px = deFloatSqrt2(mux*mux + mvx*mvx + mwx*mwx);
+	// py = deFloatSqrt2(muy*muy + mvy*mvy + mwy*mwy);
+
+	// fx, fy estimate lower bounds
+	const float		fxMin		= de::max(de::max(mux, mvx), mwx);
+	const float		fyMin		= de::max(de::max(muy, mvy), mwy);
+
+	// fx, fy estimate upper bounds
+	const float		sqrt2		= deFloatSqrt(2.0f);
+	const float		fxMax		= sqrt2 * (mux + mvx + mwx);
+	const float		fyMax		= sqrt2 * (muy + mvy + mwy);
+
+	// p = max(px, py) (isotropic filtering)
+	const float		pMin		= de::max(fxMin, fyMin);
+	const float		pMax		= de::max(fxMax, fyMax);
+
+	// error terms
+	const float		pMinErr		= computeFloatingPointError(pMin, prec.derivateBits);
+	const float		pMaxErr		= computeFloatingPointError(pMax, prec.derivateBits);
+
+	const float		minLod		= deFloatLog2(pMin-pMinErr);
+	const float		maxLod		= deFloatLog2(pMax+pMaxErr);
 	const float		lodErr		= computeFixedPointError(prec.lodBits);
 
 	DE_ASSERT(minLod <= maxLod);

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "art_method-inl.h"
+#include "art_method.h"
+#include "base/enums.h"
 #include "callee_save_frame.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "instrumentation.h"
@@ -28,7 +29,7 @@ extern "C" const void* artInstrumentationMethodEntryFromCode(ArtMethod* method,
                                                              mirror::Object* this_object,
                                                              Thread* self,
                                                              uintptr_t lr)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   // Instrumentation changes the stack. Thus, when exiting, the stack cannot be verified, so skip
   // that part.
   ScopedQuickEntrypointChecks sqec(self, kIsDebugBuild, false);
@@ -37,25 +38,25 @@ extern "C" const void* artInstrumentationMethodEntryFromCode(ArtMethod* method,
   if (instrumentation->IsDeoptimized(method)) {
     result = GetQuickToInterpreterBridge();
   } else {
-    result = instrumentation->GetQuickCodeFor(method, sizeof(void*));
+    result = instrumentation->GetQuickCodeFor(method, kRuntimePointerSize);
     DCHECK(!Runtime::Current()->GetClassLinker()->IsQuickToInterpreterBridge(result));
   }
   bool interpreter_entry = (result == GetQuickToInterpreterBridge());
   instrumentation->PushInstrumentationStackFrame(self, method->IsStatic() ? nullptr : this_object,
                                                  method, lr, interpreter_entry);
-  CHECK(result != nullptr) << PrettyMethod(method);
+  CHECK(result != nullptr) << method->PrettyMethod();
   return result;
 }
 
 extern "C" TwoWordReturn artInstrumentationMethodExitFromCode(Thread* self, ArtMethod** sp,
                                                               uint64_t gpr_result,
                                                               uint64_t fpr_result)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   // Instrumentation exit stub must not be entered with a pending exception.
   CHECK(!self->IsExceptionPending()) << "Enter instrumentation exit stub with pending exception "
                                      << self->GetException()->Dump();
   // Compute address of return PC and sanity check that it currently holds 0.
-  size_t return_pc_offset = GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kRefsOnly);
+  size_t return_pc_offset = GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kSaveRefsOnly);
   uintptr_t* return_pc = reinterpret_cast<uintptr_t*>(reinterpret_cast<uint8_t*>(sp) +
                                                       return_pc_offset);
   CHECK_EQ(*return_pc, 0U);

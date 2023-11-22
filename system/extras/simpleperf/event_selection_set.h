@@ -19,79 +19,167 @@
 
 #include <functional>
 #include <map>
+#include <set>
+#include <unordered_map>
 #include <vector>
 
 #include <android-base/macros.h>
 
+#include "event_attr.h"
 #include "event_fd.h"
 #include "event_type.h"
+#include "InplaceSamplerClient.h"
+#include "IOEventLoop.h"
 #include "perf_event.h"
+#include "record.h"
+
+constexpr double DEFAULT_PERIOD_TO_DETECT_CPU_HOTPLUG_EVENTS_IN_SEC = 0.5;
+constexpr double DEFAULT_PERIOD_TO_CHECK_MONITORED_TARGETS_IN_SEC = 1;
+
+struct CounterInfo {
+  pid_t tid;
+  int cpu;
+  PerfCounter counter;
+};
 
 struct CountersInfo {
-  const EventTypeAndModifier* event_type;
-  struct CounterInfo {
-    pid_t tid;
-    int cpu;
-    PerfCounter counter;
-  };
+  uint32_t group_id;
+  std::string event_name;
+  std::string event_modifier;
   std::vector<CounterInfo> counters;
 };
 
-struct pollfd;
-
-// EventSelectionSet helps to monitor events.
-// Firstly, the user creates an EventSelectionSet, and adds the specific event types to monitor.
-// Secondly, the user defines how to monitor the events (by setting enable_on_exec flag,
-// sample frequency, etc).
-// Then, the user can start monitoring by ordering the EventSelectionSet to open perf event files
-// and enable events (if enable_on_exec flag isn't used).
-// After that, the user can read counters or read mapped event records.
-// At last, the EventSelectionSet will clean up resources at destruction automatically.
+// EventSelectionSet helps to monitor events. It is used in following steps:
+// 1. Create an EventSelectionSet, and add event types to monitor by calling
+//    AddEventType() or AddEventGroup().
+// 2. Define how to monitor events by calling SetEnableOnExec(), SampleIdAll(),
+//    SetSampleFreq(), etc.
+// 3. Start monitoring by calling OpenEventFilesForCpus() or
+//    OpenEventFilesForThreadsOnCpus(). If SetEnableOnExec() has been called
+//    in step 2, monitor will be delayed until the monitored thread calls
+//    exec().
+// 4. Read counters by calling ReadCounters(), or read mapped event records
+//    by calling MmapEventFiles(), PrepareToReadMmapEventData() and
+//    FinishReadMmapEventData().
+// 5. Stop monitoring automatically in the destructor of EventSelectionSet by
+//    closing perf event files.
 
 class EventSelectionSet {
  public:
-  EventSelectionSet() {
-  }
+  EventSelectionSet(bool for_stat_cmd)
+      : for_stat_cmd_(for_stat_cmd), mmap_pages_(0), loop_(new IOEventLoop) {}
 
-  bool Empty() const {
-    return selections_.empty();
-  }
+  bool empty() const { return groups_.empty(); }
 
-  bool AddEventType(const EventTypeAndModifier& event_type_modifier);
+  bool AddEventType(const std::string& event_name);
+  bool AddEventGroup(const std::vector<std::string>& event_names);
+  std::vector<const EventType*> GetTracepointEvents() const;
+  bool HasInplaceSampler() const;
+  std::vector<EventAttrWithId> GetEventAttrWithId() const;
 
   void SetEnableOnExec(bool enable);
   bool GetEnableOnExec();
   void SampleIdAll();
   void SetSampleFreq(uint64_t sample_freq);
   void SetSamplePeriod(uint64_t sample_period);
+  void UseDefaultSampleFreq();
   bool SetBranchSampling(uint64_t branch_sample_type);
   void EnableFpCallChainSampling();
   bool EnableDwarfCallChainSampling(uint32_t dump_stack_size);
   void SetInherit(bool enable);
+  bool NeedKernelSymbol() const;
 
-  bool OpenEventFilesForCpus(const std::vector<int>& cpus);
-  bool OpenEventFilesForThreadsOnCpus(const std::vector<pid_t>& threads, std::vector<int> cpus);
+  void AddMonitoredProcesses(const std::set<pid_t>& processes) {
+    processes_.insert(processes.begin(), processes.end());
+  }
+
+  void AddMonitoredThreads(const std::set<pid_t>& threads) {
+    threads_.insert(threads.begin(), threads.end());
+  }
+
+  const std::set<pid_t>& GetMonitoredProcesses() const { return processes_; }
+
+  const std::set<pid_t>& GetMonitoredThreads() const { return threads_; }
+
+  bool HasMonitoredTarget() const {
+    return !processes_.empty() || !threads_.empty();
+  }
+
+  IOEventLoop* GetIOEventLoop() {
+    return loop_.get();
+  }
+
+  bool OpenEventFiles(const std::vector<int>& on_cpus);
   bool ReadCounters(std::vector<CountersInfo>* counters);
-  void PreparePollForEventFiles(std::vector<pollfd>* pollfds);
-  bool MmapEventFiles(size_t mmap_pages);
-  bool ReadMmapEventData(std::function<bool(const char*, size_t)> callback);
+  bool MmapEventFiles(size_t min_mmap_pages, size_t max_mmap_pages);
+  bool PrepareToReadMmapEventData(const std::function<bool(Record*)>& callback);
+  bool FinishReadMmapEventData();
 
-  const perf_event_attr* FindEventAttrByType(const EventTypeAndModifier& event_type_modifier);
-  const std::vector<std::unique_ptr<EventFd>>* FindEventFdsByType(
-      const EventTypeAndModifier& event_type_modifier);
+  // If monitored_cpus is empty, monitor all cpus.
+  bool HandleCpuHotplugEvents(const std::vector<int>& monitored_cpus,
+                              double check_interval_in_sec =
+                                  DEFAULT_PERIOD_TO_DETECT_CPU_HOTPLUG_EVENTS_IN_SEC);
+
+  // Stop profiling if all monitored processes/threads don't exist.
+  bool StopWhenNoMoreTargets(double check_interval_in_sec =
+                                 DEFAULT_PERIOD_TO_CHECK_MONITORED_TARGETS_IN_SEC);
 
  private:
-  void UnionSampleType();
-  bool OpenEventFiles(const std::vector<pid_t>& threads, const std::vector<int>& cpus);
-
   struct EventSelection {
     EventTypeAndModifier event_type_modifier;
     perf_event_attr event_attr;
     std::vector<std::unique_ptr<EventFd>> event_fds;
+    std::vector<std::unique_ptr<InplaceSamplerClient>> inplace_samplers;
+    // counters for event files closed for cpu hotplug events
+    std::vector<CounterInfo> hotplugged_counters;
   };
-  EventSelection* FindSelectionByType(const EventTypeAndModifier& event_type_modifier);
+  typedef std::vector<EventSelection> EventSelectionGroup;
 
-  std::vector<EventSelection> selections_;
+  bool BuildAndCheckEventSelection(const std::string& event_name,
+                                   EventSelection* selection);
+  void UnionSampleType();
+  bool IsUserSpaceSamplerGroup(EventSelectionGroup& group);
+  bool OpenUserSpaceSamplersOnGroup(EventSelectionGroup& group,
+                                    const std::map<pid_t, std::set<pid_t>>& process_map);
+  bool OpenEventFilesOnGroup(EventSelectionGroup& group, pid_t tid, int cpu,
+                             std::string* failed_event_type);
+
+  bool MmapEventFiles(size_t mmap_pages, bool report_error);
+  bool ReadMmapEventData();
+
+  bool DetectCpuHotplugEvents();
+  bool HandleCpuOnlineEvent(int cpu);
+  bool HandleCpuOfflineEvent(int cpu);
+  bool CreateMappedBufferForCpu(int cpu);
+  bool CheckMonitoredTargets();
+  bool HasSampler();
+
+  const bool for_stat_cmd_;
+
+  std::vector<EventSelectionGroup> groups_;
+  std::set<pid_t> processes_;
+  std::set<pid_t> threads_;
+  size_t mmap_pages_;
+
+  std::unique_ptr<IOEventLoop> loop_;
+  std::function<bool(Record*)> record_callback_;
+
+  std::set<int> monitored_cpus_;
+  std::vector<int> online_cpus_;
+
+  // Records from all mapped buffers are stored in record_buffer_, each
+  // RecordBufferHead manages records read from one mapped buffer. Create
+  // record_buffer_heads_ and record_buffer_ here to avoid allocating them
+  // from heap each time calling ReadMmapEventData().
+  struct RecordBufferHead {
+    size_t current_pos;  // current position in record_buffer_
+    size_t end_pos;  // end position in record_buffer_
+    perf_event_attr* attr;
+    uint64_t timestamp;
+    std::unique_ptr<Record> r;
+  };
+  std::vector<RecordBufferHead> record_buffer_heads_;
+  std::vector<char> record_buffer_;
 
   DISALLOW_COPY_AND_ASSIGN(EventSelectionSet);
 };

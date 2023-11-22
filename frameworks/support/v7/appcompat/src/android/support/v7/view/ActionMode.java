@@ -16,6 +16,9 @@
 
 package android.support.v7.view;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.support.annotation.RestrictTo;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -216,6 +219,7 @@ public abstract class ActionMode {
      * @return true if the UI used to show this action mode can take focus
      * @hide Internal use only
      */
+    @RestrictTo(LIBRARY_GROUP)
     public boolean isUiFocusable() {
         return true;
     }

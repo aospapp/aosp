@@ -322,12 +322,10 @@ public class CodecState {
 
             mSawOutputEOS = true;
 
-            // We need to stop the audio track so that all audio frames are played
-            // and the video codec can consume all of its data.
-            // After audio track stop, getAudioTimeUs will return 0.
-            if (mAudioTrack != null) {
-                mAudioTrack.stop();
-            }
+            // Do not stop audio track here. Video presentation may not finish
+            // yet, stopping the auido track now would result in getAudioTimeUs
+            // returning 0 and prevent video samples from being presented.
+            // We stop the audio track before the playback thread exits.
             return false;
         }
 
@@ -388,6 +386,12 @@ public class CodecState {
     public void process() {
         if (mAudioTrack != null) {
             mAudioTrack.process();
+        }
+    }
+
+    public void stop() {
+        if (mAudioTrack != null) {
+            mAudioTrack.stop();
         }
     }
 }

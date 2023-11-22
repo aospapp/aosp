@@ -18,7 +18,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.ObjectReference;
 
-import org.apache.harmony.jpda.tests.framework.LogWriter;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
@@ -42,9 +41,11 @@ public class InvokeMethod002Debuggee extends SyncDebuggee {
         logWriter.println("InvokeMethod002Debuggee.execMethod()");
     }
 
+    @Override
     public void run() {
         // Preload TestClass so it is available during the test.
-        Class c = null;
+        @SuppressWarnings("unused")
+        Class<?> c = null;
         try {
             c = Class.forName("org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethod002Debuggee$TestClass");
         } catch (ClassNotFoundException e) {

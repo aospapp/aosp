@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Iskanje je vedno na voljo"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Googlova lokacijska storitev in druge aplikacije lahko iščejo omrežja, tudi če je Wi-Fi izklopljen."</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Googlova lokacijska storitev in druge aplikacije naj poiščejo omrežja, tudi če je Wi-Fi izklopljen"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Ohranjevalnik zaslona"</string>
     <string name="device_display" msgid="101455384386372747">"Zaslon"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Akumulator: <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Preklic seznanitve z napravo …"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Povezano"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Spreminjanje imena"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Vnesite novo ime za ta dodatek"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Iskanje dodatne opreme …"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Pred seznanjanjem naprav Bluetooth poskrbite, da sta v načinu seznanjanja"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Naprava je bila najdena in bo samodejno seznanjena čez <xliff:g id="COUNTDOWN">%1$s</xliff:g> s"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Tipkovnica"</string>
     <string name="system_home" msgid="2858989138172296012">"Začetni zaslon"</string>
     <string name="system_search" msgid="2837264654143247611">"Iskanje"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Varnost in omejitve"</string>
     <string name="system_speech" msgid="8128688499687306982">"Govor"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Vhodi"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Možnosti za razvijalce"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Brez"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Uporaba in diagnostika"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Vadnice"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Sistemska posodobitev"</string>
     <string name="about_preference" msgid="4131396784531360434">"Vizitka"</string>
     <string name="device_name" msgid="2670488158531273028">"Ime naprave"</string>
@@ -374,6 +378,7 @@
     <string name="display_options" msgid="5504549024985225774">"Možnosti prikaza"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfiguriranje"</string>
     <string name="captions_language" msgid="2835554055388996343">"Jezik"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Privzeto"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Velikost besedila"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Slog napisov"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Možnosti po meri"</string>
@@ -450,7 +455,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Merilo animacije prehoda"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Lestvica trajanja animacije"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Strog način je omogočen"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Prikaži uporabo CPE-ja"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Upodobitev profilov z GPE-jem"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Omogoči sledi"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Ne obdrži dejavnosti"</string>
@@ -468,7 +472,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Od najboljšega do najslabšega: modra, zelena, svetlo rdeča, rdeča"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Ob posodobitvi osveži celotne površine oken"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Osvežitev zasl. pri dolg. oper. aplik. v gl. niti"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Prekrivanje zaslona prikazuje trenutno uporabo CPE-ja"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Merjenje časa upodab. v dumpsys gfxinfo lupine adb"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Vklopljeno"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Izklopljeno"</string>
@@ -608,7 +611,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Prisilna ustavitev"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Če boste aplikacijo prisilno ustavili, morda ne bo pravilno delovala."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Odstrani"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Ali želite odstraniti to aplikacijo?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Odstrani posodobitve"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Vse posodobitve te aplikacije sistema Android bodo odstranjene."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Onemogoči"</string>
@@ -625,6 +627,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Počisti predpomnilnik"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Obvestila"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Dovoljenja"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Aplikacija ni na voljo"</string>
     <string name="settings_ok" msgid="3321630456511355983">"V redu"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Prekliči"</string>
     <string name="settings_on" msgid="6892236264945435013">"Vklopljeno"</string>
@@ -648,17 +651,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Želite izbrisati vse osebne podatke in prenesene aplikacije? Tega dejanja ni mogoče razveljaviti."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Izbriši vse"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Izberite ime za napravo <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Z imenom boste lažje prepoznali napravo <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, ko boste dostopali do nje v drugih napravah, kot so telefon, tablični računalnik ali računalnik."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Napravo <xliff:g id="DEVICEMODEL">%1$s</xliff:g> poimenujte, da jo boste lažje prepoznali, ko boste v njej predvajali vsebino iz drugih naprav ali vzpostavljali povezavo z njo iz drugih naprav."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Dnevna soba"</item>
-    <item msgid="3722089849939477581">"Soba za predstavnost"</item>
-    <item msgid="6108590585438763574">"Družinska soba"</item>
-    <item msgid="2581035245390468625">"Jedilnica"</item>
-    <item msgid="3127487827308695324">"Delovna soba"</item>
-    <item msgid="6172018430592195063">"Spalnica"</item>
-    <item msgid="8120010459866284578">"Kuhinja"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Televizor v dnevni sobi"</item>
+    <item msgid="8122798759665439456">"Televizor v družinski sobi"</item>
+    <item msgid="1389347662738182100">"Televizor v spalnici"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Vnesite ime po meri …"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Vnesite ime po meri …"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Preimenovanje te naprave <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Ta naprava <xliff:g id="DEVICEMODEL">%1$s</xliff:g> se trenutno imenuje »<xliff:g id="DEVICENAME">%2$s</xliff:g>«"</string>
     <string name="change_setting" msgid="2047402388786162246">"Spremeni"</string>
@@ -673,4 +673,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Vnovičen zagon v varnem načinu"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Ali želite znova zagnati v varnem načinu?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"S tem onemogočite vse nameščene aplikacije drugih ponudnikov. Obnovljene bodo pri naslednjem vnovičnem zagonu."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Zajemanje poročila o napakah"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Razpoložljive navidezne tipkovnice"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Upravljanje tipkovnic"</string>
 </resources>

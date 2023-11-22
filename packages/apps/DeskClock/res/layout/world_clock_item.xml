@@ -14,43 +14,53 @@
      limitations under the License.
 -->
 
-<com.android.deskclock.widget.EllipsizeLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center_vertical"
-    android:paddingTop="@dimen/medium_space_top">
+    android:orientation="horizontal">
 
-    <include layout="@layout/world_clock_label" />
+    <!-- Left gutter. -->
+    <Space
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="@integer/gutter_width_percent" />
 
-    <FrameLayout
-        android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:layout_weight="@integer/guttered_content_width_percent"
+        android:gravity="center_vertical">
+
+        <include
+            layout="@layout/world_clock_city_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
 
         <TextClock
             android:id="@+id/digital_clock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:paddingStart="24dp"
             android:layout_gravity="end"
-            android:baselineAligned="true"
-            android:format12Hour="@string/world_clock_12_hours_format"
-            android:format24Hour="@string/clock_24_hours_format"
             android:singleLine="true"
-            android:textColor="@color/clock_white"
-            style="@style/medium_light" />
+            android:textAppearance="@style/world_clock_time"/>
 
         <com.android.deskclock.AnalogClock
             android:id="@+id/analog_clock"
             android:layout_width="@dimen/world_clock_analog_size"
             android:layout_height="@dimen/world_clock_analog_size"
+            android:paddingStart="24dp"
             android:layout_gravity="end"
-            android:layout_marginBottom="@dimen/bottom_text_spacing_analog_small"
-            android:dial="@drawable/clock_analog_dial_mipmap"
-            android:hand_hour="@drawable/clock_analog_hour_mipmap"
-            android:hand_minute="@drawable/clock_analog_minute_mipmap" />
+            android:layout_marginBottom="@dimen/bottom_text_spacing_analog_small" />
 
-    </FrameLayout>
+    </LinearLayout>
 
-</com.android.deskclock.widget.EllipsizeLayout>
+    <!-- Right gutter. -->
+    <Space
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="@integer/gutter_width_percent" />
 
+</LinearLayout>

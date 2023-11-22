@@ -43,57 +43,36 @@
 #include "xlat/semop_flags.h"
 
 #if defined HAVE_SYS_SEM_H || defined HAVE_LINUX_SEM_H
-static void
-tprint_sembuf(const struct sembuf *sb)
+static bool
+print_sembuf(struct tcb *tcp, void *elem_buf, size_t elem_size, void *data)
 {
+	const struct sembuf *sb = elem_buf;
+
 	tprintf("{%u, %d, ", sb->sem_num, sb->sem_op);
-	printflags(semop_flags, sb->sem_flg, "SEM_???");
+	printflags(semop_flags, (unsigned short) sb->sem_flg, "SEM_???");
 	tprints("}");
+
+	return true;
 }
 #endif
 
 static void
-tprint_sembuf_array(struct tcb *tcp, const long addr, const unsigned long count)
+tprint_sembuf_array(struct tcb *const tcp, const kernel_ulong_t addr,
+		    const unsigned int count)
 {
 #if defined HAVE_SYS_SEM_H || defined HAVE_LINUX_SEM_H
-	unsigned long max_count;
 	struct sembuf sb;
-
-	if (abbrev(tcp))
-		max_count = (max_strlen < count) ? max_strlen : count;
-	else
-		max_count = count;
-
-	if (!max_count)
-		printaddr(addr);
-	else if (!umove_or_printaddr(tcp, addr, &sb)) {
-		unsigned long i;
-
-		tprints("[");
-		tprint_sembuf(&sb);
-
-		for (i = 1; i < max_count; ++i) {
-			tprints(", ");
-			if (umove_or_printaddr(tcp, addr + i * sizeof(sb), &sb))
-				break;
-			else
-				tprint_sembuf(&sb);
-		}
-
-		if (i < max_count || max_count < count)
-			tprints(", ...");
-
-		tprints("]");
-	}
+	print_array(tcp, addr, count, &sb, sizeof(sb),
+		    umoven_or_printaddr, print_sembuf, 0);
 #else
 	printaddr(addr);
 #endif
-	tprintf(", %lu", count);
+	tprintf(", %u", count);
 }
 
 SYS_FUNC(semop)
 {
-	tprintf("%lu, ", tcp->u_arg[0]);
+	tprintf("%d, ", (int) tcp->u_arg[0]);
 	if (indirect_ipccall(tcp)) {
 		tprint_sembuf_array(tcp, tcp->u_arg[3], tcp->u_arg[1]);
 	} else {
@@ -104,7 +83,7 @@ SYS_FUNC(semop)
 
 SYS_FUNC(semtimedop)
 {
-	tprintf("%lu, ", tcp->u_arg[0]);
+	tprintf("%d, ", (int) tcp->u_arg[0]);
 	if (indirect_ipccall(tcp)) {
 		tprint_sembuf_array(tcp, tcp->u_arg[3], tcp->u_arg[1]);
 		tprints(", ");
@@ -123,26 +102,31 @@ SYS_FUNC(semtimedop)
 
 SYS_FUNC(semget)
 {
-	if (tcp->u_arg[0])
-		tprintf("%#lx", tcp->u_arg[0]);
+	const int key = (int) tcp->u_arg[0];
+	if (key)
+		tprintf("%#x", key);
 	else
 		tprints("IPC_PRIVATE");
-	tprintf(", %lu, ", tcp->u_arg[1]);
+	tprintf(", %d, ", (int) tcp->u_arg[1]);
 	if (printflags(resource_flags, tcp->u_arg[2] & ~0777, NULL) != 0)
 		tprints("|");
-	tprintf("%#lo", tcp->u_arg[2] & 0777);
+	print_numeric_umode_t(tcp->u_arg[2] & 0777);
 	return RVAL_DECODED;
 }
 
 SYS_FUNC(semctl)
 {
-	tprintf("%lu, %lu, ", tcp->u_arg[0], tcp->u_arg[1]);
+	tprintf("%d, %d, ", (int) tcp->u_arg[0], (int) tcp->u_arg[1]);
 	PRINTCTL(semctl_flags, tcp->u_arg[2], "SEM_???");
 	tprints(", ");
-	if (indirect_ipccall(tcp)) {
+	if (indirect_ipccall(tcp)
+#ifdef SPARC64
+	    && current_personality != 0
+#endif
+	   ) {
 		printnum_ptr(tcp, tcp->u_arg[3]);
 	} else {
-		tprintf("%#lx", tcp->u_arg[3]);
+		printaddr(tcp->u_arg[3]);
 	}
 	return RVAL_DECODED;
 }

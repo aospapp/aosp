@@ -16,45 +16,63 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.app.Instrumentation;
-import android.test.ActivityInstrumentationTestCase2;
+import android.content.Context;
+import android.hardware.input.InputManager;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.SearchEvent;
 
-public class SearchEventTest extends ActivityInstrumentationTestCase2<SearchEventActivity> {
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class SearchEventTest {
 
     private Instrumentation mInstrumentation;
     private SearchEventActivity mActivity;
 
-    public SearchEventTest() {
-        super(SearchEventActivity.class);
+    @Rule
+    public ActivityTestRule<SearchEventActivity> mActivityRule =
+            new ActivityTestRule<>(SearchEventActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        PollingCheck.waitFor(5000, mActivity::hasWindowFocus);
     }
 
-    // Wait until mActivity has window focus, or timeout ms elapses.  Return true
-    // iff mActivity gained window focus.
-    private boolean waitForActivityToHaveFocus(long timeout) {
-        long start = System.currentTimeMillis();
-        long cur = System.currentTimeMillis();
-        try {
-            while (!mActivity.hasWindowFocus() && (cur - start) < timeout) {
-                Thread.sleep(50);
+    @Test
+    public void testConstructor() {
+        final InputManager inputManager = (InputManager) mInstrumentation.getTargetContext().
+                getSystemService(Context.INPUT_SERVICE);
+        if (inputManager == null) {
+            return;
+        }
+        final int[] inputDeviceIds = inputManager.getInputDeviceIds();
+        if (inputDeviceIds != null) {
+            for (int inputDeviceId : inputDeviceIds) {
+                final InputDevice inputDevice = inputManager.getInputDevice(inputDeviceId);
+                new SearchEvent(inputDevice);
             }
-        } catch (InterruptedException x) {}
-        return mActivity.hasWindowFocus();
+        }
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mInstrumentation = getInstrumentation();
-        mActivity = getActivity();
-        assertTrue(waitForActivityToHaveFocus(5000 /* ms = 5s */));
-    }
-
-    public void testTest() throws Exception {
+    @Test
+    public void testBasics() {
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_SEARCH);
         SearchEvent se = mActivity.getTestSearchEvent();
         assertNotNull(se);

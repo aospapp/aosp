@@ -24,9 +24,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
+import android.os.Process;
+import android.os.UserHandle;
 import android.security.KeyChainException;
 import android.test.MoreAsserts;
 
+import com.android.org.conscrypt.TrustedCertificateStore;
+
+import java.io.ByteArrayInputStream;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -170,14 +179,18 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         super.tearDown();
     }
 
-    public void testCaCertsOperations() throws InterruptedException {
-        byte[] cert = TEST_CA.getBytes();
+    public void testCaCertsOperations() throws InterruptedException, CertificateException {
+        final byte[] cert = TEST_CA.getBytes();
+        final Certificate caCert = CertificateFactory.getInstance("X.509")
+                .generateCertificate(new ByteArrayInputStream(cert));
+        final TrustedCertificateStore store = new TrustedCertificateStore();
 
         mDpm.setCertInstallerPackage(ADMIN_RECEIVER_COMPONENT, CERT_INSTALLER_PACKAGE);
         assertEquals(CERT_INSTALLER_PACKAGE,
                 mDpm.getCertInstallerPackage(ADMIN_RECEIVER_COMPONENT));
 
         // Exercise installCaCert()
+        assertNull(store.getCertificateAlias(caCert));
         installCaCert(cert);
         assertResult("installCaCert", true);
         assertTrue("Certificate is not installed properly", mDpm.hasCaCertInstalled(
@@ -187,11 +200,20 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         verifyCaCert(cert);
         assertResult("getInstalledCaCerts()", true);
 
+        // Verify that the CA cert was marked as installed by the Device Owner / Profile Owner.
+        final String alias = store.getCertificateAlias(caCert);
+        assertNotNull(alias);
+        verifyOwnerInstalledStatus(alias, true);
+
         // Exercise uninstallCaCert()
         removeCaCert(cert);
         assertResult("uninstallCaCert()", true);
         assertFalse("Certificate is not removed properly", mDpm.hasCaCertInstalled(
                 ADMIN_RECEIVER_COMPONENT, cert));
+
+        // Verify that the CA cert is no longer reported as installed by the Device Owner / Profile
+        // Owner.
+        verifyOwnerInstalledStatus(alias, false);
 
         // Clear delegated cert installer.
         // Tests after this are expected to fail.
@@ -241,6 +263,11 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
             MoreAsserts.assertContainsRegex("is not installed on the current user",
                         ex.getMessage());
         }
+        if (!shouldThrowException) {
+            assertTrue("Cert install delegate was not set on uninstalled package",
+                    NOT_EXIST_CERT_INSTALLER_PACKAGE.equals(
+                            mDpm.getCertInstallerPackage(ADMIN_RECEIVER_COMPONENT)));
+        }
     }
 
     /**
@@ -281,6 +308,13 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         intent.putExtra(EXTRA_CERT_DATA, cert);
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcast(intent);
+    }
+
+    private void verifyOwnerInstalledStatus(String alias, boolean expectOwnerInstalled) {
+        final List<String> ownerInstalledCerts =
+                mDpm.getOwnerInstalledCaCerts(Process.myUserHandle());
+        assertNotNull(ownerInstalledCerts);
+        assertEquals(expectOwnerInstalled, ownerInstalledCerts.contains(alias));
     }
 
     private void assertResult(String testName, Boolean expectSuccess) throws InterruptedException {

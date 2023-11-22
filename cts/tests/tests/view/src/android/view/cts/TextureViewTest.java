@@ -16,6 +16,10 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Instrumentation;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -23,39 +27,42 @@ import android.graphics.Point;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
-import android.view.cts.util.ViewTestUtils;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.TimeoutException;
 
 @MediumTest
+@RunWith(AndroidJUnit4.class)
 public class TextureViewTest {
+    private Instrumentation mInstrumentation;
+    private TextureViewCtsActivity mActivity;
 
     @Rule
-    public ActivityTestRule<TextureViewCtsActivity> mActivityRule = new ActivityTestRule<>(
-            TextureViewCtsActivity.class);
-
-    private TextureViewCtsActivity mActivity;
-    private Instrumentation mInstrumentation;
+    public ActivityTestRule<TextureViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TextureViewCtsActivity.class);
 
     @Before
-    public void setUp() throws Exception {
-        mActivity = mActivityRule.getActivity();
+    public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
         assertNotNull(mActivity);
         assertNotNull(mInstrumentation);
     }
 
     @Test
     public void testFirstFrames() throws Throwable {
+        mActivity.waitForEnterAnimationComplete();
+
         final Point center = new Point();
-        mInstrumentation.waitForIdleSync();
-        mInstrumentation.runOnMainSync(() -> {
+        mActivityRule.runOnUiThread(() -> {
             View content = mActivity.findViewById(android.R.id.content);
             int[] outLocation = new int[2];
             content.getLocationOnScreen(outLocation);
@@ -74,11 +81,10 @@ public class TextureViewTest {
         updatedCount = mActivity.waitForSurfaceUpdateCount(1);
         assertEquals(1, updatedCount);
         assertEquals(Color.WHITE, getPixel(center));
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mActivity,
-                () -> mActivity.removeCover());
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule,
+                mActivity.findViewById(android.R.id.content), () -> mActivity.removeCover());
 
-        int color;
-        color = waitForChange(center, Color.WHITE);
+        int color = waitForChange(center, Color.WHITE);
         assertEquals(Color.GREEN, color);
         mActivity.drawColor(Color.BLUE);
         updatedCount = mActivity.waitForSurfaceUpdateCount(2);

@@ -14,25 +14,17 @@
  * limitations under the License.
  */
 
-#define ATRACE_TAG ATRACE_TAG_RS
-
-#include "rsContext.h"
 #include "rsAllocation.h"
-#include "rs_hal.h"
-
-#include <cutils/compiler.h>
-#include <utils/Log.h>
+#include "rsContext.h"
 #include "rsGrallocConsumer.h"
-#include <gui/BufferItem.h>
-#include <ui/GraphicBuffer.h>
-
+#include "rs_hal.h"
 
 namespace android {
 namespace renderscript {
 
-GrallocConsumer::GrallocConsumer(Allocation *a, const sp<IGraphicBufferConsumer>& bq, int flags, uint32_t numAlloc) :
-    ConsumerBase(bq, true)
+GrallocConsumer::GrallocConsumer (const Context *rsc, Allocation *a, uint32_t numAlloc)
 {
+    mCtx = rsc;
     mAlloc = new Allocation *[numAlloc];
     mAcquiredBuffer = new AcquiredBuffer[numAlloc];
     isIdxUsed = new bool[numAlloc];
@@ -40,237 +32,216 @@ GrallocConsumer::GrallocConsumer(Allocation *a, const sp<IGraphicBufferConsumer>
     mAlloc[0] = a;
     isIdxUsed[0] = true;
     mNumAlloc = numAlloc;
-    if (flags == 0) {
-        flags = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_RENDERSCRIPT;
-    } else {
-        flags |= GRALLOC_USAGE_RENDERSCRIPT;
-    }
-    mConsumer->setConsumerUsageBits(flags);
-    mConsumer->setMaxAcquiredBufferCount(numAlloc + 1);
 
-    uint32_t y = a->mHal.drvState.lod[0].dimY;
-    if (y < 1) y = 1;
-    mConsumer->setDefaultBufferSize(a->mHal.drvState.lod[0].dimX, y);
+    uint32_t width  = a->mHal.drvState.lod[0].dimX;
+    uint32_t height = a->mHal.drvState.lod[0].dimY;
+    if (height < 1) height = 1;
 
+    int32_t format = AIMAGE_FORMAT_RGBA_8888;
     if (a->mHal.state.yuv) {
-        bq->setDefaultBufferFormat(a->mHal.state.yuv);
+        format = AIMAGE_FORMAT_YUV_420_888;
     }
+
+    media_status_t ret = AImageReader_new(
+            width, height, format,
+            mNumAlloc, &mImgReader);
+    if (ret != AMEDIA_OK || mImgReader == nullptr) {
+        ALOGE("Error creating image reader. ret %d", ret);
+    }
+
+    ret = AImageReader_getWindow(mImgReader, &mNativeWindow);
+    if (ret != AMEDIA_OK || mNativeWindow == nullptr) {
+        ALOGE("Error creating native window. ret %d", ret);
+    }
+
+    mReaderCb = {this, GrallocConsumer::onFrameAvailable};
+    ret = AImageReader_setImageListener(mImgReader, &mReaderCb);
+
     for (uint32_t i = 1; i < numAlloc; i++) {
         isIdxUsed[i] = false;
     }
-    //mBufferQueue->setConsumerName(name);
 }
 
 GrallocConsumer::~GrallocConsumer() {
+    AImageReader_delete(mImgReader);
     delete[] mAlloc;
     delete[] mAcquiredBuffer;
     delete[] isIdxUsed;
 }
 
+void GrallocConsumer::onFrameAvailable(void* obj, AImageReader* reader) {
+    GrallocConsumer* consumer = (GrallocConsumer *) obj;
+    for (uint32_t i = 0; i < consumer->mNumAlloc; i++) {
+        if (consumer->mAlloc[i] != nullptr) {
+            intptr_t ip = (intptr_t)(consumer->mAlloc[i]);
+            consumer->mCtx->sendMessageToClient(&ip,
+                RS_MESSAGE_TO_CLIENT_NEW_BUFFER, 0, sizeof(ip), true);
+        }
+    }
+}
 
+ANativeWindow* GrallocConsumer::getNativeWindow() {
+    return mNativeWindow;
+}
 
-status_t GrallocConsumer::lockNextBuffer(uint32_t idx) {
-    Mutex::Autolock _l(mMutex);
-    status_t err;
+media_status_t GrallocConsumer::lockNextBuffer(uint32_t idx) {
+    media_status_t ret;
 
     if (idx >= mNumAlloc) {
         ALOGE("Invalid buffer index: %d", idx);
-        return BAD_VALUE;
+        return AMEDIA_ERROR_INVALID_PARAMETER;
     }
 
-    if (mAcquiredBuffer[idx].mSlot != BufferQueue::INVALID_BUFFER_SLOT) {
-        err = releaseAcquiredBufferLocked(idx);
-        if (err) {
-            return err;
+    if (mAcquiredBuffer[idx].mImg != nullptr) {
+        ret = unlockBuffer(idx);
+        if (ret != AMEDIA_OK) {
+            return ret;
         }
     }
 
-    BufferItem b;
-
-    err = acquireBufferLocked(&b, 0);
-    if (err != OK) {
-        if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
-            return BAD_VALUE;
-        } else {
-            ALOGE("Error acquiring buffer: %s (%d)", strerror(err), err);
-            return err;
-        }
+    ret = AImageReader_acquireNextImage(mImgReader, &(mAcquiredBuffer[idx].mImg));
+    if (ret != AMEDIA_OK || mAcquiredBuffer[idx].mImg == nullptr) {
+        ALOGE("%s: acquire image from reader %p failed! ret: %d, img %p",
+                __FUNCTION__, mImgReader, ret, mAcquiredBuffer[idx].mImg);
+        return ret;
     }
 
-    int slot = b.mSlot;
-
-    if (b.mFence.get()) {
-        err = b.mFence->waitForever("GrallocConsumer::lockNextBuffer");
-        if (err != OK) {
-            ALOGE("Failed to wait for fence of acquired buffer: %s (%d)",
-                    strerror(-err), err);
-            return err;
-        }
+    AImage *img = mAcquiredBuffer[idx].mImg;
+    int32_t format = -1;
+    ret = AImage_getFormat(img, &format);
+    if (ret != AMEDIA_OK || format == -1) {
+        ALOGE("%s: get format for image %p failed! ret: %d, format %d",
+                 __FUNCTION__, img, ret, format);
+        return ret;
     }
 
-    void *bufferPointer = nullptr;
-    android_ycbcr ycbcr = android_ycbcr();
-
-    if (mSlots[slot].mGraphicBuffer->getPixelFormat() ==
-            HAL_PIXEL_FORMAT_YCbCr_420_888) {
-        err = mSlots[slot].mGraphicBuffer->lockYCbCr(
-            GraphicBuffer::USAGE_SW_READ_OFTEN,
-            b.mCrop,
-            &ycbcr);
-
-        if (err != OK) {
-            ALOGE("Unable to lock YCbCr buffer for CPU reading: %s (%d)",
-                    strerror(-err), err);
-            return err;
-        }
-        bufferPointer = ycbcr.y;
-    } else {
-        err = mSlots[slot].mGraphicBuffer->lock(
-            GraphicBuffer::USAGE_SW_READ_OFTEN,
-            b.mCrop,
-            &bufferPointer);
-
-        if (err != OK) {
-            ALOGE("Unable to lock buffer for CPU reading: %s (%d)",
-                    strerror(-err), err);
-            return err;
-        }
+    if (format != AIMAGE_FORMAT_YUV_420_888 && format != AIMAGE_FORMAT_RGBA_8888) {
+        ALOGE("Format %d not supported", format);
+        return AMEDIA_ERROR_INVALID_OBJECT;
     }
 
-    size_t lockedIdx = 0;
-    rsAssert(mAcquiredBuffer[idx].mSlot == BufferQueue::INVALID_BUFFER_SLOT);
+    uint8_t *data = nullptr;
+    int dataLength = 0;
+    ret =  AImage_getPlaneData(img, 0, &data, &dataLength);
+    if (ret != AMEDIA_OK || data == nullptr || dataLength <= 0) {
+        ALOGE("%s: get data for image %p failed! ret: %d, data %p, len %d",
+                __FUNCTION__, img, ret, data, dataLength);
+        return ret;
+    }
 
-    mAcquiredBuffer[idx].mSlot = slot;
-    mAcquiredBuffer[idx].mBufferPointer = bufferPointer;
-    mAcquiredBuffer[idx].mGraphicBuffer = mSlots[slot].mGraphicBuffer;
+    int64_t timestamp = -1;
+    ret = AImage_getTimestamp(img, &timestamp);
+    if (ret != AMEDIA_OK || timestamp == -1) {
+        ALOGE("%s: get timestamp for image %p failed! ret: %d",
+                __FUNCTION__, img, ret);
+        return ret;
+    }
 
-    mAlloc[idx]->mHal.drvState.lod[0].mallocPtr = reinterpret_cast<uint8_t*>(bufferPointer);
-    mAlloc[idx]->mHal.drvState.lod[0].stride = mSlots[slot].mGraphicBuffer->getStride() *
-            mAlloc[idx]->mHal.state.type->getElementSizeBytes();
-    mAlloc[idx]->mHal.state.nativeBuffer = mAcquiredBuffer[idx].mGraphicBuffer->getNativeBuffer();
-    mAlloc[idx]->mHal.state.timestamp = b.mTimestamp;
+    int32_t rowstride = -1;
+    ret = AImage_getPlaneRowStride(img, 0, &rowstride);
+    if (ret != AMEDIA_OK || rowstride == -1) {
+        ALOGE("%s: get row stride for image %p failed! ret: %d, rowstride %d",
+                __FUNCTION__, img, ret, rowstride);
+        return ret;
+    }
 
-    rsAssert(mAlloc[idx]->mHal.drvState.lod[0].dimX ==
-             mSlots[slot].mGraphicBuffer->getWidth());
-    rsAssert(mAlloc[idx]->mHal.drvState.lod[0].dimY ==
-             mSlots[slot].mGraphicBuffer->getHeight());
+    AHardwareBuffer *hardwareBuffer = nullptr;
+    ret =  AImage_getHardwareBuffer(img, &hardwareBuffer);
+    if (ret != AMEDIA_OK || hardwareBuffer == nullptr) {
+        ALOGE("%s: get hardware buffer for image %p failed! ret: %d",
+                __FUNCTION__, img, ret);
+        return ret;
+    }
 
-    //mAlloc->format = mSlots[buf].mGraphicBuffer->getPixelFormat();
+    mAcquiredBuffer[idx].mBufferPointer = data;
 
-    //mAlloc->crop        = b.mCrop;
-    //mAlloc->transform   = b.mTransform;
-    //mAlloc->scalingMode = b.mScalingMode;
-    //mAlloc->frameNumber = b.mFrameNumber;
+    mAlloc[idx]->mHal.drvState.lod[0].mallocPtr = data;
+    mAlloc[idx]->mHal.drvState.lod[0].stride = rowstride;
+    mAlloc[idx]->mHal.state.nativeBuffer = hardwareBuffer;
+    mAlloc[idx]->mHal.state.timestamp = timestamp;
 
-    // For YUV Allocations, we need to populate the drvState with details of how
-    // the data is layed out.
-    // RenderScript requests a buffer in the YCbCr_420_888 format.
-    // The Camera HAL can return a buffer of YCbCr_420_888 or YV12, regardless
-    // of the requested format.
-    // mHal.state.yuv contains the requested format,
-    // mGraphicBuffer->getPixelFormat() is the returned format.
-    if (mAlloc[idx]->mHal.state.yuv == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+    if (format == AIMAGE_FORMAT_YUV_420_888) {
         const int yWidth = mAlloc[idx]->mHal.drvState.lod[0].dimX;
         const int yHeight = mAlloc[idx]->mHal.drvState.lod[0].dimY;
 
-        if (mSlots[slot].mGraphicBuffer->getPixelFormat() ==
-                HAL_PIXEL_FORMAT_YCbCr_420_888) {
-            const int cWidth = yWidth / 2;
-            const int cHeight = yHeight / 2;
+        const int cWidth = yWidth / 2;
+        const int cHeight = yHeight / 2;
 
-            mAlloc[idx]->mHal.drvState.lod[1].dimX = cWidth;
-            mAlloc[idx]->mHal.drvState.lod[1].dimY = cHeight;
-            mAlloc[idx]->mHal.drvState.lod[2].dimX = cWidth;
-            mAlloc[idx]->mHal.drvState.lod[2].dimY = cHeight;
-
-            mAlloc[idx]->mHal.drvState.lod[0].mallocPtr = ycbcr.y;
-            mAlloc[idx]->mHal.drvState.lod[1].mallocPtr = ycbcr.cb;
-            mAlloc[idx]->mHal.drvState.lod[2].mallocPtr = ycbcr.cr;
-
-            mAlloc[idx]->mHal.drvState.lod[0].stride = ycbcr.ystride;
-            mAlloc[idx]->mHal.drvState.lod[1].stride = ycbcr.cstride;
-            mAlloc[idx]->mHal.drvState.lod[2].stride = ycbcr.cstride;
-
-            mAlloc[idx]->mHal.drvState.yuv.shift = 1;
-            mAlloc[idx]->mHal.drvState.yuv.step = ycbcr.chroma_step;
-            mAlloc[idx]->mHal.drvState.lodCount = 3;
-        } else if (mSlots[slot].mGraphicBuffer->getPixelFormat() ==
-                       HAL_PIXEL_FORMAT_YV12) {
-            // For YV12, the data layout is Y, followed by Cr, followed by Cb;
-            // for YCbCr_420_888, it's Y, followed by Cb, followed by Cr.
-            // RenderScript assumes lod[0] is Y, lod[1] is Cb, and lod[2] is Cr.
-            const int cWidth = yWidth / 2;
-            const int cHeight = yHeight / 2;
-
-            mAlloc[idx]->mHal.drvState.lod[1].dimX = cWidth;
-            mAlloc[idx]->mHal.drvState.lod[1].dimY = cHeight;
-            mAlloc[idx]->mHal.drvState.lod[2].dimX = cWidth;
-            mAlloc[idx]->mHal.drvState.lod[2].dimY = cHeight;
-
-            size_t yStride = rsRound(yWidth *
-                 mAlloc[idx]->mHal.state.type->getElementSizeBytes(), 16);
-            size_t cStride = rsRound(yStride >> 1, 16);
-
-            uint8_t *yPtr = (uint8_t *)mAlloc[idx]->mHal.drvState.lod[0].mallocPtr;
-            uint8_t *crPtr = yPtr + yStride * yHeight;
-            uint8_t *cbPtr = crPtr + cStride * cHeight;
-
-            mAlloc[idx]->mHal.drvState.lod[1].mallocPtr = cbPtr;
-            mAlloc[idx]->mHal.drvState.lod[2].mallocPtr = crPtr;
-
-            mAlloc[idx]->mHal.drvState.lod[0].stride = yStride;
-            mAlloc[idx]->mHal.drvState.lod[1].stride = cStride;
-            mAlloc[idx]->mHal.drvState.lod[2].stride = cStride;
-
-            mAlloc[idx]->mHal.drvState.yuv.shift = 1;
-            mAlloc[idx]->mHal.drvState.yuv.step = 1;
-            mAlloc[idx]->mHal.drvState.lodCount = 3;
-        } else {
-            ALOGD("Unrecognized format: %d",
-               mSlots[slot].mGraphicBuffer->getPixelFormat());
+        uint8_t *uData = nullptr;
+        int uDataLength = 0;
+        ret =  AImage_getPlaneData(img, 1, &uData, &uDataLength);
+        if (ret != AMEDIA_OK || uData == nullptr || uDataLength <= 0) {
+            ALOGE("%s: get U data for image %p failed! ret: %d, data %p, len %d",
+                    __FUNCTION__, img, ret, uData, uDataLength);
+            return ret;
         }
+
+        uint8_t *vData = nullptr;
+        int vDataLength = 0;
+        ret =  AImage_getPlaneData(img, 2, &vData, &vDataLength);
+        if (ret != AMEDIA_OK || vData == nullptr || vDataLength <= 0) {
+            ALOGE("%s: get V data for image %p failed! ret: %d, data %p, len %d",
+                    __FUNCTION__, img, ret, vData, vDataLength);
+            return ret;
+        }
+
+        int32_t uRowStride = -1;
+        ret = AImage_getPlaneRowStride(img, 1, &uRowStride);
+        if (ret != AMEDIA_OK || uRowStride == -1) {
+            ALOGE("%s: get U row stride for image %p failed! ret: %d, uRowStride %d",
+                    __FUNCTION__, img, ret, uRowStride);
+            return ret;
+        }
+
+        int32_t vRowStride = -1;
+        ret = AImage_getPlaneRowStride(img, 2, &vRowStride);
+        if (ret != AMEDIA_OK || vRowStride == -1) {
+            ALOGE("%s: get V row stride for image %p failed! ret: %d, vRowStride %d",
+                    __FUNCTION__, img, ret, vRowStride);
+            return ret;
+        }
+
+        int32_t uPixStride = -1;
+        ret = AImage_getPlanePixelStride(img, 1, &uPixStride);
+        if (ret != AMEDIA_OK || uPixStride == -1) {
+            ALOGE("%s: get U pixel stride for image %p failed! ret: %d, uPixStride %d",
+                    __FUNCTION__, img, ret, uPixStride);
+            return ret;
+        }
+
+        mAlloc[idx]->mHal.drvState.lod[1].dimX = cWidth;
+        mAlloc[idx]->mHal.drvState.lod[1].dimY = cHeight;
+        mAlloc[idx]->mHal.drvState.lod[2].dimX = cWidth;
+        mAlloc[idx]->mHal.drvState.lod[2].dimY = cHeight;
+
+        mAlloc[idx]->mHal.drvState.lod[1].mallocPtr = uData;
+        mAlloc[idx]->mHal.drvState.lod[2].mallocPtr = vData;
+
+        mAlloc[idx]->mHal.drvState.lod[1].stride = uRowStride;
+        mAlloc[idx]->mHal.drvState.lod[2].stride = vRowStride;
+
+        mAlloc[idx]->mHal.drvState.yuv.shift = 1;
+        mAlloc[idx]->mHal.drvState.yuv.step = uPixStride;
+        mAlloc[idx]->mHal.drvState.lodCount = 3;
     }
 
-    return OK;
+    return AMEDIA_OK;
 }
 
-status_t GrallocConsumer::unlockBuffer(uint32_t idx) {
-    Mutex::Autolock _l(mMutex);
-    return releaseAcquiredBufferLocked(idx);
-}
-
-status_t GrallocConsumer::releaseAcquiredBufferLocked(uint32_t idx) {
-    status_t err;
+media_status_t GrallocConsumer::unlockBuffer(uint32_t idx) {
+    media_status_t ret;
 
     if (idx >= mNumAlloc) {
         ALOGE("Invalid buffer index: %d", idx);
-        return BAD_VALUE;
+        return AMEDIA_ERROR_INVALID_PARAMETER;
     }
-    if (mAcquiredBuffer[idx].mGraphicBuffer == nullptr) {
-       return OK;
-    }
-
-    err = mAcquiredBuffer[idx].mGraphicBuffer->unlock();
-    if (err != OK) {
-        ALOGE("%s: Unable to unlock graphic buffer", __FUNCTION__);
-        return err;
-    }
-    int buf = mAcquiredBuffer[idx].mSlot;
-
-    // release the buffer if it hasn't already been freed by the BufferQueue.
-    // This can happen, for example, when the producer of this buffer
-    // disconnected after this buffer was acquired.
-    if (CC_LIKELY(mAcquiredBuffer[idx].mGraphicBuffer ==
-            mSlots[buf].mGraphicBuffer)) {
-        releaseBufferLocked(
-                buf, mAcquiredBuffer[idx].mGraphicBuffer,
-                EGL_NO_DISPLAY, EGL_NO_SYNC_KHR);
+    if (mAcquiredBuffer[idx].mImg == nullptr) {
+       return AMEDIA_OK;
     }
 
-    mAcquiredBuffer[idx].mSlot = BufferQueue::INVALID_BUFFER_SLOT;
-    mAcquiredBuffer[idx].mBufferPointer = nullptr;
-    mAcquiredBuffer[idx].mGraphicBuffer.clear();
-    return OK;
+    AImage_delete(mAcquiredBuffer[idx].mImg);
+    mAcquiredBuffer[idx].mImg = nullptr;
+    return AMEDIA_OK;
 }
 
 uint32_t GrallocConsumer::getNextAvailableIdx(Allocation *a) {
@@ -293,15 +264,24 @@ bool GrallocConsumer::releaseIdx(uint32_t idx) {
         ALOGV("Buffer index already released: %d", idx);
         return true;
     }
-    status_t err;
-    err = unlockBuffer(idx);
-    if (err != OK) {
+    media_status_t ret;
+    ret = unlockBuffer(idx);
+    if (ret != OK) {
         ALOGE("Unable to unlock graphic buffer");
         return false;
     }
     mAlloc[idx] = nullptr;
     isIdxUsed[idx] = false;
     return true;
+}
+
+bool GrallocConsumer::isActive() {
+    for (uint32_t i = 0; i < mNumAlloc; i++) {
+        if (isIdxUsed[i]) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace renderscript

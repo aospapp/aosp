@@ -15,6 +15,9 @@
  */
 package com.squareup.okhttp.internal.ws;
 
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.ResponseBody;
+import com.squareup.okhttp.ws.WebSocket;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.ProtocolException;
@@ -24,7 +27,6 @@ import okio.Okio;
 import okio.Source;
 import okio.Timeout;
 
-import static com.squareup.okhttp.ws.WebSocket.PayloadType;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.B0_FLAG_FIN;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.B0_FLAG_RSV1;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.B0_FLAG_RSV2;
@@ -40,7 +42,7 @@ import static com.squareup.okhttp.internal.ws.WebSocketProtocol.OPCODE_CONTROL_P
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.OPCODE_FLAG_CONTROL;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.OPCODE_TEXT;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.PAYLOAD_LONG;
-import static com.squareup.okhttp.internal.ws.WebSocketProtocol.PAYLOAD_MAX;
+import static com.squareup.okhttp.internal.ws.WebSocketProtocol.PAYLOAD_BYTE_MAX;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.PAYLOAD_SHORT;
 import static com.squareup.okhttp.internal.ws.WebSocketProtocol.toggleMask;
 import static java.lang.Integer.toHexString;
@@ -50,7 +52,7 @@ import static java.lang.Integer.toHexString;
  */
 public final class WebSocketReader {
   public interface FrameCallback {
-    void onMessage(BufferedSource source, PayloadType type) throws IOException;
+    void onMessage(ResponseBody body) throws IOException;
     void onPing(Buffer buffer);
     void onPong(Buffer buffer);
     void onClose(int code, String reason);
@@ -145,8 +147,8 @@ public final class WebSocketReader {
     }
     frameBytesRead = 0;
 
-    if (isControlFrame && frameLength > PAYLOAD_MAX) {
-      throw new ProtocolException("Control frame must be less than " + PAYLOAD_MAX + "B.");
+    if (isControlFrame && frameLength > PAYLOAD_BYTE_MAX) {
+      throw new ProtocolException("Control frame must be less than " + PAYLOAD_BYTE_MAX + "B.");
     }
 
     if (isMasked) {
@@ -182,18 +184,23 @@ public final class WebSocketReader {
         frameCallback.onPong(buffer);
         break;
       case OPCODE_CONTROL_CLOSE:
-        int code = 0;
+        int code = 1000;
         String reason = "";
         if (buffer != null) {
-          if (buffer.size() < 2) {
-            throw new ProtocolException("Close payload must be at least two bytes.");
-          }
-          code = buffer.readShort();
-          if (code < 1000 || code >= 5000) {
-            throw new ProtocolException("Code must be in range [1000,5000): " + code);
-          }
+          long bufferSize = buffer.size();
+          if (bufferSize == 1) {
+            throw new ProtocolException("Malformed close payload length of 1.");
+          } else if (bufferSize != 0) {
+            code = buffer.readShort();
+            if (code < 1000 || code >= 5000) {
+              throw new ProtocolException("Code must be in range [1000,5000): " + code);
+            }
+            if ((code >= 1004 && code <= 1006) || (code >= 1012 && code <= 2999)) {
+              throw new ProtocolException("Code " + code + " is reserved and may not be used.");
+            }
 
-          reason = buffer.readUtf8();
+            reason = buffer.readUtf8();
+          }
         }
         frameCallback.onClose(code, reason);
         closed = true;
@@ -204,20 +211,35 @@ public final class WebSocketReader {
   }
 
   private void readMessageFrame() throws IOException {
-    PayloadType type;
+    final MediaType type;
     switch (opcode) {
       case OPCODE_TEXT:
-        type = PayloadType.TEXT;
+        type = WebSocket.TEXT;
         break;
       case OPCODE_BINARY:
-        type = PayloadType.BINARY;
+        type = WebSocket.BINARY;
         break;
       default:
         throw new ProtocolException("Unknown opcode: " + toHexString(opcode));
     }
 
+    final BufferedSource source = Okio.buffer(framedMessageSource);
+    ResponseBody body = new ResponseBody() {
+      @Override public MediaType contentType() {
+        return type;
+      }
+
+      @Override public long contentLength() throws IOException {
+        return -1;
+      }
+
+      @Override public BufferedSource source() throws IOException {
+        return source;
+      }
+    };
+
     messageClosed = false;
-    frameCallback.onMessage(Okio.buffer(framedMessageSource), type);
+    frameCallback.onMessage(body);
     if (!messageClosed) {
       throw new IllegalStateException("Listener failed to call close on message payload.");
     }

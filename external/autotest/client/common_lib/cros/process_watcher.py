@@ -3,9 +3,9 @@
 # found in the LICENSE file.
 
 import collections
-import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import process_utils
 from autotest_lib.client.common_lib import utils
 
 # Use this with ProcessWatcher to start your process in a minijail.  This
@@ -53,14 +53,5 @@ class ProcessWatcher(object):
         @param timeout_seconds: int number of seconds to wait for shutdown.
 
         """
-        self._run('pkill -f --signal TERM "%s"' % self._command,
-                  ignore_status=True)
-        start_time = time.time()
-        while time.time() - start_time < timeout_seconds:
-            result = self._run('pgrep -f -l "%s"' % self._command,
-                               ignore_status=True)
-            if result.exit_status != 0:
-                return
-            time.sleep(0.3)
-        raise error.TestError('Timed out waiting for %s to die.' %
-                              self._command)
+        process_utils.pkill_process(self._command,
+                                    timeout_seconds=timeout_seconds)

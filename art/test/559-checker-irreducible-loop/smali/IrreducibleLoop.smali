@@ -28,7 +28,7 @@
 #  exit    \-    \
 #           other_loop_entry
 #
-## CHECK-START: int IrreducibleLoop.simpleLoop(int) dead_code_elimination (before)
+## CHECK-START: int IrreducibleLoop.simpleLoop(int) dead_code_elimination$initial (before)
 ## CHECK: irreducible:true
 .method public static simpleLoop(I)I
    .registers 2
@@ -65,7 +65,7 @@
 #                other_loop_entry
 #              set 30 in p1:myField
 #
-## CHECK-START: int IrreducibleLoop.lse(int, Main) dead_code_elimination (after)
+## CHECK-START: int IrreducibleLoop.lse(int, Main) dead_code_elimination$initial (after)
 ## CHECK: irreducible:true
 #
 ## CHECK-START: int IrreducibleLoop.lse(int, Main) load_store_elimination (after)
@@ -101,10 +101,10 @@
 #  exit    \-    \
 #           other_loop_entry
 #
-## CHECK-START: int IrreducibleLoop.dce(int) dead_code_elimination (before)
+## CHECK-START: int IrreducibleLoop.dce(int) dead_code_elimination$initial (before)
 ## CHECK: irreducible:true
 
-## CHECK-START: int IrreducibleLoop.dce(int) dead_code_elimination (after)
+## CHECK-START: int IrreducibleLoop.dce(int) dead_code_elimination$initial (after)
 ## CHECK: irreducible:true
 .method public static dce(I)I
    .registers 3
@@ -196,7 +196,7 @@
   const-class v0, LMain;
   if-ne v0, v2, :exit
   :other_loop_entry
-  const-class v1, LIrreducibleLoop;
+  const-class v1, LOther;  # LoadClass that can throw
   goto :loop_entry
   :exit
   return-object v0
@@ -250,7 +250,7 @@
   const/4 v0, 0
   if-ne p0, v0, :other_loop_entry
   :loop_entry
-  const-class v1, LIrreducibleLoop;
+  const-class v1, LOther;  # LoadClass that can throw
   if-ne v0, p0, :exit
   :other_loop_entry
   sub-int v1, p0, p0
@@ -286,7 +286,7 @@
 .method public static licm3(III)I
   .registers 4
   :loop_entry
-  const-class v0, LIrreducibleLoop;
+  const-class v0, LOther;  # LoadClass that can throw
   if-ne p1, p2, :exit
   goto :loop_body
 

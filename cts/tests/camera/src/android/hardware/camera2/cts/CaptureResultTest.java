@@ -531,6 +531,10 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
             waiverKeys.add(CaptureResult.SENSOR_DYNAMIC_WHITE_LEVEL);
         }
 
+        if (!mStaticInfo.isEnableZslSupported()) {
+            waiverKeys.add(CaptureResult.CONTROL_ENABLE_ZSL);
+        }
+
         if (mStaticInfo.isHardwareLevelAtLeastFull()) {
             return waiverKeys;
         }
@@ -765,6 +769,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         resultKeys.add(CaptureResult.CONTROL_AF_STATE);
         resultKeys.add(CaptureResult.CONTROL_AWB_STATE);
         resultKeys.add(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST);
+        resultKeys.add(CaptureResult.CONTROL_ENABLE_ZSL);
         resultKeys.add(CaptureResult.EDGE_MODE);
         resultKeys.add(CaptureResult.FLASH_MODE);
         resultKeys.add(CaptureResult.FLASH_STATE);

@@ -22,11 +22,14 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.SystemProperties;
 import android.text.format.Formatter;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.storagemanager.R;
+import com.android.storagemanager.utils.Constants;
 
 /**
  * Fragment used to confirm that the user wishes to delete a certain amount of data.
@@ -35,6 +38,9 @@ public class ConfirmDeletionDialog extends DialogFragment implements
         DialogInterface.OnClickListener {
     public static final String TAG = "ConfirmDeletionDialog";
     private static final String ARG_TOTAL_SPACE = "total_freeable";
+    // If the confirm deletion dialog has been shown before. Used to choose which warning message
+    // we show to the user.
+    private static final String SHOWN_BEFORE = "shown_before";
 
     private long mFreeableBytes;
 
@@ -55,7 +61,7 @@ public class ConfirmDeletionDialog extends DialogFragment implements
 
         final Context context = getContext();
         return new AlertDialog.Builder(context)
-                .setMessage(context.getString(R.string.deletion_helper_clear_dialog_message,
+                .setMessage(context.getString(getClearWarningText(),
                         Formatter.formatFileSize(context, mFreeableBytes)))
                 .setPositiveButton(R.string.deletion_helper_clear_dialog_remove, this)
                 .setNegativeButton(android.R.string.cancel, this)
@@ -64,12 +70,18 @@ public class ConfirmDeletionDialog extends DialogFragment implements
 
     @Override
     public void onClick(DialogInterface dialog, int which) {
+        // Set the first time flag to avoid showing the first time warning twice.
+        SharedPreferences.Editor editor = getSharedPreferences().edit();
+        editor.putBoolean(SHOWN_BEFORE, true);
+        editor.apply();
+
         switch (which) {
             case DialogInterface.BUTTON_POSITIVE:
                 ((DeletionHelperSettings) getTargetFragment()).clearData();
                 MetricsLogger.action(getContext(),
                         MetricsEvent.ACTION_DELETION_HELPER_REMOVE_CONFIRM);
-                if (StorageManagerUpsellDialog.shouldShow(getContext())) {
+                if (StorageManagerUpsellDialog.shouldShow(
+                        getContext(), System.currentTimeMillis())) {
                     StorageManagerUpsellDialog upsellDialog =
                             StorageManagerUpsellDialog.newInstance(mFreeableBytes);
                     upsellDialog.show(getFragmentManager(), StorageManagerUpsellDialog.TAG);
@@ -87,5 +99,24 @@ public class ConfirmDeletionDialog extends DialogFragment implements
             default:
                 break;
         }
+    }
+
+    private int getClearWarningText() {
+        // If the storage manager is on by default, we can use the normal message.
+        boolean warningUnneeded = SystemProperties.getBoolean(
+                Constants.STORAGE_MANAGER_VISIBLE_PROPERTY, false);
+        if (warningUnneeded) {
+            return R.string.deletion_helper_clear_dialog_message;
+        }
+
+        SharedPreferences sp = getSharedPreferences();
+        boolean shownBefore = sp.getBoolean(SHOWN_BEFORE, false);
+        return shownBefore ? R.string.deletion_helper_clear_dialog_message :
+                R.string.deletion_helper_clear_dialog_message_first_time;
+    }
+
+    private SharedPreferences getSharedPreferences() {
+        return getContext().getSharedPreferences(Constants.SHARED_PREFERENCE_NAME,
+                Context.MODE_PRIVATE);
     }
 }

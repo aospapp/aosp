@@ -38,8 +38,9 @@ class RecordFileTest : public ::testing::Test {
     std::unique_ptr<EventTypeAndModifier> event_type_modifier = ParseEventType(event_type_str);
     ASSERT_TRUE(event_type_modifier != nullptr);
     perf_event_attr attr = CreateDefaultPerfEventAttr(event_type_modifier->event_type);
+    attr.sample_id_all = 1;
     attrs_.push_back(std::unique_ptr<perf_event_attr>(new perf_event_attr(attr)));
-    AttrWithId attr_id;
+    EventAttrWithId attr_id;
     attr_id.attr = attrs_.back().get();
     attr_id.ids.push_back(attrs_.size());  // Fake id.
     attr_ids_.push_back(attr_id);
@@ -47,7 +48,7 @@ class RecordFileTest : public ::testing::Test {
 
   TemporaryFile tmpfile_;
   std::vector<std::unique_ptr<perf_event_attr>> attrs_;
-  std::vector<AttrWithId> attr_ids_;
+  std::vector<EventAttrWithId> attr_ids_;
 };
 
 TEST_F(RecordFileTest, smoke) {
@@ -60,30 +61,30 @@ TEST_F(RecordFileTest, smoke) {
   ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
 
   // Write data section.
-  MmapRecord mmap_record = CreateMmapRecord(*(attr_ids_[0].attr), true, 1, 1, 0x1000, 0x2000,
-                                            0x3000, "mmap_record_example");
-  ASSERT_TRUE(writer->WriteData(mmap_record.BinaryFormat()));
+  MmapRecord mmap_record(*(attr_ids_[0].attr), true, 1, 1, 0x1000, 0x2000,
+                         0x3000, "mmap_record_example", attr_ids_[0].ids[0]);
+  ASSERT_TRUE(writer->WriteRecord(mmap_record));
 
   // Write feature section.
-  ASSERT_TRUE(writer->WriteFeatureHeader(1));
+  ASSERT_TRUE(writer->BeginWriteFeatures(1));
   char p[BuildId::Size()];
   for (size_t i = 0; i < BuildId::Size(); ++i) {
     p[i] = i;
   }
   BuildId build_id(p);
-  BuildIdRecord build_id_record = CreateBuildIdRecord(false, getpid(), build_id, "init");
-  ASSERT_TRUE(writer->WriteBuildIdFeature({build_id_record}));
+  std::vector<BuildIdRecord> build_id_records;
+  build_id_records.push_back(BuildIdRecord(false, getpid(), build_id, "init"));
+  ASSERT_TRUE(writer->WriteBuildIdFeature(build_id_records));
+  ASSERT_TRUE(writer->EndWriteFeatures());
   ASSERT_TRUE(writer->Close());
 
   // Read from a record file.
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
   ASSERT_TRUE(reader != nullptr);
-  const std::vector<FileAttr>& file_attrs = reader->AttrSection();
-  ASSERT_EQ(1u, file_attrs.size());
-  ASSERT_EQ(0, memcmp(&file_attrs[0].attr, attr_ids_[0].attr, sizeof(perf_event_attr)));
-  std::vector<uint64_t> ids;
-  ASSERT_TRUE(reader->ReadIdsForAttr(file_attrs[0], &ids));
-  ASSERT_EQ(ids, attr_ids_[0].ids);
+  std::vector<EventAttrWithId> attrs = reader->AttrSection();
+  ASSERT_EQ(1u, attrs.size());
+  ASSERT_EQ(0, memcmp(attrs[0].attr, attr_ids_[0].attr, sizeof(perf_event_attr)));
+  ASSERT_EQ(attrs[0].ids, attr_ids_[0].ids);
 
   // Read and check data section.
   std::vector<std::unique_ptr<Record>> records = reader->DataSection();
@@ -91,9 +92,9 @@ TEST_F(RecordFileTest, smoke) {
   CheckRecordEqual(mmap_record, *records[0]);
 
   // Read and check feature section.
-  std::vector<BuildIdRecord> build_id_records = reader->ReadBuildIdFeature();
-  ASSERT_EQ(1u, build_id_records.size());
-  CheckRecordEqual(build_id_record, build_id_records[0]);
+  std::vector<BuildIdRecord> read_build_id_records = reader->ReadBuildIdFeature();
+  ASSERT_EQ(1u, read_build_id_records.size());
+  CheckRecordEqual(read_build_id_records[0], build_id_records[0]);
 
   ASSERT_TRUE(reader->Close());
 }
@@ -110,16 +111,15 @@ TEST_F(RecordFileTest, records_sorted_by_time) {
   ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
 
   // Write data section.
-  MmapRecord r1 =
-      CreateMmapRecord(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1");
-  MmapRecord r2 = r1;
-  MmapRecord r3 = r1;
-  r1.sample_id.time_data.time = 2;
-  r2.sample_id.time_data.time = 1;
-  r3.sample_id.time_data.time = 3;
-  ASSERT_TRUE(writer->WriteData(r1.BinaryFormat()));
-  ASSERT_TRUE(writer->WriteData(r2.BinaryFormat()));
-  ASSERT_TRUE(writer->WriteData(r3.BinaryFormat()));
+  MmapRecord r1(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1",
+                attr_ids_[0].ids[0], 2);
+  MmapRecord r2(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1",
+                attr_ids_[0].ids[0], 1);
+  MmapRecord r3(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1",
+                attr_ids_[0].ids[0], 3);
+  ASSERT_TRUE(writer->WriteRecord(r1));
+  ASSERT_TRUE(writer->WriteRecord(r2));
+  ASSERT_TRUE(writer->WriteRecord(r3));
   ASSERT_TRUE(writer->Close());
 
   // Read from a record file.
@@ -150,12 +150,10 @@ TEST_F(RecordFileTest, record_more_than_one_attr) {
   // Read from a record file.
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
   ASSERT_TRUE(reader != nullptr);
-  const std::vector<FileAttr>& file_attrs = reader->AttrSection();
-  ASSERT_EQ(3u, file_attrs.size());
-  for (size_t i = 0; i < file_attrs.size(); ++i) {
-    ASSERT_EQ(0, memcmp(&file_attrs[i].attr, attr_ids_[i].attr, sizeof(perf_event_attr)));
-    std::vector<uint64_t> ids;
-    ASSERT_TRUE(reader->ReadIdsForAttr(file_attrs[i], &ids));
-    ASSERT_EQ(ids, attr_ids_[i].ids);
+  std::vector<EventAttrWithId> attrs = reader->AttrSection();
+  ASSERT_EQ(3u, attrs.size());
+  for (size_t i = 0; i < attrs.size(); ++i) {
+    ASSERT_EQ(0, memcmp(attrs[i].attr, attr_ids_[i].attr, sizeof(perf_event_attr)));
+    ASSERT_EQ(attrs[i].ids, attr_ids_[i].ids);
   }
 }

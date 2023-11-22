@@ -20,6 +20,7 @@
 
 #include "atomic.h"
 #include "common_runtime_test.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread-inl.h"
 
 namespace art {
@@ -98,6 +99,29 @@ TEST_F(ThreadPoolTest, StopStart) {
   thread_pool.Wait(self, false, false);
 }
 
+TEST_F(ThreadPoolTest, StopWait) {
+  Thread* self = Thread::Current();
+  ThreadPool thread_pool("Thread pool test thread pool", num_threads);
+
+  AtomicInteger count(0);
+  static const int32_t num_tasks = num_threads * 100;
+  for (int32_t i = 0; i < num_tasks; ++i) {
+    thread_pool.AddTask(self, new CountTask(&count));
+  }
+
+  // Signal the threads to start processing tasks.
+  thread_pool.StartWorkers(self);
+  usleep(200);
+  thread_pool.StopWorkers(self);
+
+  thread_pool.Wait(self, false, false);  // We should not deadlock here.
+
+  // Drain the task list. Note: we have to restart here, as no tasks will be finished when
+  // the pool is stopped.
+  thread_pool.StartWorkers(self);
+  thread_pool.Wait(self, /* do_work */ true, false);
+}
+
 class TreeTask : public Task {
  public:
   TreeTask(ThreadPool* const thread_pool, AtomicInteger* count, int depth)
@@ -134,6 +158,57 @@ TEST_F(ThreadPoolTest, RecursiveTest) {
   thread_pool.StartWorkers(self);
   thread_pool.Wait(self, true, false);
   EXPECT_EQ((1 << depth) - 1, count.LoadSequentiallyConsistent());
+}
+
+class PeerTask : public Task {
+ public:
+  PeerTask() {}
+
+  void Run(Thread* self) {
+    ScopedObjectAccess soa(self);
+    CHECK(self->GetPeer() != nullptr);
+  }
+
+  void Finalize() {
+    delete this;
+  }
+};
+
+class NoPeerTask : public Task {
+ public:
+  NoPeerTask() {}
+
+  void Run(Thread* self) {
+    ScopedObjectAccess soa(self);
+    CHECK(self->GetPeer() == nullptr);
+  }
+
+  void Finalize() {
+    delete this;
+  }
+};
+
+// Tests for create_peer functionality.
+TEST_F(ThreadPoolTest, PeerTest) {
+  Thread* self = Thread::Current();
+  {
+    ThreadPool thread_pool("Thread pool test thread pool", 1);
+    thread_pool.AddTask(self, new NoPeerTask());
+    thread_pool.StartWorkers(self);
+    thread_pool.Wait(self, false, false);
+  }
+
+  {
+    // To create peers, the runtime needs to be started.
+    self->TransitionFromSuspendedToRunnable();
+    bool started = runtime_->Start();
+    ASSERT_TRUE(started);
+
+    ThreadPool thread_pool("Thread pool test thread pool", 1, true);
+    thread_pool.AddTask(self, new PeerTask());
+    thread_pool.StartWorkers(self);
+    thread_pool.Wait(self, false, false);
+  }
 }
 
 }  // namespace art

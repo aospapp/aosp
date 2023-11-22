@@ -33,39 +33,8 @@ LOCAL_C_INCLUDES := \
 	$(TOP)/frameworks/native/include/media/hardware \
 
 LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
 
 LOCAL_32_BIT_ONLY := true
-
-include $(BUILD_NATIVE_TEST)
-
-
-include $(CLEAR_VARS)
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-
-LOCAL_MODULE := Utils_test
-
-LOCAL_MODULE_TAGS := tests
-
-LOCAL_SRC_FILES := \
-	Utils_test.cpp \
-
-LOCAL_SHARED_LIBRARIES := \
-	libcutils \
-	liblog \
-	libmedia \
-	libstagefright \
-	libstagefright_foundation \
-	libstagefright_omx \
-
-LOCAL_C_INCLUDES := \
-	frameworks/av/include \
-	frameworks/av/media/libstagefright \
-	frameworks/av/media/libstagefright/include \
-	$(TOP)/frameworks/native/include/media/openmax \
-
-LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
 
 include $(BUILD_NATIVE_TEST)
 
@@ -95,7 +64,6 @@ LOCAL_C_INCLUDES := \
 LOCAL_32_BIT_ONLY := true
 
 LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
 
 include $(BUILD_NATIVE_TEST)
 

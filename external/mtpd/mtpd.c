@@ -35,6 +35,7 @@
 #endif
 
 #include "mtpd.h"
+#include "NetdClient.h"
 
 int the_socket = -1;
 
@@ -294,6 +295,10 @@ void create_socket(int family, int type, char *server, char *port)
         log_print(FATAL, "Connect() %s", strerror(errno));
         exit(NETWORK_ERROR);
     }
+
+#ifdef ANDROID_CHANGES
+    protectFromVpn(the_socket);
+#endif
 
     fcntl(the_socket, F_SETFD, FD_CLOEXEC);
     log_print(INFO, "Connection established (socket = %d)", the_socket);

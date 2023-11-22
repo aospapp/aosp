@@ -29,12 +29,35 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
   caliper-host \
   caliper-gson-host \
   guavalib \
-  mockito-host \
+  junit-host \
   vogar-jsr305 \
   vogar-kxml-libcore-20110123
 
 # Vogar uses android.jar.
 LOCAL_CLASSPATH := prebuilts/sdk/9/android.jar
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+
+include $(BUILD_HOST_JAVA_LIBRARY)
+
+# build vogar tests jar
+# ============================================================
+# Run the tests using the following command:
+# java -cp ${ANDROID_BUILD_TOP}/out/host/linux-x86/framework/vogar-tests.jar \
+       org.junit.runner.JUnitCore vogar.AllTests
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := vogar-tests
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_SRC_FILES := $(call all-java-files-under, test/)
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+	junit-host \
+	mockito-host \
+	objenesis-host \
+	vogar
+
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 
 include $(BUILD_HOST_JAVA_LIBRARY)

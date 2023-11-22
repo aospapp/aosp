@@ -16,22 +16,15 @@
 
 package com.android.cts.verifier.tv;
 
-import com.android.cts.verifier.R;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.database.Cursor;
-import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
-import android.media.tv.TvInputManager;
 import android.media.tv.TvTrackInfo;
-import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.R;
 
 /**
  * Tests for verifying TV app behavior on multiple tracks and subtitle.
@@ -48,6 +41,8 @@ public class MultipleTracksTestActivity extends TvAppVerifierActivity
     private View mVerifySelectSubtitleItem;
     private View mSelectAudioItem;
     private View mVerifySelectAudioItem;
+    private View mSupportThirdPartyInputYesItem;
+    private View mSupportThirdPartyInputNoItem;
 
     private Intent mTvAppIntent = null;
 
@@ -55,7 +50,17 @@ public class MultipleTracksTestActivity extends TvAppVerifierActivity
     public void onClick(View v) {
         final View postTarget = getPostTarget();
 
-        if (containsButton(mSelectSubtitleItem, v)) {
+        if (containsButton(mSupportThirdPartyInputYesItem, v)) {
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            setButtonEnabled(mSelectSubtitleItem, true);
+            return;
+        } else if (containsButton(mSupportThirdPartyInputNoItem, v)){
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            getPassButton().setEnabled(true);
+            return;
+        } else if (containsButton(mSelectSubtitleItem, v)) {
             final Runnable failCallback = new Runnable() {
                 @Override
                 public void run() {
@@ -132,10 +137,15 @@ public class MultipleTracksTestActivity extends TvAppVerifierActivity
 
     @Override
     protected void createTestItems() {
+        mSupportThirdPartyInputYesItem = createUserItem(
+                R.string.tv_input_discover_test_third_party_tif_input_support,
+                R.string.tv_yes, this);
+        setButtonEnabled(mSupportThirdPartyInputYesItem, true);
+        mSupportThirdPartyInputNoItem = createButtonItem(R.string.tv_no, this);
+        setButtonEnabled(mSupportThirdPartyInputNoItem, true);
         mSelectSubtitleItem = createUserItem(
                 R.string.tv_multiple_tracks_test_select_subtitle,
                 R.string.tv_launch_tv_app, this);
-        setButtonEnabled(mSelectSubtitleItem, true);
         mVerifySetCaptionEnabledItem = createAutoItem(
                 R.string.tv_multiple_tracks_test_verify_set_caption_enabled);
         mVerifySelectSubtitleItem = createAutoItem(

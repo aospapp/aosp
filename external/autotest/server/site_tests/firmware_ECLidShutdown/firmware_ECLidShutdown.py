@@ -20,8 +20,6 @@ class firmware_ECLidShutdown(FirmwareTest):
     LID_DELAY = 2
     # time to wait before checking if DUT booted into OS mode
     BOOTUP_TIME = 30
-    # time to wait to let DUT transition into recovery mode
-    RECOVERY_DELAY = 1
     # # times to check if DUT in expected power state
     # This accomodates if DUT needs to transition into certain states.
     PWR_RETRIES = 13
@@ -67,8 +65,8 @@ class firmware_ECLidShutdown(FirmwareTest):
                                  0)
         # reboot into recovery mode and wait a bit for it to actually get there
         self.faft_client.system.request_recovery_boot()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
-        time.sleep(self.RECOVERY_DELAY)
+        self.switcher.simple_reboot()
+        time.sleep(self.faft_config.firmware_screen)
 
         # close/open lid
         self.servo.set('lid_open', 'no')
@@ -94,8 +92,8 @@ class firmware_ECLidShutdown(FirmwareTest):
                                  vboot.GBB_FLAG_DISABLE_LID_SHUTDOWN)
         # reboot into recovery mode and wait a bit for it to get there
         self.faft_client.system.request_recovery_boot()
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
-        time.sleep(self.RECOVERY_DELAY)
+        self.switcher.simple_reboot()
+        time.sleep(self.faft_config.firmware_screen)
 
         # close/open the lid
         self.servo.set('lid_open', 'no')

@@ -4,9 +4,45 @@
 
 Get the chromium depot tools via the instructions at
 http://www.chromium.org/developers/how-tos/install-depot-tools (this provides
-the gclient utilty needed below).
+the gclient utility needed below).
 
 Also install Python, Subversion, and Git and make sure they're in your path.
+
+
+### Windows development
+
+PDFium uses a similar Windows toolchain as Chromium:
+
+#### Open source contributors
+Visual Studio 2015 Update 2 or later is highly recommended.
+
+Run `set DEPOT_TOOLS_WIN_TOOLCHAIN=0`, or set that variable in your global
+environment.
+
+Compilation is done through ninja, **not** Visual Studio.
+
+### CPU Architectures supported
+
+The default architecture for Windows, Linux, and Mac is "`x64`". On Windows,
+"`x86`" is also supported. GN parameter "`target_cpu = "x86"`" can be used to
+override the default value. If you specify Android build, the default CPU
+architecture will be "`arm`".
+
+
+#### Google employees
+
+Run: `download_from_google_storage --config` and follow the
+authentication instructions. **Note that you must authenticate with your
+@google.com credentials**. Enter "0" if asked for a project-id.
+
+Once you've done this, the toolchain will be installed automatically for
+you in [the step](#GenBuild) below.
+
+The toolchain will be in `depot_tools\win_toolchain\vs_files\<hash>`, and windbg
+can be found in `depot_tools\win_toolchain\vs_files\<hash>\win_sdk\Debuggers`.
+
+If you want the IDE for debugging and editing, you will need to install
+it separately, but this is optional and not needed for building PDFium.
 
 ## Get the code
 
@@ -22,52 +58,57 @@ gclient sync
 cd pdfium
 ```
 
-## Generate the build files
+##<a name="GenBuild"></a> Generate the build files
 
-We use the GYP library to generate the build files.
-
-At this point, you have two options. The first option is to use the [Ninja]
-(http://martine.github.io/ninja/) build system (also included with the
-depot\_tools checkout). This is the default as of mid-September, 2015.
-Previously, the second option (platform-specific build files) was the default.
-Most PDFium developers use Ninja, as does our [continuous build system]
-(http://build.chromium.org/p/client.pdfium/).
-
- * On Windows: `build\gyp_pdfium`
- * For all other platforms: `build/gyp_pdfium`
-
-The second option is to generate platform-specific build files, i.e. Makefiles
-on Linux, sln files on Windows, and xcodeproj files on Mac. To do so, set the
-GYP\_GENERATORS environment variable appropriately (e.g. "make", "msvs", or
-"xcode") before running the above command.
-
-### Using goma (Googlers only)
-
-If you would like to build using goma, pass `use_goma=1` to `gyp_pdfium`. If
-you installed goma in a non-standard location, you will also need to set
-`gomadir`. e.g.
+We use GN to generate the build files and
+[Ninja](http://martine.github.io/ninja/) (also included with the depot\_tools
+checkout) to execute the build files.
 
 ```
-build/gyp_pdfium -D use_goma=1 -D gomadir=path/to/goma
+gn gen <directory>
 ```
+
+### Selecting build configuration
+
+PDFium may be built either with or without JavaScript support, and with
+or without XFA forms support.  Both of these features are enabled by
+default. Also note that the XFA feature requires JavaScript.
+
+Configuration is done by executing `gn args <directory>` to configure the build.
+This will launch an editor in which you can set the following arguments.
+
+```
+use_goma = true  # Googlers only.
+is_debug = true  # Enable debugging features.
+
+pdf_use_skia = false  # Set true to enable experimental skia backend.
+pdf_use_skia_paths = false  # Set true to enable experimental skia backend (paths only).
+
+pdf_enable_xfa = true  # Set false to remove XFA support (implies JS support).
+pdf_enable_v8 = true  # Set false to remove Javascript support.
+pdf_is_standalone = true  # Set for a non-embedded build.
+is_component_build = false # Disable component build (must be false)
+
+clang_use_chrome_plugins = false  # Currently must be false.
+use_sysroot = false  # Currently must be false on Linux.
+```
+
+Note, you must set `pdf_is_standalone = true` if you want the sample
+applications like `pdfium_test` to build.
+
+When complete the arguments will be stored in `<directory>/args.gn`.
 
 ## Building the code
 
-If you used Ninja, you can build the sample program by: `ninja -C out/Debug
-pdfium_test` You can build the entire product (which includes a few unit
-tests) by: `ninja -C out/Debug`.
-
-If you're not using Ninja, then building is platform-specific.
-
- * On Linux: `make pdfium_test`
- * On Mac: `open build/all.xcodeproj`
- * On Windows: open build\all.sln
+If you used Ninja, you can build the sample program by:
+`ninja -C <directory>/pdfium_test` You can build the entire product (which
+includes a few unit tests) by: `ninja -C <directory>`.
 
 ## Running the sample program
 
 The pdfium\_test program supports reading, parsing, and rasterizing the pages of
 a .pdf file to .ppm or .png output image files (windows supports two other
-formats). For example: `out/Debug/pdfium_test --ppm path/to/myfile.pdf`. Note
+formats). For example: `<directory>/pdfium_test --ppm path/to/myfile.pdf`. Note
 that this will write output images to `path/to/myfile.pdf.<n>.ppm`.
 
 ## Testing
@@ -102,7 +143,7 @@ Note, the Reviews and Bugs lists are typically read-only.
 
 ## Bugs
 
- We will be using this
+ We use this
 [bug tracker](https://code.google.com/p/pdfium/issues/list), but for security
 bugs, please use [Chromium's security bug template]
 (https://code.google.com/p/chromium/issues/entry?template=Security%20Bug)
@@ -112,33 +153,7 @@ and add the "Cr-Internals-Plugins-PDF" label.
 
 For contributing code, we will follow
 [Chromium's process](http://dev.chromium.org/developers/contributing-code)
-as much as possible. The main exceptions are:
+as much as possible. The main exceptions is:
 
 1. Code has to conform to the existing style and not Chromium/Google style.
-2. There is no commit queue, approved committers can land their changes via
-`git cl land`
-3. Changes must be merged to the XFA branch as well (see below).
 
-## Branches
-
-There is a branch for a forthcoming feature called XFA that you can get by
-following the steps above, then:
-
-```
-git checkout origin/xfa
-build/gyp_pdfium
-ninja -C out/Debug
-```
-
-Merging to XFA requires:
-
-```
-git checkout origin/xfa
-git checkout -b merge_branch
-git branch --set-upstream-to=origin/xfa
-git cherry-pick -x <commit hash>
-git commit --amend # add Merge to XFA
-git cl upload
-```
-
-Then wait for approval, and `git cl land`

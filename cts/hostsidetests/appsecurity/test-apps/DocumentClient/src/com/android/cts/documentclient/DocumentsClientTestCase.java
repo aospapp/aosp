@@ -16,7 +16,7 @@
 
 package com.android.cts.documentclient;
 
-import static android.cts.util.SystemUtil.runShellCommand;
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,19 +44,28 @@ import android.view.MotionEvent;
  * Base class for DocumentsUI test cases.
  */
 abstract class DocumentsClientTestCase extends InstrumentationTestCase {
+    protected static final long TIMEOUT = 30 * DateUtils.SECOND_IN_MILLIS;
+    protected static final int REQUEST_CODE = 42;
+
+    static final String PROVIDER_PACKAGE = "com.android.cts.documentprovider";
+
     private static final String TAG = "DocumentsClientTestCase";
 
     protected UiDevice mDevice;
     protected MyActivity mActivity;
 
-    protected static final long TIMEOUT = 30 * DateUtils.SECOND_IN_MILLIS;
-    protected static final int REQUEST_CODE = 42;
+    private String[] mDisabledImes;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
 
         Configurator.getInstance().setToolType(MotionEvent.TOOL_TYPE_FINGER);
+
+        // Disable IME's to avoid virtual keyboards from showing up. Occasionally IME draws some UI
+        // controls out of its boundary for some first time setup that obscures the text edit and/or
+        // save/select button. This will constantly fail some of our tests.
+        disableImes();
 
         mDevice = UiDevice.getInstance(getInstrumentation());
         mActivity = launchActivity(getInstrumentation().getTargetContext().getPackageName(),
@@ -68,6 +77,8 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
     public void tearDown() throws Exception {
         super.tearDown();
         mActivity.finish();
+
+        enableImes();
     }
 
     protected String getColumn(Uri uri, String column) {
@@ -150,7 +161,28 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
         return result;
     }
 
+    /**
+     * Clears the DocumentsUI package data, unless test name ends on {@code DoNotClear}.
+     */
     protected void clearDocumentsUi() throws Exception {
+        final String testName = getName();
+        if (testName.endsWith("DoNotClear")) {
+            Log.d(TAG, "Not clearing DocumentsUI due to test name: " + testName);
+            return;
+        }
         executeShellCommand("pm clear com.android.documentsui");
+    }
+
+    private void disableImes() throws Exception {
+        mDisabledImes = executeShellCommand("ime list -s").split("\n");
+        for (String ime : mDisabledImes) {
+            executeShellCommand("ime disable " + ime);
+        }
+    }
+
+    private void enableImes() throws Exception {
+        for (String ime : mDisabledImes) {
+            executeShellCommand("ime enable " + ime);
+        }
     }
 }

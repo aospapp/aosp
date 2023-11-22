@@ -7,13 +7,12 @@ NAME = "graphics_WebGLAquarium"
 PURPOSE = "Execute the WebGL aquarium test suite."
 CRITERIA = "All suite tests must not crash/hang."
 ATTRIBUTES = "suite:crosbolt_perf_perbuild, suite:graphics, suite:graphics_browser, suite:graphics_per-day, suite:partners"
-SUITE = 'crosbolt_perf_perbuild, graphics, graphics_browser, graphics_per-day, partners'
 TIME = "medium"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "graphics"
 TEST_TYPE = "client"
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

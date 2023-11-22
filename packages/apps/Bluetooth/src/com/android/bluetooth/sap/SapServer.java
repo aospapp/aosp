@@ -1,39 +1,35 @@
 package com.android.bluetooth.sap;
 
+import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.bluetooth.BluetoothSap;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.hardware.radio.V1_0.ISap;
+import android.os.Handler;
+import android.os.Handler.Callback;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
+import android.os.RemoteException;
+import android.os.SystemClock;
+import android.os.SystemProperties;
+import android.telephony.TelephonyManager;
+import android.util.Log;
+
+import com.android.bluetooth.R;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.CountDownLatch;
-
-import com.android.bluetooth.R;
-
-import android.app.AlarmManager;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.SyncResult;
-import android.os.Handler;
-import android.os.Handler.Callback;
-import android.os.HandlerThread;
-import android.os.Looper;
-import android.os.Message;
-import android.os.Parcel;
-import android.os.SystemClock;
-import android.os.SystemProperties;
-import android.telephony.TelephonyManager;
-import android.util.Log;
-import android.bluetooth.BluetoothSap;
-
-//import com.android.internal.telephony.RIL;
-import com.google.protobuf.micro.CodedOutputStreamMicro;
 
 
 /**
@@ -64,11 +60,8 @@ public class SapServer extends Thread implements Callback {
     /* RFCOMM socket I/O streams */
     private BufferedOutputStream mRfcommOut = null;
     private BufferedInputStream mRfcommIn = null;
-    /* The RIL output stream - the input stream is owned by the SapRilReceiver object */
-    private CodedOutputStreamMicro mRilBtOutStream = null;
     /* References to the SapRilReceiver object */
     private SapRilReceiver mRilBtReceiver = null;
-    private Thread mRilBtReceiverThread = null;
     /* The message handler members */
     private Handler mSapHandler = null;
     private HandlerThread mHandlerThread = null;
@@ -85,12 +78,15 @@ public class SapServer extends Thread implements Callback {
     public static final int SAP_MSG_RIL_REQ =     0x02;
     public static final int SAP_MSG_RIL_IND =     0x03;
     public static final int SAP_RIL_SOCK_CLOSED = 0x04;
+    public static final int SAP_PROXY_DEAD = 0x05;
 
     public static final String SAP_DISCONNECT_ACTION =
             "com.android.bluetooth.sap.action.DISCONNECT_ACTION";
     public static final String SAP_DISCONNECT_TYPE_EXTRA =
             "com.android.bluetooth.sap.extra.DISCONNECT_TYPE";
     public static final int NOTIFICATION_ID = android.R.drawable.stat_sys_data_bluetooth;
+    private static final String SAP_NOTIFICATION_CHANNEL = "sap_notification_channel";
+    public static final int ISAP_GET_SERVICE_DELAY_MILLIS = 3 * 1000;
     private static final int DISCONNECT_TIMEOUT_IMMEDIATE = 5000; /* ms */
     private static final int DISCONNECT_TIMEOUT_RFCOMM = 2000; /* ms */
     private PendingIntent pDiscIntent = null; // Holds a reference to disconnect timeout intents
@@ -214,6 +210,12 @@ public class SapServer extends Thread implements Callback {
     {
         String title, text, button, ticker;
         Notification notification;
+        NotificationManager notificationManager =
+                (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel notificationChannel = new NotificationChannel(SAP_NOTIFICATION_CHANNEL,
+                mContext.getString(R.string.bluetooth_sap_notif_title),
+                NotificationManager.IMPORTANCE_HIGH);
+        notificationManager.createNotificationChannel(notificationChannel);
         if(VERBOSE) Log.i(TAG, "setNotification type: " + type);
         /* For PTS TC_SERVER_DCN_BV_03_I we need to expose the option to send immediate disconnect
          * without first sending a graceful disconnect.
@@ -224,34 +226,34 @@ public class SapServer extends Thread implements Callback {
 
         /* put notification up for the user to be able to disconnect from the client*/
         Intent sapDisconnectIntent = new Intent(SapServer.SAP_DISCONNECT_ACTION);
-        if(type == SapMessage.DISC_GRACEFULL){
+        if (type == SapMessage.DISC_GRACEFULL) {
             title = mContext.getString(R.string.bluetooth_sap_notif_title);
             button = mContext.getString(R.string.bluetooth_sap_notif_disconnect_button);
             text = mContext.getString(R.string.bluetooth_sap_notif_message);
             ticker = mContext.getString(R.string.bluetooth_sap_notif_ticker);
-        }else{
+        } else {
             title = mContext.getString(R.string.bluetooth_sap_notif_title);
             button = mContext.getString(R.string.bluetooth_sap_notif_force_disconnect_button);
             text = mContext.getString(R.string.bluetooth_sap_notif_disconnecting);
             ticker = mContext.getString(R.string.bluetooth_sap_notif_ticker);
         }
-        if(!pts_test)
-        {
+        if (!pts_test) {
             sapDisconnectIntent.putExtra(SapServer.SAP_DISCONNECT_TYPE_EXTRA, type);
             PendingIntent pIntentDisconnect = PendingIntent.getBroadcast(mContext, type,
                     sapDisconnectIntent,flags);
-            notification = new Notification.Builder(mContext).setOngoing(true)
-                .addAction(android.R.drawable.stat_sys_data_bluetooth, button, pIntentDisconnect)
-                .setContentTitle(title)
-                .setTicker(ticker)
-                .setContentText(text)
-                .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-                .setAutoCancel(false)
-                .setPriority(Notification.PRIORITY_MAX)
-                .setOnlyAlertOnce(true)
-                .build();
-        }else{
-
+            notification = new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL)
+                                   .setOngoing(true)
+                                   .addAction(android.R.drawable.stat_sys_data_bluetooth, button,
+                                           pIntentDisconnect)
+                                   .setContentTitle(title)
+                                   .setTicker(ticker)
+                                   .setContentText(text)
+                                   .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                                   .setAutoCancel(false)
+                                   .setPriority(Notification.PRIORITY_MAX)
+                                   .setOnlyAlertOnce(true)
+                                   .build();
+        } else {
             sapDisconnectIntent.putExtra(SapServer.SAP_DISCONNECT_TYPE_EXTRA,
                     SapMessage.DISC_GRACEFULL);
             Intent sapForceDisconnectIntent = new Intent(SapServer.SAP_DISCONNECT_ACTION);
@@ -261,28 +263,29 @@ public class SapServer extends Thread implements Callback {
                     SapMessage.DISC_GRACEFULL, sapDisconnectIntent,flags);
             PendingIntent pIntentForceDisconnect = PendingIntent.getBroadcast(mContext,
                     SapMessage.DISC_IMMEDIATE, sapForceDisconnectIntent,flags);
-            notification = new Notification.Builder(mContext).setOngoing(true)
-                    .addAction(android.R.drawable.stat_sys_data_bluetooth,
-                            mContext.getString(R.string.bluetooth_sap_notif_disconnect_button),
-                            pIntentDisconnect)
-                    .addAction(android.R.drawable.stat_sys_data_bluetooth,
-                            mContext.getString(R.string.bluetooth_sap_notif_force_disconnect_button),
-                            pIntentForceDisconnect)
-                    .setContentTitle(title)
-                    .setTicker(ticker)
-                    .setContentText(text)
-                    .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-                    .setAutoCancel(false)
-                    .setPriority(Notification.PRIORITY_MAX)
-                    .setOnlyAlertOnce(true)
-                    .build();
+            notification =
+                    new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL)
+                            .setOngoing(true)
+                            .addAction(android.R.drawable.stat_sys_data_bluetooth,
+                                    mContext.getString(
+                                            R.string.bluetooth_sap_notif_disconnect_button),
+                                    pIntentDisconnect)
+                            .addAction(android.R.drawable.stat_sys_data_bluetooth,
+                                    mContext.getString(
+                                            R.string.bluetooth_sap_notif_force_disconnect_button),
+                                    pIntentForceDisconnect)
+                            .setContentTitle(title)
+                            .setTicker(ticker)
+                            .setContentText(text)
+                            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
+                            .setAutoCancel(false)
+                            .setPriority(Notification.PRIORITY_MAX)
+                            .setOnlyAlertOnce(true)
+                            .build();
         }
 
         // cannot be set with the builder
         notification.flags |= Notification.FLAG_NO_CLEAR |Notification.FLAG_ONLY_ALERT_ONCE;
-
-        NotificationManager notificationManager =
-                (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
 
         notificationManager.notify(NOTIFICATION_ID, notification);
     }
@@ -314,14 +317,16 @@ public class SapServer extends Thread implements Callback {
             mSapHandler = new Handler(sapLooper, this);
 
             mRilBtReceiver = new SapRilReceiver(mSapHandler, mSapServiceHandler);
-            mRilBtReceiverThread = new Thread(mRilBtReceiver, "RilBtReceiver");
             boolean done = false;
             while (!done) {
                 if(VERBOSE) Log.i(TAG, "Waiting for incomming RFCOMM message...");
                 int requestType = mRfcommIn.read();
+                if (VERBOSE) Log.i(TAG, "RFCOMM message read...");
                 if(requestType == -1) {
+                    if (VERBOSE) Log.i(TAG, "requestType == -1");
                     done = true; // EOF reached
                 } else {
+                    if (VERBOSE) Log.i(TAG, "requestType != -1");
                     SapMessage msg = SapMessage.readMessage(requestType, mRfcommIn);
                     /* notify about an incoming message from the BT Client */
                     SapService.notifyUpdateWakeLock(mSapServiceHandler);
@@ -454,14 +459,10 @@ public class SapServer extends Thread implements Callback {
                 mHandlerThread.join();
                 mHandlerThread = null;
             } catch (InterruptedException e) {}
-            if(mRilBtReceiverThread != null) try {
-                if(mRilBtReceiver != null) {
-                    mRilBtReceiver.shutdown();
-                    mRilBtReceiver = null;
-                }
-                mRilBtReceiverThread.join();
-                mRilBtReceiverThread = null;
-            } catch (InterruptedException e) {}
+            if (mRilBtReceiver != null) {
+                mRilBtReceiver.resetSapProxy();
+                mRilBtReceiver = null;
+            }
 
             if(mRfcommIn != null) try {
                 if(VERBOSE) Log.i(TAG, "Closing mRfcommIn...");
@@ -523,9 +524,9 @@ public class SapServer extends Thread implements Callback {
                  *  2) Send a RIL_SIM_SAP_CONNECT request to RILD
                  *  3) Send a RIL_SIM_RESET request and a connect confirm to the SAP client */
                 changeState(SAP_STATE.CONNECTING);
-                if(mRilBtReceiverThread != null) {
-                     // Open the RIL socket, and wait for the complete message: SAP_MSG_RIL_CONNECT
-                    mRilBtReceiverThread.start();
+                if (mRilBtReceiver != null) {
+                    // Notify the SapServer that we have connected to the SAP service
+                    mRilBtReceiver.sendRilConnectMessage();
                     // Don't send reply yet
                     reply = null;
                 } else {
@@ -588,7 +589,6 @@ public class SapServer extends Thread implements Callback {
         }
     }
 
-
     /*************************************************************************
      * SAP Server Message Handler Thread Functions
      *************************************************************************/
@@ -615,7 +615,6 @@ public class SapServer extends Thread implements Callback {
         case SAP_MSG_RIL_CONNECT:
             /* The connection to rild-bt have been established. Store the outStream handle
              * and send the connect request. */
-            mRilBtOutStream = mRilBtReceiver.getRilBtOutStream();
             if(mTestMode != SapMessage.INVALID_VALUE) {
                 SapMessage rilTestModeReq = new SapMessage(SapMessage.ID_RIL_SIM_ACCESS_TEST_REQ);
                 rilTestModeReq.setTestMode(mTestMode);
@@ -642,6 +641,14 @@ public class SapServer extends Thread implements Callback {
             sendDisconnectInd(SapMessage.DISC_IMMEDIATE);
             startDisconnectTimer(SapMessage.DISC_RFCOMM, DISCONNECT_TIMEOUT_RFCOMM);
             break;
+        case SAP_PROXY_DEAD:
+            if ((long) msg.obj == mRilBtReceiver.mSapProxyCookie.get()) {
+                mRilBtReceiver.notifyShutdown(); /* Only needed in case of a connection error */
+                mRilBtReceiver.resetSapProxy();
+
+                // todo: rild should be back up since message was sent with a delay. this is a hack.
+                mRilBtReceiver.getSapProxy();
+            }
         default:
             /* Message not handled */
             return false;
@@ -851,19 +858,31 @@ public class SapServer extends Thread implements Callback {
     private void sendRilMessage(SapMessage sapMsg) {
         if(VERBOSE) Log.i(TAG_HANDLER, "sendRilMessage() - "
                 + SapMessage.getMsgTypeName(sapMsg.getMsgType()));
-        try {
-            if(mRilBtOutStream != null) {
-                sapMsg.writeReqToStream(mRilBtOutStream);
-            } /* Else SAP was enabled on a build that did not support SAP, which we will not
-               * handle. */
-        } catch (IOException e) {
-            Log.e(TAG_HANDLER, "Unable to send message to RIL", e);
-            SapMessage errorReply = new SapMessage(SapMessage.ID_ERROR_RESP);
-            sendClientMessage(errorReply);
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG_HANDLER, "Unable encode message", e);
-            SapMessage errorReply = new SapMessage(SapMessage.ID_ERROR_RESP);
-            sendClientMessage(errorReply);
+
+        Log.d(TAG_HANDLER, "sendRilMessage: calling getSapProxy");
+        synchronized (mRilBtReceiver.getSapProxyLock()) {
+            ISap sapProxy = mRilBtReceiver.getSapProxy();
+            if (sapProxy == null) {
+                Log.e(TAG_HANDLER,
+                        "sendRilMessage: Unable to send message to RIL; sapProxy is null");
+                sendClientMessage(new SapMessage(SapMessage.ID_ERROR_RESP));
+                return;
+            }
+
+            try {
+                sapMsg.send(sapProxy);
+                if (VERBOSE) {
+                    Log.d(TAG_HANDLER, "sendRilMessage: sapMsg.callISapReq called successfully");
+                }
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG_HANDLER, "sendRilMessage: IllegalArgumentException", e);
+                sendClientMessage(new SapMessage(SapMessage.ID_ERROR_RESP));
+            } catch (RemoteException | RuntimeException e) {
+                Log.e(TAG_HANDLER, "sendRilMessage: Unable to send message to RIL: " + e);
+                sendClientMessage(new SapMessage(SapMessage.ID_ERROR_RESP));
+                mRilBtReceiver.notifyShutdown(); /* Only needed in case of a connection error */
+                mRilBtReceiver.resetSapProxy();
+            }
         }
     }
 

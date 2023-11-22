@@ -50,9 +50,12 @@ gas_dialog_create(struct hostapd_data *hapd, const u8 *addr, u8 dialog_token)
 		sta->flags |= WLAN_STA_GAS;
 		/*
 		 * The default inactivity is 300 seconds. We don't need
-		 * it to be that long.
+		 * it to be that long. Use five second timeout and increase this
+		 * with the comeback_delay for testing cases.
 		 */
-		ap_sta_session_timeout(hapd, sta, 5);
+		ap_sta_session_timeout(hapd, sta,
+				       hapd->conf->gas_comeback_delay / 1024 +
+				       5);
 	} else {
 		ap_sta_replenish_timeout(hapd, sta, 5);
 	}
@@ -255,20 +258,29 @@ static void anqp_add_capab_list(struct hostapd_data *hapd,
 		wpabuf_put_le16(buf, ANQP_DOMAIN_NAME);
 	if (get_anqp_elem(hapd, ANQP_EMERGENCY_ALERT_URI))
 		wpabuf_put_le16(buf, ANQP_EMERGENCY_ALERT_URI);
+	if (get_anqp_elem(hapd, ANQP_TDLS_CAPABILITY))
+		wpabuf_put_le16(buf, ANQP_TDLS_CAPABILITY);
 	if (get_anqp_elem(hapd, ANQP_EMERGENCY_NAI))
 		wpabuf_put_le16(buf, ANQP_EMERGENCY_NAI);
 	if (get_anqp_elem(hapd, ANQP_NEIGHBOR_REPORT))
 		wpabuf_put_le16(buf, ANQP_NEIGHBOR_REPORT);
-	for (id = 273; id < 277; id++) {
-		if (get_anqp_elem(hapd, id))
-			wpabuf_put_le16(buf, id);
-	}
+#ifdef CONFIG_FILS
+	if (!dl_list_empty(&hapd->conf->fils_realms) ||
+	    get_anqp_elem(hapd, ANQP_FILS_REALM_INFO))
+		wpabuf_put_le16(buf, ANQP_FILS_REALM_INFO);
+#endif /* CONFIG_FILS */
+	if (get_anqp_elem(hapd, ANQP_CAG))
+		wpabuf_put_le16(buf, ANQP_CAG);
 	if (get_anqp_elem(hapd, ANQP_VENUE_URL))
 		wpabuf_put_le16(buf, ANQP_VENUE_URL);
 	if (get_anqp_elem(hapd, ANQP_ADVICE_OF_CHARGE))
 		wpabuf_put_le16(buf, ANQP_ADVICE_OF_CHARGE);
 	if (get_anqp_elem(hapd, ANQP_LOCAL_CONTENT))
 		wpabuf_put_le16(buf, ANQP_LOCAL_CONTENT);
+	for (id = 280; id < 300; id++) {
+		if (get_anqp_elem(hapd, id))
+			wpabuf_put_le16(buf, id);
+	}
 #ifdef CONFIG_HS20
 	anqp_add_hs_capab_list(hapd, buf);
 #endif /* CONFIG_HS20 */
@@ -548,6 +560,36 @@ static void anqp_add_domain_name(struct hostapd_data *hapd, struct wpabuf *buf)
 }
 
 
+#ifdef CONFIG_FILS
+static void anqp_add_fils_realm_info(struct hostapd_data *hapd,
+				     struct wpabuf *buf)
+{
+	size_t count;
+
+	if (anqp_add_override(hapd, buf, ANQP_FILS_REALM_INFO))
+		return;
+
+	count = dl_list_len(&hapd->conf->fils_realms);
+	if (count > 10000)
+		count = 10000;
+	if (count) {
+		struct fils_realm *realm;
+
+		wpabuf_put_le16(buf, ANQP_FILS_REALM_INFO);
+		wpabuf_put_le16(buf, 2 * count);
+
+		dl_list_for_each(realm, &hapd->conf->fils_realms,
+				 struct fils_realm, list) {
+			if (count == 0)
+				break;
+			wpabuf_put_data(buf, realm->hash, 2);
+			count--;
+		}
+	}
+}
+#endif /* CONFIG_FILS */
+
+
 #ifdef CONFIG_HS20
 
 static void anqp_add_operator_friendly_name(struct hostapd_data *hapd,
@@ -649,7 +691,7 @@ static void anqp_add_osu_provider(struct wpabuf *buf,
 
 	/* OSU Method List */
 	count = wpabuf_put(buf, 1);
-	for (i = 0; p->method_list[i] >= 0; i++)
+	for (i = 0; p->method_list && p->method_list[i] >= 0; i++)
 		wpabuf_put_u8(buf, p->method_list[i]);
 	*count = i;
 
@@ -821,6 +863,10 @@ gas_serv_build_gas_resp_payload(struct hostapd_data *hapd,
 		len += 1000;
 	if (request & ANQP_REQ_ICON_REQUEST)
 		len += 65536;
+#ifdef CONFIG_FILS
+	if (request & ANQP_FILS_REALM_INFO)
+		len += 2 * dl_list_len(&hapd->conf->fils_realms);
+#endif /* CONFIG_FILS */
 	len += anqp_get_required_len(hapd, extra_req, num_extra_req);
 
 	buf = wpabuf_alloc(len);
@@ -860,8 +906,15 @@ gas_serv_build_gas_resp_payload(struct hostapd_data *hapd,
 	if (request & ANQP_REQ_EMERGENCY_NAI)
 		anqp_add_elem(hapd, buf, ANQP_EMERGENCY_NAI);
 
-	for (i = 0; i < num_extra_req; i++)
+	for (i = 0; i < num_extra_req; i++) {
+#ifdef CONFIG_FILS
+		if (extra_req[i] == ANQP_FILS_REALM_INFO) {
+			anqp_add_fils_realm_info(hapd, buf);
+			continue;
+		}
+#endif /* CONFIG_FILS */
 		anqp_add_elem(hapd, buf, extra_req[i]);
+	}
 
 #ifdef CONFIG_HS20
 	if (request & ANQP_REQ_HS_CAPABILITY_LIST)
@@ -984,6 +1037,13 @@ static void rx_anqp_query_list_id(struct hostapd_data *hapd, u16 info_id,
 			     get_anqp_elem(hapd, info_id) != NULL, qi);
 		break;
 	default:
+#ifdef CONFIG_FILS
+		if (info_id == ANQP_FILS_REALM_INFO &&
+		    !dl_list_empty(&hapd->conf->fils_realms)) {
+			wpa_printf(MSG_DEBUG,
+				   "ANQP: FILS Realm Information (local)");
+		} else
+#endif /* CONFIG_FILS */
 		if (!get_anqp_elem(hapd, info_id)) {
 			wpa_printf(MSG_DEBUG, "ANQP: Unsupported Info Id %u",
 				   info_id);
@@ -1166,7 +1226,8 @@ static void rx_anqp_vendor_specific(struct hostapd_data *hapd,
 
 static void gas_serv_req_local_processing(struct hostapd_data *hapd,
 					  const u8 *sa, u8 dialog_token,
-					  struct anqp_query_info *qi, int prot)
+					  struct anqp_query_info *qi, int prot,
+					  int std_addr3)
 {
 	struct wpabuf *buf, *tx_buf;
 
@@ -1188,7 +1249,7 @@ static void gas_serv_req_local_processing(struct hostapd_data *hapd,
 	}
 #endif /* CONFIG_P2P */
 
-	if (wpabuf_len(buf) > hapd->gas_frag_limit ||
+	if (wpabuf_len(buf) > hapd->conf->gas_frag_limit ||
 	    hapd->conf->gas_comeback_delay) {
 		struct gas_dialog_info *di;
 		u16 comeback_delay = 1;
@@ -1227,15 +1288,22 @@ static void gas_serv_req_local_processing(struct hostapd_data *hapd,
 		return;
 	if (prot)
 		convert_to_protected_dual(tx_buf);
-	hostapd_drv_send_action(hapd, hapd->iface->freq, 0, sa,
-				wpabuf_head(tx_buf), wpabuf_len(tx_buf));
+	if (std_addr3)
+		hostapd_drv_send_action(hapd, hapd->iface->freq, 0, sa,
+					wpabuf_head(tx_buf),
+					wpabuf_len(tx_buf));
+	else
+		hostapd_drv_send_action_addr3_ap(hapd, hapd->iface->freq, 0, sa,
+						 wpabuf_head(tx_buf),
+						 wpabuf_len(tx_buf));
 	wpabuf_free(tx_buf);
 }
 
 
 static void gas_serv_rx_gas_initial_req(struct hostapd_data *hapd,
 					const u8 *sa,
-					const u8 *data, size_t len, int prot)
+					const u8 *data, size_t len, int prot,
+					int std_addr3)
 {
 	const u8 *pos = data;
 	const u8 *end = data + len;
@@ -1287,8 +1355,15 @@ static void gas_serv_rx_gas_initial_req(struct hostapd_data *hapd,
 		wpabuf_put_le16(buf, 0); /* Query Response Length */
 		if (prot)
 			convert_to_protected_dual(buf);
-		hostapd_drv_send_action(hapd, hapd->iface->freq, 0, sa,
-					wpabuf_head(buf), wpabuf_len(buf));
+		if (std_addr3)
+			hostapd_drv_send_action(hapd, hapd->iface->freq, 0, sa,
+						wpabuf_head(buf),
+						wpabuf_len(buf));
+		else
+			hostapd_drv_send_action_addr3_ap(hapd,
+							 hapd->iface->freq, 0,
+							 sa, wpabuf_head(buf),
+							 wpabuf_len(buf));
 		wpabuf_free(buf);
 		return;
 	}
@@ -1338,13 +1413,15 @@ static void gas_serv_rx_gas_initial_req(struct hostapd_data *hapd,
 		pos += elen;
 	}
 
-	gas_serv_req_local_processing(hapd, sa, dialog_token, &qi, prot);
+	gas_serv_req_local_processing(hapd, sa, dialog_token, &qi, prot,
+				      std_addr3);
 }
 
 
 static void gas_serv_rx_gas_comeback_req(struct hostapd_data *hapd,
 					 const u8 *sa,
-					 const u8 *data, size_t len, int prot)
+					 const u8 *data, size_t len, int prot,
+					 int std_addr3)
 {
 	struct gas_dialog_info *dialog;
 	struct wpabuf *buf, *tx_buf;
@@ -1376,8 +1453,8 @@ static void gas_serv_rx_gas_comeback_req(struct hostapd_data *hapd,
 	}
 
 	frag_len = wpabuf_len(dialog->sd_resp) - dialog->sd_resp_pos;
-	if (frag_len > hapd->gas_frag_limit) {
-		frag_len = hapd->gas_frag_limit;
+	if (frag_len > hapd->conf->gas_frag_limit) {
+		frag_len = hapd->conf->gas_frag_limit;
 		more = 1;
 	}
 	wpa_msg(hapd->msg_ctx, MSG_DEBUG, "GAS: resp frag_len %u",
@@ -1420,8 +1497,14 @@ static void gas_serv_rx_gas_comeback_req(struct hostapd_data *hapd,
 send_resp:
 	if (prot)
 		convert_to_protected_dual(tx_buf);
-	hostapd_drv_send_action(hapd, hapd->iface->freq, 0, sa,
-				wpabuf_head(tx_buf), wpabuf_len(tx_buf));
+	if (std_addr3)
+		hostapd_drv_send_action(hapd, hapd->iface->freq, 0, sa,
+					wpabuf_head(tx_buf),
+					wpabuf_len(tx_buf));
+	else
+		hostapd_drv_send_action_addr3_ap(hapd, hapd->iface->freq, 0, sa,
+						 wpabuf_head(tx_buf),
+						 wpabuf_len(tx_buf));
 	wpabuf_free(tx_buf);
 }
 
@@ -1432,7 +1515,7 @@ static void gas_serv_rx_public_action(void *ctx, const u8 *buf, size_t len,
 	struct hostapd_data *hapd = ctx;
 	const struct ieee80211_mgmt *mgmt;
 	const u8 *sa, *data;
-	int prot;
+	int prot, std_addr3;
 
 	mgmt = (const struct ieee80211_mgmt *) buf;
 	if (len < IEEE80211_HDRLEN + 2)
@@ -1447,14 +1530,22 @@ static void gas_serv_rx_public_action(void *ctx, const u8 *buf, size_t len,
 	 */
 	prot = mgmt->u.action.category == WLAN_ACTION_PROTECTED_DUAL;
 	sa = mgmt->sa;
+	if (hapd->conf->gas_address3 == 1)
+		std_addr3 = 1;
+	else if (hapd->conf->gas_address3 == 2)
+		std_addr3 = 0;
+	else
+		std_addr3 = is_broadcast_ether_addr(mgmt->bssid);
 	len -= IEEE80211_HDRLEN + 1;
 	data = buf + IEEE80211_HDRLEN + 1;
 	switch (data[0]) {
 	case WLAN_PA_GAS_INITIAL_REQ:
-		gas_serv_rx_gas_initial_req(hapd, sa, data + 1, len - 1, prot);
+		gas_serv_rx_gas_initial_req(hapd, sa, data + 1, len - 1, prot,
+					    std_addr3);
 		break;
 	case WLAN_PA_GAS_COMEBACK_REQ:
-		gas_serv_rx_gas_comeback_req(hapd, sa, data + 1, len - 1, prot);
+		gas_serv_rx_gas_comeback_req(hapd, sa, data + 1, len - 1, prot,
+					     std_addr3);
 		break;
 	}
 }
@@ -1464,9 +1555,6 @@ int gas_serv_init(struct hostapd_data *hapd)
 {
 	hapd->public_action_cb2 = gas_serv_rx_public_action;
 	hapd->public_action_cb2_ctx = hapd;
-	hapd->gas_frag_limit = 1400;
-	if (hapd->conf->gas_frag_limit > 0)
-		hapd->gas_frag_limit = hapd->conf->gas_frag_limit;
 	return 0;
 }
 

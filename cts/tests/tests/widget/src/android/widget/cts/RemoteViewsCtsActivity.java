@@ -16,10 +16,7 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
-import android.cts.util.NullWebViewUtils;
 import android.os.Bundle;
 import android.widget.RemoteViews;
 
@@ -29,11 +26,7 @@ import android.widget.RemoteViews;
 public class RemoteViewsCtsActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        try {
-            super.onCreate(savedInstanceState);
-            setContentView(R.layout.remoteviews_host);
-        } catch (Exception e) {
-            NullWebViewUtils.determineIfWebViewAvailable(this, e);
-        }
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.remoteviews_host);
     }
 }

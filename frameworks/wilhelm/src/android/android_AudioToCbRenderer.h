@@ -26,7 +26,7 @@ class AudioToCbRenderer : public AudioSfDecoder
 {
 public:
 
-    AudioToCbRenderer(const AudioPlayback_Parameters* params);
+    explicit AudioToCbRenderer(const AudioPlayback_Parameters* params);
     virtual ~AudioToCbRenderer();
 
     void setDataPushListener(const data_push_cbf_t pushCbf, CAudioPlayer* pushUser);

@@ -16,14 +16,20 @@ class CrasUtilsError(Exception):
     pass
 
 
-def playback(*args, **kargs):
+def playback(blocking=True, *args, **kargs):
     """A helper function to execute the playback_cmd.
 
+    @param blocking: Blocks this call until playback finishes.
     @param args: args passed to playback_cmd.
     @param kargs: kargs passed to playback_cmd.
 
+    @returns: The process running the playback command. Note that if the
+              blocking parameter is true, this will return a finished process.
     """
-    cmd_utils.execute(playback_cmd(*args, **kargs))
+    process = cmd_utils.popen(playback_cmd(*args, **kargs))
+    if blocking:
+        cmd_utils.wait_and_check_returncode(process)
+    return process
 
 
 def capture(*args, **kargs):
@@ -280,7 +286,7 @@ CRAS_OUTPUT_NODE_TYPES = ['HEADPHONE', 'INTERNAL_SPEAKER', 'HDMI', 'USB',
                           'BLUETOOTH', 'UNKNOWN']
 CRAS_INPUT_NODE_TYPES = ['MIC', 'INTERNAL_MIC', 'USB', 'BLUETOOTH',
                          'POST_DSP_LOOPBACK', 'POST_MIX_LOOPBACK', 'UNKNOWN',
-                         'KEYBOARD_MIC', 'AOKR']
+                         'KEYBOARD_MIC', 'HOTWORD']
 CRAS_NODE_TYPES = CRAS_OUTPUT_NODE_TYPES + CRAS_INPUT_NODE_TYPES
 
 
@@ -520,3 +526,16 @@ def get_node_id_from_node_type(node_type, is_input):
         raise CrasUtilsError(
                 'Can not find unique node id from node type %s' % node_type)
     return find_ids[0]
+
+def get_active_node_volume():
+    """Returns volume from active node.
+
+    @returns: int for volume
+
+    @raises: CrasUtilsError: if node volume cannot be found.
+    """
+    nodes = get_cras_nodes()
+    for node in nodes:
+        if node['Active'] == 1 and node['IsInput'] == 0:
+            return int(node['NodeVolume'])
+    raise CrasUtilsError('Cannot find active node volume from nodes.')

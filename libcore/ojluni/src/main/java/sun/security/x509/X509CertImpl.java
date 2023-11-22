@@ -25,12 +25,7 @@
 
 package sun.security.x509;
 
-import java.io.BufferedReader;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.security.*;
@@ -38,11 +33,9 @@ import java.security.cert.*;
 import java.security.cert.Certificate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
 import javax.security.auth.x500.X500Principal;
 
 import sun.misc.HexDumpEncoder;
-import sun.misc.BASE64Decoder;
 import sun.security.util.*;
 import sun.security.provider.X509Factory;
 
@@ -199,6 +192,8 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
         }
     }
 
+    // BEGIN Android-removed
+    /*
     /**
      * unmarshals an X.509 certificate from an input stream.  If the
      * certificate is RFC1421 hex-encoded, then it must begin with
@@ -209,7 +204,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
      *        be either DER-encoded or RFC1421 hex-encoded version of the
      *        DER-encoded certificate.
      * @exception CertificateException on parsing and initialization errors.
-     */
+     *
     public X509CertImpl(InputStream in) throws CertificateException {
 
         DerValue der = null;
@@ -250,7 +245,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
      * @returns DerValue corresponding to decoded HEX-encoded bytes
      * @throws IOException if stream can not be interpreted as RFC1421
      *                     encoded bytes
-     */
+     *
     private DerValue readRFC1421Cert(InputStream in) throws IOException {
         DerValue der = null;
         String line = null;
@@ -263,8 +258,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
                                   ioe1.getMessage());
         }
         if (line.equals(X509Factory.BEGIN_CERT)) {
-            /* stream appears to be hex-encoded bytes */
-            BASE64Decoder         decoder   = new BASE64Decoder();
+            /* stream appears to be hex-encoded bytes *
             ByteArrayOutputStream decstream = new ByteArrayOutputStream();
             try {
                 while ((line = certBufferedReader.readLine()) != null) {
@@ -272,7 +266,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
                         der = new DerValue(decstream.toByteArray());
                         break;
                     } else {
-                        decstream.write(decoder.decodeBuffer(line));
+                        decstream.write(Base64.getMimeDecoder().decode(line));
                     }
                 }
             } catch (IOException ioe2) {
@@ -285,6 +279,8 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
         }
         return der;
     }
+    */
+    // END Android-removed
 
     /**
      * Construct an initialized X509 Certificate. The certificate is stored
@@ -1971,22 +1967,23 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
     private ConcurrentHashMap<String,String> fingerprints =
             new ConcurrentHashMap<>(2);
 
-    public String getFingerprint(String algorithm) {
-        if (!fingerprints.containsKey(algorithm)) {
-            fingerprints.put(algorithm, getCertificateFingerPrint(algorithm));
-        }
-        return fingerprints.get(algorithm);
-    }
+// BEGIN Android-removed
+//    public String getFingerprint(String algorithm) {
+//        return fingerprints.computeIfAbsent(algorithm,
+//                x -> getFingerprint(x, this));
+//    }
+// END Android-removed
 
     /**
      * Gets the requested finger print of the certificate. The result
      * only contains 0-9 and A-F. No small case, no colon.
      */
-    private String getCertificateFingerPrint(String mdAlg) {
+    public static String getFingerprint(String algorithm,
+            X509Certificate cert) {
         String fingerPrint = "";
         try {
-            byte[] encCertInfo = getEncoded();
-            MessageDigest md = MessageDigest.getInstance(mdAlg);
+            byte[] encCertInfo = cert.getEncoded();
+            MessageDigest md = MessageDigest.getInstance(algorithm);
             byte[] digest = md.digest(encCertInfo);
             StringBuffer buf = new StringBuffer();
             for (int i = 0; i < digest.length; i++) {

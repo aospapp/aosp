@@ -37,17 +37,25 @@ public class TestNativeNormalize extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeNormalizeRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkNativeNormalizeFloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x7e4aac53l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x487756167e4aac53l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeNormalizeFloatFloat(inV, out);
             verifyResultsNativeNormalizeFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeFloatFloat(inV, out);
             verifyResultsNativeNormalizeFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -114,11 +124,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeFloat2Float2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xedd0e45fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x65c77dbcedd0e45fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.forEach_testNativeNormalizeFloat2Float2(inV, out);
             verifyResultsNativeNormalizeFloat2Float2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloat2Float2: " + e.toString());
         }
@@ -126,9 +137,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeFloat2Float2(inV, out);
             verifyResultsNativeNormalizeFloat2Float2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloat2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeFloat2Float2(Allocation inV, Allocation out, boolean relaxed) {
@@ -190,11 +203,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeFloat3Float3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xe3ec053dl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x65c946d7e3ec053dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.forEach_testNativeNormalizeFloat3Float3(inV, out);
             verifyResultsNativeNormalizeFloat3Float3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloat3Float3: " + e.toString());
         }
@@ -202,9 +216,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeFloat3Float3(inV, out);
             verifyResultsNativeNormalizeFloat3Float3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloat3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeFloat3Float3(Allocation inV, Allocation out, boolean relaxed) {
@@ -266,11 +282,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeFloat4Float4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xda07261bl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x65cb0ff2da07261bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.forEach_testNativeNormalizeFloat4Float4(inV, out);
             verifyResultsNativeNormalizeFloat4Float4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloat4Float4: " + e.toString());
         }
@@ -278,9 +295,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeFloat4Float4(inV, out);
             verifyResultsNativeNormalizeFloat4Float4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeFloat4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeFloat4Float4(Allocation inV, Allocation out, boolean relaxed) {
@@ -348,11 +367,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeHalfHalf() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x96cffbd5l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x284c43cd96cffbd5l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeNormalizeHalfHalf(inV, out);
             verifyResultsNativeNormalizeHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalfHalf: " + e.toString());
         }
@@ -360,9 +380,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeHalfHalf(inV, out);
             verifyResultsNativeNormalizeHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -424,11 +446,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeHalf2Half2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xeb68f38fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xed4c7c9eb68f38fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.forEach_testNativeNormalizeHalf2Half2(inV, out);
             verifyResultsNativeNormalizeHalf2Half2(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf2Half2: " + e.toString());
         }
@@ -436,9 +459,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeHalf2Half2(inV, out);
             verifyResultsNativeNormalizeHalf2Half2(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeHalf2Half2(Allocation inV, Allocation out, boolean relaxed) {
@@ -505,11 +530,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeHalf3Half3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x4a70b883l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xed4d26b4a70b883l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.forEach_testNativeNormalizeHalf3Half3(inV, out);
             verifyResultsNativeNormalizeHalf3Half3(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf3Half3: " + e.toString());
         }
@@ -517,9 +543,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeHalf3Half3(inV, out);
             verifyResultsNativeNormalizeHalf3Half3(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeHalf3Half3(Allocation inV, Allocation out, boolean relaxed) {
@@ -586,11 +614,12 @@ public class TestNativeNormalize extends RSBaseCompute {
     }
 
     private void checkNativeNormalizeHalf4Half4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xa9787d77l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xed4dd0ca9787d77l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.forEach_testNativeNormalizeHalf4Half4(inV, out);
             verifyResultsNativeNormalizeHalf4Half4(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf4Half4: " + e.toString());
         }
@@ -598,9 +627,11 @@ public class TestNativeNormalize extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             scriptRelaxed.forEach_testNativeNormalizeHalf4Half4(inV, out);
             verifyResultsNativeNormalizeHalf4Half4(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeNormalizeHalf4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeNormalizeHalf4Half4(Allocation inV, Allocation out, boolean relaxed) {

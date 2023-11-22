@@ -16,80 +16,56 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-
 import android.app.Activity;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.AnalogClock;
 
-public class AnalogClockTest extends ActivityInstrumentationTestCase2<FrameLayoutCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AnalogClockTest {
     private AttributeSet mAttrSet;
     private Activity mActivity;
 
-    public AnalogClockTest() {
-        super("android.widget.cts", FrameLayoutCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<FrameLayoutCtsActivity> mActivityRule =
+            new ActivityTestRule<>(FrameLayoutCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        XmlPullParser parser = getActivity().getResources().getXml(R.layout.analogclock);
+    @Before
+    public void setup() throws Exception {
+        mActivity = mActivityRule.getActivity();
+        XmlPullParser parser = mActivity.getResources().getXml(R.layout.analogclock);
         mAttrSet = Xml.asAttributeSet(parser);
-        mActivity = getActivity();
     }
 
-    @UiThreadTest
+    @Test
     public void testConstructor() {
         new AnalogClock(mActivity);
         new AnalogClock(mActivity, mAttrSet);
         new AnalogClock(mActivity, mAttrSet, 0);
-
-        try {
-            new AnalogClock(null);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
-
-        try {
-            new AnalogClock(null, null);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
-
-        try {
-            new AnalogClock(null, null, -1);
-            fail("There should be a NullPointerException thrown out.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
-    public void testOnMeasure() {
-        // onMeasure() is implementation details, do NOT test
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext1() {
+        new AnalogClock(null);
     }
 
-    public void testOnSizeChanged() {
-        // Do not test onSizeChanged(), implementation details
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext2() {
+        new AnalogClock(null, null);
     }
 
-    public void testOnDraw() {
-        // Do not test, it's controlled by View. Implementation details
-    }
-
-    public void testOnDetachedFromWindow() {
-        // Do not test
-    }
-
-    public void testOnAttachedToWindow() {
-        // Do not test
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext3() {
+        new AnalogClock(null, null, -1);
     }
 }

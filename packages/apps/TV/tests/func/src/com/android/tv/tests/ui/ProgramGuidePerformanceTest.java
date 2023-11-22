@@ -18,8 +18,8 @@ package com.android.tv.tests.ui;
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
 
 import android.os.SystemClock;
+import android.support.test.filters.LargeTest;
 import android.support.test.uiautomator.Until;
-import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 
 import com.android.tv.R;

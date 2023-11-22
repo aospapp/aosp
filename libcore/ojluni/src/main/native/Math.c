@@ -20,12 +20,10 @@
 
 #include "jni.h"
 #include "JNIHelp.h"
+#include "nativehelper/jni_macros.h"
 
 #include <stdlib.h>
 #include <math.h>
-
-#define NATIVE_METHOD(className, functionName, signature) \
-{ #functionName, signature, (void*)(className ## _ ## functionName) }
 
 JNIEXPORT jdouble JNICALL
 Math_cos(JNIEnv *env, jclass unused, jdouble d) {
@@ -145,29 +143,29 @@ Math_rint(JNIEnv *env, jclass unused, jdouble d) {
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(Math, IEEEremainder, "!(DD)D"),
-  NATIVE_METHOD(Math, acos, "!(D)D"),
-  NATIVE_METHOD(Math, asin, "!(D)D"),
-  NATIVE_METHOD(Math, atan, "!(D)D"),
-  NATIVE_METHOD(Math, atan2, "!(DD)D"),
-  NATIVE_METHOD(Math, cbrt, "!(D)D"),
-  NATIVE_METHOD(Math, cos, "!(D)D"),
-  NATIVE_METHOD(Math, ceil, "!(D)D"),
-  NATIVE_METHOD(Math, cosh, "!(D)D"),
-  NATIVE_METHOD(Math, exp, "!(D)D"),
-  NATIVE_METHOD(Math, expm1, "!(D)D"),
-  NATIVE_METHOD(Math, floor, "!(D)D"),
-  NATIVE_METHOD(Math, hypot, "!(DD)D"),
-  NATIVE_METHOD(Math, log, "!(D)D"),
-  NATIVE_METHOD(Math, log10, "!(D)D"),
-  NATIVE_METHOD(Math, log1p, "!(D)D"),
-  NATIVE_METHOD(Math, pow, "!(DD)D"),
-  NATIVE_METHOD(Math, rint, "!(D)D"),
-  NATIVE_METHOD(Math, sin, "!(D)D"),
-  NATIVE_METHOD(Math, sinh, "!(D)D"),
-  NATIVE_METHOD(Math, sqrt, "!(D)D"),
-  NATIVE_METHOD(Math, tan, "!(D)D"),
-  NATIVE_METHOD(Math, tanh, "!(D)D"),
+  FAST_NATIVE_METHOD(Math, IEEEremainder, "(DD)D"),
+  FAST_NATIVE_METHOD(Math, acos, "(D)D"),
+  FAST_NATIVE_METHOD(Math, asin, "(D)D"),
+  FAST_NATIVE_METHOD(Math, atan, "(D)D"),
+  FAST_NATIVE_METHOD(Math, atan2, "(DD)D"),
+  FAST_NATIVE_METHOD(Math, cbrt, "(D)D"),
+  FAST_NATIVE_METHOD(Math, cos, "(D)D"),
+  FAST_NATIVE_METHOD(Math, ceil, "(D)D"),
+  FAST_NATIVE_METHOD(Math, cosh, "(D)D"),
+  FAST_NATIVE_METHOD(Math, exp, "(D)D"),
+  FAST_NATIVE_METHOD(Math, expm1, "(D)D"),
+  FAST_NATIVE_METHOD(Math, floor, "(D)D"),
+  FAST_NATIVE_METHOD(Math, hypot, "(DD)D"),
+  FAST_NATIVE_METHOD(Math, log, "(D)D"),
+  FAST_NATIVE_METHOD(Math, log10, "(D)D"),
+  FAST_NATIVE_METHOD(Math, log1p, "(D)D"),
+  FAST_NATIVE_METHOD(Math, pow, "(DD)D"),
+  FAST_NATIVE_METHOD(Math, rint, "(D)D"),
+  FAST_NATIVE_METHOD(Math, sin, "(D)D"),
+  FAST_NATIVE_METHOD(Math, sinh, "(D)D"),
+  FAST_NATIVE_METHOD(Math, sqrt, "(D)D"),
+  FAST_NATIVE_METHOD(Math, tan, "(D)D"),
+  FAST_NATIVE_METHOD(Math, tanh, "(D)D"),
 };
 
 void register_java_lang_Math(JNIEnv* env) {

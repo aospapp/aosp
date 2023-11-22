@@ -18,8 +18,6 @@
 package org.connectbot.util;
 
 /**
- * @author Kenny Root
- * @author modified by raaar
  */
 public class PreferenceConstants {
 

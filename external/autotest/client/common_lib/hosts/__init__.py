@@ -7,8 +7,5 @@ You should 'import hosts' instead of importing every available host module.
 """
 
 from autotest_lib.client.common_lib import utils
-import base_classes
-
-Host = utils.import_site_class(
-    __file__, "autotest_lib.client.common_lib.hosts.site_host", "SiteHost",
-    base_classes.Host)
+from base_classes import Host
+from repair import *

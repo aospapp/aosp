@@ -17,15 +17,16 @@ import its.caps
 import its.objects
 import its.image
 import os.path
-import pylab
+from matplotlib import pylab
 import matplotlib
 import matplotlib.pyplot as plt
 import math
-import Image
+import textwrap
 import time
 import numpy as np
 import scipy.stats
 import scipy.signal
+
 
 # Convert a 2D array a to a 4D array with dimensions [tile_size,
 # tile_size, row, col] where row, col are tile indices.
@@ -34,6 +35,7 @@ def tile(a, tile_size):
     a = a.reshape([tile_rows, tile_size, tile_cols, tile_size])
     a = a.transpose([1, 3, 0, 2])
     return a
+
 
 def main():
     """Capture a set of raw images with increasing gains and measure the noise.
@@ -75,7 +77,7 @@ def main():
     #
     # We can just bake this normalization factor into the high pass
     # filter kernel.
-    f = f/math.sqrt(np.dot(f, f))
+    f /= math.sqrt(np.dot(f, f))
 
     bracket_factor = math.pow(2, bracket_stops)
 
@@ -91,7 +93,7 @@ def main():
         print "Max analog sensitivity: %f" % (sens_max_analog)
 
         # Do AE to get a rough idea of where we are.
-        s_ae,e_ae,_,_,_  = \
+        s_ae, e_ae, _, _, _  = \
             cam.do_3a(get_results=True, do_awb=False, do_af=False)
         # Underexpose to get more data for low signal levels.
         auto_e = s_ae*e_ae/bracket_factor
@@ -143,7 +145,7 @@ def main():
                     # level.
                     black_level = its.image.get_black_level(
                         pidx, props, cap["metadata"])
-                    p = p*white_level
+                    p *= white_level
                     p = (p - black_level)/(white_level - black_level)
 
                     # Use our high pass filter to filter this plane.
@@ -155,7 +157,7 @@ def main():
                         np.var(tile(hp, tile_size), axis=(0, 1)).flatten()
 
                     for (mean, var) in zip(means_tiled, vars_tiled):
-                        # Don't include the tile if it has samples that might 
+                        # Don't include the tile if it has samples that might
                         # be clipped.
                         if mean + 2*math.sqrt(var) < max_signal_level:
                             samples_e.append([mean, var])
@@ -173,7 +175,7 @@ def main():
             samples.extend([(round(s), mean, var) for (mean, var) in samples_s])
 
             # Add the linear fit to the plot for this sensitivity.
-            plt_s.plot([0, max_signal_level], [O, O + S*max_signal_level], 'r-', 
+            plt_s.plot([0, max_signal_level], [O, O + S*max_signal_level], 'r-',
                        label="Linear fit")
             xmax = max([x for (x, _) in samples_s])*1.25
             plt_s.set_xlim(xmin=0, xmax=xmax)
@@ -182,7 +184,7 @@ def main():
             plots.append([round(s), fig])
 
             # Move to the next sensitivity.
-            s = s*math.pow(2, 1.0/steps_per_stop)
+            s *= math.pow(2, 1.0/steps_per_stop)
 
         # Grab the sensitivities and line parameters from each sensitivity.
         S_measured = [e[1] for e in measured_models]
@@ -212,12 +214,12 @@ def main():
 
         # To avoid overfitting to high ISOs (high variances), divide the system
         # by the gains.
-        a = a/(np.tile(gains, (a.shape[1], 1)).T)
-        b = b/gains
+        a /= (np.tile(gains, (a.shape[1], 1)).T)
+        b /= gains
 
         [A, B, C, D], _, _, _ = np.linalg.lstsq(a, b)
 
-        # Plot the noise model components with the values predicted by the 
+        # Plot the noise model components with the values predicted by the
         # noise model.
         S_model = A*sens + B
         O_model = \
@@ -226,14 +228,14 @@ def main():
         (fig, (plt_S, plt_O)) = plt.subplots(2, 1)
         plt_S.set_title("Noise model")
         plt_S.set_ylabel("S")
-        plt_S.loglog(sens, S_measured, 'r+', basex=10, basey=10, 
+        plt_S.loglog(sens, S_measured, 'r+', basex=10, basey=10,
                      label="Measured")
         plt_S.loglog(sens, S_model, 'bx', basex=10, basey=10, label="Model")
         plt_S.legend(loc=2)
 
         plt_O.set_xlabel("ISO")
         plt_O.set_ylabel("O")
-        plt_O.loglog(sens, O_measured, 'r+', basex=10, basey=10, 
+        plt_O.loglog(sens, O_measured, 'r+', basex=10, basey=10,
                      label="Measured")
         plt_O.loglog(sens, O_model, 'bx', basex=10, basey=10, label="Model")
         fig.savefig("%s.png" % (NAME))
@@ -244,7 +246,7 @@ def main():
             dg = max(s/sens_max_analog, 1)
             S = A*s + B
             O = C*s*s + D*dg*dg
-            plt_s.plot([0, max_signal_level], [O, O + S*max_signal_level], 'b-', 
+            plt_s.plot([0, max_signal_level], [O, O + S*max_signal_level], 'b-',
                        label="Model")
             plt_s.legend(loc=2)
 
@@ -254,38 +256,42 @@ def main():
             fig.savefig("%s_samples_iso%04d.png" % (NAME, round(s)))
 
         # Generate the noise model implementation.
-        print """
-        /* Generated test code to dump a table of data for external validation
-         * of the noise model parameters.
-         */
-        #include <stdio.h>
-        #include <assert.h>
-        double compute_noise_model_entry_S(int sens);
-        double compute_noise_model_entry_O(int sens);
-        int main(void) {
-            int sens;
-            for (sens = %d; sens <= %d; sens += 100) {
-                double o = compute_noise_model_entry_O(sens);
-                double s = compute_noise_model_entry_S(sens);
-                printf("%%d,%%lf,%%lf\\n", sens, o, s);
+        noise_model_code = textwrap.dedent("""\
+            /* Generated test code to dump a table of data for external validation
+             * of the noise model parameters.
+             */
+            #include <stdio.h>
+            #include <assert.h>
+            double compute_noise_model_entry_S(int sens);
+            double compute_noise_model_entry_O(int sens);
+            int main(void) {
+                int sens;
+                for (sens = %d; sens <= %d; sens += 100) {
+                    double o = compute_noise_model_entry_O(sens);
+                    double s = compute_noise_model_entry_S(sens);
+                    printf("%%d,%%lf,%%lf\\n", sens, o, s);
+                }
+                return 0;
             }
-            return 0;
-        }
 
-        /* Generated functions to map a given sensitivity to the O and S noise
-         * model parameters in the DNG noise model.
-         */
-        double compute_noise_model_entry_S(int sens) {
-            double s = %e * sens + %e;
-            return s < 0.0 ? 0.0 : s;
-        }
+            /* Generated functions to map a given sensitivity to the O and S noise
+             * model parameters in the DNG noise model.
+             */
+            double compute_noise_model_entry_S(int sens) {
+                double s = %e * sens + %e;
+                return s < 0.0 ? 0.0 : s;
+            }
 
-        double compute_noise_model_entry_O(int sens) {
-            double digital_gain = %s;
-            double o = %e * sens * sens + %e * digital_gain * digital_gain;
-            return o < 0.0 ? 0.0 : o;
-        }
-        """ % (sens_min, sens_max, A, B, digital_gain_cdef, C, D)
+            double compute_noise_model_entry_O(int sens) {
+                double digital_gain = %s;
+                double o = %e * sens * sens + %e * digital_gain * digital_gain;
+                return o < 0.0 ? 0.0 : o;
+            }
+            """ % (sens_min, sens_max, A, B, digital_gain_cdef, C, D))
+        print noise_model_code
+        text_file = open("noise_model.c", "w")
+        text_file.write("%s" % noise_model_code)
+        text_file.close()
 
 if __name__ == '__main__':
     main()

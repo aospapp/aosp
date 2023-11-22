@@ -132,7 +132,7 @@ void usage()
            "  -s --size:        Size in kbytes of the data.\n"
            "  -S --chunk-size:  Size of a chunk. Default to size ie 1 chunk.\n"
            "                    Data will be written/read using that chunk size.\n"
-           "  -D --depth:       Depth of directory tree to create for traversal.\n",
+           "  -D --depth:       Depth of directory tree to create for traversal.\n"
            "  -i --iterations:  Number of time a process should carry its task.\n"
            "  -p --procnb:      Number of processes to use.\n"
            "  -d --dump:        Print the raw timing on stdout.\n"

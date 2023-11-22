@@ -14,7 +14,11 @@ from autotest_lib.server.cros.ap_configurators import ap_spec
 AP_CONFIG_FILES = { ap_constants.AP_TEST_TYPE_CHAOS:
                     ('chaos_dynamic_ap_list.conf', 'chaos_shadow_ap_list.conf'),
                     ap_constants.AP_TEST_TYPE_CLIQUE:
-                    ('clique_ap_list.conf',)}
+                    ('clique_ap_list.conf',),
+                    ap_constants.AP_TEST_TYPE_CASEY5:
+                    ('casey_chromeos5_ap_list.conf',),
+                    ap_constants.AP_TEST_TYPE_CASEY7:
+                    ('casey_chromeos7_ap_list.conf',),}
 
 TIMEOUT = 100
 
@@ -79,6 +83,7 @@ class AP(object):
     CONF_CHANNEL = 'channel'
     CONF_CLASS = 'class_name'
     CONF_ADMIN = 'admin_url'
+    CONF_ADMIN_IP = 'admin_ip'
 
 
     def __init__(self, bss, config):
@@ -182,6 +187,11 @@ class AP(object):
     def get_admin(self):
         """@return string admin for AP from config file"""
         return self.ap_config.get(self.bss, self.CONF_ADMIN)
+
+
+    def get_admin_ip(self):
+        """@return admin IP for AP from config file"""
+        return self.ap_config.get(self.bss, self.CONF_ADMIN_IP)
 
 
     def power_off(self):

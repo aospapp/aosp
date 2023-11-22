@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2010-2016, International Business Machines
@@ -452,7 +454,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
      * @return true if getSubstring(part).equals(s).
      */
     public boolean partSubstringMatches(Part part, String s) {
-        return msg.regionMatches(part.index, s, 0, part.length);
+        return part.length == s.length() && msg.regionMatches(part.index, s, 0, part.length);
     }
 
     /**
@@ -803,6 +805,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
      * Creates and returns an unfrozen copy of this object.
      * @return a copy of this object.
      */
+    @Override
     @SuppressWarnings("unchecked")
     public MessagePattern cloneAsThawed() {
         MessagePattern newMsg;
@@ -821,8 +824,9 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
 
     /**
      * Freezes this object, making it immutable and thread-safe.
-     * @return this 
+     * @return this
      */
+    @Override
     public MessagePattern freeze() {
         frozen=true;
         return this;
@@ -832,6 +836,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
      * Determines whether this object is frozen (immutable) or not.
      * @return true if this object is frozen.
      */
+    @Override
     public boolean isFrozen() {
         return frozen;
     }
@@ -865,7 +870,7 @@ public final class MessagePattern implements Cloneable, Freezable<MessagePattern
             char c=msg.charAt(index++);
             if(c=='\'') {
                 if(index==msg.length()) {
-                    // The apostrophe is the last character in the pattern. 
+                    // The apostrophe is the last character in the pattern.
                     // Add a Part for auto-quoting.
                     addPart(Part.Type.INSERT_CHAR, index, 0, '\'');  // value=char to be inserted
                     needsAutoQuoting=true;

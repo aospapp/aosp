@@ -23,11 +23,13 @@ public class SummaryStatistics {
   /** Sum of the values. */
   private double sum;
 
-  /** Sum of the squares of the values added. */
-  private double squaresSum;
+  /** Use the first value to shift all values to it when computing variance, as it improves
+   * numerical stability. Note variance is invariant to shifting. */
+  private Double firstValue = null;
 
-  /** The previously added value. */
-  private double lastValue;
+  /** Sum of the squares of the values added, shifted according to the first value. */
+  private double shiftedSquaresSum;
+
 
   public SummaryStatistics() {
   }
@@ -38,10 +40,12 @@ public class SummaryStatistics {
 
   /** Add a new value to the values seen. */
   public void add(double value) {
-    sum += value - lastValue;
-    squaresSum += square(value) - square(lastValue);
+    if (firstValue == null) {
+      firstValue = new Double(value);
+    }
+    sum += value;
+    shiftedSquaresSum += square(value - firstValue);
     numValues++;
-    lastValue = value;
   }
 
   /** Mean of the values seen. */
@@ -51,7 +55,8 @@ public class SummaryStatistics {
 
   /** Variance of the values seen. */
   public double var() {
-    return (squaresSum / numValues) - square(mean());
+    double shiftedMean = (sum - numValues * firstValue) / numValues;
+    return (shiftedSquaresSum / numValues) - square(shiftedMean);
   }
 
   /** Standard deviation of the values seen. */

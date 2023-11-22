@@ -33,7 +33,8 @@ namespace {
 // Implements ITrunksClient and forwards response data to a ResponseCallback.
 class ResponseObserver : public android::trunks::BnTrunksClient {
  public:
-  ResponseObserver(const trunks::CommandTransceiver::ResponseCallback& callback)
+  explicit ResponseObserver(
+      const trunks::CommandTransceiver::ResponseCallback& callback)
       : callback_(callback) {}
 
   // ITrunksClient interface.

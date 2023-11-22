@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and    *
@@ -11,6 +13,7 @@ package android.icu.text;
  * <code>UnicodeFilter</code> defines a protocol for selecting a
  * subset of the full range (U+0000 to U+FFFF) of Unicode characters.
  */
+@SuppressWarnings("javadoc")    // com.imb.icu.text.Transliterator is in another project
 public abstract class UnicodeFilter implements UnicodeMatcher {
 
     /**
@@ -25,6 +28,7 @@ public abstract class UnicodeFilter implements UnicodeMatcher {
      * Default implementation of UnicodeMatcher::matches() for Unicode
      * filters.  Matches a single 16-bit code unit at offset.
      */
+    @Override
     public int matches(Replaceable text,
                        int[] offset,
                        int limit,

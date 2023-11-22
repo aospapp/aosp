@@ -49,11 +49,13 @@ def _parse_logline_timestamp(t):
     s, ms = s.split('.')
     return (month, day, h, m, s, ms)
 
+
 def is_valid_logline_timestamp(timestamp):
     if len(timestamp) == log_line_timestamp_len:
         if logline_timestamp_re.match(timestamp):
             return True
     return False
+
 
 def logline_timestamp_comparator(t1, t2):
     """Comparator for timestamps in logline format.
@@ -74,15 +76,29 @@ def logline_timestamp_comparator(t1, t2):
             return 1
     return 0
 
+
 def _get_timestamp(time_format, delta=None):
     t = datetime.datetime.now()
     if delta:
         t = t + datetime.timedelta(seconds=delta)
     return t.strftime(time_format)[:-3]
 
+
 def epoch_to_log_line_timestamp(epoch_time):
-    d = datetime.datetime.fromtimestamp(epoch_time / 1000)
-    return d.strftime("%m-%d %H:%M:%S.%f")[:-3]
+    """Converts an epoch timestamp in ms to log line timestamp format, which
+    is readible for humans.
+
+    Args:
+        epoch_time: integer, an epoch timestamp in ms.
+
+    Returns:
+        A string that is the corresponding timestamp in log line timestamp
+        format.
+    """
+    s, ms = divmod(epoch_time, 1000)
+    d = datetime.datetime.fromtimestamp(s)
+    return d.strftime("%m-%d %H:%M:%S.") + str(ms)
+
 
 def get_log_line_timestamp(delta=None):
     """Returns a timestamp in the format used by log lines.
@@ -98,6 +114,7 @@ def get_log_line_timestamp(delta=None):
     """
     return _get_timestamp("%m-%d %H:%M:%S.%f", delta)
 
+
 def get_log_file_timestamp(delta=None):
     """Returns a timestamp in the format used for log file names.
 
@@ -112,8 +129,9 @@ def get_log_file_timestamp(delta=None):
     """
     return _get_timestamp("%m-%d-%Y_%H-%M-%S-%f", delta)
 
-def _get_test_logger(log_path, TAG, prefix=None, filename=None):
-    """Returns a logger object used for tests.
+
+def _setup_test_logger(log_path, prefix=None, filename=None):
+    """Customizes the root logger for a test run.
 
     The logger object has a stream handler and a file handler. The stream
     handler logs INFO level to the terminal, the file handler logs DEBUG
@@ -121,18 +139,12 @@ def _get_test_logger(log_path, TAG, prefix=None, filename=None):
 
     Args:
         log_path: Location of the log file.
-        TAG: Name of the logger's owner.
         prefix: A prefix for each log line in terminal.
         filename: Name of the log file. The default is the time the logger
-            is requested.
-
-    Returns:
-        A logger configured with one stream handler and one file handler
+                  is requested.
     """
-    log = logging.getLogger(TAG)
-    if log.handlers:
-        # This logger has been requested before.
-        return log
+    log = logging.getLogger()
+    kill_test_logger(log)
     log.propagate = False
     log.setLevel(logging.DEBUG)
     # Log info to stream
@@ -152,13 +164,22 @@ def _get_test_logger(log_path, TAG, prefix=None, filename=None):
     fh = logging.FileHandler(os.path.join(log_path, 'test_run_details.txt'))
     fh.setFormatter(f_formatter)
     fh.setLevel(logging.DEBUG)
+    fh_info = logging.FileHandler(os.path.join(log_path, 'test_run_info.txt'))
+    fh_info.setFormatter(f_formatter)
+    fh_info.setLevel(logging.INFO)
+    fh_error = logging.FileHandler(os.path.join(log_path, 'test_run_error.txt'))
+    fh_error.setFormatter(f_formatter)
+    fh_error.setLevel(logging.WARNING)
     log.addHandler(ch)
     log.addHandler(fh)
+    log.addHandler(fh_info)
+    log.addHandler(fh_error)
     log.log_path = log_path
-    return log
+    logging.log_path = log_path
+
 
 def kill_test_logger(logger):
-    """Cleans up a test logger object created by get_test_logger.
+    """Cleans up a test logger object by removing all of its handlers.
 
     Args:
         logger: The logging object to clean up.
@@ -167,6 +188,7 @@ def kill_test_logger(logger):
         logger.removeHandler(h)
         if isinstance(h, logging.FileHandler):
             h.close()
+
 
 def create_latest_log_alias(actual_path):
     """Creates a symlink to the latest test run logs.
@@ -179,25 +201,22 @@ def create_latest_log_alias(actual_path):
         os.remove(link_path)
     os.symlink(actual_path, link_path)
 
-def get_test_logger(log_path, TAG, prefix=None, filename=None):
-    """Returns a logger customized for a test run.
+
+def setup_test_logger(log_path, prefix=None, filename=None):
+    """Customizes the root logger for a test run.
 
     Args:
         log_path: Location of the report file.
-        TAG: Name of the logger's owner.
         prefix: A prefix for each log line in terminal.
         filename: Name of the files. The default is the time the objects
             are requested.
-
-    Returns:
-        A logger object.
     """
     if filename is None:
         filename = get_log_file_timestamp()
     create_dir(log_path)
-    logger = _get_test_logger(log_path, TAG, prefix, filename)
+    logger = _setup_test_logger(log_path, prefix, filename)
     create_latest_log_alias(log_path)
-    return logger
+
 
 def normalize_log_line_timestamp(log_line_timestamp):
     """Replace special characters in log line timestamp with normal characters.
@@ -214,27 +233,3 @@ def normalize_log_line_timestamp(log_line_timestamp):
     norm_tp = norm_tp.replace(':', '-')
     return norm_tp
 
-class LoggerProxy(object):
-    """This class is for situations where a logger may or may not exist.
-
-    e.g. In controller classes, sometimes we don't have a logger to pass in,
-    like during a quick try in python console. In these cases, we don't want to
-    crash on the log lines because logger is None, so we should set self.log to
-    an object of this class in the controller classes, instead of the actual
-    logger object.
-    """
-    def __init__(self, logger=None):
-        self.log = logger
-
-    @property
-    def log_path(self):
-        if self.log:
-            return self.log.log_path
-        return "/tmp/logs"
-
-    def __getattr__(self, name):
-        def log_call(*args):
-            if self.log:
-                return getattr(self.log, name)(*args)
-            print(*args)
-        return log_call

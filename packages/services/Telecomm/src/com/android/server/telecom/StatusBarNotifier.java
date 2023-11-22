@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 import android.app.StatusBarManager;
 import android.content.Context;
+import android.telecom.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 

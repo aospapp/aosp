@@ -40,6 +40,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 public class ChildrenTest extends JDWPSyncTestCase {
 
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadGroupReference.ChildrenDebuggee";
     }

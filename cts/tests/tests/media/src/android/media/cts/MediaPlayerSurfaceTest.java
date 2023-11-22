@@ -17,10 +17,14 @@
 package android.media.cts;
 
 import android.os.Bundle;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.ActivityInstrumentationTestCase2;
 
 /**
  */
+@SmallTest
+@RequiresDevice
 public class MediaPlayerSurfaceTest extends ActivityInstrumentationTestCase2<MediaPlayerSurfaceStubActivity> {
 
     public MediaPlayerSurfaceTest() {

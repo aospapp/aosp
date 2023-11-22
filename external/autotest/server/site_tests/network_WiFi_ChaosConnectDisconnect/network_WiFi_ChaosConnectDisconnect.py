@@ -8,7 +8,7 @@ import pprint
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server import test
-
+from autotest_lib.server.cros.network import chaos_clique_utils
 
 class network_WiFi_ChaosConnectDisconnect(test.test):
     """ Dynamic Chaos test to connect and disconnect to an AP. """
@@ -63,6 +63,10 @@ class network_WiFi_ChaosConnectDisconnect(test.test):
                                ('success' if success else 'fail')))
                 capturer.stop_capture(save_dir=self.outputdir,
                                       save_filename=filename)
+                if not success:
+                    client.collect_debug_info('try_%d' % i)
+                    chaos_clique_utils.collect_pcap_info(self.outputdir,
+                                                         filename, i)
                 client.shill.disconnect(assoc_params.ssid)
                 client.shill.clean_profiles()
 

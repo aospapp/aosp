@@ -342,4 +342,35 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         assertIconDimensions(icon5, getIconAsLauncher(
                 mLauncherContext1, mPackageContext1.getPackageName(), "ms21", false));
     }
+
+    public void testGetShortcutIconAdaptive() throws Exception {
+        final Icon icon1 = Icon.createWithAdaptiveBitmap(BitmapFactory.decodeResource(
+            getTestContext().getResources(), R.drawable.black_16x64));
+        final Icon icon2 = Icon.createWithAdaptiveBitmap(BitmapFactory.decodeResource(
+            getTestContext().getResources(), R.drawable.black_32x32));
+
+        runWithCaller(mPackageContext1, () -> {
+            enableManifestActivity("Launcher_manifest_2", true);
+
+            retryUntil(() -> getManager().getManifestShortcuts().size() == 2,
+                "Manifest shortcuts didn't show up");
+
+            assertTrue(getManager().setDynamicShortcuts(list(
+                makeShortcutWithIcon("s1", icon1),
+                makeShortcutWithIcon("s2", icon2))));
+        });
+
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+
+        assertIconDimensions(icon1, getIconAsLauncher(
+            mLauncherContext1, mPackageContext1.getPackageName(), "s1", true));
+        assertIconDimensions(icon2, getIconAsLauncher(
+            mLauncherContext1, mPackageContext1.getPackageName(), "s2", true));
+
+
+        assertIconDimensions(icon1, getIconAsLauncher(
+            mLauncherContext1, mPackageContext1.getPackageName(), "s1", false));
+        assertIconDimensions(icon2, getIconAsLauncher(
+            mLauncherContext1, mPackageContext1.getPackageName(), "s2", false));
+    }
 }

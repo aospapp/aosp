@@ -17,10 +17,17 @@ package android.media.cts;
 
 import android.media.cts.R;
 
+import static org.junit.Assert.assertNotNull;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
+
 import android.annotation.TargetApi;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -31,6 +38,7 @@ import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
+import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
@@ -43,7 +51,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.rule.ActivityTestRule;
 import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -58,13 +66,12 @@ import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -72,33 +79,42 @@ import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+
 @TargetApi(16)
-public class DecodeAccuracyTestBase
-    extends ActivityInstrumentationTestCase2<DecodeAccuracyTestActivity> {
+public class DecodeAccuracyTestBase {
 
     protected Context mContext;
     protected Resources mResources;
     protected DecodeAccuracyTestActivity mActivity;
     protected TestHelper testHelper;
 
-    public DecodeAccuracyTestBase() {
-        super(DecodeAccuracyTestActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<DecodeAccuracyTestActivity> mActivityRule =
+            new ActivityTestRule<>(DecodeAccuracyTestActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        getInstrumentation().waitForIdleSync();
-        mContext = getInstrumentation().getTargetContext();
-        mResources = mContext.getResources();
+    @Before
+    public void setUp() throws Exception {
+        mActivity = mActivityRule.getActivity();
+        mContext = mActivity.getApplicationContext();
+        mResources = mActivity.getResources();
         testHelper = new TestHelper(mContext, mActivity);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         mActivity = null;
-        super.tearDown();
+        mResources = null;
+        mContext = null;
+        mActivityRule = null;
+    }
+
+    protected void bringActivityToFront() {
+        Intent intent = new Intent(mContext, DecodeAccuracyTestActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        mActivity.startActivity(intent);
     }
 
     protected TestHelper getHelper() {
@@ -110,42 +126,63 @@ public class DecodeAccuracyTestBase
         return reference;
     }
 
-    public static class SimplePlayer {
+    public static <T> T checkNotNull(String msg, T reference) {
+        assertNotNull(msg, reference);
+        return reference;
+    }
 
-        public static final long DECODE_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(1) / 2;
+    /* Simple Player that decodes a local video file only. */
+    @TargetApi(16)
+    static class SimplePlayer {
 
+        public static final long MIN_MS_PER_FRAME = TimeUnit.SECONDS.toMillis(1) / 10; // 10 FPS
+        public static final int END_OF_STREAM = -1;
+        public static final int DEQUEUE_SUCCESS = 1;
+        public static final int DEQUEUE_FAIL = 0;
+
+        private static final String TAG = SimplePlayer.class.getSimpleName();
         private static final int NO_TRACK_INDEX = -3;
         private static final long DEQUEUE_TIMEOUT_US = 20;
-        private static final String TAG = SimplePlayer.class.getSimpleName();
 
         private final Context context;
         private final MediaExtractor extractor;
+        private final String codecName;
         private MediaCodec decoder;
+        private byte[] outputBytes;
+        private boolean renderToSurface;
+        private MediaCodecList mediaCodecList;
+        private Surface surface;
 
         public SimplePlayer(Context context) {
-            this(context, new MediaExtractor());
+            this(context, null);
         }
 
-        public SimplePlayer(Context context, MediaExtractor extractor) {
+        public SimplePlayer(Context context, String codecName) {
             this.context = checkNotNull(context);
-            this.extractor = checkNotNull(extractor);
+            this.codecName = codecName;
+            this.extractor = new MediaExtractor();
+            this.renderToSurface = false;
+            this.surface = null;
         }
 
-        /*
-         * The function play the corresponding file for certain number of frames,
+        /**
+         * The function play the corresponding file for certain number of frames.
          *
          * @param surface is the surface view of decoder output.
          * @param videoFormat is the format of the video to extract and decode.
-         * @param numOfTotalFrame is the number of Frame wish to play.
-         * @return a PlayerResult object indicating success or failure.
+         * @param numOfTotalFrames is the number of Frame wish to play.
+         * @param msPerFrameCap is the maximum msec per frame. No cap is set if value is less than 1.
+         * @return {@link PlayerResult} that consists the result.
          */
         public PlayerResult decodeVideoFrames(
-                Surface surface, VideoFormat videoFormat, int numOfTotalFrames) {
+                Surface surface, VideoFormat videoFormat, int numOfTotalFrames, long msPerFrameCap) {
+            this.surface = surface;
             PlayerResult playerResult;
-            if (prepare(surface, videoFormat)) {
+            if (prepareVideoDecode(videoFormat)) {
                 if (startDecoder()) {
-                    playerResult = decodeFramesAndDisplay(
-                            surface, numOfTotalFrames, numOfTotalFrames * DECODE_TIMEOUT_MS);
+                    final long timeout =
+                            Math.max(MIN_MS_PER_FRAME, msPerFrameCap) * numOfTotalFrames * 2;
+                    playerResult = decodeFramesAndPlay(numOfTotalFrames, timeout, msPerFrameCap);
                 } else {
                     playerResult = PlayerResult.failToStart();
                 }
@@ -156,75 +193,163 @@ public class DecodeAccuracyTestBase
             return new PlayerResult(playerResult);
         }
 
-        public PlayerResult decodeVideoFrames(VideoFormat videoFormat, int numOfTotalFrames) {
-            return decodeVideoFrames(null, videoFormat, numOfTotalFrames);
+        public PlayerResult decodeVideoFrames(
+                Surface surface, VideoFormat videoFormat, int numOfTotalFrames) {
+            return decodeVideoFrames(surface, videoFormat, numOfTotalFrames, 0);
         }
 
-        /*
-         * The function set up the extractor and decoder with proper format.
-         * This must be called before decodeFramesAndDisplay.
+        public PlayerResult decodeVideoFrames(VideoFormat videoFormat, int numOfTotalFrames) {
+            return decodeVideoFrames(null, videoFormat, numOfTotalFrames, 0);
+        }
+
+        /**
+         * The function sets up the extractor and video decoder with proper format.
+         * This must be called before doing starting up the decoder.
          */
-        private boolean prepare(Surface surface, VideoFormat videoFormat) {
-            if (!setExtractorDataSource(videoFormat)) {
+        private boolean prepareVideoDecode(VideoFormat videoFormat) {
+            MediaFormat mediaFormat = prepareExtractor(videoFormat);
+            if (mediaFormat == null) {
                 return false;
             }
-            int trackNum = getFirstVideoTrackIndex(extractor);
+            configureVideoFormat(mediaFormat, videoFormat);
+            setRenderToSurface(surface != null);
+            return createDecoder(mediaFormat) && configureDecoder(surface, mediaFormat);
+        }
+
+        /**
+         * Sets up the extractor and gets the {@link MediaFormat} of the track.
+         */
+        private MediaFormat prepareExtractor(VideoFormat videoFormat) {
+            if (!setExtractorDataSource(videoFormat)) {
+                return null;
+            }
+            final int trackNum = getFirstTrackIndexByType(videoFormat.getMediaFormat());
             if (trackNum == NO_TRACK_INDEX) {
-                return false;
+                return null;
             }
             extractor.selectTrack(trackNum);
-            MediaFormat mediaFormat = extractor.getTrackFormat(trackNum);
-            configureFormat(mediaFormat, videoFormat);
-            return configureDecoder(surface, mediaFormat);
+            return extractor.getTrackFormat(trackNum);
         }
 
-        /* The function decode video frames and display in a surface. */
-        private PlayerResult decodeFramesAndDisplay(
-                Surface surface, int numOfTotalFrames, long timeOutMs) {
-            checkNotNull(decoder);
+        /**
+         * The function decode video frames and display in a surface.
+         *
+         * @param numOfTotalFrames is the number of frames to be decoded.
+         * @param timeOutMs is the time limit for decoding the frames.
+         * @param msPerFrameCap is the maximum msec per frame. No cap is set if value is less than 1.
+         * @return {@link PlayerResult} that consists the result.
+         */
+        private PlayerResult decodeFramesAndPlay(
+                int numOfTotalFrames, long timeOutMs, long msPerFrameCap) {
             int numOfDecodedFrames = 0;
-            long decodeStart = 0;
-            boolean renderToSurface = surface != null ? true : false;
-            BufferInfo info = new BufferInfo();
-            ByteBuffer inputBuffer;
-            ByteBuffer[] inputBufferArray = decoder.getInputBuffers();
-            long loopStart = SystemClock.elapsedRealtime();
+            long firstOutputTimeMs = 0;
+            long lastFrameAt = 0;
+            final long loopStart = SystemClock.elapsedRealtime();
 
             while (numOfDecodedFrames < numOfTotalFrames
                     && (SystemClock.elapsedRealtime() - loopStart < timeOutMs)) {
                 try {
-                    int inputBufferIndex = decoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US);
-                    if (inputBufferIndex >= 0) {
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                            inputBuffer = inputBufferArray[inputBufferIndex];
-                        } else {
-                            inputBuffer = decoder.getInputBuffer(inputBufferIndex);
-                        }
-                        if (decodeStart == 0) {
-                            decodeStart = SystemClock.elapsedRealtime();
-                        }
-                        int sampleSize = extractor.readSampleData(inputBuffer, 0);
-                        if (sampleSize > 0) {
-                            decoder.queueInputBuffer(
-                                    inputBufferIndex, 0, sampleSize, extractor.getSampleTime(), 0);
-                            extractor.advance();
-                        }
-                    }
-                    int decoderStatus = decoder.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US);
-                    if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                    queueDecoderInputBuffer();
+                } catch (IllegalStateException exception) {
+                    Log.e(TAG, "IllegalStateException in queueDecoderInputBuffer", exception);
+                    break;
+                }
+                try {
+                    final int outputResult = dequeueDecoderOutputBuffer();
+                    if (outputResult == SimplePlayer.END_OF_STREAM) {
                         break;
                     }
-                    if (decoderStatus >= 0 && info.size > 0) {
-                        decoder.releaseOutputBuffer(decoderStatus, renderToSurface);
+                    if (outputResult == SimplePlayer.DEQUEUE_SUCCESS) {
+                        if (firstOutputTimeMs == 0) {
+                            firstOutputTimeMs = SystemClock.elapsedRealtime();
+                        }
+                        if (msPerFrameCap > 0) {
+                            // Slow down if cap is set and not reached.
+                            final long delayMs =
+                                    msPerFrameCap - (SystemClock.elapsedRealtime() - lastFrameAt);
+                            if (lastFrameAt != 0 && delayMs > 0) {
+                                final long threadDelayMs = 3; // In case of delay in thread.
+                                if (delayMs > threadDelayMs) {
+                                    try {
+                                        Thread.sleep(delayMs - threadDelayMs);
+                                    } catch (InterruptedException ex) { /* */}
+                                }
+                                while (SystemClock.elapsedRealtime() - lastFrameAt
+                                        < msPerFrameCap) { /* */ }
+                            }
+                            lastFrameAt = SystemClock.elapsedRealtime();
+                        }
                         numOfDecodedFrames++;
                     }
                 } catch (IllegalStateException exception) {
-                    Log.e(TAG, "IllegalStateException in decodeFramesAndDisplay " + exception);
-                    break;
+                    Log.e(TAG, "IllegalStateException in dequeueDecoderOutputBuffer", exception);
                 }
             }
-            long totalTime = SystemClock.elapsedRealtime() - decodeStart;
+            final long totalTime = SystemClock.elapsedRealtime() - firstOutputTimeMs;
             return new PlayerResult(true, true, numOfTotalFrames == numOfDecodedFrames, totalTime);
+        }
+
+        /**
+         * Queues the input buffer with the media file one buffer at a time.
+         *
+         * @return true if success, fail otherwise.
+         */
+        private boolean queueDecoderInputBuffer() {
+            ByteBuffer inputBuffer;
+            final ByteBuffer[] inputBufferArray = decoder.getInputBuffers();
+            final int inputBufferIndex = decoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US);
+            if (inputBufferIndex >= 0) {
+                if (ApiLevelUtil.isBefore(Build.VERSION_CODES.LOLLIPOP)) {
+                    inputBuffer = inputBufferArray[inputBufferIndex];
+                } else {
+                    inputBuffer = decoder.getInputBuffer(inputBufferIndex);
+                }
+                final int sampleSize = extractor.readSampleData(inputBuffer, 0);
+                if (sampleSize > 0) {
+                    decoder.queueInputBuffer(
+                            inputBufferIndex, 0, sampleSize, extractor.getSampleTime(), 0);
+                    extractor.advance();
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Dequeues the output buffer.
+         * For video decoder, renders to surface if provided.
+         * For audio decoder, gets the bytes from the output buffer.
+         *
+         * @return an integer indicating its status (fail, success, or end of stream).
+         */
+        private int dequeueDecoderOutputBuffer() {
+            final BufferInfo info = new BufferInfo();
+            final int decoderStatus = decoder.dequeueOutputBuffer(info, DEQUEUE_TIMEOUT_US);
+            if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                return END_OF_STREAM;
+            }
+            if (decoderStatus >= 0) {
+                // For JELLY_BEAN_MR2- devices, when rendering to a surface,
+                // info.size seems to always return 0 even if
+                // the decoder successfully decoded the frame.
+                if (info.size <= 0 && ApiLevelUtil.isAtLeast(Build.VERSION_CODES.JELLY_BEAN_MR2)) {
+                    return DEQUEUE_FAIL;
+                }
+                if (!renderToSurface) {
+                    ByteBuffer outputBuffer;
+                    if (ApiLevelUtil.isBefore(Build.VERSION_CODES.LOLLIPOP)) {
+                        outputBuffer = decoder.getOutputBuffers()[decoderStatus];
+                    } else {
+                        outputBuffer = decoder.getOutputBuffer(decoderStatus);
+                    }
+                    outputBytes = new byte[info.size];
+                    outputBuffer.get(outputBytes);
+                    outputBuffer.clear();
+                }
+                decoder.releaseOutputBuffer(decoderStatus, renderToSurface);
+                return DEQUEUE_SUCCESS;
+            }
+            return DEQUEUE_FAIL;
         }
 
         private void release() {
@@ -233,8 +358,12 @@ public class DecodeAccuracyTestBase
         }
 
         private boolean setExtractorDataSource(VideoFormat videoFormat) {
+            checkNotNull(videoFormat);
             try {
-                extractor.setDataSource(context, videoFormat.loadUri(context), null);
+                final AssetFileDescriptor afd = videoFormat.getAssetFileDescriptor(context);
+                extractor.setDataSource(
+                        afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                afd.close();
             } catch (IOException exception) {
                 Log.e(TAG, "IOException in setDataSource", exception);
                 return false;
@@ -242,20 +371,50 @@ public class DecodeAccuracyTestBase
             return true;
         }
 
+        /**
+         * Creates a decoder based on conditions.
+         *
+         * <p>If codec name is provided, {@link MediaCodec#createByCodecName(String)} is used.
+         * If codec name is not provided, {@link MediaCodecList#findDecoderForFormat(MediaFormat)}
+         * is preferred on LOLLIPOP and up for finding out the codec name that
+         * supports the media format.
+         * For OS older than LOLLIPOP, {@link MediaCodec#createDecoderByType(String)} is used.
+         */
+        private boolean createDecoder(MediaFormat mediaFormat) {
+            try {
+                if (codecName != null) {
+                    decoder = MediaCodec.createByCodecName(codecName);
+                } else if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.LOLLIPOP)) {
+                    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.LOLLIPOP) {
+                        // On LOLLIPOP, format must not contain a frame rate.
+                        mediaFormat.setString(MediaFormat.KEY_FRAME_RATE, null);
+                    }
+                    if (mediaCodecList == null) {
+                        mediaCodecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+                    }
+                    decoder = MediaCodec.createByCodecName(
+                            mediaCodecList.findDecoderForFormat(mediaFormat));
+                } else {
+                    decoder = MediaCodec.createDecoderByType(
+                            mediaFormat.getString(MediaFormat.KEY_MIME));
+                }
+            } catch (Exception exception) {
+                Log.e(TAG, "Exception during decoder creation", exception);
+                decoderRelease();
+                return false;
+            }
+            return true;
+        }
+
         private boolean configureDecoder(Surface surface, MediaFormat mediaFormat) {
             try {
-                decoder = MediaCodec.createDecoderByType(
-                        mediaFormat.getString(MediaFormat.KEY_MIME));
                 decoder.configure(mediaFormat, surface, null, 0);
             } catch (Exception exception) {
-                if (exception instanceof IOException) {
-                    Log.e(TAG, "IOException in createDecoderByType", exception);
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
-                        && exception instanceof CodecException) {
-                    Log.e(TAG, "CodecException in createDecoderByType", exception);
+                Log.e(TAG, "Exception during decoder configuration", exception);
+                try {
                     decoder.reset();
-                } else {
-                    Log.e(TAG, "Unknown exception in createDecoderByType", exception);
+                } catch (Exception resetException) {
+                    Log.e(TAG, "Exception during decoder reset", resetException);
                 }
                 decoderRelease();
                 return false;
@@ -263,19 +422,16 @@ public class DecodeAccuracyTestBase
             return true;
         }
 
+        private void setRenderToSurface(boolean render) {
+            this.renderToSurface = render;
+        }
+
         private boolean startDecoder() {
             try {
                 decoder.start();
             } catch (Exception exception) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
-                        && exception instanceof CodecException) {
-                    Log.e(TAG, "CodecException in startDecoder", exception);
-                    decoder.reset();
-                } else if (exception instanceof IllegalStateException) {
-                    Log.e(TAG, "IllegalStateException in startDecoder", exception);
-                } else {
-                    Log.e(TAG, "Unknown exception in startDecoder", exception);
-                }
+                Log.e(TAG, "Exception during decoder start", exception);
+                decoder.reset();
                 decoderRelease();
                 return false;
             }
@@ -289,16 +445,17 @@ public class DecodeAccuracyTestBase
             try {
                 decoder.stop();
             } catch (IllegalStateException exception) {
+                decoder.reset();
                 // IllegalStateException happens when decoder fail to start.
-                Log.e(TAG, "IllegalStateException in decoder stop" + exception);
+                Log.e(TAG, "IllegalStateException during decoder stop", exception);
             } finally {
                 try {
                     decoder.release();
                 } catch (IllegalStateException exception) {
-                    Log.e(TAG, "IllegalStateException in decoder release" + exception);
+                    Log.e(TAG, "IllegalStateException during decoder release", exception);
                 }
+                decoder = null;
             }
-            decoder = null;
         }
 
         private void extractorRelease() {
@@ -308,11 +465,11 @@ public class DecodeAccuracyTestBase
             try {
                 extractor.release();
             } catch (IllegalStateException exception) {
-                Log.e(TAG, "IllegalStateException in extractor release" + exception);
+                Log.e(TAG, "IllegalStateException during extractor release", exception);
             }
         }
 
-        private static void configureFormat(MediaFormat mediaFormat, VideoFormat videoFormat) {
+        private static void configureVideoFormat(MediaFormat mediaFormat, VideoFormat videoFormat) {
             checkNotNull(mediaFormat);
             checkNotNull(videoFormat);
             videoFormat.setMimeType(mediaFormat.getString(MediaFormat.KEY_MIME));
@@ -320,32 +477,33 @@ public class DecodeAccuracyTestBase
             videoFormat.setHeight(mediaFormat.getInteger(MediaFormat.KEY_HEIGHT));
             mediaFormat.setInteger(MediaFormat.KEY_WIDTH, videoFormat.getWidth());
             mediaFormat.setInteger(MediaFormat.KEY_HEIGHT, videoFormat.getHeight());
-
-            if (videoFormat.getMaxWidth() != VideoFormat.UNSET
-                    && videoFormat.getMaxHeight() != VideoFormat.UNSET) {
+            if (ApiLevelUtil.isBefore(Build.VERSION_CODES.KITKAT)) {
+                return;
+            }
+            if (videoFormat.getMaxWidth() != VideoFormat.INT_UNSET
+                && videoFormat.getMaxHeight() != VideoFormat.INT_UNSET) {
                 mediaFormat.setInteger(MediaFormat.KEY_MAX_WIDTH, videoFormat.getMaxWidth());
                 mediaFormat.setInteger(MediaFormat.KEY_MAX_HEIGHT, videoFormat.getMaxHeight());
             }
         }
 
-        /*
-         * The function returns the first video track found.
-         *
-         * @param extractor is the media extractor instantiated with a video uri.
-         * @return the index of the first video track if found, NO_TRACK_INDEX otherwise.
+        /**
+         * The function returns the first track found based on the media type.
          */
-        private static int getFirstVideoTrackIndex(MediaExtractor extractor) {
+        private int getFirstTrackIndexByType(String format) {
             for (int i = 0; i < extractor.getTrackCount(); i++) {
                 MediaFormat trackMediaFormat = extractor.getTrackFormat(i);
-                if (trackMediaFormat.getString(MediaFormat.KEY_MIME).startsWith("video/")) {
+                if (trackMediaFormat.getString(MediaFormat.KEY_MIME).startsWith(format + "/")) {
                     return i;
                 }
             }
-            Log.e(TAG, "couldn't get a video track");
+            Log.e(TAG, "couldn't get a " + format + " track");
             return NO_TRACK_INDEX;
         }
 
-        /* Stores the result from SimplePlayer. */
+        /**
+         * Stores the result from SimplePlayer.
+         */
         public static final class PlayerResult {
 
             public static final int UNSET = -1;
@@ -377,37 +535,38 @@ public class DecodeAccuracyTestBase
                 return new PlayerResult(true, false, false, UNSET);
             }
 
+            public String getFailureMessage() {
+                if (!configureSuccess) {
+                    return "Failed to configure decoder.";
+                } else if (!startSuccess) {
+                    return "Failed to start decoder.";
+                } else if (!decodeSuccess) {
+                    return "Failed to decode the expected number of frames.";
+                } else {
+                    return "Failed to finish decoding.";
+                }
+            }
+
             public boolean isConfigureSuccess() {
                 return configureSuccess;
             }
 
-            public boolean isStartSuccess() {
-                return startSuccess;
-            }
-
-            public boolean isDecodeSuccess() {
-                return decodeSuccess;
-            }
-
             public boolean isSuccess() {
-                return isConfigureSuccess() && isStartSuccess()
-                        && isDecodeSuccess() && getTotalTime() != UNSET;
+                return configureSuccess && startSuccess && decodeSuccess && getTotalTime() != UNSET;
             }
 
             public long getTotalTime() {
                 return totalTime;
             }
 
-            public boolean isFailureForAll() {
-                return (!isConfigureSuccess() && !isStartSuccess()
-                        && !isDecodeSuccess() && getTotalTime() == UNSET);
-            }
         }
 
     }
 
     /* Utility class for collecting common test case functionality. */
     class TestHelper {
+
+        private final String TAG =  TestHelper.class.getSimpleName();
 
         private final Context context;
         private final Handler handler;
@@ -463,13 +622,21 @@ public class DecodeAccuracyTestBase
         }
 
         public synchronized Bitmap generateBitmapFromVideoViewSnapshot(VideoViewSnapshot snapshot) {
+            final long timeOutMs = TimeUnit.SECONDS.toMillis(30);
+            final long start = SystemClock.elapsedRealtime();
             handler.post(snapshot);
             try {
-                while (!snapshot.isBitmapReady()) {
+                while (!snapshot.isBitmapReady()
+                        && (SystemClock.elapsedRealtime() - start < timeOutMs)) {
                     Thread.sleep(100);
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
+                return null;
+            }
+            if (!snapshot.isBitmapReady()) {
+                Log.e(TAG, "Time out in generateBitmapFromVideoViewSnapshot().");
+                return null;
             }
             return snapshot.getBitmap();
         }
@@ -521,7 +688,8 @@ public class DecodeAccuracyTestBase
 /* Factory for manipulating a {@link View}. */
 abstract class VideoViewFactory {
 
-    public final long VIEW_AVAILABLE_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(1);
+    public static final long VIEW_WAITTIME_MS = TimeUnit.SECONDS.toMillis(1);
+    public static final long DEFAULT_VIEW_AVAILABLE_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(3);
     public static final int VIEW_WIDTH = 480;
     public static final int VIEW_HEIGHT = 360;
 
@@ -533,11 +701,19 @@ abstract class VideoViewFactory {
 
     public abstract View createView(Context context);
 
-    public abstract void waitForViewIsAvailable();
+    public void waitForViewIsAvailable() throws Exception {
+        waitForViewIsAvailable(DEFAULT_VIEW_AVAILABLE_TIMEOUT_MS);
+    };
+
+    public abstract void waitForViewIsAvailable(long timeOutMs) throws Exception;
 
     public abstract Surface getSurface();
 
     public abstract VideoViewSnapshot getVideoViewSnapshot();
+
+    public boolean hasLooper() {
+        return Looper.myLooper() != null;
+    }
 
 }
 
@@ -555,6 +731,7 @@ class TextureViewFactory extends VideoViewFactory implements TextureView.Surface
 
     @Override
     public TextureView createView(Context context) {
+        Log.i(TAG, "Creating a " + NAME);
         textureView = DecodeAccuracyTestBase.checkNotNull(new TextureView(context));
         textureView.setSurfaceTextureListener(this);
         return textureView;
@@ -581,16 +758,22 @@ class TextureViewFactory extends VideoViewFactory implements TextureView.Surface
     }
 
     @Override
-    public void waitForViewIsAvailable() {
-        while (!textureView.isAvailable()) {
+    public void waitForViewIsAvailable(long timeOutMs) throws Exception {
+        final long start = SystemClock.elapsedRealtime();
+        while (SystemClock.elapsedRealtime() - start < timeOutMs && !textureView.isAvailable()) {
             synchronized (syncToken) {
                 try {
-                    syncToken.wait(VIEW_AVAILABLE_TIMEOUT_MS);
-                } catch (InterruptedException exception) {
-                    Log.e(TAG, "Taking too long to attach a TextureView to a window.", exception);
+                    syncToken.wait(VIEW_WAITTIME_MS);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Exception occurred when attaching a TextureView to a window.", e);
+                    throw new InterruptedException(e.getMessage());
                 }
             }
         }
+        if (!textureView.isAvailable()) {
+            throw new InterruptedException("Taking too long to attach a TextureView to a window.");
+        }
+        Log.i(TAG, NAME + " is available.");
     }
 
     @Override
@@ -646,7 +829,10 @@ class SurfaceViewFactory extends VideoViewFactory implements SurfaceHolder.Callb
 
     @Override
     public View createView(Context context) {
-        Looper.prepare();
+        Log.i(TAG, "Creating a " + NAME);
+        if (!super.hasLooper()) {
+            Looper.prepare();
+        }
         surfaceView = new SurfaceView(context);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
@@ -654,21 +840,27 @@ class SurfaceViewFactory extends VideoViewFactory implements SurfaceHolder.Callb
     }
 
     @Override
-    public void waitForViewIsAvailable() {
-        while (!getSurface().isValid()) {
+    public void waitForViewIsAvailable(long timeOutMs) throws Exception {
+        final long start = SystemClock.elapsedRealtime();
+        while (SystemClock.elapsedRealtime() - start < timeOutMs && !getSurface().isValid()) {
             synchronized (syncToken) {
                 try {
-                    syncToken.wait(VIEW_AVAILABLE_TIMEOUT_MS);
-                } catch (InterruptedException exception) {
-                    Log.e(TAG, "Taking too long to attach a SurfaceView to a window.", exception);
+                    syncToken.wait(VIEW_WAITTIME_MS);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Exception occurred when attaching a SurfaceView to a window.", e);
+                    throw new InterruptedException(e.getMessage());
                 }
             }
         }
+        if (!getSurface().isValid()) {
+            throw new InterruptedException("Taking too long to attach a SurfaceView to a window.");
+        }
+        Log.i(TAG, NAME + " is available.");
     }
 
     @Override
     public Surface getSurface() {
-        return surfaceHolder.getSurface();
+        return surfaceHolder == null ? null : surfaceHolder.getSurface();
     }
 
     @Override
@@ -722,6 +914,7 @@ class GLSurfaceViewFactory extends VideoViewFactory {
 
     @Override
     public View createView(Context context) {
+        Log.i(TAG, "Creating a " + NAME);
         // Do all GL rendering in the GL thread.
         glSurfaceViewThread = new GLSurfaceViewThread();
         glSurfaceViewThread.start();
@@ -730,16 +923,25 @@ class GLSurfaceViewFactory extends VideoViewFactory {
     }
 
     @Override
-    public void waitForViewIsAvailable() {
-        while (glSurfaceViewThread.getSurface() == null) {
+    public void waitForViewIsAvailable(long timeOutMs) throws Exception {
+        final long start = SystemClock.elapsedRealtime();
+        while (SystemClock.elapsedRealtime() - start < timeOutMs
+                && glSurfaceViewThread.getSurface() == null) {
             synchronized (surfaceSyncToken) {
                 try {
-                    surfaceSyncToken.wait(VIEW_AVAILABLE_TIMEOUT_MS);
-                } catch (InterruptedException exception) {
-                    Log.e(TAG, "Taking too long for the surface to become available.", exception);
+                    surfaceSyncToken.wait(VIEW_WAITTIME_MS);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Exception occurred when waiting for the surface from"
+                            + " GLSurfaceView to become available.", e);
+                    throw new InterruptedException(e.getMessage());
                 }
             }
         }
+        if (glSurfaceViewThread.getSurface() == null) {
+            throw new InterruptedException("Taking too long for the surface from"
+                    + " GLSurfaceView to become available.");
+        }
+        Log.i(TAG, NAME + " is available.");
     }
 
     @Override
@@ -772,11 +974,11 @@ class GLSurfaceViewFactory extends VideoViewFactory {
         private float[] textureTransform = new float[16];
 
         private float[] triangleVerticesData = {
-                // X, Y, Z, U, V
-                -1f, -1f,  0f,  0f,  1f,
-                 1f, -1f,  0f,  1f,  1f,
-                -1f,  1f,  0f,  0f,  0f,
-                 1f,  1f,  0f,  1f,  0f,
+            // X, Y, Z, U, V
+            -1f, -1f,  0f,  0f,  1f,
+             1f, -1f,  0f,  1f,  1f,
+            -1f,  1f,  0f,  0f,  0f,
+             1f,  1f,  0f,  1f,  0f,
         };
         // Make the top-left corner corresponds to texture coordinate
         // (0, 0). This complies with the transformation matrix obtained from
@@ -813,15 +1015,17 @@ class GLSurfaceViewFactory extends VideoViewFactory {
         private Surface surface = null;
         private SurfaceTexture surfaceTexture;
         private ByteBuffer byteBuffer;
+        private Looper looper;
 
         public GLSurfaceViewThread() {}
 
         @Override
         public void run() {
             Looper.prepare();
+            looper = Looper.myLooper();
             triangleVertices = ByteBuffer
                     .allocateDirect(triangleVerticesData.length * FLOAT_SIZE_BYTES)
-                            .order(ByteOrder.nativeOrder()).asFloatBuffer();
+                    .order(ByteOrder.nativeOrder()).asFloatBuffer();
             triangleVertices.put(triangleVerticesData).position(0);
 
             eglSetup();
@@ -863,13 +1067,13 @@ class GLSurfaceViewFactory extends VideoViewFactory {
             }
             // Configure EGL for pbuffer and OpenGL ES 2.0, 24-bit RGB.
             int[] configAttribs = {
-                    EGL10.EGL_RED_SIZE, 8,
-                    EGL10.EGL_GREEN_SIZE, 8,
-                    EGL10.EGL_BLUE_SIZE, 8,
-                    EGL10.EGL_ALPHA_SIZE, 8,
-                    EGL10.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-                    EGL10.EGL_SURFACE_TYPE, EGL10.EGL_PBUFFER_BIT,
-                    EGL10.EGL_NONE
+                EGL10.EGL_RED_SIZE, 8,
+                EGL10.EGL_GREEN_SIZE, 8,
+                EGL10.EGL_BLUE_SIZE, 8,
+                EGL10.EGL_ALPHA_SIZE, 8,
+                EGL10.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+                EGL10.EGL_SURFACE_TYPE, EGL10.EGL_PBUFFER_BIT,
+                EGL10.EGL_NONE
             };
             EGLConfig[] configs = new EGLConfig[1];
             int[] numConfigs = new int[1];
@@ -879,8 +1083,8 @@ class GLSurfaceViewFactory extends VideoViewFactory {
             }
             // Configure EGL context for OpenGL ES 2.0.
             int[] contextAttribs = {
-                    EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
-                    EGL10.EGL_NONE
+                EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
+                EGL10.EGL_NONE
             };
             eglContext = egl10.eglCreateContext(
                     eglDisplay, configs[0], EGL10.EGL_NO_CONTEXT, contextAttribs);
@@ -890,9 +1094,9 @@ class GLSurfaceViewFactory extends VideoViewFactory {
             }
             // Create a pbuffer surface.
             int[] surfaceAttribs = {
-                    EGL10.EGL_WIDTH, VIEW_WIDTH,
-                    EGL10.EGL_HEIGHT, VIEW_HEIGHT,
-                    EGL10.EGL_NONE
+                EGL10.EGL_WIDTH, VIEW_WIDTH,
+                EGL10.EGL_HEIGHT, VIEW_HEIGHT,
+                EGL10.EGL_NONE
             };
             eglSurface = egl10.eglCreatePbufferSurface(eglDisplay, configs[0], surfaceAttribs);
             checkEglError("eglCreatePbufferSurface");
@@ -902,6 +1106,7 @@ class GLSurfaceViewFactory extends VideoViewFactory {
         }
 
         public void release() {
+            looper.quit();
             if (eglDisplay != EGL10.EGL_NO_DISPLAY) {
                 egl10.eglMakeCurrent(eglDisplay,
                         EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
@@ -914,6 +1119,8 @@ class GLSurfaceViewFactory extends VideoViewFactory {
             eglSurface = EGL10.EGL_NO_SURFACE;
             surface.release();
             surfaceTexture.release();
+            byteBufferIsReady = false;
+            byteBuffer =  null;
         }
 
         /* Makes our EGL context and surface current. */
@@ -977,8 +1184,7 @@ class GLSurfaceViewFactory extends VideoViewFactory {
             GLES20.glEnableVertexAttribArray(aTextureHandle);
             checkGlError("glEnableVertexAttribArray aTextureHandle");
 
-            GLES20.glUniformMatrix4fv(uTextureTransformHandle, 1, false,
-                    textureTransform, 0);
+            GLES20.glUniformMatrix4fv(uTextureTransformHandle, 1, false, textureTransform, 0);
             checkGlError("glUniformMatrix uTextureTransformHandle");
 
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -1121,31 +1327,28 @@ class SurfaceViewSnapshot extends VideoViewSnapshot  {
 
     private static final String TAG = SurfaceViewSnapshot.class.getSimpleName();
     private static final int PIXELCOPY_REQUEST_SLEEP_MS = 30;
-    private static final int PIXELCOPY_REQUEST_MAX_ATTEMPTS = 20;
     private static final int PIXELCOPY_TIMEOUT_MS = 1000;
 
-    private final Thread copyThread;
+    private Thread copyThread;
+    private SynchronousPixelCopy copyHelper;
     private Bitmap bitmap;
     private int copyResult;
 
     public SurfaceViewSnapshot(final SurfaceView surfaceView, final int width, final int height) {
-        this.copyResult = -1;
         this.copyThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                SynchronousPixelCopy copyHelper = new SynchronousPixelCopy();
+                copyHelper = new SynchronousPixelCopy();
                 bitmap = Bitmap.createBitmap(width, height, Config.ARGB_8888);
                 try {
                     // Wait for SurfaceView to be available.
-                    for (int i = 0; i < PIXELCOPY_REQUEST_MAX_ATTEMPTS; i++) {
-                        copyResult = copyHelper.request(surfaceView, bitmap);
-                        if (copyResult == PixelCopy.SUCCESS) {
-                            break;
-                        }
+                    while ((copyResult = copyHelper.request(surfaceView, bitmap))
+                            != PixelCopy.SUCCESS) {
                         Thread.sleep(PIXELCOPY_REQUEST_SLEEP_MS);
                     }
-                } catch (InterruptedException ex) {
-                    Log.w(TAG, "Pixel Copy is stopped/interrupted before it finishes", ex);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Pixel Copy is stopped/interrupted before it finishes.", e);
+                    bitmap = null;
                 }
                 copyHelper.release();
             }
@@ -1170,6 +1373,12 @@ class SurfaceViewSnapshot extends VideoViewSnapshot  {
         if (copyThread.isAlive()) {
             copyThread.interrupt();
         }
+        copyThread = null;
+        if (copyHelper != null) {
+            copyHelper.release();
+            copyHelper = null;
+        }
+        bitmap = null;
     }
 
     private static class SynchronousPixelCopy implements OnPixelCopyFinishedListener {
@@ -1186,13 +1395,20 @@ class SurfaceViewSnapshot extends VideoViewSnapshot  {
         }
 
         public void release() {
-            thread.quit();
+            if (thread.isAlive()) {
+                thread.quit();
+            }
         }
 
         public int request(SurfaceView source, Bitmap dest) {
             synchronized (this) {
-                PixelCopy.request(source, dest, this, handler);
-                return getResultLocked();
+                try {
+                    PixelCopy.request(source, dest, this, handler);
+                    return getResultLocked();
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception occurred when copying a SurfaceView.", e);
+                    return -1;
+                }
             }
         }
 
@@ -1224,7 +1440,7 @@ class GLSurfaceViewSnapshot extends VideoViewSnapshot {
 
     private static final String TAG = GLSurfaceViewSnapshot.class.getSimpleName();
     private static final int GET_BYTEBUFFER_SLEEP_MS = 30;
-    private static final int GET_BYTEBUFFER_MAX_ATTEMPTS = 20;
+    private static final int GET_BYTEBUFFER_MAX_ATTEMPTS = 30;
 
     private final GLSurfaceViewFactory glSurfaceViewFactory;
     private final int width;
@@ -1244,15 +1460,21 @@ class GLSurfaceViewSnapshot extends VideoViewSnapshot {
         try {
             waitForByteBuffer();
         } catch (InterruptedException exception) {
-            Log.w(TAG, exception.getMessage());
-            Log.w(TAG, "ByteBuffer may contain incorrect pixels.");
+            Log.e(TAG, exception.getMessage());
+            bitmap = null;
+            return;
         }
-        // Get ByteBuffer anyway. Let the test fail if ByteBuffer contains incorrect pixels.
-        ByteBuffer byteBuffer = glSurfaceViewFactory.getByteBuffer();
-        bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        byteBuffer.rewind();
-        bitmap.copyPixelsFromBuffer(byteBuffer);
-        bitmapIsReady = true;
+        try {
+            final ByteBuffer byteBuffer = glSurfaceViewFactory.getByteBuffer();
+            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            byteBuffer.rewind();
+            bitmap.copyPixelsFromBuffer(byteBuffer);
+            bitmapIsReady = true;
+            byteBuffer.clear();
+        } catch (NullPointerException exception) {
+            Log.e(TAG, "glSurfaceViewFactory or byteBuffer may have been released", exception);
+            bitmap = null;
+        }
     }
 
     @Override
@@ -1278,50 +1500,38 @@ class GLSurfaceViewSnapshot extends VideoViewSnapshot {
 
 }
 
-/* Stores information of a video. */
+/* Stores information of a video file. */
 class VideoFormat {
 
-    public static final int UNSET = -1;
-    public static final String MIMETYPE_UNSET = "UNSET";
-    public static final String MIMETYPE_KEY = "mimeType";
-    public static final String WIDTH_KEY = "width";
-    public static final String HEIGHT_KEY = "height";
-    public static final String FRAMERATE_KEY = "frameRate";
+    public static final String STRING_UNSET = "UNSET";
+    public static final int INT_UNSET = -1;
 
     private final String filename;
-    private Uri uri;
-    private String mimeType = MIMETYPE_UNSET;
-    private int width = UNSET;
-    private int height = UNSET;
-    private int maxWidth = UNSET;
-    private int maxHeight = UNSET;
-    private int originalWidth = UNSET;
-    private int originalHeight = UNSET;
 
-    public VideoFormat(String filename, Uri uri) {
-        this.filename = filename;
-        this.uri = uri;
-    }
+    private String mimeType = STRING_UNSET;
+    private int width = INT_UNSET;
+    private int height = INT_UNSET;
+    private int maxWidth = INT_UNSET;
+    private int maxHeight = INT_UNSET;
+    private FilenameParser filenameParser;
 
     public VideoFormat(String filename) {
-        this(filename, null);
+        this.filename = filename;
     }
 
     public VideoFormat(VideoFormat videoFormat) {
-        this(videoFormat.filename, videoFormat.uri);
+        this(videoFormat.filename);
     }
 
-    public Uri loadUri(Context context) {
-        uri = createCacheFile(context);
-        return uri;
+    private FilenameParser getParsedName() {
+        if (filenameParser == null) {
+            filenameParser = new FilenameParser(filename);
+        }
+        return filenameParser;
     }
 
-    public Uri getUri() {
-        return uri;
-    }
-
-    public String getFilename() {
-        return filename;
+    public String getMediaFormat() {
+        return "video";
     }
 
     public void setMimeType(String mimeType) {
@@ -1329,14 +1539,14 @@ class VideoFormat {
     }
 
     public String getMimeType() {
+        if (mimeType.equals(STRING_UNSET)) {
+            return getParsedName().getMimeType();
+        }
         return mimeType;
     }
 
     public void setWidth(int width) {
         this.width = width;
-        if (this.originalWidth == UNSET) {
-            this.originalWidth = width;
-        }
     }
 
     public void setMaxWidth(int maxWidth) {
@@ -1344,6 +1554,9 @@ class VideoFormat {
     }
 
     public int getWidth() {
+        if (width == INT_UNSET) {
+            return getParsedName().getWidth();
+        }
         return width;
     }
 
@@ -1352,14 +1565,11 @@ class VideoFormat {
     }
 
     public int getOriginalWidth() {
-        return originalWidth;
+        return getParsedName().getWidth();
     }
 
     public void setHeight(int height) {
         this.height = height;
-        if (this.originalHeight == UNSET) {
-            this.originalHeight = height;
-        }
     }
 
     public void setMaxHeight(int maxHeight) {
@@ -1367,6 +1577,9 @@ class VideoFormat {
     }
 
     public int getHeight() {
+        if (height == INT_UNSET) {
+            return getParsedName().getHeight();
+        }
         return height;
     }
 
@@ -1375,31 +1588,102 @@ class VideoFormat {
     }
 
     public int getOriginalHeight() {
-        return originalHeight;
+        return getParsedName().getHeight();
     }
 
-    private Uri createCacheFile(Context context) {
-        try {
-            File cacheFile = new File(context.getCacheDir(), filename);
-            if (cacheFile.createNewFile() == false) {
-                cacheFile.delete();
-                cacheFile.createNewFile();
-            }
-            InputStream inputStream = context.getAssets().open(filename);
-            FileOutputStream fileOutputStream = new FileOutputStream(cacheFile);
-            final int bufferSize = 1024 * 512;
-            byte[] buffer = new byte[bufferSize];
+    public String getOriginalSize() {
+        if (width == INT_UNSET || height == INT_UNSET) {
+            return getParsedName().getSize();
+        }
+        return width + "x" + height;
+    }
 
-            while (inputStream.read(buffer) != -1) {
-                fileOutputStream.write(buffer, 0, bufferSize);
-            }
-            fileOutputStream.close();
-            inputStream.close();
-            return Uri.fromFile(cacheFile);
-        } catch (IOException e) {
+    public String getDescription() {
+        return getParsedName().getDescription();
+    }
+
+    public String toPrettyString() {
+        return getParsedName().toPrettyString();
+    }
+
+    public AssetFileDescriptor getAssetFileDescriptor(Context context) {
+        try {
+            return context.getAssets().openFd(filename);
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
+    }
+
+}
+
+/* File parser for filenames with format of {description}-{mimeType}_{size}_{framerate}.{format} */
+class FilenameParser {
+
+    static final String VP9 = "vp9";
+    static final String H264 = "h264";
+
+    private final String filename;
+
+    private String codec = VideoFormat.STRING_UNSET;
+    private String description = VideoFormat.STRING_UNSET;
+    private int width = VideoFormat.INT_UNSET;
+    private int height = VideoFormat.INT_UNSET;
+
+    FilenameParser(String filename) {
+        this.filename = filename;
+        parseFilename(filename);
+    }
+
+    public String getCodec() {
+        return codec;
+    }
+
+    public String getMimeType() {
+        switch (codec) {
+            case H264:
+                return MimeTypes.VIDEO_H264;
+            case VP9:
+                return MimeTypes.VIDEO_VP9;
+            default:
+                return null;
+        }
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public String getSize() {
+        return width + "x" + height;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    String toPrettyString() {
+        if (codec != null) {
+            return codec.toUpperCase() + " " + getSize();
+        }
+        return filename;
+    }
+
+    private void parseFilename(String filename) {
+        final String descriptionDelimiter = "-";
+        final String infoDelimiter = "_";
+        final String sizeDelimiter = "x";
+        try {
+            this.description = filename.split(descriptionDelimiter)[0];
+            final String[] fileInfo = filename.split(descriptionDelimiter)[1].split(infoDelimiter);
+            this.codec = fileInfo[0];
+            this.width = Integer.parseInt(fileInfo[1].split(sizeDelimiter)[0]);
+            this.height = Integer.parseInt(fileInfo[1].split(sizeDelimiter)[1]);
+        } catch (Exception exception) { /* Filename format does not match. */ }
     }
 
 }
@@ -1419,8 +1703,6 @@ class BitmapCompare {
     private static final int Y = 1;
     private static final int Z = 2;
 
-    private static SparseArray<double[]> pixelTransformCache = new SparseArray<>();
-
     private BitmapCompare() {}
 
     /**
@@ -1430,15 +1712,14 @@ class BitmapCompare {
      * @param bitmap2 A bitmap to compare to bitmap1.
      * @return A {@link Difference} with an integer describing the greatest pixel difference,
      *     using {@link Integer#MAX_VALUE} for completely different bitmaps, and an optional
-     *     {@link Pair<Integer, Integer>} of the (col, row) pixel coordinate
-     *     where it was first found.
+     *     {@link Pair<Integer, Integer>} of the (col, row) pixel coordinate where it was first found.
      */
     @TargetApi(12)
     public static Difference computeDifference(Bitmap bitmap1, Bitmap bitmap2) {
-        if ((bitmap1 == null || bitmap2 == null) && bitmap1 != bitmap2) {
+        if (bitmap1 == null || bitmap2 == null) {
             return new Difference(Integer.MAX_VALUE);
         }
-        if (bitmap1 == bitmap2 || bitmap1.sameAs(bitmap2)) {
+        if (bitmap1.equals(bitmap2) || bitmap1.sameAs(bitmap2)) {
             return new Difference(0);
         }
         if (bitmap1.getHeight() != bitmap2.getHeight() || bitmap1.getWidth() != bitmap2.getWidth()) {
@@ -1462,9 +1743,11 @@ class BitmapCompare {
             greatestDifferenceIndex / bitmap1.getHeight()));
     }
 
+    @SuppressLint("UseSparseArrays")
     private static double[][] convertRgbToCieLab(Bitmap bitmap) {
+        final HashMap<Integer, double[]> pixelTransformCache = new HashMap<>();
         final double[][] result = new double[bitmap.getHeight() * bitmap.getWidth()][3];
-        final int pixels[] = new int[bitmap.getHeight() * bitmap.getWidth()];
+        final int[] pixels = new int[bitmap.getHeight() * bitmap.getWidth()];
         bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
         for (int i = 0; i < pixels.length; i++) {
             final double[] transformedColor = pixelTransformCache.get(pixels[i]);
@@ -1509,7 +1792,6 @@ class BitmapCompare {
      */
     private static double[] convertRgbToXyz(int rgbColor) {
         final double[] comp = {Color.red(rgbColor), Color.green(rgbColor), Color.blue(rgbColor)};
-
         for (int i = 0; i < comp.length; i++) {
             comp[i] /= 255.0;
             if (comp[i] > 0.04045) {
@@ -1555,7 +1837,6 @@ class BitmapCompare {
         comp[X] /= 95.047;
         comp[Y] /= 100.0;
         comp[Z] /= 108.883;
-
         for (int i = 0; i < comp.length; i++) {
             if (comp[i] > 0.008856) {
                 comp[i] = Math.pow(comp[i], (1.0 / 3.0));
@@ -1740,7 +2021,7 @@ class BitmapCompare {
             this.greatestPixelDifference = greatestPixelDifference;
             this.greatestPixelDifferenceCoordinates = greatestPixelDifferenceCoordinates;
             this.bestMatchBorderCrop = bestMatchBorderCrop;
-       }
+        }
     }
 
 }

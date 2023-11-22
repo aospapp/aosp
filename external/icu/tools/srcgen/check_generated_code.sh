@@ -18,6 +18,6 @@
 
 source ./common.sh
 
-java -cp ${CLASSPATH} com.android.icu4j.srcgen.checker.CheckAndroidIcu4JSource \
+${SRCGEN_JAVA_BINARY} -cp ${CLASSPATH} com.android.icu4j.srcgen.checker.CheckAndroidIcu4JSource \
     ${ANDROID_ICU4J_DIR}/src/main/java \
     ./android_icu4j_source_report.txt

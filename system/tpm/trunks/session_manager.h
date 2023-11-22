@@ -22,7 +22,6 @@
 #include "trunks/hmac_authorization_delegate.h"
 #include "trunks/tpm_generated.h"
 #include "trunks/trunks_export.h"
-#include "trunks/trunks_factory.h"
 
 namespace trunks {
 
@@ -35,8 +34,8 @@ const trunks::TPM_HANDLE kUninitializedHandle = 0;
 // Note: This class is not intended to be used independently. However clients
 // who want to manually manage their sessions can use this class to Start and
 // Close TPM backed Sessions. Example usage:
-// trunks::TrunksFactoryImpl factory;
-// scoped_ptr<SessionManager> session_manager = factory.GetSessionManager();
+// std::unique_ptr<SessionManager> session_manager =
+//     factory.GetSessionManager();
 // session_manager->StartSession(...);
 // TPM_HANDLE session_handle = session_manager->GetSessionHandle();
 class TRUNKS_EXPORT SessionManager {

@@ -15,11 +15,20 @@
  */
 package android.view.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.WindowManager.BadTokenException;
 
-public class WindowManager_BadTokenExceptionTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class WindowManager_BadTokenExceptionTest {
+    @Test
     public void testBadTokenException(){
         BadTokenException badTokenException = new BadTokenException();
         try {

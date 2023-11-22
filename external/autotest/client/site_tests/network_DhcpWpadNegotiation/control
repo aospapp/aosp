@@ -5,7 +5,6 @@
 AUTHOR = 'pstew, quiche, wiley'
 NAME = 'network_DhcpWpadNegotiation'
 ATTRIBUTES = "suite:network_nightly"
-SUITE = 'network_nightly'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"סריקה זמינה תמיד"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"אפשר לשירות המיקום של Google ולאפליקציות אחרות לסרוק בחיפוש אחר רשתות, גם כש-Wi-Fi כבוי"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"תן לשירות המיקום של Google ולאפליקציות אחרות לסרוק על מנת למצוא רשתות, גם כשה-Wi-Fi כבוי"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"שומר מסך"</string>
     <string name="device_display" msgid="101455384386372747">"תצוגה"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"סוללה ‎<xliff:g id="PERCENTAGE">%1$d</xliff:g>%%‎"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"מבטל את התאמת המכשיר…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"מחובר"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"שינוי שם"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"הזן שם חדש עבור אביזר זה"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"מחפש ציוד היקפי…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"לפני התאמת מכשירי ה-Bluetooth, ודא שהם במצב התאמה"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"נמצא מכשיר והוא יותאם אוטומטית בעוד <xliff:g id="COUNTDOWN">%1$s</xliff:g> שניות"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"מקלדת"</string>
     <string name="system_home" msgid="2858989138172296012">"מסך דף הבית"</string>
     <string name="system_search" msgid="2837264654143247611">"חיפוש"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"אבטחה והגבלות"</string>
     <string name="system_speech" msgid="8128688499687306982">"דיבור"</string>
     <string name="system_inputs" msgid="2413907183796651102">"כניסות קלט"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"אפשרויות מפתח"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"ללא"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"שימוש ואבחון"</string>
+    <string name="tutorials" msgid="3731493987558093244">"הדרכות"</string>
     <string name="about_system_update" msgid="7282772247661356586">"עדכון מערכת"</string>
     <string name="about_preference" msgid="4131396784531360434">"מידע כללי"</string>
     <string name="device_name" msgid="2670488158531273028">"שם המכשיר"</string>
@@ -374,6 +378,7 @@
     <string name="display_options" msgid="5504549024985225774">"אפשרויות תצוגה"</string>
     <string name="captions_configure" msgid="5537548915977371014">"הגדר"</string>
     <string name="captions_language" msgid="2835554055388996343">"שפה"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"ברירת מחדל"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"גודל טקסט"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"סגנון כתוביות"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"אפשרויות מותאמות אישית"</string>
@@ -450,7 +455,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"קנה מידה של הנפשת מעבר"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"קנה מידה של משך זמן למנפיש"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"מצב קפדני מופעל"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"הצג שימוש ב-CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"עיבוד פרופיל ב-GPU"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"הפעל עקבות"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"אל תשמור פעילויות"</string>
@@ -468,7 +472,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"מהטוב ביותר לגרוע ביותר: כחול, ירוק, אדום בהיר, אדום"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"הצג הבהוב של כל שטחי החלון כשהם מתעדכנים"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"גרום למסך להבהב כאשר אפליקציות מבצעות פעולות ארוכות בשרשור הראשי"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"שכבת-על של מסך המציגה את השימוש הנוכחי ב-CPU"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"מדוד את משך העיבוד ב-adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"הפעלה"</string>
     <string name="action_off_title" msgid="3157728958166559966">"כיבוי"</string>
@@ -571,7 +574,7 @@
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"אפליקציה זו אינה נתמכת בפרופילים מוגבלים"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"האפליקציה הזו יכולה לגשת לחשבונות שלך"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"מיקום"</string>
-    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"התר לאפליקציות להשתמש בנתוני המיקום שלך"</string>
+    <string name="restriction_location_enable_summary" msgid="4195349388342385870">"אפליקציות יוכלו להשתמש בנתוני המיקום שלך"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"היכנס אל הפרופיל המוגבל"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"צא מהפרופיל המוגבל"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"מחק פרופיל מוגבל"</string>
@@ -608,7 +611,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"אלץ עצירה"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"אם תאלץ עצירה של אפליקציה, ייתכן שהיא לא תפעל כהלכה."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"הסר התקנה"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"האם אתה רוצה להסיר את ההתקנה של האפליקציה הזו?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"הסר התקנה של עדכונים"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"כל העדכונים לאפליקציית מערכת Android הזו יוסרו."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"השבת"</string>
@@ -622,9 +624,10 @@
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"נקה ברירות מחדל"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"הגדר הפעלה של האפליקציה לפעולות מסוימות"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"לא הוגדרו ברירות מחדל"</string>
-    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"נקה קובץ שמור"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"נקה מטמון"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"התראות"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"אישורים"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"האפליקציה אינה זמינה"</string>
     <string name="settings_ok" msgid="3321630456511355983">"אישור"</string>
     <string name="settings_cancel" msgid="304280412158061225">"בטל"</string>
     <string name="settings_on" msgid="6892236264945435013">"מופעל"</string>
@@ -648,17 +651,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"האם למחוק את כל המידע האישי שלך ואת האפליקציות שהורדת? לא ניתן לבטל את הפעולה!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"מחק הכל"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"בחר שם עבור ה-<xliff:g id="DEVICEMODEL">%1$s</xliff:g> שלך"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"שם יסייע לזהות את ה-<xliff:g id="DEVICEMODEL">%1$s</xliff:g> כאשר תיגש אליו ממכשירים אחרים, כמו הטלפון, הטאבלט או המחשב."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"תן ל-<xliff:g id="DEVICEMODEL">%1$s</xliff:g> שלך שם שיעזור לזהות אותו כשמעבירים אליו תוכן או מתחברים אליו ממכשירים אחרים."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"סלון"</item>
-    <item msgid="3722089849939477581">"חדר מדיה"</item>
-    <item msgid="6108590585438763574">"חדר משפחה"</item>
-    <item msgid="2581035245390468625">"חדר אוכל"</item>
-    <item msgid="3127487827308695324">"חדר עבודה"</item>
-    <item msgid="6172018430592195063">"חדר שינה"</item>
-    <item msgid="8120010459866284578">"מטבח"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV – סלון"</item>
+    <item msgid="8122798759665439456">"TV – חדר משפחה"</item>
+    <item msgid="1389347662738182100">"TV – חדר שינה"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"הזן שם בהתאמה אישית…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"הזן שם בהתאמה אישית…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"שנה את השם של ה-<xliff:g id="DEVICEMODEL">%1$s</xliff:g> הזה"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> הזה נקרא כעת \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"שנה"</string>
@@ -667,10 +667,13 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"הרשאות לאפליקציות"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> מתוך <xliff:g id="COUNT_1">%d</xliff:g> אפליקציות קיבלו הרשאה"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"בקשה להרשאת Bluetooth"</string>
-    <string name="security_patch" msgid="2131617390189164481">"רמה תיקון האבטחה ב-Android"</string>
+    <string name="security_patch" msgid="2131617390189164481">"רמת תיקון האבטחה ב-Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"בחר אפליקציה"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(ניסיוני)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"הפעל מחדש במצב בטוח"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"האם אתה רוצה להפעיל מחדש במצב בטוח?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"פעולה זו תשבית את כל האפליקציות של צד שלישי שהתקנת. הן ישוחזרו לאחר שתפעיל מחדש שוב."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"יוצר דוח על באג"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"מקלדות וירטואליות זמינות"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"ניהול מקלדות"</string>
 </resources>

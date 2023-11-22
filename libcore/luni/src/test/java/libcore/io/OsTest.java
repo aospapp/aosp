@@ -28,6 +28,8 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -38,9 +40,12 @@ import java.net.SocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import junit.framework.TestCase;
+
 import static android.system.OsConstants.*;
 
 public class OsTest extends TestCase {
@@ -504,18 +509,20 @@ public class OsTest extends TestCase {
     File file = File.createTempFile("xattr", "test");
     String path = file.getAbsolutePath();
 
-    byte[] tmp = new byte[1024];
     try {
       try {
-        Libcore.os.getxattr(path, NAME_TEST, tmp);
+        Libcore.os.getxattr(path, NAME_TEST);
         fail("Expected ENODATA");
       } catch (ErrnoException e) {
         assertEquals(OsConstants.ENODATA, e.errno);
       }
+      assertFalse(Arrays.asList(Libcore.os.listxattr(path)).contains(NAME_TEST));
 
       Libcore.os.setxattr(path, NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
-      assertEquals(VALUE_CAKE.length, Libcore.os.getxattr(path, NAME_TEST, tmp));
-      assertStartsWith(VALUE_CAKE, tmp);
+      byte[] xattr_create = Libcore.os.getxattr(path, NAME_TEST);
+      assertTrue(Arrays.asList(Libcore.os.listxattr(path)).contains(NAME_TEST));
+      assertEquals(VALUE_CAKE.length, xattr_create.length);
+      assertStartsWith(VALUE_CAKE, xattr_create);
 
       try {
         Libcore.os.setxattr(path, NAME_TEST, VALUE_PIE, OsConstants.XATTR_CREATE);
@@ -525,19 +532,129 @@ public class OsTest extends TestCase {
       }
 
       Libcore.os.setxattr(path, NAME_TEST, VALUE_PIE, OsConstants.XATTR_REPLACE);
-      assertEquals(VALUE_PIE.length, Libcore.os.getxattr(path, NAME_TEST, tmp));
-      assertStartsWith(VALUE_PIE, tmp);
+      byte[] xattr_replace = Libcore.os.getxattr(path, NAME_TEST);
+      assertTrue(Arrays.asList(Libcore.os.listxattr(path)).contains(NAME_TEST));
+      assertEquals(VALUE_PIE.length, xattr_replace.length);
+      assertStartsWith(VALUE_PIE, xattr_replace);
 
       Libcore.os.removexattr(path, NAME_TEST);
       try {
-        Libcore.os.getxattr(path, NAME_TEST, tmp);
+        Libcore.os.getxattr(path, NAME_TEST);
         fail("Expected ENODATA");
       } catch (ErrnoException e) {
         assertEquals(OsConstants.ENODATA, e.errno);
       }
+      assertFalse(Arrays.asList(Libcore.os.listxattr(path)).contains(NAME_TEST));
 
     } finally {
       file.delete();
+    }
+  }
+
+  public void test_xattr_NPE() throws Exception {
+    File file = File.createTempFile("xattr", "test");
+    final String path = file.getAbsolutePath();
+    final String NAME_TEST = "user.meow";
+    final byte[] VALUE_CAKE = "cake cake cake".getBytes(StandardCharsets.UTF_8);
+
+    // getxattr
+    try {
+      Libcore.os.getxattr(null, NAME_TEST);
+      fail();
+    } catch (NullPointerException expected) { }
+    try {
+      Libcore.os.getxattr(path, null);
+      fail();
+    } catch (NullPointerException expected) { }
+
+    // listxattr
+    try {
+      Libcore.os.listxattr(null);
+      fail();
+    } catch (NullPointerException expected) { }
+
+    // removexattr
+    try {
+      Libcore.os.removexattr(null, NAME_TEST);
+      fail();
+    } catch (NullPointerException expected) { }
+    try {
+      Libcore.os.removexattr(path, null);
+      fail();
+    } catch (NullPointerException expected) { }
+
+    // setxattr
+    try {
+      Libcore.os.setxattr(null, NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
+      fail();
+    } catch (NullPointerException expected) { }
+    try {
+      Libcore.os.setxattr(path, null, VALUE_CAKE, OsConstants.XATTR_CREATE);
+      fail();
+    } catch (NullPointerException expected) { }
+    try {
+      Libcore.os.setxattr(path, NAME_TEST, null, OsConstants.XATTR_CREATE);
+      fail();
+    } catch (NullPointerException expected) { }
+  }
+
+  public void test_xattr_Errno() throws Exception {
+    final String NAME_TEST = "user.meow";
+    final byte[] VALUE_CAKE = "cake cake cake".getBytes(StandardCharsets.UTF_8);
+
+    // ENOENT, No such file or directory.
+    try {
+      Libcore.os.getxattr("", NAME_TEST);
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(ENOENT, e.errno);
+    }
+    try {
+      Libcore.os.listxattr("");
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(ENOENT, e.errno);
+    }
+    try {
+      Libcore.os.removexattr("", NAME_TEST);
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(ENOENT, e.errno);
+    }
+    try {
+      Libcore.os.setxattr("", NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(ENOENT, e.errno);
+    }
+
+    // ENOTSUP, Extended attributes are not supported by the filesystem, or are disabled.
+    final boolean root = (Libcore.os.getuid() == 0);
+    final String path = "/proc/self/stat";
+    try {
+      Libcore.os.setxattr(path, NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
+      fail();
+    } catch (ErrnoException e) {
+      // setxattr(2) requires root permission for writing to this file, will get EACCES otherwise.
+      assertEquals(root ? ENOTSUP : EACCES, e.errno);
+    }
+    try {
+      Libcore.os.getxattr(path, NAME_TEST);
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(ENOTSUP, e.errno);
+    }
+    try {
+      // Linux listxattr does not set errno.
+      Libcore.os.listxattr(path);
+    } catch (ErrnoException e) {
+      fail();
+    }
+    try {
+      Libcore.os.removexattr(path, NAME_TEST);
+      fail();
+    } catch (ErrnoException e) {
+      assertEquals(ENOTSUP, e.errno);
     }
   }
 
@@ -571,12 +688,99 @@ public class OsTest extends TestCase {
       }
   }
 
+  /**
+   * Tests that TCP_USER_TIMEOUT can be set on a TCP socket, but doesn't test
+   * that it behaves as expected.
+   */
+  public void test_socket_tcpUserTimeout_setAndGet() throws Exception {
+    final FileDescriptor fd = Libcore.os.socket(AF_INET, SOCK_STREAM, 0);
+    try {
+      int v = Libcore.os.getsockoptInt(fd, OsConstants.IPPROTO_TCP, OsConstants.TCP_USER_TIMEOUT);
+      assertEquals(0, v); // system default value
+      int newValue = 3000;
+      Libcore.os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, OsConstants.TCP_USER_TIMEOUT,
+              newValue);
+      assertEquals(newValue, Libcore.os.getsockoptInt(fd, OsConstants.IPPROTO_TCP,
+              OsConstants.TCP_USER_TIMEOUT));
+      // No need to reset the value to 0, since we're throwing the socket away
+    } finally {
+      Libcore.os.close(fd);
+    }
+  }
+
+  public void test_socket_tcpUserTimeout_doesNotWorkOnDatagramSocket() throws Exception {
+    final FileDescriptor fd = Libcore.os.socket(AF_INET, SOCK_DGRAM, 0);
+    try {
+      Libcore.os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, OsConstants.TCP_USER_TIMEOUT,
+              3000);
+      fail("datagram (connectionless) sockets shouldn't support TCP_USER_TIMEOUT");
+    } catch (ErrnoException expected) {
+      // expected
+    } finally {
+      Libcore.os.close(fd);
+    }
+  }
+
+  public void test_if_nametoindex_if_indextoname() throws Exception {
+    List<NetworkInterface> nis = Collections.list(NetworkInterface.getNetworkInterfaces());
+
+    assertTrue(nis.size() > 0);
+    for (NetworkInterface ni : nis) {
+      int index = ni.getIndex();
+      String name = ni.getName();
+      assertEquals(index, Libcore.os.if_nametoindex(name));
+      assertTrue(Libcore.os.if_indextoname(index).equals(name));
+    }
+
+    assertEquals(0, Libcore.os.if_nametoindex("this-interface-does-not-exist"));
+    assertEquals(null, Libcore.os.if_indextoname(-1000));
+
+    try {
+      Libcore.os.if_nametoindex(null);
+      fail();
+    } catch (NullPointerException expected) { }
+  }
+
   private static void assertStartsWith(byte[] expectedContents, byte[] container) {
     for (int i = 0; i < expectedContents.length; i++) {
       if (expectedContents[i] != container[i]) {
         fail("Expected " + Arrays.toString(expectedContents) + " but found "
             + Arrays.toString(expectedContents));
       }
+    }
+  }
+
+  public void test_readlink() throws Exception {
+    File path = new File(IoUtils.createTemporaryDirectory("test_readlink"), "symlink");
+
+    // ext2 and ext4 have PAGE_SIZE limits on symlink targets.
+    // If file encryption is enabled, there's extra overhead to store the
+    // size of the encrypted symlink target. There's also an off-by-one
+    // in current kernels (and marlin/sailfish where we're seeing this
+    // failure are still on 3.18, far from current). Given that we don't
+    // really care here, just use 2048 instead. http://b/33306057.
+    int size = 2048;
+    String xs = "";
+    for (int i = 0; i < size - 1; ++i) xs += "x";
+
+    Libcore.os.symlink(xs, path.getPath());
+
+    assertEquals(xs, Libcore.os.readlink(path.getPath()));
+  }
+
+  // Address should be correctly set for empty packets. http://b/33481605
+  public void test_recvfrom_EmptyPacket() throws Exception {
+    try (DatagramSocket ds = new DatagramSocket();
+         DatagramSocket srcSock = new DatagramSocket()) {
+      srcSock.send(new DatagramPacket(new byte[0], 0, ds.getLocalSocketAddress()));
+
+      byte[] recvBuf = new byte[16];
+      InetSocketAddress address = new InetSocketAddress();
+      int recvCount =
+          android.system.Os.recvfrom(ds.getFileDescriptor$(), recvBuf, 0, 16, 0, address);
+      assertEquals(0, recvCount);
+      assertTrue(address.getAddress().isLoopbackAddress());
+      assertEquals(srcSock.getLocalPort(), address.getPort());
     }
   }
 }

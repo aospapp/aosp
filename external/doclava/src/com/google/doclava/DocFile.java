@@ -52,7 +52,7 @@ public class DocFile {
     }
   }
 
-  public static String[] DEVSITE_VALID_LANGS = {"en", "es", "in", "ja", "ko",
+  public static String[] DEVSITE_VALID_LANGS = {"en", "es", "id", "in", "ja", "ko",
       "ru", "vi", "zh-cn", "zh-tw", "pt-br"};
 
   public static String getPathRoot(String filename) {
@@ -190,245 +190,151 @@ public class DocFile {
       // guide, design, distribute, etc.
       filename = getPathRoot(filename);
 
-      if (Doclava.USE_UPDATED_TEMPLATES) {
-        //remap types to design, dev, distribute etc.
-        if (filename.indexOf("design") == 0) {
-          hdf.setValue("design", "true");
-          hdf.setValue("page.type", "design");
-          hdf.setValue("page.category", "design");
-        } else if (filename.indexOf("develop") == 0) {
-          hdf.setValue("develop", "true");
+      // map types to design, dev, distribute etc.
+      if (filename.indexOf("design") == 0) {
+        hdf.setValue("design", "true");
+        hdf.setValue("page.type", "design");
+        hdf.setValue("page.category", "design");
+      } else if (filename.indexOf("develop") == 0) {
+        hdf.setValue("develop", "true");
+        hdf.setValue("page.type", "develop");
+        hdf.setValue("page.category", "develop");
+      } else if (filename.indexOf("guide") == 0) {
+        hdf.setValue("guide", "true");
+        hdf.setValue("page.type", "develop");
+        if (filename.indexOf("guide/topics/manif") == 0) {
+          hdf.setValue("page.category", "app manifest");
+        } else {
+          hdf.setValue("page.category", "guide");
+        }
+      } else if (filename.indexOf("training") == 0) {
+        hdf.setValue("training", "true");
+        hdf.setValue("page.type", "develop");
+        hdf.setValue("page.category", "training");
+      } else if (filename.indexOf("more") == 0) {
+        hdf.setValue("more", "true");
+      } else if (filename.indexOf("google") == 0) {
+        hdf.setValue("google", "true");
+        hdf.setValue("page.type", "develop");
+        hdf.setValue("page.category", "google");
+      } else if (filename.indexOf("samples") == 0) {
+        hdf.setValue("samples", "true");
+        hdf.setValue("samplesDocPage", "true");
+        hdf.setValue("page.type", "develop");
+        hdf.setValue("page.category", "samples");
+        if (Doclava.samplesNavTree != null) {
+          hdf.setValue("samples_toc_tree", Doclava.samplesNavTree.getValue("samples_toc_tree", ""));
+        }
+      } else if (filename.indexOf("topic/") == 0) {
+        hdf.setValue("topic", "true");
+        hdf.setValue("page.type", "develop");
+        if (filename.indexOf("topic/libraries") == 0) {
+          hdf.setValue("page.category", "libraries");
           hdf.setValue("page.type", "develop");
-          hdf.setValue("page.category", "develop");
-        } else if (filename.indexOf("guide") == 0) {
-          hdf.setValue("guide", "true");
+          hdf.setValue("libraries", "true");
+        } else if (filename.indexOf("topic/instant-apps") == 0) {
+          hdf.setValue("instantapps", "true");
           hdf.setValue("page.type", "develop");
-          if (filename.indexOf("guide/topics/manif") == 0) {
-            hdf.setValue("page.category", "app manifest");
-          } else {
-            hdf.setValue("page.category", "guide");
-          }
-        } else if (filename.indexOf("training") == 0) {
-          hdf.setValue("training", "true");
+          hdf.setValue("page.category", "instant apps");
+        } else if (filename.indexOf("topic/performance") == 0) {
+          hdf.setValue("perf", "true");
           hdf.setValue("page.type", "develop");
-          hdf.setValue("page.category", "training");
-        } else if (filename.indexOf("more") == 0) {
-          hdf.setValue("more", "true");
-        } else if (filename.indexOf("google") == 0) {
-          hdf.setValue("google", "true");
+          hdf.setValue("page.category", "performance");
+        } else if (filename.indexOf("topic/arc") == 0) {
+          hdf.setValue("arc", "true");
           hdf.setValue("page.type", "develop");
-          hdf.setValue("page.category", "google");
-        } else if (filename.indexOf("samples") == 0) {
-          hdf.setValue("samples", "true");
-          hdf.setValue("samplesDocPage", "true");
-          hdf.setValue("page.type", "develop");
-          hdf.setValue("page.category", "samples");
-          if (Doclava.samplesNavTree != null) {
-            hdf.setValue("samples_toc_tree", Doclava.samplesNavTree.getValue("samples_toc_tree", ""));
-          }
-        } else if (filename.indexOf("topic/") == 0) {
-          hdf.setValue("topic", "true");
-          hdf.setValue("page.type", "develop");
-          if (filename.indexOf("topic/libraries") == 0) {
-            hdf.setValue("page.category", "libraries");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("libraries", "true");
-          } else if (filename.indexOf("topic/instant-apps") == 0) {
-            hdf.setValue("instantapps", "true");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("page.category", "instant apps");
-          } else if (filename.indexOf("topic/performance") == 0) {
-            hdf.setValue("perf", "true");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("page.category", "performance");
-          } else if (filename.indexOf("topic/arc") == 0) {
-            hdf.setValue("arc", "true");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("page.category", "arc");
-          }
-        } else if (filename.indexOf("distribute") == 0) {
-          hdf.setValue("distribute", "true");
+          hdf.setValue("page.category", "arc");
+        }
+      } else if (filename.indexOf("distribute") == 0) {
+        hdf.setValue("distribute", "true");
+        hdf.setValue("page.type", "distribute");
+        hdf.setValue("page.category", "distribute");
+        if (filename.indexOf("distribute/googleplay") == 0) {
+          hdf.setValue("page.category", "googleplay");
           hdf.setValue("page.type", "distribute");
-          hdf.setValue("page.category", "distribute");
-          if (filename.indexOf("distribute/googleplay") == 0) {
-            hdf.setValue("page.category", "googleplay");
-            hdf.setValue("page.type", "distribute");
-            hdf.setValue("googleplay", "true");
-          } else if (filename.indexOf("distribute/essentials") == 0) {
-            hdf.setValue("page.category", "essentials");
-            hdf.setValue("essentials", "true");
-          } else if (filename.indexOf("distribute/users") == 0) {
-            hdf.setValue("page.category", "users");
-            hdf.setValue("users", "true");
-          } else if (filename.indexOf("distribute/engage") == 0) {
-            hdf.setValue("page.category", "engage");
-            hdf.setValue("engage", "true");
-          } else if (filename.indexOf("distribute/monetize") == 0) {
-            hdf.setValue("page.category", "monetize");
-            hdf.setValue("monetize", "true");
-          } else if (filename.indexOf("distribute/analyze") == 0) {
-            hdf.setValue("page.category", "analyze");
-            hdf.setValue("analyze", "true");
-          } else if (filename.indexOf("distribute/tools") == 0) {
-            hdf.setValue("page.category", "essentials");
-            hdf.setValue("essentials", "true");
-          } else if (filename.indexOf("distribute/stories") == 0) {
-            hdf.setValue("page.category", "stories");
-            hdf.setValue("stories", "true");
-          }
-        } else if (filename.indexOf("about") == 0) {
-          hdf.setValue("about", "true");
-          hdf.setValue("page.type", "about");
-          hdf.setValue("page.category", "about");
-          if ((filename.indexOf("about/versions") == 0)) {
-            hdf.setValue("versions", "true");
-            hdf.setValue("page.category", "versions");
-          //todo remove this because there's no file at this location
-          } else if ((filename.indexOf("wear") == 0)) {
-            hdf.setValue("wear", "true");
-            hdf.setValue("page.category", "wear");
-          } else if ((filename.indexOf("tv") == 0)) {
-            hdf.setValue("tv", "true");
-            hdf.setValue("page.category", "tv");
-          } else if ((filename.indexOf("auto") == 0)) {
-            hdf.setValue("auto", "true");
-            hdf.setValue("page.category", "auto");
-          }
-        } else if (filename.indexOf("wear/preview") == 0) {
-          hdf.setValue("wearpreview", "true");
-          hdf.setValue("page.type", "about");
-          hdf.setValue("page.category", "wear preview");
-        } else if (filename.indexOf("devices") == 0) {
-          hdf.setValue("devices", "true");
-          hdf.setValue("page.type", "devices");
-        } else if (filename.indexOf("source") == 0) {
-          hdf.setValue("source", "true");
-        } else if (filename.indexOf("security") == 0) {
-          hdf.setValue("security", "true");
-        } else if (filename.indexOf("compatibility") == 0) {
-          hdf.setValue("compatibility", "true");
-        } else if (filename.indexOf("wear") == 0) {
+          hdf.setValue("googleplay", "true");
+        } else if (filename.indexOf("distribute/essentials") == 0) {
+          hdf.setValue("page.category", "essentials");
+          hdf.setValue("essentials", "true");
+        } else if (filename.indexOf("distribute/users") == 0) {
+          hdf.setValue("page.category", "users");
+          hdf.setValue("users", "true");
+        } else if (filename.indexOf("distribute/engage") == 0) {
+          hdf.setValue("page.category", "engage");
+          hdf.setValue("engage", "true");
+        } else if (filename.indexOf("distribute/monetize") == 0) {
+          hdf.setValue("page.category", "monetize");
+          hdf.setValue("monetize", "true");
+        } else if (filename.indexOf("distribute/analyze") == 0) {
+          hdf.setValue("page.category", "analyze");
+          hdf.setValue("analyze", "true");
+        } else if (filename.indexOf("distribute/tools") == 0) {
+          hdf.setValue("page.category", "essentials");
+          hdf.setValue("essentials", "true");
+        } else if (filename.indexOf("distribute/stories") == 0) {
+          hdf.setValue("page.category", "stories");
+          hdf.setValue("stories", "true");
+        }
+      } else if (filename.indexOf("about") == 0) {
+        hdf.setValue("about", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "about");
+        if ((filename.indexOf("about/versions") == 0)) {
+          hdf.setValue("versions", "true");
+          hdf.setValue("page.category", "versions");
+        //todo remove this because there's no file at this location
+        } else if ((filename.indexOf("wear") == 0)) {
           hdf.setValue("wear", "true");
-          hdf.setValue("about", "true");
-          hdf.setValue("page.type", "about");
           hdf.setValue("page.category", "wear");
-        } else if (filename.indexOf("work") == 0) {
-          hdf.setValue("work", "true");
-          hdf.setValue("page.type", "about");
-          hdf.setValue("page.category", "work");
-        } else if (filename.indexOf("preview") == 0) {
-          hdf.setValue("page.type", "develop");
-          hdf.setValue("page.category", "preview");
-          hdf.setValue("preview", "true");
-        } else if (filename.indexOf("auto") == 0) {
-          hdf.setValue("auto", "true");
-          hdf.setValue("about", "true");
-          hdf.setValue("page.type", "about");
-          hdf.setValue("page.category", "auto");
-        } else if (filename.indexOf("tv") == 0) {
+        } else if ((filename.indexOf("tv") == 0)) {
           hdf.setValue("tv", "true");
-          hdf.setValue("about", "true");
-          hdf.setValue("page.type", "about");
           hdf.setValue("page.category", "tv");
-        }
-      } else {
-        //support the old mappings
-        if (filename.indexOf("design") == 0) {
-          hdf.setValue("design", "true");
-          hdf.setValue("page.type", "design");
-        } else if (filename.indexOf("develop") == 0) {
-          hdf.setValue("develop", "true");
-          hdf.setValue("page.type", "develop");
-        } else if (filename.indexOf("guide") == 0) {
-          hdf.setValue("guide", "true");
-          hdf.setValue("page.type", "guide");
-        } else if (filename.indexOf("training") == 0) {
-          hdf.setValue("training", "true");
-          hdf.setValue("page.type", "training");
-        } else if (filename.indexOf("more") == 0) {
-          hdf.setValue("more", "true");
-        } else if (filename.indexOf("google") == 0) {
-          hdf.setValue("google", "true");
-          hdf.setValue("page.type", "google");
-        } else if (filename.indexOf("samples") == 0) {
-          hdf.setValue("samples", "true");
-          hdf.setValue("samplesDocPage", "true");
-          hdf.setValue("page.type", "samples");
-          if (Doclava.samplesNavTree != null) {
-            hdf.setValue("samples_toc_tree", Doclava.samplesNavTree.getValue("samples_toc_tree", ""));
-          }
-        } else if (filename.indexOf("distribute") == 0) {
-          hdf.setValue("distribute", "true");
-          hdf.setValue("page.type", "distribute");
-          if (filename.indexOf("distribute/googleplay") == 0) {
-            hdf.setValue("googleplay", "true");
-          } else if (filename.indexOf("distribute/essentials") == 0) {
-            hdf.setValue("essentials", "true");
-          } else if (filename.indexOf("distribute/users") == 0) {
-            hdf.setValue("users", "true");
-          } else if (filename.indexOf("distribute/engage") == 0) {
-            hdf.setValue("engage", "true");
-          } else if (filename.indexOf("distribute/monetize") == 0) {
-            hdf.setValue("monetize", "true");
-          } else if (filename.indexOf("distribute/analyze") == 0) {
-            hdf.setValue("analyze", "true");
-          } else if (filename.indexOf("distribute/tools") == 0) {
-            hdf.setValue("essentials", "true");
-          } else if (filename.indexOf("distribute/stories") == 0) {
-            hdf.setValue("stories", "true");
-          }
-        } else if (filename.indexOf("about") == 0) {
-          hdf.setValue("about", "true");
-          hdf.setValue("page.type", "about");
-        } else if (filename.indexOf("devices") == 0) {
-          hdf.setValue("devices", "true");
-          hdf.setValue("page.type", "devices");
-        } else if (filename.indexOf("source") == 0) {
-          hdf.setValue("source", "true");
-        } else if (filename.indexOf("security") == 0) {
-          hdf.setValue("security", "true");
-        } else if (filename.indexOf("compatibility") == 0) {
-          hdf.setValue("compatibility", "true");
-        } else if (filename.indexOf("topic/") == 0) {
-          hdf.setValue("topic", "true");
-          hdf.setValue("page.type", "develop");
-          if (filename.indexOf("topic/libraries") == 0) {
-            hdf.setValue("page.category", "libraries");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("libraries", "true");
-          } else if (filename.indexOf("topic/instant-apps") == 0) {
-            hdf.setValue("instantapps", "true");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("page.category", "instant apps");
-          } else if (filename.indexOf("topic/performance") == 0) {
-            hdf.setValue("perf", "true");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("page.category", "performance");
-          } else if (filename.indexOf("topic/arc") == 0) {
-            hdf.setValue("arc", "true");
-            hdf.setValue("page.type", "develop");
-            hdf.setValue("page.category", "arc");
-          }
-        } else if (filename.indexOf("wear/preview") == 0) {
-          hdf.setValue("wearpreview", "true");
-          hdf.setValue("page.type", "about");
-          hdf.setValue("page.category", "wear preview");
-        } else if (filename.indexOf("wear") == 0) {
-          hdf.setValue("wear", "true");
-        } else if (filename.indexOf("work") == 0) {
-          hdf.setValue("work", "true");
-          hdf.setValue("page.type", "about");
-          hdf.setValue("page.category", "work");
-        } else if (filename.indexOf("preview") == 0) {
-          hdf.setValue("page.type", "preview");
-          hdf.setValue("page.category", "preview");
-          hdf.setValue("preview", "true");
-        } else if (filename.indexOf("auto") == 0) {
+        } else if ((filename.indexOf("auto") == 0)) {
           hdf.setValue("auto", "true");
-        } else if (filename.indexOf("tv") == 0) {
-          hdf.setValue("tv", "true");
+          hdf.setValue("page.category", "auto");
         }
+      } else if (filename.indexOf("wear/preview") == 0) {
+        hdf.setValue("wearpreview", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "wear preview");
+      } else if (filename.indexOf("devices") == 0) {
+        hdf.setValue("devices", "true");
+        hdf.setValue("page.type", "devices");
+      } else if (filename.indexOf("source") == 0) {
+        hdf.setValue("source", "true");
+      } else if (filename.indexOf("security") == 0) {
+        hdf.setValue("security", "true");
+      } else if (filename.indexOf("compatibility") == 0) {
+        hdf.setValue("compatibility", "true");
+      } else if (filename.indexOf("wear") == 0) {
+        hdf.setValue("wear", "true");
+        hdf.setValue("about", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "wear");
+      } else if (filename.indexOf("work") == 0) {
+        hdf.setValue("work", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "work");
+      } else if (filename.indexOf("preview") == 0) {
+        hdf.setValue("page.type", "develop");
+        hdf.setValue("page.category", "preview");
+        hdf.setValue("preview", "true");
+      } else if (filename.indexOf("auto") == 0) {
+        hdf.setValue("auto", "true");
+        hdf.setValue("about", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "auto");
+      } else if (filename.indexOf("tv") == 0) {
+        hdf.setValue("tv", "true");
+        hdf.setValue("about", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "tv");
+      } else {
+        hdf.setValue("about", "true");
+        hdf.setValue("page.type", "about");
+        hdf.setValue("page.category", "about");
       }
+      
       //set metadata for this file in jd_lists_unified
       PageMetadata.setPageMetadata(docfile, relative, outfile, hdf, Doclava.sTaglist);
 

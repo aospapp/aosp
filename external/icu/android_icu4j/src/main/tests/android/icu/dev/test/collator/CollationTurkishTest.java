@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2014, International Business Machines Corporation and
@@ -15,18 +17,14 @@ package android.icu.dev.test.collator;
  
 import java.util.Locale;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
  
-@RunWith(IcuTestFmwkRunner.class)
 public class CollationTurkishTest extends TestFmwk{
-    public static void main(String[] args) throws Exception{
-        new CollationTurkishTest().run(args);
-    }
-    
     private static char[][] testSourceCases = {
         {0x73, 0x0327},
         {0x76, 0x00E4, 0x74},
@@ -75,10 +73,13 @@ public class CollationTurkishTest extends TestFmwk{
     public CollationTurkishTest() {
 
     }
-    protected void init()throws Exception{
+    
+    @Before
+    public void init()throws Exception{
         myCollation = Collator.getInstance(new Locale("tr", ""));
     }
     
+    @Test
     public void TestTertiary() {
         int i = 0;
         myCollation.setStrength(Collator.TERTIARY);
@@ -87,6 +88,7 @@ public class CollationTurkishTest extends TestFmwk{
         }
     }
     
+    @Test
     public void TestPrimary() {
         int i;
         myCollation.setStrength(Collator.PRIMARY);

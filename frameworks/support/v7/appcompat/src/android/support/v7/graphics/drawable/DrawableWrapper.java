@@ -16,6 +16,8 @@
 
 package android.support.v7.graphics.drawable;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
@@ -23,17 +25,19 @@ import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.view.View;
 
 /**
- * Drawable which delegates all calls to it's wrapped {@link Drawable}.
+ * Drawable which delegates all calls to its wrapped {@link Drawable}.
  * <p>
  * The wrapped {@link Drawable} <em>must</em> be fully released from any {@link View}
  * before wrapping, otherwise internal {@link Drawable.Callback} may be dropped.
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class DrawableWrapper extends Drawable implements Drawable.Callback {
 
     private Drawable mDrawable;
@@ -97,6 +101,7 @@ public class DrawableWrapper extends Drawable implements Drawable.Callback {
         return mDrawable.getState();
     }
 
+    @Override
     public void jumpToCurrentState() {
         DrawableCompat.jumpToCurrentState(mDrawable);
     }
@@ -149,6 +154,7 @@ public class DrawableWrapper extends Drawable implements Drawable.Callback {
     /**
      * {@inheritDoc}
      */
+    @Override
     public void invalidateDrawable(Drawable who) {
         invalidateSelf();
     }
@@ -156,6 +162,7 @@ public class DrawableWrapper extends Drawable implements Drawable.Callback {
     /**
      * {@inheritDoc}
      */
+    @Override
     public void scheduleDrawable(Drawable who, Runnable what, long when) {
         scheduleSelf(what, when);
     }
@@ -163,6 +170,7 @@ public class DrawableWrapper extends Drawable implements Drawable.Callback {
     /**
      * {@inheritDoc}
      */
+    @Override
     public void unscheduleDrawable(Drawable who, Runnable what) {
         unscheduleSelf(what);
     }

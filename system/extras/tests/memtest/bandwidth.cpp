@@ -138,6 +138,7 @@ BandwidthBenchmark *createBandwidthBenchmarkObject(arg_t values) {
 
     if (!bench->setSize(size)) {
         printf("Failed to allocate buffers for benchmark.\n");
+        delete bench;
         return NULL;
     }
 
@@ -312,6 +313,8 @@ int per_core_bandwidth(int argc, char** argv) {
         args[i].core = *it;
         args[i].bench = createBandwidthBenchmarkObject(values);
         if (!args[i].bench) {
+            for (int j = 0; j < i; j++)
+                delete args[j].bench;
             return -1;
         }
     }
@@ -347,6 +350,8 @@ int multithread_bandwidth(int argc, char** argv) {
         args[i].core = -1;
         args[i].bench = createBandwidthBenchmarkObject(values);
         if (!args[i].bench) {
+            for (int j = 0; j < i; j++)
+                delete args[j].bench;
             return -1;
         }
     }

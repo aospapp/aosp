@@ -32,14 +32,14 @@ LOCAL_OBJ_FILES := \
 	source/rotate.o            \
 	source/rotate_common.o     \
 	source/rotate_gcc.o        \
-	source/rotate_mips.o       \
+	source/rotate_dspr2.o      \
 	source/rotate_neon64.o     \
 	source/rotate_neon.o       \
 	source/rotate_win.o        \
 	source/row_any.o           \
 	source/row_common.o        \
 	source/row_gcc.o           \
-	source/row_mips.o          \
+	source/row_dspr2.o         \
 	source/row_neon64.o        \
 	source/row_neon.o          \
 	source/row_win.o           \
@@ -48,7 +48,7 @@ LOCAL_OBJ_FILES := \
 	source/scale.o             \
 	source/scale_common.o      \
 	source/scale_gcc.o         \
-	source/scale_mips.o        \
+	source/scale_dspr2.o       \
 	source/scale_neon64.o      \
 	source/scale_neon.o        \
 	source/scale_win.o         \
@@ -74,6 +74,8 @@ psnr: util/psnr.cc
 	$(CXX) $(CXXFLAGS) -Iutil/ -o $@ util/psnr.cc util/psnr_main.cc util/ssim.cc
 
 # A C test utility that uses libyuv conversion from C.
+# gcc 4.4 and older require -fno-exceptions to avoid link error on __gxx_personality_v0
+# CC=gcc-4.4 CXXFLAGS=-fno-exceptions CXX=g++-4.4 make -f linux.mk
 cpuid: util/cpuid.c libyuv.a
 	$(CC) $(CFLAGS) -o $@ util/cpuid.c libyuv.a
 

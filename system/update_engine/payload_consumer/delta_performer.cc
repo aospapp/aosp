@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include <applypatch/imgpatch.h>
 #include <base/files/file_util.h>
 #include <base/format_macros.h>
 #include <base/strings/string_number_conversions.h>
@@ -33,6 +34,7 @@
 #include <base/strings/stringprintf.h>
 #include <brillo/data_encoding.h>
 #include <brillo/make_unique_ptr.h>
+#include <bspatch.h>
 #include <google/protobuf/repeated_field.h>
 
 #include "update_engine/common/constants.h"
@@ -134,27 +136,31 @@ FileDescriptorPtr OpenFile(const char* path, int mode, int* err) {
 // Discard the tail of the block device referenced by |fd|, from the offset
 // |data_size| until the end of the block device. Returns whether the data was
 // discarded.
-bool DiscardPartitionTail(FileDescriptorPtr fd, uint64_t data_size) {
+bool DiscardPartitionTail(const FileDescriptorPtr& fd, uint64_t data_size) {
   uint64_t part_size = fd->BlockDevSize();
   if (!part_size || part_size <= data_size)
     return false;
 
-  const vector<int> requests = {
-      BLKSECDISCARD,
-      BLKDISCARD,
+  struct blkioctl_request {
+    int number;
+    const char* name;
+  };
+  const vector<blkioctl_request> blkioctl_requests = {
+      {BLKSECDISCARD, "BLKSECDISCARD"},
+      {BLKDISCARD, "BLKDISCARD"},
 #ifdef BLKZEROOUT
-      BLKZEROOUT,
+      {BLKZEROOUT, "BLKZEROOUT"},
 #endif
   };
-  for (int request : requests) {
+  for (const auto& req : blkioctl_requests) {
     int error = 0;
-    if (fd->BlkIoctl(request, data_size, part_size - data_size, &error) &&
+    if (fd->BlkIoctl(req.number, data_size, part_size - data_size, &error) &&
         error == 0) {
       return true;
     }
     LOG(WARNING) << "Error discarding the last "
                  << (part_size - data_size) / 1024 << " KiB using ioctl("
-                 << request << ")";
+                 << req.name << ")";
   }
   return false;
 }
@@ -726,6 +732,9 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode *error) {
       case InstallOperation::SOURCE_BSDIFF:
         op_result = PerformSourceBsdiffOperation(op, error);
         break;
+      case InstallOperation::IMGDIFF:
+        op_result = PerformImgdiffOperation(op, error);
+        break;
       default:
        op_result = false;
     }
@@ -818,17 +827,6 @@ bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
     *kern_part.mutable_operations() = manifest_.kernel_install_operations();
     manifest_.clear_kernel_install_operations();
     partitions_.push_back(std::move(kern_part));
-  }
-
-  // TODO(deymo): Remove this block of code once we switched to optional
-  // source partition verification. This list of partitions in the InstallPlan
-  // is initialized with the expected hashes in the payload major version 1,
-  // so we need to check those now if already set. See b/23182225.
-  if (!install_plan_->partitions.empty()) {
-    if (!VerifySourcePartitions()) {
-      *error = ErrorCode::kDownloadStateInitializationError;
-      return false;
-    }
   }
 
   // Fill in the InstallPlan::partitions based on the partitions from the
@@ -955,8 +953,7 @@ bool DeltaPerformer::PerformZeroOrDiscardOperation(
 #endif  // !defined(BLKZEROOUT)
 
   brillo::Blob zeros;
-  for (int i = 0; i < operation.dst_extents_size(); i++) {
-    Extent extent = operation.dst_extents(i);
+  for (const Extent& extent : operation.dst_extents()) {
     const uint64_t start = extent.start_block() * block_size_;
     const uint64_t length = extent.num_blocks() * block_size_;
     if (attempt_ioctl) {
@@ -1034,7 +1031,7 @@ namespace {
 // each block in |extents|. For example, [(3, 2), (8, 1)] would give [3, 4, 8].
 void ExtentsToBlocks(const RepeatedPtrField<Extent>& extents,
                      vector<uint64_t>* blocks) {
-  for (Extent ext : extents) {
+  for (const Extent& ext : extents) {
     for (uint64_t j = 0; j < ext.num_blocks(); j++)
       blocks->push_back(ext.start_block() + j);
   }
@@ -1043,7 +1040,7 @@ void ExtentsToBlocks(const RepeatedPtrField<Extent>& extents,
 // Takes |extents| and returns the number of blocks in those extents.
 uint64_t GetBlockCount(const RepeatedPtrField<Extent>& extents) {
   uint64_t sum = 0;
-  for (Extent ext : extents) {
+  for (const Extent& ext : extents) {
     sum += ext.num_blocks();
   }
   return sum;
@@ -1071,8 +1068,10 @@ bool ValidateSourceHash(const brillo::Blob& calculated_hash,
 
     vector<string> source_extents;
     for (const Extent& ext : operation.src_extents()) {
-      source_extents.push_back(base::StringPrintf(
-          "%" PRIu64 ":%" PRIu64, ext.start_block(), ext.num_blocks()));
+      source_extents.push_back(
+          base::StringPrintf("%" PRIu64 ":%" PRIu64,
+                             static_cast<uint64_t>(ext.start_block()),
+                             static_cast<uint64_t>(ext.num_blocks())));
     }
     LOG(ERROR) << "Operation source (offset:size) in blocks: "
                << base::JoinString(source_extents, ",");
@@ -1153,11 +1152,11 @@ bool DeltaPerformer::ExtentsToBsdiffPositionsString(
     string* positions_string) {
   string ret;
   uint64_t length = 0;
-  for (int i = 0; i < extents.size(); i++) {
-    Extent extent = extents.Get(i);
+  for (const Extent& extent : extents) {
     int64_t start = extent.start_block() * block_size;
-    uint64_t this_length = min(full_length - length,
-                               extent.num_blocks() * block_size);
+    uint64_t this_length =
+        min(full_length - length,
+            static_cast<uint64_t>(extent.num_blocks()) * block_size);
     ret += base::StringPrintf("%" PRIi64 ":%" PRIu64 ",", start, this_length);
     length += this_length;
   }
@@ -1185,30 +1184,13 @@ bool DeltaPerformer::PerformBsdiffOperation(const InstallOperation& operation) {
                                                        operation.dst_length(),
                                                        &output_positions));
 
-  string temp_filename;
-  TEST_AND_RETURN_FALSE(utils::MakeTempFile("au_patch.XXXXXX",
-                                            &temp_filename,
-                                            nullptr));
-  ScopedPathUnlinker path_unlinker(temp_filename);
-  {
-    int fd = open(temp_filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    ScopedFdCloser fd_closer(&fd);
-    TEST_AND_RETURN_FALSE(
-        utils::WriteAll(fd, buffer_.data(), operation.data_length()));
-  }
-
-  // Update the buffer to release the patch data memory as soon as the patch
-  // file is written out.
+  TEST_AND_RETURN_FALSE(bsdiff::bspatch(target_path_.c_str(),
+                                        target_path_.c_str(),
+                                        buffer_.data(),
+                                        buffer_.size(),
+                                        input_positions.c_str(),
+                                        output_positions.c_str()) == 0);
   DiscardBuffer(true, buffer_.size());
-
-  vector<string> cmd{kBspatchPath, target_path_, target_path_, temp_filename,
-                     input_positions, output_positions};
-
-  int return_code = 0;
-  TEST_AND_RETURN_FALSE(
-      Subprocess::SynchronousExecFlags(cmd, Subprocess::kSearchPath,
-                                       &return_code, nullptr));
-  TEST_AND_RETURN_FALSE(return_code == 0);
 
   if (operation.dst_length() % block_size_) {
     // Zero out rest of final block.
@@ -1243,8 +1225,8 @@ bool DeltaPerformer::PerformSourceBsdiffOperation(
     brillo::Blob buf(kMaxBlocksToRead * block_size_);
     for (const Extent& extent : operation.src_extents()) {
       for (uint64_t i = 0; i < extent.num_blocks(); i += kMaxBlocksToRead) {
-        uint64_t blocks_to_read =
-            min(kMaxBlocksToRead, extent.num_blocks() - i);
+        uint64_t blocks_to_read = min(
+            kMaxBlocksToRead, static_cast<uint64_t>(extent.num_blocks()) - i);
         ssize_t bytes_to_read = blocks_to_read * block_size_;
         ssize_t bytes_read_this_iteration = 0;
         TEST_AND_RETURN_FALSE(
@@ -1271,30 +1253,64 @@ bool DeltaPerformer::PerformSourceBsdiffOperation(
                                                        operation.dst_length(),
                                                        &output_positions));
 
-  string temp_filename;
-  TEST_AND_RETURN_FALSE(utils::MakeTempFile("au_patch.XXXXXX",
-                                            &temp_filename,
-                                            nullptr));
-  ScopedPathUnlinker path_unlinker(temp_filename);
-  {
-    int fd = open(temp_filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    ScopedFdCloser fd_closer(&fd);
-    TEST_AND_RETURN_FALSE(
-        utils::WriteAll(fd, buffer_.data(), operation.data_length()));
+  TEST_AND_RETURN_FALSE(bsdiff::bspatch(source_path_.c_str(),
+                                        target_path_.c_str(),
+                                        buffer_.data(),
+                                        buffer_.size(),
+                                        input_positions.c_str(),
+                                        output_positions.c_str()) == 0);
+  DiscardBuffer(true, buffer_.size());
+  return true;
+}
+
+bool DeltaPerformer::PerformImgdiffOperation(const InstallOperation& operation,
+                                             ErrorCode* error) {
+  // Since we delete data off the beginning of the buffer as we use it,
+  // the data we need should be exactly at the beginning of the buffer.
+  TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
+  TEST_AND_RETURN_FALSE(buffer_.size() >= operation.data_length());
+
+  uint64_t src_blocks = GetBlockCount(operation.src_extents());
+  brillo::Blob src_data(src_blocks * block_size_);
+
+  ssize_t bytes_read = 0;
+  for (const Extent& extent : operation.src_extents()) {
+    ssize_t bytes_read_this_iteration = 0;
+    ssize_t bytes_to_read = extent.num_blocks() * block_size_;
+    TEST_AND_RETURN_FALSE(utils::PReadAll(source_fd_,
+                                          &src_data[bytes_read],
+                                          bytes_to_read,
+                                          extent.start_block() * block_size_,
+                                          &bytes_read_this_iteration));
+    TEST_AND_RETURN_FALSE(bytes_read_this_iteration == bytes_to_read);
+    bytes_read += bytes_read_this_iteration;
   }
 
-  // Update the buffer to release the patch data memory as soon as the patch
-  // file is written out.
-  DiscardBuffer(true, buffer_.size());
+  if (operation.has_src_sha256_hash()) {
+    brillo::Blob src_hash;
+    TEST_AND_RETURN_FALSE(HashCalculator::RawHashOfData(src_data, &src_hash));
+    TEST_AND_RETURN_FALSE(ValidateSourceHash(src_hash, operation, error));
+  }
 
-  vector<string> cmd{kBspatchPath, source_path_, target_path_, temp_filename,
-                     input_positions, output_positions};
-
-  int return_code = 0;
+  vector<Extent> target_extents(operation.dst_extents().begin(),
+                                operation.dst_extents().end());
+  DirectExtentWriter writer;
+  TEST_AND_RETURN_FALSE(writer.Init(target_fd_, target_extents, block_size_));
   TEST_AND_RETURN_FALSE(
-      Subprocess::SynchronousExecFlags(cmd, Subprocess::kSearchPath,
-                                       &return_code, nullptr));
-  TEST_AND_RETURN_FALSE(return_code == 0);
+      ApplyImagePatch(src_data.data(),
+                      src_data.size(),
+                      buffer_.data(),
+                      operation.data_length(),
+                      [](const unsigned char* data, ssize_t len, void* token) {
+                        return reinterpret_cast<ExtentWriter*>(token)
+                                       ->Write(data, len)
+                                   ? len
+                                   : 0;
+                      },
+                      &writer) == 0);
+  TEST_AND_RETURN_FALSE(writer.End());
+
+  DiscardBuffer(true, buffer_.size());
   return true;
 }
 
@@ -1644,80 +1660,6 @@ ErrorCode DeltaPerformer::VerifyPayload(
   return ErrorCode::kSuccess;
 }
 
-namespace {
-void LogVerifyError(const string& type,
-                    const string& device,
-                    uint64_t size,
-                    const string& local_hash,
-                    const string& expected_hash) {
-  LOG(ERROR) << "This is a server-side error due to "
-             << "mismatched delta update image!";
-  LOG(ERROR) << "The delta I've been given contains a " << type << " delta "
-             << "update that must be applied over a " << type << " with "
-             << "a specific checksum, but the " << type << " we're starting "
-             << "with doesn't have that checksum! This means that "
-             << "the delta I've been given doesn't match my existing "
-             << "system. The " << type << " partition I have has hash: "
-             << local_hash << " but the update expected me to have "
-             << expected_hash << " .";
-  LOG(INFO) << "To get the checksum of the " << type << " partition run this"
-               "command: dd if=" << device << " bs=1M count=" << size
-            << " iflag=count_bytes 2>/dev/null | openssl dgst -sha256 -binary "
-               "| openssl base64";
-  LOG(INFO) << "To get the checksum of partitions in a bin file, "
-            << "run: .../src/scripts/sha256_partitions.sh .../file.bin";
-}
-
-string StringForHashBytes(const void* bytes, size_t size) {
-  return brillo::data_encoding::Base64Encode(bytes, size);
-}
-}  // namespace
-
-bool DeltaPerformer::VerifySourcePartitions() {
-  LOG(INFO) << "Verifying source partitions.";
-  CHECK(manifest_valid_);
-  CHECK(install_plan_);
-  if (install_plan_->partitions.size() != partitions_.size()) {
-    DLOG(ERROR) << "The list of partitions in the InstallPlan doesn't match the "
-                   "list received in the payload. The InstallPlan has "
-                << install_plan_->partitions.size()
-                << " partitions while the payload has " << partitions_.size()
-                << " partitions.";
-    return false;
-  }
-  for (size_t i = 0; i < partitions_.size(); ++i) {
-    if (partitions_[i].partition_name() != install_plan_->partitions[i].name) {
-      DLOG(ERROR) << "The InstallPlan's partition " << i << " is \""
-                  << install_plan_->partitions[i].name
-                  << "\" but the payload expects it to be \""
-                  << partitions_[i].partition_name()
-                  << "\". This is an error in the DeltaPerformer setup.";
-      return false;
-    }
-    if (!partitions_[i].has_old_partition_info())
-      continue;
-    const PartitionInfo& info = partitions_[i].old_partition_info();
-    const InstallPlan::Partition& plan_part = install_plan_->partitions[i];
-    bool valid =
-        !plan_part.source_hash.empty() &&
-        plan_part.source_hash.size() == info.hash().size() &&
-        memcmp(plan_part.source_hash.data(),
-               info.hash().data(),
-               plan_part.source_hash.size()) == 0;
-    if (!valid) {
-      LogVerifyError(partitions_[i].partition_name(),
-                     plan_part.source_path,
-                     info.hash().size(),
-                     StringForHashBytes(plan_part.source_hash.data(),
-                                        plan_part.source_hash.size()),
-                     StringForHashBytes(info.hash().data(),
-                                        info.hash().size()));
-      return false;
-    }
-  }
-  return true;
-}
-
 void DeltaPerformer::DiscardBuffer(bool do_advance_offset,
                                    size_t signed_hash_buffer_size) {
   // Update the buffer offset.
@@ -1733,7 +1675,7 @@ void DeltaPerformer::DiscardBuffer(bool do_advance_offset,
 }
 
 bool DeltaPerformer::CanResumeUpdate(PrefsInterface* prefs,
-                                     string update_check_response_hash) {
+                                     const string& update_check_response_hash) {
   int64_t next_operation = kUpdateStateOperationInvalid;
   if (!(prefs->GetInt64(kPrefsUpdateStateNextOperation, &next_operation) &&
         next_operation != kUpdateStateOperationInvalid &&

@@ -26,88 +26,19 @@
 #include "base/macros.h"
 #include "common_runtime_test.h"
 #include "dex_file-inl.h"
+#include "dex_file_types.h"
 #include "leb128.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread-inl.h"
+#include "utils.h"
 
 namespace art {
-
-static const uint8_t kBase64Map[256] = {
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255,  62, 255, 255, 255,  63,
-  52,  53,  54,  55,  56,  57,  58,  59,  60,  61, 255, 255,
-  255, 254, 255, 255, 255,   0,   1,   2,   3,   4,   5,   6,
-    7,   8,   9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  // NOLINT
-   19,  20,  21,  22,  23,  24,  25, 255, 255, 255, 255, 255,  // NOLINT
-  255,  26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,
-   37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  // NOLINT
-   49,  50,  51, 255, 255, 255, 255, 255, 255, 255, 255, 255,  // NOLINT
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-  255, 255, 255, 255
-};
 
 // Make the Dex file version 37.
 static void MakeDexVersion37(DexFile* dex_file) {
   size_t offset = OFFSETOF_MEMBER(DexFile::Header, magic_) + 6;
   CHECK_EQ(*(dex_file->Begin() + offset), '5');
   *(const_cast<uint8_t*>(dex_file->Begin()) + offset) = '7';
-}
-
-static inline std::unique_ptr<uint8_t[]> DecodeBase64(const char* src, size_t* dst_size) {
-  std::vector<uint8_t> tmp;
-  uint32_t t = 0, y = 0;
-  int g = 3;
-  for (size_t i = 0; src[i] != '\0'; ++i) {
-    uint8_t c = kBase64Map[src[i] & 0xFF];
-    if (c == 255) continue;
-    // the final = symbols are read and used to trim the remaining bytes
-    if (c == 254) {
-      c = 0;
-      // prevent g < 0 which would potentially allow an overflow later
-      if (--g < 0) {
-        *dst_size = 0;
-        return nullptr;
-      }
-    } else if (g != 3) {
-      // we only allow = to be at the end
-      *dst_size = 0;
-      return nullptr;
-    }
-    t = (t << 6) | c;
-    if (++y == 4) {
-      tmp.push_back((t >> 16) & 255);
-      if (g > 1) {
-        tmp.push_back((t >> 8) & 255);
-      }
-      if (g > 2) {
-        tmp.push_back(t & 255);
-      }
-      y = t = 0;
-    }
-  }
-  if (y != 0) {
-    *dst_size = 0;
-    return nullptr;
-  }
-  std::unique_ptr<uint8_t[]> dst(new uint8_t[tmp.size()]);
-  if (dst_size != nullptr) {
-    *dst_size = tmp.size();
-  } else {
-    *dst_size = 0;
-  }
-  std::copy(tmp.begin(), tmp.end(), dst.get());
-  return dst;
 }
 
 static void FixUpChecksum(uint8_t* dex_file) {
@@ -122,24 +53,29 @@ static void FixUpChecksum(uint8_t* dex_file) {
 
 class DexFileVerifierTest : public CommonRuntimeTest {
  protected:
+  DexFile* GetDexFile(const uint8_t* dex_bytes, size_t length) {
+    return new DexFile(dex_bytes, length, "tmp", 0, nullptr);
+  }
+
   void VerifyModification(const char* dex_file_base64_content,
                           const char* location,
-                          std::function<void(DexFile*)> f,
+                          const std::function<void(DexFile*)>& f,
                           const char* expected_error) {
     size_t length;
-    std::unique_ptr<uint8_t[]> dex_bytes = DecodeBase64(dex_file_base64_content, &length);
+    std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(dex_file_base64_content, &length));
     CHECK(dex_bytes != nullptr);
     // Note: `dex_file` will be destroyed before `dex_bytes`.
-    std::unique_ptr<DexFile> dex_file(
-        new DexFile(dex_bytes.get(), length, "tmp", 0, nullptr, nullptr));
+    std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
     f(dex_file.get());
     FixUpChecksum(const_cast<uint8_t*>(dex_file->Begin()));
 
+    static constexpr bool kVerifyChecksum = true;
     std::string error_msg;
     bool success = DexFileVerifier::Verify(dex_file.get(),
                                            dex_file->Begin(),
                                            dex_file->Size(),
                                            location,
+                                           kVerifyChecksum,
                                            &error_msg);
     if (expected_error == nullptr) {
       EXPECT_TRUE(success) << error_msg;
@@ -175,7 +111,7 @@ static std::unique_ptr<const DexFile> OpenDexFileBase64(const char* base64,
   // read dex file
   ScopedObjectAccess soa(Thread::Current());
   std::vector<std::unique_ptr<const DexFile>> tmp;
-  bool success = DexFile::Open(location, location, error_msg, &tmp);
+  bool success = DexFile::Open(location, location, true, error_msg, &tmp);
   CHECK(success) << error_msg;
   EXPECT_EQ(1U, tmp.size());
   std::unique_ptr<const DexFile> dex_file = std::move(tmp[0]);
@@ -220,7 +156,7 @@ TEST_F(DexFileVerifierTest, MethodId) {
       "method_id_class_idx",
       [](DexFile* dex_file) {
         DexFile::MethodId* method_id = const_cast<DexFile::MethodId*>(&dex_file->GetMethodId(0));
-        method_id->class_idx_ = 0xFF;
+        method_id->class_idx_ = dex::TypeIndex(0xFF);
       },
       "could not find declaring class for direct method index 0");
 
@@ -240,7 +176,7 @@ TEST_F(DexFileVerifierTest, MethodId) {
       "method_id_name_idx",
       [](DexFile* dex_file) {
         DexFile::MethodId* method_id = const_cast<DexFile::MethodId*>(&dex_file->GetMethodId(0));
-        method_id->name_idx_ = 0xFF;
+        method_id->name_idx_ = dex::StringIndex(0xFF);
       },
       "String index not available for method flags verification");
 }
@@ -311,7 +247,7 @@ static const uint8_t* FindMethodData(const DexFile* dex_file,
 
   while (it.HasNextDirectMethod() || it.HasNextVirtualMethod()) {
     uint32_t method_index = it.GetMemberIndex();
-    uint32_t name_index = dex_file->GetMethodId(method_index).name_idx_;
+    dex::StringIndex name_index = dex_file->GetMethodId(method_index).name_idx_;
     const DexFile::StringId& string_id = dex_file->GetStringId(name_index);
     const char* str = dex_file->GetStringData(string_id);
     if (strcmp(name, str) == 0) {
@@ -696,12 +632,8 @@ TEST_F(DexFileVerifierTest, B28552165) {
       "b28552165",
       [](DexFile* dex_file) {
         OrMaskToMethodFlags(dex_file, "foo", kAccPublic | kAccProtected);
-        uint32_t method_idx;
-        FindMethodData(dex_file, "foo", &method_idx);
-        auto* method_id = const_cast<DexFile::MethodId*>(&dex_file->GetMethodId(method_idx));
-        method_id->name_idx_ = dex_file->NumStringIds();
       },
-      "Method may have only one of public/protected/private, LMethodFlags;.(error)");
+      "Method may have only one of public/protected/private, LMethodFlags;.foo");
 }
 
 // Set of dex files for interface method tests. As it's not as easy to mutate method names, it's
@@ -920,7 +852,7 @@ static const uint8_t* FindFieldData(const DexFile* dex_file, const char* name) {
 
   while (it.HasNextStaticField() || it.HasNextInstanceField()) {
     uint32_t field_index = it.GetMemberIndex();
-    uint32_t name_index = dex_file->GetFieldId(field_index).name_idx_;
+    dex::StringIndex name_index = dex_file->GetFieldId(field_index).name_idx_;
     const DexFile::StringId& string_id = dex_file->GetStringId(name_index);
     const char* str = dex_file->GetStringData(string_id);
     if (strcmp(name, str) == 0) {
@@ -1515,12 +1447,12 @@ TEST_F(DexFileVerifierTest, ProtoOrdering) {
             // Swap the proto parameters and shorties to break the ordering.
             std::swap(const_cast<uint32_t&>(proto1.parameters_off_),
                       const_cast<uint32_t&>(proto2.parameters_off_));
-            std::swap(const_cast<uint32_t&>(proto1.shorty_idx_),
-                      const_cast<uint32_t&>(proto2.shorty_idx_));
+            std::swap(const_cast<dex::StringIndex&>(proto1.shorty_idx_),
+                      const_cast<dex::StringIndex&>(proto2.shorty_idx_));
           } else {
             // Copy the proto parameters and shorty to create duplicate proto id.
             const_cast<uint32_t&>(proto1.parameters_off_) = proto2.parameters_off_;
-            const_cast<uint32_t&>(proto1.shorty_idx_) = proto2.shorty_idx_;
+            const_cast<dex::StringIndex&>(proto1.shorty_idx_) = proto2.shorty_idx_;
           }
         },
         "Out-of-order proto_id arguments");
@@ -1695,6 +1627,568 @@ TEST_F(DexFileVerifierTest, CircularInterfaceImplementation) {
       [](DexFile* dex_file ATTRIBUTE_UNUSED) { /* empty */ },
       "Invalid class definition ordering: class with type idx: '2' defined before"
       " implemented interface with type idx: '0'");
+}
+
+TEST_F(DexFileVerifierTest, Checksum) {
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kGoodTestDex, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+
+  // Good checksum: all pass.
+  EXPECT_TRUE(DexFileVerifier::Verify(dex_file.get(),
+                                      dex_file->Begin(),
+                                      dex_file->Size(),
+                                       "good checksum, no verify",
+                                      /*verify_checksum*/ false,
+                                      &error_msg));
+  EXPECT_TRUE(DexFileVerifier::Verify(dex_file.get(),
+                                      dex_file->Begin(),
+                                      dex_file->Size(),
+                                      "good checksum, verify",
+                                      /*verify_checksum*/ true,
+                                      &error_msg));
+
+  // Bad checksum: !verify_checksum passes verify_checksum fails.
+  DexFile::Header* header = reinterpret_cast<DexFile::Header*>(
+      const_cast<uint8_t*>(dex_file->Begin()));
+  header->checksum_ = 0;
+  EXPECT_TRUE(DexFileVerifier::Verify(dex_file.get(),
+                                      dex_file->Begin(),
+                                      dex_file->Size(),
+                                      "bad checksum, no verify",
+                                      /*verify_checksum*/ false,
+                                      &error_msg));
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad checksum, verify",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+  EXPECT_NE(error_msg.find("Bad checksum"), std::string::npos) << error_msg;
+}
+
+TEST_F(DexFileVerifierTest, BadStaticMethodName) {
+  // Generated DEX file version (037) from:
+  //
+  // .class public LBadName;
+  // .super Ljava/lang/Object;
+  //
+  // .method public static <bad_name> (II)V
+  //    .registers 2
+  //    .prologue
+  //    return-void
+  // .end method
+  //
+  // .method public constructor <init>()V
+  //     .registers 1
+  //     .prologue
+  //     .line 1
+  // invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //     return-void
+  // .end method
+  //
+  static const char kDexBase64[] =
+      "ZGV4CjAzNwC2NYlwyxEc/h6hv+hMeUVQPtiX6MQBcfgwAgAAcAAAAHhWNBIAAAAAAAAAAJABAAAI"
+      "AAAAcAAAAAQAAACQAAAAAgAAAKAAAAAAAAAAAAAAAAMAAAC4AAAAAQAAANAAAABAAQAA8AAAAPAA"
+      "AAD8AAAABAEAABIBAAAVAQAAIAEAADQBAAA3AQAAAwAAAAQAAAAFAAAABgAAAAYAAAADAAAAAAAA"
+      "AAcAAAADAAAAPAEAAAEAAQAAAAAAAQAAAAEAAAACAAAAAQAAAAEAAAABAAAAAgAAAAAAAAACAAAA"
+      "AAAAAIABAAAAAAAACjxiYWRfbmFtZT4ABjxpbml0PgAMQmFkTmFtZS5qYXZhAAFJAAlMQmFkTmFt"
+      "ZTsAEkxqYXZhL2xhbmcvT2JqZWN0OwABVgADVklJAAIAAAAAAAAAAAAAAAACAAAHAAEABw4AAAIA"
+      "AgAAAAAASAEAAAEAAAAOAAAAAQABAAEAAABOAQAABAAAAHAQAgAAAA4AAAACAAAJ1AIBgYAE6AIA"
+      "AA0AAAAAAAAAAQAAAAAAAAABAAAACAAAAHAAAAACAAAABAAAAJAAAAADAAAAAgAAAKAAAAAFAAAA"
+      "AwAAALgAAAAGAAAAAQAAANAAAAACIAAACAAAAPAAAAABEAAAAQAAADwBAAADEAAAAQAAAEQBAAAD"
+      "IAAAAgAAAEgBAAABIAAAAgAAAFQBAAAAIAAAAQAAAIABAAAAEAAAAQAAAJABAAA=";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad static method name",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+}
+
+TEST_F(DexFileVerifierTest, BadVirtualMethodName) {
+  // Generated DEX file version (037) from:
+  //
+  //  .class public LBadVirtualName;
+  //  .super Ljava/lang/Object;
+  //
+  //  .method public <bad_name> (II)V
+  //     .registers 2
+  //     return-void
+  //  .end method
+  //
+  //  .method public constructor <init>()V
+  //      .registers 1
+  //      invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //      return-void
+  //  .end method
+  //
+  static const char kDexBase64[] =
+      "ZGV4CjAzNwDcPC8B2E7kYTZmeHX2u2IqrpWV9EXBHpE8AgAAcAAAAHhWNBIAAAAAAAAAAJwBAAAI"
+      "AAAAcAAAAAQAAACQAAAAAgAAAKAAAAAAAAAAAAAAAAMAAAC4AAAAAQAAANAAAABMAQAA8AAAAPAA"
+      "AAD8AAAABAEAABkBAAAcAQAALgEAAEIBAABFAQAAAwAAAAQAAAAFAAAABgAAAAYAAAADAAAAAAAA"
+      "AAcAAAADAAAATAEAAAEAAQAAAAAAAQAAAAEAAAACAAAAAQAAAAEAAAABAAAAAgAAAAAAAAACAAAA"
+      "AAAAAI4BAAAAAAAACjxiYWRfbmFtZT4ABjxpbml0PgATQmFkVmlydHVhbE5hbWUuamF2YQABSQAQ"
+      "TEJhZFZpcnR1YWxOYW1lOwASTGphdmEvbGFuZy9PYmplY3Q7AAFWAANWSUkAAAACAAAAAAAAAAAA"
+      "AAABAAcOAAACAAAHAAABAAEAAQAAAFgBAAAEAAAAcBACAAAADgADAAMAAAAAAF0BAAABAAAADgAA"
+      "AAEBAYGABOQCAAH8Ag0AAAAAAAAAAQAAAAAAAAABAAAACAAAAHAAAAACAAAABAAAAJAAAAADAAAA"
+      "AgAAAKAAAAAFAAAAAwAAALgAAAAGAAAAAQAAANAAAAACIAAACAAAAPAAAAABEAAAAQAAAEwBAAAD"
+      "EAAAAQAAAFQBAAADIAAAAgAAAFgBAAABIAAAAgAAAGQBAAAAIAAAAQAAAI4BAAAAEAAAAQAAAJwB"
+      "AAA=";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad virtual method name",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+}
+
+TEST_F(DexFileVerifierTest, BadClinitSignature) {
+  // Generated DEX file version (037) from:
+  //
+  //  .class public LOneClinitBadSig;
+  //  .super Ljava/lang/Object;
+  //
+  //  .method public static constructor <clinit>(II)V
+  //     .registers 2
+  //     return-void
+  //  .end method
+  //
+  //  .method public constructor <init>()V
+  //      .registers 1
+  //      invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //      return-void
+  //  .end method
+  //
+  static const char kDexBase64[] =
+      "ZGV4CjAzNwBNOwTbfJmWq5eMOlxUY4EICGiEGJMVg8RAAgAAcAAAAHhWNBIAAAAAAAAAAKABAAAI"
+      "AAAAcAAAAAQAAACQAAAAAgAAAKAAAAAAAAAAAAAAAAMAAAC4AAAAAQAAANAAAABQAQAA8AAAAPAA"
+      "AAD6AAAAAgEAAAUBAAAYAQAALAEAAEIBAABFAQAAAgAAAAMAAAAEAAAABgAAAAYAAAADAAAAAAAA"
+      "AAcAAAADAAAATAEAAAEAAQAAAAAAAQAAAAEAAAACAAAAAQAAAAEAAAABAAAAAgAAAAAAAAAFAAAA"
+      "AAAAAJABAAAAAAAACDxjbGluaXQ+AAY8aW5pdD4AAUkAEUxPbmVDbGluaXRCYWRTaWc7ABJMamF2"
+      "YS9sYW5nL09iamVjdDsAFE9uZUNsaW5pdEJhZFNpZy5qYXZhAAFWAANWSUkAAAACAAAAAAAAAAAA"
+      "AAAAAgAABwABAAcOAAACAAIAAAAAAFgBAAABAAAADgAAAAEAAQABAAAAXgEAAAQAAABwEAIAAAAO"
+      "AAAAAgAAiYAE5AIBgYAE+AINAAAAAAAAAAEAAAAAAAAAAQAAAAgAAABwAAAAAgAAAAQAAACQAAAA"
+      "AwAAAAIAAACgAAAABQAAAAMAAAC4AAAABgAAAAEAAADQAAAAAiAAAAgAAADwAAAAARAAAAEAAABM"
+      "AQAAAxAAAAEAAABUAQAAAyAAAAIAAABYAQAAASAAAAIAAABkAQAAACAAAAEAAACQAQAAABAAAAEA"
+      "AACgAQAA";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad clinit signature",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+}
+
+TEST_F(DexFileVerifierTest, BadClinitSignatureAgain) {
+  // Generated DEX file version (037) from:
+  //
+  //  .class public LOneClinitBadSigAgain;
+  //  .super Ljava/lang/Object;
+  //
+  //  .method public static constructor <clinit>()I
+  //     .registers 1
+  //     const/4 v0, 1
+  //     return v0
+  //  .end method
+  //
+  //  .method public constructor <init>()V
+  //      .registers 1
+  //      invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //      return-void
+  //  .end method
+  //
+  static const char kDexBase64[] =
+      "ZGV4CjAzNwBfPcPu5NVwKUqZIu/YR8xqVlVD5UzTk0gEAgAAcAAAAHhWNBIAAAAAAAAAAIgBAAAH"
+      "AAAAcAAAAAQAAACMAAAAAgAAAJwAAAAAAAAAAAAAAAMAAAC0AAAAAQAAAMwAAAAYAQAA7AAAAOwA"
+      "AAD2AAAA/gAAAAEBAAAZAQAALQEAAEgBAAACAAAAAwAAAAQAAAAGAAAAAgAAAAAAAAAAAAAABgAA"
+      "AAMAAAAAAAAAAQAAAAAAAAABAAEAAQAAAAIAAQABAAAAAQAAAAEAAAACAAAAAAAAAAUAAAAAAAAA"
+      "eAEAAAAAAAAIPGNsaW5pdD4ABjxpbml0PgABSQAWTE9uZUNsaW5pdEJhZFNpZ0FnYWluOwASTGph"
+      "dmEvbGFuZy9PYmplY3Q7ABlPbmVDbGluaXRCYWRTaWdBZ2Fpbi5qYXZhAAFWAAABAAAAAAAAAAAA"
+      "AAACAAAAEhAPAAEAAQABAAAAAAAAAAQAAABwEAIAAAAOAAAAAgAAiYAEzAIBgYAE4AIKAAAAAAAA"
+      "AAEAAAAAAAAAAQAAAAcAAABwAAAAAgAAAAQAAACMAAAAAwAAAAIAAACcAAAABQAAAAMAAAC0AAAA"
+      "BgAAAAEAAADMAAAAAiAAAAcAAADsAAAAASAAAAIAAABMAQAAACAAAAEAAAB4AQAAABAAAAEAAACI"
+      "AQAA";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad clinit signature",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+}
+
+TEST_F(DexFileVerifierTest, BadInitSignature) {
+  // Generated DEX file version (037) from:
+  //
+  //  .class public LBadInitSig;
+  //  .super Ljava/lang/Object;
+  //
+  //  .method public constructor <init>()I
+  //      .registers 1
+  //      invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //      const v0, 1
+  //      return v0
+  //  .end method
+  //
+  static const char kDexBase64[] =
+      "ZGV4CjAzNwCdMdeh1KoHWamF2Prq32LF39YZ78fV7q+wAQAAcAAAAHhWNBIAAAAAAAAAADQBAAAF"
+      "AAAAcAAAAAQAAACEAAAAAgAAAJQAAAAAAAAAAAAAAAIAAACsAAAAAQAAALwAAADUAAAA3AAAANwA"
+      "AADkAAAA5wAAAPUAAAAJAQAAAQAAAAIAAAADAAAABAAAAAEAAAAAAAAAAAAAAAQAAAADAAAAAAAA"
+      "AAEAAAAAAAAAAgABAAAAAAABAAAAAQAAAAIAAAAAAAAA/////wAAAAAqAQAAAAAAAAY8aW5pdD4A"
+      "AUkADExCYWRJbml0U2lnOwASTGphdmEvbGFuZy9PYmplY3Q7AAFWAAEAAQABAAAAAAAAAAcAAABw"
+      "EAEAAAAUAAEAAAAPAAAAAQAAgYAEjAIKAAAAAAAAAAEAAAAAAAAAAQAAAAUAAABwAAAAAgAAAAQA"
+      "AACEAAAAAwAAAAIAAACUAAAABQAAAAIAAACsAAAABgAAAAEAAAC8AAAAAiAAAAUAAADcAAAAASAA"
+      "AAEAAAAMAQAAACAAAAEAAAAqAQAAABAAAAEAAAA0AQAA";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad init signature",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+}
+
+static const char* kInvokeCustomDexFiles[] = {
+  // TODO(oth): Revisit this test when we have smali / dx support.
+  // https://cs.corp.google.com/android/toolchain/jack/jack-tests/tests/com/android/jack/java7/invokecustom/test001/Tests.java
+  "ZGV4CjAzOAAEj12s/acmmdGuDL92SWSBh6iLBjxgomWkCAAAcAAAAHhWNBIAAAAAAAAAALwHAAAx"
+  "AAAAcAAAABYAAAA0AQAACQAAAIwBAAADAAAA+AEAAAsAAAAQAgAAAQAAAHACAAAMBgAAmAIAAMID"
+  "AADKAwAAzQMAANIDAADhAwAA5AMAAOoDAAAfBAAAUgQAAIMEAAC4BAAA1AQAAOsEAAD+BAAAEgUA"
+  "ACYFAAA6BQAAUQUAAG4FAACTBQAAtAUAAN0FAAD/BQAAHgYAADgGAABKBgAAVgYAAFkGAABdBgAA"
+  "YgYAAGYGAAB7BgAAgAYAAI8GAACdBgAAtAYAAMMGAADSBgAA3gYAAPIGAAD4BgAABgcAAA4HAAAU"
+  "BwAAGgcAAB8HAAAoBwAANAcAADoHAAABAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0A"
+  "AAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAAGAAAABoAAAAeAAAAAgAA"
+  "AAAAAACMAwAABQAAAAwAAACUAwAABQAAAA4AAACgAwAABAAAAA8AAAAAAAAAGgAAABQAAAAAAAAA"
+  "GwAAABQAAACsAwAAHAAAABQAAACMAwAAHQAAABQAAAC0AwAAHQAAABQAAAC8AwAAAwADAAMAAAAE"
+  "AAwAJAAAAAoABgAsAAAABAAEAAAAAAAEAAAAHwAAAAQAAQAoAAAABAAIACoAAAAEAAQALwAAAAYA"
+  "BQAtAAAACAAEAAAAAAANAAcAAAAAAA8AAgAlAAAAEAADACkAAAASAAYAIQAAAJYHAACWBwAABAAA"
+  "AAEAAAAIAAAAAAAAABkAAABkAwAAnQcAAAAAAAAEAAAAAgAAAAEAAABjBwAAAQAAAIsHAAACAAAA"
+  "iwcAAJMHAAABAAEAAQAAAEEHAAAEAAAAcBAGAAAADgADAAIAAAAAAEYHAAADAAAAkAABAg8AAAAF"
+  "AAMABAAAAE0HAAAQAAAAcQAJAAAADAAcAQQAbkAIABBDDAAiAQ0AcCAHAAEAEQEEAAEAAgAAAFYH"
+  "AAAMAAAAYgACABIhEjL8IAAAIQAKAW4gBQAQAA4AAwABAAIAAABdBwAACwAAABIgEjH8IAEAEAAK"
+  "ABJRcSAKAAEADgAAAAAAAAAAAAAAAwAAAAAAAAABAAAAmAIAAAIAAACgAgAABAAAAKgCAAACAAAA"
+  "AAAAAAMAAAAPAAkAEQAAAAMAAAAHAAkAEQAAAAEAAAAAAAAAAQAAAA4AAAABAAAAFQAGPGluaXQ+"
+  "AAFJAANJSUkADUlOVk9LRV9TVEFUSUMAAUwABExMTEwAM0xjb20vYW5kcm9pZC9qYWNrL2Fubm90"
+  "YXRpb25zL0NhbGxlZEJ5SW52b2tlQ3VzdG9tOwAxTGNvbS9hbmRyb2lkL2phY2svYW5ub3RhdGlv"
+  "bnMvTGlua2VyTWV0aG9kSGFuZGxlOwAvTGNvbS9hbmRyb2lkL2phY2svYW5ub3RhdGlvbnMvTWV0"
+  "aG9kSGFuZGxlS2luZDsAM0xjb20vYW5kcm9pZC9qYWNrL2phdmE3L2ludm9rZWN1c3RvbS90ZXN0"
+  "MDAxL1Rlc3RzOwAaTGRhbHZpay9hbm5vdGF0aW9uL1Rocm93czsAFUxqYXZhL2lvL1ByaW50U3Ry"
+  "ZWFtOwARTGphdmEvbGFuZy9DbGFzczsAEkxqYXZhL2xhbmcvT2JqZWN0OwASTGphdmEvbGFuZy9T"
+  "dHJpbmc7ABJMamF2YS9sYW5nL1N5c3RlbTsAFUxqYXZhL2xhbmcvVGhyb3dhYmxlOwAbTGphdmEv"
+  "bGFuZy9pbnZva2UvQ2FsbFNpdGU7ACNMamF2YS9sYW5nL2ludm9rZS9Db25zdGFudENhbGxTaXRl"
+  "OwAfTGphdmEvbGFuZy9pbnZva2UvTWV0aG9kSGFuZGxlOwAnTGphdmEvbGFuZy9pbnZva2UvTWV0"
+  "aG9kSGFuZGxlcyRMb29rdXA7ACBMamF2YS9sYW5nL2ludm9rZS9NZXRob2RIYW5kbGVzOwAdTGph"
+  "dmEvbGFuZy9pbnZva2UvTWV0aG9kVHlwZTsAGExqdW5pdC9mcmFtZXdvcmsvQXNzZXJ0OwAQTG9y"
+  "Zy9qdW5pdC9UZXN0OwAKVGVzdHMuamF2YQABVgACVkkAA1ZJSQACVkwAE1tMamF2YS9sYW5nL1N0"
+  "cmluZzsAA2FkZAANYXJndW1lbnRUeXBlcwAMYXNzZXJ0RXF1YWxzABVlbWl0dGVyOiBqYWNrLTQu"
+  "MC1lbmcADWVuY2xvc2luZ1R5cGUADWZpZWxkQ2FsbFNpdGUACmZpbmRTdGF0aWMAEmludm9rZU1l"
+  "dGhvZEhhbmRsZQAEa2luZAAMbGlua2VyTWV0aG9kAAZsb29rdXAABG1haW4ABG5hbWUAA291dAAH"
+  "cHJpbnRsbgAKcmV0dXJuVHlwZQAEdGVzdAAFdmFsdWUAIgAHDgAvAgAABw4ANQMAAAAHDqUAPwEA"
+  "Bw60ADsABw6lAAABBCAcAhgAGAAmHAEdAgQgHAMYDxgJGBEjGAQnGwArFygrFx8uGAACBQEwHAEY"
+  "CwETAAMWABcfFQABAAQBAQkAgYAEtAUBCswFAQrkBQEJlAYEAbwGAAAAEwAAAAAAAAABAAAAAAAA"
+  "AAEAAAAxAAAAcAAAAAIAAAAWAAAANAEAAAMAAAAJAAAAjAEAAAQAAAADAAAA+AEAAAUAAAALAAAA"
+  "EAIAAAcAAAACAAAAaAIAAAYAAAABAAAAcAIAAAgAAAABAAAAkAIAAAMQAAADAAAAmAIAAAEgAAAF"
+  "AAAAtAIAAAYgAAABAAAAZAMAAAEQAAAGAAAAjAMAAAIgAAAxAAAAwgMAAAMgAAAFAAAAQQcAAAQg"
+  "AAADAAAAYwcAAAUgAAABAAAAlgcAAAAgAAABAAAAnQcAAAAQAAABAAAAvAcAAA==",
+  // https://cs.corp.google.com/android/toolchain/jack/jack-tests/tests/com/android/jack/java7/invokecustom/test002/Tests.java
+  "ZGV4CjAzOAAzq3aGAwKhT4QQj4lqNfZJAO8Tm24uTyNICQAAcAAAAHhWNBIAAAAAAAAAAGAIAAA2"
+  "AAAAcAAAABgAAABIAQAACQAAAKgBAAAEAAAAFAIAAA0AAAA0AgAAAQAAAKQCAAB8BgAAzAIAACYE"
+  "AAAwBAAAOAQAAEQEAABHBAAATAQAAE8EAABVBAAAigQAALwEAADtBAAAIgUAAD4FAABVBQAAaAUA"
+  "AH0FAACRBQAApQUAALkFAADQBQAA7QUAABIGAAAzBgAAXAYAAH4GAACdBgAAtwYAAMkGAADPBgAA"
+  "2wYAAN4GAADiBgAA5wYAAOsGAAD/BgAAFAcAABkHAAAoBwAANgcAAE0HAABcBwAAawcAAH4HAACK"
+  "BwAAkAcAAJgHAACeBwAAqgcAALAHAAC1BwAAxgcAAM8HAADbBwAA4QcAAAMAAAAHAAAACAAAAAkA"
+  "AAAKAAAACwAAAAwAAAANAAAADgAAAA8AAAAQAAAAEQAAABIAAAATAAAAFAAAABUAAAAWAAAAFwAA"
+  "ABgAAAAZAAAAGgAAAB0AAAAhAAAAIgAAAAQAAAAAAAAA8AMAAAYAAAAPAAAA+AMAAAUAAAAQAAAA"
+  "AAAAAAYAAAASAAAABAQAAB0AAAAVAAAAAAAAAB4AAAAVAAAAEAQAAB8AAAAVAAAA8AMAACAAAAAV"
+  "AAAAGAQAACAAAAAVAAAAIAQAAAMAAwACAAAABAANACgAAAAIAAcAGwAAAAsABgAwAAAABAAEAAAA"
+  "AAAEAAQAAQAAAAQAAAAjAAAABAAIAC0AAAAEAAQANAAAAAYABQAyAAAACQAEAAEAAAAMAAQAMQAA"
+  "AA4ABwABAAAAEAABACoAAAARAAIALAAAABIAAwAuAAAAEwAGACUAAAA4CAAAOAgAAAQAAAABAAAA"
+  "CQAAAAAAAAAcAAAA0AMAAD8IAAAAAAAAAQAAAAEAAAABAAAADggAAAIAAAAtCAAANQgAAAgAAAAE"
+  "AAEA6AcAACoAAABxAAoAAAAMABwBBAAbAiMAAABiAwIAYgQCABIVI1UWAGIGAgASB00GBQdxMAsA"
+  "QwUMA25ACQAQMgwAIgEOAHAgCAABAGkBAQAOAA0AbhAHAAAAKPsAAAAAJAABAAEBDCUBAAEAAQAA"
+  "APUHAAAEAAAAcBAGAAAADgADAAIAAAAAAPoHAAADAAAAkAABAg8AAAAEAAEAAgAAAAEIAAAMAAAA"
+  "YgADABIhEjL8IAAAIQAKAW4gBQAQAA4AAwABAAIAAAAICAAACwAAABIgEjH8IAEAEAAKABJRcSAM"
+  "AAEADgAAAAAAAAAAAAAAAgAAAAAAAAACAAAAzAIAAAQAAADUAgAAAgAAAAAAAAADAAAABwAKABIA"
+  "AAADAAAABwAHABYAAAABAAAAAAAAAAEAAAAPAAAAAQAAABcACDxjbGluaXQ+AAY8aW5pdD4ACkdF"
+  "VF9TVEFUSUMAAUkAA0lJSQABTAAETExMTAAzTGNvbS9hbmRyb2lkL2phY2svYW5ub3RhdGlvbnMv"
+  "Q2FsbGVkQnlJbnZva2VDdXN0b207ADBMY29tL2FuZHJvaWQvamFjay9hbm5vdGF0aW9ucy9MaW5r"
+  "ZXJGaWVsZEhhbmRsZTsAL0xjb20vYW5kcm9pZC9qYWNrL2Fubm90YXRpb25zL01ldGhvZEhhbmRs"
+  "ZUtpbmQ7ADNMY29tL2FuZHJvaWQvamFjay9qYXZhNy9pbnZva2VjdXN0b20vdGVzdDAwMi9UZXN0"
+  "czsAGkxkYWx2aWsvYW5ub3RhdGlvbi9UaHJvd3M7ABVMamF2YS9pby9QcmludFN0cmVhbTsAEUxq"
+  "YXZhL2xhbmcvQ2xhc3M7ABNMamF2YS9sYW5nL0ludGVnZXI7ABJMamF2YS9sYW5nL09iamVjdDsA"
+  "EkxqYXZhL2xhbmcvU3RyaW5nOwASTGphdmEvbGFuZy9TeXN0ZW07ABVMamF2YS9sYW5nL1Rocm93"
+  "YWJsZTsAG0xqYXZhL2xhbmcvaW52b2tlL0NhbGxTaXRlOwAjTGphdmEvbGFuZy9pbnZva2UvQ29u"
+  "c3RhbnRDYWxsU2l0ZTsAH0xqYXZhL2xhbmcvaW52b2tlL01ldGhvZEhhbmRsZTsAJ0xqYXZhL2xh"
+  "bmcvaW52b2tlL01ldGhvZEhhbmRsZXMkTG9va3VwOwAgTGphdmEvbGFuZy9pbnZva2UvTWV0aG9k"
+  "SGFuZGxlczsAHUxqYXZhL2xhbmcvaW52b2tlL01ldGhvZFR5cGU7ABhManVuaXQvZnJhbWV3b3Jr"
+  "L0Fzc2VydDsAEExvcmcvanVuaXQvVGVzdDsABFRZUEUAClRlc3RzLmphdmEAAVYAAlZJAANWSUkA"
+  "AlZMABJbTGphdmEvbGFuZy9DbGFzczsAE1tMamF2YS9sYW5nL1N0cmluZzsAA2FkZAANYXJndW1l"
+  "bnRUeXBlcwAMYXNzZXJ0RXF1YWxzABVlbWl0dGVyOiBqYWNrLTQuMC1lbmcADWVuY2xvc2luZ1R5"
+  "cGUADWZpZWxkQ2FsbFNpdGUAEWZpZWxkTWV0aG9kSGFuZGxlAApmaW5kU3RhdGljAARraW5kAAZs"
+  "b29rdXAABG1haW4ACm1ldGhvZFR5cGUABG5hbWUAA291dAAPcHJpbnRTdGFja1RyYWNlAAdwcmlu"
+  "dGxuAApyZXR1cm5UeXBlAAR0ZXN0AAV2YWx1ZQAoAAcOAR0PAnh3Jh4AIQAHDgA2AgAABw4APwEA"
+  "Bw60ADsABw6lAAABBCQcAhgAGAApHAEdAgMnGAQrGwAvFygvFyMzGAACBQE1HAEYDAEUAAMWABcj"
+  "FQABAAQBAQkAiIAE4AUBgYAE0AYBCugGAQmABwQBqAcAAAATAAAAAAAAAAEAAAAAAAAAAQAAADYA"
+  "AABwAAAAAgAAABgAAABIAQAAAwAAAAkAAACoAQAABAAAAAQAAAAUAgAABQAAAA0AAAA0AgAABwAA"
+  "AAIAAACcAgAABgAAAAEAAACkAgAACAAAAAEAAADEAgAAAxAAAAIAAADMAgAAASAAAAUAAADgAgAA"
+  "BiAAAAEAAADQAwAAARAAAAYAAADwAwAAAiAAADYAAAAmBAAAAyAAAAUAAADoBwAABCAAAAMAAAAO"
+  "CAAABSAAAAEAAAA4CAAAACAAAAEAAAA/CAAAABAAAAEAAABgCAAA",
+  // https://cs.corp.google.com/android/toolchain/jack/jack-tests/tests/com/android/jack/java7/invokecustom/test003/Tests.java
+  "ZGV4CjAzOABjnhkFatj30/7cHTCJsfr7vAjz9/p+Y+TcCAAAcAAAAHhWNBIAAAAAAAAAAPQHAAAx"
+  "AAAAcAAAABYAAAA0AQAACQAAAIwBAAADAAAA+AEAAAsAAAAQAgAAAQAAAHACAABEBgAAmAIAAOoD"
+  "AADyAwAA9QMAAP4DAAANBAAAEAQAABYEAABLBAAAfgQAAK8EAADkBAAAAAUAABcFAAAqBQAAPgUA"
+  "AFIFAABmBQAAfQUAAJoFAAC/BQAA4AUAAAkGAAArBgAASgYAAGQGAAB2BgAAggYAAIUGAACJBgAA"
+  "jgYAAJIGAACnBgAArAYAALsGAADJBgAA4AYAAO8GAAD+BgAACgcAAB4HAAAkBwAAMgcAADoHAABA"
+  "BwAARgcAAEsHAABUBwAAYAcAAGYHAAABAAAABgAAAAcAAAAIAAAACQAAAAoAAAALAAAADAAAAA0A"
+  "AAAOAAAADwAAABAAAAARAAAAEgAAABMAAAAUAAAAFQAAABYAAAAXAAAAGAAAABoAAAAeAAAAAgAA"
+  "AAAAAACkAwAABQAAAAwAAAC0AwAABQAAAA4AAADAAwAABAAAAA8AAAAAAAAAGgAAABQAAAAAAAAA"
+  "GwAAABQAAADMAwAAHAAAABQAAADUAwAAHQAAABQAAADcAwAAHQAAABQAAADkAwAAAwADAAMAAAAE"
+  "AAwAJAAAAAoABgAsAAAABAAEAAAAAAAEAAAAHwAAAAQAAQAoAAAABAAIACoAAAAEAAQALwAAAAYA"
+  "BQAtAAAACAAEAAAAAAANAAcAAAAAAA8AAgAlAAAAEAADACkAAAASAAYAIQAAAM4HAADOBwAABAAA"
+  "AAEAAAAIAAAAAAAAABkAAAB8AwAA1QcAAAAAAAAEAAAAAgAAAAEAAACTBwAAAQAAAMMHAAACAAAA"
+  "wwcAAMsHAAABAAEAAQAAAG0HAAAEAAAAcBAGAAAADgAHAAYAAAAAAHIHAAAHAAAAkAABArAwsECw"
+  "ULBgDwAAAAUAAwAEAAAAfQcAABAAAABxAAkAAAAMABwBBABuQAgAEEMMACIBDQBwIAcAAQARAQgA"
+  "AQACAAAAhgcAABAAAABiBgIAEhASIRIyEkMSVBJl/QYAAAAACgBuIAUABgAOAAcAAQACAAAAjQcA"
+  "ABAAAAASEBIhEjISQxJUEmX9BgEAAAAKABMBFQBxIAoAAQAOAAAAAAAAAAAAAwAAAAAAAAABAAAA"
+  "mAIAAAIAAACgAgAABAAAAKgCAAAGAAAAAAAAAAAAAAAAAAAAAwAAAA8ACQARAAAAAwAAAAcACQAR"
+  "AAAAAQAAAAAAAAACAAAAAAAAAAEAAAAOAAAAAQAAABUABjxpbml0PgABSQAHSUlJSUlJSQANSU5W"
+  "T0tFX1NUQVRJQwABTAAETExMTAAzTGNvbS9hbmRyb2lkL2phY2svYW5ub3RhdGlvbnMvQ2FsbGVk"
+  "QnlJbnZva2VDdXN0b207ADFMY29tL2FuZHJvaWQvamFjay9hbm5vdGF0aW9ucy9MaW5rZXJNZXRo"
+  "b2RIYW5kbGU7AC9MY29tL2FuZHJvaWQvamFjay9hbm5vdGF0aW9ucy9NZXRob2RIYW5kbGVLaW5k"
+  "OwAzTGNvbS9hbmRyb2lkL2phY2svamF2YTcvaW52b2tlY3VzdG9tL3Rlc3QwMDMvVGVzdHM7ABpM"
+  "ZGFsdmlrL2Fubm90YXRpb24vVGhyb3dzOwAVTGphdmEvaW8vUHJpbnRTdHJlYW07ABFMamF2YS9s"
+  "YW5nL0NsYXNzOwASTGphdmEvbGFuZy9PYmplY3Q7ABJMamF2YS9sYW5nL1N0cmluZzsAEkxqYXZh"
+  "L2xhbmcvU3lzdGVtOwAVTGphdmEvbGFuZy9UaHJvd2FibGU7ABtMamF2YS9sYW5nL2ludm9rZS9D"
+  "YWxsU2l0ZTsAI0xqYXZhL2xhbmcvaW52b2tlL0NvbnN0YW50Q2FsbFNpdGU7AB9MamF2YS9sYW5n"
+  "L2ludm9rZS9NZXRob2RIYW5kbGU7ACdMamF2YS9sYW5nL2ludm9rZS9NZXRob2RIYW5kbGVzJExv"
+  "b2t1cDsAIExqYXZhL2xhbmcvaW52b2tlL01ldGhvZEhhbmRsZXM7AB1MamF2YS9sYW5nL2ludm9r"
+  "ZS9NZXRob2RUeXBlOwAYTGp1bml0L2ZyYW1ld29yay9Bc3NlcnQ7ABBMb3JnL2p1bml0L1Rlc3Q7"
+  "AApUZXN0cy5qYXZhAAFWAAJWSQADVklJAAJWTAATW0xqYXZhL2xhbmcvU3RyaW5nOwADYWRkAA1h"
+  "cmd1bWVudFR5cGVzAAxhc3NlcnRFcXVhbHMAFWVtaXR0ZXI6IGphY2stNC4wLWVuZwANZW5jbG9z"
+  "aW5nVHlwZQANZmllbGRDYWxsU2l0ZQAKZmluZFN0YXRpYwASaW52b2tlTWV0aG9kSGFuZGxlAARr"
+  "aW5kAAxsaW5rZXJNZXRob2QABmxvb2t1cAAEbWFpbgAEbmFtZQADb3V0AAdwcmludGxuAApyZXR1"
+  "cm5UeXBlAAR0ZXN0AAV2YWx1ZQAiAAcOAC8GAAAAAAAABw4ANQMAAAAHDqUAPwEABw7wADsABw7w"
+  "AAABBCAcBhgAGAAYABgAGAAYACYcAR0CBCAcAxgPGAkYESMYBCcbACsXKCsXHy4YAAIFATAcARgL"
+  "ARMAAxYAFx8VAAEABAEBCQCBgAS0BQEKzAUBCuwFAQmcBgQBzAYAAAATAAAAAAAAAAEAAAAAAAAA"
+  "AQAAADEAAABwAAAAAgAAABYAAAA0AQAAAwAAAAkAAACMAQAABAAAAAMAAAD4AQAABQAAAAsAAAAQ"
+  "AgAABwAAAAIAAABoAgAABgAAAAEAAABwAgAACAAAAAEAAACQAgAAAxAAAAMAAACYAgAAASAAAAUA"
+  "AAC0AgAABiAAAAEAAAB8AwAAARAAAAcAAACkAwAAAiAAADEAAADqAwAAAyAAAAUAAABtBwAABCAA"
+  "AAMAAACTBwAABSAAAAEAAADOBwAAACAAAAEAAADVBwAAABAAAAEAAAD0BwAA",
+  // https://cs.corp.google.com/android/toolchain/jack/jack-tests/tests/com/android/jack/java7/invokecustom/test004/Tests.java
+  "ZGV4CjAzOABvUVfbV74qWbSOEsgKP+EzahlNQLW2/8TMDAAAcAAAAHhWNBIAAAAAAAAAAOQLAABS"
+  "AAAAcAAAAB8AAAC4AQAAEAAAADQCAAADAAAA9AIAABIAAAAMAwAAAQAAAKQDAAAACQAAzAMAANYF"
+  "AADZBQAA4QUAAOkFAADsBQAA7wUAAPIFAAD1BQAA/AUAAP8FAAAEBgAAEwYAABYGAAAZBgAAHwYA"
+  "AC8GAABkBgAAjQYAAMAGAADxBgAAJgcAAEUHAABhBwAAeAcAAIoHAACdBwAAsQcAAMUHAADZBwAA"
+  "8AcAAA0IAAAyCAAAUwgAAHwIAACeCAAAvQgAANcIAADpCAAA7AgAAPgIAAD7CAAAAAkAAAYJAAAM"
+  "CQAAEAkAABUJAAAaCQAAHgkAACMJAAAnCQAAKgkAADMJAABICQAATQkAAFwJAABqCQAAdgkAAIQJ"
+  "AACPCQAAmgkAAKYJAACzCQAAygkAANkJAADoCQAA9AkAAAAKAAAKCgAAHgoAACQKAAAyCgAAPQoA"
+  "AEUKAABLCgAAYgoAAGgKAABtCgAAdgoAAIIKAACOCgAAmwoAAKEKAAADAAAABAAAAAUAAAAGAAAA"
+  "CAAAAAsAAAAPAAAAEAAAABEAAAASAAAAEwAAABQAAAAVAAAAFgAAABgAAAAZAAAAGgAAABsAAAAc"
+  "AAAAHQAAAB4AAAAfAAAAIAAAACEAAAAiAAAAIwAAACQAAAAlAAAAJwAAADEAAAAzAAAACQAAAAQA"
+  "AABMBQAADgAAABMAAABUBQAADQAAABUAAAB0BQAADAAAABYAAAAAAAAAJwAAABwAAAAAAAAAKAAA"
+  "ABwAAACABQAAKQAAABwAAACIBQAAKgAAABwAAACUBQAAKwAAABwAAACgBQAALAAAABwAAABMBQAA"
+  "LQAAABwAAACoBQAALwAAABwAAACwBQAALwAAABwAAAC4BQAALgAAABwAAADABQAAMAAAABwAAADI"
+  "BQAALgAAABwAAADQBQAACQAJAAoAAAAKABMAPwAAABEADQBLAAAACgAEAAIAAAAKAAAANAAAAAoA"
+  "AQBFAAAACgAPAEgAAAAKAAQAUAAAAA0ACABMAAAADwAEAAIAAAAUAA0AAgAAABYAAgBAAAAAFwAD"
+  "AEcAAAAZAAUANgAAABkABgA2AAAAGQAHADYAAAAZAAkANgAAABkACgA2AAAAGQALADYAAAAZAAwA"
+  "NgAAABkADgA3AAAAnQsAAJ0LAAAKAAAAAQAAAA8AAAAAAAAAJgAAACQFAADGCwAAAAAAAAQAAAAC"
+  "AAAAAQAAAN4KAAACAAAAegsAAJILAAACAAAAkgsAAJoLAAABAAEAAQAAAKgKAAAEAAAAcBAGAAAA"
+  "DgADAAIAAAAAAK0KAAADAAAAkAABAg8AAAAYAA8ABgAAALQKAABTAAAAcRARAAwAEhJxIA0A0gAT"
+  "AmEAcSAKAOIAEwIABHEgDQDyABISAgAQAHEgDQACABICFAOamTFBAgARAHEwDAADAhYGAAAYApqZ"
+  "mZmZmQFABQQSAHcGCwACABsCBwAAAAgAFABxIBAAAgAcAgoACAAVAHEgDwACABcCFc1bBwUAFgBx"
+  "QA4AMhBxAAkAAAAMAhwDCgBuQAgAMroMAiIDFABwIAcAIwARAwAABAABAAIAAADRCgAADAAAAGIA"
+  "AgASIRIy/CAAACEACgFuIAUAEAAOAAMAAQACAAAA2AoAAAsAAAASIBIx/CABABAACgASUXEgDQAB"
+  "AA4AAAAAAAAAAAAAAAMAAAAAAAAAAQAAAMwDAAACAAAA1AMAAAQAAADgAwAAAgAAAAQABAANAAAA"
+  "FgAQABgAHQAAAAEAGwAEAAMAAgAQAA4ABQAAAAMAAAAOABAAGAAAAAIAAAABAAEAAwAAAAIAAgAC"
+  "AAAAAwAAAAMAAwADAAAAAQAAAAQAAAACAAAABQAFAAIAAAAPAA8AAgAAABAAEAABAAAAFQAAAAEA"
+  "AAAdAAAAAQAAAB4AASgABjwqPjtKKQAGPGluaXQ+AAFCAAFDAAFEAAFGAAVIZWxsbwABSQADSUlJ"
+  "AA1JTlZPS0VfU1RBVElDAAFKAAFMAARMTExMAA5MTExMWkJDU0lGRExMSgAzTGNvbS9hbmRyb2lk"
+  "L2phY2svYW5ub3RhdGlvbnMvQ2FsbGVkQnlJbnZva2VDdXN0b207ACdMY29tL2FuZHJvaWQvamFj"
+  "ay9hbm5vdGF0aW9ucy9Db25zdGFudDsAMUxjb20vYW5kcm9pZC9qYWNrL2Fubm90YXRpb25zL0xp"
+  "bmtlck1ldGhvZEhhbmRsZTsAL0xjb20vYW5kcm9pZC9qYWNrL2Fubm90YXRpb25zL01ldGhvZEhh"
+  "bmRsZUtpbmQ7ADNMY29tL2FuZHJvaWQvamFjay9qYXZhNy9pbnZva2VjdXN0b20vdGVzdDAwNC9U"
+  "ZXN0czsAHUxkYWx2aWsvYW5ub3RhdGlvbi9TaWduYXR1cmU7ABpMZGFsdmlrL2Fubm90YXRpb24v"
+  "VGhyb3dzOwAVTGphdmEvaW8vUHJpbnRTdHJlYW07ABBMamF2YS9sYW5nL0NsYXNzABFMamF2YS9s"
+  "YW5nL0NsYXNzOwASTGphdmEvbGFuZy9PYmplY3Q7ABJMamF2YS9sYW5nL1N0cmluZzsAEkxqYXZh"
+  "L2xhbmcvU3lzdGVtOwAVTGphdmEvbGFuZy9UaHJvd2FibGU7ABtMamF2YS9sYW5nL2ludm9rZS9D"
+  "YWxsU2l0ZTsAI0xqYXZhL2xhbmcvaW52b2tlL0NvbnN0YW50Q2FsbFNpdGU7AB9MamF2YS9sYW5n"
+  "L2ludm9rZS9NZXRob2RIYW5kbGU7ACdMamF2YS9sYW5nL2ludm9rZS9NZXRob2RIYW5kbGVzJExv"
+  "b2t1cDsAIExqYXZhL2xhbmcvaW52b2tlL01ldGhvZEhhbmRsZXM7AB1MamF2YS9sYW5nL2ludm9r"
+  "ZS9NZXRob2RUeXBlOwAYTGp1bml0L2ZyYW1ld29yay9Bc3NlcnQ7ABBMb3JnL2p1bml0L1Rlc3Q7"
+  "AAFTAApUZXN0cy5qYXZhAAFWAANWQ0MABFZEREQABFZGRkYAAlZJAANWSUkAA1ZKSgACVkwAA1ZM"
+  "TAACVloAAVoAB1pCQ1NJRkQAE1tMamF2YS9sYW5nL1N0cmluZzsAA2FkZAANYXJndW1lbnRUeXBl"
+  "cwAMYXNzZXJ0RXF1YWxzAAphc3NlcnRUcnVlAAxib29sZWFuVmFsdWUACWJ5dGVWYWx1ZQAJY2hh"
+  "clZhbHVlAApjbGFzc1ZhbHVlAAtkb3VibGVWYWx1ZQAVZW1pdHRlcjogamFjay00LjAtZW5nAA1l"
+  "bmNsb3NpbmdUeXBlAA1maWVsZENhbGxTaXRlAApmaW5kU3RhdGljAApmbG9hdFZhbHVlAAhpbnRW"
+  "YWx1ZQASaW52b2tlTWV0aG9kSGFuZGxlAARraW5kAAxsaW5rZXJNZXRob2QACWxvbmdWYWx1ZQAG"
+  "bG9va3VwAARtYWluABVtZXRob2RIYW5kbGVFeHRyYUFyZ3MABG5hbWUAA291dAAHcHJpbnRsbgAK"
+  "cmV0dXJuVHlwZQAKc2hvcnRWYWx1ZQALc3RyaW5nVmFsdWUABHRlc3QABXZhbHVlACMABw4ANwIA"
+  "AAcOAD4NAAAAAAAAAAAAAAAAAAcOPEtaWmmWw4d4h6UAUgEABw60AE4ABw6lAAAGBTUcAhgEGARD"
+  "HAEdCAQ1HA0YFhgQGBgYHRgAGAEYGxgEGAMYAhgQGA4YBT4YCkQbAEoXRUkcCh0HATgcAT8dBwE5"
+  "HAEAAR0HATocAQNhHQcBThwBIgAEHQcBQhwBBAEdBwFBHAFwmpkxQR0HATwcAfGamZmZmZkBQB0H"
+  "AU8cARcHHQcBOxwBGAodBwFGHAFmFc1bB0oXNE0YBAILAVEcCRcAFyAXGhciFzIXGhcXFwEXHQIM"
+  "AVEcARgSARoADRYAFzQVAAQBBAEEYSQABAQBcJqZMUHxmpmZmZmZAUAXBxgKZhXNWwcBAAQBAQkA"
+  "gYAE7AcBCoQIAQqcCAEJ1AkEAfwJAAATAAAAAAAAAAEAAAAAAAAAAQAAAFIAAABwAAAAAgAAAB8A"
+  "AAC4AQAAAwAAABAAAAA0AgAABAAAAAMAAAD0AgAABQAAABIAAAAMAwAABwAAAAIAAACcAwAABgAA"
+  "AAEAAACkAwAACAAAAAEAAADEAwAAAxAAAAMAAADMAwAAASAAAAUAAADsAwAABiAAAAEAAAAkBQAA"
+  "ARAAAA0AAABMBQAAAiAAAFIAAADWBQAAAyAAAAUAAACoCgAABCAAAAQAAADeCgAABSAAAAEAAACd"
+  "CwAAACAAAAEAAADGCwAAABAAAAEAAADkCwAA"
+};
+
+TEST_F(DexFileVerifierTest, InvokeCustomDexSamples) {
+  for (size_t i = 0; i < arraysize(kInvokeCustomDexFiles); ++i) {
+    size_t length;
+    std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kInvokeCustomDexFiles[i], &length));
+    CHECK(dex_bytes != nullptr);
+    // Note: `dex_file` will be destroyed before `dex_bytes`.
+    std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+    std::string error_msg;
+    EXPECT_TRUE(DexFileVerifier::Verify(dex_file.get(),
+                                        dex_file->Begin(),
+                                        dex_file->Size(),
+                                        "good checksum, verify",
+                                        /*verify_checksum*/ true,
+                                        &error_msg));
+    // TODO(oth): Test corruptions (b/35308502)
+  }
+}
+
+TEST_F(DexFileVerifierTest, BadStaticFieldInitialValuesArray) {
+  // Generated DEX file version (037) from:
+  //
+  // .class public LBadStaticFieldInitialValuesArray;
+  // .super Ljava/lang/Object;
+  //
+  //  # static fields
+  //  .field static final c:C = 'c'
+  //  .field static final i:I = 0x1
+  //  .field static final s:Ljava/lang/String; = "s"
+  //
+  //  # direct methods
+  //  .method public constructor <init>()V
+  //      .registers 1
+  //      invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //      return-void
+  //  .end method
+  //
+  // Output file was hex edited so that static field "i" has string typing in initial values array.
+  static const char kDexBase64[] =
+      "ZGV4CjAzNQBrMi4cCPcMvvXNRw0uI6RRubwMPwgEYXIsAgAAcAAAAHhWNBIAAAAAAAAAAIwBAAAL"
+      "AAAAcAAAAAYAAACcAAAAAQAAALQAAAADAAAAwAAAAAIAAADYAAAAAQAAAOgAAAAkAQAACAEAACAB"
+      "AAAoAQAAMAEAADMBAAA2AQAAOwEAAE8BAABjAQAAZgEAAGkBAABsAQAAAgAAAAMAAAAEAAAABQAA"
+      "AAYAAAAHAAAABwAAAAUAAAAAAAAAAgAAAAgAAAACAAEACQAAAAIABAAKAAAAAgAAAAAAAAADAAAA"
+      "AAAAAAIAAAABAAAAAwAAAAAAAAABAAAAAAAAAHsBAAB0AQAAAQABAAEAAABvAQAABAAAAHAQAQAA"
+      "AA4ABjxpbml0PgAGQS5qYXZhAAFDAAFJAANMQTsAEkxqYXZhL2xhbmcvT2JqZWN0OwASTGphdmEv"
+      "bGFuZy9TdHJpbmc7AAFWAAFjAAFpAAFzAAEABw4AAwNjFwoXCgMAAQAAGAEYARgAgYAEiAIADQAA"
+      "AAAAAAABAAAAAAAAAAEAAAALAAAAcAAAAAIAAAAGAAAAnAAAAAMAAAABAAAAtAAAAAQAAAADAAAA"
+      "wAAAAAUAAAACAAAA2AAAAAYAAAABAAAA6AAAAAEgAAABAAAACAEAAAIgAAALAAAAIAEAAAMgAAAB"
+      "AAAAbwEAAAUgAAABAAAAdAEAAAAgAAABAAAAewEAAAAQAAABAAAAjAEAAA==";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
+                                       dex_file->Begin(),
+                                       dex_file->Size(),
+                                       "bad static field initial values array",
+                                       /*verify_checksum*/ true,
+                                       &error_msg));
+}
+
+TEST_F(DexFileVerifierTest, GoodStaticFieldInitialValuesArray) {
+  // Generated DEX file version (037) from:
+  //
+  //  .class public LGoodStaticFieldInitialValuesArray;
+  //  .super Ljava/lang/Object;
+  //
+  //  # static fields
+  //  .field static final b:B = 0x1t
+  //  .field static final c:C = 'c'
+  //  .field static final d:D = 0.6
+  //  .field static final f:F = 0.5f
+  //  .field static final i:I = 0x3
+  //  .field static final j:J = 0x4L
+  //  .field static final l1:Ljava/lang/String;
+  //  .field static final l2:Ljava/lang/String; = "s"
+  //  .field static final l3:Ljava/lang/Class; = Ljava/lang/String;
+  //  .field static final s:S = 0x2s
+  //  .field static final z:Z = true
+  //
+  //  # direct methods
+  //  .method public constructor <init>()V
+  //      .registers 1
+  //      invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+  //      return-void
+  //  .end method
+  static const char kDexBase64[] =
+      "ZGV4CjAzNQAwWxLbdhFa1NGiFWjsy5fhUCHxe5QHtPY8AwAAcAAAAHhWNBIAAAAAAAAAAJwCAAAZ"
+      "AAAAcAAAAA0AAADUAAAAAQAAAAgBAAALAAAAFAEAAAIAAABsAQAAAQAAAHwBAACgAQAAnAEAAJwB"
+      "AACkAQAApwEAAKoBAACtAQAAsAEAALMBAAC2AQAA2wEAAO4BAAACAgAAFgIAABkCAAAcAgAAHwIA"
+      "ACICAAAlAgAAKAIAACsCAAAuAgAAMQIAADUCAAA5AgAAPQIAAEACAAABAAAAAgAAAAMAAAAEAAAA"
+      "BQAAAAYAAAAHAAAACAAAAAkAAAAKAAAACwAAAAwAAAANAAAADAAAAAsAAAAAAAAABgAAAA4AAAAG"
+      "AAEADwAAAAYAAgAQAAAABgADABEAAAAGAAQAEgAAAAYABQATAAAABgAJABQAAAAGAAkAFQAAAAYA"
+      "BwAWAAAABgAKABcAAAAGAAwAGAAAAAYAAAAAAAAACAAAAAAAAAAGAAAAAQAAAAgAAAAAAAAA////"
+      "/wAAAAB8AgAARAIAAAY8aW5pdD4AAUIAAUMAAUQAAUYAAUkAAUoAI0xHb29kU3RhdGljRmllbGRJ"
+      "bml0aWFsVmFsdWVzQXJyYXk7ABFMamF2YS9sYW5nL0NsYXNzOwASTGphdmEvbGFuZy9PYmplY3Q7"
+      "ABJMamF2YS9sYW5nL1N0cmluZzsAAVMAAVYAAVoAAWIAAWMAAWQAAWYAAWkAAWoAAmwxAAJsMgAC"
+      "bDMAAXMAAXoAAAsAAQNj8TMzMzMzM+M/ED8EAwYEHhcXGAkCAj8AAAAAAQABAAEAAAAAAAAABAAA"
+      "AHAQAQAAAA4ACwABAAAYARgBGAEYARgBGAEYARgBGAEYARgAgYAE5AQNAAAAAAAAAAEAAAAAAAAA"
+      "AQAAABkAAABwAAAAAgAAAA0AAADUAAAAAwAAAAEAAAAIAQAABAAAAAsAAAAUAQAABQAAAAIAAABs"
+      "AQAABgAAAAEAAAB8AQAAAiAAABkAAACcAQAABSAAAAEAAABEAgAAAxAAAAEAAABgAgAAASAAAAEA"
+      "AABkAgAAACAAAAEAAAB8AgAAABAAAAEAAACcAgAA";
+
+  size_t length;
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(kDexBase64, &length));
+  CHECK(dex_bytes != nullptr);
+  // Note: `dex_file` will be destroyed before `dex_bytes`.
+  std::unique_ptr<DexFile> dex_file(GetDexFile(dex_bytes.get(), length));
+  std::string error_msg;
+  EXPECT_TRUE(DexFileVerifier::Verify(dex_file.get(),
+                                      dex_file->Begin(),
+                                      dex_file->Size(),
+                                      "good static field initial values array",
+                                      /*verify_checksum*/ true,
+                                      &error_msg));
 }
 
 }  // namespace art

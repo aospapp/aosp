@@ -21,6 +21,7 @@
 #include <dirent.h>
 #include <dlfcn.h>
 
+#include <media/DrmPluginPath.h>
 #include <media/DrmSessionClientInterface.h>
 #include <media/DrmSessionManager.h>
 #include <media/Drm.h>
@@ -61,7 +62,7 @@ static bool operator<(const Vector<uint8_t> &lhs, const Vector<uint8_t> &rhs) {
 }
 
 struct DrmSessionClient : public DrmSessionClientInterface {
-    DrmSessionClient(Drm* drm) : mDrm(drm) {}
+    explicit DrmSessionClient(Drm* drm) : mDrm(drm) {}
 
     virtual bool reclaimSession(const Vector<uint8_t>& sessionId) {
         sp<Drm> drm = mDrm.promote();
@@ -220,7 +221,7 @@ void Drm::findFactoryForScheme(const uint8_t uuid[16]) {
     }
 
     // no luck, have to search
-    String8 dirPath("/vendor/lib/mediadrm");
+    String8 dirPath(getDrmPluginPath());
     DIR* pDir = opendir(dirPath.string());
 
     if (pDir == NULL) {
@@ -303,7 +304,8 @@ bool Drm::isCryptoSchemeSupported(const uint8_t uuid[16], const String8 &mimeTyp
     return true;
 }
 
-status_t Drm::createPlugin(const uint8_t uuid[16]) {
+status_t Drm::createPlugin(const uint8_t uuid[16],
+                           const String8& /* appPackageName */) {
     Mutex::Autolock autoLock(mLock);
 
     if (mPlugin != NULL) {
@@ -319,7 +321,12 @@ status_t Drm::createPlugin(const uint8_t uuid[16]) {
     }
 
     status_t result = mFactory->createDrmPlugin(uuid, &mPlugin);
-    mPlugin->setListener(this);
+    if (mPlugin) {
+        mPlugin->setListener(this);
+    } else {
+        ALOGE("Failed to create plugin");
+        return UNEXPECTED_NULL;
+    }
     return result;
 }
 
@@ -334,6 +341,7 @@ status_t Drm::destroyPlugin() {
         return -EINVAL;
     }
 
+    setListener(NULL);
     delete mPlugin;
     mPlugin = NULL;
 

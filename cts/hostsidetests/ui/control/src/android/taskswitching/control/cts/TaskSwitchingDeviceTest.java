@@ -25,7 +25,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 
-import android.cts.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MeasureRun;

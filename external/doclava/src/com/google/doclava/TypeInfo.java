@@ -39,16 +39,17 @@ public class TypeInfo implements Resolvable {
     if (typeString.endsWith("...")) {
       typeString = typeString.substring(0, typeString.length() - 3);
     }
-    
+
     // Generic parameters
+    int extendsPos = typeString.indexOf(" extends ");
     int paramStartPos = typeString.indexOf('<');
-    if (paramStartPos > -1) {
+    if (paramStartPos > -1 && (extendsPos == -1 || paramStartPos < extendsPos)) {
       ArrayList<TypeInfo> generics = new ArrayList<TypeInfo>();
-      int paramEndPos = typeString.lastIndexOf('>');
-      
+      int paramEndPos = 0;
+
       int entryStartPos = paramStartPos + 1;
       int bracketNesting = 0;
-      for (int i = entryStartPos; i < paramEndPos; i++) {
+      for (int i = entryStartPos; i < typeString.length(); i++) {
         char c = typeString.charAt(i);
         if (c == ',' && bracketNesting == 0) {
           String entry = typeString.substring(entryStartPos, i).trim();
@@ -59,22 +60,53 @@ public class TypeInfo implements Resolvable {
           bracketNesting++;
         } else if (c == '>') {
           bracketNesting--;
+          // Once bracketNesting goes negative, we've found the closing angle bracket
+          if (bracketNesting < 0) {
+            paramEndPos = i;
+            break;
+          }
         }
       }
-     
+
       TypeInfo info = new TypeInfo(typeString.substring(entryStartPos, paramEndPos).trim());
       generics.add(info);
-      
+      addResolution(new Resolution("variability", "", null));
+
       mTypeArguments = generics;
-      
+
       if (paramEndPos < typeString.length() - 1) {
         typeString = typeString.substring(0,paramStartPos) + typeString.substring(paramEndPos + 1);
       } else {
         typeString = typeString.substring(0,paramStartPos);
       }
     }
-    
-    // Dimensions
+
+    // The previous extends may have been within the generic type parameters which we don't
+    // actually care about and were removed from the type string above
+    extendsPos = typeString.indexOf(" extends ");
+    if (extendsPos > -1) {
+      ArrayList<TypeInfo> extendsBounds = new ArrayList<>();
+      int entryStartPos = extendsPos + 9;
+      int bracketNesting = 0;
+      for (int i = entryStartPos; i < typeString.length(); i++) {
+        char c = typeString.charAt(i);
+        if (c == '&' && bracketNesting == 0) {
+          String entry = typeString.substring(entryStartPos, i).trim();
+          TypeInfo info = new TypeInfo(entry);
+          extendsBounds.add(info);
+          entryStartPos = i + 1;
+        } else if (c == '<') {
+          bracketNesting++;
+        } else if (c == '>') {
+          bracketNesting--;
+        }
+      }
+      TypeInfo info = new TypeInfo(typeString.substring(entryStartPos, typeString.length()).trim());
+      extendsBounds.add(info);
+      mExtendsBounds = extendsBounds;
+      typeString = typeString.substring(0, extendsPos);
+    }
+
     int pos = typeString.indexOf('['); 
     if (pos > -1) {
       mDimension = typeString.substring(pos);
@@ -82,7 +114,7 @@ public class TypeInfo implements Resolvable {
     } else {
       mDimension = "";
     }
-   
+
     if (PRIMITIVE_TYPES.contains(typeString)) {
       mIsPrimitive = true;
       mSimpleTypeName = typeString;
@@ -317,7 +349,7 @@ public class TypeInfo implements Resolvable {
       mTypeArguments.add(arg);
   }
 
-  void setBounds(ArrayList<TypeInfo> superBounds, ArrayList<TypeInfo> extendsBounds) {
+  public void setBounds(ArrayList<TypeInfo> superBounds, ArrayList<TypeInfo> extendsBounds) {
     mSuperBounds = superBounds;
     mExtendsBounds = extendsBounds;
   }
@@ -330,7 +362,7 @@ public class TypeInfo implements Resolvable {
       return mExtendsBounds;
   }
 
-  void setIsTypeVariable(boolean b) {
+  public void setIsTypeVariable(boolean b) {
     mIsTypeVariable = b;
   }
 
@@ -342,7 +374,7 @@ public class TypeInfo implements Resolvable {
       return mIsWildcard;
   }
 
-  static HashSet<String> typeVariables(ArrayList<TypeInfo> params) {
+  public static HashSet<String> typeVariables(ArrayList<TypeInfo> params) {
     return typeVariables(params, new HashSet<String>());
   }
 
@@ -360,6 +392,16 @@ public class TypeInfo implements Resolvable {
 
   public boolean isTypeVariable() {
     return mIsTypeVariable;
+  }
+
+  public void resolveTypeVariables(HashSet<String> variables) {
+    if (mExtendsBounds != null) {
+      for (TypeInfo bound : mExtendsBounds) {
+        if (variables.contains(bound.qualifiedTypeName())) {
+          bound.setIsTypeVariable(true);
+        }
+      }
+    }
   }
 
   public String defaultValue() {
@@ -440,6 +482,13 @@ public class TypeInfo implements Resolvable {
               } else {
                   mClass = InfoBuilder.Caches.obtainClass(qualifiedClassName.toString());
               }
+          } else if ("variability".equals(resolution.getVariable())) {
+              StringBuilder qualifiedClassName = new StringBuilder();
+              for (TypeInfo arg : mTypeArguments) {
+                InfoBuilder.resolveQualifiedName(arg.simpleTypeName(), qualifiedClassName,
+                        resolution.getInfoBuilder());
+                arg.setIsTypeVariable(!("".equals(qualifiedClassName.toString())));
+              }
           }
       }
 
@@ -475,9 +524,11 @@ public class TypeInfo implements Resolvable {
    */
   public static Map<String, TypeInfo> getTypeArgumentMapping(TypeInfo generic, TypeInfo typed) {
     Map<String, TypeInfo> map = new HashMap<String, TypeInfo>();
-    for (int i = 0; i < generic.typeArguments().size(); i++) {
-      if (typed.typeArguments() != null && typed.typeArguments().size() > i) {
-        map.put(generic.typeArguments().get(i).fullName(), typed.typeArguments().get(i));
+    if (generic != null && generic.typeArguments() != null) {
+      for (int i = 0; i < generic.typeArguments().size(); i++) {
+        if (typed.typeArguments() != null && typed.typeArguments().size() > i) {
+          map.put(generic.typeArguments().get(i).simpleTypeName(), typed.typeArguments().get(i));
+        }
       }
     }
     return map;

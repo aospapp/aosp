@@ -1,5 +1,0 @@
-service firewalld /system/bin/firewalld
-    class main
-    user system
-    group system dbus net_admin net_raw
-    disabled

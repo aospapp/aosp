@@ -12,15 +12,15 @@ import android.telecom.TelecomManager;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
-
-import com.android.server.telecom.testapps.R;
 
 public class TestDialerActivity extends Activity {
     private static final int REQUEST_CODE_SET_DEFAULT_DIALER = 1;
 
     private EditText mNumberView;
+    private CheckBox mRttCheckbox;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,7 +55,8 @@ public class TestDialerActivity extends Activity {
         });
 
         mNumberView = (EditText) findViewById(R.id.number);
-        updateEditTextWithNumber();
+        mRttCheckbox = (CheckBox) findViewById(R.id.call_with_rtt_checkbox);
+        updateMutableUi();
     }
 
     @Override
@@ -72,13 +73,15 @@ public class TestDialerActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        updateEditTextWithNumber();
+        updateMutableUi();
     }
 
-    private void updateEditTextWithNumber() {
+    private void updateMutableUi() {
         Intent intent = getIntent();
         if (intent != null) {
             mNumberView.setText(intent.getDataString());
+            mRttCheckbox.setChecked(
+                    intent.getBooleanExtra(TelecomManager.EXTRA_START_CALL_WITH_RTT, false));
         }
     }
 
@@ -127,7 +130,10 @@ public class TestDialerActivity extends Activity {
 
     private Bundle createCallIntentExtras() {
         Bundle extras = new Bundle();
-        extras.putString("com.android.server.telecom.testapps.CALL_EXTRAS", "Yorke was here");
+        extras.putString("com.android.server.telecom.testapps.CALL_EXTRAS", "Hall was here");
+        if (mRttCheckbox.isChecked()) {
+            extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_RTT, true);
+        }
 
         Bundle intentExtras = new Bundle();
         intentExtras.putBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, extras);

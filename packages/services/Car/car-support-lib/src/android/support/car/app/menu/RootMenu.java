@@ -23,6 +23,7 @@ import android.support.car.app.menu.compat.CarMenuConstantsComapt.MenuItemConsta
  * Stores the root id for the menu. The RootMenu is the main menu.
  * Also allows passing hints through bundles. Hints allow the
  * the recipient to alter its behavior based on the hints.
+ * @hide
  */
 public class RootMenu {
     private final Bundle mBundle;

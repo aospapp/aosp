@@ -67,6 +67,7 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
     }
 
     private ThreadGroup initialThreadGroup = null;
+    private List<MyThread> myThreads;
 
     public void test_activeGroupCount() {
         ThreadGroup tg = new ThreadGroup("group count");
@@ -324,6 +325,7 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
 
     @Override
     protected void setUp() {
+        myThreads = new ArrayList<>();
         initialThreadGroup = Thread.currentThread().getThreadGroup();
         ThreadGroup rootThreadGroup = initialThreadGroup;
         while (rootThreadGroup.getParent() != null) {
@@ -332,11 +334,17 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
     }
 
     @Override
-    protected void tearDown() {
-        try {
-            // Give the threads a chance to die.
-            Thread.sleep(50);
-        } catch (InterruptedException e) {
+    protected void tearDown() throws Exception {
+        // Make sure we stop any MyThread threads that may have been left running.
+        for (MyThread thread : myThreads) {
+            thread.interrupt();
+        }
+        // Make sure the threads have stopped.
+        for (MyThread thread : myThreads) {
+            thread.join(2000);
+            if (thread.isAlive()) {
+                fail("Thread " + thread + " did not die as it should have.");
+            }
         }
     }
 
@@ -367,7 +375,9 @@ public class OldThreadGroupTest extends TestCase implements Thread.UncaughtExcep
 
     private void populateGroupsWithThreads(ThreadGroup group, int threadCount, List<MyThread> out) {
         for (int i = 0; i < threadCount; i++) {
-            out.add(new MyThread(group, "MyThread " + i + " of " + threadCount));
+            MyThread thread = new MyThread(group, "MyThread " + i + " of " + threadCount);
+            myThreads.add(thread);
+            out.add(thread);
         }
 
         // Recursively for subgroups (if any)

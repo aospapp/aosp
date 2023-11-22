@@ -65,7 +65,7 @@ class CameraDevice final : public RefBase {
     // Callbacks from camera service
     class ServiceCallback : public hardware::camera2::BnCameraDeviceCallbacks {
       public:
-        ServiceCallback(CameraDevice* device) : mDevice(device) {}
+        explicit ServiceCallback(CameraDevice* device) : mDevice(device) {}
         binder::Status onDeviceError(int32_t errorCode,
                            const CaptureResultExtras& resultExtras) override;
         binder::Status onDeviceIdle() override;
@@ -74,6 +74,7 @@ class CameraDevice final : public RefBase {
         binder::Status onResultReceived(const CameraMetadata& metadata,
                               const CaptureResultExtras& resultExtras) override;
         binder::Status onPrepared(int streamId) override;
+        binder::Status onRequestQueueEmpty() override;
         binder::Status onRepeatingRequestError(int64_t lastFrameNumber) override;
       private:
         const wp<CameraDevice> mDevice;

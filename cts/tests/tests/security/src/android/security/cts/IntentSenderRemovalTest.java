@@ -16,6 +16,8 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -26,6 +28,7 @@ import android.test.AndroidTestCase;
  * Make sure the DebugIntentSender activity, which allows privilege escalation of intent caller
  * to system uid, has been removed from the system.
  */
+@SecurityTest
 public class IntentSenderRemovalTest extends AndroidTestCase {
 
     /**
@@ -42,4 +45,3 @@ public class IntentSenderRemovalTest extends AndroidTestCase {
         assertNull("com.android.settings.DebugIntentSender should not be a valid activity", ri);
     }
 }
-

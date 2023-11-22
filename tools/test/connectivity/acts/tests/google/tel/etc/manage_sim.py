@@ -25,10 +25,72 @@ import json
 import acts.controllers.android_device as android_device
 import acts.test_utils.tel.tel_defines as tel_defines
 import acts.test_utils.tel.tel_lookup_tables as tel_lookup_tables
+import acts.test_utils.tel.tel_test_utils as tel_test_utils
+
+
+def get_active_sim_list(verbose_warnings=False):
+    """ Get a dictionary of active sims across phones
+
+    Args: verbose_warnings - print warnings as issues are encountered if True
+
+    Returns:
+        A dictionary with keys equivalent to the ICCIDs of each SIM containing
+        information about that SIM
+    """
+    active_list = {}
+    droid_list = android_device.get_all_instances()
+    for droid_device in droid_list:
+        droid = droid_device.get_droid(False)
+
+        sub_info_list = droid.subscriptionGetActiveSubInfoList()
+        if not sub_info_list:
+            if verbose_warnings:
+                print('No Valid Sim in {} {}! SimState = {}'.format(
+                    droid_device.model, droid_device.serial, droid.telephonyGetSimState()))
+            continue
+
+        for sub_info in sub_info_list:
+            print(sub_info)
+            iccid = sub_info['iccId']
+            if not sub_info['iccId']:
+                continue
+
+            active_list[iccid] = {}
+            current = active_list[iccid]
+            current['droid_serial'] = droid_device.serial
+
+            sub_id = sub_info['subscriptionId']
+
+            try:
+                plmn_id = droid.telephonyGetSimOperatorForSubscription(sub_id)
+                current[
+                    'operator'] = tel_lookup_tables.operator_name_from_plmn_id(
+                        plmn_id)
+            except KeyError:
+                if vebose_warnings:
+                    print('Unknown Operator {}'.format(
+                        droid.telephonyGetSimOperator()))
+                current['operator'] = ''
+
+            # TODO: add actual capability determination to replace the defaults
+            current['capability'] = ['voice', 'ims', 'volte', 'vt', 'sms',
+                                     'tethering', 'data']
+
+            phone_num = droid.telephonyGetLine1NumberForSubscription(sub_id)
+            if not phone_num:
+                if verbose_warnings:
+                    print('Please manually add a phone number for {}\n'.format(
+                        iccid))
+                current['phone_num'] = ''
+            else:
+                current['phone_num'] = tel_test_utils.phone_number_formatter(
+                    phone_num, tel_defines.PHONE_NUMBER_STRING_FORMAT_11_DIGIT)
+    return active_list
+
 
 def add_sims(sim_card_file=None):
     if not sim_card_file:
-        print("Error: file name is None.")
+        print('Error: file name is None.')
         return False
     try:
         f = open(sim_card_file, 'r')
@@ -36,127 +98,124 @@ def add_sims(sim_card_file=None):
         f.close()
     except FileNotFoundError:
         simconf = {}
-    flag = False
 
-    droid_list = android_device.get_all_instances()
-    for droid_device in droid_list:
-        droid = droid_device.get_droid(False)
-        if droid.telephonyGetSimState() != tel_defines.SIM_STATE_READY:
-            print("No Valid Sim! {} \n".format(droid.telephonyGetSimState()))
-            continue
-        serial = droid.telephonyGetSimSerialNumber()
-        print("add_sims: {}".format(serial))
+    active_sims = get_active_sim_list(True)
 
+    if not active_sims:
+        print('No active SIMs, exiting')
+        return False
+
+    file_write_required = False
+
+    for iccid in active_sims.keys():
         # Add new entry if not exist
-        if serial in simconf:
-            print("Declining to add a duplicate entry: {}".format(serial))
+        if iccid in simconf:
+            print('Declining to add a duplicate entry: {}'.format(iccid))
             #TODO: Add support for "refreshing" an entry
             continue
-        else:
-            simconf[serial] = {}
-            current = simconf[serial]
-            flag = True
 
-        try:
-            #TODO: Make this list of hPLMNs a separate data structure
-            current["operator"] = tel_lookup_tables.operator_name_from_plmn_id(
-                droid.telephonyGetSimOperator())
-        except KeyError:
-            print("Unknown Operator {}".format(droid.telephonyGetSimOperator()))
-            current["operator"] = ""
+        simconf[iccid] = {}
+        current = simconf[iccid]
+        file_write_required = True
 
-        # This is default capability: we need to try and
-        # run-time determine in the future based on SIM queries?
-        current["capability"] = ['voice', 'ims', 'volte', 'vt', 'sms',
-                                 'tethering', 'data']
+        current['operator'] = active_sims[iccid]['operator']
+        current['capability'] = active_sims[iccid]['capability']
+        current['phone_num'] = active_sims[iccid]['phone_num']
 
-        phone_num = droid.telephonyGetLine1Number()
-        if not phone_num:
-            print("Please manually add a phone number for {}\n".format(serial))
-            current["phone_num"] = ""
-        else:
-            # Remove the leading +
-            if len(phone_num) == 10:
-                phone_num = "1" + phone_num
-            current["phone_num"] = ''.join(filter(lambda x: x.isdigit(), phone_num))
-    if flag:
+    if file_write_required:
         f = open(sim_card_file, 'w')
         json.dump(simconf, f, indent=4, sort_keys=True)
         f.close()
     return True
 
-def prune_sims(sim_card_file=None):
-    if sim_card_file==None:
-        sim_card_file = "./simcard_list.json"
-    add_sims(sim_card_file)
 
+def prune_sims(sim_card_file=None):
     try:
         f = open(sim_card_file, 'r')
         simconf = json.load(f)
         f.close()
     except FileNotFoundError:
-        print ("File not found.")
+        print('File {} not found.'.format(sim_card_file if sim_card_file else
+                                          '<UNSPECIFIED>'))
         return False
 
-    flag = False
-
-    droid_list = android_device.get_all_instances()
-
     simconf_list = list(simconf.keys())
-    delete_list = []
-    active_list = []
-
-    for droid_device in droid_list:
-        droid = droid_device.get_droid(False)
-        if droid.telephonyGetSimState() != tel_defines.SIM_STATE_READY:
-            print("No Valid SIM! {} \n".format(droid.telephonyGetSimState()))
-            continue
-        serial = droid.telephonyGetSimSerialNumber()
-        active_list.append(serial)
-
+    active_list = get_active_sim_list().keys()
     delete_list = list(set(simconf_list).difference(set(active_list)))
 
-    print("active phones: {}".format(active_list))
+    print('active phones: {}'.format(active_list))
+
+    file_write_required = False
 
     if len(delete_list) > 0:
         for sim in delete_list:
             # prune
-            print("Deleting the SIM entry: ", sim)
+            print('Deleting the SIM entry: ', sim)
             del simconf[sim]
-            flag = True
+            file_write_required = True
     else:
-        print("nothing to prune")
+        print('No entries to prune')
 
-    if flag:
+    if file_write_required:
         f = open(sim_card_file, 'w')
         json.dump(simconf, f, indent=4, sort_keys=True)
         f.close()
     return True
 
 
-if __name__ == "__main__":
+def dump_sims():
+    active_list = get_active_sim_list()
+    output_format = '{:32.32}{:20.20}{:12.12}{:10.10}'
+    if not active_list:
+        print('No active devices with sims!')
+        return False
 
-    parser = argparse.ArgumentParser(
-                      description=("Script to generate, augment and prune"
-                                   " SIM list"))
-    parser.add_argument("--f","-file",
-                       default='./simcard_list.json',
-                       help="json file path", type=str)
+    print(output_format.format('ICCID', 'Android SN', 'Phone #', 'Carrier'))
+    for iccid in active_list.keys():
+        print(
+            output_format.format(
+                str(iccid), str(active_list[iccid]['droid_serial']), str(
+                    active_list[iccid]['phone_num']), str(active_list[iccid][
+                        'operator'])))
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description=(
+        'Script to generate, augment and prune'
+        ' SIM list'))
+    parser.add_argument(
+        '-f',
+        '--file',
+        default='./simcard_list.json',
+        help='json file path',
+        type=str)
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-a",help="append to the list of SIM entries",
-                      action='store_true')
-    group.add_argument("-p",help="prune the list of SIM entries",
-                      action='store_true')
+    group.add_argument(
+        '-a',
+        '--append',
+        help='(default) Append to the list of SIM entries',
+        action='store_true')
+    group.add_argument(
+        '-p',
+        '--prune',
+        help='Prune the list of SIM entries',
+        action='store_true')
+    group.add_argument(
+        '-d',
+        '--dump',
+        help='Dump a list of SIMs from devices',
+        action='store_true')
 
     args = parser.parse_args()
 
-    if args.a:
-        add_sims(args.f)
-    elif args.p:
-        prune_sims(args.f)
-    else:
-        print ("Error: must select an option: -a or -p")
-
+    if args.prune:
+        prune_sims(args.file)
+    elif args.dump:
+        dump_sims()
+    # implies either no arguments or a && !p
+    elif not args.prune and not args.dump:
+        add_sims(args.file)
 """
 Usage Examples
 
@@ -170,6 +229,7 @@ optional arguments:
   -h, --help      show this help message and exit
   -f F, --file F  name for json file
   -a              append to the list of SIM entries
+  -d              dump a list of SIMs from all devices
   -p              prune the list of SIM entries
 
 ----------------------------------------------------------------

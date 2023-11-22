@@ -29,16 +29,12 @@ namespace android {
 
 EmulatedQemuCameraDevice::EmulatedQemuCameraDevice(EmulatedQemuCamera* camera_hal)
     : EmulatedCameraDevice(camera_hal),
-      mQemuClient(),
-      mPreviewFrame(NULL)
+      mQemuClient()
 {
 }
 
 EmulatedQemuCameraDevice::~EmulatedQemuCameraDevice()
 {
-    if (mPreviewFrame != NULL) {
-        delete[] mPreviewFrame;
-    }
 }
 
 /****************************************************************************
@@ -158,12 +154,14 @@ status_t EmulatedQemuCameraDevice::startDevice(int width,
     /* Allocate preview frame buffer. */
     /* TODO: Watch out for preview format changes! At this point we implement
      * RGB32 only.*/
-    mPreviewFrame = new uint32_t[mTotalPixels];
-    if (mPreviewFrame == NULL) {
-        ALOGE("%s: Unable to allocate %d bytes for preview frame",
-             __FUNCTION__, mTotalPixels);
-        return ENOMEM;
-    }
+    mPreviewFrames[0].resize(mTotalPixels);
+    mPreviewFrames[1].resize(mTotalPixels);
+
+    mFrameBufferPairs[0].first = mFrameBuffers[0].data();
+    mFrameBufferPairs[0].second = mPreviewFrames[0].data();
+
+    mFrameBufferPairs[1].first = mFrameBuffers[1].data();
+    mFrameBufferPairs[1].second = mPreviewFrames[1].data();
 
     /* Start the actual camera device. */
     res = mQemuClient.queryStart(mPixelFormat, mFrameWidth, mFrameHeight);
@@ -196,10 +194,12 @@ status_t EmulatedQemuCameraDevice::stopDevice()
     /* Stop the actual camera device. */
     status_t res = mQemuClient.queryStop();
     if (res == NO_ERROR) {
-        if (mPreviewFrame == NULL) {
-            delete[] mPreviewFrame;
-            mPreviewFrame = NULL;
-        }
+        mPreviewFrames[0].clear();
+        mPreviewFrames[1].clear();
+        // No need to keep all that memory around as capacity, shrink it
+        mPreviewFrames[0].shrink_to_fit();
+        mPreviewFrames[1].shrink_to_fit();
+
         EmulatedCameraDevice::commonStopDevice();
         mState = ECDS_CONNECTED;
         ALOGV("%s: Qemu camera device '%s' is stopped",
@@ -216,50 +216,96 @@ status_t EmulatedQemuCameraDevice::stopDevice()
  * EmulatedCameraDevice virtual overrides
  ***************************************************************************/
 
-status_t EmulatedQemuCameraDevice::getCurrentPreviewFrame(void* buffer)
-{
-    ALOGW_IF(mPreviewFrame == NULL, "%s: No preview frame", __FUNCTION__);
-    if (mPreviewFrame != NULL) {
-        memcpy(buffer, mPreviewFrame, mTotalPixels * 4);
-        return 0;
-    } else {
-        return EmulatedCameraDevice::getCurrentPreviewFrame(buffer);
+status_t EmulatedQemuCameraDevice::getCurrentFrame(void* buffer,
+                                                   uint32_t pixelFormat) {
+    if (!isStarted()) {
+        ALOGE("%s: Device is not started", __FUNCTION__);
+        return EINVAL;
     }
+    if (buffer == nullptr) {
+        ALOGE("%s: Invalid buffer provided", __FUNCTION__);
+        return EINVAL;
+    }
+
+    FrameLock lock(*this);
+    const void* primary = mCameraThread->getPrimaryBuffer();
+    auto frameBufferPair = reinterpret_cast<const FrameBufferPair*>(primary);
+    uint8_t* frame = frameBufferPair->first;
+
+    if (frame == nullptr) {
+        ALOGE("%s: No frame", __FUNCTION__);
+        return EINVAL;
+    }
+    return getCurrentFrameImpl(reinterpret_cast<const uint8_t*>(frame),
+                               reinterpret_cast<uint8_t*>(buffer),
+                               pixelFormat);
+}
+
+status_t EmulatedQemuCameraDevice::getCurrentPreviewFrame(void* buffer) {
+    if (!isStarted()) {
+        ALOGE("%s: Device is not started", __FUNCTION__);
+        return EINVAL;
+    }
+    if (buffer == nullptr) {
+        ALOGE("%s: Invalid buffer provided", __FUNCTION__);
+        return EINVAL;
+    }
+
+    FrameLock lock(*this);
+    const void* primary = mCameraThread->getPrimaryBuffer();
+    auto frameBufferPair = reinterpret_cast<const FrameBufferPair*>(primary);
+    uint32_t* previewFrame = frameBufferPair->second;
+
+    if (previewFrame == nullptr) {
+        ALOGE("%s: No frame", __FUNCTION__);
+        return EINVAL;
+    }
+    memcpy(buffer, previewFrame, mTotalPixels * 4);
+    return NO_ERROR;
+}
+
+const void* EmulatedQemuCameraDevice::getCurrentFrame() {
+    if (mCameraThread.get() == nullptr) {
+        return nullptr;
+    }
+
+    const void* primary = mCameraThread->getPrimaryBuffer();
+    auto frameBufferPair = reinterpret_cast<const FrameBufferPair*>(primary);
+    uint8_t* frame = frameBufferPair->first;
+
+    return frame;
 }
 
 /****************************************************************************
  * Worker thread management overrides.
  ***************************************************************************/
 
-bool EmulatedQemuCameraDevice::inWorkerThread()
+bool EmulatedQemuCameraDevice::produceFrame(void* buffer)
 {
-    /* Wait till FPS timeout expires, or thread exit message is received. */
-    WorkerThread::SelectRes res =
-        getWorkerThread()->Select(-1, 1000000 / mEmulatedFPS);
-    if (res == WorkerThread::EXIT_THREAD) {
-        ALOGV("%s: Worker thread has been terminated.", __FUNCTION__);
-        return false;
-    }
+    auto frameBufferPair = reinterpret_cast<FrameBufferPair*>(buffer);
+    uint8_t* rawFrame = frameBufferPair->first;
+    uint32_t* previewFrame = frameBufferPair->second;
 
-    /* Query frames from the service. */
-    status_t query_res = mQemuClient.queryFrame(mCurrentFrame, mPreviewFrame,
+    status_t query_res = mQemuClient.queryFrame(rawFrame, previewFrame,
                                                  mFrameBufferSize,
                                                  mTotalPixels * 4,
                                                  mWhiteBalanceScale[0],
                                                  mWhiteBalanceScale[1],
                                                  mWhiteBalanceScale[2],
                                                  mExposureCompensation);
-    if (query_res == NO_ERROR) {
-        /* Timestamp the current frame, and notify the camera HAL. */
-        mCurFrameTimestamp = systemTime(SYSTEM_TIME_MONOTONIC);
-        mCameraHAL->onNextFrameAvailable(mCurrentFrame, mCurFrameTimestamp, this);
-        return true;
-    } else {
+    if (query_res != NO_ERROR) {
         ALOGE("%s: Unable to get current video frame: %s",
              __FUNCTION__, strerror(query_res));
-        mCameraHAL->onCameraDeviceError(CAMERA_ERROR_SERVER_DIED);
         return false;
     }
+    return true;
+}
+
+void* EmulatedQemuCameraDevice::getPrimaryBuffer() {
+    return &mFrameBufferPairs[0];
+}
+void* EmulatedQemuCameraDevice::getSecondaryBuffer() {
+    return &mFrameBufferPairs[1];
 }
 
 }; /* namespace android */

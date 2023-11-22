@@ -23,6 +23,7 @@
 
 #include <base/bind.h>
 #include <base/files/file_util.h>
+#include <base/files/scoped_temp_dir.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
@@ -42,7 +43,6 @@
 #include "update_engine/common/platform_constants.h"
 #include "update_engine/common/prefs.h"
 #include "update_engine/common/test_utils.h"
-#include "update_engine/common/utils.h"
 #include "update_engine/fake_system_state.h"
 #include "update_engine/metrics.h"
 #include "update_engine/mock_connection_manager.h"
@@ -51,8 +51,6 @@
 
 using base::Time;
 using base::TimeDelta;
-using chromeos_update_engine::test_utils::System;
-using chromeos_update_engine::test_utils::WriteFileString;
 using std::string;
 using std::vector;
 using testing::AllOf;
@@ -354,10 +352,10 @@ bool OmahaRequestActionTest::TestUpdateCheck(
       .Times(expected_download_error_code == metrics::DownloadErrorCode::kUnset
              ? 0 : 1);
 
-  loop.PostTask(base::Bind([&processor] { processor.StartProcessing(); }));
-  LOG(INFO) << "loop.PendingTasks() = " << loop.PendingTasks();
+  loop.PostTask(base::Bind(
+      [](ActionProcessor* processor) { processor->StartProcessing(); },
+      base::Unretained(&processor)));
   loop.Run();
-  LOG(INFO) << "loop.PendingTasks() = " << loop.PendingTasks();
   EXPECT_FALSE(loop.PendingTasks());
   if (collector_action.has_input_object_ && out_response)
     *out_response = collector_action.omaha_response_;
@@ -389,12 +387,11 @@ void TestEvent(OmahaRequestParams params,
   processor.set_delegate(&delegate);
   processor.EnqueueAction(&action);
 
-  loop.PostTask(base::Bind([&processor] { processor.StartProcessing(); }));
+  loop.PostTask(base::Bind(
+      [](ActionProcessor* processor) { processor->StartProcessing(); },
+      base::Unretained(&processor)));
   loop.Run();
-
-  // This test should schedule a callback to notify the crash reporter if
-  // the passed event is an error.
-  EXPECT_EQ(event->result == OmahaEvent::kResultError, loop.PendingTasks());
+  EXPECT_FALSE(loop.PendingTasks());
 
   if (out_post_data)
     *out_post_data = fetcher->post_data();
@@ -465,6 +462,33 @@ TEST_F(OmahaRequestActionTest, ValidUpdateTest) {
   EXPECT_FALSE(fake_prefs_.Exists(kPrefsOmahaCohortName));
 }
 
+TEST_F(OmahaRequestActionTest, ExtraHeadersSentTest) {
+  const string http_response = "<?xml invalid response";
+  request_params_.set_interactive(true);
+
+  brillo::FakeMessageLoop loop(nullptr);
+  loop.SetAsCurrent();
+
+  MockHttpFetcher* fetcher =
+      new MockHttpFetcher(http_response.data(), http_response.size(), nullptr);
+  OmahaRequestAction action(
+      &fake_system_state_, nullptr, brillo::make_unique_ptr(fetcher), false);
+  ActionProcessor processor;
+  processor.EnqueueAction(&action);
+
+  loop.PostTask(base::Bind(
+      [](ActionProcessor* processor) { processor->StartProcessing(); },
+      base::Unretained(&processor)));
+  loop.Run();
+  EXPECT_FALSE(loop.PendingTasks());
+
+  // Check that the headers were set in the fetcher during the action. Note that
+  // we set this request as "interactive".
+  EXPECT_EQ("fg", fetcher->GetHeader("X-GoogleUpdate-Interactivity"));
+  EXPECT_EQ(kTestAppId, fetcher->GetHeader("X-GoogleUpdate-AppId"));
+  EXPECT_NE("", fetcher->GetHeader("X-GoogleUpdate-Updater"));
+}
+
 TEST_F(OmahaRequestActionTest, ValidUpdateBlockedByConnection) {
   OmahaResponse response;
   // Set up a connection manager that doesn't allow a valid update over
@@ -474,11 +498,11 @@ TEST_F(OmahaRequestActionTest, ValidUpdateBlockedByConnection) {
 
   EXPECT_CALL(mock_cm, GetConnectionProperties(_, _))
       .WillRepeatedly(
-          DoAll(SetArgumentPointee<0>(NetworkConnectionType::kEthernet),
-                SetArgumentPointee<1>(NetworkTethering::kUnknown),
+          DoAll(SetArgumentPointee<0>(ConnectionType::kEthernet),
+                SetArgumentPointee<1>(ConnectionTethering::kUnknown),
                 Return(true)));
-  EXPECT_CALL(mock_cm, IsUpdateAllowedOver(NetworkConnectionType::kEthernet, _))
-    .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_cm, IsUpdateAllowedOver(ConnectionType::kEthernet, _))
+      .WillRepeatedly(Return(false));
 
   ASSERT_FALSE(
       TestUpdateCheck(nullptr,  // request_params
@@ -517,6 +541,56 @@ TEST_F(OmahaRequestActionTest, ValidUpdateBlockedByRollback) {
                       &response,
                       nullptr));
   EXPECT_FALSE(response.update_exists);
+}
+
+// Verify that update checks called during OOBE will only try to download
+// an update if the response includes a non-empty deadline field.
+TEST_F(OmahaRequestActionTest, SkipNonCriticalUpdatesBeforeOOBE) {
+  OmahaResponse response;
+
+  fake_system_state_.fake_hardware()->UnsetIsOOBEComplete();
+  ASSERT_FALSE(
+      TestUpdateCheck(nullptr,  // request_params
+                      fake_update_response_.GetUpdateResponse(),
+                      -1,
+                      false,  // ping_only
+                      ErrorCode::kNonCriticalUpdateInOOBE,
+                      metrics::CheckResult::kUnset,
+                      metrics::CheckReaction::kUnset,
+                      metrics::DownloadErrorCode::kUnset,
+                      &response,
+                      nullptr));
+  EXPECT_FALSE(response.update_exists);
+
+  // The IsOOBEComplete() value is ignored when the OOBE flow is not enabled.
+  fake_system_state_.fake_hardware()->SetIsOOBEEnabled(false);
+  ASSERT_TRUE(TestUpdateCheck(nullptr,  // request_params
+                              fake_update_response_.GetUpdateResponse(),
+                              -1,
+                              false,  // ping_only
+                              ErrorCode::kSuccess,
+                              metrics::CheckResult::kUpdateAvailable,
+                              metrics::CheckReaction::kUpdating,
+                              metrics::DownloadErrorCode::kUnset,
+                              &response,
+                              nullptr));
+  EXPECT_TRUE(response.update_exists);
+  fake_system_state_.fake_hardware()->SetIsOOBEEnabled(true);
+
+  // The payload is applied when a deadline was set in the response.
+  fake_update_response_.deadline = "20101020";
+  ASSERT_TRUE(
+      TestUpdateCheck(nullptr,  // request_params
+                      fake_update_response_.GetUpdateResponse(),
+                      -1,
+                      false,  // ping_only
+                      ErrorCode::kSuccess,
+                      metrics::CheckResult::kUpdateAvailable,
+                      metrics::CheckReaction::kUpdating,
+                      metrics::DownloadErrorCode::kUnset,
+                      &response,
+                      nullptr));
+  EXPECT_TRUE(response.update_exists);
 }
 
 TEST_F(OmahaRequestActionTest, WallClockBasedWaitAloneCausesScattering) {
@@ -858,7 +932,9 @@ TEST_F(OmahaRequestActionTest, NoOutputPipeTest) {
   processor.set_delegate(&delegate);
   processor.EnqueueAction(&action);
 
-  loop.PostTask(base::Bind([&processor] { processor.StartProcessing(); }));
+  loop.PostTask(base::Bind(
+      [](ActionProcessor* processor) { processor->StartProcessing(); },
+      base::Unretained(&processor)));
   loop.Run();
   EXPECT_FALSE(loop.PendingTasks());
   EXPECT_FALSE(processor.IsRunning());
@@ -1645,6 +1721,32 @@ TEST_F(OmahaRequestActionTest, BadElapsedSecondsTest) {
                       nullptr));
 }
 
+TEST_F(OmahaRequestActionTest, ParseUpdateCheckAttributesTest) {
+  // Test that the "eol" flags is only parsed from the "_eol" attribute and not
+  // the "eol" attribute.
+  ASSERT_TRUE(
+      TestUpdateCheck(nullptr,  // request_params
+                      "<?xml version=\"1.0\" encoding=\"UTF-8\"?><response "
+                      "protocol=\"3.0\"><app appid=\"foo\" status=\"ok\">"
+                      "<ping status=\"ok\"/><updatecheck status=\"noupdate\" "
+                      "_eol=\"security-only\" eol=\"eol\" _foo=\"bar\"/>"
+                      "</app></response>",
+                      -1,
+                      false,  // ping_only
+                      ErrorCode::kSuccess,
+                      metrics::CheckResult::kNoUpdateAvailable,
+                      metrics::CheckReaction::kUnset,
+                      metrics::DownloadErrorCode::kUnset,
+                      nullptr,
+                      nullptr));
+  string eol_pref;
+  EXPECT_TRUE(
+      fake_system_state_.prefs()->GetString(kPrefsOmahaEolStatus, &eol_pref));
+  // Note that the eol="eol" attribute should be ignored and the _eol should be
+  // used instead.
+  EXPECT_EQ("security-only", eol_pref);
+}
+
 TEST_F(OmahaRequestActionTest, NoUniqueIDTest) {
   brillo::Blob post_data;
   ASSERT_FALSE(TestUpdateCheck(nullptr,  // request_params
@@ -1706,36 +1808,37 @@ TEST_F(OmahaRequestActionTest, TestUpdateFirstSeenAtGetsPersistedFirstTime) {
   params.set_waiting_period(TimeDelta().FromDays(1));
   params.set_update_check_count_wait_enabled(false);
 
-  ASSERT_FALSE(TestUpdateCheck(
-                      &params,
-                      fake_update_response_.GetUpdateResponse(),
-                      -1,
-                      false,  // ping_only
-                      ErrorCode::kOmahaUpdateDeferredPerPolicy,
-                      metrics::CheckResult::kUpdateAvailable,
-                      metrics::CheckReaction::kDeferring,
-                      metrics::DownloadErrorCode::kUnset,
-                      &response,
-                      nullptr));
+  Time arbitrary_date;
+  Time::FromString("6/4/1989", &arbitrary_date);
+  fake_system_state_.fake_clock()->SetWallclockTime(arbitrary_date);
+  ASSERT_FALSE(TestUpdateCheck(&params,
+                               fake_update_response_.GetUpdateResponse(),
+                               -1,
+                               false,  // ping_only
+                               ErrorCode::kOmahaUpdateDeferredPerPolicy,
+                               metrics::CheckResult::kUpdateAvailable,
+                               metrics::CheckReaction::kDeferring,
+                               metrics::DownloadErrorCode::kUnset,
+                               &response,
+                               nullptr));
 
   int64_t timestamp = 0;
   ASSERT_TRUE(fake_prefs_.GetInt64(kPrefsUpdateFirstSeenAt, &timestamp));
-  ASSERT_GT(timestamp, 0);
+  EXPECT_EQ(arbitrary_date.ToInternalValue(), timestamp);
   EXPECT_FALSE(response.update_exists);
 
   // Verify if we are interactive check we don't defer.
   params.set_interactive(true);
-  ASSERT_TRUE(
-      TestUpdateCheck(&params,
-                      fake_update_response_.GetUpdateResponse(),
-                      -1,
-                      false,  // ping_only
-                      ErrorCode::kSuccess,
-                      metrics::CheckResult::kUpdateAvailable,
-                      metrics::CheckReaction::kUpdating,
-                      metrics::DownloadErrorCode::kUnset,
-                      &response,
-                      nullptr));
+  ASSERT_TRUE(TestUpdateCheck(&params,
+                              fake_update_response_.GetUpdateResponse(),
+                              -1,
+                              false,  // ping_only
+                              ErrorCode::kSuccess,
+                              metrics::CheckResult::kUpdateAvailable,
+                              metrics::CheckReaction::kUpdating,
+                              metrics::DownloadErrorCode::kUnset,
+                              &response,
+                              nullptr));
   EXPECT_TRUE(response.update_exists);
 }
 
@@ -1746,23 +1849,22 @@ TEST_F(OmahaRequestActionTest, TestUpdateFirstSeenAtGetsUsedIfAlreadyPresent) {
   params.set_waiting_period(TimeDelta().FromDays(1));
   params.set_update_check_count_wait_enabled(false);
 
-  // Set the timestamp to a very old value such that it exceeds the
-  // waiting period set above.
-  Time t1;
+  Time t1, t2;
   Time::FromString("1/1/2012", &t1);
-  ASSERT_TRUE(fake_prefs_.SetInt64(
-      kPrefsUpdateFirstSeenAt, t1.ToInternalValue()));
-  ASSERT_TRUE(TestUpdateCheck(
-                      &params,
-                      fake_update_response_.GetUpdateResponse(),
-                      -1,
-                      false,  // ping_only
-                      ErrorCode::kSuccess,
-                      metrics::CheckResult::kUpdateAvailable,
-                      metrics::CheckReaction::kUpdating,
-                      metrics::DownloadErrorCode::kUnset,
-                      &response,
-                      nullptr));
+  Time::FromString("1/3/2012", &t2);
+  ASSERT_TRUE(
+      fake_prefs_.SetInt64(kPrefsUpdateFirstSeenAt, t1.ToInternalValue()));
+  fake_system_state_.fake_clock()->SetWallclockTime(t2);
+  ASSERT_TRUE(TestUpdateCheck(&params,
+                              fake_update_response_.GetUpdateResponse(),
+                              -1,
+                              false,  // ping_only
+                              ErrorCode::kSuccess,
+                              metrics::CheckResult::kUpdateAvailable,
+                              metrics::CheckReaction::kUpdating,
+                              metrics::DownloadErrorCode::kUnset,
+                              &response,
+                              nullptr));
 
   EXPECT_TRUE(response.update_exists);
 
@@ -1774,30 +1876,17 @@ TEST_F(OmahaRequestActionTest, TestUpdateFirstSeenAtGetsUsedIfAlreadyPresent) {
 
 TEST_F(OmahaRequestActionTest, TestChangingToMoreStableChannel) {
   // Create a uniquely named test directory.
-  string test_dir;
-  ASSERT_TRUE(utils::MakeTempDirectory(
-          "omaha_request_action-test-XXXXXX", &test_dir));
+  base::ScopedTempDir tempdir;
+  ASSERT_TRUE(tempdir.CreateUniqueTempDir());
 
-  ASSERT_EQ(0, System(string("mkdir -p ") + test_dir + "/etc"));
-  ASSERT_EQ(0, System(string("mkdir -p ") + test_dir +
-                      kStatefulPartition + "/etc"));
   brillo::Blob post_data;
-  NiceMock<MockPrefs> prefs;
-  fake_system_state_.set_prefs(&prefs);
-  ASSERT_TRUE(WriteFileString(
-      test_dir + "/etc/lsb-release",
-      "CHROMEOS_RELEASE_APPID={11111111-1111-1111-1111-111111111111}\n"
-      "CHROMEOS_BOARD_APPID={22222222-2222-2222-2222-222222222222}\n"
-      "CHROMEOS_RELEASE_TRACK=canary-channel\n"));
-  ASSERT_TRUE(WriteFileString(
-      test_dir + kStatefulPartition + "/etc/lsb-release",
-      "CHROMEOS_IS_POWERWASH_ALLOWED=true\n"
-      "CHROMEOS_RELEASE_TRACK=stable-channel\n"));
-  OmahaRequestParams params = request_params_;
-  params.set_root(test_dir);
-  params.Init("1.2.3.4", "", 0);
-  EXPECT_EQ("canary-channel", params.current_channel());
-  EXPECT_EQ("stable-channel", params.target_channel());
+  OmahaRequestParams params(&fake_system_state_);
+  params.set_root(tempdir.path().value());
+  params.set_app_id("{22222222-2222-2222-2222-222222222222}");
+  params.set_app_version("1.2.3.4");
+  params.set_current_channel("canary-channel");
+  EXPECT_TRUE(params.SetTargetChannel("stable-channel", true, nullptr));
+  params.UpdateDownloadChannel();
   EXPECT_TRUE(params.to_more_stable_channel());
   EXPECT_TRUE(params.is_powerwash_allowed());
   ASSERT_FALSE(TestUpdateCheck(&params,
@@ -1816,35 +1905,21 @@ TEST_F(OmahaRequestActionTest, TestChangingToMoreStableChannel) {
       "appid=\"{22222222-2222-2222-2222-222222222222}\" "
       "version=\"0.0.0.0\" from_version=\"1.2.3.4\" "
       "track=\"stable-channel\" from_track=\"canary-channel\" "));
-
-  ASSERT_TRUE(base::DeleteFile(base::FilePath(test_dir), true));
 }
 
 TEST_F(OmahaRequestActionTest, TestChangingToLessStableChannel) {
   // Create a uniquely named test directory.
-  string test_dir;
-  ASSERT_TRUE(utils::MakeTempDirectory(
-          "omaha_request_action-test-XXXXXX", &test_dir));
+  base::ScopedTempDir tempdir;
+  ASSERT_TRUE(tempdir.CreateUniqueTempDir());
 
-  ASSERT_EQ(0, System(string("mkdir -p ") + test_dir + "/etc"));
-  ASSERT_EQ(0, System(string("mkdir -p ") + test_dir +
-                      kStatefulPartition + "/etc"));
   brillo::Blob post_data;
-  NiceMock<MockPrefs> prefs;
-  fake_system_state_.set_prefs(&prefs);
-  ASSERT_TRUE(WriteFileString(
-      test_dir + "/etc/lsb-release",
-      "CHROMEOS_RELEASE_APPID={11111111-1111-1111-1111-111111111111}\n"
-      "CHROMEOS_BOARD_APPID={22222222-2222-2222-2222-222222222222}\n"
-      "CHROMEOS_RELEASE_TRACK=stable-channel\n"));
-  ASSERT_TRUE(WriteFileString(
-      test_dir + kStatefulPartition + "/etc/lsb-release",
-      "CHROMEOS_RELEASE_TRACK=canary-channel\n"));
-  OmahaRequestParams params = request_params_;
-  params.set_root(test_dir);
-  params.Init("5.6.7.8", "", 0);
-  EXPECT_EQ("stable-channel", params.current_channel());
-  EXPECT_EQ("canary-channel", params.target_channel());
+  OmahaRequestParams params(&fake_system_state_);
+  params.set_root(tempdir.path().value());
+  params.set_app_id("{11111111-1111-1111-1111-111111111111}");
+  params.set_app_version("5.6.7.8");
+  params.set_current_channel("stable-channel");
+  EXPECT_TRUE(params.SetTargetChannel("canary-channel", false, nullptr));
+  params.UpdateDownloadChannel();
   EXPECT_FALSE(params.to_more_stable_channel());
   EXPECT_FALSE(params.is_powerwash_allowed());
   ASSERT_FALSE(TestUpdateCheck(&params,
@@ -2089,6 +2164,13 @@ bool OmahaRequestActionTest::InstallDateParseHelper(const string &elapsed_days,
 TEST_F(OmahaRequestActionTest, ParseInstallDateFromResponse) {
   OmahaResponse response;
 
+  // Simulate a successful update check that happens during OOBE.  The
+  // deadline in the response is needed to force the update attempt to
+  // occur; responses without a deadline seen during OOBE will normally
+  // return ErrorCode::kNonCriticalUpdateInOOBE.
+  fake_system_state_.fake_hardware()->UnsetIsOOBEComplete();
+  fake_update_response_.deadline = "20101020";
+
   // Check that we parse elapsed_days in the Omaha Response correctly.
   // and that the kPrefsInstallDateDays value is written to.
   EXPECT_FALSE(fake_prefs_.Exists(kPrefsInstallDateDays));
@@ -2126,6 +2208,7 @@ TEST_F(OmahaRequestActionTest, ParseInstallDateFromResponse) {
 // If there is no prefs and OOBE is not complete, we should not
 // report anything to Omaha.
 TEST_F(OmahaRequestActionTest, GetInstallDateWhenNoPrefsNorOOBE) {
+  fake_system_state_.fake_hardware()->UnsetIsOOBEComplete();
   EXPECT_EQ(OmahaRequestAction::GetInstallDate(&fake_system_state_), -1);
   EXPECT_FALSE(fake_prefs_.Exists(kPrefsInstallDateDays));
 }

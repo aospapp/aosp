@@ -10,8 +10,6 @@ import os
 class PacketCapture(object):
     """ Class to manage the packet capture file access from a chaos test. """
 
-    LOAD_TIMEOUT = 2
-
     def __init__(self, file_name):
         self._file_name = file_name
 
@@ -33,7 +31,7 @@ class PacketCapture(object):
                                       only_summaries=summaries,
                                       decryption_key=decryption,
                                       encryption_type='wpa-pwd')
-        capture.load_packets(timeout=self.LOAD_TIMEOUT)
+        capture.load_packets()
         return capture
 
     def get_packet_number(self, index, summary):
@@ -51,7 +49,7 @@ class PacketCapture(object):
         capture = pyshark.FileCapture(self._file_name,
                                       display_filter=display_filter,
                                       only_summaries=summary)
-        capture.load_packets(timeout=self.LOAD_TIMEOUT)
+        capture.load_packets()
         if not capture:
             return None
         return capture[0]

@@ -16,17 +16,26 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import android.graphics.Typeface;
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.TypefaceSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class TypefaceSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TypefaceSpanTest {
     private static final String FAMILY = "monospace";
 
+    @Test
     public void testConstructor() {
         TypefaceSpan t = new TypefaceSpan(FAMILY);
 
@@ -40,11 +49,13 @@ public class TypefaceSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetFamily() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
         assertEquals(FAMILY, typefaceSpan.getFamily());
     }
 
+    @Test
     public void testUpdateMeasureState() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
 
@@ -56,15 +67,16 @@ public class TypefaceSpanTest extends TestCase {
         assertNotNull(tp.getTypeface());
         // the style should be default style.
         assertEquals(Typeface.NORMAL, tp.getTypeface().getStyle());
-
-        try {
-            typefaceSpan.updateMeasureState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
+
+        typefaceSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testUpdateDrawState() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
 
@@ -76,25 +88,28 @@ public class TypefaceSpanTest extends TestCase {
         assertNotNull(tp.getTypeface());
         // the style should be default style.
         assertEquals(Typeface.NORMAL, tp.getTypeface().getStyle());
-
-        try {
-            typefaceSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
+
+        typefaceSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
         typefaceSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         TypefaceSpan typefaceSpan = new TypefaceSpan(FAMILY);
         typefaceSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

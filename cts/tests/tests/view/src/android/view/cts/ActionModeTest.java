@@ -16,59 +16,96 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
+import android.app.Instrumentation;
 import android.graphics.Rect;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.View;
 
-public class ActionModeTest extends ActivityInstrumentationTestCase2<ActionModeCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    public ActionModeTest() {
-        super(ActionModeCtsActivity.class);
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ActionModeTest {
+    private Instrumentation mInstrumentation;
+    private ActionModeCtsActivity mActivity;
+
+    @Rule
+    public ActivityTestRule<ActionModeCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ActionModeCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
+    @Test
     public void testSetType() {
-        ActionMode actionMode = new MockActionMode();
-        assertEquals(ActionMode.TYPE_PRIMARY, actionMode.getType());
+        final ActionMode mockActionMode = new MockActionMode();
+        assertEquals(ActionMode.TYPE_PRIMARY, mockActionMode.getType());
 
-        actionMode.setType(ActionMode.TYPE_FLOATING);
-        assertEquals(ActionMode.TYPE_FLOATING, actionMode.getType());
+        mockActionMode.setType(ActionMode.TYPE_FLOATING);
+        assertEquals(ActionMode.TYPE_FLOATING, mockActionMode.getType());
 
-        actionMode.setType(ActionMode.TYPE_PRIMARY);
-        assertEquals(ActionMode.TYPE_PRIMARY, actionMode.getType());
+        mockActionMode.setType(ActionMode.TYPE_PRIMARY);
+        assertEquals(ActionMode.TYPE_PRIMARY, mockActionMode.getType());
     }
 
+    @Test
     public void testInvalidateContentRectDoesNotInvalidateFull() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode mockActionMode = spy(new MockActionMode());
 
-        actionMode.invalidateContentRect();
+        mockActionMode.invalidateContentRect();
 
-        assertFalse(actionMode.mInvalidateWasCalled);
+        verify(mockActionMode, never()).invalidate();
     }
 
-    public void testInvalidateContentRectOnFloatingCallsCallback() {
-        final View view = getActivity().contentView;
-        final MockActionModeCallback2 callback = new MockActionModeCallback2();
+    @Test
+    public void testInvalidateContentRectOnFloatingCallsCallback() throws Throwable {
+        final View view = mActivity.contentView;
+        final ActionMode.Callback2 mockCallback = mock(ActionMode.Callback2.class);
+        doReturn(Boolean.TRUE).when(mockCallback).onCreateActionMode(
+                any(ActionMode.class), any(Menu.class));
+        doReturn(Boolean.TRUE).when(mockCallback).onPrepareActionMode(
+                any(ActionMode.class), any(Menu.class));
 
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                ActionMode mode = view.startActionMode(callback, ActionMode.TYPE_FLOATING);
-                assertNotNull(mode);
-                mode.invalidateContentRect();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            ActionMode mode = view.startActionMode(mockCallback, ActionMode.TYPE_FLOATING);
+            assertNotNull(mode);
+            mode.invalidateContentRect();
         });
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
 
-        assertTrue(callback.mIsOnGetContentRectCalled);
+        verify(mockCallback, atLeastOnce()).onGetContentRect(any(ActionMode.class), any(View.class),
+                any(Rect.class));
     }
 
+    @Test
     public void testSetAndGetTitleOptionalHint() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode actionMode = new MockActionMode();
 
         // Check default value.
         assertFalse(actionMode.getTitleOptionalHint());
@@ -79,8 +116,9 @@ public class ActionModeTest extends ActivityInstrumentationTestCase2<ActionModeC
         assertFalse(actionMode.getTitleOptionalHint());
     }
 
+    @Test
     public void testSetAndGetTag() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode actionMode = new MockActionMode();
         Object tag = new Object();
 
         // Check default value.
@@ -90,65 +128,39 @@ public class ActionModeTest extends ActivityInstrumentationTestCase2<ActionModeC
         assertSame(tag, actionMode.getTag());
     }
 
+    @Test
     public void testIsTitleOptional() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode actionMode = new MockActionMode();
 
         // Check default value.
         assertFalse(actionMode.isTitleOptional());
     }
 
+    @Test
     public void testIsUiFocusable() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode actionMode = new MockActionMode();
 
         // Check default value.
         assertTrue(actionMode.isUiFocusable());
     }
 
+    @Test
     public void testHide() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode actionMode = new MockActionMode();
 
         actionMode.hide(0);
         actionMode.hide(ActionMode.DEFAULT_HIDE_DURATION);
     }
 
+    @Test
     public void testOnWindowFocusChanged() {
-        MockActionMode actionMode = new MockActionMode();
+        final ActionMode actionMode = new MockActionMode();
 
         actionMode.onWindowFocusChanged(true);
         actionMode.onWindowFocusChanged(false);
     }
 
-    private static class MockActionModeCallback2 extends ActionMode.Callback2 {
-        boolean mIsOnGetContentRectCalled = false;
-
-        @Override
-        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-            return true;
-        }
-
-        @Override
-        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-            return true;
-        }
-
-        @Override
-        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-            return false;
-        }
-
-        @Override
-        public void onDestroyActionMode(ActionMode mode) {}
-
-        @Override
-        public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
-            mIsOnGetContentRectCalled = true;
-            super.onGetContentRect(mode, view, outRect);
-        }
-    }
-
-    private static class MockActionMode extends ActionMode {
-        boolean mInvalidateWasCalled = false;
-
+    protected static class MockActionMode extends ActionMode {
         @Override
         public void setTitle(CharSequence title) {}
 
@@ -166,7 +178,6 @@ public class ActionModeTest extends ActivityInstrumentationTestCase2<ActionModeC
 
         @Override
         public void invalidate() {
-            mInvalidateWasCalled = true;
         }
 
         @Override

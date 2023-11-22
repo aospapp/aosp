@@ -32,6 +32,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP unit test for ObjectReference.InvokeMethod command.
  */
 public class InvokeMethod002Test extends JDWPSyncTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.InvokeMethod002Debuggee";
     }
@@ -134,7 +135,7 @@ public class InvokeMethod002Test extends JDWPSyncTestCase {
         assertTrue("Failed to find method", targetMethodID != 0);
 
         // Invoke test method with null argument.
-        Value nullObjectValue = new Value(JDWPConstants.Tag.OBJECT_TAG, 0);
+        Value nullObjectValue = Value.createObjectValue(JDWPConstants.Tag.OBJECT_TAG, 0);
         packet = new CommandPacket(
                 JDWPCommands.ObjectReferenceCommandSet.CommandSetID,
                 JDWPCommands.ObjectReferenceCommandSet.InvokeMethodCommand);

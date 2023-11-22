@@ -22,6 +22,7 @@ import android.support.v4.app.NotificationCompat;
 /**
  * Android Auto {@link android.app.Notification.Action} extender.
  * NOTE: this will move into the platform and support-lib when the API stabilizes.
+ * @hide
  */
 public class CarActionExtender implements NotificationCompat.Action.Extender {
     private static final String EXTRA_AUTO_EXTENDER = "android.auto.EXTENSIONS";

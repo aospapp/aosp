@@ -16,19 +16,38 @@
 
 package android.admin.cts;
 
+import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_CHANGED;
+import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_FAILED;
+import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_SUCCEEDED;
+import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_EXPIRING;
+
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+
 import android.app.admin.DeviceAdminReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Process;
+import android.os.UserHandle;
 import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
+import org.mockito.compat.ArgumentMatcher;
 
 public class DeviceAdminReceiverTest extends AndroidTestCase {
 
     private static final String TAG = DeviceAdminReceiverTest.class.getSimpleName();
     private static final String DISABLE_WARNING = "Disable Warning";
     private static final String BUGREPORT_HASH = "f4k3h45h";
+    private static final long NETWORK_LOGS_TOKEN = (123L << 40L);
+    private static final int NETWORK_LOGS_COUNT = (321 << 20);
+    private static final UserHandle USER = Process.myUserHandle();
 
     private static final String ACTION_BUGREPORT_SHARING_DECLINED =
             "android.app.action.BUGREPORT_SHARING_DECLINED";
@@ -41,163 +60,162 @@ public class DeviceAdminReceiverTest extends AndroidTestCase {
             "android.app.extra.BUGREPORT_FAILURE_REASON";
     private static final String EXTRA_BUGREPORT_HASH = "android.app.extra.BUGREPORT_HASH";
 
-    private static final int PASSWORD_CHANGED = 0x1;
-    private static final int PASSWORD_FAILED = 0x2;
-    private static final int PASSWORD_SUCCEEDED = 0x4;
-    private static final int DEVICE_ADMIN_ENABLED = 0x8;
-    private static final int DEVICE_ADMIN_DISABLE_REQUESTED = 0x10;
-    private static final int DEVICE_ADMIN_DISABLED = 0x20;
-    private static final int BUGREPORT_SHARING_DECLINED = 0x40;
-    private static final int BUGREPORT_FAILED = 0x80;
-    private static final int BUGREPORT_SHARED = 0x100;
-    private static final int SECURITY_LOGS_AVAILABLE = 0x200;
+    private static final String ACTION_NETWORK_LOGS_AVAILABLE
+            = "android.app.action.NETWORK_LOGS_AVAILABLE";
+    private static final String EXTRA_NETWORK_LOGS_TOKEN =
+            "android.app.extra.EXTRA_NETWORK_LOGS_TOKEN";
+    private static final String EXTRA_NETWORK_LOGS_COUNT =
+            "android.app.extra.EXTRA_NETWORK_LOGS_COUNT";
 
-    private TestReceiver mReceiver;
+    @Spy
+    public DeviceAdminReceiver mReceiver;
     private boolean mDeviceAdmin;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mReceiver = new TestReceiver();
+        mReceiver = new DeviceAdminReceiver();
         mDeviceAdmin =
                 mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN);
+        MockitoAnnotations.initMocks(this);
     }
 
     @Presubmit
-    public void testOnReceive() {
+    public void testOnReceivePasswordChanged() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testOnReceive");
+            Log.w(TAG, "Skipping testOnReceivePasswordChanged");
             return;
         }
-        mReceiver.reset();
-        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_CHANGED));
-        assertTrue(mReceiver.hasFlags(PASSWORD_CHANGED));
+        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_CHANGED)
+                .putExtra(Intent.EXTRA_USER, USER));
+        verify(mReceiver).onPasswordChanged(any(), actionEq(ACTION_PASSWORD_CHANGED), eq(USER));
+        verify(mReceiver).onPasswordChanged(any(), actionEq(ACTION_PASSWORD_CHANGED));
+    }
 
-        mReceiver.reset();
-        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_FAILED));
-        assertTrue(mReceiver.hasFlags(PASSWORD_FAILED));
+    @Presubmit
+    public void testOnReceivePasswordFailed() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceivePasswordFailed");
+        }
+        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_FAILED)
+                .putExtra(Intent.EXTRA_USER, USER));
+        verify(mReceiver).onPasswordFailed(any(), actionEq(ACTION_PASSWORD_FAILED), eq(USER));
+        verify(mReceiver).onPasswordFailed(any(), actionEq(ACTION_PASSWORD_FAILED));
+    }
 
-        mReceiver.reset();
-        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_SUCCEEDED));
-        assertTrue(mReceiver.hasFlags(PASSWORD_SUCCEEDED));
+    @Presubmit
+    public void testOnReceivePasswordSucceeded() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceivePasswordSucceeded");
+        }
+        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_SUCCEEDED)
+                .putExtra(Intent.EXTRA_USER, USER));
+        verify(mReceiver).onPasswordSucceeded(any(), actionEq(ACTION_PASSWORD_SUCCEEDED), eq(USER));
+        verify(mReceiver).onPasswordSucceeded(any(), actionEq(ACTION_PASSWORD_SUCCEEDED));
+    }
 
-        mReceiver.reset();
+    @Presubmit
+    public void testOnReceivePasswordExpiring() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceivePasswordExpiring");
+        }
+        mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_PASSWORD_EXPIRING)
+                .putExtra(Intent.EXTRA_USER, USER));
+        verify(mReceiver).onPasswordExpiring(any(), actionEq(ACTION_PASSWORD_EXPIRING), eq(USER));
+        verify(mReceiver).onPasswordExpiring(any(), actionEq(ACTION_PASSWORD_EXPIRING));
+    }
+
+    @Presubmit
+    public void testOnReceiveEnabled() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveEnabled");
+            return;
+        }
         mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_DEVICE_ADMIN_ENABLED));
-        assertTrue(mReceiver.hasFlags(DEVICE_ADMIN_ENABLED));
+        verify(mReceiver).onEnabled(
+                any(), actionEq(DeviceAdminReceiver.ACTION_DEVICE_ADMIN_ENABLED));
+    }
 
-        mReceiver.reset();
+    @Presubmit
+    public void testOnReceiveDisabled() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveDisabled");
+            return;
+        }
         mReceiver.onReceive(mContext, new Intent(DeviceAdminReceiver.ACTION_DEVICE_ADMIN_DISABLED));
-        assertTrue(mReceiver.hasFlags(DEVICE_ADMIN_DISABLED));
+        verify(mReceiver).onDisabled(
+                any(), actionEq(DeviceAdminReceiver.ACTION_DEVICE_ADMIN_DISABLED));
+    }
 
-        mReceiver.reset();
+    @Presubmit
+    public void testOnReceiveBugreportSharingDeclined() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveBugreportSharingDeclined");
+            return;
+        }
         mReceiver.onReceive(mContext, new Intent(ACTION_BUGREPORT_SHARING_DECLINED));
-        assertTrue(mReceiver.hasFlags(BUGREPORT_SHARING_DECLINED));
+        verify(mReceiver).onBugreportSharingDeclined(
+                any(), actionEq(ACTION_BUGREPORT_SHARING_DECLINED));
+    }
 
-        mReceiver.reset();
+    @Presubmit
+    public void testOnReceiveBugreportFailed() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveBugreportFailed");
+            return;
+        }
         Intent bugreportFailedIntent = new Intent(ACTION_BUGREPORT_FAILED);
         bugreportFailedIntent.putExtra(EXTRA_BUGREPORT_FAILURE_REASON,
                 DeviceAdminReceiver.BUGREPORT_FAILURE_FAILED_COMPLETING);
         mReceiver.onReceive(mContext, bugreportFailedIntent);
-        assertTrue(mReceiver.hasFlags(BUGREPORT_FAILED));
-        assertEquals(DeviceAdminReceiver.BUGREPORT_FAILURE_FAILED_COMPLETING,
-                mReceiver.getBugreportFailureCode());
+        verify(mReceiver).onBugreportFailed(any(), actionEq(ACTION_BUGREPORT_FAILED),
+                eq(DeviceAdminReceiver.BUGREPORT_FAILURE_FAILED_COMPLETING));
+    }
 
-        mReceiver.reset();
+    @Presubmit
+    public void testOnReceiveBugreportShared() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveBugreportShared");
+            return;
+        }
         Intent bugreportSharedIntent = new Intent(ACTION_BUGREPORT_SHARE);
         bugreportSharedIntent.putExtra(EXTRA_BUGREPORT_HASH, BUGREPORT_HASH);
         mReceiver.onReceive(mContext, bugreportSharedIntent);
-        assertTrue(mReceiver.hasFlags(BUGREPORT_SHARED));
-        assertEquals(BUGREPORT_HASH, mReceiver.getBugreportHash());
-
-        mReceiver.reset();
-        mReceiver.onReceive(mContext, new Intent(ACTION_SECURITY_LOGS_AVAILABLE));
-        assertTrue(mReceiver.hasFlags(SECURITY_LOGS_AVAILABLE));
+        verify(mReceiver).onBugreportShared(
+                any(), actionEq(ACTION_BUGREPORT_SHARE), eq(BUGREPORT_HASH));
     }
 
-    private class TestReceiver extends DeviceAdminReceiver {
-
-        private int mFlags = 0;
-        private int bugreportFailureCode = -1;
-        private String bugreportHash;
-
-        void reset() {
-            mFlags = 0;
-            bugreportFailureCode = -1;
-            bugreportHash = null;
+    @Presubmit
+    public void testOnReceiveSecurityLogsAvailable() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveSecurityLogsAvailable");
+            return;
         }
+        mReceiver.onReceive(mContext, new Intent(ACTION_SECURITY_LOGS_AVAILABLE));
+        verify(mReceiver).onSecurityLogsAvailable(any(), actionEq(ACTION_SECURITY_LOGS_AVAILABLE));
+    }
 
-        boolean hasFlags(int flags) {
-            return mFlags == flags;
+    @Presubmit
+    public void testOnReceiveNetworkLogsAvailable() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceiveNetworkLogsAvailable");
+            return;
         }
+        Intent networkLogsAvailableIntent = new Intent(ACTION_NETWORK_LOGS_AVAILABLE);
+        networkLogsAvailableIntent.putExtra(EXTRA_NETWORK_LOGS_TOKEN, NETWORK_LOGS_TOKEN);
+        networkLogsAvailableIntent.putExtra(EXTRA_NETWORK_LOGS_COUNT, NETWORK_LOGS_COUNT);
+        mReceiver.onReceive(mContext, networkLogsAvailableIntent);
+        verify(mReceiver).onNetworkLogsAvailable(any(), actionEq(ACTION_NETWORK_LOGS_AVAILABLE),
+                eq(NETWORK_LOGS_TOKEN), eq(NETWORK_LOGS_COUNT));
+    }
 
-        int getBugreportFailureCode() {
-            return bugreportFailureCode;
-        }
-
-        String getBugreportHash() {
-            return bugreportHash;
-        }
-
-        @Override
-        public void onPasswordChanged(Context context, Intent intent) {
-            super.onPasswordChanged(context, intent);
-            mFlags |= PASSWORD_CHANGED;
-        }
-
-        @Override
-        public void onPasswordFailed(Context context, Intent intent) {
-            super.onPasswordFailed(context, intent);
-            mFlags |= PASSWORD_FAILED;
-        }
-
-        @Override
-        public void onPasswordSucceeded(Context context, Intent intent) {
-            super.onPasswordSucceeded(context, intent);
-            mFlags |= PASSWORD_SUCCEEDED;
-        }
-
-        @Override
-        public void onEnabled(Context context, Intent intent) {
-            super.onEnabled(context, intent);
-            mFlags |= DEVICE_ADMIN_ENABLED;
-        }
-
-        @Override
-        public CharSequence onDisableRequested(Context context, Intent intent) {
-            mFlags |= DEVICE_ADMIN_DISABLE_REQUESTED;
-            return DISABLE_WARNING;
-        }
-
-        @Override
-        public void onDisabled(Context context, Intent intent) {
-            super.onDisabled(context, intent);
-            mFlags |= DEVICE_ADMIN_DISABLED;
-        }
-
-        @Override
-        public void onBugreportSharingDeclined(Context context, Intent intent) {
-            super.onBugreportSharingDeclined(context, intent);
-            mFlags |= BUGREPORT_SHARING_DECLINED;
-        }
-
-        @Override
-        public void onBugreportFailed(Context context, Intent intent, int failureCode) {
-            super.onBugreportFailed(context, intent, failureCode);
-            mFlags |= BUGREPORT_FAILED;
-            bugreportFailureCode = failureCode;
-        }
-
-        @Override
-        public void onBugreportShared(Context context, Intent intent, String bugreportHash) {
-            super.onBugreportShared(context, intent, bugreportHash);
-            mFlags |= BUGREPORT_SHARED;
-            this.bugreportHash = bugreportHash;
-        }
-
-        @Override
-        public void onSecurityLogsAvailable(Context context, Intent intent) {
-            super.onSecurityLogsAvailable(context, intent);
-            mFlags |= SECURITY_LOGS_AVAILABLE;
-        }
+    // TODO: replace with inline argThat(x → e.equals(x.getAction())) when mockito is updated.
+    private Intent actionEq(final String expected) {
+        return argThat(new ArgumentMatcher<Intent>() {
+            @Override
+            public boolean matchesObject(Object argument) {
+                return expected.equals(((Intent) argument).getAction());
+            }
+        });
     }
 }

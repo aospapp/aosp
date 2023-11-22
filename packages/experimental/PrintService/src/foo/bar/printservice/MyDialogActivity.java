@@ -39,65 +39,59 @@ public class MyDialogActivity extends ListActivity {
     private void createActionTypeOnPrintJobPendingUi(final PrintJobId printJobId) {
         setTitle(getString(R.string.on_print_job_pending_activity_title));
 
-        setListAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1,
+        setListAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,
                 getResources().getStringArray(R.array.on_print_job_queued_actions)));
-        getListView().setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                switch (position) {
-                    case ITEM_INDEX_PRINT_NOW: {
-                        MyPrintService.peekInstance().handleQueuedPrintJob(printJobId);
-                    } break;
+        getListView().setOnItemClickListener((parent, view, position, id) -> {
+            switch (position) {
+                case ITEM_INDEX_PRINT_NOW: {
+                    MyPrintService.peekInstance().handleQueuedPrintJob(printJobId);
+                } break;
 
-                    case ITEM_INDEX_PRINT_DELAYED: {
-                        MyPrintService.peekInstance().handleQueuedPrintJobDelayed(printJobId);
-                    } break;
+                case ITEM_INDEX_PRINT_DELAYED: {
+                    MyPrintService.peekInstance().handleQueuedPrintJobDelayed(printJobId);
+                } break;
 
-                    case ITEM_INDEX_FAIL_NOW: {
-                        MyPrintService.peekInstance().handleFailPrintJob(printJobId);
-                    } break;
+                case ITEM_INDEX_FAIL_NOW: {
+                    MyPrintService.peekInstance().handleFailPrintJob(printJobId);
+                } break;
 
-                    case ITEM_INDEX_FAIL_DELAYED: {
-                        MyPrintService.peekInstance().handleFailPrintJobDelayed(printJobId);
-                    } break;
+                case ITEM_INDEX_FAIL_DELAYED: {
+                    MyPrintService.peekInstance().handleFailPrintJobDelayed(printJobId);
+                } break;
 
-                    case ITEM_INDEX_BLOCK_NOW: {
-                        MyPrintService.peekInstance().handleBlockPrintJob(printJobId);
-                    } break;
+                case ITEM_INDEX_BLOCK_NOW: {
+                    MyPrintService.peekInstance().handleBlockPrintJob(printJobId);
+                } break;
 
-                    case ITEM_INDEX_BLOCK_DELAYED: {
-                        MyPrintService.peekInstance().handleBlockPrintJobDelayed(printJobId);
-                    } break;
+                case ITEM_INDEX_BLOCK_DELAYED: {
+                    MyPrintService.peekInstance().handleBlockPrintJobDelayed(printJobId);
+                } break;
 
-                    case ITEM_INDEX_BLOCK_AND_DELAYED_UNBLOCK: {
-                        MyPrintService.peekInstance().handleBlockAndDelayedUnblockPrintJob(
-                                printJobId);
-                    } break;
+                case ITEM_INDEX_BLOCK_AND_DELAYED_UNBLOCK: {
+                    MyPrintService.peekInstance().handleBlockAndDelayedUnblockPrintJob(
+                            printJobId);
+                } break;
 
-                    case ITEM_INDEX_PRINT_SLOWLY: {
-                        MyPrintService.peekInstance().handlePrintJobProgress(printJobId, 0);
-                    } break;
-                }
-                finishAndRemoveTask();
+                case ITEM_INDEX_PRINT_SLOWLY: {
+                    MyPrintService.peekInstance().handlePrintJobProgress(printJobId, 0);
+                } break;
             }
+            finishAndRemoveTask();
         });
     }
 
     private void createActionTypeOnReqeustCancelPrintJobUi(final PrintJobId printJobId) {
         setTitle(getString(R.string.on_cancle_print_job_requested_activity_title));
 
-        setListAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1,
+        setListAdapter(new ArrayAdapter<>(this, android.R.layout.simple_list_item_1,
                 getResources().getStringArray(R.array.on_request_cancel_print_job_actions)));
-        getListView().setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                switch (position) {
-                    case ITEM_INDEX_CANCEL_YES: {
-                        MyPrintService.peekInstance().handleRequestCancelPrintJob(printJobId);
-                    } break;
-                }
-                finishAndRemoveTask();
+        getListView().setOnItemClickListener((parent, view, position, id) -> {
+            switch (position) {
+                case ITEM_INDEX_CANCEL_YES: {
+                    MyPrintService.peekInstance().handleRequestCancelPrintJob(printJobId);
+                } break;
             }
+            finishAndRemoveTask();
         });
     }
 }

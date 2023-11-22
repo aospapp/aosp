@@ -98,9 +98,11 @@ bool TypeNamespace::IsValidPackage(const string& /* package */) const {
 }
 
 const ValidatableType* TypeNamespace::GetReturnType(
-    const AidlType& raw_type, const string& filename) const {
+    const AidlType& raw_type, const string& filename,
+    const AidlInterface& interface) const {
   string error_msg;
-  const ValidatableType* return_type = GetValidatableType(raw_type, &error_msg);
+  const ValidatableType* return_type = GetValidatableType(raw_type, &error_msg,
+                                                          interface);
   if (return_type == nullptr) {
     LOG(ERROR) << StringPrintf("In file %s line %d return type %s:\n    ",
                                filename.c_str(), raw_type.GetLine(),
@@ -113,14 +115,16 @@ const ValidatableType* TypeNamespace::GetReturnType(
 }
 
 const ValidatableType* TypeNamespace::GetArgType(
-    const AidlArgument& a, int arg_index, const string& filename) const {
+    const AidlArgument& a, int arg_index, const string& filename,
+    const AidlInterface& interface) const {
   string error_prefix = StringPrintf(
       "In file %s line %d parameter %s (argument %d):\n    ",
       filename.c_str(), a.GetLine(), a.GetName().c_str(), arg_index);
 
   // check the arg type
   string error_msg;
-  const ValidatableType* t = GetValidatableType(a.GetType(), &error_msg);
+  const ValidatableType* t = GetValidatableType(a.GetType(), &error_msg,
+                                                interface);
   if (t == nullptr) {
     LOG(ERROR) << error_prefix << error_msg;
     return nullptr;

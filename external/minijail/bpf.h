@@ -16,6 +16,10 @@
 #include <stddef.h>
 #include <sys/user.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "arch.h"
 
 #if __BITS_PER_LONG == 32 || defined(__ILP32__)
@@ -26,14 +30,15 @@
 
 /* Constants for comparison operators. */
 #define MIN_OPERATOR 128
-enum operator {
+enum {
 	EQ = MIN_OPERATOR,
 	NE,
 	LT,
 	LE,
 	GT,
 	GE,
-	SET
+	SET,
+	IN
 };
 
 /*
@@ -110,9 +115,9 @@ struct seccomp_data {
 
 #define MAX_BPF_LABEL_LEN 32
 
-#define BPF_LABELS_MAX 256
+#define BPF_LABELS_MAX 512U	/* Each syscall could have an argument block. */
 struct bpf_labels {
-	int count;
+	size_t count;
 	struct __bpf_label {
 		const char *label;
 		unsigned int location;
@@ -121,8 +126,8 @@ struct bpf_labels {
 
 /* BPF instruction manipulation functions and macros. */
 static inline size_t set_bpf_instr(struct sock_filter *instr,
-	unsigned short code, unsigned int k,
-	unsigned char jt, unsigned char jf)
+				   unsigned short code, unsigned int k,
+				   unsigned char jt, unsigned char jf)
 {
 	instr->code = code;
 	instr->k = k;
@@ -170,9 +175,11 @@ void free_label_strings(struct bpf_labels *labels);
 /* BPF helper functions. */
 size_t bpf_load_arg(struct sock_filter *filter, int argidx);
 size_t bpf_comp_jeq(struct sock_filter *filter, unsigned long c,
-		unsigned char jt, unsigned char jf);
+		    unsigned char jt, unsigned char jf);
 size_t bpf_comp_jset(struct sock_filter *filter, unsigned long mask,
-		unsigned char jt, unsigned char jf);
+		     unsigned char jt, unsigned char jf);
+size_t bpf_comp_jin(struct sock_filter *filter, unsigned long mask,
+		    unsigned char jt, unsigned char jf);
 
 /* Functions called by syscall_filter.c */
 #define ARCH_VALIDATION_LEN 3U
@@ -188,5 +195,9 @@ size_t bpf_allow_syscall_args(struct sock_filter *filter,
 /* Debug functions. */
 void dump_bpf_prog(struct sock_fprog *fprog);
 void dump_bpf_filter(struct sock_filter *filter, unsigned short len);
+
+#ifdef __cplusplus
+}; /* extern "C" */
+#endif
 
 #endif /* BPF_H */

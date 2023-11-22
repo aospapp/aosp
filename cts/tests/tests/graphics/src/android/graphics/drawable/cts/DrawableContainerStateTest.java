@@ -16,26 +16,39 @@
 
 package android.graphics.drawable.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
+import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.DrawableContainer;
-import android.graphics.drawable.LevelListDrawable;
 import android.graphics.drawable.DrawableContainer.DrawableContainerState;
+import android.graphics.drawable.LevelListDrawable;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class DrawableContainerStateTest extends TestCase{
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DrawableContainerStateTest {
     private DrawableContainerState mDrawableContainerState;
 
     private DrawableContainer mDrawableContainer;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         // DrawableContainerState has no public constructor. Obtain an instance through
         // LevelListDrawable.getConstants(). This is fine for testing the final methods of
         // DrawableContainerState.
@@ -44,16 +57,16 @@ public class DrawableContainerStateTest extends TestCase{
         assertNotNull(mDrawableContainerState);
     }
 
-    public void testAddChild() {
-        try {
-            mDrawableContainerState.addChild(null);
-            fail("Should throw NullPointerException if the drawable is null.");
-        } catch (NullPointerException e) {
-        }
+    @Test(expected=NullPointerException.class)
+    public void testAddChildNull() {
+        mDrawableContainerState.addChild(null);
+    }
 
+    @Test
+    public void testAddChild() {
         assertEquals(0, mDrawableContainerState.getChildCount());
 
-        MockDrawable dr0 = new MockDrawable();
+        Drawable dr0 = spy(new ColorDrawable(Color.RED));
         dr0.setVisible(true, false);
         assertTrue(dr0.isVisible());
         assertEquals(0, mDrawableContainerState.addChild(dr0));
@@ -65,7 +78,7 @@ public class DrawableContainerStateTest extends TestCase{
         assertNull(children[1]);
         assertFalse(dr0.isVisible());
 
-        MockDrawable dr1 = new MockDrawable();
+        Drawable dr1 = spy(new ColorDrawable(Color.BLUE));
         dr1.setVisible(true, false);
         assertTrue(dr1.isVisible());
         assertEquals(1, mDrawableContainerState.addChild(dr1));
@@ -88,35 +101,37 @@ public class DrawableContainerStateTest extends TestCase{
         assertSame(dr1, children[2]);
     }
 
-    public void testIsStateFul() {
+    @Test
+    public void testIsStateful() {
         assertEquals(0, mDrawableContainerState.getChildCount());
         assertFalse(mDrawableContainerState.isStateful());
 
-        MockDrawable dr0 = new MockDrawable();
-        dr0.setStateful(false);
+        Drawable dr0 = spy(new ColorDrawable(Color.RED));
+        doReturn(false).when(dr0).isStateful();
         mDrawableContainerState.addChild(dr0);
         assertEquals(1, mDrawableContainerState.getChildCount());
         assertFalse(mDrawableContainerState.isStateful());
 
-        MockDrawable dr1 = new MockDrawable();
-        dr1.setStateful(false);
+        Drawable dr1 = spy(new ColorDrawable(Color.GREEN));
+        doReturn(false).when(dr1).isStateful();
         mDrawableContainerState.addChild(dr1);
         assertEquals(2, mDrawableContainerState.getChildCount());
         assertFalse(mDrawableContainerState.isStateful());
 
-        MockDrawable dr2 = new MockDrawable();
-        dr2.setStateful(true);
+        Drawable dr2 = spy(new ColorDrawable(Color.BLUE));
+        doReturn(true).when(dr2).isStateful();
         mDrawableContainerState.addChild(dr2);
         assertEquals(3, mDrawableContainerState.getChildCount());
         assertTrue(mDrawableContainerState.isStateful());
 
-        MockDrawable dr3 = new MockDrawable();
-        dr3.setStateful(false);
+        Drawable dr3 = spy(new ColorDrawable(Color.YELLOW));
+        doReturn(false).when(dr3).isStateful();
         mDrawableContainerState.addChild(dr3);
         assertEquals(4, mDrawableContainerState.getChildCount());
         assertTrue(mDrawableContainerState.isStateful());
     }
 
+    @Test
     public void testAccessEnterFadeDuration() {
         mDrawableContainerState.setEnterFadeDuration(1000);
         assertEquals(1000, mDrawableContainerState.getEnterFadeDuration());
@@ -125,6 +140,7 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(-1000, mDrawableContainerState.getEnterFadeDuration());
     }
 
+    @Test
     public void testAccessExitFadeDuration() {
         mDrawableContainerState.setExitFadeDuration(1000);
         assertEquals(1000, mDrawableContainerState.getExitFadeDuration());
@@ -133,6 +149,7 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(-1000, mDrawableContainerState.getExitFadeDuration());
     }
 
+    @Test
     public void testAccessConstantSize() {
         mDrawableContainerState.setConstantSize(true);
         assertTrue(mDrawableContainerState.isConstantSize());
@@ -141,6 +158,7 @@ public class DrawableContainerStateTest extends TestCase{
         assertFalse(mDrawableContainerState.isConstantSize());
     }
 
+    @Test
     public void testAccessConstantPadding() {
         mDrawableContainerState.setVariablePadding(true);
         assertNull(mDrawableContainerState.getConstantPadding());
@@ -173,6 +191,7 @@ public class DrawableContainerStateTest extends TestCase{
         */
     }
 
+    @Test
     public void testConstantHeightsAndWidths() {
         assertEquals(0, mDrawableContainerState.getChildCount());
         assertEquals(-1, mDrawableContainerState.getConstantHeight());
@@ -180,11 +199,11 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(0, mDrawableContainerState.getConstantMinimumHeight());
         assertEquals(0, mDrawableContainerState.getConstantMinimumWidth());
 
-        MockDrawable dr0 = new MockDrawable();
-        dr0.setMinimumHeight(1);
-        dr0.setMinimumWidth(2);
-        dr0.setIntrinsicHeight(0);
-        dr0.setIntrinsicWidth(0);
+        Drawable dr0 = spy(new ColorDrawable(Color.RED));
+        doReturn(1).when(dr0).getMinimumHeight();
+        doReturn(2).when(dr0).getMinimumWidth();
+        doReturn(0).when(dr0).getIntrinsicHeight();
+        doReturn(0).when(dr0).getIntrinsicWidth();
         mDrawableContainerState.addChild(dr0);
         assertEquals(1, mDrawableContainerState.getChildCount());
         assertEquals(0, mDrawableContainerState.getConstantHeight());
@@ -192,11 +211,11 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(1, mDrawableContainerState.getConstantMinimumHeight());
         assertEquals(2, mDrawableContainerState.getConstantMinimumWidth());
 
-        MockDrawable dr1 = new MockDrawable();
-        dr1.setMinimumHeight(0);
-        dr1.setMinimumWidth(0);
-        dr1.setIntrinsicHeight(3);
-        dr1.setIntrinsicWidth(4);
+        Drawable dr1 = spy(new ColorDrawable(Color.BLUE));
+        doReturn(0).when(dr1).getMinimumHeight();
+        doReturn(0).when(dr1).getMinimumWidth();
+        doReturn(3).when(dr1).getIntrinsicHeight();
+        doReturn(4).when(dr1).getIntrinsicWidth();
         mDrawableContainerState.addChild(dr1);
         assertEquals(2, mDrawableContainerState.getChildCount());
         assertEquals(3, mDrawableContainerState.getConstantHeight());
@@ -204,11 +223,11 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(1, mDrawableContainerState.getConstantMinimumHeight());
         assertEquals(2, mDrawableContainerState.getConstantMinimumWidth());
 
-        MockDrawable dr2 = new MockDrawable();
-        dr2.setMinimumHeight(5);
-        dr2.setMinimumWidth(5);
-        dr2.setIntrinsicHeight(5);
-        dr2.setIntrinsicWidth(5);
+        Drawable dr2 = spy(new ColorDrawable(Color.GREEN));
+        doReturn(5).when(dr2).getMinimumHeight();
+        doReturn(5).when(dr2).getMinimumWidth();
+        doReturn(5).when(dr2).getIntrinsicHeight();
+        doReturn(5).when(dr2).getIntrinsicWidth();
         mDrawableContainerState.addChild(dr2);
         assertEquals(3, mDrawableContainerState.getChildCount());
         assertEquals(5, mDrawableContainerState.getConstantHeight());
@@ -217,50 +236,55 @@ public class DrawableContainerStateTest extends TestCase{
         assertEquals(5, mDrawableContainerState.getConstantMinimumWidth());
     }
 
+    @Test
     public void testGetOpacity() {
         assertEquals(0, mDrawableContainerState.getChildCount());
         assertEquals(PixelFormat.TRANSPARENT, mDrawableContainerState.getOpacity());
 
-        MockDrawable dr0 = new MockDrawable();
-        dr0.setOpacity(PixelFormat.OPAQUE);
+        Drawable dr0 = spy(new ColorDrawable(Color.RED));
+        doReturn(PixelFormat.OPAQUE).when(dr0).getOpacity();
         mDrawableContainerState.addChild(dr0);
         assertEquals(1, mDrawableContainerState.getChildCount());
         assertEquals(PixelFormat.OPAQUE, mDrawableContainerState.getOpacity());
 
-        MockDrawable dr1 = new MockDrawable();
-        dr1.setOpacity(PixelFormat.TRANSPARENT);
+        Drawable dr1 = spy(new ColorDrawable(Color.BLUE));
+        doReturn(PixelFormat.TRANSPARENT).when(dr1).getOpacity();
         mDrawableContainerState.addChild(dr1);
         assertEquals(2, mDrawableContainerState.getChildCount());
         assertEquals(PixelFormat.TRANSPARENT, mDrawableContainerState.getOpacity());
 
-        MockDrawable dr2 = new MockDrawable();
-        dr2.setOpacity(PixelFormat.TRANSLUCENT);
+        Drawable dr2 = spy(new ColorDrawable(Color.GREEN));
+        doReturn(PixelFormat.TRANSLUCENT).when(dr2).getOpacity();
         mDrawableContainerState.addChild(dr2);
         assertEquals(3, mDrawableContainerState.getChildCount());
         assertEquals(PixelFormat.TRANSLUCENT, mDrawableContainerState.getOpacity());
 
-        MockDrawable dr3 = new MockDrawable();
-        dr3.setOpacity(PixelFormat.UNKNOWN);
+        Drawable dr3 = spy(new ColorDrawable(Color.YELLOW));
+        doReturn(PixelFormat.UNKNOWN).when(dr3).getOpacity();
         mDrawableContainerState.addChild(dr3);
         assertEquals(4, mDrawableContainerState.getChildCount());
         assertEquals(PixelFormat.UNKNOWN, mDrawableContainerState.getOpacity());
 
-        MockDrawable dr4 = new MockDrawable();
-        dr4.setOpacity(PixelFormat.TRANSLUCENT);
+        Drawable dr4 = spy(new ColorDrawable(Color.MAGENTA));
+        doReturn(PixelFormat.TRANSLUCENT).when(dr4).getOpacity();
         mDrawableContainerState.addChild(dr4);
         assertEquals(5, mDrawableContainerState.getChildCount());
         assertEquals(PixelFormat.UNKNOWN, mDrawableContainerState.getOpacity());
     }
 
+    @Test
     public void testCanConstantState() {
         DrawableContainer dr = new LevelListDrawable();
         DrawableContainerState cs = (DrawableContainerState) dr.getConstantState();
         assertTrue(cs.canConstantState());
 
-        cs.addChild(new MockDrawable());
+        Drawable child = spy(new ColorDrawable(Color.RED));
+        doReturn(null).when(child).getConstantState();
+        cs.addChild(child);
         assertFalse(cs.canConstantState());
     }
 
+    @Test
     public void testGrowArray() {
         DrawableContainer dr = new LevelListDrawable();
         DrawableContainerState cs = (DrawableContainerState) dr.getConstantState();
@@ -276,112 +300,5 @@ public class DrawableContainerStateTest extends TestCase{
 
         cs.growArray(0, 10);
         cs.getChild(9);
-    }
-
-    private class MockDrawable extends Drawable {
-        private boolean mIsStatful;
-
-        private Rect mPadding;
-
-        private int mIntrinsicHeight;
-
-        private int mIntrinsicWidth;
-
-        private int mMinimumHeight;
-
-        private int mMinimumWidth;
-
-        private int mOpacity;
-
-        @Override
-        public void draw(Canvas canvas) {
-        }
-
-        @Override
-        public int getOpacity() {
-            return mOpacity;
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter cf) {
-        }
-
-        @Override
-        public boolean isStateful() {
-            return mIsStatful;
-        }
-
-        public void setStateful(boolean isStateful) {
-            mIsStatful = isStateful;
-        }
-
-        public void setPadding(Rect rect) {
-            if (mPadding == null) {
-                mPadding = new Rect();
-            }
-            mPadding.left = rect.left;
-            mPadding.right = rect.right;
-            mPadding.top = rect.top;
-            mPadding.bottom = rect.bottom;
-        }
-
-        @Override
-        public boolean getPadding(Rect padding) {
-            if (padding == null) {
-                return false;
-            }
-            if (mPadding == null) {
-                return false;
-            }
-            padding.left = mPadding.left;
-            padding.top = mPadding.top;
-            padding.right = mPadding.right;
-            padding.bottom = mPadding.bottom;
-            return true;
-        }
-
-        @Override
-        public int getMinimumHeight() {
-            return mMinimumHeight;
-        }
-
-        @Override
-        public int getMinimumWidth() {
-            return mMinimumWidth;
-        }
-
-        @Override
-        public int getIntrinsicHeight() {
-            return mIntrinsicHeight;
-        }
-
-        @Override
-        public int getIntrinsicWidth() {
-            return mIntrinsicWidth;
-        }
-
-        public void setMinimumHeight(int h) {
-            mMinimumHeight = h;
-        }
-
-        public void setMinimumWidth(int w) {
-            mMinimumWidth = w;
-        }
-
-        public void setIntrinsicHeight(int h) {
-            mIntrinsicHeight = h;
-        }
-
-        public void setIntrinsicWidth(int w) {
-            mIntrinsicWidth = w;
-        }
-
-        public void setOpacity(int opacity){
-            mOpacity = opacity;
-        }
     }
 }

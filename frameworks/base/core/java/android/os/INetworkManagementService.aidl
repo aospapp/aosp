@@ -24,7 +24,6 @@ import android.net.Network;
 import android.net.NetworkStats;
 import android.net.RouteInfo;
 import android.net.UidRange;
-import android.net.wifi.WifiConfiguration;
 import android.os.INetworkActivityListener;
 
 /**
@@ -223,27 +222,6 @@ interface INetworkManagementService
     void detachPppd(String tty);
 
     /**
-     * Load firmware for operation in the given mode. Currently the three
-     * modes supported are "AP", "STA" and "P2P".
-     */
-    void wifiFirmwareReload(String wlanIface, String mode);
-
-    /**
-     * Start Wifi Access Point
-     */
-    void startAccessPoint(in WifiConfiguration wifiConfig, String iface);
-
-    /**
-     * Stop Wifi Access Point
-     */
-    void stopAccessPoint(String iface);
-
-    /**
-     * Set Access Point config
-     */
-    void setAccessPoint(in WifiConfiguration wifiConfig, String iface);
-
-    /**
      ** DATA USAGE RELATED
      **/
 
@@ -333,11 +311,6 @@ interface INetworkManagementService
      * Configure name servers, search paths, and resolver parameters for the given network.
      */
     void setDnsConfigurationForNetwork(int netId, in String[] servers, String domains);
-
-    /**
-     * Bind name servers to a network in the DNS resolver.
-     */
-    void setDnsServersForNetwork(int netId, in String[] servers, String domains);
 
     void setFirewallEnabled(boolean enabled);
     boolean isFirewallEnabled();

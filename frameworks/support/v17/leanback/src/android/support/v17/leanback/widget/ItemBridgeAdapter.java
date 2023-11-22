@@ -25,8 +25,8 @@ import java.util.ArrayList;
  * party Presenters.
  */
 public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProviderAdapter {
-    private static final String TAG = "ItemBridgeAdapter";
-    private static final boolean DEBUG = false;
+    static final String TAG = "ItemBridgeAdapter";
+    static final boolean DEBUG = false;
 
     /**
      * Interface for listening to ViewHolder operations.
@@ -56,9 +56,9 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
     }
 
     private ObjectAdapter mAdapter;
-    private Wrapper mWrapper;
+    Wrapper mWrapper;
     private PresenterSelector mPresenterSelector;
-    private FocusHighlightHandler mFocusHighlight;
+    FocusHighlightHandler mFocusHighlight;
     private AdapterListener mAdapterListener;
     private ArrayList<Presenter> mPresenters = new ArrayList<Presenter>();
 
@@ -197,6 +197,15 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
     }
 
     /**
+     * Changes Presenter that creates and binds the view.
+     * @param presenterSelector Presenter that creates and binds the view.
+     */
+    public void setPresenter(PresenterSelector presenterSelector) {
+        mPresenterSelector = presenterSelector;
+        notifyDataSetChanged();
+    }
+
+    /**
      * Sets the {@link Wrapper}.
      */
     public void setWrapper(Wrapper wrapper) {
@@ -243,8 +252,8 @@ public class ItemBridgeAdapter extends RecyclerView.Adapter implements FacetProv
 
     @Override
     public int getItemViewType(int position) {
-        PresenterSelector presenterSelector = mPresenterSelector != null ?
-                mPresenterSelector : mAdapter.getPresenterSelector();
+        PresenterSelector presenterSelector = mPresenterSelector != null
+                ? mPresenterSelector : mAdapter.getPresenterSelector();
         Object item = mAdapter.get(position);
         Presenter presenter = presenterSelector.getPresenter(item);
         int type = mPresenters.indexOf(presenter);

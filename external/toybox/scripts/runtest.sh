@@ -64,7 +64,7 @@ optional()
 
 testing()
 {
-  NAME="$1"
+  NAME="$CMDNAME $1"
   [ -z "$1" ] && NAME=$2
 
   if [ $# -ne 5 ]
@@ -83,23 +83,23 @@ testing()
 
   echo -ne "$3" > expected
   echo -ne "$4" > input
-  echo -ne "$5" | eval "$2" > actual
+  echo -ne "$5" | ${EVAL:-eval} "$2" > actual
   RETVAL=$?
 
   # Catch segfaults
   [ $RETVAL -gt 128 ] && [ $RETVAL -lt 255 ] &&
     echo "exited with signal (or returned $RETVAL)" >> actual
  
-  cmp expected actual > /dev/null 2>&1
-  if [ $? -ne 0 ]
+  DIFF="$(diff -au${NOSPACE:+b} expected actual)"
+  if [ ! -z "$DIFF" ]
   then
     FAILCOUNT=$[$FAILCOUNT+1]
     echo "$SHOWFAIL: $NAME"
     if [ -n "$VERBOSE" ]
     then
       [ ! -z "$4" ] && echo "echo -ne \"$4\" > input"
-      echo "echo -ne '$5' | $2"
-      diff -au expected actual
+      echo "echo -ne '$5' |$EVAL $2"
+      echo "$DIFF"
       [ "$VERBOSE" == fail ] && exit 1
     fi
   else
@@ -109,7 +109,7 @@ testing()
 
   [ -n "$DEBUG" ] && set +x
 
-  return $RETVAL
+  return 0
 }
 
 # Recursively grab an executable and all the libraries needed to run it.

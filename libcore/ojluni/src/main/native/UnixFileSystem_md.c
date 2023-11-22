@@ -82,7 +82,7 @@ Java_java_io_UnixFileSystem_canonicalize0(JNIEnv *env, jobject this,
 
     WITH_PLATFORM_STRING(env, pathname, path) {
         char canonicalPath[JVM_MAXPATHLEN];
-        if (canonicalize(JVM_NativePath((char *)path),
+        if (canonicalize((char *)path,
                          canonicalPath, JVM_MAXPATHLEN) < 0) {
             JNU_ThrowIOExceptionWithLastError(env, "Bad pathname");
         } else {
@@ -133,6 +133,7 @@ Java_java_io_UnixFileSystem_getBooleanAttributes0(JNIEnv *env, jobject this,
     return rv;
 }
 
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_checkAccess0(JNIEnv *env, jobject this,
                                          jobject file, jint a)
@@ -140,6 +141,7 @@ Java_java_io_UnixFileSystem_checkAccess0(JNIEnv *env, jobject this,
     jboolean rv = JNI_FALSE;
     int mode = 0;
     switch (a) {
+    // Android-changed: Added ACCESS_OK case
     case java_io_FileSystem_ACCESS_OK:
         mode = F_OK;
         break;
@@ -162,7 +164,7 @@ Java_java_io_UnixFileSystem_checkAccess0(JNIEnv *env, jobject this,
     return rv;
 }
 
-
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_setPermission0(JNIEnv *env, jobject this,
                                            jobject file,
@@ -210,6 +212,7 @@ Java_java_io_UnixFileSystem_setPermission0(JNIEnv *env, jobject this,
     return rv;
 }
 
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jlong JNICALL
 Java_java_io_UnixFileSystem_getLastModifiedTime0(JNIEnv *env, jobject this,
                                                  jobject file)
@@ -225,7 +228,7 @@ Java_java_io_UnixFileSystem_getLastModifiedTime0(JNIEnv *env, jobject this,
     return rv;
 }
 
-
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jlong JNICALL
 Java_java_io_UnixFileSystem_getLength0(JNIEnv *env, jobject this,
                                        jobject file)
@@ -244,7 +247,7 @@ Java_java_io_UnixFileSystem_getLength0(JNIEnv *env, jobject this,
 
 /* -- File operations -- */
 
-
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_createFileExclusively0(JNIEnv *env, jclass cls,
                                                    jstring pathname)
@@ -252,19 +255,18 @@ Java_java_io_UnixFileSystem_createFileExclusively0(JNIEnv *env, jclass cls,
     jboolean rv = JNI_FALSE;
 
     WITH_PLATFORM_STRING(env, pathname, path) {
-        int fd;
-        if (!strcmp (path, "/")) {
-            fd = JVM_EEXIST;    /* The root directory always exists */
-        } else {
-            fd = JVM_Open(path, JVM_O_RDWR | JVM_O_CREAT | JVM_O_EXCL, 0666);
-        }
-        if (fd < 0) {
-            if (fd != JVM_EEXIST) {
-                JNU_ThrowIOExceptionWithLastError(env, path);
+        FD fd;
+        /* The root directory always exists */
+        if (strcmp (path, "/")) {
+            fd = handleOpen(path, O_RDWR | O_CREAT | O_EXCL, 0666);
+            if (fd < 0) {
+                if (errno != EEXIST)
+                    JNU_ThrowIOExceptionWithLastError(env, path);
+            } else {
+                if (close(fd) == -1)
+                    JNU_ThrowIOExceptionWithLastError(env, path);
+                rv = JNI_TRUE;
             }
-        } else {
-            JVM_Close(fd);
-            rv = JNI_TRUE;
         }
     } END_PLATFORM_STRING(env, path);
     return rv;
@@ -285,7 +287,7 @@ Java_java_io_UnixFileSystem_delete0(JNIEnv *env, jobject this,
     return rv;
 }
 
-
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jobjectArray JNICALL
 Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
                                   jobject file)
@@ -295,6 +297,11 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     struct dirent64 *result;
     int len, maxlen;
     jobjectArray rv, old;
+    jclass str_class;
+
+    str_class = JNU_ClassString(env);
+    CHECK_NULL_RETURN(str_class, NULL);
+
 
     WITH_FIELD_PLATFORM_STRING(env, file, ids.path, path) {
         dir = opendir(path);
@@ -311,7 +318,7 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     /* Allocate an initial String array */
     len = 0;
     maxlen = 16;
-    rv = (*env)->NewObjectArray(env, maxlen, JNU_ClassString(env), NULL);
+    rv = (*env)->NewObjectArray(env, maxlen, str_class, NULL);
     if (rv == NULL) goto error;
 
     /* Scan the directory */
@@ -321,8 +328,7 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
             continue;
         if (len == maxlen) {
             old = rv;
-            rv = (*env)->NewObjectArray(env, maxlen <<= 1,
-                                        JNU_ClassString(env), NULL);
+            rv = (*env)->NewObjectArray(env, maxlen <<= 1, str_class, NULL);
             if (rv == NULL) goto error;
             if (JNU_CopyObjectArray(env, rv, old, len) < 0) goto error;
             (*env)->DeleteLocalRef(env, old);
@@ -341,7 +347,7 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
 
     /* Copy the final results into an appropriately-sized array */
     old = rv;
-    rv = (*env)->NewObjectArray(env, len, JNU_ClassString(env), NULL);
+    rv = (*env)->NewObjectArray(env, len, str_class, NULL);
     if (rv == NULL) {
         return NULL;
     }
@@ -356,7 +362,7 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     return NULL;
 }
 
-
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_createDirectory0(JNIEnv *env, jobject this,
                                              jobject file)
@@ -388,6 +394,7 @@ Java_java_io_UnixFileSystem_rename0(JNIEnv *env, jobject this,
     return rv;
 }
 
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_setLastModifiedTime0(JNIEnv *env, jobject this,
                                                  jobject file, jlong time)
@@ -416,7 +423,7 @@ Java_java_io_UnixFileSystem_setLastModifiedTime0(JNIEnv *env, jobject this,
     return rv;
 }
 
-
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_setReadOnly0(JNIEnv *env, jobject this,
                                          jobject file)
@@ -434,6 +441,7 @@ Java_java_io_UnixFileSystem_setReadOnly0(JNIEnv *env, jobject this,
     return rv;
 }
 
+// Android-changed: Name changed because of added thread policy check
 JNIEXPORT jlong JNICALL
 Java_java_io_UnixFileSystem_getSpace0(JNIEnv *env, jobject this,
                                       jobject file, jint t)

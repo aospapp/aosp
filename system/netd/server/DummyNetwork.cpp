@@ -22,6 +22,9 @@
 #include "log/log.h"
 #include "errno.h"
 
+namespace android {
+namespace net {
+
 const char* DummyNetwork::INTERFACE_NAME = "dummy0";
 
 DummyNetwork::DummyNetwork(unsigned netId) : Network(netId) {
@@ -42,3 +45,6 @@ int DummyNetwork::addInterface(const std::string& /* interface */) {
 int DummyNetwork::removeInterface(const std::string& /* interface */) {
     return -EINVAL;
 }
+
+}  // namespace net
+}  // namespace android

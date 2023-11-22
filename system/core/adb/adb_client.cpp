@@ -29,6 +29,7 @@
 #include <sys/types.h>
 
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <android-base/stringprintf.h>
@@ -37,36 +38,24 @@
 
 #include "adb_io.h"
 #include "adb_utils.h"
+#include "socket_spec.h"
+#include "sysdeps/chrono.h"
 
 static TransportType __adb_transport = kTransportAny;
 static const char* __adb_serial = NULL;
 
-static int __adb_server_port = DEFAULT_ADB_PORT;
-static const char* __adb_server_name = NULL;
+static const char* __adb_server_socket_spec;
 
-void adb_set_transport(TransportType type, const char* serial)
-{
+void adb_set_transport(TransportType type, const char* serial) {
     __adb_transport = type;
     __adb_serial = serial;
 }
 
-void adb_get_transport(TransportType* type, const char** serial) {
-    if (type) {
-        *type = __adb_transport;
+void adb_set_socket_spec(const char* socket_spec) {
+    if (__adb_server_socket_spec) {
+        LOG(FATAL) << "attempted to reinitialize adb_server_socket_spec " << socket_spec << " (was " << __adb_server_socket_spec << ")";
     }
-    if (serial) {
-        *serial = __adb_serial;
-    }
-}
-
-void adb_set_tcp_specifics(int server_port)
-{
-    __adb_server_port = server_port;
-}
-
-void adb_set_tcp_name(const char* hostname)
-{
-    __adb_server_name = hostname;
+    __adb_server_socket_spec = socket_spec;
 }
 
 static int switch_socket_transport(int fd, std::string* error) {
@@ -139,23 +128,12 @@ int _adb_connect(const std::string& service, std::string* error) {
         return -1;
     }
 
-    int fd;
     std::string reason;
-    if (__adb_server_name) {
-        fd = network_connect(__adb_server_name, __adb_server_port, SOCK_STREAM, 0, &reason);
-        if (fd == -1) {
-            *error = android::base::StringPrintf("can't connect to %s:%d: %s",
-                                                 __adb_server_name, __adb_server_port,
-                                                 reason.c_str());
-            return -2;
-        }
-    } else {
-        fd = network_loopback_client(__adb_server_port, SOCK_STREAM, &reason);
-        if (fd == -1) {
-            *error = android::base::StringPrintf("cannot connect to daemon: %s",
-                                                 reason.c_str());
-            return -2;
-        }
+    int fd = socket_spec_connect(__adb_server_socket_spec, &reason);
+    if (fd < 0) {
+        *error = android::base::StringPrintf("cannot connect to daemon at %s: %s",
+                                             __adb_server_socket_spec, reason.c_str());
+        return -2;
     }
 
     if ((memcmp(&service[0],"host",4) != 0 || service == "host:reconnect") &&
@@ -185,15 +163,14 @@ int adb_connect(const std::string& service, std::string* error) {
     int fd = _adb_connect("host:version", error);
 
     D("adb_connect: service %s", service.c_str());
-    if (fd == -2 && __adb_server_name) {
+    if (fd == -2 && !is_local_socket_spec(__adb_server_socket_spec)) {
         fprintf(stderr,"** Cannot start server on remote host\n");
         // error is the original network connection error
         return fd;
     } else if (fd == -2) {
-        fprintf(stdout,"* daemon not running. starting it now on port %d *\n",
-                __adb_server_port);
+        fprintf(stdout, "* daemon not running. starting it now at %s *\n", __adb_server_socket_spec);
     start_server:
-        if (launch_server(__adb_server_port)) {
+        if (launch_server(__adb_server_socket_spec)) {
             fprintf(stderr,"* failed to start daemon *\n");
             // launch_server() has already printed detailed error info, so just
             // return a generic error string about the overall adb_connect()
@@ -203,8 +180,8 @@ int adb_connect(const std::string& service, std::string* error) {
         } else {
             fprintf(stdout,"* daemon started successfully *\n");
         }
-        /* give the server some time to start properly and detect devices */
-        adb_sleep_ms(3000);
+        // Give the server some time to start properly and detect devices.
+        std::this_thread::sleep_for(3s);
         // fall through to _adb_connect
     } else {
         // If a server is already running, check its version matches.
@@ -249,7 +226,7 @@ int adb_connect(const std::string& service, std::string* error) {
             }
 
             /* XXX can we better detect its death? */
-            adb_sleep_ms(2000);
+            std::this_thread::sleep_for(2s);
             goto start_server;
         }
     }

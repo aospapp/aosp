@@ -533,6 +533,8 @@ PublicAttributesValidation(
    OBJECT                  *parentObject = NULL;
    if(HandleGetType(parentHandle) != TPM_HT_PERMANENT)
        parentObject = ObjectGet(parentHandle);
+    if (publicArea->nameAlg == TPM_ALG_NULL)
+        return TPM_RC_HASH;
     // Check authPolicy digest consistency
     if(   publicArea->authPolicy.t.size != 0
        && (    publicArea->authPolicy.t.size

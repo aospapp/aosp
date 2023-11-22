@@ -257,6 +257,12 @@ bool UpdateAttempterAndroid::ResetStatus(brillo::ErrorPtr* error) {
       if (!boot_control_->SetActiveBootSlot(boot_control_->GetCurrentSlot()))
         ret_value = false;
 
+      // Mark the current slot as successful again, since marking it as active
+      // may reset the successful bit. We ignore the result of whether marking
+      // the current slot as successful worked.
+      if (!boot_control_->MarkBootSuccessfulAsync(Bind([](bool successful){})))
+        ret_value = false;
+
       if (!ret_value) {
         return LogAndSetError(
             error,
@@ -393,7 +399,9 @@ void UpdateAttempterAndroid::CompleteUpdateBootFlags(bool successful) {
 void UpdateAttempterAndroid::ScheduleProcessingStart() {
   LOG(INFO) << "Scheduling an action processor start.";
   brillo::MessageLoop::current()->PostTask(
-      FROM_HERE, Bind([this] { this->processor_->StartProcessing(); }));
+      FROM_HERE,
+      Bind([](ActionProcessor* processor) { processor->StartProcessing(); },
+           base::Unretained(processor_.get())));
 }
 
 void UpdateAttempterAndroid::TerminateUpdateAndNotify(ErrorCode error_code) {
@@ -453,9 +461,8 @@ void UpdateAttempterAndroid::BuildUpdateActions(const string& url) {
       hardware_,
       nullptr,                                        // system_state, not used.
       new MultiRangeHttpFetcher(download_fetcher)));  // passes ownership
-  shared_ptr<FilesystemVerifierAction> dst_filesystem_verifier_action(
-      new FilesystemVerifierAction(boot_control_,
-                                   VerifierMode::kVerifyTargetHash));
+  shared_ptr<FilesystemVerifierAction> filesystem_verifier_action(
+      new FilesystemVerifierAction());
 
   shared_ptr<PostinstallRunnerAction> postinstall_runner_action(
       new PostinstallRunnerAction(boot_control_, hardware_));
@@ -466,15 +473,14 @@ void UpdateAttempterAndroid::BuildUpdateActions(const string& url) {
 
   actions_.push_back(shared_ptr<AbstractAction>(install_plan_action));
   actions_.push_back(shared_ptr<AbstractAction>(download_action));
-  actions_.push_back(
-      shared_ptr<AbstractAction>(dst_filesystem_verifier_action));
+  actions_.push_back(shared_ptr<AbstractAction>(filesystem_verifier_action));
   actions_.push_back(shared_ptr<AbstractAction>(postinstall_runner_action));
 
   // Bond them together. We have to use the leaf-types when calling
   // BondActions().
   BondActions(install_plan_action.get(), download_action.get());
-  BondActions(download_action.get(), dst_filesystem_verifier_action.get());
-  BondActions(dst_filesystem_verifier_action.get(),
+  BondActions(download_action.get(), filesystem_verifier_action.get());
+  BondActions(filesystem_verifier_action.get(),
               postinstall_runner_action.get());
 
   // Enqueue the actions.

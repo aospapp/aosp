@@ -65,6 +65,7 @@ public class AllocationByteBufferTest extends RSBaseCompute {
                 byte byteInBuffer = bb.get(posY * stride + posX * vecWidth * byteSize);
                 assertEquals(byteInData, byteInBuffer);
             }
+            alloc.destroy();
         }
     }
 

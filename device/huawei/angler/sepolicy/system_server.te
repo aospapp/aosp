@@ -2,9 +2,6 @@
 allow system_server sensors_device:chr_file rw_file_perms;
 allow system_server uhid_device:chr_file rw_file_perms;
 
-allow system_server sysfs_led:dir r_dir_perms;
-allow system_server sysfs_led:file rw_file_perms;
-
 allow system_server sysfs_gpu_tuning:dir r_dir_perms;
 allow system_server sysfs_gpu_tuning:file rw_file_perms;
 
@@ -44,3 +41,7 @@ allow system_server graphics_device:chr_file rw_file_perms;
 
 # Access for thermal-engine
 allow system_server sysfs_thermal:file write;
+
+# use MSM ipc router ioctls
+allow system_server self:socket ioctl;
+allowxperm system_server self:socket ioctl msm_sock_ipc_ioctls;

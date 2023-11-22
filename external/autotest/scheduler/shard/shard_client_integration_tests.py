@@ -5,10 +5,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import common
+import unittest
 
+import common
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.test_utils import unittest
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
 from autotest_lib.frontend.afe import models
@@ -48,7 +48,7 @@ class ShardClientIntegrationTest(rdb_testing_utils.AbstractBaseRDBTester,
         hqe.set_status('Completed')
 
         # Only incomplete jobs should be in known ids.
-        job_ids, host_ids = client._get_known_ids()
+        job_ids, host_ids, _ = client._get_known_jobs_and_hosts()
         assert(job_ids == [])
 
         # Jobs that have successfully gone through a set_status should
@@ -89,7 +89,7 @@ class ShardClientIntegrationTest(rdb_testing_utils.AbstractBaseRDBTester,
 
         # Make sure the job with a shard but without complete is still
         # in known_ids.
-        job_ids, host_ids = client._get_known_ids()
+        job_ids, host_ids, _ = client._get_known_jobs_and_hosts()
         assert(set(job_ids) == set([job.id]))
 
         # Make sure the job with a shard but without complete is not
@@ -131,4 +131,7 @@ class ShardClientIntegrationTest(rdb_testing_utils.AbstractBaseRDBTester,
         models.User.deserialize(serialized_user)
         models.User.objects.get(login='new_user')
 
+
+if __name__ == '__main__':
+    unittest.main()
 

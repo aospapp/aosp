@@ -5,6 +5,7 @@
 import httplib
 import logging
 import socket
+import tempfile
 import time
 import xmlrpclib
 
@@ -28,9 +29,9 @@ class RpcServerTracker(object):
     """
 
     _RPC_PROXY_URL_FORMAT = 'http://localhost:%d'
+    _RPC_HOST_ADDRESS_FORMAT = 'localhost:%d'
     _RPC_SHUTDOWN_POLLING_PERIOD_SECONDS = 2
     _RPC_SHUTDOWN_TIMEOUT_SECONDS = 10
-
 
     def __init__(self, host):
         """
@@ -41,8 +42,8 @@ class RpcServerTracker(object):
         self._rpc_proxy_map = {}
 
 
-    def _setup_rpc(self, port, command_name, remote_pid=None):
-        """Sets up a tunnel process and performs rpc connection book keeping.
+    def _setup_port(self, port, command_name, remote_pid=None):
+        """Sets up a tunnel process and register it to rpc_server_tracker.
 
         Chrome OS on the target closes down most external ports for security.
         We could open the port, but doing that would conflict with security
@@ -72,20 +73,48 @@ class RpcServerTracker(object):
 
         @param port: The remote forwarding port.
         @param command_name: The name of the remote process, to terminate
-                              using pkill.
+                                using pkill.
+        @param remote_pid: The PID of the remote background process
+                            as a string.
 
-        @return A url that we can use to initiate the rpc connection.
+        @return the local port which is used for port forwarding on the ssh
+                    client.
         """
         self.disconnect(port)
         local_port = utils.get_unused_port()
-        tunnel_proc = self._host.rpc_port_forward(port, local_port)
+        tunnel_proc = self._host.create_ssh_tunnel(port, local_port)
         self._rpc_proxy_map[port] = (command_name, tunnel_proc, remote_pid)
-        return self._RPC_PROXY_URL_FORMAT % local_port
+        return local_port
+
+
+    def _setup_rpc(self, port, command_name, remote_pid=None):
+        """Construct a URL for an rpc connection using ssh tunnel.
+
+        @param port: The remote forwarding port.
+        @param command_name: The name of the remote process, to terminate
+                              using pkill.
+        @param remote_pid: The PID of the remote background process
+                            as a string.
+
+        @return a url that we can use to initiate the rpc connection.
+        """
+        return self._RPC_PROXY_URL_FORMAT % self._setup_port(
+                port, command_name, remote_pid=remote_pid)
+
+
+    def tunnel_connect(self, port):
+        """Construct a host address using ssh tunnel.
+
+        @param port: The remote forwarding port.
+
+        @return a host address using ssh tunnel.
+        """
+        return self._RPC_HOST_ADDRESS_FORMAT % self._setup_port(port, None)
 
 
     def xmlrpc_connect(self, command, port, command_name=None,
                        ready_test_name=None, timeout_seconds=10,
-                       logfile=None):
+                       logfile=None, request_timeout_seconds=None):
         """Connect to an XMLRPC server on the host.
 
         The `command` argument should be a simple shell command that
@@ -125,23 +154,30 @@ class RpcServerTracker(object):
             TestFail error if server is not ready in time.
         @param logfile Logfile to send output when running
             'command' argument.
+        @param request_timeout_seconds Timeout in seconds for an XMLRPC request.
 
         """
         # Clean up any existing state.  If the caller is willing
         # to believe their server is down, we ought to clean up
         # any tunnels we might have sitting around.
         self.disconnect(port)
-        if logfile:
-            remote_cmd = '%s > %s 2>&1' % (command, logfile)
-        else:
-            remote_cmd = command
-        remote_pid = self._host.run_background(remote_cmd)
-        logging.debug('Started XMLRPC server on host %s, pid = %s',
-                      self._host.hostname, remote_pid)
+        remote_pid = None
+        if command is not None:
+            if logfile:
+                remote_cmd = '%s > %s 2>&1' % (command, logfile)
+            else:
+                remote_cmd = command
+            remote_pid = self._host.run_background(remote_cmd)
+            logging.debug('Started XMLRPC server on host %s, pid = %s',
+                        self._host.hostname, remote_pid)
 
         # Tunnel through SSH to be able to reach that remote port.
         rpc_url = self._setup_rpc(port, command_name, remote_pid=remote_pid)
-        proxy = xmlrpclib.ServerProxy(rpc_url, allow_none=True)
+        if request_timeout_seconds is not None:
+            proxy = TimeoutXMLRPCServerProxy(
+                    rpc_url, timeout=request_timeout_seconds, allow_none=True)
+        else:
+            proxy = xmlrpclib.ServerProxy(rpc_url, allow_none=True)
 
         if ready_test_name is not None:
             # retry.retry logs each attempt; calculate delay_sec to
@@ -163,6 +199,11 @@ class RpcServerTracker(object):
             finally:
                 if not successful:
                     logging.error('Failed to start XMLRPC server.')
+                    if logfile:
+                        with tempfile.NamedTemporaryFile() as temp:
+                            self._host.get_file(logfile, temp.name)
+                            logging.error('The log of XML RPC server:\n%s',
+                                          open(temp.name).read())
                     self.disconnect(port)
         logging.info('XMLRPC server started successfully.')
         return proxy
@@ -247,7 +288,7 @@ class RpcServerTracker(object):
                     raise error.TestError('Failed to shutdown RPC server %s' %
                                           remote_name)
 
-        self._host.rpc_port_disconnect(tunnel_proc, port)
+        self._host.disconnect_ssh_tunnel(tunnel_proc, port)
         del self._rpc_proxy_map[port]
 
 
@@ -255,3 +296,45 @@ class RpcServerTracker(object):
         """Disconnect all known RPC proxy ports."""
         for port in self._rpc_proxy_map.keys():
             self.disconnect(port)
+
+
+class TimeoutXMLRPCServerProxy(xmlrpclib.ServerProxy):
+    """XMLRPC ServerProxy supporting timeout."""
+    def __init__(self, uri, timeout=20, *args, **kwargs):
+        """Initializes a TimeoutXMLRPCServerProxy.
+
+        @param uri: URI to a XMLRPC server.
+        @param timeout: Timeout in seconds for a XMLRPC request.
+        @param *args: args to xmlrpclib.ServerProxy.
+        @param **kwargs: kwargs to xmlrpclib.ServerProxy.
+
+        """
+        if timeout:
+            kwargs['transport'] = TimeoutXMLRPCTransport(timeout=timeout)
+        xmlrpclib.ServerProxy.__init__(self, uri, *args, **kwargs)
+
+
+class TimeoutXMLRPCTransport(xmlrpclib.Transport):
+    """A Transport subclass supporting timeout."""
+    def __init__(self, timeout=20, *args, **kwargs):
+        """Initializes a TimeoutXMLRPCTransport.
+
+        @param timeout: Timeout in seconds for a HTTP request through this transport layer.
+        @param *args: args to xmlrpclib.Transport.
+        @param **kwargs: kwargs to xmlrpclib.Transport.
+
+        """
+        xmlrpclib.Transport.__init__(self, *args, **kwargs)
+        self.timeout = timeout
+
+
+    def make_connection(self, host):
+        """Overwrites make_connection in xmlrpclib.Transport with timeout.
+
+        @param host: Host address to connect.
+
+        @return: A httplib.HTTPConnection connecting to host with timeout.
+
+        """
+        conn = httplib.HTTPConnection(host, timeout=self.timeout)
+        return conn

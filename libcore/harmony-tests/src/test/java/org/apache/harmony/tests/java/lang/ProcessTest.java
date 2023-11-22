@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import libcore.io.Libcore;
+import java.util.concurrent.TimeUnit;
 
 public class ProcessTest extends junit.framework.TestCase {
   // Test that failures to exec don't leave zombies lying around.
@@ -140,4 +141,45 @@ public class ProcessTest extends junit.framework.TestCase {
     process.destroy();
     process.destroy();
   }
+
+  public void test_destroyForcibly() throws Exception {
+    String[] commands = { "sh", "-c", "sleep 3000"};
+    Process process = Runtime.getRuntime().exec(commands, null, null);
+    assertNotNull(process.destroyForcibly());
+    process.waitFor(); // destroy is asynchronous.
+    assertTrue(process.exitValue() != 0);
+  }
+
+  public void test_isAlive() throws Exception {
+    String[] commands = { "sh", "-c", "sleep 3000"};
+    Process process = Runtime.getRuntime().exec(commands, null, null);
+    assertTrue(process.isAlive());
+    assertNotNull(process.destroyForcibly());
+    process.waitFor(); // destroy is asynchronous.
+    assertFalse(process.isAlive());
+  }
+
+  public void test_waitForTimeout() throws Exception {
+    String[] commands = { "sh", "-c", "sleep 3000"};
+    Process process = Runtime.getRuntime().exec(commands, null, null);
+    assertFalse(process.waitFor(0, TimeUnit.MICROSECONDS));
+    assertTrue(process.isAlive());
+    assertFalse(process.waitFor(500, TimeUnit.MICROSECONDS));
+    assertTrue(process.isAlive());
+    assertNotNull(process.destroyForcibly());
+    assertTrue(process.waitFor(2, TimeUnit.SECONDS));
+    assertFalse(process.isAlive());
+  }
+
+  public void test_waitForTimeout_NPE() throws Exception {
+    String[] commands = { "sh", "-c", "sleep 3000"};
+    Process process = Runtime.getRuntime().exec(commands, null, null);
+    try {
+      process.waitFor(500, null);
+      fail();
+    } catch(NullPointerException expected) {}
+    assertNotNull(process.destroyForcibly());
+    process.waitFor();
+  }
+
 }

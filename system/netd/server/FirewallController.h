@@ -93,7 +93,7 @@ private:
     FirewallType mFirewallType;
     int attachChain(const char*, const char*);
     int detachChain(const char*, const char*);
-    int createChain(const char*, const char*, FirewallType);
+    int createChain(const char*, FirewallType);
     FirewallType getFirewallType(ChildChain);
 };
 

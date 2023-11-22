@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1996-2015, International Business Machines
+*   Copyright (C) 1996-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -17,6 +19,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.MissingResourceException;
 
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.util.ICUUncheckedIOException;
 import com.ibm.icu.util.Output;
@@ -41,7 +44,7 @@ public final class CollationLoader {
         synchronized(CollationLoader.class) {
             if (rootRules == null) {
                 UResourceBundle rootBundle = UResourceBundle.getBundleInstance(
-                        ICUResourceBundle.ICU_COLLATION_BASE_NAME, ULocale.ROOT);
+                        ICUData.ICU_COLLATION_BASE_NAME, ULocale.ROOT);
                 rootRules = rootBundle.getString("UCARules");
             }
         }
@@ -78,7 +81,7 @@ public final class CollationLoader {
 
     static String loadRules(ULocale locale, String collationType) {
         UResourceBundle bundle = UResourceBundle.getBundleInstance(
-                ICUResourceBundle.ICU_COLLATION_BASE_NAME, locale);
+                ICUData.ICU_COLLATION_BASE_NAME, locale);
         UResourceBundle data = ((ICUResourceBundle)bundle).getWithFallback(
                 "collations/" + ASCII.toLowerCase(collationType));
         String rules = data.getString("Sequence");
@@ -105,7 +108,7 @@ public final class CollationLoader {
         UResourceBundle bundle = null;
         try {
             bundle = ICUResourceBundle.getBundleInstance(
-                    ICUResourceBundle.ICU_COLLATION_BASE_NAME, locale,
+                    ICUData.ICU_COLLATION_BASE_NAME, locale,
                     ICUResourceBundle.OpenType.LOCALE_ROOT);
         } catch (MissingResourceException e) {
             outValidLocale.value = ULocale.ROOT;
@@ -226,7 +229,7 @@ public final class CollationLoader {
         if (!actualLocale.equals(validLocale)) {
             // Opening a bundle for the actual locale should always succeed.
             UResourceBundle actualBundle = UResourceBundle.getBundleInstance(
-                    ICUResourceBundle.ICU_COLLATION_BASE_NAME, actualLocale);
+                    ICUData.ICU_COLLATION_BASE_NAME, actualLocale);
             defT = ((ICUResourceBundle)actualBundle).findStringWithFallback("collations/default");
             if (defT != null) {
                 defaultType = defT;

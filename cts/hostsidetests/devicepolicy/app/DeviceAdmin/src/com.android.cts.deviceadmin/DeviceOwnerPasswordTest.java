@@ -46,7 +46,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
                 DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
         assertEquals(DevicePolicyManager.PASSWORD_QUALITY_SOMETHING,
                 dpm.getPasswordQuality(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(false);
 
         String caseDescription = "initial";
         assertPasswordSucceeds("1234", caseDescription);
@@ -56,8 +56,9 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         dpm.setPasswordMinimumLength(mAdminComponent, 10);
         caseDescription = "minimum password length = 10";
         assertEquals(10, dpm.getPasswordMinimumLength(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(true); // length not checked for this quality
 
+        // TODO(ascull): fix resetPassword() logic so these succeed
         assertPasswordFails("1234", caseDescription);
         assertPasswordFails("abcd", caseDescription);
         assertPasswordFails("abcd1234", caseDescription);
@@ -66,7 +67,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         caseDescription = "minimum password length = 4";
         assertEquals(4, dpm.getPasswordMinimumLength(
                 mAdminComponent));
-        assertTrue(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(true);
 
         assertPasswordSucceeds("1234", caseDescription);
         assertPasswordSucceeds("abcd", caseDescription);
@@ -78,7 +79,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
                 DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
         assertEquals(DevicePolicyManager.PASSWORD_QUALITY_NUMERIC,
                 dpm.getPasswordQuality(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());            // failure
+        assertPasswordSufficiency(false);            // failure
 
         String caseDescription = "initial";
         assertPasswordSucceeds("1234", caseDescription);
@@ -88,7 +89,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         dpm.setPasswordMinimumLength(mAdminComponent, 10);
         caseDescription = "minimum password length = 10";
         assertEquals(10, dpm.getPasswordMinimumLength(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(false);
 
         assertPasswordFails("1234", caseDescription);
         assertPasswordFails("abcd", caseDescription);
@@ -98,7 +99,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         caseDescription = "minimum password length = 4";
         assertEquals(4, dpm.getPasswordMinimumLength(
                 mAdminComponent));
-        assertTrue(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(true);
 
         assertPasswordSucceeds("1234", caseDescription);
         assertPasswordSucceeds("abcd", caseDescription);
@@ -110,7 +111,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
                 DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC);
         assertEquals(DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC,
                 dpm.getPasswordQuality(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(false);
 
         String caseDescription = "initial";
         assertPasswordFails("1234", caseDescription);      // can't change
@@ -120,7 +121,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         dpm.setPasswordMinimumLength(mAdminComponent, 10);
         caseDescription = "minimum password length = 10";
         assertEquals(10, dpm.getPasswordMinimumLength(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(false);
 
         assertPasswordFails("1234", caseDescription);
         assertPasswordFails("abcd", caseDescription);
@@ -130,7 +131,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         caseDescription = "minimum password length = 4";
         assertEquals(4, dpm.getPasswordMinimumLength(
                 mAdminComponent));
-        assertTrue(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(true);
 
         assertPasswordFails("1234", caseDescription);
         assertPasswordSucceeds("abcd", caseDescription);
@@ -142,7 +143,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
                 DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC);
         assertEquals(DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC,
                 dpm.getPasswordQuality(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(false);
 
         String caseDescription = "initial";
         assertPasswordFails("1234", caseDescription);
@@ -152,7 +153,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         dpm.setPasswordMinimumLength(mAdminComponent, 10);
         caseDescription = "minimum password length = 10";
         assertEquals(10, dpm.getPasswordMinimumLength(mAdminComponent));
-        assertFalse(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(false);
 
         assertPasswordFails("1234", caseDescription);
         assertPasswordFails("abcd", caseDescription);
@@ -162,7 +163,7 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
         caseDescription = "minimum password length = 4";
         assertEquals(4, dpm.getPasswordMinimumLength(
                 mAdminComponent));
-        assertTrue(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(true);
 
         assertPasswordFails("1234", caseDescription);
         assertPasswordFails("abcd", caseDescription);
@@ -371,6 +372,21 @@ public class DeviceOwnerPasswordTest extends BaseDeviceAdminTest {
     private void assertPasswordSucceeds(String password, String restriction) {
         boolean passwordResetResult = dpm.resetPassword(password, /* flags= */0);
         assertTrue("Password '" + password + "' failed on " + restriction, passwordResetResult);
-        assertTrue(dpm.isActivePasswordSufficient());
+        assertPasswordSufficiency(true);
+    }
+
+    private void assertPasswordSufficiency(boolean expectPasswordSufficient) {
+        int retries = 15;
+        // isActivePasswordSufficient() gets the result asynchronously so let's retry a few times
+        while (retries >= 0 && dpm.isActivePasswordSufficient() != expectPasswordSufficient) {
+            retries--;
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+        assertEquals(expectPasswordSufficient, dpm.isActivePasswordSufficient());
+
     }
 }

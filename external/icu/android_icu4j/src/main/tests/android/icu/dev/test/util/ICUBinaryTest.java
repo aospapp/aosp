@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2014, International Business Machines Corporation and
@@ -11,10 +13,10 @@ package android.icu.dev.test.util;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.ICUBinary;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
 * Testing class for Trie. Tests here will be simple, since both CharTrie and 
@@ -23,7 +25,6 @@ import android.icu.junit.IcuTestFmwkRunner;
 * @author Syn Wee Quek
 * @since release 2.1 Jan 01 2002
 */
-@RunWith(IcuTestFmwkRunner.class)
 public final class ICUBinaryTest extends TestFmwk 
 { 
     // constructor ---------------------------------------------------
@@ -37,19 +38,10 @@ public final class ICUBinaryTest extends TestFmwk
       
     // public methods -----------------------------------------------
     
-    public static void main(String arg[]) 
-    {
-        ICUBinaryTest test = new ICUBinaryTest();
-        try {
-            test.run(arg);
-        } catch (Exception e) {
-            test.errln("Error testing icubinarytest");
-        }
-    }
-    
     /**
      * Testing the constructors of the Tries
      */
+    @Test
     public void TestReadHeader()
     {
         int formatid = 0x01020304;

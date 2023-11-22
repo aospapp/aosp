@@ -56,6 +56,9 @@ public class DoubleTest extends RSBaseCompute {
                 assertTrue("Incorrect output for testDoubleGlobal " + message.toString(), false);
             }
         }
+
+        out.destroy();
+        dc.destroy();
     }
 }
 

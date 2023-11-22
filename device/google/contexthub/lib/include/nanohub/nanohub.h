@@ -26,6 +26,11 @@
  * generate/parse compatible images
  */
 
+#define NANOHUB_OS_PATCH_LEVEL  0x0000
+
+#define NANOHUB_VENDOR_GOOGLE      UINT64_C(0x476F6F676C) // "Googl"
+#define NANOHUB_VENDOR_STMICRO     UINT64_C(0x53544d6963) // "STMic"
+
 #define NANOAPP_SIGNED_FLAG    0x1  // contents is signed with one or more signature block(s)
 #define NANOAPP_ENCRYPTED_FLAG 0x2  // contents is encrypted with exactly one encryption key
 
@@ -33,7 +38,16 @@
 #define NANOAPP_FW_MAGIC (((uint32_t)'N' <<  0) | ((uint32_t)'B' <<  8) | ((uint32_t)'I' << 16) | ((uint32_t)'N' << 24))
 #define GOOGLE_LAYOUT_MAGIC (((uint32_t)'G' <<  0) | ((uint32_t)'o' <<  8) | ((uint32_t)'o' << 16) | ((uint32_t)'g' << 24))
 
-// The binary format below is in little endian format
+#define APP_ID_ANY                 UINT64_C(0xFFFFFFFFFFFFFFFF)
+#define APP_VENDOR_ANY             UINT64_C(0xFFFFFFFFFF)
+#define APP_VENDOR_SHF             (24)
+#define APP_SEQ_ID_ANY             UINT32_C(0xFFFFFF)
+#define APP_ID_GET_VENDOR(appid)   ((appid) >> APP_VENDOR_SHF)
+#define APP_ID_GET_SEQ_ID(appid)   ((appid) & APP_SEQ_ID_ANY)
+#define APP_ID_MAKE(vendor, app)   ((((uint64_t)(vendor)) << APP_VENDOR_SHF) | ((app) & APP_SEQ_ID_ANY))
+
+#ifndef CONTEXT_HUB_H
+// The binary format below is in little endian format; borrowed from CONTEXT_HUB_H
 struct nano_app_binary_t {
     uint32_t header_version;       // 0x1 for this version
     uint32_t magic;                // "NANO"
@@ -44,6 +58,21 @@ struct nano_app_binary_t {
     uint32_t reserved[2];          // Should be all zeroes
     uint8_t  custom_binary[0];     // start of custom binary data
 };
+
+#endif
+
+struct HostMsgHdr {
+    uint32_t eventId;
+    uint64_t appId;
+    uint8_t len;
+} __attribute__((packed));
+
+struct HostMsgHdrChre {
+    uint32_t eventId;
+    uint64_t appId;
+    uint8_t len;
+    uint32_t appEventId;
+} __attribute__((packed));
 
 // we translate AOSP header into FW header: this header is in LE format
 // please maintain natural alignment for every field (matters to Intel; otherwise is has to be declared as packed)

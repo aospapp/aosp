@@ -40,11 +40,23 @@ keymaster_error_t ConfigureDevice(keymaster2_device_t* dev);
 uint32_t GetOsVersion(const char* version_string);
 
 /**
+ * Retrieves and parses OS version information from build properties. Returns 0 if the string
+ * doesn't contain a numeric version number.
+ */
+uint32_t GetOsVersion();
+
+/**
  * Parses OS patch level string, returning year and month in integer form. For example, "2016-03-25"
  * will be returned as 201603. Returns 0 if the string doesn't contain a date in the form
  * YYYY-MM-DD.
  */
 uint32_t GetOsPatchlevel(const char* patchlevel_string);
+
+/**
+ * Retrieves and parses OS patch level from build properties. Returns 0 if the string doesn't
+ * contain a date in the form YYYY-MM-DD.
+ */
+uint32_t GetOsPatchlevel();
 
 }  // namespace keymaster
 

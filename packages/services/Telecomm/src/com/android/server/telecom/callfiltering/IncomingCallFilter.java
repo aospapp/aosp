@@ -19,11 +19,12 @@ package com.android.server.telecom.callfiltering;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.telecom.Log;
+import android.telecom.Logging.Runnable;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.telecom.Call;
-import com.android.server.telecom.Log;
-import com.android.server.telecom.Runnable;
+import com.android.server.telecom.LogUtils;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.Timeouts;
 
@@ -66,7 +67,7 @@ public class IncomingCallFilter implements CallFilterResultCallback {
     }
 
     public void performFiltering() {
-        Log.event(mCall, Log.Events.FILTERING_INITIATED);
+        Log.addEvent(mCall, LogUtils.Events.FILTERING_INITIATED);
         for (CallFilter filter : mFilters) {
             filter.startFilterLookup(mCall, this);
         }
@@ -76,7 +77,7 @@ public class IncomingCallFilter implements CallFilterResultCallback {
             public void loggedRun() {
                 if (mIsPending) {
                     Log.i(IncomingCallFilter.this, "Call filtering has timed out.");
-                    Log.event(mCall, Log.Events.FILTERING_TIMED_OUT);
+                    Log.addEvent(mCall, LogUtils.Events.FILTERING_TIMED_OUT);
                     mListener.onCallFilteringComplete(mCall, mResult);
                     mIsPending = false;
                 }
@@ -94,7 +95,7 @@ public class IncomingCallFilter implements CallFilterResultCallback {
                     @Override
                     public void loggedRun() {
                         if (mIsPending) {
-                            Log.event(mCall, Log.Events.FILTERING_COMPLETED, mResult);
+                            Log.addEvent(mCall, LogUtils.Events.FILTERING_COMPLETED, mResult);
                             mListener.onCallFilteringComplete(mCall, mResult);
                             mIsPending = false;
                         }

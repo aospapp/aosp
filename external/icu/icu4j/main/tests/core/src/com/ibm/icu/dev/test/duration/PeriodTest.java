@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -9,19 +11,14 @@
 
 package com.ibm.icu.dev.test.duration;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.duration.Period;
 import com.ibm.icu.impl.duration.TimeUnit;
 
 public class PeriodTest extends TestFmwk {
-
-    /**
-     * Invoke the tests.
-     */
-    public static void main(String[] args) {
-        new PeriodTest().run(args);
-    }
-
+    @Test
     public void testIsSet() {
         Period p = Period.at(0, TimeUnit.YEAR);
         assertTrue(null, p.isSet());
@@ -32,6 +29,7 @@ public class PeriodTest extends TestFmwk {
         assertFalse(null, p.isSet(TimeUnit.YEAR));
     }
 
+    @Test
     public void testMoreLessThan() {
         Period p = Period.moreThan(1, TimeUnit.YEAR);
         assertTrue(null, p.isMoreThan());
@@ -57,6 +55,7 @@ public class PeriodTest extends TestFmwk {
         assertEquals(null, 1f, p.getCount(TimeUnit.YEAR), .1f);
     }
 
+    @Test
     public void testFuturePast() {
         Period p = Period.at(1, TimeUnit.YEAR).inFuture();
         assertTrue(null, p.isInFuture());
@@ -68,6 +67,7 @@ public class PeriodTest extends TestFmwk {
         assertFalse(null, p.isInFuture());
     }
 
+    @Test
     public void testAnd() {
         Period p = Period.at(1, TimeUnit.YEAR).and(3, TimeUnit.MONTH)
                 .inFuture();
@@ -78,6 +78,7 @@ public class PeriodTest extends TestFmwk {
         assertEquals(null, 2f, p.getCount(TimeUnit.MONTH), .1f);
     }
 
+    @Test
     public void testInvalidCount() {
         try {
             Period.at(-1, TimeUnit.YEAR);

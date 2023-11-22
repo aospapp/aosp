@@ -77,6 +77,7 @@ private:
     uint32_t mLastPictureFlags;
     VideoExtensionBuffer mExtensionBuffer;
     PackedFrameData mPackedFrame;
+    bool mAdaptive;
 };
 
 

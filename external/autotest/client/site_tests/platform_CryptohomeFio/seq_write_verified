@@ -10,7 +10,6 @@
 filename=${FILENAME}
 size=${FILESIZE}
 overwrite=1
-unlink=1
 
 time_based
 runtime=${RUN_TIME}

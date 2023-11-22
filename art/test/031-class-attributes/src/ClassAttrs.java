@@ -1,9 +1,9 @@
 import otherpackage.OtherPackageClass;
 
 import java.io.Serializable;
-import java.lang.reflect.AbstractMethod;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -118,14 +118,13 @@ public class ClassAttrs {
         printClassAttrs(FancyClass.class);
 
         try {
-            Constructor cons;
-            cons = MemberClass.class.getConstructor(
-                    new Class[] { MemberClass.class });
+            Constructor<?> cons;
+            cons = MemberClass.class.getConstructor(MemberClass.class);
             System.out.println("constructor signature: "
                     + getSignatureAttribute(cons));
 
             Method meth;
-            meth = MemberClass.class.getMethod("foo", (Class[]) null);
+            meth = MemberClass.class.getMethod("foo");
             System.out.println("method signature: "
                     + getSignatureAttribute(meth));
 
@@ -222,9 +221,9 @@ public class ClassAttrs {
     public static String getSignatureAttribute(Object obj) {
         Method method;
         try {
-            Class c = obj.getClass();
+            Class<?> c = obj.getClass();
             if (c == Method.class || c == Constructor.class) {
-              c = AbstractMethod.class;
+              c = Executable.class;
             }
             method = c.getDeclaredMethod("getSignatureAttribute");
             method.setAccessible(true);
@@ -263,9 +262,7 @@ public class ClassAttrs {
     /*
      * Dump a variety of class attributes.
      */
-    public static void printClassAttrs(Class clazz) {
-        Class clazz2;
-
+    public static <T> void printClassAttrs(Class<T> clazz) {
         System.out.println("***** " + clazz + ":");
 
         System.out.println("  name: "
@@ -321,7 +318,7 @@ public class ClassAttrs {
         System.out.println("  genericInterfaces: "
             + stringifyTypeArray(clazz.getGenericInterfaces()));
 
-        TypeVariable<Class<?>>[] typeParameters = clazz.getTypeParameters();
+        TypeVariable<Class<T>>[] typeParameters = clazz.getTypeParameters();
         System.out.println("  typeParameters: "
             + stringifyTypeArray(typeParameters));
     }

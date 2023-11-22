@@ -1,14 +1,19 @@
 #!/usr/bin/python
 #pylint: disable-msg=C0111
-import logging, os, shutil, sys, StringIO
-import common
+import logging
+import os
+import shutil
+import StringIO
+import sys
+import unittest
 
+import common
 from autotest_lib.client.bin import job, setup_job
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import logging_manager, logging_config
 from autotest_lib.client.common_lib import base_job_unittest
-from autotest_lib.client.common_lib.test_utils import mock, unittest
+from autotest_lib.client.common_lib.test_utils import mock
 
 
 class setup_job_test_case(unittest.TestCase):
@@ -195,13 +200,6 @@ class test_setup_job(unittest.TestCase):
 
     def test_constructor_continuation(self):
         self.construct_job()
-
-
-    def test_relative_path(self):
-        self.construct_job()
-        dummy = "asdf"
-        ret = self.job.relative_path(os.path.join(self.job.resultdir, dummy))
-        self.assertEquals(ret, dummy)
 
 
     def test_setup_dirs_raise(self):

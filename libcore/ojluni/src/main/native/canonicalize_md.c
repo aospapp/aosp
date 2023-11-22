@@ -233,6 +233,7 @@ canonicalize(char *original, char *resolved, int len)
                 /* The subpath has a canonical path */
                 break;
             }
+            // Android-changed: Added ENOTCONN case (b/26645585, b/26070583)
             else if (errno == ENOENT || errno == ENOTDIR || errno == EACCES || errno == ENOTCONN) {
                 /* If the lookup of a particular subpath fails because the file
                    does not exist, because it is of the wrong type, or because

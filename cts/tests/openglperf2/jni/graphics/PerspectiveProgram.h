@@ -23,7 +23,7 @@
 
 class PerspectiveProgram: public Program {
 public:
-    PerspectiveProgram(GLuint programId);
+    explicit PerspectiveProgram(GLuint programId);
     virtual ~PerspectiveProgram() {};
     virtual void before(Matrix& model, Matrix& view, Matrix& projection);
 

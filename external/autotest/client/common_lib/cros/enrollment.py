@@ -11,7 +11,8 @@ from autotest_lib.client.common_lib.cros import chrome
 def _ExecuteOobeCmd(browser, cmd):
     logging.info('Invoking ' + cmd)
     oobe = browser.oobe
-    oobe.WaitForJavaScriptExpression('typeof Oobe !== \'undefined\'', 10)
+    oobe.WaitForJavaScriptCondition('typeof Oobe !== \'undefined\'',
+                                    timeout=10)
     oobe.ExecuteJavaScript(cmd)
 
 
@@ -38,3 +39,16 @@ def RemoraEnrollment(browser, user_id, password):
             lambda: browser.oobe.NavigateGaiaLogin(
                     user_id, password, enterprise_enroll=True,
                     for_user_triggered_enrollment=False))
+
+
+def EnterpriseEnrollment(browser, user_id, password):
+    """Enterprise login for a kiosk device.
+
+    @param browser: telemetry browser object.
+    @param user_id: login credentials user_id.
+    @param password: login credentials password.
+    """
+    chrome.Chrome.wait_for_browser_restart(
+            lambda: browser.oobe.NavigateGaiaLogin(
+                    user_id, password, enterprise_enroll=True,
+                    for_user_triggered_enrollment=True))

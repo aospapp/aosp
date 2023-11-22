@@ -38,6 +38,9 @@
 
 namespace sdm {
 
+std::bitset<kDisplayMax> DisplayBase::registered_displays_ = 0;
+std::bitset<kDisplayMax> DisplayBase::needs_validate_ = 0;
+
 // TODO(user): Have a single structure handle carries all the interface pointers and variables.
 DisplayBase::DisplayBase(DisplayType display_type, DisplayEventHandler *event_handler,
                          HWDeviceType hw_device_type, BufferSyncHandler *buffer_sync_handler,
@@ -91,6 +94,11 @@ DisplayError DisplayBase::Init() {
     }
   }
 
+  registered_displays_[display_type_] = 1;
+  if (!hw_panel_info_.is_primary_panel) {
+    AllDisplaysNeedValidate();
+  }
+
   if (hw_info_intf_) {
     HWResourceInfo hw_resource_info = HWResourceInfo();
     hw_info_intf_->GetHWResourceInfo(&hw_resource_info);
@@ -130,6 +138,7 @@ DisplayError DisplayBase::Deinit() {
   }
 
   comp_manager_->UnregisterDisplay(display_comp_ctx_);
+  registered_displays_[display_type_] = 0;
 
   HWEventsInterface::Destroy(hw_events_intf_);
 
@@ -248,6 +257,7 @@ DisplayError DisplayBase::Prepare(LayerStack *layer_stack) {
       if (error == kErrorNone) {
         // Strategy is successful now, wait for Commit().
         pending_commit_ = true;
+        needs_validate_[display_type_] = 0;
         break;
       }
       if (error == kErrorShutDown) {
@@ -268,6 +278,7 @@ DisplayError DisplayBase::Commit(LayerStack *layer_stack) {
 
   if (!active_) {
     pending_commit_ = false;
+    needs_validate_[display_type_] = 1;
     return kErrorPermission;
   }
 
@@ -275,9 +286,9 @@ DisplayError DisplayBase::Commit(LayerStack *layer_stack) {
     return kErrorParameters;
   }
 
-  if (!pending_commit_) {
+  if (!pending_commit_ && needs_validate_[display_type_]) {
     DLOGE("Commit: Corresponding Prepare() is not called for display = %d", display_type_);
-    return kErrorUndefined;
+    return kErrorNotValidated;
   }
 
   pending_commit_ = false;
@@ -361,6 +372,7 @@ DisplayError DisplayBase::Flush() {
     DLOGW("Unable to flush display = %d", display_type_);
   }
 
+  needs_validate_[display_type_] = 1;
   return error;
 }
 
@@ -417,6 +429,8 @@ DisplayError DisplayBase::SetDisplayState(DisplayState state) {
     DLOGI("Same state transition is requested.");
     return kErrorNone;
   }
+
+  needs_validate_[display_type_] = 1;
 
   switch (state) {
   case kStateOff:
@@ -757,7 +771,7 @@ DisplayError DisplayBase::SetColorMode(const std::string &color_mode) {
 
   SDEDisplayMode *sde_display_mode = it->second;
 
-  DLOGD("Color Mode Name = %s corresponding mode_id = %d", sde_display_mode->name,
+  DLOGV_IF(kTagQDCM, "Color Mode Name = %s corresponding mode_id = %d", sde_display_mode->name,
            sde_display_mode->id);
   DisplayError error = kErrorNone;
   error = color_mgr_->ColorMgrSetMode(sde_display_mode->id);
@@ -1046,4 +1060,11 @@ DisplayError DisplayBase::SetDetailEnhancerData(const DisplayDetailEnhancerData 
   return kErrorNone;
 }
 
+void DisplayBase::AllDisplaysNeedValidate() {
+  for (size_t type = kPrimary; type < kDisplayMax; type++) {
+    if (registered_displays_[type]) {
+      needs_validate_[type] = 1;
+    }
+  }
+}
 }  // namespace sdm

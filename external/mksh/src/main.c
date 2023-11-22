@@ -5,7 +5,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015
+ *		 2011, 2012, 2013, 2014, 2015, 2016
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -34,7 +34,7 @@
 #include <locale.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/main.c,v 1.306 2015/10/09 21:36:57 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/main.c,v 1.322 2016/11/11 23:48:30 tg Exp $");
 
 extern char **environ;
 
@@ -59,11 +59,16 @@ static void x_sigwinch(int);
 static const char initifs[] = "IFS= \t\n";
 
 static const char initsubs[] =
-    "${PS2=> } ${PS3=#? } ${PS4=+ } ${SECONDS=0} ${TMOUT=0} ${EPOCHREALTIME=}";
+    "${PS2=> }"
+    "${PS3=#? }"
+    "${PS4=+ }"
+    "${SECONDS=0}"
+    "${TMOUT=0}"
+    "${EPOCHREALTIME=}";
 
 static const char *initcoms[] = {
 	Ttypeset, "-r", initvsn, NULL,
-	Ttypeset, "-x", "HOME", "PATH", "SHELL", NULL,
+	Ttypeset, "-x", "HOME", TPATH, TSHELL, NULL,
 	Ttypeset, "-i10", "COLUMNS", "LINES", "SECONDS", "TMOUT", NULL,
 	Talias,
 	"integer=\\typeset -i",
@@ -82,12 +87,12 @@ static const char *initcoms[] = {
 	 /* this is what AT&T ksh seems to track, with the addition of emacs */
 	Talias, "-tU",
 	Tcat, "cc", "chmod", "cp", "date", "ed", "emacs", "grep", "ls",
-	"make", "mv", "pr", "rm", "sed", "sh", "vi", "who", NULL,
+	"make", "mv", "pr", "rm", "sed", Tsh, "vi", "who", NULL,
 	NULL
 };
 
 static const char *restr_com[] = {
-	Ttypeset, "-r", "PATH", "ENV", "SHELL", NULL
+	Ttypeset, "-r", TPATH, "ENV", TSHELL, NULL
 };
 
 static bool initio_done;
@@ -110,13 +115,11 @@ rndsetup(void)
 	} *bufptr;
 	char *cp;
 
-	cp = alloc(sizeof(*bufptr) - ALLOC_SIZE, APERM);
-#ifdef DEBUG
-	/* clear the allocated space, for valgrind */
-	memset(cp, 0, sizeof(*bufptr) - ALLOC_SIZE);
-#endif
+	cp = alloc(sizeof(*bufptr) - sizeof(ALLOC_ITEM), APERM);
+	/* clear the allocated space, for valgrind and to avoid UB */
+	memset(cp, 0, sizeof(*bufptr) - sizeof(ALLOC_ITEM));
 	/* undo what alloc() did to the malloc result address */
-	bufptr = (void *)(cp - ALLOC_SIZE);
+	bufptr = (void *)(cp - sizeof(ALLOC_ITEM));
 	/* PIE or something similar provides us with deltas here */
 	bufptr->dataptr = &rndsetupstate;
 	/* ASLR in at least Windows, Linux, some BSDs */
@@ -130,6 +133,9 @@ rndsetup(void)
 	/* introduce variation (and yes, second arg MBZ for portability) */
 	mksh_TIME(bufptr->tv);
 
+#ifdef MKSH_ALLOC_CATCH_UNDERRUNS
+	mprotect(((char *)bufptr) + 4096, 4096, PROT_READ | PROT_WRITE);
+#endif
 	h = chvt_rndsetup(bufptr, sizeof(*bufptr));
 
 	afree(cp, APERM);
@@ -146,7 +152,7 @@ chvt_reinit(void)
 }
 
 static const char *empty_argv[] = {
-	"mksh", NULL
+	Tmksh, NULL
 };
 
 static uint8_t
@@ -205,6 +211,8 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 
 	/* initialise permanent Area */
 	ainit(&aperm);
+	/* max. name length: -2147483648 = 11 (+ NUL) */
+	vtemp = alloc(offsetof(struct tbl, name[0]) + 12, APERM);
 
 	/* set up base environment */
 	env.type = E_NONE;
@@ -217,11 +225,11 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 
 	/* determine the basename (without '-' or path) of the executable */
 	ccp = kshname;
-	goto begin_parse_kshname;
+	goto begin_parsing_kshname;
 	while ((i = ccp[argi++])) {
-		if (i == '/') {
+		if (mksh_cdirsep(i)) {
 			ccp += argi;
- begin_parse_kshname:
+ begin_parsing_kshname:
 			argi = 0;
 			if (*ccp == '-')
 				++ccp;
@@ -312,7 +320,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 #endif
 		/*
 		 * this is uniform across all OSes unless it
-		 * breaks somewhere; don't try to optimise,
+		 * breaks somewhere hard; don't try to optimise,
 		 * e.g. add stuff for Interix or remove /usr
 		 * for HURD, because e.g. Debian GNU/HURD is
 		 * "keeping a regular /usr"; this is supposed
@@ -328,7 +336,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 	 * Set PATH to def_path (will set the path global variable).
 	 * (import of environment below will probably change this setting).
 	 */
-	vp = global("PATH");
+	vp = global(TPATH);
 	/* setstr can't fail here */
 	setstr(vp, def_path, KSH_RETURN_ERROR);
 
@@ -354,6 +362,12 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 		}
 	}
 
+	/* override default PATH regardless of environment */
+#ifdef MKSH_DEFPATH_OVERRIDE
+	 vp = global(TPATH);
+	 setstr(vp, MKSH_DEFPATH_OVERRIDE, KSH_RETURN_ERROR);
+#endif
+
 	/* for security */
 	typeset(initifs, 0, 0, 0, 0);
 
@@ -361,11 +375,11 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 	substitute(initsubs, 0);
 
 	/* Figure out the current working directory and set $PWD */
-	vp = global("PWD");
+	vp = global(TPWD);
 	cp = str_val(vp);
 	/* Try to use existing $PWD if it is valid */
-	set_current_wd((mksh_abspath(cp) && test_eval(NULL, TO_FILEQ, cp, ".",
-	    true)) ? cp : NULL);
+	set_current_wd((mksh_abspath(cp) && test_eval(NULL, TO_FILEQ, cp,
+	    Tdot, true)) ? cp : NULL);
 	if (current_wd[0])
 		simplify_path(current_wd);
 	/* Only set pwd if we know where we are or if it had a bogus value */
@@ -435,7 +449,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 	} else if (Flag(FCOMMAND)) {
 		s = pushs(SSTRINGCMDLINE, ATEMP);
 		if (!(s->start = s->str = argv[argi++]))
-			errorf("%s %s", "-c", "requires an argument");
+			errorf(Tf_optfoo, "", "", 'c', Treq_arg);
 		while (*s->str) {
 			if (*s->str != ' ' && ctype(*s->str, C_QUOTE))
 				break;
@@ -470,7 +484,7 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 		    SHF_MAPHI | SHF_CLEXEC);
 		if (s->u.shf == NULL) {
 			shl_stdout_ok = false;
-			warningf(true, "%s: %s", s->file, cstrerror(errno));
+			warningf(true, Tf_sD_s, s->file, cstrerror(errno));
 			/* mandated by SUSv4 */
 			exstat = 127;
 			unwind(LERROR);
@@ -558,8 +572,8 @@ main_init(int argc, const char *argv[], Source **sp, struct block **lp)
 #endif
 		if (!isuc(ccp))
 			ccp = null;
-		/* FALLTHROUGH */
 #endif
+		/* FALLTHROUGH */
 
 	/* auto-detect from environment */
 	case 3:
@@ -704,7 +718,7 @@ include(const char *name, int argc, const char **argv, bool intr_ok)
 			unwind(i);
 			/* NOTREACHED */
 		default:
-			internal_errorf("%s %d", "include", i);
+			internal_errorf("include %d", i);
 			/* NOTREACHED */
 		}
 	}
@@ -729,12 +743,15 @@ include(const char *name, int argc, const char **argv, bool intr_ok)
 int
 command(const char *comm, int line)
 {
-	Source *s;
+	Source *s, *sold = source;
+	int rv;
 
 	s = pushs(SSTRING, ATEMP);
 	s->start = s->str = comm;
 	s->line = line;
-	return (shell(s, false));
+	rv = shell(s, false);
+	source = sold;
+	return (rv);
 }
 
 /*
@@ -796,7 +813,7 @@ shell(Source * volatile s, volatile bool toplevel)
 	default:
 		source = old_source;
 		quitenv(NULL);
-		internal_errorf("%s %d", "shell", i);
+		internal_errorf("shell %d", i);
 		/* NOTREACHED */
 	}
 	while (/* CONSTCOND */ 1) {
@@ -905,13 +922,6 @@ unwind(int i)
 			/* FALLTHROUGH */
 		default:
 			quitenv(NULL);
-			/*
-			 * quitenv() may have reclaimed the memory
-			 * used by source which will end badly when
-			 * we jump to a function that expects it to
-			 * be valid
-			 */
-			source = NULL;
 		}
 	}
 }
@@ -926,9 +936,9 @@ newenv(int type)
 	 * struct env includes ALLOC_ITEM for alignment constraints
 	 * so first get the actually used memory, then assign it
 	 */
-	cp = alloc(sizeof(struct env) - ALLOC_SIZE, ATEMP);
+	cp = alloc(sizeof(struct env) - sizeof(ALLOC_ITEM), ATEMP);
 	/* undo what alloc() did to the malloc result address */
-	ep = (void *)(cp - ALLOC_SIZE);
+	ep = (void *)(cp - sizeof(ALLOC_ITEM));
 	/* initialise public members of struct env (not the ALLOC_ITEM) */
 	ainit(&ep->area);
 	ep->oenv = e;
@@ -1024,7 +1034,7 @@ quitenv(struct shf *shf)
 
 	/* free the struct env - tricky due to the ALLOC_ITEM inside */
 	cp = (void *)ep;
-	afree(cp + ALLOC_SIZE, ATEMP);
+	afree(cp + sizeof(ALLOC_ITEM), ATEMP);
 }
 
 /* Called after a fork to cleanup stuff left over from parents environment */
@@ -1082,15 +1092,25 @@ reclaim(void)
 
 	remove_temps(e->temps);
 	e->temps = NULL;
+
+	/*
+	 * if the memory backing source is reclaimed, things
+	 * will end up badly when a function expecting it to
+	 * be valid is run; a NULL pointer is easily debugged
+	 */
+	if (source && source->areap == &e->area)
+		source = NULL;
 	afreeall(&e->area);
 }
 
 static void
 remove_temps(struct temp *tp)
 {
-	for (; tp != NULL; tp = tp->next)
+	while (tp) {
 		if (tp->pid == procpid)
 			unlink(tp->tffn);
+		tp = tp->next;
+	}
 }
 
 /*
@@ -1124,7 +1144,7 @@ tty_init_fd(void)
 		goto got_fd;
 	}
 #endif
-	if ((fd = open("/dev/tty", O_RDWR, 0)) >= 0) {
+	if ((fd = open(T_devtty, O_RDWR, 0)) >= 0) {
 		do_close = true;
 		goto got_fd;
 	}
@@ -1181,13 +1201,13 @@ vwarningf(unsigned int flags, const char *fmt, va_list ap)
 {
 	if (fmt) {
 		if (flags & VWARNINGF_INTERNAL)
-			shf_fprintf(shl_out, "internal error: ");
+			shf_fprintf(shl_out, Tf_sD_, "internal error");
 		if (flags & VWARNINGF_ERRORPREFIX)
 			error_prefix(tobool(flags & VWARNINGF_FILELINE));
 		if ((flags & VWARNINGF_BUILTIN) &&
 		    /* not set when main() calls parse_args() */
 		    builtin_argv0 && builtin_argv0 != kshname)
-			shf_fprintf(shl_out, "%s: ", builtin_argv0);
+			shf_fprintf(shl_out, Tf_sD_, builtin_argv0);
 		shf_vfprintf(shl_out, fmt, ap);
 		shf_putchar('\n', shl_out);
 	}
@@ -1296,7 +1316,7 @@ error_prefix(bool fileline)
 	/* Avoid foo: foo[2]: ... */
 	if (!fileline || !source || !source->file ||
 	    strcmp(source->file, kshname) != 0)
-		shf_fprintf(shl_out, "%s: ", kshname + (*kshname == '-'));
+		shf_fprintf(shl_out, Tf_sD_, kshname + (*kshname == '-'));
 	if (fileline && source && source->file != NULL) {
 		shf_fprintf(shl_out, "%s[%lu]: ", source->file,
 		    (unsigned long)(source->errline ?
@@ -1366,7 +1386,7 @@ initio(void)
 	if ((lfp = getenv("SDMKSH_PATH")) == NULL) {
 		if ((lfp = getenv("HOME")) == NULL || !mksh_abspath(lfp))
 			errorf("cannot get home directory");
-		lfp = shf_smprintf("%s/mksh-dbg.txt", lfp);
+		lfp = shf_smprintf(Tf_sSs, lfp, "mksh-dbg.txt");
 	}
 
 	if ((shl_dbg_fd = open(lfp, O_WRONLY | O_APPEND | O_CREAT, 0600)) < 0)
@@ -1466,25 +1486,20 @@ closepipe(int *pv)
 int
 check_fd(const char *name, int mode, const char **emsgp)
 {
-	int fd = 0, fl;
+	int fd, fl;
 
-	if (name[0] == 'p' && !name[1])
+	if (!name[0] || name[1])
+		goto illegal_fd_name;
+	if (name[0] == 'p')
 		return (coproc_getfd(mode, emsgp));
-	while (ksh_isdigit(*name)) {
-		fd = fd * 10 + ksh_numdig(*name);
-		if (fd >= FDBASE) {
-			if (emsgp)
-				*emsgp = "file descriptor too large";
-			return (-1);
-		}
-		++name;
-	}
-	if (*name) {
+	if (!ksh_isdigit(name[0])) {
+ illegal_fd_name:
 		if (emsgp)
 			*emsgp = "illegal file descriptor name";
 		return (-1);
 	}
-	if ((fl = fcntl(fd, F_GETFL, 0)) < 0) {
+
+	if ((fl = fcntl((fd = ksh_numdig(name[0])), F_GETFL, 0)) < 0) {
 		if (emsgp)
 			*emsgp = "bad file descriptor";
 		return (-1);

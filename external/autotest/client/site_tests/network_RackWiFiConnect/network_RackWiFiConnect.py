@@ -55,7 +55,6 @@ class network_RackWiFiConnect(test.test):
                 logging.debug('Able to wget URL.')
                 break
             logging.error('Could not wget URL; trying again.')
-
         grep_url_cmd = 'cat /tmp/wget.log | grep %s' % pattern
         output_status = utils.system(grep_url_cmd, ignore_status=True)
         if output_status:
@@ -76,7 +75,8 @@ class network_RackWiFiConnect(test.test):
         """
         start_time = time.time()
         with cntc.ChromeNetworkingTestContext(username=uname,
-                  password=constants.PASSWORD) as testing_context:
+                  password=constants.PASSWORD, gaia_login=True) as \
+                  testing_context:
             net_provider = cnta.ChromeNetworkProvider(testing_context)
             enabled_devices = net_provider.get_enabled_devices()
             if net_provider.WIFI_DEVICE not in enabled_devices:

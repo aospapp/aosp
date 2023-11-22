@@ -22,11 +22,23 @@ include $(CLEAR_VARS)
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/src/java
 LOCAL_SRC_FILES := $(call all-java-files-under, src/java) \
 	$(call all-Iaidl-files-under, src/java) \
-	$(call all-logtags-files-under, src/java)
+	$(call all-logtags-files-under, src/java) \
+	$(call all-proto-files-under, proto)
 
 LOCAL_JAVA_LIBRARIES := voip-common ims-common
+LOCAL_STATIC_JAVA_LIBRARIES := android.hardware.radio-V1.0-java-static \
+    android.hardware.radio.deprecated-V1.0-java-static
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := telephony-common
+LOCAL_PROTOC_OPTIMIZE_TYPE := nano
+LOCAL_PROTO_JAVA_OUTPUT_PARAMS := store_unknown_fields=true,enum_style=java
+
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/jarjar-rules.txt
+
+ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
+LOCAL_EMMA_INSTRUMENT := true
+endif
 
 include $(BUILD_JAVA_LIBRARY)
 

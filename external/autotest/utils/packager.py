@@ -8,11 +8,15 @@ import logging, optparse, os, shutil, sys, tempfile
 import common
 from autotest_lib.client.common_lib import utils as client_utils
 from autotest_lib.client.common_lib import global_config, error
-from autotest_lib.client.common_lib import base_packages, packages
+from autotest_lib.client.common_lib import packages
 from autotest_lib.server import utils as server_utils
 
 c = global_config.global_config
 logging.basicConfig(level=logging.DEBUG)
+
+ACTION_REMOVE = 'remove'
+ACTION_UPLOAD = 'upload'
+ACTION_TAR_ONLY = 'tar_only'
 
 def get_exclude_string(client_dir):
     '''
@@ -69,6 +73,12 @@ def parse_args():
     parser.add_option("-r", "--repository", help="the URL of the packages"
                       "repository location to upload the packages to.",
                       dest="repo", default=None)
+    parser.add_option("-o", "--output_dir", help="the output directory"
+                      "to place tarballs and md5sum files in.",
+                      dest="output_dir", default=None)
+    parser.add_option("-a", "--action", help="the action to perform",
+                      dest="action", choices=(ACTION_UPLOAD, ACTION_REMOVE,
+                                              ACTION_TAR_ONLY), default=None)
     parser.add_option("--all", help="Upload all the files locally "
                       "to all the repos specified in global_config.ini. "
                       "(includes the client, tests, deps and profilers)",
@@ -77,10 +87,14 @@ def parse_args():
     options, args = parser.parse_args()
     return options, args
 
-
-# Method to upload or remove package depending on the flag passed to it.
 def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
-                    remove=False):
+                     action, dest_dir=None):
+    """Method to upload or remove package depending on the flag passed to it.
+
+    If tar_only is set to True, this routine is solely used to generate a
+    tarball and compute the md5sum from that tarball.
+    If the tar_only flag is True, then the remove flag is ignored.
+    """
     exclude_string = ' .'
     names = [p.strip() for p in pkg_names.split(',')]
     for name in names:
@@ -97,23 +111,52 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
             pkg_dir = os.path.join(src_dir, name)
 
         pkg_name = pkgmgr.get_tarball_name(name, pkg_type)
-        if not remove:
+
+        if action == ACTION_TAR_ONLY:
+            # If the package is a test, then the work-dir should have 'client'
+            # appended to it.
+            base_test_dir = os.path.join(dest_dir, 'client')
+            build_dir = os.path.join(get_test_dir(name, base_test_dir), name)
+
+            try:
+                packages.check_diskspace(build_dir)
+            except error.RepoDiskFullError as e:
+                msg = ("Work_dir directory for packages %s does not have "
+                       "enough space available: %s" % (build_dir, e))
+                raise error.RepoDiskFullError(msg)
+            tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
+                                              build_dir, exclude_string)
+
+            # Create the md5 hash too.
+            md5sum = pkgmgr.compute_checksum(tarball_path)
+            md5sum_filepath = os.path.join(build_dir, pkg_name + '.checksum')
+            with open(md5sum_filepath, "w") as f:
+                f.write(md5sum)
+
+        elif action == ACTION_UPLOAD:
             # Tar the source and upload
             temp_dir = tempfile.mkdtemp()
             try:
                 try:
-                    base_packages.check_diskspace(temp_dir)
+                    packages.check_diskspace(temp_dir)
                 except error.RepoDiskFullError, e:
                     msg = ("Temporary directory for packages %s does not have "
                            "enough space available: %s" % (temp_dir, e))
                     raise error.RepoDiskFullError(msg)
-                tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
-                                                  temp_dir, exclude_string)
+
+                # Check if tarball already exists. If it does, don't duplicate
+                # the effort.
+                tarball_path = os.path.join(pkg_dir, pkg_name);
+                if os.path.exists(tarball_path):
+                   print("Tarball %s already exists" % tarball_path);
+                else:
+                    tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
+                                                      temp_dir, exclude_string)
                 pkgmgr.upload_pkg(tarball_path, update_checksum=True)
             finally:
                 # remove the temporary directory
                 shutil.rmtree(temp_dir)
-        else:
+        elif action == ACTION_REMOVE:
             pkgmgr.remove_pkg(pkg_name, remove_checksum=True)
         print "Done."
 
@@ -137,21 +180,27 @@ def tar_packages(pkgmgr, pkg_type, pkg_names, src_dir, temp_dir):
             pkg_dir = os.path.join(src_dir, name)
 
         pkg_name = pkgmgr.get_tarball_name(name, pkg_type)
-        tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
-                                              temp_dir, exclude_string)
 
+        # Check if tarball already exists. If it does, don't duplicate
+        # the effort.
+        tarball_path = os.path.join(pkg_dir, pkg_name);
+        if os.path.exists(tarball_path):
+            print("Tarball %s already exists" % tarball_path);
+        else:
+            tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
+                                              temp_dir, exclude_string)
         tarballs.append(tarball_path)
     return tarballs
 
 
-def process_all_packages(pkgmgr, client_dir, remove=False):
+def process_all_packages(pkgmgr, client_dir, action):
     """Process a full upload of packages as a directory upload."""
     dep_dir = os.path.join(client_dir, "deps")
     prof_dir = os.path.join(client_dir, "profilers")
     # Directory where all are kept
     temp_dir = tempfile.mkdtemp()
     try:
-        base_packages.check_diskspace(temp_dir)
+        packages.check_diskspace(temp_dir)
     except error.RepoDiskFullError, e:
         print ("Temp destination for packages is full %s, aborting upload: %s"
                % (temp_dir, e))
@@ -175,7 +224,7 @@ def process_all_packages(pkgmgr, client_dir, remove=False):
     profilers = ','.join(profilers_list)
 
     # Update md5sum
-    if not remove:
+    if action == ACTION_UPLOAD:
         all_packages = []
         all_packages.extend(tar_packages(pkgmgr, 'profiler', profilers,
                                          prof_dir, temp_dir))
@@ -190,14 +239,14 @@ def process_all_packages(pkgmgr, client_dir, remove=False):
         for package in all_packages:
             pkgmgr.upload_pkg(package, update_checksum=True)
         client_utils.run('rm -rf ' + temp_dir)
-    else:
-        process_packages(pkgmgr, 'test', tests, client_dir, remove=remove)
-        process_packages(pkgmgr, 'test', site_tests, client_dir, remove=remove)
+    elif action == ACTION_REMOVE:
+        process_packages(pkgmgr, 'test', tests, client_dir, action=action)
+        process_packages(pkgmgr, 'test', site_tests, client_dir, action=action)
         process_packages(pkgmgr, 'client', 'autotest', client_dir,
-                         remove=remove)
-        process_packages(pkgmgr, 'dep', deps, dep_dir, remove=remove)
+                         action=action)
+        process_packages(pkgmgr, 'dep', deps, dep_dir, action=action)
         process_packages(pkgmgr, 'profiler', profilers, prof_dir,
-                         remove=remove)
+                         action=action)
 
 
 # Get the list of sub directories present in a directory
@@ -254,46 +303,50 @@ def main():
     dep_dir = os.path.join(client_dir, "deps")
     prof_dir = os.path.join(client_dir, "profilers")
 
-    if len(args) == 0 or args[0] not in ['upload', 'remove']:
-        print("Either 'upload' or 'remove' needs to be specified "
-              "for the package")
-        sys.exit(0)
-
-    if args[0] == 'upload':
-        remove_flag = False
-    elif args[0] == 'remove':
-        remove_flag = True
+    # Due to the delayed uprev-ing of certain ebuilds, we need to support
+    # both the legacy command line and the new one.
+    # So, if the new "action" option isn't specified, try looking for the
+    # old style remove/upload argument
+    if options.action is None:
+        if len(args) == 0 or args[0] not in ['upload', 'remove']:
+            print("Either 'upload' or 'remove' needs to be specified "
+                  "for the package")
+            sys.exit(0)
+        cur_action = args[0]
     else:
-        # we should not be getting here
-        assert(False)
+        cur_action = options.action
+
+    if cur_action == ACTION_TAR_ONLY and options.output_dir is None:
+        print("An output dir has to be specified")
+        sys.exit(0)
 
     pkgmgr = packages.PackageManager(autotest_dir, repo_urls=repo_urls,
                                      upload_paths=upload_paths,
                                      run_function_dargs={'timeout':600})
 
     if options.all:
-        process_all_packages(pkgmgr, client_dir, remove=remove_flag)
+        process_all_packages(pkgmgr, client_dir, action=cur_action)
 
     if options.client:
         process_packages(pkgmgr, 'client', 'autotest', client_dir,
-                         remove=remove_flag)
+                         action=cur_action)
 
     if options.dep:
         process_packages(pkgmgr, 'dep', options.dep, dep_dir,
-                         remove=remove_flag)
+                         action=cur_action)
 
     if options.test:
         process_packages(pkgmgr, 'test', options.test, client_dir,
-                         remove=remove_flag)
+                         action=cur_action, dest_dir=options.output_dir)
 
     if options.prof:
         process_packages(pkgmgr, 'profiler', options.prof, prof_dir,
-                         remove=remove_flag)
+                         action=cur_action)
 
     if options.file:
-        if remove_flag:
+        if cur_action == ACTION_REMOVE:
             pkgmgr.remove_pkg(options.file, remove_checksum=True)
-        else:
+        elif cur_action == ACTION_UPLOAD:
             pkgmgr.upload_pkg(options.file, update_checksum=True)
 
 

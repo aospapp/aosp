@@ -72,21 +72,21 @@ public class SetValuesTest extends JDWPArrayReferenceTestCase {
                 ArrayRegion valuesRegion = new ArrayRegion(
                         JDWPConstants.Tag.INT_TAG, 10);
                 for (int j = 0; j < valuesRegion.getLength(); j++) {
-                    valuesRegion.setValue(j, new Value(-j));
+                    valuesRegion.setValue(j, Value.createInt(-j));
                 }
                 checkArrayValues(valuesRegion, classID, fieldID);
             } else if (name.equals("longArray")) {
                 ArrayRegion valuesRegion = new ArrayRegion(
                         JDWPConstants.Tag.LONG_TAG, 10);
                 for (int j = 0; j < valuesRegion.getLength(); j++) {
-                    valuesRegion.setValue(j, new Value((long)-j));
+                    valuesRegion.setValue(j, Value.createLong((long)-j));
                 }
                 checkArrayValues(valuesRegion, classID, fieldID);
             } else if (name.equals("byteArray")) {
                 ArrayRegion valuesRegion = new ArrayRegion(
                         JDWPConstants.Tag.BYTE_TAG, 10);
                 for (int j = 0; j < valuesRegion.getLength(); j++) {
-                    valuesRegion.setValue(j, new Value((byte)-j));
+                    valuesRegion.setValue(j, Value.createByte((byte)-j));
                 }
                 checkArrayValues(valuesRegion, classID, fieldID);
             }

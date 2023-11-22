@@ -55,7 +55,6 @@ TEST(adb_utils, directory_exists) {
   ASSERT_FALSE(directory_exists(subdir(profiles_dir, "does-not-exist")));
 #else
   ASSERT_TRUE(directory_exists("/proc"));
-  ASSERT_FALSE(directory_exists("/proc/self")); // Symbolic link.
   ASSERT_FALSE(directory_exists("/proc/does-not-exist"));
 #endif
 }
@@ -109,19 +108,7 @@ TEST(adb_utils, escape_arg) {
   ASSERT_EQ(R"('abc)')", escape_arg("abc)"));
 }
 
-TEST(adb_utils, adb_basename) {
-  EXPECT_EQ("sh", adb_basename("/system/bin/sh"));
-  EXPECT_EQ("sh", adb_basename("sh"));
-  EXPECT_EQ("sh", adb_basename("/system/bin/sh/"));
-}
-
-TEST(adb_utils, adb_dirname) {
-  EXPECT_EQ("/system/bin", adb_dirname("/system/bin/sh"));
-  EXPECT_EQ(".", adb_dirname("sh"));
-  EXPECT_EQ("/system/bin", adb_dirname("/system/bin/sh/"));
-}
-
-void test_mkdirs(const std::string basepath) {
+void test_mkdirs(const std::string& basepath) {
   // Test creating a directory hierarchy.
   ASSERT_TRUE(mkdirs(basepath));
   // Test finding an existing directory hierarchy.
@@ -165,3 +152,24 @@ TEST(adb_utils, set_file_block_mode) {
   ASSERT_EQ(0, adb_close(fd));
 }
 #endif
+
+TEST(adb_utils, test_forward_targets_are_valid) {
+    std::string error;
+
+    // Source port can be >= 0.
+    EXPECT_FALSE(forward_targets_are_valid("tcp:-1", "tcp:9000", &error));
+    EXPECT_TRUE(forward_targets_are_valid("tcp:0", "tcp:9000", &error));
+    EXPECT_TRUE(forward_targets_are_valid("tcp:8000", "tcp:9000", &error));
+
+    // Destination port must be >0.
+    EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:-1", &error));
+    EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:0", &error));
+
+    // Port must be a number.
+    EXPECT_FALSE(forward_targets_are_valid("tcp:", "tcp:9000", &error));
+    EXPECT_FALSE(forward_targets_are_valid("tcp:a", "tcp:9000", &error));
+    EXPECT_FALSE(forward_targets_are_valid("tcp:22x", "tcp:9000", &error));
+    EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:", &error));
+    EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:a", &error));
+    EXPECT_FALSE(forward_targets_are_valid("tcp:8000", "tcp:22x", &error));
+}

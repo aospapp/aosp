@@ -54,11 +54,6 @@ static inline uint16_t toRep16(uint16_t x)
     return x;
 }
 
-static inline uint16_t toRep16(uint16_t x)
-{
-    return x;
-}
-
 static inline uint32_t toRep32(float x)
 {
     uint32_t ret;
@@ -81,24 +76,6 @@ static inline __uint128_t toRep128(long double x)
     return ret;
 }
 #endif
-
-static inline int compareResultH(uint16_t result,
-                                 uint16_t expected)
-{
-    uint16_t rep = toRep16(result);
-
-    if (rep == expected){
-        return 0;
-    }
-    // test other posible NaN representation(signal NaN)
-    else if (expected == 0x7e00U){
-        if ((rep & 0x7c00U) == 0x7c00U &&
-            (rep & 0x3ffU) > 0){
-            return 0;
-        }
-    }
-    return 1;
-}
 
 static inline int compareResultH(uint16_t result,
                                  uint16_t expected)
@@ -262,11 +239,6 @@ static inline uint16_t makeNaN16(uint16_t rand)
     return fromRep16(0x7c00U | (rand & 0x7fffU));
 }
 
-static inline uint16_t makeNaN16(uint16_t rand)
-{
-    return fromRep16(0x7c00U | (rand & 0x7fffU));
-}
-
 static inline float makeNaN32(uint32_t rand)
 {
     return fromRep32(0x7f800000U | (rand & 0x7fffffU));
@@ -283,11 +255,6 @@ static inline long double makeNaN128(uint64_t rand)
     return fromRep128(0x7fff000000000000UL | (rand & 0xffffffffffffUL), 0x0UL);
 }
 #endif
-
-static inline uint16_t makeInf16()
-{
-    return fromRep16(0x7c00U);
-}
 
 static inline uint16_t makeInf16()
 {

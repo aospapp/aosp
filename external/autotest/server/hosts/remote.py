@@ -23,7 +23,6 @@ class RemoteHost(base_classes.Host):
     """
 
     DEFAULT_REBOOT_TIMEOUT = base_classes.Host.DEFAULT_REBOOT_TIMEOUT
-    LAST_BOOT_TAG = object()
     DEFAULT_HALT_TIMEOUT = 2 * 60
     _LABEL_FUNCTIONS = []
     _DETECTABLE_LABELS = []
@@ -92,25 +91,29 @@ class RemoteHost(base_classes.Host):
 
 
     def halt(self, timeout=DEFAULT_HALT_TIMEOUT, wait=True):
+        """
+        Shut down the remote host.
+
+        N.B.  This method makes no provision to bring the target back
+        up.  The target will be offline indefinitely if there's no
+        independent hardware (servo, RPM, etc.) to force the target to
+        power on.
+
+        @param timeout  Maximum time to wait for host down, in seconds.
+        @param wait  Whether to wait for the host to go offline.
+        """
         self.run_background('sleep 1 ; halt')
         if wait:
             self.wait_down(timeout=timeout)
 
 
-    def reboot(self, timeout=DEFAULT_REBOOT_TIMEOUT, label=LAST_BOOT_TAG,
-               kernel_args=None, wait=True, fastsync=False,
-               reboot_cmd=None, **dargs):
+    def reboot(self, timeout=DEFAULT_REBOOT_TIMEOUT, wait=True,
+               fastsync=False, reboot_cmd=None, **dargs):
         """
         Reboot the remote host.
 
         Args:
                 timeout - How long to wait for the reboot.
-                label - The label we should boot into.  If None, we will
-                        boot into the default kernel.  If it's LAST_BOOT_TAG,
-                        we'll boot into whichever kernel was .boot'ed last
-                        (or the default kernel if we haven't .boot'ed in this
-                        job).  If it's None, we'll boot into the default kernel.
-                        If it's something else, we'll boot into that.
                 wait - Should we wait to see if the machine comes back up.
                 fastsync - Don't wait for the sync to complete, just start one
                         and move on. This is for cases where rebooting prompty
@@ -118,21 +121,7 @@ class RemoteHost(base_classes.Host):
                         machine may have disks that cause sync to never return.
                 reboot_cmd - Reboot command to execute.
         """
-        if self.job:
-            if label == self.LAST_BOOT_TAG:
-                label = self.job.last_boot_tag
-            else:
-                self.job.last_boot_tag = label
-
-        self.reboot_setup(label=label, kernel_args=kernel_args, **dargs)
-
-        if label or kernel_args:
-            if not label:
-                label = self.bootloader.get_default_title()
-            self.bootloader.boot_once(label)
-            if kernel_args:
-                self.bootloader.add_args(label, kernel_args)
-
+        self.reboot_setup(**dargs)
         if not reboot_cmd:
             reboot_cmd = ('sync & sleep 5; '
                           'reboot & sleep 60; '
@@ -141,6 +130,7 @@ class RemoteHost(base_classes.Host):
                           'telinit 6')
 
         def reboot():
+            # pylint: disable=missing-docstring
             self.record("GOOD", None, "reboot.start")
             try:
                 current_boot_id = self.get_boot_id()
@@ -175,6 +165,7 @@ class RemoteHost(base_classes.Host):
         """
         # define a function for the supend and run it in a group
         def suspend():
+            # pylint: disable=missing-docstring
             self.record("GOOD", None, "suspend.start for %d seconds" % (timeout))
             try:
                 self.run_background(suspend_cmd)
@@ -223,6 +214,7 @@ class RemoteHost(base_classes.Host):
         generic wait_for_restart implementation in a reboot group.
         """
         def op_func():
+            # pylint: disable=missing-docstring
             super(RemoteHost, self).wait_for_restart(timeout=timeout, **dargs)
         self.log_op(self.OP_REBOOT, op_func)
 
@@ -280,6 +272,8 @@ class RemoteHost(base_classes.Host):
     def delete_tmp_dir(self, tmpdir):
         """
         Delete the given temporary directory on the remote machine.
+
+        @param tmpdir The directory to delete.
         """
         self.run('rm -rf "%s"' % utils.sh_escape(tmpdir), ignore_status=True)
         self.tmp_dirs.remove(tmpdir)

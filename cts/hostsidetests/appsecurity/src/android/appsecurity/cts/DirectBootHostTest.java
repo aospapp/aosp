@@ -16,8 +16,8 @@
 
 package android.appsecurity.cts;
 
-import android.appsecurity.cts.SplitTests.BaseInstallMultiple;
-
+import com.android.ddmlib.AdbCommandRejectedException;
+import com.android.ddmlib.CollectingOutputReceiver;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -47,6 +47,14 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     private static final String MODE_EMULATED = "emulated";
     private static final String MODE_NONE = "none";
 
+    private static final String FEATURE_DEVICE_ADMIN = "feature:android.software.device_admin\n";
+    private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive\n";
+
+    private static final long SHUTDOWN_TIME_MS = 30 * 1000;
+
+    private String mFeatureList = null;
+
+    private int[] mUsers;
     private IAbi mAbi;
     private IBuildInfo mCtsBuild;
 
@@ -64,6 +72,7 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     protected void setUp() throws Exception {
         super.setUp();
 
+        mUsers = Utils.prepareSingleUser(getDevice());
         assertNotNull(mAbi);
         assertNotNull(mCtsBuild);
 
@@ -77,6 +86,22 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
 
         getDevice().uninstallPackage(PKG);
         getDevice().uninstallPackage(OTHER_PKG);
+    }
+
+    /**
+     * Automotive devices MUST support native FBE.
+     */
+    public void testAutomotiveNativeFbe() throws Exception {
+        if (!isSupportedDevice()) {
+            Log.v(TAG, "Device not supported; skipping test");
+            return;
+        } else if (!isAutomotiveDevice()) {
+            Log.v(TAG, "Device not automotive; skipping test");
+            return;
+        }
+
+        assertTrue("Automotive devices must support native FBE",
+            MODE_NATIVE.equals(getFbeMode()));
     }
 
     /**
@@ -125,10 +150,8 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     }
 
     public void doDirectBootTest(String mode) throws Exception {
-        int[] users = {};
+        boolean doTest = true;
         try {
-            users = createUsersForTest();
-
             // Set up test app and secure lock screens
             new InstallMultiple().addApk(APK).run();
             new InstallMultiple().addApk(OTHER_APK).run();
@@ -140,54 +163,50 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
             // Give enough time for PackageManager to persist stopped state
             Thread.sleep(15000);
 
-            runDeviceTests(PKG, CLASS, "testSetUp", users);
+            runDeviceTests(PKG, CLASS, "testSetUp", mUsers);
 
             // Give enough time for vold to update keys
             Thread.sleep(15000);
 
             // Reboot system into known state with keys ejected
             if (MODE_EMULATED.equals(mode)) {
-                getDevice().executeShellCommand("sm set-emulate-fbe true");
+                final String res = getDevice().executeShellCommand("sm set-emulate-fbe true");
+                if (res != null && res.contains("Emulation not supported")) {
+                    doTest = false;
+                }
+                getDevice().waitForDeviceNotAvailable(SHUTDOWN_TIME_MS);
                 getDevice().waitForDeviceOnline();
             } else {
                 getDevice().rebootUntilOnline();
             }
             waitForBootCompleted();
 
-            if (MODE_NONE.equals(mode)) {
-                runDeviceTests(PKG, CLASS, "testVerifyUnlockedAndDismiss", users);
-            } else {
-                runDeviceTests(PKG, CLASS, "testVerifyLockedAndDismiss", users);
+            if (doTest) {
+                if (MODE_NONE.equals(mode)) {
+                    runDeviceTests(PKG, CLASS, "testVerifyUnlockedAndDismiss", mUsers);
+                } else {
+                    runDeviceTests(PKG, CLASS, "testVerifyLockedAndDismiss", mUsers);
+                }
             }
 
         } finally {
             try {
                 // Remove secure lock screens and tear down test app
-                runDeviceTests(PKG, CLASS, "testTearDown", users);
+                runDeviceTests(PKG, CLASS, "testTearDown", mUsers);
             } finally {
                 getDevice().uninstallPackage(PKG);
-                removeUsersForTest(users);
 
                 // Get ourselves back into a known-good state
                 if (MODE_EMULATED.equals(mode)) {
                     getDevice().executeShellCommand("sm set-emulate-fbe false");
+                    getDevice().waitForDeviceNotAvailable(SHUTDOWN_TIME_MS);
                     getDevice().waitForDeviceOnline();
                 } else {
-                    getDevice().nonBlockingReboot();
+                    getDevice().rebootUntilOnline();
                 }
-                waitForBootCompleted();
+                getDevice().waitForDeviceAvailable();
             }
         }
-    }
-
-    private int[] createUsersForTest() throws DeviceNotAvailableException {
-        // TODO: enable test for multiple users
-        return new int[] { 0 };
-//        return Utils.createUsersForTest(getDevice());
-    }
-
-    private void removeUsersForTest(int[] users) throws DeviceNotAvailableException {
-        Utils.removeUsersForTest(getDevice(), users);
     }
 
     private void runDeviceTests(String packageName, String testClassName, String testMethodName,
@@ -203,23 +222,43 @@ public class DirectBootHostTest extends DeviceTestCase implements IAbiReceiver, 
     }
 
     private boolean isBootCompleted() throws Exception {
-        return "1".equals(getDevice().executeShellCommand("getprop sys.boot_completed").trim());
+        CollectingOutputReceiver receiver = new CollectingOutputReceiver();
+        try {
+            getDevice().getIDevice().executeShellCommand("getprop sys.boot_completed", receiver);
+        } catch (AdbCommandRejectedException e) {
+            // do nothing: device might be temporarily disconnected
+            Log.d(TAG, "Ignored AdbCommandRejectedException while `getprop sys.boot_completed`");
+        }
+        String output = receiver.getOutput();
+        if (output != null) {
+            output = output.trim();
+        }
+        return "1".equals(output);
+    }
+
+    private boolean hasSystemFeature(final String feature) throws Exception {
+        if (mFeatureList == null) {
+            mFeatureList = getDevice().executeShellCommand("pm list features");
+        }
+
+        return mFeatureList.contains(feature);
     }
 
     private boolean isSupportedDevice() throws Exception {
-        final String featureList = getDevice().executeShellCommand("pm list features");
-        if (featureList.contains("feature:android.hardware.type.watch\n") ||
-                featureList.contains("feature:android.hardware.type.television\n")) {
-            return false;
-        } else {
-            return true;
-        }
+        return hasSystemFeature(FEATURE_DEVICE_ADMIN);
+    }
+
+    private boolean isAutomotiveDevice() throws Exception {
+        return hasSystemFeature(FEATURE_AUTOMOTIVE);
     }
 
     private void waitForBootCompleted() throws Exception {
         for (int i = 0; i < 45; i++) {
             if (isBootCompleted()) {
                 Log.d(TAG, "Yay, system is ready!");
+                // or is it really ready?
+                // guard against potential USB mode switch weirdness at boot
+                Thread.sleep(10 * 1000);
                 return;
             }
             Log.d(TAG, "Waiting for system ready...");

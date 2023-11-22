@@ -16,6 +16,7 @@
 
 package com.android.services.telephony;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 
@@ -70,7 +71,7 @@ public class ConferenceParticipantConnection extends Connection {
             address = null;
         } else {
             String countryIso = getCountryIso(parentConnection.getCall().getPhone());
-            address = getParticipantAddress(participant, countryIso);
+            address = getParticipantAddress(participant.getHandle(), countryIso);
         }
         setAddress(address, presentation);
         setCallerDisplayName(participant.getDisplayName(), presentation);
@@ -212,21 +213,19 @@ public class ConferenceParticipantConnection extends Connection {
      * Conference event package data contains SIP URIs, so we try to extract the phone number and
      * format into a typical tel: style URI.
      *
-     * @param participant The conference participant.
+     * @param address The conference participant's address.
      * @param countryIso The country ISO of the current subscription; used when formatting the
      *                   participant phone number to E.164 format.
      * @return The participant's address URI.
      */
-    private Uri getParticipantAddress(ConferenceParticipant participant, String countryIso) {
-        Uri address = participant.getHandle();
+    @VisibleForTesting
+    public static Uri getParticipantAddress(Uri address, String countryIso) {
         if (address == null) {
             return address;
         }
-
-        // If the participant's address is already a TEL scheme, just return it as is.
-        if (PhoneAccount.SCHEME_TEL.equals(address.getScheme())) {
-            return address;
-        }
+        // Even if address is already in tel: format, still parse it and rebuild.
+        // This is to recognize tel URIs such as:
+        // tel:6505551212;phone-context=ims.mnc012.mcc034.3gppnetwork.org
 
         // Conference event package participants are identified using SIP URIs (see RFC3261).
         // A valid SIP uri has the format: sip:user:password@host:port;uri-parameters?headers

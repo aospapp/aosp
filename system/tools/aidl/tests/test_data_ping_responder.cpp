@@ -82,7 +82,7 @@ namespace android {
 
 namespace os {
 
-IMPLEMENT_META_INTERFACE(PingResponder, "android.os.IPingResponder");
+IMPLEMENT_META_INTERFACE(PingResponder, "android.os.IPingResponder")
 
 }  // namespace os
 
@@ -382,7 +382,7 @@ namespace os {
 
 class IPingResponder : public ::android::IInterface {
 public:
-DECLARE_META_INTERFACE(PingResponder);
+DECLARE_META_INTERFACE(PingResponder)
 virtual ::android::binder::Status Ping(const ::android::String16& input, ::android::String16* _aidl_return) = 0;
 virtual ::android::binder::Status NullablePing(const ::std::unique_ptr<::android::String16>& input, ::std::unique_ptr<::android::String16>* _aidl_return) = 0;
 virtual ::android::binder::Status Utf8Ping(const ::std::string& input, ::std::string* _aidl_return) = 0;
@@ -399,7 +399,8 @@ enum Call {
 
 }  // namespace android
 
-#endif  // AIDL_GENERATED_ANDROID_OS_I_PING_RESPONDER_H_)";
+#endif  // AIDL_GENERATED_ANDROID_OS_I_PING_RESPONDER_H_
+)";
 
 const char kExpectedBpHeaderOutput[] =
 R"(#ifndef AIDL_GENERATED_ANDROID_OS_BP_PING_RESPONDER_H_
@@ -428,7 +429,8 @@ virtual ~BpPingResponder() = default;
 
 }  // namespace android
 
-#endif  // AIDL_GENERATED_ANDROID_OS_BP_PING_RESPONDER_H_)";
+#endif  // AIDL_GENERATED_ANDROID_OS_BP_PING_RESPONDER_H_
+)";
 
 const char kExpectedBnHeaderOutput[] =
 R"(#ifndef AIDL_GENERATED_ANDROID_OS_BN_PING_RESPONDER_H_
@@ -450,7 +452,8 @@ public:
 
 }  // namespace android
 
-#endif  // AIDL_GENERATED_ANDROID_OS_BN_PING_RESPONDER_H_)";
+#endif  // AIDL_GENERATED_ANDROID_OS_BN_PING_RESPONDER_H_
+)";
 
 }  // namespace ping_responder
 }  // namespace test_data

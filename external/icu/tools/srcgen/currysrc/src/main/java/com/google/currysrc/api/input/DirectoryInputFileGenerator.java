@@ -29,6 +29,9 @@ public final class DirectoryInputFileGenerator implements InputFileGenerator {
   private final File baseDir;
 
   public DirectoryInputFileGenerator(File baseDir) {
+    if (baseDir == null) {
+      throw new NullPointerException("Null baseDir");
+    }
     this.baseDir = baseDir;
   }
 
@@ -40,6 +43,12 @@ public final class DirectoryInputFileGenerator implements InputFileGenerator {
   }
 
   private void collectFiles(File baseDir, List<File> files) {
+    if (!baseDir.exists()) {
+      throw new IllegalArgumentException("Not found: " + baseDir.getAbsolutePath());
+    }
+    if (!baseDir.isDirectory()) {
+      throw new IllegalArgumentException("Not a directory: " + baseDir.getAbsolutePath());
+    }
     for (File file : baseDir.listFiles()) {
       if (file.isDirectory()) {
         collectFiles(file, files);

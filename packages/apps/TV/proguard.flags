@@ -20,7 +20,7 @@
 -dontwarn android.support.**
 -dontwarn com.ibm.icu.**
 -dontwarn com.google.android.exoplayer.**
--dontwarn com.android.usbtuner.**
+-dontwarn com.android.tv.tuner.**
 -dontwarn com.android.tv.dvr.**
 
 # This is due to legacy API katniss is referencing. Seems safe.
@@ -28,12 +28,12 @@
 -dontwarn com.google.android.common.**
 
 # Keep the methods called from native code.
--keepclasseswithmembers class com.android.usbtuner.TunerHal {
+-keepclasseswithmembers class com.android.tv.tuner.TunerHal {
     int openDvbFrontEndFd();
     int openDvbDemuxFd();
     int openDvbDvrFd();
 }
--keepclasseswithmembers class com.android.usbtuner.*DataSource {
+-keepclasseswithmembers class com.android.tv.tuner.*DataSource {
     int readAt(long, byte[], int, int);
     long getSize();
     void close();
@@ -50,3 +50,6 @@
 -keepclasseswithmembers class * {
     @android.support.annotation.VisibleForTesting <methods>;
 }
+
+# Grpc used by epg via reflection
+-keep class io.grpc.internal.DnsNameResolverProvider

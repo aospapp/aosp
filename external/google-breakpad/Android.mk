@@ -46,6 +46,10 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/src/common/android/include \
     $(LOCAL_PATH)/src \
 
+LOCAL_CFLAGS := \
+    -Wno-unused-parameter \
+    -Wno-tautological-compare
+
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_C_INCLUDES)
 
 # Work around b/25435766 core2md segfault.
@@ -102,4 +106,19 @@ LOCAL_SRC_FILES_linux := \
     src/common/linux/linux_libc_support.cc \
     src/common/linux/memory_mapped_file.cc \
     src/tools/linux/dump_syms/dump_syms.cc
+include $(BUILD_HOST_EXECUTABLE)
+
+# sym_upload host tool.
+# =================================================
+include $(CLEAR_VARS)
+LOCAL_MODULE := sym_upload
+LOCAL_MODULE_HOST_OS := linux
+LOCAL_CLANG := true
+LOCAL_LDLIBS := -ldl
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/src
+LOCAL_SRC_FILES_linux := \
+    src/common/linux/http_upload.cc \
+    src/tools/linux/symupload/sym_upload.cc
 include $(BUILD_HOST_EXECUTABLE)

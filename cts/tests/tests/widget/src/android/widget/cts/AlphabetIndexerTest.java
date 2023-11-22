@@ -16,13 +16,21 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.database.Cursor;
 import android.database.MatrixCursor;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.AlphabetIndexer;
 
-public class AlphabetIndexerTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AlphabetIndexerTest {
     private static final String[] COUNTRIES_LIST = new String[]
         {"Argentina", "Australia", "China", "France", "Germany", "Italy", "Japan", "United States"};
     private static final String[] NAMES_LIST = new String[]
@@ -38,6 +46,7 @@ public class AlphabetIndexerTest extends AndroidTestCase {
     private static final int INDEX_OF_MESSI = 5;
     private static final int INDEX_OF_STEVEN = 7;
 
+    @Test
     public void testAlphabetIndexer() {
         Cursor c1 = createCursor("Country", COUNTRIES_LIST);
 
@@ -100,6 +109,7 @@ public class AlphabetIndexerTest extends AndroidTestCase {
         assertEquals(NAMES_LIST.length, indexer.getPositionForSection(index));
     }
 
+    @Test
     public void testCompare() {
         Cursor cursor = createCursor("Country", COUNTRIES_LIST);
 

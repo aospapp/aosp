@@ -1,1 +1,0 @@
-Tests simplification of bitfield rotate patterns in optimizing compiler.

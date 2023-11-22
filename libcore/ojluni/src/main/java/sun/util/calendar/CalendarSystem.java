@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 2000, 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,13 +26,11 @@
 
 package sun.util.calendar;
 
-import java.lang.reflect.Field;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
-import java.util.Set;
+import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -80,7 +78,7 @@ public abstract class CalendarSystem {
     // Map of calendar names and calendar classes;
     private static final Map<String, Class<?>> names;
 
-    // Android changed : Don't use reflection for Class.forName every time.
+    // Android-changed: Don't use reflection for Class.forName every time.
 
     static {
         names = new HashMap<>();
@@ -124,6 +122,8 @@ public abstract class CalendarSystem {
             return GREGORIAN_INSTANCE;
         }
 
+        //Android-changed: remove lazy initialization, use classes instead of class names.
+
         CalendarSystem cal = calendars.get(calendarName);
         if (cal != null) {
             return cal;
@@ -150,6 +150,23 @@ public abstract class CalendarSystem {
 
         CalendarSystem cs =  calendars.putIfAbsent(calendarName, cal);
         return (cs == null) ? cal : cs;
+    }
+
+    /**
+     * Returns a {@link Properties} loaded from lib/calendars.properties.
+     *
+     * @return a {@link Properties} loaded from lib/calendars.properties
+     * @throws IOException if an error occurred when reading from the input stream
+     * @throws IllegalArgumentException if the input stream contains any malformed
+     *                                  Unicode escape sequences
+     */
+    public static Properties getCalendarProperties() throws IOException {
+        // Android-changed: load from resources.
+        Properties calendarProps = new Properties();
+        try (InputStream is = ClassLoader.getSystemResourceAsStream("calendars.properties")) {
+            calendarProps.load(is);
+        }
+        return calendarProps;
     }
 
     //////////////////////////////// Calendar API //////////////////////////////////

@@ -37,13 +37,15 @@ struct MPEG2TSSource;
 class String8;
 
 struct MPEG2TSExtractor : public MediaExtractor {
-    MPEG2TSExtractor(const sp<DataSource> &source);
+    explicit MPEG2TSExtractor(const sp<DataSource> &source);
 
     virtual size_t countTracks();
     virtual sp<IMediaSource> getTrack(size_t index);
     virtual sp<MetaData> getTrackMetaData(size_t index, uint32_t flags);
 
     virtual sp<MetaData> getMetaData();
+
+    virtual status_t setMediaCas(const sp<ICas> &cas) override;
 
     virtual uint32_t flags() const;
     virtual const char * name() { return "MPEG2TSExtractor"; }
@@ -70,7 +72,10 @@ private:
 
     off64_t mOffset;
 
+    static bool isScrambledFormat(const sp<MetaData> &format);
+
     void init();
+    void addSource(const sp<AnotherPacketSource> &impl);
     // Try to feed more data from source to parser.
     // |isInit| means this function is called inside init(). This is a signal to
     // save SyncEvent so that init() can add SyncPoint after it updates |mSourceImpls|.
@@ -88,6 +93,8 @@ private:
 
     // Add a SynPoint derived from |event|.
     void addSyncPoint_l(const ATSParser::SyncEvent &event);
+
+    status_t  estimateDurationsFromTimesUsAtEnd();
 
     DISALLOW_EVIL_CONSTRUCTORS(MPEG2TSExtractor);
 };

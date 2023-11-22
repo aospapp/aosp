@@ -14,6 +14,18 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Signature test cases">
+    <option name="config-descriptor:metadata" key="component" value="systems" />
+   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher">
+        <option name="target" value="device" />
+        <option name="config-filename" value="CtsSignatureTestCases" />
+        <option name="version" value="1.0" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="mkdir -p /data/local/tmp/signature-test-packages" />
+        <option name='run-command'
+            value='pm list packages | while read a; do dumpsys package ${a#"package:"} > /data/local/tmp/signature-test-packages/${a#"package:"}.txt; done' />
+        <option name="teardown-command" value="mkdir -p /data/local/tmp/signature-test-packages" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/signature-test" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/signature-test" />
@@ -21,12 +33,15 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="push" value="current.api->/data/local/tmp/signature-test/current.api" />
     </target_preparer>
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="push" value="system-current.api->/data/local/tmp/signature-test/system-current.api" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsSignatureTestCases.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts" />
-        <option name="runtime-hint" value="1m11s" />
+        <option name="runtime-hint" value="7m11s" />
     </test>
 </configuration>

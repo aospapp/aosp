@@ -16,6 +16,19 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+
+import android.content.res.XmlResourceParser;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.AttributeSet;
+import android.util.Xml;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.Locator;
@@ -24,28 +37,21 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
-import android.content.res.XmlResourceParser;
-import android.test.AndroidTestCase;
-import android.util.AttributeSet;
-import android.util.Xml;
-import android.util.Xml.Encoding;
-
-
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.util.Vector;
 
 /**
  * TestCase for android.util.Xml.
  */
-public class XmlTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class XmlTest {
 
     private static final String STR_INVALIDATE_EN_CODING = "invalidateEnCoding";
     private static final String STR_N2 = "-2";
@@ -84,6 +90,7 @@ public class XmlTest extends AndroidTestCase {
     final String sourceStr = "<" + TAG_TEST + "><" + TAG_SON + " " + ATT_NAME + "=\"" + STR_ABC
             + "\"/></" + TAG_TEST + ">";
 
+    @Test
     public void testParseStringContentHandler() {
         final String xmlStr = "<Test><Son name=\"abc\"/></Test>";
         DefaultContentHandler dc = new DefaultContentHandler();
@@ -118,7 +125,7 @@ public class XmlTest extends AndroidTestCase {
 
     class DefaultContentHandler implements ContentHandler {
 
-        public Vector<String> mVec = new Vector<String>();
+        public Vector<String> mVec = new Vector<>();
 
         public void characters(char[] ch, int start, int length) throws SAXException {
             mVec.add(STR_CHARACTERS_TAG + new String(ch));
@@ -183,6 +190,7 @@ public class XmlTest extends AndroidTestCase {
 
     }
 
+    @Test
     public void testParseReaderContentHander() {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         DataOutputStream dout = new DataOutputStream(bout);
@@ -231,8 +239,8 @@ public class XmlTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testParseInputStreamEncodingContentHandler() {
-
         // test US-ASCII
         DefaultContentHandler dc = new DefaultContentHandler();
         try {
@@ -362,6 +370,7 @@ public class XmlTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testNewSerializer() {
         XmlSerializer xs = Xml.newSerializer();
         assertNotNull(xs);
@@ -370,6 +379,7 @@ public class XmlTest extends AndroidTestCase {
         assertNotNull(xp);
     }
 
+    @Test
     public void testFindEncodingByName() {
 
         try {
@@ -389,9 +399,10 @@ public class XmlTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAsAttributeSet() {
-        XmlResourceParser xp = getContext().getResources().getLayout(
-                android.util.cts.R.layout.xml_test);
+        XmlResourceParser xp = InstrumentationRegistry.getTargetContext().getResources().getLayout(
+                R.layout.xml_test);
         int eventType = -1;
         try {
             eventType = xp.getEventType();

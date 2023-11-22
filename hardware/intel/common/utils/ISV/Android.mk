@@ -17,6 +17,7 @@ LOCAL_32_BIT_ONLY := true
 
 LOCAL_SHARED_LIBRARIES := \
     libutils \
+    liblog \
     libcutils \
     libdl \
     libhardware \
@@ -24,9 +25,12 @@ LOCAL_SHARED_LIBRARIES := \
     libva \
     libva-android \
     libmrm_omx_adaptor \
+    libmedia \
+    libsync \
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \
+    system/core/libsync/include \
     $(call include-path-for, frameworks-openmax) \
     $(TARGET_OUT_HEADERS)/libmedia_utils_vpp \
     $(TARGET_OUT_HEADERS)/display \

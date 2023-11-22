@@ -17,9 +17,9 @@
 package vogar.android;
 
 import junit.framework.AssertionFailedError;
-import org.junit.runners.model.FrameworkMethod;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
-import vogar.testing.UndeprecatedMethodRule;
 
 /**
  * Obtains test specific arguments from the {@link VogarArgs} annotation on the test and makes them
@@ -27,14 +27,13 @@ import vogar.testing.UndeprecatedMethodRule;
  *
  * @see VogarArgs
  */
-@SuppressWarnings("deprecation")
-public class VogarArgsRule implements UndeprecatedMethodRule {
+public class VogarArgsRule implements TestRule {
 
     private String[] testSpecificArgs = null;
 
     @Override
-    public Statement apply(Statement base, FrameworkMethod method, Object target) {
-        VogarArgs vogarArgs = method.getAnnotation(VogarArgs.class);
+    public Statement apply(Statement base, Description description) {
+        VogarArgs vogarArgs = description.getAnnotation(VogarArgs.class);
         if (vogarArgs == null) {
             throw new AssertionFailedError("Must specify @" + VogarArgs.class.getSimpleName());
         } else {

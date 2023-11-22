@@ -16,6 +16,9 @@
 
 #include "trunks/trunks_factory_for_test.h"
 
+#include <memory>
+
+#include <base/memory/ptr_util.h>
 #include <gmock/gmock.h>
 
 #include "trunks/authorization_delegate.h"
@@ -44,13 +47,9 @@ class TpmStateForwarder : public TpmState {
   explicit TpmStateForwarder(TpmState* target) : target_(target) {}
   ~TpmStateForwarder() override = default;
 
-  TPM_RC Initialize() override {
-    return target_->Initialize();
-  }
+  TPM_RC Initialize() override { return target_->Initialize(); }
 
-  bool IsOwnerPasswordSet() override {
-    return target_->IsOwnerPasswordSet();
-  }
+  bool IsOwnerPasswordSet() override { return target_->IsOwnerPasswordSet(); }
 
   bool IsEndorsementPasswordSet() override {
     return target_->IsEndorsementPasswordSet();
@@ -60,13 +59,9 @@ class TpmStateForwarder : public TpmState {
     return target_->IsLockoutPasswordSet();
   }
 
-  bool IsOwned() override {
-    return target_->IsOwned();
-  }
+  bool IsOwned() override { return target_->IsOwned(); }
 
-  bool IsInLockout() override {
-    return target_->IsInLockout();
-  }
+  bool IsInLockout() override { return target_->IsInLockout(); }
 
   bool IsPlatformHierarchyEnabled() override {
     return target_->IsPlatformHierarchyEnabled();
@@ -80,25 +75,15 @@ class TpmStateForwarder : public TpmState {
     return target_->IsEndorsementHierarchyEnabled();
   }
 
-  bool IsEnabled() override {
-    return target_->IsEnabled();
-  }
+  bool IsEnabled() override { return target_->IsEnabled(); }
 
-  bool WasShutdownOrderly() override {
-    return target_->WasShutdownOrderly();
-  }
+  bool WasShutdownOrderly() override { return target_->WasShutdownOrderly(); }
 
-  bool IsRSASupported() override {
-    return target_->IsRSASupported();
-  }
+  bool IsRSASupported() override { return target_->IsRSASupported(); }
 
-  bool IsECCSupported() override {
-    return target_->IsECCSupported();
-  }
+  bool IsECCSupported() override { return target_->IsECCSupported(); }
 
-  uint32_t GetLockoutCounter() override {
-    return target_->GetLockoutCounter();
-  }
+  uint32_t GetLockoutCounter() override { return target_->GetLockoutCounter(); }
 
   uint32_t GetLockoutThreshold() override {
     return target_->GetLockoutThreshold();
@@ -112,6 +97,17 @@ class TpmStateForwarder : public TpmState {
     return target_->GetLockoutRecovery();
   }
 
+  uint32_t GetMaxNVSize() override { return target_->GetMaxNVSize(); }
+
+  bool GetTpmProperty(TPM_PT property, uint32_t* value) override {
+    return target_->GetTpmProperty(property, value);
+  }
+
+  bool GetAlgorithmProperties(TPM_ALG_ID algorithm,
+                              TPMA_ALGORITHM* properties) override {
+    return target_->GetAlgorithmProperties(algorithm, properties);
+  }
+
  private:
   TpmState* target_;
 };
@@ -122,21 +118,13 @@ class TpmUtilityForwarder : public TpmUtility {
   explicit TpmUtilityForwarder(TpmUtility* target) : target_(target) {}
   ~TpmUtilityForwarder() override = default;
 
-  TPM_RC Startup() override {
-    return target_->Startup();
-  }
+  TPM_RC Startup() override { return target_->Startup(); }
 
-  TPM_RC Clear() override {
-    return target_->Clear();
-  }
+  TPM_RC Clear() override { return target_->Clear(); }
 
-  void Shutdown() override {
-    return target_->Shutdown();
-  }
+  void Shutdown() override { return target_->Shutdown(); }
 
-  TPM_RC InitializeTpm() override {
-    return target_->InitializeTpm();
-  }
+  TPM_RC InitializeTpm() override { return target_->InitializeTpm(); }
 
   TPM_RC AllocatePCR(const std::string& platform_password) override {
     return target_->AllocatePCR(platform_password);
@@ -145,8 +133,7 @@ class TpmUtilityForwarder : public TpmUtility {
   TPM_RC TakeOwnership(const std::string& owner_password,
                        const std::string& endorsement_password,
                        const std::string& lockout_password) override {
-    return target_->TakeOwnership(owner_password,
-                                  endorsement_password,
+    return target_->TakeOwnership(owner_password, endorsement_password,
                                   lockout_password);
   }
 
@@ -177,12 +164,8 @@ class TpmUtilityForwarder : public TpmUtility {
                            const std::string& plaintext,
                            AuthorizationDelegate* delegate,
                            std::string* ciphertext) override {
-    return target_->AsymmetricEncrypt(key_handle,
-                                      scheme,
-                                      hash_alg,
-                                      plaintext,
-                                      delegate,
-                                      ciphertext);
+    return target_->AsymmetricEncrypt(key_handle, scheme, hash_alg, plaintext,
+                                      delegate, ciphertext);
   }
 
   TPM_RC AsymmetricDecrypt(TPM_HANDLE key_handle,
@@ -191,12 +174,8 @@ class TpmUtilityForwarder : public TpmUtility {
                            const std::string& ciphertext,
                            AuthorizationDelegate* delegate,
                            std::string* plaintext) override {
-    return target_->AsymmetricDecrypt(key_handle,
-                                      scheme,
-                                      hash_alg,
-                                      ciphertext,
-                                      delegate,
-                                      plaintext);
+    return target_->AsymmetricDecrypt(key_handle, scheme, hash_alg, ciphertext,
+                                      delegate, plaintext);
   }
 
   TPM_RC Sign(TPM_HANDLE key_handle,
@@ -205,11 +184,7 @@ class TpmUtilityForwarder : public TpmUtility {
               const std::string& plaintext,
               AuthorizationDelegate* delegate,
               std::string* signature) override {
-    return target_->Sign(key_handle,
-                         scheme,
-                         hash_alg,
-                         plaintext,
-                         delegate,
+    return target_->Sign(key_handle, scheme, hash_alg, plaintext, delegate,
                          signature);
   }
 
@@ -219,8 +194,8 @@ class TpmUtilityForwarder : public TpmUtility {
                 const std::string& plaintext,
                 const std::string& signature,
                 AuthorizationDelegate* delegate) override {
-    return target_->Verify(key_handle, scheme, hash_alg,
-                           plaintext, signature, delegate);
+    return target_->Verify(key_handle, scheme, hash_alg, plaintext, signature,
+                           delegate);
   }
 
   TPM_RC CertifyCreation(TPM_HANDLE key_handle,
@@ -232,10 +207,8 @@ class TpmUtilityForwarder : public TpmUtility {
                                     const std::string& new_password,
                                     AuthorizationDelegate* delegate,
                                     std::string* key_blob) override {
-    return target_->ChangeKeyAuthorizationData(key_handle,
-                                               new_password,
-                                               delegate,
-                                               key_blob);
+    return target_->ChangeKeyAuthorizationData(key_handle, new_password,
+                                               delegate, key_blob);
   }
 
   TPM_RC ImportRSAKey(AsymmetricKeyUsage key_type,
@@ -259,11 +232,10 @@ class TpmUtilityForwarder : public TpmUtility {
                           AuthorizationDelegate* delegate,
                           std::string* key_blob,
                           std::string* creation_blob) override {
-    return target_->CreateRSAKeyPair(key_type, modulus_bits, public_exponent,
-                                     password, policy_digest,
-                                     use_only_policy_authorization,
-                                     creation_pcr_index,
-                                     delegate, key_blob, creation_blob);
+    return target_->CreateRSAKeyPair(
+        key_type, modulus_bits, public_exponent, password, policy_digest,
+        use_only_policy_authorization, creation_pcr_index, delegate, key_blob,
+        creation_blob);
   }
 
   TPM_RC LoadKey(const std::string& key_blob,
@@ -285,8 +257,8 @@ class TpmUtilityForwarder : public TpmUtility {
                   const std::string& policy_digest,
                   AuthorizationDelegate* delegate,
                   std::string* sealed_data) override {
-    return target_->SealData(data_to_seal, policy_digest,
-                             delegate, sealed_data);
+    return target_->SealData(data_to_seal, policy_digest, delegate,
+                             sealed_data);
   }
 
   TPM_RC UnsealData(const std::string& sealed_data,
@@ -308,8 +280,12 @@ class TpmUtilityForwarder : public TpmUtility {
 
   TPM_RC DefineNVSpace(uint32_t index,
                        size_t num_bytes,
+                       TPMA_NV attributes,
+                       const std::string& authorization_value,
+                       const std::string& policy_digest,
                        AuthorizationDelegate* delegate) override {
-    return target_->DefineNVSpace(index, num_bytes, delegate);
+    return target_->DefineNVSpace(index, num_bytes, attributes,
+                                  authorization_value, policy_digest, delegate);
   }
 
   TPM_RC DestroyNVSpace(uint32_t index,
@@ -318,23 +294,33 @@ class TpmUtilityForwarder : public TpmUtility {
   }
 
   TPM_RC LockNVSpace(uint32_t index,
+                     bool lock_read,
+                     bool lock_write,
+                     bool using_owner_authorization,
                      AuthorizationDelegate* delegate) override {
-    return target_->LockNVSpace(index, delegate);
+    return target_->LockNVSpace(index, lock_read, lock_write,
+                                using_owner_authorization, delegate);
   }
 
   TPM_RC WriteNVSpace(uint32_t index,
                       uint32_t offset,
                       const std::string& nvram_data,
+                      bool using_owner_authorization,
+                      bool extend,
                       AuthorizationDelegate* delegate) override {
-    return target_->WriteNVSpace(index, offset, nvram_data, delegate);
+    return target_->WriteNVSpace(index, offset, nvram_data,
+                                 using_owner_authorization, extend, delegate);
   }
 
   TPM_RC ReadNVSpace(uint32_t index,
                      uint32_t offset,
                      size_t num_bytes,
+                     bool using_owner_authorization,
                      std::string* nvram_data,
                      AuthorizationDelegate* delegate) override {
-    return target_->ReadNVSpace(index, offset, num_bytes, nvram_data, delegate);
+    return target_->ReadNVSpace(index, offset, num_bytes,
+                                using_owner_authorization, nvram_data,
+                                delegate);
   }
 
   TPM_RC GetNVSpaceName(uint32_t index, std::string* name) override {
@@ -344,6 +330,23 @@ class TpmUtilityForwarder : public TpmUtility {
   TPM_RC GetNVSpacePublicArea(uint32_t index,
                               TPMS_NV_PUBLIC* public_data) override {
     return target_->GetNVSpacePublicArea(index, public_data);
+  }
+
+  TPM_RC ListNVSpaces(std::vector<uint32_t>* index_list) override {
+    return target_->ListNVSpaces(index_list);
+  }
+
+  TPM_RC SetDictionaryAttackParameters(
+      uint32_t max_tries,
+      uint32_t recovery_time,
+      uint32_t lockout_recovery,
+      AuthorizationDelegate* delegate) override {
+    return target_->SetDictionaryAttackParameters(max_tries, recovery_time,
+                                                  lockout_recovery, delegate);
+  }
+
+  TPM_RC ResetDictionaryAttackLock(AuthorizationDelegate* delegate) override {
+    return target_->ResetDictionaryAttackLock(delegate);
   }
 
  private:
@@ -362,10 +365,8 @@ class AuthorizationDelegateForwarder : public AuthorizationDelegate {
                                bool is_response_parameter_encryption_possible,
                                std::string* authorization) override {
     return target_->GetCommandAuthorization(
-        command_hash,
-        is_command_parameter_encryption_possible,
-        is_response_parameter_encryption_possible,
-        authorization);
+        command_hash, is_command_parameter_encryption_possible,
+        is_response_parameter_encryption_possible, authorization);
   }
 
   bool CheckResponseAuthorization(const std::string& response_hash,
@@ -395,17 +396,16 @@ class SessionManagerForwarder : public SessionManager {
     return target_->GetSessionHandle();
   }
 
-  void CloseSession() override {
-    return target_->CloseSession();
-  }
+  void CloseSession() override { return target_->CloseSession(); }
 
-  TPM_RC StartSession(TPM_SE session_type, TPMI_DH_ENTITY bind_entity,
+  TPM_RC StartSession(TPM_SE session_type,
+                      TPMI_DH_ENTITY bind_entity,
                       const std::string& bind_authorization_value,
                       bool enable_encryption,
                       HmacAuthorizationDelegate* delegate) override {
     return target_->StartSession(session_type, bind_entity,
-                                 bind_authorization_value,
-                                 enable_encryption, delegate);
+                                 bind_authorization_value, enable_encryption,
+                                 delegate);
   }
 
  private:
@@ -415,7 +415,7 @@ class SessionManagerForwarder : public SessionManager {
 // Forwards all calls to a target instance.
 class HmacSessionForwarder : public HmacSession {
  public:
-  explicit HmacSessionForwarder(HmacSession* target): target_(target) {}
+  explicit HmacSessionForwarder(HmacSession* target) : target_(target) {}
   ~HmacSessionForwarder() override = default;
 
   AuthorizationDelegate* GetDelegate() override {
@@ -425,8 +425,7 @@ class HmacSessionForwarder : public HmacSession {
   TPM_RC StartBoundSession(TPMI_DH_ENTITY bind_entity,
                            const std::string& bind_authorization_value,
                            bool enable_encryption) override {
-    return target_->StartBoundSession(bind_entity,
-                                      bind_authorization_value,
+    return target_->StartBoundSession(bind_entity, bind_authorization_value,
                                       enable_encryption);
   }
 
@@ -446,11 +445,10 @@ class HmacSessionForwarder : public HmacSession {
   HmacSession* target_;
 };
 
-
 // Forwards all calls to a target instance.
 class PolicySessionForwarder : public PolicySession {
  public:
-  explicit PolicySessionForwarder(PolicySession* target): target_(target) {}
+  explicit PolicySessionForwarder(PolicySession* target) : target_(target) {}
   ~PolicySessionForwarder() override = default;
 
   AuthorizationDelegate* GetDelegate() override {
@@ -460,8 +458,7 @@ class PolicySessionForwarder : public PolicySession {
   TPM_RC StartBoundSession(TPMI_DH_ENTITY bind_entity,
                            const std::string& bind_authorization_value,
                            bool enable_encryption) override {
-    return target_->StartBoundSession(bind_entity,
-                                      bind_authorization_value,
+    return target_->StartBoundSession(bind_entity, bind_authorization_value,
                                       enable_encryption);
   }
 
@@ -485,9 +482,9 @@ class PolicySessionForwarder : public PolicySession {
     return target_->PolicyCommandCode(command_code);
   }
 
-  TPM_RC PolicyAuthValue() override {
-    return target_->PolicyAuthValue();
-  }
+  TPM_RC PolicyAuthValue() override { return target_->PolicyAuthValue(); }
+
+  TPM_RC PolicyRestart() override { return target_->PolicyRestart(); }
 
   void SetEntityAuthorizationValue(const std::string& value) override {
     return target_->SetEntityAuthorizationValue(value);
@@ -500,7 +497,7 @@ class PolicySessionForwarder : public PolicySession {
 // Forwards all calls to a target instance.
 class BlobParserForwarder : public BlobParser {
  public:
-  explicit BlobParserForwarder(BlobParser* target): target_(target) {}
+  explicit BlobParserForwarder(BlobParser* target) : target_(target) {}
   ~BlobParserForwarder() override = default;
 
   bool SerializeKeyBlob(const TPM2B_PUBLIC& public_info,
@@ -550,9 +547,10 @@ TrunksFactoryForTest::TrunksFactoryForTest()
       hmac_session_(default_hmac_session_.get()),
       default_policy_session_(new NiceMock<MockPolicySession>()),
       policy_session_(default_policy_session_.get()),
+      default_trial_session_(new NiceMock<MockPolicySession>()),
+      trial_session_(default_trial_session_.get()),
       default_blob_parser_(new NiceMock<MockBlobParser>()),
-      blob_parser_(default_blob_parser_.get()) {
-}
+      blob_parser_(default_blob_parser_.get()) {}
 
 TrunksFactoryForTest::~TrunksFactoryForTest() {}
 
@@ -560,40 +558,40 @@ Tpm* TrunksFactoryForTest::GetTpm() const {
   return tpm_;
 }
 
-scoped_ptr<TpmState> TrunksFactoryForTest::GetTpmState() const {
-  return scoped_ptr<TpmState>(new TpmStateForwarder(tpm_state_));
+std::unique_ptr<TpmState> TrunksFactoryForTest::GetTpmState() const {
+  return base::MakeUnique<TpmStateForwarder>(tpm_state_);
 }
 
-scoped_ptr<TpmUtility> TrunksFactoryForTest::GetTpmUtility() const {
-  return scoped_ptr<TpmUtility>(new TpmUtilityForwarder(tpm_utility_));
+std::unique_ptr<TpmUtility> TrunksFactoryForTest::GetTpmUtility() const {
+  return base::MakeUnique<TpmUtilityForwarder>(tpm_utility_);
 }
 
-scoped_ptr<AuthorizationDelegate>
-    TrunksFactoryForTest::GetPasswordAuthorization(
-        const std::string& password) const {
-  return scoped_ptr<AuthorizationDelegate>(
-      new AuthorizationDelegateForwarder(password_authorization_delegate_));
+std::unique_ptr<AuthorizationDelegate>
+TrunksFactoryForTest::GetPasswordAuthorization(
+    const std::string& password) const {
+  return base::MakeUnique<AuthorizationDelegateForwarder>(
+      password_authorization_delegate_);
 }
 
-scoped_ptr<SessionManager> TrunksFactoryForTest::GetSessionManager() const {
-  return scoped_ptr<SessionManager>(
-      new SessionManagerForwarder(session_manager_));
+std::unique_ptr<SessionManager> TrunksFactoryForTest::GetSessionManager()
+    const {
+  return base::MakeUnique<SessionManagerForwarder>(session_manager_);
 }
 
-scoped_ptr<HmacSession> TrunksFactoryForTest::GetHmacSession() const {
-  return scoped_ptr<HmacSession>(new HmacSessionForwarder(hmac_session_));
+std::unique_ptr<HmacSession> TrunksFactoryForTest::GetHmacSession() const {
+  return base::MakeUnique<HmacSessionForwarder>(hmac_session_);
 }
 
-scoped_ptr<PolicySession> TrunksFactoryForTest::GetPolicySession() const {
-  return scoped_ptr<PolicySession>(new PolicySessionForwarder(policy_session_));
+std::unique_ptr<PolicySession> TrunksFactoryForTest::GetPolicySession() const {
+  return base::MakeUnique<PolicySessionForwarder>(policy_session_);
 }
 
-scoped_ptr<PolicySession> TrunksFactoryForTest::GetTrialSession() const {
-  return scoped_ptr<PolicySession>(new PolicySessionForwarder(policy_session_));
+std::unique_ptr<PolicySession> TrunksFactoryForTest::GetTrialSession() const {
+  return base::MakeUnique<PolicySessionForwarder>(trial_session_);
 }
 
-scoped_ptr<BlobParser> TrunksFactoryForTest::GetBlobParser() const {
-  return scoped_ptr<BlobParser>(new BlobParserForwarder(blob_parser_));
+std::unique_ptr<BlobParser> TrunksFactoryForTest::GetBlobParser() const {
+  return base::MakeUnique<BlobParserForwarder>(blob_parser_);
 }
 
 }  // namespace trunks

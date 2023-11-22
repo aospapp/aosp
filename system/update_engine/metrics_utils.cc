@@ -99,7 +99,10 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kDownloadInvalidMetadataSignature:
     case ErrorCode::kOmahaResponseInvalid:
     case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
+    // TODO(deymo): The next two items belong in their own category; they
+    // should not be counted as internal errors. b/27112092
     case ErrorCode::kOmahaUpdateDeferredPerPolicy:
+    case ErrorCode::kNonCriticalUpdateInOOBE:
     case ErrorCode::kOmahaErrorInHTTPResponse:
     case ErrorCode::kDownloadMetadataSignatureMissingError:
     case ErrorCode::kOmahaUpdateDeferredForBackoff:
@@ -193,6 +196,7 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
     case ErrorCode::kOmahaResponseInvalid:
     case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
     case ErrorCode::kOmahaUpdateDeferredPerPolicy:
+    case ErrorCode::kNonCriticalUpdateInOOBE:
     case ErrorCode::kOmahaErrorInHTTPResponse:
     case ErrorCode::kDownloadOperationHashMissingError:
     case ErrorCode::kDownloadMetadataSignatureMissingError:
@@ -224,31 +228,31 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
   return metrics::DownloadErrorCode::kInputMalformed;
 }
 
-metrics::ConnectionType GetConnectionType(NetworkConnectionType type,
-                                          NetworkTethering tethering) {
+metrics::ConnectionType GetConnectionType(ConnectionType type,
+                                          ConnectionTethering tethering) {
   switch (type) {
-    case NetworkConnectionType::kUnknown:
+    case ConnectionType::kUnknown:
       return metrics::ConnectionType::kUnknown;
 
-    case NetworkConnectionType::kEthernet:
-      if (tethering == NetworkTethering::kConfirmed)
+    case ConnectionType::kEthernet:
+      if (tethering == ConnectionTethering::kConfirmed)
         return metrics::ConnectionType::kTetheredEthernet;
       else
         return metrics::ConnectionType::kEthernet;
 
-    case NetworkConnectionType::kWifi:
-      if (tethering == NetworkTethering::kConfirmed)
+    case ConnectionType::kWifi:
+      if (tethering == ConnectionTethering::kConfirmed)
         return metrics::ConnectionType::kTetheredWifi;
       else
         return metrics::ConnectionType::kWifi;
 
-    case NetworkConnectionType::kWimax:
+    case ConnectionType::kWimax:
       return metrics::ConnectionType::kWimax;
 
-    case NetworkConnectionType::kBluetooth:
+    case ConnectionType::kBluetooth:
       return metrics::ConnectionType::kBluetooth;
 
-    case NetworkConnectionType::kCellular:
+    case ConnectionType::kCellular:
       return metrics::ConnectionType::kCellular;
   }
 

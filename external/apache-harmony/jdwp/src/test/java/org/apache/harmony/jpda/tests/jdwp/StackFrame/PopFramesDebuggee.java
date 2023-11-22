@@ -49,6 +49,7 @@ public class PopFramesDebuggee extends SyncDebuggee {
         runDebuggee(PopFramesDebuggee.class);
     }
 
+    @Override
     public void run() {
         logWriter.println("Entering nestledMethod1");
         nestledMethod1();

@@ -19,8 +19,8 @@ package com.android.tv;
 import static com.android.tv.TimeShiftManager.INVALID_TIME;
 import static com.android.tv.TimeShiftManager.REQUEST_TIMEOUT_MS;
 
+import android.support.test.filters.MediumTest;
 import android.test.UiThreadTest;
-import android.test.suitebuilder.annotation.MediumTest;
 
 @MediumTest
 public class CurrentPositionMediatorTest extends BaseMainActivityTestCase {

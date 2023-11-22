@@ -17,16 +17,21 @@
 package com.android.compatibility.common.tradefed.result;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.compatibility.common.util.AbiUtils;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider;
 import com.android.compatibility.common.util.ICaseResult;
 import com.android.compatibility.common.util.IInvocationResult;
 import com.android.compatibility.common.util.IModuleResult;
 import com.android.compatibility.common.util.ITestResult;
 import com.android.compatibility.common.util.TestStatus;
 import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.result.ByteArrayInputStreamSource;
+import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 
 import junit.framework.TestCase;
@@ -36,9 +41,13 @@ import java.io.FileFilter;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * Unit tests for {@link ResultReporter}
+ */
 public class ResultReporterTest extends TestCase {
 
     private static final String ROOT_PROPERTY = "TESTS_ROOT";
+    private static final String SUITE_NAME = "TESTS";
     private static final String BUILD_NUMBER = "2";
     private static final String SUITE_PLAN = "cts";
     private static final String DYNAMIC_CONFIG_URL = "";
@@ -63,10 +72,10 @@ public class ResultReporterTest extends TestCase {
         "compatibility_result.xsd",
         "compatibility_result.xsl",
         "logo.png"};
-    private static final long START_TIME = 123456L;
 
     private ResultReporter mReporter;
     private IBuildInfo mBuildInfo;
+    private IInvocationContext mContext;
     private CompatibilityBuildHelper mBuildHelper;
 
     private File mRoot = null;
@@ -76,16 +85,33 @@ public class ResultReporterTest extends TestCase {
     @Override
     public void setUp() throws Exception {
         mReporter = new ResultReporter();
-        OptionSetter setter = new OptionSetter(mReporter);
         mRoot = FileUtil.createTempDir(ROOT_DIR_NAME);
         mBase = new File(mRoot, BASE_DIR_NAME);
         mBase.mkdirs();
         mTests = new File(mBase, TESTCASES);
         mTests.mkdirs();
         System.setProperty(ROOT_PROPERTY, mRoot.getAbsolutePath());
-        mBuildInfo = new BuildInfo(BUILD_NUMBER, "", "");
+        CompatibilityBuildProvider provider = new CompatibilityBuildProvider() {
+            @Override
+            protected String getSuiteInfoName() {
+                return SUITE_NAME;
+            }
+            @Override
+            protected String getSuiteInfoBuildNumber() {
+                return BUILD_NUMBER;
+            }
+            @Override
+            protected String getSuiteInfoVersion() {
+                return BUILD_NUMBER;
+            }
+        };
+        OptionSetter setter = new OptionSetter(provider);
+        setter.setOptionValue("plan", SUITE_PLAN);
+        setter.setOptionValue("dynamic-config-url", DYNAMIC_CONFIG_URL);
+        mBuildInfo = provider.getBuild();
         mBuildHelper = new CompatibilityBuildHelper(mBuildInfo);
-        mBuildHelper.init(SUITE_PLAN, DYNAMIC_CONFIG_URL, START_TIME);
+        mContext = new InvocationContext();
+        mContext.addDeviceBuildInfo("fakeDevice", mBuildInfo);
     }
 
     @Override
@@ -95,7 +121,7 @@ public class ResultReporterTest extends TestCase {
     }
 
     public void testSetup() throws Exception {
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
         // Should have created a directory for the logs
         File[] children = mBuildHelper.getLogsDir().listFiles();
         assertTrue("Didn't create logs dir", children.length == 1 && children[0].isDirectory());
@@ -115,7 +141,7 @@ public class ResultReporterTest extends TestCase {
     }
 
     public void testResultReporting() throws Exception {
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
         mReporter.testRunStarted(ID, 2);
         TestIdentifier test1 = new TestIdentifier(CLASS, METHOD_1);
         mReporter.testStarted(test1);
@@ -126,6 +152,7 @@ public class ResultReporterTest extends TestCase {
         TestIdentifier test3 = new TestIdentifier(CLASS, METHOD_3);
         mReporter.testStarted(test3);
         mReporter.testFailed(test3, STACK_TRACE);
+        mReporter.testEnded(test3, new HashMap<String, String>());
         mReporter.testRunEnded(10, new HashMap<String, String>());
         mReporter.invocationEnded(10);
         IInvocationResult result = mReporter.getResult();
@@ -173,7 +200,7 @@ public class ResultReporterTest extends TestCase {
     public void testRepeatedExecutions() throws Exception {
         String[] methods = new String[] {METHOD_1, METHOD_2, METHOD_3};
 
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
 
         makeTestRun(methods, new boolean[] {true, false, true});
         makeTestRun(methods, new boolean[] {true, false, false});
@@ -219,7 +246,7 @@ public class ResultReporterTest extends TestCase {
     }
 
     public void testRetry() throws Exception {
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
 
         // Set up IInvocationResult with existing results from previous session
         mReporter.testRunStarted(ID, 2);
@@ -273,8 +300,86 @@ public class ResultReporterTest extends TestCase {
                 finalTestResult2.getResultStatus());
     }
 
+    public void testRetryCanSetDone() throws Exception {
+        mReporter.invocationStarted(mContext);
+        // Set mCanMarkDone directly (otherwise we must build result directory, write XML, and
+        // perform actual retry)
+        mReporter.mCanMarkDone = true;
+        // Set up IInvocationResult with existing results from previous session
+        IInvocationResult invocationResult = mReporter.getResult();
+        IModuleResult moduleResult = invocationResult.getOrCreateModule(ID);
+        moduleResult.initializeDone(false);
+        ICaseResult caseResult = moduleResult.getOrCreateResult(CLASS);
+        ITestResult testResult1 = caseResult.getOrCreateResult(METHOD_1);
+        testResult1.setResultStatus(TestStatus.PASS);
+        testResult1.setRetry(true);
+        ITestResult testResult2 = caseResult.getOrCreateResult(METHOD_2);
+        testResult2.setResultStatus(TestStatus.FAIL);
+        testResult2.setStackTrace(STACK_TRACE);
+        testResult2.setRetry(true);
+
+        // Assume no additional filtering is applied to retry, and all tests for the module have
+        // been collected. Thus, module "done" value should switch.
+        mReporter.testRunStarted(ID, 1);
+
+        TestIdentifier test2 = new TestIdentifier(CLASS, METHOD_2);
+        mReporter.testStarted(test2);
+        mReporter.testEnded(test2, new HashMap<String, String>());
+
+        mReporter.testRunEnded(10, new HashMap<String, String>());
+        mReporter.invocationEnded(10);
+
+        // Verification that results have been overwritten.
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 2 pass", 2, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 0 failures", 0, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        assertTrue("Module should be marked done", module.isDone());
+    }
+
+    public void testRetryCannotSetDone() throws Exception {
+        mReporter.invocationStarted(mContext);
+        // Set mCanMarkDone directly (otherwise we must build result directory, write XML, and
+        // perform actual retry)
+        mReporter.mCanMarkDone = false;
+        // Set up IInvocationResult with existing results from previous session
+        IInvocationResult invocationResult = mReporter.getResult();
+        IModuleResult moduleResult = invocationResult.getOrCreateModule(ID);
+        moduleResult.setDone(false);
+        ICaseResult caseResult = moduleResult.getOrCreateResult(CLASS);
+        ITestResult testResult1 = caseResult.getOrCreateResult(METHOD_1);
+        testResult1.setResultStatus(TestStatus.PASS);
+        testResult1.setRetry(true);
+        ITestResult testResult2 = caseResult.getOrCreateResult(METHOD_2);
+        testResult2.setResultStatus(TestStatus.FAIL);
+        testResult2.setStackTrace(STACK_TRACE);
+        testResult2.setRetry(true);
+
+        // Since using retry-type failed option, we only run previously failed test
+        // and don't run any non-executed tests, so module "done" value should not switch.
+        mReporter.testRunStarted(ID, 1);
+
+        TestIdentifier test2 = new TestIdentifier(CLASS, METHOD_2);
+        mReporter.testStarted(test2);
+        mReporter.testEnded(test2, new HashMap<String, String>());
+
+        mReporter.testRunEnded(10, new HashMap<String, String>());
+        mReporter.invocationEnded(10);
+
+        // Verification that results have been overwritten.
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 2 pass", 2, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 0 failures", 0, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+        assertFalse("Module should not be marked done", module.isDone());
+    }
+
     public void testResultReporting_moduleNotDone() throws Exception {
-        mReporter.invocationStarted(mBuildInfo);
+        mReporter.invocationStarted(mContext);
         mReporter.testRunStarted(ID, 2);
         TestIdentifier test1 = new TestIdentifier(CLASS, METHOD_1);
         mReporter.testStarted(test1);
@@ -306,11 +411,34 @@ public class ResultReporterTest extends TestCase {
     public void testCopyFormattingFiles() throws Exception {
         File resultDir = new File(mBuildHelper.getResultsDir(), RESULT_DIR);
         resultDir.mkdirs();
-        ResultReporter.copyFormattingFiles(resultDir);
+        ResultReporter.copyFormattingFiles(resultDir, SUITE_NAME);
         for (String filename : FORMATTING_FILES) {
             File file = new File(resultDir, filename);
             assertTrue(String.format("%s (%s) was not created", filename, file.getAbsolutePath()),
                     file.exists() && file.isFile() && file.length() > 0);
         }
+    }
+
+    /**
+     * Ensure that when {@link ResultReporter#testLog(String, LogDataType, InputStreamSource)} is
+     * called, a single invocation result folder is created and populated.
+     */
+    public void testTestLog() throws Exception {
+        InputStreamSource fakeData = new ByteArrayInputStreamSource("test".getBytes());
+        mReporter.invocationStarted(mContext);
+        mReporter.testLog("test1", LogDataType.LOGCAT, fakeData);
+        // date folder
+        assertEquals(1, mBuildHelper.getLogsDir().list().length);
+        // inv_ folder
+        assertEquals(1, mBuildHelper.getLogsDir().listFiles()[0].list().length);
+        // actual logs
+        assertEquals(1, mBuildHelper.getLogsDir().listFiles()[0].listFiles()[0].list().length);
+        mReporter.testLog("test2", LogDataType.LOGCAT, fakeData);
+        // date folder
+        assertEquals(1, mBuildHelper.getLogsDir().list().length);
+        // inv_ folder
+        assertEquals(1, mBuildHelper.getLogsDir().listFiles()[0].list().length);
+        // actual logs
+        assertEquals(2, mBuildHelper.getLogsDir().listFiles()[0].listFiles()[0].list().length);
     }
 }

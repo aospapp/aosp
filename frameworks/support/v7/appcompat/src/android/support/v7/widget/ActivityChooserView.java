@@ -16,6 +16,8 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -23,9 +25,12 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.database.DataSetObserver;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.ActionProvider;
-import android.support.v4.view.ViewCompat;
+import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.support.v7.appcompat.R;
 import android.support.v7.view.menu.ShowableListMenu;
 import android.util.AttributeSet;
@@ -34,6 +39,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
@@ -64,6 +70,7 @@ import android.widget.TextView;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ActivityChooserView extends ViewGroup implements
         ActivityChooserModel.ActivityChooserModelClient {
 
@@ -72,7 +79,7 @@ public class ActivityChooserView extends ViewGroup implements
     /**
      * An adapter for displaying the activities in an {@link android.widget.AdapterView}.
      */
-    private final ActivityChooserViewAdapter mAdapter;
+    final ActivityChooserViewAdapter mAdapter;
 
     /**
      * Implementation of various interfaces to avoid publishing them in the APIs.
@@ -92,7 +99,7 @@ public class ActivityChooserView extends ViewGroup implements
     /**
      * The expand activities action button;
      */
-    private final FrameLayout mExpandActivityOverflowButton;
+    final FrameLayout mExpandActivityOverflowButton;
 
     /**
      * The image for the expand activities action button;
@@ -102,7 +109,7 @@ public class ActivityChooserView extends ViewGroup implements
     /**
      * The default activities action button;
      */
-    private final FrameLayout mDefaultActivityButton;
+    final FrameLayout mDefaultActivityButton;
 
     /**
      * The image for the default activities action button;
@@ -122,7 +129,7 @@ public class ActivityChooserView extends ViewGroup implements
     /**
      * Observer for the model data.
      */
-    private final DataSetObserver mModelDataSetObserver = new DataSetObserver() {
+    final DataSetObserver mModelDataSetObserver = new DataSetObserver() {
 
         @Override
         public void onChanged() {
@@ -160,17 +167,17 @@ public class ActivityChooserView extends ViewGroup implements
     /**
      * Listener for the dismissal of the popup/alert.
      */
-    private PopupWindow.OnDismissListener mOnDismissListener;
+    PopupWindow.OnDismissListener mOnDismissListener;
 
     /**
      * Flag whether a default activity currently being selected.
      */
-    private boolean mIsSelectingDefaultActivity;
+    boolean mIsSelectingDefaultActivity;
 
     /**
      * The count of activities in the popup.
      */
-    private int mInitialActivityCount = ActivityChooserViewAdapter.MAX_ACTIVITY_COUNT_DEFAULT;
+    int mInitialActivityCount = ActivityChooserViewAdapter.MAX_ACTIVITY_COUNT_DEFAULT;
 
     /**
      * Flag whether this view is attached to a window.
@@ -228,16 +235,23 @@ public class ActivityChooserView extends ViewGroup implements
 
         mCallbacks = new Callbacks();
 
-        mActivityChooserContent = (LinearLayoutCompat) findViewById(R.id.activity_chooser_view_content);
+        mActivityChooserContent = findViewById(R.id.activity_chooser_view_content);
         mActivityChooserContentBackground = mActivityChooserContent.getBackground();
 
-        mDefaultActivityButton = (FrameLayout) findViewById(R.id.default_activity_button);
+        mDefaultActivityButton = findViewById(R.id.default_activity_button);
         mDefaultActivityButton.setOnClickListener(mCallbacks);
         mDefaultActivityButton.setOnLongClickListener(mCallbacks);
         mDefaultActivityButtonImage = (ImageView) mDefaultActivityButton.findViewById(R.id.image);
 
-        final FrameLayout expandButton = (FrameLayout) findViewById(R.id.expand_activities_button);
+        final FrameLayout expandButton = findViewById(R.id.expand_activities_button);
         expandButton.setOnClickListener(mCallbacks);
+        expandButton.setAccessibilityDelegate(new AccessibilityDelegate() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                AccessibilityNodeInfoCompat.wrap(info).setCanOpenPopup(true);
+            }
+        });
         expandButton.setOnTouchListener(new ForwardingListener(expandButton) {
             @Override
             public ShowableListMenu getPopup() {
@@ -321,6 +335,7 @@ public class ActivityChooserView extends ViewGroup implements
      * Set the provider hosting this view, if applicable.
      * @hide Internal use only
      */
+    @RestrictTo(LIBRARY_GROUP)
     public void setProvider(ActionProvider provider) {
         mProvider = provider;
     }
@@ -344,7 +359,7 @@ public class ActivityChooserView extends ViewGroup implements
      *
      * @param maxActivityCount The max number of activities to display.
      */
-    private void showPopupUnchecked(int maxActivityCount) {
+    void showPopupUnchecked(int maxActivityCount) {
         if (mAdapter.getDataModel() == null) {
             throw new IllegalStateException("No data model. Did you call #setDataModel?");
         }
@@ -380,6 +395,7 @@ public class ActivityChooserView extends ViewGroup implements
             }
             popupWindow.getListView().setContentDescription(getContext().getString(
                     R.string.abc_activitychooserview_choose_application));
+            popupWindow.getListView().setSelector(new ColorDrawable(Color.TRANSPARENT));
         }
     }
 
@@ -501,7 +517,7 @@ public class ActivityChooserView extends ViewGroup implements
      *
      * @return The popup.
      */
-    private ListPopupWindow getListPopupWindow() {
+    ListPopupWindow getListPopupWindow() {
         if (mListPopupWindow == null) {
             mListPopupWindow = new ListPopupWindow(getContext());
             mListPopupWindow.setAdapter(mAdapter);
@@ -516,7 +532,7 @@ public class ActivityChooserView extends ViewGroup implements
     /**
      * Updates the buttons state.
      */
-    private void updateAppearance() {
+    void updateAppearance() {
         // Expand overflow button.
         if (mAdapter.getCount() > 0) {
             mExpandActivityOverflowButton.setEnabled(true);
@@ -526,7 +542,7 @@ public class ActivityChooserView extends ViewGroup implements
         // Default activity button.
         final int activityCount = mAdapter.getActivityCount();
         final int historySize = mAdapter.getHistorySize();
-        if (activityCount==1 || activityCount > 1 && historySize > 0) {
+        if (activityCount == 1 || (activityCount > 1 && historySize > 0)) {
             mDefaultActivityButton.setVisibility(VISIBLE);
             ResolveInfo activity = mAdapter.getDefaultActivity();
             PackageManager packageManager = getContext().getPackageManager();
@@ -553,6 +569,9 @@ public class ActivityChooserView extends ViewGroup implements
      */
     private class Callbacks implements AdapterView.OnItemClickListener,
             View.OnClickListener, View.OnLongClickListener, PopupWindow.OnDismissListener {
+
+        Callbacks() {
+        }
 
         // AdapterView#OnItemClickListener
         @Override
@@ -661,6 +680,9 @@ public class ActivityChooserView extends ViewGroup implements
 
         private boolean mShowFooterView;
 
+        ActivityChooserViewAdapter() {
+        }
+
         public void setDataModel(ActivityChooserModel dataModel) {
             ActivityChooserModel oldDataModel = mAdapter.getDataModel();
             if (oldDataModel != null && isShown()) {
@@ -751,9 +773,9 @@ public class ActivityChooserView extends ViewGroup implements
                     titleView.setText(activity.loadLabel(packageManager));
                     // Highlight the default.
                     if (mShowDefaultActivity && position == 0 && mHighlightDefaultActivity) {
-                        ViewCompat.setActivated(convertView, true);
+                        convertView.setActivated(true);
                     } else {
-                        ViewCompat.setActivated(convertView, false);
+                        convertView.setActivated(false);
                     }
                     return convertView;
                 default:
@@ -834,6 +856,7 @@ public class ActivityChooserView extends ViewGroup implements
      * Allows us to set the background using TintTypedArray
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public static class InnerLayout extends LinearLayoutCompat {
 
         private static final int[] TINT_ATTRS = {

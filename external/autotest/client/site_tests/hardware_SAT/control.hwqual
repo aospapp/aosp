@@ -23,7 +23,6 @@ http://code.google.com/p/stressapptest/
 """
 NAME = 'hardware_SAT 10 minutes'
 ATTRIBUTES = "suite:hwqual"
-SUITE = 'hwqual'
 TEST_CLASS = 'hardware'
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'

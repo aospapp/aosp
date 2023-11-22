@@ -27,7 +27,13 @@ minimal_sqlite_flags := \
 	-DSQLITE_OMIT_BUILTIN_TEST \
 	-DSQLITE_OMIT_COMPILEOPTION_DIAGS \
 	-DSQLITE_OMIT_LOAD_EXTENSION \
-	-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600
+	-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600 \
+	-DSQLITE_SECURE_DELETE \
+	-Wno-unused-parameter \
+	-Werror
+
+minimal_linux_flags := \
+    -DHAVE_POSIX_FALLOCATE=1 \
 
 device_sqlite_flags := $(minimal_sqlite_flags) \
     -DSQLITE_ENABLE_ICU \
@@ -38,12 +44,17 @@ device_sqlite_flags := $(minimal_sqlite_flags) \
 
 common_src_files := sqlite3.c
 
+# b/31938382, disable most clang-tidy checks to avoid segmentation fault.
+common_local_tidy_checks := -*,google-*,-google-readability-*
+
 # the device library
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_SRC_FILES := $(common_src_files)
 
 LOCAL_CFLAGS += $(device_sqlite_flags)
+LOCAL_CFLAGS_linux += $(minimal_linux_flags)
 
 LOCAL_SHARED_LIBRARIES := libdl
 
@@ -59,20 +70,25 @@ LOCAL_SHARED_LIBRARIES += liblog \
 
 # include android specific methods
 LOCAL_WHOLE_STATIC_LIBRARIES := libsqlite3_android
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 
 include $(BUILD_SHARED_LIBRARY)
 
 
 include $(CLEAR_VARS)
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_SRC_FILES := $(common_src_files)
 LOCAL_LDLIBS += -lpthread -ldl
 LOCAL_CFLAGS += $(minimal_sqlite_flags)
+LOCAL_CFLAGS_linux += $(minimal_linux_flags)
 LOCAL_MODULE:= libsqlite
-LOCAL_SHARED_LIBRARIES += libicuuc-host libicui18n-host
+LOCAL_SHARED_LIBRARIES += libicuuc libicui18n
 LOCAL_STATIC_LIBRARIES := liblog libutils libcutils
 
 # include android specific methods
 LOCAL_WHOLE_STATIC_LIBRARIES := libsqlite3_android
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+
 include $(BUILD_HOST_SHARED_LIBRARY)
 
 ##
@@ -99,6 +115,7 @@ LOCAL_SHARED_LIBRARIES := libsqlite \
 LOCAL_STATIC_LIBRARIES := libicuandroid_utils
 
 LOCAL_CFLAGS += $(device_sqlite_flags)
+LOCAL_CFLAGS_linux += $(minimal_linux_flags)
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
 
@@ -119,9 +136,11 @@ endif # !SDK_ONLY
 
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_SRC_FILES := $(common_src_files) shell.c
 LOCAL_CFLAGS += $(minimal_sqlite_flags) \
     -DNO_ANDROID_FUNCS=1
+LOCAL_CFLAGS_linux += $(minimal_linux_flags)
 
 # sqlite3MemsysAlarm uses LOG()
 LOCAL_STATIC_LIBRARIES += liblog
@@ -139,15 +158,23 @@ include $(BUILD_HOST_EXECUTABLE)
 # features against the NDK. This is used by libcore's JDBC related
 # unit tests.
 include $(CLEAR_VARS)
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_SRC_FILES := $(common_src_files)
 LOCAL_CFLAGS += $(minimal_sqlite_flags)
+LOCAL_CFLAGS_linux += $(minimal_linux_flags)
 LOCAL_MODULE:= libsqlite_static_minimal
 LOCAL_SDK_VERSION := 23
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+
 include $(BUILD_STATIC_LIBRARY)
 
 # Same as libsqlite_static_minimal, except that this is for the host.
 include $(CLEAR_VARS)
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_SRC_FILES := $(common_src_files)
 LOCAL_CFLAGS += $(minimal_sqlite_flags)
+LOCAL_CFLAGS_linux += $(minimal_linux_flags)
 LOCAL_MODULE:= libsqlite_static_minimal
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+
 include $(BUILD_HOST_STATIC_LIBRARY)

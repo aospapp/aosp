@@ -17,70 +17,126 @@
 package android.net.metrics;
 
 import android.net.ConnectivityMetricsEvent;
-import android.net.ConnectivityMetricsLogger;
-import android.net.IConnectivityMetricsLogger;
+import android.net.IIpConnectivityMetrics;
 import android.os.Parcelable;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.util.Log;
-
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.BitUtils;
 
 /**
- * Specialization of the ConnectivityMetricsLogger class for recording IP connectivity events.
+ * Class for logging IpConnectvity events with IpConnectivityMetrics
  * {@hide}
  */
-public class IpConnectivityLog extends ConnectivityMetricsLogger {
-    private static String TAG = "IpConnectivityMetricsLogger";
-    private static final boolean DBG = true;
+public class IpConnectivityLog {
+    private static final String TAG = IpConnectivityLog.class.getSimpleName();
+    private static final boolean DBG = false;
+
+    public static final String SERVICE_NAME = "connmetrics";
+
+    private IIpConnectivityMetrics mService;
 
     public IpConnectivityLog() {
-        // mService initialized in super constructor.
     }
 
     @VisibleForTesting
-    public IpConnectivityLog(IConnectivityMetricsLogger service) {
-        super(service);
+    public IpConnectivityLog(IIpConnectivityMetrics service) {
+        mService = service;
+    }
+
+    private boolean checkLoggerService() {
+        if (mService != null) {
+            return true;
+        }
+        final IIpConnectivityMetrics service =
+                IIpConnectivityMetrics.Stub.asInterface(ServiceManager.getService(SERVICE_NAME));
+        if (service == null) {
+            return false;
+        }
+        // Two threads racing here will write the same pointer because getService
+        // is idempotent once MetricsLoggerService is initialized.
+        mService = service;
+        return true;
     }
 
     /**
-     * Log an IpConnectivity event. Contrary to logEvent(), this method does not
-     * keep track of skipped events and is thread-safe for callers.
-     *
-     * @param timestamp is the epoch timestamp of the event in ms.
-     * @param data is a Parcelable instance representing the event.
-     *
+     * Log a ConnectivityMetricsEvent.
+     * @param ev the event to log. If the event timestamp is 0,
+     * the timestamp is set to the current time in milliseconds.
      * @return true if the event was successfully logged.
      */
-    public boolean log(long timestamp, Parcelable data) {
+    public boolean log(ConnectivityMetricsEvent ev) {
         if (!checkLoggerService()) {
             if (DBG) {
-                Log.d(TAG, CONNECTIVITY_METRICS_LOGGER_SERVICE + " service was not ready");
+                Log.d(TAG, SERVICE_NAME + " service was not ready");
             }
             return false;
         }
-
-        if (System.currentTimeMillis() < mServiceUnblockedTimestampMillis) {
-            if (DBG) {
-                Log.d(TAG, "skipping logging due to throttling for IpConnectivity component");
-            }
-            return false;
+        if (ev.timestamp == 0) {
+            ev.timestamp = System.currentTimeMillis();
         }
-
         try {
-            final ConnectivityMetricsEvent event =
-                new ConnectivityMetricsEvent(timestamp, COMPONENT_TAG_CONNECTIVITY, 0, data);
-            final long result = mService.logEvent(event);
-            if (result >= 0) {
-                mServiceUnblockedTimestampMillis = result;
-            }
-            return (result == 0);
+            int left = mService.logEvent(ev);
+            return left >= 0;
         } catch (RemoteException e) {
             Log.e(TAG, "Error logging event", e);
             return false;
         }
     }
 
-    public void log(Parcelable event) {
-        log(System.currentTimeMillis(), event);
+    /**
+     * Log an IpConnectivity event.
+     * @param timestamp is the epoch timestamp of the event in ms.
+     * If the timestamp is 0, the timestamp is set to the current time in milliseconds.
+     * @param data is a Parcelable instance representing the event.
+     * @return true if the event was successfully logged.
+     */
+    public boolean log(long timestamp, Parcelable data) {
+        ConnectivityMetricsEvent ev = makeEv(data);
+        ev.timestamp = timestamp;
+        return log(ev);
+    }
+
+    /**
+     * Log an IpConnectivity event.
+     * @param ifname the network interface associated with the event.
+     * @param data is a Parcelable instance representing the event.
+     * @return true if the event was successfully logged.
+     */
+    public boolean log(String ifname, Parcelable data) {
+        ConnectivityMetricsEvent ev = makeEv(data);
+        ev.ifname = ifname;
+        return log(ev);
+    }
+
+    /**
+     * Log an IpConnectivity event.
+     * @param netid the id of the network associated with the event.
+     * @param transports the current transports of the network associated with the event, as defined
+     * in NetworkCapabilities.
+     * @param data is a Parcelable instance representing the event.
+     * @return true if the event was successfully logged.
+     */
+    public boolean log(int netid, int[] transports, Parcelable data) {
+        ConnectivityMetricsEvent ev = makeEv(data);
+        ev.netId = netid;
+        ev.transports = BitUtils.packBits(transports);
+        return log(ev);
+    }
+
+    /**
+     * Log an IpConnectivity event.
+     * @param data is a Parcelable instance representing the event.
+     * @return true if the event was successfully logged.
+     */
+    public boolean log(Parcelable data) {
+        return log(makeEv(data));
+    }
+
+    private static ConnectivityMetricsEvent makeEv(Parcelable data) {
+        ConnectivityMetricsEvent ev = new ConnectivityMetricsEvent();
+        ev.data = data;
+        return ev;
     }
 }

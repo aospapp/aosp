@@ -25,6 +25,7 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
+import org.apache.harmony.jpda.tests.framework.TestErrorException;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.Location;
@@ -150,15 +151,18 @@ public class CombinedEvents002Test extends CombinedEventsTestCase {
                     " event for '" + TESTED_CLASS_NAME + "'... ");
             ReplyPacket reply = null;
             switch (eventKind) {
-            case JDWPConstants.EventKind.METHOD_ENTRY:
-                reply = debuggeeWrapper.vmMirror.setMethodEntry(TESTED_CLASS_NAME);
-                break;
-            case JDWPConstants.EventKind.METHOD_EXIT:
-                reply = debuggeeWrapper.vmMirror.setMethodExit(TESTED_CLASS_NAME);
-                break;
-            case JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE:
-                reply = debuggeeWrapper.vmMirror.setMethodExitWithReturnValue(TESTED_CLASS_NAME);
-                break;
+                case JDWPConstants.EventKind.METHOD_ENTRY:
+                    reply = debuggeeWrapper.vmMirror.setMethodEntry(TESTED_CLASS_NAME);
+                    break;
+                case JDWPConstants.EventKind.METHOD_EXIT:
+                    reply = debuggeeWrapper.vmMirror.setMethodExit(TESTED_CLASS_NAME);
+                    break;
+                case JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE:
+                    reply =
+                        debuggeeWrapper.vmMirror.setMethodExitWithReturnValue(TESTED_CLASS_NAME);
+                    break;
+                default:
+                    throw new TestErrorException("Unexpected event: " + eventKindName);
             }
             checkReplyPacket(reply, "Set " + eventKindName + " event.");  //DBG needless ?
             int requestId = reply.getNextValueAsInt();

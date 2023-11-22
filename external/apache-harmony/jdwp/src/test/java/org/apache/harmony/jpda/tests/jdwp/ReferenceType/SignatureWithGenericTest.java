@@ -43,6 +43,7 @@ public class SignatureWithGenericTest extends JDWPSyncTestCase {
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/SignatureWithGenericDebuggee;";
     static final String debuggeeGenericSignature = "";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.SignatureWithGenericDebuggee";
     }

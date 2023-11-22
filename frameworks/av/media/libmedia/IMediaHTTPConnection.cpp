@@ -38,7 +38,7 @@ enum {
 };
 
 struct BpMediaHTTPConnection : public BpInterface<IMediaHTTPConnection> {
-    BpMediaHTTPConnection(const sp<IBinder> &impl)
+    explicit BpMediaHTTPConnection(const sp<IBinder> &impl)
         : BpInterface<IMediaHTTPConnection>(impl) {
     }
 
@@ -123,6 +123,14 @@ struct BpMediaHTTPConnection : public BpInterface<IMediaHTTPConnection> {
         if (len > mMemory->size()) {
             ALOGE("got %zu, but memory has %zu", len, mMemory->size());
             return ERROR_OUT_OF_RANGE;
+        }
+        if(buffer == NULL) {
+           ALOGE("readAt got a NULL buffer");
+           return UNKNOWN_ERROR;
+        }
+        if (mMemory->pointer() == NULL) {
+           ALOGE("readAt got a NULL mMemory->pointer()");
+           return UNKNOWN_ERROR;
         }
 
         memcpy(buffer, mMemory->pointer(), len);

@@ -66,9 +66,14 @@ _buildbot_builders = global_config.global_config.get_config_value(
 _build_prefix = global_config.global_config.get_config_value(
     BUG_CONFIG_SECTION, 'build_prefix', default='')
 
+_CRBUG_URL = global_config.global_config.get_config_value(
+    BUG_CONFIG_SECTION, 'crbug_url')
+
 
 WMATRIX_RETRY_URL = global_config.global_config.get_config_value(
     BUG_CONFIG_SECTION, 'wmatrix_retry_url')
+WMATRIX_TEST_HISTORY_URL = global_config.global_config.get_config_value(
+    BUG_CONFIG_SECTION, 'wmatrix_test_history_url')
 
 
 class InvalidBugTemplateException(Exception):
@@ -84,7 +89,7 @@ class BugTemplate(object):
 
     # Names of expected attributes.
     EXPECTED_BUG_TEMPLATE_ATTRIBUTES = ['owner', 'labels', 'status', 'title',
-                                        'cc', 'summary']
+                                        'cc', 'summary', 'components']
     LIST_ATTRIBUTES = ['cc', 'labels']
     EMAIL_ATTRIBUTES = ['owner', 'cc']
 
@@ -334,3 +339,22 @@ def link_retry_url(test_name):
     @return: A link to the wmatrix retry stats dashboard for this test.
     """
     return WMATRIX_RETRY_URL % test_name
+
+
+def link_test_history(test_name):
+  """Link to the wmatrix test history page for this test.
+
+  @param test_name: Test we want to search the test history for.
+
+  @return: A link to the wmatrix test history page for this test.
+  """
+  return WMATRIX_TEST_HISTORY_URL % test_name
+
+
+def link_crbug(bug_id):
+    """Generate a bug link for the given bug_id.
+
+    @param bug_id: The id of the bug.
+    @return: A link, eg: https://crbug.com/<bug_id>.
+    """
+    return _CRBUG_URL % (bug_id,)

@@ -161,15 +161,14 @@ class KeymasterContext {
 
     /**
      * Return the attestation signing key of the specified algorithm (KM_ALGORITHM_RSA or
-     * KM_ALGORITHM_EC).  Caller does not acquire ownership and should not delete.
+     * KM_ALGORITHM_EC).  Caller acquires ownership and should free using EVP_PKEY_free.
      */
     virtual EVP_PKEY* AttestationKey(keymaster_algorithm_t algorithm,
                                      keymaster_error_t* error) const = 0;
 
     /**
      * Return the certificate chain of the attestation signing key of the specified algorithm
-     * (KM_ALGORITHM_RSA or KM_ALGORITHM_EC).  Caller does not acquire ownership and should not
-     * delete.
+     * (KM_ALGORITHM_RSA or KM_ALGORITHM_EC).  Caller acquires ownership and should free.
      */
     virtual keymaster_cert_chain_t* AttestationChain(keymaster_algorithm_t algorithm,
                                                      keymaster_error_t* error) const = 0;
@@ -181,6 +180,21 @@ class KeymasterContext {
                                                const keymaster_blob_t& application_id,
                                                bool reset_since_rotation,
                                                Buffer* unique_id) const = 0;
+
+    /**
+     * Verify that the device IDs provided in the attestation_params match the device's actual IDs
+     * and copy them to attestation. If *any* of the IDs do not match or verification is not
+     * possible, return KM_ERROR_CANNOT_ATTEST_IDS. If *all* IDs provided are successfully verified
+     * or no IDs were provided, return KM_ERROR_OK.
+     *
+     * If you do not support device ID attestation, ignore all arguments and return
+     * KM_ERROR_UNIMPLEMENTED.
+     */
+    virtual keymaster_error_t VerifyAndCopyDeviceIds(
+        const AuthorizationSet& /* attestation_params */,
+        AuthorizationSet* /* attestation */) const {
+        return KM_ERROR_UNIMPLEMENTED;
+    }
 
   private:
     // Uncopyable.

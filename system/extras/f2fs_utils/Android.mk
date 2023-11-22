@@ -8,7 +8,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_utils_host
 LOCAL_SRC_FILES := f2fs_utils.c
 LOCAL_STATIC_LIBRARIES := \
-    libsparse_host \
+    libsparse \
     libz
 LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
 LOCAL_CFLAGS := -Wno-unused-parameter
@@ -20,8 +20,8 @@ LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_STATIC_LIBRARIES := \
     libselinux \
-    libsparse_host \
-    libext2_uuid-host \
+    libsparse \
+    libext2_uuid \
     libz
 LOCAL_MODULE := libf2fs_ioutils_host
 include $(BUILD_HOST_STATIC_LIBRARY)
@@ -44,7 +44,7 @@ LOCAL_LDFLAGS := -ldl -rdynamic
 LOCAL_STATIC_LIBRARIES := libf2fs_utils_host libf2fs_ioutils_host libf2fs_dlutils_host
 LOCAL_REQUIRED_MODULES := libf2fs_fmt_host_dyn
 LOCAL_STATIC_LIBRARIES += \
-    libsparse_host \
+    libsparse \
     libz
 include $(BUILD_HOST_EXECUTABLE)
 
@@ -68,7 +68,7 @@ LOCAL_SRC_FILES := f2fs_utils.c
 LOCAL_C_INCLUDES := external/f2fs-tools/include external/f2fs-tools/mkfs
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_STATIC_LIBRARIES := \
-    libsparse_static
+    libsparse
 include $(BUILD_STATIC_LIBRARY)
 
 endif
@@ -76,7 +76,7 @@ endif
 include $(CLEAR_VARS)
 LOCAL_MODULE := libf2fs_sparseblock
 LOCAL_SRC_FILES := f2fs_sparseblock.c
-LOCAL_SHARED_LIBRARIES := libcutils
+LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_C_INCLUDES := external/f2fs-tools/include \
 		system/core/include/log
 include $(BUILD_SHARED_LIBRARY)
@@ -84,7 +84,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE := f2fs_sparseblock
 LOCAL_SRC_FILES := f2fs_sparseblock.c
-LOCAL_SHARED_LIBRARIES := libcutils
+LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_C_INCLUDES := external/f2fs-tools/include \
 		system/core/include/log
 include $(BUILD_EXECUTABLE)

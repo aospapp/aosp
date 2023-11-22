@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2016 Google Inc.
+ * Copyright (C) 2017 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.googlecode.android_scripting.facade.bluetooth;
@@ -53,6 +53,8 @@ public class BluetoothFacade extends RpcReceiver {
     private final IntentFilter discoveryFilter;
     private final EventFacade mEventFacade;
     private final BluetoothStateReceiver mStateReceiver;
+    private static final Object mReceiverLock = new Object();
+    private BluetoothStateReceiver mMultiStateReceiver;
     private final BleStateReceiver mBleStateReceiver;
     private Map<String, BluetoothConnection> connections =
             new HashMap<String, BluetoothConnection>();
@@ -76,6 +78,7 @@ public class BluetoothFacade extends RpcReceiver {
         discoveryFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         mDiscoveryReceiver = new DiscoveryCacheReceiver();
         mStateReceiver = new BluetoothStateReceiver();
+        mMultiStateReceiver = null;
         mBleStateReceiver = new BleStateReceiver();
     }
 
@@ -102,6 +105,16 @@ public class BluetoothFacade extends RpcReceiver {
 
     class BluetoothStateReceiver extends BroadcastReceiver {
 
+        private final boolean mIsMultiBroadcast;
+
+        public BluetoothStateReceiver() {
+            mIsMultiBroadcast = false;
+        }
+
+        public BluetoothStateReceiver(boolean isMultiBroadcast) {
+            mIsMultiBroadcast = isMultiBroadcast;
+        }
+
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -111,11 +124,11 @@ public class BluetoothFacade extends RpcReceiver {
                 if (state == BluetoothAdapter.STATE_ON) {
                     msg.putString("State", "ON");
                     mEventFacade.postEvent("BluetoothStateChangedOn", msg);
-                    mService.unregisterReceiver(mStateReceiver);
+                    if (!mIsMultiBroadcast) mService.unregisterReceiver(mStateReceiver);
                 } else if(state == BluetoothAdapter.STATE_OFF) {
                     msg.putString("State", "OFF");
                     mEventFacade.postEvent("BluetoothStateChangedOff", msg);
-                    mService.unregisterReceiver(mStateReceiver);
+                    if (!mIsMultiBroadcast) mService.unregisterReceiver(mStateReceiver);
                 }
                 msg.clear();
             }
@@ -214,6 +227,19 @@ public class BluetoothFacade extends RpcReceiver {
         }
     }
 
+    @Rpc(description = "Fetch UUIDS with SDP")
+    public boolean bluetoothFetchUuidsWithSdp(
+            @RpcParameter(name = "address", description = "Bluetooth Address For Target Device")
+            String address) {
+        try {
+            BluetoothDevice mDevice;
+            mDevice = mBluetoothAdapter.getRemoteDevice(address);
+            return mDevice.fetchUuidsWithSdp();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Rpc(description = "Get local Bluetooth device name")
     public String bluetoothGetLocalName() {
         return mBluetoothAdapter.getName();
@@ -286,12 +312,11 @@ public class BluetoothFacade extends RpcReceiver {
             enabled = !bluetoothCheckState();
         }
         if (enabled) {
-            mBluetoothAdapter.enable();
+            return mBluetoothAdapter.enable();
         } else {
             shutdown();
-            mBluetoothAdapter.disable();
+            return mBluetoothAdapter.disable();
         }
-        return enabled;
     }
 
 
@@ -327,14 +352,6 @@ public class BluetoothFacade extends RpcReceiver {
         return DiscoveredDevices.values();
     }
 
-    @Rpc(description = "Enable or disable the Bluetooth HCI snoop log")
-    public boolean bluetoothConfigHciSnoopLog(
-            @RpcParameter(name = "value", description = "enable or disable log")
-            Boolean value
-            ) {
-        return mBluetoothAdapter.configHciSnoopLog(value);
-    }
-
     @Rpc(description = "Get Bluetooth controller activity energy info.")
     public String bluetoothGetControllerActivityEnergyInfo(
         @RpcParameter(name = "value")
@@ -352,6 +369,57 @@ public class BluetoothFacade extends RpcReceiver {
             "available for matching beacons.")
     public boolean bluetoothIsHardwareTrackingFiltersAvailable() {
         return mBluetoothAdapter.isHardwareTrackingFiltersAvailable();
+    }
+
+    /**
+     * Return true if LE 2M PHY feature is supported.
+     *
+     * @return true if chipset supports LE 2M PHY feature
+     */
+    @Rpc(description = "Return true if LE 2M PHY feature is supported")
+    public boolean bluetoothIsLe2MPhySupported() {
+        return mBluetoothAdapter.isLe2MPhySupported();
+    }
+
+    /**
+     * Return true if LE Coded PHY feature is supported.
+     *
+     * @return true if chipset supports LE Coded PHY feature
+     */
+    @Rpc(description = "Return true if LE Coded PHY feature is supported")
+    public boolean bluetoothIsLeCodedPhySupported() {
+        return mBluetoothAdapter.isLeCodedPhySupported();
+    }
+
+    /**
+     * Return true if LE Extended Advertising feature is supported.
+     *
+     * @return true if chipset supports LE Extended Advertising feature
+     */
+    @Rpc(description = "Return true if LE Extended Advertising is supported")
+    public boolean bluetoothIsLeExtendedAdvertisingSupported() {
+        return mBluetoothAdapter.isLeExtendedAdvertisingSupported();
+    }
+
+    /**
+     * Return true if LE Periodic Advertising feature is supported.
+     *
+     * @return true if chipset supports LE Periodic Advertising feature
+     */
+    @Rpc(description = "Return true if LE Periodic Advertising is supported")
+    public boolean bluetoothIsLePeriodicAdvertisingSupported() {
+        return mBluetoothAdapter.isLePeriodicAdvertisingSupported();
+    }
+
+    /**
+     * Return the maximum LE advertising data length,
+     * if LE Extended Advertising feature is supported.
+     *
+     * @return the maximum LE advertising data length.
+     */
+    @Rpc(description = "Return the maximum LE advertising data length")
+    public int bluetoothGetLeMaximumAdvertisingDataLength() {
+        return mBluetoothAdapter.getLeMaximumAdvertisingDataLength();
     }
 
     @Rpc(description = "Gets the current state of LE.")
@@ -373,11 +441,52 @@ public class BluetoothFacade extends RpcReceiver {
         return mBluetoothAdapter.disableBLE();
     }
 
+    @Rpc(description = "Listen for a Bluetooth LE State Change.")
+    public boolean bluetoothListenForBleStateChange() {
+        mService.registerReceiver(mBleStateReceiver,
+            new IntentFilter(BluetoothAdapter.ACTION_BLE_STATE_CHANGED));
+        return true;
+    }
+
+    @Rpc(description = "Stop Listening for a Bluetooth LE State Change.")
+    public boolean bluetoothStopListeningForBleStateChange() {
+        mService.unregisterReceiver(mBleStateReceiver);
+        return true;
+    }
+
+    @Rpc(description = "Listen for Bluetooth State Changes.")
+    public boolean bluetoothStartListeningForAdapterStateChange() {
+        synchronized (mReceiverLock) {
+            if (mMultiStateReceiver != null) {
+                Log.e("Persistent Bluetooth Receiver State Change Listener Already Active");
+                return false;
+            }
+            mMultiStateReceiver = new BluetoothStateReceiver(true);
+            mService.registerReceiver(mMultiStateReceiver,
+                    new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+        }
+        return true;
+    }
+
+    @Rpc(description = "Stop Listening for Bluetooth State Changes.")
+    public boolean bluetoothStopListeningForAdapterStateChange() {
+        synchronized (mReceiverLock) {
+            if (mMultiStateReceiver == null) {
+                Log.d("No Persistent Bluetooth Receiever State Change Listener Found to Stop");
+                return false;
+            }
+            mService.unregisterReceiver(mMultiStateReceiver);
+            mMultiStateReceiver = null;
+        }
+        return true;
+    }
+
     @Override
     public void shutdown() {
         for (Map.Entry<String, BluetoothConnection> entry : connections.entrySet()) {
             entry.getValue().stop();
         }
+        if (mMultiStateReceiver != null ) bluetoothStopListeningForAdapterStateChange();
         connections.clear();
     }
 }

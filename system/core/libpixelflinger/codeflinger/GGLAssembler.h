@@ -49,7 +49,7 @@ class RegisterAllocator
 public:
     class RegisterFile;
     
-                    RegisterAllocator(int arch);
+                    RegisterAllocator(int arch);  // NOLINT, implicit
     RegisterFile&   registerFile();
     int             reserveReg(int reg);
     int             obtainReg();
@@ -59,7 +59,7 @@ public:
     class RegisterFile
     {
     public:
-                            RegisterFile(int arch);
+                            RegisterFile(int arch);  // NOLINT, implicit
                             RegisterFile(const RegisterFile& rhs, int arch);
                             ~RegisterFile();
 
@@ -101,7 +101,7 @@ public:
     class Scratch
     {
     public:
-            Scratch(RegisterFile& regFile)
+            explicit Scratch(RegisterFile& regFile)
                 : mRegFile(regFile), mScratch(0) { 
             }
             ~Scratch() {
@@ -177,8 +177,8 @@ class GGLAssembler : public ARMAssemblerProxy, public RegisterAllocator
 {
 public:
 
-                    GGLAssembler(ARMAssemblerInterface* target);
-        virtual     ~GGLAssembler();
+    explicit    GGLAssembler(ARMAssemblerInterface* target);
+    virtual     ~GGLAssembler();
 
     uint32_t*   base() const { return 0; } // XXX
     uint32_t*   pc() const { return 0; } // XXX
@@ -206,7 +206,7 @@ public:
         struct reg_t {
             reg_t() : reg(-1), flags(0) {
             }
-            reg_t(int r, int f=0)
+            reg_t(int r, int f=0)  // NOLINT, implicit
                 : reg(r), flags(f) {
             }
             void setTo(int r, int f=0) {
@@ -219,7 +219,7 @@ public:
         struct integer_t : public reg_t {
             integer_t() : reg_t(), s(0) {
             }
-            integer_t(int r, int sz=32, int f=0)
+            integer_t(int r, int sz=32, int f=0)  // NOLINT, implicit
                 : reg_t(r, f), s(sz) {
             }
             void setTo(int r, int sz=32, int f=0) {
@@ -251,7 +251,7 @@ public:
         struct component_t : public reg_t {
             component_t() : reg_t(), h(0), l(0) {
             }
-            component_t(int r, int f=0)
+            component_t(int r, int f=0)  // NOLINT, implicit
                 : reg_t(r, f), h(0), l(0) {
             }
             component_t(int r, int lo, int hi, int f=0)
@@ -288,6 +288,14 @@ public:
 
 
 private:
+    // GGLAssembler hides RegisterAllocator's and ARMAssemblerProxy's reset
+    // methods by providing a reset method with a different parameter set. The
+    // intent of GGLAssembler's reset method is to wrap the inherited reset
+    // methods, so make these methods private in order to prevent direct calls
+    // to these methods from clients.
+    using RegisterAllocator::reset;
+    using ARMAssemblerProxy::reset;
+
     struct tex_coord_t {
         reg_t       s;
         reg_t       t;

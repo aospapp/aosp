@@ -31,6 +31,7 @@
 #include "tpm_manager/server/tpm_initializer.h"
 #include "tpm_manager/server/tpm_nvram.h"
 #include "tpm_manager/server/tpm_status.h"
+#include "trunks/trunks_factory.h"
 
 namespace tpm_manager {
 
@@ -79,25 +80,25 @@ class TpmManagerService : public TpmNvramInterface,
       const RemoveOwnerDependencyCallback& callback) override;
 
   // TpmNvramInterface methods.
-  void DefineNvram(const DefineNvramRequest& request,
-                   const DefineNvramCallback& callback) override;
-  void DestroyNvram(const DestroyNvramRequest& request,
-                    const DestroyNvramCallback& callback) override;
-  void WriteNvram(const WriteNvramRequest& request,
-                  const WriteNvramCallback& callback) override;
-  void ReadNvram(const ReadNvramRequest& request,
-                 const ReadNvramCallback& callback) override;
-  void IsNvramDefined(const IsNvramDefinedRequest& request,
-                      const IsNvramDefinedCallback& callback) override;
-  void IsNvramLocked(const IsNvramLockedRequest& request,
-                     const IsNvramLockedCallback& callback) override;
-  void GetNvramSize(const GetNvramSizeRequest& request,
-                    const GetNvramSizeCallback& callback) override;
+  void DefineSpace(const DefineSpaceRequest& request,
+                   const DefineSpaceCallback& callback) override;
+  void DestroySpace(const DestroySpaceRequest& request,
+                    const DestroySpaceCallback& callback) override;
+  void WriteSpace(const WriteSpaceRequest& request,
+                  const WriteSpaceCallback& callback) override;
+  void ReadSpace(const ReadSpaceRequest& request,
+                 const ReadSpaceCallback& callback) override;
+  void LockSpace(const LockSpaceRequest& request,
+                 const LockSpaceCallback& callback) override;
+  void ListSpaces(const ListSpacesRequest& request,
+                  const ListSpacesCallback& callback) override;
+  void GetSpaceInfo(const GetSpaceInfoRequest& request,
+                    const GetSpaceInfoCallback& callback) override;
 
  private:
   // A relay callback which allows the use of weak pointer semantics for a reply
   // to TaskRunner::PostTaskAndReply.
-  template<typename ReplyProtobufType>
+  template <typename ReplyProtobufType>
   void TaskRelayCallback(
       const base::Callback<void(const ReplyProtobufType&)> callback,
       const std::shared_ptr<ReplyProtobufType>& reply);
@@ -105,10 +106,10 @@ class TpmManagerService : public TpmNvramInterface,
   // This templated method posts the provided |TaskType| to the background
   // thread with the provided |RequestProtobufType|. When |TaskType| finishes
   // executing, the |ReplyCallbackType| is called with the |ReplyProtobufType|.
-  template<typename ReplyProtobufType,
-           typename RequestProtobufType,
-           typename ReplyCallbackType,
-           typename TaskType>
+  template <typename ReplyProtobufType,
+            typename RequestProtobufType,
+            typename ReplyCallbackType,
+            typename TaskType>
   void PostTaskToWorkerThread(RequestProtobufType& request,
                               ReplyCallbackType& callback,
                               TaskType task);
@@ -141,40 +142,44 @@ class TpmManagerService : public TpmNvramInterface,
   static void RemoveOwnerDependency(const std::string& owner_dependency,
                                     LocalData* local_data);
 
-  // Blocking implementation of DefineNvram that can be executed on the
+  // Blocking implementation of DefineSpace that can be executed on the
   // background worker thread.
-  void DefineNvramTask(const DefineNvramRequest& request,
-                       const std::shared_ptr<DefineNvramReply>& result);
+  void DefineSpaceTask(const DefineSpaceRequest& request,
+                       const std::shared_ptr<DefineSpaceReply>& result);
 
-  // Blocking implementation of DestroyNvram that can be executed on the
+  // Blocking implementation of DestroySpace that can be executed on the
   // background worker thread.
-  void DestroyNvramTask(const DestroyNvramRequest& request,
-                        const std::shared_ptr<DestroyNvramReply>& result);
+  void DestroySpaceTask(const DestroySpaceRequest& request,
+                        const std::shared_ptr<DestroySpaceReply>& result);
 
-  // Blocking implementation of WriteNvram that can be executed on the
+  // Blocking implementation of WriteSpace that can be executed on the
   // background worker thread.
-  void WriteNvramTask(const WriteNvramRequest& request,
-                      const std::shared_ptr<WriteNvramReply>& result);
+  void WriteSpaceTask(const WriteSpaceRequest& request,
+                      const std::shared_ptr<WriteSpaceReply>& result);
 
-  // Blocking implementation of ReadNvram that can be executed on the
+  // Blocking implementation of ReadSpace that can be executed on the
   // background worker thread.
-  void ReadNvramTask(const ReadNvramRequest& request,
-                     const std::shared_ptr<ReadNvramReply>& result);
+  void ReadSpaceTask(const ReadSpaceRequest& request,
+                     const std::shared_ptr<ReadSpaceReply>& result);
 
-  // Blocking implementation of IsNvramDefined that can be executed on the
+  // Blocking implementation of LockSpace that can be executed on the
   // background worker thread.
-  void IsNvramDefinedTask(const IsNvramDefinedRequest& request,
-                          const std::shared_ptr<IsNvramDefinedReply>& result);
+  void LockSpaceTask(const LockSpaceRequest& request,
+                     const std::shared_ptr<LockSpaceReply>& result);
 
-  // Blocking implementation of IsNvramLocked that can be executed on the
+  // Blocking implementation of ListSpaces that can be executed on the
   // background worker thread.
-  void IsNvramLockedTask(const IsNvramLockedRequest& request,
-                         const std::shared_ptr<IsNvramLockedReply>& result);
+  void ListSpacesTask(const ListSpacesRequest& request,
+                      const std::shared_ptr<ListSpacesReply>& result);
 
-  // Blocking implementation of GetNvramSize that can be executed on the
+  // Blocking implementation of GetSpaceInfo that can be executed on the
   // background worker thread.
-  void GetNvramSizeTask(const GetNvramSizeRequest& request,
-                        const std::shared_ptr<GetNvramSizeReply>& result);
+  void GetSpaceInfoTask(const GetSpaceInfoRequest& request,
+                        const std::shared_ptr<GetSpaceInfoReply>& result);
+
+  // Gets the owner password from local storage. Returns an empty string if the
+  // owner password is not available.
+  std::string GetOwnerPassword();
 
   LocalDataStore* local_data_store_;
   TpmStatus* tpm_status_;

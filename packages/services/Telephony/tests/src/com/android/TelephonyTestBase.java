@@ -18,9 +18,8 @@ package com.android;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.test.InstrumentationRegistry;
-
-import com.android.phone.MockitoHelper;
 
 import org.mockito.MockitoAnnotations;
 
@@ -33,16 +32,17 @@ import java.util.concurrent.TimeUnit;
 public class TelephonyTestBase {
 
     protected Context mContext;
-    MockitoHelper mMockitoHelper = new MockitoHelper();
 
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getTargetContext();
-        mMockitoHelper.setUp(mContext, getClass());
         MockitoAnnotations.initMocks(this);
+        // Set up the looper if it does not exist on the test thread.
+        if (Looper.myLooper() == null) {
+            Looper.prepare();
+        }
     }
 
     public void tearDown() throws Exception {
-        mMockitoHelper.tearDown();
     }
 
     protected final void waitForHandlerAction(Handler h, long timeoutMillis) {

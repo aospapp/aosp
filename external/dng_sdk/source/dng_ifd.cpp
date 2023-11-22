@@ -3979,7 +3979,7 @@ uint32 dng_ifd::TilesAcross () const
 	if (fTileWidth)
 		{
 
-		return (fImageWidth + fTileWidth - 1) / fTileWidth;
+		return (SafeUint32Sub(SafeUint32Add(fImageWidth, fTileWidth), 1)) / fTileWidth;
 		
 		}
 		
@@ -3995,7 +3995,7 @@ uint32 dng_ifd::TilesDown () const
 	if (fTileLength)
 		{
 
-		return (fImageLength + fTileLength - 1) / fTileLength;
+		return (SafeUint32Sub(SafeUint32Add(fImageLength, fTileLength), 1)) / fTileLength;
 		
 		}
 		

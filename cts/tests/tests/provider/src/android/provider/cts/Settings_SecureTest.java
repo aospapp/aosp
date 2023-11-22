@@ -18,6 +18,7 @@ package android.provider.cts;
 
 
 import android.content.ContentResolver;
+import android.database.Cursor;
 import android.net.Uri;
 import android.provider.Settings;
 import android.provider.Settings.Secure;
@@ -152,8 +153,39 @@ public class Settings_SecureTest extends AndroidTestCase {
         assertEquals(Uri.withAppendedPath(Secure.CONTENT_URI, name), uri);
     }
 
-    public void testUnknownSourcesOffByDefault() throws SettingNotFoundException {
-        assertEquals("Device should not ship with 'Unknown Sources' enabled by default.",
-                0, Settings.Global.getInt(cr, Settings.Global.INSTALL_NON_MARKET_APPS));
+    public void testUnknownSourcesOnByDefault() throws SettingNotFoundException {
+        assertEquals("install_non_market_apps is deprecated. Should be set to 1 by default.",
+                1, Settings.Secure.getInt(cr, Settings.Global.INSTALL_NON_MARKET_APPS));
+    }
+
+    private static final String BLUETOOTH_MAC_ADDRESS_SETTING_NAME = "bluetooth_address";
+
+    /**
+     * Asserts that the secure setting containing the Android's Bluetooth MAC address is not
+     * available to non-privileged apps, such as the CTS test app in the context of which this test
+     * runs.
+     */
+    public void testBluetoothAddressNotAvailable() {
+        assertNull(Settings.Secure.getString(cr, BLUETOOTH_MAC_ADDRESS_SETTING_NAME));
+
+        // Assert this setting is not accessible when listing all settings
+        try (Cursor c = cr.query(Settings.Secure.CONTENT_URI, null, null, null, null)) {
+            while ((c != null) && (c.moveToNext())) {
+                String name = c.getString(1);
+                if (BLUETOOTH_MAC_ADDRESS_SETTING_NAME.equals(name)) {
+                    fail("Settings.Secure contains " + name + ": " + c.getString(2));
+                }
+            }
+        }
+
+        // Assert this setting is not accessible when listing this specific setting
+        Uri settingUri =
+                Settings.Secure.CONTENT_URI.buildUpon().appendPath("bluetooth_address").build();
+        try (Cursor c = cr.query(settingUri, null, null, null, null)) {
+            while ((c != null) && (c.moveToNext())) {
+                String name = c.getString(1);
+                fail("Settings.Secure contains " + name + ": " + c.getString(2));
+            }
+        }
     }
 }

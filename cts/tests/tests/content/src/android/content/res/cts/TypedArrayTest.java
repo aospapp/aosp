@@ -16,13 +16,17 @@
 
 package android.content.res.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.cts.R;
 import android.content.cts.util.XmlUtils;
 import android.content.pm.ActivityInfo;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
+import android.graphics.Typeface;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -45,11 +49,9 @@ public class TypedArrayTest extends AndroidTestCase {
     private static final String EXPECTED_STRING = "Hello, Android!";
     private static final String EXPECTED_TEXT = "TypedArray Test!";
     private static final String[] EXPECTED_TEXT_ARRAY = {"Easy", "Medium", "Hard"};
-    private static final int EXPECTED_INDEX = 15;
-    private static final TypedValue DEF_VALUE = new TypedValue();
-    private static final int EXPECTED_INDEX_COUNT = 17;
+    private static final int EXPECTED_INDEX_COUNT = 19;
     private static final String EXPTECTED_POS_DESCRIP = "<internal>";
-    private static final int EXPECTED_LENGTH = 19;
+    private static final int EXPECTED_LENGTH = 20;
     private static final String EXPECTED_NON_RESOURCE_STRING = "testNonResourcesString";
     private static final String XML_BEGIN = "resources";
     private static final int EXPECTED_INT_ATT = 86400;
@@ -61,7 +63,8 @@ public class TypedArrayTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mTypedArray = getContext().getTheme().obtainStyledAttributes(R.style.Whatever, R.styleable.style1);
+        mTypedArray = getContext().getTheme()
+                .obtainStyledAttributes(R.style.Whatever, R.styleable.style1);
     }
 
     @Override
@@ -158,9 +161,40 @@ public class TypedArrayTest extends AndroidTestCase {
         assertEquals(EXPECTED_TEXT_ARRAY[1], textArray[1]);
         assertEquals(EXPECTED_TEXT_ARRAY[2], textArray[2]);
 
-        final int index = t.getIndex(R.styleable.style1_type16);
-        assertEquals(EXPECTED_INDEX, index);
-        assertTrue(t.getValue(index, DEF_VALUE));
+        // Verify that all the attributes retrieved are expected and present.
+        final int[] actual_indices = new int[t.getIndexCount()];
+        for (int idx = 0; idx < t.getIndexCount(); idx++) {
+            final int attr_index = t.getIndex(idx);
+            assertTrue(t.hasValueOrEmpty(attr_index));
+            actual_indices[idx] = attr_index;
+        }
+
+        final Typeface font = t.getFont(R.styleable.style1_type18);
+        assertEquals(mContext.getResources().getFont(R.font.sample_regular_font), font);
+
+        // NOTE: order does not matter here.
+        // R.styleable.style1_typeUndefined is not expected because TYPE_NULL values do not get
+        // included in the index list.
+        assertThat(actual_indices).asList().containsExactly(
+                R.styleable.style1_type1,
+                R.styleable.style1_type2,
+                R.styleable.style1_type3,
+                R.styleable.style1_type4,
+                R.styleable.style1_type5,
+                R.styleable.style1_type6,
+                R.styleable.style1_type7,
+                R.styleable.style1_type8,
+                R.styleable.style1_type9,
+                R.styleable.style1_type10,
+                R.styleable.style1_type11,
+                R.styleable.style1_type12,
+                R.styleable.style1_type13,
+                R.styleable.style1_type14,
+                R.styleable.style1_type15,
+                R.styleable.style1_type16,
+                R.styleable.style1_type17,
+                R.styleable.style1_type18,
+                R.styleable.style1_typeEmpty);
     }
 
     public void testPeekValue() {
@@ -212,5 +246,24 @@ public class TypedArrayTest extends AndroidTestCase {
                 com.android.internal.R.styleable.AndroidManifest_versionName));
         ta.recycle();
         parser.close();
+    }
+
+    public void testEmptyXmlAttributeDoesNotFallbackToTheme() throws Exception {
+        final Resources resources = getContext().getResources();
+        try (final XmlResourceParser parser = resources.getXml(R.xml.empty)) {
+            XmlUtils.beginDocument(parser, "element");
+            assertEquals(1, parser.getAttributeCount());
+
+            final Resources.Theme theme = resources.newTheme();
+            theme.applyStyle(R.style.Whatever, false);
+
+            final TypedArray ta = theme.obtainStyledAttributes(parser, R.styleable.style1, 0, 0);
+            try {
+                assertTrue(ta.hasValueOrEmpty(R.styleable.style1_type1));
+                assertEquals(TypedValue.TYPE_NULL, ta.getType(R.styleable.style1_type1));
+            } finally {
+                ta.recycle();
+            }
+        }
     }
 }

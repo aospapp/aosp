@@ -21,22 +21,16 @@ import android.app.FragmentManager;
 import android.app.FragmentManager.OnBackStackChangedListener;
 import android.content.Intent;
 import android.media.tv.TvInputInfo;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
-import android.support.v4.os.BuildCompat;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Space;
 
 import com.android.tv.ApplicationSingletons;
 import com.android.tv.ChannelTuner;
@@ -66,29 +60,30 @@ import com.android.tv.menu.MenuRowFactory;
 import com.android.tv.menu.MenuView;
 import com.android.tv.onboarding.NewSourcesFragment;
 import com.android.tv.onboarding.SetupSourcesFragment;
-import com.android.tv.onboarding.SetupSourcesFragment.InputSetupRunnable;
 import com.android.tv.search.ProgramGuideSearchFragment;
 import com.android.tv.ui.TvTransitionManager.SceneType;
 import com.android.tv.ui.sidepanel.SettingsFragment;
 import com.android.tv.ui.sidepanel.SideFragmentManager;
 import com.android.tv.ui.sidepanel.parentalcontrols.RatingsFragment;
+import com.android.tv.util.TvInputManagerHelper;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
 /**
  * A class responsible for the life cycle and event handling of the pop-ups over TV view.
  */
-// TODO: Put TvTransitionManager into this class.
 @UiThread
 public class TvOverlayManager {
     private static final String TAG = "TvOverlayManager";
     private static final boolean DEBUG = false;
-    public static final String INTRO_TRACKER_LABEL = "Intro dialog";
+    private static final String INTRO_TRACKER_LABEL = "Intro dialog";
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(flag = true,
@@ -97,7 +92,7 @@ public class TvOverlayManager {
                     FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS, FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANEL_HISTORY,
                     FLAG_HIDE_OVERLAYS_KEEP_PROGRAM_GUIDE, FLAG_HIDE_OVERLAYS_KEEP_MENU,
                     FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT})
-    public @interface HideOverlayFlag {}
+    private @interface HideOverlayFlag {}
     // FLAG_HIDE_OVERLAYs must be bitwise exclusive.
     public static final int FLAG_HIDE_OVERLAYS_DEFAULT =                 0b000000000;
     public static final int FLAG_HIDE_OVERLAYS_WITHOUT_ANIMATION =       0b000000010;
@@ -109,7 +104,7 @@ public class TvOverlayManager {
     public static final int FLAG_HIDE_OVERLAYS_KEEP_MENU =               0b010000000;
     public static final int FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT =           0b100000000;
 
-    public static final int MSG_OVERLAY_CLOSED = 1000;
+    private static final int MSG_OVERLAY_CLOSED = 1000;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(flag = true,
@@ -119,16 +114,51 @@ public class TvOverlayManager {
                     OVERLAY_TYPE_SCENE_SELECT_INPUT, OVERLAY_TYPE_FRAGMENT})
     private @interface TvOverlayType {}
     // OVERLAY_TYPEs must be bitwise exclusive.
+    /**
+     * The overlay type which indicates that there are no overlays.
+     */
     private static final int OVERLAY_TYPE_NONE =                        0b000000000;
+    /**
+     * The overlay type for menu.
+     */
     private static final int OVERLAY_TYPE_MENU =                        0b000000001;
+    /**
+     * The overlay type for the side fragment.
+     */
     private static final int OVERLAY_TYPE_SIDE_FRAGMENT =               0b000000010;
+    /**
+     * The overlay type for dialog fragment.
+     */
     private static final int OVERLAY_TYPE_DIALOG =                      0b000000100;
+    /**
+     * The overlay type for program guide.
+     */
     private static final int OVERLAY_TYPE_GUIDE =                       0b000001000;
+    /**
+     * The overlay type for channel banner.
+     */
     private static final int OVERLAY_TYPE_SCENE_CHANNEL_BANNER =        0b000010000;
+    /**
+     * The overlay type for input banner.
+     */
     private static final int OVERLAY_TYPE_SCENE_INPUT_BANNER =          0b000100000;
+    /**
+     * The overlay type for keypad channel switch view.
+     */
     private static final int OVERLAY_TYPE_SCENE_KEYPAD_CHANNEL_SWITCH = 0b001000000;
+    /**
+     * The overlay type for select input view.
+     */
     private static final int OVERLAY_TYPE_SCENE_SELECT_INPUT =          0b010000000;
+    /**
+     * The overlay type for fragment other than the side fragment and dialog fragment.
+     */
     private static final int OVERLAY_TYPE_FRAGMENT =                    0b100000000;
+    // Used for the padded print of the overlay type.
+    private static final int NUM_OVERLAY_TYPES = 9;
+
+    private static final String FRAGMENT_TAG_SETUP_SOURCES = "tag_setup_sources";
+    private static final String FRAGMENT_TAG_NEW_SOURCES = "tag_new_sources";
 
     private static final Set<String> AVAILABLE_DIALOG_TAGS = new HashSet<>();
     static {
@@ -144,6 +174,7 @@ public class TvOverlayManager {
     private final ChannelTuner mChannelTuner;
     private final TvTransitionManager mTransitionManager;
     private final ChannelDataManager mChannelDataManager;
+    private final TvInputManagerHelper mInputManager;
     private final Menu mMenu;
     private final SideFragmentManager mSideFragmentManager;
     private final ProgramGuide mProgramGuide;
@@ -152,18 +183,19 @@ public class TvOverlayManager {
     private final ProgramGuideSearchFragment mSearchFragment;
     private final Tracker mTracker;
     private SafeDismissDialogFragment mCurrentDialog;
-    private final SetupSourcesFragment mSetupFragment;
     private boolean mSetupFragmentActive;
-    private final NewSourcesFragment mNewSourcesFragment;
     private boolean mNewSourcesFragmentActive;
     private final Handler mHandler = new TvOverlayHandler(this);
 
     private @TvOverlayType int mOpenedOverlays;
 
     private final List<Runnable> mPendingActions = new ArrayList<>();
+    private final Queue<PendingDialogAction> mPendingDialogActionQueue = new LinkedList<>();
+
+    private OnBackStackChangedListener mOnBackStackChangedListener;
 
     public TvOverlayManager(MainActivity mainActivity, ChannelTuner channelTuner,
-            KeypadChannelSwitchView keypadChannelSwitchView,
+            TunableTvView tvView, KeypadChannelSwitchView keypadChannelSwitchView,
             ChannelBannerView channelBannerView, InputBannerView inputBannerView,
             SelectInputView selectInputView, ViewGroup sceneContainer,
             ProgramGuideSearchFragment searchFragment) {
@@ -171,6 +203,7 @@ public class TvOverlayManager {
         mChannelTuner = channelTuner;
         ApplicationSingletons singletons = TvApplication.getSingletons(mainActivity);
         mChannelDataManager = singletons.getChannelDataManager();
+        mInputManager = singletons.getTvInputManagerHelper();
         mKeypadChannelSwitchView = keypadChannelSwitchView;
         mSelectInputView = selectInputView;
         mSearchFragment = searchFragment;
@@ -180,8 +213,8 @@ public class TvOverlayManager {
         mTransitionManager.setListener(new TvTransitionManager.Listener() {
             @Override
             public void onSceneChanged(int fromScene, int toScene) {
-                // Call notifyOverlayOpened first so that the listener can know that a new scene
-                // will be opened when the notifyOverlayClosed is called.
+                // Call onOverlayOpened first so that the listener can know that a new scene
+                // will be opened when the onOverlayClosed is called.
                 if (toScene != TvTransitionManager.SCENE_TYPE_EMPTY) {
                     onOverlayOpened(convertSceneToOverlayType(toScene));
                 }
@@ -192,7 +225,7 @@ public class TvOverlayManager {
         });
         // Menu
         MenuView menuView = (MenuView) mainActivity.findViewById(R.id.menu);
-        mMenu = new Menu(mainActivity, menuView, new MenuRowFactory(mainActivity),
+        mMenu = new Menu(mainActivity, tvView, menuView, new MenuRowFactory(mainActivity, tvView),
                 new Menu.OnMenuVisibilityChangeListener() {
                     @Override
                     public void onMenuVisibilityChange(boolean visible) {
@@ -203,6 +236,7 @@ public class TvOverlayManager {
                         }
                     }
                 });
+        mMenu.setChannelTuner(mChannelTuner);
         // Side Fragment
         mSideFragmentManager = new SideFragmentManager(mainActivity,
                 new Runnable() {
@@ -232,49 +266,49 @@ public class TvOverlayManager {
                 onOverlayClosed(OVERLAY_TYPE_GUIDE);
             }
         };
-        DvrDataManager dvrDataManager =
-                CommonFeatures.DVR.isEnabled(mainActivity) && BuildCompat.isAtLeastN() ? singletons
-                .getDvrDataManager() : null;
+        DvrDataManager dvrDataManager = CommonFeatures.DVR.isEnabled(mainActivity)
+                ? singletons.getDvrDataManager() : null;
         mProgramGuide = new ProgramGuide(mainActivity, channelTuner,
                 singletons.getTvInputManagerHelper(), mChannelDataManager,
-                singletons.getProgramDataManager(), dvrDataManager, singletons.getTracker(),
-                preShowRunnable,
+                singletons.getProgramDataManager(), dvrDataManager,
+                singletons.getDvrScheduleManager(), singletons.getTracker(), preShowRunnable,
                 postHideRunnable);
-        mSetupFragment = new SetupSourcesFragment();
-        mSetupFragment.setOnActionClickListener(new OnActionClickListener() {
+        mMainActivity.addOnActionClickListener(new OnActionClickListener() {
             @Override
-            public void onActionClick(String category, int id) {
-                switch (id) {
-                    case SetupMultiPaneFragment.ACTION_DONE:
-                        closeSetupFragment(true);
+            public boolean onActionClick(String category, int id, Bundle params) {
+                switch (category) {
+                    case SetupSourcesFragment.ACTION_CATEGORY:
+                        switch (id) {
+                            case SetupMultiPaneFragment.ACTION_DONE:
+                                closeSetupFragment(true);
+                                return true;
+                            case SetupSourcesFragment.ACTION_ONLINE_STORE:
+                                mMainActivity.showMerchantCollection();
+                                return true;
+                            case SetupSourcesFragment.ACTION_SETUP_INPUT: {
+                                String inputId = params.getString(
+                                        SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
+                                TvInputInfo input = mInputManager.getTvInputInfo(inputId);
+                                mMainActivity.startSetupActivity(input, true);
+                                return true;
+                            }
+                        }
                         break;
-                    case SetupSourcesFragment.ACTION_PLAY_STORE:
-                        mMainActivity.showMerchantCollection();
+                    case NewSourcesFragment.ACTION_CATEOGRY:
+                        switch (id) {
+                            case NewSourcesFragment.ACTION_SETUP:
+                                closeNewSourcesFragment(false);
+                                showSetupFragment();
+                                return true;
+                            case NewSourcesFragment.ACTION_SKIP:
+                                // Don't remove the fragment because new fragment will be replaced
+                                // with this fragment.
+                                closeNewSourcesFragment(true);
+                                return true;
+                        }
                         break;
                 }
-            }
-        });
-        mSetupFragment.setInputSetupRunnable(new InputSetupRunnable() {
-            @Override
-            public void runInputSetup(TvInputInfo input) {
-                mMainActivity.startSetupActivity(input, true);
-            }
-        });
-        mNewSourcesFragment = new NewSourcesFragment();
-        mNewSourcesFragment.setOnActionClickListener(new OnActionClickListener() {
-            @Override
-            public void onActionClick(String category, int id) {
-                switch (id) {
-                    case NewSourcesFragment.ACTION_SETUP:
-                        closeNewSourcesFragment(false);
-                        showSetupFragment();
-                        break;
-                    case NewSourcesFragment.ACTION_SKIP:
-                        // Don't remove the fragment because new fragment will be replaced with
-                        // this fragment.
-                        closeNewSourcesFragment(true);
-                        break;
-                }
+                return false;
             }
         });
     }
@@ -313,14 +347,27 @@ public class TvOverlayManager {
      * Checks whether the setup fragment is active or not.
      */
     public boolean isSetupFragmentActive() {
+        // "getSetupSourcesFragment() != null" doesn't return the correct state. That's because,
+        // when we call showSetupFragment(), we need to put off showing the fragment until the side
+        // fragment is closed. Until then, getSetupSourcesFragment() returns null. So we need
+        // to keep additional variable which indicates if showSetupFragment() is called.
         return mSetupFragmentActive;
+    }
+
+    private Fragment getSetupSourcesFragment() {
+        return mMainActivity.getFragmentManager().findFragmentByTag(FRAGMENT_TAG_SETUP_SOURCES);
     }
 
     /**
      * Checks whether the new sources fragment is active or not.
      */
     public boolean isNewSourcesFragmentActive() {
+        // See the comment in "isSetupFragmentActive".
         return mNewSourcesFragmentActive;
+    }
+
+    private Fragment getNewSourcesFragment() {
+        return mMainActivity.getFragmentManager().findFragmentByTag(FRAGMENT_TAG_NEW_SOURCES);
     }
 
     /**
@@ -373,9 +420,10 @@ public class TvOverlayManager {
             return;
         }
 
-        Fragment old = mMainActivity.getFragmentManager().findFragmentByTag(tag);
-        // Do not show the dialog if the same kind of dialog is already opened.
-        if (old != null) {
+        // Do not open two dialogs at the same time.
+        if (mCurrentDialog != null) {
+            mPendingDialogActionQueue.offer(new PendingDialogAction(tag, dialog,
+                    keepSidePanelHistory, keepProgramGuide));
             return;
         }
 
@@ -389,43 +437,52 @@ public class TvOverlayManager {
     }
 
     private void runAfterSideFragmentsAreClosed(final Runnable runnable) {
-        final FragmentManager manager = mMainActivity.getFragmentManager();
         if (mSideFragmentManager.isSidePanelVisible()) {
-            manager.addOnBackStackChangedListener(new OnBackStackChangedListener() {
+            // When the side panel is closing, it closes all the fragments, so the new fragment
+            // should be opened after the side fragment becomes invisible.
+            final FragmentManager manager = mMainActivity.getFragmentManager();
+            mOnBackStackChangedListener = new OnBackStackChangedListener() {
                 @Override
                 public void onBackStackChanged() {
                     if (manager.getBackStackEntryCount() == 0) {
                         manager.removeOnBackStackChangedListener(this);
+                        mOnBackStackChangedListener = null;
                         runnable.run();
                     }
                 }
-            });
+            };
+            manager.addOnBackStackChangedListener(mOnBackStackChangedListener);
         } else {
             runnable.run();
         }
     }
 
-    private void showFragment(final Fragment fragment) {
+    private void showFragment(final Fragment fragment, final String tag) {
         hideOverlays(FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
         onOverlayOpened(OVERLAY_TYPE_FRAGMENT);
         runAfterSideFragmentsAreClosed(new Runnable() {
             @Override
             public void run() {
+                if (DEBUG) Log.d(TAG, "showFragment(" + fragment + ")");
                 mMainActivity.getFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, fragment).commit();
+                        .replace(R.id.fragment_container, fragment, tag).commit();
             }
         });
     }
 
-    private void closeFragment(Fragment fragmentToRemove) {
+    private void closeFragment(String fragmentTagToRemove) {
+        if (DEBUG) Log.d(TAG, "closeFragment(" + fragmentTagToRemove + ")");
         onOverlayClosed(OVERLAY_TYPE_FRAGMENT);
-        if (fragmentToRemove != null) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                // In L, NPE happens if there is no next fragment when removing or hiding a fragment
-                // which has an exit transition. b/22631964
-                // A workaround is just replacing with a dummy fragment.
-                mMainActivity.getFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, new DummyFragment()).commit();
+        if (fragmentTagToRemove != null) {
+            Fragment fragmentToRemove = mMainActivity.getFragmentManager()
+                    .findFragmentByTag(fragmentTagToRemove);
+            if (fragmentToRemove == null) {
+                // If the fragment has not been added to the fragment manager yet, just remove the
+                // listener not to add the fragment. This is needed because the side fragment is
+                // closed asynchronously.
+                mMainActivity.getFragmentManager().removeOnBackStackChangedListener(
+                        mOnBackStackChangedListener);
+                mOnBackStackChangedListener = null;
             } else {
                 mMainActivity.getFragmentManager().beginTransaction().remove(fragmentToRemove)
                         .commit();
@@ -439,11 +496,12 @@ public class TvOverlayManager {
     public void showSetupFragment() {
         if (DEBUG) Log.d(TAG, "showSetupFragment");
         mSetupFragmentActive = true;
-        mSetupFragment.enableFragmentTransition(SetupFragment.FRAGMENT_ENTER_TRANSITION
+        SetupSourcesFragment setupFragment = new SetupSourcesFragment();
+        setupFragment.enableFragmentTransition(SetupFragment.FRAGMENT_ENTER_TRANSITION
                 | SetupFragment.FRAGMENT_EXIT_TRANSITION | SetupFragment.FRAGMENT_RETURN_TRANSITION
                 | SetupFragment.FRAGMENT_REENTER_TRANSITION);
-        mSetupFragment.setFragmentTransition(SetupFragment.FRAGMENT_EXIT_TRANSITION, Gravity.END);
-        showFragment(mSetupFragment);
+        setupFragment.setFragmentTransition(SetupFragment.FRAGMENT_EXIT_TRANSITION, Gravity.END);
+        showFragment(setupFragment, FRAGMENT_TAG_SETUP_SOURCES);
     }
 
     // Set removeFragment to false only when the new fragment is going to be shown.
@@ -453,8 +511,9 @@ public class TvOverlayManager {
             return;
         }
         mSetupFragmentActive = false;
-        closeFragment(removeFragment ? mSetupFragment : null);
+        closeFragment(removeFragment ? FRAGMENT_TAG_SETUP_SOURCES : null);
         if (mChannelDataManager.getChannelCount() == 0) {
+            if (DEBUG) Log.d(TAG, "Finishing MainActivity because there are no channels.");
             mMainActivity.finish();
         }
     }
@@ -465,14 +524,17 @@ public class TvOverlayManager {
     public void showNewSourcesFragment() {
         if (DEBUG) Log.d(TAG, "showNewSourcesFragment");
         mNewSourcesFragmentActive = true;
-        showFragment(mNewSourcesFragment);
+        showFragment(new NewSourcesFragment(), FRAGMENT_TAG_NEW_SOURCES);
     }
 
     // Set removeFragment to false only when the new fragment is going to be shown.
     private void closeNewSourcesFragment(boolean removeFragment) {
         if (DEBUG) Log.d(TAG, "closeNewSourcesFragment");
+        if (!mNewSourcesFragmentActive) {
+            return;
+        }
         mNewSourcesFragmentActive = false;
-        closeFragment(removeFragment ? mNewSourcesFragment : null);
+        closeFragment(removeFragment ? FRAGMENT_TAG_NEW_SOURCES : null);
     }
 
     /**
@@ -536,7 +598,12 @@ public class TvOverlayManager {
      */
     public void onDialogDestroyed() {
         mCurrentDialog = null;
-        onOverlayClosed(OVERLAY_TYPE_DIALOG);
+        PendingDialogAction action = mPendingDialogActionQueue.poll();
+        if (action == null) {
+            onOverlayClosed(OVERLAY_TYPE_DIALOG);
+        } else {
+            action.run();
+        }
     }
 
     /**
@@ -571,18 +638,26 @@ public class TvOverlayManager {
                 }
                 mCurrentDialog.dismiss();
             }
+            mPendingDialogActionQueue.clear();
             mCurrentDialog = null;
         }
         boolean withAnimation = (flags & FLAG_HIDE_OVERLAYS_WITHOUT_ANIMATION) == 0;
 
         if ((flags & FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT) == 0) {
+            Fragment setupSourcesFragment = getSetupSourcesFragment();
+            Fragment newSourcesFragment = getNewSourcesFragment();
             if (mSetupFragmentActive) {
-                if (!withAnimation) {
-                    mSetupFragment.setReturnTransition(null);
-                    mSetupFragment.setExitTransition(null);
+                if (!withAnimation && setupSourcesFragment != null) {
+                    setupSourcesFragment.setReturnTransition(null);
+                    setupSourcesFragment.setExitTransition(null);
                 }
                 closeSetupFragment(true);
-            } else if (mNewSourcesFragmentActive) {
+            }
+            if (mNewSourcesFragmentActive) {
+                if (!withAnimation && newSourcesFragment != null) {
+                    newSourcesFragment.setReturnTransition(null);
+                    newSourcesFragment.setExitTransition(null);
+                }
                 closeNewSourcesFragment(true);
             }
         }
@@ -642,20 +717,18 @@ public class TvOverlayManager {
         }
     }
 
-    @UiThread
     private void onOverlayOpened(@TvOverlayType int overlayType) {
-        if (DEBUG) Log.d(TAG, "Overlay opened:  0b" + Integer.toBinaryString(overlayType));
+        if (DEBUG) Log.d(TAG, "Overlay opened:  " + toBinaryString(overlayType));
         mOpenedOverlays |= overlayType;
-        if (DEBUG) Log.d(TAG, "Opened overlays: 0b" + Integer.toBinaryString(mOpenedOverlays));
+        if (DEBUG) Log.d(TAG, "Opened overlays: " + toBinaryString(mOpenedOverlays));
         mHandler.removeMessages(MSG_OVERLAY_CLOSED);
         mMainActivity.updateKeyInputFocus();
     }
 
-    @UiThread
     private void onOverlayClosed(@TvOverlayType int overlayType) {
-        if (DEBUG) Log.d(TAG, "Overlay closed:  0b" + Integer.toBinaryString(overlayType));
+        if (DEBUG) Log.d(TAG, "Overlay closed:  " + toBinaryString(overlayType));
         mOpenedOverlays &= ~overlayType;
-        if (DEBUG) Log.d(TAG, "Opened overlays: 0b" + Integer.toBinaryString(mOpenedOverlays));
+        if (DEBUG) Log.d(TAG, "Opened overlays: " + toBinaryString(mOpenedOverlays));
         mHandler.removeMessages(MSG_OVERLAY_CLOSED);
         mMainActivity.updateKeyInputFocus();
         // Show the main menu again if there are no pop-ups or banners only.
@@ -676,6 +749,11 @@ public class TvOverlayManager {
         }
     }
 
+    private String toBinaryString(int value) {
+        return String.format("0b%" + NUM_OVERLAY_TYPES + "s", Integer.toBinaryString(value))
+                .replace(' ', '0');
+    }
+
     private boolean canExecuteCloseAction() {
         return mMainActivity.isActivityResumed() && isOnlyBannerOrNoneOpened();
     }
@@ -688,7 +766,6 @@ public class TvOverlayManager {
     /**
      * Runs a given {@code action} after all the overlays are closed.
      */
-    @UiThread
     public void runAfterOverlaysAreClosed(Runnable action) {
         if (canExecuteCloseAction()) {
             action.run();
@@ -783,10 +860,12 @@ public class TvOverlayManager {
                     showMenu(Menu.REASON_PLAY_CONTROLS_FAST_FORWARD);
                     break;
                 case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                case KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD:
                     timeShiftManager.jumpToPrevious();
                     showMenu(Menu.REASON_PLAY_CONTROLS_JUMP_TO_PREVIOUS);
                     break;
                 case KeyEvent.KEYCODE_MEDIA_NEXT:
+                case KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD:
                     timeShiftManager.jumpToNext();
                     showMenu(Menu.REASON_PLAY_CONTROLS_JUMP_TO_NEXT);
                     break;
@@ -890,13 +969,15 @@ public class TvOverlayManager {
             case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
             case KeyEvent.KEYCODE_MEDIA_REWIND:
             case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_SKIP_BACKWARD:
                 return true;
         }
         return false;
     }
 
     private static class TvOverlayHandler extends WeakHandler<TvOverlayManager> {
-        public TvOverlayHandler(TvOverlayManager ref) {
+        TvOverlayHandler(TvOverlayManager ref) {
             super(ref);
         }
 
@@ -920,16 +1001,22 @@ public class TvOverlayManager {
         }
     }
 
-    /**
-     * Dummny class for the workaround of b/22631964. See {@link #closeFragment}.
-     */
-    public static class DummyFragment extends Fragment {
-        @Override
-        public @Nullable View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
-            final View v = new Space(inflater.getContext());
-            v.setVisibility(View.GONE);
-            return v;
+    private class PendingDialogAction {
+        private final String mTag;
+        private final SafeDismissDialogFragment mDialog;
+        private final boolean mKeepSidePanelHistory;
+        private final boolean mKeepProgramGuide;
+
+        PendingDialogAction(String tag, SafeDismissDialogFragment dialog,
+                boolean keepSidePanelHistory, boolean keepProgramGuide) {
+            mTag = tag;
+            mDialog = dialog;
+            mKeepSidePanelHistory = keepSidePanelHistory;
+            mKeepProgramGuide = keepProgramGuide;
+        }
+
+        void run() {
+            showDialogFragment(mTag, mDialog, mKeepSidePanelHistory, mKeepProgramGuide);
         }
     }
 }

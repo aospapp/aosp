@@ -32,7 +32,6 @@ import android.util.Size;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "BurstCaptureTest";
@@ -99,31 +98,8 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
         final long minStillFrameDuration =
                 config.getOutputMinFrameDuration(ImageFormat.YUV_420_888, stillSize);
 
-        // Add 0.05 here so Fps like 29.99 evaluated to 30
-        int minBurstFps = (int) Math.floor(1e9 / minStillFrameDuration + 0.05f);
-        boolean foundConstantMaxYUVRange = false;
-        boolean foundYUVStreamingRange = false;
 
-        // Find suitable target FPS range - as high as possible that covers the max YUV rate
-        // Also verify that there's a good preview rate as well
-        List<Range<Integer> > fpsRanges = Arrays.asList(
-                mStaticInfo.getAeAvailableTargetFpsRangesChecked());
-        Range<Integer> targetRange = null;
-        for (Range<Integer> fpsRange : fpsRanges) {
-            if (fpsRange.getLower() == minBurstFps && fpsRange.getUpper() == minBurstFps) {
-                foundConstantMaxYUVRange = true;
-                targetRange = fpsRange;
-            }
-            if (fpsRange.getLower() <= 15 && fpsRange.getUpper() == minBurstFps) {
-                foundYUVStreamingRange = true;
-            }
-        }
-
-        assertTrue(String.format("Cam %s: Target FPS range of (%d, %d) must be supported",
-                cameraId, minBurstFps, minBurstFps), foundConstantMaxYUVRange);
-        assertTrue(String.format(
-                "Cam %s: Target FPS range of (x, %d) where x <= 15 must be supported",
-                cameraId, minBurstFps), foundYUVStreamingRange);
+        Range<Integer> targetRange = getSuitableFpsRangeForDuration(cameraId, minStillFrameDuration);
 
         Log.i(TAG, String.format("Selected frame rate range %d - %d for YUV burst",
                         targetRange.getLower(), targetRange.getUpper()));

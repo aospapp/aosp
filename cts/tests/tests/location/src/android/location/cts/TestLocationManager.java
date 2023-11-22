@@ -19,6 +19,7 @@ package android.location.cts;
 import android.content.Context;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
+import android.location.GnssStatus;
 import android.location.GpsStatus;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -116,6 +117,21 @@ public class TestLocationManager {
     }
 
     /**
+     * See {@code LocationManager#requestNetworkLocationUpdates}.
+     *
+     * @param locationListener location listener for request
+     */
+    public void requestNetworkLocationUpdates(LocationListener locationListener) {
+        if (mLocationManager.getProvider(LocationManager.NETWORK_PROVIDER) != null) {
+            Log.i(TAG, "Request Network Location updates.");
+            mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
+                0 /* minTime*/,
+                0 /* minDistance */,
+                locationListener,
+                Looper.getMainLooper());
+        }
+    }
+    /**
      * See {@link android.location.LocationManager#addGpsStatusListener (GpsStatus.Listener)}.
      * @param listener the GpsStatus.Listener to add
      */
@@ -190,6 +206,28 @@ public class TestLocationManager {
     public void unregisterGnssNavigationMessageCallback(GnssNavigationMessage.Callback callback) {
         Log.i(TAG, "Remove Gnss Navigation Message Callback.");
         mLocationManager.unregisterGnssNavigationMessageCallback(callback);
+    }
+
+    /**
+     * Add a GNSS Status callback.
+     *
+     * @param callback a {@link GnssStatus.Callback} object to register.
+     * @return {@code true} if the listener was added successfully, {@code false} otherwise.
+     */
+    public boolean registerGnssStatusCallback(GnssStatus.Callback callback) {
+        Log.i(TAG, "Add Gnss Status Callback.");
+        return mLocationManager.registerGnssStatusCallback(
+            callback, new Handler(Looper.getMainLooper()));
+    }
+
+    /**
+     * Removes a GNSS Status callback.
+     *
+     * @param callback a {@link GnssStatus.Callback} object to remove.
+     */
+    public void unregisterGnssStatusCallback(GnssStatus.Callback callback) {
+        Log.i(TAG, "Remove Gnss Status Callback.");
+        mLocationManager.unregisterGnssStatusCallback(callback);
     }
 
     /**

@@ -7,21 +7,18 @@
 #include <cryptohi.h>
 #include <keyhi.h>
 #include <pk11pub.h>
+#include <secmod.h>
 #include <stdint.h>
+
+#include <memory>
 
 #include "base/logging.h"
 #include "crypto/nss_util.h"
-
-#if defined(USE_NSS_CERTS)
-#include <secmod.h>
 #include "crypto/nss_util_internal.h"
-#endif
 
 namespace crypto {
 
 namespace {
-
-#if defined(USE_NSS_CERTS)
 
 struct PublicKeyInfoDeleter {
   inline void operator()(CERTSubjectPublicKeyInfo* spki) {
@@ -29,7 +26,7 @@ struct PublicKeyInfoDeleter {
   }
 };
 
-typedef scoped_ptr<CERTSubjectPublicKeyInfo, PublicKeyInfoDeleter>
+typedef std::unique_ptr<CERTSubjectPublicKeyInfo, PublicKeyInfoDeleter>
     ScopedPublicKeyInfo;
 
 // Decodes |input| as a SubjectPublicKeyInfo and returns a SECItem containing
@@ -56,8 +53,6 @@ ScopedSECItem MakeIDFromSPKI(const std::vector<uint8_t>& input) {
 
   return ScopedSECItem(PK11_MakeIDFromPubKey(&result->u.rsa.modulus));
 }
-
-#endif  // defined(USE_NSS_CERTS)
 
 }  // namespace
 
@@ -116,8 +111,6 @@ ScopedSECKEYPrivateKey ImportNSSKeyFromPrivateKeyInfo(
   return ScopedSECKEYPrivateKey(key_raw);
 }
 
-#if defined(USE_NSS_CERTS)
-
 ScopedSECKEYPrivateKey FindNSSKeyFromPublicKeyInfo(
     const std::vector<uint8_t>& input) {
   EnsureNSSInit();
@@ -157,7 +150,5 @@ ScopedSECKEYPrivateKey FindNSSKeyFromPublicKeyInfoInSlot(
   return ScopedSECKEYPrivateKey(
       PK11_FindKeyByKeyID(slot, cka_id.get(), nullptr));
 }
-
-#endif  // defined(USE_NSS_CERTS)
 
 }  // namespace crypto

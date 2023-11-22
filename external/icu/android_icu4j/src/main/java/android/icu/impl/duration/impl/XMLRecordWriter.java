@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ******************************************************************************
  * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -27,6 +29,7 @@ public class XMLRecordWriter implements RecordWriter {
         this.nameStack = new ArrayList<String>();
     }
 
+    @Override
     public boolean open(String title) {
         newline();
         writeString("<" + title + ">");
@@ -34,6 +37,7 @@ public class XMLRecordWriter implements RecordWriter {
         return true;
     }
 
+    @Override
     public boolean close() {
         int ix = nameStack.size() - 1;
         if (ix >= 0) {
@@ -52,10 +56,12 @@ public class XMLRecordWriter implements RecordWriter {
         }
     }
 
+    @Override
     public void bool(String name, boolean value) {
         internalString(name, String.valueOf(value));
     }
 
+    @Override
     public void boolArray(String name, boolean[] values) {
         if (values != null) {
             String[] stringValues = new String[values.length];
@@ -76,12 +82,14 @@ public class XMLRecordWriter implements RecordWriter {
         return String.valueOf(value);
     }
 
+    @Override
     public void character(String name, char value) {
         if (value != '\uffff') {
             internalString(name, ctos(value));
         }
     }
 
+    @Override
     public void characterArray(String name, char[] values) {
         if (values != null) {
             String[] stringValues = new String[values.length];
@@ -97,12 +105,14 @@ public class XMLRecordWriter implements RecordWriter {
         }
     }
 
+    @Override
     public void namedIndex(String name, String[] names, int value) {
         if (value >= 0) {
             internalString(name, names[value]);
         }
     }
 
+    @Override
     public void namedIndexArray(String name, String[] names, byte[] values) {
         if (values != null) {
             String[] stringValues = new String[values.length];
@@ -184,10 +194,12 @@ public class XMLRecordWriter implements RecordWriter {
         }
     }
 
+    @Override
     public void string(String name, String value) {
         internalString(name, normalize(value));
     }
 
+    @Override
     public void stringArray(String name, String[] values) {
         if (values != null) {
             push(name + "List");
@@ -202,6 +214,7 @@ public class XMLRecordWriter implements RecordWriter {
         }
     }
 
+    @Override
     public void stringTable(String name, String[][] values) {
         if (values != null) {
             push(name + "Table");

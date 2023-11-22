@@ -28,13 +28,34 @@ void xstrncat(char *dest, char *src, size_t size)
   strcpy(dest+len, src);
 }
 
+// We replaced exit(), _exit(), and atexit() with xexit(), _xexit(), and
+// sigatexit(). This gives _xexit() the option to siglongjmp(toys.rebound, 1)
+// instead of exiting, lets xexit() report stdout flush failures to stderr
+// and change the exit code to indicate error, lets our toys.exit function
+// change happen for signal exit paths and lets us remove the functions
+// after we've called them.
+
+void _xexit(void)
+{
+  if (toys.rebound) siglongjmp(*toys.rebound, 1);
+
+  _exit(toys.exitval);
+}
+
 void xexit(void)
 {
-  if (toys.rebound) longjmp(*toys.rebound, 1);
+  // Call toys.xexit functions in reverse order added.
+  while (toys.xexit) {
+    // This is typecasting xexit->arg to a function pointer,then calling it.
+    // Using the invalid signal number 0 lets the signal handlers distinguish
+    // an actual signal from a regular exit.
+    ((void (*)(int))(toys.xexit->arg))(0);
+
+    free(llist_pop(&toys.xexit));
+  }
   if (fflush(NULL) || ferror(stdout))
     if (!toys.exitval) perror_msg("write");
-
-  exit(toys.exitval);
+  _xexit();
 }
 
 // Die unless we can allocate memory.
@@ -142,7 +163,7 @@ void xflush(void)
 // share a stack, so child returning from a function would stomp the return
 // address parent would need. Solution: make vfork() an argument so processes
 // diverge before function gets called.
-pid_t xvforkwrap(pid_t pid)
+pid_t __attribute__((returns_twice)) xvforkwrap(pid_t pid)
 {
   if (pid == -1) perror_exit("vfork");
 
@@ -260,14 +281,14 @@ int xpclose_both(pid_t pid, int *pipes)
 }
 
 // Wrapper to xpopen with a pipe for just one of stdin/stdout
-pid_t xpopen(char **argv, int *pipe, int stdout)
+pid_t xpopen(char **argv, int *pipe, int isstdout)
 {
   int pipes[2], pid;
 
-  pipes[!stdout] = -1;
-  pipes[!!stdout] = 0;
+  pipes[!isstdout] = -1;
+  pipes[!!isstdout] = 0;
   pid = xpopen_both(argv, pipes);
-  *pipe = pid ? pipes[!!stdout] : -1;
+  *pipe = pid ? pipes[!!isstdout] : -1;
 
   return pid;
 }
@@ -297,17 +318,20 @@ void xunlink(char *path)
 }
 
 // Die unless we can open/create a file, returning file descriptor.
-int xcreate(char *path, int flags, int mode)
+// The meaning of O_CLOEXEC is reversed (it defaults on, pass it to disable)
+// and WARN_ONLY tells us not to exit.
+int xcreate_stdio(char *path, int flags, int mode)
 {
-  int fd = open(path, flags^O_CLOEXEC, mode);
-  if (fd == -1) perror_exit_raw(path);
+  int fd = open(path, (flags^O_CLOEXEC)&~WARN_ONLY, mode);
+
+  if (fd == -1) ((mode&WARN_ONLY) ? perror_msg_raw : perror_exit_raw)(path);
   return fd;
 }
 
 // Die unless we can open a file, returning file descriptor.
-int xopen(char *path, int flags)
+int xopen_stdio(char *path, int flags)
 {
-  return xcreate(path, flags, 0);
+  return xcreate_stdio(path, flags, 0);
 }
 
 void xpipe(int *pp)
@@ -327,6 +351,49 @@ int xdup(int fd)
     if (fd == -1) perror_exit("xdup");
   }
   return fd;
+}
+
+// Move file descriptor above stdin/stdout/stderr, using /dev/null to consume
+// old one. (We should never be called with stdin/stdout/stderr closed, but...)
+int notstdio(int fd)
+{
+  if (fd<0) return fd;
+
+  while (fd<3) {
+    int fd2 = xdup(fd);
+
+    close(fd);
+    xopen_stdio("/dev/null", O_RDWR);
+    fd = fd2;
+  }
+
+  return fd;
+}
+
+// Create a file but don't return stdin/stdout/stderr
+int xcreate(char *path, int flags, int mode)
+{
+  return notstdio(xcreate_stdio(path, flags, mode));
+}
+
+// Open a file descriptor NOT in stdin/stdout/stderr
+int xopen(char *path, int flags)
+{
+  return notstdio(xopen_stdio(path, flags));
+}
+
+// Open read only, treating "-" as a synonym for stdin, defaulting to warn only
+int openro(char *path, int flags)
+{
+  if (!strcmp(path, "-")) return 0;
+
+  return xopen(path, flags^WARN_ONLY);
+}
+
+// Open read only, treating "-" as a synonym for stdin.
+int xopenro(char *path)
+{
+  return openro(path, O_RDONLY|WARN_ONLY);
 }
 
 FILE *xfdopen(int fd, char *mode)
@@ -398,7 +465,7 @@ char *xabspath(char *path, int exact)
 {
   struct string_list *todo, *done = 0;
   int try = 9999, dirfd = open("/", 0);;
-  char buf[4096], *ret;
+  char *ret;
 
   // If this isn't an absolute path, start with cwd.
   if (*path != '/') {
@@ -429,7 +496,7 @@ char *xabspath(char *path, int exact)
       } else continue;
 
     // Is this a symlink?
-    } else len=readlinkat(dirfd, new->str, buf, 4096);
+    } else len = readlinkat(dirfd, new->str, libbuf, sizeof(libbuf));
 
     if (len>4095) goto error;
     if (len<1) {
@@ -453,8 +520,8 @@ char *xabspath(char *path, int exact)
     }
 
     // If this symlink is to an absolute path, discard existing resolved path
-    buf[len] = 0;
-    if (*buf == '/') {
+    libbuf[len] = 0;
+    if (*libbuf == '/') {
       llist_traverse(done, free);
       done=0;
       close(dirfd);
@@ -463,7 +530,7 @@ char *xabspath(char *path, int exact)
     free(new);
 
     // prepend components of new path. Note symlink to "/" will leave new NULL
-    tail = splitpath(buf, &new);
+    tail = splitpath(libbuf, &new);
 
     // symlink to "/" will return null and leave tail alone
     if (new) {
@@ -533,36 +600,32 @@ struct group *xgetgrgid(gid_t gid)
   return group;
 }
 
-struct passwd *xgetpwnamid(char *user)
+unsigned xgetuid(char *name)
 {
-  struct passwd *up = getpwnam(user);
-  uid_t uid;
+  struct passwd *up = getpwnam(name);
+  char *s = 0;
+  long uid;
 
-  if (!up) {
-    char *s = 0;
+  if (up) return up->pw_uid;
 
-    uid = estrtol(user, &s, 10);
-    if (!errno && s && !*s) up = getpwuid(uid);
-  }
-  if (!up) perror_exit("user '%s'", user);
+  uid = estrtol(name, &s, 10);
+  if (!errno && s && !*s && uid>=0 && uid<=UINT_MAX) return uid;
 
-  return up;
+  error_exit("bad user '%s'", name);
 }
 
-struct group *xgetgrnamid(char *group)
+unsigned xgetgid(char *name)
 {
-  struct group *gr = getgrnam(group);
-  gid_t gid;
+  struct group *gr = getgrnam(name);
+  char *s = 0;
+  long gid;
 
-  if (!gr) {
-    char *s = 0;
+  if (gr) return gr->gr_gid;
 
-    gid = estrtol(group, &s, 10);
-    if (!errno && s && !*s) gr = getgrgid(gid);
-  }
-  if (!gr) perror_exit("group '%s'", group);
+  gid = estrtol(name, &s, 10);
+  if (!errno && s && !*s && gid>=0 && gid<=UINT_MAX) return gid;
 
-  return gr;
+  error_exit("bad group '%s'", name);
 }
 
 struct passwd *xgetpwnam(char *name)
@@ -621,6 +684,8 @@ char *xreadfile(char *name, char *buf, off_t len)
   return buf;
 }
 
+// The data argument to ioctl() is actually long, but it's usually used as
+// a pointer. If you need to feed in a number, do (void *)(long) typecast.
 int xioctl(int fd, int request, void *data)
 {
   int rc;
@@ -667,16 +732,20 @@ void xpidfile(char *name)
 
 // Copy the rest of in to out and close both files.
 
-void xsendfile(int in, int out)
+long long xsendfile(int in, int out)
 {
+  long long total = 0;
   long len;
 
-  if (in<0) return;
+  if (in<0) return 0;
   for (;;) {
     len = xread(in, libbuf, sizeof(libbuf));
     if (len<1) break;
     xwrite(out, libbuf, len);
+    total += len;
   }
+
+  return total;
 }
 
 // parse fractional seconds with optional s/m/h/d suffix

@@ -15,38 +15,19 @@
  */
 
 #include <functional>
+#include <memory>
 
-#include "arch/instruction_set.h"
-#include "arch/arm/instruction_set_features_arm.h"
-#include "arch/arm/registers_arm.h"
-#include "arch/arm64/instruction_set_features_arm64.h"
-#include "arch/mips/instruction_set_features_mips.h"
-#include "arch/mips/registers_mips.h"
-#include "arch/mips64/instruction_set_features_mips64.h"
-#include "arch/mips64/registers_mips64.h"
-#include "arch/x86/instruction_set_features_x86.h"
-#include "arch/x86/registers_x86.h"
-#include "arch/x86_64/instruction_set_features_x86_64.h"
 #include "base/macros.h"
 #include "builder.h"
-#include "code_generator_arm.h"
-#include "code_generator_arm64.h"
-#include "code_generator_mips.h"
-#include "code_generator_mips64.h"
-#include "code_generator_x86.h"
-#include "code_generator_x86_64.h"
-#include "code_simulator_container.h"
-#include "common_compiler_test.h"
+#include "codegen_test_utils.h"
 #include "dex_file.h"
 #include "dex_instruction.h"
 #include "driver/compiler_options.h"
-#include "graph_checker.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
-#include "prepare_for_register_allocation.h"
-#include "register_allocator.h"
-#include "ssa_liveness_analysis.h"
+#include "register_allocator_linear_scan.h"
 #include "utils.h"
+#include "utils/arm/assembler_arm_vixl.h"
 #include "utils/arm/managed_register_arm.h"
 #include "utils/mips/managed_register_mips.h"
 #include "utils/mips64/managed_register_mips64.h"
@@ -56,233 +37,36 @@
 
 namespace art {
 
-// Provide our own codegen, that ensures the C calling conventions
-// are preserved. Currently, ART and C do not match as R4 is caller-save
-// in ART, and callee-save in C. Alternatively, we could use or write
-// the stub that saves and restores all registers, but it is easier
-// to just overwrite the code generator.
-class TestCodeGeneratorARM : public arm::CodeGeneratorARM {
- public:
-  TestCodeGeneratorARM(HGraph* graph,
-                       const ArmInstructionSetFeatures& isa_features,
-                       const CompilerOptions& compiler_options)
-      : arm::CodeGeneratorARM(graph, isa_features, compiler_options) {
-    AddAllocatedRegister(Location::RegisterLocation(arm::R6));
-    AddAllocatedRegister(Location::RegisterLocation(arm::R7));
-  }
-
-  void SetupBlockedRegisters() const OVERRIDE {
-    arm::CodeGeneratorARM::SetupBlockedRegisters();
-    blocked_core_registers_[arm::R4] = true;
-    blocked_core_registers_[arm::R6] = false;
-    blocked_core_registers_[arm::R7] = false;
-    // Makes pair R6-R7 available.
-    blocked_register_pairs_[arm::R6_R7] = false;
-  }
-};
-
-class TestCodeGeneratorX86 : public x86::CodeGeneratorX86 {
- public:
-  TestCodeGeneratorX86(HGraph* graph,
-                       const X86InstructionSetFeatures& isa_features,
-                       const CompilerOptions& compiler_options)
-      : x86::CodeGeneratorX86(graph, isa_features, compiler_options) {
-    // Save edi, we need it for getting enough registers for long multiplication.
-    AddAllocatedRegister(Location::RegisterLocation(x86::EDI));
-  }
-
-  void SetupBlockedRegisters() const OVERRIDE {
-    x86::CodeGeneratorX86::SetupBlockedRegisters();
-    // ebx is a callee-save register in C, but caller-save for ART.
-    blocked_core_registers_[x86::EBX] = true;
-    blocked_register_pairs_[x86::EAX_EBX] = true;
-    blocked_register_pairs_[x86::EDX_EBX] = true;
-    blocked_register_pairs_[x86::ECX_EBX] = true;
-    blocked_register_pairs_[x86::EBX_EDI] = true;
-
-    // Make edi available.
-    blocked_core_registers_[x86::EDI] = false;
-    blocked_register_pairs_[x86::ECX_EDI] = false;
-  }
-};
-
-class InternalCodeAllocator : public CodeAllocator {
- public:
-  InternalCodeAllocator() : size_(0) { }
-
-  virtual uint8_t* Allocate(size_t size) {
-    size_ = size;
-    memory_.reset(new uint8_t[size]);
-    return memory_.get();
-  }
-
-  size_t GetSize() const { return size_; }
-  uint8_t* GetMemory() const { return memory_.get(); }
-
- private:
-  size_t size_;
-  std::unique_ptr<uint8_t[]> memory_;
-
-  DISALLOW_COPY_AND_ASSIGN(InternalCodeAllocator);
-};
-
-static bool CanExecuteOnHardware(InstructionSet target_isa) {
-  return (target_isa == kRuntimeISA)
-      // Handle the special case of ARM, with two instructions sets (ARM32 and Thumb-2).
-      || (kRuntimeISA == kArm && target_isa == kThumb2);
-}
-
-static bool CanExecute(InstructionSet target_isa) {
-  CodeSimulatorContainer simulator(target_isa);
-  return CanExecuteOnHardware(target_isa) || simulator.CanSimulate();
-}
-
-template <typename Expected>
-static Expected SimulatorExecute(CodeSimulator* simulator, Expected (*f)());
-
-template <>
-bool SimulatorExecute<bool>(CodeSimulator* simulator, bool (*f)()) {
-  simulator->RunFrom(reinterpret_cast<intptr_t>(f));
-  return simulator->GetCReturnBool();
-}
-
-template <>
-int32_t SimulatorExecute<int32_t>(CodeSimulator* simulator, int32_t (*f)()) {
-  simulator->RunFrom(reinterpret_cast<intptr_t>(f));
-  return simulator->GetCReturnInt32();
-}
-
-template <>
-int64_t SimulatorExecute<int64_t>(CodeSimulator* simulator, int64_t (*f)()) {
-  simulator->RunFrom(reinterpret_cast<intptr_t>(f));
-  return simulator->GetCReturnInt64();
-}
-
-template <typename Expected>
-static void VerifyGeneratedCode(InstructionSet target_isa,
-                                Expected (*f)(),
-                                bool has_result,
-                                Expected expected) {
-  ASSERT_TRUE(CanExecute(target_isa)) << "Target isa is not executable.";
-
-  // Verify on simulator.
-  CodeSimulatorContainer simulator(target_isa);
-  if (simulator.CanSimulate()) {
-    Expected result = SimulatorExecute<Expected>(simulator.Get(), f);
-    if (has_result) {
-      ASSERT_EQ(expected, result);
-    }
-  }
-
-  // Verify on hardware.
-  if (CanExecuteOnHardware(target_isa)) {
-    Expected result = f();
-    if (has_result) {
-      ASSERT_EQ(expected, result);
-    }
-  }
-}
-
-template <typename Expected>
-static void Run(const InternalCodeAllocator& allocator,
-                const CodeGenerator& codegen,
-                bool has_result,
-                Expected expected) {
-  InstructionSet target_isa = codegen.GetInstructionSet();
-
-  typedef Expected (*fptr)();
-  CommonCompilerTest::MakeExecutable(allocator.GetMemory(), allocator.GetSize());
-  fptr f = reinterpret_cast<fptr>(allocator.GetMemory());
-  if (target_isa == kThumb2) {
-    // For thumb we need the bottom bit set.
-    f = reinterpret_cast<fptr>(reinterpret_cast<uintptr_t>(f) + 1);
-  }
-  VerifyGeneratedCode(target_isa, f, has_result, expected);
-}
-
-template <typename Expected>
-static void RunCode(CodeGenerator* codegen,
-                    HGraph* graph,
-                    std::function<void(HGraph*)> hook_before_codegen,
-                    bool has_result,
-                    Expected expected) {
-  GraphChecker graph_checker(graph);
-  graph_checker.Run();
-  if (!graph_checker.IsValid()) {
-    for (auto error : graph_checker.GetErrors()) {
-      std::cout << error << std::endl;
-    }
-  }
-  ASSERT_TRUE(graph_checker.IsValid());
-
-  SsaLivenessAnalysis liveness(graph, codegen);
-
-  PrepareForRegisterAllocation(graph).Run();
-  liveness.Analyze();
-  RegisterAllocator(graph->GetArena(), codegen, liveness).AllocateRegisters();
-  hook_before_codegen(graph);
-
-  InternalCodeAllocator allocator;
-  codegen->Compile(&allocator);
-  Run(allocator, *codegen, has_result, expected);
-}
-
-template <typename Expected>
-static void RunCode(InstructionSet target_isa,
-                    HGraph* graph,
-                    std::function<void(HGraph*)> hook_before_codegen,
-                    bool has_result,
-                    Expected expected) {
-  CompilerOptions compiler_options;
-  if (target_isa == kArm || target_isa == kThumb2) {
-    std::unique_ptr<const ArmInstructionSetFeatures> features_arm(
-        ArmInstructionSetFeatures::FromCppDefines());
-    TestCodeGeneratorARM codegenARM(graph, *features_arm.get(), compiler_options);
-    RunCode(&codegenARM, graph, hook_before_codegen, has_result, expected);
-  } else if (target_isa == kArm64) {
-    std::unique_ptr<const Arm64InstructionSetFeatures> features_arm64(
-        Arm64InstructionSetFeatures::FromCppDefines());
-    arm64::CodeGeneratorARM64 codegenARM64(graph, *features_arm64.get(), compiler_options);
-    RunCode(&codegenARM64, graph, hook_before_codegen, has_result, expected);
-  } else if (target_isa == kX86) {
-    std::unique_ptr<const X86InstructionSetFeatures> features_x86(
-        X86InstructionSetFeatures::FromCppDefines());
-    x86::CodeGeneratorX86 codegenX86(graph, *features_x86.get(), compiler_options);
-    RunCode(&codegenX86, graph, hook_before_codegen, has_result, expected);
-  } else if (target_isa == kX86_64) {
-    std::unique_ptr<const X86_64InstructionSetFeatures> features_x86_64(
-        X86_64InstructionSetFeatures::FromCppDefines());
-    x86_64::CodeGeneratorX86_64 codegenX86_64(graph, *features_x86_64.get(), compiler_options);
-    RunCode(&codegenX86_64, graph, hook_before_codegen, has_result, expected);
-  } else if (target_isa == kMips) {
-    std::unique_ptr<const MipsInstructionSetFeatures> features_mips(
-        MipsInstructionSetFeatures::FromCppDefines());
-    mips::CodeGeneratorMIPS codegenMIPS(graph, *features_mips.get(), compiler_options);
-    RunCode(&codegenMIPS, graph, hook_before_codegen, has_result, expected);
-  } else if (target_isa == kMips64) {
-    std::unique_ptr<const Mips64InstructionSetFeatures> features_mips64(
-        Mips64InstructionSetFeatures::FromCppDefines());
-    mips64::CodeGeneratorMIPS64 codegenMIPS64(graph, *features_mips64.get(), compiler_options);
-    RunCode(&codegenMIPS64, graph, hook_before_codegen, has_result, expected);
-  }
-}
-
-static ::std::vector<InstructionSet> GetTargetISAs() {
-  ::std::vector<InstructionSet> v;
-  // Add all ISAs that are executable on hardware or on simulator.
-  const ::std::vector<InstructionSet> executable_isa_candidates = {
-    kArm,
-    kArm64,
-    kThumb2,
-    kX86,
-    kX86_64,
-    kMips,
-    kMips64
+// Return all combinations of ISA and code generator that are executable on
+// hardware, or on simulator, and that we'd like to test.
+static ::std::vector<CodegenTargetConfig> GetTargetConfigs() {
+  ::std::vector<CodegenTargetConfig> v;
+  ::std::vector<CodegenTargetConfig> test_config_candidates = {
+#ifdef ART_ENABLE_CODEGEN_arm
+    CodegenTargetConfig(kArm, create_codegen_arm),
+    CodegenTargetConfig(kThumb2, create_codegen_arm),
+    CodegenTargetConfig(kArm, create_codegen_arm_vixl32),
+#endif
+#ifdef ART_ENABLE_CODEGEN_arm64
+    CodegenTargetConfig(kArm64, create_codegen_arm64),
+#endif
+#ifdef ART_ENABLE_CODEGEN_x86
+    CodegenTargetConfig(kX86, create_codegen_x86),
+#endif
+#ifdef ART_ENABLE_CODEGEN_x86_64
+    CodegenTargetConfig(kX86_64, create_codegen_x86_64),
+#endif
+#ifdef ART_ENABLE_CODEGEN_mips
+    CodegenTargetConfig(kMips, create_codegen_mips),
+#endif
+#ifdef ART_ENABLE_CODEGEN_mips64
+    CodegenTargetConfig(kMips64, create_codegen_mips64)
+#endif
   };
 
-  for (auto target_isa : executable_isa_candidates) {
-    if (CanExecute(target_isa)) {
-      v.push_back(target_isa);
+  for (auto test_config : test_config_candidates) {
+    if (CanExecute(test_config.GetInstructionSet())) {
+      v.push_back(test_config);
     }
   }
 
@@ -292,26 +76,26 @@ static ::std::vector<InstructionSet> GetTargetISAs() {
 static void TestCode(const uint16_t* data,
                      bool has_result = false,
                      int32_t expected = 0) {
-  for (InstructionSet target_isa : GetTargetISAs()) {
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     ArenaPool pool;
     ArenaAllocator arena(&pool);
     HGraph* graph = CreateCFG(&arena, data);
     // Remove suspend checks, they cannot be executed in this context.
     RemoveSuspendChecks(graph);
-    RunCode(target_isa, graph, [](HGraph*) {}, has_result, expected);
+    RunCode(target_config, graph, [](HGraph*) {}, has_result, expected);
   }
 }
 
 static void TestCodeLong(const uint16_t* data,
                          bool has_result,
                          int64_t expected) {
-  for (InstructionSet target_isa : GetTargetISAs()) {
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     ArenaPool pool;
     ArenaAllocator arena(&pool);
     HGraph* graph = CreateCFG(&arena, data, Primitive::kPrimLong);
     // Remove suspend checks, they cannot be executed in this context.
     RemoveSuspendChecks(graph);
-    RunCode(target_isa, graph, [](HGraph*) {}, has_result, expected);
+    RunCode(target_config, graph, [](HGraph*) {}, has_result, expected);
   }
 }
 
@@ -628,7 +412,7 @@ TEST_F(CodegenTest, ReturnMulIntLit16) {
 }
 
 TEST_F(CodegenTest, NonMaterializedCondition) {
-  for (InstructionSet target_isa : GetTargetISAs()) {
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     ArenaPool pool;
     ArenaAllocator allocator(&pool);
 
@@ -676,12 +460,12 @@ TEST_F(CodegenTest, NonMaterializedCondition) {
       block->InsertInstructionBefore(move, block->GetLastInstruction());
     };
 
-    RunCode(target_isa, graph, hook_before_codegen, true, 0);
+    RunCode(target_config, graph, hook_before_codegen, true, 0);
   }
 }
 
 TEST_F(CodegenTest, MaterializedCondition1) {
-  for (InstructionSet target_isa : GetTargetISAs()) {
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     // Check that condition are materialized correctly. A materialized condition
     // should yield `1` if it evaluated to true, and `0` otherwise.
     // We force the materialization of comparisons for different combinations of
@@ -723,13 +507,13 @@ TEST_F(CodegenTest, MaterializedCondition1) {
         HParallelMove* move = new (graph_in->GetArena()) HParallelMove(graph_in->GetArena());
         block->InsertInstructionBefore(move, block->GetLastInstruction());
       };
-      RunCode(target_isa, graph, hook_before_codegen, true, lhs[i] < rhs[i]);
+      RunCode(target_config, graph, hook_before_codegen, true, lhs[i] < rhs[i]);
     }
   }
 }
 
 TEST_F(CodegenTest, MaterializedCondition2) {
-  for (InstructionSet target_isa : GetTargetISAs()) {
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     // Check that HIf correctly interprets a materialized condition.
     // We force the materialization of comparisons for different combinations of
     // inputs. An HIf takes the materialized combination as input and returns a
@@ -791,7 +575,7 @@ TEST_F(CodegenTest, MaterializedCondition2) {
         HParallelMove* move = new (graph_in->GetArena()) HParallelMove(graph_in->GetArena());
         block->InsertInstructionBefore(move, block->GetLastInstruction());
       };
-      RunCode(target_isa, graph, hook_before_codegen, true, lhs[i] < rhs[i]);
+      RunCode(target_config, graph, hook_before_codegen, true, lhs[i] < rhs[i]);
     }
   }
 }
@@ -820,7 +604,7 @@ static void TestComparison(IfCondition condition,
                            int64_t i,
                            int64_t j,
                            Primitive::Type type,
-                           const InstructionSet target_isa) {
+                           const CodegenTargetConfig target_config) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
   HGraph* graph = CreateGraph(&allocator);
@@ -902,54 +686,191 @@ static void TestComparison(IfCondition condition,
   block->AddInstruction(new (&allocator) HReturn(comparison));
 
   graph->BuildDominatorTree();
-  RunCode(target_isa, graph, [](HGraph*) {}, true, expected_result);
+  RunCode(target_config, graph, [](HGraph*) {}, true, expected_result);
 }
 
 TEST_F(CodegenTest, ComparisonsInt) {
-  for (InstructionSet target_isa : GetTargetISAs()) {
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     for (int64_t i = -1; i <= 1; i++) {
       for (int64_t j = -1; j <= 1; j++) {
-        TestComparison(kCondEQ, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondNE, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondLT, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondLE, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondGT, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondGE, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondB,  i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondBE, i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondA,  i, j, Primitive::kPrimInt, target_isa);
-        TestComparison(kCondAE, i, j, Primitive::kPrimInt, target_isa);
+        for (int cond = kCondFirst; cond <= kCondLast; cond++) {
+          TestComparison(static_cast<IfCondition>(cond), i, j, Primitive::kPrimInt, target_config);
+        }
       }
     }
   }
 }
 
 TEST_F(CodegenTest, ComparisonsLong) {
-  // TODO: make MIPS work for long
-  if (kRuntimeISA == kMips || kRuntimeISA == kMips64) {
-    return;
-  }
-
-  for (InstructionSet target_isa : GetTargetISAs()) {
-    if (target_isa == kMips || target_isa == kMips64) {
-      continue;
-    }
-
+  for (CodegenTargetConfig target_config : GetTargetConfigs()) {
     for (int64_t i = -1; i <= 1; i++) {
       for (int64_t j = -1; j <= 1; j++) {
-        TestComparison(kCondEQ, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondNE, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondLT, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondLE, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondGT, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondGE, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondB,  i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondBE, i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondA,  i, j, Primitive::kPrimLong, target_isa);
-        TestComparison(kCondAE, i, j, Primitive::kPrimLong, target_isa);
+        for (int cond = kCondFirst; cond <= kCondLast; cond++) {
+          TestComparison(static_cast<IfCondition>(cond), i, j, Primitive::kPrimLong, target_config);
+        }
       }
     }
   }
 }
+
+#ifdef ART_ENABLE_CODEGEN_arm
+TEST_F(CodegenTest, ARMVIXLParallelMoveResolver) {
+  std::unique_ptr<const ArmInstructionSetFeatures> features(
+      ArmInstructionSetFeatures::FromCppDefines());
+  ArenaPool pool;
+  ArenaAllocator allocator(&pool);
+  HGraph* graph = CreateGraph(&allocator);
+  arm::CodeGeneratorARMVIXL codegen(graph, *features.get(), CompilerOptions());
+
+  codegen.Initialize();
+
+  // This will result in calling EmitSwap -> void ParallelMoveResolverARMVIXL::Exchange(int mem1,
+  // int mem2) which was faulty (before the fix). So previously GPR and FP scratch registers were
+  // used as temps; however GPR scratch register is required for big stack offsets which don't fit
+  // LDR encoding. So the following code is a regression test for that situation.
+  HParallelMove* move = new (graph->GetArena()) HParallelMove(graph->GetArena());
+  move->AddMove(Location::StackSlot(0), Location::StackSlot(8192), Primitive::kPrimInt, nullptr);
+  move->AddMove(Location::StackSlot(8192), Location::StackSlot(0), Primitive::kPrimInt, nullptr);
+  codegen.GetMoveResolver()->EmitNativeCode(move);
+
+  InternalCodeAllocator code_allocator;
+  codegen.Finalize(&code_allocator);
+}
+#endif
+
+#ifdef ART_ENABLE_CODEGEN_arm64
+// Regression test for b/34760542.
+TEST_F(CodegenTest, ARM64ParallelMoveResolverB34760542) {
+  std::unique_ptr<const Arm64InstructionSetFeatures> features(
+      Arm64InstructionSetFeatures::FromCppDefines());
+  ArenaPool pool;
+  ArenaAllocator allocator(&pool);
+  HGraph* graph = CreateGraph(&allocator);
+  arm64::CodeGeneratorARM64 codegen(graph, *features.get(), CompilerOptions());
+
+  codegen.Initialize();
+
+  // The following ParallelMove used to fail this assertion:
+  //
+  //   Assertion failed (!available->IsEmpty())
+  //
+  // in vixl::aarch64::UseScratchRegisterScope::AcquireNextAvailable.
+  HParallelMove* move = new (graph->GetArena()) HParallelMove(graph->GetArena());
+  move->AddMove(Location::DoubleStackSlot(0),
+                Location::DoubleStackSlot(257),
+                Primitive::kPrimDouble,
+                nullptr);
+  move->AddMove(Location::DoubleStackSlot(257),
+                Location::DoubleStackSlot(0),
+                Primitive::kPrimDouble,
+                nullptr);
+  codegen.GetMoveResolver()->EmitNativeCode(move);
+
+  InternalCodeAllocator code_allocator;
+  codegen.Finalize(&code_allocator);
+}
+
+// Check that ParallelMoveResolver works fine for ARM64 for both cases when SIMD is on and off.
+TEST_F(CodegenTest, ARM64ParallelMoveResolverSIMD) {
+  std::unique_ptr<const Arm64InstructionSetFeatures> features(
+      Arm64InstructionSetFeatures::FromCppDefines());
+  ArenaPool pool;
+  ArenaAllocator allocator(&pool);
+  HGraph* graph = CreateGraph(&allocator);
+  arm64::CodeGeneratorARM64 codegen(graph, *features.get(), CompilerOptions());
+
+  codegen.Initialize();
+
+  graph->SetHasSIMD(true);
+  for (int i = 0; i < 2; i++) {
+    HParallelMove* move = new (graph->GetArena()) HParallelMove(graph->GetArena());
+    move->AddMove(Location::SIMDStackSlot(0),
+                  Location::SIMDStackSlot(257),
+                  Primitive::kPrimDouble,
+                  nullptr);
+    move->AddMove(Location::SIMDStackSlot(257),
+                  Location::SIMDStackSlot(0),
+                  Primitive::kPrimDouble,
+                  nullptr);
+    move->AddMove(Location::FpuRegisterLocation(0),
+                  Location::FpuRegisterLocation(1),
+                  Primitive::kPrimDouble,
+                  nullptr);
+    move->AddMove(Location::FpuRegisterLocation(1),
+                  Location::FpuRegisterLocation(0),
+                  Primitive::kPrimDouble,
+                  nullptr);
+    codegen.GetMoveResolver()->EmitNativeCode(move);
+    graph->SetHasSIMD(false);
+  }
+
+  InternalCodeAllocator code_allocator;
+  codegen.Finalize(&code_allocator);
+}
+
+#endif
+
+#ifdef ART_ENABLE_CODEGEN_mips
+TEST_F(CodegenTest, MipsClobberRA) {
+  std::unique_ptr<const MipsInstructionSetFeatures> features_mips(
+      MipsInstructionSetFeatures::FromCppDefines());
+  if (!CanExecute(kMips) || features_mips->IsR6()) {
+    // HMipsComputeBaseMethodAddress and the NAL instruction behind it
+    // should only be generated on non-R6.
+    return;
+  }
+
+  ArenaPool pool;
+  ArenaAllocator allocator(&pool);
+  HGraph* graph = CreateGraph(&allocator);
+
+  HBasicBlock* entry_block = new (&allocator) HBasicBlock(graph);
+  graph->AddBlock(entry_block);
+  graph->SetEntryBlock(entry_block);
+  entry_block->AddInstruction(new (&allocator) HGoto());
+
+  HBasicBlock* block = new (&allocator) HBasicBlock(graph);
+  graph->AddBlock(block);
+
+  HBasicBlock* exit_block = new (&allocator) HBasicBlock(graph);
+  graph->AddBlock(exit_block);
+  graph->SetExitBlock(exit_block);
+  exit_block->AddInstruction(new (&allocator) HExit());
+
+  entry_block->AddSuccessor(block);
+  block->AddSuccessor(exit_block);
+
+  // To simplify matters, don't create PC-relative HLoadClass or HLoadString.
+  // Instead, generate HMipsComputeBaseMethodAddress directly.
+  HMipsComputeBaseMethodAddress* base = new (&allocator) HMipsComputeBaseMethodAddress();
+  block->AddInstruction(base);
+  // HMipsComputeBaseMethodAddress is defined as int, so just make the
+  // compiled method return it.
+  block->AddInstruction(new (&allocator) HReturn(base));
+
+  graph->BuildDominatorTree();
+
+  mips::CodeGeneratorMIPS codegenMIPS(graph, *features_mips.get(), CompilerOptions());
+  // Since there isn't HLoadClass or HLoadString, we need to manually indicate
+  // that RA is clobbered and the method entry code should generate a stack frame
+  // and preserve RA in it. And this is what we're testing here.
+  codegenMIPS.ClobberRA();
+  // Without ClobberRA() the code would be:
+  //   nal              # Sets RA to point to the jr instruction below
+  //   move  v0, ra     # and the CPU falls into an infinite loop.
+  //   jr    ra
+  //   nop
+  // The expected code is:
+  //   addiu sp, sp, -16
+  //   sw    ra, 12(sp)
+  //   sw    a0, 0(sp)
+  //   nal              # Sets RA to point to the lw instruction below.
+  //   move  v0, ra
+  //   lw    ra, 12(sp)
+  //   jr    ra
+  //   addiu sp, sp, 16
+  RunCode(&codegenMIPS, graph, [](HGraph*) {}, false, 0);
+}
+#endif
 
 }  // namespace art

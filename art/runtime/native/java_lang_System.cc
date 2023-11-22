@@ -24,7 +24,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
-#include "scoped_fast_native_object_access.h"
+#include "scoped_fast_native_object_access-inl.h"
 
 namespace art {
 
@@ -35,9 +35,10 @@ namespace art {
  * References are never torn regardless of the number of bits used to represent them.
  */
 
-static void ThrowArrayStoreException_NotAnArray(const char* identifier, mirror::Object* array)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
-  std::string actualType(PrettyTypeOf(array));
+static void ThrowArrayStoreException_NotAnArray(const char* identifier,
+                                                ObjPtr<mirror::Object> array)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  std::string actualType(mirror::Object::PrettyTypeOf(array));
   Thread* self = Thread::Current();
   self->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
                            "%s of type %s is not an array", identifier, actualType.c_str());
@@ -60,18 +61,18 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
   }
 
   // Make sure source and destination are both arrays.
-  mirror::Object* srcObject = soa.Decode<mirror::Object*>(javaSrc);
+  ObjPtr<mirror::Object> srcObject = soa.Decode<mirror::Object>(javaSrc);
   if (UNLIKELY(!srcObject->IsArrayInstance())) {
     ThrowArrayStoreException_NotAnArray("source", srcObject);
     return;
   }
-  mirror::Object* dstObject = soa.Decode<mirror::Object*>(javaDst);
+  ObjPtr<mirror::Object> dstObject = soa.Decode<mirror::Object>(javaDst);
   if (UNLIKELY(!dstObject->IsArrayInstance())) {
     ThrowArrayStoreException_NotAnArray("destination", dstObject);
     return;
   }
-  mirror::Array* srcArray = srcObject->AsArray();
-  mirror::Array* dstArray = dstObject->AsArray();
+  ObjPtr<mirror::Array> srcArray = srcObject->AsArray();
+  ObjPtr<mirror::Array> dstArray = dstObject->AsArray();
 
   // Bounds checking.
   if (UNLIKELY(srcPos < 0) || UNLIKELY(dstPos < 0) || UNLIKELY(count < 0) ||
@@ -84,8 +85,8 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
     return;
   }
 
-  mirror::Class* dstComponentType = dstArray->GetClass()->GetComponentType();
-  mirror::Class* srcComponentType = srcArray->GetClass()->GetComponentType();
+  ObjPtr<mirror::Class> dstComponentType = dstArray->GetClass()->GetComponentType();
+  ObjPtr<mirror::Class> srcComponentType = srcArray->GetClass()->GetComponentType();
   Primitive::Type dstComponentPrimitiveType = dstComponentType->GetPrimitiveType();
 
   if (LIKELY(srcComponentType == dstComponentType)) {
@@ -127,23 +128,25 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
         return;
       }
       default:
-        LOG(FATAL) << "Unknown array type: " << PrettyTypeOf(srcArray);
+        LOG(FATAL) << "Unknown array type: " << srcArray->PrettyTypeOf();
         UNREACHABLE();
     }
   }
   // If one of the arrays holds a primitive type the other array must hold the exact same type.
   if (UNLIKELY((dstComponentPrimitiveType != Primitive::kPrimNot) ||
                srcComponentType->IsPrimitive())) {
-    std::string srcType(PrettyTypeOf(srcArray));
-    std::string dstType(PrettyTypeOf(dstArray));
+    std::string srcType(srcArray->PrettyTypeOf());
+    std::string dstType(dstArray->PrettyTypeOf());
     soa.Self()->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
                                    "Incompatible types: src=%s, dst=%s",
                                    srcType.c_str(), dstType.c_str());
     return;
   }
   // Arrays hold distinct types and so therefore can't alias - use memcpy instead of memmove.
-  mirror::ObjectArray<mirror::Object>* dstObjArray = dstArray->AsObjectArray<mirror::Object>();
-  mirror::ObjectArray<mirror::Object>* srcObjArray = srcArray->AsObjectArray<mirror::Object>();
+  ObjPtr<mirror::ObjectArray<mirror::Object>> dstObjArray =
+      dstArray->AsObjectArray<mirror::Object>();
+  ObjPtr<mirror::ObjectArray<mirror::Object>> srcObjArray =
+      srcArray->AsObjectArray<mirror::Object>();
   // If we're assigning into say Object[] then we don't need per element checks.
   if (dstComponentType->IsAssignableFrom(srcComponentType)) {
     dstObjArray->AssignableMemcpy(dstPos, srcObjArray, srcPos, count);
@@ -156,19 +159,20 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
 
 // Template to convert general array to that of its specific primitive type.
 template <typename T>
-inline T* AsPrimitiveArray(mirror::Array* array) {
-  return down_cast<T*>(array);
+inline ObjPtr<T> AsPrimitiveArray(ObjPtr<mirror::Array> array)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  return ObjPtr<T>::DownCast(array);
 }
 
 template <typename T, Primitive::Type kPrimType>
 inline void System_arraycopyTUnchecked(JNIEnv* env, jobject javaSrc, jint srcPos,
                                        jobject javaDst, jint dstPos, jint count) {
   ScopedFastNativeObjectAccess soa(env);
-  mirror::Object* srcObject = soa.Decode<mirror::Object*>(javaSrc);
-  mirror::Object* dstObject = soa.Decode<mirror::Object*>(javaDst);
+  ObjPtr<mirror::Object> srcObject = soa.Decode<mirror::Object>(javaSrc);
+  ObjPtr<mirror::Object> dstObject = soa.Decode<mirror::Object>(javaDst);
   DCHECK(dstObject != nullptr);
-  mirror::Array* srcArray = srcObject->AsArray();
-  mirror::Array* dstArray = dstObject->AsArray();
+  ObjPtr<mirror::Array> srcArray = srcObject->AsArray();
+  ObjPtr<mirror::Array> dstArray = dstObject->AsArray();
   DCHECK_GE(count, 0);
   DCHECK_EQ(srcArray->GetClass(), dstArray->GetClass());
   DCHECK_EQ(srcArray->GetClass()->GetComponentType()->GetPrimitiveType(), kPrimType);
@@ -223,26 +227,16 @@ static void System_arraycopyBooleanUnchecked(JNIEnv* env, jclass, jobject javaSr
       javaDst, dstPos, count);
 }
 
-static jint System_identityHashCode(JNIEnv* env, jclass, jobject javaObject) {
-  if (UNLIKELY(javaObject == nullptr)) {
-    return 0;
-  }
-  ScopedFastNativeObjectAccess soa(env);
-  mirror::Object* o = soa.Decode<mirror::Object*>(javaObject);
-  return static_cast<jint>(o->IdentityHashCode());
-}
-
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(System, arraycopy, "!(Ljava/lang/Object;ILjava/lang/Object;II)V"),
-  NATIVE_METHOD(System, arraycopyCharUnchecked, "!([CI[CII)V"),
-  NATIVE_METHOD(System, arraycopyByteUnchecked, "!([BI[BII)V"),
-  NATIVE_METHOD(System, arraycopyShortUnchecked, "!([SI[SII)V"),
-  NATIVE_METHOD(System, arraycopyIntUnchecked, "!([II[III)V"),
-  NATIVE_METHOD(System, arraycopyLongUnchecked, "!([JI[JII)V"),
-  NATIVE_METHOD(System, arraycopyFloatUnchecked, "!([FI[FII)V"),
-  NATIVE_METHOD(System, arraycopyDoubleUnchecked, "!([DI[DII)V"),
-  NATIVE_METHOD(System, arraycopyBooleanUnchecked, "!([ZI[ZII)V"),
-  NATIVE_METHOD(System, identityHashCode, "!(Ljava/lang/Object;)I"),
+  FAST_NATIVE_METHOD(System, arraycopy, "(Ljava/lang/Object;ILjava/lang/Object;II)V"),
+  FAST_NATIVE_METHOD(System, arraycopyCharUnchecked, "([CI[CII)V"),
+  FAST_NATIVE_METHOD(System, arraycopyByteUnchecked, "([BI[BII)V"),
+  FAST_NATIVE_METHOD(System, arraycopyShortUnchecked, "([SI[SII)V"),
+  FAST_NATIVE_METHOD(System, arraycopyIntUnchecked, "([II[III)V"),
+  FAST_NATIVE_METHOD(System, arraycopyLongUnchecked, "([JI[JII)V"),
+  FAST_NATIVE_METHOD(System, arraycopyFloatUnchecked, "([FI[FII)V"),
+  FAST_NATIVE_METHOD(System, arraycopyDoubleUnchecked, "([DI[DII)V"),
+  FAST_NATIVE_METHOD(System, arraycopyBooleanUnchecked, "([ZI[ZII)V"),
 };
 
 void register_java_lang_System(JNIEnv* env) {

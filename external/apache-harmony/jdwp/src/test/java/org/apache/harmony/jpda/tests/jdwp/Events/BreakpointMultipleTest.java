@@ -31,6 +31,7 @@ import java.util.Set;
  * JDWP Unit test for multiple BREAKPOINT events.
  */
 public class BreakpointMultipleTest extends JDWPEventTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return BreakpointDebuggee.class.getName();
     }

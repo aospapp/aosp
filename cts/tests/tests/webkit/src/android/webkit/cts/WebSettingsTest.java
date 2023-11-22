@@ -16,8 +16,6 @@
 package android.webkit.cts;
 
 import android.content.Context;
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
 import android.net.http.SslError;
 import android.os.Build;
@@ -33,6 +31,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
 import android.webkit.cts.WebViewOnUiThread.WaitForProgressClient;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
+
 import java.io.FileOutputStream;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -527,16 +529,6 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         assertEquals("", mSettings.getPluginsPath());
     }
 
-    public void testAccessSaveFormData() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-        assertTrue(mSettings.getSaveFormData());
-
-        mSettings.setSaveFormData(false);
-        assertFalse(mSettings.getSaveFormData());
-    }
-
     public void testAccessTextSize() {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -1012,6 +1004,18 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
             }
         }
     }
+
+    public void testEnableSafeBrowsing() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        assertFalse(mSettings.getSafeBrowsingEnabled());
+        mSettings.setSafeBrowsingEnabled(true);
+        assertTrue(mSettings.getSafeBrowsingEnabled());
+        mSettings.setSafeBrowsingEnabled(false);
+        assertFalse(mSettings.getSafeBrowsingEnabled());
+    }
+
 
     /**
      * Starts the internal web server. The server will be shut down automatically

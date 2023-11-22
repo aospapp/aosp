@@ -16,12 +16,15 @@
 
 package android.support.v17.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v14.preference.MultiSelectListPreference;
 import android.support.v14.preference.PreferenceFragment;
 import android.support.v7.preference.ListPreference;
@@ -95,7 +98,11 @@ public abstract class LeanbackSettingsFragment extends Fragment
     }
 
     @Override
-    public boolean onPreferenceDisplayDialog(PreferenceFragment caller, Preference pref) {
+    public boolean onPreferenceDisplayDialog(@NonNull PreferenceFragment caller, Preference pref) {
+        if (caller == null) {
+            throw new IllegalArgumentException("Cannot display dialog for preference " + pref
+                    + ", Caller must not be null!");
+        }
         final Fragment f;
         if (pref instanceof ListPreference) {
             final ListPreference listPreference = (ListPreference) pref;
@@ -185,6 +192,7 @@ public abstract class LeanbackSettingsFragment extends Fragment
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public static class DummyFragment extends Fragment {
 
         @Override

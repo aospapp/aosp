@@ -21,6 +21,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
+import junit.framework.Assert;
+import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 import libcore.java.net.customstreamhandler.http.Handler;
 
@@ -61,13 +63,23 @@ public final class URLStreamHandlerFactoryTest extends TestCase {
         try {
             URL.setURLStreamHandlerFactory(shf);
             fail();
+        } catch (AssertionFailedError error) {
+            // Rethrow the error thrown by fail to avoid it being caught by the more general catch
+            // statement below.
+            throw error;
         } catch (Error expected) {
+            // The setURLStreamHandlerFactory is behaving correctly by throwing an Error.
         }
 
         try {
             URL.setURLStreamHandlerFactory(null);
             fail();
+        } catch (AssertionFailedError error) {
+            // Rethrow the error thrown by fail to avoid it being caught by the more general catch
+            // statement below.
+            throw error;
         } catch (Error expected) {
+            // The setURLStreamHandlerFactory is behaving correctly by throwing an Error.
         }
     }
 

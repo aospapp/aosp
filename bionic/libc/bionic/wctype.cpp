@@ -26,26 +26,49 @@
  * SUCH DAMAGE.
  */
 
+#include <wctype.h>
+
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
-#include <wctype.h>
 
-// TODO: these only work for the ASCII range; rewrite to dlsym icu4c? http://b/14499654
+#include "private/icu.h"
 
-int iswalnum(wint_t wc) { return isalnum(wc); }
-int iswalpha(wint_t wc) { return isalpha(wc); }
-int iswblank(wint_t wc) { return isblank(wc); }
-int iswcntrl(wint_t wc) { return iscntrl(wc); }
-int iswdigit(wint_t wc) { return isdigit(wc); }
-int iswgraph(wint_t wc) { return isgraph(wc); }
-int iswlower(wint_t wc) { return islower(wc); }
-int iswprint(wint_t wc) { return isprint(wc); }
-int iswpunct(wint_t wc) { return ispunct(wc); }
-int iswspace(wint_t wc) { return isspace(wc); }
-int iswupper(wint_t wc) { return isupper(wc); }
-int iswxdigit(wint_t wc) { return isxdigit(wc); }
+static bool __icu_hasBinaryProperty(wint_t wc, UProperty property, int (*fallback)(int)) {
+  typedef UBool (*FnT)(UChar32, UProperty);
+  static auto u_hasBinaryProperty = reinterpret_cast<FnT>(__find_icu_symbol("u_hasBinaryProperty"));
+  return u_hasBinaryProperty ? u_hasBinaryProperty(wc, property) : fallback(wc);
+}
+
+int iswalnum(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_POSIX_ALNUM, isalnum); }
+int iswalpha(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_ALPHABETIC, isalpha); }
+int iswblank(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_POSIX_BLANK, isblank); }
+int iswgraph(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_POSIX_GRAPH, isgraph); }
+int iswlower(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_LOWERCASE, islower); }
+int iswprint(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_POSIX_PRINT, isprint); }
+int iswspace(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_WHITE_SPACE, isspace); }
+int iswupper(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_UPPERCASE, isupper); }
+int iswxdigit(wint_t wc) { return __icu_hasBinaryProperty(wc, UCHAR_POSIX_XDIGIT, isxdigit); }
+
+int iswcntrl(wint_t wc) {
+  typedef int8_t (*FnT)(UChar32);
+  static auto u_charType = reinterpret_cast<FnT>(__find_icu_symbol("u_charType"));
+  return u_charType ? (u_charType(wc) == U_CONTROL_CHAR) : iscntrl(wc);
+}
+
+int iswdigit(wint_t wc) {
+  typedef UBool (*FnT)(UChar32);
+  static auto u_isdigit = reinterpret_cast<FnT>(__find_icu_symbol("u_isdigit"));
+  return u_isdigit ? u_isdigit(wc) : isdigit(wc);
+}
+
+int iswpunct(wint_t wc) {
+  typedef UBool (*FnT)(UChar32);
+  static auto u_ispunct = reinterpret_cast<FnT>(__find_icu_symbol("u_ispunct"));
+  return u_ispunct ? u_ispunct(wc) : ispunct(wc);
+}
 
 int iswalnum_l(wint_t c, locale_t) { return iswalnum(c); }
 int iswalpha_l(wint_t c, locale_t) { return iswalpha(c); }
@@ -82,11 +105,20 @@ int iswctype_l(wint_t wc, wctype_t char_class, locale_t) {
   return iswctype(wc, char_class);
 }
 
-wint_t towlower(wint_t wc) { return tolower(wc); }
-wint_t towupper(wint_t wc) { return toupper(wc); }
+wint_t towlower(wint_t wc) {
+  typedef UChar32 (*FnT)(UChar32);
+  static auto u_tolower = reinterpret_cast<FnT>(__find_icu_symbol("u_tolower"));
+  return u_tolower ? u_tolower(wc) : tolower(wc);
+}
 
-int towupper_l(int c, locale_t) { return towupper(c); }
-int towlower_l(int c, locale_t) { return towlower(c); }
+wint_t towupper(wint_t wc) {
+  typedef UChar32 (*FnT)(UChar32);
+  static auto u_toupper = reinterpret_cast<FnT>(__find_icu_symbol("u_toupper"));
+  return u_toupper ? u_toupper(wc) : toupper(wc);
+}
+
+wint_t towupper_l(wint_t c, locale_t) { return towupper(c); }
+wint_t towlower_l(wint_t c, locale_t) { return towlower(c); }
 
 wctype_t wctype(const char* property) {
   static const char* const  properties[WC_TYPE_MAX] = {
@@ -108,4 +140,28 @@ wctype_t wctype_l(const char* property, locale_t) {
 
 int wcwidth(wchar_t wc) {
   return (wc > 0);
+}
+
+static wctrans_t wctrans_tolower = wctrans_t(1);
+static wctrans_t wctrans_toupper = wctrans_t(2);
+
+wctrans_t wctrans(const char* name) {
+  if (strcmp(name, "tolower") == 0) return wctrans_tolower;
+  if (strcmp(name, "toupper") == 0) return wctrans_toupper;
+  return 0;
+}
+
+wctrans_t wctrans_l(const char* name, locale_t) {
+  return wctrans(name);
+}
+
+wint_t towctrans(wint_t c, wctrans_t t) {
+  if (t == wctrans_tolower) return towlower(c);
+  if (t == wctrans_toupper) return towupper(c);
+  errno = EINVAL;
+  return 0;
+}
+
+wint_t towctrans_l(wint_t c, wctrans_t t, locale_t) {
+  return towctrans(c, t);
 }

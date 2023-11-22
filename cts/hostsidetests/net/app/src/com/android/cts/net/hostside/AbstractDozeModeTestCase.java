@@ -31,8 +31,8 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
         if (!isSupported()) return;
 
         // Set initial state.
-        setUpMeteredNetwork();
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
         setDozeMode(false);
 
         registerBroadcastReceiver();
@@ -88,8 +88,7 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
 
         // Make sure foreground service doesn't lose network access upon enabling doze.
         setDozeMode(false);
-        startForegroundService();
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_FOREGROUND_SERVICE);
         setDozeMode(true);
         assertForegroundNetworkAccess();
         stopForegroundService();
@@ -107,6 +106,12 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
         assertBackgroundNetworkAccess(true);
 
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        assertBackgroundNetworkAccess(false);
+
+        addPowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+        assertBackgroundNetworkAccess(false);
+
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
         assertBackgroundNetworkAccess(false);
 
         assertsForegroundAlwaysHasNetworkAccess();
@@ -159,8 +164,7 @@ abstract class AbstractDozeModeTestCase extends AbstractRestrictBackgroundNetwor
     // leaves Doze Mode.
     @Override
     protected void assertsForegroundAlwaysHasNetworkAccess() throws Exception {
-        startForegroundService();
-        assertForegroundServiceNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_FOREGROUND_SERVICE);
         stopForegroundService();
         assertBackgroundState();
     }

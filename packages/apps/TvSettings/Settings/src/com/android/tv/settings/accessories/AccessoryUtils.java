@@ -19,6 +19,7 @@ package com.android.tv.settings.accessories;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.NonNull;
 
 import com.android.tv.settings.R;
 
@@ -26,8 +27,13 @@ import com.android.tv.settings.R;
  * Provide utilities for Remote & Accessories.
  */
 public class AccessoryUtils {
-    public static @DrawableRes int getImageIdForDevice(BluetoothDevice dev) {
-        int devClass = dev.getBluetoothClass().getDeviceClass();
+    public static @DrawableRes int getImageIdForDevice(@NonNull BluetoothDevice dev) {
+        final BluetoothClass bluetoothClass = dev.getBluetoothClass();
+        if (bluetoothClass == null) {
+            return R.drawable.ic_bluetooth;
+        }
+
+        final int devClass = bluetoothClass.getDeviceClass();
 
         if (devClass == BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET) {
             return R.drawable.ic_headset_mic;

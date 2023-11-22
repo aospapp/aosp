@@ -95,6 +95,6 @@ icv_sad_8x4_av8:
     addp    v0.8h,      v0.8h,      v0.8h
     addp    v0.8h,      v0.8h,      v0.8h
 
-    smov    x0,         v0.8h[0]
+    smov    x0,         v0.h[0]
 
     ret

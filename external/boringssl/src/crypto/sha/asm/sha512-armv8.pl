@@ -18,7 +18,7 @@
 # Cortex-A57	2.31		11.6 (+86%)	7.51 (+260%(***))
 # Denver	2.01		10.5 (+26%)	6.70 (+8%)
 # X-Gene			20.0 (+100%)	12.8 (+300%(***))
-# 
+#
 # (*)	Software SHA256 results are of lesser relevance, presented
 #	mostly for informational purposes.
 # (**)	The result is a trade-off: it's possible to improve it by
@@ -30,10 +30,6 @@
 #	and the gap is only 40-90%.
 
 $flavour=shift;
-# Unlike most perlasm files, sha512-armv8.pl takes an additional argument to
-# determine which hash function to emit. This differs from upstream OpenSSL so
-# that the script may continue to output to stdout.
-$variant=shift;
 $output=shift;
 
 $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
@@ -44,7 +40,7 @@ die "can't locate arm-xlate.pl";
 open OUT,"| \"$^X\" $xlate $flavour $output";
 *STDOUT=*OUT;
 
-if ($variant eq "sha512") {
+if ($output =~ /512/) {
 	$BITS=512;
 	$SZ=8;
 	@Sigma0=(28,34,39);
@@ -53,7 +49,7 @@ if ($variant eq "sha512") {
 	@sigma1=(19,61, 6);
 	$rounds=80;
 	$reg_t="x";
-} elsif ($variant eq "sha256") {
+} else {
 	$BITS=256;
 	$SZ=4;
 	@Sigma0=( 2,13,22);
@@ -62,8 +58,6 @@ if ($variant eq "sha512") {
 	@sigma1=(17,19,10);
 	$rounds=64;
 	$reg_t="w";
-} else {
-  die "Unknown variant: $variant";
 }
 
 $func="sha${BITS}_block_data_order";

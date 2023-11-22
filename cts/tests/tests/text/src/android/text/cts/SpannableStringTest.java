@@ -16,18 +16,34 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertSame;
+import static junit.framework.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.text.Layout;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.method.SingleLineTransformationMethod;
+import android.text.method.TransformationMethod;
+import android.text.style.AlignmentSpan;
 import android.text.style.LocaleSpan;
 import android.text.style.QuoteSpan;
 import android.text.style.UnderlineSpan;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.Locale;
 
-public class SpannableStringTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SpannableStringTest {
 
+    @Test
     public void testConstructor() {
         new SpannableString("test");
 
@@ -38,6 +54,7 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testValueOf() {
         String text = "test valueOf";
         SpannableString spannable = SpannableString.valueOf(text);
@@ -54,6 +71,7 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetSpan() {
         String text = "hello, world";
         SpannableString spannable = new SpannableString(text);
@@ -84,6 +102,7 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testRemoveSpan() {
         SpannableString spannable = new SpannableString("hello, world");
 
@@ -107,6 +126,7 @@ public class SpannableStringTest extends AndroidTestCase {
         assertEquals(0, spannable.getSpanFlags(underlineSpan));
     }
 
+    @Test
     public void testSubSequence() {
         String text = "hello, world";
         SpannableString spannable = new SpannableString(text);
@@ -130,7 +150,7 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
-    @SmallTest
+    @Test
     public void testSubsequence_copiesSpans() {
         SpannableString first = new SpannableString("t\nest data");
         QuoteSpan quoteSpan = new QuoteSpan();
@@ -160,8 +180,7 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
-
-    @SmallTest
+    @Test
     public void testCopyConstructor_copiesAllSpans() {
         SpannableString first = new SpannableString("t\nest data");
         first.setSpan(new QuoteSpan(), 0, 2, Spanned.SPAN_PARAGRAPH);
@@ -184,7 +203,7 @@ public class SpannableStringTest extends AndroidTestCase {
         }
     }
 
-    @SmallTest
+    @Test
     public void testCopyGrowable() {
         SpannableString first = new SpannableString("t\nest data");
         final int N_SPANS = 127;
@@ -195,5 +214,28 @@ public class SpannableStringTest extends AndroidTestCase {
         second.setSpan(new LocaleSpan(Locale.US), 2, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         Object[] secondSpans = second.getSpans(0, second.length(), Object.class);
         assertEquals(secondSpans.length, N_SPANS + 1);
+    }
+
+    @Test
+    public void testCopyConstructorDoesNotEnforceParagraphStyleConstraint() {
+        final SpannableStringBuilder original = new SpannableStringBuilder("\ntest data\nb");
+        final AlignmentSpan.Standard span = new AlignmentSpan.Standard(
+                Layout.Alignment.ALIGN_NORMAL);
+        original.setSpan(span, 1, original.length() - 1, Spanned.SPAN_PARAGRAPH);
+
+        // test that paragraph style is in the copied when it is valid
+        SpannableString copied = new SpannableString(original);
+        AlignmentSpan.Standard[] copiedSpans = copied.getSpans(0, copied.length(),
+                AlignmentSpan.Standard.class);
+
+        assertEquals(1, copiedSpans.length);
+
+        // test that paragraph style is in not in the copied when it is invalid
+        final TransformationMethod transformation = SingleLineTransformationMethod.getInstance();
+        final CharSequence transformed = transformation.getTransformation(original, null);
+        copied = new SpannableString(transformed);
+        copiedSpans = copied.getSpans(0, copied.length(), AlignmentSpan.Standard.class);
+
+        assertEquals(0, copiedSpans.length);
     }
 }

@@ -18,14 +18,15 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import android.accessibilityservice.cts.R;
+import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.TextView;
-
-import java.util.ArrayList;
 
 /**
  * Test cases for testing the accessibility focus APIs exposed to accessibility
@@ -272,6 +273,47 @@ public class AccessibilityViewTreeReportingTest
         UiAutomation uiAutomation = getUiAutomation(true);
         AccessibilityNodeInfo firstButtonNode = getNodeByText(uiAutomation, R.string.firstButton);
         assertFalse(firstButtonNode.isImportantForAccessibility());
+    }
+
+    @MediumTest
+    public void testAddViewToLayout_receiveSubtreeEvent() throws Throwable {
+        final LinearLayout layout =
+                (LinearLayout) getActivity().findViewById(R.id.secondLinearLayout);
+        final Button newButton = new Button(getActivity());
+        newButton.setText("New Button");
+        newButton.setWidth(ViewGroup.LayoutParams.WRAP_CONTENT);
+        newButton.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
+        AccessibilityEvent awaitedEvent =
+                getInstrumentation().getUiAutomation().executeAndWaitForEvent(
+                        new Runnable() {
+                            @Override
+                            public void run() {
+                                // trigger the event
+                                getActivity().runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        layout.addView(newButton);
+                                    }
+                                });
+                            }},
+                        new UiAutomation.AccessibilityEventFilter() {
+                            // check the received event
+                            @Override
+                            public boolean accept(AccessibilityEvent event) {
+                                boolean isContentChanged = event.getEventType()
+                                        == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
+                                int isSubTree = (event.getContentChangeTypes()
+                                        & AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
+                                boolean isFromThisPackage = TextUtils.equals(event.getPackageName(),
+                                        getActivity().getPackageName());
+                                return isContentChanged && (isSubTree != 0) && isFromThisPackage;
+                            }
+                        },
+                        TIMEOUT_ASYNC_PROCESSING);
+        // The event should come from a view that's important for accessibility, even though the
+        // layout we added it to isn't important. Otherwise services may not find out about the
+        // new button.
+        assertTrue(awaitedEvent.getSource().isImportantForAccessibility());
     }
 
     private UiAutomation getUiAutomation(boolean getNonImportantViews) {

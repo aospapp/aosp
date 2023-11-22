@@ -156,12 +156,24 @@ public final class AllAppPermissionsFragment extends SettingsWithHeader {
                         || (perm.flags & PermissionInfo.FLAG_REMOVED) != 0) {
                     continue;
                 }
+                if (appInfo.isInstantApp()
+                        && (perm.protectionLevel & PermissionInfo.PROTECTION_FLAG_EPHEMERAL) == 0) {
+                    continue;
+                }
+                if (appInfo.targetSdkVersion < Build.VERSION_CODES.M
+                        && (perm.protectionLevel & PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY)
+                        != 0) {
+                    continue;
+                }
+
 
                 PermissionGroupInfo group = getGroup(perm.group, pm);
-                if (perm.protectionLevel == PermissionInfo.PROTECTION_DANGEROUS) {
+                if ((perm.protectionLevel & PermissionInfo.PROTECTION_MASK_BASE)
+                        == PermissionInfo.PROTECTION_DANGEROUS) {
                     PreferenceGroup pref = findOrCreate(group != null ? group : perm, pm, prefs);
                     pref.addPreference(getPreference(perm, group));
-                } else if (perm.protectionLevel == PermissionInfo.PROTECTION_NORMAL) {
+                } else if ((perm.protectionLevel & PermissionInfo.PROTECTION_MASK_BASE)
+                        == PermissionInfo.PROTECTION_NORMAL) {
                     PreferenceGroup otherGroup = getOtherGroup();
                     if (prefs.indexOf(otherGroup) < 0) {
                         prefs.add(otherGroup);
@@ -288,8 +300,8 @@ public final class AllAppPermissionsFragment extends SettingsWithHeader {
         return Utils.applyTint(context, icon, android.R.attr.colorControlNormal);
     }
 
-    private static boolean isMutableGranularPermission(String name) {
-        if (!Build.PERMISSIONS_REVIEW_REQUIRED) {
+    private boolean isMutableGranularPermission(String name) {
+        if (!getContext().getPackageManager().isPermissionReviewModeEnabled()) {
             return false;
         }
         switch (name) {

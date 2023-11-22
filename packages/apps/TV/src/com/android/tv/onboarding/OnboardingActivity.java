@@ -17,32 +17,40 @@
 package com.android.tv.onboarding;
 
 import android.app.Fragment;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
+import android.media.tv.TvInputInfo;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.widget.Toast;
 
+import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
+import com.android.tv.SetupPassthroughActivity;
 import com.android.tv.TvApplication;
+import com.android.tv.common.TvCommonUtils;
 import com.android.tv.common.ui.setup.SetupActivity;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.util.OnboardingUtils;
 import com.android.tv.util.PermissionUtils;
 import com.android.tv.util.SetupUtils;
+import com.android.tv.util.TvInputManagerHelper;
 
 public class OnboardingActivity extends SetupActivity {
     private static final String KEY_INTENT_AFTER_COMPLETION = "key_intent_after_completion";
 
     private static final int PERMISSIONS_REQUEST_READ_TV_LISTINGS = 1;
-    private static final String PERMISSION_READ_TV_LISTINGS = "android.permission.READ_TV_LISTINGS";
 
     private static final int SHOW_RIPPLE_DURATION_MS = 266;
 
+    private static final int REQUEST_CODE_START_SETUP_ACTIVITY = 1;
+
     private ChannelDataManager mChannelDataManager;
+    private TvInputManagerHelper mInputManager;
     private final ChannelDataManager.Listener mChannelListener = new ChannelDataManager.Listener() {
         @Override
         public void onLoadFinished() {
@@ -73,16 +81,20 @@ public class OnboardingActivity extends SetupActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (!PermissionUtils.hasAccessAllEpg(this)) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                Toast.makeText(this, R.string.msg_not_supported_device, Toast.LENGTH_LONG).show();
-                finish();
-                return;
-            } else if (checkSelfPermission(PERMISSION_READ_TV_LISTINGS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{PERMISSION_READ_TV_LISTINGS},
-                        PERMISSIONS_REQUEST_READ_TV_LISTINGS);
+        ApplicationSingletons singletons = TvApplication.getSingletons(this);
+        mInputManager = singletons.getTvInputManagerHelper();
+        if (PermissionUtils.hasAccessAllEpg(this) || PermissionUtils.hasReadTvListings(this)) {
+            mChannelDataManager = singletons.getChannelDataManager();
+            // Make the channels of the new inputs which have been setup outside Live TV
+            // browsable.
+            if (mChannelDataManager.isDbLoadFinished()) {
+                SetupUtils.getInstance(this).markNewChannelsBrowsable();
+            } else {
+                mChannelDataManager.addListener(mChannelListener);
             }
+        } else {
+            requestPermissions(new String[] {PermissionUtils.PERMISSION_READ_TV_LISTINGS},
+                    PERMISSIONS_REQUEST_READ_TV_LISTINGS);
         }
     }
 
@@ -97,14 +109,6 @@ public class OnboardingActivity extends SetupActivity {
     @Override
     protected Fragment onCreateInitialFragment() {
         if (PermissionUtils.hasAccessAllEpg(this) || PermissionUtils.hasReadTvListings(this)) {
-            // Make the channels of the new inputs which have been setup outside Live TV
-            // browsable.
-            mChannelDataManager = TvApplication.getSingletons(this).getChannelDataManager();
-            if (mChannelDataManager.isDbLoadFinished()) {
-                SetupUtils.getInstance(this).markNewChannelsBrowsable();
-            } else {
-                mChannelDataManager.addListener(mChannelListener);
-            }
             return OnboardingUtils.isFirstRunWithCurrentVersion(this) ? new WelcomeFragment()
                     : new SetupSourcesFragment();
         }
@@ -115,8 +119,7 @@ public class OnboardingActivity extends SetupActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
             @NonNull int[] grantResults) {
         if (requestCode == PERMISSIONS_REQUEST_READ_TV_LISTINGS) {
-            if (grantResults != null && grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 finish();
                 Intent intentForNextActivity = getIntent().getParcelableExtra(
                         KEY_INTENT_AFTER_COMPLETION);
@@ -129,7 +132,7 @@ public class OnboardingActivity extends SetupActivity {
         }
     }
 
-    void finishActivity() {
+    private void finishActivity() {
         Intent intentForNextActivity = getIntent().getParcelableExtra(
                 KEY_INTENT_AFTER_COMPLETION);
         if (intentForNextActivity != null) {
@@ -138,17 +141,17 @@ public class OnboardingActivity extends SetupActivity {
         finish();
     }
 
-    void showMerchantCollection() {
+    private void showMerchantCollection() {
         executeActionWithDelay(new Runnable() {
             @Override
             public void run() {
-                startActivity(OnboardingUtils.PLAY_STORE_INTENT);
+                startActivity(OnboardingUtils.ONLINE_STORE_INTENT);
             }
         }, SHOW_RIPPLE_DURATION_MS);
     }
 
     @Override
-    protected void executeAction(String category, int actionId) {
+    protected boolean executeAction(String category, int actionId, Bundle params) {
         switch (category) {
             case WelcomeFragment.ACTION_CATEGORY:
                 switch (actionId) {
@@ -156,14 +159,40 @@ public class OnboardingActivity extends SetupActivity {
                         OnboardingUtils.setFirstRunWithCurrentVersionCompleted(
                                 OnboardingActivity.this);
                         showFragment(new SetupSourcesFragment(), false);
-                        break;
+                        return true;
                 }
                 break;
             case SetupSourcesFragment.ACTION_CATEGORY:
                 switch (actionId) {
-                    case SetupSourcesFragment.ACTION_PLAY_STORE:
+                    case SetupSourcesFragment.ACTION_ONLINE_STORE:
                         showMerchantCollection();
-                        break;
+                        return true;
+                    case SetupSourcesFragment.ACTION_SETUP_INPUT: {
+                        String inputId = params.getString(
+                                SetupSourcesFragment.ACTION_PARAM_KEY_INPUT_ID);
+                        TvInputInfo input = mInputManager.getTvInputInfo(inputId);
+                        Intent intent = TvCommonUtils.createSetupIntent(input);
+                        if (intent == null) {
+                            Toast.makeText(this, R.string.msg_no_setup_activity, Toast.LENGTH_SHORT)
+                                    .show();
+                            return true;
+                        }
+                        // Even though other app can handle the intent, the setup launched by Live
+                        // channels should go through Live channels SetupPassthroughActivity.
+                        intent.setComponent(new ComponentName(this,
+                                SetupPassthroughActivity.class));
+                        try {
+                            // Now we know that the user intends to set up this input. Grant
+                            // permission for writing EPG data.
+                            SetupUtils.grantEpgPermission(this, input.getServiceInfo().packageName);
+                            startActivityForResult(intent, REQUEST_CODE_START_SETUP_ACTIVITY);
+                        } catch (ActivityNotFoundException e) {
+                            Toast.makeText(this,
+                                    getString(R.string.msg_unable_to_start_setup_activity,
+                                    input.loadLabel(this)), Toast.LENGTH_SHORT).show();
+                        }
+                        return true;
+                    }
                     case SetupMultiPaneFragment.ACTION_DONE: {
                         ChannelDataManager manager = TvApplication.getSingletons(
                                 OnboardingActivity.this).getChannelDataManager();
@@ -172,10 +201,11 @@ public class OnboardingActivity extends SetupActivity {
                         } else {
                             finishActivity();
                         }
-                        break;
+                        return true;
                     }
                 }
                 break;
         }
+        return false;
     }
 }

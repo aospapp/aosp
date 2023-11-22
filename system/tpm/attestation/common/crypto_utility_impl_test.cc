@@ -87,8 +87,8 @@ TEST_F(CryptoUtilityImplTest, PairwiseSealedEncryption) {
   EXPECT_TRUE(crypto_utility_->CreateSealedKey(&key, &sealed_key));
   std::string data("test");
   std::string encrypted_data;
-  EXPECT_TRUE(crypto_utility_->EncryptData(data, key, sealed_key,
-                                           &encrypted_data));
+  EXPECT_TRUE(
+      crypto_utility_->EncryptData(data, key, sealed_key, &encrypted_data));
   key.clear();
   sealed_key.clear();
   data.clear();
@@ -123,8 +123,7 @@ TEST_F(CryptoUtilityImplTest, UnsealInvalidData) {
 }
 
 TEST_F(CryptoUtilityImplTest, UnsealError) {
-  EXPECT_CALL(mock_tpm_utility_, Unseal(_, _))
-      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_tpm_utility_, Unseal(_, _)).WillRepeatedly(Return(false));
   std::string key(32, 0);
   std::string data;
   EXPECT_TRUE(crypto_utility_->EncryptData("data", key, key, &data));
@@ -162,8 +161,8 @@ TEST_F(CryptoUtilityImplTest, GetRSASubjectPublicKeyInfo) {
 TEST_F(CryptoUtilityImplTest, GetRSASubjectPublicKeyInfoBadInput) {
   std::string public_key = "bad_public_key";
   std::string output;
-  EXPECT_FALSE(crypto_utility_->GetRSASubjectPublicKeyInfo(public_key,
-                                                           &output));
+  EXPECT_FALSE(
+      crypto_utility_->GetRSASubjectPublicKeyInfo(public_key, &output));
 }
 
 TEST_F(CryptoUtilityImplTest, GetRSASubjectPublicKeyInfoPairWise) {
@@ -181,20 +180,16 @@ TEST_F(CryptoUtilityImplTest, EncryptIdentityCredential) {
   EXPECT_TRUE(crypto_utility_->GetRSASubjectPublicKeyInfo(public_key,
                                                           &public_key_info));
   EncryptedIdentityCredential output;
-  EXPECT_TRUE(crypto_utility_->EncryptIdentityCredential("credential",
-                                                         public_key_info,
-                                                         "aik",
-                                                         &output));
+  EXPECT_TRUE(crypto_utility_->EncryptIdentityCredential(
+      "credential", public_key_info, "aik", &output));
   EXPECT_TRUE(output.has_asym_ca_contents());
   EXPECT_TRUE(output.has_sym_ca_attestation());
 }
 
 TEST_F(CryptoUtilityImplTest, EncryptIdentityCredentialBadEK) {
   EncryptedIdentityCredential output;
-  EXPECT_FALSE(crypto_utility_->EncryptIdentityCredential("credential",
-                                                          "bad_ek",
-                                                          "aik",
-                                                          &output));
+  EXPECT_FALSE(crypto_utility_->EncryptIdentityCredential(
+      "credential", "bad_ek", "aik", &output));
 }
 
 TEST_F(CryptoUtilityImplTest, EncryptForUnbind) {
@@ -203,8 +198,8 @@ TEST_F(CryptoUtilityImplTest, EncryptForUnbind) {
   EXPECT_TRUE(crypto_utility_->GetRSASubjectPublicKeyInfo(public_key,
                                                           &public_key_info));
   std::string output;
-  EXPECT_TRUE(crypto_utility_->EncryptForUnbind(public_key_info, "input",
-                                                &output));
+  EXPECT_TRUE(
+      crypto_utility_->EncryptForUnbind(public_key_info, "input", &output));
   EXPECT_FALSE(output.empty());
 }
 
@@ -220,8 +215,8 @@ TEST_F(CryptoUtilityImplTest, EncryptForUnbindLargeInput) {
                                                           &public_key_info));
   std::string input(1000, 'A');
   std::string output;
-  EXPECT_FALSE(crypto_utility_->EncryptForUnbind(public_key_info, input,
-                                                 &output));
+  EXPECT_FALSE(
+      crypto_utility_->EncryptForUnbind(public_key_info, input, &output));
 }
 
 TEST_F(CryptoUtilityImplTest, VerifySignatureBadSignature) {
@@ -230,8 +225,8 @@ TEST_F(CryptoUtilityImplTest, VerifySignatureBadSignature) {
   EXPECT_TRUE(crypto_utility_->GetRSASubjectPublicKeyInfo(public_key,
                                                           &public_key_info));
   std::string output;
-  EXPECT_FALSE(crypto_utility_->VerifySignature(public_key_info, "input",
-                                                "signature"));
+  EXPECT_FALSE(
+      crypto_utility_->VerifySignature(public_key_info, "input", "signature"));
 }
 
 TEST_F(CryptoUtilityImplTest, VerifySignatureBadKey) {

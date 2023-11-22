@@ -14,11 +14,13 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Dram test cases">
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <option name="config-descriptor:metadata" key="component" value="systems" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsDramTestCases.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.dram.cts" />
+        <option name="runtime-hint" value="8m" />
     </test>
 </configuration>

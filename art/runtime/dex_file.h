@@ -19,42 +19,25 @@
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "base/logging.h"
-#include "base/mutex.h"  // For Locks::mutator_lock_.
 #include "base/value_object.h"
+#include "dex_file_types.h"
 #include "globals.h"
 #include "invoke_type.h"
 #include "jni.h"
-#include "jvalue.h"
-#include "mirror/object_array.h"
 #include "modifiers.h"
 #include "utf.h"
 
 namespace art {
 
-// TODO: remove dependencies on mirror classes, primarily by moving
-// EncodedStaticFieldValueIterator to its own file.
-namespace mirror {
-  class ClassLoader;
-  class DexCache;
-}  // namespace mirror
-class ArtField;
-class ArtMethod;
-class ClassLinker;
-template <class Key, class Value, class EmptyFn, class HashFn, class Pred, class Alloc>
-class HashMap;
 class MemMap;
 class OatDexFile;
 class Signature;
-template<class T> class Handle;
 class StringPiece;
-class TypeLookupTable;
 class ZipArchive;
 
-// TODO: move all of the macro functionality into the DexCache class.
 class DexFile {
  public:
   // First Dex format version supporting default methods.
@@ -63,7 +46,7 @@ class DexFile {
   static const uint32_t kClassDefinitionOrderEnforcedVersion = 37;
 
   static const uint8_t kDexMagic[];
-  static constexpr size_t kNumDexVersions = 2;
+  static constexpr size_t kNumDexVersions = 3;
   static constexpr size_t kDexVersionLen = 4;
   static const uint8_t kDexMagicVersions[kNumDexVersions][kDexVersionLen];
 
@@ -109,8 +92,8 @@ class DexFile {
     uint32_t method_ids_off_;  // file offset of MethodIds array
     uint32_t class_defs_size_;  // number of ClassDefs
     uint32_t class_defs_off_;  // file offset of ClassDef array
-    uint32_t data_size_;  // unused
-    uint32_t data_off_;  // unused
+    uint32_t data_size_;  // size of data section
+    uint32_t data_off_;  // file offset of data section
 
     // Decode the dex magic version
     uint32_t GetVersion() const;
@@ -120,7 +103,7 @@ class DexFile {
   };
 
   // Map item type codes.
-  enum {
+  enum MapItemType : uint16_t {  // private
     kDexTypeHeaderItem               = 0x0000,
     kDexTypeStringIdItem             = 0x0001,
     kDexTypeTypeIdItem               = 0x0002,
@@ -128,6 +111,8 @@ class DexFile {
     kDexTypeFieldIdItem              = 0x0004,
     kDexTypeMethodIdItem             = 0x0005,
     kDexTypeClassDefItem             = 0x0006,
+    kDexTypeCallSiteIdItem           = 0x0007,
+    kDexTypeMethodHandleItem         = 0x0008,
     kDexTypeMapList                  = 0x1000,
     kDexTypeTypeList                 = 0x1001,
     kDexTypeAnnotationSetRefList     = 0x1002,
@@ -169,7 +154,7 @@ class DexFile {
 
   // Raw type_id_item.
   struct TypeId {
-    uint32_t descriptor_idx_;  // index into string_ids
+    dex::StringIndex descriptor_idx_;  // index into string_ids
 
    private:
     DISALLOW_COPY_AND_ASSIGN(TypeId);
@@ -177,44 +162,44 @@ class DexFile {
 
   // Raw field_id_item.
   struct FieldId {
-    uint16_t class_idx_;  // index into type_ids_ array for defining class
-    uint16_t type_idx_;  // index into type_ids_ array for field type
-    uint32_t name_idx_;  // index into string_ids_ array for field name
+    dex::TypeIndex class_idx_;   // index into type_ids_ array for defining class
+    dex::TypeIndex type_idx_;    // index into type_ids_ array for field type
+    dex::StringIndex name_idx_;  // index into string_ids_ array for field name
 
    private:
     DISALLOW_COPY_AND_ASSIGN(FieldId);
   };
 
-  // Raw method_id_item.
-  struct MethodId {
-    uint16_t class_idx_;  // index into type_ids_ array for defining class
-    uint16_t proto_idx_;  // index into proto_ids_ array for method prototype
-    uint32_t name_idx_;  // index into string_ids_ array for method name
-
-   private:
-    DISALLOW_COPY_AND_ASSIGN(MethodId);
-  };
-
   // Raw proto_id_item.
   struct ProtoId {
-    uint32_t shorty_idx_;  // index into string_ids array for shorty descriptor
-    uint16_t return_type_idx_;  // index into type_ids array for return type
-    uint16_t pad_;             // padding = 0
-    uint32_t parameters_off_;  // file offset to type_list for parameter types
+    dex::StringIndex shorty_idx_;     // index into string_ids array for shorty descriptor
+    dex::TypeIndex return_type_idx_;  // index into type_ids array for return type
+    uint16_t pad_;                    // padding = 0
+    uint32_t parameters_off_;         // file offset to type_list for parameter types
 
    private:
     DISALLOW_COPY_AND_ASSIGN(ProtoId);
   };
 
+  // Raw method_id_item.
+  struct MethodId {
+    dex::TypeIndex class_idx_;   // index into type_ids_ array for defining class
+    uint16_t proto_idx_;         // index into proto_ids_ array for method prototype
+    dex::StringIndex name_idx_;  // index into string_ids_ array for method name
+
+   private:
+    DISALLOW_COPY_AND_ASSIGN(MethodId);
+  };
+
   // Raw class_def_item.
   struct ClassDef {
-    uint16_t class_idx_;  // index into type_ids_ array for this class
+    dex::TypeIndex class_idx_;  // index into type_ids_ array for this class
     uint16_t pad1_;  // padding = 0
     uint32_t access_flags_;
-    uint16_t superclass_idx_;  // index into type_ids_ array for superclass
+    dex::TypeIndex superclass_idx_;  // index into type_ids_ array for superclass
     uint16_t pad2_;  // padding = 0
     uint32_t interfaces_off_;  // file offset to TypeList
-    uint32_t source_file_idx_;  // index into string_ids_ for source file name
+    dex::StringIndex source_file_idx_;  // index into string_ids_ for source file name
     uint32_t annotations_off_;  // file offset to annotations_directory_item
     uint32_t class_data_off_;  // file offset to class_data_item
     uint32_t static_values_off_;  // file offset to EncodedArray
@@ -243,7 +228,7 @@ class DexFile {
 
   // Raw type_item.
   struct TypeItem {
-    uint16_t type_idx_;  // index into type_ids section
+    dex::TypeIndex type_idx_;  // index into type_ids section
 
    private:
     DISALLOW_COPY_AND_ASSIGN(TypeItem);
@@ -275,6 +260,37 @@ class DexFile {
     uint32_t size_;  // size of the list, in entries
     TypeItem list_[1];  // elements of the list
     DISALLOW_COPY_AND_ASSIGN(TypeList);
+  };
+
+  // MethodHandle Types
+  enum class MethodHandleType : uint16_t {  // private
+    kStaticPut         = 0x0000,  // a setter for a given static field.
+    kStaticGet         = 0x0001,  // a getter for a given static field.
+    kInstancePut       = 0x0002,  // a setter for a given instance field.
+    kInstanceGet       = 0x0003,  // a getter for a given instance field.
+    kInvokeStatic      = 0x0004,  // an invoker for a given static method.
+    kInvokeInstance    = 0x0005,  // invoke_instance : an invoker for a given instance method. This
+                                  // can be any non-static method on any class (or interface) except
+                                  // for “<init>”.
+    kInvokeConstructor = 0x0006,  // an invoker for a given constructor.
+    kLast = kInvokeConstructor
+  };
+
+  // raw method_handle_item
+  struct MethodHandleItem {
+    uint16_t method_handle_type_;
+    uint16_t reserved1_;            // Reserved for future use.
+    uint16_t field_or_method_idx_;  // Field index for accessors, method index otherwise.
+    uint16_t reserved2_;            // Reserved for future use.
+   private:
+    DISALLOW_COPY_AND_ASSIGN(MethodHandleItem);
+  };
+
+  // raw call_site_id_item
+  struct CallSiteIdItem {
+    uint32_t data_off_;  // Offset into data section pointing to encoded array items.
+   private:
+    DISALLOW_COPY_AND_ASSIGN(CallSiteIdItem);
   };
 
   // Raw code_item.
@@ -319,6 +335,8 @@ class DexFile {
     kDexAnnotationLong          = 0x06,
     kDexAnnotationFloat         = 0x10,
     kDexAnnotationDouble        = 0x11,
+    kDexAnnotationMethodType    = 0x15,
+    kDexAnnotationMethodHandle  = 0x16,
     kDexAnnotationString        = 0x17,
     kDexAnnotationType          = 0x18,
     kDexAnnotationField         = 0x19,
@@ -398,43 +416,64 @@ class DexFile {
     DISALLOW_COPY_AND_ASSIGN(AnnotationItem);
   };
 
-  struct AnnotationValue {
-    JValue value_;
-    uint8_t type_;
-  };
-
   enum AnnotationResultStyle {  // private
     kAllObjects,
     kPrimitivesOrObjects,
     kAllRaw
   };
 
-  // Returns the checksum of a file for comparison with GetLocationChecksum().
-  // For .dex files, this is the header checksum.
-  // For zip files, this is the classes.dex zip entry CRC32 checksum.
-  // Return true if the checksum could be found, false otherwise.
-  static bool GetChecksum(const char* filename, uint32_t* checksum, std::string* error_msg);
+  struct AnnotationValue;
 
-  // Opens .dex files found in the container, guessing the container format based on file extension.
-  static bool Open(const char* filename, const char* location, std::string* error_msg,
-                   std::vector<std::unique_ptr<const DexFile>>* dex_files);
+  // Returns the checksums of a file for comparison with GetLocationChecksum().
+  // For .dex files, this is the single header checksum.
+  // For zip files, this is the zip entry CRC32 checksum for classes.dex and
+  // each additional multidex entry classes2.dex, classes3.dex, etc.
+  // Return true if the checksums could be found, false otherwise.
+  static bool GetMultiDexChecksums(const char* filename,
+                                   std::vector<uint32_t>* checksums,
+                                   std::string* error_msg);
 
-  // Checks whether the given file has the dex magic, or is a zip file with a classes.dex entry.
-  // If this function returns false, Open will not succeed. The inverse is not true, however.
-  static bool MaybeDex(const char* filename);
+  // Check whether a location denotes a multidex dex file. This is a very simple check: returns
+  // whether the string contains the separator character.
+  static bool IsMultiDexLocation(const char* location);
 
   // Opens .dex file, backed by existing memory
-  static std::unique_ptr<const DexFile> Open(const uint8_t* base, size_t size,
+  static std::unique_ptr<const DexFile> Open(const uint8_t* base,
+                                             size_t size,
                                              const std::string& location,
                                              uint32_t location_checksum,
                                              const OatDexFile* oat_dex_file,
                                              bool verify,
+                                             bool verify_checksum,
                                              std::string* error_msg);
 
-  // Open all classesXXX.dex files from a zip archive.
-  static bool OpenFromZip(const ZipArchive& zip_archive, const std::string& location,
-                          std::string* error_msg,
-                          std::vector<std::unique_ptr<const DexFile>>* dex_files);
+  // Opens .dex file that has been memory-mapped by the caller.
+  static std::unique_ptr<const DexFile> Open(const std::string& location,
+                                             uint32_t location_checkum,
+                                             std::unique_ptr<MemMap> mem_map,
+                                             bool verify,
+                                             bool verify_checksum,
+                                             std::string* error_msg);
+
+  // Opens all .dex files found in the file, guessing the container format based on file extension.
+  static bool Open(const char* filename,
+                   const std::string& location,
+                   bool verify_checksum,
+                   std::string* error_msg,
+                   std::vector<std::unique_ptr<const DexFile>>* dex_files);
+
+  // Open a single dex file from an fd.
+  static std::unique_ptr<const DexFile> OpenDex(int fd,
+                                                const std::string& location,
+                                                bool verify_checksum,
+                                                std::string* error_msg);
+
+  // Opens dex files from within a .jar, .zip, or .apk file
+  static bool OpenZip(int fd,
+                      const std::string& location,
+                      bool verify_checksum,
+                      std::string* error_msg,
+                      std::vector<std::unique_ptr<const DexFile>>* dex_files);
 
   // Closes a .dex file.
   virtual ~DexFile();
@@ -504,15 +543,15 @@ class DexFile {
   }
 
   // Returns the StringId at the specified index.
-  const StringId& GetStringId(uint32_t idx) const {
-    DCHECK_LT(idx, NumStringIds()) << GetLocation();
-    return string_ids_[idx];
+  const StringId& GetStringId(dex::StringIndex idx) const {
+    DCHECK_LT(idx.index_, NumStringIds()) << GetLocation();
+    return string_ids_[idx.index_];
   }
 
-  uint32_t GetIndexForStringId(const StringId& string_id) const {
+  dex::StringIndex GetIndexForStringId(const StringId& string_id) const {
     CHECK_GE(&string_id, string_ids_) << GetLocation();
     CHECK_LT(&string_id, string_ids_ + header_->string_ids_size_) << GetLocation();
-    return &string_id - string_ids_;
+    return dex::StringIndex(&string_id - string_ids_);
   }
 
   int32_t GetStringLength(const StringId& string_id) const;
@@ -522,25 +561,12 @@ class DexFile {
   // as the string length of the string data.
   const char* GetStringDataAndUtf16Length(const StringId& string_id, uint32_t* utf16_length) const;
 
-  const char* GetStringData(const StringId& string_id) const {
-    uint32_t ignored;
-    return GetStringDataAndUtf16Length(string_id, &ignored);
-  }
+  const char* GetStringData(const StringId& string_id) const;
 
   // Index version of GetStringDataAndUtf16Length.
-  const char* StringDataAndUtf16LengthByIdx(uint32_t idx, uint32_t* utf16_length) const {
-    if (idx == kDexNoIndex) {
-      *utf16_length = 0;
-      return nullptr;
-    }
-    const StringId& string_id = GetStringId(idx);
-    return GetStringDataAndUtf16Length(string_id, utf16_length);
-  }
+  const char* StringDataAndUtf16LengthByIdx(dex::StringIndex idx, uint32_t* utf16_length) const;
 
-  const char* StringDataByIdx(uint32_t idx) const {
-    uint32_t unicode_length;
-    return StringDataAndUtf16LengthByIdx(idx, &unicode_length);
-  }
+  const char* StringDataByIdx(dex::StringIndex idx) const;
 
   // Looks up a string id for a given modified utf8 string.
   const StringId* FindStringId(const char* string) const;
@@ -556,38 +582,34 @@ class DexFile {
     return header_->type_ids_size_;
   }
 
-  // Returns the TypeId at the specified index.
-  const TypeId& GetTypeId(uint32_t idx) const {
-    DCHECK_LT(idx, NumTypeIds()) << GetLocation();
-    return type_ids_[idx];
+  bool IsTypeIndexValid(dex::TypeIndex idx) const {
+    return idx.IsValid() && idx.index_ < NumTypeIds();
   }
 
-  uint16_t GetIndexForTypeId(const TypeId& type_id) const {
+  // Returns the TypeId at the specified index.
+  const TypeId& GetTypeId(dex::TypeIndex idx) const {
+    DCHECK_LT(idx.index_, NumTypeIds()) << GetLocation();
+    return type_ids_[idx.index_];
+  }
+
+  dex::TypeIndex GetIndexForTypeId(const TypeId& type_id) const {
     CHECK_GE(&type_id, type_ids_) << GetLocation();
     CHECK_LT(&type_id, type_ids_ + header_->type_ids_size_) << GetLocation();
     size_t result = &type_id - type_ids_;
     DCHECK_LT(result, 65536U) << GetLocation();
-    return static_cast<uint16_t>(result);
+    return dex::TypeIndex(static_cast<uint16_t>(result));
   }
 
   // Get the descriptor string associated with a given type index.
-  const char* StringByTypeIdx(uint32_t idx, uint32_t* unicode_length) const {
-    const TypeId& type_id = GetTypeId(idx);
-    return StringDataAndUtf16LengthByIdx(type_id.descriptor_idx_, unicode_length);
-  }
+  const char* StringByTypeIdx(dex::TypeIndex idx, uint32_t* unicode_length) const;
 
-  const char* StringByTypeIdx(uint32_t idx) const {
-    const TypeId& type_id = GetTypeId(idx);
-    return StringDataByIdx(type_id.descriptor_idx_);
-  }
+  const char* StringByTypeIdx(dex::TypeIndex idx) const;
 
   // Returns the type descriptor string of a type id.
-  const char* GetTypeDescriptor(const TypeId& type_id) const {
-    return StringDataByIdx(type_id.descriptor_idx_);
-  }
+  const char* GetTypeDescriptor(const TypeId& type_id) const;
 
   // Looks up a type for the given string index
-  const TypeId* FindTypeId(uint32_t string_idx) const;
+  const TypeId* FindTypeId(dex::StringIndex string_idx) const;
 
   // Returns the number of field identifiers in the .dex file.
   size_t NumFieldIds() const {
@@ -612,6 +634,9 @@ class DexFile {
                              const DexFile::StringId& name,
                              const DexFile::TypeId& type) const;
 
+  uint32_t FindCodeItemOffset(const DexFile::ClassDef& class_def,
+                              uint32_t dex_method_idx) const;
+
   // Returns the declaring class descriptor string of a field id.
   const char* GetFieldDeclaringClassDescriptor(const FieldId& field_id) const {
     const DexFile::TypeId& type_id = GetTypeId(field_id.class_idx_);
@@ -619,15 +644,10 @@ class DexFile {
   }
 
   // Returns the class descriptor string of a field id.
-  const char* GetFieldTypeDescriptor(const FieldId& field_id) const {
-    const DexFile::TypeId& type_id = GetTypeId(field_id.type_idx_);
-    return GetTypeDescriptor(type_id);
-  }
+  const char* GetFieldTypeDescriptor(const FieldId& field_id) const;
 
   // Returns the name of a field id.
-  const char* GetFieldName(const FieldId& field_id) const {
-    return StringDataByIdx(field_id.name_idx_);
-  }
+  const char* GetFieldName(const FieldId& field_id) const;
 
   // Returns the number of method identifiers in the .dex file.
   size_t NumMethodIds() const {
@@ -653,10 +673,7 @@ class DexFile {
                                const DexFile::ProtoId& signature) const;
 
   // Returns the declaring class descriptor string of a method id.
-  const char* GetMethodDeclaringClassDescriptor(const MethodId& method_id) const {
-    const DexFile::TypeId& type_id = GetTypeId(method_id.class_idx_);
-    return GetTypeDescriptor(type_id);
-  }
+  const char* GetMethodDeclaringClassDescriptor(const MethodId& method_id) const;
 
   // Returns the prototype of a method id.
   const ProtoId& GetMethodPrototype(const MethodId& method_id) const {
@@ -666,24 +683,19 @@ class DexFile {
   // Returns a representation of the signature of a method id.
   const Signature GetMethodSignature(const MethodId& method_id) const;
 
+  // Returns a representation of the signature of a proto id.
+  const Signature GetProtoSignature(const ProtoId& proto_id) const;
+
   // Returns the name of a method id.
-  const char* GetMethodName(const MethodId& method_id) const {
-    return StringDataByIdx(method_id.name_idx_);
-  }
+  const char* GetMethodName(const MethodId& method_id) const;
 
   // Returns the shorty of a method by its index.
-  const char* GetMethodShorty(uint32_t idx) const {
-    return StringDataByIdx(GetProtoId(GetMethodId(idx).proto_idx_).shorty_idx_);
-  }
+  const char* GetMethodShorty(uint32_t idx) const;
 
   // Returns the shorty of a method id.
-  const char* GetMethodShorty(const MethodId& method_id) const {
-    return StringDataByIdx(GetProtoId(method_id.proto_idx_).shorty_idx_);
-  }
-  const char* GetMethodShorty(const MethodId& method_id, uint32_t* length) const {
-    // Using the UTF16 length is safe here as shorties are guaranteed to be ASCII characters.
-    return StringDataAndUtf16LengthByIdx(GetProtoId(method_id.proto_idx_).shorty_idx_, length);
-  }
+  const char* GetMethodShorty(const MethodId& method_id) const;
+  const char* GetMethodShorty(const MethodId& method_id, uint32_t* length) const;
+
   // Returns the number of class definitions in the .dex file.
   uint32_t NumClassDefs() const {
     DCHECK(header_ != nullptr) << GetLocation();
@@ -703,16 +715,10 @@ class DexFile {
   }
 
   // Returns the class descriptor string of a class definition.
-  const char* GetClassDescriptor(const ClassDef& class_def) const {
-    return StringByTypeIdx(class_def.class_idx_);
-  }
-
-  // Looks up a class definition by its class descriptor. Hash must be
-  // ComputeModifiedUtf8Hash(descriptor).
-  const ClassDef* FindClassDef(const char* descriptor, size_t hash) const;
+  const char* GetClassDescriptor(const ClassDef& class_def) const;
 
   // Looks up a class definition by its type index.
-  const ClassDef* FindClassDef(uint16_t type_idx) const;
+  const ClassDef* FindClassDef(dex::TypeIndex type_idx) const;
 
   const TypeList* GetInterfacesList(const ClassDef& class_def) const {
     if (class_def.interfaces_off_ == 0) {
@@ -721,6 +727,24 @@ class DexFile {
       const uint8_t* addr = begin_ + class_def.interfaces_off_;
       return reinterpret_cast<const TypeList*>(addr);
     }
+  }
+
+  uint32_t NumMethodHandles() const {
+    return num_method_handles_;
+  }
+
+  const MethodHandleItem& GetMethodHandle(uint32_t idx) const {
+    CHECK_LT(idx, NumMethodHandles());
+    return method_handles_[idx];
+  }
+
+  uint32_t NumCallSiteIds() const {
+    return num_call_site_ids_;
+  }
+
+  const CallSiteIdItem& GetCallSiteId(uint32_t idx) const {
+    CHECK_LT(idx, NumCallSiteIds());
+    return call_site_ids_[idx];
   }
 
   // Returns a pointer to the raw memory mapped class_data_item
@@ -743,9 +767,7 @@ class DexFile {
     }
   }
 
-  const char* GetReturnTypeDescriptor(const ProtoId& proto_id) const {
-    return StringByTypeIdx(proto_id.return_type_idx_);
-  }
+  const char* GetReturnTypeDescriptor(const ProtoId& proto_id) const;
 
   // Returns the number of prototype identifiers in the .dex file.
   size_t NumProtoIds() const {
@@ -754,7 +776,7 @@ class DexFile {
   }
 
   // Returns the ProtoId at the specified index.
-  const ProtoId& GetProtoId(uint32_t idx) const {
+  const ProtoId& GetProtoId(uint16_t idx) const {
     DCHECK_LT(idx, NumProtoIds()) << GetLocation();
     return proto_ids_[idx];
   }
@@ -766,26 +788,25 @@ class DexFile {
   }
 
   // Looks up a proto id for a given return type and signature type list
-  const ProtoId* FindProtoId(uint16_t return_type_idx,
-                             const uint16_t* signature_type_idxs, uint32_t signature_length) const;
-  const ProtoId* FindProtoId(uint16_t return_type_idx,
-                             const std::vector<uint16_t>& signature_type_idxs) const {
+  const ProtoId* FindProtoId(dex::TypeIndex return_type_idx,
+                             const dex::TypeIndex* signature_type_idxs,
+                             uint32_t signature_length) const;
+  const ProtoId* FindProtoId(dex::TypeIndex return_type_idx,
+                             const std::vector<dex::TypeIndex>& signature_type_idxs) const {
     return FindProtoId(return_type_idx, &signature_type_idxs[0], signature_type_idxs.size());
   }
 
   // Given a signature place the type ids into the given vector, returns true on success
-  bool CreateTypeList(const StringPiece& signature, uint16_t* return_type_idx,
-                      std::vector<uint16_t>* param_type_idxs) const;
+  bool CreateTypeList(const StringPiece& signature,
+                      dex::TypeIndex* return_type_idx,
+                      std::vector<dex::TypeIndex>* param_type_idxs) const;
 
   // Create a Signature from the given string signature or return Signature::NoSignature if not
   // possible.
   const Signature CreateSignature(const StringPiece& signature) const;
 
   // Returns the short form method descriptor for the given prototype.
-  const char* GetShorty(uint32_t proto_idx) const {
-    const ProtoId& proto_id = GetProtoId(proto_idx);
-    return StringDataByIdx(proto_id.shorty_idx_);
-  }
+  const char* GetShorty(uint32_t proto_idx) const;
 
   const TypeList* GetProtoParameters(const ProtoId& proto_id) const {
     if (proto_id.parameters_off_ == 0) {
@@ -802,6 +823,10 @@ class DexFile {
     } else {
       return begin_ + class_def.static_values_off_;
     }
+  }
+
+  const uint8_t* GetCallSiteEncodedValuesArray(const CallSiteIdItem& call_site_id) const {
+    return begin_ + call_site_id.data_off_;
   }
 
   static const TryItem* GetTryItems(const CodeItem& code_item, uint32_t offset);
@@ -971,108 +996,6 @@ class DexFile {
     return reinterpret_cast<const AnnotationSetItem*>(begin_ + offset);
   }
 
-  const AnnotationSetItem* FindAnnotationSetForField(ArtField* field) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetAnnotationForField(ArtField* field, Handle<mirror::Class> annotation_class)
-      const SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Object>* GetAnnotationsForField(ArtField* field) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::String>* GetSignatureAnnotationForField(ArtField* field) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool IsFieldAnnotationPresent(ArtField* field, Handle<mirror::Class> annotation_class) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  const AnnotationSetItem* FindAnnotationSetForMethod(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  const ParameterAnnotationsItem* FindAnnotationsItemForMethod(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetAnnotationDefaultValue(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetAnnotationForMethod(ArtMethod* method, Handle<mirror::Class> annotation_class)
-      const SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Object>* GetAnnotationsForMethod(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Class>* GetExceptionTypesForMethod(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Object>* GetParameterAnnotations(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::String>* GetSignatureAnnotationForMethod(ArtMethod* method) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool IsMethodAnnotationPresent(ArtMethod* method, Handle<mirror::Class> annotation_class) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  const AnnotationSetItem* FindAnnotationSetForClass(Handle<mirror::Class> klass) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetAnnotationForClass(Handle<mirror::Class> klass,
-                                        Handle<mirror::Class> annotation_class) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Object>* GetAnnotationsForClass(Handle<mirror::Class> klass) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Class>* GetDeclaredClasses(Handle<mirror::Class> klass) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Class* GetDeclaringClass(Handle<mirror::Class> klass) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Class* GetEnclosingClass(Handle<mirror::Class> klass) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetEnclosingMethod(Handle<mirror::Class> klass) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool GetInnerClass(Handle<mirror::Class> klass, mirror::String** name) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool GetInnerClassFlags(Handle<mirror::Class> klass, uint32_t* flags) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::String>* GetSignatureAnnotationForClass(Handle<mirror::Class> klass)
-      const SHARED_REQUIRES(Locks::mutator_lock_);
-  bool IsClassAnnotationPresent(Handle<mirror::Class> klass, Handle<mirror::Class> annotation_class)
-      const SHARED_REQUIRES(Locks::mutator_lock_);
-
-  mirror::Object* CreateAnnotationMember(Handle<mirror::Class> klass,
-                                         Handle<mirror::Class> annotation_class,
-                                         const uint8_t** annotation) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  const AnnotationItem* GetAnnotationItemFromAnnotationSet(Handle<mirror::Class> klass,
-                                                           const AnnotationSetItem* annotation_set,
-                                                           uint32_t visibility,
-                                                           Handle<mirror::Class> annotation_class)
-      const SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetAnnotationObjectFromAnnotationSet(Handle<mirror::Class> klass,
-                                                       const AnnotationSetItem* annotation_set,
-                                                       uint32_t visibility,
-                                                       Handle<mirror::Class> annotation_class) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* GetAnnotationValue(Handle<mirror::Class> klass,
-                                     const AnnotationItem* annotation_item,
-                                     const char* annotation_name,
-                                     Handle<mirror::Class> array_class,
-                                     uint32_t expected_type) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::String>* GetSignatureValue(Handle<mirror::Class> klass,
-                                                         const AnnotationSetItem* annotation_set)
-      const SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Class>* GetThrowsValue(Handle<mirror::Class> klass,
-                                                     const AnnotationSetItem* annotation_set) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Object>* ProcessAnnotationSet(Handle<mirror::Class> klass,
-                                                            const AnnotationSetItem* annotation_set,
-                                                            uint32_t visibility) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::ObjectArray<mirror::Object>* ProcessAnnotationSetRefList(Handle<mirror::Class> klass,
-      const AnnotationSetRefList* set_ref_list, uint32_t size) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool ProcessAnnotationValue(Handle<mirror::Class> klass, const uint8_t** annotation_ptr,
-                              AnnotationValue* annotation_value, Handle<mirror::Class> return_class,
-                              DexFile::AnnotationResultStyle result_style) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  mirror::Object* ProcessEncodedAnnotation(Handle<mirror::Class> klass,
-                                           const uint8_t** annotation) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  const AnnotationItem* SearchAnnotationSet(const AnnotationSetItem* annotation_set,
-                                            const char* descriptor, uint32_t visibility) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  const uint8_t* SearchEncodedAnnotation(const uint8_t* annotation, const char* name) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool SkipAnnotationValue(const uint8_t** annotation_ptr) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
   // Debug info opcodes and constants
   enum {
     DBG_END_SEQUENCE         = 0x00,
@@ -1099,17 +1022,6 @@ class DexFile {
     DISALLOW_COPY_AND_ASSIGN(LineNumFromPcContext);
   };
 
-  // Determine the source file line number based on the program counter.
-  // "pc" is an offset, in 16-bit units, from the start of the method's code.
-  //
-  // Returns -1 if no match was found (possibly because the source files were
-  // compiled without "-g", so no line number information is present).
-  // Returns -2 for native methods (as expected in exception traces).
-  //
-  // This is used by runtime; therefore use art::Method not art::DexFile::Method.
-  int32_t GetLineNumFromPC(ArtMethod* method, uint32_t rel_pc) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
   // Returns false if there is no debugging information or if it cannot be decoded.
   bool DecodeDebugLocalInfo(const CodeItem* code_item, bool is_static, uint32_t method_idx,
                             DexDebugNewLocalCb local_cb, void* context) const;
@@ -1119,7 +1031,7 @@ class DexFile {
                                void* context) const;
 
   const char* GetSourceFile(const ClassDef& class_def) const {
-    if (class_def.source_file_idx_ == 0xffffffff) {
+    if (!class_def.source_file_idx_.IsValid()) {
       return nullptr;
     } else {
       return StringDataByIdx(class_def.source_file_idx_);
@@ -1169,20 +1081,33 @@ class DexFile {
     return oat_dex_file_;
   }
 
-  TypeLookupTable* GetTypeLookupTable() const {
-    return lookup_table_.get();
+  // Used by oat writer.
+  void SetOatDexFile(OatDexFile* oat_dex_file) const {
+    oat_dex_file_ = oat_dex_file;
   }
 
-  void CreateTypeLookupTable(uint8_t* storage = nullptr) const;
+  // Utility methods for reading integral values from a buffer.
+  static int32_t ReadSignedInt(const uint8_t* ptr, int zwidth);
+  static uint32_t ReadUnsignedInt(const uint8_t* ptr, int zwidth, bool fill_on_right);
+  static int64_t ReadSignedLong(const uint8_t* ptr, int zwidth);
+  static uint64_t ReadUnsignedLong(const uint8_t* ptr, int zwidth, bool fill_on_right);
+
+  // Recalculates the checksum of the dex file. Does not use the current value in the header.
+  uint32_t CalculateChecksum() const;
+
+  // Returns a human-readable form of the method at an index.
+  std::string PrettyMethod(uint32_t method_idx, bool with_signature = true) const;
+  // Returns a human-readable form of the field at an index.
+  std::string PrettyField(uint32_t field_idx, bool with_type = true) const;
+  // Returns a human-readable form of the type at an index.
+  std::string PrettyType(dex::TypeIndex type_idx) const;
 
  private:
-  // Opens a .dex file
-  static std::unique_ptr<const DexFile> OpenFile(int fd, const char* location,
-                                                 bool verify, std::string* error_msg);
-
-  // Opens dex files from within a .jar, .zip, or .apk file
-  static bool OpenZip(int fd, const std::string& location, std::string* error_msg,
-                      std::vector<std::unique_ptr<const DexFile>>* dex_files);
+  static std::unique_ptr<const DexFile> OpenFile(int fd,
+                                                 const std::string& location,
+                                                 bool verify,
+                                                 bool verify_checksum,
+                                                 std::string* error_msg);
 
   enum class ZipOpenErrorCode {  // private
     kNoError,
@@ -1193,31 +1118,52 @@ class DexFile {
     kVerifyError
   };
 
+  // Open all classesXXX.dex files from a zip archive.
+  static bool OpenAllDexFilesFromZip(const ZipArchive& zip_archive,
+                                     const std::string& location,
+                                     bool verify_checksum,
+                                     std::string* error_msg,
+                                     std::vector<std::unique_ptr<const DexFile>>* dex_files);
+
   // Opens .dex file from the entry_name in a zip archive. error_code is undefined when non-null
   // return.
-  static std::unique_ptr<const DexFile> Open(const ZipArchive& zip_archive, const char* entry_name,
-                                             const std::string& location, std::string* error_msg,
-                                             ZipOpenErrorCode* error_code);
+  static std::unique_ptr<const DexFile> OpenOneDexFileFromZip(const ZipArchive& zip_archive,
+                                                              const char* entry_name,
+                                                              const std::string& location,
+                                                              bool verify_checksum,
+                                                              std::string* error_msg,
+                                                              ZipOpenErrorCode* error_code);
 
-  // Opens a .dex file at the given address backed by a MemMap
-  static std::unique_ptr<const DexFile> OpenMemory(const std::string& location,
-                                                   uint32_t location_checksum,
-                                                   MemMap* mem_map,
-                                                   std::string* error_msg);
+  enum class VerifyResult {  // private
+    kVerifyNotAttempted,
+    kVerifySucceeded,
+    kVerifyFailed
+  };
+
+  static std::unique_ptr<DexFile> OpenCommon(const uint8_t* base,
+                                             size_t size,
+                                             const std::string& location,
+                                             uint32_t location_checksum,
+                                             const OatDexFile* oat_dex_file,
+                                             bool verify,
+                                             bool verify_checksum,
+                                             std::string* error_msg,
+                                             VerifyResult* verify_result = nullptr);
+
 
   // Opens a .dex file at the given address, optionally backed by a MemMap
   static std::unique_ptr<const DexFile> OpenMemory(const uint8_t* dex_file,
                                                    size_t size,
                                                    const std::string& location,
                                                    uint32_t location_checksum,
-                                                   MemMap* mem_map,
+                                                   std::unique_ptr<MemMap> mem_map,
                                                    const OatDexFile* oat_dex_file,
                                                    std::string* error_msg);
 
-  DexFile(const uint8_t* base, size_t size,
+  DexFile(const uint8_t* base,
+          size_t size,
           const std::string& location,
           uint32_t location_checksum,
-          MemMap* mem_map,
           const OatDexFile* oat_dex_file);
 
   // Top-level initializer that calls other Init methods.
@@ -1226,10 +1172,8 @@ class DexFile {
   // Returns true if the header magic and version numbers are of the expected values.
   bool CheckMagicAndVersion(std::string* error_msg) const;
 
-  // Check whether a location denotes a multidex dex file. This is a very simple check: returns
-  // whether the string contains the separator character.
-  static bool IsMultiDexLocation(const char* location);
-
+  // Initialize section info for sections only found in map. Returns true on success.
+  void InitializeSectionsFromMapList();
 
   // The base address of the memory mapping.
   const uint8_t* const begin_;
@@ -1269,13 +1213,25 @@ class DexFile {
   // Points to the base of the class definition list.
   const ClassDef* const class_defs_;
 
+  // Points to the base of the method handles list.
+  const MethodHandleItem* method_handles_;
+
+  // Number of elements in the method handles list.
+  size_t num_method_handles_;
+
+  // Points to the base of the call sites id list.
+  const CallSiteIdItem* call_site_ids_;
+
+  // Number of elements in the call sites list.
+  size_t num_call_site_ids_;
+
   // If this dex file was loaded from an oat file, oat_dex_file_ contains a
   // pointer to the OatDexFile it was loaded from. Otherwise oat_dex_file_ is
   // null.
-  const OatDexFile* oat_dex_file_;
-  mutable std::unique_ptr<TypeLookupTable> lookup_table_;
+  mutable const OatDexFile* oat_dex_file_;
 
   friend class DexFileVerifierTest;
+  friend class OatWriter;
   ART_FRIEND_TEST(ClassLinkerTest, RegisterDexFileName);  // for constructor
 };
 
@@ -1300,11 +1256,11 @@ class DexFileParameterIterator {
   bool HasNext() const { return pos_ < size_; }
   size_t Size() const { return size_; }
   void Next() { ++pos_; }
-  uint16_t GetTypeIdx() {
+  dex::TypeIndex GetTypeIdx() {
     return type_list_->GetTypeItem(pos_).type_idx_;
   }
   const char* GetDescriptor() {
-    return dex_file_.StringByTypeIdx(GetTypeIdx());
+    return dex_file_.StringByTypeIdx(dex::TypeIndex(GetTypeIdx()));
   }
  private:
   const DexFile& dex_file_;
@@ -1322,6 +1278,9 @@ class Signature : public ValueObject {
   static Signature NoSignature() {
     return Signature();
   }
+
+  bool IsVoid() const;
+  uint32_t GetNumberOfParameters() const;
 
   bool operator==(const Signature& rhs) const;
   bool operator!=(const Signature& rhs) const {
@@ -1367,6 +1326,9 @@ class ClassDataItemIterator {
   }
   uint32_t NumVirtualMethods() const {
     return header_.virtual_methods_size_;
+  }
+  bool IsAtMethod() const {
+    return pos_ >= EndOfInstanceFieldsPos();
   }
   bool HasNextStaticField() const {
     return pos_ < EndOfStaticFieldsPos();
@@ -1532,74 +1494,81 @@ class ClassDataItemIterator {
   DISALLOW_IMPLICIT_CONSTRUCTORS(ClassDataItemIterator);
 };
 
-class EncodedStaticFieldValueIterator {
+class EncodedArrayValueIterator {
  public:
-  // A constructor for static tools. You cannot call
-  // ReadValueToField() for an object created by this.
-  EncodedStaticFieldValueIterator(const DexFile& dex_file,
-                                  const DexFile::ClassDef& class_def);
-
-  // A constructor meant to be called from runtime code.
-  EncodedStaticFieldValueIterator(const DexFile& dex_file,
-                                  Handle<mirror::DexCache>* dex_cache,
-                                  Handle<mirror::ClassLoader>* class_loader,
-                                  ClassLinker* linker,
-                                  const DexFile::ClassDef& class_def)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  template<bool kTransactionActive>
-  void ReadValueToField(ArtField* field) const SHARED_REQUIRES(Locks::mutator_lock_);
+  EncodedArrayValueIterator(const DexFile& dex_file, const uint8_t* array_data);
 
   bool HasNext() const { return pos_ < array_size_; }
 
   void Next();
 
   enum ValueType {
-    kByte = 0x00,
-    kShort = 0x02,
-    kChar = 0x03,
-    kInt = 0x04,
-    kLong = 0x06,
-    kFloat = 0x10,
-    kDouble = 0x11,
-    kString = 0x17,
-    kType = 0x18,
-    kField = 0x19,
-    kMethod = 0x1a,
-    kEnum = 0x1b,
-    kArray = 0x1c,
-    kAnnotation = 0x1d,
-    kNull = 0x1e,
-    kBoolean = 0x1f
+    kByte         = 0x00,
+    kShort        = 0x02,
+    kChar         = 0x03,
+    kInt          = 0x04,
+    kLong         = 0x06,
+    kFloat        = 0x10,
+    kDouble       = 0x11,
+    kMethodType   = 0x15,
+    kMethodHandle = 0x16,
+    kString       = 0x17,
+    kType         = 0x18,
+    kField        = 0x19,
+    kMethod       = 0x1a,
+    kEnum         = 0x1b,
+    kArray        = 0x1c,
+    kAnnotation   = 0x1d,
+    kNull         = 0x1e,
+    kBoolean      = 0x1f,
   };
 
   ValueType GetValueType() const { return type_; }
   const jvalue& GetJavaValue() const { return jval_; }
 
- private:
-  EncodedStaticFieldValueIterator(const DexFile& dex_file,
-                                  Handle<mirror::DexCache>* dex_cache,
-                                  Handle<mirror::ClassLoader>* class_loader,
-                                  ClassLinker* linker,
-                                  const DexFile::ClassDef& class_def,
-                                  size_t pos,
-                                  ValueType type);
-
+ protected:
   static constexpr uint8_t kEncodedValueTypeMask = 0x1f;  // 0b11111
   static constexpr uint8_t kEncodedValueArgShift = 5;
 
   const DexFile& dex_file_;
-  Handle<mirror::DexCache>* const dex_cache_;  // Dex cache to resolve literal objects.
-  Handle<mirror::ClassLoader>* const class_loader_;  // ClassLoader to resolve types.
-  ClassLinker* linker_;  // Linker to resolve literal objects.
   size_t array_size_;  // Size of array.
   size_t pos_;  // Current position.
   const uint8_t* ptr_;  // Pointer into encoded data array.
   ValueType type_;  // Type of current encoded value.
   jvalue jval_;  // Value of current encoded value.
+
+ private:
+  DISALLOW_IMPLICIT_CONSTRUCTORS(EncodedArrayValueIterator);
+};
+std::ostream& operator<<(std::ostream& os, const EncodedArrayValueIterator::ValueType& code);
+
+class EncodedStaticFieldValueIterator : public EncodedArrayValueIterator {
+ public:
+  EncodedStaticFieldValueIterator(const DexFile& dex_file,
+                                  const DexFile::ClassDef& class_def)
+      : EncodedArrayValueIterator(dex_file,
+                                  dex_file.GetEncodedStaticFieldValuesArray(class_def))
+  {}
+
+ private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(EncodedStaticFieldValueIterator);
 };
 std::ostream& operator<<(std::ostream& os, const EncodedStaticFieldValueIterator::ValueType& code);
+
+class CallSiteArrayValueIterator : public EncodedArrayValueIterator {
+ public:
+  CallSiteArrayValueIterator(const DexFile& dex_file,
+                             const DexFile::CallSiteIdItem& call_site_id)
+      : EncodedArrayValueIterator(dex_file,
+                                  dex_file.GetCallSiteEncodedValuesArray(call_site_id))
+  {}
+
+  uint32_t Size() const { return array_size_; }
+
+ private:
+  DISALLOW_IMPLICIT_CONSTRUCTORS(CallSiteArrayValueIterator);
+};
+std::ostream& operator<<(std::ostream& os, const CallSiteArrayValueIterator::ValueType& code);
 
 class CatchHandlerIterator {
   public:
@@ -1612,7 +1581,7 @@ class CatchHandlerIterator {
       Init(handler_data);
     }
 
-    uint16_t GetHandlerTypeIndex() const {
+    dex::TypeIndex GetHandlerTypeIndex() const {
       return handler_.type_idx_;
     }
     uint32_t GetHandlerAddress() const {
@@ -1633,7 +1602,7 @@ class CatchHandlerIterator {
     void Init(const uint8_t* handler_data);
 
     struct CatchHandlerItem {
-      uint16_t type_idx_;  // type index of the caught exception type
+      dex::TypeIndex type_idx_;  // type index of the caught exception type
       uint32_t address_;  // handler address
     } handler_;
     const uint8_t* current_data_;  // the current handler in dex file.

@@ -6,14 +6,10 @@ AUTHOR = "chromeos-moblab@google.com"
 NAME = "moblab_DummyServerSuite"
 PURPOSE = "Test that Moblab can run the Dummy Server suite."
 ATTRIBUTES = "suite:moblab_quick"
-SUITE = "moblab_quick"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "moblab"
 TEST_TYPE = "server"
-# moblab_RunSuite requires .boto file from drone. Disable SSP for this test as
-# it has dependency on lab infrastructure.
-REQUIRE_SSP = False
 
 DOC = """
 Kicks off the Dummy Server suite on a Moblab host against the DUTs on its

@@ -14,26 +14,9 @@
 #  limitations under the License.
 #
 
-declare_args() {
-  # Include path for hardware/bluetooth.h
-  libhw_include_path = ""
-  core_include_path = ""
-  audio_include_path = ""
-}
-
 config("default_include_dirs") {
-  # TODO(armansito): Remove "core_include_path" once the cutils includes have
-  # been removed.
-  assert(libhw_include_path != "",
-         "libhardware_include_path build argument wasn't provided.")
-  assert(core_include_path != "",
-         "core_include_path build argument wasn't provided.")
-  assert(audio_include_path != "",
-         "audio_include_path build argument wasn't provided.")
   include_dirs = [
-    libhw_include_path,
-    core_include_path,
-    audio_include_path,
+    "//third_party/libhardware/include/",
   ]
 }
 
@@ -59,6 +42,7 @@ config("linux") {
 # but we use some c++14 features. Uncomment when this get fixed in code.:
     "-std=c++14",
     "-fno-exceptions",
+    "-fpermissive",
   ]
 
   defines = [
@@ -68,6 +52,11 @@ config("linux") {
     "LOG_NDEBUG=1",
     "EXPORT_SYMBOL=__attribute__((visibility(\"default\")))",
     "KERNEL_MISSING_CLOCK_BOOTTIME_ALARM=TRUE",
+
+    # This is a macro to that can be used by android hardware/libhardware
+    # to not include dependencies on core project. This is a temporary
+    # workaround until we get rid of dependency on hardware.
+    "_HW_DONT_INCLUDE_CORE_=1",
 
     # This is a macro to that can be used by source code to detect if the
     # current build is done by GN or via Android.mk. This is a temporary

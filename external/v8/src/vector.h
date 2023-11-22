@@ -24,6 +24,9 @@ class Vector {
     DCHECK(length == 0 || (length > 0 && data != NULL));
   }
 
+  template <int N>
+  explicit Vector(T (&arr)[N]) : start_(arr), length_(N) {}
+
   static Vector<T> New(int length) {
     return Vector<T>(NewArray<T>(length), length);
   }
@@ -48,7 +51,8 @@ class Vector {
 
   // Access individual vector elements - checks bounds in debug mode.
   T& operator[](int index) const {
-    DCHECK(0 <= index && index < length_);
+    DCHECK_LE(0, index);
+    DCHECK_LT(index, length_);
     return start_[index];
   }
 
@@ -201,6 +205,10 @@ inline Vector<char> MutableCStrVector(char* data, int max) {
   return Vector<char>(data, (length < max) ? length : max);
 }
 
+template <typename T, int N>
+inline Vector<T> ArrayVector(T (&arr)[N]) {
+  return Vector<T>(arr);
+}
 
 }  // namespace internal
 }  // namespace v8

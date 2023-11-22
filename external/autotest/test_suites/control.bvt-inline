@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "bvt-inline"
 PURPOSE = "Test critical functionality."
-CRITERIA = "All tests with SUITE=bvt-inline must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"
@@ -56,10 +55,10 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'ccs': ['chromeos-lab-errors@google.com']
+    'cc': ['chromeos-lab-errors@google.com']
 }
 
-args_dict['max_runtime_mins'] = 20
+args_dict['max_runtime_mins'] = 60
 args_dict['name'] = 'bvt-inline'
 args_dict['job'] = job
 args_dict['add_experimental'] = True

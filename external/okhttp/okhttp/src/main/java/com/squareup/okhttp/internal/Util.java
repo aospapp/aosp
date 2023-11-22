@@ -256,11 +256,13 @@ public final class Util {
     return result;
   }
 
-  public static String hostHeader(HttpUrl url) {
-    // TODO: square braces for IPv6 ?
-    return url.port() != HttpUrl.defaultPort(url.scheme())
-        ? url.rfc2732host() + ":" + url.port()
-        : url.rfc2732host();
+  public static String hostHeader(HttpUrl url, boolean includeDefaultPort) {
+    String host = url.host().contains(":")
+        ? "[" + url.host() + "]"
+        : url.host();
+    return includeDefaultPort || url.port() != HttpUrl.defaultPort(url.scheme())
+        ? host + ":" + url.port()
+        : host;
   }
 
   /** Returns {@code s} with control characters and non-ASCII characters replaced with '?'. */
@@ -287,5 +289,16 @@ public final class Util {
   public static boolean isAndroidGetsocknameError(AssertionError e) {
     return e.getCause() != null && e.getMessage() != null
         && e.getMessage().contains("getsockname failed");
+  }
+
+  public static boolean contains(String[] array, String value) {
+    return Arrays.asList(array).contains(value);
+  }
+
+  public static String[] concat(String[] array, String value) {
+    String[] result = new String[array.length + 1];
+    System.arraycopy(array, 0, result, 0, array.length);
+    result[result.length - 1] = value;
+    return result;
   }
 }

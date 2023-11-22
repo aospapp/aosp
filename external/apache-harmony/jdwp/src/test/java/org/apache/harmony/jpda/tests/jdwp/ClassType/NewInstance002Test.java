@@ -33,6 +33,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class NewInstance002Test extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstance002Debuggee";
     }
@@ -113,7 +114,7 @@ public class NewInstance002Test extends JDWPSyncTestCase {
         assertTrue("Failed to find constructor", targetMethodID != 0);
 
         // Make NewInstance without Exception
-        Value nullObjectValue = new Value(JDWPConstants.Tag.OBJECT_TAG, 0);
+        Value nullObjectValue = Value.createObjectValue(JDWPConstants.Tag.OBJECT_TAG, 0);
         packet = new CommandPacket(
                 JDWPCommands.ClassTypeCommandSet.CommandSetID,
                 JDWPCommands.ClassTypeCommandSet.NewInstanceCommand);

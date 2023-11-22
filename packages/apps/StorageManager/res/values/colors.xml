@@ -15,9 +15,7 @@
 -->
 
 <resources>
-    <color name="primary_color">@color/material_blue_grey_900</color>
     <color name="primary_dark_color">@color/material_blue_grey_950</color>
     <color name="secondary_color">#37474f</color>
-    <color name="accent_color">@color/accent_material_light</color>
     <color name="accent_color_lighter">#7fcac3</color>
 </resources>

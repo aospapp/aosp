@@ -51,13 +51,10 @@ public class BaseManagedProfileTest extends InstrumentationTestCase {
                 mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
         assertNotNull(mDevicePolicyManager);
 
-        // TODO: Only check the below if we are running as the profile user. If running under the
-        // user owner, can we check that there is a profile and that the below holds for it? If we
-        // don't want to do these checks every time we could get rid of this class altogether and
-        // just have a single test case running under the profile user that do them.
         assertTrue(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
         assertTrue(mDevicePolicyManager.isProfileOwnerApp(
                 ADMIN_RECEIVER_COMPONENT.getPackageName()));
+        assertTrue(mDevicePolicyManager.isManagedProfile(ADMIN_RECEIVER_COMPONENT));
     }
 
     protected DevicePolicyManager getDevicePolicyManager(boolean isParent) {

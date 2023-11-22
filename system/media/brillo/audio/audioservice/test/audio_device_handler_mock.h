@@ -72,6 +72,7 @@ class AudioDeviceHandlerMock : public AudioDeviceHandler {
 
   MOCK_METHOD2(NotifyAudioPolicyService,
                void(audio_devices_t device, audio_policy_dev_state_t state));
+  MOCK_METHOD1(TriggerCallback, void(DeviceConnectionState));
 };
 
 }  // namespace brillo

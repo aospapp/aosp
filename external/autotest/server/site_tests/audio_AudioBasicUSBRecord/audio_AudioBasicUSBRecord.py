@@ -9,12 +9,12 @@ import os
 import time
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioBasicUSBRecord(audio_test.AudioTest):
@@ -33,9 +33,10 @@ class audio_AudioBasicUSBRecord(audio_test.AudioTest):
         golden_file = audio_test_data.SWEEP_TEST_FILE
 
         chameleon_board = host.chameleon
-        factory = self.create_remote_facade_factory(host)
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
 
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 factory, host)
@@ -93,7 +94,4 @@ class audio_AudioBasicUSBRecord(audio_test.AudioTest):
         logging.info('Saving recorded data to %s', recorded_file)
         recorder.save_file(recorded_file)
 
-        if not chameleon_audio_helper.compare_recorded_result(
-                golden_file, recorder, 'correlation'):
-            raise error.TestFail(
-                    'Recorded file does not match playback file')
+        audio_test_utils.compare_recorded_correlation(golden_file, recorder)

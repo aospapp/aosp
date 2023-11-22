@@ -36,7 +36,7 @@ import okio.Okio;
 import okio.Source;
 
 /** A basic SPDY/HTTP_2 server that serves the contents of a local directory. */
-public final class FramedServer implements IncomingStreamHandler {
+public final class FramedServer extends FramedConnection.Listener {
   static final Logger logger = Logger.getLogger(FramedServer.class.getName());
 
   private final List<Protocol> framedProtocols =
@@ -65,9 +65,10 @@ public final class FramedServer implements IncomingStreamHandler {
         if (protocol == null || !framedProtocols.contains(protocol)) {
           throw new ProtocolException("Protocol " + protocol + " unsupported");
         }
-        FramedConnection framedConnection = new FramedConnection.Builder(false, sslSocket)
+        FramedConnection framedConnection = new FramedConnection.Builder(false)
+            .socket(sslSocket)
             .protocol(protocol)
-            .handler(this)
+            .listener(this)
             .build();
         framedConnection.sendConnectionPreface();
       } catch (IOException e) {
@@ -89,7 +90,7 @@ public final class FramedServer implements IncomingStreamHandler {
     return sslSocket;
   }
 
-  @Override public void receive(final FramedStream stream) throws IOException {
+  @Override public void onStream(final FramedStream stream) throws IOException {
     try {
       List<Header> requestHeaders = stream.getRequestHeaders();
       String path = null;

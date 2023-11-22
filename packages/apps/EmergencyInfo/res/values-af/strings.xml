@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Noodkontakte"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Voeg kontak by"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Kon nie \'n kontakkieser kry nie"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Kan nie die kontak wys nie"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Verwyder <xliff:g id="CONTACT_NAME">%1$s</xliff:g> uit noodkontakte?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Verwyder kontak"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Kan nie kontakinligting behoorlik lees nie"</string>
     <string name="remove" msgid="1243949503772376064">"Verwyder"</string>
     <string name="cancel" msgid="7401575239009060939">"Kanselleer"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Noodinligting"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Inligting wat jy hier invoer, kan dié help wat in \'n noodgeval eerste reageer. Dit word net op jou toestel geberg en enigiemand kan dit van die noodbeller af lees sonder om jou foon te ontsluit."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Gaan voort"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Geen noodinligting is verskaf nie"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Geen inligting oor die foon se eienaar nie"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"As dit jou foon is, tik op die potloodikoon om inligting by te voeg wat in geval van nood hier gewys sal word"</string>
     <string name="clear_all" msgid="8899013032870561633">"Vee alles uit"</string>
     <string name="clear" msgid="3648880442502887163">"Vee uit"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vee alle inligting en kontakte uit?"</string>

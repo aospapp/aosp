@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
- * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@
 #include <hardware/hardware.h>
 #include <hardware/gralloc.h>
 
+#include <gralloc1-adapter.h>
+
 #include "gralloc_priv.h"
 #include "gr.h"
 #include "alloc_controller.h"
@@ -55,6 +57,27 @@ static IMemAlloc* getAllocator(int flags)
     return memalloc;
 }
 
+static int gralloc_map_metadata(buffer_handle_t handle) {
+    private_handle_t* hnd = (private_handle_t*)handle;
+    hnd->base_metadata = 0;
+    IMemAlloc* memalloc = getAllocator(hnd->flags) ;
+    void *mappedAddress = MAP_FAILED;
+    unsigned int size = 0;
+    if (!(hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)) {
+        mappedAddress = MAP_FAILED;
+        size = ROUND_UP_PAGESIZE(sizeof(MetaData_t));
+        int ret = memalloc->map_buffer(&mappedAddress, size,
+                                       hnd->offset_metadata, hnd->fd_metadata);
+        if(ret || mappedAddress == MAP_FAILED) {
+            ALOGE("Could not mmap metadata for handle %p, fd=%d (%s)",
+                  hnd, hnd->fd_metadata, strerror(errno));
+            return -errno;
+        }
+        hnd->base_metadata = uint64_t(mappedAddress) + hnd->offset_metadata;
+    }
+    return 0;
+}
+
 static int gralloc_map(gralloc_module_t const* module,
                        buffer_handle_t handle)
 {
@@ -68,7 +91,6 @@ static int gralloc_map(gralloc_module_t const* module,
     IMemAlloc* memalloc = getAllocator(hnd->flags) ;
     void *mappedAddress = MAP_FAILED;
     hnd->base = 0;
-    hnd->base_metadata = 0;
 
     // Dont map framebuffer and secure buffers
     if (!(hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER) &&
@@ -83,23 +105,21 @@ static int gralloc_map(gralloc_module_t const* module,
         }
 
         hnd->base = uint64_t(mappedAddress) + hnd->offset;
+    } else {
+        // Cannot map secure buffers or framebuffers, but still need to map
+        // metadata for secure buffers.
+        // If mapping a secure buffers fails, the framework needs to get
+        // an error code.
+        err = -EACCES;
     }
 
     //Allow mapping of metadata for all buffers including secure ones, but not
     //of framebuffer
-    if (!(hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)) {
-        mappedAddress = MAP_FAILED;
-        size = ROUND_UP_PAGESIZE(sizeof(MetaData_t));
-        err = memalloc->map_buffer(&mappedAddress, size,
-                                       hnd->offset_metadata, hnd->fd_metadata);
-        if(err || mappedAddress == MAP_FAILED) {
-            ALOGE("Could not mmap handle %p, fd=%d (%s)",
-                  handle, hnd->fd_metadata, strerror(errno));
-            return -errno;
-        }
-        hnd->base_metadata = uint64_t(mappedAddress) + hnd->offset_metadata;
+    int metadata_err = gralloc_map_metadata(handle);
+    if (!err) {
+        err = metadata_err;
     }
-    return 0;
+    return err;
 }
 
 static int gralloc_unmap(gralloc_module_t const* module,
@@ -153,20 +173,11 @@ int gralloc_register_buffer(gralloc_module_t const* module,
     if (!module || private_handle_t::validate(handle) < 0)
         return -EINVAL;
 
-    /* NOTE: we need to initialize the buffer as not mapped/not locked
-     * because it shouldn't when this function is called the first time
-     * in a new process. Ideally these flags shouldn't be part of the
-     * handle, but instead maintained in the kernel or at least
-     * out-of-line
-     */
-
-    int err = gralloc_map(module, handle);
-    if (err) {
-        ALOGE("%s: gralloc_map failed", __FUNCTION__);
-        return err;
-    }
-
-    return 0;
+    int err =  gralloc_map(module, handle);
+    /* Do not fail register_buffer for secure buffers*/
+    if (err == -EACCES)
+        err = 0;
+    return err;
 }
 
 int gralloc_unregister_buffer(gralloc_module_t const* module,
@@ -289,6 +300,68 @@ int gralloc_unlock(gralloc_module_t const* module,
 }
 
 /*****************************************************************************/
+
+static bool isYUV(private_handle_t* hnd)
+{
+    bool is_yuv;
+
+    switch (hnd->format) {
+        //Semiplanar
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP:
+        case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
+        case HAL_PIXEL_FORMAT_NV12_ENCODEABLE: //Same as YCbCr_420_SP_VENUS
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+        case HAL_PIXEL_FORMAT_YCrCb_422_SP:
+        case HAL_PIXEL_FORMAT_YCrCb_420_SP_ADRENO:
+        case HAL_PIXEL_FORMAT_NV21_ZSL:
+        case HAL_PIXEL_FORMAT_RAW10:
+        case HAL_PIXEL_FORMAT_RAW16:
+        //Planar
+        case HAL_PIXEL_FORMAT_YV12:
+            is_yuv = true;
+        break;
+        //Unsupported formats
+        case HAL_PIXEL_FORMAT_YCbCr_422_I:
+        case HAL_PIXEL_FORMAT_YCrCb_422_I:
+        case HAL_PIXEL_FORMAT_YCbCr_420_SP_TILED:
+        default:
+            is_yuv = false;
+            break;
+    }
+
+    return is_yuv;
+}
+
+static void ycbcr_to_flexible_layout(const struct android_ycbcr* ycbcr,
+        struct android_flex_layout* layout)
+{
+    layout->format = FLEX_FORMAT_YCbCr;
+    layout->num_planes = 3;
+
+    for (uint32_t i = 0; i < layout->num_planes; i++) {
+        layout->planes[i].bits_per_component = 8;
+        layout->planes[i].bits_used = 8;
+        layout->planes[i].h_increment = 1;
+        layout->planes[i].v_increment = 1;
+        layout->planes[i].h_subsampling = 2;
+        layout->planes[i].v_subsampling = 2;
+    }
+
+    layout->planes[0].top_left = (uint8_t*)ycbcr->y;
+    layout->planes[0].component = FLEX_COMPONENT_Y;
+    layout->planes[0].v_increment = (int32_t)ycbcr->ystride;
+
+    layout->planes[1].top_left = (uint8_t*)ycbcr->cb;
+    layout->planes[1].component = FLEX_COMPONENT_Cb;
+    layout->planes[1].h_increment = (int32_t)ycbcr->chroma_step;
+    layout->planes[1].v_increment = (int32_t)ycbcr->cstride;
+
+    layout->planes[2].top_left = (uint8_t*)ycbcr->cr;
+    layout->planes[2].component = FLEX_COMPONENT_Cr;
+    layout->planes[2].h_increment = (int32_t)ycbcr->chroma_step;
+    layout->planes[2].v_increment = (int32_t)ycbcr->cstride;
+}
 
 int gralloc_perform(struct gralloc_module_t const* module,
                     int operation, ... )
@@ -479,6 +552,106 @@ int gralloc_perform(struct gralloc_module_t const* module,
                     res = 0;
                 }
             } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_REAL_MODULE_API_VERSION_MINOR:
+            {
+                auto outMinorVersion = va_arg(args, int*);
+                *outMinorVersion = 1; // GRALLOC_MODULE_API_VERSION_0_1
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_SET_USAGES:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto producerUsage = va_arg(args, int);
+                auto consumerUsage = va_arg(args, int);
+                hnd->producer_usage = producerUsage;
+                hnd->consumer_usage = consumerUsage;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_DIMENSIONS:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outWidth = va_arg(args, int*);
+                auto outHeight = va_arg(args, int*);
+                *outWidth = hnd->original_width;
+                *outHeight = hnd->height;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_FORMAT:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outFormat = va_arg(args, int*);
+                *outFormat = hnd->original_format;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_PRODUCER_USAGE:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outUsage = va_arg(args, int*);
+                *outUsage = hnd->producer_usage;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_CONSUMER_USAGE:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outUsage = va_arg(args, int*);
+                *outUsage = hnd->consumer_usage;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_BACKING_STORE:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outBackingStore = va_arg(args, uint64_t*);
+                *outBackingStore = hnd->backing_store;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_NUM_FLEX_PLANES:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outNumFlexPlanes = va_arg(args, int*);
+
+                (void) hnd;
+                // for simpilicity
+                *outNumFlexPlanes = 4;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_GET_STRIDE:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto outStride = va_arg(args, int*);
+                *outStride = hnd->width;
+            } break;
+
+        case GRALLOC1_ADAPTER_PERFORM_LOCK_FLEX:
+            {
+                auto hnd =  va_arg(args, private_handle_t*);
+                auto producerUsage = va_arg(args, int);
+                auto consumerUsage = va_arg(args, int);
+                auto left = va_arg(args, int);
+                auto top = va_arg(args, int);
+                auto width = va_arg(args, int);
+                auto height = va_arg(args, int);
+                auto outLayout = va_arg(args, android_flex_layout*);
+                // always -1
+                auto acquireFence = va_arg(args, int);
+                (void) acquireFence;
+
+                // TODO lock RGB as a flexible format
+                if (!isYUV(hnd)) {
+                    return -EINVAL;
+                }
+
+                struct android_ycbcr ycbcr;
+                res = gralloc_lock_ycbcr(module, hnd,
+                        producerUsage | consumerUsage,
+                        left, top, width, height, &ycbcr);
+                if (res != 0) {
+                    return res;
+                }
+
+                ycbcr_to_flexible_layout(&ycbcr, outLayout);
+            } break;
+
         default:
             break;
     }

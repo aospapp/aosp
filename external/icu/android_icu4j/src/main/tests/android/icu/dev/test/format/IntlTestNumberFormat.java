@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2011, International Business Machines Corporation and    *
@@ -15,28 +17,24 @@ package android.icu.dev.test.format;
 import java.util.Locale;
 import java.util.Random;
 
+import org.junit.Test;
+
+import android.icu.dev.test.TestFmwk;
 import android.icu.text.DecimalFormat;
 import android.icu.text.NumberFormat;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * This test does round-trip testing (format -> parse -> format -> parse -> etc.) of
  * NumberFormat.
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class IntlTestNumberFormat extends android.icu.dev.test.TestFmwk {
     
     public NumberFormat fNumberFormat;
 
-    public static void main(String[] args) throws Exception {
-        new IntlTestNumberFormat().run(args);
-    }
-    
     /**
      * Internal use
      */
-    public void _testLocale(Locale locale) {
+    private void _testLocale(Locale locale) {
         String localeName = locale + " (" + locale.getDisplayName() + ")";
             
         logln("Number test " + localeName);
@@ -61,6 +59,7 @@ public class IntlTestNumberFormat extends android.icu.dev.test.TestFmwk {
     /**
      * call _testFormat for currency, percent and plain number instances
      */
+    @Test
     public void TestLocale() {
         Locale locale = Locale.getDefault();
         String localeName = locale + " (" + locale.getDisplayName() + ")";
@@ -81,7 +80,7 @@ public class IntlTestNumberFormat extends android.icu.dev.test.TestFmwk {
     /**
      * call tryIt with many variations, called by testLocale
      */
-    public void _testFormat() {
+    private void _testFormat() {
         
         if (fNumberFormat == null){
             errln("**** FAIL: Null format returned by createXxxInstance.");
@@ -246,6 +245,7 @@ public class IntlTestNumberFormat extends android.icu.dev.test.TestFmwk {
     /**
      *  test NumberFormat::getAvailableLocales
      **/
+    @Test
     public void TestAvailableLocales() {
         final Locale[] locales = NumberFormat.getAvailableLocales();
         int count = locales.length;
@@ -268,6 +268,7 @@ public class IntlTestNumberFormat extends android.icu.dev.test.TestFmwk {
     /**
      *  call testLocale for all locales
      **/    
+    @Test
     public void TestMonster() {
         final String SEP = "============================================================\n";
         int count;
@@ -276,7 +277,7 @@ public class IntlTestNumberFormat extends android.icu.dev.test.TestFmwk {
         count = locales.length;
         if (count != 0)
         {
-            if (getInclusion() < 10 && count > 6) {
+            if (TestFmwk.getExhaustiveness() < 10 && count > 6) {
                 count = 6;
                 locales = new Locale[6];
                 locales[0] = allLocales[0];

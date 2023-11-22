@@ -16,8 +16,12 @@
 
 package android.support.v17.internal.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.graphics.Outline;
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewOutlineProvider;
@@ -29,6 +33,8 @@ import android.widget.FrameLayout;
  *
  * @hide
  */
+@RequiresApi(21)
+@RestrictTo(LIBRARY_GROUP)
 public class OutlineOnlyWithChildrenFrameLayout extends FrameLayout {
 
     private ViewOutlineProvider mMagicalOutlineProvider;

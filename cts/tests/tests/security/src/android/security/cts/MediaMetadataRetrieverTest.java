@@ -21,10 +21,12 @@ import android.security.cts.R;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaMetadataRetriever;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.IOException;
 
+@SecurityTest
 public class MediaMetadataRetrieverTest extends AndroidTestCase {
     protected Resources mResources;
     protected MediaMetadataRetriever mRetriever;

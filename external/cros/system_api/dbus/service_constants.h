@@ -10,6 +10,7 @@
 // We use relative includes here to make this compatible with both the
 // Chromium OS and Chromium environment.
 #include "apmanager/dbus-constants.h"
+#include "authpolicy/dbus-constants.h"
 #include "cros-disks/dbus-constants.h"
 #include "cryptohome/dbus-constants.h"
 #include "debugd/dbus-constants.h"
@@ -54,6 +55,18 @@ const char kSignalBurnFinishedName[] = "burn_finished";
 const char kSignalBurnUpdateName[] = "burn_progress_update";
 }  // namespace imageburn
 
+namespace imageloader {
+const char kImageLoaderServiceInterface[] = "org.chromium.ImageLoaderInterface";
+const char kImageLoaderServiceName[] = "org.chromium.ImageLoader";
+const char kImageLoaderServicePath[] = "/org/chromium/ImageLoader";
+// Methods
+const char kRegisterComponent[] = "RegisterComponent";
+const char kLoadComponent[] = "LoadComponent";
+const char kGetComponentVersion[] = "GetComponentVersion";
+// Constants
+const char kBadResult[] = "";
+}  // namespace imageloader
+
 namespace speech_synthesis {
 const char kSpeechSynthesizerInterface[] =
     "org.chromium.SpeechSynthesizerInterface";
@@ -79,7 +92,11 @@ const char kLibCrosServicePath[] = "/org/chromium/LibCrosService";
 const char kLibCrosServiceInterface[] = "org.chromium.LibCrosServiceInterface";
 // Methods
 const char kResolveNetworkProxy[] = "ResolveNetworkProxy";
+// TODO(teravest): Remove this once CheckLiveness is removed from
+// LibCrosService.
 const char kCheckLiveness[] = "CheckLiveness";
+const char kGetKioskAppRequiredPlatforVersion[] =
+    "GetKioskAppRequiredPlatformVersion";
 const char kLockScreen[] = "LockScreen";
 const char kSetDisplayPower[] = "SetDisplayPower";
 const char kSetDisplaySoftwareDimming[] = "SetDisplaySoftwareDimming";
@@ -92,6 +109,27 @@ enum DisplayPowerState {
   DISPLAY_POWER_INTERNAL_OFF_EXTERNAL_ON = 2,
   DISPLAY_POWER_INTERNAL_ON_EXTERNAL_OFF = 3,
 };
+
+const char kNetworkProxyServiceName[] = "org.chromium.NetworkProxyService";
+const char kNetworkProxyServicePath[] = "/org/chromium/NetworkProxyService";
+const char kNetworkProxyServiceInterface[] =
+    "org.chromium.NetworkProxyServiceInterface";
+const char kNetworkProxyServiceResolveProxyMethod[] = "ResolveProxy";
+
+const char kLivenessServiceName[] = "org.chromium.LivenessService";
+const char kLivenessServicePath[] = "/org/chromium/LivenessService";
+const char kLivenessServiceInterface[] =
+    "org.chromium.LivenessServiceInterface";
+const char kLivenessServiceCheckLivenessMethod[] = "CheckLiveness";
+
+const char kKioskAppServiceName[] = "org.chromium.KioskAppService";
+const char kKioskAppServicePath[] = "/org/chromium/KioskAppService";
+const char kKioskAppServiceInterface[] =
+    "org.chromium.KioskAppServiceInterface";
+// Methods
+const char kKioskAppServiceGetRequiredPlatformVersionMethod[] =
+    "GetRequiredPlatformVersion";
+
 }  // namespace chromeos
 
 namespace cromo {
@@ -194,6 +232,8 @@ const char kStartDiscovery[] = "StartDiscovery";
 const char kSetDiscoveryFilter[] = "SetDiscoveryFilter";
 const char kStopDiscovery[] = "StopDiscovery";
 const char kRemoveDevice[] = "RemoveDevice";
+const char kCreateServiceRecord[] = "CreateServiceRecord";
+const char kRemoveServiceRecord[] = "RemoveServiceRecord";
 
 // Bluetooth Adapter properties.
 const char kAddressProperty[] = "Address";
@@ -214,6 +254,8 @@ const char kErrorNotReady[] = "org.bluez.Error.NotReady";
 const char kErrorFailed[] = "org.bluez.Error.Failed";
 const char kErrorNotAuthorized[] = "org.bluez.Error.NotAuthorized";
 const char kErrorInvalidArguments[] = "org.bluez.Error.InvalidArguments";
+const char kErrorAlreadyExists[] = "org.bluez.Error.AlreadyExists";
+const char kErrorDoesNotExist[] = "org.bluez.Error.DoesNotExist";
 
 // Bluetooth Adapter parameters supplied to SetDiscoveryFilter request.
 const char kDiscoveryFilterParameterUUIDs[] = "UUIDs";
@@ -279,16 +321,14 @@ const char kConnectProfile[] = "ConnectProfile";
 const char kDisconnectProfile[] = "DisconnectProfile";
 const char kPair[] = "Pair";
 const char kCancelPairing[] = "CancelPairing";
-// TODO(tengs): Remove deprecated constants after they are removed in the Chrome
-// codebase. (See crbug.com/430665).
-const char kStartConnectionMonitor[] = "StartConnectionMonitor";  // DEPRECATED
-const char kStopConnectionMonitor[] = "StopConnectionMonitor";    // DEPRECATED
+const char kGetServiceRecords[] = "GetServiceRecords";
 
 // Bluetooth Device properties.
 const char kAddressProperty[] = "Address";
 const char kNameProperty[] = "Name";
 const char kIconProperty[] = "Icon";
 const char kClassProperty[] = "Class";
+const char kTypeProperty[] = "Type";
 const char kAppearanceProperty[] = "Appearance";
 const char kUUIDsProperty[] = "UUIDs";
 const char kPairedProperty[] = "Paired";
@@ -303,12 +343,9 @@ const char kRSSIProperty[] = "RSSI";
 const char kTxPowerProperty[] = "TxPower";
 const char kManufacturerDataProperty[] = "ManufacturerData";
 const char kServiceDataProperty[] = "ServiceData";
-const char kGattServicesProperty[] = "GattServices";
-// TODO(tengs): Remove deprecated constants after they are removed in the Chrome
-// codebase. (See crbug.com/430665).
-const char kConnectionRSSI[] = "ConnectionRSSI";             // DEPRECATED
-const char kConnectionTXPower[] = "ConnectionTXPower";       // DEPRECATED
-const char kConnectionTXPowerMax[] = "ConnectionTXPowerMax"; // DEPRECATED
+const char kGattServicesProperty[] = "GattServices";         // DEPRECATED
+const char kServicesResolvedProperty[] = "ServicesResolved";
+const char kAdvertisingDataFlagsProperty[] = "AdvertisingFlags";
 
 // Bluetooth Device errors.
 const char kErrorNotReady[] = "org.bluez.Error.NotReady";
@@ -349,6 +386,10 @@ const char kStopNotify[] = "StopNotify";
 // Bluetooth GATT Characteristic signals.
 const char kValueUpdatedSignal[] = "ValueUpdated";
 
+// Possible keys for option dict used in ReadValue and WriteValue.
+const char kOptionOffset[] = "offset";
+const char kOptionDevice[] = "device";
+
 // Bluetooth GATT Characteristic properties.
 const char kUUIDProperty[] = "UUID";
 const char kServiceProperty[] = "Service";
@@ -357,7 +398,7 @@ const char kFlagsProperty[] = "Flags";
 const char kNotifyingProperty[] = "Notifying";
 const char kDescriptorsProperty[] = "Descriptors";
 
-// Possible values for the "Flags" property.
+// Possible values for Bluetooth GATT Characteristic "Flags" property.
 const char kFlagBroadcast[] = "broadcast";
 const char kFlagRead[] = "read";
 const char kFlagWriteWithoutResponse[] = "write-without-response";
@@ -368,6 +409,10 @@ const char kFlagAuthenticatedSignedWrites[] = "authenticated-signed-writes";
 const char kFlagExtendedProperties[] = "extended-properties";
 const char kFlagReliableWrite[] = "reliable-write";
 const char kFlagWritableAuxiliaries[] = "writable-auxiliaries";
+const char kFlagEncryptRead[] = "encrypt-read";
+const char kFlagEncryptWrite[] = "encrypt-write";
+const char kFlagEncryptAuthenticatedRead[] = "encrypt-authenticated-read";
+const char kFlagEncryptAuthenticatedWrite[] = "encrypt-authenticated-write";
 }  // namespace bluetooth_gatt_characteristic
 
 namespace bluetooth_gatt_descriptor {
@@ -380,10 +425,23 @@ const char kBluetoothGattDescriptorInterface[] = "org.bluez.GattDescriptor1";
 const char kReadValue[] = "ReadValue";
 const char kWriteValue[] = "WriteValue";
 
+// Possible keys for option dict used in ReadValue and WriteValue.
+const char kOptionOffset[] = "offset";
+const char kOptionDevice[] = "device";
+
 // Bluetooth GATT Descriptor properties.
 const char kUUIDProperty[] = "UUID";
 const char kCharacteristicProperty[] = "Characteristic";
 const char kValueProperty[] = "Value";
+const char kFlagsProperty[] = "Flags";
+
+// Possible values for Bluetooth GATT Descriptor "Flags" property.
+const char kFlagRead[] = "read";
+const char kFlagWrite[] = "write";
+const char kFlagEncryptRead[] = "encrypt-read";
+const char kFlagEncryptWrite[] = "encrypt-write";
+const char kFlagEncryptAuthenticatedRead[] = "encrypt-authenticated-read";
+const char kFlagEncryptAuthenticatedWrite[] = "encrypt-authenticated-write";
 }  // namespace bluetooth_gatt_descriptor
 
 namespace bluetooth_gatt_manager {
@@ -392,6 +450,8 @@ const char kBluetoothGattManagerServiceName[] = "org.bluez";
 const char kBluetoothGattManagerInterface[] = "org.bluez.GattManager1";
 
 // Bluetooth GATT Manager methods.
+const char kRegisterApplication[] = "RegisterApplication";
+const char kUnregisterApplication[] = "UnregisterApplication";
 const char kRegisterService[] = "RegisterService";
 const char kUnregisterService[] = "UnregisterService";
 
@@ -589,6 +649,7 @@ const char kBluetoothAdvertisingManagerInterface[] =
 // Bluetooth LE Advertising Manager methods.
 const char kRegisterAdvertisement[] = "RegisterAdvertisement";
 const char kUnregisterAdvertisement[] = "UnregisterAdvertisement";
+const char kSetAdvertisingIntervals[] = "SetAdvertisingIntervals";
 
 // Bluetooth LE Advertising Manager errors.
 const char kErrorAlreadyExists[] = "org.bluez.Error.AlreadyExists";
@@ -826,6 +887,7 @@ const char kSystemClockServiceName[] = "org.torproject.tlsdate";
 // Methods.
 const char kSystemClockCanSet[] = "CanSetTime";
 const char kSystemClockSet[] = "SetTime";
+const char kSystemLastSyncInfo[] = "LastSyncInfo";
 
 // Signals.
 const char kSystemClockUpdated[] = "TimeUpdated";
@@ -857,6 +919,7 @@ const char kRemoveActiveInputNode[] = "RemoveActiveInputNode";
 const char kGetNumberOfActiveStreams[] = "GetNumberOfActiveStreams";
 const char kGetNumberOfActiveInputStreams[] = "GetNumberOfActiveInputStreams";
 const char kGetNumberOfActiveOutputStreams[] = "GetNumberOfActiveOutputStreams";
+const char kSetGlobalOutputChannelRemix[] = "SetGlobalOutputChannelRemix";
 
 // Names of properties returned by GetNodes()
 const char kIsInputProperty[] = "IsInput";
@@ -868,10 +931,12 @@ const char kActiveProperty[] = "Active";
 const char kPluggedTimeProperty[] = "PluggedTime";
 const char kMicPositionsProperty[] = "MicPositions";
 const char kStableDeviceIdProperty[] = "StableDeviceId";
+const char kStableDeviceIdNewProperty[] = "StableDeviceIdNew";
 
 // Signals.
 const char kOutputVolumeChanged[] = "OutputVolumeChanged";
 const char kOutputMuteChanged[] = "OutputMuteChanged";
+const char kOutputNodeVolumeChanged[] = "OutputNodeVolumeChanged";
 const char kNodeLeftRightSwappedChanged[] = "NodeLeftRightSwappedChanged";
 const char kInputGainChanged[] = "InputGainChanged";
 const char kInputMuteChanged[] = "InputMuteChanged";
@@ -915,5 +980,55 @@ const char kGenerateEcP256KeyPairMethod[] = "GenerateEcP256KeyPair";
 const char kCreateSecureMessageMethod[] = "CreateSecureMessage";
 const char kUnwrapSecureMessageMethod[] = "UnwrapSecureMessage";
 }  // namespace easy_unlock
+
+namespace biod {
+const char kBiodServicePath[] = "/org/chromium/BiometricsDaemon";
+const char kBiodServiceName[] = "org.chromium.BiometricsDaemon";
+
+// Interfaces for objects exported by biod
+const char kBiometricsManagerInterface[] =
+    "org.chromium.BiometricsDaemon.BiometricsManager";
+const char kAuthSessionInterface[] =
+    "org.chromium.BiometricsDaemon.AuthSession";
+const char kEnrollSessionInterface[] =
+    "org.chromium.BiometricsDaemon.EnrollSession";
+const char kRecordInterface[] = "org.chromium.BiometricsDaemon.Record";
+
+// Methods
+const char kBiometricsManagerStartEnrollSessionMethod[] = "StartEnrollSession";
+const char kBiometricsManagerGetRecordsForUserMethod[] = "GetRecordsForUser";
+const char kBiometricsManagerDestroyAllRecordsMethod[] = "DestroyAllRecords";
+const char kBiometricsManagerStartAuthSessionMethod[] = "StartAuthSession";
+const char kAuthSessionEndMethod[] = "End";
+const char kEnrollSessionCancelMethod[] = "Cancel";
+const char kRecordRemoveMethod[] = "Remove";
+const char kRecordSetLabelMethod[] = "SetLabel";
+
+// Signals
+const char kBiometricsManagerEnrollScanDoneSignal[] = "EnrollScanDone";
+const char kBiometricsManagerAuthScanDoneSignal[] = "AuthScanDone";
+const char kBiometricsManagerSessionFailedSignal[] = "SessionFailed";
+
+// Properties
+const char kBiometricsManagerBiometricTypeProperty[] = "Type";
+const char kRecordLabelProperty[] = "Label";
+
+// Values
+enum BiometricType {
+  BIOMETRIC_TYPE_UNKNOWN = 0,
+  BIOMETRIC_TYPE_FINGERPRINT = 1,
+  BIOMETRIC_TYPE_MAX,
+};
+enum ScanResult {
+  SCAN_RESULT_SUCCESS = 0,
+  SCAN_RESULT_PARTIAL = 1,
+  SCAN_RESULT_INSUFFICIENT = 2,
+  SCAN_RESULT_SENSOR_DIRTY = 3,
+  SCAN_RESULT_TOO_SLOW = 4,
+  SCAN_RESULT_TOO_FAST = 5,
+  SCAN_RESULT_IMMOBILE = 6,
+  SCAN_RESULT_MAX,
+};
+}  // namespace biod
 
 #endif  // SYSTEM_API_DBUS_SERVICE_CONSTANTS_H_

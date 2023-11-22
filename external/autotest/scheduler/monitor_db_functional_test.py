@@ -7,7 +7,7 @@ from autotest_lib.database import database_connection
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils, models
 from autotest_lib.frontend.afe import model_attributes
-from autotest_lib.scheduler import drone_manager, email_manager, host_scheduler
+from autotest_lib.scheduler import drone_manager, email_manager
 from autotest_lib.scheduler import monitor_db, scheduler_models
 from autotest_lib.scheduler import scheduler_config
 from autotest_lib.scheduler import scheduler_lib
@@ -24,27 +24,6 @@ class NullMethodObject(object):
 
         for method_name in self._NULL_METHODS:
             setattr(self, method_name, null_method)
-
-class MockGlobalConfig(object):
-    def __init__(self):
-        self._config_info = {}
-
-
-    def set_config_value(self, section, key, value):
-        self._config_info[(section, key)] = value
-
-
-    def get_config_value(self, section, key, type=str,
-                         default=None, allow_blank=False):
-        identifier = (section, key)
-        if identifier not in self._config_info:
-            return default
-        return self._config_info[identifier]
-
-
-    def parse_config_file(self):
-        pass
-
 
 # the SpecialTask names here must match the suffixes used on the SpecialTask
 # results directories
@@ -146,6 +125,14 @@ class MockDroneManager(NullMethodObject):
         pidfile_id = self.pidfile_from_path(working_directory, pidfile_name)
         self._set_pidfile_exit_status(pidfile_id, 0)
 
+    def finish_active_process_on_host(self, host_id):
+        match = 'hosts/host%d/' % host_id
+        for pidfile_id in self.nonfinished_pidfile_ids():
+            if pidfile_id._working_directory.startswith(match):
+                self._set_pidfile_exit_status(pidfile_id, 0)
+                break
+        else:
+          raise KeyError('No active process matched %s' % match)
 
     def _set_pidfile_exit_status(self, pidfile_id, exit_status):
         assert pidfile_id is not None
@@ -343,7 +330,7 @@ class SchedulerFunctionalTest(unittest.TestCase,
 
 
     def _set_stubs(self):
-        self.mock_config = MockGlobalConfig()
+        self.mock_config = global_config.FakeGlobalConfig()
         self.god.stub_with(global_config, 'global_config', self.mock_config)
 
         self.mock_drone_manager = MockDroneManager()
@@ -385,6 +372,8 @@ class SchedulerFunctionalTest(unittest.TestCase,
         self.mock_config.set_config_value('SCHEDULER', 'max_repair_limit', 1)
         self.mock_config.set_config_value(
                 'SCHEDULER', 'secs_to_wait_for_atomic_group_hosts', 600)
+        self.mock_config.set_config_value(
+                'SCHEDULER', 'inline_host_acquisition', True)
         scheduler_config.config.read_config()
 
 
@@ -813,19 +802,6 @@ class SchedulerFunctionalTest(unittest.TestCase,
                                                 _PidfileType.VERIFY)
 
 
-    def test_recover_pending_hqes_with_group(self):
-        # recover a group of HQEs that are in Pending, in the same group (e.g.,
-        # in a job with atomic hosts)
-        job = self._create_job(hosts=[1,2], atomic_group=1)
-        job.save()
-
-        job.hostqueueentry_set.all().update(status=HqeStatus.PENDING)
-
-        self._initialize_test()
-        for queue_entry in job.hostqueueentry_set.all():
-            self.assertEquals(queue_entry.status, HqeStatus.STARTING)
-
-
     def test_recover_parsing(self):
         self._initialize_test()
         job, queue_entry = self._make_job_and_queue_entry()
@@ -1150,6 +1126,33 @@ class SchedulerFunctionalTestNoArchiving(SchedulerFunctionalTest):
         self.mock_drone_manager.finish_process(_PidfileType.PARSE)
         self._run_dispatcher()
         self._check_entry_status(entry, HqeStatus.COMPLETED)
+
+    def test_synchronous_with_reset(self):
+        # For crbug/621257.
+        job = self._create_job(hosts=[1, 2])
+        job.synch_count = 2
+        job.reboot_before = model_attributes.RebootBefore.ALWAYS
+        job.save()
+
+        hqe1 = job.hostqueueentry_set.get(host__hostname='host1')
+        hqe2 = job.hostqueueentry_set.get(host__hostname='host2')
+
+        self._run_dispatcher()
+
+        self._check_statuses(hqe1, HqeStatus.RESETTING, HostStatus.RESETTING)
+        self._check_statuses(hqe2, HqeStatus.RESETTING, HostStatus.RESETTING)
+
+        self.mock_drone_manager.finish_active_process_on_host(1)
+        self._run_dispatcher()
+
+        self._check_statuses(hqe1, HqeStatus.PENDING, HostStatus.PENDING)
+        self._check_statuses(hqe2, HqeStatus.RESETTING, HostStatus.RESETTING)
+
+        self.mock_drone_manager.finish_active_process_on_host(2)
+        self._run_dispatcher()
+
+        self._check_statuses(hqe1, HqeStatus.RUNNING, HostStatus.RUNNING)
+        self._check_statuses(hqe2, HqeStatus.RUNNING, HostStatus.RUNNING)
 
 
 if __name__ == '__main__':

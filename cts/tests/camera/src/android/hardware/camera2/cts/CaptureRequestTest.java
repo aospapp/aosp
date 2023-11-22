@@ -461,6 +461,9 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         }
     }
 
+    /**
+     * Test edge mode control for Fps not exceeding 30.
+     */
     public void testEdgeModeControl() throws Exception {
         for (String id : mCameraIds) {
             try {
@@ -471,11 +474,34 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                     continue;
                 }
 
-                edgeModesTestByCamera();
+                List<Range<Integer>> fpsRanges = getTargetFpsRangesUpTo30(mStaticInfo);
+                edgeModesTestByCamera(fpsRanges);
             } finally {
                 closeDevice();
             }
         }
+    }
+
+    /**
+     * Test edge mode control for Fps greater than 30.
+     */
+    public void testEdgeModeControlFastFps() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                openDevice(id);
+                if (!mStaticInfo.isEdgeModeControlSupported()) {
+                    Log.i(TAG, "Camera " + id +
+                            " doesn't support EDGE_MODE controls, skipping test");
+                    continue;
+                }
+
+                List<Range<Integer>> fpsRanges = getTargetFpsRangesGreaterThan30(mStaticInfo);
+                edgeModesTestByCamera(fpsRanges);
+            } finally {
+                closeDevice();
+            }
+        }
+
     }
 
     /**
@@ -504,6 +530,9 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         }
     }
 
+    /**
+     * Test noise reduction mode for fps ranges not exceeding 30
+     */
     public void testNoiseReductionModeControl() throws Exception {
         for (String id : mCameraIds) {
             try {
@@ -514,7 +543,29 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                     continue;
                 }
 
-                noiseReductionModeTestByCamera();
+                List<Range<Integer>> fpsRanges = getTargetFpsRangesUpTo30(mStaticInfo);
+                noiseReductionModeTestByCamera(fpsRanges);
+            } finally {
+                closeDevice();
+            }
+        }
+    }
+
+    /**
+     * Test noise reduction mode for fps ranges greater than 30
+     */
+    public void testNoiseReductionModeControlFastFps() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                openDevice(id);
+                if (!mStaticInfo.isNoiseReductionModeControlSupported()) {
+                    Log.i(TAG, "Camera " + id +
+                            " doesn't support noise reduction mode, skipping test");
+                    continue;
+                }
+
+                List<Range<Integer>> fpsRanges = getTargetFpsRangesGreaterThan30(mStaticInfo);
+                noiseReductionModeTestByCamera(fpsRanges);
             } finally {
                 closeDevice();
             }
@@ -824,7 +875,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         }
     }
 
-    private void noiseReductionModeTestByCamera() throws Exception {
+    private void noiseReductionModeTestByCamera(List<Range<Integer>> fpsRanges) throws Exception {
         Size maxPrevSize = mOrderedPreviewSizes.get(0);
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
@@ -836,7 +887,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             // Test that OFF and FAST mode should not slow down the frame rate.
             if (mode == CaptureRequest.NOISE_REDUCTION_MODE_OFF ||
                     mode == CaptureRequest.NOISE_REDUCTION_MODE_FAST) {
-                verifyFpsNotSlowDown(requestBuilder, NUM_FRAMES_VERIFIED);
+                verifyFpsNotSlowDown(requestBuilder, NUM_FRAMES_VERIFIED, fpsRanges);
             }
 
             SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
@@ -1079,9 +1130,9 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     }
 
     /**
-     * Verify edge mode control results.
+     * Verify edge mode control results for fpsRanges
      */
-    private void edgeModesTestByCamera() throws Exception {
+    private void edgeModesTestByCamera(List<Range<Integer>> fpsRanges) throws Exception {
         Size maxPrevSize = mOrderedPreviewSizes.get(0);
         int[] edgeModes = mStaticInfo.getAvailableEdgeModesChecked();
         CaptureRequest.Builder requestBuilder =
@@ -1093,7 +1144,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             // Test that OFF and FAST mode should not slow down the frame rate.
             if (mode == CaptureRequest.EDGE_MODE_OFF ||
                     mode == CaptureRequest.EDGE_MODE_FAST) {
-                verifyFpsNotSlowDown(requestBuilder, NUM_FRAMES_VERIFIED);
+                verifyFpsNotSlowDown(requestBuilder, NUM_FRAMES_VERIFIED, fpsRanges);
             }
 
             SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
@@ -2075,16 +2126,35 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private void digitalZoomTestByCamera(Size previewSize) throws Exception {
         final int ZOOM_STEPS = 15;
         final PointF[] TEST_ZOOM_CENTERS;
+        final float maxZoom = mStaticInfo.getAvailableMaxDigitalZoomChecked();
+        final float ZOOM_ERROR_MARGIN = 0.01f;
+        if (Math.abs(maxZoom - 1.0f) < ZOOM_ERROR_MARGIN) {
+            // It doesn't make much sense to test the zoom if the device effectively supports
+            // no zoom.
+            return;
+        }
 
         final int croppingType = mStaticInfo.getScalerCroppingTypeChecked();
-        if (croppingType ==
-                CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM) {
+        if (croppingType == CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM) {
+            // Set the four corners in a way that the minimally allowed zoom factor is 2x.
+            float normalizedLeft = 0.25f;
+            float normalizedTop = 0.25f;
+            float normalizedRight = 0.75f;
+            float normalizedBottom = 0.75f;
+            // If the max supported zoom is too small, make sure we at least test the max
+            // Zoom is tested for the four corners.
+            if (maxZoom < 2.0f) {
+                normalizedLeft = 0.5f / maxZoom;
+                normalizedTop = 0.5f / maxZoom;
+                normalizedRight = 1.0f - normalizedLeft;
+                normalizedBottom = 1.0f - normalizedTop;
+            }
             TEST_ZOOM_CENTERS = new PointF[] {
                 new PointF(0.5f, 0.5f),   // Center point
-                new PointF(0.25f, 0.25f), // top left corner zoom, minimal zoom: 2x
-                new PointF(0.75f, 0.25f), // top right corner zoom, minimal zoom: 2x
-                new PointF(0.25f, 0.75f), // bottom left corner zoom, minimal zoom: 2x
-                new PointF(0.75f, 0.75f), // bottom right corner zoom, minimal zoom: 2x
+                new PointF(normalizedLeft, normalizedTop),     // top left corner zoom
+                new PointF(normalizedRight, normalizedTop),    // top right corner zoom
+                new PointF(normalizedLeft, normalizedBottom),  // bottom left corner zoom
+                new PointF(normalizedRight, normalizedBottom), // bottom right corner zoom
             };
 
             if (VERBOSE) {
@@ -2101,7 +2171,6 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             }
         }
 
-        final float maxZoom = mStaticInfo.getAvailableMaxDigitalZoomChecked();
         final Rect activeArraySize = mStaticInfo.getActiveArraySizeChecked();
         Rect[] cropRegions = new Rect[ZOOM_STEPS];
         MeteringRectangle[][] expectRegions = new MeteringRectangle[ZOOM_STEPS][];
@@ -2539,9 +2608,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
      *            these controls must be set to some values such that the frame
      *            rate is not slow down.
      * @param numFramesVerified The number of frames to be verified
+     * @param fpsRanges The fps ranges to be verified
      */
     private void verifyFpsNotSlowDown(CaptureRequest.Builder requestBuilder,
-            int numFramesVerified)  throws Exception {
+            int numFramesVerified, List<Range<Integer>> fpsRanges )  throws Exception {
         boolean frameDurationAvailable = true;
         // Allow a few frames for AE to settle on target FPS range
         final int NUM_FRAME_TO_SKIP = 6;
@@ -2552,13 +2622,12 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             frameDurationErrorMargin = 0.015f;
         }
 
-        Range<Integer>[] fpsRanges = getDescendingTargetFpsRanges(mStaticInfo);
         boolean antiBandingOffIsSupported = mStaticInfo.isAntiBandingOffModeSupported();
         Range<Integer> fpsRange;
         SimpleCaptureCallback resultListener;
 
-        for (int i = 0; i < fpsRanges.length; i += 1) {
-            fpsRange = fpsRanges[i];
+        for (int i = 0; i < fpsRanges.size(); i += 1) {
+            fpsRange = fpsRanges.get(i);
             Size previewSz = getMaxPreviewSizeForFpsRange(fpsRange);
             // If unable to find a preview size, then log the failure, and skip this run.
             if (previewSz == null) {
@@ -2622,7 +2691,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             }
         }
 
-        mSession.stopRepeating();
+        stopPreview();
     }
 
     /**

@@ -259,8 +259,12 @@ static VAStatus vsp_VP8_CreateContext(
 out:
     vsp_VP8_DestroyContext(obj_context);
 
-    if (ctx)
+    if (ctx) {
+        if(ctx->context_buf != NULL)
+            free(ctx->context_buf);
         free(ctx);
+        ctx = NULL;
+    }
 
     return vaStatus;
 }

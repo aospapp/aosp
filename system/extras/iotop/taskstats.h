@@ -25,7 +25,7 @@ struct taskstats;
 
 class TaskStatistics {
 public:
-  TaskStatistics(const taskstats&);
+  explicit TaskStatistics(const taskstats&);
   TaskStatistics() = default;
   TaskStatistics(const TaskStatistics&) = default;
   void AddPidToTgid(const TaskStatistics&);

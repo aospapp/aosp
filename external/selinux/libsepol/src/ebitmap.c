@@ -394,6 +394,10 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 		     e->highbit, MAPSIZE);
 		goto bad;
 	}
+
+	if (e->highbit && !count)
+		goto bad;
+
 	l = NULL;
 	for (i = 0; i < count; i++) {
 		rc = next_entry(buf, fp, sizeof(uint32_t));
@@ -448,6 +452,12 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 			e->node = n;
 
 		l = n;
+	}
+	if (count && l->startbit + MAPSIZE != e->highbit) {
+		printf
+		    ("security: ebitmap: hight bit %u has not the expected value %zu\n",
+		     e->highbit, l->startbit + MAPSIZE);
+		goto bad;
 	}
 
       ok:

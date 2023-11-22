@@ -16,7 +16,10 @@
 
 package android.graphics.drawable.shapes.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -27,15 +30,22 @@ import android.graphics.Paint.Style;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.shapes.RoundRectShape;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class RoundRectShapeTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RoundRectShapeTest {
     private static final int TEST_WIDTH  = 100;
     private static final int TEST_HEIGHT = 200;
 
     private static final int TEST_COLOR_1 = 0xFF00FF00;
     private static final int TEST_COLOR_2 = 0xFFFF0000;
 
+    @Test
     public void testConstructor() {
         new RoundRectShape(new float[8], new RectF(), new float[8]);
 
@@ -45,21 +55,21 @@ public class RoundRectShapeTest extends TestCase {
 
         new RoundRectShape(new float[8], new RectF(), null);
 
-        try {
-            new RoundRectShape(new float[7], new RectF(), new float[8]);
-            fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-        }
-
         new RoundRectShape(null, new RectF(), new float[8]);
-
-        try {
-            new RoundRectShape(new float[8], new RectF(), new float[7]);
-            fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-        }
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testConstructorTooFewOuterRadii() {
+        new RoundRectShape(new float[7], new RectF(), new float[8]);
+    }
+
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testConstructorTooFewInnerRadii() {
+        new RoundRectShape(new float[8], new RectF(), new float[7]);
+    }
+
+    @Test
     public void testDraw() {
         float[] outerR = new float[] { 12, 12, 0, 0, 0, 0, 0, 0 };
         RectF   inset = new RectF(6, 6, 6, 6);
@@ -82,19 +92,20 @@ public class RoundRectShapeTest extends TestCase {
         assertEquals(TEST_COLOR_2, bitmap.getPixel(TEST_WIDTH / 2, 0));
     }
 
+    @Test
     public void testClone() throws CloneNotSupportedException {
         RoundRectShape roundRectShape = new RoundRectShape(new float[8], new RectF(), new float[8]);
         roundRectShape.resize(100f, 200f);
         RoundRectShape clonedShape = roundRectShape.clone();
-        assertEquals(100f, roundRectShape.getWidth());
-        assertEquals(200f, roundRectShape.getHeight());
+        assertEquals(100f, roundRectShape.getWidth(), 0.0f);
+        assertEquals(200f, roundRectShape.getHeight(), 0.0f);
 
         assertNotSame(roundRectShape, clonedShape);
-        assertEquals(roundRectShape.getWidth(), clonedShape.getWidth());
-        assertEquals(roundRectShape.getHeight(), clonedShape.getHeight());
+        assertEquals(roundRectShape.getWidth(), clonedShape.getWidth(), 0.0f);
+        assertEquals(roundRectShape.getHeight(), clonedShape.getHeight(), 0.0f);
     }
 
-    @SmallTest
+    @Test
     public void testGetOutline() {
         Outline outline = new Outline();
         Rect rect = new Rect();
@@ -110,7 +121,7 @@ public class RoundRectShapeTest extends TestCase {
         shape.resize(100, 100);
         shape.getOutline(outline);
         assertFalse(outline.isEmpty());
-        assertEquals(0.0f, outline.getRadius());
+        assertEquals(0.0f, outline.getRadius(), 0.0f);
         assertTrue(outline.getRect(rect));
         assertEquals(0, rect.left);
         assertEquals(0, rect.top);

@@ -16,48 +16,81 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-
-import android.test.AndroidTestCase;
-import android.util.AttributeSet;
-import android.util.Xml;
+import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.ImageButton;
+import android.widget.cts.util.TestUtils;
 
-public class ImageButtonTest extends AndroidTestCase {
-    public void testConstructor() {
-        XmlPullParser parser = getContext().getResources().getXml(R.layout.imagebutton_test);
-        AttributeSet attrs = Xml.asAttributeSet(parser);
-        assertNotNull(attrs);
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-        new ImageButton(getContext());
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ImageButtonTest {
+    private Activity mActivity;
+    private ImageButton mImageButton;
 
-        new ImageButton(getContext(), attrs);
+    @Rule
+    public ActivityTestRule<ImageButtonCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ImageButtonCtsActivity.class);
 
-        new ImageButton(getContext(), attrs, 0);
-
-        try {
-            new ImageButton(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            new ImageButton(null, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            new ImageButton(null, null, -1);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mImageButton = (ImageButton) mActivity.findViewById(R.id.image_button);
     }
 
-    public void testOnSetAlpha() {
-        // Do not test, it's controlled by View. Implementation details.
+    @Test
+    public void testConstructor() {
+        new ImageButton(mActivity);
+        new ImageButton(mActivity, null);
+        new ImageButton(mActivity, null, android.R.attr.imageButtonStyle);
+        new ImageButton(mActivity, null, 0, android.R.style.Widget_DeviceDefault_ImageButton);
+        new ImageButton(mActivity, null, 0, android.R.style.Widget_DeviceDefault_Light_ImageButton);
+        new ImageButton(mActivity, null, 0, android.R.style.Widget_Material_ImageButton);
+        new ImageButton(mActivity, null, 0, android.R.style.Widget_Material_Light_ImageButton);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext1() {
+        new ImageButton(null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext2() {
+        new ImageButton(null, null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext3() {
+        new ImageButton(null, null, -1);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testImageSource() {
+        Drawable imageButtonDrawable = mImageButton.getDrawable();
+        TestUtils.assertAllPixelsOfColor("Default source is red", imageButtonDrawable,
+                imageButtonDrawable.getIntrinsicWidth(), imageButtonDrawable.getIntrinsicHeight(),
+                true, Color.RED, 1, false);
+
+        mImageButton.setImageResource(R.drawable.icon_green);
+        imageButtonDrawable = mImageButton.getDrawable();
+        TestUtils.assertAllPixelsOfColor("New source is green", imageButtonDrawable,
+                imageButtonDrawable.getIntrinsicWidth(), imageButtonDrawable.getIntrinsicHeight(),
+                true, Color.GREEN, 1, false);
+
+        mImageButton.setImageDrawable(mActivity.getDrawable(R.drawable.icon_yellow));
+        imageButtonDrawable = mImageButton.getDrawable();
+        TestUtils.assertAllPixelsOfColor("New source is yellow", imageButtonDrawable,
+                imageButtonDrawable.getIntrinsicWidth(), imageButtonDrawable.getIntrinsicHeight(),
+                true, Color.YELLOW, 1, false);
     }
 }

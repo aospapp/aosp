@@ -3,7 +3,6 @@ package foo.bar.printservice;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
 import android.print.PageRange;
 import android.print.PrintAttributes;
 import android.print.PrintAttributes.MediaSize;
@@ -23,9 +22,9 @@ public class CustomPrintOptionsActivity extends Activity {
     public void onResume() {
         super.onResume();
 
-        PrintJobInfo printJobInfo = (PrintJobInfo) getIntent().getParcelableExtra(
+        PrintJobInfo printJobInfo = getIntent().getParcelableExtra(
                 PrintService.EXTRA_PRINT_JOB_INFO);
-        PrinterInfo printerInfo = (PrinterInfo) getIntent().getParcelableExtra(
+        PrinterInfo printerInfo = getIntent().getParcelableExtra(
                 "android.intent.extra.print.EXTRA_PRINTER_INFO");
 
         PrinterCapabilitiesInfo capabilities = printerInfo.getCapabilities();

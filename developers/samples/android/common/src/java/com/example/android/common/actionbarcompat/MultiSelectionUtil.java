@@ -17,7 +17,7 @@
 package com.example.android.common.actionbarcompat;
 
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.util.Pair;
 import android.util.SparseBooleanArray;
@@ -33,7 +33,7 @@ import java.util.HashSet;
 
 /**
  * Utilities for handling multiple selection in list views. Contains functionality similar to {@link
- * AbsListView#CHOICE_MODE_MULTIPLE_MODAL} which works with {@link ActionBarActivity} and
+ * AbsListView#CHOICE_MODE_MULTIPLE_MODAL} which works with {@link AppCompatActivity} and
  * backward-compatible action bars.
  */
 public class MultiSelectionUtil {
@@ -48,7 +48,7 @@ public class MultiSelectionUtil {
      * @return the attached Controller instance.
      */
     public static Controller attachMultiSelectionController(final ListView listView,
-            final ActionBarActivity activity, final MultiChoiceModeListener listener) {
+            final AppCompatActivity activity, final MultiChoiceModeListener listener) {
         return new Controller(listView, activity, listener);
     }
 
@@ -63,7 +63,7 @@ public class MultiSelectionUtil {
     public static class Controller {
 
         private final ListView mListView;
-        private final ActionBarActivity mActivity;
+        private final AppCompatActivity mActivity;
         private final MultiChoiceModeListener mListener;
         private final Callbacks mCallbacks;
 
@@ -83,7 +83,7 @@ public class MultiSelectionUtil {
             }
         };
 
-        private Controller(ListView listView, ActionBarActivity activity,
+        private Controller(ListView listView, AppCompatActivity activity,
                 MultiChoiceModeListener listener) {
             mListView = listView;
             mActivity = activity;
@@ -105,7 +105,7 @@ public class MultiSelectionUtil {
         }
 
         /**
-         * This method should be called from your {@link ActionBarActivity} or
+         * This method should be called from your {@link AppCompatActivity} or
          * {@link android.support.v4.app.Fragment Fragment} to allow the controller to restore any
          * instance state.
          *
@@ -126,7 +126,7 @@ public class MultiSelectionUtil {
 
         /**
          * This method should be called from
-         * {@link ActionBarActivity#onSaveInstanceState(android.os.Bundle)} or
+         * {@link AppCompatActivity#onSaveInstanceState(android.os.Bundle)} or
          * {@link android.support.v4.app.Fragment#onSaveInstanceState(android.os.Bundle)
          * Fragment.onSaveInstanceState(Bundle)} to allow the controller to save its instance
          * state.

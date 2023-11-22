@@ -4,7 +4,7 @@
 
 CFLAGS = -Wall
 
-TARGETS = read mmap alt_syscall
+TARGETS = read mmap alt_syscall adjtimex clock_adjtime
 
 all: $(TARGETS)
 

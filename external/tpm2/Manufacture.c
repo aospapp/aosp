@@ -62,9 +62,12 @@ TPM_Manufacture(
    // initialize command audit list
    CommandAuditPreInstall_Init();
    // first start up is required to be Startup(CLEAR)
-    orderlyShutdown = TPM_SU_CLEAR;
-    NvWriteReserved(NV_ORDERLY, &orderlyShutdown);
+   orderlyShutdown = TPM_SU_CLEAR;
+   NvWriteReserved(NV_ORDERLY, &orderlyShutdown);
    // initialize the firmware version
+#ifdef EMBEDDED_MODE
+   _plat__GetFwVersion(&gp.firmwareV1, &gp.firmwareV2);
+#else
    gp.firmwareV1 = FIRMWARE_V1;
 #ifdef FIRMWARE_V2
    gp.firmwareV2 = FIRMWARE_V2;
@@ -73,6 +76,7 @@ TPM_Manufacture(
 #endif
    NvWriteReserved(NV_FIRMWARE_V1, &gp.firmwareV1);
    NvWriteReserved(NV_FIRMWARE_V2, &gp.firmwareV2);
+#endif
     // initialize the total reset counter to 0
     NvWriteReserved(NV_TOTAL_RESET_COUNT, &totalResetCount);
     // initialize the clock stuff

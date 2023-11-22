@@ -1555,12 +1555,13 @@ enum p2p_probe_req_status {
  * @ie: Information elements from the Probe Request frame body
  * @ie_len: Length of ie buffer in octets
  * @rx_freq: Probe Request frame RX frequency
+ * @p2p_lo_started: Whether P2P Listen Offload is started
  * Returns: value indicating the type and status of the probe request
  */
 enum p2p_probe_req_status
 p2p_probe_req_rx(struct p2p_data *p2p, const u8 *addr, const u8 *dst,
 		 const u8 *bssid, const u8 *ie, size_t ie_len,
-		 unsigned int rx_freq);
+		 unsigned int rx_freq, int p2p_lo_started);
 
 /**
  * p2p_rx_action - Report received Action frame
@@ -2133,6 +2134,16 @@ int p2p_client_limit_reached(struct p2p_group *group);
 const u8 * p2p_iterate_group_members(struct p2p_group *group, void **next);
 
 /**
+ * p2p_group_get_client_interface_addr - Get P2P Interface Address of a client in a group
+ * @group: P2P group context from p2p_group_init()
+ * @dev_addr: P2P Device Address of the client
+ * Returns: P2P Interface Address of the client if found or %NULL if no match
+ * found
+ */
+const u8 * p2p_group_get_client_interface_addr(struct p2p_group *group,
+					       const u8 *dev_addr);
+
+/**
  * p2p_group_get_dev_addr - Get a P2P Device Address of a client in a group
  * @group: P2P group context from p2p_group_init()
  * @addr: P2P Interface Address of the client
@@ -2274,7 +2285,7 @@ struct wpabuf * wifi_display_encaps(struct wpabuf *subelems);
  * discovery (p2p_find). A random number of 100 TU units is picked for each
  * Listen state iteration from [min_disc_int,max_disc_int] range.
  *
- * max_disc_tu can be used to futher limit the discoverable duration. However,
+ * max_disc_tu can be used to further limit the discoverable duration. However,
  * it should be noted that use of this parameter is not recommended since it
  * would not be compliant with the P2P specification.
  */
@@ -2362,6 +2373,8 @@ void p2p_expire_peers(struct p2p_data *p2p);
 void p2p_set_own_pref_freq_list(struct p2p_data *p2p,
 				const unsigned int *pref_freq_list,
 				unsigned int size);
+void p2p_set_override_pref_op_chan(struct p2p_data *p2p, u8 op_class,
+				   u8 chan);
 
 /**
  * p2p_group_get_common_freqs - Get the group common frequencies
@@ -2372,5 +2385,8 @@ void p2p_set_own_pref_freq_list(struct p2p_data *p2p,
  */
 int p2p_group_get_common_freqs(struct p2p_group *group, int *common_freqs,
 			       unsigned int *num);
+
+struct wpabuf * p2p_build_probe_resp_template(struct p2p_data *p2p,
+					      unsigned int freq);
 
 #endif /* P2P_H */

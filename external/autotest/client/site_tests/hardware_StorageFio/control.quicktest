@@ -7,7 +7,6 @@ AUTHOR = 'The Chromium OS Authors'
 PURPOSE = 'Benchmark storage performance using an unmounted root partition.'
 CRITERIA = 'This test is a quick benchmark.'
 ATTRIBUTES = "suite:kernel_per-build_benchmarks"
-SUITE = "kernel_per-build_benchmarks"
 TIME = 'SHORT'
 TEST_CLASS = "hardware"
 TEST_CATEGORY = 'Performance'

@@ -42,12 +42,12 @@ namespace tpm_manager {
 // the passwords to disk until all the owner dependencies are satisfied.
 class Tpm2InitializerImpl : public TpmInitializer {
  public:
-  // Does not take ownership of |local_data_store| or |tpm_status|.
-  Tpm2InitializerImpl(LocalDataStore* local_data_store,
+  // Does not take ownership of arguments.
+  Tpm2InitializerImpl(const trunks::TrunksFactory& factory,
+                      LocalDataStore* local_data_store,
                       TpmStatus* tpm_status);
-  // Does not take ownership of |openssl_util|, |local_data_store| or
-  // |tpm_status|. Takes ownership of |factory|.
-  Tpm2InitializerImpl(trunks::TrunksFactory* factory,
+  // Does not take ownership of arguments.
+  Tpm2InitializerImpl(const trunks::TrunksFactory& factory,
                       OpensslCryptoUtil* openssl_util,
                       LocalDataStore* local_data_store,
                       TpmStatus* tpm_status);
@@ -55,6 +55,8 @@ class Tpm2InitializerImpl : public TpmInitializer {
 
   // TpmInitializer methods.
   bool InitializeTpm() override;
+  void VerifiedBootHelper() override;
+  bool ResetDictionaryAttackLock() override;
 
  private:
   // Seeds the onboard Tpm random number generator with random bytes from
@@ -65,7 +67,7 @@ class Tpm2InitializerImpl : public TpmInitializer {
   // |random_data|. Returns true on success.
   bool GetTpmRandomData(size_t num_bytes, std::string* random_data);
 
-  std::unique_ptr<trunks::TrunksFactory> trunks_factory_;
+  const trunks::TrunksFactory& trunks_factory_;
   OpensslCryptoUtil* openssl_util_;
   LocalDataStore* local_data_store_;
   TpmStatus* tpm_status_;

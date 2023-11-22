@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include <android-base/file.h>
 #include <android-base/strings.h>
 
 #include "sysdeps.h"
@@ -46,8 +47,9 @@ class BugreportStandardStreamsCallback : public StandardStreamsCallbackInterface
           invalid_lines_(),
           show_progress_(show_progress),
           status_(0),
-          line_() {
-        SetLineMessage();
+          line_(),
+          last_progress_percentage_(0) {
+        SetLineMessage("generating");
     }
 
     void OnStdout(const char* buffer, int length) {
@@ -65,6 +67,7 @@ class BugreportStandardStreamsCallback : public StandardStreamsCallbackInterface
     void OnStderr(const char* buffer, int length) {
         OnStream(nullptr, stderr, buffer, length);
     }
+
     int Done(int unused_) {
         // Process remaining line, if any.
         ProcessLine(line_);
@@ -97,6 +100,7 @@ class BugreportStandardStreamsCallback : public StandardStreamsCallbackInterface
                                                           OS_PATH_SEPARATOR, dest_file_.c_str());
             }
             std::vector<const char*> srcs{src_file_.c_str()};
+            SetLineMessage("pulling");
             status_ =
                 br_->DoSyncPull(srcs, destination.c_str(), true, line_message_.c_str()) ? 0 : 1;
             if (status_ != 0) {
@@ -111,17 +115,16 @@ class BugreportStandardStreamsCallback : public StandardStreamsCallbackInterface
     }
 
   private:
-    void SetLineMessage() {
-        line_message_ =
-            android::base::StringPrintf("generating %s", adb_basename(dest_file_).c_str());
+    void SetLineMessage(const std::string& action) {
+        line_message_ = action + " " + android::base::Basename(dest_file_);
     }
 
     void SetSrcFile(const std::string path) {
         src_file_ = path;
         if (!dest_dir_.empty()) {
             // Only uses device-provided name when user passed a directory.
-            dest_file_ = adb_basename(path);
-            SetLineMessage();
+            dest_file_ = android::base::Basename(path);
+            SetLineMessage("generating");
         }
     }
 
@@ -145,7 +148,13 @@ class BugreportStandardStreamsCallback : public StandardStreamsCallbackInterface
             size_t idx2 = line.rfind(BUGZ_PROGRESS_SEPARATOR);
             int progress = std::stoi(line.substr(idx1, (idx2 - idx1)));
             int total = std::stoi(line.substr(idx2 + 1));
-            br_->UpdateProgress(line_message_, progress, total);
+            int progress_percentage = (progress * 100 / total);
+            if (progress_percentage != 0 && progress_percentage <= last_progress_percentage_) {
+                // Ignore.
+                return;
+            }
+            last_progress_percentage_ = progress_percentage;
+            br_->UpdateProgress(line_message_, progress_percentage);
         } else {
             invalid_lines_.push_back(line);
         }
@@ -179,14 +188,15 @@ class BugreportStandardStreamsCallback : public StandardStreamsCallbackInterface
     // Temporary buffer containing the characters read since the last newline (\n).
     std::string line_;
 
+    // Last displayed progress.
+    // Since dumpstate progress can recede, only forward progress should be displayed
+    int last_progress_percentage_;
+
     DISALLOW_COPY_AND_ASSIGN(BugreportStandardStreamsCallback);
 };
 
-// Implemented in commandline.cpp
-int usage();
-
 int Bugreport::DoIt(TransportType transport_type, const char* serial, int argc, const char** argv) {
-    if (argc > 2) return usage();
+    if (argc > 2) return usage("usage: adb bugreport [PATH]");
 
     // Gets bugreportz version.
     std::string bugz_stdout, bugz_stderr;
@@ -237,8 +247,7 @@ int Bugreport::DoIt(TransportType transport_type, const char* serial, int argc, 
         // Uses a default value until device provides the proper name
         dest_file = "bugreport.zip";
     } else {
-        if (!android::base::EndsWith(dest_file, ".zip")) {
-            // TODO: use a case-insensitive comparison (like EndsWithIgnoreCase
+        if (!android::base::EndsWithIgnoreCase(dest_file, ".zip")) {
             dest_file += ".zip";
         }
     }
@@ -259,8 +268,7 @@ int Bugreport::DoIt(TransportType transport_type, const char* serial, int argc, 
     return SendShellCommand(transport_type, serial, bugz_command, false, &bugz_callback);
 }
 
-void Bugreport::UpdateProgress(const std::string& message, int progress, int total) {
-    int progress_percentage = (progress * 100 / total);
+void Bugreport::UpdateProgress(const std::string& message, int progress_percentage) {
     line_printer_.Print(
         android::base::StringPrintf("[%3d%%] %s", progress_percentage, message.c_str()),
         LinePrinter::INFO);

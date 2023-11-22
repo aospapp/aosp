@@ -136,7 +136,10 @@ public class ResetActivity extends Activity {
                     Log.v(TAG, "Monkey tried to erase the device. Bad monkey, bad!");
                     getActivity().finish();
                 } else {
-                    Intent resetIntent = new Intent("android.intent.action.MASTER_CLEAR");
+                    Intent resetIntent = new Intent(Intent.ACTION_FACTORY_RESET);
+                    resetIntent.setPackage("android");
+                    resetIntent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                    resetIntent.putExtra(Intent.EXTRA_REASON, "ResetConfirmFragment");
                     if (getActivity().getIntent().getBooleanExtra(SHUTDOWN_INTENT_EXTRA, false)) {
                         resetIntent.putExtra(SHUTDOWN_INTENT_EXTRA, true);
                     }

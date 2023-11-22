@@ -39,7 +39,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternChecker;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.TextViewInputDisabler;
@@ -122,7 +122,14 @@ public class ConfirmLockPassword extends ConfirmDeviceCredentialBaseActivity {
                 Bundle savedInstanceState) {
             final int storedQuality = mLockPatternUtils.getKeyguardStoredPasswordQuality(
                     mEffectiveUserId);
-            View view = inflater.inflate(R.layout.confirm_lock_password, null);
+
+            ConfirmLockPassword activity = (ConfirmLockPassword) getActivity();
+            View view = inflater.inflate(
+                    activity.getConfirmCredentialTheme() == ConfirmCredentialTheme.INTERNAL
+                            ? R.layout.confirm_lock_password_internal
+                            : R.layout.confirm_lock_password,
+                    container,
+                    false);
 
             mPasswordEntry = (TextView) view.findViewById(R.id.password_entry);
             mPasswordEntry.setOnEditorActionListener(this);
@@ -184,10 +191,10 @@ public class ConfirmLockPassword extends ConfirmDeviceCredentialBaseActivity {
         }
 
         private int getDefaultDetails() {
-            boolean isProfile = Utils.isManagedProfile(
-                    UserManager.get(getActivity()), mEffectiveUserId);
+            boolean isStrongAuthRequired = isFingerprintDisallowedByStrongAuth();
+            boolean isProfile = UserManager.get(getActivity()).isManagedProfile(mEffectiveUserId);
             // Map boolean flags to an index by isStrongAuth << 2 + isProfile << 1 + isAlpha.
-            int index = ((mIsStrongAuthRequired ? 1 : 0) << 2) + ((isProfile ? 1 : 0) << 1)
+            int index = ((isStrongAuthRequired ? 1 : 0) << 2) + ((isProfile ? 1 : 0) << 1)
                     + (mIsAlpha ? 1 : 0);
             return DETAIL_TEXTS[index];
         }
@@ -251,7 +258,7 @@ public class ConfirmLockPassword extends ConfirmDeviceCredentialBaseActivity {
         }
 
         @Override
-        protected int getMetricsCategory() {
+        public int getMetricsCategory() {
             return MetricsEvent.CONFIRM_LOCK_PASSWORD;
         }
 
@@ -320,11 +327,15 @@ public class ConfirmLockPassword extends ConfirmDeviceCredentialBaseActivity {
                 return;
             }
 
-            mPasswordEntryInputDisabler.setInputEnabled(false);
-
             final String pin = mPasswordEntry.getText().toString();
+            if (TextUtils.isEmpty(pin)) {
+                return;
+            }
+
+            mPasswordEntryInputDisabler.setInputEnabled(false);
             final boolean verifyChallenge = getActivity().getIntent().getBooleanExtra(
                     ChooseLockSettingsHelper.EXTRA_KEY_HAS_CHALLENGE, false);
+
             Intent intent = new Intent();
             if (verifyChallenge)  {
                 if (isInternalActivity()) {
@@ -403,25 +414,22 @@ public class ConfirmLockPassword extends ConfirmDeviceCredentialBaseActivity {
             }
             mDisappearing = true;
 
-            if (getActivity().getThemeResId() == R.style.Theme_ConfirmDeviceCredentialsDark) {
-                mDisappearAnimationUtils.startAnimation(getActiveViews(), new Runnable() {
-                    @Override
-                    public void run() {
-                        // Bail if there is no active activity.
-                        if (getActivity() == null || getActivity().isFinishing()) {
-                            return;
-                        }
-
-                        getActivity().setResult(RESULT_OK, intent);
-                        getActivity().finish();
-                        getActivity().overridePendingTransition(
-                                R.anim.confirm_credential_close_enter,
-                                R.anim.confirm_credential_close_exit);
-                    }
+            final ConfirmLockPassword activity = (ConfirmLockPassword) getActivity();
+            // Bail if there is no active activity.
+            if (activity == null || activity.isFinishing()) {
+                return;
+            }
+            if (activity.getConfirmCredentialTheme() == ConfirmCredentialTheme.DARK) {
+                mDisappearAnimationUtils.startAnimation(getActiveViews(), () -> {
+                    activity.setResult(RESULT_OK, intent);
+                    activity.finish();
+                    activity.overridePendingTransition(
+                            R.anim.confirm_credential_close_enter,
+                            R.anim.confirm_credential_close_exit);
                 });
             } else {
-                getActivity().setResult(RESULT_OK, intent);
-                getActivity().finish();
+                activity.setResult(RESULT_OK, intent);
+                activity.finish();
             }
         }
 
@@ -436,6 +444,7 @@ public class ConfirmLockPassword extends ConfirmDeviceCredentialBaseActivity {
                 checkForPendingIntent();
             } else {
                 if (timeoutMs > 0) {
+                    refreshLockScreen();
                     long deadline = mLockPatternUtils.setLockoutAttemptDeadline(
                             effectiveUserId, timeoutMs);
                     handleAttemptLockout(deadline);

@@ -24,6 +24,7 @@ import com.android.tv.MainActivity;
 import com.android.tv.R;
 import com.android.tv.customization.CustomAction;
 import com.android.tv.customization.TvCustomizationManager;
+import com.android.tv.ui.TunableTvView;
 
 import java.util.List;
 
@@ -32,13 +33,15 @@ import java.util.List;
  */
 public class MenuRowFactory {
     private final MainActivity mMainActivity;
+    private final TunableTvView mTvView;
     private final TvCustomizationManager mTvCustomizationManager;
 
     /**
      * A constructor.
      */
-    public MenuRowFactory(MainActivity mainActivity) {
+    public MenuRowFactory(MainActivity mainActivity, TunableTvView tvView) {
         mMainActivity = mainActivity;
+        mTvView = tvView;
         mTvCustomizationManager = new TvCustomizationManager(mainActivity);
         mTvCustomizationManager.initialize();
     }
@@ -49,7 +52,8 @@ public class MenuRowFactory {
     @Nullable
     public MenuRow createMenuRow(Menu menu, Class<?> key) {
         if (PlayControlsRow.class.equals(key)) {
-            return new PlayControlsRow(mMainActivity, menu, mMainActivity.getTimeShiftManager());
+            return new PlayControlsRow(mMainActivity, mTvView, menu,
+                    mMainActivity.getTimeShiftManager());
         } else if (ChannelsRow.class.equals(key)) {
             return new ChannelsRow(mMainActivity, menu, mMainActivity.getProgramDataManager());
         } else if (PartnerRow.class.equals(key)) {

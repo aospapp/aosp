@@ -47,7 +47,9 @@ public abstract class SafeDismissDialogFragment extends DialogFragment
     public void onAttach(Activity activity) {
         super.onAttach(activity);
         mAttached = true;
-        mActivity = (MainActivity) activity;
+        if (activity instanceof MainActivity) {
+            mActivity = (MainActivity) activity;
+        }
         mTracker = TvApplication.getSingletons(activity).getTracker();
         if (mDismissPending) {
             mDismissPending = false;
@@ -100,7 +102,7 @@ public abstract class SafeDismissDialogFragment extends DialogFragment
         public boolean onKeyUp(int keyCode, KeyEvent event) {
             // When a dialog is showing, key events are handled by the dialog instead of
             // MainActivity. Therefore, unless a key is a global key, it should be handled here.
-            if (mAttached && keyCode == KeyEvent.KEYCODE_SEARCH) {
+            if (mAttached && keyCode == KeyEvent.KEYCODE_SEARCH && mActivity != null) {
                 mActivity.showSearchActivity();
                 return true;
             }

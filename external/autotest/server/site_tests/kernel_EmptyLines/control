@@ -5,7 +5,6 @@
 NAME = "EmptyLines"
 AUTHOR = "Chrome OS Team"
 ATTRIBUTES = "suite:kernel_daily_regression"
-SUITE = "kernel_daily_regression"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"

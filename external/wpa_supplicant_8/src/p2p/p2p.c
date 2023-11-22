@@ -711,6 +711,7 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 	struct p2p_message msg;
 	const u8 *p2p_dev_addr;
 	int wfd_changed;
+	int dev_name_changed;
 	int i;
 	struct os_reltime time_now;
 
@@ -788,11 +789,11 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 		dev->oper_ssid_len = msg.ssid[1];
 	}
 
-	if (msg.adv_service_instance && msg.adv_service_instance_len) {
-		wpabuf_free(dev->info.p2ps_instance);
+	wpabuf_free(dev->info.p2ps_instance);
+	dev->info.p2ps_instance = NULL;
+	if (msg.adv_service_instance && msg.adv_service_instance_len)
 		dev->info.p2ps_instance = wpabuf_alloc_copy(
 			msg.adv_service_instance, msg.adv_service_instance_len);
-	}
 
 	if (freq >= 2412 && freq <= 2484 && msg.ds_params &&
 	    *msg.ds_params >= 1 && *msg.ds_params <= 14) {
@@ -821,6 +822,9 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 	}
 	dev->info.level = level;
 
+	dev_name_changed = os_strncmp(dev->info.device_name, msg.device_name,
+				      WPS_DEV_NAME_MAX_LEN) != 0;
+
 	p2p_copy_wps_info(p2p, dev, 0, &msg);
 
 	for (i = 0; i < P2P_MAX_WPS_VENDOR_EXT; i++) {
@@ -839,9 +843,12 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 
 	wfd_changed = p2p_compare_wfd_info(dev, &msg);
 
-	if (msg.wfd_subelems) {
+	if (wfd_changed) {
 		wpabuf_free(dev->info.wfd_subelems);
-		dev->info.wfd_subelems = wpabuf_dup(msg.wfd_subelems);
+		if (msg.wfd_subelems)
+			dev->info.wfd_subelems = wpabuf_dup(msg.wfd_subelems);
+		else
+			dev->info.wfd_subelems = NULL;
 	}
 
 	if (scan_res) {
@@ -855,6 +862,7 @@ int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
 	p2p_update_peer_vendor_elems(dev, ies, ies_len);
 
 	if (dev->flags & P2P_DEV_REPORTED && !wfd_changed &&
+	    !dev_name_changed &&
 	    (!msg.adv_service_instance ||
 	     (dev->flags & P2P_DEV_P2PS_REPORTED)))
 		return 0;
@@ -1833,6 +1841,7 @@ void p2p_go_complete(struct p2p_data *p2p, struct p2p_device *peer)
 	p2p_clear_timeout(p2p);
 	p2p->ssid_set = 0;
 	peer->go_neg_req_sent = 0;
+	peer->flags &= ~P2P_DEV_PEER_WAITING_RESPONSE;
 	peer->wps_method = WPS_NOT_READY;
 	peer->oob_pw_id = 0;
 	wpabuf_free(peer->go_neg_conf);
@@ -2234,6 +2243,58 @@ struct wpabuf * p2p_build_probe_resp_ies(struct p2p_data *p2p,
 	return buf;
 }
 
+static int p2p_build_probe_resp_buf(struct p2p_data *p2p, struct wpabuf *buf,
+				    struct wpabuf *ies,
+				    const u8 *addr, int rx_freq)
+{
+	struct ieee80211_mgmt *resp;
+	u8 channel, op_class;
+
+	resp = wpabuf_put(buf, offsetof(struct ieee80211_mgmt,
+					u.probe_resp.variable));
+
+	resp->frame_control = host_to_le16((WLAN_FC_TYPE_MGMT << 2) |
+					   (WLAN_FC_STYPE_PROBE_RESP << 4));
+	os_memcpy(resp->da, addr, ETH_ALEN);
+	os_memcpy(resp->sa, p2p->cfg->dev_addr, ETH_ALEN);
+	os_memcpy(resp->bssid, p2p->cfg->dev_addr, ETH_ALEN);
+	resp->u.probe_resp.beacon_int = host_to_le16(100);
+	/* hardware or low-level driver will setup seq_ctrl and timestamp */
+	resp->u.probe_resp.capab_info =
+	    host_to_le16(WLAN_CAPABILITY_SHORT_PREAMBLE |
+		     WLAN_CAPABILITY_PRIVACY |
+		     WLAN_CAPABILITY_SHORT_SLOT_TIME);
+
+	wpabuf_put_u8(buf, WLAN_EID_SSID);
+	wpabuf_put_u8(buf, P2P_WILDCARD_SSID_LEN);
+	wpabuf_put_data(buf, P2P_WILDCARD_SSID, P2P_WILDCARD_SSID_LEN);
+
+	wpabuf_put_u8(buf, WLAN_EID_SUPP_RATES);
+	wpabuf_put_u8(buf, 8);
+	wpabuf_put_u8(buf, (60 / 5) | 0x80);
+	wpabuf_put_u8(buf, 90 / 5);
+	wpabuf_put_u8(buf, (120 / 5) | 0x80);
+	wpabuf_put_u8(buf, 180 / 5);
+	wpabuf_put_u8(buf, (240 / 5) | 0x80);
+	wpabuf_put_u8(buf, 360 / 5);
+	wpabuf_put_u8(buf, 480 / 5);
+	wpabuf_put_u8(buf, 540 / 5);
+
+	if (!rx_freq) {
+		channel = p2p->cfg->channel;
+	} else if (p2p_freq_to_channel(rx_freq, &op_class, &channel)) {
+		p2p_err(p2p, "Failed to convert freq to channel");
+		return -1;
+	}
+
+	wpabuf_put_u8(buf, WLAN_EID_DS_PARAMS);
+	wpabuf_put_u8(buf, 1);
+	wpabuf_put_u8(buf, channel);
+
+	wpabuf_put_buf(buf, ies);
+
+	return 0;
+}
 
 static int p2p_service_find_asp(struct p2p_data *p2p, const u8 *hash)
 {
@@ -2267,10 +2328,8 @@ p2p_reply_probe(struct p2p_data *p2p, const u8 *addr, const u8 *dst,
 {
 	struct ieee802_11_elems elems;
 	struct wpabuf *buf;
-	struct ieee80211_mgmt *resp;
 	struct p2p_message msg;
 	struct wpabuf *ies;
-	u8 channel, op_class;
 
 	if (ieee802_11_parse_elems((u8 *) ie, ie_len, &elems, 0) ==
 	    ParseFailed) {
@@ -2414,49 +2473,12 @@ p2p_reply_probe(struct p2p_data *p2p, const u8 *addr, const u8 *dst,
 		return P2P_PREQ_NOT_PROCESSED;
 	}
 
-	resp = wpabuf_put(buf, offsetof(struct ieee80211_mgmt,
-					u.probe_resp.variable));
-
-	resp->frame_control = host_to_le16((WLAN_FC_TYPE_MGMT << 2) |
-					   (WLAN_FC_STYPE_PROBE_RESP << 4));
-	os_memcpy(resp->da, addr, ETH_ALEN);
-	os_memcpy(resp->sa, p2p->cfg->dev_addr, ETH_ALEN);
-	os_memcpy(resp->bssid, p2p->cfg->dev_addr, ETH_ALEN);
-	resp->u.probe_resp.beacon_int = host_to_le16(100);
-	/* hardware or low-level driver will setup seq_ctrl and timestamp */
-	resp->u.probe_resp.capab_info =
-		host_to_le16(WLAN_CAPABILITY_SHORT_PREAMBLE |
-			     WLAN_CAPABILITY_PRIVACY |
-			     WLAN_CAPABILITY_SHORT_SLOT_TIME);
-
-	wpabuf_put_u8(buf, WLAN_EID_SSID);
-	wpabuf_put_u8(buf, P2P_WILDCARD_SSID_LEN);
-	wpabuf_put_data(buf, P2P_WILDCARD_SSID, P2P_WILDCARD_SSID_LEN);
-
-	wpabuf_put_u8(buf, WLAN_EID_SUPP_RATES);
-	wpabuf_put_u8(buf, 8);
-	wpabuf_put_u8(buf, (60 / 5) | 0x80);
-	wpabuf_put_u8(buf, 90 / 5);
-	wpabuf_put_u8(buf, (120 / 5) | 0x80);
-	wpabuf_put_u8(buf, 180 / 5);
-	wpabuf_put_u8(buf, (240 / 5) | 0x80);
-	wpabuf_put_u8(buf, 360 / 5);
-	wpabuf_put_u8(buf, 480 / 5);
-	wpabuf_put_u8(buf, 540 / 5);
-
-	if (!rx_freq) {
-		channel = p2p->cfg->channel;
-	} else if (p2p_freq_to_channel(rx_freq, &op_class, &channel)) {
+	if (p2p_build_probe_resp_buf(p2p, buf, ies, addr, rx_freq)) {
 		wpabuf_free(ies);
 		wpabuf_free(buf);
 		return P2P_PREQ_NOT_PROCESSED;
 	}
 
-	wpabuf_put_u8(buf, WLAN_EID_DS_PARAMS);
-	wpabuf_put_u8(buf, 1);
-	wpabuf_put_u8(buf, channel);
-
-	wpabuf_put_buf(buf, ies);
 	wpabuf_free(ies);
 
 	p2p->cfg->send_probe_resp(p2p->cfg->cb_ctx, buf, rx_freq);
@@ -2470,11 +2492,17 @@ p2p_reply_probe(struct p2p_data *p2p, const u8 *addr, const u8 *dst,
 enum p2p_probe_req_status
 p2p_probe_req_rx(struct p2p_data *p2p, const u8 *addr, const u8 *dst,
 		 const u8 *bssid, const u8 *ie, size_t ie_len,
-		 unsigned int rx_freq)
+		 unsigned int rx_freq, int p2p_lo_started)
 {
 	enum p2p_probe_req_status res;
 
 	p2p_add_dev_from_probe_req(p2p, addr, ie, ie_len);
+
+	if (p2p_lo_started) {
+		p2p_dbg(p2p,
+			"Probe Response is offloaded, do not reply Probe Request");
+		return P2P_PREQ_PROCESSED;
+	}
 
 	res = p2p_reply_probe(p2p, addr, dst, bssid, ie, ie_len, rx_freq);
 	if (res != P2P_PREQ_PROCESSED && res != P2P_PREQ_NOT_PROCESSED)
@@ -2803,6 +2831,7 @@ void p2p_service_flush_asp(struct p2p_data *p2p)
 	}
 
 	p2p->p2ps_adv_list = NULL;
+	p2ps_prov_free(p2p);
 	p2p_dbg(p2p, "All ASP advertisements flushed");
 }
 
@@ -2980,7 +3009,6 @@ void p2p_deinit(struct p2p_data *p2p)
 	os_free(p2p->groups);
 	p2ps_prov_free(p2p);
 	wpabuf_free(p2p->sd_resp);
-	os_free(p2p->after_scan_tx);
 	p2p_remove_wps_vendor_extensions(p2p);
 	os_free(p2p->no_go_freq.range);
 	p2p_service_flush_asp(p2p);
@@ -3004,6 +3032,10 @@ void p2p_flush(struct p2p_data *p2p)
 	os_free(p2p->after_scan_tx);
 	p2p->after_scan_tx = NULL;
 	p2p->ssid_set = 0;
+	p2ps_prov_free(p2p);
+	p2p_reset_pending_pd(p2p);
+	p2p->override_pref_op_class = 0;
+	p2p->override_pref_channel = 0;
 }
 
 
@@ -3782,6 +3814,8 @@ void p2p_send_action_cb(struct p2p_data *p2p, unsigned int freq, const u8 *dst,
 		break;
 	case P2P_PENDING_INVITATION_RESPONSE:
 		p2p_invitation_resp_cb(p2p, success);
+		if (p2p->inv_status != P2P_SC_SUCCESS)
+			p2p_check_after_scan_tx_continuation(p2p);
 		break;
 	case P2P_PENDING_DEV_DISC_REQUEST:
 		p2p_dev_disc_req_cb(p2p, success);
@@ -5487,4 +5521,43 @@ void p2p_set_own_pref_freq_list(struct p2p_data *p2p,
 		p2p_dbg(p2p, "Own preferred frequency list[%u]=%u MHz",
 			i, p2p->pref_freq_list[i]);
 	}
+}
+
+
+void p2p_set_override_pref_op_chan(struct p2p_data *p2p, u8 op_class,
+				   u8 chan)
+{
+	p2p->override_pref_op_class = op_class;
+	p2p->override_pref_channel = chan;
+}
+
+
+struct wpabuf * p2p_build_probe_resp_template(struct p2p_data *p2p,
+					      unsigned int freq)
+{
+	struct wpabuf *ies, *buf;
+	u8 addr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+	int ret;
+
+	ies = p2p_build_probe_resp_ies(p2p, NULL, 0);
+	if (!ies) {
+		wpa_printf(MSG_ERROR,
+			   "CTRL: Failed to build Probe Response IEs");
+		return NULL;
+	}
+
+	buf = wpabuf_alloc(200 + wpabuf_len(ies));
+	if (!buf) {
+		wpabuf_free(ies);
+		return NULL;
+	}
+
+	ret = p2p_build_probe_resp_buf(p2p, buf, ies, addr, freq);
+	wpabuf_free(ies);
+	if (ret) {
+		wpabuf_free(buf);
+		return NULL;
+	}
+
+	return buf;
 }

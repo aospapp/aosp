@@ -5,7 +5,6 @@
 AUTHOR = "gwendal"
 NAME = "StorageQualSuspend"
 ATTRIBUTES = "suite:storage_qual"
-SUITE = "storage_qual"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
@@ -30,8 +29,7 @@ SERVER_SEQUENCES = [
             duration=4 * sequence.HOUR_IN_SECS),
     sequence.SequenceJob(
             'hardware_StorageQualSuspendStress',
-            {'tag': 'suspend', 'power_command': 'suspend',
-             'suspend_duration': 12 * sequence.HOUR_IN_SECS},
+            {'tag': 'suspend'},
             iteration=7 * sequence.DAY_IN_HOURS / 4,
             duration=4 * sequence.HOUR_IN_SECS),
     sequence.SequenceJob(

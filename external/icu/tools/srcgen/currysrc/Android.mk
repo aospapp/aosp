@@ -15,14 +15,14 @@
 LOCAL_PATH := $(call my-dir)
 
 # Create a list of prebuilt jars relative to $(LOCAL_PATH). i.e. lib/xxx.jar
-prebuilt_jar_paths := $(shell find $(LOCAL_PATH)/libs -name "*.jar" | grep -v ".source_" | sed "s,^$(LOCAL_PATH)/,,")
-
-# Create the list of target names each prebuilt will map to. i.e. currysrc-prebuilt-xxx
-prebuilt_target_names := $(foreach path, $(prebuilt_jar_paths), $(shell echo $(path) | sed "s,^libs/\(.*\)\.jar$$,currysrc-prebuilt-\1,"))
+prebuilt_jar_paths := $(strip \
+  $(foreach j,$(call all-named-files-under,*.jar,libs),$(if $(findstring .source_,$(j)),,$(j))))
 
 # For each data *.jar file, define a corresponding currysrc-prebuilt-* target. i.e. currysrc-prebuilt-xxx:libs/xxx.jar
-prebuilt_jar_mapping := \
-    $(foreach path, $(prebuilt_jar_paths), $(shell echo $(path) | sed "s,^\(libs/\(.*\)\.jar\)$$,currysrc-prebuilt-\2:\1,"))
+prebuilt_jar_mapping := $(foreach j,$(prebuilt_jar_paths),currysrc-prebuilt-$(basename $(notdir $(j))):$(j))
+
+# Create the list of target names each prebuilt will map to. i.e. currysrc-prebuilt-xxx
+prebuilt_target_names := $(foreach j,$(prebuilt_jar_mapping),$(call word-colon,1,$(j)))
 
 include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional

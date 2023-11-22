@@ -49,6 +49,7 @@
     <attr name="type15" format="reference"/>
     <attr name="type16" format="string"/>
     <attr name="type17" format="reference|color"/>
+    <attr name="type18" format="reference|string"/>
     <attr name="typeEmpty" format="reference"/>
     <attr name="typeUndefined" format="reference"/>
     <declare-styleable name="style1">
@@ -69,6 +70,7 @@
         <attr name="type15"/>
         <attr name="type16"/>
         <attr name="type17"/>
+        <attr name="type18"/>
         <attr name="typeEmpty"/>
         <attr name="typeUndefined"/>
     </declare-styleable>

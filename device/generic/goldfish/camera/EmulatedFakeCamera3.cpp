@@ -865,11 +865,15 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         const camera3_stream_buffer &srcBuf = request->output_buffers[i];
         const cb_handle_t *privBuffer =
                 static_cast<const cb_handle_t*>(*srcBuf.buffer);
+        if (!cb_handle_t::validate(privBuffer)) {
+          privBuffer = nullptr;
+        }
         StreamBuffer destBuf;
         destBuf.streamId = kGenericStreamId;
         destBuf.width    = srcBuf.stream->width;
         destBuf.height   = srcBuf.stream->height;
-        destBuf.format   = privBuffer->format; // Use real private format
+        // If we have more specific format information, use it.
+        destBuf.format = (privBuffer) ? privBuffer->format : srcBuf.stream->format;
         destBuf.stride   = srcBuf.stream->width; // TODO: query from gralloc
         destBuf.dataSpace = srcBuf.stream->data_space;
         destBuf.buffer   = srcBuf.buffer;
@@ -889,7 +893,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
             // Lock buffer for writing
             const Rect rect(destBuf.width, destBuf.height);
             if (srcBuf.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-                if (privBuffer->format == HAL_PIXEL_FORMAT_YCrCb_420_SP) {
+                if (destBuf.format == HAL_PIXEL_FORMAT_YCrCb_420_SP) {
                     android_ycbcr ycbcr = android_ycbcr();
                     res = GraphicBufferMapper::get().lockYCbCr(
                         *(destBuf.buffer),
@@ -900,7 +904,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                     destBuf.img = static_cast<uint8_t*>(ycbcr.y);
                 } else {
                     ALOGE("Unexpected private format for flexible YUV: 0x%x",
-                            privBuffer->format);
+                            destBuf.format);
                     res = INVALID_OPERATION;
                 }
             } else {
@@ -921,6 +925,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                 GraphicBufferMapper::get().unlock(
                         *(request->output_buffers[i].buffer));
             }
+            delete sensorBuffers;
+            delete buffers;
             return NO_INIT;
         }
 

@@ -80,9 +80,3 @@ class line_buffer(object):
 
     def size(self):
         return len(self.buffer)
-
-
-def parser(version):
-    library = "autotest_lib.tko.parsers.version_%d" % version
-    module = __import__(library, globals(), locals(), ["parser"])
-    return module.parser()

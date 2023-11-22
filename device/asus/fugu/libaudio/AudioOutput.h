@@ -20,11 +20,12 @@
 
 #include <semaphore.h>
 #include <tinyalsa/asoundlib.h>
-#include <utils/LinearTransform.h>
 #include <utils/String16.h>
 #include <utils/String8.h>
 #include <utils/threads.h>
 #include <utils/Vector.h>
+
+#include "LinearTransform.h"
 
 namespace android {
 

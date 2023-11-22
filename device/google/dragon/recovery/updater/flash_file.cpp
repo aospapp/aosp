@@ -40,45 +40,45 @@ struct file_data {
 static void *file_blob_open(struct file_data *dev, const Value *param)
 {
 	dev->fd = -1; /* No backing file */
-	dev->data = reinterpret_cast<uint8_t*>(param->data);
+	dev->data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&param->data[0]));
 
-	dev->info.st_size = param->size;
+	dev->info.st_size = param->data.size();
 
 	return dev;
 }
 
 static void *file_open(const void *params)
 {
-	const Value *value = reinterpret_cast<const Value*>(params);
-	struct file_data *dev = reinterpret_cast<struct file_data*>(calloc(1, sizeof(struct file_data)));
+	struct file_data *dev = static_cast<struct file_data*>(calloc(1, sizeof(struct file_data)));
 	if (!dev)
 		return NULL;
 
+	const Value *value = static_cast<const Value*>(params);
 	if (value->type == VAL_BLOB)
 		return file_blob_open(dev, value);
 
 	if (value->type != VAL_STRING)
-		return NULL;
+		goto out_free;
 
-	dev->fd = open(value->data, O_RDWR);
+	dev->fd = open(value->data.c_str(), O_RDWR);
 	if (dev->fd == -1) {
-		ALOGE("Cannot open file %s : %d\n", value->data, errno);
+		ALOGE("Cannot open file %s : %d\n", value->data.c_str(), errno);
 		goto out_free;
 	}
 
 	if (fstat(dev->fd, &dev->info)) {
-		ALOGE("Cannot get file info for %s : %d\n", value->data, errno);
+		ALOGE("Cannot get file info for %s : %d\n", value->data.c_str(), errno);
 		goto out_close;
 	}
 
-	dev->data = reinterpret_cast<uint8_t*>(mmap(NULL, dev->info.st_size, PROT_READ | PROT_WRITE,
+	dev->data = static_cast<uint8_t*>(mmap(NULL, dev->info.st_size, PROT_READ | PROT_WRITE,
 			 MAP_SHARED, dev->fd, 0));
 	if (dev->data == (void *)-1) {
-		ALOGE("Cannot mmap %s : %d\n", value->data, errno);
+		ALOGE("Cannot mmap %s : %d\n", value->data.c_str(), errno);
 		goto out_close;
 	}
 
-	ALOGD("File %s: size %lld blksize %ld\n", value->data,
+	ALOGD("File %s: size %lld blksize %ld\n", value->data.c_str(),
 		(long long)dev->info.st_size, (long)dev->info.st_blksize);
 
 	return dev;
@@ -93,7 +93,7 @@ out_free:
 
 static void file_close(void *hnd)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	if (dev->fd > 0) {
 		munmap(dev->data, dev->info.st_size);
@@ -104,7 +104,7 @@ static void file_close(void *hnd)
 
 static int file_read(void *hnd, off_t offset, void *buffer, size_t count)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	if (offset + (off_t)count > dev->info.st_size) {
 		ALOGW("Invalid offset/size %ld + %zd > %lld\n",
@@ -119,7 +119,7 @@ static int file_read(void *hnd, off_t offset, void *buffer, size_t count)
 
 static int file_write(void *hnd, off_t offset, void *buffer, size_t count)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	if (offset + (off_t)count > dev->info.st_size) {
 		ALOGW("Invalid offset/size %ld + %zd > %lld\n",
@@ -134,7 +134,7 @@ static int file_write(void *hnd, off_t offset, void *buffer, size_t count)
 
 static int file_erase(void *hnd, off_t offset, size_t count)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	if (offset + (off_t)count > dev->info.st_size) {
 		ALOGW("Invalid offset/size %ld + %zd > %lld\n",
@@ -149,28 +149,28 @@ static int file_erase(void *hnd, off_t offset, size_t count)
 
 static size_t file_get_size(void *hnd)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	return dev ? dev->info.st_size : 0;
 }
 
 static size_t file_get_write_size(void *hnd)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	return dev && dev->fd > 0 ? dev->info.st_blksize : 0;
 }
 
 static size_t file_get_erase_size(void *hnd)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	return dev && dev->fd > 0 ? dev->info.st_blksize : 0;
 }
 
 static off_t file_get_fmap_offset(void *hnd)
 {
-	struct file_data *dev = reinterpret_cast<struct file_data*>(hnd);
+	struct file_data *dev = static_cast<struct file_data*>(hnd);
 
 	return dev->info.st_size;
 }

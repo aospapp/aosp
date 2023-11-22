@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2001-2015, International Business Machines Corporation and
@@ -36,7 +38,7 @@ public class ResourceReader implements Closeable {
     private String resourceName;
     private String encoding; // null for default encoding
     private Class<?> root;
-    
+
     /**
      * The one-based line number. Has the special value -1 before the
      * object is initialized. Has the special value 0 after initialization
@@ -101,7 +103,7 @@ public class ResourceReader implements Closeable {
 
          this.lineNo = -1;
          try {
-             InputStreamReader isr = (encoding == null) 
+             InputStreamReader isr = (encoding == null)
                  ? new InputStreamReader(is)
                  : new InputStreamReader(is, encoding);
 
@@ -198,7 +200,7 @@ public class ResourceReader implements Closeable {
     public int getLineNumber() {
         return lineNo;
     }
-    
+
     /**
      * Return a string description of the position of the last line
      * returned by readLine() or readLineSkippingComments().
@@ -206,7 +208,7 @@ public class ResourceReader implements Closeable {
     public String describePosition() {
         return resourceName + ':' + lineNo;
     }
-    
+
     /**
      * Reset this reader so that the next call to
      * <code>readLine()</code> returns the first line of the file
@@ -242,7 +244,7 @@ public class ResourceReader implements Closeable {
         if (is == null) {
             throw new IllegalArgumentException("Can't open " + resourceName);
         }
-        
+
         InputStreamReader isr =
             (encoding == null) ? new InputStreamReader(is) :
                                  new InputStreamReader(is, encoding);
@@ -255,6 +257,7 @@ public class ResourceReader implements Closeable {
      * associated with it. If the stream is already closed then invoking
      * this method has no effect.
      */
+    @Override
     public void close() throws IOException {
         if (reader != null) {
             reader.close();

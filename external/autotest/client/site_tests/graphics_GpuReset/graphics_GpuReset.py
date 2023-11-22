@@ -44,8 +44,8 @@ class graphics_GpuReset(test.test):
   def run_once(self, options=''):
     exefile = os.path.join(self.srcdir, 'gpureset')
     if not os.path.isfile(exefile):
-      raise error.TestFail('Failed to locate gpureset executable (' +
-                           exefile + '). Test setup error.')
+      raise error.TestFail('Failed: could not locate gpureset executable (' +
+                           exefile + ').')
 
     options = ''
     cmd = '%s %s' % (exefile, options)
@@ -93,7 +93,7 @@ class graphics_GpuReset(test.test):
     results = summary.splitlines()
     if not results:
       f.close()
-      raise error.TestFail('No output from test. Check /tmp/' +
+      raise error.TestFail('Failed: No output from test. Check /tmp/' +
                            'test_that_latest/graphics_GpuReset/summary.txt' +
                            ' for details.')
     # Analyze summary and count number of passes.
@@ -104,19 +104,19 @@ class graphics_GpuReset(test.test):
       if line.strip().startswith('[  FAILED  ] graphics_GpuReset'):
         msg = line.strip()[30:]
         failed_msg = 'Test failed with %s' % msg
-        raise error.TestFail(failed_msg)
+        raise error.TestFail('Failed: %s' % failed_msg)
     f.close()
 
     # Final chance to fail.
     if pass_count != self.loops:
       failed_msg = 'Test failed with incomplete output. System hung? '
       failed_msg += '(pass_count=%d of %d)' % (pass_count, self.loops)
-      raise error.TestFail(failed_msg)
+      raise error.TestFail('Failed: %s' % failed_msg)
 
     # We need to wait a bit for X to come back after the 'start ui'.
     time.sleep(5)
 
     keyvals = self.GSC.get_memory_keyvals()
     for key, val in keyvals.iteritems():
-      self.output_perf_value(description=key, value=val, units='bytes',
-                             higher_is_better=False)
+      self.output_perf_value(
+          description=key, value=val, units='bytes', higher_is_better=False)

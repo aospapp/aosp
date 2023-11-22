@@ -34,7 +34,7 @@ import math
 
 # Modules from the numpy, scipy, and matplotlib libraries. These are used for
 # the image processing code, and images are represented as numpy arrays.
-import pylab
+from matplotlib import pylab
 import numpy
 import matplotlib
 import matplotlib.pyplot

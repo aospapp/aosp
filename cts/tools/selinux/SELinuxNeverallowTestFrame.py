@@ -18,7 +18,8 @@ src_header = """/*
 
 package android.cts.security;
 
-import com.android.cts.migration.MigrationHelper;
+import android.platform.test.annotations.RestrictedBuildTest;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -63,7 +64,8 @@ public class SELinuxNeverallowRulesTest extends DeviceTestCase implements IBuild
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        sepolicyAnalyze = MigrationHelper.getTestFile(mBuild, "sepolicy-analyze");
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
+        sepolicyAnalyze = buildHelper.getTestFile("sepolicy-analyze");
         sepolicyAnalyze.setExecutable(true);
 
         /* obtain sepolicy file from running device */
@@ -71,18 +73,29 @@ public class SELinuxNeverallowRulesTest extends DeviceTestCase implements IBuild
         devicePolicyFile.deleteOnExit();
         mDevice.pullFile("/sys/fs/selinux/policy", devicePolicyFile);
     }
+
+    private boolean isFullTrebleDevice() throws Exception {
+        return android.security.cts.SELinuxHostTest.isFullTrebleDevice(mDevice);
+    }
 """
 src_body = ""
 src_footer = """}
 """
 
 src_method = """
+    @RestrictedBuildTest
     public void testNeverallowRules() throws Exception {
         String neverallowRule = "$NEVERALLOW_RULE_HERE$";
+        boolean fullTrebleOnly = $FULL_TREBLE_ONLY_BOOL_HERE$;
+
+        if ((fullTrebleOnly) && (!isFullTrebleDevice())) {
+            // This test applies only to Treble devices but this device isn't one
+            return;
+        }
 
         /* run sepolicy-analyze neverallow check on policy file using given neverallow rules */
         ProcessBuilder pb = new ProcessBuilder(sepolicyAnalyze.getAbsolutePath(),
-                devicePolicyFile.getAbsolutePath(), "neverallow", "-n",
+                devicePolicyFile.getAbsolutePath(), "neverallow", "-w", "-n",
                 neverallowRule);
         pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
         pb.redirectErrorStream(true);

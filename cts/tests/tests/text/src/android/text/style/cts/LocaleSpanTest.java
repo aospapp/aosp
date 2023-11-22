@@ -16,17 +16,24 @@
 
 package android.text.style.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+
 import android.annotation.NonNull;
 import android.os.LocaleList;
 import android.os.Parcel;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.LocaleSpan;
 
-public class LocaleSpanTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private void checkGetLocales(@NonNull final LocaleList locales) {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LocaleSpanTest {
+
+    private void verifyGetLocales(@NonNull final LocaleList locales) {
         final LocaleSpan span = new LocaleSpan(locales);
         assertEquals(locales.get(0), span.getLocale());
         assertEquals(locales, span.getLocales());
@@ -36,23 +43,17 @@ public class LocaleSpanTest extends TestCase {
         assertEquals(locales, cloned.getLocales());
     }
 
-    @SmallTest
+    @Test
     public void testGetLocales() {
-        checkGetLocales(LocaleList.getEmptyLocaleList());
-        checkGetLocales(LocaleList.forLanguageTags("en"));
-        checkGetLocales(LocaleList.forLanguageTags("en-GB,en"));
-        checkGetLocales(LocaleList.forLanguageTags("de-DE-u-co-phonebk,en-GB,en"));
+        verifyGetLocales(LocaleList.getEmptyLocaleList());
+        verifyGetLocales(LocaleList.forLanguageTags("en"));
+        verifyGetLocales(LocaleList.forLanguageTags("en-GB,en"));
+        verifyGetLocales(LocaleList.forLanguageTags("de-DE-u-co-phonebk,en-GB,en"));
     }
 
-    @SmallTest
+    @Test(expected=NullPointerException.class)
     public void testConstructorWithLocaleList() {
-        try {
-            new LocaleSpan((LocaleList) null);
-        } catch (NullPointerException e) {
-            // Expected.
-            return;
-        }
-        fail("NullPointerException must have been thrown.");
+        new LocaleSpan((LocaleList) null);
     }
 
     @NonNull
@@ -70,19 +71,19 @@ public class LocaleSpanTest extends TestCase {
         }
     }
 
-    @SmallTest
+    @Test
     public void testDescribeContents_doesNotThrowException() {
         LocaleSpan localeSpan = new LocaleSpan(LocaleList.getEmptyLocaleList());
         localeSpan.describeContents();
     }
 
-    @SmallTest
+    @Test
     public void testGetSpanTypeId_doesNotThrowException() {
         LocaleSpan localeSpan = new LocaleSpan(LocaleList.getEmptyLocaleList());
         localeSpan.getSpanTypeId();
     }
 
-    @SmallTest
+    @Test
     public void testUpdateDrawState() {
         LocaleList localeListForSpan = LocaleList.forLanguageTags("en");
         LocaleSpan localeSpan = new LocaleSpan(localeListForSpan);
@@ -98,7 +99,7 @@ public class LocaleSpanTest extends TestCase {
         assertEquals(localeListForSpan.get(0), tp.getTextLocale());
     }
 
-    @SmallTest
+    @Test
     public void testUpdateMeasureState() {
         LocaleList localeListForSpan = LocaleList.forLanguageTags("en");
         LocaleSpan localeSpan = new LocaleSpan(localeListForSpan);

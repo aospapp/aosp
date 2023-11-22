@@ -20,6 +20,8 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -32,14 +34,17 @@ class TestLocationListener implements LocationListener {
     // Timeout in sec for count down latch wait
     private static final int TIMEOUT_IN_SEC = 120;
     private final CountDownLatch mCountDownLatch;
+    private List<Location>  mLocationList = null;
 
     TestLocationListener(int locationToCollect) {
         mCountDownLatch = new CountDownLatch(locationToCollect);
+        mLocationList = new ArrayList<>();
     }
 
     @Override
     public void onLocationChanged(Location location) {
         mLocationReceived = true;
+        mLocationList.add(location);
         mCountDownLatch.countDown();
     }
 
@@ -63,6 +68,15 @@ class TestLocationListener implements LocationListener {
 
     public boolean await() throws InterruptedException {
         return TestUtils.waitFor(mCountDownLatch, TIMEOUT_IN_SEC);
+    }
+
+    /**
+     * Get the list of locations received
+     *
+     * @return mLocationList, List of {@link Location}.
+     */
+    public List<Location> getReceivedLocationList(){
+        return mLocationList;
     }
 
     /**

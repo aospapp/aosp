@@ -23,6 +23,11 @@
 
         <activity android:name=".ApplyOverrideConfigurationActivity"
                   android:configChanges="orientation|screenSize" />
+
+        <activity android:name=".PictureInPictureActivity"
+                  android:resizeableActivity="false"
+                  android:supportsPictureInPicture="true"
+                  android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

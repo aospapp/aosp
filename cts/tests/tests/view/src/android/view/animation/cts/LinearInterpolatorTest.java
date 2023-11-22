@@ -16,8 +16,16 @@
 
 package android.view.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
-import android.test.ActivityInstrumentationTestCase2;
+import android.app.Instrumentation;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -25,37 +33,45 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.Transformation;
-
 import android.view.cts.R;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link LinearInterpolator}.
  */
-public class LinearInterpolatorTest extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
-
-    private Activity mActivity;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class LinearInterpolatorTest {
     private static final float ALPHA_DELTA = 0.001f;
 
     /** It is defined in R.anim.alpha */
     private static final long LINEAR_ALPHA_DURATION = 500;
     private static final long LINEAR_ALPHA_TIME_STEP = LINEAR_ALPHA_DURATION / 5;
 
-    public LinearInterpolatorTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new LinearInterpolator();
         new LinearInterpolator(mActivity, null);
     }
 
+    @Test
     public void testGetInterpolation() {
         LinearInterpolator interpolator = new LinearInterpolator();
         final float delta1 = interpolator.getInterpolation(0.1f)
@@ -68,7 +84,8 @@ public class LinearInterpolatorTest extends ActivityInstrumentationTestCase2<Ani
         assertEquals(delta2, delta3, ALPHA_DELTA);
     }
 
-    public void testLinearInterpolator() {
+    @Test
+    public void testLinearInterpolator() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final Animation anim = AnimationUtils.loadAnimation(mActivity, R.anim.alpha);
         assertEquals(LINEAR_ALPHA_DURATION, anim.getDuration());
@@ -78,7 +95,7 @@ public class LinearInterpolatorTest extends ActivityInstrumentationTestCase2<Ani
         anim.setInterpolator(interpolator);
         assertFalse(anim.hasStarted());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
 
         Transformation transformation = new Transformation();
         final long startTime = anim.getStartTime();

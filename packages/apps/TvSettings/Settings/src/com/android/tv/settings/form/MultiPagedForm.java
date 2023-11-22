@@ -22,6 +22,7 @@ import com.android.tv.settings.dialog.old.ActionFragment;
 import com.android.tv.settings.dialog.old.ContentFragment;
 import com.android.tv.settings.dialog.old.DialogActivity;
 import com.android.tv.settings.dialog.old.EditTextFragment;
+import com.android.tv.settings.R;
 
 import android.app.Fragment;
 import android.content.Intent;
@@ -122,6 +123,8 @@ public abstract class MultiPagedForm extends DialogActivity implements ActionAda
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == INTENT_FORM_PAGE_DATA_REQUEST) {
             if (resultCode == RESULT_OK) {
+                overridePendingTransition(
+                        R.anim.wps_activity_open_in, R.anim.wps_activity_open_out);
                 Object currentLocation = mFlowStack.peek();
                 if (currentLocation instanceof FormPage) {
                     FormPage page = (FormPage) currentLocation;
@@ -138,6 +141,8 @@ public abstract class MultiPagedForm extends DialogActivity implements ActionAda
                     Log.e(TAG, "Our current location wasn't on the top of the stack!");
                 }
             } else {
+                overridePendingTransition(
+                        R.anim.wps_activity_close_in, R.anim.wps_activity_close_out);
                 onBackPressed();
             }
         }
@@ -406,7 +411,6 @@ public abstract class MultiPagedForm extends DialogActivity implements ActionAda
                 }
                 displayPage(page, this, forward);
             } else {
-                Log.d("JMATT", "Finishing from here!");
                 // If this is an unexpected type, something went wrong, finish as
                 // cancelled.
                 setResult(RESULT_CANCELED);

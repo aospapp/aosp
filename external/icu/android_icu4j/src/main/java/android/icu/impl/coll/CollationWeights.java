@@ -1,5 +1,7 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
-/*  
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
+/*
 *******************************************************************************
 *
 *   Copyright (C) 1999-2015, International Business Machines
@@ -160,7 +162,7 @@ public final class CollationWeights {
         long start, end;
         int length, count;
 
-        // Java 6: @Override
+        @Override
         public int compareTo(WeightRange other) {
             long l=start;
             long r=other.start;

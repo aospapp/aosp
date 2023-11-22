@@ -15,18 +15,31 @@
  */
 package android.transition.cts;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.Fade;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * This tests the public API for Fade. The alpha cannot be easily tested as part of CTS,
  * so those are implementation tests.
  */
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class FadeTest extends BaseTransitionTest {
     Fade mFade;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
+        super.setup();
         resetTransition();
     }
 
@@ -37,16 +50,17 @@ public class FadeTest extends BaseTransitionTest {
         resetListener();
     }
 
+    @Test
     public void testMode() throws Throwable {
         // Should animate in and out by default
         enterScene(R.layout.scene4);
         startTransition(R.layout.scene1);
-        assertEquals(1, mListener.endLatch.getCount());
+        verify(mListener, never()).onTransitionEnd(any());
         waitForEnd(400);
 
         resetListener();
         startTransition(R.layout.scene4);
-        assertEquals(1, mListener.endLatch.getCount());
+        verify(mListener, never()).onTransitionEnd(any());
         waitForEnd(400);
 
         // Now only animate in
@@ -54,7 +68,7 @@ public class FadeTest extends BaseTransitionTest {
         mTransition = mFade;
         resetListener();
         startTransition(R.layout.scene1);
-        assertEquals(1, mListener.endLatch.getCount());
+        verify(mListener, never()).onTransitionEnd(any());
         waitForEnd(400);
 
         // No animation since it should only animate in
@@ -72,7 +86,7 @@ public class FadeTest extends BaseTransitionTest {
         // but it should animate out
         resetListener();
         startTransition(R.layout.scene4);
-        assertEquals(1, mListener.endLatch.getCount());
+        verify(mListener, never()).onTransitionEnd(any());
         waitForEnd(400);
     }
 }

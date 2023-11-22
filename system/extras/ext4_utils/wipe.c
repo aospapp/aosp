@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include "ext4_utils.h"
-#include "wipe.h"
+#include "ext4_utils/wipe.h"
+
+#include "ext4_utils/ext4_utils.h"
 
 #if WIPE_IS_SUPPORTED
 

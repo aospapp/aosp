@@ -36,6 +36,7 @@
 #include "NetdConstants.h"
 #include "Permission.h"
 #include "InterfaceController.h"
+#include "NetworkController.h"
 #include "TetherController.h"
 
 namespace {
@@ -46,7 +47,7 @@ const char IPV6_FORWARDING_PROC_FILE[] = "/proc/sys/net/ipv6/conf/all/forwarding
 const char SEPARATOR[] = "|";
 
 bool writeToFile(const char* filename, const char* value) {
-    int fd = open(filename, O_WRONLY);
+    int fd = open(filename, O_WRONLY | O_CLOEXEC);
     if (fd < 0) {
         ALOGE("Failed to open %s: %s", filename, strerror(errno));
         return false;
@@ -85,6 +86,9 @@ bool inBpToolsMode() {
 }
 
 }  // namespace
+
+namespace android {
+namespace net {
 
 TetherController::TetherController() {
     mDnsNetId = 0;
@@ -129,7 +133,7 @@ size_t TetherController::forwardingRequestCount() {
     return mForwardingRequests.size();
 }
 
-#define TETHER_START_CONST_ARG        8
+#define TETHER_START_CONST_ARG        10
 
 int TetherController::startTethering(int num_addrs, char **dhcp_ranges) {
     if (mDaemonPid != 0) {
@@ -169,6 +173,14 @@ int TetherController::startTethering(int num_addrs, char **dhcp_ranges) {
             close(pipefd[0]);
         }
 
+        Fwmark fwmark;
+        fwmark.netId = NetworkController::LOCAL_NET_ID;
+        fwmark.explicitlySelected = true;
+        fwmark.protectedFromVpn = true;
+        fwmark.permission = PERMISSION_SYSTEM;
+        char markStr[UINT32_HEX_STRLEN];
+        snprintf(markStr, sizeof(markStr), "0x%x", fwmark.intValue);
+
         int num_processed_args = TETHER_START_CONST_ARG + (num_addrs/2) + 1;
         char **args = (char **)malloc(sizeof(char *) * num_processed_args);
         args[num_processed_args - 1] = NULL;
@@ -180,7 +192,9 @@ int TetherController::startTethering(int num_addrs, char **dhcp_ranges) {
         // TODO: pipe through metered status from ConnService
         args[5] = (char *)"--dhcp-option-force=43,ANDROID_METERED";
         args[6] = (char *)"--pid-file";
-        args[7] = (char *)"";
+        args[7] = (char *)"--listen-mark";
+        args[8] = (char *)markStr;
+        args[9] = (char *)"";
 
         int nextArg = TETHER_START_CONST_ARG;
         for (int addrIndex = 0; addrIndex < num_addrs; addrIndex += 2) {
@@ -356,3 +370,6 @@ int TetherController::untetherInterface(const char *interface) {
 const std::list<std::string> &TetherController::getTetheredInterfaceList() const {
     return mInterfaces;
 }
+
+}  // namespace net
+}  // namespace android

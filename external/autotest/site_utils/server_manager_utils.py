@@ -7,6 +7,8 @@ database (defined in global config section AUTOTEST_SERVER_DB).
 
 """
 
+import collections
+import json
 import socket
 import subprocess
 import sys
@@ -72,11 +74,11 @@ def get_servers(hostname=None, role=None, status=None):
     return list(server_models.Server.objects.filter(**filters))
 
 
-def get_server_details(servers, table=False, summary=False):
-    """Get a string of given servers' details.
+def format_servers(servers):
+    """Format servers for printing.
 
-    The method can return a string of server information in 3 different formats:
-    A detail view:
+    Example output:
+
         Hostname     : server2
         Status       : primary
         Roles        : drone
@@ -84,11 +86,85 @@ def get_server_details(servers, table=False, summary=False):
         Date Created : 2014-11-25 12:00:00
         Date Modified: None
         Note         : Drone in lab1
-    A table view:
+
+    @param servers: Sequence of Server instances.
+    @returns: Formatted output as string.
+    """
+    return '\n'.join(str(server) for server in servers)
+
+
+def format_servers_json(servers):
+    """Format servers for printing as JSON.
+
+    Example output:
+
+        Hostname     : server2
+        Status       : primary
+        Roles        : drone
+        Attributes   : {'max_processes':300}
+        Date Created : 2014-11-25 12:00:00
+        Date Modified: None
+        Note         : Drone in lab1
+
+    @param servers: Sequence of Server instances.
+    @returns: String.
+    """
+    server_dicts = []
+    for server in servers:
+        if server.date_modified is None:
+            date_modified = None
+        else:
+            date_modified = str(server.date_modified)
+        server_dicts.append({'hostname': server.hostname,
+                             'status': server.status,
+                             'roles': server.get_role_names(),
+                             'date_created': str(server.date_created),
+                             'date_modified': date_modified,
+                             'note': server.note})
+    return json.dumps(server_dicts)
+
+
+_SERVER_TABLE_FORMAT = ('%(hostname)-30s | %(status)-7s | %(roles)-20s |'
+                        ' %(date_created)-19s | %(date_modified)-19s |'
+                        ' %(note)s')
+
+
+def format_servers_table(servers):
+    """format servers for printing as a table.
+
+    Example output:
+
         Hostname | Status  | Roles     | Date Created    | Date Modified | Note
         server1  | backup  | scheduler | 2014-11-25 23:45:19 |           |
         server2  | primary | drone     | 2014-11-25 12:00:00 |           | Drone
-    A summary view:
+
+    @param servers: Sequence of Server instances.
+    @returns: Formatted output as string.
+    """
+    result_lines = [(_SERVER_TABLE_FORMAT %
+                     {'hostname': 'Hostname',
+                      'status': 'Status',
+                      'roles': 'Roles',
+                      'date_created': 'Date Created',
+                      'date_modified': 'Date Modified',
+                      'note': 'Note'})]
+    for server in servers:
+        roles = ','.join(server.get_role_names())
+        result_lines.append(_SERVER_TABLE_FORMAT %
+                            {'hostname':server.hostname,
+                             'status': server.status or '',
+                             'roles': roles,
+                             'date_created': server.date_created,
+                             'date_modified': server.date_modified or '',
+                             'note': server.note or ''})
+    return '\n'.join(result_lines)
+
+
+def format_servers_summary(servers):
+    """format servers for printing a summary.
+
+    Example output:
+
         scheduler      : server1(backup), server3(primary),
         host_scheduler :
         drone          : server2(primary),
@@ -98,55 +174,48 @@ def get_server_details(servers, table=False, summary=False):
         crash_server   :
         No Role        :
 
-    The method returns detail view of each server and a summary view by default.
-    If `table` is set to True, only table view will be returned.
-    If `summary` is set to True, only summary view will be returned.
-
-    @param servers: A list of servers to get details.
-    @param table: True to return a table view instead of a detail view,
-                  default is set to False.
-    @param summary: True to only show the summary of roles and status of
-                    given servers.
-
-    @return: A string of the information of given servers.
+    @param servers: Sequence of Server instances.
+    @returns: Formatted output as string.
     """
-    # Format string to display a table view.
-    # Hostname, Status, Roles, Date Created, Date Modified, Note
-    TABLEVIEW_FORMAT = ('%(hostname)-30s | %(status)-7s | %(roles)-20s | '
-                        '%(date_created)-19s | %(date_modified)-19s | %(note)s')
+    servers_by_role = _get_servers_by_role(servers)
+    servers_with_roles = {server for role_servers in servers_by_role.itervalues()
+                          for server in role_servers}
+    servers_without_roles = [server for server in servers
+                             if server not in servers_with_roles]
+    result_lines = ['Roles and status of servers:', '']
+    for role, role_servers in servers_by_role.iteritems():
+        result_lines.append(_format_role_servers_summary(role, role_servers))
+    if servers_without_roles:
+        result_lines.append(
+                _format_role_servers_summary('No Role', servers_without_roles))
+    return '\n'.join(result_lines)
 
-    result = ''
-    if not table and not summary:
-        for server in servers:
-            result += '\n' + str(server)
-    elif table:
-        result += (TABLEVIEW_FORMAT %
-                   {'hostname':'Hostname', 'status':'Status',
-                    'roles':'Roles', 'date_created':'Date Created',
-                    'date_modified':'Date Modified', 'note':'Note'})
-        for server in servers:
-            roles = ','.join(server.get_role_names())
-            result += '\n' + (TABLEVIEW_FORMAT %
-                              {'hostname':server.hostname,
-                               'status': server.status or '',
-                               'roles': roles,
-                               'date_created': server.date_created,
-                               'date_modified': server.date_modified or '',
-                               'note': server.note or ''})
-    elif summary:
-        result += 'Roles and status of servers:\n\n'
-        for role, _ in server_models.ServerRole.ROLE.choices():
-            servers_of_role = [s for s in servers if role in
-                               [r.role for r in s.roles.all()]]
-            result += '%-15s: ' % role
-            for server in servers_of_role:
-                result += '%s(%s), ' % (server.hostname, server.status)
-            result += '\n'
-        servers_without_role = [s.hostname for s in servers
-                                if not s.roles.all()]
-        result += '%-15s: %s' % ('No Role', ', '.join(servers_without_role))
 
-    return result
+def _get_servers_by_role(servers):
+    """Return a mapping from roles to servers.
+
+    @param servers: Iterable of servers.
+    @returns: Mapping of role strings to lists of servers.
+    """
+    roles = [role for role, _ in server_models.ServerRole.ROLE.choices()]
+    servers_by_role = collections.defaultdict(list)
+    for server in servers:
+        for role in server.get_role_names():
+            servers_by_role[role].append(server)
+    return servers_by_role
+
+
+def _format_role_servers_summary(role, servers):
+    """Format one line of servers for a role in a server list summary.
+
+    @param role: Role string.
+    @param servers: Iterable of Server instances.
+    @returns: String.
+    """
+    servers_part = ', '.join(
+            '%s(%s)' % (server.hostname, server.status)
+            for server in servers)
+    return '%-15s: %s' % (role, servers_part)
 
 
 def check_server(hostname, role):

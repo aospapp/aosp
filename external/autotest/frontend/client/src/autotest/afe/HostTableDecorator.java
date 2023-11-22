@@ -25,7 +25,6 @@ class HostTableDecorator extends TableDecorator implements SimpleCallback {
     BooleanFilter lockedFilter;
     ListFilter lockedByFilter;
     AclAccessibleFilter aclFilter;
-    AtomicGroupFilter excludeAtomicGroupsFilter;
 
     static class AclAccessibleFilter extends CheckboxFilter {
         private JSONValue username;
@@ -38,17 +37,6 @@ class HostTableDecorator extends TableDecorator implements SimpleCallback {
         @Override
         public JSONValue getMatchValue() {
             return username;
-        }
-    }
-
-    static class AtomicGroupFilter extends CheckboxFilter {
-        public AtomicGroupFilter() {
-            super("exclude_atomic_group_hosts");
-        }
-
-        @Override
-        public JSONValue getMatchValue() {
-            return JSONBoolean.getInstance(true);
         }
     }
 
@@ -77,7 +65,6 @@ class HostTableDecorator extends TableDecorator implements SimpleCallback {
         lockedByFilter = new ListFilter("locked_by__login");
         lockedByFilter.setChoices(userStrings.toArray(new String[userStrings.size()]));
         aclFilter = new AclAccessibleFilter();
-        excludeAtomicGroupsFilter = new AtomicGroupFilter();
 
         updateLockedByEnabled();
         lockedFilter.addCallback(this);
@@ -89,7 +76,6 @@ class HostTableDecorator extends TableDecorator implements SimpleCallback {
         addFilter("Locked", lockedFilter);
         addFilter("Locked By", lockedByFilter);
         addFilter("ACL accessible only", aclFilter);
-        addFilter("Exclude atomic groups", excludeAtomicGroupsFilter);
     }
 
     @Override

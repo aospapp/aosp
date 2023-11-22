@@ -194,7 +194,15 @@ static struct gralloc_drm_bo_t *validate_handle(buffer_handle_t _handle,
  */
 int gralloc_drm_handle_register(buffer_handle_t handle, struct gralloc_drm_t *drm)
 {
-	return (validate_handle(handle, drm)) ? 0 : -EINVAL;
+	struct gralloc_drm_bo_t *bo;
+
+	bo = validate_handle(handle, drm);
+	if (!bo)
+		return -EINVAL;
+
+	bo->refcount++;
+
+	return 0;
 }
 
 /*
@@ -208,6 +216,7 @@ int gralloc_drm_handle_unregister(buffer_handle_t handle)
 	if (!bo)
 		return -EINVAL;
 
+	gralloc_drm_bo_decref(bo);
 	if (bo->imported)
 		gralloc_drm_bo_decref(bo);
 

@@ -57,6 +57,10 @@ unw_is_signal_frame (unw_cursor_t *cursor)
      if SA_SIGINFO is specified.
   */
   ip = c->dwarf.ip;
+  if (c->dwarf.frame != 0) {
+    /* Need to adjust the ip because we adjusted it down in the step call. */
+    ip++;
+  }
   if ((*a->access_mem) (as, ip, &w0, 0, arg) < 0
       || (*a->access_mem) (as, ip + 4, &w1, 0, arg) < 0)
     ret = 0;

@@ -21,6 +21,9 @@ import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
 
+/**
+ * @hide
+ */
 public class Utils {
     public static Bitmap snapshot(DisplayMetrics metrics, Drawable drawable) {
         int width = drawable.getIntrinsicWidth();

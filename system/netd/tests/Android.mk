@@ -19,21 +19,29 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := netd_integration_test
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
+# Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
+LOCAL_CFLAGS += -Wno-varargs
+
 EXTRA_LDLIBS := -lpthread
 LOCAL_SHARED_LIBRARIES += libbase libbinder libcutils liblog liblogwrap libnetdaidl libnetd_client \
                           libnetutils libutils
-LOCAL_STATIC_LIBRARIES += libtestUtil
+LOCAL_STATIC_LIBRARIES += libnetd_test_dnsresponder
 LOCAL_AIDL_INCLUDES := system/netd/server/binder
-LOCAL_C_INCLUDES += system/netd/include system/extras/tests/include system/netd/binder/include \
+LOCAL_C_INCLUDES += system/netd/include system/netd/binder/include \
                     system/netd/server system/core/logwrapper/include \
+                    system/netd/tests/dns_responder \
                     system/core/libnetutils/include \
-                    system/extras/tests/include bionic/libc/dns/include
+                    bionic/libc/dns/include
 # netd_integration_test.cpp is currently empty and exists only so that we can do:
 # runtest -x system/netd/tests/netd_integration_test.cpp
 LOCAL_SRC_FILES := binder_test.cpp \
-                   dns_responder.cpp \
+                   dns_responder/dns_responder.cpp \
                    netd_integration_test.cpp \
                    netd_test.cpp \
-                   ../server/NetdConstants.cpp
+                   tun_interface.cpp \
+                   ../server/NetdConstants.cpp \
+                   ../server/binder/android/net/metrics/INetdEventListener.aidl
 LOCAL_MODULE_TAGS := eng tests
 include $(BUILD_NATIVE_TEST)
+
+include $(call all-makefiles-under, $(LOCAL_PATH))

@@ -67,11 +67,8 @@ public class DisallowAppsControlActivity extends DialogTestListActivity {
     @Override
     public void finish() {
         // Pass and fail buttons are known to call finish() when clicked, and this is when we want to
-        // clear the password.
-        final ComponentName adminComponent = getAdminComponent();
-        if (mDpm.isAdminActive(adminComponent)) {
-            allowAppsControl();
-        }
+        // clear the restriction.
+        allowAppsControl();
         super.finish();
     }
 
@@ -119,10 +116,5 @@ public class DisallowAppsControlActivity extends DialogTestListActivity {
         setupCheckDisabledUninstallButtonTest(adapter);
         setupCheckDisabledForceStopTest(adapter);
         setupCheckDisabledAppStorageButtonsTest(adapter);
-    }
-
-    @Override
-    protected void clearRemainingState(final DialogTestListItem test) {
-        allowAppsControl();
     }
 }

@@ -1015,15 +1015,18 @@ wsbmBOCreateList(int target, int hasKernelBuffers)
         return NULL;
     list->hasKernelBuffers = hasKernelBuffers;
     if (hasKernelBuffers) {
-	ret = validateCreateList(target, &list->kernelBuffers, 0);
-	if (ret)
-	    return NULL;
+        ret = validateCreateList(target, &list->kernelBuffers, 0);
+        if (ret) {
+            free(list);
+            return NULL;
+        }
     }
 
     ret = validateCreateList(target, &list->userBuffers, 1);
     if (ret) {
-	validateFreeList(&list->kernelBuffers);
-	return NULL;
+        validateFreeList(&list->kernelBuffers);
+        free(list);
+        return NULL;
     }
 
     return list;

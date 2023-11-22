@@ -107,6 +107,7 @@ int main(int argc, char **argv)
                 usleep(duration * 1000);
         }
     }
+    fclose(fp_map);
 #else
     set_conio_terminal_mode();
 

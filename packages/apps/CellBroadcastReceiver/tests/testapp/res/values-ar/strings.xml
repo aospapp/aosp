@@ -42,7 +42,7 @@
     <string name="button_gsm_ucs2_multipage_umts_type" msgid="5063336859681757254">"‏إرسال بث متعدد الصفحات لكود النظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏UCS-2"</string>
     <string name="button_gsm_ucs2_with_language_type" msgid="7782847783969114889">"‏إرسال كود GSM UCS-2 مع اللغة"</string>
     <string name="button_gsm_ucs2_with_language_umts_type" msgid="1722368447645668730">"‏إرسال كود النظام العالمي لاتصالات الجوال عن بعد (UMTS) ‏UCS-2 مع اللغة"</string>
-    <string name="button_delay_broadcast" msgid="751650250579017537">"التأخير ۵ ثوانٍ قبل الإرسال"</string>
+    <string name="button_delay_broadcast" msgid="751650250579017537">"التأخير ٥ ثوانٍ قبل الإرسال"</string>
     <string name="message_id_label" msgid="1445077194410403236">"معرف الرسالة:"</string>
     <string name="category_id_label" msgid="6935815032327981691">"الفئة:"</string>
 </resources>

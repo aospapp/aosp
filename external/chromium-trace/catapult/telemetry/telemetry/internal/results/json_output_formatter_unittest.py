@@ -13,10 +13,10 @@ from telemetry import benchmark
 from telemetry.internal.results import json_output_formatter
 from telemetry.internal.results import page_test_results
 from telemetry import page as page_module
-from telemetry.timeline import trace_data
 from telemetry.value import improvement_direction
 from telemetry.value import scalar
 from telemetry.value import trace
+from tracing.trace_data import trace_data
 
 
 def _MakeStorySet():
@@ -85,7 +85,7 @@ class JsonOutputFormatterTest(unittest.TestCase):
       results.WillRunPage(self._story_set[0])
       v0 = trace.TraceValue(
           results.current_page,
-          trace_data.TraceData({'event': 'test'}))
+          trace_data.CreateTraceDataFromRawData([{'event': 'test'}]))
       results.AddValue(v0)
       results.DidRunPage(self._story_set[0])
       results._SerializeTracesToDirPath(tempdir)
@@ -100,8 +100,6 @@ class JsonOutputFormatterTest(unittest.TestCase):
       self.assertTrue(os.path.exists(output_trace_path))
     finally:
       shutil.rmtree(tempdir)
-
-
 
   def testAsDictWithTwoPages(self):
     results = page_test_results.PageTestResults()

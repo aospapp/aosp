@@ -20,6 +20,7 @@ import android.animation.TimeInterpolator;
 /**
  * Interpolator that can animate any of the quantum curves.
  * You can also specify
+ * @hide
  */
 public class QuantumInterpolator implements TimeInterpolator {
 

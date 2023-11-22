@@ -32,8 +32,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues001_Boolean() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.BOOLEAN_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.BOOLEAN_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.BOOLEAN_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createBoolean(StackTrace002Debuggee.BOOLEAN_PARAM_VALUE);
+        Value newValue = Value.createBoolean(StackTrace002Debuggee.BOOLEAN_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointBoolean");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointBoolean");
@@ -49,8 +49,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues002_Byte() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.BYTE_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.BYTE_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.BYTE_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createByte(StackTrace002Debuggee.BYTE_PARAM_VALUE);
+        Value newValue = Value.createByte(StackTrace002Debuggee.BYTE_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointByte");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointByte");
@@ -66,8 +66,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues003_Char() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.CHAR_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.CHAR_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.CHAR_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createChar(StackTrace002Debuggee.CHAR_PARAM_VALUE);
+        Value newValue = Value.createChar(StackTrace002Debuggee.CHAR_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointChar");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointChar");
@@ -83,8 +83,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues004_Short() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.SHORT_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.SHORT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.SHORT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createShort(StackTrace002Debuggee.SHORT_PARAM_VALUE);
+        Value newValue = Value.createShort(StackTrace002Debuggee.SHORT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointShort");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointShort");
@@ -100,8 +100,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues005_Int() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.INT_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointInt");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointInt");
@@ -118,8 +118,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
     public void testSetValues005_IntConstant() {
         StackFrameTester tester = new StackFrameTester(
                 StackTrace002Debuggee.INT_CONSTANT_METHOD_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointIntConstant");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointIntConstant");
@@ -136,10 +136,10 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
     public void testSetValues005_IntTwoConstants() {
         StackFrameTester tester = new StackFrameTester(
                 StackTrace002Debuggee.INT_TWO_CONSTANTS_METHOD_SIGNAL);
-        Value oldValueForLocal1 = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValueForLocal1 = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
-        Value oldValueForLocal2 = new Value(-StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValueForLocal2 = new Value(-StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValueForLocal1 = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValueForLocal1 = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValueForLocal2 = Value.createInt(-StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValueForLocal2 = Value.createInt(-StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointIntTwoConstants");
         suspensionMethodInfo.addVariable("param1", oldValueForLocal1, newValueForLocal1);
         suspensionMethodInfo.addVariable("param2", oldValueForLocal2, newValueForLocal2);
@@ -159,8 +159,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
     public void testSetValues005_IntConstantWithException() {
         StackFrameTester tester = new StackFrameTester(
                 StackTrace002Debuggee.INT_CONSTANT_METHOD_WITH_EXCEPTION_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo =
                 tester.addTestMethod("breakpointIntConstantWithException");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
@@ -179,8 +179,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
     public void testSetValues005_IntConstantWithExceptionInCallee() {
         StackFrameTester tester = new StackFrameTester(
                 StackTrace002Debuggee.INT_CONSTANT_METHOD_WITH_EXCEPTION_IN_CALLEE_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo =
                 tester.addTestMethod("breakpointIntConstantWithException");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
@@ -200,8 +200,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
     public void testSetValues005_IntConstantWithExceptionInCaller() {
         StackFrameTester tester = new StackFrameTester(
                 StackTrace002Debuggee.INT_CONSTANT_METHOD_WITH_EXCEPTION_IN_CALLER_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         // Throwing an exception will unwind the frame where we set the value. So we expect to
         // read the initial value on second suspension.
         Value expectedValueAfterSet = oldValue;
@@ -224,8 +224,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
     public void testSetValues005_IntConstantWithExceptionAndNativeTransition() {
         StackFrameTester tester = new StackFrameTester(
                 StackTrace002Debuggee.INT_CONSTANT_METHOD_WITH_EXCEPTION_FROM_NATIVE_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value newValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo =
                 tester.addTestMethod("breakpointIntConstantWithException");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
@@ -243,8 +243,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues006_Long() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.LONG_METHOD_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.LONG_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.LONG_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createLong(StackTrace002Debuggee.LONG_PARAM_VALUE);
+        Value newValue = Value.createLong(StackTrace002Debuggee.LONG_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointLong");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointLong");
@@ -260,8 +260,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues007_Float() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.FLOAT_METHOD);
-        Value oldValue = new Value(StackTrace002Debuggee.FLOAT_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.FLOAT_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createFloat(StackTrace002Debuggee.FLOAT_PARAM_VALUE);
+        Value newValue = Value.createFloat(StackTrace002Debuggee.FLOAT_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointFloat");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointFloat");
@@ -277,8 +277,8 @@ public class SetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testSetValues008_Double() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.DOUBLE_METHOD);
-        Value oldValue = new Value(StackTrace002Debuggee.DOUBLE_PARAM_VALUE);
-        Value newValue = new Value(StackTrace002Debuggee.DOUBLE_PARAM_VALUE_TO_SET);
+        Value oldValue = Value.createDouble(StackTrace002Debuggee.DOUBLE_PARAM_VALUE);
+        Value newValue = Value.createDouble(StackTrace002Debuggee.DOUBLE_PARAM_VALUE_TO_SET);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointDouble");
         suspensionMethodInfo.addVariable("param", oldValue, newValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointDouble");

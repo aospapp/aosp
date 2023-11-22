@@ -16,6 +16,8 @@
 
 package libcore.java.nio.channels;
 
+import org.junit.Rule;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -36,28 +38,35 @@ import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import libcore.junit.util.ResourceLeakageDetector.LeakageDetectorRule;
 
-public class SocketChannelTest extends junit.framework.TestCase {
+public class SocketChannelTest extends TestCaseWithRules {
+
+    @Rule
+    public LeakageDetectorRule guardRule = ResourceLeakageDetector.getRule();
 
     public void test_read_intoReadOnlyByteArrays() throws Exception {
-        ByteBuffer readOnly = ByteBuffer.allocate(1).asReadOnlyBuffer();
-        ServerSocket ss = new ServerSocket(0);
-        ss.setReuseAddress(true);
-        SocketChannel sc = SocketChannel.open(ss.getLocalSocketAddress());
-        try {
-            sc.read(readOnly);
-            fail();
-        } catch (IllegalArgumentException expected) {
-        }
-        try {
-            sc.read(new ByteBuffer[] { readOnly });
-            fail();
-        } catch (IllegalArgumentException expected) {
-        }
-        try {
-            sc.read(new ByteBuffer[] { readOnly }, 0, 1);
-            fail();
-        } catch (IllegalArgumentException expected) {
+        try (ServerSocket ss = new ServerSocket(0);
+             SocketChannel sc = SocketChannel.open(ss.getLocalSocketAddress())) {
+            ByteBuffer readOnly = ByteBuffer.allocate(1).asReadOnlyBuffer();
+            ss.setReuseAddress(true);
+            try {
+                sc.read(readOnly);
+                fail();
+            } catch (IllegalArgumentException expected) {
+            }
+            try {
+                sc.read(new ByteBuffer[] { readOnly });
+                fail();
+            } catch (IllegalArgumentException expected) {
+            }
+            try {
+                sc.read(new ByteBuffer[] { readOnly }, 0, 1);
+                fail();
+            } catch (IllegalArgumentException expected) {
+            }
         }
     }
 
@@ -269,13 +278,14 @@ public class SocketChannelTest extends junit.framework.TestCase {
     }
 
     public void test_Socket_impl_notNull() throws Exception {
-        SocketChannel sc = SocketChannel.open();
-        Socket socket = sc.socket();
-        Field f_impl = Socket.class.getDeclaredField("impl");
-        f_impl.setAccessible(true);
-        Object implFieldValue = f_impl.get(socket);
-        assertNotNull(implFieldValue);
-        assertTrue(implFieldValue instanceof SocketImpl);
+        try (SocketChannel sc = SocketChannel.open();
+             Socket socket = sc.socket()) {
+            Field f_impl = Socket.class.getDeclaredField("impl");
+            f_impl.setAccessible(true);
+            Object implFieldValue = f_impl.get(socket);
+            assertNotNull(implFieldValue);
+            assertTrue(implFieldValue instanceof SocketImpl);
+        }
     }
 
     public void test_setOption() throws Exception {
@@ -311,8 +321,8 @@ public class SocketChannelTest extends junit.framework.TestCase {
 
         socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK,
                 ((InetSocketAddress) (sc.getLocalAddress())).getPort());
-        try {
-            SocketChannel.open().bind(socketAddress);
+        try (SocketChannel sc1 = SocketChannel.open()){
+            sc1.bind(socketAddress);
             fail();
         } catch (BindException expected) {
         }
@@ -321,77 +331,87 @@ public class SocketChannelTest extends junit.framework.TestCase {
         socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK, 0);
         try {
             sc.bind(socketAddress);
+            fail();
         } catch (ClosedChannelException expected) {
         }
     }
 
     public void test_getRemoteAddress() throws IOException {
-        SocketChannel sc = SocketChannel.open();
-        ServerSocket ss = new ServerSocket(0);
+        try (SocketChannel sc = SocketChannel.open();
+             ServerSocket ss = new ServerSocket(0)) {
+            assertNull(sc.getRemoteAddress());
 
-        assertNull(sc.getRemoteAddress());
-
-        sc.connect(ss.getLocalSocketAddress());
-        assertEquals(sc.getRemoteAddress(), ss.getLocalSocketAddress());
+            sc.connect(ss.getLocalSocketAddress());
+            assertEquals(sc.getRemoteAddress(), ss.getLocalSocketAddress());
+        }
     }
 
     public void test_shutdownInput() throws IOException {
-        SocketChannel channel1 = SocketChannel.open();
-        ServerSocket server1 = new ServerSocket(0);
-        InetSocketAddress localAddr1 = new InetSocketAddress("127.0.0.1", server1.getLocalPort());
+        try (SocketChannel channel1 = SocketChannel.open();
+            ServerSocket server1 = new ServerSocket(0)) {
+            InetSocketAddress localAddr1 = new InetSocketAddress("127.0.0.1",
+                    server1.getLocalPort());
 
-        // initialize write content
-        byte[] writeContent = new byte[10];
-        for (int i = 0; i < writeContent.length; i++) {
-            writeContent[i] = (byte) i;
+            // initialize write content
+            byte[] writeContent = new byte[10];
+            for (int i = 0; i < writeContent.length; i++) {
+                writeContent[i] = (byte) i;
+            }
+
+            // establish connection
+            channel1.connect(localAddr1);
+            Socket acceptedSocket = server1.accept();
+            // use OutputStream.write to write bytes data.
+            OutputStream out = acceptedSocket.getOutputStream();
+            out.write(writeContent);
+            // use close to guarantee all data is sent
+            acceptedSocket.close();
+
+            channel1.configureBlocking(false);
+            ByteBuffer readContent = ByteBuffer.allocate(10 + 1);
+            channel1.shutdownInput();
+            assertEquals(-1, channel1.read(readContent));
         }
-
-        // establish connection
-        channel1.connect(localAddr1);
-        Socket acceptedSocket = server1.accept();
-        // use OutputStream.write to write bytes data.
-        OutputStream out = acceptedSocket.getOutputStream();
-        out.write(writeContent);
-        // use close to guarantee all data is sent
-        acceptedSocket.close();
-
-        channel1.configureBlocking(false);
-        ByteBuffer readContent = ByteBuffer.allocate(10 + 1);
-        channel1.shutdownInput();
-        assertEquals(-1, channel1.read(readContent));
     }
 
     public void test_shutdownOutput() throws IOException {
-        SocketChannel channel1 = SocketChannel.open();
-        ServerSocket server1 = new ServerSocket(0);
-        InetSocketAddress localAddr1 = new InetSocketAddress("127.0.0.1", server1.getLocalPort());
+        try (SocketChannel channel1 = SocketChannel.open();
+            ServerSocket server1 = new ServerSocket(0)) {
+            InetSocketAddress localAddr1 = new InetSocketAddress(
+                "127.0.0.1", server1.getLocalPort());
 
-        // initialize write content
-        ByteBuffer writeContent = ByteBuffer.allocate(10);
-        for (int i = 0; i < 10; i++) {
-            writeContent.put((byte) i);
+            // initialize write content
+            ByteBuffer writeContent = ByteBuffer.allocate(10);
+            for (int i = 0; i < 10; i++) {
+                writeContent.put((byte) i);
+            }
+            writeContent.flip();
+
+            try {
+                channel1.shutdownOutput();
+                fail();
+            } catch (NotYetConnectedException expected) {
+            }
+
+            // establish connection
+            channel1.connect(localAddr1);
+            channel1.shutdownOutput();
+
+            try {
+                channel1.write(writeContent);
+                fail();
+            } catch (ClosedChannelException expected) {
+            }
+
+            // Closing the channel early to verify that is CloseChannelException thrown by
+            // #shutdownOutput.
+            channel1.close();
+
+            try {
+                channel1.shutdownOutput();
+                fail();
+            } catch (ClosedChannelException expected) {
+            }
         }
-        writeContent.flip();
-
-        try {
-            channel1.shutdownOutput();
-            fail();
-        } catch (NotYetConnectedException expected) {}
-
-        // establish connection
-        channel1.connect(localAddr1);
-        channel1.shutdownOutput();
-
-        try {
-            channel1.write(writeContent);
-            fail();
-        } catch (ClosedChannelException expected) {}
-
-        channel1.close();
-
-        try {
-            channel1.shutdownOutput();
-            fail();
-        } catch(ClosedChannelException expected) {}
     }
 }

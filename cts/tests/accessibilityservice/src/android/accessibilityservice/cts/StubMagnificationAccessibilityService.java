@@ -14,20 +14,16 @@
 
 package android.accessibilityservice.cts;
 
-import android.accessibilityservice.GestureDescription;
-import android.os.Handler;
-import android.test.InstrumentationTestCase;
-import android.view.accessibility.AccessibilityEvent;
-
-import java.io.IOException;
+import android.app.Instrumentation;
 
 /**
  * A stub accessibility service to install for testing gesture dispatch
  */
 public class StubMagnificationAccessibilityService extends InstrumentedAccessibilityService {
 
-    public static StubMagnificationAccessibilityService enableSelf(InstrumentationTestCase test) {
+    public static StubMagnificationAccessibilityService enableSelf(
+            Instrumentation instrumentation) {
         return InstrumentedAccessibilityService.enableService(
-                test, StubMagnificationAccessibilityService.class);
+                instrumentation, StubMagnificationAccessibilityService.class);
     }
 }

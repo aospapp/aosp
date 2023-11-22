@@ -17,7 +17,6 @@
 #include "trunks/hmac_authorization_delegate.h"
 
 #include <base/logging.h>
-#include <base/memory/scoped_ptr.h>
 #include <base/stl_util.h>
 #include <crypto/secure_util.h>
 #include <openssl/aes.h>
@@ -31,8 +30,8 @@ namespace {
 const uint32_t kDigestBits = 256;
 const uint16_t kNonceMinSize = 16;
 const uint16_t kNonceMaxSize = 32;
-const uint8_t kDecryptSession = 1<<5;
-const uint8_t kEncryptSession = 1<<6;
+const uint8_t kDecryptSession = 1 << 5;
+const uint8_t kEncryptSession = 1 << 6;
 const uint8_t kLabelSize = 4;
 const size_t kAesIVSize = 16;
 const uint32_t kTpmBufferSize = 4096;
@@ -80,7 +79,8 @@ bool HmacAuthorizationDelegate::GetCommandAuthorization(
   nonce_generated_ = false;
   std::string attributes_bytes;
   CHECK_EQ(Serialize_TPMA_SESSION(auth.session_attributes, &attributes_bytes),
-           TPM_RC_SUCCESS) << "Error serializing session attributes.";
+           TPM_RC_SUCCESS)
+      << "Error serializing session attributes.";
 
   std::string hmac_data;
   std::string hmac_key;
@@ -115,9 +115,8 @@ bool HmacAuthorizationDelegate::CheckResponseAuthorization(
   TPMS_AUTH_RESPONSE auth_response;
   std::string mutable_auth_string(authorization);
   TPM_RC parse_error;
-  parse_error = Parse_TPMS_AUTH_RESPONSE(&mutable_auth_string,
-                                         &auth_response,
-                                         nullptr);
+  parse_error =
+      Parse_TPMS_AUTH_RESPONSE(&mutable_auth_string, &auth_response, nullptr);
   if (parse_error != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Could not parse authorization response.";
     return false;
@@ -135,7 +134,8 @@ bool HmacAuthorizationDelegate::CheckResponseAuthorization(
   std::string attributes_bytes;
   CHECK_EQ(Serialize_TPMA_SESSION(auth_response.session_attributes,
                                   &attributes_bytes),
-           TPM_RC_SUCCESS) << "Error serializing session attributes.";
+           TPM_RC_SUCCESS)
+      << "Error serializing session attributes.";
 
   std::string hmac_data;
   std::string hmac_key;
@@ -207,13 +207,12 @@ bool HmacAuthorizationDelegate::DecryptResponseParameter(
   return true;
 }
 
-bool HmacAuthorizationDelegate::InitSession(
-    TPM_HANDLE session_handle,
-    const TPM2B_NONCE& tpm_nonce,
-    const TPM2B_NONCE& caller_nonce,
-    const std::string& salt,
-    const std::string& bind_auth_value,
-    bool enable_parameter_encryption) {
+bool HmacAuthorizationDelegate::InitSession(TPM_HANDLE session_handle,
+                                            const TPM2B_NONCE& tpm_nonce,
+                                            const TPM2B_NONCE& caller_nonce,
+                                            const std::string& salt,
+                                            const std::string& bind_auth_value,
+                                            bool enable_parameter_encryption) {
   session_handle_ = session_handle;
   if (caller_nonce.size < kNonceMinSize || caller_nonce.size > kNonceMaxSize ||
       tpm_nonce.size < kNonceMinSize || tpm_nonce.size > kNonceMaxSize) {
@@ -229,10 +228,8 @@ bool HmacAuthorizationDelegate::InitSession(
     // unbound sessions.
     session_key_ = std::string();
   } else {
-    session_key_ = CreateKey(bind_auth_value + salt,
-                             session_key_label,
-                             tpm_nonce_,
-                             caller_nonce_);
+    session_key_ = CreateKey(bind_auth_value + salt, session_key_label,
+                             tpm_nonce_, caller_nonce_);
   }
   return true;
 }
@@ -275,12 +272,8 @@ std::string HmacAuthorizationDelegate::HmacSha256(const std::string& key,
                                                   const std::string& data) {
   unsigned char digest[EVP_MAX_MD_SIZE];
   unsigned int digest_length;
-  HMAC(EVP_sha256(),
-       key.data(),
-       key.size(),
-       reinterpret_cast<const unsigned char*>(data.data()),
-       data.size(),
-       digest,
+  HMAC(EVP_sha256(), key.data(), key.size(),
+       reinterpret_cast<const unsigned char*>(data.data()), data.size(), digest,
        &digest_length);
   CHECK_EQ(digest_length, kHashDigestSize);
   return std::string(reinterpret_cast<char*>(digest), digest_length);
@@ -291,11 +284,9 @@ void HmacAuthorizationDelegate::AesOperation(std::string* parameter,
                                              const TPM2B_NONCE& nonce_older,
                                              int operation_type) {
   std::string label("CFB", kLabelSize);
-  std::string compound_key = CreateKey(
-      session_key_ + entity_authorization_value_,
-      label,
-      nonce_newer,
-      nonce_older);
+  std::string compound_key =
+      CreateKey(session_key_ + entity_authorization_value_, label, nonce_newer,
+                nonce_older);
   CHECK_EQ(compound_key.size(), kAesKeySize + kAesIVSize);
   unsigned char aes_key[kAesKeySize];
   unsigned char aes_iv[kAesIVSize];
@@ -303,13 +294,10 @@ void HmacAuthorizationDelegate::AesOperation(std::string* parameter,
   memcpy(aes_iv, &compound_key[kAesKeySize], kAesIVSize);
   AES_KEY key;
   int iv_offset = 0;
-  AES_set_encrypt_key(aes_key, kAesKeySize*8, &key);
+  AES_set_encrypt_key(aes_key, kAesKeySize * 8, &key);
   unsigned char decrypted[kTpmBufferSize];
   AES_cfb128_encrypt(reinterpret_cast<const unsigned char*>(parameter->data()),
-                     decrypted,
-                     parameter->size(),
-                     &key, aes_iv,
-                     &iv_offset,
+                     decrypted, parameter->size(), &key, aes_iv, &iv_offset,
                      operation_type);
   memcpy(string_as_array(parameter), decrypted, parameter->size());
 }
@@ -318,8 +306,8 @@ void HmacAuthorizationDelegate::RegenerateCallerNonce() {
   CHECK(session_handle_);
   // RAND_bytes takes a signed number, but since nonce_size is guaranteed to be
   // less than 32 bytes and greater than 16 we dont have to worry about it.
-  CHECK_EQ(RAND_bytes(caller_nonce_.buffer, caller_nonce_.size), 1) <<
-      "Error regnerating a cryptographically random nonce.";
+  CHECK_EQ(RAND_bytes(caller_nonce_.buffer, caller_nonce_.size), 1)
+      << "Error regnerating a cryptographically random nonce.";
 }
 
 }  // namespace trunks

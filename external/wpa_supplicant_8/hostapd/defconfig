@@ -157,6 +157,12 @@ CONFIG_IPV6=y
 # IEEE 802.11ac (Very High Throughput) support
 #CONFIG_IEEE80211AC=y
 
+# IEEE 802.11ax HE support
+# Note: This is experimental and work in progress. The definitions are still
+# subject to change and this should not be expected to interoperate with the
+# final IEEE 802.11ax version.
+#CONFIG_IEEE80211AX=y
+
 # Remove debugging code that is printing out debug messages to stdout.
 # This can be used to reduce the size of the hostapd considerably if debugging
 # code is not needed.
@@ -165,6 +171,9 @@ CONFIG_IPV6=y
 # Add support for writing debug log to a file: -f /tmp/hostapd.log
 # Disabled by default.
 #CONFIG_DEBUG_FILE=y
+
+# Send debug messages to syslog instead of stdout
+#CONFIG_DEBUG_SYSLOG=y
 
 # Add support for sending all debug messages (regardless of debug verbosity)
 # to the Linux kernel tracing facility. This helps debug the entire stack by
@@ -337,3 +346,18 @@ CONFIG_IPV6=y
 # These extentions facilitate efficient use of multiple frequency bands
 # available to the AP and the devices that may associate with it.
 #CONFIG_MBO=y
+
+# Client Taxonomy
+# Has the AP retain the Probe Request and (Re)Association Request frames from
+# a client, from which a signature can be produced which can identify the model
+# of client device like "Nexus 6P" or "iPhone 5s".
+#CONFIG_TAXONOMY=y
+
+# Fast Initial Link Setup (FILS) (IEEE 802.11ai)
+# Note: This is an experimental and not yet complete implementation. This
+# should not be enabled for production use.
+#CONFIG_FILS=y
+
+# Include internal line edit mode in hostapd_cli. This can be used to provide
+# limited command line editing and history support.
+#CONFIG_WPA_CLI_EDIT=y

@@ -7,7 +7,6 @@ NAME = "power_DeferForFlashrom"
 TIME = "SHORT"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:power_build"
-SUITE = "power_build"
 
 DOC = """
 This test verifies that flashrom creates a lockfile while performing

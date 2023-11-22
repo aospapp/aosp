@@ -23,13 +23,13 @@
  *
  *  Description:   Bluetooth MCE Interface
  *
- *******************************************************************************/
+ ******************************************************************************/
 
 #ifndef BTIF_MCE_H
 #define BTIF_MCE_H
 
 #include <hardware/bt_mce.h>
 
-btmce_interface_t *btif_mce_get_interface();
+btmce_interface_t* btif_mce_get_interface();
 
 #endif

@@ -7,7 +7,6 @@ NAME = 'graphics_SanAngeles.bvt-cq'
 PURPOSE = 'Benchmark OpenGL object rendering.'
 CRITERIA = 'This test is a benchmark. It will fail if it fails to complete.'
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = 'bvt-cq'
 TIME='FAST'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "graphics"
@@ -16,7 +15,7 @@ JOB_RETRIES = 2
 # Reboot in the lab after the test ends.
 DEPENDENCIES='cleanup-reboot'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

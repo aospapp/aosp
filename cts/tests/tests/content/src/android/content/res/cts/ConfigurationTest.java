@@ -34,6 +34,7 @@ public class ConfigurationTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mConfigDefault = new Configuration();
+        mConfigDefault.setToDefaults();
         makeConfiguration();
     }
 
@@ -58,6 +59,13 @@ public class ConfigurationTest extends AndroidTestCase {
         final Configuration cfg1 = new Configuration();
         final Configuration cfg2 = new Configuration();
         assertEquals(0, cfg1.compareTo(cfg2));
+
+        cfg1.colorMode = 2;
+        cfg2.colorMode = 3;
+        assertEquals(-1, cfg1.compareTo(cfg2));
+        cfg1.colorMode = 3;
+        cfg2.colorMode = 2;
+        assertEquals(1, cfg1.compareTo(cfg2));
 
         cfg1.orientation = 2;
         cfg2.orientation = 3;
@@ -169,7 +177,7 @@ public class ConfigurationTest extends AndroidTestCase {
         assertEquals(0, mConfigDefault.describeContents());
     }
 
-    void doConfigCompare(int expectedFlags, Configuration c1, Configuration c2) {
+    private static void doConfigCompare(int expectedFlags, Configuration c1, Configuration c2) {
         assertEquals(expectedFlags, c1.diff(c2));
         Configuration tmpc1 = new Configuration(c1);
         assertEquals(expectedFlags, tmpc1.updateFrom(c2));
@@ -290,6 +298,20 @@ public class ConfigurationTest extends AndroidTestCase {
                 | ActivityInfo.CONFIG_ORIENTATION
                 | ActivityInfo.CONFIG_UI_MODE
                 | ActivityInfo.CONFIG_FONT_SCALE, mConfigDefault, config);
+        config.colorMode = 2;
+        doConfigCompare(ActivityInfo.CONFIG_MCC
+                | ActivityInfo.CONFIG_MNC
+                | ActivityInfo.CONFIG_LOCALE
+                | ActivityInfo.CONFIG_LAYOUT_DIRECTION
+                | ActivityInfo.CONFIG_SCREEN_LAYOUT
+                | ActivityInfo.CONFIG_TOUCHSCREEN
+                | ActivityInfo.CONFIG_KEYBOARD
+                | ActivityInfo.CONFIG_KEYBOARD_HIDDEN
+                | ActivityInfo.CONFIG_NAVIGATION
+                | ActivityInfo.CONFIG_ORIENTATION
+                | ActivityInfo.CONFIG_UI_MODE
+                | ActivityInfo.CONFIG_FONT_SCALE
+                | ActivityInfo.CONFIG_COLOR_MODE, mConfigDefault, config);
     }
 
     public void testEquals() {
@@ -312,11 +334,62 @@ public class ConfigurationTest extends AndroidTestCase {
     }
 
     public void testSetToDefaults() {
-        final Configuration temp = new Configuration(mConfig);
-        assertFalse(temp.equals(mConfigDefault));
-        temp.setToDefaults();
-        assertTrue(temp.equals(mConfigDefault));
-        assertTrue(temp.getLocales().isEmpty());
+        final Configuration config = new Configuration(mConfig);
+        assertFalse(config.equals(mConfigDefault));
+
+        config.setToDefaults();
+        assertTrue(config.equals(mConfigDefault));
+
+        assertEquals(1.0f, config.fontScale);
+        assertEquals(0, config.mcc);
+        assertEquals(0, config.mnc);
+        assertTrue(config.getLocales().isEmpty());
+        assertEquals(null, config.locale);
+        assertFalse(config.userSetLocale);
+        assertEquals(Configuration.TOUCHSCREEN_UNDEFINED, config.touchscreen);
+        assertEquals(Configuration.KEYBOARD_UNDEFINED, config.keyboard);
+        assertEquals(Configuration.KEYBOARDHIDDEN_UNDEFINED, config.keyboardHidden);
+        assertEquals(Configuration.HARDKEYBOARDHIDDEN_UNDEFINED, config.hardKeyboardHidden);
+        assertEquals(Configuration.NAVIGATION_UNDEFINED, config.navigation);
+        assertEquals(Configuration.NAVIGATIONHIDDEN_UNDEFINED, config.navigationHidden);
+        assertEquals(Configuration.ORIENTATION_UNDEFINED, config.orientation);
+        assertEquals(Configuration.SCREENLAYOUT_UNDEFINED, config.screenLayout);
+        assertEquals(Configuration.UI_MODE_TYPE_UNDEFINED, config.uiMode);
+        assertEquals(Configuration.SCREEN_WIDTH_DP_UNDEFINED, config.screenWidthDp);
+        assertEquals(Configuration.SCREEN_WIDTH_DP_UNDEFINED, config.compatScreenWidthDp);
+        assertEquals(Configuration.SCREEN_HEIGHT_DP_UNDEFINED, config.screenHeightDp);
+        assertEquals(Configuration.SCREEN_HEIGHT_DP_UNDEFINED, config.compatScreenHeightDp);
+        assertEquals(Configuration.SMALLEST_SCREEN_WIDTH_DP_UNDEFINED,
+                config.smallestScreenWidthDp);
+        assertEquals(Configuration.DENSITY_DPI_UNDEFINED, config.densityDpi);
+        assertEquals(Configuration.COLOR_MODE_UNDEFINED, config.colorMode);
+    }
+
+    public void testUnset() {
+        Configuration config = new Configuration();
+        assertEquals(0.0f, config.fontScale);
+        assertEquals(0, config.mcc);
+        assertEquals(0, config.mnc);
+        assertTrue(config.getLocales().isEmpty());
+        assertEquals(null, config.locale);
+        assertFalse(config.userSetLocale);
+        assertEquals(Configuration.TOUCHSCREEN_UNDEFINED, config.touchscreen);
+        assertEquals(Configuration.KEYBOARD_UNDEFINED, config.keyboard);
+        assertEquals(Configuration.KEYBOARDHIDDEN_UNDEFINED, config.keyboardHidden);
+        assertEquals(Configuration.HARDKEYBOARDHIDDEN_UNDEFINED, config.hardKeyboardHidden);
+        assertEquals(Configuration.NAVIGATION_UNDEFINED, config.navigation);
+        assertEquals(Configuration.NAVIGATIONHIDDEN_UNDEFINED, config.navigationHidden);
+        assertEquals(Configuration.ORIENTATION_UNDEFINED, config.orientation);
+        assertEquals(Configuration.SCREENLAYOUT_UNDEFINED, config.screenLayout);
+        assertEquals(Configuration.UI_MODE_TYPE_UNDEFINED, config.uiMode);
+        assertEquals(Configuration.SCREEN_WIDTH_DP_UNDEFINED, config.screenWidthDp);
+        assertEquals(Configuration.SCREEN_WIDTH_DP_UNDEFINED, config.compatScreenWidthDp);
+        assertEquals(Configuration.SCREEN_HEIGHT_DP_UNDEFINED, config.screenHeightDp);
+        assertEquals(Configuration.SCREEN_HEIGHT_DP_UNDEFINED, config.compatScreenHeightDp);
+        assertEquals(Configuration.SMALLEST_SCREEN_WIDTH_DP_UNDEFINED,
+                config.smallestScreenWidthDp);
+        assertEquals(Configuration.DENSITY_DPI_UNDEFINED, config.densityDpi);
+        assertEquals(Configuration.COLOR_MODE_UNDEFINED, config.colorMode);
     }
 
     public void testToString() {
@@ -409,6 +482,22 @@ public class ConfigurationTest extends AndroidTestCase {
 
         config.screenLayout |= Configuration.SCREENLAYOUT_ROUND_YES;
         assertTrue(config.isScreenRound());
+    }
+
+    public void testIsScreenHdr() {
+        Configuration config = new Configuration();
+        assertFalse(config.isScreenHdr());
+
+        config.colorMode |= Configuration.COLOR_MODE_HDR_YES;
+        assertTrue(config.isScreenHdr());
+    }
+
+    public void testIsScreenWideColorGamut() {
+        Configuration config = new Configuration();
+        assertFalse(config.isScreenWideColorGamut());
+
+        config.colorMode |= Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_YES;
+        assertTrue(config.isScreenWideColorGamut());
     }
 
     public void testFixUpLocaleList() {

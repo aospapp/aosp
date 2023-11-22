@@ -14,27 +14,28 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Libcore OkHttp test cases">
+    <option name="config-descriptor:metadata" key="component" value="libcore" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/java.io.tmpdir" />
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/user.home" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/ctslibcore" />
     </target_preparer>
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <!-- this has the CoreTestRunner which needs to be in a separate APK -->
-        <option name="test-file-name" value="CtsLibcoreTestRunner.apk" />
         <!-- this has just the instrumentation which acts as the tests we want to run -->
         <option name="test-file-name" value="CtsLibcoreOkHttpTestCases.apk" />
     </target_preparer>
-    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <!-- override AJUR -->
-        <option name="runner" value="com.android.cts.core.runner.CoreTestRunner" />
+    <test class="com.android.compatibility.testtype.LibcoreTest" >
         <option name="package" value="android.libcore.cts.okhttp" />
-        <option name="instrumentation-arg" key="core-listener"
-                value="com.android.cts.runner.CtsTestRunListener"/>
-        <option name="instrumentation-arg" key="core-expectations"
-                value="/knownfailures.txt,/brokentests.txt,/icebox.txt,/taggedtests.txt" />
-        <option name="runtime-hint" value="10m"/>
+        <option name="instrumentation-arg" key="listener"
+                value="com.android.cts.runner.CtsTestRunListener" />
+        <option name="instrumentation-arg" key="filter"
+                value="com.android.cts.core.runner.ExpectationBasedFilter" />
+        <option name="core-expectation" value="/knownfailures.txt" />
+        <option name="core-expectation" value="/brokentests.txt" />
+        <option name="core-expectation" value="/icebox.txt" />
+        <option name="core-expectation" value="/taggedtests.txt" />
+        <option name="runtime-hint" value="15m"/>
         <!-- 20x default timeout of 600sec -->
         <option name="shell-timeout" value="12000000"/>
     </test>

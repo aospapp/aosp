@@ -29,7 +29,7 @@
 #include <private/bionic_asm.h>
 
 // pid_t __bionic_clone(int flags, void* child_stack, pid_t* parent_tid, void* tls, pid_t* child_tid, int (*fn)(void*), void* arg);
-ENTRY(__bionic_clone)
+ENTRY_PRIVATE(__bionic_clone)
     mov     ip, sp
     # save registers to parent stack
     stmfd   sp!, {r4, r5, r6, r7}
@@ -51,7 +51,7 @@ ENTRY(__bionic_clone)
 
     # Are we the child?
     movs    r0, r0
-    beq     1f
+    beq     .L_bc_child
 
     # In the parent, reload saved registers then either return or set errno.
     ldmfd   sp!, {r4, r5, r6, r7}
@@ -60,11 +60,10 @@ ENTRY(__bionic_clone)
     neg     r0, r0
     b       __set_errno_internal
 
-1:  # The child.
-    # Setting lr to 0 will make the unwinder stop at __start_thread
+.L_bc_child:
+    # Setting lr to 0 will make the unwinder stop at __start_thread.
     mov    lr, #0
     # Call __start_thread with the 'fn' and 'arg' we stored on the child stack.
     pop    {r0, r1}
     b      __start_thread
 END(__bionic_clone)
-.hidden __bionic_clone

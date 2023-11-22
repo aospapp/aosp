@@ -328,8 +328,14 @@ Fail:
      if(g_updateNV && !g_inFailureMode)
      {
          g_updateNV = FALSE;
-         if(!NvCommit())
+         if(!NvCommit()) {
               FAIL(FATAL_ERROR_INTERNAL);
+#ifdef EMBEDDED_MODE
+	      // Make sure we pass errors along
+	      result = TPM_RC_FAILURE;
+	      resTag = TPM_ST_NO_SESSIONS;
+#endif
+	 }
      }
      // Marshal the response header.
      buffer = MemoryGetResponseBuffer(commandCode);

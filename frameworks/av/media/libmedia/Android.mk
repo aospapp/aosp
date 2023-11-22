@@ -2,39 +2,22 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES:= \
-    AudioParameter.cpp
-LOCAL_MODULE:= libmedia_helper
-LOCAL_MODULE_TAGS := optional
-
-LOCAL_CFLAGS += -Werror -Wno-error=deprecated-declarations -Wall
-LOCAL_CLANG := true
-
-include $(BUILD_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
+LOCAL_AIDL_INCLUDES := \
+    frameworks/av/media/libmedia/aidl
 
 LOCAL_SRC_FILES:= \
-    AudioTrack.cpp \
-    AudioTrackShared.cpp \
-    IAudioFlinger.cpp \
-    IAudioFlingerClient.cpp \
-    IAudioTrack.cpp \
-    IAudioRecord.cpp \
-    ICrypto.cpp \
+    aidl/android/IGraphicBufferSource.aidl \
+    aidl/android/IOMXBufferSource.aidl
+
+LOCAL_SRC_FILES += \
     IDataSource.cpp \
-    IDrm.cpp \
-    IDrmClient.cpp \
     IHDCP.cpp \
-    AudioRecord.cpp \
-    AudioSystem.cpp \
+    BufferingSettings.cpp \
     mediaplayer.cpp \
     IMediaCodecList.cpp \
     IMediaCodecService.cpp \
-    IMediaDrmService.cpp \
     IMediaHTTPConnection.cpp \
     IMediaHTTPService.cpp \
-    IMediaLogService.cpp \
     IMediaExtractor.cpp           \
     IMediaExtractorService.cpp \
     IMediaPlayerService.cpp \
@@ -48,18 +31,18 @@ LOCAL_SRC_FILES:= \
     IResourceManagerClient.cpp \
     IResourceManagerService.cpp \
     IStreamSource.cpp \
+    MediaCodecBuffer.cpp \
     MediaCodecInfo.cpp \
+    MediaDefs.cpp \
     MediaUtils.cpp \
     Metadata.cpp \
     mediarecorder.cpp \
     IMediaMetadataRetriever.cpp \
     mediametadataretriever.cpp \
+    MidiDeviceInfo.cpp \
     MidiIoWrapper.cpp \
-    ToneGenerator.cpp \
     JetPlayer.cpp \
     IOMX.cpp \
-    IAudioPolicyService.cpp \
-    IAudioPolicyServiceClient.cpp \
     MediaScanner.cpp \
     MediaScannerClient.cpp \
     CharacterEncodingDetector.cpp \
@@ -67,20 +50,43 @@ LOCAL_SRC_FILES:= \
     MediaProfiles.cpp \
     MediaResource.cpp \
     MediaResourcePolicy.cpp \
-    IEffect.cpp \
-    IEffectClient.cpp \
-    AudioEffect.cpp \
+    OMXBuffer.cpp \
     Visualizer.cpp \
-    MemoryLeakTrackUtil.cpp \
     StringArray.cpp \
-    AudioPolicy.cpp
+    omx/1.0/WGraphicBufferSource.cpp \
+    omx/1.0/WOmx.cpp \
+    omx/1.0/WOmxBufferSource.cpp \
+    omx/1.0/WOmxNode.cpp \
+    omx/1.0/WOmxObserver.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
-	libui liblog libcutils libutils libbinder libsonivox libicuuc libicui18n libexpat \
+        libui liblog libcutils libutils libbinder libsonivox libicuuc libicui18n libexpat \
         libcamera_client libstagefright_foundation \
-        libgui libdl libaudioutils libnbaio
+        libgui libdl libaudioutils libaudioclient \
+        libmedia_helper libmediadrm \
+        libmediametrics \
+        libbase \
+        libhidlbase \
+        libhidltransport \
+        libhwbinder \
+        libhidlmemory \
+        android.hidl.base@1.0 \
+        android.hidl.memory@1.0 \
+        android.hidl.token@1.0-utils \
+        android.hardware.graphics.common@1.0 \
+        android.hardware.graphics.bufferqueue@1.0 \
+        android.hardware.media@1.0 \
+        android.hardware.media.omx@1.0 \
 
-LOCAL_WHOLE_STATIC_LIBRARIES := libmedia_helper
+LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := \
+        libbinder \
+        libsonivox \
+        libmediadrm \
+        android.hidl.token@1.0-utils \
+        android.hardware.media.omx@1.0 \
+        android.hidl.memory@1.0 \
+
+LOCAL_HEADER_LIBRARIES := libmedia_headers
 
 # for memory heap analysis
 LOCAL_STATIC_LIBRARIES := libc_malloc_debug_backtrace libc_logging
@@ -90,15 +96,20 @@ LOCAL_MODULE:= libmedia
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_C_INCLUDES := \
+    $(TOP)/system/libhidl/base/include \
     $(TOP)/frameworks/native/include/media/openmax \
     $(TOP)/frameworks/av/include/media/ \
-    $(TOP)/frameworks/av/media/libstagefright \
-    $(call include-path-for, audio-effects) \
+    $(TOP)/frameworks/av/media/libmedia/aidl \
+    $(TOP)/frameworks/av/include \
+    $(TOP)/frameworks/native/include \
     $(call include-path-for, audio-utils)
 
+LOCAL_EXPORT_C_INCLUDE_DIRS := \
+    frameworks/av/include/media \
+    frameworks/av/media/libmedia/aidl \
+
 LOCAL_CFLAGS += -Werror -Wno-error=deprecated-declarations -Wall
-LOCAL_CLANG := true
-LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow
+LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 include $(BUILD_SHARED_LIBRARY)
-

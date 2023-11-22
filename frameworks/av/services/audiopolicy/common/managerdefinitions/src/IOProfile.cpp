@@ -28,7 +28,7 @@ namespace android {
 // Sampling rate, format and channel mask must be specified in order to
 // get a valid a match
 bool IOProfile::isCompatibleProfile(audio_devices_t device,
-                                    String8 address,
+                                    const String8& address,
                                     uint32_t samplingRate,
                                     uint32_t *updatedSamplingRate,
                                     audio_format_t format,
@@ -108,8 +108,18 @@ void IOProfile::dump(int fd)
 
     AudioPort::dump(fd, 4);
 
-    snprintf(buffer, SIZE, "    - flags: 0x%04x\n", getFlags());
+    snprintf(buffer, SIZE, "    - flags: 0x%04x", getFlags());
     result.append(buffer);
+    std::string flagsLiteral;
+    if (getRole() == AUDIO_PORT_ROLE_SINK) {
+        InputFlagConverter::maskToString(getFlags(), flagsLiteral);
+    } else if (getRole() == AUDIO_PORT_ROLE_SOURCE) {
+        OutputFlagConverter::maskToString(getFlags(), flagsLiteral);
+    }
+    if (!flagsLiteral.empty()) {
+        result.appendFormat(" (%s)", flagsLiteral.c_str());
+    }
+    result.append("\n");
     write(fd, result.string(), result.size());
     mSupportedDevices.dump(fd, String8("Supported"), 4, false);
 }

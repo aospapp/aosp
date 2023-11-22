@@ -78,7 +78,7 @@ struct Matrix4x4 : public rs_matrix4x4 {
     }
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif  // ANDROID_RS_MATRIX_4x4_H

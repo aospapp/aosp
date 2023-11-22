@@ -43,14 +43,6 @@
     </PreferenceScreen>
 
     <PreferenceScreen
-        android:key="cdma_activate_device_key"
-        android:title="@string/cdma_activate_device">
-        <intent android:action="com.android.phone.PERFORM_VOICELESS_CDMA_PROVISIONING">
-            <extra android:name="autoStart" android:value="true" />
-        </intent>
-    </PreferenceScreen>
-
-    <PreferenceScreen
         android:key="carrier_settings_key"
         android:title="@string/carrier_settings_title">
         <intent android:action="android.intent.action.MAIN"

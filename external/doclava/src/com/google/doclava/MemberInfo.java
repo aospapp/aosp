@@ -169,6 +169,10 @@ public abstract class MemberInfo extends DocInfo implements Comparable, Scoped {
     return mAnnotations;
   }
 
+  public boolean hasShowAnnotation() {
+    return mShowAnnotations != null && mShowAnnotations.size() > 0;
+  }
+
   public ArrayList<AnnotationInstanceInfo> showAnnotations() {
     return mShowAnnotations;
   }

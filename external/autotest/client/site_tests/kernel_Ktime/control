@@ -13,7 +13,6 @@ CRITERIA = """
 Fails if ktime and RTC do not agree.
 """
 ATTRIBUTES = "suite:kernel_per-build_regression"
-SUITE = "kernel_per-build_regression"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"

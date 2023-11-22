@@ -16,6 +16,8 @@
 
 package libcore.util;
 
+import dalvik.annotation.optimization.FastNative;
+
 /**
  * Various special-case charset conversions (for performance).
  *
@@ -26,18 +28,21 @@ public final class CharsetUtils {
      * Returns a new byte array containing the bytes corresponding to the characters in the given
      * string, encoded in US-ASCII. Unrepresentable characters are replaced by (byte) '?'.
      */
+    @FastNative
     public static native byte[] toAsciiBytes(String s, int offset, int length);
 
     /**
      * Returns a new byte array containing the bytes corresponding to the characters in the given
      * string, encoded in ISO-8859-1. Unrepresentable characters are replaced by (byte) '?'.
      */
+    @FastNative
     public static native byte[] toIsoLatin1Bytes(String s, int offset, int length);
 
     /**
      * Returns a new byte array containing the bytes corresponding to the characters in the given
      * string, encoded in UTF-8. All characters are representable in UTF-8.
      */
+    @FastNative
     public static native byte[] toUtf8Bytes(String s, int offset, int length);
 
     /**
@@ -64,6 +69,7 @@ public final class CharsetUtils {
      *     value[i] = (ch <= 0x7f) ? ch : REPLACEMENT_CHAR;
      * }
      */
+    @FastNative
     public static native void asciiBytesToChars(byte[] bytes, int offset, int length, char[] chars);
 
     /**
@@ -73,6 +79,7 @@ public final class CharsetUtils {
      *     value[i] = (char) (data[start++] & 0xff);
      * }
      */
+    @FastNative
     public static native void isoLatin1BytesToChars(byte[] bytes, int offset, int length, char[] chars);
 
     private CharsetUtils() {

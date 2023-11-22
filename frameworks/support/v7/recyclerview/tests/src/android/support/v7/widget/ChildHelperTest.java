@@ -16,31 +16,36 @@
 
 package android.support.v7.widget;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.view.View;
+import android.view.ViewGroup;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
-import android.test.AndroidTestCase;
-import android.test.mock.MockContext;
-import android.test.suitebuilder.annotation.SmallTest;
-import android.view.View;
-import android.view.ViewGroup;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
-public class ChildHelperTest extends AndroidTestCase {
+public class ChildHelperTest {
     LoggingCallback  mLoggingCallback;
     ChildHelper mChildHelper;
+    Context mContext;
 
     @Before
-    public void prepare() throws Exception {
-        setUp();
-        setContext(InstrumentationRegistry.getContext());
+    public void setup() throws Exception {
+        mContext = InstrumentationRegistry.getContext();
         mLoggingCallback = new LoggingCallback();
         mChildHelper = new ChildHelper(mLoggingCallback);
     }
@@ -88,8 +93,7 @@ public class ChildHelperTest extends AndroidTestCase {
         RecyclerView.ViewHolder vh = vh();
         vh.mPosition = 12;
         mChildHelper.addView(vh.itemView, true);
-        assertSame(vh.itemView,
-                mChildHelper.findHiddenNonRemovedView(12, RecyclerView.INVALID_TYPE));
+        assertSame(vh.itemView, mChildHelper.findHiddenNonRemovedView(12));
     }
 
     @Test
@@ -98,7 +102,7 @@ public class ChildHelperTest extends AndroidTestCase {
         vh.mPosition = 12;
         vh.addFlags(RecyclerView.ViewHolder.FLAG_REMOVED);
         mChildHelper.addView(vh.itemView, true);
-        assertNull(mChildHelper.findHiddenNonRemovedView(12, RecyclerView.INVALID_TYPE));
+        assertNull(mChildHelper.findHiddenNonRemovedView(12));
     }
 
     private static class LoggingCallback implements ChildHelper.Callback {

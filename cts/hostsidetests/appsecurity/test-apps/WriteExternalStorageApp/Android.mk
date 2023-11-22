@@ -18,10 +18,13 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-test compatibility-device-util
+#ctsdeviceutil
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
     ../ExternalStorageApp/src/com/android/cts/externalstorageapp/CommonExternalStorageTest.java
+
+LOCAL_JAVA_RESOURCE_DIRS := $(LOCAL_PATH)/res
 
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts

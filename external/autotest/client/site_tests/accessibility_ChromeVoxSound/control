@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if ChromeVox is not running or produces insufficient sound.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "accessibility"

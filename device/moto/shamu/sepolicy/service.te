@@ -1,2 +1,0 @@
-type atfwd_service,             service_manager_type;
-type cne_service,               service_manager_type;

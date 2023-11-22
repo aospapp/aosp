@@ -12,7 +12,7 @@
 //
 //     Error Returns                    Meaning
 //
-//     none                             ...
+//     TPM_RC_NO_RESULT                 private key generation failed
 //
 TPM_RC
 TPM2_EC_Ephemeral(

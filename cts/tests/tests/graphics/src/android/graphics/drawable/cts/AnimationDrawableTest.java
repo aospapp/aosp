@@ -16,27 +16,43 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.app.Activity;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
-import android.cts.util.PollingCheck;
+import android.graphics.cts.ImageViewCtsActivity;
+import android.graphics.cts.R;
 import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.DrawableContainer.DrawableContainerState;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.LargeTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Xml;
 import android.widget.ImageView;
-import android.graphics.cts.ImageViewCtsActivity;
+
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
-public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<ImageViewCtsActivity> {
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class AnimationDrawableTest {
     private static final int FRAMES_COUNT        = 3;
     private static final int FIRST_FRAME_INDEX   = 0;
     private static final int SECOND_FRAME_INDEX  = 1;
@@ -49,158 +65,112 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
     private AnimationDrawable mAnimationDrawable;
     private Resources mResources;
 
-    public AnimationDrawableTest() {
-        super("android.graphics.cts", ImageViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ImageViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ImageViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        final Activity activity = getActivity();
+    @UiThreadTest
+    @Before
+    public void setup() throws Throwable {
+        final Activity activity = mActivityRule.getActivity();
         mResources = activity.getResources();
-        try {
-            runTestOnUiThread(new Runnable() {
-                public void run() {
-                    ImageView imageView = (ImageView) activity.findViewById(R.id.imageview);
-                    imageView.setBackgroundResource(R.drawable.animationdrawable);
-                    mAnimationDrawable = (AnimationDrawable) imageView.getBackground();
-                }
-            });
-        } catch (Throwable t) {
-            throw new Exception(t);
-        }
+
+        ImageView imageView = (ImageView) activity.findViewById(R.id.imageview);
+        imageView.setBackgroundResource(R.drawable.animationdrawable);
+        mAnimationDrawable = (AnimationDrawable) imageView.getBackground();
     }
 
+    @Test
     public void testConstructor() {
-        mAnimationDrawable = new AnimationDrawable();
+        AnimationDrawable animationDrawable = new AnimationDrawable();
         // Check the values set in the constructor
-        assertNotNull(mAnimationDrawable.getConstantState());
-        assertFalse(mAnimationDrawable.isRunning());
-        assertFalse(mAnimationDrawable.isOneShot());
+        assertNotNull(animationDrawable.getConstantState());
+        assertFalse(animationDrawable.isRunning());
+        assertFalse(animationDrawable.isOneShot());
     }
 
+    @Test
     public void testSetVisible() throws Throwable {
         assertTrue(mAnimationDrawable.isVisible());
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.start();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::start);
         assertTrue(mAnimationDrawable.isRunning());
-        assertSame(mAnimationDrawable.getFrame(FIRST_FRAME_INDEX),
-                mAnimationDrawable.getCurrent());
+        assertSame(mAnimationDrawable.getFrame(FIRST_FRAME_INDEX), mAnimationDrawable.getCurrent());
 
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                assertTrue(mAnimationDrawable.setVisible(false, false));
-            }
-        });
+        mActivityRule.runOnUiThread(() -> assertTrue(mAnimationDrawable.setVisible(false, false)));
         assertFalse(mAnimationDrawable.isVisible());
         assertFalse(mAnimationDrawable.isRunning());
-        assertStoppedAnimation(SECOND_FRAME_INDEX, SECOND_FRAME_DURATION);
+        verifyStoppedAnimation(SECOND_FRAME_INDEX, SECOND_FRAME_DURATION);
 
         // restart animation
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                assertTrue(mAnimationDrawable.setVisible(true, true));
-            }
-        });
+        mActivityRule.runOnUiThread(() -> assertTrue(mAnimationDrawable.setVisible(true, true)));
         assertTrue(mAnimationDrawable.isVisible());
         assertTrue(mAnimationDrawable.isRunning());
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
     }
 
+    @Test
     public void testStart() throws Throwable {
         // animation should play repeat if do not stop it.
         assertFalse(mAnimationDrawable.isOneShot());
         assertFalse(mAnimationDrawable.isRunning());
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.start();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::start);
 
         assertTrue(mAnimationDrawable.isRunning());
         assertSame(mAnimationDrawable.getFrame(FIRST_FRAME_INDEX),
                 mAnimationDrawable.getCurrent());
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                // This method has no effect if the animation is running.
-                mAnimationDrawable.start();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::start);
         pollingCheckDrawable(THIRD_FRAME_INDEX, SECOND_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.stop();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::stop);
         assertFalse(mAnimationDrawable.isRunning());
-        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+        verifyStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                // This method has no effect if the animation is not running.
-                mAnimationDrawable.stop();
-            }
-        });
+        // This method has no effect if the animation is not running.
+        mActivityRule.runOnUiThread(mAnimationDrawable::stop);
         assertFalse(mAnimationDrawable.isRunning());
-        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+        verifyStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
     }
 
+    @Test
     public void testRun() throws Throwable {
         assertFalse(mAnimationDrawable.isRunning());
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.run();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::run);
 
         assertTrue(mAnimationDrawable.isRunning());
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.unscheduleSelf(mAnimationDrawable);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mAnimationDrawable.unscheduleSelf(mAnimationDrawable));
     }
 
+    @Test
     public void testUnscheduleSelf() throws Throwable {
         assertFalse(mAnimationDrawable.isRunning());
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.start();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::start);
 
         assertTrue(mAnimationDrawable.isRunning());
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.unscheduleSelf(mAnimationDrawable);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mAnimationDrawable.unscheduleSelf(mAnimationDrawable));
         assertFalse(mAnimationDrawable.isRunning());
-        assertStoppedAnimation(SECOND_FRAME_INDEX, SECOND_FRAME_DURATION);
+        verifyStoppedAnimation(SECOND_FRAME_INDEX, SECOND_FRAME_DURATION);
     }
 
+    @Test
     public void testGetNumberOfFrames() {
-        assertEquals(FRAMES_COUNT, mAnimationDrawable.getNumberOfFrames());
+        AnimationDrawable mutated = (AnimationDrawable) mAnimationDrawable.mutate();
+        assertEquals(FRAMES_COUNT, mutated.getNumberOfFrames());
 
         Drawable frame = mResources.getDrawable(R.drawable.failed);
         mAnimationDrawable.addFrame(frame, 2000);
-        assertEquals(FRAMES_COUNT + 1, mAnimationDrawable.getNumberOfFrames());
+        assertEquals(FRAMES_COUNT + 1, mutated.getNumberOfFrames());
 
         // add same frame with same duration
         mAnimationDrawable.addFrame(frame, 2000);
-        assertEquals(FRAMES_COUNT + 2, mAnimationDrawable.getNumberOfFrames());
+        assertEquals(FRAMES_COUNT + 2, mutated.getNumberOfFrames());
 
         try {
             mAnimationDrawable.addFrame(null, 1000);
@@ -210,6 +180,7 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         }
     }
 
+    @Test
     public void testGetFrame() {
         Drawable frame = mAnimationDrawable.getFrame(FIRST_FRAME_INDEX);
         Drawable drawable = mResources.getDrawable(R.drawable.testimage);
@@ -227,87 +198,68 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         assertEquals(drawable.getIntrinsicHeight(), frame.getIntrinsicHeight());
 
         assertNull(mAnimationDrawable.getFrame(THIRD_FRAME_INDEX + 1));
-
-        try {
-            mAnimationDrawable.getFrame(-1);
-            fail("Should throw ArrayIndexOutOfBoundsException.");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        try {
-            mAnimationDrawable.getFrame(10);
-            fail("Should throw ArrayIndexOutOfBoundsException.");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testGetFrameTooLow() {
+        mAnimationDrawable.getFrame(-1);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testGetFrameTooHigh() {
+        mAnimationDrawable.getFrame(10);
+    }
+
+    @Test
     public void testGetDuration() {
         assertEquals(FIRST_FRAME_DURATION, mAnimationDrawable.getDuration(FIRST_FRAME_INDEX));
         assertEquals(SECOND_FRAME_DURATION, mAnimationDrawable.getDuration(SECOND_FRAME_INDEX));
         assertEquals(THIRD_FRAME_DURATION, mAnimationDrawable.getDuration(THIRD_FRAME_INDEX));
         assertEquals(0, mAnimationDrawable.getDuration(THIRD_FRAME_INDEX + 1));
-
-        try {
-            mAnimationDrawable.getDuration(-1);
-            fail("Should throw ArrayIndexOutOfBoundsException.");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
-
-        try {
-            mAnimationDrawable.getDuration(10);
-            fail("Should throw ArrayIndexOutOfBoundsException.");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testGetDurationTooLow() {
+        mAnimationDrawable.getDuration(-1);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testGetDurationTooHigh() {
+        mAnimationDrawable.getDuration(10);
+    }
+
+    @Test
     public void testAccessOneShot() throws Throwable {
         // animation should play repeat if do not stop it.
         assertFalse(mAnimationDrawable.isOneShot());
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.start();
-            }
-        });
+        mActivityRule.runOnUiThread(mAnimationDrawable::start);
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
         pollingCheckDrawable(THIRD_FRAME_INDEX, SECOND_FRAME_DURATION);
         // begin to repeat
         pollingCheckDrawable(FIRST_FRAME_INDEX, THIRD_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimationDrawable.stop();
-                mAnimationDrawable.setOneShot(true);
-                assertTrue(mAnimationDrawable.isOneShot());
-                mAnimationDrawable.start();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mAnimationDrawable.stop();
+            mAnimationDrawable.setOneShot(true);
+            assertTrue(mAnimationDrawable.isOneShot());
+            mAnimationDrawable.start();
         });
         pollingCheckDrawable(SECOND_FRAME_INDEX, FIRST_FRAME_DURATION);
         pollingCheckDrawable(THIRD_FRAME_INDEX, SECOND_FRAME_DURATION);
         // do not repeat
-        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                // Set visible to false and restart to false
-                mAnimationDrawable.setVisible(false, false);
-            }
-        });
+        verifyStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+        // Set visible to false and restart to false
+        mActivityRule.runOnUiThread(() -> mAnimationDrawable.setVisible(false, false));
         // Check that animation drawable stays on the same frame
-        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+        verifyStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                // Set visible to true and restart to false
-                mAnimationDrawable.setVisible(true, false);
-            }
-        });
+        // Set visible to true and restart to false
+        mActivityRule.runOnUiThread(() -> mAnimationDrawable.setVisible(true, false));
         // Check that animation drawable stays on the same frame
-        assertStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
+        verifyStoppedAnimation(THIRD_FRAME_INDEX, THIRD_FRAME_DURATION);
     }
 
+    @Test
     public void testInflateCorrect() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.xml.anim_list_correct);
         AnimationDrawable dr = new AnimationDrawable();
@@ -326,6 +278,7 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         assertSame(dr.getFrame(0), dr.getCurrent());
     }
 
+    @Test
     public void testInflateMissingDrawable() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.xml.anim_list_missing_item_drawable);
         AnimationDrawable dr = new AnimationDrawable();
@@ -337,39 +290,31 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
         }
     }
 
+    @Test(expected=NullPointerException.class)
     public void testInflateNullResources() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.drawable.animationdrawable);
         AnimationDrawable dr = new AnimationDrawable();
-        try {
-            dr.inflate(null, parser, Xml.asAttributeSet(parser));
-            fail("Should throw NullPointerException if resource is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
+        // Should throw NullPointerException if resource is null
+        dr.inflate(null, parser, Xml.asAttributeSet(parser));
     }
 
+    @Test(expected=NullPointerException.class)
     public void testInflateNullXmlPullParser() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.drawable.animationdrawable);
         AnimationDrawable dr = new AnimationDrawable();
-        try {
-            dr.inflate(mResources, null, Xml.asAttributeSet(parser));
-            fail("Should throw NullPointerException if parser is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
+        // Should throw NullPointerException if parser is null
+        dr.inflate(mResources, null, Xml.asAttributeSet(parser));
     }
 
+    @Test(expected=NullPointerException.class)
     public void testInflateNullAttributeSet() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.drawable.animationdrawable);
         AnimationDrawable dr = new AnimationDrawable();
-        try {
-            dr.inflate(mResources, parser, null);
-            fail("Should throw NullPointerException if AttributeSet is null");
-        } catch (NullPointerException e) {
-            // expected
-        }
+        // Should throw NullPointerException if AttributeSet is null
+        dr.inflate(mResources, parser, null);
     }
 
+    @Test
     public void testMutate() {
         AnimationDrawable d1 = (AnimationDrawable) mResources
                 .getDrawable(R.drawable.animationdrawable);
@@ -395,13 +340,9 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
      * @param timeout - timeout.
      */
     private void pollingCheckDrawable(final int index, long timeout) {
-        new PollingCheck(timeout + TOLERANCE) {
-            Drawable expected = mAnimationDrawable.getFrame(index);
-            @Override
-            protected boolean check() {
-                return mAnimationDrawable.getCurrent().equals(expected);
-            }
-        }.run();
+        final Drawable expected = mAnimationDrawable.getFrame(index);
+        PollingCheck.waitFor(timeout + TOLERANCE,
+                () -> mAnimationDrawable.getCurrent().equals(expected));
     }
 
     /**
@@ -410,7 +351,7 @@ public class AnimationDrawableTest extends ActivityInstrumentationTestCase2<Imag
      * @param index - index of current frame.
      * @param duration - duration of current frame.
      */
-    private void assertStoppedAnimation(int index, long duration) throws InterruptedException {
+    private void verifyStoppedAnimation(int index, long duration) throws InterruptedException {
         Thread.sleep(duration + TOLERANCE);
         assertSame(mAnimationDrawable.getFrame(index), mAnimationDrawable.getCurrent());
     }

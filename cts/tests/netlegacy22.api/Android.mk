@@ -27,7 +27,7 @@ LOCAL_PACKAGE_NAME := CtsNetTestCasesLegacyApi22
 
 LOCAL_SDK_VERSION := 22
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner legacy-android-test
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts

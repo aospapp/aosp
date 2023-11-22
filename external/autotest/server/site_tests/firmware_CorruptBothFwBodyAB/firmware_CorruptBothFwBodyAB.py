@@ -62,7 +62,10 @@ class firmware_CorruptBothFwBodyAB(FirmwareTest):
                         'mainfw_type': 'developer' if dev_mode else 'normal',
                         }))
             self.faft_client.bios.corrupt_body(('a', 'b'))
-            self.switcher.mode_aware_reboot()
+            self.switcher.simple_reboot()
+            if not dev_mode:
+                self.switcher.bypass_rec_mode()
+            self.switcher.wait_for_client()
 
             logging.info("Expected recovery boot and restore firmware.")
             self.check_state((self.checkers.crossystem_checker, {

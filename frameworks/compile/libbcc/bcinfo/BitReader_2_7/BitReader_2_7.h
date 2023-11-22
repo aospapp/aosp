@@ -47,7 +47,7 @@ using llvm::MemoryBufferRef;
   llvm::ErrorOr<llvm::Module *>
   getLazyBitcodeModule(std::unique_ptr<MemoryBuffer> &&Buffer,
                        LLVMContext &Context,
-                       DiagnosticHandlerFunction DiagnosticHandler = nullptr);
+                       const DiagnosticHandlerFunction &DiagnosticHandler = nullptr);
 
   /// Read the header of the specified bitcode buffer and extract just the
   /// triple information. If successful, this returns a string. On error, this
@@ -59,7 +59,7 @@ using llvm::MemoryBufferRef;
   /// Read the specified bitcode file, returning the module.
   llvm::ErrorOr<llvm::Module *>
   parseBitcodeFile(MemoryBufferRef Buffer, LLVMContext &Context,
-                   DiagnosticHandlerFunction DiagnosticHandler = nullptr);
+                   const DiagnosticHandlerFunction &DiagnosticHandler = nullptr);
 } // End llvm_2_7 namespace
 
 #endif

@@ -25,6 +25,7 @@ public class MonitorWaitAndWaitedDebuggee extends SyncDebuggee {
 
     public static long TIMEOUT = 500;
 
+    @Override
     public void run() {
         MonitorWaitMockMonitor monitor = new MonitorWaitMockMonitor();
         

@@ -22,15 +22,16 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "base/environment.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_file.h"
 #include "base/logging.h"
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/stl_util.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
@@ -351,12 +352,12 @@ bool CopyDirectory(const FilePath& from_path,
 #endif  // !defined(OS_NACL_NONSFI)
 
 bool SetNonBlocking(int fd) {
-  int flags = fcntl(fd, F_GETFL, 0);
+  const int flags = fcntl(fd, F_GETFL);
   if (flags == -1)
     return false;
   if (flags & O_NONBLOCK)
     return true;
-  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1)
+  if (HANDLE_EINTR(fcntl(fd, F_SETFL, flags | O_NONBLOCK)) == -1)
     return false;
   return true;
 }
@@ -454,6 +455,25 @@ bool SetPosixFilePermissions(const FilePath& path,
     return false;
 
   return true;
+}
+
+bool ExecutableExistsInPath(Environment* env,
+                            const FilePath::StringType& executable) {
+  std::string path;
+  if (!env->GetVar("PATH", &path)) {
+    LOG(ERROR) << "No $PATH variable. Assuming no " << executable << ".";
+    return false;
+  }
+
+  for (const StringPiece& cur_path :
+       SplitStringPiece(path, ":", KEEP_WHITESPACE, SPLIT_WANT_NONEMPTY)) {
+    FilePath file(cur_path);
+    int permissions;
+    if (GetPosixFilePermissions(file.Append(executable), &permissions) &&
+        (permissions & FILE_PERMISSION_EXECUTE_BY_USER))
+      return true;
+  }
+  return false;
 }
 
 #if !defined(OS_MACOSX)
@@ -560,7 +580,7 @@ bool CreateTemporaryDirInDir(const FilePath& base_dir,
   return CreateTemporaryDirInDirImpl(base_dir, mkdtemp_template, new_dir);
 }
 
-bool CreateNewTempDirectory(const FilePath::StringType& /* prefix */,
+bool CreateNewTempDirectory(const FilePath::StringType& /*prefix*/,
                             FilePath* new_temp_path) {
   FilePath tmpdir;
   if (!GetTempDir(&tmpdir))
@@ -849,7 +869,7 @@ bool GetShmemTempDir(bool executable, FilePath* path) {
     return true;
   }
 #else
-  (void)executable;  // avoid unused warning when !defined(OS_LINUX)
+  (void)executable;  // Avoid unused warning when !defined(OS_LINUX).
 #endif
   return GetTempDir(path);
 }

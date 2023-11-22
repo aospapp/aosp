@@ -17,14 +17,20 @@
 package libcore.java.util;
 
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ByteArrayInputStream;
+import java.lang.reflect.Field;
 
 public class HashtableTest extends junit.framework.TestCase {
 
     public void test_getOrDefault() {
         MapDefaultMethodTester.test_getOrDefault(new Hashtable<>(), false /*doesNotAcceptNullKey*/,
-                false /*doesNotAcceptNullValue*/);
+                false /*doesNotAcceptNullValue*/, true /*getAcceptsAnyObject*/);
     }
 
     public void test_forEach() {
@@ -100,6 +106,59 @@ public class HashtableTest extends junit.framework.TestCase {
 
         try {
             ht.replaceAll((k, v) -> null);
+            fail();
         } catch (NullPointerException expected) {}
+    }
+
+
+    /**
+     * Check that {@code Hashtable.Entry} compiles and refers to
+     * {@link java.util.Map.Entry}, which is required for source
+     * compatibility with earlier versions of Android.
+     */
+    public void test_entryCompatibility_compiletime() {
+        assertEquals(Map.Entry.class, Hashtable.Entry.class);
+    }
+
+    /**
+     * Checks that there is no nested class named 'Entry' in Hashtable.
+     * If {@link #test_entryCompatibility_compiletime()} passes but
+     * this test fails, then the test was probably compiled against a
+     * version of Hashtable that does not have a nested Entry class,
+     * but run against a version that does.
+     */
+    public void test_entryCompatibility_runtime() {
+        String forbiddenClassName = "java.util.Hashtable$Entry";
+        try {
+            Class.forName(forbiddenClassName);
+            fail("Class " + forbiddenClassName + " should not exist");
+        } catch (ClassNotFoundException expected) {
+        }
+    }
+
+    public void test_deserializedArrayLength() throws Exception {
+        final float loadFactor = 0.75f;
+        final int entriesCount = 100;
+        // Create table
+        Hashtable<Integer, Integer> hashtable1 = new Hashtable<>(1, loadFactor);
+        for (int i = 0; i < entriesCount; i++) {
+            hashtable1.put(i, 1);
+        }
+
+        // Serialize and deserialize
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+            oos.writeObject(hashtable1);
+        }
+        Hashtable<Integer, Integer> hashtable2 =
+                (Hashtable<Integer, Integer>) new ObjectInputStream(
+                    new ByteArrayInputStream(bos.toByteArray())).readObject();
+
+        // Check that table size is >= min expected size. Due to a bug in
+        // Hashtable deserialization this wasn't the case.
+        Field tableField = Hashtable.class.getDeclaredField("table");
+        tableField.setAccessible(true);
+        Object[] table2 = (Object[]) tableField.get(hashtable2);
+        assertTrue(table2.length >= (entriesCount / loadFactor));
     }
 }

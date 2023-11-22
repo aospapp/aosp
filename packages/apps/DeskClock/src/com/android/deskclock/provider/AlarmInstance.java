@@ -24,13 +24,11 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.media.RingtoneManager;
 import android.net.Uri;
-import android.preference.PreferenceManager;
 
 import com.android.deskclock.LogUtils;
 import com.android.deskclock.R;
-import com.android.deskclock.Utils;
 import com.android.deskclock.alarms.AlarmStateManager;
-import com.android.deskclock.settings.SettingsActivity;
+import com.android.deskclock.data.DataModel;
 
 import java.util.Calendar;
 import java.util.LinkedList;
@@ -51,11 +49,6 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
      * Offset from alarm time to stop showing missed notification.
      */
     private static final int MISSED_TIME_TO_LIVE_HOUR_OFFSET = 12;
-
-    /**
-     * Default timeout for alarms in minutes.
-     */
-    private static final String DEFAULT_ALARM_TIMEOUT_SETTING = "10";
 
     /**
      * AlarmInstances start with an invalid id when it hasn't been saved to the database.
@@ -120,30 +113,33 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     }
 
     public static Intent createIntent(String action, long instanceId) {
-        return new Intent(action).setData(getUri(instanceId));
+        return new Intent(action).setData(getContentUri(instanceId));
     }
 
     public static Intent createIntent(Context context, Class<?> cls, long instanceId) {
-        return new Intent(context, cls).setData(getUri(instanceId));
+        return new Intent(context, cls).setData(getContentUri(instanceId));
     }
 
     public static long getId(Uri contentUri) {
         return ContentUris.parseId(contentUri);
     }
 
-    public static Uri getUri(long instanceId) {
+    /**
+     * @return the {@link Uri} identifying the alarm instance
+     */
+    public static Uri getContentUri(long instanceId) {
         return ContentUris.withAppendedId(CONTENT_URI, instanceId);
     }
 
     /**
      * Get alarm instance from instanceId.
      *
-     * @param cr to perform the query on.
+     * @param cr provides access to the content model
      * @param instanceId for the desired instance.
      * @return instance if found, null otherwise
      */
     public static AlarmInstance getInstance(ContentResolver cr, long instanceId) {
-        try (Cursor cursor = cr.query(getUri(instanceId), QUERY_COLUMNS, null, null, null)) {
+        try (Cursor cursor = cr.query(getContentUri(instanceId), QUERY_COLUMNS, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 return new AlarmInstance(cursor, false /* joinedTable */);
             }
@@ -153,9 +149,21 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     }
 
     /**
+     * Get alarm instance for the {@code contentUri}.
+     *
+     * @param cr provides access to the content model
+     * @param contentUri the {@link #getContentUri deeplink} for the desired instance
+     * @return instance if found, null otherwise
+     */
+    public static AlarmInstance getInstance(ContentResolver cr, Uri contentUri) {
+        final long instanceId = ContentUris.parseId(contentUri);
+        return getInstance(cr, instanceId);
+    }
+
+    /**
      * Get an alarm instances by alarmId.
      *
-     * @param contentResolver to perform the query on.
+     * @param contentResolver provides access to the content model
      * @param alarmId of instances desired.
      * @return list of alarms instances that are owned by alarmId.
      */
@@ -166,7 +174,7 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
 
     /**
      * Get the next instance of an alarm given its alarmId
-     * @param contentResolver to perform query on
+     * @param contentResolver provides access to the content model
      * @param alarmId of instance desired
      * @return the next instance of an alarm by alarmId.
      */
@@ -205,7 +213,7 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     /**
      * Get a list of instances given selection.
      *
-     * @param cr to perform the query on.
+     * @param cr provides access to the content model
      * @param selection A filter declaring which rows to return, formatted as an
      *         SQL WHERE clause (excluding the WHERE itself). Passing null will
      *         return all rows for the given URI.
@@ -218,7 +226,7 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
                                                    String... selectionArgs) {
         final List<AlarmInstance> result = new LinkedList<>();
         try (Cursor cursor = cr.query(CONTENT_URI, QUERY_COLUMNS, selection, selectionArgs, null)) {
-            if (cursor.moveToFirst()) {
+            if (cursor != null && cursor.moveToFirst()) {
                 do {
                     result.add(new AlarmInstance(cursor, false /* joinedTable */));
                 } while (cursor.moveToNext());
@@ -254,22 +262,16 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     public static boolean updateInstance(ContentResolver contentResolver, AlarmInstance instance) {
         if (instance.mId == INVALID_ID) return false;
         ContentValues values = createContentValues(instance);
-        long rowsUpdated = contentResolver.update(getUri(instance.mId), values, null, null);
+        long rowsUpdated = contentResolver.update(getContentUri(instance.mId), values, null, null);
         return rowsUpdated == 1;
     }
 
     public static boolean deleteInstance(ContentResolver contentResolver, long instanceId) {
         if (instanceId == INVALID_ID) return false;
-        int deletedRows = contentResolver.delete(getUri(instanceId), "", null);
+        int deletedRows = contentResolver.delete(getContentUri(instanceId), "", null);
         return deletedRows == 1;
     }
 
-    /**
-     * @param context
-     * @param contentResolver to access the content provider
-     * @param alarmId identifies the alarm in question
-     * @param instanceId identifies the instance to keep; all other instances will be removed
-     */
     public static void deleteOtherInstances(Context context, ContentResolver contentResolver,
             long alarmId, long instanceId) {
         final List<AlarmInstance> instances = getInstancesByAlarmId(contentResolver, alarmId);
@@ -356,6 +358,13 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
         mAlarmState = c.getInt(ALARM_STATE_INDEX);
     }
 
+    /**
+     * @return the deeplink that identifies this alarm instance
+     */
+    public Uri getContentUri() {
+        return getContentUri(mId);
+    }
+
     public String getLabelOrDefault(Context context) {
         return mLabel.isEmpty() ? context.getString(R.string.default_label) : mLabel;
     }
@@ -421,13 +430,10 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     /**
      * Return the time when the alarm should stop firing and be marked as missed.
      *
-     * @param context to figure out the timeout setting
      * @return the time when alarm should be silence, or null if never
      */
-    public Calendar getTimeout(Context context) {
-        String timeoutSetting = Utils.getDefaultSharedPreferences(context)
-                .getString(SettingsActivity.KEY_AUTO_SILENCE, DEFAULT_ALARM_TIMEOUT_SETTING);
-        int timeoutMinutes = Integer.parseInt(timeoutSetting);
+    public Calendar getTimeout() {
+        final int timeoutMinutes = DataModel.getDataModel().getAlarmTimeout();
 
         // Alarm silence has been set to "None"
         if (timeoutMinutes < 0) {

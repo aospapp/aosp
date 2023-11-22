@@ -18,30 +18,36 @@
 
 #include <ostream>
 
-#include "base/logging.h"
-#include "base/stringprintf.h"
+#include "android-base/logging.h"
+#include "android-base/stringprintf.h"
+
 #include "disassembler_arm.h"
 #include "disassembler_arm64.h"
 #include "disassembler_mips.h"
 #include "disassembler_x86.h"
 
+using android::base::StringPrintf;
+
 namespace art {
+
+Disassembler::Disassembler(DisassemblerOptions* disassembler_options)
+    : disassembler_options_(disassembler_options) {
+  CHECK(disassembler_options_ != nullptr);
+}
 
 Disassembler* Disassembler::Create(InstructionSet instruction_set, DisassemblerOptions* options) {
   if (instruction_set == kArm || instruction_set == kThumb2) {
     return new arm::DisassemblerArm(options);
   } else if (instruction_set == kArm64) {
     return new arm64::DisassemblerArm64(options);
-  } else if (instruction_set == kMips) {
-    return new mips::DisassemblerMips(options, false);
-  } else if (instruction_set == kMips64) {
-    return new mips::DisassemblerMips(options, true);
+  } else if (instruction_set == kMips || instruction_set == kMips64) {
+    return new mips::DisassemblerMips(options);
   } else if (instruction_set == kX86) {
     return new x86::DisassemblerX86(options, false);
   } else if (instruction_set == kX86_64) {
     return new x86::DisassemblerX86(options, true);
   } else {
-    UNIMPLEMENTED(FATAL) << "no disassembler for " << instruction_set;
+    UNIMPLEMENTED(FATAL) << static_cast<uint32_t>(instruction_set);
     return nullptr;
   }
 }

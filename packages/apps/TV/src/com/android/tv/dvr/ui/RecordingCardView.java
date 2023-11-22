@@ -25,15 +25,19 @@ import android.support.annotation.Nullable;
 import android.support.v17.leanback.widget.BaseCardView;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.android.tv.R;
+import com.android.tv.dvr.RecordedProgram;
 import com.android.tv.util.ImageLoader;
 
 /**
  * A CardView for displaying info about a {@link com.android.tv.dvr.ScheduledRecording} or
- * {@link com.android.tv.common.recording.RecordedProgram}
+ * {@link RecordedProgram} or
+ * {@link com.android.tv.dvr.SeriesRecording}.
  */
 class RecordingCardView extends BaseCardView {
     private final ImageView mImageView;
@@ -41,36 +45,85 @@ class RecordingCardView extends BaseCardView {
     private final int mImageHeight;
     private String mImageUri;
     private final TextView mTitleView;
-    private final TextView mContentView;
+    private final TextView mMajorContentView;
+    private final TextView mMinorContentView;
+    private final ProgressBar mProgressBar;
+    private final View mAffiliatedIconContainer;
+    private final ImageView mAffiliatedIcon;
     private final Drawable mDefaultImage;
 
     RecordingCardView(Context context) {
+        this(context,
+                context.getResources().getDimensionPixelSize(R.dimen.dvr_card_image_layout_width),
+                context.getResources().getDimensionPixelSize(R.dimen.dvr_card_image_layout_height));
+    }
+
+    RecordingCardView(Context context, int imageWidth, int imageHeight) {
         super(context);
         //TODO(dvr): move these to the layout XML.
         setCardType(BaseCardView.CARD_TYPE_INFO_UNDER_WITH_EXTRA);
+        setInfoVisibility(BaseCardView.CARD_REGION_VISIBLE_ALWAYS);
         setFocusable(true);
         setFocusableInTouchMode(true);
-        mDefaultImage = getResources().getDrawable(R.drawable.default_now_card, null);
+        mDefaultImage = getResources().getDrawable(R.drawable.dvr_default_poster, null);
 
         LayoutInflater inflater = LayoutInflater.from(getContext());
         inflater.inflate(R.layout.dvr_recording_card_view, this);
-
         mImageView = (ImageView) findViewById(R.id.image);
-        mImageWidth = getResources().getDimensionPixelSize(R.dimen.dvr_card_image_layout_width);
-        mImageHeight = getResources().getDimensionPixelSize(R.dimen.dvr_card_image_layout_width);
+        mImageWidth = imageWidth;
+        mImageHeight = imageHeight;
+        mProgressBar = (ProgressBar) findViewById(R.id.recording_progress);
+        mAffiliatedIconContainer = findViewById(R.id.affiliated_icon_container);
+        mAffiliatedIcon = (ImageView) findViewById(R.id.affiliated_icon);
         mTitleView = (TextView) findViewById(R.id.title);
-        mContentView = (TextView) findViewById(R.id.content);
+        mMajorContentView = (TextView) findViewById(R.id.content_major);
+        mMinorContentView = (TextView) findViewById(R.id.content_minor);
     }
 
     void setTitle(CharSequence title) {
         mTitleView.setText(title);
     }
 
-    void setContent(CharSequence content) {
-        mContentView.setText(content);
+    void setContent(CharSequence majorContent, CharSequence minorContent) {
+        if (!TextUtils.isEmpty(majorContent)) {
+            mMajorContentView.setText(majorContent);
+            mMajorContentView.setVisibility(View.VISIBLE);
+        } else {
+            mMajorContentView.setVisibility(View.GONE);
+        }
+        if (!TextUtils.isEmpty(minorContent)) {
+            mMinorContentView.setText(minorContent);
+            mMinorContentView.setVisibility(View.VISIBLE);
+        } else {
+            mMinorContentView.setVisibility(View.GONE);
+        }
     }
 
-    void setImageUri(String uri) {
+    /**
+     * Sets progress bar. If progress is {@code null}, hides progress bar.
+     */
+    void setProgressBar(Integer progress) {
+        if (progress == null) {
+            mProgressBar.setVisibility(View.GONE);
+        } else {
+            mProgressBar.setProgress(progress);
+            mProgressBar.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * Sets the color of progress bar.
+     */
+    void setProgressBarColor(int color) {
+        mProgressBar.getProgressDrawable().setTint(color);
+    }
+
+    void setImageUri(String uri, boolean isChannelLogo) {
+        if (isChannelLogo) {
+            mImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        } else {
+            mImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        }
         mImageUri = uri;
         if (TextUtils.isEmpty(uri)) {
             mImageView.setImageDrawable(mDefaultImage);
@@ -80,12 +133,29 @@ class RecordingCardView extends BaseCardView {
         }
     }
 
-    public void setImageUri(Uri uri) {
-        if (uri != null) {
-            setImageUri(uri.toString());
-        } else {
-            setImageUri("");
+    /**
+     * Set image to card view.
+     */
+    public void setImage(Drawable image) {
+        if (image != null) {
+            mImageView.setImageDrawable(image);
         }
+    }
+
+    public void setAffiliatedIcon(int imageResId) {
+        if (imageResId > 0) {
+            mAffiliatedIconContainer.setVisibility(View.VISIBLE);
+            mAffiliatedIcon.setImageResource(imageResId);
+        } else {
+            mAffiliatedIconContainer.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    /**
+     * Returns image view.
+     */
+    public ImageView getImageView() {
+        return mImageView;
     }
 
     private static class RecordingCardImageLoaderCallback
@@ -108,8 +178,8 @@ class RecordingCardView extends BaseCardView {
     }
 
     public void reset() {
-        mTitleView.setText("");
-        mContentView.setText("");
+        mTitleView.setText(null);
+        setContent(null, null);
         mImageView.setImageDrawable(mDefaultImage);
     }
 }

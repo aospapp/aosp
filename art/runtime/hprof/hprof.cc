@@ -37,9 +37,11 @@
 
 #include <set>
 
+#include "android-base/stringprintf.h"
+
 #include "art_field-inl.h"
+#include "art_method-inl.h"
 #include "base/logging.h"
-#include "base/stringprintf.h"
 #include "base/time_utils.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
@@ -49,6 +51,7 @@
 #include "gc_root.h"
 #include "gc/accounting/heap_bitmap.h"
 #include "gc/allocation_record.h"
+#include "gc/scoped_gc_critical_section.h"
 #include "gc/heap.h"
 #include "gc/space/space.h"
 #include "globals.h"
@@ -56,10 +59,10 @@
 #include "jdwp/jdwp_priv.h"
 #include "mirror/class.h"
 #include "mirror/class-inl.h"
-#include "mirror/object-inl.h"
+#include "mirror/object-refvisitor-inl.h"
 #include "os.h"
 #include "safe_map.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread_list.h"
 
 namespace art {
@@ -240,7 +243,7 @@ class EndianOutput {
   }
 
   void AddIdList(mirror::ObjectArray<mirror::Object>* values)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     const int32_t length = values->GetLength();
     for (int32_t i = 0; i < length; ++i) {
       AddObjectId(values->GetWithoutChecks(i));
@@ -267,6 +270,9 @@ class EndianOutput {
  protected:
   virtual void HandleU1List(const uint8_t* values ATTRIBUTE_UNUSED,
                             size_t count ATTRIBUTE_UNUSED) {
+  }
+  virtual void HandleU1AsU2List(const uint8_t* values ATTRIBUTE_UNUSED,
+                                size_t count ATTRIBUTE_UNUSED) {
   }
   virtual void HandleU2List(const uint16_t* values ATTRIBUTE_UNUSED,
                             size_t count ATTRIBUTE_UNUSED) {
@@ -306,6 +312,19 @@ class EndianOutputBuffered : public EndianOutput {
   void HandleU1List(const uint8_t* values, size_t count) OVERRIDE {
     DCHECK_EQ(length_, buffer_.size());
     buffer_.insert(buffer_.end(), values, values + count);
+  }
+
+  void HandleU1AsU2List(const uint8_t* values, size_t count) OVERRIDE {
+    DCHECK_EQ(length_, buffer_.size());
+    // All 8-bits are grouped in 2 to make 16-bit block like Java Char
+    if (count & 1) {
+      buffer_.push_back(0);
+    }
+    for (size_t i = 0; i < count; ++i) {
+      uint8_t value = *values;
+      buffer_.push_back(value);
+      values++;
+    }
   }
 
   void HandleU2List(const uint16_t* values, size_t count) OVERRIDE {
@@ -446,6 +465,7 @@ class Hprof : public SingleRootVisitor {
     }
 
     bool okay;
+    visited_objects_.clear();
     if (direct_to_ddms_) {
       if (kDirectStream) {
         okay = DumpToDdmsDirect(overall_size, max_length, CHUNK_TYPE("HPDS"));
@@ -467,23 +487,23 @@ class Hprof : public SingleRootVisitor {
 
  private:
   static void VisitObjectCallback(mirror::Object* obj, void* arg)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(obj != nullptr);
     DCHECK(arg != nullptr);
     reinterpret_cast<Hprof*>(arg)->DumpHeapObject(obj);
   }
 
   void DumpHeapObject(mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void DumpHeapClass(mirror::Class* klass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void DumpHeapArray(mirror::Array* obj, mirror::Class* klass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void DumpHeapInstanceObject(mirror::Object* obj, mirror::Class* klass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void ProcessHeap(bool header_first)
       REQUIRES(Locks::mutator_lock_) {
@@ -533,7 +553,7 @@ class Hprof : public SingleRootVisitor {
     output_->EndRecord();
   }
 
-  void WriteClassTable() SHARED_REQUIRES(Locks::mutator_lock_) {
+  void WriteClassTable() REQUIRES_SHARED(Locks::mutator_lock_) {
     for (const auto& p : classes_) {
       mirror::Class* c = p.first;
       HprofClassSerialNumber sn = p.second;
@@ -552,9 +572,9 @@ class Hprof : public SingleRootVisitor {
   }
 
   void WriteStringTable() {
-    for (const std::pair<std::string, HprofStringId>& p : strings_) {
+    for (const auto& p : strings_) {
       const std::string& string = p.first;
-      const size_t id = p.second;
+      const HprofStringId id = p.second;
 
       output_->StartNewRecord(HPROF_TAG_STRING, kHprofTime);
 
@@ -582,11 +602,11 @@ class Hprof : public SingleRootVisitor {
   }
 
   void VisitRoot(mirror::Object* obj, const RootInfo& root_info)
-      OVERRIDE SHARED_REQUIRES(Locks::mutator_lock_);
+      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
   void MarkRootObject(const mirror::Object* obj, jobject jni_obj, HprofHeapTag heap_tag,
                       uint32_t thread_serial);
 
-  HprofClassObjectId LookupClassId(mirror::Class* c) SHARED_REQUIRES(Locks::mutator_lock_) {
+  HprofClassObjectId LookupClassId(mirror::Class* c) REQUIRES_SHARED(Locks::mutator_lock_) {
     if (c != nullptr) {
       auto it = classes_.find(c);
       if (it == classes_.end()) {
@@ -601,7 +621,7 @@ class Hprof : public SingleRootVisitor {
   }
 
   HprofStackTraceSerialNumber LookupStackTraceSerialNumber(const mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     auto r = allocation_records_.find(obj);
     if (r == allocation_records_.end()) {
       return kHprofNullStackTrace;
@@ -613,7 +633,7 @@ class Hprof : public SingleRootVisitor {
     }
   }
 
-  HprofStringId LookupStringId(mirror::String* string) SHARED_REQUIRES(Locks::mutator_lock_) {
+  HprofStringId LookupStringId(mirror::String* string) REQUIRES_SHARED(Locks::mutator_lock_) {
     return LookupStringId(string->ToModifiedUtf8());
   }
 
@@ -631,8 +651,8 @@ class Hprof : public SingleRootVisitor {
     return id;
   }
 
-  HprofStringId LookupClassNameId(mirror::Class* c) SHARED_REQUIRES(Locks::mutator_lock_) {
-    return LookupStringId(PrettyDescriptor(c));
+  HprofStringId LookupClassNameId(mirror::Class* c) REQUIRES_SHARED(Locks::mutator_lock_) {
+    return LookupStringId(c->PrettyDescriptor());
   }
 
   void WriteFixedHeader() {
@@ -659,7 +679,7 @@ class Hprof : public SingleRootVisitor {
     __ AddU4(static_cast<uint32_t>(nowMs & 0xFFFFFFFF));
   }
 
-  void WriteStackTraces() SHARED_REQUIRES(Locks::mutator_lock_) {
+  void WriteStackTraces() REQUIRES_SHARED(Locks::mutator_lock_) {
     // Write a dummy stack trace record so the analysis tools don't freak out.
     output_->StartNewRecord(HPROF_TAG_STACK_TRACE, kHprofTime);
     __ AddStackTraceSerialNumber(kHprofNullStackTrace);
@@ -775,8 +795,9 @@ class Hprof : public SingleRootVisitor {
       file->Erase();
     }
     if (!okay) {
-      std::string msg(StringPrintf("Couldn't dump heap; writing \"%s\" failed: %s",
-                                   filename_.c_str(), strerror(errno)));
+      std::string msg(android::base::StringPrintf("Couldn't dump heap; writing \"%s\" failed: %s",
+                                                  filename_.c_str(),
+                                                  strerror(errno)));
       ThrowRuntimeException("%s", msg.c_str());
       LOG(ERROR) << msg;
     }
@@ -892,6 +913,9 @@ class Hprof : public SingleRootVisitor {
   // the root type in the upper 32 bits and the object id in the lower 32
   // bits.
   std::unordered_set<uint64_t> simple_roots_;
+
+  // To make sure we don't dump the same object multiple times. b/34967844
+  std::unordered_set<mirror::Object*> visited_objects_;
 
   friend class GcRootVisitor;
   DISALLOW_COPY_AND_ASSIGN(Hprof);
@@ -1050,14 +1074,14 @@ class GcRootVisitor {
   // Note that these don't have read barriers. Its OK however since the GC is guaranteed to not be
   // running during the hprof dumping process.
   void VisitRootIfNonNull(mirror::CompressedReference<mirror::Object>* root) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     if (!root->IsNull()) {
       VisitRoot(root);
     }
   }
 
   void VisitRoot(mirror::CompressedReference<mirror::Object>* root) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     mirror::Object* obj = root->AsMirrorPtr();
     // The two cases are either classes or dex cache arrays. If it is a dex cache array, then use
     // VM internal. Otherwise the object is a declaring class of an ArtField or ArtMethod or a
@@ -1075,6 +1099,7 @@ void Hprof::DumpHeapObject(mirror::Object* obj) {
   if (obj->IsClass() && obj->AsClass()->IsRetired()) {
     return;
   }
+  DCHECK(visited_objects_.insert(obj).second) << "Already visited " << obj;
 
   ++total_objects_;
 
@@ -1087,7 +1112,9 @@ void Hprof::DumpHeapObject(mirror::Object* obj) {
   if (space != nullptr) {
     if (space->IsZygoteSpace()) {
       heap_type = HPROF_HEAP_ZYGOTE;
-    } else if (space->IsImageSpace()) {
+    } else if (space->IsImageSpace() && heap->ObjectIsInBootImageSpace(obj)) {
+      // Only count objects in the boot image as HPROF_HEAP_IMAGE, this leaves app image objects as
+      // HPROF_HEAP_APP. b/35762934
       heap_type = HPROF_HEAP_IMAGE;
     }
   } else {
@@ -1145,8 +1172,8 @@ void Hprof::DumpHeapObject(mirror::Object* obj) {
 }
 
 void Hprof::DumpHeapClass(mirror::Class* klass) {
-  if (!klass->IsLoaded() && !klass->IsErroneous()) {
-    // Class is allocated but not yet loaded: we cannot access its fields or super class.
+  if (!klass->IsResolved()) {
+    // Class is allocated but not yet resolved: we cannot access its fields or super class.
     return;
   }
   const size_t num_static_fields = klass->NumStaticFields();
@@ -1253,7 +1280,7 @@ void Hprof::DumpHeapClass(mirror::Class* klass) {
     HprofBasicType t = SignatureToBasicTypeAndSize(f->GetTypeDescriptor(), nullptr);
     __ AddU1(t);
   }
-  // Add native value character array for strings.
+  // Add native value character array for strings / byte array for compressed strings.
   if (klass->IsStringClass()) {
     __ AddStringId(LookupStringId("value"));
     __ AddU1(hprof_basic_object);
@@ -1335,8 +1362,16 @@ void Hprof::DumpHeapInstanceObject(mirror::Object* obj, mirror::Class* klass) {
       case hprof_basic_short:
         __ AddU2(f->GetShort(obj));
         break;
-      case hprof_basic_float:
       case hprof_basic_int:
+        if (mirror::kUseStringCompression &&
+            klass->IsStringClass() &&
+            f->GetOffset().SizeValue() == mirror::String::CountOffset().SizeValue()) {
+          // Store the string length instead of the raw count field with compression flag.
+          __ AddU4(obj->AsString()->GetLength());
+          break;
+        }
+        FALLTHROUGH_INTENDED;
+      case hprof_basic_float:
       case hprof_basic_object:
         __ AddU4(f->Get32(obj));
         break;
@@ -1354,7 +1389,11 @@ void Hprof::DumpHeapInstanceObject(mirror::Object* obj, mirror::Class* klass) {
         string_value = reinterpret_cast<mirror::Object*>(
             reinterpret_cast<uintptr_t>(s) + kObjectAlignment);
       } else {
-        string_value = reinterpret_cast<mirror::Object*>(s->GetValue());
+        if (s->IsCompressed()) {
+          string_value = reinterpret_cast<mirror::Object*>(s->GetValueCompressed());
+        } else {
+          string_value = reinterpret_cast<mirror::Object*>(s->GetValue());
+        }
       }
       __ AddObjectId(string_value);
     }
@@ -1373,8 +1412,13 @@ void Hprof::DumpHeapInstanceObject(mirror::Object* obj, mirror::Class* klass) {
     __ AddObjectId(string_value);
     __ AddStackTraceSerialNumber(LookupStackTraceSerialNumber(obj));
     __ AddU4(s->GetLength());
-    __ AddU1(hprof_basic_char);
-    __ AddU2List(s->GetValue(), s->GetLength());
+    if (s->IsCompressed()) {
+      __ AddU1(hprof_basic_byte);
+      __ AddU1List(s->GetValueCompressed(), s->GetLength());
+    } else {
+      __ AddU1(hprof_basic_char);
+      __ AddU2List(s->GetValue(), s->GetLength());
+    }
   }
 }
 
@@ -1409,22 +1453,15 @@ void Hprof::VisitRoot(mirror::Object* obj, const RootInfo& info) {
 // Otherwise, "filename" is used to create an output file.
 void DumpHeap(const char* filename, int fd, bool direct_to_ddms) {
   CHECK(filename != nullptr);
-
   Thread* self = Thread::Current();
-  gc::Heap* heap = Runtime::Current()->GetHeap();
-  if (heap->IsGcConcurrentAndMoving()) {
-    // Need to take a heap dump while GC isn't running. See the
-    // comment in Heap::VisitObjects().
-    heap->IncrementDisableMovingGC(self);
-  }
-  {
-    ScopedSuspendAll ssa(__FUNCTION__, true /* long suspend */);
-    Hprof hprof(filename, fd, direct_to_ddms);
-    hprof.Dump();
-  }
-  if (heap->IsGcConcurrentAndMoving()) {
-    heap->DecrementDisableMovingGC(self);
-  }
+  // Need to take a heap dump while GC isn't running. See the comment in Heap::VisitObjects().
+  // Also we need the critical section to avoid visiting the same object twice. See b/34967844
+  gc::ScopedGCCriticalSection gcs(self,
+                                  gc::kGcCauseHprof,
+                                  gc::kCollectorTypeHprof);
+  ScopedSuspendAll ssa(__FUNCTION__, true /* long suspend */);
+  Hprof hprof(filename, fd, direct_to_ddms);
+  hprof.Dump();
 }
 
 }  // namespace hprof

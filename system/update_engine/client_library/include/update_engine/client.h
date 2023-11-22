@@ -67,6 +67,10 @@ class UpdateEngineClient {
                          std::string* out_new_version,
                          int64_t* out_new_size) const = 0;
 
+  // Getter and setter for the cohort hint.
+  virtual bool SetCohortHint(const std::string& cohort_hint) = 0;
+  virtual bool GetCohortHint(std::string* cohort_hint) const = 0;
+
   // Getter and setter for the updates over cellular connections.
   virtual bool SetUpdateOverCellularPermission(bool allowed) = 0;
   virtual bool GetUpdateOverCellularPermission(bool* allowed) const = 0;
@@ -114,6 +118,9 @@ class UpdateEngineClient {
 
   // Get the last UpdateAttempt error code.
   virtual bool GetLastAttemptError(int32_t* last_attempt_error) const = 0;
+
+  // Get the current end-of-life status code. See EolStatus enum for details.
+  virtual bool GetEolStatus(int32_t* eol_status) const = 0;
 
  protected:
   // Use CreateInstance().

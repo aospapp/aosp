@@ -6,6 +6,6 @@
   "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDCtCBRrosxnJ4X1+0N1kYM7koUvklF9oWqVDnIJJ6mERYFNiS+c2b9pVUCW3aeFvMUzIRZAOFP4iY1LTuKATbqWU90zg7jTah1AFfyHPoyRwxobj4NdSLjxCmc13+zbL+Cwjl7lH2Rjkop6whsbb+30lWju3lac9PCVFlGwHubZQIDAQAB",
   "manifest_version": 2,
   "name": "ChromeOS Networking Telemetry AutoTest Extension",
-  "permissions": [ "networkingPrivate" ],
+  "permissions": [ "networking.onc" ],
   "version": "0.1"
 }

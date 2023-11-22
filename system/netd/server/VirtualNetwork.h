@@ -22,6 +22,9 @@
 #include "Network.h"
 #include "UidRanges.h"
 
+namespace android {
+namespace net {
+
 // A VirtualNetwork may be "secure" or not.
 //
 // A secure VPN is the usual type of VPN that grabs the default route (and thus all user traffic).
@@ -54,5 +57,8 @@ private:
     const bool mSecure;
     UidRanges mUidRanges;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_VIRTUAL_NETWORK_H

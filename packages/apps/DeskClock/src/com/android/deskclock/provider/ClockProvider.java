@@ -1,5 +1,5 @@
 /*
-e * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (C) 2013 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@ e * Copyright (C) 2013 The Android Open Source Project
 
 package com.android.deskclock.provider;
 
-import static com.android.deskclock.provider.ClockDatabaseHelper.ALARMS_TABLE_NAME;
-import static com.android.deskclock.provider.ClockDatabaseHelper.INSTANCES_TABLE_NAME;
-
+import android.annotation.TargetApi;
 import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -29,15 +27,20 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+import android.os.Build;
+import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 
 import com.android.deskclock.LogUtils;
 import com.android.deskclock.Utils;
-import com.android.deskclock.provider.ClockContract.AlarmsColumns;
-import com.android.deskclock.provider.ClockContract.InstancesColumns;
 
 import java.util.Map;
+
+import static com.android.deskclock.provider.ClockContract.AlarmsColumns;
+import static com.android.deskclock.provider.ClockContract.InstancesColumns;
+import static com.android.deskclock.provider.ClockDatabaseHelper.ALARMS_TABLE_NAME;
+import static com.android.deskclock.provider.ClockDatabaseHelper.INSTANCES_TABLE_NAME;
 
 public class ClockProvider extends ContentProvider {
 
@@ -98,10 +101,15 @@ public class ClockProvider extends ContentProvider {
             ALARMS_TABLE_NAME + "." + AlarmsColumns._ID + " = " + InstancesColumns.ALARM_ID + ")";
 
     private static final String ALARM_JOIN_INSTANCE_WHERE_STATEMENT =
-            InstancesColumns.ALARM_STATE + " IS NULL OR " +
-            InstancesColumns.ALARM_STATE + " = (SELECT MIN(" + InstancesColumns.ALARM_STATE +
-                    ") FROM " + INSTANCES_TABLE_NAME + " WHERE " + InstancesColumns.ALARM_ID +
-                    " = " + ALARMS_TABLE_NAME + "." + AlarmsColumns._ID + ")";
+            INSTANCES_TABLE_NAME + "." + InstancesColumns._ID + " IS NULL OR " +
+            INSTANCES_TABLE_NAME + "." + InstancesColumns._ID + " = (" +
+                    "SELECT " + InstancesColumns._ID +
+                    " FROM " + INSTANCES_TABLE_NAME +
+                    " WHERE " + InstancesColumns.ALARM_ID +
+                    " = " + ALARMS_TABLE_NAME + "." + AlarmsColumns._ID +
+                    " ORDER BY " + InstancesColumns.ALARM_STATE + ", " +
+                    InstancesColumns.YEAR + ", " + InstancesColumns.MONTH + ", " +
+                    InstancesColumns.DAY + " LIMIT 1)";
 
     private static final UriMatcher sURIMatcher = new UriMatcher(UriMatcher.NO_MATCH);
     static {
@@ -116,18 +124,18 @@ public class ClockProvider extends ContentProvider {
     }
 
     @Override
+    @TargetApi(Build.VERSION_CODES.N)
     public boolean onCreate() {
         final Context context = getContext();
         final Context storageContext;
         if (Utils.isNOrLater()) {
             // All N devices have split storage areas, but we may need to
-            // migrate existing database into the new device protected
+            // migrate existing database into the new device encrypted
             // storage area, which is where our data lives from now on.
-            final Context deviceContext = context.createDeviceProtectedStorageContext();
-            if (!deviceContext.moveDatabaseFrom(context, ClockDatabaseHelper.DATABASE_NAME)) {
-                LogUtils.wtf("Failed to migrate database");
+            storageContext = context.createDeviceProtectedStorageContext();
+            if (!storageContext.moveDatabaseFrom(context, ClockDatabaseHelper.DATABASE_NAME)) {
+                LogUtils.wtf("Failed to migrate database: %s", ClockDatabaseHelper.DATABASE_NAME);
             }
-            storageContext = deviceContext;
         } else {
             storageContext = context;
         }
@@ -137,8 +145,8 @@ public class ClockProvider extends ContentProvider {
     }
 
     @Override
-    public Cursor query(Uri uri, String[] projectionIn, String selection, String[] selectionArgs,
-            String sort) {
+    public Cursor query(@NonNull Uri uri, String[] projectionIn, String selection,
+            String[] selectionArgs, String sort) {
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
         SQLiteDatabase db = mOpenHelper.getReadableDatabase();
 
@@ -182,7 +190,7 @@ public class ClockProvider extends ContentProvider {
     }
 
     @Override
-    public String getType(Uri uri) {
+    public String getType(@NonNull Uri uri) {
         int match = sURIMatcher.match(uri);
         switch (match) {
             case ALARMS:
@@ -199,7 +207,7 @@ public class ClockProvider extends ContentProvider {
     }
 
     @Override
-    public int update(Uri uri, ContentValues values, String where, String[] whereArgs) {
+    public int update(@NonNull Uri uri, ContentValues values, String where, String[] whereArgs) {
         int count;
         String alarmId;
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
@@ -226,7 +234,7 @@ public class ClockProvider extends ContentProvider {
     }
 
     @Override
-    public Uri insert(Uri uri, ContentValues initialValues) {
+    public Uri insert(@NonNull Uri uri, ContentValues initialValues) {
         long rowId;
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         switch (sURIMatcher.match(uri)) {
@@ -240,13 +248,13 @@ public class ClockProvider extends ContentProvider {
                 throw new IllegalArgumentException("Cannot insert from URI: " + uri);
         }
 
-        Uri uriResult = ContentUris.withAppendedId(AlarmsColumns.CONTENT_URI, rowId);
+        Uri uriResult = ContentUris.withAppendedId(uri, rowId);
         notifyChange(getContext().getContentResolver(), uriResult);
         return uriResult;
     }
 
     @Override
-    public int delete(Uri uri, String where, String[] whereArgs) {
+    public int delete(@NonNull Uri uri, String where, String[] whereArgs) {
         int count;
         String primaryKey;
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();

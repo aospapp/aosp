@@ -5,26 +5,104 @@
 import collections
 import copy
 import datetime
+import json
 import logging
+import os
 import random
 import sys
+import tempfile
 import traceback
 
-from catapult_base import cloud_storage  # pylint: disable=import-error
+from py_utils import cloud_storage  # pylint: disable=import-error
 
+from telemetry import value as value_module
+from telemetry.internal.results import chart_json_output_formatter
 from telemetry.internal.results import json_output_formatter
 from telemetry.internal.results import progress_reporter as reporter_module
 from telemetry.internal.results import story_run
-from telemetry import value as value_module
 from telemetry.value import failure
 from telemetry.value import skip
 from telemetry.value import trace
+
+from tracing.value import convert_chart_json
+
+class TelemetryInfo(object):
+  def __init__(self):
+    self._benchmark_name = None
+    self._benchmark_start_ms = None
+    self._label = None
+    self._story_display_name = ''
+    self._story_grouping_keys = {}
+    self._storyset_repeat_counter = 0
+
+  @property
+  def benchmark_name(self):
+    return self._benchmark_name
+
+  @benchmark_name.setter
+  def benchmark_name(self, benchmark_name):
+    assert self.benchmark_name is None, (
+      'benchmark_name must be set exactly once')
+    self._benchmark_name = benchmark_name
+
+  @property
+  def benchmark_start_ms(self):
+    return self._benchmark_start_ms
+
+  @benchmark_start_ms.setter
+  def benchmark_start_ms(self, benchmark_start_ms):
+    assert self.benchmark_start_ms is None, (
+      'benchmark_start_ms must be set exactly once')
+    self._benchmark_start_ms = benchmark_start_ms
+
+  @property
+  def label(self):
+    return self._label
+
+  @label.setter
+  def label(self, label):
+    assert self.label is None, 'label cannot be set more than once'
+    self._label = label
+
+  @property
+  def story_display_name(self):
+    return self._story_display_name
+
+  @property
+  def story_grouping_keys(self):
+    return self._story_grouping_keys
+
+  @property
+  def storyset_repeat_counter(self):
+    return self._storyset_repeat_counter
+
+  def WillRunStory(self, story, storyset_repeat_counter):
+    self._story_display_name = story.display_name
+    if story.grouping_keys:
+      self._story_grouping_keys = story.grouping_keys
+    self._storyset_repeat_counter = storyset_repeat_counter
+
+  def AsDict(self):
+    assert self.benchmark_name is not None, (
+        'benchmark_name must be set exactly once')
+    assert self.benchmark_start_ms is not None, (
+        'benchmark_start_ms must be set exactly once')
+    d = {}
+    d['benchmarkName'] = self.benchmark_name
+    d['benchmarkStartMs'] = self.benchmark_start_ms
+    if self.label:
+      d['label'] = self.label
+    d['storyDisplayName'] = self.story_display_name
+    d['storyGroupingKeys'] = self.story_grouping_keys
+    d['storysetRepeatCounter'] = self.storyset_repeat_counter
+    return d
 
 
 class PageTestResults(object):
   def __init__(self, output_formatters=None,
                progress_reporter=None, trace_tag='', output_dir=None,
-               value_can_be_added_predicate=lambda v, is_first: True):
+               value_can_be_added_predicate=lambda v, is_first: True,
+               benchmark_enabled=True):
     """
     Args:
       output_formatters: A list of output formatters. The output
@@ -62,6 +140,48 @@ class PageTestResults(object):
     self._serialized_trace_file_ids_to_paths = {}
     self._pages_to_profiling_files = collections.defaultdict(list)
     self._pages_to_profiling_files_cloud_url = collections.defaultdict(list)
+
+    # You'd expect this to be a set(), but Values are dictionaries, which are
+    # unhashable. We could wrap Values with custom __eq/hash__, but we don't
+    # actually need set-ness in python.
+    self._value_set = []
+
+    self._telemetry_info = TelemetryInfo()
+
+    # State of the benchmark this set of results represents.
+    self._benchmark_enabled = benchmark_enabled
+
+  @property
+  def telemetry_info(self):
+    return self._telemetry_info
+
+  @property
+  def value_set(self):
+    return self._value_set
+
+  def AsHistogramDicts(self, benchmark_metadata):
+    if self.value_set:
+      return self.value_set
+    chart_json = chart_json_output_formatter.ResultsAsChartDict(
+        benchmark_metadata, self.all_page_specific_values,
+        self.all_summary_values)
+    info = self.telemetry_info
+    chart_json['label'] = info.label
+    chart_json['benchmarkStartMs'] = info.benchmark_start_ms
+
+    file_descriptor, chart_json_path = tempfile.mkstemp()
+    os.close(file_descriptor)
+    json.dump(chart_json, file(chart_json_path, 'w'))
+
+    vinn_result = convert_chart_json.ConvertChartJson(chart_json_path)
+
+    os.remove(chart_json_path)
+
+    if vinn_result.returncode != 0:
+      logging.error('Error converting chart json to Histograms:\n' +
+          vinn_result.stdout)
+      return []
+    return json.loads(vinn_result.stdout)
 
   def __copy__(self):
     cls = self.__class__
@@ -154,10 +274,12 @@ class PageTestResults(object):
   def __exit__(self, _, __, ___):
     self.CleanUp()
 
-  def WillRunPage(self, page):
+  def WillRunPage(self, page, storyset_repeat_counter=0):
     assert not self._current_page_run, 'Did not call DidRunPage.'
     self._current_page_run = story_run.StoryRun(page)
     self._progress_reporter.WillRunPage(self)
+    self.telemetry_info.WillRunStory(
+        page, storyset_repeat_counter)
 
   def DidRunPage(self, page):  # pylint: disable=unused-argument
     """
@@ -172,9 +294,29 @@ class PageTestResults(object):
 
   def AddValue(self, value):
     assert self._current_page_run, 'Not currently running test.'
+    assert self._benchmark_enabled, 'Cannot add value to disabled results'
     self._ValidateValue(value)
     is_first_result = (
       self._current_page_run.story not in self._all_stories)
+
+    story_keys = self._current_page_run.story.grouping_keys
+
+    if story_keys:
+      for k, v in story_keys.iteritems():
+        assert k not in value.grouping_keys, (
+            'Tried to add story grouping key ' + k + ' already defined by ' +
+            'value')
+        value.grouping_keys[k] = v
+
+      # We sort by key name to make building the tir_label deterministic.
+      story_keys_label = '_'.join(v for _, v in sorted(story_keys.iteritems()))
+      if value.tir_label:
+        assert value.tir_label == story_keys_label, (
+            'Value has an explicit tir_label (%s) that does not match the '
+            'one computed from story_keys (%s)' % (value.tir_label, story_keys))
+      else:
+        value.tir_label = story_keys_label
+
     if not (isinstance(value, skip.SkipValue) or
             isinstance(value, failure.FailureValue) or
             isinstance(value, trace.TraceValue) or
@@ -201,15 +343,20 @@ class PageTestResults(object):
     assert value.IsMergableWith(representative_value)
 
   def PrintSummary(self):
-    self._progress_reporter.DidFinishAllTests(self)
+    if self._benchmark_enabled:
+      self._progress_reporter.DidFinishAllTests(self)
 
-    # Only serialize the trace if output_format is json.
-    if (self._output_dir and
-        any(isinstance(o, json_output_formatter.JsonOutputFormatter)
-            for o in self._output_formatters)):
-      self._SerializeTracesToDirPath(self._output_dir)
-    for output_formatter in self._output_formatters:
-      output_formatter.Format(self)
+      # Only serialize the trace if output_format is json.
+      if (self._output_dir and
+          any(isinstance(o, json_output_formatter.JsonOutputFormatter)
+              for o in self._output_formatters)):
+        self._SerializeTracesToDirPath(self._output_dir)
+      for output_formatter in self._output_formatters:
+        output_formatter.Format(self)
+        output_formatter.PrintViewResults()
+    else:
+      for output_formatter in self._output_formatters:
+        output_formatter.FormatDisabled()
 
   def FindValues(self, predicate):
     """Finds all values matching the specified predicate.

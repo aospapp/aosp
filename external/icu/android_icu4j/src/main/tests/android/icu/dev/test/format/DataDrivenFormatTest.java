@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007-2012, International Business Machines Corporation and         *
@@ -11,10 +13,17 @@ import java.text.FieldPosition;
 import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import android.icu.dev.test.ModuleTest;
+import android.icu.dev.test.ModuleTest.TestDataPair;
 import android.icu.dev.test.TestDataModule;
 import android.icu.dev.test.TestDataModule.DataMap;
+import android.icu.dev.test.TestDataModule.TestData;
+import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.util.CalendarFieldsSet;
 import android.icu.dev.test.util.DateTimeStyleSet;
 import android.icu.text.DateFormat;
@@ -22,52 +31,52 @@ import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 
 /**
  * @author srl
+ * @author sgill
  *
  */
-@RunWith(IcuTestFmwkRunner.class)
-public class DataDrivenFormatTest extends ModuleTest {
+@RunWith(JUnitParamsRunner.class)
+public class DataDrivenFormatTest extends TestFmwk {
 
     /**
      * @param baseName
      * @param locName
      */
     public DataDrivenFormatTest() {
-        super("android/icu/dev/data/testdata/", "format");
+        //super("com/ibm/icu/dev/data/testdata/", "format");
+    }
+
+    @SuppressWarnings("unused")
+    private List<TestDataPair> getTestData() throws Exception { 
+        return ModuleTest.getTestData("android/icu/dev/data/testdata/", "format");
     }
 
     /* (non-Javadoc)
      * @see android.icu.dev.test.ModuleTest#processModules()
      */
-    public void processModules() {
-        //String testName = t.getName().toString();
+    @Test
+    @Parameters(method="getTestData")
+    public void formatTest(TestDataPair pair) {
+        TestData td = pair.td;
+        DataMap settings = pair.dm;
 
-        for (Iterator siter = t.getSettingsIterator(); siter.hasNext();) {
-            // Iterate through and get each of the test case to process
-            DataMap settings = (DataMap) siter.next();
-            
-            String type = settings.getString("Type");
 
-            if(type.equals("date_format")) {
-                testConvertDate(t, settings, true);
-            } else if(type.equals("date_parse")) {
-                testConvertDate(t, settings, false);
-            } else {
-                errln("Unknown type: " + type);
-            }
+        String type = settings.getString("Type");
+
+        if(type.equals("date_format")) {
+            testConvertDate(td, settings, true);
+        } else if(type.equals("date_parse")) {
+            testConvertDate(td, settings, false);
+        } else {
+            errln("Unknown type: " + type);
         }
     }
 
-    /**
-     * @param args
-     */
-    public static void main(String[] args) {
-         new DataDrivenFormatTest().run(args);
-    }
    
     private static final String kPATTERN = "PATTERN=";
     private static final String kMILLIS = "MILLIS=";

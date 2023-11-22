@@ -49,7 +49,7 @@ class audio_CrasSanity(test.test):
         # Capturing cras pid before startig the test.
         cras_pid_1 = utils.get_oldest_pid_by_name('/usr/bin/cras')
 
-        with chrome.Chrome() as self._cr:
+        with chrome.Chrome(init_network_controller=True) as self._cr:
             try:
                 # This will be used on Chrome PFQ since it's using a more recent
                 # version of Chrome. crbug.com/537655.
@@ -74,8 +74,9 @@ class audio_CrasSanity(test.test):
 
             total_tests = len(self._audio) + len(self._video)
             active_streams = cras_utils.get_active_stream_count()
-            logging.debug('NUmber of active streams after opening all tabs: %d.'
-                          % active_streams)
+            logging.debug(
+                'Number of active streams after opening all tabs: %d.',
+                active_streams)
             if active_streams >= total_tests:
                 self._check['stream_activation'] = True
 
@@ -88,8 +89,9 @@ class audio_CrasSanity(test.test):
                 total_tests -= 1
                 time.sleep(1)
             active_streams = cras_utils.get_active_stream_count()
-            logging.debug('Number of active streams after closing all tabs: %d.'
-                          % active_streams)
+            logging.debug(
+                'Number of active streams after closing all tabs: %d.',
+                active_streams)
 
             # Capturing cras pid after closing all audio/stream streams.
             cras_pid_4 = utils.get_oldest_pid_by_name('/usr/bin/cras')
@@ -124,7 +126,7 @@ class audio_CrasSanity(test.test):
         """Starts next audio stream from self._streams list.
 
         @param tab: tab to open an audio stream.
-        @url: audio/video test url.
+        @param url: audio/video test url.
         """
         tab.Activate()
         tab.Navigate(url)

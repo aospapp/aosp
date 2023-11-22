@@ -17,7 +17,7 @@ common_src_files := \
 	CheckBattery.cpp \
 	Ext4Crypt.cpp \
 	VoldUtil.c \
-	cryptfs.c \
+	cryptfs.cpp \
 	Disk.cpp \
 	VolumeBase.cpp \
 	PublicVolume.cpp \
@@ -33,13 +33,10 @@ common_src_files := \
 	secontext.cpp \
 
 common_c_includes := \
-	system/extras/ext4_utils \
 	system/extras/f2fs_utils \
 	external/scrypt/lib/crypto \
 	frameworks/native/include \
 	system/security/keystore \
-	hardware/libhardware/include/hardware \
-	system/security/softkeymaster/include/keymaster
 
 common_shared_libraries := \
 	libsysutils \
@@ -51,13 +48,16 @@ common_shared_libraries := \
 	liblogwrap \
 	libext4_utils \
 	libf2fs_sparseblock \
+	libcrypto_utils \
 	libcrypto \
 	libselinux \
 	libutils \
 	libhardware \
-	libsoftkeymaster \
 	libbase \
-	libkeymaster_messages \
+	libhwbinder \
+	libhidlbase \
+	android.hardware.keymaster@3.0 \
+	libkeystore_binder
 
 common_static_libraries := \
 	libbootloader_message \
@@ -66,11 +66,21 @@ common_static_libraries := \
 	libfec_rs \
 	libsquashfs_utils \
 	libscrypt_static \
-	libmincrypt \
 	libbatteryservice \
+	libavb \
 
 vold_conlyflags := -std=c11
 vold_cflags := -Werror -Wall -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-parameter
+
+required_modules :=
+ifeq ($(TARGET_USERIMAGES_USE_EXT4), true)
+  ifeq ($(TARGET_USES_MKE2FS), true)
+    vold_cflags += -DTARGET_USES_MKE2FS
+    required_modules += mke2fs
+  else
+    required_modules += make_ext4fs
+  endif
+endif
 
 include $(CLEAR_VARS)
 
@@ -84,6 +94,7 @@ LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
 LOCAL_MODULE_TAGS := eng tests
 LOCAL_CFLAGS := $(vold_cflags)
 LOCAL_CONLYFLAGS := $(vold_conlyflags)
+LOCAL_REQUIRED_MODULES := $(required_modules)
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -102,14 +113,9 @@ LOCAL_C_INCLUDES := $(common_c_includes)
 LOCAL_CFLAGS := $(vold_cflags)
 LOCAL_CONLYFLAGS := $(vold_conlyflags)
 
-ifeq ($(TARGET_HW_DISK_ENCRYPTION),true)
-LOCAL_C_INCLUDES += $(TARGET_CRYPTFS_HW_PATH)
-common_shared_libraries += libcryptfs_hw
-LOCAL_CFLAGS += -DCONFIG_HW_DISK_ENCRYPTION
-endif
-
 LOCAL_SHARED_LIBRARIES := $(common_shared_libraries)
 LOCAL_STATIC_LIBRARIES := $(common_static_libraries)
+LOCAL_REQUIRED_MODULES := $(required_modules)
 
 include $(BUILD_EXECUTABLE)
 
@@ -137,3 +143,5 @@ LOCAL_CFLAGS := $(vold_cflags)
 LOCAL_CONLYFLAGS := $(vold_conlyflags)
 
 include $(BUILD_EXECUTABLE)
+
+include $(LOCAL_PATH)/tests/Android.mk

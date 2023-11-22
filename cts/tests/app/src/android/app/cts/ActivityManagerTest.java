@@ -36,6 +36,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ConfigurationInfo;
+import android.content.res.Resources;
 import android.platform.test.annotations.RestrictedBuildTest;
 import android.test.InstrumentationTestCase;
 
@@ -48,10 +49,12 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     private static final String SERVICE_NAME = "android.app.stubs.MockService";
     private static final int WAIT_TIME = 2000;
     // A secondary test activity from another APK.
-    private static final String SIMPLE_PACKAGE_NAME = "com.android.cts.launcherapps.simpleapp";
-    private static final String SIMPLE_ACTIVITY = ".SimpleActivity";
-    private static final String SIMPLE_ACTIVITY_IMMEDIATE_EXIT = ".SimpleActivityImmediateExit";
-    private static final String SIMPLE_ACTIVITY_CHAIN_EXIT = ".SimpleActivityChainExit";
+    static final String SIMPLE_PACKAGE_NAME = "com.android.cts.launcherapps.simpleapp";
+    static final String SIMPLE_ACTIVITY = ".SimpleActivity";
+    static final String SIMPLE_ACTIVITY_IMMEDIATE_EXIT = ".SimpleActivityImmediateExit";
+    static final String SIMPLE_ACTIVITY_CHAIN_EXIT = ".SimpleActivityChainExit";
+    static final String SIMPLE_RECEIVER = ".SimpleReceiver";
+    static final String SIMPLE_REMOTE_RECEIVER = ".SimpleRemoteReceiver";
     // The action sent back by the SIMPLE_APP after a restart.
     private static final String ACTIVITY_LAUNCHED_ACTION =
             "com.android.cts.launchertests.LauncherAppsTests.LAUNCHED_ACTION";
@@ -326,12 +329,18 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         for (RunningAppProcessInfo ra : list) {
             if (ra.processName.equals(SYSTEM_PROCESS)) {
                 hasSystemProcess = true;
+
+                // Make sure the importance is a sane value.
+                assertTrue(ra.importance >= RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
+                assertTrue(ra.importance < RunningAppProcessInfo.IMPORTANCE_GONE);
             } else if (ra.processName.equals(TEST_PROCESS)) {
                 hasTestProcess = true;
             }
         }
+
         // For security reasons the system process is not exposed.
-        assertTrue(!hasSystemProcess && hasTestProcess);
+        assertFalse(hasSystemProcess);
+        assertTrue(hasTestProcess);
 
         for (RunningAppProcessInfo ra : list) {
             if (ra.processName.equals("android.app.stubs:remote")) {
@@ -339,13 +348,14 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             }
         }
         // start a new process
+        // XXX would be a lot cleaner to bind instead of start.
         mIntent = new Intent("android.app.REMOTESERVICE");
         mIntent.setPackage("android.app.stubs");
         mInstrumentation.getTargetContext().startService(mIntent);
         Thread.sleep(WAITFOR_MSEC);
 
         List<RunningAppProcessInfo> listNew = mActivityManager.getRunningAppProcesses();
-        assertTrue(list.size() <= listNew.size());
+        mInstrumentation.getTargetContext().stopService(mIntent);
 
         for (RunningAppProcessInfo ra : listNew) {
             if (ra.processName.equals("android.app.stubs:remote")) {
@@ -353,6 +363,17 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             }
         }
         fail("android.app.stubs:remote process should be available");
+    }
+
+    public void testGetMyMemoryState() {
+        final RunningAppProcessInfo ra = new RunningAppProcessInfo();
+        ActivityManager.getMyMemoryState(ra);
+
+        assertEquals(mContext.getApplicationInfo().processName, ra.processName);
+        assertEquals(android.os.Process.myUid(), ra.uid);
+
+        // When an instrumentation test is running, the importance is high.
+        assertEquals(RunningAppProcessInfo.IMPORTANCE_FOREGROUND, ra.importance);
     }
 
     public void testGetProcessInErrorState() throws Exception {
@@ -366,7 +387,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     }
 
     /**
-     * Simple test for {@link ActivityManager.isUserAMonkey()} - verifies its false.
+     * Simple test for {@link ActivityManager#isUserAMonkey()} - verifies its false.
      *
      * TODO: test positive case
      */
@@ -375,7 +396,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     }
 
     /**
-     * Verify that {@link ActivityManager.isRunningInTestHarness()} is false.
+     * Verify that {@link ActivityManager#isRunningInTestHarness()} is false.
      */
     @RestrictedBuildTest
     public void testIsRunningInTestHarness() {
@@ -393,6 +414,20 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
         Thread.sleep(WAIT_TIME);
+    }
+
+   /**
+    * Gets the value of com.android.internal.R.bool.config_noHomeScreen.
+    * @return true if no home screen is supported, false otherwise.
+    */
+   private boolean noHomeScreen() {
+       try {
+           return getInstrumentation().getContext().getResources().getBoolean(
+                   Resources.getSystem().getIdentifier("config_noHomeScreen", "bool", "android"));
+       } catch (Resources.NotFoundException e) {
+           // Assume there's a home screen.
+           return false;
+       }
     }
 
     /**
@@ -426,10 +461,20 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         assertEquals(RESULT_PASS, appEndReceiver.waitForActivity());
         appEndReceiver.close();
 
-        // At this time the timerReceiver should not fire, even though the activity has shut down,
-        // because we are back to the home screen.
-        assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
-        assertTrue(timeReceiver.mTimeUsed == 0);
+        if (!noHomeScreen()) {
+            // At this time the timerReceiver should not fire, even though the activity has shut
+            // down, because we are back to the home screen. Going to the home screen does not
+            // qualify as the user leaving the activity's flow. The time tracking is considered
+            // complete only when the user switches to another activity that is not part of the
+            // tracked flow.
+            assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
+            assertTrue(timeReceiver.mTimeUsed == 0);
+        } else {
+            // With platforms that have no home screen, focus is returned to something else that is
+            // considered a completion of the tracked activity flow, and hence time tracking is
+            // triggered.
+            assertEquals(RESULT_PASS, timeReceiver.waitForActivity());
+        }
 
         // Issuing now another activity will trigger the timing information release.
         final Intent dummyIntent = new Intent(context, MockApplicationActivity.class);
@@ -522,9 +567,20 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         assertEquals(RESULT_PASS, appEndReceiver.waitForActivity());
         appEndReceiver.close();
 
-        // At this time the timerReceiver should not fire, even though the activity has shut down.
-        assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
-        assertTrue(timeReceiver.mTimeUsed == 0);
+        if (!noHomeScreen()) {
+            // At this time the timerReceiver should not fire, even though the activity has shut
+            // down, because we are back to the home screen. Going to the home screen does not
+            // qualify as the user leaving the activity's flow. The time tracking is considered
+            // complete only when the user switches to another activity that is not part of the
+            // tracked flow.
+            assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
+            assertTrue(timeReceiver.mTimeUsed == 0);
+        } else {
+            // With platforms that have no home screen, focus is returned to something else that is
+            // considered a completion of the tracked activity flow, and hence time tracking is
+            // triggered.
+            assertEquals(RESULT_PASS, timeReceiver.waitForActivity());
+        }
 
         // Issue another activity so that the timing information gets released.
         final Intent dummyIntent = new Intent(context, MockApplicationActivity.class);

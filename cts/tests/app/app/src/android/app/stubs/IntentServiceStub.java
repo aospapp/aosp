@@ -18,9 +18,10 @@ package android.app.stubs;
 
 import android.app.IntentService;
 import android.content.Intent;
-import android.cts.util.PollingCheck;
 import android.os.Binder;
 import android.os.IBinder;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 public class IntentServiceStub extends IntentService {
     public IntentServiceStub() {

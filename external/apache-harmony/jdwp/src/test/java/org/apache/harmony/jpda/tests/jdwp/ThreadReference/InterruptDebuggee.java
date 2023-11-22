@@ -45,7 +45,8 @@ public class InterruptDebuggee extends SyncDebuggee {
     static Object waitForStart = new Object();
     static Object waitForInterrupt = new Object();
     static Object waitForFinish = new Object();
-    
+
+    @Override
     public void run() {
         DebuggeeThread thrd = new DebuggeeThread(TESTED_THREAD,
                 logWriter, synchronizer); 
@@ -64,7 +65,7 @@ public class InterruptDebuggee extends SyncDebuggee {
         }
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -76,6 +77,7 @@ public class InterruptDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             synchronized(InterruptDebuggee.waitForFinish){

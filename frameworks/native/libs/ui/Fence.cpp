@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <ui/Fence.h>
+
 #define LOG_TAG "Fence"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 //#define LOG_NDEBUG 0
@@ -25,9 +27,10 @@
 #include <sync/sync.h>
 #pragma clang diagnostic pop
 
-#include <ui/Fence.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <utils/Log.h>
+#include <utils/String8.h>
 #include <utils/Trace.h>
 
 namespace android {
@@ -72,7 +75,7 @@ status_t Fence::waitForever(const char* logname) {
     return err < 0 ? -errno : status_t(NO_ERROR);
 }
 
-sp<Fence> Fence::merge(const String8& name, const sp<Fence>& f1,
+sp<Fence> Fence::merge(const char* name, const sp<Fence>& f1,
         const sp<Fence>& f2) {
     ATRACE_CALL();
     int result;
@@ -80,22 +83,27 @@ sp<Fence> Fence::merge(const String8& name, const sp<Fence>& f1,
     // valid fence (e.g. NO_FENCE) we merge the one valid fence with itself so
     // that a new fence with the given name is created.
     if (f1->isValid() && f2->isValid()) {
-        result = sync_merge(name.string(), f1->mFenceFd, f2->mFenceFd);
+        result = sync_merge(name, f1->mFenceFd, f2->mFenceFd);
     } else if (f1->isValid()) {
-        result = sync_merge(name.string(), f1->mFenceFd, f1->mFenceFd);
+        result = sync_merge(name, f1->mFenceFd, f1->mFenceFd);
     } else if (f2->isValid()) {
-        result = sync_merge(name.string(), f2->mFenceFd, f2->mFenceFd);
+        result = sync_merge(name, f2->mFenceFd, f2->mFenceFd);
     } else {
         return NO_FENCE;
     }
     if (result == -1) {
         status_t err = -errno;
         ALOGE("merge: sync_merge(\"%s\", %d, %d) returned an error: %s (%d)",
-                name.string(), f1->mFenceFd, f2->mFenceFd,
+                name, f1->mFenceFd, f2->mFenceFd,
                 strerror(-err), err);
         return NO_FENCE;
     }
     return sp<Fence>(new Fence(result));
+}
+
+sp<Fence> Fence::merge(const String8& name, const sp<Fence>& f1,
+        const sp<Fence>& f2) {
+    return merge(name.string(), f1, f2);
 }
 
 int Fence::dup() const {
@@ -104,17 +112,17 @@ int Fence::dup() const {
 
 nsecs_t Fence::getSignalTime() const {
     if (mFenceFd == -1) {
-        return -1;
+        return SIGNAL_TIME_INVALID;
     }
 
     struct sync_fence_info_data* finfo = sync_fence_info(mFenceFd);
     if (finfo == NULL) {
         ALOGE("sync_fence_info returned NULL for fd %d", mFenceFd);
-        return -1;
+        return SIGNAL_TIME_INVALID;
     }
     if (finfo->status != 1) {
         sync_fence_info_free(finfo);
-        return INT64_MAX;
+        return SIGNAL_TIME_PENDING;
     }
 
     struct sync_pt_info* pinfo = NULL;
@@ -157,7 +165,7 @@ status_t Fence::unflatten(void const*& buffer, size_t& size, int const*& fds, si
         return INVALID_OPERATION;
     }
 
-    if (size < 1) {
+    if (size < getFlattenedSize()) {
         return NO_MEMORY;
     }
 

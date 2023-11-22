@@ -125,12 +125,14 @@
 
 #include <openssl/base.h>
 
-#if defined(OPENSSL_X86_64) && defined(_MSC_VER) && _MSC_VER >= 1400
-#pragma warning(push, 3)
+#if defined(OPENSSL_X86_64) && defined(_MSC_VER)
+OPENSSL_MSVC_PRAGMA(warning(push, 3))
 #include <intrin.h>
-#pragma warning(pop)
+OPENSSL_MSVC_PRAGMA(warning(pop))
 #pragma intrinsic(__umulh, _umul128)
 #endif
+
+#include "../internal.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -144,7 +146,7 @@ BIGNUM *bn_expand(BIGNUM *bn, size_t bits);
 
 #if !defined(_MSC_VER)
 /* MSVC doesn't support two-word integers on 64-bit. */
-#define BN_ULLONG	__uint128_t
+#define BN_ULLONG	uint128_t
 #endif
 
 #define BN_BITS2	64
@@ -154,10 +156,11 @@ BIGNUM *bn_expand(BIGNUM *bn, size_t bits);
 #define BN_MASK2l	(0xffffffffUL)
 #define BN_MASK2h	(0xffffffff00000000UL)
 #define BN_MASK2h1	(0xffffffff80000000UL)
+#define BN_MONT_CTX_N0_LIMBS 1
 #define BN_TBIT		(0x8000000000000000UL)
 #define BN_DEC_CONV	(10000000000000000000UL)
 #define BN_DEC_NUM	19
-#define TOBN(hi, lo) ((BN_ULONG)hi << 32 | lo)
+#define TOBN(hi, lo) ((BN_ULONG)(hi) << 32 | (lo))
 
 #elif defined(OPENSSL_32_BIT)
 
@@ -169,28 +172,26 @@ BIGNUM *bn_expand(BIGNUM *bn, size_t bits);
 #define BN_MASK2l	(0xffffUL)
 #define BN_MASK2h1	(0xffff8000UL)
 #define BN_MASK2h	(0xffff0000UL)
+/* On some 32-bit platforms, Montgomery multiplication is done using 64-bit
+ * arithmetic with SIMD instructions. On such platforms, |BN_MONT_CTX::n0|
+ * needs to be two words long. Only certain 32-bit platforms actually make use
+ * of n0[1] and shorter R value would suffice for the others. However,
+ * currently only the assembly files know which is which. */
+#define BN_MONT_CTX_N0_LIMBS 2
 #define BN_TBIT		(0x80000000UL)
 #define BN_DEC_CONV	(1000000000UL)
 #define BN_DEC_NUM	9
-#define TOBN(hi, lo) lo, hi
+#define TOBN(hi, lo) (lo), (hi)
 
 #else
 #error "Must define either OPENSSL_32_BIT or OPENSSL_64_BIT"
 #endif
 
 
-/* Pentium pro 16,16,16,32,64 */
-/* Alpha       16,16,16,16.64 */
-#define BN_MULL_SIZE_NORMAL (16)              /* 32 */
-#define BN_MUL_RECURSIVE_SIZE_NORMAL (16)     /* 32 less than */
-#define BN_SQR_RECURSIVE_SIZE_NORMAL (16)     /* 32 */
-#define BN_MUL_LOW_RECURSIVE_SIZE_NORMAL (32) /* 32 */
-#define BN_MONT_CTX_SET_SIZE_WORD (64)        /* 32 */
-
-#define STATIC_BIGNUM(x)                                \
-  {                                                     \
-    (BN_ULONG *)x, sizeof(x) / sizeof(BN_ULONG),        \
-    sizeof(x) / sizeof(BN_ULONG), 0, BN_FLG_STATIC_DATA \
+#define STATIC_BIGNUM(x)                                    \
+  {                                                         \
+    (BN_ULONG *)(x), sizeof(x) / sizeof(BN_ULONG),          \
+        sizeof(x) / sizeof(BN_ULONG), 0, BN_FLG_STATIC_DATA \
   }
 
 #if defined(BN_ULLONG)
@@ -198,10 +199,13 @@ BIGNUM *bn_expand(BIGNUM *bn, size_t bits);
 #define Hw(t) (((BN_ULONG)((t)>>BN_BITS2))&BN_MASK2)
 #endif
 
+/* bn_set_words sets |bn| to the value encoded in the |num| words in |words|,
+ * least significant word first. */
+int bn_set_words(BIGNUM *bn, const BN_ULONG *words, size_t num);
+
 BN_ULONG bn_mul_add_words(BN_ULONG *rp, const BN_ULONG *ap, int num, BN_ULONG w);
 BN_ULONG bn_mul_words(BN_ULONG *rp, const BN_ULONG *ap, int num, BN_ULONG w);
 void     bn_sqr_words(BN_ULONG *rp, const BN_ULONG *ap, int num);
-BN_ULONG bn_div_words(BN_ULONG h, BN_ULONG l, BN_ULONG d);
 BN_ULONG bn_add_words(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,int num);
 BN_ULONG bn_sub_words(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,int num);
 
@@ -223,68 +227,28 @@ int bn_cmp_part_words(const BN_ULONG *a, const BN_ULONG *b, int cl, int dl);
 int bn_mul_mont(BN_ULONG *rp, const BN_ULONG *ap, const BN_ULONG *bp,
                 const BN_ULONG *np, const BN_ULONG *n0, int num);
 
-#if !defined(BN_ULLONG)
+uint64_t bn_mont_n0(const BIGNUM *n);
+int bn_mod_exp_base_2_vartime(BIGNUM *r, unsigned p, const BIGNUM *n);
 
-#define LBITS(a) ((a) & BN_MASK2l)
-#define HBITS(a) (((a) >> BN_BITS4) & BN_MASK2l)
-#define L2HBITS(a) (((a) << BN_BITS4) & BN_MASK2)
-
-#define LLBITS(a) ((a) & BN_MASKl)
-#define LHBITS(a) (((a) >> BN_BITS2) & BN_MASKl)
-#define LL2HBITS(a) ((BN_ULLONG)((a) & BN_MASKl) << BN_BITS2)
-
-#define mul64(l, h, bl, bh)       \
-  {                               \
-    BN_ULONG m, m1, lt, ht;       \
-                                  \
-    lt = l;                       \
-    ht = h;                       \
-    m = (bh) * (lt);              \
-    lt = (bl) * (lt);             \
-    m1 = (bl) * (ht);             \
-    ht = (bh) * (ht);             \
-    m = (m + m1) & BN_MASK2;      \
-    if (m < m1)                   \
-      ht += L2HBITS((BN_ULONG)1); \
-    ht += HBITS(m);               \
-    m1 = L2HBITS(m);              \
-    lt = (lt + m1) & BN_MASK2;    \
-    if (lt < m1)                  \
-      ht++;                       \
-    (l) = lt;                     \
-    (h) = ht;                     \
-  }
-
-#endif  /* !defined(BN_ULLONG) */
-
-#if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64)
-# if defined(__GNUC__) && __GNUC__ >= 2
-#  define BN_UMULT_HIGH(a,b)	({	\
-	register BN_ULONG ret,discard;	\
-	__asm__ ("mulq	%3"		\
-	     : "=a"(discard),"=d"(ret)	\
-	     : "a"(a), "g"(b)		\
-	     : "cc");			\
-	ret;			})
-#  define BN_UMULT_LOHI(low,high,a,b)	\
-	__asm__ ("mulq	%3"		\
-		: "=a"(low),"=d"(high)	\
-		: "a"(a),"g"(b)		\
-		: "cc");
-# elif defined(_MSC_VER) && _MSC_VER >= 1400
-#  define BN_UMULT_HIGH(a, b) __umulh((a), (b))
-#  define BN_UMULT_LOHI(low, high, a, b) ((low) = _umul128((a), (b), &(high)))
-# endif
-#elif !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64)
-# if defined(__GNUC__) && __GNUC__>=2
-#  define BN_UMULT_HIGH(a,b)	({	\
-	register BN_ULONG ret;		\
-	__asm__ ("umulh	%0,%1,%2"	\
-	     : "=r"(ret)		\
-	     : "r"(a), "r"(b));		\
-	ret;			})
-# endif
+#if defined(OPENSSL_X86_64) && defined(_MSC_VER)
+#define BN_UMULT_LOHI(low, high, a, b) ((low) = _umul128((a), (b), &(high)))
 #endif
+
+#if !defined(BN_ULLONG) && !defined(BN_UMULT_LOHI)
+#error "Either BN_ULLONG or BN_UMULT_LOHI must be defined on every platform."
+#endif
+
+/* bn_mod_inverse_prime sets |out| to the modular inverse of |a| modulo |p|,
+ * computed with Fermat's Little Theorem. It returns one on success and zero on
+ * error. If |mont_p| is NULL, one will be computed temporarily. */
+int bn_mod_inverse_prime(BIGNUM *out, const BIGNUM *a, const BIGNUM *p,
+                         BN_CTX *ctx, const BN_MONT_CTX *mont_p);
+
+/* bn_mod_inverse_secret_prime behaves like |bn_mod_inverse_prime| but uses
+ * |BN_mod_exp_mont_consttime| instead of |BN_mod_exp_mont| in hopes of
+ * protecting the exponent. */
+int bn_mod_inverse_secret_prime(BIGNUM *out, const BIGNUM *a, const BIGNUM *p,
+                                BN_CTX *ctx, const BN_MONT_CTX *mont_p);
 
 
 #if defined(__cplusplus)

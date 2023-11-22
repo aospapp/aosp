@@ -18,14 +18,15 @@
 
 #include "FontLanguageListCache.h"
 
-#include <cutils/log.h>
 #include <unicode/uloc.h>
 #include <unordered_set>
 
-#include "MinikinInternal.h"
-#include "FontLanguage.h"
+#include <log/log.h>
 
-namespace android {
+#include "FontLanguage.h"
+#include "MinikinInternal.h"
+
+namespace minikin {
 
 const uint32_t FontLanguageListCache::kEmptyListId;
 
@@ -152,4 +153,4 @@ FontLanguageListCache* FontLanguageListCache::getInstance() {
     return instance;
 }
 
-}  // namespace android
+}  // namespace minikin

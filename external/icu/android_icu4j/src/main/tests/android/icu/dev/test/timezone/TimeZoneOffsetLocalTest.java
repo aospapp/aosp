@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007-2008, International Business Machines Corporation and    *
@@ -8,6 +10,8 @@
 package android.icu.dev.test.timezone;
 
 import java.util.Date;
+
+import org.junit.Test;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.DateFormat;
@@ -20,22 +24,15 @@ import android.icu.util.InitialTimeZoneRule;
 import android.icu.util.RuleBasedTimeZone;
 import android.icu.util.SimpleTimeZone;
 import android.icu.util.TimeZone;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Testing getOffset APIs using local time
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TimeZoneOffsetLocalTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new TimeZoneOffsetLocalTest().run(args);
-    }
-
     /*
      * Testing getOffset APIs around rule transition by local standard/wall time.
      */
+    @Test
     public void TestGetOffsetAroundTransition() {
         final int HOUR = 60*60*1000;
         final int MINUTE = 60*1000;

@@ -18,13 +18,15 @@
 /*#define LOG_NDEBUG 0*/
 
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
+
+#include <log/log.h>
+
 #include <system/radio.h>
 #include <system/radio_metadata.h>
-#include <radio_metadata_hidden.h>
-#include <cutils/log.h>
+#include "radio_metadata_hidden.h"
 
 const radio_metadata_type_t metadata_key_type_table[] =
 {
@@ -54,14 +56,16 @@ bool is_valid_metadata_key(const radio_metadata_key_t key)
     return true;
 }
 
-int check_size(radio_metadata_buffer_t **metadata_ptr, const unsigned int size_int)
+int check_size(radio_metadata_buffer_t **metadata_ptr, const uint32_t size_int)
 {
     radio_metadata_buffer_t *metadata = *metadata_ptr;
-    unsigned int index_offset = metadata->size_int - metadata->count - 1;
-    unsigned int data_offset = *((unsigned int *)metadata + index_offset);
-    unsigned int req_size_int;
-    unsigned int new_size_int;
+    uint32_t index_offset = metadata->size_int - metadata->count - 1;
+    uint32_t data_offset = *((uint32_t *)metadata + index_offset);
+    uint32_t req_size_int;
+    uint32_t new_size_int;
 
+    LOG_ALWAYS_FATAL_IF(metadata->size_int < (metadata->count + 1),
+                        "%s: invalid size %u", __func__, metadata->size_int);
     if (size_int == 0) {
         return 0;
     }
@@ -82,11 +86,11 @@ int check_size(radio_metadata_buffer_t **metadata_ptr, const unsigned int size_i
         new_size_int *= 2;
 
     ALOGV("%s growing from %u to %u", __func__, metadata->size_int, new_size_int);
-    metadata = realloc(metadata, new_size_int * sizeof(unsigned int));
+    metadata = realloc(metadata, new_size_int * sizeof(uint32_t));
     /* move index table */
-    memmove((unsigned int *)metadata + new_size_int - (metadata->count + 1),
-            (unsigned int *)metadata + metadata->size_int - (metadata->count + 1),
-            (metadata->count + 1) * sizeof(unsigned int));
+    memmove((uint32_t *)metadata + new_size_int - (metadata->count + 1),
+            (uint32_t *)metadata + metadata->size_int - (metadata->count + 1),
+            (metadata->count + 1) * sizeof(uint32_t));
     metadata->size_int = new_size_int;
 
     *metadata_ptr = metadata;
@@ -98,17 +102,17 @@ int add_metadata(radio_metadata_buffer_t **metadata_ptr,
                  const radio_metadata_key_t key,
                  const radio_metadata_type_t type,
                  const void *value,
-                 const unsigned int size)
+                 const size_t size)
 {
-    unsigned int entry_size_int;
+    uint32_t entry_size_int;
     int ret;
     radio_metadata_entry_t *entry;
-    unsigned int index_offset;
-    unsigned int data_offset;
+    uint32_t index_offset;
+    uint32_t data_offset;
     radio_metadata_buffer_t *metadata = *metadata_ptr;
 
-    entry_size_int = size + sizeof(radio_metadata_entry_t);
-    entry_size_int = (entry_size_int + sizeof(unsigned int) - 1) / sizeof(unsigned int);
+    entry_size_int = (uint32_t)(size + sizeof(radio_metadata_entry_t));
+    entry_size_int = (entry_size_int + sizeof(uint32_t) - 1) / sizeof(uint32_t);
 
     ret = check_size(metadata_ptr, entry_size_int);
     if (ret < 0) {
@@ -116,17 +120,18 @@ int add_metadata(radio_metadata_buffer_t **metadata_ptr,
     }
     metadata = *metadata_ptr;
     index_offset = metadata->size_int - metadata->count - 1;
-    data_offset = *((unsigned int *)metadata + index_offset);
+    data_offset = *((uint32_t *)metadata + index_offset);
 
-    entry = (radio_metadata_entry_t *)((unsigned int *)metadata + data_offset);
+    entry = (radio_metadata_entry_t *)((uint32_t *)metadata + data_offset);
     entry->key = key;
     entry->type = type;
-    entry->size = size;
+    entry->size = (uint32_t)size;
     memcpy(entry->data, value, size);
 
     data_offset += entry_size_int;
-    *((unsigned int *)metadata + index_offset -1) = data_offset;
+    *((uint32_t *)metadata + index_offset -1) = data_offset;
     metadata->count++;
+
     return 0;
 }
 
@@ -135,29 +140,36 @@ radio_metadata_entry_t *get_entry_at_index(
                                     const unsigned index,
                                     bool check)
 {
-    unsigned int index_offset = metadata->size_int - index - 1;
-    unsigned int data_offset = *((unsigned int *)metadata + index_offset);
+    uint32_t index_offset = metadata->size_int - index - 1;
+    uint32_t data_offset = *((uint32_t *)metadata + index_offset);
 
+    LOG_ALWAYS_FATAL_IF(metadata->size_int < (index + 1),
+                        "%s: invalid size %u", __func__, metadata->size_int);
     if (check) {
         if (index >= metadata->count) {
             return NULL;
         }
-        unsigned int min_offset;
-        unsigned int max_offset;
-        unsigned int min_entry_size_int;
-        min_offset = (sizeof(radio_metadata_buffer_t) + sizeof(unsigned int) - 1) /
-                        sizeof(unsigned int);
+        uint32_t min_offset;
+        uint32_t max_offset;
+        uint32_t min_entry_size_int;
+        min_offset = (sizeof(radio_metadata_buffer_t) + sizeof(uint32_t) - 1) /
+                        sizeof(uint32_t);
         if (data_offset < min_offset) {
             return NULL;
         }
         min_entry_size_int = 1 + sizeof(radio_metadata_entry_t);
-        min_entry_size_int = (min_entry_size_int + sizeof(unsigned int) - 1) / sizeof(unsigned int);
+        min_entry_size_int = (min_entry_size_int + sizeof(uint32_t) - 1) / sizeof(uint32_t);
+
+        LOG_ALWAYS_FATAL_IF(metadata->size_int < (metadata->count + 1),
+                            "%s: invalid size %u vs count %u", __func__,
+                            metadata->size_int, metadata->count);
+
         max_offset = metadata->size_int - metadata->count - 1 - min_entry_size_int;
         if (data_offset > max_offset) {
             return NULL;
         }
     }
-    return (radio_metadata_entry_t *)((unsigned int *)metadata + data_offset);
+    return (radio_metadata_entry_t *)((uint32_t *)metadata + data_offset);
 }
 
 /**
@@ -173,11 +185,11 @@ radio_metadata_type_t radio_metadata_type_of_key(const radio_metadata_key_t key)
 }
 
 int radio_metadata_allocate(radio_metadata_t **metadata,
-                            const unsigned int channel,
-                            const unsigned int sub_channel)
+                            const uint32_t channel,
+                            const uint32_t sub_channel)
 {
     radio_metadata_buffer_t *metadata_buf =
-            (radio_metadata_buffer_t *)calloc(RADIO_METADATA_DEFAULT_SIZE, sizeof(unsigned int));
+            (radio_metadata_buffer_t *)calloc(RADIO_METADATA_DEFAULT_SIZE, sizeof(uint32_t));
     if (metadata_buf == NULL) {
         return -ENOMEM;
     }
@@ -185,9 +197,9 @@ int radio_metadata_allocate(radio_metadata_t **metadata,
     metadata_buf->channel = channel;
     metadata_buf->sub_channel = sub_channel;
     metadata_buf->size_int = RADIO_METADATA_DEFAULT_SIZE;
-    *((unsigned int *)metadata_buf + RADIO_METADATA_DEFAULT_SIZE - 1) =
-            (sizeof(radio_metadata_buffer_t) + sizeof(unsigned int) - 1) /
-                sizeof(unsigned int);
+    *((uint32_t *)metadata_buf + RADIO_METADATA_DEFAULT_SIZE - 1) =
+            (sizeof(radio_metadata_buffer_t) + sizeof(uint32_t) - 1) /
+                sizeof(uint32_t);
     *metadata = (radio_metadata_t *)metadata_buf;
     return 0;
 }
@@ -199,14 +211,14 @@ void radio_metadata_deallocate(radio_metadata_t *metadata)
 
 int radio_metadata_add_int(radio_metadata_t **metadata,
                            const radio_metadata_key_t key,
-                           const int value)
+                           const int32_t value)
 {
     radio_metadata_type_t type = radio_metadata_type_of_key(key);
     if (metadata == NULL || *metadata == NULL || type != RADIO_METADATA_TYPE_INT) {
         return -EINVAL;
     }
     return add_metadata((radio_metadata_buffer_t **)metadata,
-                        key, type, &value, sizeof(int));
+                        key, type, &value, sizeof(int32_t));
 }
 
 int radio_metadata_add_text(radio_metadata_t **metadata,
@@ -224,7 +236,7 @@ int radio_metadata_add_text(radio_metadata_t **metadata,
 int radio_metadata_add_raw(radio_metadata_t **metadata,
                            const radio_metadata_key_t key,
                            const unsigned char *value,
-                           const unsigned int size)
+                           const size_t size)
 {
     radio_metadata_type_t type = radio_metadata_type_of_key(key);
     if (metadata == NULL || *metadata == NULL || type != RADIO_METADATA_TYPE_RAW || value == NULL) {
@@ -252,7 +264,7 @@ int radio_metadata_add_metadata(radio_metadata_t **dst_metadata,
     radio_metadata_buffer_t *src_metadata_buf = (radio_metadata_buffer_t *)src_metadata;
     radio_metadata_buffer_t *dst_metadata_buf;
     int status;
-    unsigned int index;
+    uint32_t index;
 
     if (dst_metadata == NULL || src_metadata == NULL) {
         return -EINVAL;
@@ -273,7 +285,7 @@ int radio_metadata_add_metadata(radio_metadata_t **dst_metadata,
         radio_metadata_key_t key;
         radio_metadata_type_t type;
         void *value;
-        unsigned int size;
+        size_t size;
         status = radio_metadata_get_at_index(src_metadata, index, &key, &type, &value, &size);
         if (status != 0)
             continue;
@@ -288,8 +300,8 @@ int radio_metadata_check(const radio_metadata_t *metadata)
 {
     radio_metadata_buffer_t *metadata_buf =
             (radio_metadata_buffer_t *)metadata;
-    unsigned int count;
-    unsigned int min_entry_size_int;
+    uint32_t count;
+    uint32_t min_entry_size_int;
 
     if (metadata_buf == NULL) {
         return -EINVAL;
@@ -301,10 +313,10 @@ int radio_metadata_check(const radio_metadata_t *metadata)
 
     /* sanity check on entry count versus buffer size */
     min_entry_size_int = 1 + sizeof(radio_metadata_entry_t);
-    min_entry_size_int = (min_entry_size_int + sizeof(unsigned int) - 1) /
-                                sizeof(unsigned int);
+    min_entry_size_int = (min_entry_size_int + sizeof(uint32_t) - 1) /
+                                sizeof(uint32_t);
     if ((metadata_buf->count * min_entry_size_int + metadata_buf->count + 1 +
-            (sizeof(radio_metadata_buffer_t) + sizeof(unsigned int) - 1) / sizeof(unsigned int)) >
+            (sizeof(radio_metadata_buffer_t) + sizeof(uint32_t) - 1) / sizeof(uint32_t)) >
                     metadata_buf->size_int) {
         return -EINVAL;
     }
@@ -341,7 +353,7 @@ size_t radio_metadata_get_size(const radio_metadata_t *metadata)
     if (metadata_buf == NULL) {
         return 0;
     }
-    return (size_t)(metadata_buf->size_int * sizeof(unsigned int));
+    return metadata_buf->size_int * sizeof(uint32_t);
 }
 
 int radio_metadata_get_count(const radio_metadata_t *metadata)
@@ -356,11 +368,11 @@ int radio_metadata_get_count(const radio_metadata_t *metadata)
 }
 
 int radio_metadata_get_at_index(const radio_metadata_t *metadata,
-                                const unsigned int index,
+                                const uint32_t index,
                                 radio_metadata_key_t *key,
                                 radio_metadata_type_t *type,
                                 void **value,
-                                unsigned int *size)
+                                size_t *size)
 {
     radio_metadata_entry_t *entry;
     radio_metadata_buffer_t *metadata_buf =
@@ -378,7 +390,7 @@ int radio_metadata_get_at_index(const radio_metadata_t *metadata,
     *key = entry->key;
     *type = entry->type;
     *value = (void *)entry->data;
-    *size = entry->size;
+    *size = (size_t)entry->size;
 
     return 0;
 }
@@ -387,9 +399,9 @@ int radio_metadata_get_from_key(const radio_metadata_t *metadata,
                                 const radio_metadata_key_t key,
                                 radio_metadata_type_t *type,
                                 void **value,
-                                unsigned int *size)
+                                size_t *size)
 {
-    unsigned int count;
+    uint32_t count;
     radio_metadata_entry_t *entry = NULL;
     radio_metadata_buffer_t *metadata_buf =
             (radio_metadata_buffer_t *)metadata;
@@ -412,6 +424,21 @@ int radio_metadata_get_from_key(const radio_metadata_t *metadata,
     }
     *type = entry->type;
     *value = (void *)entry->data;
-    *size = entry->size;
+    *size = (size_t)entry->size;
+    return 0;
+}
+
+int radio_metadata_get_channel(radio_metadata_t *metadata,
+                               uint32_t *channel,
+                               uint32_t *sub_channel)
+{
+    radio_metadata_buffer_t *metadata_buf =
+            (radio_metadata_buffer_t *)metadata;
+
+    if (metadata_buf == NULL || channel == NULL || sub_channel == NULL) {
+        return -EINVAL;
+    }
+    *channel = metadata_buf->channel;
+    *sub_channel = metadata_buf->sub_channel;
     return 0;
 }

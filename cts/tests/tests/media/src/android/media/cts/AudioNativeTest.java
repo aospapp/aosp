@@ -16,14 +16,15 @@
 
 package android.media.cts;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 
+import com.android.compatibility.common.util.CtsAndroidTestCase;
+
 public class AudioNativeTest extends CtsAndroidTestCase {
-    // Assume stereo here until b/23899814 is fixed.
     public static final int MAX_CHANNEL_COUNT = 2;
     public static final int MAX_INDEX_MASK = (1 << MAX_CHANNEL_COUNT) - 1;
 
@@ -85,6 +86,8 @@ public class AudioNativeTest extends CtsAndroidTestCase {
         final float TEST_SWEEP = 0; // sine wave only
         final int TEST_TIME_IN_MSEC = 300;
         final int TOLERANCE_MSEC = 20;
+        final boolean TEST_IS_LOW_RAM_DEVICE = isLowRamDevice();
+        final long TEST_END_SLEEP_MSEC = TEST_IS_LOW_RAM_DEVICE ? 200 : 50;
 
         for (boolean TEST_FLOAT : TEST_FLOAT_ARRAY) {
             double frequency = 400; // frequency changes for each test
@@ -92,6 +95,9 @@ public class AudioNativeTest extends CtsAndroidTestCase {
                 for (int TEST_CHANNELS : TEST_CHANNELS_ARRAY) {
                     // OpenSL ES BUG: we run out of AudioTrack memory for this config on MNC
                     // Log.d(TEST_NAME, "open channels:" + TEST_CHANNELS + " sr:" + TEST_SR);
+                    if (TEST_IS_LOW_RAM_DEVICE && (TEST_CHANNELS > 4 || TEST_SR > 96000)) {
+                        continue;
+                    }
                     if (TEST_FLOAT == true && TEST_CHANNELS >= 6 && TEST_SR >= 192000) {
                         continue;
                     }
@@ -135,12 +141,18 @@ public class AudioNativeTest extends CtsAndroidTestCase {
                         Thread.sleep(5 /* millis */);
                     }
                     track.stop();
+                    Thread.sleep(TEST_END_SLEEP_MSEC);
                     track.close();
-                    Thread.sleep(40 /* millis */);  // put a gap in the tone sequence
+                    Thread.sleep(TEST_END_SLEEP_MSEC); // put a gap in the tone sequence
                     frequency += 50; // increment test tone frequency
                 }
             }
         }
+    }
+
+    private boolean isLowRamDevice() {
+        return ((ActivityManager)getContext().getSystemService(Context.ACTIVITY_SERVICE)
+                ).isLowRamDevice();
     }
 
     public void testRecordStreamData() throws Exception {
@@ -203,11 +215,7 @@ public class AudioNativeTest extends CtsAndroidTestCase {
         }
         AudioTrackNative track = new AudioTrackNative();
 
-        // TODO: when b/23899814 is fixed, use AudioManager.getDevices() to enumerate
-        // actual devices and their channel counts instead of assuming stereo.
-        //
         int maxOutputChannels = 2;
-
         int validIndexMask = (1 << maxOutputChannels) - 1;
 
         for (int mask = 0; mask <= MAX_INDEX_MASK; ++mask) {
@@ -229,14 +237,20 @@ public class AudioNativeTest extends CtsAndroidTestCase {
         if (!hasMicrophone()) {
             return;
         }
+
+        AudioManager audioManager =
+                (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         AudioRecordNative recorder = new AudioRecordNative();
 
-        // TODO: when b/23899814 is fixed, use AudioManager.getDevices() to enumerate
-        // actual devices and their channel counts instead of assuming stereo.
-        //
-        int maxInputChannels = 2;
+        int maxInputChannels = 0;
+        for (AudioDeviceInfo deviceInfo :
+                audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)) {
+            for (int channels : deviceInfo.getChannelCounts()) {
+                maxInputChannels = Math.max(channels, maxInputChannels);
+            }
+        }
 
-        int validIndexMask = (1 << maxInputChannels) -1;
+        int validIndexMask = (1 << maxInputChannels) - 1;
 
         for (int mask = 0; mask <= MAX_INDEX_MASK; ++mask) {
             int channelCount = Long.bitCount(mask);

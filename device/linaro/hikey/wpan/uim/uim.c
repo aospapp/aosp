@@ -42,6 +42,12 @@ static int dev_fd;
 char uim_bd_address[BD_ADDR_LEN];
 bdaddr_t *bd_addr;
 
+/* kim Sysfs path */
+static char *sysfs_install_entry = INSTALL_SYSFS_ENTRY;
+static char *sysfs_dev_name = DEV_NAME_SYSFS;
+static char *sysfs_baud_rate = BAUD_RATE_SYSFS;
+static char *sysfs_flow_ctrl = FLOW_CTRL_SYSFS;
+
 /*****************************************************************************/
 #ifdef UIM_DEBUG
 /*  Function to Read the firmware version
@@ -64,6 +70,14 @@ void read_firmware_version(int dev_fd)
 	printf("\n");
 }
 #endif
+
+void sysfs_entry_fallback(void)
+{
+	sysfs_install_entry = INSTALL_SYSFS_ENTRY_OLD;
+	sysfs_dev_name = DEV_NAME_SYSFS_OLD;
+	sysfs_baud_rate = BAUD_RATE_SYSFS_OLD;
+	sysfs_flow_ctrl = FLOW_CTRL_SYSFS_OLD;
+}
 
 /*****************************************************************************/
 /* Function to read the HCI event from the given file descriptor
@@ -283,9 +297,9 @@ int st_uart_config(unsigned char install)
 
 	if (install == '1') {
 		memset(buf, 0, UART_DEV_NAME_LEN);
-		fd = open(DEV_NAME_SYSFS, O_RDONLY);
+		fd = open(sysfs_dev_name, O_RDONLY);
 		if (fd < 0) {
-			UIM_ERR("Can't open %s", DEV_NAME_SYSFS);
+			UIM_ERR("Can't open %s", sysfs_dev_name);
 			return -1;
 		}
 		len = read(fd, buf, UART_DEV_NAME_LEN);
@@ -298,9 +312,9 @@ int st_uart_config(unsigned char install)
 		close(fd);
 
 		memset(buf, 0, UART_DEV_NAME_LEN);
-		fd = open(BAUD_RATE_SYSFS, O_RDONLY);
+		fd = open(sysfs_baud_rate, O_RDONLY);
 		if (fd < 0) {
-			UIM_ERR("Can't open %s", BAUD_RATE_SYSFS);
+			UIM_ERR("Can't open %s", sysfs_baud_rate);
 			return -1;
 		}
 		len = read(fd, buf, UART_DEV_NAME_LEN);
@@ -313,9 +327,9 @@ int st_uart_config(unsigned char install)
 		sscanf((const char*)buf, "%d", &cust_baud_rate);
 
 		memset(buf, 0, UART_DEV_NAME_LEN);
-		fd = open(FLOW_CTRL_SYSFS, O_RDONLY);
+		fd = open(sysfs_flow_ctrl, O_RDONLY);
 		if (fd < 0) {
-			UIM_ERR("Can't open %s", FLOW_CTRL_SYSFS);
+			UIM_ERR("Can't open %s", sysfs_flow_ctrl);
 			close(fd);
 			return -1;
 		}
@@ -486,14 +500,17 @@ int main(int argc, char *argv[])
 
 	/* sysfs entry may get populated after service is started so we retry if it fails*/
 	while (trials > 0) {
-		st_fd = open(INSTALL_SYSFS_ENTRY, O_RDONLY);
+		st_fd = open(sysfs_install_entry, O_RDONLY);
 		if(st_fd > 0)
 			break;
-		usleep(500000);
+		if (trials == 3)
+			sysfs_entry_fallback();
+		else
+			usleep(500000);
 		--trials;
 		}
 	if (st_fd < 0) {
-		UIM_DBG("unable to open %s(%s)", INSTALL_SYSFS_ENTRY, strerror(errno));
+		UIM_DBG("unable to open %s(%s)", sysfs_install_entry, strerror(errno));
 		return -1;
 	}
 
@@ -525,9 +542,9 @@ RE_POLL:
 	}
 
 	close(st_fd);
-	st_fd = open(INSTALL_SYSFS_ENTRY, O_RDONLY);
+	st_fd = open(sysfs_install_entry, O_RDONLY);
 	if (st_fd < 0) {
-		UIM_DBG("unable to open %s (%s)", INSTALL_SYSFS_ENTRY, strerror(errno));
+		UIM_DBG("unable to open %s (%s)", sysfs_install_entry, strerror(errno));
 		return -1;
 	}
 

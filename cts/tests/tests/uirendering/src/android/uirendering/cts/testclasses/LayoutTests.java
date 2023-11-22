@@ -17,15 +17,18 @@ package android.uirendering.cts.testclasses;
 
 import android.graphics.Color;
 import android.graphics.Rect;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
-import android.uirendering.cts.R;
-
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @MediumTest
+@RunWith(AndroidJUnit4.class)
 public class LayoutTests extends ActivityTestBase {
     @Test
     public void testSimpleRedLayout() {

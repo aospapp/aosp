@@ -23,18 +23,16 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-    postprocess.c \
-    ../../lib/nanohub/nanoapp.c \
+    postprocess_elf.c \
 
 LOCAL_CFLAGS := -Wall -Werror -Wextra
 
-LOCAL_C_INCLUDES += \
-    device/google/contexthub/lib/include \
+LOCAL_STATIC_LIBRARIES := libnanohub_common
 
 LOCAL_MODULE := nanoapp_postprocess
 
 # libelf needed for ELF parsing support, libz required by libelf
-LOCAL_STATIC_LIBRARIES := libelf libz
+LOCAL_STATIC_LIBRARIES += libelf libz
 
 # Statically linking libc++ so this binary can be copied out of the tree and
 # still work (needed by dependencies)

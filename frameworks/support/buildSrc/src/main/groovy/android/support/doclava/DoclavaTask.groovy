@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package android.support.doclava;
 
 import org.gradle.api.InvalidUserDataException
@@ -137,6 +153,21 @@ public class DoclavaTask extends Javadoc {
         options.docletpath = docletpath as List
     }
 
+    public void setDoclavaErrors(Collection errors) {
+        // Make it serializable.
+        doclavaErrors = errors as int[]
+    }
+
+    public void setDoclavaWarnings(Collection warnings) {
+        // Make it serializable.
+        doclavaWarnings = warnings as int[]
+    }
+
+    public void setDoclavaHidden(Collection hidden) {
+        // Make it serializable.
+        doclavaHidden = hidden as int[]
+    }
+
     private static boolean verifyAndGetGenerateApiFiles(File apiFile, File removedApiFile) {
         if (apiFile == null) {
             if (removedApiFile == null) {
@@ -193,6 +224,8 @@ public class DoclavaTask extends Javadoc {
                 options.addStringOption('stubpackages', stubPackages.join(':'))
             }
         }
+        // Always treat this as an Android docs task.
+        options.addOption(new DoclavaJavadocOptionFileOption('android'))
     }
 
     @Override

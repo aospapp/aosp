@@ -61,11 +61,13 @@ public class VpnTestHelper {
     // IP address reserved for documentation by rfc5737
     public static final String TEST_ADDRESS = "192.0.2.4";
 
+    // HACK (TODO issue 31585407) to wait for the network to actually be usable
+    private static final int NETWORK_SETTLE_GRACE_MS = 200;
+
     private static final int SOCKET_TIMEOUT_MS = 5000;
     private static final int ICMP_ECHO_REQUEST = 0x08;
     private static final int ICMP_ECHO_REPLY = 0x00;
     private static final int NETWORK_TIMEOUT_MS = 5000;
-    private static final int NETWORK_SETTLE_GRACE_MS = 100;
     private static final ComponentName ADMIN_RECEIVER_COMPONENT =
             BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT;
 
@@ -93,7 +95,6 @@ public class VpnTestHelper {
             if (!vpnLatch.await(NETWORK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
                 fail("Took too long waiting to establish a VPN-backed connection");
             }
-            // Give the VPN a moment to start transmitting data.
             Thread.sleep(NETWORK_SETTLE_GRACE_MS);
         } catch (InterruptedException | PackageManager.NameNotFoundException e) {
             fail("Failed to send ping: " + e);

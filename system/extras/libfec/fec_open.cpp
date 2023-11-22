@@ -18,9 +18,10 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
+#include <ext4_utils/ext4_sb.h>
+
 extern "C" {
     #include <squashfs_utils.h>
-    #include <ext4_sb.h>
 }
 
 #if defined(__linux__)
@@ -143,13 +144,6 @@ static int parse_ecc_header(fec_handle *f, uint64_t offset)
     if (header.fec_size % header.roots ||
             header.fec_size % FEC_BLOCKSIZE) {
         error("inconsistent ecc size %u", header.fec_size);
-        return -1;
-    }
-    /* structure: data | ecc | header */
-    if (offset < header.fec_size ||
-            offset - header.fec_size != header.inp_size) {
-        error("unexpected input size: %" PRIu64 " vs %" PRIu64, offset,
-            header.inp_size);
         return -1;
     }
 

@@ -23,45 +23,53 @@
 #include "base/mutex.h"
 #include "indirect_reference_table.h"
 #include "object_callbacks.h"
+#include "obj_ptr.h"
 #include "reference_table.h"
 
 namespace art {
 
 class JavaVMExt;
 
-// Maximum number of local references in the indirect reference table. The value is arbitrary but
+namespace mirror {
+class Object;
+}  // namespace mirror
+
+// Number of local references in the indirect reference table. The value is arbitrary but
 // low enough that it forces sanity checks.
-static constexpr size_t kLocalsMax = 512;
+static constexpr size_t kLocalsInitial = 512;
 
 struct JNIEnvExt : public JNIEnv {
-  static JNIEnvExt* Create(Thread* self, JavaVMExt* vm);
+  // Creates a new JNIEnvExt. Returns null on error, in which case error_msg
+  // will contain a description of the error.
+  static JNIEnvExt* Create(Thread* self, JavaVMExt* vm, std::string* error_msg);
 
   ~JNIEnvExt();
 
   void DumpReferenceTables(std::ostream& os)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void SetCheckJniEnabled(bool enabled);
+  void SetCheckJniEnabled(bool enabled) REQUIRES(!Locks::jni_function_table_lock_);
 
-  void PushFrame(int capacity) SHARED_REQUIRES(Locks::mutator_lock_);
-  void PopFrame() SHARED_REQUIRES(Locks::mutator_lock_);
+  void PushFrame(int capacity) REQUIRES_SHARED(Locks::mutator_lock_);
+  void PopFrame() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<typename T>
-  T AddLocalReference(mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  T AddLocalReference(ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
   static Offset SegmentStateOffset(size_t pointer_size);
   static Offset LocalRefCookieOffset(size_t pointer_size);
   static Offset SelfOffset(size_t pointer_size);
 
-  jobject NewLocalRef(mirror::Object* obj) SHARED_REQUIRES(Locks::mutator_lock_);
-  void DeleteLocalRef(jobject obj) SHARED_REQUIRES(Locks::mutator_lock_);
+  static jint GetEnvHandler(JavaVMExt* vm, /*out*/void** out, jint version);
+
+  jobject NewLocalRef(mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_);
+  void DeleteLocalRef(jobject obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
   Thread* const self;
   JavaVMExt* const vm;
 
   // Cookie used when using the local indirect reference table.
-  uint32_t local_ref_cookie;
+  IRTSegmentState local_ref_cookie;
 
   // JNI local references.
   IndirectReferenceTable locals GUARDED_BY(Locks::mutator_lock_);
@@ -69,7 +77,7 @@ struct JNIEnvExt : public JNIEnv {
   // Stack of cookies corresponding to PushLocalFrame/PopLocalFrame calls.
   // TODO: to avoid leaks (and bugs), we need to clear this vector on entry (or return)
   // to a native method.
-  std::vector<uint32_t> stacked_local_ref_cookies;
+  std::vector<IRTSegmentState> stacked_local_ref_cookies;
 
   // Frequently-accessed fields cached from JavaVM.
   bool check_jni;
@@ -90,21 +98,38 @@ struct JNIEnvExt : public JNIEnv {
   // rules in CheckJNI mode.
 
   // Record locking of a monitor.
-  void RecordMonitorEnter(jobject obj) SHARED_REQUIRES(Locks::mutator_lock_);
+  void RecordMonitorEnter(jobject obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Check the release, that is, that the release is performed in the same JNI "segment."
-  void CheckMonitorRelease(jobject obj) SHARED_REQUIRES(Locks::mutator_lock_);
+  void CheckMonitorRelease(jobject obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Check that no monitors are held that have been acquired in this JNI "segment."
-  void CheckNoHeldMonitors() SHARED_REQUIRES(Locks::mutator_lock_);
+  void CheckNoHeldMonitors() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Set the functions to the runtime shutdown functions.
   void SetFunctionsToRuntimeShutdownFunctions();
 
+  // Set the function table override. This will install the override (or original table, if null)
+  // to all threads.
+  // Note: JNI function table overrides are sensitive to the order of operations wrt/ CheckJNI.
+  //       After overriding the JNI function table, CheckJNI toggling is ignored.
+  static void SetTableOverride(const JNINativeInterface* table_override)
+      REQUIRES(!Locks::thread_list_lock_, !Locks::jni_function_table_lock_);
+
+  // Return either the regular, or the CheckJNI function table. Will return table_override_ instead
+  // if it is not null.
+  static const JNINativeInterface* GetFunctionTable(bool check_jni)
+      REQUIRES(Locks::jni_function_table_lock_);
+
  private:
-  // The constructor should not be called directly. It may leave the object in an erronuous state,
+  // Override of function tables. This applies to both default as well as instrumented (CheckJNI)
+  // function tables.
+  static const JNINativeInterface* table_override_ GUARDED_BY(Locks::jni_function_table_lock_);
+
+  // The constructor should not be called directly. It may leave the object in an erroneous state,
   // and the result needs to be checked.
-  JNIEnvExt(Thread* self, JavaVMExt* vm);
+  JNIEnvExt(Thread* self, JavaVMExt* vm, std::string* error_msg)
+      REQUIRES(!Locks::jni_function_table_lock_);
 
   // All locked objects, with the (Java caller) stack frame that locked them. Used in CheckJNI
   // to ensure that only monitors locked in this native frame are being unlocked, and that at
@@ -128,7 +153,7 @@ class ScopedJniEnvLocalRefState {
 
  private:
   JNIEnvExt* const env_;
-  uint32_t saved_local_ref_cookie_;
+  IRTSegmentState saved_local_ref_cookie_;
 
   DISALLOW_COPY_AND_ASSIGN(ScopedJniEnvLocalRefState);
 };

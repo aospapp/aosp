@@ -8,7 +8,6 @@ PURPOSE = 'Test cros_ec driver and sysfs interface'
 CRITERIA = 'Fails if EC sysfs interface is not present'
 TIME = 'SHORT'
 ATTRIBUTES = "suite:kernel_daily_regression"
-SUITE = 'kernel_daily_regression'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'kernel'
 TEST_TYPE = 'client'

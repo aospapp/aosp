@@ -168,7 +168,17 @@ public class SecretKeyFactoryTest extends TestCase {
             try {
                 KeyGenerator keyGenerator =
                         KeyGenerator.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
-                keyGenerator.init(new KeyGenParameterSpec.Builder("test1", 0).build());
+                if (algorithm.equals("AES")) {
+                    keyGenerator.init(new KeyGenParameterSpec.Builder("test1",
+                                    KeyProperties.PURPOSE_ENCRYPT)
+                            .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                            .build());
+                } else {
+                    keyGenerator.init(new KeyGenParameterSpec.Builder("test1",
+                                    KeyProperties.PURPOSE_SIGN)
+                            .build());
+                }
                 SecretKey key = keyGenerator.generateKey();
 
                 SecretKeyFactory keyFactory = getKeyFactory(algorithm);

@@ -6,7 +6,7 @@ AUTHOR = 'dshi'
 NAME = 'testbed_DummyTest'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-SUITE = ''
+ATTRIBUTES = "suite:dummy_testbed"
 # All android tests do not support server-side packaging.
 REQUIRE_SSP = False
 

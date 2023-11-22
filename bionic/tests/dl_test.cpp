@@ -24,6 +24,9 @@
 
 #include <string>
 
+#include "gtest_globals.h"
+#include "utils.h"
+
 extern "C" int main_global_default_serial() {
   return 3370318;
 }
@@ -67,6 +70,43 @@ TEST(dl, lib_preempts_global_default) {
 
 TEST(dl, lib_does_not_preempt_global_protected) {
   ASSERT_EQ(3370318, lib_global_protected_get_serial());
+}
+
+TEST(dl, exec_linker) {
+#if defined(__BIONIC__)
+#if defined(__LP64__)
+  static constexpr const char* kPathToLinker = "/system/bin/linker64";
+#else
+  static constexpr const char* kPathToLinker = "/system/bin/linker";
+#endif
+  ExecTestHelper eth;
+  std::string expected_output = std::string("This is ") + kPathToLinker +
+                                ", the helper program for dynamic executables.\n";
+  eth.SetArgs( { kPathToLinker, nullptr });
+  eth.Run([&]() { execve(kPathToLinker, eth.GetArgs(), eth.GetEnv()); }, 0, expected_output.c_str());
+#endif
+}
+
+TEST(dl, preinit_system_calls) {
+#if defined(__BIONIC__)
+  std::string helper = get_testlib_root() +
+      "/preinit_syscall_test_helper/preinit_syscall_test_helper";
+  chmod(helper.c_str(), 0755); // TODO: "x" lost in CTS, b/34945607
+  ExecTestHelper eth;
+  eth.SetArgs({ helper.c_str(), nullptr });
+  eth.Run([&]() { execve(helper.c_str(), eth.GetArgs(), eth.GetEnv()); }, 0, nullptr);
+#endif
+}
+
+TEST(dl, xfail_preinit_getauxval) {
+#if defined(__BIONIC__)
+  std::string helper = get_testlib_root() +
+      "/preinit_getauxval_test_helper/preinit_getauxval_test_helper";
+  chmod(helper.c_str(), 0755); // TODO: "x" lost in CTS, b/34945607
+  ExecTestHelper eth;
+  eth.SetArgs({ helper.c_str(), nullptr });
+  eth.Run([&]() { execve(helper.c_str(), eth.GetArgs(), eth.GetEnv()); }, 0, nullptr);
+#endif
 }
 
 // TODO: Add tests for LD_PRELOADs

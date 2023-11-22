@@ -13,6 +13,7 @@ import logging
 os.environ['DJANGO_SETTINGS_MODULE'] = 'frontend.settings'
 
 import common
+from autotest_lib.server import utils
 from django.db import connections, transaction
 
 
@@ -342,8 +343,20 @@ def parse_args():
     parser.add_argument('--step', type=int, action='store',
                         default=1000,
                         help='Number of rows to delete at once')
+    parser.add_argument('-c', '--check_server', action='store_true',
+                        help='Check if the server should run db clean up.')
     parser.add_argument('date', help='Keep results newer than')
     return parser.parse_args()
+
+
+def should_cleanup():
+    """Check if the server should run db_cleanup.
+
+    Only shard should clean up db.
+
+    @returns: True if it should run db cleanup otherwise False.
+    """
+    return utils.is_shard()
 
 
 def main():
@@ -356,6 +369,9 @@ def main():
 
     if not re.match(DATE_FORMAT_REGEX, args.date):
         print 'DATE must be in yyyy-mm-dd format!'
+        return
+    if args.check_server and not should_cleanup():
+        print 'Only shard can run db cleanup.'
         return
 
     global STEP_SIZE

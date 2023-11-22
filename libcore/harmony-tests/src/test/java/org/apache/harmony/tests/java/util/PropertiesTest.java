@@ -20,15 +20,18 @@ package org.apache.harmony.tests.java.util;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.CharArrayReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.InvalidPropertiesFormatException;
@@ -389,21 +392,21 @@ public class PropertiesTest extends junit.framework.TestCase {
 
         prop = new Properties();
         Properties expected = new Properties();
-        expected.put("a", "\u0000");
+        expected.put("a", "");
         prop.load(new ByteArrayInputStream("a=\\".getBytes()));
-        assertEquals("Failed to read trailing slash value", expected, prop);
+        assertEquals("Failed to trim trailing slash value", expected, prop);
 
         prop = new Properties();
         expected = new Properties();
-        expected.put("a", "\u1234\u0000");
+        expected.put("a", "\u1234");
         prop.load(new ByteArrayInputStream("a=\\u1234\\".getBytes()));
-        assertEquals("Failed to read trailing slash value #2", expected, prop);
+        assertEquals("Failed to trim trailing slash value #2", expected, prop);
 
         prop = new Properties();
         expected = new Properties();
         expected.put("a", "q");
         prop.load(new ByteArrayInputStream("a=\\q".getBytes()));
-        assertEquals("Failed to read slash value #3", expected, prop);
+        assertEquals("Failed to skip slash value #3", expected, prop);
     }
 
     /**
@@ -1084,6 +1087,47 @@ public class PropertiesTest extends junit.framework.TestCase {
         assertEquals("key", keyEnum.nextElement());
         assertFalse(keyEnum.hasMoreElements());
         inputStream.close();
+    }
+
+    /**
+     * Checks the example given in the documentation of a single property split over
+     * multiple lines separated by a backslash and newline character.
+     */
+    public void testSingleProperty_multipleLinesJoinedByBackslash() throws Exception {
+        String propertyString = "fruits                           apple, banana, pear, \\\n"
+                + "                                  cantaloupe, watermelon, \\\n"
+                + "                                  kiwi, mango";
+        checkSingleProperty("fruits", "apple, banana, pear, cantaloupe, watermelon, kiwi, mango",
+                propertyString);
+    }
+
+    /**
+     * Checks that a trailing backslash at the end of the single line of input is ignored.
+     * This is similar to a check in {@link #test_loadLjava_io_Reader()} that uses an
+     * InputStream and {@link Properties#equals(Object)} .
+     */
+    public void testSingleProperty_oneLineWithTrailingBackslash() throws Exception {
+        checkSingleProperty("key", "value", "key=value\\");
+    }
+
+    /**
+     * Checks that a trailing backslash at the end of the single line of input is ignored,
+     * even when that line has a newline.
+     */
+    public void testSingleProperty_oneLineWithTrailingBackslash_newline() throws Exception {
+        checkSingleProperty("key", "value", "key=value\\\r");
+        checkSingleProperty("key", "value", "key=value\\\n");
+        checkSingleProperty("key", "value", "key=value\\\r\n");
+    }
+
+    private static void checkSingleProperty(String key, String value, String serialized)
+            throws IOException {
+        Properties properties = new Properties();
+        try (Reader reader = new CharArrayReader(serialized.toCharArray())) {
+            properties.load(reader);
+            assertEquals(Collections.singleton(key), properties.keySet());
+            assertEquals(value, properties.getProperty(key));
+        }
     }
 
     /**

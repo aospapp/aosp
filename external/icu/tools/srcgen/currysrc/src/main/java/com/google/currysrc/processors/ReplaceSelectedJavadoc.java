@@ -70,6 +70,13 @@ public class ReplaceSelectedJavadoc extends BaseModifyCommentScanner {
     return null;
   }
 
+  @Override
+  public String toString() {
+    return "ReplaceSelectedJavadoc{" +
+        "replacements=" + replacements +
+        '}';
+  }
+
   /**
    * Reads a file containing replacement javadoc.
    *

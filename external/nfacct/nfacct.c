@@ -23,8 +23,10 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
+#include <endian.h>
 
-#include <netlink-local.h>
+#include <netlink-private/object-api.h>
+#include <netlink-private/types.h>
 #include <linux/netlink.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_acct.h>
@@ -61,6 +63,8 @@ static int nfacct_cmd_restore(int argc, char *argv[]);
 #define nl_socket_alloc nl_handle_alloc
 #define nl_socket_free nl_handle_destroy
 #endif
+
+#define NL_DBG(LVL,FMT,ARG...) do { } while(0)
 
 static void usage(char *argv[])
 {

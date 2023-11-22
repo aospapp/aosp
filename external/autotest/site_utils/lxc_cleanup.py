@@ -22,13 +22,11 @@ import logging
 import os
 import re
 import signal
-import socket
 
 import common
 from autotest_lib.client.common_lib import logging_config
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.site_utils import lxc
 
@@ -180,10 +178,6 @@ def main(options):
                 success_count += 1
             else:
                 failure_count += 1
-    if options.execute:
-        key = 'container_cleanup.%s' % socket.gethostname().replace('.', '_')
-        autotest_stats.Gauge(key).send('success', success_count)
-        autotest_stats.Gauge(key).send('failure', failure_count)
     logging.info('Cleanup finished.')
 
 

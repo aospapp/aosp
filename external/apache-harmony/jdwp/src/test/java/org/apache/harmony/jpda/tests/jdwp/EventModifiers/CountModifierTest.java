@@ -49,7 +49,6 @@ public class CountModifierTest extends JDWPEventModifierTestCase {
             LOCATION_COUNT_FIELD_NAME = "locationEventCount";
     private static final String
             EXCEPTION_EVENT_COUNT_FIELD_NAME = "exceptionEventCount";
-    private static final String THREAD_RUN_COUNT_FIELD_NAME = "threadRunCount";
     private static final String
             FIELD_READ_WRITE_COUNT_FIELD_NAME = "fieldReadWriteCount";
 

@@ -42,7 +42,11 @@ class DynamicSuiteToolsTest(mox.MoxTestBase):
         """Should inject dict of varibles into provided strings."""
         def find_all_in(d, s):
             """Returns true if all key-value pairs in |d| are printed in |s|
-            and the dictionary representation is also in |s|."""
+            and the dictionary representation is also in |s|.
+
+            @param d: the variable dictionary to check.
+            @param s: the control file string.
+            """
             for k, v in d.iteritems():
                 if isinstance(v, str):
                     if "%s='%s'\n" % (k, v) not in s:
@@ -58,6 +62,39 @@ class DynamicSuiteToolsTest(mox.MoxTestBase):
         v = {'v1': 'one', 'v2': 'two', 'v3': None, 'v4': False, 'v5': 5}
         self.assertTrue(find_all_in(v, tools.inject_vars(v, '')))
         self.assertTrue(find_all_in(v, tools.inject_vars(v, 'ctrl')))
+        control_file = tools.inject_vars(v, 'sample')
+        self.assertTrue(tools._INJECT_BEGIN in control_file)
+        self.assertTrue(tools._INJECT_END in control_file)
+
+    def testRemoveInjection(self):
+        """Tests remove the injected variables from control file."""
+        control_file = """
+# INJECT_BEGIN - DO NOT DELETE THIS LINE
+v1='one'
+v4=False
+v5=5
+args_dict={'v1': 'one', 'v2': 'two', 'v3': None, 'v4': False, 'v5': 5}
+# INJECT_END - DO NOT DELETE LINE
+def init():
+    pass
+        """
+        control_file = tools.remove_injection(control_file)
+        self.assertTrue(control_file.strip().startswith('def init():'))
+
+    def testRemoveLegacyInjection(self):
+        """Tests remove the injected variables from legacy control file."""
+        control_file = """
+v1='one'
+_v2=False
+v3_x11_=5
+args_dict={'v1': 'one', '_v2': False, 'v3_x11': 5}
+def init():
+    pass
+        """
+        control_file = tools.remove_legacy_injection(control_file)
+        self.assertTrue(control_file.strip().startswith('def init():'))
+        control_file = tools.remove_injection(control_file)
+        self.assertTrue(control_file.strip().startswith('def init():'))
 
 
     def testIncorrectlyLocked(self):

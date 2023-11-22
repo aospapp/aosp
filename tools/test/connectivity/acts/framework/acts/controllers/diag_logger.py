@@ -29,7 +29,7 @@ class DiagLoggerError(Exception):
     pass
 
 
-def create(configs, logger):
+def create(configs):
     """Initializes the Diagnotic Logger instances based on the
     provided JSON configuration(s). The expected keys are:
 
@@ -56,11 +56,11 @@ def create(configs, logger):
         base_configs = c["Configs"]
         module_name = "{}.{}".format(diag_package_name, diag_logger_type)
         module = importlib.import_module(module_name)
-        logger = getattr(module, diag_logger_name)
+        logger_class = getattr(module, diag_logger_name)
 
-        objs.append(logger(host_log_path,
-                           logger,
-                           config_container=base_configs))
+        objs.append(logger_class(host_log_path,
+                                 None,
+                                 config_container=base_configs))
     return objs
 
 

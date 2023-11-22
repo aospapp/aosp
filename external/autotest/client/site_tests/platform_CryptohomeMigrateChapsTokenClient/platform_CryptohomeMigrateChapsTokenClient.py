@@ -19,11 +19,16 @@ class platform_CryptohomeMigrateChapsTokenClient(test.test):
         super(platform_CryptohomeMigrateChapsTokenClient, self).initialize()
         self._cryptohome_proxy = cryptohome.CryptohomeProxy()
 
-
     def run_once(self, generate_key=False):
+
         user = "user@test.com"
         password = "test_password"
         if generate_key:
+            # Make sure that the tpm is owned.
+            status = cryptohome.get_tpm_status()
+            if not status['Owned']:
+                cryptohome.take_tpm_ownership()
+
             # We generate a chaps key tied to |user|.
             self._cryptohome_proxy.ensure_clean_cryptohome_for(user, password)
             result = pkcs11.generate_user_key()

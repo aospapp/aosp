@@ -18,6 +18,7 @@
 # $(car_module) - name of the car library module
 # $(car_module_api_dir) - dir to store API files
 # $(car_module_include_systemapi) - if systemApi file should be generated
+# $(car_module_proguard_file) - where to output the proguard file, if empty no file will be produced
 # $(car_module_java_libraries) - dependent libraries
 # $(car_module_java_packages) - list of package names containing public classes
 # $(car_module_src_files) - list of source files
@@ -56,7 +57,7 @@ LOCAL_DROIDDOC_OPTIONS:= \
     -nodocs \
     -hide 113 \
     -hide 110
-LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := build/tools/droiddoc/templates-sdk
+LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := external/doclava/res/assets/templates-sdk
 LOCAL_UNINSTALLABLE_MODULE := true
 
 include $(BUILD_DROIDDOC)
@@ -94,7 +95,7 @@ LOCAL_DROIDDOC_OPTIONS:= \
     -nodocs \
     -hide 113 \
     -hide 110
-LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := build/tools/droiddoc/templates-sdk
+LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := external/doclava/res/assets/templates-sdk
 LOCAL_UNINSTALLABLE_MODULE := true
 
 include $(BUILD_DROIDDOC)
@@ -103,6 +104,42 @@ $(car_module_system_api_file) : $(full_target)
 
 #($(car_module_include_systemapi), true)
 endif
+
+
+ifneq ($(strip $(car_module_proguard_file)),)
+#
+# Generate a proguard files
+# ---------------------------------------------
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := $(car_module)-proguard
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES := $(car_module_src_files)
+LOCAL_JAVA_LIBRARIES := $(car_module_java_libraries) $(car_module)
+LOCAL_ADDITIONAL_JAVA_DIR := \
+    $(call intermediates-dir-for,$(LOCAL_MODULE_CLASS),$(car_module),,COMMON)/src
+LOCAL_SDK_VERSION := $(CAR_CURRENT_SDK_VERSION)
+
+docs_proguard_intermediates_output := $(call intermediates-dir-for,$(LOCAL_MODULE_CLASS),$(LOCAL_MODULE),,COMMON)/keep_list.proguard
+LOCAL_DROIDDOC_OPTIONS := -proguard $(docs_proguard_intermediates_output)
+
+include $(BUILD_DROIDDOC)
+
+update-car-api: PRIVATE_PROGUARD_INTERMEDIATES_OUTPUT := $(docs_proguard_intermediates_output)
+update-car-api: PRIVATE_PROGUARD_OUTPUT_FILE := $(car_module_proguard_file)
+update-car-api: PRIVATE_CAR_MODULE := $(car_module)
+update-car-api: $(car_module)-proguard-docs | $(ACP)
+	@echo $(PRIVATE_CAR_MODULE) copying $(PRIVATE_PROGUARD_INTERMEDIATES_OUTPUT) to $(PRIVATE_PROGUARD_OUTPUT_FILE)
+	$(hide) $(ACP) $(PRIVATE_PROGUARD_INTERMEDIATES_OUTPUT) $(PRIVATE_PROGUARD_OUTPUT_FILE)
+
+# cleanup vars
+docs_proguard_output :=
+# ($(strip $(car_module_proguard_file)),)
+endif
+
+
 #
 # Check public API
 # ---------------------------------------------
@@ -151,6 +188,7 @@ $(eval $(call check-api, \
 update-$(car_module)-api: PRIVATE_API_DIR := $(car_module_api_dir)
 update-$(car_module)-api: PRIVATE_MODULE := $(car_module)
 update-$(car_module)-api: PRIVATE_REMOVED_API_FILE := $(car_module_removed_file)
+update-$(car_module)-api: PRIVATE_PROGUARD_FILE := $(car_module_proguard_file)
 update-$(car_module)-api: $(car_module_api_file) | $(ACP)
 	@echo Copying $(PRIVATE_MODULE) current.txt
 	$(hide) $(ACP) $< $(PRIVATE_API_DIR)/current.txt
@@ -210,6 +248,7 @@ $(eval $(call check-api, \
 update-$(car_module)-system-api: PRIVATE_API_DIR := $(car_module_api_dir)
 update-$(car_module)-system-api: PRIVATE_MODULE := $(car_module)
 update-$(car_module)-system-api: PRIVATE_REMOVED_API_FILE := $(car_module_system_removed_file)
+update-$(car_module)-system-api: PRIVATE_PROGUARD_FILE := $(car_module_proguard_file)
 update-$(car_module)-system-api: $(car_module_system_api_file) | $(ACP)
 	@echo Copying $(PRIVATE_MODULE) system-current.txt
 	$(hide) $(ACP) $< $(PRIVATE_API_DIR)/system-current.txt
@@ -218,6 +257,8 @@ update-$(car_module)-system-api: $(car_module_system_api_file) | $(ACP)
 
 # Run this update API task on the update-car-api task
 update-car-api: update-$(car_module)-system-api
+
+
 
 #($(car_module_include_systemapi), true)
 endif
@@ -242,3 +283,4 @@ car_module_system_removed__file :=
 car_stub_stamp :=
 car_system_stub_stamp :=
 car_module_include_systemapi :=
+car_module_proguard_file :=

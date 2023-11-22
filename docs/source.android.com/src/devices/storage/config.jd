@@ -21,7 +21,7 @@ page.title=Device Configuration
 </div>
 
 <p>External storage is managed by a combination of the <code>vold</code> init
-service and <code>MountService</code> system service. Mounting of physical
+service and <code>StorageManagerService</code> system service. Mounting of physical
 external storage volumes is handled by <code>vold</code>, which performs
 staging operations to prepare the media before exposing it to apps.</p>
 
@@ -64,7 +64,7 @@ Other possible flags are <code>nonremovable</code>,
 
 <h2 id=configuration_details>Configuration details</h2>
 <p>External storage interactions at and above the framework level are handled
-through <code>MountService</code>. 
+through <code>StorageManagerService</code>.
 Due to configuration changes in Android 6.0 (like the
 removal of the storage_list.xml resource overlay), the configuration details
 are split into two categories.

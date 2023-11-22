@@ -136,7 +136,8 @@ pass media to processes such as mediaserver.
 <ul>
   <li> Jordan Gruskovnjak of Exodus Intelligence (@jgrusko): CVE-2015-3864
   <li> Michał Bednarski: CVE-2015-3845
-  <li> Guang Gong of Qihoo 360 Technology Co. Ltd (@oldfresher): CVE-2015-1528
+  <li> Guang Gong of Qihoo 360 Technology Co. Ltd (@oldfresher): CVE-2015-1528,
+       CVE-2015-3849
   <li> Brennan Lautner: CVE-2015-3863
   <li> jgor (@indiecom): CVE-2015-3860
   <li> Wish Wu of Trend Micro Inc. (@wish_wu): CVE-2015-3861

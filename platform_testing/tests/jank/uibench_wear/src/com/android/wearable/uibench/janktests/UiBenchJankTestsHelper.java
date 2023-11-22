@@ -50,8 +50,8 @@ public class UiBenchJankTestsHelper {
     public static final String LAUNCHER_VIEW_NAME = "launcher_view";
     public static final String TEXT_OBJECT_NAME = "text1";
     public static final String UIBENCH_OBJECT_NAME = "UiBench";
-    public static final String KEYBOARD_SERVICE_NAME =
-            "com.google.android.inputmethod.latin/com.google.android.apps.inputmethod.wear.WearIME";
+    public static final String KEYBOARD_SERVICE_NAME = "com.google.android.inputmethod.latin/"
+            + "com.google.android.apps.inputmethod.wear.latin.WearLatinIME";
 
     private static UiBenchJankTestsHelper mInstance;
     private UiDevice mDevice;

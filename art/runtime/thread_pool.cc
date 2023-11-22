@@ -21,6 +21,8 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "android-base/stringprintf.h"
+
 #include "base/bit_utils.h"
 #include "base/casts.h"
 #include "base/logging.h"
@@ -30,6 +32,8 @@
 #include "thread-inl.h"
 
 namespace art {
+
+using android::base::StringPrintf;
 
 static constexpr bool kMeasureWaitTime = false;
 
@@ -61,7 +65,7 @@ ThreadPoolWorker::~ThreadPoolWorker() {
 void ThreadPoolWorker::SetPthreadPriority(int priority) {
   CHECK_GE(priority, PRIO_MIN);
   CHECK_LE(priority, PRIO_MAX);
-#if defined(__ANDROID__)
+#if defined(ART_TARGET_ANDROID)
   int result = setpriority(PRIO_PROCESS, pthread_gettid_np(pthread_), priority);
   if (result != 0) {
     PLOG(ERROR) << "Failed to setpriority to :" << priority;
@@ -84,7 +88,13 @@ void ThreadPoolWorker::Run() {
 void* ThreadPoolWorker::Callback(void* arg) {
   ThreadPoolWorker* worker = reinterpret_cast<ThreadPoolWorker*>(arg);
   Runtime* runtime = Runtime::Current();
-  CHECK(runtime->AttachCurrentThread(worker->name_.c_str(), true, nullptr, false));
+  CHECK(runtime->AttachCurrentThread(worker->name_.c_str(),
+                                     true,
+                                     nullptr,
+                                     worker->thread_pool_->create_peers_));
+  worker->thread_ = Thread::Current();
+  // Thread pool workers cannot call into java.
+  worker->thread_->SetCanCallIntoJava(false);
   // Do work until its time to shut down.
   worker->Run();
   runtime->DetachCurrentThread();
@@ -105,7 +115,7 @@ void ThreadPool::RemoveAllTasks(Thread* self) {
   tasks_.clear();
 }
 
-ThreadPool::ThreadPool(const char* name, size_t num_threads)
+ThreadPool::ThreadPool(const char* name, size_t num_threads, bool create_peers)
   : name_(name),
     task_queue_lock_("task queue lock"),
     task_queue_condition_("task queue condition", task_queue_lock_),
@@ -117,7 +127,8 @@ ThreadPool::ThreadPool(const char* name, size_t num_threads)
     total_wait_time_(0),
     // Add one since the caller of constructor waits on the barrier too.
     creation_barier_(num_threads + 1),
-    max_active_workers_(num_threads) {
+    max_active_workers_(num_threads),
+    create_peers_(create_peers) {
   Thread* self = Thread::Current();
   while (GetThreadCount() < num_threads) {
     const std::string worker_name = StringPrintf("%s worker thread %zu", name_.c_str(),
@@ -177,7 +188,7 @@ Task* ThreadPool::GetTask(Thread* self) {
     }
 
     ++waiting_count_;
-    if (waiting_count_ == GetThreadCount() && tasks_.empty()) {
+    if (waiting_count_ == GetThreadCount() && !HasOutstandingTasks()) {
       // We may be done, lets broadcast to the completion condition.
       completion_condition_.Broadcast(self);
     }
@@ -200,7 +211,7 @@ Task* ThreadPool::TryGetTask(Thread* self) {
 }
 
 Task* ThreadPool::TryGetTaskLocked() {
-  if (started_ && !tasks_.empty()) {
+  if (HasOutstandingTasks()) {
     Task* task = tasks_.front();
     tasks_.pop_front();
     return task;
@@ -210,6 +221,7 @@ Task* ThreadPool::TryGetTaskLocked() {
 
 void ThreadPool::Wait(Thread* self, bool do_work, bool may_hold_locks) {
   if (do_work) {
+    CHECK(!create_peers_);
     Task* task = nullptr;
     while ((task = TryGetTask(self)) != nullptr) {
       task->Run(self);
@@ -218,7 +230,7 @@ void ThreadPool::Wait(Thread* self, bool do_work, bool may_hold_locks) {
   }
   // Wait until each thread is waiting and the task list is empty.
   MutexLock mu(self, task_queue_lock_);
-  while (!shutting_down_ && (waiting_count_ != GetThreadCount() || !tasks_.empty())) {
+  while (!shutting_down_ && (waiting_count_ != GetThreadCount() || HasOutstandingTasks())) {
     if (!may_hold_locks) {
       completion_condition_.Wait(self);
     } else {

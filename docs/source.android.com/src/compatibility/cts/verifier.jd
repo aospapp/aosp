@@ -42,7 +42,7 @@ page.title=Using CTS Verifier
 <ul>
   <li>Install the <a href="http://developer.android.com/sdk/index.html">Android
 SDK</a> on the Linux computer <li>Download the appropriate <a
-href="{@docRoot}compatibility/downloads.html">CTS Verifier.apk</a> for the
+href="downloads.html">CTS Verifier.apk</a> for the
 version of Android under test.
   <li>Install CTS Verifier.apk to the <em>Device Under Test</em> (DUT). <br>
     <code>adb install -r -g CtsVerifier.apk</code>
@@ -175,29 +175,45 @@ ensure that the optical axis is orthogonal to the target.</p>
   degree of the calibration value.</p>
 <h2 id=exporting_test_reports>Exporting test reports</h2>
 <ol>
-  <li>After all tests are completed, tap the <strong>Save (disk)</strong> icon.
-<br>
-<img src="images/verifier-save-icon.png" alt="CTS Verifier Save icon" id="figure6" />
-<p class="img-caption">
-  <strong>Figure 6.</strong> CTS Verifier Save icon
-</p>
-
-  <li>A path to the saved report will be displayed in pop-up (e.g.
-<code>/mnt/sdcard/ctsVerifierReports/ctsVerifierReport-date-time.zip</code>).
-Record the path.
-<br>
-<img src="images/path-saved-report.png" alt="CTS Verifier path to saved report " id="figure7" />
-<p class="img-caption">
-  <strong>Figure 7.</strong> CTS Verifier path to saved report
-</p>
-
-  <li>Connect the device via USB to a computer with the SDK installed.
-  <li>From the computer’s SDK installation, run <code>adb pull
-    <CTS Verifier report path>
-    </code> to download the report from the device.
+  <li>
+    After all tests are completed, tap the <strong>Save (disk)</strong> icon.
+    <br>
+    <img src="images/verifier-save-icon.png" alt="CTS Verifier Save icon" id="figure6" />
+    <p class="img-caption">
+      <strong>Figure 6.</strong> CTS Verifier Save icon. <em>Note:</em> In
+      Android 7.0 and later, the preview feature is removed:
+      <img src="images/verifier-preview-icon.png" width="24" height="24">
+    </p>
+  </li>
+  <li>
+    A path to the saved report will be displayed in pop-up (e.g.
+    <code>/sdcard/verifierReports/ctsVerifierReport-date-time.zip</code>).
+    Record the path.
+    <br>
+    <img src="images/path-saved-report.png" alt="CTS Verifier path to saved report " id="figure7" />
+    <p class="img-caption">
+      <strong>Figure 7.</strong> CTS Verifier path to saved report
+    </p>
+  </li>
+  <li>
+    Connect the device via USB to a computer with the SDK installed.
+  </li>
+  <li>
+    From the computer’s SDK installation, run
+    <code>adb pull CTSVerifierReportPath</code> to download the report from the device.
     <ul>
-  <li>To download all reports run : <code>adb pull /mnt/sdcard/ctsVerifierReports/ .</code>
-  <li>The name of the reports are time-stamped based on the DUT’s system time.
-  <li>To clear results after they have been selected, select <strong>Menu > Clear</strong>. This will
-    clear the Pass/Fail results.
+      <li>
+        To download all reports run: <code>adb pull /sdcard/verifierReports</code>
+        <br/>
+        For Android 6.0 and earlier, run: <code>adb pull /mnt/sdcard/ctsVerifierReports/</code>
+      </li>
+      <li>
+        The name of the reports are time-stamped based on the DUT’s system time.
+      </li>
+      <li>
+        To clear results after they have been selected, select
+        <strong>Menu > Clear</strong>. This will clear the Pass/Fail results.
+      </li>
+    </ul>
+  </li>
 </ol>

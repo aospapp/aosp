@@ -47,7 +47,7 @@ class EndThreadAction : public Action {
 
 class AllocAction : public Action {
  public:
-  AllocAction(uintptr_t key_pointer) : key_pointer_(key_pointer) {}
+  explicit AllocAction(uintptr_t key_pointer) : key_pointer_(key_pointer) {}
 
  protected:
   uintptr_t key_pointer_ = 0;
@@ -152,7 +152,7 @@ class MemalignAction : public AllocAction {
 
 class FreeAction : public AllocAction {
  public:
-  FreeAction(uintptr_t key_pointer) : AllocAction(key_pointer) {
+  explicit FreeAction(uintptr_t key_pointer) : AllocAction(key_pointer) {
   }
 
   bool DoesFree() override { return key_pointer_ != 0; }

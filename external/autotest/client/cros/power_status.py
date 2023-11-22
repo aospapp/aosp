@@ -473,20 +473,6 @@ class SysStat(object):
           TestError: if one of battery assertions fails
         """
         if self.on_ac():
-            # TODO(shawnn): This is debug code. Need to remove it later.
-            if utils.get_board() == 'butterfly':
-                logging.debug('Butterfly on_ac, delay and re-check')
-                tries = 0
-                while self.on_ac():
-                    logging.debug('Butterfly {on_ac, pcc, tries}: %d %d %d' %
-                      (self.on_ac(), self.percent_current_charge(), tries))
-                    tries += 1
-                    if tries > 300:
-                        logging.debug('on_ac never deasserted')
-                        break
-                    time.sleep(5)
-                    self.refresh()
-
             raise error.TestError(
                 'Running on AC power. Please remove AC power cable.')
 
@@ -631,25 +617,31 @@ class CPUFreqStats(AbstractStats):
     CPU Frequency statistics
     """
 
-    def __init__(self):
+    def __init__(self, start_cpu=-1, end_cpu=-1):
         cpufreq_stats_path = '/sys/devices/system/cpu/cpu*/cpufreq/stats/' + \
                              'time_in_state'
         intel_pstate_stats_path = '/sys/devices/system/cpu/intel_pstate/' + \
                              'aperf_mperf'
         self._file_paths = glob.glob(cpufreq_stats_path)
+        num_cpus = len(self._file_paths)
         self._intel_pstate_file_paths = glob.glob(intel_pstate_stats_path)
         self._running_intel_pstate = False
         self._initial_perf = None
         self._current_perf = None
         self._max_freq = 0
-
+        name = 'cpufreq'
         if not self._file_paths:
             logging.debug('time_in_state file not found')
             if self._intel_pstate_file_paths:
                 logging.debug('intel_pstate frequency stats file found')
                 self._running_intel_pstate = True
+        else:
+            if (start_cpu >= 0 and end_cpu >= 0
+                    and not (start_cpu == 0 and end_cpu == num_cpus - 1)):
+                self._file_paths = self._file_paths[start_cpu : end_cpu]
+                name += '_' + str(start_cpu) + '_' + str(end_cpu)
 
-        super(CPUFreqStats, self).__init__(name='cpufreq')
+        super(CPUFreqStats, self).__init__(name=name)
 
 
     def _read_stats(self):
@@ -719,17 +711,22 @@ class CPUIdleStats(AbstractStats):
     # as ac <-> battery transitions.
     # TODO (snanda): Handle non-S0 states. Time spent in suspend states is
     # currently not factored out.
-    def __init__(self):
-        super(CPUIdleStats, self).__init__(name='cpuidle')
+    def __init__(self, start_cpu=-1, end_cpu=-1):
+        cpuidle_path = '/sys/devices/system/cpu/cpu*/cpuidle'
+        self._cpus = glob.glob(cpuidle_path)
+        num_cpus = len(self._cpus)
+        name = 'cpuidle'
+        if (start_cpu >= 0 and end_cpu >= 0
+                and not (start_cpu == 0 and end_cpu == num_cpus - 1)):
+            self._cpus = self._cpus[start_cpu : end_cpu]
+            name = name + '_' + str(start_cpu) + '_' + str(end_cpu)
+        super(CPUIdleStats, self).__init__(name=name)
 
 
     def _read_stats(self):
         cpuidle_stats = collections.defaultdict(int)
-        cpuidle_path = '/sys/devices/system/cpu/cpu*/cpuidle'
         epoch_usecs = int(time.time() * 1000 * 1000)
-        cpus = glob.glob(cpuidle_path)
-
-        for cpu in cpus:
+        for cpu in self._cpus:
             state_path = os.path.join(cpu, 'state*')
             states = glob.glob(state_path)
             cpuidle_stats['C0'] += epoch_usecs
@@ -838,6 +835,54 @@ class CPUPackageStats(AbstractStats):
         return stats
 
 
+class DevFreqStats(AbstractStats):
+    """
+    Devfreq device frequency stats.
+    """
+
+    _DIR = '/sys/class/devfreq'
+
+
+    def __init__(self, f):
+        """Constructs DevFreqStats Object that track frequency stats
+        for the path of the given Devfreq device.
+
+        The frequencies for devfreq devices are listed in Hz.
+
+        Args:
+            path: the path to the devfreq device
+
+        Example:
+            /sys/class/devfreq/dmc
+        """
+        self._path = os.path.join(self._DIR, f)
+        if not os.path.exists(self._path):
+            raise error.TestError('DevFreqStats: devfreq device does not exist')
+
+        fname = os.path.join(self._path, 'available_frequencies')
+        af = utils.read_one_line(fname).strip()
+        self._available_freqs = sorted(af.split(), key=int)
+
+        super(DevFreqStats, self).__init__(name=f)
+
+    def _read_stats(self):
+        stats = dict((freq, 0) for freq in self._available_freqs)
+        fname = os.path.join(self._path, 'trans_stat')
+
+        with open(fname) as fd:
+            # The lines that contain the time in each frequency start on the 3rd
+            # line, so skip the first 2 lines. The last line contains the number
+            # of transitions, so skip that line too.
+            # The time in each frequency is at the end of the line.
+            freq_pattern = re.compile(r'\d+(?=:)')
+            for line in fd.readlines()[2:-1]:
+                freq = freq_pattern.search(line)
+                if freq and freq.group() in self._available_freqs:
+                    stats[freq.group()] = int(line.strip().split()[-1])
+
+        return stats
+
+
 class GPUFreqStats(AbstractStats):
     """GPU Frequency statistics class.
 
@@ -846,7 +891,6 @@ class GPUFreqStats(AbstractStats):
 
     _MALI_DEV = '/sys/class/misc/mali0/device'
     _MALI_EVENTS = ['mali_dvfs:mali_dvfs_set_clock']
-    _MALI_34_TRACE_CLK_RE = r'(\d+.\d+): mali_dvfs_set_clock: frequency=(\d+)'
     _MALI_TRACE_CLK_RE = r'(\d+.\d+): mali_dvfs_set_clock: frequency=(\d+)\d{6}'
 
     _I915_ROOT = '/sys/kernel/debug/dri/0'
@@ -865,12 +909,7 @@ class GPUFreqStats(AbstractStats):
     def _get_mali_freqs(self):
         """Get mali clocks based on kernel version.
 
-        For 3.4:
-            # cat /sys/class/misc/mali0/device/clock
-            Current sclk_g3d[G3D_BLK] = 100Mhz
-            Possible settings : 533, 450, 400, 350, 266, 160, 100Mhz
-
-        For 3.8 (and beyond):
+        For 3.8-3.18:
             # cat /sys/class/misc/mali0/device/clock
             100000000
             # cat /sys/class/misc/mali0/device/available_frequencies
@@ -883,6 +922,9 @@ class GPUFreqStats(AbstractStats):
             533000000
             533000000
 
+        For 4.4+:
+            Tracked in DevFreqStats
+
         Returns:
           cur_mhz: string of current GPU clock in mhz
         """
@@ -890,18 +932,7 @@ class GPUFreqStats(AbstractStats):
         fqs = []
 
         fname = os.path.join(self._MALI_DEV, 'clock')
-        if os.uname()[2].startswith('3.4'):
-            with open(fname) as fd:
-                for ln in fd.readlines():
-                    result = re.findall(r'Current.* = (\d+)Mhz', ln)
-                    if result:
-                        cur_mhz = result[0]
-                        continue
-                    result = re.findall(r'(\d+)[,M]', ln)
-                    if result:
-                        fqs = result
-                        fd.close()
-        else:
+        if os.path.exists(fname):
             cur_mhz = str(int(int(utils.read_one_line(fname).strip()) / 1e6))
             fname = os.path.join(self._MALI_DEV, 'available_frequencies')
             with open(fname) as fd:
@@ -925,10 +956,15 @@ class GPUFreqStats(AbstractStats):
         self._prev_sample = None
         self._trace = None
 
-        if os.path.exists(self._MALI_DEV):
+        if os.path.exists(self._MALI_DEV) and \
+           not os.path.exists(os.path.join(self._MALI_DEV, "devfreq")):
             self._set_gpu_type('mali')
         elif os.path.exists(self._I915_CLK):
             self._set_gpu_type('i915')
+        else:
+            # We either don't know how to track GPU stats (yet) or the stats are
+            # tracked in DevFreqStats.
+            self._set_gpu_type(None)
 
         logging.debug("gpu_type is %s", self._gpu_type)
 
@@ -1031,12 +1067,8 @@ class GPUFreqStats(AbstractStats):
     def _mali_read_stats(self):
         """Read Mali GPU stats
 
-        For 3.4:
-            Frequencies are reported in MHz.
-
-        For 3.8+:
-            Frequencies are reported in Hz, so use a regex that drops the last 6
-            digits.
+        Frequencies are reported in Hz, so use a regex that drops the last 6
+        digits.
 
         Output in trace looks like this:
 
@@ -1047,13 +1079,7 @@ class GPUFreqStats(AbstractStats):
             Dict with frequency in mhz as key and float in seconds for time
               spent at that frequency.
         """
-        regexp = None
-        if os.uname()[2].startswith('3.4'):
-            regexp = self._MALI_34_TRACE_CLK_RE
-        else:
-            regexp = self._MALI_TRACE_CLK_RE
-
-        return self._trace_read_stats(regexp)
+        return self._trace_read_stats(self._MALI_TRACE_CLK_RE)
 
 
     def _i915_read_stats(self):
@@ -1109,15 +1135,50 @@ class USBSuspendStats(AbstractStats):
         return usb_stats
 
 
+def get_cpu_sibling_groups():
+    """
+    Get CPU core groups in HMP systems.
+
+    In systems with both small core and big core,
+    returns groups of small and big sibling groups.
+    """
+    siblings_paths = '/sys/devices/system/cpu/cpu*/topology/' + \
+                    'core_siblings_list'
+    sibling_groups = []
+    sibling_file_paths = glob.glob(siblings_paths)
+    if not len(sibling_file_paths) > 0:
+        return sibling_groups;
+    total_cpus = len(sibling_file_paths)
+    i = 0
+    sibling_list_pattern = re.compile('(\d+)-(\d+)')
+    while (i <  total_cpus):
+        siblings_data = utils.read_file(sibling_file_paths[i])
+        sibling_match = sibling_list_pattern.match(siblings_data)
+        sibling_start, sibling_end = (int(x) for x in sibling_match.groups())
+        sibling_groups.append((sibling_start, sibling_end))
+        i = sibling_end + 1
+    return sibling_groups
+
+
+
 class StatoMatic(object):
     """Class to aggregate and monitor a bunch of power related statistics."""
     def __init__(self):
         self._start_uptime_secs = kernel_trace.KernelTrace.uptime_secs()
         self._astats = [USBSuspendStats(),
-                        CPUFreqStats(),
                         GPUFreqStats(incremental=False),
-                        CPUIdleStats(),
                         CPUPackageStats()]
+        cpu_sibling_groups = get_cpu_sibling_groups()
+        if not len(cpu_sibling_groups):
+            self._astats.append(CPUFreqStats())
+            self._astats.append(CPUIdleStats())
+        for cpu_start, cpu_end in cpu_sibling_groups:
+            self._astats.append(CPUFreqStats(cpu_start, cpu_end))
+            self._astats.append(CPUIdleStats(cpu_start, cpu_end))
+        if os.path.isdir(DevFreqStats._DIR):
+            self._astats.extend([DevFreqStats(f) for f in \
+                                 os.listdir(DevFreqStats._DIR)])
+
         self._disk = DiskStateLogger()
         self._disk.start()
 
@@ -1679,3 +1740,71 @@ class DiskStateLogger(threading.Thread):
     def get_error(self):
         """Returns the _error exception... please only call after result()."""
         return self._error
+
+def parse_reef_s0ix_residency_info():
+    """
+    Parses the ioss_info file which contains the S0ix residency counter
+    on reef variants.
+    Example file :
+    --------------------------------------
+    I0SS TELEMETRY EVENTLOG
+    --------------------------------------
+    SOC_S0IX_TOTAL_RES               0xd241b68
+
+    @returns Residency(secs) for Reef platform.
+    @raises TestError if the debugfs file for this
+        specific board is not found or if S0ix residency info is not
+        found in the debugfs file.
+    """
+
+    ioss_info_path = '/sys/kernel/debug/telemetry/ioss_info'
+    S0IX_CLOCK_HZ = 19.2e6
+    if not os.path.exists(ioss_info_path):
+        raise error.TestNAError('File: ' + ioss_info_path + ' used to'
+                                ' measure s0ix residency does not exist')
+
+    with open(ioss_info_path) as fd:
+        residency = -1
+        for line in fd:
+            if line.startswith('SOC_S0IX_TOTAL_RES'):
+                #residency here is a clock pulse with XTAL of 19.2mhz.
+                residency = int(line.rsplit(None, 1)[-1], 0)
+                logging.debug("S0ix Residency: %d", residency)
+            # Helps in debugging scenarios where the residency count has not increased.
+            elif 'BLOCK' in line:
+                logging.debug(line)
+        if residency is not -1:
+            return residency / S0IX_CLOCK_HZ
+    raise error.TestNAError('Could not find s0ix residency in ' +
+                            ioss_info_path)
+
+
+class S0ixResidencyStats(object):
+    """
+    Measures the S0ix residency of a given board over time. Since
+    the debugfs path and the format of the file with the information
+    about S0ix residency might differ for every platform, we have a platform
+    specific parser.
+    """
+    S0IX_PARSERS_PER_PLATFORM = {
+        'Google_Reef' : parse_reef_s0ix_residency_info,
+    }
+
+    def __init__(self):
+        try:
+            current_plat = utils.run('mosys platform family',
+                                     verbose=False).stdout.strip()
+        except error.CmdError:
+            raise error.TestNAError('Could not find the platform family.')
+        if current_plat not in self.S0IX_PARSERS_PER_PLATFORM:
+            raise error.TestNAError('No Residency counter parser for' +
+                                    ' the board: ' + current_plat)
+        self._parse_function = \
+                self.S0IX_PARSERS_PER_PLATFORM[current_plat]
+        self._initial_residency = self._parse_function()
+
+    def get_accumulated_residency_secs(self):
+        """
+        @returns S0ix Residency since the class has been initialized.
+        """
+        return self._parse_function() - self._initial_residency

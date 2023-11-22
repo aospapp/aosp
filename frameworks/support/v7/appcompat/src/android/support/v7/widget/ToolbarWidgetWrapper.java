@@ -17,10 +17,13 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.ActionBar;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.ViewPropertyAnimatorCompat;
 import android.support.v4.view.ViewPropertyAnimatorListenerAdapter;
@@ -54,6 +57,7 @@ import android.widget.SpinnerAdapter;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ToolbarWidgetWrapper implements DecorToolbar {
     private static final String TAG = "ToolbarWidgetWrapper";
 
@@ -62,7 +66,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     // Default fade duration for fading in/out tool bar.
     private static final long DEFAULT_FADE_DURATION_MS = 200;
 
-    private Toolbar mToolbar;
+    Toolbar mToolbar;
 
     private int mDisplayOpts;
     private View mTabView;
@@ -74,12 +78,12 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     private Drawable mNavIcon;
 
     private boolean mTitleSet;
-    private CharSequence mTitle;
+    CharSequence mTitle;
     private CharSequence mSubtitle;
     private CharSequence mHomeDescription;
 
-    private Window.Callback mWindowCallback;
-    private boolean mMenuPrepared;
+    Window.Callback mWindowCallback;
+    boolean mMenuPrepared;
     private ActionMenuPresenter mActionMenuPresenter;
 
     private int mNavigationMode = ActionBar.NAVIGATION_MODE_STANDARD;
@@ -643,8 +647,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
 
     @Override
     public void setBackgroundDrawable(Drawable d) {
-        //noinspection deprecation
-        mToolbar.setBackgroundDrawable(d);
+        ViewCompat.setBackground(mToolbar, d);
     }
 
     @Override

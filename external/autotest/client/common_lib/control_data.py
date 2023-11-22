@@ -17,8 +17,38 @@ OBSOLETE_VARS = set(['experimental'])
 CONTROL_TYPE = enum.Enum('Server', 'Client', start_value=1)
 CONTROL_TYPE_NAMES =  enum.Enum(*CONTROL_TYPE.names, string_values=True)
 
+_SUITE_ATTRIBUTE_PREFIX = 'suite:'
+
 class ControlVariableException(Exception):
     pass
+
+def _validate_control_file_fields(control_file_path, control_file_vars,
+                                  raise_warnings):
+    """Validate the given set of variables from a control file.
+
+    @param control_file_path: string path of the control file these were
+            loaded from.
+    @param control_file_vars: dict of variables set in a control file.
+    @param raise_warnings: True iff we should raise on invalid variables.
+
+    """
+    diff = REQUIRED_VARS - set(control_file_vars)
+    if diff:
+        warning = ('WARNING: Not all required control '
+                   'variables were specified in %s.  Please define '
+                   '%s.') % (control_file_path, ', '.join(diff))
+        if raise_warnings:
+            raise ControlVariableException(warning)
+        print textwrap.wrap(warning, 80)
+
+    obsolete = OBSOLETE_VARS & set(control_file_vars)
+    if obsolete:
+        warning = ('WARNING: Obsolete variables were '
+                   'specified in %s.  Please remove '
+                   '%s.') % (control_file_path, ', '.join(obsolete))
+        if raise_warnings:
+            raise ControlVariableException(warning)
+        print textwrap.wrap(warning, 80)
 
 
 class ControlData(object):
@@ -63,23 +93,7 @@ class ControlData(object):
         self.require_ssp = None
         self.attributes = set()
 
-        diff = REQUIRED_VARS - set(vars)
-        if diff:
-            warning = ('WARNING: Not all required control '
-                       'variables were specified in %s.  Please define '
-                       '%s.') % (self.path, ', '.join(diff))
-            if raise_warnings:
-                raise ControlVariableException(warning)
-            print textwrap.wrap(warning, 80)
-
-        obsolete = OBSOLETE_VARS & set(vars)
-        if obsolete:
-            warning = ('WARNING: Obsolete variables were '
-                       'specified in %s.  Please remove '
-                       '%s.') % (self.path, ', '.join(obsolete))
-            if raise_warnings:
-                raise ControlVariableException(warning)
-            print textwrap.wrap(warning, 80)
+        _validate_control_file_fields(self.path, vars, raise_warnings)
 
         for key, val in vars.iteritems():
             try:
@@ -88,6 +102,17 @@ class ControlData(object):
                 if raise_warnings:
                     raise
                 print 'WARNING: %s; skipping' % e
+
+        self._patch_up_suites_from_attributes()
+
+
+    @property
+    def suite_tag_parts(self):
+        """Return the part strings of the test's suite tag."""
+        if hasattr(self, 'suite'):
+            return [part.strip() for part in self.suite.split(',')]
+        else:
+            return []
 
 
     def set_attr(self, attr, val, raise_warnings=False):
@@ -98,6 +123,40 @@ class ControlData(object):
         except AttributeError:
             # This must not be a variable we care about
             pass
+
+
+    def _patch_up_suites_from_attributes(self):
+        """Patch up the set of suites this test is part of.
+
+        Legacy builds will not have an appropriate ATTRIBUTES field set.
+        Take the union of suites specified via ATTRIBUTES and suites specified
+        via SUITE.
+
+        SUITE used to be its own variable, but now suites are taken only from
+        the attributes.
+
+        """
+
+        suite_names = set()
+        # Extract any suites we know ourselves to be in based on the SUITE
+        # line.  This line is deprecated, but control files in old builds will
+        # still have it.
+        if hasattr(self, 'suite'):
+            existing_suites = self.suite.split(',')
+            existing_suites = [name.strip() for name in existing_suites]
+            existing_suites = [name for name in existing_suites if name]
+            suite_names.update(existing_suites)
+
+        # Figure out if our attributes mention any suites.
+        for attribute in self.attributes:
+            if not attribute.startswith(_SUITE_ATTRIBUTE_PREFIX):
+                continue
+            suite_name = attribute[len(_SUITE_ATTRIBUTE_PREFIX):]
+            suite_names.add(suite_name)
+
+        # Rebuild the suite field if necessary.
+        if suite_names:
+            self.set_suite(','.join(sorted(list(suite_names))))
 
 
     def _set_string(self, attr, val):
@@ -139,7 +198,7 @@ class ControlData(object):
 
     def _set_set(self, attr, val):
         val = str(val)
-        items = [x.strip() for x in val.split(',')]
+        items = [x.strip() for x in val.split(',') if x.strip()]
         setattr(self, attr, set(items))
 
 
@@ -207,6 +266,14 @@ class ControlData(object):
     def set_require_ssp(self, val):
         self._set_bool('require_ssp', val)
 
+
+    def set_build(self, val):
+        self._set_string('build', val)
+
+
+    def set_builds(self, val):
+        if type(val) == dict:
+            setattr(self, 'builds', val)
 
     def set_attributes(self, val):
         # Add subsystem:default if subsystem is not specified.
@@ -279,12 +346,20 @@ def _extract_assignment(n):
     return (key, val)
 
 
-def parse_control_string(control, raise_warnings=False):
+def parse_control_string(control, raise_warnings=False, path=''):
+    """Parse a control file from a string.
+
+    @param control: string containing the text of a control file.
+    @param raise_warnings: True iff ControlData should raise an error on
+            warnings about control file contents.
+    @param path: string path to the control file.
+
+    """
     try:
         mod = compiler.parse(control)
     except SyntaxError, e:
         raise ControlVariableException("Error parsing data because %s" % e)
-    return finish_parse(mod, '', raise_warnings)
+    return finish_parse(mod, path, raise_warnings)
 
 
 def parse_control(path, raise_warnings=False):

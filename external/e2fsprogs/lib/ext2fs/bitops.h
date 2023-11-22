@@ -11,31 +11,33 @@
  */
 
 #ifdef WORDS_BIGENDIAN
-#define ext2fs_cpu_to_le64(x) ext2fs_swab64((x))
-#define ext2fs_le64_to_cpu(x) ext2fs_swab64((x))
-#define ext2fs_cpu_to_le32(x) ext2fs_swab32((x))
-#define ext2fs_le32_to_cpu(x) ext2fs_swab32((x))
-#define ext2fs_cpu_to_le16(x) ext2fs_swab16((x))
-#define ext2fs_le16_to_cpu(x) ext2fs_swab16((x))
-#define ext2fs_cpu_to_be64(x) ((__u64)(x))
-#define ext2fs_be64_to_cpu(x) ((__u64)(x))
-#define ext2fs_cpu_to_be32(x) ((__u32)(x))
-#define ext2fs_be32_to_cpu(x) ((__u32)(x))
-#define ext2fs_cpu_to_be16(x) ((__u16)(x))
-#define ext2fs_be16_to_cpu(x) ((__u16)(x))
+#define ext2fs_cpu_to_le64(x) ((__force __le64)ext2fs_swab64((__u64)(x)))
+#define ext2fs_le64_to_cpu(x) ext2fs_swab64((__force __u64)(__le64)(x))
+#define ext2fs_cpu_to_le32(x) ((__force __le32)ext2fs_swab32((__u32)(x)))
+#define ext2fs_le32_to_cpu(x) ext2fs_swab32((__force __u32)(__le32)(x))
+#define ext2fs_cpu_to_le16(x) ((__force __le16)ext2fs_swab16((__u16)(x)))
+#define ext2fs_le16_to_cpu(x) ext2fs_swab16((__force __u16)(__le16)(x))
+
+#define ext2fs_cpu_to_be64(x) ((__force __be64)(__u64)(x))
+#define ext2fs_be64_to_cpu(x) ((__force __u64)(__be64)(x))
+#define ext2fs_cpu_to_be32(x) ((__force __be32)(__u32)(x))
+#define ext2fs_be32_to_cpu(x) ((__force __u32)(__be32)(x))
+#define ext2fs_cpu_to_be16(x) ((__force __be16)(__u16)(x))
+#define ext2fs_be16_to_cpu(x) ((__force __u16)(__be16)(x))
 #else
-#define ext2fs_cpu_to_le64(x) ((__u64)(x))
-#define ext2fs_le64_to_cpu(x) ((__u64)(x))
-#define ext2fs_cpu_to_le32(x) ((__u32)(x))
-#define ext2fs_le32_to_cpu(x) ((__u32)(x))
-#define ext2fs_cpu_to_le16(x) ((__u16)(x))
-#define ext2fs_le16_to_cpu(x) ((__u16)(x))
-#define ext2fs_cpu_to_be64(x) ext2fs_swab64((x))
-#define ext2fs_be64_to_cpu(x) ext2fs_swab64((x))
-#define ext2fs_cpu_to_be32(x) ext2fs_swab32((x))
-#define ext2fs_be32_to_cpu(x) ext2fs_swab32((x))
-#define ext2fs_cpu_to_be16(x) ext2fs_swab16((x))
-#define ext2fs_be16_to_cpu(x) ext2fs_swab16((x))
+#define ext2fs_cpu_to_le64(x) ((__force __le64)(__u64)(x))
+#define ext2fs_le64_to_cpu(x) ((__force __u64)(__le64)(x))
+#define ext2fs_cpu_to_le32(x) ((__force __le32)(__u32)(x))
+#define ext2fs_le32_to_cpu(x) ((__force __u32)(__le32)(x))
+#define ext2fs_cpu_to_le16(x) ((__force __le16)(__u16)(x))
+#define ext2fs_le16_to_cpu(x) ((__force __u16)(__le16)(x))
+
+#define ext2fs_cpu_to_be64(x) ((__force __be64)ext2fs_swab64((__u64)(x)))
+#define ext2fs_be64_to_cpu(x) ext2fs_swab64((__force __u64)(__be64)(x))
+#define ext2fs_cpu_to_be32(x) ((__force __be32)ext2fs_swab32((__u32)(x)))
+#define ext2fs_be32_to_cpu(x) ext2fs_swab32((__force __u32)(__be32)(x))
+#define ext2fs_cpu_to_be16(x) ((__force __be16)ext2fs_swab16((__u16)(x)))
+#define ext2fs_be16_to_cpu(x) ext2fs_swab16((__force __u16)(__be16)(x))
 #endif
 
 /*
@@ -106,7 +108,7 @@ extern void ext2fs_unmark_block_bitmap_range(ext2fs_block_bitmap bitmap,
 extern int ext2fs_test_block_bitmap_range(ext2fs_block_bitmap bitmap,
 					  blk_t block, int num);
 extern int ext2fs_test_inode_bitmap_range(ext2fs_inode_bitmap bitmap,
-					  ino_t inode, int num);
+					  ext2_ino_t inode, int num);
 extern int ext2fs_mark_generic_bitmap(ext2fs_generic_bitmap bitmap,
 					 __u32 bitno);
 extern int ext2fs_unmark_generic_bitmap(ext2fs_generic_bitmap bitmap,
@@ -157,6 +159,14 @@ extern errcode_t ext2fs_find_first_zero_inode_bitmap2(ext2fs_inode_bitmap bitmap
 						      ext2_ino_t start,
 						      ext2_ino_t end,
 						      ext2_ino_t *out);
+extern errcode_t ext2fs_find_first_set_block_bitmap2(ext2fs_block_bitmap bitmap,
+						     blk64_t start,
+						     blk64_t end,
+						     blk64_t *out);
+extern errcode_t ext2fs_find_first_set_inode_bitmap2(ext2fs_inode_bitmap bitmap,
+						      ext2_ino_t start,
+						      ext2_ino_t end,
+						      ext2_ino_t *out);
 extern blk64_t ext2fs_get_block_bitmap_start2(ext2fs_block_bitmap bitmap);
 extern ext2_ino_t ext2fs_get_inode_bitmap_start2(ext2fs_inode_bitmap bitmap);
 extern blk64_t ext2fs_get_block_bitmap_end2(ext2fs_block_bitmap bitmap);
@@ -198,6 +208,9 @@ extern void ext2fs_unmark_block_bitmap_range2(ext2fs_block_bitmap bitmap,
 extern errcode_t ext2fs_find_first_zero_generic_bmap(ext2fs_generic_bitmap bitmap,
 						     __u64 start, __u64 end,
 						     __u64 *out);
+extern errcode_t ext2fs_find_first_set_generic_bmap(ext2fs_generic_bitmap bitmap,
+						    __u64 start, __u64 end,
+						    __u64 *out);
 
 /*
  * The inline routines themselves...
@@ -599,6 +612,36 @@ _INLINE_ errcode_t ext2fs_find_first_zero_inode_bitmap2(ext2fs_inode_bitmap bitm
 
 	rv = ext2fs_find_first_zero_generic_bmap((ext2fs_generic_bitmap) bitmap,
 						 start, end, &o);
+	if (!rv)
+		*out = (ext2_ino_t) o;
+	return rv;
+}
+
+_INLINE_ errcode_t ext2fs_find_first_set_block_bitmap2(ext2fs_block_bitmap bitmap,
+						       blk64_t start,
+						       blk64_t end,
+						       blk64_t *out)
+{
+	__u64 o;
+	errcode_t rv;
+
+	rv = ext2fs_find_first_set_generic_bmap((ext2fs_generic_bitmap) bitmap,
+						start, end, &o);
+	if (!rv)
+		*out = o;
+	return rv;
+}
+
+_INLINE_ errcode_t ext2fs_find_first_set_inode_bitmap2(ext2fs_inode_bitmap bitmap,
+						       ext2_ino_t start,
+						       ext2_ino_t end,
+						       ext2_ino_t *out)
+{
+	__u64 o;
+	errcode_t rv;
+
+	rv = ext2fs_find_first_set_generic_bmap((ext2fs_generic_bitmap) bitmap,
+						start, end, &o);
 	if (!rv)
 		*out = (ext2_ino_t) o;
 	return rv;

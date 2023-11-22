@@ -17,7 +17,7 @@ package com.example.android.supportv7.view;
 
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.view.ViewCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.CardView;
 import android.view.View;
@@ -77,7 +77,7 @@ public class CardViewActivity extends AppCompatActivity {
         if (mMaxElevationSeekBar.getProgress() != mCardView.getMaxCardElevation()) {
             mCardView.setMaxCardElevation(mMaxElevationSeekBar.getProgress());
         }
-        ViewCompat.setAlpha(mCardView, mAlphaSeekBar.getProgress() / 255f);
+        mCardView.setAlpha(mAlphaSeekBar.getProgress() / 255f);
         ViewGroup.LayoutParams lp;
         if (mResizeCardView) {
             lp = setViewBounds(mCardView);
@@ -108,34 +108,34 @@ public class CardViewActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_card_view);
-        mInfoText = (TextView) findViewById(R.id.info_text);
-        mCardView = (CardView) findViewById(R.id.card_view);
-        mCornerRadiusSeekBar = (SeekBar) findViewById(R.id.corner_radius_seek_bar);
+        mInfoText = findViewById(R.id.info_text);
+        mCardView = findViewById(R.id.card_view);
+        mCornerRadiusSeekBar = findViewById(R.id.corner_radius_seek_bar);
         mCornerRadiusSeekBar.setProgress((int) mCardView.getRadius());
         mCornerRadiusSeekBar.setOnSeekBarChangeListener(mOnSeekBarChangedListener);
 
-        mWidthSeekBar = (SeekBar) findViewById(R.id.width_seek_bar);
+        mWidthSeekBar = findViewById(R.id.width_seek_bar);
         mWidthSeekBar.setProgress(mCardView.getLayoutParams().width);
 
         mWidthSeekBar.setOnSeekBarChangeListener(mOnSeekBarChangedListener);
 
-        mHeightSeekBar = (SeekBar) findViewById(R.id.height_seek_bar);
+        mHeightSeekBar = findViewById(R.id.height_seek_bar);
         mHeightSeekBar.setProgress(mCardView.getLayoutParams().height);
         mHeightSeekBar.setOnSeekBarChangeListener(mOnSeekBarChangedListener);
 
-        mElevationSeekBar = (SeekBar) findViewById(R.id.elevation_seek_bar);
+        mElevationSeekBar = findViewById(R.id.elevation_seek_bar);
         mElevationSeekBar.setProgress((int) mCardView.getCardElevation());
         mElevationSeekBar.setOnSeekBarChangeListener(mOnSeekBarChangedListener);
 
-        mMaxElevationSeekBar = (SeekBar) findViewById(R.id.max_elevation_seek_bar);
+        mMaxElevationSeekBar = findViewById(R.id.max_elevation_seek_bar);
         mMaxElevationSeekBar.setProgress((int) mCardView.getMaxCardElevation());
         mMaxElevationSeekBar.setOnSeekBarChangeListener(mOnSeekBarChangedListener);
 
-        mAlphaSeekBar = (SeekBar) findViewById(R.id.alpha_seek_bar);
-        mAlphaSeekBar.setProgress((int) ViewCompat.getAlpha(mCardView) * 255);
+        mAlphaSeekBar = findViewById(R.id.alpha_seek_bar);
+        mAlphaSeekBar.setProgress((int) (mCardView.getAlpha() * 255));
         mAlphaSeekBar.setOnSeekBarChangeListener(mOnSeekBarChangedListener);
 
-        RadioGroup rb = (RadioGroup) findViewById(R.id.select_target_radio);
+        RadioGroup rb = findViewById(R.id.select_target_radio);
         rb.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
@@ -161,7 +161,8 @@ public class CardViewActivity extends AppCompatActivity {
                     @Override
                     public void onCheckedChanged(RadioGroup group, int checkedId) {
                         mCardView.setCardBackgroundColor(
-                                getResources().getColorStateList(getColorId(checkedId)));
+                                ContextCompat.getColorStateList(CardViewActivity.this,
+                                        getColorId(checkedId)));
                     }
                 });
     }

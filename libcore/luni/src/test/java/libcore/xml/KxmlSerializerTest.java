@@ -129,14 +129,17 @@ public final class KxmlSerializerTest extends TestCase {
         serializer.startTag(NAMESPACE, "tag");
         try {
             serializer.attribute(NAMESPACE, "attr", "a\ud83d\u0040b");
+            fail();
         } catch (IllegalArgumentException expected) {
         }
         try {
             serializer.text("c\ud83d\u0040d");
+            fail();
         } catch (IllegalArgumentException expected) {
         }
         try {
             serializer.cdsect("e\ud83d\u0040f");
+            fail();
         } catch (IllegalArgumentException expected) {
         }
     }

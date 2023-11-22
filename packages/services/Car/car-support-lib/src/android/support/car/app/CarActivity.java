@@ -16,6 +16,7 @@
 
 package android.support.car.app;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -24,6 +25,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.LayoutRes;
 import android.support.car.Car;
+import android.support.car.app.menu.CarDrawerActivity;
 import android.support.car.input.CarInputManager;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -34,10 +36,31 @@ import android.view.View;
 import android.view.Window;
 
 /**
- * Abstraction for car UI. Car applications should implement this for car UI.
- * The API looks like {@link android.app.Activity}, and behaves like one, but it is neither
- * android {@link android.app.Activity} nor {@link android.app.Context}.
- * Applications should use {@link #getContext()} to get necessary {@link android.app.Context}.
+ * A car specific activity class.  It allows an application to run on both "projected" and
+ * "native" platforms.  For the phone-only mode we only support media and messaging apps at this
+ * time. Please see our guides for writing
+ * <a href="https://developer.android.com/training/auto/index.html#media">media</a> and
+ * <a href="https://developer.android.com/training/auto/index.html#messaging">messaging</a> apps.
+ * <ul>
+ *     <li>
+ *         For "native" systems you'll additionally need to implement a
+ *         {@link CarProxyActivity} and add it to your application's manifest (see
+ *         {@link CarProxyActivity}) for details).
+ *     </li>
+ *     <li>
+ *         For "projected" systems you'll need to implement a
+ *         {@link com.google.android.apps.auto.sdk.activity.CarProxyProjectionActivityService}
+ *     </li>
+ * </ul>
+ *
+ * Applications wishing to write Android Auto applications will need to extend this class or one of
+ * it's sub classes. You'll most likely want to use {@link CarFragmentActivity} or
+ * {@link CarDrawerActivity} instead or this class as this one does not support fragments.
+ * <p/>
+ * This class has the look and feel of {@link Activity} however, it does not extend {@link Activity}
+ * or {@link Context}. Applications should use {@link #getContext()} to access the {@link Context}.
+ *
+ * @hide
  */
 public abstract class CarActivity {
     private static final String TAG = "CarActivity";
@@ -122,10 +145,36 @@ public abstract class CarActivity {
         mCar = car;
     }
 
+    /**
+     * Returns a standard app {@link Context} object since this class does not extend {@link
+     * Context} link {@link Activity} does.
+     */
     public Context getContext() {
         return mContext;
     }
 
+    /**
+     * Returns an instance of the {@link Car} object.  This is the main entry point to interact
+     * with the car and it's data.
+     *
+     * <p/>
+     * Note: For "native" platform uses cases you'll need to construct the CarProxy activity with
+     * the createCar boolean set to true if you want to use the getCar() method.
+     * <pre>
+     * {@code
+     *
+     *   class FooProxyActivity extends CarProxyActivity {
+     *     public FooProxyActivity() {
+     *       super(FooActivity.class, true);
+     *     }
+     *   }
+     * }
+     * </pre>
+     *
+     * "Projected" use cases will create a Car instance by default.
+     *
+     * @throws IllegalStateException if the Car object is not available.
+     */
     public Car getCar() {
         if (mCar == null) {
             throw new IllegalStateException("The default Car is not available. You can either " +
@@ -135,54 +184,94 @@ public abstract class CarActivity {
         return mCar;
     }
 
-    public Resources getResources() {
-        return mProxy.getResources();
-    }
-
-    public void setContentView(View view) {
-        mProxy.setContentView(view);
-    }
-
-    public void setContentView(@LayoutRes int resourceId) {
-        mProxy.setContentView(resourceId);
-    }
-
-    public LayoutInflater getLayoutInflater() {
-        return mProxy.getLayoutInflater();
-    }
-
-    public Intent getIntent() {
-        return mProxy.getIntent();
-    }
-
-    public void setResult(int resultCode){
-        mProxy.setResult(resultCode);
-    }
-
-    public void setResult(int resultCode, Intent data) {
-        mProxy.setResult(resultCode, data);
-    }
-
+    /**
+     * Returns the input manager for car activities.
+     */
     public CarInputManager getInputManager() {
         return mProxy.getCarInputManager();
     }
 
+    /**
+     * See {@link Activity#getResources()}.
+     */
+    public Resources getResources() {
+        return mProxy.getResources();
+    }
+
+    /**
+     * See {@link Activity#setContentView(View)}.
+     */
+    public void setContentView(View view) {
+        mProxy.setContentView(view);
+    }
+
+    /**
+     * See {@link Activity#setContentView(int)}.
+     */
+    public void setContentView(@LayoutRes int resourceId) {
+        mProxy.setContentView(resourceId);
+    }
+
+    /**
+     * See {@link Activity#getLayoutInflater()}.
+     */
+    public LayoutInflater getLayoutInflater() {
+        return mProxy.getLayoutInflater();
+    }
+
+    /**
+     * See {@link Activity#getIntent()}
+     */
+    public Intent getIntent() {
+        return mProxy.getIntent();
+    }
+
+    /**
+     * See {@link Activity#setResult(int)}  }
+     */
+    public void setResult(int resultCode){
+        mProxy.setResult(resultCode);
+    }
+
+
+    /**
+     * See {@link Activity#setResult(int, Intent)}  }
+     */
+    public void setResult(int resultCode, Intent data) {
+        mProxy.setResult(resultCode, data);
+    }
+
+    /**
+     * See {@link Activity#findViewById(int)}  }
+     */
     public View findViewById(int id) {
         return mProxy.findViewById(id);
     }
 
+    /**
+     * See {@link Activity#finish()}
+     */
     public void finish() {
         mProxy.finish();
     }
 
+    /**
+     * See {@link Activity#isFinishing()}
+     */
     public boolean isFinishing() {
         return mProxy.isFinishing();
     }
 
+    /**
+     * See {@link Activity#shouldShowRequestPermissionRationale(String)}
+     */
     public boolean shouldShowRequestPermissionRationale(String permission) {
         return mProxy.shouldShowRequestPermissionRationale(permission);
     }
 
+    /**
+     * See {@link Activity#requestPermissions(String[], int)}
+     */
     public void requestPermissions(String[] permissions, int requestCode) {
         if (this instanceof RequestPermissionsRequestCodeValidator) {
             ((RequestPermissionsRequestCodeValidator) this)
@@ -191,30 +280,51 @@ public abstract class CarActivity {
         mProxy.requestPermissions(permissions, requestCode);
     }
 
+    /**
+     * See {@link Activity#setIntent(Intent)}
+     */
     public void setIntent(Intent i) {
         mProxy.setIntent(i);
     }
 
+    /**
+     * See {@link Activity#finishAfterTransition()}
+     */
     public void finishAfterTransition() {
         mProxy.finishAfterTransition();
     }
 
+    /**
+     * See {@link Activity#getMenuInflater()}
+     */
     public MenuInflater getMenuInflater() {
         return mProxy.getMenuInflater();
     }
 
+    /**
+     * See {@link Activity#getWindow()}
+     */
     public Window getWindow() {
         return mProxy.getWindow();
     }
 
+    /**
+     * See {@link Activity#getLastNonConfigurationInstance()}
+     */
     public Object getLastNonConfigurationInstance() {
         return null;
     }
 
+    /**
+     * See {@link Activity#startActivityForResult(Intent, int)}
+     */
     public void startActivityForResult(Intent intent, int requestCode) {
         mProxy.startActivityForResult(intent, requestCode);
     }
 
+    /**
+     * See {@link Activity#runOnUiThread(Runnable)}
+     */
     public void runOnUiThread(Runnable runnable) {
         if (Thread.currentThread() == mHandler.getLooper().getThread()) {
             runnable.run();
@@ -290,66 +400,124 @@ public abstract class CarActivity {
 
     }
 
+    /**
+     * See {@link Activity#onCreate(Bundle)}
+     */
     protected void onCreate(Bundle savedInstanceState) {
     }
 
+    /**
+     * See {@link Activity#onStart()}
+     */
     protected void onStart() {
     }
 
+    /**
+     * See {@link Activity#onRestart()}
+     */
     protected void onRestart() {
     }
 
+    /**
+     * See {@link Activity#onResume()}
+     */
     protected void onResume() {
     }
 
+    /**
+     * See {@link Activity#onPostResume()}
+     */
     protected void onPostResume() {
     }
 
+    /**
+     * See {@link Activity#onPause()}
+     */
     protected void onPause() {
     }
 
+    /**
+     * See {@link Activity#onStop()}
+     */
     protected void onStop() {
     }
 
+    /**
+     * See {@link Activity#onDestroy()}
+     */
     protected void onDestroy() {
     }
 
+    /**
+     * See {@link Activity#onRestoreInstanceState(Bundle)}
+     */
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
     }
 
+    /**
+     * See {@link Activity#onSaveInstanceState(Bundle)}
+     */
     protected void onSaveInstanceState(Bundle outState) {
     }
 
+    /**
+     * See {@link Activity#onBackPressed()}
+     */
     protected void onBackPressed() {
     }
 
+    /**
+     * See {@link Activity#onConfigurationChanged(Configuration)}
+     */
     protected void onConfigurationChanged(Configuration newConfig) {
     }
 
+    /**
+     * See {@link Activity#onNewIntent(Intent)}
+     */
     protected void onNewIntent(Intent intent) {
     }
 
+    /**
+     * See {@link Activity#onRequestPermissionsResult(int, String[], int[])}
+     */
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
             int[] grantResults) {
     }
 
+    /**
+     * See {@link Activity#onActivityResult(int, int, Intent)}
+     */
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     }
 
+    /**
+     * See {@link Activity#onRetainNonConfigurationInstance()}
+     */
     public Object onRetainNonConfigurationInstance() {
         return null;
     }
 
     // TODO: hook up panel menu if it's needed in any apps.
+    /**
+     * Currently always returns false.
+     * See {@link Activity#onCreatePanelMenu(int, Menu)}
+     */
     public boolean onCreatePanelMenu(int featureId, Menu menu) {
         return false; // default menu will not be displayed.
     }
 
+    /**
+     * See {@link Activity#onCreateView(View, String, Context, AttributeSet)}
+     */
     public View onCreateView(View parent, String name, Context context, AttributeSet attrs) {
         // CarFragmentActivity can override this to dispatch onCreateView to fragments
         return null;
     }
 
+    /**
+     * See {@link Activity#onLowMemory()}
+     */
     public void onLowMemory() {
     }
 

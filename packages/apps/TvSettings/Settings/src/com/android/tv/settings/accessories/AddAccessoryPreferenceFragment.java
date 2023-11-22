@@ -60,6 +60,10 @@ public class AddAccessoryPreferenceFragment extends BaseLeanbackPreferenceFragme
             screen.removeAll();
         }
 
+        if (devices == null) {
+            return;
+        }
+
         // Add entries for the discovered Bluetooth devices
         for (BluetoothDevice bt : devices) {
             final Preference preference = new Preference(themedContext);

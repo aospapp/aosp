@@ -31,7 +31,7 @@ public class CarrierConfigTest extends InstrumentationTestCase {
         forEachConfigXml(new ParserChecker() {
             public void check(XmlPullParser parser) throws XmlPullParserException, IOException {
                 PersistableBundle b = DefaultCarrierConfigService.readConfigFromXml(parser,
-                        new CarrierIdentifier("001", "001", "Test", "", "", ""));
+                        new CarrierIdentifier("001", "001", "Test", "001001123456789", "", ""));
                 assertNotNull("got null bundle", b);
             }
         });
@@ -56,6 +56,7 @@ public class CarrierConfigTest extends InstrumentationTestCase {
                                 case "gid1":
                                 case "gid2":
                                 case "spn":
+                                case "imsi":
                                 case "device":
                                     break;
                                 default:
@@ -82,11 +83,16 @@ public class CarrierConfigTest extends InstrumentationTestCase {
                 while (((event = parser.next()) != XmlPullParser.END_DOCUMENT)) {
                     if (event == XmlPullParser.START_TAG) {
                         switch (parser.getName()) {
-                            case "int":
-                            case "boolean":
-                            case "string":
                             case "int-array":
                             case "string-array":
+                                // string-array and int-array require the 'num' attribute
+                                final String varNum = parser.getAttributeValue(null, "num");
+                                assertNotNull("No 'num' attribute in array: "
+                                        + parser.getPositionDescription(), varNum);
+                            case "int":
+                            case "long":
+                            case "boolean":
+                            case "string":
                                 // NOTE: This doesn't check for other valid Bundle values, but it
                                 // is limited to the key types in CarrierConfigManager.
                                 final String varName = parser.getAttributeValue(null, "name");
@@ -98,6 +104,7 @@ public class CarrierConfigTest extends InstrumentationTestCase {
                                 // TODO: Check that the type is correct.
                                 break;
                             case "carrier_config_list":
+                            case "item":
                             case "carrier_config":
                                 // do nothing
                                 break;

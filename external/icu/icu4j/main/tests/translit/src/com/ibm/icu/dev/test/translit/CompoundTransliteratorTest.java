@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -5,6 +7,8 @@
  *******************************************************************************
  */
 package com.ibm.icu.dev.test.translit;
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.text.ReplaceableString;
@@ -17,11 +21,7 @@ import com.ibm.icu.text.Transliterator;
  * @summary General test of CompoundTransliterator
  */
 public class CompoundTransliteratorTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new CompoundTransliteratorTest().run(args);
-    }
-
+    @Test
     public void TestConstruction(){
         logln("Testing the construction of the compound Transliterator");
         String names[]={"Greek-Latin", "Latin-Devanagari", "Devanagari-Latin", "Latin-Greek"};
@@ -90,6 +90,7 @@ public class CompoundTransliteratorTest extends TestFmwk {
    
     }
  
+    @Test
     public void TestGetTransliterator(){
         logln("Testing the getTransliterator() API of CompoundTransliterator");
         String ID="Latin-Greek;Greek-Latin;Latin-Devanagari;Devanagari-Latin;Latin-Cyrillic;Cyrillic-Latin;Any-Hex;Hex-Any";
@@ -122,6 +123,7 @@ public class CompoundTransliteratorTest extends TestFmwk {
     }
  
        
+    @Test
     public void TestTransliterate(){
         logln("Testing the handleTransliterate() API of CompoundTransliterator");
         Transliterator ct1=null;

@@ -64,7 +64,10 @@ LOCAL_ARM_MODE := arm
 
 LOCAL_STATIC_LIBRARIES :=
 
-LOCAL_SHARED_LIBRARIES :=
+# libstagefright links this static library, so it probably isn't appropriate to
+# link libstagefright.  However, this library includes libstagefright headers,
+# and needs libbinder to be able to do so correctly.
+LOCAL_SHARED_LIBRARIES := libbinder
 
 LOCAL_C_INCLUDES := \
 	frameworks/av/include \
@@ -75,7 +78,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/basic_op
 
 LOCAL_CFLAGS += -Werror
-LOCAL_CLANG := true
 LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow
 
 include $(BUILD_STATIC_LIBRARY)
@@ -103,8 +105,8 @@ ifeq ($(AAC_LIBRARY), fraunhofer)
   LOCAL_CFLAGS :=
 
   LOCAL_CFLAGS += -Werror
-  LOCAL_CLANG := true
-  LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow
+  LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow cfi
+  LOCAL_SANITIZE_DIAG := cfi
 
   LOCAL_STATIC_LIBRARIES := libFraunhoferAAC
 
@@ -129,8 +131,8 @@ else # visualon
   LOCAL_CFLAGS := -DOSCL_IMPORT_REF=
 
   LOCAL_CFLAGS += -Werror
-  LOCAL_CLANG := true
-  LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow
+  LOCAL_SANITIZE := signed-integer-overflow unsigned-integer-overflow cfi
+  LOCAL_SANITIZE_DIAG := cfi
 
   LOCAL_STATIC_LIBRARIES := \
           libstagefright_aacenc

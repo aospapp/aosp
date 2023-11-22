@@ -21,8 +21,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 
 public class DeviceManager {
+
+    private static final String TAG = "DeviceManager";
 
     public static final String ACTION_DEVICE_NAME_UPDATE =
             "com.android.tv.settings.name.DeviceManager.DEVICE_NAME_UPDATE";
@@ -47,7 +50,12 @@ public class DeviceManager {
      */
     public static void setDeviceName(Context context, String name) {
         Settings.Global.putString(context.getContentResolver(), Settings.Global.DEVICE_NAME, name);
-        BluetoothAdapter.getDefaultAdapter().setName(name);
+        BluetoothAdapter btAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (btAdapter != null) {
+            btAdapter.setName(name);
+        } else {
+            Log.v(TAG, "Bluetooth adapter is null. Running on device without bluetooth?");
+        }
         LocalBroadcastManager.getInstance(context)
                 .sendBroadcast(new Intent(ACTION_DEVICE_NAME_UPDATE));
     }

@@ -19,18 +19,30 @@
 #include <fstream>
 #include <sstream>
 
-#include "base/stringprintf.h"
-#include "utils.h"  // For Trim.
+#include "android-base/stringprintf.h"
+#include "android-base/strings.h"
+
+#include "base/logging.h"
+#include "base/stl_util.h"
 
 namespace art {
 
-const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromVariant(
-    const std::string& variant, std::string* error_msg) {
-  const bool smp = true;  // Conservative default.
+using android::base::StringPrintf;
 
+Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromVariant(
+    const std::string& variant, std::string* error_msg) {
   // Look for variants that need a fix for a53 erratum 835769.
   static const char* arm64_variants_with_a53_835769_bug[] = {
-      "default", "generic", "cortex-a53"  // Pessimistically assume all generic ARM64s are A53s.
+      // Pessimistically assume all generic CPUs are cortex-a53.
+      "default",
+      "generic",
+      "cortex-a53",
+      "cortex-a53.a57",
+      "cortex-a53.a72",
+      // Pessimistically assume all "big" cortex CPUs are paired with a cortex-a53.
+      "cortex-a57",
+      "cortex-a72",
+      "cortex-a73",
   };
   bool needs_a53_835769_fix = FindVariantInArray(arm64_variants_with_a53_835769_bug,
                                                  arraysize(arm64_variants_with_a53_835769_bug),
@@ -39,7 +51,11 @@ const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromVariant(
   if (!needs_a53_835769_fix) {
     // Check to see if this is an expected variant.
     static const char* arm64_known_variants[] = {
-        "denver64", "kryo", "exynos-m1"
+        "cortex-a35",
+        "exynos-m1",
+        "exynos-m2",
+        "denver64",
+        "kryo"
     };
     if (!FindVariantInArray(arm64_known_variants, arraysize(arm64_known_variants), variant)) {
       std::ostringstream os;
@@ -52,53 +68,31 @@ const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromVariant(
   // The variants that need a fix for 843419 are the same that need a fix for 835769.
   bool needs_a53_843419_fix = needs_a53_835769_fix;
 
-  return new Arm64InstructionSetFeatures(smp, needs_a53_835769_fix, needs_a53_843419_fix);
+  return Arm64FeaturesUniquePtr(
+      new Arm64InstructionSetFeatures(needs_a53_835769_fix, needs_a53_843419_fix));
 }
 
-const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromBitmap(uint32_t bitmap) {
-  bool smp = (bitmap & kSmpBitfield) != 0;
+Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromBitmap(uint32_t bitmap) {
   bool is_a53 = (bitmap & kA53Bitfield) != 0;
-  return new Arm64InstructionSetFeatures(smp, is_a53, is_a53);
+  return Arm64FeaturesUniquePtr(new Arm64InstructionSetFeatures(is_a53, is_a53));
 }
 
-const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromCppDefines() {
-  const bool smp = true;
+Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromCppDefines() {
   const bool is_a53 = true;  // Pessimistically assume all ARM64s are A53s.
-  return new Arm64InstructionSetFeatures(smp, is_a53, is_a53);
+  return Arm64FeaturesUniquePtr(new Arm64InstructionSetFeatures(is_a53, is_a53));
 }
 
-const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromCpuInfo() {
-  // Look in /proc/cpuinfo for features we need.  Only use this when we can guarantee that
-  // the kernel puts the appropriate feature flags in here.  Sometimes it doesn't.
-  bool smp = false;
+Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromCpuInfo() {
   const bool is_a53 = true;  // Conservative default.
-
-  std::ifstream in("/proc/cpuinfo");
-  if (!in.fail()) {
-    while (!in.eof()) {
-      std::string line;
-      std::getline(in, line);
-      if (!in.eof()) {
-        LOG(INFO) << "cpuinfo line: " << line;
-        if (line.find("processor") != std::string::npos && line.find(": 1") != std::string::npos) {
-          smp = true;
-        }
-      }
-    }
-    in.close();
-  } else {
-    LOG(ERROR) << "Failed to open /proc/cpuinfo";
-  }
-  return new Arm64InstructionSetFeatures(smp, is_a53, is_a53);
+  return Arm64FeaturesUniquePtr(new Arm64InstructionSetFeatures(is_a53, is_a53));
 }
 
-const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromHwcap() {
-  bool smp = sysconf(_SC_NPROCESSORS_CONF) > 1;
+Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromHwcap() {
   const bool is_a53 = true;  // Pessimistically assume all ARM64s are A53s.
-  return new Arm64InstructionSetFeatures(smp, is_a53, is_a53);
+  return Arm64FeaturesUniquePtr(new Arm64InstructionSetFeatures(is_a53, is_a53));
 }
 
-const Arm64InstructionSetFeatures* Arm64InstructionSetFeatures::FromAssembly() {
+Arm64FeaturesUniquePtr Arm64InstructionSetFeatures::FromAssembly() {
   UNIMPLEMENTED(WARNING);
   return FromCppDefines();
 }
@@ -107,34 +101,31 @@ bool Arm64InstructionSetFeatures::Equals(const InstructionSetFeatures* other) co
   if (kArm64 != other->GetInstructionSet()) {
     return false;
   }
-  const Arm64InstructionSetFeatures* other_as_arm = other->AsArm64InstructionSetFeatures();
-  return fix_cortex_a53_835769_ == other_as_arm->fix_cortex_a53_835769_;
+  const Arm64InstructionSetFeatures* other_as_arm64 = other->AsArm64InstructionSetFeatures();
+  return fix_cortex_a53_835769_ == other_as_arm64->fix_cortex_a53_835769_ &&
+      fix_cortex_a53_843419_ == other_as_arm64->fix_cortex_a53_843419_;
 }
 
 uint32_t Arm64InstructionSetFeatures::AsBitmap() const {
-  return (IsSmp() ? kSmpBitfield : 0) | (fix_cortex_a53_835769_ ? kA53Bitfield : 0);
+  return (fix_cortex_a53_835769_ ? kA53Bitfield : 0);
 }
 
 std::string Arm64InstructionSetFeatures::GetFeatureString() const {
   std::string result;
-  if (IsSmp()) {
-    result += "smp";
-  } else {
-    result += "-smp";
-  }
   if (fix_cortex_a53_835769_) {
-    result += ",a53";
+    result += "a53";
   } else {
-    result += ",-a53";
+    result += "-a53";
   }
   return result;
 }
 
-const InstructionSetFeatures* Arm64InstructionSetFeatures::AddFeaturesFromSplitString(
-    const bool smp, const std::vector<std::string>& features, std::string* error_msg) const {
+std::unique_ptr<const InstructionSetFeatures>
+Arm64InstructionSetFeatures::AddFeaturesFromSplitString(
+    const std::vector<std::string>& features, std::string* error_msg) const {
   bool is_a53 = fix_cortex_a53_835769_;
   for (auto i = features.begin(); i != features.end(); i++) {
-    std::string feature = Trim(*i);
+    std::string feature = android::base::Trim(*i);
     if (feature == "a53") {
       is_a53 = true;
     } else if (feature == "-a53") {
@@ -144,7 +135,8 @@ const InstructionSetFeatures* Arm64InstructionSetFeatures::AddFeaturesFromSplitS
       return nullptr;
     }
   }
-  return new Arm64InstructionSetFeatures(smp, is_a53, is_a53);
+  return std::unique_ptr<const InstructionSetFeatures>(
+      new Arm64InstructionSetFeatures(is_a53, is_a53));
 }
 
 }  // namespace art

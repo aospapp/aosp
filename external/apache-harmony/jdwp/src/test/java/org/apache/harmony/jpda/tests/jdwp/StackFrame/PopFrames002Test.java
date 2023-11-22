@@ -50,6 +50,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
 
     private static final byte NUMBER_OF_FRAMES_TO_POP = 3;
 
+    @Override
     protected String getDebuggeeClassName() {
         return PopFramesDebuggee.class.getName();
     }
@@ -363,7 +364,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
         invokeCommand.setNextValueAsThreadID(breakpointThreadID);
         invokeCommand.setNextValueAsMethodID(toInvokeMethodID);
         invokeCommand.setNextValueAsInt(1); // args number
-        invokeCommand.setNextValueAsValue(new Value(timeOfMethodInvocation));
+        invokeCommand.setNextValueAsValue(Value.createLong(timeOfMethodInvocation));
         invokeCommand
                 .setNextValueAsInt(JDWPConstants.InvokeOptions.INVOKE_SINGLE_THREADED);
 

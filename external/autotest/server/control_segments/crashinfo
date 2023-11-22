@@ -7,8 +7,12 @@ def crashinfo(machine):
         logging.info('testbed does not need to get crash info.')
         return
 
-    host = hosts.create_host(machine, initialize=False, auto_monitor=False)
-    crashcollect.get_crashinfo(host, test_start_time)
-
+    host = hosts.create_host(machine)
+    if has_failed_tests:
+        crashcollect.get_crashinfo(host, test_start_time)
+    else:
+        crashcollect.report_crashdumps(host)
+        crashcollect.fetch_orphaned_crashdumps(
+                host, crashcollect.get_host_infodir(host))
 
 job.parallel_simple(crashinfo, machines, log=False)

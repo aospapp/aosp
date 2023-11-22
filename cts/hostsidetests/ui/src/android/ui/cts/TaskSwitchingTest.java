@@ -16,10 +16,9 @@
 
 package android.ui.cts;
 
-import com.android.compatibility.common.util.AbiUtils;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.MetricsStore;
 import com.android.compatibility.common.util.ReportLog;
-import com.android.cts.migration.MigrationHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestRunResult;
@@ -30,6 +29,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiUtils;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -77,9 +77,10 @@ public class TaskSwitchingTest extends DeviceTestCase implements IAbiReceiver, I
         super.setUp();
         mDevice = getDevice();
         String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         for (int i = 0; i < PACKAGES.length; i++) {
             mDevice.uninstallPackage(PACKAGES[i]);
-            File app = MigrationHelper.getTestFile(mBuild, APKS[i]);
+            File app = buildHelper.getTestFile(APKS[i]);
             mDevice.installPackage(app, false, options);
         }
     }

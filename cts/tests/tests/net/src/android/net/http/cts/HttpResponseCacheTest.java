@@ -21,8 +21,9 @@ import com.google.mockwebserver.MockWebServer;
 
 import junit.framework.TestCase;
 
-import android.cts.util.FileUtils;
 import android.net.http.HttpResponseCache;
+
+import com.android.compatibility.common.util.FileUtils;
 
 import java.io.File;
 import java.io.InputStream;
@@ -38,10 +39,11 @@ import java.util.UUID;
 public final class HttpResponseCacheTest extends TestCase {
 
     private File cacheDir;
-    private MockWebServer server = new MockWebServer();
+    private MockWebServer server;
 
     @Override public void setUp() throws Exception {
         super.setUp();
+        server = new MockWebServer();
         String tmp = System.getProperty("java.io.tmpdir");
         cacheDir = new File(tmp, "HttpCache-" + UUID.randomUUID());
         cacheDir.mkdirs();

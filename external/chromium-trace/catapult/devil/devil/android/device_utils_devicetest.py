@@ -9,9 +9,16 @@ The test will invoke real devices
 """
 
 import os
+import posixpath
+import sys
 import tempfile
 import unittest
 
+if __name__ == '__main__':
+  sys.path.append(
+      os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', )))
+
+from devil.android import device_test_case
 from devil.android import device_utils
 from devil.android.sdk import adb_wrapper
 from devil.utils import cmd_helper
@@ -24,12 +31,11 @@ _SUB_DIR1 = "sub1"
 _SUB_DIR2 = "sub2"
 
 
-class DeviceUtilsPushDeleteFilesTest(unittest.TestCase):
+class DeviceUtilsPushDeleteFilesTest(device_test_case.DeviceTestCase):
 
   def setUp(self):
-    devices = adb_wrapper.AdbWrapper.Devices()
-    assert devices, 'A device must be attached'
-    self.adb = devices[0]
+    super(DeviceUtilsPushDeleteFilesTest, self).setUp()
+    self.adb = adb_wrapper.AdbWrapper(self.serial)
     self.adb.WaitForDevice()
     self.device = device_utils.DeviceUtils(
         self.adb, default_timeout=10, default_retries=0)
@@ -82,12 +88,12 @@ class DeviceUtilsPushDeleteFilesTest(unittest.TestCase):
     device_file_path = "%s/%s" % (_DEVICE_DIR, file_name)
     self.adb.Push(host_file_path, device_file_path)
     self.device.PushChangedFiles([(host_file_path, device_file_path)])
-    result = self.device.RunShellCommand(['cat', device_file_path],
-                                         single_line=True)
+    result = self.device.RunShellCommand(
+        ['cat', device_file_path], check_return=True, single_line=True)
     self.assertEqual(_OLD_CONTENTS, result)
 
     cmd_helper.RunCmd(['rm', host_file_path])
-    self.device.RunShellCommand(['rm', '-rf', _DEVICE_DIR])
+    self.device.RemovePath(_DEVICE_DIR, recursive=True, force=True)
 
   def testPushChangedFiles_singleFileChange(self):
     (host_file_path, file_name) = self._MakeTempFile(_OLD_CONTENTS)
@@ -97,12 +103,12 @@ class DeviceUtilsPushDeleteFilesTest(unittest.TestCase):
     with open(host_file_path, 'w') as f:
       f.write(_NEW_CONTENTS)
     self.device.PushChangedFiles([(host_file_path, device_file_path)])
-    result = self.device.RunShellCommand(['cat', device_file_path],
-                                         single_line=True)
+    result = self.device.RunShellCommand(
+        ['cat', device_file_path], check_return=True, single_line=True)
     self.assertEqual(_NEW_CONTENTS, result)
 
     cmd_helper.RunCmd(['rm', host_file_path])
-    self.device.RunShellCommand(['rm', '-rf', _DEVICE_DIR])
+    self.device.RemovePath(_DEVICE_DIR, recursive=True, force=True)
 
   def testDeleteFiles(self):
     host_tmp_dir = tempfile.mkdtemp()
@@ -115,11 +121,11 @@ class DeviceUtilsPushDeleteFilesTest(unittest.TestCase):
     cmd_helper.RunCmd(['rm', host_file_path])
     self.device.PushChangedFiles([(host_tmp_dir, _DEVICE_DIR)],
                                  delete_device_stale=True)
-    result = self.device.RunShellCommand(['ls', _DEVICE_DIR], single_line=True)
-    self.assertEqual('', result)
+    filenames = self.device.ListDirectory(_DEVICE_DIR)
+    self.assertEqual([], filenames)
 
     cmd_helper.RunCmd(['rm', '-rf', host_tmp_dir])
-    self.device.RunShellCommand(['rm', '-rf', _DEVICE_DIR])
+    self.device.RemovePath(_DEVICE_DIR, recursive=True, force=True)
 
   def testPushAndDeleteFiles_noSubDir(self):
     host_tmp_dir = tempfile.mkdtemp()
@@ -139,14 +145,15 @@ class DeviceUtilsPushDeleteFilesTest(unittest.TestCase):
 
     self.device.PushChangedFiles([(host_tmp_dir, _DEVICE_DIR)],
                                    delete_device_stale=True)
-    result = self.device.RunShellCommand(['cat', device_file_path1],
-                                         single_line=True)
+    result = self.device.RunShellCommand(
+        ['cat', device_file_path1], check_return=True, single_line=True)
     self.assertEqual(_NEW_CONTENTS, result)
-    result = self.device.RunShellCommand(['ls', _DEVICE_DIR], single_line=True)
-    self.assertEqual(file_name1, result)
 
-    self.device.RunShellCommand(['rm', '-rf', _DEVICE_DIR])
+    filenames = self.device.ListDirectory(_DEVICE_DIR)
+    self.assertEqual([file_name1], filenames)
+
     cmd_helper.RunCmd(['rm', '-rf', host_tmp_dir])
+    self.device.RemovePath(_DEVICE_DIR, recursive=True, force=True)
 
   def testPushAndDeleteFiles_SubDir(self):
     host_tmp_dir = tempfile.mkdtemp()
@@ -182,34 +189,39 @@ class DeviceUtilsPushDeleteFilesTest(unittest.TestCase):
 
     self.device.PushChangedFiles([(host_tmp_dir, _DEVICE_DIR)],
                                    delete_device_stale=True)
-    result = self.device.RunShellCommand(['cat', device_file_path1],
-                                         single_line=True)
+    result = self.device.RunShellCommand(
+        ['cat', device_file_path1], check_return=True, single_line=True)
     self.assertEqual(_NEW_CONTENTS, result)
 
-    result = self.device.RunShellCommand(['ls', _DEVICE_DIR])
-    self.assertIn(file_name1, result)
-    self.assertIn(_SUB_DIR1, result)
-    self.assertIn(_SUB_DIR, result)
-    self.assertEqual(3, len(result))
+    filenames = self.device.ListDirectory(_DEVICE_DIR)
+    self.assertIn(file_name1, filenames)
+    self.assertIn(_SUB_DIR1, filenames)
+    self.assertIn(_SUB_DIR, filenames)
+    self.assertEqual(3, len(filenames))
 
-    result = self.device.RunShellCommand(['cat', device_file_path3],
-                                      single_line=True)
+    result = self.device.RunShellCommand(
+        ['cat', device_file_path3], check_return=True, single_line=True)
     self.assertEqual(_OLD_CONTENTS, result)
 
-    result = self.device.RunShellCommand(["ls", "%s/%s/%s"
-                                          % (_DEVICE_DIR, _SUB_DIR, _SUB_DIR2)],
-                                         single_line=True)
-    self.assertEqual('', result)
+    filenames = self.device.ListDirectory(
+        posixpath.join(_DEVICE_DIR, _SUB_DIR, _SUB_DIR2))
+    self.assertEqual([], filenames)
 
-    self.device.RunShellCommand(['rm', '-rf', _DEVICE_DIR])
     cmd_helper.RunCmd(['rm', '-rf', host_tmp_dir])
+    self.device.RemovePath(_DEVICE_DIR, recursive=True, force=True)
 
   def testRestartAdbd(self):
-    old_adbd_pid = self.device.RunShellCommand(
-        ['ps', '|', 'grep', 'adbd'])[1].split()[1]
+    def get_adbd_pid():
+      # TODO(catapult:#3215): Migrate to device.GetPids().
+      ps_output = self.device.RunShellCommand(['ps'], check_return=True)
+      for ps_line in ps_output:
+        if 'adbd' in ps_line:
+          return ps_line.split()[1]
+      self.fail('Unable to find adbd')
+
+    old_adbd_pid = get_adbd_pid()
     self.device.RestartAdbd()
-    new_adbd_pid = self.device.RunShellCommand(
-        ['ps', '|', 'grep', 'adbd'])[1].split()[1]
+    new_adbd_pid = get_adbd_pid()
     self.assertNotEqual(old_adbd_pid, new_adbd_pid)
 
 

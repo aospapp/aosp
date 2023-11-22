@@ -44,7 +44,7 @@
 #define FST_LLT_MS_DEFAULT 50
 #define FST_ACTION_MAX_SUPPORTED   FST_ACTION_ON_CHANNEL_TUNNEL
 
-const char * const fst_action_names[] = {
+static const char * const fst_action_names[] = {
 	[FST_ACTION_SETUP_REQUEST]     = "Setup Request",
 	[FST_ACTION_SETUP_RESPONSE]    = "Setup Response",
 	[FST_ACTION_TEAR_DOWN]         = "Tear Down",
@@ -364,7 +364,6 @@ static void fst_session_handle_setup_request(struct fst_iface *iface,
 	struct fst_iface *new_iface = NULL;
 	struct fst_group *g;
 	u8 new_iface_peer_addr[ETH_ALEN];
-	const struct wpabuf *peer_mbies;
 	size_t plen;
 
 	if (frame_len < IEEE80211_HDRLEN + 1 + sizeof(*req))  {
@@ -400,36 +399,18 @@ static void fst_session_handle_setup_request(struct fst_iface *iface,
 				 MAC2STR(mgmt->sa));
 	}
 
-	peer_mbies = fst_iface_get_peer_mb_ie(iface, mgmt->sa);
-	if (peer_mbies) {
-		new_iface = fst_group_get_new_iface_by_stie_and_mbie(
-			g, wpabuf_head(peer_mbies), wpabuf_len(peer_mbies),
-			&req->stie, new_iface_peer_addr);
-		if (new_iface)
-			fst_printf_iface(iface, MSG_INFO,
-					 "FST Request: new iface (%s:" MACSTR
-					 ") found by MB IEs",
-					 fst_iface_get_name(new_iface),
-					 MAC2STR(new_iface_peer_addr));
-	}
-
-	if (!new_iface) {
-		new_iface = fst_group_find_new_iface_by_stie(
-			g, iface, mgmt->sa, &req->stie,
-			new_iface_peer_addr);
-		if (new_iface)
-			fst_printf_iface(iface, MSG_INFO,
-					 "FST Request: new iface (%s:" MACSTR
-					 ") found by others",
-					 fst_iface_get_name(new_iface),
-					 MAC2STR(new_iface_peer_addr));
-	}
-
+	new_iface = fst_group_get_peer_other_connection(iface, mgmt->sa,
+							req->stie.new_band_id,
+							new_iface_peer_addr);
 	if (!new_iface) {
 		fst_printf_iface(iface, MSG_WARNING,
 				 "FST Request dropped: new iface not found");
 		return;
 	}
+	fst_printf_iface(iface, MSG_INFO,
+			 "FST Request: new iface (%s:" MACSTR ") found",
+			 fst_iface_get_name(new_iface),
+			 MAC2STR(new_iface_peer_addr));
 
 	s = fst_find_session_in_progress(mgmt->sa, g);
 	if (s) {
@@ -775,8 +756,6 @@ struct fst_session * fst_session_create(struct fst_group *g)
 	struct fst_session *s;
 	u32 id;
 
-	WPA_ASSERT(!is_zero_ether_addr(own_addr));
-
 	id = fst_find_free_session_id();
 	if (id == FST_INVALID_SESSION_ID) {
 		fst_printf(MSG_ERROR, "Cannot assign new session ID");
@@ -994,7 +973,7 @@ int fst_session_respond(struct fst_session *s, u8 status_code)
 	res.stie.length = sizeof(res.stie) - 2;
 
 	if (status_code == WLAN_STATUS_SUCCESS) {
-		res.stie.fsts_id = s->data.fsts_id;
+		res.stie.fsts_id = host_to_le32(s->data.fsts_id);
 		res.stie.session_control = SESSION_CONTROL(SESSION_TYPE_BSS, 0);
 
 		fst_iface_get_channel_info(s->data.new_iface, &hw_mode,
@@ -1468,7 +1447,7 @@ int fst_test_req_send_fst_response(const char *params)
 	res.stie.length = sizeof(res.stie) - 2;
 
 	if (res.status_code == WLAN_STATUS_SUCCESS) {
-		res.stie.fsts_id = fsts_id;
+		res.stie.fsts_id = host_to_le32(fsts_id);
 		res.stie.session_control = SESSION_CONTROL(SESSION_TYPE_BSS, 0);
 
 		fst_iface_get_channel_info(s.data.new_iface, &hw_mode,
@@ -1517,7 +1496,7 @@ int fst_test_req_send_ack_request(const char *params)
 	os_memset(&req, 0, sizeof(req));
 	req.action = FST_ACTION_ACK_REQUEST;
 	req.dialog_token = g->dialog_token;
-	req.fsts_id = fsts_id;
+	req.fsts_id = host_to_le32(fsts_id);
 
 	return fst_session_send_action(&s, FALSE, &req, sizeof(req), NULL);
 }
@@ -1545,7 +1524,7 @@ int fst_test_req_send_ack_response(const char *params)
 	os_memset(&res, 0, sizeof(res));
 	res.action = FST_ACTION_ACK_RESPONSE;
 	res.dialog_token = g->dialog_token;
-	res.fsts_id = fsts_id;
+	res.fsts_id = host_to_le32(fsts_id);
 
 	return fst_session_send_action(&s, FALSE, &res, sizeof(res), NULL);
 }
@@ -1572,7 +1551,7 @@ int fst_test_req_send_tear_down(const char *params)
 
 	os_memset(&td, 0, sizeof(td));
 	td.action = FST_ACTION_TEAR_DOWN;
-	td.fsts_id = fsts_id;
+	td.fsts_id = host_to_le32(fsts_id);
 
 	return fst_session_send_action(&s, TRUE, &td, sizeof(td), NULL);
 }

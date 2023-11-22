@@ -16,18 +16,30 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.View.MeasureSpec;
-import android.view.ViewGroup.OnHierarchyChangeListener;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
@@ -35,197 +47,199 @@ import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link TableLayout}.
  */
-public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsActivity> {
-    private Context mContext;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TableLayoutTest {
+    private TableCtsActivity mActivity;
+    private TableLayout mTableDefault;
+    private TableLayout mTableEmpty;
+    private MockTableLayout mTableCustomEmpty;
 
-    public TableLayoutTest() {
-        super("android.widget.cts", TableCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<TableCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TableCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getContext();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mTableDefault = (TableLayout) mActivity.findViewById(R.id.table1);
+        mTableEmpty = (TableLayout) mActivity.findViewById(R.id.table_empty);
+        mTableCustomEmpty = (MockTableLayout) mActivity.findViewById(R.id.table_custom_empty);
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
-        new TableLayout(mContext);
+        new TableLayout(mActivity);
 
-        new TableLayout(mContext, null);
+        new TableLayout(mActivity, null);
 
-        TableCtsActivity activity = getActivity();
-        activity.setContentView(android.widget.cts.R.layout.table_layout_1);
-        TableLayout tableLayout = (TableLayout) activity
-                .findViewById(android.widget.cts.R.id.table1);
-        assertTrue(tableLayout.isColumnCollapsed(0));
-        assertTrue(tableLayout.isColumnStretchable(2));
+        assertTrue(mTableDefault.isColumnCollapsed(0));
+        assertTrue(mTableDefault.isColumnStretchable(2));
 
-        activity.setContentView(android.widget.cts.R.layout.table_layout_2);
-        tableLayout = (TableLayout) activity.findViewById(android.widget.cts.R.id.table2);
+        mActivity.setContentView(R.layout.table_layout_2);
+        TableLayout tableLayout = (TableLayout) mActivity.findViewById(R.id.table2);
         assertTrue(tableLayout.isColumnShrinkable(1));
     }
 
+    @UiThreadTest
+    @Test
     public void testSetOnHierarchyChangeListener() {
-        TableLayout tableLayout = new TableLayout(mContext);
+        ViewGroup.OnHierarchyChangeListener mockHierarchyChangeListener =
+                mock(ViewGroup.OnHierarchyChangeListener.class);
+        mTableEmpty.setOnHierarchyChangeListener(mockHierarchyChangeListener);
 
-        MockOnHierarchyChangeListener listener = new MockOnHierarchyChangeListener();
-        tableLayout.setOnHierarchyChangeListener(listener);
+        View toAdd = new TextView(mActivity);
+        mTableEmpty.addView(toAdd);
+        verify(mockHierarchyChangeListener, times(1)).onChildViewAdded(mTableEmpty, toAdd);
+        mTableEmpty.removeViewAt(0);
+        verify(mockHierarchyChangeListener, times(1)).onChildViewRemoved(mTableEmpty, toAdd);
+        verifyNoMoreInteractions(mockHierarchyChangeListener);
 
-        tableLayout.addView(new TextView(mContext));
-        assertTrue(listener.hasCalledOnChildViewAdded());
-        tableLayout.removeViewAt(0);
-        assertTrue(listener.hasCalledOnChildViewRemoved());
-
-        listener.reset();
-
-        tableLayout.setOnHierarchyChangeListener(null);
-        tableLayout.addView(new TextView(mContext));
-        assertFalse(listener.hasCalledOnChildViewAdded());
-        tableLayout.removeViewAt(0);
-        assertFalse(listener.hasCalledOnChildViewRemoved());
+        mTableEmpty.setOnHierarchyChangeListener(null);
+        mTableEmpty.addView(new TextView(mActivity));
+        mTableEmpty.removeViewAt(0);
+        verifyNoMoreInteractions(mockHierarchyChangeListener);
     }
 
+    @UiThreadTest
+    @Test
     public void testRequestLayout() {
-        TableLayout tableLayout = new TableLayout(mContext);
-        tableLayout.addView(new TextView(mContext));
-        tableLayout.addView(new ListView(mContext));
-        tableLayout.layout(0, 0, 200, 300);
-        assertFalse(tableLayout.isLayoutRequested());
-        assertFalse(tableLayout.getChildAt(0).isLayoutRequested());
-        assertFalse(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.addView(new TextView(mActivity));
+        mTableEmpty.addView(new ListView(mActivity));
+        mTableEmpty.layout(0, 0, 200, 300);
+        assertFalse(mTableEmpty.isLayoutRequested());
+        assertFalse(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertFalse(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.requestLayout();
-        assertTrue(tableLayout.isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.requestLayout();
+        assertTrue(mTableEmpty.isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessShrinkAllColumns() {
-        TableLayout tableLayout = new TableLayout(mContext);
-        assertFalse(tableLayout.isShrinkAllColumns());
+        assertFalse(mTableEmpty.isShrinkAllColumns());
 
-        tableLayout.setShrinkAllColumns(true);
-        assertTrue(tableLayout.isShrinkAllColumns());
-        tableLayout.setShrinkAllColumns(false);
-        assertFalse(tableLayout.isShrinkAllColumns());
+        mTableEmpty.setShrinkAllColumns(true);
+        assertTrue(mTableEmpty.isShrinkAllColumns());
+        mTableEmpty.setShrinkAllColumns(false);
+        assertFalse(mTableEmpty.isShrinkAllColumns());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessStretchAllColumns() {
-        TableLayout tableLayout = new TableLayout(mContext);
-        assertFalse(tableLayout.isStretchAllColumns());
+        assertFalse(mTableEmpty.isStretchAllColumns());
 
-        tableLayout.setStretchAllColumns(true);
-        assertTrue(tableLayout.isStretchAllColumns());
-        tableLayout.setStretchAllColumns(false);
-        assertFalse(tableLayout.isStretchAllColumns());
+        mTableEmpty.setStretchAllColumns(true);
+        assertTrue(mTableEmpty.isStretchAllColumns());
+        mTableEmpty.setStretchAllColumns(false);
+        assertFalse(mTableEmpty.isStretchAllColumns());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessColumnCollapsed() {
-        TableLayout tableLayout = new TableLayout(mContext);
-        tableLayout.addView(new TextView(mContext));
-        tableLayout.addView(new TextView(mContext));
-        assertFalse(tableLayout.isColumnCollapsed(0));
-        assertFalse(tableLayout.isColumnCollapsed(1));
+        mTableEmpty.addView(new TextView(mActivity));
+        mTableEmpty.addView(new TextView(mActivity));
+        assertFalse(mTableEmpty.isColumnCollapsed(0));
+        assertFalse(mTableEmpty.isColumnCollapsed(1));
 
-        tableLayout.layout(0, 0, 200, 300);
-        assertFalse(tableLayout.getChildAt(0).isLayoutRequested());
-        assertFalse(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.layout(0, 0, 200, 300);
+        assertFalse(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertFalse(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.setColumnCollapsed(0, true);
-        assertTrue(tableLayout.isColumnCollapsed(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnCollapsed(0, true);
+        assertTrue(mTableEmpty.isColumnCollapsed(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnCollapsed(1, true);
-        assertTrue(tableLayout.isColumnCollapsed(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnCollapsed(1, true);
+        assertTrue(mTableEmpty.isColumnCollapsed(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnCollapsed(0, false);
-        assertFalse(tableLayout.isColumnCollapsed(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnCollapsed(0, false);
+        assertFalse(mTableEmpty.isColumnCollapsed(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnCollapsed(1, false);
-        assertFalse(tableLayout.isColumnCollapsed(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnCollapsed(1, false);
+        assertFalse(mTableEmpty.isColumnCollapsed(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessColumnStretchable() {
-        TableLayout tableLayout = new TableLayout(mContext);
-        tableLayout.addView(new TableRow(mContext));
-        tableLayout.addView(new TableRow(mContext));
-        assertFalse(tableLayout.isColumnStretchable(0));
-        assertFalse(tableLayout.isColumnStretchable(1));
+        mTableEmpty.addView(new TableRow(mActivity));
+        mTableEmpty.addView(new TableRow(mActivity));
+        assertFalse(mTableEmpty.isColumnStretchable(0));
+        assertFalse(mTableEmpty.isColumnStretchable(1));
 
-        tableLayout.layout(0, 0, 200, 300);
-        assertFalse(tableLayout.getChildAt(0).isLayoutRequested());
-        assertFalse(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.layout(0, 0, 200, 300);
+        assertFalse(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertFalse(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.setColumnStretchable(0, true);
-        assertTrue(tableLayout.isColumnStretchable(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnStretchable(0, true);
+        assertTrue(mTableEmpty.isColumnStretchable(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnStretchable(1, true);
-        assertTrue(tableLayout.isColumnStretchable(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnStretchable(1, true);
+        assertTrue(mTableEmpty.isColumnStretchable(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnStretchable(0, false);
-        assertFalse(tableLayout.isColumnStretchable(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnStretchable(0, false);
+        assertFalse(mTableEmpty.isColumnStretchable(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnStretchable(1, false);
-        assertFalse(tableLayout.isColumnStretchable(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnStretchable(1, false);
+        assertFalse(mTableEmpty.isColumnStretchable(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
     }
 
-    public void testColumnStretchableEffect() {
-        final TableCtsActivity activity = getActivity();
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                activity.setContentView(android.widget.cts.R.layout.table_layout_1);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        final TableLayout tableLayout =
-                (TableLayout) activity.findViewById(android.widget.cts.R.id.table1);
-
+    @Test
+    public void testColumnStretchableEffect() throws Throwable {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         // Preparation: remove Collapsed mark for column 0.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                tableLayout.setColumnCollapsed(0, false);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        assertFalse(tableLayout.isColumnStretchable(0));
-        assertFalse(tableLayout.isColumnStretchable(1));
-        assertTrue(tableLayout.isColumnStretchable(2));
+        mActivityRule.runOnUiThread(() -> mTableDefault.setColumnCollapsed(0, false));
+        instrumentation.waitForIdleSync();
+        assertFalse(mTableDefault.isColumnStretchable(0));
+        assertFalse(mTableDefault.isColumnStretchable(1));
+        assertTrue(mTableDefault.isColumnStretchable(2));
 
-        TextView column0 = (TextView) ((TableRow) tableLayout.getChildAt(0)).getChildAt(0);
-        TextView column1 = (TextView) ((TableRow) tableLayout.getChildAt(0)).getChildAt(1);
-        TextView column2 = (TextView) ((TableRow) tableLayout.getChildAt(0)).getChildAt(2);
+        TextView column0 = (TextView) ((TableRow) mTableDefault.getChildAt(0)).getChildAt(0);
+        TextView column1 = (TextView) ((TableRow) mTableDefault.getChildAt(0)).getChildAt(1);
+        TextView column2 = (TextView) ((TableRow) mTableDefault.getChildAt(0)).getChildAt(2);
         int oldWidth0 = column0.getWidth();
         int oldWidth1 = column1.getWidth();
         int oldWidth2 = column2.getWidth();
@@ -235,16 +249,12 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         int orignalWidth1 = column1.getMeasuredWidth();
         column2.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.EXACTLY);
         int orignalWidth2 = column2.getMeasuredWidth();
-        int totalSpace = tableLayout.getWidth() - orignalWidth0
+        int totalSpace = mTableDefault.getWidth() - orignalWidth0
                 - orignalWidth1 - orignalWidth2;
 
         // Test: set column 1 is able to be stretched.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                tableLayout.setColumnStretchable(1, true);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> mTableDefault.setColumnStretchable(1, true));
+        instrumentation.waitForIdleSync();
         assertEquals(oldWidth0, column0.getWidth());
         assertTrue(oldWidth1 < column1.getWidth());
         assertTrue(oldWidth2 > column2.getWidth());
@@ -257,12 +267,8 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         oldWidth2 = column2.getWidth();
 
         // Test: set column 0 is able to be stretched.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                tableLayout.setColumnStretchable(0, true);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> mTableDefault.setColumnStretchable(0, true));
+        instrumentation.waitForIdleSync();
         assertTrue(oldWidth0 < column0.getWidth());
         assertTrue(oldWidth1 > column1.getWidth());
         assertTrue(oldWidth2 > column2.getWidth());
@@ -275,12 +281,8 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         oldWidth2 = column2.getWidth();
 
         // Test: set column 2 is unable to be stretched.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                tableLayout.setColumnStretchable(2, false);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> mTableDefault.setColumnStretchable(2, false));
+        instrumentation.waitForIdleSync();
         // assertTrue(oldWidth0 < column0.getWidth());
         // assertTrue(oldWidth1 < column1.getWidth());
         assertEquals(oldWidth0, column0.getWidth());
@@ -296,13 +298,11 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         oldWidth2 = column2.getWidth();
 
         // Test: mark all columns are able to be stretched.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                tableLayout.setStretchAllColumns(true);
-                tableLayout.requestLayout();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mTableDefault.setStretchAllColumns(true);
+            mTableDefault.requestLayout();
         });
-        getInstrumentation().waitForIdleSync();
+        instrumentation.waitForIdleSync();
         // assertTrue(oldWidth0 > column0.getWidth());
         // assertTrue(oldWidth1 > column1.getWidth());
         assertEquals(oldWidth0, column0.getWidth());
@@ -317,13 +317,11 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         oldWidth2 = column2.getWidth();
 
         // Test: Remove the mark for all columns are able to be stretched.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                tableLayout.setStretchAllColumns(false);
-                tableLayout.requestLayout();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mTableDefault.setStretchAllColumns(false);
+            mTableDefault.requestLayout();
         });
-        getInstrumentation().waitForIdleSync();
+        instrumentation.waitForIdleSync();
         // assertTrue(oldWidth0 > column0.getWidth());
         // assertTrue(oldWidth1 > column1.getWidth());
         assertEquals(oldWidth0, column0.getWidth());
@@ -334,333 +332,301 @@ public class TableLayoutTest extends ActivityInstrumentationTestCase2<TableCtsAc
         assertEquals(orignalWidth2, column2.getWidth());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessColumnShrinkable() {
-        TableLayout tableLayout = new TableLayout(mContext);
-        tableLayout.addView(new TableRow(mContext));
-        tableLayout.addView(new TableRow(mContext));
-        assertFalse(tableLayout.isColumnShrinkable(0));
-        assertFalse(tableLayout.isColumnShrinkable(1));
+        mTableEmpty.addView(new TableRow(mActivity));
+        mTableEmpty.addView(new TableRow(mActivity));
+        assertFalse(mTableEmpty.isColumnShrinkable(0));
+        assertFalse(mTableEmpty.isColumnShrinkable(1));
 
-        tableLayout.layout(0, 0, 200, 300);
-        assertFalse(tableLayout.getChildAt(0).isLayoutRequested());
-        assertFalse(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.layout(0, 0, 200, 300);
+        assertFalse(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertFalse(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.setColumnShrinkable(0, true);
-        assertTrue(tableLayout.isColumnShrinkable(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnShrinkable(0, true);
+        assertTrue(mTableEmpty.isColumnShrinkable(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnShrinkable(1, true);
-        assertTrue(tableLayout.isColumnShrinkable(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnShrinkable(1, true);
+        assertTrue(mTableEmpty.isColumnShrinkable(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnShrinkable(0, false);
-        assertFalse(tableLayout.isColumnShrinkable(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnShrinkable(0, false);
+        assertFalse(mTableEmpty.isColumnShrinkable(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.setColumnShrinkable(1, false);
-        assertFalse(tableLayout.isColumnShrinkable(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.setColumnShrinkable(1, false);
+        assertFalse(mTableEmpty.isColumnShrinkable(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
     }
 
-    public void testAddView1() {
-        TableLayout tableLayout = new TableLayout(mContext);
+    @UiThreadTest
+    @Test
+    public void testAddView() {
+        View child1 = new TextView(mActivity);
+        mTableEmpty.addView(child1);
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
 
-        View child1 = new TextView(mContext);
-        tableLayout.addView(child1);
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.layout(0, 0, 200, 300);
+        View child2 = new RelativeLayout(mActivity);
+        mTableEmpty.addView(child2);
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertSame(child2, mTableEmpty.getChildAt(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        View child2 = new RelativeLayout(mContext);
-        tableLayout.addView(child2);
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertSame(child2, tableLayout.getChildAt(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        tableLayout.layout(0, 0, 200, 300);
-
-        View child3 = new ListView(mContext);
-        tableLayout.addView(child3);
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertSame(child2, tableLayout.getChildAt(1));
-        assertSame(child3, tableLayout.getChildAt(2));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(2).isLayoutRequested());
-
-        // exceptional
-        try {
-            tableLayout.addView(null);
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
+        View child3 = new ListView(mActivity);
+        mTableEmpty.addView(child3);
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertSame(child2, mTableEmpty.getChildAt(1));
+        assertSame(child3, mTableEmpty.getChildAt(2));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(2).isLayoutRequested());
     }
 
-    public void testAddView2() {
-        TableLayout tableLayout = new TableLayout(mContext);
-
-        View child1 = new TextView(mContext);
-        tableLayout.addView(child1, 0);
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-
-        tableLayout.layout(0, 0, 200, 300);
-
-        View child2 = new RelativeLayout(mContext);
-        tableLayout.addView(child2, 0);
-        assertSame(child2, tableLayout.getChildAt(0));
-        assertSame(child1, tableLayout.getChildAt(1));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
-
-        tableLayout.layout(0, 0, 200, 300);
-
-        View child3 = new ListView(mContext);
-        tableLayout.addView(child3, -1);
-        assertSame(child2, tableLayout.getChildAt(0));
-        assertSame(child1, tableLayout.getChildAt(1));
-        assertSame(child3, tableLayout.getChildAt(2));
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(2).isLayoutRequested());
-
-        try {
-            tableLayout.addView(new ListView(mContext), Integer.MAX_VALUE);
-            fail("Should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            tableLayout.addView(null, -1);
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
+    @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddViewNull() {
+        mTableEmpty.addView(null);
     }
 
-    public void testAddView3() {
-        TableLayout tableLayout = new TableLayout(mContext);
+    @UiThreadTest
+    @Test
+    public void testAddViewAtIndex() {
+        View child1 = new TextView(mActivity);
+        mTableEmpty.addView(child1, 0);
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
 
-        View child1 = new TextView(mContext);
+        mTableEmpty.layout(0, 0, 200, 300);
+
+        View child2 = new RelativeLayout(mActivity);
+        mTableEmpty.addView(child2, 0);
+        assertSame(child2, mTableEmpty.getChildAt(0));
+        assertSame(child1, mTableEmpty.getChildAt(1));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
+
+        mTableEmpty.layout(0, 0, 200, 300);
+
+        View child3 = new ListView(mActivity);
+        mTableEmpty.addView(child3, -1);
+        assertSame(child2, mTableEmpty.getChildAt(0));
+        assertSame(child1, mTableEmpty.getChildAt(1));
+        assertSame(child3, mTableEmpty.getChildAt(2));
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(2).isLayoutRequested());
+    }
+
+    @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddViewAtIndexTooLow() {
+        mTableEmpty.addView(null, -1);
+    }
+
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testAddViewAtIndexTooHigh() {
+        mTableEmpty.addView(new ListView(mActivity), Integer.MAX_VALUE);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAddViewWithLayoutParams() {
+        View child1 = new TextView(mActivity);
         assertNull(child1.getLayoutParams());
-        tableLayout.addView(child1, new ViewGroup.LayoutParams(100, 200));
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertEquals(100, tableLayout.getChildAt(0).getLayoutParams().width);
-        assertEquals(200, tableLayout.getChildAt(0).getLayoutParams().height);
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
+        mTableEmpty.addView(child1, new ViewGroup.LayoutParams(100, 200));
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(0).getLayoutParams().width);
+        assertEquals(200, mTableEmpty.getChildAt(0).getLayoutParams().height);
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        View child2 = new TableRow(mContext);
+        View child2 = new TableRow(mActivity);
         assertNull(child2.getLayoutParams());
-        tableLayout.addView(child2, new TableRow.LayoutParams(200, 300, 1));
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertSame(child2, tableLayout.getChildAt(1));
-        assertEquals(100, tableLayout.getChildAt(0).getLayoutParams().width);
-        assertEquals(200, tableLayout.getChildAt(0).getLayoutParams().height);
-        assertEquals(200, tableLayout.getChildAt(1).getLayoutParams().width);
-        assertEquals(300, tableLayout.getChildAt(1).getLayoutParams().height);
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
-
-        try {
-            tableLayout.addView(null, new TableLayout.LayoutParams(200, 300));
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
-
-        try {
-            tableLayout.addView(new ListView(mContext), null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-        }
+        mTableEmpty.addView(child2, new TableRow.LayoutParams(200, 300, 1));
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertSame(child2, mTableEmpty.getChildAt(1));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(0).getLayoutParams().width);
+        assertEquals(200, mTableEmpty.getChildAt(0).getLayoutParams().height);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(1).getLayoutParams().width);
+        assertEquals(300, mTableEmpty.getChildAt(1).getLayoutParams().height);
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
     }
 
-    public void testAddView4() {
-        TableLayout tableLayout = new TableLayout(mContext);
+    @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddViewWithLayoutParamsNullView() {
+        mTableEmpty.addView(null, new TableLayout.LayoutParams(200, 300));
+    }
 
-        View child1 = new TextView(mContext);
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddViewWithLayoutParamsNullLayoutParams() {
+        mTableEmpty.addView(new ListView(mActivity), null);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAddViewAtIndexWithLayoutParams() {
+        View child1 = new TextView(mActivity);
         assertNull(child1.getLayoutParams());
-        tableLayout.addView(child1, 0, new ViewGroup.LayoutParams(100, 200));
-        assertSame(child1, tableLayout.getChildAt(0));
-        assertEquals(100, tableLayout.getChildAt(0).getLayoutParams().width);
-        assertEquals(200, tableLayout.getChildAt(0).getLayoutParams().height);
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
+        mTableEmpty.addView(child1, 0, new ViewGroup.LayoutParams(100, 200));
+        assertSame(child1, mTableEmpty.getChildAt(0));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(0).getLayoutParams().width);
+        assertEquals(200, mTableEmpty.getChildAt(0).getLayoutParams().height);
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        View child2 = new TableRow(mContext);
+        View child2 = new TableRow(mActivity);
         assertNull(child2.getLayoutParams());
-        tableLayout.addView(child2, 0, new TableRow.LayoutParams(200, 300, 1));
-        assertSame(child2, tableLayout.getChildAt(0));
-        assertSame(child1, tableLayout.getChildAt(1));
-        assertEquals(200, tableLayout.getChildAt(0).getLayoutParams().width);
-        assertEquals(300, tableLayout.getChildAt(0).getLayoutParams().height);
-        assertEquals(100, tableLayout.getChildAt(1).getLayoutParams().width);
-        assertEquals(200, tableLayout.getChildAt(1).getLayoutParams().height);
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
+        mTableEmpty.addView(child2, 0, new TableRow.LayoutParams(200, 300, 1));
+        assertSame(child2, mTableEmpty.getChildAt(0));
+        assertSame(child1, mTableEmpty.getChildAt(1));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(0).getLayoutParams().width);
+        assertEquals(300, mTableEmpty.getChildAt(0).getLayoutParams().height);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(1).getLayoutParams().width);
+        assertEquals(200, mTableEmpty.getChildAt(1).getLayoutParams().height);
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
 
-        tableLayout.layout(0, 0, 200, 300);
+        mTableEmpty.layout(0, 0, 200, 300);
 
-        View child3 = new ListView(mContext);
+        View child3 = new ListView(mActivity);
         assertNull(child3.getLayoutParams());
-        tableLayout.addView(child3, -1, new ListView.LayoutParams(300, 400));
-        assertSame(child2, tableLayout.getChildAt(0));
-        assertSame(child1, tableLayout.getChildAt(1));
-        assertSame(child3, tableLayout.getChildAt(2));
-        assertEquals(200, tableLayout.getChildAt(0).getLayoutParams().width);
-        assertEquals(300, tableLayout.getChildAt(0).getLayoutParams().height);
-        assertEquals(100, tableLayout.getChildAt(1).getLayoutParams().width);
-        assertEquals(200, tableLayout.getChildAt(1).getLayoutParams().height);
-        assertEquals(300, tableLayout.getChildAt(2).getLayoutParams().width);
-        assertEquals(400, tableLayout.getChildAt(2).getLayoutParams().height);
-        assertTrue(tableLayout.getChildAt(0).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(1).isLayoutRequested());
-        assertTrue(tableLayout.getChildAt(2).isLayoutRequested());
-
-        try {
-            tableLayout.addView(new ListView(mContext), Integer.MAX_VALUE,
-                    new TableLayout.LayoutParams(200, 300));
-            fail("Should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            tableLayout.addView(null, -1, new TableLayout.LayoutParams(200, 300));
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
-
-        try {
-            tableLayout.addView(new ListView(mContext), -1, null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-        }
+        mTableEmpty.addView(child3, -1, new ListView.LayoutParams(300, 400));
+        assertSame(child2, mTableEmpty.getChildAt(0));
+        assertSame(child1, mTableEmpty.getChildAt(1));
+        assertSame(child3, mTableEmpty.getChildAt(2));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(0).getLayoutParams().width);
+        assertEquals(300, mTableEmpty.getChildAt(0).getLayoutParams().height);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(1).getLayoutParams().width);
+        assertEquals(200, mTableEmpty.getChildAt(1).getLayoutParams().height);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT,
+                mTableEmpty.getChildAt(2).getLayoutParams().width);
+        assertEquals(400, mTableEmpty.getChildAt(2).getLayoutParams().height);
+        assertTrue(mTableEmpty.getChildAt(0).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(1).isLayoutRequested());
+        assertTrue(mTableEmpty.getChildAt(2).isLayoutRequested());
     }
 
-    public void testGenerateLayoutParams1() {
-        TableLayout tableLayout = new TableLayout(mContext);
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testAddViewAtIndexWithLayoutParamsIndexTooHigh() {
+        mTableEmpty.addView(new ListView(mActivity), Integer.MAX_VALUE,
+                new TableLayout.LayoutParams(200, 300));
+    }
 
-        TableCtsActivity activity = getActivity();
-        XmlResourceParser parser = activity.getResources().getLayout(R.layout.table_layout_1);
+    @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddViewAtIndexWithLayoutParamsNullView() {
+        mTableEmpty.addView(null, -1, new TableLayout.LayoutParams(200, 300));
+    }
+
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddViewAtIndexWithLayoutParamsNullLayoutParams() {
+        mTableEmpty.addView(new ListView(mActivity), -1, null);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testGenerateLayoutParamsFromAttributeSet() {
+        XmlResourceParser parser = mActivity.getResources().getLayout(R.layout.table_layout_1);
         AttributeSet attr = Xml.asAttributeSet(parser);
 
-        assertNotNull(tableLayout.generateLayoutParams(attr));
+        assertNotNull(mTableEmpty.generateLayoutParams(attr));
 
-        assertNotNull(tableLayout.generateLayoutParams((AttributeSet) null));
+        assertNotNull(mTableEmpty.generateLayoutParams((AttributeSet) null));
     }
 
+    @UiThreadTest
+    @Test
     public void testCheckLayoutParams() {
-        MockTableLayout mockTableLayout = new MockTableLayout(mContext);
+        assertTrue(mTableCustomEmpty.checkLayoutParams(new TableLayout.LayoutParams(200, 300)));
 
-        assertTrue(mockTableLayout.checkLayoutParams(new TableLayout.LayoutParams(200, 300)));
+        assertFalse(mTableCustomEmpty.checkLayoutParams(new ViewGroup.LayoutParams(200, 300)));
 
-        assertFalse(mockTableLayout.checkLayoutParams(new ViewGroup.LayoutParams(200, 300)));
+        assertFalse(mTableCustomEmpty.checkLayoutParams(new RelativeLayout.LayoutParams(200, 300)));
 
-        assertFalse(mockTableLayout.checkLayoutParams(new RelativeLayout.LayoutParams(200, 300)));
-
-        assertFalse(mockTableLayout.checkLayoutParams(null));
+        assertFalse(mTableCustomEmpty.checkLayoutParams(null));
     }
 
+    @UiThreadTest
+    @Test
     public void testGenerateDefaultLayoutParams() {
-        MockTableLayout mockTableLayout = new MockTableLayout(mContext);
-
-        LinearLayout.LayoutParams layoutParams = mockTableLayout.generateDefaultLayoutParams();
+        LinearLayout.LayoutParams layoutParams = mTableCustomEmpty.generateDefaultLayoutParams();
         assertNotNull(layoutParams);
         assertTrue(layoutParams instanceof TableLayout.LayoutParams);
     }
 
-    public void testGenerateLayoutParams2() {
-        MockTableLayout mockTableLayout = new MockTableLayout(mContext);
-
-        LinearLayout.LayoutParams layoutParams = mockTableLayout.generateLayoutParams(
+    @UiThreadTest
+    @Test
+    public void testGenerateLayoutParamsFromLayoutParams() {
+        LinearLayout.LayoutParams layoutParams = mTableCustomEmpty.generateLayoutParams(
                 new ViewGroup.LayoutParams(200, 300));
         assertNotNull(layoutParams);
-        assertEquals(200, layoutParams.width);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, layoutParams.width);
         assertEquals(300, layoutParams.height);
         assertTrue(layoutParams instanceof TableLayout.LayoutParams);
-
-        try {
-            layoutParams = mockTableLayout.generateLayoutParams((ViewGroup.LayoutParams) null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-        }
     }
 
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testGenerateLayoutParamsFromLayoutParamsNull() {
+        mTableCustomEmpty.generateLayoutParams((ViewGroup.LayoutParams) null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testOnLayout() {
-        MockTableLayout mockTableLayout = new MockTableLayout(mContext);
-
-        mockTableLayout.onLayout(false, 0, 0, 20, 20);
+        mTableCustomEmpty.onLayout(false, 0, 0, 20, 20);
     }
 
+    @UiThreadTest
+    @Test
     public void testOnMeasure() {
-        MockTableLayout mockTableLayout = new MockTableLayout(mContext);
-
-        mockTableLayout.onMeasure(MeasureSpec.EXACTLY, MeasureSpec.EXACTLY);
-    }
-
-    private int dropNegative(int number) {
-        return (number > 0 ? number : 0);
-    }
-
-    private class MockOnHierarchyChangeListener implements OnHierarchyChangeListener {
-        private boolean mCalledOnChildViewAdded = false;
-        private boolean mCalledOnChildViewRemoved = false;
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see
-         * android.view.ViewGroup.OnHierarchyChangeListener#onChildViewAdded
-         * (View, View)
-         */
-        public void onChildViewAdded(View parent, View child) {
-            mCalledOnChildViewAdded = true;
-        }
-
-        /*
-         * (non-Javadoc)
-         *
-         * @see
-         * android.view.ViewGroup.OnHierarchyChangeListener#onChildViewRemoved
-         * (View, View)
-         */
-        public void onChildViewRemoved(View parent, View child) {
-            mCalledOnChildViewRemoved = true;
-        }
-
-        public boolean hasCalledOnChildViewAdded() {
-            return mCalledOnChildViewAdded;
-        }
-
-        public boolean hasCalledOnChildViewRemoved() {
-            return mCalledOnChildViewRemoved;
-        }
-
-        public void reset() {
-            mCalledOnChildViewAdded = false;
-            mCalledOnChildViewRemoved = false;
-        }
+        mTableCustomEmpty.onMeasure(MeasureSpec.EXACTLY, MeasureSpec.EXACTLY);
     }
 
     /*
      * Mock class for TableLayout to test protected methods
      */
-    private class MockTableLayout extends TableLayout {
+    public static class MockTableLayout extends TableLayout {
         public MockTableLayout(Context context) {
             super(context);
+        }
+
+        public MockTableLayout(Context context, AttributeSet attrs) {
+            super(context, attrs);
         }
 
         @Override

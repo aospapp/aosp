@@ -18,7 +18,12 @@ package android.car.cts;
 import android.car.Car;
 import android.car.media.CarAudioManager;
 import android.media.AudioAttributes;
+import android.platform.test.annotations.RequiresDevice;
+import android.test.suitebuilder.annotation.SmallTest;
 
+
+@SmallTest
+@RequiresDevice
 /** Unit tests for {@link CarAudioManager}. */
 public class CarAudioManagerTest extends CarApiTestBase {
     private static final String TAG = CarAudioManagerTest.class.getSimpleName();

@@ -34,6 +34,7 @@ public class HalWifiScannerTest extends BaseWifiScannerImplTest {
                 new int[]{2400, 2450},
                 new int[]{5150, 5175},
                 new int[]{5600, 5650});
-        mScanner = new HalWifiScannerImpl(mContext, mWifiNative, mLooper.getLooper(), mClock);
+        mScanner = new HalWifiScannerImpl(mContext, mWifiNative, mWifiMonitor, mLooper.getLooper(),
+                mClock);
     }
 }

@@ -22,6 +22,7 @@
 
 #include <binder/IMemory.h>
 #include <media/Crypto.h>
+#include <media/DrmPluginPath.h>
 #include <media/hardware/CryptoAPI.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AString.h>
@@ -102,7 +103,7 @@ void Crypto::findFactoryForScheme(const uint8_t uuid[16]) {
     }
 
     // no luck, have to search
-    String8 dirPath("/vendor/lib/mediadrm");
+    String8 dirPath(getDrmPluginPath());
     String8 pluginPath;
 
     DIR* pDir = opendir(dirPath.string());
@@ -233,16 +234,12 @@ bool Crypto::requiresSecureDecoderComponent(const char *mime) const {
     return mPlugin->requiresSecureDecoderComponent(mime);
 }
 
-ssize_t Crypto::decrypt(
-        DestinationType dstType,
-        const uint8_t key[16],
-        const uint8_t iv[16],
-        CryptoPlugin::Mode mode,
-        const CryptoPlugin::Pattern &pattern,
-        const sp<IMemory> &sharedBuffer, size_t offset,
+ssize_t Crypto::decrypt(const uint8_t key[16], const uint8_t iv[16],
+        CryptoPlugin::Mode mode, const CryptoPlugin::Pattern &pattern,
+        const sp<IMemory> &source, size_t offset,
         const CryptoPlugin::SubSample *subSamples, size_t numSubSamples,
-        void *dstPtr,
-        AString *errorDetailMsg) {
+        const ICrypto::DestinationBuffer &destination, AString *errorDetailMsg) {
+
     Mutex::Autolock autoLock(mLock);
 
     if (mInitCheck != OK) {
@@ -253,12 +250,21 @@ ssize_t Crypto::decrypt(
         return -EINVAL;
     }
 
-    const void *srcPtr = static_cast<uint8_t *>(sharedBuffer->pointer()) + offset;
+    const void *srcPtr = static_cast<uint8_t *>(source->pointer()) + offset;
 
-    return mPlugin->decrypt(
-            dstType != kDestinationTypeVmPointer,
-            key, iv, mode, pattern, srcPtr, subSamples, numSubSamples, dstPtr,
-            errorDetailMsg);
+    void *destPtr;
+    bool secure = false;
+    if (destination.mType == kDestinationTypeNativeHandle) {
+        destPtr = static_cast<void *>(destination.mHandle);
+        secure = true;
+    } else {
+        destPtr = destination.mSharedMemory->pointer();
+    }
+
+    ssize_t result = mPlugin->decrypt(secure, key, iv, mode, pattern, srcPtr, subSamples,
+            numSubSamples, destPtr, errorDetailMsg);
+
+    return result;
 }
 
 void Crypto::notifyResolution(uint32_t width, uint32_t height) {

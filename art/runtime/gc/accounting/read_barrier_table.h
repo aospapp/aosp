@@ -17,6 +17,8 @@
 #ifndef ART_RUNTIME_GC_ACCOUNTING_READ_BARRIER_TABLE_H_
 #define ART_RUNTIME_GC_ACCOUNTING_READ_BARRIER_TABLE_H_
 
+#include <sys/mman.h>  // For the PROT_* and MAP_* constants.
+
 #include "base/bit_utils.h"
 #include "base/mutex.h"
 #include "gc/space/space.h"
@@ -80,7 +82,7 @@ class ReadBarrierTable {
   }
 
   // This should match RegionSpace::kRegionSize. static_assert'ed in concurrent_copying.h.
-  static constexpr size_t kRegionSize = 1 * MB;
+  static constexpr size_t kRegionSize = 256 * KB;
 
  private:
   static constexpr uint64_t kHeapCapacity = 4ULL * GB;  // low 4gb.

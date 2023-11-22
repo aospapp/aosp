@@ -5,11 +5,13 @@
 #ifndef V8_CANCELABLE_TASK_H_
 #define V8_CANCELABLE_TASK_H_
 
+#include <map>
+
 #include "include/v8-platform.h"
-#include "src/atomic-utils.h"
+#include "src/base/atomic-utils.h"
 #include "src/base/macros.h"
 #include "src/base/platform/condition-variable.h"
-#include "src/hashmap.h"
+#include "src/globals.h"
 
 namespace v8 {
 namespace internal {
@@ -20,26 +22,27 @@ class Isolate;
 
 // Keeps track of cancelable tasks. It is possible to register and remove tasks
 // from any fore- and background task/thread.
-class CancelableTaskManager {
+class V8_EXPORT_PRIVATE CancelableTaskManager {
  public:
   CancelableTaskManager();
 
   // Registers a new cancelable {task}. Returns the unique {id} of the task that
   // can be used to try to abort a task by calling {Abort}.
+  // Must not be called after CancelAndWait.
   uint32_t Register(Cancelable* task);
 
   // Try to abort running a task identified by {id}. The possible outcomes are:
-  // (1) The task is already finished running and thus has been removed from
-  //     the manager.
+  // (1) The task is already finished running or was canceled before and
+  //     thus has been removed from the manager.
   // (2) The task is currently running and cannot be canceled anymore.
   // (3) The task is not yet running (or finished) so it is canceled and
   //     removed.
   //
-  // Returns {false} for (1) and (2), and {true} for (3).
-  bool TryAbort(uint32_t id);
+  enum TryAbortResult { kTaskRemoved, kTaskRunning, kTaskAborted };
+  TryAbortResult TryAbort(uint32_t id);
 
   // Cancels all remaining registered tasks and waits for tasks that are
-  // already running.
+  // already running. This disallows subsequent Register calls.
   void CancelAndWait();
 
  private:
@@ -51,20 +54,21 @@ class CancelableTaskManager {
   uint32_t task_id_counter_;
 
   // A set of cancelable tasks that are currently registered.
-  HashMap cancelable_tasks_;
+  std::map<uint32_t, Cancelable*> cancelable_tasks_;
 
   // Mutex and condition variable enabling concurrent register and removing, as
   // well as waiting for background tasks on {CancelAndWait}.
   base::ConditionVariable cancelable_tasks_barrier_;
   base::Mutex mutex_;
 
+  bool canceled_;
+
   friend class Cancelable;
 
   DISALLOW_COPY_AND_ASSIGN(CancelableTaskManager);
 };
 
-
-class Cancelable {
+class V8_EXPORT_PRIVATE Cancelable {
  public:
   explicit Cancelable(CancelableTaskManager* parent);
   virtual ~Cancelable();
@@ -104,13 +108,13 @@ class Cancelable {
   }
 
   CancelableTaskManager* parent_;
-  AtomicValue<Status> status_;
+  base::AtomicValue<Status> status_;
   uint32_t id_;
 
   // The counter is incremented for failing tries to cancel a task. This can be
   // used by the task itself as an indication how often external entities tried
   // to abort it.
-  AtomicNumber<intptr_t> cancel_counter_;
+  base::AtomicNumber<intptr_t> cancel_counter_;
 
   friend class CancelableTaskManager;
 

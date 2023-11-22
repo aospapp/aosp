@@ -26,7 +26,7 @@ these accessories were historically limited to simple file storage, due to
 their expected impermanence and the minimal data protection offered to
 <a href="{@docRoot}devices/storage/traditional.html">traditional external storage</a>.
 Android 6.0 introduces the ability to
-<a href="https://developer.android.com/preview/behavior-changes.html#behavior-adoptable-storage">adopt</a>
+<a href="http://developer.android.com/about/versions/marshmallow/android-6.0.html#adoptable-storage">adopt</a>
 external storage media to act like internal storage.</p>
 
 <p>When external storage media is adopted, it’s formatted and encrypted to only
@@ -39,7 +39,11 @@ location, Android asks them how they want to use the media. They can choose to
 adopt the media, which formats and encrypts it, or they can continue using it
 as-is for simple file storage. If they choose to adopt, the platform offers to
 migrate the primary shared storage contents (typically mounted at <code>/sdcard</code>)
-to the newly adopted media, freeing up valuable space on internal storage.</p>
+to the newly adopted media, freeing up valuable space on internal storage.
+Unlike traditional storage, which is limited to 2TB due to its use of
+<a href="https://en.wikipedia.org/wiki/Master_boot_record">MBR</a>, adoptable
+storage uses <a href="https://en.wikipedia.org/wiki/GUID_Partition_Table">GPT</a>
+and therefore has file storage limit of ~9ZB.</p>
 
 <p>Apps can be placed on adopted storage media only when the developer has
 indicated support through the <code>android:installLocation</code> attribute.

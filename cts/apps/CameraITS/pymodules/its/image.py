@@ -16,15 +16,16 @@ import matplotlib
 matplotlib.use('Agg')
 
 import its.error
-import pylab
+from matplotlib import pylab
 import sys
-import Image
+from PIL import Image
 import numpy
 import math
 import unittest
 import cStringIO
 import scipy.stats
 import copy
+import os
 
 DEFAULT_YUV_TO_RGB_CCM = numpy.matrix([
                                 [1.000,  0.000,  1.402],
@@ -42,6 +43,10 @@ DEFAULT_INVGAMMA_LUT = numpy.array(
          for i in xrange(65536)])
 
 MAX_LUT_SIZE = 65536
+
+NUM_TRYS = 2
+NUM_FRAMES = 4
+
 
 def convert_capture_to_rgb_image(cap,
                                  ccm_yuv_to_rgb=DEFAULT_YUV_TO_RGB_CCM,
@@ -74,7 +79,7 @@ def convert_capture_to_rgb_image(cap,
         return convert_yuv420_planar_to_rgb_image(y, u, v, w, h)
     elif cap["format"] == "jpeg":
         return decompress_jpeg_to_rgb_image(cap["data"])
-    elif cap["format"] == "raw":
+    elif cap["format"] == "raw" or cap["format"] == "rawStats":
         assert(props is not None)
         r,gr,gb,b = convert_capture_to_planes(cap, props)
         return convert_raw_to_rgb_image(r,gr,gb,b, props, cap["metadata"])
@@ -209,9 +214,11 @@ def convert_capture_to_planes(cap, props=None):
         Returns Y,U,V planes, where the Y plane is full-res and the U,V planes
         are each 1/2 x 1/2 of the full res.
 
-    For Bayer captures ("raw" or "raw10"):
+    For Bayer captures ("raw", "raw10", "raw12", or "rawStats"):
         Returns planes in the order R,Gr,Gb,B, regardless of the Bayer pattern
-        layout. Each plane is 1/2 x 1/2 of the full res.
+        layout. For full-res raw images ("raw", "raw10", "raw12"), each plane
+        is 1/2 x 1/2 of the full res. For "rawStats" images, the mean image
+        is returned.
 
     For JPEG captures ("jpeg"):
         Returns R,G,B full-res planes.
@@ -287,6 +294,12 @@ def convert_capture_to_planes(cap, props=None):
                 img[1::2].reshape(w*h/2)[1::2].reshape(h/2,w/2,1)]
         idxs = get_canonical_cfa_order(props)
         return [imgs[i] for i in idxs]
+    elif cap["format"] == "rawStats":
+        assert(props is not None)
+        white_level = float(props['android.sensor.info.whiteLevel'])
+        mean_image, var_image = its.image.unpack_rawstats_capture(cap)
+        idxs = get_canonical_cfa_order(props)
+        return [mean_image[:,:,i] / white_level for i in idxs]
     else:
         raise its.error.Error('Invalid format %s' % (cap["format"]))
 
@@ -403,8 +416,9 @@ def get_black_level(chan, props, cap_res):
     Returns:
         The black level value for the specified channel.
     """
-    if cap_res.has_key("android.sensor.dynamicBlackLevel"):
-        black_levels = cap_res["android.sensor.dynamicBlackLevel"]
+    if (cap_res.has_key('android.sensor.dynamicBlackLevel') and
+            cap_res['android.sensor.dynamicBlackLevel'] is not None):
+        black_levels = cap_res['android.sensor.dynamicBlackLevel']
     else:
         black_levels = props['android.sensor.blackLevelPattern']
     idxs = its.image.get_canonical_cfa_order(props)
@@ -720,6 +734,7 @@ def downscale_image(img, f):
     img = numpy.vstack(chs).T.reshape(h/f,w/f,chans)
     return img
 
+
 def compute_image_sharpness(img):
     """Calculate the sharpness of input image.
 
@@ -732,12 +747,62 @@ def compute_image_sharpness(img):
     """
     chans = img.shape[2]
     assert(chans == 1 or chans == 3)
-    luma = img
-    if (chans == 3):
+    if (chans == 1):
+        luma = img[:, :, 0]
+    elif (chans == 3):
         luma = 0.299 * img[:,:,0] + 0.587 * img[:,:,1] + 0.114 * img[:,:,2]
 
     [gy, gx] = numpy.gradient(luma)
     return numpy.average(numpy.sqrt(gy*gy + gx*gx))
+
+def normalize_img(img):
+    """Normalize the image values to between 0 and 1.
+
+    Args:
+        img: 2-D numpy array of image values
+    Returns:
+        Normalized image
+    """
+    return (img - numpy.amin(img))/(numpy.amax(img) - numpy.amin(img))
+
+def flip_mirror_img_per_argv(img):
+    """Flip/mirror an image if "flip" or "mirror" is in argv
+
+    Args:
+        img: 2-D numpy array of image values
+    Returns:
+        Flip/mirrored image
+    """
+    img_out = img
+    if "flip" in sys.argv:
+        img_out = numpy.flipud(img_out)
+    if "mirror" in sys.argv:
+        img_out = numpy.fliplr(img_out)
+    return img_out
+
+def stationary_lens_cap(cam, req, fmt):
+    """Take up to NUM_TRYS caps and save the 1st one with lens stationary.
+
+    Args:
+        cam:    open device session
+        req:    capture request
+        fmt:    format for capture
+
+    Returns:
+        capture
+    """
+    trys = 0
+    done = False
+    reqs = [req] * NUM_FRAMES
+    while not done:
+        print 'Waiting for lens to move to correct location...'
+        cap = cam.do_capture(reqs, fmt)
+        done = (cap[NUM_FRAMES-1]['metadata']['android.lens.state'] == 0)
+        print ' status: ', done
+        trys += 1
+        if trys == NUM_TRYS:
+            raise its.error.Error('Cannot settle lens after %d trys!' % trys)
+    return cap[NUM_FRAMES-1]
 
 class __UnitTest(unittest.TestCase):
     """Run a suite of unit tests on this module.
@@ -755,7 +820,7 @@ class __UnitTest(unittest.TestCase):
             [ 7 8 9 ]   [ 0.3 ]   [ 5.0 ]
                mat         x         y
         """
-        mat = numpy.array([[1,2,3],[4,5,6],[7,8,9]])
+        mat = numpy.array([[1,2,3], [4,5,6], [7,8,9]])
         x = numpy.array([0.1,0.2,0.3]).reshape(1,1,3)
         y = apply_matrix_to_image(x, mat).reshape(3).tolist()
         y_ref = [1.4,3.2,5.0]
@@ -763,7 +828,7 @@ class __UnitTest(unittest.TestCase):
         self.assertTrue(passed)
 
     def test_apply_lut_to_image(self):
-        """ Unit test for apply_lut_to_image.
+        """Unit test for apply_lut_to_image.
 
         Test by using a canned set of values on a 1x1 pixel image. The LUT will
         simply double the value of the index:
@@ -779,4 +844,3 @@ class __UnitTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

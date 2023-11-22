@@ -23,6 +23,8 @@
 package org.apache.harmony.security.tests.java.security;
 
 import java.security.KeyStore;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.crypto.SecretKey;
 
@@ -58,6 +60,21 @@ public class KSSecretKeyEntryTest extends TestCase {
     }
 
     /**
+     * Test for
+     * <code>SecretKeyEntry(SecretKey secretKey, Set<Attribute> attribute)</code>
+     * constructor
+     * Assertion: throws NullPointerException when attributes is null
+     */
+    public void testSecretKeyEntry_nullAttributes() {
+        SecretKey sk = new tmpSecretKey();
+        try {
+            new KeyStore.SecretKeyEntry(sk, null /* attributes */);
+            fail("NullPointerException must be thrown when attributes is null");
+        } catch(NullPointerException expected) {
+        }
+    }
+
+    /**
      * Test for <code>getSecretKey()</code> method
      * Assertion: returns SecretKey from the given entry
      */
@@ -65,6 +82,40 @@ public class KSSecretKeyEntryTest extends TestCase {
         SecretKey sk = new tmpSecretKey();
         KeyStore.SecretKeyEntry ske = new KeyStore.SecretKeyEntry(sk);
         assertEquals("Incorrect SecretKey", sk, ske.getSecretKey());
+    }
+
+    /**
+     * Test for <code>getAttributes()</code> method
+     * Assertion: returns the attributes specified in the constructor, as an unmodifiable set
+     */
+    public void testGetAttributes() {
+        SecretKey sk = new tmpSecretKey();
+        final String attributeName = "theAttributeName";
+        KeyStore.Entry.Attribute myAttribute = new KeyStore.Entry.Attribute() {
+            @Override
+            public String getName() {
+                return attributeName;
+            }
+
+            @Override
+            public String getValue() {
+                return null;
+            }
+        };
+        Set<KeyStore.Entry.Attribute> attributeSet = new HashSet<KeyStore.Entry.Attribute>();
+        attributeSet.add(myAttribute);
+
+        KeyStore.SecretKeyEntry ksSKE = new KeyStore.SecretKeyEntry(sk, attributeSet);
+        Set<KeyStore.Entry.Attribute> returnedAttributeSet = ksSKE.getAttributes();
+        assertEquals(attributeSet, returnedAttributeSet);
+        // Adding an element to the original set is OK.
+        attributeSet.add(myAttribute);
+        // The returned set is unmodifiabled.
+        try {
+            returnedAttributeSet.add(myAttribute);
+            fail("The returned set of attributed should be unmodifiable");
+        } catch (UnsupportedOperationException expected) {
+        }
     }
 
     /**

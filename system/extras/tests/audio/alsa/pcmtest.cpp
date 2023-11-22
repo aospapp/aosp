@@ -23,9 +23,6 @@
 #include <stdlib.h>
 #include <gtest/gtest.h>
 #include <linux/ioctl.h>
-#define __force
-#define __bitwise
-#define __user
 #include <sound/asound.h>
 #include <sys/types.h>
 #include <tinyalsa/asoundlib.h>

@@ -23,8 +23,8 @@
     <package>com.example.android.wearable.agendadata</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>23</targetSdkVersion>
-    <targetSdkVersionWear>23</targetSdkVersionWear>
+    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <dependency>com.android.support:design:24.0.0</dependency>
 

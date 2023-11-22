@@ -35,20 +35,16 @@ class InstructionSimplifierArm64Visitor : public HGraphVisitor {
     }
   }
 
-  void TryExtractArrayAccessAddress(HInstruction* access,
-                                    HInstruction* array,
-                                    HInstruction* index,
-                                    int access_size);
   bool TryMergeIntoUsersShifterOperand(HInstruction* instruction);
   bool TryMergeIntoShifterOperand(HInstruction* use,
                                   HInstruction* bitfield_op,
                                   bool do_merge);
   bool CanMergeIntoShifterOperand(HInstruction* use, HInstruction* bitfield_op) {
-    return TryMergeIntoShifterOperand(use, bitfield_op, false);
+    return TryMergeIntoShifterOperand(use, bitfield_op, /* do_merge */ false);
   }
   bool MergeIntoShifterOperand(HInstruction* use, HInstruction* bitfield_op) {
     DCHECK(CanMergeIntoShifterOperand(use, bitfield_op));
-    return TryMergeIntoShifterOperand(use, bitfield_op, true);
+    return TryMergeIntoShifterOperand(use, bitfield_op, /* do_merge */ true);
   }
 
   /**
@@ -78,6 +74,7 @@ class InstructionSimplifierArm64Visitor : public HGraphVisitor {
   void VisitTypeConversion(HTypeConversion* instruction) OVERRIDE;
   void VisitUShr(HUShr* instruction) OVERRIDE;
   void VisitXor(HXor* instruction) OVERRIDE;
+  void VisitVecMul(HVecMul* instruction) OVERRIDE;
 
   OptimizingCompilerStats* stats_;
 };
@@ -86,7 +83,9 @@ class InstructionSimplifierArm64Visitor : public HGraphVisitor {
 class InstructionSimplifierArm64 : public HOptimization {
  public:
   InstructionSimplifierArm64(HGraph* graph, OptimizingCompilerStats* stats)
-    : HOptimization(graph, "instruction_simplifier_arm64", stats) {}
+      : HOptimization(graph, kInstructionSimplifierArm64PassName, stats) {}
+
+  static constexpr const char* kInstructionSimplifierArm64PassName = "instruction_simplifier_arm64";
 
   void Run() OVERRIDE {
     InstructionSimplifierArm64Visitor visitor(graph_, stats_);

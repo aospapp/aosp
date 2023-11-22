@@ -43,6 +43,7 @@
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_BLOCKED_NUMBERS" />
     <uses-permission android:name="android.permission.WRITE_BLOCKED_NUMBERS" />
+    <uses-permission android:name="android.permission.SUBSTITUTE_NOTIFICATION_APP_NAME" />
 
     <permission
             android:name="android.permission.BROADCAST_CALLLOG_INFO"
@@ -209,6 +210,10 @@
                 <action android:name="com.android.server.telecom.ACTION_CLEAR_MISSED_CALLS" />
                 <action android:name="com.android.server.telecom.ACTION_CALL_BACK_FROM_NOTIFICATION" />
                 <action android:name="com.android.server.telecom.ACTION_SEND_SMS_FROM_NOTIFICATION" />
+                <action android:name="com.android.server.telecom.ACTION_ANSWER_FROM_NOTIFICATION" />
+                <action android:name="com.android.server.telecom.ACTION_REJECT_FROM_NOTIFICATION" />
+                <action android:name="com.android.server.telecom.PROCEED_WITH_CALL" />
+                <action android:name="com.android.server.telecom.CANCEL_CALL" />
             </intent-filter>
         </receiver>
 
@@ -244,6 +249,14 @@
         </activity>
 
         <activity android:name=".components.ErrorDialogActivity"
+                android:configChanges="orientation|screenSize|keyboardHidden"
+                android:excludeFromRecents="true"
+                android:launchMode="singleInstance"
+                android:theme="@style/Theme.Telecomm.Transparent"
+                android:process=":ui">
+        </activity>
+
+        <activity android:name=".ui.ConfirmCallDialogActivity"
                 android:configChanges="orientation|screenSize|keyboardHidden"
                 android:excludeFromRecents="true"
                 android:launchMode="singleInstance"

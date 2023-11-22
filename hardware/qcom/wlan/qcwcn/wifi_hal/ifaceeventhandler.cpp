@@ -194,6 +194,8 @@ WifihalGeneric::WifihalGeneric(wifi_handle handle, int id, u32 vendor_id,
                                   u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)
 {
+    hal_info *info = getHalInfo(handle);
+
     /* Initialize the member data variables here */
     mSet = 0;
     mSetSizeMax = 0;
@@ -202,10 +204,12 @@ WifihalGeneric::WifihalGeneric(wifi_handle handle, int id, u32 vendor_id,
     filterVersion = 0;
     filterLength = 0;
     firmware_bus_max_size = 0;
+    mCapa = &(info->capa);
 }
 
 WifihalGeneric::~WifihalGeneric()
 {
+    mCapa = NULL;
 }
 
 int WifihalGeneric::requestResponse()
@@ -331,10 +335,169 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                 ALOGV("Max BUS size Supported: %d", firmware_bus_max_size);
             }
             break;
+        case QCA_NL80211_VENDOR_SUBCMD_GSCAN_GET_CAPABILITIES:
+            {
+                struct nlattr *tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_MAX + 1];
+                nla_parse(tbVendor, QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_MAX,
+                          (struct nlattr *)mVendorData,mDataLen, NULL);
+
+                if (wifiParseCapabilities(tbVendor) == WIFI_SUCCESS) {
+                    ALOGV("%s: GSCAN Capabilities:\n"
+                          "     max_ap_cache_per_scan:%d\n"
+                          "     max_bssid_history_entries:%d\n"
+                          "     max_hotlist_bssids:%d\n"
+                          "     max_hotlist_ssids:%d\n"
+                          "     max_rssi_sample_size:%d\n"
+                          "     max_scan_buckets:%d\n"
+                          "     max_scan_cache_size:%d\n"
+                          "     max_scan_reporting_threshold:%d\n"
+                          "     max_significant_wifi_change_aps:%d\n"
+                          "     max_number_epno_networks:%d\n"
+                          "     max_number_epno_networks_by_ssid:%d\n"
+                          "     max_number_of_white_listed_ssid:%d.",
+                          __FUNCTION__, mCapa->gscan_capa.max_ap_cache_per_scan,
+                          mCapa->gscan_capa.max_bssid_history_entries,
+                          mCapa->gscan_capa.max_hotlist_bssids,
+                          mCapa->gscan_capa.max_hotlist_ssids,
+                          mCapa->gscan_capa.max_rssi_sample_size,
+                          mCapa->gscan_capa.max_scan_buckets,
+                          mCapa->gscan_capa.max_scan_cache_size,
+                          mCapa->gscan_capa.max_scan_reporting_threshold,
+                          mCapa->gscan_capa.max_significant_wifi_change_aps,
+                          mCapa->gscan_capa.max_number_epno_networks,
+                          mCapa->gscan_capa.max_number_epno_networks_by_ssid,
+                          mCapa->gscan_capa.max_number_of_white_listed_ssid);
+
+                    ALOGV("%s: Roaming Capabilities:\n"
+                          "    max_blacklist_size: %d\n"
+                          "    max_whitelist_size: %d\n",
+                          __FUNCTION__, mCapa->roaming_capa.max_blacklist_size,
+                          mCapa->roaming_capa.max_whitelist_size);
+                }
+            }
+            break;
         default :
             ALOGE("%s: Wrong Wi-Fi HAL event received %d", __func__, mSubcmd);
     }
     return NL_SKIP;
+}
+
+/* Parses and extract capabilities results. */
+wifi_error WifihalGeneric::wifiParseCapabilities(struct nlattr **tbVendor)
+{
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_CACHE_SIZE]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_CACHE_SIZE not found",
+              __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_scan_cache_size = nla_get_u32(tbVendor[
+                              QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_CACHE_SIZE]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_BUCKETS]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_BUCKETS not found",
+              __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_scan_buckets = nla_get_u32(tbVendor[
+                                 QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_BUCKETS]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_AP_CACHE_PER_SCAN]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_AP_CACHE_PER_SCAN not found",
+              __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_ap_cache_per_scan = nla_get_u32(tbVendor[
+                            QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_AP_CACHE_PER_SCAN]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_RSSI_SAMPLE_SIZE]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_RSSI_SAMPLE_SIZE not found",
+              __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_rssi_sample_size = nla_get_u32(tbVendor[
+                             QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_RSSI_SAMPLE_SIZE]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_REPORTING_THRESHOLD]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_REPORTING_THRESHOLD not"
+              " found", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_scan_reporting_threshold = nla_get_u32(tbVendor[
+                     QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SCAN_REPORTING_THRESHOLD]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_HOTLIST_BSSIDS]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_HOTLIST_BSSIDS not found",
+              __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_hotlist_bssids = nla_get_u32(tbVendor[
+                               QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_HOTLIST_BSSIDS]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SIGNIFICANT_WIFI_CHANGE_APS]
+       ) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SIGNIFICANT_WIFI_CHANGE_APS "
+              "not found", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_significant_wifi_change_aps = nla_get_u32(tbVendor[
+                  QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_SIGNIFICANT_WIFI_CHANGE_APS]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_BSSID_HISTORY_ENTRIES]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_BSSID_HISTORY_ENTRIES not "
+              "found", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    mCapa->gscan_capa.max_bssid_history_entries = nla_get_u32(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_BSSID_HISTORY_ENTRIES]);
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_HOTLIST_SSIDS]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_HOTLIST_SSIDS not found. Set"
+              " to 0.", __FUNCTION__);
+        mCapa->gscan_capa.max_hotlist_ssids = 0;
+    } else {
+        mCapa->gscan_capa.max_hotlist_ssids = nla_get_u32(tbVendor[
+                                QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_HOTLIST_SSIDS]);
+    }
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_EPNO_NETS]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_EPNO_NETS not found. Set"
+              " to 0.", __FUNCTION__);
+        mCapa->gscan_capa.max_number_epno_networks = 0;
+    } else {
+        mCapa->gscan_capa.max_number_epno_networks
+            = nla_get_u32(tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_EPNO_NETS
+                                  ]);
+    }
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_EPNO_NETS_BY_SSID]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_EPNO_NETS_BY_SSID not "
+              "found. Set to 0.", __FUNCTION__);
+        mCapa->gscan_capa.max_number_epno_networks_by_ssid = 0;
+    } else {
+        mCapa->gscan_capa.max_number_epno_networks_by_ssid = nla_get_u32(tbVendor[
+                        QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_EPNO_NETS_BY_SSID]);
+    }
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_WHITELISTED_SSID]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_WHITELISTED_SSID not "
+              "found. Set to 0.", __FUNCTION__);
+        mCapa->gscan_capa.max_number_of_white_listed_ssid = 0;
+        mCapa->roaming_capa.max_whitelist_size = 0;
+    } else {
+        mCapa->gscan_capa.max_number_of_white_listed_ssid = nla_get_u32(tbVendor[
+                         QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX_NUM_WHITELISTED_SSID]);
+        mCapa->roaming_capa.max_whitelist_size = mCapa->gscan_capa.max_number_of_white_listed_ssid;
+    }
+
+    if (!tbVendor[QCA_WLAN_VENDOR_ATTR_CAPABILITIES_MAX_NUM_BLACKLISTED_BSSID]) {
+        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_GSCAN_RESULTS_CAPABILITIES_MAX"
+            "_NUM_BLACKLIST_BSSID not found. Set to 0.", __FUNCTION__);
+        mCapa->roaming_capa.max_blacklist_size = 0;
+    } else {
+        mCapa->roaming_capa.max_blacklist_size = nla_get_u32(tbVendor[
+                                      QCA_WLAN_VENDOR_ATTR_CAPABILITIES_MAX_NUM_BLACKLISTED_BSSID]);
+    }
+    return WIFI_SUCCESS;
 }
 
 void WifihalGeneric::getResponseparams(feature_set *pset)
@@ -364,4 +527,46 @@ int WifihalGeneric::getFilterLength() {
 
 int WifihalGeneric::getBusSize() {
     return firmware_bus_max_size;
+}
+
+wifi_error WifihalGeneric::wifiGetCapabilities(wifi_interface_handle handle)
+{
+    int ret;
+    struct nlattr *nlData;
+    interface_info *ifaceInfo = getIfaceInfo(handle);
+
+    /* Create the NL message. */
+    ret = create();
+    if (ret < 0) {
+        ALOGE("%s: Failed to create NL message,  Error:%d", __FUNCTION__, ret);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Set the interface Id of the message. */
+    ret = set_iface_id(ifaceInfo->name);
+    if (ret < 0) {
+        ALOGE("%s: Failed to set interface Id of message, Error:%d", __FUNCTION__, ret);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    /* Add the vendor specific attributes for the NL command. */
+    nlData = attr_start(NL80211_ATTR_VENDOR_DATA);
+    if (!nlData)
+        return WIFI_ERROR_UNKNOWN;
+
+    ret = put_u32(QCA_WLAN_VENDOR_ATTR_GSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID, mId);
+    if (ret < 0) {
+        ALOGE("%s: Failed to add request_ID to NL command, Error:%d", __FUNCTION__, ret);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    attr_end(nlData);
+
+    ret = requestResponse();
+    if (ret != 0) {
+        ALOGE("%s: Failed to send request, Error:%d", __FUNCTION__, ret);
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    return WIFI_SUCCESS;
 }

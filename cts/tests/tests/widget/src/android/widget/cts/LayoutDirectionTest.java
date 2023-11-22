@@ -16,21 +16,42 @@
 
 package android.widget.cts;
 
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
-import android.view.ViewGroup;
-import android.widget.*;
-import android.widget.cts.R;
-
-import static android.view.View.LAYOUT_DIRECTION_LTR;
-import static android.view.View.LAYOUT_DIRECTION_RTL;
 import static android.view.View.LAYOUT_DIRECTION_INHERIT;
 import static android.view.View.LAYOUT_DIRECTION_LOCALE;
+import static android.view.View.LAYOUT_DIRECTION_LTR;
+import static android.view.View.LAYOUT_DIRECTION_RTL;
 
-public class LayoutDirectionTest extends ActivityInstrumentationTestCase2<LayoutDirectionCtsActivity> {
+import static org.junit.Assert.assertEquals;
 
-    public LayoutDirectionTest() {
-        super(LayoutDirectionCtsActivity.class);
+import android.app.Activity;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.GridLayout;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.TableLayout;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class LayoutDirectionTest {
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<LayoutDirectionCtsActivity> mActivityRule =
+            new ActivityTestRule<>(LayoutDirectionCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
     private void checkDefaultDirectionForOneLayoutWithCode(ViewGroup vg) {
@@ -38,15 +59,16 @@ public class LayoutDirectionTest extends ActivityInstrumentationTestCase2<Layout
     }
 
     @UiThreadTest
+    @Test
     public void testLayoutDirectionDefaults() {
-        checkDefaultDirectionForOneLayoutWithCode(new LinearLayout(getActivity()));
-        checkDefaultDirectionForOneLayoutWithCode(new FrameLayout(getActivity()));
-        checkDefaultDirectionForOneLayoutWithCode(new TableLayout(getActivity()));
-        checkDefaultDirectionForOneLayoutWithCode(new RelativeLayout(getActivity()));
-        checkDefaultDirectionForOneLayoutWithCode(new GridLayout(getActivity()));
+        checkDefaultDirectionForOneLayoutWithCode(new LinearLayout(mActivity));
+        checkDefaultDirectionForOneLayoutWithCode(new FrameLayout(mActivity));
+        checkDefaultDirectionForOneLayoutWithCode(new TableLayout(mActivity));
+        checkDefaultDirectionForOneLayoutWithCode(new RelativeLayout(mActivity));
+        checkDefaultDirectionForOneLayoutWithCode(new GridLayout(mActivity));
     }
 
-    private void checkDirectionForOneLayoutWithCode(ViewGroup vg) {
+    private void verifyDirectionForOneLayoutWithCode(ViewGroup vg) {
         vg.setLayoutDirection(LAYOUT_DIRECTION_LTR);
         assertEquals(LAYOUT_DIRECTION_LTR, vg.getLayoutDirection());
 
@@ -63,16 +85,17 @@ public class LayoutDirectionTest extends ActivityInstrumentationTestCase2<Layout
     }
 
     @UiThreadTest
+    @Test
     public void testDirectionForAllLayoutsWithCode() {
-        checkDirectionForOneLayoutWithCode(new LinearLayout(getActivity()));
-        checkDirectionForOneLayoutWithCode(new FrameLayout(getActivity()));
-        checkDirectionForOneLayoutWithCode(new TableLayout(getActivity()));
-        checkDirectionForOneLayoutWithCode(new RelativeLayout(getActivity()));
-        checkDirectionForOneLayoutWithCode(new GridLayout(getActivity()));
+        verifyDirectionForOneLayoutWithCode(new LinearLayout(mActivity));
+        verifyDirectionForOneLayoutWithCode(new FrameLayout(mActivity));
+        verifyDirectionForOneLayoutWithCode(new TableLayout(mActivity));
+        verifyDirectionForOneLayoutWithCode(new RelativeLayout(mActivity));
+        verifyDirectionForOneLayoutWithCode(new GridLayout(mActivity));
     }
 
-    private void checkDirectionInheritanceForOneLayoutWithCode(ViewGroup parent) {
-        LinearLayout child = new LinearLayout(getActivity());
+    private void verifyDirectionInheritanceForOneLayoutWithCode(ViewGroup parent) {
+        LinearLayout child = new LinearLayout(mActivity);
         child.setLayoutDirection(LAYOUT_DIRECTION_INHERIT);
         parent.addView(child);
 
@@ -90,74 +113,87 @@ public class LayoutDirectionTest extends ActivityInstrumentationTestCase2<Layout
     }
 
     @UiThreadTest
+    @Test
     public void testDirectionInheritanceForAllLayoutsWithCode() {
-        checkDirectionInheritanceForOneLayoutWithCode(new LinearLayout(getActivity()));
-        checkDirectionInheritanceForOneLayoutWithCode(new FrameLayout(getActivity()));
-        checkDirectionInheritanceForOneLayoutWithCode(new TableLayout(getActivity()));
-        checkDirectionInheritanceForOneLayoutWithCode(new RelativeLayout(getActivity()));
-        checkDirectionInheritanceForOneLayoutWithCode(new GridLayout(getActivity()));
+        verifyDirectionInheritanceForOneLayoutWithCode(new LinearLayout(mActivity));
+        verifyDirectionInheritanceForOneLayoutWithCode(new FrameLayout(mActivity));
+        verifyDirectionInheritanceForOneLayoutWithCode(new TableLayout(mActivity));
+        verifyDirectionInheritanceForOneLayoutWithCode(new RelativeLayout(mActivity));
+        verifyDirectionInheritanceForOneLayoutWithCode(new GridLayout(mActivity));
     }
 
-    private void checkDirectionForOneLayoutFromXml(int parentId, int parentDir, int parentResDir,
-                                                   int child1Id, int child1Dir, int child1ResDir,
-                                                   int child2Id, int child2Dir, int child2ResDir,
-                                                   int child3Id, int child3Dir, int child3ResDir,
-                                                   int child4Id, int child4Dir, int child4ResDir) {
-        ViewGroup ll = (ViewGroup) getActivity().findViewById(parentId);
+    private void verifyDirectionForOneLayoutFromXml(
+            int parentId, int parentDir, int parentResDir,
+            int child1Id, int child1Dir, int child1ResDir,
+            int child2Id, int child2Dir, int child2ResDir,
+            int child3Id, int child3Dir, int child3ResDir,
+            int child4Id, int child4Dir, int child4ResDir) {
+        ViewGroup ll = (ViewGroup) mActivity.findViewById(parentId);
         assertEquals(parentResDir, ll.getLayoutDirection());
 
-        ViewGroup child1 = (ViewGroup) getActivity().findViewById(child1Id);
+        ViewGroup child1 = (ViewGroup) mActivity.findViewById(child1Id);
         assertEquals(child1ResDir, child1.getLayoutDirection());
 
-        ViewGroup child2 = (ViewGroup) getActivity().findViewById(child2Id);
+        ViewGroup child2 = (ViewGroup) mActivity.findViewById(child2Id);
         assertEquals(child2ResDir, child2.getLayoutDirection());
 
-        ViewGroup child3 = (ViewGroup) getActivity().findViewById(child3Id);
+        ViewGroup child3 = (ViewGroup) mActivity.findViewById(child3Id);
         assertEquals(child3ResDir, child3.getLayoutDirection());
 
-        ViewGroup child4 = (ViewGroup) getActivity().findViewById(child4Id);
+        ViewGroup child4 = (ViewGroup) mActivity.findViewById(child4Id);
         assertEquals(child4ResDir, child4.getLayoutDirection());
     }
 
     @UiThreadTest
+    @Test
     public void testDirectionFromXml() {
         // We only test LinearLayout as the others would be the same (they extend ViewGroup / View)
-        checkDirectionForOneLayoutFromXml(
+        verifyDirectionForOneLayoutFromXml(
                 R.id.layout_linearlayout_ltr, LAYOUT_DIRECTION_LTR, LAYOUT_DIRECTION_LTR,
                 R.id.layout_linearlayout_ltr_child_1, LAYOUT_DIRECTION_LTR, LAYOUT_DIRECTION_LTR,
                 R.id.layout_linearlayout_ltr_child_2, LAYOUT_DIRECTION_RTL, LAYOUT_DIRECTION_RTL,
                 // parent is LTR
-                R.id.layout_linearlayout_ltr_child_3, LAYOUT_DIRECTION_INHERIT, LAYOUT_DIRECTION_LTR,
+                R.id.layout_linearlayout_ltr_child_3, LAYOUT_DIRECTION_INHERIT,
+                    LAYOUT_DIRECTION_LTR,
                 // running with English locale
-                R.id.layout_linearlayout_ltr_child_4, LAYOUT_DIRECTION_LOCALE, LAYOUT_DIRECTION_LTR);
+                R.id.layout_linearlayout_ltr_child_4, LAYOUT_DIRECTION_LOCALE,
+                    LAYOUT_DIRECTION_LTR);
 
-        checkDirectionForOneLayoutFromXml(
+        verifyDirectionForOneLayoutFromXml(
                 R.id.layout_linearlayout_rtl, LAYOUT_DIRECTION_RTL, LAYOUT_DIRECTION_RTL,
                 R.id.layout_linearlayout_rtl_child_1, LAYOUT_DIRECTION_LTR, LAYOUT_DIRECTION_LTR,
                 R.id.layout_linearlayout_rtl_child_2, LAYOUT_DIRECTION_RTL, LAYOUT_DIRECTION_RTL,
                 // parent is RTL
-                R.id.layout_linearlayout_rtl_child_3, LAYOUT_DIRECTION_INHERIT, LAYOUT_DIRECTION_RTL,
+                R.id.layout_linearlayout_rtl_child_3, LAYOUT_DIRECTION_INHERIT,
+                    LAYOUT_DIRECTION_RTL,
                 // running with English locale
-                R.id.layout_linearlayout_rtl_child_4, LAYOUT_DIRECTION_LOCALE, LAYOUT_DIRECTION_LTR);
+                R.id.layout_linearlayout_rtl_child_4, LAYOUT_DIRECTION_LOCALE,
+                    LAYOUT_DIRECTION_LTR);
 
-        checkDirectionForOneLayoutFromXml(
+        verifyDirectionForOneLayoutFromXml(
                 // default is LTR
                 R.id.layout_linearlayout_inherit, LAYOUT_DIRECTION_INHERIT, LAYOUT_DIRECTION_LTR,
-                R.id.layout_linearlayout_inherit_child_1, LAYOUT_DIRECTION_LTR, LAYOUT_DIRECTION_LTR,
-                R.id.layout_linearlayout_inherit_child_2, LAYOUT_DIRECTION_RTL, LAYOUT_DIRECTION_RTL,
+                R.id.layout_linearlayout_inherit_child_1, LAYOUT_DIRECTION_LTR,
+                    LAYOUT_DIRECTION_LTR,
+                R.id.layout_linearlayout_inherit_child_2, LAYOUT_DIRECTION_RTL,
+                    LAYOUT_DIRECTION_RTL,
                 // parent is LTR
-                R.id.layout_linearlayout_inherit_child_3, LAYOUT_DIRECTION_INHERIT, LAYOUT_DIRECTION_LTR,
+                R.id.layout_linearlayout_inherit_child_3, LAYOUT_DIRECTION_INHERIT,
+                    LAYOUT_DIRECTION_LTR,
                 // running with English locale
-                R.id.layout_linearlayout_inherit_child_4, LAYOUT_DIRECTION_LOCALE, LAYOUT_DIRECTION_LTR);
+                R.id.layout_linearlayout_inherit_child_4, LAYOUT_DIRECTION_LOCALE,
+                    LAYOUT_DIRECTION_LTR);
 
-        checkDirectionForOneLayoutFromXml(
+        verifyDirectionForOneLayoutFromXml(
                 // running with English locale
                 R.id.layout_linearlayout_locale, LAYOUT_DIRECTION_LOCALE, LAYOUT_DIRECTION_LTR,
                 R.id.layout_linearlayout_locale_child_1, LAYOUT_DIRECTION_LTR, LAYOUT_DIRECTION_LTR,
                 R.id.layout_linearlayout_locale_child_2, LAYOUT_DIRECTION_RTL, LAYOUT_DIRECTION_RTL,
                 // parent is LTR
-                R.id.layout_linearlayout_locale_child_3, LAYOUT_DIRECTION_INHERIT, LAYOUT_DIRECTION_LTR,
+                R.id.layout_linearlayout_locale_child_3, LAYOUT_DIRECTION_INHERIT,
+                    LAYOUT_DIRECTION_LTR,
                 // running with English locale
-                R.id.layout_linearlayout_locale_child_4, LAYOUT_DIRECTION_LOCALE, LAYOUT_DIRECTION_LTR);
+                R.id.layout_linearlayout_locale_child_4, LAYOUT_DIRECTION_LOCALE,
+                    LAYOUT_DIRECTION_LTR);
     }
 }

@@ -9,6 +9,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import perf
 from autotest_lib.client.cros import service_stopper
 
+
 class graphics_PerfControl(test.test):
   version = 1
 
@@ -32,10 +33,10 @@ class graphics_PerfControl(test.test):
     # behavior more consistent.
     with perf.PerfControl() as pc:
       if not pc.verify_is_valid():
-        raise error.TestError(pc.get_error_reason())
+        raise error.TestFailure('Failed: %s' % pc.get_error_reason())
       # Do nothing for a short while so the PerfControl thread is collecting
       # real data.
       time.sleep(10)
 
       if not pc.verify_is_valid():
-        raise error.TestError(pc.get_error_reason())
+        raise error.TestFail('Failed: %s' % pc.get_error_reason())

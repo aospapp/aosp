@@ -38,6 +38,8 @@
     <color name="play_controls_body_background_enabled">#0277BD</color>
     <color name="play_controls_body_background_disabled">#800277BD</color>
     <color name="play_controls_unavailable_message_text_color">#B3EEEEEE</color>
+    <color name="play_controls_icon_color">#FFEEEEEE</color>
+    <color name="play_controls_recording_icon_color_on_focus">#FFF44336</color>
 
     <!-- Base card -->
     <color name="card_meta_text_color_enabled">#EEEEEE</color>
@@ -101,6 +103,7 @@
     <color name="program_guide_table_detail_episode_title_text_color">#B3EEEEEE</color>
     <color name="program_guide_table_detail_title_grayed_text_color">#4CEEEEEE</color>
     <color name="program_guide_table_detail_time_text_color">#B3EEEEEE</color>
+    <color name="program_guide_table_detail_dvr_text_color">#EEEEEE</color>
     <color name="program_guide_table_detail_desc_text_color">#B3EEEEEE</color>
     <color name="program_guide_time_indicator_color">#17FFFF</color>
 
@@ -139,5 +142,20 @@
     <color name="setup_actions_background">#B30374BF</color>
     <!-- Add alpha value to common_setup_done_container_background -->
     <color name="setup_done_button_container_background">#8004549D</color>
+    <color name="setup_sub_actions_background">#4004549D</color>
     <color name="setup_category">#3EC2FF</color>
+
+    <!-- DVR -->
+    <color name="dvr_card_info">#37474F</color>
+    <color name="dvr_card_episode_text_color">#B3EEEEEE</color>
+    <color name="dvr_schedules_item_main">#FFEEEEEE</color>
+    <color name="dvr_schedules_header_description">#4CEEEEEE</color>
+    <color name="dvr_schedules_item_info_grey">#4CFFFFFF</color>
+    <color name="dvr_schedules_item_info">#80EEEEEE</color>
+    <color name="dvr_schedules_item_background">#FF384248</color>
+    <color name="dvr_schedules_list_item_selector">#1AFFFFFF</color>
+    <color name="dvr_guided_step_action_text_color">#EEEEEE</color>
+    <color name="dvr_guided_step_action_text_color_selected">#111111</color>
+    <color name="dvr_detail_default_background">#FF01579B</color>
+    <color name="dvr_detail_default_background_scrim">#CC000000</color>
 </resources>

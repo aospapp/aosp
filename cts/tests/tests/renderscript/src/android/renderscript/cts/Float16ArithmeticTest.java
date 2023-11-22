@@ -36,6 +36,8 @@ import android.util.Log;
 public class Float16ArithmeticTest extends RSBaseCompute {
     private int numInputs = Float16TestData.input.length;
 
+    private ScriptC_float16_arithmetic script;
+
     // Allocations to hold float16 input and output
     private Allocation mInput;
     private Allocation mF16Matrix;
@@ -47,7 +49,10 @@ public class Float16ArithmeticTest extends RSBaseCompute {
 
     // Create input, intermediate, and output allocations.  Copy input data to
     // the input allocation
-    private void setupTest() {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+
         Element f16 = Element.F16(mRS);
         Element u16 = Element.U16(mRS);
         Type f16Matrix = Type.createXY(mRS, f16, numInputs, numInputs);
@@ -58,6 +63,17 @@ public class Float16ArithmeticTest extends RSBaseCompute {
         mU16Matrix = Allocation.createTyped(mRS, u16Matrix);
 
         mInput.copyFromUnchecked(Float16TestData.input);
+
+        script = new ScriptC_float16_arithmetic(mRS);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        mInput.destroy();
+        mF16Matrix.destroy();
+        mU16Matrix.destroy();
+        script.destroy();
+        super.tearDown();
     }
 
     // Check the output of performing 'operation' on inputs x and y against the
@@ -116,9 +132,6 @@ public class Float16ArithmeticTest extends RSBaseCompute {
     }
 
     public void testFloat16Add() {
-        setupTest();
-        ScriptC_float16_arithmetic script = new ScriptC_float16_arithmetic(mRS);
-
         script.set_gInput(mInput);
         script.forEach_add(mF16Matrix);
         script.forEach_bitcast(mF16Matrix, mU16Matrix);
@@ -137,9 +150,6 @@ public class Float16ArithmeticTest extends RSBaseCompute {
     }
 
     public void testFloat16Sub() {
-        setupTest();
-        ScriptC_float16_arithmetic script = new ScriptC_float16_arithmetic(mRS);
-
         script.set_gInput(mInput);
         script.forEach_sub(mF16Matrix);
         script.forEach_bitcast(mF16Matrix, mU16Matrix);
@@ -158,9 +168,6 @@ public class Float16ArithmeticTest extends RSBaseCompute {
     }
 
     public void testFloat16Mul() {
-        setupTest();
-        ScriptC_float16_arithmetic script = new ScriptC_float16_arithmetic(mRS);
-
         script.set_gInput(mInput);
         script.forEach_mul(mF16Matrix);
         script.forEach_bitcast(mF16Matrix, mU16Matrix);
@@ -179,9 +186,6 @@ public class Float16ArithmeticTest extends RSBaseCompute {
     }
 
     public void testFloat16Div() {
-        setupTest();
-        ScriptC_float16_arithmetic script = new ScriptC_float16_arithmetic(mRS);
-
         script.set_gInput(mInput);
         script.forEach_div(mF16Matrix);
         script.forEach_bitcast(mF16Matrix, mU16Matrix);

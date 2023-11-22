@@ -16,29 +16,32 @@
 
 static_library("btcore") {
   sources = [
-    "src/bdaddr.c",
-    "src/device_class.c",
-    "src/hal_util.c",
-    "src/module.c",
-    "src/property.c",
-    "src/uuid.c",
-    "src/osi_module.c",
+    "src/bdaddr.cc",
+    "src/device_class.cc",
+    "src/hal_util.cc",
+    "src/module.cc",
+    "src/property.cc",
+    "src/uuid.cc",
+    "src/osi_module.cc",
   ]
 
   include_dirs = [
     "include",
     "//",
   ]
+
+  deps = [
+    "//third_party/libchrome:base",
+  ]
 }
 
 executable("net_test_btcore") {
   testonly = true
   sources = [
-    "test/bdaddr_test.cpp",
-    "test/device_class_test.cpp",
-    "test/property_test.cpp",
-    "test/uuid_test.cpp",
-    "//osi/test/AllocationTestHarness.cpp",
+    "test/device_class_test.cc",
+    "test/property_test.cc",
+    "test/uuid_test.cc",
+    "//osi/test/AllocationTestHarness.cc",
   ]
 
   include_dirs = [
@@ -50,6 +53,7 @@ executable("net_test_btcore") {
     "//btcore",
     "//osi",
     "//third_party/googletest:gtest_main",
+    "//third_party/libchrome:base",
   ]
 
   libs = [

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2009, Google, International Business Machines Corporation and    *
@@ -20,5 +22,6 @@ public interface StringTransform extends Transform<String,String> {
      * @return result
      * @stable ICU 3.8
      */
+    @Override
     public String transform(String source);
 }

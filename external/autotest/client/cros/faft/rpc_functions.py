@@ -41,19 +41,19 @@ def allow_multiple_section_input(image_operator):
     return wrapper
 
 
-class LazyFlashromHandlerProxy:
-    """Proxy of FlashromHandler for lazy initialization."""
+class LazyInitHandlerProxy:
+    """Proxy of a given handler_class for lazy initialization."""
     _loaded = False
     _obj = None
 
-    def __init__(self, *args, **kargs):
+    def __init__(self, handler_class, *args, **kargs):
+        self._handler_class = handler_class
         self._args = args
         self._kargs = kargs
 
     def _load(self):
-        self._obj = flashrom_handler.FlashromHandler()
+        self._obj = self._handler_class()
         self._obj.init(*self._args, **self._kargs)
-        self._obj.new_image()
         self._loaded = True
 
     def __getattr__(self, name):
@@ -100,21 +100,23 @@ class RPCFunctions(object):
         self._os_if.init(state_dir, log_file=self._log_file)
         os.chdir(state_dir)
 
-        self._bios_handler = LazyFlashromHandlerProxy(
-                                saft_flashrom_util,
-                                self._os_if,
-                                None,
-                                '/usr/share/vboot/devkeys',
-                                'bios')
+        self._bios_handler = LazyInitHandlerProxy(
+                flashrom_handler.FlashromHandler,
+                saft_flashrom_util,
+                self._os_if,
+                None,
+                '/usr/share/vboot/devkeys',
+                'bios')
 
         self._ec_handler = None
         if self._os_if.run_shell_command_get_status('mosys ec info') == 0:
-            self._ec_handler = LazyFlashromHandlerProxy(
-                                  saft_flashrom_util,
-                                  self._os_if,
-                                  'ec_root_key.vpubk',
-                                  '/usr/share/vboot/devkeys',
-                                  'ec')
+            self._ec_handler = LazyInitHandlerProxy(
+                    flashrom_handler.FlashromHandler,
+                    saft_flashrom_util,
+                    self._os_if,
+                    'ec_root_key.vpubk',
+                    '/usr/share/vboot/devkeys',
+                    'ec')
         else:
             self._os_if.log('No EC is reported by mosys.')
 
@@ -123,12 +125,9 @@ class RPCFunctions(object):
                                   dev_key_path='/usr/share/vboot/devkeys',
                                   internal_disk=True)
 
-        # FIXME(waihong): Add back the TPM support.
-        if not self._os_if.is_android:
-            self._tpm_handler = tpm_handler.TpmHandler()
-            self._tpm_handler.init(self._os_if)
-        else:
-            self._tpm_handler = None
+        self._tpm_handler = LazyInitHandlerProxy(
+                tpm_handler.TpmHandler,
+                self._os_if)
 
         self._cgpt_handler = cgpt_handler.CgptHandler(self._os_if)
 
@@ -631,7 +630,23 @@ class RPCFunctions(object):
 
     def _tpm_get_firmware_datakey_version(self):
         """Retrieve tpm firmware data key version."""
-        return self._tpm_handler.get_fw_body_version()
+        return self._tpm_handler.get_fw_key_version()
+
+    def _tpm_get_kernel_version(self):
+        """Retrieve tpm kernel body version."""
+        return self._tpm_handler.get_kernel_version()
+
+    def _tpm_get_kernel_datakey_version(self):
+        """Retrieve tpm kernel data key version."""
+        return self._tpm_handler.get_kernel_key_version()
+
+    def _tpm_stop_daemon(self):
+        """Stop tpm related daemon."""
+        return self._tpm_handler.stop_daemon()
+
+    def _tpm_restart_daemon(self):
+        """Restart tpm related daemon which was stopped by stop_daemon()."""
+        return self._tpm_handler.restart_daemon()
 
     def _cgpt_get_attributes(self):
         """Get kernel attributes."""
@@ -671,7 +686,14 @@ class RPCFunctions(object):
         """
         self._updater.resign_firmware(version)
 
-    def _updater_repack_shellball(self, append):
+    def _updater_extract_shellball(self, append=None):
+        """Extract shellball with the given append suffix.
+
+        @param append: use for the shellball name.
+        """
+        self._updater.extract_shellball(append)
+
+    def _updater_repack_shellball(self, append=None):
         """Repack shellball with new fwid.
 
         @param append: use for new fwid naming.

@@ -77,18 +77,12 @@ public class KeyStoreSpiTest extends TestCase {
                 KeyStore.TrustedCertificateEntry.class));
 
         try {
-            assertFalse(ksSpi.engineEntryInstanceOf(null,
-                    KeyStore.TrustedCertificateEntry.class));
+            ksSpi.engineEntryInstanceOf(null, KeyStore.TrustedCertificateEntry.class);
+            fail();
         } catch (NullPointerException expected) {
         }
 
-        try {
-            assertFalse(ksSpi.engineEntryInstanceOf(
-                    "test_engineEntryInstanceOf_Alias1", null));
-        } catch (NullPointerException expected) {
-        }
-
-
+        assertFalse(ksSpi.engineEntryInstanceOf("test_engineEntryInstanceOf_Alias1", null));
     }
 
     public void testKeyStoreSpi01() throws IOException,
@@ -111,6 +105,7 @@ public class KeyStoreSpiTest extends TestCase {
 
         try {
             ksSpi.engineStore(null);
+            fail();
         } catch (UnsupportedOperationException expected) {
         }
         assertNull("Not null entry", ksSpi.engineGetEntry("aaa", null));

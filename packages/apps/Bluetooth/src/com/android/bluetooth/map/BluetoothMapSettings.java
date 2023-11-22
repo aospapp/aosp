@@ -14,6 +14,7 @@
 */
 
 package com.android.bluetooth.map;
+
 import com.android.bluetooth.R;
 import com.android.bluetooth.map.BluetoothMapAccountItem;
 
@@ -46,7 +47,7 @@ public class BluetoothMapSettings extends Activity {
 
 
         /* update expandable listview with correct items */
-        ExpandableListView listView = 
+        ExpandableListView listView =
             (ExpandableListView) findViewById(R.id.bluetooth_map_settings_list_view);
 
         BluetoothMapSettingsAdapter adapter = new BluetoothMapSettingsAdapter(this,

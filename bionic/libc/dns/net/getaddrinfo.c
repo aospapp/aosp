@@ -108,10 +108,6 @@
 #include <stdarg.h>
 #include "nsswitch.h"
 
-#ifdef ANDROID_CHANGES
-#include <sys/system_properties.h>
-#endif /* ANDROID_CHANGES */
-
 typedef union sockaddr_union {
     struct sockaddr     generic;
     struct sockaddr_in  in;
@@ -134,8 +130,10 @@ static const char in6_loopback[] = {
 };
 #endif
 
+#if defined(__ANDROID__)
 // This should be synchronized to ResponseCode.h
 static const int DnsProxyQueryResult = 222;
+#endif
 
 static const struct afd {
 	int a_af;
@@ -325,7 +323,7 @@ freeaddrinfo(struct addrinfo *ai)
 {
 	struct addrinfo *next;
 
-#if __ANDROID__
+#if defined(__BIONIC__)
 	if (ai == NULL) return;
 #else
 	_DIAGASSERT(ai != NULL);
@@ -399,6 +397,7 @@ bool readBE32(FILE* fp, int32_t* result) {
   return true;
 }
 
+#if defined(__ANDROID__)
 // Returns 0 on success, else returns on error.
 static int
 android_getaddrinfo_proxy(
@@ -555,6 +554,7 @@ exit:
 	}
 	return EAI_NODATA;
 }
+#endif
 
 int
 getaddrinfo(const char *hostname, const char *servname,
@@ -1290,6 +1290,17 @@ ip6_str2scopeid(char *scope, struct sockaddr_in6 *sin6, u_int32_t *scopeid)
 static const char AskedForGot[] =
 	"gethostby*.getanswer: asked for \"%s\", got \"%s\"";
 
+#define BOUNDED_INCR(x) \
+	do { \
+		BOUNDS_CHECK(cp, x); \
+		cp += (x); \
+	} while (/*CONSTCOND*/0)
+
+#define BOUNDS_CHECK(ptr, count) \
+	do { \
+		if (eom - (ptr) < (count)) { h_errno = NO_RECOVERY; return NULL; } \
+	} while (/*CONSTCOND*/0)
+
 static struct addrinfo *
 getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
     const struct addrinfo *pai)
@@ -1335,7 +1346,8 @@ getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
 	qdcount = ntohs(hp->qdcount);
 	bp = hostbuf;
 	ep = hostbuf + sizeof hostbuf;
-	cp = answer->buf + HFIXEDSZ;
+	cp = answer->buf;
+	BOUNDED_INCR(HFIXEDSZ);
 	if (qdcount != 1) {
 		h_errno = NO_RECOVERY;
 		return (NULL);
@@ -1345,7 +1357,7 @@ getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
 		h_errno = NO_RECOVERY;
 		return (NULL);
 	}
-	cp += n + QFIXEDSZ;
+	BOUNDED_INCR(n + QFIXEDSZ);
 	if (qtype == T_A || qtype == T_AAAA || qtype == T_ANY) {
 		/* res_send() has already verified that the query name is the
 		 * same as the one we sent; this just gets the expanded name
@@ -1370,12 +1382,14 @@ getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
 			continue;
 		}
 		cp += n;			/* name */
+		BOUNDS_CHECK(cp, 3 * INT16SZ + INT32SZ);
 		type = _getshort(cp);
  		cp += INT16SZ;			/* type */
 		class = _getshort(cp);
  		cp += INT16SZ + INT32SZ;	/* class, TTL */
 		n = _getshort(cp);
 		cp += INT16SZ;			/* len */
+		BOUNDS_CHECK(cp, n);
 		if (class != C_IN) {
 			/* XXX - debug? syslog? */
 			cp += n;
@@ -1791,10 +1805,14 @@ _find_src_addr(const struct sockaddr *addr, struct sockaddr *src_addr, unsigned 
 			return -1;
 		}
 	}
-	if (mark != MARK_UNSET && setsockopt(sock, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) < 0)
+	if (mark != MARK_UNSET && setsockopt(sock, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) < 0) {
+		close(sock);
 		return 0;
-	if (uid > 0 && uid != NET_CONTEXT_INVALID_UID && fchown(sock, uid, (gid_t)-1) < 0)
+	}
+	if (uid > 0 && uid != NET_CONTEXT_INVALID_UID && fchown(sock, uid, (gid_t)-1) < 0) {
+		close(sock);
 		return 0;
+	}
 	do {
 		ret = __connect(sock, addr, len);
 	} while (ret == -1 && errno == EINTR);

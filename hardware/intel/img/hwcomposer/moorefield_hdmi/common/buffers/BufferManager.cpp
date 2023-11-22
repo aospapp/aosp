@@ -17,14 +17,14 @@
 #include <common/utils/HwcTrace.h>
 #include <hardware/hwcomposer.h>
 #include <BufferManager.h>
+#include <hal_public.h>
 #include <DrmConfig.h>
 
 namespace android {
 namespace intel {
 
 BufferManager::BufferManager()
-    : mGrallocModule(NULL),
-      mAllocDev(NULL),
+    : mGralloc(NULL),
       mFrameBuffers(),
       mBufferPool(NULL),
       mDataBuffer(NULL),
@@ -56,15 +56,8 @@ bool BufferManager::initialize()
     }
 
     // init gralloc module
-    hw_module_t const* module;
-    if (hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module)) {
+    if (gralloc_open_img(&mGralloc)) {
         DEINIT_AND_RETURN_FALSE("failed to get gralloc module");
-    }
-    mGrallocModule = (gralloc_module_t const*)module;
-
-    gralloc_open(module, &mAllocDev);
-    if (!mAllocDev) {
-        WLOGTRACE("failed to open alloc device");
     }
 
     // create a dummy data buffer
@@ -100,9 +93,9 @@ void BufferManager::deinitialize()
     }
     mFrameBuffers.clear();
 
-    if (mAllocDev) {
-        gralloc_close(mAllocDev);
-        mAllocDev = NULL;
+    if (mGralloc) {
+        gralloc_close_img(mGralloc);
+        mGralloc = NULL;
     }
 
     if (mDataBuffer) {
@@ -222,7 +215,7 @@ uint32_t BufferManager::allocFrameBuffer(int width, int height, int *stride)
 {
     RETURN_NULL_IF_NOT_INIT();
 
-    if (!mAllocDev) {
+    if (!mGralloc) {
         WLOGTRACE("Alloc device is not available");
         return 0;
     }
@@ -234,8 +227,8 @@ uint32_t BufferManager::allocFrameBuffer(int width, int height, int *stride)
 
     ILOGTRACE("size of frame buffer to create: %dx%d", width, height);
     uint32_t handle = 0;
-    status_t err  = mAllocDev->alloc(
-            mAllocDev,
+    status_t err = gralloc_device_alloc_img(
+            mGralloc,
             width,
             height,
             DrmConfig::getFrameBufferFormat(),
@@ -282,7 +275,7 @@ uint32_t BufferManager::allocFrameBuffer(int width, int height, int *stride)
     if (mapper) {
         delete mapper;
     }
-    mAllocDev->free(mAllocDev, (buffer_handle_t)handle);
+    gralloc_device_free_img(mGralloc, (buffer_handle_t)handle);
     return 0;
 }
 
@@ -290,7 +283,7 @@ void BufferManager::freeFrameBuffer(uint32_t fbHandle)
 {
     RETURN_VOID_IF_NOT_INIT();
 
-    if (!mAllocDev) {
+    if (!mGralloc) {
         WLOGTRACE("Alloc device is not available");
         return;
     }
@@ -306,14 +299,14 @@ void BufferManager::freeFrameBuffer(uint32_t fbHandle)
     mapper->putFbHandle();
     delete mapper;
     mFrameBuffers.removeItem(fbHandle);
-    mAllocDev->free(mAllocDev, (buffer_handle_t)handle);
+    gralloc_device_free_img(mGralloc, (buffer_handle_t)handle);
 }
 
 uint32_t BufferManager::allocGrallocBuffer(uint32_t width, uint32_t height, uint32_t format, uint32_t usage)
 {
     RETURN_NULL_IF_NOT_INIT();
 
-    if (!mAllocDev) {
+    if (!mGralloc) {
         WLOGTRACE("Alloc device is not available");
         return 0;
     }
@@ -326,8 +319,8 @@ uint32_t BufferManager::allocGrallocBuffer(uint32_t width, uint32_t height, uint
     ILOGTRACE("size of graphic buffer to create: %dx%d", width, height);
     uint32_t handle = 0;
     int stride;
-    status_t err  = mAllocDev->alloc(
-                mAllocDev,
+    status_t err = gralloc_device_alloc_img(
+                mGralloc,
                 width,
                 height,
                 format,
@@ -345,13 +338,13 @@ uint32_t BufferManager::allocGrallocBuffer(uint32_t width, uint32_t height, uint
 void BufferManager::freeGrallocBuffer(uint32_t handle)
 {
     RETURN_VOID_IF_NOT_INIT();
-    if (!mAllocDev) {
+    if (!mGralloc) {
         WLOGTRACE("Alloc device is not available");
         return;
     }
 
     if (handle)
-        mAllocDev->free(mAllocDev, (buffer_handle_t)handle);
+        gralloc_device_free_img(mGralloc, (buffer_handle_t)handle);
 }
 
 } // namespace intel

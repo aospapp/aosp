@@ -42,6 +42,14 @@ public class ScopedDirectoryAccessTest extends DocumentsTestCase {
         runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest", "testNotAskedAgain");
     }
 
+    public void testDeniesOnceForAllClearedWhenPackageRemoved() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest",
+                "testRemovePackageStep1UserDenies");
+        reinstallClientPackage();
+        runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest",
+                "testRemovePackageStep2UserAcceptsDoNotClear");
+    }
+
     public void testDeniesOnceButAllowsAskingAgain() throws Exception {
         runDeviceTests(CLIENT_PKG, ".ScopedDirectoryAccessClientTest",
                 "testDeniesOnceButAllowsAskingAgain");

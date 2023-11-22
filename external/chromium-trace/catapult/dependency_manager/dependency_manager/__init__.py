@@ -18,7 +18,7 @@ def _AddDirToPythonPath(*path_parts):
     sys.path.append(path)
 
 
-_AddDirToPythonPath(CATAPULT_PATH, 'catapult_base')
+_AddDirToPythonPath(CATAPULT_PATH, 'common', 'py_utils')
 _AddDirToPythonPath(CATAPULT_THIRD_PARTY_PATH, 'mock')
 _AddDirToPythonPath(CATAPULT_THIRD_PARTY_PATH, 'pyfakefs')
 _AddDirToPythonPath(DEPENDENCY_MANAGER_PATH)
@@ -29,6 +29,7 @@ from .archive_info import ArchiveInfo
 from .base_config import BaseConfig
 from .cloud_storage_info import CloudStorageInfo
 from .dependency_info import DependencyInfo
+from .exceptions import CloudStorageError
 from .exceptions import CloudStorageUploadConflictError
 from .exceptions import EmptyConfigError
 from .exceptions import FileNotFoundError

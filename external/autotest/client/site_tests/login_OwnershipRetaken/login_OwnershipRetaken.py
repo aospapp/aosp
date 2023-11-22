@@ -47,8 +47,7 @@ class login_OwnershipRetaken(test.test):
                                            new_users=True,
                                            roaming=True,
                                            whitelist=(ownership.TESTUSER,
-                                                      'a@b.c'),
-                                           proxies={ 'proxy_mode': 'direct' })
+                                                      'a@b.c'))
         policy_string = policy.generate_policy(self.srcdir,
                                                pkey,
                                                pubkey,
@@ -84,8 +83,7 @@ class login_OwnershipRetaken(test.test):
                                        guests=False,
                                        new_users=True,
                                        roaming=True,
-                                       whitelist=(ownership.TESTUSER, 'a@b.c'),
-                                       proxies={ 'proxy_mode': 'direct' })
+                                       whitelist=(ownership.TESTUSER, 'a@b.c'))
 
 
     def cleanup(self):

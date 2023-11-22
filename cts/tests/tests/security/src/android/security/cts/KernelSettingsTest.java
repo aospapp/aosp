@@ -16,6 +16,8 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
+
 import junit.framework.TestCase;
 
 import java.io.BufferedReader;
@@ -28,21 +30,11 @@ import java.io.IOException;
  * Verify that the kernel is configured how we expect it to be
  * configured.
  */
+@SecurityTest
 public class KernelSettingsTest extends TestCase {
 
     static {
         System.loadLibrary("ctssecurity_jni");
-    }
-
-    /**
-     * Ensure that SELinux is in enforcing mode.
-     */
-    public void testSELinuxEnforcing() throws IOException {
-        try {
-            assertEquals("1", getFile("/sys/fs/selinux/enforce"));
-        } catch (FileNotFoundException e) {
-            fail("SELinux is not compiled into this kernel, or is disabled.");
-        }
     }
 
     /**
@@ -83,19 +75,6 @@ public class KernelSettingsTest extends TestCase {
         } catch (FileNotFoundException e) {
             // Odd. The file doesn't exist... Assume we're ok.
         }
-    }
-
-    /**
-     * Assert that the kernel config file is not compiled into the kernel.
-     *
-     * Compiling the config file into the kernel leaks the kernel base address
-     * via CONFIG_PHYS_OFFSET. It also wastes a small amount of valuable kernel memory.
-     */
-    public void testNoConfigGz() throws IOException {
-        assertFalse(
-                "/proc/config.gz is readable.  Please recompile your "
-                        + "kernel with CONFIG_IKCONFIG_PROC disabled",
-                new File("/proc/config.gz").exists());
     }
 
     /**

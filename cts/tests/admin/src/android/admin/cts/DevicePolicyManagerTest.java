@@ -174,6 +174,44 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
     }
 
+    public void testSetNetworkLoggingEnabled_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetNetworkLoggingEnabled_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.setNetworkLoggingEnabled(mComponent, true);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertDeviceOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testIsNetworkLoggingEnabled_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testIsNetworkLoggingEnabled_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.isNetworkLoggingEnabled(mComponent);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertDeviceOwnerOrManageUsersMessage(e.getMessage());
+        }
+    }
+
+    public void testRetrieveNetworkLogs_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testRetrieveNetworkLogs_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.retrieveNetworkLogs(mComponent, /* batchToken */ 0);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertDeviceOwnerMessage(e.getMessage());
+        }
+    }
     public void testRemoveUser_failIfNotDeviceOwner() {
         if (!mDeviceAdmin) {
             Log.w(TAG, "Skipping testRemoveUser_failIfNotDeviceOwner");
@@ -234,10 +272,25 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
         try {
             mDevicePolicyManager.setSecureSetting(mComponent,
-                    Settings.Secure.INSTALL_NON_MARKET_APPS, "1");
+                    Settings.Secure.SKIP_FIRST_USE_HINTS, "1");
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
             assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testSetSecureSetting_failForInstallNonMarketApps() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetSecureSetting_failForInstallNonMarketApps");
+            return;
+        }
+        ComponentName profileOwner = DeviceAdminInfoTest.getProfileOwnerComponent();
+        try {
+            mDevicePolicyManager.setSecureSetting(profileOwner,
+                    Settings.Secure.INSTALL_NON_MARKET_APPS, "0");
+            fail("did not throw UnsupportedOperationException");
+        } catch (UnsupportedOperationException exc) {
+            // Supposed to throw. Pass.
         }
     }
 
@@ -480,16 +533,16 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
     }
 
-    public void testSetAutoTimeRequired_failIfNotDeviceOwner() {
+    public void testSetAutoTimeRequired_failIfNotDeviceOrProfileOwner() {
         if (!mDeviceAdmin) {
-            Log.w(TAG, "Skipping testSetAutoTimeRequired_failIfNotDeviceOwner");
+            Log.w(TAG, "Skipping testSetAutoTimeRequired_failIfNotDeviceOrProfileOwner");
             return;
         }
         try {
             mDevicePolicyManager.setAutoTimeRequired(mComponent, true);
             fail("did not throw expected SecurityException");
         } catch (SecurityException e) {
-            assertDeviceOwnerMessage(e.getMessage());
+            assertProfileOwnerMessage(e.getMessage());
         }
     }
 
@@ -671,16 +724,25 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
     }
 
     /**
-     * Test that managed provisioning is pre-installed if and only if the device declares the
-     * device admin feature.
+     * Test that managed provisioning is pre-installed if the device declares the device admin
+     * feature.
      */
     public void testManagedProvisioningPreInstalled() throws Exception {
-        assertEquals(mDeviceAdmin, isPackageInstalledOnSystemImage(MANAGED_PROVISIONING_PKG));
+        if (mDeviceAdmin) {
+            assertTrue(isPackageInstalledOnSystemImage(MANAGED_PROVISIONING_PKG));
+        }
     }
 
     private void assertDeviceOwnerMessage(String message) {
         assertTrue("message is: "+ message, message.contains("does not own the device")
                 || message.contains("can only be called by the device owner"));
+    }
+
+    private void assertDeviceOwnerOrManageUsersMessage(String message) {
+        assertTrue("message is: "+ message, message.contains("does not own the device")
+                || message.contains("can only be called by the device owner")
+                || (message.startsWith("Neither user ") && message.endsWith(
+                        " nor current process has android.permission.MANAGE_USERS.")));
     }
 
     private void assertProfileOwnerMessage(String message) {
@@ -750,4 +812,93 @@ public class DevicePolicyManagerTest extends AndroidTestCase {
         }
     }
 
+    public void testSetBackupServiceEnabled_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetBackupServiceEnabled");
+            return;
+        }
+        try {
+            mDevicePolicyManager.setBackupServiceEnabled(mComponent, false);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertDeviceOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testIsBackupServiceEnabled_failIfNotDeviceOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testIsBackupServiceEnabled");
+            return;
+        }
+        try {
+            mDevicePolicyManager.isBackupServiceEnabled(mComponent);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertDeviceOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testCreateAdminSupportIntent_returnNullIfRestrictionIsNotSet() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testCreateAdminSupportIntent");
+            return;
+        }
+        Intent intent = mDevicePolicyManager.createAdminSupportIntent(
+                DevicePolicyManager.POLICY_DISABLE_CAMERA);
+        assertNull(intent);
+        intent = mDevicePolicyManager.createAdminSupportIntent(UserManager.DISALLOW_ADJUST_VOLUME);
+        assertNull(intent);
+    }
+
+    public void testSetResetPasswordToken_failIfNotDeviceOrProfileOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testSetResetPasswordToken_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.setResetPasswordToken(mComponent, new byte[32]);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testClearResetPasswordToken_failIfNotDeviceOrProfileOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testClearResetPasswordToken_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.clearResetPasswordToken(mComponent);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testIsResetPasswordTokenActive_failIfNotDeviceOrProfileOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testIsResetPasswordTokenActive_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.isResetPasswordTokenActive(mComponent);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
+
+    public void testResetPasswordWithToken_failIfNotDeviceOrProfileOwner() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testResetPasswordWithToken_failIfNotDeviceOwner");
+            return;
+        }
+        try {
+            mDevicePolicyManager.resetPasswordWithToken(mComponent, "1234", new byte[32], 0);
+            fail("did not throw expected SecurityException");
+        } catch (SecurityException e) {
+            assertProfileOwnerMessage(e.getMessage());
+        }
+    }
 }

@@ -5,6 +5,7 @@
 #ifndef _BSDIFF_TEST_UTILS_H_
 #define _BSDIFF_TEST_UTILS_H_
 
+#include <gtest/gtest.h>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,11 @@
   } while (0)
 
 namespace test_utils {
+
+class BsdiffTestEnvironment : public ::testing::Environment {
+  public:
+    virtual void SetUp();
+};
 
 // Reads all the contents of the file |path| into |out|. Returns whether it
 // read up to the end of file.

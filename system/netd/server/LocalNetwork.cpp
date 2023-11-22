@@ -21,6 +21,9 @@
 #define LOG_TAG "Netd"
 #include "log/log.h"
 
+namespace android {
+namespace net {
+
 LocalNetwork::LocalNetwork(unsigned netId) : Network(netId) {
 }
 
@@ -54,3 +57,6 @@ int LocalNetwork::removeInterface(const std::string& interface) {
     mInterfaces.erase(interface);
     return 0;
 }
+
+}  // namespace net
+}  // namespace android

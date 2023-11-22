@@ -6,7 +6,7 @@ import ConfigParser, os, shelve, shutil, sys, tarfile, time
 import difflib, itertools
 import common
 from autotest_lib.client.common_lib import utils, autotemp
-from autotest_lib.tko import status_lib
+from autotest_lib.tko import parser_lib
 from autotest_lib.tko.parsers.test import templates
 from autotest_lib.tko.parsers.test import unittest_hotfix
 
@@ -262,7 +262,7 @@ def new_parser_harness(results_dirpath):
     keyval_path = path.join(results_dirpath, KEYVAL)
     job_keyval = utils.read_keyval(keyval_path)
     status_version = job_keyval[STATUS_VERSION]
-    parser = status_lib.parser(status_version)
+    parser = parser_lib.parser(status_version)
     job = parser.make_job(results_dirpath)
     status_log_filepath = path.join(results_dirpath, 'status.log')
     if not path.exists(status_log_filepath):

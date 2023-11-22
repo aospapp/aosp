@@ -114,6 +114,11 @@ class RecordPublicApiRules implements Rules {
       });
     }
 
+    @Override
+    public String toString() {
+      return "RecordPublicApi{}";
+    }
+
     private boolean handleTypeDeclarationNode(AbstractTypeDeclaration node) {
       handleDeclarationNode(node);
       // Continue processing for nested types / methods.

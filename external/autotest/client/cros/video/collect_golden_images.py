@@ -70,7 +70,7 @@ def main():
     tmp = datetime.datetime.strptime(args.start, time_format)
     start = datetime.timedelta(minutes=tmp.minute, seconds=tmp.second)
 
-    with chrome.Chrome() as cr:
+    with chrome.Chrome(init_network_controller=True) as cr:
         bindir = '/usr/local/autotest/cros/video'
 
         cr.browser.platform.SetHTTPServerDirectories(bindir)

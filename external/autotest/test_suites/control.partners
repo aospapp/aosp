@@ -5,7 +5,6 @@
 AUTHOR = "rohitbm@chromium.org"
 NAME = "partners"
 PURPOSE = "Tests for partners to run functional tests"
-CRITERIA = "All tests with SUITE=partners must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "General"

@@ -24,16 +24,7 @@
         android:id="@+id/toolbar_main"
         android:layout_width="match_parent"
         android:layout_height="?android:attr/actionBarSize"
-        android:titleMargin="5px"
-        android:titleMarginTop="10px"
-        android:titleMarginEnd="15px"
-        android:titleMarginBottom="20px"
         android:popupTheme="@style/PopupWindow.NullTransitions" />
-
-    <Toolbar
-        android:id="@+id/toolbar2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
 
 </LinearLayout>
 

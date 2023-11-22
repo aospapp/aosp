@@ -17,8 +17,6 @@ package android.bluetooth;
 
 import android.os.ParcelUuid;
 import android.bluetooth.BluetoothGattService;
-import android.bluetooth.le.AdvertiseSettings;
-import android.bluetooth.le.ScanResult;
 
 /**
  * Callback definitions for interacting with BLE / GATT
@@ -28,8 +26,8 @@ oneway interface IBluetoothGattCallback {
     void onClientRegistered(in int status, in int clientIf);
     void onClientConnectionState(in int status, in int clientIf,
                                  in boolean connected, in String address);
-    void onScanResult(in ScanResult scanResult);
-    void onBatchScanResults(in List<ScanResult> batchResults);
+    void onPhyUpdate(in String address, in int txPhy, in int rxPhy, in int status);
+    void onPhyRead(in String address, in int txPhy, in int rxPhy, in int status);
     void onSearchComplete(in String address, in List<BluetoothGattService> services, in int status);
     void onCharacteristicRead(in String address, in int status, in int handle, in byte[] value);
     void onCharacteristicWrite(in String address, in int status, in int handle);
@@ -38,9 +36,7 @@ oneway interface IBluetoothGattCallback {
     void onDescriptorWrite(in String address, in int status, in int handle);
     void onNotify(in String address, in int handle, in byte[] value);
     void onReadRemoteRssi(in String address, in int rssi, in int status);
-    void onMultiAdvertiseCallback(in int status, boolean isStart,
-                                  in AdvertiseSettings advertiseSettings);
-    void onScanManagerErrorCallback(in int errorCode);
     void onConfigureMTU(in String address, in int mtu, in int status);
-    void onFoundOrLost(in boolean onFound, in ScanResult scanResult);
+    void onConnectionUpdated(in String address, in int interval, in int latency,
+                             in int timeout, in int status);
 }

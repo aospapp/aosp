@@ -17,7 +17,7 @@
 
 <sample>
     <name>ScopedDirectoryAccess</name>
-    <group>Android N Preview</group>  <!-- This field will be deprecated in the future
+    <group>Content</group>  <!-- This field will be deprecated in the future
                             and replaced with the "categories" tags below. -->
     <package>com.example.android.scopeddirectoryaccess</package>
 
@@ -43,7 +43,7 @@ READ_EXTERNAL_STORAGE or WRITE_EXTERNAL_STORAGE in your manifest.
 
     <metadata>
         <status>PUBLISHED</status>
-        <categories>Android N Preview</categories>
+        <categories>Content</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>

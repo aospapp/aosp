@@ -25,13 +25,13 @@ import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
 import android.net.Uri;
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.UiThreadTest;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 import android.test.mock.MockCursor;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
@@ -107,11 +107,7 @@ public class ChannelDataManagerTest extends AndroidTestCase {
 
     private void startAndWaitForComplete() throws Exception {
         mChannelDataManager.start();
-        try {
-            assertTrue(mListener.loadFinishedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
-        } catch (InterruptedException e) {
-            throw e;
-        }
+        assertTrue(mListener.loadFinishedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
     }
 
     private void restart() throws Exception {

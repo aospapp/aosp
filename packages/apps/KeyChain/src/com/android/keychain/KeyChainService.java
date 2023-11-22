@@ -16,17 +16,19 @@
 
 package com.android.keychain;
 
+import android.app.BroadcastOptions;
 import android.app.IntentService;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.ParceledListSlice;
+import android.content.pm.StringParceledListSlice;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.UserHandle;
@@ -35,7 +37,6 @@ import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore;
 import android.util.Log;
-import com.android.internal.util.ParcelableString;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.cert.CertificateException;
@@ -140,18 +141,23 @@ public class KeyChainService extends IntentService {
             }
         }
 
-        @Override public void installCaCertificate(byte[] caCertificate) {
+        @Override public String installCaCertificate(byte[] caCertificate) {
             checkCertInstallerOrSystemCaller();
+            final String alias;
             try {
+                final X509Certificate cert = parseCertificate(caCertificate);
                 synchronized (mTrustedCertificateStore) {
-                    mTrustedCertificateStore.installCertificate(parseCertificate(caCertificate));
+                    mTrustedCertificateStore.installCertificate(cert);
+                    alias = mTrustedCertificateStore.getCertificateAlias(cert);
                 }
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             } catch (CertificateException e) {
                 throw new IllegalStateException(e);
             }
-            broadcastStorageChange();
+            broadcastLegacyStorageChange();
+            broadcastTrustStoreChange();
+            return alias;
         }
 
         /**
@@ -198,7 +204,8 @@ public class KeyChainService extends IntentService {
                     return false;
                 }
             }
-            broadcastStorageChange();
+            broadcastKeychainChange();
+            broadcastLegacyStorageChange();
             return true;
         }
 
@@ -208,7 +215,8 @@ public class KeyChainService extends IntentService {
                 return false;
             }
             removeGrantsForAlias(alias);
-            broadcastStorageChange();
+            broadcastKeychainChange();
+            broadcastLegacyStorageChange();
             return true;
         }
 
@@ -232,7 +240,9 @@ public class KeyChainService extends IntentService {
                     }
                 }
             }
-            broadcastStorageChange();
+            broadcastTrustStoreChange();
+            broadcastKeychainChange();
+            broadcastLegacyStorageChange();
             return ok;
         }
 
@@ -243,7 +253,8 @@ public class KeyChainService extends IntentService {
             synchronized (mTrustedCertificateStore) {
                 ok = deleteCertificateEntry(alias);
             }
-            broadcastStorageChange();
+            broadcastTrustStoreChange();
+            broadcastLegacyStorageChange();
             return ok;
         }
 
@@ -289,33 +300,23 @@ public class KeyChainService extends IntentService {
         @Override public void setGrant(int uid, String alias, boolean value) {
             checkSystemCaller();
             setGrantInternal(mDatabaseHelper.getWritableDatabase(), uid, alias, value);
-            broadcastStorageChange();
-        }
-
-        private ParceledListSlice<ParcelableString> makeAliasesParcelableSynchronised(
-                Set<String> aliasSet) {
-            List<ParcelableString> aliases = new ArrayList<ParcelableString>(aliasSet.size());
-            for (String alias : aliasSet) {
-                ParcelableString parcelableString = new ParcelableString();
-                parcelableString.string = alias;
-                aliases.add(parcelableString);
-            }
-            return new ParceledListSlice<ParcelableString>(aliases);
+            broadcastPermissionChange(uid, alias, value);
+            broadcastLegacyStorageChange();
         }
 
         @Override
-        public ParceledListSlice<ParcelableString> getUserCaAliases() {
+        public StringParceledListSlice getUserCaAliases() {
             synchronized (mTrustedCertificateStore) {
-                Set<String> aliasSet = mTrustedCertificateStore.userAliases();
-                return makeAliasesParcelableSynchronised(aliasSet);
+                return new StringParceledListSlice(new ArrayList<String>(
+                        mTrustedCertificateStore.userAliases()));
             }
         }
 
         @Override
-        public ParceledListSlice<ParcelableString> getSystemCaAliases() {
+        public StringParceledListSlice getSystemCaAliases() {
             synchronized (mTrustedCertificateStore) {
-                Set<String> aliasSet = mTrustedCertificateStore.allSystemAliases();
-                return makeAliasesParcelableSynchronised(aliasSet);
+                return new StringParceledListSlice(new ArrayList<String>(
+                        mTrustedCertificateStore.allSystemAliases()));
             }
         }
 
@@ -465,9 +466,36 @@ public class KeyChainService extends IntentService {
         }
     }
 
-    private void broadcastStorageChange() {
+    private void broadcastLegacyStorageChange() {
         Intent intent = new Intent(KeyChain.ACTION_STORAGE_CHANGED);
-        sendBroadcastAsUser(intent, new UserHandle(UserHandle.myUserId()));
+        BroadcastOptions opts = BroadcastOptions.makeBasic();
+        opts.setMaxManifestReceiverApiLevel(Build.VERSION_CODES.N_MR1);
+        sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()), null, opts.toBundle());
     }
 
+    private void broadcastKeychainChange() {
+        Intent intent = new Intent(KeyChain.ACTION_KEYCHAIN_CHANGED);
+        sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()));
+    }
+
+    private void broadcastTrustStoreChange() {
+        Intent intent = new Intent(KeyChain.ACTION_TRUST_STORE_CHANGED);
+        sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()));
+    }
+
+    private void broadcastPermissionChange(int uid, String alias, boolean access) {
+        // Since the permission change only impacts one uid only send to that uid's packages.
+        final PackageManager packageManager = getPackageManager();
+        String[] packages = packageManager.getPackagesForUid(uid);
+        if (packages == null) {
+            return;
+        }
+        for (String pckg : packages) {
+            Intent intent = new Intent(KeyChain.ACTION_KEY_ACCESS_CHANGED);
+            intent.putExtra(KeyChain.EXTRA_KEY_ALIAS, alias);
+            intent.putExtra(KeyChain.EXTRA_KEY_ACCESSIBLE, access);
+            intent.setPackage(pckg);
+            sendBroadcastAsUser(intent, UserHandle.of(UserHandle.myUserId()));
+        }
+    }
 }

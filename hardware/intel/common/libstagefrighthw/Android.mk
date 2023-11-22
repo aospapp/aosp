@@ -7,7 +7,7 @@ LOCAL_SRC_FILES := \
     WrsOMXPlugin.cpp
 
 
-LOCAL_CFLAGS := $(PV_CFLAGS_MINUS_VISIBILITY)
+LOCAL_CFLAGS := $(PV_CFLAGS_MINUS_VISIBILITY) -Werror
 
 #enable log
 #LOCAL_CFLAGS += -DLOG_NDEBUG=0
@@ -27,6 +27,7 @@ LOCAL_C_INCLUDES:= \
 LOCAL_SHARED_LIBRARIES :=       \
         libbinder               \
         libutils                \
+        liblog                  \
         libcutils               \
         libdl                   \
         libstagefright_foundation

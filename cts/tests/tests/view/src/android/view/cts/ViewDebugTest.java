@@ -17,20 +17,30 @@
 package android.view.cts;
 
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertFalse;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ViewDebug;
 
-public class ViewDebugTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ViewDebugTest {
+    @Test
     public void testConstructor() {
         new ViewDebug();
     }
 
+    @Test
     public void testRecyclerTracing() {
         // debugging should be disabled on production devices
         assertFalse(ViewDebug.TRACE_RECYCLER);
     }
 
+    @Test
     public void testHierarchyTracing() {
         // debugging should be disabled on production devices
         assertFalse(ViewDebug.TRACE_HIERARCHY);

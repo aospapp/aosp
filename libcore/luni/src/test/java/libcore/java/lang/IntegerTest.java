@@ -157,4 +157,107 @@ public class IntegerTest extends junit.framework.TestCase {
     public void testBYTES() {
       assertEquals(4, Integer.BYTES);
     }
+
+    public void testCompareUnsigned() {
+        int[] ordVals = {0, 1, 23, 456, 0x7fff_ffff, 0x8000_0000, 0xffff_ffff};
+        for(int i = 0; i < ordVals.length; ++i) {
+            for(int j = 0; j < ordVals.length; ++j) {
+                assertEquals(Integer.compare(i, j),
+                             Integer.compareUnsigned(ordVals[i], ordVals[j]));
+            }
+        }
+    }
+
+    public void testDivideAndRemainderUnsigned() {
+        long[] vals = {1L, 23L, 456L, 0x7fff_ffffL, 0x8000_0000L, 0xffff_ffffL};
+
+        for(long dividend : vals) {
+            for(long divisor : vals) {
+                int uq = Integer.divideUnsigned((int) dividend, (int) divisor);
+                int ur = Integer.remainderUnsigned((int) dividend, (int) divisor);
+                assertEquals((int) (dividend / divisor), uq);
+                assertEquals((int) (dividend % divisor), ur);
+                assertEquals((int) dividend, uq * (int) divisor + ur);
+            }
+        }
+
+        for(long dividend : vals) {
+            try {
+                Integer.divideUnsigned((int) dividend, 0);
+                fail();
+            } catch (ArithmeticException expected) { }
+            try {
+                Integer.remainderUnsigned((int) dividend, 0);
+                fail();
+            } catch (ArithmeticException expected) { }
+        }
+    }
+
+    public void testParseUnsignedInt() {
+        int[] vals = {0, 1, 23, 456, 0x7fff_ffff, 0x8000_0000, 0xffff_ffff};
+
+        for(int val : vals) {
+            // Special radices
+            assertEquals(val, Integer.parseUnsignedInt(Integer.toBinaryString(val), 2));
+            assertEquals(val, Integer.parseUnsignedInt(Integer.toOctalString(val), 8));
+            assertEquals(val, Integer.parseUnsignedInt(Integer.toUnsignedString(val)));
+            assertEquals(val, Integer.parseUnsignedInt(Integer.toHexString(val), 16));
+
+            for(int radix = Character.MIN_RADIX; radix <= Character.MAX_RADIX; ++radix) {
+                assertEquals(val,
+                        Integer.parseUnsignedInt(Integer.toUnsignedString(val, radix), radix));
+            }
+        }
+
+        try {
+            Integer.parseUnsignedInt("-1");
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Integer.parseUnsignedInt("123", 2);
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Integer.parseUnsignedInt(null);
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Integer.parseUnsignedInt("0", Character.MAX_RADIX + 1);
+            fail();
+        } catch (NumberFormatException expected) { }
+        try {
+            Integer.parseUnsignedInt("0", Character.MIN_RADIX - 1);
+            fail();
+        } catch (NumberFormatException expected) { }
+    }
+
+    public void testToUnsignedLong() {
+        int[] vals = {0, 1, 23, 456, 0x7fff_ffff, 0x8000_0000, 0xffff_ffff};
+
+        for(int val : vals) {
+            long ul = Integer.toUnsignedLong(val);
+            assertEquals(0, ul >>> Integer.BYTES * 8);
+            assertEquals(val, (int) ul);
+        }
+    }
+
+    public void testToUnsignedString() {
+        int[] vals = {0, 1, 23, 456, 0x7fff_ffff, 0x8000_0000, 0xffff_ffff};
+
+        for(int val : vals) {
+            // Special radices
+            assertTrue(Integer.toUnsignedString(val, 2).equals(Integer.toBinaryString(val)));
+            assertTrue(Integer.toUnsignedString(val, 8).equals(Integer.toOctalString(val)));
+            assertTrue(Integer.toUnsignedString(val, 10).equals(Integer.toUnsignedString(val)));
+            assertTrue(Integer.toUnsignedString(val, 16).equals(Integer.toHexString(val)));
+
+            for(int radix = Character.MIN_RADIX; radix <= Character.MAX_RADIX; ++radix) {
+                assertTrue(Integer.toUnsignedString(val, radix)
+                        .equals(Long.toString(Integer.toUnsignedLong(val), radix)));
+            }
+
+            // Behavior is not defined by Java API specification if the radix falls outside of valid
+            // range, thus we don't test for such cases.
+        }
+    }
 }

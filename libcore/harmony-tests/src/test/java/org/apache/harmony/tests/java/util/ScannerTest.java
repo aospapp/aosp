@@ -46,6 +46,10 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.InputMismatchException;
@@ -118,6 +122,38 @@ public class ScannerTest extends TestCase {
         // TODO: test if the default charset is used.
     }
 
+
+    /**
+     * @tests java.util.Scanner#Scanner(Path)
+     */
+    public void test_ConstructorLjava_nio_file_Path() throws IOException {
+        Path tmpFilePath = Files.createTempFile("TestFileForScanner", ".tmp");
+        String testString = "test";
+        try (OutputStream os = Files.newOutputStream(tmpFilePath)) {
+            os.write(testString.getBytes());
+        }
+        try (Scanner s = new Scanner(tmpFilePath)){
+            assertEquals(testString, s.next());
+            assertFalse(s.hasNext());
+        }
+    }
+
+    /**
+     * @tests java.util.Scanner#Scanner(Path)
+     */
+    public void test_ConstructorLjava_nio_file_Path_Exception() throws IOException {
+        Path nonExistentFilePath = Paths.get("testPath");
+        try (Scanner s = new Scanner(nonExistentFilePath)) {
+            fail();
+        } catch (NoSuchFileException expected) {
+        }
+
+        try (Scanner s = new Scanner((Path) null)) {
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
     /**
      * @tests java.util.Scanner#Scanner(File, String)
      */
@@ -184,6 +220,83 @@ public class ScannerTest extends TestCase {
 
         // TODO: test if the specified charset is used.
     }
+
+    /**
+     * @tests java.util.Scanner#Scanner(Path, String)
+     */
+    public void test_ConstructorLjava_nio_file_PathLjava_lang_String()
+            throws IOException {
+        Path tmpFilePath = Files.createTempFile("TestFileForScanner", ".tmp");
+        String testString = "परीक्षण";
+        try (OutputStream os = Files.newOutputStream(tmpFilePath)) {
+            os.write(testString.getBytes());
+        }
+        // With correct charset.
+        try (Scanner s = new Scanner(tmpFilePath, Charset.defaultCharset().name())){
+            assertEquals(testString, s.next());
+            assertFalse(s.hasNext());
+        }
+        // With incorrect charset.
+        try (Scanner s = new Scanner(tmpFilePath, "US-ASCII")){
+            if (s.next().equals(testString)) {
+                fail("Should not be able to read with incorrect charset.");
+            }
+        }
+    }
+
+    /**
+     * @tests java.util.Scanner#Scanner(Path, String)
+     */
+    public void test_ConstructorLjava_nio_file_PathLjava_lang_String_Exception()
+            throws IOException {
+        Path nonExistentFilePath = Paths.get("nonExistentFile");
+        Path existentFilePath = Files.createTempFile("TestFileForScanner", ".tmp");
+
+        // File doesn't exist.
+        try (Scanner s = new Scanner(nonExistentFilePath, Charset.defaultCharset().name())) {
+            fail();
+        } catch (NoSuchFileException expected) {
+        }
+
+        // Exception order test.
+        try {
+            s = new Scanner(nonExistentFilePath, null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        // Invalid charset.
+        try {
+            s = new Scanner(existentFilePath, "invalid charset");
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+
+        // Scanner(Path = null, Charset = null)
+        try (Scanner s = new Scanner((Path) null, null)) {
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        // Scanner(Path = null, Charset = UTF-8)
+        try (Scanner s = new Scanner((Path) null, "UTF-8")) {
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        // Scanner(Path = null, Charset = invalid)
+        try (Scanner s = new Scanner((Path) null, "invalid")) {
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        // Scanner(Path, Charset = null)
+        try (Scanner s = new Scanner(existentFilePath, null)) {
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
 
     /**
      * @tests java.util.Scanner#Scanner(InputStream)

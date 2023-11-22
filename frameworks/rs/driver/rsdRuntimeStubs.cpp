@@ -32,8 +32,25 @@
 
 #include <time.h>
 
-using namespace android;
-using namespace android::renderscript;
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
+using android::renderscript::Font;
+#endif
+
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::Element;
+using android::renderscript::RsdCpuReference;
+using android::renderscript::Mesh;
+using android::renderscript::ObjectBase;
+using android::renderscript::ObjectBaseRef;
+using android::renderscript::ProgramFragment;
+using android::renderscript::ProgramRaster;
+using android::renderscript::ProgramStore;
+using android::renderscript::ProgramVertex;
+using android::renderscript::Sampler;
+using android::renderscript::Script;
+using android::renderscript::Type;
+using android::renderscript::rs_object_base;
 
 typedef __fp16 half;
 typedef half half2 __attribute__((ext_vector_type(2)));
@@ -74,16 +91,15 @@ typedef uint64_t ulong4 __attribute__((ext_vector_type(4)));
 typedef uint8_t uchar;
 typedef uint16_t ushort;
 typedef uint32_t uint;
-#ifndef RS_SERVER
 typedef uint64_t ulong;
-#endif
 
+// Add NOLINT to suppress wrong warnings from clang-tidy.
 #ifndef __LP64__
 #define OPAQUETYPE(t) \
-    typedef struct { const int* const p; } __attribute__((packed, aligned(4))) t;
+    typedef struct { const int* const p; } __attribute__((packed, aligned(4))) t; /*NOLINT*/
 #else
 #define OPAQUETYPE(t) \
-    typedef struct { const void* p; const void* r; const void* v1; const void* v2; } t;
+    typedef struct { const void* p; const void* unused1; const void* unused2; const void* unused3; } t; /*NOLINT*/
 #endif
 
 OPAQUETYPE(rs_element)
@@ -419,14 +435,15 @@ android::renderscript::rs_allocation rsCreateAllocation(
 //////////////////////////////////////////////////////////////////////////////
 // Object routines
 //////////////////////////////////////////////////////////////////////////////
+// Add NOLINT to suppress wrong warnings from clang-tidy.
 #define IS_CLEAR_SET_OBJ(t) \
     bool rsIsObject(t src) { \
         return src.p != nullptr; \
     } \
-    void __attribute__((overloadable)) rsClearObject(t *dst) { \
+    void __attribute__((overloadable)) rsClearObject(t *dst) { /*NOLINT*/ \
         rsrClearObject(reinterpret_cast<rs_object_base *>(dst)); \
     } \
-    void __attribute__((overloadable)) rsSetObject(t *dst, t src) { \
+    void __attribute__((overloadable)) rsSetObject(t *dst, t src) { /*NOLINT*/ \
         Context *rsc = RsdCpuReference::getTlsContext(); \
         rsrSetObject(rsc, reinterpret_cast<rs_object_base *>(dst), (ObjectBase*)src.p); \
     }
@@ -523,6 +540,7 @@ const void *rsGetElementAt(::rs_allocation a, uint32_t x) {
     return rsGetElementAt(a, x, 0, 0);
 }
 
+// Add NOLINT to suppress wrong warnings from clang-tidy.
 #define ELEMENT_AT(T, DT, VS) \
     void rsSetElementAt_##T(::rs_allocation a, const T *val, uint32_t x, uint32_t y, uint32_t z) { \
         void *r = ElementAt((Allocation *)a.p, DT, VS, x, y, z); \
@@ -535,15 +553,15 @@ const void *rsGetElementAt(::rs_allocation a, uint32_t x) {
     void rsSetElementAt_##T(::rs_allocation a, const T *val, uint32_t x) { \
         rsSetElementAt_##T(a, val, x, 0, 0); \
     } \
-    void rsGetElementAt_##T(::rs_allocation a, T *val, uint32_t x, uint32_t y, uint32_t z) { \
+    void rsGetElementAt_##T(::rs_allocation a, T *val, uint32_t x, uint32_t y, uint32_t z) { /*NOLINT*/ \
         void *r = ElementAt((Allocation *)a.p, DT, VS, x, y, z); \
         if (r != nullptr) *val = ((T *)r)[0]; \
         else ALOGE("Error from %s", __PRETTY_FUNCTION__); \
     } \
-    void rsGetElementAt_##T(::rs_allocation a, T *val, uint32_t x, uint32_t y) { \
+    void rsGetElementAt_##T(::rs_allocation a, T *val, uint32_t x, uint32_t y) { /*NOLINT*/ \
         rsGetElementAt_##T(a, val, x, y, 0); \
     } \
-    void rsGetElementAt_##T(::rs_allocation a, T *val, uint32_t x) { \
+    void rsGetElementAt_##T(::rs_allocation a, T *val, uint32_t x) { /*NOLINT*/ \
         rsGetElementAt_##T(a, val, x, 0, 0); \
     }
 
@@ -571,7 +589,36 @@ ELEMENT_AT(uint, RS_TYPE_UNSIGNED_32, 1)
 ELEMENT_AT(uint2, RS_TYPE_UNSIGNED_32, 2)
 ELEMENT_AT(uint3, RS_TYPE_UNSIGNED_32, 3)
 ELEMENT_AT(uint4, RS_TYPE_UNSIGNED_32, 4)
+#ifdef __LP64__
 ELEMENT_AT(long, RS_TYPE_SIGNED_64, 1)
+#else
+/* the long versions need special treatment; the long * argument has to be
+ * kept so the signatures match, but the actual accesses have to be done in
+ * int64_t * to be consistent with the script ABI.
+ */
+void rsSetElementAt_long(::rs_allocation a, const long *val, uint32_t x, uint32_t y, uint32_t z) {
+    void *r = ElementAt((Allocation *)a.p, RS_TYPE_SIGNED_64, 1, x, y, z);
+    if (r != nullptr) ((int64_t *)r)[0] = *((int64_t *)val);
+    else ALOGE("Error from %s", __PRETTY_FUNCTION__);
+}
+void rsSetElementAt_long(::rs_allocation a, const long *val, uint32_t x, uint32_t y) {
+    rsSetElementAt_long(a, val, x, y, 0);
+}
+void rsSetElementAt_long(::rs_allocation a, const long *val, uint32_t x) {
+    rsSetElementAt_long(a, val, x, 0, 0);
+}
+void rsGetElementAt_long(::rs_allocation a, long *val, uint32_t x, uint32_t y, uint32_t z) { /*NOLINT*/
+    void *r = ElementAt((Allocation *)a.p, RS_TYPE_SIGNED_64, 1, x, y, z);
+    if (r != nullptr) *((int64_t*)val) = ((int64_t *)r)[0];
+    else ALOGE("Error from %s", __PRETTY_FUNCTION__);
+}
+void rsGetElementAt_long(::rs_allocation a, long *val, uint32_t x, uint32_t y) { /*NOLINT*/
+    rsGetElementAt_long(a, val, x, y, 0);
+}
+void rsGetElementAt_long(::rs_allocation a, long *val, uint32_t x) { /*NOLINT*/
+    rsGetElementAt_long(a, val, x, 0, 0);
+}
+#endif
 ELEMENT_AT(long2, RS_TYPE_SIGNED_64, 2)
 ELEMENT_AT(long3, RS_TYPE_SIGNED_64, 3)
 ELEMENT_AT(long4, RS_TYPE_SIGNED_64, 4)
@@ -611,6 +658,7 @@ typedef unsigned long native_ulong2 __attribute__((ext_vector_type(2)));
 typedef unsigned long native_ulong3 __attribute__((ext_vector_type(3)));
 typedef unsigned long native_ulong4 __attribute__((ext_vector_type(4)));
 
+// Add NOLINT to suppress wrong warnings from clang-tidy.
 #define ELEMENT_AT_OVERLOADS(T, U) \
     void rsSetElementAt_##T(::rs_allocation a, const U *val, uint32_t x, uint32_t y, uint32_t z) { \
         rsSetElementAt_##T(a, (T *) val, x, y, z); \
@@ -621,13 +669,13 @@ typedef unsigned long native_ulong4 __attribute__((ext_vector_type(4)));
     void rsSetElementAt_##T(::rs_allocation a, const U *val, uint32_t x) { \
         rsSetElementAt_##T(a, (T *) val, x, 0, 0); \
     } \
-    void rsGetElementAt_##T(::rs_allocation a, U *val, uint32_t x, uint32_t y, uint32_t z) { \
+    void rsGetElementAt_##T(::rs_allocation a, U *val, uint32_t x, uint32_t y, uint32_t z) { /*NOLINT*/ \
         rsGetElementAt_##T(a, (T *) val, x, y, z); \
     } \
-    void rsGetElementAt_##T(::rs_allocation a, U *val, uint32_t x, uint32_t y) { \
+    void rsGetElementAt_##T(::rs_allocation a, U *val, uint32_t x, uint32_t y) { /*NOLINT*/ \
         rsGetElementAt_##T(a, (T *) val, x, y, 0); \
     } \
-    void rsGetElementAt_##T(::rs_allocation a, U *val, uint32_t x) { \
+    void rsGetElementAt_##T(::rs_allocation a, U *val, uint32_t x) { /*NOLINT*/ \
         rsGetElementAt_##T(a, (T *) val, x, 0, 0); \
     } \
 
@@ -664,10 +712,23 @@ void rsForEachInternal(int slot,
     Allocation* inputs[RS_KERNEL_MAX_ARGUMENTS];
     for (int i = 0; i < numInputs; i++) {
         inputs[i] = (Allocation*)allocs[i].p;
+        CHECK_OBJ(inputs[i]);
+        inputs[i]->incSysRef();
     }
-    Allocation* out = hasOutput ? (Allocation*)allocs[numInputs].p : nullptr;
+    Allocation* out = nullptr;
+    if (hasOutput) {
+        out = (Allocation*)allocs[numInputs].p;
+        CHECK_OBJ(out);
+        out->incSysRef();
+    }
     rsrForEach(rsc, s, slot, numInputs, numInputs > 0 ? inputs : nullptr, out,
                nullptr, 0, (RsScriptCall*)options);
+    for (int i = 0; i < numInputs; i++) {
+        inputs[i]->decSysRef();
+    }
+    if (hasOutput) {
+        out->decSysRef();
+    }
 }
 
 void __attribute__((overloadable)) rsForEach(::rs_script script,
@@ -788,7 +849,7 @@ float rsGetDt() {
 //////////////////////////////////////////////////////////////////////////////
 // Graphics routines
 //////////////////////////////////////////////////////////////////////////////
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 static void SC_DrawQuadTexCoords(float x1, float y1, float z1, float u1, float v1,
                                  float x2, float y2, float z2, float u2, float v2,
                                  float x3, float y3, float z3, float u3, float v3,

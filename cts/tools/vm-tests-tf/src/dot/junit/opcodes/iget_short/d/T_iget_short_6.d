@@ -27,7 +27,10 @@
 .method public run()S
 .limit regs 3
 
-       iget-short v1, v2, dot.junit.opcodes.iget_short.TestStubs.TestStubField S
+       new-instance v0, Ldot/junit/opcodes/iget_short/TestStubs;
+       invoke-direct {v0}, dot/junit/opcodes/iget_short/TestStubs/<init>()V
+
+       iget-short v1, v0, dot.junit.opcodes.iget_short.TestStubs.TestStubField S
        return v1
 .end method
 

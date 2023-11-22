@@ -23,7 +23,9 @@
 #include "art_method-inl.h"
 #include "class_linker-inl.h"
 #include "common_compiler_test.h"
+#include "compiled_class.h"
 #include "dex_file.h"
+#include "dex_file_types.h"
 #include "gc/heap.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
@@ -31,8 +33,8 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
 #include "handle_scope-inl.h"
-#include "jit/offline_profiling_info.h"
-#include "scoped_thread_state_change.h"
+#include "jit/profile_compilation_info.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -43,6 +45,7 @@ class CompilerDriverTest : public CommonCompilerTest {
     TimingLogger::ScopedTiming t(__FUNCTION__, &timings);
     compiler_driver_->CompileAll(class_loader,
                                  GetDexFiles(class_loader),
+                                 /* verifier_deps */ nullptr,
                                  &timings);
     t.NewTiming("MakeAllExecutable");
     MakeAllExecutable(class_loader);
@@ -83,7 +86,7 @@ class CompilerDriverTest : public CommonCompilerTest {
       ScopedObjectAccess soa(Thread::Current());
       StackHandleScope<1> hs(soa.Self());
       Handle<mirror::ClassLoader> loader(
-          hs.NewHandle(soa.Decode<mirror::ClassLoader*>(class_loader)));
+          hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
       mirror::Class* c = class_linker->FindClass(soa.Self(), descriptor, loader);
       CHECK(c != nullptr);
       const auto pointer_size = class_linker->GetImagePointerSize();
@@ -99,6 +102,7 @@ class CompilerDriverTest : public CommonCompilerTest {
 };
 
 // Disabled due to 10 second runtime on host
+// TODO: Update the test for hash-based dex cache arrays. Bug: 30627598
 TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
   CompileAll(nullptr);
 
@@ -106,17 +110,17 @@ TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
   ScopedObjectAccess soa(Thread::Current());
   ASSERT_TRUE(java_lang_dex_file_ != nullptr);
   const DexFile& dex = *java_lang_dex_file_;
-  mirror::DexCache* dex_cache = class_linker_->FindDexCache(soa.Self(), dex);
+  ObjPtr<mirror::DexCache> dex_cache = class_linker_->FindDexCache(soa.Self(), dex);
   EXPECT_EQ(dex.NumStringIds(), dex_cache->NumStrings());
   for (size_t i = 0; i < dex_cache->NumStrings(); i++) {
-    const mirror::String* string = dex_cache->GetResolvedString(i);
+    const mirror::String* string = dex_cache->GetResolvedString(dex::StringIndex(i));
     EXPECT_TRUE(string != nullptr) << "string_idx=" << i;
   }
   EXPECT_EQ(dex.NumTypeIds(), dex_cache->NumResolvedTypes());
   for (size_t i = 0; i < dex_cache->NumResolvedTypes(); i++) {
-    mirror::Class* type = dex_cache->GetResolvedType(i);
+    mirror::Class* type = dex_cache->GetResolvedType(dex::TypeIndex(i));
     EXPECT_TRUE(type != nullptr) << "type_idx=" << i
-                              << " " << dex.GetTypeDescriptor(dex.GetTypeId(i));
+                              << " " << dex.GetTypeDescriptor(dex.GetTypeId(dex::TypeIndex(i)));
   }
   EXPECT_EQ(dex.NumMethodIds(), dex_cache->NumResolvedMethods());
   auto* cl = Runtime::Current()->GetClassLinker();
@@ -130,9 +134,10 @@ TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
         << " " << dex.GetMethodDeclaringClassDescriptor(dex.GetMethodId(i)) << " "
         << dex.GetMethodName(dex.GetMethodId(i));
   }
-  EXPECT_EQ(dex.NumFieldIds(), dex_cache->NumResolvedFields());
+  EXPECT_TRUE(dex_cache->StaticArtFieldSize() == dex_cache->NumResolvedFields()
+      || dex.NumFieldIds() ==  dex_cache->NumResolvedFields());
   for (size_t i = 0; i < dex_cache->NumResolvedFields(); i++) {
-    ArtField* field = cl->GetResolvedField(i, dex_cache);
+    ArtField* field = dex_cache->GetResolvedField(i, cl->GetImagePointerSize());
     EXPECT_TRUE(field != nullptr) << "field_idx=" << i
                                << " " << dex.GetFieldDeclaringClassDescriptor(dex.GetFieldId(i))
                                << " " << dex.GetFieldName(dex.GetFieldId(i));
@@ -144,7 +149,6 @@ TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
 }
 
 TEST_F(CompilerDriverTest, AbstractMethodErrorStub) {
-  TEST_DISABLED_FOR_READ_BARRIER_WITH_OPTIMIZING_FOR_UNSUPPORTED_INSTRUCTION_SETS();
   jobject class_loader;
   {
     ScopedObjectAccess soa(Thread::Current());
@@ -187,7 +191,6 @@ class CompilerDriverMethodsTest : public CompilerDriverTest {
 };
 
 TEST_F(CompilerDriverMethodsTest, Selection) {
-  TEST_DISABLED_FOR_READ_BARRIER_WITH_OPTIMIZING_FOR_UNSUPPORTED_INSTRUCTION_SETS();
   Thread* self = Thread::Current();
   jobject class_loader;
   {
@@ -207,8 +210,8 @@ TEST_F(CompilerDriverMethodsTest, Selection) {
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   ScopedObjectAccess soa(self);
   StackHandleScope<1> hs(self);
-  Handle<mirror::ClassLoader> h_loader(hs.NewHandle(
-      reinterpret_cast<mirror::ClassLoader*>(self->DecodeJObject(class_loader))));
+  Handle<mirror::ClassLoader> h_loader(
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
   mirror::Class* klass = class_linker->FindClass(self, "LStaticLeafMethods;", h_loader);
   ASSERT_NE(klass, nullptr);
 
@@ -216,7 +219,7 @@ TEST_F(CompilerDriverMethodsTest, Selection) {
 
   const auto pointer_size = class_linker->GetImagePointerSize();
   for (auto& m : klass->GetDirectMethods(pointer_size)) {
-    std::string name = PrettyMethod(&m, true);
+    std::string name = m.PrettyMethod(true);
     const void* code = m.GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
     ASSERT_NE(code, nullptr);
     if (expected->find(name) != expected->end()) {
@@ -237,11 +240,15 @@ class CompilerDriverProfileTest : public CompilerDriverTest {
 
     ProfileCompilationInfo info;
     for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
-      std::string key = ProfileCompilationInfo::GetProfileDexFileKey(dex_file->GetLocation());
-      profile_info_.AddMethodIndex(key, dex_file->GetLocationChecksum(), 1);
-      profile_info_.AddMethodIndex(key, dex_file->GetLocationChecksum(), 2);
+      profile_info_.AddMethodIndex(dex_file->GetLocation(), dex_file->GetLocationChecksum(), 1);
+      profile_info_.AddMethodIndex(dex_file->GetLocation(), dex_file->GetLocationChecksum(), 2);
     }
     return &profile_info_;
+  }
+
+  CompilerFilter::Filter GetCompilerFilter() const OVERRIDE {
+    // Use a profile based filter.
+    return CompilerFilter::kSpeedProfile;
   }
 
   std::unordered_set<std::string> GetExpectedMethodsForClass(const std::string& clazz) {
@@ -265,15 +272,15 @@ class CompilerDriverProfileTest : public CompilerDriverTest {
     Thread* self = Thread::Current();
     ScopedObjectAccess soa(self);
     StackHandleScope<1> hs(self);
-    Handle<mirror::ClassLoader> h_loader(hs.NewHandle(
-        reinterpret_cast<mirror::ClassLoader*>(self->DecodeJObject(class_loader))));
+    Handle<mirror::ClassLoader> h_loader(
+        hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
     mirror::Class* klass = class_linker->FindClass(self, clazz.c_str(), h_loader);
     ASSERT_NE(klass, nullptr);
 
     const auto pointer_size = class_linker->GetImagePointerSize();
     size_t number_of_compiled_methods = 0;
     for (auto& m : klass->GetVirtualMethods(pointer_size)) {
-      std::string name = PrettyMethod(&m, true);
+      std::string name = m.PrettyMethod(true);
       const void* code = m.GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
       ASSERT_NE(code, nullptr);
       if (expected_methods.find(name) != expected_methods.end()) {
@@ -291,7 +298,6 @@ class CompilerDriverProfileTest : public CompilerDriverTest {
 };
 
 TEST_F(CompilerDriverProfileTest, ProfileGuidedCompilation) {
-  TEST_DISABLED_FOR_READ_BARRIER_WITH_OPTIMIZING_FOR_UNSUPPORTED_INSTRUCTION_SETS();
   Thread* self = Thread::Current();
   jobject class_loader;
   {
@@ -302,7 +308,6 @@ TEST_F(CompilerDriverProfileTest, ProfileGuidedCompilation) {
 
   // Need to enable dex-file writability. Methods rejected to be compiled will run through the
   // dex-to-dex compiler.
-  ProfileCompilationInfo info;
   for (const DexFile* dex_file : GetDexFiles(class_loader)) {
     ASSERT_TRUE(dex_file->EnableWrite());
   }
@@ -313,6 +318,47 @@ TEST_F(CompilerDriverProfileTest, ProfileGuidedCompilation) {
   std::unordered_set<std::string> s = GetExpectedMethodsForClass("Second");
   CheckCompiledMethods(class_loader, "LMain;", m);
   CheckCompiledMethods(class_loader, "LSecond;", s);
+}
+
+// Test that a verify only compiler filter updates the CompiledClass map,
+// which will be used for OatClass.
+class CompilerDriverVerifyTest : public CompilerDriverTest {
+ protected:
+  CompilerFilter::Filter GetCompilerFilter() const OVERRIDE {
+    return CompilerFilter::kVerify;
+  }
+
+  void CheckVerifiedClass(jobject class_loader, const std::string& clazz) const {
+    ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+    Thread* self = Thread::Current();
+    ScopedObjectAccess soa(self);
+    StackHandleScope<1> hs(self);
+    Handle<mirror::ClassLoader> h_loader(
+        hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader)));
+    mirror::Class* klass = class_linker->FindClass(self, clazz.c_str(), h_loader);
+    ASSERT_NE(klass, nullptr);
+    EXPECT_TRUE(klass->IsVerified());
+
+    CompiledClass* compiled_class = compiler_driver_->GetCompiledClass(
+        ClassReference(&klass->GetDexFile(), klass->GetDexTypeIndex().index_));
+    ASSERT_NE(compiled_class, nullptr);
+    EXPECT_EQ(compiled_class->GetStatus(), mirror::Class::kStatusVerified);
+  }
+};
+
+TEST_F(CompilerDriverVerifyTest, VerifyCompilation) {
+  Thread* self = Thread::Current();
+  jobject class_loader;
+  {
+    ScopedObjectAccess soa(self);
+    class_loader = LoadDex("ProfileTestMultiDex");
+  }
+  ASSERT_NE(class_loader, nullptr);
+
+  CompileAll(class_loader);
+
+  CheckVerifiedClass(class_loader, "LMain;");
+  CheckVerifiedClass(class_loader, "LSecond;");
 }
 
 // TODO: need check-cast test (when stub complete & we can throw/catch

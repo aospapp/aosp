@@ -62,6 +62,10 @@ task prebuildJar(type : Copy) {
     }
 }
 
+javadoc {
+   options.addStringOption('Xdoclint:none', '-quiet')
+}
+
 project.ext.pomName = 'Data Binding Base Library'
 project.ext.pomDesc = 'Shared library between Data Binding runtime lib and compiler'
 enablePublishing(this, true)

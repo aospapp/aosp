@@ -78,8 +78,9 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     // Copy constructor.
     AuthorizationSet(const AuthorizationSet& set) : Serializable(), indirect_data_(nullptr) {
         elems_ = nullptr;
-        Reinitialize(set.elems_, set.elems_size_);
         error_ = set.error_;
+        if (error_ != OK) return;
+        Reinitialize(set.elems_, set.elems_size_);
     }
 
     // Move constructor.
@@ -162,6 +163,17 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
      * AuthorizationSetBuilder).
      */
     void Deduplicate();
+
+    /**
+     * Adds all elements from \p set that are not already present in this AuthorizationSet.  As a
+     * side-effect, if \p set is not null this AuthorizationSet will end up sorted.
+     */
+    void Union(const keymaster_key_param_set_t& set);
+
+    /**
+     * Removes all elements in \p set from this AuthorizationSet.
+     */
+    void Difference(const keymaster_key_param_set_t& set);
 
     /**
      * Returns the data in a keymaster_key_param_set_t, suitable for returning to C code.  For C

@@ -16,12 +16,13 @@
 
 package android.support.test.launcherhelper;
 
+import android.app.Instrumentation;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 
 /**
- * Defines the common use cases a leanback launcher UI automation helper should fulfill.
+ * Defines the common use cases that any types of TV launcher UI automation helper should fulfill.
  * <p>Class will be instantiated by {@link LauncherStrategyFactory} based on current launcher
  * package, and a {@link UiDevice} instance will be provided via {@link #setUiDevice(UiDevice)}
  * method.
@@ -29,7 +30,12 @@ import android.support.test.uiautomator.UiObject2;
 public interface ILeanbackLauncherStrategy extends ILauncherStrategy {
 
     /**
-     * Searches for a given query on leanback launcher
+     * Sets an instance of instrumentation
+     */
+    public void setInstrumentation(Instrumentation instrumentation);
+
+    /**
+     * Searches for a given query on TV launcher
      */
     public void search(String query);
 
@@ -64,7 +70,20 @@ public interface ILeanbackLauncherStrategy extends ILauncherStrategy {
     public BySelector getSettingsRowSelector();
 
     /**
-     * Returns a {@link UiObject2} describing the focused search row
+     * Returns a {@link BySelector} describing the app widget (eg, clock widget)
+     * @return
+     */
+    public BySelector getAppWidgetSelector();
+
+    /**
+     * Returns a {@link BySelector} describing the Now Playing card
+     * @return
+     */
+    public BySelector getNowPlayingCardSelector();
+
+    /**
+     * Returns a {@link UiObject2} describing the focused search row,
+     * or the top row on new TV Launcher
      * @return
      */
     public UiObject2 selectSearchRow();
@@ -92,4 +111,16 @@ public interface ILeanbackLauncherStrategy extends ILauncherStrategy {
      * @return
      */
     public UiObject2 selectSettingsRow();
+
+    /**
+     * Returns whether there is a match for the given app widget selector.
+     * @return
+     */
+    public boolean hasAppWidgetSelector();
+
+    /**
+     * Returns whether there is a Now Playing card on leanback launcher
+     * @return
+     */
+    public boolean hasNowPlayingCard();
 }

@@ -15,8 +15,8 @@
  */
 package com.android.cts.deviceowner;
 
+import static com.android.compatibility.common.util.FakeKeys.FAKE_RSA_1;
 import static com.android.cts.deviceowner.BaseDeviceOwnerTest.getWho;
-import static com.android.cts.deviceowner.FakeKeys.FAKE_RSA_1;
 
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
@@ -69,17 +69,12 @@ public class KeyManagementTest extends ActivityInstrumentationTestCase2<KeyManag
                 getActivity().getSystemService(Context.DEVICE_POLICY_SERVICE);
         BaseDeviceOwnerTest.assertDeviceOwner(mDevicePolicyManager);
 
-        // Enable credential storage by setting a nonempty password.
-        assertTrue(mDevicePolicyManager.resetPassword("test", 0));
+        // Hostside test has set a device lockscreen in order to enable credential storage
     }
 
     @Override
     protected void tearDown() throws Exception {
-        // Delete all keys by resetting our password to null, which clears the keystore.
-        mDevicePolicyManager.setPasswordQuality(getWho(),
-                DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED);
-        mDevicePolicyManager.setPasswordMinimumLength(getWho(), 0);
-        assertTrue(mDevicePolicyManager.resetPassword("", 0));
+        // Hostside test will clear device lockscreen which in turn will clear the keystore.
         super.tearDown();
     }
 

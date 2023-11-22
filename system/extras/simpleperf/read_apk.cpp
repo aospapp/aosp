@@ -98,9 +98,10 @@ std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(cons
   std::string entry_name;
   entry_name.resize(zname.name_length,'\0');
   memcpy(&entry_name[0], zname.name, zname.name_length);
-  if (!IsValidElfFile(fhelper.fd())) {
-    LOG(ERROR) << "problems reading ELF from in " << apk_path << " entry '"
-               << entry_name << "'";
+  ElfStatus result = IsValidElfFile(fhelper.fd());
+  if (result != ElfStatus::NO_ERROR) {
+    LOG(ERROR) << "problems reading ELF from " << apk_path << " entry '"
+               << entry_name << "': " << result;
     return nullptr;
   }
 
@@ -170,21 +171,21 @@ std::tuple<bool, std::string, std::string> SplitUrlInApk(const std::string& path
   return std::make_tuple(true, path.substr(0, pos), path.substr(pos + 2));
 }
 
-bool GetBuildIdFromApkFile(const std::string& apk_path, const std::string& elf_filename,
+ElfStatus GetBuildIdFromApkFile(const std::string& apk_path, const std::string& elf_filename,
                            BuildId* build_id) {
   std::unique_ptr<EmbeddedElf> ee = ApkInspector::FindElfInApkByName(apk_path, elf_filename);
   if (ee == nullptr) {
-    return false;
+    return ElfStatus::FILE_NOT_FOUND;
   }
   return GetBuildIdFromEmbeddedElfFile(apk_path, ee->entry_offset(), ee->entry_size(), build_id);
 }
 
-bool ParseSymbolsFromApkFile(const std::string& apk_path, const std::string& elf_filename,
+ElfStatus ParseSymbolsFromApkFile(const std::string& apk_path, const std::string& elf_filename,
                              const BuildId& expected_build_id,
-                             std::function<void(const ElfFileSymbol&)> callback) {
+                             const std::function<void(const ElfFileSymbol&)>& callback) {
   std::unique_ptr<EmbeddedElf> ee = ApkInspector::FindElfInApkByName(apk_path, elf_filename);
   if (ee == nullptr) {
-    return false;
+    return ElfStatus::FILE_NOT_FOUND;
   }
   return ParseSymbolsFromEmbeddedElfFile(apk_path, ee->entry_offset(), ee->entry_size(),
                                          expected_build_id, callback);

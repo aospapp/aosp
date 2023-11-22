@@ -51,11 +51,13 @@ class MemoryCacheHTTPServerTest(tab_test_case.TabTestCase):
           loaded = true;
         };
         // Avoid cached content by appending unique URL param.
-        xmlhttp.open('GET', "%s?t=" + Date.now(), true);
-        xmlhttp.setRequestHeader('Range', 'bytes=%s');
+        xmlhttp.open('GET', {{ url }} + "?t=" + Date.now(), true);
+        xmlhttp.setRequestHeader('Range', {{ range }});
         xmlhttp.send();
-    """ % (self.UrlOfUnittestFile(self._test_filename), content_range_request))
-    self._tab.WaitForJavaScriptExpression('loaded', 5)
+        """,
+        url=self.UrlOfUnittestFile(self._test_filename),
+        range='bytes=%s' % content_range_request)
+    self._tab.WaitForJavaScriptCondition('loaded', timeout=5)
     content_range = self._tab.EvaluateJavaScript(
         'xmlhttp.getResponseHeader("Content-Range");')
     content_range_response = 'bytes %s/%d' % (content_range_response,
@@ -64,3 +66,15 @@ class MemoryCacheHTTPServerTest(tab_test_case.TabTestCase):
     content_length = self._tab.EvaluateJavaScript(
         'xmlhttp.getResponseHeader("Content-Length");')
     self.assertEquals(content_length, str(content_length_response))
+
+  def testAbsoluteAndRelativePathsYieldSameURL(self):
+    test_file_rel_path = 'green_rect.html'
+    test_file_abs_path = os.path.abspath(os.path.join(util.GetUnittestDataDir(),
+                                                      test_file_rel_path))
+    # It's necessary to bypass self.UrlOfUnittestFile since that
+    # concatenates the unittest directory on to the incoming path,
+    # causing the same code path to be taken in both cases.
+    self._platform.SetHTTPServerDirectories(util.GetUnittestDataDir())
+    self.assertEquals(
+      self._platform.http_server.UrlOf(test_file_rel_path),
+      self._platform.http_server.UrlOf(test_file_abs_path))

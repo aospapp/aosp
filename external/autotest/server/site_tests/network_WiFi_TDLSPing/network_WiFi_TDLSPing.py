@@ -39,7 +39,7 @@ class network_WiFi_TDLSPing(wifi_cell_test_base.WiFiCellTestBase):
         @param expected: bool set to true if we expect the sender to use TDLS.
 
         """
-        self.context.router.start_capture(frequency)
+        self.context.capture_host.start_capture(frequency)
 
         # Since we don't wait for the TDLS link to come up, it's possible
         # that we'll have some fairly drastic packet loss as the link is
@@ -52,7 +52,7 @@ class network_WiFi_TDLSPing(wifi_cell_test_base.WiFiCellTestBase):
                 ignore_result=True)
         self.context.assert_ping_from_dut(ping_config=ping_config)
 
-        results = self.context.router.stop_capture()
+        results = self.context.capture_host.stop_capture()
         if len(results) != 1:
             raise error.TestError('Expected to generate one packet '
                                   'capture but got %d captures instead.' %

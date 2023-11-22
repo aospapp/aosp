@@ -39,4 +39,22 @@ public class ByteTest extends junit.framework.TestCase {
     public void testBYTES() {
         assertEquals(1, Byte.BYTES);
     }
+
+    public void testToUnsignedInt() {
+        for(int i = Byte.MIN_VALUE; i < Byte.MAX_VALUE; i++) {
+            final byte b = (byte) i;
+            final int ui = Byte.toUnsignedInt(b);
+            assertEquals(0, ui >>> Byte.BYTES * 8);
+            assertEquals(b, Integer.valueOf(b).byteValue());
+        }
+    }
+
+    public void testToUnsignedLong() {
+        for(int i = Byte.MIN_VALUE; i < Byte.MAX_VALUE; i++) {
+            final byte b = (byte) i;
+            final long ul = Byte.toUnsignedLong(b);
+            assertEquals(0, ul >>> Byte.BYTES * 8);
+            assertEquals(b, Long.valueOf(b).byteValue());
+        }
+    }
 }

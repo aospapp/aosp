@@ -16,8 +16,6 @@
 
 package android.webkit.cts;
 
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.WebBackForwardList;
@@ -25,6 +23,9 @@ import android.webkit.cts.WebViewOnUiThread.WaitForProgressClient;
 import android.webkit.WebHistoryItem;
 import android.webkit.WebIconDatabase;
 import android.webkit.WebView;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 public class WebHistoryItemTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
     private final static long TEST_TIMEOUT = 10000;

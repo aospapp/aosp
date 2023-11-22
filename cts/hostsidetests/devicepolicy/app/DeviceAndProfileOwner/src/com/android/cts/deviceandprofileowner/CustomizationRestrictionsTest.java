@@ -25,7 +25,7 @@ import android.graphics.Bitmap;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.cts.util.BitmapUtils;
+import com.android.compatibility.common.util.BitmapUtils;
 import com.android.cts.deviceandprofileowner.R;
 
 import java.io.Closeable;

@@ -34,14 +34,12 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.os.ParcelableCompat;
-import android.support.v4.os.ParcelableCompatCreatorCallbacks;
 import android.support.v4.view.AbsSavedState;
 import android.support.v4.view.AccessibilityDelegateCompat;
 import android.support.v4.view.GravityCompat;
-import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.ViewGroupCompat;
 import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
@@ -115,7 +113,6 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
      */
     public static final int STATE_SETTLING = ViewDragHelper.STATE_SETTLING;
 
-    /** @hide */
     @IntDef({LOCK_MODE_UNLOCKED, LOCK_MODE_LOCKED_CLOSED, LOCK_MODE_LOCKED_OPEN,
             LOCK_MODE_UNDEFINED})
     @Retention(RetentionPolicy.SOURCE)
@@ -143,7 +140,6 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
      */
     public static final int LOCK_MODE_UNDEFINED = 3;
 
-    /** @hide */
     @IntDef({Gravity.LEFT, Gravity.RIGHT, GravityCompat.START, GravityCompat.END})
     @Retention(RetentionPolicy.SOURCE)
     private @interface EdgeGravity {}
@@ -173,12 +169,12 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
 
     private static final float TOUCH_SLOP_SENSITIVITY = 1.f;
 
-    private static final int[] LAYOUT_ATTRS = new int[] {
+    static final int[] LAYOUT_ATTRS = new int[] {
             android.R.attr.layout_gravity
     };
 
     /** Whether we can use NO_HIDE_DESCENDANTS accessibility importance. */
-    private static final boolean CAN_HIDE_DESCENDANTS = Build.VERSION.SDK_INT >= 19;
+    static final boolean CAN_HIDE_DESCENDANTS = Build.VERSION.SDK_INT >= 19;
 
     /** Whether the drawer shadow comes from setting elevation on the drawer. */
     private static final boolean SET_DRAWER_SHADOW_FROM_ELEVATION =
@@ -326,6 +322,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         }
     }
 
+    @RequiresApi(21)
     static class DrawerLayoutCompatImplApi21 implements DrawerLayoutCompatImpl {
         @Override
         public void configureApplyInsets(View drawerLayout) {
@@ -354,8 +351,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
     }
 
     static {
-        final int version = Build.VERSION.SDK_INT;
-        if (version >= 21) {
+        if (Build.VERSION.SDK_INT >= 21) {
             IMPL = new DrawerLayoutCompatImplApi21();
         } else {
             IMPL = new DrawerLayoutCompatImplBase();
@@ -455,7 +451,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
     /**
      * Set a simple drawable used for the left or right shadow. The drawable provided must have a
      * nonzero intrinsic width. For API 21 and above, an elevation will be set on the drawer
-     * instead of the drawable provided.
+     * instead of using the provided shadow drawable.
      *
      * <p>Note that for better support for both left-to-right and right-to-left layout
      * directions, a drawable for RTL layout (in additional to the one in LTR layout) can be
@@ -494,7 +490,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
     /**
      * Set a simple drawable used for the left or right shadow. The drawable provided must have a
      * nonzero intrinsic width. For API 21 and above, an elevation will be set on the drawer
-     * instead of the drawable provided.
+     * instead of using the provided shadow drawable.
      *
      * <p>Note that for better support for both left-to-right and right-to-left layout
      * directions, a drawable for RTL layout (in additional to the one in LTR layout) can be
@@ -506,7 +502,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
      * @param gravity Which drawer the shadow should apply to
      */
     public void setDrawerShadow(@DrawableRes int resId, @EdgeGravity int gravity) {
-        setDrawerShadow(getResources().getDrawable(resId), gravity);
+        setDrawerShadow(ContextCompat.getDrawable(getContext(), resId), gravity);
     }
 
     /**
@@ -884,8 +880,6 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
             if (hasWindowFocus()) {
                 sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
             }
-
-            drawerView.requestFocus();
         }
     }
 
@@ -893,8 +887,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         final int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {
             final View child = getChildAt(i);
-            if (!isDrawerOpen && !isDrawerView(child)
-                    || isDrawerOpen && child == drawerView) {
+            if ((!isDrawerOpen && !isDrawerView(child)) || (isDrawerOpen && child == drawerView)) {
                 // Drawer is closed and this is a content view or this is an
                 // open drawer view, so it should be visible.
                 ViewCompat.setImportantForAccessibility(child,
@@ -1280,8 +1273,9 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         }
         mScrimOpacity = scrimOpacity;
 
-        // "|" used on purpose; both need to run.
-        if (mLeftDragger.continueSettling(true) | mRightDragger.continueSettling(true)) {
+        boolean leftDraggerSettling = mLeftDragger.continueSettling(true);
+        boolean rightDraggerSettling = mRightDragger.continueSettling(true);
+        if (leftDraggerSettling || rightDraggerSettling) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
     }
@@ -1337,6 +1331,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         invalidate();
     }
 
+    @Override
     public void onRtlPropertiesChanged(int layoutDirection) {
         resolveShadowDrawables();
     }
@@ -1436,9 +1431,10 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         return false;
     }
 
+    @SuppressWarnings("ShortCircuitBoolean")
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        final int action = MotionEventCompat.getActionMasked(ev);
+        final int action = ev.getActionMasked();
 
         // "|" used deliberately here; both methods should be invoked.
         final boolean interceptForDrag = mLeftDragger.shouldInterceptTouchEvent(ev)
@@ -1491,7 +1487,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         final int action = ev.getAction();
         boolean wantTouchEvents = true;
 
-        switch (action & MotionEventCompat.ACTION_MASK) {
+        switch (action & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN: {
                 final float x = ev.getX();
                 final float y = ev.getY();
@@ -1864,7 +1860,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         return findVisibleDrawer() != null;
     }
 
-    private View findVisibleDrawer() {
+    View findVisibleDrawer() {
         final int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {
             final View child = getChildAt(i);
@@ -1995,7 +1991,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         }
     }
 
-    private static boolean includeChildForAccessibility(View child) {
+    static boolean includeChildForAccessibility(View child) {
         // If the child is not important for accessibility we make
         // sure this hides the entire subtree rooted at it as the
         // IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDATS is not
@@ -2040,18 +2036,22 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
             dest.writeInt(lockModeEnd);
         }
 
-        public static final Creator<SavedState> CREATOR = ParcelableCompat.newCreator(
-                new ParcelableCompatCreatorCallbacks<SavedState>() {
-                    @Override
-                    public SavedState createFromParcel(Parcel in, ClassLoader loader) {
-                        return new SavedState(in, loader);
-                    }
+        public static final Creator<SavedState> CREATOR = new ClassLoaderCreator<SavedState>() {
+            @Override
+            public SavedState createFromParcel(Parcel in, ClassLoader loader) {
+                return new SavedState(in, loader);
+            }
 
-                    @Override
-                    public SavedState[] newArray(int size) {
-                        return new SavedState[size];
-                    }
-                });
+            @Override
+            public SavedState createFromParcel(Parcel in) {
+                return new SavedState(in, null);
+            }
+
+            @Override
+            public SavedState[] newArray(int size) {
+                return new SavedState[size];
+            }
+        };
     }
 
     private class ViewDragCallback extends ViewDragHelper.Callback {
@@ -2131,10 +2131,10 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
 
             int left;
             if (checkDrawerViewAbsoluteGravity(releasedChild, Gravity.LEFT)) {
-                left = xvel > 0 || xvel == 0 && offset > 0.5f ? 0 : -childWidth;
+                left = xvel > 0 || (xvel == 0 && offset > 0.5f) ? 0 : -childWidth;
             } else {
                 final int width = getWidth();
-                left = xvel < 0 || xvel == 0 && offset > 0.5f ? width - childWidth : width;
+                left = xvel < 0 || (xvel == 0 && offset > 0.5f) ? width - childWidth : width;
             }
 
             mDragger.settleCapturedViewAt(left, releasedChild.getTop());
@@ -2146,7 +2146,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
             postDelayed(mPeekRunnable, PEEK_DELAY);
         }
 
-        private void peekDrawer() {
+        void peekDrawer() {
             final View toCapture;
             final int childLeft;
             final int peekDistance = mDragger.getEdgeSize();
@@ -2226,9 +2226,9 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         private static final int FLAG_IS_CLOSING = 0x4;
 
         public int gravity = Gravity.NO_GRAVITY;
-        private float onScreen;
-        private boolean isPeeking;
-        private int openState;
+        float onScreen;
+        boolean isPeeking;
+        int openState;
 
         public LayoutParams(Context c, AttributeSet attrs) {
             super(c, attrs);
@@ -2379,7 +2379,7 @@ public class DrawerLayout extends ViewGroup implements DrawerLayoutImpl {
         }
     }
 
-    final class ChildAccessibilityDelegate extends AccessibilityDelegateCompat {
+    static final class ChildAccessibilityDelegate extends AccessibilityDelegateCompat {
         @Override
         public void onInitializeAccessibilityNodeInfo(View child,
                 AccessibilityNodeInfoCompat info) {

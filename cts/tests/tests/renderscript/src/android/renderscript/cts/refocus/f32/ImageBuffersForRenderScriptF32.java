@@ -41,6 +41,12 @@ public class ImageBuffersForRenderScriptF32 extends
   public Allocation fuzzyImageAllocation;
   public Allocation integralImageAllocation;
 
+  public void destroy() {
+    sharpImageAllocation.destroy();
+    fuzzyImageAllocation.destroy();
+    integralImageAllocation.destroy();
+  }
+
   /**
    * A constructor that allocates memory buffers in Java and binds the buffers
    * with the global pointers in the Render Script.

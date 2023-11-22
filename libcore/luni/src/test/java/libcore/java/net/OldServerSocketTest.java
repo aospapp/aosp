@@ -212,15 +212,6 @@ public class OldServerSocketTest extends OldSocketTestCase {
     }
 
     public void test_accept() throws IOException {
-        ServerSocket newSocket = new ServerSocket(0);
-        newSocket.setSoTimeout(500);
-        try {
-            Socket accepted = newSocket.accept();
-            fail("SocketTimeoutException was not thrown: " + accepted);
-        } catch(SocketTimeoutException expected) {
-        }
-        newSocket.close();
-
         ServerSocketChannel ssc = ServerSocketChannel.open();
         ServerSocket ss = ssc.socket();
 

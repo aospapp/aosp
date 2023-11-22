@@ -16,14 +16,14 @@
 
 package android.support.v7.util;
 
+import android.support.test.filters.SmallTest;
+
 import junit.framework.TestCase;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import android.test.suitebuilder.annotation.SmallTest;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -257,7 +257,6 @@ public class SortedListTest extends TestCase {
                 for (int index = mList.size(); index < mList.mData.length; index++) {
                     assertNull(mList.mData[index]);
                 }
-
             }
         } catch (Throwable t) {
             Collections.sort(copy, sItemComparator);

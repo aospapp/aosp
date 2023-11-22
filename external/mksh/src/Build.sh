@@ -1,5 +1,5 @@
 #!/bin/sh
-srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.695 2016/01/02 20:11:31 tg Exp $'
+srcversion='$MirOS: src/bin/mksh/Build.sh,v 1.707 2016/11/11 23:31:29 tg Exp $'
 #-
 # Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
 #		2011, 2012, 2013, 2014, 2015, 2016
@@ -120,7 +120,7 @@ do_genopt() {
 			state=3
 			;;
 		1:@@)
-			# begin of data block
+			# start of data block
 			o_gen=$o_gen$nl"#endif"
 			o_gen=$o_gen$nl"#ifndef F0"
 			o_gen=$o_gen$nl"#define F0 FN"
@@ -133,7 +133,7 @@ do_genopt() {
 			o_hdr=$o_hdr$nl$line
 			;;
 		0:@*|1:@*)
-			# begin of a definition block
+			# start of a definition block
 			sym=`echo "$line" | sed 's/^@//'`
 			if test $state = 0; then
 				o_gen=$o_gen$nl"#if defined($sym)"
@@ -584,7 +584,7 @@ if test -d $tfn || test -d $tfn.exe; then
 	exit 1
 fi
 rmf a.exe* a.out* conftest.c conftest.exe* *core core.* ${tfn}* *.bc *.dbg \
-    *.ll *.o *.gen Rebuild.sh lft no signames.inc test.sh x vv.out
+    *.ll *.o *.gen *.cat1 Rebuild.sh lft no signames.inc test.sh x vv.out
 
 SRCS="lalloc.c eval.c exec.c expr.c funcs.c histrap.c jobs.c"
 SRCS="$SRCS lex.c main.c misc.c shf.c syn.c tree.c var.c"
@@ -596,7 +596,6 @@ else
 	check_categories="$check_categories shell:legacy-yes"
 	add_cppflags -DMKSH_LEGACY_MODE
 	HAVE_PERSISTENT_HISTORY=0
-	HAVE_ISSET_MKSH_CONSERVATIVE_FDS=1	# from sh.h
 fi
 
 if test x"$srcdir" = x"."; then
@@ -691,7 +690,6 @@ case $TARGET_OS in
 	: "${HAVE_CAN_OTWO=0}"
 	add_cppflags -DMKSH_NO_SIGSETJMP
 	add_cppflags -DMKSH_TYPEDEF_SIG_ATOMIC_T=int
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	;;
 AIX)
 	add_cppflags -D_ALL_SOURCE
@@ -721,7 +719,6 @@ Coherent)
 	add_cppflags -DMKSH__NO_SYMLINK
 	check_categories="$check_categories nosymlink"
 	add_cppflags -DMKSH__NO_SETEUGID
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	add_cppflags -DMKSH_DISABLE_TTY_WARNING
 	;;
 CYGWIN*)
@@ -737,7 +734,6 @@ FreeBSD)
 FreeMiNT)
 	oswarn="; it has minor issues"
 	add_cppflags -D_GNU_SOURCE
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 GNU)
@@ -758,6 +754,24 @@ GNU/kFreeBSD)
 	;;
 Haiku)
 	add_cppflags -DMKSH_ASSUME_UTF8; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	;;
+Harvey)
+	add_cppflags -D_POSIX_SOURCE
+	add_cppflags -D_LIMITS_EXTENSION
+	add_cppflags -D_BSD_EXTENSION
+	add_cppflags -D_SUSV2_SOURCE
+	add_cppflags -D_GNU_SOURCE
+	add_cppflags -DMKSH_ASSUME_UTF8; HAVE_ISSET_MKSH_ASSUME_UTF8=1
+	add_cppflags -DMKSH_NO_CMDLINE_EDITING
+	add_cppflags -DMKSH__NO_SETEUGID
+	oswarn=' and will currently not work'
+	add_cppflags -DMKSH_UNEMPLOYED
+	add_cppflags -DMKSH_NOPROSPECTOFWORK
+	# these taken from Harvey-OS github and need re-checking
+	add_cppflags -D_setjmp=setjmp -D_longjmp=longjmp
+	: "${HAVE_CAN_NO_EH_FRAME=0}"
+	: "${HAVE_CAN_FNOSTRICTALIASING=0}"
+	: "${HAVE_CAN_FSTACKPROTECTORSTRONG=0}"
 	;;
 HP-UX)
 	;;
@@ -787,14 +801,12 @@ MidnightBSD)
 Minix-vmd)
 	add_cppflags -DMKSH__NO_SETEUGID
 	add_cppflags -DMKSH_UNEMPLOYED
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	add_cppflags -D_MINIX_SOURCE
 	oldish_ed=no-stderr-ed		# no /bin/ed, maybe see below
 	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 Minix3)
 	add_cppflags -DMKSH_UNEMPLOYED
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	add_cppflags -DMKSH_NO_LIMITS
 	add_cppflags -D_POSIX_SOURCE -D_POSIX_1_SOURCE=2 -D_MINIX
 	oldish_ed=no-stderr-ed		# /usr/bin/ed(!) is broken
@@ -825,12 +837,10 @@ NEXTSTEP)
 		oswarn="; it needs libposix.a"
 		;;
 	esac
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	;;
 Ninix3)
 	# similar to Minix3
 	add_cppflags -DMKSH_UNEMPLOYED
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	add_cppflags -DMKSH_NO_LIMITS
 	# but no idea what else could be needed
 	oswarn="; it has unknown issues"
@@ -841,12 +851,14 @@ OpenBSD)
 OS/2)
 	HAVE_TERMIOS_H=0
 	HAVE_MKNOD=0	# setmode() incompatible
-	oswarn="; it is currently being ported"
+	oswarn="; it is currently being ported, get it from"
+	oswarn="$oswarn${nl}https://github.com/komh/mksh-os2 in the meanwhile"
 	check_categories="$check_categories nosymlink"
 	: "${CC=gcc}"
 	: "${SIZE=: size}"
 	add_cppflags -DMKSH_UNEMPLOYED
 	add_cppflags -DMKSH_NOPROSPECTOFWORK
+	add_cppflags -DMKSH_NO_LIMITS
 	;;
 OSF1)
 	HAVE_SIG_T=0	# incompatible
@@ -898,7 +910,6 @@ SCO_SV)
 		oswarn="$oswarn$nl$TARGET_OS ${TARGET_OSREV}, please tell me what to do"
 		;;
 	esac
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	: "${HAVE_SYS_SIGLIST=0}${HAVE__SYS_SIGLIST=0}"
 	;;
 skyos)
@@ -916,12 +927,10 @@ syllable)
 ULTRIX)
 	: "${CC=cc -YPOSIX}"
 	add_cppflags -DMKSH_TYPEDEF_SSIZE_T=int
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	: "${HAVE_SETLOCALE_CTYPE=0}"
 	;;
 UnixWare|UNIX_SV)
 	# SCO UnixWare
-	add_cppflags -DMKSH_CONSERVATIVE_FDS
 	: "${HAVE_SYS_SIGLIST=0}${HAVE__SYS_SIGLIST=0}"
 	;;
 UWIN*)
@@ -991,7 +1000,7 @@ drop us a success or failure notice or even send in diffs.
 $e "$bi$me: Building the MirBSD Korn Shell$ao $ui$dstversion$ao on $TARGET_OS ${TARGET_OSREV}..."
 
 #
-# Begin of mirtoconf checks
+# Start of mirtoconf checks
 #
 $e $bi$me: Scanning for functions... please ignore any errors.$ao
 
@@ -1114,6 +1123,7 @@ clang)
 	:*)	;;
 	*:)	CCC_LD=$CCC_CC; export CCC_LD ;;
 	esac
+	: "${HAVE_STRING_POOLING=i1}"
 	;;
 dec)
 	vv '|' "$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN $LIBS -V"
@@ -1130,6 +1140,7 @@ gcc)
 	vv '|' 'echo `$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN $LIBS \
 	    -dumpmachine` gcc`$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN \
 	    $LIBS -dumpversion`'
+	: "${HAVE_STRING_POOLING=i2}"
 	;;
 hpcc)
 	vv '|' "$CC $CFLAGS $CPPFLAGS $LDFLAGS $NOWARN -V conftest.c $LIBS"
@@ -1467,6 +1478,7 @@ gcc)
 		ac_flags $t_use $t_name "$t_cflags" \
 		    "if gcc supports $t_cflags $t_ldflags" "$t_ldflags"
 	done
+	ac_flags 1 data_abi_align -malign-data=abi
 	i=1
 	;;
 hpcc)
@@ -1495,8 +1507,12 @@ msc)
 	ac_flags 1 wp64 "${ccpc}/Wp64" 'to enable 64-bit warnings'
 	;;
 nwcc)
-	i=1
 	#broken# ac_flags 1 ssp -stackprotect
+	i=1
+	;;
+pcc)
+	ac_flags 1 fstackprotectorall -fstack-protector-all
+	i=1
 	;;
 sunpro)
 	phase=u
@@ -1525,6 +1541,16 @@ if test 1 = $i; then
 	ac_flags 1 wall -Wall
 	ac_flags 1 fwrapv -fwrapv
 fi
+
+# “on demand” means: GCC version >= 4
+fd='if to rely on compiler for string pooling'
+ac_cache string_pooling || case $HAVE_STRING_POOLING in
+2) fx=' (on demand, cached)' ;;
+i1) fv=1 ;;
+i2) fv=2; fx=' (on demand)' ;;
+esac
+ac_testdone
+test x"$HAVE_STRING_POOLING" = x"0" || ac_cppflags
 
 phase=x
 # The following tests run with -Werror or similar (all compilers) if possible
@@ -1633,7 +1659,6 @@ if ac_ifcpp 'ifdef MKSH_SMALL' isset_MKSH_SMALL '' \
 	: "${HAVE_NICE=0}"
 	: "${HAVE_PERSISTENT_HISTORY=0}"
 	check_categories="$check_categories smksh"
-	HAVE_ISSET_MKSH_CONSERVATIVE_FDS=1	# from sh.h
 fi
 ac_ifcpp 'if defined(MKSH_BINSHPOSIX) || defined(MKSH_BINSHREDUCED)' \
     isset_MKSH_BINSH '' 'if invoking as sh should be handled specially' && \
@@ -1646,9 +1671,6 @@ ac_ifcpp 'ifdef MKSH_NOPROSPECTOFWORK' isset_MKSH_NOPROSPECTOFWORK '' \
     check_categories="$check_categories arge nojsig"
 ac_ifcpp 'ifdef MKSH_ASSUME_UTF8' isset_MKSH_ASSUME_UTF8 '' \
     'if the default UTF-8 mode is specified' && : "${HAVE_SETLOCALE_CTYPE=0}"
-ac_ifcpp 'ifdef MKSH_CONSERVATIVE_FDS' isset_MKSH_CONSERVATIVE_FDS '' \
-    'if traditional/conservative fd use is requested' && \
-    check_categories="$check_categories convfds"
 #ac_ifcpp 'ifdef MKSH_DISABLE_DEPRECATED' isset_MKSH_DISABLE_DEPRECATED '' \
 #    "if deprecated features are to be omitted" && \
 #    check_categories="$check_categories nodeprecated"
@@ -2345,7 +2367,7 @@ addsrcs '!' HAVE_STRLCPY strlcpy.c
 addsrcs USE_PRINTF_BUILTIN printf.c
 test 1 = "$USE_PRINTF_BUILTIN" && add_cppflags -DMKSH_PRINTF_BUILTIN
 test 1 = "$HAVE_CAN_VERB" && CFLAGS="$CFLAGS -verbose"
-add_cppflags -DMKSH_BUILD_R=521
+add_cppflags -DMKSH_BUILD_R=541
 
 $e $bi$me: Finished configuration testing, now producing output.$ao
 
@@ -2501,7 +2523,7 @@ echo tcfn=$mkshexe >>Rebuild.sh
 echo "$CC $CFLAGS $LDFLAGS -o \$tcfn $lobjs $LIBS $ccpr" >>Rebuild.sh
 echo "test -f \$tcfn || exit 1; $SIZE \$tcfn" >>Rebuild.sh
 if test $cm = makefile; then
-	extras='emacsfn.h rlimits.opt sh.h sh_flags.opt var_spec.h'
+	extras='emacsfn.h exprtok.h rlimits.opt sh.h sh_flags.opt var_spec.h'
 	test 0 = $HAVE_SYS_SIGNAME && extras="$extras signames.inc"
 	gens= genq=
 	for file in $optfiles; do
@@ -2591,8 +2613,8 @@ esac
 tcfn=$mkshexe
 test $cm = combine || v "$CC $CFLAGS $LDFLAGS -o $tcfn $lobjs $LIBS $ccpr"
 test -f $tcfn || exit 1
-test 1 = $r || v "$NROFF -mdoc <'$srcdir/mksh.1' >$tfn.cat1" || \
-    rmf $tfn.cat1
+test 1 = $r || v "$NROFF -mdoc <'$srcdir/lksh.1' >lksh.cat1" || rmf lksh.cat1
+test 1 = $r || v "$NROFF -mdoc <'$srcdir/mksh.1' >mksh.cat1" || rmf mksh.cat1
 test 0 = $eq && v $SIZE $tcfn
 i=install
 test -f /usr/ucb/$i && i=/usr/ucb/$i
@@ -2606,12 +2628,14 @@ if test $legacy = 0; then
 fi
 $e
 $e Installing the manual:
-if test -f $tfn.cat1; then
-	$e "# $i -c -o root -g bin -m 444 $tfn.cat1" \
-	    "/usr/share/man/cat1/$tfn.0"
+if test -f mksh.cat1; then
+	$e "# $i -c -o root -g bin -m 444 lksh.cat1" \
+	    "/usr/share/man/cat1/lksh.0"
+	$e "# $i -c -o root -g bin -m 444 mksh.cat1" \
+	    "/usr/share/man/cat1/mksh.0"
 	$e or
 fi
-$e "# $i -c -o root -g bin -m 444 $tfn.1 /usr/share/man/man1/$tfn.1"
+$e "# $i -c -o root -g bin -m 444 lksh.1 mksh.1 /usr/share/man/man1/"
 $e
 $e Run the regression test suite: ./test.sh
 $e Please also read the sample file dot.mkshrc and the fine manual.
@@ -2651,9 +2675,7 @@ MKSH_A4PB			force use of arc4random_pushb
 MKSH_ASSUME_UTF8		(0=disabled, 1=enabled; default: unset)
 MKSH_BINSHPOSIX			if */sh or */-sh, enable set -o posix
 MKSH_BINSHREDUCED		if */sh or */-sh, enable set -o sh
-MKSH_CLRTOEOL_STRING		"\033[K"
 MKSH_CLS_STRING			"\033[;H\033[J"
-MKSH_CONSERVATIVE_FDS		fd 0-9 for scripts, shell only up to 31
 MKSH_DEFAULT_EXECSHELL		"/bin/sh" (do not change)
 MKSH_DEFAULT_PROFILEDIR		"/etc" (do not change)
 MKSH_DEFAULT_TMPDIR		"/tmp" (do not change)

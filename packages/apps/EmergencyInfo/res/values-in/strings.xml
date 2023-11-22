@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontak darurat"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Tambahkan kontak"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Tidak dapat menemukan alat pilih kontak"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Tidak dapat menampilkan kontak"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Hapus <xliff:g id="CONTACT_NAME">%1$s</xliff:g> dari kontak darurat?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Hapus kontak"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Tidak dapat membaca informasi kontak dengan benar"</string>
     <string name="remove" msgid="1243949503772376064">"Hapus"</string>
     <string name="cancel" msgid="7401575239009060939">"Batal"</string>
     <string name="ok" msgid="163967937451981024">"Oke"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Informasi darurat"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informasi yang Anda masukkan di sini dapat membantu perespons pertama dalam situasi darurat. Informasi tersebut hanya disimpan di perangkat, tetapi semua orang dapat membacanya dari telepon darurat tanpa membuka kunci ponsel."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Lanjutkan"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Informasi darurat tidak tersedia"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Tidak ada informasi tentang pemilik ponsel"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Jika ini ponsel Anda, ketuk ikon pensil untuk menambahkan informasi yang akan ditampilkan di sini jika terjadi keadaan darurat"</string>
     <string name="clear_all" msgid="8899013032870561633">"Hapus semua"</string>
     <string name="clear" msgid="3648880442502887163">"Hapus"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Hapus semua informasi dan kontak?"</string>

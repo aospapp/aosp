@@ -26,3 +26,10 @@ LOCAL_SDK_VERSION := 4
 LOCAL_JAVA_LANGUAGE_VERSION := 1.6
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(archive-patcher_shared_src_files) $(archive-patcher_applier_src_files)
+LOCAL_MODULE := archive-patcher-hostdex
+# archive-patcher should be compatible with all versions of Android
+LOCAL_SDK_VERSION := 4
+LOCAL_JAVA_LANGUAGE_VERSION := 1.6
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)

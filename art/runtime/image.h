@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include "base/enums.h"
 #include "globals.h"
 #include "mirror/object.h"
 
@@ -156,7 +157,9 @@ class PACKED(4) ImageHeader {
     return reinterpret_cast<uint8_t*>(oat_file_end_);
   }
 
-  uint32_t GetPointerSize() const {
+  PointerSize GetPointerSize() const;
+
+  uint32_t GetPointerSizeUnchecked() const {
     return pointer_size_;
   }
 
@@ -165,28 +168,28 @@ class PACKED(4) ImageHeader {
   }
 
   static std::string GetOatLocationFromImageLocation(const std::string& image) {
-    std::string oat_filename = image;
-    if (oat_filename.length() <= 3) {
-      oat_filename += ".oat";
-    } else {
-      oat_filename.replace(oat_filename.length() - 3, 3, "oat");
-    }
-    return oat_filename;
+    return GetLocationFromImageLocation(image, "oat");
+  }
+
+  static std::string GetVdexLocationFromImageLocation(const std::string& image) {
+    return GetLocationFromImageLocation(image, "vdex");
   }
 
   enum ImageMethod {
     kResolutionMethod,
     kImtConflictMethod,
     kImtUnimplementedMethod,
-    kCalleeSaveMethod,
-    kRefsOnlySaveMethod,
-    kRefsAndArgsSaveMethod,
+    kSaveAllCalleeSavesMethod,
+    kSaveRefsOnlyMethod,
+    kSaveRefsAndArgsMethod,
+    kSaveEverythingMethod,
     kImageMethodsCount,  // Number of elements in enum.
   };
 
   enum ImageRoot {
     kDexCaches,
     kClassRoots,
+    kClassLoader,  // App image only.
     kImageRootsMax,
   };
 
@@ -203,6 +206,10 @@ class PACKED(4) ImageHeader {
     kSectionImageBitmap,
     kSectionCount,  // Number of elements in enum.
   };
+
+  static size_t NumberOfImageRoots(bool app_image) {
+    return app_image ? kImageRootsMax : kImageRootsMax - 1u;
+  }
 
   ArtMethod* GetImageMethod(ImageMethod index) const;
   void SetImageMethod(ImageMethod index, ArtMethod* method);
@@ -223,11 +230,11 @@ class PACKED(4) ImageHeader {
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   mirror::Object* GetImageRoot(ImageRoot image_root) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   mirror::ObjectArray<mirror::Object>* GetImageRoots() const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void RelocateImage(off_t delta);
   void RelocateImageMethods(off_t delta);
@@ -273,7 +280,9 @@ class PACKED(4) ImageHeader {
 
   // Visit ArtMethods in the section starting at base. Includes runtime methods.
   // TODO: Delete base parameter if it is always equal to GetImageBegin.
-  void VisitPackedArtMethods(ArtMethodVisitor* visitor, uint8_t* base, size_t pointer_size) const;
+  void VisitPackedArtMethods(ArtMethodVisitor* visitor,
+                             uint8_t* base,
+                             PointerSize pointer_size) const;
 
   // Visit ArtMethods in the section starting at base.
   // TODO: Delete base parameter if it is always equal to GetImageBegin.
@@ -282,16 +291,27 @@ class PACKED(4) ImageHeader {
   template <typename Visitor>
   void VisitPackedImTables(const Visitor& visitor,
                            uint8_t* base,
-                           size_t pointer_size) const;
+                           PointerSize pointer_size) const;
 
   template <typename Visitor>
   void VisitPackedImtConflictTables(const Visitor& visitor,
                                     uint8_t* base,
-                                    size_t pointer_size) const;
+                                    PointerSize pointer_size) const;
 
  private:
   static const uint8_t kImageMagic[4];
   static const uint8_t kImageVersion[4];
+
+  static std::string GetLocationFromImageLocation(const std::string& image,
+                                                  const std::string& extension) {
+    std::string filename = image;
+    if (filename.length() <= 3) {
+      filename += "." + extension;
+    } else {
+      filename.replace(filename.length() - 3, 3, extension);
+    }
+    return filename;
+  }
 
   uint8_t magic_[4];
   uint8_t version_[4];

@@ -841,6 +841,10 @@ class General_options
 		    "veneer"),
 		 NULL);
 
+  DEFINE_bool(long_plt, options::TWO_DASHES, '\0', false,
+	      N_("(ARM only) Generate long PLT entries"),
+	      N_("(ARM only) Do not generate long PLT entries"));
+
   DEFINE_bool(g, options::EXACTLY_ONE_DASH, '\0', false,
 	      N_("Ignored"), NULL);
 
@@ -963,7 +967,7 @@ class General_options
 	      N_("Do not page align data, do not make text readonly"),
 	      N_("Page align data, make text readonly"));
 
-  DEFINE_enable(new_dtags, options::EXACTLY_TWO_DASHES, '\0', false,
+  DEFINE_enable(new_dtags, options::EXACTLY_TWO_DASHES, '\0', true,
 		N_("Enable use of DT_RUNPATH"),
 		N_("Disable use of DT_RUNPATH"));
 

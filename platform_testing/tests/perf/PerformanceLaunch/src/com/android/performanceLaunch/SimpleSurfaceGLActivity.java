@@ -21,6 +21,7 @@ import com.android.performanceLaunch.helper.SimpleGLSurfaceView;
 import android.app.Activity;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.os.Trace;
 
 /**
  * To draw the GLSurface view Source : development/samples/OpenGL/HelloOpenGLES20
@@ -31,12 +32,14 @@ public class SimpleSurfaceGLActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "onCreate");
         super.onCreate(savedInstanceState);
 
         // Create a GLSurfaceView instance and set it
         // as the ContentView for this Activity
         mGLView = new SimpleGLSurfaceView(this);
         setContentView(mGLView);
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
     }
 
     @Override

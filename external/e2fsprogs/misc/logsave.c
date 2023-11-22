@@ -12,6 +12,7 @@
 
 #define _XOPEN_SOURCE 600 /* for inclusion of sa_handler in Solaris */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -209,7 +210,7 @@ static int run_program(char **argv)
 		rc = WEXITSTATUS(status);
 		if (rc) {
 			send_output(argv[0], 0, SEND_BOTH);
-			sprintf(buffer, " died with exit status %d\n", rc);
+			sprintf(buffer, " exited with status code %d\n", rc);
 			send_output(buffer, 0, SEND_BOTH);
 		}
 	} else {
@@ -218,7 +219,7 @@ static int run_program(char **argv)
 			sprintf(buffer, "died with signal %d\n",
 				WTERMSIG(status));
 			send_output(buffer, 0, SEND_BOTH);
-			rc = 1;
+			return 1;
 		}
 		rc = 0;
 	}

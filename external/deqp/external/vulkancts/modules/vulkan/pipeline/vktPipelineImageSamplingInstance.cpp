@@ -30,7 +30,9 @@
 #include "vkPrograms.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkRefUtil.hpp"
-#include "tcuImageCompare.hpp"
+#include "tcuTexLookupVerifier.hpp"
+#include "tcuTextureUtil.hpp"
+#include "deSTLUtil.hpp"
 
 namespace vkt
 {
@@ -39,6 +41,7 @@ namespace pipeline
 
 using namespace vk;
 using de::MovePtr;
+using de::UniquePtr;
 
 namespace
 {
@@ -87,7 +90,7 @@ static MovePtr<TestTexture> createTestTexture (const TcuFormatType format, VkIma
 			{
 				if (viewType == VK_IMAGE_VIEW_TYPE_CUBE || viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
 				{
-					if (layerCount == tcu::CUBEFACE_LAST)
+					if (layerCount == tcu::CUBEFACE_LAST && viewType == VK_IMAGE_VIEW_TYPE_CUBE)
 					{
 						texture = MovePtr<TestTexture>(new TestTextureCube(format, size.x()));
 					}
@@ -117,214 +120,6 @@ static MovePtr<TestTexture> createTestTexture (const TcuFormatType format, VkIma
 	return texture;
 }
 
-template<typename TcuTextureType>
-static void copySubresourceRange (TcuTextureType& dest, const TcuTextureType& src, const VkImageSubresourceRange& subresourceRange)
-{
-	DE_ASSERT(subresourceRange.levelCount <= (deUint32)dest.getNumLevels());
-	DE_ASSERT(subresourceRange.baseMipLevel + subresourceRange.levelCount <= (deUint32)src.getNumLevels());
-
-	for (int levelNdx = 0; levelNdx < dest.getNumLevels(); levelNdx++)
-	{
-		const tcu::ConstPixelBufferAccess	srcLevel		(src.getLevel(subresourceRange.baseMipLevel + levelNdx));
-		const deUint32						srcLayerOffset	= subresourceRange.baseArrayLayer * srcLevel.getWidth() * srcLevel.getHeight() * srcLevel.getFormat().getPixelSize();
-		const tcu::ConstPixelBufferAccess	srcLevelLayers	(srcLevel.getFormat(), srcLevel.getWidth(), srcLevel.getHeight(), subresourceRange.layerCount, (deUint8*)srcLevel.getDataPtr() + srcLayerOffset);
-
-		if (dest.isLevelEmpty(levelNdx))
-			dest.allocLevel(levelNdx);
-
-		tcu::copy(dest.getLevel(levelNdx), srcLevelLayers);
-	}
-}
-
-template<>
-void copySubresourceRange<tcu::Texture1DArray> (tcu::Texture1DArray& dest, const tcu::Texture1DArray& src, const VkImageSubresourceRange& subresourceRange)
-{
-	DE_ASSERT(subresourceRange.levelCount <= (deUint32)dest.getNumLevels());
-	DE_ASSERT(subresourceRange.baseMipLevel + subresourceRange.levelCount <= (deUint32)src.getNumLevels());
-
-	DE_ASSERT(subresourceRange.layerCount == (deUint32)dest.getNumLayers());
-	DE_ASSERT(subresourceRange.baseArrayLayer + subresourceRange.layerCount <= (deUint32)src.getNumLayers());
-
-	for (int levelNdx = 0; levelNdx < dest.getNumLevels(); levelNdx++)
-	{
-		const tcu::ConstPixelBufferAccess	srcLevel		(src.getLevel(subresourceRange.baseMipLevel + levelNdx));
-		const deUint32						srcLayerOffset	= subresourceRange.baseArrayLayer * srcLevel.getWidth() * srcLevel.getFormat().getPixelSize();
-		const tcu::ConstPixelBufferAccess	srcLevelLayers	(srcLevel.getFormat(), srcLevel.getWidth(), subresourceRange.layerCount, 1, (deUint8*)srcLevel.getDataPtr() + srcLayerOffset);
-
-		if (dest.isLevelEmpty(levelNdx))
-			dest.allocLevel(levelNdx);
-
-		tcu::copy(dest.getLevel(levelNdx), srcLevelLayers);
-	}
-}
-
-template<>
-void copySubresourceRange<tcu::Texture3D>(tcu::Texture3D& dest, const tcu::Texture3D& src, const VkImageSubresourceRange& subresourceRange)
-{
-	DE_ASSERT(subresourceRange.levelCount <= (deUint32)dest.getNumLevels());
-	DE_ASSERT(subresourceRange.baseMipLevel + subresourceRange.levelCount <= (deUint32)src.getNumLevels());
-
-	for (int levelNdx = 0; levelNdx < dest.getNumLevels(); levelNdx++)
-	{
-		const tcu::ConstPixelBufferAccess	srcLevel(src.getLevel(subresourceRange.baseMipLevel + levelNdx));
-		const tcu::ConstPixelBufferAccess	srcLevelLayers(srcLevel.getFormat(), srcLevel.getWidth(), srcLevel.getHeight(), srcLevel.getDepth(), (deUint8*)srcLevel.getDataPtr());
-
-		if (dest.isLevelEmpty(levelNdx))
-			dest.allocLevel(levelNdx);
-
-		tcu::copy(dest.getLevel(levelNdx), srcLevelLayers);
-	}
-}
-
-static MovePtr<Program> createRefProgram(const tcu::TextureFormat&			renderTargetFormat,
-										  const tcu::Sampler&				sampler,
-										  float								samplerLod,
-										  const tcu::UVec4&					componentMapping,
-										  const TestTexture&				testTexture,
-										  VkImageViewType					viewType,
-										  int								layerCount,
-										  const VkImageSubresourceRange&	subresource)
-{
-	MovePtr<Program>	program;
-	const VkImageType	imageType		= getCompatibleImageType(viewType);
-	tcu::Vec4			lookupScale		(1.0f);
-	tcu::Vec4			lookupBias		(0.0f);
-
-	if (!testTexture.isCompressed())
-	{
-		const tcu::TextureFormatInfo	fmtInfo	= tcu::getTextureFormatInfo(testTexture.getLevel(0, 0).getFormat());
-
-		// Needed to normalize various formats to 0..1 range for writing into RT
-		lookupScale	= fmtInfo.lookupScale;
-		lookupBias	= fmtInfo.lookupBias;
-	}
-	// else: All supported compressed formats are fine with no normalization.
-	//		 ASTC LDR blocks decompress to f16 so querying normalization parameters
-	//		 based on uncompressed formats would actually lead to massive precision loss
-	//		 and complete lack of coverage in case of R8G8B8A8_UNORM RT.
-
-	switch (imageType)
-	{
-		case VK_IMAGE_TYPE_1D:
-			if (layerCount == 1)
-			{
-				const tcu::Texture1D& texture = dynamic_cast<const TestTexture1D&>(testTexture).getTexture();
-				program = MovePtr<Program>(new SamplerProgram<tcu::Texture1D>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-			}
-			else
-			{
-				const tcu::Texture1DArray& texture = dynamic_cast<const TestTexture1DArray&>(testTexture).getTexture();
-
-				if (subresource.baseMipLevel > 0 || subresource.layerCount < (deUint32)texture.getNumLayers())
-				{
-					// Not all texture levels and layers are needed. Create new sub-texture.
-					const tcu::ConstPixelBufferAccess	baseLevel	= texture.getLevel(subresource.baseMipLevel);
-					tcu::Texture1DArray					textureView	(texture.getFormat(), baseLevel.getWidth(), subresource.layerCount);
-
-					copySubresourceRange(textureView, texture, subresource);
-
-					program = MovePtr<Program>(new SamplerProgram<tcu::Texture1DArray>(renderTargetFormat, textureView, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-				}
-				else
-				{
-					program = MovePtr<Program>(new SamplerProgram<tcu::Texture1DArray>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-				}
-			}
-			break;
-
-		case VK_IMAGE_TYPE_2D:
-			if (layerCount == 1)
-			{
-				const tcu::Texture2D& texture = dynamic_cast<const TestTexture2D&>(testTexture).getTexture();
-				program = MovePtr<Program>(new SamplerProgram<tcu::Texture2D>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-			}
-			else
-			{
-				if (viewType == VK_IMAGE_VIEW_TYPE_CUBE || viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
-				{
-					if (layerCount == tcu::CUBEFACE_LAST)
-					{
-						const tcu::TextureCube& texture = dynamic_cast<const TestTextureCube&>(testTexture).getTexture();
-						program = MovePtr<Program>(new SamplerProgram<tcu::TextureCube>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-					}
-					else
-					{
-						DE_ASSERT(layerCount % tcu::CUBEFACE_LAST == 0);
-
-						const tcu::TextureCubeArray& texture = dynamic_cast<const TestTextureCubeArray&>(testTexture).getTexture();
-
-						if (subresource.baseMipLevel > 0 || subresource.layerCount < (deUint32)texture.getDepth())
-						{
-							DE_ASSERT(subresource.baseArrayLayer + subresource.layerCount <= (deUint32)texture.getDepth());
-
-							// Not all texture levels and layers are needed. Create new sub-texture.
-							const tcu::ConstPixelBufferAccess	baseLevel		= texture.getLevel(subresource.baseMipLevel);
-							tcu::TextureCubeArray				textureView		(texture.getFormat(), baseLevel.getWidth(), subresource.layerCount);
-
-							copySubresourceRange(textureView, texture, subresource);
-
-							program = MovePtr<Program>(new SamplerProgram<tcu::TextureCubeArray>(renderTargetFormat, textureView, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-						}
-						else
-						{
-							// Use all array layers
-							program = MovePtr<Program>(new SamplerProgram<tcu::TextureCubeArray>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-						}
-					}
-				}
-				else
-				{
-					const tcu::Texture2DArray& texture = dynamic_cast<const TestTexture2DArray&>(testTexture).getTexture();
-
-					if (subresource.baseMipLevel > 0 || subresource.layerCount < (deUint32)texture.getNumLayers())
-					{
-						DE_ASSERT(subresource.baseArrayLayer + subresource.layerCount <= (deUint32)texture.getNumLayers());
-
-						// Not all texture levels and layers are needed. Create new sub-texture.
-						const tcu::ConstPixelBufferAccess	baseLevel	= texture.getLevel(subresource.baseMipLevel);
-						tcu::Texture2DArray					textureView	(texture.getFormat(), baseLevel.getWidth(), baseLevel.getHeight(), subresource.layerCount);
-
-						copySubresourceRange(textureView, texture, subresource);
-
-						program = MovePtr<Program>(new SamplerProgram<tcu::Texture2DArray>(renderTargetFormat, textureView, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-					}
-					else
-					{
-						// Use all array layers
-						program = MovePtr<Program>(new SamplerProgram<tcu::Texture2DArray>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-					}
-				}
-			}
-			break;
-
-		case VK_IMAGE_TYPE_3D:
-			{
-				const tcu::Texture3D& texture = dynamic_cast<const TestTexture3D&>(testTexture).getTexture();
-
-				if (subresource.baseMipLevel > 0)
-				{
-					// Not all texture levels are needed. Create new sub-texture.
-					const tcu::ConstPixelBufferAccess	baseLevel = texture.getLevel(subresource.baseMipLevel);
-					tcu::Texture3D						textureView(texture.getFormat(), baseLevel.getWidth(), baseLevel.getHeight(), baseLevel.getDepth());
-
-					copySubresourceRange(textureView, texture, subresource);
-
-					program = MovePtr<Program>(new SamplerProgram<tcu::Texture3D>(renderTargetFormat, textureView, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-				}
-				else
-				{
-					program = MovePtr<Program>(new SamplerProgram<tcu::Texture3D>(renderTargetFormat, texture, sampler, samplerLod, lookupScale, lookupBias, componentMapping));
-				}
-			}
-			break;
-
-		default:
-			DE_ASSERT(false);
-	}
-
-	return program;
-}
-
 } // anonymous
 
 ImageSamplingInstance::ImageSamplingInstance (Context&							context,
@@ -337,12 +132,16 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 											  const VkImageSubresourceRange&	subresourceRange,
 											  const VkSamplerCreateInfo&		samplerParams,
 											  float								samplerLod,
-											  const std::vector<Vertex4Tex4>&	vertices)
+											  const std::vector<Vertex4Tex4>&	vertices,
+											  VkDescriptorType					samplingType,
+											  int								imageCount)
 	: vkt::TestInstance		(context)
+	, m_samplingType		(samplingType)
 	, m_imageViewType		(imageViewType)
 	, m_imageFormat			(imageFormat)
 	, m_imageSize			(imageSize)
 	, m_layerCount			(layerCount)
+	, m_imageCount			(imageCount)
 	, m_componentMapping	(componentMapping)
 	, m_subresourceRange	(subresourceRange)
 	, m_samplerParams		(samplerParams)
@@ -361,11 +160,20 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 	if (!isSupportedSamplableFormat(context.getInstanceInterface(), context.getPhysicalDevice(), imageFormat))
 		throw tcu::NotSupportedError(std::string("Unsupported format for sampling: ") + getFormatName(imageFormat));
 
+	if ((deUint32)imageCount > context.getDeviceProperties().limits.maxColorAttachments)
+		throw tcu::NotSupportedError(std::string("Unsupported render target count: ") + de::toString(imageCount));
+
 	if ((samplerParams.minFilter == VK_FILTER_LINEAR ||
 		 samplerParams.magFilter == VK_FILTER_LINEAR ||
 		 samplerParams.mipmapMode == VK_SAMPLER_MIPMAP_MODE_LINEAR) &&
 		!isLinearFilteringSupported(context.getInstanceInterface(), context.getPhysicalDevice(), imageFormat, VK_IMAGE_TILING_OPTIMAL))
 		throw tcu::NotSupportedError(std::string("Unsupported format for linear filtering: ") + getFormatName(imageFormat));
+
+	if ((samplerParams.addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE ||
+		 samplerParams.addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE ||
+		 samplerParams.addressModeW == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE) &&
+		!de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), "VK_KHR_sampler_mirror_clamp_to_edge"))
+		TCU_THROW(NotSupportedError, "VK_KHR_sampler_mirror_clamp_to_edge not supported");
 
 	if (isCompressedFormat(imageFormat) && imageViewType == VK_IMAGE_VIEW_TYPE_3D)
 	{
@@ -391,7 +199,10 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 		}
 	}
 
-	// Create texture image, view and sampler
+	if (imageViewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY && !context.getDeviceFeatures().imageCubeArray)
+		TCU_THROW(NotSupportedError, "imageCubeArray feature is not supported");
+
+	// Create texture images, views and samplers
 	{
 		VkImageCreateFlags			imageFlags			= 0u;
 
@@ -427,38 +238,51 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			VK_IMAGE_LAYOUT_UNDEFINED										// VkImageLayout			initialLayout;
 		};
 
-		m_image			= createImage(vk, vkDevice, &imageParams);
-		m_imageAlloc	= memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_image), MemoryRequirement::Any);
-		VK_CHECK(vk.bindImageMemory(vkDevice, *m_image, m_imageAlloc->getMemory(), m_imageAlloc->getOffset()));
+		m_images.resize(m_imageCount);
+		m_imageAllocs.resize(m_imageCount);
+		m_imageViews.resize(m_imageCount);
 
-		// Upload texture data
-		uploadTestTexture(vk, vkDevice, queue, queueFamilyIndex, memAlloc, *m_texture, *m_image);
-
-		// Create image view and sampler
-		const VkImageViewCreateInfo imageViewParams =
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
-			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// VkStructureType			sType;
-			DE_NULL,									// const void*				pNext;
-			0u,											// VkImageViewCreateFlags	flags;
-			*m_image,									// VkImage					image;
-			m_imageViewType,							// VkImageViewType			viewType;
-			imageFormat,								// VkFormat					format;
-			m_componentMapping,							// VkComponentMapping		components;
-			m_subresourceRange,							// VkImageSubresourceRange	subresourceRange;
-		};
+			m_images[imgNdx] = SharedImagePtr(new UniqueImage(createImage(vk, vkDevice, &imageParams)));
+			m_imageAllocs[imgNdx] = SharedAllocPtr(new UniqueAlloc(memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, **m_images[imgNdx]), MemoryRequirement::Any)));
+			VK_CHECK(vk.bindImageMemory(vkDevice, **m_images[imgNdx], (*m_imageAllocs[imgNdx])->getMemory(), (*m_imageAllocs[imgNdx])->getOffset()));
 
-		m_imageView	= createImageView(vk, vkDevice, &imageViewParams);
+			// Upload texture data
+			uploadTestTexture(vk, vkDevice, queue, queueFamilyIndex, memAlloc, *m_texture, **m_images[imgNdx]);
+
+			// Create image view and sampler
+			const VkImageViewCreateInfo imageViewParams =
+			{
+				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// VkStructureType			sType;
+				DE_NULL,									// const void*				pNext;
+				0u,											// VkImageViewCreateFlags	flags;
+				**m_images[imgNdx],							// VkImage					image;
+				m_imageViewType,							// VkImageViewType			viewType;
+				imageFormat,								// VkFormat					format;
+				m_componentMapping,							// VkComponentMapping		components;
+				m_subresourceRange,							// VkImageSubresourceRange	subresourceRange;
+			};
+
+			m_imageViews[imgNdx] = SharedImageViewPtr(new UniqueImageView(createImageView(vk, vkDevice, &imageViewParams)));
+		}
+
 		m_sampler	= createSampler(vk, vkDevice, &m_samplerParams);
 	}
 
-	// Create descriptor set for combined image and sampler
+	// Create descriptor set for image and sampler
 	{
 		DescriptorPoolBuilder descriptorPoolBuilder;
-		descriptorPoolBuilder.addType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1u);
-		m_descriptorPool = descriptorPoolBuilder.build(vk, vkDevice, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, 1u);
+		if (m_samplingType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			descriptorPoolBuilder.addType(VK_DESCRIPTOR_TYPE_SAMPLER, 1u);
+		descriptorPoolBuilder.addType(m_samplingType, m_imageCount);
+		m_descriptorPool = descriptorPoolBuilder.build(vk, vkDevice, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+			m_samplingType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ? m_imageCount + 1u : m_imageCount);
 
 		DescriptorSetLayoutBuilder setLayoutBuilder;
-		setLayoutBuilder.addSingleBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		if (m_samplingType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+			setLayoutBuilder.addSingleBinding(VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		setLayoutBuilder.addArrayBinding(m_samplingType, m_imageCount, VK_SHADER_STAGE_FRAGMENT_BIT);
 		m_descriptorSetLayout = setLayoutBuilder.build(vk, vkDevice);
 
 		const VkDescriptorSetAllocateInfo descriptorSetAllocateInfo =
@@ -472,19 +296,33 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 
 		m_descriptorSet = allocateDescriptorSet(vk, vkDevice, &descriptorSetAllocateInfo);
 
-		const VkDescriptorImageInfo descriptorImageInfo =
+		const VkSampler sampler = m_samplingType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ? DE_NULL : *m_sampler;
+		std::vector<VkDescriptorImageInfo> descriptorImageInfo(m_imageCount);
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
-			*m_sampler,									// VkSampler		sampler;
-			*m_imageView,								// VkImageView		imageView;
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL	// VkImageLayout	imageLayout;
-		};
+			descriptorImageInfo[imgNdx].sampler		= sampler;									// VkSampler		sampler;
+			descriptorImageInfo[imgNdx].imageView	= **m_imageViews[imgNdx];					// VkImageView		imageView;
+			descriptorImageInfo[imgNdx].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;	// VkImageLayout	imageLayout;
+		}
 
 		DescriptorSetUpdateBuilder setUpdateBuilder;
-		setUpdateBuilder.writeSingle(*m_descriptorSet, DescriptorSetUpdateBuilder::Location::binding(0), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &descriptorImageInfo);
+		if (m_samplingType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+		{
+			const VkDescriptorImageInfo descriptorSamplerInfo =
+			{
+				*m_sampler,									// VkSampler		sampler;
+				DE_NULL,									// VkImageView		imageView;
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL	// VkImageLayout	imageLayout;
+			};
+			setUpdateBuilder.writeSingle(*m_descriptorSet, DescriptorSetUpdateBuilder::Location::binding(0), VK_DESCRIPTOR_TYPE_SAMPLER, &descriptorSamplerInfo);
+		}
+
+		const deUint32 binding = m_samplingType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ? 1u : 0u;
+		setUpdateBuilder.writeArray(*m_descriptorSet, DescriptorSetUpdateBuilder::Location::binding(binding), m_samplingType, m_imageCount, descriptorImageInfo.data());
 		setUpdateBuilder.update(vk, vkDevice);
 	}
 
-	// Create color image and view
+	// Create color images and views
 	{
 		const VkImageCreateInfo colorImageParams =
 		{
@@ -505,45 +343,52 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			VK_IMAGE_LAYOUT_UNDEFINED													// VkImageLayout			initialLayout;
 		};
 
-		m_colorImage			= createImage(vk, vkDevice, &colorImageParams);
-		m_colorImageAlloc		= memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, *m_colorImage), MemoryRequirement::Any);
-		VK_CHECK(vk.bindImageMemory(vkDevice, *m_colorImage, m_colorImageAlloc->getMemory(), m_colorImageAlloc->getOffset()));
+		m_colorImages.resize(m_imageCount);
+		m_colorImageAllocs.resize(m_imageCount);
+		m_colorAttachmentViews.resize(m_imageCount);
 
-		const VkImageViewCreateInfo colorAttachmentViewParams =
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
-			VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,			// VkStructureType			sType;
-			DE_NULL,											// const void*				pNext;
-			0u,													// VkImageViewCreateFlags	flags;
-			*m_colorImage,										// VkImage					image;
-			VK_IMAGE_VIEW_TYPE_2D,								// VkImageViewType			viewType;
-			m_colorFormat,										// VkFormat					format;
-			componentMappingRGBA,								// VkComponentMapping		components;
-			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }		// VkImageSubresourceRange	subresourceRange;
-		};
+			m_colorImages[imgNdx] = SharedImagePtr(new UniqueImage(createImage(vk, vkDevice, &colorImageParams)));
+			m_colorImageAllocs[imgNdx] = SharedAllocPtr(new UniqueAlloc(memAlloc.allocate(getImageMemoryRequirements(vk, vkDevice, **m_colorImages[imgNdx]), MemoryRequirement::Any)));
+			VK_CHECK(vk.bindImageMemory(vkDevice, **m_colorImages[imgNdx], (*m_colorImageAllocs[imgNdx])->getMemory(), (*m_colorImageAllocs[imgNdx])->getOffset()));
 
-		m_colorAttachmentView = createImageView(vk, vkDevice, &colorAttachmentViewParams);
+			const VkImageViewCreateInfo colorAttachmentViewParams =
+			{
+				VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,			// VkStructureType			sType;
+				DE_NULL,											// const void*				pNext;
+				0u,													// VkImageViewCreateFlags	flags;
+				**m_colorImages[imgNdx],							// VkImage					image;
+				VK_IMAGE_VIEW_TYPE_2D,								// VkImageViewType			viewType;
+				m_colorFormat,										// VkFormat					format;
+				componentMappingRGBA,								// VkComponentMapping		components;
+				{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }		// VkImageSubresourceRange	subresourceRange;
+			};
+
+			m_colorAttachmentViews[imgNdx] = SharedImageViewPtr(new UniqueImageView(createImageView(vk, vkDevice, &colorAttachmentViewParams)));
+		}
 	}
 
 	// Create render pass
 	{
-		const VkAttachmentDescription colorAttachmentDescription =
-		{
-			0u,													// VkAttachmentDescriptionFlags		flags;
-			m_colorFormat,										// VkFormat							format;
-			VK_SAMPLE_COUNT_1_BIT,								// VkSampleCountFlagBits			samples;
-			VK_ATTACHMENT_LOAD_OP_CLEAR,						// VkAttachmentLoadOp				loadOp;
-			VK_ATTACHMENT_STORE_OP_STORE,						// VkAttachmentStoreOp				storeOp;
-			VK_ATTACHMENT_LOAD_OP_DONT_CARE,					// VkAttachmentLoadOp				stencilLoadOp;
-			VK_ATTACHMENT_STORE_OP_DONT_CARE,					// VkAttachmentStoreOp				stencilStoreOp;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,			// VkImageLayout					initialLayout;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// VkImageLayout					finalLayout;
-		};
+		std::vector<VkAttachmentDescription>	colorAttachmentDescriptions(m_imageCount);
+		std::vector<VkAttachmentReference>		colorAttachmentReferences(m_imageCount);
 
-		const VkAttachmentReference colorAttachmentReference =
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
-			0u,													// deUint32			attachment;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// VkImageLayout	layout;
-		};
+			colorAttachmentDescriptions[imgNdx].flags			= 0u;										// VkAttachmentDescriptionFlags		flags;
+			colorAttachmentDescriptions[imgNdx].format			= m_colorFormat;							// VkFormat							format;
+			colorAttachmentDescriptions[imgNdx].samples			= VK_SAMPLE_COUNT_1_BIT;					// VkSampleCountFlagBits			samples;
+			colorAttachmentDescriptions[imgNdx].loadOp			= VK_ATTACHMENT_LOAD_OP_CLEAR;				// VkAttachmentLoadOp				loadOp;
+			colorAttachmentDescriptions[imgNdx].storeOp			= VK_ATTACHMENT_STORE_OP_STORE;				// VkAttachmentStoreOp				storeOp;
+			colorAttachmentDescriptions[imgNdx].stencilLoadOp	= VK_ATTACHMENT_LOAD_OP_DONT_CARE;			// VkAttachmentLoadOp				stencilLoadOp;
+			colorAttachmentDescriptions[imgNdx].stencilStoreOp	= VK_ATTACHMENT_STORE_OP_DONT_CARE;			// VkAttachmentStoreOp				stencilStoreOp;
+			colorAttachmentDescriptions[imgNdx].initialLayout	= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;	// VkImageLayout					initialLayout;
+			colorAttachmentDescriptions[imgNdx].finalLayout		= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;	// VkImageLayout					finalLayout;
+
+			colorAttachmentReferences[imgNdx].attachment		= (deUint32)imgNdx;							// deUint32							attachment;
+			colorAttachmentReferences[imgNdx].layout			= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;	// VkImageLayout					layout;
+		}
 
 		const VkSubpassDescription subpassDescription =
 		{
@@ -551,8 +396,8 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			VK_PIPELINE_BIND_POINT_GRAPHICS,					// VkPipelineBindPoint			pipelineBindPoint;
 			0u,													// deUint32						inputAttachmentCount;
 			DE_NULL,											// const VkAttachmentReference*	pInputAttachments;
-			1u,													// deUint32						colorAttachmentCount;
-			&colorAttachmentReference,							// const VkAttachmentReference*	pColorAttachments;
+			(deUint32)m_imageCount,								// deUint32						colorAttachmentCount;
+			&colorAttachmentReferences[0],						// const VkAttachmentReference*	pColorAttachments;
 			DE_NULL,											// const VkAttachmentReference*	pResolveAttachments;
 			DE_NULL,											// const VkAttachmentReference*	pDepthStencilAttachment;
 			0u,													// deUint32						preserveAttachmentCount;
@@ -564,8 +409,8 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,			// VkStructureType					sType;
 			DE_NULL,											// const void*						pNext;
 			0u,													// VkRenderPassCreateFlags			flags;
-			1u,													// deUint32							attachmentCount;
-			&colorAttachmentDescription,						// const VkAttachmentDescription*	pAttachments;
+			(deUint32)m_imageCount,								// deUint32							attachmentCount;
+			&colorAttachmentDescriptions[0],					// const VkAttachmentDescription*	pAttachments;
 			1u,													// deUint32							subpassCount;
 			&subpassDescription,								// const VkSubpassDescription*		pSubpasses;
 			0u,													// deUint32							dependencyCount;
@@ -577,14 +422,18 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 
 	// Create framebuffer
 	{
+		std::vector<VkImageView> pAttachments(m_imageCount);
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
+			pAttachments[imgNdx] = m_colorAttachmentViews[imgNdx]->get();
+
 		const VkFramebufferCreateInfo framebufferParams =
 		{
 			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,			// VkStructureType			sType;
 			DE_NULL,											// const void*				pNext;
 			0u,													// VkFramebufferCreateFlags	flags;
 			*m_renderPass,										// VkRenderPass				renderPass;
-			1u,													// deUint32					attachmentCount;
-			&m_colorAttachmentView.get(),						// const VkImageView*		pAttachments;
+			(deUint32)m_imageCount,								// deUint32					attachmentCount;
+			&pAttachments[0],									// const VkImageView*		pAttachments;
 			(deUint32)m_renderSize.x(),							// deUint32					width;
 			(deUint32)m_renderSize.y(),							// deUint32					height;
 			1u													// deUint32					layers;
@@ -719,18 +568,20 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			1.0f															// float									lineWidth;
 		};
 
-		const VkPipelineColorBlendAttachmentState colorBlendAttachmentState =
+		std::vector<VkPipelineColorBlendAttachmentState>	colorBlendAttachmentStates(m_imageCount);
+
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
-			false,														// VkBool32					blendEnable;
-			VK_BLEND_FACTOR_ONE,										// VkBlendFactor			srcColorBlendFactor;
-			VK_BLEND_FACTOR_ZERO,										// VkBlendFactor			dstColorBlendFactor;
-			VK_BLEND_OP_ADD,											// VkBlendOp				colorBlendOp;
-			VK_BLEND_FACTOR_ONE,										// VkBlendFactor			srcAlphaBlendFactor;
-			VK_BLEND_FACTOR_ZERO,										// VkBlendFactor			dstAlphaBlendFactor;
-			VK_BLEND_OP_ADD,											// VkBlendOp				alphaBlendOp;
-			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |		// VkColorComponentFlags	colorWriteMask;
-				VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-		};
+			colorBlendAttachmentStates[imgNdx].blendEnable			= false;												// VkBool32					blendEnable;
+			colorBlendAttachmentStates[imgNdx].srcColorBlendFactor	= VK_BLEND_FACTOR_ONE;									// VkBlendFactor			srcColorBlendFactor;
+			colorBlendAttachmentStates[imgNdx].dstColorBlendFactor	= VK_BLEND_FACTOR_ZERO;									// VkBlendFactor			dstColorBlendFactor;
+			colorBlendAttachmentStates[imgNdx].colorBlendOp			= VK_BLEND_OP_ADD;										// VkBlendOp				colorBlendOp;
+			colorBlendAttachmentStates[imgNdx].srcAlphaBlendFactor	= VK_BLEND_FACTOR_ONE;									// VkBlendFactor			srcAlphaBlendFactor;
+			colorBlendAttachmentStates[imgNdx].dstAlphaBlendFactor	= VK_BLEND_FACTOR_ZERO;									// VkBlendFactor			dstAlphaBlendFactor;
+			colorBlendAttachmentStates[imgNdx].alphaBlendOp			= VK_BLEND_OP_ADD;										// VkBlendOp				alphaBlendOp;
+			colorBlendAttachmentStates[imgNdx].colorWriteMask		= VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |	// VkColorComponentFlags	colorWriteMask;
+																		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		}
 
 		const VkPipelineColorBlendStateCreateInfo colorBlendStateParams =
 		{
@@ -739,8 +590,8 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			0u,															// VkPipelineColorBlendStateCreateFlags			flags;
 			false,														// VkBool32										logicOpEnable;
 			VK_LOGIC_OP_COPY,											// VkLogicOp									logicOp;
-			1u,															// deUint32										attachmentCount;
-			&colorBlendAttachmentState,									// const VkPipelineColorBlendAttachmentState*	pAttachments;
+			(deUint32)m_imageCount,										// deUint32										attachmentCount;
+			&colorBlendAttachmentStates[0],								// const VkPipelineColorBlendAttachmentState*	pAttachments;
 			{ 0.0f, 0.0f, 0.0f, 0.0f }									// float										blendConstants[4];
 		};
 
@@ -874,7 +725,7 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 			(const VkCommandBufferInheritanceInfo*)DE_NULL,
 		};
 
-		const VkClearValue attachmentClearValue = defaultClearValue(m_colorFormat);
+		const std::vector<VkClearValue> attachmentClearValues (m_imageCount, defaultClearValue(m_colorFormat));
 
 		const VkRenderPassBeginInfo renderPassBeginInfo =
 		{
@@ -886,30 +737,36 @@ ImageSamplingInstance::ImageSamplingInstance (Context&							context,
 				{ 0, 0 },
 				{ (deUint32)m_renderSize.x(), (deUint32)m_renderSize.y() }
 			},														// VkRect2D				renderArea;
-			1,														// deUint32				clearValueCount;
-			&attachmentClearValue									// const VkClearValue*	pClearValues;
+			static_cast<deUint32>(attachmentClearValues.size()),	// deUint32				clearValueCount;
+			&attachmentClearValues[0]								// const VkClearValue*	pClearValues;
 		};
 
-		const VkImageMemoryBarrier preAttachmentBarrier =
+		std::vector<VkImageMemoryBarrier> preAttachmentBarriers(m_imageCount);
+
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
 		{
-			VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType			sType;
-			DE_NULL,										// const void*				pNext;
-			0u,												// VkAccessFlags			srcAccessMask;
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,			// VkAccessFlags			dstAccessMask;
-			VK_IMAGE_LAYOUT_UNDEFINED,						// VkImageLayout			oldLayout;
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,		// VkImageLayout			newLayout;
-			VK_QUEUE_FAMILY_IGNORED,						// deUint32					srcQueueFamilyIndex;
-			VK_QUEUE_FAMILY_IGNORED,						// deUint32					dstQueueFamilyIndex;
-			*m_colorImage,									// VkImage					image;
-			{ VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u }	// VkImageSubresourceRange	subresourceRange;
-		};
+			preAttachmentBarriers[imgNdx].sType								= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;	// VkStructureType			sType;
+			preAttachmentBarriers[imgNdx].pNext								= DE_NULL;									// const void*				pNext;
+			preAttachmentBarriers[imgNdx].srcAccessMask						= 0u;										// VkAccessFlags			srcAccessMask;
+			preAttachmentBarriers[imgNdx].dstAccessMask						= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;		// VkAccessFlags			dstAccessMask;
+			preAttachmentBarriers[imgNdx].oldLayout							= VK_IMAGE_LAYOUT_UNDEFINED;				// VkImageLayout			oldLayout;
+			preAttachmentBarriers[imgNdx].newLayout							= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;	// VkImageLayout			newLayout;
+			preAttachmentBarriers[imgNdx].srcQueueFamilyIndex				= VK_QUEUE_FAMILY_IGNORED;					// deUint32					srcQueueFamilyIndex;
+			preAttachmentBarriers[imgNdx].dstQueueFamilyIndex				= VK_QUEUE_FAMILY_IGNORED;					// deUint32					dstQueueFamilyIndex;
+			preAttachmentBarriers[imgNdx].image								= **m_colorImages[imgNdx];					// VkImage					image;
+			preAttachmentBarriers[imgNdx].subresourceRange.aspectMask		= VK_IMAGE_ASPECT_COLOR_BIT;				// VkImageSubresourceRange	subresourceRange;
+			preAttachmentBarriers[imgNdx].subresourceRange.baseMipLevel		= 0u;
+			preAttachmentBarriers[imgNdx].subresourceRange.levelCount		= 1u;
+			preAttachmentBarriers[imgNdx].subresourceRange.baseArrayLayer	= 0u;
+			preAttachmentBarriers[imgNdx].subresourceRange.layerCount		= 1u;
+		}
 
 		m_cmdBuffer = allocateCommandBuffer(vk, vkDevice, &cmdBufferAllocateInfo);
 
 		VK_CHECK(vk.beginCommandBuffer(*m_cmdBuffer, &cmdBufferBeginInfo));
 
 		vk.cmdPipelineBarrier(*m_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, (VkDependencyFlags)0,
-			0u, DE_NULL, 0u, DE_NULL, 1u, &preAttachmentBarrier);
+			0u, DE_NULL, 0u, DE_NULL, (deUint32)m_imageCount, &preAttachmentBarriers[0]);
 
 		vk.cmdBeginRenderPass(*m_cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -967,55 +824,680 @@ tcu::TestStatus ImageSamplingInstance::iterate (void)
 	return verifyImage();
 }
 
-tcu::TestStatus ImageSamplingInstance::verifyImage (void)
+namespace
 {
-	const tcu::TextureFormat		colorFormat				= mapVkFormat(m_colorFormat);
-	const tcu::TextureFormat		depthStencilFormat		= tcu::TextureFormat(); // Undefined depth/stencil format.
-	const tcu::Sampler				sampler					= mapVkSampler(m_samplerParams);
-	const tcu::UVec4				componentMapping		= mapVkComponentMapping(m_componentMapping);
-	float							samplerLod;
-	bool							compareOk;
-	MovePtr<Program>				program;
-	MovePtr<ReferenceRenderer>		refRenderer;
 
-	// Set up LOD of reference sampler
-	samplerLod = de::max(m_samplerParams.minLod, de::min(m_samplerParams.maxLod, m_samplerParams.mipLodBias + m_samplerLod));
+bool isLookupResultValid (const tcu::Texture1DView&		texture,
+						  const tcu::Sampler&			sampler,
+						  const tcu::LookupPrecision&	precision,
+						  const tcu::Vec4&				coords,
+						  const tcu::Vec2&				lodBounds,
+						  const tcu::Vec4&				result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, coords.x(), lodBounds, result);
+}
 
-	// Create reference program that uses image subresource range
-	program = createRefProgram(colorFormat, sampler, samplerLod, componentMapping, *m_texture, m_imageViewType, m_layerCount, m_subresourceRange);
-	const rr::Program referenceProgram = program->getReferenceProgram();
+bool isLookupResultValid (const tcu::Texture1DArrayView&	texture,
+						  const tcu::Sampler&				sampler,
+						  const tcu::LookupPrecision&		precision,
+						  const tcu::Vec4&					coords,
+						  const tcu::Vec2&					lodBounds,
+						  const tcu::Vec4&					result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, coords.swizzle(0,1), lodBounds, result);
+}
 
-	// Render reference image
-	refRenderer = MovePtr<ReferenceRenderer>(new ReferenceRenderer(m_renderSize.x(), m_renderSize.y(), 1, colorFormat, depthStencilFormat, &referenceProgram));
-	const rr::RenderState renderState(refRenderer->getViewportState());
-	refRenderer->draw(renderState, rr::PRIMITIVETYPE_TRIANGLES, m_vertices);
+bool isLookupResultValid (const tcu::Texture2DView&		texture,
+						  const tcu::Sampler&			sampler,
+						  const tcu::LookupPrecision&	precision,
+						  const tcu::Vec4&				coords,
+						  const tcu::Vec2&				lodBounds,
+						  const tcu::Vec4&				result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, coords.swizzle(0,1), lodBounds, result);
+}
 
-	// Compare result with reference image
+bool isLookupResultValid (const tcu::Texture2DArrayView&	texture,
+						  const tcu::Sampler&				sampler,
+						  const tcu::LookupPrecision&		precision,
+						  const tcu::Vec4&					coords,
+						  const tcu::Vec2&					lodBounds,
+						  const tcu::Vec4&					result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, coords.swizzle(0,1,2), lodBounds, result);
+}
+
+bool isLookupResultValid (const tcu::TextureCubeView&	texture,
+						  const tcu::Sampler&			sampler,
+						  const tcu::LookupPrecision&	precision,
+						  const tcu::Vec4&				coords,
+						  const tcu::Vec2&				lodBounds,
+						  const tcu::Vec4&				result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, coords.swizzle(0,1,2), lodBounds, result);
+}
+
+bool isLookupResultValid (const tcu::TextureCubeArrayView&	texture,
+						  const tcu::Sampler&				sampler,
+						  const tcu::LookupPrecision&		precision,
+						  const tcu::Vec4&					coords,
+						  const tcu::Vec2&					lodBounds,
+						  const tcu::Vec4&					result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, tcu::IVec4(precision.coordBits.x()), coords, lodBounds, result);
+}
+
+bool isLookupResultValid(const tcu::Texture3DView&		texture,
+						 const tcu::Sampler&			sampler,
+						 const tcu::LookupPrecision&	precision,
+						 const tcu::Vec4&				coords,
+						 const tcu::Vec2&				lodBounds,
+						 const tcu::Vec4&				result)
+{
+	return tcu::isLookupResultValid(texture, sampler, precision, coords.swizzle(0,1,2), lodBounds, result);
+}
+
+template<typename TextureViewType>
+bool validateResultImage (const TextureViewType&				texture,
+						  const tcu::Sampler&					sampler,
+						  const tcu::ConstPixelBufferAccess&	texCoords,
+						  const tcu::Vec2&						lodBounds,
+						  const tcu::LookupPrecision&			lookupPrecision,
+						  const tcu::Vec4&						lookupScale,
+						  const tcu::Vec4&						lookupBias,
+						  const tcu::ConstPixelBufferAccess&	result,
+						  const tcu::PixelBufferAccess&			errorMask)
+{
+	const int	w		= result.getWidth();
+	const int	h		= result.getHeight();
+	bool		allOk	= true;
+
+	for (int y = 0; y < h; ++y)
 	{
-		const DeviceInterface&		vk							= m_context.getDeviceInterface();
-		const VkDevice				vkDevice					= m_context.getDevice();
-		const VkQueue				queue						= m_context.getUniversalQueue();
-		const deUint32				queueFamilyIndex			= m_context.getUniversalQueueFamilyIndex();
-		SimpleAllocator				memAlloc					(vk, vkDevice, getPhysicalDeviceMemoryProperties(m_context.getInstanceInterface(), m_context.getPhysicalDevice()));
-		MovePtr<tcu::TextureLevel>	result						= readColorAttachment(vk, vkDevice, queue, queueFamilyIndex, memAlloc, *m_colorImage, m_colorFormat, m_renderSize);
-		tcu::UVec4					threshold					= tcu::UVec4(4, 4, 4, 4);
+		for (int x = 0; x < w; ++x)
+		{
+			const tcu::Vec4		resultPixel	= result.getPixel(x, y);
+			const tcu::Vec4		resultColor	= (resultPixel - lookupBias) / lookupScale;
+			const tcu::Vec4		texCoord	= texCoords.getPixel(x, y);
+			const bool			pixelOk		= isLookupResultValid(texture, sampler, lookupPrecision, texCoord, lodBounds, resultColor);
 
-		if ((m_imageFormat == vk::VK_FORMAT_EAC_R11G11_SNORM_BLOCK) || (m_imageFormat == vk::VK_FORMAT_EAC_R11_SNORM_BLOCK))
-			threshold = tcu::UVec4(8, 8, 8, 8);
+			errorMask.setPixel(tcu::Vec4(pixelOk?0.0f:1.0f, pixelOk?1.0f:0.0f, 0.0f, 1.0f), x, y);
 
-		compareOk = tcu::intThresholdPositionDeviationCompare(m_context.getTestContext().getLog(),
-															  "IntImageCompare",
-															  "Image comparison",
-															  refRenderer->getAccess(),
-															  result->getAccess(),
-															  threshold,
-															  tcu::IVec3(1, 1, 0),
-															  true,
-															  tcu::COMPARE_LOG_RESULT);
+			if (!pixelOk)
+				allOk = false;
+		}
 	}
 
-	if (compareOk)
-		return tcu::TestStatus::pass("Result image matches reference");
+	return allOk;
+}
+
+template<typename ScalarType>
+ScalarType getSwizzledComp (const tcu::Vector<ScalarType, 4>& vec, vk::VkComponentSwizzle comp, int identityNdx)
+{
+	if (comp == vk::VK_COMPONENT_SWIZZLE_IDENTITY)
+		return vec[identityNdx];
+	else if (comp == vk::VK_COMPONENT_SWIZZLE_ZERO)
+		return ScalarType(0);
+	else if (comp == vk::VK_COMPONENT_SWIZZLE_ONE)
+		return ScalarType(1);
+	else
+		return vec[comp - vk::VK_COMPONENT_SWIZZLE_R];
+}
+
+template<typename ScalarType>
+tcu::Vector<ScalarType, 4> swizzle (const tcu::Vector<ScalarType, 4>& vec, const vk::VkComponentMapping& swz)
+{
+	return tcu::Vector<ScalarType, 4>(getSwizzledComp(vec, swz.r, 0),
+									  getSwizzledComp(vec, swz.g, 1),
+									  getSwizzledComp(vec, swz.b, 2),
+									  getSwizzledComp(vec, swz.a, 3));
+}
+
+tcu::Vec4 swizzleScaleBias (const tcu::Vec4& vec, const vk::VkComponentMapping& swz)
+{
+	const float channelValues[] =
+	{
+		1.0f, // -1
+		1.0f, // 0
+		1.0f,
+		vec.x(),
+		vec.y(),
+		vec.z(),
+		vec.w()
+	};
+
+	return tcu::Vec4(channelValues[swz.r], channelValues[swz.g], channelValues[swz.b], channelValues[swz.a]);
+}
+
+template<typename ScalarType>
+void swizzleT (const tcu::ConstPixelBufferAccess& src, const tcu::PixelBufferAccess& dst, const vk::VkComponentMapping& swz)
+{
+	for (int z = 0; z < dst.getDepth(); ++z)
+	for (int y = 0; y < dst.getHeight(); ++y)
+	for (int x = 0; x < dst.getWidth(); ++x)
+		dst.setPixel(swizzle(src.getPixelT<ScalarType>(x, y, z), swz), x, y, z);
+}
+
+void swizzleFromSRGB (const tcu::ConstPixelBufferAccess& src, const tcu::PixelBufferAccess& dst, const vk::VkComponentMapping& swz)
+{
+	for (int z = 0; z < dst.getDepth(); ++z)
+	for (int y = 0; y < dst.getHeight(); ++y)
+	for (int x = 0; x < dst.getWidth(); ++x)
+		dst.setPixel(swizzle(tcu::sRGBToLinear(src.getPixelT<float>(x, y, z)), swz), x, y, z);
+}
+
+void swizzle (const tcu::ConstPixelBufferAccess& src, const tcu::PixelBufferAccess& dst, const vk::VkComponentMapping& swz)
+{
+	const tcu::TextureChannelClass	chnClass	= tcu::getTextureChannelClass(dst.getFormat().type);
+
+	DE_ASSERT(src.getWidth() == dst.getWidth() &&
+			  src.getHeight() == dst.getHeight() &&
+			  src.getDepth() == dst.getDepth());
+
+	if (chnClass == tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER)
+		swizzleT<deInt32>(src, dst, swz);
+	else if (chnClass == tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER)
+		swizzleT<deUint32>(src, dst, swz);
+	else if (tcu::isSRGB(src.getFormat()) && !tcu::isSRGB(dst.getFormat()))
+		swizzleFromSRGB(src, dst, swz);
+	else
+		swizzleT<float>(src, dst, swz);
+}
+
+bool isIdentitySwizzle (const vk::VkComponentMapping& swz)
+{
+	return (swz.r == vk::VK_COMPONENT_SWIZZLE_IDENTITY || swz.r == vk::VK_COMPONENT_SWIZZLE_R) &&
+		   (swz.g == vk::VK_COMPONENT_SWIZZLE_IDENTITY || swz.g == vk::VK_COMPONENT_SWIZZLE_G) &&
+		   (swz.b == vk::VK_COMPONENT_SWIZZLE_IDENTITY || swz.b == vk::VK_COMPONENT_SWIZZLE_B) &&
+		   (swz.a == vk::VK_COMPONENT_SWIZZLE_IDENTITY || swz.a == vk::VK_COMPONENT_SWIZZLE_A);
+}
+
+template<typename TextureViewType> struct TexViewTraits;
+
+template<> struct TexViewTraits<tcu::Texture1DView>			{ typedef tcu::Texture1D		TextureType; };
+template<> struct TexViewTraits<tcu::Texture1DArrayView>	{ typedef tcu::Texture1DArray	TextureType; };
+template<> struct TexViewTraits<tcu::Texture2DView>			{ typedef tcu::Texture2D		TextureType; };
+template<> struct TexViewTraits<tcu::Texture2DArrayView>	{ typedef tcu::Texture2DArray	TextureType; };
+template<> struct TexViewTraits<tcu::TextureCubeView>		{ typedef tcu::TextureCube		TextureType; };
+template<> struct TexViewTraits<tcu::TextureCubeArrayView>	{ typedef tcu::TextureCubeArray	TextureType; };
+template<> struct TexViewTraits<tcu::Texture3DView>			{ typedef tcu::Texture3D		TextureType; };
+
+template<typename TextureViewType>
+typename TexViewTraits<TextureViewType>::TextureType* createSkeletonClone (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0);
+
+tcu::TextureFormat getSwizzleTargetFormat (tcu::TextureFormat format)
+{
+	// Swizzled texture needs to hold all four channels
+	// \todo [2016-09-21 pyry] We could save some memory by using smaller formats
+	//						   when possible (for example U8).
+
+	const tcu::TextureChannelClass	chnClass	= tcu::getTextureChannelClass(format.type);
+
+	if (chnClass == tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER)
+		return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::SIGNED_INT32);
+	else if (chnClass == tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER)
+		return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNSIGNED_INT32);
+	else
+		return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::FLOAT);
+}
+
+template<>
+tcu::Texture1D* createSkeletonClone<tcu::Texture1DView> (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0)
+{
+	return new tcu::Texture1D(format, level0.getWidth());
+}
+
+template<>
+tcu::Texture1DArray* createSkeletonClone<tcu::Texture1DArrayView> (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0)
+{
+	return new tcu::Texture1DArray(format, level0.getWidth(), level0.getHeight());
+}
+
+template<>
+tcu::Texture2D* createSkeletonClone<tcu::Texture2DView> (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0)
+{
+	return new tcu::Texture2D(format, level0.getWidth(), level0.getHeight());
+}
+
+template<>
+tcu::Texture2DArray* createSkeletonClone<tcu::Texture2DArrayView> (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0)
+{
+	return new tcu::Texture2DArray(format, level0.getWidth(), level0.getHeight(), level0.getDepth());
+}
+
+template<>
+tcu::Texture3D* createSkeletonClone<tcu::Texture3DView> (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0)
+{
+	return new tcu::Texture3D(format, level0.getWidth(), level0.getHeight(), level0.getDepth());
+}
+
+template<>
+tcu::TextureCubeArray* createSkeletonClone<tcu::TextureCubeArrayView> (tcu::TextureFormat format, const tcu::ConstPixelBufferAccess& level0)
+{
+	return new tcu::TextureCubeArray(format, level0.getWidth(), level0.getDepth());
+}
+
+template<typename TextureViewType>
+MovePtr<typename TexViewTraits<TextureViewType>::TextureType> createSwizzledCopy (const TextureViewType& texture, const vk::VkComponentMapping& swz)
+{
+	MovePtr<typename TexViewTraits<TextureViewType>::TextureType>	copy	(createSkeletonClone<TextureViewType>(getSwizzleTargetFormat(texture.getLevel(0).getFormat()), texture.getLevel(0)));
+
+	for (int levelNdx = 0; levelNdx < texture.getNumLevels(); ++levelNdx)
+	{
+		copy->allocLevel(levelNdx);
+		swizzle(texture.getLevel(levelNdx), copy->getLevel(levelNdx), swz);
+	}
+
+	return copy;
+}
+
+template<>
+MovePtr<tcu::TextureCube> createSwizzledCopy (const tcu::TextureCubeView& texture, const vk::VkComponentMapping& swz)
+{
+	MovePtr<tcu::TextureCube>	copy	(new tcu::TextureCube(getSwizzleTargetFormat(texture.getLevelFace(0, tcu::CUBEFACE_NEGATIVE_X).getFormat()), texture.getSize()));
+
+	for (int faceNdx = 0; faceNdx < tcu::CUBEFACE_LAST; ++faceNdx)
+	{
+		for (int levelNdx = 0; levelNdx < texture.getNumLevels(); ++levelNdx)
+		{
+			copy->allocLevel((tcu::CubeFace)faceNdx, levelNdx);
+			swizzle(texture.getLevelFace(levelNdx, (tcu::CubeFace)faceNdx), copy->getLevelFace(levelNdx, (tcu::CubeFace)faceNdx), swz);
+		}
+	}
+
+	return copy;
+}
+
+template<typename TextureViewType>
+bool validateResultImage (const TextureViewType&				texture,
+						  const tcu::Sampler&					sampler,
+						  const vk::VkComponentMapping&			swz,
+						  const tcu::ConstPixelBufferAccess&	texCoords,
+						  const tcu::Vec2&						lodBounds,
+						  const tcu::LookupPrecision&			lookupPrecision,
+						  const tcu::Vec4&						lookupScale,
+						  const tcu::Vec4&						lookupBias,
+						  const tcu::ConstPixelBufferAccess&	result,
+						  const tcu::PixelBufferAccess&			errorMask)
+{
+	if (isIdentitySwizzle(swz))
+		return validateResultImage(texture, sampler, texCoords, lodBounds, lookupPrecision, lookupScale, lookupBias, result, errorMask);
+	else
+	{
+		// There is (currently) no way to handle swizzling inside validation loop
+		// and thus we need to pre-swizzle the texture.
+		UniquePtr<typename TexViewTraits<TextureViewType>::TextureType>	swizzledTex	(createSwizzledCopy(texture, swz));
+
+		return validateResultImage(*swizzledTex, sampler, texCoords, lodBounds, lookupPrecision, swizzleScaleBias(lookupScale, swz), swizzleScaleBias(lookupBias, swz), result, errorMask);
+	}
+}
+
+vk::VkImageSubresourceRange resolveSubresourceRange (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource)
+{
+	vk::VkImageSubresourceRange	resolved					= subresource;
+
+	if (subresource.levelCount == VK_REMAINING_MIP_LEVELS)
+		resolved.levelCount = testTexture.getNumLevels()-subresource.baseMipLevel;
+
+	if (subresource.layerCount == VK_REMAINING_ARRAY_LAYERS)
+		resolved.layerCount = testTexture.getArraySize()-subresource.baseArrayLayer;
+
+	return resolved;
+}
+
+MovePtr<tcu::Texture1DView> getTexture1DView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	DE_ASSERT(subresource.layerCount == 1);
+
+	levels.resize(subresource.levelCount);
+
+	for (int levelNdx = 0; levelNdx < (int)levels.size(); ++levelNdx)
+	{
+		const tcu::ConstPixelBufferAccess& srcLevel = testTexture.getLevel((int)subresource.baseMipLevel+levelNdx, subresource.baseArrayLayer);
+
+		levels[levelNdx] = tcu::getSubregion(srcLevel, 0, 0, 0, srcLevel.getWidth(), 1, 1);
+	}
+
+	return MovePtr<tcu::Texture1DView>(new tcu::Texture1DView((int)levels.size(), &levels[0]));
+}
+
+MovePtr<tcu::Texture1DArrayView> getTexture1DArrayView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	const TestTexture1D*		tex1D		= dynamic_cast<const TestTexture1D*>(&testTexture);
+	const TestTexture1DArray*	tex1DArray	= dynamic_cast<const TestTexture1DArray*>(&testTexture);
+
+	DE_ASSERT(!!tex1D != !!tex1DArray);
+	DE_ASSERT(tex1DArray || subresource.baseArrayLayer == 0);
+
+	levels.resize(subresource.levelCount);
+
+	for (int levelNdx = 0; levelNdx < (int)levels.size(); ++levelNdx)
+	{
+		const tcu::ConstPixelBufferAccess& srcLevel = tex1D ? tex1D->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx)
+															: tex1DArray->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx);
+
+		levels[levelNdx] = tcu::getSubregion(srcLevel, 0, (int)subresource.baseArrayLayer, 0, srcLevel.getWidth(), (int)subresource.layerCount, 1);
+	}
+
+	return MovePtr<tcu::Texture1DArrayView>(new tcu::Texture1DArrayView((int)levels.size(), &levels[0]));
+}
+
+MovePtr<tcu::Texture2DView> getTexture2DView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	const TestTexture2D*		tex2D		= dynamic_cast<const TestTexture2D*>(&testTexture);
+	const TestTexture2DArray*	tex2DArray	= dynamic_cast<const TestTexture2DArray*>(&testTexture);
+
+	DE_ASSERT(subresource.layerCount == 1);
+	DE_ASSERT(!!tex2D != !!tex2DArray);
+	DE_ASSERT(tex2DArray || subresource.baseArrayLayer == 0);
+
+	levels.resize(subresource.levelCount);
+
+	for (int levelNdx = 0; levelNdx < (int)levels.size(); ++levelNdx)
+	{
+		const tcu::ConstPixelBufferAccess& srcLevel = tex2D ? tex2D->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx)
+															: tex2DArray->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx);
+
+		levels[levelNdx] = tcu::getSubregion(srcLevel, 0, 0, (int)subresource.baseArrayLayer, srcLevel.getWidth(), srcLevel.getHeight(), 1);
+	}
+
+	return MovePtr<tcu::Texture2DView>(new tcu::Texture2DView((int)levels.size(), &levels[0]));
+}
+
+MovePtr<tcu::Texture2DArrayView> getTexture2DArrayView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	const TestTexture2D*		tex2D		= dynamic_cast<const TestTexture2D*>(&testTexture);
+	const TestTexture2DArray*	tex2DArray	= dynamic_cast<const TestTexture2DArray*>(&testTexture);
+
+	DE_ASSERT(!!tex2D != !!tex2DArray);
+	DE_ASSERT(tex2DArray || subresource.baseArrayLayer == 0);
+
+	levels.resize(subresource.levelCount);
+
+	for (int levelNdx = 0; levelNdx < (int)levels.size(); ++levelNdx)
+	{
+		const tcu::ConstPixelBufferAccess& srcLevel = tex2D ? tex2D->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx)
+															: tex2DArray->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx);
+
+		levels[levelNdx] = tcu::getSubregion(srcLevel, 0, 0, (int)subresource.baseArrayLayer, srcLevel.getWidth(), srcLevel.getHeight(), (int)subresource.layerCount);
+	}
+
+	return MovePtr<tcu::Texture2DArrayView>(new tcu::Texture2DArrayView((int)levels.size(), &levels[0]));
+}
+
+MovePtr<tcu::TextureCubeView> getTextureCubeView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	const static tcu::CubeFace s_faceMap[tcu::CUBEFACE_LAST] =
+	{
+		tcu::CUBEFACE_POSITIVE_X,
+		tcu::CUBEFACE_NEGATIVE_X,
+		tcu::CUBEFACE_POSITIVE_Y,
+		tcu::CUBEFACE_NEGATIVE_Y,
+		tcu::CUBEFACE_POSITIVE_Z,
+		tcu::CUBEFACE_NEGATIVE_Z
+	};
+
+	const TestTextureCube*		texCube			= dynamic_cast<const TestTextureCube*>(&testTexture);
+	const TestTextureCubeArray*	texCubeArray	= dynamic_cast<const TestTextureCubeArray*>(&testTexture);
+
+	DE_ASSERT(!!texCube != !!texCubeArray);
+	DE_ASSERT(subresource.layerCount == 6);
+	DE_ASSERT(texCubeArray || subresource.baseArrayLayer == 0);
+
+	levels.resize(subresource.levelCount*tcu::CUBEFACE_LAST);
+
+	for (int faceNdx = 0; faceNdx < tcu::CUBEFACE_LAST; ++faceNdx)
+	{
+		for (int levelNdx = 0; levelNdx < (int)subresource.levelCount; ++levelNdx)
+		{
+			const tcu::ConstPixelBufferAccess& srcLevel = texCubeArray ? texCubeArray->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx)
+																	   : texCube->getTexture().getLevelFace(levelNdx, s_faceMap[faceNdx]);
+
+			levels[faceNdx*subresource.levelCount + levelNdx] = tcu::getSubregion(srcLevel, 0, 0, (int)subresource.baseArrayLayer + (texCubeArray ? faceNdx : 0), srcLevel.getWidth(), srcLevel.getHeight(), 1);
+		}
+	}
+
+	{
+		const tcu::ConstPixelBufferAccess*	reordered[tcu::CUBEFACE_LAST];
+
+		for (int faceNdx = 0; faceNdx < tcu::CUBEFACE_LAST; ++faceNdx)
+			reordered[s_faceMap[faceNdx]] = &levels[faceNdx*subresource.levelCount];
+
+		return MovePtr<tcu::TextureCubeView>(new tcu::TextureCubeView((int)subresource.levelCount, reordered));
+	}
+}
+
+MovePtr<tcu::TextureCubeArrayView> getTextureCubeArrayView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	const TestTextureCubeArray*	texCubeArray	= dynamic_cast<const TestTextureCubeArray*>(&testTexture);
+
+	DE_ASSERT(texCubeArray);
+	DE_ASSERT(subresource.layerCount%6 == 0);
+
+	levels.resize(subresource.levelCount);
+
+	for (int levelNdx = 0; levelNdx < (int)subresource.levelCount; ++levelNdx)
+	{
+		const tcu::ConstPixelBufferAccess& srcLevel = texCubeArray->getTexture().getLevel((int)subresource.baseMipLevel+levelNdx);
+
+		levels[levelNdx] = tcu::getSubregion(srcLevel, 0, 0, (int)subresource.baseArrayLayer, srcLevel.getWidth(), srcLevel.getHeight(), (int)subresource.layerCount);
+	}
+
+	return MovePtr<tcu::TextureCubeArrayView>(new tcu::TextureCubeArrayView((int)levels.size(), &levels[0]));
+}
+
+MovePtr<tcu::Texture3DView> getTexture3DView (const TestTexture& testTexture, const vk::VkImageSubresourceRange& subresource, std::vector<tcu::ConstPixelBufferAccess>& levels)
+{
+	DE_ASSERT(subresource.baseArrayLayer == 0 && subresource.layerCount == 1);
+
+	levels.resize(subresource.levelCount);
+
+	for (int levelNdx = 0; levelNdx < (int)levels.size(); ++levelNdx)
+		levels[levelNdx] = testTexture.getLevel((int)subresource.baseMipLevel+levelNdx, subresource.baseArrayLayer);
+
+	return MovePtr<tcu::Texture3DView>(new tcu::Texture3DView((int)levels.size(), &levels[0]));
+}
+
+bool validateResultImage (const TestTexture&					texture,
+						  const VkImageViewType					imageViewType,
+						  const VkImageSubresourceRange&		subresource,
+						  const tcu::Sampler&					sampler,
+						  const vk::VkComponentMapping&			componentMapping,
+						  const tcu::ConstPixelBufferAccess&	coordAccess,
+						  const tcu::Vec2&						lodBounds,
+						  const tcu::LookupPrecision&			lookupPrecision,
+						  const tcu::Vec4&						lookupScale,
+						  const tcu::Vec4&						lookupBias,
+						  const tcu::ConstPixelBufferAccess&	resultAccess,
+						  const tcu::PixelBufferAccess&			errorAccess)
+{
+	std::vector<tcu::ConstPixelBufferAccess>	levels;
+
+	switch (imageViewType)
+	{
+		case VK_IMAGE_VIEW_TYPE_1D:
+		{
+			UniquePtr<tcu::Texture1DView>			texView(getTexture1DView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+		}
+
+		case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+		{
+			UniquePtr<tcu::Texture1DArrayView>		texView(getTexture1DArrayView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+		}
+
+		case VK_IMAGE_VIEW_TYPE_2D:
+		{
+			UniquePtr<tcu::Texture2DView>			texView(getTexture2DView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+		}
+
+		case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+		{
+			UniquePtr<tcu::Texture2DArrayView>		texView(getTexture2DArrayView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+		}
+
+		case VK_IMAGE_VIEW_TYPE_CUBE:
+		{
+			UniquePtr<tcu::TextureCubeView>			texView(getTextureCubeView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+		}
+
+		case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+		{
+			UniquePtr<tcu::TextureCubeArrayView>	texView(getTextureCubeArrayView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+			break;
+		}
+
+		case VK_IMAGE_VIEW_TYPE_3D:
+		{
+			UniquePtr<tcu::Texture3DView>			texView(getTexture3DView(texture, subresource, levels));
+
+			return validateResultImage(*texView, sampler, componentMapping, coordAccess, lodBounds, lookupPrecision, lookupScale, lookupBias, resultAccess, errorAccess);
+		}
+
+		default:
+			DE_ASSERT(false);
+			return false;
+	}
+}
+
+} // anonymous
+
+tcu::TestStatus ImageSamplingInstance::verifyImage (void)
+{
+	const VkPhysicalDeviceLimits&		limits					= m_context.getDeviceProperties().limits;
+	// \note Color buffer is used to capture coordinates - not sampled texture values
+	const tcu::TextureFormat			colorFormat				(tcu::TextureFormat::RGBA, tcu::TextureFormat::FLOAT);
+	const tcu::TextureFormat			depthStencilFormat;		// Undefined depth/stencil format.
+	const CoordinateCaptureProgram		coordCaptureProgram;
+	const rr::Program					rrProgram				= coordCaptureProgram.getReferenceProgram();
+	ReferenceRenderer					refRenderer				(m_renderSize.x(), m_renderSize.y(), 1, colorFormat, depthStencilFormat, &rrProgram);
+
+	bool								compareOkAll			= true;
+	bool								anyWarnings				= false;
+
+	tcu::Vec4							lookupScale				(1.0f);
+	tcu::Vec4							lookupBias				(0.0f);
+
+	getLookupScaleBias(m_imageFormat, lookupScale, lookupBias);
+
+	// Render out coordinates
+	{
+		const rr::RenderState renderState(refRenderer.getViewportState());
+		refRenderer.draw(renderState, rr::PRIMITIVETYPE_TRIANGLES, m_vertices);
+	}
+
+	// Verify results
+	{
+		const tcu::Sampler					sampler			= mapVkSampler(m_samplerParams);
+		const float							referenceLod	= de::clamp(m_samplerParams.mipLodBias + m_samplerLod, m_samplerParams.minLod, m_samplerParams.maxLod);
+		const float							lodError		= 1.0f / static_cast<float>((1u << limits.mipmapPrecisionBits) - 1u);
+		const tcu::Vec2						lodBounds		(referenceLod - lodError, referenceLod + lodError);
+		const vk::VkImageSubresourceRange	subresource		= resolveSubresourceRange(*m_texture, m_subresourceRange);
+
+		const tcu::ConstPixelBufferAccess	coordAccess		= refRenderer.getAccess();
+		tcu::TextureLevel					errorMask		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), (int)m_renderSize.x(), (int)m_renderSize.y());
+		const tcu::PixelBufferAccess		errorAccess		= errorMask.getAccess();
+
+		const bool							allowSnorm8Bug	= m_texture->getTextureFormat().type == tcu::TextureFormat::SNORM_INT8 &&
+															  (m_samplerParams.minFilter == VK_FILTER_LINEAR || m_samplerParams.magFilter == VK_FILTER_LINEAR);
+
+		tcu::LookupPrecision				lookupPrecision;
+
+		// Set precision requirements - very low for these tests as
+		// the point of the test is not to validate accuracy.
+		lookupPrecision.coordBits		= tcu::IVec3(17, 17, 17);
+		lookupPrecision.uvwBits			= tcu::IVec3(5, 5, 5);
+		lookupPrecision.colorMask		= tcu::BVec4(true);
+		lookupPrecision.colorThreshold	= tcu::computeFixedPointThreshold(tcu::IVec4(8, 8, 8, 8)) / swizzleScaleBias(lookupScale, m_componentMapping);
+
+		if (tcu::isSRGB(m_texture->getTextureFormat()))
+			lookupPrecision.colorThreshold += tcu::Vec4(4.f / 255.f);
+
+		for (int imgNdx = 0; imgNdx < m_imageCount; ++imgNdx)
+		{
+			// Read back result image
+			UniquePtr<tcu::TextureLevel>		result			(readColorAttachment(m_context.getDeviceInterface(),
+																					 m_context.getDevice(),
+																					 m_context.getUniversalQueue(),
+																					 m_context.getUniversalQueueFamilyIndex(),
+																					 m_context.getDefaultAllocator(),
+																					 **m_colorImages[imgNdx],
+																					 m_colorFormat,
+																					 m_renderSize));
+			const tcu::ConstPixelBufferAccess	resultAccess	= result->getAccess();
+			bool								compareOk		= validateResultImage(*m_texture,
+																					  m_imageViewType,
+																					  subresource,
+																					  sampler,
+																					  m_componentMapping,
+																					  coordAccess,
+																					  lodBounds,
+																					  lookupPrecision,
+																					  lookupScale,
+																					  lookupBias,
+																					  resultAccess,
+																					  errorAccess);
+
+			if (!compareOk && allowSnorm8Bug)
+			{
+				// HW waiver (VK-GL-CTS issue: 229)
+				//
+				// Due to an error in bit replication of the fixed point SNORM values, linear filtered
+				// negative SNORM values will differ slightly from ideal precision in the last bit, moving
+				// the values towards 0.
+				//
+				// This occurs on all members of the PowerVR Rogue family of GPUs
+				tcu::LookupPrecision	relaxedPrecision;
+
+				relaxedPrecision.colorThreshold += tcu::Vec4(4.f / 255.f);
+
+				m_context.getTestContext().getLog()
+					<< tcu::TestLog::Message
+					<< "Warning: Strict validation failed, re-trying with lower precision for SNORM8 format"
+					<< tcu::TestLog::EndMessage;
+				anyWarnings = true;
+
+				compareOk = validateResultImage(*m_texture,
+												m_imageViewType,
+												subresource,
+												sampler,
+												m_componentMapping,
+												coordAccess,
+												lodBounds,
+												relaxedPrecision,
+												lookupScale,
+												lookupBias,
+												resultAccess,
+												errorAccess);
+			}
+
+			if (!compareOk)
+				m_context.getTestContext().getLog()
+				<< tcu::TestLog::Image("Result", "Result Image", resultAccess)
+				<< tcu::TestLog::Image("ErrorMask", "Error Mask", errorAccess);
+
+			compareOkAll = compareOkAll && compareOk;
+		}
+	}
+
+	if (compareOkAll)
+	{
+		if (anyWarnings)
+			return tcu::TestStatus(QP_TEST_RESULT_QUALITY_WARNING, "Inaccurate filtering results");
+		else
+			return tcu::TestStatus::pass("Result image matches reference");
+	}
 	else
 		return tcu::TestStatus::fail("Image mismatch");
 }

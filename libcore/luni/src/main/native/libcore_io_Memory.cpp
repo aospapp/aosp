@@ -18,6 +18,7 @@
 
 #include "JNIHelp.h"
 #include "JniConstants.h"
+#include "nativehelper/jni_macros.h"
 #include "Portability.h"
 #include "ScopedBytes.h"
 #include "ScopedPrimitiveArray.h"
@@ -124,7 +125,7 @@ static void Memory_peekByteArray(JNIEnv* env, jclass, jlong srcAddress, jbyteArr
             return; \
         } \
         const SWAP_TYPE* src = cast<const SWAP_TYPE*>(srcAddress); \
-        SWAP_FN(reinterpret_cast<SWAP_TYPE*>(elements.get()) + dstOffset, src, count); \
+        SWAP_FN(reinterpret_cast<SWAP_TYPE*>(elements.get()) + dstOffset, src, count); /*NOLINT*/ \
     } else { \
         const SCALAR_TYPE* src = cast<const SCALAR_TYPE*>(srcAddress); \
         env->Set ## JNI_NAME ## ArrayRegion(dst, dstOffset, count, src); \
@@ -177,9 +178,9 @@ static void Memory_pokeByteArray(JNIEnv* env, jclass, jlong dstAddress, jbyteArr
             return; \
         } \
         const SWAP_TYPE* src = reinterpret_cast<const SWAP_TYPE*>(elements.get()) + srcOffset; \
-        SWAP_FN(cast<SWAP_TYPE*>(dstAddress), src, count); \
+        SWAP_FN(cast<SWAP_TYPE*>(dstAddress), src, count); /*NOLINT*/ \
     } else { \
-        env->Get ## JNI_NAME ## ArrayRegion(src, srcOffset, count, cast<SCALAR_TYPE*>(dstAddress)); \
+        env->Get ## JNI_NAME ## ArrayRegion(src, srcOffset, count, cast<SCALAR_TYPE*>(dstAddress)); /*NOLINT*/ \
     } \
 }
 
@@ -289,27 +290,27 @@ static void Memory_unsafeBulkPut(JNIEnv* env, jclass, jbyteArray dstArray, jint 
 
 static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(Memory, memmove, "(Ljava/lang/Object;ILjava/lang/Object;IJ)V"),
-    NATIVE_METHOD(Memory, peekByte, "!(J)B"),
+    FAST_NATIVE_METHOD(Memory, peekByte, "(J)B"),
     NATIVE_METHOD(Memory, peekByteArray, "(J[BII)V"),
     NATIVE_METHOD(Memory, peekCharArray, "(J[CIIZ)V"),
     NATIVE_METHOD(Memory, peekDoubleArray, "(J[DIIZ)V"),
     NATIVE_METHOD(Memory, peekFloatArray, "(J[FIIZ)V"),
-    NATIVE_METHOD(Memory, peekIntNative, "!(J)I"),
+    FAST_NATIVE_METHOD(Memory, peekIntNative, "(J)I"),
     NATIVE_METHOD(Memory, peekIntArray, "(J[IIIZ)V"),
-    NATIVE_METHOD(Memory, peekLongNative, "!(J)J"),
+    FAST_NATIVE_METHOD(Memory, peekLongNative, "(J)J"),
     NATIVE_METHOD(Memory, peekLongArray, "(J[JIIZ)V"),
-    NATIVE_METHOD(Memory, peekShortNative, "!(J)S"),
+    FAST_NATIVE_METHOD(Memory, peekShortNative, "(J)S"),
     NATIVE_METHOD(Memory, peekShortArray, "(J[SIIZ)V"),
-    NATIVE_METHOD(Memory, pokeByte, "!(JB)V"),
+    FAST_NATIVE_METHOD(Memory, pokeByte, "(JB)V"),
     NATIVE_METHOD(Memory, pokeByteArray, "(J[BII)V"),
     NATIVE_METHOD(Memory, pokeCharArray, "(J[CIIZ)V"),
     NATIVE_METHOD(Memory, pokeDoubleArray, "(J[DIIZ)V"),
     NATIVE_METHOD(Memory, pokeFloatArray, "(J[FIIZ)V"),
-    NATIVE_METHOD(Memory, pokeIntNative, "!(JI)V"),
+    FAST_NATIVE_METHOD(Memory, pokeIntNative, "(JI)V"),
     NATIVE_METHOD(Memory, pokeIntArray, "(J[IIIZ)V"),
-    NATIVE_METHOD(Memory, pokeLongNative, "!(JJ)V"),
+    FAST_NATIVE_METHOD(Memory, pokeLongNative, "(JJ)V"),
     NATIVE_METHOD(Memory, pokeLongArray, "(J[JIIZ)V"),
-    NATIVE_METHOD(Memory, pokeShortNative, "!(JS)V"),
+    FAST_NATIVE_METHOD(Memory, pokeShortNative, "(JS)V"),
     NATIVE_METHOD(Memory, pokeShortArray, "(J[SIIZ)V"),
     NATIVE_METHOD(Memory, unsafeBulkGet, "(Ljava/lang/Object;II[BIIZ)V"),
     NATIVE_METHOD(Memory, unsafeBulkPut, "([BIILjava/lang/Object;IIZ)V"),

@@ -1,5 +1,5 @@
 import os, logging, ConfigParser
-from autotest_lib.client.common_lib import autotemp, base_packages, error
+from autotest_lib.client.common_lib import autotemp, packages, error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.bin import harness
 
@@ -92,7 +92,7 @@ class harness_autoserv(harness.harness):
         self._send_and_wait('AUTOTEST_FETCH_PACKAGE', pkg_name, dest_path)
 
 
-class AutoservFetcher(base_packages.RepositoryFetcher):
+class AutoservFetcher(packages.RepositoryFetcher):
     def __init__(self, package_manager, job_harness):
         self.url = "autoserv://"
         self.job_harness = job_harness

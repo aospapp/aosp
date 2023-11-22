@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ******************************************************************************************
  * Copyright (C) 2009-2010, Google, Inc.; International Business Machines Corporation and *
@@ -8,23 +10,18 @@
 
 package android.icu.dev.test.util;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.LocalePriorityList;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Test the LanguagePriorityList
  * @author markdavis@google.com
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class LocalePriorityListTest extends TestFmwk {
-    
-    public static void main(String[] args) throws Exception {
-        new LocalePriorityListTest().run(args);
-      }
-
+  @Test
   public void testLanguagePriorityList() {
     final String expected = "af, en, fr";
 

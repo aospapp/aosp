@@ -17,6 +17,7 @@
 package com.android.tv.menu;
 
 import android.content.Context;
+import android.view.View;
 
 /**
  * A base class of the item which will be displayed in the main menu.
@@ -29,6 +30,8 @@ public abstract class MenuRow {
     private final String mTitle;
     private final int mHeight;
     private final Menu mMenu;
+
+    private MenuRowView mMenuRowView;
 
     // TODO: Check if the heightResId is really necessary.
     public MenuRow(Context context, Menu menu, int titleResId, int heightResId) {
@@ -68,6 +71,20 @@ public abstract class MenuRow {
      */
     public int getHeight() {
         return mHeight;
+    }
+
+    /**
+     * Sets the menu row view.
+     */
+    public void setMenuRowView(MenuRowView menuRowView) {
+        mMenuRowView = menuRowView;
+    }
+
+    /**
+     * Returns the menu row view.
+     */
+    protected MenuRowView getMenuRowView() {
+        return mMenuRowView;
     }
 
     /**

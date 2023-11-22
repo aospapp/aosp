@@ -19,6 +19,6 @@ package dot.junit.opcodes.iget_short;
 public class TestStubs {
     // used by testVFE4
     private short TestStubField = 50;
-    // used by testVFE15
+    // used by testVFE15 and testVFE35
     protected short TestStubProtectedField = 50;
 }

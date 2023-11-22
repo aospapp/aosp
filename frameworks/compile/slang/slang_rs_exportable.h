@@ -53,8 +53,6 @@ class RSExportable {
   virtual bool keep();
   inline bool isKeep() const { return (mContext == nullptr); }
 
-  virtual bool equals(const RSExportable *E) const;
-
   inline RSContext *getRSContext() const { return mContext; }
 
   virtual ~RSExportable() { }

@@ -15,6 +15,7 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -29,14 +30,14 @@
         android:id="@+id/thumb_tint"
         android:thumbTint="@android:color/white"
         android:thumbTintMode="src_over"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
     <SeekBar
         android:id="@+id/tick_mark_tint"
         android:tickMarkTint="@android:color/white"
         android:tickMarkTintMode="src_over"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
 </LinearLayout>

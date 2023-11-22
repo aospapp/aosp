@@ -1,5 +1,7 @@
 package org.bouncycastle.jcajce.provider.asymmetric.x509;
 
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
@@ -26,6 +28,7 @@ import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.CertificateList;
 import org.bouncycastle.jcajce.util.BCJcaJceHelper;
 import org.bouncycastle.jcajce.util.JcaJceHelper;
+import org.bouncycastle.util.io.Streams;
 
 /**
  * class for dealing with X509 certificates.
@@ -200,7 +203,31 @@ public class CertificateFactory
                 }
             }
 
-            PushbackInputStream pis = new PushbackInputStream(in);
+            InputStream pis;
+
+            if (in.markSupported())
+            {
+                pis = in;
+            }
+            else
+            {
+                // BEGIN android-changed
+                // Was: pis = new ByteArrayInputStream(Streams.readAll(in));
+                // Reason: we want {@code in.available()} to return the number of available bytes if
+                // there is trailing data (otherwise it breaks
+                // libcore.java.security.cert.X509CertificateTest#test_Provider
+                // ). Which is not possible if we read the whole stream at this point.
+                pis = new PushbackInputStream(in);
+                // END android-changed
+            }
+
+            // BEGIN android-changed
+            // Was: pis.mark(1);
+            if (in.markSupported()) {
+                pis.mark(1);
+            }
+            // END android-changed
+
             int tag = pis.read();
 
             if (tag == -1)
@@ -208,7 +235,16 @@ public class CertificateFactory
                 return null;
             }
 
-            pis.unread(tag);
+            // BEGIN android-changdd
+            // Was: pis.reset
+            if (in.markSupported()) {
+                pis.reset();
+            }
+            else
+            {
+                ((PushbackInputStream) pis).unread(tag);
+            }
+            // END android-changed
 
             if (tag != 0x30)  // assume ascii PEM encoded.
             {
@@ -234,9 +270,19 @@ public class CertificateFactory
         throws CertificateException
     {
         java.security.cert.Certificate     cert;
+        // BEGIN android-removed
+        // BufferedInputStream in = new BufferedInputStream(inStream);
+        // Reason: we want {@code in.available()} to return the number of available bytes if
+        // there is trailing data (otherwise it breaks
+        // libcore.java.security.cert.X509CertificateTest#test_Provider
+        // ). Which is not possible if we read the whole stream at this point.
+        // END android-removed
         List certs = new ArrayList();
 
+        // BEGIN android-changed
+        // Was: while ((cert = engineGenerateCertificate(in)) != null)
         while ((cert = engineGenerateCertificate(inStream)) != null)
+        // END android-changed
         {
             certs.add(cert);
         }
@@ -249,18 +295,18 @@ public class CertificateFactory
      * it with the data read from the input stream inStream.
      */
     public CRL engineGenerateCRL(
-        InputStream inStream)
+        InputStream in)
         throws CRLException
     {
         if (currentCrlStream == null)
         {
-            currentCrlStream = inStream;
+            currentCrlStream = in;
             sCrlData = null;
             sCrlDataObjectCount = 0;
         }
-        else if (currentCrlStream != inStream) // reset if input stream has changed
+        else if (currentCrlStream != in) // reset if input stream has changed
         {
-            currentCrlStream = inStream;
+            currentCrlStream = in;
             sCrlData = null;
             sCrlDataObjectCount = 0;
         }
@@ -281,7 +327,18 @@ public class CertificateFactory
                 }
             }
 
-            PushbackInputStream pis = new PushbackInputStream(inStream);
+            InputStream pis;
+
+            if (in.markSupported())
+            {
+                pis = in;
+            }
+            else
+            {
+                pis = new ByteArrayInputStream(Streams.readAll(in));
+            }
+
+            pis.mark(1);
             int tag = pis.read();
 
             if (tag == -1)
@@ -289,8 +346,7 @@ public class CertificateFactory
                 return null;
             }
 
-            pis.unread(tag);
-
+            pis.reset();
             if (tag != 0x30)  // assume ascii PEM encoded.
             {
                 return readPEMCRL(pis);
@@ -325,8 +381,9 @@ public class CertificateFactory
     {
         CRL crl;
         List crls = new ArrayList();
+        BufferedInputStream in = new BufferedInputStream(inStream);
 
-        while ((crl = engineGenerateCRL(inStream)) != null)
+        while ((crl = engineGenerateCRL(in)) != null)
         {
             crls.add(crl);
         }

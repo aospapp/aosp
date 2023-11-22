@@ -2,19 +2,50 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os
+import logging, os, re
 
+from autotest_lib.client.common_lib.cros import arc_util
 from autotest_lib.client.cros import constants
 from autotest_lib.client.bin import utils
 from telemetry.core import cros_interface, exceptions, util
 from telemetry.internal.browser import browser_finder, browser_options
 from telemetry.internal.browser import extension_to_load
 
+CAP_USERNAME = 'crosautotest@gmail.com'
+CAP_URL = ('https://sites.google.com/a/chromium.org/dev/chromium-os'
+           '/testing/cros-autotest/cap')
+
 Error = exceptions.Error
+
+def NormalizeEmail(username):
+    """Remove dots from username. Add @gmail.com if necessary.
+
+    TODO(achuith): Get rid of this when crbug.com/358427 is fixed.
+
+    @param username: username/email to be scrubbed.
+    """
+    parts = re.split('@', username)
+    parts[0] = re.sub('\.', '', parts[0])
+
+    if len(parts) == 1:
+        parts.append('gmail.com')
+    return '@'.join(parts)
 
 
 class Chrome(object):
-    """Wrapper for creating a telemetry browser instance with extensions."""
+    """Wrapper for creating a telemetry browser instance with extensions.
+
+    The recommended way to use this class is to create the instance using the
+    with statement:
+
+    >>> with chrome.Chrome(...) as cr:
+    >>>     # Do whatever you need with cr.
+    >>>     pass
+
+    This will make sure all the clean-up functions are called.  If you really
+    need to use this class without the with statement, make sure to call the
+    close() method once you're done with the Chrome instance.
+    """
 
 
     BROWSER_TYPE_LOGIN = 'system'
@@ -22,11 +53,13 @@ class Chrome(object):
 
 
     def __init__(self, logged_in=True, extension_paths=[], autotest_ext=False,
-                 is_component=True, num_tries=3, extra_browser_args=None,
+                 num_tries=3, extra_browser_args=None,
                  clear_enterprise_policy=True, dont_override_profile=False,
                  disable_gaia_services=True, disable_default_apps = True,
                  auto_login=True, gaia_login=False,
-                 username=None, password=None, gaia_id=None):
+                 username=None, password=None, gaia_id=None,
+                 arc_mode=None, disable_arc_opt_in=True,
+                 init_network_controller=False):
         """
         Constructor of telemetry wrapper.
 
@@ -34,8 +67,6 @@ class Chrome(object):
         @param extension_paths: path of unpacked extension to install.
         @param autotest_ext: Load a component extension with privileges to
                              invoke chrome.autotestPrivate.
-        @param is_component: Whether extensions should be loaded as component
-                             extensions.
         @param num_tries: Number of attempts to log in.
         @param extra_browser_args: Additional argument(s) to pass to the
                                    browser. It can be a string or a list.
@@ -53,6 +84,10 @@ class Chrome(object):
         @param username: Log in using this username instead of the default.
         @param password: Log in using this password instead of the default.
         @param gaia_id: Log in using this gaia_id instead of the default.
+        @param arc_mode: How ARC instance should be started.  Default is to not
+                         start.
+        @param disable_arc_opt_in: For opt in flow autotest. This option is used
+                                   to disable the arc opt in flow.
         """
         self._autotest_ext_path = None
         if autotest_ext:
@@ -61,20 +96,18 @@ class Chrome(object):
             extension_paths.append(self._autotest_ext_path)
 
         finder_options = browser_options.BrowserFinderOptions()
+        if utils.is_arc_available() and arc_util.should_start_arc(arc_mode):
+            if disable_arc_opt_in:
+                finder_options.browser_options.AppendExtraBrowserArgs(
+                        arc_util.get_extra_chrome_flags())
+            logged_in = True
+
         self._browser_type = (self.BROWSER_TYPE_LOGIN
                 if logged_in else self.BROWSER_TYPE_GUEST)
         finder_options.browser_type = self.browser_type
         if extra_browser_args:
             finder_options.browser_options.AppendExtraBrowserArgs(
                     extra_browser_args)
-
-        if logged_in:
-            extensions_to_load = finder_options.extensions_to_load
-            for path in extension_paths:
-                extension = extension_to_load.ExtensionToLoad(
-                        path, self.browser_type, is_component=is_component)
-                extensions_to_load.append(extension)
-            self._extensions_to_load = extensions_to_load
 
         # finder options must be set before parse_args(), browser options must
         # be set before Create().
@@ -93,16 +126,27 @@ class Chrome(object):
 
         b_options.auto_login = auto_login
         b_options.gaia_login = gaia_login
+
+        if utils.is_arc_available() and not disable_arc_opt_in:
+            arc_util.set_browser_options_for_opt_in(b_options)
+
         self.username = b_options.username if username is None else username
         self.password = b_options.password if password is None else password
+        self.username = NormalizeEmail(self.username)
         b_options.username = self.username
         b_options.password = self.password
-        # gaia_id will be added to telemetry code in chromium repository later
-        try:
-            self.gaia_id = b_options.gaia_id if gaia_id is None else gaia_id
-            b_options.gaia_id = self.gaia_id
-        except AttributeError:
-            pass
+        self.gaia_id = b_options.gaia_id if gaia_id is None else gaia_id
+        b_options.gaia_id = self.gaia_id
+
+        self.arc_mode = arc_mode
+
+        if logged_in:
+            extensions_to_load = b_options.extensions_to_load
+            for path in extension_paths:
+                extension = extension_to_load.ExtensionToLoad(
+                        path, self.browser_type)
+                extensions_to_load.append(extension)
+            self._extensions_to_load = extensions_to_load
 
         # Turn on collection of Chrome coredumps via creation of a magic file.
         # (Without this, Chrome coredumps are trashed.)
@@ -112,13 +156,21 @@ class Chrome(object):
             try:
                 browser_to_create = browser_finder.FindBrowser(finder_options)
                 self._browser = browser_to_create.Create(finder_options)
+                if utils.is_arc_available():
+                    if disable_arc_opt_in:
+                        if arc_util.should_start_arc(arc_mode):
+                            arc_util.enable_arc_setting(self.browser)
+                    else:
+                        arc_util.opt_in(self.browser)
+                    arc_util.post_processing_after_browser(self)
                 break
-            except (exceptions.LoginException) as e:
+            except exceptions.LoginException as e:
                 logging.error('Timed out logging in, tries=%d, error=%s',
                               i, repr(e))
                 if i == num_tries-1:
                     raise
-
+        if init_network_controller:
+          self._browser.platform.network_controller.InitializeIfNeeded()
 
     def __enter__(self):
         return self
@@ -164,6 +216,27 @@ class Chrome(object):
         return ext.EvaluateJavaScript('window.__login_status')
 
 
+    def get_visible_notifications(self):
+        """Returns an array of visible notifications of Chrome.
+
+        For specific type of each notification, please refer to Chromium's
+        chrome/common/extensions/api/autotest_private.idl.
+        """
+        ext = self.autotest_ext
+        if not ext:
+            return None
+
+        ext.ExecuteJavaScript('''
+            window.__items = null;
+            chrome.autotestPrivate.getVisibleNotifications(function(items) {
+              window.__items  = items;
+            });
+        ''')
+        if ext.EvaluateJavaScript('window.__items') is None:
+            return None
+        return ext.EvaluateJavaScript('window.__items')
+
+
     @property
     def browser_type(self):
         """Returns the browser_type."""
@@ -179,7 +252,7 @@ class Chrome(object):
         """
         try:
             func()
-        except (Error):
+        except Error:
             return True
         return False
 
@@ -216,5 +289,17 @@ class Chrome(object):
 
 
     def close(self):
-        """Closes the browser."""
-        self._browser.Close()
+        """Closes the browser.
+        """
+        try:
+            if utils.is_arc_available():
+                arc_util.pre_processing_before_close(self)
+        finally:
+            # Calling platform.StopAllLocalServers() to tear down the telemetry
+            # server processes such as the one started by
+            # platform.SetHTTPServerDirectories().  Not calling this function
+            # will leak the process and may affect test results.
+            # (crbug.com/663387)
+            self._browser.platform.StopAllLocalServers()
+            self._browser.Close()
+            self._browser.platform.network_controller.Close()

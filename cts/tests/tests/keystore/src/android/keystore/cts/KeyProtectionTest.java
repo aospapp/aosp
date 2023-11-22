@@ -16,6 +16,7 @@
 
 package android.keystore.cts;
 
+import android.security.GateKeeper;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.test.MoreAsserts;
@@ -47,6 +48,7 @@ public class KeyProtectionTest extends TestCase {
         MoreAsserts.assertEmpty(Arrays.asList(spec.getSignaturePaddings()));
         assertFalse(spec.isUserAuthenticationRequired());
         assertEquals(-1, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(GateKeeper.INVALID_SECURE_USER_ID, spec.getBoundToSpecificSecureUserId());
     }
 
     public void testSettersReflectedInGetters() {
@@ -70,6 +72,7 @@ public class KeyProtectionTest extends TestCase {
                         KeyProperties.SIGNATURE_PADDING_RSA_PSS)
                 .setUserAuthenticationRequired(true)
                 .setUserAuthenticationValidityDurationSeconds(123456)
+                .setBoundToSpecificSecureUserId(654321)
                 .build();
 
         assertEquals(
@@ -89,6 +92,7 @@ public class KeyProtectionTest extends TestCase {
                 KeyProperties.SIGNATURE_PADDING_RSA_PKCS1, KeyProperties.SIGNATURE_PADDING_RSA_PSS);
         assertTrue(spec.isUserAuthenticationRequired());
         assertEquals(123456, spec.getUserAuthenticationValidityDurationSeconds());
+        assertEquals(654321, spec.getBoundToSpecificSecureUserId());
     }
 
     public void testSetKeyValidityEndDateAppliesToBothEndDates() {

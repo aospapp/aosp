@@ -24,15 +24,11 @@
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "utils.h"
 #include "well_known_classes.h"
 
 namespace art {
-
-ArtField::ArtField() : access_flags_(0), field_dex_idx_(0), offset_(0) {
-  declaring_class_ = GcRoot<mirror::Class>(nullptr);
-}
 
 void ArtField::SetOffset(MemberOffset num_bytes) {
   DCHECK(GetDeclaringClass()->IsLoaded() || GetDeclaringClass()->IsErroneous());
@@ -47,20 +43,47 @@ void ArtField::SetOffset(MemberOffset num_bytes) {
   offset_ = num_bytes.Uint32Value();
 }
 
-mirror::Class* ArtField::ProxyFindSystemClass(const char* descriptor) {
+ObjPtr<mirror::Class> ArtField::ProxyFindSystemClass(const char* descriptor) {
   DCHECK(GetDeclaringClass()->IsProxyClass());
   return Runtime::Current()->GetClassLinker()->FindSystemClass(Thread::Current(), descriptor);
 }
 
-mirror::Class* ArtField::ResolveGetType(uint32_t type_idx) {
-  return Runtime::Current()->GetClassLinker()->ResolveType(type_idx, this);
+ObjPtr<mirror::String> ArtField::ResolveGetStringName(Thread* self,
+                                                      const DexFile& dex_file,
+                                                      dex::StringIndex string_idx,
+                                                      ObjPtr<mirror::DexCache> dex_cache) {
+  StackHandleScope<1> hs(self);
+  return Runtime::Current()->GetClassLinker()->ResolveString(dex_file,
+                                                             string_idx,
+                                                             hs.NewHandle(dex_cache));
 }
 
-mirror::String* ArtField::ResolveGetStringName(Thread* self, const DexFile& dex_file,
-                                               uint32_t string_idx, mirror::DexCache* dex_cache) {
-  StackHandleScope<1> hs(self);
-  return Runtime::Current()->GetClassLinker()->ResolveString(
-      dex_file, string_idx, hs.NewHandle(dex_cache));
+std::string ArtField::PrettyField(ArtField* f, bool with_type) {
+  if (f == nullptr) {
+    return "null";
+  }
+  return f->PrettyField(with_type);
+}
+
+std::string ArtField::PrettyField(bool with_type) {
+  std::string result;
+  if (with_type) {
+    result += PrettyDescriptor(GetTypeDescriptor());
+    result += ' ';
+  }
+  std::string temp;
+  result += PrettyDescriptor(GetDeclaringClass()->GetDescriptor(&temp));
+  result += '.';
+  result += GetName();
+  return result;
+}
+
+void ArtField::GetAccessFlagsDCheck() {
+  CHECK(GetDeclaringClass()->IsLoaded() || GetDeclaringClass()->IsErroneous());
+}
+
+void ArtField::GetOffsetDCheck() {
+  CHECK(GetDeclaringClass()->IsResolved());
 }
 
 }  // namespace art

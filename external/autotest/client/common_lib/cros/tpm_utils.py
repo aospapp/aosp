@@ -5,7 +5,6 @@
 import logging, os
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import cros_ui
 
 
 _PASSWD_FILE = '/var/tmp/tpm_password'
@@ -112,8 +111,6 @@ def CleanupAndReboot(client):
 
     @param client: client object to run commands on.
     """
-    cros_ui.stop_and_wait_for_chrome_to_exit()
-
     client.run('sudo rm -rf ' + _RM_DIRS, ignore_status=True)
     client.run('sync', ignore_status=True)
     client.reboot()

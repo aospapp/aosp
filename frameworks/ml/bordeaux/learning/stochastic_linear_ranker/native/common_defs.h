@@ -39,7 +39,7 @@ enum MulticlassUpdateType { MAX, RANK };
 #define uint64 uint64_t
 #define int64 int64_t
 #include <cutils/log.h>
-#define CHECK_GT(x,y) if (x<y) ALOGE("CHECK_GT failed at file %s line %d", \
+#define CHECK_GT(x,y) if ((x)<(y)) ALOGE("CHECK_GT failed at file %s line %d", \
                                    __FILE__, __LINE__);
 #endif
 

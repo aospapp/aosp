@@ -18,8 +18,8 @@
 #include "rsScriptIntrinsic.h"
 #include <time.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 ScriptIntrinsic::ScriptIntrinsic(Context *rsc) : Script(rsc) {
     mIntrinsicID = 0;
@@ -83,12 +83,6 @@ RsA3DClassID ScriptIntrinsic::getClassId() const {
     return (RsA3DClassID)0;
 }
 
-
-
-namespace android {
-namespace renderscript {
-
-
 RsScript rsi_ScriptIntrinsicCreate(Context *rsc, uint32_t id, RsElement ve) {
     ScriptIntrinsic *si = new ScriptIntrinsic(rsc);
     if (!si->init(rsc, (RsScriptIntrinsicID)id, (Element *)ve)) {
@@ -99,5 +93,5 @@ RsScript rsi_ScriptIntrinsicCreate(Context *rsc, uint32_t id, RsElement ve) {
     return si;
 }
 
-}
-}
+} // namespace renderscript
+} // namespace android

@@ -22,6 +22,7 @@ LOCAL_SRC_FILES := \
 	$(call all-java-files-under, EnabledTestApp/src)
 
 LOCAL_DX_FLAGS := --core-library
+LOCAL_JACK_FLAGS := --multi-dex native
 LOCAL_AAPT_FLAGS = -0 dat -0 gld -c fa
 LOCAL_STATIC_JAVA_LIBRARIES := \
     core-tests-support \
@@ -29,13 +30,17 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     frameworks-core-util-lib \
     mockwebserver \
     guava \
-    littlemock \
     android-support-test \
-    mockito-target \
+    mockito-target-minus-junit4 \
     espresso-core \
-    ub-uiautomator
+    ub-uiautomator \
+    platform-test-annotations \
+    compatibility-device-util \
+    truth-prebuilt
+
 LOCAL_JAVA_LIBRARIES := android.test.runner conscrypt telephony-common org.apache.http.legacy
 LOCAL_PACKAGE_NAME := FrameworksCoreTests
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_CERTIFICATE := platform
 
@@ -48,7 +53,7 @@ include $(BUILD_PACKAGE)
 FrameworkCoreTests_all_apks_res := $(addprefix $(FrameworkCoreTests_intermediates)/raw/, \
     $(foreach a, $(FrameworkCoreTests_all_apks), $(patsubst FrameworkCoreTests_%,%,$(a))))
 
-$(FrameworkCoreTests_all_apks_res): $(FrameworkCoreTests_intermediates)/raw/%: $(call intermediates-dir-for,APPS,FrameworkCoreTests_%)/package.apk | $(ACP)
+$(FrameworkCoreTests_all_apks_res): $(FrameworkCoreTests_intermediates)/raw/%: $(call intermediates-dir-for,APPS,FrameworkCoreTests_%)/package.apk
 	$(call copy-file-to-new-target)
 
 # Use R_file_stamp as dependency because we want the test apks in place before the R.java is generated.

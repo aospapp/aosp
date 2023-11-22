@@ -160,6 +160,9 @@ PU1_AVAIL_5_LOOP_U:
     mov         x20,#255
     cmp         x9,x20
     csel        x9, x20, x9, ge             //u1_pos_0_0_tmp_u = CLIP3(pu1_src[wd - 2] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
+    mov         x20,#0
+    cmp         x9,x20
+    csel        x9, x20, x9, LT             //u1_pos_0_0_tmp_u = CLIP3(pu1_src[wd - 2] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
 
 PU1_AVAIL_5_LOOP_V:
 
@@ -194,6 +197,9 @@ PU1_AVAIL_5_LOOP_V:
     mov         x20,#255
     cmp         x10,x20
     csel        x10, x20, x10, ge           //u1_pos_0_0_tmp_v = CLIP3(pu1_src[wd - 1] + pi1_sao_offset_v[edge_idx], 0, (1 << bit_depth) - 1)
+    mov         x20,#0
+    cmp         x10,x20
+    csel        x10, x20, x10, LT           //u1_pos_0_0_tmp_v = CLIP3(pu1_src[wd - 1] + pi1_sao_offset_v[edge_idx], 0, (1 << bit_depth) - 1)
 
 PU1_AVAIL_6_LOOP_U:
     STRB        w9,[sp,#6]
@@ -240,6 +246,9 @@ PU1_AVAIL_6_LOOP_U:
     mov         x20,#255
     cmp         x10,x20
     csel        x10, x20, x10, ge           //u1_pos_wd_ht_tmp = CLIP3(pu1_src[(ht - 1) * src_strd] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
+    mov         x20,#0
+    cmp         x10,x20
+    csel        x10, x20, x10, LT           //u1_pos_wd_ht_tmp = CLIP3(pu1_src[(ht - 1) * src_strd] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
 
 PU1_AVAIL_6_LOOP_V:
     ADD         x12,x12,#1                  //pu1_src[(ht - 1) * src_strd + 1]
@@ -276,6 +285,9 @@ PU1_AVAIL_6_LOOP_V:
     mov         x20,#255
     cmp         x9,x20
     csel        x9, x20, x9, ge             //u1_pos_wd_ht_tmp_v = CLIP3(pu1_src[(ht - 1) * src_strd] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
+    mov         x20,#0
+    cmp         x9,x20
+    csel        x9, x20, x9, LT             //u1_pos_wd_ht_tmp_v = CLIP3(pu1_src[(ht - 1) * src_strd] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
 
 PU1_AVAIL_3_LOOP:
     STRB        w10,[sp,#8]
@@ -775,9 +787,9 @@ WD_16_HT_4_LOOP:
 SKIP_AU1_MASK_VAL_WD_16_HT_4:
     LDRB        w11,[x5,#2]                 //pu1_avail[2]
     SUB         x20,x0,x1                   //pu1_src - src_strd
+    CMP         x11,#0
     csel        x8, x20, x8,EQ
 
-    CMP         x11,#0
     csel        x8, x3, x8,NE
     LD1         {v5.16b},[x0]               //pu1_cur_row = vld1q_u8(pu1_src)
     //LD1 {v13.8b},[x0]                        //pu1_cur_row = vld1q_u8(pu1_src)
@@ -933,6 +945,10 @@ SRC_LEFT_LOOP_WD_16_HT_4:
 
     SUBS        x6,x6,#16                   //Decrement the wd loop count by 16
     BLE         RE_ASSINING_LOOP            //Jump to re-assigning loop
+    mov         w7, w24                     //Loads wd
+    mov         x0, x28                     //Loads *pu1_src
+    SUB         x7,x7,x6
+    ADD         x0,x0,x7
     BGT         WD_16_HT_4_LOOP             //If not equal jump to width_loop
 
 WIDTH_RESIDUE:

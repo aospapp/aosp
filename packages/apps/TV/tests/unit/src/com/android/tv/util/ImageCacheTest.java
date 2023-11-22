@@ -19,7 +19,7 @@ package com.android.tv.util;
 import static com.android.tv.util.BitmapUtils.createScaledBitmapInfo;
 
 import android.graphics.Bitmap;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
 
 import com.android.tv.util.BitmapUtils.ScaledBitmapInfo;
 

@@ -6,6 +6,8 @@
 
     <uses-sdk android:minSdkVersion="17" android:targetSdkVersion="23" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <application
         android:label="@string/app_name"
@@ -42,6 +44,22 @@
             android:theme="@style/Theme.Example.Leanback.Details"
             android:exported="true" />
 
+        <activity android:name="DetailsVideoActivity"
+            android:theme="@style/Theme.Example.Leanback.Details"
+            android:exported="true" />
+
+        <activity android:name="DetailsVideoSupportActivity"
+            android:theme="@style/Theme.Example.Leanback.Details"
+            android:exported="true" />
+
+        <activity android:name="DetailsCustomTitleActivity"
+            android:theme="@style/Theme.Example.Leanback.Details.CustomTitle"
+            android:exported="true" />
+
+        <activity android:name="DetailsCustomTitleSupportActivity"
+            android:theme="@style/Theme.Example.Leanback.Details.CustomTitle"
+            android:exported="true" />
+
         <activity android:name="SearchDetailsActivity"
             android:theme="@style/Theme.Example.Leanback.SearchDetails"
             android:exported="true" />
@@ -56,6 +74,38 @@
 
         <activity android:name="RowsSupportActivity"
             android:theme="@style/Theme.Example.Leanback.Rows"
+            android:exported="true" />
+
+        <activity android:name="PlaybackTransportControlActivity"
+            android:configChanges=
+                "screenSize|smallestScreenSize|screenLayout|orientation"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTask"
+            android:exported="true" />
+
+        <activity android:name="PlaybackTransportControlSupportActivity"
+            android:configChanges=
+                "screenSize|smallestScreenSize|screenLayout|orientation"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTask"
+            android:exported="true" />
+
+        <activity android:name="PlaybackActivity"
+            android:configChanges=
+                "screenSize|smallestScreenSize|screenLayout|orientation"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTask"
+            android:exported="true" />
+
+        <activity android:name="PlaybackSupportActivity"
+            android:configChanges=
+                "screenSize|smallestScreenSize|screenLayout|orientation"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:launchMode="singleTask"
             android:exported="true" />
 
         <activity android:name="PlaybackOverlayActivity"
@@ -123,6 +173,10 @@
             android:theme="@style/Theme.Example.Leanback.GuidedStep"
             android:exported="true" />
 
+        <activity android:name=".SettingsActivity"
+                  android:theme="@style/Theme.Example.Leanback.Preferences"
+                  android:exported="true" />
+
         <activity android:name=".OnboardingActivity"
                   android:theme="@style/Theme.Example.Leanback.Onboarding"
                   android:exported="true" />
@@ -131,5 +185,10 @@
                   android:theme="@style/Theme.Example.Leanback.Onboarding"
                   android:exported="true" />
 
+        <activity android:name=".VideoActivity"
+            android:exported="true" />
+
+        <activity android:name=".VideoSupportActivity"
+            android:exported="true" />
     </application>
 </manifest>

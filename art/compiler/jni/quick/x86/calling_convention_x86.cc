@@ -23,6 +23,31 @@
 namespace art {
 namespace x86 {
 
+static_assert(kX86PointerSize == PointerSize::k32, "Unexpected x86 pointer size");
+static_assert(kStackAlignment >= 16u, "IA-32 cdecl requires at least 16 byte stack alignment");
+
+static constexpr ManagedRegister kCalleeSaveRegisters[] = {
+    // Core registers.
+    X86ManagedRegister::FromCpuRegister(EBP),
+    X86ManagedRegister::FromCpuRegister(ESI),
+    X86ManagedRegister::FromCpuRegister(EDI),
+    // No hard float callee saves.
+};
+
+static constexpr uint32_t CalculateCoreCalleeSpillMask() {
+  // The spilled PC gets a special marker.
+  uint32_t result = 1 << kNumberOfCpuRegisters;
+  for (auto&& r : kCalleeSaveRegisters) {
+    if (r.AsX86().IsCpuRegister()) {
+      result |= (1 << r.AsX86().AsCpuRegister());
+    }
+  }
+  return result;
+}
+
+static constexpr uint32_t kCoreCalleeSpillMask = CalculateCoreCalleeSpillMask();
+static constexpr uint32_t kFpCalleeSpillMask = 0u;
+
 // Calling convention
 
 ManagedRegister X86ManagedRuntimeCallingConvention::InterproceduralScratchRegister() {
@@ -166,30 +191,59 @@ const ManagedRegisterEntrySpills& X86ManagedRuntimeCallingConvention::EntrySpill
 
 // JNI calling convention
 
-X86JniCallingConvention::X86JniCallingConvention(bool is_static, bool is_synchronized,
+X86JniCallingConvention::X86JniCallingConvention(bool is_static,
+                                                 bool is_synchronized,
+                                                 bool is_critical_native,
                                                  const char* shorty)
-    : JniCallingConvention(is_static, is_synchronized, shorty, kFramePointerSize) {
-  callee_save_regs_.push_back(X86ManagedRegister::FromCpuRegister(EBP));
-  callee_save_regs_.push_back(X86ManagedRegister::FromCpuRegister(ESI));
-  callee_save_regs_.push_back(X86ManagedRegister::FromCpuRegister(EDI));
+    : JniCallingConvention(is_static,
+                           is_synchronized,
+                           is_critical_native,
+                           shorty,
+                           kX86PointerSize) {
 }
 
 uint32_t X86JniCallingConvention::CoreSpillMask() const {
-  return 1 << EBP | 1 << ESI | 1 << EDI | 1 << kNumberOfCpuRegisters;
+  return kCoreCalleeSpillMask;
+}
+
+uint32_t X86JniCallingConvention::FpSpillMask() const {
+  return kFpCalleeSpillMask;
 }
 
 size_t X86JniCallingConvention::FrameSize() {
-  // Method*, return address and callee save area size, local reference segment state
-  size_t frame_data_size = kX86PointerSize +
-      (2 + CalleeSaveRegisters().size()) * kFramePointerSize;
-  // References plus 2 words for HandleScope header
-  size_t handle_scope_size = HandleScope::SizeOf(kFramePointerSize, ReferenceCount());
+  // Method*, PC return address and callee save area size, local reference segment state
+  const size_t method_ptr_size = static_cast<size_t>(kX86PointerSize);
+  const size_t pc_return_addr_size = kFramePointerSize;
+  const size_t callee_save_area_size = CalleeSaveRegisters().size() * kFramePointerSize;
+  size_t frame_data_size = method_ptr_size + pc_return_addr_size + callee_save_area_size;
+
+  if (LIKELY(HasLocalReferenceSegmentState())) {                     // local ref. segment state
+    // Local reference segment state is sometimes excluded.
+    frame_data_size += kFramePointerSize;
+  }
+
+  // References plus link_ (pointer) and number_of_references_ (uint32_t) for HandleScope header
+  const size_t handle_scope_size = HandleScope::SizeOf(kX86PointerSize, ReferenceCount());
+
+  size_t total_size = frame_data_size;
+  if (LIKELY(HasHandleScope())) {
+    // HandleScope is sometimes excluded.
+    total_size += handle_scope_size;                                 // handle scope size
+  }
+
   // Plus return value spill area size
-  return RoundUp(frame_data_size + handle_scope_size + SizeOfReturnValue(), kStackAlignment);
+  total_size += SizeOfReturnValue();
+
+  return RoundUp(total_size, kStackAlignment);
+  // TODO: Same thing as x64 except using different pointer size. Refactor?
 }
 
 size_t X86JniCallingConvention::OutArgSize() {
   return RoundUp(NumberOfOutgoingStackArgs() * kFramePointerSize, kStackAlignment);
+}
+
+ArrayRef<const ManagedRegister> X86JniCallingConvention::CalleeSaveRegisters() const {
+  return ArrayRef<const ManagedRegister>(kCalleeSaveRegisters);
 }
 
 bool X86JniCallingConvention::IsCurrentParamInRegister() {
@@ -210,11 +264,13 @@ FrameOffset X86JniCallingConvention::CurrentParamStackOffset() {
 }
 
 size_t X86JniCallingConvention::NumberOfOutgoingStackArgs() {
-  size_t static_args = IsStatic() ? 1 : 0;  // count jclass
+  size_t static_args = HasSelfClass() ? 1 : 0;  // count jclass
   // regular argument parameters and this
   size_t param_args = NumArgs() + NumLongOrDoubleArgs();
   // count JNIEnv* and return pc (pushed after Method*)
-  size_t total_args = static_args + param_args + 2;
+  size_t internal_args = 1 /* return pc */ + (HasJniEnv() ? 1 : 0 /* jni env */);
+  // No register args.
+  size_t total_args = static_args + param_args + internal_args;
   return total_args;
 }
 

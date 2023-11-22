@@ -5,7 +5,6 @@
 AUTHOR = "ralphnathan"
 NAME = "brillo-audio"
 PURPOSE = "Test audio functionality on brillo."
-CRITERIA = "All tests should pass"
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

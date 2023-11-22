@@ -38,9 +38,14 @@
     <string name="test_category_features">Features</string>
     <string name="test_category_deskclock">Clock</string>
     <string name="test_category_jobscheduler">Job Scheduler</string>
+    <string name="test_category_telecom">Telecom</string>
+    <string name="test_category_telephony">Telephony</string>
     <string name="test_category_tv">TV</string>
     <string name="test_category_other">Other</string>
     <string name="clear">Clear</string>
+    <string name="test_results_clear_title">Remove all test results?</string>
+    <string name="test_results_clear_yes">Yes</string>
+    <string name="test_results_clear_cancel">Cancel</string>
     <string name="test_results_cleared">Test results cleared.</string>
     <string name="view">View</string>
     <string name="test_results_error">Couldn\'t create test results report.</string>
@@ -48,6 +53,10 @@
     <string name="export">Export</string>
     <string name="no_storage">Cannot save report to external storage, see log for details.</string>
     <string name="report_saved">Report saved to: %s</string>
+
+    <!-- Strings for IntentDrivenTestActivity -->
+    <string name="intent_not_resolved">Intent Not Resolved</string>
+    <string name="intent_not_resolved_info">The following intent could not be resolved: %1$s</string>
 
     <!-- Strings for ReportViewerActivity -->
     <string name="report_viewer">Report Viewer</string>
@@ -57,71 +66,6 @@
     <string name="bu_generate_error">Error occurred while generating test data...</string>
     <string name="bu_settings">Settings</string>
 
-    <!-- Strings for BackupTestActivity -->
-    <string name="backup_test">Data Backup Test</string>
-    <string name="backup_info">This test checks that data backup and automatic restore works
-        properly. The test activity lists some preferences and files that are backed up and
-        restored by the CTS Verifier. If backup and restore is working properly, these values
-        should be restored after running the backup manager, uninstalling the app, and reinstalling
-        the CTS Verifier.
-        \n\nPress the \"Generate Test Data\" to populate these values
-        and then follow the on screen instructions to finish the test.
-    </string>
-    <string name="bu_generate">Generate Test Data</string>
-    <string name="bu_preferences">Preferences</string>
-    <string name="bu_files">Files</string>
-    <string name="bu_instructions">Random values for the preferences and files have been saved.
-        \n\nFollow the instructions below to check that the data backup and restore works:
-        \n\n1. Make sure backup and automatic restore are enabled in settings. Depending on the
-        backup transport supported by the device you may need to do additional steps. For instance
-        you may need to set a Google account as the backup account for the device. If you cannot
-        find the corresponding setting options on your device, run \"adb shell bmgr enable true\"
-        to enable the backup manager. You can check its status by executing \"adb shell bmgr
-        enabled\".
-        \n\n2. Run the backup manager: adb shell bmgr run
-        \n\n3. Uninstall the program: adb uninstall com.android.cts.verifier
-        \n\n4. Reinstall the CTS Verifier and verify that the values are still the same.
-    </string>
-
-    <!-- Strings for BackupAccessibilityTestActivity -->
-    <string name="backup_accessibility_test">Backup Accessibility Settings Test</string>
-    <string name="backup_accessibility_info">This test checks that data backup and automatic restore
-        of Accessibility-related settings works properly. If backup and restore is working properly,
-        these values should be restored after running the backup manager, removing your Google
-        account, changing the accessibility settings values, and re-adding your Google account.
-        \n\nPress \"Generate Test Data\" to generate test values for accessibility settings and then
-        follow the on screen instructions to finish the test.
-    </string>
-    <string name="bua_settings">General Accessibility Settings</string>
-    <string name="bua_settings_color_correction">Color Correction Settings</string>
-    <string name="bua_settings_accessibility_services">Accessibility Service Settings</string>
-    <string name="bua_settings_captions">Captions Settings</string>
-    <string name="bua_settings_tts">TTS Settings</string>
-    <string name="bua_settings_system">Other System Settings</string>
-    <string name="bua_instructions">You will need two devices for this test.
-        \n\nFollow the instructions below to check that the data backup and restore of
-        accessibility-related settings works properly:
-        \n\n1. Make sure backup and automatic restore are enabled in settings. If you cannot find
-        the corresponding setting options on your device, run \"adb shell bmgr enable true\" to
-        enable the backup manager. You can check its status by executing \"adb shell bmgr enabled\".
-        You will also need to set a Google account as the backup account for the device.
-        \n\n2. Press \"Read Current Values\" and note the default values for the listed settings.
-        Values that are either \"0\" or \"null\" will appear in green. Note: Some default values are
-        neither \"0\", nor \"null\", so you still need to pay attention to the default setting
-        values that are not highlighted.
-        \n\n3. Change the values of the listed settings to something other than their default value.
-        \n\n4. Return to the CtsVerifier and press \"Read Current Values\". Make sure that you have
-        changed all of the settings.
-        \n\n5. Run the backup manager: adb shell bmgr run
-        \n\n6. Factory reset data on the second device. While going through the Setup Wizard,
-        restore all data from the account on your first device. When prompted, choose to restore all
-        settings from your first device.
-        \n\n7. Install CtsVerifier on your new device and make sure that the values read on the
-        second device match the values on your first device.
-    </string>
-    <string name="bua_show_instructions">Show Instructions</string>
-    <string name="bua_read_settings">Read Current Values</string>
-
     <!-- Strings for Device Administration tests -->
     <string name="da_policy_serialization_test">Policy Serialization Test</string>
     <string name="da_policy_serialization_info">This test checks that a device policy is properly
@@ -129,6 +73,15 @@
         a random policy. Then press the \"Apply Policy\" button to apply the policy. Reboot the
         device and verify that all rows in the policy list are green. Red items indicate policy
         settings that were not loaded properly.
+    </string>
+    <string name="da_uninstall_test">Device Admin Uninstall Test</string>
+    <string name="da_uninstall_test_info">This test checks that an active device administrator
+        can be easily uninstalled from the application details screen in a way similar to other
+        apps.
+    </string>
+    <string name="da_tapjacking_test">Device Admin Tapjacking Test</string>
+    <string name="da_tapjacking_test_info">This test checks that an activity cannot tapjack the
+        user by obscuring the device admin details while prompting the user to activate the admin.
     </string>
     <string name="car_dock_test">Car Dock Test</string>
     <string name="car_dock_test_desc">This test ensures that car mode opens the app associated with
@@ -171,6 +124,33 @@
     <string name="da_lock_success">It appears the screen was locked successfully!</string>
     <string name="da_lock_error">It does not look like the screen was locked...</string>
 
+    <string name="da_install_admin_instructions">Please install the \'Test Device Admin\' app on the device.
+        If needed, grant \'Cts Verifier\' permission to install unknown apps, and return when install succeeds.
+    </string>
+    <string name="da_install_admin_button_text">Install admin</string>
+    <string name="da_enable_admin_instructions">Add \'Test Device Admin\' as an active administrator on the device.
+        Tap the button below to review the device admin details and activate the administrator.
+    </string>
+    <string name="da_enable_admin_button_text">Enable admin</string>
+    <string name="da_uninstall_admin_instructions">Attempt to uninstall the app from the application details page of the \'Test Device Admin\' app.
+        You should see another screen showing the device admin details before you can uninstall the app from the device.
+        Wait till the app is uninstalled before returning to this page.
+    </string>
+    <string name="da_uninstall_admin_button_text">Launch settings</string>
+
+    <string name="da_tapjacking_overlay_app_description">This activity attempts to tapjack the activity below.\n
+        Any security sensitive controls below should not respond to taps as long as this activity is visible.</string>
+    <string name="da_tapjacking_instructions">
+        1. Launch the device admin add screen by pressing the button below.\n
+        2. Wait for an overlaying transparent activity to show up obscuring the device admin details window.\n
+        3. The button to activate the admin should be disabled and should not register any taps.\n
+        4. Press \'back\' to exit the overlaying transparent activity.\n
+        5. Press \'back\' to exit the device admin details and return to this screen.\n
+        Pass the test if the device admin could not be activated while the details
+        window was being obscured.
+    </string>
+    <string name="da_tapjacking_button_text">Enable device admin</string>
+
     <!-- Strings for lock bound keys test -->
     <string name="sec_lock_bound_key_test">Lock Bound Keys Test</string>
     <string name="sec_lock_bound_key_test_info">
@@ -191,15 +171,26 @@
 
     <!-- Strings for BluetoothActivity -->
     <string name="bluetooth_test">Bluetooth Test</string>
-    <string name="bluetooth_test_info">The Bluetooth Control tests check whether or not the device
-        can disable and enable Bluetooth properly.\n\nThe Device Communication tests require two
+    <string name="bluetooth_test_info">
+        The Bluetooth Control tests check whether or not the device
+        can disable and enable Bluetooth properly.
+        \n\nThe Bluetooth tests require two devices, and Bluetooth data is exchanged between them.
+        \nThere are two types of connections: Insecure and Secure. There are two types of roles: Server and Client. You must pass all connection and role combinations.
+        \nThis is a list of the tests:
+        \nThis Device x Other Device
+        \n\n\"Bluetooth LE Insecure Client Test\" x \"Bluetooth LE Insecure Server Test\"
+        \n\n\"Bluetooth LE Insecure Server Test\" x \"Bluetooth LE Insecure Client Test\"
+        \n\n\"Bluetooth LE Secure Client Test\" x \"Bluetooth LE Secure Server Test\"
+        \n\n\"Bluetooth LE Secure Server Test\" x \"Bluetooth LE Secure Client Test\"
+        \n\nThe Device Communication tests require two
         devices to pair and exchange messages. The two devices must be:
         \n\n1. a candidate device implementation running the software build to be tested
-        \n\n2. a separate device implementation already known to be compatible</string>
+        \n\n2. a separate device implementation already known to be compatible
+    </string>
 
     <string name="bt_control">Bluetooth Control</string>
     <string name="bt_device_communication">Device Communication</string>
-    <string name="bt_le">Bluetooth Low Energy</string>
+    <string name="bt_le">Bluetooth LE</string>
 
     <string name="bt_toggle_bluetooth">Toggle Bluetooth</string>
     <string name="bt_toggle_instructions">Disable and enable Bluetooth to successfully complete this test.</string>
@@ -247,6 +238,12 @@
     <string name="bt_pick_server">Pick Server</string>
     <string name="bt_insecure_pairing_error_title">Pairing dialog shown?</string>
     <string name="bt_insecure_pairing_error_message">Insecure connections should not show the pairing dialog!</string>
+    <string name="bt_advertise_unsupported_title">Advertising is not supported</string>
+    <string name="bt_advertise_unsupported_message">Advertising is not supported on this device.\nTest finishes.</string>
+    <string name="bt_open_failed_title">BLE open failed</string>
+    <string name="bt_open_failed_message">Cannot open BLE GattService.\nTest finishes.</string>
+    <string name="bt_add_service_failed_title">Add service failed</string>
+    <string name="bt_add_service_failed_message">Failed to add services.\nTest finishes.</string>
 
     <string name="bt_secure_client">Secure Client</string>
     <string name="bt_insecure_client">Insecure Client</string>
@@ -262,18 +259,22 @@
 
     <!-- BLE client side strings -->
     <string name="ble_client_service_name">Bluetooth LE GATT Client Handler Service</string>
-    <string name="ble_client_test_name">BLE Client Test</string>
-    <string name="ble_client_connect_name">BLE Client Connect</string>
-    <string name="ble_discover_service_name">BLE Discover Service</string>
-    <string name="ble_read_characteristic_name">BLE Read Characteristic</string>
-    <string name="ble_write_characteristic_name">BLE Write Characteristic</string>
-    <string name="ble_reliable_write_name">BLE Reliable Write</string>
-    <string name="ble_notify_characteristic_name">BLE Notify Characteristic</string>
-    <string name="ble_read_descriptor_name">BLE Read Descriptor</string>
-    <string name="ble_write_descriptor_name">BLE Write Descriptor</string>
-    <string name="ble_read_rssi_name">BLE Read RSSI</string>
-    <string name="ble_client_disconnect_name">BLE Client Disconnect</string>
-    <string name="ble_client_test_info">The BLE test must be done simultaneously on two devices. This device is the client. All tests listed here must be done in order.</string>
+    <string name="ble_client_test_name">01 Bluetooth LE Client Test</string>
+    <string name="ble_client_connect_name">Bluetooth LE Client Connect</string>
+    <string name="ble_discover_service_name">Bluetooth LE Discover Service</string>
+    <string name="ble_read_characteristic_name">Bluetooth LE Read Characteristic</string>
+    <string name="ble_write_characteristic_name">Bluetooth LE Write Characteristic</string>
+    <string name="ble_reliable_write_name">Bluetooth LE Reliable Write</string>
+    <string name="ble_reliable_write_bad_resp_name">Bluetooth LE Reliable Write (receive bad response)</string>
+    <string name="ble_notify_characteristic_name">Bluetooth LE Notify Characteristic</string>
+    <string name="ble_read_descriptor_name">Bluetooth LE Read Descriptor</string>
+    <string name="ble_write_descriptor_name">Bluetooth LE Write Descriptor</string>
+    <string name="ble_read_rssi_name">Bluetooth LE Read RSSI</string>
+    <string name="ble_client_disconnect_name">Bluetooth LE Client Disconnect</string>
+    <string name="ble_client_test_info">
+        The Bluetooth LE test must be done simultaneously on two devices. This device is the client.
+        All tests listed here must be done with out pairing.
+    </string>
     <string name="ble_client_send_connect_info">Type in the Bluetooth address of the remote device to connect to, and verify that the devices are connected.</string>
     <string name="ble_discover_service_info">Verify that the service is discovered when you press the "Discover Service" button.</string>
     <string name="ble_read_write_info">Write values to and read values from the server to verify that the write and read functionalities are working correctly.</string>
@@ -296,32 +297,82 @@
     <string name="ble_read_rssi">Read RSSI</string>
     <string name="ble_disconnect">Disconnect</string>
     <string name="ble_test_text">TEST</string>
+    <string name="ble_test_finished">Test finished</string>
+    <string name="ble_test_next">Next</string>
+    <string name="ble_test_running">Test Running</string>
+    <string name="ble_test_running_message">This test requires a few minutes. Don\'t interrupt the test.</string>
+    <string name="ble_mtu_23_name">Bluetooth LE Request MTU(23bytes)</string>
+    <string name="ble_mtu_512_name">Bluetooth LE Request MTU(512bytes)</string>
 
     <!-- BLE server side strings -->
     <string name="ble_server_service_name">Bluetooth LE GATT Server Handler Service</string>
-    <string name="ble_server_start_name">BLE Server Test</string>
-    <string name="ble_server_start_info">The BLE test must be done simultaneously on two devices, a server device and a client device. This device is the server.</string>
-    <string name="ble_server_receiving_connect">Waiting on connection from BLE client.</string>
-    <string name="ble_server_add_service">Adding service to BLE server.</string>
+    <string name="ble_server_start_name">01 Bluetooth LE Server Test</string>
+    <string name="ble_server_start_info">
+        The Bluetooth LE test must be done simultaneously on two devices, a server device and a client device. This device is the server.
+    </string>
+    <string name="ble_server_receiving_connect">Waiting on connection from Bluetooth LE client.</string>
+    <string name="ble_server_add_service">Adding service to Bluetooth LE server.</string>
     <string name="ble_server_write_characteristic">Waiting on write characteristic request</string>
     <string name="ble_server_read_characteristic">Waiting on read characteristic request</string>
     <string name="ble_server_write_descriptor">Waiting on write descriptor request</string>
     <string name="ble_server_read_descriptor">Waiting on read descriptor request</string>
     <string name="ble_server_reliable_write">Waiting on reliable write from client</string>
-    <string name="ble_server_receiving_disconnect">Waiting on disconnection from BLE client</string>
+    <string name="ble_server_reliable_write_bad_resp">Waiting on reliable write from client (send bad response)</string>
+    <string name="ble_server_receiving_disconnect">Waiting on disconnection from Bluetooth LE client</string>
+    <string name="ble_connection_priority_server_name">02 Bluetooth LE Connection Priority Server Test</string>
+    <string name="ble_connection_priority_server_info">Bluetooth LE Connection Priority Server receive message from message in 3 different priority.</string>
+    <string name="ble_server_notify_characteristic">Waiting on notify characteristic request</string>
+    <string name="ble_server_write_characteristic_without_permission">Waiting on write characteristic request without permission</string>
+    <string name="ble_server_read_characteristic_without_permission">Waiting on read characteristic request without permission</string>
+    <string name="ble_server_write_descriptor_without_permission">Waiting on write descriptor request without permission</string>
+    <string name="ble_server_read_descriptor_without_permission"> Waiting on read descriptor request without permission</string>
+    <string name="ble_server_write_characteristic_need_encrypted">Waiting on write encrypted characteristic request</string>
+    <string name="ble_server_read_characteristic_need_encrypted">Waiting on read encryptedcharacteristic request</string>
+    <string name="ble_server_write_descriptor_need_encrypted">Waiting on write encrypted descriptor request</string>
+    <string name="ble_server_read_descriptor_need_encrypted"> Waiting on read encrypted descriptor request</string>
+    <string name="ble_server_indicate_characteristic">Waiting on indicate characteristic request</string>
+    <string name="ble_server_mtu_23bytes">Waiting on MTU request(23 bytes)</string>
+    <string name="ble_server_mtu_512bytes">Waiting on MTU request(512 bytes)</string>
+    <string name="ble_encrypted_server_name">03 Bluetooth LE Encrypted Server Test</string>
+    <string name="ble_encrypted_server_info">Bluetooth LE Encrypted Server Waiting on read/write characteristic and descriptor request need encrypted.</string>
+    <string name="ble_insecure_server_enctypted_info">Bluetooth LE Server is in operation.\nThis test does not change server state.\n\nIf Bluetooth pairing request was notified by system, you must cancel it.\n\nOnce the client tests are all successful, please change the state of the server-side to the "success".</string>
+    <string name="ble_insecure_server_test_list_name">Bluetooth LE Insecure Server Test</string>
+    <string name="ble_insecure_server_test_list_info">
+        This test is mostly automated, but requires some user interaction.
+        Once the list items below have check marks, the test is complete.
+        \n\nTap \"01 Bluetooth LE Server Test\" on this device, then tap \"01 Bluetooth LE Client Test\" on the other device.
+        \nWhen the test is complete, move to the next item. You must complete all tests.
+    </string>
+    <string name="ble_secure_server_test_list_name">Bluetooth LE Secure Server Test</string>
+    <string name="ble_secure_server_test_list_info">
+        This test is mostly automated, but requires some user interaction.
+        You can pass this test once the list items below are checked.
+        \n\nTap \"01 Bluetooth LE Server Test\" on this device, then tap \"01 Bluetooth LE Client Test \"on other device.
+        \nTest completed, then test next item. You must be done all tests.
+    </string>
 
     <!-- BLE advertiser side strings -->
-    <string name="ble_advertiser_test_name">BLE Advertiser Test</string>
-    <string name="ble_advertiser_test_info">The BLE test must be done simultaneously on two devices, an advertiser and a scanner. This device is the advertiser.</string>
+    <string name="ble_advertiser_test_name">Bluetooth LE Advertiser Test</string>
+    <string name="ble_advertiser_test_info">
+        The Bluetooth LE Advertiser Test and Scanner Test is a paired test.
+        \nTap \"Bluetooth LE Advertiser Test\" on this device. Once it is passed, tap \"Bluetooth LE Scanner Test\".
+        \nTap \"Bluetooth LE Scanner Test\" on this device. Once it is passed, tap \"Bluetooth LE Advertiser Test\".
+    </string>
     <string name="ble_advertiser_service_name">Bluetooth LE Advertiser Handler Service</string>
-    <string name="ble_privacy_mac_name">BLE Privacy Mac</string>
-    <string name="ble_privacy_mac_info">BLE Advertiser should advertise in non-repeating MAC address.</string>
-    <string name="ble_advertiser_privacy_mac_instruction">Click start to start advertising, you can disconnect USB and lock the screen of advertiser. Counts and mac address will show on scanner. You may receive message that this device does not support BLE advertising.</string>
-    <string name="ble_power_level_name">BLE Tx Power Level</string>
-    <string name="ble_power_level_info">BLE Advertiser advertises in 4 different power levels. Scanner should receive them in different strength of Rssi, cannot receive weak signals beyond several feet.</string>
-    <string name="ble_advertiser_power_level_instruction">Click start to start multi-advertising. Data packets are advertised in 4 different power levels. You may receive message that this device does not support multi advertising. If advertiser does not advertise in 4 power levels, neither you receive the error message, you may not stop the advertising in previous test, or this device does not support 4 advertisers at the same time. Try rebooting the device and run the test to free those advertisers in use.</string>
-    <string name="ble_advertiser_scan_filter_name">BLE Hardware Scan Filter</string>
-    <string name="ble_advertiser_scan_filter_info">BLE Advertiser advertises with 2 different data separately. One can wake up the scanner, the other cannot. This test cares about behavior on scanner only.</string>
+    <string name="ble_privacy_mac_name">Bluetooth LE Privacy Mac</string>
+    <string name="ble_privacy_mac_info">Bluetooth LE Advertiser should advertise in non-repeating MAC address.</string>
+    <string name="ble_advertiser_privacy_mac_instruction">Click start to start advertising, you can disconnect USB and lock the screen of advertiser. Counts and mac address will show on scanner. You may receive message that this device does not support Bluetooth LE advertising.</string>
+    <string name="ble_power_level_name">Bluetooth LE Tx Power Level</string>
+    <string name="ble_power_level_info">Bluetooth LE Advertiser advertises in 4 different power levels. Scanner should receive them in different strength of Rssi, cannot receive weak signals beyond several feet.</string>
+    <string name="ble_advertiser_power_level_instruction">
+        Click start to start multi-advertising. Data packets are advertised in 4 different power levels.
+        You may receive a message that this device does not support multi-advertising.
+        If the advertiser does not advertise in 4 power levels, and you do not receive an error message,
+        you may not have stopped advertising in the previous test, or this device may not support 4 advertisers at the same time.
+        Try rebooting the device and running the test again to free those advertisers in use.
+    </string>
+    <string name="ble_advertiser_scan_filter_name">Bluetooth LE Hardware Scan Filter</string>
+    <string name="ble_advertiser_scan_filter_info">Bluetooth LE Advertiser advertises with 2 different data separately. One can wake up the scanner, the other cannot. This test cares about behavior on scanner only.</string>
     <string name="ble_advertiser_scannable">Scannable advertising</string>
     <string name="ble_advertiser_scannable_instruction">Start scannable advertising, expect scanner consume more power on Monsoon monitor, or see log of GattService from scanner logcat.</string>
     <string name="ble_advertiser_unscannable">Unscannble advertising</string>
@@ -330,16 +381,16 @@
     <string name="ble_advertiser_stop">Stop</string>
 
     <!-- BLE scanner side strings -->
-    <string name="ble_scanner_test_name">BLE Scanner Test</string>
+    <string name="ble_scanner_test_name">Bluetooth LE Scanner Test</string>
     <string name="ble_scanner_service_name">Bluetooth LE Scanner Handler Service</string>
-    <string name="ble_scanner_test_info">The BLE test must be done simultaneously on two devices, an advertiser and a scanner. This device is the scanner.</string>
+    <string name="ble_scanner_test_info">The Bluetooth LE test must be done simultaneously on two devices, an advertiser and a scanner. This device is the scanner.</string>
     <string name="ble_scanner_privacy_mac">Hold for 15 min to see if receive a different MAC address from advertiser.</string>
     <string name="ble_scanner_privacy_mac_instruction">Mac address, counts are shown on screen. It should continuously receive data packet from advertiser. Every 15 min, a new mac address should show up, which prevents mac address disclosure.</string>
     <string name="ble_ultra_low">Ultra low</string>
     <string name="ble_low">Low</string>
     <string name="ble_medium">Medium</string>
     <string name="ble_high">High</string>
-    <string name="ble_scanner_power_level_instruction">Count: Ultra low &lt; low &lt; medium &lt; high\nRssi: Ultra low &lt; low &lt; medium &lt; high\nDistance to see count freezing: Ultra low &lt; low &lt; medium &lt; high\nA common error is ultra low, low and medium behave similarly, with similar rssi, freeze at similar distance.\n\n All power level receive a different mac address. After 15 mins, a green text "Get a new Mac address" will show up.</string>
+    <string name="ble_scanner_power_level_instruction">Count: Ultra low &lt; low &lt; medium &lt; high\nRssi: Ultra low &lt; low &lt; medium &lt; high\nDistance to see count freezing: Ultra low &lt; low &lt; medium &lt; high\nA common error is ultra low, low and medium behave similarly, with similar rssi, freeze at similar distance.\n\n All power level receive a mac address.</string>
     <string name="ble_scanner_scan_filter_name">BLE Hardware Scan Filter</string>
     <string name="ble_scanner_scan_filter_info">Lock the screen of scanner, and connect to monsoon. It will not wake up when advertiser is advertising unscannable, and scanner is scanning with filter.</string>
     <string name="ble_scanner_scan_filter_instruction">Scan filter is to scan data with service UUID = 0x6666 only. If you scan without scan filter, data with service UUID = 0x5555 and 0x6666 will show up on screen.\nFor monsoon test:\n\tClick scan with filter, lock the screen, connect to monsoon. It will not wake up when advertiser is advertising unscannable data packets, but will show a peak in power usage when advertiser is advertising scannable data.\nFor logcat test:\n\tClick scan with filter, logcat the scanner. No data will be received by GattService when advertiser is advertising unscannable data.</string>
@@ -347,6 +398,90 @@
     <string name="ble_scan_without_filter">Scan without filter</string>
     <string name="ble_scan_start">Start scan</string>
     <string name="ble_scan_stop">Stop scan</string>
+
+    <!-- BLE connection priority test strings -->
+    <string name="ble_client_connection_priority">Testing priority: </string>
+    <string name="ble_connection_priority_balanced">BALANCED</string>
+    <string name="ble_connection_priority_high">HIGH</string>
+    <string name="ble_connection_priority_low">LOW</string>
+    <string name="ble_server_connection_priority_result_passed">All test passed</string>
+    <string name="ble_server_connection_priority_result_failed">Test failed.</string>
+    <string name="ble_server_connection_priority_result_intervals">
+        Transfer interval time (msec):\nHIGH=%1$d\nBALANCED=%2$d\nLOW=%3$d\n\nRequirements:\n HIGH &lt;= BALANCED &lt;= LOW
+    </string>
+
+    <!-- BLE Test Name -->
+    <string name="ble_secure_client_test_name">Bluetooth LE Secure Client Test</string>
+    <string name="ble_insecure_client_test_name">Bluetooth LE Insecure Client Test</string>
+    <string name="ble_secure_server_test_name">Bluetooth LE Secure Server Test</string>
+    <string name="ble_insecure_server_test_name">Bluetooth LE Insecure Server Test</string>
+
+    <string name="ble_read_characteristic_nopermission_name">Bluetooth LE Read Characteristic Without Perrmission</string>
+    <string name="ble_write_characteristic_nopermission_name">Bluetooth LE Write Characteristic Without Permission</string>
+    <string name="ble_read_descriptor_nopermission_name">Bluetooth LE Read Descriptor Without Perrmission</string>
+    <string name="ble_write_descriptor_nopermission_name">Bluetooth LE Write Descriptor Without Permission</string>
+    <string name="ble_connection_priority_client_name">02 Bluetooth LE Connection Priority Client Test</string>
+    <string name="ble_connection_priority_client_info">Bluetooth LE Connection Priority Client send message in 3 different priority.</string>
+    <string name="ble_read_authenticated_characteristic_name">Bluetooth LE Read Encrypted Characteristic</string>
+    <string name="ble_write_authenticated_characteristic_name">Bluetooth LE Write Encrypted Characteristic</string>
+    <string name="ble_read_authenticated_descriptor_name">Bluetooth LE Read Encrypted Descriptor</string>
+    <string name="ble_write_authenticated_descriptor_name">Bluetooth LE Write Encrypted Descriptor</string>
+    <string name="ble_connection_priority_client_high">Bluetooth LE Send With CONNECTION_PRIORITY_HIGH</string>
+    <string name="ble_connection_priority_client_low">Bluetooth LE Send With CONNECTION_PRIORITY_LOW_POWER</string>
+    <string name="ble_connection_priority_client_balanced">Bluetooth LE Send With CONNECTION_PRIORITY_BALANCED</string>
+    <string name="ble_indicate_characteristic_name">Bluetooth LE Indicate Characteristic</string>
+    <string name="ble_encrypted_client_name">03 Bluetooth LE Encrypted Client Test</string>
+    <string name="ble_encrypted_client_info">Bluetooth LE Encrypted Client read/write on characteristic and descriptor need encrypted.</string>
+    <string name="ble_insecure_client_test_list_name">Bluetooth LE Insecure Client Test</string>
+    <string name="ble_insecure_client_test_list_info">
+        The Bluetooth LE test must be done simultaneously on two devices. This device is the client.
+        All tests listed here must be done without pairing. Tap \"Bluetooth LE Insecure Server Test\" on the other device.
+        \n\nTap \"01 Bluetooth LE Client Test\" on this device, then tap \"01 Bluetooth LE Server Test\" on the other device.
+        \nWhen the test is complete, move to the next item. You must complete all tests.
+    </string>
+    <string name="ble_secure_client_test_list_name">Bluetooth LE Secure Client Test</string>
+    <string name="ble_secure_client_test_list_info">
+        The Bluetooth LE test must be done simultaneously on two devices.
+        This device is the client. All tests listed here must be done with pairing.
+        \n\nTap \"01 Bluetooth LE Client Test\" on this device, then tap \"01 Bluetooth LE Server Test\" on the other device.
+        \nWhen the test is complete, move to the next item. You must complete all tests.
+    </string>
+    <string name="ble_encrypted_client_no_encrypted_characteristic">Error!\nThe Characteristics unencrypted.</string>
+    <string name="ble_encrypted_client_no_encrypted_descriptor">Error!\nThe Descriptor unencrypted.</string>
+    <string name="ble_encrypted_client_fail_write_encrypted_characteristic">It failed to write to Characteristic.</string>
+    <string name="ble_encrypted_client_fail_write_encrypted_descriptor">It failed to write to Descriptor.</string>
+    <string name="ble_encrypted_client_fail_read_encrypted_characteristic">It failed to read the Characteristic.</string>
+    <string name="ble_encrypted_client_fail_read_encrypted_descriptor">It failed to read the Descriptor.</string>
+    <string name="ble_secure_client_test_info">
+        The Bluetooth LE test must be done simultaneously on two devices. This device is the client.
+        All tests listed here must be done with pairing.
+    </string>
+
+    <string name="ble_bluetooth_disable_title">Bluetooth Disable!</string>
+    <string name="ble_bluetooth_disable_message">Please set bluetooth enable.</string>
+
+    <string name="ble_bluetooth_mismatch_title">Bluetooth pairing state is a mismatch!</string>
+    <string name="ble_bluetooth_mismatch_secure_message">
+        And even though it has already been trying to run a test of Secure, the device has not been paired.
+        \nGo setting mode, set Bluetooth to pair other device.
+    </string>
+    <string name="ble_bluetooth_mismatch_insecure_message">
+        And even though it has already been trying to run a test of Insecure, the device has already been paired.
+        \nGo setting mode, set Bluetooth to unpair other device.
+    </string>
+
+    <string name="ble_mtu_mismatch_message">MTU is not correct.(Request:%1$d, Actual:%2$d)</string>
+    <string name="ble_mtu_fail_message">MTU test: failed to receive data</string>
+
+    <string name="companion_test">Companion Device Test</string>
+    <string name="companion_test_info">
+        This test checks that APIs to manage companion devices are working correctly,
+        including showing the dialog to the user to verify a device, as well as updating an internal
+        record once the user made the choice and then removing it.\n\n
+        Before proceeding, make sure you have a bluetooth device nearby and discoverable.
+        Also, make sure that bluetooth is turned on on this device.
+        Once you press the button, wait for a dialog to pop up and select your device from the list.
+    </string>
 
     <!-- Strings for FeatureSummaryActivity -->
     <string name="feature_summary">Hardware/Software Feature Summary</string>
@@ -422,7 +557,9 @@
     <string name="location_gnss_measure_no_location_test">GNSS Measurement Before Location Test</string>
     <string name="location_gnss_reg_test">GNSS Measurement Registration Test</string>
     <string name="location_gnss_value_test">GNSS Measurement Values Test</string>
+    <string name="location_gnss_ttff_test">GNSS TTFF Test</string>
     <string name="location_gnss_nav_msg_test">GNSS Navigation Message Test</string>
+    <string name="location_gnss_status_test">GNSS Status Test</string>
     <string name="location_gnss_test_info">This test verifies basic GNSS behavior.
         Make sure the device has line of sight to GNSS satellites
         (for example, stationary on a windowsill.  If needed, try again, outside, also with the
@@ -645,9 +782,12 @@
     <string name="snsr_device_admin_receiver">Sensor Tests Device Admin Receiver</string>
     <string name="snsr_test_summary">Tests passed: %1$d, Tests skipped: %2$d, Tests failed: %3$d</string>
     <string name="snsr_test_complete">Test completed without errors.</string>
-    <string name="snsr_test_complete_with_errors">Test completed with errors: those errors
-        might degrade the user experience and might cause some applications to misbehave. They are
-        not required for Android Compatibility at this time, but will in a future release.</string>
+    <string name="snsr_test_complete_with_errors">Test completed with errors which indicates
+      the device does not meet Android compatibility requirement.
+      This will degrade user experience and cause applications to misbehave.
+      To help debugging, please take a bug report and back up contents under
+      /sdcard/sensorTests of the device under test.
+    </string>
     <string name="snsr_test_pass">PASS</string>
     <string name="snsr_test_skipped">SKIPPED</string>
     <string name="snsr_test_fail">FAIL</string>
@@ -665,8 +805,9 @@
     <string name="snsr_wait_to_begin">Press \'Next\' to begin.</string>
     <string name="snsr_on_complete_return">After completing the task, go back to this test.</string>
     <string name="snsr_movement_expected">Movement was expected during the test. Found=%1$b.</string>
-    <string name="snsr_sensor_feature_deactivation">Turn off any special features installed in the
-        device that register for sensors. Once you are done, you can begin the test.</string>
+    <string name="snsr_sensor_feature_deactivation">IMPORTANT NOTE: Please also turn off any special features in the
+        device that use sensors (wake up gestures, motion triggered events, moves, etc).
+        Not doing so is expected to cause test failures. Once you are done, you can begin the test.</string>
     <string name="snsr_setting_mode_request">You will be redirected to set \'%1$s\' to: %2$s.</string>
     <string name="snsr_setting_mode_set">\'%1$s\' set to: %2$s.</string>
     <string name="snsr_setting_mode_not_set">\'%1$s\' not set to: %2$s.</string>
@@ -739,7 +880,7 @@
     <string name="snsr_event_time">Sensor(%5$s). Event timestamp expected to be synchronized with SystemClock.elapsedRealtimeNanos(). Event received at=%1$d. Event timestamp=%2$d. Delta=%3$d. Threshold=%4$d.</string>
 
     <!-- Sensor Batching -->
-    <string name="snsr_batch_test">Sensor Batching Tests</string>
+    <string name="snsr_batch_test">Sensor Batching Manual Tests</string>
     <string name="snsr_batching_walking_needed">Once the test begins, you will have to take the
         device in your hand and walk.</string>
 
@@ -782,7 +923,23 @@
     <string name="snsr_significant_motion_cancelation">Expected to be able to cancel TriggerSensor. Found=%b.</string>
     <string name="snsr_significant_motion_ap_suspend">One you begin the test, disconnect USB, turn off the display and allow the device to go into suspend.
     You will need to walk to ensure that Significant Motion triggers. The screen will turn on and a sound will be played once the test completes.</string>
-    <string name="snsr_device_did_not_wake_up_at_trigger">Device did not wakeup at tigger time. wakeTime=%1$d ms triggerTime=%2$d ms</string>
+    <string name="snsr_device_did_not_wake_up_at_trigger">Device did not wakeup at trigger time. wakeTime=%1$d ms triggerTime=%2$d ms</string>
+
+    <!-- Low Latency Off-Body Detect -->
+    <string name="snsr_offbody_sensor_test">Off Body Sensor Tests</string>
+    <string name="snsr_offbody_sensor_registration">Registration failed for low latency offbody detect sensor.\n</string>
+    <string name="snsr_offbody_event_arrival">Expected to receive a low latency offbody detect event. Found=%b.</string>
+    <string name="snsr_offbody_event_type">Event expected to be of type=%1$d. Found=%2$d.</string>
+    <string name="snsr_offbody_event_invalid_value">Invalid value received for offbody state; Expected value %1$d or %2$d. Found=%2$d.</string>
+    <string name="snsr_offbody_event_wrong_value">Expected to receive an event having value=%1$d. Found=%2$d.</string>
+    <string name="snsr_offbody_event_unexpected">Event not expected to trigger. Triggered=%1$s.</string>
+    <string name="snsr_offbody_response_timing_violation">%1$s event maximum allowed latency is %2$d. Found=%3$d ms.</string>
+    <string name="snsr_offbody_state_change">Offbody state changed to %1$d. Timestamp=%2$d.</string>
+    <string name="snsr_start_offbody_sensor_test_instr">Put watch on your wrist and then click Next button.</string>
+    <string name="snsr_start_onbody_sensor_test_instr">Remove the watch from your wrist and then click Next button.</string>
+    <string name="snsr_offbody_detect_test_instr">Click Next button, then immediate remove the watch from your wrist.</string>
+    <string name="snsr_onbody_detect_test_instr">Click Next button, then immediately attach the watch on your wrist.</string>
+    <string name="snsr_ap_wake_offbody_detect_test_instr">Click Next button, then palm the screen. Wait a few seconds after screen blackens, then remove watch from wrist.</string>
 
     <!-- Strings for Sensor CTS tests inside CtsVerifier -->
     <string name="snsr_single_sensor_tests">CTS Single Sensor Tests</string>
@@ -798,15 +955,6 @@
     <string name="sample_framework_test">Sample Framework Test</string>
     <string name="sample_test">Sample Test</string>
     <string name="sample_test_info">This test verifies that bluetooth sharing is working properly.\nThe test assumes the Device Under Test has bluetooth enabled and is already paired with a second device, also with bluetooth enabled.\nStart this test by clicking share, choose bluetooth from the options, and then select a device to share with.\nNote: This is a sample test, used to demonstrate how to write CTS Verifier tests, so just click pass.</string>
-
-    <!-- Strings for SuidFilesActivity -->
-    <string name="suid_files">SUID File Scanner</string>
-    <string name="suid_files_info">This test will attempt to find unauthorized SUID binaries, but it is not comprehensive due to permission restrictions.\n\nAuthorized SUID binaries will appear green, while unauthorized SUID binaries will appear red.\n\nPress OK to start the scan...</string>
-    <string name="scanning_directory">Scanning directory...</string>
-    <string name="file_status">User: %1$s\nGroup: %2$s\nPermissions: %3$s\nPath: %4$s</string>
-    <string name="no_file_status">Could not stat file...</string>
-    <string name="congratulations">Congratulations!</string>
-    <string name="no_suid_files">No unauthorized suid files detected!</string>
 
     <!-- Strings for Camera Orientation -->
     <string name="camera_orientation">Camera Orientation</string>
@@ -929,35 +1077,62 @@
 
     <!-- Strings for USB accessory test activity -->
     <string name="usb_accessory_test">USB Accessory Test</string>
-    <string name="sensor_power_test">Sensor Power Test</string>
     <string name="usb_accessory_test_info">
-        1. Connect your Android device to a computer and ensure that the connection is set
-        to charging only from the Android device.
-        \n\n2.Run the \'cts-usb-accessory\' program included with the CTS Verifier bundle.
-        \n\n3. If you have not started the CTS Verifier, press \'OK\' when asked to open the CTS
-        Verifier when the accessory is connected. \n\nIf you are already in this test,
-        then you can press \'Cancel\' but press \'OK\' in the next dialog asking whether to allow
-        CTS Verifier to access the accessory.
-        \n\n4. You should see the accessory and the CTS Verifier display a series of messages
-        which indicates that the accessory support is working properly, and then you will
-        be presented with more instructions.
+        1. Install the Cts Verifier USB Companion app on a separate helper device.
+        \n\n2. Start the accessory test companion in the Cts Verifier USB Companion.
+        \n\n3. Connect the two devices. If using a OTG adapter make sure the adapter is directly connected to the helper device. If using an Type-C cable make sure that the helper device is set as "supply power to the attached device".
+        \n\n4. Confirm access to the USB device on the helper device.
+        \n\n5. Confirm access to the USB accessory on this device
+        \n\n6. Confirm access to the USB device on the helper again.
+        \n\n7. Test will run and complete automatically in less than 30 seconds.
+        \n\n8. Cancel all further dialogs on this device
     </string>
-    <string name="usb_not_available_title">USB accessory feature is not available?</string>
-    <string name="usb_not_available_message">If your device is supposed to support USB accessories, your API implementation is not behaving correctly!</string>
-    <string name="usb_received_messages">Received Messages</string>
-    <string name="usb_reconnect_title">Disconnect and Reconnect</string>
-    <string name="usb_disconnect_message">Please disconnect the Android device and the computer.</string>
-    <string name="usb_connect_message">Please connect the Android device and the computer. Do not interact with the device until prompted.</string>
-    <string name="usb_reconnect_timeout">Test failed because reconnect timed out. You can interact with the device again.</string>
-    <string name="usb_reconnect_abort">Abort Test</string>
-    <string name="usb_wait_for_done">Could not find USB accessory. Try waiting longer.</string>
-    <string name="usb_sent_messages">Sent Messages</string>
-    <string name="usb_no_messages">No messages</string>
-    <string name="usb_message_thread_started">Starting message processing...</string>
-    <string name="usb_message_thread_exception">Exception occurred while processing a message...</string>
-    <string name="usb_message_thread_ended">Stopping message processing...</string>
-    <string name="usb_test_passed">Test passed, pass button enabled! You can interact with the device again.</string>
-    <string name="usb_file_descriptor_error">Could not open file descriptor for USB accessory... try reconnecting and restarting the accessory?</string>
+    <string name="usb_accessory_test_step1">
+        In this specific order:
+        \n1. Install the Cts Verifier USB Companion app on a separate helper device.
+        \n2. Start the accessory test companion in the Cts Verifier USB Companion.
+        \n3. Connect the two devices. If using a OTG adapter make sure the adapter is directly connected to the helper device. If using an Type-C cable make sure that the helper device is set as "supply power to the attached device".
+        \n4. Confirm access to the USB device on the helper device. Only confirm once.
+        \n5. Confirm access to the USB accessory on this device.
+        \n6. Confirm access to the USB device on the helper device again.
+        \n\nResult: A progress indicator should appear or test will finish.
+    </string>
+    <string name="usb_accessory_test_step2">
+        Test is running and will complete automatically in less than 30 seconds.
+    </string>
+
+    <!-- String for the USB device test activity -->
+    <string name="usb_device_test">USB Device Test</string>
+    <string name="usb_device_test_info">
+        1. Install the Cts Verifier USB Companion app on a separate helper device.
+        \n\n2. Start the device test companion in the Cts Verifier USB Companion.
+        \n\n3. Connect the two devices. If using a OTG adapter make sure the adapter is directly connected to this device. If using an Type-C cable make sure that this device is set as "supply power to the attached device".
+        \n\n4. Confirm access to the USB device on this device.
+        \n\n5. Confirm access to the USB accessory on the helper device.
+        \n\n6. Confirm access to the USB device on this device again.
+        \n\n7. Test will run and complete automatically in less than 30 seconds.
+        \n\n8. Cancel all further dialogs on the helper device.
+    </string>
+    <string name="usb_device_test_step1">
+        In this specific order:
+        \n1. Install the Cts Verifier USB Companion app on a separate helper device.
+        \n2. Start the device test companion in the Cts Verifier USB Companion.
+        \n3. Connect the two devices. If using a OTG adapter make sure the adapter is directly connected to this device. If using an Type-C cable make sure that this device is set as "supply power to the attached device".
+        \n\nResult: A dialog should show up on this device asking for access to a USB device.
+    </string>
+    <string name="usb_device_test_step2">
+        Confirm access to the USB device on this device.
+        \n\nResult: Dialogs should show up on this device and on the helper device asking for access to a USB device/accessory.
+    </string>
+    <string name="usb_device_test_step3">
+        1. Confirm access to the USB accessory on the helper device.
+        \n2. Confirm access to the USB device on this device again.
+        \n\nResult: A progress indicator should appear or test will finish.
+    </string>
+    <string name="usb_device_test_step4">
+        Test is running and will complete automatically in a less than 30 seconds.
+    </string>
+    <string name="usb_device_unexpected">Usb companion device is not as expected %1$s. Please retry test.</string>
 
     <!-- Strings for MTP host test activity -->
     <string name="mtp_host_test">MTP Host Test</string>
@@ -991,6 +1166,10 @@
     </string>
     <string name="its_test_passed">All Camera ITS tests passed.  Pass button enabled!</string>
     <string name="its_test_failed">Some Camera ITS tests failed.</string>
+    <string name="its_version_mismatch">
+        CtsVerifier and ITS script version mismatch. Please update CtsVerifier and ITS script.
+    </string>
+    <string name="its_test_progress">ITS test progress will be shown here.</string>
 
     <!-- Strings for the Camera Flashlight test activity -->
     <string name="camera_flashlight_test">Camera Flashlight</string>
@@ -1049,29 +1228,34 @@
     <string name="p2p_service_discovery_requester">Service Discovery Requester</string>
 
     <string name="p2p_go_neg_responder_info">
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"GO Negotiation Requester Test\" on the other device and follow
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"GO Negotiation
+        Requester Test\" on the other device and follow
         the instructions.</string>
     <string name="p2p_accept_client_info">
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"Group Client Test\" on the other device and follow
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"Group Client Test\" on
+        the other device and follow
         the instructions.</string>
     <string name="p2p_service_discovery_responder_info">
         Start the \"Service Discovery Requester Test\" on the other device and follow
         the instructions.</string>
 
     <string name="p2p_go_neg_requester_info">
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"GO Negotiation Responder Test\" on the other device.
-        Then run each test individually by clicking on it\'s name.</string>
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"GO Negotiation
+        Responder Test\" on the other device.
+        Then run each test individually by clicking on its name.</string>
     <string name="p2p_join_go_info">
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"Group Owner Test\" on the other device.
-        Then run each test individually by clicking on it\'s name.</string>
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"Group Owner Test\" on
+        the other device.
+        Then run each test individually by clicking on its name.</string>
     <string name="p2p_service_discovery_requester_info">
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"Service Discovery Responder Test\" on the other device.
-        Then run each test individually by clicking on it\'s name.</string>
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"Service Discovery
+        Responder Test\" on the other device.
+        Then run each test individually by clicking on its name.</string>
 
     <string name="p2p_not_enabled">Wi-Fi is not enabled</string>
     <string name="p2p_not_enabled_message">These tests require Wi-Fi to be enabled.
@@ -1082,20 +1266,23 @@
 
     <string name="p2p_go_neg_responder_ready">
         The go negotiation responder is now ready to start.
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"GO Negotiation Requester Test\" on the other device.
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"GO Negotiation
+        Requester Test\" on the other device.
         Keep the screen here until all tests on the other device are
         finished.</string>
     <string name="p2p_go_ready">
         The group owner is now ready to start.
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"Join Group Test\" on the other device.
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"Join Group Test\" on
+        the other device.
         Keep the screen here until all tests on the other device are
         finished.</string>
     <string name="p2p_service_responder_ready">
         The service responder is now ready to start.
-        Go to the Wi-Fi settings and forget all remembered networks.  Then
-        start the \"Service Discovery Requester Test\" on the other device.
+        Go to the Security and Location settings and ensure that Location is enabled. Then go to the
+        Wi-Fi settings and forget all remembered networks.  Then start the \"Service Discovery
+        Requester Test\" on the other device.
         Keep the screen here until all tests on the other device are
         finished.</string>
 
@@ -1156,6 +1343,91 @@
     <string name="p2p_waiting_for_peer_to_disconnect">Waiting for peer
         to disconnect ...</string>
 
+    <!-- Strings for TestListActivity -->
+    <string name="aware_test">Wi-Fi Aware Test</string>
+    <string name="aware_test_info">
+        The Wi-Fi Aware tests require two devices with Wi-Fi enabled. One device must
+        be the candidate device running the software build to be tested, while the other
+        device must be an implementation already known to be compatible.\n\nThere are
+        tests for Publisher and Subscriber, Responder and Initiator. One device should
+        start in a role, and the other should start in the complementary
+        role. Your device must pass the tests in all roles.
+    </string>
+    <string name="aware_not_enabled">Wi-Fi is not enabled</string>
+    <string name="aware_not_enabled_message">These tests require Wi-Fi to be enabled.
+        Click the button below to go to system settings and enable Wi-Fi.</string>
+    <string name="aware_settings">Wi-Fi Settings</string>
+    <string name="aware_setup_error">
+        Test failed.\n\nSet up error. Check whether Wi-Fi is enabled.</string>
+    <string name="aware_unexpected_error">
+        Test failed.\n\nUnexpected error. Check logcat.</string>
+
+    <string name="aware_dp_ib_open_unsolicited">Data Path: Open: Unsolicited/Passive</string>
+    <string name="aware_dp_ib_passphrase_unsolicited">Data Path: Passphrase: Unsolicited/Passive</string>
+    <string name="aware_dp_ib_open_solicited">Data Path: Open: Solicited/Active</string>
+    <string name="aware_dp_ib_passphrase_solicited">Data Path: Passphrase: Solicited/Active</string>
+    <string name="aware_publish">Publish</string>
+    <string name="aware_subscribe">Subscribe</string>
+
+    <string name="aware_dp_oob_open">Data Path (OOB): Open</string>
+    <string name="aware_dp_oob_passphrase">Data Path (OOB): Passphrase</string>
+    <string name="aware_responder">Responder</string>
+    <string name="aware_initiator">Initiator</string>
+
+    <string name="aware_status_attached">Attached ...</string>
+    <string name="aware_status_attach_fail">Attach failure!</string>
+    <string name="aware_status_attach_timeout">Attach failure - timed out!</string>
+    <string name="aware_status_identity">Discovery (Identity) MAC address: %1$s ...</string>
+    <string name="aware_status_identity_fail">Identity listener failure - timed out!</string>
+    <string name="aware_status_subscribe_started">Subscribe discovery session started ...</string>
+    <string name="aware_status_subscribe_failed">Subscribe failure!</string>
+    <string name="aware_status_subscribe_timeout">Subscribe failure - timed out!</string>
+    <string name="aware_status_subscribe_null_session">Subscribe failure - null session!</string>
+    <string name="aware_status_publish_started">Publish discovery session started ...</string>
+    <string name="aware_status_publish_failed">Publish failure!</string>
+    <string name="aware_status_publish_timeout">Publish failure - timed out!</string>
+    <string name="aware_status_publish_null_session">Publish failure - null session!</string>
+    <string name="aware_status_discovery">Service discovered ...</string>
+    <string name="aware_status_discovery_timeout">Service discovery failure - timed out!</string>
+    <string name="aware_status_discovery_fail">Service discovery failure - parameter mismatch!</string>
+    <string name="aware_status_send_success">Sent message successfully ...</string>
+    <string name="aware_status_send_failed">Send message failure!</string>
+    <string name="aware_status_send_timeout">Send message failure - timed out!</string>
+    <string name="aware_status_send_fail_parameter">Send message failure - mismatched ids!</string>
+    <string name="aware_status_received">Received message ...</string>
+    <string name="aware_status_received_mac">Received peer MAC address: %1$s ...</string>
+    <string name="aware_status_receive_timeout">Receive message failure - timed out!</string>
+    <string name="aware_status_receive_failure">Receive message failure - didn\'t receive expected message!</string>
+    <string name="aware_status_network_requested">Network requested ...</string>
+    <string name="aware_status_network_success">Network formed ...</string>
+    <string name="aware_status_network_failed">Network request failure - timed out!</string>
+    <string name="aware_status_sleeping_wait_for_responder">Pausing to let Responder time to set up ...</string>
+    <string name="aware_status_lifecycle_ok">Discovery lifecycle validated!</string>
+
+    <string name="aware_data_path_open_unsolicited_publish">Data Path: Open: Unsolicited Publish</string>
+    <string name="aware_data_path_open_unsolicited_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Data Path: Open: Unsolicited/Passive\' / \'Subscribe\' test.</string>
+    <string name="aware_data_path_open_passive_subscribe">Data Path: Open: Passive Subscribe</string>
+
+    <string name="aware_data_path_passphrase_unsolicited_publish">Data Path: Passphrase: Unsolicited Publish</string>
+    <string name="aware_data_path_passphrase_unsolicited_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Data Path: Passphrase: Unsolicited/Passive\' / \'Subscribe\' test.</string>
+    <string name="aware_data_path_passphrase_passive_subscribe">Data Path: Passphrase: Passive Subscribe</string>
+
+    <string name="aware_data_path_open_solicited_publish">Data Path: Open: Solicited Publish</string>
+    <string name="aware_data_path_open_solicited_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Data Path: Open: Solicited/Active\' / \'Subscribe\' test.</string>
+    <string name="aware_data_path_open_active_subscribe">Data Path: Open: Active Subscribe</string>
+
+    <string name="aware_data_path_passphrase_solicited_publish">Data Path: Passphrase: Solicited Publish</string>
+    <string name="aware_data_path_passphrase_solicited_publish_info">The publisher is now ready.\n\nOn the other device: start the \'Data Path: Passphrase: Solicited/Active\' / \'Subscribe\' test.</string>
+    <string name="aware_data_path_passphrase_active_subscribe">Data Path: Passphrase: Active Subscribe</string>
+
+    <string name="aware_data_path_oob_open_responder">Data Path (OOB): Open: Responder</string>
+    <string name="aware_data_path_oob_open_responder_info">The responder is now ready.\n\nOn the other device: start the \'Data Path (OOB): Open\' / \'Initiator\' test.</string>
+    <string name="aware_data_path_oob_open_initiator">Data Path (OOB): Open: Initiator</string>
+
+    <string name="aware_data_path_oob_passphrase_responder">Data Path (OOB): Passphrase: Responder</string>
+    <string name="aware_data_path_oob_passphrase_responder_info">The responder is now ready.\n\nOn the other device: start the \'Data Path (OOB): Passphrase\' / \'Initiator\' test.</string>
+    <string name="aware_data_path_oob_passphrase_initiator">Data Path (OOB): Passphrase: Initiator</string>
+
     <string name="camera_fov_calibration">Camera FOV Calibration</string>
     <string name="camera_fov_calibration_done">Done</string>
     <string name="camera_fov_general_settings">General settings</string>
@@ -1200,6 +1472,16 @@
     <string name="package_priority_default">Find \"%s\" in the \"Notifications\" settings panel, and disallow it to Override Do Not Disturb.</string>
     <string name="package_priority_user_order">Check that ranker respects user priorities.</string>
 
+    <string name="shortcut_reset_test">Shortcut Reset Rate-limiting Test</string>
+    <string name="shortcut_reset_info">This test checks that when an inline-reply happens, ShortcutManager\'s rate-limiting
+        is reset.</string>
+    <string name="shortcut_reset_bot">Verifying that the CTS Robot helper package is installed.</string>
+    <string name="shortcut_reset_start">Showing the notification.</string>
+    <string name="shortcut_reset_prompt_inline_reply">Open the notification shade,
+        find the \"Shortcut Reset Rate-limiting Test\" notification, type something in the inline-reply field and
+        press the send button.</string>
+    <string name="shortcut_reset_check_result">Check ShortcutManager rate-limit has been reset.</string>
+
     <string name="attention_test">Notification Attention Management Test</string>
     <string name="attention_info">This test checks that the NotificationManagerService is
         respecting user preferences about notification ranking and filtering.
@@ -1225,11 +1507,18 @@
     <string name="attention_some_are_filtered">Check that \"Priority\" mode doesn\'t filter priority notifications.</string>
     <string name="attention_all_are_filtered">Check that \"None\" mode filters all notifications.</string>
     <string name="nls_test">Notification Listener Test</string>
+    <string name="nas_test">Notification Assistant Test</string>
     <string name="nls_service_name">Notification Listener for CTS Verifier</string>
     <string name="nls_info">This test checks that a NotificationListenerService can be enabled
         and disabled, and that once enabled the service is able to receive notifications and
         dismiss them.
     </string>
+    <string name="nas_service_name">Notification Assistant for CTS Verifier</string>
+    <string name="nas_info">This test checks that a NotificationAssistantService can be enabled
+        and disabled, and that once enabled the service is able to receive notifications and
+        dismiss them.
+    </string>
+    <string name="msg_extras_preserved">Check that Message extras Bundle was preserved.</string>
     <string name="vr_tests">VR Tests</string>
     <string name="test_category_vr">VR</string>
     <string name="vr_test_title">VR Listener Test</string>
@@ -1247,18 +1536,39 @@
         under Apps > Gear Icon > Special Access > VR Helper Services and return here.</string>
         <string name="vr_disable_service">Please disable \"VR Listener for CTS Verifier\"
         under Apps > Gear Icon > Special Access > VR Helper Services and return here.</string>
+    <string name="nas_enable_service">Please enable \"Notification Assistant for CTS Verifier\"
+        under Apps > Gear Icon > Default > Notification Assistant and return here.</string>
+    <string name="nas_disable_service">Please disable \"Notification Assistant for CTS Verifier\"
+        under Apps > Gear Icon > Default > Notification Assistant and return here.</string>
     <string name="nls_enable_service">Please enable \"Notification Listener for CTS Verifier\"
         under Apps > Gear Icon > Special Access > Notification Access and return here.</string>
     <string name="nls_disable_service">Please disable \"Notification Listener for CTS Verifier\"
         under Apps > Gear Icon > Special Access > Notification Access and return here.</string>
     <string name="nls_start_settings">Launch Settings</string>
     <string name="nls_service_started">Service should start once enabled.</string>
+    <string name="nas_note_enqueued_received">Check that notification was enqueued.</string>
     <string name="nls_note_received">Check that notification was received.</string>
     <string name="nls_payload_intact">Check that notification payload was intact.</string>
+    <string name="nas_adjustment_payload_intact">Check that the Assistant can adjust notifications.</string>
+    <string name="nas_adjustment_enqueue_payload_intact">Check that the Assistant can adjust notifications on enqueue.</string>
+    <string name="nas_create_channel">Check that the Assistant can create a Notification Channel for another app.</string>
+    <string name="nas_update_channel">Check that the Assistant can update a Notification Channel for another app.</string>
+    <string name="nas_block_channel">Check that the Assistant can block a Notification Channel.</string>
+    <string name="nas_delete_channel">Check that the Assistant can delete a Notification Channel for another app.</string>
+    <string name="nas_snooze_context">Check that the Assistant can snooze a notification until a given context.</string>
     <string name="nls_clear_one">Check that service can clear a notification.</string>
+    <string name="nls_clear_one_reason">Check that service can clear a notification and receive the correct reason for dismissal.</string>
     <string name="nls_clear_all">Check that service can clear all notifications.</string>
     <string name="nls_service_stopped">Service should stop once disabled.</string>
     <string name="nls_note_missed">Check that notification was not received.</string>
+    <string name="nls_snooze">Check the service can be snoozed.</string>
+    <string name="nls_unsnooze">Check the service can be unsnoozed.</string>
+    <string name="nls_hints">Check that the listener can set hints.</string>
+    <string name="nls_snooze_one">Check that service can snooze a notification.</string>
+    <string name="nls_snooze_one_time">Check that service can snooze a notification for a given time.</string>
+    <string name="nls_get_snoozed">Check that service can retrieve snoozed notifications.</string>
+    <string name="nls_unsnooze_one">Check that service can unsnooze a notification.</string>
+    <string name="nas_note_missed_enqueued">Check that notification was not enqueued.</string>
     <string name="cp_test">Condition Provider test</string>
     <string name="cp_service_name">Condition Provider for CTS Verifier</string>
     <string name="cp_info">This test checks that a ConditionProviderService can be enabled
@@ -1269,6 +1579,7 @@
     <string name="cp_disable_service">Please disable \"CTS Verifier\" under Do Not Disturb access and return here.</string>
     <string name="cp_start_settings">Launch Settings</string>
     <string name="cp_create_rule">Creating Automatic Zen Rule</string>
+    <string name="cp_update_rule">Updating Automatic Zen Rule</string>
     <string name="cp_subscribe_rule">Subscribing to Automatic Zen Rule</string>
     <string name="cp_service_started">Service should start once enabled.</string>
     <string name="cp_service_stopped">Service should stop once disabled.</string>
@@ -1332,14 +1643,14 @@
     <string name="cacert_info">This test checks that when a CA Certificate is installed, the user is notified.</string>
     <string name="cacert_do_something">Do it</string>
     <string name="cacert_done">Done</string>
-    <string name="cacert_install_cert">Use the CertInstaller to install the certificate. When it opens, just tap "Okay". If this button does nothing, pass the test and move on.</string>
+    <string name="cacert_install_cert">Use the CertInstaller to install the certificate "MyCA.cer" from device storage. When it opens, choose any name and tap "Okay". If this button does nothing, pass the test and move on.</string>
     <string name="cacert_check_cert_in_settings">Visit the user-installed trusted credentials page and confirm that the "Internet Widgits Pty Ltd" cert appears in the list.</string>
     <string name="cacert_remove_screen_lock">You may have been prompted to set a screen lock when installing the certificate. If so, remove it. If not, you may skip this step.</string>
     <string name="cacert_check_notification">Look at the system notifications. Confirm that:\n
 1. There is a notification saying a certificate authority is installed.\n
 2. Tapping that notification brings up a more detailed explanation and a button to check trusted credentials.\n
 3. Tapping that button brings up the Trusted Credentials page you just visited.</string>
-    <string name="cacert_dismiss_notification">Dismiss the notification. If it cannot be dismissed, fail the test.</string>
+    <string name="cacert_dismiss_notification">Open the notification and follow the link to remove CA certificates. If removing CA certificates does not dismiss the notification, fail the test.</string>
 
     <string name="caboot_test">CA Cert Notification on Boot test</string>
     <string name="caboot_info">This test is to confirm that when the user has installed a trusted credential, the system notifies the user when it boots.</string>
@@ -1380,7 +1691,10 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_nonmarket_allow_info">
         This test verifies that non-market apps can be installed if permitted.\n
         1. A package installation UI should appear.\n
-        2. Accept the package and verify that it installs.
+        2. If \'Cts Verifier\' is not allowed to install apps, a warning dialog will appear
+        blocking the install. In this case go to step 3, else skip to step 4.\n
+        3. Allow \'Cts Verifier\' to install apps. Return to package installer.\n
+        4. Accept the package and verify that it installs.
     </string>
 
     <string name="provisioning_byod_nonmarket_deny">Disable non-market apps</string>
@@ -1425,7 +1739,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_capture_media_error">Error while capturing media from managed profile.</string>
     <string name="provisioning_byod_capture_image_error">Error while capturing image from managed profile.</string>
 
-    <string name="provisioning_byod_auth_bound_key">Autentication-boud keys</string>
+    <string name="provisioning_byod_auth_bound_key">Authentication-bound keys</string>
     <string name="provisioning_byod_auth_bound_key_info">
         This test verifies keystore cryptographic keys can be bound to device credentials.
         These keys should only be available if there was a recent enough authentication.
@@ -1434,7 +1748,7 @@ You should be prompted to select credentials; choose the ones you just installed
         This test verifies keystore cryptographic keys can be bound to device lockscreen challenge or fingerprints (if available).
         These keys should only be available if there was a recent enough authentication. \n
 
-        1. Press "Set up" to open Security settings. Create a lockscreen password and if available, enroll a fingerprint.\n
+        1. Press "Set up" to open Security settings. Create a lockscreen password and if available, enroll a fingerprint under "Work profile security".\n
         2. Go through the list of tests.\n
         3. Mark the overall test pass or fail.\n
         4. Once the set of tests are completed, remove the lockscreen challenge.
@@ -1442,7 +1756,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_auth_bound_key_set_up">Set up</string>
     <string name="provisioning_byod_lockscreen_bound_key">Lockscreen-bound key test</string>
     <string name="provisioning_byod_fingerprint_bound_key">Fingerprint-bound key test</string>
-    <string name="provisioning_byod_vpn">Vpn test</string>
+    <string name="provisioning_byod_vpn">VPN test</string>
     <string name="provisioning_byod_select_work_challenge">Select work lock test</string>
     <string name="provisioning_byod_select_work_challenge_description">
         This test verifies that a work lock can be chosen.\n
@@ -1455,6 +1769,8 @@ You should be prompted to select credentials; choose the ones you just installed
         This test verifies that work lock is shown when opening a work app,
         the work lock was set correctly and it is customized according to
         the policies set. You can only do this test after you have done the previous test.\n
+        Before running this test press the power button to turn the screen off and then back on and
+        swipe to unlock.\n
 
         1. Open a work app.\n
         2. Verify that a screen asking you for your work credentials is shown.\n
@@ -1466,6 +1782,45 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_confirm_work_credentials_header">
         CtsVerifier
     </string>
+
+    <string name="provisioning_byod_recents">Recents redaction test</string>
+    <string name="provisioning_byod_recents_info">
+        This test verifies that if a work profile is locked with a separate password, Recents views
+        for applications in the work profile are redacted.
+    </string>
+    <string name="provisioning_byod_recents_instructions">
+        This test verifies that if a work profile is locked with a separate password, Recents views
+        for applications in the work profile are redacted.\n
+        Some devices may not lock as soon as the screen is turned off by default. On such devices,
+        use the button below when requested to lock the work profile.
+    </string>
+    <string name="provisioning_byod_recents_lock_now">Lock now</string>
+
+    <string name="provisioning_byod_recents_verify_redacted">
+        Verify recents are redacted when locked.
+    </string>
+    <string name="provisioning_byod_recents_verify_redacted_instruction">
+        1) Follow the instructions on-screen to set a work password.\n
+        2) Turn the screen off and on again, or use the "lock now" button, to lock the work profile.\n
+        3) Open Recents.\n
+        4) Confirm that this "CTS Verifier" activity is shown in Recents.\n
+        5) Confirm that the contents of the activity <b>are</b> hidden.\n
+        6) Return to this page and pass the test.
+    </string>
+    <string name="provisioning_byod_recents_verify_not_redacted">
+        Verify recents are not redacted when unlocked.
+    </string>
+    <string name="provisioning_byod_recents_verify_not_redacted_instruction">
+        1) Follow the instructions on-screen to remove the work password.\n
+        2) Open Recents.\n
+        3) Confirm that this "CTS Verifier" activity is shown in Recents.\n
+        4) Confirm that the contents of the activity <b>are not</b> hidden.\n
+        5) Return to this page and pass the test.
+    </string>
+    <string name="provisioning_byod_recents_remove_password">
+        The work profile still has a separate password. Please remove this before continuing.
+    </string>
+
     <!-- Strings for DeskClock -->
     <string name="deskclock_tests">Alarms and Timers Tests</string>
     <string name="deskclock_tests_info">
@@ -1557,7 +1912,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="test_category_projection">Projection Tests</string>
     <string name="projection_service_name">Projection Service</string>
     <string name="pca_info">This tests whether or not OpenGL projection works.\n
-        You should see two "tumbling cubes." Tapping the screen should case the cubes to explode.</string>
+        You should see two "tumbling cubes." Tapping the screen should cause the cubes to explode.</string>
     <string name="pca_test">Projection Cube Test</string>
     <string name="pwa_info">This tests whether or displaying widets and keyfocus navigation works.\n
         You should see four buttons on the bottom of the screen.\n
@@ -1621,15 +1976,24 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_tests_byod_custom_color"> Custom provisioning color </string>
     <string name="provisioning_tests_byod_custom_color_info">
         Please press the Go button to start the provisioning.
-        Check that provisioning is colorized in green.
+        Check that the top status bar and "Accept and continue" button are colorized in green.
         Then hit back and stop the provisioning.
     </string>
     <string name="provisioning_tests_byod_custom_image"> Custom provisioning image </string>
     <string name="provisioning_tests_byod_custom_image_info">
-        Please press the Go button to start the provisioning.
-        Check that the CtsVerifier logo is displayed at the top of the page.
-        Then hit back and stop the provisioning.
+        1. Please press the Go button to start the provisioning.\n
+        2. Press \"Accept and continue\" button to start work profile provisioning\n
+        3. Check that the CtsVerifier logo is displayed during provisioning\n
+        4. After successful provisioning, you should be automatically redirected back to this page
     </string>
+    <string name="provisioning_tests_byod_custom_terms">Custom terms</string>
+    <string name="provisioning_tests_byod_custom_terms_instructions">
+        1. Please press the Go button to start the provisioning.\n
+        2. Click \"View Terms\" button\n
+        3. Expand \"Company ABC\" section. Verify the section content is \"Company Terms Content.\"\n
+        4. Then hit back twice and stop the provisioning.
+    </string>
+    <string name="provisioning_tests_byod_custom_term_header1">Company ABC</string>
 
     <!-- Strings for BYOD managed provisioning (ByodFlowTestActivity) -->
     <string name="test_category_managed_provisioning">Managed Provisioning</string>
@@ -1654,7 +2018,33 @@ You should be prompted to select credentials; choose the ones you just installed
         The only way to disable the encryption is to factory reset the device.
     </string>
     <string name="provisioning_byod_profileowner">Profile owner installed</string>
-    <string name="provisioning_byod_diskencryption">Full disk encryption enabled</string>
+    <string name="provisioning_byod_disk_encryption">Full disk encryption enabled</string>
+    <string name="provisioning_byod_disk_encryption_default_key_toast">
+        Cannot secure device with screen lock. Please re-run the test if you forgot to select
+        the \"require PIN to boot\" option.
+    </string>
+    <string name="provisioning_byod_disk_encryption_no_pin_toast">
+        No PIN is detected. Please re-run the test if you forgot to set a PIN.
+    </string>
+    <string name="provisioning_byod_set_screen_lock_dialog_message">
+        Next, you will be asked to set a screen lock for the device.\n
+        \n
+        Please set \"1111\" as the new PIN (or any other PIN that you can memorize).
+        You have to enter this PIN again later in order to finish the test.\n
+        \n
+        You may be asked whether the PIN should be required to boot the device. Please answer yes.\n
+        \n
+        Tap Go button to set a new screen lock.
+    </string>
+    <string name="provisioning_byod_remove_screen_lock_dialog_message">
+        The test is almost finished. \n
+        \n
+        Next, you will be asked to remove the screen lock that you just set. Please enter \"1111\"
+        (or your own PIN) when prompted for the old PIN, and do not set any new screen lock. This
+        is to make sure that the device returns to the initial state after this test.\n
+        \n
+        Tap Go button to remove existing screen lock.
+    </string>
     <string name="provisioning_byod_profile_visible">Profile-aware accounts settings</string>
     <string name="provisioning_byod_admin_visible">Profile-aware device administrator settings</string>
     <string name="provisioning_byod_workapps_visible">Badged work apps visible in Launcher</string>
@@ -1804,19 +2194,19 @@ You should be prompted to select credentials; choose the ones you just installed
         - Both Personal and Work categories exist.\n
         - \"Remove work profile\" exists under the Work category.\n
         \n
-        Furthermore, hit the action overflow button (3 dots) and verify that:\n
-        - There are two auto-sync options present, one for personal and one for work data.\n
+        Furthermore, verify that:\n
+        - There are two auto-sync options present, one for personal and one for work data (either on the screen or in the overflow menu).\n
         - De-selecting either option prompts a warning dialog.\n
         \n
         Use the Back button to return to this page.
     </string>
     <string name="provisioning_byod_admin_visible_instruction">
         Please press the Go button to open the Security page in Settings.
-        Navigate to Device administrators and confirm that:\n
+        Navigate to Device admin apps and confirm that:\n
         \n
         - Device administrators outside of the work profile (if any) appear in the list, and the managed profile administrators are badged correctly.\n
         - A badged \"CTS Verifier\" exists, and is activated.\n
-        - Attempting to uncheck the badged \"CTS Verifier\" shows a page allowing the user to remove the managed profile.\n
+        - There is no option to deactivate the badged \"CTS Verifier\" version, only an option to \"Remove work profile\".\n
         \n
         Use the Back button to return to this page.
     </string>
@@ -1856,23 +2246,21 @@ You should be prompted to select credentials; choose the ones you just installed
         Please press the Go button to open the Settings page.\n
         \n
         Navigate to \"Data usage\" page and then into the \"Wi-Fi data usage\" category.\n
-        Confirm that \"All work apps\" section is present and that the list includes badged apps.\n
-        Confirm that tapping on \"All work apps\" section shows a list of only work profile apps data usage.\n
+        Confirm that \"All work apps\" section is present and that it is possible to see the data usage for work (badged) apps.\n
         \n
         Then use the Back button to return to this test and mark accordingly.
     </string>
 
-    <string name="provisioning_byod_cellular_data_usage_settings">Profile-aware data usage settings (Cellular)</string>
+    <string name="provisioning_byod_cellular_data_usage_settings">Profile-aware data usage settings (Mobile)</string>
     <string name="provisioning_byod_cellular_data_usage_settings_instruction">
         Please disable Wi-Fi connection on your device.\n
-        Please make sure you have added a SIM card with data plan to your phone, have enabled data over cellular and in case of dual SIM devices, have selected the right SIM for data connection.\n
+        Please make sure you have added a SIM card with data plan to your phone, have enabled data over mobile and in case of dual SIM devices, have selected the right SIM for data connection.\n
         Please carry out operations that will use mobile data using both badged and unbadged apps (e.g. visit a page in a browser).\n
         \n
         Please press the Go button to open the Settings page.\n
         \n
-        Navigate to \"Data usage\" page and then into the \"Cellular data usage\" category.\n
-        Confirm that \"All work apps\" section is present and that the list includes badged apps.\n
-        Confirm that tapping on \"All work apps\" section shows a list of only work profile apps data usage.\n
+        Navigate to \"Data usage\" page and then into the \"Mobile data usage\" category.\n
+        Confirm that \"All work apps\" section is present and that it is possible to see the data usage for work (badged) apps.\n
         \n
         Then use the Back button to return to this test and mark accordingly.
     </string>
@@ -1968,9 +2356,9 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
 
     <string name="provisioning_byod_turn_off_work">Turn off work mode</string>
-    <string name="provisioning_byod_turn_off_work_info">This test verifes device behaviours when turning off work mode.</string>
+    <string name="provisioning_byod_turn_off_work_info">This test verifies device behaviors when turning off work mode.</string>
     <string name="provisioning_byod_turn_off_work_instructions">
-        This test verifies the device behaviour when work profile is turned off.\n
+        This test verifies the device behavior when work profile is turned off.\n
         Please exercise the following tests in sequence.\n
         The button below can be used to open the Settings page where you can toggle work mode.
     </string>
@@ -2041,14 +2429,39 @@ You should be prompted to select credentials; choose the ones you just installed
         2. Lock and unlock the screen to verify that the personal side password was set correctly.\n
     </string>
 
-    <!-- Strings for DeviceOwnerProvisioningTest -->
-    <string name="provisioning_device_owner">Device Owner Provisioning</string>
-    <string name="device_owner_provisioning_tests">Device Owner provisioning tests</string>
-    <string name="device_owner_provisioning_tests_info">The device owner provisioning tests verify that setting up a corporate owned device can only be done on a factory reset device.</string>
-    <string name="device_owner_provisioning_category">Device Owner Provisioning</string>
-    <string name="device_owner_negative_test">Device owner negative test</string>
-    <string name="device_owner_negative_test_info">Please click the "Start provisioning" button, and when you see a warning dialog telling the device is already set up, select "pass". Otherwise, select "fail".</string>
+    <!-- Strings for DeviceOwnerNegativeTestActivity -->
+    <string name="negative_device_owner">No Device Owner Tests</string>
+    <string name="device_owner_negative_category">No Device Owner Tests</string>
+    <string name="device_owner_provisioning_negative">Device owner provisioning</string>
+    <string name="device_owner_provisioning_negative_info">The device owner provisioning test verifies that setting up a corporate owned device can only be done on a factory reset device.\n\nPlease click the "Start provisioning" button, and when you see a warning dialog telling the device is already set up, select "pass". Otherwise, select "fail".</string>
     <string name="start_device_owner_provisioning_button">Start provisioning</string>
+    <string name="enterprise_privacy_quick_settings_negative">Quick settings disclosure</string>
+    <string name="enterprise_privacy_quick_settings_negative_info">
+        Please do the following:\n
+        1) Open and fully expand Quick Settings.\n
+        2) Verify that at the bottom of Quick Settings, you are not told the device is managed.\n
+        3) Close Quick Settings.
+    </string>
+    <string name="enterprise_privacy_keyguard_negative">Keyguard disclosure</string>
+    <string name="enterprise_privacy_keyguard_negative_info">
+        Please do the following:\n
+        1) Press the Go button to open Settings.\n
+        2) Navigate to \"Security\" &gt; \"Screen lock\" and select the first screen lock type that is not \"None\".\n
+        3) Use the Back button to return to this page.\n
+        4) Lock the device.\n
+        5) Verify that on the lock screen, you are not told the device is managed.\n
+        6) Unlock the device.\n
+        7) Repeat steps (1) through (6) for each screen lock type other than \"None\".
+    </string>
+    <string name="enterprise_privacy_add_account_negative">Add account disclosure</string>
+    <string name="enterprise_privacy_add_account_negative_info">
+        Please do the following:\n
+        1) Press the Go button to open Settings.\n
+        2) In the screen that opens, verify that you are not told that the device is managed.\n
+        3) Use the Back button to return to this page.
+    </string>
+
+    <!-- Strings for DeviceOwnerPositiveTestActivity -->
     <string name="positive_device_owner">Device Owner Tests</string>
     <string name="device_owner_positive_tests">Device Owner positive tests</string>
     <string name="device_owner_positive_tests_instructions">
@@ -2150,8 +2563,8 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_profile_owner_permission_lockdown_test">Permissions lockdown</string>
     <string name="device_profile_owner_permission_lockdown_test_instructions">
             Select each of the three grant states for the permission shown below in turn.\n
-            Now open application settings, select Permissions, and verify if the following behaviour is observed.\n
-            <b>Allow:</b> Permission is granted to the app and cannot be changed through the settings UI. Trying to change it triggers a support message.\n
+            Now open application settings, select Permissions, and verify if the following behavior is observed.\n
+            <b>Grant:</b> Permission is granted to the app and cannot be changed through the settings UI. Trying to change it triggers a support message.\n
             <b>Let user decide:</b> Permission state can be changed through the settings UI.\n
             <b>Deny:</b> Permission is denied to the app and cannot be changed through the settings UI. Trying to change it triggers a support message.\n
             Please mark the test accordingly.
@@ -2162,9 +2575,12 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_disallow_usb_file_transfer_test">Disallow USB file transfer</string>
     <string name="device_owner_disallow_usb_file_transfer_test_info">
             Please press below button to set the \"disallow USB file transfer\" restriction.\n
-            Next, connect your device to your desktop computer through USB, open the USB notification from the status bar
-            and check that the \"Transfer files (MTP)\" and \"Transfer photos (PTP)\" cannot be selected and triggers a support message when trying to select them.\n
-            Also, check that if you can download files from your phone to the desktop computer. The test is successful if the files from your phone are not and cannot be downloaded through USB.\n
+            If a USB notification appears, open the notification and check that the
+            \"Transfer files (MTP)\" and \"Transfer photos (PTP)\" cannot be selected and trigger a
+            support message when trying to select them.\n
+            Check if you can mount the device as a USB drive on your desktop computer. The test is
+            successful if you cannot mount the device, and files from your phone cannot be
+            downloaded through USB.\n
             Please mark the test accordingly.
     </string>
     <string name="device_owner_set_user_icon">Setting the user icon</string>
@@ -2227,7 +2643,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_disallow_data_roaming_info">
         Device should have a sim card to perform this test.
         Please press the Set restriction button to set the user restriction.
-        Then press Go to open the Cellular network page in Settings.
+        Then press Go to open the Mobile network page in Settings.
         Confirm that:\n\n
         - Data roaming is disabled.\n
         - Enabling data roaming is not possible and triggers a support message.\n\n
@@ -2250,7 +2666,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_settings_go">Go</string>
 
     <string name="device_owner_vpn_connection">
-        Vpn connection has been established.\n
+        VPN connection has been established.\n
         This is not as expected.\n
         Mark this test as failed.\n
     </string>
@@ -2264,24 +2680,22 @@ You should be prompted to select credentials; choose the ones you just installed
         This was expected.\n
         Mark this test as passed.\n
     </string>
-    <string name="device_owner_vpn_connection_canceled">
-        Cannot establish a VPN connection.\n
-        Connection canceled by user.\n
-    </string>
     <string name="device_owner_vpn_test">Check VPN</string>
-    <string name="device_owner_vpn_info_default">Vpn test message</string>
+    <string name="device_owner_vpn_info_default">VPN test message</string>
 
     <string name="device_owner_disallow_config_vpn">Disallow configuring VPN</string>
     <string name="device_owner_disallow_config_vpn_info">
         Please press the Set VPN restriction button to set the VPN restriction.
         Perform tests in order. Mark test as passed if both test cases pass\n\n
-        1. Press Go to open the Vpn settings page.\n
-        Confirm that:\n
-        - You cannot add a new VPN network.\n
-        - You cannot edit, add or remove any existing VPNs.\n
-        - Trying to perform any of the above actions will trigger a support message.\n\n
+        1. Press Go to attempt to open the VPN settings page.\n
+        You should either see (a) the VPN settings page or (b) that the Intent
+        android.settings.VPN_SETTINGS fails to resolve.\n
+        In the case of (a), confirm that:\n
+        - Trying to perform any of the above actions will trigger a support message.\n
+        In the case of (b) this step is successful.\n\n
         2. Press Check VPN to check programmatic Vpn test.\n
-        - Check Vpn setup\n\n
+        - Check Vpn setup is not allowed\n
+        - If prompted to allow a VPN connection, press OK.\n\n
         Use the Back button to return to this page.
     </string>
     <string name="device_owner_user_vpn_restriction_set">Set VPN restriction</string>
@@ -2437,7 +2851,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_fun">Disallow fun</string>
     <string name="disallow_fun_action">Opening android easter egg game by tapping repeatedly on the \'Android version\' option</string>
     <string name="disallow_install_unknown_sources">Disallow install unknown sources</string>
-    <string name="disallow_install_unknown_sources_action">Enabling \'Unknown sources\' setting</string>
+    <string name="disallow_install_unknown_sources_action">Enabling \'Cts Verifier\' to install apps</string>
     <string name="disallow_modify_accounts">Disallow modify accounts</string>
     <string name="disallow_modify_accounts_action">Adding an account or removing an account (if you have already added one)</string>
     <string name="disallow_network_reset">Disallow network reset</string>
@@ -2446,6 +2860,8 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_outgoing_beam_action">Switching on android beam</string>
     <string name="disallow_remove_user">Disallow remove user</string>
     <string name="disallow_remove_user_action">Removing other users</string>
+    <string name="disallow_remove_managed_profile">Disallow remove managed profile</string>
+    <string name="disallow_remove_managed_profile_action">Removing the work profile. It shouldn\'t be possible neither from the Accounts screen nor the Device Administrators screen (after selecting the Device Administrator that corresponds to the badged version of \"CTS Verifier\")</string>
     <string name="disallow_share_location">Disallow share location</string>
     <string name="disallow_share_location_action">Turning on location sharing</string>
     <string name="disallow_uninstall_apps">Disallow uninstall apps</string>
@@ -2481,7 +2897,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="password_quality_complex">Complex</string>
     <string name="set_permitted_accessibility_services">Set permitted accessibility services</string>
     <string name="permitted_accessibility_services_set_step">
-        Disallow \'Dummy Accessibility service\' from permitted accessibility services by turning on
+        Check that \'Dummy Accessibility service\' is not enabled in Settings and disallow \'Dummy Accessibility service\' from permitted accessibility services by turning on
         the switch below.
     </string>
     <string name="set_permitted_accessibility_services_action">
@@ -2492,21 +2908,323 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="set_permitted_input_methods">Set permitted input methods</string>
     <string name="permitted_input_methods_set_step">
-        Disallow \'Dummy Input method\' from permitted input methods by turning on the switch below.
+        Check that \'Dummy Input method\' is not enabled in Settings and disallow \'Dummy Input method\' from permitted input methods by turning on the switch below.
     </string>
     <string name="set_permitted_input_methods_action">
-        Enabling \'Dummy Input Method\' in the list of accessibility services
+        Enabling \'Dummy Input method\' in the list of accessibility services
     </string>
     <string name="set_permitted_input_methods_widget_label">
         Allow only system input methods:
     </string>
+
+    <!-- Strings used for enterprise privacy tests -->
+    <string name="enterprise_privacy_test">Managed device info tests</string>
+    <string name="enterprise_privacy_page">Managed device info page</string>
+    <string name="enterprise_privacy_page_info">
+        Please press the Go button to open Settings. Verify that:\n
+        1) There is an entry for managed device information.\n
+        2) Tapping that entry opens a screen.\n
+        3) In this screen, at a minimum, you are told your organization can:\n
+        * Change settings on this device.\n
+        * See data associated with your work account.\n
+        * See the list of all apps on your device.\n
+        * See usage of each app on your device.\n
+        * Lock the device and change the password.\n
+        * Wipe the device.\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="enterprise_privacy_open_settings">Open Settings</string>
+    <string name="enterprise_privacy_network_logging">Retrieve traffic logs</string>
+    <string name="enterprise_privacy_network_logging_info">
+        Please do the following:\n
+        1) Press the Retrieve Traffic Logs button and record the time at which you did this.\n
+        2) Wait one minute.\n
+        3) Press the Open Settings button.\n
+        4) In the screen that opens, verify that you are told traffic logs were last retrieved at the time you pressed the Retrieve Traffic Logs button in step (1).\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="enterprise_privacy_retrieve_network_logs">Retrieve Traffic Logs</string>
+    <string name="enterprise_privacy_bug_report">Request bug report</string>
+    <string name="enterprise_privacy_bug_report_info">
+        Please do the following:\n
+        1) Press the Request Bug Report button and record the time at which you did this.\n
+        2) Wait one minute.\n
+        3) Press the Open Settings button.\n
+        4) In the screen that opens, verify that you are told a bug report was last requested at the time you pressed the Request Bug Report button in step (1).\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="enterprise_privacy_request_bug_report">Request Bug Report</string>
+    <string name="enterprise_privacy_security_logging">Retrieve security logs</string>
+    <string name="enterprise_privacy_security_logging_info">
+        Please do the following:\n
+        1) Press the Retrieve Security Logs button and record the time at which you did this.\n
+        2) Wait one minute.\n
+        3) Press the Open Settings button.\n
+        4) In the screen that opens, verify that you are told security logs were last retrieved at the time you pressed the Retrieve Security Logs button in step (1).\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="enterprise_privacy_retrieve_security_logs">Retrieve Security Logs</string>
+    <string name="enterprise_privacy_clear_organization">Clear Org</string>
+    <string name="enterprise_privacy_set_organization">Set Org</string>
+    <string name="enterprise_privacy_enterprise_installed_apps">Enterprise-installed apps</string>
+    <string name="enterprise_privacy_enterprise_installed_apps_info">
+        Please do the following:\n
+        1) You should have received NotificationBot.apk together with the CTS verifier. If you built the CTS verifier yourself, build the NotificationBot.apk by issuing the following command on the host:\n
+            make NotificationBot\n
+        2) Upload the NotificationBot.apk to your device by issuing the following command on the host:\n
+            adb push /path/to/NotificationBot.apk /sdcard\n
+        3) Press the Uninstall button.\n
+        4) Press the Open Settings button.\n
+        5) In the screen that opens, verify that you are not told that your administrator installed any apps.\n
+        6) Use the Back button to return to this page.\n
+        7) Press the Install button.\n
+        8) Press the Open Settings button.\n
+        9) In the screen that opens, verify that you are told now that your administrator installed at least one app.\n
+        10) Tap on that information. Verify that a list of apps installed shows.\n
+        11) Verify that the list contains the CTS Robot app.\n
+        12) Use the Back button to return to this page.\n
+        13) Press the Uninstall button.\n
+        14) Issue the following command on the host:\n
+            adb shell rm /sdcard/NotificationBot.apk
+    </string>
+    <string name="enterprise_privacy_install">Install</string>
+    <string name="enterprise_privacy_uninstall">Uninstall</string>
+    <string name="enterprise_privacy_admin_granted_location_access">Location access permission</string>
+    <string name="enterprise_privacy_admin_granted_location_access_info">
+        Please do the following:\n
+        1) Press the Reset button.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are not told that your administrator has granted location access to any apps.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Grant button.\n
+        6) Press the Open Settings button.\n
+        7) In the screen that opens, verify that you are told now that your administrator has granted location access to at least one app.\n
+        8) Tap on that information. Verify that a list of apps which have location access shows.\n
+        9) Verify that the list contains the CTS Verifier app.\n
+        10) Use the Back button to return to this page.\n
+        11) Press the Reset button.
+    </string>
+    <string name="enterprise_privacy_reset">Reset</string>
+    <string name="enterprise_privacy_grant">Grant</string>
+    <string name="enterprise_privacy_admin_granted_microphone_access">Microphone access permission</string>
+    <string name="enterprise_privacy_admin_granted_microphone_access_info">
+        Please do the following:\n
+        1) Press the Reset button.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are not told that your administrator has granted microphone access to any apps.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Grant button.\n
+        6) Press the Open Settings button.\n
+        7) In the screen that opens, verify that you are told now that your administrator has granted microphone access to at least one app.\n
+        8) Tap on that information. Verify that a list of apps that have microphone access shows.\n
+        9) Verify that the list contains the CTS Verifier app.\n
+        10) Use the Back button to return to this page.\n
+        11) Press the Reset button.
+    </string>
+    <string name="enterprise_privacy_admin_granted_camera_access">Camera access permission</string>
+    <string name="enterprise_privacy_admin_granted_camera_access_info">
+        Please do the following:\n
+        1) Press the Reset button.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are not told that your administrator has granted camera access to any apps.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Grant button.\n
+        6) Press the Open Settings button.\n
+        7) In the screen that opens, verify that you are told now that your administrator has granted camera access to at least one app.\n
+        8) Tap on that information. Verify that a list of apps that have camera access shows.\n
+        9) Verify that the list contains the CTS Verifier app.\n
+        10) Use the Back button to return to this page.\n
+        11) Press the Reset button.
+    </string>
+    <string name="enterprise_privacy_default_apps">Default apps</string>
+    <string name="enterprise_privacy_default_apps_info">
+        Please do the following:\n
+        1) Press the Reset button.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are not told that your administrator set any default apps.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Set Default Apps button.\n
+        6) Press the Open Settings button.\n
+        7) In the screen that opens, verify that you are now told that your administrator has set 7 default apps.\n
+        8) Tap on that information. Verify that a list of default apps shows, with 7 elements in it.\n
+        9) Verify that each element shows the CTS Verifier is the default app.\n
+        10) Use the Back button to return to this page.\n
+        11) Press the Reset button.
+    </string>
+    <string name="enterprise_privacy_set_default_apps">Set Default Apps</string>
+    <string name="enterprise_privacy_default_ime">Default keyboard</string>
+    <string name="enterprise_privacy_default_ime_info">
+        Please do the following:\n
+        1) Press the Open Settings button.\n
+        2) In the screen that opens, verify that you are not told the default keyboard has been set.\n
+        3) Use the Back button to return to this page.\n
+        4) Press the Set Keyboard button to set the default keyboard.\n
+        5) Repeat steps (1) through (3), verifying that in step (2), you are told now that the default keyboard has been set to CTS Verifier.\n
+        6) Press the Finish button to clear the default keyboard.
+    </string>
+    <string name="enterprise_privacy_set_keyboard">Set Keyboard</string>
+    <string name="enterprise_privacy_finish">Finish</string>
+    <string name="enterprise_privacy_always_on_vpn">Always-on VPN</string>
+    <string name="enterprise_privacy_always_on_vpn_info">
+        Please do the following:\n
+        1) Press the Open Settings button.\n
+        2) In the screen that opens, verify that you are not told that an always-on VPN is set.\n
+        3) Use the Back button to return to this page.\n
+        4) Press the Set VPN button to set an always-on VPN.\n
+        5) Repeat steps (1) through (3), verifying that in step (2), you are told now that an always-on VPN is set.\n
+        6) Press the Finish button to clear the always-on VPN.
+    </string>
+    <string name="enterprise_privacy_set_always_on_vpn">Set VPN</string>
+    <string name="enterprise_privacy_comp_always_on_vpn">Always-on VPN (managed profile)</string>
+    <string name="enterprise_privacy_comp_always_on_vpn_info">
+        Please do the following:\n
+        1) Press the Start button to create a work profile.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are not told that an always-on VPN is set.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Set VPN button to set an always-on VPN in your work profile.\n
+        6) Repeat steps (2) through (4), verifying that in step (3), you are told now that an always-on VPN is set in your work profile.\n
+        7) Press the Finish button to remove the work profile and always-on VPN.
+    </string>
+    <string name="enterprise_privacy_start">Start</string>
+    <string name="enterprise_privacy_global_http_proxy">Global HTTP Proxy</string>
+    <string name="enterprise_privacy_global_http_proxy_info">
+        Please do the following:\n
+        1) Press the Open Settings button.\n
+        2) In the screen that opens, verify that you are not told that a global HTTP proxy has been set.\n
+        3) Use the Back button to return to this page.\n
+        4) Press the Set Proxy button.\n
+        5) Repeat steps (1) through (3), verifying that in step (2), you are told now that a global HTTP proxy has been set.\n
+        6) Press the Clear Proxy button.
+    </string>
+    <string name="enterprise_privacy_ca_certs">Trusted CA certs</string>
+    <string name="enterprise_privacy_ca_certs_info">
+        Please do the following:\n
+        1) Press the Open Settings button.\n
+        2) In the screen that opens, verify that you are not told that your administrator installed trusted CA certs.\n
+        3) Use the Back button to return to this page.\n
+        4) Press the Install Cert button to install a trusted CA cert.\n
+        5) Repeat steps (1) through (3), verifying that in step (2), you are told now that the administrator has installed at least one trusted CA cert.\n
+        6) Press the Finish button to clear the cert.
+    </string>
+    <string name="enterprise_privacy_install_cert">Install Cert</string>
+    <string name="enterprise_privacy_comp_ca_certs">Trusted CA certs (managed profile)</string>
+    <string name="enterprise_privacy_comp_ca_certs_info">
+        Please do the following:\n
+        1) Press the Start button to create a work profile.\n
+        2) Press the Settings button.\n
+        3) In the screen that opens, verify that you are not told that your administrator installed trusted CA certs.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Install Cert button to install a trusted CA cert in your work profile.\n
+        6) Repeat steps (2) through (4), verifying that in step (3), you are told now that the administrator has installed at least one trusted CA cert in your work profile.\n
+        7) Press the Finish button to remove the work profile and cert.
+    </string>
+    <string name="enterprise_privacy_settings">Settings</string>
+    <string name="enterprise_privacy_set_proxy">Set Proxy</string>
+    <string name="enterprise_privacy_clear_proxy">Clear Proxy</string>
+    <string name="enterprise_privacy_failed_password_wipe">Wipe on authentication failure</string>
+    <string name="enterprise_privacy_failed_password_wipe_info">
+        Please do the following:\n
+        1) Press the Open Settings button.\n
+        2) In the screen that opens, verify that you are not told all device data will be deleted if you mistype your password too many times.\n
+        3) Use the Back button to return to this page.\n
+        4) Press the Set Limit button to set the maximum number of password attempts.\n
+        5) Repeat steps (1) through (3), verifying that in step (2), you are told now that all device data will be deleted if you mistype your password 100 times.\n
+        6) Press the Finish button to clear the maximum number of password attempts.
+    </string>
+    <string name="enterprise_privacy_set_limit">Set Limit</string>
+    <string name="enterprise_privacy_comp_failed_password_wipe">Wipe on authentication failure (managed profile)</string>
+    <string name="enterprise_privacy_comp_failed_password_wipe_info">
+        Please do the following:\n
+        1) Press the Start button to create a work profile.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are not told work profile data will be deleted if you mistype your password too many times.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Set Limit button to set the maximum number of password attempts.\n
+        6) Repeat steps (2) through (4), verifying that in step (3), you are told now that work profile data will be deleted if you mistype your password 100 times.\n
+        7) Press the Finish button to remove the work profile.
+    </string>
+    <string name="enterprise_privacy_quick_settings">Quick settings disclosure</string>
+    <string name="enterprise_privacy_quick_settings_info">
+        Please do the following:\n
+        1) Press the Clear Org button.\n
+        2) Open and fully expand Quick Settings.\n
+        3) Verify that at the bottom of Quick Settings, you are told the device is managed.\n
+        4) Close Quick Settings.\n
+        5) Press the Set Org button.\n
+        6) Open and fully expand Quick Settings.\n
+        7) Verify that at the bottom of Quick Settings, you are told the device is managed by \"Foo, Inc.\".\n
+        8) Tap on the information.\n
+        9) Verify that a dialog informing you about device monitoring opens.\n
+        10) Tap the \"Learn more\" link.\n
+        11) Verify that a screen informing you what your managing organization can do is shown.\n
+        \n
+        Use the Back button to return to this page.
+    </string>
+    <string name="enterprise_privacy_keyguard">Keyguard disclosure</string>
+    <string name="enterprise_privacy_keyguard_info">
+        Please do the following:\n
+        1) Press the Open Settings button to open Settings.\n
+        2) Navigate to \"Security\" &gt; \"Screen lock\" and select the first screen lock type that is not \"None\".\n
+        3) Use the Back button to return to this page.\n
+        4) Press the Clear Org button.\n
+        5) Lock the device.\n
+        6) Verify that on the lock screen, you are told the device is managed.\n
+        7) Unlock the device.\n
+        8) Press the Set Org button.\n
+        9) Lock the device.\n
+        10) Verify that on the lock screen, you are told the device is managed by \"Foo, Inc.\".\n
+        11) Unlock the device.\n
+        12) Repeat steps (1) through (11) for each screen lock type other than \"None\".
+    </string>
+    <string name="enterprise_privacy_add_account">Add account disclosure</string>
+    <string name="enterprise_privacy_add_account_info">
+        Please do the following:\n
+        1) Press the Clear Org button.\n
+        2) Press the Open Settings button.\n
+        3) In the screen that opens, verify that you are told that the device is managed.\n
+        4) Use the Back button to return to this page.\n
+        5) Press the Set Org button.\n
+        6) Press the Open Settings button.\n
+        7) In the screen that opens, verify that you are told that the device is managed by \"Foo, Inc.\".\n
+        8) Tap the \"Learn more\" link.\n
+        9) Verify that a screen informing you what your managing organization can do is shown.\n
+        11) Use the Back button to return to this page.
+    </string>
+    <string name="enterprise_privacy_default_app">CTS Verifier Test</string>
+
+    <!-- Strings for Network Logging Tests -->
+    <string name="device_owner_network_logging_ui">Network Logging UI</string>
+    <string name="device_owner_network_logging_ui_info">Please do the following:\n
+        1) Open and fully expand Quick Settings.\n
+        2) Check that you are told that your device is managed.\n
+        3) Close Quick Settings.\n
+        4) Enable network logging by tapping on the left button below.\n
+        5) Open Quick Settings again. Check that an icon appeared next to the text about device management.\n
+        6) Verify that a notification including the same icon popped up, informing you that network logging has been enabled.\n
+        7) Tap the notification.\n
+        8) Verify that a dialog about device monitoring opens, and informs you about: the name of the app that manages this device, details about the device owner\'s capabilities, and information that the admin has activated network logging and can see all network traffic.\n
+        9) Close the dialog.\n
+        10) Tap the right button below to disable network logging.\n
+        11) Verify that the notification disappeared.\n
+    </string>
+    <string name="device_owner_enable_network_logging_button">Enable Network Logging</string>
+    <string name="device_owner_disable_network_logging_button">Disable Network Logging</string>
+
+    <string name="comp_test">Corporate Owned Managed Profile</string>
+    <string name="comp_provision_profile_dialog_title">Provision work profile</string>
+    <string name="comp_provision_profile_dialog_text">Press the OK button to start the managed provisioning flow, and complete the flow to create a work profile</string>
 
     <!-- Strings for JobScheduler Tests -->
     <string name="js_test_description">This test is mostly automated, but requires some user interaction. You can pass this test once the list items below are checked.</string>
 
     <string name="js_idle_test">Idle Mode Constraints</string>
     <string name="js_start_test_text">Start test</string>
-    <string name="js_idle_instructions">Verify the behaviour of the JobScheduler API for when the device is in idle mode. Simply follow the on-screen instructions.</string>
+    <string name="js_idle_instructions">Verify the behavior of the JobScheduler API for when the device is in idle mode. Simply follow the on-screen instructions.</string>
     <string name="js_idle_description_1">Turn the screen off and then back on in order to begin.</string>
     <string name="js_idle_continue_instruction">
         Switch off screen and wait for it to turn on to continue.
@@ -2515,17 +3233,17 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="js_idle_item_idle_on">Idle job does execute when device is forced into idle.</string>
 
     <string name="js_charging_test">Charging Constraints</string>
-    <string name="js_charging_instructions">Verify the behaviour of the JobScheduler API for when the device is on power and unplugged from power. Simply follow the on-screen instructions.</string>
+    <string name="js_charging_instructions">Verify the behavior of the JobScheduler API for when the device is on power and unplugged from power. Simply follow the on-screen instructions.</string>
     <string name="js_charging_description_1">Plug in the charger if it isn\'t already plugged in.</string>
     <string name="js_charging_off_test">Device not charging will not execute a job with a charging constraint.</string>
     <string name="js_charging_on_test">Device when charging will execute a job with a charging constraint.</string>
     <string name="js_charging_description_2">After the above test has passed, remove the charger to continue. If the above failed, you can simply fail this test.</string>
-    <string name="js_charging_description_3">Device is plugged in. Please wait while it get\s into stable charging state.</string>
-    <string name="js_charging_description_4">There seems to be a problem with your charger. Pleasy try again.</string>
+    <string name="js_charging_description_3">Device is plugged in. Please wait while it gets into stable charging state.</string>
+    <string name="js_charging_description_4">There seems to be a problem with your charger. Please try again.</string>
 
     <string name="js_connectivity_test">Connectivity Constraints</string>
-    <string name="js_connectivity_instructions">Verify the behaviour of the JobScheduler API for when the device has no access to data connectivity. Simply follow the on-screen instructions.</string>
-    <string name="js_connectivity_description_1">Disable WiFi and Cellular data to begin.</string>
+    <string name="js_connectivity_instructions">Verify the behavior of the JobScheduler API for when the device has no access to data connectivity. Simply follow the on-screen instructions.</string>
+    <string name="js_connectivity_description_1">Disable WiFi and Mobile data to begin.</string>
     <string name="js_unmetered_connectivity_test">Device with no connectivity will not execute a job with an unmetered connectivity constraint.</string>
     <string name="js_any_connectivity_test">Device with no connectivity will not execute a job with an unmetered connectivity constraint.</string>
     <string name="js_no_connectivity_test">Device with no connectivity will still execute a job with no connectivity constraints.</string>
@@ -2536,6 +3254,9 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="tv_input_discover_test_info">
     Verify that the bundled TV app launches via Intent and calls the proper API to discover
     3rd-party TV inputs.
+    </string>
+    <string name="tv_input_discover_test_third_party_tif_input_support">
+    Does the bundled TV app support third-party TV inputs?
     </string>
     <string name="tv_input_discover_test_go_to_setup">
     Select the \"Launch TV app\" button and set up the newly installed TV input:
@@ -2593,9 +3314,9 @@ You should be prompted to select credentials; choose the ones you just installed
     Is there an option to turn off parental controls on this device?
     </string>
     <string name="tv_parental_control_test_block_tv_ma">
-    Select the \"Launch TV app\" button and block the \"Fake\" rating for \"CtsVerifier\" rating
+    Select the \"Launch TV app\" button and block the \"Custom Rating\" for \"CtsVerifier\" rating
     system in the parental control settings. If the rating system is disabled by default, enable it.
-    If the \"Fake\" rating is already blocked, unblock it, save, and then block again.
+    If the \"Custom Rating\" is already blocked, unblock it, save, and then block again.
     </string>
     <string name="tv_parental_control_test_verify_receive_broadcast2">
     TV input service must have received ACTION_BLOCKED_RATINGS_CHANGED broadcast.
@@ -2605,8 +3326,8 @@ You should be prompted to select credentials; choose the ones you just installed
     Try to unblock the screen by entering PIN; verify that it\'s unblocked.
     </string>
 
-    <string name="tv_parental_control_turn_off_disabled">No</string>
-    <string name="tv_parental_control_turn_off_enabled">Yes</string>
+    <string name="tv_yes">Yes</string>
+    <string name="tv_no">No</string>
     <string name="tv_launch_tv_app">Launch TV app</string>
     <string name="tv_launch_epg">Launch EPG</string>
     <string name="tv_launch_setup">Launch setup</string>
@@ -2690,7 +3411,7 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
 
     <string name="overlay_view_text">Overlay View Dummy Text</string>
-    <string name="fake_rating">Fake</string>
+    <string name="custom_rating">Example of input app specific custom rating.</string>
 
     <!-- A list of fully-qualified test classes that should not be run. -->
     <string-array name="disabled_tests" />
@@ -2747,13 +3468,43 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_routingnotification_trackRoutingMsg">AudioTrack rerouting</string>
     <string name="audio_routingnotification_recordRoutingMsg">AudioRecord rerouting</string>
 
+    <!-- USB Audio Peripheral Tests -->
+    <string name="profileLabel">Profile</string>
+    <string name="connectedPeripheral">Connected Peripheral</string>
+    <string name="audio_uap_attribs_test">USB Audio Peripheral Attributes Test</string>
+    <string name="uapPeripheralProfileStatus">Peripheral Profile Status</string>
+
+    <string name="audio_uap_play_test">USB Audio Peripheral Play Test</string>
+    <string name="uapPlayTestInstructions">Connect the USB Audio Interface Peripheral and press the
+        PLAY button below. Verify that a tone is correctly played.</string>
+    <string name="audio_uap_play_playBtn">Play</string>
+    <string name="audio_uap_play_stopBtn">Stop</string>
+
+    <string name="audio_uap_record_test">USB Audio Peripheral Record Test</string>
+    <string name="uapRecordTestInstructions">Connect the USB Audio Peripheral and press the RECORD or
+        RECORD LOOPBACK button below. Verify that a tone is correctly played.</string>
+    <string name="audio_uap_record_recordBtn">Record</string>
+    <string name="audio_uap_record_recordLoopbackBtn">Record Loopback</string>
+    <string name="audio_uap_record_stopBtn">Stop</string>
+
+    <string name="audio_uap_buttons_test">USB Audio Peripheral Buttons Test</string>
+    <string name="uapButtonTestInstructions">Connect the USB Audio headset with buttons
+        and press each transport/media button in turn.</string>
+
+    <string name="uapButtonsBtnALbl">Button A - play/pause</string>
+    <string name="uapButtonsBtnBLbl">Button B - volume up (+)</string>
+    <string name="uapButtonsBtnCLbl">Button C - volume down (-)</string>
+    <string name="uapButtonsBtnDLbl">Button D - voice assist</string>
+    <string name="uapButtonsRecognized">Recognized</string>
+    <string name="uapButtonsNotRecognized">Not Recognized</string>
+
     <!-- Audio general text -->
     <string name="audio_general_headset_port_exists">Does this device have a headset port?</string>
     <string name="audio_general_headset_no">No</string>
     <string name="audio_general_headset_yes">Yes</string>
     <string name="audio_general_deficiency_found">WARNING: Some results show potential deficiencies on the system.
     Please consider addressing them for a future release.</string>
-    <string name="audio_general_test_passed">Test Successful</string>
+    <string name="audio_general_test_passed">Test Result: Successful</string>
     <string name="audio_general_test_failed">Test Result: Not Optimal</string>
     <string name="audio_general_default_false_string">false</string>
     <string name="audio_general_default_true_string">true</string>
@@ -2847,17 +3598,377 @@ You should be prompted to select credentials; choose the ones you just installed
      <!-- Audio Frequency Unprocessed Test -->
     <string name="audio_frequency_unprocessed_test">Audio Frequency Unprocessed Test</string>
     <string name="audio_frequency_unprocessed_info">
-   This test requires an external broadband noise source (or click/impulse).
-   Please be prepared to activate the noise source when asked to.
-   The system will measure frequency response of the built in microphone using the UNPROCESSED
-   audio source.
+    This test requires an external USB reference microphone, external speakers and a Sound Pressure Level meter.
+    You can play the test signals from the device under test or from a secondary device.
+    Follow the instructions on the screen to measure the frequency response for the built in microphone
+    using UNPROCESSED audio source.
+    If the Audio Frequency Unprocessed feature is defined in this system, success in all tests is mandatory to pass.
+    If the feature is not defined, measurements are still needed, but success in all of them is not mandatory to pass.
        </string>
-    <string name="audio_frequency_unprocessed_defined">Audio Frequency Unprocessed feature is defined. Test is mandatory</string>
-    <string name="audio_frequency_unprocessed_not_defined">Audio Frequency Unprocessed feature is NOT defined. Test is optional</string>
-     <string name="audio_frequency_unprocessed_instructions2">
-          Once you press the [TEST] button, you have 5 seconds to play a broadband sound (click or white noise).
-    </string>
-    <string name="audio_frequency_unprocessed_test1_btn">Test 1</string>
-    <string name="audio_frequency_unprocessed_results_text">Results...</string>
+    <string name="audio_frequency_unprocessed_defined">Audio Frequency Unprocessed feature is defined. Success in all tests is mandatory to pass</string>
+    <string name="audio_frequency_unprocessed_not_defined">Audio Frequency Unprocessed feature is NOT defined. Success in all test is NOT mandatory to pass</string>
 
+    <string name="unprocessed_play">Play</string>
+    <string name="unprocessed_stop">Stop</string>
+
+    <string name="unprocessed_test_tone_instructions">TEST TONE: Press [PLAY] to play tone at 1 Khz. Measure sound SPL to be 94 dB
+    right next to microphone under test. Press [TEST]</string>
+    <string name="unprocessed_test_tone_btn">Test</string>
+    <string name="unprocessed_test_tone_result">Results...</string>
+
+    <string name="unprocessed_test_noise_instructions">TEST NOISE: Position speakers 40 cms from device under test.
+    Press [PLAY] to play broadband white noise. Press [TEST]</string>
+    <string name="unprocessed_test_noise_btn">Test</string>
+    <string name="unprocessed_test_noise_result">Results...</string>
+
+    <string name="unprocessed_test_usb_background_instructions">TEST USB BACKGROUND: Connect USB microphone and position it right next to microphone under test.
+    No source of noise should be active during this test. Press [TEST]</string>
+    <string name="unprocessed_test_usb_background_btn">Test</string>
+    <string name="unprocessed_test_usb_background_result">Results...</string>
+
+    <string name="unprocessed_test_usb_noise_instructions">TEST USB NOISE: Connect USB microphone and position it right next to microphone under test.
+    Position speakers 40 cms from device under test. Press [PLAY] to play broadband white noise. Press [TEST]</string>
+    <string name="unprocessed_test_usb_noise_btn">Test</string>
+    <string name="unprocessed_test_usb_noise_result">Results...</string>
+
+    <string name="unprocessed_test_global_result">Global Results...</string>
+
+    <!-- Strings for 6DoF test -->
+    <string name="six_dof_test">6DoF Test</string>
+    <string name="action_settings">Settings</string>
+    <string name="start">Start</string>
+    <string name="motion_tracking_permission">"Motion Tracking permission needed!"</string>
+    <string name="translations">Translations:</string>
+    <string name="rotations">Rotations:</string>
+    <string name="action_place_marker">Place Marker</string>
+    <string name="markers">Markers:\n</string>
+    <string name="title_activity_cts">CTSActivity</string>
+    <string name="stop">Stop!</string>
+    <string name="stop_message">Mark where you are standing with something like a piece of card and
+        then press ready to record this waypoint
+    </string>
+    <string name="ready">Ready</string>
+    <string name="initial">First Waypoint</string>
+    <string name="phase1_initial_message">When you are ready to place your first waypoint, place a
+        marker at the devices current location. Use something that will allow you to put the device
+        in the exact same position and orientation on the second lap. Then, while the device is on
+        the marker, click the turquoise action button to record the first waypoint.\n\nStart walking
+        in a direction. The button will appear again when you have walked far enough. Place a marker
+        at the device\'s location and press the button to record a waypoint. You cannot place
+        waypoints in a straight line, so for your 3rd waypoint turn 90 degrees and walk in a
+        direction that will make a triangle out of your 3 waypoints.
+    </string>
+    <string name="phase2_initial_message">You now need to visit each waypoint, clicking the
+        turquoise action button at each one. You need to reach each waypoint in 20 seconds. While
+        you are on your way to the waypoints, the camera preview will rotate. You will need to
+        rotate the device to match the rotation of the camera preview. A box will be shown to help
+        you. It shows the device\'s current rotation and will change color based on whether you are
+        close enough to the required rotation. Red if you are failing, green if you are passing.
+        When you have reached the next waypoint, the device can be returned to its original
+        rotation.
+    </string>
+    <string name="last">Go back to the first waypoint</string>
+    <string name="last_message">Now go back to the first waypoint and press ready to finish the
+        first lap.
+    </string>
+    <string name="got_it">Got it!</string>
+    <string name="lap2_instructions">Now, go to each waypoint (including your initial
+        one) and click the turquoise action button. Then move on to the next waypoint and do the
+        same.\nThe last waypoint should be the first waypoint again.
+    </string>
+    <string name="test1_pass2">Pass 2</string>
+    <string name="results">Results</string>
+    <string name="overall_instructions">These tests are designed to verify the correctness and
+        accuracy of a 6DoF enabled device. There will be 3 phases to these tests, each testing a
+        different part of 6DoF functionality.
+    </string>
+    <string name="phase1_description">This first test will test the accuracy of the device. It will
+        ask you to mark out 4 waypoints and then return to the original waypoint to complete the
+        lap. After this you will then need to do another lap without any HUD information. At the
+        end, the pairs of waypoints and the path you travelled will be compared and you will be
+        given a result.
+    </string>
+    <string name="phase2_description">This test will test the robustness of the device. Using the
+        same 4 waypoints as before, you will need to do a lap, reaching each waypoint in the
+        allotted time.\nWhile you are on your way to the waypoints, the camera preview will rotate.
+        You will need to rotate the device to match the rotation of the camera preview. A box will
+        be shown to help you. It shows the device\'s current rotation and will change color based
+        on whether you are close enough to the required rotation. Red if you are failing, green if
+        you are passing. When you have reached the next waypoint, the device can be returned to
+        its original rotation.
+    </string>
+    <string name="phase3_description">Now we will test the AR capability of the device. Again, you
+        will need to do a lap of the waypoints, but this time between each waypoint the device will
+        overlay hoops that you must pass the device through as you go along.
+    </string>
+    <string name="distance">Distance from last waypoint:</string>
+    <string name="obj_return_to_initial_waypoint">Return to initial waypoint</string>
+    <string name="waypointPlaced">Waypoint placed!</string>
+    <string name="undo">undo</string>
+    <string name="distance_remaining">Distance Remaining:\n</string>
+    <string name="waypoint_differences">Waypoints</string>
+    <string name="path_differences">Paths</string>
+    <string name="error_distance">Not far away enough from other waypoints!</string>
+    <string name="error_area">Not enough area covered.</string>
+    <string name="passed">Passed!</string>
+    <string name="failed">Failed!</string>
+    <string name="test_failed">Test Failed!</string>
+    <string name="error_start_point">Not close enough to initial waypoint!</string>
+    <string name="waypoint_distance">Waypoint %1$s: %2$s</string>
+    <string name="total">Total %1$s</string>
+    <string name="path">Path %1$s: %2$s</string>
+    <string name="fail">Fail</string>
+    <string name="pass">Pass</string>
+    <string name="info">Info</string>
+    <string name="coming_soon">Coming soon!</string>
+    <string name="motion_tracking_invalid_state">Motion Tracking has entered an invalid state
+    </string>
+    <string name="action_xml">XML</string>
+    <string name="error_null_fragment">UI fragment was null, couldn\'t do callback to listener
+    </string>
+    <string name="error_retained_fragment_null">DataFragment is null</string>
+    <string name="time_remaining">%1$s seconds remaining to get to next waypoint</string>
+    <string name="action_skip_to_2nd">Skip to 2nd Test</string>
+    <string name="failed_pause_resume">Test Failed because Test Activity was paused</string>
+    <string name="action_overlapping_outlines">Overlapping Outlines</string>
+    <string name="action_overlapping_filled">Overlapping Filled</string>
+    <string name="time">Time</string>
+    <string name="rotation_result">Rotation</string>
+    <string name="action_separate_outlines">Separate Outlines</string>
+    <string name="action_separate_filled">Separate Filled</string>
+    <string name="action_one">One Rectangle</string>
+    <string name="rotation_mode">Change rotation mode</string>
+    <string name="phase3_initial_message">Go through the rings as you visit waypoints.</string>
+    <string name="rings">Rings</string>
+    <string name="rings_entered">Rings collected %1$s/%2$s</string>
+    <string name="error_rings_not_entered">You haven\'t collected all the rings in this path!
+    </string>
+    <string name="save">Save</string>
+
+    <string-array name="initial_waypoint">
+        <item>Find a place for your first waypoint</item>
+        <item>Go to initial waypoint</item>
+    </string-array>
+
+    <string-array name="next_waypoint">
+        <item>Find a suitable place for waypoint 0</item>
+        <item>Go to waypoint 0</item>
+    </string-array>
+
+    <string-array name="phase">
+        <item>Phase 1</item>
+        <item>Phase 2</item>
+        <item>Phase 3</item>
+    </string-array>
+
+    <string-array name="phase_descriptions">
+        <item>@string/phase1_description</item>
+        <item>@string/phase2_description</item>
+        <item>@string/phase3_description</item>
+    </string-array>
+
+    <!-- Strings for setting and restoring default dialer for voicemail tests -->
+    <string name="voicemail_restore_default_dialer_description">(Optional) restore the default dialer setting</string>
+    <string name="voicemail_restore_default_dialer_no_default_description">(Optional) restore the default dialer by going to settings-> apps -> cogwheel -> Phone app</string>
+    <string name="voicemail_restore_default_dialer_button">Restore the default dialer"</string>
+    <string name="voicemail_default_dialer_already_set">Default dialer already set</string>
+    <string name="voicemail_default_dialer_already_restored">Default dialer already restored</string>
+    <string name="voicemail_set_default_dialer_description">Before the test, the CTS verifier should be set to the default dialer</string>
+    <string name="voicemail_set_default_dialer_button">Set CTS verifier as default dialer"</string>
+
+    <!-- Strings for voicemail broadcast test -->
+    <string name="voicemail_broadcast_test">Voicemail Broadcast Test</string>
+    <string name="voicemail_broadcast_instructions">This test verifies that the default dialer can intercept the voicemail notification. The test must be conducted on a SIM with visual voicemail disabled</string>
+    <string name="voicemail_leave_voicemail">Send a voicemail to the device, CTS verifier should receive a voicemail notification broadcast</string>
+    <string name="voicemail_broadcast_received">Voicemail broadcast Received</string>
+
+    <!-- Strings for VisualVoicemailService test -->
+    <string name="visual_voicemail_service_test">VisualVoicemailService Test</string>
+    <string name="visual_voicemail_service_instructions">This test verifies that the VisualVoicemailService can receive SIM inserted and removed events</string>
+    <string name="visual_voicemail_service_remove_sim_before_test">Removed the SIM before starting the test. This test only applies to devices with hotswap-able SIM</string>
+    <string name="visual_voicemail_service_remove_sim_ok">Ok</string>
+    <string name="visual_voicemail_service_remove_sim_not_applicable">Not applicable</string>
+    <string name="visual_voicemail_service_insert_sim">Insert SIM</string>
+    <string name="visual_voicemail_service_insert_sim_received">Service connection event received</string>
+    <string name="visual_voicemail_service_remove_sim">Remove SIM</string>
+    <string name="visual_voicemail_service_remove_sim_received">SIM removal event received</string>
+
+    <!-- Strings for CallSettingsCheck test -->
+    <string name="call_settings_check_test">Hide voicemail in call settings test</string>
+    <string name="call_settings_check_instructions">This test verifies that the default dialer can
+        hide voicemail settings in the call settings menu by using
+        TelephonyManager.METADATA_HIDE_VOICEMAIL_SETTINGS_MENU
+    </string>
+    <string name="open_call_settings_explanation">Tap the button, and verify that \"voicemail\" does
+        not exist in the call settings
+    </string>
+    <string name="open_call_settings">Open call settings</string>
+    <string name="voicemail_hidden">\"Voicemail\" does not exist</string>
+    <string name="voicemail_not_hidden">\"Voicemail\" exists</string>
+
+    <!-- Strings for DialerIncomingCall test -->
+    <string name="dialer_incoming_call_test">Dialer Receives Incoming Call</string>
+    <string name="dialer_incoming_call_test_instructions">This test verifies that the default dialer
+      can receive incoming calls after it has been set.
+    </string>
+    <string name="dialer_incoming_call_detected">Detected the incoming call. Activity passed.</string>
+    <string name="dialer_check_incoming_call_explanation">Call the device.</string>
+    <string name="dialer_check_incoming_call">Verify Call Received</string>
+
+    <!-- Strings for VoicemailSettingsCheck test -->
+    <string name="ringtone_settings_check_test">Hide settings in voicemail test</string>
+    <string name="ringtone_settings_check_instructions">This test verifies that voicemail settings
+        accessible with public API can be hidden when launching
+        TelephonyManager.ACTION_CONFIGURE_VOICEMAIL with EXTRA_HIDE_PUBLIC_SETTINGS.
+    </string>
+    <string name="open_voicemail_settings_explanation">Tap the button, ringtone and virbration
+        settings does not exist in the voicemail settings.
+    </string>
+    <string name="open_voicemail_settings">Open voicemail settings</string>
+    <string name="ringtone_hidden">Ringtone settings does not exist</string>
+    <string name="ringtone_not_hidden">Ringtone settings exists</string>
+
+    <!-- Strings for DialerShowsHunOnIncomingCallActivity test -->
+    <string name="dialer_shows_hun_test">Dialer Shows HUN on Incoming Call</string>
+    <string name="dialer_shows_hun_test_instructions">This test verifies that the default dialer
+        shows a heads up notification on incoming call, and that only one notification is shown.
+    </string>
+    <string name="dialer_shows_hun_explanation">Call the device.
+        Check the box if the heads up notification was shown containing the text
+        \"CTS Incoming Call Notification\", and only one incoming call notification was shown.
+    </string>
+    <string name="dialer_shows_hun_check_box">HUN shown and meets criteria specified above.</string>
+    <string name="dialer_incoming_call_hun_teaser">Incoming Call</string>
+    <string name="dialer_incoming_call_hun_desc">CTS Incoming Call Notification</string>
+
+    <!-- Strings for DialerImplementsTelecomIntentsActivity test -->
+    <string name="dialer_telecom_intents_test">System Implements Telecom Intents</string>
+    <string name="dialer_telecom_intents_test_instructions">This test verifies that the system handles
+        the specified Telecom Intents.
+    </string>
+    <string name="dialer_check_intents_implemented_explanation">Press the buttons below to launch settings activities.
+    Check the associated box if the activity loads and was launched succesfully.</string>
+    <string name="dialer_telecom_intents_call_settings">Launch call settings</string>
+    <string name="dialer_telecom_intents_short_sms">Launch short sms answer settings</string>
+    <string name="dialer_telecom_intents_calling_accounts">Launch calling accounts settings</string>
+    <string name="dialer_telecom_intents_accessibility_settings">Launch accessibility settings</string>
+    <string name="dialer_check_intents_check_box">Setting Launched</string>
+
+    <!-- USB Audio Peripheral Tests -->
+    <string name="usbaudio_results_text">Results...</string>
+
+    <!-- USB Audio Peripheral Attributes Test -->
+    <string name="usbaudio_attribs_test"> USB Audio Peripheral Attributes Test</string>
+    <string name="usbaudio_attribs_info">
+        This test requires that you have connected a mandated USB Audio Interface peripheral.
+        If the discovered attributes of the peripheral matches the known attributes of the
+        peripheral the test passes and the \"pass\" button will be enabled.
+       </string>
+
+    <!-- USB Audio Peripheral Play Test -->
+    <string name="usbaudio_play_test"> USB Audio Peripheral Play Test</string>
+    <string name="usbaudio_play_info">
+        This test requires that you have connected a mandated USB Audio Interface peripheral and
+        some way to monitor the output. Press the \"Play\" button and verify that a tone is produced.
+       </string>
+
+    <!-- USB Audio Peripheral Record Test -->
+    <string name="usbaudio_record_test"> USB Audio Peripheral Record Test</string>
+    <string name="usbaudio_record_info">
+        This test requires that you have connected a mandated USB Audio Interface peripheral.
+        Connect the outputs to the inputs (with patch cables). Start playback by pressing the
+        \"Record Loopback\" button and verify that the recorded signal is displayed in the wave
+        display view. ()It may be necessary to adjust the input controls on the peripheral).
+       </string>
+
+    <!-- USB Audio Peripheral Buttons Test -->
+    <string name="usbaudio_buttons_test"> USB Audio Peripheral Buttons Test</string>
+    <string name="usbaudio_buttons_info">
+        This test requires that you have connected a mandated USB Audio headset. Press each
+        \"transport\" button and verify that it is recognized by the test.
+       </string>
+
+    <!-- Telecom tests -->
+    <string name="telecom_enable_phone_account_test"> Telecom Enable Phone Account Test</string>
+    <string name="telecom_enable_phone_account_info">
+        This test verifies that a third party ConnectionService can be enabled by the user.
+    </string>
+    <string name="telecom_enable_phone_account_step_1">
+        Click the button below to register a test PhoneAccount and ConnectionService.
+    </string>
+    <string name="telecom_enable_phone_account_register_button">Register Phone Account</string>
+    <string name="telecom_enable_phone_account_step_2">
+        In the Calling accounts settings, choose "All calling accounts" and enable the "CTS Verifier Test" account.
+        On AOSP this is accessible from: Phone app > Settings > Calls > Calling Accounts.
+        Once you have completed this step, return here and click the Confirm button.
+    </string>
+    <string name="telecom_enable_phone_account_confirm_button">Confirm</string>
+
+    <string name="telecom_outgoing_call_test">Telecom Outgoing Call Test</string>
+    <string name="telecom_outgoing_call_test_info">This test verifies that the default
+        dialer on the system is able to make a call using a third-party ConnectionService.</string>
+    <string name="telecom_outgoing_call_step_1">
+        Click the button below to register a test PhoneAccount and ConnectionService. You will be
+        taken to the phone account selection screen. Please enable the "CTS Verifier Test"
+        account and select it as the default account for outgoing calls. Once you have completed
+        this step, return here and click the "Confirm Phone Account" button.
+    </string>
+    <string name="telecom_outgoing_call_register_enable_phone_account_button">
+        Register and Enable Phone Account
+    </string>
+    <string name="telecom_outgoing_call_confirm_register_button">Confirm Phone Account</string>
+    <string name="telecom_outgoing_call_step_2">
+        Click the button below to dial an outgoing call. This will populate the default dialer
+        app with a dummy phone number. Initiate the phone call from the dialer app, then return
+        to this screen while the call is still in progress.
+    </string>
+    <string name="telecom_outgoing_call_dial_button">Dial</string>
+    <string name="telecom_outgoing_call_step_3">
+        Click the button below to confirm that the ongoing outgoing call was correctly made.
+    </string>
+    <string name="telecom_outgoing_call_confirm_button">Confirm</string>
+
+    <string name="telecom_incoming_call_test">Telecom Incoming Call Test</string>
+    <string name="telecom_incoming_call_test_info">This test verifies that the default
+        dialer on the system is able to receive a call from a third-party connection service.
+    </string>
+    <string name="telecom_incoming_call_step_1">
+        Click the button below to register a test PhoneAccount and ConnectionService. You will be
+        taken to the phone account selection screen. Please enable the "CTS Verifier Test"
+        account. Once you have completed this step, return here and click the
+        "Confirm Phone Account" button.
+    </string>
+    <string name="telecom_incoming_call_register_enable_phone_account_button">
+        Register and Enable Phone Account
+    </string>
+    <string name="telecom_incoming_call_confirm_register_button">Confirm Phone Account</string>
+    <string name="telecom_incoming_call_step_2">
+        Click the button below to initiate an incoming call. The phone should start ringing.
+        Answer the call, confirm that you can hear an audio clip with Eisenhower\'s voice, then
+        return to this screen while the call is still ongoing.
+    </string>
+    <string name="telecom_incoming_call_dial_button">Dial</string>
+    <string name="telecom_incoming_call_step_3">
+        Click the button below to confirm that the ongoing incoming call was properly answered and
+        that audio is audible.
+    </string>
+    <string name="telecom_incoming_call_confirm_button">Confirm</string>
+    <string name="telecom_incoming_self_mgd_test"> Incoming Self-Managed Connection Test</string>
+    <string name="telecom_incoming_self_mgd_info">
+        This test verifies that incoming calls from a Self-Managed Connection Service will trigger
+        a Telecom-managed incoming call UI when there is already an ongoing call on the device.
+    </string>
+    <string name="telecom_incoming_self_mgd_step_1">
+        Click the button below to register a test self-managed ConnectionService.
+    </string>
+    <string name="telecom_incoming_self_mgd_register_button">Register Self-Managed ConnectionService</string>
+    <string name="telecom_incoming_self_mgd_step_2">
+        Click the button below to test that the system incoming call notification shows.  When the
+        notification shows, "answer" the call.
+    </string>
+    <string name="telecom_incoming_self_mgd_show_ui_button">Show System Incoming UI</string>
+    <string name="telecom_incoming_self_mgd_step_3">
+        Click the button below to confirm that the incoming call was answered.
+    </string>
+    <string name="telecom_incoming_self_mgd_confirm_answer_button">Confirm Answer</string>
 </resources>

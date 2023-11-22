@@ -16,25 +16,34 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Matrix;
 import android.graphics.Path;
-import android.graphics.PathMeasure;
 import android.graphics.Path.Direction;
-import android.test.AndroidTestCase;
+import android.graphics.PathMeasure;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PathMeasureTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PathMeasureTest {
     private PathMeasure mPathMeasure;
     private Path mPath;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         mPath = new Path();
         mPathMeasure = new PathMeasure();
-
     }
 
+    @Test
     public void testConstructor() {
         mPathMeasure = new PathMeasure();
 
@@ -46,16 +55,18 @@ public class PathMeasureTest extends AndroidTestCase {
         mPathMeasure = new PathMeasure(path, false);
     }
 
-    public void testGetPosTan() {
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testGetPosTanArraysTooSmall() {
         float distance = 1f;
         float[] pos = { 1f };
         float[] tan = { 1f };
-        try {
-            mPathMeasure.getPosTan(distance, pos, tan);
-            fail("should throw exception");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
+
+        mPathMeasure.getPosTan(distance, pos, tan);
+    }
+
+    @Test
+    public void testGetPosTan() {
+        float distance = 1f;
         float[] pos2 = { 1f, 2f };
         float[] tan2 = { 1f, 3f };
         assertFalse(mPathMeasure.getPosTan(distance, pos2, tan2));
@@ -68,6 +79,7 @@ public class PathMeasureTest extends AndroidTestCase {
         assertTrue(mPathMeasure.getPosTan(0f, pos3, tan3));
     }
 
+    @Test
     public void testNextContour() {
         assertFalse(mPathMeasure.nextContour());
         mPath.addRect(1, 2, 3, 4, Path.Direction.CW);
@@ -75,13 +87,15 @@ public class PathMeasureTest extends AndroidTestCase {
         assertTrue(mPathMeasure.nextContour());
     }
 
+    @Test
     public void testGetLength() {
-        assertEquals(0f, mPathMeasure.getLength());
+        assertEquals(0f, mPathMeasure.getLength(), 0.0f);
         mPath.addRect(1, 2, 3, 4, Path.Direction.CW);
         mPathMeasure.setPath(mPath, true);
-        assertEquals(8.0f, mPathMeasure.getLength());
+        assertEquals(8.0f, mPathMeasure.getLength(), 0.0f);
     }
 
+    @Test
     public void testIsClosed() {
         Path circle = new Path();
         circle.addCircle(0, 0, 1, Direction.CW);
@@ -100,21 +114,24 @@ public class PathMeasureTest extends AndroidTestCase {
         assertTrue(measure.isClosed());
     }
 
+    @Test
     public void testSetPath() {
         mPathMeasure.setPath(mPath, true);
-        //There is no getter and we can't obtain any status about it.
+        // There is no getter and we can't obtain any status about it.
     }
 
+    @Test
     public void testGetSegment() {
-        assertEquals(0f, mPathMeasure.getLength());
+        assertEquals(0f, mPathMeasure.getLength(), 0.0f);
         mPath.addRect(1, 2, 3, 4, Path.Direction.CW);
         mPathMeasure.setPath(mPath, true);
-        assertEquals(8f, mPathMeasure.getLength());
+        assertEquals(8f, mPathMeasure.getLength(), 0.0f);
         Path dst = new Path();
         assertTrue(mPathMeasure.getSegment(0, mPathMeasure.getLength(), dst, true));
         assertFalse(mPathMeasure.getSegment(mPathMeasure.getLength(), 0, dst, true));
     }
 
+    @Test
     public void testGetMatrix() {
         Matrix matrix = new Matrix();
         assertFalse(mPathMeasure.getMatrix(1f, matrix, PathMeasure.POSITION_MATRIX_FLAG));

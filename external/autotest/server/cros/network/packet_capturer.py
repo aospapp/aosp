@@ -8,7 +8,7 @@ import os.path
 import time
 import uuid
 
-from autotest_lib.client.bin import site_utils
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import path_utils
 
@@ -314,7 +314,7 @@ class PacketCapturer(object):
                                        remote_log_file,
                                        local_save_dir)
         is_capture_active = lambda: self._is_capture_active(remote_log_file)
-        site_utils.poll_for_condition(
+        utils.poll_for_condition(
             is_capture_active,
             timeout=TCPDUMP_START_TIMEOUT_SECONDS,
             sleep_interval=TCPDUMP_START_POLL_SECONDS,

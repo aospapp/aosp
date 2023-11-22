@@ -26,8 +26,4 @@ bool RSExportable::keep() {
   return true;
 }
 
-bool RSExportable::equals(const RSExportable *E) const {
-  return ((E == nullptr) ? false : (mK == E->mK));
-}
-
 }  // namespace slang

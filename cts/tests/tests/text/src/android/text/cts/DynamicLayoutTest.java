@@ -16,23 +16,36 @@
 
 package android.text.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.graphics.Paint.FontMetricsInt;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.DynamicLayout;
 import android.text.Layout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 
-public class DynamicLayoutTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    protected static final float SPACING_MULT_NO_SCALE = 1.0f;
-    protected static final float SPACING_ADD_NO_SCALE = 0.0f;
-    protected static final int DEFAULT_OUTER_WIDTH = 150;
-    protected static final CharSequence SINGLELINE_CHAR_SEQUENCE = "......";
-    protected static final String[] TEXT = {"CharSequence\n", "Char\tSequence\n", "CharSequence"};
-    protected static final CharSequence MULTLINE_CHAR_SEQUENCE = TEXT[0] + TEXT[1] + TEXT[2];
-    protected static final Layout.Alignment DEFAULT_ALIGN = Layout.Alignment.ALIGN_CENTER;
-    protected TextPaint mDefaultPaint;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DynamicLayoutTest {
+
+    private static final float SPACING_MULT_NO_SCALE = 1.0f;
+    private static final float SPACING_ADD_NO_SCALE = 0.0f;
+    private static final int DEFAULT_OUTER_WIDTH = 150;
+    private static final CharSequence SINGLELINE_CHAR_SEQUENCE = "......";
+    private static final String[] TEXT = {"CharSequence\n", "Char\tSequence\n", "CharSequence"};
+    private static final CharSequence MULTLINE_CHAR_SEQUENCE = TEXT[0] + TEXT[1] + TEXT[2];
+    private static final Layout.Alignment DEFAULT_ALIGN = Layout.Alignment.ALIGN_CENTER;
+    private TextPaint mDefaultPaint;
 
     private static final int LINE0 = 0;
     private static final int LINE0_TOP = 0;
@@ -44,9 +57,8 @@ public class DynamicLayoutTest extends AndroidTestCase {
 
     private DynamicLayout mDynamicLayout;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         mDefaultPaint = new TextPaint();
         mDynamicLayout = new DynamicLayout(MULTLINE_CHAR_SEQUENCE,
                 mDefaultPaint,
@@ -57,6 +69,7 @@ public class DynamicLayoutTest extends AndroidTestCase {
                 true);
     }
 
+    @Test
     public void testConstructors() {
         new DynamicLayout(SINGLELINE_CHAR_SEQUENCE,
                 MULTLINE_CHAR_SEQUENCE,
@@ -85,6 +98,7 @@ public class DynamicLayoutTest extends AndroidTestCase {
                 true);
     }
 
+    @Test
     public void testEllipsis() {
         final DynamicLayout dynamicLayout = new DynamicLayout(SINGLELINE_CHAR_SEQUENCE,
                 MULTLINE_CHAR_SEQUENCE,
@@ -106,6 +120,7 @@ public class DynamicLayoutTest extends AndroidTestCase {
      * 1. Include padding while calculate the layout.
      * 2. Don't include padding while calculate the layout.
      */
+    @Test
     public void testIncludePadding() {
         final FontMetricsInt fontMetricsInt = mDefaultPaint.getFontMetricsInt();
 
@@ -137,6 +152,7 @@ public class DynamicLayoutTest extends AndroidTestCase {
      * Test the line top
      * 1. the Y-coordinate of line top.2. the Y-coordinate of baseline.
      */
+    @Test
     public void testLineLayout() {
         assertEquals(TEXT.length, mDynamicLayout.getLineCount());
         assertFalse(mDynamicLayout.getLineContainsTab(LINE0));

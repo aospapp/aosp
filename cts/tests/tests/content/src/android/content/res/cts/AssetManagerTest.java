@@ -139,13 +139,16 @@ public class AssetManagerTest extends AndroidTestCase{
     public void testGetNonSystemLocales() {
         // This is the list of locales built into this test package. It is basically the locales
         // specified in the Android.mk files (assuming they have corresponding resources), plus the
-        // special case for Filipino.
+        // special cases for Filipino.
         final String KNOWN_LOCALES[] = {
             "cs",
             "fil",
             "fil-PH",
+            "fil-SA",
             "fr",
             "fr-FR",
+            "iw",
+            "iw-IL",
             "kok",
             "kok-419",
             "kok-419-variant",
@@ -154,8 +157,11 @@ public class AssetManagerTest extends AndroidTestCase{
             "kok-Knda-419",
             "kok-Knda-419-variant",
             "kok-variant",
+            "mk",
+            "mk-MK",
             "tgl",
             "tgl-PH",
+            "tlh",
             "xx",
             "xx-YY"
         };

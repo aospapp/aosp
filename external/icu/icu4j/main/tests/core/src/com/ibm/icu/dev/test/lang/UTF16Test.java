@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 1996-2014, International Business Machines Corporation and    *
@@ -6,6 +8,8 @@
 */
 
 package com.ibm.icu.dev.test.lang;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.dev.test.UTF16Util;
@@ -36,6 +40,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods append
      */
+    @Test
     public void TestAppend()
     {
           StringBuffer strbuff = new StringBuffer("this is a string ");
@@ -80,6 +85,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods bounds
      */
+    @Test
     public void TestBounds()
     {
           StringBuffer strbuff =
@@ -163,6 +169,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods charAt and charAtCodePoint
      */
+    @Test
     public void TestCharAt()
     {
           StringBuffer strbuff =
@@ -231,6 +238,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods countCodePoint
      */
+    @Test
     public void TestCountCodePoint()
     {
         StringBuffer strbuff = new StringBuffer("");
@@ -280,6 +288,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods delete
      */
+    @Test
     public void TestDelete()
     {                                        //01234567890123456
         StringBuffer strbuff = new StringBuffer("these are strings");
@@ -354,6 +363,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing findOffsetFromCodePoint and findCodePointOffset
      */
+    @Test
     public void TestfindOffset()
     {
         // jitterbug 47
@@ -464,6 +474,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods getCharCount, *Surrogate
      */
+    @Test
     public void TestGetCharCountSurrogate()
     {
         if (UTF16.getCharCount(0x61) != 1 ||
@@ -492,6 +503,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class method insert
      */
+    @Test
     public void TestInsert()
     {
         StringBuffer strbuff = new StringBuffer("0123456789");
@@ -657,6 +669,7 @@ public final class UTF16Test extends TestFmwk
     }
 
 
+    @Test
     public void TestMoveCodePointOffset()
     {
         // checkMoveCodePointOffset(String, startIndex, amount, expected );  expected=-1 for exception.
@@ -802,6 +815,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 class methods setCharAt
      */
+    @Test
     public void TestSetCharAt()
     {
         StringBuffer strbuff = new StringBuffer("012345");
@@ -884,6 +898,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing UTF16 valueof APIs
      */
+    @Test
     public void TestValueOf()
     {
         if(UCharacter.getCodePoint('\ud800','\udc00')!=0x10000){
@@ -961,6 +976,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestIndexOf()
     {
     //012345678901234567890123456789012345
@@ -1219,6 +1235,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestReplace()
     {
         String test1 = "One potato, two potato, three potato, four\n";
@@ -1283,6 +1300,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestReverse()
     {
         StringBuffer test = new StringBuffer(
@@ -1310,6 +1328,7 @@ public final class UTF16Test extends TestFmwk
     /**
      * Testing the setter and getter apis for StringComparator
      */
+    @Test
     public void TestStringComparator()
     {
         UTF16.StringComparator compare = new UTF16.StringComparator();
@@ -1357,6 +1376,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestCodePointCompare()
     {
         // these strings are in ascending order
@@ -1385,6 +1405,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestCaseCompare()
     {
         String mixed = "\u0061\u0042\u0131\u03a3\u00df\ufb03\ud93f\udfff";
@@ -1439,6 +1460,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestHasMoreCodePointsThan()
     {
         String str = "\u0061\u0062\ud800\udc00\ud801\udc01\u0063\ud802\u0064"
@@ -1561,6 +1583,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestUtilities() {
         String[] tests = {
                 "a",
@@ -1594,6 +1617,7 @@ public final class UTF16Test extends TestFmwk
         }
     }
 
+    @Test
     public void TestNewString() {
     final int[] codePoints = {
         UCharacter.toCodePoint(UCharacter.MIN_HIGH_SURROGATE, UCharacter.MAX_LOW_SURROGATE),
@@ -1650,21 +1674,6 @@ public final class UTF16Test extends TestFmwk
         }
     }
     }
-
-    public static void main(String[] arg)
-    {
-        try
-        {
-        UTF16Test test = new UTF16Test();
-        test.run(arg);
-        // test.TestCaseCompare();
-        }
-        catch (Exception e)
-        {
-        e.printStackTrace();
-        }
-    }
-
 
     // private data members ----------------------------------------------
 

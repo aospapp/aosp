@@ -28,7 +28,7 @@ LOCAL_PACKAGE_NAME := CtsBackupApp
 LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctsdeviceutil \
+    compatibility-device-util \
     ctstestrunner
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

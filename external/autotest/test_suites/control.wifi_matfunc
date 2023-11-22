@@ -5,7 +5,6 @@
 AUTHOR = "wiley@chromium.org"
 NAME = "wifi_matfunc"
 PURPOSE = "Verify basic WiFi functionality."
-CRITERIA = "All tests with SUITE=wifi_matfunc must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

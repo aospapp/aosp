@@ -14,8 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
-
 import mock
 import shutil
 import tempfile
@@ -24,6 +22,8 @@ import unittest
 from acts import keys
 from acts import signals
 from acts import test_runner
+
+import acts_android_device_test
 import mock_controller
 
 
@@ -59,8 +59,9 @@ class ActsTestRunnerTest(unittest.TestCase):
     def test_register_optional_controller_no_config(self):
         tr = test_runner.TestRunner(self.base_mock_test_config,
                                     self.mock_run_list)
-        self.assertIsNone(tr.register_controller(mock_controller,
-                                                 required=False))
+        self.assertIsNone(
+            tr.register_controller(
+                mock_controller, required=False))
 
     def test_register_controller_third_party_dup_register(self):
         """Verifies correctness of registration, internal tally of controllers
@@ -127,6 +128,22 @@ class ActsTestRunnerTest(unittest.TestCase):
         finally:
             delattr(mock_controller, "ACTS_CONTROLLER_REFERENCE_NAME")
 
+    def test_register_controller_no_get_info(self):
+        mock_test_config = dict(self.base_mock_test_config)
+        tb_key = keys.Config.key_testbed.value
+        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ref_name = "haha"
+        get_info = getattr(mock_controller, "get_info")
+        delattr(mock_controller, "get_info")
+        try:
+            mock_test_config[tb_key][mock_ctrlr_config_name] = ["magic1",
+                                                                "magic2"]
+            tr = test_runner.TestRunner(mock_test_config, self.mock_run_list)
+            tr.register_controller(mock_controller)
+            self.assertEqual(tr.results.controller_info, {})
+        finally:
+            setattr(mock_controller, "get_info", get_info)
+
     def test_register_controller_return_value(self):
         mock_test_config = dict(self.base_mock_test_config)
         tb_key = keys.Config.key_testbed.value
@@ -164,14 +181,26 @@ class ActsTestRunnerTest(unittest.TestCase):
         self.assertEqual(results["Requested"], 2)
         self.assertEqual(results["Executed"], 2)
         self.assertEqual(results["Passed"], 2)
+        expected_info = {'MagicDevice': [{'MyMagic': {'magic': 'Magic1'}},
+                                         {'MyMagic': {'magic': 'Magic2'}}]}
+        self.assertEqual(tr.results.controller_info, expected_info)
 
-    @mock.patch('acts.controllers.adb.AdbProxy',
-                return_value=acts_android_device_test.MockAdbProxy(1))
-    @mock.patch('acts.controllers.android_device.list_adb_devices',
-                return_value=["1"])
-    @mock.patch('acts.controllers.android_device.get_all_instances',
-                return_value=acts_android_device_test.get_mock_ads(1))
-    def test_run_two_test_classes(self, mock_adb, mock_list_adb, mock_get_all):
+    @mock.patch(
+        'acts.controllers.adb.AdbProxy',
+        return_value=acts_android_device_test.MockAdbProxy(1))
+    @mock.patch(
+        'acts.controllers.fastboot.FastbootProxy',
+        return_value=acts_android_device_test.MockFastbootProxy(1))
+    @mock.patch(
+        'acts.controllers.android_device.list_adb_devices', return_value=["1"])
+    @mock.patch(
+        'acts.controllers.android_device.get_all_instances',
+        return_value=acts_android_device_test.get_mock_ads(1))
+    def test_run_two_test_classes(self,
+                                  mock_get_all,
+                                  mock_list_adb,
+                                  mock_fastboot,
+                                  mock_adb, ):
         """Verifies that runing more than one test class in one test run works
         proerly.
 
@@ -181,16 +210,14 @@ class ActsTestRunnerTest(unittest.TestCase):
         mock_test_config = dict(self.base_mock_test_config)
         tb_key = keys.Config.key_testbed.value
         mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
-        my_config = [{"serial": "xxxx", "magic": "Magic1"},
-                     {"serial": "xxxx", "magic": "Magic2"}]
+        my_config = [{"serial": "xxxx",
+                      "magic": "Magic1"}, {"serial": "xxxx",
+                                           "magic": "Magic2"}]
         mock_test_config[tb_key][mock_ctrlr_config_name] = my_config
         mock_test_config[tb_key]["AndroidDevice"] = [
-            {"serial": "1",
-             "skip_sl4a": True}
-        ]
+            {"serial": "1", "skip_sl4a": True}]
         tr = test_runner.TestRunner(mock_test_config,
-                                    [('IntegrationTest', None),
-                                     ('IntegrationTest', None)])
+            [('IntegrationTest', None), ('IntegrationTest', None)])
         tr.run()
         tr.stop()
         self.assertFalse(tr.controller_registry)

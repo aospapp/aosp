@@ -16,28 +16,35 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParserException;
-
+import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.cts.util.WidgetTestUtils;
-import android.test.AndroidTestCase;
-import android.widget.Gallery.LayoutParams;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.widget.Gallery;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
 /**
- * Test {@link LayoutParams}.
+ * Test {@link Gallery.LayoutParams}.
  */
-public class Gallery_LayoutParamsTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Gallery_LayoutParamsTest {
+    @Test
     public void testConstructor() throws XmlPullParserException, IOException {
-        XmlResourceParser p = mContext.getResources().getLayout(R.layout.gallery_test);
+        Context context = InstrumentationRegistry.getTargetContext();
+        XmlResourceParser p = context.getResources().getLayout(R.layout.gallery_test);
         WidgetTestUtils.beginDocument(p, "LinearLayout");
-        new LayoutParams(getContext(), p);
+        new Gallery.LayoutParams(context, p);
 
-        LayoutParams params = new LayoutParams(320, 480);
-        new LayoutParams(params);
+        Gallery.LayoutParams params = new Gallery.LayoutParams(320, 480);
+        new Gallery.LayoutParams(params);
     }
 }

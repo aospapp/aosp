@@ -16,11 +16,15 @@
 
 package android.carrierapi.cts;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
@@ -28,10 +32,13 @@ import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.uicc.IccUtils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class CarrierApiTest extends AndroidTestCase {
     private static final String TAG = "CarrierApiTest";
@@ -108,4 +115,59 @@ public class CarrierApiTest extends AndroidTestCase {
         }
     }
 
+    public void testGetIccAuthentication() {
+        // EAP-SIM rand is 16 bytes.
+        String base64Challenge = "ECcTqwuo6OfY8ddFRboD9WM=";
+        String base64Challenge2 = "EMNxjsFrPCpm+KcgCmQGnwQ=";
+        if (!hasCellular) return;
+        try {
+            assertNull("getIccAuthentication should return null for empty data.",
+                    mTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+                    TelephonyManager.AUTHTYPE_EAP_AKA, ""));
+            String response = mTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+                    TelephonyManager.AUTHTYPE_EAP_SIM, base64Challenge);
+            assertTrue("Response to EAP-SIM Challenge must not be Null.", response != null);
+            // response is base64 encoded. After decoding, the value should be:
+            // 1 length byte + SRES(4 bytes) + 1 length byte + Kc(8 bytes)
+            byte[] result = android.util.Base64.decode(response, android.util.Base64.DEFAULT);
+            assertTrue("Result length must be 14 bytes.", 14 == result.length);
+            String response2 = mTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+                    TelephonyManager.AUTHTYPE_EAP_SIM, base64Challenge2);
+            assertTrue("Two responses must be different.", !response.equals(response2));
+        } catch (SecurityException e) {
+            failMessage();
+        }
+    }
+
+    public void testSendDialerSpecialCode() {
+        if (!hasCellular) return;
+        try {
+            IntentReceiver intentReceiver = new IntentReceiver();
+            final IntentFilter intentFilter = new IntentFilter();
+            intentFilter.addAction(TelephonyIntents.SECRET_CODE_ACTION);
+            intentFilter.addDataScheme("android_secret_code");
+            getContext().registerReceiver(intentReceiver, intentFilter);
+
+            mTelephonyManager.sendDialerSpecialCode("4636");
+            assertTrue("Did not receive expected Intent: " + TelephonyIntents.SECRET_CODE_ACTION,
+                    intentReceiver.waitForReceive());
+        } catch (SecurityException e) {
+            failMessage();
+        } catch (InterruptedException e) {
+            Log.d(TAG, "Broadcast receiver wait was interrupted.");
+        }
+    }
+
+    private static class IntentReceiver extends BroadcastReceiver {
+        private final CountDownLatch mReceiveLatch = new CountDownLatch(1);
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            mReceiveLatch.countDown();
+        }
+
+        public boolean waitForReceive() throws InterruptedException {
+            return mReceiveLatch.await(30, TimeUnit.SECONDS);
+        }
+    }
 }

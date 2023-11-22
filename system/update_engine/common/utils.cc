@@ -22,7 +22,6 @@
 #include <elf.h>
 #include <endian.h>
 #include <errno.h>
-#include <ext2fs/ext2fs.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +30,6 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -52,7 +50,6 @@
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <brillo/data_encoding.h>
-#include <brillo/message_loops/message_loop.h>
 
 #include "update_engine/common/clock_interface.h"
 #include "update_engine/common/constants.h"
@@ -60,7 +57,6 @@
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/payload_consumer/file_descriptor.h"
-#include "update_engine/payload_consumer/file_writer.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 
 using base::Time;
@@ -192,14 +188,11 @@ string ParseECVersion(string input_line) {
   return "";
 }
 
-bool WriteFile(const char* path, const void* data, int data_len) {
-  DirectFileWriter writer;
-  TEST_AND_RETURN_FALSE_ERRNO(0 == writer.Open(path,
-                                               O_WRONLY | O_CREAT | O_TRUNC,
-                                               0600));
-  ScopedFileWriterCloser closer(&writer);
-  TEST_AND_RETURN_FALSE_ERRNO(writer.Write(data, data_len));
-  return true;
+bool WriteFile(const char* path, const void* data, size_t data_len) {
+  int fd = HANDLE_EINTR(open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600));
+  TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
+  ScopedFdCloser fd_closer(&fd);
+  return WriteAll(fd, data, data_len);
 }
 
 bool ReadAll(
@@ -262,7 +255,7 @@ bool PWriteAll(int fd, const void* buf, size_t count, off_t offset) {
   return true;
 }
 
-bool WriteAll(FileDescriptorPtr fd, const void* buf, size_t count) {
+bool WriteAll(const FileDescriptorPtr& fd, const void* buf, size_t count) {
   const char* c_buf = static_cast<const char*>(buf);
   ssize_t bytes_written = 0;
   while (bytes_written < static_cast<ssize_t>(count)) {
@@ -273,7 +266,7 @@ bool WriteAll(FileDescriptorPtr fd, const void* buf, size_t count) {
   return true;
 }
 
-bool PWriteAll(FileDescriptorPtr fd,
+bool PWriteAll(const FileDescriptorPtr& fd,
                const void* buf,
                size_t count,
                off_t offset) {
@@ -299,7 +292,7 @@ bool PReadAll(int fd, void* buf, size_t count, off_t offset,
   return true;
 }
 
-bool PReadAll(FileDescriptorPtr fd, void* buf, size_t count, off_t offset,
+bool PReadAll(const FileDescriptorPtr& fd, void* buf, size_t count, off_t offset,
               ssize_t* out_bytes_read) {
   TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(offset, SEEK_SET) !=
                               static_cast<off_t>(-1));
@@ -638,22 +631,6 @@ bool MakeTempFile(const string& base_filename_template,
   return true;
 }
 
-bool MakeTempDirectory(const string& base_dirname_template,
-                       string* dirname) {
-  base::FilePath dirname_template;
-  TEST_AND_RETURN_FALSE(GetTempName(base_dirname_template, &dirname_template));
-  DCHECK(dirname);
-  vector<char> buf(dirname_template.value().size() + 1);
-  memcpy(buf.data(), dirname_template.value().data(),
-         dirname_template.value().size());
-  buf[dirname_template.value().size()] = '\0';
-
-  char* return_code = mkdtemp(buf.data());
-  TEST_AND_RETURN_FALSE_ERRNO(return_code != nullptr);
-  *dirname = buf.data();
-  return true;
-}
-
 bool SetBlockDeviceReadOnly(const string& device, bool read_only) {
   int fd = HANDLE_EINTR(open(device.c_str(), O_RDONLY | O_CLOEXEC));
   if (fd < 0) {
@@ -726,139 +703,30 @@ bool UnmountFilesystem(const string& mountpoint) {
   return true;
 }
 
-bool GetFilesystemSize(const string& device,
-                       int* out_block_count,
-                       int* out_block_size) {
-  int fd = HANDLE_EINTR(open(device.c_str(), O_RDONLY));
-  TEST_AND_RETURN_FALSE_ERRNO(fd >= 0);
-  ScopedFdCloser fd_closer(&fd);
-  return GetFilesystemSizeFromFD(fd, out_block_count, out_block_size);
-}
+bool IsMountpoint(const std::string& mountpoint) {
+  struct stat stdir, stparent;
 
-bool GetFilesystemSizeFromFD(int fd,
-                             int* out_block_count,
-                             int* out_block_size) {
-  TEST_AND_RETURN_FALSE(fd >= 0);
-
-  // Determine the filesystem size by directly reading the block count and
-  // block size information from the superblock. Supported FS are ext3 and
-  // squashfs.
-
-  // Read from the fd only once and detect in memory. The first 2 KiB is enough
-  // to read the ext2 superblock (located at offset 1024) and the squashfs
-  // superblock (located at offset 0).
-  const ssize_t kBufferSize = 2048;
-
-  uint8_t buffer[kBufferSize];
-  if (HANDLE_EINTR(pread(fd, buffer, kBufferSize, 0)) != kBufferSize) {
-    PLOG(ERROR) << "Unable to read the file system header:";
+  // Check whether the passed mountpoint is a directory and the /.. is in the
+  // same device or not. If mountpoint/.. is in a different device it means that
+  // there is a filesystem mounted there. If it is not, but they both point to
+  // the same inode it basically is the special case of /.. pointing to /. This
+  // test doesn't play well with bind mount but that's out of the scope of what
+  // we want to detect here.
+  if (lstat(mountpoint.c_str(), &stdir) != 0) {
+    PLOG(ERROR) << "Error stat'ing " << mountpoint;
     return false;
   }
-
-  if (GetSquashfs4Size(buffer, kBufferSize, out_block_count, out_block_size))
-    return true;
-  if (GetExt3Size(buffer, kBufferSize, out_block_count, out_block_size))
-    return true;
-
-  LOG(ERROR) << "Unable to determine file system type.";
-  return false;
-}
-
-bool GetExt3Size(const uint8_t* buffer, size_t buffer_size,
-                 int* out_block_count,
-                 int* out_block_size) {
-  // See include/linux/ext2_fs.h for more details on the structure. We obtain
-  // ext2 constants from ext2fs/ext2fs.h header but we don't link with the
-  // library.
-  if (buffer_size < SUPERBLOCK_OFFSET + SUPERBLOCK_SIZE)
+  if (!S_ISDIR(stdir.st_mode))
     return false;
 
-  const uint8_t* superblock = buffer + SUPERBLOCK_OFFSET;
-
-  // ext3_fs.h: ext3_super_block.s_blocks_count
-  uint32_t block_count =
-      *reinterpret_cast<const uint32_t*>(superblock + 1 * sizeof(int32_t));
-
-  // ext3_fs.h: ext3_super_block.s_log_block_size
-  uint32_t log_block_size =
-      *reinterpret_cast<const uint32_t*>(superblock + 6 * sizeof(int32_t));
-
-  // ext3_fs.h: ext3_super_block.s_magic
-  uint16_t magic =
-      *reinterpret_cast<const uint16_t*>(superblock + 14 * sizeof(int32_t));
-
-  block_count = le32toh(block_count);
-  log_block_size = le32toh(log_block_size) + EXT2_MIN_BLOCK_LOG_SIZE;
-  magic = le16toh(magic);
-
-  // Sanity check the parameters.
-  TEST_AND_RETURN_FALSE(magic == EXT2_SUPER_MAGIC);
-  TEST_AND_RETURN_FALSE(log_block_size >= EXT2_MIN_BLOCK_LOG_SIZE &&
-                        log_block_size <= EXT2_MAX_BLOCK_LOG_SIZE);
-  TEST_AND_RETURN_FALSE(block_count > 0);
-
-  if (out_block_count)
-    *out_block_count = block_count;
-  if (out_block_size)
-    *out_block_size = 1 << log_block_size;
-  return true;
-}
-
-bool GetSquashfs4Size(const uint8_t* buffer, size_t buffer_size,
-                      int* out_block_count,
-                      int* out_block_size) {
-  // See fs/squashfs/squashfs_fs.h for format details. We only support
-  // Squashfs 4.x little endian.
-
-  // sizeof(struct squashfs_super_block)
-  const size_t kSquashfsSuperBlockSize = 96;
-  if (buffer_size < kSquashfsSuperBlockSize)
-    return false;
-
-  // Check magic, squashfs_fs.h: SQUASHFS_MAGIC
-  if (memcmp(buffer, "hsqs", 4) != 0)
-    return false;  // Only little endian is supported.
-
-  // squashfs_fs.h: struct squashfs_super_block.s_major
-  uint16_t s_major = *reinterpret_cast<const uint16_t*>(
-      buffer + 5 * sizeof(uint32_t) + 4 * sizeof(uint16_t));
-
-  if (s_major != 4) {
-    LOG(ERROR) << "Found unsupported squashfs major version " << s_major;
+  base::FilePath parent(mountpoint);
+  parent = parent.Append("..");
+  if (lstat(parent.value().c_str(), &stparent) != 0) {
+    PLOG(ERROR) << "Error stat'ing " << parent.value();
     return false;
   }
-
-  // squashfs_fs.h: struct squashfs_super_block.bytes_used
-  uint64_t bytes_used = *reinterpret_cast<const int64_t*>(
-      buffer + 5 * sizeof(uint32_t) + 6 * sizeof(uint16_t) + sizeof(uint64_t));
-
-  const int block_size = 4096;
-
-  // The squashfs' bytes_used doesn't need to be aligned with the block boundary
-  // so we round up to the nearest blocksize.
-  if (out_block_count)
-    *out_block_count = (bytes_used + block_size - 1) / block_size;
-  if (out_block_size)
-    *out_block_size = block_size;
-  return true;
-}
-
-bool IsExtFilesystem(const string& device) {
-  brillo::Blob header;
-  // The first 2 KiB is enough to read the ext2 superblock (located at offset
-  // 1024).
-  if (!ReadFileChunk(device, 0, 2048, &header))
-    return false;
-  return GetExt3Size(header.data(), header.size(), nullptr, nullptr);
-}
-
-bool IsSquashfsFilesystem(const string& device) {
-  brillo::Blob header;
-  // The first 96 is enough to read the squashfs superblock.
-  const ssize_t kSquashfsSuperBlockSize = 96;
-  if (!ReadFileChunk(device, 0, kSquashfsSuperBlockSize, &header))
-    return false;
-  return GetSquashfs4Size(header.data(), header.size(), nullptr, nullptr);
+  return S_ISDIR(stparent.st_mode) &&
+         (stparent.st_dev != stdir.st_dev || stparent.st_ino == stdir.st_ino);
 }
 
 // Tries to parse the header of an ELF file to obtain a human-readable
@@ -942,28 +810,6 @@ string GetFileFormat(const string& path) {
     return result;
 
   return "data";
-}
-
-namespace {
-// Do the actual trigger. We do it as a main-loop callback to (try to) get a
-// consistent stack trace.
-void TriggerCrashReporterUpload() {
-  pid_t pid = fork();
-  CHECK_GE(pid, 0) << "fork failed";  // fork() failed. Something is very wrong.
-  if (pid == 0) {
-    // We are the child. Crash.
-    abort();  // never returns
-  }
-  // We are the parent. Wait for child to terminate.
-  pid_t result = waitpid(pid, nullptr, 0);
-  LOG_IF(ERROR, result < 0) << "waitpid() failed";
-}
-}  // namespace
-
-void ScheduleCrashReporterUpload() {
-  brillo::MessageLoop::current()->PostTask(
-      FROM_HERE,
-      base::Bind(&TriggerCrashReporterUpload));
 }
 
 int FuzzInt(int value, unsigned int range) {

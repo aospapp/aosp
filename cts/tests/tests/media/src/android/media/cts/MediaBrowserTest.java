@@ -16,12 +16,14 @@
 package android.media.cts;
 
 import android.content.ComponentName;
-import android.cts.util.PollingCheck;
 import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.os.Bundle;
 import android.test.InstrumentationTestCase;
 
+import com.android.compatibility.common.util.PollingCheck;
+
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,6 +32,17 @@ import java.util.List;
 public class MediaBrowserTest extends InstrumentationTestCase {
     // The maximum time to wait for an operation.
     private static final long TIME_OUT_MS = 3000L;
+
+    /**
+     * To check {@link MediaBrowser#unsubscribe} works properly,
+     * we notify to the browser after the unsubscription that the media items have changed.
+     * Then {@link MediaBrowser.SubscriptionCallback#onChildrenLoaded} should not be called.
+     *
+     * The measured time from calling {@link StubMediaBrowserService#notifyChildrenChanged}
+     * to {@link MediaBrowser.SubscriptionCallback#onChildrenLoaded} being called is about 50ms.
+     * So we make the thread sleep for 100ms to properly check that the callback is not called.
+     */
+    private static final long SLEEP_MS = 100L;
     private static final ComponentName TEST_BROWSER_SERVICE = new ComponentName(
             "android.media.cts", "android.media.cts.StubMediaBrowserService");
     private static final ComponentName TEST_INVALID_BROWSER_SERVICE = new ComponentName(
@@ -56,7 +69,12 @@ public class MediaBrowserTest extends InstrumentationTestCase {
                 mMediaBrowser.getSessionToken());
 
         mMediaBrowser.disconnect();
-        assertEquals(false, mMediaBrowser.isConnected());
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return !mMediaBrowser.isConnected();
+            }
+        }.run();
     }
 
     public void testConnectTwice() {
@@ -84,6 +102,66 @@ public class MediaBrowserTest extends InstrumentationTestCase {
                         && mConnectionCallback.mConnectionSuspendedCount == 0;
             }
         }.run();
+    }
+
+    public void testReconnection() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+
+        // Reconnect before the first connection was established.
+        mMediaBrowser.connect();
+        mMediaBrowser.disconnect();
+        resetCallbacks();
+        connectMediaBrowserService();
+
+        // Test subscribe.
+        resetCallbacks();
+        mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, mSubscriptionCallback);
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return mSubscriptionCallback.mChildrenLoadedCount > 0;
+            }
+        }.run();
+
+        // Test getItem.
+        resetCallbacks();
+        mMediaBrowser.getItem(StubMediaBrowserService.MEDIA_ID_CHILDREN[0], mItemCallback);
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return mItemCallback.mLastMediaItem != null;
+            }
+        }.run();
+
+        // Reconnect after connection was established.
+        mMediaBrowser.disconnect();
+        resetCallbacks();
+        connectMediaBrowserService();
+
+        // Test getItem.
+        resetCallbacks();
+        mMediaBrowser.getItem(StubMediaBrowserService.MEDIA_ID_CHILDREN[0], mItemCallback);
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return mItemCallback.mLastMediaItem != null;
+            }
+        }.run();
+    }
+
+    public void testConnectionCallbackNotCalledAfterDisconnect() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        mMediaBrowser.connect();
+        mMediaBrowser.disconnect();
+        resetCallbacks();
+        try {
+            Thread.sleep(SLEEP_MS);
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException occurred.");
+        }
+        assertEquals(0, mConnectionCallback.mConnectedCount);
+        assertEquals(0, mConnectionCallback.mConnectionFailedCount);
+        assertEquals(0, mConnectionCallback.mConnectionSuspendedCount);
     }
 
     public void testGetServiceComponentBeforeConnection() {
@@ -116,6 +194,21 @@ public class MediaBrowserTest extends InstrumentationTestCase {
             assertEquals(StubMediaBrowserService.MEDIA_ID_CHILDREN[i],
                     mSubscriptionCallback.mLastChildMediaItems.get(i).getMediaId());
         }
+
+        // Test unsubscribe.
+        resetCallbacks();
+        mMediaBrowser.unsubscribe(StubMediaBrowserService.MEDIA_ID_ROOT);
+
+        // After unsubscribing, make StubMediaBrowserService notify that the children are changed.
+        StubMediaBrowserService.sInstance.notifyChildrenChanged(
+                StubMediaBrowserService.MEDIA_ID_ROOT);
+        try {
+            Thread.sleep(SLEEP_MS);
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException occurred.");
+        }
+        // onChildrenLoaded should not be called.
+        assertEquals(0, mSubscriptionCallback.mChildrenLoadedCount);
     }
 
     public void testSubscribeWithOptions() {
@@ -150,6 +243,21 @@ public class MediaBrowserTest extends InstrumentationTestCase {
                         mSubscriptionCallback.mLastChildMediaItems.get(i).getMediaId());
             }
         }
+
+        // Test unsubscribe with callback argument.
+        resetCallbacks();
+        mMediaBrowser.unsubscribe(StubMediaBrowserService.MEDIA_ID_ROOT, mSubscriptionCallback);
+
+        // After unsubscribing, make StubMediaBrowserService notify that the children are changed.
+        StubMediaBrowserService.sInstance.notifyChildrenChanged(
+                StubMediaBrowserService.MEDIA_ID_ROOT);
+        try {
+            Thread.sleep(SLEEP_MS);
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException occurred.");
+        }
+        // onChildrenLoaded should not be called.
+        assertEquals(0, mSubscriptionCallback.mChildrenLoadedCount);
     }
 
     public void testSubscribeInvalidItem() {
@@ -190,6 +298,111 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         assertEquals(page, mSubscriptionCallback.mLastOptions.getInt(MediaBrowser.EXTRA_PAGE));
         assertEquals(pageSize,
                 mSubscriptionCallback.mLastOptions.getInt(MediaBrowser.EXTRA_PAGE_SIZE));
+    }
+
+    public void testUnsubscribeForMultipleSubscriptions() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+        final List<StubSubscriptionCallback> subscriptionCallbacks = new ArrayList<>();
+        final int pageSize = 1;
+
+        // Subscribe four pages, one item per page.
+        for (int page = 0; page < 4; page++) {
+            final StubSubscriptionCallback callback = new StubSubscriptionCallback();
+            subscriptionCallbacks.add(callback);
+
+            Bundle options = new Bundle();
+            options.putInt(MediaBrowser.EXTRA_PAGE, page);
+            options.putInt(MediaBrowser.EXTRA_PAGE_SIZE, pageSize);
+            mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, options, callback);
+
+            // Each onChildrenLoaded() must be called.
+            new PollingCheck(TIME_OUT_MS) {
+                @Override
+                protected boolean check() {
+                    return callback.mChildrenLoadedWithOptionCount == 1;
+                }
+            }.run();
+        }
+
+        // Reset callbacks and unsubscribe.
+        for (StubSubscriptionCallback callback : subscriptionCallbacks) {
+            callback.reset();
+        }
+        mMediaBrowser.unsubscribe(StubMediaBrowserService.MEDIA_ID_ROOT);
+
+        // After unsubscribing, make StubMediaBrowserService notify that the children are changed.
+        StubMediaBrowserService.sInstance.notifyChildrenChanged(
+                StubMediaBrowserService.MEDIA_ID_ROOT);
+        try {
+            Thread.sleep(SLEEP_MS);
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException occurred.");
+        }
+
+        // onChildrenLoaded should not be called.
+        for (StubSubscriptionCallback callback : subscriptionCallbacks) {
+            assertEquals(0, callback.mChildrenLoadedWithOptionCount);
+        }
+    }
+
+    public void testUnsubscribeWithSubscriptionCallbackForMultipleSubscriptions() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+        final List<StubSubscriptionCallback> subscriptionCallbacks = new ArrayList<>();
+        final int pageSize = 1;
+
+        // Subscribe four pages, one item per page.
+        for (int page = 0; page < 4; page++) {
+            final StubSubscriptionCallback callback = new StubSubscriptionCallback();
+            subscriptionCallbacks.add(callback);
+
+            Bundle options = new Bundle();
+            options.putInt(MediaBrowser.EXTRA_PAGE, page);
+            options.putInt(MediaBrowser.EXTRA_PAGE_SIZE, pageSize);
+            mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, options, callback);
+
+            // Each onChildrenLoaded() must be called.
+            new PollingCheck(TIME_OUT_MS) {
+                @Override
+                protected boolean check() {
+                    return callback.mChildrenLoadedWithOptionCount == 1;
+                }
+            }.run();
+        }
+
+        // Unsubscribe existing subscriptions one-by-one.
+        final int[] orderOfRemovingCallbacks = {2, 0, 3, 1};
+        for (int i = 0; i < orderOfRemovingCallbacks.length; i++) {
+            // Reset callbacks
+            for (StubSubscriptionCallback callback : subscriptionCallbacks) {
+                callback.reset();
+            }
+
+            // Remove one subscription
+            mMediaBrowser.unsubscribe(StubMediaBrowserService.MEDIA_ID_ROOT,
+                    subscriptionCallbacks.get(orderOfRemovingCallbacks[i]));
+
+            // Make StubMediaBrowserService notify that the children are changed.
+            StubMediaBrowserService.sInstance.notifyChildrenChanged(
+                    StubMediaBrowserService.MEDIA_ID_ROOT);
+            try {
+                Thread.sleep(SLEEP_MS);
+            } catch (InterruptedException e) {
+                fail("Unexpected InterruptedException occurred.");
+            }
+
+            // Only the remaining subscriptionCallbacks should be called.
+            for (int j = 0; j < 4; j++) {
+                int childrenLoadedWithOptionsCount = subscriptionCallbacks
+                        .get(orderOfRemovingCallbacks[j]).mChildrenLoadedWithOptionCount;
+                if (j <= i) {
+                    assertEquals(0, childrenLoadedWithOptionsCount);
+                } else {
+                    assertEquals(1, childrenLoadedWithOptionsCount);
+                }
+            }
+        }
     }
 
     public void testGetItem() {

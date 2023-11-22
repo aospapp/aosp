@@ -5,7 +5,6 @@
 AUTHOR = "graphics-gfx"
 NAME = "graphics"
 PURPOSE = "Test graphics browser level functionality."
-CRITERIA = "All tests with should complete and not hang."
 
 TIME = "MEDIUM"
 TEST_CATEGORY = "Graphics"

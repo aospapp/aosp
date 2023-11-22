@@ -16,32 +16,57 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.cts.R;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ClipDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Drawable.ConstantState;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.AttributeSet;
+import android.util.StateSet;
+import android.util.Xml;
+import android.view.Gravity;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.Arrays;
 
-import android.graphics.Bitmap;
-import android.graphics.Bitmap.Config;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.ClipDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Drawable.ConstantState;
-import android.test.AndroidTestCase;
-import android.util.AttributeSet;
-import android.util.StateSet;
-import android.util.Xml;
-import android.view.Gravity;
-
-public class ClipDrawableTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ClipDrawableTest {
     @SuppressWarnings("deprecation")
+    @Test
     public void testClipDrawable() {
         new ClipDrawable((Drawable) null, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
 
@@ -49,16 +74,17 @@ public class ClipDrawableTest extends AndroidTestCase {
         new ClipDrawable(bmpDrawable, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
     }
 
+    @Test
     public void testDraw() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.GREEN));
         mockDrawable.setLevel(5000);
         ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         clipDrawable.setBounds(new Rect(0, 0, 100, 100));
         clipDrawable.setLevel(5000);
-        assertFalse(mockDrawable.getCalledDraw());
+        verify(mockDrawable, never()).draw(any());
         clipDrawable.draw(new Canvas());
-        assertTrue(mockDrawable.getCalledDraw());
+        verify(mockDrawable, times(1)).draw(any());
 
         try {
             clipDrawable.draw(null);
@@ -67,17 +93,18 @@ public class ClipDrawableTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetChangingConfigurations() {
         final int SUPER_CONFIG = 1;
         final int CONTAINED_DRAWABLE_CONFIG = 2;
 
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
 
         assertEquals(0, clipDrawable.getChangingConfigurations());
 
-        mockDrawable.setChangingConfigurations(CONTAINED_DRAWABLE_CONFIG);
+        colorDrawable.setChangingConfigurations(CONTAINED_DRAWABLE_CONFIG);
         assertEquals(CONTAINED_DRAWABLE_CONFIG, clipDrawable.getChangingConfigurations());
 
         clipDrawable.setChangingConfigurations(SUPER_CONFIG);
@@ -85,13 +112,15 @@ public class ClipDrawableTest extends AndroidTestCase {
                 clipDrawable.getChangingConfigurations());
     }
 
+    @Test
     public void testGetConstantState() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.GREEN));
+        doReturn(null).when(mockDrawable).getConstantState();
         ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertNull(clipDrawable.getConstantState());
 
-        mockDrawable.setConstantState(new MockConstantState());
+        doReturn(new MockConstantState()).when(mockDrawable).getConstantState();
         clipDrawable = new ClipDrawable(mockDrawable, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         clipDrawable.setChangingConfigurations(1);
         assertNotNull(clipDrawable.getConstantState());
@@ -99,9 +128,10 @@ public class ClipDrawableTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetIntrinsicHeight() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertEquals(-1, clipDrawable.getIntrinsicHeight());
 
@@ -113,9 +143,10 @@ public class ClipDrawableTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetIntrinsicWidth() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertEquals(-1, clipDrawable.getIntrinsicWidth());
 
@@ -127,13 +158,12 @@ public class ClipDrawableTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetOpacity() {
-        MockDrawable dr;
-        ClipDrawable clipDrawable;
+        Drawable dr = spy(new ColorDrawable(Color.GREEN));
+        doReturn(PixelFormat.OPAQUE).when(dr).getOpacity();
 
-        dr = new MockDrawable();
-        dr.setOpacity(PixelFormat.OPAQUE);
-        clipDrawable = new ClipDrawable(dr, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
+        ClipDrawable clipDrawable = new ClipDrawable(dr, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         clipDrawable.setLevel(0);
         assertEquals("Fully-clipped opaque drawable is transparent",
                 PixelFormat.TRANSPARENT, clipDrawable.getOpacity());
@@ -144,17 +174,17 @@ public class ClipDrawableTest extends AndroidTestCase {
         assertEquals("Unclipped opaque drawable is opaque",
                 PixelFormat.OPAQUE, clipDrawable.getOpacity());
 
-        dr = new MockDrawable();
-        dr.setOpacity(PixelFormat.TRANSLUCENT);
+        doReturn(PixelFormat.TRANSLUCENT).when(dr).getOpacity();
         clipDrawable = new ClipDrawable(dr, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         clipDrawable.setLevel(10000);
         assertEquals("Unclipped translucent drawable is translucent",
                 PixelFormat.TRANSLUCENT, clipDrawable.getOpacity());
     }
 
+    @Test
     public void testGetPadding() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         Rect padding = new Rect(10, 10, 100, 100);
         assertFalse(clipDrawable.getPadding(padding));
@@ -171,32 +201,36 @@ public class ClipDrawableTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         BitmapDrawable bmpDrawable = new BitmapDrawable();
         ClipDrawable clipDrawable = new ClipDrawable(bmpDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
 
-        XmlPullParser parser = mContext.getResources().getXml(R.drawable.gradientdrawable);
+        Resources resources = InstrumentationRegistry.getTargetContext().getResources();
+        XmlPullParser parser = resources.getXml(R.drawable.gradientdrawable);
         AttributeSet attrs = Xml.asAttributeSet(parser);
-        clipDrawable.inflate(mContext.getResources(), parser, attrs);
+        clipDrawable.inflate(resources, parser, attrs);
     }
 
+    @Test
     public void testInvalidateDrawable() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        MockCallback callback = new MockCallback();
+        Drawable.Callback callback = mock(Drawable.Callback.class);
         clipDrawable.setCallback(callback);
-        clipDrawable.invalidateDrawable(mockDrawable);
-        assertSame(clipDrawable, callback.getInvalidateDrawable());
+        clipDrawable.invalidateDrawable(colorDrawable);
+        verify(callback, times(1)).invalidateDrawable(clipDrawable);
 
         clipDrawable.invalidateDrawable(null);
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testIsStateful() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertFalse(clipDrawable.isStateful());
 
@@ -206,19 +240,20 @@ public class ClipDrawableTest extends AndroidTestCase {
         assertFalse(clipDrawable.isStateful());
     }
 
+    @Test
     public void testOnBoundsChange() {
-        MockDrawable mockDrawable = new MockDrawable();
-        MockClipDrawable mockClipDrawable = new MockClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        MockClipDrawable mockClipDrawable = new MockClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        assertEquals(0, mockDrawable.getBounds().left);
-        assertEquals(0, mockDrawable.getBounds().top);
-        assertEquals(0, mockDrawable.getBounds().bottom);
-        assertEquals(0, mockDrawable.getBounds().right);
+        assertEquals(0, colorDrawable.getBounds().left);
+        assertEquals(0, colorDrawable.getBounds().top);
+        assertEquals(0, colorDrawable.getBounds().bottom);
+        assertEquals(0, colorDrawable.getBounds().right);
         mockClipDrawable.onBoundsChange(new Rect(10, 10, 100, 100));
-        assertEquals(10, mockDrawable.getBounds().left);
-        assertEquals(10, mockDrawable.getBounds().top);
-        assertEquals(100, mockDrawable.getBounds().bottom);
-        assertEquals(100, mockDrawable.getBounds().right);
+        assertEquals(10, colorDrawable.getBounds().left);
+        assertEquals(10, colorDrawable.getBounds().top);
+        assertEquals(100, colorDrawable.getBounds().bottom);
+        assertEquals(100, colorDrawable.getBounds().right);
 
         try {
             mockClipDrawable.onBoundsChange(null);
@@ -227,27 +262,30 @@ public class ClipDrawableTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testOnLevelChange() {
-        MockDrawable mockDrawable = new MockDrawable();
-        MockClipDrawable mockClipDrawable = new MockClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        MockClipDrawable mockClipDrawable = new MockClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        MockCallback callback = new MockCallback();
+        Drawable.Callback callback = mock(Drawable.Callback.class);
         mockClipDrawable.setCallback(callback);
 
-        assertEquals("Default level is 0", 0, mockDrawable.getLevel());
+        assertEquals("Default level is 0", 0, colorDrawable.getLevel());
         mockClipDrawable.onLevelChange(1000);
-        assertEquals(1000, mockDrawable.getLevel());
-        assertSame(mockClipDrawable, callback.getInvalidateDrawable());
+        assertEquals(1000, colorDrawable.getLevel());
+        verify(callback, times(1)).invalidateDrawable(mockClipDrawable);
 
         mockClipDrawable.onLevelChange(0);
-        assertEquals(0, mockDrawable.getLevel());
+        assertEquals(0, colorDrawable.getLevel());
 
         mockClipDrawable.onLevelChange(10000);
-        assertEquals(10000, mockDrawable.getLevel());
+        assertEquals(10000, colorDrawable.getLevel());
     }
 
+    @Test
     public void testOnStateChange() {
-        Drawable d = mContext.getDrawable(R.drawable.pass);
+        Context context = InstrumentationRegistry.getTargetContext();
+        Drawable d = context.getDrawable(R.drawable.pass);
         MockClipDrawable clipDrawable = new MockClipDrawable(d,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertEquals("initial child state is empty", d.getState(), StateSet.WILD_CARD);
@@ -256,7 +294,7 @@ public class ClipDrawableTest extends AndroidTestCase {
         assertFalse("child did not change", clipDrawable.onStateChange(state));
         assertEquals("child state did not change", d.getState(), StateSet.WILD_CARD);
 
-        d = mContext.getDrawable(R.drawable.statelistdrawable);
+        d = context.getDrawable(R.drawable.statelistdrawable);
         clipDrawable = new MockClipDrawable(d, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertEquals("initial child state is empty", d.getState(), StateSet.WILD_CARD);
         clipDrawable.onStateChange(state);
@@ -267,49 +305,52 @@ public class ClipDrawableTest extends AndroidTestCase {
         // expected, no Exception thrown out, test success
     }
 
+    @Test
     public void testScheduleDrawable() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        MockCallback callback = new MockCallback();
+        Drawable.Callback callback = mock(Drawable.Callback.class);
         clipDrawable.setCallback(callback);
-        clipDrawable.scheduleDrawable(mockDrawable, null, 1000L);
-        assertEquals(clipDrawable, callback.getScheduleDrawable());
-        assertNull(callback.getRunnable());
-        assertEquals(1000L, callback.getWhen());
+        clipDrawable.scheduleDrawable(colorDrawable, null, 1000L);
+        verify(callback, times(1)).scheduleDrawable(clipDrawable, null, 1000L);
     }
 
+    @Test
     public void testSetAlpha() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
 
         clipDrawable.setAlpha(0);
-        assertEquals(0, mockDrawable.getAlpha());
+        assertEquals(0, colorDrawable.getAlpha());
 
         clipDrawable.setAlpha(128);
-        assertEquals(128, mockDrawable.getAlpha());
+        assertEquals(128, colorDrawable.getAlpha());
 
         clipDrawable.setAlpha(255);
-        assertEquals(255, mockDrawable.getAlpha());
+        assertEquals(255, colorDrawable.getAlpha());
     }
 
+    @Test
     public void testSetColorFilter() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.GREEN));
         ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
 
         ColorFilter cf = new ColorFilter();
         clipDrawable.setColorFilter(cf);
-        assertSame(cf, mockDrawable.getColorFilter());
+        verify(mockDrawable, times(1)).setColorFilter(cf);
 
+        reset(mockDrawable);
         clipDrawable.setColorFilter(null);
-        assertNull(mockDrawable.getColorFilter());
+        verify(mockDrawable, times(1)).setColorFilter(null);
     }
 
+    @Test
     public void testSetVisible() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
         assertTrue(clipDrawable.isVisible());
 
@@ -323,15 +364,15 @@ public class ClipDrawableTest extends AndroidTestCase {
         assertTrue(clipDrawable.isVisible());
     }
 
+    @Test
     public void testUnscheduleDrawable() {
-        MockDrawable mockDrawable = new MockDrawable();
-        ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
+        Drawable colorDrawable = new ColorDrawable(Color.GREEN);
+        ClipDrawable clipDrawable = new ClipDrawable(colorDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        MockCallback callback = new MockCallback();
+        Drawable.Callback callback = mock(Drawable.Callback.class);
         clipDrawable.setCallback(callback);
-        clipDrawable.unscheduleDrawable(mockDrawable, null);
-        assertEquals(clipDrawable, callback.getScheduleDrawable());
-        assertNull(callback.getRunnable());
+        clipDrawable.unscheduleDrawable(colorDrawable, null);
+        verify(callback, times(1)).unscheduleDrawable(clipDrawable, null);
     }
 
     private class MockClipDrawable extends ClipDrawable {
@@ -355,114 +396,12 @@ public class ClipDrawableTest extends AndroidTestCase {
         }
     }
 
-    private class MockDrawable extends Drawable {
-        private ColorFilter mColorFilter;
-        private ConstantState mConstantState;
-        private int mOpacity;
-        private boolean mCalledDraw = false;
-        private int mAlpha;
-
-        public boolean getCalledDraw() {
-            return mCalledDraw;
-        }
-
-        public void draw(Canvas canvas) {
-            mCalledDraw = true;
-        }
-
-        public void setAlpha(int alpha) {
-            mAlpha = alpha;
-        }
-
-        public int getAlpha() {
-            return mAlpha;
-        }
-
-        public void setColorFilter(ColorFilter cf) {
-            mColorFilter = cf;
-        }
-
-        public ColorFilter getColorFilter() {
-            return mColorFilter;
-        }
-
-        public int getOpacity() {
-            return mOpacity;
-        }
-
-        public void setOpacity(int opacity) {
-            mOpacity = opacity;
-        }
-
-        protected void onBoundsChange(Rect bounds) {
-            super.onBoundsChange(bounds);
-        }
-
-        protected boolean onLevelChange(int level) {
-            return super.onLevelChange(level);
-        }
-
-        protected boolean onStateChange(int[] state) {
-            return super.onStateChange(state);
-        }
-
-        public ConstantState getConstantState() {
-            return mConstantState;
-        }
-
-        public void setConstantState(ConstantState cs) {
-            mConstantState = cs;
-        }
-    }
-
     private class MockConstantState extends ConstantState {
         public Drawable newDrawable() {
             return null;
         }
 
         public int getChangingConfigurations() {
-            return 0;
-        }
-    }
-
-    private class MockCallback implements Drawable.Callback {
-        private Drawable mInvalidateDrawable;
-        private Drawable mScheduleDrawable;
-        private Runnable mRunnable;
-        private long mWhen;
-
-        public Drawable getInvalidateDrawable() {
-            return mInvalidateDrawable;
-        }
-
-        public Drawable getScheduleDrawable() {
-            return mScheduleDrawable;
-        }
-
-        public Runnable getRunnable() {
-            return mRunnable;
-        }
-
-        public long getWhen() {
-            return mWhen;
-        }
-
-        public void invalidateDrawable(Drawable who) {
-            mInvalidateDrawable = who;
-        }
-
-        public void scheduleDrawable(Drawable who, Runnable what, long when) {
-            mScheduleDrawable = who;
-            mRunnable = what;
-            mWhen = when;
-        }
-
-        public void unscheduleDrawable(Drawable who, Runnable what) {
-            mScheduleDrawable = who;
-            mRunnable = what;
-        }
-
-        public int getResolvedLayoutDirection(Drawable who) {
             return 0;
         }
     }

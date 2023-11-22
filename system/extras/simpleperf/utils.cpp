@@ -19,6 +19,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -30,6 +31,10 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+
+#include <7zCrc.h>
+#include <Xz.h>
+#include <XzCrc64.h>
 
 void OneTimeFreeAllocator::Clear() {
   for (auto& p : v_) {
@@ -95,39 +100,45 @@ void PrintIndented(size_t indent, const char* fmt, ...) {
   va_end(ap);
 }
 
+void FprintIndented(FILE* fp, size_t indent, const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  fprintf(fp, "%*s", static_cast<int>(indent * 2), "");
+  vfprintf(fp, fmt, ap);
+  va_end(ap);
+}
+
 bool IsPowerOfTwo(uint64_t value) {
   return (value != 0 && ((value & (value - 1)) == 0));
 }
 
-void GetEntriesInDir(const std::string& dirpath, std::vector<std::string>* files,
-                     std::vector<std::string>* subdirs) {
-  if (files != nullptr) {
-    files->clear();
-  }
-  if (subdirs != nullptr) {
-    subdirs->clear();
-  }
+std::vector<std::string> GetEntriesInDir(const std::string& dirpath) {
+  std::vector<std::string> result;
   DIR* dir = opendir(dirpath.c_str());
   if (dir == nullptr) {
     PLOG(DEBUG) << "can't open dir " << dirpath;
-    return;
+    return result;
   }
   dirent* entry;
   while ((entry = readdir(dir)) != nullptr) {
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
       continue;
     }
-    if (IsDir(dirpath + std::string("/") + entry->d_name)) {
-      if (subdirs != nullptr) {
-        subdirs->push_back(entry->d_name);
-      }
-    } else {
-      if (files != nullptr) {
-        files->push_back(entry->d_name);
-      }
-    }
+    result.push_back(entry->d_name);
   }
   closedir(dir);
+  return result;
+}
+
+std::vector<std::string> GetSubDirs(const std::string& dirpath) {
+  std::vector<std::string> entries = GetEntriesInDir(dirpath);
+  std::vector<std::string> result;
+  for (size_t i = 0; i < entries.size(); ++i) {
+    if (IsDir(dirpath + "/" + entries[i])) {
+      result.push_back(std::move(entries[i]));
+    }
+  }
+  return result;
 }
 
 bool IsDir(const std::string& dirpath) {
@@ -182,10 +193,57 @@ bool MkdirWithParents(const std::string& path) {
   return true;
 }
 
+static void* xz_alloc(void*, size_t size) {
+  return malloc(size);
+}
+
+static void xz_free(void*, void* address) {
+  free(address);
+}
+
+bool XzDecompress(const std::string& compressed_data, std::string* decompressed_data) {
+  ISzAlloc alloc;
+  CXzUnpacker state;
+  alloc.Alloc = xz_alloc;
+  alloc.Free = xz_free;
+  XzUnpacker_Construct(&state, &alloc);
+  CrcGenerateTable();
+  Crc64GenerateTable();
+  size_t src_offset = 0;
+  size_t dst_offset = 0;
+  std::string dst(compressed_data.size(), ' ');
+
+  ECoderStatus status = CODER_STATUS_NOT_FINISHED;
+  while (status == CODER_STATUS_NOT_FINISHED) {
+    dst.resize(dst.size() * 2);
+    size_t src_remaining = compressed_data.size() - src_offset;
+    size_t dst_remaining = dst.size() - dst_offset;
+    int res = XzUnpacker_Code(&state, reinterpret_cast<Byte*>(&dst[dst_offset]), &dst_remaining,
+                              reinterpret_cast<const Byte*>(&compressed_data[src_offset]),
+                              &src_remaining, CODER_FINISH_ANY, &status);
+    if (res != SZ_OK) {
+      LOG(ERROR) << "LZMA decompression failed with error " << res;
+      XzUnpacker_Free(&state);
+      return false;
+    }
+    src_offset += src_remaining;
+    dst_offset += dst_remaining;
+  }
+  XzUnpacker_Free(&state);
+  if (!XzUnpacker_IsStreamWasFinished(&state)) {
+    LOG(ERROR) << "LZMA decompresstion failed due to incomplete stream";
+    return false;
+  }
+  dst.resize(dst_offset);
+  *decompressed_data = std::move(dst);
+  return true;
+}
+
 bool GetLogSeverity(const std::string& name, android::base::LogSeverity* severity) {
   static std::map<std::string, android::base::LogSeverity> log_severity_map = {
       {"verbose", android::base::VERBOSE},
       {"debug", android::base::DEBUG},
+      {"info", android::base::INFO},
       {"warning", android::base::WARNING},
       {"error", android::base::ERROR},
       {"fatal", android::base::FATAL},
@@ -208,4 +266,74 @@ bool IsRoot() {
 #endif
   }
   return is_root == 1;
+}
+
+bool ProcessKernelSymbols(std::string& symbol_data,
+                          const std::function<bool(const KernelSymbol&)>& callback) {
+  char* p = &symbol_data[0];
+  char* data_end = p + symbol_data.size();
+  while (p < data_end) {
+    char* line_end = strchr(p, '\n');
+    if (line_end != nullptr) {
+      *line_end = '\0';
+    }
+    size_t line_size = (line_end != nullptr) ? (line_end - p) : (data_end - p);
+    // Parse line like: ffffffffa005c4e4 d __warned.41698       [libsas]
+    char name[line_size];
+    char module[line_size];
+    strcpy(module, "");
+
+    KernelSymbol symbol;
+    int ret = sscanf(p, "%" PRIx64 " %c %s%s", &symbol.addr, &symbol.type, name, module);
+    if (line_end != nullptr) {
+      *line_end = '\n';
+      p = line_end + 1;
+    } else {
+      p = data_end;
+    }
+    if (ret >= 3) {
+      symbol.name = name;
+      size_t module_len = strlen(module);
+      if (module_len > 2 && module[0] == '[' && module[module_len - 1] == ']') {
+        module[module_len - 1] = '\0';
+        symbol.module = &module[1];
+      } else {
+        symbol.module = nullptr;
+      }
+
+      if (callback(symbol)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+size_t GetPageSize() {
+#if defined(__linux__)
+  return sysconf(_SC_PAGE_SIZE);
+#else
+  return 4096;
+#endif
+}
+
+uint64_t ConvertBytesToValue(const char* bytes, uint32_t size) {
+  if (size > 8) {
+    LOG(FATAL) << "unexpected size " << size << " in ConvertBytesToValue";
+  }
+  uint64_t result = 0;
+  int shift = 0;
+  for (uint32_t i = 0; i < size; ++i) {
+    uint64_t tmp = static_cast<unsigned char>(bytes[i]);
+    result |= tmp << shift;
+    shift += 8;
+  }
+  return result;
+}
+
+timeval SecondToTimeval(double time_in_sec) {
+  timeval tv;
+  tv.tv_sec = static_cast<time_t>(time_in_sec);
+  tv.tv_usec = static_cast<int>((time_in_sec - tv.tv_sec) * 1000000);
+  return tv;
 }

@@ -23,6 +23,7 @@
 
 #include "NuPlayerRenderer.h"
 
+#include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
 
@@ -42,8 +43,7 @@ NuPlayer::DecoderBase::DecoderBase(const sp<AMessage> &notify)
 }
 
 NuPlayer::DecoderBase::~DecoderBase() {
-    mDecoderLooper->unregisterHandler(id());
-    mDecoderLooper->stop();
+    stopLooper();
 }
 
 static
@@ -72,6 +72,11 @@ void NuPlayer::DecoderBase::init() {
     mDecoderLooper->registerHandler(this);
 }
 
+void NuPlayer::DecoderBase::stopLooper() {
+    mDecoderLooper->unregisterHandler(id());
+    mDecoderLooper->stop();
+}
+
 void NuPlayer::DecoderBase::setParameters(const sp<AMessage> &params) {
     sp<AMessage> msg = new AMessage(kWhatSetParameters, this);
     msg->setMessage("params", params);
@@ -89,14 +94,6 @@ void NuPlayer::DecoderBase::pause() {
 
     sp<AMessage> response;
     PostAndAwaitResponse(msg, &response);
-}
-
-status_t NuPlayer::DecoderBase::getInputBuffers(Vector<sp<ABuffer> > *buffers) const {
-    sp<AMessage> msg = new AMessage(kWhatGetInputBuffers, this);
-    msg->setPointer("buffers", buffers);
-
-    sp<AMessage> response;
-    return PostAndAwaitResponse(msg, &response);
 }
 
 void NuPlayer::DecoderBase::signalFlush() {
@@ -160,20 +157,6 @@ void NuPlayer::DecoderBase::onMessageReceived(const sp<AMessage> &msg) {
             CHECK(msg->senderAwaitsResponse(&replyID));
 
             mPaused = true;
-
-            (new AMessage)->postReply(replyID);
-            break;
-        }
-
-        case kWhatGetInputBuffers:
-        {
-            sp<AReplyToken> replyID;
-            CHECK(msg->senderAwaitsResponse(&replyID));
-
-            Vector<sp<ABuffer> > *dstBuffers;
-            CHECK(msg->findPointer("buffers", (void **)&dstBuffers));
-
-            onGetInputBuffers(dstBuffers);
 
             (new AMessage)->postReply(replyID);
             break;

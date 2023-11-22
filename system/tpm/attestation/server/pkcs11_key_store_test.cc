@@ -101,9 +101,7 @@ class ScopedFakeSalt {
   ScopedFakeSalt() : salt_(128, 0) {
     brillo::cryptohome::home::SetSystemSalt(&salt_);
   }
-  ~ScopedFakeSalt() {
-    brillo::cryptohome::home::SetSystemSalt(nullptr);
-  }
+  ~ScopedFakeSalt() { brillo::cryptohome::home::SetSystemSalt(nullptr); }
 
  private:
   std::string salt_;
@@ -149,8 +147,7 @@ class KeyStoreTest : public testing::Test {
         .WillByDefault(DoAll(SetArgumentPointee<2>(slot_list), Return(0)));
     ON_CALL(pkcs11_, OpenSession(_, _, _, _))
         .WillByDefault(DoAll(SetArgumentPointee<3>(kSession), Return(0)));
-    ON_CALL(pkcs11_, CloseSession(_, _))
-        .WillByDefault(Return(0));
+    ON_CALL(pkcs11_, CloseSession(_, _)).WillByDefault(Return(0));
     ON_CALL(pkcs11_, CreateObject(_, _, _, _))
         .WillByDefault(Invoke(this, &KeyStoreTest::CreateObject));
     ON_CALL(pkcs11_, DestroyObject(_, _, _))
@@ -163,13 +160,12 @@ class KeyStoreTest : public testing::Test {
         .WillByDefault(Invoke(this, &KeyStoreTest::FindObjectsInit));
     ON_CALL(pkcs11_, FindObjects(_, _, _, _))
         .WillByDefault(Invoke(this, &KeyStoreTest::FindObjects));
-    ON_CALL(pkcs11_, FindObjectsFinal(_, _))
-        .WillByDefault(Return(0));
+    ON_CALL(pkcs11_, FindObjectsFinal(_, _)).WillByDefault(Return(0));
     base::FilePath system_path("/var/lib/chaps");
     ON_CALL(token_manager_, GetTokenPath(_, 0, _))
         .WillByDefault(DoAll(SetArgumentPointee<2>(system_path), Return(true)));
-    base::FilePath user_path(brillo::cryptohome::home::GetDaemonPath(
-        kDefaultUser, "chaps"));
+    base::FilePath user_path(
+        brillo::cryptohome::home::GetDaemonPath(kDefaultUser, "chaps"));
     ON_CALL(token_manager_, GetTokenPath(_, 1, _))
         .WillByDefault(DoAll(SetArgumentPointee<2>(user_path), Return(true)));
   }
@@ -225,11 +221,10 @@ class KeyStoreTest : public testing::Test {
   }
 
   // Supports writing CKA_VALUE.
-  virtual uint32_t SetAttributeValue(
-      const brillo::SecureBlob& isolate,
-      uint64_t session_id,
-      uint64_t object_handle,
-      const std::vector<uint8_t>& attributes) {
+  virtual uint32_t SetAttributeValue(const brillo::SecureBlob& isolate,
+                                     uint64_t session_id,
+                                     uint64_t object_handle,
+                                     const std::vector<uint8_t>& attributes) {
     values_[handles_[object_handle]] = GetValue(attributes, CKA_VALUE);
     return CKR_OK;
   }
@@ -434,15 +429,13 @@ TEST_F(KeyStoreTest, FindFail) {
   EXPECT_TRUE(key_store.Write(kDefaultUser, "test", "test_data"));
   EXPECT_FALSE(key_store.Read(kDefaultUser, "test", &blob));
 
-  EXPECT_CALL(pkcs11_, FindObjectsInit(_, _, _))
-      .WillRepeatedly(Return(CKR_OK));
+  EXPECT_CALL(pkcs11_, FindObjectsInit(_, _, _)).WillRepeatedly(Return(CKR_OK));
   EXPECT_CALL(pkcs11_, FindObjects(_, _, _, _))
       .WillRepeatedly(Return(CKR_GENERAL_ERROR));
   EXPECT_TRUE(key_store.Write(kDefaultUser, "test", "test_data"));
   EXPECT_FALSE(key_store.Read(kDefaultUser, "test", &blob));
 
-  EXPECT_CALL(pkcs11_, FindObjects(_, _, _, _))
-      .WillRepeatedly(Return(CKR_OK));
+  EXPECT_CALL(pkcs11_, FindObjects(_, _, _, _)).WillRepeatedly(Return(CKR_OK));
   EXPECT_CALL(pkcs11_, FindObjectsFinal(_, _))
       .WillRepeatedly(Return(CKR_GENERAL_ERROR));
   EXPECT_TRUE(key_store.Write(kDefaultUser, "test", "test_data"));
@@ -515,8 +508,7 @@ TEST_F(KeyStoreTest, RegisterWithUnsupportedKeyType) {
 }
 
 TEST_F(KeyStoreTest, RegisterDecryptionKey) {
-  EXPECT_CALL(pkcs11_, CreateObject(_, _, _, _))
-      .WillRepeatedly(Return(CKR_OK));
+  EXPECT_CALL(pkcs11_, CreateObject(_, _, _, _)).WillRepeatedly(Return(CKR_OK));
   Pkcs11KeyStore key_store(&token_manager_);
   std::string public_key_der = HexDecode(kValidPublicKeyHex);
   EXPECT_TRUE(key_store.Register(kDefaultUser, "test_label", KEY_TYPE_RSA,
@@ -550,8 +542,7 @@ TEST_F(KeyStoreTest, RegisterCertificateSystemToken) {
   Pkcs11KeyStore key_store(&token_manager_);
   std::string certificate_der = HexDecode(kValidCertificateHex);
   // Try with the system token.
-  EXPECT_CALL(pkcs11_, CreateObject(_, _, _, _))
-      .WillOnce(Return(CKR_OK));
+  EXPECT_CALL(pkcs11_, CreateObject(_, _, _, _)).WillOnce(Return(CKR_OK));
   EXPECT_TRUE(key_store.RegisterCertificate(kDefaultUser, certificate_der));
 }
 

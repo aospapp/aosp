@@ -15,9 +15,9 @@
  */
 package android.uirendering.cts.bitmapverifiers;
 
-import android.annotation.ColorInt;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.support.annotation.ColorInt;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.util.CompareUtils;
 import android.util.Log;

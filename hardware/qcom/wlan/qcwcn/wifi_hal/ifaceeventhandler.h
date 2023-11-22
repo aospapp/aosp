@@ -89,6 +89,9 @@ private:
     int filterVersion;
     int filterLength;
     int firmware_bus_max_size;
+    wifi_capa *mCapa;
+
+    virtual wifi_error wifiParseCapabilities(struct nlattr **tbVendor);
 
 public:
     WifihalGeneric(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
@@ -102,6 +105,7 @@ public:
     virtual int getFilterVersion();
     virtual int getFilterLength();
     virtual int getBusSize();
+    virtual wifi_error wifiGetCapabilities(wifi_interface_handle handle);
 };
 #ifdef __cplusplus
 }

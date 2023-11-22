@@ -30,6 +30,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class ClassObjectDebuggee extends SyncDebuggee {
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: ClassObjectDebuggee: START");
         ClassObjectDebuggee_ExtraClass extraObject = new ClassObjectDebuggee_ExtraClass();

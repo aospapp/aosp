@@ -16,14 +16,12 @@
 package com.android.cts.profileowner;
 
 public class WifiTest extends BaseProfileOwnerTest {
-    public void testGetWifiMacAddress() {
+    public void testCannotGetWifiMacAddress() {
         try {
             mDevicePolicyManager.getWifiMacAddress(getWho());
             fail("Profile owner shouldn't be able to get the MAC address");
-        } catch (SecurityException e) {
-            if (!e.getMessage().contains("for policy #-2")) {
-                fail("Unexpected exception message: " + e.getMessage());
-            }
+        } catch (SecurityException expected) {
+
         }
     }
 }

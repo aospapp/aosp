@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2008-2012, International Business Machines Corporation and    *
@@ -24,7 +26,8 @@ public class CurrencyNameProviderICU extends CurrencyNameProvider {
         return sym;
     }
 
-    //@Override
+    // Not available in Java 6
+    // @Override
     public String getDisplayName(String currencyCode, Locale locale) {
         CurrencyDisplayNames curDispNames = CurrencyDisplayNames.getInstance(ICULocaleServiceProvider.toULocaleNoSpecialVariant(locale));
         String name = curDispNames.getName(currencyCode);

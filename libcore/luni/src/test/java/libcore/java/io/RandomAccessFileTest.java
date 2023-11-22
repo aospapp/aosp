@@ -21,11 +21,15 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import libcore.junit.util.ResourceLeakageDetector.LeakageDetectorRule;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-import junit.framework.TestCase;
-import libcore.java.lang.ref.FinalizationTester;
-
-public final class RandomAccessFileTest extends TestCase {
+public final class RandomAccessFileTest extends TestCaseWithRules {
+    @Rule
+    public LeakageDetectorRule resourceLeakageDetectorRule = ResourceLeakageDetector.getRule();
 
     private File file;
 
@@ -38,41 +42,40 @@ public final class RandomAccessFileTest extends TestCase {
     }
 
     public void testSeekTooLarge() throws Exception {
-        RandomAccessFile raf = new RandomAccessFile(file, "rw");
-        try {
-            raf.seek(Long.MAX_VALUE);
-            fail();
-        } catch (IOException expected) {
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            try {
+                raf.seek(Long.MAX_VALUE);
+                fail();
+            } catch (IOException expected) {
+            }
         }
     }
 
     public void testSetLengthTooLarge() throws Exception {
-        RandomAccessFile raf = new RandomAccessFile(file, "rw");
-        try {
-            raf.setLength(Long.MAX_VALUE);
-            fail();
-        } catch (IOException expected) {
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            try {
+                raf.setLength(Long.MAX_VALUE);
+                fail();
+            } catch (IOException expected) {
+            }
         }
     }
 
     public void testSetLength64() throws Exception {
-        RandomAccessFile raf = new RandomAccessFile(file, "rw");
-        raf.setLength(0);
-        assertEquals(0, file.length());
-        long moreThanFourGig = ((long) Integer.MAX_VALUE) + 1L;
-        raf.setLength(moreThanFourGig);
-        assertEquals(moreThanFourGig, file.length());
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            raf.setLength(0);
+            assertEquals(0, file.length());
+            long moreThanFourGig = ((long) Integer.MAX_VALUE) + 1L;
+            raf.setLength(moreThanFourGig);
+            assertEquals(moreThanFourGig, file.length());
+        }
     }
 
     // http://b/3015023
     public void testRandomAccessFileHasCleanupFinalizer() throws Exception {
-        // TODO: this always succeeds on the host because our default open file limit is 32Ki.
-        // Add Libcore.os.getrlimit and use that instead of hard-coding.
-        int tooManyOpenFiles = 2000;
         File file = File.createTempFile("RandomAccessFileTest", "tmp");
-        for (int i = 0; i < tooManyOpenFiles; i++) {
-            createRandomAccessFile(file);
-            FinalizationTester.induceFinalization();
+        try (RandomAccessFile accessFile = new RandomAccessFile(file, "rw")) {
+            resourceLeakageDetectorRule.assertUnreleasedResourceCount(accessFile, 1);
         }
     }
 

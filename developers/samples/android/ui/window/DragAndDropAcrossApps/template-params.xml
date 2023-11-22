@@ -17,7 +17,7 @@
 
 <sample>
     <name>DragAndDropAcrossApps-new</name>
-    <group>ui</group> 
+    <group>ui</group>
     <package>com.example.android.droptarget</package>
 
     <minSdk>24</minSdk>
@@ -27,7 +27,7 @@
     <strings>
         <intro>
 <![CDATA[
-This sample demonstrates how data can be moved between views within an 
+This sample demonstrates how data can be moved between views within an
 app or between different apps via drag and drop.
 This sample contains two separate Android applications: DragSource and
 DropTarget. DragSource contains images and text that can be dropped into the DropTarget
@@ -41,8 +41,8 @@ handle drag and drop events.
     </strings>
 
     <metadata>
-        <status>DRAFT</status>
-        <categories>Android N Preview</categories>
+        <status>PUBLISHED</status>
+        <categories>UI</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>
@@ -75,15 +75,15 @@ handle drag and drop events.
         <intro>
 <![CDATA[
 Android N introduces support for drag and drop between applications,
-augmenting the existing APIs that have enabled this within a single 
+augmenting the existing APIs that have enabled this within a single
 window before.
 
-To start a drag operation you need to call `View.startDragAndDrop`. 
+To start a drag operation you need to call `View.startDragAndDrop`.
 Which gesture or action triggers this is up to you as an app developer.
-The API guide recommends doing this from 
+The API guide recommends doing this from
 `View.OnLongClickListener.onLongClick` and this seems to be the de-facto
-standard, but you are free to use other gestures (single tap, tap and drag 
-etc). 
+standard, but you are free to use other gestures (single tap, tap and drag
+etc).
 However, if you go for a unconventional drag start gesture, note that
 the framework implementation assumes that the pointer (touch or mouse)
 is down while the drag is starting, and the most recent touch/click
@@ -95,16 +95,16 @@ than a long click).
 
 By default a drag and drop operation is constrained by the window
 containing the view that started the drag.
-To enable cross-window and cross-app drag and drop add 
+To enable cross-window and cross-app drag and drop add
 `View.DRAG_FLAG_GLOBAL` to the flags passed to the `View.startDragAndDrop`
-call. 
+call.
 
-If a Uri requiring permission grants is being sent, then the 
-`android.view.View.DRAG_FLAG_GLOBAL_URI_READ` and/or the 
+If a Uri requiring permission grants is being sent, then the
+`android.view.View.DRAG_FLAG_GLOBAL_URI_READ` and/or the
 `android.view.View.DRAG_FLAG_GLOBAL_URI_WRITE` flags must be used also.
 To access content URIs requiring permissions on the receiving side, the target
 app needs to request the `android.view.DropPermissions` from the activity via
-`android.app.Activity.requestDropPermissions`. This permission will stay either 
+`android.app.Activity.requestDropPermissions`. This permission will stay either
 until the activity is alive, or until the `release()` method is called on the
 `android.view.DropPermissions` object.
 ]]>

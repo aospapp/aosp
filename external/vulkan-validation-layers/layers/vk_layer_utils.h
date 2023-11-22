@@ -2,24 +2,17 @@
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials
- * are furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included
- * in all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * Author: Mark Lobodzinski <mark@lunarg.com>
  * Author: Courtney Goeltzenleuchter <courtney@LunarG.com>
@@ -40,7 +33,7 @@
 extern "C" {
 #endif
 
-#define VK_LAYER_API_VERSION (VK_VERSION_MAJOR(1) | VK_VERSION_MINOR(0) | VK_VERSION_PATCH(VK_HEADER_VERSION))
+#define VK_LAYER_API_VERSION VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION)
 typedef enum VkFormatCompatibilityClass {
     VK_FORMAT_COMPATIBILITY_CLASS_NONE_BIT = 0,
     VK_FORMAT_COMPATIBILITY_CLASS_8_BIT = 1,
@@ -97,8 +90,8 @@ typedef enum VkStringErrorFlagBits {
 } VkStringErrorFlagBits;
 typedef VkFlags VkStringErrorFlags;
 
-void layer_debug_actions(debug_report_data* report_data, std::vector<VkDebugReportCallbackEXT> &logging_callback,
-    const VkAllocationCallbacks *pAllocator, const char* layer_identifier);
+VK_LAYER_EXPORT void layer_debug_actions(debug_report_data *report_data, std::vector<VkDebugReportCallbackEXT> &logging_callback,
+                                         const VkAllocationCallbacks *pAllocator, const char *layer_identifier);
 
 static inline bool vk_format_is_undef(VkFormat format) { return (format == VK_FORMAT_UNDEFINED); }
 
@@ -111,18 +104,20 @@ static inline bool vk_format_is_color(VkFormat format) {
     return !(vk_format_is_undef(format) || vk_format_is_depth_or_stencil(format));
 }
 
-bool vk_format_is_norm(VkFormat format);
-bool vk_format_is_int(VkFormat format);
-bool vk_format_is_sint(VkFormat format);
-bool vk_format_is_uint(VkFormat format);
-bool vk_format_is_float(VkFormat format);
-bool vk_format_is_srgb(VkFormat format);
-bool vk_format_is_compressed(VkFormat format);
-size_t vk_format_get_size(VkFormat format);
-unsigned int vk_format_get_channel_count(VkFormat format);
-VkFormatCompatibilityClass vk_format_get_compatibility_class(VkFormat format);
-VkDeviceSize vk_safe_modulo(VkDeviceSize dividend, VkDeviceSize divisor);
-VkStringErrorFlags vk_string_validate(const int max_length, const char *char_array);
+VK_LAYER_EXPORT bool vk_format_is_norm(VkFormat format);
+VK_LAYER_EXPORT bool vk_format_is_int(VkFormat format);
+VK_LAYER_EXPORT bool vk_format_is_sint(VkFormat format);
+VK_LAYER_EXPORT bool vk_format_is_uint(VkFormat format);
+VK_LAYER_EXPORT bool vk_format_is_float(VkFormat format);
+VK_LAYER_EXPORT bool vk_format_is_srgb(VkFormat format);
+VK_LAYER_EXPORT bool vk_format_is_compressed(VkFormat format);
+VK_LAYER_EXPORT VkExtent2D vk_format_compressed_block_size(VkFormat format);
+VK_LAYER_EXPORT size_t vk_format_get_size(VkFormat format);
+VK_LAYER_EXPORT unsigned int vk_format_get_channel_count(VkFormat format);
+VK_LAYER_EXPORT VkFormatCompatibilityClass vk_format_get_compatibility_class(VkFormat format);
+VK_LAYER_EXPORT VkDeviceSize vk_safe_modulo(VkDeviceSize dividend, VkDeviceSize divisor);
+VK_LAYER_EXPORT VkStringErrorFlags vk_string_validate(const int max_length, const char *char_array);
+VK_LAYER_EXPORT bool white_list(const char *item, const char *whitelist);
 
 static inline int u_ffs(int val) {
 #ifdef WIN32

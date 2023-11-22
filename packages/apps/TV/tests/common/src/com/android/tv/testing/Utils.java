@@ -21,12 +21,10 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
-import android.media.tv.TvContentRating;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
 import android.os.Looper;
-import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.tv.common.TvCommonUtils;
@@ -118,9 +116,7 @@ public final class Utils {
             Future<?> temp = MainThreadExecutor.getInstance().submit(runnable);
             try {
                 temp.get();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } catch (ExecutionException e) {
+            } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException(e);
             }
         }

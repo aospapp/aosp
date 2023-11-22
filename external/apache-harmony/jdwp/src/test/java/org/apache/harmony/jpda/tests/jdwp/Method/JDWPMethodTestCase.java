@@ -34,6 +34,7 @@ import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 
 public class JDWPMethodTestCase extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return MethodDebuggee.class.getName();
     }
@@ -77,6 +78,7 @@ public class JDWPMethodTestCase extends JDWPSyncTestCase {
         public String getSignature() {
             return signature;
         }
+        @Override
         public String toString() {
             return ""+methodID+" "+name+" "+signature+" "+modBits;
         }

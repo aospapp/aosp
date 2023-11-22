@@ -20,6 +20,8 @@
 #include <deque>
 #include <queue>
 #include <set>
+#include <stack>
+#include <unordered_map>
 #include <utility>
 
 #include "arena_allocator.h"
@@ -54,6 +56,12 @@ template <typename T>
 using ArenaVector = dchecked_vector<T, ArenaAllocatorAdapter<T>>;
 
 template <typename T, typename Comparator = std::less<T>>
+using ArenaPriorityQueue = std::priority_queue<T, ArenaVector<T>, Comparator>;
+
+template <typename T>
+using ArenaStdStack = std::stack<T, ArenaDeque<T>>;
+
+template <typename T, typename Comparator = std::less<T>>
 using ArenaSet = std::set<T, Comparator, ArenaAllocatorAdapter<T>>;
 
 template <typename K, typename V, typename Comparator = std::less<K>>
@@ -77,6 +85,16 @@ using ArenaHashMap = HashMap<Key,
                              HashFn,
                              Pred,
                              ArenaAllocatorAdapter<std::pair<Key, Value>>>;
+
+template <typename Key,
+          typename Value,
+          typename Hash = std::hash<Key>,
+          typename Pred = std::equal_to<Value>>
+using ArenaUnorderedMap = std::unordered_map<Key,
+                                             Value,
+                                             Hash,
+                                             Pred,
+                                             ArenaAllocatorAdapter<std::pair<const Key, Value>>>;
 
 // Implementation details below.
 
@@ -125,7 +143,7 @@ class ArenaAllocatorAdapter<void> : private ArenaAllocatorAdapterKind {
         arena_allocator_(arena_allocator) {
   }
   template <typename U>
-  ArenaAllocatorAdapter(const ArenaAllocatorAdapter<U>& other)
+  ArenaAllocatorAdapter(const ArenaAllocatorAdapter<U>& other)  // NOLINT, implicit
       : ArenaAllocatorAdapterKind(other),
         arena_allocator_(other.arena_allocator_) {
   }
@@ -161,7 +179,7 @@ class ArenaAllocatorAdapter : private ArenaAllocatorAdapterKind {
         arena_allocator_(arena_allocator) {
   }
   template <typename U>
-  ArenaAllocatorAdapter(const ArenaAllocatorAdapter<U>& other)
+  ArenaAllocatorAdapter(const ArenaAllocatorAdapter<U>& other)  // NOLINT, implicit
       : ArenaAllocatorAdapterKind(other),
         arena_allocator_(other.arena_allocator_) {
   }

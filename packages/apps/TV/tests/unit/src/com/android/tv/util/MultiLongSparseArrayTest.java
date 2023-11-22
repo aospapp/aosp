@@ -16,8 +16,8 @@
 
 package com.android.tv.util;
 
+import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import junit.framework.TestCase;
 

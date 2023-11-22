@@ -25,10 +25,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-import junit.framework.TestCase;
-
-public class FileOutputStreamTest extends TestCase {
+public class FileOutputStreamTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
 
     private FileOutputStream fos;
     private FileInputStream fis;
@@ -92,6 +96,7 @@ public class FileOutputStreamTest extends TestCase {
         f = File.createTempFile("FileOutputStreamTest", "tst");
         String fileName = f.getAbsolutePath();
         fos = new FileOutputStream(fileName);
+        fos.close();
 
         // Harmony 4012.
         fos = new FileOutputStream("/dev/null");
@@ -285,12 +290,13 @@ public class FileOutputStreamTest extends TestCase {
         // Regression for HARMONY-508
         File tmpfile = File.createTempFile("FileOutputStream", "tmp");
         tmpfile.deleteOnExit();
-        FileOutputStream fos = new FileOutputStream(tmpfile);
-        fos.write(bytes);
-        fos.flush();
-        fos.close();
-        FileOutputStream f = new FileOutputStream(tmpfile, true);
-        assertEquals(10, f.getChannel().position());
+        try (FileOutputStream fos = new FileOutputStream(tmpfile)) {
+            fos.write(bytes);
+            fos.flush();
+        }
+        try (FileOutputStream f = new FileOutputStream(tmpfile, true)) {
+            assertEquals(10, f.getChannel().position());
+        }
     }
 
     public void test_getChannel_Append() throws IOException {

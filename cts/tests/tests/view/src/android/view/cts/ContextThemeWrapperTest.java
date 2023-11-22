@@ -16,22 +16,35 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.content.res.TypedArray;
 import android.content.res.Resources.Theme;
-import android.test.AndroidTestCase;
+import android.content.res.TypedArray;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ContextThemeWrapper;
 
-import android.view.cts.R;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class ContextThemeWrapperTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ContextThemeWrapperTest {
     private static final int SYSTEM_DEFAULT_THEME = 0;
 
-    private static class MocContextThemeWrapper extends ContextThemeWrapper {
+    private Context mContext;
+
+    private static class MockContextThemeWrapper extends ContextThemeWrapper {
         public boolean isOnApplyThemeResourceCalled;
-        public MocContextThemeWrapper(Context base, int themeres) {
+        public MockContextThemeWrapper(Context base, int themeres) {
             super(base, themeres);
         }
 
@@ -42,42 +55,51 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
         }
     }
 
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testConstructor() {
         new ContextThemeWrapper();
 
-        new ContextThemeWrapper(getContext(), R.style.TextAppearance);
+        new ContextThemeWrapper(mContext, R.style.TextAppearance);
 
-        new ContextThemeWrapper(getContext(), getContext().getTheme());
+        new ContextThemeWrapper(mContext, mContext.getTheme());
     }
 
+    @Test
     public void testAccessTheme() {
-        Context context = getContext();
         ContextThemeWrapper contextThemeWrapper = new ContextThemeWrapper(
-                context, SYSTEM_DEFAULT_THEME);
+                mContext, SYSTEM_DEFAULT_THEME);
         // set Theme to TextAppearance
         contextThemeWrapper.setTheme(R.style.TextAppearance);
         TypedArray ta =
             contextThemeWrapper.getTheme().obtainStyledAttributes(R.styleable.TextAppearance);
 
         // assert theme style of TextAppearance
-        assertEqualsTextAppearanceStyle(ta);
+        verifyIdenticalTextAppearanceStyle(ta);
     }
 
+    @Test
     public void testGetSystemService() {
-        // new the ContextThemeWrapper instance
-        Context context = getContext();
-        int themeres = R.style.TextAppearance;
-        MocContextThemeWrapper contextThemeWrapper = new MocContextThemeWrapper(context, themeres);
+        // Note that we can't use Mockito since ContextThemeWrapper.onApplyThemeResource is
+        // protected
+        final MockContextThemeWrapper contextThemeWrapper =
+                new MockContextThemeWrapper(mContext, R.style.TextAppearance);
         contextThemeWrapper.getTheme();
         assertTrue(contextThemeWrapper.isOnApplyThemeResourceCalled);
+
         // All service get from contextThemeWrapper just the same as this context get,
         // except Context.LAYOUT_INFLATER_SERVICE.
-        assertEquals(context.getSystemService(Context.ACTIVITY_SERVICE),
+        assertEquals(mContext.getSystemService(Context.ACTIVITY_SERVICE),
                 contextThemeWrapper.getSystemService(Context.ACTIVITY_SERVICE));
-        assertNotSame(context.getSystemService(Context.LAYOUT_INFLATER_SERVICE),
+        assertNotSame(mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE),
                 contextThemeWrapper.getSystemService(Context.LAYOUT_INFLATER_SERVICE));
     }
 
+    @Test
     public void testAttachBaseContext() {
         assertTrue((new ContextThemeWrapper() {
             public boolean test() {
@@ -86,7 +108,7 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
                 // As ContextThemeWrapper is a context, we will attachBaseContext to
                 // two different ContextThemeWrapper instances.
                 try {
-                    attachBaseContext(new ContextThemeWrapper(getContext(),
+                    attachBaseContext(new ContextThemeWrapper(mContext,
                             R.style.TextAppearance));
                 } catch(IllegalStateException e) {
                     fail("test attachBaseContext fail");
@@ -103,13 +125,13 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
         }).test());
     }
 
+    @Test
     public void testApplyOverrideConfiguration() {
-        Context context = getContext();
-        final int realDensity = context.getResources().getConfiguration().densityDpi;
+        final int realDensity = mContext.getResources().getConfiguration().densityDpi;
         final int expectedDensity = realDensity + 1;
 
         ContextThemeWrapper contextThemeWrapper = new ContextThemeWrapper(
-                context, SYSTEM_DEFAULT_THEME);
+                mContext, SYSTEM_DEFAULT_THEME);
 
         Configuration overrideConfig = new Configuration();
         overrideConfig.densityDpi = expectedDensity;
@@ -119,11 +141,11 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
         assertEquals(expectedDensity, actualConfiguration.densityDpi);
     }
 
-    private void assertEqualsTextAppearanceStyle(TypedArray ta) {
+    private void verifyIdenticalTextAppearanceStyle(TypedArray ta) {
         final int defValue = -1;
         // get Theme and assert
-        Resources.Theme expected = getContext().getResources().newTheme();
-        expected.setTo(getContext().getTheme());
+        Resources.Theme expected = mContext.getResources().newTheme();
+        expected.setTo(mContext.getTheme());
         expected.applyStyle(R.style.TextAppearance, true);
         TypedArray expectedTa = expected.obtainStyledAttributes(R.styleable.TextAppearance);
         assertEquals(expectedTa.getIndexCount(), ta.getIndexCount());
@@ -136,7 +158,7 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
         assertEquals(expectedTa.getColor(R.styleable.TextAppearance_textColorHighlight, defValue),
                 ta.getColor(R.styleable.TextAppearance_textColorHighlight, defValue));
         assertEquals(expectedTa.getDimension(R.styleable.TextAppearance_textSize, defValue),
-                ta.getDimension(R.styleable.TextAppearance_textSize, defValue));
+                ta.getDimension(R.styleable.TextAppearance_textSize, defValue), 0.0f);
         assertEquals(expectedTa.getInt(R.styleable.TextAppearance_textStyle, defValue),
                 ta.getInt(R.styleable.TextAppearance_textStyle, defValue));
     }

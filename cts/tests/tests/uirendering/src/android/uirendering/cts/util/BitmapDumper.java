@@ -16,15 +16,14 @@
 package android.uirendering.cts.util;
 
 import android.graphics.Bitmap;
+import android.os.Environment;
+import android.support.test.InstrumentationRegistry;
 import android.uirendering.cts.differencevisualizers.DifferenceVisualizer;
 import android.util.Log;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import com.android.compatibility.common.util.BitmapUtils;
 
-import libcore.io.IoUtils;
+import java.io.File;
 
 /**
  * A utility class that will allow the user to save bitmaps to the sdcard on the device.
@@ -35,7 +34,8 @@ public final class BitmapDumper {
     private final static String TESTED_RENDERING_FILE_NAME = "testedCapture.png";
     private final static String VISUALIZER_RENDERING_FILE_NAME = "visualizer.png";
     private final static String SINGULAR_FILE_NAME = "capture.png";
-    private final static String CAPTURE_SUB_DIRECTORY = "/sdcard/UiRenderingCaptures/";
+    private final static String CAPTURE_SUB_DIRECTORY = Environment.getExternalStorageDirectory()
+            + "/UiRenderingCaptures/";
 
     private BitmapDumper() {}
 
@@ -99,38 +99,8 @@ public final class BitmapDumper {
         saveFile(className, testName, SINGULAR_FILE_NAME, bitmap);
     }
 
-    private static void logIfBitmapSolidColor(String bitmapName, Bitmap bitmap) {
-        int firstColor = bitmap.getPixel(0, 0);
-        for (int x = 0; x < bitmap.getWidth(); x++) {
-            for (int y = 0; y < bitmap.getHeight(); y++) {
-                if (bitmap.getPixel(x, y) != firstColor) {
-                    return;
-                }
-            }
-        }
-
-        Log.w(TAG, String.format("%s entire bitmap color is %x", bitmapName, firstColor));
-    }
-
     private static void saveFile(String className, String testName, String fileName, Bitmap bitmap) {
-        String bitmapName = testName + "_" + fileName;
-        Log.d(TAG, "Saving file : " + bitmapName + " in directory : " + className);
-        logIfBitmapSolidColor(bitmapName, bitmap);
-
-        File file = new File(CAPTURE_SUB_DIRECTORY + className, bitmapName);
-        FileOutputStream fileStream = null;
-        try {
-            fileStream = new FileOutputStream(file);
-            bitmap.compress(Bitmap.CompressFormat.PNG, 85, fileStream);
-            fileStream.flush();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (fileStream != null) {
-                IoUtils.closeQuietly(fileStream);
-            }
-        }
+        BitmapUtils.saveBitmap(bitmap, CAPTURE_SUB_DIRECTORY + className,
+                testName + "_" + fileName);
     }
 }

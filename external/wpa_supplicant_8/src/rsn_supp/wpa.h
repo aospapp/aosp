@@ -25,7 +25,7 @@ struct wpa_sm_ctx {
 
 	void (*set_state)(void *ctx, enum wpa_states state);
 	enum wpa_states (*get_state)(void *ctx);
-	void (*deauthenticate)(void * ctx, int reason_code); 
+	void (*deauthenticate)(void * ctx, int reason_code);
 	int (*set_key)(void *ctx, enum wpa_alg alg,
 		       const u8 *addr, int key_idx, int set_tx,
 		       const u8 *seq, size_t seq_len,
@@ -38,8 +38,10 @@ struct wpa_sm_ctx {
 	void (*cancel_auth_timeout)(void *ctx);
 	u8 * (*alloc_eapol)(void *ctx, u8 type, const void *data, u16 data_len,
 			    size_t *msg_len, void **data_pos);
-	int (*add_pmkid)(void *ctx, const u8 *bssid, const u8 *pmkid);
-	int (*remove_pmkid)(void *ctx, const u8 *bssid, const u8 *pmkid);
+	int (*add_pmkid)(void *ctx, void *network_ctx, const u8 *bssid,
+			 const u8 *pmkid);
+	int (*remove_pmkid)(void *ctx, void *network_ctx, const u8 *bssid,
+			    const u8 *pmkid);
 	void (*set_config_blob)(void *ctx, struct wpa_config_blob *blob);
 	const struct wpa_config_blob * (*get_config_blob)(void *ctx,
 							  const char *name);
@@ -77,6 +79,8 @@ struct wpa_sm_ctx {
 				  const u8 *kck, size_t kck_len,
 				  const u8 *replay_ctr);
 	int (*key_mgmt_set_pmk)(void *ctx, const u8 *pmk, size_t pmk_len);
+	void (*fils_hlp_rx)(void *ctx, const u8 *dst, const u8 *src,
+			    const u8 *pkt, size_t pkt_len);
 };
 
 
@@ -147,6 +151,10 @@ int wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr,
 		    const u8 *buf, size_t len);
 int wpa_sm_parse_own_wpa_ie(struct wpa_sm *sm, struct wpa_ie_data *data);
 int wpa_sm_pmksa_cache_list(struct wpa_sm *sm, char *buf, size_t len);
+struct rsn_pmksa_cache_entry * wpa_sm_pmksa_cache_head(struct wpa_sm *sm);
+struct rsn_pmksa_cache_entry *
+wpa_sm_pmksa_cache_add_entry(struct wpa_sm *sm,
+			     struct rsn_pmksa_cache_entry * entry);
 void wpa_sm_drop_sa(struct wpa_sm *sm);
 int wpa_sm_has_ptk(struct wpa_sm *sm);
 
@@ -418,8 +426,22 @@ int wpa_tdls_enable_chan_switch(struct wpa_sm *sm, const u8 *addr,
 				u8 oper_class,
 				struct hostapd_freq_params *freq_params);
 int wpa_tdls_disable_chan_switch(struct wpa_sm *sm, const u8 *addr);
+#ifdef CONFIG_TDLS_TESTING
+extern unsigned int tdls_testing;
+#endif /* CONFIG_TDLS_TESTING */
+
 
 int wpa_wnmsleep_install_key(struct wpa_sm *sm, u8 subelem_id, u8 *buf);
 void wpa_sm_set_test_assoc_ie(struct wpa_sm *sm, struct wpabuf *buf);
+
+struct wpabuf * fils_build_auth(struct wpa_sm *sm);
+int fils_process_auth(struct wpa_sm *sm, const u8 *data, size_t len);
+struct wpabuf * fils_build_assoc_req(struct wpa_sm *sm, const u8 **kek,
+				     size_t *kek_len, const u8 **snonce,
+				     const u8 **anonce,
+				     const struct wpabuf **hlp,
+				     unsigned int num_hlp);
+int fils_process_assoc_resp(struct wpa_sm *sm, const u8 *resp, size_t len);
+int wpa_fils_is_completed(struct wpa_sm *sm);
 
 #endif /* WPA_H */

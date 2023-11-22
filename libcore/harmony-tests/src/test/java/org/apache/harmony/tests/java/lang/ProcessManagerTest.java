@@ -20,7 +20,7 @@ import junit.framework.TestCase;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -174,7 +174,7 @@ public class ProcessManagerTest extends TestCase {
         rt = null;
     }
 
-    InputStream in;
+    FileOutputStream out;
 
     public void testCloseNonStandardFds()
             throws IOException, InterruptedException {
@@ -183,8 +183,9 @@ public class ProcessManagerTest extends TestCase {
         Process process = Runtime.getRuntime().exec(commands, null, null);
         int before = countLines(process);
 
+        File tmpFile = File.createTempFile("testCloseNonStandardFds", ".txt");
         // Open a new fd.
-        this.in = new FileInputStream("/proc/version");
+        this.out = new FileOutputStream(tmpFile);
 
         try {
             process = Runtime.getRuntime().exec(commands, null, null);
@@ -193,7 +194,8 @@ public class ProcessManagerTest extends TestCase {
             // Assert that the new fd wasn't open in the second run.
             assertEquals(before, after);
         } finally {
-            this.in = null;
+            this.out.close();
+            tmpFile.delete();
         }
     }
 

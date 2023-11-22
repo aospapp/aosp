@@ -16,12 +16,17 @@
 
 package com.android.bluetooth.a2dp;
 
+import android.bluetooth.BluetoothA2dp;
+import android.bluetooth.BluetoothCodecConfig;
+import android.bluetooth.BluetoothCodecStatus;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothA2dp;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.provider.Settings;
 import android.util.Log;
@@ -29,9 +34,8 @@ import com.android.bluetooth.avrcp.Avrcp;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.Utils;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
 /**
  * Provides Bluetooth A2DP profile, as a service in the Bluetooth application.
@@ -43,6 +47,46 @@ public class A2dpService extends ProfileService {
 
     private A2dpStateMachine mStateMachine;
     private Avrcp mAvrcp;
+
+    private BroadcastReceiver mConnectionStateChangedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED.equals(intent.getAction())) {
+                return;
+            }
+            int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
+            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            if (state != BluetoothProfile.STATE_CONNECTED || device == null) {
+                return;
+            }
+            // Each time a device connects, we want to re-check if it supports optional
+            // codecs (perhaps it's had a firmware update, etc.) and save that state if
+            // it differs from what we had saved before.
+            int previousSupport = getSupportsOptionalCodecs(device);
+            boolean supportsOptional = false;
+            for (BluetoothCodecConfig config :
+                    mStateMachine.getCodecStatus().getCodecsSelectableCapabilities()) {
+                if (!config.isMandatoryCodec()) {
+                    supportsOptional = true;
+                    break;
+                }
+            }
+            if (previousSupport == BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN
+                    || supportsOptional
+                            != (previousSupport == BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED)) {
+                setSupportsOptionalCodecs(device, supportsOptional);
+            }
+            if (supportsOptional) {
+                int enabled = getOptionalCodecsEnabled(device);
+                if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED) {
+                    enableOptionalCodecs();
+                } else if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED) {
+                    disableOptionalCodecs();
+                }
+            }
+        }
+    };
+
     private static A2dpService sAd2dpService;
     static final ParcelUuid[] A2DP_SOURCE_UUID = {
         BluetoothUuid.AudioSource
@@ -64,6 +108,9 @@ public class A2dpService extends ProfileService {
         mAvrcp = Avrcp.make(this);
         mStateMachine = A2dpStateMachine.make(this, this);
         setA2dpService(this);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        registerReceiver(mConnectionStateChangedReceiver, filter);
         return true;
     }
 
@@ -78,6 +125,7 @@ public class A2dpService extends ProfileService {
     }
 
     protected boolean cleanup() {
+        unregisterReceiver(mConnectionStateChangedReceiver);
         if (mStateMachine!= null) {
             mStateMachine.cleanup();
         }
@@ -172,7 +220,7 @@ public class A2dpService extends ProfileService {
         return mStateMachine.getDevicesMatchingConnectionStates(states);
     }
 
-    int getConnectionState(BluetoothDevice device) {
+    public int getConnectionState(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mStateMachine.getConnectionState(device);
     }
@@ -224,6 +272,67 @@ public class A2dpService extends ProfileService {
                                        "Need BLUETOOTH permission");
         if (DBG) Log.d(TAG, "isA2dpPlaying(" + device + ")");
         return mStateMachine.isPlaying(device);
+    }
+
+    public BluetoothCodecStatus getCodecStatus() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) Log.d(TAG, "getCodecStatus()");
+        return mStateMachine.getCodecStatus();
+    }
+
+    public void setCodecConfigPreference(BluetoothCodecConfig codecConfig) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) Log.d(TAG, "setCodecConfigPreference(): " + Objects.toString(codecConfig));
+        mStateMachine.setCodecConfigPreference(codecConfig);
+    }
+
+    public void enableOptionalCodecs() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) Log.d(TAG, "enableOptionalCodecs()");
+        mStateMachine.enableOptionalCodecs();
+    }
+
+    public void disableOptionalCodecs() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (DBG) Log.d(TAG, "disableOptionalCodecs()");
+        mStateMachine.disableOptionalCodecs();
+    }
+
+    public int getSupportsOptionalCodecs(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        int support = Settings.Global.getInt(getContentResolver(),
+                Settings.Global.getBluetoothA2dpSupportsOptionalCodecsKey(device.getAddress()),
+                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN);
+        return support;
+    }
+
+    public void setSupportsOptionalCodecs(BluetoothDevice device, boolean doesSupport) {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        int value = doesSupport ? BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED
+                                : BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED;
+        Settings.Global.putInt(getContentResolver(),
+                Settings.Global.getBluetoothA2dpSupportsOptionalCodecsKey(device.getAddress()),
+                value);
+    }
+
+    public int getOptionalCodecsEnabled(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        return Settings.Global.getInt(getContentResolver(),
+                Settings.Global.getBluetoothA2dpOptionalCodecsEnabledKey(device.getAddress()),
+                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN);
+    }
+
+    public void setOptionalCodecsEnabled(BluetoothDevice device, int value) {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (value != BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN
+                && value != BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED
+                && value != BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED) {
+            Log.w(TAG, "Unexpected value passed to setOptionalCodecsEnabled:" + value);
+            return;
+        }
+        Settings.Global.putInt(getContentResolver(),
+                Settings.Global.getBluetoothA2dpOptionalCodecsEnabledKey(device.getAddress()),
+                value);
     }
 
     //Binder object: Must be static class or memory leak may occur 
@@ -316,6 +425,48 @@ public class A2dpService extends ProfileService {
             A2dpService service = getService();
             if (service == null) return false;
             return service.isA2dpPlaying(device);
+        }
+
+        public BluetoothCodecStatus getCodecStatus() {
+            A2dpService service = getService();
+            if (service == null) return null;
+            return service.getCodecStatus();
+        }
+
+        public void setCodecConfigPreference(BluetoothCodecConfig codecConfig) {
+            A2dpService service = getService();
+            if (service == null) return;
+            service.setCodecConfigPreference(codecConfig);
+        }
+
+        public void enableOptionalCodecs() {
+            A2dpService service = getService();
+            if (service == null) return;
+            service.enableOptionalCodecs();
+        }
+
+        public void disableOptionalCodecs() {
+            A2dpService service = getService();
+            if (service == null) return;
+            service.disableOptionalCodecs();
+        }
+
+        public int supportsOptionalCodecs(BluetoothDevice device) {
+            A2dpService service = getService();
+            if (service == null) return BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN;
+            return service.getSupportsOptionalCodecs(device);
+        }
+
+        public int getOptionalCodecsEnabled(BluetoothDevice device) {
+            A2dpService service = getService();
+            if (service == null) return BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN;
+            return service.getOptionalCodecsEnabled(device);
+        }
+
+        public void setOptionalCodecsEnabled(BluetoothDevice device, int value) {
+            A2dpService service = getService();
+            if (service == null) return;
+            service.setOptionalCodecsEnabled(device, value);
         }
     };
 

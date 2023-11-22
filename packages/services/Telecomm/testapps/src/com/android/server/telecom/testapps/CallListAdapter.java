@@ -103,7 +103,8 @@ public class CallListAdapter extends BaseAdapter {
 
         state.setText(getStateString(call));
 
-        Log.i(TAG, "Call found: " + handle.getSchemeSpecificPart() + ", " + durationMs);
+        Log.i(TAG, "Call found: " + ((handle == null) ? "null" : handle.getSchemeSpecificPart())
+                + ", " + durationMs);
 
         return convertView;
     }

@@ -46,18 +46,19 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Noodberig"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Seluitsending"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Noodberig-instellings"</string>
-    <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Skakel berigte aan"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Uitsaaiboodskappe"</string>
+    <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Skakel waarskuwings aan"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Wys noodberig-uitsendings"</string>
-    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Opletberigonthounota"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Sê berigboodskap hardop"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Waarskuwingonthounota"</string>
+    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Sê waarskuwingboodskap hardop"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Gebruik teks-na-spraak om \'n noodberigboodskap hardop te sê"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"ETWS-instellings"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Wys ETWS-toetsuitsendings"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Wys toetsuitsendings vir aardbewing-tsoenami-waarskuwingstelsel"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Wys uiterste bedreigings"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Wys berigte vir uiterste bedreigings vir lewe en eiendom"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Wys waarskuwings vir uiterste bedreigings vir lewe en eiendom"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Wys ernstige bedreigings"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Wys berigte vir ernstige bedreigings vir lewe en eiendom"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Wys waarskuwings vir ernstige bedreigings vir lewe en eiendom"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Wys AMBER-berigte"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Toon kinderontvoerings se noodbulletins (AMBER-berig)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"Wys CMAS-toetsuitsendings"</string>

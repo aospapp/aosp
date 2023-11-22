@@ -17,44 +17,61 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.app.Activity;
-import android.app.Application;
+import android.app.LoaderManager;
+import android.app.usage.UsageStatsManager;
+import android.content.Context;
+import android.content.Loader;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.os.storage.VolumeInfo;
 import android.util.ArraySet;
 import android.util.Log;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
-import com.android.settingslib.applications.ApplicationsState;
-
-import java.util.ArrayList;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settingslib.applications.PackageManagerWrapperImpl;
+import com.android.settingslib.applications.StorageStatsSource;
+import com.android.storagemanager.deletionhelper.AppsAsyncLoader.AppFilter;
+import com.android.storagemanager.deletionhelper.AppsAsyncLoader.PackageInfo;
 import java.util.HashSet;
 import java.util.List;
 
 /**
- * AppDeletionType provides a list of apps which have not been used for a while on the system.
- * It also provides the functionality to clear out these apps.
+ * AppDeletionType provides a list of apps which have not been used for a while on the system. It
+ * also provides the functionality to clear out these apps.
  */
-public class AppDeletionType implements DeletionType, ApplicationsState.Callbacks,
-        AppStateBaseBridge.Callback {
+public class AppDeletionType
+        implements LoaderManager.LoaderCallbacks<List<PackageInfo>>, DeletionType {
     public static final String EXTRA_CHECKED_SET = "checkedSet";
     private static final String TAG = "AppDeletionType";
+    private static final int LOADER_ID = 25;
+    public static final String THRESHOLD_TYPE_KEY = "threshold_type";
+    public static final int BUNDLE_CAPACITY = 1;
 
     private FreeableChangedListener mListener;
     private AppListener mAppListener;
-    private List<ApplicationsState.AppEntry> mAppEntries;
-    private ApplicationsState mState;
-    private ApplicationsState.Session mSession;
     private HashSet<String> mCheckedApplications;
-    private AppStateUsageStatsBridge mDataUsageBridge;
+    private Context mContext;
+    private int mThresholdType;
+    private List<PackageInfo> mApps;
+    private int mLoadingStatus;
 
-    public AppDeletionType(Application app, HashSet<String> checkedApplications) {
-        mState = ApplicationsState.getInstance(app);
-        mSession = mState.newSession(this);
+    public AppDeletionType(
+            DeletionHelperSettings fragment,
+            HashSet<String> checkedApplications,
+            int thresholdType) {
+        mLoadingStatus = LoadingStatus.LOADING;
+        mThresholdType = thresholdType;
+        mContext = fragment.getContext();
         if (checkedApplications != null) {
             mCheckedApplications = checkedApplications;
         } else {
             mCheckedApplications = new HashSet<>();
         }
-        mDataUsageBridge = new AppStateUsageStatsBridge(app.getApplicationContext(), mState, this);
+        Bundle bundle = new Bundle(BUNDLE_CAPACITY);
+        bundle.putInt(THRESHOLD_TYPE_KEY, mThresholdType);
+        // NOTE: This is not responsive to package changes. Bug filed for seeing if feature is
+        // necessary b/35065979
+        fragment.getLoaderManager().initLoader(LOADER_ID, bundle, this);
     }
 
     @Override
@@ -64,14 +81,12 @@ public class AppDeletionType implements DeletionType, ApplicationsState.Callback
 
     @Override
     public void onResume() {
-        mSession.resume();
-        mDataUsageBridge.resume();
+
     }
 
     @Override
     public void onPause() {
-        mSession.pause();
-        mDataUsageBridge.pause();
+
     }
 
     @Override
@@ -81,12 +96,13 @@ public class AppDeletionType implements DeletionType, ApplicationsState.Callback
 
     @Override
     public void clearFreeableData(Activity activity) {
+        if (mApps == null) {
+            return;
+        }
+
         ArraySet<String> apps = new ArraySet<>();
-        for (ApplicationsState.AppEntry entry : mAppEntries) {
-            final String packageName;
-            synchronized (entry) {
-                packageName = entry.info.packageName;
-            }
+        for (PackageInfo app : mApps) {
+            final String packageName = app.packageName;
             if (mCheckedApplications.contains(packageName)) {
                 apps.add(packageName);
             }
@@ -107,61 +123,6 @@ public class AppDeletionType implements DeletionType, ApplicationsState.Callback
                 });
 
         task.run();
-    }
-
-    @Override
-    public void onRunningStateChanged(boolean running) {
-
-    }
-
-    @Override
-    public void onPackageListChanged() {
-    }
-
-    @Override
-    public void onRebuildComplete(ArrayList<ApplicationsState.AppEntry> apps) {
-        if (apps == null) {
-            return;
-        }
-        mAppEntries = apps;
-        for (ApplicationsState.AppEntry app : mAppEntries) {
-            synchronized (app) {
-                mState.ensureIcon(app);
-            }
-        }
-        if (mAppListener != null) {
-            mAppListener.onAppRebuild(mAppEntries);
-        }
-        maybeNotifyListener();
-    }
-
-    @Override
-    public void onPackageIconChanged() {
-    }
-
-    @Override
-    public void onPackageSizeChanged(String packageName) {
-        rebuild();
-    }
-
-    @Override
-    public void onAllSizesComputed() {
-        rebuild();
-    }
-
-    @Override
-    public void onLauncherInfoChanged() {
-
-    }
-
-    @Override
-    public void onLoadEntriesCompleted() {
-        rebuild();
-    }
-
-    @Override
-    public void onExtraInfoUpdated() {
-        rebuild();
     }
 
     /**
@@ -191,33 +152,19 @@ public class AppDeletionType implements DeletionType, ApplicationsState.Callback
      */
     public long getTotalAppsFreeableSpace(boolean countUnchecked) {
         long freeableSpace = 0;
-        if (mAppEntries != null) {
-            for (int i = 0; i < mAppEntries.size(); i++) {
-                final ApplicationsState.AppEntry entry = mAppEntries.get(i);
-                long entrySize = entry.size;
-                final String packageName;
-                synchronized (entry) {
-                    packageName = entry.info.packageName;
-                }
-                // If the entrySize is negative, it is either an unknown size or an error occurred.
-                if ((countUnchecked ||
-                        mCheckedApplications.contains(packageName)) && entrySize > 0) {
-                    freeableSpace += entrySize;
+        if (mApps != null) {
+            for (int i = 0, size = mApps.size(); i < size; i++) {
+                final PackageInfo app = mApps.get(i);
+                long appSize = app.size;
+                final String packageName = app.packageName;
+                // If the appSize is negative, it is either an unknown size or an error occurred.
+                if ((countUnchecked || mCheckedApplications.contains(packageName)) && appSize > 0) {
+                    freeableSpace += appSize;
                 }
             }
         }
 
         return freeableSpace;
-    }
-
-    /**
-     * Returns a number of eligible, clearable apps.
-     */
-    public int getEligibleApps() {
-        if (mAppEntries == null) {
-            return 0;
-        }
-        return mAppEntries.size();
     }
 
     /**
@@ -228,16 +175,76 @@ public class AppDeletionType implements DeletionType, ApplicationsState.Callback
         return mCheckedApplications.contains(packageName);
     }
 
-    private void rebuild() {
-        mSession.rebuild(AppStateUsageStatsBridge.FILTER_USAGE_STATS,
-                ApplicationsState.SIZE_COMPARATOR);
+    private AppFilter getFilter(int mThresholdType) {
+        switch (mThresholdType) {
+            case AppsAsyncLoader.NO_THRESHOLD:
+                return AppsAsyncLoader.FILTER_NO_THRESHOLD;
+            case AppsAsyncLoader.NORMAL_THRESHOLD:
+            default:
+                return AppsAsyncLoader.FILTER_USAGE_STATS;
+        }
     }
 
     private void maybeNotifyListener() {
         if (mListener != null) {
-            mListener.onFreeableChanged(mAppEntries.size(), getTotalAppsFreeableSpace(true));
+            mListener.onFreeableChanged(
+                    mApps.size(),
+                    getTotalAppsFreeableSpace(DeletionHelperSettings.COUNT_CHECKED_ONLY));
         }
     }
+
+    public long getDeletionThreshold() {
+        switch (mThresholdType) {
+            case AppsAsyncLoader.NO_THRESHOLD:
+                // The threshold is actually Long.MIN_VALUE but we don't want to display that to
+                // the user.
+                return 0;
+            case AppsAsyncLoader.NORMAL_THRESHOLD:
+            default:
+                return AppsAsyncLoader.UNUSED_DAYS_DELETION_THRESHOLD;
+        }
+    }
+
+    @Override
+    public int getLoadingStatus() {
+        return mLoadingStatus;
+    }
+
+    @Override
+    public int getContentCount() {
+        return mApps.size();
+    }
+
+    @Override
+    public void setLoadingStatus(@LoadingStatus int loadingStatus) {
+        mLoadingStatus = loadingStatus;
+    }
+
+    @Override
+    public Loader<List<PackageInfo>> onCreateLoader(int id, Bundle args) {
+        return new AppsAsyncLoader.Builder(mContext)
+                .setUid(UserHandle.myUserId())
+                .setUuid(VolumeInfo.ID_PRIVATE_INTERNAL)
+                .setStorageStatsSource(new StorageStatsSource(mContext))
+                .setPackageManager(new PackageManagerWrapperImpl(mContext.getPackageManager()))
+                .setUsageStatsManager(
+                        (UsageStatsManager) mContext.getSystemService(Context.USAGE_STATS_SERVICE))
+                .setFilter(
+                        getFilter(
+                                args.getInt(THRESHOLD_TYPE_KEY, AppsAsyncLoader.NORMAL_THRESHOLD)))
+                .build();
+    }
+
+    @Override
+    public void onLoadFinished(Loader<List<PackageInfo>> loader, List<PackageInfo> data) {
+        mApps = data;
+        updateLoadingStatus();
+        maybeNotifyListener();
+        mAppListener.onAppRebuild(mApps);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<List<PackageInfo>> loader) {}
 
     /**
      * An interface for listening for when the app list has been rebuilt.
@@ -245,8 +252,9 @@ public class AppDeletionType implements DeletionType, ApplicationsState.Callback
     public interface AppListener {
         /**
          * Callback to be called once the app list is rebuilt.
+         *
          * @param apps A list of eligible, clearable AppEntries.
          */
-        void onAppRebuild(List<ApplicationsState.AppEntry> apps);
+        void onAppRebuild(List<PackageInfo> apps);
     }
 }

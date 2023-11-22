@@ -47,6 +47,7 @@ interface IComplexTypeInterface {
   int[] Send(in @nullable int[] goes_in, inout double[] goes_in_and_out, out boolean[] goes_out);
   oneway void Piff(int times);
   IFooType TakesABinder(IFooType f);
+  @nullable IFooType NullableBinder();
   List<String> StringListMethod(in java.util.List<String> input, out List<String> output);
   List<IBinder> BinderListMethod(in java.util.List<IBinder> input, out List<IBinder> output);
   FileDescriptor TakesAFileDescriptor(in FileDescriptor f);
@@ -73,17 +74,19 @@ virtual ~BpComplexTypeInterface() = default;
 ::android::binder::Status Send(const ::std::unique_ptr<::std::vector<int32_t>>& goes_in, ::std::vector<double>* goes_in_and_out, ::std::vector<bool>* goes_out, ::std::vector<int32_t>* _aidl_return) override;
 ::android::binder::Status Piff(int32_t times) override;
 ::android::binder::Status TakesABinder(const ::android::sp<::foo::IFooType>& f, ::android::sp<::foo::IFooType>* _aidl_return) override;
+::android::binder::Status NullableBinder(::android::sp<::foo::IFooType>* _aidl_return) override;
 ::android::binder::Status StringListMethod(const ::std::vector<::android::String16>& input, ::std::vector<::android::String16>* output, ::std::vector<::android::String16>* _aidl_return) override;
 ::android::binder::Status BinderListMethod(const ::std::vector<::android::sp<::android::IBinder>>& input, ::std::vector<::android::sp<::android::IBinder>>* output, ::std::vector<::android::sp<::android::IBinder>>* _aidl_return) override;
-::android::binder::Status TakesAFileDescriptor(const ::ScopedFd& f, ::ScopedFd* _aidl_return) override;
-::android::binder::Status TakesAFileDescriptorArray(const ::std::vector<::ScopedFd>& f, ::std::vector<::ScopedFd>* _aidl_return) override;
+::android::binder::Status TakesAFileDescriptor(const ::android::base::unique_fd& f, ::android::base::unique_fd* _aidl_return) override;
+::android::binder::Status TakesAFileDescriptorArray(const ::std::vector<::android::base::unique_fd>& f, ::std::vector<::android::base::unique_fd>* _aidl_return) override;
 };  // class BpComplexTypeInterface
 
 }  // namespace os
 
 }  // namespace android
 
-#endif  // AIDL_GENERATED_ANDROID_OS_BP_COMPLEX_TYPE_INTERFACE_H_)";
+#endif  // AIDL_GENERATED_ANDROID_OS_BP_COMPLEX_TYPE_INTERFACE_H_
+)";
 
 const char kExpectedComplexTypeClientSourceOutput[] =
 R"(#include <android/os/BpComplexTypeInterface.h>
@@ -111,6 +114,10 @@ if (((_aidl_ret_status) != (::android::OK))) {
 goto _aidl_error;
 }
 _aidl_ret_status = _aidl_data.writeDoubleVector(*goes_in_and_out);
+if (((_aidl_ret_status) != (::android::OK))) {
+goto _aidl_error;
+}
+_aidl_ret_status = _aidl_data.writeVectorSize(*goes_out);
 if (((_aidl_ret_status) != (::android::OK))) {
 goto _aidl_error;
 }
@@ -197,6 +204,35 @@ _aidl_status.setFromStatusT(_aidl_ret_status);
 return _aidl_status;
 }
 
+::android::binder::Status BpComplexTypeInterface::NullableBinder(::android::sp<::foo::IFooType>* _aidl_return) {
+::android::Parcel _aidl_data;
+::android::Parcel _aidl_reply;
+::android::status_t _aidl_ret_status = ::android::OK;
+::android::binder::Status _aidl_status;
+_aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
+if (((_aidl_ret_status) != (::android::OK))) {
+goto _aidl_error;
+}
+_aidl_ret_status = remote()->transact(IComplexTypeInterface::NULLABLEBINDER, _aidl_data, &_aidl_reply);
+if (((_aidl_ret_status) != (::android::OK))) {
+goto _aidl_error;
+}
+_aidl_ret_status = _aidl_status.readFromParcel(_aidl_reply);
+if (((_aidl_ret_status) != (::android::OK))) {
+goto _aidl_error;
+}
+if (!_aidl_status.isOk()) {
+return _aidl_status;
+}
+_aidl_ret_status = _aidl_reply.readNullableStrongBinder(_aidl_return);
+if (((_aidl_ret_status) != (::android::OK))) {
+goto _aidl_error;
+}
+_aidl_error:
+_aidl_status.setFromStatusT(_aidl_ret_status);
+return _aidl_status;
+}
+
 ::android::binder::Status BpComplexTypeInterface::StringListMethod(const ::std::vector<::android::String16>& input, ::std::vector<::android::String16>* output, ::std::vector<::android::String16>* _aidl_return) {
 ::android::Parcel _aidl_data;
 ::android::Parcel _aidl_reply;
@@ -271,7 +307,7 @@ _aidl_status.setFromStatusT(_aidl_ret_status);
 return _aidl_status;
 }
 
-::android::binder::Status BpComplexTypeInterface::TakesAFileDescriptor(const ::ScopedFd& f, ::ScopedFd* _aidl_return) {
+::android::binder::Status BpComplexTypeInterface::TakesAFileDescriptor(const ::android::base::unique_fd& f, ::android::base::unique_fd* _aidl_return) {
 ::android::Parcel _aidl_data;
 ::android::Parcel _aidl_reply;
 ::android::status_t _aidl_ret_status = ::android::OK;
@@ -304,7 +340,7 @@ _aidl_status.setFromStatusT(_aidl_ret_status);
 return _aidl_status;
 }
 
-::android::binder::Status BpComplexTypeInterface::TakesAFileDescriptorArray(const ::std::vector<::ScopedFd>& f, ::std::vector<::ScopedFd>* _aidl_return) {
+::android::binder::Status BpComplexTypeInterface::TakesAFileDescriptorArray(const ::std::vector<::android::base::unique_fd>& f, ::std::vector<::android::base::unique_fd>* _aidl_return) {
 ::android::Parcel _aidl_data;
 ::android::Parcel _aidl_reply;
 ::android::status_t _aidl_ret_status = ::android::OK;
@@ -362,7 +398,8 @@ public:
 
 }  // namespace android
 
-#endif  // AIDL_GENERATED_ANDROID_OS_BN_COMPLEX_TYPE_INTERFACE_H_)";
+#endif  // AIDL_GENERATED_ANDROID_OS_BN_COMPLEX_TYPE_INTERFACE_H_
+)";
 
 const char kExpectedComplexTypeServerSourceOutput[] =
 R"(#include <android/os/BnComplexTypeInterface.h>
@@ -390,6 +427,10 @@ if (((_aidl_ret_status) != (::android::OK))) {
 break;
 }
 _aidl_ret_status = _aidl_data.readDoubleVector(&in_goes_in_and_out);
+if (((_aidl_ret_status) != (::android::OK))) {
+break;
+}
+_aidl_ret_status = _aidl_data.resizeOutVector(&out_goes_out);
 if (((_aidl_ret_status) != (::android::OK))) {
 break;
 }
@@ -442,6 +483,27 @@ if (((_aidl_ret_status) != (::android::OK))) {
 break;
 }
 ::android::binder::Status _aidl_status(TakesABinder(in_f, &_aidl_return));
+_aidl_ret_status = _aidl_status.writeToParcel(_aidl_reply);
+if (((_aidl_ret_status) != (::android::OK))) {
+break;
+}
+if (!_aidl_status.isOk()) {
+break;
+}
+_aidl_ret_status = _aidl_reply->writeStrongBinder(::foo::IFooType::asBinder(_aidl_return));
+if (((_aidl_ret_status) != (::android::OK))) {
+break;
+}
+}
+break;
+case Call::NULLABLEBINDER:
+{
+::android::sp<::foo::IFooType> _aidl_return;
+if (!(_aidl_data.checkInterface(this))) {
+_aidl_ret_status = ::android::BAD_TYPE;
+break;
+}
+::android::binder::Status _aidl_status(NullableBinder(&_aidl_return));
 _aidl_ret_status = _aidl_status.writeToParcel(_aidl_reply);
 if (((_aidl_ret_status) != (::android::OK))) {
 break;
@@ -519,8 +581,8 @@ break;
 break;
 case Call::TAKESAFILEDESCRIPTOR:
 {
-::ScopedFd in_f;
-::ScopedFd _aidl_return;
+::android::base::unique_fd in_f;
+::android::base::unique_fd _aidl_return;
 if (!(_aidl_data.checkInterface(this))) {
 _aidl_ret_status = ::android::BAD_TYPE;
 break;
@@ -545,8 +607,8 @@ break;
 break;
 case Call::TAKESAFILEDESCRIPTORARRAY:
 {
-::std::vector<::ScopedFd> in_f;
-::std::vector<::ScopedFd> _aidl_return;
+::std::vector<::android::base::unique_fd> in_f;
+::std::vector<::android::base::unique_fd> _aidl_return;
 if (!(_aidl_data.checkInterface(this))) {
 _aidl_ret_status = ::android::BAD_TYPE;
 break;
@@ -590,12 +652,13 @@ const char kExpectedComplexTypeInterfaceHeaderOutput[] =
 R"(#ifndef AIDL_GENERATED_ANDROID_OS_I_COMPLEX_TYPE_INTERFACE_H_
 #define AIDL_GENERATED_ANDROID_OS_I_COMPLEX_TYPE_INTERFACE_H_
 
+#include <android-base/unique_fd.h>
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
 #include <binder/Status.h>
 #include <cstdint>
 #include <foo/IFooType.h>
-#include <nativehelper/ScopedFd.h>
+#include <memory>
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 #include <vector>
@@ -606,25 +669,27 @@ namespace os {
 
 class IComplexTypeInterface : public ::android::IInterface {
 public:
-DECLARE_META_INTERFACE(ComplexTypeInterface);
+DECLARE_META_INTERFACE(ComplexTypeInterface)
 enum  : int32_t {
   MY_CONSTANT = 3,
 };
 virtual ::android::binder::Status Send(const ::std::unique_ptr<::std::vector<int32_t>>& goes_in, ::std::vector<double>* goes_in_and_out, ::std::vector<bool>* goes_out, ::std::vector<int32_t>* _aidl_return) = 0;
 virtual ::android::binder::Status Piff(int32_t times) = 0;
 virtual ::android::binder::Status TakesABinder(const ::android::sp<::foo::IFooType>& f, ::android::sp<::foo::IFooType>* _aidl_return) = 0;
+virtual ::android::binder::Status NullableBinder(::android::sp<::foo::IFooType>* _aidl_return) = 0;
 virtual ::android::binder::Status StringListMethod(const ::std::vector<::android::String16>& input, ::std::vector<::android::String16>* output, ::std::vector<::android::String16>* _aidl_return) = 0;
 virtual ::android::binder::Status BinderListMethod(const ::std::vector<::android::sp<::android::IBinder>>& input, ::std::vector<::android::sp<::android::IBinder>>* output, ::std::vector<::android::sp<::android::IBinder>>* _aidl_return) = 0;
-virtual ::android::binder::Status TakesAFileDescriptor(const ::ScopedFd& f, ::ScopedFd* _aidl_return) = 0;
-virtual ::android::binder::Status TakesAFileDescriptorArray(const ::std::vector<::ScopedFd>& f, ::std::vector<::ScopedFd>* _aidl_return) = 0;
+virtual ::android::binder::Status TakesAFileDescriptor(const ::android::base::unique_fd& f, ::android::base::unique_fd* _aidl_return) = 0;
+virtual ::android::binder::Status TakesAFileDescriptorArray(const ::std::vector<::android::base::unique_fd>& f, ::std::vector<::android::base::unique_fd>* _aidl_return) = 0;
 enum Call {
   SEND = ::android::IBinder::FIRST_CALL_TRANSACTION + 0,
   PIFF = ::android::IBinder::FIRST_CALL_TRANSACTION + 1,
   TAKESABINDER = ::android::IBinder::FIRST_CALL_TRANSACTION + 2,
-  STRINGLISTMETHOD = ::android::IBinder::FIRST_CALL_TRANSACTION + 3,
-  BINDERLISTMETHOD = ::android::IBinder::FIRST_CALL_TRANSACTION + 4,
-  TAKESAFILEDESCRIPTOR = ::android::IBinder::FIRST_CALL_TRANSACTION + 5,
-  TAKESAFILEDESCRIPTORARRAY = ::android::IBinder::FIRST_CALL_TRANSACTION + 6,
+  NULLABLEBINDER = ::android::IBinder::FIRST_CALL_TRANSACTION + 3,
+  STRINGLISTMETHOD = ::android::IBinder::FIRST_CALL_TRANSACTION + 4,
+  BINDERLISTMETHOD = ::android::IBinder::FIRST_CALL_TRANSACTION + 5,
+  TAKESAFILEDESCRIPTOR = ::android::IBinder::FIRST_CALL_TRANSACTION + 6,
+  TAKESAFILEDESCRIPTORARRAY = ::android::IBinder::FIRST_CALL_TRANSACTION + 7,
 };
 };  // class IComplexTypeInterface
 
@@ -632,7 +697,8 @@ enum Call {
 
 }  // namespace android
 
-#endif  // AIDL_GENERATED_ANDROID_OS_I_COMPLEX_TYPE_INTERFACE_H_)";
+#endif  // AIDL_GENERATED_ANDROID_OS_I_COMPLEX_TYPE_INTERFACE_H_
+)";
 
 const char kExpectedComplexTypeInterfaceSourceOutput[] =
 R"(#include <android/os/IComplexTypeInterface.h>
@@ -642,7 +708,7 @@ namespace android {
 
 namespace os {
 
-IMPLEMENT_META_INTERFACE(ComplexTypeInterface, "android.os.IComplexTypeInterface");
+IMPLEMENT_META_INTERFACE(ComplexTypeInterface, "android.os.IComplexTypeInterface")
 
 }  // namespace os
 

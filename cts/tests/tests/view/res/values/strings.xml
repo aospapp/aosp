@@ -176,4 +176,11 @@ with no fading. I have made this string longer to fix this case. If you are corr
 text, I would love to see the kind of devices you guys now use! Guys, maybe some devices need longer string!
 I think so, so how about double this string, like copy and paste! </string>
     <string name="rectangle200">"M 0,0 l 200,0 l 0, 200 l -200, 0 z"</string>
+
+    <string name="menu1">menu one</string>
+    <string name="menu2">menu two</string>
+    <string name="menu3">menu three</string>
+    <string name="menu4">menu four</string>
+    <string name="menu5">menu five</string>
+    <string name="menu6">menu six</string>
 </resources>

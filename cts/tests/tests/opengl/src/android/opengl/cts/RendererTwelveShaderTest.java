@@ -22,7 +22,7 @@ import javax.microedition.khronos.opengles.GL10;
 import android.opengl.GLES20;
 
 public class RendererTwelveShaderTest extends RendererBase {
-    private String fragmentShaderCode = Shaders.successfulcompile_frag;
+    private String fragmentShaderCode = Shaders.errorcompile_frag;
 
     public RendererTwelveShaderTest(CountDownLatch latch) {
         super(latch);
@@ -32,8 +32,6 @@ public class RendererTwelveShaderTest extends RendererBase {
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
         int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
-        //invalid value
-        mProgram =  0;
 
         GLES20.glAttachShader(mProgram, fragmentShader);
         GLES20.glLinkProgram(mProgram);

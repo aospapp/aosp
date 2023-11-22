@@ -35,6 +35,7 @@ import android.widget.FrameLayout;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -44,12 +45,13 @@ import javax.microedition.khronos.egl.EGLSurface;
 
 public class TextureViewCtsActivity extends Activity implements SurfaceTextureListener {
     private final static long TIME_OUT_MS = 10000;
-    private Object mLock = new Object();
+    private final Object mLock = new Object();
 
     private View mPreview;
     private TextureView mTextureView;
     private HandlerThread mGLThreadLooper;
     private Handler mGLThread;
+    private CountDownLatch mEnterAnimationFence = new CountDownLatch(1);
 
     private SurfaceTexture mSurface;
     private int mSurfaceUpdatedCount;
@@ -88,6 +90,18 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
         setContentView(content);
     }
 
+    @Override
+    public void onEnterAnimationComplete() {
+        super.onEnterAnimationComplete();
+        mEnterAnimationFence.countDown();
+    }
+
+    public void waitForEnterAnimationComplete() throws TimeoutException, InterruptedException {
+        if (!mEnterAnimationFence.await(TIME_OUT_MS, TimeUnit.MILLISECONDS)) {
+            throw new TimeoutException();
+        }
+    }
+
     private class RunSignalAndCatch implements Runnable {
         public Throwable error;
         private Runnable mRunnable;
@@ -114,7 +128,9 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
         CountDownLatch fence = new CountDownLatch(1);
         RunSignalAndCatch wrapper = new RunSignalAndCatch(r, fence);
         mGLThread.post(wrapper);
-        fence.await(TIME_OUT_MS, TimeUnit.MILLISECONDS);
+        if (!fence.await(TIME_OUT_MS, TimeUnit.MILLISECONDS)) {
+            throw new TimeoutException();
+        }
         if (wrapper.error != null) {
             throw wrapper.error;
         }

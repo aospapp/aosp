@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2011, International Business Machines Corporation and    *
@@ -18,24 +20,19 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.text.DateFormatSymbols;
 import android.icu.text.SimpleDateFormat;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /** 
  * Performs miscellaneous tests for DateFormat, SimpleDateFormat, DateFormatSymbols
  **/
-@RunWith(IcuTestFmwkRunner.class)
 public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
-
-    public static void main(String[] args) throws Exception{
-        new DateFormatMiscTests().run(args);
-    }
-    
     /*
      * @bug 4097450
      */
+    @Test
     public void Test4097450() {
         //
         // Date parse requiring 4 digit year.
@@ -72,6 +69,7 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
      * SimpleDateFormat constructor SimpleDateFormat(String, DateFormatSymbols)
      * should clone the DateFormatSymbols parameter
      */
+    @Test
     public void Test4099975new() {
         Date d = new Date();
         //test SimpleDateFormat Constructor
@@ -122,6 +120,7 @@ public class DateFormatMiscTests extends android.icu.dev.test.TestFmwk {
     /*
      * @bug 4117335
      */
+    @Test
     public void Test4117335() {
         final String bc = "\u7D00\u5143\u524D";
         final String ad = "\u897f\u66a6";

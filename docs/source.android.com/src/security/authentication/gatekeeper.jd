@@ -35,7 +35,7 @@ attempts.</p>
 
 <p>When users verify their passwords, Gatekeeper uses the TEE-derived shared
 secret to sign an authentication attestation to
-send to the <a href="../keystore/index.html">hardware-backed Keystore</a>. That is, a
+send to the <a href="{@docRoot}security/keystore/index.html">hardware-backed Keystore</a>. That is, a
 Gatekeeper attestation notifies Keystore that authentication-bound keys (for
 example, keys that apps have created) can be released for use by apps.</p>
 
@@ -58,7 +58,8 @@ to the <code>GateKeeperService</code> Java interface.
 
 <ul>
   <li>Implement the Gatekeeper HAL, specifically the functions in <code>gatekeeper.h</code>
-  (<code>hardware/libhardware/include/hardware/gatekeeper.h</code>). See <a href="#hal_implementation">HAL Implementation</a>.
+  (<code>hardware/libhardware/include/hardware/gatekeeper.h</code>).
+  See <a href="#hal_implementation">HAL Implementation</a>.
   <li>Implement the TEE-specific Gatekeeper component, in part based on the following
 header file: <code>system/gatekeeper/include/gatekeeper/gatekeeper.h</code>. This
 header file includes pure virtual functions for creating and accessing
@@ -67,7 +68,8 @@ See <a href="#trusty_and_other_implementations">Trusty and other implementations
 </ul>
 
 <p>As shown in the following diagram, the <code>LockSettingsService</code> makes a request (via
-Binder) that reaches the <code>gatekeeperd</code> daemon in the Android OS. The <code>gatekeeperd</code>
+Binder) that reaches the <code>gatekeeperd</code> daemon in the Android OS.
+The <code>gatekeeperd</code>
 daemon makes a request that reaches its counterpart (Gatekeeper) in the TEE.</p>
 
 <img src="../images/gatekeeper-flow.png" alt="Gatekeeper flow" id="figure1" />
@@ -96,7 +98,8 @@ are described in <a href="index.html">Authentication</a>.</p>
 as a handle. The returned blob (from a call to <code>enroll</code>) must have the structure
 shown in <code>system/gatekeeper/include/gatekeeper/password_handle.h</code>.</p>
 
-<p>The <code>verify</code> function needs to compare the signature produced by the provided password and
+<p>The <code>verify</code> function needs to compare the signature produced
+by the provided password and
 ensure that it matches the enrolled password handle.</p>
 
 <p>The key used to enroll and verify must never change, and should be re-derivable
@@ -104,8 +107,9 @@ at every device boot.</p>
 
 <h2 id=trusty_and_other_implementations>Trusty and other implementations</h2>
 
-<p>The Trusty operating system is Google's open source trusted OS for TEE
-environments. It contains an approved implementation of GateKeeper. However,
+<p>The <a href="{@docRoot}security/trusty/index.html">Trusty</a> operating system is
+Google's open source trusted OS for TEE
+environments. Trusty contains an approved implementation of GateKeeper. However,
 <strong>any TEE OS</strong> can be used for the implementation of Gatekeeper.
 The TEE <strong>must</strong> have access to a hardware-backed key as well as a secure,
 monotonic clock <strong>that ticks in suspend</strong>.</p>

@@ -26,18 +26,48 @@
 
 struct Symbol {
   uint64_t addr;
+  // TODO: make len uint32_t.
   uint64_t len;
 
   Symbol(const std::string& name, uint64_t addr, uint64_t len);
-  const char* Name() const {
-    return name_;
-  }
+  const char* Name() const { return name_; }
 
   const char* DemangledName() const;
+
+  bool HasDumpId() const {
+    return dump_id_ != UINT_MAX;
+  }
+
+  bool GetDumpId(uint32_t* pdump_id) const {
+    if (!HasDumpId()) {
+      return false;
+    }
+    *pdump_id = dump_id_;
+    return true;
+  }
+
+  static bool CompareByDumpId(const Symbol* s1, const Symbol* s2) {
+    uint32_t id1 = UINT_MAX;
+    s1->GetDumpId(&id1);
+    uint32_t id2 = UINT_MAX;
+    s2->GetDumpId(&id2);
+    return id1 < id2;
+  }
+
+  static bool CompareByAddr(const Symbol* s1, const Symbol* s2) {
+    return s1->addr < s2->addr;
+  }
+
+  static bool CompareValueByAddr(const Symbol& s1, const Symbol& s2) {
+    return s1.addr < s2.addr;
+  }
 
  private:
   const char* name_;
   mutable const char* demangled_name_;
+  mutable uint32_t dump_id_;
+
+  friend class Dso;
 };
 
 enum DsoType {
@@ -49,59 +79,104 @@ enum DsoType {
 struct KernelSymbol;
 struct ElfFileSymbol;
 
-struct Dso {
+class Dso {
  public:
   static void SetDemangle(bool demangle);
   static std::string Demangle(const std::string& name);
   static bool SetSymFsDir(const std::string& symfs_dir);
   static void SetVmlinux(const std::string& vmlinux);
-  static void SetBuildIds(const std::vector<std::pair<std::string, BuildId>>& build_ids);
+  static void SetKallsyms(std::string kallsyms) {
+    if (!kallsyms.empty()) {
+      kallsyms_ = std::move(kallsyms);
+    }
+  }
+  static void ReadKernelSymbolsFromProc() {
+    read_kernel_symbols_from_proc_ = true;
+  }
+  static void SetBuildIds(
+      const std::vector<std::pair<std::string, BuildId>>& build_ids);
+  static BuildId FindExpectedBuildIdForPath(const std::string& path);
 
-  static std::unique_ptr<Dso> CreateDso(DsoType dso_type, const std::string& dso_path = "");
+  static std::unique_ptr<Dso> CreateDso(DsoType dso_type,
+                                        const std::string& dso_path);
 
   ~Dso();
 
+  DsoType type() const { return type_; }
+
   // Return the path recorded in perf.data.
-  const std::string& Path() const {
-    return path_;
+  const std::string& Path() const { return path_; }
+  // Return the path containing symbol table and debug information.
+  const std::string& GetDebugFilePath() const { return debug_file_path_; }
+  // Return the file name without directory info.
+  const std::string& FileName() const { return file_name_; }
+
+  bool HasDumpId() {
+    return dump_id_ != UINT_MAX;
   }
 
-  // Return the accessible path. It may be the same as Path(), or
-  // return the path with prefix set by SetSymFsDir().
-  std::string GetAccessiblePath() const;
+  bool GetDumpId(uint32_t* pdump_id) {
+    if (!HasDumpId()) {
+      return false;
+    }
+    *pdump_id = dump_id_;
+    return true;
+  }
+
+  uint32_t CreateDumpId();
+  uint32_t CreateSymbolDumpId(const Symbol* symbol);
 
   // Return the minimum virtual address in program header.
   uint64_t MinVirtualAddress();
+  void SetMinVirtualAddress(uint64_t min_vaddr) { min_vaddr_ = min_vaddr; }
 
   const Symbol* FindSymbol(uint64_t vaddr_in_dso);
 
- private:
-  static BuildId GetExpectedBuildId(const std::string& filename);
-  static bool KernelSymbolCallback(const KernelSymbol& kernel_symbol, Dso* dso);
-  static void VmlinuxSymbolCallback(const ElfFileSymbol& elf_symbol, Dso* dso);
-  static void ElfFileSymbolCallback(const ElfFileSymbol& elf_symbol, Dso* dso,
-                                    bool (*filter)(const ElfFileSymbol&));
+  const std::vector<Symbol>& GetSymbols();
+  void SetSymbols(std::vector<Symbol>* symbols);
 
+  // Create a symbol for a virtual address which can't find a corresponding
+  // symbol in symbol table.
+  void AddUnknownSymbol(uint64_t vaddr_in_dso, const std::string& name);
+
+ private:
   static bool demangle_;
   static std::string symfs_dir_;
   static std::string vmlinux_;
+  static std::string kallsyms_;
+  static bool read_kernel_symbols_from_proc_;
   static std::unordered_map<std::string, BuildId> build_id_map_;
   static size_t dso_count_;
+  static uint32_t g_dump_id_;
 
   Dso(DsoType type, const std::string& path);
-  bool Load();
+  void Load();
   bool LoadKernel();
   bool LoadKernelModule();
   bool LoadElfFile();
   bool LoadEmbeddedElfFile();
-  void InsertSymbol(const Symbol& symbol);
   void FixupSymbolLength();
+  BuildId GetExpectedBuildId();
 
   const DsoType type_;
+  // path of the shared library used by the profiled program
   const std::string path_;
+  // path of the shared library having symbol table and debug information
+  // It is the same as path_, or has the same build id as path_.
+  std::string debug_file_path_;
+  // File name of the shared library, got by removing directories in path_.
+  std::string file_name_;
   uint64_t min_vaddr_;
   std::vector<Symbol> symbols_;
+  // unknown symbols are like [libc.so+0x1234].
+  std::unordered_map<uint64_t, Symbol> unknown_symbols_;
   bool is_loaded_;
+  // Used to identify current dso if it needs to be dumped.
+  uint32_t dump_id_;
+  // Used to assign dump_id for symbols in current dso.
+  uint32_t symbol_dump_id_;
 };
+
+const char* DsoTypeToString(DsoType dso_type);
 
 #endif  // SIMPLE_PERF_DSO_H_

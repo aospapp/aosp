@@ -18,6 +18,8 @@ package libcore.java.util;
 
 import java.io.Serializable;
 import java.util.AbstractCollection;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import junit.framework.TestCase;
@@ -55,4 +57,31 @@ public final class AbstractCollectionTest extends TestCase {
     reader.join();
     mutator.join();
   }
+
+  // http://b/31052838
+  public void test_empty_removeAll_null() {
+    try {
+      new EmptyCollection().removeAll(null);
+      fail("Should have thrown");
+    } catch (NullPointerException expected) {
+    }
+  }
+
+  // http://b/31052838
+  public void test_empty_retainAll_null() {
+    try {
+      new EmptyCollection().retainAll(null);
+      fail("Should have thrown");
+    } catch (NullPointerException expected) {
+    }
+  }
+
+  /**
+   * An AbstractCollection that does not override removeAll() / retainAll().
+   */
+  private static class EmptyCollection extends AbstractCollection<Object> {
+    @Override public Iterator iterator() { return Collections.emptySet().iterator(); }
+    @Override public int size() { return 0; }
+  }
+
 }

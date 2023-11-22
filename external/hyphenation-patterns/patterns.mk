@@ -18,7 +18,9 @@
 
 pattern_locales := \
     as \
+    bg \
     bn \
+    cu \
     cy \
     da \
     de-1901 \

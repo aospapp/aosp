@@ -22,6 +22,7 @@ import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
@@ -32,6 +33,7 @@ import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.InputConfiguration;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
@@ -39,6 +41,7 @@ import android.os.ConditionVariable;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
+import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 
@@ -333,6 +336,209 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
             mReportLog.setSummary("camera_capture_result_average_latency_for_all_cameras",
                     Stat.getAverage(avgResultTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
+            mReportLog.submit(getInstrumentation());
+        }
+    }
+
+    /**
+     * Test multiple capture KPI for YUV_420_888 format: the average time duration
+     * between sending out image capture requests and receiving capture results.
+     * <p>
+     * It measures capture latency, which is the time between sending out the capture
+     * request and getting the full capture result, and the frame duration, which is the timestamp
+     * gap between results.
+     * </p>
+     */
+    public void testMultipleCapture() throws Exception {
+        double[] avgResultTimes = new double[mCameraIds.length];
+        double[] avgDurationMs = new double[mCameraIds.length];
+
+        // A simple CaptureSession StateCallback to handle onCaptureQueueEmpty
+        class MultipleCaptureStateCallback extends CameraCaptureSession.StateCallback {
+            private ConditionVariable captureQueueEmptyCond = new ConditionVariable();
+            private int captureQueueEmptied = 0;
+
+            @Override
+            public void onConfigured(CameraCaptureSession session) {
+                // Empty implementation
+            }
+
+            @Override
+            public void onConfigureFailed(CameraCaptureSession session) {
+                // Empty implementation
+            }
+
+            @Override
+            public void onCaptureQueueEmpty(CameraCaptureSession session) {
+                captureQueueEmptied++;
+                if (VERBOSE) {
+                    Log.v(TAG, "onCaptureQueueEmpty received. captureQueueEmptied = "
+                        + captureQueueEmptied);
+                }
+
+                captureQueueEmptyCond.open();
+            }
+
+            /* Wait for onCaptureQueueEmpty, return immediately if an onCaptureQueueEmpty was
+             * already received, otherwise, wait for one to arrive. */
+            public void waitForCaptureQueueEmpty(long timeout) {
+                if (captureQueueEmptied > 0) {
+                    captureQueueEmptied--;
+                    return;
+                }
+
+                if (captureQueueEmptyCond.block(timeout)) {
+                    captureQueueEmptyCond.close();
+                    captureQueueEmptied = 0;
+                } else {
+                    throw new TimeoutRuntimeException("Unable to receive onCaptureQueueEmpty after "
+                        + timeout + "ms");
+                }
+            }
+        }
+
+        final MultipleCaptureStateCallback sessionListener = new MultipleCaptureStateCallback();
+
+        int counter = 0;
+        for (String id : mCameraIds) {
+            // Do NOT move these variables to outer scope
+            // They will be passed to DeviceReportLog and their references will be stored
+            String streamName = "test_multiple_capture";
+            mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
+            mReportLog.addValue("camera_id", id, ResultType.NEUTRAL, ResultUnit.NONE);
+            long[] startTimes = new long[NUM_MAX_IMAGES];
+            double[] getResultTimes = new double[NUM_MAX_IMAGES];
+            double[] frameDurationMs = new double[NUM_MAX_IMAGES-1];
+            try {
+                openDevice(id);
+
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+
+                for (int i = 0; i < NUM_TEST_LOOPS; i++) {
+
+                    // setup builders and listeners
+                    CaptureRequest.Builder previewBuilder =
+                            mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                    CaptureRequest.Builder captureBuilder =
+                            mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                    SimpleCaptureCallback previewResultListener =
+                            new SimpleCaptureCallback();
+                    SimpleTimingResultListener captureResultListener =
+                            new SimpleTimingResultListener();
+                    SimpleImageReaderListener imageListener =
+                            new SimpleImageReaderListener(/*asyncMode*/true, NUM_MAX_IMAGES);
+
+                    Size maxYuvSize = CameraTestUtils.getSortedSizesForFormat(
+                        id, mCameraManager, ImageFormat.YUV_420_888, /*bound*/null).get(0);
+                    // Find minimum frame duration for YUV_420_888
+                    StreamConfigurationMap config = mStaticInfo.getCharacteristics().get(
+                            CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                    final long minStillFrameDuration =
+                            config.getOutputMinFrameDuration(ImageFormat.YUV_420_888, maxYuvSize);
+                    Range<Integer> targetRange = getSuitableFpsRangeForDuration(id,
+                            minStillFrameDuration);
+                    previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                            targetRange);
+                    captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                            targetRange);
+
+                    prepareCaptureAndStartPreview(previewBuilder, captureBuilder,
+                            mOrderedPreviewSizes.get(0), maxYuvSize,
+                            ImageFormat.YUV_420_888, previewResultListener,
+                            sessionListener, NUM_MAX_IMAGES, imageListener);
+
+                    // Converge AE
+                    waitForAeStable(previewResultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+
+                    if (mStaticInfo.isAeLockSupported()) {
+                        // Lock AE if possible to improve stability
+                        previewBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
+                        mSession.setRepeatingRequest(previewBuilder.build(), previewResultListener,
+                                mHandler);
+                        if (mStaticInfo.isHardwareLevelAtLeastLimited()) {
+                            // Legacy mode doesn't output AE state
+                            waitForResultValue(previewResultListener, CaptureResult.CONTROL_AE_STATE,
+                                    CaptureResult.CONTROL_AE_STATE_LOCKED, NUM_RESULTS_WAIT_TIMEOUT);
+                        }
+                    }
+
+                    // Capture NUM_MAX_IMAGES images based on onCaptureQueueEmpty callback
+                    for (int j = 0; j < NUM_MAX_IMAGES; j++) {
+
+                        // Capture an image and get image data
+                        startTimes[j] = SystemClock.elapsedRealtime();
+                        CaptureRequest request = captureBuilder.build();
+                        mSession.capture(request, captureResultListener, mHandler);
+
+                        // Wait for capture queue empty for the current request
+                        sessionListener.waitForCaptureQueueEmpty(
+                                CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+                    }
+
+                    // Acquire the capture result time and frame duration
+                    long prevTimestamp = -1;
+                    for (int j = 0; j < NUM_MAX_IMAGES; j++) {
+                        Pair<CaptureResult, Long> captureResultNTime =
+                                captureResultListener.getCaptureResultNTime(
+                                        CameraTestUtils.CAPTURE_RESULT_TIMEOUT_MS);
+
+                        getResultTimes[j] +=
+                                (double)(captureResultNTime.second - startTimes[j])/NUM_TEST_LOOPS;
+
+                        // Collect inter-frame timestamp
+                        long timestamp = captureResultNTime.first.get(CaptureResult.SENSOR_TIMESTAMP);
+                        if (prevTimestamp != -1) {
+                            frameDurationMs[j-1] +=
+                                    (double)(timestamp - prevTimestamp)/(NUM_TEST_LOOPS * 1000000.0);
+                        }
+                        prevTimestamp = timestamp;
+                    }
+
+                    // simulate real scenario (preview runs a bit)
+                    waitForNumResults(previewResultListener, NUM_RESULTS_WAIT);
+
+                    stopPreview();
+                }
+
+                for (int i = 0; i < getResultTimes.length; i++) {
+                    Log.v(TAG, "Camera " + id + " result time[" + i + "] is " +
+                            getResultTimes[i] + " ms");
+                }
+                for (int i = 0; i < NUM_MAX_IMAGES-1; i++) {
+                    Log.v(TAG, "Camera " + id + " frame duration time[" + i + "] is " +
+                            frameDurationMs[i] + " ms");
+                }
+
+                mReportLog.addValues("camera_multiple_capture_result_latency", getResultTimes,
+                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                mReportLog.addValues("camera_multiple_capture_frame_duration", frameDurationMs,
+                        ResultType.LOWER_BETTER, ResultUnit.MS);
+
+
+                avgResultTimes[counter] = Stat.getAverage(getResultTimes);
+                avgDurationMs[counter] = Stat.getAverage(frameDurationMs);
+            }
+            finally {
+                closeImageReader();
+                closeDevice();
+            }
+            counter++;
+            mReportLog.submit(getInstrumentation());
+        }
+
+        // Result will not be reported in CTS report if no summary is printed.
+        if (mCameraIds.length != 0) {
+            String streamName = "test_multiple_capture_average";
+            mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
+            mReportLog.setSummary("camera_multiple_capture_result_average_latency_for_all_cameras",
+                    Stat.getAverage(avgResultTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
+            mReportLog.submit(getInstrumentation());
+            mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
+            mReportLog.setSummary("camera_multiple_capture_frame_duration_average_for_all_cameras",
+                    Stat.getAverage(avgDurationMs), ResultType.LOWER_BETTER, ResultUnit.MS);
             mReportLog.submit(getInstrumentation());
         }
     }

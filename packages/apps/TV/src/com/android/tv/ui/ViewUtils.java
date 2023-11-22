@@ -16,8 +16,11 @@
 
 package com.android.tv.ui;
 
+import android.animation.Animator;
+import android.animation.ValueAnimator;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup.LayoutParams;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -40,6 +43,51 @@ public class ViewUtils {
         } catch (NoSuchMethodException|IllegalAccessException|IllegalArgumentException
                 |InvocationTargetException e) {
             Log.e(TAG, "Fail to call View.setTransitionAlpha", e);
+        }
+    }
+
+    /**
+     * Creates an animator in view's height
+     * @param target the {@link view} animator performs on.
+     */
+    public static Animator createHeightAnimator(
+            final View target, int initialHeight, int targetHeight) {
+        ValueAnimator animator = ValueAnimator.ofInt(initialHeight, targetHeight);
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                int value = (Integer) animation.getAnimatedValue();
+                if (value == 0) {
+                    if (target.getVisibility() != View.GONE) {
+                        target.setVisibility(View.GONE);
+                    }
+                } else {
+                    if (target.getVisibility() != View.VISIBLE) {
+                        target.setVisibility(View.VISIBLE);
+                    }
+                    setLayoutHeight(target, value);
+                }
+            }
+        });
+        return animator;
+    }
+
+    /**
+     * Gets view's layout height.
+     */
+    public static int getLayoutHeight(View view) {
+        LayoutParams layoutParams = view.getLayoutParams();
+        return layoutParams.height;
+    }
+
+    /**
+     * Sets view's layout height.
+     */
+    public static void setLayoutHeight(View view, int height) {
+        LayoutParams layoutParams = view.getLayoutParams();
+        if (height != layoutParams.height) {
+            layoutParams.height = height;
+            view.setLayoutParams(layoutParams);
         }
     }
 }

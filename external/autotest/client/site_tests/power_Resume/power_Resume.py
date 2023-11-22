@@ -15,6 +15,7 @@ EXTRA_TIME = 10
 
 
 class power_Resume(test.test):
+    """class for power_Resume test."""
     version = 1
     preserve_srcdir = True
 
@@ -23,16 +24,20 @@ class power_Resume(test.test):
                 throw=True, device_times=True)
 
 
-    def run_once(self, max_devs_returned=10, seconds=0):
+    def run_once(self, max_devs_returned=10, seconds=0,
+                 ignore_kernel_warns=False):
         try:
-            self._suspend_once(max_devs_returned, seconds)
+            self._suspend_once(max_devs_returned, seconds, ignore_kernel_warns)
         except error.TestWarn:
-            self._suspend_once(max_devs_returned, seconds + EXTRA_TIME)
+            self._suspend_once(max_devs_returned, seconds + EXTRA_TIME,
+                               ignore_kernel_warns)
             raise
 
 
-    def _suspend_once(self, max_devs_returned, seconds):
-        (results, device_times) = self._suspender.suspend(seconds)
+    def _suspend_once(self, max_devs_returned, seconds, ignore_kernel_warns):
+        (results, device_times) = \
+            self._suspender.suspend(seconds,
+                                    ignore_kernel_warns=ignore_kernel_warns)
 
         # return as keyvals the slowest n devices
         slowest_devs = sorted(

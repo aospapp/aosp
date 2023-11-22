@@ -16,12 +16,17 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -31,29 +36,38 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
+import android.view.cts.R;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link DecelerateInterpolator}.
  */
-public class DecelerateInterpolatorTest
-        extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
-
-    private Activity mActivity;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class DecelerateInterpolatorTest {
     private static final float ALPHA_DELTA = 0.001f;
 
     /** It is defined in R.anim.decelerate_alpha */
     private static final long DECELERATE_ALPHA_DURATION = 2000;
 
-    public DecelerateInterpolatorTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new DecelerateInterpolator();
 
@@ -64,7 +78,8 @@ public class DecelerateInterpolatorTest
         new DecelerateInterpolator(mActivity, attrs);
     }
 
-    public void testDecelerateInterpolator() {
+    @Test
+    public void testDecelerateInterpolator() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
 
         // XML file of R.anim.decelerate_alpha
@@ -83,7 +98,7 @@ public class DecelerateInterpolatorTest
         anim.setInterpolator(interpolator);
         assertFalse(anim.hasStarted());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
 
         Transformation transformation = new Transformation();
         long startTime = anim.getStartTime();
@@ -117,7 +132,7 @@ public class DecelerateInterpolatorTest
         interpolator = new DecelerateInterpolator(1.5f);
         anim.setInterpolator(interpolator);
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
 
         transformation = new Transformation();
         startTime = anim.getStartTime();
@@ -151,6 +166,7 @@ public class DecelerateInterpolatorTest
         assertTrue(delta5 > delta1);
     }
 
+    @Test
     public void testGetInterpolation() {
         final float input = 0.25f;
         Interpolator interpolator1 = new DecelerateInterpolator(1.0f);

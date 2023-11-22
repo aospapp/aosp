@@ -6,6 +6,7 @@
 #include <string.h>
 #include <string>
 
+#include <android-base/parseint.h>
 #include <android-base/strings.h>
 
 #include "aidl_language_y.h"
@@ -87,9 +88,46 @@ string AidlArgument::ToString() const {
   return ret;
 }
 
-AidlConstant::AidlConstant(std::string name, int32_t value)
+AidlIntConstant::AidlIntConstant(std::string name, int32_t value)
     : name_(name),
-      value_(value) {}
+      value_(value),
+      is_valid_(true) {}
+
+AidlIntConstant::AidlIntConstant(std::string name,
+                                 std::string value,
+                                 unsigned line_number)
+    : name_(name) {
+  uint32_t unsigned_val;
+  if (!android::base::ParseUint(value.c_str(), &unsigned_val)) {
+    is_valid_ = false;
+    LOG(ERROR) << "Found invalid int value '" << value
+               << "' on line " << line_number;
+  } else {
+    // Converting from unsigned to signed integer.
+    value_ = unsigned_val;
+    is_valid_ = true;
+  }
+}
+
+AidlStringConstant::AidlStringConstant(std::string name,
+                                       std::string value,
+                                       unsigned line_number)
+    : name_(name),
+      value_(value) {
+  is_valid_ = true;
+  for (size_t i = 0; i < value_.length(); ++i) {
+    const char& c = value_[i];
+    if (c <= 0x1f || // control characters are < 0x20
+        c >= 0x7f || // DEL is 0x7f
+        c == '\\') { // Disallow backslashes for future proofing.
+      LOG(ERROR) << "Found invalid character at index " << i
+                 << " in string constant '" << value_
+                 << "' beginning on line " << line_number;
+      is_valid_ = false;
+      break;
+    }
+  }
+}
 
 AidlMethod::AidlMethod(bool oneway, AidlType* type, std::string name,
                        std::vector<std::unique_ptr<AidlArgument>>* args,
@@ -157,12 +195,15 @@ AidlInterface::AidlInterface(const std::string& name, unsigned line,
   for (auto& member : *members) {
     AidlMember* local = member.release();
     AidlMethod* method = local->AsMethod();
-    AidlConstant* constant = local->AsConstant();
+    AidlIntConstant* int_constant = local->AsIntConstant();
+    AidlStringConstant* string_constant = local->AsStringConstant();
 
     if (method) {
       methods_.emplace_back(method);
-    } else if (constant) {
-      constants_.emplace_back(constant);
+    } else if (int_constant) {
+      int_constants_.emplace_back(int_constant);
+    } else if (string_constant) {
+      string_constants_.emplace_back(string_constant);
     } else {
       LOG(FATAL) << "Member is neither method nor constant!";
     }
@@ -199,7 +240,7 @@ AidlQualifiedName::AidlQualifiedName(std::string term,
   }
 }
 
-void AidlQualifiedName::AddTerm(std::string term) {
+void AidlQualifiedName::AddTerm(const std::string& term) {
   terms_.push_back(term);
 }
 

@@ -72,6 +72,8 @@ class RSCCOptions;
 class RSContext;
 class RSExportRecordType;
 
+llvm::LLVMContext &getGlobalLLVMContext();
+
 class Slang : public clang::ModuleLoader {
  public:
   enum OutputType {

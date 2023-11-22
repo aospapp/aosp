@@ -17,7 +17,7 @@
     <objectAnimator
         android:propertyName="alpha"
         android:valueFrom="0.0"
-        android:valueTo="@float_type/pin_alpha_for_adjacent_number"
+        android:valueTo="@dimen/pin_alpha_for_adjacent_number"
         android:duration="@integer/pin_number_scroll_anim_duration"
         android:interpolator="@android:interpolator/linear_out_slow_in" />
 </set>

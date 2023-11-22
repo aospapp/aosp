@@ -16,16 +16,145 @@
 
 package android.text.style.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.content.Context;
+import android.content.res.Configuration;
+import android.os.LocaleList;
 import android.os.Parcel;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.style.SuggestionSpan;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.Locale;
 
-public class SuggestionSpanTest extends TestCase {
+/**
+ * Test {@link SuggestionSpan}.
+ */
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SuggestionSpanTest {
+    @Test
+    public void testConstructorWithContext() {
+        final String[] suggestions = new String[] {"suggestion1", "suggestion2"};
+        final Configuration overrideConfig = new Configuration();
+        final Locale locale = Locale.forLanguageTag("az-Arab");
+        overrideConfig.setLocales(new LocaleList(locale));
+        final Context context = InstrumentationRegistry.getTargetContext().
+                createConfigurationContext(overrideConfig);
+
+        final SuggestionSpan span = new SuggestionSpan(context, suggestions,
+                SuggestionSpan.FLAG_AUTO_CORRECTION);
+
+        assertEquals(locale, span.getLocaleObject());
+        assertArrayEquals(suggestions, span.getSuggestions());
+        assertEquals(SuggestionSpan.FLAG_AUTO_CORRECTION, span.getFlags());
+    }
+
+    @Test
+    public void testGetSuggestionSpans() {
+        final String[] suggestions = new String[]{"suggestion1", "suggestion2"};
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions,
+                SuggestionSpan.FLAG_AUTO_CORRECTION);
+        assertArrayEquals("Should return the correct suggestions array",
+                suggestions, span.getSuggestions());
+
+        final SuggestionSpan clonedSpan = cloneViaParcel(span);
+        assertArrayEquals("Should (de)serialize suggestions",
+                suggestions, clonedSpan.getSuggestions());
+    }
+
+    @Test
+    public void testGetSuggestionSpans_emptySuggestions() {
+        final String[] suggestions = new String[0];
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions,
+                SuggestionSpan.FLAG_AUTO_CORRECTION);
+        assertArrayEquals("Span should return empty suggestion array",
+                suggestions, span.getSuggestions());
+
+        // also test parceling
+        final SuggestionSpan clonedSpan = cloneViaParcel(span);
+        assertArrayEquals("Should (de)serialize empty suggestions array",
+                suggestions, clonedSpan.getSuggestions());
+    }
+
+    @Test
+    public void testGetSuggestionSpans_suggestionsWithNullValue() {
+        final String[] suggestions = new String[]{"suggestion", null};
+        final SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), suggestions,
+                SuggestionSpan.FLAG_AUTO_CORRECTION);
+        assertArrayEquals("Should accept and return null suggestions",
+                suggestions, span.getSuggestions());
+
+        final SuggestionSpan clonedSpan = cloneViaParcel(span);
+        assertArrayEquals("Should (de)serialize null in suggestions array",
+                suggestions, clonedSpan.getSuggestions());
+    }
+
+    @Test
+    public void testGetFlags() {
+        final String[] anySuggestions = new String[0];
+        final int flag = SuggestionSpan.FLAG_AUTO_CORRECTION;
+        SuggestionSpan span = new SuggestionSpan(Locale.forLanguageTag("en"), anySuggestions, flag);
+
+        assertEquals("Should return the flag passed in constructor",
+                flag, span.getFlags());
+
+        final SuggestionSpan clonedSpan = cloneViaParcel(span);
+        assertEquals("Should (de)serialize flags", flag, clonedSpan.getFlags());
+    }
+
+    @Test
+    public void testEquals_returnsTrueForDeserializedInstances() {
+        final SuggestionSpan span1 = new SuggestionSpan(null, Locale.forLanguageTag("en"),
+                new String[0], SuggestionSpan.FLAG_AUTO_CORRECTION, SuggestionSpan.class);
+        final SuggestionSpan span2 = cloneViaParcel(span1);
+
+        assertTrue("(De)serialized instances should be equal", span1.equals(span2));
+    }
+
+    @Test
+    public void testEquals_returnsTrueIfTheFlagsAreDifferent() {
+        final SuggestionSpan span1 = new SuggestionSpan(null, Locale.forLanguageTag("en"),
+                new String[0], SuggestionSpan.FLAG_AUTO_CORRECTION, SuggestionSpan.class);
+        final SuggestionSpan span2 = cloneViaParcel(span1);
+        span2.setFlags(SuggestionSpan.FLAG_EASY_CORRECT);
+
+        assertEquals("Should return the flag passed in set function",
+                SuggestionSpan.FLAG_EASY_CORRECT, span2.getFlags());
+
+        assertTrue("Instances with different flags should be equal", span1.equals(span2));
+    }
+
+    @Test
+    public void testEquals_returnsFalseIfCreationTimeIsNotSame() {
+        final Locale anyLocale = Locale.forLanguageTag("en");
+        final String[] anySuggestions = new String[0];
+        final int anyFlags = SuggestionSpan.FLAG_AUTO_CORRECTION;
+        final Class anyClass = SuggestionSpan.class;
+
+        final SuggestionSpan span1 = new SuggestionSpan(null, anyLocale, anySuggestions, anyFlags,
+                anyClass);
+        try {
+            // let some time pass before constructing the other span
+            Thread.sleep(2);
+        } catch (InterruptedException e) {
+            // ignore
+        }
+        final SuggestionSpan span2 = new SuggestionSpan(null, anyLocale, anySuggestions, anyFlags,
+                anyClass);
+
+        assertFalse("Instances created at different time should not be equal", span2.equals(span1));
+    }
 
     /**
      * @param locale a {@link Locale} object.
@@ -48,7 +177,7 @@ public class SuggestionSpanTest extends TestCase {
         return original.toString();
     }
 
-    private void checkGetLocaleObject(final Locale locale) {
+    private void verifyGetLocaleObject(final Locale locale) {
         final SuggestionSpan span = new SuggestionSpan(locale, new String[0],
                 SuggestionSpan.FLAG_AUTO_CORRECTION);
         // In the context of SuggestionSpan#getLocaleObject(), we do care only about subtags that
@@ -62,17 +191,18 @@ public class SuggestionSpanTest extends TestCase {
         assertEquals(getNonNullLocaleString(locale), cloned.getLocale());
     }
 
+    @Test
     public void testGetLocaleObject() {
-        checkGetLocaleObject(Locale.forLanguageTag("en"));
-        checkGetLocaleObject(Locale.forLanguageTag("en-GB"));
-        checkGetLocaleObject(Locale.forLanguageTag("EN-GB"));
-        checkGetLocaleObject(Locale.forLanguageTag("en-gb"));
-        checkGetLocaleObject(Locale.forLanguageTag("En-gB"));
-        checkGetLocaleObject(Locale.forLanguageTag("und"));
-        checkGetLocaleObject(Locale.forLanguageTag("de-DE-u-co-phonebk"));
-        checkGetLocaleObject(Locale.forLanguageTag(""));
-        checkGetLocaleObject(null);
-        checkGetLocaleObject(new Locale(" an  ", " i n v a l i d ", "data"));
+        verifyGetLocaleObject(Locale.forLanguageTag("en"));
+        verifyGetLocaleObject(Locale.forLanguageTag("en-GB"));
+        verifyGetLocaleObject(Locale.forLanguageTag("EN-GB"));
+        verifyGetLocaleObject(Locale.forLanguageTag("en-gb"));
+        verifyGetLocaleObject(Locale.forLanguageTag("En-gB"));
+        verifyGetLocaleObject(Locale.forLanguageTag("und"));
+        verifyGetLocaleObject(Locale.forLanguageTag("de-DE-u-co-phonebk"));
+        verifyGetLocaleObject(Locale.forLanguageTag(""));
+        verifyGetLocaleObject(null);
+        verifyGetLocaleObject(new Locale(" an  ", " i n v a l i d ", "data"));
     }
 
     @NonNull

@@ -23,8 +23,7 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Context;
 
 RsdFrameBufferObj::RsdFrameBufferObj() {
     mFBOId = 0;

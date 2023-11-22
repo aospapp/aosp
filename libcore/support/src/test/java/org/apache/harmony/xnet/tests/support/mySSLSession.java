@@ -63,7 +63,7 @@ public class mySSLSession implements SSLSession {
     }
 
     public long getCreationTime() {
-        return 1000l;
+        return 1000L;
     }
 
     public byte[] getId() {
@@ -71,7 +71,7 @@ public class mySSLSession implements SSLSession {
     }
 
     public long getLastAccessedTime() {
-        return 2000l;
+        return 2000L;
     }
 
     public Certificate[] getLocalCertificates() {

@@ -20,17 +20,26 @@ if (NOT DEFINED TCUTIL_PLATFORM_SRCS)
 			)
 
 	elseif ((DE_OS_IS_UNIX OR DE_OS_IS_OSX) AND DEQP_USE_X11)
+		message(STATUS "DEQP_SUPPORT_GLX        = ${DEQP_SUPPORT_GLX}")
+		if (DEQP_SUPPORT_GLX)
+			add_definitions(-DDEQP_SUPPORT_GLX=1)
+		endif ()
+
 		set(TCUTIL_PLATFORM_SRCS
 			X11/tcuX11.cpp
 			X11/tcuX11.hpp
+			X11/tcuX11EglPlatform.hpp
+			X11/tcuX11EglPlatform.cpp
 			X11/tcuX11Platform.hpp
 			X11/tcuX11Platform.cpp
+			X11/tcuX11VulkanPlatform.hpp
+			X11/tcuX11VulkanPlatform.cpp
 			)
-		if (DEQP_SUPPORT_EGL)
+		if (DEQP_USE_XCB)
 			set(TCUTIL_PLATFORM_SRCS
 				${TCUTIL_PLATFORM_SRCS}
-				X11/tcuX11EglPlatform.hpp
-				X11/tcuX11EglPlatform.cpp
+				X11/tcuX11Xcb.hpp
+				X11/tcuX11Xcb.cpp
 				)
 		endif()
 		if (DEQP_SUPPORT_GLX)
@@ -40,9 +49,6 @@ if (NOT DEFINED TCUTIL_PLATFORM_SRCS)
 				X11/tcuX11GlxPlatform.cpp
 				)
 		endif()
-		if (NOT (DEQP_SUPPORT_EGL OR DEQP_SUPPORT_GLX))
-		  message(FATAL_ERROR "At least one of EGL and GLX must be enabled for X11")
-		endif ()
 	elseif (DE_OS_IS_ANDROID)
 		set(TCUTIL_PLATFORM_SRCS
 			android/tcuAndroidExecService.cpp
@@ -111,6 +117,11 @@ target_link_libraries(tcutil-platform eglutil)
 if (DEQP_USE_X11)
 	find_package(X11 REQUIRED)
 	target_link_libraries(tcutil-platform ${X11_LIBRARIES})
+	if (DEQP_USE_XCB)
+		find_package(XCB REQUIRED)
+		target_link_libraries(tcutil-platform ${XCB_LIBRARIES})
+                add_definitions(-DDEQP_SUPPORT_XCB=1)
+	endif ()
 	if (DEQP_SUPPORT_GLX)
 	  # GLX functions don't currently have wrappers, so link directly to libGL.
 	  target_link_libraries(tcutil-platform GL)

@@ -37,6 +37,7 @@ class LocalHost(hosts.Host):
 
 
     def run(self, command, timeout=3600, ignore_status=False,
+            ignore_timeout=False,
             stdout_tee=utils.TEE_TO_LOGS, stderr_tee=utils.TEE_TO_LOGS,
             stdin=None, args=(), **kwargs):
         """
@@ -45,11 +46,16 @@ class LocalHost(hosts.Host):
         try:
             result = utils.run(
                 command, timeout=timeout, ignore_status=True,
+                ignore_timeout=ignore_timeout,
                 stdout_tee=stdout_tee, stderr_tee=stderr_tee, stdin=stdin,
                 args=args)
         except error.CmdError, e:
             # this indicates a timeout exception
             raise error.AutotestHostRunError('command timed out', e.result_obj)
+
+        if ignore_timeout and result is None:
+            # We have timed out, there is no result to report.
+            return None
 
         if not ignore_status and result.exit_status > 0:
             raise error.AutotestHostRunError('command execution error', result)
@@ -94,6 +100,10 @@ class LocalHost(hosts.Host):
                    preserve_symlinks=False):
         """Copy files from source to dest, will be the base for {get,send}_file.
 
+        If source is a directory and ends with a trailing slash, only the
+        contents of the source directory will be copied to dest, otherwise
+        source itself will be copied under dest.
+
         @param source: The file/directory on localhost to copy.
         @param dest: The destination path on localhost to copy to.
         @param delete_dest: A flag set to choose whether or not to delete
@@ -103,10 +113,19 @@ class LocalHost(hosts.Host):
         @param preserve_symlinks: Try to preserve symlinks instead of
                                   transforming them into files/dirs on copy.
         """
+        # We copy dest under source if either:
+        #  1. Source is a directory and doesn't end with /.
+        #  2. Source is a file and dest is a directory.
+        source_is_dir = os.path.isdir(source)
+        if ((source_is_dir and not source.endswith(os.sep)) or
+            (not source_is_dir and os.path.isdir(dest))):
+            dest = os.path.join(dest, os.path.basename(source))
+
         if delete_dest and os.path.exists(dest):
             # Check if it's a file or a dir and use proper remove method.
             if os.path.isdir(dest):
                 shutil.rmtree(dest)
+                os.mkdir(dest)
             else:
                 os.remove(dest)
 
@@ -130,6 +149,11 @@ class LocalHost(hosts.Host):
                  preserve_symlinks=False):
         """Copy files from source to dest.
 
+        If source is a directory and ends with a trailing slash, only the
+        contents of the source directory will be copied to dest, otherwise
+        source itself will be copied under dest. This is to match the
+        behavior of AbstractSSHHost.get_file().
+
         @param source: The file/directory on localhost to copy.
         @param dest: The destination path on localhost to copy to.
         @param delete_dest: A flag set to choose whether or not to delete
@@ -147,6 +171,11 @@ class LocalHost(hosts.Host):
     def send_file(self, source, dest, delete_dest=False,
                   preserve_symlinks=False):
         """Copy files from source to dest.
+
+        If source is a directory and ends with a trailing slash, only the
+        contents of the source directory will be copied to dest, otherwise
+        source itself will be copied under dest. This is to match the
+        behavior of AbstractSSHHost.send_file().
 
         @param source: The file/directory on the drone to send to the device.
         @param dest: The destination path on the device to copy to.

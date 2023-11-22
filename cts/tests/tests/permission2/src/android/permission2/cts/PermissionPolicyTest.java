@@ -106,7 +106,7 @@ public class PermissionPolicyTest extends AndroidTestCase {
 
         // OEMs cannot define permissions in the platform namespace
         for (String permission : declaredPermissionsMap.keySet()) {
-            assertFalse("Cannot define permission " + permission + " in android namespace",
+            assertFalse("Cannot define permission in android namespace:" + permission,
                     permission.startsWith(PLATFORM_ROOT_NAMESPACE));
         }
 
@@ -118,6 +118,13 @@ public class PermissionPolicyTest extends AndroidTestCase {
                                 && declaredGroup.packageName.equals(PLATFORM_PACKAGE_NAME)
                                 && declaredGroup.name.startsWith(PLATFORM_ROOT_NAMESPACE));
             }
+        }
+
+        // OEMs cannot define new ephemeral permissions
+        for (String permission : declaredPermissionsMap.keySet()) {
+            PermissionInfo info = declaredPermissionsMap.get(permission);
+            assertFalse("Cannot define new ephemeral permission " + permission,
+                    (info.protectionLevel & PermissionInfo.PROTECTION_FLAG_EPHEMERAL) != 0);
         }
     }
 
@@ -196,6 +203,12 @@ public class PermissionPolicyTest extends AndroidTestCase {
                 } break;
                 case "setup": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_SETUP;
+                } break;
+                case "ephemeral": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_EPHEMERAL;
+                } break;
+                case "runtime": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY;
                 } break;
             }
         }

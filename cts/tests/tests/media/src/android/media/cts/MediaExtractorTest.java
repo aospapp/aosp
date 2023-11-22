@@ -22,6 +22,7 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
+import android.os.PersistableBundle;
 import android.test.AndroidTestCase;
 
 import java.io.IOException;
@@ -107,5 +108,18 @@ public class MediaExtractorTest extends AndroidTestCase {
             assertTrue(mExtractor.readSampleData(buf, 0) > 0);
             assertTrue(mExtractor.advance());
         }
+
+        // verify some getMetrics() behaviors while we're here.
+        PersistableBundle metrics = mExtractor.getMetrics();
+        if (metrics == null) {
+            fail("getMetrics() returns no data");
+        } else {
+            // ensure existence of some known fields
+            int tracks = metrics.getInt(MediaExtractor.MetricsConstants.TRACKS, -1);
+            if (tracks != trackCount) {
+                fail("getMetrics() trackCount expect " + trackCount + " got " + tracks);
+            }
+        }
+
     }
 }

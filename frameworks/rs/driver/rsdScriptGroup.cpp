@@ -24,9 +24,13 @@
 #include "rsdBcc.h"
 #include "rsdAllocation.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::RsdCpuReference;
+using android::renderscript::ScriptGroup;
+using android::renderscript::ScriptGroupBase;
+using android::renderscript::ScriptKernelID;
+using android::renderscript::rs_script_group;
 
 bool rsdScriptGroupInit(const Context *rsc, ScriptGroupBase *sg) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
@@ -61,12 +65,8 @@ void rsdScriptGroupUpdateCachedObject(const Context *rsc,
 {
     obj->p = sg;
 #ifdef __LP64__
-    obj->r = nullptr;
-    if (sg != nullptr) {
-        obj->v1 = sg->mHal.drv;
-    } else {
-        obj->v1 = nullptr;
-    }
-    obj->v2 = nullptr;
+    obj->unused1 = nullptr;
+    obj->unused2 = nullptr;
+    obj->unused3 = nullptr;
 #endif
 }

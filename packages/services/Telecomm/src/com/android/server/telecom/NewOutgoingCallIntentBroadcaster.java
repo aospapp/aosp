@@ -24,9 +24,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Trace;
 import android.os.UserHandle;
 import android.telecom.GatewayInfo;
+import android.telecom.Log;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
@@ -112,19 +114,24 @@ public class NewOutgoingCallIntentBroadcaster {
                             Log.pii(resultNumber));
 
                     boolean endEarly = false;
+                    long disconnectTimeout =
+                            Timeouts.getNewOutgoingCallCancelMillis(mContext.getContentResolver());
                     if (resultNumber == null) {
                         Log.v(this, "Call cancelled (null number), returning...");
+                        disconnectTimeout = getDisconnectTimeoutFromApp(
+                                getResultExtras(false), disconnectTimeout);
                         endEarly = true;
                     } else if (mPhoneNumberUtilsAdapter.isPotentialLocalEmergencyNumber(
                             mContext, resultNumber)) {
                         Log.w(this, "Cannot modify outgoing call to emergency number %s.",
                                 resultNumber);
+                        disconnectTimeout = 0;
                         endEarly = true;
                     }
 
                     if (endEarly) {
                         if (mCall != null) {
-                            mCall.disconnect(true /* wasViaNewOutgoingCall */);
+                            mCall.disconnect(disconnectTimeout);
                         }
                         return;
                     }
@@ -308,7 +315,8 @@ public class NewOutgoingCallIntentBroadcaster {
 
         // Force receivers of this broadcast intent to run at foreground priority because we
         // want to finish processing the broadcast intent as soon as possible.
-        broadcastIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        broadcastIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND
+                | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
         Log.v(this, "Broadcasting intent: %s.", broadcastIntent);
 
         checkAndCopyProviderExtras(originalCallIntent, broadcastIntent);
@@ -443,6 +451,20 @@ public class NewOutgoingCallIntentBroadcaster {
             }
             Log.v(this, " - updating action from CALL_PRIVILEGED to %s", action);
             intent.setAction(action);
+        }
+    }
+
+    private long getDisconnectTimeoutFromApp(Bundle resultExtras, long defaultTimeout) {
+        if (resultExtras != null) {
+            long disconnectTimeout = resultExtras.getLong(
+                    TelecomManager.EXTRA_NEW_OUTGOING_CALL_CANCEL_TIMEOUT, defaultTimeout);
+            if (disconnectTimeout < 0) {
+                disconnectTimeout = 0;
+            }
+            return Math.min(disconnectTimeout,
+                    Timeouts.getMaxNewOutgoingCallCancelMillis(mContext.getContentResolver()));
+        } else {
+            return defaultTimeout;
         }
     }
 }

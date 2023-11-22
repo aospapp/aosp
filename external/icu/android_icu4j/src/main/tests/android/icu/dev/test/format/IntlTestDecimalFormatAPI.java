@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*****************************************************************************************
  *
  *   Copyright (C) 1996-2012, International Business Machines
@@ -23,21 +25,16 @@ import java.text.ParseException;
 import java.text.ParsePosition;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.math.BigDecimal;
 import android.icu.math.MathContext;
 import android.icu.text.DecimalFormat;
 import android.icu.text.DecimalFormatSymbols;
 import android.icu.text.NumberFormat;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
 {
-    public static void main(String[] args)  throws Exception {
-        new IntlTestDecimalFormatAPI().run(args);
-    }
-    
     /**
      * Problem 1: simply running 
      * decF4.setRoundingMode(java.math.BigDecimal.ROUND_HALF_UP) does not work 
@@ -53,6 +50,7 @@ public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
      * decimal places past 20 are not handled properly. A small ammount of work 
      * would make bring this up to snuff.
      */
+    @Test
     public void testJB1871()
     {
         // problem 2
@@ -98,6 +96,7 @@ public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
      * This test checks various generic API methods in DecimalFormat to achieve 
      * 100% API coverage.
      */
+    @Test
     public void TestAPI()
     {
         logln("DecimalFormat API test---"); logln("");
@@ -274,6 +273,7 @@ public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
         }
     }
 
+    @Test
     public void testJB6134()
     {
         DecimalFormat decfmt = new DecimalFormat();
@@ -293,6 +293,7 @@ public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
         }
     }
 
+    @Test
     public void testJB4971()
     {
         DecimalFormat decfmt = new DecimalFormat();
@@ -335,6 +336,7 @@ public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
 
     }
 
+    @Test
     public void testJB6354()
     {
         DecimalFormat pat = new DecimalFormat("#,##0.00");
@@ -358,6 +360,7 @@ public class IntlTestDecimalFormatAPI extends android.icu.dev.test.TestFmwk
         }
     }
     
+    @Test
     public void testJB6648()
     {
         DecimalFormat df = new DecimalFormat();

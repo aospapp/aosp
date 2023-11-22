@@ -19,12 +19,12 @@
 
 #include "jni_env_ext.h"
 
-#include "utils.h"
+#include "mirror/object.h"
 
 namespace art {
 
 template<typename T>
-inline T JNIEnvExt::AddLocalReference(mirror::Object* obj) {
+inline T JNIEnvExt::AddLocalReference(ObjPtr<mirror::Object> obj) {
   IndirectRef ref = locals.Add(local_ref_cookie, obj);
 
   // TODO: fix this to understand PushLocalFrame, so we can turn it on.
@@ -32,9 +32,10 @@ inline T JNIEnvExt::AddLocalReference(mirror::Object* obj) {
     if (check_jni) {
       size_t entry_count = locals.Capacity();
       if (entry_count > 16) {
-        locals.Dump(LOG(WARNING) << "Warning: more than 16 JNI local references: "
-            << entry_count << " (most recent was a " << PrettyTypeOf(obj) << ")\n");
-        // TODO: LOG(FATAL) in a later release?
+        locals.Dump(LOG_STREAM(WARNING) << "Warning: more than 16 JNI local references: "
+                                        << entry_count << " (most recent was a "
+                                        << mirror::Object::PrettyTypeOf(obj) << ")\n");
+      // TODO: LOG(FATAL) in a later release?
       }
     }
   }

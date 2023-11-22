@@ -19,8 +19,8 @@
 
 #include <inttypes.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 ProgramFragment::ProgramFragment(Context *rsc, const char * shaderText, size_t shaderLength,
                                  const char** textureNames, size_t textureNamesCount, const size_t *textureNamesLength,
@@ -130,9 +130,6 @@ void ProgramFragmentState::deinit(Context *rsc) {
     mLast.clear();
 }
 
-namespace android {
-namespace renderscript {
-
 RsProgramFragment rsi_ProgramFragmentCreate(Context *rsc, const char * shaderText,
                                             size_t shaderLength,
                                             const char** textureNames,
@@ -147,6 +144,5 @@ RsProgramFragment rsi_ProgramFragmentCreate(Context *rsc, const char * shaderTex
     return pf;
 }
 
-}
-}
-
+} // namespace renderscript
+} // namespace android

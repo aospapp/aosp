@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import vogar.Result;
+import vogar.RunnerType;
 import vogar.TestProperties;
 import vogar.monitor.TargetMonitor;
 import vogar.target.junit.JUnitRunnerFactory;
@@ -40,14 +41,13 @@ import vogar.target.junit.JUnitRunnerFactory;
  */
 public final class TestRunner {
 
-    private final String qualifiedName;
     private final String qualifiedClassOrPackageName;
 
     /** the monitor port if a monitor is expected, or null for no monitor */
     @VisibleForTesting final Integer monitorPort;
 
     /** use an atomic reference so the runner can null it out when it is encountered. */
-    @VisibleForTesting final AtomicReference<String> skipPastReference;
+    private final AtomicReference<String> skipPastReference;
     private final int timeoutSeconds;
 
     private final RunnerFactory runnerFactory;
@@ -60,7 +60,6 @@ public final class TestRunner {
     private boolean useSocketMonitor;
 
     public TestRunner(Properties properties, List<String> argsList) {
-        qualifiedName = properties.getProperty(TestProperties.QUALIFIED_NAME);
         qualifiedClassOrPackageName = properties.getProperty(TestProperties.TEST_CLASS_OR_PACKAGE);
         timeoutSeconds = Integer.parseInt(properties.getProperty(TestProperties.TIMEOUT));
 
@@ -88,15 +87,20 @@ public final class TestRunner {
             }
         }
 
-        boolean testOnly = Boolean.parseBoolean(properties.getProperty(TestProperties.TEST_ONLY));
-        if (testOnly) {
-            runnerFactory = new CompositeRunnerFactory(new JUnitRunnerFactory());
-        } else {
-            runnerFactory = new CompositeRunnerFactory(
-                    new JUnitRunnerFactory(),
-                    new CaliperRunnerFactory(argsList),
-                    new MainRunnerFactory());
+        // Select the RunnerFactory instances to use based on the selected runner type.
+        RunnerType runnerType =
+                RunnerType.valueOf(properties.getProperty(TestProperties.RUNNER_TYPE));
+        List<RunnerFactory> runnerFactories = new ArrayList<>();
+        if (runnerType.supportsCaliper()) {
+            runnerFactories.add(new CaliperRunnerFactory(argsList));
         }
+        if (runnerType.supportsJUnit()) {
+            runnerFactories.add(new JUnitRunnerFactory());
+        }
+        if (runnerType.supportsMain()) {
+            runnerFactories.add(new MainRunnerFactory());
+        }
+        runnerFactory = new CompositeRunnerFactory(runnerFactories);
 
         this.monitorPort = monitorPort;
         this.skipPastReference = new AtomicReference<>(skipPast);
@@ -219,26 +223,26 @@ public final class TestRunner {
             profiler.setup(profileThreadGroup, profileDepth, profileInterval);
         }
         for (Class<?> klass : classes) {
-            Runner runner;
+            TargetRunner targetRunner;
             try {
-                runner = runnerFactory.newRunner(monitor, qualification, klass,
+                targetRunner = runnerFactory.newRunner(monitor, qualification, klass,
                         skipPastReference, testEnvironment, timeoutSeconds, profile, args);
             } catch (RuntimeException e) {
-                monitor.outcomeStarted(null, qualifiedName);
+                monitor.outcomeStarted(klass.getName());
                 e.printStackTrace();
                 monitor.outcomeFinished(Result.ERROR);
                 return;
             }
 
-            if (runner == null) {
-                monitor.outcomeStarted(null, klass.getName());
+            if (targetRunner == null) {
+                monitor.outcomeStarted(klass.getName());
                 System.out.println("Skipping " + klass.getName()
                         + ": no associated runner class");
                 monitor.outcomeFinished(Result.UNSUPPORTED);
                 continue;
             }
 
-            boolean completedNormally = runner.run(profiler);
+            boolean completedNormally = targetRunner.run(profiler);
             if (!completedNormally) {
                 return; // let the caller start another process
             }
@@ -263,19 +267,19 @@ public final class TestRunner {
 
         private final List<? extends RunnerFactory> runnerFactories;
 
-        private CompositeRunnerFactory(RunnerFactory... runnerFactories) {
-            this.runnerFactories = Arrays.asList(runnerFactories);
+        private CompositeRunnerFactory(List<RunnerFactory> factories) {
+            this.runnerFactories = factories;
         }
 
         @Override @Nullable
-        public Runner newRunner(TargetMonitor monitor, String qualification,
+        public TargetRunner newRunner(TargetMonitor monitor, String qualification,
                 Class<?> klass, AtomicReference<String> skipPastReference,
                 TestEnvironment testEnvironment, int timeoutSeconds, boolean profile, String[] args) {
             for (RunnerFactory runnerFactory : runnerFactories) {
-                Runner runner = runnerFactory.newRunner(monitor, qualification, klass,
+                TargetRunner targetRunner = runnerFactory.newRunner(monitor, qualification, klass,
                         skipPastReference, testEnvironment, timeoutSeconds, profile, args);
-                if (runner != null) {
-                    return runner;
+                if (targetRunner != null) {
+                    return targetRunner;
                 }
             }
 

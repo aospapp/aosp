@@ -1,11 +1,17 @@
 CDD GENERATION README
-=======================
-Or, how I stopped hating the cdd and learned to love html-to-pdf conversions.
+=====================
 
+The HTML CDD is generated via build script from the source files in the
+platform/compatibility/cdd component. See the README in that component for
+details. Once the HTML is generated, then it is copied to this directory and the
+PDF is generated using the procedure given below.
+
+PDF GENERATION
+==============
 
 OVERVIEW
 ==================
-TL:DR This document describes how to create a CDD PDF from the CDD HTML file. You need to generate a cover file and a body file, then use a PDF editor to insert the cover page into the body.pdf.
+This section describes how to create a CDD PDF from the CDD HTML file. You need to generate a cover file and a body file, then use a PDF editor to insert the cover page into the body.pdf.
 
 The Android Compatibilty Definition Document (CDD) is maintained as an html file but distributed as a .pdf. The partner team updates the CDD for every new major Android release and the APE doc team posts the new .pdf to source.android.com in http://source.android.com/compatibility/.
 
@@ -84,7 +90,7 @@ B. Replace page 1 of the body.pdf with page 1 of the cover.pdf. For example, if 
    1. Open the body.pdf in Adobe Acrobat Pro.
    2. Select Tools > Pages > Replace.
    2. Open the cover.pdf file.
-   3. Replace page 1 of the body.pdf with page 1 of the cover.pdf. 
+   3. Replace page 1 of the body.pdf with page 1 of the cover.pdf.
 C. Save the new file as the android-cdd_x_x.pdf (where X_X is the number of the release, such as 5.1).
 
 QUESTIONS?

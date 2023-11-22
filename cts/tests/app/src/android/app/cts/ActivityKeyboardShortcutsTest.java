@@ -16,8 +16,8 @@
 
 package android.app.cts;
 
-import android.app.Activity;
 import android.app.stubs.KeyboardShortcutsActivity;
+import android.content.pm.PackageManager;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
@@ -33,7 +33,7 @@ import java.util.List;
 public class ActivityKeyboardShortcutsTest
         extends ActivityInstrumentationTestCase2<KeyboardShortcutsActivity> {
 
-    private Activity mActivity;
+    private KeyboardShortcutsActivity mActivity;
     private Menu mMenu;
 
     public ActivityKeyboardShortcutsTest() {
@@ -47,7 +47,34 @@ public class ActivityKeyboardShortcutsTest
         mMenu = new PopupMenu(mActivity, null).getMenu();
     }
 
+    /**
+     * Tests that requestShowKeyboardShortcuts fetches app specific shortcuts even when triggered
+     * from an overflow menu (options menu in the test)
+     */
+    public void testRequestShowKeyboardShortcuts() throws InterruptedException {
+        if (!keyboardShortcutsSupported()) {
+            return;
+        }
+        // Open activity's options menu
+        mActivity.openOptionsMenu();
+        mActivity.waitForMenuToBeOpen();
+
+        // Request keyboard shortcuts
+        mActivity.requestShowKeyboardShortcuts();
+        mActivity.waitForKeyboardShortcutsToBeRequested();
+
+        // Close the shortcuts helper
+        mActivity.dismissKeyboardShortcutsHelper();
+
+        // THEN the activity's onProvideKeyboardShortcuts should have been
+        // triggered to get app specific shortcuts
+        assertTrue(mActivity.onProvideKeyboardShortcutsCalled());
+    }
+
     public void testOnProvideKeyboardShortcuts() {
+        if (!keyboardShortcutsSupported()) {
+            return;
+        }
         List<KeyboardShortcutGroup> data = new ArrayList<>();
         mActivity.onCreateOptionsMenu(mMenu);
         mActivity.onProvideKeyboardShortcuts(data, mMenu, -1);
@@ -59,5 +86,11 @@ public class ActivityKeyboardShortcutsTest
         assertEquals(KeyboardShortcutsActivity.ITEM_1_SHORTCUT,
             data.get(0).getItems().get(0).getBaseCharacter());
         assertEquals(KeyEvent.META_CTRL_ON, data.get(0).getItems().get(0).getModifiers());
+    }
+
+    private boolean keyboardShortcutsSupported() {
+      // Keyboard shortcuts API is not supported on watches.
+      // TODO(b/62257073): Provide a more granular feature to check here.
+      return !mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 }

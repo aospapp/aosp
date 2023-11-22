@@ -25,7 +25,7 @@ class video_ChromeVidResChangeHWDecode(test.test):
         @param video_len : test video file length.
         """
 
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             shutil.copy2(constants.VIDEO_HTML_FILEPATH, self.bindir)
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab1 = cr.browser.tabs[0]

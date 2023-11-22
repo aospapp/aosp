@@ -28,7 +28,7 @@ You are now ready to run the test.
 # TODO (bleung): Find a way to do automatic Facebook login for test account.
 
 loop_time = 3600
-loop_count = 14
+loop_count = 16
 
 job.run_test('power_LoadTest', loop_time=loop_time, loop_count=loop_count,
              test_low_batt_p=3)

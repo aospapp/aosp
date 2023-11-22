@@ -67,17 +67,17 @@ static void fMMAccumulator(MinAndMax *accum, float in, int x) {
   me.val = in;
   me.idx = x;
 
-  if (me.val < accum->min.val)
+  if (me.val <= accum->min.val)
     accum->min = me;
-  if (me.val > accum->max.val)
+  if (me.val >= accum->max.val)
     accum->max = me;
 }
 
 static void fMMCombiner(MinAndMax *accum,
                         const MinAndMax *val) {
-  if (val->min.val < accum->min.val)
+  if ((accum->min.idx < 0) || (val->min.val < accum->min.val))
     accum->min = val->min;
-  if (val->max.val > accum->max.val)
+  if ((accum->max.idx < 0) || (val->max.val > accum->max.val))
     accum->max = val->max;
 }
 
@@ -428,8 +428,32 @@ static void ssCombine(long *accum, const long *accum2) { *accum += *accum2; }
 /////////////////////////////////////////////////////////////////////////
 
 // Test out-of-range result.
+
+// When a result is ulong, it can take on values not representable on
+// the Java side, where there are no unsigned integral types and long
+// is the largest integral type -- i.e., all values in the range
+// (MAX_LONG, MAX_ULONG] are not representable in Java.  The reflected
+// result_*.get() methods throw an exception if the result value is
+// out of range.  The globals and reduction kernels below allow a test
+// case on the Java side to describe what kind of result we should
+// produce -- in particular, what to use for an in-range value and an
+// out-of-range value, and where (if anywhere) to put an out-of-range
+// value within the result (which might be scalar, vector, array of
+// scalar, or array of vector).
+
 // We don't care about the input at all.
 // We use these globals to configure the generation of the result.
+// A kernel puts 2*oorrBadResultHalf in the position (if any) of the result
+// given by oorrBadResult, and oorrGoodResult everywhere else.
+// The oorrBadPos encoding is as follows:
+// - For scalar result, 0 = scalar; anything else = nowhere
+// - For vector result, 0..length(vector)-1 = corresponding vector component
+//     (0 = x, 1 = y, 2 = z, 3 = w); anything else = nowhere
+// - For array of scalar result, 0..length(array)-1 = corresponding array element;
+//     anything else = nowhere
+// - For array of vector result, 0..length(vector)*length(array)-1 = corresponding
+//     vector component C of corresponding array element E; anything else = nowhere
+//     (encoding is C + length(vector)*E)
 ulong oorrGoodResult;     // the value of a good result
 ulong oorrBadResultHalf;  // half the value of a bad result
                           //   ("half" because Java can only set the global from long not from ulong)

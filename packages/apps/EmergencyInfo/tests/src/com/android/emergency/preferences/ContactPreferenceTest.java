@@ -34,7 +34,7 @@ public class ContactPreferenceTest extends ActivityInstrumentationTestCase2<Edit
     private static final String NAME = "Jake";
     private static final String PHONE_NUMBER = "123456";
     private ContactPreference mContactPreference;
-    private Uri mContactUri;
+    private Uri mPhoneUri;
 
     public ContactPreferenceTest() {
         super(EditInfoActivity.class);
@@ -42,11 +42,11 @@ public class ContactPreferenceTest extends ActivityInstrumentationTestCase2<Edit
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mContactUri =
+        mPhoneUri =
                 ContactTestUtils.createContact(getActivity().getContentResolver(),
                         NAME,
                         PHONE_NUMBER);
-        mContactPreference = new ContactPreference(getActivity(), mContactUri);
+        mContactPreference = new ContactPreference(getActivity(), mPhoneUri);
     }
 
     @Override
@@ -58,7 +58,7 @@ public class ContactPreferenceTest extends ActivityInstrumentationTestCase2<Edit
     }
 
     public void testContactPreference() {
-        assertEquals(mContactUri, mContactPreference.getContactUri());
+        assertEquals(mPhoneUri, mContactPreference.getPhoneUri());
         assertEquals(NAME, mContactPreference.getContact().getName());
         assertEquals(PHONE_NUMBER, mContactPreference.getContact().getPhoneNumber());
 

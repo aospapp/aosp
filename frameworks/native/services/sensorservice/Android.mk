@@ -11,6 +11,7 @@ LOCAL_SRC_FILES:= \
     RecentEventLogger.cpp \
     RotationVectorSensor.cpp \
     SensorDevice.cpp \
+    SensorDirectConnection.cpp \
     SensorEventConnection.cpp \
     SensorFusion.cpp \
     SensorInterface.cpp \
@@ -18,7 +19,6 @@ LOCAL_SRC_FILES:= \
     SensorRecord.cpp \
     SensorService.cpp \
     SensorServiceUtils.cpp \
-
 
 LOCAL_CFLAGS:= -DLOG_TAG=\"SensorService\"
 
@@ -33,9 +33,20 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     liblog \
     libbinder \
-    libui \
-    libgui \
-    libcrypto
+    libsensor \
+    libcrypto \
+    libbase \
+    libhidlbase \
+    libhidltransport \
+    libhwbinder \
+    android.hardware.sensors@1.0
+
+LOCAL_STATIC_LIBRARIES := \
+    android.hardware.sensors@1.0-convert
+
+# our public headers depend on libsensor
+LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := \
+    libsensor \
 
 LOCAL_MODULE:= libsensorservice
 

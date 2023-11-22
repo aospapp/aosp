@@ -18,7 +18,7 @@ import its.objects
 import its.caps
 import os.path
 import numpy
-import pylab
+from matplotlib import pylab
 import matplotlib
 import matplotlib.pyplot
 
@@ -44,6 +44,8 @@ def main():
         # Converge 3A prior to capture.
         cam.do_3a(do_af=True, lock_ae=True, lock_awb=True)
 
+        fmt = its.objects.get_largest_yuv_format(props)
+
         # After 3A has converged, lock AE+AWB for the duration of the test.
         req = its.objects.fastest_auto_capture_request(props)
         req["android.control.awbLock"] = True
@@ -54,7 +56,7 @@ def main():
         r_means = []
         g_means = []
         b_means = []
-        caps = cam.do_capture([req]*BURST_LEN)
+        caps = cam.do_capture([req]*BURST_LEN, fmt)
         for i,cap in enumerate(caps):
             img = its.image.convert_capture_to_rgb_image(cap)
             its.image.write_image(img, "%s_frame%d.jpg"%(NAME,i))

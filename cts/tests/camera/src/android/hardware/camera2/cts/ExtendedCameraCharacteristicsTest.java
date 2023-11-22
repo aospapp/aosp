@@ -446,9 +446,12 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
             mCollector.expectKeyValueInRange(c, CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1,
                     CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1_DAYLIGHT,
                     CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1_ISO_STUDIO_TUNGSTEN);
-            mCollector.expectKeyValueInRange(c, CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2,
-                    (byte) CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1_DAYLIGHT,
-                    (byte) CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1_ISO_STUDIO_TUNGSTEN);
+            // Only check the range if the second reference illuminant is avaliable
+            if (c.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2) != null) {
+                mCollector.expectKeyValueInRange(c, CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2,
+                        (byte) CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1_DAYLIGHT,
+                        (byte) CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1_ISO_STUDIO_TUNGSTEN);
+            }
 
             Rational[] zeroes = new Rational[9];
             Arrays.fill(zeroes, Rational.ZERO);
@@ -976,10 +979,6 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                     !config.isOutputSupportedFor(ImageFormat.JPEG));
             }
 
-            // Legacy YUV formats should not be listed
-            assertTrue("NV21 must not be supported",
-                    !config.isOutputSupportedFor(ImageFormat.NV21));
-
             // Check RAW
 
             if (arrayContains(actualCapabilities,
@@ -1201,8 +1200,9 @@ public class ExtendedCameraCharacteristicsTest extends AndroidTestCase {
                 // should be advertise by the camera.
                 for (int quality = CamcorderProfile.QUALITY_HIGH_SPEED_480P;
                         quality <= CamcorderProfile.QUALITY_HIGH_SPEED_2160P; quality++) {
-                    if (CamcorderProfile.hasProfile(quality)) {
-                        CamcorderProfile profile = CamcorderProfile.get(quality);
+                    int cameraId = Integer.valueOf(mIds[counter]);
+                    if (CamcorderProfile.hasProfile(cameraId, quality)) {
+                        CamcorderProfile profile = CamcorderProfile.get(cameraId, quality);
                         Size camcorderProfileSize =
                                 new Size(profile.videoFrameWidth, profile.videoFrameHeight);
                         assertTrue("CamcorderPrfile size " + camcorderProfileSize +

@@ -10,12 +10,14 @@ LOCAL_SRC_FILES := \
   bitrate.c wowlan.c coalesce.c roc.c p2p.c vendor.c \
   sections.c
 
-LOCAL_CFLAGS += -DCONFIG_LIBNL20
+LOCAL_CFLAGS += -D_GNU_SOURCE -DCONFIG_LIBNL20
 
 # Silence some warnings for now. Needs to be fixed upstream. b/26105799
 LOCAL_CFLAGS += -Wno-unused-parameter \
                 -Wno-sign-compare \
-                -Wno-format
+                -Wno-format \
+                -Wno-absolute-value \
+                -Werror
 LOCAL_CLANG_CFLAGS += -Wno-enum-conversion
 
 LOCAL_LDFLAGS := -Wl,--no-gc-sections
@@ -26,7 +28,9 @@ LOCAL_MODULE := iw
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_GENERATED_SOURCES := $(local-generated-sources-dir)/version.c
 $(LOCAL_GENERATED_SOURCES) : $(LOCAL_PATH)/version.sh
+	@echo "Generated: $@"
 	@mkdir -p $(dir $@)
-	$(hide) $< $@
+	$(hide) echo '#include "iw.h"' >$@
+	$(hide) echo "const char iw_version[] = $$(grep ^VERSION $< | sed "s/VERSION=//");" >>$@
 
 include $(BUILD_EXECUTABLE)

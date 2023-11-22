@@ -18,6 +18,7 @@ package dalvik.system;
 
 import java.io.File;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -27,16 +28,32 @@ import java.util.List;
  * {@link ClassLoader} implementations.
  */
 public class BaseDexClassLoader extends ClassLoader {
+
+    /**
+     * Hook for customizing how dex files loads are reported.
+     *
+     * This enables the framework to monitor the use of dex files. The
+     * goal is to simplify the mechanism for optimizing foreign dex files and
+     * enable further optimizations of secondary dex files.
+     *
+     * The reporting happens only when new instances of BaseDexClassLoader
+     * are constructed and will be active only after this field is set with
+     * {@link BaseDexClassLoader#setReporter}.
+     */
+    /* @NonNull */ private static volatile Reporter reporter = null;
+
     private final DexPathList pathList;
 
     /**
      * Constructs an instance.
+     * Note that all the *.jar and *.apk files from {@code dexPath} might be
+     * first extracted in-memory before the code is loaded. This can be avoided
+     * by passing raw dex files (*.dex) in the {@code dexPath}.
      *
      * @param dexPath the list of jar/apk files containing classes and
      * resources, delimited by {@code File.pathSeparator}, which
-     * defaults to {@code ":"} on Android
-     * @param optimizedDirectory directory where optimized dex files
-     * should be written; may be {@code null}
+     * defaults to {@code ":"} on Android.
+     * @param optimizedDirectory this parameter is deprecated and has no effect
      * @param librarySearchPath the list of directories containing native
      * libraries, delimited by {@code File.pathSeparator}; may be
      * {@code null}
@@ -45,7 +62,27 @@ public class BaseDexClassLoader extends ClassLoader {
     public BaseDexClassLoader(String dexPath, File optimizedDirectory,
             String librarySearchPath, ClassLoader parent) {
         super(parent);
-        this.pathList = new DexPathList(this, dexPath, librarySearchPath, optimizedDirectory);
+        this.pathList = new DexPathList(this, dexPath, librarySearchPath, null);
+
+        if (reporter != null) {
+            reporter.report(this.pathList.getDexPaths());
+        }
+    }
+
+    /**
+     * Constructs an instance.
+     *
+     * dexFile must be an in-memory representation of a full dexFile.
+     *
+     * @param dexFiles the array of in-memory dex files containing classes.
+     * @param parent the parent class loader
+     *
+     * @hide
+     */
+    public BaseDexClassLoader(ByteBuffer[] dexFiles, ClassLoader parent) {
+        // TODO We should support giving this a library search path maybe.
+        super(parent);
+        this.pathList = new DexPathList(this, dexFiles);
     }
 
     @Override
@@ -53,7 +90,8 @@ public class BaseDexClassLoader extends ClassLoader {
         List<Throwable> suppressedExceptions = new ArrayList<Throwable>();
         Class c = pathList.findClass(name, suppressedExceptions);
         if (c == null) {
-            ClassNotFoundException cnfe = new ClassNotFoundException("Didn't find class \"" + name + "\" on path: " + pathList);
+            ClassNotFoundException cnfe = new ClassNotFoundException(
+                    "Didn't find class \"" + name + "\" on path: " + pathList);
             for (Throwable t : suppressedExceptions) {
                 cnfe.addSuppressed(t);
             }
@@ -143,5 +181,31 @@ public class BaseDexClassLoader extends ClassLoader {
 
     @Override public String toString() {
         return getClass().getName() + "[" + pathList + "]";
+    }
+
+    /**
+     * Sets the reporter for dex load notifications.
+     * Once set, all new instances of BaseDexClassLoader will report upon
+     * constructions the loaded dex files.
+     *
+     * @param newReporter the new Reporter. Setting null will cancel reporting.
+     * @hide
+     */
+    public static void setReporter(Reporter newReporter) {
+        reporter = newReporter;
+    }
+
+    /**
+     * @hide
+     */
+    public static Reporter getReporter() {
+        return reporter;
+    }
+
+    /**
+     * @hide
+     */
+    public interface Reporter {
+        public void report(List<String> dexPaths);
     }
 }

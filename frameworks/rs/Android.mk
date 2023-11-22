@@ -1,10 +1,33 @@
 
 LOCAL_PATH:=$(call my-dir)
 
-rs_base_CFLAGS := -Werror -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -fno-exceptions -std=c++11
-ifeq ($(TARGET_BUILD_PDK), true)
-  rs_base_CFLAGS += -D__RS_PDK__
+.PHONY: rs-prebuilts-full
+rs-prebuilts-full: \
+    bcc_compat \
+    llvm-rs-cc \
+    libRSSupport \
+    libRSSupportIO \
+    libRScpp_static \
+    libblasV8 \
+    libcompiler_rt \
+    librsrt_arm.bc \
+    librsrt_arm64.bc \
+    librsrt_mips.bc \
+    librsrt_x86.bc \
+    librsrt_x86_64.bc
+
+ifneq ($(HOST_OS),darwin)
+rs-prebuilts-full: \
+    host_cross_llvm-rs-cc \
+    host_cross_bcc_compat
 endif
+
+# Not building RenderScript modules in PDK builds, as libmediandk
+# is not available in PDK.
+ifneq ($(TARGET_BUILD_PDK), true)
+
+rs_base_CFLAGS := -Werror -Wall -Wextra \
+	-Wno-unused-parameter -Wno-unused-variable
 
 ifneq ($(OVERRIDE_RS_DRIVER),)
   rs_base_CFLAGS += -DOVERRIDE_RS_DRIVER=$(OVERRIDE_RS_DRIVER)
@@ -19,9 +42,7 @@ ifeq ($(RS_FIND_OFFSETS), true)
 endif
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_MODULE := libRSDriver
-LOCAL_MODULE_TARGET_ARCH_WARN := arm mips mips64 x86 x86_64 arm64
 
 LOCAL_SRC_FILES:= \
 	driver/rsdAllocation.cpp \
@@ -46,19 +67,14 @@ LOCAL_SRC_FILES:= \
 
 
 LOCAL_SHARED_LIBRARIES += libRS_internal libRSCpuRef
-LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2
-LOCAL_SHARED_LIBRARIES += libui libgui libsync
+LOCAL_SHARED_LIBRARIES += liblog libEGL libGLESv1_CM libGLESv2
+LOCAL_SHARED_LIBRARIES += libnativewindow
 
-LOCAL_SHARED_LIBRARIES += libbcinfo libLLVM
+LOCAL_SHARED_LIBRARIES += libbcinfo
 
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 
-LOCAL_CXX_STL := libc++
-
 LOCAL_CFLAGS += $(rs_base_CFLAGS)
-LOCAL_CPPFLAGS += -fno-exceptions
-
-LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -83,13 +99,10 @@ LOCAL_SANITIZE := never
 
 include $(BUILD_HOST_EXECUTABLE)
 
-# TODO: This should go into build/core/config.mk
 RSG_GENERATOR:=$(LOCAL_BUILT_MODULE)
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_MODULE := libRS_internal
-LOCAL_MODULE_TARGET_ARCH_WARN := arm mips mips64 x86 x86_64 arm64
 
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 generated_sources:= $(local-generated-sources-dir)
@@ -114,6 +127,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # Generate custom source files
 
 GEN := $(addprefix $(generated_sources)/, \
+            rsgApi.cpp \
             rsgApiReplay.cpp \
         )
 
@@ -129,6 +143,13 @@ rs_generated_source += $(GEN)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 LOCAL_SRC_FILES:= \
+	rsApiAllocation.cpp \
+	rsApiContext.cpp \
+	rsApiDevice.cpp \
+	rsApiElement.cpp \
+	rsApiFileA3D.cpp \
+	rsApiMesh.cpp \
+	rsApiType.cpp \
 	rsAllocation.cpp \
 	rsAnimation.cpp \
 	rsComponent.cpp \
@@ -167,180 +188,63 @@ LOCAL_SRC_FILES:= \
 	rsThreadIO.cpp \
 	rsType.cpp
 
-LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2
-LOCAL_SHARED_LIBRARIES += libgui libsync libdl libui
-LOCAL_SHARED_LIBRARIES += libft2 libpng libz
+LOCAL_SHARED_LIBRARIES += liblog libutils libEGL libGLESv1_CM libGLESv2
+LOCAL_SHARED_LIBRARIES += libdl libnativewindow
+LOCAL_SHARED_LIBRARIES += libft2
 
-LOCAL_SHARED_LIBRARIES += libbcinfo libLLVM
+LOCAL_SHARED_LIBRARIES += libbcinfo libmediandk
 
-LOCAL_C_INCLUDES += external/freetype/include
-LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
-
-LOCAL_CXX_STL := libc++
+LOCAL_C_INCLUDES += frameworks/av/include/ndk
 
 LOCAL_CFLAGS += $(rs_base_CFLAGS)
-# TODO: external/freetype still uses the register keyword
-# Bug: 17163086
-LOCAL_CFLAGS += -Wno-deprecated-register
 
-LOCAL_CPPFLAGS += -fno-exceptions
+# These runtime modules, including libcompiler_rt.so, are required for
+# RenderScript.
+LOCAL_REQUIRED_MODULES := \
+	libclcore.bc \
+	libclcore_debug.bc \
+	libclcore_g.bc \
+	libcompiler_rt
+
+LOCAL_REQUIRED_MODULES_x86 += libclcore_x86.bc
+LOCAL_REQUIRED_MODULES_x86_64 += libclcore_x86.bc
+
+ifeq ($(ARCH_ARM_HAVE_NEON),true)
+  LOCAL_REQUIRED_MODULES_arm += libclcore_neon.bc
+endif
 
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_CLANG := true
 LOCAL_MODULE := libRS
-LOCAL_MODULE_TARGET_ARCH_WARN := arm mips mips64 x86 x86_64 arm64
 
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
-generated_sources:= $(local-generated-sources-dir)
-
-# Generate custom headers
-
-GEN := $(addprefix $(generated_sources)/, \
-            rsgApiStructs.h \
-            rsgApiFuncDecl.h \
-        )
-
-$(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
-$(GEN): $(generated_sources)/%.h : $(LOCAL_PATH)/%.h.rsg
-	$(transform-generated-source)
-
-# used in jni/Android.mk
-rs_generated_source += $(GEN)
-LOCAL_GENERATED_SOURCES += $(GEN)
-
-# Generate custom source files
-
-GEN := $(addprefix $(generated_sources)/, \
-            rsgApi.cpp \
-        )
-
-$(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
-$(GEN): $(generated_sources)/%.cpp : $(LOCAL_PATH)/%.cpp.rsg
-	$(transform-generated-source)
-
-# used in jni/Android.mk
-rs_generated_source += $(GEN)
-
-LOCAL_GENERATED_SOURCES += $(GEN)
 
 LOCAL_SRC_FILES:= \
-	rsApiAllocation.cpp \
-	rsApiContext.cpp \
-	rsApiDevice.cpp \
-	rsApiElement.cpp \
-	rsApiFileA3D.cpp \
-	rsApiMesh.cpp \
-	rsApiType.cpp \
+	rsApiStubs.cpp \
+	rsHidlAdaptation.cpp \
+	rsFallbackAdaptation.cpp
 
-LOCAL_SHARED_LIBRARIES += libRS_internal
-LOCAL_SHARED_LIBRARIES += liblog
+# Default CPU fallback
+LOCAL_REQUIRED_MODULES := libRS_internal libRSDriver
+
+# Treble configuration
+LOCAL_SHARED_LIBRARIES += libhidlbase libhidltransport libhwbinder libutils android.hardware.renderscript@1.0
+
+LOCAL_SHARED_LIBRARIES += liblog libcutils libandroid_runtime
+
+LOCAL_STATIC_LIBRARIES := \
+        libRSDispatch
 
 LOCAL_CFLAGS += $(rs_base_CFLAGS)
-# TODO: external/freetype still uses the register keyword
-# Bug: 17163086
-LOCAL_CFLAGS += -Wno-deprecated-register
-
-LOCAL_CPPFLAGS += -fno-exceptions
 
 LOCAL_LDFLAGS += -Wl,--version-script,${LOCAL_PATH}/libRS.map
 
-LOCAL_MODULE_TAGS := optional
-
 include $(BUILD_SHARED_LIBRARY)
 
-# Now build a host version for serialization
-include $(CLEAR_VARS)
-LOCAL_MODULE:= libRS
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-LOCAL_IS_HOST_MODULE := true
-
-intermediates := $(call local-generated-sources-dir)
-
-# Generate custom headers
-
-GEN := $(addprefix $(intermediates)/, \
-            rsgApiStructs.h \
-            rsgApiFuncDecl.h \
-        )
-
-$(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
-$(GEN): $(intermediates)/%.h : $(LOCAL_PATH)/%.h.rsg
-	$(transform-generated-source)
-
-LOCAL_GENERATED_SOURCES += $(GEN)
-
-# Generate custom source files
-
-GEN := $(addprefix $(intermediates)/, \
-            rsgApi.cpp \
-            rsgApiReplay.cpp \
-        )
-
-$(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
-$(GEN): $(intermediates)/%.cpp : $(LOCAL_PATH)/%.cpp.rsg
-	$(transform-generated-source)
-
-LOCAL_GENERATED_SOURCES += $(GEN)
-
-LOCAL_CFLAGS += $(rs_base_CFLAGS)
-LOCAL_CFLAGS += -DANDROID_RS_SERIALIZE
-LOCAL_CFLAGS += -fPIC
-LOCAL_CPPFLAGS += -fno-exceptions
-
-LOCAL_SRC_FILES:= \
-	rsAllocation.cpp \
-	rsAnimation.cpp \
-	rsComponent.cpp \
-	rsContext.cpp \
-	rsClosure.cpp \
-	rsDevice.cpp \
-	rsDriverLoader.cpp \
-	rsElement.cpp \
-	rsFBOCache.cpp \
-	rsFifoSocket.cpp \
-	rsFileA3D.cpp \
-	rsFont.cpp \
-	rsObjectBase.cpp \
-	rsMatrix2x2.cpp \
-	rsMatrix3x3.cpp \
-	rsMatrix4x4.cpp \
-	rsMesh.cpp \
-	rsMutex.cpp \
-	rsProgram.cpp \
-	rsProgramFragment.cpp \
-	rsProgramStore.cpp \
-	rsProgramRaster.cpp \
-	rsProgramVertex.cpp \
-	rsSampler.cpp \
-	rsScript.cpp \
-	rsScriptC.cpp \
-	rsScriptC_Lib.cpp \
-	rsScriptC_LibGL.cpp \
-	rsScriptGroup.cpp \
-	rsScriptGroup2.cpp \
-	rsScriptIntrinsic.cpp \
-	rsSignal.cpp \
-	rsStream.cpp \
-	rsThreadIO.cpp \
-	rsType.cpp
-
-LOCAL_STATIC_LIBRARIES := libcutils libutils liblog
-
-LOCAL_CLANG := true
-
-include $(BUILD_HOST_STATIC_LIBRARY)
+endif # TARGET_BUILD_PDK
 
 include $(call all-makefiles-under,$(LOCAL_PATH))
+

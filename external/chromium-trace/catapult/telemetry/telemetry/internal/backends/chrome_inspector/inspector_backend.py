@@ -8,6 +8,8 @@ import os
 import socket
 import sys
 
+from py_trace_event import trace_event
+
 from telemetry.core import exceptions
 from telemetry import decorators
 from telemetry.internal.backends.chrome_inspector import devtools_http
@@ -17,6 +19,9 @@ from telemetry.internal.backends.chrome_inspector import inspector_page
 from telemetry.internal.backends.chrome_inspector import inspector_runtime
 from telemetry.internal.backends.chrome_inspector import inspector_websocket
 from telemetry.internal.backends.chrome_inspector import websocket
+from telemetry.util import js_template
+
+import py_utils
 
 
 def _HandleInspectorWebSocketExceptions(func):
@@ -43,7 +48,10 @@ class InspectorBackend(object):
   The owner of an instance of this class is responsible for calling
   Disconnect() before disposing of the instance.
   """
-  def __init__(self, app, devtools_client, context, timeout=60):
+
+  __metaclass__ = trace_event.TracedMetaClass
+
+  def __init__(self, app, devtools_client, context, timeout=120):
     self._websocket = inspector_websocket.InspectorWebsocket()
     self._websocket.RegisterDomain(
         'Inspector', self._HandleInspectorDomainNotification)
@@ -58,13 +66,14 @@ class InspectorBackend(object):
 
     logging.debug('InspectorBackend._Connect() to %s', self.debugger_url)
     try:
-      self._websocket.Connect(self.debugger_url)
+      self._websocket.Connect(self.debugger_url, timeout)
       self._console = inspector_console.InspectorConsole(self._websocket)
       self._memory = inspector_memory.InspectorMemory(self._websocket)
       self._page = inspector_page.InspectorPage(
           self._websocket, timeout=timeout)
       self._runtime = inspector_runtime.InspectorRuntime(self._websocket)
-    except (websocket.WebSocketException, exceptions.TimeoutException) as e:
+    except (websocket.WebSocketException, exceptions.TimeoutException,
+            py_utils.TimeoutException) as e:
       self._ConvertExceptionFromInspectorWebsocket(e)
 
   def Disconnect(self):
@@ -179,28 +188,110 @@ class InspectorBackend(object):
   # Runtime public methods.
 
   @_HandleInspectorWebSocketExceptions
-  def ExecuteJavaScript(self, expr, context_id=None, timeout=60):
-    """Executes a javascript expression without returning the result.
+  def ExecuteJavaScript(self, statement, **kwargs):
+    """Executes a given JavaScript statement. Does not return the result.
+
+    Example: runner.ExecuteJavaScript('var foo = {{ value }};', value='hi');
+
+    Args:
+      statement: The statement to execute (provided as a string).
+
+    Optional keyword args:
+      timeout: The number of seconds to wait for the statement to execute.
+      context_id: The id of an iframe where to execute the code; the main page
+          has context_id=1, the first iframe context_id=2, etc.
+      Additional keyword arguments provide values to be interpolated within
+          the statement. See telemetry.util.js_template for details.
 
     Raises:
-      exceptions.EvaluateException
-      exceptions.WebSocketDisconnected
-      exceptions.TimeoutException
+      py_utils.TimeoutException
+      exceptions.EvaluationException
+      exceptions.WebSocketException
       exceptions.DevtoolsTargetCrashException
     """
-    self._runtime.Execute(expr, context_id, timeout)
+    # Use the default both when timeout=None or the option is ommited.
+    timeout = kwargs.pop('timeout', None) or 60
+    context_id = kwargs.pop('context_id', None)
+    statement = js_template.Render(statement, **kwargs)
+    self._runtime.Execute(statement, context_id, timeout)
 
   @_HandleInspectorWebSocketExceptions
-  def EvaluateJavaScript(self, expr, context_id=None, timeout=60):
-    """Evaluates a javascript expression and returns the result.
+  def EvaluateJavaScript(self, expression, **kwargs):
+    """Returns the result of evaluating a given JavaScript expression.
+
+    Example: runner.ExecuteJavaScript('document.location.href');
+
+    Args:
+      expression: The expression to execute (provided as a string).
+
+    Optional keyword args:
+      timeout: The number of seconds to wait for the expression to evaluate.
+      context_id: The id of an iframe where to execute the code; the main page
+          has context_id=1, the first iframe context_id=2, etc.
+      Additional keyword arguments provide values to be interpolated within
+          the expression. See telemetry.util.js_template for details.
 
     Raises:
-      exceptions.EvaluateException
-      exceptions.WebSocketDisconnected
-      exceptions.TimeoutException
+      py_utils.TimeoutException
+      exceptions.EvaluationException
+      exceptions.WebSocketException
       exceptions.DevtoolsTargetCrashException
     """
-    return self._runtime.Evaluate(expr, context_id, timeout)
+    # Use the default both when timeout=None or the option is ommited.
+    timeout = kwargs.pop('timeout', None) or 60
+    context_id = kwargs.pop('context_id', None)
+    expression = js_template.Render(expression, **kwargs)
+    return self._runtime.Evaluate(expression, context_id, timeout)
+
+  def WaitForJavaScriptCondition(self, condition, **kwargs):
+    """Wait for a JavaScript condition to become truthy.
+
+    Example: runner.WaitForJavaScriptCondition('window.foo == 10');
+
+    Args:
+      condition: The JavaScript condition (provided as string).
+
+    Optional keyword args:
+      timeout: The number in seconds to wait for the condition to become
+          True (default to 60).
+      context_id: The id of an iframe where to execute the code; the main page
+          has context_id=1, the first iframe context_id=2, etc.
+      Additional keyword arguments provide values to be interpolated within
+          the expression. See telemetry.util.js_template for details.
+
+    Returns:
+      The value returned by the JavaScript condition that got interpreted as
+      true.
+
+    Raises:
+      py_utils.TimeoutException
+      exceptions.EvaluationException
+      exceptions.WebSocketException
+      exceptions.DevtoolsTargetCrashException
+    """
+    # Use the default both when timeout=None or the option is ommited.
+    timeout = kwargs.pop('timeout', None) or 60
+    context_id = kwargs.pop('context_id', None)
+    condition = js_template.Render(condition, **kwargs)
+
+    def IsJavaScriptExpressionTrue():
+      return self._runtime.Evaluate(condition, context_id, timeout)
+
+    try:
+      return py_utils.WaitFor(IsJavaScriptExpressionTrue, timeout)
+    except py_utils.TimeoutException as e:
+      # Try to make timeouts a little more actionable by dumping console output.
+      debug_message = None
+      try:
+        debug_message = (
+            'Console output:\n%s' %
+            self.GetCurrentConsoleOutputBuffer())
+      except Exception as e:
+        debug_message = (
+            'Exception thrown when trying to capture console output: %s' %
+            repr(e))
+      raise py_utils.TimeoutException(
+          e.message + '\n' + debug_message)
 
   @_HandleInspectorWebSocketExceptions
   def EnableAllContexts(self):
@@ -216,7 +307,7 @@ class InspectorBackend(object):
   @_HandleInspectorWebSocketExceptions
   def SynthesizeScrollGesture(self, x=100, y=800, xDistance=0, yDistance=-500,
                               xOverscroll=None, yOverscroll=None,
-                              preventFling=True, speed=None,
+                              preventFling=None, speed=None,
                               gestureSourceType=None, repeatCount=None,
                               repeatDelayMs=None, interactionMarkerName=None,
                               timeout=60):
@@ -244,9 +335,11 @@ class InspectorBackend(object):
         'x': x,
         'y': y,
         'xDistance': xDistance,
-        'yDistance': yDistance,
-        'preventFling': preventFling,
+        'yDistance': yDistance
     }
+
+    if preventFling is not None:
+      params['preventFling'] = preventFling
 
     if xOverscroll is not None:
       params['xOverscroll'] = xOverscroll
@@ -274,6 +367,75 @@ class InspectorBackend(object):
       'params': params
     }
     return self._runtime.RunInspectorCommand(scroll_command, timeout)
+
+  @_HandleInspectorWebSocketExceptions
+  def DispatchKeyEvent(self, keyEventType='char', modifiers=None,
+                       timestamp=None, text=None, unmodifiedText=None,
+                       keyIdentifier=None, domCode=None, domKey=None,
+                       windowsVirtualKeyCode=None, nativeVirtualKeyCode=None,
+                       autoRepeat=None, isKeypad=None, isSystemKey=None,
+                       timeout=60):
+    """Dispatches a key event to the page.
+
+    Args:
+      type: Type of the key event. Allowed values: 'keyDown', 'keyUp',
+          'rawKeyDown', 'char'.
+      modifiers: Bit field representing pressed modifier keys. Alt=1, Ctrl=2,
+          Meta/Command=4, Shift=8 (default: 0).
+      timestamp: Time at which the event occurred. Measured in UTC time in
+          seconds since January 1, 1970 (default: current time).
+      text: Text as generated by processing a virtual key code with a keyboard
+          layout. Not needed for for keyUp and rawKeyDown events (default: '').
+      unmodifiedText: Text that would have been generated by the keyboard if no
+          modifiers were pressed (except for shift). Useful for shortcut
+          (accelerator) key handling (default: "").
+      keyIdentifier: Unique key identifier (e.g., 'U+0041') (default: '').
+      windowsVirtualKeyCode: Windows virtual key code (default: 0).
+      nativeVirtualKeyCode: Native virtual key code (default: 0).
+      autoRepeat: Whether the event was generated from auto repeat (default:
+          False).
+      isKeypad: Whether the event was generated from the keypad (default:
+          False).
+      isSystemKey: Whether the event was a system key event (default: False).
+
+    Raises:
+      exceptions.TimeoutException
+      exceptions.DevtoolsTargetCrashException
+    """
+    params = {
+      'type': keyEventType,
+    }
+
+    if modifiers is not None:
+      params['modifiers'] = modifiers
+    if timestamp is not None:
+      params['timestamp'] = timestamp
+    if text is not None:
+      params['text'] = text
+    if unmodifiedText is not None:
+      params['unmodifiedText'] = unmodifiedText
+    if keyIdentifier is not None:
+      params['keyIdentifier'] = keyIdentifier
+    if domCode is not None:
+      params['code'] = domCode
+    if domKey is not None:
+      params['key'] = domKey
+    if windowsVirtualKeyCode is not None:
+      params['windowsVirtualKeyCode'] = windowsVirtualKeyCode
+    if nativeVirtualKeyCode is not None:
+      params['nativeVirtualKeyCode'] = nativeVirtualKeyCode
+    if autoRepeat is not None:
+      params['autoRepeat'] = autoRepeat
+    if isKeypad is not None:
+      params['isKeypad'] = isKeypad
+    if isSystemKey is not None:
+      params['isSystemKey'] = isSystemKey
+
+    key_command = {
+      'method': 'Input.dispatchKeyEvent',
+      'params': params
+    }
+    return self._runtime.RunInspectorCommand(key_command, timeout)
 
   # Methods used internally by other backends.
 

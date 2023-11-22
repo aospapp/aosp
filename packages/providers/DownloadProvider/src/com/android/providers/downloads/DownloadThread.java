@@ -382,7 +382,6 @@ public class DownloadThread extends Thread {
         }
 
         if (Downloads.Impl.isStatusCompleted(mInfoDelta.mStatus)) {
-            mInfo.sendIntentIfRequested();
             if (mInfo.shouldScanFile(mInfoDelta.mStatus)) {
                 DownloadScanner.requestScanBlocking(mContext, mInfo.mId, mInfoDelta.mFileName,
                         mInfoDelta.mMimeType);
@@ -898,15 +897,7 @@ public class DownloadThread extends Thread {
         }
 
         @Override
-        public void onRestrictBackgroundWhitelistChanged(int uid, boolean whitelisted) {
-            // caller is NPMS, since we only register with them
-            if (uid == mInfo.mUid) {
-                mPolicyDirty = true;
-            }
-        }
-
-        @Override
-        public void onRestrictBackgroundBlacklistChanged(int uid, boolean blacklisted) {
+        public void onUidPoliciesChanged(int uid, int uidPolicies) {
             // caller is NPMS, since we only register with them
             if (uid == mInfo.mUid) {
                 mPolicyDirty = true;

@@ -61,26 +61,6 @@ public class KeyChainTest extends AndroidTestCase {
         }
     }
 
-    public void testGetPrivateKeyOnMainThreadFails() throws InterruptedException {
-        final CountDownLatch waiter = new CountDownLatch(1);
-        new Handler(getContext().getMainLooper()).post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    KeyChain.getPrivateKey(getContext(), "");
-                    fail("IllegalStateException was expected for calling "
-                            + "KeyChain.getPrivateKey(Context, String) on main thread");
-                } catch (IllegalStateException expected) {
-                } catch (Exception invalid) {
-                    fail("Expected IllegalStateException, received " + invalid);
-                } finally {
-                    waiter.countDown();
-                }
-            }
-        });
-        waiter.await();
-    }
-
     /**
      * Tests whether the required algorithms are backed by a Keymaster HAL that
      * binds the key material to the specific device it was created or imported

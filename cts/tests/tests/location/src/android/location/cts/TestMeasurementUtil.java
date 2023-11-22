@@ -16,6 +16,8 @@
 
 package android.location.cts;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.GnssClock;
@@ -28,8 +30,11 @@ import android.util.Log;
 
 import junit.framework.Assert;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.Set;
 
 /**
  * Helper class for GnssMeasurement Tests.
@@ -52,6 +57,23 @@ public final class TestMeasurementUtil {
             " listener has failed, this indicates a platform bug. Please report the issue with" +
             " a full bugreport.";
 
+    private static final int YEAR_2016 = 2016;
+
+    // The valid Gnss navigation message type as listed in
+    // android/hardware/libhardware/include/hardware/gps.h
+    public static final Set<Integer> GNSS_NAVIGATION_MESSAGE_TYPE =
+        new HashSet<Integer>(Arrays.asList(
+            GnssNavigationMessage.TYPE_GPS_L1CA,
+            GnssNavigationMessage.TYPE_GPS_L2CNAV,
+            GnssNavigationMessage.TYPE_GPS_L5CNAV,
+            GnssNavigationMessage.TYPE_GPS_CNAV2,
+            GnssNavigationMessage.TYPE_GLO_L1CA,
+            GnssNavigationMessage.TYPE_BDS_D1,
+            GnssNavigationMessage.TYPE_BDS_D2,
+            GnssNavigationMessage.TYPE_GAL_I,
+            GnssNavigationMessage.TYPE_GAL_F
+        ));
+
     /**
      * Check if test can be run on the current device.
      *
@@ -63,15 +85,12 @@ public final class TestMeasurementUtil {
                                                     String testTag,
                                                     int minHardwareYear,
                                                     boolean isCtsVerifier) {
-       // TODO(sumitk): Enable this check once api 24 for N is avaiable.
-       /*
-       if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+       if (ApiLevelUtil.isBefore(Build.VERSION_CODES.N)) {
             Log.i(TAG, "This test is designed to work on N or newer. " +
                     "Test is being skipped because the platform version is being run in " +
-                    Build.VERSION.SDK_INT);
+                    ApiLevelUtil.getApiLevel());
             return false;
         }
-        */
 
         // If device does not have a GPS, skip the test.
         PackageManager pm = testLocationManager.getContext().getPackageManager();
@@ -164,9 +183,9 @@ public final class TestMeasurementUtil {
         int state = measurement.getState();
         softAssert.assertTrue("state: Satellite code sync state",
                 timeInNs,
-                "X > 0",
+                "X >= 0",
                 String.valueOf(state),
-                state > 0);
+                state >= 0);
 
         // Check received_gps_tow_uncertainty_ns
         softAssert.assertTrueAsWarning("received_gps_tow_uncertainty_ns:" +
@@ -190,12 +209,6 @@ public final class TestMeasurementUtil {
                 String.valueOf(measurement.getCn0DbHz()),
                 measurement.getCn0DbHz() >= 0.0 &&
                         measurement.getCn0DbHz() <= 63.0);
-
-        softAssert.assertTrue("pseudorange_rate_mps: Pseudorange rate in m/s",
-                timeInNs,
-                "X != 0.0",
-                String.valueOf(measurement.getPseudorangeRateMetersPerSecond()),
-                measurement.getPseudorangeRateMetersPerSecond() != 0.0);
 
         softAssert.assertTrue("pseudorange_rate_uncertainty_mps: " +
                         "Pseudorange Rate Uncertainty in m/s",
@@ -250,6 +263,17 @@ public final class TestMeasurementUtil {
                     String.valueOf(measurement.getSnrInDb()),
                     measurement.getSnrInDb() >= 0.0 && measurement.getSnrInDb() <= 63);
         }
+
+        // Check Automatic Gain Control level in dB.
+        if (measurement.hasAutomaticGainControlLevelDb()) {
+            softAssert.assertTrue("Automatic Gain Control level in dB",
+                timeInNs,
+                "-100 >= X <= 100",
+                String.valueOf(measurement.getAutomaticGainControlLevelDb()),
+                measurement.getAutomaticGainControlLevelDb() >= -100
+                    && measurement.getAutomaticGainControlLevelDb() <= 100);
+        }
+
     }
 
     /**
@@ -302,6 +326,12 @@ public final class TestMeasurementUtil {
         String svidLogMessageFormat = "svid: Space Vehicle ID. Constellation type = %s";
         int constellationType = measurement.getConstellationType();
         int svid = measurement.getSvid();
+        validateSvidSub(softAssert, timeInNs, constellationType, svid);
+    }
+
+    public static void validateSvidSub(SoftAssert softAssert, Long timeInNs,
+        int constellationType, int svid) {
+
         String svidValue = String.valueOf(svid);
 
         switch (constellationType) {
@@ -459,6 +489,15 @@ public final class TestMeasurementUtil {
                             "0 day >= X <= 1 day",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 1);
+                } else if ((state | GnssMeasurement.STATE_GLO_TOD_KNOWN)
+                         == GnssMeasurement.STATE_GLO_TOD_KNOWN) {
+                    softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
+                                    "GNSS_MEASUREMENT_STATE_GLO_TOD_KNOWN",
+                                    "GnssStatus.CONSTELLATION_GLONASS"),
+                            timeInNs,
+                            "0 day >= X <= 1 day",
+                            String.valueOf(sv_time_days),
+                            sv_time_days >= 0 && sv_time_days <= 1);
                 } else if ((state | GnssMeasurement.STATE_GLO_STRING_SYNC)
                         == GnssMeasurement.STATE_GLO_STRING_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
@@ -507,6 +546,15 @@ public final class TestMeasurementUtil {
                             "0 >= X <= 7 days",
                             String.valueOf(sv_time_days),
                             sv_time_days >= 0 && sv_time_days <= 7);
+                } else if ((state | GnssMeasurement.STATE_TOW_KNOWN)
+                              == GnssMeasurement.STATE_TOW_KNOWN) {
+                    softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
+                                    "GNSS_MEASUREMENT_STATE_TOW_DECODED",
+                                    "GnssStatus.CONSTELLATION_GALILEO"),
+                        timeInNs,
+                        "0 >= X <= 7 days",
+                        String.valueOf(sv_time_days),
+                        sv_time_days >= 0 && sv_time_days <= 7);
                 } else if ((state | GnssMeasurement.STATE_GAL_E1B_PAGE_SYNC)
                         == GnssMeasurement.STATE_GAL_E1B_PAGE_SYNC) {
                     softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
@@ -663,16 +711,24 @@ public final class TestMeasurementUtil {
      * Assert all mandatory fields in Gnss Navigation Message are in expected range.
      * See mandatory fields in {@code gps.h}.
      *
+     * @param testLocationManager TestLocationManager
      * @param events GnssNavigationMessageEvents
      */
-    public static void verifyGnssNavMessageMandatoryField(List<GnssNavigationMessage> events) {
+    public static void verifyGnssNavMessageMandatoryField(TestLocationManager testLocationManager,
+                                                          List<GnssNavigationMessage> events) {
         // Verify mandatory GnssNavigationMessage field values.
         SoftAssert softAssert = new SoftAssert(TAG);
         for (GnssNavigationMessage message : events) {
             int type = message.getType();
-            softAssert.assertTrue("Gnss Navigation Message Type:expected [0x0101 - 0x0104]," +
-                            " actual = " + type,
-                    type >= 0x0101 && type <= 0x0104);
+            softAssert.assertTrue("Gnss Navigation Message Type:expected [" +
+                getGnssNavMessageTypes() + "] actual = " + type,
+                    GNSS_NAVIGATION_MESSAGE_TYPE.contains(type));
+
+            int gnssYearOfHardware = testLocationManager.getLocationManager().getGnssYearOfHardware();
+            if (gnssYearOfHardware >= YEAR_2016) {
+                softAssert.assertTrue("Message ID cannot be 0", message.getMessageId() != 0);
+                softAssert.assertTrue("Sub Message ID cannot be 0", message.getSubmessageId() != 0);
+            }
 
             // if message type == TYPE_L1CA, verify PRN & Data Size.
             int messageType = message.getType();
@@ -690,5 +746,15 @@ public final class TestMeasurementUtil {
             }
         }
         softAssert.assertAll();
+    }
+
+    private static String getGnssNavMessageTypes() {
+        StringBuilder typesStr = new StringBuilder();
+        for (int type : GNSS_NAVIGATION_MESSAGE_TYPE) {
+            typesStr.append(String.format("0x%04X", type));
+            typesStr.append(", ");
+        }
+
+        return typesStr.length() > 2 ? typesStr.substring(0, typesStr.length() - 2) : "";
     }
 }

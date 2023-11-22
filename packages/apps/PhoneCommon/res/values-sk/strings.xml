@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Žiadny"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Neznámy tón zvonenia"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Používajú sa všetky dostupné linky. Ak chcete uskutočniť hovor, prerušte niektorý hovor v tomto alebo inom zariadení."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Hovor bol ukončený, pretože boli vypnuté mobilné dáta."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Hovor bol ukončený, pretože bol dosiahnutý mobilný dátový limit."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Bol dosiahnutý dátový limit. Hovor bol ukončený."</string>
 </resources>

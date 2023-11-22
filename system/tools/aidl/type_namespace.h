@@ -113,13 +113,16 @@ class TypeNamespace {
   // if this is an invalid return type.
   virtual const ValidatableType* GetReturnType(
       const AidlType& raw_type,
-      const std::string& filename) const;
+      const std::string& filename,
+      const AidlInterface& interface) const;
 
   // Returns a pointer to a type corresponding to |a| or nullptr if |a|
   // has an invalid argument type.
-  virtual const ValidatableType* GetArgType(const AidlArgument& a,
-                                            int arg_index,
-                                            const std::string& filename) const;
+  virtual const ValidatableType* GetArgType(
+      const AidlArgument& a,
+      int arg_index,
+      const std::string& filename,
+      const AidlInterface& interface) const;
 
   // Returns a pointer to a type corresponding to |interface|.
   virtual const ValidatableType* GetInterfaceType(
@@ -130,7 +133,8 @@ class TypeNamespace {
   virtual ~TypeNamespace() = default;
 
   virtual const ValidatableType* GetValidatableType(
-      const AidlType& type, std::string* error_msg) const = 0;
+      const AidlType& type, std::string* error_msg,
+      const AidlInterface& interface) const = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(TypeNamespace);
@@ -182,7 +186,8 @@ class LanguageTypeNamespace : public TypeNamespace {
   bool IsContainerType(const std::string& type_name) const;
 
   const ValidatableType* GetValidatableType(
-      const AidlType& type, std::string* error_msg) const override;
+      const AidlType& type, std::string* error_msg,
+      const AidlInterface& interface) const override;
 
   std::vector<std::unique_ptr<const T>> types_;
 
@@ -267,7 +272,7 @@ bool LanguageTypeNamespace<T>::MaybeAddContainerType(
     const AidlType& aidl_type) {
   using android::base::Join;
 
-  std::string type_name = aidl_type.GetName();
+  const std::string& type_name = aidl_type.GetName();
   if (!IsContainerType(type_name)) {
     return true;
   }
@@ -380,7 +385,8 @@ bool LanguageTypeNamespace<T>::CanonicalizeContainerType(
 
 template<typename T>
 const ValidatableType* LanguageTypeNamespace<T>::GetValidatableType(
-    const AidlType& aidl_type, std::string* error_msg) const {
+    const AidlType& aidl_type, std::string* error_msg,
+    const AidlInterface& interface) const {
   using android::base::StringPrintf;
 
   const ValidatableType* type = Find(aidl_type);
@@ -410,34 +416,43 @@ const ValidatableType* LanguageTypeNamespace<T>::GetValidatableType(
     return nullptr;
   }
 
+  bool utf8 = aidl_type.IsUtf8();
+  bool utf8InCpp = aidl_type.IsUtf8InCpp();
+
   // Strings inside containers get remapped to appropriate utf8 versions when
   // we convert the container name to its canonical form and the look up the
   // type.  However, for non-compound types (i.e. those not in a container) we
   // must patch them up here.
-  if (!IsContainerType(type->CanonicalName()) &&
-      (aidl_type.IsUtf8() || aidl_type.IsUtf8InCpp())) {
+  if (IsContainerType(type->CanonicalName())) {
+    utf8 = false;
+    utf8InCpp = false;
+  } else if (aidl_type.GetName() == "String" ||
+             aidl_type.GetName() == "java.lang.String") {
+    utf8 = utf8 || interface.IsUtf8();
+    utf8InCpp = utf8InCpp || interface.IsUtf8InCpp();
+  } else if (utf8 || utf8InCpp) {
     const char* annotation_literal =
-        (aidl_type.IsUtf8()) ? kUtf8Annotation : kUtf8InCppAnnotation;
-    if (aidl_type.GetName() != "String" &&
-        aidl_type.GetName() != "java.lang.String") {
-      *error_msg = StringPrintf("type '%s' may not be annotated as %s.",
-                                aidl_type.GetName().c_str(),
-                                annotation_literal);
-      return nullptr;
-    }
+        (utf8) ? kUtf8Annotation : kUtf8InCppAnnotation;
+    *error_msg = StringPrintf("type '%s' may not be annotated as %s.",
+                              aidl_type.GetName().c_str(),
+                              annotation_literal);
+    return nullptr;
+  }
 
-    if (aidl_type.IsUtf8()) {
-      type = FindTypeByCanonicalName(kUtf8StringCanonicalName);
-    } else {  // aidl_type.IsUtf8InCpp()
-      type = FindTypeByCanonicalName(kUtf8InCppStringCanonicalName);
-    }
+  if (utf8) {
+    type = FindTypeByCanonicalName(kUtf8StringCanonicalName);
+  } else if (utf8InCpp) {
+    type = FindTypeByCanonicalName(kUtf8InCppStringCanonicalName);
+  }
 
-    if (type == nullptr) {
-      *error_msg = StringPrintf(
-          "%s is unsupported when generating code for this language.",
-          annotation_literal);
-      return nullptr;
-    }
+  // One of our UTF8 transforms made type null
+  if (type == nullptr) {
+    const char* annotation_literal =
+        (utf8) ? kUtf8Annotation : kUtf8InCppAnnotation;
+    *error_msg = StringPrintf(
+        "%s is unsupported when generating code for this language.",
+        annotation_literal);
+    return nullptr;
   }
 
   if (!type->CanWriteToParcel()) {
@@ -451,6 +466,14 @@ const ValidatableType* LanguageTypeNamespace<T>::GetValidatableType(
       *error_msg = StringPrintf("type '%s' cannot be an array",
                                 aidl_type.GetName().c_str());
       return nullptr;
+    }
+  }
+
+  if (interface.IsNullable()) {
+    const ValidatableType* nullableType = type->NullableType();
+
+    if (nullableType) {
+      return nullableType;
     }
   }
 

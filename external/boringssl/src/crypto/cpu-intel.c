@@ -64,16 +64,18 @@
 #if !defined(OPENSSL_NO_ASM) && (defined(OPENSSL_X86) || defined(OPENSSL_X86_64))
 
 #include <inttypes.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #if defined(OPENSSL_WINDOWS)
-#pragma warning(push, 3)
+OPENSSL_MSVC_PRAGMA(warning(push, 3))
 #include <immintrin.h>
 #include <intrin.h>
-#pragma warning(pop)
+OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
+
+#include "internal.h"
 
 
 /* OPENSSL_cpuid runs the cpuid instruction. |leaf| is passed in as EAX and ECX
@@ -127,7 +129,7 @@ static void handle_cpu_env(uint32_t *out, const char *in) {
   const int invert = in[0] == '~';
   uint64_t v;
 
-  if (!sscanf(in + invert, "%" PRIi64, &v)) {
+  if (!sscanf(in + invert, "%" PRIu64, &v)) {
     return;
   }
 

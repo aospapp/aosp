@@ -33,7 +33,7 @@
     <string name="button_cancel" msgid="7479958360523246140">"Cancelar"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"Alerta de terremoto"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"Alerta de tsunami"</string>
-    <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"Alerta de tsunami y de terremoto"</string>
+    <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"Alerta de tsunami y terremoto"</string>
     <string name="etws_test_message" msgid="8447820262584381894">"Mensaje de prueba de ETWS"</string>
     <string name="etws_other_emergency_type" msgid="5233080551309721499">"Alerta de emergencia"</string>
     <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"Alerta presidencial"</string>
@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alerta de emergencia"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Difusión móvil"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Ajustes de alertas de emergencia"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mensajes de difusión"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Activar notificaciones"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Mostrar emisiones de alerta de emergencia"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Recordatorio de la alerta"</string>
@@ -53,7 +54,7 @@
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utilizar síntesis de voz para los mensajes de alerta de emergencia"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Ajustes de ETWS"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Emisiones de prueba del ETWS"</string>
-    <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Mostrar emisiones de prueba del sistema de alerta de tsunami y de terremoto"</string>
+    <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Mostrar emisiones de prueba del sistema de alerta de tsunami y terremoto"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Mostrar amenazas extremas"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Mostrar alertas de amenazas extremas para la vida y la propiedad"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Mostrar amenazas graves"</string>

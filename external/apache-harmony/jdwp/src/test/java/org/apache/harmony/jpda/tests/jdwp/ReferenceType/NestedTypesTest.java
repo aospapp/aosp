@@ -43,6 +43,7 @@ public class NestedTypesTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.NestedTypes command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/NestedTypesDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.NestedTypesDebuggee";
     }

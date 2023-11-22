@@ -16,18 +16,26 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
-import android.graphics.Shader;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Shader.TileMode;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Shader_TileModeTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Shader_TileModeTest {
+    @Test
     public void testValueOf() {
         assertEquals(TileMode.CLAMP, TileMode.valueOf("CLAMP"));
         assertEquals(TileMode.MIRROR, TileMode.valueOf("MIRROR"));
         assertEquals(TileMode.REPEAT, TileMode.valueOf("REPEAT"));
     }
 
+    @Test
     public void testValues() {
         TileMode[] tileMode = TileMode.values();
         assertEquals(3, tileMode.length);

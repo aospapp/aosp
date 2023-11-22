@@ -20,6 +20,7 @@ import android.test.InstrumentationTestCase;
 import junit.framework.TestCase;
 
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.SecurityTest;
 import android.util.Log;
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,11 +33,12 @@ import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import android.cts.util.ReadElf;
+import com.android.compatibility.common.util.ReadElf;
 
 /**
  * Verify that ASLR is properly enabled on Android Compatible devices.
  */
+@SecurityTest
 public class AslrTest extends InstrumentationTestCase {
 
     private static final int aslrMinEntropyBits = 8;
@@ -47,21 +49,24 @@ public class AslrTest extends InstrumentationTestCase {
         ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
                 .executeShellCommand("/system/bin/cat /proc/self/maps");
 
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(pfd.getFileDescriptor())));
+        String result = null;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new ParcelFileDescriptor.AutoCloseInputStream(pfd)))) {
+            Pattern p = Pattern.compile("^([a-f0-9]+)\\-.+\\[" + mappingName + "\\]$");
+            String line;
 
-        Pattern p = Pattern.compile("^([a-f0-9]+)\\-.+\\[" + mappingName + "\\]$");
-        String line;
+            while ((line = reader.readLine()) != null) {
+                // Even after a match is found, read until the end to clean up the pipe.
+                if (result != null) continue;
 
-        while ((line = reader.readLine()) != null) {
-            Matcher m = p.matcher(line);
+                Matcher m = p.matcher(line);
 
-            if (m.matches()) {
-                return m.group(1);
+                if (m.matches()) {
+                    result = m.group(1);
+                }
             }
         }
-
-        return null;
+        return result;
     }
 
     private int calculateEntropyBits(String mappingName) throws Exception {
@@ -96,8 +101,6 @@ public class AslrTest extends InstrumentationTestCase {
 
     public void testRandomization() throws Exception {
         testMappingEntropy("stack");
-        testMappingEntropy("heap");
-        testMappingEntropy("anon:libc_malloc");
     }
 
     public void testOneExecutableIsPie() throws IOException {

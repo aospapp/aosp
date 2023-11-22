@@ -10,10 +10,3 @@
 
 WIN_SDK_TARGETS := 
 
-
-# Define the list of tool-dependent modules requisites needed
-# for the Windows SDK. These will be built using HOST_OS=linux.
-# Temporarily disabled: See b/8992787
-#WIN_SDK_BUILD_PREREQ := \
-#	monitor
-

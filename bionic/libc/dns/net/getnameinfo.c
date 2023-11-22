@@ -54,8 +54,6 @@ __RCSID("$NetBSD: getnameinfo.c,v 1.53 2012/09/26 23:13:00 christos Exp $");
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <net/if.h>
-#include <net/if_ieee1394.h>
-#include <net/if_types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <assert.h>
@@ -64,7 +62,6 @@ __RCSID("$NetBSD: getnameinfo.c,v 1.53 2012/09/26 23:13:00 christos Exp $");
 #include <arpa/nameser.h>
 #include "resolv_netid.h"
 #include "resolv_private.h"
-#include <sys/system_properties.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>

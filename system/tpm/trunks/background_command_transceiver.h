@@ -39,7 +39,7 @@ namespace trunks {
 //       background_thread.message_loop_proxy());
 //   ...
 //   background_transceiver.SendCommand(my_command, MyCallback);
-class TRUNKS_EXPORT BackgroundCommandTransceiver: public CommandTransceiver  {
+class TRUNKS_EXPORT BackgroundCommandTransceiver : public CommandTransceiver {
  public:
   // All commands will be forwarded to |next_transceiver| on |task_runner|,
   // regardless of whether the synchronous or asynchronous method is used. This

@@ -133,7 +133,7 @@ public class Main {
             System.out.println("Got null string");
             return;
         }
-        long n = Long.valueOf(s);
+        long n = Long.parseLong(s);
         if (n < 0) {
             System.out.println("Got negative number " + n);
         }
@@ -157,8 +157,8 @@ public class Main {
                 System.out.println("Got bad bucket " + bucket);
                 continue;
             }
-            long key = Long.valueOf(kv[0]);
-            long value = Long.valueOf(kv[1]);
+            long key = Long.parseLong(kv[0]);
+            long value = Long.parseLong(kv[1]);
             if (key < 0 || value < 0) {
                 System.out.println("Got negative key or value " + bucket);
                 continue;
@@ -242,7 +242,7 @@ public class Main {
         System.out.println("Instances of null " + VMDebug.countInstancesofClass(null, false));
         System.out.println("Instances of ClassA assignable " +
                 VMDebug.countInstancesofClass(ClassA.class, true));
-        Class[] classes = new Class[]{ClassA.class, ClassB.class, null};
+        Class<?>[] classes = new Class<?>[] {ClassA.class, ClassB.class, null};
         long[] counts = VMDebug.countInstancesofClasses(classes, false);
         System.out.println("Array counts " + Arrays.toString(counts));
         counts = VMDebug.countInstancesofClasses(classes, true);
@@ -259,7 +259,7 @@ public class Main {
         private static final Method countInstancesOfClassesMethod;
         static {
             try {
-                Class c = Class.forName("dalvik.system.VMDebug");
+                Class<?> c = Class.forName("dalvik.system.VMDebug");
                 startMethodTracingMethod = c.getDeclaredMethod("startMethodTracing", String.class,
                         Integer.TYPE, Integer.TYPE, Boolean.TYPE, Integer.TYPE);
                 stopMethodTracingMethod = c.getDeclaredMethod("stopMethodTracing");
@@ -292,10 +292,10 @@ public class Main {
         public static Map<String, String> getRuntimeStats() throws Exception {
             return (Map<String, String>) getRuntimeStatsMethod.invoke(null);
         }
-        public static long countInstancesofClass(Class c, boolean assignable) throws Exception {
+        public static long countInstancesofClass(Class<?> c, boolean assignable) throws Exception {
             return (long) countInstancesOfClassMethod.invoke(null, new Object[]{c, assignable});
         }
-        public static long[] countInstancesofClasses(Class[] classes, boolean assignable)
+        public static long[] countInstancesofClasses(Class<?>[] classes, boolean assignable)
                 throws Exception {
             return (long[]) countInstancesOfClassesMethod.invoke(
                     null, new Object[]{classes, assignable});

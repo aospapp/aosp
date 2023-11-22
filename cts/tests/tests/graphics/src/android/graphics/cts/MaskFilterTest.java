@@ -16,13 +16,18 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
 import android.graphics.MaskFilter;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class MaskFilterTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MaskFilterTest {
+    @Test
     public void testConstructor() {
-        // new the MaskFilter instance
         new MaskFilter();
     }
 }

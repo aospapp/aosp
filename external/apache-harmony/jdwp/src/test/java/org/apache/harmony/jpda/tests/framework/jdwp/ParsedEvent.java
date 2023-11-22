@@ -175,7 +175,7 @@ public class ParsedEvent {
         private Event_VM_START(byte suspendPolicy, Packet packet) {
             super(suspendPolicy, packet, JDWPConstants.EventKind.VM_START);
         }
-    };
+    }
 
     /**
      * The class implements JDWP SINGLE_STEP event.
@@ -394,7 +394,7 @@ public class ParsedEvent {
         private Event_THREAD_START(byte suspendPolicy, Packet packet) {
             super(suspendPolicy, packet, JDWPConstants.EventKind.THREAD_START);
         }
-    };
+    }
 
     /**
      * The class implements JDWP THREAD_DEATH event.
@@ -410,7 +410,7 @@ public class ParsedEvent {
         private Event_THREAD_DEATH(byte suspendPolicy, Packet packet) {
             super(suspendPolicy, packet, JDWPConstants.EventKind.THREAD_DEATH);
         }
-    };
+    }
 
     /**
      * The class implements JDWP CLASS_PREPARE event.
@@ -466,7 +466,7 @@ public class ParsedEvent {
         public long getTypeID() {
             return typeID;
         }
-    };
+    }
 
     /**
      * The class implements JDWP CLASS_UNLOAD event.
@@ -492,7 +492,7 @@ public class ParsedEvent {
         public String getSignature() {
             return signature;
         }
-    };
+    }
 
     /**
      * The class implements JDWP FIELD_ACCESS event.
@@ -548,7 +548,7 @@ public class ParsedEvent {
         public long getTypeID() {
             return typeID;
         }
-    };
+    }
 
     /**
      * The class implements JDWP FIELD_MODIFICATION event.
@@ -614,7 +614,7 @@ public class ParsedEvent {
         public Value getValueToBe() {
             return valueToBe;
         }
-    };
+    }
 
     /**
      * The class implements JDWP VM_DEATH event.
@@ -628,7 +628,7 @@ public class ParsedEvent {
         private Event_VM_DEATH(byte suspendPolicy, Packet packet) {
             super(suspendPolicy, packet, JDWPConstants.EventKind.VM_DEATH);
         }
-    };
+    }
 
     /**
      * Returns array of ParsedEvent extracted from given EventPacket.

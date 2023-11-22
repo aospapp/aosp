@@ -301,4 +301,12 @@ typedef struct Mesh {
     } mHal;
 } Mesh_t;
 #endif //__LP64__
+
+// Null version of _RS_OBJECT_DECL defined in script_api/rs_object_types.spec
+#ifndef __LP64__
+#define RS_NULL_OBJ {0}
+#else
+#define RS_NULL_OBJ {0, 0, 0, 0}
+#endif //__LP64__
+
 #endif // _RS_CORE_H_

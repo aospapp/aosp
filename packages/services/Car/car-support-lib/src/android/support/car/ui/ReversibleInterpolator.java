@@ -21,6 +21,7 @@ import android.support.annotation.NonNull;
 
 /**
  * Interpolator that can provide custom interpolations for forward and reverse animations
+ * @hide
  */
 public class ReversibleInterpolator {
 

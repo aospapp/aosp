@@ -49,9 +49,18 @@ final class ClassPathScanner {
 
     ClassPathScanner() {
         classPath = getClassPath();
-        classFinder = "Dalvik".equals(System.getProperty("java.vm.name"))
-                ? new ApkClassFinder()
-                : new JarClassFinder();
+        if ("Dalvik".equals(System.getProperty("java.vm.name"))) {
+            classFinder = new ApkClassFinder();
+        } else {
+            // When running vogar tests under an IDE the classes are not held in a .jar file.
+            // This system properties can be set to make it possible to run the vogar tests from an
+            // IDE. It is not intended for normal usage.
+            if (Boolean.parseBoolean(System.getProperty("vogar-scan-directories-for-tests"))) {
+                classFinder = new DirectoryClassFinder();
+            } else {
+                classFinder = new JarClassFinder();
+            }
+        }
     }
 
     /**
@@ -59,9 +68,9 @@ final class ClassPathScanner {
      * {@code packageName}.
      */
     public Package scan(String packageName) throws IOException {
-        Set<String> subpackageNames = new TreeSet<String>();
-        Set<String> classNames = new TreeSet<String>();
-        Set<Class<?>> topLevelClasses = new TreeSet<Class<?>>(ORDER_CLASS_BY_NAME);
+        Set<String> subpackageNames = new TreeSet<>();
+        Set<String> classNames = new TreeSet<>();
+        Set<Class<?>> topLevelClasses = new TreeSet<>(ORDER_CLASS_BY_NAME);
         findClasses(packageName, classNames, subpackageNames);
         for (String className : classNames) {
             try {
@@ -84,7 +93,7 @@ final class ClassPathScanner {
         String pathPrefix = packagePrefix.replace('.', '/');
         for (String entry : classPath) {
             File entryFile = new File(entry);
-            if (entryFile.exists() && !entryFile.isDirectory()) {
+            if (entryFile.exists()) {
                 classFinder.find(entryFile, pathPrefix, packageName, classNames, subpackageNames);
             }
         }
@@ -99,9 +108,13 @@ final class ClassPathScanner {
      * Finds all classes and subpackages that are below the packageName and
      * add them to the respective sets. Searches the package in a single jar file.
      */
-    static class JarClassFinder implements ClassFinder {
+    private static class JarClassFinder implements ClassFinder {
         public void find(File classPathEntry, String pathPrefix, String packageName,
                 Set<String> classNames, Set<String> subpackageNames) throws IOException {
+            if (classPathEntry.isDirectory()) {
+                return;
+            }
+
             Set<String> entryNames = getJarEntries(classPathEntry);
             // check if the Jar contains the package.
             if (!entryNames.contains(pathPrefix)) {
@@ -129,7 +142,7 @@ final class ClassPathScanner {
          * Gets the class and package entries from a Jar.
          */
         private Set<String> getJarEntries(File jarFile) throws IOException {
-            Set<String> entryNames = new HashSet<String>();
+            Set<String> entryNames = new HashSet<>();
             ZipFile zipFile = new ZipFile(jarFile);
             for (Enumeration<? extends ZipEntry> e = zipFile.entries(); e.hasMoreElements(); ) {
                 String entryName = e.nextElement().getName();
@@ -164,15 +177,44 @@ final class ClassPathScanner {
     }
 
     /**
+     * Finds all classes and subpackages that are below the packageName and
+     * add them to the respective sets. Searches the package from a class directory.
+     */
+    private static class DirectoryClassFinder implements ClassFinder {
+        public void find(File classPathEntry, String pathPrefix, String packageName,
+                Set<String> classNames, Set<String> subpackageNames) throws IOException {
+
+            File subDir = new File(classPathEntry, pathPrefix);
+            if (subDir.exists() && subDir.isDirectory()) {
+                File[] files = subDir.listFiles();
+                if (files != null) {
+                    for (File subFile : files) {
+                        String fileName = subFile.getName();
+                        if (fileName.endsWith(DOT_CLASS)) {
+                            classNames.add(packageName + "." + getClassName(fileName));
+                        } else if (subFile.isDirectory()) {
+                            subpackageNames.add(packageName + "." + fileName);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Finds all classes and sub packages that are below the packageName and
      * add them to the respective sets. Searches the package in a single APK.
      *
      * <p>This class uses the Android-only class DexFile. This class will fail
      * to load on non-Android VMs.
      */
-    static class ApkClassFinder implements ClassFinder {
+    private static class ApkClassFinder implements ClassFinder {
         public void find(File classPathEntry, String pathPrefix, String packageName,
                 Set<String> classNames, Set<String> subpackageNames) {
+            if (classPathEntry.isDirectory()) {
+                return;
+            }
+
             DexFile dexFile = null;
             try {
                 dexFile = new DexFile(classPathEntry);

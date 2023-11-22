@@ -29,8 +29,9 @@
 #include <base/strings/string_util.h>
 #include <utils/command_receiver.h>
 #include <utils/common_utils.h>
-#include <wifi_hal.h>
-#include <wifi_hal_stub.h>
+#include <hardware_legacy/wifi_hal.h>
+#include <wifi_system/hal_tool.h>
+#include <wifi_system/interface_tool.h>
 
 #include "wifi_facade.h"
 
@@ -50,29 +51,21 @@ std::tuple<bool, int> WifiFacade::WifiInit() {
 }
 
 bool WifiFacade::WifiStartHal() {
+  android::wifi_system::InterfaceTool if_tool;
   if (wifi_hal_handle == NULL) {
-    if (init_wifi_stub_hal_func_table(&hal_fn) != 0) {
-      LOG(ERROR) << sl4n::kTagStr
-          << ": Can not initialize the basic function pointer table";
+    android::wifi_system::HalTool hal_tool;
+    if (!hal_tool.InitFunctionTable(&hal_fn)) {
       return false;
     }
 
-    wifi_error res = init_wifi_vendor_hal_func_table(&hal_fn);
-    if (res != WIFI_SUCCESS) {
-      LOG(ERROR) << sl4n::kTagStr
-          << ": Can not initialize the vendor function pointer table";
-      return false;
-    }
-
-    int ret = BringInterfaceUpDown(kWlanInterface, 1);
-    if (ret != 0) {
+    if (!if_tool.SetWifiUpState(true)) {
       return false;
     }
 
     res = hal_fn.wifi_initialize(&wifi_hal_handle);
     return res == WIFI_SUCCESS;
   } else {
-    return BringInterfaceUpDown(kWlanInterface, 1) == 0;
+    return if_tool.SetWifiUpState(true);
   }
 }
 
@@ -153,51 +146,6 @@ std::tuple<int, int> WifiFacade::WifiGetSupportedFeatureSet() {
   } else {
     return std::make_tuple(0, sl4n_error_codes::kFailInt);
   }
-}
-
-// TODO: copy of set_iface_flags from Wi-Fi JNI. Consolidate into a support
-// library.
-int WifiFacade::BringInterfaceUpDown(const char *ifname, int dev_up) {
-  struct ifreq ifr;
-  int ret;
-  int sock = socket(PF_INET, SOCK_DGRAM, 0);
-  if (sock < 0) {
-    LOG(ERROR) << "Bad socket: " << sock;
-    return -errno;
-  }
-
-  memset(&ifr, 0, sizeof(ifr));
-  strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
-
-  if (ioctl(sock, SIOCGIFFLAGS, &ifr) != 0) {
-    ret = errno ? -errno : -999;
-    LOG(ERROR) << "Could not read interface " << ifname << " flags: " << errno;
-    close(sock);
-    return ret;
-  }
-
-  if (dev_up) {
-    if (ifr.ifr_flags & IFF_UP) {
-      close(sock);
-      return 0;
-    }
-    ifr.ifr_flags |= IFF_UP;
-  } else {
-    if (!(ifr.ifr_flags & IFF_UP)) {
-      close(sock);
-      return 0;
-    }
-    ifr.ifr_flags &= ~IFF_UP;
-  }
-
-  if (ioctl(sock, SIOCSIFFLAGS, &ifr) != 0) {
-    LOG(ERROR) << "Could not set interface " << ifname << " flags: " << errno;
-    ret = errno ? -errno : -999;
-    close(sock);
-    return ret;
-  }
-  close(sock);
-  return 0;
 }
 
 //////////////////

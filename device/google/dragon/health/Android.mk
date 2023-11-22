@@ -21,6 +21,8 @@ LOCAL_MODULE := libhealthd.dragon
 
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_STATIC_LIBRARIES := libhealthd.default
+LOCAL_C_INCLUDES := system/core/healthd/include system/core/base/include
+
+LOCAL_STATIC_LIBRARIES := libcutils
 
 include $(BUILD_STATIC_LIBRARY)

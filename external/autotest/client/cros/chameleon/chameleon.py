@@ -2,8 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import atexit
 import httplib
 import logging
+import os
 import socket
 import time
 import xmlrpclib
@@ -19,6 +21,8 @@ from autotest_lib.client.cros.chameleon import usb_controller
 
 
 CHAMELEON_PORT = 9992
+CHAMELEOND_LOG_REMOTE_PATH = '/var/log/chameleond'
+CHAMELEON_READY_TEST = 'GetSupportedPorts'
 
 
 class ChameleonConnectionError(error.TestError):
@@ -29,27 +33,111 @@ class ChameleonConnectionError(error.TestError):
     pass
 
 
+class _Method(object):
+    """Class to save the name of the RPC method instead of the real object.
+
+    It keeps the name of the RPC method locally first such that the RPC method
+    can be evaluated to a real object while it is called. Its purpose is to
+    refer to the latest RPC proxy as the original previous-saved RPC proxy may
+    be lost due to reboot.
+
+    The call_server is the method which does refer to the latest RPC proxy.
+
+    This class and the re-connection mechanism in ChameleonConnection is
+    copied from third_party/autotest/files/server/cros/faft/rpc_proxy.py
+
+    """
+    def __init__(self, call_server, name):
+        """Constructs a _Method.
+
+        @param call_server: the call_server method
+        @param name: the method name or instance name provided by the
+                     remote server
+
+        """
+        self.__call_server = call_server
+        self._name = name
+
+
+    def __getattr__(self, name):
+        """Support a nested method.
+
+        For example, proxy.system.listMethods() would need to use this method
+        to get system and then to get listMethods.
+
+        @param name: the method name or instance name provided by the
+                     remote server
+
+        @return: a callable _Method object.
+
+        """
+        return _Method(self.__call_server, "%s.%s" % (self._name, name))
+
+
+    def __call__(self, *args, **dargs):
+        """The call method of the object.
+
+        @param args: arguments for the remote method.
+        @param kwargs: keyword arguments for the remote method.
+
+        @return: the result returned by the remote method.
+
+        """
+        return self.__call_server(self._name, *args, **dargs)
+
+
 class ChameleonConnection(object):
     """ChameleonConnection abstracts the network connection to the board.
+
+    When a chameleon board is rebooted, a xmlrpc call would incur a
+    socket error. To fix the error, a client has to reconnect to the server.
+    ChameleonConnection is a wrapper of chameleond proxy created by
+    xmlrpclib.ServerProxy(). ChameleonConnection has the capability to
+    automatically reconnect to the server when such socket error occurs.
+    The nice feature is that the auto re-connection is performed inside this
+    wrapper and is transparent to the caller.
+
+    Note:
+    1. When running chameleon autotests in lab machines, it is
+       ChameleonConnection._create_server_proxy() that is invoked.
+    2. When running chameleon autotests in local chroot, it is
+       rpc_server_tracker.xmlrpc_connect() in server/hosts/chameleon_host.py
+       that is invoked.
 
     ChameleonBoard and ChameleonPort use it for accessing Chameleon RPC.
 
     """
 
-    def __init__(self, hostname, port=CHAMELEON_PORT):
+    def __init__(self, hostname, port=CHAMELEON_PORT, proxy_generator=None,
+                 ready_test_name=CHAMELEON_READY_TEST):
         """Constructs a ChameleonConnection.
 
         @param hostname: Hostname the chameleond process is running.
         @param port: Port number the chameleond process is listening on.
+        @param proxy_generator: a function to generate server proxy.
+        @param ready_test_name: run this method on the remote server ot test
+                if the server is connected correctly.
 
         @raise ChameleonConnectionError if connection failed.
         """
-        self.chameleond_proxy = ChameleonConnection._create_server_proxy(
-                hostname, port)
+        self._hostname = hostname
+        self._port = port
+
+        # Note: it is difficult to put the lambda function as the default
+        # value of the proxy_generator argument. In that case, the binding
+        # of arguments (hostname and port) would be delayed until run time
+        # which requires to pass an instance as an argument to labmda.
+        # That becomes cumbersome since server/hosts/chameleon_host.py
+        # would also pass a lambda without argument to instantiate this object.
+        # Use the labmda function as follows would bind the needed arguments
+        # immediately which is much simpler.
+        self._proxy_generator = proxy_generator or self._create_server_proxy
+
+        self._ready_test_name = ready_test_name
+        self.chameleond_proxy = None
 
 
-    @staticmethod
-    def _create_server_proxy(hostname, port):
+    def _create_server_proxy(self):
         """Creates the chameleond server proxy.
 
         @param hostname: Hostname the chameleond process is running.
@@ -58,17 +146,56 @@ class ChameleonConnection(object):
         @return ServerProxy object to chameleond.
 
         @raise ChameleonConnectionError if connection failed.
+
         """
-        remote = 'http://%s:%s' % (hostname, port)
+        remote = 'http://%s:%s' % (self._hostname, self._port)
         chameleond_proxy = xmlrpclib.ServerProxy(remote, allow_none=True)
+        logging.info('ChameleonConnection._create_server_proxy() called')
         # Call a RPC to test.
         try:
-            chameleond_proxy.GetSupportedPorts()
+            getattr(chameleond_proxy, self._ready_test_name)()
         except (socket.error,
                 xmlrpclib.ProtocolError,
                 httplib.BadStatusLine) as e:
             raise ChameleonConnectionError(e)
         return chameleond_proxy
+
+
+    def _reconnect(self):
+        """Reconnect to chameleond."""
+        self.chameleond_proxy = self._proxy_generator()
+
+
+    def __call_server(self, name, *args, **kwargs):
+        """Bind the name to the chameleond proxy and execute the method.
+
+        @param name: the method name or instance name provided by the
+                     remote server.
+        @param args: arguments for the remote method.
+        @param kwargs: keyword arguments for the remote method.
+
+        @return: the result returned by the remote method.
+
+        """
+        try:
+            return getattr(self.chameleond_proxy, name)(*args, **kwargs)
+        except (AttributeError, socket.error):
+            # Reconnect and invoke the method again.
+            logging.info('Reconnecting chameleond proxy: %s', name)
+            self._reconnect()
+            return getattr(self.chameleond_proxy, name)(*args, **kwargs)
+
+
+    def __getattr__(self, name):
+        """Get the callable _Method object.
+
+        @param name: the method name or instance name provided by the
+                     remote server
+
+        @return: a callable _Method object.
+
+        """
+        return _Method(self.__call_server, name)
 
 
 class ChameleonBoard(object):
@@ -91,7 +218,8 @@ class ChameleonBoard(object):
                                is not created by a ChameleonHost.
         """
         self.host = chameleon_host
-        self._chameleond_proxy = chameleon_connection.chameleond_proxy
+        self._output_log_file = None
+        self._chameleond_proxy = chameleon_connection
         self._usb_ctrl = usb_controller.USBController(chameleon_connection)
         if self._chameleond_proxy.HasAudioBoard():
             self._audio_board = audio_board.AudioBoard(chameleon_connection)
@@ -99,9 +227,45 @@ class ChameleonBoard(object):
             self._audio_board = None
             logging.info('There is no audio board on this Chameleon.')
 
+
     def reset(self):
         """Resets Chameleon board."""
         self._chameleond_proxy.Reset()
+
+
+    def setup_and_reset(self, output_dir=None):
+        """Setup and reset Chameleon board.
+
+        @param output_dir: Setup the output directory.
+                           None for just reset the board.
+        """
+        if output_dir and self.host is not None:
+            logging.info('setup_and_reset: dir %s, chameleon host %s',
+                         output_dir, self.host.hostname)
+            log_dir = os.path.join(output_dir, 'chameleond', self.host.hostname)
+            # Only clear the chameleon board log and register get log callback
+            # when we first create the log_dir.
+            if not os.path.exists(log_dir):
+                # remove old log.
+                self.host.run('>%s' % CHAMELEOND_LOG_REMOTE_PATH)
+                os.makedirs(log_dir)
+                self._output_log_file = os.path.join(log_dir, 'log')
+                atexit.register(self._get_log)
+        self.reset()
+
+
+    def reboot(self):
+        """Reboots Chameleon board."""
+        self._chameleond_proxy.Reboot()
+
+
+    def _get_log(self):
+        """Get log from chameleon. It will be registered by atexit.
+
+        It's a private method. We will setup output_dir before using this
+        method.
+        """
+        self.host.get_file(CHAMELEOND_LOG_REMOTE_PATH, self._output_log_file)
 
 
     def get_all_ports(self):
@@ -160,6 +324,22 @@ class ChameleonBoard(object):
         @return: A USBController object.
         """
         return self._usb_ctrl
+
+
+    def get_bluetooh_hid_mouse(self):
+        """Gets the emulated bluetooth hid mouse on Chameleon.
+
+        @return: A BluetoothHIDMouseFlow object.
+        """
+        return self._chameleond_proxy.bluetooth_mouse
+
+
+    def get_avsync_probe(self):
+        """Gets the avsync probe device on Chameleon.
+
+        @return: An AVSyncProbeFlow object.
+        """
+        return self._chameleond_proxy.avsync_probe
 
 
     def get_mac_address(self):
@@ -263,6 +443,7 @@ class ChameleonVideoInput(ChameleonPort):
     _DURATION_UNPLUG_FOR_EDID = 5
     _TIMEOUT_VIDEO_STABLE_PROBE = 10
     _EDID_ID_DISABLE = -1
+    _FRAME_RATE = 60
 
     def __init__(self, chameleon_port):
         """Construct a ChameleonVideoInput.
@@ -271,6 +452,7 @@ class ChameleonVideoInput(ChameleonPort):
         """
         self.chameleond_proxy = chameleon_port.chameleond_proxy
         self.port_id = chameleon_port.port_id
+        self._original_edid = None
 
 
     def wait_video_input_stable(self, timeout=None):
@@ -321,6 +503,49 @@ class ChameleonVideoInput(ChameleonPort):
           self.chameleond_proxy.DestroyEdid(edid_id)
 
 
+    def set_edid_from_file(self, filename):
+        """Sets EDID from a file.
+
+        The method is similar to set_edid but reads EDID from a file.
+
+        @param filename: path to EDID file.
+        """
+        self.set_edid(edid_lib.Edid.from_file(filename))
+
+
+    def set_edid(self, edid):
+        """The complete flow of setting EDID.
+
+        Unplugs the port if needed, sets EDID, plugs back if it was plugged.
+        The original EDID is stored so user can call restore_edid after this
+        call.
+
+        @param edid: An Edid object.
+        """
+        plugged = self.plugged
+        if plugged:
+            self.unplug()
+
+        self._original_edid = self.read_edid()
+
+        logging.info('Apply EDID on port %d', self.port_id)
+        self.apply_edid(edid)
+
+        if plugged:
+            time.sleep(self._DURATION_UNPLUG_FOR_EDID)
+            self.plug()
+            self.wait_video_input_stable(self._TIMEOUT_VIDEO_STABLE_PROBE)
+
+
+    def restore_edid(self):
+        """Restores original EDID stored when set_edid was called."""
+        current_edid = self.read_edid()
+        if (self._original_edid and
+            self._original_edid.data != current_edid.data):
+            logging.info('Restore the original EDID.')
+            self.apply_edid(self._original_edid)
+
+
     @contextmanager
     def use_edid(self, edid):
         """Uses the given EDID in a with statement.
@@ -335,28 +560,14 @@ class ChameleonVideoInput(ChameleonPort):
         @param edid: An EDID object.
         """
         # Set the EDID up in the beginning.
-        plugged = self.plugged
-        if plugged:
-            self.unplug()
-
-        original_edid = self.read_edid()
-        logging.info('Apply EDID on port %d', self.port_id)
-        self.apply_edid(edid)
-
-        if plugged:
-            time.sleep(self._DURATION_UNPLUG_FOR_EDID)
-            self.plug()
-            self.wait_video_input_stable(self._TIMEOUT_VIDEO_STABLE_PROBE)
+        self.set_edid(edid)
 
         try:
             # Yeild to execute the with statement.
             yield
         finally:
             # Restore the original EDID in the end.
-            current_edid = self.read_edid()
-            if original_edid.data != current_edid.data:
-                logging.info('Restore the original EDID.')
-                self.apply_edid(original_edid)
+            self.restore_edid()
 
 
     def use_edid_file(self, filename):
@@ -452,11 +663,27 @@ class ChameleonVideoInput(ChameleonPort):
         return self.chameleond_proxy.IsVideoInputEncrypted(self.port_id)
 
 
+    def start_monitoring_audio_video_capturing_delay(self):
+        """Starts an audio/video synchronization utility."""
+        self.chameleond_proxy.StartMonitoringAudioVideoCapturingDelay()
+
+
+    def get_audio_video_capturing_delay(self):
+        """Gets the time interval between the first audio/video cpatured data.
+
+        @return: A floating points indicating the time interval between the
+                 first audio/video data captured. If the result is negative,
+                 then the first video data is earlier, otherwise the first
+                 audio data is earlier.
+        """
+        return self.chameleond_proxy.GetAudioVideoCapturingDelay()
+
+
     def start_capturing_video(self, box=None):
         """
         Captures video frames. Asynchronous, returns immediately.
 
-        @param box: int tuple, left, upper, right, lower pixel coordinates.
+        @param box: int tuple, (x, y, width, height) pixel coordinates.
                     Defines the rectangular boundary within which to capture.
         """
 
@@ -471,7 +698,7 @@ class ChameleonVideoInput(ChameleonPort):
         Stops the ongoing video frame capturing.
 
         """
-        self.chameleond_proxy.StopCapturingVideo(self.port_id)
+        self.chameleond_proxy.StopCapturingVideo()
 
 
     def get_captured_frame_count(self):
@@ -504,6 +731,86 @@ class ChameleonVideoInput(ChameleonPort):
         """
         return self.chameleond_proxy.GetCapturedChecksums(start_index,
                                                           stop_index)
+
+
+    def get_captured_fps_list(self, time_to_start=0, total_period=None):
+        """
+        @param time_to_start: time in second, support floating number, only
+                              measure the period starting at this time.
+                              If negative, it is the time before stop, e.g.
+                              -2 meaning 2 seconds before stop.
+        @param total_period: time in second, integer, the total measuring
+                             period. If not given, use the maximum time
+                             (integer) to the end.
+        @return: a list of fps numbers, or [-1] if any error.
+
+        """
+        checksums = self.get_captured_checksums()
+
+        frame_to_start = int(round(time_to_start * self._FRAME_RATE))
+        if total_period is None:
+            # The default is the maximum time (integer) to the end.
+            total_period = (len(checksums) - frame_to_start) / self._FRAME_RATE
+        frame_to_stop = frame_to_start + total_period * self._FRAME_RATE
+
+        if frame_to_start >= len(checksums) or frame_to_stop >= len(checksums):
+            logging.error('The given time interval is out-of-range.')
+            return [-1]
+
+        # Only pick the checksum we are interested.
+        checksums = checksums[frame_to_start:frame_to_stop]
+
+        # Count the unique checksums per second, i.e. FPS
+        logging.debug('Output the fps info below:')
+        fps_list = []
+        for i in xrange(0, len(checksums), self._FRAME_RATE):
+            unique_count = 0
+            debug_str = ''
+            for j in xrange(i, i + self._FRAME_RATE):
+                if j == 0 or checksums[j] != checksums[j - 1]:
+                    unique_count += 1
+                    debug_str += '*'
+                else:
+                    debug_str += '.'
+            fps_list.append(unique_count)
+            logging.debug('%2dfps %s', unique_count, debug_str)
+
+        return fps_list
+
+
+    def search_fps_pattern(self, pattern_diff_frame, pattern_window=None,
+                           time_to_start=0):
+        """Search the captured frames and return the time where FPS is greater
+        than given FPS pattern.
+
+        A FPS pattern is described as how many different frames in a sliding
+        window. For example, 5 differnt frames in a window of 60 frames.
+
+        @param pattern_diff_frame: number of different frames for the pattern.
+        @param pattern_window: number of frames for the sliding window. Default
+                               is 1 second.
+        @param time_to_start: time in second, support floating number,
+                              start to search from the given time.
+        @return: the time matching the pattern. -1.0 if not found.
+
+        """
+        if pattern_window is None:
+            pattern_window = self._FRAME_RATE
+
+        checksums = self.get_captured_checksums()
+
+        frame_to_start = int(round(time_to_start * self._FRAME_RATE))
+        first_checksum = checksums[frame_to_start]
+
+        for i in xrange(frame_to_start + 1, len(checksums) - pattern_window):
+            unique_count = 0
+            for j in xrange(i, i + pattern_window):
+                if j == 0 or checksums[j] != checksums[j - 1]:
+                    unique_count += 1
+            if unique_count >= pattern_diff_frame:
+                return float(i) / self._FRAME_RATE
+
+        return -1.0
 
 
     def get_captured_resolution(self):

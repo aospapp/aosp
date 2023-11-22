@@ -19,7 +19,9 @@
 #include "handle_scope-inl.h"
 #include "jni_internal.h"
 #include "mirror/class.h"
-#include "scoped_thread_state_change.h"
+#include "mirror/throwable.h"
+#include "obj_ptr-inl.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -33,9 +35,14 @@ std::ostream& operator<<(std::ostream& os, const ObjectRegistryEntry& rhs) {
 
 ObjectRegistry::ObjectRegistry()
     : lock_("ObjectRegistry lock", kJdwpObjectRegistryLock), next_id_(1) {
+  Locks::AddToExpectedMutexesOnWeakRefAccess(&lock_);
 }
 
-JDWP::RefTypeId ObjectRegistry::AddRefType(mirror::Class* c) {
+ObjectRegistry::~ObjectRegistry() {
+  Locks::RemoveFromExpectedMutexesOnWeakRefAccess(&lock_);
+}
+
+JDWP::RefTypeId ObjectRegistry::AddRefType(ObjPtr<mirror::Class> c) {
   return Add(c);
 }
 
@@ -43,7 +50,7 @@ JDWP::RefTypeId ObjectRegistry::AddRefType(Handle<mirror::Class> c_h) {
   return Add(c_h);
 }
 
-JDWP::ObjectId ObjectRegistry::Add(mirror::Object* o) {
+JDWP::ObjectId ObjectRegistry::Add(ObjPtr<mirror::Object> o) {
   if (o == nullptr) {
     return 0;
   }
@@ -55,7 +62,7 @@ JDWP::ObjectId ObjectRegistry::Add(mirror::Object* o) {
 // Template instantiations must be declared below.
 template<class T>
 JDWP::ObjectId ObjectRegistry::Add(Handle<T> obj_h) {
-  if (obj_h.Get() == nullptr) {
+  if (obj_h == nullptr) {
     return 0;
   }
   return InternalAdd(obj_h);
@@ -63,18 +70,18 @@ JDWP::ObjectId ObjectRegistry::Add(Handle<T> obj_h) {
 
 // Explicit template instantiation.
 template
-SHARED_REQUIRES(Locks::mutator_lock_)
+REQUIRES_SHARED(Locks::mutator_lock_)
 REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_)
 JDWP::ObjectId ObjectRegistry::Add(Handle<mirror::Object> obj_h);
 
 template
-SHARED_REQUIRES(Locks::mutator_lock_)
+REQUIRES_SHARED(Locks::mutator_lock_)
 REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_)
 JDWP::ObjectId ObjectRegistry::Add(Handle<mirror::Throwable> obj_h);
 
 template<class T>
 JDWP::ObjectId ObjectRegistry::InternalAdd(Handle<T> obj_h) {
-  CHECK(obj_h.Get() != nullptr);
+  CHECK(obj_h != nullptr);
 
   Thread* const self = Thread::Current();
   self->AssertNoPendingException();
@@ -118,7 +125,9 @@ JDWP::ObjectId ObjectRegistry::InternalAdd(Handle<T> obj_h) {
   return entry->id;
 }
 
-bool ObjectRegistry::ContainsLocked(Thread* self, mirror::Object* o, int32_t identity_hash_code,
+bool ObjectRegistry::ContainsLocked(Thread* self,
+                                    ObjPtr<mirror::Object> o,
+                                    int32_t identity_hash_code,
                                     ObjectRegistryEntry** out_entry) {
   DCHECK(o != nullptr);
   for (auto it = object_to_entry_.lower_bound(identity_hash_code), end = object_to_entry_.end();
@@ -177,7 +186,7 @@ mirror::Object* ObjectRegistry::InternalGet(JDWP::ObjectId id, JDWP::JdwpError* 
   }
   ObjectRegistryEntry& entry = *it->second;
   *error = JDWP::ERR_NONE;
-  return self->DecodeJObject(entry.jni_reference);
+  return self->DecodeJObject(entry.jni_reference).Ptr();
 }
 
 jobject ObjectRegistry::GetJObject(JDWP::ObjectId id) {

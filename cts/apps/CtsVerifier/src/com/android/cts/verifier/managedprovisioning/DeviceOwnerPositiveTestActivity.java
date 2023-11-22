@@ -70,11 +70,18 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
     private static final String DISALLOW_DATA_ROAMING_ID = "DISALLOW_DATA_ROAMING";
     private static final String DISALLOW_FACTORY_RESET_ID = "DISALLOW_FACTORY_RESET";
     private static final String POLICY_TRANSPARENCY_TEST_ID = "POLICY_TRANSPARENCY";
+    private static final String ENTERPRISE_PRIVACY_TEST_ID = "ENTERPRISE_PRIVACY";
+    private static final String NETWORK_LOGGING_UI_TEST_ID = "NETWORK_LOGGING_UI";
+    public static final String COMP_TEST_ID = "COMP_UI";
     private static final String REMOVE_DEVICE_OWNER_TEST_ID = "REMOVE_DEVICE_OWNER";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Tidy up in case previous run crashed.
+        new ByodFlowTestHelper(this).tearDown();
+
         if (ACTION_CHECK_DEVICE_OWNER.equals(getIntent().getAction())) {
             DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(
                     Context.DEVICE_POLICY_SERVICE);
@@ -238,21 +245,23 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
                                         UserManager.DISALLOW_USB_FILE_TRANSFER)),
                 }));
 
-        // setStatusBarDisabled
-        adapter.add(createInteractiveTestItem(this, DISABLE_STATUS_BAR_TEST_ID,
-                R.string.device_owner_disable_statusbar_test,
-                R.string.device_owner_disable_statusbar_test_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(
-                                R.string.device_owner_disable_statusbar_button,
-                                createDeviceOwnerIntentWithBooleanParameter(
-                                        CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
-                                                true)),
-                        new ButtonInfo(
-                                R.string.device_owner_reenable_statusbar_button,
-                                createDeviceOwnerIntentWithBooleanParameter(
-                                        CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
-                                                false))}));
+        // DISABLE_STATUS_BAR_TEST
+        if (isStatusBarEnabled()) {
+            adapter.add(createInteractiveTestItem(this, DISABLE_STATUS_BAR_TEST_ID,
+                    R.string.device_owner_disable_statusbar_test,
+                    R.string.device_owner_disable_statusbar_test_info,
+                    new ButtonInfo[] {
+                            new ButtonInfo(
+                                    R.string.device_owner_disable_statusbar_button,
+                                    createDeviceOwnerIntentWithBooleanParameter(
+                                            CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
+                                                    true)),
+                            new ButtonInfo(
+                                    R.string.device_owner_reenable_statusbar_button,
+                                    createDeviceOwnerIntentWithBooleanParameter(
+                                            CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
+                                                    false))}));
+        }
 
         // setKeyguardDisabled
         adapter.add(createInteractiveTestItem(this, DISABLE_KEYGUARD_TEST_ID,
@@ -290,12 +299,43 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
         final Intent policyTransparencyTestIntent = new Intent(this,
                 PolicyTransparencyTestListActivity.class);
         policyTransparencyTestIntent.putExtra(
-                PolicyTransparencyTestListActivity.EXTRA_IS_DEVICE_OWNER, true);
+                PolicyTransparencyTestListActivity.EXTRA_MODE,
+                PolicyTransparencyTestListActivity.MODE_DEVICE_OWNER);
+        // So that PolicyTransparencyTestListActivity knows which test to update with the result:
         policyTransparencyTestIntent.putExtra(
                 PolicyTransparencyTestActivity.EXTRA_TEST_ID, POLICY_TRANSPARENCY_TEST_ID);
         adapter.add(createTestItem(this, POLICY_TRANSPARENCY_TEST_ID,
                 R.string.device_profile_owner_policy_transparency_test,
                 policyTransparencyTestIntent));
+
+        // Enterprise Privacy
+        final Intent enterprisePolicyTestIntent = new Intent(this,
+                EnterprisePrivacyTestListActivity.class);
+        enterprisePolicyTestIntent.putExtra(
+                EnterprisePrivacyTestListActivity.EXTRA_TEST_ID, ENTERPRISE_PRIVACY_TEST_ID);
+        adapter.add(createTestItem(this, ENTERPRISE_PRIVACY_TEST_ID,
+                R.string.enterprise_privacy_test,
+                enterprisePolicyTestIntent));
+
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS)) {
+            Intent compIntent = new Intent(this, CompTestActivity.class)
+                    .putExtra(PolicyTransparencyTestActivity.EXTRA_TEST_ID, COMP_TEST_ID);
+            adapter.add(createTestItem(this, COMP_TEST_ID,
+                    R.string.comp_test,
+                    compIntent));
+        }
+
+        // Network logging UI
+        adapter.add(createInteractiveTestItem(this, NETWORK_LOGGING_UI_TEST_ID,
+                R.string.device_owner_network_logging_ui,
+                R.string.device_owner_network_logging_ui_info,
+                new ButtonInfo[] {
+                        new ButtonInfo(
+                                R.string.device_owner_enable_network_logging_button,
+                                createEnableNetworkLoggingIntent()),
+                        new ButtonInfo(
+                                R.string.device_owner_disable_network_logging_button,
+                                createDisableNetworkLoggingIntent())}));
 
         // removeDeviceOwner
         adapter.add(createInteractiveTestItem(this, REMOVE_DEVICE_OWNER_TEST_ID,
@@ -337,5 +377,23 @@ public class DeviceOwnerPositiveTestActivity extends PassFailButtons.TestListAct
         return new Intent(this, CommandReceiverActivity.class)
                 .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
                         CommandReceiverActivity.COMMAND_SET_USER_ICON);
+    }
+
+    private Intent createEnableNetworkLoggingIntent() {
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                        CommandReceiverActivity.COMMAND_ENABLE_NETWORK_LOGGING);
+    }
+
+    private Intent createDisableNetworkLoggingIntent() {
+        return new Intent(this, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND,
+                        CommandReceiverActivity.COMMAND_DISABLE_NETWORK_LOGGING);
+    }
+
+    private boolean isStatusBarEnabled() {
+      // Watches don't support the status bar so this is an ok proxy, but this is not the most
+      // general test for that. TODO: add a test API to do a real check for status bar support.
+      return !getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 }

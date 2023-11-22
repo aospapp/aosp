@@ -51,7 +51,7 @@ public class BassBoostTest extends PostProcTestBase {
         }
         BassBoost eq = null;
         try {
-            eq = new BassBoost(0, 0);
+            eq = new BassBoost(0, getSessionId());
             try {
                 assertTrue("invalid effect ID", (eq.getId() != 0));
             } catch (IllegalStateException e) {
@@ -79,7 +79,7 @@ public class BassBoostTest extends PostProcTestBase {
         if (!isBassBoostAvailable()) {
             return;
         }
-        getBassBoost(0);
+        getBassBoost(getSessionId());
         try {
             if (mBassBoost.getStrengthSupported()) {
                 short strength = mBassBoost.getRoundedStrength();
@@ -111,7 +111,7 @@ public class BassBoostTest extends PostProcTestBase {
         if (!isBassBoostAvailable()) {
             return;
         }
-        getBassBoost(0);
+        getBassBoost(getSessionId());
         try {
             BassBoost.Settings settings = mBassBoost.getProperties();
             String str = settings.toString();
@@ -148,7 +148,7 @@ public class BassBoostTest extends PostProcTestBase {
         if (!isBassBoostAvailable()) {
             return;
         }
-        getBassBoost(0);
+        getBassBoost(getSessionId());
         mBassBoost.release();
         try {
             mBassBoost.setStrength(TEST_STRENGTH);
@@ -169,7 +169,7 @@ public class BassBoostTest extends PostProcTestBase {
         if (!isBassBoostAvailable()) {
             return;
         }
-        getBassBoost(0);
+        getBassBoost(getSessionId());
         try {
             mBassBoost.setEnabled(true);
             assertTrue("invalid state from getEnabled", mBassBoost.getEnabled());
@@ -188,7 +188,7 @@ public class BassBoostTest extends PostProcTestBase {
         if (!isBassBoostAvailable()) {
             return;
         }
-        getBassBoost(0);
+        getBassBoost(getSessionId());
         mBassBoost.release();
         try {
             mBassBoost.setEnabled(true);
@@ -215,7 +215,7 @@ public class BassBoostTest extends PostProcTestBase {
             createListenerLooper(true, false, false);
             waitForLooperInitialization_l();
 
-            getBassBoost(0);
+            getBassBoost(mSession);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
             while (mHasControl && (looperWaitCount-- > 0)) {
                 try {
@@ -241,7 +241,7 @@ public class BassBoostTest extends PostProcTestBase {
 
             mBassBoost2.setEnabled(true);
             mIsEnabled = true;
-            getBassBoost(0);
+            getBassBoost(mSession);
             mBassBoost.setEnabled(false);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
             while (mIsEnabled && (looperWaitCount-- > 0)) {
@@ -266,7 +266,7 @@ public class BassBoostTest extends PostProcTestBase {
             createListenerLooper(false, false, true);
             waitForLooperInitialization_l();
 
-            getBassBoost(0);
+            getBassBoost(mSession);
             mChangedParameter = -1;
             mBassBoost.setStrength(TEST_STRENGTH);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
@@ -357,7 +357,8 @@ public class BassBoostTest extends PostProcTestBase {
                 // after we are done with it.
                 mLooper = Looper.myLooper();
 
-                mBassBoost2 = new BassBoost(0, 0);
+                mSession = getSessionId();
+                mBassBoost2 = new BassBoost(0, mSession);
                 assertNotNull("could not create bassboot2", mBassBoost2);
 
                 synchronized(mLock) {

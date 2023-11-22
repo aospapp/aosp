@@ -11,7 +11,6 @@ This test will fail if the URL fails to load or the cookie is not saved.
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 ATTRIBUTES = "suite:experimental"
-SUITE = "experimental"
 TEST_CLASS = "desktopui"
 TEST_TYPE = "client"
 

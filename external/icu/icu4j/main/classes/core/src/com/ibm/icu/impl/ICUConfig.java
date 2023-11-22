@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2008-2015, International Business Machines Corporation and
@@ -61,6 +63,7 @@ public class ICUConfig {
         if (System.getSecurityManager() != null) {
             try {
                 val = AccessController.doPrivileged(new PrivilegedAction<String>() {
+                    @Override
                     public String run() {
                         return System.getProperty(fname);
                     }

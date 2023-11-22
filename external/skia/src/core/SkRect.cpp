@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2006 The Android Open Source Project
  *
@@ -7,6 +6,8 @@
  */
 
 #include "SkRect.h"
+
+#include "SkMalloc.h"
 
 void SkIRect::join(int32_t left, int32_t top, int32_t right, int32_t bottom) {
     // do nothing if the params are empty

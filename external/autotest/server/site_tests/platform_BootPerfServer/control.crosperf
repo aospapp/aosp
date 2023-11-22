@@ -5,7 +5,6 @@
 NAME = "BootPerfServerCrosPerf"
 AUTHOR = "Chrome OS Team"
 ATTRIBUTES = "suite:crosbolt_perf_perbuild"
-SUITE = "crosbolt_perf_perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "platform"

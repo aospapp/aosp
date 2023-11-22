@@ -17,8 +17,8 @@
 package com.android.server.telecom;
 
 import android.content.Context;
-import android.os.UserHandle;
 import android.telecom.DisconnectCause;
+import android.telecom.Log;
 import android.telecom.ParcelableConnection;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -132,8 +132,10 @@ public class CreateConnectionProcessor implements CreateConnectionResponse {
             mAttemptRecords.add(new CallAttemptRecord(
                     mCall.getTargetPhoneAccount(), mCall.getTargetPhoneAccount()));
         }
-        adjustAttemptsForConnectionManager();
-        adjustAttemptsForEmergency(mCall.getTargetPhoneAccount());
+        if (!mCall.isSelfManaged()) {
+            adjustAttemptsForConnectionManager();
+            adjustAttemptsForEmergency(mCall.getTargetPhoneAccount());
+        }
         mAttemptRecordIterator = mAttemptRecords.iterator();
         attemptNextPhoneAccount();
     }

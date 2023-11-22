@@ -29,9 +29,9 @@
 #include <GLES/glext.h>
 #endif
 
-using namespace android;
-using namespace android::renderscript;
-
+using android::renderscript::Context;
+using android::renderscript::Sampler;
+using android::renderscript::rs_sampler;
 
 bool rsdSamplerInit(const Context *, const Sampler *s) {
     return true;
@@ -47,13 +47,9 @@ void rsdSamplerUpdateCachedObject(const Context *rsc,
 {
     obj->p = alloc;
 #ifdef __LP64__
-    obj->r = nullptr;
-    if (alloc != nullptr) {
-        obj->v1 = alloc->mHal.drv;
-    } else {
-        obj->v1 = nullptr;
-    }
-    obj->v2 = nullptr;
+    obj->unused1 = nullptr;
+    obj->unused2 = nullptr;
+    obj->unused3 = nullptr;
 #endif
 }
 

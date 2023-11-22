@@ -22,7 +22,9 @@ import android.os.Handler;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -36,8 +38,13 @@ public class ShortcutLaunchedActivity extends Activity {
 
     private final int mInstanceId = sNextInstanceId.getAndIncrement();
 
-    // @GuardedBy("sReceivedIntents")
+    private static final Object sLock = new Object();
+
+    // @GuardedBy("sLock")
     private static final ArrayList<Intent> sReceivedIntents = new ArrayList<>();
+
+    // @GuardedBy("sLock")
+    private static final ArrayList<String> sExpectedVisibleOrder = new ArrayList<>();
 
     private Handler mHandler = new Handler();
 
@@ -46,6 +53,10 @@ public class ShortcutLaunchedActivity extends Activity {
     private void log(String action) {
         Log.i(TAG, String.format("Activity #%d %s: intent=%s",
                 mInstanceId, action, getIntent()));
+    }
+
+    public ShortcutLaunchedActivity() {
+        log("ctor");
     }
 
     @Override
@@ -63,22 +74,27 @@ public class ShortcutLaunchedActivity extends Activity {
 
         log("onResume");
 
-        synchronized (sReceivedIntents) {
+        synchronized (sLock) {
+            if (!Objects.equals(getIntent().getAction(), sExpectedVisibleOrder.get(0))) {
+                log("Not my turn yet.");
+                return;
+            }
+            sExpectedVisibleOrder.remove(0);
+
             // Make sure we only add it once, ever.
             if (mIntentToAdd != null) {
                 sReceivedIntents.add(new Intent(getIntent()));
                 mIntentToAdd = null;
             }
         }
-        mHandler.post(() -> {
-            onBackPressed();
-        });
+        finish();
     }
 
     @Override
-    public void onBackPressed() {
-        log("onBackPressed");
-        super.onBackPressed();
+    protected void onPause() {
+        log("onPause");
+
+        super.onPause();
     }
 
     @Override
@@ -88,14 +104,17 @@ public class ShortcutLaunchedActivity extends Activity {
         super.onDestroy();
     }
 
-    public static void clearIntents() {
-        synchronized (sReceivedIntents) {
+    public static void setExpectedOrder(String[] actions) {
+        synchronized (sLock) {
             sReceivedIntents.clear();
+
+            sExpectedVisibleOrder.clear();
+            sExpectedVisibleOrder.addAll(Arrays.asList(actions));
         }
     }
 
     public static List<Intent> getIntents() {
-        synchronized (sReceivedIntents) {
+        synchronized (sLock) {
             return new ArrayList(sReceivedIntents);
         }
     }

@@ -1,7 +1,7 @@
 AC_PREREQ([2.64])
 AC_INIT([HarfBuzz],
-        [1.2.6],
-        [http://bugs.freedesktop.org/enter_bug.cgi?product=harfbuzz],
+        [1.4.2],
+        [https://github.com/behdad/harfbuzz/issues/new],
         [harfbuzz],
         [http://harfbuzz.org/])
 
@@ -19,9 +19,11 @@ LT_PREREQ([2.2])
 LT_INIT([disable-static])
 
 # Check for programs
+AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CXX
+AC_SYS_LARGEFILE
 PKG_PROG_PKG_CONFIG([0.20])
 AM_MISSING_PROG([RAGEL], [ragel])
 AM_MISSING_PROG([GIT], [git])
@@ -145,7 +147,7 @@ AC_ARG_WITH(glib,
 			[Use glib @<:@default=auto@:>@])],,
 	[with_glib=auto])
 have_glib=false
-GLIB_DEPS="glib-2.0 >= 2.16"
+GLIB_DEPS="glib-2.0 >= 2.19.1"
 AC_SUBST(GLIB_DEPS)
 if test "x$with_glib" = "xyes" -o "x$with_glib" = "xauto"; then
 	PKG_CHECK_MODULES(GLIB, $GLIB_DEPS, have_glib=true, :)
@@ -287,9 +289,13 @@ AM_CONDITIONAL(HAVE_ICU_BUILTIN, $have_icu && test "x$with_icu" = "xbuiltin")
 
 dnl ===========================================================================
 
-have_ucdn=true
-if $have_glib || $have_icu && test "x$with_icu" = "xbuiltin"; then
-	have_ucdn=false
+AC_ARG_WITH(ucdn,
+	[AS_HELP_STRING([--with-ucdn=@<:@yes/no@:>@],
+			[Use builtin UCDN library @<:@default=yes@:>@])],,
+	[with_ucdn=yes])
+have_ucdn=false
+if test "x$with_ucdn" = "xyes"; then
+	have_ucdn=true
 fi
 if $have_ucdn; then
 	AC_DEFINE(HAVE_UCDN, 1, [Have UCDN Unicode functions])
@@ -307,6 +313,16 @@ GRAPHITE2_DEPS="graphite2"
 AC_SUBST(GRAPHITE2_DEPS)
 if test "x$with_graphite2" = "xyes" -o "x$with_graphite2" = "xauto"; then
 	PKG_CHECK_MODULES(GRAPHITE2, $GRAPHITE2_DEPS, have_graphite2=true, :)
+	if test "x$have_graphite2" != "xtrue"; then
+                # If pkg-config is not available, graphite2 can still be there
+		ac_save_CFLAGS="$CFLAGS"
+		ac_save_CPPFLAGS="$CPPFLAGS"
+		CFLAGS="$CFLAGS $GRAPHITE2_CFLAGS"
+		CPPFLAGS="$CPPFLAGS $GRAPHITE2_CFLAGS"
+		AC_CHECK_HEADER(graphite2/Segment.h, have_graphite2=true, :)
+		CPPFLAGS="$ac_save_CPPFLAGS"
+		CFLAGS="$ac_save_CFLAGS"
+	fi
 fi
 if test "x$with_graphite2" = "xyes" -a "x$have_graphite2" != "xtrue"; then
 	AC_MSG_ERROR([graphite2 support requested but libgraphite2 not found])
@@ -334,6 +350,10 @@ if test "x$with_freetype" = "xyes" -a "x$have_freetype" != "xtrue"; then
 fi
 if $have_freetype; then
 	AC_DEFINE(HAVE_FREETYPE, 1, [Have FreeType 2 library])
+	save_libs=$LIBS
+	LIBS="$LIBS $FREETYPE_LIBS"
+	AC_CHECK_FUNCS(FT_Get_Var_Blend_Coordinates)
+	LIBS=$save_libs
 fi
 AM_CONDITIONAL(HAVE_FREETYPE, $have_freetype)
 
@@ -401,7 +421,8 @@ if test "x$with_coretext" = "xyes" -o "x$with_coretext" = "xauto"; then
 	else
 		# On iOS CoreText and CoreGraphics are stand-alone frameworks
 		if test "x$have_coretext" != "xtrue"; then
-			AC_CHECK_TYPE(CTFontRef, have_coretext=true,, [#include <CoreText/CoreText.h>])
+			# Check for a different symbol to avoid getting cached result.
+			AC_CHECK_TYPE(CTRunRef, have_coretext=true,, [#include <CoreText/CoreText.h>])
 		fi
 
 		if $have_coretext; then
@@ -484,9 +505,9 @@ AC_MSG_NOTICE([
 Build configuration:
 
 Unicode callbacks (you want at least one):
+	Builtin (UCDN):		${have_ucdn}
 	Glib:			${have_glib}
 	ICU:			${have_icu}
-	UCDN:			${have_ucdn}
 
 Font callbacks (the more the better):
 	FreeType:		${have_freetype}

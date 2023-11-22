@@ -16,16 +16,14 @@
 
 package com.android.compatibility.common.tradefed.result;
 
-import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
-import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.config.OptionCopier;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.IShardableListener;
-import com.android.tradefed.result.StubTestInvocationListener;
 import com.android.tradefed.util.TimeUtil;
 
 import java.util.Map;
@@ -33,7 +31,7 @@ import java.util.Map;
 /**
  * Write test progress to the test console.
  */
-public class ConsoleReporter extends StubTestInvocationListener implements IShardableListener {
+public class ConsoleReporter implements IShardableListener {
 
     private static final String UNKNOWN_DEVICE = "unknown_device";
 
@@ -53,13 +51,15 @@ public class ConsoleReporter extends StubTestInvocationListener implements IShar
      * {@inheritDoc}
      */
     @Override
-    public void invocationStarted(IBuildInfo buildInfo) {
-        if (buildInfo == null) {
-            CLog.w("buildInfo should not be null");
+    public void invocationStarted(IInvocationContext context) {
+        if (context == null) {
+            CLog.w("InvocationContext should not be null");
             return;
         }
+        IBuildInfo primaryBuild = context.getBuildInfos().get(0);
+
         // Escape any "%" signs in the device serial.
-        mDeviceSerial = buildInfo.getDeviceSerial().replace("%", "%%");
+        mDeviceSerial = primaryBuild.getDeviceSerial().replace("%", "%%");
     }
 
     /**
@@ -67,26 +67,17 @@ public class ConsoleReporter extends StubTestInvocationListener implements IShar
      */
     @Override
     public void testRunStarted(String id, int numTests) {
-        if (mModuleId == null || !mModuleId.equals(id)) {
-            mModuleId = id;
-            mTotalTestsInModule = numTests;
-            // Reset counters
-            mCurrentTestNum = 0;
-            mPassedTests = 0;
-            mFailedTests = 0;
-            mNotExecutedTests = 0;
-            mTestFailed = false;
-            logMessage("Starting %s with %d test%s",
-                    id, mTotalTestsInModule, (mTotalTestsInModule > 1) ? "s" : "");
-        } else {
-            if (mNotExecutedTests == 0) {
-                mTotalTestsInModule += numTests;
-            } else {
-                mTotalTestsInModule += Math.max(0, numTests - mNotExecutedTests);
-            }
-            logMessage("Continuing %s with %d test%s",
-                    id, mTotalTestsInModule, (mTotalTestsInModule > 1) ? "s" : "");
-        }
+        boolean isRepeatModule = (mModuleId != null && mModuleId.equals(id));
+        mModuleId = id;
+        mTotalTestsInModule = numTests;
+        // Reset counters
+        mCurrentTestNum = 0;
+        mPassedTests = 0;
+        mFailedTests = 0;
+        mNotExecutedTests = 0;
+        mTestFailed = false;
+        logMessage("%s %s with %d test%s", (isRepeatModule) ? "Continuing" : "Starting", id,
+                mTotalTestsInModule, (mTotalTestsInModule > 1) ? "s" : "");
     }
 
     /**
@@ -122,7 +113,7 @@ public class ConsoleReporter extends StubTestInvocationListener implements IShar
      */
     @Override
     public void testAssumptionFailure(TestIdentifier test, String trace) {
-        logProgress("%s failed assumption: %s", test, trace);
+        logProgress("%s skip", test);
     }
 
     /**

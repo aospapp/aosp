@@ -63,7 +63,7 @@ public class UiBenchRenderingJankTests extends JankTestBase {
     @JankTest(beforeTest = "openBitmapUpload", expectedFrames = EXPECTED_FRAMES)
     @GfxMonitor(processName = PACKAGE_NAME)
     public void testBitmapUploadJank() {
-        SystemClock.sleep(mHelper.LONG_TIMEOUT * 5);
+        SystemClock.sleep(UiBenchJankTestsHelper.FULL_TEST_DURATION);
     }
 
     // Open Shadow Grid
@@ -79,7 +79,7 @@ public class UiBenchRenderingJankTests extends JankTestBase {
     @JankTest(beforeTest = "openRenderingList", expectedFrames = EXPECTED_FRAMES)
     @GfxMonitor(processName = PACKAGE_NAME)
     public void testShadowGridListFling() {
-        mHelper.flingUpDown(mHelper.mContents, mHelper.SHORT_TIMEOUT, 1);
+        mHelper.flingUpDown(mHelper.mContents, 1);
     }
 
 }

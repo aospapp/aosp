@@ -17,13 +17,14 @@
 package android.telephony.cts;
 
 import android.content.Context;
-import android.cts.util.TestThread;
 import android.net.ConnectivityManager;
 import android.os.Looper;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.TestThread;
 
 import java.util.List;
 

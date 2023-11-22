@@ -9,7 +9,7 @@ import unittest
 import common
 from autotest_lib.cli import cli_mock
 
-ATEST_USAGE_STRING = ('atest [acl|host|job|label|shard|atomicgroup|test|user|'
+ATEST_USAGE_STRING = ('atest [acl|host|job|label|shard|test|user|'
                       'server|stable_version] [action] [options]')
 
 class main_unittest(cli_mock.cli_unittest):

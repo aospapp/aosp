@@ -18,6 +18,8 @@
 
 #include "garbage_collector.h"
 
+#include "android-base/stringprintf.h"
+
 #include "base/dumpable.h"
 #include "base/histogram-inl.h"
 #include "base/logging.h"
@@ -25,6 +27,8 @@
 #include "base/systrace.h"
 #include "base/time_utils.h"
 #include "gc/accounting/heap_bitmap.h"
+#include "gc/gc_pause_listener.h"
+#include "gc/heap.h"
 #include "gc/space/large_object_space.h"
 #include "gc/space/space-inl.h"
 #include "thread-inl.h"
@@ -61,7 +65,8 @@ GarbageCollector::GarbageCollector(Heap* heap, const std::string& name)
       name_(name),
       pause_histogram_((name_ + " paused").c_str(), kPauseBucketSize, kPauseBucketCount),
       cumulative_timings_(name),
-      pause_histogram_lock_("pause histogram lock", kDefaultMutexLevel, true) {
+      pause_histogram_lock_("pause histogram lock", kDefaultMutexLevel, true),
+      is_transaction_active_(false) {
   ResetCumulativeStatistics();
 }
 
@@ -79,11 +84,14 @@ void GarbageCollector::ResetCumulativeStatistics() {
 }
 
 void GarbageCollector::Run(GcCause gc_cause, bool clear_soft_references) {
-  ScopedTrace trace(StringPrintf("%s %s GC", PrettyCause(gc_cause), GetName()));
+  ScopedTrace trace(android::base::StringPrintf("%s %s GC", PrettyCause(gc_cause), GetName()));
   Thread* self = Thread::Current();
   uint64_t start_time = NanoTime();
   Iteration* current_iteration = GetCurrentIteration();
   current_iteration->Reset(gc_cause, clear_soft_references);
+  // Note transaction mode is single-threaded and there's no asynchronous GC and this flag doesn't
+  // change in the middle of a GC.
+  is_transaction_active_ = Runtime::Current()->IsActiveTransaction();
   RunPhases();  // Run all the GC phases.
   // Add the current timings to the cumulative timings.
   cumulative_timings_.AddLogger(*GetTimings());
@@ -105,6 +113,7 @@ void GarbageCollector::Run(GcCause gc_cause, bool clear_soft_references) {
     MutexLock mu(self, pause_histogram_lock_);
     pause_histogram_.AdjustAndAddValue(pause_time);
   }
+  is_transaction_active_ = false;
 }
 
 void GarbageCollector::SwapBitmaps() {
@@ -154,14 +163,28 @@ void GarbageCollector::ResetMeasurements() {
   total_freed_bytes_ = 0;
 }
 
-GarbageCollector::ScopedPause::ScopedPause(GarbageCollector* collector)
-    : start_time_(NanoTime()), collector_(collector) {
-  Runtime::Current()->GetThreadList()->SuspendAll(__FUNCTION__);
+GarbageCollector::ScopedPause::ScopedPause(GarbageCollector* collector, bool with_reporting)
+    : start_time_(NanoTime()), collector_(collector), with_reporting_(with_reporting) {
+  Runtime* runtime = Runtime::Current();
+  runtime->GetThreadList()->SuspendAll(__FUNCTION__);
+  if (with_reporting) {
+    GcPauseListener* pause_listener = runtime->GetHeap()->GetGcPauseListener();
+    if (pause_listener != nullptr) {
+      pause_listener->StartPause();
+    }
+  }
 }
 
 GarbageCollector::ScopedPause::~ScopedPause() {
   collector_->RegisterPause(NanoTime() - start_time_);
-  Runtime::Current()->GetThreadList()->ResumeAll();
+  Runtime* runtime = Runtime::Current();
+  if (with_reporting_) {
+    GcPauseListener* pause_listener = runtime->GetHeap()->GetGcPauseListener();
+    if (pause_listener != nullptr) {
+      pause_listener->EndPause();
+    }
+  }
+  runtime->GetThreadList()->ResumeAll();
 }
 
 // Returns the current GC iteration and assocated info.

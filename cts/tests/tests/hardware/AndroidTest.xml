@@ -13,22 +13,16 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Hardware test cases">
+    <option name="config-descriptor:metadata" key="component" value="misc" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsHardwareTestCases.apk" />
     </target_preparer>
-    <!-- Put SensorService in restricted mode so that only CTS tests will be able to get access to
-    sensors -->
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="dumpsys sensorservice restrict .cts." />
-        <option name="teardown-command" value="dumpsys sensorservice enable" />
-    </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.hardware.cts" />
-        <option name="runtime-hint" value="47m28s" />
+        <option name="runtime-hint" value="14s" />
         <!-- test-timeout unit is ms, value = 60 min -->
         <option name="test-timeout" value="3600000" />
     </test>
-
 </configuration>

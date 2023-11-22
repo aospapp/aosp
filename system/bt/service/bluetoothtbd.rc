@@ -1,4 +1,4 @@
 service bluetoothtbd /system/bin/bluetoothtbd
     class main
     user bluetooth
-    group wakelock net_bt_admin net_bt_stack net_admin
+    group wakelock net_bt_admin bluetooth net_admin

@@ -14,62 +14,13 @@
 
 LOCAL_PATH:= $(call my-dir)
 
-# Make mock HAL library
-# ============================================================
-
-include $(CLEAR_VARS)
-
-LOCAL_REQUIRED_MODULES :=
-
-LOCAL_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-function \
-                -Wunused-variable -Winit-self -Wwrite-strings -Wshadow
-
-LOCAL_C_INCLUDES += \
-	$(JNI_H_INCLUDE) \
-	$(LOCAL_PATH)/../../service/jni \
-	$(call include-path-for, libhardware)/hardware \
-	$(call include-path-for, libhardware_legacy)/hardware_legacy \
-	packages/apps/Test/connectivity/sl4n/rapidjson/include \
-	libcore/include
-
-LOCAL_SRC_FILES := \
-	jni/wifi_hal_mock.cpp
-
-ifdef INCLUDE_NAN_FEATURE
-LOCAL_SRC_FILES += \
-	jni/wifi_nan_hal_mock.cpp
-endif
-
-LOCAL_MODULE := libwifi-hal-mock
-
-LOCAL_STATIC_LIBRARIES += libwifi-hal
-LOCAL_SHARED_LIBRARIES += \
-	libnativehelper \
-	libcutils \
-	libutils \
-	libhardware \
-	libhardware_legacy \
-	libnl \
-	libdl \
-	libwifi-service
-
-include $(BUILD_SHARED_LIBRARY)
-
 # Make test APK
 # ============================================================
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-RESOURCE_FILES := $(call all-named-files-under, R.java, $(intermediates.COMMON))
-
-LOCAL_SRC_FILES := $(call all-subdir-java-files) \
-	$RESOURCE_FILES
-
-ifndef INCLUDE_NAN_FEATURE
-LOCAL_SRC_FILES := $(filter-out $(call all-java-files-under, \
-          src/com/android/server/wifi/nan),$(LOCAL_SRC_FILES))
-endif
+LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
 # Provide jack a list of classes to exclude form code coverage
 # This list is generated from the java source files in this module
@@ -93,10 +44,13 @@ space:= $(empty) $(empty)
 # These patterns will match all classes in this module and their inner classes.
 jacoco_exclude := $(subst $(space),$(comma),$(patsubst %,%*,$(local_classes)))
 
-jacoco_include := com.android.server.wifi.*,android.net.wifi.*
+jacoco_include := com.android.server.wifi.*
 
 LOCAL_JACK_COVERAGE_INCLUDE_FILTER := $(jacoco_include)
 LOCAL_JACK_COVERAGE_EXCLUDE_FILTER := $(jacoco_exclude)
+
+LOCAL_DX_FLAGS := --multi-dex
+LOCAL_JACK_FLAGS := --multi-dex native
 
 # wifi-service and services must be included here so that the latest changes
 # will be used when tests. Otherwise the tests would run against the installed
@@ -105,7 +59,8 @@ LOCAL_JACK_COVERAGE_EXCLUDE_FILTER := $(jacoco_exclude)
 # since neither is declared a static java library.
 LOCAL_STATIC_JAVA_LIBRARIES := \
 	android-support-test \
-	mockito-target \
+	mockito-target-minus-junit4 \
+	frameworks-base-testutils \
 	services \
 	wifi-service \
 
@@ -113,30 +68,50 @@ LOCAL_JAVA_LIBRARIES := \
 	android.test.runner \
 	wifi-service \
 	services \
+	android.hidl.manager-V1.0-java
 
 # These must be explicitly included because they are not normally accessible
 # from apps.
 LOCAL_JNI_SHARED_LIBRARIES := \
+	libcrypto \
 	libwifi-service \
-	libc++ \
-	libLLVM \
-	libutils \
-	libunwind \
-	libhardware_legacy \
-	libbase \
-	libhardware \
-	libnl \
-	libcutils \
-	libnetutils \
+	libEGL \
+	libGLESv2 \
+	libaudioutils \
 	libbacktrace \
-	libnativehelper \
+	libbase \
+	libbinder \
+	libc++ \
+	libcamera_client \
+	libcamera_metadata \
+	libcutils \
+	libexpat \
+	libgui \
+	libhardware \
+	libicui18n \
+	libicuuc \
 	liblzma \
+	libmedia \
+	libnativehelper \
+	libnbaio \
+	libnetutils \
+	libnl \
+	libpowermanager \
+	libsonivox \
+	libspeexresampler \
+	libstagefright_foundation \
+	libstdc++ \
+	libsync \
+	libwifi-system \
+	libui \
+	libunwind \
+	libutils \
+	libvndksupport \
 
 ifdef WPA_SUPPLICANT_VERSION
 LOCAL_JNI_SHARED_LIBRARIES += libwpa_client
 endif
 
 LOCAL_PACKAGE_NAME := FrameworksWifiTests
-LOCAL_JNI_SHARED_LIBRARIES += libwifi-hal-mock
 
 include $(BUILD_PACKAGE)

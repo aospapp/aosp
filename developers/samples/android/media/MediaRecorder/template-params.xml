@@ -19,7 +19,6 @@
     <group>Media</group>
     <package>com.example.android.mediarecorder</package>
     <minSdk>16</minSdk>
-    <targetSdkVersion>22</targetSdkVersion>
     <strings>
         <intro>
 <![CDATA[

@@ -43,6 +43,7 @@ key 3 {
     base:                               '3'
     shift:                              '#'
     ralt:                               '\u00b3'
+    ralt+shift:                         '\u0304'
 }
 
 key 4 {

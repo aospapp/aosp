@@ -31,7 +31,7 @@ void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) 
   jpoints->pDlsymLookup = art_jni_dlsym_lookup_stub;
 
   // Alloc
-  ResetQuickAllocEntryPoints(qpoints);
+  ResetQuickAllocEntryPoints(qpoints, /* is_marking */ true);
 
   // DexCache
   qpoints->pInitializeStaticStorage = art_quick_initialize_static_storage;
@@ -66,18 +66,18 @@ void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) 
   qpoints->pGetObjStatic = art_quick_get_obj_static;
 
   // Array
-  qpoints->pAputObjectWithNullAndBoundCheck = art_quick_aput_obj_with_null_and_bound_check;
-  qpoints->pAputObjectWithBoundCheck = art_quick_aput_obj_with_bound_check;
   qpoints->pAputObject = art_quick_aput_obj;
-  qpoints->pHandleFillArrayData = art_quick_handle_fill_data;
 
   // JNI
   qpoints->pJniMethodStart = JniMethodStart;
+  qpoints->pJniMethodFastStart = JniMethodFastStart;
   qpoints->pJniMethodStartSynchronized = JniMethodStartSynchronized;
   qpoints->pJniMethodEnd = JniMethodEnd;
   qpoints->pJniMethodEndSynchronized = JniMethodEndSynchronized;
   qpoints->pJniMethodEndWithReference = JniMethodEndWithReference;
+  qpoints->pJniMethodFastEndWithReference = JniMethodFastEndWithReference;
   qpoints->pJniMethodEndWithReferenceSynchronized = JniMethodEndWithReferenceSynchronized;
+  qpoints->pJniMethodFastEnd = JniMethodFastEnd;
   qpoints->pQuickGenericJniTrampoline = art_quick_generic_jni_trampoline;
 
   // Locks
@@ -103,6 +103,7 @@ void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) 
       art_quick_invoke_super_trampoline_with_access_check;
   qpoints->pInvokeVirtualTrampolineWithAccessCheck =
       art_quick_invoke_virtual_trampoline_with_access_check;
+  qpoints->pInvokePolymorphic = art_quick_invoke_polymorphic;
 
   // Thread
   qpoints->pTestSuspend = art_quick_test_suspend;
@@ -111,9 +112,9 @@ void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) 
   qpoints->pDeliverException = art_quick_deliver_exception;
   qpoints->pThrowArrayBounds = art_quick_throw_array_bounds;
   qpoints->pThrowDivZero = art_quick_throw_div_zero;
-  qpoints->pThrowNoSuchMethod = art_quick_throw_no_such_method;
   qpoints->pThrowNullPointer = art_quick_throw_null_pointer_exception;
   qpoints->pThrowStackOverflow = art_quick_throw_stack_overflow;
+  qpoints->pThrowStringBounds = art_quick_throw_string_bounds;
 
   // Deoptimize
   qpoints->pDeoptimize = art_quick_deoptimize_from_compiled_code;

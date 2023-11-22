@@ -48,13 +48,13 @@
 
 base_version_major := 1
 # Change this for each branch
-base_version_minor := 10
+base_version_minor := 11
 
 # code_version_major will overflow at 22
 code_version_major := $(shell echo $$(($(base_version_major)+3)))
 
 # x86 and arm sometimes don't match.
-code_version_build := 596
+code_version_build := 011
 #####################################################
 #####################################################
 # Collect automatic version code parameters
@@ -87,17 +87,22 @@ base_version_density := 0
 version_code_package := $(code_version_major)$(base_version_minor)$(code_version_build)$(base_version_buildtype)$(base_version_arch)$(base_version_density)
 
 # The version name scheme for the package apk is:
+# - For platform builds:     M.mm.bbb
 # - For eng build (t=0):     M.mm.bbb eng.$(USER)-hh-date-ad
 # - For build server (t=1):  M.mm.bbb (nnnnnn-ad)
 #       where nnnnnn is the build number from the build server (no zero-padding)
 #       and hh is the git hash
 # On eng builds, the BUILD_NUMBER has the user and timestamp inline
+ifdef TARGET_BUILD_APPS
 ifneq "" "$(filter eng.%,$(BUILD_NUMBER))"
     git_hash := $(shell git --git-dir $(LOCAL_PATH)/.git log -n 1 --pretty=format:%h)
     date_string := $(shell date +%m%d%y_%H%M%S)
     version_name_package := $(base_version_major).$(base_version_minor).$(code_version_build) (eng.$(USER).$(git_hash).$(date_string)-$(base_version_arch)$(base_version_density))
 else
     version_name_package := $(base_version_major).$(base_version_minor).$(code_version_build) ($(BUILD_NUMBER)-$(base_version_arch)$(base_version_density))
+endif
+else # !TARGET_BUILD_APPS
+    version_name_package := $(base_version_major).$(base_version_minor).$(code_version_build)
 endif
 
 # Cleanup the locals

@@ -49,7 +49,7 @@ sprint_rlim64(uint64_t lim)
 }
 
 static void
-print_rlimit64(struct tcb *tcp, unsigned long addr)
+print_rlimit64(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct rlimit_64 {
 		uint64_t rlim_cur;
@@ -80,7 +80,7 @@ sprint_rlim32(uint32_t lim)
 }
 
 static void
-print_rlimit32(struct tcb *tcp, unsigned long addr)
+print_rlimit32(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct rlimit_32 {
 		uint32_t rlim_cur;
@@ -94,19 +94,15 @@ print_rlimit32(struct tcb *tcp, unsigned long addr)
 }
 
 static void
-decode_rlimit(struct tcb *tcp, unsigned long addr)
+decode_rlimit(struct tcb *const tcp, const kernel_ulong_t addr)
 {
-# if defined(X86_64) || defined(X32)
 	/*
 	 * i386 is the only personality on X86_64 and X32
 	 * with 32-bit rlim_t.
 	 * When current_personality is X32, current_wordsize
 	 * equals to 4 but rlim_t is 64-bit.
 	 */
-	if (current_personality == 1)
-# else
-	if (current_wordsize == 4)
-# endif
+	if (current_klongsize == 4)
 		print_rlimit32(tcp, addr);
 	else
 		print_rlimit64(tcp, addr);
@@ -142,7 +138,7 @@ SYS_FUNC(setrlimit)
 SYS_FUNC(prlimit64)
 {
 	if (entering(tcp)) {
-		tprintf("%ld, ", tcp->u_arg[0]);
+		tprintf("%d, ", (int) tcp->u_arg[0]);
 		printxval(resources, tcp->u_arg[1], "RLIMIT_???");
 		tprints(", ");
 		print_rlimit64(tcp, tcp->u_arg[2]);
@@ -184,7 +180,7 @@ SYS_FUNC(osf_getrusage)
 SYS_FUNC(getpriority)
 {
 	printxval(priorities, tcp->u_arg[0], "PRIO_???");
-	tprintf(", %lu", tcp->u_arg[1]);
+	tprintf(", %d", (int) tcp->u_arg[1]);
 
 	return RVAL_DECODED;
 }
@@ -192,7 +188,7 @@ SYS_FUNC(getpriority)
 SYS_FUNC(setpriority)
 {
 	printxval(priorities, tcp->u_arg[0], "PRIO_???");
-	tprintf(", %lu, %d", tcp->u_arg[1], (int) tcp->u_arg[2]);
+	tprintf(", %d, %d", (int) tcp->u_arg[1], (int) tcp->u_arg[2]);
 
 	return RVAL_DECODED;
 }

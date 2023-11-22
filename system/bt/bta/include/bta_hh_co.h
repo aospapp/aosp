@@ -26,108 +26,111 @@
 
 #include "bta_hh_api.h"
 
-typedef struct
-{
-    UINT16              rpt_uuid;
-    UINT8               rpt_id;
-    tBTA_HH_RPT_TYPE    rpt_type;
-    UINT8               srvc_inst_id;
-    UINT8               char_inst_id;
-}tBTA_HH_RPT_CACHE_ENTRY;
+typedef struct {
+  uint16_t rpt_uuid;
+  uint8_t rpt_id;
+  tBTA_HH_RPT_TYPE rpt_type;
+  uint8_t srvc_inst_id;
+  uint8_t char_inst_id;
+} tBTA_HH_RPT_CACHE_ENTRY;
 
 /*******************************************************************************
-**
-** Function         bta_hh_co_data
-**
-** Description      This callout function is executed by HH when data is received
-**                  in interupt channel.
-**
-**
-** Returns          void.
-**
-*******************************************************************************/
-extern void bta_hh_co_data(UINT8 dev_handle, UINT8 *p_rpt, UINT16 len,
-                           tBTA_HH_PROTO_MODE  mode, UINT8 sub_class,
-                           UINT8 ctry_code, BD_ADDR peer_addr, UINT8 app_id);
+ *
+ * Function         bta_hh_co_data
+ *
+ * Description      This callout function is executed by HH when data is
+ *                  received
+ *                  in interupt channel.
+ *
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
+extern void bta_hh_co_data(uint8_t dev_handle, uint8_t* p_rpt, uint16_t len,
+                           tBTA_HH_PROTO_MODE mode, uint8_t sub_class,
+                           uint8_t ctry_code, BD_ADDR peer_addr,
+                           uint8_t app_id);
 
 /*******************************************************************************
-**
-** Function         bta_hh_co_open
-**
-** Description      This callout function is executed by HH when connection is
-**                  opened, and application may do some device specific
-**                  initialization.
-**
-** Returns          void.
-**
-*******************************************************************************/
-extern void bta_hh_co_open(UINT8 dev_handle, UINT8 sub_class,
-                           UINT16 attr_mask, UINT8 app_id);
+ *
+ * Function         bta_hh_co_open
+ *
+ * Description      This callout function is executed by HH when connection is
+ *                  opened, and application may do some device specific
+ *                  initialization.
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
+extern void bta_hh_co_open(uint8_t dev_handle, uint8_t sub_class,
+                           uint16_t attr_mask, uint8_t app_id);
 
 /*******************************************************************************
-**
-** Function         bta_hh_co_close
-**
-** Description      This callout function is executed by HH when connection is
-**                  closed, and device specific finalizatio nmay be needed.
-**
-** Returns          void.
-**
-*******************************************************************************/
-extern void bta_hh_co_close(UINT8 dev_handle, UINT8 app_id);
+ *
+ * Function         bta_hh_co_close
+ *
+ * Description      This callout function is executed by HH when connection is
+ *                  closed, and device specific finalizatio nmay be needed.
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
+extern void bta_hh_co_close(uint8_t dev_handle, uint8_t app_id);
 
-#if (BLE_INCLUDED == TRUE && BTA_HH_LE_INCLUDED == TRUE)
+#if (BTA_HH_LE_INCLUDED == TRUE)
 /*******************************************************************************
-**
-** Function         bta_hh_le_co_rpt_info
-**
-** Description      This callout function is to convey the report information on
-**                  a HOGP device to the application. Application can save this
-**                  information in NV if device is bonded and load it back when
-**                  stack reboot.
-**
-** Parameters       remote_bda  - remote device address
-**                  p_entry     - report entry pointer
-**                  app_id      - application id
-**
-** Returns          void.
-**
-*******************************************************************************/
+ *
+ * Function         bta_hh_le_co_rpt_info
+ *
+ * Description      This callout function is to convey the report information on
+ *                  a HOGP device to the application. Application can save this
+ *                  information in NV if device is bonded and load it back when
+ *                  stack reboot.
+ *
+ * Parameters       remote_bda  - remote device address
+ *                  p_entry     - report entry pointer
+ *                  app_id      - application id
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
 extern void bta_hh_le_co_rpt_info(BD_ADDR remote_bda,
-                                          tBTA_HH_RPT_CACHE_ENTRY *p_entry,
-                                          UINT8 app_id);
+                                  tBTA_HH_RPT_CACHE_ENTRY* p_entry,
+                                  uint8_t app_id);
 
 /*******************************************************************************
-**
-** Function         bta_hh_le_co_cache_load
-**
-** Description      This callout function is to request the application to load the
-**                  cached HOGP report if there is any. When cache reading is completed,
-**                  bta_hh_le_ci_cache_load() is called by the application.
-**
-** Parameters       remote_bda  - remote device address
-**                  p_num_rpt: number of cached report
-**                  app_id      - application id
-**
-** Returns          the acched report array
-**
-*******************************************************************************/
-extern tBTA_HH_RPT_CACHE_ENTRY *bta_hh_le_co_cache_load (BD_ADDR remote_bda,
-                                                                 UINT8 *p_num_rpt,
-                                                                 UINT8 app_id);
+ *
+ * Function         bta_hh_le_co_cache_load
+ *
+ * Description      This callout function is to request the application to load
+ *                  the cached HOGP report if there is any. When cache reading
+ *                  is completed, bta_hh_le_ci_cache_load() is called by the
+ *                  application.
+ *
+ * Parameters       remote_bda  - remote device address
+ *                  p_num_rpt: number of cached report
+ *                  app_id      - application id
+ *
+ * Returns          the acched report array
+ *
+ ******************************************************************************/
+extern tBTA_HH_RPT_CACHE_ENTRY* bta_hh_le_co_cache_load(BD_ADDR remote_bda,
+                                                        uint8_t* p_num_rpt,
+                                                        uint8_t app_id);
 
 /*******************************************************************************
-**
-** Function         bta_hh_le_co_reset_rpt_cache
-**
-** Description      This callout function is to reset the HOGP device cache.
-**
-** Parameters       remote_bda  - remote device address
-**
-** Returns          none
-**
-*******************************************************************************/
-extern void bta_hh_le_co_reset_rpt_cache (BD_ADDR remote_bda, UINT8 app_id);
+ *
+ * Function         bta_hh_le_co_reset_rpt_cache
+ *
+ * Description      This callout function is to reset the HOGP device cache.
+ *
+ * Parameters       remote_bda  - remote device address
+ *
+ * Returns          none
+ *
+ ******************************************************************************/
+extern void bta_hh_le_co_reset_rpt_cache(BD_ADDR remote_bda, uint8_t app_id);
 
-#endif /* #if (BLE_INCLUDED == TRUE && BTA_HH_LE_INCLUDED == TRUE) */
+#endif /* #if (BTA_HH_LE_INCLUDED == TRUE) */
+
 #endif /* BTA_HH_CO_H */

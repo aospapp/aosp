@@ -28,7 +28,7 @@
 #include <sys/sysctl.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/var.c,v 1.197 2016/01/14 22:49:33 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/var.c,v 1.209 2016/11/11 23:31:39 tg Exp $");
 
 /*-
  * Variables
@@ -133,7 +133,7 @@ initvar(void)
 	struct tbl *tp;
 
 	ktinit(APERM, &specials,
-	    /* currently 14 specials: 75% of 32 = 2^5 */
+	    /* currently 18 specials: 75% of 32 = 2^5 */
 	    5);
 	while (i < V_MAX - 1) {
 		tp = ktenter(&specials, initvar_names[i],
@@ -193,7 +193,7 @@ array_index_calc(const char *n, bool *arrayp, uint32_t *valp)
 			char *cp;
 
 			/* gotcha! */
-			cp = shf_smprintf("%s%s", str_val(vp), p);
+			cp = shf_smprintf(Tf_ss, str_val(vp), p);
 			afree(ap, ATEMP);
 			n = ap = cp;
 			goto redo_from_ref;
@@ -241,19 +241,27 @@ global(const char *n)
 	c = (unsigned char)vn[0];
 	if (!ksh_isalphx(c)) {
 		if (array)
-			errorf("bad substitution");
-		vp = &vtemp;
+			errorf(Tbadsubst);
+		vp = vtemp;
 		vp->flag = DEFINED;
 		vp->type = 0;
 		vp->areap = ATEMP;
-		*vp->name = c;
 		if (ksh_isdigit(c)) {
-			if (getn(vn, &c) && (c <= l->argc))
-				/* setstr can't fail here */
-				setstr(vp, l->argv[c], KSH_RETURN_ERROR);
+			if (getn(vn, &c)) {
+				/* main.c:main_init() says 12 */
+				shf_snprintf(vp->name, 12, Tf_d, c);
+				if (c <= l->argc) {
+					/* setstr can't fail here */
+					setstr(vp, l->argv[c],
+					    KSH_RETURN_ERROR);
+				}
+			} else
+				vp->name[0] = '\0';
 			vp->flag |= RDONLY;
 			goto out;
 		}
+		vp->name[0] = c;
+		vp->name[1] = '\0';
 		vp->flag |= RDONLY;
 		if (vn[1] != '\0')
 			goto out;
@@ -320,7 +328,7 @@ local(const char *n, bool copy)
 	vn = array_index_calc(n, &array, &val);
 	h = hash(vn);
 	if (!ksh_isalphx(*vn)) {
-		vp = &vtemp;
+		vp = vtemp;
 		vp->flag = DEFINED|RDONLY;
 		vp->type = 0;
 		vp->areap = ATEMP;
@@ -433,7 +441,7 @@ setstr(struct tbl *vq, const char *s, int error_ok)
 
 	error_ok &= ~0x4;
 	if ((vq->flag & RDONLY) && !no_ro_check) {
-		warningf(true, "read-only: %s", vq->name);
+		warningf(true, Tf_ro, vq->name);
 		if (!error_ok)
 			errorfxz(2);
 		return (0);
@@ -479,13 +487,12 @@ void
 setint(struct tbl *vq, mksh_ari_t n)
 {
 	if (!(vq->flag&INTEGER)) {
-		struct tbl *vp = &vtemp;
-		vp->flag = (ISSET|INTEGER);
-		vp->type = 0;
-		vp->areap = ATEMP;
-		vp->val.i = n;
+		vtemp->flag = (ISSET|INTEGER);
+		vtemp->type = 0;
+		vtemp->areap = ATEMP;
+		vtemp->val.i = n;
 		/* setstr can't fail here */
-		setstr(vq, str_val(vp), KSH_RETURN_ERROR);
+		setstr(vq, str_val(vtemp), KSH_RETURN_ERROR);
 	} else
 		vq->val.i = n;
 	vq->flag |= ISSET;
@@ -642,14 +649,14 @@ formatstr(struct tbl *vp, const char *s)
 
 	p = alloc((psiz = nlen * /* MB_LEN_MAX */ 3 + 1), ATEMP);
 	if (vp->flag & (RJUST|LJUST)) {
-		int slen = olen, i = 0;
+		int slen = olen;
 
 		if (vp->flag & RJUST) {
-			const char *qq = s;
+			const char *qq;
 			int n = 0;
 
-			while (i < slen)
-				i += utf_widthadj(qq, &qq);
+			qq = utf_skipcols(s, slen, &slen);
+
 			/* strip trailing spaces (AT&T uses qq[-1] == ' ') */
 			while (qq > s && ksh_isspace(qq[-1])) {
 				--qq;
@@ -761,7 +768,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 	}
 	if (*val == '[') {
 		if (new_refflag != SRF_NOP)
-			errorf("%s: %s", var,
+			errorf(Tf_sD_s, var,
 			    "reference variable can't be an array");
 		len = array_ref_len(val);
 		if (len == 0)
@@ -822,12 +829,13 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 		/* check target value for being a valid variable name */
 		ccp = skip_varname(qval, false);
 		if (ccp == qval) {
-			if (ksh_isdigit(qval[0])) {
-				int c;
+			int c;
 
-				if (getn(qval, &c))
-					goto nameref_rhs_checked;
-			} else if (qval[1] == '\0') switch (qval[0]) {
+			if (!(c = (unsigned char)qval[0]))
+				goto nameref_empty;
+			else if (ksh_isdigit(c) && getn(qval, &c))
+				goto nameref_rhs_checked;
+			else if (qval[1] == '\0') switch (c) {
 			case '$':
 			case '!':
 			case '?':
@@ -836,7 +844,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 				goto nameref_rhs_checked;
 			}
  nameref_empty:
-			errorf("%s: %s", var, "empty nameref target");
+			errorf(Tf_sD_s, var, "empty nameref target");
 		}
 		len = (*ccp == '[') ? array_ref_len(ccp) : 0;
 		if (ccp[len]) {
@@ -845,14 +853,14 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 			 * junk after it" and "invalid array"; in the
 			 * latter case, len is also 0 and points to '['
 			 */
-			errorf("%s: %s", qval,
+			errorf(Tf_sD_s, qval,
 			    "nameref target not a valid parameter name");
 		}
  nameref_rhs_checked:
 		/* prevent nameref loops */
 		while (qval) {
 			if (!strcmp(qval, tvar))
-				errorf("%s: %s", qval,
+				errorf(Tf_sD_s, qval,
 				    "expression recurses on parameter");
 			varsearch(e->loc, &vp, qval, hash(qval));
 			qval = NULL;
@@ -862,9 +870,9 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 	}
 
 	/* prevent typeset from creating a local PATH/ENV/SHELL */
-	if (Flag(FRESTRICTED) && (strcmp(tvar, "PATH") == 0 ||
-	    strcmp(tvar, "ENV") == 0 || strcmp(tvar, "SHELL") == 0))
-		errorf("%s: %s", tvar, "restricted");
+	if (Flag(FRESTRICTED) && (strcmp(tvar, TPATH) == 0 ||
+	    strcmp(tvar, "ENV") == 0 || strcmp(tvar, TSHELL) == 0))
+		errorf(Tf_sD_s, tvar, "restricted");
 
 	innermost_refflag = new_refflag;
 	vp = (set & LOCAL) ? local(tvar, tobool(set & LOCAL_COPY)) :
@@ -901,7 +909,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 	if ((vpbase->flag & RDONLY) &&
 	    (val || clr || (set & ~EXPORT)))
 		/* XXX check calls - is error here ok by POSIX? */
-		errorfx(2, "read-only: %s", tvar);
+		errorfx(2, Tf_ro, tvar);
 	afree(tvar, ATEMP);
 
 	/* most calls are with set/clr == 0 */
@@ -974,7 +982,7 @@ typeset(const char *var, uint32_t set, uint32_t clr, int field, int base)
 		char *tval;
 
 		if (vappend) {
-			tval = shf_smprintf("%s%s", str_val(vp), val);
+			tval = shf_smprintf(Tf_ss, str_val(vp), val);
 			val = tval;
 		} else
 			tval = NULL;
@@ -1141,6 +1149,13 @@ makenv(void)
 					/* setstr can't fail here */
 					setstr(vp, val, KSH_RETURN_ERROR);
 				}
+#ifdef __OS2__
+				/* these special variables are not exported */
+				if (!strcmp(vp->name, "BEGINLIBPATH") ||
+				    !strcmp(vp->name, "ENDLIBPATH") ||
+				    !strcmp(vp->name, "LIBPATHSTRICT"))
+					continue;
+#endif
 				XPput(denv, vp->val.s);
 			}
 		if (l->flags & BF_STOPENV)
@@ -1177,6 +1192,10 @@ unspecial(const char *name)
 
 static time_t seconds;		/* time SECONDS last set */
 static mksh_uari_t user_lineno;	/* what user set $LINENO to */
+
+/* minimum values from the OS we consider sane, lowered for R53 */
+#define MIN_COLS	4
+#define MIN_LINS	2
 
 static void
 getspec(struct tbl *vp)
@@ -1262,6 +1281,13 @@ setspec(struct tbl *vp)
 	int st;
 
 	switch ((st = special(vp->name))) {
+#ifdef __OS2__
+	case V_BEGINLIBPATH:
+	case V_ENDLIBPATH:
+	case V_LIBPATHSTRICT:
+		setextlibpath(vp->name, str_val(vp));
+		return;
+#endif
 #if HAVE_PERSISTENT_HISTORY
 	case V_HISTFILE:
 		sethistfile(str_val(vp));
@@ -1278,6 +1304,11 @@ setspec(struct tbl *vp)
 		/* clear tracked aliases */
 		flushcom(true);
 		return;
+#ifndef MKSH_NO_CMDLINE_EDITING
+	case V_TERM:
+		x_initterm(str_val(vp));
+		return;
+#endif
 	case V_TMPDIR:
 		afree(tmpdir, APERM);
 		tmpdir = NULL;
@@ -1315,7 +1346,7 @@ setspec(struct tbl *vp)
 		if (getint(vp, &num, false) == -1) {
 			s = str_val(vp);
 			if (st != V_RANDOM)
-				errorf("%s: %s: %s", vp->name, "bad number", s);
+				errorf(Tf_sD_sD_s, vp->name, "bad number", s);
 			num.u = hash(s);
 		}
 		vp->flag |= SPECIAL;
@@ -1379,6 +1410,13 @@ unsetspec(struct tbl *vp)
 	 */
 
 	switch (special(vp->name)) {
+#ifdef __OS2__
+	case V_BEGINLIBPATH:
+	case V_ENDLIBPATH:
+	case V_LIBPATHSTRICT:
+		setextlibpath(vp->name, "");
+		return;
+#endif
 #if HAVE_PERSISTENT_HISTORY
 	case V_HISTFILE:
 		sethistfile(NULL);
@@ -1394,6 +1432,11 @@ unsetspec(struct tbl *vp)
 		/* clear tracked aliases */
 		flushcom(true);
 		break;
+#ifndef MKSH_NO_CMDLINE_EDITING
+	case V_TERM:
+		x_initterm(null);
+		return;
+#endif
 	case V_TMPDIR:
 		/* should not become unspecial */
 		if (tmpdir) {
@@ -1519,7 +1562,7 @@ set_array(const char *var, bool reset, const char **vals)
 
 	/* Note: AT&T ksh allows set -A but not set +A of a read-only var */
 	if ((vp->flag&RDONLY))
-		errorfx(2, "read-only: %s", ccp);
+		errorfx(2, Tf_ro, ccp);
 	/* This code is quite non-optimal */
 	if (reset) {
 		/* trash existing values and attributes */
@@ -1664,10 +1707,8 @@ rndset(unsigned long v)
 		short r;
 	} z;
 
-#ifdef DEBUG
-	/* clear the allocated space, for valgrind */
+	/* clear the allocated space, for valgrind and to avoid UB */
 	memset(&z, 0, sizeof(z));
-#endif
 
 	h = lcg_state;
 	BAFHFinish_reg(h);
@@ -1716,4 +1757,16 @@ rndpush(const void *s)
 	BAFHUpdateStr_reg(h, s);
 	BAFHUpdateOctet_reg(h, 0);
 	qh_state = h;
+}
+
+/* record last glob match */
+void
+record_match(const char *istr)
+{
+	struct tbl *vp;
+
+	vp = local("KSH_MATCH", false);
+	unset(vp, 1);
+	vp->flag = DEFINED | RDONLY;
+	setstr(vp, istr, 0x4);
 }

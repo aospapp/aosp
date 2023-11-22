@@ -25,6 +25,7 @@ namespace art {
 namespace verifier {
 
 class MethodVerifier;
+class VerifierDeps;
 
 }  // namespace verifier
 
@@ -38,12 +39,15 @@ class CompilerCallbacks {
   virtual ~CompilerCallbacks() { }
 
   virtual void MethodVerified(verifier::MethodVerifier* verifier)
-      SHARED_REQUIRES(Locks::mutator_lock_) = 0;
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
   virtual void ClassRejected(ClassReference ref) = 0;
 
   // Return true if we should attempt to relocate to a random base address if we have not already
   // done so. Return false if relocating in this way would be problematic.
   virtual bool IsRelocationPossible() = 0;
+
+  virtual verifier::VerifierDeps* GetVerifierDeps() const = 0;
+  virtual void SetVerifierDeps(verifier::VerifierDeps* deps ATTRIBUTE_UNUSED) {}
 
   bool IsBootImage() {
     return mode_ == CallbackMode::kCompileBootImage;

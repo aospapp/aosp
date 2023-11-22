@@ -7,7 +7,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: libcxxabi-no-exceptions
+
 #include <cassert>
+
+// Clang emits  warnings about exceptions of type 'Child' being caught by
+// an earlier handler of type 'Base'. Congrats clang, you've just
+// diagnosed the behavior under test.
+#if defined(__clang__)
+#pragma clang diagnostic ignored "-Wexceptions"
+#endif
+
+#if __cplusplus < 201103L
+#define DISABLE_NULLPTR_TESTS
+#endif
 
 struct  A {};
 A a;
@@ -99,6 +112,7 @@ void test5 ()
 
 void test6 ()
 {
+#if !defined(DISABLE_NULLPTR_TESTS)
     try
     {
         throw nullptr;
@@ -111,6 +125,7 @@ void test6 ()
     {
         assert (false);
     }
+#endif
 }
 
 void test7 ()
@@ -152,6 +167,7 @@ void test8 ()
 
 void test9 ()
 {
+#if !defined(DISABLE_NULLPTR_TESTS)
     try
     {
         throw nullptr;
@@ -164,6 +180,7 @@ void test9 ()
     {
         assert (false);
     }
+#endif
 }
 
 void test10 ()

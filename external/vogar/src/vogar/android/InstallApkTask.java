@@ -70,7 +70,7 @@ public final class InstallApkTask extends Task {
             throw new UnsupportedOperationException(
                     "Jack support for --mode=activity not yet implemented");
         }
-        run.androidSdk.dex(dex, classesToDex);
+        run.androidSdk.dex(run.multidex, dex, classesToDex);
         return dex;
     }
 

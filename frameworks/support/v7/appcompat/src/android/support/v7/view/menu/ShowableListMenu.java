@@ -16,6 +16,9 @@
 
 package android.support.v7.view.menu;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.support.annotation.RestrictTo;
 import android.widget.ListView;
 
 /**
@@ -23,15 +26,16 @@ import android.widget.ListView;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public interface ShowableListMenu {
-    public void show();
+    void show();
 
-    public void dismiss();
+    void dismiss();
 
-    public boolean isShowing();
+    boolean isShowing();
 
     /**
      * @return The internal ListView for the visible menu.
      */
-    public ListView getListView();
+    ListView getListView();
 }

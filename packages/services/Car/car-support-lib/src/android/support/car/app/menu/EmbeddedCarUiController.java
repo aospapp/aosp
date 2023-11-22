@@ -25,8 +25,8 @@ import android.support.car.app.menu.compat.EmbeddedCarMenuCallbacksCompat;
 import android.support.car.app.menu.compat.EmbeddedSearchBoxEditListenerCompat;
 import android.view.View;
 import android.widget.EditText;
-
 import java.lang.reflect.InvocationTargetException;
+
 /**
  * A {@link android.support.car.app.menu.CarUiController} that talks to embedded car ui provider.
  * @hide

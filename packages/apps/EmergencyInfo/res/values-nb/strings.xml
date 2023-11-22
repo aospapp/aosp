@@ -69,7 +69,7 @@
     <string name="ab_positive" msgid="1931300033534642005">"A B positiv"</string>
     <string name="ab_negative" msgid="2064555613093591729">"A B negativ"</string>
     <string name="h_h" msgid="2183333409760379720">"H H"</string>
-    <string name="allergies" msgid="2789200777539258165">"Allergi"</string>
+    <string name="allergies" msgid="2789200777539258165">"Allergier"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"Ukjent"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"For eksempel peanøtter"</string>
     <string name="medications" msgid="644428945685557183">"Medisiner"</string>
@@ -87,16 +87,20 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontakter for nødsituasjoner"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Legg til kontakt"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Fant ingen kontaktvelger"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Kan ikke vise kontakten"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Vil du fjerne <xliff:g id="CONTACT_NAME">%1$s</xliff:g> fra kontakter for nødsituasjoner?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Fjern kontakt"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Kan ikke lese kontaktinformasjonen på riktig måte"</string>
     <string name="remove" msgid="1243949503772376064">"Fjern"</string>
     <string name="cancel" msgid="7401575239009060939">"Avbryt"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Informasjon for nødstilfeller"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informasjonen du skriver inn her, kan hjelpe dem som ankommer ulykkesstedet først ved eventuelle ulykker. Opplysningene er bare lagret på enheten din, og hvem som helst kan lese dem via alternativet for nødanrop uten å låse opp enheten."</string>
+    <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informasjonen du skriver inn her, kan hjelpe dem som ankommer ulykkesstedet først ved eventuelle ulykker. Opplysningene er bare lagret på enheten din, og hvem som helst kan lese dem via alternativet for nødanrop, uten å låse opp enheten."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Fortsett"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Informasjon for nødstilfeller er ikke oppgitt"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Ingen informasjon om telefonens eier"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Hvis dette er din telefon, kan du trykke på blyantikonet for å legge til informasjon som skal vises her i nødstilfeller"</string>
     <string name="clear_all" msgid="8899013032870561633">"Fjern alt"</string>
     <string name="clear" msgid="3648880442502887163">"Fjern"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vil du fjerne alle opplysningene og kontaktene?"</string>

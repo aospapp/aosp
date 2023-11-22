@@ -28,27 +28,8 @@
 
 namespace keymaster {
 
-namespace {
-
-bool Uint64ToBignum(uint64_t value, BIGNUM* bn) {
-    static_assert(sizeof(unsigned long) == sizeof(uint64_t) ||
-                      sizeof(unsigned long) == sizeof(uint32_t),
-                  "Only 32 and 64-bit platforms supported");
-
-    if (sizeof(unsigned long) == sizeof(uint64_t)) {
-        return BN_set_word(bn, value);
-    } else if (sizeof(unsigned long) == sizeof(uint32_t)) {
-        uint32_t low_order = value & 0xFFFFFFFF;
-        uint32_t high_order = value >> 32;
-        return BN_set_word(bn, high_order) &&  //
-               BN_lshift(bn, bn, 32) &&        //
-               BN_add_word(bn, low_order);
-    } else {
-        return false;
-    }
-}
-
-}  // anonymous namespace
+constexpr uint kCurrentKeymasterVersion = 3;
+constexpr uint kCurrentAttestationVersion = 2;
 
 struct stack_st_ASN1_TYPE_Delete {
     void operator()(stack_st_ASN1_TYPE* p) { sk_ASN1_TYPE_free(p); }
@@ -101,6 +82,15 @@ typedef struct km_auth_list {
     KM_ROOT_OF_TRUST* root_of_trust;
     ASN1_INTEGER* os_version;
     ASN1_INTEGER* os_patchlevel;
+    ASN1_OCTET_STRING* attestation_application_id;
+    ASN1_OCTET_STRING* attestation_id_brand;
+    ASN1_OCTET_STRING* attestation_id_device;
+    ASN1_OCTET_STRING* attestation_id_product;
+    ASN1_OCTET_STRING* attestation_id_serial;
+    ASN1_OCTET_STRING* attestation_id_imei;
+    ASN1_OCTET_STRING* attestation_id_meid;
+    ASN1_OCTET_STRING* attestation_id_manufacturer;
+    ASN1_OCTET_STRING* attestation_id_model;
 } KM_AUTH_LIST;
 
 ASN1_SEQUENCE(KM_AUTH_LIST) = {
@@ -132,6 +122,24 @@ ASN1_SEQUENCE(KM_AUTH_LIST) = {
     ASN1_EXP_OPT(KM_AUTH_LIST, root_of_trust, KM_ROOT_OF_TRUST, TAG_ROOT_OF_TRUST.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, os_version, ASN1_INTEGER, TAG_OS_VERSION.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, os_patchlevel, ASN1_INTEGER, TAG_OS_PATCHLEVEL.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_application_id, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_APPLICATION_ID.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_brand, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_BRAND.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_device, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_DEVICE.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_product, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_PRODUCT.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_serial, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_SERIAL.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_imei, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_IMEI.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_meid, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_MEID.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_manufacturer, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_MANUFACTURER.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_model, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_MODEL.masked_tag()),
 } ASN1_SEQUENCE_END(KM_AUTH_LIST);
 IMPLEMENT_ASN1_FUNCTIONS(KM_AUTH_LIST);
 
@@ -157,6 +165,17 @@ ASN1_SEQUENCE(KM_KEY_DESCRIPTION) = {
     ASN1_SIMPLE(KM_KEY_DESCRIPTION, tee_enforced, KM_AUTH_LIST),
 } ASN1_SEQUENCE_END(KM_KEY_DESCRIPTION);
 IMPLEMENT_ASN1_FUNCTIONS(KM_KEY_DESCRIPTION);
+
+static const keymaster_tag_t kDeviceAttestationTags[] = {
+    KM_TAG_ATTESTATION_ID_BRAND,
+    KM_TAG_ATTESTATION_ID_DEVICE,
+    KM_TAG_ATTESTATION_ID_PRODUCT,
+    KM_TAG_ATTESTATION_ID_SERIAL,
+    KM_TAG_ATTESTATION_ID_IMEI,
+    KM_TAG_ATTESTATION_ID_MEID,
+    KM_TAG_ATTESTATION_ID_MANUFACTURER,
+    KM_TAG_ATTESTATION_ID_MODEL,
+};
 
 struct KM_AUTH_LIST_Delete {
     void operator()(KM_AUTH_LIST* p) { KM_AUTH_LIST_free(p); }
@@ -328,6 +347,33 @@ static keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_A
         case KM_TAG_APPLICATION_ID:
             string_ptr = &record->application_id;
             break;
+        case KM_TAG_ATTESTATION_APPLICATION_ID:
+            string_ptr = &record->attestation_application_id;
+            break;
+        case KM_TAG_ATTESTATION_ID_BRAND:
+            string_ptr = &record->attestation_id_brand;
+            break;
+        case KM_TAG_ATTESTATION_ID_DEVICE:
+            string_ptr = &record->attestation_id_device;
+            break;
+        case KM_TAG_ATTESTATION_ID_PRODUCT:
+            string_ptr = &record->attestation_id_product;
+            break;
+        case KM_TAG_ATTESTATION_ID_SERIAL:
+            string_ptr = &record->attestation_id_serial;
+            break;
+        case KM_TAG_ATTESTATION_ID_IMEI:
+            string_ptr = &record->attestation_id_imei;
+            break;
+        case KM_TAG_ATTESTATION_ID_MEID:
+            string_ptr = &record->attestation_id_meid;
+            break;
+        case KM_TAG_ATTESTATION_ID_MANUFACTURER:
+            string_ptr = &record->attestation_id_manufacturer;
+            break;
+        case KM_TAG_ATTESTATION_ID_MODEL:
+            string_ptr = &record->attestation_id_model;
+            break;
         }
 
         keymaster_tag_type_t type = keymaster_tag_get_type(entry.tag);
@@ -360,11 +406,11 @@ static keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_A
                 return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
             if (type == KM_DATE) {
-                if (!Uint64ToBignum(entry.date_time, bn_value.get())) {
+                if (!BN_set_u64(bn_value.get(), entry.date_time)) {
                     return TranslateLastOpenSslError();
                 }
             } else {
-                if (!Uint64ToBignum(entry.long_integer, bn_value.get())) {
+                if (!BN_set_u64(bn_value.get(), entry.long_integer)) {
                     return TranslateLastOpenSslError();
                 }
             }
@@ -429,8 +475,8 @@ static keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_A
 // Construct an ASN1.1 DER-encoded attestation record containing the values from sw_enforced and
 // tee_enforced.
 keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_params,
-                                           const AuthorizationSet& sw_enforced,
-                                           const AuthorizationSet& tee_enforced,
+                                           AuthorizationSet sw_enforced,
+                                           AuthorizationSet tee_enforced,
                                            const KeymasterContext& context,
                                            UniquePtr<uint8_t[]>* asn1_key_desc,
                                            size_t* asn1_key_desc_len) {
@@ -445,13 +491,12 @@ keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_p
     if (tee_enforced.empty()) {
         // Software key.
         keymaster_security_level = KM_SECURITY_LEVEL_SOFTWARE;
-        keymaster_version = 2;
+        keymaster_version = kCurrentKeymasterVersion;
     } else {
         keymaster_security_level = KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT;
         switch (context.GetSecurityLevel()) {
         case KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT:
-            // We're running in a TEE, so the key is KM2.
-            keymaster_version = 2;
+            keymaster_version = kCurrentKeymasterVersion;
             break;
 
         case KM_SECURITY_LEVEL_SOFTWARE:
@@ -468,7 +513,7 @@ keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_p
             return KM_ERROR_UNKNOWN_ERROR;
     }
 
-    if (!ASN1_INTEGER_set(key_desc->attestation_version, 1) ||
+    if (!ASN1_INTEGER_set(key_desc->attestation_version, kCurrentAttestationVersion) ||
         !ASN1_ENUMERATED_set(key_desc->attestation_security_level, context.GetSecurityLevel()) ||
         !ASN1_INTEGER_set(key_desc->keymaster_version, keymaster_version) ||
         !ASN1_ENUMERATED_set(key_desc->keymaster_security_level, keymaster_security_level))
@@ -481,7 +526,26 @@ keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_p
                                attestation_challenge.data_length))
         return TranslateLastOpenSslError();
 
-    keymaster_error_t error = build_auth_list(sw_enforced, key_desc->software_enforced);
+    keymaster_blob_t attestation_app_id;
+    if (!attestation_params.GetTagValue(TAG_ATTESTATION_APPLICATION_ID, &attestation_app_id))
+        return KM_ERROR_ATTESTATION_APPLICATION_ID_MISSING;
+    sw_enforced.push_back(TAG_ATTESTATION_APPLICATION_ID, attestation_app_id);
+
+    keymaster_error_t error = context.VerifyAndCopyDeviceIds(attestation_params,
+            keymaster_security_level == KM_SECURITY_LEVEL_SOFTWARE ? &sw_enforced : &tee_enforced);
+    if (error == KM_ERROR_UNIMPLEMENTED) {
+        // The KeymasterContext implementation does not support device ID attestation. Bail out if
+        // device ID attestation is being attempted.
+        for (const auto& tag : kDeviceAttestationTags) {
+            if (attestation_params.find(tag) != -1) {
+                return KM_ERROR_CANNOT_ATTEST_IDS;
+            }
+        }
+    } else if (error != KM_ERROR_OK) {
+        return error;
+    }
+
+    error = build_auth_list(sw_enforced, key_desc->software_enforced);
     if (error != KM_ERROR_OK)
         return error;
 
@@ -666,6 +730,55 @@ static keymaster_error_t extract_auth_list(const KM_AUTH_LIST* record,
         !auth_list->push_back(TAG_OS_PATCHLEVEL, ASN1_INTEGER_get(record->os_patchlevel)))
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
+    // Brand name
+    if (record->attestation_id_brand &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_BRAND, record->attestation_id_brand->data,
+                              record->attestation_id_brand->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // Device name
+    if (record->attestation_id_device &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_DEVICE, record->attestation_id_device->data,
+                              record->attestation_id_device->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // Product name
+    if (record->attestation_id_product &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_PRODUCT, record->attestation_id_product->data,
+                              record->attestation_id_product->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // Serial number
+    if (record->attestation_id_serial &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_SERIAL, record->attestation_id_serial->data,
+                              record->attestation_id_serial->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // IMEI
+    if (record->attestation_id_imei &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_IMEI, record->attestation_id_imei->data,
+                              record->attestation_id_imei->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // MEID
+    if (record->attestation_id_meid &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_MEID, record->attestation_id_meid->data,
+                              record->attestation_id_meid->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // Manufacturer name
+    if (record->attestation_id_manufacturer &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_MANUFACTURER,
+                              record->attestation_id_manufacturer->data,
+                              record->attestation_id_manufacturer->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
+    // Model name
+    if (record->attestation_id_model &&
+        !auth_list->push_back(TAG_ATTESTATION_ID_MODEL, record->attestation_id_model->data,
+                              record->attestation_id_model->length))
+        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+
     return KM_ERROR_OK;
 }
 
@@ -707,4 +820,4 @@ keymaster_error_t parse_attestation_record(const uint8_t* asn1_key_desc, size_t 
     return extract_auth_list(record->tee_enforced, tee_enforced);
 }
 
-}  // namepace keymaster
+}  // namespace keymaster

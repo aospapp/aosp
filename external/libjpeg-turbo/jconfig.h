@@ -5,13 +5,16 @@
 #define JPEG_LIB_VERSION 62
 
 /* libjpeg-turbo version */
-#define LIBJPEG_TURBO_VERSION 1.4.2
+#define LIBJPEG_TURBO_VERSION 1.5.1
+
+/* libjpeg-turbo version in integer form */
+#define LIBJPEG_TURBO_VERSION_NUMBER 1005001
 
 /* Support arithmetic encoding */
-/* #define C_ARITH_CODING_SUPPORTED 1 */
+#define C_ARITH_CODING_SUPPORTED 1
 
 /* Support arithmetic decoding */
-/* #define D_ARITH_CODING_SUPPORTED 1 */
+#define D_ARITH_CODING_SUPPORTED 1
 
 /*
  * Define BITS_IN_JSAMPLE as either
@@ -50,7 +53,7 @@
 /* #undef NEED_BSD_STRINGS */
 
 /* Define if you need to include <sys/types.h> to get size_t. */
-/* #undef NEED_SYS_TYPES_H 1 */
+/* #undef NEED_SYS_TYPES_H */
 
 /* Define if your (broken) compiler shifts signed values as if they were
    unsigned. */
@@ -69,10 +72,3 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
-
-/* The size of `size_t', as computed by sizeof. */
-#if __WORDSIZE==64 || defined(_WIN64)
-#define SIZEOF_SIZE_T 8
-#else
-#define SIZEOF_SIZE_T 4
-#endif

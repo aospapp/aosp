@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
 *   Copyright (c) 2001-2011, International Business Machines
@@ -81,31 +83,35 @@ class EscapeTransliterator extends Transliterator {
     static void register() {
         // Unicode: "U+10FFFF" hex, min=4, max=6
         Transliterator.registerFactory("Any-Hex/Unicode", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/Unicode",
                                                 "U+", "", 16, 4, true, null);
             }
         });
-        
+
         // Java: "\\uFFFF" hex, min=4, max=4
         Transliterator.registerFactory("Any-Hex/Java", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/Java",
                                                 "\\u", "", 16, 4, false, null);
             }
         });
-        
+
         // C: "\\uFFFF" hex, min=4, max=4; \\U0010FFFF hex, min=8, max=8
         Transliterator.registerFactory("Any-Hex/C", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/C",
                                                 "\\u", "", 16, 4, true,
                        new EscapeTransliterator("", "\\U", "", 16, 8, true, null));
             }
         });
-        
+
         // XML: "&#x10FFFF;" hex, min=1, max=6
         Transliterator.registerFactory("Any-Hex/XML", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/XML",
                                                 "&#x", ";", 16, 1, true, null);
@@ -114,6 +120,7 @@ class EscapeTransliterator extends Transliterator {
 
         // XML10: "&1114111;" dec, min=1, max=7 (not really "Any-Hex")
         Transliterator.registerFactory("Any-Hex/XML10", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/XML10",
                                                 "&#", ";", 10, 1, true, null);
@@ -122,6 +129,7 @@ class EscapeTransliterator extends Transliterator {
 
         // Perl: "\\x{263A}" hex, min=1, max=6
         Transliterator.registerFactory("Any-Hex/Perl", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/Perl",
                                                 "\\x{", "}", 16, 1, true, null);
@@ -130,14 +138,16 @@ class EscapeTransliterator extends Transliterator {
 
         // Plain: "FFFF" hex, min=4, max=6
         Transliterator.registerFactory("Any-Hex/Plain", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex/Plain",
                                                 "", "", 16, 4, true, null);
             }
         });
-        
+
         // Generic
         Transliterator.registerFactory("Any-Hex", new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new EscapeTransliterator("Any-Hex",
                                                 "\\u", "", 16, 4, false, null);
@@ -165,6 +175,7 @@ class EscapeTransliterator extends Transliterator {
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
+    @Override
     protected void handleTransliterate(Replaceable text,
                                        Position pos, boolean incremental) {
         int start = pos.start;

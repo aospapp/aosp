@@ -30,12 +30,8 @@
 package sun.net.www.protocol.ftp;
 
 import java.io.IOException;
-import java.net.URL;
 import java.net.Proxy;
-import java.util.Map;
-import java.util.HashMap;
-import sun.net.ftp.FtpClient;
-import sun.net.www.protocol.http.HttpURLConnection;
+import java.net.URL;
 
 /** open an ftp connection given a URL */
 public class Handler extends java.net.URLStreamHandler {

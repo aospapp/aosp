@@ -5,7 +5,6 @@
 AUTHOR = "puthik"
 NAME = "MemoryQual.quick"
 ATTRIBUTES = "suite:memory_qual_quick"
-SUITE = "memory_qual_quick"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"

@@ -19,6 +19,9 @@
 
 #include <map>
 
+namespace android {
+namespace net {
+
 class NetworkController;
 
 class ClatdController {
@@ -35,5 +38,8 @@ private:
     std::map<std::string, pid_t> mClatdPids;
     pid_t getClatdPid(char* interface);
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif

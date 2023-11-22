@@ -279,8 +279,10 @@ Symbol_table::resolve(Sized_symbol<size>* to,
            && (to->visibility() == elfcpp::STV_HIDDEN
                || to->visibility() == elfcpp::STV_INTERNAL))
     {
-      // it is good to be helpful, but the warning leads to build error
-      // for some users, so disable it if not really wanted.
+      // The symbol is hidden, so a reference from a shared object
+      // cannot bind to it.  We tried issuing a warning in this case,
+      // but that produces false positives when the symbol is
+      // actually resolved in a different shared object (PR 15574).
       return;
     }
   else

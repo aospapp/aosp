@@ -68,6 +68,7 @@ static constexpr MallocDispatch __libc_malloc_default_dispatch
     Malloc(iterate),
     Malloc(malloc_disable),
     Malloc(malloc_enable),
+    Malloc(mallopt),
   };
 
 // In a VM process, this is set to 1 after fork()ing out of zygote.
@@ -99,6 +100,14 @@ extern "C" struct mallinfo mallinfo() {
     return _mallinfo();
   }
   return Malloc(mallinfo)();
+}
+
+extern "C" int mallopt(int param, int value) {
+  auto _mallopt = __libc_globals->malloc_dispatch.mallopt;
+  if (__predict_false(_mallopt != nullptr)) {
+    return _mallopt(param, value);
+  }
+  return Malloc(mallopt)(param, value);
 }
 
 extern "C" void* malloc(size_t bytes) {
@@ -175,8 +184,7 @@ extern "C" int __cxa_atexit(void (*func)(void *), void *arg, void *dso);
 static const char* DEBUG_SHARED_LIB = "libc_malloc_debug.so";
 static const char* DEBUG_MALLOC_PROPERTY_OPTIONS = "libc.debug.malloc.options";
 static const char* DEBUG_MALLOC_PROPERTY_PROGRAM = "libc.debug.malloc.program";
-static const char* DEBUG_MALLOC_PROPERTY_ENV_ENABLED = "libc.debug.malloc.env_enabled";
-static const char* DEBUG_MALLOC_ENV_ENABLE = "LIBC_DEBUG_MALLOC_ENABLE";
+static const char* DEBUG_MALLOC_ENV_OPTIONS = "LIBC_DEBUG_MALLOC_OPTIONS";
 
 static void* libc_malloc_impl_handle = nullptr;
 
@@ -248,6 +256,10 @@ static bool InitMalloc(void* malloc_impl_handler, MallocDispatch* table, const c
                                           prefix, "mallinfo")) {
     return false;
   }
+  if (!InitMallocFunction<MallocMallopt>(malloc_impl_handler, &table->mallopt,
+                                         prefix, "mallopt")) {
+    return false;
+  }
   if (!InitMallocFunction<MallocMalloc>(malloc_impl_handler, &table->malloc,
                                         prefix, "malloc")) {
     return false;
@@ -309,20 +321,21 @@ static void malloc_fini_impl(void*) {
 // Initializes memory allocation framework once per process.
 static void malloc_init_impl(libc_globals* globals) {
   char value[PROP_VALUE_MAX];
-  if (__system_property_get(DEBUG_MALLOC_PROPERTY_OPTIONS, value) == 0 || value[0] == '\0') {
-    return;
-  }
 
-  // Check to see if only a specific program should have debug malloc enabled.
-  if (__system_property_get(DEBUG_MALLOC_PROPERTY_PROGRAM, value) != 0 &&
-      strstr(getprogname(), value) == nullptr) {
-    return;
-  }
+  // If DEBUG_MALLOC_ENV_OPTIONS is set then it overrides the system properties.
+  const char* options = getenv(DEBUG_MALLOC_ENV_OPTIONS);
+  if (options == nullptr || options[0] == '\0') {
+    if (__system_property_get(DEBUG_MALLOC_PROPERTY_OPTIONS, value) == 0 || value[0] == '\0') {
+      return;
+    }
+    options = value;
 
-  // Check for the special environment variable instead.
-  if (__system_property_get(DEBUG_MALLOC_PROPERTY_ENV_ENABLED, value) != 0
-      && value[0] != '\0' && getenv(DEBUG_MALLOC_ENV_ENABLE) == nullptr) {
-    return;
+    // Check to see if only a specific program should have debug malloc enabled.
+    char program[PROP_VALUE_MAX];
+    if (__system_property_get(DEBUG_MALLOC_PROPERTY_PROGRAM, program) != 0 &&
+        strstr(getprogname(), program) == nullptr) {
+      return;
+    }
   }
 
   // Load the debug malloc shared library.
@@ -334,7 +347,7 @@ static void malloc_init_impl(libc_globals* globals) {
   }
 
   // Initialize malloc debugging in the loaded module.
-  auto init_func = reinterpret_cast<bool (*)(const MallocDispatch*, int*)>(
+  auto init_func = reinterpret_cast<bool (*)(const MallocDispatch*, int*, const char*)>(
       dlsym(malloc_impl_handle, "debug_initialize"));
   if (init_func == nullptr) {
     error_log("%s: debug_initialize routine not found in %s", getprogname(), DEBUG_SHARED_LIB);
@@ -374,7 +387,7 @@ static void malloc_init_impl(libc_globals* globals) {
     return;
   }
 
-  if (!init_func(&__libc_malloc_default_dispatch, &gMallocLeakZygoteChild)) {
+  if (!init_func(&__libc_malloc_default_dispatch, &gMallocLeakZygoteChild, options)) {
     dlclose(malloc_impl_handle);
     return;
   }

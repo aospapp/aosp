@@ -20,13 +20,23 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include <ui/Gralloc1.h>
+#include <memory>
 
 #include <utils/Singleton.h>
+
+
+// Needed by code that still uses the GRALLOC_USAGE_* constants.
+// when/if we get rid of gralloc, we should provide aliases or fix call sites.
+#include <hardware/gralloc.h>
+
 
 namespace android {
 
 // ---------------------------------------------------------------------------
+
+namespace Gralloc2 {
+class Mapper;
+}
 
 class Rect;
 
@@ -35,10 +45,12 @@ class GraphicBufferMapper : public Singleton<GraphicBufferMapper>
 public:
     static inline GraphicBufferMapper& get() { return getInstance(); }
 
-    status_t registerBuffer(buffer_handle_t handle);
-    status_t registerBuffer(const GraphicBuffer* buffer);
+    // The imported outHandle must be freed with freeBuffer when no longer
+    // needed. rawHandle is owned by the caller.
+    status_t importBuffer(buffer_handle_t rawHandle,
+            buffer_handle_t* outHandle);
 
-    status_t unregisterBuffer(buffer_handle_t handle);
+    status_t freeBuffer(buffer_handle_t handle);
 
     status_t lock(buffer_handle_t handle,
             uint32_t usage, const Rect& bounds, void** vaddr);
@@ -51,19 +63,27 @@ public:
     status_t lockAsync(buffer_handle_t handle,
             uint32_t usage, const Rect& bounds, void** vaddr, int fenceFd);
 
+    status_t lockAsync(buffer_handle_t handle,
+            uint64_t producerUsage, uint64_t consumerUsage, const Rect& bounds,
+            void** vaddr, int fenceFd);
+
     status_t lockAsyncYCbCr(buffer_handle_t handle,
             uint32_t usage, const Rect& bounds, android_ycbcr *ycbcr,
             int fenceFd);
 
     status_t unlockAsync(buffer_handle_t handle, int *fenceFd);
 
+    const Gralloc2::Mapper& getGrallocMapper() const
+    {
+        return *mMapper;
+    }
+
 private:
     friend class Singleton<GraphicBufferMapper>;
 
     GraphicBufferMapper();
 
-    std::unique_ptr<Gralloc1::Loader> mLoader;
-    std::unique_ptr<Gralloc1::Device> mDevice;
+    const std::unique_ptr<const Gralloc2::Mapper> mMapper;
 };
 
 // ---------------------------------------------------------------------------

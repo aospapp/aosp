@@ -6,7 +6,7 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  */
 
 #ifndef NETLINK_ATTR_H_
@@ -28,12 +28,12 @@ struct nl_msg;
  * @{
  */
 
- /**
-  * @ingroup attr
-  * Basic attribute data types
-  *
-  * See \ref attr_datatypes for more details.
-  */
+/**
+ * @ingroup attr
+ * Basic attribute data types
+ *
+ * See section @core_doc{core_attr_parse,Attribute Parsing} for more details.
+ */
 enum {
 	NLA_UNSPEC,	/**< Unspecified type, binary data chunk */
 	NLA_U8,		/**< 8 bit integer */
@@ -55,7 +55,7 @@ enum {
  * @ingroup attr
  * Attribute validation policy.
  *
- * See \ref attr_datatypes for more details.
+ * See section @core_doc{core_attr_parse,Attribute Parsing} for more details.
  */
 struct nla_policy {
 	/** Type of attribute or NLA_UNSPEC */
@@ -124,8 +124,10 @@ extern int		nla_put_msecs(struct nl_msg *, int, unsigned long);
 extern int		nla_put_nested(struct nl_msg *, int, struct nl_msg *);
 extern struct nlattr *	nla_nest_start(struct nl_msg *, int);
 extern int		nla_nest_end(struct nl_msg *, struct nlattr *);
+extern void		nla_nest_cancel(struct nl_msg *, struct nlattr *);
 extern int		nla_parse_nested(struct nlattr **, int, struct nlattr *,
 					 struct nla_policy *);
+extern int		nla_is_nested(struct nlattr *);
 
 /**
  * @name Attribute Construction (Exception Based)
@@ -203,7 +205,7 @@ extern int		nla_parse_nested(struct nlattr **, int, struct nlattr *,
  * @arg value		NUL terminated character string.
  */
 #define NLA_PUT_STRING(msg, attrtype, value) \
-	NLA_PUT(msg, attrtype, strlen(value) + 1, value)
+	NLA_PUT(msg, attrtype, (int) strlen(value) + 1, value)
 
 /**
  * Add flag attribute to netlink message.

@@ -19,25 +19,17 @@ if [ ! -d libcore ]; then
   exit 1
 fi
 
+if [ -z "$ANDROID_HOST_OUT" ] ; then
+  ANDROID_HOST_OUT=${OUT_DIR-$ANDROID_BUILD_TOP/out}/host/linux-x86
+fi
+
 # Jar containing all the tests.
-test_jack=${OUT_DIR-out}/host/common/obj/JAVA_LIBRARIES/apache-harmony-jdwp-tests-hostdex_intermediates/classes.jack
+test_jack=${ANDROID_HOST_OUT}/../common/obj/JAVA_LIBRARIES/apache-harmony-jdwp-tests-hostdex_intermediates/classes.jack
 
 if [ ! -f $test_jack ]; then
   echo "Before running, you must build jdwp tests and vogar:" \
        "make apache-harmony-jdwp-tests-hostdex vogar"
   exit 1
-fi
-
-if [ "x$ART_USE_READ_BARRIER" = xtrue ]; then
-  # For the moment, skip JDWP tests when read barriers are enabled, as
-  # they sometimes exhibit a deadlock issue with the concurrent
-  # copying collector in the read barrier configuration, between the
-  # HeapTaskDeamon and the JDWP thread (b/25800335).
-  #
-  # TODO: Re-enable the JDWP tests when this deadlock issue is fixed.
-  echo "JDWP tests are temporarily disabled in the read barrier configuration because of"
-  echo "a deadlock issue (b/25800335)."
-  exit 0
 fi
 
 art="/data/local/tmp/system/bin/art"
@@ -51,11 +43,20 @@ vm_command="--vm-command=$art"
 image_compiler_option=""
 debug="no"
 verbose="no"
-image="-Ximage:/data/art-test/core-optimizing-pic.art"
+image="-Ximage:/data/art-test/core.art"
 vm_args=""
 # By default, we run the whole JDWP test suite.
 test="org.apache.harmony.jpda.tests.share.AllTests"
 host="no"
+# Use JIT compiling by default.
+use_jit=true
+variant_cmdline_parameter="--variant=X32"
+# Timeout of JDWP test in ms.
+#
+# Note: some tests expect a timeout to check that *no* reply/event is received for a specific case.
+# A lower timeout can save up several minutes when running the whole test suite, especially for
+# continuous testing. This value can be adjusted to fit the configuration of the host machine(s).
+jdwp_test_timeout=10000
 
 while true; do
   if [[ "$1" == "--mode=host" ]]; then
@@ -73,6 +74,11 @@ while true; do
     shift
   elif [[ $1 == -Ximage:* ]]; then
     image="$1"
+    shift
+  elif [[ "$1" == "--no-jit" ]]; then
+    use_jit=false
+    # Remove the --no-jit from the arguments.
+    args=${args/$1}
     shift
   elif [[ $1 == "--debug" ]]; then
     debug="yes"
@@ -94,16 +100,43 @@ while true; do
     shift
   elif [[ "$1" == "" ]]; then
     break
+  elif [[ $1 == --variant=* ]]; then
+    variant_cmdline_parameter=$1
+    shift
   else
     shift
   fi
 done
 
+# For the host:
+#
+# If, on the other hand, there is a variant set, use it to modify the art_debugee parameter to
+# force the fork to have the same bitness as the controller. This should be fine and not impact
+# testing (cross-bitness), as the protocol is always 64-bit anyways (our implementation).
+#
+# Note: this isn't necessary for the device as the BOOTCLASSPATH environment variable is set there
+#       and used as a fallback.
+if [[ $host == "yes" ]]; then
+  variant=${variant_cmdline_parameter:10}
+  if [[ $variant == "x32" || $variant == "X32" ]]; then
+    art_debugee="$art_debugee --32"
+  elif [[ $variant == "x64" || $variant == "X64" ]]; then
+    art_debugee="$art_debugee --64"
+  else
+    echo "Error, do not understand variant $variant_cmdline_parameter."
+    exit 1
+  fi
+fi
+
 if [[ "$image" != "" ]]; then
   vm_args="--vm-arg $image"
 fi
-vm_args="$vm_args --vm-arg -Xusejit:true"
-debuggee_args="$debuggee_args -Xusejit:true"
+if $use_jit; then
+  vm_args="$vm_args --vm-arg -Xcompiler-option --vm-arg --compiler-filter=quicken"
+  debuggee_args="$debuggee_args -Xcompiler-option --compiler-filter=quicken"
+fi
+vm_args="$vm_args --vm-arg -Xusejit:$use_jit"
+debuggee_args="$debuggee_args -Xusejit:$use_jit"
 if [[ $debug == "yes" ]]; then
   art="$art -d"
   art_debugee="$art_debugee -d"
@@ -123,11 +156,14 @@ vogar $vm_command \
       $image_compiler_option \
       --timeout 800 \
       --vm-arg -Djpda.settings.verbose=true \
+      --vm-arg -Djpda.settings.timeout=$jdwp_test_timeout \
+      --vm-arg -Djpda.settings.waitingTime=$jdwp_test_timeout \
       --vm-arg -Djpda.settings.transportAddress=127.0.0.1:55107 \
       --vm-arg -Djpda.settings.debuggeeJavaPath="$art_debugee $image $debuggee_args" \
       --classpath $test_jack \
       --toolchain jack --language JN \
       --vm-arg -Xcompiler-option --vm-arg --debuggable \
+      --jack-arg -g \
       $test
 
 vogar_exit_status=$?

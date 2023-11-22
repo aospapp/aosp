@@ -41,6 +41,8 @@ import android.net.Uri;
 import android.text.format.Time;
 import android.text.TextUtils;
 
+import com.android.ims.internal.EABContract;
+import com.android.ims.internal.ContactNumberUtils;
 import com.android.ims.RcsPresenceInfo;
 import com.android.ims.internal.Logger;
 
@@ -84,6 +86,20 @@ public class EABContactManager {
         Contacts.Impl.VIDEO_CALL_AVAILABILITY_TIMESTAMP,
         Contacts.Impl.VOLTE_STATUS
     };
+
+    /**
+     * Look up the formatted number and Data ID
+     */
+    private static final String[] DATA_QUERY_PROJECTION = new String[] {
+        Contacts.Impl._ID,
+        Contacts.Impl.FORMATTED_NUMBER,
+        EABContract.EABColumns.DATA_ID
+    };
+    // Data Query Columns, which match the DATA_QUERY_PROJECTION
+    private static final int DATA_QUERY_ID = 0;
+    private static final int DATA_QUERY_FORMATTED_NUMBER = 1;
+    private static final int DATA_QUERY_DATA_ID = 2;
+
 
     /**
      * This class contains all the information necessary to request a new contact.
@@ -135,7 +151,7 @@ public class EABContactManager {
         public Request(String number) {
             if (TextUtils.isEmpty(number)) {
                 throw new IllegalArgumentException(
-                        "Can't update EAB presence item with");
+                        "Can't update EAB presence item with number: " + number);
             }
 
             mContactNumber = number;
@@ -706,6 +722,7 @@ public class EABContactManager {
                         null, null);
             }
 
+            logger.debug("Update contact " + number + " with request: " + values);
             return mResolver.update(mBaseUri, values, getWhereClauseForIds(ids),
                     getWhereArgsForIds(ids));
         }
@@ -912,17 +929,43 @@ public class EABContactManager {
         }
 
         int count = 0;
+        Cursor cursor = null;
         try{
-            count = ContactDbUtil.updateVtCapability(mResolver, number,
-                    (videoCallCapability == RcsPresenceInfo.ServiceState.ONLINE));
-            logger.print("update rcsPresenceInfo to Contact DB, count=" + count);
+            cursor = mResolver.query(Contacts.Impl.CONTENT_URI, DATA_QUERY_PROJECTION,
+                    "PHONE_NUMBERS_EQUAL(" + Contacts.Impl.FORMATTED_NUMBER + ", ?, 1)",
+                    new String[] {number}, null);
+            if(cursor == null) {
+                logger.print("update rcsPresenceInfo to DB: update count=" + count);
+                return count;
+            }
 
-            count = mResolver.update(Contacts.Impl.CONTENT_URI, values,
-                    "PHONE_NUMBERS_EQUAL(contact_number, ?, 0)", new String[] {number});
-            logger.print("update rcsPresenceInfo to EAB: update count=" + count +
+            ContactNumberUtils contactNumberUtils = ContactNumberUtils.getDefault();
+            for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
+                String numberInDB = cursor.getString(DATA_QUERY_FORMATTED_NUMBER);
+                logger.debug("number=" + number + " numberInDB=" + numberInDB +
+                        " formatedNumber in DB=" + contactNumberUtils.format(numberInDB));
+                if(number.equals(contactNumberUtils.format(numberInDB))) {
+                    count = ContactDbUtil.updateVtCapability(mResolver,
+                            cursor.getLong(DATA_QUERY_DATA_ID),
+                            (videoCallCapability == RcsPresenceInfo.ServiceState.ONLINE));
+                    logger.print("update rcsPresenceInfo to Contact DB, count=" + count);
+
+                    int id = cursor.getInt(DATA_QUERY_ID);
+                    count += mResolver.update(Contacts.Impl.CONTENT_URI, values,
+                            Contacts.Impl._ID + "=" + id, null);
+                    logger.debug("count=" + count);
+                }
+            }
+
+            logger.print("update rcsPresenceInfo to DB: update count=" + count +
                     " rcsPresenceInfo=" + rcsPresenceInfo);
-        }catch(Exception e){
-            logger.error("updateCapability exception", e);
+        } catch(Exception e){
+            logger.error("updateCapability exception");
+        } finally {
+            if(cursor != null) {
+                cursor.close();
+                cursor = null;
+            }
         }
 
         return count;

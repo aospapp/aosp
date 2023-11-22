@@ -77,11 +77,11 @@ def main():
         h_map = props["android.lens.info.shadingMapSize"]["height"]
 
         print "Testing auto capture results"
-        lsc_map_auto = test_auto(cam, w_map, h_map)
+        lsc_map_auto = test_auto(cam, w_map, h_map, props)
         print "Testing manual capture results"
-        test_manual(cam, w_map, h_map, lsc_map_auto)
+        test_manual(cam, w_map, h_map, lsc_map_auto, props)
         print "Testing auto capture results again"
-        test_auto(cam, w_map, h_map)
+        test_auto(cam, w_map, h_map, props)
 
 # A very loose definition for two floats being close to each other;
 # there may be different interpolation and rounding used to get the
@@ -105,7 +105,7 @@ def draw_lsc_plot(w_map, h_map, lsc_map, name):
         ax.plot_wireframe(xs, ys, zs)
         matplotlib.pyplot.savefig("%s_plot_lsc_%s_ch%d.png"%(NAME,name,ch))
 
-def test_auto(cam, w_map, h_map):
+def test_auto(cam, w_map, h_map, props):
     # Get 3A lock first, so the auto values in the capture result are
     # populated properly.
     rect = [[0,0,1,1,1]]
@@ -124,9 +124,12 @@ def test_auto(cam, w_map, h_map):
     print "Gains:", gains
     print "Transform:", [its.objects.rational_to_float(t)
                          for t in transform]
-    print "AE region:", cap_res['android.control.aeRegions']
-    print "AF region:", cap_res['android.control.afRegions']
-    print "AWB region:", cap_res['android.control.awbRegions']
+    if props["android.control.maxRegionsAe"] > 0:
+        print "AE region:", cap_res['android.control.aeRegions']
+    if props["android.control.maxRegionsAf"] > 0:
+        print "AF region:", cap_res['android.control.afRegions']
+    if props["android.control.maxRegionsAwb"] > 0:
+        print "AWB region:", cap_res['android.control.awbRegions']
     print "LSC map:", w_map, h_map, lsc_map[:8]
 
     assert(ctrl_mode == 1)
@@ -154,7 +157,7 @@ def test_auto(cam, w_map, h_map):
 
     return lsc_map
 
-def test_manual(cam, w_map, h_map, lsc_map_auto):
+def test_manual(cam, w_map, h_map, lsc_map_auto, props):
     cap = cam.do_capture(manual_req)
     cap_res = cap["metadata"]
 
@@ -172,9 +175,12 @@ def test_manual(cam, w_map, h_map, lsc_map_auto):
     print "Transform:", [its.objects.rational_to_float(t)
                          for t in transform]
     print "Tonemap:", curves[0][1::16]
-    print "AE region:", cap_res['android.control.aeRegions']
-    print "AF region:", cap_res['android.control.afRegions']
-    print "AWB region:", cap_res['android.control.awbRegions']
+    if props["android.control.maxRegionsAe"] > 0:
+        print "AE region:", cap_res['android.control.aeRegions']
+    if props["android.control.maxRegionsAf"] > 0:
+        print "AF region:", cap_res['android.control.afRegions']
+    if props["android.control.maxRegionsAwb"] > 0:
+        print "AWB region:", cap_res['android.control.awbRegions']
     print "LSC map:", w_map, h_map, lsc_map[:8]
 
     assert(ctrl_mode == 0)

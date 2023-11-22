@@ -286,6 +286,7 @@ static jdouble doubleAlgorithm(JNIEnv* env, uint64_t* f, int32_t length, jint e,
       free(y);
       free(D);
       free(D2);
+      y = D = D2 = NULL;
 
       if (e >= 0 && k >= 0)
         {
@@ -713,6 +714,7 @@ static jfloat floatAlgorithm(JNIEnv* env, uint64_t* f, int32_t length, jint e, j
       free(y);
       free(D);
       free(D2);
+      y = D = D2 = NULL;
 
       if (e >= 0 && k >= 0)
         {

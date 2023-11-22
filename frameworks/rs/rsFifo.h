@@ -44,6 +44,6 @@ public:
 
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif

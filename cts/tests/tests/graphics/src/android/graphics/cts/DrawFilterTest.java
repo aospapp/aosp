@@ -16,19 +16,18 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
 import android.graphics.DrawFilter;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class DrawFilterTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DrawFilterTest {
+    @Test
     public void testConstructor() {
-        // new the DrawFilter instance
         new DrawFilter();
     }
-
 }

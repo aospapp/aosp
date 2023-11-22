@@ -32,7 +32,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues001_Boolean() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.BOOLEAN_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.BOOLEAN_PARAM_VALUE);
+        Value oldValue = Value.createBoolean(StackTrace002Debuggee.BOOLEAN_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointBoolean");
         suspensionMethodInfo.addVariable("param", oldValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointBoolean");
@@ -48,7 +48,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues002_Byte() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.BYTE_SIGNAL);
-        Value expectedValue = new Value(StackTrace002Debuggee.BYTE_PARAM_VALUE);
+        Value expectedValue = Value.createByte(StackTrace002Debuggee.BYTE_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointByte");
         suspensionMethodInfo.addVariable("param", expectedValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointByte");
@@ -64,7 +64,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues003_Char() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.CHAR_SIGNAL);
-        Value expectedValue = new Value(StackTrace002Debuggee.CHAR_PARAM_VALUE);
+        Value expectedValue = Value.createChar(StackTrace002Debuggee.CHAR_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointChar");
         suspensionMethodInfo.addVariable("param", expectedValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointChar");
@@ -80,7 +80,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues004_Short() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.SHORT_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.SHORT_PARAM_VALUE);
+        Value oldValue = Value.createShort(StackTrace002Debuggee.SHORT_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointShort");
         suspensionMethodInfo.addVariable("param", oldValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointShort");
@@ -96,7 +96,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues005_Int() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.INT_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointInt");
         suspensionMethodInfo.addVariable("param", oldValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointInt");
@@ -112,8 +112,8 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues005_Int2() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.INT_METHOD2_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE);
-        Value nextValue = new Value(StackTrace002Debuggee.INT_PARAM_VALUE * 2);
+        Value oldValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE);
+        Value nextValue = Value.createInt(StackTrace002Debuggee.INT_PARAM_VALUE * 2);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointInt2");
         suspensionMethodInfo.addVariable("param", oldValue, null /* no set value */, nextValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointInt2");
@@ -130,7 +130,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues006_Long() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.LONG_METHOD_SIGNAL);
-        Value oldValue = new Value(StackTrace002Debuggee.LONG_PARAM_VALUE);
+        Value oldValue = Value.createLong(StackTrace002Debuggee.LONG_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointLong");
         suspensionMethodInfo.addVariable("param", oldValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointLong");
@@ -146,7 +146,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues007_Float() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.FLOAT_METHOD);
-        Value oldValue = new Value(StackTrace002Debuggee.FLOAT_PARAM_VALUE);
+        Value oldValue = Value.createFloat(StackTrace002Debuggee.FLOAT_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointFloat");
         suspensionMethodInfo.addVariable("param", oldValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointFloat");
@@ -162,7 +162,7 @@ public class GetValues002Test extends JDWPStackFrameAccessTest {
      */
     public void testGetValues008_Double() {
         StackFrameTester tester = new StackFrameTester(StackTrace002Debuggee.DOUBLE_METHOD);
-        Value oldValue = new Value(StackTrace002Debuggee.DOUBLE_PARAM_VALUE);
+        Value oldValue = Value.createDouble(StackTrace002Debuggee.DOUBLE_PARAM_VALUE);
         MethodInfo suspensionMethodInfo = tester.addTestMethod("breakpointDouble");
         suspensionMethodInfo.addVariable("param", oldValue);
         MethodInfo methodInfo = tester.addTestMethod("runBreakpointDouble");

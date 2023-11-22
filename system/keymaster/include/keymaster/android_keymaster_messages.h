@@ -93,7 +93,7 @@ inline int32_t MessageVersion(uint8_t major_ver, uint8_t minor_ver, uint8_t /* s
 }
 
 struct KeymasterMessage : public Serializable {
-    KeymasterMessage(int32_t ver) : message_version(ver) { assert(ver >= 0); }
+    explicit KeymasterMessage(int32_t ver) : message_version(ver) { assert(ver >= 0); }
     uint32_t message_version;
 };
 
@@ -144,12 +144,12 @@ struct SupportedByAlgorithmRequest : public KeymasterMessage {
 };
 
 struct SupportedImportFormatsRequest : public SupportedByAlgorithmRequest {
-    SupportedImportFormatsRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedImportFormatsRequest(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedByAlgorithmRequest(ver) {}
 };
 
 struct SupportedExportFormatsRequest : public SupportedByAlgorithmRequest {
-    SupportedExportFormatsRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedExportFormatsRequest(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedByAlgorithmRequest(ver) {}
 };
 
@@ -172,17 +172,17 @@ struct SupportedByAlgorithmAndPurposeRequest : public KeymasterMessage {
 };
 
 struct SupportedBlockModesRequest : public SupportedByAlgorithmAndPurposeRequest {
-    SupportedBlockModesRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedBlockModesRequest(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedByAlgorithmAndPurposeRequest(ver) {}
 };
 
 struct SupportedPaddingModesRequest : public SupportedByAlgorithmAndPurposeRequest {
-    SupportedPaddingModesRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedPaddingModesRequest(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedByAlgorithmAndPurposeRequest(ver) {}
 };
 
 struct SupportedDigestsRequest : public SupportedByAlgorithmAndPurposeRequest {
-    SupportedDigestsRequest(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedDigestsRequest(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedByAlgorithmAndPurposeRequest(ver) {}
 };
 
@@ -226,32 +226,32 @@ template <typename T> struct SupportedResponse : public KeymasterResponse {
 };
 
 struct SupportedAlgorithmsResponse : public SupportedResponse<keymaster_algorithm_t> {
-    SupportedAlgorithmsResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedAlgorithmsResponse(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedResponse<keymaster_algorithm_t>(ver) {}
 };
 
 struct SupportedBlockModesResponse : public SupportedResponse<keymaster_block_mode_t> {
-    SupportedBlockModesResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedBlockModesResponse(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedResponse<keymaster_block_mode_t>(ver) {}
 };
 
 struct SupportedPaddingModesResponse : public SupportedResponse<keymaster_padding_t> {
-    SupportedPaddingModesResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedPaddingModesResponse(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedResponse<keymaster_padding_t>(ver) {}
 };
 
 struct SupportedDigestsResponse : public SupportedResponse<keymaster_digest_t> {
-    SupportedDigestsResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedDigestsResponse(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedResponse<keymaster_digest_t>(ver) {}
 };
 
 struct SupportedImportFormatsResponse : public SupportedResponse<keymaster_key_format_t> {
-    SupportedImportFormatsResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedImportFormatsResponse(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedResponse<keymaster_key_format_t>(ver) {}
 };
 
 struct SupportedExportFormatsResponse : public SupportedResponse<keymaster_key_format_t> {
-    SupportedExportFormatsResponse(int32_t ver = MAX_MESSAGE_VERSION)
+    explicit SupportedExportFormatsResponse(int32_t ver = MAX_MESSAGE_VERSION)
         : SupportedResponse<keymaster_key_format_t>(ver) {}
 };
 

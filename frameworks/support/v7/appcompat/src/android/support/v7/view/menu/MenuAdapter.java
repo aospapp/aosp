@@ -15,6 +15,9 @@
  */
 package android.support.v7.view.menu;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.support.annotation.RestrictTo;
 import android.support.v7.appcompat.R;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -26,6 +29,7 @@ import java.util.ArrayList;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class MenuAdapter extends BaseAdapter {
     static final int ITEM_LAYOUT = R.layout.abc_popup_menu_item_layout;
 

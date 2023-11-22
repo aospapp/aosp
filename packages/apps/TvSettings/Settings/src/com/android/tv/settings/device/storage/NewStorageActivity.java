@@ -11,35 +11,28 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.tv.settings.device.storage;
 
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.UserInfo;
 import android.os.Bundle;
-import android.os.UserHandle;
-import android.os.UserManager;
 import android.os.storage.DiskInfo;
 import android.os.storage.StorageEventListener;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.os.storage.VolumeRecord;
-import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.text.TextUtils;
-import android.util.Log;
-import android.widget.Toast;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.device.StorageResetActivity;
@@ -78,7 +71,18 @@ public class NewStorageActivity extends Activity {
         if (savedInstanceState == null) {
             final String action = getIntent().getAction();
 
-            if (TextUtils.equals(action, ACTION_NEW_STORAGE)) {
+            if (TextUtils.equals(action, ACTION_MISSING_STORAGE)) {
+                // Launched from a notification, see com.android.systemui.usb.StorageNotification
+                final String fsUuid = getIntent().getStringExtra(VolumeRecord.EXTRA_FS_UUID);
+                if (TextUtils.isEmpty(fsUuid)) {
+                    throw new IllegalStateException(
+                            "NewStorageActivity launched without specifying missing storage");
+                }
+
+                getFragmentManager().beginTransaction()
+                        .add(android.R.id.content, MissingStorageFragment.newInstance(fsUuid))
+                        .commit();
+            } else {
                 final String volumeId = getIntent().getStringExtra(VolumeInfo.EXTRA_VOLUME_ID);
                 final String diskId = getIntent().getStringExtra(DiskInfo.EXTRA_DISK_ID);
                 if (TextUtils.isEmpty(volumeId) && TextUtils.isEmpty(diskId)) {
@@ -88,16 +92,6 @@ public class NewStorageActivity extends Activity {
 
                 getFragmentManager().beginTransaction()
                         .add(android.R.id.content, NewStorageFragment.newInstance(volumeId, diskId))
-                        .commit();
-            } else if (TextUtils.equals(action, ACTION_MISSING_STORAGE)) {
-                final String fsUuid = getIntent().getStringExtra(VolumeRecord.EXTRA_FS_UUID);
-                if (TextUtils.isEmpty(fsUuid)) {
-                    throw new IllegalStateException(
-                            "NewStorageActivity launched without specifying missing storage");
-                }
-
-                getFragmentManager().beginTransaction()
-                        .add(android.R.id.content, MissingStorageFragment.newInstance(fsUuid))
                         .commit();
             }
         }
@@ -147,6 +141,7 @@ public class NewStorageActivity extends Activity {
             if (!TextUtils.isEmpty(mVolumeId)) {
                 final VolumeInfo info = storageManager.findVolumeById(mVolumeId);
                 mDescription = storageManager.getBestVolumeDescription(info);
+                mDiskId = info.getDiskId();
             } else {
                 final DiskInfo info = storageManager.findDiskById(mDiskId);
                 mDescription = info.getDescription();
@@ -351,177 +346,6 @@ public class NewStorageActivity extends Activity {
                     getActivity().finish();
                 }
             }
-        }
-    }
-
-    public static class DiskReceiver extends BroadcastReceiver {
-
-        private StorageManager mStorageManager;
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final UserManager userManager =
-                    (UserManager) context.getSystemService(Context.USER_SERVICE);
-            final UserInfo userInfo = userManager.getUserInfo(UserHandle.myUserId());
-
-            if (userInfo.isRestricted() ||
-                    ActivityManager.getCurrentUser() != UserHandle.myUserId()) {
-                Log.d(TAG, "Ignoring storage notification: wrong user");
-                return;
-            }
-
-            if (Settings.Secure.getInt(context.getContentResolver(),
-                    Settings.Secure.USER_SETUP_COMPLETE, 0) == 0) {
-                Log.d(TAG, "Ignoring storage notification: setup not complete");
-                return;
-            }
-
-            mStorageManager = context.getSystemService(StorageManager.class);
-
-            if (TextUtils.equals(intent.getAction(), VolumeInfo.ACTION_VOLUME_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(VolumeInfo.EXTRA_VOLUME_STATE, -1);
-                if (state == VolumeInfo.STATE_MOUNTED ||
-                        state == VolumeInfo.STATE_MOUNTED_READ_ONLY) {
-                    handleMount(context, intent);
-                } else if (state == VolumeInfo.STATE_UNMOUNTED ||
-                        state == VolumeInfo.STATE_BAD_REMOVAL) {
-                    handleUnmount(context, intent);
-                }
-            } else if (TextUtils.equals(intent.getAction(), DiskInfo.ACTION_DISK_SCANNED)) {
-                handleScan(context, intent);
-            } else if (TextUtils.equals(intent.getAction(),
-                    "com.google.android.tungsten.setupwraith.TV_SETTINGS_POST_SETUP")) {
-                handleSetupComplete(context);
-            }
-        }
-
-        private void handleScan(Context context, Intent intent) {
-            final String diskId = intent.getStringExtra(DiskInfo.EXTRA_DISK_ID);
-            if (TextUtils.isEmpty(diskId)) {
-                Log.e(TAG, intent.getAction() + " with no " + DiskInfo.EXTRA_DISK_ID);
-                return;
-            }
-            final DiskInfo diskInfo = mStorageManager.findDiskById(diskId);
-            if (diskInfo == null) {
-                Log.e(TAG, "Disk ID " + diskId + " is no longer mounted");
-                return;
-            }
-            if (diskInfo.size <= 0) {
-                Log.d(TAG, "Disk ID " + diskId + " has no media");
-                return;
-            }
-            if (intent.getIntExtra(DiskInfo.EXTRA_VOLUME_COUNT, -1) != 0) {
-                Log.d(TAG, "Disk ID " + diskId + " has usable volumes, waiting for mount");
-                return;
-            }
-            // No usable volumes, prompt the user to erase the disk
-            final Intent i = NewStorageActivity.getNewStorageLaunchIntent(context, null, diskId);
-            setPopupLaunchFlags(i);
-            context.startActivity(i);
-        }
-
-        private void handleMount(Context context, Intent intent) {
-            final String volumeId = intent.getStringExtra(VolumeInfo.EXTRA_VOLUME_ID);
-
-            final List<VolumeInfo> volumeInfos = mStorageManager.getVolumes();
-            for (final VolumeInfo info : volumeInfos) {
-                if (!TextUtils.equals(info.getId(), volumeId)) {
-                    continue;
-                }
-                final String uuid = info.getFsUuid();
-                Log.d(TAG, "Scanning volume: " + info);
-                if (info.getType() == VolumeInfo.TYPE_PRIVATE
-                        && !TextUtils.equals(volumeId, VolumeInfo.ID_PRIVATE_INTERNAL)) {
-                    Toast.makeText(context, R.string.storage_mount_adopted, Toast.LENGTH_SHORT)
-                            .show();
-                    return;
-                }
-                if (info.getType() != VolumeInfo.TYPE_PUBLIC || TextUtils.isEmpty(uuid)) {
-                    continue;
-                }
-                final VolumeRecord record = mStorageManager.findRecordByUuid(uuid);
-                if (record.isInited() || record.isSnoozed()) {
-                    continue;
-                }
-                final DiskInfo disk = info.getDisk();
-                if (disk.isAdoptable()) {
-                    final Intent i = NewStorageActivity.getNewStorageLaunchIntent(context,
-                            volumeId, disk.getId());
-                    setPopupLaunchFlags(i);
-                    context.startActivity(i);
-                    break;
-                }
-            }
-        }
-
-        private void handleUnmount(Context context, Intent intent) {
-            final String fsUuid = intent.getStringExtra(VolumeRecord.EXTRA_FS_UUID);
-            if (TextUtils.isEmpty(fsUuid)) {
-                Log.e(TAG, "Missing fsUuid, not launching activity.");
-                return;
-            }
-            VolumeRecord volumeRecord = null;
-            try {
-                volumeRecord = mStorageManager.findRecordByUuid(fsUuid);
-            } catch (Exception e) {
-                Log.e(TAG, "Error finding volume record", e);
-            }
-            if (volumeRecord == null) {
-                return;
-            }
-            Log.d(TAG, "Found ejected volume: " + volumeRecord + " for FSUUID: " + fsUuid);
-            if (volumeRecord.getType() == VolumeInfo.TYPE_PRIVATE) {
-                final Intent i = NewStorageActivity.getMissingStorageLaunchIntent(context, fsUuid);
-                setPopupLaunchFlags(i);
-                context.startActivity(i);
-            }
-        }
-
-        private void handleSetupComplete(Context context) {
-            Log.d(TAG, "Scanning for storage post-setup");
-
-            final List<DiskInfo> diskInfos = mStorageManager.getDisks();
-            for (DiskInfo diskInfo : diskInfos) {
-                Log.d(TAG, "Scanning disk: " + diskInfo);
-                if (diskInfo.size <= 0) {
-                    Log.d(TAG, "Disk ID " + diskInfo.id + " has no media");
-                    continue;
-                }
-                if (diskInfo.volumeCount != 0) {
-                    Log.d(TAG, "Disk ID " + diskInfo.id + " has usable volumes, deferring");
-                    continue;
-                }
-                // No usable volumes, prompt the user to erase the disk
-                final Intent i =
-                        NewStorageActivity.getNewStorageLaunchIntent(context, null, diskInfo.id);
-                setPopupLaunchFlags(i);
-                context.startActivity(i);
-                return;
-            }
-
-            final List<VolumeInfo> volumeInfos = mStorageManager.getVolumes();
-            for (final VolumeInfo info : volumeInfos) {
-                final String uuid = info.getFsUuid();
-                Log.d(TAG, "Scanning volume: " + info);
-                if (info.getType() != VolumeInfo.TYPE_PUBLIC || TextUtils.isEmpty(uuid)) {
-                    continue;
-                }
-                final VolumeRecord record = mStorageManager.findRecordByUuid(uuid);
-                if (record.isInited() || record.isSnoozed()) {
-                    continue;
-                }
-                final DiskInfo disk = info.getDisk();
-                if (disk.isAdoptable()) {
-                    final Intent i = NewStorageActivity.getNewStorageLaunchIntent(context,
-                            info.getId(), disk.getId());
-                    setPopupLaunchFlags(i);
-                    context.startActivity(i);
-                    return;
-                }
-            }
-        }
-
-        private void setPopupLaunchFlags(Intent intent) {
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         }
     }
 

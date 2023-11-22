@@ -24,7 +24,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <mincrypt/rsa.h>
+
+#include <crypto_utils/android_pubkey.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,8 +71,8 @@ struct fec_ecc_metadata {
 struct fec_verity_metadata {
     bool disabled;
     uint64_t data_size;
-    uint8_t signature[RSANUMBYTES];
-    uint8_t ecc_signature[RSANUMBYTES];
+    uint8_t signature[ANDROID_PUBKEY_MODULUS_SIZE];
+    uint8_t ecc_signature[ANDROID_PUBKEY_MODULUS_SIZE];
     const char *table;
     uint32_t table_length;
 };
@@ -122,7 +123,7 @@ namespace fec {
     public:
         io() : handle_(nullptr, fec_close) {}
 
-        io(const std::string& fn, int mode = O_RDONLY, int flags = 0,
+        explicit io(const std::string& fn, int mode = O_RDONLY, int flags = 0,
                 int roots = FEC_DEFAULT_ROOTS) : handle_(nullptr, fec_close) {
             open(fn, mode, flags, roots);
         }

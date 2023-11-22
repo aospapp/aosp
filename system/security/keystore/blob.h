@@ -70,6 +70,7 @@ typedef enum {
     TYPE_MASTER_KEY = 2,
     TYPE_KEY_PAIR = 3,
     TYPE_KEYMASTER_10 = 4,
+    TYPE_KEY_CHARACTERISTICS = 5,
 } BlobType;
 
 class Entropy;
@@ -78,7 +79,7 @@ class Blob {
   public:
     Blob(const uint8_t* value, size_t valueLength, const uint8_t* info, uint8_t infoLength,
          BlobType type);
-    Blob(blob b);
+    explicit Blob(blob b);
 
     Blob();
 
@@ -93,6 +94,12 @@ class Blob {
 
     bool isEncrypted() const;
     void setEncrypted(bool encrypted);
+
+    bool isSuperEncrypted() const;
+    void setSuperEncrypted(bool superEncrypted);
+
+    bool isCriticalToDeviceEncryption() const;
+    void setCriticalToDeviceEncryption(bool critical);
 
     bool isFallback() const { return mBlob.flags & KEYSTORE_FLAG_FALLBACK; }
     void setFallback(bool fallback);

@@ -1367,6 +1367,7 @@ public class FileChannelTest extends TestCase {
         ByteBuffer readBuffer = ByteBuffer.allocate(CAPACITY);
         try {
             readOnlyFileChannel.read(readBuffer, Long.MAX_VALUE);
+            fail();
         } catch (IOException expected) {
         }
     }

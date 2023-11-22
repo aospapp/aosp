@@ -16,18 +16,27 @@
 
 package android.text.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.LoginFilter.UsernameFilterGMail;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class LoginFilter_UsernameFilterGMailTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LoginFilter_UsernameFilterGMailTest {
+    @Test
     public void testConstructor() {
         new UsernameFilterGMail();
         new UsernameFilterGMail(true);
         new UsernameFilterGMail(false);
     }
 
+    @Test
     public void testIsAllowed() {
         UsernameFilterGMail usernameFilterGMail = new UsernameFilterGMail();
 

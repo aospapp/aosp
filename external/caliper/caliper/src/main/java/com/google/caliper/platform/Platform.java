@@ -19,6 +19,7 @@ package com.google.caliper.platform;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.File;
@@ -65,7 +66,17 @@ public abstract class Platform {
   /**
    * The class path that should be used to run a worker..
    */
-  public abstract String workerClassPath();
+  protected abstract String workerClassPath();
+
+  /**
+   * Construct the set of arguments that specify the classpath which
+   * is passed to the worker.
+   *
+   * <p>By default this is just the {@code -cp $workerClassPath}.</p>
+   */
+  public ImmutableList<String> workerClassPathArgs() {
+    return ImmutableList.of("-cp", workerClassPath());
+  }
 
   /**
    * Checks to see whether the specific class is supported on this platform.

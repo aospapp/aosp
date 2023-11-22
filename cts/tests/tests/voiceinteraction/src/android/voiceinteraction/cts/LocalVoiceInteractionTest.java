@@ -43,6 +43,8 @@ public class LocalVoiceInteractionTest
     private Context mContext;
     private final CountDownLatch mLatchStart = new CountDownLatch(1);
     private final CountDownLatch mLatchStop = new CountDownLatch(1);
+    protected boolean mHasFeature;
+    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
     public LocalVoiceInteractionTest() {
         super(TestLocalInteractionActivity.class);
@@ -53,6 +55,7 @@ public class LocalVoiceInteractionTest
         super.setUp();
         startTestActivity();
         mContext = getInstrumentation().getTargetContext();
+        mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
     }
 
     private void startTestActivity() throws Exception {
@@ -65,6 +68,9 @@ public class LocalVoiceInteractionTest
     }
 
     public void testLifecycle() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
         VoiceInteractionTestReceiver.sServiceStartedLatch.await(5, TimeUnit.SECONDS);
 
         assertTrue("Doesn't support LocalVoiceInteraction",

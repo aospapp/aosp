@@ -40,6 +40,7 @@ class MemoryDumpSessionState;
 class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
  public:
   static const char* const kTraceCategory;
+  static const char* const kLogPrefix;
 
   // This value is returned as the tracing id of the child processes by
   // GetTracingProcessId() when tracing is not enabled.
@@ -69,19 +70,22 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   //  - name: a friendly name (duplicates allowed). Used for debugging and
   //      run-time profiling of memory-infra internals. Must be a long-lived
   //      C string.
-  //  - task_runner: if non-null, all the calls to |mdp| will be
-  //      issued on the given thread. Otherwise, |mdp| should be able to
-  //      handle calls on arbitrary threads.
+  //  - task_runner: either a SingleThreadTaskRunner or SequencedTaskRunner. All
+  //      the calls to |mdp| will be run on the given |task_runner|. If passed
+  //      null |mdp| should be able to handle calls on arbitrary threads.
   //  - options: extra optional arguments. See memory_dump_provider.h.
-  void RegisterDumpProvider(
+  void RegisterDumpProvider(MemoryDumpProvider* mdp,
+                            const char* name,
+                            scoped_refptr<SingleThreadTaskRunner> task_runner);
+  void RegisterDumpProvider(MemoryDumpProvider* mdp,
+                            const char* name,
+                            scoped_refptr<SingleThreadTaskRunner> task_runner,
+                            MemoryDumpProvider::Options options);
+  void RegisterDumpProviderWithSequencedTaskRunner(
       MemoryDumpProvider* mdp,
       const char* name,
-      const scoped_refptr<SingleThreadTaskRunner>& task_runner);
-  void RegisterDumpProvider(
-      MemoryDumpProvider* mdp,
-      const char* name,
-      const scoped_refptr<SingleThreadTaskRunner>& task_runner,
-      const MemoryDumpProvider::Options& options);
+      scoped_refptr<SequencedTaskRunner> task_runner,
+      MemoryDumpProvider::Options options);
   void UnregisterDumpProvider(MemoryDumpProvider* mdp);
 
   // Unregisters an unbound dump provider and takes care about its deletion
@@ -91,7 +95,8 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   //  - The |mdp| will be deleted at some point in the near future.
   //  - Its deletion will not happen concurrently with the OnMemoryDump() call.
   // Note that OnMemoryDump() calls can still happen after this method returns.
-  void UnregisterAndDeleteDumpProviderSoon(scoped_ptr<MemoryDumpProvider> mdp);
+  void UnregisterAndDeleteDumpProviderSoon(
+      std::unique_ptr<MemoryDumpProvider> mdp);
 
   // Requests a memory dump. The dump might happen or not depending on the
   // filters and categories specified when enabling tracing.
@@ -111,10 +116,14 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   void OnTraceLogEnabled() override;
   void OnTraceLogDisabled() override;
 
+  // Returns true if the dump mode is allowed for current tracing session.
+  bool IsDumpModeAllowed(MemoryDumpLevelOfDetail dump_mode);
+
   // Returns the MemoryDumpSessionState object, which is shared by all the
   // ProcessMemoryDump and MemoryAllocatorDump instances through all the tracing
   // session lifetime.
-  const scoped_refptr<MemoryDumpSessionState>& session_state() const {
+  const scoped_refptr<MemoryDumpSessionState>& session_state_for_testing()
+      const {
     return session_state_;
   }
 
@@ -153,14 +162,15 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   //   inside ProcessMemoryDumpAsyncState is removed.
   // - In most cases, the MDPInfo is destroyed within UnregisterDumpProvider().
   // - If UnregisterDumpProvider() is called while a dump is in progress, the
-  //   MDPInfo is destroyed in the epilogue of ContinueAsyncProcessDump(), when
-  //   the copy inside ProcessMemoryDumpAsyncState is erase()-d.
+  //   MDPInfo is destroyed in SetupNextMemoryDump() or InvokeOnMemoryDump(),
+  //   when the copy inside ProcessMemoryDumpAsyncState is erase()-d.
   // - The non-const fields of MemoryDumpProviderInfo are safe to access only
-  //   in the |task_runner| thread, unless the thread has been destroyed.
+  //   on tasks running in the |task_runner|, unless the thread has been
+  //   destroyed.
   struct MemoryDumpProviderInfo
       : public RefCountedThreadSafe<MemoryDumpProviderInfo> {
-    // Define a total order based on the thread (i.e. |task_runner|) affinity,
-    // so that all MDP belonging to the same thread are adjacent in the set.
+    // Define a total order based on the |task_runner| affinity, so that MDPs
+    // belonging to the same SequencedTaskRunner are adjacent in the set.
     struct Comparator {
       bool operator()(const scoped_refptr<MemoryDumpProviderInfo>& a,
                       const scoped_refptr<MemoryDumpProviderInfo>& b) const;
@@ -168,24 +178,24 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
     using OrderedSet =
         std::set<scoped_refptr<MemoryDumpProviderInfo>, Comparator>;
 
-    MemoryDumpProviderInfo(
-        MemoryDumpProvider* dump_provider,
-        const char* name,
-        const scoped_refptr<SingleThreadTaskRunner>& task_runner,
-        const MemoryDumpProvider::Options& options);
+    MemoryDumpProviderInfo(MemoryDumpProvider* dump_provider,
+                           const char* name,
+                           scoped_refptr<SequencedTaskRunner> task_runner,
+                           const MemoryDumpProvider::Options& options,
+                           bool whitelisted_for_background_mode);
 
     MemoryDumpProvider* const dump_provider;
 
     // Used to transfer ownership for UnregisterAndDeleteDumpProviderSoon().
     // nullptr in all other cases.
-    scoped_ptr<MemoryDumpProvider> owned_dump_provider;
+    std::unique_ptr<MemoryDumpProvider> owned_dump_provider;
 
     // Human readable name, for debugging and testing. Not necessarily unique.
     const char* const name;
 
-    // The task_runner affinity. Can be nullptr, in which case the dump provider
+    // The task runner affinity. Can be nullptr, in which case the dump provider
     // will be invoked on |dump_thread_|.
-    const scoped_refptr<SingleThreadTaskRunner> task_runner;
+    const scoped_refptr<SequencedTaskRunner> task_runner;
 
     // The |options| arg passed to RegisterDumpProvider().
     const MemoryDumpProvider::Options options;
@@ -196,6 +206,9 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
     // Flagged either by the auto-disable logic or during unregistration.
     bool disabled;
 
+    // True if the dump provider is whitelisted for background mode.
+    const bool whitelisted_for_background_mode;
+
    private:
     friend class base::RefCountedThreadSafe<MemoryDumpProviderInfo>;
     ~MemoryDumpProviderInfo();
@@ -204,25 +217,28 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   };
 
   // Holds the state of a process memory dump that needs to be carried over
-  // across threads in order to fulfil an asynchronous CreateProcessDump()
-  // request. At any time exactly one thread owns a ProcessMemoryDumpAsyncState.
+  // across task runners in order to fulfil an asynchronous CreateProcessDump()
+  // request. At any time exactly one task runner owns a
+  // ProcessMemoryDumpAsyncState.
   struct ProcessMemoryDumpAsyncState {
     ProcessMemoryDumpAsyncState(
         MemoryDumpRequestArgs req_args,
         const MemoryDumpProviderInfo::OrderedSet& dump_providers,
-        const scoped_refptr<MemoryDumpSessionState>& session_state,
+        scoped_refptr<MemoryDumpSessionState> session_state,
         MemoryDumpCallback callback,
-        const scoped_refptr<SingleThreadTaskRunner>& dump_thread_task_runner);
+        scoped_refptr<SingleThreadTaskRunner> dump_thread_task_runner);
     ~ProcessMemoryDumpAsyncState();
 
     // Gets or creates the memory dump container for the given target process.
-    ProcessMemoryDump* GetOrCreateMemoryDumpContainerForProcess(ProcessId pid);
+    ProcessMemoryDump* GetOrCreateMemoryDumpContainerForProcess(
+        ProcessId pid,
+        const MemoryDumpArgs& dump_args);
 
     // A map of ProcessId -> ProcessMemoryDump, one for each target process
     // being dumped from the current process. Typically each process dumps only
     // for itself, unless dump providers specify a different |target_process| in
     // MemoryDumpProvider::Options.
-    std::map<ProcessId, scoped_ptr<ProcessMemoryDump>> process_dumps;
+    std::map<ProcessId, std::unique_ptr<ProcessMemoryDump>> process_dumps;
 
     // The arguments passed to the initial CreateProcessDump() request.
     const MemoryDumpRequestArgs req_args;
@@ -237,6 +253,9 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
 
     // Callback passed to the initial call to CreateProcessDump().
     MemoryDumpCallback callback;
+
+    // The |success| field that will be passed as argument to the |callback|.
+    bool dump_successful;
 
     // The thread on which FinalizeDumpAndAddToTrace() (and hence |callback|)
     // should be invoked. This is the thread on which the initial
@@ -254,6 +273,31 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
     DISALLOW_COPY_AND_ASSIGN(ProcessMemoryDumpAsyncState);
   };
 
+  // Sets up periodic memory dump timers to start global dump requests based on
+  // the dump triggers from trace config.
+  class BASE_EXPORT PeriodicGlobalDumpTimer {
+   public:
+    PeriodicGlobalDumpTimer();
+    ~PeriodicGlobalDumpTimer();
+
+    void Start(const std::vector<TraceConfig::MemoryDumpConfig::Trigger>&
+                   triggers_list);
+    void Stop();
+
+    bool IsRunning();
+
+   private:
+    // Periodically called by the timer.
+    void RequestPeriodicGlobalDump();
+
+    RepeatingTimer timer_;
+    uint32_t periodic_dumps_count_;
+    uint32_t light_dump_rate_;
+    uint32_t heavy_dump_rate_;
+
+    DISALLOW_COPY_AND_ASSIGN(PeriodicGlobalDumpTimer);
+  };
+
   static const int kMaxConsecutiveFailuresCount;
   static const char* const kSystemAllocatorPoolName;
 
@@ -262,7 +306,10 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
 
   static void SetInstanceForTesting(MemoryDumpManager* instance);
   static void FinalizeDumpAndAddToTrace(
-      scoped_ptr<ProcessMemoryDumpAsyncState> pmd_async_state);
+      std::unique_ptr<ProcessMemoryDumpAsyncState> pmd_async_state);
+
+  // Enable heap profiling if kEnableHeapProfiling is specified.
+  void EnableHeapProfilingIfNeeded();
 
   // Internal, used only by MemoryDumpManagerDelegate.
   // Creates a memory dump for the current process and appends it to the trace.
@@ -271,17 +318,30 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   void CreateProcessDump(const MemoryDumpRequestArgs& args,
                          const MemoryDumpCallback& callback);
 
-  // Continues the ProcessMemoryDump started by CreateProcessDump(), hopping
-  // across threads as needed as specified by MDPs in RegisterDumpProvider().
-  void ContinueAsyncProcessDump(
-      ProcessMemoryDumpAsyncState* owned_pmd_async_state);
+  // Calls InvokeOnMemoryDump() for the next MDP on the task runner specified by
+  // the MDP while registration. On failure to do so, skips and continues to
+  // next MDP.
+  void SetupNextMemoryDump(
+      std::unique_ptr<ProcessMemoryDumpAsyncState> pmd_async_state);
+
+  // Invokes OnMemoryDump() of the next MDP and calls SetupNextMemoryDump() at
+  // the end to continue the ProcessMemoryDump. Should be called on the MDP task
+  // runner.
+  void InvokeOnMemoryDump(ProcessMemoryDumpAsyncState* owned_pmd_async_state);
+
+  // Helper for RegierDumpProvider* functions.
+  void RegisterDumpProviderInternal(
+      MemoryDumpProvider* mdp,
+      const char* name,
+      scoped_refptr<SequencedTaskRunner> task_runner,
+      const MemoryDumpProvider::Options& options);
 
   // Helper for the public UnregisterDumpProvider* functions.
   void UnregisterDumpProviderInternal(MemoryDumpProvider* mdp,
                                       bool take_mdp_ownership_and_delete_async);
 
-  // An ordererd set of registered MemoryDumpProviderInfo(s), sorted by thread
-  // affinity (MDPs belonging to the same thread are adjacent).
+  // An ordererd set of registered MemoryDumpProviderInfo(s), sorted by task
+  // runner affinity (MDPs belonging to the same task runners are adjacent).
   MemoryDumpProviderInfo::OrderedSet dump_providers_;
 
   // Shared among all the PMDs to keep state scoped to the tracing session.
@@ -301,10 +361,11 @@ class BASE_EXPORT MemoryDumpManager : public TraceLog::EnabledStateObserver {
   subtle::AtomicWord memory_tracing_enabled_;
 
   // For time-triggered periodic dumps.
-  RepeatingTimer periodic_dump_timer_;
+  PeriodicGlobalDumpTimer periodic_dump_timer_;
 
-  // Thread used for MemoryDumpProviders which don't specify a thread affinity.
-  scoped_ptr<Thread> dump_thread_;
+  // Thread used for MemoryDumpProviders which don't specify a task runner
+  // affinity.
+  std::unique_ptr<Thread> dump_thread_;
 
   // The unique id of the child process. This is created only for tracing and is
   // expected to be valid only when tracing is enabled.

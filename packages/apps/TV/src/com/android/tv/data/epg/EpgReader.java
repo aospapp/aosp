@@ -16,10 +16,13 @@
 
 package com.android.tv.data.epg;
 
+import android.support.annotation.NonNull;
 import android.support.annotation.WorkerThread;
 
 import com.android.tv.data.Channel;
+import com.android.tv.data.Lineup;
 import com.android.tv.data.Program;
+import com.android.tv.dvr.SeriesInfo;
 
 import java.util.List;
 
@@ -42,7 +45,12 @@ public interface EpgReader {
     /**
      * Returns the channels list.
      */
-    List<Channel> getChannels();
+    List<Channel> getChannels(@NonNull String lineupId);
+
+    /**
+     * Returns the lineups list.
+     */
+    List<Lineup> getLineups(@NonNull String postalCode);
 
     /**
      * Returns the programs for the given channel. The result is sorted by the start time.
@@ -50,4 +58,9 @@ public interface EpgReader {
      * TvProvider.
      */
     List<Program> getPrograms(long channelId);
+
+    /**
+     * Returns the series information for the given series ID.
+     */
+    SeriesInfo getSeriesInfo(String seriesId);
 }

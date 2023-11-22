@@ -22,6 +22,8 @@ from devil.utils import cmd_helper
 from devil.utils import reraiser_thread
 from devil.utils import timeout_retry
 
+logger = logging.getLogger(__name__)
+
 
 class VideoRecorder(object):
   """Records a screen capture video from an Android Device (KitKat or newer)."""
@@ -85,7 +87,7 @@ class VideoRecorder(object):
     """Stop recording video."""
     if not self._device.KillAll('screenrecord', signum=device_signal.SIGINT,
                                 quiet=True):
-      logging.warning('Nothing to kill: screenrecord was not running')
+      logger.warning('Nothing to kill: screenrecord was not running')
     self._recorder_thread.join()
 
   def Pull(self, host_file=None):
@@ -105,7 +107,7 @@ class VideoRecorder(object):
             time.strftime('%Y%m%dT%H%M%S', time.localtime())))
     host_file_name = os.path.abspath(host_file_name)
     self._device.PullFile(self._device_file, host_file_name)
-    self._device.RunShellCommand('rm -f "%s"' % self._device_file)
+    self._device.RemovePath(self._device_file, force=True)
     return host_file_name
 
 

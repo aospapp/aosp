@@ -20,8 +20,9 @@
     <option name="log-level" value="verbose" />
     <option name="skip-preconditions" value="true" />
     <option name="skip-device-info" value="true" />
+    <option name="result-reporter:compress-logs" value="false" />
 
-    <option name="compatibility:plan" value="cts-dev" />
+    <option name="plan" value="cts-dev" />
     <option name="compatibility:skip-all-system-status-check" value="true" />
     <option name="compatibility:primary-abi-only" value="true" />
 

@@ -16,16 +16,18 @@
 
 package com.android.tv.settings.accounts;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
-import java.io.IOException;
+import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
+
+import java.io.IOException;
 
 
 public class AddAccountWithTypeActivity extends Activity {
@@ -68,6 +70,9 @@ public class AddAccountWithTypeActivity extends Activity {
         } else {
             String[] allowedTypes = getIntent().getStringArrayExtra(
                     EXTRA_ALLOWABLE_ACCOUNT_TYPES_STRING_ARRAY);
+            if (allowedTypes == null || allowedTypes.length == 0) {
+                allowedTypes = getIntent().getStringArrayExtra(Settings.EXTRA_ACCOUNT_TYPES);
+            }
             startAccountTypePicker(allowedTypes);
         }
     }

@@ -94,7 +94,7 @@ application to precisely the resources it needs.</p>
 <p>Ideally, your policy is both in enforcing mode and confined. Unconfined
 policies in enforcement mode can mask potential violations that would have been
 logged in permissive mode with a confined policy. Therefore, we strongly
-recommend partners implement true confined policies.</p>
+recommend that device implementers implement true confined policies.</p>
 
 <h2 id=labels_rules_and_domains>Labels, rules and domains</h2>
 

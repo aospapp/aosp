@@ -16,22 +16,17 @@
 
 package com.example.android.supportv4.app;
 
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.Contacts.People;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.ListFragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
-import android.support.v4.view.MenuItemCompat;
-import android.support.v4.widget.SearchViewCompat;
-import android.support.v4.widget.SearchViewCompat.OnQueryTextListenerCompat;
 import android.support.v4.widget.SimpleCursorAdapter;
-
-import android.database.Cursor;
-import android.net.Uri;
-import android.os.Bundle;
-import android.provider.BaseColumns;
-import android.provider.Contacts.People;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
@@ -39,6 +34,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ListView;
+import android.widget.SearchView;
 
 /**
  * Demonstration of the use of a CursorLoader to load and display contacts
@@ -102,33 +98,35 @@ public class LoaderRetainedSupport extends FragmentActivity {
             // Place an action bar item for searching.
             MenuItem item = menu.add("Search");
             item.setIcon(android.R.drawable.ic_menu_search);
-            MenuItemCompat.setShowAsAction(item, MenuItemCompat.SHOW_AS_ACTION_ALWAYS
-                    | MenuItemCompat.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
-            View searchView = SearchViewCompat.newSearchView(getActivity());
-            if (searchView != null) {
-                SearchViewCompat.setOnQueryTextListener(searchView,
-                        new OnQueryTextListenerCompat() {
-                    @Override
-                    public boolean onQueryTextChange(String newText) {
-                        // Called when the action bar search text has changed.  Update
-                        // the search filter, and restart the loader to do a new query
-                        // with this filter.
-                        String newFilter = !TextUtils.isEmpty(newText) ? newText : null;
-                        // Don't do anything if the filter hasn't actually changed.
-                        // Prevents restarting the loader when restoring state.
-                        if (mCurFilter == null && newFilter == null) {
-                            return true;
-                        }
-                        if (mCurFilter != null && mCurFilter.equals(newFilter)) {
-                            return true;
-                        }
-                        mCurFilter = newFilter;
-                        getLoaderManager().restartLoader(0, null, CursorLoaderListFragment.this);
+            item.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS
+                    | MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
+            SearchView searchView = new SearchView(getActivity());
+            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                @Override
+                public boolean onQueryTextChange(String newText) {
+                    // Called when the action bar search text has changed.  Update
+                    // the search filter, and restart the loader to do a new query
+                    // with this filter.
+                    String newFilter = !TextUtils.isEmpty(newText) ? newText : null;
+                    // Don't do anything if the filter hasn't actually changed.
+                    // Prevents restarting the loader when restoring state.
+                    if (mCurFilter == null && newFilter == null) {
                         return true;
                     }
-                });
-                MenuItemCompat.setActionView(item, searchView);
-            }
+                    if (mCurFilter != null && mCurFilter.equals(newFilter)) {
+                        return true;
+                    }
+                    mCurFilter = newFilter;
+                    getLoaderManager().restartLoader(0, null, CursorLoaderListFragment.this);
+                    return true;
+                }
+
+                @Override
+                public boolean onQueryTextSubmit(String s) {
+                    return false;
+                }
+            });
+            item.setActionView(searchView);
         }
 
         @Override public void onListItemClick(ListView l, View v, int position, long id) {

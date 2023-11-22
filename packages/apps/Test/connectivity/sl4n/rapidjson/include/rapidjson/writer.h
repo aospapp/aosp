@@ -180,7 +180,7 @@ public:
 protected:
     //! Information for each nested level
     struct Level {
-        Level(bool inArray_) : valueCount(0), inArray(inArray_) {}
+        explicit Level(bool inArray_) : valueCount(0), inArray(inArray_) {}
         size_t valueCount;  //!< number of values in this level
         bool inArray;       //!< true if in array, otherwise in object
     };

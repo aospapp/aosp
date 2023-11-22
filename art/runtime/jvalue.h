@@ -18,15 +18,18 @@
 #define ART_RUNTIME_JVALUE_H_
 
 #include "base/macros.h"
+#include "base/mutex.h"
 
 #include <stdint.h>
+
+#include "obj_ptr.h"
 
 namespace art {
 namespace mirror {
 class Object;
 }  // namespace mirror
 
-union PACKED(4) JValue {
+union PACKED(alignof(mirror::Object*)) JValue {
   // We default initialize JValue instances to all-zeros.
   JValue() : j(0) {}
 
@@ -36,7 +39,9 @@ union PACKED(4) JValue {
   }
 
   uint16_t GetC() const { return c; }
-  void SetC(uint16_t new_c) { c = new_c; }
+  void SetC(uint16_t new_c) {
+    j = static_cast<int64_t>(new_c);  // Zero-extend to 64 bits.
+  }
 
   double GetD() const { return d; }
   void SetD(double new_d) { d = new_d; }
@@ -52,8 +57,10 @@ union PACKED(4) JValue {
   int64_t GetJ() const { return j; }
   void SetJ(int64_t new_j) { j = new_j; }
 
-  mirror::Object* GetL() const { return l; }
-  void SetL(mirror::Object* new_l) { l = new_l; }
+  mirror::Object* GetL() const REQUIRES_SHARED(Locks::mutator_lock_) {
+    return l;
+  }
+  void SetL(ObjPtr<mirror::Object> new_l) REQUIRES_SHARED(Locks::mutator_lock_);
 
   int16_t GetS() const { return s; }
   void SetS(int16_t new_s) {
@@ -61,7 +68,9 @@ union PACKED(4) JValue {
   }
 
   uint8_t GetZ() const { return z; }
-  void SetZ(uint8_t new_z) { z = new_z; }
+  void SetZ(uint8_t new_z) {
+    j = static_cast<int64_t>(new_z);  // Zero-extend to 64 bits.
+  }
 
   mirror::Object** GetGCRoot() { return &l; }
 

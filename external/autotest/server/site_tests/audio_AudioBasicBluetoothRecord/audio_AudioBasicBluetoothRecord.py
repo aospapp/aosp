@@ -6,15 +6,15 @@
 
 import logging
 import os
-import time, threading
+import time
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioBasicBluetoothRecord(audio_test.AudioTest):
@@ -107,11 +107,12 @@ class audio_AudioBasicBluetoothRecord(audio_test.AudioTest):
         self.host = host
         golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_FILE
 
-        factory = self.create_remote_facade_factory(host)
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
         self.audio_facade = factory.create_audio_facade()
 
         chameleon_board = host.chameleon
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
 
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 factory, host)
@@ -126,20 +127,33 @@ class audio_AudioBasicBluetoothRecord(audio_test.AudioTest):
         binder = widget_factory.create_binder(
                 source, bluetooth_widget, recorder)
 
+        second_peak_ratio = audio_test_utils.get_second_peak_ratio(
+            source_id=source.port_id, recorder_id=recorder.port_id, is_hsp=True)
+
         with chameleon_audio_helper.bind_widgets(binder):
 
             audio_test_utils.dump_cros_audio_logs(
                     host, self.audio_facade, self.resultsdir, 'after_binding')
-
-            if audio_test_utils.has_internal_microphone(host):
+            # For DUTs with permanently connected audio jack cable
+            # Bluetooth output node should be selected explicitly.
+            output_nodes, _ = self.audio_facade.get_plugged_node_types()
+            audio_jack_plugged = False
+            if 'HEADPHONE' in output_nodes:
+                audio_jack_plugged = True
+                audio_test_utils.check_audio_nodes(self.audio_facade,
+                                                    (None, ['MIC']))
+            elif audio_test_utils.has_internal_microphone(host):
                 # Checks the input node selected by Cras is internal microphone.
                 # Checks crbug.com/495537 for the reason to lower bluetooth
                 # microphone priority.
                 audio_test_utils.check_audio_nodes(self.audio_facade,
                                                    (None, ['INTERNAL_MIC']))
 
-                # Selects bluetooth mic to be the active input node.
-                self.audio_facade.set_chrome_active_node_type(None, 'BLUETOOTH')
+            # Selects bluetooth mic to be the active input node.
+            if (audio_test_utils.has_internal_microphone(host) or
+                audio_jack_plugged):
+                self.audio_facade.set_chrome_active_node_type(
+                        None, 'BLUETOOTH')
 
             # Checks the node selected by Cras is correct again.
             audio_test_utils.check_audio_nodes(self.audio_facade,
@@ -225,4 +239,4 @@ class audio_AudioBasicBluetoothRecord(audio_test.AudioTest):
         # and HDMI.
         audio_test_utils.check_recorded_frequency(
                 golden_file, recorder, check_anomaly=check_quality,
-                second_peak_ratio=audio_test_utils.HSP_SECOND_PEAK_RATIO)
+                second_peak_ratio=second_peak_ratio)

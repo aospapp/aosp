@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009, International Business Machines Corporation and         *
@@ -5,6 +7,8 @@
  *******************************************************************************
  */
 package com.ibm.icu.dev.test.duration;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.duration.BasicPeriodFormatterService;
@@ -15,12 +19,8 @@ import com.ibm.icu.text.DurationFormat;
 import com.ibm.icu.util.ULocale;
 
 public class RegressionTest extends TestFmwk {
-
-    public static void main(String[] args) {
-        new RegressionTest().run(args);
-    }
-    
     // bug6397
+    @Test
     public void TestDisallowedMillis() {
         // original test case
         // if we don't support milliseconds, format times less than 1 second as 

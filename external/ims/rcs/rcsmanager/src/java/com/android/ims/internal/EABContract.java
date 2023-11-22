@@ -226,6 +226,14 @@ public final class EABContract {
         public static final String VOLTE_STATUS = "volte_status";
 
         /**
+         * Key defining the formatted number.
+         * <p>
+         * Type: TEXT
+         * </p>
+         */
+        public static final String FORMATTED_NUMBER = "formatted_number";
+
+        /**
          * @hide
          */
         public static final String[] PROJECTION = new String[] {

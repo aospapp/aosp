@@ -32,6 +32,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0500
@@ -153,7 +154,10 @@ main(int argc ATTR((unused)) , char **argv ATTR((unused)))
 		printf("UUID time comparison succeeded.\n");
 	}
 
-	uuid_parse(str, tst);
+	if (uuid_parse(str, tst) < 0) {
+		printf("UUID parse failed\n");
+		failed++;
+	}
 	if (!uuid_compare(buf, tst)) {
 		printf("UUID parse and compare succeeded.\n");
 	} else {

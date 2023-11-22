@@ -76,6 +76,7 @@ class platform_BootPerf(test.test):
     #   kernel_to_signin_seen - The moment when user can actually see signin UI.
     #   boot-complete - Completion of boot after Chrome presents the
     #     login screen.
+    #   kernel_to_android_start - The moment when Android is started.
     _EVENT_KEYVALS = [
         # N.B.  Keyval attribute names go into a database that
         # truncates after 30 characters.  The key names below are
@@ -95,7 +96,8 @@ class platform_BootPerf(test.test):
         # This event doesn't happen if device has no users.
         ('kernel_to_signin_users',  'login-send-user-list',      False, False),
         ('kernel_to_signin_seen',   'login-prompt-visible',      False, True),
-        ('kernel_to_login',         'boot-complete',             False, True)
+        ('kernel_to_login',         'boot-complete',             False, True),
+        ('kernel_to_android_start', 'android-start',             False, False)
     ]
 
     _CPU_FREQ_FILE = ('/sys/devices/system/cpu/cpu0'

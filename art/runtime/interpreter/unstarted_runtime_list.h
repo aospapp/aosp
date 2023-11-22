@@ -28,9 +28,13 @@
   V(ClassGetDeclaredField, "java.lang.reflect.Field java.lang.Class.getDeclaredField(java.lang.String)") \
   V(ClassGetDeclaredMethod, "java.lang.reflect.Method java.lang.Class.getDeclaredMethodInternal(java.lang.String, java.lang.Class[])") \
   V(ClassGetDeclaredConstructor, "java.lang.reflect.Constructor java.lang.Class.getDeclaredConstructorInternal(java.lang.Class[])") \
+  V(ClassGetDeclaringClass, "java.lang.Class java.lang.Class.getDeclaringClass()") \
   V(ClassGetEnclosingClass, "java.lang.Class java.lang.Class.getEnclosingClass()") \
   V(ClassGetInnerClassFlags, "int java.lang.Class.getInnerClassFlags(int)") \
+  V(ClassGetSignatureAnnotation, "java.lang.String[] java.lang.Class.getSignatureAnnotation()") \
+  V(ClassIsAnonymousClass, "boolean java.lang.Class.isAnonymousClass()") \
   V(ClassLoaderGetResourceAsStream, "java.io.InputStream java.lang.ClassLoader.getResourceAsStream(java.lang.String)") \
+  V(ConstructorNewInstance0, "java.lang.Object java.lang.reflect.Constructor.newInstance0(java.lang.Object[])") \
   V(VmClassLoaderFindLoadedClass, "java.lang.Class java.lang.VMClassLoader.findLoadedClass(java.lang.ClassLoader, java.lang.String)") \
   V(VoidLookupType, "java.lang.Class java.lang.Void.lookupType()") \
   V(SystemArraycopy, "void java.lang.System.arraycopy(java.lang.Object, int, java.lang.Object, int, int)") \
@@ -48,7 +52,6 @@
   V(MathPow, "double java.lang.Math.pow(double, double)") \
   V(ObjectHashCode, "int java.lang.Object.hashCode()") \
   V(DoubleDoubleToRawLongBits, "long java.lang.Double.doubleToRawLongBits(double)") \
-  V(DexCacheGetDexNative, "com.android.dex.Dex java.lang.DexCache.getDexNative()") \
   V(MemoryPeekByte, "byte libcore.io.Memory.peekByte(long)") \
   V(MemoryPeekShort, "short libcore.io.Memory.peekShortNative(long)") \
   V(MemoryPeekInt, "int libcore.io.Memory.peekIntNative(long)") \
@@ -59,18 +62,21 @@
   V(RuntimeAvailableProcessors, "int java.lang.Runtime.availableProcessors()") \
   V(StringGetCharsNoCheck, "void java.lang.String.getCharsNoCheck(int, int, char[], int)") \
   V(StringCharAt, "char java.lang.String.charAt(int)") \
-  V(StringSetCharAt, "void java.lang.String.setCharAt(int, char)") \
+  V(StringDoReplace, "java.lang.String java.lang.String.doReplace(char, char)") \
   V(StringFactoryNewStringFromChars, "java.lang.String java.lang.StringFactory.newStringFromChars(int, int, char[])") \
   V(StringFactoryNewStringFromString, "java.lang.String java.lang.StringFactory.newStringFromString(java.lang.String)") \
   V(StringFastSubstring, "java.lang.String java.lang.String.fastSubstring(int, int)") \
   V(StringToCharArray, "char[] java.lang.String.toCharArray()") \
+  V(ThreadCurrentThread, "java.lang.Thread java.lang.Thread.currentThread()") \
+  V(ThreadGetNativeState, "int java.lang.Thread.nativeGetStatus(boolean)") \
   V(UnsafeCompareAndSwapLong, "boolean sun.misc.Unsafe.compareAndSwapLong(java.lang.Object, long, long, long)") \
   V(UnsafeCompareAndSwapObject, "boolean sun.misc.Unsafe.compareAndSwapObject(java.lang.Object, long, java.lang.Object, java.lang.Object)") \
   V(UnsafeGetObjectVolatile, "java.lang.Object sun.misc.Unsafe.getObjectVolatile(java.lang.Object, long)") \
   V(UnsafePutObjectVolatile, "void sun.misc.Unsafe.putObjectVolatile(java.lang.Object, long, java.lang.Object)") \
   V(UnsafePutOrderedObject, "void sun.misc.Unsafe.putOrderedObject(java.lang.Object, long, java.lang.Object)") \
   V(IntegerParseInt, "int java.lang.Integer.parseInt(java.lang.String)") \
-  V(LongParseLong, "long java.lang.Long.parseLong(java.lang.String)")
+  V(LongParseLong, "long java.lang.Long.parseLong(java.lang.String)") \
+  V(SystemIdentityHashCode, "int java.lang.System.identityHashCode(java.lang.Object)")
 
 // Methods that are native.
 #define UNSTARTED_RUNTIME_JNI_LIST(V)           \
@@ -92,7 +98,6 @@
   V(ArrayCreateMultiArray, "java.lang.Object java.lang.reflect.Array.createMultiArray(java.lang.Class, int[])") \
   V(ArrayCreateObjectArray, "java.lang.Object java.lang.reflect.Array.createObjectArray(java.lang.Class, int)") \
   V(ThrowableNativeFillInStackTrace, "java.lang.Object java.lang.Throwable.nativeFillInStackTrace()") \
-  V(SystemIdentityHashCode, "int java.lang.System.identityHashCode(java.lang.Object)") \
   V(ByteOrderIsLittleEndian, "boolean java.nio.ByteOrder.isLittleEndian()") \
   V(UnsafeCompareAndSwapInt, "boolean sun.misc.Unsafe.compareAndSwapInt(java.lang.Object, long, int, int)") \
   V(UnsafeGetIntVolatile, "int sun.misc.Unsafe.getIntVolatile(java.lang.Object, long)") \

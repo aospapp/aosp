@@ -15,6 +15,8 @@ from telemetry import page as page_module
 from telemetry.value import improvement_direction
 from telemetry.value import list_of_scalar_values
 from telemetry.value import scalar
+from telemetry.value import trace
+from tracing.trace_data import trace_data
 
 
 def _MakeStorySet():
@@ -47,6 +49,12 @@ class ChartJsonTest(unittest.TestCase):
     d = json.loads(self._output.getvalue())
     self.assertIn('foo', d['charts'])
 
+  def testOutputAndParseDisabled(self):
+    self._formatter.FormatDisabled()
+    d = json.loads(self._output.getvalue())
+    self.assertEquals(d['benchmark_name'], 'benchmark_name')
+    self.assertFalse(d['enabled'])
+
   def testAsChartDictSerializable(self):
     v0 = scalar.ScalarValue(self._story_set[0], 'foo', 'seconds', 3,
                             improvement_direction=improvement_direction.DOWN)
@@ -74,6 +82,7 @@ class ChartJsonTest(unittest.TestCase):
     self.assertEquals(d['benchmark_metadata']['description'],
                       'benchmark_description')
     self.assertEquals(d['benchmark_metadata']['type'], 'telemetry_benchmark')
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictNoDescription(self):
     page_specific_values = []
@@ -103,6 +112,7 @@ class ChartJsonTest(unittest.TestCase):
 
     self.assertTrue('MyIR@@foo' in d['charts'])
     self.assertTrue('http://www.foo.com/' in d['charts']['MyIR@@foo'])
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictPageSpecificValuesSamePageWithoutInteractionRecord(self):
     v0 = scalar.ScalarValue(self._story_set[0], 'foo', 'seconds', 3,
@@ -119,6 +129,7 @@ class ChartJsonTest(unittest.TestCase):
 
     self.assertTrue('foo' in d['charts'])
     self.assertTrue('http://www.foo.com/' in d['charts']['foo'])
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictPageSpecificValuesAndComputedSummaryWithTraceName(self):
     v0 = scalar.ScalarValue(self._story_set[0], 'foo.bar', 'seconds', 3,
@@ -137,6 +148,7 @@ class ChartJsonTest(unittest.TestCase):
     self.assertTrue('http://www.foo.com/' in d['charts']['foo'])
     self.assertTrue('http://www.bar.com/' in d['charts']['foo'])
     self.assertTrue('bar' in d['charts']['foo'])
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictPageSpecificValuesAndComputedSummaryWithoutTraceName(self):
     v0 = scalar.ScalarValue(self._story_set[0], 'foo', 'seconds', 3,
@@ -155,6 +167,7 @@ class ChartJsonTest(unittest.TestCase):
     self.assertTrue('http://www.foo.com/' in d['charts']['foo'])
     self.assertTrue('http://www.bar.com/' in d['charts']['foo'])
     self.assertTrue('summary' in d['charts']['foo'])
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictSummaryValueWithTraceName(self):
     v0 = list_of_scalar_values.ListOfScalarValues(
@@ -169,6 +182,7 @@ class ChartJsonTest(unittest.TestCase):
         summary_values)
 
     self.assertTrue('bar' in d['charts']['foo'])
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictSummaryValueWithoutTraceName(self):
     v0 = list_of_scalar_values.ListOfScalarValues(
@@ -183,6 +197,22 @@ class ChartJsonTest(unittest.TestCase):
         summary_values)
 
     self.assertTrue('summary' in d['charts']['foo'])
+    self.assertTrue(d['enabled'])
+
+  def testAsChartDictWithTraceValuesThatHasTirLabel(self):
+    v = trace.TraceValue(self._story_set[0],
+                         trace_data.CreateTraceDataFromRawData([{'test': 1}]))
+    v.tir_label = 'background'
+
+    d = chart_json_output_formatter.ResultsAsChartDict(
+        self._benchmark_metadata,
+        page_specific_values=[v],
+        summary_values=[v])
+
+    self.assertTrue('trace' in d['charts'])
+    self.assertTrue('http://www.foo.com/' in d['charts']['trace'],
+                    msg=d['charts']['trace'])
+    self.assertTrue(d['enabled'])
 
   def testAsChartDictValueSmokeTest(self):
     v0 = list_of_scalar_values.ListOfScalarValues(

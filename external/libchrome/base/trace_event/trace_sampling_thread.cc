@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 
+#include "base/trace_event/trace_event.h"
 #include "base/trace_event/trace_event_impl.h"
 #include "base/trace_event/trace_log.h"
 #include "base/trace_event/trace_sampling_thread.h"
@@ -24,7 +25,9 @@ class TraceBucketData {
 };
 
 TraceSamplingThread::TraceSamplingThread()
-    : thread_running_(false), waitable_event_for_testing_(false, false) {}
+    : thread_running_(false),
+      waitable_event_for_testing_(WaitableEvent::ResetPolicy::AUTOMATIC,
+                                  WaitableEvent::InitialState::NOT_SIGNALED) {}
 
 TraceSamplingThread::~TraceSamplingThread() {}
 
@@ -54,8 +57,9 @@ void TraceSamplingThread::DefaultSamplingCallback(
   ExtractCategoryAndName(combined, &category_group, &name);
   TRACE_EVENT_API_ADD_TRACE_EVENT(
       TRACE_EVENT_PHASE_SAMPLE,
-      TraceLog::GetCategoryGroupEnabled(category_group), name, 0, 0, NULL, NULL,
-      NULL, NULL, 0);
+      TraceLog::GetCategoryGroupEnabled(category_group), name,
+      trace_event_internal::kGlobalScope, trace_event_internal::kNoId, 0,
+      NULL, NULL, NULL, NULL, 0);
 }
 
 void TraceSamplingThread::GetSamples() {

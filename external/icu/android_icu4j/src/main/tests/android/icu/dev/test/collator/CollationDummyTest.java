@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2014, International Business Machines Corporation and
@@ -16,21 +18,17 @@ package android.icu.dev.test.collator;
  
 import java.util.Locale;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationElementIterator;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
 import android.icu.text.Normalizer;
 import android.icu.text.RuleBasedCollator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
  
-@RunWith(IcuTestFmwkRunner.class)
 public class CollationDummyTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new CollationDummyTest().run(args);
-    }
-    
     //testSourceCases[][] and testTargetCases[][], testCases[][] are ported from the file callcoll.c in icu4c
     private static char[][] testSourceCases = {
         {0x61, 0x62, 0x27, 0x63},
@@ -172,18 +170,20 @@ public class CollationDummyTest extends TestFmwk {
     
     final int MAX_TOKEN_LEN = 16;
     
-    public RuleBasedCollator myCollation;
+    private RuleBasedCollator myCollation;
     
     public CollationDummyTest() {
     }
-    protected void init() throws Exception{
+    
+    @Before
+    public void init() throws Exception {
         String ruleset = "& C < ch, cH, Ch, CH & Five, 5 & Four, 4 & one, 1 & Ampersand; '&' & Two, 2 ";
         // String ruleset = "& Four, 4";
-        myCollation = null;
         myCollation = new RuleBasedCollator(ruleset);
     }
     
     // perform test with strength tertiary
+    @Test
     public void TestTertiary() {
         int i = 0;
         myCollation.setStrength(Collator.TERTIARY);
@@ -193,6 +193,7 @@ public class CollationDummyTest extends TestFmwk {
     }
 
     // perform test with strength PRIMARY
+    @Test
     public void TestPrimary() {
        // problem in strcollinc for unfinshed contractions 
        myCollation.setStrength(Collator.PRIMARY);
@@ -202,6 +203,7 @@ public class CollationDummyTest extends TestFmwk {
     }
 
     //perform test with strength SECONDARY
+    @Test
     public void TestSecondary() {
         int i;
         myCollation.setStrength(Collator.SECONDARY);
@@ -211,6 +213,7 @@ public class CollationDummyTest extends TestFmwk {
     }
 
     // perform extra tests
+    @Test
     public void TestExtra() {
         int i, j;
         myCollation.setStrength(Collator.TERTIARY);
@@ -221,6 +224,7 @@ public class CollationDummyTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestIdentical() {
         int i;
         myCollation.setStrength(Collator.IDENTICAL);
@@ -229,6 +233,7 @@ public class CollationDummyTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestJB581() {
         String source = "THISISATEST.";
         String target = "Thisisatest.";
@@ -272,6 +277,7 @@ public class CollationDummyTest extends TestFmwk {
     /**
     * Tests surrogate support.
     */
+    @Test
     public void TestSurrogates() 
     {
         String rules = "&z<'\ud800\udc00'<'\ud800\udc0a\u0308'<A";
@@ -338,6 +344,7 @@ public class CollationDummyTest extends TestFmwk {
     * tag has the value shifted, any codepoints before [variable top] should give
     * a primary ce of 0.
     */
+    @Test
     public void TestVariableTop() {
         /*
          * Starting with ICU 53, setting the variable top via a pseudo relation string
@@ -403,6 +410,7 @@ public class CollationDummyTest extends TestFmwk {
         }
     }
     
+    @Test
     public void TestJB1401() {
         Collator     myCollator = null;
         char[] NFD_UnsafeStartChars = {

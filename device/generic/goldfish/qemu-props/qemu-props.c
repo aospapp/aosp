@@ -35,7 +35,7 @@
 
 #include <cutils/properties.h>
 #include <unistd.h>
-#include <hardware/qemud.h>
+#include "qemud.h"
 
 /* Name of the qemud service we want to connect to.
  */
@@ -108,6 +108,20 @@ int  main(void)
         }
     }
 
+
+    /* HACK start adbd periodically every minute, if adbd is already running, this is a no-op */
+    for(;;) {
+        usleep(60000000);
+        char  temp[BUFF_SIZE];
+        property_get("sys.boot_completed", temp, "");
+        int is_boot_completed = (strncmp(temp, "1", 1) == 0) ? 1 : 0;
+        if (is_boot_completed) {
+            DD("start adbd ...");
+            property_set("qemu.adbd", "start");
+        } else {
+            DD("skip starting adbd ...");
+        }
+    }
 
     /* finally, close the channel and exit */
     close(qemud_fd);

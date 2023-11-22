@@ -16,17 +16,19 @@
 
 package android.car.test;
 
-import com.android.car.vehiclenetwork.IVehicleNetworkHalMock;
-import com.android.car.vehiclenetwork.VehiclePropValueParcelable;
+import android.os.IBinder;
 
 /** @hide */
 interface ICarTest {
-    /** For testing only. inject events. */
-    void injectEvent(in VehiclePropValueParcelable value)         = 1;
-    /** For testing only. Start in mocking mode. */
-    void startMocking(in IVehicleNetworkHalMock mock, int flags)  = 2;
-    /** Finish mocking mode. */
-    void stopMocking(in IVehicleNetworkHalMock mock)              = 3;
-    /** If given property is supported or not */
-    boolean isPropertySupported(int property)                     = 4;
+    /**
+     * Calling this method will effectively call release method for all car services. This make
+     * sense for test purpose when it is neccessary to reduce interference between testing and
+     * real instances of Car Service. For example changing audio focus in CarAudioService may
+     * affect framework's AudioManager listeners. AudioManager has a lot of complex logic which is
+     * hard to mock.
+     */
+    void stopCarService(IBinder token) = 1;
+
+    /** Re initializes car services that was previously released by #releaseCarService method. */
+    void startCarService(IBinder token) = 2;
 }

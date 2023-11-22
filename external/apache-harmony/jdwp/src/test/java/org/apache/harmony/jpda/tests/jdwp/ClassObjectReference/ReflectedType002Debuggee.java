@@ -25,6 +25,8 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
  * Debuggee for ReflectedType002Test unit test.
  */
 public class ReflectedType002Debuggee extends SyncDebuggee {
+    @SuppressWarnings("unused")
+    @Override
     public void run() {
         // Preload test classes.
         Object[] objectArray = new Object[0];

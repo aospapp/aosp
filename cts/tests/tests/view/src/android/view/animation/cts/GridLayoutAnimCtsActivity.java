@@ -16,13 +16,12 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
-
 import android.app.Activity;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.cts.R;
 import android.widget.AbsListView;
 import android.widget.GridView;
 import android.widget.ImageView;

@@ -27,23 +27,24 @@ namespace art {
 class CompilerDriver;
 class DexFile;
 
-// Temporary measure until we have caught up with the Java 7 definition of Math.round. b/26327751
-static constexpr bool kRoundIsPlusPointFive = false;
+// Positive floating-point infinities.
+static constexpr uint32_t kPositiveInfinityFloat = 0x7f800000U;
+static constexpr uint64_t kPositiveInfinityDouble = UINT64_C(0x7ff0000000000000);
+
+static constexpr uint32_t kNanFloat = 0x7fc00000U;
+static constexpr uint64_t kNanDouble = 0x7ff8000000000000;
 
 // Recognize intrinsics from HInvoke nodes.
 class IntrinsicsRecognizer : public HOptimization {
  public:
-  IntrinsicsRecognizer(HGraph* graph, CompilerDriver* driver, OptimizingCompilerStats* stats)
-      : HOptimization(graph, kIntrinsicsRecognizerPassName, stats),
-        driver_(driver) {}
+  IntrinsicsRecognizer(HGraph* graph, OptimizingCompilerStats* stats)
+      : HOptimization(graph, kIntrinsicsRecognizerPassName, stats) {}
 
   void Run() OVERRIDE;
 
   static constexpr const char* kIntrinsicsRecognizerPassName = "intrinsics_recognition";
 
  private:
-  CompilerDriver* driver_;
-
   DISALLOW_COPY_AND_ASSIGN(IntrinsicsRecognizer);
 };
 
@@ -57,7 +58,7 @@ class IntrinsicVisitor : public ValueObject {
     switch (invoke->GetIntrinsic()) {
       case Intrinsics::kNone:
         return;
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironment, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, ...) \
       case Intrinsics::k ## Name: \
         Visit ## Name(invoke);    \
         return;
@@ -72,7 +73,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 
   // Define visitor methods.
 
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironment, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, ...) \
   virtual void Visit ## Name(HInvoke* invoke ATTRIBUTE_UNUSED) { \
   }
 #include "intrinsics_list.h"
@@ -111,6 +112,39 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 
     codegen->GetMoveResolver()->EmitNativeCode(&parallel_move);
   }
+
+  static void ComputeIntegerValueOfLocations(HInvoke* invoke,
+                                             CodeGenerator* codegen,
+                                             Location return_location,
+                                             Location first_argument_location);
+
+  // Temporary data structure for holding Integer.valueOf useful data. We only
+  // use it if the mirror::Class* are in the boot image, so it is fine to keep raw
+  // mirror::Class pointers in this structure.
+  struct IntegerValueOfInfo {
+    IntegerValueOfInfo()
+        : integer_cache(nullptr),
+          integer(nullptr),
+          cache(nullptr),
+          low(0),
+          high(0),
+          value_offset(0) {}
+
+    // The java.lang.IntegerCache class.
+    mirror::Class* integer_cache;
+    // The java.lang.Integer class.
+    mirror::Class* integer;
+    // Value of java.lang.IntegerCache#cache.
+    mirror::ObjectArray<mirror::Object>* cache;
+    // Value of java.lang.IntegerCache#low.
+    int32_t low;
+    // Value of java.lang.IntegerCache#high.
+    int32_t high;
+    // The offset of java.lang.Integer.value.
+    int32_t value_offset;
+  };
+
+  static IntegerValueOfInfo ComputeIntegerValueOfInfo();
 
  protected:
   IntrinsicVisitor() {}
@@ -161,7 +195,7 @@ public:                                                               \
 void Set##name() { SetBit(k##name); }                                 \
 bool Get##name() const { return IsBitSet(k##name); }                  \
 private:                                                              \
-static constexpr size_t k##name = bit + kNumberOfGenericOptimizations
+static constexpr size_t k##name = (bit) + kNumberOfGenericOptimizations
 
 class StringEqualsOptimizations : public IntrinsicOptimizations {
  public:
@@ -235,9 +269,30 @@ UNREACHABLE_INTRINSIC(Arch, IntegerCompare)         \
 UNREACHABLE_INTRINSIC(Arch, LongCompare)            \
 UNREACHABLE_INTRINSIC(Arch, IntegerSignum)          \
 UNREACHABLE_INTRINSIC(Arch, LongSignum)             \
+UNREACHABLE_INTRINSIC(Arch, StringCharAt)           \
+UNREACHABLE_INTRINSIC(Arch, StringIsEmpty)          \
+UNREACHABLE_INTRINSIC(Arch, StringLength)           \
 UNREACHABLE_INTRINSIC(Arch, UnsafeLoadFence)        \
 UNREACHABLE_INTRINSIC(Arch, UnsafeStoreFence)       \
 UNREACHABLE_INTRINSIC(Arch, UnsafeFullFence)
+
+template <typename IntrinsicLocationsBuilder, typename Codegenerator>
+bool IsCallFreeIntrinsic(HInvoke* invoke, Codegenerator* codegen) {
+  if (invoke->GetIntrinsic() != Intrinsics::kNone) {
+    // This invoke may have intrinsic code generation defined. However, we must
+    // now also determine if this code generation is truly there and call-free
+    // (not unimplemented, no bail on instruction features, or call on slow path).
+    // This is done by actually calling the locations builder on the instruction
+    // and clearing out the locations once result is known. We assume this
+    // call only has creating locations as side effects!
+    // TODO: Avoid wasting Arena memory.
+    IntrinsicLocationsBuilder builder(codegen);
+    bool success = builder.TryDispatch(invoke) && !invoke->GetLocations()->CanCall();
+    invoke->SetLocations(nullptr);
+    return success;
+  }
+  return false;
+}
 
 }  // namespace art
 

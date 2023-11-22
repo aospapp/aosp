@@ -16,10 +16,16 @@
 
 package android.widget.cts;
 
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -28,73 +34,80 @@ import android.widget.ListView;
 import android.widget.ViewSwitcher;
 import android.widget.ViewSwitcher.ViewFactory;
 
-import android.widget.cts.R;
-
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
 
 /**
  * Test {@link ViewSwitcher}.
  */
-public class ViewSwitcherTest extends AndroidTestCase {
-    private ViewSwitcher mViewSwitcher;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ViewSwitcherTest {
+    private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mViewSwitcher = null;
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
+    @Test
     public void testConstructor() {
-        new ViewSwitcher(getContext());
+        new ViewSwitcher(mContext);
 
-        new ViewSwitcher(getContext(), null);
+        new ViewSwitcher(mContext, null);
 
-        XmlPullParser parser = getContext().getResources().getXml(R.layout.viewswitcher_layout);
+        XmlPullParser parser = mContext.getResources().getXml(R.layout.viewswitcher_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
-        new ViewSwitcher(getContext(), attrs);
+        new ViewSwitcher(mContext, attrs);
     }
 
+    @Test
     public void testSetFactory() {
-        mViewSwitcher = new ViewSwitcher(getContext());
+        final ViewSwitcher viewSwitcher = new ViewSwitcher(mContext);
 
         MockViewFactory factory = new MockViewFactory();
-        mViewSwitcher.setFactory(factory);
+        viewSwitcher.setFactory(factory);
         assertTrue(factory.hasMakeViewCalled());
     }
 
+    @Test
     public void testReset() {
-        mViewSwitcher = new ViewSwitcher(getContext());
+        final ViewSwitcher viewSwitcher = new ViewSwitcher(mContext);
 
-        ListView lv1 = new ListView(getContext());
-        ListView lv2 = new ListView(getContext());
+        ListView lv1 = new ListView(mContext);
+        ListView lv2 = new ListView(mContext);
         assertEquals(View.VISIBLE, lv1.getVisibility());
         assertEquals(View.VISIBLE, lv2.getVisibility());
-        mViewSwitcher.addView(lv1, 0);
-        mViewSwitcher.addView(lv2, 1);
+        viewSwitcher.addView(lv1, 0);
+        viewSwitcher.addView(lv2, 1);
 
-        mViewSwitcher.reset();
+        viewSwitcher.reset();
         assertEquals(View.GONE, lv1.getVisibility());
         assertEquals(View.GONE, lv2.getVisibility());
     }
 
+    @Test
     public void testGetNextView() {
-        mViewSwitcher = new ViewSwitcher(getContext());
+        final ViewSwitcher viewSwitcher = new ViewSwitcher(mContext);
 
-        ListView lv1 = new ListView(getContext());
-        ListView lv2 = new ListView(getContext());
-        mViewSwitcher.addView(lv1, 0, new ViewGroup.LayoutParams(20, 25));
-        assertSame(lv1, mViewSwitcher.getChildAt(0));
-        assertNull(mViewSwitcher.getNextView());
+        ListView lv1 = new ListView(mContext);
+        ListView lv2 = new ListView(mContext);
+        viewSwitcher.addView(lv1, 0, new ViewGroup.LayoutParams(20, 25));
+        assertSame(lv1, viewSwitcher.getChildAt(0));
+        assertNull(viewSwitcher.getNextView());
 
-        mViewSwitcher.addView(lv2, 1, new ViewGroup.LayoutParams(20, 25));
-        assertSame(lv2, mViewSwitcher.getChildAt(1));
-        assertSame(lv2, mViewSwitcher.getNextView());
+        viewSwitcher.addView(lv2, 1, new ViewGroup.LayoutParams(20, 25));
+        assertSame(lv2, viewSwitcher.getChildAt(1));
+        assertSame(lv2, viewSwitcher.getNextView());
 
-        mViewSwitcher.setDisplayedChild(1);
-        assertSame(lv1, mViewSwitcher.getNextView());
+        viewSwitcher.setDisplayedChild(1);
+        assertSame(lv1, viewSwitcher.getNextView());
 
         try {
-            ListView lv3 = new ListView(getContext());
-            mViewSwitcher.addView(lv3, 2, null);
+            ListView lv3 = new ListView(mContext);
+            viewSwitcher.addView(lv3, 2, null);
             fail("Should throw IllegalStateException here.");
         } catch (IllegalStateException e) {
         }
@@ -105,7 +118,7 @@ public class ViewSwitcherTest extends AndroidTestCase {
 
         public View makeView() {
             mMakeViewCalled = true;
-            return new ListView(getContext());
+            return new ListView(mContext);
         }
 
         public boolean hasMakeViewCalled() {

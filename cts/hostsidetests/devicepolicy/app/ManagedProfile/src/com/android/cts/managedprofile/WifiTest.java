@@ -16,6 +16,7 @@
 
 package com.android.cts.managedprofile;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
@@ -23,6 +24,7 @@ import android.net.wifi.WifiManager;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.android.compatibility.common.util.WifiConfigCreator.ACTION_CREATE_WIFI_CONFIG;
@@ -50,10 +52,27 @@ public class WifiTest extends AndroidTestCase {
     // Shared WifiManager instance.
     private WifiManager mWifiManager;
 
+    // Original setting of WifiManager.isWifiEnabled() before setup.
+    private boolean mWifiEnabled;
+
     @Override
     public void setUp() throws Exception {
         super.setUp();
         mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
+        mWifiEnabled = mWifiManager.isWifiEnabled();
+        if (!mWifiEnabled) {
+            mWifiManager.setWifiEnabled(true);
+            awaitWifiEnabledState(true);
+        }
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        if (!mWifiEnabled) {
+            mWifiManager.setWifiEnabled(false);
+            awaitWifiEnabledState(false);
+        }
+        super.tearDown();
     }
 
     /**
@@ -92,7 +111,6 @@ public class WifiTest extends AndroidTestCase {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
         }
-
         assertTrue(awaitNetworkState(NETWORK_SSID, /* exists */ false));
     }
 
@@ -103,6 +121,16 @@ public class WifiTest extends AndroidTestCase {
      */
     public void testWifiNetworkDoesNotExist() throws Exception {
         assertTrue(awaitNetworkState(NETWORK_SSID, /* exists */ false));
+    }
+
+    public void testCannotGetWifiMacAddress() {
+        DevicePolicyManager dpm = getContext().getSystemService(DevicePolicyManager.class);
+        try {
+            dpm.getWifiMacAddress(BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT);
+            fail("Managed Profile owner shouldn't be able to get the MAC address");
+        } catch (SecurityException expected) {
+
+        }
     }
 
     /**
@@ -123,6 +151,23 @@ public class WifiTest extends AndroidTestCase {
     }
 
     /**
+     * Block until {@link WifiManager#isWifiEnabled()} returns {@param enabled}. Wait for up to
+     * {@link WifiTest#UPDATE_TIMEOUT_MS} milliseconds, in increments of
+     * {@link WifiTest#UPDATE_INTERVAL_MS}.
+     */
+    private void awaitWifiEnabledState(boolean enabled) throws RuntimeException {
+        for (int probes = 0; probes * UPDATE_INTERVAL_MS <= UPDATE_TIMEOUT_MS; probes++) {
+            if (probes != 0) {
+                SystemClock.sleep(UPDATE_INTERVAL_MS);
+            }
+            if (mWifiManager.isWifiEnabled() == enabled) {
+                return;
+            }
+        }
+        throw new RuntimeException("Waited too long for wifi enabled state = " + enabled);
+    }
+
+    /**
      * Internal method to find an existing {@link WifiConfiguration} with the given SSID.
      *
      * @return A {@link WifiConfiguration} matching the specification, or {@code null} if no such
@@ -132,9 +177,12 @@ public class WifiTest extends AndroidTestCase {
         if (!ssid.startsWith("\"")) {
             ssid = '"' + ssid + '"';
         }
-        for (WifiConfiguration config : mWifiManager.getConfiguredNetworks()) {
-            if (ssid.equals(config.SSID)) {
-                return config;
+        final List<WifiConfiguration> configs = mWifiManager.getConfiguredNetworks();
+        if (configs != null) {
+            for (WifiConfiguration config : configs) {
+                if (ssid.equals(config.SSID)) {
+                    return config;
+                }
             }
         }
         return null;

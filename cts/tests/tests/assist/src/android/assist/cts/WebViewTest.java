@@ -17,13 +17,12 @@
 package android.assist.cts;
 
 import android.assist.common.Utils;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.provider.Settings;
+import android.os.LocaleList;
 import android.util.Log;
 
 import java.util.concurrent.CountDownLatch;
@@ -107,6 +106,8 @@ public class WebViewTest extends AssistTestBase {
         verifyAssistDataNullness(false, false, false, false);
         verifyAssistStructure(Utils.getTestAppComponent(TEST_CASE_TYPE),
                 false /*FLAG_SECURE set*/);
+        verifyAssistStructureHasWebDomain(Utils.WEBVIEW_HTML_DOMAIN);
+        verifyAssistStructureHasLocaleList(Utils.WEBVIEW_LOCALE_LIST);
     }
 
     private class WebViewTestBroadcastReceiver extends BroadcastReceiver {

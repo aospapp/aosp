@@ -21,8 +21,7 @@ class login_Cryptohome(test.test):
         username = ''
         with chrome.Chrome() as cr:
             username = cr.username
-            if not cryptohome.is_vault_mounted(user=username,
-                                               allow_fail=False):
+            if not cryptohome.is_permanent_vault_mounted(username):
                 raise error.TestFail('Expected to find a mounted vault.')
 
         if cryptohome.is_vault_mounted(user=username,
@@ -40,8 +39,9 @@ class login_Cryptohome(test.test):
         cryptohome.unmount_vault(TEST_USER)
 
         with chrome.Chrome():
-            if not cryptohome.is_vault_mounted(user=username,
-                                               allow_fail=False):
+            if not cryptohome.is_permanent_vault_mounted(username):
                 raise error.TestFail('Expected to find user\'s mounted vault.')
             if os.path.exists(test_file):
                 raise error.TestFail('Expected to not find the test file.')
+
+        cryptohome.remove_vault(TEST_USER)

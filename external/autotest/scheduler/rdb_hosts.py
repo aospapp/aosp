@@ -18,15 +18,23 @@ back to the rdb.
 
 import logging
 import time
+
 from django.core import exceptions as django_exceptions
 
 import common
+from autotest_lib.client.common_lib import utils
 from autotest_lib.frontend.afe import rdb_model_extensions as rdb_models
 from autotest_lib.frontend.afe import models as afe_models
 from autotest_lib.scheduler import rdb_requests
 from autotest_lib.scheduler import rdb_utils
+from autotest_lib.site_utils import lab_inventory
 from autotest_lib.site_utils import metadata_reporter
 from autotest_lib.site_utils.suite_scheduler import constants
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 class RDBHost(object):
@@ -174,6 +182,11 @@ class RDBClientHostWrapper(RDBHost):
     to the host.
     """
 
+    _HOST_WORKING_METRIC = 'chromeos/autotest/dut_working'
+    _HOST_STATUS_METRIC = 'chromeos/autotest/dut_status'
+    _HOST_POOL_METRIC = 'chromeos/autotest/dut_pool'
+
+
     def __init__(self, **kwargs):
 
         # This class is designed to only check for the bare minimum
@@ -231,13 +244,70 @@ class RDBClientHostWrapper(RDBHost):
         metadata_reporter.queue(metadata)
 
 
+    def get_metric_fields(self):
+        """Generate default set of fields to include for Monarch.
+
+        @return: Dictionary of default fields.
+        """
+        fields = {
+            'dut_host_name': self.hostname,
+            'board': self.board or '',
+        }
+
+        return fields
+
+
+    def record_pool(self, fields):
+        """Report to Monarch current pool of dut.
+
+        @param fields   Dictionary of fields to include.
+        """
+        pool = ''
+        if len(self.pools) == 1:
+            pool = self.pools[0]
+        if pool in lab_inventory.MANAGED_POOLS:
+            pool = 'managed:' + pool
+
+        metrics.String(self._HOST_POOL_METRIC,
+                       reset_after=True).set(pool, fields=fields)
+
+
     def set_status(self, status):
         """Proxy for setting the status of a host via the rdb.
 
         @param status: The new status.
         """
+        # Update elasticsearch db.
         self._update({'status': status})
         self.record_state('host_history', 'status', status)
+
+        # Update Monarch.
+        fields = self.get_metric_fields()
+        self.record_pool(fields)
+        # As each device switches state, indicate that it is not in any
+        # other state.  This allows Monarch queries to avoid double counting
+        # when additional points are added by the Window Align operation.
+        host_status_metric = metrics.Boolean(
+                self._HOST_STATUS_METRIC, reset_after=True)
+        for s in rdb_models.AbstractHostModel.Status.names:
+            fields['status'] = s
+            host_status_metric.set(s == status, fields=fields)
+
+
+    def record_working_state(self, working, timestamp):
+        """Report to Monarch whether we are working or broken.
+
+        @param working    Host repair status. `True` means that the DUT
+                          is up and expected to pass tests.  `False`
+                          means the DUT has failed repair and requires
+                          manual intervention.
+        @param timestamp  Time that the status was recorded.
+        """
+        fields = self.get_metric_fields()
+        metrics.Boolean(
+                self._HOST_WORKING_METRIC, reset_after=True).set(
+                        working, fields=fields)
+        self.record_pool(fields)
 
 
     def update_field(self, fieldname, value):
@@ -355,5 +425,3 @@ def return_rdb_host(func):
         hosts = func(*args, **kwargs)
         return [RDBServerHostWrapper(host) for host in hosts]
     return get_rdb_host
-
-

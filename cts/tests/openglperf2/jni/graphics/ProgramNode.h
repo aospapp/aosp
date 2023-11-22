@@ -20,7 +20,7 @@
 
 class ProgramNode: public SceneGraphNode {
 public:
-    ProgramNode(Program& program);
+    explicit ProgramNode(Program& program);
     virtual ~ProgramNode() {};
     void drawProgram(Matrix& model, Matrix& view, Matrix& projection);
 protected:

@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Acil durum uyarısı"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Hücre yayını"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Acil durum ayarları"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Yayın mesajları"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Bildirimleri aç"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Acil durum uyarısı yayınlarını görüntüle"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Uyarı hatırlatıcı"</string>
@@ -102,8 +103,8 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"Alınma tarihi:"</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> okunmamış uyarı."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Yeni uyarılar"</string>
-    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"İlk CMAS uyarısı (Başkanlık Düzeyinde Uyarı hariç) görüntülendikten sonra devre dışı bırakma iletişim kutusu gösterilir."</string>
-    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Devre dışı bır. ile. kut. göster"</string>
+    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"İlk CMAS uyarısı (Ulusal Düzeyde Alarm hariç) görüntülendikten sonra devre dışı bırakma iletişim kutusu gösterilir."</string>
+    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Devre dışı bırakma seçeneğini göster"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Şu anda Acil Durum uyarılarını alabiliyorsunuz. Acil Durum Uyarılarını almaya devam etmek istiyor musunuz?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Evet"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Hayır"</string>

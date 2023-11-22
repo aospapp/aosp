@@ -33,6 +33,7 @@ using base::WriteFile;
 using brillo::AudioDeviceHandlerMock;
 using testing::_;
 using testing::AnyNumber;
+using testing::AtLeast;
 
 namespace brillo {
 
@@ -67,6 +68,7 @@ TEST_F(AudioDeviceHandlerTest, DisconnectAllSupportedDevicesCallsDisconnect) {
               NotifyAudioPolicyService(
                   _, AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE)).Times(3);
   handler_.DisconnectAllSupportedDevices();
+  EXPECT_EQ(handler_.changed_devices_.size(), 3);
 }
 
 // Test that Init() calls DisconnectAllSupportedDevices().
@@ -74,9 +76,15 @@ TEST_F(AudioDeviceHandlerTest, InitCallsDisconnectAllSupportedDevices) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(
                   _, AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE)).Times(3);
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesDisconnected))
+      .Times(AtLeast(1));
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(
                   _, AUDIO_POLICY_DEVICE_STATE_AVAILABLE)).Times(AnyNumber());
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected))
+      .Times(AnyNumber());
   handler_.Init(nullptr);
 }
 
@@ -86,11 +94,15 @@ TEST_F(AudioDeviceHandlerTest, InitialAudioStateMic) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_IN_WIRED_HEADSET,
                                        AUDIO_POLICY_DEVICE_STATE_AVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected));
   handler_.GetInitialAudioDeviceState(h2w_file_path_);
   EXPECT_NE(
       handler_.connected_input_devices_.find(AUDIO_DEVICE_IN_WIRED_HEADSET),
       handler_.connected_input_devices_.end());
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], AUDIO_DEVICE_IN_WIRED_HEADSET);
 }
 
 // Test GetInitialAudioDeviceState() with a headphone.
@@ -99,16 +111,22 @@ TEST_F(AudioDeviceHandlerTest, InitialAudioStateHeadphone) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
                                        AUDIO_POLICY_DEVICE_STATE_AVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected));
   handler_.GetInitialAudioDeviceState(h2w_file_path_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_NE(
       handler_.connected_output_devices_.find(AUDIO_DEVICE_OUT_WIRED_HEADPHONE),
       handler_.connected_output_devices_.end());
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
 }
 
 // Test GetInitialAudioDeviceState() with a headset.
 TEST_F(AudioDeviceHandlerTest, InitialAudioStateHeadset) {
   WriteToH2WFile(3);
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected));
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_IN_WIRED_HEADSET,
                                        AUDIO_POLICY_DEVICE_STATE_AVAILABLE));
@@ -122,6 +140,7 @@ TEST_F(AudioDeviceHandlerTest, InitialAudioStateHeadset) {
   EXPECT_NE(
       handler_.connected_output_devices_.find(AUDIO_DEVICE_OUT_WIRED_HEADSET),
       handler_.connected_output_devices_.end());
+  EXPECT_EQ(handler_.changed_devices_.size(), 2);
 }
 
 // Test GetInitialAudioDeviceState() without any devices connected to the audio
@@ -129,9 +148,11 @@ TEST_F(AudioDeviceHandlerTest, InitialAudioStateHeadset) {
 // by Init().
 TEST_F(AudioDeviceHandlerTest, InitialAudioStateNone) {
   WriteToH2WFile(0);
+  EXPECT_CALL(handler_, TriggerCallback(_));
   handler_.GetInitialAudioDeviceState(h2w_file_path_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 0);
 }
 
 // Test GetInitialAudioDeviceState() with an invalid file. The audio handler
@@ -150,6 +171,7 @@ TEST_F(AudioDeviceHandlerTest, ProcessEventEmpty) {
   event.type = 0;
   event.code = 0;
   event.value = 0;
+  EXPECT_CALL(handler_, TriggerCallback(_));
   handler_.ProcessEvent(event);
   EXPECT_FALSE(handler_.headphone_);
   EXPECT_FALSE(handler_.microphone_);
@@ -215,7 +237,10 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemNone) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(
                   _, AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE)).Times(0);
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesDisconnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
+  EXPECT_EQ(handler_.changed_devices_.size(), 0);
 }
 
 // Test UpdateAudioSystem() when disconnecting a microphone.
@@ -225,9 +250,13 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemDisconnectMic) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(device,
                                        AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesDisconnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], device);
 }
 
 // Test UpdateAudioSystem() when disconnecting a headphone.
@@ -237,9 +266,13 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemDisconnectHeadphone) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(device,
                                        AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesDisconnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], device);
 }
 
 // Test UpdateAudioSystem() when disconnecting a headset & headphones.
@@ -256,9 +289,12 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemDisconnectHeadset) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
                                        AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesDisconnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 3);
 }
 
 // Test UpdateAudioSystem() when connecting a microphone.
@@ -267,9 +303,13 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemConnectMic) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_IN_WIRED_HEADSET,
                                        AUDIO_POLICY_DEVICE_STATE_AVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 1);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], AUDIO_DEVICE_IN_WIRED_HEADSET);
 }
 
 // Test UpdateAudioSystem() when connecting a headphone.
@@ -278,9 +318,13 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemConnectHeadphone) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
                                        AUDIO_POLICY_DEVICE_STATE_AVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
 }
 
 // Test UpdateAudioSystem() when connecting a headset.
@@ -293,9 +337,12 @@ TEST_F(AudioDeviceHandlerTest, UpdateAudioSystemConnectHeadset) {
   EXPECT_CALL(handler_,
               NotifyAudioPolicyService(AUDIO_DEVICE_OUT_WIRED_HEADSET,
                                        AUDIO_POLICY_DEVICE_STATE_AVAILABLE));
+  EXPECT_CALL(handler_, TriggerCallback(
+      AudioDeviceHandlerMock::DeviceConnectionState::kDevicesConnected));
   handler_.UpdateAudioSystem(handler_.headphone_, handler_.microphone_);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 1);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_.size(), 2);
 }
 
 // Test ConnectAudioDevice() with an input device.
@@ -309,6 +356,8 @@ TEST_F(AudioDeviceHandlerTest, ConnectAudioDeviceInput) {
   EXPECT_NE(
       handler_.connected_input_devices_.find(device),
       handler_.connected_input_devices_.end());
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], device);
 }
 
 // Test ConnectAudioDevice() with an output device.
@@ -322,6 +371,8 @@ TEST_F(AudioDeviceHandlerTest, ConnectAudioDeviceOutput) {
   EXPECT_NE(
       handler_.connected_output_devices_.find(device),
       handler_.connected_output_devices_.end());
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], device);
 }
 
 // Test DisconnectAudioDevice() with an input device.
@@ -335,6 +386,8 @@ TEST_F(AudioDeviceHandlerTest, DisconnectAudioDeviceInput) {
   handler_.DisconnectAudioDevice(device);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 0);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], device);
 }
 
 // Test DisconnectAudioDevice() with an output device.
@@ -348,6 +401,8 @@ TEST_F(AudioDeviceHandlerTest, DisconnectAudioDeviceOutput) {
   handler_.DisconnectAudioDevice(device);
   EXPECT_EQ(handler_.connected_input_devices_.size(), 1);
   EXPECT_EQ(handler_.connected_output_devices_.size(), 0);
+  EXPECT_EQ(handler_.changed_devices_.size(), 1);
+  EXPECT_EQ(handler_.changed_devices_[0], device);
 }
 
 }  // namespace brillo

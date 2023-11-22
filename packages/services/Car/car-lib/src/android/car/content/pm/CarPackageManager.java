@@ -21,6 +21,7 @@ import android.annotation.SystemApi;
 import android.car.CarApiUtil;
 import android.car.CarManagerBase;
 import android.car.CarNotConnectedException;
+import android.content.ComponentName;
 import android.content.Context;
 import android.os.IBinder;
 import android.os.Looper;
@@ -32,7 +33,7 @@ import java.lang.annotation.RetentionPolicy;
 /**
  * Provides car specific API related with package management.
  */
-public class CarPackageManager implements CarManagerBase {
+public final class CarPackageManager implements CarManagerBase {
 
     /**
      * Flag for {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}. When this
@@ -122,13 +123,40 @@ public class CarPackageManager implements CarManagerBase {
     }
 
     /**
+     * Check if finishing Activity will lead into safe Activity (=allowed Activity) to be shown.
+     * This can be used by unsafe activity blocking Activity to check if finishing itself can
+     * lead into being launched again due to unsafe activity shown. Note that checking this does not
+     * guarantee that blocking will not be done as driving state can change after this call is made.
+     *
+     * @param activityName
+     * @return true if there is a safe Activity (or car is stopped) in the back of task stack
+     *         so that finishing the Activity will not trigger another Activity blocking. If
+     *         the given Activity is not in foreground, then it will return true as well as
+     *         finishing the Activity will not make any difference.
+     *
+     * @hide
+     */
+    @SystemApi
+    public boolean isActivityBackedBySafeActivity(ComponentName activityName)
+            throws CarNotConnectedException {
+        try {
+            return mService.isActivityBackedBySafeActivity(activityName);
+        } catch (IllegalStateException e) {
+            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
+        } catch (RemoteException e) {
+            //ignore as CarApi will handle disconnection anyway.
+        }
+        return true;
+    }
+
+    /**
      * Check if given activity is allowed while driving.
      * @param packageName
      * @param className
      * @return
      */
     public boolean isActivityAllowedWhileDriving(String packageName, String className)
-            throws CarNotConnectedException{
+            throws CarNotConnectedException {
         try {
             return mService.isActivityAllowedWhileDriving(packageName, className);
         } catch (IllegalStateException e) {

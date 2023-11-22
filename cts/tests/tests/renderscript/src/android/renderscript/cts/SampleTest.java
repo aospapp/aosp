@@ -86,6 +86,9 @@ public class SampleTest extends RSBaseCompute {
 
     @Override
     protected void tearDown() throws Exception {
+        mAlloc_RGBA_1D.destroy();
+        mAlloc_RGBA_2D.destroy();
+        mScript.destroy();
         super.tearDown();
     }
 

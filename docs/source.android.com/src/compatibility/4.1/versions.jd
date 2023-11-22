@@ -1,7 +1,7 @@
 page.title=Permitted Version Strings for Android 4.1
 @jd:body
 
-<p>As described in Section 3.2.2 of the <a href="/compatibility/android-4.1-cdd.pdf">Android 4.1 Compatibility Definition</a>, 
+<p>As described in Section 3.2.2 of the <a href="android-4.1-cdd.pdf">Android 4.1 Compatibility Definition</a>, 
 only certain strings are allowable for the system property
 <code>android.os.Build.VERSION.RELEASE</code>. The reason for this is that
 applications and web sites may rely on predictable values for this string, and

@@ -90,6 +90,25 @@ class PDConsoleUtils(object):
         """
         return self.console.send_command_get_output(cmd, regexp)
 
+    def send_pd_command_get_reply_msg(self, cmd):
+        """Send PD protocol msg, get PD control msg reply
+
+        The PD console debug mode is enabled prior to sending
+        a pd protocol message. This allows the
+        control message reply to be extracted. The debug mode
+        is disabled prior to exiting.
+
+        @param cmd: pd command to issue to the UART console
+
+        @returns: PD control header message
+        """
+        # Enable PD console debug mode to show control messages
+        self.enable_pd_console_debug()
+        m = self.send_pd_command_get_output(cmd, ['RECV\s([\w]+)'])
+        ctrl_msg = int(m[0][1], 16) & self.PD_CONTROL_MSG_MASK
+        self.disable_pd_console_debug()
+        return ctrl_msg
+
     def verify_pd_console(self):
         """Verify that PD commands exist on UART console
 
@@ -119,7 +138,7 @@ class PDConsoleUtils(object):
         pd_cmd = cmd +" " + str(port) + " " + subcmd
         # Two FW versions for this command, get full line.
         m = self.send_pd_command_get_output(pd_cmd,
-                                            ['(Port.*) - (Role:.*)\r'])
+                                            ['(Port.*) - (Role:.*)\n'])
 
         # Extract desired values from result string
         state_result = {}
@@ -234,6 +253,37 @@ class PDConsoleUtils(object):
 
         return status
 
+    def swap_power_role(self, port):
+        """Attempt a power role swap
+
+        This method attempts to execute a power role swap. A check
+        is made to ensure that dualrole mode is enabled and that
+        a PD contract is currently established. If both checks pass,
+        then the power role swap command is issued. After a delay,
+        if a PD contract is established and the current state does
+        not equal the starting state, then it was successful.
+
+        @param port: pd port number
+
+        @returns: True if power swap is successful, False otherwise.
+        """
+        # Get starting state
+        if self.is_pd_dual_role_enabled() == False:
+            logging.info('Dualrole Mode not enabled!')
+            return False
+        if self.is_pd_connected(port) == False:
+            logging.info('PD contract not established!')
+            return False
+        current_pr = self.get_pd_state(port)
+        swap_cmd = 'pd %d swap power' % port
+        self.send_pd_command(swap_cmd)
+        time.sleep(self.CONNECT_TIME)
+        new_pr = self.get_pd_state(port)
+        logging.info('Power swap: %s -> %s', current_pr, new_pr)
+        if self.is_pd_connected(port) == False:
+            return False
+        return bool(current_pr != new_pr)
+
     def disable_pd_console_debug(self):
         """Turn off PD console debug
 
@@ -328,7 +378,8 @@ class PDConnectionUtils(PDConsoleUtils):
                 # Wait for disconnect timer and give time to reconnect
                 time.sleep(self.dut_console.CONNECT_TIME + DISCONNECT_TIME_SEC)
                 if self.dut_console.is_pd_connected(port):
-                    logging.info('Plankton connection verfied on port %d', port)
+                    logging.info('Plankton connection verified on port %d',
+                                 port)
                     return True
             else:
                 # Could have disconnected other port, allow it to reconnect

@@ -20,11 +20,9 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHealth;
 import android.bluetooth.BluetoothHealthAppConfiguration;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.IBluetooth;
 import android.bluetooth.IBluetoothHealth;
 import android.bluetooth.IBluetoothHealthCallback;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -33,7 +31,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.util.Log;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.btservice.ProfileService.IProfileServiceBinder;
@@ -113,10 +110,10 @@ public class HealthService extends ProfileService {
 
     private void cleanupApps(){
         if (mApps != null) {
-            Iterator <Map.Entry<BluetoothHealthAppConfiguration,AppInfo>>it
+            Iterator<Map.Entry<BluetoothHealthAppConfiguration,AppInfo>> it
                         = mApps.entrySet().iterator();
             while (it.hasNext()) {
-               Map.Entry<BluetoothHealthAppConfiguration,AppInfo> entry   = it.next();
+               Map.Entry<BluetoothHealthAppConfiguration,AppInfo> entry = it.next();
                AppInfo appInfo = entry.getValue();
                if (appInfo != null)
                    appInfo.cleanup();
@@ -404,6 +401,12 @@ public class HealthService extends ProfileService {
             IBluetoothHealthCallback callback) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM,
                 "Need BLUETOOTH permission");
+
+        if (config == null) {
+            Log.e(TAG, "Trying to use a null config for registration");
+            return false;
+        }
+
         if (mApps.get(config) != null) {
             if (DBG) Log.d(TAG, "Config has already been registered");
             return false;
@@ -705,7 +708,6 @@ public class HealthService extends ProfileService {
         } else {
             mHealthDevices.put(device, newDeviceState);
         }
-        notifyProfileConnectionStateChanged(device, BluetoothProfile.HEALTH, newDeviceState, prevDeviceState);
     }
 
     /**

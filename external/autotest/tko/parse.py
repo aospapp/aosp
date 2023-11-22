@@ -1,20 +1,35 @@
 #!/usr/bin/python -u
 
+import collections
 import datetime
+import errno
+import fcntl
 import json
-import os, sys, optparse, fcntl, errno, traceback, socket
+import optparse
+import os
+import socket
+import subprocess
+import sys
+import traceback
 
 import common
+from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import mail, pidfile
 from autotest_lib.client.common_lib import utils
+from autotest_lib.client.common_lib.cros.graphite import autotest_es
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.tko import models as tko_models
+from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.site_utils import job_overhead
+from autotest_lib.site_utils.sponge_lib import sponge_utils
 from autotest_lib.tko import db as tko_db, utils as tko_utils
-from autotest_lib.tko import models, status_lib
+from autotest_lib.tko import models, parser_lib
 from autotest_lib.tko.perf_upload import perf_uploader
 
+_ParseOptions = collections.namedtuple(
+    'ParseOptions', ['reparse', 'mail_on_failure', 'dry_run', 'suite_report',
+                     'datastore_creds', 'export_to_gcloud_path'])
 
 def parse_args():
     """Parse args."""
@@ -39,6 +54,8 @@ def parse_args():
                       action="store")
     parser.add_option("-d", help="Database name", dest="db_name",
                       action="store")
+    parser.add_option("--dry-run", help="Do not actually commit any results.",
+                      dest="dry_run", action="store_true", default=False)
     parser.add_option("--write-pidfile",
                       help="write pidfile (.parser_execute)",
                       dest="write_pidfile", action="store_true",
@@ -47,6 +64,24 @@ def parse_args():
                       help="Record timing to metadata db",
                       dest="record_duration", action="store_true",
                       default=False)
+    parser.add_option("--suite-report",
+                      help=("Allows parsing job to attempt to create a suite "
+                            "timeline report, if it detects that the job being "
+                            "parsed is a suite job."),
+                      dest="suite_report", action="store_true",
+                      default=False)
+    parser.add_option("--datastore-creds",
+                      help=("The path to gcloud datastore credentials file, "
+                            "which will be used to upload suite timeline "
+                            "report to gcloud. If not specified, the one "
+                            "defined in shadow_config will be used."),
+                      dest="datastore_creds", action="store", default=None)
+    parser.add_option("--export-to-gcloud-path",
+                      help=("The path to export_to_gcloud script. Please find "
+                            "chromite path on your server. The script is under "
+                            "chromite/bin/."),
+                      dest="export_to_gcloud_path", action="store",
+                      default=None)
     options, args = parser.parse_args()
 
     # we need a results directory
@@ -55,6 +90,26 @@ def parse_args():
                          "be provided")
         parser.print_help()
         sys.exit(1)
+
+    if not options.datastore_creds:
+        gcloud_creds = global_config.global_config.get_config_value(
+            'GCLOUD', 'cidb_datastore_writer_creds', default=None)
+        options.datastore_creds = (site_utils.get_creds_abspath(gcloud_creds)
+                                   if gcloud_creds else None)
+
+    if not options.export_to_gcloud_path:
+        export_script = 'chromiumos/chromite/bin/export_to_gcloud'
+        # If it is a lab server, the script is under ~chromeos-test/
+        if os.path.exists(os.path.expanduser('~chromeos-test/%s' %
+                                             export_script)):
+            path = os.path.expanduser('~chromeos-test/%s' % export_script)
+        # If it is a local workstation, it is probably under ~/
+        elif os.path.exists(os.path.expanduser('~/%s' % export_script)):
+            path = os.path.expanduser('~/%s' % export_script)
+        # If it is not found anywhere, the default will be set to None.
+        else:
+            path = None
+        options.export_to_gcloud_path = path
 
     # pass the options back
     return options, args
@@ -177,18 +232,22 @@ def _invalidate_original_tests(orig_job_idx, retry_job_idx):
     tko_utils.dprint('DEBUG: Invalidated tests associated to job: ' + msg)
 
 
-def parse_one(db, jobname, path, reparse, mail_on_failure):
+def parse_one(db, jobname, path, parse_options):
     """Parse a single job. Optionally send email on failure.
 
     @param db: database object.
     @param jobname: the tag used to search for existing job in db,
                     e.g. '1234-chromeos-test/host1'
     @param path: The path to the results to be parsed.
-    @param reparse: True/False, whether this is reparsing of the job.
-    @param mail_on_failure: whether to send email on FAILED test.
-
-
+    @param parse_options: _ParseOptions instance.
     """
+    reparse = parse_options.reparse
+    mail_on_failure = parse_options.mail_on_failure
+    dry_run = parse_options.dry_run
+    suite_report = parse_options.suite_report
+    datastore_creds = parse_options.datastore_creds
+    export_to_gcloud_path = parse_options.export_to_gcloud_path
+
     tko_utils.dprint("\nScanning %s (%s)" % (jobname, path))
     old_job_idx = db.find_job(jobname)
     # old tests is a dict from tuple (test_name, subdir) to test_idx
@@ -209,7 +268,7 @@ def parse_one(db, jobname, path, reparse, mail_on_failure):
     status_version = job_keyval.get("status_version", 0)
 
     # parse out the job
-    parser = status_lib.parser(status_version)
+    parser = parser_lib.parser(status_version)
     job = parser.make_job(path)
     status_log = os.path.join(path, "status.log")
     if not os.path.exists(status_log):
@@ -244,14 +303,33 @@ def parse_one(db, jobname, path, reparse, mail_on_failure):
                 tko_utils.dprint("! Reparse returned new test "
                                  "testname=%r subdir=%r" %
                                  (test.testname, test.subdir))
-        for test_idx in old_tests.itervalues():
-            where = {'test_idx' : test_idx}
-            db.delete('tko_iteration_result', where)
-            db.delete('tko_iteration_perf_value', where)
-            db.delete('tko_iteration_attributes', where)
-            db.delete('tko_test_attributes', where)
-            db.delete('tko_test_labels_tests', {'test_id': test_idx})
-            db.delete('tko_tests', where)
+        if not dry_run:
+            for test_idx in old_tests.itervalues():
+                where = {'test_idx' : test_idx}
+                db.delete('tko_iteration_result', where)
+                db.delete('tko_iteration_perf_value', where)
+                db.delete('tko_iteration_attributes', where)
+                db.delete('tko_test_attributes', where)
+                db.delete('tko_test_labels_tests', {'test_id': test_idx})
+                db.delete('tko_tests', where)
+
+    job.build = None
+    job.board = None
+    job.build_version = None
+    job.suite = None
+    if job.label:
+        label_info = site_utils.parse_job_name(job.label)
+        if label_info:
+            job.build = label_info.get('build', None)
+            job.build_version = label_info.get('build_version', None)
+            job.board = label_info.get('board', None)
+            job.suite = label_info.get('suite', None)
+
+    # Upload job details to Sponge.
+    if not dry_run:
+        sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
+        if sponge_url:
+            job.keyval_dict['sponge_url'] = sponge_url
 
     # check for failures
     message_lines = [""]
@@ -266,35 +344,46 @@ def parse_one(db, jobname, path, reparse, mail_on_failure):
             message_lines.append(format_failure_message(
                 jobname, test.kernel.base, test.subdir,
                 test.status, test.reason))
+    try:
+        message = "\n".join(message_lines)
 
-    message = "\n".join(message_lines)
+        if not dry_run:
+            # send out a email report of failure
+            if len(message) > 2 and mail_on_failure:
+                tko_utils.dprint("Sending email report of failure on %s to %s"
+                                 % (jobname, job.user))
+                mailfailure(jobname, job, message)
 
-    # send out a email report of failure
-    if len(message) > 2 and mail_on_failure:
-        tko_utils.dprint("Sending email report of failure on %s to %s"
-                         % (jobname, job.user))
-        mailfailure(jobname, job, message)
+            # write the job into the database.
+            job_data = db.insert_job(
+                jobname, job,
+                parent_job_id=job_keyval.get(constants.PARENT_JOB_ID, None))
 
-    # write the job into the database.
-    db.insert_job(jobname, job,
-                  parent_job_id=job_keyval.get(constants.PARENT_JOB_ID, None))
+            # Upload perf values to the perf dashboard, if applicable.
+            for test in job.tests:
+                perf_uploader.upload_test(job, test, jobname)
 
-    # Upload perf values to the perf dashboard, if applicable.
-    for test in job.tests:
-        perf_uploader.upload_test(job, test)
+            # Although the cursor has autocommit, we still need to force it to
+            # commit existing changes before we can use django models, otherwise
+            # it will go into deadlock when django models try to start a new
+            # trasaction while the current one has not finished yet.
+            db.commit()
 
-    # Although the cursor has autocommit, we still need to force it to commit
-    # existing changes before we can use django models, otherwise it
-    # will go into deadlock when django models try to start a new trasaction
-    # while the current one has not finished yet.
-    db.commit()
-
-    # Handle retry job.
-    orig_afe_job_id = job_keyval.get(constants.RETRY_ORIGINAL_JOB_ID, None)
-    if orig_afe_job_id:
-        orig_job_idx = tko_models.Job.objects.get(
-                afe_job_id=orig_afe_job_id).job_idx
-        _invalidate_original_tests(orig_job_idx, job.index)
+            # Handle retry job.
+            orig_afe_job_id = job_keyval.get(constants.RETRY_ORIGINAL_JOB_ID,
+                                             None)
+            if orig_afe_job_id:
+                orig_job_idx = tko_models.Job.objects.get(
+                        afe_job_id=orig_afe_job_id).job_idx
+                _invalidate_original_tests(orig_job_idx, job.index)
+    except Exception as e:
+        metadata = {'path': path, 'error': str(e),
+                    'details': traceback.format_exc()}
+        tko_utils.dprint("Hit exception while uploading to tko db:\n%s" %
+                         traceback.format_exc())
+        autotest_es.post(use_http=True, type_str='parse_failure',
+                         metadata=metadata)
+        raise e
 
     # Serializing job into a binary file
     try:
@@ -317,7 +406,42 @@ def parse_one(db, jobname, path, reparse, mail_on_failure):
         tko_utils.dprint("DEBUG: tko_pb2.py doesn't exist. Create by "
                          "compiling tko/tko.proto.")
 
-    db.commit()
+    if not dry_run:
+        db.commit()
+
+    # Generate a suite report.
+    # Check whether this is a suite job, a suite job will be a hostless job, its
+    # jobname will be <JOB_ID>-<USERNAME>/hostless, the suite field will not be
+    # NULL. Only generate timeline report when datastore_parent_key is given.
+    try:
+        datastore_parent_key = job_keyval.get('datastore_parent_key', None)
+        if (suite_report and jobname.endswith('/hostless')
+            and job_data['suite'] and datastore_parent_key):
+            tko_utils.dprint('Start dumping suite timing report...')
+            timing_log = os.path.join(path, 'suite_timing.log')
+            dump_cmd = ("%s/site_utils/dump_suite_report.py %s "
+                        "--output='%s' --debug" %
+                        (common.autotest_dir, job_data['afe_job_id'],
+                         timing_log))
+            subprocess.check_output(dump_cmd, shell=True)
+            tko_utils.dprint('Successfully finish dumping suite timing report')
+
+            if (datastore_creds and export_to_gcloud_path
+                and os.path.exists(export_to_gcloud_path)):
+                upload_cmd = [export_to_gcloud_path, datastore_creds,
+                              timing_log, '--parent_key',
+                              repr(tuple(datastore_parent_key))]
+                tko_utils.dprint('Start exporting timeline report to gcloud')
+                subprocess.check_output(upload_cmd)
+                tko_utils.dprint('Successfully export timeline report to '
+                                 'gcloud')
+            else:
+                tko_utils.dprint('DEBUG: skip exporting suite timeline to '
+                                 'gcloud, because either gcloud creds or '
+                                 'export_to_gcloud script is not found.')
+    except Exception as e:
+        tko_utils.dprint("WARNING: fail to dump/export suite report. "
+                         "Error:\n%s" % e)
 
     # Mark GS_OFFLOADER_NO_OFFLOAD in gs_offloader_instructions at the end of
     # the function, so any failure, e.g., db connection error, will stop
@@ -369,35 +493,33 @@ def _get_job_subdirs(path):
     return None
 
 
-def parse_leaf_path(db, path, level, reparse, mail_on_failure):
+def parse_leaf_path(db, path, level, parse_options):
     """Parse a leaf path.
 
     @param db: database handle.
     @param path: The path to the results to be parsed.
     @param level: Integer, level of subdirectories to include in the job name.
-    @param reparse: True/False, whether this is reparsing of the job.
-    @param mail_on_failure: whether to send email on FAILED test.
+    @param parse_options: _ParseOptions instance.
 
     @returns: The job name of the parsed job, e.g. '123-chromeos-test/host1'
     """
     job_elements = path.split("/")[-level:]
     jobname = "/".join(job_elements)
     try:
-        db.run_with_retry(parse_one, db, jobname, path, reparse,
-                          mail_on_failure)
-    except Exception:
-        traceback.print_exc()
+        db.run_with_retry(parse_one, db, jobname, path, parse_options)
+    except Exception as e:
+        tko_utils.dprint("Error parsing leaf path: %s\nException:\n%s\n%s" %
+                         (path, e, traceback.format_exc()))
     return jobname
 
 
-def parse_path(db, path, level, reparse, mail_on_failure):
+def parse_path(db, path, level, parse_options):
     """Parse a path
 
     @param db: database handle.
     @param path: The path to the results to be parsed.
     @param level: Integer, level of subdirectories to include in the job name.
-    @param reparse: True/False, whether this is reparsing of the job.
-    @param mail_on_failure: whether to send email on FAILED test.
+    @param parse_options: _ParseOptions instance.
 
     @returns: A set of job names of the parsed jobs.
               set(['123-chromeos-test/host1', '123-chromeos-test/host2'])
@@ -409,16 +531,16 @@ def parse_path(db, path, level, reparse, mail_on_failure):
         # synchronous server side tests record output in this directory. without
         # this check, we do not parse these results.
         if os.path.exists(os.path.join(path, 'status.log')):
-            new_job = parse_leaf_path(db, path, level, reparse, mail_on_failure)
+            new_job = parse_leaf_path(db, path, level, parse_options)
             processed_jobs.add(new_job)
         # multi-machine job
         for subdir in job_subdirs:
             jobpath = os.path.join(path, subdir)
-            new_jobs = parse_path(db, jobpath, level + 1, reparse, mail_on_failure)
+            new_jobs = parse_path(db, jobpath, level + 1, parse_options)
             processed_jobs.update(new_jobs)
     else:
         # single machine job
-        new_job = parse_leaf_path(db, path, level, reparse, mail_on_failure)
+        new_job = parse_leaf_path(db, path, level, parse_options)
         processed_jobs.add(new_job)
     return processed_jobs
 
@@ -452,6 +574,10 @@ def main():
     processed_jobs = set()
 
     options, args = parse_args()
+    parse_options = _ParseOptions(options.reparse, options.mailit,
+                                  options.dry_run, options.suite_report,
+                                  options.datastore_creds,
+                                  options.export_to_gcloud_path)
     results_dir = os.path.abspath(args[0])
     assert os.path.exists(results_dir)
 
@@ -489,16 +615,22 @@ def main():
                 else:
                     raise # something unexpected happened
             try:
-                new_jobs = parse_path(db, path, options.level, options.reparse,
-                           options.mailit)
+                new_jobs = parse_path(db, path, options.level, parse_options)
                 processed_jobs.update(new_jobs)
 
             finally:
                 fcntl.flock(lockfile, fcntl.LOCK_UN)
                 lockfile.close()
 
-    except:
+    except Exception as e:
         pid_file_manager.close_file(1)
+
+        metadata = {'results_dir': results_dir,
+                    'error': str(e),
+                    'details': traceback.format_exc()}
+        autotest_es.post(use_http=True, type_str='parse_failure_final',
+                         metadata=metadata)
+
         raise
     else:
         pid_file_manager.close_file(0)

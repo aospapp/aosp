@@ -5,7 +5,7 @@
  * Copyright (c) 2004 Roland McGrath <roland@redhat.com>
  * Copyright (c) 2010 Wang Chao <wang.chao@cn.fujitsu.com>
  * Copyright (c) 2011-2013 Denys Vlasenko <vda.linux@googlemail.com>
- * Copyright (c) 2011-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2011-2016 Dmitry V. Levin <ldv@altlinux.org>
  * Copyright (c) 2013 Ali Polatel <alip@exherbo.org>
  * Copyright (c) 2015 Mike Frysinger <vapier@gentoo.org>
  * All rights reserved.
@@ -33,14 +33,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef NEED_PTRACE_PROTOTYPE_WORKAROUND
-# define ptrace xptrace
-# include <sys/ptrace.h>
-# undef ptrace
-extern long ptrace(int, int, char *, long);
-#else
-# include <sys/ptrace.h>
-#endif
+#ifndef STRACE_PTRACE_H
+#define STRACE_PTRACE_H
+
+#include <sys/ptrace.h>
 
 #ifdef HAVE_STRUCT_IA64_FPREG
 # define ia64_fpreg XXX_ia64_fpreg
@@ -62,6 +58,16 @@ extern long ptrace(int, int, char *, long);
 #endif
 #ifdef HAVE_STRUCT_PTRACE_PEEKSIGINFO_ARGS
 # undef ptrace_peeksiginfo_args
+#endif
+
+#if defined(SPARC) || defined(SPARC64)
+/*
+ * SPARC has a different PTRACE_DETACH value correctly defined in sys/ptrace.h,
+ * but linux/ptrace.h clobbers it with the standard one.  PTRACE_SUNDETACH is
+ * also defined to the correct value by sys/ptrace.h, so use that instead.
+ */
+# undef PTRACE_DETACH
+# define PTRACE_DETACH PTRACE_SUNDETACH
 #endif
 
 #ifndef PTRACE_EVENT_FORK
@@ -162,6 +168,9 @@ extern long ptrace(int, int, char *, long);
 #ifndef PTRACE_SETSIGMASK
 # define PTRACE_SETSIGMASK	0x420b
 #endif
+#ifndef PTRACE_SECCOMP_GET_FILTER
+# define PTRACE_SECCOMP_GET_FILTER	0x420c
+#endif
 
 #if !HAVE_DECL_PTRACE_PEEKUSER
 # define PTRACE_PEEKUSER PTRACE_PEEKUSR
@@ -169,3 +178,5 @@ extern long ptrace(int, int, char *, long);
 #if !HAVE_DECL_PTRACE_POKEUSER
 # define PTRACE_POKEUSER PTRACE_POKEUSR
 #endif
+
+#endif /* !STRACE_PTRACE_H */

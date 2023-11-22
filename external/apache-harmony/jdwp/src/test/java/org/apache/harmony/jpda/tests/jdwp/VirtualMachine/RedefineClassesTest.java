@@ -48,6 +48,7 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
         = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/RedefineClass_Debuggee;";
     static final String byteCodeToRedefineFile = "RedefineByteCode_Debuggee001";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.VirtualMachine.RedefineClassesDebuggee";
     }
@@ -63,7 +64,7 @@ public class RedefineClassesTest extends JDWPSyncTestCase {
         String byteCodeFileName = null;
         String classPaths = System.getProperty("java.class.path");
         int begPos = 0;
-        int classPathsLength = classPaths.length();;
+        int classPathsLength = classPaths.length();
 
         for (int i = 0; i <= classPathsLength; i++) {
             if ( i == classPathsLength ) {

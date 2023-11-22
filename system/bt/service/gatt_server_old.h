@@ -86,19 +86,20 @@ class Server {
                        bool transmit_name);
 
   // Add an ordinary characteristic for reading and/or writing.
-  bool AddCharacteristic(const UUID &id, int properties, int permissions);
+  bool AddCharacteristic(const UUID& id, int properties, int permissions);
 
   // Add a special 'blob' characteristic with a corresponding control
   // attribute to manipulate which part of the blob the attribute represents.
-  bool AddBlob(const UUID &id, const UUID &control_id, int properties,
+  bool AddBlob(const UUID& id, const UUID& control_id, int properties,
                int permissions);
 
   // Put a new value into a characeteristic.
   // It will be read from a client starting at the next 0-offset read.
-  bool SetCharacteristicValue(const UUID &id, const std::vector<uint8_t> &value);
+  bool SetCharacteristicValue(const UUID& id,
+                              const std::vector<uint8_t>& value);
 
   // Get the current value of a characteristic.
-  bool GetCharacteristicValue(const UUID &id, std::vector<uint8_t> *value);
+  bool GetCharacteristicValue(const UUID& id, std::vector<uint8_t>* value);
 
   // Start this service. Activate advertisements, allow connections.
   // Characteristics should all be created before this.
@@ -114,7 +115,7 @@ class Server {
   bool ScanDisable();
 
   // Copy out the cached scan results.
-  bool GetScanResults(ScanResults *results);
+  bool GetScanResults(ScanResults* results);
 
  private:
   // Internal data.

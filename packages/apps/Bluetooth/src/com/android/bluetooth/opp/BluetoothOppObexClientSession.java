@@ -38,6 +38,7 @@ import javax.obex.HeaderSet;
 import javax.obex.ObexTransport;
 import javax.obex.ResponseCodes;
 
+import android.app.NotificationManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
@@ -103,6 +104,10 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
                 if (V) Log.v(TAG, "Interrupted waiting for thread to join");
             }
         }
+        NotificationManager nm =
+                (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        nm.cancel(BluetoothOppNotification.NOTIFICATION_ID_PROGRESS);
+
         mCallback = null;
     }
 
@@ -288,18 +293,13 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
                 Constants.updateShareStatus(mContext1, mInfo.mId, status);
             }
 
-            if (status == BluetoothShare.STATUS_SUCCESS) {
-                Message msg = Message.obtain(mCallback);
-                msg.what = BluetoothOppObexSession.MSG_SHARE_COMPLETE;
-                msg.obj = mInfo;
-                msg.sendToTarget();
-            } else {
-                Message msg = Message.obtain(mCallback);
-                msg.what = BluetoothOppObexSession.MSG_SESSION_ERROR;
-                mInfo.mStatus = status;
-                msg.obj = mInfo;
-                msg.sendToTarget();
-            }
+            Message msg = Message.obtain(mCallback);
+            msg.what = (status == BluetoothShare.STATUS_SUCCESS) ?
+                        BluetoothOppObexSession.MSG_SHARE_COMPLETE :
+                        BluetoothOppObexSession.MSG_SESSION_ERROR;
+            mInfo.mStatus = status;
+            msg.obj = mInfo;
+            msg.sendToTarget();
         }
 
         /*
@@ -417,6 +417,13 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
                         position += readLength;
                         /* check remote accept or reject */
                         responseCode = putOperation.getResponseCode();
+
+                        if (position == fileInfo.mLength) {
+                            // if file length is smaller than buffer size, only one packet
+                            // so block point is here
+                            outputStream.close();
+                            outputStream = null;
+                        }
 
                         mCallback.removeMessages(BluetoothOppObexSession.MSG_CONNECT_TIMEOUT);
                         synchronized (this) {

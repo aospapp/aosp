@@ -60,8 +60,6 @@ import org.connectbot.util.SelectionArea;
  * allows us to keep the TerminalBridge running in a background service. A TerminalView shares down
  * a bitmap that we can use for rendering when available.
  *
- * @author ConnectBot Dev Team
- * @author raaar
  *
  */
 public class TerminalBridge implements VDUDisplay, OnSharedPreferenceChangeListener {

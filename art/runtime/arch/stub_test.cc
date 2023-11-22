@@ -18,13 +18,16 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "base/enums.h"
 #include "class_linker-inl.h"
 #include "common_runtime_test.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
+#include "imt_conflict_table.h"
+#include "jni_internal.h"
 #include "linear_alloc.h"
 #include "mirror/class-inl.h"
 #include "mirror/string-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -352,7 +355,7 @@ class StubTest : public CommonRuntimeTest {
         "lw $a2, 8($sp)\n\t"
         "lw $t9, 12($sp)\n\t"
         "lw $s1, 16($sp)\n\t"
-        "lw $t0, 20($sp)\n\t"
+        "lw $t7, 20($sp)\n\t"
         "addiu $sp, $sp, 24\n\t"
 
         "jalr $t9\n\t"             // Call the stub.
@@ -529,11 +532,7 @@ class StubTest : public CommonRuntimeTest {
 
   static uintptr_t GetEntrypoint(Thread* self, QuickEntrypointEnum entrypoint) {
     int32_t offset;
-#ifdef __LP64__
-    offset = GetThreadOffset<8>(entrypoint).Int32Value();
-#else
-    offset = GetThreadOffset<4>(entrypoint).Int32Value();
-#endif
+    offset = GetThreadOffset<kRuntimePointerSize>(entrypoint).Int32Value();
     return *reinterpret_cast<uintptr_t*>(reinterpret_cast<uint8_t*>(self) + offset);
   }
 
@@ -807,7 +806,7 @@ TEST_F(StubTest, UnlockObject) {
 
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
-extern "C" void art_quick_check_cast(void);
+extern "C" void art_quick_check_instance_of(void);
 #endif
 
 TEST_F(StubTest, CheckCast) {
@@ -815,40 +814,90 @@ TEST_F(StubTest, CheckCast) {
     (defined(__x86_64__) && !defined(__APPLE__))
   Thread* self = Thread::Current();
 
-  const uintptr_t art_quick_check_cast = StubTest::GetEntrypoint(self, kQuickCheckCast);
+  const uintptr_t art_quick_check_instance_of =
+      StubTest::GetEntrypoint(self, kQuickCheckInstanceOf);
 
   // Find some classes.
   ScopedObjectAccess soa(self);
   // garbage is created during ClassLinker::Init
 
-  StackHandleScope<2> hs(soa.Self());
-  Handle<mirror::Class> c(
-      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/Object;")));
-  Handle<mirror::Class> c2(
-      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/String;")));
+  VariableSizedHandleScope hs(soa.Self());
+  Handle<mirror::Class> klass_obj(
+      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
+  Handle<mirror::Class> klass_str(
+      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/String;")));
+  Handle<mirror::Class> klass_list(
+      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/util/List;")));
+  Handle<mirror::Class> klass_cloneable(
+        hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Cloneable;")));
+  Handle<mirror::Class> klass_array_list(
+      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/util/ArrayList;")));
+  Handle<mirror::Object> obj(hs.NewHandle(klass_obj->AllocObject(soa.Self())));
+  Handle<mirror::String> string(hs.NewHandle(
+      mirror::String::AllocFromModifiedUtf8(soa.Self(), "ABCD")));
+  Handle<mirror::Object> array_list(hs.NewHandle(klass_array_list->AllocObject(soa.Self())));
 
   EXPECT_FALSE(self->IsExceptionPending());
 
-  Invoke3(reinterpret_cast<size_t>(c.Get()), reinterpret_cast<size_t>(c.Get()), 0U,
-          art_quick_check_cast, self);
-
+  Invoke3(reinterpret_cast<size_t>(obj.Get()),
+          reinterpret_cast<size_t>(klass_obj.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
   EXPECT_FALSE(self->IsExceptionPending());
 
-  Invoke3(reinterpret_cast<size_t>(c2.Get()), reinterpret_cast<size_t>(c2.Get()), 0U,
-          art_quick_check_cast, self);
-
+  // Expected true: Test string instance of java.lang.String.
+  Invoke3(reinterpret_cast<size_t>(string.Get()),
+          reinterpret_cast<size_t>(klass_str.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
   EXPECT_FALSE(self->IsExceptionPending());
 
-  Invoke3(reinterpret_cast<size_t>(c.Get()), reinterpret_cast<size_t>(c2.Get()), 0U,
-          art_quick_check_cast, self);
-
+  // Expected true: Test string instance of java.lang.Object.
+  Invoke3(reinterpret_cast<size_t>(string.Get()),
+          reinterpret_cast<size_t>(klass_obj.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
   EXPECT_FALSE(self->IsExceptionPending());
 
-  // TODO: Make the following work. But that would require correct managed frames.
+  // Expected false: Test object instance of java.lang.String.
+  Invoke3(reinterpret_cast<size_t>(obj.Get()),
+          reinterpret_cast<size_t>(klass_str.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
+  EXPECT_TRUE(self->IsExceptionPending());
+  self->ClearException();
 
-  Invoke3(reinterpret_cast<size_t>(c2.Get()), reinterpret_cast<size_t>(c.Get()), 0U,
-          art_quick_check_cast, self);
+  Invoke3(reinterpret_cast<size_t>(array_list.Get()),
+          reinterpret_cast<size_t>(klass_list.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
+  EXPECT_FALSE(self->IsExceptionPending());
 
+  Invoke3(reinterpret_cast<size_t>(array_list.Get()),
+          reinterpret_cast<size_t>(klass_cloneable.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
+  EXPECT_FALSE(self->IsExceptionPending());
+
+  Invoke3(reinterpret_cast<size_t>(string.Get()),
+          reinterpret_cast<size_t>(klass_array_list.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
+  EXPECT_TRUE(self->IsExceptionPending());
+  self->ClearException();
+
+  Invoke3(reinterpret_cast<size_t>(string.Get()),
+          reinterpret_cast<size_t>(klass_cloneable.Get()),
+          0U,
+          art_quick_check_instance_of,
+          self);
   EXPECT_TRUE(self->IsExceptionPending());
   self->ClearException();
 
@@ -856,139 +905,6 @@ TEST_F(StubTest, CheckCast) {
   LOG(INFO) << "Skipping check_cast as I don't know how to do that on " << kRuntimeISA;
   // Force-print to std::cout so it's also outside the logcat.
   std::cout << "Skipping check_cast as I don't know how to do that on " << kRuntimeISA << std::endl;
-#endif
-}
-
-
-TEST_F(StubTest, APutObj) {
-#if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
-    (defined(__x86_64__) && !defined(__APPLE__))
-  Thread* self = Thread::Current();
-
-  // Do not check non-checked ones, we'd need handlers and stuff...
-  const uintptr_t art_quick_aput_obj_with_null_and_bound_check =
-      StubTest::GetEntrypoint(self, kQuickAputObjectWithNullAndBoundCheck);
-
-  // Create an object
-  ScopedObjectAccess soa(self);
-  // garbage is created during ClassLinker::Init
-
-  StackHandleScope<5> hs(soa.Self());
-  Handle<mirror::Class> c(
-      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
-  Handle<mirror::Class> ca(
-      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/String;")));
-
-  // Build a string array of size 1
-  Handle<mirror::ObjectArray<mirror::Object>> array(
-      hs.NewHandle(mirror::ObjectArray<mirror::Object>::Alloc(soa.Self(), ca.Get(), 10)));
-
-  // Build a string -> should be assignable
-  Handle<mirror::String> str_obj(
-      hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello, world!")));
-
-  // Build a generic object -> should fail assigning
-  Handle<mirror::Object> obj_obj(hs.NewHandle(c->AllocObject(soa.Self())));
-
-  // Play with it...
-
-  // 1) Success cases
-  // 1.1) Assign str_obj to array[0..3]
-
-  EXPECT_FALSE(self->IsExceptionPending());
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 0U, reinterpret_cast<size_t>(str_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(str_obj.Get(), array->Get(0));
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 1U, reinterpret_cast<size_t>(str_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(str_obj.Get(), array->Get(1));
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 2U, reinterpret_cast<size_t>(str_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(str_obj.Get(), array->Get(2));
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 3U, reinterpret_cast<size_t>(str_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(str_obj.Get(), array->Get(3));
-
-  // 1.2) Assign null to array[0..3]
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 0U, reinterpret_cast<size_t>(nullptr),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(nullptr, array->Get(0));
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 1U, reinterpret_cast<size_t>(nullptr),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(nullptr, array->Get(1));
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 2U, reinterpret_cast<size_t>(nullptr),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(nullptr, array->Get(2));
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 3U, reinterpret_cast<size_t>(nullptr),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_FALSE(self->IsExceptionPending());
-  EXPECT_EQ(nullptr, array->Get(3));
-
-  // TODO: Check _which_ exception is thrown. Then make 3) check that it's the right check order.
-
-  // 2) Failure cases (str into str[])
-  // 2.1) Array = null
-  // TODO: Throwing NPE needs actual DEX code
-
-//  Invoke3(reinterpret_cast<size_t>(nullptr), 0U, reinterpret_cast<size_t>(str_obj.Get()),
-//          reinterpret_cast<uintptr_t>(&art_quick_aput_obj_with_null_and_bound_check), self);
-//
-//  EXPECT_TRUE(self->IsExceptionPending());
-//  self->ClearException();
-
-  // 2.2) Index < 0
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), static_cast<size_t>(-1),
-          reinterpret_cast<size_t>(str_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_TRUE(self->IsExceptionPending());
-  self->ClearException();
-
-  // 2.3) Index > 0
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 10U, reinterpret_cast<size_t>(str_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_TRUE(self->IsExceptionPending());
-  self->ClearException();
-
-  // 3) Failure cases (obj into str[])
-
-  Invoke3(reinterpret_cast<size_t>(array.Get()), 0U, reinterpret_cast<size_t>(obj_obj.Get()),
-          art_quick_aput_obj_with_null_and_bound_check, self);
-
-  EXPECT_TRUE(self->IsExceptionPending());
-  self->ClearException();
-
-  // Tests done.
-#else
-  LOG(INFO) << "Skipping aput_obj as I don't know how to do that on " << kRuntimeISA;
-  // Force-print to std::cout so it's also outside the logcat.
-  std::cout << "Skipping aput_obj as I don't know how to do that on " << kRuntimeISA << std::endl;
 #endif
 }
 
@@ -1013,12 +929,8 @@ TEST_F(StubTest, AllocObject) {
 
   EXPECT_FALSE(self->IsExceptionPending());
   {
-    // Use an arbitrary method from c to use as referrer
-    size_t result = Invoke3(static_cast<size_t>(c->GetDexTypeIndex()),    // type_idx
-                            // arbitrary
-                            reinterpret_cast<size_t>(c->GetVirtualMethod(0, sizeof(void*))),
-                            0U,
-                            StubTest::GetEntrypoint(self, kQuickAllocObject),
+    size_t result = Invoke3(reinterpret_cast<size_t>(c.Get()), 0u, 0U,
+                            StubTest::GetEntrypoint(self, kQuickAllocObjectWithChecks),
                             self);
 
     EXPECT_FALSE(self->IsExceptionPending());
@@ -1029,8 +941,6 @@ TEST_F(StubTest, AllocObject) {
   }
 
   {
-    // We can use null in the second argument as we do not need a method here (not used in
-    // resolved/initialized cases)
     size_t result = Invoke3(reinterpret_cast<size_t>(c.Get()), 0u, 0U,
                             StubTest::GetEntrypoint(self, kQuickAllocObjectResolved),
                             self);
@@ -1043,8 +953,6 @@ TEST_F(StubTest, AllocObject) {
   }
 
   {
-    // We can use null in the second argument as we do not need a method here (not used in
-    // resolved/initialized cases)
     size_t result = Invoke3(reinterpret_cast<size_t>(c.Get()), 0u, 0U,
                             StubTest::GetEntrypoint(self, kQuickAllocObjectInitialized),
                             self);
@@ -1076,7 +984,7 @@ TEST_F(StubTest, AllocObject) {
     while (length > 10) {
       Handle<mirror::Object> h(hsp->NewHandle<mirror::Object>(
           mirror::ObjectArray<mirror::Object>::Alloc(soa.Self(), ca.Get(), length / 4)));
-      if (self->IsExceptionPending() || h.Get() == nullptr) {
+      if (self->IsExceptionPending() || h == nullptr) {
         self->ClearException();
 
         // Try a smaller length
@@ -1095,7 +1003,7 @@ TEST_F(StubTest, AllocObject) {
     // Allocate simple objects till it fails.
     while (!self->IsExceptionPending()) {
       Handle<mirror::Object> h = hsp->NewHandle(c->AllocObject(soa.Self()));
-      if (!self->IsExceptionPending() && h.Get() != nullptr) {
+      if (!self->IsExceptionPending() && h != nullptr) {
         handles.push_back(h);
       }
     }
@@ -1130,46 +1038,22 @@ TEST_F(StubTest, AllocObjectArray) {
   ScopedObjectAccess soa(self);
   // garbage is created during ClassLinker::Init
 
-  StackHandleScope<2> hs(self);
+  StackHandleScope<1> hs(self);
   Handle<mirror::Class> c(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/Object;")));
-
-  // Needed to have a linked method.
-  Handle<mirror::Class> c_obj(
-      hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
 
   // Play with it...
 
   EXPECT_FALSE(self->IsExceptionPending());
-
-  // For some reason this does not work, as the type_idx is artificial and outside what the
-  // resolved types of c_obj allow...
-
-  if ((false)) {
-    // Use an arbitrary method from c to use as referrer
-    size_t result = Invoke3(static_cast<size_t>(c->GetDexTypeIndex()),    // type_idx
-                            10U,
-                            // arbitrary
-                            reinterpret_cast<size_t>(c_obj->GetVirtualMethod(0, sizeof(void*))),
-                            StubTest::GetEntrypoint(self, kQuickAllocArray),
-                            self);
-
-    EXPECT_FALSE(self->IsExceptionPending());
-    EXPECT_NE(reinterpret_cast<size_t>(nullptr), result);
-    mirror::Array* obj = reinterpret_cast<mirror::Array*>(result);
-    EXPECT_EQ(c.Get(), obj->GetClass());
-    VerifyObject(obj);
-    EXPECT_EQ(obj->GetLength(), 10);
-  }
 
   {
     // We can use null in the second argument as we do not need a method here (not used in
     // resolved/initialized cases)
     size_t result = Invoke3(reinterpret_cast<size_t>(c.Get()), 10U,
                             reinterpret_cast<size_t>(nullptr),
-                            StubTest::GetEntrypoint(self, kQuickAllocArrayResolved),
+                            StubTest::GetEntrypoint(self, kQuickAllocArrayResolved32),
                             self);
-    EXPECT_FALSE(self->IsExceptionPending()) << PrettyTypeOf(self->GetException());
+    EXPECT_FALSE(self->IsExceptionPending()) << mirror::Object::PrettyTypeOf(self->GetException());
     EXPECT_NE(reinterpret_cast<size_t>(nullptr), result);
     mirror::Object* obj = reinterpret_cast<mirror::Object*>(result);
     EXPECT_TRUE(obj->IsArrayInstance());
@@ -1187,7 +1071,7 @@ TEST_F(StubTest, AllocObjectArray) {
     size_t result = Invoke3(reinterpret_cast<size_t>(c.Get()),
                             GB,  // that should fail...
                             reinterpret_cast<size_t>(nullptr),
-                            StubTest::GetEntrypoint(self, kQuickAllocArrayResolved),
+                            StubTest::GetEntrypoint(self, kQuickAllocArrayResolved32),
                             self);
 
     EXPECT_TRUE(self->IsExceptionPending());
@@ -1205,8 +1089,10 @@ TEST_F(StubTest, AllocObjectArray) {
 
 
 TEST_F(StubTest, StringCompareTo) {
-#if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || \
-    defined(__mips__) || (defined(__x86_64__) && !defined(__APPLE__))
+  TEST_DISABLED_FOR_STRING_COMPRESSION();
+  // There is no StringCompareTo runtime entrypoint for __arm__ or __aarch64__.
+#if defined(__i386__) || defined(__mips__) || \
+    (defined(__x86_64__) && !defined(__APPLE__))
   // TODO: Check the "Unresolved" allocation stubs
 
   Thread* self = Thread::Current();
@@ -1287,7 +1173,7 @@ TEST_F(StubTest, StringCompareTo) {
 
 static void GetSetBooleanStatic(ArtField* f, Thread* self,
                                 ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   constexpr size_t num_values = 5;
@@ -1318,7 +1204,7 @@ static void GetSetBooleanStatic(ArtField* f, Thread* self,
 }
 static void GetSetByteStatic(ArtField* f, Thread* self, ArtMethod* referrer,
                              StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int8_t values[] = { -128, -64, 0, 64, 127 };
@@ -1349,7 +1235,7 @@ static void GetSetByteStatic(ArtField* f, Thread* self, ArtMethod* referrer,
 
 static void GetSetBooleanInstance(Handle<mirror::Object>* obj, ArtField* f, Thread* self,
                                   ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint8_t values[] = { 0, true, 2, 128, 0xFF };
@@ -1384,7 +1270,7 @@ static void GetSetBooleanInstance(Handle<mirror::Object>* obj, ArtField* f, Thre
 }
 static void GetSetByteInstance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int8_t values[] = { -128, -64, 0, 64, 127 };
@@ -1419,7 +1305,7 @@ static void GetSetByteInstance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void GetSetCharStatic(ArtField* f, Thread* self, ArtMethod* referrer,
                              StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint16_t values[] = { 0, 1, 2, 255, 32768, 0xFFFF };
@@ -1449,7 +1335,7 @@ static void GetSetCharStatic(ArtField* f, Thread* self, ArtMethod* referrer,
 }
 static void GetSetShortStatic(ArtField* f, Thread* self,
                               ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int16_t values[] = { -0x7FFF, -32768, 0, 255, 32767, 0x7FFE };
@@ -1480,7 +1366,7 @@ static void GetSetShortStatic(ArtField* f, Thread* self,
 
 static void GetSetCharInstance(Handle<mirror::Object>* obj, ArtField* f,
                                Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint16_t values[] = { 0, 1, 2, 255, 32768, 0xFFFF };
@@ -1514,7 +1400,7 @@ static void GetSetCharInstance(Handle<mirror::Object>* obj, ArtField* f,
 }
 static void GetSetShortInstance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   int16_t values[] = { -0x7FFF, -32768, 0, 255, 32767, 0x7FFE };
@@ -1549,7 +1435,7 @@ static void GetSetShortInstance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void GetSet32Static(ArtField* f, Thread* self, ArtMethod* referrer,
                            StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint32_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF };
@@ -1585,7 +1471,7 @@ static void GetSet32Static(ArtField* f, Thread* self, ArtMethod* referrer,
 
 static void GetSet32Instance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   uint32_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF };
@@ -1626,7 +1512,7 @@ static void GetSet32Instance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void set_and_check_static(uint32_t f_idx, mirror::Object* val, Thread* self,
                                  ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   test->Invoke3WithReferrer(static_cast<size_t>(f_idx),
                             reinterpret_cast<size_t>(val),
                             0U,
@@ -1646,7 +1532,7 @@ static void set_and_check_static(uint32_t f_idx, mirror::Object* val, Thread* se
 
 static void GetSetObjStatic(ArtField* f, Thread* self, ArtMethod* referrer,
                             StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   set_and_check_static(f->GetDexFieldIndex(), nullptr, self, referrer, test);
@@ -1670,7 +1556,7 @@ static void GetSetObjStatic(ArtField* f, Thread* self, ArtMethod* referrer,
 static void set_and_check_instance(ArtField* f, mirror::Object* trg,
                                    mirror::Object* val, Thread* self, ArtMethod* referrer,
                                    StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   test->Invoke3WithReferrer(static_cast<size_t>(f->GetDexFieldIndex()),
                             reinterpret_cast<size_t>(trg),
                             reinterpret_cast<size_t>(val),
@@ -1687,13 +1573,13 @@ static void set_and_check_instance(ArtField* f, mirror::Object* trg,
 
   EXPECT_EQ(res, reinterpret_cast<size_t>(val)) << "Value " << val;
 
-  EXPECT_EQ(val, f->GetObj(trg));
+  EXPECT_OBJ_PTR_EQ(val, f->GetObj(trg));
 }
 #endif
 
 static void GetSetObjInstance(Handle<mirror::Object>* obj, ArtField* f,
                               Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__mips__) || \
     (defined(__x86_64__) && !defined(__APPLE__))
   set_and_check_instance(f, obj->Get(), nullptr, self, referrer, test);
@@ -1716,7 +1602,7 @@ static void GetSetObjInstance(Handle<mirror::Object>* obj, ArtField* f,
 
 static void GetSet64Static(ArtField* f, Thread* self, ArtMethod* referrer,
                            StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if (defined(__x86_64__) && !defined(__APPLE__)) || (defined(__mips__) && defined(__LP64__)) \
     || defined(__aarch64__)
   uint64_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF, 0xFFFFFFFFFFFF };
@@ -1724,8 +1610,8 @@ static void GetSet64Static(ArtField* f, Thread* self, ArtMethod* referrer,
   for (size_t i = 0; i < arraysize(values); ++i) {
     // 64 bit FieldSet stores the set value in the second register.
     test->Invoke3WithReferrer(static_cast<size_t>(f->GetDexFieldIndex()),
-                              0U,
                               values[i],
+                              0U,
                               StubTest::GetEntrypoint(self, kQuickSet64Static),
                               self,
                               referrer);
@@ -1749,7 +1635,7 @@ static void GetSet64Static(ArtField* f, Thread* self, ArtMethod* referrer,
 
 static void GetSet64Instance(Handle<mirror::Object>* obj, ArtField* f,
                              Thread* self, ArtMethod* referrer, StubTest* test)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
 #if (defined(__x86_64__) && !defined(__APPLE__)) || (defined(__mips__) && defined(__LP64__)) || \
     defined(__aarch64__)
   uint64_t values[] = { 0, 1, 2, 255, 32768, 1000000, 0xFFFFFFFF, 0xFFFFFFFFFFFF };
@@ -1795,10 +1681,10 @@ static void TestFields(Thread* self, StubTest* test, Primitive::Type test_type) 
 
   ScopedObjectAccess soa(self);
   StackHandleScope<3> hs(self);
-  Handle<mirror::Object> obj(hs.NewHandle(soa.Decode<mirror::Object*>(o)));
+  Handle<mirror::Object> obj(hs.NewHandle(soa.Decode<mirror::Object>(o)));
   Handle<mirror::Class> c(hs.NewHandle(obj->GetClass()));
   // Need a method as a referrer
-  ArtMethod* m = c->GetDirectMethod(0, sizeof(void*));
+  ArtMethod* m = c->GetDirectMethod(0, kRuntimePointerSize);
 
   // Play with it...
 
@@ -1963,7 +1849,7 @@ TEST_F(StubTest, DISABLED_IMT) {
   ASSERT_NE(nullptr, add_jmethod);
 
   // Get representation.
-  ArtMethod* contains_amethod = soa.DecodeMethod(contains_jmethod);
+  ArtMethod* contains_amethod = jni::DecodeArtMethod(contains_jmethod);
 
   // Patch up ArrayList.contains.
   if (contains_amethod->GetEntryPointFromQuickCompiledCode() == nullptr) {
@@ -1981,7 +1867,7 @@ TEST_F(StubTest, DISABLED_IMT) {
   ASSERT_NE(nullptr, inf_contains_jmethod);
 
   // Get mirror representation.
-  ArtMethod* inf_contains = soa.DecodeMethod(inf_contains_jmethod);
+  ArtMethod* inf_contains = jni::DecodeArtMethod(inf_contains_jmethod);
 
   // Object
 
@@ -1994,11 +1880,11 @@ TEST_F(StubTest, DISABLED_IMT) {
 
   jobject jarray_list = env->NewObject(arraylist_jclass, arraylist_constructor);
   ASSERT_NE(nullptr, jarray_list);
-  Handle<mirror::Object> array_list(hs.NewHandle(soa.Decode<mirror::Object*>(jarray_list)));
+  Handle<mirror::Object> array_list(hs.NewHandle(soa.Decode<mirror::Object>(jarray_list)));
 
   jobject jobj = env->NewObject(obj_jclass, obj_constructor);
   ASSERT_NE(nullptr, jobj);
-  Handle<mirror::Object> obj(hs.NewHandle(soa.Decode<mirror::Object*>(jobj)));
+  Handle<mirror::Object> obj(hs.NewHandle(soa.Decode<mirror::Object>(jobj)));
 
   // Invocation tests.
 
@@ -2014,10 +1900,10 @@ TEST_F(StubTest, DISABLED_IMT) {
       Runtime::Current()->GetClassLinker()->CreateImtConflictTable(/*count*/0u, linear_alloc);
   void* data = linear_alloc->Alloc(
       self,
-      ImtConflictTable::ComputeSizeWithOneMoreEntry(empty_conflict_table, sizeof(void*)));
+      ImtConflictTable::ComputeSizeWithOneMoreEntry(empty_conflict_table, kRuntimePointerSize));
   ImtConflictTable* new_table = new (data) ImtConflictTable(
-      empty_conflict_table, inf_contains, contains_amethod, sizeof(void*));
-  conflict_method->SetImtConflictTable(new_table, sizeof(void*));
+      empty_conflict_table, inf_contains, contains_amethod, kRuntimePointerSize);
+  conflict_method->SetImtConflictTable(new_table, kRuntimePointerSize);
 
   size_t result =
       Invoke3WithReferrerAndHidden(reinterpret_cast<size_t>(conflict_method),
@@ -2035,7 +1921,7 @@ TEST_F(StubTest, DISABLED_IMT) {
 
   env->CallBooleanMethod(jarray_list, add_jmethod, jobj);
 
-  ASSERT_FALSE(self->IsExceptionPending()) << PrettyTypeOf(self->GetException());
+  ASSERT_FALSE(self->IsExceptionPending()) << mirror::Object::PrettyTypeOf(self->GetException());
 
   // Contains.
 
@@ -2151,6 +2037,8 @@ TEST_F(StubTest, StringIndexOf) {
   std::cout << "Skipping indexof as I don't know how to do that on " << kRuntimeISA << std::endl;
 #endif
 }
+
+// TODO: Exercise the ReadBarrierMarkRegX entry points.
 
 TEST_F(StubTest, ReadBarrier) {
 #if defined(ART_USE_READ_BARRIER) && (defined(__i386__) || defined(__arm__) || \

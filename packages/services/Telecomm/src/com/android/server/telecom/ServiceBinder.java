@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.UserHandle;
+import android.telecom.Log;
 import android.text.TextUtils;
 import android.util.ArraySet;
 
@@ -82,7 +83,7 @@ abstract class ServiceBinder {
                 Intent serviceIntent = new Intent(mServiceAction).setComponent(mComponentName);
                 ServiceConnection connection = new ServiceBinderConnection(call);
 
-                Log.event(call, Log.Events.BIND_CS, mComponentName);
+                Log.addEvent(call, LogUtils.Events.BIND_CS, mComponentName);
                 final int bindingFlags = Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE;
                 final boolean isBound;
                 if (mUserHandle != null) {
@@ -120,7 +121,7 @@ abstract class ServiceBinder {
                 synchronized (mLock) {
                     Log.i(this, "Service bound %s", componentName);
 
-                    Log.event(mCall, Log.Events.CS_BOUND, componentName);
+                    Log.addEvent(mCall, LogUtils.Events.CS_BOUND, componentName);
                     mCall = null;
 
                     // Unbind request was queued so unbind immediately.
@@ -169,7 +170,7 @@ abstract class ServiceBinder {
     private final String mServiceAction;
 
     /** The component name of the service to bind to. */
-    private final ComponentName mComponentName;
+    protected final ComponentName mComponentName;
 
     /** The set of callbacks waiting for notification of the binding's success or failure. */
     private final Set<BindCallback> mCallbacks = new ArraySet<>();
@@ -227,12 +228,16 @@ abstract class ServiceBinder {
     }
 
     final void decrementAssociatedCallCount() {
+        decrementAssociatedCallCount(false /*isSuppressingUnbind*/);
+    }
+
+    final void decrementAssociatedCallCount(boolean isSuppressingUnbind) {
         if (mAssociatedCallCount > 0) {
             mAssociatedCallCount--;
             Log.v(this, "Call count decrement %d, %s", mAssociatedCallCount,
                     mComponentName.flattenToShortString());
 
-            if (mAssociatedCallCount == 0) {
+            if (!isSuppressingUnbind && mAssociatedCallCount == 0) {
                 unbind();
             }
         } else {

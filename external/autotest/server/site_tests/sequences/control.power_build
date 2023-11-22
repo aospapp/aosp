@@ -8,7 +8,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "suite"
 ATTRIBUTES = "suite:power_build"
-SUITE = "power_build"
 TEST_TYPE = "server"
 DEPENDENCIES = "rpm"
 
@@ -43,7 +42,6 @@ def _iterate_tests(client, machine):
     client_at.run_test('power_StatsCPUIdle', tag=tag)
     client_at.run_test('power_StatsUSB', tag=tag)
     client_at.run_test('power_Resume', tag=tag)
-    client_at.run_test('power_x86Settings',tag=tag)
 
     # Tests that are only run on battery power here.
     client_at.run_test('power_Backlight', tag=tag)
@@ -53,7 +51,7 @@ def _iterate_tests(client, machine):
     # Run the short version of power_Consumption
     client_at.run_test('power_Consumption', short=True)
 
-    client_attributes = site_host_attributes.HostAttributes(machine)
+    client_attributes = site_host_attributes.HostAttributes(client.hostname)
     if not client_attributes.has_resume_bug:
         client_at.run_test('power_Resume', tag=tag)
 
@@ -68,8 +66,8 @@ def _run_client_test(machine):
         logging.info('********************%s', msg)
         raise error.TestError(msg)
 
-    client.power_off()
     try:
+        client.power_off()
         _iterate_tests(client, machine)
     finally:
         client.power_on()

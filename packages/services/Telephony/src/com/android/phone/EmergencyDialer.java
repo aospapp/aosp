@@ -106,8 +106,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
     private static final int BAD_EMERGENCY_NUMBER_DIALOG = 0;
 
-    // private static final int USER_ACTIVITY_TIMEOUT_WHEN_NO_PROX_SENSOR = 15000; // millis
-
     EditText mDigits;
     private View mDialButton;
     private View mDelete;
@@ -515,6 +513,11 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
      */
     private void placeCall() {
         mLastNumber = mDigits.getText().toString();
+        // Convert into emergency number if necessary
+        // This is required in some regions (e.g. Taiwan).
+        if (PhoneNumberUtils.isConvertToEmergencyNumberEnabled()) {
+            mLastNumber = PhoneNumberUtils.convertToEmergencyNumber(mLastNumber);
+        }
         if (PhoneNumberUtils.isLocalEmergencyNumber(this, mLastNumber)) {
             if (DBG) Log.d(LOG_TAG, "placing call to " + mLastNumber);
 

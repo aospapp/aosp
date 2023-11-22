@@ -28,7 +28,22 @@ public class IntrinsicBlur extends IntrinsicBase {
     private Allocation mScratchPixelsAllocation1;
     private Allocation mScratchPixelsAllocation2;
 
-
+    @Override
+    protected void tearDown() throws Exception {
+        if (mIntrinsic != null) {
+            mIntrinsic.destroy();
+        }
+        if (mScript != null) {
+            mScript.destroy();
+        }
+        if (mScratchPixelsAllocation1 != null) {
+            mScratchPixelsAllocation1.destroy();
+        }
+        if (mScratchPixelsAllocation2 != null) {
+            mScratchPixelsAllocation2.destroy();
+        }
+        super.tearDown();
+    }
 
     private void initTest(int w, int h, Element e, Script.LaunchOptions lo) {
         makeBuffers(w, h, e);
@@ -152,6 +167,8 @@ public class IntrinsicBlur extends IntrinsicBase {
         if (fid == null) {
             throw new IllegalStateException("fid must be valid");
         }
+
+        s.destroy();
     }
 
 }

@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import java.io.IOException;
+import android.platform.test.annotations.SecurityTest;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
@@ -32,6 +33,7 @@ import java.util.Set;
 
 import junit.framework.TestCase;
 
+@SecurityTest
 public class CertificateTest extends TestCase {
 
     public void testNoRemovedCertificates() throws Exception {

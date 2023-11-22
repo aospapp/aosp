@@ -33,7 +33,7 @@ LOCAL_RESOURCE_DIR := \
     $(LOCAL_PATH)/res
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctsdeviceutil \
+    compatibility-device-util \
     ctstestrunner \
     ub-uiautomator \
     ub-janktesthelper \

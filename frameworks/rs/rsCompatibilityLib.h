@@ -27,10 +27,4 @@ enum {
     HAL_PIXEL_FORMAT_YCrCb_420_SP       = 0x11, // NV21
 };
 
-// from cutils/properties.h
-#define PROPERTY_KEY_MAX 32
-#define PROPERTY_VALUE_MAX 92
-
-int property_get(const char *key, char *value, const char *default_value);
-
 #endif  // _RS_RSCOMPATIBILITYLIB_H

@@ -3,6 +3,8 @@
  * Copyright 2012 Timothy Elliott <tle@holymonkey.com>
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/tail.html
+ *
+ * Deviations from posix: -f waits for pipe/fifo on stdin (nonblock?).
 
 USE_TAIL(NEWTOY(tail, "?fc-n-[-cn]", TOYFLAG_USR|TOYFLAG_BIN))
 
@@ -145,10 +147,8 @@ static void do_tail(int fd, char *name)
       perror_msg("bad -f on '%s'", name);
   }
 
-  if (toys.optc > 1) {
-    if (TT.file_no++) xputc('\n');
-    xprintf("==> %s <==\n", name);
-  }
+  if (TT.file_no++) xputc('\n');
+  if (toys.optc > 1) xprintf("==> %s <==\n", name);
 
   // Are we measuring from the end of the file?
 
@@ -231,10 +231,10 @@ void tail_main(void)
     if (arg && *arg == '-' && arg[1]) {
       TT.lines = atolx(*(args++));
       toys.optc--;
+    } else {
+      // if nothing specified, default -n to -10
+      TT.lines = -10;
     }
-
-    // if nothing specified, default -n to -10
-    TT.lines = -10;
   }
 
   // Allocate 2 ints per optarg for -f
@@ -242,8 +242,8 @@ void tail_main(void)
     if ((TT.ffd = inotify_init()) < 0) perror_exit("inotify_init");
     TT.files = xmalloc(toys.optc*8);
   }
-  loopfiles_rw(args, O_RDONLY|(O_CLOEXEC*!(toys.optflags&FLAG_f)),
-    0, 0, do_tail);
+  loopfiles_rw(args, O_RDONLY|WARN_ONLY|(O_CLOEXEC*!(toys.optflags&FLAG_f)),
+    0, do_tail);
 
   if ((toys.optflags & FLAG_f) && TT.file_no) {
     int len, last_fd = TT.files[(TT.file_no-1)*2], i, fd;

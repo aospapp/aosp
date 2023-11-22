@@ -39,7 +39,8 @@ public class TvOptionsManager {
     public static final int OPTION_SYSTEMWIDE_PIP = 3;
     public static final int OPTION_MULTI_AUDIO = 4;
     public static final int OPTION_MORE_CHANNELS = 5;
-    public static final int OPTION_SETTINGS = 6;
+    public static final int OPTION_DEVELOPER = 6;
+    public static final int OPTION_SETTINGS = 7;
 
     public static final int OPTION_PIP_INPUT = 100;
     public static final int OPTION_PIP_SWAP = 101;

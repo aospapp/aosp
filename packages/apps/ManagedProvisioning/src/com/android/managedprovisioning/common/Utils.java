@@ -23,13 +23,14 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_SHA
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_USER;
 import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -46,49 +47,39 @@ import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
-import android.nfc.NdefMessage;
-import android.nfc.NdefRecord;
-import android.nfc.NfcAdapter;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Parcelable;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.storage.StorageManager;
-import android.provider.Settings.Global;
-import android.provider.Settings.Secure;
 import android.text.TextUtils;
-import android.util.Base64;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.TrampolineActivity;
+import com.android.managedprovisioning.model.PackageDownloadInfo;
+
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.lang.Integer;
-import java.lang.Math;
-import java.lang.String;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
-import com.android.internal.annotations.VisibleForTesting;
-import com.android.managedprovisioning.FinalizationActivity;
-import com.android.managedprovisioning.ProvisionLogger;
-import com.android.managedprovisioning.TrampolineActivity;
-import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.model.PackageDownloadInfo;
 
 /**
  * Class containing various auxiliary methods.
  */
 public class Utils {
-    private static final int ACCOUNT_COPY_TIMEOUT_SECONDS = 60 * 3;  // 3 minutes
+    public static final String SHA256_TYPE = "SHA-256";
+    public static final String SHA1_TYPE = "SHA-1";
 
-    private static final int THRESHOLD_BRIGHT_COLOR = 160; // A color needs a brightness of at least
-    // this value to be considered bright. (brightness being between 0 and 255).
+    // value chosen to match UX designs; when updating check status bar icon colors
+    private static final int THRESHOLD_BRIGHT_COLOR = 190;
+
     public Utils() {}
 
     /**
@@ -173,83 +164,129 @@ public class Utils {
      *
      * We are supporting lookup by package name for legacy reasons.
      *
-     * If mdmComponentName is supplied (not null):
-     * mdmPackageName is ignored.
-     * Check that the package of mdmComponentName is installed, that mdmComponentName is a
+     * If dpcComponentName is supplied (not null): dpcPackageName is ignored.
+     * Check that the package of dpcComponentName is installed, that dpcComponentName is a
      * receiver in this package, and return it. The receiver can be in disabled state.
      *
-     * Otherwise:
-     * mdmPackageName must be supplied (not null).
+     * Otherwise: dpcPackageName must be supplied (not null).
      * Check that this package is installed, try to infer a potential device admin in this package,
      * and return it.
      */
-    // TODO: Add unit tests
-    public ComponentName findDeviceAdmin(String mdmPackageName,
-            ComponentName mdmComponentName, Context c) throws IllegalProvisioningArgumentException {
-        if (mdmComponentName != null) {
-            mdmPackageName = mdmComponentName.getPackageName();
+    @NonNull
+    public ComponentName findDeviceAdmin(String dpcPackageName, ComponentName dpcComponentName,
+            Context context) throws IllegalProvisioningArgumentException {
+        if (dpcComponentName != null) {
+            dpcPackageName = dpcComponentName.getPackageName();
         }
-        if (mdmPackageName == null) {
+        if (dpcPackageName == null) {
             throw new IllegalProvisioningArgumentException("Neither the package name nor the"
                     + " component name of the admin are supplied");
         }
         PackageInfo pi;
         try {
-            pi = c.getPackageManager().getPackageInfo(mdmPackageName,
+            pi = context.getPackageManager().getPackageInfo(dpcPackageName,
                     PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS);
         } catch (NameNotFoundException e) {
-            throw new IllegalProvisioningArgumentException("Mdm "+ mdmPackageName
+            throw new IllegalProvisioningArgumentException("Dpc "+ dpcPackageName
                     + " is not installed. ", e);
         }
-        if (mdmComponentName != null) {
-            // If the component was specified in the intent: check that it is in the manifest.
-            checkAdminComponent(mdmComponentName, pi);
-            return mdmComponentName;
+
+        final ComponentName componentName = findDeviceAdminInPackageInfo(dpcPackageName,
+                dpcComponentName, pi);
+        if (componentName == null) {
+            throw new IllegalProvisioningArgumentException("Cannot find any admin receiver in "
+                    + "package " + dpcPackageName + " with component " + dpcComponentName);
+        }
+        return componentName;
+    }
+
+    /**
+     * If dpcComponentName is not null: dpcPackageName is ignored.
+     * Check that the package of dpcComponentName is installed, that dpcComponentName is a
+     * receiver in this package, and return it. The receiver can be in disabled state.
+     *
+     * Otherwise, try to infer a potential device admin component in this package info.
+     *
+     * @return infered device admin component in package info. Otherwise, null
+     */
+    @Nullable
+    public ComponentName findDeviceAdminInPackageInfo(@NonNull String dpcPackageName,
+            @Nullable ComponentName dpcComponentName, @NonNull PackageInfo pi) {
+        if (dpcComponentName != null) {
+            if (!isComponentInPackageInfo(dpcComponentName, pi)) {
+                ProvisionLogger.logw("The component " + dpcComponentName + " isn't registered in "
+                        + "the apk");
+                return null;
+            }
+            return dpcComponentName;
         } else {
-            // Otherwise: try to find a potential device admin in the manifest.
-            return findDeviceAdminInPackage(mdmPackageName, pi);
+            return findDeviceAdminInPackage(dpcPackageName, pi);
         }
     }
 
     /**
-     * Verifies that an admin component is part of a given package.
+     * Finds a device admin in a given {@link PackageInfo} object.
      *
-     * @param mdmComponentName the admin component to be checked
-     * @param pi the {@link PackageInfo} of the package to be checked.
-     *
-     * @throws IllegalProvisioningArgumentException if the given component is not part of the
-     *         package
+     * <p>This function returns {@code null} if no or multiple admin receivers were found, and if
+     * the package name does not match dpcPackageName.</p>
+     * @param packageName packge name that should match the {@link PackageInfo} object.
+     * @param packageInfo package info to be examined.
+     * @return admin receiver or null in case of error.
      */
-    private void checkAdminComponent(ComponentName mdmComponentName, PackageInfo pi)
-            throws IllegalProvisioningArgumentException{
-        for (ActivityInfo ai : pi.receivers) {
-            if (mdmComponentName.getClassName().equals(ai.name)) {
-                return;
-            }
+    @Nullable
+    private ComponentName findDeviceAdminInPackage(String packageName, PackageInfo packageInfo) {
+        if (packageInfo == null || !TextUtils.equals(packageInfo.packageName, packageName)) {
+            return null;
         }
-        throw new IllegalProvisioningArgumentException("The component " + mdmComponentName
-                + " cannot be found");
-    }
 
-    private ComponentName findDeviceAdminInPackage(String mdmPackageName, PackageInfo pi)
-            throws IllegalProvisioningArgumentException {
         ComponentName mdmComponentName = null;
-        for (ActivityInfo ai : pi.receivers) {
-            if (!TextUtils.isEmpty(ai.permission) &&
-                    ai.permission.equals(android.Manifest.permission.BIND_DEVICE_ADMIN)) {
+        for (ActivityInfo ai : packageInfo.receivers) {
+            if (TextUtils.equals(ai.permission, android.Manifest.permission.BIND_DEVICE_ADMIN)) {
                 if (mdmComponentName != null) {
-                    throw new IllegalProvisioningArgumentException("There are several "
-                            + "device admins in " + mdmPackageName + " but no one in specified");
+                    ProvisionLogger.logw("more than 1 device admin component are found");
+                    return null;
                 } else {
-                    mdmComponentName = new ComponentName(mdmPackageName, ai.name);
+                    mdmComponentName = new ComponentName(packageName, ai.name);
                 }
             }
         }
-        if (mdmComponentName == null) {
-            throw new IllegalProvisioningArgumentException("There are no device admins in"
-                    + mdmPackageName);
-        }
         return mdmComponentName;
+    }
+
+    private boolean isComponentInPackageInfo(ComponentName dpcComponentName,
+            PackageInfo pi) {
+        for (ActivityInfo ai : pi.receivers) {
+            if (dpcComponentName.getClassName().equals(ai.name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Return if a given package has testOnly="true", in which case we'll relax certain rules
+     * for CTS.
+     *
+     * The system allows this flag to be changed when an app is updated. But
+     * {@link DevicePolicyManager} uses the persisted version to do actual checks for relevant
+     * dpm command.
+     *
+     * @see DevicePolicyManagerService#isPackageTestOnly for more info
+     */
+    public boolean isPackageTestOnly(PackageManager pm, String packageName, int userHandle) {
+        if (TextUtils.isEmpty(packageName)) {
+            return false;
+        }
+
+        try {
+            final ApplicationInfo ai = pm.getApplicationInfoAsUser(packageName,
+                    PackageManager.MATCH_DIRECT_BOOT_AWARE
+                            | PackageManager.MATCH_DIRECT_BOOT_UNAWARE, userHandle);
+            return ai != null && (ai.flags & ApplicationInfo.FLAG_TEST_ONLY) != 0;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+
     }
 
     /**
@@ -266,15 +303,6 @@ public class Utils {
         DevicePolicyManager dpm =
                 (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
         return dpm.isDeviceManaged();
-    }
-
-    /**
-     * Returns whether the calling user is a managed profile.
-     */
-    public boolean isManagedProfile(Context context) {
-        UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
-        UserInfo user = um.getUserInfo(UserHandle.myUserId());
-        return user != null ? user.isManagedProfile() : false;
     }
 
     /**
@@ -302,158 +330,6 @@ public class Utils {
         }
 
         return true;
-    }
-
-    /**
-     * Transforms a string into a byte array.
-     *
-     * @param s the string to be transformed
-     */
-    public byte[] stringToByteArray(String s)
-        throws NumberFormatException {
-        try {
-            return Base64.decode(s, Base64.URL_SAFE);
-        } catch (IllegalArgumentException e) {
-            throw new NumberFormatException("Incorrect format. Should be Url-safe Base64 encoded.");
-        }
-    }
-
-    /**
-     * Transforms a byte array into a string.
-     *
-     * @param bytes the byte array to be transformed
-     */
-    public String byteArrayToString(byte[] bytes) {
-        return Base64.encodeToString(bytes, Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
-    }
-
-    /**
-     * Sets user setup complete on a given user.
-     *
-     * <p>This will set USER_SETUP_COMPLETE to 1 on the given user.
-     */
-    public void markUserSetupComplete(Context context, int userId) {
-        ProvisionLogger.logd("Setting USER_SETUP_COMPLETE to 1 for user " + userId);
-        Secure.putIntForUser(context.getContentResolver(), Secure.USER_SETUP_COMPLETE, 1, userId);
-    }
-
-    /**
-     * Returns whether USER_SETUP_COMPLETE is set on the calling user.
-     */
-    public boolean isUserSetupCompleted(Context context) {
-        return Secure.getInt(context.getContentResolver(), Secure.USER_SETUP_COMPLETE, 0) != 0;
-    }
-
-    /**
-     * Returns whether DEVICE_PROVISIONED is set.
-     */
-    public boolean isDeviceProvisioned(Context context) {
-        return Global.getInt(context.getContentResolver(), Global.DEVICE_PROVISIONED, 0) != 0;
-    }
-
-    /**
-     * Set the current users userProvisioningState depending on the following factors:
-     * <ul>
-     *     <li>We're setting up a managed-profile - need to set state on two users.</li>
-     *     <li>User-setup has previously been completed or not - skip states relating to
-     *     communicating with setup-wizard</li>
-     *     <li>DPC requested we skip the rest of setup-wizard.</li>
-     * </ul>
-     *
-     * @param context a {@link Context} object
-     * @param params configuration for current provisioning attempt
-     */
-    // TODO: Add unit tests
-    public void markUserProvisioningStateInitiallyDone(Context context,
-            ProvisioningParams params) {
-        int currentUserId = UserHandle.myUserId();
-        int managedProfileUserId = UserHandle.USER_NULL;
-        DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
-
-        // new provisioning state for current user, if non-null
-        Integer newState = null;
-         // New provisioning state for managed-profile of current user, if non-null.
-        Integer newProfileState = null;
-
-        boolean userSetupCompleted = isUserSetupCompleted(context);
-        if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
-            // Managed profiles are a special case as two users are involved.
-            managedProfileUserId = getManagedProfile(context).getIdentifier();
-            if (userSetupCompleted) {
-                // SUW on current user is complete, so nothing much to do beyond indicating we're
-                // all done.
-                newProfileState = DevicePolicyManager.STATE_USER_SETUP_FINALIZED;
-            } else {
-                // We're still in SUW, so indicate that a managed-profile was setup on current user,
-                // and that we're awaiting finalization on both.
-                newState = DevicePolicyManager.STATE_USER_PROFILE_COMPLETE;
-                newProfileState = DevicePolicyManager.STATE_USER_SETUP_COMPLETE;
-            }
-        } else if (userSetupCompleted) {
-            // User setup was previously completed this is an unexpected case.
-            ProvisionLogger.logw("user_setup_complete set, but provisioning was started");
-        } else if (params.skipUserSetup) {
-            // DPC requested setup-wizard is skipped, indicate this to SUW.
-            newState = DevicePolicyManager.STATE_USER_SETUP_COMPLETE;
-        } else {
-            // DPC requested setup-wizard is not skipped, indicate this to SUW.
-            newState = DevicePolicyManager.STATE_USER_SETUP_INCOMPLETE;
-        }
-
-        if (newState != null) {
-            setUserProvisioningState(dpm, newState, currentUserId);
-        }
-        if (newProfileState != null) {
-            setUserProvisioningState(dpm, newProfileState, managedProfileUserId);
-        }
-        if (!userSetupCompleted) {
-            // We expect a PROVISIONING_FINALIZATION intent to finish setup if we're still in
-            // user-setup.
-            FinalizationActivity.storeProvisioningParams(context, params);
-        }
-    }
-
-    /**
-     * Finalize the current users userProvisioningState depending on the following factors:
-     * <ul>
-     *     <li>We're setting up a managed-profile - need to set state on two users.</li>
-     * </ul>
-     *
-     * @param context a {@link Context} object
-     * @param params configuration for current provisioning attempt - if null (because
-     *               ManagedProvisioning wasn't used for first phase of provisioning) aassumes we
-     *               can just mark current user as being in finalized provisioning state
-     */
-    // TODO: Add unit tests
-    public void markUserProvisioningStateFinalized(Context context,
-            ProvisioningParams params) {
-        int currentUserId = UserHandle.myUserId();
-        int managedProfileUserId = -1;
-        DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
-        Integer newState = null;
-        Integer newProfileState = null;
-
-        if (params != null && params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
-            // Managed profiles are a special case as two users are involved.
-            managedProfileUserId = getManagedProfile(context).getIdentifier();
-
-            newState = DevicePolicyManager.STATE_USER_UNMANAGED;
-            newProfileState = DevicePolicyManager.STATE_USER_SETUP_FINALIZED;
-        } else {
-            newState = DevicePolicyManager.STATE_USER_SETUP_FINALIZED;
-        }
-
-        if (newState != null) {
-            setUserProvisioningState(dpm, newState, currentUserId);
-        }
-        if (newProfileState != null) {
-            setUserProvisioningState(dpm, newProfileState, managedProfileUserId);
-        }
-    }
-
-    private void setUserProvisioningState(DevicePolicyManager dpm, int state, int userId) {
-        ProvisionLogger.logi("Setting userProvisioningState for user " + userId + " to: " + state);
-        dpm.setUserProvisioningState(state, userId);
     }
 
     /**
@@ -521,51 +397,6 @@ public class Utils {
     }
 
     /**
-     * Copies an account to a given user.
-     *
-     * <p>Copies a given account form {@code sourceUser} to {@code targetUser}. This call is
-     * blocking until the operation has succeeded. If within a timeout the account hasn't been
-     * successfully copied to the new user, we give up.
-     *
-     * @param context a {@link Context} object
-     * @param accountToMigrate the account to be migrated
-     * @param sourceUser the {@link UserHandle} of the user to copy from
-     * @param targetUser the {@link UserHandle} of the user to copy to
-     * @return whether account migration successfully completed
-     */
-    public boolean maybeCopyAccount(Context context, Account accountToMigrate,
-            UserHandle sourceUser, UserHandle targetUser) {
-        if (accountToMigrate == null) {
-            ProvisionLogger.logd("No account to migrate.");
-            return false;
-        }
-        if (sourceUser.equals(targetUser)) {
-            ProvisionLogger.loge("sourceUser and targetUser are the same, won't migrate account.");
-            return false;
-        }
-        ProvisionLogger.logd("Attempting to copy account from " + sourceUser + " to " + targetUser);
-        try {
-            AccountManager accountManager =
-                    (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
-            boolean copySucceeded = accountManager.copyAccountToUser(
-                    accountToMigrate,
-                    sourceUser,
-                    targetUser,
-                    /* callback= */ null, /* handler= */ null)
-                    .getResult(ACCOUNT_COPY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            if (copySucceeded) {
-                ProvisionLogger.logi("Copied account to " + targetUser);
-                return true;
-            } else {
-                ProvisionLogger.loge("Could not copy account to " + targetUser);
-            }
-        } catch (OperationCanceledException | AuthenticatorException | IOException e) {
-            ProvisionLogger.loge("Exception copying account to " + targetUser, e);
-        }
-        return false;
-    }
-
-    /**
      * Returns whether FRP is supported on the device.
      */
     public boolean isFrpSupported(Context context) {
@@ -608,6 +439,10 @@ public class Utils {
             // NFC cases which need to take mime-type into account.
             case ACTION_NDEF_DISCOVERED:
                 String mimeType = intent.getType();
+                if (mimeType == null) {
+                    throw new IllegalProvisioningArgumentException(
+                            "Unknown NFC bump mime-type: " + mimeType);
+                }
                 switch (mimeType) {
                     case MIME_TYPE_PROVISIONING_NFC:
                         dpmProvisioningAction = ACTION_PROVISION_MANAGED_DEVICE;
@@ -637,7 +472,9 @@ public class Utils {
      */
     // TODO: Move the FR intent into a Globals class.
     public void sendFactoryResetBroadcast(Context context, String reason) {
-        Intent intent = new Intent(Intent.ACTION_MASTER_CLEAR);
+        Intent intent = new Intent(Intent.ACTION_FACTORY_RESET);
+        // Send explicit broadcast due to Broadcast Limitations
+        intent.setPackage("android");
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtra(Intent.EXTRA_REASON, reason);
         context.sendBroadcast(intent);
@@ -679,13 +516,13 @@ public class Utils {
                 && info.getType() == ConnectivityManager.TYPE_WIFI;
     }
 
-    private NetworkInfo getActiveNetworkInfo(Context context) {
+    /**
+     * Returns the active network info of the device.
+     */
+    public NetworkInfo getActiveNetworkInfo(Context context) {
         ConnectivityManager cm =
                 (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm != null) {
-            return cm.getActiveNetworkInfo();
-        }
-        return null;
+        return cm.getActiveNetworkInfo();
     }
 
     /**
@@ -763,5 +600,82 @@ public class Utils {
      */
     private boolean versionNumberAtLeastL(int versionNumber) {
         return versionNumber >= Build.VERSION_CODES.LOLLIPOP;
+    }
+
+    /**
+     * Computes the sha 256 hash of a byte array.
+     */
+    @Nullable
+    public byte[] computeHashOfByteArray(byte[] bytes) {
+        try {
+            MessageDigest md = MessageDigest.getInstance(SHA256_TYPE);
+            md.update(bytes);
+            return md.digest();
+        } catch (NoSuchAlgorithmException e) {
+            ProvisionLogger.loge("Hashing algorithm " + SHA256_TYPE + " not supported.", e);
+            return null;
+        }
+    }
+
+    /**
+     * Computes a hash of a file with a spcific hash algorithm.
+     */
+    // TODO: Add unit tests
+    @Nullable
+    public byte[] computeHashOfFile(String fileLocation, String hashType) {
+        InputStream fis = null;
+        MessageDigest md;
+        byte hash[] = null;
+        try {
+            md = MessageDigest.getInstance(hashType);
+        } catch (NoSuchAlgorithmException e) {
+            ProvisionLogger.loge("Hashing algorithm " + hashType + " not supported.", e);
+            return null;
+        }
+        try {
+            fis = new FileInputStream(fileLocation);
+
+            byte[] buffer = new byte[256];
+            int n = 0;
+            while (n != -1) {
+                n = fis.read(buffer);
+                if (n > 0) {
+                    md.update(buffer, 0, n);
+                }
+            }
+            hash = md.digest();
+        } catch (IOException e) {
+            ProvisionLogger.loge("IO error.", e);
+        } finally {
+            // Close input stream quietly.
+            try {
+                if (fis != null) {
+                    fis.close();
+                }
+            } catch (IOException e) {
+                // Ignore.
+            }
+        }
+        return hash;
+    }
+
+    public boolean isBrightColor(int color) {
+        // This comes from the YIQ transformation. We're using the formula:
+        // Y = .299 * R + .587 * G + .114 * B
+        return Color.red(color) * 299 + Color.green(color) * 587 + Color.blue(color) * 114
+                >= 1000 * THRESHOLD_BRIGHT_COLOR;
+    }
+
+    /**
+     * Returns whether given intent can be resolved for the user.
+     */
+    public boolean canResolveIntentAsUser(Context context, Intent intent, int userId) {
+        return intent != null
+                && context.getPackageManager().resolveActivityAsUser(intent, 0, userId) != null;
+    }
+
+    public boolean isPackageDeviceOwner(DevicePolicyManager dpm, String packageName) {
+        final ComponentName deviceOwner = dpm.getDeviceOwnerComponentOnCallingUser();
+        return deviceOwner != null && deviceOwner.getPackageName().equals(packageName);
     }
 }

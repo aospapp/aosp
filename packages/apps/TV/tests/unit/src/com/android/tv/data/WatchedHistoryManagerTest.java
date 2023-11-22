@@ -16,10 +16,10 @@
 
 package com.android.tv.data;
 
+import android.support.test.filters.SmallTest;
+import android.support.test.filters.Suppress;
 import android.test.AndroidTestCase;
 import android.test.UiThreadTest;
-import android.test.suitebuilder.annotation.SmallTest;
-import android.test.suitebuilder.annotation.Suppress;
 
 import com.android.tv.data.WatchedHistoryManager.WatchedRecord;
 import com.android.tv.testing.Utils;
@@ -58,11 +58,7 @@ public class WatchedHistoryManagerTest extends AndroidTestCase {
 
     private void startAndWaitForComplete() throws Exception {
         mWatchedHistoryManager.start();
-        try {
-            assertTrue(mListener.loadFinishedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
-        } catch (InterruptedException e) {
-            throw e;
-        }
+        assertTrue(mListener.loadFinishedLatch.await(WAIT_TIME_OUT_MS, TimeUnit.MILLISECONDS));
     }
 
     @UiThreadTest
@@ -135,7 +131,7 @@ public class WatchedHistoryManagerTest extends AndroidTestCase {
     }
 
     private class TestWatchedHistoryManagerListener implements WatchedHistoryManager.Listener {
-        public CountDownLatch loadFinishedLatch = new CountDownLatch(1);
+        public final CountDownLatch loadFinishedLatch = new CountDownLatch(1);
 
         @Override
         public void onLoadFinished() {

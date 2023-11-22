@@ -19,8 +19,9 @@ LOCAL_PACKAGE_NAME := UbSystemUiJankTests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_STATIC_JAVA_LIBRARIES := ub-janktesthelper ub-uiautomator launcher-helper-lib timeresult-helper-lib
+LOCAL_STATIC_JAVA_LIBRARIES := ub-janktesthelper ub-uiautomator launcher-helper-lib \
+    timeresult-helper-lib sysui-helper
 
-LOCAL_SDK_VERSION := 21
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 include $(BUILD_PACKAGE)

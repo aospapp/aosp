@@ -409,7 +409,7 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
   fields of <code>sensors_event_t.acceleration</code>.</p>
 <p>Readings on all axes should be close to 0 when the device is immobile.</p>
 <p>If the device possesses a gyroscope, the linear acceleration sensor must use
-  the accelerometer gyroscope and accelerometer as input.</p>
+  the gyroscope and accelerometer as input.</p>
 <p>If the device doesn’t possess a gyroscope, the linear acceleration sensor must
   use the accelerometer and the magnetometer as input.</p>
 <h3 id="significant_motion">Significant motion</h3>
@@ -417,7 +417,7 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
 <p>Reporting-mode: <em><a href="report-modes.html#one-shot">One-shot</a></em></p>
 <p>Low-power</p>
 <p>Implement only the wake-up version of this sensor.</p>
-<p><code>getDefaultSensor(SENSOR_TYPE_SIGNIFICANT_MOTION)</code> <em>returns a non-wake-up sensor</em></p>
+<p><code>getDefaultSensor(SENSOR_TYPE_SIGNIFICANT_MOTION)</code> <em>returns a wake-up sensor</em></p>
 <p>A significant motion detector triggers when the detecting a “significant
   motion”: a motion that might lead to a change in the user location.</p>
 <p>Examples of such significant motions are:</p>
@@ -532,15 +532,13 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
   <code>sensors_event_t.data[0]</code>.</p>
 <h2 id="attitude_composite_sensors">Attitude composite sensors</h2>
 <h3 id="rotation_vector">Rotation vector</h3>
-<p>Underlying physical sensors: Accelerometer, Magnetometer, and (when present)
-  Gyroscope</p>
+<p>Underlying physical sensors: Accelerometer, Magnetometer, and Gyroscope</p>
 <p>Reporting-mode: <em><a href="report-modes.html#continuous">Continuous</a></em></p>
 <p><code>getDefaultSensor(SENSOR_TYPE_ROTATION_VECTOR)</code> <em>returns a non-wake-up sensor</em></p>
 <p>A rotation vector sensor reports the orientation of the device relative to the
   East-North-Up coordinates frame. It is usually obtained by integration of
-  accelerometer, gyroscope and magnetometer readings.</p>
-<p>The East-North-Up coordinate system is defined as a direct orthonormal basis
-  where:</p>
+  accelerometer, gyroscope, and magnetometer readings. The East-North-Up
+  coordinate system is defined as a direct orthonormal basis where:</p>
 <ul>
   <li> X points east and is tangential to the ground. </li>
   <li> Y points north and is tangential to the ground. </li>
@@ -552,9 +550,8 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
   coordinates (x,y,z).</p>
 <p>The rotation can be seen as rotating the phone by an angle theta around an axis
   rot_axis to go from the reference (East-North-Up aligned) device orientation to
-  the current device orientation.</p>
-<p>The rotation is encoded as the four unit-less x, y, z, w components of a unit
-  quaternion:</p>
+  the current device orientation. The rotation is encoded as the four unit-less
+  x, y, z, w components of a unit quaternion:</p>
 <ul>
   <li> <code>sensors_event_t.data[0] = rot_axis.x*sin(theta/2)</code> </li>
   <li> <code>sensors_event_t.data[1] = rot_axis.y*sin(theta/2)</code> </li>
@@ -571,12 +568,11 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
   this will cause erratic client behaviour.</p>
 <p>In addition, this sensor reports an estimated heading accuracy:</p>
 <p><code>sensors_event_t.data[4] = estimated_accuracy</code> (in radians)</p>
-<p>The heading error must be less than <code>estimated_accuracy</code> 95% of the time. This
-  sensor must use a gyroscope as main orientation change input unless there is no
-  gyroscope on the device.</p>
-<p>This sensor also includes the accelerometer and magnetometer input to make up
-  for gyroscope drift, but it cannot be implemented using only the magnetometer
-  and accelerometer, unless there is no gyroscope on the device.</p>
+<p>The heading error must be less than <code>estimated_accuracy</code> 95% of
+the time. This sensor must use a gyroscope as the main orientation change input.</p>
+<p>This sensor also uses accelerometer and magnetometer input to make up
+  for gyroscope drift, and it cannot be implemented using only the accelerometer
+  and magnetometer.</p>
 <h3 id="game_rotation_vector">Game rotation vector</h3>
 <p>Underlying physical sensors: Accelerometer and Gyroscope (no Magnetometer)</p>
 <p>Reporting-mode: <em><a href="report-modes.html#continuous">Continuous</a></em></p>
@@ -607,7 +603,7 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
   identical to that of the accelerometer. On Earth, the magnitude is around 9.8
   m/s^2.</p>
 <p>If the device possesses a gyroscope, the gravity sensor must use the
-  accelerometer gyroscope and accelerometer as input.</p>
+  gyroscope and accelerometer as input.</p>
 <p>If the device doesn’t possess a gyroscope, the gravity sensor must use the
   accelerometer and the magnetometer as input.</p>
 <h3 id="geomagnetic_rotation_vector">Geomagnetic rotation vector</h3>
@@ -752,8 +748,8 @@ linear acceleration, and gravity sensors without using the gyroscope.</p>
 <p>Low-power</p>
 <p>Implement only the wake-up version of this sensor.</p>
 <p><code>getDefaultSensor(SENSOR_TYPE_PICK_UP_GESTURE)</code> <em>returns a wake-up sensor</em></p>
-<p>A pick-up gesture sensor sensor triggers when the device is picked up
-  regardless of wherever is was before (desk, pocket, bag).</p>
+<p>A pick-up gesture sensor triggers when the device is picked up
+  regardless of wherever it was before (desk, pocket, bag).</p>
 <p>Each sensor event reports 1 in <code>sensors_event_t.data[0]</code>.</p>
 <h3 id="glance_gesture">Glance gesture</h3>
 <p>Underlying physical sensors: Undefined (anything low power)</p>

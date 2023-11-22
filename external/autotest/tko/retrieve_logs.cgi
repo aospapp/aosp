@@ -18,7 +18,7 @@ Content-Type: text/plain
 Location: %s\r\n\r
 """
 
-GOOGLE_STORAGE_PATTERN = 'storage.cloud.google.com/'
+GOOGLE_STORAGE_PATTERN = 'pantheon.corp.google.com/storage/browser/'
 
 # Define function for retrieving logs
 def _retrieve_logs_dummy(job_path):

@@ -1,18 +1,22 @@
 LOCAL_PATH:=$(call my-dir)
 
-rs_base_CFLAGS := -Werror -Wall -Wextra -Wno-unused-parameter \
-                  -Wno-unused-variable -fno-exceptions -std=c++11
-ifeq ($(TARGET_BUILD_PDK), true)
-  rs_base_CFLAGS += -D__RS_PDK__
-endif
+# Not building RenderScript modules in PDK builds, as libmediandk
+# is not available in PDK.
+ifneq ($(TARGET_BUILD_PDK), true)
+
+rs_base_CFLAGS := -Werror -Wall -Wextra \
+				  -Wno-unused-parameter -Wno-unused-variable
 
 ifneq ($(OVERRIDE_RS_DRIVER),)
   rs_base_CFLAGS += -DOVERRIDE_RS_DRIVER=$(OVERRIDE_RS_DRIVER)
 endif
 
+ifeq ($(BUILD_ARM_FOR_X86),true)
+  rs_base_CFLAGS += -DBUILD_ARM_FOR_X86
+endif
+
 include $(CLEAR_VARS)
 ifneq ($(HOST_OS),windows)
-LOCAL_CLANG := true
 endif
 LOCAL_MODULE := libRSCpuRef
 LOCAL_MODULE_TARGET_ARCH := arm mips mips64 x86 x86_64 arm64
@@ -71,13 +75,15 @@ ifeq ($(ARCH_ARM_HAVE_VFP),true)
 endif
 
 ifeq ($(ARCH_X86_HAVE_SSSE3),true)
-    LOCAL_CFLAGS += -DARCH_X86_HAVE_SSSE3
-    LOCAL_SRC_FILES+= \
+    LOCAL_CFLAGS_x86 += -DARCH_X86_HAVE_SSSE3
+    LOCAL_SRC_FILES_x86 += \
+    rsCpuIntrinsics_x86.cpp
+    LOCAL_CFLAGS_x86_64 += -DARCH_X86_HAVE_SSSE3
+    LOCAL_SRC_FILES_x86_64 += \
     rsCpuIntrinsics_x86.cpp
 endif
 
-LOCAL_SHARED_LIBRARIES += libRS_internal libcutils libutils liblog libsync libc++ libdl libz
-
+LOCAL_SHARED_LIBRARIES += libRS_internal libc++ liblog libz
 LOCAL_SHARED_LIBRARIES += libbcinfo libblas
 LOCAL_STATIC_LIBRARIES := libbnnmlowp
 
@@ -91,6 +97,6 @@ include frameworks/compile/libbcc/libbcc-targets.mk
 
 LOCAL_CFLAGS += $(rs_base_CFLAGS)
 
-LOCAL_MODULE_TAGS := optional
-
 include $(BUILD_SHARED_LIBRARY)
+
+endif # TARGET_BUILD_PDK

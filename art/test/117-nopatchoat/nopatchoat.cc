@@ -19,8 +19,9 @@
 #include "gc/heap.h"
 #include "gc/space/image_space.h"
 #include "mirror/class-inl.h"
+#include "oat_file.h"
 #include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 
 namespace art {
@@ -29,7 +30,7 @@ class NoPatchoatTest {
  public:
   static const OatFile::OatDexFile* getOatDexFile(jclass cls) {
     ScopedObjectAccess soa(Thread::Current());
-    mirror::Class* klass = soa.Decode<mirror::Class*>(cls);
+    ObjPtr<mirror::Class> klass = soa.Decode<mirror::Class>(cls);
     const DexFile& dex_file = klass->GetDexFile();
     return dex_file.GetOatDexFile();
   }
@@ -55,7 +56,7 @@ class NoPatchoatTest {
 
     const OatFile* oat_file = oat_dex_file->GetOatFile();
     return !oat_file->IsPic()
-        && CompilerFilter::IsBytecodeCompilationEnabled(oat_file->GetCompilerFilter());
+        && CompilerFilter::IsAotCompilationEnabled(oat_file->GetCompilerFilter());
   }
 };
 

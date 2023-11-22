@@ -16,46 +16,59 @@
 
 package android.graphics.drawable.cts;
 
-import java.io.IOException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
-import android.R.attr;
-import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
+import android.graphics.Color;
+import android.graphics.cts.R;
 import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.graphics.drawable.StateListDrawable;
 import android.graphics.drawable.DrawableContainer.DrawableContainerState;
-import android.test.InstrumentationTestCase;
-import android.util.DisplayMetrics;
+import android.graphics.drawable.StateListDrawable;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.StateSet;
 import android.util.Xml;
 
-import android.graphics.cts.R;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
+import java.io.IOException;
 
-public class StateListDrawableTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class StateListDrawableTest {
     private MockStateListDrawable mMockDrawable;
+
     private StateListDrawable mDrawable;
 
     private Resources mResources;
 
     private DrawableContainerState mDrawableContainerState;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
+        // While the two fields point to the same object, the second one is there to
+        // workaround the bug in CTS coverage tool that is not recognizing calls on
+        // subclasses.
         mDrawable = mMockDrawable = new MockStateListDrawable();
         mDrawableContainerState = (DrawableContainerState) mMockDrawable.getConstantState();
-        mResources = getInstrumentation().getTargetContext().getResources();
+        mResources = InstrumentationRegistry.getTargetContext().getResources();
     }
 
+    @Test
     public void testStateListDrawable() {
         new StateListDrawable();
         // Check the values set in the constructor
@@ -63,46 +76,49 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         assertTrue(new MockStateListDrawable().hasCalledOnStateChanged());
     }
 
+    @Test
     public void testAddState() {
-        // Workaround for CTS coverage not recognizing calls on subclasses.
-        StateListDrawable dr = mMockDrawable;
-
         assertEquals(0, mDrawableContainerState.getChildCount());
 
         // nothing happens if drawable is null
         mMockDrawable.reset();
-        dr.addState(StateSet.WILD_CARD, null);
+        mDrawable.addState(StateSet.WILD_CARD, null);
         assertEquals(0, mDrawableContainerState.getChildCount());
         assertFalse(mMockDrawable.hasCalledOnStateChanged());
 
         // call onLevelChanged to assure that the correct drawable is selected.
         mMockDrawable.reset();
-        dr.addState(StateSet.WILD_CARD, new MockDrawable());
+        mDrawable.addState(StateSet.WILD_CARD, new ColorDrawable(Color.YELLOW));
         assertEquals(1, mDrawableContainerState.getChildCount());
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
 
         mMockDrawable.reset();
-        dr.addState(new int[] { attr.state_focused, - attr.state_selected }, new MockDrawable());
+        mDrawable.addState(
+                new int[] { android.R.attr.state_focused, - android.R.attr.state_selected },
+                new ColorDrawable(Color.YELLOW));
         assertEquals(2, mDrawableContainerState.getChildCount());
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
 
         // call onLevelChanged will not throw NPE here because the first drawable with wild card
         // state is matched first. There is no chance that other drawables will be matched.
         mMockDrawable.reset();
-        dr.addState(null, new MockDrawable());
+        mDrawable.addState(null, new ColorDrawable(Color.YELLOW));
         assertEquals(3, mDrawableContainerState.getChildCount());
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
     }
 
+    @Test
     public void testIsStateful() {
         assertTrue(new StateListDrawable().isStateful());
     }
 
+    @Test
     public void testOnStateChange() {
-        mMockDrawable.addState(new int[] { attr.state_focused, - attr.state_selected },
-                new MockDrawable());
-        mMockDrawable.addState(StateSet.WILD_CARD, new MockDrawable());
-        mMockDrawable.addState(StateSet.WILD_CARD, new MockDrawable());
+        mMockDrawable.addState(
+                new int[] { android.R.attr.state_focused, - android.R.attr.state_selected },
+                new ColorDrawable(Color.YELLOW));
+        mMockDrawable.addState(StateSet.WILD_CARD, new ColorDrawable(Color.YELLOW));
+        mMockDrawable.addState(StateSet.WILD_CARD, new ColorDrawable(Color.YELLOW));
 
         // the method is not called if same state is set
         mMockDrawable.reset();
@@ -111,7 +127,8 @@ public class StateListDrawableTest extends InstrumentationTestCase {
 
         // the method is called if different state is set
         mMockDrawable.reset();
-        mMockDrawable.setState(new int[] { attr.state_focused, - attr.state_selected });
+        mMockDrawable.setState(
+                new int[] { android.R.attr.state_focused, - android.R.attr.state_selected });
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
 
         mMockDrawable.reset();
@@ -119,10 +136,11 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
 
         // check that correct drawable is selected.
-        mMockDrawable.onStateChange(new int[] { attr.state_focused, - attr.state_selected });
+        mMockDrawable.onStateChange(
+                new int[] { android.R.attr.state_focused, - android.R.attr.state_selected });
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[0]);
 
-        assertFalse(mMockDrawable.onStateChange(new int[] { attr.state_focused }));
+        assertFalse(mMockDrawable.onStateChange(new int[] { android.R.attr.state_focused }));
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[0]);
 
         assertTrue(mMockDrawable.onStateChange(StateSet.WILD_CARD));
@@ -133,20 +151,24 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[1]);
     }
 
+    @Test
     public void testOnStateChangeWithWildCardAtFirst() {
-        mMockDrawable.addState(StateSet.WILD_CARD, new MockDrawable());
-        mMockDrawable.addState(new int[] { attr.state_focused, - attr.state_selected },
-                new MockDrawable());
+        mMockDrawable.addState(StateSet.WILD_CARD, new ColorDrawable(Color.YELLOW));
+        mMockDrawable.addState(
+                new int[] { android.R.attr.state_focused, - android.R.attr.state_selected },
+                new ColorDrawable(Color.YELLOW));
 
         // matches the first wild card although the second one is more accurate
-        mMockDrawable.onStateChange(new int[] { attr.state_focused, - attr.state_selected });
+        mMockDrawable.onStateChange(
+                new int[] { android.R.attr.state_focused, - android.R.attr.state_selected });
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[0]);
     }
 
+    @Test
     public void testOnStateChangeWithNullStateSet() {
         assertEquals(0, mDrawableContainerState.getChildCount());
         try {
-            mMockDrawable.addState(null, new MockDrawable());
+            mMockDrawable.addState(null, new ColorDrawable(Color.YELLOW));
             fail("Should throw NullPointerException.");
         } catch (NullPointerException e) {
         }
@@ -159,26 +181,28 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testPreloadDensity() throws XmlPullParserException, IOException {
-        runPreloadDensityTestForDrawable(R.drawable.state_list_density, false);
+        verifyPreloadDensityTestForDrawable(R.drawable.state_list_density, false);
     }
 
+    @Test
     public void testPreloadDensityConstantSize() throws XmlPullParserException, IOException {
-        runPreloadDensityTestForDrawable(R.drawable.state_list_density_constant_size, true);
+        verifyPreloadDensityTestForDrawable(R.drawable.state_list_density_constant_size, true);
     }
 
-    private void runPreloadDensityTestForDrawable(int drawableResId, boolean isConstantSize)
+    private void verifyPreloadDensityTestForDrawable(int drawableResId, boolean isConstantSize)
             throws XmlPullParserException, IOException {
         final Resources res = mResources;
         final int densityDpi = res.getConfiguration().densityDpi;
         try {
-            runPreloadDensityTestForDrawableInner(res, densityDpi, drawableResId, isConstantSize);
+            verifyPreloadDensityTestForDrawableInner(res, densityDpi, drawableResId, isConstantSize);
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
     }
 
-    private void runPreloadDensityTestForDrawableInner(Resources res, int densityDpi,
+    private void verifyPreloadDensityTestForDrawableInner(Resources res, int densityDpi,
             int drawableResId, boolean isConstantSize) throws XmlPullParserException, IOException {
         // Capture initial state at default density.
         final XmlResourceParser parser = getResourceParser(drawableResId);
@@ -205,10 +229,12 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         DrawableTestUtils.setResourcesDensity(res, densityDpi / 2);
         final StateListDrawable halfDrawable =
                 (StateListDrawable) preloadedConstantState.newDrawable(res);
+        // NOTE: densityDpi may not be an even number, so account for *actual* scaling in asserts
+        final float approxHalf = (float)(densityDpi / 2) / densityDpi;
         halfDrawable.selectDrawable(0);
-        assertEquals(Math.round(origWidth0 / 2f), halfDrawable.getIntrinsicWidth());
+        assertEquals(Math.round(origWidth0 * approxHalf), halfDrawable.getIntrinsicWidth());
         halfDrawable.selectDrawable(1);
-        assertEquals(Math.round(origWidth1 / 2f), halfDrawable.getIntrinsicWidth());
+        assertEquals(Math.round(origWidth1 * approxHalf), halfDrawable.getIntrinsicWidth());
 
         // Set density to double original.
         DrawableTestUtils.setResourcesDensity(res, densityDpi * 2);
@@ -229,6 +255,7 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         assertEquals(origWidth1, origDrawable.getIntrinsicWidth());
     }
 
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.xml.selector_correct);
 
@@ -243,7 +270,8 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
         assertEquals(2, mDrawableContainerState.getChildCount());
         // check the android:state_* by calling setState
-        mMockDrawable.setState(new int[]{ attr.state_focused, - attr.state_pressed });
+        mMockDrawable.setState(
+                new int[]{ android.R.attr.state_focused, - android.R.attr.state_pressed });
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[0]);
         mMockDrawable.setState(StateSet.WILD_CARD);
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[1]);
@@ -265,7 +293,8 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         //assertNotNull(mDrawableContainerState.getConstantPadding());
         assertTrue(mMockDrawable.hasCalledOnStateChanged());
         assertEquals(1, mDrawableContainerState.getChildCount());
-        mMockDrawable.setState(new int[]{ - attr.state_pressed, attr.state_focused });
+        mMockDrawable.setState(
+                new int[]{ - android.R.attr.state_pressed, android.R.attr.state_focused });
         assertSame(mMockDrawable.getCurrent(), mDrawableContainerState.getChildren()[0]);
         mMockDrawable.setState(StateSet.WILD_CARD);
         assertNull(mMockDrawable.getCurrent());
@@ -278,27 +307,28 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         }
     }
 
-    public void testInflateWithNullParameters() throws XmlPullParserException, IOException{
+    @Test(expected=NullPointerException.class)
+    public void testInflateWithNullResources() throws XmlPullParserException, IOException {
         XmlResourceParser parser = getResourceParser(R.xml.level_list_correct);
-        try {
-            mMockDrawable.inflate(null, parser, Xml.asAttributeSet(parser));
-            fail("Should throw XmlPullParserException if resource is null");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            mMockDrawable.inflate(mResources, null, Xml.asAttributeSet(parser));
-            fail("Should throw XmlPullParserException if parser is null");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            mMockDrawable.inflate(mResources, parser, null);
-            fail("Should throw XmlPullParserException if AttributeSet is null");
-        } catch (NullPointerException e) {
-        }
+        // Should throw NullPointerException if resource is null
+        mMockDrawable.inflate(null, parser, Xml.asAttributeSet(parser));
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testInflateWithNullParser() throws XmlPullParserException, IOException {
+        XmlResourceParser parser = getResourceParser(R.xml.level_list_correct);
+        // Should throw NullPointerException if parser is null
+        mMockDrawable.inflate(mResources, null, Xml.asAttributeSet(parser));
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testInflateWithNullAttrSet() throws XmlPullParserException, IOException {
+        XmlResourceParser parser = getResourceParser(R.xml.level_list_correct);
+        // Should throw NullPointerException if AttributeSet is null
+        mMockDrawable.inflate(mResources, parser, null);
+    }
+
+    @Test
     public void testMutate() {
         StateListDrawable d1 =
             (StateListDrawable) mResources.getDrawable(R.drawable.statelistdrawable);
@@ -321,8 +351,7 @@ public class StateListDrawableTest extends InstrumentationTestCase {
 
     private XmlResourceParser getResourceParser(int resId) throws XmlPullParserException,
             IOException {
-        XmlResourceParser parser = getInstrumentation().getTargetContext().getResources().getXml(
-                resId);
+        XmlResourceParser parser = mResources.getXml(resId);
         int type;
         while ((type = parser.next()) != XmlPullParser.START_TAG
                 && type != XmlPullParser.END_DOCUMENT) {
@@ -331,6 +360,8 @@ public class StateListDrawableTest extends InstrumentationTestCase {
         return parser;
     }
 
+    // Since Mockito can't mock or spy on protected methods, we have a custom extension
+    // of StateListDrawable to track calls to protected onStateChange method.
     private class MockStateListDrawable extends StateListDrawable {
         private boolean mHasCalledOnStateChanged;
 
@@ -347,25 +378,6 @@ public class StateListDrawableTest extends InstrumentationTestCase {
             boolean result = super.onStateChange(stateSet);
             mHasCalledOnStateChanged = true;
             return result;
-        }
-    }
-
-    private class MockDrawable extends Drawable {
-        @Override
-        public void draw(Canvas canvas) {
-        }
-
-        @Override
-        public int getOpacity() {
-            return 0;
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter cf) {
         }
     }
 }

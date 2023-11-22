@@ -70,6 +70,7 @@ public final class JackDexTask extends Task {
 
         // Check the jack cache first.
         Md5Cache jackCache = run.jackCache;
+        boolean multidex = run.multidex;
         String classpathSubKey = jackCache.makeKey(classpath);
         String cacheKey = null;
         if (classpathSubKey != null) {
@@ -77,8 +78,10 @@ public final class JackDexTask extends Task {
             // classpathSubKey and do not cache.
 
             // cacheKey includes all the arguments that could affect the output.
+            String debuggingSubKey = "debug=" + run.debugging;
+            String multidexSubKey = "mdex=" + multidex;
             cacheKey = jackCache.makeKey(inputFile.toString(), classpathSubKey,
-                run.language.toString(), Boolean.toString(run.debugging));
+                run.language.toString(), debuggingSubKey, multidexSubKey);
 
             if (jackCache.getFromCache(localDex, cacheKey)) {
                 run.log.verbose("JackDexTask: Obtained " + localDex + " from jackCache");
@@ -90,6 +93,8 @@ public final class JackDexTask extends Task {
         Jack jack = Jack.getJackCommand(run.log).outputDexZip(localDex.getPath());
         jack.sourceVersion(run.language.getJackSourceVersion());
         jack.minApiLevel(String.valueOf(run.language.getJackMinApilevel()));
+        jack.multiDex(multidex ? "native" : "none");
+        jack.extra(run.jackArgs);
         if (run.debugging) {
             jack.setDebug();
         }

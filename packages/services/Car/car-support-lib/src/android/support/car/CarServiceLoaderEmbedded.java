@@ -21,14 +21,10 @@ import android.content.Context;
 import android.content.ServiceConnection;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.Message;
 import android.support.car.content.pm.CarPackageManagerEmbedded;
 import android.support.car.hardware.CarSensorManagerEmbedded;
 import android.support.car.media.CarAudioManagerEmbedded;
-import android.support.car.navigation.CarNavigationManagerEmbedded;
-
-import java.util.LinkedList;
+import android.support.car.navigation.CarNavigationStatusManagerEmbedded;
 
 /**
  * Default CarServiceLoader for system with built-in car service (=embedded).
@@ -40,70 +36,51 @@ public class CarServiceLoaderEmbedded extends CarServiceLoader {
 
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            getConnectionListener().onServiceConnected(name);
+            getConnectionCallback().onConnected();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            getConnectionListener().onServiceDisconnected(name);
+            getConnectionCallback().onDisconnected();
         }
     };
 
-    private final android.car.Car mCar;
-    private final LinkedList<CarConnectionListener> mCarConnectionListeners =
-            new LinkedList<>();
-    private final CallbackHandler mHandler;
+    private final android.car.Car mEmbeddedCar;
 
-    public CarServiceLoaderEmbedded(Context context, ServiceConnectionListener listener,
-            Looper looper) {
-        super(context, listener, looper);
-        mCar = android.car.Car.createCar(context, mServiceConnection, looper);
-        mHandler = new CallbackHandler(looper);
+    /** @hide */
+    CarServiceLoaderEmbedded(Context context, CarConnectionCallbackProxy carConnectionCallback,
+            Handler handler) {
+        super(context, carConnectionCallback, handler);
+        mEmbeddedCar = android.car.Car.createCar(context, mServiceConnection, handler);
     }
 
     @Override
     public void connect() throws IllegalStateException {
-        mCar.connect();
+        mEmbeddedCar.connect();
     }
 
     @Override
     public void disconnect() {
-        mCar.disconnect();
+        mEmbeddedCar.disconnect();
     }
 
     @Override
-    public boolean isConnectedToCar() {
-        // for embedded, connected to service means connected to car.
-        return mCar.isConnected();
+    public boolean isConnected() {
+        return mEmbeddedCar.isConnected();
     }
 
     @Override
     public int getCarConnectionType() throws CarNotConnectedException {
-        return mCar.getCarConnectionType();
-    }
-
-    @Override
-    public void registerCarConnectionListener(final CarConnectionListener listener)
-            throws CarNotConnectedException {
-        synchronized (this) {
-            mCarConnectionListeners.add(listener);
-        }
-        // car service connection is checked when this is called. So just dispatch it.
-        mHandler.dispatchCarConnectionCall(listener, getCarConnectionType());
-    }
-
-    @Override
-    public void unregisterCarConnectionListener(CarConnectionListener listener) {
-        synchronized (this) {
-            mCarConnectionListeners.remove(listener);
-        }
+        @android.support.car.Car.ConnectionType
+        int carConnectionType = mEmbeddedCar.getCarConnectionType();
+        return carConnectionType;
     }
 
     @Override
     public Object getCarManager(String serviceName) throws CarNotConnectedException {
         Object manager;
         try {
-            manager = mCar.getCarManager(serviceName);
+            manager = mEmbeddedCar.getCarManager(serviceName);
         } catch (android.car.CarNotConnectedException e) {
             throw new CarNotConnectedException(e);
         }
@@ -113,43 +90,20 @@ public class CarServiceLoaderEmbedded extends CarServiceLoader {
         }
         // For publicly available versions, return wrapper version.
         switch (serviceName) {
-        case Car.AUDIO_SERVICE:
-            return new CarAudioManagerEmbedded(manager);
-        case Car.SENSOR_SERVICE:
-            return new CarSensorManagerEmbedded(manager);
-        case Car.INFO_SERVICE:
-            return new CarInfoManagerEmbedded(manager);
-        case Car.APP_CONTEXT_SERVICE:
-            return new CarAppContextManagerEmbedded(manager);
-        case Car.PACKAGE_SERVICE:
-            return new CarPackageManagerEmbedded(manager);
-        case Car.CAR_NAVIGATION_SERVICE:
-            return new CarNavigationManagerEmbedded(manager);
-        default:
-            return manager;
-        }
-    }
-
-    private static class CallbackHandler extends Handler {
-
-        private  static final int MSG_DISPATCH_CAR_CONNECTION = 0;
-
-        private CallbackHandler(Looper looper) {
-            super(looper);
-        }
-
-        private void dispatchCarConnectionCall(CarConnectionListener listener, int connectionType) {
-            sendMessage(obtainMessage(MSG_DISPATCH_CAR_CONNECTION, connectionType, 0, listener));
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_DISPATCH_CAR_CONNECTION:
-                    CarConnectionListener listener = (CarConnectionListener) msg.obj;
-                    listener.onConnected(msg.arg1);
-                    break;
-            }
+            case Car.AUDIO_SERVICE:
+                return new CarAudioManagerEmbedded(manager);
+            case Car.SENSOR_SERVICE:
+                return new CarSensorManagerEmbedded(manager, getContext());
+            case Car.INFO_SERVICE:
+                return new CarInfoManagerEmbedded(manager);
+            case Car.APP_FOCUS_SERVICE:
+                return new CarAppFocusManagerEmbedded(manager);
+            case Car.PACKAGE_SERVICE:
+                return new CarPackageManagerEmbedded(manager);
+            case Car.CAR_NAVIGATION_SERVICE:
+                return new CarNavigationStatusManagerEmbedded(manager);
+            default:
+                return manager;
         }
     }
 }

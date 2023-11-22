@@ -1,5 +1,3 @@
-apply from:'buildSrc/studioCompat.gradle'
-
 /////////////////////////////
 //
 // Libraries
@@ -84,6 +82,29 @@ project(':support-animated-vector-drawable').projectDir = new File(rootDir, 'gra
 include ':support-transition'
 project(':support-transition').projectDir = new File(rootDir, 'transition')
 
+include ':support-dynamic-animation'
+project(':support-dynamic-animation').projectDir = new File(rootDir, 'dynamic-animation')
+
+include ':support-exifinterface'
+project(':support-exifinterface').projectDir = new File(rootDir, 'exifinterface')
+
+include ':support-wear'
+project(':support-wear').projectDir = new File(rootDir, 'wear')
+
+include ':support-tv-provider'
+project(':support-tv-provider').projectDir = new File(rootDir, 'tv-provider')
+
+include ':support-instantvideo'
+project(':support-instantvideo').projectDir = new File(rootDir, 'instantvideo')
+
+include ':support-emoji'
+project(':support-emoji').projectDir = new File(rootDir, 'emoji/core')
+
+include ':support-emoji-bundled'
+project(':support-emoji-bundled').projectDir = new File(rootDir, 'emoji/bundled')
+
+include ':support-emoji-appcompat'
+project(':support-emoji-appcompat').projectDir = new File(rootDir, 'emoji/appcompat')
 
 /////////////////////////////
 //
@@ -98,6 +119,9 @@ project(':support-design-demos').projectDir = new File(samplesRoot, 'SupportDesi
 
 include ':support-leanback-demos'
 project(':support-leanback-demos').projectDir = new File(samplesRoot, 'SupportLeanbackDemos')
+
+include ':support-leanback-jank'
+project(':support-leanback-jank').projectDir = new File(samplesRoot, 'SupportLeanbackJank')
 
 include ':support-percent-demos'
 project(':support-percent-demos').projectDir = new File(samplesRoot, 'SupportPercentDemos')
@@ -117,6 +141,30 @@ project(':support-v7-demos').projectDir = new File(samplesRoot, 'Support7Demos')
 include ':support-v13-demos'
 project(':support-v13-demos').projectDir = new File(samplesRoot, 'Support13Demos')
 
+include ':support-vector-drawable-demos'
+project(':support-vector-drawable-demos').projectDir = new File(samplesRoot, 'SupportVectorDrawableDemos')
+
+include ':support-animation-demos'
+project(':support-animation-demos').projectDir = new File(samplesRoot, 'SupportAnimationDemos')
+
+include ':support-wear-demos'
+project(':support-wear-demos').projectDir = new File(samplesRoot, 'SupportWearDemos')
+
+include ':support-app-navigation'
+project(':support-app-navigation').projectDir = new File(samplesRoot, 'SupportAppNavigation')
+
+include ':support-emoji-demos'
+project(':support-emoji-demos').projectDir = new File(samplesRoot, 'SupportEmojiDemos')
+
+/////////////////////////////
+//
+// Testing libraries
+//
+/////////////////////////////
+
+include ':support-testutils'
+project(':support-testutils').projectDir = new File(rootDir, 'testutils')
+
 /////////////////////////////
 //
 // External
@@ -127,3 +175,13 @@ File externalRoot = new File(rootDir, '../../external')
 
 include ':doclava'
 project(':doclava').projectDir = new File(externalRoot, 'doclava')
+
+include ':jdiff'
+project(':jdiff').projectDir = new File(externalRoot, 'jdiff')
+
+include ':noto-emoji-compat'
+project(':noto-emoji-compat').projectDir = new File(externalRoot, 'noto-fonts/emoji-compat')
+
+///// FLATFOOT START
+
+///// FLATFOOT END

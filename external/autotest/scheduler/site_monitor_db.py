@@ -9,7 +9,6 @@ import logging
 import time
 
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import email_manager
 from autotest_lib.scheduler import scheduler_config, scheduler_models
@@ -93,79 +92,6 @@ class SiteDispatcher(object):
     SiteDispatcher subclasses BaseDispatcher in monitor_db.
     """
     DEFAULT_REQUESTED_BY_USER_ID = 1
-
-
-    _timer = autotest_stats.Timer('scheduler')
-    _gauge = autotest_stats.Gauge('scheduler_rel')
-    _tick_start = None
-
-
-    @_timer.decorate
-    def tick(self):
-        self._tick_start = time.time()
-        super(SiteDispatcher, self).tick()
-        self._gauge.send('tick', time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _garbage_collection(self):
-        super(SiteDispatcher, self)._garbage_collection()
-        if self._tick_start:
-            self._gauge.send('_garbage_collection',
-                             time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _run_cleanup(self):
-        super(SiteDispatcher, self)._run_cleanup()
-        if self._tick_start:
-            self._gauge.send('_run_cleanup', time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _find_aborting(self):
-        super(SiteDispatcher, self)._find_aborting()
-        if self._tick_start:
-            self._gauge.send('_find_aborting', time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _process_recurring_runs(self):
-        super(SiteDispatcher, self)._process_recurring_runs()
-        if self._tick_start:
-            self._gauge.send('_process_recurring_runs',
-                             time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _schedule_delay_tasks(self):
-        super(SiteDispatcher, self)._schedule_delay_tasks()
-        if self._tick_start:
-            self._gauge.send('_schedule_delay_tasks',
-                             time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _schedule_running_host_queue_entries(self):
-        super(SiteDispatcher, self)._schedule_running_host_queue_entries()
-        if self._tick_start:
-            self._gauge.send('_schedule_running_host_queue_entries',
-                             time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _schedule_special_tasks(self):
-        super(SiteDispatcher, self)._schedule_special_tasks()
-        if self._tick_start:
-            self._gauge.send('_schedule_special_tasks',
-                             time.time() - self._tick_start)
-
-    @_timer.decorate
-    def _schedule_new_jobs(self):
-        super(SiteDispatcher, self)._schedule_new_jobs()
-        if self._tick_start:
-            self._gauge.send('_schedule_new_jobs',
-                             time.time() - self._tick_start)
-
-
-    @_timer.decorate
-    def _handle_agents(self):
-        super(SiteDispatcher, self)._handle_agents()
-        if self._tick_start:
-            self._gauge.send('_handle_agents', time.time() - self._tick_start)
 
 
     def _reverify_hosts_where(self, where,

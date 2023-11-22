@@ -16,24 +16,35 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
-import junit.framework.TestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 
-public class TypedValueTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TypedValueTest {
+    @Test
     public void testConstructor() {
         new TypedValue();
     }
 
+    @Test
     public void testGetFloat() {
-        final float EXPECTED = Float.intBitsToFloat(99);
+        final float expected = Float.intBitsToFloat(99);
         TypedValue tv = new TypedValue();
         tv.data = 99;
-        assertEquals(EXPECTED, tv.getFloat());
+        assertEquals(expected, tv.getFloat(), 0.0f);
     }
 
+    @Test
     public void testComplexToDimension() {
         DisplayMetrics dm = new DisplayMetrics();
         dm.density = 1.1f;
@@ -41,13 +52,14 @@ public class TypedValueTest extends TestCase {
         dm.scaledDensity = 2.1f;
         dm.xdpi = 200f;
         dm.ydpi = 300f;
-        final float EXPECTED = TypedValue.applyDimension((10 >> TypedValue.COMPLEX_UNIT_SHIFT)
+        final float expected = TypedValue.applyDimension((10 >> TypedValue.COMPLEX_UNIT_SHIFT)
                 & TypedValue.COMPLEX_UNIT_MASK, TypedValue.complexToFloat(10), dm);
 
-        assertEquals(EXPECTED, TypedValue.complexToDimension(10, dm));
-        assertEquals((int)EXPECTED, TypedValue.complexToDimensionPixelOffset(10, dm));
+        assertEquals(expected, TypedValue.complexToDimension(10, dm), 0.0f);
+        assertEquals((int)expected, TypedValue.complexToDimensionPixelOffset(10, dm));
     }
 
+    @Test
     public void testSetTo() {
         TypedValue tv1 = new TypedValue();
         TypedValue tv2 = new TypedValue();
@@ -68,14 +80,16 @@ public class TypedValueTest extends TestCase {
         assertEquals(5, tv2.type);
     }
 
+    @Test
     public void testGetFraction() {
         // set the expected value
-        final float EXPECTED = TypedValue.complexToFraction(10, 1.1f, 2.1f) ;
+        final float expected = TypedValue.complexToFraction(10, 1.1f, 2.1f) ;
         TypedValue tv = new TypedValue();
         tv.data = 10;
-        assertEquals(EXPECTED, tv.getFraction(1.1f, 2.1f));
+        assertEquals(expected, tv.getFraction(1.1f, 2.1f), 0.0f);
     }
 
+    @Test
     public void testComplexToDimensionPixelSize() {
         DisplayMetrics dm = new DisplayMetrics();
         dm.density = 1.1f;
@@ -95,8 +109,8 @@ public class TypedValueTest extends TestCase {
 
     }
 
+    @Test
     public void testComplexToFraction() {
-
         final int data1 = 1;
         final float base1 = 1.1f;
         final float pbase1 = 2.2f;
@@ -106,12 +120,12 @@ public class TypedValueTest extends TestCase {
         final float base2 = 1.1f;
         final float pbase2 = 2.2f;
         final float expected2 = 0.013092041f;
-        assertEquals(expected1, TypedValue.complexToFraction(data1, base1, pbase1));
-        assertEquals(expected2, TypedValue.complexToFraction(data2, base2, pbase2));
+        assertEquals(expected1, TypedValue.complexToFraction(data1, base1, pbase1), 0.0f);
+        assertEquals(expected2, TypedValue.complexToFraction(data2, base2, pbase2), 0.0f);
     }
 
+    @Test
     public void testToString() {
-
         TypedValue tv = new TypedValue();
         tv.assetCookie = 1;
         tv.changingConfigurations = 2;
@@ -125,6 +139,7 @@ public class TypedValueTest extends TestCase {
         assertNotNull(tv.toString());
     }
 
+    @Test
     public void testApplyDimension() {
         DisplayMetrics dm = new DisplayMetrics();
         dm.density = 1.1f;
@@ -133,20 +148,22 @@ public class TypedValueTest extends TestCase {
         dm.xdpi = 200f;
         dm.ydpi = 300f;
 
-        assertEquals(10.0f, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PX, 10, dm));
+        assertEquals(10.0f, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PX, 10, dm), 0.0f);
         assertEquals(10 * dm.density, TypedValue
-                .applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, dm));
+                .applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, dm), 0.0f);
         assertEquals(10 * dm.scaledDensity, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,
-                10, dm));
+                10, dm), 0.0f);
         assertEquals(10 * dm.xdpi * (1.0f/72),
-                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PT, 10, dm));
-        assertEquals(10 * dm.xdpi, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_IN, 10, dm));
+                TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PT, 10, dm), 0.0f);
+        assertEquals(10 * dm.xdpi, TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_IN, 10, dm),
+                0.0f);
         assertEquals(10 * dm.xdpi * (1.0f / 25.4f), TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_MM, 10, dm));
+                TypedValue.COMPLEX_UNIT_MM, 10, dm), 0.0f);
 
-        assertEquals(0.0f, TypedValue.applyDimension(-1, 10, dm));
+        assertEquals(0.0f, TypedValue.applyDimension(-1, 10, dm), 0.0f);
     }
 
+    @Test
     public void testCoerceToString1() {
         TypedValue tv = new TypedValue();
         tv.assetCookie = 1;
@@ -162,6 +179,7 @@ public class TypedValueTest extends TestCase {
         assertNotNull(tv.coerceToString());
     }
 
+    @Test
     public void testCoerceToString2() {
         assertNull(TypedValue.coerceToString(TypedValue.TYPE_NULL, 10));
         assertNotNull(TypedValue.coerceToString(TypedValue.TYPE_REFERENCE, 10));
@@ -178,19 +196,20 @@ public class TypedValueTest extends TestCase {
         assertNull(TypedValue.coerceToString(-1, 10));
     }
 
+    @Test
     public void testComplexToFloat() {
-
         final int complex1 = 1;
         final float expected1 = 0.0f;
         final int complex2 = 17;
         final float expected2 = 0.0f;
         final int complex3 = 9999;
         final float expected3 = 39.0f;
-        assertEquals(expected1, TypedValue.complexToFloat(complex1));
-        assertEquals(expected2, TypedValue.complexToFloat(complex2));
-        assertEquals(expected3, TypedValue.complexToFloat(complex3));
+        assertEquals(expected1, TypedValue.complexToFloat(complex1), 0.0f);
+        assertEquals(expected2, TypedValue.complexToFloat(complex2), 0.0f);
+        assertEquals(expected3, TypedValue.complexToFloat(complex3), 0.0f);
     }
 
+    @Test
     public void testGetDimension() {
         DisplayMetrics dm = new DisplayMetrics();
         dm.density = 1.1f;
@@ -203,6 +222,27 @@ public class TypedValueTest extends TestCase {
         tv.data = 10;
         tv.getDimension(dm);
 
-        assertEquals(TypedValue.complexToDimension(10, dm), tv.getDimension(dm));
+        assertEquals(TypedValue.complexToDimension(10, dm), tv.getDimension(dm), 0.0f);
+    }
+
+    @Test
+    public void testGetComplexUnit() {
+        TypedValue tv = new TypedValue();
+        tv.data = 256;
+        assertEquals(TypedValue.COMPLEX_UNIT_PX, tv.getComplexUnit());
+        tv.data = 257;
+        assertEquals(TypedValue.COMPLEX_UNIT_DIP, tv.getComplexUnit());
+        tv.data = 258;
+        assertEquals(TypedValue.COMPLEX_UNIT_SP, tv.getComplexUnit());
+        tv.data = 259;
+        assertEquals(TypedValue.COMPLEX_UNIT_PT, tv.getComplexUnit());
+        tv.data = 260;
+        assertEquals(TypedValue.COMPLEX_UNIT_IN, tv.getComplexUnit());
+        tv.data = 261;
+        assertEquals(TypedValue.COMPLEX_UNIT_MM, tv.getComplexUnit());
+        tv.data = 21474864;
+        assertEquals(TypedValue.COMPLEX_UNIT_FRACTION, tv.getComplexUnit());
+        tv.data = 21474865;
+        assertEquals(TypedValue.COMPLEX_UNIT_FRACTION_PARENT, tv.getComplexUnit());
     }
 }

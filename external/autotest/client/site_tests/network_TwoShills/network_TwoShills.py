@@ -20,8 +20,7 @@ class network_TwoShills(test.test):
         @return True or False.
 
         """
-        cmd_result = utils.run("status shill", ignore_status=True)
-        return cmd_result.stdout.find("start/running") != -1
+        return utils.get_service_pid("shill") != 0
 
 
     @staticmethod

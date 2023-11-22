@@ -26,7 +26,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread_list.h"
 #include "zygote_space.h"
 
@@ -52,7 +52,7 @@ class SpaceTest : public Super {
     heap->SetSpaceAsDefault(space);
   }
 
-  mirror::Class* GetByteArrayClass(Thread* self) SHARED_REQUIRES(Locks::mutator_lock_) {
+  mirror::Class* GetByteArrayClass(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_) {
     StackHandleScope<1> hs(self);
     auto null_loader(hs.NewHandle<mirror::ClassLoader>(nullptr));
     if (byte_array_class_ == nullptr) {
@@ -62,7 +62,7 @@ class SpaceTest : public Super {
       byte_array_class_ = self->GetJniEnv()->NewLocalRef(byte_array_class);
       EXPECT_TRUE(byte_array_class_ != nullptr);
     }
-    return reinterpret_cast<mirror::Class*>(self->DecodeJObject(byte_array_class_));
+    return self->DecodeJObject(byte_array_class_)->AsClass();
   }
 
   mirror::Object* Alloc(space::MallocSpace* alloc_space,
@@ -71,7 +71,7 @@ class SpaceTest : public Super {
                         size_t* bytes_allocated,
                         size_t* usable_size,
                         size_t* bytes_tl_bulk_allocated)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     StackHandleScope<1> hs(self);
     Handle<mirror::Class> byte_array_class(hs.NewHandle(GetByteArrayClass(self)));
     mirror::Object* obj = alloc_space->Alloc(self,
@@ -91,7 +91,7 @@ class SpaceTest : public Super {
                                   size_t* bytes_allocated,
                                   size_t* usable_size,
                                   size_t* bytes_tl_bulk_allocated)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     StackHandleScope<1> hs(self);
     Handle<mirror::Class> byte_array_class(hs.NewHandle(GetByteArrayClass(self)));
     mirror::Object* obj = alloc_space->AllocWithGrowth(self, bytes, bytes_allocated, usable_size,
@@ -103,18 +103,15 @@ class SpaceTest : public Super {
   }
 
   void InstallClass(mirror::Object* o, mirror::Class* byte_array_class, size_t size)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     // Note the minimum size, which is the size of a zero-length byte array.
     EXPECT_GE(size, SizeOfZeroLengthByteArray());
     EXPECT_TRUE(byte_array_class != nullptr);
     o->SetClass(byte_array_class);
-    if (kUseBakerOrBrooksReadBarrier) {
+    if (kUseBakerReadBarrier) {
       // Like the proper heap object allocation, install and verify
-      // the correct read barrier pointer.
-      if (kUseBrooksReadBarrier) {
-        o->SetReadBarrierPointer(o);
-      }
-      o->AssertReadBarrierPointer();
+      // the correct read barrier state.
+      o->AssertReadBarrierState();
     }
     mirror::Array* arr = o->AsArray<kVerifyNone>();
     size_t header_size = SizeOfZeroLengthByteArray();
@@ -203,7 +200,7 @@ void SpaceTest<Super>::SizeFootPrintGrowthLimitAndTrimBody(MallocSpace* space,
       }
       footprint = space->GetFootprint();
       EXPECT_GE(space->Size(), footprint);  // invariant
-      if (object.Get() != nullptr) {  // allocation succeeded
+      if (object != nullptr) {  // allocation succeeded
         lots_of_objects[i] = object.Get();
         size_t allocation_size = space->AllocationSize(object.Get(), nullptr);
         EXPECT_EQ(bytes_allocated, allocation_size);
@@ -299,7 +296,7 @@ void SpaceTest<Super>::SizeFootPrintGrowthLimitAndTrimBody(MallocSpace* space,
     large_object.Assign(AllocWithGrowth(space, self, three_quarters_space, &bytes_allocated,
                                         nullptr, &bytes_tl_bulk_allocated));
   }
-  EXPECT_TRUE(large_object.Get() != nullptr);
+  EXPECT_TRUE(large_object != nullptr);
 
   // Sanity check footprint
   footprint = space->GetFootprint();
@@ -354,7 +351,7 @@ void SpaceTest<Super>::SizeFootPrintGrowthLimitAndTrimDriver(size_t object_size,
 
 #define TEST_SizeFootPrintGrowthLimitAndTrimRandom(name, spaceName, spaceFn, size) \
   TEST_F(spaceName##RandomTest, SizeFootPrintGrowthLimitAndTrim_RandomAllocationsWithMax_##name) { \
-    SizeFootPrintGrowthLimitAndTrimDriver(-size, spaceFn); \
+    SizeFootPrintGrowthLimitAndTrimDriver(-(size), spaceFn); \
   }
 
 #define TEST_SPACE_CREATE_FN_STATIC(spaceName, spaceFn) \

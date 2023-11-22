@@ -17,8 +17,7 @@
 #include "RenderScript.h"
 #include "rsCppInternal.h"
 
-using namespace android;
-using namespace RSC;
+using android::RSC::BaseObj;
 
 void * BaseObj::getID() const {
     if (mID == nullptr) {
@@ -27,7 +26,7 @@ void * BaseObj::getID() const {
     return mID;
 }
 
-void * BaseObj::getObjID(sp<const BaseObj> o) {
+void * BaseObj::getObjID(const sp<const BaseObj>& o) {
     return o == nullptr ? nullptr : o->getID();
 }
 
@@ -57,7 +56,7 @@ void BaseObj::updateFromNative() {
     mName = name;
 }
 
-bool BaseObj::equals(sp<const BaseObj> obj) {
+bool BaseObj::equals(const sp<const BaseObj>& obj) {
     // Early-out check to see if both BaseObjs are actually the same.
     if (this == obj.get())
         return true;

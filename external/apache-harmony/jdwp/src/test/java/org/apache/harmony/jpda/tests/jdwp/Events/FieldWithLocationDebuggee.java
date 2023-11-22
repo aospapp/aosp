@@ -46,6 +46,7 @@ public class FieldWithLocationDebuggee extends SyncDebuggee {
         testIntField = currentValue + 1;  // field modification
     }
 
+    @Override
     public void run() {
         logWriter.println("FieldWithLocationDebuggee started");
 

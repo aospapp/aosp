@@ -19,13 +19,15 @@
 
 #include "rsUtils.h"
 
+#include <string>
+
 namespace android {
 namespace renderscript {
 
 class Context;
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 // An element is a group of Components that occupies one cell in a structure.
 class RsdVertexArray {
@@ -39,7 +41,7 @@ public:
         uint32_t size;
         uint32_t stride;
         bool normalized;
-        android::String8 name;
+        std::string name;
 
         Attrib();
         void clear();

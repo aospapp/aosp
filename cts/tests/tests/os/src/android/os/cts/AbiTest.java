@@ -16,10 +16,14 @@
 
 package android.os.cts;
 
-import android.cts.util.ReadElf;
+import android.system.OsConstants;
+import android.system.ErrnoException;
 import android.util.ArraySet;
 
+import com.android.compatibility.common.util.ReadElf;
+
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 
 import junit.framework.TestCase;
@@ -73,6 +77,14 @@ public class AbiTest extends TestCase {
                     elf = ReadElf.read(f);
                 } catch (IllegalArgumentException ignored) {
                     // If it's not actually an ELF file, we don't care.
+                } catch (IOException ex) {
+                    Throwable cause = ex.getCause();
+                    if (cause instanceof ErrnoException) {
+                        // if we are denied access to the file, ignore.
+                        if (((ErrnoException) cause).errno != OsConstants.EACCES) {
+                            throw ex;
+                        }
+                    }
                 } finally {
                     if (elf != null) {
                         elf.close();

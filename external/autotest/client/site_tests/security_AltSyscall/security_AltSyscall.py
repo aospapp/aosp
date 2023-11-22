@@ -65,6 +65,11 @@ class security_AltSyscall(test.test):
                              "Blocked system calls succeeded")
         case_deny_alt_syscall = ("alt_syscall", "read_write_test", 1,
                                  "Changing alt_syscall table succeeded")
+        case_adjtimex = ("adjtimex", "android", 0,
+                         "android_adjtimex() filtering didn't work.")
+        case_clock_adjtime = ("clock_adjtime", "android", 0,
+                              "android_clock_adjtime() filtering didn't work.")
 
-        for case in [case_allow, case_deny_blocked, case_deny_alt_syscall]:
+        for case in [case_allow, case_deny_blocked, case_deny_alt_syscall,
+                     case_adjtimex, case_clock_adjtime]:
             self.run_test(*case)

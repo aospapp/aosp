@@ -16,85 +16,144 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.test.InstrumentationTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.AbsSavedState;
 
-public class AbsSavedStateTest extends InstrumentationTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    // constant for test of writeToParcel
-    public static final int TEST_NUMBER = 1;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AbsSavedStateTest {
+    @Test(expected=IllegalArgumentException.class)
+    public void testConstructorNullParcelable() {
+        new AbsSavedStateImpl((Parcelable) null);
+    }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullParcel() {
+        new AbsSavedStateImpl((Parcel) null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullParcelAndClassLoader() {
+        new AbsSavedStateImpl(null, null);
+    }
+
+    @Test
     public void testConstructor() {
-        MockParcelable superState = new MockParcelable();
-        assertNotNull(superState);
-        new MockAbsSavedState(superState);
+        AbsSavedState superState = new AbsSavedStateImpl(Parcel.obtain());
+        assertSame(AbsSavedState.EMPTY_STATE, superState.getSuperState());
+
+        AbsSavedState s = new AbsSavedStateImpl(superState);
+        assertSame(superState, s.getSuperState());
 
         Parcel source = Parcel.obtain();
-        new MockAbsSavedState(source);
+        source.writeParcelable(superState, 0);
+        source.setDataPosition(0);
+        s = new AbsSavedStateImpl(source, AbsSavedStateImpl.class.getClassLoader());
+        assertTrue(s.getSuperState() instanceof AbsSavedState);
 
-        MockAbsSavedState savedState = new MockAbsSavedState(source);
-        assertEquals(0, savedState.describeContents());
+        source = Parcel.obtain();
+        s = new AbsSavedStateImpl(source);
+        assertSame(AbsSavedState.EMPTY_STATE, s.getSuperState());
+
+        source = Parcel.obtain();
+        source.writeParcelable(superState, 0);
+        source.setDataPosition(0);
+        s = new AbsSavedStateImpl(source, AbsSavedStateImpl.class.getClassLoader());
+        assertTrue(s.getSuperState() instanceof AbsSavedState);
+
+        source = Parcel.obtain();
+        s = new AbsSavedStateImpl(source, AbsSavedState.class.getClassLoader());
+        assertSame(AbsSavedState.EMPTY_STATE, s.getSuperState());
     }
 
-    public void testGetSuperState() {
-        MockParcelable superState = new MockParcelable();
-        assertNotNull(superState);
-        MockAbsSavedState savedState = new MockAbsSavedState(superState);
+    @Test
+    public void testCreator() {
+        int size = 10;
+        AbsSavedState[] array = AbsSavedState.CREATOR.newArray(size);
+        assertNotNull(array);
+        assertEquals(size, array.length);
+        for (AbsSavedState state : array) {
+            assertNull(state);
+        }
 
-        assertSame(superState, savedState.getSuperState());
+        AbsSavedState state = new AbsSavedStateImpl(AbsSavedState.EMPTY_STATE);
+        Parcel parcel = Parcel.obtain();
+        state.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        AbsSavedState unparceled = AbsSavedState.CREATOR.createFromParcel(parcel);
+        assertNotNull(unparceled);
+        assertNull(unparceled.getSuperState());
+
+        AbsSavedState stateWithSuper = new AbsSavedStateImpl(state);
+        parcel = Parcel.obtain();
+        stateWithSuper.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        if (AbsSavedState.CREATOR instanceof Parcelable.ClassLoaderCreator) {
+            try {
+                ((Parcelable.ClassLoaderCreator) AbsSavedState.CREATOR).createFromParcel(parcel,
+                        AbsSavedStateImpl.class.getClassLoader());
+                fail("Expected IllegalStateException");
+            } catch (IllegalStateException e) {
+                // Expected.
+            }
+        }
     }
 
+    @Test
     public void testWriteToParcel() {
-        MockParcelable superState = new MockParcelable();
-        assertNotNull(superState);
-        MockAbsSavedState savedState = new MockAbsSavedState(superState);
-
+        Parcelable superState = mock(Parcelable.class);
+        AbsSavedState savedState = new AbsSavedStateImpl(superState);
         Parcel dest = Parcel.obtain();
         int flags = 2;
         savedState.writeToParcel(dest, flags);
-
-        // we instantiate the writeToParcel of Parcalable
-        // and give a return for test
-        assertEquals(TEST_NUMBER, superState.writeToParcelRunSymbol());
-        assertEquals(flags, superState.getFlags());
+        verify(superState).writeToParcel(eq(dest), eq(flags));
     }
 
-    static class MockAbsSavedState extends AbsSavedState {
-
-        public MockAbsSavedState(Parcelable superState) {
+    private static class AbsSavedStateImpl extends AbsSavedState {
+        AbsSavedStateImpl(Parcelable superState) {
             super(superState);
         }
 
-        public MockAbsSavedState(Parcel source) {
+        AbsSavedStateImpl(Parcel source) {
             super(source);
         }
-    }
 
-    static class MockParcelable implements Parcelable {
-
-        // Test for writeToParcel
-        private int mTest;
-        private int mFlags;
-
-        public int describeContents() {
-            return 0;
+        AbsSavedStateImpl(Parcel source, ClassLoader loader) {
+            super(source, loader);
         }
 
-        // Instantiate writeToParcel
-        public void writeToParcel(Parcel dest, int flags) {
-            mTest = TEST_NUMBER;
-            mFlags = flags;
-        }
+        public static final Creator<AbsSavedStateImpl> CREATOR =
+                new ClassLoaderCreator<AbsSavedStateImpl>() {
+            @Override
+            public AbsSavedStateImpl createFromParcel(Parcel source) {
+                return new AbsSavedStateImpl(source);
+            }
 
-        // For test of writeToParcel
-        public int writeToParcelRunSymbol() {
-            return mTest;
-        }
+            @Override
+            public AbsSavedStateImpl createFromParcel(Parcel source, ClassLoader loader) {
+                return new AbsSavedStateImpl(source, loader);
+            }
 
-        public int getFlags() {
-            return mFlags;
-        }
+            @Override
+            public AbsSavedStateImpl[] newArray(int size) {
+                return new AbsSavedStateImpl[size];
+            }
+        };
     }
 }

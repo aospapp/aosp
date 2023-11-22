@@ -42,6 +42,7 @@ typedef struct  {
 
     enum pcm_format formats[MAX_PROFILE_FORMATS];
 
+    /* note that this list is sorted highest rate to lowest */
     unsigned sample_rates[MAX_PROFILE_SAMPLE_RATES];
 
     unsigned channel_counts[MAX_PROFILE_CHANNEL_COUNTS];

@@ -124,22 +124,6 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := \
     $(LOCAL_PATH)/upstream/remote-processor/ \
     $(LOCAL_PATH)/support/android/parameter/
 
-common_copy_headers_to := parameter
-common_copy_headers := \
-    upstream/parameter/include/ParameterMgrLoggerForward.h \
-    upstream/parameter/include/ParameterMgrPlatformConnector.h \
-    upstream/parameter/include/ParameterMgrFullConnector.h \
-    upstream/parameter/include/SelectionCriterionTypeInterface.h \
-    upstream/parameter/include/SelectionCriterionInterface.h \
-    upstream/parameter/include/ParameterHandle.h \
-    support/android/parameter/parameter_export.h \
-    upstream/parameter/include/ElementHandle.h
-
-LOCAL_C_INCLUDES := $(LOCAL_EXPORT_C_INCLUDE_DIRS)
-
-LOCAL_COPY_HEADERS_TO := $(common_copy_headers_to)
-LOCAL_COPY_HEADERS := $(common_copy_headers)
-
 LOCAL_C_INCLUDES := $(LOCAL_EXPORT_C_INCLUDE_DIRS)
 
 LOCAL_SHARED_LIBRARIES := libremote-processor$(PFW_NETWORKING_SUFFIX)$(SUFFIX)

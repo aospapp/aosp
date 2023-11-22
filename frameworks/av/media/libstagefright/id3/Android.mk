@@ -5,8 +5,10 @@ LOCAL_SRC_FILES := \
 	ID3.cpp
 
 LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
-LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow
+LOCAL_SANITIZE := unsigned-integer-overflow signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
+
+LOCAL_SHARED_LIBRARIES := libmedia
 
 LOCAL_MODULE := libstagefright_id3
 
@@ -20,7 +22,6 @@ LOCAL_SRC_FILES := \
 	testid3.cpp
 
 LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
 
 LOCAL_SHARED_LIBRARIES := \
 	libstagefright libutils liblog libbinder libstagefright_foundation

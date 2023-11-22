@@ -12,6 +12,7 @@
 //
 //     Error Returns                     Meaning
 //
+//     TPM_RC_ATTRIBUTES                 If the key is restricted or the key is not a decryption key
 //     TPM_RC_BINDING                    The public an private parts of the key are not properly bound
 //     TPM_RC_KEY                        keyHandle does not reference an unrestricted decrypt key
 //     TPM_RC_SCHEME                     incorrect input scheme, or the chosen scheme is not a valid RSA

@@ -7,7 +7,6 @@ AUTHOR = 'sonnyrao@chromium.org'
 PURPOSE = 'Benchmark memory and cache access latency'
 CRITERIA = 'This test is a benchmark.'
 ATTRIBUTES = "suite:hwqual, suite:kernel_daily_benchmarks"
-SUITE = "kernel_daily_benchmarks, hwqual"
 TIME='MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "hardware"

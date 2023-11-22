@@ -4,9 +4,9 @@
 
 """Facade to access the audio-related functionality."""
 
+import functools
 import glob
 import logging
-import multiprocessing
 import os
 import tempfile
 
@@ -21,6 +21,23 @@ from autotest_lib.client.cros.multimedia import audio_extension_handler
 class AudioFacadeNativeError(Exception):
     """Error in AudioFacadeNative."""
     pass
+
+
+def check_arc_resource(func):
+    """Decorator function for ARC related functions in AudioFacadeNative."""
+    @functools.wraps(func)
+    def wrapper(instance, *args, **kwargs):
+        """Wrapper for the methods to check _arc_resource.
+
+        @param instance: Object instance.
+
+        @raises: AudioFacadeNativeError if there is no ARC resource.
+
+        """
+        if not instance._arc_resource:
+            raise AudioFacadeNativeError('There is no ARC resource.')
+        return func(instance, *args, **kwargs)
+    return wrapper
 
 
 class AudioFacadeNative(object):
@@ -38,35 +55,40 @@ class AudioFacadeNative(object):
     _PLAYBACK_DATA_FORMAT = dict(
             file_type='raw', sample_format='S16_LE', channel=2, rate=48000)
 
-    def __init__(self, resource):
+    def __init__(self, resource, arc_resource=None):
         """Initializes an audio facade.
 
         @param resource: A FacadeResource object.
+        @param arc_resource: An ArcResource object.
 
         """
         self._resource = resource
         self._recorder = None
+        self._player = None
         self._counter = None
-        self._extension_handler = None
-        self._create_extension_handler()
+        self._loaded_extension_handler = None
+        self._arc_resource = arc_resource
 
 
-    def _create_extension_handler(self):
-        """Loads multimedia test extension and creates extension handler."""
-        extension = self._resource.get_extension(
-                constants.MULTIMEDIA_TEST_EXTENSION)
-        logging.debug('Loaded extension: %s', extension)
-        self._extension_handler = audio_extension_handler.AudioExtensionHandler(
-                extension)
+    @property
+    def _extension_handler(self):
+        """Multimedia test extension handler."""
+        if not self._loaded_extension_handler:
+            extension = self._resource.get_extension(
+                    constants.MULTIMEDIA_TEST_EXTENSION)
+            logging.debug('Loaded extension: %s', extension)
+            self._loaded_extension_handler = (
+                    audio_extension_handler.AudioExtensionHandler(extension))
+        return self._loaded_extension_handler
 
 
-    def get_audio_info(self):
-        """Returns the audio info from chrome.audio API.
+    def get_audio_devices(self):
+        """Returns the audio devices from chrome.audio API.
 
-        @returns: Checks docstring of get_audio_info of AudioExtensionHandler.
+        @returns: Checks docstring of get_audio_devices of AudioExtensionHandler.
 
         """
-        return self._extension_handler.get_audio_info()
+        return self._extension_handler.get_audio_devices()
 
 
     def set_chrome_active_volume(self, volume):
@@ -128,6 +150,14 @@ class AudioFacadeNative(object):
         for path in glob.glob('/tmp/capture_*'):
             os.unlink(path)
 
+        if self._recorder:
+            self._recorder.cleanup()
+        if self._player:
+            self._player.cleanup()
+
+        if self._arc_resource:
+            self._arc_resource.cleanup()
+
 
     def playback(self, file_path, data_format, blocking=False):
         """Playback a file.
@@ -154,18 +184,15 @@ class AudioFacadeNative(object):
             raise AudioFacadeNativeError(
                     'data format %r is not supported' % data_format)
 
-        def _playback():
-            """Playback using cras utility."""
-            cras_utils.playback(playback_file=file_path)
-
-        if blocking:
-            _playback()
-        else:
-            p = multiprocessing.Process(target=_playback)
-            p.daemon = True
-            p.start()
+        self._player = Player()
+        self._player.start(file_path, blocking)
 
         return True
+
+
+    def stop_playback(self):
+        """Stops playback process."""
+        self._player.stop()
 
 
     def start_recording(self, data_format):
@@ -216,6 +243,15 @@ class AudioFacadeNative(object):
 
         """
         cras_utils.set_selected_output_node_volume(volume)
+
+
+    def set_input_gain(self, gain):
+        """Sets the system capture gain.
+
+        @param gain: the capture gain in db*100 (100 = 1dB)
+
+        """
+        cras_utils.set_capture_gain(gain)
 
 
     def set_selected_node_types(self, output_node_types, input_node_types):
@@ -302,6 +338,58 @@ class AudioFacadeNative(object):
         cras_dbus_utils.wait_for_unexpected_nodes_changed(timeout_secs)
 
 
+    @check_arc_resource
+    def start_arc_recording(self):
+        """Starts recording using microphone app in container."""
+        self._arc_resource.microphone.start_microphone_app()
+
+
+    @check_arc_resource
+    def stop_arc_recording(self):
+        """Checks the recording is stopped and gets the recorded path.
+
+        The recording duration of microphone app is fixed, so this method just
+        copies the recorded result from container to a path on Cros device.
+
+        """
+        _, file_path = tempfile.mkstemp(prefix='capture_', suffix='.amr-nb')
+        self._arc_resource.microphone.stop_microphone_app(file_path)
+        return file_path
+
+
+    @check_arc_resource
+    def set_arc_playback_file(self, file_path):
+        """Copies the audio file to be played into container.
+
+        User should call this method to put the file into container before
+        calling start_arc_playback.
+
+        @param file_path: Path to the file to be played on Cros host.
+
+        @returns: Path to the file in container.
+
+        """
+        return self._arc_resource.play_music.set_playback_file(file_path)
+
+
+    @check_arc_resource
+    def start_arc_playback(self, path):
+        """Start playback through Play Music app.
+
+        Before calling this method, user should call set_arc_playback_file to
+        put the file into container.
+
+        @param path: Path to the file in container.
+
+        """
+        self._arc_resource.play_music.start_playback(path)
+
+
+    @check_arc_resource
+    def stop_arc_playback(self):
+        """Stop playback through Play Music app."""
+        self._arc_resource.play_music.stop_playback()
+
 
 class RecorderError(Exception):
     """Error in Recorder."""
@@ -352,3 +440,57 @@ class Recorder(object):
         else:
             raise RecorderError(
                     'Recording process was terminated unexpectedly.')
+
+
+    def cleanup(self):
+        """Cleanup the resources.
+
+        Terminates the recording process if needed.
+
+        """
+        if self._capture_subprocess and self._capture_subprocess.poll() is None:
+            self._capture_subprocess.terminate()
+
+
+class PlayerError(Exception):
+    """Error in Player."""
+    pass
+
+
+class Player(object):
+    """The class to control audio playback subprocess.
+
+    Properties:
+        file_path: The path to the file to play.
+
+    """
+    def __init__(self):
+        """Initializes a Player."""
+        self._playback_subprocess = None
+
+
+    def start(self, file_path, blocking):
+        """Starts recording.
+
+        Starts recording subprocess. It can be stopped by calling stop().
+
+        @param file_path: The path to the file.
+        @param blocking: Blocks this call until playback finishes.
+
+        """
+        self._playback_subprocess = cras_utils.playback(
+                blocking, playback_file=file_path)
+
+
+    def stop(self):
+        """Stops playback subprocess."""
+        cmd_utils.kill_or_log_returncode(self._playback_subprocess)
+
+
+    def cleanup(self):
+        """Cleanup the resources.
+
+        Terminates the playback process if needed.
+
+        """
+        self.stop()

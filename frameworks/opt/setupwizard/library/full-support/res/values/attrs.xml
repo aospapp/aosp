@@ -19,22 +19,16 @@
 
     <attr name="suwHasStableIds" format="boolean|reference" />
 
-    <declare-styleable name="SuwSetupWizardRecyclerItemsLayout">
-        <attr name="android:entries" />
-        <attr name="suwDividerInset" />
-        <attr name="suwHasStableIds" />
-    </declare-styleable>
-
-    <declare-styleable name="SuwGlifRecyclerLayout">
-        <attr name="android:entries" />
-        <attr name="suwDividerInset" />
-        <attr name="suwHasStableIds" />
-    </declare-styleable>
-
     <declare-styleable name="SuwRecyclerItemAdapter">
         <attr name="android:colorBackground" />
         <attr name="android:selectableItemBackground" />
         <attr name="selectableItemBackground" />
+    </declare-styleable>
+
+    <declare-styleable name="SuwRecyclerMixin">
+        <attr name="android:entries" />
+        <attr name="suwDividerInset" />
+        <attr name="suwHasStableIds" />
     </declare-styleable>
 
 </resources>

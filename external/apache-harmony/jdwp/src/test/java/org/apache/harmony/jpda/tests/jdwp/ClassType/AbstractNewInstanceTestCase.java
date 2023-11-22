@@ -77,10 +77,10 @@ public abstract class AbstractNewInstanceTestCase extends JDWPSyncTestCase {
      * @param typeSignature the type signature of the created object
      * @param constructorSignature the constructor signature
      * @param provider the arguments provider
-     * @param expectedTag the expected JDWP tag
+     * @param checker the checker that verifies the construction of the object.
      */
     protected void checkNewInstanceTag(String typeSignature, String constructorSignature,
-            ConstructorArgumentsProvider provider, byte expectedTag) {
+            ConstructorArgumentsProvider provider, Checker checker) {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
         long debuggeeClassId = getClassIDBySignature(getDebuggeeClassSignature());
@@ -134,15 +134,29 @@ public abstract class AbstractNewInstanceTestCase extends JDWPSyncTestCase {
         TaggedObject objectResult = reply.getNextValueAsTaggedObject();
         TaggedObject exceptionResult = reply.getNextValueAsTaggedObject();
         assertAllDataRead(reply);
-
-        assertNotNull("objectResult is null", objectResult);
-        assertNotNull("exceptionResult is null", exceptionResult);
-        assertTrue(objectResult.objectID != JDWPTestConstants.NULL_OBJECT_ID);
-        assertTrue(exceptionResult.tag == JDWPConstants.Tag.OBJECT_TAG);
-        assertEquals(exceptionResult.objectID, JDWPTestConstants.NULL_OBJECT_ID);
-        assertTagEquals("Invalid tag", expectedTag, objectResult.tag);
+        checker.check(objectResult, exceptionResult);
 
         // Debuggee is suspended on the breakpoint: resume it now.
         resumeDebuggee();
+    }
+
+    /**
+     * Checks that the constructed object has the right tag.
+     */
+    protected class Checker {
+        private final byte expectedTag;
+
+        public Checker(byte expectedTag) {
+            this.expectedTag = expectedTag;
+        }
+
+        public void check(TaggedObject objectResult, TaggedObject exceptionResult) {
+            assertNotNull("objectResult is null", objectResult);
+            assertNotNull("exceptionResult is null", exceptionResult);
+            assertTrue(objectResult.objectID != JDWPTestConstants.NULL_OBJECT_ID);
+            assertTrue(exceptionResult.tag == JDWPConstants.Tag.OBJECT_TAG);
+            assertEquals(exceptionResult.objectID, JDWPTestConstants.NULL_OBJECT_ID);
+            assertTagEquals("Invalid tag", expectedTag, objectResult.tag);
+        }
     }
 }

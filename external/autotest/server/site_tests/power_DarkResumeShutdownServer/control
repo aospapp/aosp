@@ -9,7 +9,6 @@ from autotest_lib.server import utils
 AUTHOR = "dbasehore, snanda"
 NAME = "power_DarkResumeShutdownServer"
 ATTRIBUTES = "suite:kernel_daily_regression"
-SUITE = "kernel_daily_regression"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"

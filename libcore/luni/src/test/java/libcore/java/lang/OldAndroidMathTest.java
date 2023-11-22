@@ -20,6 +20,8 @@ package libcore.java.lang;
 import junit.framework.Assert;
 import junit.framework.TestCase;
 
+import static java.lang.Math.PI;
+
 public class OldAndroidMathTest extends TestCase {
 
     private static final double HYP = Math.sqrt(2.0);
@@ -101,13 +103,51 @@ public class OldAndroidMathTest extends TestCase {
         double answer = Math.tan(Math.atan(1.0));
         assertTrue("Returned incorrect arc tangent: " + answer, answer <= 1.0
                 && answer >= 9.9999999999999983E-1);
+
+        assertEquals("wrong atan(1)", PI / 4, Math.atan(1d), 0);
+        assertEquals("wrong atan(-1)", -PI / 4, Math.atan(-1), 0);
+        assertEquals("wrong atan(+INF)", PI / 2, Math.atan(Double.POSITIVE_INFINITY), 0);
+        assertEquals("wrong atan(-INF)", -PI / 2, Math.atan(Double.NEGATIVE_INFINITY), 0);
+    }
+
+    public void testAtanDZeroValues() {
+        double negativeZero = Math.copySign(0d, -1d);
+        assertEquals("wrong value for atan(0)", 0, Math.atan(0d), 0);
+        assertTrue("Wrong sign for atan(0)", Math.copySign(1, Math.atan(0d)) == 1);
+
+        assertEquals("wrong value for atan(-0)", negativeZero, Math.atan(negativeZero), 0);
+        assertTrue("Wrong sign for atan(-0)", Math.copySign(1, Math.atan(negativeZero)) == -1);
     }
 
     public void testAtan2DD() {
-        // Test for method double java.lang.Math.atan2(double, double)
-        double answer = Math.atan(Math.tan(1.0));
-        assertTrue("Returned incorrect arc tangent: " + answer, answer <= 1.0
-                && answer >= 9.9999999999999983E-1);
+        // Verify values are put in the correct quadrants.
+        assertEquals("wrong atan2(0, 1)", 0, Math.atan2(0, 1), 0);
+        assertEquals("wrong atan2(1, 1)", PI / 4, Math.atan2(1, 1), 0);
+        assertEquals("wrong atan2(1, 0)", PI / 2, Math.atan2(1, 0), 0);
+        assertEquals("wrong atan2(1, -1)", 3 * PI / 4, Math.atan2(1, -1), 0);
+        assertEquals("wrong atan2(0, -1)", PI, Math.atan2(0, -1), 0);
+        assertEquals("wrong atan2(-1, -1)", -3 * PI / 4, Math.atan2(-1, -1), 0);
+        assertEquals("wrong atan2(-1, 0)", -PI / 2, Math.atan2(-1, 0), 0);
+        assertEquals("wrong atan2(-1, 1)", -PI / 4, Math.atan2(-1, 1), 0);
+
+        // Check numeric values.
+        assertEquals("atan2(42, 42) != atan2(1, 1)", Math.atan2(1, 1), Math.atan2(42, 42), 0);
+        assertEquals("wrong atan2(2, 1)", Math.atan(2), Math.atan2(2, 1), 0);
+        assertEquals("wrong atan2(5, 3)", Math.atan(5d / 3), Math.atan2(5, 3), 0);
+        assertEquals("wrong atan2(9, 10)", Math.atan(9d / 10), Math.atan2(9, 10), 0);
+        assertEquals("wrong atan2(-10, 5)", Math.atan(-10d / 5), Math.atan2(-10, 5), 0);
+    }
+
+    public void testAtan2DDZeroValues() {
+        double negativeZero = Math.copySign(0d, -1d);
+        assertEquals("wrong atan2(+0, +0)", 0, Math.atan2(+0, +0), 0);
+        assertTrue("Wrong sign for atan2(+0, +0)",
+                Math.copySign(1, Math.atan2(+0, +0)) == 1);;
+        assertEquals("wrong atan2(+0, -0)", PI, Math.atan2(+0, negativeZero), 0);
+        assertEquals("wrong atan2(-0, +0)", -0, Math.atan2(negativeZero, +0), 0);
+        assertTrue("Wrong sign for atan2(-0, +0)",
+                Math.copySign(1, Math.atan2(negativeZero, +0)) == -1);
+        assertEquals("wrong atan2(-0, -0)", -PI, Math.atan2(negativeZero, negativeZero), 0);
     }
 
     public void testCbrtD() {
@@ -560,7 +600,7 @@ public class OldAndroidMathTest extends TestCase {
         assertEquals("Wrong value E",
                 4613303445314885481L, Double.doubleToLongBits(Math.E));
         assertEquals("Wrong value PI",
-                4614256656552045848L, Double.doubleToLongBits(Math.PI));
+                4614256656552045848L, Double.doubleToLongBits(PI));
 
         for (int i = 500; i >= 0; i--) {
             double d = Math.random();

@@ -92,7 +92,7 @@ interface defined in <code>system/core/include/system/window.h</code>.</p>
 
 <p>The graphics memory allocator allocates memory requested by image producers.
 You can find the interface definition of the HAL at
-<code>hardware/libhardware/modules/gralloc.h</code>.</p>
+<code>hardware/libhardware/include/hardware/gralloc.h</code>.</p>
 
 <h3 id=protected_buffers>Protected buffers</h3>
 

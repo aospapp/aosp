@@ -16,6 +16,8 @@
 
 package com.android.cts.devicepolicy;
 
+import android.platform.test.annotations.RequiresDevice;
+
 /**
  * Set of tests for pure (non-managed) profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.
@@ -30,7 +32,13 @@ public class MixedProfileOwnerTest extends DeviceAndProfileOwnerTest {
             mUserId = mPrimaryUserId;
 
             installAppAsUser(DEVICE_ADMIN_APK, mUserId);
-            setProfileOwnerOrFail(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
+            if (!setProfileOwner(
+                    DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
+                    /*expectFailure*/ false)) {
+                removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
+                getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+                fail("Failed to set profile owner");
+            }
         }
     }
 

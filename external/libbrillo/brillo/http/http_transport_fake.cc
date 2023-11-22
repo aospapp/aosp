@@ -121,11 +121,15 @@ void Transport::AddSimpleReplyHandler(const std::string& url,
                                       int status_code,
                                       const std::string& reply_text,
                                       const std::string& mime_type) {
-  auto handler = [status_code, reply_text, mime_type](
-      const ServerRequest& /* request */, ServerResponse* response) {
+  auto handler = [](int status_code,
+                    const std::string& reply_text,
+                    const std::string& mime_type,
+                    const ServerRequest& /* request */,
+                    ServerResponse* response) {
     response->ReplyText(status_code, reply_text, mime_type);
   };
-  AddHandler(url, method, base::Bind(handler));
+  AddHandler(
+      url, method, base::Bind(handler, status_code, reply_text, mime_type));
 }
 
 Transport::HandlerCallback Transport::GetHandler(
@@ -172,20 +176,14 @@ std::string ServerRequestResponseBase::GetDataAsString() const {
 
 std::unique_ptr<base::DictionaryValue>
 ServerRequestResponseBase::GetDataAsJson() const {
+  std::unique_ptr<base::DictionaryValue> result;
   if (brillo::mime::RemoveParameters(
           GetHeader(request_header::kContentType)) ==
       brillo::mime::application::kJson) {
     auto value = base::JSONReader::Read(GetDataAsString());
-    if (value) {
-      base::DictionaryValue* dict = nullptr;
-      if (value->GetAsDictionary(&dict)) {
-        // |value| is now owned by |dict|.
-        base::IgnoreResult(value.release());
-        return std::unique_ptr<base::DictionaryValue>(dict);
-      }
-    }
+    result = base::DictionaryValue::From(std::move(value));
   }
-  return std::unique_ptr<base::DictionaryValue>();
+  return result;
 }
 
 std::string ServerRequestResponseBase::GetDataAsNormalizedJsonString() const {

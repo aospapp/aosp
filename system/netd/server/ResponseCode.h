@@ -36,7 +36,7 @@ public:
     static const int TetherStatusResult        = 210;
     static const int IpFwdStatusResult         = 211;
     static const int InterfaceGetCfgResult     = 213;
-    static const int SoftapStatusResult        = 214;
+    // Formerly: int SoftapStatusResult        = 214;
     static const int UsbRNDISStatusResult      = 215;
     static const int InterfaceRxCounterResult  = 216;
     static const int InterfaceTxCounterResult  = 217;

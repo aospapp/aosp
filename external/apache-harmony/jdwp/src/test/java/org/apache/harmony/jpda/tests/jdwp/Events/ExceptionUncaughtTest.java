@@ -33,6 +33,7 @@ public class ExceptionUncaughtTest extends ExceptionBaseTest {
 
     private static final String THROW_EXCEPTION_METHOD = "throwDebuggeeException";
 
+    @Override
     protected String getDebuggeeClassName() {
         return ExceptionUncaughtDebuggee.class.getName();
     }

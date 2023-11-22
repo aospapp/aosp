@@ -19,7 +19,6 @@ package android.media.cts;
 import android.media.cts.R;
 
 import android.app.Activity;
-import android.cts.util.CTSResult;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
@@ -27,11 +26,18 @@ import android.media.AudioSystem;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 
+import com.android.compatibility.common.util.CTSResult;
+
 public class AudioManagerStub extends Activity {
     private final int MP3_TO_PLAY = R.raw.testmp3;
     private MediaPlayer mMediaPlayer;
     private AudioManager mAudioManager;
     private static CTSResult mCTSResult;
+    private static final int[] STREAM_TYPES = {
+            AudioManager.STREAM_VOICE_CALL, AudioManager.STREAM_SYSTEM,
+            AudioManager.STREAM_RING, AudioManager.STREAM_MUSIC, AudioManager.STREAM_ALARM,
+            AudioManager.STREAM_NOTIFICATION, AudioManager.STREAM_DTMF,
+            AudioManager.STREAM_ACCESSIBILITY };
 
     public static void setCTSResult(CTSResult cr) {
         mCTSResult = cr;
@@ -51,7 +57,7 @@ public class AudioManagerStub extends Activity {
     protected void onPause() {
         super.onPause();
         try {
-            for (int i = 0; i < AudioSystem.getNumStreamTypes(); i++) {
+            for (int i : STREAM_TYPES) {
                 mAudioManager.setStreamMute(i, false);
                 mAudioManager.setStreamSolo(i, false);
             }
@@ -65,7 +71,7 @@ public class AudioManagerStub extends Activity {
     protected void onResume() {
         super.onResume();
         try {
-            for (int i = 0; i < AudioSystem.getNumStreamTypes(); i++) {
+            for (int i : STREAM_TYPES) {
                 mAudioManager.setStreamMute(i, true);
                 mAudioManager.setStreamSolo(i, true);
             }

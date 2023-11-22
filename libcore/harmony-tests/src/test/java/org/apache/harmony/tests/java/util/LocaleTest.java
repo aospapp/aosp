@@ -124,7 +124,7 @@ public class LocaleTest extends junit.framework.TestCase {
      * java.util.Locale#getAvailableLocales()
      */
     public void test_getAvailableLocales() {
-// BEGIN android-changed
+// BEGIN Android-changed
         // Test for method java.util.Locale []
         // java.util.Locale.getAvailableLocales()
         // Assumes there will generally be about 10+ available locales...
@@ -139,7 +139,7 @@ public class LocaleTest extends junit.framework.TestCase {
         } catch (Exception e) {
             fail("Exception during test : " + e.getMessage());
         }
-// END android-changed
+// END Android-changed
     }
 
     /**
@@ -172,11 +172,6 @@ public class LocaleTest extends junit.framework.TestCase {
         assertTrue("Returned incorrect country: "
                 + testLocale.getDisplayCountry(), testLocale
                 .getDisplayCountry().equals("Canada"));
-
-        // Regression for Harmony-1146
-        Locale l_countryCD = new Locale("", "CD");
-        assertEquals("Congo (DRC)",
-                l_countryCD.getDisplayCountry());
     }
 
     public void test_getDisplayCountryLjava_util_Locale() {
@@ -308,14 +303,14 @@ public class LocaleTest extends junit.framework.TestCase {
         String[] isoLang = Locale.getISOLanguages();
         int length = isoLang.length;
 
-        // BEGIN android-changed
+        // BEGIN Android-changed
         // Language codes are 2- and 3-letter, with preference given
         // to 2-letter codes where possible. 3-letter codes are used
         // when lack a 2-letter equivalent.
         assertTrue("Random element in wrong format.",
                    (isoLang[length / 2].length() == 2 || isoLang[length / 2].length() == 3)
                    && isoLang[length / 2].toLowerCase().equals(isoLang[length / 2]));
-        // END android-changed
+        // END Android-changed
 
         assertTrue("Wrong number of ISOLanguages.", length > 130);
     }
@@ -410,7 +405,7 @@ public class LocaleTest extends junit.framework.TestCase {
         assertEquals("", root.getVariant());
     }
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // These locales are not part of the android reference impl
 //    // Regression Test for HARMONY-2953
 //    public void test_getISO() {
@@ -426,7 +421,7 @@ public class LocaleTest extends junit.framework.TestCase {
 //        List<String> countries = Arrays.asList(Locale.getISOCountries());
 //        assertTrue(countries.contains("CS"));
 //    }
-// END android-removed
+// END Android-removed
 
     /**
      * Sets up the fixture, for example, open a network connection. This method

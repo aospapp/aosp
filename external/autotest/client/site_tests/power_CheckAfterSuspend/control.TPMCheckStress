@@ -5,7 +5,6 @@
 AUTHOR = "The Chromium OS Authors"
 NAME = "power_CheckAfterSuspend.TPMCheckStress"
 ATTRIBUTES = "suite:kernel_weekly_regression"
-SUITE = "kernel_weekly_regression"
 PURPOSE = "Check of the TPM state after S3"
 CRITERIA = "Check that the TPM is in the expected state after many S3 Resumes."
 TIME = "LONG"

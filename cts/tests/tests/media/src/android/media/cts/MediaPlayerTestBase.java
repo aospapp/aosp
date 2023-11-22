@@ -19,12 +19,19 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.cts.util.MediaUtils;
 import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.PersistableBundle;
 import android.test.ActivityInstrumentationTestCase2;
 
+import com.android.compatibility.common.util.MediaUtils;
+
 import java.io.IOException;
+import java.net.HttpCookie;
+import java.util.List;
 import java.util.logging.Logger;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Base class for tests which use MediaPlayer to play audio or video.
@@ -187,6 +194,10 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
         playVideoWithRetries(path, null, null, playTime);
     }
 
+    protected void playLiveAudioOnlyTest(String path, int playTime) throws Exception {
+        playVideoWithRetries(path, -1, -1, playTime);
+    }
+
     protected void playVideoTest(String path, int width, int height) throws Exception {
         playVideoWithRetries(path, width, height, 0);
     }
@@ -216,6 +227,32 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
         playLoadedVideo(width, height, 0);
     }
 
+    protected void playLiveVideoTest(
+            Uri uri, Map<String, String> headers, List<HttpCookie> cookies,
+            int playTime) throws Exception {
+        playVideoWithRetries(uri, headers, cookies, null /* width */, null /* height */, playTime);
+    }
+
+    protected void playVideoWithRetries(
+            Uri uri, Map<String, String> headers, List<HttpCookie> cookies,
+            Integer width, Integer height, int playTime) throws Exception {
+        boolean playedSuccessfully = false;
+        for (int i = 0; i < STREAM_RETRIES; i++) {
+            try {
+                mMediaPlayer.setDataSource(getInstrumentation().getTargetContext(),
+                        uri, headers, cookies);
+                playLoadedVideo(width, height, playTime);
+                playedSuccessfully = true;
+                break;
+            } catch (PrepareFailedException e) {
+                // prepare() can fail because of network issues, so try again
+                // playLoadedVideo already has reset the player so we can try again safely.
+                LOG.warning("prepare() failed on try " + i + ", trying playback again");
+            }
+        }
+        assertTrue("Stream did not play successfully after all attempts", playedSuccessfully);
+    }
+
     /**
      * Play a video which has already been loaded with setDataSource().
      *
@@ -231,6 +268,9 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
             throws Exception {
         final float leftVolume = 0.5f;
         final float rightVolume = 0.5f;
+
+        boolean audioOnly = (width != null && width.intValue() == -1) ||
+                (height != null && height.intValue() == -1);
 
         mMediaPlayer.setDisplay(mActivity.getSurfaceHolder());
         mMediaPlayer.setScreenOnWhilePlaying(true);
@@ -275,8 +315,10 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
         }
 
         mMediaPlayer.start();
-        mOnVideoSizeChangedCalled.waitForSignal();
-        mOnVideoRenderingStartCalled.waitForSignal();
+        if (!audioOnly) {
+            mOnVideoSizeChangedCalled.waitForSignal();
+            mOnVideoRenderingStartCalled.waitForSignal();
+        }
         mMediaPlayer.setVolume(leftVolume, rightVolume);
 
         // waiting to complete
@@ -289,6 +331,44 @@ public class MediaPlayerTestBase extends ActivityInstrumentationTestCase2<MediaS
         } else {
             Thread.sleep(playTime);
         }
+
+        // validate a few MediaMetrics.
+        PersistableBundle metrics = mMediaPlayer.getMetrics();
+        if (metrics == null) {
+            fail("MediaPlayer.getMetrics() returned null metrics");
+        } else if (metrics.isEmpty()) {
+            fail("MediaPlayer.getMetrics() returned empty metrics");
+        } else {
+
+            int size = metrics.size();
+            Set<String> keys = metrics.keySet();
+
+            if (keys == null) {
+                fail("MediaMetricsSet returned no keys");
+            } else if (keys.size() != size) {
+                fail("MediaMetricsSet.keys().size() mismatch MediaMetricsSet.size()");
+            }
+
+            // we played something; so one of these should be non-null
+            String vmime = metrics.getString(MediaPlayer.MetricsConstants.MIME_TYPE_VIDEO, null);
+            String amime = metrics.getString(MediaPlayer.MetricsConstants.MIME_TYPE_AUDIO, null);
+            if (vmime == null && amime == null) {
+                fail("getMetrics() returned neither video nor audio mime value");
+            }
+
+            long duration = metrics.getLong(MediaPlayer.MetricsConstants.DURATION, -2);
+            if (duration == -2) {
+                fail("getMetrics() didn't return a duration");
+            }
+            long playing = metrics.getLong(MediaPlayer.MetricsConstants.PLAYING, -2);
+            if (playing == -2) {
+                fail("getMetrics() didn't return a playing time");
+            }
+            if (!keys.contains(MediaPlayer.MetricsConstants.PLAYING)) {
+                fail("MediaMetricsSet.keys() missing: " + MediaPlayer.MetricsConstants.PLAYING);
+            }
+        }
+
         mMediaPlayer.stop();
     }
 

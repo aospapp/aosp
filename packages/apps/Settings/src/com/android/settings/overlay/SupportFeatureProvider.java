@@ -18,10 +18,14 @@ package com.android.settings.overlay;
 
 import android.accounts.Account;
 import android.annotation.IntDef;
+import android.annotation.NonNull;
+import android.annotation.StringRes;
 import android.app.Activity;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
 
+import android.os.Bundle;
 import com.android.settings.support.SupportPhone;
 
 import java.lang.annotation.Retention;
@@ -110,15 +114,16 @@ public interface SupportFeatureProvider {
     void setShouldShowDisclaimerDialog(Context context, boolean shouldShow);
 
     /**
-     * Returns an {@link Account} that's eligible for support options.
+     * Returns array of {@link Account} that's eligible for support options.
      */
-    Account getSupportEligibleAccount(Context context);
+    @NonNull
+    Account[] getSupportEligibleAccounts(Context context);
 
     /**
      * Starts support activity of specified type
      *
      * @param activity Calling activity
-     * @param account A account returned by {@link #getSupportEligibleAccount}
+     * @param account A account that selected by user
      * @param type The type of support account needs.
      */
     void startSupport(Activity activity, Account account, @SupportType int type);
@@ -137,4 +142,15 @@ public interface SupportFeatureProvider {
      * Returns an intent that will launch the tips and tricks UI.
      */
     Intent getTipsAndTricksIntent(Context context);
+
+    /**
+     * Returns the string for the disclaimer in the Support dialog.
+     */
+    @StringRes
+    int getDisclaimerStringResId();
+
+    /**
+     * launches the fragment that displays the system information being sent to support agents.
+     */
+    void launchSystemInfoFragment(Bundle args, FragmentManager manager);
 }

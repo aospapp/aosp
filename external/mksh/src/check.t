@@ -1,4 +1,4 @@
-# $MirOS: src/bin/mksh/check.t,v 1.721 2016/01/20 21:34:09 tg Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.756 2016/11/11 23:31:31 tg Exp $
 # -*- mode: sh -*-
 #-
 # Copyright © 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
@@ -27,10 +27,10 @@
 # http://svnweb.freebsd.org/base/head/bin/test/tests/legacy_test.sh?view=co&content-type=text%2Fplain
 #
 # Integrated testsuites from:
-# (2013/12/02 20:39:44) http://openbsd.cs.toronto.edu/cgi-bin/cvsweb/src/regress/bin/ksh/?sortby=date
+# (2013/12/02 20:39:44) http://cvsweb.openbsd.org/cgi-bin/cvsweb/src/regress/bin/ksh/?sortby=date
 
 expected-stdout:
-	@(#)MIRBSD KSH R52 2016/01/20
+	@(#)MIRBSD KSH R54 2016/11/11
 description:
 	Check version of shell.
 stdin:
@@ -39,7 +39,7 @@ name: KSH_VERSION
 category: shell:legacy-no
 ---
 expected-stdout:
-	@(#)LEGACY KSH R52 2016/01/20
+	@(#)LEGACY KSH R54 2016/11/11
 description:
 	Check version of legacy shell.
 stdin:
@@ -199,7 +199,7 @@ description:
 stdin:
 	alias X='case '
 	alias Y=Z
-	X Y in 'Y') echo is y ;; Z) echo is z ; esac
+	X Y in 'Y') echo is y ;; Z) echo is z ;; esac
 expected-stdout:
 	is z
 ---
@@ -340,6 +340,62 @@ expected-stdout:
 	2
 	0
 ---
+name: arith-lazy-5-arr-n
+description: Check lazy evaluation with side effects
+stdin:
+	a=0; echo "$((0&&b[a++],a))"
+expected-stdout:
+	0
+---
+name: arith-lazy-5-arr-p
+description: Check lazy evaluation with side effects
+stdin:
+	a=0; echo "$((0&&(b[a++]),a))"
+expected-stdout:
+	0
+---
+name: arith-lazy-5-str-n
+description: Check lazy evaluation with side effects
+stdin:
+	a=0 b=a++; ((0&&b)); echo $a
+expected-stdout:
+	0
+---
+name: arith-lazy-5-str-p
+description: Check lazy evaluation with side effects
+stdin:
+	a=0 b=a++; ((0&&(b))); echo $a
+expected-stdout:
+	0
+---
+name: arith-lazy-5-tern-l-n
+description: Check lazy evaluation with side effects
+stdin:
+	a=0; echo "$((0?b[a++]:999,a))"
+expected-stdout:
+	0
+---
+name: arith-lazy-5-tern-l-p
+description: Check lazy evaluation with side effects
+stdin:
+	a=0; echo "$((0?(b[a++]):999,a))"
+expected-stdout:
+	0
+---
+name: arith-lazy-5-tern-r-n
+description: Check lazy evaluation with side effects
+stdin:
+	a=0; echo "$((1?999:b[a++],a))"
+expected-stdout:
+	0
+---
+name: arith-lazy-5-tern-r-p
+description: Check lazy evaluation with side effects
+stdin:
+	a=0; echo "$((1?999:(b[a++]),a))"
+expected-stdout:
+	0
+---
 name: arith-ternary-prec-1
 description:
 	Check precedence of ternary operator vs assignment
@@ -358,6 +414,18 @@ stdin:
 	echo $((0 ? x+=2 : 20))
 expected-stdout:
 	20
+---
+name: arith-prec-1
+description:
+	Prove arithmetic expressions with embedded parameter
+	substitutions cannot be parsed ahead of time
+stdin:
+	a='3 + 4'
+	print 1 $((2 * a)) .
+	print 2 $((2 * $a)) .
+expected-stdout:
+	1 14 .
+	2 10 .
 ---
 name: arith-div-assoc-1
 description:
@@ -1311,6 +1379,7 @@ stdin:
 	(echo 38 ${IFS+x'a'y} / "${IFS+x'a'y}" .) 2>/dev/null || echo failed in 38
 	foo="x'a'y"; (echo 39 ${foo%*'a'*} / "${foo%*'a'*}" .) 2>/dev/null || echo failed in 39
 	foo="a b c"; (echo -n '40 '; ./pfs "${foo#a}"; echo .) 2>/dev/null || echo failed in 40
+	(foo() { return 100; }; foo; echo 41 ${#+${#:+${#?}}\ \}\}\}}) 2>/dev/null || echo failed in 41
 expected-stdout:
 	1 }z
 	2 ''z}
@@ -1352,6 +1421,7 @@ expected-stdout:
 	38 xay / x'a'y .
 	39 x' / x' .
 	40 < b c> .
+	41 3 }}}
 ---
 name: expand-unglob-dblq
 description:
@@ -1400,6 +1470,7 @@ stdin:
 		(echo "$1 QSTN brac foo ${v:?a$u{{{\}b} c ${v:?d{}} baz") 2>/dev/null || \
 		    echo "$1 QSTN brac -> error"
 	}
+	: '}}}' '}}}' '}}}' '}}}' '}}}' '}}}' '}}}' '}}}'
 	tl_norm 1 -
 	tl_norm 2 ''
 	tl_norm 3 x
@@ -1530,6 +1601,7 @@ stdin:
 		(echo $1 QSTN brac foo ${v:?a$u{{{\}b} c ${v:?d{}} baz) 2>/dev/null || \
 		    echo "$1 QSTN brac -> error"
 	}
+	: '}}}' '}}}' '}}}' '}}}' '}}}' '}}}' '}}}' '}}}'
 	tl_norm 1 -
 	tl_norm 2 ''
 	tl_norm 3 x
@@ -1637,7 +1709,7 @@ expected-exit: 1
 ---
 name: expand-weird-1
 description:
-	Check corner case of trim expansion vs. $# vs. ${#var}
+	Check corner cases of trim expansion vs. $# vs. ${#var} vs. ${var?}
 stdin:
 	set 1 2 3 4 5 6 7 8 9 10 11
 	echo ${#}	# value of $#
@@ -1645,23 +1717,59 @@ stdin:
 	echo ${##1}	# $# trimmed 1
 	set 1 2 3 4 5 6 7 8 9 10 11 12
 	echo ${##1}
-expected-stdout:
-	11
-	2
-	1
-	2
----
-name: expand-weird-2
-description:
-	Check corner case of ${var?} vs. ${#var}
-stdin:
 	(exit 0)
 	echo $? = ${#?} .
 	(exit 111)
 	echo $? = ${#?} .
 expected-stdout:
+	11
+	2
+	1
+	2
 	0 = 1 .
 	111 = 3 .
+---
+name: expand-weird-2
+description:
+	Check more substitution and extension corner cases
+stdin:
+	:& set -C; pid=$$; sub=$!; flg=$-; set -- i; exec 3>x.tmp
+	#echo "D: !=$! #=$# \$=$$ -=$- ?=$?"
+	echo >&3 3 = s^${!-word} , ${#-word} , p^${$-word} , f^${--word} , ${?-word} .
+	echo >&3 4 = ${!+word} , ${#+word} , ${$+word} , ${-+word} , ${?+word} .
+	echo >&3 5 = s^${!=word} , ${#=word} , p^${$=word} , f^${-=word} , ${?=word} .
+	echo >&3 6 = s^${!?word} , ${#?word} , p^${$?word} , f^${-?word} , ${??word} .
+	echo >&3 7 = sl^${#!} , ${##} , pl^${#$} , fl^${#-} , ${#?} .
+	echo >&3 8 = sw^${%!} , ${%#} , pw^${%$} , fw^${%-} , ${%?} .
+	echo >&3 9 = ${!!} , s^${!#} , ${!$} , s^${!-} , s^${!?} .
+	echo >&3 10 = s^${!#pattern} , ${##pattern} , p^${$#pattern} , f^${-#pattern} , ${?#pattern} .
+	echo >&3 11 = s^${!%pattern} , ${#%pattern} , p^${$%pattern} , f^${-%pattern} , ${?%pattern} .
+	echo >&3 12 = $# : ${##} , ${##1} .
+	set --
+	echo >&3 14 = $# : ${##} , ${##1} .
+	set -- 1 2 3 4 5
+	echo >&3 16 = $# : ${##} , ${##1} .
+	set -- 1 2 3 4 5 6 7 8 9 a b c d e
+	echo >&3 18 = $# : ${##} , ${##1} .
+	exec 3>&-
+	<x.tmp sed \
+	    -e "s/ pl^${#pid} / PID /g" -e "s/ sl^${#sub} / SUB /g" -e "s/ fl^${#flg} / FLG /g" \
+	    -e "s/ pw^${%pid} / PID /g" -e "s/ sw^${%sub} / SUB /g" -e "s/ fw^${%flg} / FLG /g" \
+	    -e "s/ p^$pid / PID /g" -e "s/ s^$sub / SUB /g" -e "s/ f^$flg / FLG /g"
+expected-stdout:
+	3 = SUB , 1 , PID , FLG , 0 .
+	4 = word , word , word , word , word .
+	5 = SUB , 1 , PID , FLG , 0 .
+	6 = SUB , 1 , PID , FLG , 0 .
+	7 = SUB , 1 , PID , FLG , 1 .
+	8 = SUB , 1 , PID , FLG , 1 .
+	9 = ! , SUB , $ , SUB , SUB .
+	10 = SUB , 1 , PID , FLG , 0 .
+	11 = SUB , 1 , PID , FLG , 0 .
+	12 = 1 : 1 , .
+	14 = 0 : 1 , 0 .
+	16 = 5 : 1 , 5 .
+	18 = 14 : 2 , 4 .
 ---
 name: expand-weird-3
 description:
@@ -1687,6 +1795,50 @@ stdin:
 expected-stdout:
 	<~/x> </x> <~> <\~> <~><~> <~/x> <~//etc> <~/~>
 ---
+name: expand-bang-1
+description:
+	Check corner case of ${!?} with ! being var vs. op
+stdin:
+	echo ${!?}
+expected-exit: 1
+expected-stderr-pattern: /not set/
+---
+name: expand-bang-2
+description:
+	Check corner case of ${!var} vs. ${var op} with var=!
+stdin:
+	echo 1 $! .
+	echo 2 ${!#} .
+	echo 3 ${!#[0-9]} .
+	echo 4 ${!-foo} .
+	# get an at least three-digit bg pid
+	while :; do
+		:&
+		x=$!
+		if [[ $x != +([0-9]) ]]; then
+			echo >&2 "cannot test, pid '$x' not numeric"
+			echo >&2 report this with as many details as possible
+			exit 1
+		fi
+		[[ $x = [0-9][0-9][0-9]* ]] && break
+	done
+	y=${x#?}
+	t=$!; [[ $t = $x ]]; echo 5 $? .
+	t=${!#}; [[ $t = $x ]]; echo 6 $? .
+	t=${!#[0-9]}; [[ $t = $y ]]; echo 7 $? .
+	t=${!-foo}; [[ $t = $x ]]; echo 8 $? .
+	t=${!?bar}; [[ $t = $x ]]; echo 9 $? .
+expected-stdout:
+	1 .
+	2 .
+	3 .
+	4 foo .
+	5 0 .
+	6 0 .
+	7 0 .
+	8 0 .
+	9 0 .
+---
 name: expand-number-1
 description:
 	Check that positional arguments do not overflow
@@ -1694,6 +1846,41 @@ stdin:
 	echo "1 ${12345678901234567890} ."
 expected-stdout:
 	1  .
+---
+name: expand-slashes-1
+description:
+	Check that side effects in substring replacement are handled correctly
+stdin:
+	foo=n1n1n1n2n3
+	i=2
+	n=1
+	echo 1 ${foo//n$((n++))/[$((++i))]} .
+	echo 2 $n , $i .
+expected-stdout:
+	1 [3][3][3]n2n3 .
+	2 2 , 3 .
+---
+name: expand-slashes-2
+description:
+	Check that side effects in substring replacement are handled correctly
+stdin:
+	foo=n1n1n1n2n3
+	i=2
+	n=1
+	echo 1 ${foo@/n$((n++))/[$((++i))]} .
+	echo 2 $n , $i .
+expected-stdout:
+	1 [3]n1n1[4][5] .
+	2 5 , 5 .
+---
+name: expand-slashes-3
+description:
+	Check that we can access the replaced string
+stdin:
+	foo=n1n1n1n2n3
+	echo 1 ${foo@/n[12]/[$KSH_MATCH]} .
+expected-stdout:
+	1 [n1][n1][n1][n2]n3 .
 ---
 name: eglob-bad-1
 description:
@@ -1858,7 +2045,7 @@ stdin:
 	[[ -n $BASH_VERSION ]] && shopt -s extglob
 	x=1222321_ab/cde_b/c_1221
 	y=xyz
-	echo 1: ${x/2}
+	echo 1: ${x/2} . ${x/}
 	echo 2: ${x//2}
 	echo 3: ${x/+(2)}
 	echo 4: ${x//+(2)}
@@ -1890,7 +2077,7 @@ stdin:
 	echo 30: ${x//\\a/9}
 	echo 31: ${x/2/$y}
 expected-stdout:
-	1: 122321_ab/cde_b/c_1221
+	1: 122321_ab/cde_b/c_1221 . 1222321_ab/cde_b/c_1221
 	2: 131_ab/cde_b/c_11
 	3: 1321_ab/cde_b/c_1221
 	4: 131_ab/cde_b/c_11
@@ -2249,13 +2436,41 @@ expected-stdout:
 	hi
 	there
 ---
-name: heredoc-4
+name: heredoc-4a
 description:
 	Check that an error occurs if the heredoc-delimiter is missing.
 stdin: !
 	cat << EOF
 	hi
 	there
+expected-exit: e > 0
+expected-stderr-pattern: /.*/
+---
+name: heredoc-4an
+description:
+	Check that an error occurs if the heredoc-delimiter is missing.
+arguments: !-n!
+stdin: !
+	cat << EOF
+	hi
+	there
+expected-exit: e > 0
+expected-stderr-pattern: /.*/
+---
+name: heredoc-4b
+description:
+	Check that an error occurs if the heredoc is missing.
+stdin: !
+	cat << EOF
+expected-exit: e > 0
+expected-stderr-pattern: /.*/
+---
+name: heredoc-4bn
+description:
+	Check that an error occurs if the heredoc is missing.
+arguments: !-n!
+stdin: !
+	cat << EOF
 expected-exit: e > 0
 expected-stderr-pattern: /.*/
 ---
@@ -2501,6 +2716,10 @@ stdin:
 	eval "$fnd"
 	foo
 	print -r -- "| va={$va} vb={$vb} vc={$vc} vd={$vd} |"
+	x=y
+	foo
+	typeset -f foo
+	print -r -- "| vc={$vc} vd={$vd} |"
 	# check append
 	v=<<-
 		vapp1
@@ -2524,6 +2743,19 @@ expected-stdout:
 	| va={=a u \x40=
 	} vb={=b $x \x40=
 	} vc={=c u \x40=
+	} vd={=d $x \x40=
+	} |
+	function foo {
+		vc=<<- 
+	=c $x \x40=
+	<<
+	
+		vd=<<-"" 
+	=d $x \x40=
+	
+	
+	} 
+	| vc={=c y \x40=
 	} vd={=d $x \x40=
 	} |
 	| vapp1^vapp2^ |
@@ -2656,6 +2888,54 @@ stdin:
 	echo = $balanced =
 expected-stdout:
 	= these parens \( ) are a problem =
+---
+name: heredoc-comsub-5
+description:
+	Check heredoc and COMSUB mixture in input
+stdin:
+	prefix() { sed -e "s/^/$1:/"; }
+	XXX() { echo x-en; }
+	YYY() { echo y-es; }
+	
+	prefix A <<XXX && echo "$(prefix B <<XXX
+	echo line 1
+	XXX
+	echo line 2)" && prefix C <<YYY
+	echo line 3
+	XXX
+	echo line 4)"
+	echo line 5
+	YYY
+	XXX
+expected-stdout:
+	A:echo line 3
+	B:echo line 1
+	line 2
+	C:echo line 4)"
+	C:echo line 5
+	x-en
+---
+name: heredoc-comsub-6
+description:
+	Check here documents and here strings can be used
+	without a specific command, like $(<…) (extension)
+stdin:
+	foo=bar
+	x=$(<<<EO${foo}F)
+	echo "3<$x>"
+		y=$(<<-EOF
+			hi!
+	
+			$foo) is not a problem
+	
+	
+		EOF)
+	echo "7<$y>"
+expected-stdout:
+	3<EObarF>
+	7<hi!
+	
+	bar) is not a problem>
 ---
 name: heredoc-subshell-1
 description:
@@ -3118,6 +3398,37 @@ expected-stdout:
 	1	echo hi
 expected-stderr-pattern:
 	/(.*can't unlink HISTFILE.*\n)?X*$/
+---
+name: history-multiline
+description:
+	Check correct multiline history, Debian #783978
+need-ctty: yes
+arguments: !-i!
+env-setup: !ENV=./Env!
+file-setup: file 644 "Env"
+	PS1=X
+	PS2=Y
+stdin:
+	for i in A B C
+	do
+	   print $i
+	   print $i
+	done
+	fc -l
+expected-stdout:
+	A
+	A
+	B
+	B
+	C
+	C
+	1	for i in A B C
+		do
+		   print $i
+		   print $i
+		done
+expected-stderr-pattern:
+	/^XYYYYXX$/
 ---
 name: history-e-minus-1
 description:
@@ -4637,7 +4948,7 @@ name: integer-base-check-flat
 description:
 	Check behaviour does not match POSuX (except if set -o posix),
 	because a not type-safe scripting language has *no* business
-	interpreting the string "010" as octal numer eight (dangerous).
+	interpreting the string "010" as octal number eight (dangerous).
 stdin:
 	echo 1 "$("$__progname" -c 'echo :$((10))/$((010)),$((0x10)):')" .
 	echo 2 "$("$__progname" -o posix -c 'echo :$((10))/$((010)),$((0x10)):')" .
@@ -6162,6 +6473,106 @@ expected-stdout:
 	ac_space=' '
 	ac_newline=$'\n'
 ---
+name: regression-67
+description:
+	Check that we can both break and use source on the same line
+stdin:
+	for s in s; do break; done; print -s s
+---
+name: regression-68
+description:
+	Check that all common arithmetic operators work as expected
+stdin:
+	echo 1 $(( a = 5 )) .
+	echo 2 $(( ++a )) , $(( a++ )) , $(( a )) .
+	echo 3 $(( --a )) , $(( a-- )) , $(( a )) .
+	echo 4 $(( a == 5 )) , $(( a == 6 )) .
+	echo 5 $(( a != 5 )) , $(( a != 6 )) .
+	echo 6 $(( a *= 3 )) .
+	echo 7 $(( a /= 5 )) .
+	echo 8 $(( a %= 2 )) .
+	echo 9 $(( a += 9 )) .
+	echo 10 $(( a -= 4 )) .
+	echo 11 $(( a <<= 1 )) .
+	echo 12 $(( a >>= 1 )) .
+	echo 13 $(( a &= 4 )) .
+	echo 14 $(( a ^= a )) .
+	echo 15 $(( a |= 5 )) .
+	echo 16 $(( 5 << 1 )) .
+	echo 17 $(( 5 >> 1 )) .
+	echo 18 $(( 5 <= 6 )) , $(( 5 <= 5 )) , $(( 5 <= 4 )) .
+	echo 19 $(( 5 >= 6 )) , $(( 5 >= 5 )) , $(( 5 >= 4 )) .
+	echo 20 $(( 5 < 6 )) , $(( 5 < 5 )) , $(( 5 < 4 )) .
+	echo 21 $(( 5 > 6 )) , $(( 5 > 5 )) , $(( 5 > 4 )) .
+	echo 22 $(( 0 && 0 )) , $(( 0 && 1 )) , $(( 1 && 0 )) , $(( 1 && 1 )) .
+	echo 23 $(( 0 || 0 )) , $(( 0 || 1 )) , $(( 1 || 0 )) , $(( 1 || 1 )) .
+	echo 24 $(( 5 * 3 )) .
+	echo 25 $(( 7 / 2 )) .
+	echo 26 $(( 5 % 5 )) , $(( 5 % 4 )) , $(( 5 % 1 )) , $(( 5 % -1 )) , $(( 5 % -2 )) .
+	echo 27 $(( 5 + 2 )) , $(( 5 + 0 )) , $(( 5 + -2 )) .
+	echo 28 $(( 5 - 2 )) , $(( 5 - 0 )) , $(( 5 - -2 )) .
+	echo 29 $(( 6 & 4 )) , $(( 6 & 8 )) .
+	echo 30 $(( 4 ^ 2 )) , $(( 4 ^ 4 )) .
+	echo 31 $(( 4 | 2 )) , $(( 4 | 4 )) , $(( 4 | 0 )) .
+	echo 32 $(( 0 ? 1 : 2 )) , $(( 3 ? 4 : 5 )) .
+	echo 33 $(( 5 , 2 , 3 )) .
+	echo 34 $(( ~0 )) , $(( ~1 )) , $(( ~~1 )) , $(( ~~2 )) .
+	echo 35 $(( !0 )) , $(( !1 )) , $(( !!1 )) , $(( !!2 )) .
+	echo 36 $(( (5) )) .
+expected-stdout:
+	1 5 .
+	2 6 , 6 , 7 .
+	3 6 , 6 , 5 .
+	4 1 , 0 .
+	5 0 , 1 .
+	6 15 .
+	7 3 .
+	8 1 .
+	9 10 .
+	10 6 .
+	11 12 .
+	12 6 .
+	13 4 .
+	14 0 .
+	15 5 .
+	16 10 .
+	17 2 .
+	18 1 , 1 , 0 .
+	19 0 , 1 , 1 .
+	20 1 , 0 , 0 .
+	21 0 , 0 , 1 .
+	22 0 , 0 , 0 , 1 .
+	23 0 , 1 , 1 , 1 .
+	24 15 .
+	25 3 .
+	26 0 , 1 , 0 , 0 , 1 .
+	27 7 , 5 , 3 .
+	28 3 , 5 , 7 .
+	29 4 , 0 .
+	30 6 , 0 .
+	31 6 , 4 , 4 .
+	32 2 , 4 .
+	33 3 .
+	34 -1 , -2 , 1 , 2 .
+	35 1 , 0 , 1 , 1 .
+	36 5 .
+---
+name: regression-69
+description:
+	Check that all non-lksh arithmetic operators work as expected
+category: shell:legacy-no
+stdin:
+	a=5 b=0x80000005
+	echo 1 $(( a ^<= 1 )) , $(( b ^<= 1 )) .
+	echo 2 $(( a ^>= 2 )) , $(( b ^>= 2 )) .
+	echo 3 $(( 5 ^< 1 )) .
+	echo 4 $(( 5 ^> 1 )) .
+expected-stdout:
+	1 10 , 11 .
+	2 -2147483646 , -1073741822 .
+	3 10 .
+	4 -2147483646 .
+---
 name: readonly-0
 description:
 	Ensure readonly is honoured for assignments and unset
@@ -6578,6 +6989,37 @@ stdin:
 expected-exit: 1
 expected-stderr-pattern: !/not set/
 ---
+name: xxx-param-subst-qmark-namespec
+description:
+	Check special names are output correctly
+stdin:
+	doit() {
+		"$__progname" -c "$@" >o1 2>o2
+		rv=$?
+		echo RETVAL: $rv
+		sed -e "s^${__progname%.exe}\.*e*x*e*: PROG: " -e 's/^/STDOUT: /g' <o1
+		sed -e "s^${__progname%.exe}\.*e*x*e*: PROG: " -e 's/^/STDERR: /g' <o2
+	}
+	doit 'echo ${1x}'
+	doit 'echo "${1x}"'
+	doit 'echo ${1?}'
+	doit 'echo ${19?}'
+	doit 'echo ${!:?}'
+	doit -u 'echo ${*:?}' foo ""
+expected-stdout:
+	RETVAL: 1
+	STDERR: PROG: ${1x}: bad substitution
+	RETVAL: 1
+	STDERR: PROG: ${1x}: bad substitution
+	RETVAL: 1
+	STDERR: PROG: 1: parameter null or not set
+	RETVAL: 1
+	STDERR: PROG: 19: parameter null or not set
+	RETVAL: 1
+	STDERR: PROG: !: parameter null or not set
+	RETVAL: 1
+	STDERR: foo: ${*:?}: bad substitution
+---
 name: xxx-param-_-1
 # fails due to weirdness of execv stuff
 category: !os:uwin-nt
@@ -6765,6 +7207,19 @@ stdin:
 	db_input || :
 	db_go
 	exit 0
+---
+name: exit-err-9
+description:
+	"set -e" versus bang pipelines
+stdin:
+	set -e
+	! false | false
+	echo 1 ok
+	! false && false
+	echo 2 wrong
+expected-stdout:
+	1 ok
+expected-exit: 1
 ---
 name: exit-enoent-1
 description:
@@ -7689,6 +8144,27 @@ expected-stdout:
 	1 on
 	2 off
 	3 done
+---
+name: utf8bug-1
+description:
+	Ensure trailing combining characters are not lost
+stdin:
+	set -U
+	a=a
+	b=$'\u0301'
+	x=$a$b
+	print -r -- "<e$x>"
+	x=$a
+	x+=$b
+	print -r -- "<e$x>"
+	b=$'\u0301'b
+	x=$a
+	x+=$b
+	print -r -- "<e$x>"
+expected-stdout:
+	<eá>
+	<eá>
+	<eáb>
 ---
 name: aliases-1
 description:
@@ -8728,17 +9204,45 @@ name: print-funny-chars
 description:
 	Check print builtin's capability to output designated characters
 stdin:
-	print '<\0144\0344\xDB\u00DB\u20AC\uDB\x40>'
-	print '<\x00>'
-	print '<\x01>'
-	print '<\u0000>'
-	print '<\u0001>'
+	{
+		print '<\0144\0344\xDB\u00DB\u20AC\uDB\x40>'
+		print '<\x00>'
+		print '<\x01>'
+		print '<\u0000>'
+		print '<\u0001>'
+	} | {
+		# integer-base-one-3Ar
+		typeset -Uui16 -Z11 pos=0
+		typeset -Uui16 -Z5 hv=2147483647
+		dasc=
+		if read -arN -1 line; then
+			typeset -i1 line
+			i=0
+			while (( i < ${#line[*]} )); do
+				hv=${line[i++]}
+				if (( (pos & 15) == 0 )); then
+					(( pos )) && print "$dasc|"
+					print -n "${pos#16#}  "
+					dasc=' |'
+				fi
+				print -n "${hv#16#} "
+				if (( (hv < 32) || (hv > 126) )); then
+					dasc=$dasc.
+				else
+					dasc=$dasc${line[i-1]#1#}
+				fi
+				(( (pos++ & 15) == 7 )) && print -n -- '- '
+			done
+		fi
+		while (( pos & 15 )); do
+			print -n '   '
+			(( (pos++ & 15) == 7 )) && print -n -- '- '
+		done
+		(( hv == 2147483647 )) || print "$dasc|"
+	}
 expected-stdout:
-	<d��Û€Û@>
-	< >
-	<>
-	< >
-	<>
+	00000000  3C 64 E4 DB C3 9B E2 82 - AC C3 9B 40 3E 0A 3C 00  |<d.........@>.<.|
+	00000010  3E 0A 3C 01 3E 0A 3C 00 - 3E 0A 3C 01 3E 0A        |>.<.>.<.>.<.>.|
 ---
 name: print-bksl-c
 description:
@@ -8829,6 +9333,16 @@ stdin:
 	    ${#x} "$x" '<\0>'
 expected-stdout-pattern:
 	/^4 3 2 <> <\0>$/
+---
+name: print-array
+description:
+	Check that print -A works as expected
+stdin:
+	print -An 0x20AC 0xC3 0xBC 8#101
+	set -U
+	print -A 0x20AC 0xC3 0xBC 8#102
+expected-stdout:
+	�üA€Ã¼B
 ---
 name: print-escapes
 description:
@@ -9015,6 +9529,17 @@ stdin:
 expected-exit: e != 0
 expected-stderr-pattern:
 	/\.: missing argument.*\n.*source: missing argument/
+---
+name: dot-errorlevel
+description:
+	Ensure dot resets $?
+stdin:
+	:>dotfile
+	(exit 42)
+	. ./dotfile
+	echo 1 $? .
+expected-stdout:
+	1 0 .
 ---
 name: alias-function-no-conflict
 description:
@@ -9828,29 +10353,6 @@ expected-stdout:
 	2  = bar .
 	3  = bar .
 ---
-name: mkshiop-1
-description:
-	Check for support of more than 9 file descriptors
-category: !convfds
-stdin:
-	read -u10 foo 10<<< bar
-	echo x$foo
-expected-stdout:
-	xbar
----
-name: mkshiop-2
-description:
-	Check for support of more than 9 file descriptors
-category: !convfds
-stdin:
-	exec 12>foo
-	print -u12 bar
-	echo baz >&12
-	cat foo
-expected-stdout:
-	bar
-	baz
----
 name: oksh-eval
 description:
 	Check expansions.
@@ -10085,6 +10587,8 @@ name: fd-cloexec-1
 description:
 	Verify that file descriptors > 2 are private for Korn shells
 	AT&T ksh93 does this still, which means we must keep it as well
+	XXX fails on some old Perl installations
+need-pass: no
 category: shell:legacy-no
 stdin:
 	cat >cld <<-EOF
@@ -10103,6 +10607,8 @@ name: fd-cloexec-2
 description:
 	Verify that file descriptors > 2 are not private for POSIX shells
 	See Debian Bug #154540, Closes: #499139
+	XXX fails on some old Perl installations
+need-pass: no
 stdin:
 	cat >cld <<-EOF
 		#!$__perlname
@@ -11317,7 +11823,7 @@ stdin:
 	echo "before:	x<$x> y<$y> z<$z> R<$REPLY>"
 	x=${|
 		local y
-		echo "begin:	x<$x> y<$y> z<$z> R<$REPLY>"
+		echo "start:	x<$x> y<$y> z<$z> R<$REPLY>"
 		x=5
 		y=6
 		z=7
@@ -11332,7 +11838,7 @@ stdin:
 	echo ${|true;}$(true).
 expected-stdout:
 	before:	x<1> y<2> z<3> R<4>
-	begin:	x<1> y<> z<3> R<>
+	start:	x<1> y<> z<3> R<>
 	end:	x<5> y<6> z<7> R<8>
 	after:	x<8> y<2> z<7> R<4>
 	typeset t=$'foo\n\n'
@@ -11792,6 +12298,17 @@ expected-stdout:
 	done
 expected-stderr-pattern: /.*-x.*option/
 ---
+name: utilities-getopts-3
+description:
+	Check unsetting OPTARG
+stdin:
+	set -- -x arg -y
+	getopts x:y opt && echo "${OPTARG-unset}"
+	getopts x:y opt && echo "${OPTARG-unset}"
+expected-stdout:
+	arg
+	unset
+---
 name: wcswidth-1
 description:
 	Check the new wcswidth feature
@@ -12111,6 +12628,77 @@ expected-stdout:
 	after	0='swc' 1='二' 2=''
 	= done
 ---
+name: command-pvV-posix-priorities
+description:
+	For POSIX compatibility, command -v should find aliases and reserved
+	words, and command -p[vV] should find aliases, reserved words, and
+	builtins over external commands.
+stdin:
+	PATH=/bin:/usr/bin
+	alias foo="bar baz"
+	bar() { :; }
+	for word in 'if' 'foo' 'bar' 'set' 'true'; do
+		command -v "$word"
+		command -pv "$word"
+		command -V "$word"
+		command -pV "$word"
+	done
+expected-stdout:
+	if
+	if
+	if is a reserved word
+	if is a reserved word
+	alias foo='bar baz'
+	alias foo='bar baz'
+	foo is an alias for 'bar baz'
+	foo is an alias for 'bar baz'
+	bar
+	bar
+	bar is a function
+	bar is a function
+	set
+	set
+	set is a special shell builtin
+	set is a special shell builtin
+	true
+	true
+	true is a shell builtin
+	true is a shell builtin
+---
+name: whence-preserve-tradition
+description:
+	This regression test is to ensure that the POSIX compatibility
+	changes for 'command' (see previous test) do not affect traditional
+	'whence' behaviour.
+category: os:mirbsd
+stdin:
+	PATH=/bin:/usr/bin
+	alias foo="bar baz"
+	bar() { :; }
+	for word in 'if' 'foo' 'bar' 'set' 'true'; do
+		whence "$word"
+		whence -p "$word"
+		whence -v "$word"
+		whence -pv "$word"
+	done
+expected-stdout:
+	if
+	if is a reserved word
+	if not found
+	'bar baz'
+	foo is an alias for 'bar baz'
+	foo not found
+	bar
+	bar is a function
+	bar not found
+	set
+	set is a special shell builtin
+	set not found
+	true
+	/bin/true
+	true is a shell builtin
+	true is a tracked alias for /bin/true
+---
 name: duffs-device
 description:
 	Check that the compiler did not optimise-break them
@@ -12183,7 +12771,7 @@ stdin:
 	Copyright (C) 2002 Free Software Foundation, Inc.'
 	EOF
 	chmod +x bash
-	"$__progname" -xc 'foo=$(./bash --version 2>&1 | head -1); echo "=$foo="'
+	"$__progname" -xc 'foo=$(./bash --version 2>&1 | sed q); echo "=$foo="'
 expected-stdout:
 	=GNU bash, version 2.05b.0(1)-release (i386-ecce-mirbsd10)=
 expected-stderr-pattern:

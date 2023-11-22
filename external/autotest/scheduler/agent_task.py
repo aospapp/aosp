@@ -114,7 +114,6 @@ import time
 
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import drone_manager, pidfile_monitor
 from autotest_lib.scheduler import scheduler_lib
@@ -122,6 +121,12 @@ from autotest_lib.scheduler import rdb_lib
 from autotest_lib.scheduler import scheduler_models
 from autotest_lib.server import autoserv_utils
 from autotest_lib.server import system_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
 
 CONFIG = global_config.global_config
 AUTOSERV_NICE_LEVEL = 10
@@ -334,13 +339,9 @@ class BaseAgentTask(object):
 
     def _check_paired_results_exist(self):
         if not self._paired_with_monitor().has_process():
-            metadata = {
-                    '_type': 'scheduler_error',
-                    'error': 'No paired results in task',
-                    'task': str(self),
-                    'pidfile_id': str(self._paired_with_monitor().pidfile_id)}
-            autotest_stats.Counter('no_paired_results_in_task',
-                                   metadata=metadata).increment()
+            metrics.Counter(
+                'chromeos/autotest/errors/scheduler/no_paired_results'
+            ).increment()
             self.finished(False)
             return False
         return True
@@ -578,6 +579,10 @@ class SpecialAgentTask(AgentTask, TaskWithJobKeyvals):
     TASK_TYPE = None
     host = None
     queue_entry = None
+    _COUNT_METRIC = 'chromeos/autotest/scheduler/special_task_count'
+    _DUT_METRIC = 'chromeos/autotest/scheduler/special_task_by_dut'
+    _DURATION_METRIC = 'chromeos/autotest/scheduler/special_task_durations'
+
 
     def __init__(self, task, extra_command_args):
         super(SpecialAgentTask, self).__init__()
@@ -592,9 +597,11 @@ class SpecialAgentTask(AgentTask, TaskWithJobKeyvals):
                     id=task.queue_entry.id)
             self.host.dbg_str += self.queue_entry.get_dbg_str()
 
+        # This is of type SpecialTask (as defined in frontend/afe/models.py)
         self.task = task
         self._extra_command_args = extra_command_args
         self.host.metadata = self.get_metadata()
+        self._milestone = ''
 
 
     def get_metadata(self):
@@ -660,6 +667,34 @@ class SpecialAgentTask(AgentTask, TaskWithJobKeyvals):
 
         self._actually_fail_queue_entry()
 
+
+    def epilog(self):
+        super(SpecialAgentTask, self).epilog()
+        self._emit_special_task_status_metric()
+
+
+    def _emit_special_task_status_metric(self):
+        """Increments an accumulator associated with this special task."""
+        fields = {'type': self.TASK_TYPE,
+                  'success': bool(self.success),
+                  'board': str(self.host.board),
+                  'milestone': self._milestone}
+        metrics.Counter(self._COUNT_METRIC).increment(
+            fields=fields)
+
+        if (self.task.time_finished and self.task.time_started):
+            duration = (self.task.time_finished -
+                        self.task.time_started).total_seconds()
+            metrics.SecondsDistribution(self._DURATION_METRIC).add(
+                duration, fields=fields)
+
+        dut_fields = {
+            'type': self.TASK_TYPE,
+            'success': bool(self.success),
+            'board': str(self.host.board),
+            'dut_host_name': self.host.hostname
+        }
+        metrics.Counter(self._DUT_METRIC).increment(fields=dut_fields)
 
     # TODO(milleral): http://crbug.com/268607
     # All this used to be a part of _fail_queue_entry.  The

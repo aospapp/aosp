@@ -29,20 +29,19 @@ namespace art {
  */
 class HDeadCodeElimination : public HOptimization {
  public:
-  HDeadCodeElimination(HGraph* graph,
-                       OptimizingCompilerStats* stats = nullptr,
-                       const char* name = kInitialDeadCodeEliminationPassName)
+  HDeadCodeElimination(HGraph* graph, OptimizingCompilerStats* stats, const char* name)
       : HOptimization(graph, name, stats) {}
 
   void Run() OVERRIDE;
-
-  static constexpr const char* kInitialDeadCodeEliminationPassName = "dead_code_elimination";
-  static constexpr const char* kFinalDeadCodeEliminationPassName = "dead_code_elimination_final";
+  static constexpr const char* kDeadCodeEliminationPassName = "dead_code_elimination";
 
  private:
   void MaybeRecordDeadBlock(HBasicBlock* block);
-  void RemoveDeadBlocks();
+  void MaybeRecordSimplifyIf();
+  bool RemoveDeadBlocks();
   void RemoveDeadInstructions();
+  bool SimplifyIfs();
+  void ConnectSuccessiveBlocks();
 
   DISALLOW_COPY_AND_ASSIGN(HDeadCodeElimination);
 };

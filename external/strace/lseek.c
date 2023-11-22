@@ -7,7 +7,7 @@
  * Copyright (c) 2009 Andreas Schwab <schwab@redhat.com>
  * Copyright (c) 2012 H.J. Lu <hongjiu.lu@intel.com>
  * Copyright (c) 2013 Denys Vlasenko <vda.linux@googlemail.com>
- * Copyright (c) 2014-2015 Dmitry V. Levin <ldv@altlinux.org>
+ * Copyright (c) 2014-2016 Dmitry V. Levin <ldv@altlinux.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,54 +40,33 @@
 /* Linux kernel has exactly one version of lseek:
  * fs/read_write.c::SYSCALL_DEFINE3(lseek, unsigned, fd, off_t, offset, unsigned, origin)
  * In kernel, off_t is always the same as (kernel's) long
- * (see include/uapi/asm-generic/posix_types.h),
- * which means that on x32 we need to use tcp->ext_arg[N] to get offset argument.
+ * (see include/uapi/asm-generic/posix_types.h).
  * Use test/x32_lseek.c to test lseek decoding.
  */
-#if defined(LINUX_MIPSN32) || defined(X32)
 SYS_FUNC(lseek)
 {
-	long long offset;
-	int whence;
-
 	printfd(tcp, tcp->u_arg[0]);
-# ifdef X32
-	/* tcp->ext_arg is not initialized for i386 personality */
-	if (current_personality == 1)
+
+	kernel_long_t offset;
+
+# ifndef current_klongsize
+	if (current_klongsize < sizeof(kernel_long_t)) {
+		offset = (int) tcp->u_arg[1];
+	} else
+# endif /* !current_klongsize */
+	{
 		offset = tcp->u_arg[1];
-	else
-# endif
-	offset = tcp->ext_arg[1];
-	whence = tcp->u_arg[2];
-	if (whence == SEEK_SET)
-		tprintf(", %llu, ", offset);
-	else
-		tprintf(", %lld, ", offset);
-	printxval(whence_codes, whence, "SEEK_???");
+	}
 
-	return RVAL_DECODED | RVAL_LUDECIMAL;
-}
-#else
-SYS_FUNC(lseek)
-{
-	long offset;
-	int whence;
+	tprintf(", %" PRI_kld ", ", offset);
 
-	printfd(tcp, tcp->u_arg[0]);
-	offset = tcp->u_arg[1];
-	whence = tcp->u_arg[2];
-	if (whence == SEEK_SET)
-		tprintf(", %lu, ", offset);
-	else
-		tprintf(", %ld, ", offset);
-	printxval(whence_codes, whence, "SEEK_???");
+	printxval(whence_codes, tcp->u_arg[2], "SEEK_???");
 
 	return RVAL_DECODED | RVAL_UDECIMAL;
 }
-#endif
 
 /* llseek syscall takes explicitly two ulong arguments hi, lo,
- * rather than one 64-bit argument for which LONG_LONG works
+ * rather than one 64-bit argument for which ULONG_LONG works
  * appropriate for the native byte order.
  *
  * See kernel's fs/read_write.c::SYSCALL_DEFINE5(llseek, ...)
@@ -96,21 +75,15 @@ SYS_FUNC(lseek)
  * ((loff_t) hi << 32) | lo
  * Note that for architectures with kernel's long wider than userspace long
  * (such as x32), combining code will use *kernel's*, i.e. *wide* longs
- * for hi and lo. We would need to use tcp->ext_arg[N] on x32...
- * ...however, x32 (and x86_64) does not _have_ llseek syscall as such.
+ * for hi and lo.
  */
 SYS_FUNC(llseek)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
-		if (tcp->u_arg[4] == SEEK_SET)
-			tprintf(", %llu, ",
-				((long long) tcp->u_arg[1]) << 32 |
-				(unsigned long long) (unsigned) tcp->u_arg[2]);
-		else
-			tprintf(", %lld, ",
-				((long long) tcp->u_arg[1]) << 32 |
-				(unsigned long long) (unsigned) tcp->u_arg[2]);
+		tprintf(", %lld, ",
+			  ((long long) tcp->u_arg[1] << 32)
+			| ((long long) tcp->u_arg[2]));
 	} else {
 		printnum_int64(tcp, tcp->u_arg[3], "%" PRIu64);
 		tprints(", ");

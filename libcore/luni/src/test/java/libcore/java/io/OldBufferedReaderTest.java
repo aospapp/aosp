@@ -387,15 +387,43 @@ public class OldBufferedReaderTest extends junit.framework.TestCase {
               PrintWriter pw = new PrintWriter(new OutputStreamWriter(pos));
               pw.print("hello, world\r");
               pw.flush();
-              try {
-                  Thread.sleep(2*60*1000);
-              } catch (InterruptedException ex) {
-                  fail();
-              }
             }
         };
         t.start();
         BufferedReader br = new BufferedReader(new InputStreamReader(pis));
         assertEquals("hello, world", br.readLine());
+    }
+
+    public void test_closeException() throws Exception {
+        final IOException testException = new IOException("kaboom!");
+        Reader thrower = new Reader() {
+            @Override
+            public int read(char cbuf[], int off, int len) throws IOException {
+                // Not used
+                return 0;
+            }
+
+            @Override
+            public void close() throws IOException {
+                throw testException;
+            }
+        };
+        BufferedReader br = new BufferedReader(thrower);
+
+        try {
+            br.close();
+            fail();
+        } catch(IOException expected) {
+            assertSame(testException, expected);
+        }
+
+        try {
+            // Pre-openJdk8 BufferedReader#close() with exception wouldn't
+            // reset the input reader to null. This would still allow ready()
+            // to succeed.
+            br.ready();
+            fail();
+        } catch(IOException expected) {
+        }
     }
 }

@@ -33,9 +33,7 @@ extern "C" {
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#ifndef IMAGE_NO_SPARSE
 #include <sparse/sparse.h>
-#endif
 #include "image.h"
 
 #if defined(__linux__)
@@ -51,24 +49,7 @@ void image_init(image *ctx)
     memset(ctx, 0, sizeof(*ctx));
 }
 
-static void mmap_image_free(image *ctx)
-{
-    if (ctx->input) {
-        munmap(ctx->input, (size_t)ctx->inp_size);
-        close(ctx->inp_fd);
-    }
-
-    if (ctx->fec_mmap_addr) {
-        munmap(ctx->fec_mmap_addr, FEC_BLOCKSIZE + ctx->fec_size);
-        close(ctx->fec_fd);
-    }
-
-    if (!ctx->inplace && ctx->output) {
-        delete[] ctx->output;
-    }
-}
-
-static void file_image_free(image *ctx)
+void image_free(image *ctx)
 {
     assert(ctx->input == ctx->output);
 
@@ -79,40 +60,8 @@ static void file_image_free(image *ctx)
     if (ctx->fec) {
         delete[] ctx->fec;
     }
-}
-
-void image_free(image *ctx)
-{
-    if (ctx->mmap) {
-        mmap_image_free(ctx);
-    } else {
-        file_image_free(ctx);
-    }
 
     image_init(ctx);
-}
-
-static uint64_t get_size(int fd)
-{
-    struct stat st;
-
-    if (fstat(fd, &st) == -1) {
-        FATAL("failed to fstat: %s\n", strerror(errno));
-    }
-
-    uint64_t size = 0;
-
-    if (S_ISBLK(st.st_mode)) {
-        if (ioctl(fd, BLKGETSIZE64, &size) == -1) {
-            FATAL("failed to ioctl(BLKGETSIZE64): %s\n", strerror(errno));
-        }
-    } else if (S_ISREG(st.st_mode)) {
-        size = st.st_size;
-    } else {
-        FATAL("unknown file mode: %d\n", (int)st.st_mode);
-    }
-
-    return size;
 }
 
 static void calculate_rounds(uint64_t size, image *ctx)
@@ -129,64 +78,6 @@ static void calculate_rounds(uint64_t size, image *ctx)
     ctx->rounds = fec_div_round_up(ctx->blocks, ctx->rs_n);
 }
 
-static void mmap_image_load(const std::vector<int>& fds, image *ctx,
-        bool output_needed)
-{
-    if (fds.size() != 1) {
-        FATAL("multiple input files not supported with mmap\n");
-    }
-
-    int fd = fds.front();
-
-    calculate_rounds(get_size(fd), ctx);
-
-    /* check that we can memory map the file; on 32-bit platforms we are
-       limited to encoding at most 4 GiB files */
-    if (ctx->inp_size > SIZE_MAX) {
-        FATAL("cannot mmap %" PRIu64 " bytes\n", ctx->inp_size);
-    }
-
-    if (ctx->verbose) {
-        INFO("memory mapping '%s' (size %" PRIu64 ")\n", ctx->fec_filename,
-            ctx->inp_size);
-    }
-
-    int flags = PROT_READ;
-
-    if (ctx->inplace) {
-        flags |= PROT_WRITE;
-    }
-
-    void *p = mmap(NULL, (size_t)ctx->inp_size, flags, MAP_SHARED, fd, 0);
-
-    if (p == MAP_FAILED) {
-        FATAL("failed to mmap '%s' (size %" PRIu64 "): %s\n",
-            ctx->fec_filename, ctx->inp_size, strerror(errno));
-    }
-
-    ctx->inp_fd = fd;
-    ctx->input = (uint8_t *)p;
-
-    if (ctx->inplace) {
-        ctx->output = ctx->input;
-    } else if (output_needed) {
-        if (ctx->verbose) {
-            INFO("allocating %" PRIu64 " bytes of memory\n", ctx->inp_size);
-        }
-
-        ctx->output = new uint8_t[ctx->inp_size];
-
-        if (!ctx->output) {
-                FATAL("failed to allocate memory\n");
-        }
-
-        memcpy(ctx->output, ctx->input, ctx->inp_size);
-    }
-
-    /* fd is closed in mmap_image_free */
-}
-
-#ifndef IMAGE_NO_SPARSE
 static int process_chunk(void *priv, const void *data, int len)
 {
     image *ctx = (image *)priv;
@@ -199,25 +90,14 @@ static int process_chunk(void *priv, const void *data, int len)
     ctx->pos += len;
     return 0;
 }
-#endif
 
 static void file_image_load(const std::vector<int>& fds, image *ctx)
 {
     uint64_t size = 0;
-#ifndef IMAGE_NO_SPARSE
     std::vector<struct sparse_file *> files;
-#endif
 
     for (auto fd : fds) {
         uint64_t len = 0;
-
-#ifdef IMAGE_NO_SPARSE
-        if (ctx->sparse) {
-            FATAL("sparse files not supported\n");
-        }
-
-        len = get_size(fd);
-#else
         struct sparse_file *file;
 
         if (ctx->sparse) {
@@ -232,7 +112,6 @@ static void file_image_load(const std::vector<int>& fds, image *ctx)
 
         len = sparse_file_len(file, false, false);
         files.push_back(file);
-#endif /* IMAGE_NO_SPARSE */
 
         size += len;
     }
@@ -253,18 +132,6 @@ static void file_image_load(const std::vector<int>& fds, image *ctx)
     ctx->output = ctx->input;
     ctx->pos = 0;
 
-#ifdef IMAGE_NO_SPARSE
-    for (auto fd : fds) {
-        uint64_t len = get_size(fd);
-
-        if (!android::base::ReadFully(fd, &ctx->input[ctx->pos], len)) {
-            FATAL("failed to read: %s\n", strerror(errno));
-        }
-
-        ctx->pos += len;
-        close(fd);
-    }
-#else
     for (auto file : files) {
         sparse_file_callback(file, false, false, process_chunk, ctx);
         sparse_file_destroy(file);
@@ -273,11 +140,9 @@ static void file_image_load(const std::vector<int>& fds, image *ctx)
     for (auto fd : fds) {
         close(fd);
     }
-#endif
 }
 
-bool image_load(const std::vector<std::string>& filenames, image *ctx,
-        bool output_needed)
+bool image_load(const std::vector<std::string>& filenames, image *ctx)
 {
     assert(ctx->roots > 0 && ctx->roots < FEC_RSM);
     ctx->rs_n = FEC_RSM - ctx->roots;
@@ -290,7 +155,7 @@ bool image_load(const std::vector<std::string>& filenames, image *ctx,
 
     std::vector<int> fds;
 
-    for (auto fn : filenames) {
+    for (const auto& fn : filenames) {
         int fd = TEMP_FAILURE_RETRY(open(fn.c_str(), flags | O_LARGEFILE));
 
         if (fd < 0) {
@@ -300,21 +165,13 @@ bool image_load(const std::vector<std::string>& filenames, image *ctx,
         fds.push_back(fd);
     }
 
-    if (ctx->mmap) {
-        mmap_image_load(fds, ctx, output_needed);
-    } else {
-        file_image_load(fds, ctx);
-    }
+    file_image_load(fds, ctx);
 
     return true;
 }
 
 bool image_save(const std::string& filename, image *ctx)
 {
-    if (ctx->inplace && ctx->mmap) {
-        return true; /* nothing to do */
-    }
-
     /* TODO: support saving as a sparse file */
     int fd = TEMP_FAILURE_RETRY(open(filename.c_str(),
                 O_WRONLY | O_CREAT | O_TRUNC, 0666));
@@ -332,46 +189,13 @@ bool image_save(const std::string& filename, image *ctx)
     return true;
 }
 
-static void mmap_image_ecc_new(image *ctx)
+bool image_ecc_new(const std::string& filename, image *ctx)
 {
-    if (ctx->verbose) {
-        INFO("mmaping '%s' (size %u)\n", ctx->fec_filename, ctx->fec_size);
-    }
+    assert(ctx->rounds > 0); /* image_load should be called first */
 
-    int fd = TEMP_FAILURE_RETRY(open(ctx->fec_filename,
-                O_RDWR | O_CREAT, 0666));
+    ctx->fec_filename = filename.c_str();
+    ctx->fec_size = ctx->rounds * ctx->roots * FEC_BLOCKSIZE;
 
-    if (fd < 0) {
-        FATAL("failed to open file '%s': %s\n", ctx->fec_filename,
-            strerror(errno));
-    }
-
-    assert(sizeof(fec_header) <= FEC_BLOCKSIZE);
-    size_t fec_size = FEC_BLOCKSIZE + ctx->fec_size;
-
-    if (ftruncate(fd, fec_size) == -1) {
-        FATAL("failed to ftruncate file '%s': %s\n", ctx->fec_filename,
-            strerror(errno));
-    }
-
-    if (ctx->verbose) {
-        INFO("memory mapping '%s' (size %zu)\n", ctx->fec_filename, fec_size);
-    }
-
-    void *p = mmap(NULL, fec_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (p == MAP_FAILED) {
-        FATAL("failed to mmap '%s' (size %zu): %s\n", ctx->fec_filename,
-            fec_size, strerror(errno));
-    }
-
-    ctx->fec_fd = fd;
-    ctx->fec_mmap_addr = (uint8_t *)p;
-    ctx->fec = ctx->fec_mmap_addr;
-}
-
-static void file_image_ecc_new(image *ctx)
-{
     if (ctx->verbose) {
         INFO("allocating %u bytes of memory\n", ctx->fec_size);
     }
@@ -380,20 +204,6 @@ static void file_image_ecc_new(image *ctx)
 
     if (!ctx->fec) {
         FATAL("failed to allocate %u bytes\n", ctx->fec_size);
-    }
-}
-
-bool image_ecc_new(const std::string& filename, image *ctx)
-{
-    assert(ctx->rounds > 0); /* image_load should be called first */
-
-    ctx->fec_filename = filename.c_str();
-    ctx->fec_size = ctx->rounds * ctx->roots * FEC_BLOCKSIZE;
-
-    if (ctx->mmap) {
-        mmap_image_ecc_new(ctx);
-    } else {
-        file_image_ecc_new(ctx);
     }
 
     return true;
@@ -462,7 +272,7 @@ bool image_ecc_load(const std::string& filename, image *ctx)
         FATAL("failed to rewind '%s': %s", filename.c_str(), strerror(errno));
     }
 
-    if (!ctx->mmap && !android::base::ReadFully(fd, ctx->fec, ctx->fec_size)) {
+    if (!android::base::ReadFully(fd, ctx->fec, ctx->fec_size)) {
         FATAL("failed to read %u bytes from '%s': %s\n", ctx->fec_size,
             filename.c_str(), strerror(errno));
     }
@@ -481,18 +291,11 @@ bool image_ecc_load(const std::string& filename, image *ctx)
 
 bool image_ecc_save(image *ctx)
 {
-    assert(sizeof(fec_header) <= FEC_BLOCKSIZE);
+    assert(2 * sizeof(fec_header) <= FEC_BLOCKSIZE);
 
-    uint8_t header[FEC_BLOCKSIZE];
-    uint8_t *p = header;
+    uint8_t header[FEC_BLOCKSIZE] = {0};
 
-    if (ctx->mmap) {
-        p = (uint8_t *)&ctx->fec_mmap_addr[ctx->fec_size];
-    }
-
-    memset(p, 0, FEC_BLOCKSIZE);
-
-    fec_header *f = (fec_header *)p;
+    fec_header *f = (fec_header *)header;
 
     f->magic = FEC_MAGIC;
     f->version = FEC_VERSION;
@@ -504,26 +307,38 @@ bool image_ecc_save(image *ctx)
     SHA256(ctx->fec, ctx->fec_size, f->hash);
 
     /* store a copy of the fec_header at the end of the header block */
-    memcpy(&p[sizeof(header) - sizeof(fec_header)], p, sizeof(fec_header));
+    memcpy(&header[sizeof(header) - sizeof(fec_header)], header,
+        sizeof(fec_header));
 
-    if (!ctx->mmap) {
-        assert(ctx->fec_filename);
+    assert(ctx->fec_filename);
 
-        int fd = TEMP_FAILURE_RETRY(open(ctx->fec_filename,
-                    O_WRONLY | O_CREAT | O_TRUNC, 0666));
+    int fd = TEMP_FAILURE_RETRY(open(ctx->fec_filename,
+                O_WRONLY | O_CREAT | O_TRUNC, 0666));
 
-        if (fd < 0) {
-            FATAL("failed to open file '%s': %s\n", ctx->fec_filename,
-                strerror(errno));
-        }
-
-        if (!android::base::WriteFully(fd, ctx->fec, ctx->fec_size) ||
-            !android::base::WriteFully(fd, header, sizeof(header))) {
-            FATAL("failed to write to output: %s\n", strerror(errno));
-        }
-
-        close(fd);
+    if (fd < 0) {
+        FATAL("failed to open file '%s': %s\n", ctx->fec_filename,
+            strerror(errno));
     }
+
+    if (!android::base::WriteFully(fd, ctx->fec, ctx->fec_size)) {
+        FATAL("failed to write to output: %s\n", strerror(errno));
+    }
+
+    if (ctx->padding > 0) {
+        uint8_t padding[FEC_BLOCKSIZE] = {0};
+
+        for (uint32_t i = 0; i < ctx->padding; i += FEC_BLOCKSIZE) {
+            if (!android::base::WriteFully(fd, padding, FEC_BLOCKSIZE)) {
+                FATAL("failed to write padding: %s\n", strerror(errno));
+            }
+        }
+    }
+
+    if (!android::base::WriteFully(fd, header, sizeof(header))) {
+        FATAL("failed to write to header: %s\n", strerror(errno));
+    }
+
+    close(fd);
 
     return true;
 }

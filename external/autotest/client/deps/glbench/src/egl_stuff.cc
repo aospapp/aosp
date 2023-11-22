@@ -1,11 +1,14 @@
 // Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+#include <memory>
+
 #include "egl_stuff.h"
 #include "main.h"
 #include "xlib_window.h"
 
-scoped_ptr<GLInterface> g_main_gl_interface;
+std::unique_ptr<GLInterface> g_main_gl_interface;
 
 GLInterface* GLInterface::Create() {
   return new EGLInterface;

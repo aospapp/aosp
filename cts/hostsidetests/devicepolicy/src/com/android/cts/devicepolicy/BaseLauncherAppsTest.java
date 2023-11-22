@@ -30,10 +30,10 @@ public class BaseLauncherAppsTest extends BaseDevicePolicyTest {
     protected static final String LAUNCHER_TESTS_CLASS = LAUNCHER_TESTS_PKG + ".LauncherAppsTests";
     protected static final String PARAM_TEST_USER = "testUser";
 
-    private static final String LAUNCHER_TESTS_APK = "CtsLauncherAppsTests.apk";
-    private static final String LAUNCHER_TESTS_SUPPORT_PKG =
+    protected static final String LAUNCHER_TESTS_APK = "CtsLauncherAppsTests.apk";
+    protected static final String LAUNCHER_TESTS_SUPPORT_PKG =
             "com.android.cts.launchertests.support";
-    private static final String LAUNCHER_TESTS_SUPPORT_APK = "CtsLauncherAppsTestsSupport.apk";
+    protected static final String LAUNCHER_TESTS_SUPPORT_APK = "CtsLauncherAppsTestsSupport.apk";
 
     protected void installTestApps() throws Exception {
         uninstallTestApps();

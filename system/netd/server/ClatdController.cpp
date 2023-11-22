@@ -34,6 +34,9 @@
 
 static const char* kClatdPath = "/system/bin/clatd";
 
+namespace android {
+namespace net {
+
 ClatdController::ClatdController(NetworkController* controller)
         : mNetCtrl(controller) {
 }
@@ -144,3 +147,6 @@ bool ClatdController::isClatdStarted(char* interface) {
     }
     return waitpid_status == 0; // 0 while child is running
 }
+
+}  // namespace net
+}  // namespace android

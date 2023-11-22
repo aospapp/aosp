@@ -80,14 +80,21 @@ class QuickTrampolineEntrypointsTest : public CommonRuntimeTest {
 // This test ensures that kQuickCalleeSaveFrame_RefAndArgs_FrameSize is correct.
 TEST_F(QuickTrampolineEntrypointsTest, FrameSize) {
   // We have to use a define here as the callee_save_frame.h functions are constexpr.
-#define CHECK_FRAME_SIZE(isa)                                                                     \
-  CheckFrameSize(isa, Runtime::kRefsAndArgs, GetCalleeSaveFrameSize(isa, Runtime::kRefsAndArgs)); \
-  CheckFrameSize(isa, Runtime::kRefsOnly, GetCalleeSaveFrameSize(isa, Runtime::kRefsOnly));       \
-  CheckFrameSize(isa, Runtime::kSaveAll, GetCalleeSaveFrameSize(isa, Runtime::kSaveAll))
+#define CHECK_FRAME_SIZE(isa)                                                 \
+  CheckFrameSize(isa,                                                         \
+                 Runtime::kSaveRefsAndArgs,                                   \
+                 GetCalleeSaveFrameSize(isa, Runtime::kSaveRefsAndArgs));     \
+  CheckFrameSize(isa,                                                         \
+                 Runtime::kSaveRefsOnly,                                      \
+                 GetCalleeSaveFrameSize(isa, Runtime::kSaveRefsOnly));        \
+  CheckFrameSize(isa,                                                         \
+                 Runtime::kSaveAllCalleeSaves,                                \
+                 GetCalleeSaveFrameSize(isa, Runtime::kSaveAllCalleeSaves))
 
   CHECK_FRAME_SIZE(kArm);
   CHECK_FRAME_SIZE(kArm64);
   CHECK_FRAME_SIZE(kMips);
+  CHECK_FRAME_SIZE(kMips64);
   CHECK_FRAME_SIZE(kX86);
   CHECK_FRAME_SIZE(kX86_64);
 }
@@ -98,6 +105,7 @@ TEST_F(QuickTrampolineEntrypointsTest, PointerSize) {
   EXPECT_EQ(GetInstructionSetPointerSize(kArm), GetConstExprPointerSize(kArm));
   EXPECT_EQ(GetInstructionSetPointerSize(kArm64), GetConstExprPointerSize(kArm64));
   EXPECT_EQ(GetInstructionSetPointerSize(kMips), GetConstExprPointerSize(kMips));
+  EXPECT_EQ(GetInstructionSetPointerSize(kMips64), GetConstExprPointerSize(kMips64));
   EXPECT_EQ(GetInstructionSetPointerSize(kX86), GetConstExprPointerSize(kX86));
   EXPECT_EQ(GetInstructionSetPointerSize(kX86_64), GetConstExprPointerSize(kX86_64));
 }
@@ -108,12 +116,12 @@ TEST_F(QuickTrampolineEntrypointsTest, ReturnPC) {
   // Ensure that the computation in callee_save_frame.h correct.
   // Note: we can only check against the kRuntimeISA, because the ArtMethod computation uses
   // sizeof(void*), which is wrong when the target bitwidth is not the same as the host's.
-  CheckPCOffset(kRuntimeISA, Runtime::kRefsAndArgs,
-                GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kRefsAndArgs));
-  CheckPCOffset(kRuntimeISA, Runtime::kRefsOnly,
-                GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kRefsOnly));
-  CheckPCOffset(kRuntimeISA, Runtime::kSaveAll,
-                GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kSaveAll));
+  CheckPCOffset(kRuntimeISA, Runtime::kSaveRefsAndArgs,
+                GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kSaveRefsAndArgs));
+  CheckPCOffset(kRuntimeISA, Runtime::kSaveRefsOnly,
+                GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kSaveRefsOnly));
+  CheckPCOffset(kRuntimeISA, Runtime::kSaveAllCalleeSaves,
+                GetCalleeSaveReturnPcOffset(kRuntimeISA, Runtime::kSaveAllCalleeSaves));
 }
 
 }  // namespace art

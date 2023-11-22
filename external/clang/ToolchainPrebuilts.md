@@ -1,6 +1,20 @@
 Updating Platform Toolchains
 ============================
 
+For the latest version of this doc, please make sure to visit:
+[Android Clang/LLVM Toolchain Prebuilts Doc](https://android.googlesource.com/platform/external/clang/+/dev/ToolchainPrebuilts.md)
+
+Picking a good upstream revision
+--------------------------------
+
+We generally like to follow along with upstream LLVM's Google stable tag:
+
+http://llvm.org/svn/llvm-project/llvm/tags/google/stable/
+
+You can use git/svn to query the latest tagged version to see what we will be
+validating next.
+
+
 Updating Toolchain Source
 -------------------------
 

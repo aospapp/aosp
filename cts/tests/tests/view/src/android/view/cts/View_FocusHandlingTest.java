@@ -16,24 +16,44 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
-import android.graphics.Rect;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.app.Instrumentation;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewRootImpl;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 
-public class View_FocusHandlingTest
-        extends ActivityInstrumentationTestCase2<FocusHandlingCtsActivity> {
-    public View_FocusHandlingTest() {
-        super("android.view.cts", FocusHandlingCtsActivity.class);
-    }
+import org.junit.Assume;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class View_FocusHandlingTest {
+    @Rule
+    public ActivityTestRule<FocusHandlingCtsActivity> mActivityRule =
+            new ActivityTestRule<>(FocusHandlingCtsActivity.class);
 
     @UiThreadTest
+    @Test
     public void testFocusHandling() {
-        Activity activity = getActivity();
+        Activity activity = mActivityRule.getActivity();
 
         View v1 = activity.findViewById(R.id.view1);
         View v2 = activity.findViewById(R.id.view2);
@@ -133,10 +153,13 @@ public class View_FocusHandlingTest
         v2.setVisibility(View.VISIBLE);
         v3.setVisibility(View.VISIBLE);
         v4.setVisibility(View.VISIBLE);
-        assertTrue(v1.isFocused());
+        assertEquals(ViewRootImpl.sAlwaysAssignFocus, v1.isFocused());
         assertFalse(v2.isFocused());
         assertFalse(v3.isFocused());
         assertFalse(v4.isFocused());
+
+        v1.requestFocus();
+        assertTrue(v1.isFocused());
 
         // test scenario: a view will not actually take focus if it is not focusable
         v2.setFocusable(false);
@@ -202,5 +225,176 @@ public class View_FocusHandlingTest
         assertNull(v2.findFocus());
         assertNull(v3.findFocus());
         assertNull(v4.findFocus());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFocusAuto() {
+        Activity activity = mActivityRule.getActivity();
+
+        activity.getLayoutInflater().inflate(R.layout.focus_handling_auto_layout,
+                (ViewGroup) activity.findViewById(R.id.auto_test_area));
+
+        View def = activity.findViewById(R.id.focusabledefault);
+        View auto = activity.findViewById(R.id.focusableauto);
+        View click = activity.findViewById(R.id.onlyclickable);
+        View clickNotFocus = activity.findViewById(R.id.clickablenotfocusable);
+
+        assertEquals(View.FOCUSABLE_AUTO, auto.getFocusable());
+        assertFalse(auto.isFocusable());
+        assertFalse(def.isFocusable());
+        assertTrue(click.isFocusable());
+        assertFalse(clickNotFocus.isFocusable());
+
+        View test = new View(activity);
+        assertFalse(test.isFocusable());
+        test.setClickable(true);
+        assertTrue(test.isFocusable());
+        test.setFocusable(View.NOT_FOCUSABLE);
+        assertFalse(test.isFocusable());
+        test.setFocusable(View.FOCUSABLE_AUTO);
+        assertTrue(test.isFocusable());
+        test.setClickable(false);
+        assertFalse(test.isFocusable());
+
+        // Make sure setFocusable(boolean) unsets FOCUSABLE_AUTO.
+        auto.setFocusable(true);
+        assertSame(View.FOCUSABLE, auto.getFocusable());
+        auto.setFocusable(View.FOCUSABLE_AUTO);
+        assertSame(View.FOCUSABLE_AUTO, auto.getFocusable());
+        auto.setFocusable(false);
+        assertSame(View.NOT_FOCUSABLE, auto.getFocusable());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFocusableInTouchMode() {
+        final Activity activity = mActivityRule.getActivity();
+        View singleView = new View(activity);
+        assertFalse("Must not be focusable by default", singleView.isFocusable());
+        singleView.setFocusableInTouchMode(true);
+        assertSame("setFocusableInTouchMode(true) must imply explicit focusable",
+                View.FOCUSABLE, singleView.getFocusable());
+
+        activity.getLayoutInflater().inflate(R.layout.focus_handling_auto_layout,
+                (ViewGroup) activity.findViewById(R.id.auto_test_area));
+        View focusTouchModeView = activity.findViewById(R.id.focusabletouchmode);
+        assertSame("focusableInTouchMode=\"true\" must imply explicit focusable",
+                View.FOCUSABLE, focusTouchModeView.getFocusable());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testHasFocusable() {
+        final Activity activity = mActivityRule.getActivity();
+        final ViewGroup group = (ViewGroup) activity.findViewById(R.id.auto_test_area);
+
+        View singleView = new View(activity);
+        group.addView(singleView);
+
+        testHasFocusable(singleView);
+
+        group.removeView(singleView);
+
+        View groupView = new FrameLayout(activity);
+        group.addView(groupView);
+
+        testHasFocusable(groupView);
+    }
+
+    private void testHasFocusable(View view) {
+        assertEquals("single view was not auto-focusable", View.FOCUSABLE_AUTO,
+                view.getFocusable());
+        assertFalse("single view unexpectedly hasFocusable", view.hasFocusable());
+        assertFalse("single view unexpectedly hasExplicitFocusable", view.hasExplicitFocusable());
+
+        view.setClickable(true);
+        assertTrue("single view doesn't hasFocusable", view.hasFocusable());
+        assertFalse("single view unexpectedly hasExplicitFocusable", view.hasExplicitFocusable());
+
+        view.setClickable(false);
+        assertFalse("single view unexpectedly hasFocusable", view.hasFocusable());
+        assertFalse("single view unexpectedly hasExplicitFocusable", view.hasExplicitFocusable());
+
+        view.setFocusable(View.NOT_FOCUSABLE);
+        assertFalse("single view unexpectedly hasFocusable", view.hasFocusable());
+        assertFalse("single view unexpectedly hasExplicitFocusable", view.hasExplicitFocusable());
+
+        view.setFocusable(View.FOCUSABLE);
+        assertTrue("single view doesn't hasFocusable", view.hasFocusable());
+        assertTrue("single view doesn't hasExplicitFocusable", view.hasExplicitFocusable());
+
+        view.setFocusable(View.FOCUSABLE_AUTO);
+        view.setFocusableInTouchMode(true);
+        assertTrue("single view doesn't hasFocusable", view.hasFocusable());
+        assertTrue("single view doesn't hasExplicitFocusable", view.hasExplicitFocusable());
+    }
+
+    private View[] getInitialAndFirstFocus(int res) throws Throwable {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        instrumentation.setInTouchMode(false);
+        final Activity activity = mActivityRule.getActivity();
+        mActivityRule.runOnUiThread(() -> activity.getLayoutInflater().inflate(res,
+                (ViewGroup) activity.findViewById(R.id.auto_test_area)));
+        instrumentation.waitForIdleSync();
+        View root = activity.findViewById(R.id.main_view);
+        View initial = root.findFocus();
+        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB);
+        View first = root.findFocus();
+        return new View[]{initial, first};
+    }
+
+    @Test
+    public void testNoInitialFocus() throws Throwable {
+        Assume.assumeFalse(ViewRootImpl.sAlwaysAssignFocus);
+        Activity activity = mActivityRule.getActivity();
+        View[] result = getInitialAndFirstFocus(R.layout.focus_handling_focusables);
+        assertNull(result[0]);
+        assertSame(result[1], activity.findViewById(R.id.focusable1));
+    }
+
+    @Test
+    public void testDefaultFocus() throws Throwable {
+        Assume.assumeFalse(ViewRootImpl.sAlwaysAssignFocus);
+        Activity activity = mActivityRule.getActivity();
+        View[] result = getInitialAndFirstFocus(R.layout.focus_handling_default_focus);
+        assertNull(result[0]);
+        assertSame(result[1], activity.findViewById(R.id.focusable2));
+    }
+
+    @Test
+    public void testInitialFocus() throws Throwable {
+        Assume.assumeFalse(ViewRootImpl.sAlwaysAssignFocus);
+        Activity activity = mActivityRule.getActivity();
+        View[] result = getInitialAndFirstFocus(R.layout.focus_handling_initial_focus);
+        assertSame(result[0], activity.findViewById(R.id.focusable3));
+    }
+
+    @UiThreadTest
+    @Test
+    public void testFocusAfterDescendantsTransfer() throws Throwable {
+        final Activity activity = mActivityRule.getActivity();
+        final ViewGroup group = (ViewGroup) activity.findViewById(R.id.auto_test_area);
+        ViewGroup root = (ViewGroup) activity.findViewById(R.id.main_view);
+        group.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
+        group.setFocusableInTouchMode(true);
+        group.setKeyboardNavigationCluster(true);
+        group.requestFocus();
+        assertTrue(group.isFocused());
+
+        LinearLayout mid = new LinearLayout(activity);
+        Button but = new Button(activity);
+        but.setFocusableInTouchMode(true);
+        but.setVisibility(View.INVISIBLE);
+        mid.addView(but, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        group.addView(mid, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        but.setVisibility(View.VISIBLE);
+        assertSame(root.findFocus(), but);
+        assertFalse(group.isFocused());
+
+        assertFalse(root.restoreFocusNotInCluster());
+        assertSame(root.findFocus(), but);
     }
 }

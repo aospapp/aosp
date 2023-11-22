@@ -29,6 +29,7 @@ import android.os.HandlerThread;
 import android.os.Message;
 import android.os.SystemProperties;
 import android.provider.Telephony;
+import android.support.test.filters.FlakyTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -57,6 +58,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
     private ISub.Stub mISubStub;
 
     private GsmSMSDispatcher mGsmSmsDispatcher;
+    private GsmSmsDispatcherTestHandler mGsmSmsDispatcherTestHandler;
 
     private class GsmSmsDispatcherTestHandler extends HandlerThread {
 
@@ -81,19 +83,21 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
         // in the cache, a real instance is used.
         mServiceManagerMockedServices.put("isub", mISubStub);
 
-        new GsmSmsDispatcherTestHandler(getClass().getSimpleName()).start();
+        mGsmSmsDispatcherTestHandler = new GsmSmsDispatcherTestHandler(getClass().getSimpleName());
+        mGsmSmsDispatcherTestHandler.start();
         waitUntilReady();
     }
 
     @After
     public void tearDown() throws Exception {
         mGsmSmsDispatcher = null;
+        mGsmSmsDispatcherTestHandler.quit();
         super.tearDown();
     }
 
     @Test @SmallTest
     public void testSmsStatus() {
-        mSimulatedCommands.notifySmsStatus("0123056789ABCDEF");
+        mSimulatedCommands.notifySmsStatus(new byte[]{(byte)0xFF, (byte)0xFF, (byte)0xFF});
         TelephonyTestUtils.waitForMs(50);
         verify(mSimulatedCommandsVerifier).acknowledgeLastIncomingGsmSms(true,
                 Telephony.Sms.Intents.RESULT_SMS_HANDLED, null);
@@ -116,6 +120,7 @@ public class GsmSmsDispatcherTest extends TelephonyTest {
         assertEquals(0, mFakeBlockedNumberContentProvider.mNumEmergencyContactNotifications);
     }
 
+    @FlakyTest
     @Test @MediumTest
     public void testSendSmsToEmergencyNumber_notifiesBlockedNumberProvider() throws Exception {
         setupMockPackagePermissionChecks();

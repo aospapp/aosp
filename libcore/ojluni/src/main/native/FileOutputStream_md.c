@@ -52,14 +52,14 @@ static void FileOutputStream_initIDs(JNIEnv *env) {
 
 
 JNIEXPORT void JNICALL
-FileOutputStream_open(JNIEnv *env, jobject this,
+FileOutputStream_open0(JNIEnv *env, jobject this,
                                    jstring path, jboolean append) {
     fileOpen(env, this, path, fos_fd,
              O_WRONLY | O_CREAT | (append ? O_APPEND : O_TRUNC));
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(FileOutputStream, open, "(Ljava/lang/String;Z)V"),
+  NATIVE_METHOD(FileOutputStream, open0, "(Ljava/lang/String;Z)V"),
 };
 
 void register_java_io_FileOutputStream(JNIEnv* env) {

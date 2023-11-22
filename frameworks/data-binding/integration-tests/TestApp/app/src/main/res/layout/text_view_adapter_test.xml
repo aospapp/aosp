@@ -87,6 +87,10 @@
         <TextView android:layout_width="match_parent" android:layout_height="match_parent"
                   android:id="@+id/textWithColor"
                   android:textColor="@{@android:color/holo_blue_bright}"
-        />
+                />
+        <EditText android:layout_width="match_parent" android:layout_height="match_parent"
+                  android:id="@+id/twoWayText"
+                  android:text="@={obj.text}"
+                />
     </LinearLayout>
 </layout>

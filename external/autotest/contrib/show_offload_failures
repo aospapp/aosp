@@ -21,9 +21,8 @@ cd $AUTOTEST
 
 GET_GSURI="
 import common
-from autotest_lib.client.common_lib import global_config
-print global_config.global_config.get_config_value(
-        'CROS', 'results_storage_server').strip('/')
+from autotest_lib.client.common_lib import utils
+print utils.get_offload_gsuri().strip('/')
 "
 GSURI=$(cd .. ; python -c "$GET_GSURI")
 (

@@ -65,7 +65,13 @@
 #include <openssl/mem.h>
 
 #include "conf_def.h"
+#include "internal.h"
+#include "../internal.h"
 
+
+/* The maximum length we can grow a value to after variable expansion. 64k
+ * should be more than enough for all reasonable uses. */
+#define MAX_CONF_VALUE_LENGTH 65536
 
 static uint32_t conf_value_hash(const CONF_VALUE *v) {
   return (lh_strhash(v->section) << 2) ^ lh_strhash(v->name);
@@ -117,7 +123,7 @@ CONF_VALUE *CONF_VALUE_new(void) {
     OPENSSL_PUT_ERROR(CONF, ERR_R_MALLOC_FAILURE);
     return NULL;
   }
-  memset(v, 0, sizeof(CONF_VALUE));
+  OPENSSL_memset(v, 0, sizeof(CONF_VALUE));
   return v;
 }
 
@@ -152,7 +158,7 @@ void NCONF_free(CONF *conf) {
   OPENSSL_free(conf);
 }
 
-CONF_VALUE *NCONF_new_section(const CONF *conf, const char *section) {
+static CONF_VALUE *NCONF_new_section(const CONF *conf, const char *section) {
   STACK_OF(CONF_VALUE) *sk = NULL;
   int ok = 0;
   CONF_VALUE *v = NULL, *old_value;
@@ -314,7 +320,15 @@ static int str_copy(CONF *conf, char *section, char **pto, char *from) {
         OPENSSL_PUT_ERROR(CONF, CONF_R_VARIABLE_HAS_NO_VALUE);
         goto err;
       }
-      BUF_MEM_grow_clean(buf, (strlen(p) + buf->length - (e - from)));
+      size_t newsize = strlen(p) + buf->length - (e - from);
+      if (newsize > MAX_CONF_VALUE_LENGTH) {
+        OPENSSL_PUT_ERROR(CONF, CONF_R_VARIABLE_EXPANSION_TOO_LONG);
+        goto err;
+      }
+      if (!BUF_MEM_grow_clean(buf, newsize)) {
+        OPENSSL_PUT_ERROR(CONF, ERR_R_MALLOC_FAILURE);
+        goto err;
+      }
       while (*p) {
         buf->data[to++] = *(p++);
       }
@@ -352,7 +366,7 @@ err:
 static CONF_VALUE *get_section(const CONF *conf, const char *section) {
   CONF_VALUE template;
 
-  memset(&template, 0, sizeof(template));
+  OPENSSL_memset(&template, 0, sizeof(template));
   template.section = (char *) section;
   return lh_CONF_VALUE_retrieve(conf->data, &template);
 }
@@ -369,7 +383,7 @@ const char *NCONF_get_string(const CONF *conf, const char *section,
                              const char *name) {
   CONF_VALUE template, *value;
 
-  memset(&template, 0, sizeof(template));
+  OPENSSL_memset(&template, 0, sizeof(template));
   template.section = (char *) section;
   template.name = (char *) name;
   value = lh_CONF_VALUE_retrieve(conf->data, &template);
@@ -776,3 +790,14 @@ int CONF_parse_list(const char *list, char sep, int remove_whitespace,
     lstart = p + 1;
   }
 }
+
+int CONF_modules_load_file(CONF_MUST_BE_NULL *filename, const char *appname,
+                           unsigned long flags) {
+  return 1;
+}
+
+void CONF_modules_free(void) {}
+
+void OPENSSL_config(CONF_MUST_BE_NULL *config_name) {}
+
+void OPENSSL_no_config(void) {}

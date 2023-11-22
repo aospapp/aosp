@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <libgen.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -47,9 +48,24 @@
 #endif
 
 static std::string g_executable_path;
+static int g_argc;
+static char** g_argv;
+static char** g_envp;
 
 const std::string& get_executable_path() {
   return g_executable_path;
+}
+
+int get_argc() {
+  return g_argc;
+}
+
+char** get_argv() {
+  return g_argv;
+}
+
+char** get_envp() {
+  return g_envp;
 }
 
 namespace testing {
@@ -76,7 +92,7 @@ using testing::internal::COLOR_YELLOW;
 using testing::internal::ColoredPrintf;
 
 constexpr int DEFAULT_GLOBAL_TEST_RUN_DEADLINE_MS = 90000;
-constexpr int DEFAULT_GLOBAL_TEST_RUN_WARNLINE_MS = 2000;
+constexpr int DEFAULT_GLOBAL_TEST_RUN_SLOW_THRESHOLD_MS = 2000;
 
 // The time each test can run before killed for the reason of timeout.
 // It takes effect only with --isolate option.
@@ -84,16 +100,16 @@ static int global_test_run_deadline_ms = DEFAULT_GLOBAL_TEST_RUN_DEADLINE_MS;
 
 // The time each test can run before be warned for too much running time.
 // It takes effect only with --isolate option.
-static int global_test_run_warnline_ms = DEFAULT_GLOBAL_TEST_RUN_WARNLINE_MS;
+static int global_test_run_slow_threshold_ms = DEFAULT_GLOBAL_TEST_RUN_SLOW_THRESHOLD_MS;
 
-// Return deadline duration for a test, in ms.
-static int GetDeadlineInfo(const std::string& /*test_name*/) {
+// Return timeout duration for a test, in ms.
+static int GetTimeoutMs(const std::string& /*test_name*/) {
   return global_test_run_deadline_ms;
 }
 
-// Return warnline duration for a test, in ms.
-static int GetWarnlineInfo(const std::string& /*test_name*/) {
-  return global_test_run_warnline_ms;
+// Return threshold for calling a test slow, in ms.
+static int GetSlowThresholdMs(const std::string& /*test_name*/) {
+  return global_test_run_slow_threshold_ms;
 }
 
 static void PrintHelpInfo() {
@@ -106,10 +122,10 @@ static void PrintHelpInfo() {
          "      Don't use isolation mode, run all tests in a single process.\n"
          "  --deadline=[TIME_IN_MS]\n"
          "      Run each test in no longer than [TIME_IN_MS] time.\n"
-         "      It takes effect only in isolation mode. Deafult deadline is 90000 ms.\n"
-         "  --warnline=[TIME_IN_MS]\n"
-         "      Test running longer than [TIME_IN_MS] will be warned.\n"
-         "      It takes effect only in isolation mode. Default warnline is 2000 ms.\n"
+         "      Only valid in isolation mode. Default deadline is 90000 ms.\n"
+         "  --slow-threshold=[TIME_IN_MS]\n"
+         "      Test running longer than [TIME_IN_MS] will be called slow.\n"
+         "      Only valid in isolation mode. Default slow threshold is 2000 ms.\n"
          "  --gtest-filter=POSITIVE_PATTERNS[-NEGATIVE_PATTERNS]\n"
          "      Used as a synonym for --gtest_filter option in gtest.\n"
          "Default bionic unit test option is -j.\n"
@@ -135,6 +151,9 @@ class Test {
   void SetResult(TestResult result) { result_ = result; }
 
   TestResult GetResult() const { return result_; }
+  TestResult GetExpectedResult() const {
+    return GetName().find("xfail") == 0 ? TEST_FAILED : TEST_SUCCESS;
+  }
 
   void SetTestTime(int64_t elapsed_time_ns) { elapsed_time_ns_ = elapsed_time_ns; }
 
@@ -187,6 +206,15 @@ class TestCase {
   TestResult GetTestResult(size_t test_id) const {
     VerifyTestId(test_id);
     return test_list_[test_id].GetResult();
+  }
+
+  TestResult GetExpectedTestResult(size_t test_id) const {
+    VerifyTestId(test_id);
+    return test_list_[test_id].GetExpectedResult();
+  }
+
+  bool GetTestSuccess(size_t test_id) const {
+    return GetTestResult(test_id) == GetExpectedTestResult(test_id);
   }
 
   void SetTestTime(size_t test_id, int64_t elapsed_time_ns) {
@@ -291,7 +319,7 @@ static bool EnumerateTests(int argc, char** argv, std::vector<TestCase>& testcas
 // PrettyUnitTestResultPrinter. The reason for copy is that PrettyUnitTestResultPrinter
 // is defined and used in gtest.cc, which is hard to reuse.
 static void OnTestIterationStartPrint(const std::vector<TestCase>& testcase_list, size_t iteration,
-                                      int iteration_count) {
+                                      int iteration_count, size_t job_count) {
   if (iteration_count != 1) {
     printf("\nRepeating all tests (iteration %zu) . . .\n\n", iteration);
   }
@@ -303,9 +331,10 @@ static void OnTestIterationStartPrint(const std::vector<TestCase>& testcase_list
     test_count += testcase.TestCount();
   }
 
-  printf("Running %zu %s from %zu %s.\n",
+  printf("Running %zu %s from %zu %s (%zu %s).\n",
          test_count, (test_count == 1) ? "test" : "tests",
-         testcase_count, (testcase_count == 1) ? "test case" : "test cases");
+         testcase_count, (testcase_count == 1) ? "test case" : "test cases",
+         job_count, (job_count == 1) ? "job" : "jobs");
   fflush(stdout);
 }
 
@@ -320,7 +349,7 @@ static void OnTestEndPrint(const TestCase& testcase, size_t test_id) {
   printf("%s", test_output.c_str());
 
   TestResult result = testcase.GetTestResult(test_id);
-  if (result == TEST_SUCCESS) {
+  if (result == testcase.GetExpectedTestResult(test_id)) {
     ColoredPrintf(COLOR_GREEN, "[       OK ] ");
   } else {
     ColoredPrintf(COLOR_RED, "[  FAILED  ] ");
@@ -337,10 +366,19 @@ static void OnTestEndPrint(const TestCase& testcase, size_t test_id) {
 
 static void OnTestEndPrint(const TestCase& testcase, size_t test_id) {
   TestResult result = testcase.GetTestResult(test_id);
+  TestResult expected = testcase.GetExpectedTestResult(test_id);
   if (result == TEST_SUCCESS) {
-    ColoredPrintf(COLOR_GREEN, "[    OK    ] ");
+    if (expected == TEST_SUCCESS) {
+      ColoredPrintf(COLOR_GREEN, "[    OK    ] ");
+    } else if (expected == TEST_FAILED) {
+      ColoredPrintf(COLOR_RED, "[  XPASS   ] ");
+    }
   } else if (result == TEST_FAILED) {
-    ColoredPrintf(COLOR_RED, "[  FAILED  ] ");
+    if (expected == TEST_SUCCESS) {
+      ColoredPrintf(COLOR_RED, "[  FAILED  ] ");
+    } else if (expected == TEST_FAILED) {
+      ColoredPrintf(COLOR_YELLOW, "[  XFAIL   ] ");
+    }
   } else if (result == TEST_TIMEOUT) {
     ColoredPrintf(COLOR_RED, "[ TIMEOUT  ] ");
   }
@@ -362,31 +400,42 @@ static void OnTestIterationEndPrint(const std::vector<TestCase>& testcase_list, 
                                     int64_t elapsed_time_ns) {
 
   std::vector<std::string> fail_test_name_list;
+  std::vector<std::string> xpass_test_name_list;
   std::vector<std::pair<std::string, int64_t>> timeout_test_list;
 
-  // For tests run exceed warnline but not timeout.
+  // For tests that were slow but didn't time out.
   std::vector<std::tuple<std::string, int64_t, int>> slow_test_list;
   size_t testcase_count = testcase_list.size();
   size_t test_count = 0;
   size_t success_test_count = 0;
+  size_t expected_failure_count = 0;
 
   for (const auto& testcase : testcase_list) {
     test_count += testcase.TestCount();
     for (size_t i = 0; i < testcase.TestCount(); ++i) {
       TestResult result = testcase.GetTestResult(i);
-      if (result == TEST_SUCCESS) {
-        ++success_test_count;
-      } else if (result == TEST_FAILED) {
-        fail_test_name_list.push_back(testcase.GetTestName(i));
-      } else if (result == TEST_TIMEOUT) {
-        timeout_test_list.push_back(std::make_pair(testcase.GetTestName(i),
-                                                   testcase.GetTestTime(i)));
+      TestResult expected = testcase.GetExpectedTestResult(i);
+      if (result == TEST_TIMEOUT) {
+        timeout_test_list.push_back(
+            std::make_pair(testcase.GetTestName(i), testcase.GetTestTime(i)));
+      } else if (result == expected) {
+        if (result == TEST_SUCCESS) {
+          ++success_test_count;
+        } else {
+          ++expected_failure_count;
+        }
+      } else {
+        if (result == TEST_FAILED) {
+          fail_test_name_list.push_back(testcase.GetTestName(i));
+        } else {
+          xpass_test_name_list.push_back(testcase.GetTestName(i));
+        }
       }
       if (result != TEST_TIMEOUT &&
-          testcase.GetTestTime(i) / 1000000 >= GetWarnlineInfo(testcase.GetTestName(i))) {
+          testcase.GetTestTime(i) / 1000000 >= GetSlowThresholdMs(testcase.GetTestName(i))) {
         slow_test_list.push_back(std::make_tuple(testcase.GetTestName(i),
                                                  testcase.GetTestTime(i),
-                                                 GetWarnlineInfo(testcase.GetTestName(i))));
+                                                 GetSlowThresholdMs(testcase.GetTestName(i))));
       }
     }
   }
@@ -399,20 +448,14 @@ static void OnTestIterationEndPrint(const std::vector<TestCase>& testcase_list, 
   }
   printf("\n");
   ColoredPrintf(COLOR_GREEN,  "[   PASS   ] ");
-  printf("%zu %s.\n", success_test_count, (success_test_count == 1) ? "test" : "tests");
-
-  // Print tests failed.
-  size_t fail_test_count = fail_test_name_list.size();
-  if (fail_test_count > 0) {
-    ColoredPrintf(COLOR_RED,  "[   FAIL   ] ");
-    printf("%zu %s, listed below:\n", fail_test_count, (fail_test_count == 1) ? "test" : "tests");
-    for (const auto& name : fail_test_name_list) {
-      ColoredPrintf(COLOR_RED, "[   FAIL   ] ");
-      printf("%s\n", name.c_str());
-    }
+  printf("%zu %s.", success_test_count, (success_test_count == 1) ? "test" : "tests");
+  if (expected_failure_count > 0) {
+    printf(" (%zu expected failure%s)", expected_failure_count,
+           (expected_failure_count == 1) ? "" : "s");
   }
+  printf("\n");
 
-  // Print tests run timeout.
+  // Print tests that timed out.
   size_t timeout_test_count = timeout_test_list.size();
   if (timeout_test_count > 0) {
     ColoredPrintf(COLOR_RED, "[ TIMEOUT  ] ");
@@ -424,27 +467,57 @@ static void OnTestIterationEndPrint(const std::vector<TestCase>& testcase_list, 
     }
   }
 
-  // Print tests run exceed warnline.
+  // Print tests that were slow.
   size_t slow_test_count = slow_test_list.size();
   if (slow_test_count > 0) {
     ColoredPrintf(COLOR_YELLOW, "[   SLOW   ] ");
     printf("%zu %s, listed below:\n", slow_test_count, (slow_test_count == 1) ? "test" : "tests");
     for (const auto& slow_tuple : slow_test_list) {
       ColoredPrintf(COLOR_YELLOW, "[   SLOW   ] ");
-      printf("%s (%" PRId64 " ms, exceed warnline %d ms)\n", std::get<0>(slow_tuple).c_str(),
+      printf("%s (%" PRId64 " ms, exceeded %d ms)\n", std::get<0>(slow_tuple).c_str(),
              std::get<1>(slow_tuple) / 1000000, std::get<2>(slow_tuple));
     }
   }
 
+  // Print tests that failed.
+  size_t fail_test_count = fail_test_name_list.size();
   if (fail_test_count > 0) {
-    printf("\n%2zu FAILED %s\n", fail_test_count, (fail_test_count == 1) ? "TEST" : "TESTS");
+    ColoredPrintf(COLOR_RED,  "[   FAIL   ] ");
+    printf("%zu %s, listed below:\n", fail_test_count, (fail_test_count == 1) ? "test" : "tests");
+    for (const auto& name : fail_test_name_list) {
+      ColoredPrintf(COLOR_RED, "[   FAIL   ] ");
+      printf("%s\n", name.c_str());
+    }
   }
+
+  // Print tests that should have failed.
+  size_t xpass_test_count = xpass_test_name_list.size();
+  if (xpass_test_count > 0) {
+    ColoredPrintf(COLOR_RED,  "[  XPASS   ] ");
+    printf("%zu %s, listed below:\n", xpass_test_count, (xpass_test_count == 1) ? "test" : "tests");
+    for (const auto& name : xpass_test_name_list) {
+      ColoredPrintf(COLOR_RED, "[  XPASS   ] ");
+      printf("%s\n", name.c_str());
+    }
+  }
+
+  if (timeout_test_count > 0 || slow_test_count > 0 || fail_test_count > 0 || xpass_test_count > 0) {
+    printf("\n");
+  }
+
   if (timeout_test_count > 0) {
     printf("%2zu TIMEOUT %s\n", timeout_test_count, (timeout_test_count == 1) ? "TEST" : "TESTS");
   }
   if (slow_test_count > 0) {
     printf("%2zu SLOW %s\n", slow_test_count, (slow_test_count == 1) ? "TEST" : "TESTS");
   }
+  if (fail_test_count > 0) {
+    printf("%2zu FAILED %s\n", fail_test_count, (fail_test_count == 1) ? "TEST" : "TESTS");
+  }
+  if (xpass_test_count > 0) {
+    printf("%2zu SHOULD HAVE FAILED %s\n", xpass_test_count, (xpass_test_count == 1) ? "TEST" : "TESTS");
+  }
+
   fflush(stdout);
 }
 
@@ -500,7 +573,7 @@ void OnTestIterationEndXmlPrint(const std::string& xml_output_filename,
     auto& testcase = testcase_list[i];
     total_test_count += testcase.TestCount();
     for (size_t j = 0; j < testcase.TestCount(); ++j) {
-      if (testcase.GetTestResult(j) != TEST_SUCCESS) {
+      if (!testcase.GetTestSuccess(j)) {
         ++failed_count_list[i];
       }
       elapsed_time_list[i] += testcase.GetTestTime(j);
@@ -528,7 +601,7 @@ void OnTestIterationEndXmlPrint(const std::string& xml_output_filename,
       fprintf(fp, "    <testcase name=\"%s\" status=\"run\" time=\"%.3lf\" classname=\"%s\"",
               testcase.GetTest(j).GetName().c_str(), testcase.GetTestTime(j) / 1e9,
               testcase.GetName().c_str());
-      if (testcase.GetTestResult(j) == TEST_SUCCESS) {
+      if (!testcase.GetTestSuccess(j)) {
         fputs(" />\n", fp);
       } else {
         fputs(">\n", fp);
@@ -647,7 +720,7 @@ static ChildProcInfo RunChildProcess(const std::string& test_name, int testcase_
   child_proc.child_read_fd = pipefd[0];
   child_proc.pid = pid;
   child_proc.start_time_ns = NanoTime();
-  child_proc.deadline_end_time_ns = child_proc.start_time_ns + GetDeadlineInfo(test_name) * 1000000LL;
+  child_proc.deadline_end_time_ns = child_proc.start_time_ns + GetTimeoutMs(test_name) * 1000000LL;
   child_proc.testcase_id = testcase_id;
   child_proc.test_id = test_id;
   child_proc.finished = false;
@@ -841,7 +914,7 @@ static bool RunTestInSeparateProc(int argc, char** argv, std::vector<TestCase>& 
   for (size_t iteration = 1;
        iteration_count < 0 || iteration <= static_cast<size_t>(iteration_count);
        ++iteration) {
-    OnTestIterationStartPrint(testcase_list, iteration, iteration_count);
+    OnTestIterationStartPrint(testcase_list, iteration, iteration_count, job_count);
     int64_t iteration_start_time_ns = NanoTime();
     time_t epoch_iteration_start_time = time(NULL);
 
@@ -887,7 +960,7 @@ static bool RunTestInSeparateProc(int argc, char** argv, std::vector<TestCase>& 
           if (++finished_test_count_list[testcase_id] == testcase.TestCount()) {
             ++finished_testcase_count;
           }
-          if (testcase.GetTestResult(test_id) != TEST_SUCCESS) {
+          if (!testcase.GetTestSuccess(test_id)) {
             all_tests_passed = false;
           }
 
@@ -941,7 +1014,7 @@ struct IsolationTestOptions {
   bool isolate;
   size_t job_count;
   int test_deadline_ms;
-  int test_warnline_ms;
+  int test_slow_threshold_ms;
   std::string gtest_color;
   bool gtest_print_time;
   int gtest_repeat;
@@ -980,26 +1053,27 @@ static bool PickOptions(std::vector<char*>& args, IsolationTestOptions& options)
   std::string gtest_filter_str;
   for (size_t i = args.size() - 1; i >= 1; --i) {
     if (strncmp(args[i], "--gtest_filter=", strlen("--gtest_filter=")) == 0) {
-      gtest_filter_str = std::string(args[i]);
+      gtest_filter_str = args[i] + strlen("--gtest_filter=");
       args.erase(args.begin() + i);
       break;
     }
   }
   if (enable_selftest == true) {
-    args.push_back(strdup("--gtest_filter=bionic_selftest*"));
+    gtest_filter_str = "bionic_selftest*";
   } else {
-    if (gtest_filter_str == "") {
-      gtest_filter_str = "--gtest_filter=-bionic_selftest*";
+    if (gtest_filter_str.empty()) {
+      gtest_filter_str = "-bionic_selftest*";
     } else {
       // Find if '-' for NEGATIVE_PATTERNS exists.
-      if (gtest_filter_str.find(":-") != std::string::npos) {
+      if (gtest_filter_str.find("-") != std::string::npos) {
         gtest_filter_str += ":bionic_selftest*";
       } else {
         gtest_filter_str += ":-bionic_selftest*";
       }
     }
-    args.push_back(strdup(gtest_filter_str.c_str()));
   }
+  gtest_filter_str = "--gtest_filter=" + gtest_filter_str;
+  args.push_back(strdup(gtest_filter_str.c_str()));
 
   options.isolate = true;
   // Parse arguments that make us can't run in isolation mode.
@@ -1019,7 +1093,7 @@ static bool PickOptions(std::vector<char*>& args, IsolationTestOptions& options)
   // Init default isolation test options.
   options.job_count = GetDefaultJobCount();
   options.test_deadline_ms = DEFAULT_GLOBAL_TEST_RUN_DEADLINE_MS;
-  options.test_warnline_ms = DEFAULT_GLOBAL_TEST_RUN_WARNLINE_MS;
+  options.test_slow_threshold_ms = DEFAULT_GLOBAL_TEST_RUN_SLOW_THRESHOLD_MS;
   options.gtest_color = testing::GTEST_FLAG(color);
   options.gtest_print_time = testing::GTEST_FLAG(print_time);
   options.gtest_repeat = testing::GTEST_FLAG(repeat);
@@ -1050,13 +1124,13 @@ static bool PickOptions(std::vector<char*>& args, IsolationTestOptions& options)
         return false;
       }
       options.test_deadline_ms = time_ms;
-    } else if (strncmp(args[i], "--warnline=", strlen("--warnline=")) == 0) {
-      int time_ms = atoi(args[i] + strlen("--warnline="));
+    } else if (strncmp(args[i], "--slow-threshold=", strlen("--slow-threshold=")) == 0) {
+      int time_ms = atoi(args[i] + strlen("--slow-threshold="));
       if (time_ms <= 0) {
-        fprintf(stderr, "invalid warnline: %d\n", time_ms);
+        fprintf(stderr, "invalid slow test threshold: %d\n", time_ms);
         return false;
       }
-      options.test_warnline_ms = time_ms;
+      options.test_slow_threshold_ms = time_ms;
     } else if (strncmp(args[i], "--gtest_color=", strlen("--gtest_color=")) == 0) {
       options.gtest_color = args[i] + strlen("--gtest_color=");
     } else if (strcmp(args[i], "--gtest_print_time=0") == 0) {
@@ -1122,8 +1196,11 @@ static std::string get_proc_self_exe() {
   return std::string(path, path_len);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv, char** envp) {
   g_executable_path = get_proc_self_exe();
+  g_argc = argc;
+  g_argv = argv;
+  g_envp = envp;
   std::vector<char*> arg_list;
   for (int i = 0; i < argc; ++i) {
     arg_list.push_back(argv[i]);
@@ -1137,7 +1214,7 @@ int main(int argc, char** argv) {
   if (options.isolate == true) {
     // Set global variables.
     global_test_run_deadline_ms = options.test_deadline_ms;
-    global_test_run_warnline_ms = options.test_warnline_ms;
+    global_test_run_slow_threshold_ms = options.test_slow_threshold_ms;
     testing::GTEST_FLAG(color) = options.gtest_color.c_str();
     testing::GTEST_FLAG(print_time) = options.gtest_print_time;
     std::vector<TestCase> testcase_list;

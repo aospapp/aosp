@@ -18,13 +18,14 @@
 
 #include "base/time_utils.h"
 #include "collector/garbage_collector.h"
+#include "java_vm_ext.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/reference-inl.h"
 #include "reference_processor-inl.h"
 #include "reflection.h"
 #include "ScopedLocalRef.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "task_processor.h"
 #include "utils.h"
 #include "well_known_classes.h"
@@ -55,17 +56,17 @@ void ReferenceProcessor::DisableSlowPath(Thread* self) {
 }
 
 void ReferenceProcessor::BroadcastForSlowPath(Thread* self) {
-  CHECK(kUseReadBarrier);
   MutexLock mu(self, *Locks::reference_processor_lock_);
   condition_.Broadcast(self);
 }
 
-mirror::Object* ReferenceProcessor::GetReferent(Thread* self, mirror::Reference* reference) {
+ObjPtr<mirror::Object> ReferenceProcessor::GetReferent(Thread* self,
+                                                       ObjPtr<mirror::Reference> reference) {
   if (!kUseReadBarrier || self->GetWeakRefAccessEnabled()) {
     // Under read barrier / concurrent copying collector, it's not safe to call GetReferent() when
     // weak ref access is disabled as the call includes a read barrier which may push a ref onto the
     // mark stack and interfere with termination of marking.
-    mirror::Object* const referent = reference->GetReferent();
+    ObjPtr<mirror::Object> const referent = reference->GetReferent();
     // If the referent is null then it is already cleared, we can just return null since there is no
     // scenario where it becomes non-null during the reference processing phase.
     if (UNLIKELY(!SlowPathEnabled()) || referent == nullptr) {
@@ -75,11 +76,10 @@ mirror::Object* ReferenceProcessor::GetReferent(Thread* self, mirror::Reference*
   MutexLock mu(self, *Locks::reference_processor_lock_);
   while ((!kUseReadBarrier && SlowPathEnabled()) ||
          (kUseReadBarrier && !self->GetWeakRefAccessEnabled())) {
-    mirror::HeapReference<mirror::Object>* const referent_addr =
-        reference->GetReferentReferenceAddr();
+    ObjPtr<mirror::Object> referent = reference->GetReferent<kWithoutReadBarrier>();
     // If the referent became cleared, return it. Don't need barrier since thread roots can't get
     // updated until after we leave the function due to holding the mutator lock.
-    if (referent_addr->AsMirrorPtr() == nullptr) {
+    if (referent == nullptr) {
       return nullptr;
     }
     // Try to see if the referent is already marked by using the is_marked_callback. We can return
@@ -91,13 +91,21 @@ mirror::Object* ReferenceProcessor::GetReferent(Thread* self, mirror::Reference*
       // case only black nodes can be safely returned. If the GC is preserving references, the
       // mutator could take a white field from a grey or white node and move it somewhere else
       // in the heap causing corruption since this field would get swept.
-      if (collector_->IsMarkedHeapReference(referent_addr)) {
+      // Use the cached referent instead of calling GetReferent since other threads could call
+      // Reference.clear() after we did the null check resulting in a null pointer being
+      // incorrectly passed to IsMarked. b/33569625
+      ObjPtr<mirror::Object> forwarded_ref = collector_->IsMarked(referent.Ptr());
+      if (forwarded_ref != nullptr) {
+        // Non null means that it is marked.
         if (!preserving_references_ ||
            (LIKELY(!reference->IsFinalizerReferenceInstance()) && reference->IsUnprocessed())) {
-          return referent_addr->AsMirrorPtr();
+          return forwarded_ref;
         }
       }
     }
+    // Check and run the empty checkpoint before blocking so the empty checkpoint will work in the
+    // presence of threads blocking for weak ref access.
+    self->CheckEmptyCheckpointFromWeakRefAccess(Locks::reference_processor_lock_);
     condition_.WaitHoldingLocks(self);
   }
   return reference->GetReferent();
@@ -116,7 +124,8 @@ void ReferenceProcessor::StopPreservingReferences(Thread* self) {
 }
 
 // Process reference class instances and schedule finalizations.
-void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timings,
+void ReferenceProcessor::ProcessReferences(bool concurrent,
+                                           TimingLogger* timings,
                                            bool clear_soft_references,
                                            collector::GarbageCollector* collector) {
   TimingLogger::ScopedTiming t(concurrent ? __FUNCTION__ : "(Paused)ProcessReferences", timings);
@@ -130,6 +139,14 @@ void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timing
       // Weak ref access is enabled at Zygote compaction by SemiSpace (concurrent == false).
       CHECK_EQ(!self->GetWeakRefAccessEnabled(), concurrent);
     }
+  }
+  if (kIsDebugBuild && collector->IsTransactionActive()) {
+    // In transaction mode, we shouldn't enqueue any Reference to the queues.
+    // See DelayReferenceReferent().
+    DCHECK(soft_reference_queue_.IsEmpty());
+    DCHECK(weak_reference_queue_.IsEmpty());
+    DCHECK(finalizer_reference_queue_.IsEmpty());
+    DCHECK(phantom_reference_queue_.IsEmpty());
   }
   // Unless required to clear soft references with white references, preserve some white referents.
   if (!clear_soft_references) {
@@ -188,13 +205,25 @@ void ReferenceProcessor::ProcessReferences(bool concurrent, TimingLogger* timing
 
 // Process the "referent" field in a java.lang.ref.Reference.  If the referent has not yet been
 // marked, put it on the appropriate list in the heap for later processing.
-void ReferenceProcessor::DelayReferenceReferent(mirror::Class* klass, mirror::Reference* ref,
+void ReferenceProcessor::DelayReferenceReferent(ObjPtr<mirror::Class> klass,
+                                                ObjPtr<mirror::Reference> ref,
                                                 collector::GarbageCollector* collector) {
   // klass can be the class of the old object if the visitor already updated the class of ref.
   DCHECK(klass != nullptr);
   DCHECK(klass->IsTypeOfReferenceClass());
   mirror::HeapReference<mirror::Object>* referent = ref->GetReferentReferenceAddr();
-  if (referent->AsMirrorPtr() != nullptr && !collector->IsMarkedHeapReference(referent)) {
+  // do_atomic_update needs to be true because this happens outside of the reference processing
+  // phase.
+  if (!collector->IsNullOrMarkedHeapReference(referent, /*do_atomic_update*/true)) {
+    if (UNLIKELY(collector->IsTransactionActive())) {
+      // In transaction mode, keep the referent alive and avoid any reference processing to avoid the
+      // issue of rolling back reference processing.  do_atomic_update needs to be true because this
+      // happens outside of the reference processing phase.
+      if (!referent->IsNull()) {
+        collector->MarkHeapReference(referent, /*do_atomic_update*/ true);
+      }
+      return;
+    }
     Thread* self = Thread::Current();
     // TODO: Remove these locks, and use atomic stacks for storing references?
     // We need to check that the references haven't already been enqueued since we can end up
@@ -208,7 +237,7 @@ void ReferenceProcessor::DelayReferenceReferent(mirror::Class* klass, mirror::Re
     } else if (klass->IsPhantomReferenceClass()) {
       phantom_reference_queue_.AtomicEnqueueIfNotEnqueued(self, ref);
     } else {
-      LOG(FATAL) << "Invalid reference type " << PrettyClass(klass) << " " << std::hex
+      LOG(FATAL) << "Invalid reference type " << klass->PrettyClass() << " " << std::hex
                  << klass->GetAccessFlags();
     }
   }
@@ -260,14 +289,37 @@ void ReferenceProcessor::EnqueueClearedReferences(Thread* self) {
   }
 }
 
-bool ReferenceProcessor::MakeCircularListIfUnenqueued(mirror::FinalizerReference* reference) {
+void ReferenceProcessor::ClearReferent(ObjPtr<mirror::Reference> ref) {
   Thread* self = Thread::Current();
   MutexLock mu(self, *Locks::reference_processor_lock_);
-  // Wait untul we are done processing reference.
+  // Need to wait until reference processing is done since IsMarkedHeapReference does not have a
+  // CAS. If we do not wait, it can result in the GC un-clearing references due to race conditions.
+  // This also handles the race where the referent gets cleared after a null check but before
+  // IsMarkedHeapReference is called.
+  WaitUntilDoneProcessingReferences(self);
+  if (Runtime::Current()->IsActiveTransaction()) {
+    ref->ClearReferent<true>();
+  } else {
+    ref->ClearReferent<false>();
+  }
+}
+
+void ReferenceProcessor::WaitUntilDoneProcessingReferences(Thread* self) {
+  // Wait until we are done processing reference.
   while ((!kUseReadBarrier && SlowPathEnabled()) ||
          (kUseReadBarrier && !self->GetWeakRefAccessEnabled())) {
+    // Check and run the empty checkpoint before blocking so the empty checkpoint will work in the
+    // presence of threads blocking for weak ref access.
+    self->CheckEmptyCheckpointFromWeakRefAccess(Locks::reference_processor_lock_);
     condition_.WaitHoldingLocks(self);
   }
+}
+
+bool ReferenceProcessor::MakeCircularListIfUnenqueued(
+    ObjPtr<mirror::FinalizerReference> reference) {
+  Thread* self = Thread::Current();
+  MutexLock mu(self, *Locks::reference_processor_lock_);
+  WaitUntilDoneProcessingReferences(self);
   // At this point, since the sentinel of the reference is live, it is guaranteed to not be
   // enqueued if we just finished processing references. Otherwise, we may be doing the main GC
   // phase. Since we are holding the reference processor lock, it guarantees that reference

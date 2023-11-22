@@ -363,4 +363,49 @@ public class PhoneNumberUtilsTest extends AndroidTestCase {
         assertEquals(1, ttsSpans.length);
         assertEquals("6512223333", ttsSpans[0].getArgs().get(TtsSpan.ARG_NUMBER_PARTS));
     }
+
+    public void testCompare() {
+        assertFalse(PhoneNumberUtils.compare("", ""));
+
+        assertTrue(PhoneNumberUtils.compare("911", "911"));
+        assertFalse(PhoneNumberUtils.compare("911", "18005550911"));
+        assertTrue(PhoneNumberUtils.compare("5555", "5555"));
+        assertFalse(PhoneNumberUtils.compare("5555", "180055555555"));
+
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "+17005554141"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "+1 (700).555-4141"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "+1 (700).555-4141,1234"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "17005554141"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "7005554141"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "5554141"));
+        assertTrue(PhoneNumberUtils.compare("17005554141", "5554141"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "01117005554141"));
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "0017005554141"));
+        assertTrue(PhoneNumberUtils.compare("17005554141", "0017005554141"));
+
+
+        assertTrue(PhoneNumberUtils.compare("+17005554141", "**31#+17005554141"));
+
+        assertFalse(PhoneNumberUtils.compare("+1 999 7005554141", "+1 7005554141"));
+        assertTrue(PhoneNumberUtils.compare("011 1 7005554141", "7005554141"));
+
+        assertFalse(PhoneNumberUtils.compare("011 11 7005554141", "+17005554141"));
+
+        assertFalse(PhoneNumberUtils.compare("+17005554141", "7085882300"));
+
+        assertTrue(PhoneNumberUtils.compare("+44 207 792 3490", "0 207 792 3490"));
+
+        assertFalse(PhoneNumberUtils.compare("+44 207 792 3490", "00 207 792 3490"));
+        assertFalse(PhoneNumberUtils.compare("+44 207 792 3490", "011 207 792 3490"));
+    }
+
+    public void testFormatNumberToE164() {
+        assertNull(PhoneNumberUtils.formatNumber("invalid#", "US"));
+        assertNull(PhoneNumberUtils.formatNumberToE164("1234567", "US"));
+
+        assertEquals("+18004664114", PhoneNumberUtils.formatNumberToE164("800-GOOG-114", "US"));
+        assertEquals("+16502910000", PhoneNumberUtils.formatNumberToE164("650 2910000", "US"));
+        assertEquals("+12023458246", PhoneNumberUtils.formatNumberToE164("(202)345-8246", "US"));
+        assertEquals("+812023458246", PhoneNumberUtils.formatNumberToE164("202-345-8246", "JP"));
+    }
 }

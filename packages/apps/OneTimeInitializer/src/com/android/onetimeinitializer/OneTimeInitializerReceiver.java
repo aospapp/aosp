@@ -22,17 +22,21 @@ import android.content.Intent;
 import android.util.Log;
 
 /**
- * BroadcastReceiver that starts the service to performs one time initialization
- * at bootup time.
+ * BroadcastReceiver that performs one time initialization at bootup time.
  */
 public class OneTimeInitializerReceiver extends BroadcastReceiver {
-
-    private static final String TAG = OneTimeInitializerReceiver.class.getSimpleName()
-            .substring(0, 22);
+    private static final String TAG = "OneTimeInitializerReceiver";
 
     @Override
-    public void onReceive(Context context, Intent intent) {
+    public void onReceive(final Context context, Intent intent) {
         Log.v(TAG, "OneTimeInitializerReceiver.onReceive");
-        context.startService(new Intent(context, OneTimeInitializerService.class));
+        final PendingResult result = goAsync();
+        new Thread(() -> {
+            try {
+                new OneTimeInitializer(context).initialize();
+            } finally {
+                result.finish();
+            }
+        }).start();
     }
 }

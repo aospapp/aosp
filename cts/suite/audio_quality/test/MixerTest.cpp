@@ -16,7 +16,6 @@
 #include <stdint.h>
 #include <gtest/gtest.h>
 
-#include <UniquePtr.h>
 #include <tinyalsa/asoundlib.h>
 #include <Log.h>
 #include <audio/AudioHardware.h>

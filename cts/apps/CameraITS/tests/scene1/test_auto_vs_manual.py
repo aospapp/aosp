@@ -37,6 +37,13 @@ def main():
                              its.caps.per_frame_control(props))
 
         # Converge 3A and get the estimates.
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
         sens, exp, gains, xform, focus = cam.do_3a(get_results=True)
         xform_rat = its.objects.float_to_rational(xform)
         print "AE sensitivity %d, exposure %dms" % (sens, exp/1000000.0)
@@ -46,7 +53,7 @@ def main():
 
         # Auto capture.
         req = its.objects.auto_capture_request()
-        cap_auto = cam.do_capture(req)
+        cap_auto = cam.do_capture(req, fmt)
         img_auto = its.image.convert_capture_to_rgb_image(cap_auto)
         its.image.write_image(img_auto, "%s_auto.jpg" % (NAME))
         xform_a = its.objects.rational_to_float(
@@ -59,7 +66,7 @@ def main():
         req = its.objects.manual_capture_request(sens, exp, focus)
         req["android.colorCorrection.transform"] = xform_rat
         req["android.colorCorrection.gains"] = gains
-        cap_man1 = cam.do_capture(req)
+        cap_man1 = cam.do_capture(req, fmt)
         img_man1 = its.image.convert_capture_to_rgb_image(cap_man1)
         its.image.write_image(img_man1, "%s_manual_wb.jpg" % (NAME))
         xform_m1 = its.objects.rational_to_float(
@@ -74,7 +81,7 @@ def main():
         req["android.tonemap.curveRed"] = gamma
         req["android.tonemap.curveGreen"] = gamma
         req["android.tonemap.curveBlue"] = gamma
-        cap_man2 = cam.do_capture(req)
+        cap_man2 = cam.do_capture(req, fmt)
         img_man2 = its.image.convert_capture_to_rgb_image(cap_man2)
         its.image.write_image(img_man2, "%s_manual_wb_tm.jpg" % (NAME))
         xform_m2 = its.objects.rational_to_float(

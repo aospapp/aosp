@@ -11,11 +11,15 @@ from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import cros_logging
 
 # Kernel 3.8 to 3.14 has cur_delay_info, 3.18+ has frequency_info.
-CLOCK_PATHS = ['/sys/kernel/debug/dri/0/i915_frequency_info',
-               '/sys/kernel/debug/dri/0/i915_cur_delayinfo']
+CLOCK_PATHS = [
+    '/sys/kernel/debug/dri/0/i915_frequency_info',
+    '/sys/kernel/debug/dri/0/i915_cur_delayinfo'
+]
 # Kernel 3.8 has i915_fbc, kernel > 3.8 i915_fbc_status.
-FBC_PATHS = ['/sys/kernel/debug/dri/0/i915_fbc',
-             '/sys/kernel/debug/dri/0/i915_fbc_status']
+FBC_PATHS = [
+    '/sys/kernel/debug/dri/0/i915_fbc',
+    '/sys/kernel/debug/dri/0/i915_fbc_status'
+]
 GEM_PATHS = ['/sys/kernel/debug/dri/0/i915_gem_active']
 PSR_PATHS = ['/sys/kernel/debug/dri/0/i915_edp_psr_status']
 RC6_PATHS = ['/sys/kernel/debug/dri/0/i915_drpc_info']
@@ -28,12 +32,14 @@ class graphics_Idle(test.test):
     _cpu_type = None
     _board = None
 
-    def run_once(self):
-        # Try to protect against runaway previous tests.
-        if not utils.wait_for_idle_cpu(20.0, 0.1):
-            logging.warning('Could not get idle CPU before running tests.')
+    def run_once(self, arc_mode=None):
         # We use kiosk mode to make sure Chrome is idle.
-        with chrome.Chrome(logged_in=False, extra_browser_args=['--kiosk']):
+        with chrome.Chrome(
+                logged_in=False, extra_browser_args=['--kiosk'],
+                arc_mode=arc_mode):
+            # Try to protect against runaway previous tests.
+            if not utils.wait_for_idle_cpu(20.0, 0.1):
+                logging.warning('Could not get idle CPU before running tests.')
             self._gpu_type = utils.get_gpu_family()
             self._cpu_type = utils.get_cpu_soc_family()
             self._board = utils.get_board()
@@ -47,7 +53,7 @@ class graphics_Idle(test.test):
             errors += self.verify_lvds_downclock()
             errors += self.verify_short_blanking()
             if errors:
-                raise error.TestFail(errors)
+                raise error.TestFail('Failed: %s' % errors)
 
     def get_valid_path(self, paths):
         for path in paths:
@@ -56,6 +62,16 @@ class graphics_Idle(test.test):
         logging.error('Error: %s not found.', ' '.join(paths))
         return None
 
+    def handle_error(self, message, path=None):
+        logging.error('Error: %s', message)
+        # For debugging show the content of the file.
+        if path is not None:
+            with open(path, 'r') as text_file:
+                logging.info('Content of %s\n%s', path, text_file.read())
+        # Dump the output of 'top'.
+        utils.log_process_activity()
+        return message
+
     def verify_lvds_downclock(self):
         """On systems which support LVDS downclock, checks the kernel log for
         a message that an LVDS downclock mode has been added."""
@@ -63,14 +79,11 @@ class graphics_Idle(test.test):
         board = utils.get_board()
         if not (board == 'alex' or board == 'lumpy' or board == 'stout'):
             return ''
-
         # Get the downclock message from the logs.
         reader = cros_logging.LogReader()
         reader.set_start_by_reboot(-1)
         if not reader.can_find('Adding LVDS downclock mode'):
-            logging.error('Error: LVDS downclock quirk not applied.')
-            return 'LVDS downclock quirk not applied. '
-
+            return self.handle_error('LVDS downclock quirk not applied. ')
         return ''
 
     def verify_short_blanking(self):
@@ -84,7 +97,8 @@ class graphics_Idle(test.test):
         param_path = '/sys/class/drm/card0-eDP-1/edid'
         if not os.path.exists(param_path):
             logging.error('Error: %s not found.', param_path)
-            return 'Short blanking not added (no EDID found). '
+            return self.handle_error(
+                'Short blanking not added (no EDID found). ')
 
         with open(param_path, 'r') as edp_edid_file:
             edp_edid_file.seek(8)
@@ -92,18 +106,14 @@ class graphics_Idle(test.test):
             manufacturer = int(struct.unpack('<H', data)[0])
             data = edp_edid_file.read(2)
             product_code = int(struct.unpack('<H', data)[0])
-
         # This is not the panel we are looking for (AUO B116XTN02.2)
         if manufacturer != 0xaf06 or product_code != 0x225c:
             return ''
-
         # Get the downclock message from the logs.
         reader = cros_logging.LogReader()
         reader.set_start_by_reboot(-1)
         if not reader.can_find('Modified preferred into a short blanking mode'):
-            logging.error('Error: short blanking not added.')
-            return 'Short blanking not added. '
-
+            return self.handle_error('Short blanking not added. ')
         return ''
 
     def verify_graphics_rc6(self):
@@ -129,14 +139,10 @@ class graphics_Idle(test.test):
                         if match and match.group(1) == 'RC6':
                             found = True
                             break
-
                 tries += 1
-
             if not found:
-                utils.log_process_activity()
-                logging.error('Error: did not see the GPU in RC6.')
-                return 'Did not see the GPU in RC6. '
-
+                return self.handle_error('Error: did not see the GPU in RC6.',
+                                         param_path)
         return ''
 
     def verify_graphics_i915_min_clock(self):
@@ -172,9 +178,8 @@ class graphics_Idle(test.test):
                 tries += 1
 
             if not found:
-                utils.log_process_activity()
-                logging.error('Error: did not see the min i915 clock')
-                return 'Did not see the min i915 clock. '
+                return self.handle_error('Did not see the min i915 clock. ',
+                                         param_path)
 
         return ''
 
@@ -183,58 +188,89 @@ class graphics_Idle(test.test):
         clock frequency; idle before doing so, and retry every second for 20
         seconds."""
         logging.info('Running verify_graphics_dvfs')
-        if self._gpu_type == 'mali':
-            if self._cpu_type == 'exynos5':
-                node = '/sys/devices/11800000.mali/'
+
+        exynos_node = '/sys/devices/11800000.mali/'
+        rk3288_node = '/sys/devices/ffa30000.gpu/'
+        rk3399_node = '/sys/devices/platform/ff9a0000.gpu/devfreq/ff9a0000.gpu/'
+        mt8173_node = ('/sys/devices/soc/13000000.mfgsys-gpu/devfreq/'
+                       '13000000.mfgsys-gpu/')
+
+        if self._cpu_type == 'exynos5':
+            if os.path.isdir(exynos_node):
+                node = exynos_node
+                use_devfreq = False
                 enable_node = 'dvfs'
                 enable_value = 'on'
-            elif self._cpu_type == 'rockchip':
-                node = '/sys/devices/ffa30000.gpu/'
+            else:
+                logging.error('Error: unknown exynos SoC.')
+                return self.handle_error('Unknown exynos SoC.')
+        elif self._cpu_type.startswith('rockchip'):
+            if os.path.isdir(rk3288_node):
+                node = rk3288_node
+                use_devfreq = False
                 enable_node = 'dvfs_enable'
                 enable_value = '1'
+            elif os.path.isdir(rk3399_node):
+                node = rk3399_node
+                use_devfreq = True
             else:
-                logging.error('Error: Unknown CPU type (%s) for mali GPU.',
-                              self._cpu_type)
-                return 'Unknown CPU type for mali GPU. '
+                logging.error('Error: unknown rockchip SoC.')
+                return self.handle_error('Unknown rockchip SoC.')
+        elif self._cpu_type == 'mediatek':
+            if os.path.isdir(mt8173_node):
+                node = mt8173_node
+                use_devfreq = True
+            else:
+                logging.error('Error: unknown mediatek SoC.')
+                return self.handle_error('Unknown mediatek SoC.')
+        else:
+            return ''
 
+        if use_devfreq:
+            governor_path = utils.locate_file('governor', node)
+            clock_path = utils.locate_file('cur_freq', node)
+
+            governor = utils.read_one_line(governor_path)
+            logging.info('DVFS governor = %s', governor)
+            if not governor == 'simple_ondemand':
+                logging.error('Error: DVFS governor is not simple_ondemand.')
+                return self.handle_error('Governor is wrong.')
+        else:
             clock_path = utils.locate_file('clock', node)
             enable_path = utils.locate_file(enable_node, node)
-            freqs_path = utils.locate_file('available_frequencies', node)
 
             enable = utils.read_one_line(enable_path)
             logging.info('DVFS enable = %s', enable)
             if not enable == enable_value:
-                logging.error('Error: DVFS is not enabled')
-                return 'DVFS is not enabled. '
+                return self.handle_error('DVFS is not enabled. ')
 
-            # available_frequencies are always sorted in ascending order
-            lowest_freq = int(utils.read_one_line(freqs_path))
+        freqs_path = utils.locate_file('available_frequencies', node)
 
-            # daisy_* (exynos5250) boards set idle frequency to 266000000
-            # See: crbug.com/467401 and crosbug.com/p/19710
-            if self._board.startswith('daisy'):
-                lowest_freq = 266000000
+        # available_frequencies are always sorted in ascending order
+        # each line may contain one or multiple integers separated by spaces
+        min_freq = int(utils.read_one_line(freqs_path).split()[0])
 
-            logging.info('Expecting idle DVFS clock = %u', lowest_freq)
+        # daisy_* (exynos5250) boards set idle frequency to 266000000
+        # See: crbug.com/467401 and crosbug.com/p/19710
+        if self._board.startswith('daisy'):
+            min_freq = 266000000
 
-            tries = 0
-            found = False
-            while not found and tries < 80:
-                time.sleep(0.25)
-                clock = int(utils.read_one_line(clock_path))
-                if clock <= lowest_freq:
-                    logging.info('Found idle DVFS clock = %u', clock)
-                    found = True
-                    break
+        logging.info('Expecting idle DVFS clock = %u', min_freq)
+        tries = 0
+        found = False
+        while not found and tries < 80:
+            time.sleep(0.25)
+            clock = int(utils.read_one_line(clock_path))
+            if clock <= min_freq:
+                logging.info('Found idle DVFS clock = %u', clock)
+                found = True
+                break
 
-                tries += 1
-
-            if not found:
-                utils.log_process_activity()
-                logging.error('Error: DVFS clock (%u) > min (%u)', clock,
-                              lowest_freq)
-                return 'Did not see the min DVFS clock. '
-
+            tries += 1
+        if not found:
+            logging.error('Error: DVFS clock (%u) > min (%u)', clock, min_freq)
+            return self.handle_error('Did not see the min DVFS clock. ',
+                                     clock_path)
         return ''
 
     def verify_graphics_fbc(self):
@@ -268,11 +304,9 @@ class graphics_Idle(test.test):
                             break
 
                 tries += 1
-
             if not found:
-                logging.error('Error: did not see FBC enabled.')
-                return 'Did not see FBC enabled. '
-
+                return self.handle_error('Did not see FBC enabled. ',
+                                         param_path)
         return ''
 
     def verify_graphics_psr(self):
@@ -298,11 +332,8 @@ class graphics_Idle(test.test):
                         break
 
             tries += 1
-
         if not found:
-            logging.error('Error: did not see PSR enabled.')
-            return 'Did not see PSR enabled. '
-
+            return self.handle_error('Did not see PSR enabled. ', param_path)
         return ''
 
     def verify_graphics_gem_idle(self):
@@ -326,10 +357,7 @@ class graphics_Idle(test.test):
                             break
 
                 tries += 1
-
             if not found:
-                utils.log_process_activity()
-                logging.error('Error: did not reach 0 gem actives.')
-                return 'Did not reach 0 gem actives. '
-
+                return self.handle_error('Did not reach 0 gem actives. ',
+                                         gem_path)
         return ''

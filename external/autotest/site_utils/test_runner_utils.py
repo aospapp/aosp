@@ -75,7 +75,8 @@ def add_common_args(parser):
     parser.add_argument('--args', metavar='ARGS',
                         help='Whitespace separated argument string to pass '
                              'through to test. Only supported for runs '
-                             'against a local DUT.')
+                             'against a local DUT. '
+                             "e.g. --args='foo=bar cat=\"in a hat\"'.")
     parser.add_argument('--results_dir', metavar='RESULTS_DIR', default=None,
                         help='Instead of storing results in a new subdirectory'
                              ' of /tmp , store results in RESULTS_DIR. If '
@@ -471,7 +472,8 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     @param iterations: int number of times to schedule tests.
     @param host_attributes: Dict of host attributes to pass into autoserv.
 
-    @returns: A list of return codes each job that has run.
+    @returns: A list of return codes each job that has run. Or [1] if
+              provision failed prior to running any jobs.
     """
     # Create host in afe, add board and build labels.
     cros_version_label = provision.cros_version_to_label(build)
@@ -494,7 +496,7 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
             logging.error('Provisioning %s to %s failed, tests are aborted, '
                           'failure reason: %s',
                           remote, cros_version_label, e)
-            return
+            return [1]
 
     # Create suites that will be scheduled.
     suites_and_descriptions = []
@@ -523,7 +525,7 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
 
     if not afe.get_jobs():
         logging.info('No jobs scheduled. End of local run.')
-        return
+        return []
 
     last_job_id = afe.get_jobs()[-1].id
     job_id_digits = len(str(last_job_id))

@@ -16,24 +16,35 @@
 
 package android.widget.cts;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.cts.util.PollingCheck;
-import android.cts.util.WidgetTestUtils;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorFilter;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.Gravity;
@@ -44,32 +55,39 @@ import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.cts.R;
-import android.widget.cts.util.ViewTestUtils;
+
+import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
-public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayoutCtsActivity> {
-    private Activity mActivity;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class FrameLayoutTest {
     private Instrumentation mInstrumentation;
+    private Activity mActivity;
     private FrameLayout mFrameLayout;
 
-    public FrameLayoutTest() {
-        super("android.widget.cts", FrameLayoutCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<FrameLayoutCtsActivity> mActivityRule =
+            new ActivityTestRule<>(FrameLayoutCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
         mFrameLayout = (FrameLayout) mActivity.findViewById(R.id.framelayout);
-        assertNotNull(mActivity);
-        assertNotNull(mInstrumentation);
-        assertNotNull(mFrameLayout);
     }
 
+    @Test
     public void testConstructor() throws XmlPullParserException, IOException {
         AttributeSet attrs = getAttributeSet();
 
@@ -78,39 +96,35 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         new FrameLayout(mActivity, attrs, 0);
     }
 
-    public void testSetForegroundGravity() {
+    @Test
+    public void testSetForegroundGravity() throws Throwable {
         final BitmapDrawable foreground
                 = (BitmapDrawable) mActivity.getResources().getDrawable(R.drawable.size_48x48);
-        compareScaledPixels(48, foreground.getIntrinsicHeight());
-        compareScaledPixels(48, foreground.getIntrinsicWidth());
+        WidgetTestUtils.assertScaledPixels(48, foreground.getIntrinsicHeight(), mActivity);
+        WidgetTestUtils.assertScaledPixels(48, foreground.getIntrinsicWidth(), mActivity);
         assertTrue(mFrameLayout.getHeight() > foreground.getIntrinsicHeight());
         assertTrue(mFrameLayout.getWidth() > foreground.getIntrinsicWidth());
         assertNull(mFrameLayout.getForeground());
 
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout,
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mFrameLayout,
                 () -> mFrameLayout.setForeground(foreground));
         assertSame(foreground, mFrameLayout.getForeground());
         // check the default gravity FILL, it completely fills its container
         assertTrue(foreground.isVisible());
         final Rect rect = foreground.getBounds();
         // foreground has been stretched
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return mFrameLayout.getHeight() == rect.bottom - rect.top;
-            }
-        }.run();
+        PollingCheck.waitFor(() -> mFrameLayout.getHeight() == rect.bottom - rect.top);
         assertEquals(mFrameLayout.getWidth(), rect.right - rect.left);
 
         // should get a new foreground again, because former foreground has been stretched
         final BitmapDrawable newForeground =
-                (BitmapDrawable) mActivity.getResources().getDrawable(R.drawable.size_48x48);
-        compareScaledPixels(48, newForeground.getIntrinsicHeight());
-        compareScaledPixels(48, newForeground.getIntrinsicWidth());
+                (BitmapDrawable) mActivity.getDrawable(R.drawable.size_48x48);
+        WidgetTestUtils.assertScaledPixels(48, newForeground.getIntrinsicHeight(), mActivity);
+        WidgetTestUtils.assertScaledPixels(48, newForeground.getIntrinsicWidth(), mActivity);
         assertTrue(mFrameLayout.getHeight() > newForeground.getIntrinsicHeight());
         assertTrue(mFrameLayout.getWidth() > foreground.getIntrinsicWidth());
 
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout, () -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mFrameLayout, () -> {
             mFrameLayout.setForeground(newForeground);
             mFrameLayout.setForegroundGravity(Gravity.CENTER);
         });
@@ -124,11 +138,12 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertCenterAligned(mFrameLayout, newForeground);
     }
 
-    public void testGatherTransparentRegion() {
+    @Test
+    public void testGatherTransparentRegion() throws Throwable {
         final LinearLayout container =
                 (LinearLayout) mActivity.findViewById(R.id.framelayout_container);
         final Drawable foreground = mActivity.getResources().getDrawable(R.drawable.size_48x48);
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout, () -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mFrameLayout, () -> {
             mFrameLayout.setForeground(foreground);
             mFrameLayout.setForegroundGravity(Gravity.CENTER);
         });
@@ -136,56 +151,52 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         Region region = new Region(foreground.getBounds());
         assertTrue(mFrameLayout.gatherTransparentRegion(region));
 
-        ViewTestUtils.runOnMainAndDrawSync(mInstrumentation, mFrameLayout,
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mFrameLayout,
                 () -> container.requestTransparentRegion(mFrameLayout));
         mInstrumentation.waitForIdleSync();
         region = new Region(foreground.getBounds());
         assertTrue(mFrameLayout.gatherTransparentRegion(region));
     }
 
-    public void testAccessMeasureAllChildren() {
+    @Test
+    public void testAccessMeasureAllChildren() throws Throwable {
         final FrameLayout frameLayout
                 = (FrameLayout) mActivity.findViewById(R.id.framelayout_measureall);
         assertFalse(frameLayout.getConsiderGoneChildrenWhenMeasuring());
 
         // text view and button are VISIBLE, they should be measured
         final TextView textView = (TextView) frameLayout.findViewById(R.id.framelayout_textview);
-        compareScaledPixels(30, textView.getMeasuredHeight());
-        compareScaledPixels(60, textView.getMeasuredWidth());
+        WidgetTestUtils.assertScaledPixels(30, textView.getMeasuredHeight(), mActivity);
+        WidgetTestUtils.assertScaledPixels(60, textView.getMeasuredWidth(), mActivity);
         assertEquals(textView.getMeasuredHeight(), frameLayout.getMeasuredHeight());
         assertEquals(textView.getMeasuredWidth(), frameLayout.getMeasuredWidth());
 
         // measureAll is false and text view is GONE, text view will NOT be measured
-        mActivity.runOnUiThread(() -> {
+        mActivityRule.runOnUiThread(() -> {
             textView.setVisibility(View.GONE);
             frameLayout.requestLayout();
         });
         mInstrumentation.waitForIdleSync();
         assertFalse(frameLayout.getConsiderGoneChildrenWhenMeasuring());
         Button button = (Button) frameLayout.findViewById(R.id.framelayout_button);
-        compareScaledPixels(15, button.getMeasuredHeight());
-        compareScaledPixels(50, button.getMeasuredWidth());
+        WidgetTestUtils.assertScaledPixels(15, button.getMeasuredHeight(), mActivity);
+        WidgetTestUtils.assertScaledPixels(50, button.getMeasuredWidth(), mActivity);
         assertEquals(button.getMeasuredHeight(), frameLayout.getMeasuredHeight());
         assertEquals(button.getMeasuredWidth(), frameLayout.getMeasuredWidth());
 
         // measureAll is true and text view is GONE, text view will be measured
-        mActivity.runOnUiThread(() -> {
+        mActivityRule.runOnUiThread(() -> {
             frameLayout.setMeasureAllChildren(true);
             frameLayout.requestLayout();
         });
         mInstrumentation.waitForIdleSync();
+        assertTrue(frameLayout.getMeasureAllChildren());
         assertTrue(frameLayout.getConsiderGoneChildrenWhenMeasuring());
         assertEquals(textView.getMeasuredHeight(), frameLayout.getMeasuredHeight());
         assertEquals(textView.getMeasuredWidth(), frameLayout.getMeasuredWidth());
     }
 
-    /**
-     * Helper method to compare expected pixels, scaled to device density, with actual
-     */
-    private void compareScaledPixels(int expected, int actual) {
-        WidgetTestUtils.assertScaledPixels(expected, actual, getActivity());
-    }
-
+    @Test
     public void testGenerateLayoutParams1() {
         MyFrameLayout myFrameLayout = new MyFrameLayout(mActivity);
         ViewGroup.LayoutParams p = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
@@ -198,6 +209,7 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, params.height);
     }
 
+    @Test
     public void testGenerateLayoutParams2() throws XmlPullParserException, IOException {
         AttributeSet attrs = getAttributeSet();
 
@@ -208,6 +220,7 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(Gravity.BOTTOM, params.gravity);
     }
 
+    @Test
     public void testCheckLayoutParams() {
         MyFrameLayout myFrameLayout = new MyFrameLayout(mActivity);
         assertFalse(myFrameLayout.checkLayoutParams(null));
@@ -221,6 +234,7 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertTrue(myFrameLayout.checkLayoutParams(params2));
     }
 
+    @Test
     public void testGenerateLayoutParamsFromMarginParams() {
         MyFrameLayout myFrameLayout = new MyFrameLayout(mActivity);
         ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(3, 5);
@@ -239,10 +253,7 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(4, generated.bottomMargin);
     }
 
-    public void testDrawableStateChanged() {
-        // drawableStateChanged() is implementation details, do NOT test
-    }
-
+    @Test
     public void testGenerateDefaultLayoutParams() {
         MyFrameLayout frameLayout = new MyFrameLayout(mActivity);
         FrameLayout.LayoutParams params = frameLayout.generateDefaultLayoutParams();
@@ -252,18 +263,7 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals(LayoutParams.MATCH_PARENT, params.height);
     }
 
-    public void testOnLayout() {
-        // onLayout() is implementation details, do NOT test
-    }
-
-    public void testOnMeasure() {
-        // onMeasure() is implementation details, do NOT test
-    }
-
-    public void testOnSizeChanged() {
-        // onSizeChanged() is implementation details, do NOT test
-    }
-
+    @Test
     public void testVerifyDrawable() {
         MyFrameLayout myFrameLayout = new MyFrameLayout(mActivity);
 
@@ -277,6 +277,8 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertTrue(myFrameLayout.verifyDrawable(null));
     }
 
+    @UiThreadTest
+    @Test
     public void testForegroundTint() {
         FrameLayout inflatedView = (FrameLayout) mActivity.findViewById(R.id.foreground_tint);
 
@@ -285,21 +287,25 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         assertEquals("Foreground tint mode inflated correctly",
                 PorterDuff.Mode.SRC_OVER, inflatedView.getForegroundTintMode());
 
-        MockDrawable foreground = new MockDrawable();
+        final Drawable foreground = spy(new ColorDrawable());
         FrameLayout view = new FrameLayout(mActivity);
 
         view.setForeground(foreground);
-        assertFalse("No foreground tint applied by default", foreground.hasCalledSetTint());
+        verify(foreground, never()).setTintList(any(ColorStateList.class));
 
-        view.setForegroundTintList(ColorStateList.valueOf(Color.WHITE));
-        assertTrue("Foreground tint applied when setForegroundTintList() called after setForeground()",
-                foreground.hasCalledSetTint());
+        view.setForegroundTintList(ColorStateList.valueOf(Color.RED));
+        final ArgumentCaptor<ColorStateList> colorStateListCaptor =
+                ArgumentCaptor.forClass(ColorStateList.class);
+        verify(foreground, times(1)).setTintList(colorStateListCaptor.capture());
+        assertEquals(1, colorStateListCaptor.getValue().getColors().length);
+        assertEquals(Color.RED, colorStateListCaptor.getValue().getColors()[0]);
 
-        foreground.reset();
+        reset(foreground);
         view.setForeground(null);
         view.setForeground(foreground);
-        assertTrue("Foreground tint applied when setForegroundTintList() called before setForeground()",
-                foreground.hasCalledSetTint());
+        verify(foreground, times(1)).setTintList(colorStateListCaptor.capture());
+        assertEquals(1, colorStateListCaptor.getValue().getColors().length);
+        assertEquals(Color.RED, colorStateListCaptor.getValue().getColors()[0]);
     }
 
     private static void assertCenterAligned(View container, Drawable drawable) {
@@ -317,38 +323,6 @@ public class FrameLayoutTest extends ActivityInstrumentationTestCase2<FrameLayou
         XmlPullParser parser = mActivity.getResources().getLayout(R.layout.framelayout_layout);
         WidgetTestUtils.beginDocument(parser, "LinearLayout");
         return Xml.asAttributeSet(parser);
-    }
-
-    private static class MockDrawable extends Drawable {
-        private boolean mCalledSetTint = false;
-
-        @Override
-        public void draw(Canvas canvas) {}
-
-        @Override
-        public void setAlpha(int alpha) {}
-
-        @Override
-        public void setColorFilter(ColorFilter cf) {}
-
-        @Override
-        public void setTintList(ColorStateList tint) {
-            super.setTintList(tint);
-            mCalledSetTint = true;
-        }
-
-        @Override
-        public int getOpacity() {
-            return 0;
-        }
-
-        public boolean hasCalledSetTint() {
-            return mCalledSetTint;
-        }
-
-        public void reset() {
-            mCalledSetTint = false;
-        }
     }
 
     private static class MyFrameLayout extends FrameLayout {

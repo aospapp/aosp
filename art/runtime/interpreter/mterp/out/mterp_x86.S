@@ -612,7 +612,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     .extern MterpThreadFenceForConstructor
     call    SYMBOL(MterpThreadFenceForConstructor)
     movl    rSELF, %eax
-    testl   $(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
+    testl   $(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
     jz      1f
     movl    %eax, OUT_ARG0(%esp)
     call    SYMBOL(MterpSuspendCheck)
@@ -634,7 +634,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     .extern MterpThreadFenceForConstructor
     call    SYMBOL(MterpThreadFenceForConstructor)
     movl    rSELF, %eax
-    testl   $(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
+    testl   $(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
     jz      1f
     movl    %eax, OUT_ARG0(%esp)
     call    SYMBOL(MterpSuspendCheck)
@@ -654,7 +654,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     .extern MterpThreadFenceForConstructor
     call    SYMBOL(MterpThreadFenceForConstructor)
     movl    rSELF, %eax
-    testl   $(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
+    testl   $(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
     jz      1f
     movl    %eax, OUT_ARG0(%esp)
     call    SYMBOL(MterpSuspendCheck)
@@ -677,7 +677,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     .extern MterpThreadFenceForConstructor
     call    SYMBOL(MterpThreadFenceForConstructor)
     movl    rSELF, %eax
-    testl   $(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
+    testl   $(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
     jz      1f
     movl    %eax, OUT_ARG0(%esp)
     call    SYMBOL(MterpSuspendCheck)
@@ -2535,7 +2535,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
  */
     /* op vAA, field@BBBB */
-    .extern artGet32StaticFromCode
+    .extern MterpGet32Static
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2543,7 +2543,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGet32StaticFromCode)
+    call    SYMBOL(MterpGet32Static)
     movl    rSELF, %ecx
     RESTORE_IBASE_FROM_SELF %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
@@ -2564,7 +2564,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  *
  */
     /* sget-wide vAA, field@BBBB */
-    .extern artGet64StaticFromCode
+    .extern MterpGet64Static
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2572,7 +2572,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGet64StaticFromCode)
+    call    SYMBOL(MterpGet64Static)
     movl    rSELF, %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
     jnz     MterpException
@@ -2592,7 +2592,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
  */
     /* op vAA, field@BBBB */
-    .extern artGetObjStaticFromCode
+    .extern MterpGetObjStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2600,7 +2600,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGetObjStaticFromCode)
+    call    SYMBOL(MterpGetObjStatic)
     movl    rSELF, %ecx
     RESTORE_IBASE_FROM_SELF %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
@@ -2624,7 +2624,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
  */
     /* op vAA, field@BBBB */
-    .extern artGetBooleanStaticFromCode
+    .extern MterpGetBooleanStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2632,7 +2632,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGetBooleanStaticFromCode)
+    call    SYMBOL(MterpGetBooleanStatic)
     movl    rSELF, %ecx
     RESTORE_IBASE_FROM_SELF %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
@@ -2656,7 +2656,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
  */
     /* op vAA, field@BBBB */
-    .extern artGetByteStaticFromCode
+    .extern MterpGetByteStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2664,7 +2664,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGetByteStaticFromCode)
+    call    SYMBOL(MterpGetByteStatic)
     movl    rSELF, %ecx
     RESTORE_IBASE_FROM_SELF %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
@@ -2688,7 +2688,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
  */
     /* op vAA, field@BBBB */
-    .extern artGetCharStaticFromCode
+    .extern MterpGetCharStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2696,7 +2696,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGetCharStaticFromCode)
+    call    SYMBOL(MterpGetCharStatic)
     movl    rSELF, %ecx
     RESTORE_IBASE_FROM_SELF %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
@@ -2720,7 +2720,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sget, sget-object, sget-boolean, sget-byte, sget-char, sget-short
  */
     /* op vAA, field@BBBB */
-    .extern artGetShortStaticFromCode
+    .extern MterpGetShortStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref CCCC
@@ -2728,7 +2728,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG1(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG2(%esp)            # self
-    call    SYMBOL(artGetShortStaticFromCode)
+    call    SYMBOL(MterpGetShortStatic)
     movl    rSELF, %ecx
     RESTORE_IBASE_FROM_SELF %ecx
     cmpl    $0, THREAD_EXCEPTION_OFFSET(%ecx)
@@ -2751,7 +2751,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sput, sput-boolean, sput-byte, sput-char, sput-short
  */
     /* op vAA, field@BBBB */
-    .extern artSet32StaticFromCode
+    .extern MterpSet32Static
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref BBBB
@@ -2761,7 +2761,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG2(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG3(%esp)            # self
-    call    SYMBOL(artSet32StaticFromCode)
+    call    SYMBOL(MterpSet32Static)
     testb   %al, %al
     jnz     MterpException
     RESTORE_IBASE
@@ -2776,17 +2776,17 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  *
  */
     /* sput-wide vAA, field@BBBB */
-    .extern artSet64IndirectStaticFromMterp
+    .extern MterpSet64Static
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref BBBB
-    movl    OFF_FP_METHOD(rFP), %eax
-    movl    %eax, OUT_ARG1(%esp)            # referrer
     leal    VREG_ADDRESS(rINST), %eax
-    movl    %eax, OUT_ARG2(%esp)            # &fp[AA]
+    movl    %eax, OUT_ARG1(%esp)            # &fp[AA]
+    movl    OFF_FP_METHOD(rFP), %eax
+    movl    %eax, OUT_ARG2(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG3(%esp)            # self
-    call    SYMBOL(artSet64IndirectStaticFromMterp)
+    call    SYMBOL(MterpSet64Static)
     testb   %al, %al
     jnz     MterpException
     RESTORE_IBASE
@@ -2821,7 +2821,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sput, sput-boolean, sput-byte, sput-char, sput-short
  */
     /* op vAA, field@BBBB */
-    .extern artSet8StaticFromCode
+    .extern MterpSetBooleanStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref BBBB
@@ -2831,7 +2831,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG2(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG3(%esp)            # self
-    call    SYMBOL(artSet8StaticFromCode)
+    call    SYMBOL(MterpSetBooleanStatic)
     testb   %al, %al
     jnz     MterpException
     RESTORE_IBASE
@@ -2849,7 +2849,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sput, sput-boolean, sput-byte, sput-char, sput-short
  */
     /* op vAA, field@BBBB */
-    .extern artSet8StaticFromCode
+    .extern MterpSetByteStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref BBBB
@@ -2859,7 +2859,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG2(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG3(%esp)            # self
-    call    SYMBOL(artSet8StaticFromCode)
+    call    SYMBOL(MterpSetByteStatic)
     testb   %al, %al
     jnz     MterpException
     RESTORE_IBASE
@@ -2877,7 +2877,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sput, sput-boolean, sput-byte, sput-char, sput-short
  */
     /* op vAA, field@BBBB */
-    .extern artSet16StaticFromCode
+    .extern MterpSetCharStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref BBBB
@@ -2887,7 +2887,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG2(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG3(%esp)            # self
-    call    SYMBOL(artSet16StaticFromCode)
+    call    SYMBOL(MterpSetCharStatic)
     testb   %al, %al
     jnz     MterpException
     RESTORE_IBASE
@@ -2905,7 +2905,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
  * for: sput, sput-boolean, sput-byte, sput-char, sput-short
  */
     /* op vAA, field@BBBB */
-    .extern artSet16StaticFromCode
+    .extern MterpSetShortStatic
     EXPORT_PC
     movzwl  2(rPC), %eax
     movl    %eax, OUT_ARG0(%esp)            # field ref BBBB
@@ -2915,7 +2915,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
     movl    %eax, OUT_ARG2(%esp)            # referrer
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG3(%esp)            # self
-    call    SYMBOL(artSet16StaticFromCode)
+    call    SYMBOL(MterpSetShortStatic)
     testb   %al, %al
     jnz     MterpException
     RESTORE_IBASE
@@ -3104,7 +3104,7 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
 .L_op_return_void_no_barrier: /* 0x73 */
 /* File: x86/op_return_void_no_barrier.S */
     movl    rSELF, %eax
-    testl   $(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
+    testl   $(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
     jz      1f
     movl    %eax, OUT_ARG0(%esp)
     call    SYMBOL(MterpSuspendCheck)
@@ -6201,8 +6201,12 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_invoke_lambda: /* 0xf3 */
-/* Transfer stub to alternate interpreter */
+.L_op_unused_f3: /* 0xf3 */
+/* File: x86/op_unused_f3.S */
+/* File: x86/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
     jmp     MterpFallback
 
 
@@ -6219,43 +6223,8 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_capture_variable: /* 0xf5 */
-/* Transfer stub to alternate interpreter */
-    jmp     MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_create_lambda: /* 0xf6 */
-/* Transfer stub to alternate interpreter */
-    jmp     MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_liberate_variable: /* 0xf7 */
-/* Transfer stub to alternate interpreter */
-    jmp     MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_box_lambda: /* 0xf8 */
-/* Transfer stub to alternate interpreter */
-    jmp     MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unbox_lambda: /* 0xf9 */
-/* Transfer stub to alternate interpreter */
-    jmp     MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unused_fa: /* 0xfa */
-/* File: x86/op_unused_fa.S */
+.L_op_unused_f5: /* 0xf5 */
+/* File: x86/op_unused_f5.S */
 /* File: x86/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -6265,8 +6234,8 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fb: /* 0xfb */
-/* File: x86/op_unused_fb.S */
+.L_op_unused_f6: /* 0xf6 */
+/* File: x86/op_unused_f6.S */
 /* File: x86/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -6276,8 +6245,8 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fc: /* 0xfc */
-/* File: x86/op_unused_fc.S */
+.L_op_unused_f7: /* 0xf7 */
+/* File: x86/op_unused_f7.S */
 /* File: x86/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -6287,12 +6256,51 @@ SYMBOL(artMterpAsmInstructionStart) = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fd: /* 0xfd */
-/* File: x86/op_unused_fd.S */
+.L_op_unused_f8: /* 0xf8 */
+/* File: x86/op_unused_f8.S */
 /* File: x86/unused.S */
 /*
  * Bail to reference interpreter to throw.
  */
+    jmp     MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_unused_f9: /* 0xf9 */
+/* File: x86/op_unused_f9.S */
+/* File: x86/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
+    jmp     MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic: /* 0xfa */
+/* Transfer stub to alternate interpreter */
+    jmp     MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic_range: /* 0xfb */
+/* Transfer stub to alternate interpreter */
+    jmp     MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom: /* 0xfc */
+/* Transfer stub to alternate interpreter */
+    jmp     MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom_range: /* 0xfd */
+/* Transfer stub to alternate interpreter */
     jmp     MterpFallback
 
 
@@ -6359,13 +6367,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(0*128)
 
@@ -6384,13 +6391,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(1*128)
 
@@ -6409,13 +6415,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(2*128)
 
@@ -6434,13 +6439,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(3*128)
 
@@ -6459,13 +6463,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(4*128)
 
@@ -6484,13 +6487,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(5*128)
 
@@ -6509,13 +6511,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(6*128)
 
@@ -6534,13 +6535,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(7*128)
 
@@ -6559,13 +6559,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(8*128)
 
@@ -6584,13 +6583,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(9*128)
 
@@ -6609,13 +6607,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(10*128)
 
@@ -6634,13 +6631,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(11*128)
 
@@ -6659,13 +6655,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(12*128)
 
@@ -6684,13 +6679,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(13*128)
 
@@ -6709,13 +6703,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(14*128)
 
@@ -6734,13 +6727,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(15*128)
 
@@ -6759,13 +6751,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(16*128)
 
@@ -6784,13 +6775,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(17*128)
 
@@ -6809,13 +6799,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(18*128)
 
@@ -6834,13 +6823,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(19*128)
 
@@ -6859,13 +6847,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(20*128)
 
@@ -6884,13 +6871,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(21*128)
 
@@ -6909,13 +6895,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(22*128)
 
@@ -6934,13 +6919,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(23*128)
 
@@ -6959,13 +6943,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(24*128)
 
@@ -6984,13 +6967,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(25*128)
 
@@ -7009,13 +6991,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(26*128)
 
@@ -7034,13 +7015,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(27*128)
 
@@ -7059,13 +7039,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(28*128)
 
@@ -7084,13 +7063,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(29*128)
 
@@ -7109,13 +7087,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(30*128)
 
@@ -7134,13 +7111,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(31*128)
 
@@ -7159,13 +7135,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(32*128)
 
@@ -7184,13 +7159,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(33*128)
 
@@ -7209,13 +7183,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(34*128)
 
@@ -7234,13 +7207,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(35*128)
 
@@ -7259,13 +7231,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(36*128)
 
@@ -7284,13 +7255,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(37*128)
 
@@ -7309,13 +7279,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(38*128)
 
@@ -7334,13 +7303,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(39*128)
 
@@ -7359,13 +7327,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(40*128)
 
@@ -7384,13 +7351,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(41*128)
 
@@ -7409,13 +7375,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(42*128)
 
@@ -7434,13 +7399,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(43*128)
 
@@ -7459,13 +7423,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(44*128)
 
@@ -7484,13 +7447,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(45*128)
 
@@ -7509,13 +7471,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(46*128)
 
@@ -7534,13 +7495,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(47*128)
 
@@ -7559,13 +7519,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(48*128)
 
@@ -7584,13 +7543,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(49*128)
 
@@ -7609,13 +7567,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(50*128)
 
@@ -7634,13 +7591,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(51*128)
 
@@ -7659,13 +7615,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(52*128)
 
@@ -7684,13 +7639,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(53*128)
 
@@ -7709,13 +7663,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(54*128)
 
@@ -7734,13 +7687,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(55*128)
 
@@ -7759,13 +7711,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(56*128)
 
@@ -7784,13 +7735,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(57*128)
 
@@ -7809,13 +7759,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(58*128)
 
@@ -7834,13 +7783,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(59*128)
 
@@ -7859,13 +7807,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(60*128)
 
@@ -7884,13 +7831,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(61*128)
 
@@ -7909,13 +7855,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(62*128)
 
@@ -7934,13 +7879,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(63*128)
 
@@ -7959,13 +7903,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(64*128)
 
@@ -7984,13 +7927,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(65*128)
 
@@ -8009,13 +7951,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(66*128)
 
@@ -8034,13 +7975,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(67*128)
 
@@ -8059,13 +7999,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(68*128)
 
@@ -8084,13 +8023,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(69*128)
 
@@ -8109,13 +8047,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(70*128)
 
@@ -8134,13 +8071,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(71*128)
 
@@ -8159,13 +8095,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(72*128)
 
@@ -8184,13 +8119,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(73*128)
 
@@ -8209,13 +8143,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(74*128)
 
@@ -8234,13 +8167,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(75*128)
 
@@ -8259,13 +8191,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(76*128)
 
@@ -8284,13 +8215,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(77*128)
 
@@ -8309,13 +8239,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(78*128)
 
@@ -8334,13 +8263,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(79*128)
 
@@ -8359,13 +8287,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(80*128)
 
@@ -8384,13 +8311,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(81*128)
 
@@ -8409,13 +8335,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(82*128)
 
@@ -8434,13 +8359,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(83*128)
 
@@ -8459,13 +8383,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(84*128)
 
@@ -8484,13 +8407,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(85*128)
 
@@ -8509,13 +8431,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(86*128)
 
@@ -8534,13 +8455,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(87*128)
 
@@ -8559,13 +8479,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(88*128)
 
@@ -8584,13 +8503,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(89*128)
 
@@ -8609,13 +8527,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(90*128)
 
@@ -8634,13 +8551,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(91*128)
 
@@ -8659,13 +8575,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(92*128)
 
@@ -8684,13 +8599,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(93*128)
 
@@ -8709,13 +8623,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(94*128)
 
@@ -8734,13 +8647,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(95*128)
 
@@ -8759,13 +8671,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(96*128)
 
@@ -8784,13 +8695,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(97*128)
 
@@ -8809,13 +8719,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(98*128)
 
@@ -8834,13 +8743,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(99*128)
 
@@ -8859,13 +8767,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(100*128)
 
@@ -8884,13 +8791,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(101*128)
 
@@ -8909,13 +8815,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(102*128)
 
@@ -8934,13 +8839,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(103*128)
 
@@ -8959,13 +8863,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(104*128)
 
@@ -8984,13 +8887,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(105*128)
 
@@ -9009,13 +8911,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(106*128)
 
@@ -9034,13 +8935,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(107*128)
 
@@ -9059,13 +8959,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(108*128)
 
@@ -9084,13 +8983,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(109*128)
 
@@ -9109,13 +9007,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(110*128)
 
@@ -9134,13 +9031,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(111*128)
 
@@ -9159,13 +9055,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(112*128)
 
@@ -9184,13 +9079,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(113*128)
 
@@ -9209,13 +9103,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(114*128)
 
@@ -9234,13 +9127,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(115*128)
 
@@ -9259,13 +9151,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(116*128)
 
@@ -9284,13 +9175,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(117*128)
 
@@ -9309,13 +9199,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(118*128)
 
@@ -9334,13 +9223,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(119*128)
 
@@ -9359,13 +9247,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(120*128)
 
@@ -9384,13 +9271,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(121*128)
 
@@ -9409,13 +9295,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(122*128)
 
@@ -9434,13 +9319,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(123*128)
 
@@ -9459,13 +9343,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(124*128)
 
@@ -9484,13 +9367,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(125*128)
 
@@ -9509,13 +9391,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(126*128)
 
@@ -9534,13 +9415,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(127*128)
 
@@ -9559,13 +9439,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(128*128)
 
@@ -9584,13 +9463,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(129*128)
 
@@ -9609,13 +9487,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(130*128)
 
@@ -9634,13 +9511,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(131*128)
 
@@ -9659,13 +9535,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(132*128)
 
@@ -9684,13 +9559,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(133*128)
 
@@ -9709,13 +9583,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(134*128)
 
@@ -9734,13 +9607,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(135*128)
 
@@ -9759,13 +9631,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(136*128)
 
@@ -9784,13 +9655,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(137*128)
 
@@ -9809,13 +9679,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(138*128)
 
@@ -9834,13 +9703,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(139*128)
 
@@ -9859,13 +9727,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(140*128)
 
@@ -9884,13 +9751,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(141*128)
 
@@ -9909,13 +9775,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(142*128)
 
@@ -9934,13 +9799,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(143*128)
 
@@ -9959,13 +9823,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(144*128)
 
@@ -9984,13 +9847,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(145*128)
 
@@ -10009,13 +9871,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(146*128)
 
@@ -10034,13 +9895,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(147*128)
 
@@ -10059,13 +9919,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(148*128)
 
@@ -10084,13 +9943,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(149*128)
 
@@ -10109,13 +9967,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(150*128)
 
@@ -10134,13 +9991,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(151*128)
 
@@ -10159,13 +10015,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(152*128)
 
@@ -10184,13 +10039,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(153*128)
 
@@ -10209,13 +10063,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(154*128)
 
@@ -10234,13 +10087,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(155*128)
 
@@ -10259,13 +10111,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(156*128)
 
@@ -10284,13 +10135,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(157*128)
 
@@ -10309,13 +10159,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(158*128)
 
@@ -10334,13 +10183,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(159*128)
 
@@ -10359,13 +10207,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(160*128)
 
@@ -10384,13 +10231,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(161*128)
 
@@ -10409,13 +10255,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(162*128)
 
@@ -10434,13 +10279,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(163*128)
 
@@ -10459,13 +10303,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(164*128)
 
@@ -10484,13 +10327,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(165*128)
 
@@ -10509,13 +10351,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(166*128)
 
@@ -10534,13 +10375,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(167*128)
 
@@ -10559,13 +10399,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(168*128)
 
@@ -10584,13 +10423,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(169*128)
 
@@ -10609,13 +10447,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(170*128)
 
@@ -10634,13 +10471,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(171*128)
 
@@ -10659,13 +10495,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(172*128)
 
@@ -10684,13 +10519,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(173*128)
 
@@ -10709,13 +10543,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(174*128)
 
@@ -10734,13 +10567,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(175*128)
 
@@ -10759,13 +10591,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(176*128)
 
@@ -10784,13 +10615,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(177*128)
 
@@ -10809,13 +10639,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(178*128)
 
@@ -10834,13 +10663,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(179*128)
 
@@ -10859,13 +10687,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(180*128)
 
@@ -10884,13 +10711,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(181*128)
 
@@ -10909,13 +10735,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(182*128)
 
@@ -10934,13 +10759,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(183*128)
 
@@ -10959,13 +10783,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(184*128)
 
@@ -10984,13 +10807,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(185*128)
 
@@ -11009,13 +10831,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(186*128)
 
@@ -11034,13 +10855,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(187*128)
 
@@ -11059,13 +10879,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(188*128)
 
@@ -11084,13 +10903,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(189*128)
 
@@ -11109,13 +10927,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(190*128)
 
@@ -11134,13 +10951,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(191*128)
 
@@ -11159,13 +10975,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(192*128)
 
@@ -11184,13 +10999,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(193*128)
 
@@ -11209,13 +11023,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(194*128)
 
@@ -11234,13 +11047,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(195*128)
 
@@ -11259,13 +11071,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(196*128)
 
@@ -11284,13 +11095,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(197*128)
 
@@ -11309,13 +11119,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(198*128)
 
@@ -11334,13 +11143,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(199*128)
 
@@ -11359,13 +11167,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(200*128)
 
@@ -11384,13 +11191,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(201*128)
 
@@ -11409,13 +11215,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(202*128)
 
@@ -11434,13 +11239,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(203*128)
 
@@ -11459,13 +11263,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(204*128)
 
@@ -11484,13 +11287,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(205*128)
 
@@ -11509,13 +11311,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(206*128)
 
@@ -11534,13 +11335,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(207*128)
 
@@ -11559,13 +11359,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(208*128)
 
@@ -11584,13 +11383,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(209*128)
 
@@ -11609,13 +11407,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(210*128)
 
@@ -11634,13 +11431,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(211*128)
 
@@ -11659,13 +11455,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(212*128)
 
@@ -11684,13 +11479,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(213*128)
 
@@ -11709,13 +11503,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(214*128)
 
@@ -11734,13 +11527,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(215*128)
 
@@ -11759,13 +11551,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(216*128)
 
@@ -11784,13 +11575,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(217*128)
 
@@ -11809,13 +11599,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(218*128)
 
@@ -11834,13 +11623,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(219*128)
 
@@ -11859,13 +11647,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(220*128)
 
@@ -11884,13 +11671,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(221*128)
 
@@ -11909,13 +11695,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(222*128)
 
@@ -11934,13 +11719,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(223*128)
 
@@ -11959,13 +11743,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(224*128)
 
@@ -11984,13 +11767,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(225*128)
 
@@ -12009,13 +11791,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(226*128)
 
@@ -12034,13 +11815,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(227*128)
 
@@ -12059,13 +11839,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(228*128)
 
@@ -12084,13 +11863,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(229*128)
 
@@ -12109,13 +11887,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(230*128)
 
@@ -12134,13 +11911,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(231*128)
 
@@ -12159,13 +11935,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(232*128)
 
@@ -12184,13 +11959,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(233*128)
 
@@ -12209,13 +11983,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(234*128)
 
@@ -12234,13 +12007,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(235*128)
 
@@ -12259,13 +12031,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(236*128)
 
@@ -12284,13 +12055,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(237*128)
 
@@ -12309,13 +12079,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(238*128)
 
@@ -12334,13 +12103,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(239*128)
 
@@ -12359,13 +12127,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(240*128)
 
@@ -12384,13 +12151,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(241*128)
 
@@ -12409,19 +12175,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(242*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_invoke_lambda: /* 0xf3 */
+.L_ALT_op_unused_f3: /* 0xf3 */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12434,13 +12199,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(243*128)
 
@@ -12459,19 +12223,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(244*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_capture_variable: /* 0xf5 */
+.L_ALT_op_unused_f5: /* 0xf5 */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12484,19 +12247,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(245*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_create_lambda: /* 0xf6 */
+.L_ALT_op_unused_f6: /* 0xf6 */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12509,19 +12271,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(246*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_liberate_variable: /* 0xf7 */
+.L_ALT_op_unused_f7: /* 0xf7 */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12534,19 +12295,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(247*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_box_lambda: /* 0xf8 */
+.L_ALT_op_unused_f8: /* 0xf8 */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12559,19 +12319,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(248*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unbox_lambda: /* 0xf9 */
+.L_ALT_op_unused_f9: /* 0xf9 */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12584,19 +12343,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(249*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fa: /* 0xfa */
+.L_ALT_op_invoke_polymorphic: /* 0xfa */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12609,19 +12367,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(250*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fb: /* 0xfb */
+.L_ALT_op_invoke_polymorphic_range: /* 0xfb */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12634,19 +12391,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(251*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fc: /* 0xfc */
+.L_ALT_op_invoke_custom: /* 0xfc */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12659,19 +12415,18 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(252*128)
 
 /* ------------------------------ */
     .balign 128
-.L_ALT_op_unused_fd: /* 0xfd */
+.L_ALT_op_invoke_custom_range: /* 0xfd */
 /* File: x86/alt_stub.S */
 /*
  * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
@@ -12684,13 +12439,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(253*128)
 
@@ -12709,13 +12463,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(254*128)
 
@@ -12734,13 +12487,12 @@ SYMBOL(artMterpAsmAltInstructionStart) = .L_ALT_op_nop
  * return.
  */
     .extern MterpCheckBefore
-    EXPORT_PC
-
     movl    rSELF, %ecx
     movl    %ecx, OUT_ARG0(%esp)
     leal    OFF_FP_SHADOWFRAME(rFP), %eax
     movl    %eax, OUT_ARG1(%esp)
-    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame)
+    movl    rPC, OUT_ARG2(%esp)
+    call    SYMBOL(MterpCheckBefore)        # (self, shadow_frame, dex_pc_ptr)
     REFRESH_IBASE
     jmp     .L_op_nop+(255*128)
 
@@ -12918,7 +12670,7 @@ MterpCommonTakenBranch:
     je      .L_add_batch                    # counted down to zero - report
 .L_resume_backward_branch:
     movl    rSELF, %eax
-    testl   $(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
+    testl   $(THREAD_SUSPEND_OR_CHECKPOINT_REQUEST), THREAD_FLAGS_OFFSET(%eax)
     leal    (rPC, rINST, 2), rPC
     FETCH_INST
     jnz     .L_suspend_request_pending

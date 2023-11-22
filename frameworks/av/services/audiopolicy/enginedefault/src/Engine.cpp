@@ -202,6 +202,7 @@ routing_strategy Engine::getStrategyForUsage(audio_usage_t usage)
 
     case AUDIO_USAGE_MEDIA:
     case AUDIO_USAGE_GAME:
+    case AUDIO_USAGE_ASSISTANT:
     case AUDIO_USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
     case AUDIO_USAGE_ASSISTANCE_SONIFICATION:
         return STRATEGY_MEDIA;
@@ -320,8 +321,7 @@ audio_devices_t Engine::getDeviceForStrategyInt(routing_strategy strategy,
             if (((availableInputDevices.types() &
                     AUDIO_DEVICE_IN_TELEPHONY_RX & ~AUDIO_DEVICE_BIT_IN) == 0) ||
                     (((txDevice & availPrimaryInputDevices & ~AUDIO_DEVICE_BIT_IN) != 0) &&
-                         (primaryOutput->getAudioPort()->getModuleVersion() <
-                             AUDIO_DEVICE_API_VERSION_3_0))) {
+                         (primaryOutput->getAudioPort()->getModuleVersionMajor() < 3))) {
                 availableOutputDevicesType = availPrimaryOutputDevices;
             }
         }
@@ -355,6 +355,8 @@ audio_devices_t Engine::getDeviceForStrategyInt(routing_strategy strategy,
             device = availableOutputDevicesType & AUDIO_DEVICE_OUT_WIRED_HEADSET;
             if (device) break;
             device = availableOutputDevicesType & AUDIO_DEVICE_OUT_LINE;
+            if (device) break;
+            device = availableOutputDevicesType & AUDIO_DEVICE_OUT_USB_HEADSET;
             if (device) break;
             device = availableOutputDevicesType & AUDIO_DEVICE_OUT_USB_DEVICE;
             if (device) break;
@@ -417,6 +419,25 @@ audio_devices_t Engine::getDeviceForStrategyInt(routing_strategy strategy,
         if ((strategy == STRATEGY_SONIFICATION) ||
                 (mForceUse[AUDIO_POLICY_FORCE_FOR_SYSTEM] == AUDIO_POLICY_FORCE_SYSTEM_ENFORCED)) {
             device = availableOutputDevicesType & AUDIO_DEVICE_OUT_SPEAKER;
+        }
+
+        // if SCO headset is connected and we are told to use it, play ringtone over
+        // speaker and BT SCO
+        if (((availableOutputDevicesType & AUDIO_DEVICE_OUT_ALL_SCO) != 0) &&
+                (mForceUse[AUDIO_POLICY_FORCE_FOR_COMMUNICATION] == AUDIO_POLICY_FORCE_BT_SCO)) {
+            uint32_t device2 = AUDIO_DEVICE_NONE;
+            device2 = availableOutputDevicesType & AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT;
+            if (device2 == AUDIO_DEVICE_NONE) {
+                device2 = availableOutputDevicesType & AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET;
+            }
+            if (device2 == AUDIO_DEVICE_NONE) {
+                device2 = availableOutputDevicesType & AUDIO_DEVICE_OUT_BLUETOOTH_SCO;
+            }
+
+            if (device2 != AUDIO_DEVICE_NONE) {
+                device |= device2;
+                break;
+            }
         }
         // The second device used for sonification is the same as the device used by media strategy
         // FALL THROUGH
@@ -488,6 +509,9 @@ audio_devices_t Engine::getDeviceForStrategyInt(routing_strategy strategy,
         }
         if (device2 == AUDIO_DEVICE_NONE) {
             device2 = availableOutputDevicesType & AUDIO_DEVICE_OUT_WIRED_HEADSET;
+        }
+        if (device2 == AUDIO_DEVICE_NONE) {
+            device2 = availableOutputDevicesType & AUDIO_DEVICE_OUT_USB_HEADSET;
         }
         if (device2 == AUDIO_DEVICE_NONE) {
             device2 = availableOutputDevicesType & AUDIO_DEVICE_OUT_USB_ACCESSORY;
@@ -572,6 +596,8 @@ audio_devices_t Engine::getDeviceForInputSource(audio_source_t inputSource) cons
         device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
     } else if (availableDeviceTypes & AUDIO_DEVICE_IN_WIRED_HEADSET) {
         device = AUDIO_DEVICE_IN_WIRED_HEADSET;
+    } else if (availableDeviceTypes & AUDIO_DEVICE_IN_USB_HEADSET) {
+        device = AUDIO_DEVICE_IN_USB_HEADSET;
     } else if (availableDeviceTypes & AUDIO_DEVICE_IN_USB_DEVICE) {
         device = AUDIO_DEVICE_IN_USB_DEVICE;
     } else if (availableDeviceTypes & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -602,6 +628,8 @@ audio_devices_t Engine::getDeviceForInputSource(audio_source_t inputSource) cons
         default:    // FORCE_NONE
             if (availableDeviceTypes & AUDIO_DEVICE_IN_WIRED_HEADSET) {
                 device = AUDIO_DEVICE_IN_WIRED_HEADSET;
+            } else if (availableDeviceTypes & AUDIO_DEVICE_IN_USB_HEADSET) {
+                device = AUDIO_DEVICE_IN_USB_HEADSET;
             } else if (availableDeviceTypes & AUDIO_DEVICE_IN_USB_DEVICE) {
                 device = AUDIO_DEVICE_IN_USB_DEVICE;
             } else if (availableDeviceTypes & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -627,6 +655,8 @@ audio_devices_t Engine::getDeviceForInputSource(audio_source_t inputSource) cons
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
         } else if (availableDeviceTypes & AUDIO_DEVICE_IN_WIRED_HEADSET) {
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
+        } else if (availableDeviceTypes & AUDIO_DEVICE_IN_USB_HEADSET) {
+            device = AUDIO_DEVICE_IN_USB_HEADSET;
         } else if (availableDeviceTypes & AUDIO_DEVICE_IN_USB_DEVICE) {
             device = AUDIO_DEVICE_IN_USB_DEVICE;
         } else if (availableDeviceTypes & AUDIO_DEVICE_IN_BUILTIN_MIC) {

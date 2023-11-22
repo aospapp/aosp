@@ -16,8 +16,6 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
@@ -26,6 +24,7 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Gallery;
 import android.widget.ImageView;
+import android.widget.cts.R;
 
 /**
  * A minimal application for {@link Gallery} test.

@@ -22,13 +22,12 @@
 #include <linux/in.h>
 
 struct __res_params;
-class DumpWriter;
 
 namespace android {
 namespace net {
+
+class DumpWriter;
 struct ResolverStats;
-}  // namespace net
-}  // namespace android
 
 class ResolverController {
 public:
@@ -58,5 +57,8 @@ public:
             std::vector<int32_t>* stats);
     void dump(DumpWriter& dw, unsigned netId);
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif /* _RESOLVER_CONTROLLER_H_ */

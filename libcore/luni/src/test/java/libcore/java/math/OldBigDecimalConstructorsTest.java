@@ -710,7 +710,7 @@ public class OldBigDecimalConstructorsTest extends TestCase {
         assertEquals("incorrect value", "1000000", bd.toString());
     }
 
-// ANDROID ADDED
+// Android-added
 
     /**
      * java.math.BigDecimal#BigDecimal(java.math.BigInteger, int)

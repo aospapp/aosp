@@ -18,10 +18,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES :=  $(call all-java-files-under, src)
 LOCAL_MODULE := cts-junit
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_JAVA_LIBRARIES := junit4-target
+LOCAL_STATIC_JAVA_LIBRARIES := junit
 LOCAL_DEX_PREOPT := false
 include $(BUILD_JAVA_LIBRARY)
-
-cts_library_jar := $(CTS_TESTCASES_OUT)/$(LOCAL_MODULE).jar
-$(cts_library_jar): $(LOCAL_BUILT_MODULE)
-	$(copy-file-to-target)

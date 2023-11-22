@@ -26,35 +26,31 @@
  */
 
 #include "defs.h"
+
 #include <sys/socket.h>
+#if defined ALPHA || defined SH || defined SH64
+# include <linux/ioctl.h>
+#endif
 #include <linux/sockios.h>
 #include <arpa/inet.h>
-#if defined(ALPHA) || defined(SH) || defined(SH64)
-# if defined(HAVE_SYS_IOCTL_H)
-#  include <sys/ioctl.h>
-# elif defined(HAVE_IOCTLS_H)
-#  include <ioctls.h>
-# endif
-#endif
 #include <net/if.h>
+
+#include DEF_MPERS_TYPE(struct_ifconf)
+#include DEF_MPERS_TYPE(struct_ifreq)
+
+typedef struct ifconf struct_ifconf;
+typedef struct ifreq struct_ifreq;
+
+#include MPERS_DEFS
 
 #include "xlat/iffflags.h"
 
-static void
-print_ifreq_addr(struct tcb *tcp, const struct ifreq *ifr, const long addr)
-{
-	tprintf("{");
-	printxval(addrfams, ifr->ifr_addr.sa_family, "AF_???");
-	tprints(", ");
-	if (ifr->ifr_addr.sa_family == AF_INET) {
-		const struct sockaddr_in *sinp =
-			(struct sockaddr_in *) &ifr->ifr_addr;
-		tprintf("inet_addr(\"%s\")", inet_ntoa(sinp->sin_addr));
-	} else
-		printstr(tcp, addr + offsetof(struct ifreq, ifr_addr.sa_data),
-			 sizeof(ifr->ifr_addr.sa_data));
-	tprints("}");
-}
+#define PRINT_IFREQ_ADDR(tcp, ifr, sockaddr)					\
+	do {									\
+		tprints(#sockaddr "=");						\
+		print_sockaddr(tcp, &((ifr)->sockaddr),				\
+			       sizeof((ifr)->sockaddr));			\
+	} while (0)
 
 static void
 print_ifname(const char *ifname)
@@ -63,29 +59,25 @@ print_ifname(const char *ifname)
 }
 
 static void
-print_ifreq(struct tcb *tcp, const unsigned int code, const long arg,
-	    const struct ifreq *ifr)
+print_ifreq(struct tcb *const tcp, const unsigned int code,
+	    const kernel_ulong_t arg, const struct_ifreq *const ifr)
 {
 	switch (code) {
 	case SIOCSIFADDR:
 	case SIOCGIFADDR:
-		tprints("ifr_addr=");
-		print_ifreq_addr(tcp, ifr, arg);
+		PRINT_IFREQ_ADDR(tcp, ifr, ifr_addr);
 		break;
 	case SIOCSIFDSTADDR:
 	case SIOCGIFDSTADDR:
-		tprints("ifr_dstaddr=");
-		print_ifreq_addr(tcp, ifr, arg);
+		PRINT_IFREQ_ADDR(tcp, ifr, ifr_dstaddr);
 		break;
 	case SIOCSIFBRDADDR:
 	case SIOCGIFBRDADDR:
-		tprints("ifr_broadaddr=");
-		print_ifreq_addr(tcp, ifr, arg);
+		PRINT_IFREQ_ADDR(tcp, ifr, ifr_broadaddr);
 		break;
 	case SIOCSIFNETMASK:
 	case SIOCGIFNETMASK:
-		tprints("ifr_netmask=");
-		print_ifreq_addr(tcp, ifr, arg);
+		PRINT_IFREQ_ADDR(tcp, ifr, ifr_netmask);
 		break;
 	case SIOCSIFHWADDR:
 	case SIOCGIFHWADDR: {
@@ -101,7 +93,7 @@ print_ifreq(struct tcb *tcp, const unsigned int code, const long arg,
 	case SIOCSIFFLAGS:
 	case SIOCGIFFLAGS:
 		tprints("ifr_flags=");
-		printflags(iffflags, ifr->ifr_flags, "IFF_???");
+		printflags(iffflags, (unsigned short) ifr->ifr_flags, "IFF_???");
 		break;
 	case SIOCSIFMETRIC:
 	case SIOCGIFMETRIC:
@@ -122,11 +114,11 @@ print_ifreq(struct tcb *tcp, const unsigned int code, const long arg,
 		break;
 	case SIOCSIFMAP:
 	case SIOCGIFMAP:
-		tprintf("ifr_map={mem_start=%#lx, "
-			"mem_end=%#lx, base_addr=%#x, "
+		tprintf("ifr_map={mem_start=%#" PRI_klx ", "
+			"mem_end=%#" PRI_klx ", base_addr=%#x, "
 			"irq=%u, dma=%u, port=%u}",
-			ifr->ifr_map.mem_start,
-			ifr->ifr_map.mem_end,
+			(kernel_ulong_t) ifr->ifr_map.mem_start,
+			(kernel_ulong_t) ifr->ifr_map.mem_end,
 			(unsigned) ifr->ifr_map.base_addr,
 			(unsigned) ifr->ifr_map.irq,
 			(unsigned) ifr->ifr_map.dma,
@@ -138,9 +130,9 @@ print_ifreq(struct tcb *tcp, const unsigned int code, const long arg,
 static unsigned int
 print_ifc_len(int len)
 {
-	const unsigned int n = (unsigned int) len / sizeof(struct ifreq);
+	const unsigned int n = (unsigned int) len / sizeof(struct_ifreq);
 
-	if (len < 0 || n * sizeof(struct ifreq) != (unsigned int) len)
+	if (len < 0 || n * sizeof(struct_ifreq) != (unsigned int) len)
 		tprintf("%d", len);
 	else
 		tprintf("%u * sizeof(struct ifreq)", n);
@@ -148,78 +140,117 @@ print_ifc_len(int len)
 	return n;
 }
 
-static int
-decode_ifconf(struct tcb *tcp, const long addr)
+static bool
+print_ifconf_ifreq(struct tcb *tcp, void *elem_buf, size_t elem_size,
+		   void *dummy)
 {
-	struct ifconf ifc;
+	struct_ifreq *ifr = elem_buf;
+
+	tprints("{ifr_name=");
+	print_ifname(ifr->ifr_name);
+	tprints(", ");
+	PRINT_IFREQ_ADDR(tcp, ifr, ifr_addr);
+	tprints("}");
+
+	return true;
+}
+
+/*
+ * There are two different modes of operation:
+ *
+ * - Get buffer size.  In this case, the callee sets ifc_buf to NULL,
+ *   and the kernel returns the buffer size in ifc_len.
+ * - Get actual data.  In this case, the callee specifies the buffer address
+ *   in ifc_buf and its size in ifc_len.  The kernel fills the buffer with
+ *   the data, and its amount is returned in ifc_len.
+ *
+ * Note that, technically, the whole struct ifconf is overwritten,
+ * so ifc_buf could be different on exit, but current ioctl handler
+ * implementation does not touch it.
+ */
+static int
+decode_ifconf(struct tcb *const tcp, const kernel_ulong_t addr)
+{
+	struct_ifconf *entering_ifc = NULL;
+	struct_ifconf *ifc =
+		entering(tcp) ? malloc(sizeof(*ifc)) : alloca(sizeof(*ifc));
+
+	if (exiting(tcp)) {
+		entering_ifc = get_tcb_priv_data(tcp);
+
+		if (!entering_ifc) {
+			error_msg("decode_ifconf: where is my ifconf?");
+			return 0;
+		}
+	}
+
+	if (!ifc || umove(tcp, addr, ifc) < 0) {
+		if (entering(tcp)) {
+			free(ifc);
+
+			tprints(", ");
+			printaddr(addr);
+		} else {
+			/*
+			 * We failed to fetch the structure on exiting syscall,
+			 * print whatever was fetched on entering syscall.
+			 */
+			if (!entering_ifc->ifc_buf)
+				print_ifc_len(entering_ifc->ifc_len);
+
+			tprints(", ifc_buf=");
+			printaddr(ptr_to_kulong(entering_ifc->ifc_buf));
+
+			tprints("}");
+		}
+
+		return RVAL_DECODED | 1;
+	}
 
 	if (entering(tcp)) {
-		tprints(", ");
-		if (umove_or_printaddr(tcp, addr, &ifc))
-			return RVAL_DECODED | 1;
-		if (ifc.ifc_buf) {
-			tprints("{");
-			print_ifc_len(ifc.ifc_len);
-		}
+		tprints(", {ifc_len=");
+		if (ifc->ifc_buf)
+			print_ifc_len(ifc->ifc_len);
+
+		set_tcb_priv_data(tcp, ifc, free);
+
 		return 1;
 	}
 
-	if (syserror(tcp) || umove(tcp, addr, &ifc) < 0) {
-		if (ifc.ifc_buf)
-			tprints("}");
-		else
-			printaddr(addr);
-		return RVAL_DECODED | 1;
+	/* exiting */
+
+	if (entering_ifc->ifc_buf && (entering_ifc->ifc_len != ifc->ifc_len))
+		tprints(" => ");
+	if (!entering_ifc->ifc_buf || (entering_ifc->ifc_len != ifc->ifc_len))
+		print_ifc_len(ifc->ifc_len);
+
+	tprints(", ifc_buf=");
+
+	if (!entering_ifc->ifc_buf || syserror(tcp)) {
+		printaddr(ptr_to_kulong(entering_ifc->ifc_buf));
+		if (entering_ifc->ifc_buf != ifc->ifc_buf) {
+			tprints(" => ");
+			printaddr(ptr_to_kulong(ifc->ifc_buf));
+		}
+	} else {
+		struct_ifreq ifr;
+
+		print_array(tcp, ptr_to_kulong(ifc->ifc_buf),
+			    ifc->ifc_len / sizeof(struct_ifreq),
+			    &ifr, sizeof(ifr),
+			    umoven_or_printaddr, print_ifconf_ifreq, NULL);
 	}
 
-	if (!ifc.ifc_buf) {
-		tprints("{");
-		print_ifc_len(ifc.ifc_len);
-		tprints(", NULL}");
-		return RVAL_DECODED | 1;
-	}
-
-	tprints(" => ");
-	const unsigned int nifra = print_ifc_len(ifc.ifc_len);
-	if (!nifra) {
-		tprints("}");
-		return RVAL_DECODED | 1;
-	}
-
-	struct ifreq ifra[nifra > max_strlen ? max_strlen : nifra];
-	tprints(", ");
-	if (umove_or_printaddr(tcp, (unsigned long) ifc.ifc_buf, &ifra)) {
-		tprints("}");
-		return RVAL_DECODED | 1;
-	}
-
-	tprints("[");
-	unsigned int i;
-	for (i = 0; i < ARRAY_SIZE(ifra); ++i) {
-		if (i > 0)
-			tprints(", ");
-		tprints("{ifr_name=");
-		print_ifname(ifra[i].ifr_name);
-		tprints(", ");
-		if (verbose(tcp)) {
-			tprints("ifr_addr=");
-			print_ifreq_addr(tcp, &ifra[i],
-					 addr + i * sizeof(ifra[0]));
-		} else
-			tprints("...");
-		tprints("}");
-	}
-	if (i < nifra)
-		tprints(", ...");
-	tprints("]}");
+	tprints("}");
 
 	return RVAL_DECODED | 1;
 }
 
-int
-sock_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
+MPERS_PRINTER_DECL(int, sock_ioctl,
+		   struct tcb *tcp, const unsigned int code,
+		   const kernel_ulong_t arg)
 {
-	struct ifreq ifr;
+	struct_ifreq ifr;
 
 	switch (code) {
 	case SIOCGIFCONF:
@@ -229,7 +260,7 @@ sock_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
 	case SIOCBRADDBR:
 	case SIOCBRDELBR:
 		tprints(", ");
-		printstr(tcp, arg, -1);
+		printstr(tcp, arg);
 		break;
 #endif
 

@@ -4,5 +4,5 @@
     <string name="app_name" msgid="559800164925277094">"PhotoViewerSample"</string>
     <string name="menu_settings" msgid="1259682084875185697">"सेटिङहरू"</string>
     <string name="title_activity_main" msgid="7695239211427024237">"MainActivity"</string>
-    <string name="launch" msgid="2345080120370773520">"फोटो देखाउने सुरु गर्नुहोस्"</string>
+    <string name="launch" msgid="2345080120370773520">"तस्बिर देखाउने सुरु गर्नुहोस्"</string>
 </resources>

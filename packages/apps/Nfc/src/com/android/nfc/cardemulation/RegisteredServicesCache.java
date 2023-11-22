@@ -225,9 +225,9 @@ public class RegisteredServicesCache {
 
         ArrayList<ApduServiceInfo> validServices = new ArrayList<ApduServiceInfo>();
 
-        List<ResolveInfo> resolvedServices = pm.queryIntentServicesAsUser(
+        List<ResolveInfo> resolvedServices = new ArrayList<>(pm.queryIntentServicesAsUser(
                 new Intent(HostApduService.SERVICE_INTERFACE),
-                PackageManager.GET_META_DATA, userId);
+                PackageManager.GET_META_DATA, userId));
 
         List<ResolveInfo> resolvedOffHostServices = pm.queryIntentServicesAsUser(
                 new Intent(OffHostApduService.SERVICE_INTERFACE),

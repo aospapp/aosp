@@ -35,6 +35,7 @@ import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -87,14 +88,15 @@ public class ContactsAsyncHelperTest extends TelecomTestCase {
     }
 
     @SmallTest
-    public void testEmptyUri() {
+    public void testEmptyUri() throws Exception {
         ContactsAsyncHelper cah = new ContactsAsyncHelper(mNullContentResolverAdapter);
         try {
             cah.startObtainPhotoAsync(TOKEN, mContext, null, mListener, COOKIE);
         } catch (IllegalStateException e) {
             // expected to fail
         }
-        verify(mListener, timeout(TEST_TIMEOUT).never()).onImageLoadComplete(anyInt(),
+        Thread.sleep(TEST_TIMEOUT);
+        verify(mListener, never()).onImageLoadComplete(anyInt(),
                 any(Drawable.class), any(Bitmap.class), anyObject());
     }
 

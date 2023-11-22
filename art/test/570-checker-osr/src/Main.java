@@ -17,26 +17,6 @@
 public class Main {
   public static void main(String[] args) {
     System.loadLibrary(args[0]);
-    Thread testThread = new Thread() {
-      public void run() {
-        performTest();
-      }
-    };
-    testThread.start();
-    try {
-      testThread.join(20 * 1000);  // 20s timeout.
-    } catch (InterruptedException ie) {
-      System.out.println("Interrupted.");
-      System.exit(1);
-    }
-    Thread.State state = testThread.getState();
-    if (state != Thread.State.TERMINATED) {
-      System.out.println("Test timed out, current state: " + state);
-      System.exit(1);
-    }
-  }
-
-  public static void performTest() {
     new SubMain();
     if ($noinline$returnInt() != 53) {
       throw new Error("Unexpected return value");
@@ -129,7 +109,7 @@ public class Main {
     DeoptimizationController.startDeoptimization();
   }
 
-  public static Class $noinline$inlineCache(Main m, boolean isSecondInvocation) {
+  public static Class<?> $noinline$inlineCache(Main m, boolean isSecondInvocation) {
     // If we are running in non-JIT mode, or were unlucky enough to get this method
     // already JITted, just return the expected value.
     if (!isInInterpreter("$noinline$inlineCache")) {
@@ -159,7 +139,7 @@ public class Main {
     return other.returnClass();
   }
 
-  public static Class $noinline$inlineCache2(Main m, boolean isSecondInvocation) {
+  public static Class<?> $noinline$inlineCache2(Main m, boolean isSecondInvocation) {
     // If we are running in non-JIT mode, or were unlucky enough to get this method
     // already JITted, just return the expected value.
     if (!isInInterpreter("$noinline$inlineCache2")) {
@@ -188,7 +168,7 @@ public class Main {
     return (other == null) ? null : other.returnClass();
   }
 
-  public static Class $noinline$inlineCache3(Main m, boolean isSecondInvocation) {
+  public static Class<?> $noinline$inlineCache3(Main m, boolean isSecondInvocation) {
     // If we are running in non-JIT mode, or were unlucky enough to get this method
     // already JITted, just return the expected value.
     if (!isInInterpreter("$noinline$inlineCache3")) {
@@ -229,7 +209,7 @@ public class Main {
     return null;
   }
 
-  public Class returnClass() {
+  public Class<?> returnClass() {
     return Main.class;
   }
 
@@ -305,7 +285,7 @@ public class Main {
 }
 
 class SubMain extends Main {
-  public Class returnClass() {
+  public Class<?> returnClass() {
     return SubMain.class;
   }
 

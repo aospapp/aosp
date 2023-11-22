@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"Transmisje komórkowe"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"Ustawienia komunikatów z sieci komórkowej"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"Komunikaty z sieci komórkowej"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Ustawienia komunikatów z sieci komórkowej nie są dostępne dla tego użytkownika"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"Nie ma aktywnych alertów w Twojej okolicy. Alerty możesz zmodyfikować w menu Ustawienia."</string>
@@ -46,20 +46,21 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alert o zagrożeniu"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Komunikaty z sieci komórkowej"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Ustawienia alertów o zagrożeniu"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Komunikaty"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Włącz powiadomienia"</string>
-    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Wyświetl transmisje alertów o zagrożeniu"</string>
+    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Wyświetlaj alerty o zagrożeniu"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alarm z przypomnieniem"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Czytaj treść alertu"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Użyj funkcji przetwarzania tekstu na mowę do odczytywania wiadomości z alertami o zagrożeniu"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Ustawienia systemu ETWS"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Pokazuj transmisje testowe ETWS"</string>
-    <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Wyświetl transmisje testowe w systemie ostrzegania przed trzęsieniami ziemi i tsunami (ETWS)"</string>
+    <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Wyświetlaj transmisje testowe w systemie ostrzegania przed trzęsieniami ziemi i tsunami (ETWS)"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Pokazuj ekstremalne zagrożenia"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Wyświetlaj alerty o ekstremalnych zagrożeniach życia i mienia"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Pokazuj poważne zagrożenia"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Wyświetlaj alerty o poważnych zagrożeniach życia i mienia"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Pokazuj alerty AMBER"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Wyświetlaj biuletyny o uprowadzeniu dziecka (alerty AMBER)"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Wyświetlaj komunikaty o uprowadzeniu dziecka (alerty AMBER)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"Pokazuj transmisje testowe CMAS"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"Wyświetlaj transmisje testowe w systemie CMAS (Commercial Mobile Alert System)"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"Wibracje"</string>

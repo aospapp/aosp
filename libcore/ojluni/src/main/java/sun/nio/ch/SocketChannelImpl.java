@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 2000, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,15 +28,34 @@ package sun.nio.ch;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
-import java.net.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ProtocolFamily;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketOption;
+import java.net.StandardProtocolFamily;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
-import java.nio.channels.*;
-import java.nio.channels.spi.*;
-import java.util.*;
+import java.nio.channels.AlreadyBoundException;
+import java.nio.channels.AlreadyConnectedException;
+import java.nio.channels.AsynchronousCloseException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ConnectionPendingException;
+import java.nio.channels.NoConnectionPendingException;
+import java.nio.channels.NotYetConnectedException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
+import java.nio.channels.spi.SelectorProvider;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import dalvik.system.BlockGuard;
+import dalvik.system.CloseGuard;
+import sun.net.ExtendedOptionsImpl;
 import sun.net.NetHooks;
-import sun.misc.IoTrace;
+
 
 /**
  * An implementation of SocketChannels
@@ -99,6 +118,8 @@ class SocketChannelImpl
 
     // -- End of fields protected by stateLock
 
+    // Android-changed: Add CloseGuard support.
+    private final CloseGuard guard = CloseGuard.get();
 
     // Constructor for normal connecting sockets
     //
@@ -107,6 +128,12 @@ class SocketChannelImpl
         this.fd = Net.socket(true);
         this.fdVal = IOUtil.fdVal(fd);
         this.state = ST_UNCONNECTED;
+
+        // Android-changed: Add CloseGuard support.
+        // Net#socket will set |fd| if it succeeds.
+        if (fd != null && fd.valid()) {
+            guard.open("close");
+        }
     }
 
     SocketChannelImpl(SelectorProvider sp,
@@ -118,6 +145,12 @@ class SocketChannelImpl
         this.fd = fd;
         this.fdVal = IOUtil.fdVal(fd);
         this.state = ST_UNCONNECTED;
+
+        // Android-changed: Add CloseGuard support.
+        if (fd != null && fd.valid()) {
+            guard.open("close");
+        }
+
         if (bound)
             this.localAddress = Net.localAddress(fd);
     }
@@ -134,6 +167,10 @@ class SocketChannelImpl
         this.state = ST_CONNECTED;
         this.localAddress = Net.localAddress(fd);
         this.remoteAddress = remote;
+        // Android-changed: Add CloseGuard support.
+        if (fd != null && fd.valid()) {
+            guard.open("close");
+        }
     }
 
     public Socket socket() {
@@ -175,14 +212,14 @@ class SocketChannelImpl
             if (!isOpen())
                 throw new ClosedChannelException();
 
-            // special handling for IP_TOS: no-op when IPv6
             if (name == StandardSocketOptions.IP_TOS) {
-                if (!Net.isIPv6Available())
-                    Net.setSocketOption(fd, StandardProtocolFamily.INET, name, value);
+                ProtocolFamily family = Net.isIPv6Available() ?
+                    StandardProtocolFamily.INET6 : StandardProtocolFamily.INET;
+                Net.setSocketOption(fd, family, name, value);
                 return this;
-            } else if (name == StandardSocketOptions.SO_REUSEADDR &&
-                           Net.useExclusiveBind())
-            {
+            }
+
+            if (name == StandardSocketOptions.SO_REUSEADDR && Net.useExclusiveBind()) {
                 // SO_REUSEADDR emulated when using exclusive bind
                 isReuseAddress = (Boolean)value;
                 return this;
@@ -217,8 +254,9 @@ class SocketChannelImpl
 
             // special handling for IP_TOS: always return 0 when IPv6
             if (name == StandardSocketOptions.IP_TOS) {
-                return (Net.isIPv6Available()) ? (T) Integer.valueOf(0) :
-                    (T) Net.getSocketOption(fd, StandardProtocolFamily.INET, name);
+                ProtocolFamily family = Net.isIPv6Available() ?
+                    StandardProtocolFamily.INET6 : StandardProtocolFamily.INET;
+                return (T) Net.getSocketOption(fd, family, name);
             }
 
             // no options that require special handling
@@ -240,6 +278,9 @@ class SocketChannelImpl
             // additional options required by socket adaptor
             set.add(StandardSocketOptions.IP_TOS);
             set.add(ExtendedSocketOption.SO_OOBINLINE);
+            if (ExtendedOptionsImpl.flowSupported()) {
+                set.add(jdk.net.ExtendedSocketOptions.SO_FLOW_SLA);
+            }
             return Collections.unmodifiableSet(set);
         }
     }
@@ -297,10 +338,6 @@ class SocketChannelImpl
         synchronized (readLock) {
             if (!ensureReadOpen())
                 return -1;
-            Object traceContext = null;
-            if (isBlocking()) {
-                traceContext = IoTrace.socketReadBegin();
-            }
             int n = 0;
             try {
 
@@ -390,12 +427,6 @@ class SocketChannelImpl
 
             } finally {
                 readerCleanup();        // Clear reader thread
-
-                if (isBlocking()) {
-                    IoTrace.socketReadEnd(traceContext, remoteAddress.getAddress(),
-                                          remoteAddress.getPort(), 0, n > 0 ? n : 0);
-                }
-
                 // The end method, which is defined in our superclass
                 // AbstractInterruptibleChannel, resets the interruption
                 // machinery.  If its argument is true then it returns
@@ -436,10 +467,6 @@ class SocketChannelImpl
             if (!ensureReadOpen())
                 return -1;
             long n = 0;
-            Object traceContext = null;
-            if (isBlocking()) {
-                traceContext = IoTrace.socketReadBegin();
-            }
             try {
                 begin();
                 synchronized (stateLock) {
@@ -456,10 +483,6 @@ class SocketChannelImpl
                 }
             } finally {
                 readerCleanup();
-                if (isBlocking()) {
-                    IoTrace.socketReadEnd(traceContext, remoteAddress.getAddress(),
-                                          remoteAddress.getPort(), 0, n > 0 ? n : 0);
-                }
                 end(n > 0 || (n == IOStatus.UNAVAILABLE));
                 synchronized (stateLock) {
                     if ((n <= 0) && (!isInputOpen))
@@ -476,9 +499,6 @@ class SocketChannelImpl
         synchronized (writeLock) {
             ensureWriteOpen();
             int n = 0;
-            Object traceContext =
-                IoTrace.socketWriteBegin();
-
             try {
                 begin();
                 synchronized (stateLock) {
@@ -494,8 +514,6 @@ class SocketChannelImpl
                 }
             } finally {
                 writerCleanup();
-                IoTrace.socketWriteEnd(traceContext, remoteAddress.getAddress(),
-                                       remoteAddress.getPort(), n > 0 ? n : 0);
                 end(n > 0 || (n == IOStatus.UNAVAILABLE));
                 synchronized (stateLock) {
                     if ((n <= 0) && (!isOutputOpen))
@@ -514,8 +532,6 @@ class SocketChannelImpl
         synchronized (writeLock) {
             ensureWriteOpen();
             long n = 0;
-            Object traceContext =
-                IoTrace.socketWriteBegin();
             try {
                 begin();
                 synchronized (stateLock) {
@@ -531,8 +547,6 @@ class SocketChannelImpl
                 }
             } finally {
                 writerCleanup();
-                IoTrace.socketWriteEnd(traceContext, remoteAddress.getAddress(),
-                                       remoteAddress.getPort(), n > 0 ? n : 0);
                 end((n > 0) || (n == IOStatus.UNAVAILABLE));
                 synchronized (stateLock) {
                     if ((n <= 0) && (!isOutputOpen))
@@ -602,6 +616,10 @@ class SocketChannelImpl
                         throw new AlreadyBoundException();
                     InetSocketAddress isa = (local == null) ?
                         new InetSocketAddress(0) : Net.checkAddress(local);
+                    SecurityManager sm = System.getSecurityManager();
+                    if (sm != null) {
+                        sm.checkListen(isa.getPort());
+                    }
                     NetHooks.beforeTcpBind(fd, isa.getAddress(), isa.getPort());
                     Net.bind(fd, isa.getAddress(), isa.getPort());
                     localAddress = Net.localAddress(fd);
@@ -859,8 +877,11 @@ class SocketChannelImpl
             // channel from using the old fd, which might be recycled in the
             // meantime and allocated to an entirely different channel.
             //
-            if (state != ST_KILLED)
+            if (state != ST_KILLED) {
+                // Android-changed: Add CloseGuard support.
+                guard.close();
                 nd.preClose(fd);
+            }
 
             // Signal native threads, if needed.  If a target thread is not
             // currently blocked in an I/O operation then no harm is done since
@@ -909,6 +930,13 @@ class SocketChannelImpl
         }
     }
 
+    protected void finalize() throws IOException {
+        if (guard != null) {
+            guard.warnIfOpen();
+        }
+        close();
+    }
+
     /**
      * Translates native poll revent ops into a ready operation ops
      */
@@ -918,15 +946,14 @@ class SocketChannelImpl
         int oldOps = sk.nioReadyOps();
         int newOps = initialOps;
 
-        if ((ops & PollArrayWrapper.POLLNVAL) != 0) {
+        if ((ops & Net.POLLNVAL) != 0) {
             // This should only happen if this channel is pre-closed while a
             // selection operation is in progress
             // ## Throw an error if this channel has not been pre-closed
             return false;
         }
 
-        if ((ops & (PollArrayWrapper.POLLERR
-                    | PollArrayWrapper.POLLHUP)) != 0) {
+        if ((ops & (Net.POLLERR | Net.POLLHUP)) != 0) {
             newOps = intOps;
             sk.nioReadyOps(newOps);
             // No need to poll again in checkConnect,
@@ -935,19 +962,19 @@ class SocketChannelImpl
             return (newOps & ~oldOps) != 0;
         }
 
-        if (((ops & PollArrayWrapper.POLLIN) != 0) &&
+        if (((ops & Net.POLLIN) != 0) &&
             ((intOps & SelectionKey.OP_READ) != 0) &&
             (state == ST_CONNECTED))
             newOps |= SelectionKey.OP_READ;
 
-        if (((ops & PollArrayWrapper.POLLCONN) != 0) &&
+        if (((ops & Net.POLLCONN) != 0) &&
             ((intOps & SelectionKey.OP_CONNECT) != 0) &&
             ((state == ST_UNCONNECTED) || (state == ST_PENDING))) {
             newOps |= SelectionKey.OP_CONNECT;
             readyToConnect = true;
         }
 
-        if (((ops & PollArrayWrapper.POLLOUT) != 0) &&
+        if (((ops & Net.POLLOUT) != 0) &&
             ((intOps & SelectionKey.OP_WRITE) != 0) &&
             (state == ST_CONNECTED))
             newOps |= SelectionKey.OP_WRITE;
@@ -964,17 +991,39 @@ class SocketChannelImpl
         return translateReadyOps(ops, 0, sk);
     }
 
+    // package-private
+    int poll(int events, long timeout) throws IOException {
+        assert Thread.holdsLock(blockingLock()) && !isBlocking();
+
+        synchronized (readLock) {
+            int n = 0;
+            try {
+                begin();
+                synchronized (stateLock) {
+                    if (!isOpen())
+                        return 0;
+                    readerThread = NativeThread.current();
+                }
+                n = Net.poll(fd, events, timeout);
+            } finally {
+                readerCleanup();
+                end(n > 0);
+            }
+            return n;
+        }
+    }
+
     /**
      * Translates an interest operation set into a native poll event set
      */
     public void translateAndSetInterestOps(int ops, SelectionKeyImpl sk) {
         int newOps = 0;
         if ((ops & SelectionKey.OP_READ) != 0)
-            newOps |= PollArrayWrapper.POLLIN;
+            newOps |= Net.POLLIN;
         if ((ops & SelectionKey.OP_WRITE) != 0)
-            newOps |= PollArrayWrapper.POLLOUT;
+            newOps |= Net.POLLOUT;
         if ((ops & SelectionKey.OP_CONNECT) != 0)
-            newOps |= PollArrayWrapper.POLLCONN;
+            newOps |= Net.POLLCONN;
         sk.selector.putEventOps(sk, newOps);
     }
 

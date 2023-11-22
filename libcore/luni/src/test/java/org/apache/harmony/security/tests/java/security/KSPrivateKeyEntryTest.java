@@ -25,6 +25,9 @@ package org.apache.harmony.security.tests.java.security;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.harmony.security.tests.support.cert.MyCertificate;
 
@@ -121,6 +124,22 @@ public class KSPrivateKeyEntryTest extends TestCase {
     }
 
     /**
+     * Test for
+     * <code>PrivateKeyEntry(
+     *         PrivateKey privateKey, Certificate[] chain, Set<Attribute> attributes)</code>
+     * constructor
+     * Assertion: throws NullPointerException when attributes is null
+     */
+    public void testPrivateKeyEntry05() {
+        createParams(false, true);
+        try {
+            new KeyStore.PrivateKeyEntry(testPrivateKey, testChain, null /* attributes */);
+            fail("NullPointerException must be thrown when attributes is null");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    /**
      * Test for <code>getPrivateKey()</code> method
      * Assertion: returns PrivateKey object
      */
@@ -158,6 +177,41 @@ public class KSPrivateKeyEntryTest extends TestCase {
                 testPrivateKey, testChain);
         Certificate res = ksPKE.getCertificate();
         assertEquals("Incorrect end certificate (number 0)", testChain[0], res);
+    }
+
+    /**
+     * Test for <code>getAttributes()</code> method
+     * Assertion: returns attributes specified in the constructor, as an unmodifiable set.
+     */
+    public void testGetAttributes() {
+        createParams(false, false);
+        final String attributeName = "theAttributeName";
+        KeyStore.Entry.Attribute myAttribute = new KeyStore.Entry.Attribute() {
+            @Override
+            public String getName() {
+                return attributeName;
+            }
+
+            @Override
+            public String getValue() {
+                return null;
+            }
+        };
+        Set<KeyStore.Entry.Attribute> attributeSet = new HashSet<KeyStore.Entry.Attribute>();
+        attributeSet.add(myAttribute);
+
+        KeyStore.PrivateKeyEntry ksPKE = new KeyStore.PrivateKeyEntry(
+                testPrivateKey, testChain, attributeSet);
+        Set<KeyStore.Entry.Attribute> returnedAttributeSet = ksPKE.getAttributes();
+        assertEquals(attributeSet, returnedAttributeSet);
+        // Adding an element to the original set is OK.
+        attributeSet.add(myAttribute);
+        // The returned set is unmodifiabled.
+        try {
+            returnedAttributeSet.add(myAttribute);
+            fail("The returned set of attributed should be unmodifiable");
+        } catch (UnsupportedOperationException expected) {
+        }
     }
 
     /**

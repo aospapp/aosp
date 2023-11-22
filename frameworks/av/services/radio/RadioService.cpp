@@ -34,6 +34,7 @@
 #include <binder/IServiceManager.h>
 #include <binder/MemoryBase.h>
 #include <binder/MemoryHeapBase.h>
+#include <binder/PermissionCache.h>
 #include <hardware/radio.h>
 #include <media/AudioSystem.h>
 #include "RadioService.h"
@@ -43,6 +44,8 @@ namespace android {
 
 static const char kRadioTunerAudioDeviceName[] = "Radio tuner source";
 
+static const String16 RADIO_PERMISSION("android.permission.ACCESS_FM_RADIO");
+
 RadioService::RadioService()
     : BnRadioService(), mNextUniqueId(1)
 {
@@ -51,31 +54,15 @@ RadioService::RadioService()
 
 void RadioService::onFirstRef()
 {
-    const hw_module_t *mod;
-    int rc;
-    struct radio_hw_device *dev;
-
     ALOGI("%s", __FUNCTION__);
 
-    rc = hw_get_module_by_class(RADIO_HARDWARE_MODULE_ID, RADIO_HARDWARE_MODULE_ID_FM, &mod);
-    if (rc != 0) {
-        ALOGE("couldn't load radio module %s.%s (%s)",
-              RADIO_HARDWARE_MODULE_ID, "primary", strerror(-rc));
-        return;
-    }
-    rc = radio_hw_device_open(mod, &dev);
-    if (rc != 0) {
-        ALOGE("couldn't open radio hw device in %s.%s (%s)",
-              RADIO_HARDWARE_MODULE_ID, "primary", strerror(-rc));
-        return;
-    }
-    if (dev->common.version != RADIO_DEVICE_API_VERSION_CURRENT) {
-        ALOGE("wrong radio hw device version %04x", dev->common.version);
-        return;
-    }
+    sp<RadioInterface> dev = RadioInterface::connectModule(RADIO_CLASS_AM_FM);
 
+    if (dev == 0) {
+        return;
+    }
     struct radio_hal_properties halProperties;
-    rc = dev->get_properties(dev, &halProperties);
+    int rc = dev->getProperties(&halProperties);
     if (rc != 0) {
         ALOGE("could not read implementation properties");
         return;
@@ -84,31 +71,32 @@ void RadioService::onFirstRef()
     radio_properties_t properties;
     properties.handle =
             (radio_handle_t)android_atomic_inc(&mNextUniqueId);
-
-    ALOGI("loaded default module %s, handle %d", properties.product, properties.handle);
-
     convertProperties(&properties, &halProperties);
+
+    ALOGI("loaded default module %s, ver %s, handle %d", properties.product,
+        properties.version, properties.handle);
+
     sp<Module> module = new Module(dev, properties);
     mModules.add(properties.handle, module);
 }
 
 RadioService::~RadioService()
 {
-    for (size_t i = 0; i < mModules.size(); i++) {
-        radio_hw_device_close(mModules.valueAt(i)->hwDevice());
-    }
 }
 
 status_t RadioService::listModules(struct radio_properties *properties,
                              uint32_t *numModules)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     ALOGV("listModules");
 
     AutoMutex lock(mServiceLock);
     if (numModules == NULL || (*numModules != 0 && properties == NULL)) {
         return BAD_VALUE;
     }
-    size_t maxModules = *numModules;
+    uint32_t maxModules = *numModules;
     *numModules = mModules.size();
     for (size_t i = 0; i < mModules.size() && i < maxModules; i++) {
         properties[i] = mModules.valueAt(i)->properties();
@@ -122,6 +110,9 @@ status_t RadioService::attach(radio_handle_t handle,
                         bool withAudio,
                         sp<IRadio>& radio)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     ALOGV("%s %d config %p withAudio %d", __FUNCTION__, handle, config, withAudio);
 
     AutoMutex lock(mServiceLock);
@@ -191,16 +182,6 @@ status_t RadioService::onTransact(
     return BnRadioService::onTransact(code, data, reply, flags);
 }
 
-
-// static
-void RadioService::callback(radio_hal_event_t *halEvent, void *cookie)
-{
-    CallbackThread *callbackThread = (CallbackThread *)cookie;
-    if (callbackThread == NULL) {
-        return;
-    }
-    callbackThread->sendEvent(halEvent);
-}
 
 /* static */
 void RadioService::convertProperties(radio_properties_t *properties,
@@ -305,32 +286,40 @@ sp<IMemory> RadioService::CallbackThread::prepareEvent(radio_hal_event_t *halEve
 {
     sp<IMemory> eventMemory;
 
-    size_t headerSize =
-            (sizeof(struct radio_event) + sizeof(unsigned int) - 1) /sizeof(unsigned int);
-    size_t metadataSize = 0;
+    // The event layout in shared memory is:
+    // sizeof(struct radio_event) bytes : the event itself
+    // 4 bytes                          : metadata size or 0
+    // N bytes                          : metadata if present
+    uint32_t metadataOffset = sizeof(struct radio_event) + sizeof(uint32_t);
+    uint32_t metadataSize = 0;
+
     switch (halEvent->type) {
     case RADIO_EVENT_TUNED:
     case RADIO_EVENT_AF_SWITCH:
         if (radio_metadata_check(halEvent->info.metadata) == 0) {
-            metadataSize = radio_metadata_get_size(halEvent->info.metadata);
+            metadataSize = (uint32_t)radio_metadata_get_size(halEvent->info.metadata);
         }
         break;
     case RADIO_EVENT_METADATA:
         if (radio_metadata_check(halEvent->metadata) != 0) {
             return eventMemory;
         }
-        metadataSize = radio_metadata_get_size(halEvent->metadata);
+        metadataSize = (uint32_t)radio_metadata_get_size(halEvent->metadata);
         break;
     default:
         break;
     }
-    size_t size = headerSize + metadataSize;
-    eventMemory = mMemoryDealer->allocate(size);
+
+    eventMemory = mMemoryDealer->allocate(metadataOffset + metadataSize);
     if (eventMemory == 0 || eventMemory->pointer() == NULL) {
         eventMemory.clear();
         return eventMemory;
     }
+
     struct radio_event *event = (struct radio_event *)eventMemory->pointer();
+
+    *(uint32_t *)((uint8_t *)event + metadataOffset - sizeof(uint32_t)) = metadataSize;
+
     event->type = halEvent->type;
     event->status = halEvent->status;
 
@@ -342,10 +331,7 @@ sp<IMemory> RadioService::CallbackThread::prepareEvent(radio_hal_event_t *halEve
     case RADIO_EVENT_AF_SWITCH:
         event->info = halEvent->info;
         if (metadataSize != 0) {
-            memcpy((char *)event + headerSize, halEvent->info.metadata, metadataSize);
-            // replace meta data pointer by offset while in shared memory so that receiving side
-            // can restore the pointer in destination process.
-            event->info.metadata = (radio_metadata_t *)headerSize;
+            memcpy((uint8_t *)event + metadataOffset, halEvent->info.metadata, metadataSize);
         }
         break;
     case RADIO_EVENT_TA:
@@ -355,10 +341,9 @@ sp<IMemory> RadioService::CallbackThread::prepareEvent(radio_hal_event_t *halEve
         event->on = halEvent->on;
         break;
     case RADIO_EVENT_METADATA:
-        memcpy((char *)event + headerSize, halEvent->metadata, metadataSize);
-        // replace meta data pointer by offset while in shared memory so that receiving side
-        // can restore the pointer in destination process.
-        event->metadata = (radio_metadata_t *)headerSize;
+        if (metadataSize != 0) {
+            memcpy((uint8_t *)event + metadataOffset, halEvent->metadata, metadataSize);
+        }
         break;
     case RADIO_EVENT_HW_FAILURE:
     default:
@@ -385,12 +370,13 @@ void RadioService::CallbackThread::sendEvent(radio_hal_event_t *event)
 #undef LOG_TAG
 #define LOG_TAG "RadioService::Module"
 
-RadioService::Module::Module(radio_hw_device* hwDevice, radio_properties properties)
+RadioService::Module::Module(sp<RadioInterface> hwDevice, radio_properties properties)
  : mHwDevice(hwDevice), mProperties(properties), mMute(true)
 {
 }
 
 RadioService::Module::~Module() {
+    mHwDevice.clear();
     mModuleClients.clear();
 }
 
@@ -404,9 +390,14 @@ sp<RadioService::ModuleClient> RadioService::Module::addClient(const sp<IRadioCl
                                     bool audio)
 {
     ALOGV("addClient() %p config %p product %s", this, config, mProperties.product);
+
     AutoMutex lock(mLock);
     sp<ModuleClient> moduleClient;
     int ret;
+
+    if (mHwDevice == 0) {
+        return moduleClient;
+    }
 
     for (size_t i = 0; i < mModuleClients.size(); i++) {
         if (mModuleClients[i]->client() == client) {
@@ -464,7 +455,7 @@ sp<RadioService::ModuleClient> RadioService::Module::addClient(const sp<IRadioCl
         }
     }
 
-    const struct radio_tuner *halTuner;
+    sp<TunerInterface> halTuner;
     sp<ModuleClient> preemtedClient;
     if (audio) {
         if (allocatedAudio >= mProperties.num_audio_sources) {
@@ -484,18 +475,19 @@ sp<RadioService::ModuleClient> RadioService::Module::addClient(const sp<IRadioCl
     }
     if (preemtedClient != 0) {
         halTuner = preemtedClient->getTuner();
-        preemtedClient->setTuner(NULL);
-        mHwDevice->close_tuner(mHwDevice, halTuner);
+        sp<TunerInterface> clear;
+        preemtedClient->setTuner(clear);
+        mHwDevice->closeTuner(halTuner);
         if (preemtedClient->audio()) {
             notifyDeviceConnection(false, "");
         }
     }
 
-    ret = mHwDevice->open_tuner(mHwDevice, &halConfig, audio,
-                                RadioService::callback, moduleClient->callbackThread().get(),
-                                &halTuner);
+    ret = mHwDevice->openTuner(&halConfig, audio,
+                               moduleClient,
+                               halTuner);
     if (ret == 0) {
-        ALOGV("addClient() setTuner %p", halTuner);
+        ALOGV("addClient() setTuner %p", halTuner.get());
         moduleClient->setTuner(halTuner);
         mModuleClients.add(moduleClient);
         if (audio) {
@@ -527,12 +519,15 @@ void RadioService::Module::removeClient(const sp<ModuleClient>& moduleClient) {
     }
 
     mModuleClients.removeAt(index);
-    const struct radio_tuner *halTuner = moduleClient->getTuner();
+    sp<TunerInterface> halTuner = moduleClient->getTuner();
     if (halTuner == NULL) {
         return;
     }
 
-    mHwDevice->close_tuner(mHwDevice, halTuner);
+    if (mHwDevice != 0) {
+        mHwDevice->closeTuner(halTuner);
+    }
+
     if (moduleClient->audio()) {
         notifyDeviceConnection(false, "");
     }
@@ -540,6 +535,10 @@ void RadioService::Module::removeClient(const sp<ModuleClient>& moduleClient) {
     mMute = true;
 
     if (mModuleClients.isEmpty()) {
+        return;
+    }
+
+    if (mHwDevice == 0) {
         return;
     }
 
@@ -591,9 +590,9 @@ void RadioService::Module::removeClient(const sp<ModuleClient>& moduleClient) {
     ALOG_ASSERT(youngestClient != 0, "removeClient() removed client no candidate found for tuner");
 
     struct radio_hal_band_config halConfig = youngestClient->halConfig();
-    ret = mHwDevice->open_tuner(mHwDevice, &halConfig, youngestClient->audio(),
-                                RadioService::callback, moduleClient->callbackThread().get(),
-                                &halTuner);
+    ret = mHwDevice->openTuner(&halConfig, youngestClient->audio(),
+                                moduleClient,
+                                halTuner);
 
     if (ret == 0) {
         youngestClient->setTuner(halTuner);
@@ -646,7 +645,7 @@ RadioService::ModuleClient::ModuleClient(const sp<Module>& module,
                                          const sp<IRadioClient>& client,
                                          const struct radio_band_config *config,
                                          bool audio)
- : mModule(module), mClient(client), mConfig(*config), mAudio(audio), mTuner(NULL)
+ : mModule(module), mClient(client), mConfig(*config), mAudio(audio), mTuner(0)
 {
 }
 
@@ -664,6 +663,11 @@ RadioService::ModuleClient::~ModuleClient() {
     if (mCallbackThread != 0) {
         mCallbackThread->exit();
     }
+}
+
+void RadioService::ModuleClient::onEvent(radio_hal_event_t *halEvent)
+{
+    mCallbackThread->sendEvent(halEvent);
 }
 
 status_t RadioService::ModuleClient::dump(int fd __unused,
@@ -696,14 +700,14 @@ radio_hal_band_config_t RadioService::ModuleClient::halConfig() const
     return mConfig.band;
 }
 
-const struct radio_tuner *RadioService::ModuleClient::getTuner() const
+sp<TunerInterface>& RadioService::ModuleClient::getTuner()
 {
     AutoMutex lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
     return mTuner;
 }
 
-void RadioService::ModuleClient::setTuner(const struct radio_tuner *tuner)
+void RadioService::ModuleClient::setTuner(sp<TunerInterface>& tuner)
 {
     ALOGV("%s %p", __FUNCTION__, this);
 
@@ -714,7 +718,7 @@ void RadioService::ModuleClient::setTuner(const struct radio_tuner *tuner)
     radio_hal_event_t event;
     event.type = RADIO_EVENT_CONTROL;
     event.status = 0;
-    event.on = mTuner != NULL;
+    event.on = mTuner != 0;
     mCallbackThread->sendEvent(&event);
     ALOGV("%s DONE", __FUNCTION__);
 
@@ -722,14 +726,17 @@ void RadioService::ModuleClient::setTuner(const struct radio_tuner *tuner)
 
 status_t RadioService::ModuleClient::setConfiguration(const struct radio_band_config *config)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     status_t status = NO_ERROR;
     ALOGV("%s locked", __FUNCTION__);
 
-    if (mTuner != NULL) {
+    if (mTuner != 0) {
         struct radio_hal_band_config halConfig;
         halConfig = config->band;
-        status = (status_t)mTuner->set_configuration(mTuner, &halConfig);
+        status = (status_t)mTuner->setConfiguration(&halConfig);
         if (status == NO_ERROR) {
             mConfig = *config;
         }
@@ -743,13 +750,16 @@ status_t RadioService::ModuleClient::setConfiguration(const struct radio_band_co
 
 status_t RadioService::ModuleClient::getConfiguration(struct radio_band_config *config)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     status_t status = NO_ERROR;
     ALOGV("%s locked", __FUNCTION__);
 
-    if (mTuner != NULL) {
+    if (mTuner != 0) {
         struct radio_hal_band_config halConfig;
-        status = (status_t)mTuner->get_configuration(mTuner, &halConfig);
+        status = (status_t)mTuner->getConfiguration(&halConfig);
         if (status == NO_ERROR) {
             mConfig.band = halConfig;
         }
@@ -761,11 +771,14 @@ status_t RadioService::ModuleClient::getConfiguration(struct radio_band_config *
 
 status_t RadioService::ModuleClient::setMute(bool mute)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     sp<Module> module;
     {
         Mutex::Autolock _l(mLock);
         ALOGV("%s locked", __FUNCTION__);
-        if (mTuner == NULL || !mAudio) {
+        if (mTuner == 0 || !mAudio) {
             return INVALID_OPERATION;
         }
         module = mModule.promote();
@@ -779,6 +792,9 @@ status_t RadioService::ModuleClient::setMute(bool mute)
 
 status_t RadioService::ModuleClient::getMute(bool *mute)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     sp<Module> module;
     {
         Mutex::Autolock _l(mLock);
@@ -793,11 +809,14 @@ status_t RadioService::ModuleClient::getMute(bool *mute)
 
 status_t RadioService::ModuleClient::scan(radio_direction_t direction, bool skipSubChannel)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
     status_t status;
-    if (mTuner != NULL) {
-        status = (status_t)mTuner->scan(mTuner, direction, skipSubChannel);
+    if (mTuner != 0) {
+        status = (status_t)mTuner->scan(direction, skipSubChannel);
     } else {
         status = INVALID_OPERATION;
     }
@@ -806,24 +825,30 @@ status_t RadioService::ModuleClient::scan(radio_direction_t direction, bool skip
 
 status_t RadioService::ModuleClient::step(radio_direction_t direction, bool skipSubChannel)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
     status_t status;
-    if (mTuner != NULL) {
-        status = (status_t)mTuner->step(mTuner, direction, skipSubChannel);
+    if (mTuner != 0) {
+        status = (status_t)mTuner->step(direction, skipSubChannel);
     } else {
         status = INVALID_OPERATION;
     }
     return status;
 }
 
-status_t RadioService::ModuleClient::tune(unsigned int channel, unsigned int subChannel)
+status_t RadioService::ModuleClient::tune(uint32_t channel, uint32_t subChannel)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
     status_t status;
-    if (mTuner != NULL) {
-        status = (status_t)mTuner->tune(mTuner, channel, subChannel);
+    if (mTuner != 0) {
+        status = (status_t)mTuner->tune(channel, subChannel);
     } else {
         status = INVALID_OPERATION;
     }
@@ -832,11 +857,14 @@ status_t RadioService::ModuleClient::tune(unsigned int channel, unsigned int sub
 
 status_t RadioService::ModuleClient::cancel()
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
     status_t status;
-    if (mTuner != NULL) {
-        status = (status_t)mTuner->cancel(mTuner);
+    if (mTuner != 0) {
+        status = (status_t)mTuner->cancel();
     } else {
         status = INVALID_OPERATION;
     }
@@ -845,22 +873,29 @@ status_t RadioService::ModuleClient::cancel()
 
 status_t RadioService::ModuleClient::getProgramInformation(struct radio_program_info *info)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     AutoMutex lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
     status_t status;
     if (mTuner != NULL) {
-        status = (status_t)mTuner->get_program_information(mTuner, info);
+        status = (status_t)mTuner->getProgramInformation(info);
     } else {
         status = INVALID_OPERATION;
     }
+
     return status;
 }
 
 status_t RadioService::ModuleClient::hasControl(bool *hasControl)
 {
+    if (!PermissionCache::checkCallingPermission(RADIO_PERMISSION)) {
+        return PERMISSION_DENIED;
+    }
     Mutex::Autolock lock(mLock);
     ALOGV("%s locked", __FUNCTION__);
-    *hasControl = mTuner != NULL;
+    *hasControl = mTuner != 0;
     return NO_ERROR;
 }
 

@@ -16,7 +16,7 @@
 
 package com.android.tv.recommendation;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import java.util.HashMap;
 import java.util.List;

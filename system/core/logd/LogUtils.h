@@ -17,10 +17,12 @@
 #ifndef _LOGD_LOG_UTILS_H__
 #define _LOGD_LOG_UTILS_H__
 
+#include <sys/cdefs.h>
 #include <sys/types.h>
 
-#include <log/log.h>
+#include <private/android_logger.h>
 #include <sysutils/SocketClient.h>
+#include <utils/FastStrcmp.h>
 
 // Hijack this header as a common include file used by most all sources
 // to report some utilities defined here and there.
@@ -28,50 +30,47 @@
 namespace android {
 
 // Furnished in main.cpp. Caller must own and free returned value
-char *uidToName(uid_t uid);
+char* uidToName(uid_t uid);
+void prdebug(const char* fmt, ...) __printflike(1, 2);
 
-// Furnished in LogStatistics.cpp. Caller must own and free returned value
-char *pidToName(pid_t pid);
-char *tidToName(pid_t tid);
+// Furnished in LogStatistics.cpp.
+size_t sizesTotal();
+// Caller must own and free returned value
+char* pidToName(pid_t pid);
+char* tidToName(pid_t tid);
 
-// Furnished in main.cpp. Thread safe.
-const char *tagToName(uint32_t tag);
+// Furnished in LogTags.cpp. Thread safe.
+const char* tagToName(uint32_t tag);
+void ReReadEventLogTags();
 
+// Furnished by LogKlog.cpp
+char* log_strntok_r(char* s, ssize_t& len, char*& saveptr, ssize_t& sublen);
+
+// needle should reference a string longer than 1 character
+static inline const char* strnstr(const char* s, ssize_t len,
+                                  const char* needle) {
+    if (len <= 0) return nullptr;
+
+    const char c = *needle++;
+    const size_t needleLen = strlen(needle);
+    do {
+        do {
+            if (len <= (ssize_t)needleLen) return nullptr;
+            --len;
+        } while (*s++ != c);
+    } while (fastcmp<memcmp>(s, needle, needleLen));
+    s--;
+    return s;
+}
 }
 
 // Furnished in LogCommand.cpp
 bool clientHasLogCredentials(uid_t uid, gid_t gid, pid_t pid);
-bool clientHasLogCredentials(SocketClient *cli);
-
-// Furnished in main.cpp
-#define BOOL_DEFAULT_FLAG_TRUE_FALSE 0x1
-#define BOOL_DEFAULT_FALSE       0x0     // false if property not present
-#define BOOL_DEFAULT_TRUE        0x1     // true if property not present
-#define BOOL_DEFAULT_FLAG_PERSIST    0x2 // <key>, persist.<key>, ro.<key>
-#define BOOL_DEFAULT_FLAG_ENG        0x4 // off for user
-#define BOOL_DEFAULT_FLAG_SVELTE     0x8 // off for low_ram
-
-bool property_get_bool(const char *key, int def);
+bool clientHasLogCredentials(SocketClient* cli);
 
 static inline bool worstUidEnabledForLogid(log_id_t id) {
-    return (id == LOG_ID_MAIN) || (id == LOG_ID_SYSTEM) || (id == LOG_ID_RADIO);
+    return (id == LOG_ID_MAIN) || (id == LOG_ID_SYSTEM) ||
+           (id == LOG_ID_RADIO) || (id == LOG_ID_EVENTS);
 }
 
-template <int (*cmp)(const char *l, const char *r, const size_t s)>
-static inline int fast(const char *l, const char *r, const size_t s) {
-    return (*l != *r) || cmp(l + 1, r + 1, s - 1);
-}
-
-template <int (*cmp)(const void *l, const void *r, const size_t s)>
-static inline int fast(const void *lv, const void *rv, const size_t s) {
-    const char *l = static_cast<const char *>(lv);
-    const char *r = static_cast<const char *>(rv);
-    return (*l != *r) || cmp(l + 1, r + 1, s - 1);
-}
-
-template <int (*cmp)(const char *l, const char *r)>
-static inline int fast(const char *l, const char *r) {
-    return (*l != *r) || cmp(l + 1, r + 1);
-}
-
-#endif // _LOGD_LOG_UTILS_H__
+#endif  // _LOGD_LOG_UTILS_H__

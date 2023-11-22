@@ -15,12 +15,10 @@ poirier@google.com (Benjamin Poirier),
 stutsman@google.com (Ryan Stutsman)
 """
 
-import cPickle, cStringIO, logging, os, re, time
+import cPickle, logging, os, re, time
 
 from autotest_lib.client.common_lib import global_config, error, utils
 from autotest_lib.client.common_lib.cros import path_utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
-from autotest_lib.client.bin import partition
 
 
 class Host(object):
@@ -75,11 +73,22 @@ class Host(object):
         pass
 
 
+    @property
+    def job_repo_url_attribute(self):
+        """Get the host attribute name for job_repo_url.
+        """
+        return 'job_repo_url'
+
+
     def close(self):
+        """Close the connection to the host.
+        """
         pass
 
 
     def setup(self):
+        """Setup the host object.
+        """
         pass
 
 
@@ -96,7 +105,8 @@ class Host(object):
                 to complete if it has to kill the process.
         @param ignore_status: do not raise an exception, no matter
                 what the exit code of the command is.
-        @param stdout_tee/stderr_tee: where to tee the stdout/stderr
+        @param stdout_tee: where to tee the stdout
+        @param stderr_tee: where to tee the stderr
         @param stdin: stdin to pass (a string) to the executed command
         @param args: sequence of strings to pass as arguments to command by
                 quoting them in " and escaping their contents if necessary
@@ -110,42 +120,88 @@ class Host(object):
 
 
     def run_output(self, command, *args, **dargs):
+        """Run and retrieve the value of stdout stripped of whitespace.
+
+        @param command: Command to execute.
+        @param *args: Extra arguments to run.
+        @param **dargs: Extra keyword arguments to run.
+
+        @return: String value of stdout.
+        """
         return self.run(command, *args, **dargs).stdout.rstrip()
 
 
     def reboot(self):
+        """Reboot the host.
+        """
         raise NotImplementedError('Reboot not implemented!')
 
 
     def suspend(self):
+        """Suspend the host.
+        """
         raise NotImplementedError('Suspend not implemented!')
 
 
     def sysrq_reboot(self):
+        """Execute host reboot via SysRq key.
+        """
         raise NotImplementedError('Sysrq reboot not implemented!')
 
 
     def reboot_setup(self, *args, **dargs):
+        """Prepare for reboot.
+
+        This doesn't appear to be implemented by any current hosts.
+
+        @param *args: Extra arguments to ?.
+        @param **dargs: Extra keyword arguments to ?.
+        """
         pass
 
 
     def reboot_followup(self, *args, **dargs):
+        """Post reboot work.
+
+        This doesn't appear to be implemented by any current hosts.
+
+        @param *args: Extra arguments to ?.
+        @param **dargs: Extra keyword arguments to ?.
+        """
         pass
 
 
     def get_file(self, source, dest, delete_dest=False):
+        """Retrieve a file from the host.
+
+        @param source: Remote file path (directory, file or list).
+        @param dest: Local file path (directory, file or list).
+        @param delete_dest: Delete files in remote path that are not in local
+            path.
+        """
         raise NotImplementedError('Get file not implemented!')
 
 
     def send_file(self, source, dest, delete_dest=False):
+        """Send a file to the host.
+
+        @param source: Local file path (directory, file or list).
+        @param dest: Remote file path (directory, file or list).
+        @param delete_dest: Delete files in remote path that are not in local
+            path.
+        """
         raise NotImplementedError('Send file not implemented!')
 
 
     def get_tmp_dir(self):
+        """Create a temporary directory on the host.
+        """
         raise NotImplementedError('Get temp dir not implemented!')
 
 
     def is_up(self):
+        """Confirm the host is online.
+        """
         raise NotImplementedError('Is up not implemented!')
 
 
@@ -186,10 +242,20 @@ class Host(object):
 
 
     def wait_up(self, timeout=None):
+        """Wait for the host to come up.
+
+        @param timeout: Max seconds to wait.
+        """
         raise NotImplementedError('Wait up not implemented!')
 
 
     def wait_down(self, timeout=None, warning_timer=None, old_boot_id=None):
+        """Wait for the host to go down.
+
+        @param timeout: Max seconds to wait before returning.
+        @param warning_timer: Seconds before warning host is not down.
+        @param old_boot_id: Result of self.get_boot_id() before shutdown.
+        """
         raise NotImplementedError('Wait down not implemented!')
 
 
@@ -211,32 +277,32 @@ class Host(object):
                          down_timeout=WAIT_DOWN_REBOOT_TIMEOUT,
                          down_warning=WAIT_DOWN_REBOOT_WARNING,
                          log_failure=True, old_boot_id=None, **dargs):
-        """ Wait for the host to come back from a reboot. This is a generic
-        implementation based entirely on wait_up and wait_down. """
+        """Wait for the host to come back from a reboot.
+
+        This is a generic implementation based entirely on wait_up and
+        wait_down.
+
+        @param timeout: Max seconds to wait for reboot to start.
+        @param down_timeout: Max seconds to wait for host to go down.
+        @param down_warning: Seconds to wait before warning host hasn't gone
+            down.
+        @param log_failure: bool(Log when host does not go down.)
+        @param old_boot_id: Result of self.get_boot_id() before restart.
+        @param **dargs: Extra arguments to reboot_followup.
+
+        @raises AutoservRebootError if host does not come back up.
+        """
         key_string = 'Reboot.%s' % dargs.get('board')
 
-        total_reboot_timer = autotest_stats.Timer('%s.total' % key_string,
-                metadata=self._construct_host_metadata('reboot_total'))
-        wait_down_timer = autotest_stats.Timer('%s.wait_down' % key_string,
-                metadata=self._construct_host_metadata('reboot_down'))
-
-        total_reboot_timer.start()
-        wait_down_timer.start()
         if not self.wait_down(timeout=down_timeout,
                               warning_timer=down_warning,
                               old_boot_id=old_boot_id):
             if log_failure:
                 self.record("ABORT", None, "reboot.verify", "shut down failed")
             raise error.AutoservShutdownError("Host did not shut down")
-        wait_down_timer.stop()
-        wait_up_timer = autotest_stats.Timer('%s.wait_up' % key_string,
-                metadata=self._construct_host_metadata('reboot_up'))
-        wait_up_timer.start()
         if self.wait_up(timeout):
             self.record("GOOD", None, "reboot.verify")
             self.reboot_followup(**dargs)
-            wait_up_timer.stop()
-            total_reboot_timer.stop()
         else:
             self.record("ABORT", None, "reboot.verify",
                         "Host did not return from reboot")
@@ -244,20 +310,28 @@ class Host(object):
 
 
     def verify(self):
+        """Check if host is in good state.
+        """
         self.verify_hardware()
         self.verify_connectivity()
         self.verify_software()
 
 
     def verify_hardware(self):
+        """Check host hardware.
+        """
         pass
 
 
     def verify_connectivity(self):
+        """Check host network connectivity.
+        """
         pass
 
 
     def verify_software(self):
+        """Check host software.
+        """
         pass
 
 
@@ -310,7 +384,12 @@ class Host(object):
 
 
     def erase_dir_contents(self, path, ignore_status=True, timeout=3600):
-        """Empty a given directory path contents."""
+        """Empty a given directory path contents.
+
+        @param path: Path to empty.
+        @param ignore_status: Ignore the exit status from run.
+        @param timeout: Max seconds to allow command to complete.
+        """
         rm_cmd = 'find "%s" -mindepth 1 -maxdepth 1 -print0 | xargs -0 rm -rf'
         self.run(rm_cmd % path, ignore_status=ignore_status, timeout=timeout)
 
@@ -335,14 +414,23 @@ class Host(object):
 
 
     def cleanup(self):
+        """Restore host to clean state.
+        """
         pass
 
 
     def machine_install(self):
+        """Install on the host.
+        """
         raise NotImplementedError('Machine install not implemented!')
 
 
     def install(self, installableObject):
+        """Call install on a thing.
+
+        @param installableObject: Thing with install method that will accept our
+            self.
+        """
         installableObject.install(self)
 
 
@@ -411,8 +499,12 @@ class Host(object):
 
 
     def path_exists(self, path):
-        """ Determine if path exists on the remote machine. """
-        result = self.run('ls "%s" > /dev/null' % utils.sh_escape(path),
+        """Determine if path exists on the remote machine.
+
+        @param path: path to check
+
+        @return: bool(path exists)"""
+        result = self.run('test -e "%s"' % utils.sh_escape(path),
                           ignore_status=True)
         return result.exit_status == 0
 
@@ -457,8 +549,11 @@ class Host(object):
 
 
     def list_files_glob(self, glob):
-        """
-        Get a list of files on a remote host given a glob pattern path.
+        """Get a list of files on a remote host given a glob pattern path.
+
+        @param glob: pattern
+
+        @return: list of files
         """
         SCRIPT = ("python -c 'import cPickle, glob, sys;"
                   "cPickle.dump(glob.glob(sys.argv[1]), sys.stdout, 0)'")
@@ -565,3 +660,35 @@ class Host(object):
         # the regex match should keep us safe from removing the wrong files
         for moddir in unused_moddirs:
             self.run('rm -fr', args=(moddir,), ignore_status=True)
+
+
+    def get_attributes_to_clear_before_provision(self):
+        """Get a list of attributes to be cleared before machine_install starts.
+
+        If provision runs in a lab environment, it is necessary to clear certain
+        host attributes for the host in afe_host_attributes table. For example,
+        `job_repo_url` is a devserver url pointed to autotest packages for
+        CrosHost, it needs to be removed before provision starts for tests to
+        run reliably.
+        For ADBHost, the job repo url has a different format, i.e., appended by
+        adb_serial, so this method should be overriden in ADBHost.
+        """
+        return ['job_repo_url']
+
+
+    def get_platform(self):
+        """Determine the correct platform label for this host.
+
+        @return: A string representing this host's platform.
+        """
+        raise NotImplementedError("Get platform not implemented!")
+
+
+    def get_labels(self):
+        """Return a list of the labels gathered from the devices connected.
+
+        @return: A list of strings that denote the labels from all the devices
+        connected.
+        """
+        raise NotImplementedError("Get labels not implemented!")
+

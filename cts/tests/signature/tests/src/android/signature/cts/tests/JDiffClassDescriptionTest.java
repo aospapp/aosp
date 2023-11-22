@@ -30,6 +30,8 @@ import java.lang.reflect.Modifier;
  */
 public class JDiffClassDescriptionTest extends TestCase {
 
+    private static final String VALUE = "VALUE";
+
     private class NoFailures implements ResultObserver {
         @Override
         public void notifyFailure(FailureType type, String name, String errmsg) {
@@ -215,7 +217,7 @@ public class JDiffClassDescriptionTest extends TestCase {
     public void testFinalField() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "FINAL_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.FINAL);
+                "FINAL_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.FINAL, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(), "public final java.lang.String FINAL_FIELD");
@@ -224,7 +226,7 @@ public class JDiffClassDescriptionTest extends TestCase {
     public void testStaticField() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "STATIC_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.STATIC);
+                "STATIC_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.STATIC, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(), "public static java.lang.String STATIC_FIELD");
@@ -233,7 +235,7 @@ public class JDiffClassDescriptionTest extends TestCase {
     public void testVolatileFiled() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "VOLATILE_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.VOLATILE);
+                "VOLATILE_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.VOLATILE, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(), "public volatile java.lang.String VOLATILE_FIELD");
@@ -242,17 +244,18 @@ public class JDiffClassDescriptionTest extends TestCase {
     public void testTransientField() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "TRANSIENT_FIELD", "java.lang.String", Modifier.PUBLIC | Modifier.TRANSIENT);
+                "TRANSIENT_FIELD", "java.lang.String",
+                Modifier.PUBLIC | Modifier.TRANSIENT, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(),
                 "public transient java.lang.String TRANSIENT_FIELD");
     }
 
-    public void testPacakgeField() {
+    public void testPackageField() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "PACAKGE_FIELD", "java.lang.String", 0);
+                "PACAKGE_FIELD", "java.lang.String", 0, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(), "java.lang.String PACAKGE_FIELD");
@@ -261,7 +264,7 @@ public class JDiffClassDescriptionTest extends TestCase {
     public void testPrivateField() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "PRIVATE_FIELD", "java.lang.String", Modifier.PRIVATE);
+                "PRIVATE_FIELD", "java.lang.String", Modifier.PRIVATE, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(), "private java.lang.String PRIVATE_FIELD");
@@ -270,10 +273,34 @@ public class JDiffClassDescriptionTest extends TestCase {
     public void testProtectedField() {
         JDiffClassDescription clz = createNormalClass();
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "PROTECTED_FIELD", "java.lang.String", Modifier.PROTECTED);
+                "PROTECTED_FIELD", "java.lang.String", Modifier.PROTECTED, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(field.toSignatureString(), "protected java.lang.String PROTECTED_FIELD");
+    }
+
+    public void testFieldValue() {
+        JDiffClassDescription clz = createNormalClass();
+        JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
+                "VALUE_FIELD", "java.lang.String",
+                Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC , "\"\\u2708\"");
+        clz.addField(field);
+        clz.checkSignatureCompliance();
+        assertEquals(field.toSignatureString(),
+                "public static final java.lang.String VALUE_FIELD");
+    }
+
+    public void testFieldValueChanged() {
+        ExpectFailure observer = new ExpectFailure(FailureType.MISMATCH_FIELD);
+        JDiffClassDescription clz = createNormalClass(observer);
+        JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
+                "VALUE_FIELD", "java.lang.String",
+                Modifier.PUBLIC | Modifier.FINAL | Modifier.STATIC , "\"&#9992;\"");
+        clz.addField(field);
+        clz.checkSignatureCompliance();
+        assertEquals(field.toSignatureString(),
+                "public static final java.lang.String VALUE_FIELD");
+        observer.validate();
     }
 
     public void testInnerClass() {
@@ -282,7 +309,7 @@ public class JDiffClassDescriptionTest extends TestCase {
         clz.setType(JDiffClassDescription.JDiffType.CLASS);
         clz.setModifier(Modifier.PUBLIC);
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "innerClassData", "java.lang.String", Modifier.PRIVATE);
+                "innerClassData", "java.lang.String", Modifier.PRIVATE, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(clz.toSignatureString(), "public class NormalClass.InnerClass");
@@ -295,7 +322,7 @@ public class JDiffClassDescriptionTest extends TestCase {
         clz.setType(JDiffClassDescription.JDiffType.CLASS);
         clz.setModifier(Modifier.PUBLIC);
         JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
-                "innerInnerClassData", "java.lang.String", Modifier.PRIVATE);
+                "innerInnerClassData", "java.lang.String", Modifier.PRIVATE, VALUE);
         clz.addField(field);
         clz.checkSignatureCompliance();
         assertEquals(clz.toSignatureString(),
@@ -308,7 +335,8 @@ public class JDiffClassDescriptionTest extends TestCase {
         clz.setType(JDiffClassDescription.JDiffType.INTERFACE);
         clz.setModifier(Modifier.PUBLIC | Modifier.STATIC | Modifier.ABSTRACT);
         clz.addMethod(
-                new JDiffClassDescription.JDiffMethod("doSomething", Modifier.PUBLIC, "void"));
+                new JDiffClassDescription.JDiffMethod("doSomething",
+                    Modifier.PUBLIC | Modifier.ABSTRACT, "void"));
         clz.checkSignatureCompliance();
         assertEquals(clz.toSignatureString(), "public interface NormalClass.InnerInterface");
     }
@@ -319,7 +347,8 @@ public class JDiffClassDescriptionTest extends TestCase {
         clz.setType(JDiffClassDescription.JDiffType.INTERFACE);
         clz.setModifier(Modifier.PUBLIC | Modifier.ABSTRACT);
         clz.addMethod(
-                new JDiffClassDescription.JDiffMethod("doSomething", Modifier.PUBLIC, "void"));
+                new JDiffClassDescription.JDiffMethod("doSomething",
+                    Modifier.ABSTRACT| Modifier.PUBLIC, "void"));
         clz.checkSignatureCompliance();
         assertEquals(clz.toSignatureString(), "public interface NormalInterface");
     }

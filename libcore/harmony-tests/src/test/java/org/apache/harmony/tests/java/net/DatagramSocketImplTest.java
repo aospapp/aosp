@@ -25,8 +25,15 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class DatagramSocketImplTest extends junit.framework.TestCase {
+public class DatagramSocketImplTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
+
     /**
      * java.net.DatagramSocketImpl#DatagramSocketImpl()
      */

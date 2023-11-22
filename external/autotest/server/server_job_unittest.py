@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
-import common
+import unittest
 
+import common
 from autotest_lib.server import server_job
 from autotest_lib.client.common_lib import base_job_unittest
-from autotest_lib.client.common_lib.test_utils import mock, unittest
+from autotest_lib.client.common_lib.test_utils import mock
 
 
 class test_find_base_directories(

@@ -23,8 +23,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
 		CtsVerifierJniOnLoad.cpp \
-		com_android_cts_verifier_camera_StatsImage.cpp \
-		com_android_cts_verifier_os_FileUtils.cpp
+		com_android_cts_verifier_camera_StatsImage.cpp
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
@@ -32,10 +31,6 @@ LOCAL_CXX_STL := libc++_static
 
 LOCAL_SHARED_LIBRARIES := liblog \
 		libnativehelper_compat_libc++
-
-LOCAL_CXX_STL := libstdc++
-
-LOCAL_CXX_STL := libstdc++
 
 include $(BUILD_SHARED_LIBRARY)
 

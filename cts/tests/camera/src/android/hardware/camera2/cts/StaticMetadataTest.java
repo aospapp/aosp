@@ -481,16 +481,12 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
         characteristicsKeys.add(HOT_PIXEL_AVAILABLE_HOT_PIXEL_MODES);
         characteristicsKeys.add(SENSOR_BLACK_LEVEL_PATTERN);
         characteristicsKeys.add(SENSOR_CALIBRATION_TRANSFORM1);
-        characteristicsKeys.add(SENSOR_CALIBRATION_TRANSFORM2);
         characteristicsKeys.add(SENSOR_COLOR_TRANSFORM1);
-        characteristicsKeys.add(SENSOR_COLOR_TRANSFORM2);
         characteristicsKeys.add(SENSOR_FORWARD_MATRIX1);
-        characteristicsKeys.add(SENSOR_FORWARD_MATRIX2);
         characteristicsKeys.add(SENSOR_INFO_ACTIVE_ARRAY_SIZE);
         characteristicsKeys.add(SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
         characteristicsKeys.add(SENSOR_INFO_WHITE_LEVEL);
         characteristicsKeys.add(SENSOR_REFERENCE_ILLUMINANT1);
-        characteristicsKeys.add(SENSOR_REFERENCE_ILLUMINANT2);
         characteristicsKeys.add(STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES);
 
         Set<CaptureResult.Key<?>> resultKeys = new HashSet<>();

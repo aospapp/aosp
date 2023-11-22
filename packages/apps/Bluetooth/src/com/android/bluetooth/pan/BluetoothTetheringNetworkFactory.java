@@ -26,13 +26,9 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkFactory;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
-import android.net.NetworkRequest;
 import android.net.ip.IpManager;
 import android.net.ip.IpManager.WaitForProvisioningCallback;
 import android.os.Looper;
-import android.os.Message;
-import android.os.Messenger;
-import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Slog;
 

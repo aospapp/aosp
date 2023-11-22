@@ -892,6 +892,7 @@ public class KeyStore2Test extends junit.framework.TestCase {
 
         try {
             keyStore.entryInstanceOf(null, KeyStore.SecretKeyEntry.class);
+            fail();
         } catch (NullPointerException expected) {
         }
 
@@ -924,6 +925,7 @@ public class KeyStore2Test extends junit.framework.TestCase {
 
         try {
             keyStore.store(new ByteArrayOutputStream(), "pwd".toCharArray());
+            fail();
         } catch (KeyStoreException expected) {
         }
 

@@ -16,7 +16,6 @@
 
 package android.test.crashcollector;
 
-import android.app.ActivityManagerNative;
 import android.app.IActivityController;
 import android.app.IActivityManager;
 import android.content.Context;
@@ -84,7 +83,7 @@ public class Collector {
         do {
             try {
                 // set activity controller
-                IActivityManager iam = ActivityManagerNative.asInterface(am);
+                IActivityManager iam = IActivityManager.Stub.asInterface(am);
                 iam.setActivityController(controller, false);
                 // register death recipient for activity manager
                 am.linkToDeath(death, 0);

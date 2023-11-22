@@ -9,7 +9,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:hotrod"
-SUITE="hotrod"
+JOB_RETRIES = 3
 
 DOC = """
 This test clears the TPM if necessary, kicks off a client side test that enrolls

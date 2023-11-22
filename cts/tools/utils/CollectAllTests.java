@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import com.android.compatibility.common.util.AbiUtils;
+import com.android.tradefed.util.AbiUtils;
 
 import org.junit.runner.RunWith;
 import org.w3c.dom.Document;

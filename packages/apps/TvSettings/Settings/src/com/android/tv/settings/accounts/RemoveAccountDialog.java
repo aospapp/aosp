@@ -31,9 +31,9 @@ import android.support.v17.leanback.app.GuidedStepFragment;
 import android.support.v17.leanback.widget.GuidanceStylist;
 import android.support.v17.leanback.widget.GuidedAction;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.widget.SettingsToast;
 
 import java.io.IOException;
 import java.util.List;
@@ -66,8 +66,8 @@ public class RemoveAccountDialog extends Activity implements AccountManagerCallb
         try {
             if (!future.getResult().getBoolean(AccountManager.KEY_BOOLEAN_RESULT)) {
                 // Wasn't removed, toast this.
-                SettingsToast.makeText(this, R.string.account_remove_failed,
-                        SettingsToast.LENGTH_LONG)
+                Toast.makeText(this, R.string.account_remove_failed,
+                        Toast.LENGTH_LONG)
                         .show();
             }
         } catch (OperationCanceledException | AuthenticatorException | IOException e) {

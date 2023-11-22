@@ -48,8 +48,8 @@
 #					<ard.biesheuvel@linaro.org>
 
 $flavour = shift;
-if ($flavour=~/^\w[\w\-]*\.\w+$/) { $output=$flavour; undef $flavour; }
-else { while (($output=shift) && ($output!~/^\w[\w\-]*\.\w+$/)) {} }
+if ($flavour=~/\w[\w\-]*\.\w+$/) { $output=$flavour; undef $flavour; }
+else { while (($output=shift) && ($output!~/\w[\w\-]*\.\w+$/)) {} }
 
 if ($flavour && $flavour ne "void") {
     $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
@@ -84,7 +84,7 @@ my @s=@_[12..15];
 
 sub InBasisChange {
 # input in  lsb > [b0, b1, b2, b3, b4, b5, b6, b7] < msb
-# output in lsb > [b6, b5, b0, b3, b7, b1, b4, b2] < msb 
+# output in lsb > [b6, b5, b0, b3, b7, b1, b4, b2] < msb
 my @b=@_[0..7];
 $code.=<<___;
 	veor	@b[2], @b[2], @b[1]
@@ -1006,7 +1006,6 @@ if (0) {		# following four functions are unsupported interface
 			# used for benchmarking...
 $code.=<<___;
 .globl	bsaes_enc_key_convert
-.hidden	bsaes_enc_key_convert
 .type	bsaes_enc_key_convert,%function
 .align	4
 bsaes_enc_key_convert:
@@ -1025,7 +1024,6 @@ bsaes_enc_key_convert:
 .size	bsaes_enc_key_convert,.-bsaes_enc_key_convert
 
 .globl	bsaes_encrypt_128
-.hidden	bsaes_encrypt_128
 .type	bsaes_encrypt_128,%function
 .align	4
 bsaes_encrypt_128:
@@ -1056,7 +1054,6 @@ bsaes_encrypt_128:
 .size	bsaes_encrypt_128,.-bsaes_encrypt_128
 
 .globl	bsaes_dec_key_convert
-.hidden	bsaes_dec_key_convert
 .type	bsaes_dec_key_convert,%function
 .align	4
 bsaes_dec_key_convert:
@@ -1077,7 +1074,6 @@ bsaes_dec_key_convert:
 .size	bsaes_dec_key_convert,.-bsaes_dec_key_convert
 
 .globl	bsaes_decrypt_128
-.hidden	bsaes_decrypt_128
 .type	bsaes_decrypt_128,%function
 .align	4
 bsaes_decrypt_128:
@@ -1117,7 +1113,6 @@ $code.=<<___;
 .extern AES_decrypt
 
 .global	bsaes_cbc_encrypt
-.hidden	bsaes_cbc_encrypt
 .type	bsaes_cbc_encrypt,%function
 .align	5
 bsaes_cbc_encrypt:
@@ -1393,7 +1388,6 @@ my $keysched = "sp";
 $code.=<<___;
 .extern	AES_encrypt
 .global	bsaes_ctr32_encrypt_blocks
-.hidden	bsaes_ctr32_encrypt_blocks
 .type	bsaes_ctr32_encrypt_blocks,%function
 .align	5
 bsaes_ctr32_encrypt_blocks:
@@ -1635,7 +1629,6 @@ my @T=@XMM[6..7];
 
 $code.=<<___;
 .globl	bsaes_xts_encrypt
-.hidden	bsaes_xts_encrypt
 .type	bsaes_xts_encrypt,%function
 .align	4
 bsaes_xts_encrypt:
@@ -1838,8 +1831,6 @@ $code.=<<___;
 	b		.Lxts_enc_done
 .align	4
 .Lxts_enc_6:
-	vst1.64		{@XMM[14]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[4], @XMM[4], @XMM[12]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -1875,8 +1866,6 @@ $code.=<<___;
 
 .align	5
 .Lxts_enc_5:
-	vst1.64		{@XMM[13]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[3], @XMM[3], @XMM[11]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -1905,8 +1894,6 @@ $code.=<<___;
 	b		.Lxts_enc_done
 .align	4
 .Lxts_enc_4:
-	vst1.64		{@XMM[12]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[2], @XMM[2], @XMM[10]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -1932,8 +1919,6 @@ $code.=<<___;
 	b		.Lxts_enc_done
 .align	4
 .Lxts_enc_3:
-	vst1.64		{@XMM[11]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[1], @XMM[1], @XMM[9]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -1958,8 +1943,6 @@ $code.=<<___;
 	b		.Lxts_enc_done
 .align	4
 .Lxts_enc_2:
-	vst1.64		{@XMM[10]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[0], @XMM[0], @XMM[8]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -1982,7 +1965,7 @@ $code.=<<___;
 .align	4
 .Lxts_enc_1:
 	mov		r0, sp
-	veor		@XMM[0], @XMM[8]
+	veor		@XMM[0], @XMM[0], @XMM[8]
 	mov		r1, sp
 	vst1.8		{@XMM[0]}, [sp,:128]
 	mov		r2, $key
@@ -2050,7 +2033,6 @@ $code.=<<___;
 .size	bsaes_xts_encrypt,.-bsaes_xts_encrypt
 
 .globl	bsaes_xts_decrypt
-.hidden	bsaes_xts_decrypt
 .type	bsaes_xts_decrypt,%function
 .align	4
 bsaes_xts_decrypt:
@@ -2295,8 +2277,6 @@ $code.=<<___;
 	b		.Lxts_dec_done
 .align	4
 .Lxts_dec_5:
-	vst1.64		{@XMM[13]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[3], @XMM[3], @XMM[11]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -2325,8 +2305,6 @@ $code.=<<___;
 	b		.Lxts_dec_done
 .align	4
 .Lxts_dec_4:
-	vst1.64		{@XMM[12]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[2], @XMM[2], @XMM[10]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -2352,8 +2330,6 @@ $code.=<<___;
 	b		.Lxts_dec_done
 .align	4
 .Lxts_dec_3:
-	vst1.64		{@XMM[11]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[1], @XMM[1], @XMM[9]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -2378,8 +2354,6 @@ $code.=<<___;
 	b		.Lxts_dec_done
 .align	4
 .Lxts_dec_2:
-	vst1.64		{@XMM[10]}, [r0,:128]		@ next round tweak
-
 	veor		@XMM[0], @XMM[0], @XMM[8]
 #ifndef	BSAES_ASM_EXTENDED_KEY
 	add		r4, sp, #0x90			@ pass key schedule
@@ -2402,12 +2376,12 @@ $code.=<<___;
 .align	4
 .Lxts_dec_1:
 	mov		r0, sp
-	veor		@XMM[0], @XMM[8]
+	veor		@XMM[0], @XMM[0], @XMM[8]
 	mov		r1, sp
 	vst1.8		{@XMM[0]}, [sp,:128]
+	mov		r5, $magic			@ preserve magic
 	mov		r2, $key
 	mov		r4, $fp				@ preserve fp
-	mov		r5, $magic			@ preserve magic
 
 	bl		AES_decrypt
 

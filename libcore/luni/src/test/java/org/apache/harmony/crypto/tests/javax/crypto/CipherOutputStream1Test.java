@@ -23,20 +23,27 @@
 package org.apache.harmony.crypto.tests.javax.crypto;
 
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.Security;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.CipherSpi;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.NullCipher;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.Cipher;
+import javax.crypto.ShortBufferException;
 
 import junit.framework.TestCase;
 
@@ -204,6 +211,122 @@ public class CipherOutputStream1Test extends TestCase {
         CipherOutputStream cos = new CipherOutputStream(baos, c);
 
         assertNotNull(cos);
+    }
+
+    private static class CipherSpiThatThrowsOnSecondDoFinal extends CipherSpi {
+
+        private boolean wasDoFinalCalled = false;
+
+        @Override
+        protected void engineSetMode(String mode) throws NoSuchAlgorithmException {
+
+        }
+
+        @Override
+        protected void engineSetPadding(String padding) throws NoSuchPaddingException {
+
+        }
+
+        @Override
+        protected int engineGetBlockSize() {
+            return 0;
+        }
+
+        @Override
+        protected int engineGetOutputSize(int inputLen) {
+            return 0;
+        }
+
+        @Override
+        protected byte[] engineGetIV() {
+            return new byte[0];
+        }
+
+        @Override
+        protected AlgorithmParameters engineGetParameters() {
+            return null;
+        }
+
+        @Override
+        protected void engineInit(int opmode, Key key, SecureRandom random)
+                throws InvalidKeyException {
+
+        }
+
+        @Override
+        protected void engineInit(int opmode, Key key, AlgorithmParameterSpec params,
+                SecureRandom random)
+                throws InvalidKeyException, InvalidAlgorithmParameterException {
+
+        }
+
+        @Override
+        protected void engineInit(int opmode, Key key, AlgorithmParameters params,
+                SecureRandom random)
+                throws InvalidKeyException, InvalidAlgorithmParameterException {
+
+        }
+
+        @Override
+        protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
+            return new byte[0];
+        }
+
+        @Override
+        protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output,
+                int outputOffset) throws ShortBufferException {
+            return 0;
+        }
+
+        @Override
+        protected byte[] engineDoFinal(byte[] input, int inputOffset, int inputLen)
+                throws IllegalBlockSizeException, BadPaddingException {
+            // Just call the other overriding for engineDoFinal.
+            try {
+                engineDoFinal(input, inputOffset, inputLen, new byte[10], 0);
+            } catch (ShortBufferException e) {
+                throw new RuntimeException(e);
+            }
+            return new byte[0];
+        }
+
+        @Override
+        protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output,
+                int outputOffset)
+                throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
+            if (wasDoFinalCalled) {
+                throw new UnsupportedOperationException(
+                        "doFinal not supposed to be called two times");
+            }
+            wasDoFinalCalled = true;
+            return 0;
+        }
+    };
+
+
+    public void test_close_doubleCloseDoesntCallDoFinal() throws Exception {
+        CipherSpi cipherSpiThatThrowsOnSecondDoFinal = new CipherSpiThatThrowsOnSecondDoFinal();
+        Cipher cipherThatThrowsOnSecondDoFinal = new Cipher(
+                cipherSpiThatThrowsOnSecondDoFinal,
+                Security.getProviders()[0],
+                "SomeTransformation") {
+        };
+
+        TestOutputStream testOutputStream = new TestOutputStream();
+        CipherOutputStream cipherOutputStream = new CipherOutputStream(
+                testOutputStream, cipherThatThrowsOnSecondDoFinal);
+
+        cipherThatThrowsOnSecondDoFinal.init(Cipher.ENCRYPT_MODE, (Key) null);
+
+        cipherOutputStream.close();
+        // Should just check that it's already closed and return, without calling doFinal, thus
+        // throwing any exception
+        cipherOutputStream.close();
+
+        // Check that the spi didn't change, as it might be changed dynamically by the Cipher
+        // methods.
+        assertEquals(cipherSpiThatThrowsOnSecondDoFinal,
+                cipherThatThrowsOnSecondDoFinal.getCurrentSpi());
     }
 }
 

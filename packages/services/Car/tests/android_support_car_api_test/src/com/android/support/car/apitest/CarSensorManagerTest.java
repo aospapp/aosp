@@ -16,15 +16,18 @@
 
 package com.android.support.car.apitest;
 
-import android.content.ComponentName;
-import android.os.IBinder;
 import android.os.Looper;
 import android.support.car.Car;
-import android.support.car.ServiceConnectionListener;
+import android.support.car.CarConnectionCallback;
 import android.support.car.hardware.CarSensorEvent;
 import android.support.car.hardware.CarSensorManager;
 import android.test.AndroidTestCase;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -37,25 +40,15 @@ public class CarSensorManagerTest extends AndroidTestCase {
     private Car mCar;
     private CarSensorManager mCarSensorManager;
 
-    private final ServiceConnectionListener mConnectionListener = new ServiceConnectionListener() {
-
+    private final CarConnectionCallback mConnectionCallbacks =
+            new CarConnectionCallback() {
         @Override
-        public void onServiceSuspended(int cause) {
+        public void onDisconnected(Car car) {
             assertMainThread();
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName name) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnectionFailed(int cause) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnected(ComponentName name) {
+        public void onConnected(Car car) {
             assertMainThread();
             mConnectionWait.release();
         }
@@ -71,7 +64,7 @@ public class CarSensorManagerTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mCar = Car.createCar(getContext(), mConnectionListener);
+        mCar = Car.createCar(getContext(), mConnectionCallbacks);
         mCar.connect();
         waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
         mCarSensorManager =
@@ -97,35 +90,97 @@ public class CarSensorManagerTest extends AndroidTestCase {
         assertTrue(found);
         assertTrue(mCarSensorManager.isSensorSupported(
                 CarSensorManager.SENSOR_TYPE_DRIVING_STATUS));
-        assertTrue(CarSensorManager.isSensorSupported(supportedSensors,
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS));
         CarSensorEvent lastEvent = mCarSensorManager.getLatestSensorEvent(
                 CarSensorManager.SENSOR_TYPE_DRIVING_STATUS);
         assertNotNull(lastEvent);
     }
 
     public void testSensorType() throws Exception {
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_CAR_SPEED,
-                CarSensorManager.SENSOR_TYPE_CAR_SPEED);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_DRIVING_STATUS,
-                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_ENVIRONMENT,
-                CarSensorManager.SENSOR_TYPE_ENVIRONMENT);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_FUEL_LEVEL,
-                CarSensorManager.SENSOR_TYPE_FUEL_LEVEL);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_GEAR,
-                CarSensorManager.SENSOR_TYPE_GEAR);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_NIGHT,
-                CarSensorManager.SENSOR_TYPE_NIGHT);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_ODOMETER,
-                CarSensorManager.SENSOR_TYPE_ODOMETER);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_PARKING_BRAKE,
-                CarSensorManager.SENSOR_TYPE_PARKING_BRAKE);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_RPM,
-                CarSensorManager.SENSOR_TYPE_RPM);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_VENDOR_EXTENSION_START,
-                CarSensorManager.SENSOR_TYPE_VENDOR_EXTENSION_START);
-        assertEquals(android.car.hardware.CarSensorManager.SENSOR_TYPE_VENDOR_EXTENSION_END,
-                CarSensorManager.SENSOR_TYPE_VENDOR_EXTENSION_END);
+        List<Field> androidCarAllIntMembers = TestUtil.getAllPublicStaticFinalMembers(
+                android.car.hardware.CarSensorManager.class, int.class);
+        List<Field> supportCarAllIntMembers = TestUtil.getAllPublicStaticFinalMembers(
+                android.support.car.hardware.CarSensorManager.class, int.class);
+        List<Field> androidCarSensorTypes = filterSensorTypes(androidCarAllIntMembers);
+        List<Field> supportCarSensorTypes = filterSensorTypes(supportCarAllIntMembers);
+        Map<Integer, Field> androidCarSensorTypeToField = new HashMap<>();
+        for (Field androidCarSensorType : androidCarSensorTypes) {
+            androidCarSensorTypeToField.put(androidCarSensorType.getInt(null),
+                    androidCarSensorType);
+        }
+        StringBuilder builder = new StringBuilder();
+        boolean failed = false;
+        for (Field supprotCarSensorType : supportCarSensorTypes) {
+            Field androidCarSensorType = androidCarSensorTypeToField.get(
+                    supprotCarSensorType.getInt(null));
+            assertNotNull("Sensor type:" + supprotCarSensorType.getName() +
+                    " not defined in android.car", androidCarSensorType);
+            if (supprotCarSensorType.getName().equals(androidCarSensorType.getName())) {
+                // match ok
+            } else if (androidCarSensorType.getName().startsWith("SENSOR_TYPE_RESERVED")) {
+                // not used in android.car, ok
+            } else {
+                failed = true;
+                builder.append("android.support sensor has name:" + supprotCarSensorType.getName() +
+                        " while android.car sensor has name:" + androidCarSensorType.getName() +
+                        "\n");
+            }
+            androidCarSensorTypeToField.remove(supprotCarSensorType.getInt(null));
+        }
+        assertFalse(builder.toString(), failed);
+        assertTrue("android Car sensor has additional types defined:" + androidCarSensorTypeToField,
+                androidCarSensorTypeToField.size() == 0);
+    }
+
+    public void testSensorRate() throws Exception {
+        List<Field> androidCarAllIntMembers = TestUtil.getAllPublicStaticFinalMembers(
+                android.car.hardware.CarSensorManager.class, int.class);
+        List<Field> supportCarAllIntMembers = TestUtil.getAllPublicStaticFinalMembers(
+                android.support.car.hardware.CarSensorManager.class, int.class);
+        List<Field> androidCarSensorRates = filterSensorRates(androidCarAllIntMembers);
+        List<Field> supportCarSensorRates = filterSensorRates(supportCarAllIntMembers);
+        Map<Integer, Field> androidCarSensorRateToField = new HashMap<>();
+        for (Field androidCarSensorRate : androidCarSensorRates) {
+            androidCarSensorRateToField.put(androidCarSensorRate.getInt(null),
+                    androidCarSensorRate);
+        }
+        StringBuilder builder = new StringBuilder();
+        boolean failed = false;
+        for (Field supprotCarSensorRate : supportCarSensorRates) {
+            Field androidCarSensorRate = androidCarSensorRateToField.get(
+                    supprotCarSensorRate.getInt(null));
+            assertNotNull("Sensor rate:" + supprotCarSensorRate.getName() +
+                    " not defined in android.car", androidCarSensorRate);
+            if (supprotCarSensorRate.getName().equals(androidCarSensorRate.getName())) {
+                // match ok
+            } else {
+                failed = true;
+                builder.append("android.support sensor rate has name:" +
+                        supprotCarSensorRate.getName() +
+                        " while android.car sensor rate has name:" +
+                        androidCarSensorRate.getName());
+            }
+            androidCarSensorRateToField.remove(supprotCarSensorRate.getInt(null));
+        }
+        assertFalse(builder.toString(), failed);
+        assertTrue("android Car sensor has additional rates defined:" + androidCarSensorRateToField,
+                androidCarSensorRateToField.size() == 0);
+    }
+
+    private List<Field> filterSensorTypes(List<Field> fields) {
+        return filterFields(fields, "SENSOR_TYPE_");
+    }
+
+    private List<Field> filterSensorRates(List<Field> fields) {
+        return filterFields(fields, "SENSOR_RATE_");
+    }
+
+    private List<Field> filterFields(List<Field> fields, String prefix) {
+        List<Field> result = new LinkedList<>();
+        for (Field f : fields) {
+            if (f.getName().startsWith(prefix)) {
+                result.add(f);
+            }
+        }
+        return result;
     }
 }

@@ -1,41 +1,34 @@
 /*
- * Copyright (C) 2016 Google Inc.
+ * Copyright (C) 2017 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.googlecode.android_scripting.facade.bluetooth;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapter.LeScanCallback;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
-import android.bluetooth.BluetoothAdapter.LeScanCallback;
 import android.bluetooth.le.ScanFilter.Builder;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.os.Bundle;
 import android.os.ParcelUuid;
 
-import com.googlecode.android_scripting.ConvertUtils;
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.MainThread;
 import com.googlecode.android_scripting.facade.EventFacade;
@@ -44,6 +37,12 @@ import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Callable;
 
 /**
  * BluetoothLe Scan functions.
@@ -278,12 +277,10 @@ public class BluetoothLeScanFacade extends RpcReceiver {
         if (mLeScanCallbackList.get(leCallbackIndex) != null) {
             result = mBluetoothAdapter.startLeScan(serviceUuids,
                     mLeScanCallbackList.get(leCallbackIndex));
-            System.out.println(result);
         } else {
             throw new Exception("Invalid leCallbackIndex input:"
                     + Integer.toString(leCallbackIndex));
         }
-        System.out.println(result);
         return result;
     }
 
@@ -348,6 +345,28 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             @RpcParameter(name = "scanMode")
             Integer scanMode) {
         mScanSettingsBuilder.setScanMode(scanMode);
+    }
+
+    /**
+     * Set the scan setting's legacy mode
+     * @param legacy Wether scan is legacy.
+     */
+    @Rpc(description = "Set the scan setting's legacy mode")
+    public void bleSetScanSettingsLegacy(
+            @RpcParameter(name = "legacy")
+            Boolean legacy) {
+        mScanSettingsBuilder.setLegacy(legacy);
+    }
+
+    /**
+     * Set the scan setting's phy mode
+     * @param phy
+     */
+    @Rpc(description = "Set the scan setting's phy mode")
+    public void bleSetScanSettingsPhy(
+            @RpcParameter(name = "phy")
+            Integer phy) {
+        mScanSettingsBuilder.setPhy(phy);
     }
 
     /**
@@ -521,7 +540,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
      * @throws Exception
      */
     @Rpc(description = "Get ScanFilter's manufacturer data")
-    public String bleGetScanFilterManufacturerData(
+    public byte[] bleGetScanFilterManufacturerData(
             @RpcParameter(name = "index")
             Integer index,
             @RpcParameter(name = "filterIndex")
@@ -529,8 +548,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return ConvertUtils.convertByteArrayToString(mScanFilterList.get(index)
-                        .get(filterIndex).getManufacturerData());
+                return mScanFilterList.get(index).get(filterIndex).getManufacturerData();
             } else {
                 throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
             }
@@ -547,7 +565,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
      * @throws Exception
      */
     @Rpc(description = "Get ScanFilter's manufacturer data mask")
-    public String bleGetScanFilterManufacturerDataMask(
+    public byte[] bleGetScanFilterManufacturerDataMask(
             @RpcParameter(name = "index")
             Integer index,
             @RpcParameter(name = "filterIndex")
@@ -555,8 +573,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return ConvertUtils.convertByteArrayToString(mScanFilterList.get(index)
-                        .get(filterIndex).getManufacturerDataMask());
+                return mScanFilterList.get(index).get(filterIndex).getManufacturerDataMask();
             } else {
                 throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
             }
@@ -573,7 +590,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
      * @throws Exception
      */
     @Rpc(description = "Get ScanFilter's service data")
-    public String bleGetScanFilterServiceData(
+    public byte[] bleGetScanFilterServiceData(
             @RpcParameter(name = "index")
             Integer index,
             @RpcParameter(name = "filterIndex")
@@ -581,8 +598,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return ConvertUtils.convertByteArrayToString(mScanFilterList
-                        .get(index).get(filterIndex).getServiceData());
+                return mScanFilterList.get(index).get(filterIndex).getServiceData();
             } else {
                 throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
             }
@@ -599,7 +615,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
      * @throws Exception
      */
     @Rpc(description = "Get ScanFilter's service data mask")
-    public String bleGetScanFilterServiceDataMask(
+    public byte[] bleGetScanFilterServiceDataMask(
             @RpcParameter(name = "index")
             Integer index,
             @RpcParameter(name = "filterIndex")
@@ -607,8 +623,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return ConvertUtils.convertByteArrayToString(mScanFilterList.get(index)
-                        .get(filterIndex).getServiceDataMask());
+                return mScanFilterList.get(index).get(filterIndex).getServiceDataMask();
             } else {
                 throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
             }
@@ -704,18 +719,17 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             @RpcParameter(name = "manufacturerDataId")
             Integer manufacturerDataId,
             @RpcParameter(name = "manufacturerData")
-            String manufacturerData,
+            byte[] manufacturerData,
             @RpcParameter(name = "manufacturerDataMask")
             @RpcOptional
-            String manufacturerDataMask
+            byte[] manufacturerDataMask
             ){
         if (manufacturerDataMask != null) {
             mScanFilterBuilder.setManufacturerData(manufacturerDataId,
-                    ConvertUtils.convertStringToByteArray(manufacturerData),
-                    ConvertUtils.convertStringToByteArray(manufacturerDataMask));
+                    manufacturerData, manufacturerDataMask);
         } else {
             mScanFilterBuilder.setManufacturerData(manufacturerDataId,
-                    ConvertUtils.convertStringToByteArray(manufacturerData));
+                    manufacturerData);
         }
     }
 
@@ -731,21 +745,19 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             @RpcParameter(name = "serviceUuid")
             String serviceUuid,
             @RpcParameter(name = "serviceData")
-            String serviceData,
+            byte[] serviceData,
             @RpcParameter(name = "serviceDataMask")
             @RpcOptional
-            String serviceDataMask
+            byte[] serviceDataMask
             ) {
         if (serviceDataMask != null) {
             mScanFilterBuilder
                     .setServiceData(
                             ParcelUuid.fromString(serviceUuid),
-                            ConvertUtils.convertStringToByteArray(serviceData),
-                            ConvertUtils.convertStringToByteArray(
-                                serviceDataMask));
+                            serviceData, serviceDataMask);
         } else {
             mScanFilterBuilder.setServiceData(ParcelUuid.fromString(serviceUuid),
-                    ConvertUtils.convertStringToByteArray(serviceData));
+                    serviceData);
         }
     }
 
@@ -886,7 +898,7 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             Log.d("bluetooth_classic_le_scan " + mEventType + " " + index);
             mResults.putParcelable("Device", device);
             mResults.putInt("Rssi", rssi);
-            mResults.putString("ScanRecord", ConvertUtils.convertByteArrayToString(scanRecord));
+            mResults.putByteArray("ScanRecord", scanRecord);
             mResults.putString("Type", "onLeScan");
             mEventFacade.postEvent(mEventType + index + "onLeScan", mResults.clone());
             mResults.clear();

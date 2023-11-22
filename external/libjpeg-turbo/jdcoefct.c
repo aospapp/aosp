@@ -19,6 +19,7 @@
  * Also, the input side (only) is used when reading a file for transcoding.
  */
 
+#include "jinclude.h"
 #include "jdcoefct.h"
 #include "jpegcomp.h"
 
@@ -355,9 +356,9 @@ smoothing_ok (j_decompress_ptr cinfo)
   boolean smoothing_useful = FALSE;
   int ci, coefi;
   jpeg_component_info *compptr;
-  JQUANT_TBL * qtable;
-  int * coef_bits;
-  int * coef_bits_latch;
+  JQUANT_TBL *qtable;
+  int *coef_bits;
+  int *coef_bits_latch;
 
   if (! cinfo->progressive_mode || cinfo->coef_bits == NULL)
     return FALSE;
@@ -418,10 +419,10 @@ decompress_smooth_data (j_decompress_ptr cinfo, JSAMPIMAGE output_buf)
   jpeg_component_info *compptr;
   inverse_DCT_method_ptr inverse_DCT;
   boolean first_row, last_row;
-  JCOEF * workspace;
+  JCOEF *workspace;
   int *coef_bits;
   JQUANT_TBL *quanttbl;
-  INT32 Q00,Q01,Q02,Q10,Q11,Q20, num;
+  JLONG Q00,Q01,Q02,Q10,Q11,Q20, num;
   int DC1,DC2,DC3,DC4,DC5,DC6,DC7,DC8,DC9;
   int Al, pred;
 

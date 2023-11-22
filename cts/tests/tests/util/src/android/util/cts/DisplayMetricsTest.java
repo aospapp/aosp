@@ -15,15 +15,26 @@
  */
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Context;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
 
-public class DisplayMetricsTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DisplayMetricsTest {
     private Display initDisplay() {
-        WindowManager windowManager = (WindowManager) getContext()
+        WindowManager windowManager = (WindowManager) InstrumentationRegistry.getTargetContext()
                 .getSystemService(Context.WINDOW_SERVICE);
         assertNotNull(windowManager);
         Display display = windowManager.getDefaultDisplay();
@@ -31,6 +42,7 @@ public class DisplayMetricsTest extends AndroidTestCase {
         return display;
     }
 
+    @Test
     public void testDisplayMetricsOp() {
         DisplayMetrics outMetrics = new DisplayMetrics();
         outMetrics.setToDefaults();

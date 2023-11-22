@@ -54,6 +54,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import static android.app.ActivityManager.StackId.HOME_STACK_ID;
+import static android.app.ActivityManager.StackId.INVALID_STACK_ID;
+
+import static com.android.server.am.ActivityStackSupervisor.MATCH_TASK_IN_STACKS_OR_RECENT_TASKS;
+
 public class TaskPersister {
     static final String TAG = "TaskPersister";
     static final boolean DEBUG = false;
@@ -73,9 +78,8 @@ public class TaskPersister {
     /** Special value for mWriteTime to mean don't wait, just write */
     private static final long FLUSH_QUEUE = -1;
 
-    private static final String RECENTS_FILENAME = "_task";
     private static final String TASKS_DIRNAME = "recent_tasks";
-    private static final String TASK_EXTENSION = ".xml";
+    private static final String TASK_FILENAME_SUFFIX = "_task.xml";
     private static final String IMAGES_DIRNAME = "recent_images";
     private static final String PERSISTED_TASK_IDS_FILENAME = "persisted_taskIds.txt";
     static final String IMAGE_EXTENSION = ".png";
@@ -87,6 +91,8 @@ public class TaskPersister {
     private final RecentTasks mRecentTasks;
     private final SparseArray<SparseBooleanArray> mTaskIdsInFile = new SparseArray<>();
     private final File mTaskIdsDir;
+    // To lock file operations in TaskPersister
+    private final Object mIoLock = new Object();
 
     /**
      * Value determines write delay mode as follows: < 0 We are Flushing. No delays between writes
@@ -195,52 +201,52 @@ public class TaskPersister {
             return mTaskIdsInFile.get(userId).clone();
         }
         final SparseBooleanArray persistedTaskIds = new SparseBooleanArray();
-        BufferedReader reader = null;
-        String line;
-        try {
-            reader = new BufferedReader(new FileReader(getUserPersistedTaskIdsFile(userId)));
-            while ((line = reader.readLine()) != null) {
-                for (String taskIdString : line.split("\\s+")) {
-                    int id = Integer.parseInt(taskIdString);
-                    persistedTaskIds.put(id, true);
+        synchronized (mIoLock) {
+            BufferedReader reader = null;
+            String line;
+            try {
+                reader = new BufferedReader(new FileReader(getUserPersistedTaskIdsFile(userId)));
+                while ((line = reader.readLine()) != null) {
+                    for (String taskIdString : line.split("\\s+")) {
+                        int id = Integer.parseInt(taskIdString);
+                        persistedTaskIds.put(id, true);
+                    }
                 }
+            } catch (FileNotFoundException e) {
+                // File doesn't exist. Ignore.
+            } catch (Exception e) {
+                Slog.e(TAG, "Error while reading taskIds file for user " + userId, e);
+            } finally {
+                IoUtils.closeQuietly(reader);
             }
-        } catch (FileNotFoundException e) {
-            // File doesn't exist. Ignore.
-        } catch (Exception e) {
-            Slog.e(TAG, "Error while reading taskIds file for user " + userId, e);
-        } finally {
-            IoUtils.closeQuietly(reader);
         }
         mTaskIdsInFile.put(userId, persistedTaskIds);
         return persistedTaskIds.clone();
     }
 
+
     @VisibleForTesting
-    void maybeWritePersistedTaskIdsForUser(@NonNull SparseBooleanArray taskIds, int userId) {
+    void writePersistedTaskIdsForUser(@NonNull SparseBooleanArray taskIds, int userId) {
         if (userId < 0) {
             return;
         }
-        SparseBooleanArray persistedIdsInFile = mTaskIdsInFile.get(userId);
-        if (persistedIdsInFile != null && persistedIdsInFile.equals(taskIds)) {
-            return;
-        }
         final File persistedTaskIdsFile = getUserPersistedTaskIdsFile(userId);
-        BufferedWriter writer = null;
-        try {
-            writer = new BufferedWriter(new FileWriter(persistedTaskIdsFile));
-            for (int i = 0; i < taskIds.size(); i++) {
-                if (taskIds.valueAt(i)) {
-                    writer.write(String.valueOf(taskIds.keyAt(i)));
-                    writer.newLine();
+        synchronized (mIoLock) {
+            BufferedWriter writer = null;
+            try {
+                writer = new BufferedWriter(new FileWriter(persistedTaskIdsFile));
+                for (int i = 0; i < taskIds.size(); i++) {
+                    if (taskIds.valueAt(i)) {
+                        writer.write(String.valueOf(taskIds.keyAt(i)));
+                        writer.newLine();
+                    }
                 }
+            } catch (Exception e) {
+                Slog.e(TAG, "Error while writing taskIds file for user " + userId, e);
+            } finally {
+                IoUtils.closeQuietly(writer);
             }
-        } catch (Exception e) {
-            Slog.e(TAG, "Error while writing taskIds file for user " + userId, e);
-        } finally {
-            IoUtils.closeQuietly(writer);
         }
-        mTaskIdsInFile.put(userId, taskIds.clone());
     }
 
     void unloadUserDataFromMemory(int userId) {
@@ -405,7 +411,7 @@ public class TaskPersister {
         return null;
     }
 
-    List<TaskRecord> restoreTasksForUserLocked(final int userId) {
+    List<TaskRecord> restoreTasksForUserLocked(final int userId, SparseBooleanArray preaddedTasks) {
         final ArrayList<TaskRecord> tasks = new ArrayList<TaskRecord>();
         ArraySet<Integer> recoveredTaskIds = new ArraySet<Integer>();
 
@@ -423,6 +429,24 @@ public class TaskPersister {
                 Slog.d(TAG, "restoreTasksForUserLocked: userId=" + userId
                         + ", taskFile=" + taskFile.getName());
             }
+
+            if (!taskFile.getName().endsWith(TASK_FILENAME_SUFFIX)) {
+                continue;
+            }
+            try {
+                final int taskId = Integer.parseInt(taskFile.getName().substring(
+                        0 /* beginIndex */,
+                        taskFile.getName().length() - TASK_FILENAME_SUFFIX.length()));
+                if (preaddedTasks.get(taskId, false)) {
+                    Slog.w(TAG, "Task #" + taskId +
+                            " has already been created so we don't restore again");
+                    continue;
+                }
+            } catch (NumberFormatException e) {
+                Slog.w(TAG, "Unexpected task file name", e);
+                continue;
+            }
+
             BufferedReader reader = null;
             boolean deleteFile = false;
             try {
@@ -448,7 +472,8 @@ public class TaskPersister {
 
                                 final int taskId = task.taskId;
                                 if (mStackSupervisor.anyTaskForIdLocked(taskId,
-                                        /* restoreFromRecents= */ false, 0) != null) {
+                                        MATCH_TASK_IN_STACKS_OR_RECENT_TASKS,
+                                        INVALID_STACK_ID) != null) {
                                     // Should not happen.
                                     Slog.wtf(TAG, "Existing task with taskId " + taskId + "found");
                                 } else if (userId != task.userId) {
@@ -543,16 +568,23 @@ public class TaskPersister {
     }
 
     private void writeTaskIdsFiles() {
-        int candidateUserIds[];
+        SparseArray<SparseBooleanArray> changedTaskIdsPerUser = new SparseArray<>();
         synchronized (mService) {
-            candidateUserIds = mRecentTasks.usersWithRecentsLoadedLocked();
-        }
-        SparseBooleanArray taskIdsToSave;
-        for (int userId : candidateUserIds) {
-            synchronized (mService) {
-                taskIdsToSave = mRecentTasks.mPersistedTaskIds.get(userId).clone();
+            for (int userId : mRecentTasks.usersWithRecentsLoadedLocked()) {
+                SparseBooleanArray taskIdsToSave = mRecentTasks.mPersistedTaskIds.get(userId);
+                SparseBooleanArray persistedIdsInFile = mTaskIdsInFile.get(userId);
+                if (persistedIdsInFile != null && persistedIdsInFile.equals(taskIdsToSave)) {
+                    continue;
+                } else {
+                    SparseBooleanArray taskIdsToSaveCopy = taskIdsToSave.clone();
+                    mTaskIdsInFile.put(userId, taskIdsToSaveCopy);
+                    changedTaskIdsPerUser.put(userId, taskIdsToSaveCopy);
+                }
             }
-            maybeWritePersistedTaskIdsForUser(taskIdsToSave, userId);
+        }
+        for (int i = 0; i < changedTaskIdsPerUser.size(); i++) {
+            writePersistedTaskIdsForUser(changedTaskIdsPerUser.valueAt(i),
+                    changedTaskIdsPerUser.keyAt(i));
         }
     }
 
@@ -630,8 +662,9 @@ public class TaskPersister {
                             final TaskRecord task = mRecentTasks.get(taskNdx);
                             if (DEBUG) Slog.d(TAG, "LazyTaskWriter: task=" + task +
                                     " persistable=" + task.isPersistable);
+                            final ActivityStack stack = task.getStack();
                             if ((task.isPersistable || task.inRecents)
-                                    && (task.stack == null || !task.stack.isHomeStack())) {
+                                    && (stack == null || !stack.isHomeOrRecentsStack())) {
                                 if (DEBUG) Slog.d(TAG, "adding to persistentTaskIds task=" + task);
                                 persistentTaskIds.add(task.taskId);
                             } else {
@@ -639,6 +672,8 @@ public class TaskPersister {
                                         "omitting from persistentTaskIds task=" + task);
                             }
                         }
+                        mService.mWindowManager.removeObsoleteTaskFiles(persistentTaskIds,
+                                mRecentTasks.usersWithRecentsLoadedLocked());
                     }
                     removeObsoleteFiles(persistentTaskIds);
                 }
@@ -726,13 +761,11 @@ public class TaskPersister {
                         try {
                             atomicFile = new AtomicFile(new File(
                                     getUserTasksDir(task.userId),
-                                    String.valueOf(task.taskId) + RECENTS_FILENAME
-                                    + TASK_EXTENSION));
+                                    String.valueOf(task.taskId) + TASK_FILENAME_SUFFIX));
                             file = atomicFile.startWrite();
                             file.write(stringWriter.toString().getBytes());
                             file.write('\n');
                             atomicFile.finishWrite(file);
-
                         } catch (IOException e) {
                             if (file != null) {
                                 atomicFile.failWrite(file);

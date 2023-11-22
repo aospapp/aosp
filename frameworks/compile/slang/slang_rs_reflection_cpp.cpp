@@ -147,7 +147,9 @@ bool RSReflectionCpp::writeHeaderFile() {
   }
 
   mOut.indent() << "#include \"RenderScript.h\"\n\n";
-  mOut.indent() << "using namespace android::RSC;\n\n";
+  // Add NOLINT to suppress clang-tidy warnings of "using namespace".
+  // Keep "using namespace" to compile existing code.
+  mOut.indent() << "using namespace android::RSC;  // NOLINT\n\n";
 
   mOut.comment("This class encapsulates access to the exported elements of the script.  "
                "Typically, you would instantiate this class once, call the set_* methods "
@@ -587,7 +589,7 @@ void RSReflectionCpp::genPointerTypeExportVariable(const RSExportVar *EV) {
               "Variable should be type of pointer here");
 
   std::string TypeName = GetTypeName(ET);
-  std::string VarName = EV->getName();
+  const std::string &VarName = EV->getName();
 
   RSReflectionTypeData rtd;
   EV->getType()->convertToRTD(&rtd);
@@ -789,7 +791,7 @@ void RSReflectionCpp::genPackVarOfType(const RSExportType *ET,
     Level++;
   }
   std::string IndexVarName("ct");
-  IndexVarName.append(llvm::utostr_32(Level));
+  IndexVarName.append(llvm::utostr(Level));
 
   C.indent() << "for (int " << IndexVarName << " = 0; " <<
                       IndexVarName << " < " << ECAT->getSize() << "; " <<
@@ -1012,7 +1014,7 @@ RSReflectionCpp::genInitPrimitiveExportVariable(const std::string &VarName,
 void RSReflectionCpp::genInitValue(const clang::APValue &Val, bool asBool) {
   switch (Val.getKind()) {
   case clang::APValue::Int: {
-    llvm::APInt api = Val.getInt();
+    const llvm::APInt &api = Val.getInt();
     if (asBool) {
       mOut << ((api.getSExtValue() == 0) ? "false" : "true");
     } else {
@@ -1026,7 +1028,7 @@ void RSReflectionCpp::genInitValue(const clang::APValue &Val, bool asBool) {
   }
 
   case clang::APValue::Float: {
-    llvm::APFloat apf = Val.getFloat();
+    const llvm::APFloat &apf = Val.getFloat();
     llvm::SmallString<30> s;
     apf.toString(s);
     mOut << s.c_str();

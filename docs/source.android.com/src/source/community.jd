@@ -41,8 +41,11 @@ Android, see the list of <a href="#resources">resources</a> below.</p>
 <h2 id="resources">Resources</h2>
 
 <p>This site covers creating custom Android stacks, porting devices and
-accessories, and meeting compatibility requirements. For other information about
-Android, refer to the following resources.</p>
+accessories, and meeting compatibility requirements. The Android OS is a Git
+repository of files and not a single file (.zip/tar/exe/etc.) to download. You
+can get started with the Android source code by following the instructions on
+the <a href="downloading.html">Downloading the Source</a>
+page. For other information about Android, refer to the following resources.</p>
 
 <div class="wrap">
 <div class="col-4">
@@ -50,12 +53,13 @@ Android, refer to the following resources.</p>
 <h4>Using Android</h4>
 
 <h5>Help centers</h5>
-<a href="https://support.google.com/android/?hl=en">General</a><br>
-<a href="https://support.google.com/nexus/?hl=en#topic=3415518">Nexus Phones/Tablets</a><br>
-<a href="https://support.google.com/playedition#topic=3450794">Google Play Edition</a><br>
-<a href="https://support.google.com/androidauto/?hl=en">Auto</a><br>
-<a href="https://support.google.com/androidtv/?hl=en#topic=6121147">TV</a><br>
-<a href="https://support.google.com/androidwear/?hl=en#topic=6056405">Wear</a><br>
+<a href="https://support.google.com/android/">General</a><br>
+<a href="https://support.google.com/pixelphone/">Pixel phones</a><br>
+<a href="https://support.google.com/nexus/">Nexus phones/tablets</a><br>
+<a href="https://support.google.com/playedition">Google Play Edition</a><br>
+<a href="https://support.google.com/androidauto/">Auto</a><br>
+<a href="https://support.google.com/androidtv/">TV</a><br>
+<a href="https://support.google.com/androidwear/">Wear</a><br>
 <a href="https://support.google.com/android/answer/3123680">Apps</a>
 <p></p>
 
@@ -77,18 +81,18 @@ a feature</a>
 <h4>Updates &#38; security</h4>
 
 <h5>Android releases</h5>
-<a href="https://www.android.com/history/#/marshmallow">Android History</a><br>
-<a href="https://www.android.com/versions/marshmallow-6-0/">Current Release</a>
+<a href="https://www.android.com/history/#/marshmallow">Android history</a><br>
+<a href="https://www.android.com/versions/nougat-7-0/">Current release</a>
 <p></p>
 
 <h5>Device images</h5>
-<a href="https://developers.google.com/android/nexus/images?hl=en">Nexus devices</a><br>
+<a href="https://developers.google.com/android/images">Nexus and Pixel devices</a><br>
 <a href="https://support.google.com/android/answer/3094742">Other devices</a>
 <p></p>
 
 <h5>Security assistance</h5>
 <a href="https://www.google.com/safetycenter/everyone/start/">Google Safety Center</a><br>
-<a href="https://support.google.com/android/answer/6215472?hl=en">Tips for users</a><br>
+<a href="https://support.google.com/android/answer/6215472">Tips for users</a><br>
 <a href="http://developer.android.com/training/articles/security-tips.html">Tips
 for developers</a><br>
 <a href="{@docRoot}security/index.html">Platform security</a>
@@ -96,7 +100,7 @@ for developers</a><br>
 
 <h5>Security announcements</h5>
 <a href="{@docRoot}security/enhancements/index.html">Release
-Enhancements</a><br>
+enhancements</a><br>
 <a href="{@docRoot}security/bulletin/index.html">Bulletins</a>
 <p></p>
 
@@ -110,6 +114,7 @@ Enhancements</a><br>
 <a href="http://developer.android.com/support.html">Developer support</a><br>
 <a href="http://android-developers.blogspot.com/">Android developers blog</a><br>
 <a href="https://developers.google.com/groups/">Google Developer Groups (GDGs)</a>
+<a href="https://www.android.com/gms/">Google Mobile Services (GMS)</a>
 <p></p>
 
 <h5>Training</h5>

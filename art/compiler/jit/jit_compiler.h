@@ -19,7 +19,7 @@
 
 #include "base/mutex.h"
 #include "compiled_method.h"
-#include "dex/quick/dex_file_to_method_inliner_map.h"
+#include "jit_logger.h"
 #include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
 
@@ -37,7 +37,7 @@ class JitCompiler {
 
   // Compilation entrypoint. Returns whether the compilation succeeded.
   bool CompileMethod(Thread* self, ArtMethod* method, bool osr)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   CompilerOptions* GetCompilerOptions() const {
     return compiler_options_.get();
@@ -49,17 +49,16 @@ class JitCompiler {
  private:
   std::unique_ptr<CompilerOptions> compiler_options_;
   std::unique_ptr<CumulativeLogger> cumulative_logger_;
-  std::unique_ptr<DexFileToMethodInlinerMap> method_inliner_map_;
   std::unique_ptr<CompilerDriver> compiler_driver_;
   std::unique_ptr<const InstructionSetFeatures> instruction_set_features_;
-  std::unique_ptr<File> perf_file_;
+  std::unique_ptr<JitLogger> jit_logger_;
 
   JitCompiler();
 
   // This is in the compiler since the runtime doesn't have access to the compiled method
   // structures.
   bool AddToCodeCache(ArtMethod* method, const CompiledMethod* compiled_method)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(JitCompiler);
 };

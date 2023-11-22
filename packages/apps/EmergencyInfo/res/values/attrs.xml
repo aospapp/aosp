@@ -20,4 +20,9 @@
         used as its content description. -->
         <attr name="entryContentDescriptions" format="reference"/>
     </declare-styleable>
+
+    <declare-styleable name="Theme">
+        <attr name="textColorActionBar" format="reference|color" />
+    </declare-styleable>
+
 </resources>

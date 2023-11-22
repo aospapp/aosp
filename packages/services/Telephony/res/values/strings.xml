@@ -20,7 +20,7 @@
          and other settings UIs.  This is the version of the label for
          tablet devices, where the phone app handles mobile data but not
          actual phone calls. -->
-    <string name="phoneAppLabel" product="tablet">Cellular Data</string>
+    <string name="phoneAppLabel" product="tablet">Mobile Data</string>
 
     <!-- Official label of the phone app, as seen in "Manage Applications"
          and other settings UIs. -->
@@ -95,6 +95,8 @@
     <string name="no_vm_number_msg">No voicemail number is stored on the SIM card.</string>
     <!-- Button label on the "Missing voicemail number" dialog -->
     <string name="add_vm_number_str">Add number</string>
+    <!--Toast in Call settings when asked to launch voicemail for a guest user -->
+    <string name="voice_number_setting_primary_user_only">Voicemail Settings can only be modified by the Primary User.</string>
 
     <!-- Status message displayed on SIM PIN unlock panel -->
     <string name="puk_unlocked">Your SIM card has been unblocked. Your phone is unlocking\u2026</string>
@@ -115,7 +117,7 @@
     <!-- settings strings -->
 
     <!-- Error message for users that aren't allowed to modify Mobile Network settings [CHAR LIMIT=none] -->
-    <string name="mobile_network_settings_not_available">Cellular network settings are not available for this user</string>
+    <string name="mobile_network_settings_not_available">Mobile network settings are not available for this user</string>
     <!-- GSM Call settings screen, setting option name. [CHAR LIMIT=40] -->
     <string name="labelGSMMore">GSM call settings</string>
     <!-- GSM Call settings screen, setting option name with label indicating the SIM the settings
@@ -170,6 +172,12 @@
     <string name="voicemail_settings_with_label">Voicemail (<xliff:g id="subscriptionlabel" example="Mock Carrier">%s</xliff:g>)</string>
     <!-- Call forwarding dialog box, voicemail number prefix -->
     <string name="voicemail_abbreviated">VM:</string>
+    <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
+    <string name="voicemail_notifications_key" translatable="false">voicemail_notification_key</string>
+
+    <!-- Voicemail notifications title. The user clicks on this preference navigate to the system settings screen for that channel
+    .[CHAR LIMIT=30] -->
+    <string name="voicemail_notifications_preference_title">Notifications</string>
     <!-- Mobile network settings screen, setting option name -->
     <string name="networks">Network operators</string>
     <!-- Cell Broadcast settings title.  [CHAR LIMIT=50] -->
@@ -253,7 +261,7 @@
     <!-- Call forwarding settings screen, setting summary text when forwarding to a specific number when unreachable-->
     <string name="sum_cfnrc_enabled">Forwarding to <xliff:g id="phonenumber" example="555-1212">{0}</xliff:g></string>
     <!-- Call forwarding settings screen, setting summary text when Forward when unreachable is disabled -->
-    <string name="sum_cfnrc_disabled">Disabled</string>
+    <string name="sum_cfnrc_disabled">Off</string>
     <!-- Error message displayed after failing to disable forwarding calls when the phone is unreachable -->
     <string name="disable_cfnrc_forbidden">Your carrier doesn\'t support disabling call forwarding when your phone is unreachable.</string>
 
@@ -354,7 +362,9 @@
 
     <!-- networks setting strings --><skip/>
     <!-- Mobile network settings screen title -->
-    <string name="mobile_networks">Cellular network settings</string>
+    <string name="mobile_networks">Mobile network settings</string>
+    <!-- Mobile network settings screen title/heading -->
+    <string name="network_settings_title">Mobile network</string>
     <!-- Available networks screen title/heading -->
     <string name="label_available">Available networks</string>
     <!-- Mobile network settings screen, toast when searching for available networks -->
@@ -450,11 +460,11 @@
         <item>"1"</item>
         <item>"0"</item>
     </string-array>
-    <!-- Cellular network 4G title [CHAR LIMIT=30] -->
+    <!-- Mobile network 4G title [CHAR LIMIT=30] -->
     <string name="enhanced_4g_lte_mode_title">Enhanced 4G LTE Mode</string>
     <!-- Carrier variant of Enhaced 4G LTE Mode title.  [CHAR LIMIT=50] -->
     <string name="enhanced_4g_lte_mode_title_variant">Advanced Calling</string>
-    <!-- Cellular network 4G summary [CHAR LIMIT=80] -->
+    <!-- Mobile network 4G summary [CHAR LIMIT=80] -->
     <string name="enhanced_4g_lte_mode_summary">Use LTE services to improve voice and other communications (recommended)</string>
 
     <!-- Mobile network settings screen, data enabling checkbox name -->
@@ -505,7 +515,7 @@
 
     <string name="throttle_rate_subtext">Data rate reduced to <xliff:g id="used">%1$d</xliff:g> Kb/s if data use limit is exceeded</string>
 
-    <string name="throttle_help_subtext">More information about your carrier\'s cellular network data use policy</string>
+    <string name="throttle_help_subtext">More information about your carrier\'s mobile network data use policy</string>
 
     <string name="cell_broadcast_sms">Cell Broadcast SMS</string>
 
@@ -805,6 +815,8 @@
     <string name="menu_edit">Edit contact</string>
     <!-- FDN list screen: menu item label -->
     <string name="menu_delete">Delete contact</string>
+    <!-- FDN list screen: menu item label -->
+    <string name="menu_dial">Dial contact</string>
 
     <!-- FDN related strings -->
     <!-- Label for PIN2 entry screen -->
@@ -836,7 +848,7 @@
     <!-- FDN settings: error message displayed in a popup (toast) -->
     <string name="pin2_invalid">FDN wasn\'t updated because you typed an incorrect PIN.</string>
     <!-- FDN settings: error message displayed in a popup (toast) -->
-    <string name="fdn_invalid_number">FDN wasn\'t updated because the number can\'t exceed 20 digits.</string>
+    <string name="fdn_invalid_number">FDN wasn\'t updated because the number is empty or exceeds 20 digits.</string>
     <!-- FDN settings: error message displayed in a popup (toast), when the entered
          FDN number was inappropriate, OR, PIN2 the user entered was incorrect.
          Because of API restriction, there's no way to determine which is the exact
@@ -979,7 +991,9 @@
     <string name="notification_network_selection_text">Selected network (<xliff:g id="operator_name">%s</xliff:g>) unavailable</string>
 
     <!-- In-call screen: call failure message displayed in an error dialog. [CHAR_LIMIT=NONE] -->
-    <string name="incall_error_power_off">Turn off airplane mode to make a call.</string>
+    <string name="incall_error_power_off" product="watch">Turn on mobile network, turn off airplane mode or turn off battery saver mode to make a call.</string>
+    <!-- In-call screen: call failure message displayed in an error dialog. [CHAR_LIMIT=NONE] -->
+    <string name="incall_error_power_off" product="default">Turn off airplane mode to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog when in airplane mode, WFC is enabled, not wifi-only, and not connected to wireless networks. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_power_off_wfc">Turn off airplane mode or connect to a wireless network to make a call.</string>
     <!-- In-call screen: call failure message displayed when the user attempts to make a non-emergency call while the phone is in emergency callback mode. -->
@@ -988,17 +1002,15 @@
          This string is currently unused (see comments in InCallScreen.java.) -->
     <string name="incall_error_emergency_only">Not registered on network.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_out_of_service">Cellular network not available.</string>
+    <string name="incall_error_out_of_service">Mobile network not available.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_out_of_service_wfc">Cellular network is not available. Connect to a wireless network to make a call.</string>
+    <string name="incall_error_out_of_service_wfc">Mobile network is not available. Connect to a wireless network to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_no_phone_number_supplied">To place a call, enter a valid number.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_call_failed">Call failed.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_cannot_add_call">Call cannot be added at this time.</string>
-    <!-- In-call screen: status message displayed in a dialog when starting an MMI -->
-    <string name="incall_status_dialed_mmi">Starting MMI sequence\u2026</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_unknown">Service not supported</string>
     <!-- In-call screen: message displayed in an error dialog -->
@@ -1181,12 +1193,8 @@
     <string name="phone_in_ecm_notification_title">Emergency Callback Mode</string>
     <!-- ECM: Notification body -->
     <string name="phone_in_ecm_call_notification_text">Data connection disabled</string>
-    <plurals name="phone_in_ecm_notification_time">
-        <!-- number of minutes is one -->
-        <item quantity="one">No data connection for <xliff:g id="count">%s</xliff:g> minute</item>
-        <!-- number of minutes is not equal to one -->
-        <item quantity="other">No data connection for <xliff:g id="count">%s</xliff:g> minutes</item>
-    </plurals>
+    <!-- ECM: Displays the time when ECM will end, Example: "No Data Connection until 10:45 AM" -->
+    <string name="phone_in_ecm_notification_complete_time">No data connection until <xliff:g id="completeTime">%s</xliff:g></string>
     <!-- ECM: Dialog box message for exiting from the notifications screen -->
     <plurals name="alert_dialog_exit_ecm">
         <!-- number of minutes is one -->
@@ -1255,11 +1263,6 @@
     -->
     <string name="description_dial_button">dial</string>
 
-    <!-- Title for the vibration settings for voicemail notifications [CHAR LIMIT=40] -->
-    <string name="voicemail_notification_vibrate_when_title" msgid="8731372580674292759">Vibrate</string>
-    <!-- Dialog title for the vibration settings for voice mail notifications [CHAR LIMIT=40]-->
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="8995274609647451109">Vibrate</string>
-
     <!-- Visual voicemail on/off title [CHAR LIMIT=40] -->
     <string name="voicemail_visual_voicemail_switch_title">Visual Voicemail</string>
 
@@ -1267,21 +1270,6 @@
     <string name="voicemail_set_pin_dialog_title">Set PIN</string>
     <!-- Voicemail change PIN dialog title [CHAR LIMIT=40] -->
     <string name="voicemail_change_pin_dialog_title">Change PIN</string>
-
-    <!-- Voicemail ringtone title. The user clicks on this preference to select
-         which sound to play when a voicemail notification is received.
-         [CHAR LIMIT=30] -->
-    <string name="voicemail_notification_ringtone_title">Sound</string>
-
-    <!-- The default value value for voicemail notification. -->
-    <string name="voicemail_notification_vibrate_when_default" translatable="false">never</string>
-
-    <!-- Actual values used in our code for voicemail notifications. DO NOT TRANSLATE -->
-    <string-array name="voicemail_notification_vibrate_when_values" translatable="false">
-        <item>always</item>
-        <item>silent</item>
-        <item>never</item>
-    </string-array>
 
     <!-- Title for the category "ringtone", which is shown above ringtone and vibration
          related settings.
@@ -1329,10 +1317,6 @@
     <!-- Status hint label for a call being made over a wifi network. [CHAR LIMIT=25] -->
     <string name="status_hint_label_wifi_call">Wi-Fi call</string>
 
-    <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
-    <string name="voicemail_notification_ringtone_key">voicemail_notification_ringtone_key</string>
-    <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
-    <string name="voicemail_notification_vibrate_key">voicemail_notification_vibrate_key</string>
     <!-- DO NOT TRANSLATE. Internal key for a visual voicemail preference. -->
     <string name="voicemail_visual_voicemail_key">voicemail_visual_voicemail_key</string>
     <!-- DO NOT TRANSLATE. Internal key for a voicemail change pin preference. -->
@@ -1359,6 +1343,17 @@
     <!-- Call failure reason: Cannot add a call because there are already too many active calls. -->
     <string name="callFailed_cdma_call_limit">
         There are too many active calls. Please end or merge existing calls before placing a new one.
+    </string>
+
+    <!-- Call failure reason: If the network does not accept the emergency call request, e.g., because IMEI was used as identification and this capability is not supported -->
+    <string name="callFailed_imei_not_accepted">
+        Unable to connect, please insert a valid SIM card.
+    </string>
+
+    <!-- Call failure reason displayed when an in-progress WIFI call fails due to a loss of WIFI
+         connectivity, or the WIFI signal has degraded to the point the call cannot continue. -->
+    <string name="callFailed_wifi_lost">
+        Wi-Fi connection lost.  Call ended.
     </string>
 
     <!-- The title for the change voicemail PIN activity -->

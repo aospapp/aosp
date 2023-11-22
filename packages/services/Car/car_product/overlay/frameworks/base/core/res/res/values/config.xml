@@ -41,7 +41,14 @@
     <!-- Allow smart unlock immediately after boot because the user shouldn't have to enter a pin
          code to unlock their car head unit. -->
     <bool name="config_strongAuthRequiredOnBoot">false</bool>
+    <!-- Show Navigation Bar -->
+    <bool name="config_showNavigationBar">true</bool>
 
     <integer name="config_jobSchedulerInactivityIdleThreshold">0</integer>
     <integer name="config_jobSchedulerIdleWindowSlop">0</integer>
+
+    <bool name="config_supportsMultiWindow">false</bool>
+    <!-- Automotive Bluetooth pairing option -->
+    <bool name="enable_pbap_pce_profile">true</bool>
+
 </resources>

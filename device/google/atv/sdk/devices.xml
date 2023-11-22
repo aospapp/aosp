@@ -5,6 +5,7 @@
 
     <d:device>
         <d:name>Android TV (1080p)</d:name>
+        <d:id>tv_1080p</d:id>
         <d:manufacturer>Google</d:manufacturer>
         <d:hardware>
             <d:screen>
@@ -48,6 +49,7 @@
             </d:abi>
             <d:dock/>
             <d:power-type>plugged-in</d:power-type>
+            <d:skin>tv_1080p</d:skin>
         </d:hardware>
         <d:software>
             <d:api-level>20-</d:api-level>
@@ -74,6 +76,7 @@
 
     <d:device>
         <d:name>Android TV (720p)</d:name>
+        <d:id>tv_720p</d:id>
         <d:manufacturer>Google</d:manufacturer>
         <d:hardware>
             <d:screen>
@@ -117,6 +120,7 @@
             </d:abi>
             <d:dock/>
             <d:power-type>plugged-in</d:power-type>
+            <d:skin>tv_720p</d:skin>
         </d:hardware>
         <d:software>
             <d:api-level>20-</d:api-level>

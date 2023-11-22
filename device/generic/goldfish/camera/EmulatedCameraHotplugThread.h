@@ -53,11 +53,11 @@ class EmulatedCameraHotplugThread : public Thread {
     bool removeWatch(int cameraId);
     SubscriberInfo* getSubscriberInfo(int cameraId);
 
-    int getCameraId(String8 filePath) const;
+    int getCameraId(const String8& filePath) const;
     int getCameraId(int wd) const;
 
     String8 getFilePath(int cameraId) const;
-    int readFile(String8 filePath) const;
+    int readFile(const String8& filePath) const;
 
     bool createFileIfNotExists(int cameraId) const;
 

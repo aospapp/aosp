@@ -31,21 +31,23 @@ class MockAttestationInterface : public AttestationInterface {
   virtual ~MockAttestationInterface() = default;
 
   MOCK_METHOD0(Initialize, bool());
-  MOCK_METHOD2(CreateGoogleAttestedKey, void(
-      const CreateGoogleAttestedKeyRequest&,
-      const CreateGoogleAttestedKeyCallback&));
-  MOCK_METHOD2(GetKeyInfo, void(const GetKeyInfoRequest&,
-                                const GetKeyInfoCallback&));
-  MOCK_METHOD2(GetEndorsementInfo, void(const GetEndorsementInfoRequest&,
-                                        const GetEndorsementInfoCallback&));
+  MOCK_METHOD2(CreateGoogleAttestedKey,
+               void(const CreateGoogleAttestedKeyRequest&,
+                    const CreateGoogleAttestedKeyCallback&));
+  MOCK_METHOD2(GetKeyInfo,
+               void(const GetKeyInfoRequest&, const GetKeyInfoCallback&));
+  MOCK_METHOD2(GetEndorsementInfo,
+               void(const GetEndorsementInfoRequest&,
+                    const GetEndorsementInfoCallback&));
   MOCK_METHOD2(GetAttestationKeyInfo,
                void(const GetAttestationKeyInfoRequest&,
                     const GetAttestationKeyInfoCallback&));
   MOCK_METHOD2(ActivateAttestationKey,
                void(const ActivateAttestationKeyRequest&,
                     const ActivateAttestationKeyCallback&));
-  MOCK_METHOD2(CreateCertifiableKey, void(const CreateCertifiableKeyRequest&,
-                                          const CreateCertifiableKeyCallback&));
+  MOCK_METHOD2(CreateCertifiableKey,
+               void(const CreateCertifiableKeyRequest&,
+                    const CreateCertifiableKeyCallback&));
   MOCK_METHOD2(Decrypt, void(const DecryptRequest&, const DecryptCallback&));
   MOCK_METHOD2(Sign, void(const SignRequest&, const SignCallback&));
   MOCK_METHOD2(RegisterKeyWithChapsToken,
@@ -56,4 +58,3 @@ class MockAttestationInterface : public AttestationInterface {
 }  // namespace attestation
 
 #endif  // ATTESTATION_COMMON_MOCK_ATTESTATION_INTERFACE_H_
-

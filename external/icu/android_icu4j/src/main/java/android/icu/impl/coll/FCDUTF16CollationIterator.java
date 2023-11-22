@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2010-2014, International Business Machines
@@ -39,14 +41,24 @@ public final class FCDUTF16CollationIterator extends UTF16CollationIterator {
     @Override
     public boolean equals(Object other) {
         // Skip the UTF16CollationIterator and call its parent.
-        if(!((CollationIterator)this).equals(other)) { return false; }
+        if (!(other instanceof CollationIterator)
+            || !((CollationIterator)this).equals(other)
+            || !(other instanceof FCDUTF16CollationIterator))
+        {
+            return false;
+        }
         FCDUTF16CollationIterator o = (FCDUTF16CollationIterator)other;
         // Compare the iterator state but not the text: Assume that the caller does that.
-        if(checkDir != o.checkDir) { return false; }
-        if(checkDir == 0 && (seq == rawSeq) != (o.seq == o.rawSeq)) { return false; }
-        if(checkDir != 0 || seq == rawSeq) {
+        if (checkDir != o.checkDir) {
+            return false;
+        }
+        if (checkDir == 0 && (seq == rawSeq) != (o.seq == o.rawSeq)) {
+            return false;
+        }
+        if (checkDir != 0 || seq == rawSeq) {
             return (pos - rawStart) == (o.pos - /*o.*/ rawStart);
-        } else {
+        }
+        else {
             return (segmentStart - rawStart) == (o.segmentStart - /*o.*/ rawStart) &&
                     (pos - start) == (o.pos - o.start);
         }

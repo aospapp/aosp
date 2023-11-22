@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if Flash video sound is not audible.
 """
 ATTRIBUTES = "suite:audio"
-SUITE = "audio"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "desktopui"

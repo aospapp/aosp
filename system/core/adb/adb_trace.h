@@ -41,7 +41,7 @@ enum AdbTrace {
 };
 
 #define VLOG_IS_ON(TAG) \
-    ((adb_trace_mask & (1 << TAG)) != 0)
+    ((adb_trace_mask & (1 << (TAG))) != 0)
 
 #define VLOG(TAG)         \
     if (LIKELY(!VLOG_IS_ON(TAG))) \
@@ -57,5 +57,9 @@ enum AdbTrace {
 extern int adb_trace_mask;
 void adb_trace_init(char**);
 void adb_trace_enable(AdbTrace trace_tag);
+
+#define ATRACE_TAG ATRACE_TAG_ADB
+#include <cutils/trace.h>
+#include <utils/Trace.h>
 
 #endif /* __ADB_TRACE_H */

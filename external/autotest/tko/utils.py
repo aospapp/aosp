@@ -1,10 +1,13 @@
-import os, sys, datetime, re
+import datetime
+import os
+import re
+import sys
 
 
 _debug_logger = sys.stderr
 def dprint(msg):
     #pylint: disable-msg=C0111
-    print >> _debug_logger, msg
+    print >> _debug_logger, 'tko parser: %s' % msg
 
 
 def redirect_parser_debugging(ostream):
@@ -30,7 +33,7 @@ def find_toplevel_job_dir(start_dir):
     @param start_dir: starting directing for the upward search"""
     job_dir = start_dir
     while not os.path.exists(os.path.join(job_dir, ".autoserv_execute")):
-        if job_dir == "/":
+        if job_dir == "/" or job_dir == '':
             return None
         job_dir = os.path.dirname(job_dir)
     return job_dir

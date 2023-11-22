@@ -474,9 +474,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		}
 	}
 
-	if (tb[RTA_UID])
-		fprintf(fp, " uid %u ", rta_getattr_u32(tb[RTA_UID]));
-
 	if (tb[RTA_FLOW] && filter.realmmask != ~0U) {
 		__u32 to = rta_getattr_u32(tb[RTA_FLOW]);
 		__u32 from = to>>16;
@@ -489,6 +486,10 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "%s ",
 			rtnl_rtrealm_n2a(to, b1, sizeof(b1)));
 	}
+
+	if (tb[RTA_UID])
+		fprintf(fp, "uid %u ", rta_getattr_u32(tb[RTA_UID]));
+
 	if ((r->rtm_flags&RTM_F_CLONED) && r->rtm_family == AF_INET) {
 		__u32 flags = r->rtm_flags&~0xFFFF;
 		int first = 1;
@@ -1633,15 +1634,17 @@ static int iproute_get(int argc, char **argv)
 			   strcmp(*argv, "dev") == 0) {
 			NEXT_ARG();
 			odev = *argv;
-		} else if (matches(*argv, "uid") == 0) {
-		        uid_t uid;
-			NEXT_ARG();
-			get_unsigned(&uid, *argv, 0);
-			addattr32(&req.n, sizeof(req), RTA_UID, uid);
 		} else if (matches(*argv, "notify") == 0) {
 			req.r.rtm_flags |= RTM_F_NOTIFY;
 		} else if (matches(*argv, "connected") == 0) {
 			connected = 1;
+		} else if (matches(*argv, "uid") == 0) {
+			uid_t uid;
+
+			NEXT_ARG();
+			if (get_unsigned(&uid, *argv, 0))
+				invarg("invalid UID\n", *argv);
+			addattr32(&req.n, sizeof(req), RTA_UID, uid);
 		} else {
 			inet_prefix addr;
 			if (strcmp(*argv, "to") == 0) {

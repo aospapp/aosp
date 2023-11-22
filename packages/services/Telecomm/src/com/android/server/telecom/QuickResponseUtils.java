@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.telecom.Log;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 

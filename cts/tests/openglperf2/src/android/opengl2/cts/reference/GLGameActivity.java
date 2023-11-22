@@ -13,10 +13,11 @@
  */
 package android.opengl2.cts.reference;
 
+import com.android.compatibility.common.util.WatchDog;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.content.res.AssetManager;
-import android.cts.util.WatchDog;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.opengl.GLES20;

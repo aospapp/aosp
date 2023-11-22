@@ -17,7 +17,6 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:cellular_mbim_compliance"
-SUITE="cellular_mbim_compliance"
 
 DOC = """
 CM_05 Test listed in the MBIM Compliance Test Suite specification.

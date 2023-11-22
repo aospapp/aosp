@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS "
 NAME = "network_nightly"
 PURPOSE = "A simple example suite."
-CRITERIA = "All tests with SUITE=network_nightly must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
@@ -32,7 +31,8 @@ from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 _BUG_TEMPLATE = {
-    'labels': ['OS-Chrome', 'Type-Bug-Regression', 'Cr-OS-Systems-Network'],
+    'labels': ['OS-Chrome', 'Type-Bug-Regression'],
+    'components': ['OS>Systems>Network'],
     'owner': '',
     'status': 'Untriaged',
     'summary': None,

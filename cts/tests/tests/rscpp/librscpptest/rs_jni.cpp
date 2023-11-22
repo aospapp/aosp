@@ -50,7 +50,7 @@ void aligned_free(void * memblk) {
     }
 }
 
-sp<const Element> makeElement(sp<RS> rs, RsDataType dt, int vecSize) {
+sp<const Element> makeElement(const sp<RS> &rs, RsDataType dt, int vecSize) {
     if (vecSize > 1) {
         return Element::createVector(rs, dt, vecSize);
     } else {

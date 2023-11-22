@@ -81,7 +81,7 @@ public class Support_GetPutFieldsDeprecated implements Serializable {
         charValue = 'A';
         doubleValue = 1231.342;
         floatValue = 43.22f;
-        longValue = 1560732321l;
+        longValue = 1560732321L;
         intValue = 33333;
         objectValue = new SimpleClass(2001, "A Space Odyssey");
         shortValue = 3078;

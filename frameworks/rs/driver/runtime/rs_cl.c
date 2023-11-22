@@ -297,37 +297,40 @@ extern float4 __attribute__((overloadable)) \
     return r;                                   \
 }
 
-static const int iposinf = 0x7f800000;
-static const int ineginf = 0xff800000;
+static const unsigned int iposinf = 0x7f800000;
+static const unsigned int ineginf = 0xff800000;
 
-static const float posinf() {
+static float posinf() {
     float f = *((float*)&iposinf);
     return f;
 }
 
-static const float neginf() {
-    float f = *((float*)&ineginf);
-    return f;
+static unsigned int float_bits(float f) {
+    /* TODO(jeanluc) Use this better approach once the Mac(SDK) build issues are fixed.
+    // Get the bits while following the strict aliasing rules.
+    unsigned int result;
+    memcpy(&result, &f, sizeof(f));
+    return result;
+    */
+    return *(unsigned int*)(char*)(&f);
 }
 
 static bool isinf(float f) {
-    int i = *((int*)(void*)&f);
+    unsigned int i = float_bits(f);
     return (i == iposinf) || (i == ineginf);
 }
 
 static bool isnan(float f) {
-    int i = *((int*)(void*)&f);
+    unsigned int i = float_bits(f);
     return (((i & 0x7f800000) == 0x7f800000) && (i & 0x007fffff));
 }
 
 static bool isposzero(float f) {
-    int i = *((int*)(void*)&f);
-    return (i == 0x00000000);
+    return (float_bits(f) == 0x00000000);
 }
 
 static bool isnegzero(float f) {
-    int i = *((int*)(void*)&f);
-    return (i == 0x80000000);
+    return (float_bits(f) == 0x80000000);
 }
 
 static bool iszero(float f) {

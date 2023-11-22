@@ -244,7 +244,7 @@ exit:
 __attribute__ ((visibility ("default")))
 int offload_effects_bundle_hal_stop_output(audio_io_handle_t output, int pcm_id)
 {
-    int ret;
+    int ret = 0;
     struct listnode *node;
     struct listnode *fx_node;
     output_context_t *out_ctxt;
@@ -668,10 +668,19 @@ int effect_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
         if (context->ops.set_device)
             context->ops.set_device(context, device);
         } break;
-    case EFFECT_CMD_SET_VOLUME:
+    case EFFECT_CMD_SET_VOLUME: {
+        // if pReplyData is NULL, VOL_CTRL is delegated to another effect
+        if (pReplyData == NULL) {
+            break;
+        }
+        if (pCmdData == NULL || cmdSize != 2 * sizeof(uint32_t) ||
+                replySize == NULL || *replySize < 2*sizeof(int32_t)) {
+            return -EINVAL;
+        }
+        memcpy(pReplyData, pCmdData, sizeof(int32_t)*2);
+        } break;
     case EFFECT_CMD_SET_AUDIO_MODE:
         break;
-
     case EFFECT_CMD_OFFLOAD: {
         output_context_t *out_ctxt;
 
@@ -703,8 +712,6 @@ int effect_command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdSize,
             add_effect_to_output(out_ctxt, context);
 
         } break;
-
-
     default:
         if (cmdCode >= EFFECT_CMD_FIRST_PROPRIETARY && context->ops.command)
             status = context->ops.command(context, cmdCode, cmdSize,
@@ -750,11 +757,11 @@ const struct effect_interface_s effect_interface = {
 
 __attribute__ ((visibility ("default")))
 audio_effect_library_t AUDIO_EFFECT_LIBRARY_INFO_SYM = {
-    tag : AUDIO_EFFECT_LIBRARY_TAG,
-    version : EFFECT_LIBRARY_API_VERSION,
-    name : "Offload Effects Bundle Library",
-    implementor : "The Android Open Source Project",
-    create_effect : effect_lib_create,
-    release_effect : effect_lib_release,
-    get_descriptor : effect_lib_get_descriptor,
+    .tag = AUDIO_EFFECT_LIBRARY_TAG,
+    .version = EFFECT_LIBRARY_API_VERSION,
+    .name = "Offload Effects Bundle Library",
+    .implementor = "The Android Open Source Project",
+    .create_effect = effect_lib_create,
+    .release_effect = effect_lib_release,
+    .get_descriptor = effect_lib_get_descriptor,
 };

@@ -18,7 +18,7 @@
           xmlns:tools="http://schemas.android.com/tools"
           package="android.support.fragment.test">
     <uses-sdk
-            android:minSdkVersion="9"
+            android:minSdkVersion="14"
             android:targetSdkVersion="23"
             tools:overrideLibrary="android.support.test, android.app, android.support.test.rule,
                       android.support.test.espresso, android.support.test.espresso.idling"/>
@@ -31,15 +31,18 @@
     <application
             android:supportsRtl="true"
             android:theme="@style/TestActivityTheme">
-        <uses-library android:name="android.test.runner" />
         <activity android:name="android.support.v4.app.test.FragmentTestActivity"/>
 
         <activity android:name="android.support.v4.app.test.EmptyFragmentTestActivity" />
 
         <activity android:name="android.support.v4.app.test.FragmentResultActivity" />
+
+        <activity android:name="android.support.v4.app.test.LoaderActivity" />
+
+        <activity android:name="android.support.v4.app.test.NewIntentActivity"
+                  android:launchMode="singleInstance" />
+
+        <activity android:name="android.support.v4.app.test.NonConfigOnStopActivity" />
     </application>
 
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
-                     android:targetPackage="android.support.fragment.test"
-                     />
 </manifest>

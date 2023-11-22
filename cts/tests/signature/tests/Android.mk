@@ -21,6 +21,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE := signature-tests
 LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LIBRARIES := tradefed-prebuilt cts-tradefed signature-hostside
+LOCAL_JAVA_LIBRARIES := tradefed cts-tradefed signature-hostside
 
 include $(BUILD_HOST_JAVA_LIBRARY)

@@ -16,23 +16,82 @@
 
 package com.android.server.telecom;
 
+import android.net.Uri;
 import android.os.UserHandle;
+import android.telecom.PhoneAccountHandle;
+
+import com.android.internal.telephony.CallerInfo;
 
 /**
  * Creates a notification for calls that the user missed (neither answered nor rejected).
  */
 public interface MissedCallNotifier extends CallsManager.CallsManagerListener {
+    class CallInfoFactory {
+        public CallInfo makeCallInfo(CallerInfo callerInfo, PhoneAccountHandle phoneAccountHandle,
+                Uri handle, long creationTimeMillis) {
+            return new CallInfo(callerInfo, phoneAccountHandle, handle, creationTimeMillis);
+        }
+    }
+
+    class CallInfo {
+        private CallerInfo mCallerInfo;
+        private PhoneAccountHandle mPhoneAccountHandle;
+        private Uri mHandle;
+        private long mCreationTimeMillis;
+
+        public CallInfo(CallerInfo callerInfo, PhoneAccountHandle phoneAccountHandle, Uri handle,
+                long creationTimeMillis) {
+            mCallerInfo = callerInfo;
+            mPhoneAccountHandle = phoneAccountHandle;
+            mHandle = handle;
+            mCreationTimeMillis = creationTimeMillis;
+        }
+
+        public CallInfo(Call call) {
+            mCallerInfo = call.getCallerInfo();
+            mPhoneAccountHandle = call.getTargetPhoneAccount();
+            mHandle = call.getHandle();
+            mCreationTimeMillis = call.getCreationTimeMillis();
+        }
+
+        public CallerInfo getCallerInfo() {
+            return mCallerInfo;
+        }
+
+        public PhoneAccountHandle getPhoneAccountHandle() {
+            return mPhoneAccountHandle;
+        }
+
+        public Uri getHandle() {
+            return mHandle;
+        }
+
+        public String getHandleSchemeSpecificPart() {
+            return mHandle == null ? null : mHandle.getSchemeSpecificPart();
+        }
+
+        public long getCreationTimeMillis() {
+            return mCreationTimeMillis;
+        }
+
+        public String getPhoneNumber() {
+            return mCallerInfo == null ? null : mCallerInfo.phoneNumber;
+        }
+
+        public String getName() {
+            return mCallerInfo == null ? null : mCallerInfo.name;
+        }
+    }
 
     void clearMissedCalls(UserHandle userHandle);
 
-    void showMissedCallNotification(Call call);
+    void showMissedCallNotification(CallInfo call);
 
-    void reloadFromDatabase(
-            TelecomSystem.SyncRoot lock,
-            CallsManager callsManager,
-            ContactsAsyncHelper contactsAsyncHelper,
-            CallerInfoAsyncQueryFactory callerInfoAsyncQueryFactory,
-            UserHandle userHandle);
+    void reloadAfterBootComplete(CallerInfoLookupHelper callerInfoLookupHelper,
+            CallInfoFactory callInfoFactory);
+
+    void reloadFromDatabase(CallerInfoLookupHelper callerInfoLookupHelper,
+            CallInfoFactory callInfoFactory, UserHandle userHandle);
 
     void setCurrentUserHandle(UserHandle userHandle);
 }

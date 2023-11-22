@@ -18,8 +18,8 @@
 #include "rsMesh.h"
 #include "rs.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 Mesh::Mesh(Context *rsc) : ObjectBase(rsc) {
     mHal.drv = nullptr;
@@ -263,9 +263,6 @@ void Mesh::computeBBox(Context *rsc) {
     }
 }
 
-namespace android {
-namespace renderscript {
-
 RsMesh rsi_MeshCreate(Context *rsc,
                       RsAllocation * vtx, size_t vtxCount,
                       RsAllocation * idx, size_t idxCount,
@@ -287,4 +284,5 @@ RsMesh rsi_MeshCreate(Context *rsc,
     return sm;
 }
 
-}}
+} // namespace renderscript
+} // namespace android

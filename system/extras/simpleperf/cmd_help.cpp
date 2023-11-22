@@ -26,10 +26,12 @@ class HelpCommand : public Command {
  public:
   HelpCommand()
       : Command("help", "print help information for simpleperf",
-                "Usage: simpleperf help [subcommand]\n"
-                "    Without subcommand, print short help string for every subcommand.\n"
-                "    With subcommand, print long help string for the subcommand.\n\n") {
-  }
+                // clang-format off
+"Usage: simpleperf help [subcommand]\n"
+"    Without subcommand, print short help string for every subcommand.\n"
+"    With subcommand, print long help string for the subcommand.\n\n"
+                // clang-format on
+                ) {}
 
   bool Run(const std::vector<std::string>& args) override;
 
@@ -44,7 +46,9 @@ bool HelpCommand::Run(const std::vector<std::string>& args) {
   } else {
     std::unique_ptr<Command> cmd = CreateCommandInstance(args[0]);
     if (cmd == nullptr) {
-      LOG(ERROR) << "malformed command line: can't find help string for unknown command " << args[0];
+      LOG(ERROR) << "malformed command line: can't find help string for "
+                    "unknown command "
+                 << args[0];
       LOG(ERROR) << "try using \"--help\"";
       return false;
     } else {
@@ -56,13 +60,17 @@ bool HelpCommand::Run(const std::vector<std::string>& args) {
 
 void HelpCommand::PrintShortHelp() {
   printf(
-      "Usage: simpleperf [common options] subcommand [args_for_subcommand]\n"
-      "common options:\n"
-      "    -h/--help     Print this help information.\n"
-      "    --log <severity> Set the minimum severity of logging. Possible severities\n"
-      "                     include verbose, debug, warning, error, fatal. Default is\n"
-      "                     warning.\n"
-      "subcommands:\n");
+      // clang-format off
+"Usage: simpleperf [common options] subcommand [args_for_subcommand]\n"
+"common options:\n"
+"    -h/--help     Print this help information.\n"
+"    --log <severity> Set the minimum severity of logging. Possible severities\n"
+"                     include verbose, debug, warning, info, error, fatal.\n"
+"                     Default is info.\n"
+"    --version     Print version of simpleperf.\n"
+      "subcommands:\n"
+      // clang-format on
+      );
   for (auto& cmd_name : GetAllCommandNames()) {
     std::unique_ptr<Command> cmd = CreateCommandInstance(cmd_name);
     printf("    %-20s%s\n", cmd_name.c_str(), cmd->ShortHelpString().c_str());
@@ -74,5 +82,6 @@ void HelpCommand::PrintLongHelpForOneCommand(const Command& command) {
 }
 
 void RegisterHelpCommand() {
-  RegisterCommand("help", [] { return std::unique_ptr<Command>(new HelpCommand); });
+  RegisterCommand("help",
+                  [] { return std::unique_ptr<Command>(new HelpCommand); });
 }

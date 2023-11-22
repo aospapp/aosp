@@ -18,6 +18,12 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:title="@string/about_preference">
 
+    <!-- Entry point to Tutorials app - launches activity displaying feature tours -->
+    <Preference android:key="tutorials"
+                android:title="@string/tutorials">
+        <intent android:action="com.google.android.tvtutorials.action.FEATURE_TUTORIALS_TOUR" />
+    </Preference>
+
     <!-- System update settings - launches activity -->
     <Preference android:key="system_update_settings"
         android:title="@string/about_system_update">

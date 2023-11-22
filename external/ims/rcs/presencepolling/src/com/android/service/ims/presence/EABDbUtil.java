@@ -28,9 +28,8 @@
 
 package com.android.service.ims.presence;
 
-import static com.android.service.ims.presence.AccountUtil.ACCOUNT_TYPE;
-
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import android.content.ContentProviderOperation;
@@ -45,6 +44,7 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
+import android.text.TextUtils;
 
 import com.android.ims.internal.ContactNumberUtils;
 import com.android.ims.internal.EABContract;
@@ -52,6 +52,7 @@ import com.android.ims.internal.Logger;
 
 public class EABDbUtil {
     static private Logger logger = Logger.getLogger("EABDbUtil");
+    public static final String ACCOUNT_TYPE = "com.android.rcs.eab.account";
 
     public static boolean validateAndSyncFromContactsDb(Context context) {
         logger.debug("Enter validateAndSyncFromContactsDb");
@@ -60,7 +61,8 @@ public class EABDbUtil {
         long contactLastChange = SharedPrefUtil.getLastContactChangedTimestamp(context, 0);
         logger.debug("contact last updated time before init :" + contactLastChange);
         ContentResolver contentResolver = context.getContentResolver();
-        String[] projection = new String[] { ContactsContract.Contacts._ID,
+        String[] projection = new String[] {
+                ContactsContract.Contacts._ID,
                 ContactsContract.Contacts.HAS_PHONE_NUMBER,
                 ContactsContract.Contacts.DISPLAY_NAME,
                 ContactsContract.Contacts.CONTACT_LAST_UPDATED_TIMESTAMP };
@@ -68,8 +70,13 @@ public class EABDbUtil {
                 + ContactsContract.Contacts.CONTACT_LAST_UPDATED_TIMESTAMP
                 + " >'" + contactLastChange + "'";
         String sortOrder = ContactsContract.Contacts.DISPLAY_NAME + " asc";
-        Cursor cursor = contentResolver.query(Contacts.CONTENT_URI, projection, selection,
-                null, sortOrder);
+        Cursor cursor = null;
+        try {
+            cursor = contentResolver.query(Contacts.CONTENT_URI, projection, selection,
+                    null, sortOrder);
+        } catch (Exception e) {
+            logger.error("validateAndSyncFromContactsDb() cursor exception:", e);
+        }
         ArrayList<PresenceContact> allEligibleContacts = new ArrayList<PresenceContact>();
 
         if (cursor != null) {
@@ -88,22 +95,29 @@ public class EABDbUtil {
                     contactLastChange = time;
                 }
                 String[] commonDataKindsProjection = new String[] {
+                        ContactsContract.CommonDataKinds.Phone._ID,
                         ContactsContract.CommonDataKinds.Phone.NUMBER,
                         ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                         ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID,
                         ContactsContract.CommonDataKinds.Phone.CONTACT_ID };
-                Cursor pCur = contentResolver.query(
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                        commonDataKindsProjection,
-                        ContactsContract.CommonDataKinds.Phone.CONTACT_ID
-                            + " = ?", new String[] { id }, null);
+                Cursor pCur = null;
+                try {
+                    pCur = contentResolver.query(
+                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            commonDataKindsProjection,
+                            ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+                                + " = ?", new String[] { id }, null);
+                } catch (Exception e) {
+                    logger.error("validateAndSyncFromContactsDb() pCur exception:", e);
+                }
+                // ArrayList to avoid duplicate entries of contactNumber having same
+                // contactId, rawContactId and dataId.
                 ArrayList<String> phoneNumList = new ArrayList<String>();
 
                 if (pCur != null && pCur.moveToFirst()) {
                     do {
                         String contactNumber = pCur.getString(pCur.getColumnIndex(
                                 ContactsContract.CommonDataKinds.Phone.NUMBER));
-                        //contactNumber = filterEligibleContact(context, pContactNumber);
                         if (validateEligibleContact(context, contactNumber)) {
                             String contactName = pCur.getString(pCur.getColumnIndex(
                                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME));
@@ -111,18 +125,21 @@ public class EABDbUtil {
                                     ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID));
                             String contactId = pCur.getString(pCur.getColumnIndex(
                                     ContactsContract.CommonDataKinds.Phone.CONTACT_ID));
-                            // TODO: HACK - To be resolved as part of EAB Provider rework.
-                            if (phoneNumList.contains(contactNumber)) continue;
-                            phoneNumList.add(contactNumber);
+                            String dataId = pCur.getString(pCur.getColumnIndex(
+                                    ContactsContract.CommonDataKinds.Phone._ID));
+                            String formattedNumber = formatNumber(contactNumber);
+                            String uniquePhoneNum = formattedNumber + contactId
+                                    + rawContactId + dataId;
+                            logger.debug("uniquePhoneNum : " + uniquePhoneNum);
+                            if (phoneNumList.contains(uniquePhoneNum)) continue;
+                            phoneNumList.add(uniquePhoneNum);
 
-                            String dataId = getDataId(contentResolver,rawContactId, contactNumber);
-                            if (null != dataId) {
-                                allEligibleContacts.add(new PresenceContact(contactName,
-                                        contactNumber, rawContactId, contactId, dataId));
-                            } else {
-                                logger.debug("dataId is null. Don't add contact to " +
-                                        "allEligibleContacts.");
-                            }
+                            allEligibleContacts.add(new PresenceContact(contactName, contactNumber,
+                                    formattedNumber, rawContactId, contactId, dataId));
+                            logger.debug("Eligible List Name: " + contactName +
+                                    " Number:" + contactNumber + " RawContactID: " + rawContactId +
+                                    " contactId: " + contactId + " Data.ID : " + dataId
+                                    + " formattedNumber: " + formattedNumber);
                         }
                     } while (pCur.moveToNext());
                 }
@@ -147,31 +164,6 @@ public class EABDbUtil {
         return response;
     }
 
-    private static String getDataId(ContentResolver contentResolver,
-            String rawContactId, String pContactNumber) {
-        String dataId = null;
-        String where = Data.RAW_CONTACT_ID + " = '" + rawContactId + "' AND "
-                + Data.MIMETYPE + "='" + Phone.CONTENT_ITEM_TYPE + "'"
-                + " AND " + Data.DATA1 + "='" + pContactNumber + "'";
-        Cursor cur = null;
-        try {
-            cur = contentResolver.query(Data.CONTENT_URI,
-                    new String[] { Data._ID }, where, null, null);
-            if (cur.moveToFirst()) {
-                dataId = cur.getString(cur.getColumnIndex(Data._ID));
-            }
-        } catch (SQLiteException e) {
-            logger.debug("SQLiteException while querying for dataId : " + e.toString());
-        } catch (Exception e) {
-            logger.debug("Exception while querying for dataId : " + e);
-        } finally {
-            if (null != cur) {
-                cur.close();
-            }
-        }
-        return dataId;
-    }
-
     public static void addContactsToEabDb(Context context,
             ArrayList<PresenceContact> contactList) {
         ArrayList<ContentProviderOperation> operation = new ArrayList<ContentProviderOperation>();
@@ -183,8 +175,9 @@ public class EABDbUtil {
         int yieldPoint = 300;
         for (int j = 0; j < contactList.size(); j++) {
             addContactToEabDb(context, operation, contactList.get(j).getDisplayName(),
-                    contactList.get(j).getPhoneNumber(), contactList.get(j).getRawContactId(),
-                    contactList.get(j).getContactId(), contactList.get(j).getDataId());
+                    contactList.get(j).getPhoneNumber(), contactList.get(j).getFormattedNumber(),
+                    contactList.get(j).getRawContactId(), contactList.get(j).getContactId(),
+                    contactList.get(j).getDataId());
             if (yieldPoint == j) {
                 exceuteDB(context, operation);
                 operation = null;
@@ -197,12 +190,13 @@ public class EABDbUtil {
 
     private static void addContactToEabDb(
             Context context, ArrayList<ContentProviderOperation> ops, String displayName,
-            String phoneNumber, String rawContactId, String contactId,
+            String phoneNumber, String formattedNumber, String rawContactId, String contactId,
             String dataId) {
         ops.add(ContentProviderOperation
                 .newInsert(EABContract.EABColumns.CONTENT_URI)
                 .withValue(EABContract.EABColumns.CONTACT_NAME, displayName)
                 .withValue(EABContract.EABColumns.CONTACT_NUMBER, phoneNumber)
+                .withValue(EABContract.EABColumns.FORMATTED_NUMBER, formattedNumber)
                 .withValue(EABContract.EABColumns.ACCOUNT_TYPE, ACCOUNT_TYPE)
                 .withValue(EABContract.EABColumns.RAW_CONTACT_ID, rawContactId)
                 .withValue(EABContract.EABColumns.CONTACT_ID, contactId)
@@ -318,8 +312,8 @@ public class EABDbUtil {
             if (count > 0) {
                 ops.add(ContentProviderOperation.newDelete(EABContract.EABColumns.CONTENT_URI)
                         .withSelection(EABContract.EABColumns.RAW_CONTACT_ID + " = ? AND "
-                                       + EABContract.EABColumns.DATA_ID + " = ?",
-                                new String[] { rawContactId, dataId }).build());
+                                        + EABContract.EABColumns.DATA_ID + " = ?",
+                                new String[]{rawContactId, dataId}).build());
             }
             eabDeleteCursor.close();
         }
@@ -402,28 +396,25 @@ public class EABDbUtil {
         if ( ContactNumberUtils.NUMBER_VALID == numberType) {
             number = true;
         }
+        logger.debug("Exiting validateEligibleContact with value : " + number);
         return number;
     }
 
-    public static String filterEligibleContact(Context context, String mdn) {
-        String number = null;
-        if (null == mdn) {
-            logger.debug("filterEligibleContact - mdn is null.");
-            return number;
-        }
-        logger.debug("Before filterEligibleContact validation : " + mdn);
-        List<String> mdbList = new ArrayList<String>();
-        mdbList.add(mdn);
+    public static String formatNumber(String mdn) {
+        logger.debug("Enter FormatNumber - mdn : " + mdn);
         ContactNumberUtils mNumberUtils = ContactNumberUtils.getDefault();
-        mNumberUtils.setContext(context);
-        int numberType = mNumberUtils.validate(mdbList);
-        logger.debug("ContactNumberUtils.validate response : " + numberType);
-        if ( ContactNumberUtils.NUMBER_VALID == numberType) {
-            String[] mdnFormatted = mNumberUtils.format(mdbList);
-            if (mdnFormatted.length > 0 ){
-                number = mdnFormatted[0];
+        return mNumberUtils.format(mdn);
+    }
+
+    public static boolean isSpecialNumber(String number) {
+        logger.debug("Enter isSpecialNumber - number : " + number);
+        boolean result = false;
+        if (null != number) {
+            if (number.startsWith("*67") || number.startsWith("*82")) {
+                result = true;
             }
         }
-        return number;
+        logger.debug("Exit isSpecialNumber - result : " + result);
+        return result;
     }
 }

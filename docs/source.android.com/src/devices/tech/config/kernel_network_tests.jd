@@ -70,17 +70,17 @@ that current and future kernels will compile for <code>ARCH=um
 SUBARCH=x86_64</code> without requiring any changes.</p>
 
 <h3 id=running>Running the tests</h3> <p>The tests are at <a
-href="https://android.googlesource.com/platform/system/extras/+/master/tests/net_test"><code>system/extras/tests/net_test</code></a>.
+href="https://android.googlesource.com/kernel/tests/+/master/net/test"><code>kernel/tests/net/test</code></a>.
 It is recommended that the tests <b>be run from AOSP master</b> because they
 are the most up-to-date; in some cases, kernel features that are necessary for
 proper operation in a given Android release do not yet have full test coverage
 in the given release. For information on how to run the tests, see the <a
-href="https://android.googlesource.com/platform/system/extras/+/master/tests/net_test/README">net_test
-README file</a>. Basically, from the top of your kernel tree, run:</p>
+href="https://android.googlesource.com/kernel/tests/+/master/net/test/README">kernel
+network test README file</a>. Basically, from the top of your kernel tree, run:</p>
 
-<pre>  &lt;android tree&gt;/system/extras/tests/net_test/run_net_test.sh all_tests.sh</pre>
+<pre>  &lt;android tree&gt;/kernel/tests/net/test/run_net_test.sh all_tests.sh</pre>
 
-<h3 id=passing>Passing the tests</h3> <p>The <code>net_test</code> Python
+<h3 id=passing>Passing the tests</h3> <p>The kernel network test Python
 source files contain comments that specify kernel commits that are known to be
 required to pass the tests. The tests should pass in the common kernel trees -
 at least the <code>android-3.10</code> and <code>android-3.18</code> branches
@@ -93,7 +93,7 @@ these trees.</p>
 <h2 id=contributing>Contributing</h2>
 
 <h3 id=reporting>Reporting issues</h3> <p>Please report any issues with
-net_test in the <a
+the kernel network tests in the <a
 href="https://code.google.com/p/android/issues/entry?template=Developer%20bug%20report">Android
 issue tracker</a> with the <a
 href="https://code.google.com/p/android/issues/list?q=label%3AComponent-Networking">Component-Networking</a>

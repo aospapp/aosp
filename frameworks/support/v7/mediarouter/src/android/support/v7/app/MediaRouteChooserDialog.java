@@ -19,7 +19,6 @@ package android.support.v7.app;
 import static android.support.v7.media.MediaRouter.RouteInfo.CONNECTION_STATE_CONNECTED;
 import static android.support.v7.media.MediaRouter.RouteInfo.CONNECTION_STATE_CONNECTING;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
@@ -60,16 +59,17 @@ import java.util.List;
  * @see MediaRouteButton
  * @see MediaRouteActionProvider
  */
-public class MediaRouteChooserDialog extends Dialog {
-    private static final String TAG = "MediaRouteChooserDialog";
+public class MediaRouteChooserDialog extends AppCompatDialog {
+    static final String TAG = "MediaRouteChooserDialog";
 
     // Do not update the route list immediately to avoid unnatural dialog change.
     private static final long UPDATE_ROUTES_DELAY_MS = 300L;
-    private static final int MSG_UPDATE_ROUTES = 1;
+    static final int MSG_UPDATE_ROUTES = 1;
 
     private final MediaRouter mRouter;
     private final MediaRouterCallback mCallback;
 
+    private TextView mTitleView;
     private MediaRouteSelector mSelector = MediaRouteSelector.EMPTY;
     private ArrayList<MediaRouter.RouteInfo> mRoutes;
     private RouteAdapter mAdapter;
@@ -166,11 +166,20 @@ public class MediaRouteChooserDialog extends Dialog {
     }
 
     @Override
+    public void setTitle(CharSequence title) {
+        mTitleView.setText(title);
+    }
+
+    @Override
+    public void setTitle(int titleId) {
+        mTitleView.setText(titleId);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.mr_chooser_dialog);
-        setTitle(R.string.mr_chooser_title);
 
         mRoutes = new ArrayList<>();
         mAdapter = new RouteAdapter(getContext(), mRoutes);
@@ -178,6 +187,7 @@ public class MediaRouteChooserDialog extends Dialog {
         mListView.setAdapter(mAdapter);
         mListView.setOnItemClickListener(mAdapter);
         mListView.setEmptyView(findViewById(android.R.id.empty));
+        mTitleView = findViewById(R.id.mr_chooser_title);
 
         updateLayout();
     }
@@ -226,7 +236,7 @@ public class MediaRouteChooserDialog extends Dialog {
         }
     }
 
-    private void updateRoutes(List<MediaRouter.RouteInfo> routes) {
+    void updateRoutes(List<MediaRouter.RouteInfo> routes) {
         mLastUpdateTime = SystemClock.uptimeMillis();
         mRoutes.clear();
         mRoutes.addAll(routes);
@@ -344,6 +354,9 @@ public class MediaRouteChooserDialog extends Dialog {
     }
 
     private final class MediaRouterCallback extends MediaRouter.Callback {
+        MediaRouterCallback() {
+        }
+
         @Override
         public void onRouteAdded(MediaRouter router, MediaRouter.RouteInfo info) {
             refreshRoutes();
@@ -365,12 +378,12 @@ public class MediaRouteChooserDialog extends Dialog {
         }
     }
 
-    private static final class RouteComparator implements Comparator<MediaRouter.RouteInfo> {
+    static final class RouteComparator implements Comparator<MediaRouter.RouteInfo> {
         public static final RouteComparator sInstance = new RouteComparator();
 
         @Override
         public int compare(MediaRouter.RouteInfo lhs, MediaRouter.RouteInfo rhs) {
-            return lhs.getName().compareTo(rhs.getName());
+            return lhs.getName().compareToIgnoreCase(rhs.getName());
         }
     }
 }

@@ -14,16 +14,35 @@ static const char* boolStr(bool value) {
     return value ? "true" : "false";
 }
 
-// these are in the same order as the SkColorType enum
-static const char* gColorTypeName[] = {
-    "None", "A8", "565", "4444", "RGBA", "BGRA", "Index8"
-};
+static const char* color_type_name(SkColorType colorType) {
+    switch (colorType) {
+        case kUnknown_SkColorType:
+            return "None";
+        case kAlpha_8_SkColorType:
+            return "A8";
+        case kRGB_565_SkColorType:
+            return "565";
+        case kARGB_4444_SkColorType:
+            return "4444";
+        case kRGBA_8888_SkColorType:
+            return "RGBA";
+        case kBGRA_8888_SkColorType:
+            return "BGRA";
+        case kIndex_8_SkColorType:
+            return "Index8";
+        case kGray_8_SkColorType:
+            return "Gray8";
+        case kRGBA_F16_SkColorType:
+            return "F16";
+    }
+    return "";
+}
 
 static void report_opaqueness(skiatest::Reporter* reporter, const SkBitmap& src,
                               const SkBitmap& dst) {
     ERRORF(reporter, "src %s opaque:%d, dst %s opaque:%d",
-           gColorTypeName[src.colorType()], src.isOpaque(),
-           gColorTypeName[dst.colorType()], dst.isOpaque());
+           color_type_name(src.colorType()), src.isOpaque(),
+           color_type_name(dst.colorType()), dst.isOpaque());
 }
 
 static bool canHaveAlpha(SkColorType ct) {
@@ -168,7 +187,7 @@ static void reportCopyVerification(const SkBitmap& bm1, const SkBitmap& bm2,
         uint32_t p2 = getPixel(coords[i]->fX, coords[i]->fY, bm2);
 //        SkDebugf("[%d] (%d %d) p1=%x p2=%x\n", i, coords[i]->fX, coords[i]->fY, p1, p2);
         if (p1 != p2) {
-            ERRORF(reporter, "%s [colortype = %s]", msg, gColorTypeName[bm1.colorType()]);
+            ERRORF(reporter, "%s [colortype = %s]", msg, color_type_name(bm1.colorType()));
             break;
         }
     }
@@ -181,12 +200,13 @@ static void writeCoordPixels(SkBitmap& bm, const Coordinates& coords) {
 }
 
 static const Pair gPairs[] = {
-    { kUnknown_SkColorType,     "000000"  },
-    { kAlpha_8_SkColorType,     "010101"  },
-    { kIndex_8_SkColorType,     "011111"  },
-    { kRGB_565_SkColorType,     "010101"  },
-    { kARGB_4444_SkColorType,   "010111"  },
-    { kN32_SkColorType,         "010111"  },
+    { kUnknown_SkColorType,     "0000000"  },
+    { kAlpha_8_SkColorType,     "0100000"  },
+    { kIndex_8_SkColorType,     "0101111"  },
+    { kRGB_565_SkColorType,     "0101011"  },
+    { kARGB_4444_SkColorType,   "0101111"  },
+    { kN32_SkColorType,         "0101111"  },
+    { kRGBA_F16_SkColorType,    "0101011"  },
 };
 
 static const int W = 20;
@@ -199,11 +219,17 @@ static void setup_src_bitmaps(SkBitmap* srcOpaque, SkBitmap* srcPremul,
         ctable = init_ctable();
     }
 
-    srcOpaque->allocPixels(SkImageInfo::Make(W, H, ct, kOpaque_SkAlphaType),
+    sk_sp<SkColorSpace> colorSpace = nullptr;
+    if (kRGBA_F16_SkColorType == ct) {
+        colorSpace = SkColorSpace::MakeSRGBLinear();
+    }
+
+    srcOpaque->allocPixels(SkImageInfo::Make(W, H, ct, kOpaque_SkAlphaType, colorSpace),
                            nullptr, ctable);
-    srcPremul->allocPixels(SkImageInfo::Make(W, H, ct, kPremul_SkAlphaType),
+    srcPremul->allocPixels(SkImageInfo::Make(W, H, ct, kPremul_SkAlphaType, colorSpace),
                            nullptr, ctable);
     SkSafeUnref(ctable);
+
     init_src(*srcOpaque);
     init_src(*srcPremul);
 }
@@ -234,7 +260,8 @@ DEF_TEST(BitmapCopy_extractSubset, reporter) {
                 if (!success) {
                     // Skip checking that success matches fValid, which is redundant
                     // with the code below.
-                    REPORTER_ASSERT(reporter, gPairs[i].fColorType != gPairs[j].fColorType);
+                    REPORTER_ASSERT(reporter, kIndex_8_SkColorType == gPairs[i].fColorType ||
+                                              gPairs[i].fColorType != gPairs[j].fColorType);
                     continue;
                 }
 
@@ -280,14 +307,16 @@ DEF_TEST(BitmapCopy, reporter) {
             bool expected = gPairs[i].fValid[j] != '0';
             if (success != expected) {
                 ERRORF(reporter, "SkBitmap::copyTo from %s to %s. expected %s "
-                       "returned %s", gColorTypeName[i], gColorTypeName[j],
+                       "returned %s", color_type_name(gPairs[i].fColorType),
+                       color_type_name(gPairs[j].fColorType),
                        boolStr(expected), boolStr(success));
             }
 
             bool canSucceed = srcPremul.canCopyTo(gPairs[j].fColorType);
             if (success != canSucceed) {
                 ERRORF(reporter, "SkBitmap::copyTo from %s to %s. returned %s "
-                       "canCopyTo %s", gColorTypeName[i], gColorTypeName[j],
+                       "canCopyTo %s", color_type_name(gPairs[i].fColorType),
+                       color_type_name(gPairs[j].fColorType),
                        boolStr(success), boolStr(canSucceed));
             }
 
@@ -336,7 +365,7 @@ DEF_TEST(BitmapCopy, reporter) {
             int64_t safeSize = tstSafeSize.computeSafeSize64();
             if (safeSize < 0) {
                 ERRORF(reporter, "getSafeSize64() negative: %s",
-                       gColorTypeName[tstSafeSize.colorType()]);
+                       color_type_name(tstSafeSize.colorType()));
             }
             bool sizeFail = false;
             // Compare against hand-computed values.
@@ -369,7 +398,7 @@ DEF_TEST(BitmapCopy, reporter) {
             }
             if (sizeFail) {
                 ERRORF(reporter, "computeSafeSize64() wrong size: %s",
-                       gColorTypeName[tstSafeSize.colorType()]);
+                       color_type_name(tstSafeSize.colorType()));
             }
 
             int subW = 2;
@@ -608,7 +637,7 @@ DEF_TEST(BitmapReadPixels, reporter) {
                                  gRec[i].fRequestedDstSize.height());
         bool success = srcBM.readPixels(dstInfo, dstPixels, rowBytes,
                                         gRec[i].fRequestedSrcLoc.x(), gRec[i].fRequestedSrcLoc.y());
-        
+
         REPORTER_ASSERT(reporter, gRec[i].fExpectedSuccess == success);
         if (success) {
             const SkIRect srcR = gRec[i].fExpectedSrcR;
@@ -632,87 +661,19 @@ DEF_TEST(BitmapReadPixels, reporter) {
     }
 }
 
-#if SK_SUPPORT_GPU
+DEF_TEST(BitmapCopy_ColorSpaceMatch, r) {
+    // We should support matching color spaces, even if they are parametric.
+    SkColorSpaceTransferFn fn;
+    fn.fA = 1.f; fn.fB = 0.f; fn.fC = 0.f; fn.fD = 0.f; fn.fE = 0.f; fn.fF = 0.f; fn.fG = 1.8f;
+    sk_sp<SkColorSpace> cs = SkColorSpace::MakeRGB(fn, SkColorSpace::kRec2020_Gamut);
 
-#include "GrContext.h"
-#include "SkGr.h"
-#include "SkColorPriv.h"
-/** Tests calling copyTo on a texture backed bitmap. Tests that all BGRA_8888/RGBA_8888 combinations
-    of src and dst work. This test should be removed when SkGrPixelRef is removed. */
-DEF_GPUTEST_FOR_RENDERING_CONTEXTS(BitmapCopy_Texture, reporter, ctx) {
-    static const SkPMColor kData[] = {
-        0xFF112233, 0xAF224499,
-        0xEF004466, 0x80773311
-    };
+    SkImageInfo info = SkImageInfo::MakeN32Premul(1, 1, cs);
+    SkBitmap bitmap;
+    bitmap.allocPixels(info);
+    bitmap.eraseColor(0);
 
-    uint32_t swizData[SK_ARRAY_COUNT(kData)];
-    for (size_t i = 0; i < SK_ARRAY_COUNT(kData); ++i) {
-        swizData[i] = SkSwizzle_RB(kData[i]);
-    }
-
-    static const GrPixelConfig kSrcConfigs[] = {
-        kRGBA_8888_GrPixelConfig,
-        kBGRA_8888_GrPixelConfig,
-    };
-
-    for (size_t srcC = 0; srcC < SK_ARRAY_COUNT(kSrcConfigs); ++srcC) {
-        for (int rt = 0; rt < 2; ++rt) {
-            GrSurfaceDesc desc;
-            desc.fConfig = kSrcConfigs[srcC];
-            desc.fFlags = rt ? kRenderTarget_GrSurfaceFlag : kNone_GrSurfaceFlags;
-            desc.fWidth = 2;
-            desc.fHeight = 2;
-            desc.fOrigin = kTopLeft_GrSurfaceOrigin;
-
-            const void* srcData = (kSkia8888_GrPixelConfig == desc.fConfig) ? kData : swizData;
-
-            SkAutoTUnref<GrTexture> texture(
-                ctx->textureProvider()->createTexture(desc, SkBudgeted::kNo, srcData, 0));
-
-            if (!texture) {
-                continue;
-            }
-
-            SkBitmap srcBmp;
-            GrWrapTextureInBitmap(texture, 2, 2, false, &srcBmp);
-            if (srcBmp.isNull()) {
-                ERRORF(reporter, "Could not wrap texture in bitmap.");
-                continue;
-            }
-            static const SkColorType kDstCTs[] = { kRGBA_8888_SkColorType, kBGRA_8888_SkColorType };
-            for (size_t dCT = 0; dCT < SK_ARRAY_COUNT(kDstCTs); ++dCT) {
-                SkBitmap dstBmp;
-                if (!srcBmp.copyTo(&dstBmp, kDstCTs[dCT])) {
-                    ERRORF(reporter, "CopyTo failed.");
-                }
-                if (dstBmp.colorType() != kDstCTs[dCT]) {
-                    ERRORF(reporter, "SkBitmap::CopyTo did not respect passed in color type.");
-                }
-                SkAutoLockPixels alp(dstBmp);
-                uint8_t* dstBmpPixels = static_cast<uint8_t*>(dstBmp.getPixels());
-                const uint32_t* refData;
-#if defined(SK_PMCOLOR_IS_RGBA)
-                refData = (kRGBA_8888_SkColorType == dstBmp.colorType()) ? kData : swizData;
-#elif defined(SK_PMCOLOR_IS_BGRA)
-                refData = (kBGRA_8888_SkColorType == dstBmp.colorType()) ? kData : swizData;
-#else 
-    #error "PM Color must be BGRA or RGBA to use GPU backend."
-#endif
-                bool foundError = false;
-                for (int y = 0; y < 2 && !foundError; ++y) {
-                    uint32_t* dstBmpRow = reinterpret_cast<uint32_t*>(dstBmpPixels);
-                    for (int x = 0; x < 2 && !foundError; ++x) {
-                        if (refData[2 * y + x] != dstBmpRow[x]) {
-                            ERRORF(reporter, "Expected pixel 0x%08x, found 0x%08x.",
-                                   refData[2 * y + x], dstBmpRow[x]);
-                            foundError = true;
-                        }
-                    }
-                    dstBmpPixels += dstBmp.rowBytes();
-                }
-            }
-        }
-    }
+    SkBitmap copy;
+    bool success = bitmap.copyTo(&copy, kN32_SkColorType, nullptr);
+    REPORTER_ASSERT(r, success);
+    REPORTER_ASSERT(r, cs.get() == copy.colorSpace());
 }
-
-#endif

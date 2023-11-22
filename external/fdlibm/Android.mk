@@ -57,12 +57,17 @@ cflags += -fno-strict-aliasing
 # floating point expession contraction (e.g: fused multiply-add operations).
 cflags += -std=c99
 
+# Disable warnings. We need a specific version of fdlibm and can't fix this upstream.
+cflags += -Wno-sign-compare -Wno-dangling-else -Wno-unknown-pragmas
+clang_cflags := -Wno-dangling-else -Wno-logical-op-parentheses -Wno-sometimes-uninitialized
+
 #
 # Build for the target (device).
 #
 
 include $(CLEAR_VARS)
 LOCAL_CFLAGS := $(cflags)
+LOCAL_CLANG_CFLAGS := $(clang_cflags)
 LOCAL_CLANG := true
 LOCAL_MODULE := libfdlibm
 LOCAL_SRC_FILES:= $(src_files)
@@ -75,6 +80,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_CFLAGS := $(cflags)
+LOCAL_CLANG_CFLAGS := $(clang_cflags)
 LOCAL_CLANG := true
 LOCAL_MODULE := libfdlibm
 LOCAL_MULTILIB := both

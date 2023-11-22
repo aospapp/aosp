@@ -1060,9 +1060,9 @@ public class VmMirror {
 
     /**
      * Sets ClassUnload event request for given class name pattern.
-     * 
-     * @param classSignature
-     *            class signature
+     *
+     * @param classRegexp
+     *            class pattern
      * @return ReplyPacket for setting request
      */
     public ReplyPacket setClassUnload(String classRegexp) {
@@ -2171,15 +2171,15 @@ public class VmMirror {
      *            ID of the thread
      * @return A list of frames
      */
-    public final List getAllThreadFrames(long threadID) {
+    public final List<Frame> getAllThreadFrames(long threadID) {
         if (!isThreadSuspended(threadID)) {
-            return new ArrayList(0);
+            return new ArrayList<Frame>(0);
         }
 
         ReplyPacket reply = getThreadFrames(threadID, 0, -1);
         int framesCount = reply.getNextValueAsInt();
         if (framesCount == 0) {
-            return new ArrayList(0);
+            return new ArrayList<Frame>(0);
         }
 
         ArrayList<Frame> frames = new ArrayList<Frame>(framesCount);
@@ -2226,7 +2226,7 @@ public class VmMirror {
      * @return A list containing all variables (arguments and locals) declared
      *         within the method.
      */
-    public final List getVariableTable(long classID, long methodID) {
+    public final List<Variable> getVariableTable(long classID, long methodID) {
         CommandPacket command = new CommandPacket(
                 JDWPCommands.MethodCommandSet.CommandSetID,
                 JDWPCommands.MethodCommandSet.VariableTableCommand);
@@ -2277,7 +2277,7 @@ public class VmMirror {
         command.setNextValueAsFrameID(frame.getID());
         int slots = frame.getVars().size();
         command.setNextValueAsInt(slots);
-        Iterator it = frame.getVars().iterator();
+        Iterator<?> it = frame.getVars().iterator();
         while (it.hasNext()) {
             Frame.Variable var = (Frame.Variable) it.next();
             command.setNextValueAsInt(var.getSlot());
@@ -2483,12 +2483,12 @@ public class VmMirror {
      *            The reference type ID
      * @return A list of Field objects representing each field of the class
      */
-    public final List getAllFields(long classID) {
+    public final List<Field> getAllFields(long classID) {
         ArrayList<Field> fields = new ArrayList<Field>(0);
 
         long superID = getSuperclassId(classID);
         if (superID != 0) {
-            List superClassFields = getAllFields(superID);
+            List<Field> superClassFields = getAllFields(superID);
             for (int i = 0; i < superClassFields.size(); i++) {
                 fields.add((Field) superClassFields.toArray()[i]);
             }
@@ -2735,8 +2735,8 @@ public class VmMirror {
      * @return A list of Variable objects representing each visible local
      *         variable within the given frame.
      */
-    public final List getLocalVars(Frame frame) {
-        List vars = getVariableTable(frame.getLocation().classID, frame
+    public final List<Variable> getLocalVars(Frame frame) {
+        List<Variable> vars = getVariableTable(frame.getLocation().classID, frame
                 .getLocation().methodID);
         if (vars == null) {
             return null;

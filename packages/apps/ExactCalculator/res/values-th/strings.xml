@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"ลบ"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"แสดงฟังก์ชันผกผัน"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"ซ่อนฟังก์ชันผกผัน"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"ไม่มีสูตร"</string>
+    <string name="desc_result" msgid="1794073190203126821">"ไม่พบผลลัพธ์"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"แป้นตัวเลขและการคำนวนขั้นต้น"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"การใช้งานขั้นสูง"</string>
     <string name="error_nan" msgid="5674077944929888710">"ไม่ใช่ตัวเลข"</string>
     <string name="error_syntax" msgid="4786987111228645602">"นิพจน์ไม่ถูกต้อง"</string>
     <string name="error_aborted" msgid="3402238176316342537">"ล้มเลิกแล้ว"</string>
     <string name="error_overflow" msgid="7800547394563434764">"เป็นอนันต์ใช่ไหม"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"ไม่สามารถหารด้วย 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"คัดลอกข้อความแล้ว"</string>
-    <string name="cancelled" msgid="1618889609742874632">"ยกเลิกการคำนวณแล้ว"</string>
-    <string name="timeout" msgid="802690170415591535">"หมดเวลาแล้ว ค่าที่ได้อาจเป็นอนันต์หรือระบุไม่ได้"</string>
+    <string name="cancelled" msgid="2207323593183640994">"ยกเลิกการคำนวณแล้ว"</string>
+    <string name="timeout" msgid="5461892570729418573">"ค่าอาจเป็นอนันต์หรือไม่ระบุ"</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"ใช้ระยะหมดเวลาที่นานขึ้น"</string>
     <string name="dismiss" msgid="7872443888515066216">"ปิด"</string>
     <string name="exact" msgid="2597237880041789948">"(ลงตัว)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"คำตอบที่มีเลขนำหน้า"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"ตอบเป็นเศษส่วน"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"ใบอนุญาตโอเพนซอร์ส"</string>
+    <string name="menu_history" msgid="9006222701220105452">"ประวัติ"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"ล้าง"</string>
+    <string name="title_history" msgid="7820912156315181539">"ประวัติ"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"นำทางขึ้น"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"ระยะหมดเวลา"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"ล้างประวัติและหน่วยความจำไหม"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"นิพจน์ปัจจุบัน"</string>
+    <string name="no_history" msgid="4331262030447527188">"ไม่มีประวัติ"</string>
 </resources>

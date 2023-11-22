@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 // UNSUPPORTED: libcpp-has-no-threads
+// UNSUPPORTED: c++98, c++03, c++11
 
 // <shared_mutex>
 
@@ -18,7 +19,7 @@
 #include <shared_mutex>
 #include <cassert>
 
-#if _LIBCPP_STD_VER > 11
+#include "test_macros.h"
 
 bool unlock_called = false;
 
@@ -30,15 +31,13 @@ struct mutex
 
 mutex m;
 
-#endif  // _LIBCPP_STD_VER > 11
-
 int main()
 {
-#if _LIBCPP_STD_VER > 11
     std::shared_lock<mutex> lk(m);
     lk.unlock();
     assert(unlock_called == true);
     assert(lk.owns_lock() == false);
+#ifndef TEST_HAS_NO_EXCEPTIONS
     try
     {
         lk.unlock();
@@ -48,7 +47,9 @@ int main()
     {
         assert(e.code().value() == EPERM);
     }
+#endif
     lk.release();
+#ifndef TEST_HAS_NO_EXCEPTIONS
     try
     {
         lk.unlock();
@@ -58,5 +59,5 @@ int main()
     {
         assert(e.code().value() == EPERM);
     }
-#endif  // _LIBCPP_STD_VER > 11
+#endif
 }

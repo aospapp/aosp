@@ -19,12 +19,21 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.PersistableBundle;
+import android.support.v4.content.pm.ShortcutInfoCompat;
+import android.support.v4.content.pm.ShortcutManagerCompat;
 import android.util.Log;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -76,24 +85,24 @@ public class ShortcutHelper {
     }
 
     /**
-     * Return all mutable shortcuts from this app self.
+     * Return all shortcuts from this app self.
      */
     public List<ShortcutInfo> getShortcuts() {
-        // Load mutable dynamic shortcuts and pinned shortcuts and put them into a single list
-        // removing duplicates.
-
         final List<ShortcutInfo> ret = new ArrayList<>();
         final HashSet<String> seenKeys = new HashSet<>();
 
-        // Check existing shortcuts shortcuts
+        for (ShortcutInfo shortcut : mShortcutManager.getManifestShortcuts()) {
+            ret.add(shortcut);
+            seenKeys.add(shortcut.getId());
+        }
         for (ShortcutInfo shortcut : mShortcutManager.getDynamicShortcuts()) {
-            if (!shortcut.isImmutable()) {
+            if (!seenKeys.contains(shortcut.getId())) {
                 ret.add(shortcut);
                 seenKeys.add(shortcut.getId());
             }
         }
         for (ShortcutInfo shortcut : mShortcutManager.getPinnedShortcuts()) {
-            if (!shortcut.isImmutable() && !seenKeys.contains(shortcut.getId())) {
+            if (!seenKeys.contains(shortcut.getId())) {
                 ret.add(shortcut);
                 seenKeys.add(shortcut.getId());
             }
@@ -149,8 +158,9 @@ public class ShortcutHelper {
         }.execute();
     }
 
-    private ShortcutInfo createShortcutForUrl(String urlAsString) {
+    public ShortcutInfo createShortcutForUrl(String urlAsString) {
         Log.i(TAG, "createShortcutForUrl: " + urlAsString);
+        urlAsString = normalizeUrl(urlAsString);
 
         final ShortcutInfo.Builder b = new ShortcutInfo.Builder(mContext, urlAsString);
 
@@ -169,8 +179,12 @@ public class ShortcutHelper {
         b.setShortLabel(uri.getHost());
         b.setLongLabel(uri.toString());
 
-        // TODO Fetch the favicon from the URI and sets to the icon.
-        b.setIcon(Icon.createWithResource(mContext, R.drawable.link));
+        Bitmap bmp = fetchFavicon(uri);
+        if (bmp != null) {
+            b.setIcon(Icon.createWithBitmap(bmp));
+        } else {
+            b.setIcon(Icon.createWithResource(mContext, R.drawable.link));
+        }
 
         return b;
     }
@@ -190,12 +204,16 @@ public class ShortcutHelper {
         }
     }
 
-    public void addWebSiteShortcut(String urlAsString) {
-        final String uriFinal = urlAsString;
-        callShortcutManager(() -> {
-            final ShortcutInfo shortcut = createShortcutForUrl(normalizeUrl(uriFinal));
-            return mShortcutManager.addDynamicShortcuts(Arrays.asList(shortcut));
-        });
+    public void addWebSiteShortcut(String urlAsString, boolean forPin) {
+        final ShortcutInfo shortcut = createShortcutForUrl(urlAsString);
+
+        if (forPin) {
+            callShortcutManager(() -> mShortcutManager.requestPinShortcut(
+                    shortcut, MyReceiver.getPinRequestAcceptedIntent(mContext).getIntentSender()));
+        } else {
+            callShortcutManager(() ->
+                mShortcutManager.addDynamicShortcuts(Arrays.asList(shortcut)));
+        }
     }
 
     public void removeShortcut(ShortcutInfo shortcut) {
@@ -208,5 +226,30 @@ public class ShortcutHelper {
 
     public void enableShortcut(ShortcutInfo shortcut) {
         mShortcutManager.enableShortcuts(Arrays.asList(shortcut.getId()));
+    }
+
+    public void requestPinShortcut(String id) {
+        ShortcutManagerCompat.requestPinShortcut(mContext,
+                new ShortcutInfoCompat.Builder(mContext, id).build(),
+                MyReceiver.getPinRequestAcceptedIntent(mContext).getIntentSender());
+    }
+
+    private Bitmap fetchFavicon(Uri uri) {
+        final Uri iconUri = uri.buildUpon().path("favicon.ico").build();
+        Log.i(TAG, "Fetching favicon from: " + iconUri);
+
+        InputStream is = null;
+        BufferedInputStream bis = null;
+        try
+        {
+            URLConnection conn = new URL(iconUri.toString()).openConnection();
+            conn.connect();
+            is = conn.getInputStream();
+            bis = new BufferedInputStream(is, 8192);
+            return BitmapFactory.decodeStream(bis);
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to fetch favicon from " + iconUri, e);
+            return null;
+        }
     }
 }

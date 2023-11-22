@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <errno.h>
 
-#include <UniquePtr.h>
+#include <memory>
 
 #include "Log.h"
 #include "FileUtil.h"
@@ -51,7 +51,7 @@ bool TaskSave::handleFile()
         return true; // true as there is no need to save
     }
 
-    UniquePtr<std::vector<android::String8> > list(StringUtil::split(fileValue, ','));
+    std::unique_ptr<std::vector<android::String8> > list(StringUtil::split(fileValue, ','));
     std::vector<android::String8>* listp = list.get();
     if (listp == NULL) {
         LOGE("alloc failed");
@@ -75,7 +75,7 @@ bool TaskSave::handleFile()
     }
 
     for (size_t i = 0; i < listp->size(); i++) {
-        UniquePtr<std::list<TaskCase::BufferPair> > buffers(
+        std::unique_ptr<std::list<TaskCase::BufferPair> > buffers(
                 getTestCase()->findAllBuffers((*listp)[i]));
         std::list<TaskCase::BufferPair>* buffersp = buffers.get();
         if (buffersp == NULL) {
@@ -104,7 +104,7 @@ bool TaskSave::handleReport()
         return true; // true as there is no need to save
     }
 
-    UniquePtr<std::vector<android::String8> > list(StringUtil::split(reportValue, ','));
+    std::unique_ptr<std::vector<android::String8> > list(StringUtil::split(reportValue, ','));
     std::vector<android::String8>* listp = list.get();
     if (listp == NULL) {
         LOGE("alloc failed");
@@ -113,7 +113,7 @@ bool TaskSave::handleReport()
     MSG("=== Values stored ===");
     android::String8 details;
     for (size_t i = 0; i < listp->size(); i++) {
-        UniquePtr<std::list<TaskCase::ValuePair> > values(
+        std::unique_ptr<std::list<TaskCase::ValuePair> > values(
                 getTestCase()->findAllValues((*listp)[i]));
         std::list<TaskCase::ValuePair>* valuesp = values.get();
         if (valuesp == NULL) {

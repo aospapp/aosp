@@ -16,21 +16,34 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-
+import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
 import android.graphics.Matrix;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.ScaleAnimation;
 import android.view.animation.Transformation;
+import android.view.cts.R;
 
-public class ScaleAnimationTest
-        extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ScaleAnimationTest {
     private static long DURATION = 1000;
     private static float DELTA = 0.001f;
     private static float FROM_X = 1.0f;
@@ -41,18 +54,21 @@ public class ScaleAnimationTest
     private static float PIVOT_Y = 0.6f;
     private static float MID_X = 0.8f;
     private static float MID_Y = 3.3f;
-    private AnimationTestCtsActivity mActivity;
 
-    public ScaleAnimationTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructors() {
         final XmlResourceParser parser = mActivity.getResources().getAnimation(
                 R.anim.anim_scale);
@@ -68,6 +84,7 @@ public class ScaleAnimationTest
         new ScaleAnimation(FROM_X, TO_X, FROM_Y, TO_Y, PIVOT_X, PIVOT_Y);
     }
 
+    @Test
     public void testApplyTransformation() {
         final Transformation transformation = new Transformation();
         transformation.setTransformationType(Transformation.TYPE_MATRIX);
@@ -102,7 +119,8 @@ public class ScaleAnimationTest
         assertTrue(Math.abs(trans2Y) < Math.abs(trans3Y));
     }
 
-    public void testApplyTransformationIndirectly() {
+    @Test
+    public void testApplyTransformationIndirectly() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final Transformation transformation = new Transformation();
         transformation.setTransformationType(Transformation.TYPE_MATRIX);
@@ -111,7 +129,8 @@ public class ScaleAnimationTest
                 PIVOT_X, PIVOT_Y);
         scaleAnimation.setDuration(DURATION);
         scaleAnimation.initialize(50, 50, 100, 100);
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, scaleAnimation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                scaleAnimation);
 
         float values[] = new float[9];
         long startTime = scaleAnimation.getStartTime();

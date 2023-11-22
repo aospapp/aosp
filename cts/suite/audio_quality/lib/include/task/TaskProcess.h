@@ -18,9 +18,9 @@
 #ifndef CTSAUDIO_TASKPROCESS_H
 #define CTSAUDIO_TASKPROCESS_H
 
+#include <memory>
 #include <vector>
 
-#include <UniquePtr.h>
 #include <utils/StrongPointer.h>
 
 #include "audio/Buffer.h"
@@ -42,15 +42,15 @@ private:
     bool parseParams(std::vector<Param>& list, const char* str, bool isInput);
     //typedef necessary to prevent compiler's confusion
     typedef void* void_ptr;
-    typedef UniquePtr<TaskCase::Value> UniqueValue;
-    typedef UniquePtr<android::sp<Buffer> > UniqueBuffer;
+    typedef std::unique_ptr<TaskCase::Value> UniqueValue;
+    typedef std::unique_ptr<android::sp<Buffer> > UniqueBuffer;
     /// construct Buffers and Values for calling builtin functions.
-    /// all constructed stuffs automatically deleted by the passed UniquePtrs
+    /// all constructed stuffs automatically deleted by the passed std::unique_ptrs.
     bool prepareParams(std::vector<TaskProcess::Param>& list,
             const bool* inputTypes,
-            UniquePtr<void_ptr, DefaultDelete<void_ptr[]> > & ptrs,
-            UniquePtr<UniqueValue, DefaultDelete<UniqueValue[]> > & values,
-            UniquePtr<UniqueBuffer, DefaultDelete<UniqueBuffer[]> > & buffers,
+            std::unique_ptr<void_ptr[]>& ptrs,
+            std::unique_ptr<UniqueValue[]>& values,
+            std::unique_ptr<UniqueBuffer[]>& buffers,
             bool isInput);
 
 private:
@@ -69,7 +69,7 @@ private:
     class Param {
     public:
         Param(ParamType type, android::String8& string);
-        Param(TaskCase::Value& val);
+        explicit Param(TaskCase::Value& val);
         ParamType getType();
         android::String8& getParamString();
         TaskCase::Value& getValue();
@@ -86,7 +86,7 @@ private:
     std::vector<Param> mInput;
     std::vector<Param> mOutput;
     BuiltinProcessing mBuiltin;
-    UniquePtr<SignalProcessingInterface> mSp;
+    std::unique_ptr<SignalProcessingInterface> mSp;
 };
 
 

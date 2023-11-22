@@ -24,6 +24,11 @@ import android.test.ActivityInstrumentationTestCase2;
 
 import android.preference2.cts.R;
 
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 public class PreferenceTest
         extends ActivityInstrumentationTestCase2<PreferenceFromCodeActivity> {
 
@@ -226,6 +231,24 @@ public class PreferenceTest
             boolean result = mCustomPreference.persistString(expected);
             assertTrue(result);
             String actual = mCustomPreference.getPersistedString("b");
+            assertEquals(expected, actual);
+        } finally {
+            mPreferenceGroup.removePreference(mCustomPreference);
+        }
+    }
+
+    public void testPersistStringSet() {
+        CustomPreference mCustomPreference = new CustomPreference(mActivity);
+        String key = "" + Math.random();
+        mCustomPreference.setKey(key);
+        PreferenceGroup mPreferenceGroup = (PreferenceGroup) mActivity.findPreference(
+                "pref-group");
+        mPreferenceGroup.addPreference(mCustomPreference);
+        try {
+            Set<String> expected = Stream.of("a", "b", "c").collect(Collectors.toSet());
+            boolean result = mCustomPreference.persistStringSet(expected);
+            assertTrue(result);
+            Set<String> actual = mCustomPreference.getPersistedStringSet(new HashSet<>());
             assertEquals(expected, actual);
         } finally {
             mPreferenceGroup.removePreference(mCustomPreference);

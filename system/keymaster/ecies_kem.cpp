@@ -22,7 +22,7 @@
 namespace keymaster {
 
 EciesKem::EciesKem(const AuthorizationSet& kem_description, keymaster_error_t* error) {
-    AuthorizationSet authorizations(kem_description);
+    const AuthorizationSet& authorizations(kem_description);
 
     if (!authorizations.GetTagValue(TAG_EC_CURVE, &curve_)) {
         LOG_E("%s", "EciesKem: no curve specified");

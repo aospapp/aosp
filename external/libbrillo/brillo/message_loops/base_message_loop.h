@@ -29,6 +29,12 @@ namespace brillo {
 
 class BRILLO_EXPORT BaseMessageLoop : public MessageLoop {
  public:
+  // Construct a base::MessageLoopForIO message loop instance and use it as
+  // the default message loop for this thread.
+  BaseMessageLoop();
+
+  // Construct a brillo::BaseMessageLoop using the passed base::MessageLoopForIO
+  // instance.
   explicit BaseMessageLoop(base::MessageLoopForIO* base_loop);
   ~BaseMessageLoop() override;
 
@@ -85,8 +91,6 @@ class BRILLO_EXPORT BaseMessageLoop : public MessageLoop {
     MessageLoop::TaskId task_id;
     base::Closure closure;
   };
-
-  std::map<MessageLoop::TaskId, DelayedTask> delayed_tasks_;
 
   class IOTask : public base::MessageLoopForIO::Watcher {
    public:
@@ -150,6 +154,14 @@ class BRILLO_EXPORT BaseMessageLoop : public MessageLoop {
     DISALLOW_COPY_AND_ASSIGN(IOTask);
   };
 
+  // The base::MessageLoopForIO instance owned by this class, if any. This
+  // is declared first in this class so it is destroyed last.
+  std::unique_ptr<base::MessageLoopForIO> owned_base_loop_;
+
+  // Tasks blocked on a timeout.
+  std::map<MessageLoop::TaskId, DelayedTask> delayed_tasks_;
+
+  // Tasks blocked on I/O.
   std::map<MessageLoop::TaskId, IOTask> io_tasks_;
 
   // Flag to mark that we should run the message loop only one iteration.
@@ -161,7 +173,8 @@ class BRILLO_EXPORT BaseMessageLoop : public MessageLoop {
   MessageLoop::TaskId last_id_{kTaskIdNull};
 
   // The pointer to the libchrome base::MessageLoopForIO we are wrapping with
-  // this interface.
+  // this interface. If the instance was created from this object, this will
+  // point to that instance.
   base::MessageLoopForIO* base_loop_;
 
   // The RunLoop instance used to run the main loop from Run().
@@ -176,7 +189,7 @@ class BRILLO_EXPORT BaseMessageLoop : public MessageLoop {
   // We use a WeakPtrFactory to schedule tasks with the base::MessageLoopForIO
   // since we can't cancel the callbacks we have scheduled there once this
   // instance is destroyed.
-  base::WeakPtrFactory<BaseMessageLoop> weak_ptr_factory_;
+  base::WeakPtrFactory<BaseMessageLoop> weak_ptr_factory_{this};
   DISALLOW_COPY_AND_ASSIGN(BaseMessageLoop);
 };
 

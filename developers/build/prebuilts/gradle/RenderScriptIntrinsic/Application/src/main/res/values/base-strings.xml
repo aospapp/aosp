@@ -21,9 +21,9 @@
         <![CDATA[
         
             
-            RenderScriptIntrinsic sample that demonstrates how to use RenderScript intrinsics.
-            Creates several RenderScript intrinsics and shows a filtering result with various parameters.
-            Also shows how to extends RedioButton with StateListDrawable.
+RenderScriptIntrinsic sample that demonstrates how to use RenderScript intrinsics.
+Creates several RenderScript intrinsics and shows a filtering result with various parameters.
+Also shows how to extends RadioButton with StateListDrawable.
             
         
         ]]>

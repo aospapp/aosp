@@ -49,7 +49,7 @@ namespace binder {
 // against a mock version of this class.
 //
 // TODO(armansito): Consider submitting this class to frameworks/native/binder.
-template<typename T>
+template <typename T>
 class RemoteCallbackList final {
  public:
   RemoteCallbackList() = default;
@@ -103,14 +103,14 @@ using android::IInterface;
 using android::sp;
 using android::wp;
 
-template<typename T>
+template <typename T>
 RemoteCallbackList<T>::~RemoteCallbackList() {
   std::lock_guard<std::mutex> lock(map_lock_);
   for (auto iter = callbacks_.begin(); iter != callbacks_.end(); ++iter)
     UnregisterInternal(iter);
 }
 
-template<typename T>
+template <typename T>
 bool RemoteCallbackList<T>::Register(const sp<T>& callback) {
   std::lock_guard<std::mutex> lock(map_lock_);
 
@@ -134,7 +134,7 @@ bool RemoteCallbackList<T>::Register(const sp<T>& callback) {
   return true;
 }
 
-template<typename T>
+template <typename T>
 bool RemoteCallbackList<T>::Unregister(const sp<T>& callback) {
   std::lock_guard<std::mutex> lock(map_lock_);
 
@@ -148,14 +148,14 @@ bool RemoteCallbackList<T>::Unregister(const sp<T>& callback) {
   return UnregisterInternal(iter);
 }
 
-template<typename T>
+template <typename T>
 void RemoteCallbackList<T>::ForEach(const std::function<void(T*)>& callback) {
   std::lock_guard<std::mutex> lock(map_lock_);
   for (const auto& iter : callbacks_)
     callback(iter.second->get_callback().get());
 }
 
-template<typename T>
+template <typename T>
 bool RemoteCallbackList<T>::UnregisterInternal(
     typename CallbackMap::iterator iter) {
   sp<CallbackDeathRecipient> dr = iter->second;
@@ -176,17 +176,15 @@ bool RemoteCallbackList<T>::UnregisterInternal(
   return true;
 }
 
-template<typename T>
+template <typename T>
 RemoteCallbackList<T>::CallbackDeathRecipient::CallbackDeathRecipient(
-    const sp<T>& callback,
-    RemoteCallbackList<T>* owner)
-    : callback_(callback),
-      owner_(owner) {
+    const sp<T>& callback, RemoteCallbackList<T>* owner)
+    : callback_(callback), owner_(owner) {
   CHECK(callback_.get());
   CHECK(owner_);
 }
 
-template<typename T>
+template <typename T>
 void RemoteCallbackList<T>::CallbackDeathRecipient::binderDied(
     const wp<IBinder>& who) {
   VLOG(1) << "Received binderDied";

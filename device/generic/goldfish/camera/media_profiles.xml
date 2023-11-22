@@ -84,7 +84,7 @@
                    bitRate="128000"
                    width="320"
                    height="240"
-                   frameRate="15" />
+                   frameRate="24" />
             <Audio codec="amrnb"
                    bitRate="12200"
                    sampleRate="8000"
@@ -325,20 +325,20 @@
     -->
     <VideoEncoderCap name="h264" enabled="true"
         minBitRate="64000" maxBitRate="192000"
-        minFrameWidth="176" maxFrameWidth="320"
-        minFrameHeight="144" maxFrameHeight="240"
+        minFrameWidth="176" maxFrameWidth="640"
+        minFrameHeight="144" maxFrameHeight="480"
         minFrameRate="15" maxFrameRate="30" />
 
     <VideoEncoderCap name="h263" enabled="true"
         minBitRate="64000" maxBitRate="192000"
-        minFrameWidth="176" maxFrameWidth="320"
-        minFrameHeight="144" maxFrameHeight="240"
+        minFrameWidth="176" maxFrameWidth="640"
+        minFrameHeight="144" maxFrameHeight="480"
         minFrameRate="15" maxFrameRate="30" />
 
     <VideoEncoderCap name="m4v" enabled="true"
         minBitRate="64000" maxBitRate="192000"
-        minFrameWidth="176" maxFrameWidth="320"
-        minFrameHeight="144" maxFrameHeight="240"
+        minFrameWidth="176" maxFrameWidth="640"
+        minFrameHeight="144" maxFrameHeight="480"
         minFrameRate="15" maxFrameRate="30" />
 
     <AudioEncoderCap name="aac" enabled="true"

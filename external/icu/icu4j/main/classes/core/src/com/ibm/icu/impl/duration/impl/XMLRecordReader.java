@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -38,6 +40,7 @@ public class XMLRecordReader implements RecordReader {
         }
     }
 
+    @Override
     public boolean open(String title) {
         if (getTag().equals(title)) {
             nameStack.add(title);
@@ -47,6 +50,7 @@ public class XMLRecordReader implements RecordReader {
         return false;
     }
 
+    @Override
     public boolean close() {
         int ix = nameStack.size() - 1;
         String name = nameStack.get(ix);
@@ -58,6 +62,7 @@ public class XMLRecordReader implements RecordReader {
         return false;
     }
 
+    @Override
     public boolean bool(String name) {
         String s = string(name);
         if (s != null) {
@@ -66,6 +71,7 @@ public class XMLRecordReader implements RecordReader {
         return false;
     }
 
+    @Override
     public boolean[] boolArray(String name) {
         String[] sa = stringArray(name);
         if (sa != null) {
@@ -78,6 +84,7 @@ public class XMLRecordReader implements RecordReader {
         return null;
     }
 
+    @Override
     public char character(String name) {
         String s = string(name);
         if (s != null) {
@@ -86,6 +93,7 @@ public class XMLRecordReader implements RecordReader {
         return '\uffff';
     }
 
+    @Override
     public char[] characterArray(String name) {
         String[] sa = stringArray(name);
         if (sa != null) {
@@ -98,6 +106,7 @@ public class XMLRecordReader implements RecordReader {
         return null;
     }
 
+    @Override
     public byte namedIndex(String name, String[] names) {
         String sa = string(name);
         if (sa != null) {
@@ -110,6 +119,7 @@ public class XMLRecordReader implements RecordReader {
         return (byte) -1;
     }
 
+    @Override
     public byte[] namedIndexArray(String name, String[] names) {
         String[] sa = stringArray(name);
         if (sa != null) {
@@ -129,6 +139,7 @@ public class XMLRecordReader implements RecordReader {
         return null;
     }
 
+    @Override
     public String string(String name) {
         if (match(name)) {
             String result = readData();
@@ -139,6 +150,7 @@ public class XMLRecordReader implements RecordReader {
         return null;
     }
 
+    @Override
     public String[] stringArray(String name) {
         if (match(name + "List")) {
             List<String> list = new ArrayList<String>();
@@ -156,6 +168,7 @@ public class XMLRecordReader implements RecordReader {
         return null;
     }
 
+    @Override
     public String[][] stringTable(String name) {
         if (match(name + "Table")) {
             List<String[]> list = new ArrayList<String[]>();

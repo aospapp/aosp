@@ -16,15 +16,26 @@
 
 package android.view.cts;
 
-import android.view.ContextThemeWrapper;
-import android.view.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.app.Instrumentation;
 import android.app.Presentation;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
-import android.cts.util.PollingCheck;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.ColorDrawable;
@@ -36,22 +47,21 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.ActionMode;
+import android.view.ContextThemeWrapper;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.InputQueue;
 import android.view.KeyEvent;
-import android.view.KeyboardShortcutGroup;
 import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.MotionEvent;
-import android.view.SearchEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -59,54 +69,69 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.accessibility.AccessibilityEvent;
 import android.widget.Button;
 import android.widget.TextView;
 
-import java.util.List;
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivity> {
-    static final String TAG = "WindowTest";
-    private Window mWindow;
-    private Context mContext;
-    private Instrumentation mInstrumentation;
-    private WindowCtsActivity mActivity;
-    private SurfaceView surfaceView;
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class WindowTest {
+    private static final String TAG = "WindowTest";
     private static final int VIEWGROUP_LAYOUT_HEIGHT = 100;
     private static final int VIEWGROUP_LAYOUT_WIDTH = 200;
+
+    private Instrumentation mInstrumentation;
+    private WindowCtsActivity mActivity;
+    private Window mWindow;
+    private Window.Callback mWindowCallback;
+    private SurfaceView mSurfaceView;
 
     // for testing setLocalFocus
     private ProjectedPresentation mPresentation;
     private VirtualDisplay mVirtualDisplay;
 
-    public WindowTest() {
-        super("android.view.cts", WindowCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<WindowCtsActivity> mActivityRule =
+            new ActivityTestRule<>(WindowCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mInstrumentation = getInstrumentation();
-        mContext = mInstrumentation.getContext();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
         mWindow = mActivity.getWindow();
+
+
+        mWindowCallback = mock(Window.Callback.class);
+        doReturn(true).when(mWindowCallback).dispatchKeyEvent(any());
+        doReturn(true).when(mWindowCallback).dispatchTouchEvent(any());
+        doReturn(true).when(mWindowCallback).dispatchTrackballEvent(any());
+        doReturn(true).when(mWindowCallback).dispatchGenericMotionEvent(any());
+        doReturn(true).when(mWindowCallback).dispatchPopulateAccessibilityEvent(any());
+        doReturn(true).when(mWindowCallback).onMenuItemSelected(anyInt(), any());
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void teardown() {
         if (mActivity != null) {
             mActivity.setFlagFalse();
         }
-        super.tearDown();
     }
 
     @UiThreadTest
-    public void testConstructor() throws Exception {
-        mWindow = new MockWindow(mContext);
-        assertSame(mContext, mWindow.getContext());
+    @Test
+    public void testConstructor() {
+        mWindow = new MockWindow(mActivity);
+        assertSame(mActivity, mWindow.getContext());
     }
 
     /**
@@ -117,8 +142,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *              _2. test invocation of Window.Callback#onWindowAttributesChanged.
      * 3. clearFlags: clear the flag bits as specified in flags.
      */
-   public void testOpFlags() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testOpFlags() {
+        mWindow = new MockWindow(mActivity);
         final WindowManager.LayoutParams attrs = mWindow.getAttributes();
         assertEquals(0, attrs.flags);
 
@@ -134,21 +160,21 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         mWindow.clearFlags(WindowManager.LayoutParams.FLAG_DITHER);
         assertEquals(0, attrs.flags);
 
-        MockWindowCallback callback = new MockWindowCallback();
-        mWindow.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        mWindow.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         // mask == flag, no bit of flag need to be modified.
         mWindow.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         assertEquals(WindowManager.LayoutParams.FLAG_FULLSCREEN, attrs.flags);
 
         // Test if the callback method is called by system
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(attrs);
         mWindow.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         mWindow.clearFlags(WindowManager.LayoutParams.FLAG_DITHER);
     }
 
-    public void testFindViewById() throws Exception {
+    @Test
+    public void testFindViewById() {
         TextView v = (TextView) mWindow.findViewById(R.id.listview_window);
         assertNotNull(v);
         assertEquals(R.id.listview_window, v.getId());
@@ -165,8 +191,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *    there is just one method, onWindowAttributesChanged, used.
      * getCallback: Return the current Callback interface for this window.
      */
-    public void testAccessAttributes() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testAccessAttributes() {
+        mWindow = new MockWindow(mActivity);
 
         // default attributes
         WindowManager.LayoutParams attr = mWindow.getAttributes();
@@ -180,10 +207,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         WindowManager.LayoutParams param = new WindowManager.LayoutParams(width, height,
                 WindowManager.LayoutParams.TYPE_BASE_APPLICATION,
                 WindowManager.LayoutParams.FLAG_DITHER, PixelFormat.RGBA_8888);
-        MockWindowCallback callback = new MockWindowCallback();
-        mWindow.setCallback(callback);
-        assertSame(callback, mWindow.getCallback());
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        mWindow.setCallback(mWindowCallback);
+        assertSame(mWindowCallback, mWindow.getCallback());
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         mWindow.setAttributes(param);
         attr = mWindow.getAttributes();
         assertEquals(width, attr.width);
@@ -191,7 +217,7 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         assertEquals(WindowManager.LayoutParams.TYPE_BASE_APPLICATION, attr.type);
         assertEquals(PixelFormat.RGBA_8888, attr.format);
         assertEquals(WindowManager.LayoutParams.FLAG_DITHER, attr.flags);
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(attr);
     }
 
     /**
@@ -199,12 +225,13 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * container is false;
      * Otherwise, it will display itself meanwhile container's mHasChildren is true.
      */
-    public void testAccessContainer() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testAccessContainer() {
+        mWindow = new MockWindow(mActivity);
         assertNull(mWindow.getContainer());
         assertFalse(mWindow.hasChildren());
 
-        MockWindow container = new MockWindow(mContext);
+        MockWindow container = new MockWindow(mActivity);
         mWindow.setContainer(container);
         assertSame(container, mWindow.getContainer());
         assertTrue(container.hasChildren());
@@ -217,30 +244,24 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * getLayoutInflater: Quick access to the {@link LayoutInflater} instance that this Window
      *    retrieved from its Context.
      */
-    public void testAddContentView() throws Throwable {
+    @UiThreadTest
+    @Test
+    public void testAddContentView() {
         final ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(VIEWGROUP_LAYOUT_WIDTH,
                 VIEWGROUP_LAYOUT_HEIGHT);
         // The LayoutInflater instance will be inflated to a view and used by
         // addContentView,
         // id of this view should be same with inflated id.
         final LayoutInflater inflater = mActivity.getLayoutInflater();
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                TextView addedView = (TextView) mWindow.findViewById(R.id.listview_addwindow);
-                assertNull(addedView);
-                mWindow.addContentView(inflater.inflate(R.layout.windowstub_addlayout, null), lp);
-                TextView view = (TextView) mWindow.findViewById(R.id.listview_window);
-                addedView = (TextView) mWindow.findViewById(R.id.listview_addwindow);
-                assertNotNull(view);
-                assertNotNull(addedView);
-                assertEquals(R.id.listview_window, view.getId());
-                assertEquals(R.id.listview_addwindow, addedView.getId());
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-    }
-
-    public void testCloseAllPanels() throws Throwable {
+        TextView addedView = (TextView) mWindow.findViewById(R.id.listview_addwindow);
+        assertNull(addedView);
+        mWindow.addContentView(inflater.inflate(R.layout.windowstub_addlayout, null), lp);
+        TextView view = (TextView) mWindow.findViewById(R.id.listview_window);
+        addedView = (TextView) mWindow.findViewById(R.id.listview_addwindow);
+        assertNotNull(view);
+        assertNotNull(addedView);
+        assertEquals(R.id.listview_window, view.getId());
+        assertEquals(R.id.listview_addwindow, addedView.getId());
     }
 
     /**
@@ -250,22 +271,19 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * 1. Set focus view to null, get current focus, it should be null
      * 2. Set listview_window as focus view, get it and compare.
      */
-    public void testGetCurrentFocus() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                TextView v = (TextView) mWindow.findViewById(R.id.listview_window);
-                v.clearFocus();
-                assertNull(mWindow.getCurrentFocus());
+    @UiThreadTest
+    @Test
+    public void testGetCurrentFocus() {
+        TextView v = (TextView) mWindow.findViewById(R.id.listview_window);
+        v.clearFocus();
+        assertNull(mWindow.getCurrentFocus());
 
-                v.setFocusable(true);
-                assertTrue(v.isFocusable());
-                assertTrue(v.requestFocus());
-                View focus = mWindow.getCurrentFocus();
-                assertNotNull(focus);
-                assertEquals(R.id.listview_window, focus.getId());
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        v.setFocusable(true);
+        assertTrue(v.isFocusable());
+        assertTrue(v.requestFocus());
+        View focus = mWindow.getCurrentFocus();
+        assertNotNull(focus);
+        assertEquals(R.id.listview_window, focus.getId());
     }
 
     /**
@@ -276,19 +294,20 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *    ontext is same as Window's context.
      * 2. Return null if decor view is not created, else the same with detDecorView.
      */
-    public void testDecorView() throws Exception {
+    @Test
+    public void testDecorView() {
         mInstrumentation.waitForIdleSync();
         View decor = mWindow.getDecorView();
         assertNotNull(decor);
-        checkDecorView(decor);
+        verifyDecorView(decor);
 
         decor = mWindow.peekDecorView();
         if (decor != null) {
-            checkDecorView(decor);
+            verifyDecorView(decor);
         }
     }
 
-    private void checkDecorView(View decor) {
+    private void verifyDecorView(View decor) {
         DisplayMetrics dm = new DisplayMetrics();
         mActivity.getWindowManager().getDefaultDisplay().getMetrics(dm);
         int screenWidth = dm.widthPixels;
@@ -304,7 +323,8 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * getVolumeControlStream: Gets the suggested audio stream whose volume should be changed by
      *    the harwdare volume controls.
      */
-    public void testAccessVolumeControlStream() throws Exception {
+    @Test
+    public void testAccessVolumeControlStream() {
         // Default value is AudioManager.USE_DEFAULT_STREAM_TYPE, see javadoc of
         // {@link Activity#setVolumeControlStream}.
         assertEquals(AudioManager.USE_DEFAULT_STREAM_TYPE, mWindow.getVolumeControlStream());
@@ -317,12 +337,14 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * getWindowManager: Return the window manager allowing this Window to display its own
      *    windows.
      */
-    public void testAccessWindowManager() throws Exception {
-        mWindow = new MockWindow(getActivity());
-        WindowManager expected = (WindowManager) getActivity().getSystemService(
+    @Test
+    public void testAccessWindowManager() {
+        mWindow = new MockWindow(mActivity);
+        WindowManager expected = (WindowManager) mActivity.getSystemService(
                 Context.WINDOW_SERVICE);
         assertNull(mWindow.getWindowManager());
-        mWindow.setWindowManager(expected, null, getName());
+        mWindow.setWindowManager(expected, null,
+                mActivity.getApplicationInfo().loadLabel(mActivity.getPackageManager()).toString());
         // No way to compare the expected and actual directly, they are
         // different object
         assertNotNull(mWindow.getWindowManager());
@@ -332,8 +354,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * Return the {@link android.R.styleable#Window} attributes from this
      * window's theme. It's invisible.
      */
-    public void testGetWindowStyle() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testGetWindowStyle() {
+        mWindow = new MockWindow(mActivity);
         final TypedArray windowStyle = mWindow.getWindowStyle();
         // the windowStyle is obtained from
         // com.android.internal.R.styleable.Window whose details
@@ -341,8 +364,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         assertNotNull(windowStyle);
     }
 
-    public void testIsActive() throws Exception {
-        MockWindow window = new MockWindow(mContext);
+    @Test
+    public void testIsActive() {
+        MockWindow window = new MockWindow(mActivity);
         assertFalse(window.isActive());
 
         window.makeActive();
@@ -354,15 +378,10 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      * isFloating: Return whether this window is being displayed with a floating style
      * (based on the {@link android.R.attr#windowIsFloating} attribute in the style/theme).
      */
-    public void testIsFloating() throws Exception {
+    @Test
+    public void testIsFloating() {
         // Default system theme defined by themes.xml, the windowIsFloating is set false.
         assertFalse(mWindow.isFloating());
-    }
-
-    public void testPerformMethods() throws Exception {
-    }
-
-    public void testKeepHierarchyState() throws Exception {
     }
 
     /**
@@ -371,45 +390,32 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *  attribute of PixelFormat to check if the window is opaque). To make the window
      * transparent, you can use an empty drawable(eg. ColorDrawable with the color 0).
      */
+    @Test
     public void testSetBackgroundDrawable() throws Throwable {
         // DecorView holds the background
         View decor = mWindow.getDecorView();
         if (!mWindow.hasFeature(Window.FEATURE_SWIPE_TO_DISMISS)) {
             assertEquals(PixelFormat.OPAQUE, decor.getBackground().getOpacity());
         }
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                // setBackgroundDrawableResource(int resId) has the same
-                // functionality with
-                // setBackgroundDrawable(Drawable drawable), just different in
-                // parameter.
-                mWindow.setBackgroundDrawableResource(R.drawable.faces);
-            }
-        });
+        // setBackgroundDrawableResource(int resId) has the same
+        // functionality with setBackgroundDrawable(Drawable drawable), just different in
+        // parameter.
+        mActivityRule.runOnUiThread(() -> mWindow.setBackgroundDrawableResource(R.drawable.faces));
         mInstrumentation.waitForIdleSync();
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                ColorDrawable drawable = new ColorDrawable(0);
-                mWindow.setBackgroundDrawable(drawable);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            ColorDrawable drawable = new ColorDrawable(0);
+            mWindow.setBackgroundDrawable(drawable);
         });
         mInstrumentation.waitForIdleSync();
         decor = mWindow.getDecorView();
         // Color 0 with one alpha bit
         assertEquals(PixelFormat.TRANSPARENT, decor.getBackground().getOpacity());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mWindow.setBackgroundDrawable(null);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mWindow.setBackgroundDrawable(null));
         mInstrumentation.waitForIdleSync();
         decor = mWindow.getDecorView();
         assertNull(decor.getBackground());
-    }
-
-    public void testSetChild() throws Exception {
     }
 
     /**
@@ -425,105 +431,64 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *   1. can't get the features requested because the getter is protected final.
      *   2. certain window flags are not clear to concrete one.
      */
+    @Test
     public void testSetContentView() throws Throwable {
         final ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(VIEWGROUP_LAYOUT_WIDTH,
                 VIEWGROUP_LAYOUT_HEIGHT);
         final LayoutInflater inflate = mActivity.getLayoutInflater();
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                TextView view;
-                View setView;
-                // Test setContentView(int layoutResID)
-                mWindow.setContentView(R.layout.windowstub_layout);
-                view = (TextView) mWindow.findViewById(R.id.listview_window);
-                assertNotNull(view);
-                assertEquals(R.id.listview_window, view.getId());
+        mActivityRule.runOnUiThread(() -> {
+            TextView view;
+            View setView;
+            // Test setContentView(int layoutResID)
+            mWindow.setContentView(R.layout.windowstub_layout);
+            view = (TextView) mWindow.findViewById(R.id.listview_window);
+            assertNotNull(view);
+            assertEquals(R.id.listview_window, view.getId());
 
-                // Test setContentView(View view)
-                setView = inflate.inflate(R.layout.windowstub_addlayout, null);
-                mWindow.setContentView(setView);
-                view = (TextView) mWindow.findViewById(R.id.listview_addwindow);
-                assertNotNull(view);
-                assertEquals(R.id.listview_addwindow, view.getId());
+            // Test setContentView(View view)
+            setView = inflate.inflate(R.layout.windowstub_addlayout, null);
+            mWindow.setContentView(setView);
+            view = (TextView) mWindow.findViewById(R.id.listview_addwindow);
+            assertNotNull(view);
+            assertEquals(R.id.listview_addwindow, view.getId());
 
-                // Test setContentView(View view, ViewGroup.LayoutParams params)
-                setView = inflate.inflate(R.layout.windowstub_layout, null);
-                mWindow.setContentView(setView, lp);
-                assertEquals(VIEWGROUP_LAYOUT_WIDTH, setView.getLayoutParams().width);
-                assertEquals(VIEWGROUP_LAYOUT_HEIGHT, setView.getLayoutParams().height);
-                view = (TextView) mWindow.findViewById(R.id.listview_window);
-                assertNotNull(view);
-                assertEquals(R.id.listview_window, view.getId());
-            }
+            // Test setContentView(View view, ViewGroup.LayoutParams params)
+            setView = inflate.inflate(R.layout.windowstub_layout, null);
+            mWindow.setContentView(setView, lp);
+            assertEquals(VIEWGROUP_LAYOUT_WIDTH, setView.getLayoutParams().width);
+            assertEquals(VIEWGROUP_LAYOUT_HEIGHT, setView.getLayoutParams().height);
+            view = (TextView) mWindow.findViewById(R.id.listview_window);
+            assertNotNull(view);
+            assertEquals(R.id.listview_window, view.getId());
         });
         mInstrumentation.waitForIdleSync();
     }
 
-    /**
-     * setFeatureDrawable: Set an explicit Drawable value for feature of this window.
-     * setFeatureDrawableAlpha: Set a custom alpha value for the given drawale feature,
-     *    controlling how much the background is visible through it.
-     * setFeatureDrawableResource: Set the value for a drawable feature of this window, from
-     *    a resource identifier.
-     * setFeatureDrawableUri: Set the value for a drawable feature of this window, from a URI.
-     * setFeatureInt: Set the integer value for a feature.  The range of the value depends on
-     *    the feature being set.  For FEATURE_PROGRESSS, it should go from 0 to
-     *    10000. At 10000 the progress is complete and the indicator hidden
-     *
-     * the set views exist, and no getter way to check.
-     */
-    public void testSetFeature() throws Throwable {
-    }
-
+    @Test
     public void testSetTitle() throws Throwable {
         final String title = "Android Window Test";
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mWindow.setTitle(title);
-                mWindow.setTitleColor(Color.BLUE);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mWindow.setTitle(title);
+            mWindow.setTitleColor(Color.BLUE);
         });
         mInstrumentation.waitForIdleSync();
         // No way to get title and title color
     }
 
     /**
-     * These 3 methods: Used by custom windows, such as Dialog, to pass the key press event
-     * further down the view hierarchy. Application developers should not need to implement or
-     * call this.
-     */
-    public void testSuperDispatchEvent() throws Exception {
-    }
-
-    /**
      * takeKeyEvents: Request that key events come to this activity. Use this if your activity
      * has no views with focus, but the activity still wants a chance to process key events.
      */
+    @Test
     public void testTakeKeyEvents() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                View v = mWindow.findViewById(R.id.listview_window);
-                v.clearFocus();
-                assertNull(mWindow.getCurrentFocus());
-                mWindow.takeKeyEvents(false);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            View v = mWindow.findViewById(R.id.listview_window);
+            v.clearFocus();
+            assertNull(mWindow.getCurrentFocus());
+            mWindow.takeKeyEvents(false);
         });
         mInstrumentation.waitForIdleSync();
-        // sendKeys(KeyEvent.KEYCODE_DPAD_CENTER);
-        // assertFalse(mActivity.isOnKeyDownCalled());
-    }
-
-    /**
-     * onConfigurationChanged: Should be called when the configuration is changed.
-     */
-    public void testOnConfigurationChanged() throws Exception {
-    }
-
-    /**
-     * requestFeature: Enable extended screen features.
-     */
-    public void testRequestFeature() throws Exception {
     }
 
     /**
@@ -535,46 +500,43 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *                          PixelFormat.UNKNOWN to allow the Window to select
      *                          the format.
      */
-    public void testSetDefaultWindowFormat() throws Exception {
-        MockWindowCallback callback;
-        MockWindow window = new MockWindow(mContext);
+    @Test
+    public void testSetDefaultWindowFormat() {
+        MockWindow window = new MockWindow(mActivity);
 
         // mHaveWindowFormat will be true after set PixelFormat.OPAQUE and
         // setDefaultWindowFormat is invalid
         window.setFormat(PixelFormat.OPAQUE);
-        callback = new MockWindowCallback();
-        window.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        window.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         window.setDefaultWindowFormat(PixelFormat.JPEG);
         assertEquals(PixelFormat.OPAQUE, window.getAttributes().format);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
 
         // mHaveWindowFormat will be false after set PixelFormat.UNKNOWN and
         // setDefaultWindowFormat is valid
         window.setFormat(PixelFormat.UNKNOWN);
-        callback = new MockWindowCallback();
-        window.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        reset(mWindowCallback);
         window.setDefaultWindowFormat(PixelFormat.JPEG);
         assertEquals(PixelFormat.JPEG, window.getAttributes().format);
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(window.getAttributes());
     }
 
     /**
      * Set the gravity of the window
      */
-    public void testSetGravity() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testSetGravity() {
+        mWindow = new MockWindow(mActivity);
         WindowManager.LayoutParams attrs = mWindow.getAttributes();
         assertEquals(0, attrs.gravity);
 
-        MockWindowCallback callback = new MockWindowCallback();
-        mWindow.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        mWindow.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         mWindow.setGravity(Gravity.TOP);
         attrs = mWindow.getAttributes();
         assertEquals(Gravity.TOP, attrs.gravity);
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(attrs);
     }
 
     /**
@@ -582,38 +544,38 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *    1.The default for both of these is MATCH_PARENT;
      *    2.You can change them to WRAP_CONTENT to make a window that is not full-screen.
      */
-    public void testSetLayout() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testSetLayout() {
+        mWindow = new MockWindow(mActivity);
         WindowManager.LayoutParams attrs = mWindow.getAttributes();
         assertEquals(WindowManager.LayoutParams.MATCH_PARENT, attrs.width);
         assertEquals(WindowManager.LayoutParams.MATCH_PARENT, attrs.height);
 
-        MockWindowCallback callback = new MockWindowCallback();
-        mWindow.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        mWindow.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         mWindow.setLayout(WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT);
         attrs = mWindow.getAttributes();
         assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, attrs.width);
         assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, attrs.height);
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(attrs);
     }
 
     /**
      * Set the type of the window, as per the WindowManager.LayoutParams types.
      */
-    public void testSetType() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testSetType() {
+        mWindow = new MockWindow(mActivity);
         WindowManager.LayoutParams attrs = mWindow.getAttributes();
         assertEquals(WindowManager.LayoutParams.TYPE_APPLICATION, attrs.type);
 
-        MockWindowCallback callback = new MockWindowCallback();
-        mWindow.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        mWindow.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         mWindow.setType(WindowManager.LayoutParams.TYPE_BASE_APPLICATION);
         attrs = mWindow.getAttributes();
-        assertEquals(WindowManager.LayoutParams.TYPE_BASE_APPLICATION, mWindow.getAttributes().type);
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
+        assertEquals(WindowManager.LayoutParams.TYPE_BASE_APPLICATION, attrs.type);
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(attrs);
     }
 
     /**
@@ -622,8 +584,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *    1.Providing "unspecified" here will NOT override the input mode the window.
      *    2.Providing "unspecified" here will override the input mode the window.
      */
-    public void testSetSoftInputMode() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testSetSoftInputMode() {
+        mWindow = new MockWindow(mActivity);
         assertEquals(WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED,
                 mWindow.getAttributes().softInputMode);
         mWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
@@ -641,35 +604,28 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
      *    it because the getter is in WindowManagerService and is private)
      *    2.Providing 0 here will override the animations the window.
      */
-    public void testSetWindowAnimations() throws Exception {
-        mWindow = new MockWindow(mContext);
+    @Test
+    public void testSetWindowAnimations() {
+        mWindow = new MockWindow(mActivity);
 
-        MockWindowCallback callback = new MockWindowCallback();
-        mWindow.setCallback(callback);
-        assertFalse(callback.isOnWindowAttributesChangedCalled());
+        mWindow.setCallback(mWindowCallback);
+        verify(mWindowCallback, never()).onWindowAttributesChanged(any());
         mWindow.setWindowAnimations(R.anim.alpha);
         WindowManager.LayoutParams attrs = mWindow.getAttributes();
         assertEquals(R.anim.alpha, attrs.windowAnimations);
-        assertTrue(callback.isOnWindowAttributesChangedCalled());
-    }
-
-    public void testFinalMethod() throws Exception {
-        // No way to test protected final method
+        verify(mWindowCallback, times(1)).onWindowAttributesChanged(attrs);
     }
 
     /**
      * Test setLocalFocus together with injectInputEvent.
      */
+    @Test
     public void testSetLocalFocus() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                surfaceView = new SurfaceView(mContext);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mSurfaceView = new SurfaceView(mActivity));
         mInstrumentation.waitForIdleSync();
 
         final Semaphore waitingSemaphore = new Semaphore(0);
-        surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+        mSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
             }
@@ -685,32 +641,21 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
             public void surfaceDestroyed(SurfaceHolder holder) {
                 destroyPresentation();
             }
-          });
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mWindow.setContentView(surfaceView);
-            }
         });
+        mActivityRule.runOnUiThread(() -> mWindow.setContentView(mSurfaceView));
         mInstrumentation.waitForIdleSync();
         assertTrue(waitingSemaphore.tryAcquire(5, TimeUnit.SECONDS));
         assertNotNull(mVirtualDisplay);
         assertNotNull(mPresentation);
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return (mPresentation.button1 != null) && (mPresentation.button2 != null) &&
-                        (mPresentation.button3 != null) && mPresentation.ready;
-            }
-        }.run();
+
+        PollingCheck.waitFor(() -> (mPresentation.button1 != null)
+                && (mPresentation.button2 != null) && (mPresentation.button3 != null)
+                && mPresentation.ready);
         assertTrue(mPresentation.button1.isFocusable() && mPresentation.button2.isFocusable() &&
                 mPresentation.button3.isFocusable());
         // currently it is only for debugging
-        View.OnFocusChangeListener listener = new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View v, boolean hasFocus) {
+        View.OnFocusChangeListener listener = (View v, boolean hasFocus) ->
                 Log.d(TAG, "view " + v + " focus " + hasFocus);
-            }
-        };
 
         // check key event focus
         mPresentation.button1.setOnFocusChangeListener(listener);
@@ -718,12 +663,7 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         mPresentation.button3.setOnFocusChangeListener(listener);
         final Window presentationWindow = mPresentation.getWindow();
         presentationWindow.setLocalFocus(true, false);
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return mPresentation.button1.hasWindowFocus();
-            }
-        }.run();
+        PollingCheck.waitFor(() -> mPresentation.button1.hasWindowFocus());
         checkPresentationButtonFocus(true, false, false);
         assertFalse(mPresentation.button1.isInTouchMode());
         injectKeyEvent(presentationWindow, KeyEvent.KEYCODE_TAB);
@@ -733,19 +673,11 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
 
         // check touch input injection
         presentationWindow.setLocalFocus(true, true);
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return mPresentation.button1.isInTouchMode();
-            }
-        }.run();
-        View.OnClickListener clickListener = new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "onClick " + v);
-                if (v == mPresentation.button1) {
-                    waitingSemaphore.release();
-                }
+        PollingCheck.waitFor(() -> mPresentation.button1.isInTouchMode());
+        View.OnClickListener clickListener = (View v) -> {
+            Log.d(TAG, "onClick " + v);
+            if (v == mPresentation.button1) {
+                waitingSemaphore.release();
             }
         };
         mPresentation.button1.setOnClickListener(clickListener);
@@ -761,14 +693,9 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
 
     private void checkPresentationButtonFocus(final boolean button1Focused,
             final boolean button2Focused, final boolean button3Focused) {
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return (mPresentation.button1.isFocused() == button1Focused) &&
+        PollingCheck.waitFor(() -> (mPresentation.button1.isFocused() == button1Focused) &&
                         (mPresentation.button2.isFocused() == button2Focused) &&
-                        (mPresentation.button3.isFocused() == button3Focused);
-            }
-        }.run();
+                        (mPresentation.button3.isFocused() == button3Focused));
     }
 
     private void injectKeyEvent(Window window, int keyCode) {
@@ -794,13 +721,11 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
 
     private void createPresentation(final Surface surface, final int width,
             final int height) {
-        Context context = getInstrumentation().getTargetContext();
         DisplayManager displayManager =
-                (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+                (DisplayManager) mActivity.getSystemService(Context.DISPLAY_SERVICE);
         mVirtualDisplay = displayManager.createVirtualDisplay("localFocusTest",
                 width, height, 300, surface, 0);
-        mPresentation = new ProjectedPresentation(
-                context, mVirtualDisplay.getDisplay());
+        mPresentation = new ProjectedPresentation(mActivity, mVirtualDisplay.getDisplay());
         mPresentation.show();
     }
 
@@ -837,13 +762,7 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         @Override
         public void show() {
             super.show();
-            new Handler().post(new Runnable() {
-
-                @Override
-                public void run() {
-                    ready = true;
-                }
-            });
+            new Handler().post(() -> ready = true);
         }
     }
 
@@ -1050,110 +969,11 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
         }
 
         @Override
+        public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        }
+
+        @Override
         public void reportActivityRelaunched() {
-        }
-    }
-
-    private class MockWindowCallback implements Window.Callback {
-        private boolean mIsOnWindowAttributesChangedCalled;
-        private boolean mIsOnPanelClosedCalled;
-
-        public boolean dispatchKeyEvent(KeyEvent event) {
-            return true;
-        }
-
-        public boolean dispatchKeyShortcutEvent(KeyEvent event) {
-            return false;
-        }
-
-        public boolean dispatchTouchEvent(MotionEvent event) {
-            return true;
-        }
-
-        public boolean dispatchTrackballEvent(MotionEvent event) {
-            return true;
-        }
-
-        public boolean dispatchGenericMotionEvent(MotionEvent event) {
-            return true;
-        }
-
-        public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event) {
-            return true;
-        }
-
-        public View onCreatePanelView(int featureId) {
-            return null;
-        }
-
-        public boolean onCreatePanelMenu(int featureId, Menu menu) {
-            return false;
-        }
-
-        public boolean onPreparePanel(int featureId, View view, Menu menu) {
-            return false;
-        }
-
-        public boolean onMenuOpened(int featureId, Menu menu) {
-            return false;
-        }
-
-        public boolean onMenuItemSelected(int featureId, MenuItem item) {
-            return true;
-        }
-
-        public void onWindowAttributesChanged(WindowManager.LayoutParams attrs) {
-            mIsOnWindowAttributesChangedCalled = true;
-        }
-
-        public boolean isOnWindowAttributesChangedCalled() {
-            return mIsOnWindowAttributesChangedCalled;
-        }
-
-        public void onContentChanged() {
-        }
-
-        public void onWindowFocusChanged(boolean hasFocus) {
-        }
-
-        public void onDetachedFromWindow() {
-        }
-
-        public void onAttachedToWindow() {
-        }
-
-        public void onPanelClosed(int featureId, Menu menu) {
-            mIsOnPanelClosedCalled = true;
-        }
-
-        public boolean isOnPanelClosedCalled() {
-            return mIsOnPanelClosedCalled;
-        }
-
-        public boolean onSearchRequested(SearchEvent searchEvent) {
-            return onSearchRequested();
-        }
-
-        public boolean onSearchRequested() {
-            return false;
-        }
-
-        public ActionMode onWindowStartingActionMode(ActionMode.Callback callback) {
-            return null;
-        }
-
-        public ActionMode onWindowStartingActionMode(
-                ActionMode.Callback callback, int type) {
-            return null;
-        }
-
-        public void onActionModeStarted(ActionMode mode) {
-        }
-
-        public void onActionModeFinished(ActionMode mode) {
-        }
-
-        public void onWindowDismissed() {
         }
     }
 }

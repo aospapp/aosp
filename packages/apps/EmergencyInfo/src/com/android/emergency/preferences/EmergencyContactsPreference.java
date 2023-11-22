@@ -23,12 +23,15 @@ import android.preference.Preference;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceManager;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.widget.Toast;
 
 import com.android.emergency.EmergencyContactManager;
+import com.android.emergency.R;
 import com.android.emergency.ReloadablePreferenceInterface;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +47,8 @@ import java.util.regex.Pattern;
 public class EmergencyContactsPreference extends PreferenceCategory
         implements ReloadablePreferenceInterface,
         ContactPreference.RemoveContactPreferenceListener {
+
+    private static final String TAG = "EmergencyContactsPreference";
 
     private static final String CONTACT_SEPARATOR = "|";
     private static final String QUOTE_CONTACT_SEPARATOR = Pattern.quote(CONTACT_SEPARATOR);
@@ -82,10 +87,10 @@ public class EmergencyContactsPreference extends PreferenceCategory
 
     @Override
     public void onRemoveContactPreference(ContactPreference contactPreference) {
-        Uri newContact = contactPreference.getContactUri();
-        if (mEmergencyContacts.contains(newContact)) {
+        Uri phoneUriToRemove = contactPreference.getPhoneUri();
+        if (mEmergencyContacts.contains(phoneUriToRemove)) {
             List<Uri> updatedContacts = new ArrayList<Uri>(mEmergencyContacts);
-            if (updatedContacts.remove(newContact) && callChangeListener(updatedContacts)) {
+            if (updatedContacts.remove(phoneUriToRemove) && callChangeListener(updatedContacts)) {
                 MetricsLogger.action(getContext(), MetricsEvent.ACTION_DELETE_EMERGENCY_CONTACT);
                 setEmergencyContacts(updatedContacts);
             }
@@ -93,17 +98,23 @@ public class EmergencyContactsPreference extends PreferenceCategory
     }
 
     /**
-     * Adds a new emergency contact. The {@code contactUri} is the
+     * Adds a new emergency contact. The {@code phoneUri} is the
      * ContactsContract.CommonDataKinds.Phone.CONTENT_URI corresponding to the
      * contact's selected phone number.
      */
-    public void addNewEmergencyContact(Uri contactUri) {
-        if (!mEmergencyContacts.contains(contactUri)) {
-            List<Uri> updatedContacts = new ArrayList<Uri>(mEmergencyContacts);
-            if (updatedContacts.add(contactUri) && callChangeListener(updatedContacts)) {
-                MetricsLogger.action(getContext(), MetricsEvent.ACTION_ADD_EMERGENCY_CONTACT);
-                setEmergencyContacts(updatedContacts);
-            }
+    public void addNewEmergencyContact(Uri phoneUri) {
+        if (mEmergencyContacts.contains(phoneUri)) {
+            return;
+        }
+        if (!EmergencyContactManager.isValidEmergencyContact(getContext(), phoneUri)) {
+            Toast.makeText(getContext(), getContext().getString(R.string.fail_add_contact),
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        List<Uri> updatedContacts = new ArrayList<Uri>(mEmergencyContacts);
+        if (updatedContacts.add(phoneUri) && callChangeListener(updatedContacts)) {
+            MetricsLogger.action(getContext(), MetricsEvent.ACTION_ADD_EMERGENCY_CONTACT);
+            setEmergencyContacts(updatedContacts);
         }
     }
 
@@ -130,21 +141,42 @@ public class EmergencyContactsPreference extends PreferenceCategory
         // Reload the preferences or add new ones if necessary
         Iterator<Uri> it = emergencyContacts.iterator();
         int i = 0;
+        Uri phoneUri = null;
+        List<Uri> updatedEmergencyContacts = null;
         while (it.hasNext()) {
-            if (i < getPreferenceCount()) {
-                ContactPreference contactPreference = (ContactPreference) getPreference(i);
-                contactPreference.setUri(it.next());
-            } else {
-                addContactPreference(it.next());
+            ContactPreference contactPreference = null;
+            phoneUri = it.next();
+            // setPhoneUri may throw an IllegalArgumentException (also called in the constructor
+            // of ContactPreference)
+            try {
+                if (i < getPreferenceCount()) {
+                    contactPreference = (ContactPreference) getPreference(i);
+                    contactPreference.setPhoneUri(phoneUri);
+                } else {
+                    contactPreference = new ContactPreference(getContext(), phoneUri);
+                    onBindContactView(contactPreference);
+                    addPreference(contactPreference);
+                }
+                i++;
+                MetricsLogger.action(getContext(), MetricsEvent.ACTION_GET_CONTACT, 0);
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "Caught IllegalArgumentException for phoneUri:"
+                    + phoneUri == null ? "" : phoneUri.toString(), e);
+                MetricsLogger.action(getContext(), MetricsEvent.ACTION_GET_CONTACT, 1);
+                if (updatedEmergencyContacts == null) {
+                    updatedEmergencyContacts = new ArrayList<>(emergencyContacts);
+                }
+                updatedEmergencyContacts.remove(phoneUri);
             }
-            i++;
         }
-    }
-
-    private void addContactPreference(Uri contactUri) {
-        final ContactPreference contactPreference = new ContactPreference(getContext(), contactUri);
-        onBindContactView(contactPreference);
-        addPreference(contactPreference);
+        if (updatedEmergencyContacts != null) {
+            // Set the contacts again: something went wrong when retrieving information about the
+            // stored phone Uris.
+            setEmergencyContacts(updatedEmergencyContacts);
+        }
+        MetricsLogger.histogram(getContext(),
+                                "num_emergency_contacts",
+                                Math.min(3, emergencyContacts.size()));
     }
 
     /**
@@ -193,9 +225,9 @@ public class EmergencyContactsPreference extends PreferenceCategory
                 emergencyContactString.split(QUOTE_CONTACT_SEPARATOR);
         List<Uri> filteredEmergencyContacts = new ArrayList<Uri>(emergencyContactsArray.length);
         for (String emergencyContact : emergencyContactsArray) {
-            Uri contactUri = Uri.parse(emergencyContact);
-            if (EmergencyContactManager.isValidEmergencyContact(context, contactUri)) {
-                filteredEmergencyContacts.add(contactUri);
+            Uri phoneUri = Uri.parse(emergencyContact);
+            if (EmergencyContactManager.isValidEmergencyContact(context, phoneUri)) {
+                filteredEmergencyContacts.add(phoneUri);
             }
         }
         // If not all contacts were added, then we need to overwrite the emergency contacts stored

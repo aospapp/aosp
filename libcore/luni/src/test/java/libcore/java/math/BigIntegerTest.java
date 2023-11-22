@@ -184,4 +184,15 @@ public class BigIntegerTest extends junit.framework.TestCase {
 
         assertEquals(trimmed, extraZeroes);
     }
+
+    /**
+     * Tests that Long.MIN_VALUE / -1 doesn't overflow back to Long.MIN_VALUE,
+     * like it would in long arithmetic.
+     */
+    public void test_divide_avoids64bitOverflow() throws Exception {
+        BigInteger negV = BigInteger.valueOf(Long.MIN_VALUE);
+        BigInteger posV = negV.divide(BigInteger.valueOf(-1));
+        assertEquals("-9223372036854775808", negV.toString());
+        assertEquals( "9223372036854775808", posV.toString());
+    }
 }

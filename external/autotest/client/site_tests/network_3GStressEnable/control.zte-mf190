@@ -9,7 +9,6 @@ CRITERIA = """
 This test fails if flimflam ever fails to respond to a DBus message or crashes.
 """
 ATTRIBUTES = "suite:network3g"
-SUITE = "network3g"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"

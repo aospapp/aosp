@@ -25,11 +25,14 @@
 
 #include "deDefs.h"
 #include "deSharedPtr.hpp"
+#include "tcuTestLog.hpp"
 #include "tcuVector.hpp"
 #include "vkMemUtil.hpp"
 
 #include <string>
 #include <vector>
+
+using namespace vk;
 
 namespace vkt
 {
@@ -96,8 +99,7 @@ struct ComputeShaderSpec
 	// and the contents of expectedOutputs. Otherwise the function pointed to by verifyIO will be called.
 	// If true is returned, then the test case is assumed to have passed, if false is returned, then the test
 	// case is assumed to have failed.
-	bool					(*verifyIO)(const std::vector<BufferSp>& inputs, const std::vector<AllocationSp>& outputAllocations, const std::vector<BufferSp>& expectedOutputs);
-
+	bool					(*verifyIO)(const std::vector<BufferSp>& inputs, const std::vector<AllocationSp>& outputAllocations, const std::vector<BufferSp>& expectedOutputs, tcu::TestLog& log);
 							ComputeShaderSpec()
 								: entryPoint	("main")
 								, verifyIO		(DE_NULL)

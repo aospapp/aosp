@@ -1699,9 +1699,9 @@ int test_repacketizer_api(void)
    cfgs++;
    if(opus_multistream_packet_pad(po,4,4,1)!=OPUS_OK)test_failed();
    cfgs++;
-   if(opus_packet_pad(po,4,5)!=OPUS_BAD_ARG)test_failed();
+   if(opus_packet_pad(po,4,5)!=OPUS_INVALID_PACKET)test_failed();
    cfgs++;
-   if(opus_multistream_packet_pad(po,4,5,1)!=OPUS_BAD_ARG)test_failed();
+   if(opus_multistream_packet_pad(po,4,5,1)!=OPUS_INVALID_PACKET)test_failed();
    cfgs++;
    if(opus_packet_pad(po,0,5)!=OPUS_BAD_ARG)test_failed();
    cfgs++;
@@ -1753,7 +1753,7 @@ int test_repacketizer_api(void)
 #endif
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-typedef void *(*mhook)(size_t __size, __const __malloc_ptr_t);
+typedef void *(*mhook)(size_t __size, __const void *);
 #endif
 
 int test_malloc_fail(void)

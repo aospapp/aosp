@@ -22,9 +22,8 @@
 #include "string.h"
 #include "math.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+namespace android {
+namespace renderscript {
 
 void Matrix2x2::loadIdentity() {
     m[0] = 1.f;
@@ -65,3 +64,5 @@ void Matrix2x2::transpose() {
     m[2] = temp;
 }
 
+} // namespace renderscript
+} // namespace android

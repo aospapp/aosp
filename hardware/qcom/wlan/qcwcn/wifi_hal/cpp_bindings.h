@@ -346,11 +346,13 @@ protected:
 
     /* Override this method to parse reply and dig out data; save it in the object */
     virtual int handleResponse(WifiEvent& reply) {
+        UNUSED(reply);
         return NL_SKIP;
     }
 
     /* Override this method to parse event and dig out data; save it in the object */
     virtual int handleEvent(WifiEvent& event) {
+        UNUSED(event);
         return NL_SKIP;
     }
 

@@ -54,7 +54,7 @@
     <string name="block_number" msgid="1101252256321306179">"Pridať číslo"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"Odblokovať číslo <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"Odblokovať"</string>
-    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Blokovať hovory a textové správy z čísla"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"Blokovať hovory a textové správy"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"Telefónne číslo"</string>
     <string name="block_button" msgid="8822290682524373357">"Blokovať"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"Iba vlastník zariadenia môže zobrazovať a spravovať blokované čísla."</string>
@@ -62,9 +62,25 @@
     <string name="blocked_numbers_butter_bar_title" msgid="438170866438793182">"Blokovanie je dočasne vypnuté"</string>
     <string name="blocked_numbers_butter_bar_body" msgid="2223244484319442431">"Keď vytočíte číslo tiesňového volania alebo naň odošlete textovú správu, blokovanie bude vypnuté, aby vás mohli pohotovostné služby kontaktovať."</string>
     <string name="blocked_numbers_butter_bar_button" msgid="2197943354922010696">"Znova zapnúť"</string>
-    <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"Číslo <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> je zablokované"</string>
-    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"Číslo je <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g> odblokované"</string>
+    <string name="blocked_numbers_number_blocked_message" msgid="7678509606805029540">"Číslo <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> je blokované"</string>
+    <string name="blocked_numbers_number_unblocked_message" msgid="977894647366750418">"Číslo <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g> je odblokované"</string>
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Číslo tiesňového volania sa nedá zablokovať."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Číslo <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> je už zablokované."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Na volanie sa používa osobné vytáčanie"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Hovor <xliff:g id="CALL_VIA">%1$s</xliff:g> od používateľa <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videohovor <xliff:g id="CALL_VIA">%1$s</xliff:g> od používateľa <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Prijatím hovoru ukončíte hovor <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Prijatím hovoru ukončíte hovory <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Prijatím hovoru ukončíte videohovor <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Prijatím hovoru ukončíte prebiehajúci hovor"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Prijatím hovoru ukončíte prebiehajúce hovory"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Prijatím hovoru ukončíte prebiehajúci videohovor"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Prijať"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Odmietnuť"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Hovor sa nedá uskutočniť, pretože prebieha hovor <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Hovor sa nedá uskutočniť, pretože prebiehajú hovory <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Hovor sa nedá uskutočniť, pretože prebieha hovor v inej aplikácii."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Prichádzajúce hovory"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Zmeškané hovory"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Ak uskutočníte tento hovor, hovor cez <xliff:g id="OTHER_APP">%1$s</xliff:g> bude ukončený."</string>
 </resources>

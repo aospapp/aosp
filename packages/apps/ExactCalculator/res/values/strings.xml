@@ -127,6 +127,22 @@
     <!-- Toggle button to show/hide inverse functions. [CHAR_LIMIT=4] -->
     <string name="inv" translatable="false">inv</string>
 
+    <!--
+      Item on Formula context menu used to paste from the Memory into the edit field. [CHAR_LIMIT=2]
+      -->
+    <string name="memory_recall" translatable="false">MR</string>
+    <!-- Item on Result context menu used to store the result in memory. [CHAR_LIMIT=2]
+      -->
+    <string name="memory_store" translatable="false">MS</string>
+    <!-- Item on Result context menu, which subtracts the current result from the number in memory.
+      [CHAR_LIMIT=2]
+      -->
+    <string name="memory_subtract" translatable="false">M\u2212</string>
+    <!-- Item on Result context menu, which adds the current result to the number in memory.
+      [CHAR_LIMIT=2]
+      -->
+    <string name="memory_add" translatable="false">M+</string>
+
     <!-- Content description for 'e' button. [CHAR_LIMIT=NONE] -->
     <string name="desc_const_e">Euler\'s number</string>
     <!-- Content description for 'π' button. [CHAR_LIMIT=NONE] -->
@@ -213,6 +229,21 @@
     <!-- Content description for "inv" button to hide inverse functions. [CHAR_LIMIT=NONE] -->
     <string name="desc_inv_on">hide inverse functions</string>
 
+    <!-- Content description for formula field when it is empty. [CHAR_LIMIT=NONE] -->
+    <string name="desc_formula">No formula</string>
+    <!-- Content description for result field when it is empty. [CHAR_LIMIT=NONE] -->
+    <string name="desc_result">No result</string>
+
+    <!-- Content description for the numeric/operation pad when slide-able. [CHAR_LIMIT=NONE] -->
+    <string name="desc_num_pad">Numbers and basic operations</string>
+    <!-- Content description for the advanced pad when slide-able. [CHAR_LIMIT=NONE] -->
+    <string name="desc_adv_pad">Advanced operations</string>
+    <!-- Content description for the pad pages when slide-able. -->
+    <string-array name="desc_pad_pages" translatable="false">
+        <item>@string/desc_num_pad</item>
+        <item>@string/desc_adv_pad</item>
+    </string-array>
+
     <!-- Error displayed when expression evaluates to an undefined result. [CHAR_LIMIT=20] -->
     <string name="error_nan">Not a number</string>
     <!-- Error displayed when expression contains a syntax error. [CHAR_LIMIT=20] -->
@@ -235,9 +266,9 @@
     <string name="text_copied_toast">Text copied</string>
 
     <!-- Dialog message when a computation is cancelled by the user. [CHAR_LIMIT=NONE] -->
-    <string name="cancelled">Computation cancelled</string>
+    <string name="cancelled">Computation cancelled.</string>
     <!-- Dialog message when a computation times out. [CHAR_LIMIT=NONE] -->
-    <string name="timeout">Timed out. Value may be infinite or undefined.</string>
+    <string name="timeout">Value may be infinite or undefined.</string>
     <!--
       Button label to allow future computations with a longer timeout.
 
@@ -261,5 +292,27 @@
     <string name="menu_fraction">Answer as fraction</string>
     <!-- Menu option to view the app's open source licenses. [CHAR_LIMIT=40] -->
     <string name="menu_licenses">Open source licenses</string>
+    <!-- Menu option to access calculation history. [CHAR_LIMIT=40] -->
+    <string name="menu_history">History</string>
+    <!-- Menu option to clear calculation history and memory. [CHAR_LIMIT=40] -->
+    <string name="menu_clear_history">Clear</string>
+
+    <!-- Action bar title in history page. [CHAR_LIMIT=40] -->
+    <string name="title_history">History</string>
+    <!-- Action bar navigate up description in history page. [CHAR_LIMIT=40] -->
+    <string name="desc_navigate_up">Navigate up</string>
+
+    <!-- Title for alert dialog when calculation takes too long (timeout). [CHAR_LIMIT=30] -->
+    <string name="dialog_timeout">Timeout</string>
+
+    <!--
+      Message for alert dialog when user is about to clear history and memory. [CHAR_LIMIT=NONE]
+    -->
+    <string name="dialog_clear">Clear history and memory?</string>
+
+    <!-- Title for "current expression" in history page. [CHAR_LIMIT=40] -->
+    <string name="title_current_expression">Current Expression</string>
+    <!-- Placeholder string when there is no history to be shown. [CHAR_LIMIT=40] -->
+    <string name="no_history">No History</string>
 
 </resources>

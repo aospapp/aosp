@@ -521,17 +521,9 @@ public abstract class AbstractCookiesTest extends TestCase {
         HttpCookie cookieA = createCookie("a", "android", ".android.com", "/source");
         HttpCookie cookieB = createCookie("b", "banana", "code.google.com", "/p/android");
 
-        try {
-            cookieStore.add(null, cookieA);
-        } catch (NullPointerException expected) {
-            // the RI crashes even though the cookie does get added to the store; sigh
-            expected.printStackTrace();
-        }
+        cookieStore.add(null, cookieA);
         assertEquals(Arrays.asList(cookieA), cookieStore.getCookies());
-        try {
-            cookieStore.add(null, cookieB);
-        } catch (NullPointerException expected) {
-        }
+        cookieStore.add(null, cookieB);
         assertEquals(Arrays.asList(cookieA, cookieB), cookieStore.getCookies());
 
         try {
@@ -1534,5 +1526,73 @@ public abstract class AbstractCookiesTest extends TestCase {
             cookies = Collections.EMPTY_LIST;
             return true;
         }
+    }
+
+    // JDK-7169142
+    public void testCookieWithNoPeriod() throws Exception {
+        CookieManager cm = new CookieManager(createCookieStore(), null);
+        Map<String, List<String>> responseHeaders = Collections.singletonMap("Set-Cookie",
+                Collections.singletonList("foo=bar"));
+
+        URI uri = new URI("http://localhost");
+        cm.put(uri, responseHeaders);
+
+        Map<String, List<String>> cookies = cm.get(
+                new URI("https://localhost/log/me/in"),
+                responseHeaders);
+
+        List<String> cookieList = cookies.values().iterator().next();
+        assertEquals(Collections.singletonList("foo=bar"), cookieList);
+    }
+
+    // http://b/31039416. Android supports cookie "expires" values without a
+    // "GMT" prefix on the timezone.
+    public void testLenientExpiresParsing() throws Exception {
+        CookieManager cm = new CookieManager(createCookieStore(), null);
+
+        URI uri = URI.create("https://test.com");
+        Map<String, List<String>> header = new HashMap<>();
+        List<String> value = new ArrayList<>();
+
+        value.add("cookie=1234567890test; domain=.test.com; path=/; " +
+                  "expires=Fri, 31 Dec 9999 04:01:25 -0000");
+        header.put("Set-Cookie", value);
+        cm.put(uri, header);
+
+        List<HttpCookie> cookies = cm.getCookieStore().getCookies();
+        assertEquals(1, cookies.size());
+        HttpCookie cookie = cookies.get(0);
+
+        assertEquals("1234567890test", cookie.getValue());
+        // This should work till year 6830 ((10000 - 6830) years ~= 10^11s)
+        assertTrue(cookie.getMaxAge() > 100000000000L);
+    }
+
+    // http://b/33034917. Android supports clearing cookie by re-adding is with
+    // a "max-age=0".
+    public void testClearingWithMaxAge0() throws Exception {
+        CookieManager cm = new CookieManager(createCookieStore(), null);
+
+        URI uri = URI.create("https://test.com");
+        Map<String, List<String>> header = new HashMap<>();
+        List<String> value = new ArrayList<>();
+
+        value.add("cookie=1234567890test; domain=.test.com; path=/; " +
+                  "expires=Fri, 31 Dec 9999 04:01:25 GMT-0000");
+        header.put("Set-Cookie", value);
+        cm.put(uri, header);
+
+        List<HttpCookie> cookies = cm.getCookieStore().getCookies();
+        assertEquals(1, cookies.size());
+
+        value.clear();
+        header.clear();
+        value.add("cookie=1234567890test; domain=.test.com; path=/; " +
+                  "max-age=0");
+        header.put("Set-Cookie", value);
+        cm.put(uri, header);
+
+        cookies = cm.getCookieStore().getCookies();
+        assertEquals(0, cookies.size());
     }
 }

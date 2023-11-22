@@ -108,4 +108,7 @@
     <string name="custom_preference_group_title">Custom Preference Group</string>
 
     <string name="custom_preference">Custom Preference</string>
+
+    <string name="test_title">Initial test title</string>
+    <string name="inner_fragment">Inner fragment</string>
 </resources>

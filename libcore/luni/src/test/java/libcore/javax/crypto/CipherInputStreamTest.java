@@ -16,19 +16,32 @@
 
 package libcore.javax.crypto;
 
+import junit.framework.TestCase;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
+import java.security.NoSuchAlgorithmException;
+import java.security.Provider;
+import java.security.Security;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
+import javax.crypto.AEADBadTagException;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.ShortBufferException;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import junit.framework.TestCase;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 public final class CipherInputStreamTest extends TestCase {
 
@@ -202,5 +215,149 @@ public final class CipherInputStreamTest extends TestCase {
             fail("Expected NullPointerException");
         } catch (NullPointerException expected) {
         }
+    }
+
+    public void testCloseTwice() throws Exception {
+        InputStream mockIs = mock(InputStream.class);
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(Cipher.DECRYPT_MODE, key, iv);
+
+        CipherInputStream cis = new CipherInputStream(mockIs, cipher);
+        cis.close();
+        cis.close();
+
+        verify(mockIs, times(1)).close();
+    }
+
+    /**
+     * CipherSpi that increments it's engineGetOutputSize output when
+     * engineUpdate is called.
+     */
+    public static class CipherSpiWithGrowingOutputSize extends MockCipherSpi {
+        private int outputSizeDelta = 0;
+
+        @Override
+        protected int engineGetOutputSize(int inputLen) {
+            return inputLen + outputSizeDelta;
+        }
+
+        @Override
+        protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output,
+                int outputOffset) throws ShortBufferException {
+            int expectedOutputSize = inputLen + outputSizeDelta++;
+            if ((output.length - outputOffset) < expectedOutputSize) {
+                throw new ShortBufferException();
+            }
+            return expectedOutputSize;
+        }
+
+        @Override
+        protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
+            int expectedOutputSize = inputLen + outputSizeDelta++;
+            return new byte[expectedOutputSize];
+        }
+
+        @Override
+        protected byte[] engineDoFinal(byte[] input, int inputOffset, int inputLen) {
+            return input;
+        }
+    }
+
+    private static class MockProvider extends Provider {
+        public MockProvider() {
+            super("MockProvider", 1.0, "Mock provider used for testing");
+            put("Cipher.GrowingOutputSize",
+                CipherSpiWithGrowingOutputSize.class.getName());
+        }
+    }
+
+    // http://b/32643789, check that CipherSpi.engineGetOutputSize is called and applied
+    // to output buffer size before calling CipherSpi.egineUpdate(byte[],int,int,byte[],int).
+    public void testCipherOutputSizeChange() throws Exception {
+        Provider mockProvider = new MockProvider();
+
+        Cipher cipher = Cipher.getInstance("GrowingOutputSize", mockProvider);
+
+        cipher.init(Cipher.DECRYPT_MODE, key, iv);
+        InputStream mockEncryptedInputStream = new ByteArrayInputStream(new byte[1024]);
+        try (InputStream is = new CipherInputStream(mockEncryptedInputStream, cipher)) {
+            byte[] buffer = new byte[1024];
+            // engineGetOutputSize returns 512+0, engineUpdate expects buf >= 512
+            assertEquals(512, is.read(buffer));
+            // engineGetOutputSize returns 512+1, engineUpdate expects buf >= 513
+            // and will throw ShortBufferException buffer is smaller.
+            assertEquals(513, is.read(buffer));
+        }
+    }
+
+    // From b/31590622. CipherInputStream had a bug where it would ignore exceptions
+    // thrown during close(), because it was expecting exceptions to be thrown by read().
+    public void testDecryptCorruptGCM() throws Exception {
+        for (Provider provider : Security.getProviders()) {
+            Cipher cipher;
+            try {
+                cipher = Cipher.getInstance("AES/GCM/NoPadding", provider);
+            } catch (NoSuchAlgorithmException e) {
+                continue;
+            }
+            SecretKey key;
+            if (provider.getName().equals("AndroidKeyStoreBCWorkaround")) {
+                key = getAndroidKeyStoreSecretKey();
+            } else {
+                KeyGenerator keygen = KeyGenerator.getInstance("AES");
+                keygen.init(256);
+                key = keygen.generateKey();
+            }
+            GCMParameterSpec params = new GCMParameterSpec(128, new byte[12]);
+            byte[] unencrypted = new byte[200];
+
+            // Normal providers require specifying the IV, but KeyStore prohibits it, so
+            // we have to special-case it
+            if (provider.getName().equals("AndroidKeyStoreBCWorkaround")) {
+                cipher.init(Cipher.ENCRYPT_MODE, key);
+            } else {
+                cipher.init(Cipher.ENCRYPT_MODE, key, params);
+            }
+            byte[] encrypted = cipher.doFinal(unencrypted);
+
+            // Corrupt the final byte, which will corrupt the authentication tag
+            encrypted[encrypted.length - 1] ^= 1;
+
+            cipher.init(Cipher.DECRYPT_MODE, key, params);
+            CipherInputStream cis = new CipherInputStream(
+                    new ByteArrayInputStream(encrypted), cipher);
+            try {
+                cis.read(unencrypted);
+                cis.close();
+                fail("Reading a corrupted stream should throw an exception."
+                        + "  Provider: " + provider);
+            } catch (IOException expected) {
+                assertTrue(expected.getCause() instanceof AEADBadTagException);
+            }
+        }
+
+    }
+
+    // The AndroidKeyStoreBCWorkaround provider can't use keys created by anything
+    // but Android KeyStore, which requires using its own parameters class to create
+    // keys.  Since we're in javax, we can't link against the frameworks classes, so
+    // we have to use reflection to make a suitable key.  This will always be safe
+    // because if we're making a key for AndroidKeyStoreBCWorkaround, the KeyStore
+    // classes must be present.
+    private static SecretKey getAndroidKeyStoreSecretKey() throws Exception {
+        KeyGenerator keygen = KeyGenerator.getInstance("AES", "AndroidKeyStore");
+        Class<?> keyParamsBuilderClass = keygen.getClass().getClassLoader().loadClass(
+                "android.security.keystore.KeyGenParameterSpec$Builder");
+        Object keyParamsBuilder = keyParamsBuilderClass.getConstructor(String.class, Integer.TYPE)
+                // 3 is PURPOSE_ENCRYPT | PURPOSE_DECRYPT
+                .newInstance("testDecryptCorruptGCM", 3);
+        keyParamsBuilderClass.getMethod("setBlockModes", new Class[]{String[].class})
+                .invoke(keyParamsBuilder, new Object[]{new String[]{"GCM"}});
+        keyParamsBuilderClass.getMethod("setEncryptionPaddings", new Class[]{String[].class})
+                .invoke(keyParamsBuilder, new Object[]{new String[]{"NoPadding"}});
+        AlgorithmParameterSpec spec = (AlgorithmParameterSpec)
+                keyParamsBuilderClass.getMethod("build", new Class[]{}).invoke(keyParamsBuilder);
+        keygen.init(spec);
+        return keygen.generateKey();
     }
 }

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2015, International Business Machines Corporation and
@@ -19,28 +21,24 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
 import android.icu.text.CollationElementIterator;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
 import android.icu.text.RuleBasedCollator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class CollationThaiTest extends TestFmwk {
     
     final int MAX_FAILURES_TO_SHOW = -1;
-    
-    public static void main(String[] args) throws Exception {
-        new CollationThaiTest().run(args);
-    }
     
     /**
      * Odd corner conditions taken from "How to Sort Thai Without Rewriting Sort",
      * by Doug Cooper, http://seasrc.th.net/paper/thaisort.zip
      */
+    @Test
     public void TestCornerCases() {
         String TESTS[] = {
             // Shorter words precede longer
@@ -121,6 +119,7 @@ public class CollationThaiTest extends TestFmwk {
      * sorted order, and confirm that the collator compares each line as
      * preceding the following line.
      */
+    @Test
     public void TestDictionary() {
         RuleBasedCollator coll = null;
         try {
@@ -210,6 +209,7 @@ public class CollationThaiTest extends TestFmwk {
         logln("Words checked: " + wordCount);
     }
     
+    @Test
     public void TestInvalidThai() 
     {
         String tests[] = { "\u0E44\u0E01\u0E44\u0E01",
@@ -247,6 +247,7 @@ public class CollationThaiTest extends TestFmwk {
         }
     }
     
+    @Test
     public void TestReordering() 
     {
         String tests[] = {

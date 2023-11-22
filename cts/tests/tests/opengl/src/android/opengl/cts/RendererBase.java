@@ -34,6 +34,7 @@ public abstract class RendererBase implements GLSurfaceView.Renderer {
 
     int[] mShaderCount = null;
     int mError;
+    String mInfoLog = null;
 
     // child may need to manipulate them directly
     protected CountDownLatch mLatch;
@@ -52,6 +53,7 @@ public abstract class RendererBase implements GLSurfaceView.Renderer {
         int shader = GLES20.glCreateShader(type);
         GLES20.glShaderSource(shader, shaderCode);
         GLES20.glCompileShader(shader);
+        mInfoLog = GLES20.glGetShaderInfoLog(shader);
         return shader;
     }
 

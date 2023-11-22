@@ -5,7 +5,7 @@
 import logging
 import os
 
-from autotest_lib.client.bin import utils, test
+from autotest_lib.client.bin import site_utils, test, utils
 from autotest_lib.client.common_lib import error
 
 ROOTFS_SIZE = 2 * 1024 * 1024 * 1024
@@ -15,21 +15,6 @@ class platform_PartitionCheck(test.test):
     Verify partition size is correct.
     """
     version = 1
-
-    def isRemovable(self, device):
-        """
-        Check if the block device is removable.
-
-        Args:
-            @param device: string, name of the block device.
-
-        Returns:
-            bool, True if device is removable.
-        """
-
-        # Construct a pathname to 'removable' for this device
-        removable_file = os.path.join('/sys', 'block', device, 'removable')
-        return int(utils.read_one_line(removable_file)) == 1
 
     def get_block_size(self, device):
         """
@@ -66,14 +51,13 @@ class platform_PartitionCheck(test.test):
 
     def run_once(self):
         errors = []
-        mmcpath = '/sys/block/mmcblk0'
+        device = os.path.basename(site_utils.get_fixed_dst_drive())
+        mmcpath = os.path.join('/sys', 'block', device)
 
-        if os.path.exists(mmcpath) and (not self.isRemovable('mmcblk0')):
-            device = 'mmcblk0'
-            partitions = ['mmcblk0p3', 'mmcblk0p5']
+        if os.path.exists(mmcpath) and device.startswith('mmc'):
+            partitions = [device + 'p3', device + 'p5']
         else:
-            device = 'sda'
-            partitions = ['sda3', 'sda5']
+            partitions = [device + '3', device + '5']
 
         block_size = self.get_block_size(device)
 

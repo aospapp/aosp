@@ -9,6 +9,7 @@ portage:!:250:250:portage:/var/tmp/portage:/bin/false
 nobody:!:65534:65534:nobody:/var/empty:/bin/false
 chronos:x:1000:1000:system_user:/home/chronos/user:/bin/bash
 chronos-access:!:1001:1001::/dev/null:/bin/false
+sslh:!:200:200::/dev/null:/bin/false
 messagebus:!:201:201::/dev/null:/bin/false
 syslog:!:202:202::/dev/null:/bin/false
 sshd:!:204:204::/dev/null:/bin/false
@@ -39,7 +40,7 @@ nfqueue:!:232:232::/dev/null:/bin/false
 tlsdate-dbus:!:233:233::/dev/null:/bin/false
 tlsdate:!:234:234::/dev/null:/bin/false
 debugd-logs:!:235:235::/dev/null:/bin/false
-debugfs-access:!:236:236::/dev/null:/bin/false
+debugfs-access:!:605:605::/dev/null:/bin/false
 shill-crypto:!:237:237::/dev/null:/bin/false
 avahi:!:238:238::/dev/null:/bin/false
 p2p:!:239:239::/dev/null:/bin/false
@@ -52,15 +53,27 @@ goofy:x:248:248:role account for running factory flow tests:/home/goofy:/bin/bas
 easy-unlock:!:249:249::/dev/null:/bin/false
 trunks:!:251:251::/dev/null:/bin/false
 tpm_manager:!:252:252::/dev/null:/bin/false
+authpolicyd:!:254:254:authpolicy daemon:/dev/null:/bin/false
 saned:!:255:255:document scanning process:/dev/null:/bin/false
 volume:!:257:257::/dev/null:/bin/false
 apmanager:!:259:259::/dev/null:/bin/false
 peerd:!:260:260::/dev/null:/bin/false
-privetd:!:262:262::/dev/null:/bin/false
+dlm:!:262:262::/dev/null:/bin/false
 buffet:!:264:264:/dev/null:/bin/false
 webservd:!:266:266:/dev/null:/bin/false
 dnsmasq:!:268:268:/dev/null:/bin/false
+lpadmin:!:269:269:/dev/null:/bin/false
+cups:!:277:277:/dev/null:/bin/false
+biod:!:282:282:biometrics daemon:/dev/null:/bin/false
 arc-camera:!:603:603::/dev/null:/bin/false
 ntfs-3g:!:300:300::/dev/null:/bin/false
 avfs:!:301:301::/dev/null:/bin/false
 fuse-exfat:!:302:302::/dev/null:/bin/false
+lpadmin:!:269:269:/dev/null:/bin/false
+android-root:!:655360:655360:CrOS android container user:/dev/null:/bin/false
+user-containers:!:10000:10000:CrOS unprivileged containers:/dev/null:/bin/false
+imageloaderd:!:220:220:imageloader dbus service:/dev/null:/bin/false
+arc-networkd:!:284:284:CrOS ARC network service daemon:/dev/null:/bin/false
+authpolicyd-exec:!:607:607:authpolicy process executor:/dev/null:/bin/false
+touch_keyboard:!:285:285:touch keyboard interpreter:/dev/null:/bin/false
+midis:!:608:608:CrOS MIDI daemon:/dev/null:/bin/false

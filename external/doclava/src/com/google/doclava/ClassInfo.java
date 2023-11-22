@@ -312,6 +312,19 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     return result;
   }
 
+  public TypeInfo getTypeParameter(String qualifiedTypeName) {
+      List<TypeInfo> parameters = mTypeInfo.typeArguments();
+      if (parameters == null) {
+          return null;
+      }
+      for (TypeInfo parameter : parameters) {
+          if (parameter.qualifiedTypeName().equals(qualifiedTypeName)) {
+              return parameter;
+          }
+      }
+      return null;
+  }
+
   /**
    * List of only direct interface's classes, without worrying about type param mapping.
    * This can't be lazy loaded, because its overloads depend on changing type parameters
@@ -556,9 +569,16 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
         }
       }
 
-      if (commentDeprecated != annotationDeprecated) {
+      // Check to see that the JavaDoc contains @deprecated AND the method is marked as @Deprecated.
+      // Otherwise, warn.
+      // Note: We only do this for "included" classes (i.e. those we have source code for); we do
+      // not have comments for classes from .class files but we do know whether a class is marked
+      // as @Deprecated.
+      if (isIncluded() && !isHiddenOrRemoved() && commentDeprecated != annotationDeprecated) {
         Errors.error(Errors.DEPRECATION_MISMATCH, position(), "Class " + qualifiedName()
-            + ": @Deprecated annotation and @deprecated comment do not match");
+            + ": @Deprecated annotation (" + (annotationDeprecated ? "" : "not ")
+            + "present) and @deprecated doc tag (" + (commentDeprecated ? "" : "not ")
+            + "present) do not match");
       }
 
       mIsDeprecated = commentDeprecated | annotationDeprecated;
@@ -718,6 +738,13 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
         }
       }
 
+      for (MethodInfo mi : annotationElements()) {
+        if (!mi.isHiddenOrRemoved()) {
+          // add annotation element as a field
+          methods.put(mi.name() + mi.signature(), mi);
+        }
+      }
+
       // sort it
       mSelfMethods = new ArrayList<MethodInfo>(methods.values());
       Collections.sort(mSelfMethods, MethodInfo.comparator);
@@ -737,78 +764,20 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     mRemovedMethods = Collections.unmodifiableList(removedMethods);
   }
 
-  /**
-   * @param allMethods all methods regardless of access levels. Selects the
-   * removed, public/protected ones and store them. If a class is removed, all its members
-   * are removed, even if the member may not have a @removed tag.
-   */
-  public void setRemovedSelfMethods(List<MethodInfo> allMethods) {
-    List<MethodInfo> removedSelfMethods = new ArrayList<MethodInfo>();
-    for (MethodInfo method : allMethods) {
-      if ((this.isRemoved() || method.isRemoved()) && (method.isPublic() || method.isProtected()) &&
-          (this.isPublic() || this.isProtected()) &&
-          (method.findOverriddenMethod(method.name(), method.signature()) == null)) {
-        removedSelfMethods.add(method);
-      }
-    }
-
-    Collections.sort(removedSelfMethods, MethodInfo.comparator);
-    mRemovedSelfMethods = Collections.unmodifiableList(removedSelfMethods);
+  public void setExhaustiveConstructors(List<MethodInfo> constructors) {
+    mExhaustiveConstructors = constructors;
   }
 
-  /**
-   * @param allCtors all constructors regardless of access levels.
-   * But only the public/protected removed constructors will be stored by the method.
-   * Removed constructors should never be deleted from source code because
-   * they were once public API.
-   */
-  public void setRemovedConstructors(List<MethodInfo> allCtors) {
-    List<MethodInfo> ctors = new ArrayList<MethodInfo>();
-    for (MethodInfo ctor : allCtors) {
-      if ((this.isRemoved() || ctor.isRemoved()) && (ctor.isPublic() || ctor.isProtected()) &&
-          (this.isPublic() || this.isProtected())) {
-        ctors.add(ctor);
-      }
-    }
-
-    Collections.sort(ctors, MethodInfo.comparator);
-    mRemovedConstructors = Collections.unmodifiableList(ctors);
+  public void setExhaustiveMethods(List<MethodInfo> methods) {
+    mExhaustiveMethods = methods;
   }
 
-  /**
-   * @param allFields all fields regardless of access levels.  Selects the
-   * removed, public/protected ones and store them. If a class is removed, all its members
-   * are removed, even if the member may not have a @removed tag.
-   */
-  public void setRemovedSelfFields(List<FieldInfo> allFields) {
-    List<FieldInfo> fields = new ArrayList<FieldInfo>();
-    for (FieldInfo field : allFields) {
-      if ((this.isRemoved() || field.isRemoved()) && (field.isPublic() || field.isProtected()) &&
-          (this.isPublic() || this.isProtected())) {
-        fields.add(field);
-      }
-    }
-
-    Collections.sort(fields, FieldInfo.comparator);
-    mRemovedSelfFields = Collections.unmodifiableList(fields);
+  public void setExhaustiveEnumConstants(List<FieldInfo> enumConstants) {
+    mExhaustiveEnumConstants = enumConstants;
   }
 
-  /**
-   * @param allEnumConstants all enum constants regardless of access levels. Selects the
-   * removed, public/protected ones and store them. If a class is removed, all its members
-   * are removed, even if the member may not have a @removed tag.
-   */
-  public void setRemovedEnumConstants(List<FieldInfo> allEnumConstants) {
-    List<FieldInfo> enums = new ArrayList<FieldInfo>();
-    for (FieldInfo field : allEnumConstants) {
-      if ((this.isRemoved() || field.isRemoved()) && (field.isPublic() || field.isProtected()) &&
-          (this.isPublic() || this.isProtected())) {
-        enums.add(field);
-      }
-    }
-
-    Collections.sort(enums, FieldInfo.comparator);
-    mRemovedEnumConstants = Collections.unmodifiableList(enums);
+  public void setExhaustiveFields(List<FieldInfo> fields) {
+    mExhaustiveFields = fields;
   }
 
   /**
@@ -819,58 +788,20 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     return mRemovedMethods;
   }
 
-  /**
-   * @return all public/protected methods that are removed. @removed methods should never be
-   * deleted from source code because they were once public API. Methods that override
-   * a parent method will not be included, because deleting them does not break the API.
-   */
-  public List<MethodInfo> getRemovedSelfMethods() {
-    return mRemovedSelfMethods;
+  public List<MethodInfo> getExhaustiveConstructors() {
+    return mExhaustiveConstructors;
   }
 
-  /**
-   * @return all public constructors that are removed.
-   * removed constructors should never be deleted from source code because they
-   * were once public API.
-   * The returned list is sorted and unmodifiable.
-   */
-  public List<MethodInfo> getRemovedConstructors() {
-    return mRemovedConstructors;
+  public List<MethodInfo> getExhaustiveMethods() {
+    return mExhaustiveMethods;
   }
 
-  /**
-   * @return all public/protected fields that are removed.
-   * removed members should never be deleted from source code because they were once public API.
-   * The returned list is sorted and unmodifiable.
-   */
-  public List<FieldInfo> getRemovedSelfFields() {
-    return mRemovedSelfFields;
+  public List<FieldInfo> getExhaustiveEnumConstants() {
+    return mExhaustiveEnumConstants;
   }
 
-  /**
-   * @return all public/protected enumConstants that are removed.
-   * removed members should never be deleted from source code
-   * because they were once public API.
-   * The returned list is sorted and unmodifiable.
-   */
-  public List<FieldInfo> getRemovedSelfEnumConstants() {
-    return mRemovedEnumConstants;
-  }
-
-  /**
-   * @return true if this class contains any self members that are removed
-   */
-  public boolean hasRemovedSelfMembers() {
-    List<FieldInfo> removedSelfFields = getRemovedSelfFields();
-    List<FieldInfo> removedSelfEnumConstants = getRemovedSelfEnumConstants();
-    List<MethodInfo> removedSelfMethods = getRemovedSelfMethods();
-    List<MethodInfo> removedConstructors = getRemovedConstructors();
-    if (removedSelfFields.size() + removedSelfEnumConstants.size()
-        + removedSelfMethods.size() + removedConstructors.size() == 0) {
-      return false;
-    } else {
-      return true;
-    }
+  public List<FieldInfo> getExhaustiveFields() {
+    return mExhaustiveFields;
   }
 
   public void addMethod(MethodInfo method) {
@@ -1285,6 +1216,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
 
     // class description
     TagInfo.makeHDF(data, "class.descr", inlineTags());
+    TagInfo.makeHDF(data, "class.descrAux", Doclava.auxSource.classAuxTags(this));
     TagInfo.makeHDF(data, "class.seeAlso", comment().seeTags());
     TagInfo.makeHDF(data, "class.deprecated", deprecatedTags());
 
@@ -1923,12 +1855,12 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   // Resolutions
   private ArrayList<Resolution> mResolutions;
 
-  private List<MethodInfo> mRemovedConstructors; // immutable after you set its value.
-  // @removed self methods that do not override any parent methods
-  private List<MethodInfo> mRemovedSelfMethods; // immutable after you set its value.
   private List<MethodInfo> mRemovedMethods; // immutable after you set its value.
-  private List<FieldInfo> mRemovedSelfFields; // immutable after you set its value.
-  private List<FieldInfo> mRemovedEnumConstants; // immutable after you set its value.
+
+  private List<MethodInfo> mExhaustiveConstructors; // immutable after you set its value.
+  private List<MethodInfo> mExhaustiveMethods; // immutable after you set its value.
+  private List<FieldInfo> mExhaustiveEnumConstants; // immutable after you set its value.
+  private List<FieldInfo> mExhaustiveFields; // immutable after you set its value.
 
   /**
    * Returns true if {@code cl} implements the interface {@code iface} either by either being that
@@ -2086,8 +2018,13 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
           mi = ClassInfo.interfaceMethod(mInfo, cl);
         }
         if (mi == null) {
-          Errors.error(Errors.REMOVED_METHOD, mInfo.position(), "Removed public method "
-              + mInfo.prettyQualifiedSignature());
+          if (mInfo.isDeprecated()) {
+            Errors.error(Errors.REMOVED_DEPRECATED_METHOD, mInfo.position(),
+                "Removed deprecated public method " + mInfo.prettyQualifiedSignature());
+          } else {
+            Errors.error(Errors.REMOVED_METHOD, mInfo.position(),
+                "Removed public method " + mInfo.prettyQualifiedSignature());
+          }
           consistent = false;
         }
       }
@@ -2122,8 +2059,13 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
           consistent = false;
         }
       } else {
-        Errors.error(Errors.REMOVED_METHOD, mInfo.position(), "Removed public constructor "
-            + mInfo.prettyQualifiedSignature());
+        if (mInfo.isDeprecated()) {
+          Errors.error(Errors.REMOVED_DEPRECATED_METHOD, mInfo.position(),
+              "Removed deprecated public constructor " + mInfo.prettyQualifiedSignature());
+        } else {
+          Errors.error(Errors.REMOVED_METHOD, mInfo.position(),
+              "Removed public constructor " + mInfo.prettyQualifiedSignature());
+        }
         consistent = false;
       }
     }
@@ -2147,8 +2089,13 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
           consistent = false;
         }
       } else {
-        Errors.error(Errors.REMOVED_FIELD, mInfo.position(), "Removed field "
-            + mInfo.qualifiedName());
+        if (mInfo.isDeprecated()) {
+          Errors.error(Errors.REMOVED_DEPRECATED_FIELD, mInfo.position(),
+              "Removed deprecated field " + mInfo.qualifiedName());
+        } else {
+          Errors.error(Errors.REMOVED_FIELD, mInfo.position(),
+              "Removed field " + mInfo.qualifiedName());
+        }
         consistent = false;
       }
     }
@@ -2166,8 +2113,13 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
           consistent = false;
         }
       } else {
-        Errors.error(Errors.REMOVED_FIELD, info.position(), "Removed enum constant "
-            + info.qualifiedName());
+        if (info.isDeprecated()) {
+          Errors.error(Errors.REMOVED_DEPRECATED_FIELD, info.position(),
+              "Removed deprecated enum constant " + info.qualifiedName());
+        } else {
+          Errors.error(Errors.REMOVED_FIELD, info.position(),
+              "Removed enum constant " + info.qualifiedName());
+        }
         consistent = false;
       }
     }
@@ -2232,6 +2184,17 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
       }
     }
 
+    if (hasTypeParameters() && cl.hasTypeParameters()) {
+      ArrayList<TypeInfo> oldParams = typeParameters();
+      ArrayList<TypeInfo> newParams = cl.typeParameters();
+      if (oldParams.size() != newParams.size()) {
+        consistent = false;
+        Errors.error(Errors.CHANGED_TYPE, cl.position(), "Class " + qualifiedName()
+            + " changed number of type parameters from " + oldParams.size()
+            + " to " + newParams.size());
+      }
+    }
+
     return consistent;
   }
 
@@ -2282,6 +2245,20 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
 
   public TypeInfo type() {
       return mTypeInfo;
+  }
+
+  public boolean hasTypeParameters() {
+      if (mTypeInfo != null && mTypeInfo.typeArguments() != null) {
+          return !mTypeInfo.typeArguments().isEmpty();
+      }
+      return false;
+  }
+
+  public ArrayList<TypeInfo> typeParameters() {
+      if (hasTypeParameters()) {
+          return mTypeInfo.typeArguments();
+      }
+      return null;
   }
 
   public void addInnerClass(ClassInfo innerClass) {

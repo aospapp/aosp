@@ -18,6 +18,8 @@ package com.android.tv.dvr;
 
 import android.support.annotation.MainThread;
 
+import com.android.tv.dvr.ScheduledRecording.RecordingState;
+
 /**
  * Full data manager.
  *
@@ -27,27 +29,50 @@ import android.support.annotation.MainThread;
 @MainThread
 interface WritableDvrDataManager extends DvrDataManager {
     /**
-     * Add a new recording.
+     * Adds new recordings.
      */
-    void addScheduledRecording(ScheduledRecording scheduledRecording);
+    void addScheduledRecording(ScheduledRecording... scheduledRecordings);
 
     /**
-     * Add a season recording/
+     * Adds new series recordings.
      */
-    void addSeasonRecording(SeasonRecording seasonRecording);
+    void addSeriesRecording(SeriesRecording... seriesRecordings);
 
     /**
-     * Remove a recording.
+     * Removes recordings.
      */
-    void removeScheduledRecording(ScheduledRecording ScheduledRecording);
+    void removeScheduledRecording(ScheduledRecording... scheduledRecordings);
 
     /**
-     * Remove a season schedule.
+     * Removes recordings. If {@code forceRemove} is {@code true}, the schedule will be permanently
+     * removed instead of changing the state to DELETED.
      */
-    void removeSeasonSchedule(SeasonRecording seasonSchedule);
+    void removeScheduledRecording(boolean forceRemove, ScheduledRecording... scheduledRecordings);
 
     /**
-     * Update an existing recording.
+     * Removes series recordings.
      */
-    void updateScheduledRecording(ScheduledRecording r);
+    void removeSeriesRecording(SeriesRecording... seasonSchedules);
+
+    /**
+     * Updates existing recordings.
+     */
+    void updateScheduledRecording(ScheduledRecording... scheduledRecordings);
+
+    /**
+     * Updates existing series recordings.
+     */
+    void updateSeriesRecording(SeriesRecording... seriesRecordings);
+
+    /**
+     * Changes the state of the recording.
+     */
+    void changeState(ScheduledRecording scheduledRecording, @RecordingState int newState);
+
+    /**
+     * Remove all the records related to the input.
+     * <p>
+     * Note that this should be called after the input was removed.
+     */
+    void forgetStorage(String inputId);
 }

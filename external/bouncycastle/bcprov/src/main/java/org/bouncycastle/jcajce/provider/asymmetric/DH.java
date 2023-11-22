@@ -41,14 +41,14 @@ public class DH
 
             // BEGIN android-removed
             // provider.addAlgorithm("Cipher.IES", PREFIX + "IESCipher$IES");
-            // provider.addAlgorithm("Cipher.IESwithAES", PREFIX + "IESCipher$IESwithAES");
-            // provider.addAlgorithm("Cipher.IESWITHAES", PREFIX + "IESCipher$IESwithAES");
-            // provider.addAlgorithm("Cipher.IESWITHDESEDE", PREFIX + "IESCipher$IESwithDESede");
+            // provider.addAlgorithm("Cipher.IESwithAES-CBC", PREFIX + "IESCipher$IESwithAES");
+            // provider.addAlgorithm("Cipher.IESWITHAES-CBC", PREFIX + "IESCipher$IESwithAES");
+            // provider.addAlgorithm("Cipher.IESWITHDESEDE-CBC", PREFIX + "IESCipher$IESwithDESede");
             //
             // provider.addAlgorithm("Cipher.DHIES", PREFIX + "IESCipher$IES");
-            // provider.addAlgorithm("Cipher.DHIESwithAES", PREFIX + "IESCipher$IESwithAES");
-            // provider.addAlgorithm("Cipher.DHIESWITHAES", PREFIX + "IESCipher$IESwithAES");
-            // provider.addAlgorithm("Cipher.DHIESWITHDESEDE", PREFIX + "IESCipher$IESwithDESede");
+            // provider.addAlgorithm("Cipher.DHIESwithAES-CBC", PREFIX + "IESCipher$IESwithAES");
+            // provider.addAlgorithm("Cipher.DHIESWITHAES-CBC", PREFIX + "IESCipher$IESwithAES");
+            // provider.addAlgorithm("Cipher.DHIESWITHDESEDE-CBC", PREFIX + "IESCipher$IESwithDESede");
             //
             // provider.addAlgorithm("Cipher.OLDDHIES", PREFIX + "IESCipher$OldIES");
             // provider.addAlgorithm("Cipher.OLDDHIESwithAES", PREFIX + "IESCipher$OldIESwithAES");

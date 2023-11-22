@@ -22,6 +22,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Process;
+import android.os.UserHandle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.test.AndroidTestCase;
 
 /**
@@ -34,7 +36,20 @@ import android.test.AndroidTestCase;
  */
 public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
 
+    final static String ACTION_USER_ADDED = "com.android.cts.deviceowner.action.USER_ADDED";
+    final static String ACTION_USER_REMOVED = "com.android.cts.deviceowner.action.USER_REMOVED";
+    final static String EXTRA_USER_HANDLE = "com.android.cts.deviceowner.extra.USER_HANDLE";
+    final static String ACTION_NETWORK_LOGS_AVAILABLE =
+            "com.android.cts.deviceowner.action.ACTION_NETWORK_LOGS_AVAILABLE";
+    final static String EXTRA_NETWORK_LOGS_BATCH_TOKEN =
+            "com.android.cts.deviceowner.extra.NETWORK_LOGS_BATCH_TOKEN";
+
     public static class BasicAdminReceiver extends DeviceAdminReceiver {
+
+        public static ComponentName getComponentName(Context context) {
+            return new ComponentName(context, BasicAdminReceiver.class);
+        }
+
         @Override
         public String onChoosePrivateKeyAlias(Context context, Intent intent, int uid, Uri uri,
                 String suggestedAlias) {
@@ -42,6 +57,32 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
                 return null;
             }
             return uri.getQueryParameter("alias");
+        }
+
+        @Override
+        public void onUserAdded(Context context, Intent intent, UserHandle userHandle) {
+            sendUserAddedOrRemovedBroadcast(context, ACTION_USER_ADDED, userHandle);
+        }
+
+        @Override
+        public void onUserRemoved(Context context, Intent intent, UserHandle userHandle) {
+            sendUserAddedOrRemovedBroadcast(context, ACTION_USER_REMOVED, userHandle);
+        }
+
+        @Override
+        public void onNetworkLogsAvailable(Context context, Intent intent, long batchToken,
+                int networkLogsCount) {
+            // send the broadcast, the rest of the test happens in NetworkLoggingTest
+            Intent batchIntent = new Intent(ACTION_NETWORK_LOGS_AVAILABLE);
+            batchIntent.putExtra(EXTRA_NETWORK_LOGS_BATCH_TOKEN, batchToken);
+            LocalBroadcastManager.getInstance(context).sendBroadcast(batchIntent);
+        }
+
+        private void sendUserAddedOrRemovedBroadcast(Context context, String action,
+                UserHandle userHandle) {
+            Intent intent = new Intent(action);
+            intent.putExtra(EXTRA_USER_HANDLE, userHandle);
+            LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
         }
     }
 
@@ -62,6 +103,7 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
         assertNotNull(dpm);
         assertTrue(dpm.isAdminActive(getWho()));
         assertTrue(dpm.isDeviceOwnerApp(PACKAGE_NAME));
+        assertFalse(dpm.isManagedProfile(getWho()));
     }
 
     protected static ComponentName getWho() {

@@ -41,7 +41,6 @@ import org.connectbot.util.SelectionArea;
 /**
  * User interface {@link View} for showing a TerminalBridge in an {@link Activity}. Handles drawing
  * bitmap updates and passing keystrokes down to terminal.
- * @author jsharkey
  */
 public class TerminalView extends View implements FontSizeChangedListener {
 

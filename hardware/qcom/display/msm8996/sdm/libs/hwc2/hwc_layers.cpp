@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  *
  * Copyright 2015 The Android Open Source Project
@@ -17,8 +17,13 @@
  * limitations under the License.
  */
 
+#include <stdint.h>
+#include <qdMetaData.h>
+
 #include "hwc_layers.h"
+#ifndef USE_GRALLOC1
 #include <gr.h>
+#endif
 #include <utils/debug.h>
 #include <cmath>
 
@@ -29,7 +34,8 @@ namespace sdm {
 std::atomic<hwc2_layer_t> HWCLayer::next_id_(1);
 
 // Layer operations
-HWCLayer::HWCLayer(hwc2_display_t display_id) : id_(next_id_++), display_id_(display_id) {
+HWCLayer::HWCLayer(hwc2_display_t display_id, HWCBufferAllocator *buf_allocator)
+  : id_(next_id_++), display_id_(display_id), buffer_allocator_(buf_allocator) {
   layer_ = new Layer();
   layer_->input_buffer = new LayerBuffer();
   // Fences are deferred, so the first time this layer is presented, return -1
@@ -75,23 +81,24 @@ HWC2::Error HWCLayer::SetLayerBuffer(buffer_handle_t buffer, int32_t acquire_fen
   }
 
   LayerBuffer *layer_buffer = layer_->input_buffer;
+
   layer_buffer->width = UINT32(handle->width);
   layer_buffer->height = UINT32(handle->height);
+  auto format = layer_buffer->format;
   layer_buffer->format = GetSDMFormat(handle->format, handle->flags);
+  if (format != layer_buffer->format) {
+    needs_validate_ = true;
+  }
   if (SetMetaData(handle, layer_) != kErrorNone) {
     return HWC2::Error::BadLayer;
   }
 
-  if (handle->bufferType == BUFFER_TYPE_VIDEO) {
-    layer_buffer->flags.video = true;
-  }
+  layer_buffer->flags.video = (handle->buffer_type == BUFFER_TYPE_VIDEO) ? true : false;
   // TZ Protected Buffer - L1
-  if (handle->flags & private_handle_t::PRIV_FLAGS_SECURE_BUFFER) {
-    layer_buffer->flags.secure = true;
-  }
-  if (handle->flags & private_handle_t::PRIV_FLAGS_SECURE_DISPLAY) {
-    layer_buffer->flags.secure_display = true;
-  }
+  layer_buffer->flags.secure =
+      (handle->flags & private_handle_t::PRIV_FLAGS_SECURE_BUFFER) ? true: false;
+  layer_buffer->flags.secure_display =
+      (handle->flags & private_handle_t::PRIV_FLAGS_SECURE_DISPLAY) ? true : false;
 
   layer_buffer->planes[0].fd = ion_fd_;
   layer_buffer->planes[0].offset = handle->offset;
@@ -103,6 +110,20 @@ HWC2::Error HWCLayer::SetLayerBuffer(buffer_handle_t buffer, int32_t acquire_fen
 }
 
 HWC2::Error HWCLayer::SetLayerSurfaceDamage(hwc_region_t damage) {
+  // Check if there is an update in SurfaceDamage rects
+  if (layer_->dirty_regions.size() != damage.numRects) {
+    needs_validate_ = true;
+  } else {
+    for (uint32_t j = 0; j < damage.numRects; j++) {
+      LayerRect damage_rect;
+      SetRect(damage.rects[j], &damage_rect);
+      if (damage_rect != layer_->dirty_regions.at(j)) {
+        needs_validate_ = true;
+        break;
+      }
+    }
+  }
+
   layer_->dirty_regions.clear();
   for (uint32_t i = 0; i < damage.numRects; i++) {
     LayerRect rect;
@@ -165,8 +186,10 @@ HWC2::Error HWCLayer::SetLayerCompositionType(HWC2::Composition type) {
 }
 
 HWC2::Error HWCLayer::SetLayerDataspace(int32_t dataspace) {
-  // TODO(user): Implement later
-  geometry_changes_ |= kDataspace;
+  if (dataspace != dataspace_) {
+    dataspace_ = dataspace;
+    geometry_changes_ |= kDataspace;
+  }
   return HWC2::Error::None;
 }
 
@@ -425,47 +448,56 @@ LayerBufferS3DFormat HWCLayer::GetS3DFormat(uint32_t s3d_format) {
 }
 
 DisplayError HWCLayer::SetMetaData(const private_handle_t *pvt_handle, Layer *layer) {
-  const MetaData_t *meta_data = reinterpret_cast<MetaData_t *>(pvt_handle->base_metadata);
   LayerBuffer *layer_buffer = layer->input_buffer;
+  private_handle_t *handle = const_cast<private_handle_t *>(pvt_handle);
 
-  if (!meta_data) {
-    return kErrorNone;
+  BufferDim_t  buffer_dim = {};
+  buffer_dim.sliceWidth = pvt_handle->width;
+  buffer_dim.sliceHeight = pvt_handle->height;
+  if (getMetaData(handle, GET_BUFFER_GEOMETRY, &buffer_dim) == 0) {
+#ifdef USE_GRALLOC1
+    buffer_allocator_->GetCustomWidthAndHeight(pvt_handle, &buffer_dim.sliceWidth,
+                                               &buffer_dim.sliceHeight);
+#else
+    AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(handle, &buffer_dim.sliceWidth,
+                                                          &buffer_dim.sliceHeight);
+#endif
+    layer_buffer->width = UINT32(buffer_dim.sliceWidth);
+    layer_buffer->height = UINT32(buffer_dim.sliceHeight);
   }
 
-  if (meta_data->operation & UPDATE_COLOR_SPACE) {
-    if (SetCSC(meta_data->colorSpace, &layer_buffer->csc) != kErrorNone) {
+  ColorSpace_t csc = ITU_R_601;
+  if (getMetaData(const_cast<private_handle_t *>(pvt_handle), GET_COLOR_SPACE, &csc) == 0) {
+    if (SetCSC(csc, &layer_buffer->csc) != kErrorNone) {
       return kErrorNotSupported;
     }
   }
 
-  if (meta_data->operation & SET_IGC) {
-    if (SetIGC(meta_data->igc, &layer_buffer->igc) != kErrorNone) {
+  IGC_t igc = {};
+  if (getMetaData(handle, GET_IGC, &igc) == 0) {
+    if (SetIGC(igc, &layer_buffer->igc) != kErrorNone) {
       return kErrorNotSupported;
     }
   }
 
-  if (meta_data->operation & UPDATE_REFRESH_RATE) {
-    layer->frame_rate = RoundToStandardFPS(meta_data->refreshrate);
+  uint32_t fps = 0;
+  if (getMetaData(handle, GET_REFRESH_RATE, &fps) == 0) {
+    layer->frame_rate = RoundToStandardFPS(fps);
   }
 
-  if ((meta_data->operation & PP_PARAM_INTERLACED) && meta_data->interlaced) {
-    layer_buffer->flags.interlace = true;
+  int32_t interlaced = 0;
+  if (getMetaData(handle, GET_PP_PARAM_INTERLACED, &interlaced) == 0) {
+    layer_buffer->flags.interlace = interlaced ? true : false;
   }
 
-  if (meta_data->operation & LINEAR_FORMAT) {
-    layer_buffer->format = GetSDMFormat(INT32(meta_data->linearFormat), 0);
+  uint32_t linear_format = 0;
+  if (getMetaData(handle, GET_LINEAR_FORMAT, &linear_format) == 0) {
+    layer_buffer->format = GetSDMFormat(INT32(linear_format), 0);
   }
 
-  if (meta_data->operation & UPDATE_BUFFER_GEOMETRY) {
-    int actual_width = pvt_handle->width;
-    int actual_height = pvt_handle->height;
-    AdrenoMemInfo::getInstance().getAlignedWidthAndHeight(pvt_handle, actual_width, actual_height);
-    layer_buffer->width = UINT32(actual_width);
-    layer_buffer->height = UINT32(actual_height);
-  }
-
-  if (meta_data->operation & S3D_FORMAT) {
-    layer_buffer->s3d_format = GetS3DFormat(meta_data->s3dFormat);
+  uint32_t s3d = 0;
+  if (getMetaData(handle, GET_S3D_FORMAT, &s3d) == 0) {
+    layer_buffer->s3d_format = GetS3DFormat(s3d);
   }
 
   return kErrorNone;

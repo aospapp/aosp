@@ -17,13 +17,19 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.media.ThumbnailUtils;
 import android.os.SystemProperties;
+import android.provider.MediaStore;
 import android.support.annotation.VisibleForTesting;
 import android.text.format.DateUtils;
+
 import com.android.storagemanager.utils.AsyncLoader;
+import com.android.storagemanager.utils.IconProvider;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * FetchDownloadsLoader is an asynchronous task which returns files in the Downloads
@@ -31,7 +37,7 @@ import java.util.ArrayList;
  */
 public class FetchDownloadsLoader extends AsyncLoader<FetchDownloadsLoader.DownloadsResult> {
     private static final String DEBUG_FILE_AGE_OVERRIDE = "debug.asm.file_age_limit";
-    private static final int MINIMUM_AGE_DAYS = 30;
+    private static final int MINIMUM_AGE_DAYS = 0;
     private File mDirectory;
 
     /**
@@ -78,6 +84,14 @@ public class FetchDownloadsLoader extends AsyncLoader<FetchDownloadsLoader.Downl
                     }
                     result.files.add(currentFile);
                     result.totalSize += currentFile.length();
+
+                    if (IconProvider.isImageType(currentFile)) {
+                        Bitmap thumbnail =
+                                ThumbnailUtils.createImageThumbnail(
+                                        currentFile.getAbsolutePath(),
+                                        MediaStore.Images.Thumbnails.MINI_KIND);
+                        result.thumbnails.put(currentFile, thumbnail);
+                    }
                 }
             }
         }
@@ -93,15 +107,21 @@ public class FetchDownloadsLoader extends AsyncLoader<FetchDownloadsLoader.Downl
         public long totalSize;
         public long youngestLastModified;
         public ArrayList<File> files;
+        public HashMap<File, Bitmap> thumbnails;
 
         public DownloadsResult() {
-            this(0, Long.MAX_VALUE, new ArrayList<File>());
+            this(0, Long.MAX_VALUE, new ArrayList<File>(), new HashMap<>());
         }
 
-        public DownloadsResult(long totalSize, long youngestLastModified, ArrayList<File> files) {
+        public DownloadsResult(
+                long totalSize,
+                long youngestLastModified,
+                ArrayList<File> files,
+                HashMap<File, Bitmap> thumbnails) {
             this.totalSize = totalSize;
             this.youngestLastModified = youngestLastModified;
             this.files = files;
+            this.thumbnails = thumbnails;
         }
     }
 }

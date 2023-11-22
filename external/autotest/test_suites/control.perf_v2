@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "perf_v2"
 PURPOSE = "Test basic, required functionality."
-CRITERIA = "All tests with SUITE=perf_v2 must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "General"
@@ -38,8 +37,7 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'ccs': ['pthammaiah@chromium.org','scottz@chromium.org',
-            'beeps@chromium.org']
+    'cc': []
 }
 
 args_dict['file_bugs'] = False

@@ -67,13 +67,21 @@ public final class X509CertSelectorTest extends TestCase {
         X509CertSelector certSelector = new X509CertSelector();
         certSelector.addPathToName(GeneralName.iPAddress, "127.0.0.1");
 
+        // This constraint matches 127.0.0.1/255.255.255.255 aka 127.0.0.1
         byte[] directMatch = { 127, 0, 0, 1, -1, -1, -1, -1 };
         assertTrue(certSelector.match(newCertWithNameConstraint(directMatch, excluded)));
 
-        byte[] noMatch = { 127, 0, 0, 2, -1, -1, -1, 127 };
+        // This constraint matches 127.0.0.2/255.255.255.255 aka 127.0.0.2
+        byte[] noMatch = { 127, 0, 0, 2, -1, -1, -1, -1 };
         assertFalse(certSelector.match(newCertWithNameConstraint(noMatch, excluded)));
 
-        // TODO: test that requires mask to match
+        // This constraint matches 127.0.0.0/255.255.255.255 aka 127.0.0.0
+        byte[] subnetWithNoMask = { 127, 0, 0, 0, -1, -1, -1, -1 };
+        assertFalse(certSelector.match(newCertWithNameConstraint(subnetWithNoMask, excluded)));
+
+        // This constraint matches 127.0.0.0/255.255.255.0 aka 127.0.0.0/24
+        byte[] maskedMatch = { 127, 0, 0, 0, -1, -1, -1, 0 };
+        assertTrue(certSelector.match(newCertWithNameConstraint(maskedMatch, excluded)));
     }
 
     public void testMatchMaskedIpv6NameConstraint() throws Exception {
@@ -84,19 +92,33 @@ public final class X509CertSelectorTest extends TestCase {
         X509CertSelector certSelector = new X509CertSelector();
         certSelector.addPathToName(GeneralName.iPAddress, "1::1");
 
+        // This constraint matches 1::1/128 aka 1::1
         byte[] directMatch = {
                 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 127
+                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
         };
         assertTrue(certSelector.match(newCertWithNameConstraint(directMatch, excluded)));
 
+        // This constraint matches 1::2/128 aka 1::2
         byte[] noMatch = {
                 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 127
+                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
         };
         assertFalse(certSelector.match(newCertWithNameConstraint(noMatch, excluded)));
 
-        // TODO: test that requires mask to match
+        // This constraint matches 1::/128 aka 1::
+        byte[] subnetWithNoMask = {
+                0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+        };
+        assertFalse(certSelector.match(newCertWithNameConstraint(subnetWithNoMask, excluded)));
+
+        // This constraint matches 1::/120
+        byte[] maskedMatch = {
+                0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0
+        };
+        assertTrue(certSelector.match(newCertWithNameConstraint(maskedMatch, excluded)));
     }
 
     public void testMatchMalformedSubjectAlternativeName() throws Exception {

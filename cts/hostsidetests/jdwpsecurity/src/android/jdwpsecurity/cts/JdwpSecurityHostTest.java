@@ -16,7 +16,7 @@
 
 package android.jdwpsecurity.cts;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -85,7 +85,8 @@ public class JdwpSecurityHostTest extends DeviceTestCase implements IBuildReceiv
         getDevice().executeShellCommand("chmod 755 " + getDeviceScriptFilepath());
 
         // Push jar file.
-        File jarFile = MigrationHelper.getTestFile(mBuildInfo, DEVICE_JAR_FILENAME);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuildInfo);
+        File jarFile = buildHelper.getTestFile(DEVICE_JAR_FILENAME);
         boolean success = getDevice().pushFile(jarFile, getDeviceJarFilepath());
         assertTrue("Failed to push jar file to " + getDeviceScriptFilepath(), success);
     }

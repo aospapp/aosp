@@ -17,20 +17,27 @@ package android.car.cluster.renderer;
 
 import android.annotation.SystemApi;
 import android.annotation.UiThread;
+import android.car.navigation.CarNavigationInstrumentCluster;
 import android.graphics.Bitmap;
 
 /**
  * Contains methods specified for Navigation App renderer in instrument cluster.
  *
- * TODO: Consider to add methods to report time / distance to final destination.
+ * TODO: Consider to add methods to report time / distance to final destination. bug:32060070
  * @hide
  */
 @SystemApi
 @UiThread
 public abstract class NavigationRenderer {
+    /**
+     * Returns properties of instrument cluster for navigation.
+     */
+    abstract public CarNavigationInstrumentCluster getNavigationProperties();
+
     abstract public void onStartNavigation();
     abstract public void onStopNavigation();
-    abstract public void onNextTurnChanged(int event, String road, int turnAngle, int turnNumber,
-            Bitmap image, int turnSide);
-    abstract public void onNextTurnDistanceChanged(int distanceMeters, int timeSeconds);
+    abstract public void onNextTurnChanged(int event, CharSequence eventName, int turnAngle,
+            int turnNumber, Bitmap image, int turnSide);
+    abstract public void onNextTurnDistanceChanged(int distanceMeters, int timeSeconds,
+            int displayDistanceMillis, int displayDistanceUnit);
 }

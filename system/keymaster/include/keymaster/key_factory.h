@@ -33,7 +33,7 @@ struct KeymasterKeyBlob;
  */
 class KeyFactory {
   public:
-    KeyFactory(const KeymasterContext* context) : context_(context) {}
+    explicit KeyFactory(const KeymasterContext* context) : context_(context) {}
     virtual ~KeyFactory() {}
 
     // Factory methods.

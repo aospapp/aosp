@@ -139,5 +139,15 @@
                 android:id="@+id/textView27"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 app:tag="@{1}"/>
+        <TextView
+                android:id="@+id/textView28"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@{`` + ((Integer)obj.argsClose(1, 2))}"
+        />
+        <TextView
+                android:id="@+id/textView29"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@{`` + ((Integer)obj.argsClose(10, `Hello World`))}"
+        />
     </LinearLayout>
 </layout>

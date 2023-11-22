@@ -22,7 +22,9 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 import android.view.View;
 
@@ -37,6 +39,9 @@ import java.util.Map;
  *
  * This test will only be run on devices with automotive feature.
  */
+
+@SmallTest
+@RequiresDevice
 public class CarUiProviderTest extends AndroidTestCase {
     private static final String TAG = "CarUiProviderTest";
     private static final String UI_ENTRY_CLASS_NAME = ".CarUiEntry";

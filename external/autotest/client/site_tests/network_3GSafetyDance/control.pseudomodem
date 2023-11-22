@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if any DBus call times out or flimflam crashes.
 """
 ATTRIBUTES = "suite:network3g_pseudomodem"
-SUITE = "network3g_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"

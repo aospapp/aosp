@@ -15,6 +15,7 @@
  */
 package com.android.example.notificationlistener;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.app.Notification;
@@ -27,7 +28,13 @@ import android.os.Bundle;
 import android.provider.Settings.Secure;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.content.LocalBroadcastManager;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.RecyclerView.ViewHolder;
+import android.support.v7.widget.helper.ItemTouchHelper;
+import android.support.v7.widget.helper.ItemTouchHelper.SimpleCallback;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -39,7 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-public class NotificationListenerActivity extends ListActivity {
+public class NotificationListenerActivity extends Activity {
     private static final String LISTENER_PATH = "com.android.example.notificationlistener/" +
             "com.android.example.notificationlistener.Listener";
     private static final String TAG = "NotificationListenerActivity";
@@ -72,7 +79,36 @@ public class NotificationListenerActivity extends ListActivity {
         mSnoozeButton = (Button) findViewById(R.id.snooze);
         mEmptyText = (TextView) findViewById(android.R.id.empty);
         mStatusAdaptor = new StatusAdaptor(this);
-        setListAdapter(mStatusAdaptor);
+        RecyclerView list = (RecyclerView) findViewById(android.R.id.list);
+        list.setLayoutManager(new LinearLayoutManager(this));
+        list.setAdapter(mStatusAdaptor);
+
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new SimpleCallback(0,
+                ItemTouchHelper.RIGHT) {
+            @Override
+            public int getMovementFlags(RecyclerView recyclerView, ViewHolder viewHolder) {
+                List<StatusBarNotification> notifications = mStatusAdaptor.mNotifications;
+                int position = viewHolder.getAdapterPosition();
+                if (notifications == null || position >= notifications.size()) {
+                    return 0;
+                }
+                StatusBarNotification notification = notifications.get(position);
+                return notification.isClearable() ? super.getMovementFlags(recyclerView, viewHolder)
+                        : 0;
+            }
+
+            @Override
+            public boolean onMove(RecyclerView recyclerView, ViewHolder viewHolder,
+                    ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(ViewHolder viewHolder, int direction) {
+                dismiss(viewHolder.itemView);
+            }
+        });
+        itemTouchHelper.attachToRecyclerView(list);
     }
 
     @Override
@@ -171,17 +207,20 @@ public class NotificationListenerActivity extends ListActivity {
         final List<StatusBarNotification> notifications = Listener.getNotifications();
         if (notifications != null) {
             mStatusAdaptor.setData(notifications);
+            findViewById(android.R.id.empty).setVisibility(notifications.size() == 0
+                    ? View.VISIBLE : View.GONE);
+        } else {
+            findViewById(android.R.id.empty).setVisibility(View.VISIBLE);
         }
         mStatusAdaptor.update(key);
     }
 
-    private class StatusAdaptor extends BaseAdapter {
+    private class StatusAdaptor extends RecyclerView.Adapter<Holder> {
         private final Context mContext;
         private List<StatusBarNotification> mNotifications;
         private HashMap<String, Long> mKeyToId;
         private HashSet<String> mKeys;
         private long mNextId;
-        private HashMap<String, View> mRecycledViews;
         private String mUpdateKey;
 
         public StatusAdaptor(Context context) {
@@ -189,22 +228,12 @@ public class NotificationListenerActivity extends ListActivity {
             mKeyToId = new HashMap<String, Long>();
             mKeys = new HashSet<String>();
             mNextId = 0;
-            mRecycledViews = new HashMap<String, View>();
+            setHasStableIds(true);
         }
 
         @Override
-        public int getCount() {
+        public int getItemCount() {
             return mNotifications == null ? 0 : mNotifications.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return mNotifications.get(position);
-        }
-
-        @Override
-        public boolean hasStableIds() {
-            return true;
         }
 
         @Override
@@ -213,20 +242,21 @@ public class NotificationListenerActivity extends ListActivity {
             final String key = sbn.getKey();
             if (!mKeyToId.containsKey(key)) {
                 mKeyToId.put(key, mNextId);
-                mNextId ++;
+                mNextId++;
             }
             return mKeyToId.get(key);
         }
 
         @Override
-        public View getView(int position, View view, ViewGroup list) {
-            if (view == null) {
-                view = View.inflate(mContext, R.layout.item, null);
-            }
-            FrameLayout container = (FrameLayout) view.findViewById(R.id.remote_view);
-            View dismiss = view.findViewById(R.id.dismiss);
+        public Holder onCreateViewHolder(ViewGroup parent, int viewType) {
+            return new Holder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item,
+                    parent, false));
+        }
+
+        @Override
+        public void onBindViewHolder(Holder holder, int position) {
+            FrameLayout container = holder.container;
             StatusBarNotification sbn = mNotifications.get(position);
-            View child;
             if (container.getTag() instanceof StatusBarNotification &&
                     container.getChildCount() > 0) {
                 // recycle the view
@@ -237,40 +267,27 @@ public class NotificationListenerActivity extends ListActivity {
                 } else {
                     View content = container.getChildAt(0);
                     container.removeView(content);
-                    mRecycledViews.put(old.getKey(), content);
                 }
             }
-            child = mRecycledViews.get(sbn.getKey());
-            if (child == null) {
-                Notification.Builder builder =
-                        Notification.Builder.recoverBuilder(mContext, sbn.getNotification());
-                child = builder.createContentView().apply(mContext, null);
-            }
+            Notification.Builder builder =
+                    Notification.Builder.recoverBuilder(mContext, sbn.getNotification());
+            View child = builder.createContentView().apply(mContext, null);
             container.setTag(sbn);
+            holder.itemView.setTag(sbn);
             container.removeAllViews();
             container.addView(child);
-            dismiss.setVisibility(sbn.isClearable() ? View.VISIBLE : View.GONE);
-            dismiss.setTag(sbn);
-            return view;
         }
 
         public void update(String key) {
             if (mNotifications != null) {
                 synchronized (mNotifications) {
-                    mKeys.clear();
                     for (int i = 0; i < mNotifications.size(); i++) {
-                        mKeys.add(mNotifications.get(i).getKey());
+                        if (mNotifications.get(i).getKey().equals(key)) {
+                            Log.d(TAG, "notifyItemChanged " + i);
+                            notifyItemChanged(i);
+                        }
                     }
-                    mKeyToId.keySet().retainAll(mKeys);
                 }
-                if (key == null) {
-                    mRecycledViews.clear();
-                } else {
-                    mUpdateKey = key;
-                    mRecycledViews.remove(key);
-                }
-                Log.d(TAG, "notifyDataSetChanged");
-                notifyDataSetChanged();
             } else {
                 Log.d(TAG, "missed and update");
             }
@@ -278,6 +295,16 @@ public class NotificationListenerActivity extends ListActivity {
 
         public void setData(List<StatusBarNotification> notifications) {
             mNotifications = notifications;
+            notifyDataSetChanged();
+        }
+    }
+
+    private static class Holder extends RecyclerView.ViewHolder {
+        private final FrameLayout container;
+
+        public Holder(View itemView) {
+            super(itemView);
+            container = (FrameLayout) itemView.findViewById(R.id.remote_view);
         }
     }
 }

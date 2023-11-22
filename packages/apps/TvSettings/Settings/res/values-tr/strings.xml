@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Kablosuz"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Tarama her zaman kullanılabilir"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Kablosuz özelliği kapalıyken dahi Google\'ın konum hizmetinin ve diğer uygulamaların ağları taramasına izin verin"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Kablosuz özelliği kapalıyken dahi Google\'ın konum hizmetinin ve diğer uygulamaların ağları taramasına izin ver"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Kablosuz"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Ekran koruyucu"</string>
     <string name="device_display" msgid="101455384386372747">"Görünüm"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Pil %%<xliff:g id="PERCENTAGE">%1$d</xliff:g>"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Cihazın eşleşmesi sonlandırılıyor…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Bağlandı"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Adı değiştir"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Bu aksesuar için yeni bir ad belirtin"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Aksesuarlar aranıyor…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Bluetooth cihazlarınızı eşleştirmeden önce, cihazların eşleşme modunda olduklarından emin olun"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Bir cihaz bulundu ve <xliff:g id="COUNTDOWN">%1$s</xliff:g> saniye içinde otomatik olarak eşleştirilecek"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Klavye"</string>
     <string name="system_home" msgid="2858989138172296012">"Ana ekran"</string>
     <string name="system_search" msgid="2837264654143247611">"Arama"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Güvenlik ve kısıtlamalar"</string>
     <string name="system_speech" msgid="8128688499687306982">"Konuşma"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Girişler"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Geliştirici seçenekleri"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Yok"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Kullanım ve Teşhis"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Eğiticiler"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Sistem güncellemesi"</string>
     <string name="about_preference" msgid="4131396784531360434">"Hakkında"</string>
     <string name="device_name" msgid="2670488158531273028">"Cihaz adı"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Görüntüleme seçenekleri"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Yapılandır"</string>
     <string name="captions_language" msgid="2835554055388996343">"Dil"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Varsayılan"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Metin boyutu"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Altyazı stili"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Özel seçenekler"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Geçiş animasyonu ölçeği"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Animatör süre ölçeği"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Yüksek düzey modu etkin"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"CPU kullanımını göster"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Profil GPU oluşturma"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"İzleri etkinleştir"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Etkinlikleri saklama"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"En iyiden en kötüye: mavi, yeşil, açık kırmızı, kırmızı"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Güncellenirken tüm pencere yüzeylerini yakıp söndür"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Uygulamalar ana iş parçacığında uzun işlem yaparken ekranı yanıp söndür"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Mevcut CPU kullanımını gösteren yer paylaşımı"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Oluşturma süresini adb shell dumpsys gfxınfo içinde ölçün"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Aç"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Kapat"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Zorla durdur"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Uygulamayı zorla durdurursanız hatalı davranabilir."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Yüklemeyi kaldır"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Bu uygulamanın yüklemesini kaldırmak istiyor musunuz?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Güncellemelerin yüklemesini kaldır"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Bu Android sistem uygulaması ile ilgili tüm güncellemelerin yüklemesi kaldırılacak."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Devre dışı bırak"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Önbelleği temizle"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Bildirimler"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"İzinler"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Uygulama kullanılamıyor"</string>
     <string name="settings_ok" msgid="3321630456511355983">"Tamam"</string>
     <string name="settings_cancel" msgid="304280412158061225">"İptal"</string>
     <string name="settings_on" msgid="6892236264945435013">"Açık"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Kişisel bilgilerinizin tümünü ve indirilen uygulamaların hepsini silmek istiyor musunuz? Bu işlem geri döndürülemez!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Her şeyi sil"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihazınız için bir ad seçin"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Cihazınıza ad vermek; telefon, tablet veya bilgisayar gibi diğer cihazlardan erişildiğinde <xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihazınızı tanımlamanıza yardımcı olur."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Yayın sırasında veya diğer cihazlardan bağlanırken <xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihazınızı tanımlamanıza yardımcı olacak bir ad belirleyin."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Misafir Odası"</item>
-    <item msgid="3722089849939477581">"Medya Odası"</item>
-    <item msgid="6108590585438763574">"Oturma Odası"</item>
-    <item msgid="2581035245390468625">"Yemek Odası"</item>
-    <item msgid="3127487827308695324">"Çalışma Odası"</item>
-    <item msgid="6172018430592195063">"Yatak Odası"</item>
-    <item msgid="8120010459866284578">"Mutfak"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Oturma Odasındaki TV"</item>
+    <item msgid="8122798759665439456">"Aile Odasındaki TV"</item>
+    <item msgid="1389347662738182100">"Yatak Odasındaki TV"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Özel Bir Ad Girin…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Özel bir ad girin…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihazın adını değiştirin"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Bu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> cihaz şu anda \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\" olarak adlandırılmıştır."</string>
     <string name="change_setting" msgid="2047402388786162246">"Değiştir"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Güvenli modda yeniden aç"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Güvenli modda yeniden açılmasını ister misiniz?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Bu işlem, yüklediğiniz tüm üçüncü taraf uygulamaları devre dışı bırakır. Daha sonra tekrar açtığınızda bu uygulamalar geri yüklenir."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Hata raporu alınıyor"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Kullanılabilir sanal klavyeler"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Klavyeleri yönetin"</string>
 </resources>

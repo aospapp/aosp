@@ -95,5 +95,7 @@ public final class GraphicsDeviceInfo extends DeviceInfo {
                 }
             }
         }
+
+        store.addListResult("egl_extension", stubActivity.getEglExtensions());
     }
 }

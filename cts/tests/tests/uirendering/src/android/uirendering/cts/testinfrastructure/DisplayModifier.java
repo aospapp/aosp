@@ -17,6 +17,8 @@ package android.uirendering.cts.testinfrastructure;
 
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
@@ -326,6 +328,22 @@ public abstract class DisplayModifier {
                                 put(PORTERDUFF_MODES[i].toString(),
                                         new XfermodeModifier(PORTERDUFF_MODES[i]));
                             }
+                            put("lowSaturationColorMatrix", new DisplayModifier() {
+                                @Override
+                                public void modifyDrawing(Paint paint, Canvas canvas) {
+                                    ColorMatrix matrix = new ColorMatrix();
+                                    matrix.setSaturation(0.1f);
+                                    paint.setColorFilter(new ColorMatrixColorFilter(matrix));
+                                }
+                            });
+                            put("highSaturationColorMatrix", new DisplayModifier() {
+                                @Override
+                                public void modifyDrawing(Paint paint, Canvas canvas) {
+                                    ColorMatrix matrix = new ColorMatrix();
+                                    matrix.setSaturation(10.0f);
+                                    paint.setColorFilter(new ColorMatrixColorFilter(matrix));
+                                }
+                            });
                         }
                     });
 
@@ -494,6 +512,7 @@ public abstract class DisplayModifier {
 
                 modifierMapIndex--;
             }
+            getModifierList(); // Just to update mDebugString
             return true;
         }
 

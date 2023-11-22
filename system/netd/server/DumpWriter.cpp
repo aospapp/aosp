@@ -23,6 +23,9 @@ using android::base::StringAppendV;
 using android::String16;
 using android::Vector;
 
+namespace android {
+namespace net {
+
 namespace {
 
 const char kIndentString[] = "  ";
@@ -63,3 +66,6 @@ void DumpWriter::println(const char* fmt, ...) {
     va_end(ap);
     println(line);
 }
+
+}  // namespace net
+}  // namespace android

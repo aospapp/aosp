@@ -3,6 +3,6 @@
 -keep class com.android.server.telecom.TelecomSystem {
   *;
 }
--keep class com.android.server.telecom.Log {
+-keep class android.telecom.Log {
   *;
 }

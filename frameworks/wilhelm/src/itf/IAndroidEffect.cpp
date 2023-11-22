@@ -28,7 +28,7 @@ static SLresult IAndroidEffect_CreateEffect(SLAndroidEffectItf self,
     IAndroidEffect *thiz = (IAndroidEffect *) self;
     if (SL_OBJECTID_AUDIOPLAYER == IObjectToObjectID(thiz->mThis)) {
         CAudioPlayer *ap = (CAudioPlayer *)thiz->mThis;
-        if (ap->mAudioTrack != 0) {
+        if (ap->mTrackPlayer->mAudioTrack != 0) {
             result = android_genericFx_createEffect(thiz, effectImplementationId, ap->mSessionId);
         } else {
             result = SL_RESULT_RESOURCE_ERROR;

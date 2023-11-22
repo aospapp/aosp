@@ -42,7 +42,8 @@ public class MonitoringUtils {
                 return true;
             } else {
                 CLog.logAndDisplay(LogLevel.INFO,
-                        "Connectivity check failed, retrying in %dms",
+                        "Connectivity check failed on %s, retrying in %dms",
+                        device.getSerialNumber(),
                         CONNECTIVITY_CHECK_INTERVAL_MS);
                 RunUtil.getDefault().sleep(CONNECTIVITY_CHECK_INTERVAL_MS);
             }

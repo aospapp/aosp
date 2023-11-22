@@ -22,6 +22,7 @@
 
 #include <iosfwd>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,7 +30,6 @@
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
 
@@ -41,9 +41,6 @@ class FundamentalValue;
 class ListValue;
 class StringValue;
 class Value;
-
-typedef std::vector<Value*> ValueVector;
-typedef std::map<std::string, Value*> ValueMap;
 
 // The Value class is the base class for Values. A Value can be instantiated
 // via the Create*Value() factory methods, or by directly creating instances of
@@ -66,7 +63,7 @@ class BASE_EXPORT Value {
 
   virtual ~Value();
 
-  static scoped_ptr<Value> CreateNullValue();
+  static std::unique_ptr<Value> CreateNullValue();
 
   // Returns the type of the value stored by the current Value object.
   // Each type will be implemented by only one subclass of Value, so it's
@@ -102,7 +99,7 @@ class BASE_EXPORT Value {
   // this works because C++ supports covariant return types.
   virtual Value* DeepCopy() const;
   // Preferred version of DeepCopy. TODO(estade): remove the above.
-  scoped_ptr<Value> CreateDeepCopy() const;
+  std::unique_ptr<Value> CreateDeepCopy() const;
 
   // Compares if two Value objects have equal contents.
   virtual bool Equals(const Value* other) const;
@@ -178,14 +175,15 @@ class BASE_EXPORT BinaryValue: public Value {
 
   // Creates a BinaryValue, taking ownership of the bytes pointed to by
   // |buffer|.
-  BinaryValue(scoped_ptr<char[]> buffer, size_t size);
+  BinaryValue(std::unique_ptr<char[]> buffer, size_t size);
 
   ~BinaryValue() override;
 
   // For situations where you want to keep ownership of your buffer, this
   // factory method creates a new BinaryValue by copying the contents of the
   // buffer that's passed in.
-  static BinaryValue* CreateWithCopiedBuffer(const char* buffer, size_t size);
+  static std::unique_ptr<BinaryValue> CreateWithCopiedBuffer(const char* buffer,
+                                                             size_t size);
 
   size_t GetSize() const { return size_; }
 
@@ -199,7 +197,7 @@ class BASE_EXPORT BinaryValue: public Value {
   bool Equals(const Value* other) const override;
 
  private:
-  scoped_ptr<char[]> buffer_;
+  std::unique_ptr<char[]> buffer_;
   size_t size_;
 
   DISALLOW_COPY_AND_ASSIGN(BinaryValue);
@@ -210,8 +208,9 @@ class BASE_EXPORT BinaryValue: public Value {
 // are |std::string|s and should be UTF-8 encoded.
 class BASE_EXPORT DictionaryValue : public Value {
  public:
+  using Storage = std::map<std::string, std::unique_ptr<Value>>;
   // Returns |value| if it is a dictionary, nullptr otherwise.
-  static scoped_ptr<DictionaryValue> From(scoped_ptr<Value> value);
+  static std::unique_ptr<DictionaryValue> From(std::unique_ptr<Value> value);
 
   DictionaryValue();
   ~DictionaryValue() override;
@@ -239,7 +238,7 @@ class BASE_EXPORT DictionaryValue : public Value {
   // If the key at any step of the way doesn't exist, or exists but isn't
   // a DictionaryValue, a new DictionaryValue will be created and attached
   // to the path in that location. |in_value| must be non-null.
-  void Set(const std::string& path, scoped_ptr<Value> in_value);
+  void Set(const std::string& path, std::unique_ptr<Value> in_value);
   // Deprecated version of the above. TODO(estade): remove.
   void Set(const std::string& path, Value* in_value);
 
@@ -254,7 +253,7 @@ class BASE_EXPORT DictionaryValue : public Value {
   // Like Set(), but without special treatment of '.'.  This allows e.g. URLs to
   // be used as paths.
   void SetWithoutPathExpansion(const std::string& key,
-                               scoped_ptr<Value> in_value);
+                               std::unique_ptr<Value> in_value);
   // Deprecated version of the above. TODO(estade): remove.
   void SetWithoutPathExpansion(const std::string& key, Value* in_value);
 
@@ -329,21 +328,22 @@ class BASE_EXPORT DictionaryValue : public Value {
   // |out_value|.  If |out_value| is NULL, the removed value will be deleted.
   // This method returns true if |path| is a valid path; otherwise it will
   // return false and the DictionaryValue object will be unchanged.
-  virtual bool Remove(const std::string& path, scoped_ptr<Value>* out_value);
+  virtual bool Remove(const std::string& path,
+                      std::unique_ptr<Value>* out_value);
 
   // Like Remove(), but without special treatment of '.'.  This allows e.g. URLs
   // to be used as paths.
   virtual bool RemoveWithoutPathExpansion(const std::string& key,
-                                          scoped_ptr<Value>* out_value);
+                                          std::unique_ptr<Value>* out_value);
 
   // Removes a path, clearing out all dictionaries on |path| that remain empty
   // after removing the value at |path|.
   virtual bool RemovePath(const std::string& path,
-                          scoped_ptr<Value>* out_value);
+                          std::unique_ptr<Value>* out_value);
 
   // Makes a copy of |this| but doesn't include empty dictionaries and lists in
   // the copy.  This never returns NULL, even if |this| itself is empty.
-  scoped_ptr<DictionaryValue> DeepCopyWithoutEmptyChildren() const;
+  std::unique_ptr<DictionaryValue> DeepCopyWithoutEmptyChildren() const;
 
   // Merge |dictionary| into this dictionary. This is done recursively, i.e. any
   // sub-dictionaries will be merged as well. In case of key collisions, the
@@ -360,6 +360,7 @@ class BASE_EXPORT DictionaryValue : public Value {
   class BASE_EXPORT Iterator {
    public:
     explicit Iterator(const DictionaryValue& target);
+    Iterator(const Iterator& other);
     ~Iterator();
 
     bool IsAtEnd() const { return it_ == target_.dictionary_.end(); }
@@ -370,17 +371,17 @@ class BASE_EXPORT DictionaryValue : public Value {
 
    private:
     const DictionaryValue& target_;
-    ValueMap::const_iterator it_;
+    Storage::const_iterator it_;
   };
 
   // Overridden from Value:
   DictionaryValue* DeepCopy() const override;
   // Preferred version of DeepCopy. TODO(estade): remove the above.
-  scoped_ptr<DictionaryValue> CreateDeepCopy() const;
+  std::unique_ptr<DictionaryValue> CreateDeepCopy() const;
   bool Equals(const Value* other) const override;
 
  private:
-  ValueMap dictionary_;
+  Storage dictionary_;
 
   DISALLOW_COPY_AND_ASSIGN(DictionaryValue);
 };
@@ -388,11 +389,12 @@ class BASE_EXPORT DictionaryValue : public Value {
 // This type of Value represents a list of other Value values.
 class BASE_EXPORT ListValue : public Value {
  public:
-  typedef ValueVector::iterator iterator;
-  typedef ValueVector::const_iterator const_iterator;
+  using Storage = std::vector<std::unique_ptr<Value>>;
+  using const_iterator = Storage::const_iterator;
+  using iterator = Storage::iterator;
 
   // Returns |value| if it is a list, nullptr otherwise.
-  static scoped_ptr<ListValue> From(scoped_ptr<Value> value);
+  static std::unique_ptr<ListValue> From(std::unique_ptr<Value> value);
 
   ListValue();
   ~ListValue() override;
@@ -413,7 +415,7 @@ class BASE_EXPORT ListValue : public Value {
   // the value is a null pointer.
   bool Set(size_t index, Value* in_value);
   // Preferred version of the above. TODO(estade): remove the above.
-  bool Set(size_t index, scoped_ptr<Value> in_value);
+  bool Set(size_t index, std::unique_ptr<Value> in_value);
 
   // Gets the Value at the given index.  Modifies |out_value| (and returns true)
   // only if the index falls within the current list range.
@@ -445,7 +447,7 @@ class BASE_EXPORT ListValue : public Value {
   // passed out via |out_value|.  If |out_value| is NULL, the removed value will
   // be deleted.  This method returns true if |index| is valid; otherwise
   // it will return false and the ListValue object will be unchanged.
-  virtual bool Remove(size_t index, scoped_ptr<Value>* out_value);
+  virtual bool Remove(size_t index, std::unique_ptr<Value>* out_value);
 
   // Removes the first instance of |value| found in the list, if any, and
   // deletes it. |index| is the location where |value| was found. Returns false
@@ -456,10 +458,10 @@ class BASE_EXPORT ListValue : public Value {
   // deleted, otherwise ownership of the value is passed back to the caller.
   // Returns an iterator pointing to the location of the element that
   // followed the erased element.
-  iterator Erase(iterator iter, scoped_ptr<Value>* out_value);
+  iterator Erase(iterator iter, std::unique_ptr<Value>* out_value);
 
   // Appends a Value to the end of the list.
-  void Append(scoped_ptr<Value> in_value);
+  void Append(std::unique_ptr<Value> in_value);
   // Deprecated version of the above. TODO(estade): remove.
   void Append(Value* in_value);
 
@@ -503,10 +505,10 @@ class BASE_EXPORT ListValue : public Value {
   bool Equals(const Value* other) const override;
 
   // Preferred version of DeepCopy. TODO(estade): remove DeepCopy.
-  scoped_ptr<ListValue> CreateDeepCopy() const;
+  std::unique_ptr<ListValue> CreateDeepCopy() const;
 
  private:
-  ValueVector list_;
+  Storage list_;
 
   DISALLOW_COPY_AND_ASSIGN(ListValue);
 };
@@ -532,8 +534,8 @@ class BASE_EXPORT ValueDeserializer {
   // error_code will be set with the underlying error.
   // If |error_message| is non-null, it will be filled in with a formatted
   // error message including the location of the error if appropriate.
-  virtual scoped_ptr<Value> Deserialize(int* error_code,
-                                        std::string* error_str) = 0;
+  virtual std::unique_ptr<Value> Deserialize(int* error_code,
+                                             std::string* error_str) = 0;
 };
 
 // Stream operator so Values can be used in assertion statements.  In order that

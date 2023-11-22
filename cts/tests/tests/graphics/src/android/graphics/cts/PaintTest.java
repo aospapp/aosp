@@ -16,7 +16,15 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.ColorFilter;
 import android.graphics.MaskFilter;
 import android.graphics.Matrix;
@@ -27,23 +35,25 @@ import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.Path;
 import android.graphics.PathEffect;
-import android.graphics.Rasterizer;
 import android.graphics.Rect;
 import android.graphics.Shader;
-import android.graphics.Bitmap;
-import android.graphics.BitmapShader;
 import android.graphics.Typeface;
 import android.graphics.Xfermode;
-import android.os.Build;
+import android.graphics.fonts.FontVariationAxis;
 import android.os.LocaleList;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.SpannedString;
-import android.util.Log;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.Locale;
 
-public class PaintTest extends AndroidTestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PaintTest {
     private static final Typeface[] TYPEFACES = new Typeface[] {
             Typeface.DEFAULT,
             Typeface.DEFAULT_BOLD,
@@ -52,6 +62,7 @@ public class PaintTest extends AndroidTestCase {
             Typeface.SERIF,
     };
 
+    @Test
     public void testConstructor() {
         new Paint();
 
@@ -61,6 +72,7 @@ public class PaintTest extends AndroidTestCase {
         new Paint(p);
     }
 
+    @Test
     public void testBreakText() {
         String text = "HIJKLMN";
         char[] textChars = text.toCharArray();
@@ -79,44 +91,43 @@ public class PaintTest extends AndroidTestCase {
             totalWidth += widths[i];
         }
 
-        float[] measured = new float[1];
         for (int i = 0; i < text.length(); i++) {
-            assertBreakText(text, textChars, textSpan, i, i + 1, true, totalWidth, 1, widths[i]);
+            verifyBreakText(text, textChars, textSpan, i, i + 1, true, totalWidth, 1, widths[i]);
         }
 
         // Measure empty string
-        assertBreakText(text, textChars, textSpan, 0, 0, true, totalWidth, 0, 0);
+        verifyBreakText(text, textChars, textSpan, 0, 0, true, totalWidth, 0, 0);
 
         // Measure substring from front: "HIJ"
-        assertBreakText(text, textChars, textSpan, 0, 3, true, totalWidth,
+        verifyBreakText(text, textChars, textSpan, 0, 3, true, totalWidth,
                 3, widths[0] + widths[1] + widths[2]);
 
         // Reverse measure substring from front: "HIJ"
-        assertBreakText(text, textChars, textSpan, 0, 3, false, totalWidth,
+        verifyBreakText(text, textChars, textSpan, 0, 3, false, totalWidth,
                 3, widths[0] + widths[1] + widths[2]);
 
         // Measure substring from back: "MN"
-        assertBreakText(text, textChars, textSpan, 5, 7, true, totalWidth,
+        verifyBreakText(text, textChars, textSpan, 5, 7, true, totalWidth,
                 2, widths[5] + widths[6]);
 
         // Reverse measure substring from back: "MN"
-        assertBreakText(text, textChars, textSpan, 5, 7, false, totalWidth,
+        verifyBreakText(text, textChars, textSpan, 5, 7, false, totalWidth,
                 2, widths[5] + widths[6]);
 
         // Measure substring in the middle: "JKL"
-        assertBreakText(text, textChars, textSpan, 2, 5, true, totalWidth,
+        verifyBreakText(text, textChars, textSpan, 2, 5, true, totalWidth,
                 3, widths[2] + widths[3] + widths[4]);
 
         // Reverse measure substring in the middle: "JKL"
-        assertBreakText(text, textChars, textSpan, 2, 5, false, totalWidth,
+        verifyBreakText(text, textChars, textSpan, 2, 5, false, totalWidth,
                 3, widths[2] + widths[3] + widths[4]);
 
         // Measure substring in the middle and restrict width to the first 2 characters.
-        assertBreakText(text, textChars, textSpan, 2, 5, true, widths[2] + widths[3],
+        verifyBreakText(text, textChars, textSpan, 2, 5, true, widths[2] + widths[3],
                 2, widths[2] + widths[3]);
 
         // Reverse measure substring in the middle and restrict width to the last 2 characters.
-        assertBreakText(text, textChars, textSpan, 2, 5, false, widths[3] + widths[4],
+        verifyBreakText(text, textChars, textSpan, 2, 5, false, widths[3] + widths[4],
                 2, widths[3] + widths[4]);
 
         // a single Emoji (U+1f601)
@@ -128,23 +139,23 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(emoji.length(), p.getTextWidths(emoji, emojiWidths));
 
         // Measure substring with a cluster
-        assertBreakText(emoji, emojiChars, emojiSpan, 0, 2, true, 0,
+        verifyBreakText(emoji, emojiChars, emojiSpan, 0, 2, true, 0,
                 0, 0);
 
         // Measure substring with a cluster
-        assertBreakText(emoji, emojiChars, emojiSpan, 0, 2, true, emojiWidths[0],
+        verifyBreakText(emoji, emojiChars, emojiSpan, 0, 2, true, emojiWidths[0],
                 2, emojiWidths[0]);
 
         // Reverse measure substring with a cluster
-        assertBreakText(emoji, emojiChars, emojiSpan, 0, 2, false, 0,
+        verifyBreakText(emoji, emojiChars, emojiSpan, 0, 2, false, 0,
                 0, 0);
 
         // Measure substring with a cluster
-        assertBreakText(emoji, emojiChars, emojiSpan, 0, 2, false, emojiWidths[0],
+        verifyBreakText(emoji, emojiChars, emojiSpan, 0, 2, false, emojiWidths[0],
                 2, emojiWidths[0]);
     }
 
-    private void assertBreakText(String text, char[] textChars, SpannedString textSpan,
+    private void verifyBreakText(String text, char[] textChars, SpannedString textSpan,
             int start, int end, boolean measureForwards, float maxWidth, int expectedCount,
             float expectedWidth) {
         Paint p = new Paint();
@@ -169,17 +180,17 @@ public class PaintTest extends AndroidTestCase {
                 measured[2]));
 
         for (int i = 0; i < measured.length; i++) {
-            assertEquals("i: " + i, expectedWidth, measured[i][0]);
+            assertEquals("i: " + i, expectedWidth, measured[i][0], 0.0f);
         }
     }
 
+    @Test
     public void testSet() {
         Paint p  = new Paint();
         Paint p2 = new Paint();
         ColorFilter c = new ColorFilter();
         MaskFilter m  = new MaskFilter();
         PathEffect e  = new PathEffect();
-        Rasterizer r  = new Rasterizer();
         Shader s      = new Shader();
         Typeface t    = Typeface.DEFAULT;
         Xfermode x = new Xfermode();
@@ -187,7 +198,6 @@ public class PaintTest extends AndroidTestCase {
         p.setColorFilter(c);
         p.setMaskFilter(m);
         p.setPathEffect(e);
-        p.setRasterizer(r);
         p.setShader(s);
         p.setTypeface(t);
         p.setXfermode(x);
@@ -195,7 +205,6 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(c, p2.getColorFilter());
         assertEquals(m, p2.getMaskFilter());
         assertEquals(e, p2.getPathEffect());
-        assertEquals(r, p2.getRasterizer());
         assertEquals(s, p2.getShader());
         assertEquals(t, p2.getTypeface());
         assertEquals(x, p2.getXfermode());
@@ -204,7 +213,6 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(c, p2.getColorFilter());
         assertEquals(m, p2.getMaskFilter());
         assertEquals(e, p2.getPathEffect());
-        assertEquals(r, p2.getRasterizer());
         assertEquals(s, p2.getShader());
         assertEquals(t, p2.getTypeface());
         assertEquals(x, p2.getXfermode());
@@ -212,7 +220,6 @@ public class PaintTest extends AndroidTestCase {
         p.setColorFilter(null);
         p.setMaskFilter(null);
         p.setPathEffect(null);
-        p.setRasterizer(null);
         p.setShader(null);
         p.setTypeface(null);
         p.setXfermode(null);
@@ -220,7 +227,6 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p2.getColorFilter());
         assertNull(p2.getMaskFilter());
         assertNull(p2.getPathEffect());
-        assertNull(p2.getRasterizer());
         assertNull(p2.getShader());
         assertNull(p2.getTypeface());
         assertNull(p2.getXfermode());
@@ -229,12 +235,12 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p2.getColorFilter());
         assertNull(p2.getMaskFilter());
         assertNull(p2.getPathEffect());
-        assertNull(p2.getRasterizer());
         assertNull(p2.getShader());
         assertNull(p2.getTypeface());
         assertNull(p2.getXfermode());
     }
 
+    @Test
     public void testAccessStrokeCap() {
         Paint p = new Paint();
 
@@ -246,15 +252,16 @@ public class PaintTest extends AndroidTestCase {
 
         p.setStrokeCap(Cap.SQUARE);
         assertEquals(Cap.SQUARE, p.getStrokeCap());
-
-        try {
-            p.setStrokeCap(null);
-            fail("Should throw an Exception");
-        } catch (RuntimeException e) {
-            //except here
-        }
     }
 
+    @Test(expected=RuntimeException.class)
+    public void testSetStrokeCapNull() {
+        Paint p = new Paint();
+
+        p.setStrokeCap(null);
+    }
+
+    @Test
     public void testAccessXfermode() {
         Paint p = new Paint();
         Xfermode x = new Xfermode();
@@ -266,6 +273,7 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p.getXfermode());
     }
 
+    @Test
     public void testAccessShader() {
         Paint p = new Paint();
         Shader s = new Shader();
@@ -277,6 +285,7 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p.getShader());
     }
 
+    @Test
     public void testShaderLocalMatrix() {
         int width = 80;
         int height = 120;
@@ -306,6 +315,7 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(m, m3);
     }
 
+    @Test
     public void testSetAntiAlias() {
         Paint p = new Paint();
 
@@ -314,10 +324,9 @@ public class PaintTest extends AndroidTestCase {
 
         p.setAntiAlias(false);
         assertFalse(p.isAntiAlias());
-
     }
 
-
+    @Test
     public void testAccessTypeface() {
         Paint p = new Paint();
 
@@ -334,6 +343,7 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p.getTypeface());
     }
 
+    @Test
     public void testAccessPathEffect() {
         Paint p = new Paint();
         PathEffect e = new PathEffect();
@@ -345,6 +355,7 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p.getPathEffect());
     }
 
+    @Test
     public void testSetFakeBoldText() {
         Paint p = new Paint();
 
@@ -355,6 +366,7 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isFakeBoldText());
     }
 
+    @Test
     public void testAccessStrokeJoin() {
         Paint p = new Paint();
 
@@ -366,15 +378,16 @@ public class PaintTest extends AndroidTestCase {
 
         p.setStrokeJoin(Join.ROUND);
         assertEquals(Join.ROUND, p.getStrokeJoin());
-
-        try {
-            p.setStrokeJoin(null);
-            fail("Should throw an Exception");
-        } catch (RuntimeException e) {
-            //except here
-        }
     }
 
+    @Test(expected=RuntimeException.class)
+    public void testSetStrokeJoinNull() {
+        Paint p = new Paint();
+
+        p.setStrokeJoin(null);
+    }
+
+    @Test
     public void testAccessStyle() {
         Paint p = new Paint();
 
@@ -386,15 +399,16 @@ public class PaintTest extends AndroidTestCase {
 
         p.setStyle(Style.STROKE);
         assertEquals(Style.STROKE, p.getStyle());
-
-        try {
-            p.setStyle(null);
-            fail("Should throw an Exception");
-        } catch (RuntimeException e) {
-            //except here
-        }
     }
 
+    @Test(expected=RuntimeException.class)
+    public void testSetStyleNull() {
+        Paint p = new Paint();
+
+        p.setStyle(null);
+    }
+
+    @Test
     public void testGetFontSpacing() {
         Paint p = new Paint();
 
@@ -411,6 +425,7 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetSubpixelText() {
         Paint p = new Paint();
 
@@ -421,20 +436,22 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isSubpixelText());
     }
 
+    @Test
     public void testAccessTextScaleX() {
         Paint p = new Paint();
 
         p.setTextScaleX(2.0f);
-        assertEquals(2.0f, p.getTextScaleX());
+        assertEquals(2.0f, p.getTextScaleX(), 0.0f);
 
         p.setTextScaleX(1.0f);
-        assertEquals(1.0f, p.getTextScaleX());
+        assertEquals(1.0f, p.getTextScaleX(), 0.0f);
 
         p.setTextScaleX(0.0f);
-        assertEquals(0.0f, p.getTextScaleX());
+        assertEquals(0.0f, p.getTextScaleX(), 0.0f);
 
     }
 
+    @Test
     public void testAccessMaskFilter() {
         Paint p = new Paint();
         MaskFilter m = new MaskFilter();
@@ -446,6 +463,7 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p.getMaskFilter());
     }
 
+    @Test
     public void testAccessColorFilter() {
         Paint p = new Paint();
         ColorFilter c = new ColorFilter();
@@ -457,17 +475,7 @@ public class PaintTest extends AndroidTestCase {
         assertNull(p.getColorFilter());
     }
 
-    public void testAccessRasterizer() {
-        Paint p = new Paint();
-        Rasterizer r = new Rasterizer();
-
-        assertEquals(r, p.setRasterizer(r));
-        assertEquals(r, p.getRasterizer());
-
-        assertNull(p.setRasterizer(null));
-        assertNull(p.getRasterizer());
-    }
-
+    @Test
     public void testSetARGB() {
         Paint p = new Paint();
 
@@ -476,9 +484,9 @@ public class PaintTest extends AndroidTestCase {
 
         p.setARGB(3, 3, 3, 3);
         assertEquals((3 << 24) | (3 << 16) | (3 << 8) | 3, p.getColor());
-
     }
 
+    @Test
     public void testAscent() {
         Paint p = new Paint();
 
@@ -495,58 +503,61 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAccessTextSkewX() {
         Paint p = new Paint();
 
         p.setTextSkewX(1.0f);
-        assertEquals(1.0f, p.getTextSkewX());
+        assertEquals(1.0f, p.getTextSkewX(), 0.0f);
 
         p.setTextSkewX(0.0f);
-        assertEquals(0.0f, p.getTextSkewX());
+        assertEquals(0.0f, p.getTextSkewX(), 0.0f);
 
         p.setTextSkewX(-0.25f);
-        assertEquals(-0.25f, p.getTextSkewX());
+        assertEquals(-0.25f, p.getTextSkewX(), 0.0f);
     }
 
+    @Test
     public void testAccessTextSize() {
         Paint p = new Paint();
 
         p.setTextSize(1.0f);
-        assertEquals(1.0f, p.getTextSize());
+        assertEquals(1.0f, p.getTextSize(), 0.0f);
 
         p.setTextSize(2.0f);
-        assertEquals(2.0f, p.getTextSize());
+        assertEquals(2.0f, p.getTextSize(), 0.0f);
 
         // text size should be greater than 0, so set -1 has no effect
         p.setTextSize(-1.0f);
-        assertEquals(2.0f, p.getTextSize());
+        assertEquals(2.0f, p.getTextSize(), 0.0f);
 
         // text size should be greater than or equals to 0
         p.setTextSize(0.0f);
-        assertEquals(0.0f, p.getTextSize());
+        assertEquals(0.0f, p.getTextSize(), 0.0f);
     }
 
+    @Test
     public void testGetTextWidths() throws Exception {
         String text = "HIJKLMN";
         char[] textChars = text.toCharArray();
         SpannedString textSpan = new SpannedString(text);
 
         // Test measuring the widths of the entire text
-        assertGetTextWidths(text, textChars, textSpan, 0, 7);
+        verifyGetTextWidths(text, textChars, textSpan, 0, 7);
 
         // Test measuring a substring of the text
-        assertGetTextWidths(text, textChars, textSpan, 1, 3);
+        verifyGetTextWidths(text, textChars, textSpan, 1, 3);
 
         // Test measuring a substring of zero length.
-        assertGetTextWidths(text, textChars, textSpan, 3, 3);
+        verifyGetTextWidths(text, textChars, textSpan, 3, 3);
 
         // Test measuring substrings from the front and back
-        assertGetTextWidths(text, textChars, textSpan, 0, 2);
-        assertGetTextWidths(text, textChars, textSpan, 4, 7);
+        verifyGetTextWidths(text, textChars, textSpan, 0, 2);
+        verifyGetTextWidths(text, textChars, textSpan, 4, 7);
     }
 
     /** Tests all four overloads of getTextWidths are the same. */
-    private void assertGetTextWidths(String text, char[] textChars, SpannedString textSpan,
+    private void verifyGetTextWidths(String text, char[] textChars, SpannedString textSpan,
             int start, int end) {
         Paint p = new Paint();
         int count = end - start;
@@ -565,12 +576,13 @@ public class PaintTest extends AndroidTestCase {
 
         // Check that the widths returned by the overloads are the same.
         for (int i = 0; i < count; i++) {
-            assertEquals(widths[0][i], widths[1][i]);
-            assertEquals(widths[1][i], widths[2][i]);
-            assertEquals(widths[2][i], widths[3][i]);
+            assertEquals(widths[0][i], widths[1][i], 0.0f);
+            assertEquals(widths[1][i], widths[2][i], 0.0f);
+            assertEquals(widths[2][i], widths[3][i], 0.0f);
         }
     }
 
+    @Test
     public void testSetStrikeThruText() {
         Paint p = new Paint();
 
@@ -581,6 +593,7 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isStrikeThruText());
     }
 
+    @Test
     public void testAccessTextAlign() {
         Paint p = new Paint();
 
@@ -594,6 +607,7 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(Align.RIGHT, p.getTextAlign());
     }
 
+    @Test
     public void testAccessTextLocale() {
         Paint p = new Paint();
 
@@ -623,16 +637,16 @@ public class PaintTest extends AndroidTestCase {
         p.setTextLocale(defaultLocale);
         assertEquals(defaultLocale, p.getTextLocale());
         assertEquals(new LocaleList(defaultLocale), p.getTextLocales());
-
-        // Check that we cannot pass a null locale
-        try {
-            p.setTextLocale(null);
-            fail("Setting the text locale to null should throw");
-        } catch (Throwable e) {
-            assertEquals(IllegalArgumentException.class, e.getClass());
-        }
     }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testSetTextLocaleNull() {
+        Paint p = new Paint();
+
+        p.setTextLocale(null);
+    }
+
+    @Test
     public void testAccessTextLocales() {
         Paint p = new Paint();
 
@@ -654,24 +668,25 @@ public class PaintTest extends AndroidTestCase {
         // Check reverting back to default
         p.setTextLocales(defaultLocales);
         assertEquals(defaultLocales, p.getTextLocales());
-
-        // Check that we cannot pass a null locale list
-        try {
-            p.setTextLocales(null);
-            fail("Setting the text locale list to null should throw");
-        } catch (Throwable e) {
-            assertEquals(IllegalArgumentException.class, e.getClass());
-        }
-
-        // Check that we cannot pass an empty locale list
-        try {
-            p.setTextLocales(new LocaleList());
-            fail("Setting the text locale list to an empty list should throw");
-        } catch (Throwable e) {
-            assertEquals(IllegalArgumentException.class, e.getClass());
-        }
     }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testAccessTextLocalesNull() {
+        Paint p = new Paint();
+
+        // Check that we cannot pass a null locale list
+        p.setTextLocales(null);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testAccessTextLocalesEmpty() {
+        Paint p = new Paint();
+
+        // Check that we cannot pass an empty locale list
+        p.setTextLocales(new LocaleList());
+    }
+
+    @Test
     public void testGetFillPath() {
         Paint p = new Paint();
         Path path1 = new Path();
@@ -684,9 +699,9 @@ public class PaintTest extends AndroidTestCase {
         assertTrue(path2.isEmpty());
 
         // No setter
-
     }
 
+    @Test
     public void testAccessAlpha() {
         Paint p = new Paint();
 
@@ -705,6 +720,7 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(236, p.getAlpha());
     }
 
+    @Test
     public void testSetFilterBitmap() {
         Paint p = new Paint();
 
@@ -715,6 +731,7 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isFilterBitmap());
     }
 
+    @Test
     public void testAccessColor() {
         Paint p = new Paint();
 
@@ -734,10 +751,12 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(256, p.getColor());
     }
 
+    @Test
     public void testSetShadowLayer() {
         new Paint().setShadowLayer(10, 1, 1, 0);
     }
 
+    @Test
     public void testGetFontMetrics1() {
         Paint p = new Paint();
         Paint.FontMetrics fm = new Paint.FontMetrics();
@@ -746,17 +765,18 @@ public class PaintTest extends AndroidTestCase {
             p.setTypeface(typeface);
 
             p.setTextSize(10);
-            float spacing10 = p.getFontMetrics(fm);
-            assertEquals(p.ascent(), fm.ascent);
-            assertEquals(p.descent(), fm.descent);
+            p.getFontMetrics(fm);
+            assertEquals(p.ascent(), fm.ascent, 0.0f);
+            assertEquals(p.descent(), fm.descent, 0.0f);
 
             p.setTextSize(20);
-            float spacing20 = p.getFontMetrics(fm);
-            assertEquals(p.ascent(), fm.ascent);
-            assertEquals(p.descent(), fm.descent);
+            p.getFontMetrics(fm);
+            assertEquals(p.ascent(), fm.ascent, 0.0f);
+            assertEquals(p.descent(), fm.descent, 0.0f);
         }
     }
 
+    @Test
     public void testGetFontMetrics2() {
         Paint p = new Paint();
 
@@ -765,34 +785,37 @@ public class PaintTest extends AndroidTestCase {
 
             p.setTextSize(10);
             Paint.FontMetrics fm = p.getFontMetrics();
-            assertEquals(p.ascent(), fm.ascent);
-            assertEquals(p.descent(), fm.descent);
+            assertEquals(p.ascent(), fm.ascent, 0.0f);
+            assertEquals(p.descent(), fm.descent, 0.0f);
 
             p.setTextSize(20);
             fm = p.getFontMetrics();
-            assertEquals(p.ascent(), fm.ascent);
-            assertEquals(p.descent(), fm.descent);
+            assertEquals(p.ascent(), fm.ascent, 0.0f);
+            assertEquals(p.descent(), fm.descent, 0.0f);
         }
     }
 
+    @Test
     public void testAccessStrokeMiter() {
         Paint p = new Paint();
 
         p.setStrokeMiter(0.0f);
-        assertEquals(0.0f, p.getStrokeMiter());
+        assertEquals(0.0f, p.getStrokeMiter(), 0.0f);
 
         p.setStrokeMiter(10.0f);
-        assertEquals(10.0f, p.getStrokeMiter());
+        assertEquals(10.0f, p.getStrokeMiter(), 0.0f);
 
         // set value should be greater or equal to 0, set to -10.0f has no effect
         p.setStrokeMiter(-10.0f);
-        assertEquals(10.0f, p.getStrokeMiter());
+        assertEquals(10.0f, p.getStrokeMiter(), 0.0f);
     }
 
+    @Test
     public void testClearShadowLayer() {
         new Paint().clearShadowLayer();
     }
 
+    @Test
     public void testSetUnderlineText() {
         Paint p = new Paint();
 
@@ -803,6 +826,7 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isUnderlineText());
     }
 
+    @Test
     public void testSetDither() {
         Paint p = new Paint();
 
@@ -813,6 +837,7 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isDither());
     }
 
+    @Test
     public void testDescent() {
         Paint p = new Paint();
 
@@ -829,6 +854,7 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAccessFlags() {
         Paint p = new Paint();
 
@@ -839,20 +865,22 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(Paint.DEV_KERN_TEXT_FLAG, p.getFlags());
     }
 
+    @Test
     public void testAccessStrokeWidth() {
         Paint p = new Paint();
 
         p.setStrokeWidth(0.0f);
-        assertEquals(0.0f, p.getStrokeWidth());
+        assertEquals(0.0f, p.getStrokeWidth(), 0.0f);
 
         p.setStrokeWidth(10.0f);
-        assertEquals(10.0f, p.getStrokeWidth());
+        assertEquals(10.0f, p.getStrokeWidth(), 0.0f);
 
         // set value must greater or equal to 0, set -10.0f has no effect
         p.setStrokeWidth(-10.0f);
-        assertEquals(10.0f, p.getStrokeWidth());
+        assertEquals(10.0f, p.getStrokeWidth(), 0.0f);
     }
 
+    @Test
     public void testSetFontFeatureSettings() {
         Paint p = new Paint();
         // Roboto font (system default) has "fi" ligature
@@ -860,7 +888,7 @@ public class PaintTest extends AndroidTestCase {
         float[] widths = new float[text.length()];
         p.getTextWidths(text, widths);
         assertTrue(widths[0] > 0.0f);
-        assertEquals(0.0f, widths[1]);
+        assertEquals(0.0f, widths[1], 0.0f);
 
         // Disable ligature using OpenType feature
         p.setFontFeatureSettings("'liga' off");
@@ -872,9 +900,74 @@ public class PaintTest extends AndroidTestCase {
         p.setFontFeatureSettings("'liga' on");
         p.getTextWidths(text, widths);
         assertTrue(widths[0] > 0.0f);
-        assertEquals(0.0f, widths[1]);
+        assertEquals(0.0f, widths[1], 0.0f);
     }
 
+    @Test
+    public void testSetFontVariationSettings_defaultTypeface() {
+        new Paint().setFontVariationSettings("'wght' 400");
+    }
+
+    @Test
+    public void testSetGetFontVariationSettings() {
+        final Paint defaultPaint = new Paint();
+
+        Paint p = new Paint();
+        Context context = InstrumentationRegistry.getTargetContext();
+        Typeface typeface = Typeface.createFromAsset(context.getAssets(), "multiaxis.ttf");
+        p.setTypeface(typeface);
+
+        // multiaxis.ttf supports "wght", "PRIV", "PR12" axes.
+
+        // The default variation settings should be null.
+        assertNull(p.getFontVariationSettings());
+
+        final String[] nonEffectiveSettings = {
+                "'slnt' 30",  // unsupported tag
+                "'BBBB' 1.0",  // unsupported tag
+                "'A   ' 1.0",  // unsupported tag
+                "'PR0 ' 1.3",  // unsupported tag
+                "'WGHT' 0.7",  // unsupported tag (case sensitive)
+                "'BBBB' 1.0, 'CCCC' 2.0",  // none of them are supported.
+        };
+
+        for (String notEffectiveSetting : nonEffectiveSettings) {
+            if (!defaultPaint.setFontVariationSettings(notEffectiveSetting)) {
+                // Test only when the system font don't support the above axes. OEMs may add
+                // their fonts and these font may support above axes.
+                assertFalse("Must return false for " + notEffectiveSetting,
+                        p.setFontVariationSettings(notEffectiveSetting));
+                assertNull("Must not change settings for " + notEffectiveSetting,
+                        p.getFontVariationSettings());
+            }
+        }
+
+        String retainSettings = "'wght' 400";
+        assertTrue(p.setFontVariationSettings(retainSettings));
+        for (String notEffectiveSetting : nonEffectiveSettings) {
+            assertFalse(p.setFontVariationSettings(notEffectiveSetting));
+            assertEquals("Must not change settings for " + notEffectiveSetting,
+                    retainSettings, p.getFontVariationSettings());
+        }
+
+        // At least one axis is supported, the settings should be applied.
+        final String[] effectiveSettings = {
+                "'wght' 300",  // supported tag
+                "'wght' 300, 'PRIV' 0.5",  // both are supported
+                "'PRIV' 1.0, 'BBBB' 0.4",  // 'BBBB' is unsupported
+        };
+
+        for (String effectiveSetting : effectiveSettings) {
+            assertTrue("Must return true for " + effectiveSetting,
+                    p.setFontVariationSettings(effectiveSetting));
+            assertEquals(effectiveSetting, p.getFontVariationSettings());
+        }
+
+        p.setFontVariationSettings("");
+        assertNull(p.getFontVariationSettings());
+    }
+
+    @Test
     public void testGetTextBounds() {
         Paint p = new Paint();
         p.setTextSize(10);
@@ -904,12 +997,12 @@ public class PaintTest extends AndroidTestCase {
         assertTrue(bounds2.bottom - bounds2.top > bounds1.bottom - bounds1.top);
     }
 
+    @Test
     public void testReset() {
         Paint p  = new Paint();
         ColorFilter c = new ColorFilter();
         MaskFilter m  = new MaskFilter();
         PathEffect e  = new PathEffect();
-        Rasterizer r  = new Rasterizer();
         Shader s      = new Shader();
         Typeface t    = Typeface.DEFAULT;
         Xfermode x = new Xfermode();
@@ -917,7 +1010,6 @@ public class PaintTest extends AndroidTestCase {
         p.setColorFilter(c);
         p.setMaskFilter(m);
         p.setPathEffect(e);
-        p.setRasterizer(r);
         p.setShader(s);
         p.setTypeface(t);
         p.setXfermode(x);
@@ -925,7 +1017,6 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(c, p.getColorFilter());
         assertEquals(m, p.getMaskFilter());
         assertEquals(e, p.getPathEffect());
-        assertEquals(r, p.getRasterizer());
         assertEquals(s, p.getShader());
         assertEquals(t, p.getTypeface());
         assertEquals(x, p.getXfermode());
@@ -936,12 +1027,12 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(null, p.getColorFilter());
         assertEquals(null, p.getMaskFilter());
         assertEquals(null, p.getPathEffect());
-        assertEquals(null, p.getRasterizer());
         assertEquals(null, p.getShader());
         assertEquals(null, p.getTypeface());
         assertEquals(null, p.getXfermode());
     }
 
+    @Test
     public void testSetLinearText() {
         Paint p = new Paint();
 
@@ -952,6 +1043,7 @@ public class PaintTest extends AndroidTestCase {
         assertFalse(p.isLinearText());
     }
 
+    @Test
     public void testGetFontMetricsInt1() {
         Paint p = new Paint();
         Paint.FontMetricsInt fmi = new Paint.FontMetricsInt();
@@ -971,6 +1063,7 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetFontMetricsInt2() {
         Paint p = new Paint();
         Paint.FontMetricsInt fmi;
@@ -990,6 +1083,7 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testMeasureText() {
         String text = "HIJKLMN";
         char[] textChars = text.toCharArray();
@@ -1011,19 +1105,20 @@ public class PaintTest extends AndroidTestCase {
         }
 
         // Test measuring the widths of the entire text
-        assertMeasureText(text, textChars, textSpan, 0, 7, totalWidth);
+        verifyMeasureText(text, textChars, textSpan, 0, 7, totalWidth);
 
         // Test measuring a substring of the text
-        assertMeasureText(text, textChars, textSpan, 1, 3, widths[1] + widths[2]);
+        verifyMeasureText(text, textChars, textSpan, 1, 3, widths[1] + widths[2]);
 
         // Test measuring a substring of zero length.
-        assertMeasureText(text, textChars, textSpan, 3, 3, 0);
+        verifyMeasureText(text, textChars, textSpan, 3, 3, 0);
 
         // Test measuring substrings from the front and back
-        assertMeasureText(text, textChars, textSpan, 0, 2, widths[0] + widths[1]);
-        assertMeasureText(text, textChars, textSpan, 4, 7, widths[4] + widths[5] + widths[6]);
+        verifyMeasureText(text, textChars, textSpan, 0, 2, widths[0] + widths[1]);
+        verifyMeasureText(text, textChars, textSpan, 4, 7, widths[4] + widths[5] + widths[6]);
     }
 
+    @Test
     public void testMeasureTextContext() {
        Paint p = new Paint();
        // Arabic LAM, which is different width depending on context
@@ -1033,17 +1128,13 @@ public class PaintTest extends AndroidTestCase {
        SpannedString longSpanned = new SpannedString(longString);
        float width = p.measureText(shortString);
        // Verify that measurement of substring is consistent no matter what surrounds it.
-       assertMeasureText(longString, longChars, longSpanned, 0, 1, width);
-       assertMeasureText(longString, longChars, longSpanned, 1, 2, width);
-       assertMeasureText(longString, longChars, longSpanned, 2, 3, width);
+       verifyMeasureText(longString, longChars, longSpanned, 0, 1, width);
+       verifyMeasureText(longString, longChars, longSpanned, 1, 2, width);
+       verifyMeasureText(longString, longChars, longSpanned, 2, 3, width);
     }
 
+    @Test
     public void testMeasureTextWithLongText() {
-        // This test is not compatible with 4.0.3
-        if ("4.0.3".equals(Build.VERSION.RELEASE)) {
-            return;
-        }
-
         final int MAX_COUNT = 65535;
         char[] longText = new char[MAX_COUNT];
         for (int n = 0; n < MAX_COUNT; n++) {
@@ -1056,7 +1147,7 @@ public class PaintTest extends AndroidTestCase {
     }
 
     /** Tests that all four overloads of measureText are the same and match some value. */
-    private void assertMeasureText(String text, char[] textChars, SpannedString textSpan,
+    private void verifyMeasureText(String text, char[] textChars, SpannedString textSpan,
             int start, int end, float expectedWidth) {
         Paint p = new Paint();
 
@@ -1073,75 +1164,69 @@ public class PaintTest extends AndroidTestCase {
         widths[3] = p.measureText(text, start, end);
 
         // Check that the widths returned by the overloads are the same.
-        assertEquals(widths[0], widths[1]);
-        assertEquals(widths[1], widths[2]);
-        assertEquals(widths[2], widths[3]);
-        assertEquals(widths[3], expectedWidth);
+        assertEquals(widths[0], widths[1], 0.0f);
+        assertEquals(widths[1], widths[2], 0.0f);
+        assertEquals(widths[2], widths[3], 0.0f);
+        assertEquals(widths[3], expectedWidth, 0.0f);
     }
 
-    public void testGetTextPath1() {
-        Paint p = new Paint();
-        char[] chars = {'H', 'I', 'J', 'K', 'L', 'M', 'N'};
+    @Test
+    public void testGetTextPathCharArray() {
         Path path = new Path();
 
         assertTrue(path.isEmpty());
-        p.getTextPath(chars, 0, 7, 0, 0, path);
+        new Paint().getTextPath(new char[] {'H', 'I', 'J', 'K', 'L', 'M', 'N'}, 0, 7, 0, 0, path);
         assertFalse(path.isEmpty());
-
-        try {
-            p.getTextPath(chars, -2, 7, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
-
-        try {
-            p.getTextPath(chars, 0, -3, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
-
-        try {
-            p.getTextPath(chars, 3, 7, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
-
     }
 
-    public void testGetTextPath2() {
-        Paint p = new Paint();
-        String string = "HIJKLMN";
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathCharArrayNegativeIndex() {
+        new Paint().getTextPath(new char[] {'H', 'I', 'J', 'K', 'L', 'M', 'N'}, -2, 7, 0, 0,
+                new Path());
+    }
+
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathCharArrayNegativeCount() {
+        new Paint().getTextPath(new char[] {'H', 'I', 'J', 'K', 'L', 'M', 'N'}, 0, -3, 0, 0,
+                new Path());
+    }
+
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathCharArrayCountTooHigh() {
+        new Paint().getTextPath(new char[] {'H', 'I', 'J', 'K', 'L', 'M', 'N'}, 3, 7, 0, 0,
+                new Path());
+    }
+
+    @Test
+    public void testGetTextPathString() {
         Path path = new Path();
 
         assertTrue(path.isEmpty());
-        p.getTextPath(string, 0, 7, 0, 0, path);
+        new Paint().getTextPath("HIJKLMN", 0, 7, 0, 0, path);
         assertFalse(path.isEmpty());
-
-        try {
-            p.getTextPath(string, -2, 7, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
-
-        try {
-            p.getTextPath(string, 0, -3, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
-
-        try {
-            p.getTextPath(string, 7, 3, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
-
-        try {
-            p.getTextPath(string, 3, 9, 0, 0, path);
-            fail("Should throw an exception here");
-        } catch (RuntimeException e) {
-        }
     }
 
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathStringNegativeIndex() {
+        new Paint().getTextPath("HIJKLMN", -2, 7, 0, 0, new Path());
+    }
+
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathStringNegativeCount() {
+        new Paint().getTextPath("HIJKLMN", 0, -3, 0, 0, new Path());
+    }
+
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathStringStartTooHigh() {
+        new Paint().getTextPath("HIJKLMN", 7, 3, 0, 0, new Path());
+    }
+
+    @Test(expected=RuntimeException.class)
+    public void testGetTextPathStringCountTooHigh() {
+        new Paint().getTextPath("HIJKLMN", 3, 9, 0, 0, new Path());
+    }
+
+    @Test
     public void testHasGlyph() {
         Paint p = new Paint();
 
@@ -1183,9 +1268,9 @@ public class PaintTest extends AndroidTestCase {
         // whether VS is present or not.
         assertTrue(p.hasGlyph("\uD83D\uDC69\u200D\u2695") ==  // WOMAN, ZWJ, STAFF OF AESCULAPIUS
                 p.hasGlyph("\uD83D\uDC69\u200D\u2695\uFE0F"));  // above + VS16
-
     }
 
+    @Test
     public void testGetRunAdvance() {
         Paint p = new Paint();
         {
@@ -1194,13 +1279,13 @@ public class PaintTest extends AndroidTestCase {
             {
                 final float width = p.getRunAdvance(string, 0, string.length(), 0,
                         string.length(), false, 0);
-                assertEquals(0.0f, width);
+                assertEquals(0.0f, width, 0.0f);
             }
             {
                 for (int i = 0; i < string.length(); i++) {
                     final float width = p.getRunAdvance(string, i, i + 1, 0, string.length(),
                             false, i);
-                    assertEquals(0.0f, width);
+                    assertEquals(0.0f, width, 0.0f);
                 }
             }
             {
@@ -1234,13 +1319,13 @@ public class PaintTest extends AndroidTestCase {
             {
                 final float width = p.getRunAdvance(string, 0, string.length(), 0,
                         string.length(), true, 0);
-                assertEquals(0.0f, width);
+                assertEquals(0.0f, width, 0.0f);
             }
             {
                 for (int i = 0; i < string.length(); i++) {
                     final float width = p.getRunAdvance(string, i, i + 1, 0, string.length(),
                             true, i);
-                    assertEquals(0.0f, width);
+                    assertEquals(0.0f, width, 0.0f);
                 }
             }
             {
@@ -1261,78 +1346,67 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
-    public void testGetRunAdvance_invalidArguments() {
-        Paint p = new Paint();
-        try {
-            p.getRunAdvance((CharSequence)null, 0, 0, 0, 0, false, 0);
-            fail("Should throw an IllegalArgumentException.");
-        } catch (IllegalArgumentException e) {
-        } catch (Exception e) {
-            fail("Should throw an IllegalArgumentException.");
-        }
-
-        try {
-            p.getRunAdvance((char[])null, 0, 0, 0, 0, false, 0);
-            fail("Should throw an IllegalArgumentException.");
-        } catch (IllegalArgumentException e) {
-        } catch (Exception e) {
-            fail("Should throw an IllegalArgumentException.");
-        }
-
-        final String string = "abcde";
-
-        try {
-            // text length < context end
-            p.getRunAdvance(string, 0, string.length(), 0, string.length() + 1, false,
-                    string.length());
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-        try {
-            // context end < end
-            p.getRunAdvance(string, 0, string.length(), 0, string.length() - 1, false, 0);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-        try {
-            // end < offset
-            p.getRunAdvance(string, 0, string.length() - 1, 0, string.length() - 1, false,
-                    string.length());
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-        try {
-            // offset < start
-            p.getRunAdvance(string, 1, string.length(), 1, string.length(), false, 0);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-        try {
-            // start < context start
-            p.getRunAdvance(string, 0, string.length(), 1, string.length(), false, 1);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-        try {
-            // context start < 0
-            p.getRunAdvance(string, 0, string.length(), -1, string.length(), false, 0);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetRunAdvanceNullCharSequence() {
+        new Paint().getRunAdvance((CharSequence) null, 0, 0, 0, 0, false, 0);
     }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetRunAdvanceNullCharArray() {
+        new Paint().getRunAdvance((char[]) null, 0, 0, 0, 0, false, 0);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetRunAdvanceTextLengthLessThenContextEnd() {
+        final String string = "abcde";
+
+        // text length < context end
+        new Paint().getRunAdvance(string, 0, string.length(), 0, string.length() + 1, false,
+                string.length());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetRunAdvanceContextEndLessThanEnd() {
+        final String string = "abcde";
+
+        // context end < end
+        new Paint().getRunAdvance(string, 0, string.length(), 0, string.length() - 1, false, 0);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetRunAdvanceEndLessThanOffset() {
+        final String string = "abcde";
+
+        // end < offset
+        new Paint().getRunAdvance(string, 0, string.length() - 1, 0, string.length() - 1, false,
+                string.length());
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetRunAdvanceOffsetLessThanStart() {
+        final String string = "abcde";
+
+        // offset < start
+        new Paint().getRunAdvance(string, 1, string.length(), 1, string.length(), false, 0);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetRunAdvanceStartLessThanContextStart() {
+        final String string = "abcde";
+
+        // start < context start
+        new Paint().getRunAdvance(string, 0, string.length(), 1, string.length(), false, 1);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetRunAdvanceContextStartNegative() {
+        final String string = "abcde";
+
+        // context start < 0
+        new Paint().getRunAdvance(string, 0, string.length(), -1, string.length(), false, 0);
+    }
+
+    @Test
     public void testGetRunAdvance_nonzeroIndex() {
         Paint p = new Paint();
         final String text = "Android powers hundreds of millions of mobile " +
@@ -1349,6 +1423,7 @@ public class PaintTest extends AndroidTestCase {
         assertTrue(Math.abs(widthAndroidFirst - widthAndroidSecond) < 1);
     }
 
+    @Test
     public void testGetRunAdvance_glyphDependingContext() {
         Paint p = new Paint();
         // Test the context change the character shape.
@@ -1359,6 +1434,7 @@ public class PaintTest extends AndroidTestCase {
         assertTrue(isolatedFormWidth > initialFormWidth);
     }
 
+    @Test
     public void testGetRunAdvance_arabic() {
         Paint p = new Paint();
         // Test total width is equals to sum of each character's width.
@@ -1378,6 +1454,7 @@ public class PaintTest extends AndroidTestCase {
         assertTrue(Math.abs(totalWidth - sumOfCharactersWidth) < 1);
     }
 
+    @Test
     public void testGetOffsetForAdvance() {
         Paint p = new Paint();
         {
@@ -1432,72 +1509,62 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
-    public void testGetOffsetForAdvance_invalidArguments() {
-        Paint p = new Paint();
-        try {
-            p.getOffsetForAdvance((CharSequence)null, 0, 0, 0, 0, false, 0.0f);
-            fail("Should throw an IllegalArgumentException.");
-        } catch (IllegalArgumentException e) {
-        } catch (Exception e) {
-            fail("Should throw an IllegalArgumentException.");
-        }
-        try {
-            p.getOffsetForAdvance((char[])null, 0, 0, 0, 0, false, 0.0f);
-            fail("Should throw an IllegalArgumentException.");
-        } catch (IllegalArgumentException e) {
-        } catch (Exception e) {
-            fail("Should throw an IllegalArgumentException.");
-        }
-
-        final String string = "abcde";
-
-        try {
-            // context start < 0
-            p.getOffsetForAdvance(string, -1, string.length(), 0, string.length(), false, 0.0f);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-
-        try {
-            // start < context start
-            p.getOffsetForAdvance(string, 0, string.length(), 1, string.length(), false, 0.0f);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-
-        try {
-            // end < start
-            p.getOffsetForAdvance(string, 1, 0, 0, 0, false, 0);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-
-        try {
-            // context end < end
-            p.getOffsetForAdvance(string, 0, string.length(), 0, string.length() - 1, false, 0.0f);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
-
-        try {
-            // text length < context end
-            p.getOffsetForAdvance(string, 0, string.length(), 0, string.length() + 1, false, 0.0f);
-            fail("Should throw an IndexOutOfBoundsException.");
-        } catch (IndexOutOfBoundsException e) {
-        } catch (Exception e) {
-            fail("Should throw an IndexOutOfBoundsException.");
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetOffsetForAdvanceNullCharSequence() {
+        new Paint().getOffsetForAdvance((CharSequence) null, 0, 0, 0, 0, false, 0.0f);
     }
 
-    public void testGetOffsetForAdvance_grahpemeCluster() {
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetOffsetForAdvanceNullCharArray() {
+        new Paint().getOffsetForAdvance((char[]) null, 0, 0, 0, 0, false, 0.0f);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetOffsetForAdvanceContextStartNegative() {
+        final String string = "abcde";
+
+        // context start < 0
+        new Paint().getOffsetForAdvance(string, -1, string.length(), 0, string.length(), false,
+                0.0f);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetOffsetForAdvanceStartLessThanContextStart() {
+        final String string = "abcde";
+
+        // start < context start
+        new Paint().getOffsetForAdvance(string, 0, string.length(), 1, string.length(), false,
+                0.0f);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetOffsetForAdvanceEndLessThanStart() {
+        final String string = "abcde";
+
+        // end < start
+        new Paint().getOffsetForAdvance(string, 1, 0, 0, 0, false, 0);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetOffsetForAdvanceContextEndLessThanEnd() {
+        final String string = "abcde";
+
+        // context end < end
+        new Paint().getOffsetForAdvance(string, 0, string.length(), 0, string.length() - 1, false,
+                0.0f);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetOffsetForAdvanceTextLengthLessThanContextEnd() {
+        final String string = "abcde";
+
+        // text length < context end
+        new Paint().getOffsetForAdvance(string, 0, string.length(), 0, string.length() + 1, false,
+                0.0f);
+    }
+
+    @Test
+    public void testGetOffsetForAdvance_graphemeCluster() {
         Paint p = new Paint();
         {
             String string = "\uD83C\uDF37"; // U+1F337: TULIP
@@ -1554,5 +1621,25 @@ public class PaintTest extends AndroidTestCase {
                 }
             }
         }
+    }
+
+    @Test
+    public void testElegantText() {
+        final Paint p = new Paint();
+        p.setTextSize(10);
+        assertFalse(p.isElegantTextHeight());
+        final float nonElegantTop = p.getFontMetrics().top;
+        final float nonElegantBottom = p.getFontMetrics().bottom;
+
+        p.setElegantTextHeight(true);
+        assertTrue(p.isElegantTextHeight());
+        final float elegantTop = p.getFontMetrics().top;
+        final float elegantBottom = p.getFontMetrics().bottom;
+
+        assertTrue(elegantTop < nonElegantTop);
+        assertTrue(elegantBottom > nonElegantBottom);
+
+        p.setElegantTextHeight(false);
+        assertFalse(p.isElegantTextHeight());
     }
 }

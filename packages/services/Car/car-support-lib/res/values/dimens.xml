@@ -21,13 +21,16 @@
     <dimen name="car_app_layout_search_box_small_width">320dp</dimen>
     <dimen name="car_app_layout_search_box_small_margin">16dp</dimen>
 
-    <dimen name="car_headline_1_size">45dp</dimen>
-    <dimen name="car_headline_2_size">40dp</dimen>
-    <dimen name="car_title_size">26dp</dimen>
-    <dimen name="car_body_1_size">32dp</dimen>
-    <dimen name="car_body_2_size">26dp</dimen>
-    <dimen name="car_caption_size">24dp</dimen>
-    <dimen name="car_micro_size">20dp</dimen>
+    <dimen name="car_headline0_size">50sp</dimen>
+    <dimen name="car_headline1_size">45sp</dimen>
+    <dimen name="car_headline2_size">36sp</dimen>
+    <dimen name="car_title_size">26sp</dimen>
+    <dimen name="car_body1_size">32sp</dimen>
+    <dimen name="car_body2_size">26sp</dimen>
+    <dimen name="car_caption_size">18sp</dimen>
+    <dimen name="car_key1_size">40sp</dimen>
+    <dimen name="car_key2_size">18sp</dimen>
+    <dimen name="car_micro_size">20sp</dimen>
 
     <dimen name="car_action_bar_icon_padding">10dp</dimen>
     <dimen name="car_action_bar_margin">15dp</dimen>
@@ -47,9 +50,13 @@
     <!-- The amount of space the LayoutManager will make sure the last item on the screen is
          peeking before scrolling down -->
     <dimen name="car_last_card_peek_amount">16dp</dimen>
-    <dimen name="car_paged_list_view_pagination_width">96dp</dimen>
+    <dimen name="car_paged_list_view_pagination_width">48dp</dimen>
     <dimen name="car_paged_list_view_button_background_inset">24dp</dimen>
     <dimen name="car_paged_list_view_scrollbar_thumb_margin">8dp</dimen>
+
+    <dimen name="scroll_button_size">48dp</dimen>
+    <dimen name="scroll_bar_thumb_width">12dp</dimen>
+
     <!-- height of list dividers -->
     <dimen name="car_divider_height">1dp</dimen>
 
@@ -58,6 +65,7 @@
     <dimen name="car_list_item_icon_size_small">32dp</dimen>
     <dimen name="car_list_item_small_icon_size">56dp</dimen>
     <dimen name="car_list_item_right_icon_margin">20dp</dimen>
+    <dimen name="car_list_item_right_icon_size">56dp</dimen>
     <dimen name="car_list_unavailable_category_item_height">108dp</dimen>
     <dimen name="car_list_truncated_list_card_height">108dp</dimen>
     <dimen name="car_list_truncated_list_card_elevation">8dp</dimen>
@@ -83,4 +91,25 @@
     <dimen name="car_card_margin">96dp</dimen>
     <dimen name="car_drawer_margin_right">96dp</dimen>
     <dimen name="rail_height">80dp</dimen>
+
+    <dimen name="car_drawer_button_container_width">@dimen/stream_content_keyline_2</dimen>
+
+    <!-- The following values should match the values provided by car_stream-ui-lib. Eventually,
+         when the components in this library are broken out, then this dependency can be added
+         and the values removed. -->
+
+    <!-- The margin on both sizes of the screen. This margin limits the amount of space that
+         content can take up on screen. -->
+    <dimen name="stream_margin_size">16dp</dimen>
+
+    <!-- The size of the gutters between each column. -->
+    <dimen name="stream_gutter_size">16dp</dimen>
+
+    <!-- Keylines for content in the stream. -->
+    <dimen name="stream_content_keyline_1">24dp</dimen>
+    <dimen name="stream_content_keyline_2">96dp</dimen>
+
+    <!-- Keylines for content within a card. -->
+    <dimen name="stream_card_keyline_1">24dp</dimen>
+    <dimen name="stream_card_keyline_2">96dp</dimen>
 </resources>

@@ -130,6 +130,11 @@ OMX_ERRORTYPE OMXComponentCodecBase::ComponentSetConfig(
     return ret;
 }
 
+OMX_COLOR_FORMATTYPE OMXComponentCodecBase::GetOutputColorFormat(int width) {
+    LOGD("%s: width = %d", __func__, width);
+    return OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar;
+}
+
 OMX_ERRORTYPE OMXComponentCodecBase::ProcessorInit(void) {
     LOGV("OMXComponentCodecBase::ProcessorInit");
 

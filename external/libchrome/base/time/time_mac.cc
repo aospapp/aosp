@@ -34,7 +34,7 @@ int64_t ComputeCurrentTicks() {
   struct timeval boottime;
   int mib[2] = {CTL_KERN, KERN_BOOTTIME};
   size_t size = sizeof(boottime);
-  int kr = sysctl(mib, arraysize(mib), &boottime, &size, NULL, 0);
+  int kr = sysctl(mib, arraysize(mib), &boottime, &size, nullptr, 0);
   DCHECK_EQ(KERN_SUCCESS, kr);
   base::TimeDelta time_difference = base::Time::Now() -
       (base::Time::FromTimeT(boottime.tv_sec) +
@@ -92,9 +92,11 @@ int64_t ComputeThreadTicks() {
   MACH_DCHECK(kr == KERN_SUCCESS, kr) << "thread_info";
 
   base::CheckedNumeric<int64_t> absolute_micros(
-      thread_info_data.user_time.seconds);
+      thread_info_data.user_time.seconds +
+      thread_info_data.system_time.seconds);
   absolute_micros *= base::Time::kMicrosecondsPerSecond;
-  absolute_micros += thread_info_data.user_time.microseconds;
+  absolute_micros += (thread_info_data.user_time.microseconds +
+                      thread_info_data.system_time.microseconds);
   return absolute_micros.ValueOrDie();
 #endif  // defined(OS_IOS)
 }
@@ -166,22 +168,44 @@ Time Time::NowFromSystemTime() {
 }
 
 // static
-Time Time::FromExploded(bool is_local, const Exploded& exploded) {
-  CFGregorianDate date;
-  date.second = exploded.second +
-      exploded.millisecond / static_cast<double>(kMillisecondsPerSecond);
-  date.minute = exploded.minute;
-  date.hour = exploded.hour;
-  date.day = exploded.day_of_month;
-  date.month = exploded.month;
-  date.year = exploded.year;
-
+bool Time::FromExploded(bool is_local, const Exploded& exploded, Time* time) {
   base::ScopedCFTypeRef<CFTimeZoneRef> time_zone(
-      is_local ? CFTimeZoneCopySystem() : NULL);
-  CFAbsoluteTime seconds = CFGregorianDateGetAbsoluteTime(date, time_zone) +
-      kCFAbsoluteTimeIntervalSince1970;
-  return Time(static_cast<int64_t>(seconds * kMicrosecondsPerSecond) +
-              kWindowsEpochDeltaMicroseconds);
+      is_local
+          ? CFTimeZoneCopySystem()
+          : CFTimeZoneCreateWithTimeIntervalFromGMT(kCFAllocatorDefault, 0));
+  base::ScopedCFTypeRef<CFCalendarRef> gregorian(CFCalendarCreateWithIdentifier(
+      kCFAllocatorDefault, kCFGregorianCalendar));
+  CFCalendarSetTimeZone(gregorian, time_zone);
+  CFAbsoluteTime absolute_time;
+  // 'S' is not defined in componentDesc in Apple documentation, but can be
+  // found at http://www.opensource.apple.com/source/CF/CF-855.17/CFCalendar.c
+  CFCalendarComposeAbsoluteTime(
+      gregorian, &absolute_time, "yMdHmsS", exploded.year, exploded.month,
+      exploded.day_of_month, exploded.hour, exploded.minute, exploded.second,
+      exploded.millisecond);
+  CFAbsoluteTime seconds = absolute_time + kCFAbsoluteTimeIntervalSince1970;
+
+  base::Time converted_time =
+      Time(static_cast<int64_t>(seconds * kMicrosecondsPerSecond) +
+           kWindowsEpochDeltaMicroseconds);
+
+  // If |exploded.day_of_month| is set to 31
+  // on a 28-30 day month, it will return the first day of the next month.
+  // Thus round-trip the time and compare the initial |exploded| with
+  // |utc_to_exploded| time.
+  base::Time::Exploded to_exploded;
+  if (!is_local)
+    converted_time.UTCExplode(&to_exploded);
+  else
+    converted_time.LocalExplode(&to_exploded);
+
+  if (ExplodedMostlyEquals(to_exploded, exploded)) {
+    *time = converted_time;
+    return true;
+  }
+
+  *time = Time(0);
+  return false;
 }
 
 void Time::Explode(bool is_local, Exploded* exploded) const {
@@ -195,19 +219,25 @@ void Time::Explode(bool is_local, Exploded* exploded) const {
                            kCFAbsoluteTimeIntervalSince1970;
 
   base::ScopedCFTypeRef<CFTimeZoneRef> time_zone(
-      is_local ? CFTimeZoneCopySystem() : NULL);
-  CFGregorianDate date = CFAbsoluteTimeGetGregorianDate(seconds, time_zone);
-  // 1 = Monday, ..., 7 = Sunday.
-  int cf_day_of_week = CFAbsoluteTimeGetDayOfWeek(seconds, time_zone);
-
-  exploded->year = date.year;
-  exploded->month = date.month;
-  exploded->day_of_week = cf_day_of_week % 7;
-  exploded->day_of_month = date.day;
-  exploded->hour = date.hour;
-  exploded->minute = date.minute;
+      is_local
+          ? CFTimeZoneCopySystem()
+          : CFTimeZoneCreateWithTimeIntervalFromGMT(kCFAllocatorDefault, 0));
+  base::ScopedCFTypeRef<CFCalendarRef> gregorian(CFCalendarCreateWithIdentifier(
+      kCFAllocatorDefault, kCFGregorianCalendar));
+  CFCalendarSetTimeZone(gregorian, time_zone);
+  int second, day_of_week;
+  // 'E' sets the day of week, but is not defined in componentDesc in Apple
+  // documentation. It can be found in open source code here:
+  // http://www.opensource.apple.com/source/CF/CF-855.17/CFCalendar.c
+  CFCalendarDecomposeAbsoluteTime(gregorian, seconds, "yMdHmsE",
+                                  &exploded->year, &exploded->month,
+                                  &exploded->day_of_month, &exploded->hour,
+                                  &exploded->minute, &second, &day_of_week);
   // Make sure seconds are rounded down towards -infinity.
-  exploded->second = floor(date.second);
+  exploded->second = floor(second);
+  // |Exploded|'s convention for day of week is 0 = Sunday, i.e. different
+  // from CF's 1 = Sunday.
+  exploded->day_of_week = (day_of_week - 1) % 7;
   // Calculate milliseconds ourselves, since we rounded the |seconds|, making
   // sure to round towards -infinity.
   exploded->millisecond =
@@ -226,6 +256,15 @@ TimeTicks TimeTicks::Now() {
 // static
 bool TimeTicks::IsHighResolution() {
   return true;
+}
+
+// static
+TimeTicks::Clock TimeTicks::GetClock() {
+#if defined(OS_IOS)
+  return Clock::IOS_CF_ABSOLUTE_TIME_MINUS_KERN_BOOTTIME;
+#else
+  return Clock::MAC_MACH_ABSOLUTE_TIME;
+#endif  // defined(OS_IOS)
 }
 
 // static

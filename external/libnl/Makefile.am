@@ -2,19 +2,21 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-OPT_DIRS =
+SUBDIRS = include lib man python tests
+
+pkgconfig_DATA = libnl-3.0.pc \
+		 libnl-route-3.0.pc \
+		 libnl-genl-3.0.pc \
+		 libnl-nf-3.0.pc
 
 if ENABLE_CLI
-OPT_DIRS += src
+SUBDIRS += src
+pkgconfig_DATA += libnl-cli-3.0.pc
 endif
 
-SUBDIRS = include lib doc $(OPT_DIRS)
 
-pkgconfig_DATA = libnl-2.0.pc
+pkgsysconfdir = ${sysconfdir}/libnl
+pkgsysconf_DATA = etc/pktloc etc/classid
 
-sysconfdir = @sysconfdir@/libnl
-sysconf_DATA = etc/pktloc
-
-.PHONY: cscope
-cscope:
-	cscope -b -q -R -Iinclude -slib -ssrc;
+EXTRA_DIST = \
+	$(pkgsysconf_DATA)

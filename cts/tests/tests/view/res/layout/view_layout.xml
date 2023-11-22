@@ -123,6 +123,26 @@
       </LinearLayout>
     </LinearLayout>
 
+    <RelativeLayout
+      android:id="@+id/pointer_icon_overlap"
+      android:layout_width="100px"
+      android:layout_height="100px"
+      android:pointerIcon="crosshair">
+      <View
+        android:id="@+id/pointer_icon_overlap_child1"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+      <View
+        android:id="@+id/pointer_icon_overlap_child2"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+      <View
+        android:id="@+id/pointer_icon_overlap_child3"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:pointerIcon="help" />
+    </RelativeLayout>
+
     <FrameLayout
         android:id="@+id/aggregate_visibility_parent"
         android:layout_width="wrap_content"

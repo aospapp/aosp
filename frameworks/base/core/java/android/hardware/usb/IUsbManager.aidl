@@ -17,6 +17,7 @@
 package android.hardware.usb;
 
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.hardware.usb.UsbAccessory;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbPort;
@@ -87,15 +88,13 @@ interface IUsbManager
     /* Returns true if the specified USB function is enabled. */
     boolean isFunctionEnabled(String function);
 
-    /* Sets the current USB function. */
-    void setCurrentFunction(String function);
-
-    /* Sets whether USB data (for example, MTP exposed pictures) should be made
-     * available on the USB connection. Unlocking data should only be done with
-     * user involvement, since exposing pictures or other data could leak sensitive
-     * user information.
+    /* Sets the current USB function as well as whether USB data
+     * (for example, MTP exposed pictures) should be made available
+     * on the USB connection. Unlocking data should only be done with
+     * user involvement, since exposing pictures or other data could
+     * leak sensitive user information.
      */
-    void setUsbDataUnlocked(boolean unlock);
+    void setCurrentFunction(String function, boolean usbDataUnlocked);
 
     /* Allow USB debugging from the attached host. If alwaysAllow is true, add the
      * the public key to list of host keys that the user has approved.
@@ -116,4 +115,7 @@ interface IUsbManager
 
     /* Sets the port's current role. */
     void setPortRoles(in String portId, int powerRole, int dataRole);
+
+   /* Sets USB device connection handler. */
+   void setUsbDeviceConnectionHandler(in ComponentName usbDeviceConnectionHandler);
 }

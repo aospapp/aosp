@@ -37,8 +37,8 @@ namespace android {
 
 constexpr char kSensorDeviceFile[] = "/dev/nanohub";
 constexpr char kCommsDeviceFile[] = "/dev/nanohub_comms";
-constexpr char kLockDirectory[] = "/data/system/nanohub_lock";
-constexpr char kLockFile[] = "/data/system/nanohub_lock/lock";
+constexpr char kLockDirectory[] = "/data/vendor/sensor/nanohub_lock";
+constexpr char kLockFile[] = "/data/vendor/sensor/nanohub_lock/lock";
 
 constexpr mode_t kLockDirPermissions = (S_IRUSR | S_IWUSR | S_IXUSR);
 

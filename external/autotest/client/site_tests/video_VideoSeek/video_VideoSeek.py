@@ -20,7 +20,7 @@ class video_VideoSeek(test.test):
 
         @param video: Sample video file to be seeked in Chrome.
         """
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab = cr.browser.tabs[0]
             tab.Navigate(cr.browser.platform.http_server.UrlOf(

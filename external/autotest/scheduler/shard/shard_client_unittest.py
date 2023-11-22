@@ -90,8 +90,7 @@ class ShardClientTest(mox.MoxTestBase,
                 'locked': False,
                 'protection': 0,
                 'shard': None,
-                'status': u'Ready',
-                'synch_id': None}
+                'status': u'Ready'}
 
 
     def _get_sample_serialized_job(self):

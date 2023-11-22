@@ -6,7 +6,6 @@ import logging
 import os
 import time
 
-from autotest_lib.client.bin import site_utils
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import service_stopper
@@ -85,9 +84,9 @@ class ui_SystemTray(ui_test_base.ui_TestBase):
 
             # crbug.com/476791 error when take screenshots too soon after login
             time.sleep(30)
-            site_utils.poll_for_condition(has_animation_stopped,
-                                          timeout=30,
-                                          desc='end of system tray animation')
+            utils.poll_for_condition(has_animation_stopped,
+                                     timeout=30,
+                                     desc='end of system tray animation')
 
             if self.logged_in and self.mask_points is not None:
                 self.draw_image_mask(filepath, self.mask_points)

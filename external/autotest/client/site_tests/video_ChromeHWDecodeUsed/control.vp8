@@ -10,7 +10,6 @@ This test will fail if VDA doesn't work with Chrome navigating to a webm file.
 """
 TIME = "SHORT"
 ATTRIBUTES = "suite:bvt-cq, suite:partners"
-SUITE = "bvt-cq, partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
@@ -25,6 +24,5 @@ DOC = """
 This test verifies VP8 video decode acceleration works.
 """
 
-video = str('http://commondatastorage.googleapis.com/'
-            'chromiumos-test-assets-public/Shaka-Dash/720_vp8.webm')
-job.run_test('video_ChromeHWDecodeUsed', is_mse=0, video_file=video)
+job.run_test('video_ChromeHWDecodeUsed', codec='vp8', is_mse=0,
+             video_file='720_vp8.webm')

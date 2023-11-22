@@ -43,6 +43,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -76,6 +78,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * detect any issues. The test itself does not check the output as it is already done in other
  * tests.
  */
+@SmallTest
+@RequiresDevice
 public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
     private static final String TAG = "EncodeVirtualDisplayWithCompositionTest";
     private static final boolean DBG = true;
@@ -419,52 +423,55 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
                 Log.i(TAG, "start encoding");
             }
             EncodingHelper encodingHelper = new EncodingHelper();
-            mEncodingSurface = encodingHelper.startEncoding(maxSize.getWidth(), maxSize.getHeight(),
-                    mEncoderEventListener);
-            GlCompositor compositor = new GlCompositor();
-            if (DBG) {
-                Log.i(TAG, "start composition");
-            }
-            compositor.startComposition(mEncodingSurface, maxSize.getWidth(), maxSize.getHeight(),
-                    numDisplays);
-            for (int j = 0; j < NUM_DISPLAY_CREATION; j++) {
+            try {
+                mEncodingSurface = encodingHelper.startEncoding(
+                        maxSize.getWidth(), maxSize.getHeight(), mEncoderEventListener);
+                GlCompositor compositor = new GlCompositor();
                 if (DBG) {
-                    Log.i(TAG, "create display");
+                    Log.i(TAG, "start composition");
                 }
-                for (int k = 0; k < numDisplays; k++) {
-                    virtualDisplays[k] =
-                        new VirtualDisplayPresentation(getContext(),
-                                compositor.getWindowSurface(k),
-                                maxSize.getWidth()/numDisplays, maxSize.getHeight());
-                    virtualDisplays[k].createVirtualDisplay();
-                    virtualDisplays[k].createPresentation();
-                }
-                if (DBG) {
-                    Log.i(TAG, "start rendering");
-                }
-                for (int k = 0; k < NUM_RENDERING; k++) {
-                    for (int l = 0; l < numDisplays; l++) {
-                        virtualDisplays[l].doRendering(COLOR_RED);
+                compositor.startComposition(mEncodingSurface,
+                        maxSize.getWidth(), maxSize.getHeight(), numDisplays);
+                for (int j = 0; j < NUM_DISPLAY_CREATION; j++) {
+                    if (DBG) {
+                        Log.i(TAG, "create display");
                     }
-                    // do not care how many frames are actually rendered.
-                    Thread.sleep(1);
+                    for (int k = 0; k < numDisplays; k++) {
+                        virtualDisplays[k] =
+                            new VirtualDisplayPresentation(getContext(),
+                                    compositor.getWindowSurface(k),
+                                    maxSize.getWidth()/numDisplays, maxSize.getHeight());
+                        virtualDisplays[k].createVirtualDisplay();
+                        virtualDisplays[k].createPresentation();
+                    }
+                    if (DBG) {
+                        Log.i(TAG, "start rendering");
+                    }
+                    for (int k = 0; k < NUM_RENDERING; k++) {
+                        for (int l = 0; l < numDisplays; l++) {
+                            virtualDisplays[l].doRendering(COLOR_RED);
+                        }
+                        // do not care how many frames are actually rendered.
+                        Thread.sleep(1);
+                    }
+                    for (int k = 0; k < numDisplays; k++) {
+                        virtualDisplays[k].dismissPresentation();
+                        virtualDisplays[k].destroyVirtualDisplay();
+                    }
+                    compositor.recreateWindows();
                 }
-                for (int k = 0; k < numDisplays; k++) {
-                    virtualDisplays[k].dismissPresentation();
-                    virtualDisplays[k].destroyVirtualDisplay();
+                if (DBG) {
+                    Log.i(TAG, "stop composition");
                 }
-                compositor.recreateWindows();
+                compositor.stopComposition();
+            } finally {
+                if (DBG) {
+                    Log.i(TAG, "stop encoding");
+                }
+                encodingHelper.stopEncoding();
+                assertTrue(mCodecConfigReceived);
+                assertTrue(mCodecBufferReceived);
             }
-            if (DBG) {
-                Log.i(TAG, "stop composition");
-            }
-            compositor.stopComposition();
-            if (DBG) {
-                Log.i(TAG, "stop encoding");
-            }
-            encodingHelper.stopEncoding();
-            assertTrue(mCodecConfigReceived);
-            assertTrue(mCodecBufferReceived);
         }
     }
 
@@ -549,15 +556,15 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
                 throw new RuntimeException("encoder "+ MIME_TYPE + " not support : " + format.toString());
             }
 
-            mEncoder = MediaCodec.createByCodecName(codecName);
-            mEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            mEncodingSurface = mEncoder.createInputSurface();
-            mEncoder.start();
-            mInitCompleted.release();
-            if (DBG) {
-                Log.i(TAG, "starting encoder");
-            }
             try {
+                mEncoder = MediaCodec.createByCodecName(codecName);
+                mEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+                mEncodingSurface = mEncoder.createInputSurface();
+                mEncoder.start();
+                mInitCompleted.release();
+                if (DBG) {
+                    Log.i(TAG, "starting encoder");
+                }
                 ByteBuffer[] encoderOutputBuffers = mEncoder.getOutputBuffers();
                 MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
                 while (!mStopEncoding) {
@@ -592,11 +599,15 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
                 e.printStackTrace();
                 throw e;
             } finally {
-                mEncoder.stop();
-                mEncoder.release();
-                mEncoder = null;
-                mEncodingSurface.release();
-                mEncodingSurface = null;
+                if (mEncoder != null) {
+                    mEncoder.stop();
+                    mEncoder.release();
+                    mEncoder = null;
+                }
+                if (mEncodingSurface != null) {
+                    mEncodingSurface.release();
+                    mEncodingSurface = null;
+                }
             }
         }
     }
@@ -1339,7 +1350,20 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
         for (Size sz : standardSizes) {
             MediaFormat format = MediaFormat.createVideoFormat(
                 MIME_TYPE, sz.getWidth(), sz.getHeight());
-            format.setInteger(MediaFormat.KEY_FRAME_RATE, 15); // require at least 15fps
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+            int bitRate = BITRATE_DEFAULT;
+            if (sz.getWidth() == 1920 && sz.getHeight() == 1080) {
+                bitRate = BITRATE_1080p;
+            } else if (sz.getWidth() == 1280 && sz.getHeight() == 720) {
+                bitRate = BITRATE_720p;
+            } else if (sz.getWidth() == 800 && sz.getHeight() == 480) {
+                bitRate = BITRATE_800x480;
+            }
+            format.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+            Log.i(TAG,"format = " + format.toString());
             if (mcl.findEncoderForFormat(format) != null) {
                 return sz;
             }
@@ -1372,6 +1396,7 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
         MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
         MediaFormat testFormat = MediaFormat.createVideoFormat(MIME_TYPE, w, h);
         testFormat.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
+        testFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
         if (mcl.findDecoderForFormat(testFormat) == null
                 || mcl.findEncoderForFormat(testFormat) == null) {
             return false;

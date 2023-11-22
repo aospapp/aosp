@@ -100,7 +100,6 @@ bouncycastle-hostdex.jar
 apache-xml-hostdex.jar
 core-tests-hostdex.jar
 core-libart-hostdex.jar
-core-lambda-stubs-hostdex.jar
 conscrypt-hostdex.jar
 core-ojtests-hostdex.jar  # This is the *one* addition that makes our OJ tests actually run. The rest of these are standard jars on the bootclasspath.
 core-oj-hostdex.jar
@@ -137,5 +136,3 @@ ANDROID_DATA=$ANDROID_DATA \
     $DEBUG_OPTION \
     "$@"
 
-
-temp_dir="$(mktemp -q -d -t "$(basename "$0").XXXXXX")"

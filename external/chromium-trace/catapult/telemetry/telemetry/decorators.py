@@ -109,9 +109,12 @@ def Disabled(*args):
     @Disabled('all')  # Unconditionally disabled.
   """
   def _Disabled(func):
-    if not hasattr(func, '_disabled_strings'):
-      func._disabled_strings = set()
-    func._disabled_strings.update(disabled_strings)
+    disabled_attr_name = DisabledAttributeName(func)
+    if not hasattr(func, disabled_attr_name):
+      setattr(func, disabled_attr_name, set())
+    disabled_set = getattr(func, disabled_attr_name)
+    disabled_set.update(disabled_strings)
+    setattr(func, disabled_attr_name, disabled_set)
     return func
   assert args, (
       "@Disabled(...) requires arguments. Use @Disabled('all') if you want to "
@@ -135,9 +138,12 @@ def Enabled(*args):
     @Enabled('mavericks')     # Enabled only on Mac Mavericks (10.9).
   """
   def _Enabled(func):
-    if not hasattr(func, '_enabled_strings'):
-      func._enabled_strings = set()
-    func._enabled_strings.update(enabled_strings)
+    enabled_attr_name = EnabledAttributeName(func)
+    if not hasattr(func, enabled_attr_name):
+      setattr(func, enabled_attr_name, set())
+    enabled_set = getattr(func, enabled_attr_name)
+    enabled_set.update(enabled_strings)
+    setattr(func, enabled_attr_name, enabled_set)
     return func
   assert args, '@Enabled(..) requires arguments'
   assert not callable(args[0]), 'Please use @Enabled(..).'
@@ -146,6 +152,31 @@ def Enabled(*args):
     # TODO(tonyg): Validate that these strings are recognized.
     assert isinstance(enabled_string, str), '@Enabled accepts a list of strs'
   return _Enabled
+
+
+def Owner(emails=None, component=None):
+  """Decorator for specifying the owner of a benchmark."""
+  def _Owner(func):
+    owner_attr_name = OwnerAttributeName(func)
+    assert inspect.isclass(func), '@Owner(...) can only be used on classes'
+    if not hasattr(func, owner_attr_name):
+      setattr(func, owner_attr_name, {})
+    owner_dict = getattr(func, owner_attr_name)
+    if emails:
+      assert 'emails' not in owner_dict, 'emails can only be set once'
+      owner_dict['emails'] = emails
+    if component:
+      assert 'component' not in owner_dict, 'component can only be set once'
+      owner_dict['component'] = component
+    setattr(func, owner_attr_name, owner_dict)
+    return func
+  help_text = '@Owner(...) requires emails and/or a component'
+  assert emails or component, help_text
+  if emails:
+    assert isinstance(emails, list), 'emails must be a list of strs'
+    for e in emails:
+      assert isinstance(e, str), 'emails must be a list of strs'
+  return _Owner
 
 
 # TODO(dpranke): Remove if we don't need this.
@@ -188,33 +219,93 @@ def IsEnabled(test, possible_browser):
   return (not should_skip, msg)
 
 
+def IsBenchmarkEnabled(benchmark, possible_browser):
+  return (not benchmark.ShouldDisable(possible_browser) and
+          IsEnabled(benchmark, possible_browser)[0])
+
+
+def _TestName(test):
+  if inspect.ismethod(test):
+    # On methods, __name__ is "instancemethod", use __func__.__name__ instead.
+    test = test.__func__
+  if hasattr(test, '__name__'):
+    return test.__name__
+  elif hasattr(test, '__class__'):
+    return test.__class__.__name__
+  return str(test)
+
+
+def DisabledAttributeName(test):
+  name = _TestName(test)
+  return '_%s_%s_disabled_strings' % (test.__module__, name)
+
+
+def GetDisabledAttributes(test):
+  disabled_attr_name = DisabledAttributeName(test)
+  if not hasattr(test, disabled_attr_name):
+    return set()
+  return set(getattr(test, disabled_attr_name))
+
+
+def GetEnabledAttributes(test):
+  enabled_attr_name = EnabledAttributeName(test)
+  if not hasattr(test, enabled_attr_name):
+    return set()
+  enabled_strings = set(getattr(test, enabled_attr_name))
+  return enabled_strings
+
+
+def EnabledAttributeName(test):
+  name = _TestName(test)
+  return '_%s_%s_enabled_strings' % (test.__module__, name)
+
+
+def OwnerAttributeName(test):
+  name = _TestName(test)
+  return '_%s_%s_owner' % (test.__module__, name)
+
+
+def GetEmails(test):
+  owner_attr_name = OwnerAttributeName(test)
+  owner = getattr(test, owner_attr_name, {})
+  if 'emails' in owner:
+    return owner['emails']
+  return None
+
+
+def GetComponent(test):
+  owner_attr_name = OwnerAttributeName(test)
+  owner = getattr(test, owner_attr_name, {})
+  if 'component' in owner:
+    return owner['component']
+  return None
+
+
 def ShouldSkip(test, possible_browser):
   """Returns whether the test should be skipped and the reason for it."""
   platform_attributes = _PlatformAttributes(possible_browser)
 
-  if hasattr(test, '__name__'):
-    name = test.__name__
-  elif hasattr(test, '__class__'):
-    name = test.__class__.__name__
-  else:
-    name = str(test)
-
+  name = _TestName(test)
   skip = 'Skipping %s (%s) because' % (name, str(test))
   running = 'You are running %r.' % platform_attributes
 
-  if hasattr(test, '_disabled_strings'):
-    if 'all' in test._disabled_strings:
+  disabled_attr_name = DisabledAttributeName(test)
+  if hasattr(test, disabled_attr_name):
+    disabled_strings = getattr(test, disabled_attr_name)
+    if 'all' in disabled_strings:
       return (True, '%s it is unconditionally disabled.' % skip)
-    if set(test._disabled_strings) & set(platform_attributes):
+    if set(disabled_strings) & set(platform_attributes):
       return (True, '%s it is disabled for %s. %s' %
-                      (skip, ' and '.join(test._disabled_strings), running))
+                      (skip, ' and '.join(disabled_strings), running))
 
-  if hasattr(test, '_enabled_strings'):
-    if 'all' in test._enabled_strings:
+  enabled_attr_name = EnabledAttributeName(test)
+  if hasattr(test, enabled_attr_name):
+    enabled_strings = getattr(test, enabled_attr_name)
+    if 'all' in enabled_strings:
       return False, None  # No arguments to @Enabled means always enable.
-    if not set(test._enabled_strings) & set(platform_attributes):
+    if not set(enabled_strings) & set(platform_attributes):
       return (True, '%s it is only enabled for %s. %s' %
-                      (skip, ' or '.join(test._enabled_strings), running))
+                      (skip, ' or '.join(enabled_strings), running))
 
   return False, None
 

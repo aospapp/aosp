@@ -10,6 +10,7 @@
 #define NOTIFY_H
 
 #include "p2p/p2p.h"
+#include "bss.h"
 
 struct wps_credential;
 struct wps_event_m2d;
@@ -24,6 +25,7 @@ void wpas_notify_state_changed(struct wpa_supplicant *wpa_s,
 			       enum wpa_states old_state);
 void wpas_notify_disconnect_reason(struct wpa_supplicant *wpa_s);
 void wpas_notify_assoc_status_code(struct wpa_supplicant *wpa_s);
+void wpas_notify_auth_timeout(struct wpa_supplicant *wpa_s);
 void wpas_notify_network_changed(struct wpa_supplicant *wpa_s);
 void wpas_notify_ap_scan_changed(struct wpa_supplicant *wpa_s);
 void wpas_notify_bssid_changed(struct wpa_supplicant *wpa_s);
@@ -88,7 +90,9 @@ void wpas_notify_sta_authorized(struct wpa_supplicant *wpa_s,
 				const u8 *p2p_dev_addr);
 void wpas_notify_p2p_find_stopped(struct wpa_supplicant *wpa_s);
 void wpas_notify_p2p_device_found(struct wpa_supplicant *wpa_s,
-				  const u8 *dev_addr, int new_device);
+				 const u8 *addr, const struct p2p_peer_info *info,
+				 const u8* peer_wfd_device_info, u8 peer_wfd_device_info_len,
+				 int new_device);
 void wpas_notify_p2p_device_lost(struct wpa_supplicant *wpa_s,
 				 const u8 *dev_addr);
 void wpas_notify_p2p_group_removed(struct wpa_supplicant *wpa_s,
@@ -113,8 +117,8 @@ void wpas_notify_p2p_provision_discovery(struct wpa_supplicant *wpa_s,
 					 u16 config_methods,
 					 unsigned int generated_pin);
 void wpas_notify_p2p_group_started(struct wpa_supplicant *wpa_s,
-				   struct wpa_ssid *ssid, int network_id,
-				   int client);
+				   struct wpa_ssid *ssid, int persistent,
+				   int client, const u8 *ip);
 void wpas_notify_p2p_group_formation_failure(struct wpa_supplicant *wpa_s,
 					     const char *reason);
 void wpas_notify_persistent_group_added(struct wpa_supplicant *wpa_s,
@@ -141,5 +145,16 @@ void wpas_notify_network_type_changed(struct wpa_supplicant *wpa_s,
 void wpas_notify_p2p_invitation_received(struct wpa_supplicant *wpa_s,
 					 const u8 *sa, const u8 *go_dev_addr,
 					 const u8 *bssid, int id, int op_freq);
-
+void wpas_notify_anqp_query_done(struct wpa_supplicant *wpa_s, const u8* bssid,
+				 const char* result,
+				 const struct wpa_bss_anqp *anqp);
+void wpas_notify_hs20_icon_query_done(struct wpa_supplicant *wpa_s, const u8* bssid,
+				      const char* file_name, const u8* image,
+				      u32 image_length);
+void wpas_notify_hs20_rx_subscription_remediation(struct wpa_supplicant *wpa_s,
+						  const char* url,
+						  u8 osu_method);
+void wpas_notify_hs20_rx_deauth_imminent_notice(struct wpa_supplicant *wpa_s,
+						u8 code, u16 reauth_delay,
+						const char *url);
 #endif /* NOTIFY_H */

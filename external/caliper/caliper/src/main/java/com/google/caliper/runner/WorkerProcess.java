@@ -201,9 +201,11 @@ import javax.inject.Inject;
     logger.fine(String.format("Benchmark(%s) %s args: %s", benchmarkClass.name(), platformName,
         benchmarkJvmOptions));
 
-    String classPath = vmConfig.workerClassPath();
-    Collections.addAll(args, "-cp", classPath);
-    logger.finer(String.format("Class path: %s", classPath));
+    ImmutableList<String> classPathArgs = vmConfig.workerClassPathArgs();
+    args.addAll(classPathArgs);
+    logger.finer(String.format("Class path args: %s", classPathArgs));
+
+    // TODO(iam): consider forwarding -Djava.library.path= for JNI library support.
     return args;
   }
 }

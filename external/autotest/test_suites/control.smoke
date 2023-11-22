@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "smoke"
 PURPOSE = "Basic tests that are able to run in VMs"
-CRITERIA = "All tests with SUITE=smoke must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"
@@ -14,7 +13,8 @@ TEST_TYPE = "Server"
 
 DOC = """
 Smoke tests suite is a subset of BVT able to run in VMs. All of these tests
-run on all buildbot builds.
+run on all buildbot builds. A test which runs as part of the smoke suite
+should also be a member of the bvt-inline suite to run on real hardware.
 
 @param build: The name of the image to test.
               Ex: x86-mario-release/R17-1412.33.0-a1-b29

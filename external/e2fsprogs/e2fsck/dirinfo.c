@@ -7,11 +7,13 @@
 
 #undef DIRINFO_DEBUG
 
+#include "config.h"
 #include "e2fsck.h"
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "uuid/uuid.h"
 
+#include "ext2fs/ext2fs.h"
 #include <ext2fs/tdb.h>
 
 struct dir_info_db {
@@ -19,13 +21,17 @@ struct dir_info_db {
 	int		size;
 	struct dir_info *array;
 	struct dir_info *last_lookup;
+#ifdef CONFIG_TDB
 	char		*tdb_fn;
 	TDB_CONTEXT	*tdb;
+#endif
 };
 
 struct dir_info_iter {
 	int	i;
+#ifdef CONFIG_TDB
 	TDB_DATA	tdb_iter;
+#endif
 };
 
 struct dir_info_ent {
@@ -36,11 +42,13 @@ struct dir_info_ent {
 
 static void e2fsck_put_dir_info(e2fsck_t ctx, struct dir_info *dir);
 
+#ifdef CONFIG_TDB
 static void setup_tdb(e2fsck_t ctx, ext2_ino_t num_dirs)
 {
 	struct dir_info_db	*db = ctx->dir_info;
 	unsigned int		threshold;
 	errcode_t		retval;
+	mode_t			save_umask;
 	char			*tdb_dir, uuid[40];
 	int			fd, enable;
 
@@ -61,7 +69,9 @@ static void setup_tdb(e2fsck_t ctx, ext2_ino_t num_dirs)
 
 	uuid_unparse(ctx->fs->super->s_uuid, uuid);
 	sprintf(db->tdb_fn, "%s/%s-dirinfo-XXXXXX", tdb_dir, uuid);
+	save_umask = umask(077);
 	fd = mkstemp(db->tdb_fn);
+	umask(save_umask);
 	if (fd < 0) {
 		db->tdb = NULL;
 		return;
@@ -74,6 +84,7 @@ static void setup_tdb(e2fsck_t ctx, ext2_ino_t num_dirs)
 			   O_RDWR | O_CREAT | O_TRUNC, 0600);
 	close(fd);
 }
+#endif
 
 static void setup_db(e2fsck_t ctx)
 {
@@ -93,6 +104,7 @@ static void setup_db(e2fsck_t ctx)
 	if (retval)
 		num_dirs = 1024;	/* Guess */
 
+#ifdef CONFIG_TDB
 	setup_tdb(ctx, num_dirs);
 
 	if (db->tdb) {
@@ -101,6 +113,7 @@ static void setup_db(e2fsck_t ctx)
 #endif
 		return;
 	}
+#endif
 
 	db->size = num_dirs + 10;
 	db->array  = (struct dir_info *)
@@ -116,8 +129,7 @@ static void setup_db(e2fsck_t ctx)
  */
 void e2fsck_add_dir_info(e2fsck_t ctx, ext2_ino_t ino, ext2_ino_t parent)
 {
-	struct dir_info_db 	*db;
-	struct dir_info 	*dir, ent;
+	struct dir_info		*dir, *old_array;
 	int			i, j;
 	errcode_t		retval;
 	unsigned long		old_size;
@@ -127,28 +139,37 @@ void e2fsck_add_dir_info(e2fsck_t ctx, ext2_ino_t ino, ext2_ino_t parent)
 #endif
 	if (!ctx->dir_info)
 		setup_db(ctx);
-	db = ctx->dir_info;
 
 	if (ctx->dir_info->count >= ctx->dir_info->size) {
 		old_size = ctx->dir_info->size * sizeof(struct dir_info);
 		ctx->dir_info->size += 10;
+		old_array = ctx->dir_info->array;
 		retval = ext2fs_resize_mem(old_size, ctx->dir_info->size *
 					   sizeof(struct dir_info),
 					   &ctx->dir_info->array);
 		if (retval) {
+			fprintf(stderr, "Couldn't reallocate dir_info "
+				"structure to %d entries\n",
+				ctx->dir_info->size);
+			fatal_error(ctx, 0);
 			ctx->dir_info->size -= 10;
 			return;
 		}
+		if (old_array != ctx->dir_info->array)
+			ctx->dir_info->last_lookup = NULL;
 	}
 
-	ent.ino = ino;
-	ent.parent = parent;
-	ent.dotdot = parent;
+#ifdef CONFIG_TDB
+	if (ctx->dir_info->tdb) {
+		struct dir_info ent;
 
-	if (db->tdb) {
+		ent.ino = ino;
+		ent.parent = parent;
+		ent.dotdot = parent;
 		e2fsck_put_dir_info(ctx, &ent);
 		return;
 	}
+#endif
 
 	/*
 	 * Normally, add_dir_info is called with each inode in
@@ -184,8 +205,6 @@ static struct dir_info *e2fsck_get_dir_info(e2fsck_t ctx, ext2_ino_t ino)
 {
 	struct dir_info_db	*db = ctx->dir_info;
 	int			low, high, mid;
-	struct dir_info_ent	*buf;
-	static struct dir_info	ret_dir_info;
 
 	if (!db)
 		return 0;
@@ -194,8 +213,11 @@ static struct dir_info *e2fsck_get_dir_info(e2fsck_t ctx, ext2_ino_t ino)
 	printf("e2fsck_get_dir_info %d...", ino);
 #endif
 
+#ifdef CONFIG_TDB
 	if (db->tdb) {
+		static struct dir_info	ret_dir_info;
 		TDB_DATA key, data;
+		struct dir_info_ent	*buf;
 
 		key.dptr = (unsigned char *) &ino;
 		key.dsize = sizeof(ext2_ino_t);
@@ -218,6 +240,7 @@ static struct dir_info *e2fsck_get_dir_info(e2fsck_t ctx, ext2_ino_t ino)
 		free(data.dptr);
 		return &ret_dir_info;
 	}
+#endif
 
 	if (db->last_lookup && db->last_lookup->ino == ino)
 		return db->last_lookup;
@@ -261,17 +284,21 @@ static struct dir_info *e2fsck_get_dir_info(e2fsck_t ctx, ext2_ino_t ino)
 	return 0;
 }
 
-static void e2fsck_put_dir_info(e2fsck_t ctx, struct dir_info *dir)
+static void e2fsck_put_dir_info(e2fsck_t ctx EXT2FS_NO_TDB_UNUSED,
+				struct dir_info *dir EXT2FS_NO_TDB_UNUSED)
 {
+#ifdef CONFIG_TDB
 	struct dir_info_db	*db = ctx->dir_info;
 	struct dir_info_ent	buf;
 	TDB_DATA		key, data;
+#endif
 
 #ifdef DIRINFO_DEBUG
 	printf("e2fsck_put_dir_info (%d, %d, %d)...", dir->ino, dir->dotdot,
 	       dir->parent);
 #endif
 
+#ifdef CONFIG_TDB
 	if (!db->tdb)
 		return;
 
@@ -286,7 +313,7 @@ static void e2fsck_put_dir_info(e2fsck_t ctx, struct dir_info *dir)
 	if (tdb_store(db->tdb, key, data, TDB_REPLACE) == -1) {
 		printf("store failed: %s\n", tdb_errorstr(db->tdb));
 	}
-	return;
+#endif
 }
 
 /*
@@ -295,12 +322,14 @@ static void e2fsck_put_dir_info(e2fsck_t ctx, struct dir_info *dir)
 void e2fsck_free_dir_info(e2fsck_t ctx)
 {
 	if (ctx->dir_info) {
+#ifdef CONFIG_TDB
 		if (ctx->dir_info->tdb)
 			tdb_close(ctx->dir_info->tdb);
 		if (ctx->dir_info->tdb_fn) {
 			unlink(ctx->dir_info->tdb_fn);
 			free(ctx->dir_info->tdb_fn);
 		}
+#endif
 		if (ctx->dir_info->array)
 			ext2fs_free_mem(&ctx->dir_info->array);
 		ctx->dir_info->array = 0;
@@ -322,13 +351,14 @@ int e2fsck_get_num_dirinfo(e2fsck_t ctx)
 struct dir_info_iter *e2fsck_dir_info_iter_begin(e2fsck_t ctx)
 {
 	struct dir_info_iter *iter;
-	struct dir_info_db *db = ctx->dir_info;
 
 	iter = e2fsck_allocate_memory(ctx, sizeof(struct dir_info_iter),
 				      "dir_info iterator");
 
-	if (db->tdb)
-		iter->tdb_iter = tdb_firstkey(db->tdb);
+#ifdef CONFIG_TDB
+	if (ctx->dir_info->tdb)
+		iter->tdb_iter = tdb_firstkey(ctx->dir_info->tdb);
+#endif
 
 	return iter;
 }
@@ -336,7 +366,9 @@ struct dir_info_iter *e2fsck_dir_info_iter_begin(e2fsck_t ctx)
 void e2fsck_dir_info_iter_end(e2fsck_t ctx EXT2FS_ATTR((unused)),
 			      struct dir_info_iter *iter)
 {
+#ifdef CONFIG_TDB
 	free(iter->tdb_iter.dptr);
+#endif
 	ext2fs_free_mem(&iter);
 }
 
@@ -345,33 +377,34 @@ void e2fsck_dir_info_iter_end(e2fsck_t ctx EXT2FS_ATTR((unused)),
  */
 struct dir_info *e2fsck_dir_info_iter(e2fsck_t ctx, struct dir_info_iter *iter)
 {
-	TDB_DATA data, key;
-	struct dir_info_db *db = ctx->dir_info;
-	struct dir_info_ent *buf;
-	static struct dir_info ret_dir_info;
-
 	if (!ctx->dir_info || !iter)
 		return 0;
 
-	if (db->tdb) {
+#ifdef CONFIG_TDB
+	if (ctx->dir_info->tdb) {
+		static struct dir_info ret_dir_info;
+		struct dir_info_ent *buf;
+		TDB_DATA data, key;
+
 		if (iter->tdb_iter.dptr == 0)
 			return 0;
 		key = iter->tdb_iter;
-		data = tdb_fetch(db->tdb, key);
+		data = tdb_fetch(ctx->dir_info->tdb, key);
 		if (!data.dptr) {
 			printf("iter fetch failed: %s\n",
-			       tdb_errorstr(db->tdb));
+			       tdb_errorstr(ctx->dir_info->tdb));
 			return 0;
 		}
 		buf = (struct dir_info_ent *) data.dptr;
 		ret_dir_info.ino = *((ext2_ino_t *) iter->tdb_iter.dptr);
 		ret_dir_info.dotdot = buf->dotdot;
 		ret_dir_info.parent = buf->parent;
-		iter->tdb_iter = tdb_nextkey(db->tdb, key);
+		iter->tdb_iter = tdb_nextkey(ctx->dir_info->tdb, key);
 		free(key.dptr);
 		free(data.dptr);
 		return &ret_dir_info;
 	}
+#endif
 
 	if (iter->i >= ctx->dir_info->count)
 		return 0;

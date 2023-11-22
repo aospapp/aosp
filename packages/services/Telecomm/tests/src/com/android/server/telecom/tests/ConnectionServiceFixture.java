@@ -20,7 +20,6 @@ import com.android.internal.telecom.IConnectionService;
 import com.android.internal.telecom.IConnectionServiceAdapter;
 import com.android.internal.telecom.IVideoProvider;
 import com.android.internal.telecom.RemoteServiceCallback;
-import com.android.server.telecom.Log;
 
 import junit.framework.TestCase;
 
@@ -31,6 +30,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.IInterface;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.telecom.CallAudioState;
 import android.telecom.Conference;
@@ -38,6 +38,8 @@ import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
+import android.telecom.Log;
+import android.telecom.Logging.Session;
 import android.telecom.ParcelableConference;
 import android.telecom.ParcelableConnection;
 import android.telecom.PhoneAccountHandle;
@@ -112,6 +114,10 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 fakeConnection.setConnectionProperties(mProperties);
             }
             return fakeConnection;
+        }
+
+        @Override
+        public void onCreateConnectionComplete(Connection connection) {
         }
 
         @Override
@@ -192,29 +198,30 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         List<String> rejectedCallIds = Lists.newArrayList();
 
         @Override
-        public void addConnectionServiceAdapter(IConnectionServiceAdapter adapter)
-                throws RemoteException {
+        public void addConnectionServiceAdapter(IConnectionServiceAdapter adapter,
+                Session.Info info) throws RemoteException {
             if (!mConnectionServiceAdapters.add(adapter)) {
                 throw new RuntimeException("Adapter already added: " + adapter);
             }
-            mConnectionServiceDelegateAdapter.addConnectionServiceAdapter(adapter);
+            mConnectionServiceDelegateAdapter.addConnectionServiceAdapter(adapter,
+                    null /*Session.Info*/);
         }
 
         @Override
-        public void removeConnectionServiceAdapter(IConnectionServiceAdapter adapter)
-                throws RemoteException {
+        public void removeConnectionServiceAdapter(IConnectionServiceAdapter adapter,
+                Session.Info info) throws RemoteException {
             if (!mConnectionServiceAdapters.remove(adapter)) {
                 throw new RuntimeException("Adapter never added: " + adapter);
             }
-            mConnectionServiceDelegateAdapter.removeConnectionServiceAdapter(adapter);
+            mConnectionServiceDelegateAdapter.removeConnectionServiceAdapter(adapter,
+                    null /*Session.Info*/);
         }
 
         @Override
         public void createConnection(PhoneAccountHandle connectionManagerPhoneAccount,
-                String id,
-                ConnectionRequest request, boolean isIncoming, boolean isUnknown)
-                throws RemoteException {
-            Log.i(ConnectionServiceFixture.this, "xoxox createConnection --> " + id);
+                String id, ConnectionRequest request, boolean isIncoming, boolean isUnknown,
+                Session.Info info) throws RemoteException {
+            Log.i(ConnectionServiceFixture.this, "createConnection --> " + id);
 
             if (mConnectionById.containsKey(id)) {
                 throw new RuntimeException("Connection already exists: " + id);
@@ -233,74 +240,119 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             c.isConferenceCreated = true;
             mConnectionById.put(id, c);
             mConnectionServiceDelegateAdapter.createConnection(connectionManagerPhoneAccount,
-                    id, request, isIncoming, isUnknown);
+                    id, request, isIncoming, isUnknown, null /*Session.Info*/);
         }
 
         @Override
-        public void abort(String callId) throws RemoteException { }
+        public void createConnectionComplete(String id, Session.Info info) throws RemoteException {
+            mConnectionServiceDelegateAdapter.createConnectionComplete(id, null /*Session.Info*/);
+        }
 
         @Override
-        public void answerVideo(String callId, int videoState) throws RemoteException { }
+        public void createConnectionFailed(PhoneAccountHandle connectionManagerPhoneAccount,
+                String callId, ConnectionRequest request, boolean isIncoming,
+                Session.Info sessionInfo) throws RemoteException {
+            Log.i(ConnectionServiceFixture.this, "createConnectionFailed --> " + callId);
+
+            if (mConnectionById.containsKey(callId)) {
+                throw new RuntimeException("Connection already exists: " + callId);
+            }
+
+            // TODO(3p-calls): Implement this.
+        }
 
         @Override
-        public void answer(String callId) throws RemoteException { }
+        public void abort(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void reject(String callId) throws RemoteException {
+        public void answerVideo(String callId, int videoState,
+                Session.Info info) throws RemoteException { }
+
+        @Override
+        public void answer(String callId, Session.Info info) throws RemoteException { }
+
+        @Override
+        public void reject(String callId, Session.Info info) throws RemoteException {
             rejectedCallIds.add(callId);
         }
 
         @Override
-        public void rejectWithMessage(String callId, String message) throws RemoteException { }
+        public void rejectWithMessage(String callId, String message,
+                Session.Info info) throws RemoteException { }
 
         @Override
-        public void disconnect(String callId) throws RemoteException { }
+        public void disconnect(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void silence(String callId) throws RemoteException { }
+        public void silence(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void hold(String callId) throws RemoteException { }
+        public void hold(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void unhold(String callId) throws RemoteException { }
+        public void unhold(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void onCallAudioStateChanged(String activeCallId, CallAudioState audioState)
+        public void onCallAudioStateChanged(String activeCallId, CallAudioState audioState,
+                Session.Info info)
                 throws RemoteException { }
 
         @Override
-        public void playDtmfTone(String callId, char digit) throws RemoteException { }
+        public void playDtmfTone(String callId, char digit,
+                Session.Info info) throws RemoteException { }
 
         @Override
-        public void stopDtmfTone(String callId) throws RemoteException { }
+        public void stopDtmfTone(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void conference(String conferenceCallId, String callId) throws RemoteException {
-            mConnectionServiceDelegateAdapter.conference(conferenceCallId, callId);
+        public void conference(String conferenceCallId, String callId,
+                Session.Info info) throws RemoteException {
+            mConnectionServiceDelegateAdapter.conference(conferenceCallId, callId, info);
         }
 
         @Override
-        public void splitFromConference(String callId) throws RemoteException { }
+        public void splitFromConference(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void mergeConference(String conferenceCallId) throws RemoteException { }
+        public void mergeConference(String conferenceCallId,
+                Session.Info info) throws RemoteException { }
 
         @Override
-        public void swapConference(String conferenceCallId) throws RemoteException { }
+        public void swapConference(String conferenceCallId,
+                Session.Info info) throws RemoteException { }
 
         @Override
-        public void onPostDialContinue(String callId, boolean proceed) throws RemoteException { }
+        public void onPostDialContinue(String callId, boolean proceed,
+                Session.Info info) throws RemoteException { }
 
         @Override
-        public void pullExternalCall(String callId) throws RemoteException { }
+        public void pullExternalCall(String callId, Session.Info info) throws RemoteException { }
 
         @Override
-        public void sendCallEvent(String callId, String event, Bundle extras) throws RemoteException
+        public void sendCallEvent(String callId, String event, Bundle extras,
+                Session.Info info) throws RemoteException
         {}
 
-        public void onExtrasChanged(String callId, Bundle extras) throws RemoteException {
-            mConnectionServiceDelegateAdapter.onExtrasChanged(callId, extras);
+        public void onExtrasChanged(String callId, Bundle extras,
+                Session.Info info) throws RemoteException {
+            mConnectionServiceDelegateAdapter.onExtrasChanged(callId, extras, info);
+        }
+
+        @Override
+        public void startRtt(String callId, ParcelFileDescriptor fromInCall,
+                ParcelFileDescriptor toInCall, Session.Info sessionInfo) throws RemoteException {
+
+        }
+
+        @Override
+        public void stopRtt(String callId, Session.Info sessionInfo) throws RemoteException {
+
+        }
+
+        @Override
+        public void respondToRttUpgradeRequest(String callId, ParcelFileDescriptor fromInCall,
+                ParcelFileDescriptor toInCall, Session.Info sessionInfo) throws RemoteException {
+
         }
 
         @Override
@@ -333,6 +385,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         int addressPresentation;
         int capabilities;
         int properties;
+        int supportedAudioRoutes;
         StatusHints statusHints;
         DisconnectCause disconnectCause;
         String conferenceId;
@@ -382,28 +435,28 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             a.handleCreateConnectionComplete(
                     id,
                     mConnectionById.get(id).request,
-                    parcelable(mConnectionById.get(id)));
+                    parcelable(mConnectionById.get(id)), null /*Session.Info*/);
         }
     }
 
     public void sendSetActive(String id) throws Exception {
         mConnectionById.get(id).state = Connection.STATE_ACTIVE;
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setActive(id);
+            a.setActive(id, null /*Session.Info*/);
         }
     }
 
     public void sendSetRinging(String id) throws Exception {
         mConnectionById.get(id).state = Connection.STATE_RINGING;
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setRinging(id);
+            a.setRinging(id, null /*Session.Info*/);
         }
     }
 
     public void sendSetDialing(String id) throws Exception {
         mConnectionById.get(id).state = Connection.STATE_DIALING;
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setDialing(id);
+            a.setDialing(id, null /*Session.Info*/);
         }
     }
 
@@ -411,56 +464,62 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
         mConnectionById.get(id).state = Connection.STATE_DISCONNECTED;
         mConnectionById.get(id).disconnectCause = new DisconnectCause(disconnectCause);
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setDisconnected(id, mConnectionById.get(id).disconnectCause);
+            a.setDisconnected(id, mConnectionById.get(id).disconnectCause, null /*Session.Info*/);
         }
     }
 
     public void sendSetOnHold(String id) throws Exception {
         mConnectionById.get(id).state = Connection.STATE_HOLDING;
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setOnHold(id);
+            a.setOnHold(id, null /*Session.Info*/);
         }
     }
 
     public void sendSetRingbackRequested(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setRingbackRequested(id, mConnectionById.get(id).ringing);
+            a.setRingbackRequested(id, mConnectionById.get(id).ringing, null /*Session.Info*/);
         }
     }
 
     public void sendSetConnectionCapabilities(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setConnectionCapabilities(id, mConnectionById.get(id).capabilities);
+            a.setConnectionCapabilities(id, mConnectionById.get(id).capabilities,
+                    null /*Session.Info*/);
         }
     }
 
+    public void sendSetConnectionProperties(String id) throws Exception {
+        for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
+            a.setConnectionProperties(id, mConnectionById.get(id).properties, null /*Session.Info*/);
+        }
+    }
     public void sendSetIsConferenced(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setIsConferenced(id, mConnectionById.get(id).conferenceId);
+            a.setIsConferenced(id, mConnectionById.get(id).conferenceId, null /*Session.Info*/);
         }
     }
 
     public void sendAddConferenceCall(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.addConferenceCall(id, parcelable(mConferenceById.get(id)));
+            a.addConferenceCall(id, parcelable(mConferenceById.get(id)), null /*Session.Info*/);
         }
     }
 
     public void sendRemoveCall(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.removeCall(id);
+            a.removeCall(id, null /*Session.Info*/);
         }
     }
 
     public void sendOnPostDialWait(String id, String remaining) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.onPostDialWait(id, remaining);
+            a.onPostDialWait(id, remaining, null /*Session.Info*/);
         }
     }
 
     public void sendOnPostDialChar(String id, char nextChar) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.onPostDialChar(id, nextChar);
+            a.onPostDialChar(id, nextChar, null /*Session.Info*/);
         }
     }
 
@@ -487,31 +546,32 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 public IBinder asBinder() {
                     return this;
                 }
-            });
+            }, null /*Session.Info*/);
         }
     }
 
     public void sendSetVideoProvider(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setVideoProvider(id, mConnectionById.get(id).videoProvider);
+            a.setVideoProvider(id, mConnectionById.get(id).videoProvider, null /*Session.Info*/);
         }
     }
 
     public void sendSetVideoState(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setVideoState(id, mConnectionById.get(id).videoState);
+            a.setVideoState(id, mConnectionById.get(id).videoState, null /*Session.Info*/);
         }
     }
 
     public void sendSetIsVoipAudioMode(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setIsVoipAudioMode(id, mConnectionById.get(id).isVoipAudioMode);
+            a.setIsVoipAudioMode(id, mConnectionById.get(id).isVoipAudioMode,
+                    null /*Session.Info*/);
         }
     }
 
     public void sendSetStatusHints(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setStatusHints(id, mConnectionById.get(id).statusHints);
+            a.setStatusHints(id, mConnectionById.get(id).statusHints, null /*Session.Info*/);
         }
     }
 
@@ -520,7 +580,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             a.setAddress(
                     id,
                     mConnectionById.get(id).request.getAddress(),
-                    mConnectionById.get(id).addressPresentation);
+                    mConnectionById.get(id).addressPresentation, null /*Session.Info*/);
         }
     }
 
@@ -529,31 +589,32 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
             a.setCallerDisplayName(
                     id,
                     mConnectionById.get(id).callerDisplayName,
-                    mConnectionById.get(id).callerDisplayNamePresentation);
+                    mConnectionById.get(id).callerDisplayNamePresentation, null /*Session.Info*/);
         }
     }
 
     public void sendSetConferenceableConnections(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setConferenceableConnections(id, mConnectionById.get(id).conferenceableConnectionIds);
+            a.setConferenceableConnections(id, mConnectionById.get(id).conferenceableConnectionIds,
+                    null /*Session.Info*/);
         }
     }
 
     public void sendAddExistingConnection(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.addExistingConnection(id, parcelable(mConnectionById.get(id)));
+            a.addExistingConnection(id, parcelable(mConnectionById.get(id)), null /*Session.Info*/);
         }
     }
 
     public void sendConnectionEvent(String id, String event, Bundle extras) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.onConnectionEvent(id, event, extras);
+            a.onConnectionEvent(id, event, extras, null /*Session.Info*/);
         }
     }
 
     public void sendSetConferenceMergeFailed(String id) throws Exception {
         for (IConnectionServiceAdapter a : mConnectionServiceAdapters) {
-            a.setConferenceMergeFailed(id);
+            a.setConferenceMergeFailed(id, null /*Session.Info*/);
         }
     }
 
@@ -589,6 +650,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 c.state,
                 c.capabilities,
                 c.properties,
+                c.supportedAudioRoutes,
                 c.request.getAddress(),
                 c.addressPresentation,
                 c.callerDisplayName,

@@ -23,8 +23,8 @@
 #include <algorithm>
 #include <time.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 ScriptGroup::ScriptGroup(Context *rsc) : ScriptGroupBase(rsc) {
 }
@@ -94,26 +94,13 @@ bool ScriptGroup::calcOrderRecurse(Node *n, int depth) {
     return ret;
 }
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-static int CompareNodeForSort(ScriptGroup::Node *const* lhs,
-                              ScriptGroup::Node *const* rhs) {
-    if (lhs[0]->mOrder > rhs[0]->mOrder) {
-        return 1;
-    }
-    return 0;
-}
-#else
 class NodeCompare {
 public:
     bool operator() (const ScriptGroup::Node* lhs,
                      const ScriptGroup::Node* rhs) {
-        if (lhs->mOrder > rhs->mOrder) {
-            return true;
-        }
-        return false;
+        return (lhs->mOrder < rhs->mOrder);
     }
 };
-#endif
 
 bool ScriptGroup::calcOrder() {
     // Make nodes
@@ -125,9 +112,9 @@ bool ScriptGroup::calcOrder() {
         //ALOGE("    n = %p", n);
         if (n == NULL) {
             n = new Node(k->mScript);
-            mNodes.add(n);
+            mNodes.push_back(n);
         }
-        n->mKernels.add(k);
+        n->mKernels.push_back(k);
     }
 
     // add links
@@ -137,17 +124,17 @@ bool ScriptGroup::calcOrder() {
         //ALOGE("link  %i %p", (int)ct, l);
         Node *n = findNode(l->mSource->mScript);
         //ALOGE("link n %p", n);
-        n->mOutputs.add(l);
+        n->mOutputs.push_back(l);
 
         if (l->mDstKernel.get()) {
             //ALOGE("l->mDstKernel.get() %p", l->mDstKernel.get());
             n = findNode(l->mDstKernel->mScript);
             //ALOGE("  n1 %p", n);
-            n->mInputs.add(l);
+            n->mInputs.push_back(l);
         } else {
             n = findNode(l->mDstField->mScript);
             //ALOGE("  n2 %p", n);
-            n->mInputs.add(l);
+            n->mInputs.push_back(l);
         }
     }
 
@@ -178,7 +165,7 @@ bool ScriptGroup::calcOrder() {
             }
             if (!found) {
                 //ALOGE("add io out %p", k);
-                mOutputs.add(new IO(k));
+                mOutputs.push_back(new IO(k));
             }
         }
 
@@ -192,18 +179,13 @@ bool ScriptGroup::calcOrder() {
             }
             if (!found) {
                 //ALOGE("add io in %p", k);
-                mInputs.add(new IO(k));
+                mInputs.push_back(new IO(k));
             }
         }
     }
 
-    // sort
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-    mNodes.sort(&CompareNodeForSort);
-#else
+    // Sort mNodes in the increasing order.
     std::sort(mNodes.begin(), mNodes.end(), NodeCompare());
-#endif
-
     return ret;
 }
 
@@ -226,7 +208,7 @@ ScriptGroup * ScriptGroup::create(Context *rsc,
 
     sg->mKernels.reserve(kernelCount);
     for (size_t ct=0; ct < kernelCount; ct++) {
-        sg->mKernels.add(kernels[ct]);
+        sg->mKernels.push_back(kernels[ct]);
     }
 
     sg->mLinks.reserve(linkCount);
@@ -236,7 +218,7 @@ ScriptGroup * ScriptGroup::create(Context *rsc,
         l->mSource = src[ct];
         l->mDstField = dstF[ct];
         l->mDstKernel = dstK[ct];
-        sg->mLinks.add(l);
+        sg->mLinks.push_back(l);
     }
 
     sg->calcOrder();
@@ -249,8 +231,6 @@ ScriptGroup * ScriptGroup::create(Context *rsc,
             if (l->mAlloc.get()) {
                 continue;
             }
-            const ScriptKernelID *k = l->mSource.get();
-
             Allocation * alloc = Allocation::createAllocation(rsc,
                     l->mType.get(), RS_ALLOCATION_USAGE_SCRIPT);
             l->mAlloc = alloc;
@@ -382,9 +362,6 @@ ScriptGroup::Link::Link() {
 ScriptGroup::Link::~Link() {
 }
 
-namespace android {
-namespace renderscript {
-
 
 RsScriptGroup rsi_ScriptGroupCreate(Context *rsc,
                            RsScriptKernelID * kernels, size_t kernelsSize,
@@ -422,5 +399,5 @@ void rsi_ScriptGroupExecute(Context *rsc, RsScriptGroup sg) {
     s->execute(rsc);
 }
 
-}
-}
+} // namespace renderscript
+} // namespace android

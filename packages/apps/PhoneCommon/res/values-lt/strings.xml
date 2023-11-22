@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Nėra"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Nežinomas skambėjimo tonas"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Visos pasiekiamos linijos užimtos. Kad galėtumėte skambinti, atjunkite vieną iš skambučių šiame įrenginyje ar viename iš kitų įrenginių."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Skambutis baigėsi, nes buvo išjungti mobiliojo ryšio duomenys."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Skambutis baigėsi, nes buvo pasiektas mobiliojo ryšio duomenų apribojimas."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Pasiektas duomenų apribojimas. Skambutis baigėsi."</string>
 </resources>

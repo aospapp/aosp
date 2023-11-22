@@ -12,4 +12,5 @@
     <string name="unknownName" msgid="2841414754740600042">"Неизвестно име"</string>
     <string name="localPhoneName" msgid="2349001318925409159">"Моето име"</string>
     <string name="defaultnumber" msgid="8520116145890867338">"000000"</string>
+    <string name="pbap_notification_group" msgid="8487669554703627168">"Споделяне на контакта през Bluetooth"</string>
 </resources>

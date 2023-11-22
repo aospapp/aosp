@@ -28,7 +28,13 @@ public class ModuleResult implements IModuleResult {
 
     private String mId;
     private long mRuntime = 0;
+
+    /* Variables related to completion of the module */
     private boolean mDone = false;
+    private boolean mHaveSetDone = false;
+    private boolean mInProgress = false;
+    private int mExpectedTestRuns = 0;
+    private int mActualTestRuns = 0;
     private int mNotExecuted = 0;
 
     private Map<String, ICaseResult> mResults = new HashMap<>();
@@ -46,7 +52,27 @@ public class ModuleResult implements IModuleResult {
      */
     @Override
     public boolean isDone() {
-        return mDone;
+        return mDone && !mInProgress && (mActualTestRuns >= mExpectedTestRuns);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isDoneSoFar() {
+        return mDone && !mInProgress;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void initializeDone(boolean done) {
+        mDone = done;
+        mHaveSetDone = false;
+        if (mDone) {
+            mNotExecuted = 0;
+        }
     }
 
     /**
@@ -54,15 +80,63 @@ public class ModuleResult implements IModuleResult {
      */
     @Override
     public void setDone(boolean done) {
-        mDone = done;
+        if (mHaveSetDone) {
+            mDone &= done; // If we've already set done for this instance, AND the received value
+        } else {
+            mDone = done; // If done has only been initialized, overwrite the existing value
+        }
+        mHaveSetDone = true;
+        if (mDone) {
+            mNotExecuted = 0;
+        }
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean isPassed() {
-        return mDone && countResults(TestStatus.FAIL) == 0;
+    public void inProgress(boolean inProgress) {
+        mInProgress = inProgress;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getExpectedTestRuns() {
+        return mExpectedTestRuns;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setExpectedTestRuns(int numRuns) {
+        mExpectedTestRuns = numRuns;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int getTestRuns() {
+        return mActualTestRuns;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addTestRun() {
+        mActualTestRuns++;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void resetTestRuns() {
+        mActualTestRuns = 0;
     }
 
     /**
@@ -111,6 +185,14 @@ public class ModuleResult implements IModuleResult {
     @Override
     public void addRuntime(long elapsedTime) {
         mRuntime += elapsedTime;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void resetRuntime() {
+        mRuntime = 0;
     }
 
     /**
@@ -184,7 +266,12 @@ public class ModuleResult implements IModuleResult {
         }
 
         this.mRuntime += otherModuleResult.getRuntime();
-        this.mDone = otherModuleResult.isDone();
+        this.mNotExecuted += otherModuleResult.getNotExecuted();
+        this.setDone(otherModuleResult.isDoneSoFar());
+        this.mActualTestRuns += otherModuleResult.getTestRuns();
+        // expected test runs are the same across shards, except for shards that do not run this
+        // module at least once (for which the value is not yet set).
+        this.mExpectedTestRuns = otherModuleResult.getExpectedTestRuns();
         for (ICaseResult otherCaseResult : otherModuleResult.getResults()) {
             ICaseResult caseResult = getOrCreateResult(otherCaseResult.getName());
             caseResult.mergeFrom(otherCaseResult);

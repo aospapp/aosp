@@ -448,12 +448,12 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
     public void test_Serialization() throws Exception {
         IdentityHashMap<String, String> map = new IdentityHashMap<String, String>();
         map.put(ID, "world");
-        // BEGIN android-added
+        // BEGIN Android-added
         // Regression test for null key in serialized IdentityHashMap (1178549)
         // Together with this change the IdentityHashMap.golden.ser resource
         // was replaced by a version that contains a map with a null key.
         map.put(null, "null");
-        // END android-added
+        // END Android-added
         SerializationTest.verifySelf(map, comparator);
         SerializationTest.verifyGolden(this, map, comparator);
     }
@@ -467,7 +467,7 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
         objArray2 = new Object[hmSize];
         for (int i = 0; i < objArray.length; i++) {
             objArray[i] = new Integer(i);
-            // android-changed: the containsKey test requires unique strings.
+            // Android-changed: the containsKey test requires unique strings.
             objArray2[i] = new String(objArray[i].toString());
         }
 
@@ -996,6 +996,7 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
         SpliteratorTester.runBasicIterationTests(keys.spliterator(), expectedKeys);
         SpliteratorTester.runBasicSplitTests(keys, expectedKeys);
         SpliteratorTester.testSpliteratorNPE(keys.spliterator());
+        SpliteratorTester.assertSupportsTrySplit(keys);
     }
 
     public void test_spliterator_valueSet() {
@@ -1023,6 +1024,7 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
         SpliteratorTester.runBasicIterationTests(values.spliterator(), expectedValues);
         SpliteratorTester.runBasicSplitTests(values, expectedValues);
         SpliteratorTester.testSpliteratorNPE(values.spliterator());
+        SpliteratorTester.assertSupportsTrySplit(values);
     }
 
     public void test_spliterator_entrySet() {
@@ -1053,6 +1055,7 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
         SpliteratorTester.runBasicIterationTests(values.spliterator(), expectedValues);
         SpliteratorTester.runBasicSplitTests(values, expectedValues, comparator);
         SpliteratorTester.testSpliteratorNPE(values.spliterator());
+        SpliteratorTester.assertSupportsTrySplit(values);
     }
 
     public void test_replaceAll() {
@@ -1080,6 +1083,7 @@ public class IdentityHashMapTest extends junit.framework.TestCase {
                     return "";
                 }
             });
+            fail();
         } catch (ConcurrentModificationException expected) {}
     }
 

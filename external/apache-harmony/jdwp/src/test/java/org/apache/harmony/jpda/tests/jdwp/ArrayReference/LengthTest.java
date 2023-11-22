@@ -25,8 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.ArrayReference;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -48,7 +46,7 @@ public class LengthTest extends JDWPArrayReferenceTestCase {
      * <BR>Receives fields with ReferenceType.fields command,
      * checks length with ArrayReference.Length command.
      */
-    public void testLength001() throws UnsupportedEncodingException {
+    public void testLength001() {
         logWriter.println("testLength001 started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

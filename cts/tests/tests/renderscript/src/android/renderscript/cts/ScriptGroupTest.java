@@ -66,10 +66,15 @@ public class ScriptGroupTest extends RSBaseCompute {
         group.setOutput(mColorMatrix.getKernelID(), a2_copy);
 
         group.execute();
+
+        mColorMatrix.destroy();
+        a1_copy.destroy();
+        a2_copy.destroy();
+        group.destroy();
     }
 
     public void testScriptGroupDisconnectedKernel() {
-        ScriptGroup group;
+        ScriptGroup group = null;
 
         Type connect = new Type.Builder(mRS, Element.U8_4(mRS)).setX(bDimX).setY(bDimY).create();
 
@@ -98,6 +103,14 @@ public class ScriptGroupTest extends RSBaseCompute {
             fail("should throw RSInvalidStateException.");
         } catch (RSInvalidStateException e) {
 
+        }
+
+        mColorMatrix.destroy();
+        mColorMatrix2.destroy();
+        a1_copy.destroy();
+        a2_copy.destroy();
+        if (group != null) {
+            group.destroy();
         }
     }
 
@@ -141,10 +154,15 @@ public class ScriptGroupTest extends RSBaseCompute {
 
         group.execute();
 
+        mConvolve3x3.destroy();
+        mColorMatrix.destroy();
+        a1_copy.destroy();
+        a2_copy.destroy();
+        group.destroy();
     }
 
     public void testScriptGroupDisconnectedDAG() {
-        ScriptGroup group;
+        ScriptGroup group = null;
 
         Type connect = new Type.Builder(mRS, Element.U8_4(mRS)).setX(bDimX).setY(bDimY).create();
 
@@ -189,6 +207,15 @@ public class ScriptGroupTest extends RSBaseCompute {
 
         }
 
+        mConvolve3x3.destroy();
+        mConvolve3x32.destroy();
+        mColorMatrix.destroy();
+        mColorMatrix2.destroy();
+        a1_copy.destroy();
+        a2_copy.destroy();
+        if (group != null) {
+            group.destroy();
+        }
     }
 
     public void testScriptGroupTorture() {
@@ -262,6 +289,17 @@ public class ScriptGroupTest extends RSBaseCompute {
         compare.forEach_compare(out);
         compare.forEach_getCompareResult(resultAlloc);
         resultAlloc.copyTo(result);
+
+        node1.destroy();
+        node2.destroy();
+        node3.destroy();
+        node4.destroy();
+        node5.destroy();
+        in1.destroy();
+        in2.destroy();
+        out.destroy();
+        resultAlloc.destroy();
+
         assertTrue(result[0] == 2);
     }
 
@@ -309,6 +347,12 @@ public class ScriptGroupTest extends RSBaseCompute {
             FoundError = true;
         }
 
+        aFailed.destroy();
+        aSharedInt.destroy();
+        mG1.destroy();
+        mG2.destroy();
+        group.destroy();
+
         checkForErrors();
     }
 
@@ -351,6 +395,9 @@ public class ScriptGroupTest extends RSBaseCompute {
         ((Allocation)group.execute(input)[0]).copyTo(a);
 
         mRS.finish();
+
+        input.destroy();
+        group.destroy();
 
         boolean failed = false;
         for (int i = 0; i < ARRAY_SIZE * 4; i++) {
@@ -406,6 +453,9 @@ public class ScriptGroupTest extends RSBaseCompute {
         ((Allocation)group.execute(input)[0]).copyTo(a);
 
         mRS.finish();
+
+        input.destroy();
+        group.destroy();
 
         boolean failed = false;
         for (int i = 0; i < 4; i++) {
@@ -464,6 +514,10 @@ public class ScriptGroupTest extends RSBaseCompute {
         ((Allocation)group.execute(input, input1)[0]).copyTo(a);
 
         mRS.finish();
+
+        input.destroy();
+        input1.destroy();
+        group.destroy();
 
         boolean failed = false;
         for (int i = 0; i < 4; i++) {
@@ -535,6 +589,9 @@ public class ScriptGroupTest extends RSBaseCompute {
         ((Allocation)group.execute(input)[0]).copyTo(a);
 
         mRS.finish();
+
+        input.destroy();
+        group.destroy();
 
         boolean failed = false;
         for (int i = 0; i < ARRAY_SIZE; i++) {

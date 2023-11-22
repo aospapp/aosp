@@ -26,7 +26,7 @@ enum State {
     STATE_UNINITIALIZED = 3,
 };
 
-enum ResponseCode {
+enum class ResponseCode: int32_t {
     NO_ERROR          =  STATE_NO_ERROR, // 1
     LOCKED            =  STATE_LOCKED, // 2
     UNINITIALIZED     =  STATE_UNINITIALIZED, // 3
@@ -47,10 +47,21 @@ enum ResponseCode {
 /*
  * All the flags for import and insert calls.
  */
-enum {
+enum KeyStoreFlag : uint8_t {
     KEYSTORE_FLAG_NONE = 0,
     KEYSTORE_FLAG_ENCRYPTED = 1 << 0,
     KEYSTORE_FLAG_FALLBACK = 1 << 1,
+    // KEYSTORE_FLAG_SUPER_ENCRYPTED is for blobs that are already encrypted by keymaster but have
+    // an additional layer of password-based encryption applied.  The same encryption scheme is used
+    // as KEYSTORE_FLAG_ENCRYPTED, but it's safe to remove super-encryption when the password is
+    // cleared, rather than deleting blobs, and the error returned when attempting to use a
+    // super-encrypted blob while keystore is locked is different.
+    KEYSTORE_FLAG_SUPER_ENCRYPTED = 1 << 2,
+    // KEYSTORE_FLAG_CRITICAL_TO_DEVICE_ENCRYPTION is for blobs that are part of device encryption
+    // flow so it receives special treatment from keystore. For example this blob will not be super
+    // encrypted, and it will be stored separately under an unique UID instead. This flag should
+    // only be available to system uid.
+    KEYSTORE_FLAG_CRITICAL_TO_DEVICE_ENCRYPTION = 1 << 3,
 };
 
 /**

@@ -7,7 +7,6 @@ NAME = 'buffet_RefreshAccessToken'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:tendo_experimental"
-SUITE = 'tendo_experimental'
 
 DOC = """
 Test that buffet can refresh its access token.

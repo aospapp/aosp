@@ -26,7 +26,6 @@ import threading
 import logging
 
 import common
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.scheduler import drone_task_queue
 
 
@@ -36,41 +35,12 @@ class ExceptionRememberingThread(threading.Thread):
     def run(self):
         """Wrapper around the thread's run method."""
         try:
-            with autotest_stats.Timer(self.name):
-                super(ExceptionRememberingThread, self).run()
+            super(ExceptionRememberingThread, self).run()
         except Exception as self.err:
             logging.error('%s raised an exception that will be re-raised by '
                           'the thread pool manager.', self.getName())
         else:
             self.err = None
-
-
-class PersistentTimer(object):
-    """A class to handle timers across local scopes."""
-
-    def __init__(self, name):
-        """Initialize a persistent timer.
-
-        @param name: The name/key to insert timings under.
-        """
-        self.name = name
-        self.timer = None
-
-
-    def start(self):
-        """Create and start a new timer."""
-        self.timer = autotest_stats.Timer(self.name)
-        self.timer.start()
-
-
-    def stop(self):
-        """Stop a previously started timer."""
-        try:
-            self.timer.stop()
-        except (AssertionError, AttributeError) as e:
-            logging.info('Stopping timer %s failed: %s', self.name, e)
-        finally:
-            self.timer = None
 
 
 class ThreadedTaskQueue(drone_task_queue.DroneTaskQueue):
@@ -82,9 +52,6 @@ class ThreadedTaskQueue(drone_task_queue.DroneTaskQueue):
         self.results_queue = Queue.Queue()
         self.drone_threads = {}
         self.name = name
-        # The persistent timer is used to measure net time spent
-        # refreshing all drones across 'execute' and 'get_results'.
-        self.timer = PersistentTimer(self.name)
 
 
     @staticmethod
@@ -146,7 +113,6 @@ class ThreadedTaskQueue(drone_task_queue.DroneTaskQueue):
         @return: A dictionary of return values from the drones.
         """
         self.wait_on_drones()
-        self.timer.stop()
         results = {}
         while not self.results_queue.empty():
             drone_results = self.results_queue.get()
@@ -182,7 +148,6 @@ class ThreadedTaskQueue(drone_task_queue.DroneTaskQueue):
             raise drone_task_queue.DroneTaskQueueException(
                     'Cannot clobber thread map: %s, it should be cleared '
                     'through wait_on_drones' % self.drone_threads)
-        self.timer.start()
         for drone in drones:
             if not drone.get_calls():
                 continue

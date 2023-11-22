@@ -567,9 +567,11 @@ WORD32 ihevcd_iquant_itrans_recon_ctb(process_ctxt_t *ps_proc)
     /* Intra 32x32 Y                                                         */
     /* Inter 32x32 Y                                                         */
     /*************************************************************************/
-    WORD32 scaling_mat_offset[] =
+    /* Only first 20 entries are used. Array is extended to avoid out of bound
+       reads. Skip CUs (64x64) read this table, but don't really use the value */
+    static const WORD32 scaling_mat_offset[] =
       { 0, 16, 32, 48, 64, 80, 96, 160, 224, 288, 352, 416, 480, 736, 992,
-        1248, 1504, 1760, 2016, 3040 };
+        1248, 1504, 1760, 2016, 3040, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     PROFILE_DISABLE_IQ_IT_RECON_INTRA_PRED();
 
@@ -884,6 +886,11 @@ WORD32 ihevcd_iquant_itrans_recon_ctb(process_ctxt_t *ps_proc)
                     src_strd = trans_size;
 
                     func_idx = 1 + 4 + log2_uv_trans_size_minus_2; /* DST func + Y funcs + cur func index*/
+
+                    /* Handle error cases where 64x64 TU is signalled which results in 32x32 chroma.
+                     * By limiting func_idx to 7, max of 16x16 chroma is called */
+                    func_idx = MIN(func_idx, 7);
+
                     e_trans_type = (TRANSFORM_TYPE)(log2_uv_trans_size_minus_2 + 1);
                     /* QP for U */
                     i1_chroma_pic_qp_offset = ps_pps->i1_pic_cb_qp_offset;
@@ -936,7 +943,10 @@ WORD32 ihevcd_iquant_itrans_recon_ctb(process_ctxt_t *ps_proc)
                 /***************************************************************/
                 if(intra_flag) /* Intra */
                 {
-                    UWORD8 au1_ref_sub_out[(MAX_TU_SIZE * 2 * 2) + 4];
+                    /* While (MAX_TU_SIZE * 2 * 2) + 1 is the actaul size needed,
+                       au1_ref_sub_out size is kept as multiple of 8,
+                       so that SIMD functions can load 64 bits */
+                    UWORD8 au1_ref_sub_out[(MAX_TU_SIZE * 2 * 2) + 8];
                     UWORD8 *pu1_top_left, *pu1_top, *pu1_left;
                     WORD32 luma_pred_func_idx, chroma_pred_func_idx;
 

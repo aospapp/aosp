@@ -20,6 +20,9 @@ import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Handler;
 import android.os.Looper;
+import android.telecom.Log;
+import android.telecom.Logging.Runnable;
+import android.telecom.Logging.Session;
 
 import com.android.internal.annotations.VisibleForTesting;
 

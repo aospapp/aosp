@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and
@@ -1157,7 +1159,7 @@ public final class StringSearch extends SearchIterator {
             // * the match limit is a normalization boundary
             boolean allowMidclusterMatch =
                             breakIterator == null &&
-                            nextCEI != null && (((nextCEI.ce_) >>> 32) & 0xFFFF0000L) != 0 &&
+                            (((nextCEI.ce_) >>> 32) & 0xFFFF0000L) != 0 &&
                             maxLimit >= lastCEI.highIndex_ && nextCEI.highIndex_ > maxLimit &&
                             (nfd_.hasBoundaryBefore(codePointAt(targetText, maxLimit)) ||
                                     nfd_.hasBoundaryAfter(codePointBefore(targetText, maxLimit)));
@@ -1417,7 +1419,7 @@ public final class StringSearch extends SearchIterator {
                 // * the match limit is a normalization boundary
                 boolean allowMidclusterMatch =
                                 breakIterator == null &&
-                                nextCEI != null && (((nextCEI.ce_) >>> 32) & 0xFFFF0000L) != 0 &&
+                                (((nextCEI.ce_) >>> 32) & 0xFFFF0000L) != 0 &&
                                 maxLimit >= lastCEI.highIndex_ && nextCEI.highIndex_ > maxLimit &&
                                 (nfd_.hasBoundaryBefore(codePointAt(targetText, maxLimit)) ||
                                         nfd_.hasBoundaryAfter(codePointBefore(targetText, maxLimit)));

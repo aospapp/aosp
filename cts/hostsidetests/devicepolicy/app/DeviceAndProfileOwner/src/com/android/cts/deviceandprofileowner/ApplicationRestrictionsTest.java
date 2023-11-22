@@ -112,14 +112,16 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
             fail("Expected SecurityException not thrown");
         } catch (SecurityException expected) {
             MoreAsserts.assertContainsRegex(
-                    "cannot manage application restrictions", expected.getMessage());
+                    "Caller with uid \\d+ is not a delegate of scope delegation-app-restrictions.",
+                    expected.getMessage());
         }
         try {
             mDevicePolicyManager.getApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG);
             fail("Expected SecurityException not thrown");
         } catch (SecurityException expected) {
             MoreAsserts.assertContainsRegex(
-                    "cannot manage application restrictions", expected.getMessage());
+                    "Caller with uid \\d+ is not a delegate of scope delegation-app-restrictions.",
+                    expected.getMessage());
         }
     }
 

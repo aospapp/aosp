@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -13,22 +15,14 @@ package android.icu.dev.test.duration;
 import java.util.Collection;
 import java.util.Iterator;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.duration.impl.PeriodFormatterData;
 import android.icu.impl.duration.impl.ResourceBasedPeriodFormatterDataService;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class ResourceBasedPeriodFormatterDataServiceTest extends TestFmwk {
-
-  /**
-   * Invoke the tests.
-   */
-  public static void main(String[] args) {
-      new ResourceBasedPeriodFormatterDataServiceTest().run(args);
-  }
-
+  @Test
   public void testAvailable() {
     ResourceBasedPeriodFormatterDataService service =
         ResourceBasedPeriodFormatterDataService.getInstance();

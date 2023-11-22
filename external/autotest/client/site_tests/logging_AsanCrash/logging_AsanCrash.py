@@ -58,9 +58,11 @@ class logging_AsanCrash(test.test):
                         exception=error.TestFail(
                                 'Found no asan log message about '
                                 'Address Sanitizer catch'))
-
+                # An example error string is like this
+                # 'testarray:228' <== Memory access at offset 52 overflows
+                # this variable
                 utils.poll_for_condition(
-                        lambda: ui_log.can_find("'testarray'"),
+                        lambda: ui_log.can_find("'testarray"),
                         timeout=10,
                         exception=error.TestFail(
                                 'ASAN caught bug but did not mention '

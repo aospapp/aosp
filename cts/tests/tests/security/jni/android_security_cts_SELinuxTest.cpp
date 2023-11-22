@@ -19,14 +19,15 @@
 #include <JNIHelp.h>
 #include <ScopedLocalRef.h>
 #include <ScopedUtfChars.h>
-#include <UniquePtr.h>
+
+#include <memory>
 
 struct SecurityContext_Delete {
     void operator()(security_context_t p) const {
         freecon(p);
     }
 };
-typedef UniquePtr<char[], SecurityContext_Delete> Unique_SecurityContext;
+typedef std::unique_ptr<char[], SecurityContext_Delete> Unique_SecurityContext;
 
 /*
  * Function: getFileContext

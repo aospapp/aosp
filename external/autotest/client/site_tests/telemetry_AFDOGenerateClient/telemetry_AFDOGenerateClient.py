@@ -112,7 +112,7 @@ class telemetry_AFDOGenerateClient(test.test):
             benchmark_start_page = PC_START_PAGE % benchmark
             tab.Navigate(FILE_URL_PREFIX + benchmark_start_page)
             tab.WaitForDocumentReadyStateToBeComplete(timeout=180)
-            tab.WaitForJavaScriptExpression(PC_DONE_EXP, 600)
+            tab.WaitForJavaScriptCondition(PC_DONE_EXP, timeout=600)
             tab.Close()
             end_time = time.time()
             logging.info('Completed page cycler %s in %f seconds',

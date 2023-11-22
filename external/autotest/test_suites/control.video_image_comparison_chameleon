@@ -5,7 +5,6 @@
 AUTHOR = "mussa, rohit"
 NAME = "video_image_comparison_chameleon"
 PURPOSE = "Runs video image comparison tests via Chameleon on selected devices"
-CRITERIA = "All tests must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

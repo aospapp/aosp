@@ -17,9 +17,6 @@
 package android.webkit.cts;
 
 import android.content.Context;
-import android.cts.util.LocationUtils;
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
 import android.location.Criteria;
 import android.location.Location;
@@ -40,6 +37,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
 import android.webkit.cts.WebViewOnUiThread.WaitForProgressClient;
+
+import com.android.compatibility.common.util.LocationUtils;
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.ByteArrayInputStream;
 import java.io.UnsupportedEncodingException;

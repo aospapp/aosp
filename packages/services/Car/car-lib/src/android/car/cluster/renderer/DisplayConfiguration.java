@@ -22,7 +22,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 /**
- * TODO: need to properly define this class and make it immutable.
+ * TODO: need to properly define this class and make it immutable. bug: 32060601
  *
  * @hide
  */

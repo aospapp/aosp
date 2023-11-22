@@ -19,7 +19,11 @@ package android.car.cts;
 import android.car.Car;
 import android.car.hardware.CarSensorEvent;
 import android.car.hardware.CarSensorManager;
+import android.platform.test.annotations.RequiresDevice;
+import android.test.suitebuilder.annotation.SmallTest;
 
+@SmallTest
+@RequiresDevice
 public class CarSensorManagerTest extends CarApiTestBase {
 
     private CarSensorManager mCarSensorManager;

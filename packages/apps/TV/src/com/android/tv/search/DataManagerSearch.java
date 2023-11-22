@@ -22,6 +22,7 @@ import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Programs;
 import android.media.tv.TvInputManager;
+import android.os.SystemClock;
 import android.support.annotation.MainThread;
 import android.text.TextUtils;
 import android.util.Log;
@@ -50,8 +51,8 @@ import java.util.concurrent.Future;
  * and {@link ProgramDataManager}.
  */
 public class DataManagerSearch implements SearchInterface {
-    private static final boolean DEBUG = false;
     private static final String TAG = "TvProviderSearch";
+    private static final boolean DEBUG = false;
 
     private final Context mContext;
     private final TvInputManager mTvInputManager;
@@ -98,6 +99,8 @@ public class DataManagerSearch implements SearchInterface {
             // Voice search query should be handled by the a system TV app.
             return results;
         }
+        if (DEBUG) Log.d(TAG, "Searching channels: '" + query + "'");
+        long time = SystemClock.elapsedRealtime();
         Set<Long> channelsFound = new HashSet<>();
         List<Channel> channelList = mChannelDataManager.getBrowsableChannelList();
         query = query.toLowerCase();
@@ -110,6 +113,11 @@ public class DataManagerSearch implements SearchInterface {
                     addResult(results, channelsFound, channel, null);
                 }
                 if (results.size() >= limit) {
+                    if (DEBUG) {
+                        Log.d(TAG, "Found " + results.size() + " channels. Elapsed time for" +
+                                " searching channels: " + (SystemClock.elapsedRealtime() - time) +
+                                "(msec)");
+                    }
                     return results;
                 }
             }
@@ -124,9 +132,21 @@ public class DataManagerSearch implements SearchInterface {
                 addResult(results, channelsFound, channel, null);
             }
             if (results.size() >= limit) {
+                if (DEBUG) {
+                    Log.d(TAG, "Found " + results.size() + " channels. Elapsed time for" +
+                            " searching channels: " + (SystemClock.elapsedRealtime() - time) +
+                            "(msec)");
+                }
                 return results;
             }
         }
+        if (DEBUG) {
+            Log.d(TAG, "Found " + results.size() + " channels. Elapsed time for" +
+                    " searching channels: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
+        }
+        int channelResult = results.size();
+        if (DEBUG) Log.d(TAG, "Searching programs: '" + query + "'");
+        time = SystemClock.elapsedRealtime();
         for (Channel channel : channelList) {
             if (channelsFound.contains(channel.getId())) {
                 continue;
@@ -140,6 +160,11 @@ public class DataManagerSearch implements SearchInterface {
                 addResult(results, channelsFound, channel, program);
             }
             if (results.size() >= limit) {
+                if (DEBUG) {
+                    Log.d(TAG, "Found " + (results.size() - channelResult) + " programs. Elapsed" +
+                            " time for searching programs: " +
+                            (SystemClock.elapsedRealtime() - time) + "(msec)");
+                }
                 return results;
             }
         }
@@ -156,8 +181,17 @@ public class DataManagerSearch implements SearchInterface {
                 addResult(results, channelsFound, channel, program);
             }
             if (results.size() >= limit) {
+                if (DEBUG) {
+                    Log.d(TAG, "Found " + (results.size() - channelResult) + " programs. Elapsed" +
+                            " time for searching programs: " +
+                            (SystemClock.elapsedRealtime() - time) + "(msec)");
+                }
                 return results;
             }
+        }
+        if (DEBUG) {
+            Log.d(TAG, "Found " + (results.size() - channelResult) + " programs. Elapsed time for" +
+                    " searching programs: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
         }
         return results;
     }

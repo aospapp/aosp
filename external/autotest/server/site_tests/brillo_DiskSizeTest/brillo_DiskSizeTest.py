@@ -27,7 +27,7 @@ class brillo_DiskSizeTest(test.test):
         """
         try:
             df_output = host.run_output('df %s' % path).splitlines()
-        except error.AutoservRunError:
+        except error.GenericHostRunError:
             raise error.TestFail('Failed to run df')
 
         device, device_size = df_output[1].split()[0:2]

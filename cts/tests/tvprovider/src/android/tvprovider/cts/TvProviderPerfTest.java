@@ -24,7 +24,6 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.OperationApplicationException;
 import android.content.pm.PackageManager;
-import android.cts.util.CtsAndroidTestCase;
 import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
@@ -32,6 +31,7 @@ import android.media.tv.TvContract.Programs;
 import android.net.Uri;
 import android.os.RemoteException;
 
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MeasureRun;
 import com.android.compatibility.common.util.MeasureTime;

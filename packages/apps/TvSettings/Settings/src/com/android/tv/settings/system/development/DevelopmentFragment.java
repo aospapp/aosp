@@ -19,7 +19,6 @@ package com.android.tv.settings.system.development;
 import android.Manifest;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.ActivityManagerNative;
 import android.app.AppOpsManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.backup.IBackupManager;
@@ -62,6 +61,7 @@ import android.view.ThreadedRenderer;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
+import android.widget.Toast;
 
 import com.android.internal.app.LocalePicker;
 import com.android.tv.settings.R;
@@ -84,6 +84,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     private static final String ENABLE_TERMINAL = "enable_terminal";
     private static final String KEEP_SCREEN_ON = "keep_screen_on";
     private static final String BT_HCI_SNOOP_LOG = "bt_hci_snoop_log";
+    private static final String BTSNOOP_ENABLE_PROPERTY = "persist.bluetooth.btsnoopenable";
     private static final String ENABLE_OEM_UNLOCK = "oem_unlock_enable";
     private static final String HDCP_CHECKING_KEY = "hdcp_checking";
     private static final String HDCP_CHECKING_PROPERTY = "persist.sys.hdcp_checking";
@@ -108,7 +109,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     private static final String DISABLE_OVERLAYS_KEY = "disable_overlays";
     private static final String SIMULATE_COLOR_SPACE = "simulate_color_space";
     private static final String USB_AUDIO_KEY = "usb_audio";
-    private static final String SHOW_CPU_USAGE_KEY = "show_cpu_usage";
     private static final String FORCE_HARDWARE_UI_KEY = "force_hw_ui";
     private static final String FORCE_MSAA_KEY = "force_msaa";
     private static final String TRACK_FRAME_TIME_KEY = "track_frame_time";
@@ -177,7 +177,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     private Preference mClearAdbKeys;
     private SwitchPreference mEnableTerminal;
     private Preference mBugreport;
-    private SwitchPreference mBugreportInPower;
     private SwitchPreference mKeepScreenOn;
     private SwitchPreference mBtHciSnoopLog;
     private SwitchPreference mEnableOemUnlock;
@@ -204,7 +203,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     private SwitchPreference mShowTouches;
     private SwitchPreference mShowScreenUpdates;
     private SwitchPreference mDisableOverlays;
-    private SwitchPreference mShowCpuUsage;
     private SwitchPreference mForceHardwareUi;
     private SwitchPreference mForceMsaa;
     private SwitchPreference mShowHwScreenUpdates;
@@ -266,7 +264,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        final Context themedContext = getPreferenceManager().getContext();
         if (!mUm.isAdminUser()
                 || mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)
                 || Settings.Global.getInt(mContentResolver,
@@ -274,11 +271,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
             // Block access to developer options if the user is not the owner, if user policy
             // restricts it, or if the device has not been provisioned
             mUnavailable = true;
-            setPreferenceScreen(new PreferenceScreen(themedContext, null));
-            Preference emptyPref = new Preference(getPreferenceManager().getContext());
-            emptyPref.setEnabled(false);
-            emptyPref.setTitle(R.string.development_settings_not_available);
-            getPreferenceScreen().addPreference(emptyPref);
+            addPreferencesFromResource(R.xml.development_prefs_not_available);
             return;
         }
 
@@ -306,9 +299,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
         }
 
         mBugreport = findPreference(BUGREPORT);
-        mBugreportInPower = findAndInitSwitchPref(BUGREPORT_IN_POWER_KEY);
-        // No power menu on TV
-        removePreference(BUGREPORT_IN_POWER_KEY);
         mKeepScreenOn = findAndInitSwitchPref(KEEP_SCREEN_ON);
         mBtHciSnoopLog = findAndInitSwitchPref(BT_HCI_SNOOP_LOG);
         mEnableOemUnlock = findAndInitSwitchPref(ENABLE_OEM_UNLOCK);
@@ -354,7 +344,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
         mShowTouches = findAndInitSwitchPref(SHOW_TOUCHES_KEY);
         mShowScreenUpdates = findAndInitSwitchPref(SHOW_SCREEN_UPDATES_KEY);
         mDisableOverlays = findAndInitSwitchPref(DISABLE_OVERLAYS_KEY);
-        mShowCpuUsage = findAndInitSwitchPref(SHOW_CPU_USAGE_KEY);
         mForceHardwareUi = findAndInitSwitchPref(FORCE_HARDWARE_UI_KEY);
         mForceMsaa = findAndInitSwitchPref(FORCE_MSAA_KEY);
         mTrackFrameTime = addListPreference(TRACK_FRAME_TIME_KEY);
@@ -574,12 +563,10 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
                     context.getPackageManager().getApplicationEnabledSetting(TERMINAL_APP_PACKAGE)
                             == PackageManager.COMPONENT_ENABLED_STATE_ENABLED);
         }
-        updateSwitchPreference(mBugreportInPower, Settings.Secure.getInt(cr,
-                Settings.Global.BUGREPORT_IN_POWER_MENU, 0) != 0);
         updateSwitchPreference(mKeepScreenOn, Settings.Global.getInt(cr,
                 Settings.Global.STAY_ON_WHILE_PLUGGED_IN, 0) != 0);
-        updateSwitchPreference(mBtHciSnoopLog, Settings.Secure.getInt(cr,
-                Settings.Secure.BLUETOOTH_HCI_LOG, 0) != 0);
+        updateSwitchPreference(mBtHciSnoopLog,
+                SystemProperties.getBoolean(BTSNOOP_ENABLE_PROPERTY, false));
         if (mEnableOemUnlock != null) {
             updateSwitchPreference(mEnableOemUnlock, isOemUnlockEnabled(getActivity()));
             mEnableOemUnlock.setEnabled(isOemUnlockAllowed());
@@ -596,7 +583,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
         updatePointerLocationOptions();
         updateShowTouchesOptions();
         updateFlingerOptions();
-        updateCpuUsageOptions();
         updateHardwareUiOptions();
         updateMsaaOptions();
         updateTrackFrameTimeOptions();
@@ -683,14 +669,13 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
 
     private void writeBtHciSnoopLogOptions() {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-        adapter.configHciSnoopLog(mBtHciSnoopLog.isChecked());
-        Settings.Secure.putInt(mContentResolver, Settings.Secure.BLUETOOTH_HCI_LOG,
-                mBtHciSnoopLog.isChecked() ? 1 : 0);
+        SystemProperties.set(BTSNOOP_ENABLE_PROPERTY,
+                Boolean.toString(mBtHciSnoopLog.isChecked()));
     }
 
     private void writeDebuggerOptions() {
         try {
-            ActivityManagerNative.getDefault().setDebugApp(
+            ActivityManager.getService().setDebugApp(
                     mDebugApp, mWaitForDebugger.isChecked(), true);
         } catch (RemoteException ex) {
             // ignore
@@ -736,7 +721,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
 
     private static void resetDebuggerOptions() {
         try {
-            ActivityManagerNative.getDefault().setDebugApp(
+            ActivityManager.getService().setDebugApp(
                     null, false, true);
         } catch (RemoteException ex) {
             // ignore
@@ -847,21 +832,25 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     }
 
     private void updateBugreportOptions() {
-        if (mBugreport != null) {
-            mBugreport.setEnabled(true);
-        }
-        mBugreportInPower.setEnabled(true);
-        setBugreportStorageProviderStatus();
-    }
-
-    private void setBugreportStorageProviderStatus() {
+        boolean enabled = "1".equals(SystemProperties.get("ro.debuggable"))
+                || mEnableDeveloper.isChecked();
+        mBugreport.setEnabled(enabled);
         final ComponentName componentName = new ComponentName("com.android.shell",
                 "com.android.shell.BugreportStorageProvider");
-        final boolean enabled = mBugreportInPower.isChecked();
         getActivity().getPackageManager().setComponentEnabledSetting(componentName,
                 enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                         : PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
                 0);
+    }
+
+    private void captureBugReport() {
+        Toast.makeText(getActivity(), R.string.capturing_bugreport, Toast.LENGTH_SHORT).show();
+        try {
+            ActivityManager.getService()
+                    .requestBugReport(ActivityManager.BUGREPORT_OPTION_INTERACTIVE);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Error taking bugreport", e);
+        }
     }
 
     // Returns the current state of the system property that controls
@@ -1313,34 +1302,16 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     private void writeUsbConfigurationOption(Object newValue) {
         UsbManager manager = (UsbManager)getActivity().getSystemService(Context.USB_SERVICE);
         String function = newValue.toString();
-        manager.setCurrentFunction(function);
         if (function.equals("none")) {
-            manager.setUsbDataUnlocked(false);
+            manager.setCurrentFunction(function, false);
         } else {
-            manager.setUsbDataUnlocked(true);
-        }
-    }
-
-    private void updateCpuUsageOptions() {
-        updateSwitchPreference(mShowCpuUsage,
-                Settings.Global.getInt(mContentResolver, Settings.Global.SHOW_PROCESSES, 0) != 0);
-    }
-
-    private void writeCpuUsageOptions() {
-        boolean value = mShowCpuUsage.isChecked();
-        Settings.Global.putInt(mContentResolver, Settings.Global.SHOW_PROCESSES, value ? 1 : 0);
-        Intent service = (new Intent())
-                .setClassName("com.android.systemui", "com.android.systemui.LoadAverageService");
-        if (value) {
-            getActivity().startService(service);
-        } else {
-            getActivity().stopService(service);
+            manager.setCurrentFunction(function, true);
         }
     }
 
     private void writeImmediatelyDestroyActivitiesOptions() {
         try {
-            ActivityManagerNative.getDefault().setAlwaysFinish(
+            ActivityManager.getService().setAlwaysFinish(
                     mImmediatelyDestroyActivities.isChecked());
         } catch (RemoteException ex) {
             // ignore
@@ -1441,7 +1412,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
 
     private void updateAppProcessLimitOptions() {
         try {
-            int limit = ActivityManagerNative.getDefault().getProcessLimit();
+            int limit = ActivityManager.getService().getProcessLimit();
             CharSequence[] values = mAppProcessLimit.getEntryValues();
             for (int i=0; i<values.length; i++) {
                 int val = Integer.parseInt(values[i].toString());
@@ -1464,7 +1435,7 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
     private void writeAppProcessLimitOptions(Object newValue) {
         try {
             int limit = newValue != null ? Integer.parseInt(newValue.toString()) : -1;
-            ActivityManagerNative.getDefault().setProcessLimit(limit);
+            ActivityManager.getService().setProcessLimit(limit);
             updateAppProcessLimitOptions();
         } catch (RemoteException e) {
             // ignore
@@ -1501,7 +1472,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
         Settings.Global.putInt(mContentResolver, Settings.Global.ADB_ENABLED, 1);
         mVerifyAppsOverUsb.setEnabled(true);
         updateVerifyAppsOverUsbOptions();
-        updateBugreportOptions();
     }
 
     @Override
@@ -1542,6 +1512,8 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
                 mLastEnabledState = false;
                 setPrefsEnabledState(false);
             }
+        } else if (preference == mBugreport) {
+            captureBugReport();
         } else if (preference == mEnableAdb) {
             if (mEnableAdb.isChecked()) {
                 // Pass to super to launch the dialog, then uncheck until the dialog
@@ -1552,17 +1524,12 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
                 Settings.Global.putInt(mContentResolver, Settings.Global.ADB_ENABLED, 0);
                 mVerifyAppsOverUsb.setEnabled(false);
                 mVerifyAppsOverUsb.setChecked(false);
-                updateBugreportOptions();
             }
         } else if (preference == mEnableTerminal) {
             final PackageManager pm = getActivity().getPackageManager();
             pm.setApplicationEnabledSetting(TERMINAL_APP_PACKAGE,
                     mEnableTerminal.isChecked() ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                             : PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, 0);
-        } else if (preference == mBugreportInPower) {
-            Settings.Secure.putInt(mContentResolver, Settings.Global.BUGREPORT_IN_POWER_MENU,
-                    mBugreportInPower.isChecked() ? 1 : 0);
-            setBugreportStorageProviderStatus();
         } else if (preference == mKeepScreenOn) {
             Settings.Global.putInt(mContentResolver, Settings.Global.STAY_ON_WHILE_PLUGGED_IN,
                     mKeepScreenOn.isChecked() ?
@@ -1608,8 +1575,6 @@ public class DevelopmentFragment extends LeanbackPreferenceFragment
             writeShowUpdatesOption();
         } else if (preference == mDisableOverlays) {
             writeDisableOverlaysOption();
-        } else if (preference == mShowCpuUsage) {
-            writeCpuUsageOptions();
         } else if (preference == mImmediatelyDestroyActivities) {
             writeImmediatelyDestroyActivitiesOptions();
         } else if (preference == mShowAllANRs) {

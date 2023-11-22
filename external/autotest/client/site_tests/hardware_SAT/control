@@ -23,7 +23,6 @@ http://code.google.com/p/stressapptest/
 """
 NAME = 'hardware_SAT'
 ATTRIBUTES = "suite:kernel_per-build_regression"
-SUITE = "kernel_per-build_regression"
 TEST_CLASS = "hardware"
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'

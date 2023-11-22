@@ -7,12 +7,11 @@ LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
-LOCAL_JAVA_LANGUAGE_VERSION := 1.8
-
-LOCAL_STATIC_JAVA_LIBRARIES := easymocklib \
-    mockito-target \
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    mockito-target-minus-junit4 \
     android-support-test \
-    android-ex-camera2
+    android-ex-camera2 \
+    legacy-android-test
 
 LOCAL_PACKAGE_NAME := mediaframeworktest
 

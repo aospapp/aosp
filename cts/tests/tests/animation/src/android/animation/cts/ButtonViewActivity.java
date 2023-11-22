@@ -19,8 +19,6 @@ package android.animation.cts;
 import android.app.Activity;
 import android.os.Bundle;
 
-import android.animation.cts.R;
-
 public class ButtonViewActivity extends Activity {
 
     @Override

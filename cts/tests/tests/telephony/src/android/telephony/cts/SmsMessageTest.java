@@ -114,7 +114,7 @@ public class SmsMessageTest extends AndroidTestCase{
 
         // Test create from null Pdu
         sms = SmsMessage.createFromPdu(null, SmsMessage.FORMAT_3GPP);
-        assertNotNull(sms);
+        assertNull(sms);
 
         // Test create from long Pdu
         pdu = "07912160130310F2040B915121927786F300036060924180008A0DA"

@@ -72,6 +72,14 @@ bool DBusUpdateEngineClient::GetStatus(int64_t* out_last_checked_time,
   return StringToUpdateStatus(status_as_string, out_update_status);
 }
 
+bool DBusUpdateEngineClient::SetCohortHint(const string& cohort_hint) {
+  return proxy_->SetCohortHint(cohort_hint, nullptr);
+}
+
+bool DBusUpdateEngineClient::GetCohortHint(string* cohort_hint) const {
+  return proxy_->GetCohortHint(cohort_hint, nullptr);
+}
+
 bool DBusUpdateEngineClient::SetUpdateOverCellularPermission(bool allowed) {
   return proxy_->SetUpdateOverCellularPermission(allowed, nullptr);
 }
@@ -171,10 +179,7 @@ void DBusUpdateEngineClient::RunStatusUpdateHandlers(
 
 bool DBusUpdateEngineClient::UnregisterStatusUpdateHandler(
     StatusUpdateHandler* handler) {
-  auto it = handlers_.begin();
-
-  for (; *it != handler && it != handlers_.end(); it++);
-
+  auto it = std::find(handlers_.begin(), handlers_.end(), handler);
   if (it != handlers_.end()) {
     handlers_.erase(it);
     return true;
@@ -228,6 +233,10 @@ bool DBusUpdateEngineClient::GetChannel(string* out_channel) const {
 bool DBusUpdateEngineClient::GetLastAttemptError(
     int32_t* last_attempt_error) const {
   return proxy_->GetLastAttemptError(last_attempt_error, nullptr);
+}
+
+bool DBusUpdateEngineClient::GetEolStatus(int32_t* eol_status) const {
+  return proxy_->GetEolStatus(eol_status, nullptr);
 }
 
 }  // namespace internal

@@ -63,4 +63,29 @@ public class SSLServerSocketTest extends TestCase {
       array[0] = "Modified after having been set";
       assertEquals(originalFirstElement, socket.getEnabledProtocols()[0]);
   }
+
+    // We modified the toString() of SSLServerSocket, and it's based on the output
+    // of ServerSocket.toString(), so we want to make sure that a change in
+    // ServerSocket.toString() doesn't cause us to output nonsense.
+    public void testToString() throws Exception {
+        // The actual implementation from a security provider might do something
+        // special for its toString(), so we create our own implementation
+        SSLServerSocket socket = new SSLServerSocket() {
+            @Override public String[] getEnabledCipherSuites() { return new String[0]; }
+            @Override public void setEnabledCipherSuites(String[] strings) { }
+            @Override public String[] getSupportedCipherSuites() { return new String[0]; }
+            @Override public String[] getSupportedProtocols() { return new String[0]; }
+            @Override public String[] getEnabledProtocols() { return new String[0]; }
+            @Override public void setEnabledProtocols(String[] strings) { }
+            @Override public void setNeedClientAuth(boolean b) { }
+            @Override public boolean getNeedClientAuth() { return false; }
+            @Override public void setWantClientAuth(boolean b) { }
+            @Override public boolean getWantClientAuth() { return false; }
+            @Override public void setUseClientMode(boolean b) { }
+            @Override public boolean getUseClientMode() { return false; }
+            @Override public void setEnableSessionCreation(boolean b) { }
+            @Override public boolean getEnableSessionCreation() { return false; }
+        };
+        assertTrue(socket.toString().startsWith("SSLServerSocket["));
+    }
 }

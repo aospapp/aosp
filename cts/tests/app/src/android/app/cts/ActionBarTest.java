@@ -22,6 +22,8 @@ import android.app.FragmentTransaction;
 import android.app.stubs.ActionBarActivity;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
+import android.view.KeyEvent;
+import android.view.Window;
 
 public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarActivity> {
 
@@ -79,6 +81,36 @@ public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarAct
         assertEquals(t2, mBar.getTabAt(2));
         assertEquals(t4, mBar.getTabAt(3));
         assertEquals(t3, mBar.getTabAt(4));
+    }
+
+    public void testOptionsMenuKey() {
+        if (!mActivity.getWindow().hasFeature(Window.FEATURE_OPTIONS_PANEL)) {
+            return;
+        }
+        final boolean menuIsVisible[] = {false};
+        mActivity.getActionBar().addOnMenuVisibilityListener(
+                isVisible -> menuIsVisible[0] = isVisible);
+        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
+        getInstrumentation().waitForIdleSync();
+        assertTrue(menuIsVisible[0]);
+        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
+        getInstrumentation().waitForIdleSync();
+        assertFalse(menuIsVisible[0]);
+    }
+
+    public void testOpenOptionsMenu() {
+        if (!mActivity.getWindow().hasFeature(Window.FEATURE_OPTIONS_PANEL)) {
+            return;
+        }
+        final boolean menuIsVisible[] = {false};
+        mActivity.getActionBar().addOnMenuVisibilityListener(
+                isVisible -> menuIsVisible[0] = isVisible);
+        getInstrumentation().runOnMainSync(() -> mActivity.openOptionsMenu());
+        getInstrumentation().waitForIdleSync();
+        assertTrue(menuIsVisible[0]);
+        getInstrumentation().runOnMainSync(() -> mActivity.closeOptionsMenu());
+        getInstrumentation().waitForIdleSync();
+        assertFalse(menuIsVisible[0]);
     }
 
     private Tab createTab(String name) {

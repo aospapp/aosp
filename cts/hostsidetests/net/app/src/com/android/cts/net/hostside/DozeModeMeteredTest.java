@@ -19,8 +19,8 @@ package com.android.cts.net.hostside;
 public class DozeModeMeteredTest extends AbstractDozeModeTestCase {
 
     @Override
-    protected void setUpMeteredNetwork() throws Exception {
-        setMeteredNetwork();
+    protected boolean setUpActiveNetworkMeteringState() throws Exception {
+        return setMeteredNetwork();
     }
 
     @Override

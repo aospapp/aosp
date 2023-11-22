@@ -23,9 +23,9 @@ class desktopui_ExitOnSupervisedUserCrash(test.test):
         super(desktopui_ExitOnSupervisedUserCrash, self).initialize()
 
 
-    def run_once(self):
+    def run_once(self, arc_mode=None):
         listener = session_manager.SessionSignalListener(gobject.MainLoop())
-        with chrome.Chrome():
+        with chrome.Chrome(arc_mode=arc_mode):
             sm = session_manager.connect(DBusGMainLoop(set_as_default=True))
             # Tell session_manager that we're going all the way through
             # creating a supervised user.

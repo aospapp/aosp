@@ -22,7 +22,9 @@
 
 #include "base/bit_utils.h"
 #include "base/stl_util.h"
+#include "jni_macro_assembler_x86_64.h"
 #include "utils/assembler_test.h"
+#include "utils/jni_macro_assembler_test.h"
 
 namespace art {
 
@@ -37,7 +39,7 @@ TEST(AssemblerX86_64, CreateBuffer) {
   ASSERT_EQ(static_cast<size_t>(5), buffer.Size());
 }
 
-#ifdef __ANDROID__
+#ifdef ART_TARGET_ANDROID
 static constexpr size_t kRandomIterations = 1000;  // Devices might be puny, don't stress them...
 #else
 static constexpr size_t kRandomIterations = 100000;  // Hosts are pretty powerful.
@@ -954,6 +956,12 @@ TEST_F(AssemblerX86_64Test, Xorq) {
   DriverStr(expected, "xorq");
 }
 
+TEST_F(AssemblerX86_64Test, RepneScasb) {
+  GetAssembler()->repne_scasb();
+  const char* expected = "repne scasb\n";
+  DriverStr(expected, "repne_scasb");
+}
+
 TEST_F(AssemblerX86_64Test, RepneScasw) {
   GetAssembler()->repne_scasw();
   const char* expected = "repne scasw\n";
@@ -978,12 +986,74 @@ TEST_F(AssemblerX86_64Test, Movaps) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::movaps, "movaps %{reg2}, %{reg1}"), "movaps");
 }
 
+TEST_F(AssemblerX86_64Test, MovapsAddr) {
+  GetAssembler()->movaps(x86_64::XmmRegister(x86_64::XMM0), x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 4));
+  GetAssembler()->movaps(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 2), x86_64::XmmRegister(x86_64::XMM1));
+  const char* expected =
+    "movaps 0x4(%RSP), %xmm0\n"
+    "movaps %xmm1, 0x2(%RSP)\n";
+  DriverStr(expected, "movaps_address");
+}
+
+TEST_F(AssemblerX86_64Test, MovupsAddr) {
+  GetAssembler()->movups(x86_64::XmmRegister(x86_64::XMM0), x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 4));
+  GetAssembler()->movups(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 2), x86_64::XmmRegister(x86_64::XMM1));
+  const char* expected =
+    "movups 0x4(%RSP), %xmm0\n"
+    "movups %xmm1, 0x2(%RSP)\n";
+  DriverStr(expected, "movups_address");
+}
+
 TEST_F(AssemblerX86_64Test, Movss) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::movss, "movss %{reg2}, %{reg1}"), "movss");
 }
 
+TEST_F(AssemblerX86_64Test, Movapd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::movapd, "movapd %{reg2}, %{reg1}"), "movapd");
+}
+
+TEST_F(AssemblerX86_64Test, MovapdAddr) {
+  GetAssembler()->movapd(x86_64::XmmRegister(x86_64::XMM0), x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 4));
+  GetAssembler()->movapd(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 2), x86_64::XmmRegister(x86_64::XMM1));
+  const char* expected =
+    "movapd 0x4(%RSP), %xmm0\n"
+    "movapd %xmm1, 0x2(%RSP)\n";
+  DriverStr(expected, "movapd_address");
+}
+
+TEST_F(AssemblerX86_64Test, MovupdAddr) {
+  GetAssembler()->movupd(x86_64::XmmRegister(x86_64::XMM0), x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 4));
+  GetAssembler()->movupd(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 2), x86_64::XmmRegister(x86_64::XMM1));
+  const char* expected =
+    "movupd 0x4(%RSP), %xmm0\n"
+    "movupd %xmm1, 0x2(%RSP)\n";
+  DriverStr(expected, "movupd_address");
+}
+
 TEST_F(AssemblerX86_64Test, Movsd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::movsd, "movsd %{reg2}, %{reg1}"), "movsd");
+}
+
+TEST_F(AssemblerX86_64Test, Movdqa) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::movdqa, "movdqa %{reg2}, %{reg1}"), "movapd");
+}
+
+TEST_F(AssemblerX86_64Test, MovdqaAddr) {
+  GetAssembler()->movdqa(x86_64::XmmRegister(x86_64::XMM0), x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 4));
+  GetAssembler()->movdqa(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 2), x86_64::XmmRegister(x86_64::XMM1));
+  const char* expected =
+    "movdqa 0x4(%RSP), %xmm0\n"
+    "movdqa %xmm1, 0x2(%RSP)\n";
+  DriverStr(expected, "movdqa_address");
+}
+
+TEST_F(AssemblerX86_64Test, MovdquAddr) {
+  GetAssembler()->movdqu(x86_64::XmmRegister(x86_64::XMM0), x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 4));
+  GetAssembler()->movdqu(x86_64::Address(x86_64::CpuRegister(x86_64::RSP), 2), x86_64::XmmRegister(x86_64::XMM1));
+  const char* expected =
+    "movdqu 0x4(%RSP), %xmm0\n"
+    "movdqu %xmm1, 0x2(%RSP)\n";
+  DriverStr(expected, "movdqu_address");
 }
 
 TEST_F(AssemblerX86_64Test, Movd1) {
@@ -1002,12 +1072,28 @@ TEST_F(AssemblerX86_64Test, Addsd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::addsd, "addsd %{reg2}, %{reg1}"), "addsd");
 }
 
+TEST_F(AssemblerX86_64Test, Addps) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::addps, "addps %{reg2}, %{reg1}"), "addps");
+}
+
+TEST_F(AssemblerX86_64Test, Addpd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::addpd, "addpd %{reg2}, %{reg1}"), "addpd");
+}
+
 TEST_F(AssemblerX86_64Test, Subss) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::subss, "subss %{reg2}, %{reg1}"), "subss");
 }
 
 TEST_F(AssemblerX86_64Test, Subsd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::subsd, "subsd %{reg2}, %{reg1}"), "subsd");
+}
+
+TEST_F(AssemblerX86_64Test, Subps) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::subps, "subps %{reg2}, %{reg1}"), "subps");
+}
+
+TEST_F(AssemblerX86_64Test, Subpd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::subpd, "subpd %{reg2}, %{reg1}"), "subpd");
 }
 
 TEST_F(AssemblerX86_64Test, Mulss) {
@@ -1018,12 +1104,68 @@ TEST_F(AssemblerX86_64Test, Mulsd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::mulsd, "mulsd %{reg2}, %{reg1}"), "mulsd");
 }
 
+TEST_F(AssemblerX86_64Test, Mulps) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::mulps, "mulps %{reg2}, %{reg1}"), "mulps");
+}
+
+TEST_F(AssemblerX86_64Test, Mulpd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::mulpd, "mulpd %{reg2}, %{reg1}"), "mulpd");
+}
+
 TEST_F(AssemblerX86_64Test, Divss) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::divss, "divss %{reg2}, %{reg1}"), "divss");
 }
 
 TEST_F(AssemblerX86_64Test, Divsd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::divsd, "divsd %{reg2}, %{reg1}"), "divsd");
+}
+
+TEST_F(AssemblerX86_64Test, Divps) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::divps, "divps %{reg2}, %{reg1}"), "divps");
+}
+
+TEST_F(AssemblerX86_64Test, Divpd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::divpd, "divpd %{reg2}, %{reg1}"), "divpd");
+}
+
+TEST_F(AssemblerX86_64Test, Paddb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddb, "paddb %{reg2}, %{reg1}"), "paddb");
+}
+
+TEST_F(AssemblerX86_64Test, Psubb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubb, "psubb %{reg2}, %{reg1}"), "psubb");
+}
+
+TEST_F(AssemblerX86_64Test, Paddw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddw, "paddw %{reg2}, %{reg1}"), "paddw");
+}
+
+TEST_F(AssemblerX86_64Test, Psubw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubw, "psubw %{reg2}, %{reg1}"), "psubw");
+}
+
+TEST_F(AssemblerX86_64Test, Pmullw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pmullw, "pmullw %{reg2}, %{reg1}"), "pmullw");
+}
+
+TEST_F(AssemblerX86_64Test, Paddd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddd, "paddd %{reg2}, %{reg1}"), "paddd");
+}
+
+TEST_F(AssemblerX86_64Test, Psubd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubd, "psubd %{reg2}, %{reg1}"), "psubd");
+}
+
+TEST_F(AssemblerX86_64Test, Pmulld) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pmulld, "pmulld %{reg2}, %{reg1}"), "pmulld");
+}
+
+TEST_F(AssemblerX86_64Test, Paddq) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddq, "paddq %{reg2}, %{reg1}"), "paddq");
+}
+
+TEST_F(AssemblerX86_64Test, Psubq) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubq, "psubq %{reg2}, %{reg1}"), "psubq");
 }
 
 TEST_F(AssemblerX86_64Test, Cvtsi2ss) {
@@ -1061,6 +1203,10 @@ TEST_F(AssemblerX86_64Test, Cvttsd2si) {
 
 TEST_F(AssemblerX86_64Test, Cvtsd2ss) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::cvtsd2ss, "cvtsd2ss %{reg2}, %{reg1}"), "cvtsd2ss");
+}
+
+TEST_F(AssemblerX86_64Test, Cvtdq2ps) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::cvtdq2ps, "cvtdq2ps %{reg2}, %{reg1}"), "cvtdq2ps");
 }
 
 TEST_F(AssemblerX86_64Test, Cvtdq2pd) {
@@ -1107,6 +1253,10 @@ TEST_F(AssemblerX86_64Test, Xorpd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::xorpd, "xorpd %{reg2}, %{reg1}"), "xorpd");
 }
 
+TEST_F(AssemblerX86_64Test, Pxor) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pxor, "pxor %{reg2}, %{reg1}"), "pxor");
+}
+
 TEST_F(AssemblerX86_64Test, Andps) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::andps, "andps %{reg2}, %{reg1}"), "andps");
 }
@@ -1115,12 +1265,156 @@ TEST_F(AssemblerX86_64Test, Andpd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::andpd, "andpd %{reg2}, %{reg1}"), "andpd");
 }
 
+TEST_F(AssemblerX86_64Test, Pand) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pand, "pand %{reg2}, %{reg1}"), "pand");
+}
+
+TEST_F(AssemblerX86_64Test, andnpd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::andnpd, "andnpd %{reg2}, %{reg1}"), "andnpd");
+}
+
+TEST_F(AssemblerX86_64Test, andnps) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::andnps, "andnps %{reg2}, %{reg1}"), "andnps");
+}
+
+TEST_F(AssemblerX86_64Test, Pandn) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pandn, "pandn %{reg2}, %{reg1}"), "pandn");
+}
+
 TEST_F(AssemblerX86_64Test, Orps) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::orps, "orps %{reg2}, %{reg1}"), "orps");
 }
 
 TEST_F(AssemblerX86_64Test, Orpd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::orpd, "orpd %{reg2}, %{reg1}"), "orpd");
+}
+
+TEST_F(AssemblerX86_64Test, Por) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::por, "por %{reg2}, %{reg1}"), "por");
+}
+
+TEST_F(AssemblerX86_64Test, Pavgb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pavgb, "pavgb %{reg2}, %{reg1}"), "pavgb");
+}
+
+TEST_F(AssemblerX86_64Test, Pavgw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pavgw, "pavgw %{reg2}, %{reg1}"), "pavgw");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpeqb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpeqb, "pcmpeqb %{reg2}, %{reg1}"), "pcmpeqb");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpeqw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpeqw, "pcmpeqw %{reg2}, %{reg1}"), "pcmpeqw");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpeqd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpeqd, "pcmpeqd %{reg2}, %{reg1}"), "pcmpeqd");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpeqq) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpeqq, "pcmpeqq %{reg2}, %{reg1}"), "pcmpeqq");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpgtb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpgtb, "pcmpgtb %{reg2}, %{reg1}"), "pcmpgtb");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpgtw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpgtw, "pcmpgtw %{reg2}, %{reg1}"), "pcmpgtw");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpgtd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpgtd, "pcmpgtd %{reg2}, %{reg1}"), "pcmpgtd");
+}
+
+TEST_F(AssemblerX86_64Test, PCmpgtq) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::pcmpgtq, "pcmpgtq %{reg2}, %{reg1}"), "pcmpgtq");
+}
+
+TEST_F(AssemblerX86_64Test, Shufps) {
+  DriverStr(RepeatFFI(&x86_64::X86_64Assembler::shufps, 1, "shufps ${imm}, %{reg2}, %{reg1}"), "shufps");
+}
+
+TEST_F(AssemblerX86_64Test, Shufpd) {
+  DriverStr(RepeatFFI(&x86_64::X86_64Assembler::shufpd, 1, "shufpd ${imm}, %{reg2}, %{reg1}"), "shufpd");
+}
+
+TEST_F(AssemblerX86_64Test, PShufd) {
+  DriverStr(RepeatFFI(&x86_64::X86_64Assembler::pshufd, 1, "pshufd ${imm}, %{reg2}, %{reg1}"), "pshufd");
+}
+
+TEST_F(AssemblerX86_64Test, Punpcklbw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::punpcklbw, "punpcklbw %{reg2}, %{reg1}"), "punpcklbw");
+}
+
+TEST_F(AssemblerX86_64Test, Punpcklwd) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::punpcklwd, "punpcklwd %{reg2}, %{reg1}"), "punpcklwd");
+}
+
+TEST_F(AssemblerX86_64Test, Punpckldq) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::punpckldq, "punpckldq %{reg2}, %{reg1}"), "punpckldq");
+}
+
+TEST_F(AssemblerX86_64Test, Punpcklqdq) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::punpcklqdq, "punpcklqdq %{reg2}, %{reg1}"), "punpcklqdq");
+}
+
+TEST_F(AssemblerX86_64Test, Psllw) {
+  GetAssembler()->psllw(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psllw(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psllw $1, %xmm0\n"
+            "psllw $2, %xmm15\n", "psllwi");
+}
+
+TEST_F(AssemblerX86_64Test, Pslld) {
+  GetAssembler()->pslld(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->pslld(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("pslld $1, %xmm0\n"
+            "pslld $2, %xmm15\n", "pslldi");
+}
+
+TEST_F(AssemblerX86_64Test, Psllq) {
+  GetAssembler()->psllq(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psllq(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psllq $1, %xmm0\n"
+            "psllq $2, %xmm15\n", "psllqi");
+}
+
+TEST_F(AssemblerX86_64Test, Psraw) {
+  GetAssembler()->psraw(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psraw(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psraw $1, %xmm0\n"
+            "psraw $2, %xmm15\n", "psrawi");
+}
+
+TEST_F(AssemblerX86_64Test, Psrad) {
+  GetAssembler()->psrad(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psrad(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psrad $1, %xmm0\n"
+            "psrad $2, %xmm15\n", "psradi");
+}
+
+TEST_F(AssemblerX86_64Test, Psrlw) {
+  GetAssembler()->psrlw(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psrlw(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psrlw $1, %xmm0\n"
+            "psrlw $2, %xmm15\n", "psrlwi");
+}
+
+TEST_F(AssemblerX86_64Test, Psrld) {
+  GetAssembler()->psrld(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psrld(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psrld $1, %xmm0\n"
+            "psrld $2, %xmm15\n", "pslldi");
+}
+
+TEST_F(AssemblerX86_64Test, Psrlq) {
+  GetAssembler()->psrlq(x86_64::XmmRegister(x86_64::XMM0),  x86_64::Immediate(1));
+  GetAssembler()->psrlq(x86_64::XmmRegister(x86_64::XMM15), x86_64::Immediate(2));
+  DriverStr("psrlq $1, %xmm0\n"
+            "psrlq $2, %xmm15\n", "pslrqi");
 }
 
 TEST_F(AssemblerX86_64Test, UcomissAddress) {
@@ -1485,6 +1779,104 @@ TEST_F(AssemblerX86_64Test, SetCC) {
   DriverFn(&setcc_test_fn, "setcc");
 }
 
+TEST_F(AssemblerX86_64Test, MovzxbRegs) {
+  DriverStr(Repeatrb(&x86_64::X86_64Assembler::movzxb, "movzbl %{reg2}, %{reg1}"), "movzxb");
+}
+
+TEST_F(AssemblerX86_64Test, MovsxbRegs) {
+  DriverStr(Repeatrb(&x86_64::X86_64Assembler::movsxb, "movsbl %{reg2}, %{reg1}"), "movsxb");
+}
+
+TEST_F(AssemblerX86_64Test, Repnescasw) {
+  GetAssembler()->repne_scasw();
+  const char* expected = "repne scasw\n";
+  DriverStr(expected, "Repnescasw");
+}
+
+TEST_F(AssemblerX86_64Test, Repecmpsw) {
+  GetAssembler()->repe_cmpsw();
+  const char* expected = "repe cmpsw\n";
+  DriverStr(expected, "Repecmpsw");
+}
+
+TEST_F(AssemblerX86_64Test, Repecmpsl) {
+  GetAssembler()->repe_cmpsl();
+  const char* expected = "repe cmpsl\n";
+  DriverStr(expected, "Repecmpsl");
+}
+
+TEST_F(AssemblerX86_64Test, Repecmpsq) {
+  GetAssembler()->repe_cmpsq();
+  const char* expected = "repe cmpsq\n";
+  DriverStr(expected, "Repecmpsq");
+}
+
+TEST_F(AssemblerX86_64Test, Cmpb) {
+  GetAssembler()->cmpb(x86_64::Address(x86_64::CpuRegister(x86_64::RDI), 128),
+                       x86_64::Immediate(0));
+  const char* expected = "cmpb $0, 128(%RDI)\n";
+  DriverStr(expected, "cmpb");
+}
+
+TEST_F(AssemblerX86_64Test, TestbAddressImmediate) {
+  GetAssembler()->testb(
+      x86_64::Address(x86_64::CpuRegister(x86_64::RDI),
+                      x86_64::CpuRegister(x86_64::RBX),
+                      x86_64::TIMES_4,
+                      12),
+      x86_64::Immediate(1));
+  GetAssembler()->testb(
+      x86_64::Address(x86_64::CpuRegister(x86_64::RSP), FrameOffset(7)),
+      x86_64::Immediate(-128));
+  GetAssembler()->testb(
+      x86_64::Address(x86_64::CpuRegister(x86_64::RBX), MemberOffset(130)),
+      x86_64::Immediate(127));
+  const char* expected =
+      "testb $1, 0xc(%RDI,%RBX,4)\n"
+      "testb $-128, 0x7(%RSP)\n"
+      "testb $127, 0x82(%RBX)\n";
+
+  DriverStr(expected, "TestbAddressImmediate");
+}
+
+TEST_F(AssemblerX86_64Test, TestlAddressImmediate) {
+  GetAssembler()->testl(
+      x86_64::Address(x86_64::CpuRegister(x86_64::RDI),
+                      x86_64::CpuRegister(x86_64::RBX),
+                      x86_64::TIMES_4,
+                      12),
+      x86_64::Immediate(1));
+  GetAssembler()->testl(
+      x86_64::Address(x86_64::CpuRegister(x86_64::RSP), FrameOffset(7)),
+      x86_64::Immediate(-100000));
+  GetAssembler()->testl(
+      x86_64::Address(x86_64::CpuRegister(x86_64::RBX), MemberOffset(130)),
+      x86_64::Immediate(77777777));
+  const char* expected =
+      "testl $1, 0xc(%RDI,%RBX,4)\n"
+      "testl $-100000, 0x7(%RSP)\n"
+      "testl $77777777, 0x82(%RBX)\n";
+
+  DriverStr(expected, "TestlAddressImmediate");
+}
+
+class JNIMacroAssemblerX86_64Test : public JNIMacroAssemblerTest<x86_64::X86_64JNIMacroAssembler> {
+ public:
+  using Base = JNIMacroAssemblerTest<x86_64::X86_64JNIMacroAssembler>;
+
+ protected:
+  // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
+  std::string GetArchitectureString() OVERRIDE {
+    return "x86_64";
+  }
+
+  std::string GetDisassembleParameters() OVERRIDE {
+    return " -D -bbinary -mi386:x86-64 -Mx86-64,addr64,data32 --no-show-raw-insn";
+  }
+
+ private:
+};
+
 static x86_64::X86_64ManagedRegister ManagedFromCpu(x86_64::Register r) {
   return x86_64::X86_64ManagedRegister::FromCpuRegister(r);
 }
@@ -1493,14 +1885,16 @@ static x86_64::X86_64ManagedRegister ManagedFromFpu(x86_64::FloatRegister r) {
   return x86_64::X86_64ManagedRegister::FromXmmRegister(r);
 }
 
-std::string buildframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
-                               x86_64::X86_64Assembler* assembler) {
+std::string buildframe_test_fn(JNIMacroAssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
+                               x86_64::X86_64JNIMacroAssembler* assembler) {
   // TODO: more interesting spill registers / entry spills.
 
   // Two random spill regs.
-  std::vector<ManagedRegister> spill_regs;
-  spill_regs.push_back(ManagedFromCpu(x86_64::R10));
-  spill_regs.push_back(ManagedFromCpu(x86_64::RSI));
+  const ManagedRegister raw_spill_regs[] = {
+      ManagedFromCpu(x86_64::R10),
+      ManagedFromCpu(x86_64::RSI)
+  };
+  ArrayRef<const ManagedRegister> spill_regs(raw_spill_regs);
 
   // Three random entry spills.
   ManagedRegisterEntrySpills entry_spills;
@@ -1534,18 +1928,20 @@ std::string buildframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTRIBU
   return str.str();
 }
 
-TEST_F(AssemblerX86_64Test, BuildFrame) {
+TEST_F(JNIMacroAssemblerX86_64Test, BuildFrame) {
   DriverFn(&buildframe_test_fn, "BuildFrame");
 }
 
-std::string removeframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
-                                x86_64::X86_64Assembler* assembler) {
+std::string removeframe_test_fn(JNIMacroAssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
+                                x86_64::X86_64JNIMacroAssembler* assembler) {
   // TODO: more interesting spill registers / entry spills.
 
   // Two random spill regs.
-  std::vector<ManagedRegister> spill_regs;
-  spill_regs.push_back(ManagedFromCpu(x86_64::R10));
-  spill_regs.push_back(ManagedFromCpu(x86_64::RSI));
+  const ManagedRegister raw_spill_regs[] = {
+      ManagedFromCpu(x86_64::R10),
+      ManagedFromCpu(x86_64::RSI)
+  };
+  ArrayRef<const ManagedRegister> spill_regs(raw_spill_regs);
 
   size_t frame_size = 10 * kStackAlignment;
   assembler->RemoveFrame(10 * kStackAlignment, spill_regs);
@@ -1563,12 +1959,13 @@ std::string removeframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTRIB
   return str.str();
 }
 
-TEST_F(AssemblerX86_64Test, RemoveFrame) {
+TEST_F(JNIMacroAssemblerX86_64Test, RemoveFrame) {
   DriverFn(&removeframe_test_fn, "RemoveFrame");
 }
 
-std::string increaseframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
-                                  x86_64::X86_64Assembler* assembler) {
+std::string increaseframe_test_fn(
+    JNIMacroAssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
+    x86_64::X86_64JNIMacroAssembler* assembler) {
   assembler->IncreaseFrameSize(0U);
   assembler->IncreaseFrameSize(kStackAlignment);
   assembler->IncreaseFrameSize(10 * kStackAlignment);
@@ -1582,12 +1979,13 @@ std::string increaseframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTR
   return str.str();
 }
 
-TEST_F(AssemblerX86_64Test, IncreaseFrame) {
+TEST_F(JNIMacroAssemblerX86_64Test, IncreaseFrame) {
   DriverFn(&increaseframe_test_fn, "IncreaseFrame");
 }
 
-std::string decreaseframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
-                                  x86_64::X86_64Assembler* assembler) {
+std::string decreaseframe_test_fn(
+    JNIMacroAssemblerX86_64Test::Base* assembler_test ATTRIBUTE_UNUSED,
+    x86_64::X86_64JNIMacroAssembler* assembler) {
   assembler->DecreaseFrameSize(0U);
   assembler->DecreaseFrameSize(kStackAlignment);
   assembler->DecreaseFrameSize(10 * kStackAlignment);
@@ -1601,40 +1999,8 @@ std::string decreaseframe_test_fn(AssemblerX86_64Test::Base* assembler_test ATTR
   return str.str();
 }
 
-TEST_F(AssemblerX86_64Test, DecreaseFrame) {
+TEST_F(JNIMacroAssemblerX86_64Test, DecreaseFrame) {
   DriverFn(&decreaseframe_test_fn, "DecreaseFrame");
-}
-
-TEST_F(AssemblerX86_64Test, MovzxbRegs) {
-  DriverStr(Repeatrb(&x86_64::X86_64Assembler::movzxb, "movzbl %{reg2}, %{reg1}"), "movzxb");
-}
-
-TEST_F(AssemblerX86_64Test, MovsxbRegs) {
-  DriverStr(Repeatrb(&x86_64::X86_64Assembler::movsxb, "movsbl %{reg2}, %{reg1}"), "movsxb");
-}
-
-TEST_F(AssemblerX86_64Test, Repnescasw) {
-  GetAssembler()->repne_scasw();
-  const char* expected = "repne scasw\n";
-  DriverStr(expected, "Repnescasw");
-}
-
-TEST_F(AssemblerX86_64Test, Repecmpsw) {
-  GetAssembler()->repe_cmpsw();
-  const char* expected = "repe cmpsw\n";
-  DriverStr(expected, "Repecmpsw");
-}
-
-TEST_F(AssemblerX86_64Test, Repecmpsl) {
-  GetAssembler()->repe_cmpsl();
-  const char* expected = "repe cmpsl\n";
-  DriverStr(expected, "Repecmpsl");
-}
-
-TEST_F(AssemblerX86_64Test, Repecmpsq) {
-  GetAssembler()->repe_cmpsq();
-  const char* expected = "repe cmpsq\n";
-  DriverStr(expected, "Repecmpsq");
 }
 
 }  // namespace art

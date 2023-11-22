@@ -14,7 +14,7 @@ if it fails.
 """
 
 def run(machine):
-    host = hosts.create_host(machine, initialize=False)
+    host = hosts.create_host(machine)
     job.run_test('verify_test', host=host, disable_sysinfo=True)
 
 job.parallel_simple(run, machines)

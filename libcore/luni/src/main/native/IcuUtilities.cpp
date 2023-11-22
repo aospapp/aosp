@@ -16,16 +16,17 @@
 
 #define LOG_TAG "IcuUtilities"
 
+#include <android/log.h>
+
 #include "IcuUtilities.h"
 
 #include "JniConstants.h"
 #include "JniException.h"
 #include "ScopedLocalRef.h"
 #include "ScopedUtfChars.h"
-#include "cutils/log.h"
 #include "unicode/strenum.h"
-#include "unicode/uloc.h"
 #include "unicode/ustring.h"
+#include "unicode/uloc.h"
 
 jobjectArray fromStringEnumeration(JNIEnv* env, UErrorCode& status, const char* provider, icu::StringEnumeration* se) {
   if (maybeThrowIcuException(env, provider, status)) {

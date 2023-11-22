@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Sellulêre data"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"Mobieldata"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Foondienste"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Noodbeller"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Foon"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Vermiste stemboodskapnommer"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Geen stemboodskapnommer is op die SIM-kaart gestoor nie."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Voeg nommer by"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"Stemboodskapinstellings kan slegs deur die primêre gebruiker gewysig word."</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"Jou SIM-kaart is oopgesluit. Jou foon sluit tans oop…"</string>
     <string name="label_ndp" msgid="780479633159517250">"SIM-netwerk ontsluit PIN"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"Ontsluit"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"Versoek tans netwerkontsluiting…"</string>
     <string name="unlock_failed" msgid="6490531697031504225">"Netwerkaanvraag onsuksesvol ontsluit."</string>
     <string name="unlock_success" msgid="6770085622238180152">"Netwerkontsluiting suksesvol."</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Selnetwerkinstellings is nie vir hierdie gebruiker beskikbaar nie"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"Mobiele netwerkinstellings is nie vir hierdie gebruiker beskikbaar nie"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM-oproepinstellings"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM-oproepinstellings (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA-oproepinstellings"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"Stemboodskap"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Stemboodskapdiens (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Kennisgewings"</string>
     <string name="networks" msgid="8873030692174541976">"Netwerkoperateurs"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Nooduitsendings"</string>
     <string name="call_settings" msgid="6112441768261754562">"Oproepinstellings"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"Indien onbereikbaar"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"Nommer wanneer onbereikbaar"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Stuur aan na <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Gedeaktiveer"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Af"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Jou diensverskaffer ondersteun nie die deaktivering van oproepaanstuur wanneer jou foon onbereikbaar is nie."</string>
     <string name="updating_title" msgid="6146755386174019046">"Belinstellings"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Oproepinstellings kan net deur die administrateur verander word."</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Die nuwe PIN bevat ongeldige karakters."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Kan nie PIN verander nie"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Ongesteunde tipe boodskap, bel <xliff:g id="NUMBER">%s</xliff:g> om te luister."</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"Selnetwerkinstellings"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"Mobiele netwerkinstellings"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"Mobiele netwerk"</string>
     <string name="label_available" msgid="1181658289009300430">"Beskikbare netwerke"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Soek tans…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Geen netwerke gevind nie."</string>
@@ -235,7 +238,7 @@
     <!-- no translation found for throttle_time_frame_subtext (7732763021560399960) -->
     <skip />
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Datatempo verminder na <xliff:g id="USED">%1$d</xliff:g> Kb/s as datagebruiklimiet oorskry word"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"Meer inligting oor jou diensverskaffer se beleid oor die gebruik van selnetwerkdata"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"Meer inligting oor jou draer se mobielenetwerk-datagebruikbeleid"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"Seluitsending-SMS"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"Seluitsending-SMS"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"Seluitsending-SMS geaktiveer"</string>
@@ -372,6 +375,7 @@
     <string name="menu_add" msgid="1882023737425114762">"Voeg kontak by"</string>
     <string name="menu_edit" msgid="7143003705504672374">"Verander kontak"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Vee kontak uit"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"Bel kontak"</string>
     <string name="get_pin2" msgid="8204677063922225311">"Voer PIN2 in"</string>
     <string name="name" msgid="7329028332786872378">"Naam"</string>
     <string name="number" msgid="7905950798349903858">"Nommer"</string>
@@ -386,7 +390,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Verwyder belbeperking-nommer…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Belbeperking-nommer uitgevee."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN is nie opgedateer nie omdat jy \'n verkeerde PIN ingevoer het."</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"FDN is nie opgedateer nie, omdat die getal nie 20 syfers kan oorskry nie."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN is nie opgedateer nie, omdat die getal leeg is of 20 syfers oorskry."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN is nie bygewerk nie. Die PIN2 was verkeerd of die foonnommer is verwerp."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN-bewerking het misluk."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Lees tans van SIM-kaart af…"</string>
@@ -443,16 +447,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Stemboodskapnommer onbekend"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Geen diens nie"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Gekose netwerk (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) nie beskikbaar nie"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"Skakel vliegtuigmodus af om \'n oproep te maak."</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Skakel selnetwerk aan, skakel vliegtuigmodus af of skakel batterybespaardermodus af om \'n oproep te maak."</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Skakel vliegtuigmodus af om \'n oproep te maak."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Skakel vliegtuigmodus af of koppel aan \'n draadlose netwerk om \'n oproep te maak."</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Verlaat noodterugbelmodus om \'n nienoodoproep te maak."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Nie geregistreer op netwerk nie."</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"Sellulêre netwerk nie beskikbaar nie."</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Sellulêre netwerk is nie beskikbaar nie. Koppel aan \'n draadlose netwerk om \'n oproep te maak."</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"Mobiele netwerk nie beskikbaar nie."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobiele netwerk is nie beskikbaar nie. Koppel aan \'n draadlose netwerk om \'n oproep te maak."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Voer \'n geldige nommer in om \'n oproep te maak."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Oproep het misluk."</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Oproep kan nie op die oomblik bygevoeg word nie."</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Begin MMI-volgorde…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Diens word nie gesteun nie"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Kan nie oproepe wissel nie."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Kan nie oproep skei nie."</string>
@@ -527,10 +531,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"Noodterugbel-modus betree"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"Noodterugbel-modus"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"Dataverbinding gedeaktiveer"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other">Geen dataverbinding vir <xliff:g id="COUNT_1">%s</xliff:g> minute nie</item>
-      <item quantity="one">Geen dataverbinding vir <xliff:g id="COUNT_0">%s</xliff:g> minuut nie</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"Geen dataverbinding tot <xliff:g id="COMPLETETIME">%s</xliff:g> nie"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">Die foon sal <xliff:g id="COUNT_1">%s</xliff:g> minute lank in noodterugbelmodus wees. Terwyl dit in hierdie modus is, kan geen programme gebruik word wat \'n dataverbinding gebruik nie. Wil jy nou uitgaan?</item>
       <item quantity="one">Die foon sal <xliff:g id="COUNT_0">%s</xliff:g> minuut lank in noodterugbelmodus wees. Terwyl dit in hierdie modus is, kan geen programme gebruik word wat \'n dataverbinding gebruik nie. Wil jy nou uitgaan?</item>
@@ -554,12 +555,9 @@
     <string name="selectContact" msgid="781975788478987237">"kies kontak"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Stembel nie ondersteun nie"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"bel"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Vibreer"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Vibreer"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Visuele stemboodskapdiens"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Stel PIN"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Verander PIN"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Klank"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Luitoon en vibreer"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Ingeboude SIM-kaarte"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Skakel video-oproepe aan"</string>
@@ -570,12 +568,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Net noodoproepe"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM-kaart, gleuf: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Toeganklikheid"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Inkomende Wi-Fi-oproep"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wi-Fi-oproep vanaf"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi-oproep"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Tik weer om oop te maak"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Kon nie die boodskap dekodeer nie."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"\'n SIM-kaart het jou diens geaktiveer en jou foon se swerwingvermoëns opgedateer."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Daar is te veel aktiewe oproepe. Beëindig of voeg asseblief bestaande oproepe saam voordat jy \'n nuwe een maak."</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Kan nie koppel nie, sit asseblief \'n geldige SIM-kaart in."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi-verbinding verloor. Oproep is beëindig."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Verander stemboodskap-PIN"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Gaan voort"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Kanselleer"</string>

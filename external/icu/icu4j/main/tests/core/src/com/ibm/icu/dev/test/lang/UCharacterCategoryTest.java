@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
 *******************************************************************************
 * Copyright (C) 1996-2006, International Business Machines Corporation and    *
@@ -5,6 +7,8 @@
 *******************************************************************************
 */
 package com.ibm.icu.dev.test.lang;
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.lang.UCharacterCategory;
 
@@ -26,23 +30,11 @@ public class UCharacterCategoryTest extends TestFmwk
     
       // public methods --------------------------------------------------------
       
-    public static void main(String[] arg)  
-    {
-        try
-        {
-              UCharacterCategoryTest test = new UCharacterCategoryTest();
-              test.run(arg);
-        }
-        catch (Exception e)
-        {
-              e.printStackTrace();
-        }
-    }
-    
     /**
     * Gets the name of the argument category
     * @returns category name
     */
+    @Test
     public void TestToString()
     {
           String name[] = {"Unassigned",

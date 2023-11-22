@@ -115,7 +115,6 @@ extern half __attribute__((overloadable)) modf(half x, half *iptr) {
 
 // Based on bionic/libm/upstream-freebsd/lib/msun/src/s_nextafterf.c
 extern half __attribute__((overloadable)) nextafter(half x, half y) {
-  volatile half t;
   short hx, hy, ix, iy;
 
   GET_HALF_WORD(hx, x);

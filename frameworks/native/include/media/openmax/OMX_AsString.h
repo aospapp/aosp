@@ -107,6 +107,7 @@ inline static const char *asString(OMX_AUDIO_AACPROFILETYPE i, const char *def =
         case OMX_AUDIO_AACObjectLTP:      return "LTP";
         case OMX_AUDIO_AACObjectHE:       return "HE";
         case OMX_AUDIO_AACObjectScalable: return "Scalable";
+        case OMX_AUDIO_AACObjectER_Scalable: return "ER_Scalable";
         case OMX_AUDIO_AACObjectERLC:     return "ERLC";
         case OMX_AUDIO_AACObjectLD:       return "LD";
         case OMX_AUDIO_AACObjectHE_PS:    return "HE_PS";
@@ -530,9 +531,12 @@ inline static const char *asString(OMX_INDEXEXTTYPE i, const char *def = "??") {
 //      case OMX_IndexConfigCallbackRequest:            return "ConfigCallbackRequest";
 //      case OMX_IndexConfigCommitMode:                 return "ConfigCommitMode";
 //      case OMX_IndexConfigCommit:                     return "ConfigCommit";
+        case OMX_IndexConfigAndroidVendorExtension:     return "ConfigAndroidVendorExtension";
         case OMX_IndexParamAudioAndroidAc3:             return "ParamAudioAndroidAc3";
         case OMX_IndexParamAudioAndroidOpus:            return "ParamAudioAndroidOpus";
         case OMX_IndexParamAudioAndroidAacPresentation: return "ParamAudioAndroidAacPresentation";
+        case OMX_IndexParamAudioAndroidEac3:            return "ParamAudioAndroidEac3";
+        case OMX_IndexParamAudioProfileQuerySupported:  return "ParamAudioProfileQuerySupported";
 //      case OMX_IndexParamNalStreamFormatSupported:    return "ParamNalStreamFormatSupported";
 //      case OMX_IndexParamNalStreamFormat:             return "ParamNalStreamFormat";
 //      case OMX_IndexParamNalStreamFormatSelect:       return "ParamNalStreamFormatSelect";
@@ -545,10 +549,15 @@ inline static const char *asString(OMX_INDEXEXTTYPE i, const char *def = "??") {
         case OMX_IndexConfigAndroidIntraRefresh:        return "ConfigAndroidIntraRefresh";
         case OMX_IndexParamAndroidVideoTemporalLayering: return "ParamAndroidVideoTemporalLayering";
         case OMX_IndexConfigAndroidVideoTemporalLayering: return "ConfigAndroidVideoTemporalLayering";
+        case OMX_IndexParamMaxFrameDurationForBitrateControl:
+            return "ParamMaxFrameDurationForBitrateControl";
+        case OMX_IndexParamVideoVp9:                    return "ParamVideoVp9";
+        case OMX_IndexParamVideoAndroidVp9Encoder:      return "ParamVideoAndroidVp9Encoder";
         case OMX_IndexConfigAutoFramerateConversion:    return "ConfigAutoFramerateConversion";
         case OMX_IndexConfigPriority:                   return "ConfigPriority";
         case OMX_IndexConfigOperatingRate:              return "ConfigOperatingRate";
         case OMX_IndexParamConsumerUsageBits:           return "ParamConsumerUsageBits";
+        case OMX_IndexConfigLatency:                    return "ConfigLatency";
         default:                                        return asString((OMX_INDEXTYPE)i, def);
     }
 }

@@ -29,17 +29,13 @@ import java.util.Map;
 public class CustomTabPanel extends Composite implements CustomHistoryListener,
                                                          BeforeSelectionHandler<Integer>,
                                                          SelectionHandler<Integer> {
-    private static final int AUTOREFRESH_INTERVAL = 5000; // millisecond
-
     protected TabPanel tabPanel = new TabPanel();
     protected Panel otherWidgetsPanel = new HorizontalPanel();
     private Panel commonAreaPanel = new VerticalPanel();
     protected Button refreshButton = new Button("Refresh");
-    protected CheckBox autorefreshCheckbox = new CheckBox("Auto Refresh");
     protected int topBarHeight = 0;
     protected List<TabView> tabViews = new ArrayList<TabView>();
     private boolean doUpdateHistory = true;
-    private Timer autorefreshTimer;
     
     public CustomTabPanel() {
         VerticalPanel container = new VerticalPanel();
@@ -81,26 +77,6 @@ public class CustomTabPanel extends Composite implements CustomHistoryListener,
         });
         otherWidgetsPanel.add(refreshButton);
 
-        autorefreshCheckbox.addValueChangeHandler(new ValueChangeHandler() {
-            public void onValueChange(ValueChangeEvent event) {
-                // Ensure Initialization.
-                if (autorefreshTimer == null)
-                    initialize();
-
-                Boolean value = autorefreshCheckbox.getValue();
-                TabView selectedTabView = tabViews.get(
-                        tabPanel.getTabBar().getSelectedTab());
-                if (selectedTabView != null)
-                    selectedTabView.setAutorefresh(value);
-                if (value) {
-                    autorefreshTimer.scheduleRepeating(AUTOREFRESH_INTERVAL);
-                } else {
-                    autorefreshTimer.cancel();
-                }
-            }
-        });
-        otherWidgetsPanel.add(autorefreshCheckbox);
-        
         CustomHistory.addHistoryListener(this);
 
         top.setStyleName("custom-tab-top");
@@ -116,12 +92,6 @@ public class CustomTabPanel extends Composite implements CustomHistoryListener,
         // first tab
         if (getSelectedTabView() == null)
             tabPanel.selectTab(0);
-        autorefreshTimer = new Timer() {
-            @Override
-            public void run() {
-                getSelectedTabView().refresh();
-            }
-        };
     }
     
     public void addTabView(TabView tabView) {
@@ -209,7 +179,5 @@ public class CustomTabPanel extends Composite implements CustomHistoryListener,
         TabView selectedTabView = tabViews.get(event.getSelectedItem());
         if (doUpdateHistory)
             selectedTabView.updateHistory();
-        // The second parameter is to fire a valueChange event if value changed.
-        autorefreshCheckbox.setValue(selectedTabView.isAutorefreshOn(), true);
     }
 }

@@ -5,7 +5,6 @@
 AUTHOR = 'mnissler, pastarmovj'
 NAME = 'platform_SessionManagerStateKeyGeneration'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

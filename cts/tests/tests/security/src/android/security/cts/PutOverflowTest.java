@@ -16,9 +16,11 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import java.lang.reflect.Method;
 
+@SecurityTest
 public class PutOverflowTest extends AndroidTestCase {
     public void testCrash() throws Exception {
         try {

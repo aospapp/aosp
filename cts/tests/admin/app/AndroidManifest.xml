@@ -18,7 +18,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.admin.app">
-    <application>
+    <application android:testOnly="true">
 
         <uses-library android:name="android.test.runner"/>
 
@@ -26,6 +26,15 @@
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data android:name="android.app.device_admin"
                 android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="android.admin.app.CtsDeviceAdminProfileOwner"
+                  android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                       android:resource="@xml/device_admin" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
@@ -115,12 +124,5 @@
         </receiver>
 
     </application>
-
-    <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
-        android:label="Deactivate Admins"
-        android:targetPackage="android.admin.app" >
-    </instrumentation>
 
 </manifest>

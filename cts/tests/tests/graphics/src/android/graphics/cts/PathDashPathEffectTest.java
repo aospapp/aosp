@@ -16,26 +16,32 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Path.Direction;
 import android.graphics.PathDashPathEffect;
 import android.graphics.RectF;
-import android.graphics.Bitmap.Config;
-import android.graphics.Path.Direction;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class PathDashPathEffectTest extends TestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PathDashPathEffectTest {
     private static final int SQUARE = 10;
     private static final int ADVANCE = 30;
     private static final int WIDTH = 100;
     private static final int HEIGHT = 100;
 
+    @Test
     public void testPathDashPathEffect() {
         Bitmap b = Bitmap.createBitmap(WIDTH, HEIGHT, Config.ARGB_8888);
         b.eraseColor(Color.BLACK);

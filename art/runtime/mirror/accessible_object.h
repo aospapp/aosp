@@ -36,20 +36,19 @@ class MANAGED AccessibleObject : public Object {
   }
 
   template<bool kTransactionActive>
-  void SetAccessible(bool value) SHARED_REQUIRES(Locks::mutator_lock_) {
+  void SetAccessible(bool value) REQUIRES_SHARED(Locks::mutator_lock_) {
     UNUSED(padding_);
     return SetFieldBoolean<kTransactionActive>(FlagOffset(), value ? 1u : 0u);
   }
 
-  bool IsAccessible() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool IsAccessible() REQUIRES_SHARED(Locks::mutator_lock_) {
     return GetFieldBoolean(FlagOffset());
   }
 
  private:
   uint8_t flag_;
-  // Padding required for now since "packed" will cause reflect.Field fields to not be aligned
-  // otherwise.
-  uint8_t padding_[3];
+  // Padding required for correct alignment of subclasses like Executable, Field, etc.
+  uint8_t padding_[1];
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(AccessibleObject);
 };

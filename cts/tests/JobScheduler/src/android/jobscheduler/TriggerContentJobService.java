@@ -47,10 +47,15 @@ public class TriggerContentJobService extends JobService {
     JobParameters mRunningParams;
 
     final Handler mHandler = new Handler();
-    final Runnable mWorker = new Runnable() {
+    final Runnable mWorkerReschedule = new Runnable() {
         @Override public void run() {
             scheduleJob(TriggerContentJobService.this, mRunningJobInfo);
             jobFinished(mRunningParams, false);
+        }
+    };
+    final Runnable mWorkerFinishTrue = new Runnable() {
+        @Override public void run() {
+            jobFinished(mRunningParams, true);
         }
     };
 
@@ -74,9 +79,13 @@ public class TriggerContentJobService extends JobService {
         TestEnvironment.getTestEnvironment().setMode(TestEnvironment.MODE_ONESHOT, null);
         TestEnvironment.getTestEnvironment().notifyExecution(params);
 
-        if (mode == TestEnvironment.MODE_ONE_REPEAT) {
+        if (mode == TestEnvironment.MODE_ONE_REPEAT_RESCHEDULE) {
             mRunningParams = params;
-            mHandler.postDelayed(mWorker, REPEAT_INTERVAL);
+            mHandler.postDelayed(mWorkerReschedule, REPEAT_INTERVAL);
+            return true;
+        } else if (mode == TestEnvironment.MODE_ONE_REPEAT_FINISH_TRUE) {
+            mRunningParams = params;
+            mHandler.postDelayed(mWorkerFinishTrue, REPEAT_INTERVAL);
             return true;
         } else {
             return false;  // No work to do.
@@ -104,7 +113,8 @@ public class TriggerContentJobService extends JobService {
         private JobInfo mModeJobInfo;
 
         public static final int MODE_ONESHOT = 0;
-        public static final int MODE_ONE_REPEAT = 1;
+        public static final int MODE_ONE_REPEAT_RESCHEDULE = 1;
+        public static final int MODE_ONE_REPEAT_FINISH_TRUE = 2;
 
         public static TestEnvironment getTestEnvironment() {
             if (kTestEnvironment == null) {

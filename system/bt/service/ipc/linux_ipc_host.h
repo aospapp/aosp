@@ -93,7 +93,7 @@ class LinuxIPCHost {
   bool OnStopService(const std::string& service_uuid);
 
   // weak reference.
-  bluetooth::Adapter *adapter_;
+  bluetooth::Adapter* adapter_;
 
   // File descripters that we will block against.
   std::vector<struct pollfd> pfds_;

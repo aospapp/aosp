@@ -29,7 +29,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         robolectric-httpcore \
         robolectric-javassist \
         robolectric-json \
-        junit \
+        junit-host \
         robolectric-maps \
         objenesis-host \
         robolectric-sqlite-jdbc \

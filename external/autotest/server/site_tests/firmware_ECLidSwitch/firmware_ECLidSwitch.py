@@ -66,14 +66,14 @@ class firmware_ECLidSwitch(FirmwareTest):
         time.sleep(self.LID_DELAY)
         self._open_lid()
 
-    @delayed(LONG_WAKE_DELAY)
     def long_delayed_wake(self):
         """Delay for LONG_WAKE_DELAY and then wake DUT with lid switch."""
+        time.sleep(self.LONG_WAKE_DELAY)
         self._wake_by_lid_switch()
 
-    @delayed(SHORT_WAKE_DELAY)
     def short_delayed_wake(self):
         """Delay for SHORT_WAKE_DELAY and then wake DUT with lid switch."""
+        time.sleep(self.SHORT_WAKE_DELAY)
         self._wake_by_lid_switch()
 
     def shutdown_and_wake(self, wake_func):

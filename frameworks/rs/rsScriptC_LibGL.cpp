@@ -22,7 +22,6 @@
 #include "rsMesh.h"
 #include "rsgApiStructs.h"
 
-#include "utils/Timers.h"
 #include "driver/rsdVertexArray.h"
 #include "driver/rsdShaderCache.h"
 #include "driver/rsdCore.h"
@@ -35,9 +34,6 @@
 #include <GLES2/gl2ext.h>
 
 #include <time.h>
-
-using namespace android;
-using namespace android::renderscript;
 
 namespace android {
 namespace renderscript {
@@ -270,5 +266,5 @@ void rsrFontColor(Context *rsc, float r, float g, float b, float a) {
     rsc->mStateFont.setFontColor(r, g, b, a);
 }
 
-}
-}
+} // namespace renderscript
+} // namespace android

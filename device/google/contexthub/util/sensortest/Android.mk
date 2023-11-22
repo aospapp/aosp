@@ -33,5 +33,7 @@ LOCAL_STRIP_MODULE := keep_symbols
 
 LOCAL_MODULE:= sensortest
 
+LOCAL_SDK_VERSION := current
+
 include $(BUILD_EXECUTABLE)
 

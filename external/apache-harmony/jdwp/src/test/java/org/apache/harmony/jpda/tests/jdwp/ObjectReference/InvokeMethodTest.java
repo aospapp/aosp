@@ -52,6 +52,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class InvokeMethodTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee";
     }
@@ -125,7 +126,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         packet.setNextValueAsMethodID(constructorID);
         if ( testNumber == 1 ) {
             packet.setNextValueAsInt(1); // number of parameters
-            packet.setNextValueAsValue(new Value(false));
+            packet.setNextValueAsValue(Value.createBoolean(false));
         }
         if ( testNumber == 2 ) {
             packet.setNextValueAsInt(0); // number of parameters
@@ -206,7 +207,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         packet.setNextValueAsClassID(typeID);
         packet.setNextValueAsMethodID(targetMethodID);
         packet.setNextValueAsInt(1);
-        packet.setNextValueAsValue(new Value(false));
+        packet.setNextValueAsValue(Value.createBoolean(false));
         packet.setNextValueAsInt(0);
         logWriter.println("\nSend ObjectReference.InvokeMethod without exception...");
         ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
@@ -240,7 +241,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         packet.setNextValueAsClassID(typeID);
         packet.setNextValueAsMethodID(targetMethodID);
         packet.setNextValueAsInt(1);
-        packet.setNextValueAsValue(new Value(true));
+        packet.setNextValueAsValue(Value.createBoolean(true));
         packet.setNextValueAsInt(0);
         logWriter.println("\nSend ObjectReference.InvokeMethod with exception...");
         reply = debuggeeWrapper.vmMirror.performCommand(packet);
@@ -321,7 +322,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         packet.setNextValueAsClassID(typeIDChild);
         packet.setNextValueAsMethodID(targetMethodIDChild);
         packet.setNextValueAsInt(1);
-        packet.setNextValueAsValue(new Value(false));
+        packet.setNextValueAsValue(Value.createBoolean(false));
         packet.setNextValueAsInt(JDWPConstants.InvokeOptions.INVOKE_NONVIRTUAL);
         logWriter.println
         ("\nSend ObjectReference.InvokeMethod:: nonvirtual child method without exception...");
@@ -356,7 +357,7 @@ public class InvokeMethodTest extends JDWPSyncTestCase {
         packet.setNextValueAsClassID(typeIDSuper);
         packet.setNextValueAsMethodID(targetMethodIDSuper);
         packet.setNextValueAsInt(1);
-        packet.setNextValueAsValue(new Value(false));
+        packet.setNextValueAsValue(Value.createBoolean(false));
         packet.setNextValueAsInt(JDWPConstants.InvokeOptions.INVOKE_NONVIRTUAL);
         logWriter.println
         ("\nSend ObjectReference.InvokeMethod: nonvirtual super method without exception...");

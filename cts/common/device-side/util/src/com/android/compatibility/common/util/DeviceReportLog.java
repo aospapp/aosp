@@ -72,7 +72,7 @@ public class DeviceReportLog extends ReportLog {
         super.addValue(source, message, value, type, unit);
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -85,7 +85,7 @@ public class DeviceReportLog extends ReportLog {
         super.addValue(message, value, type, unit);
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -99,7 +99,7 @@ public class DeviceReportLog extends ReportLog {
         super.addValues(source, message, values, type, unit);
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -112,7 +112,7 @@ public class DeviceReportLog extends ReportLog {
         super.addValues(message, values, type, unit);
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -124,7 +124,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValue(String message, int value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -136,7 +136,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValue(String message, long value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -148,7 +148,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValue(String message, float value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -160,7 +160,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValue(String message, boolean value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -172,7 +172,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValue(String message, String value, ResultType type, ResultUnit unit) {
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -184,7 +184,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValues(String message, int[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -196,7 +196,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValues(String message, long[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -208,7 +208,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValues(String message, float[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -220,7 +220,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValues(String message, boolean[] values, ResultType type, ResultUnit unit) {
         try {
             store.addArrayResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -232,7 +232,7 @@ public class DeviceReportLog extends ReportLog {
     public void addValues(String message, List<String> values, ResultType type, ResultUnit unit) {
         try {
             store.addListResult(message, values);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -247,7 +247,7 @@ public class DeviceReportLog extends ReportLog {
         super.setSummary(message, value, type, unit);
         try {
             store.addResult(message, value);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Could not log metric.", e);
         }
     }
@@ -256,15 +256,13 @@ public class DeviceReportLog extends ReportLog {
      * Closes report file and submits report to instrumentation.
      */
     public void submit(Instrumentation instrumentation) {
-        Log.i(TAG, "Submit");
         try {
             store.close();
             Bundle output = new Bundle();
             output.putString(RESULT, serialize(this));
             instrumentation.sendStatus(INST_STATUS_IN_PROGRESS, output);
-        } catch (IllegalArgumentException | IllegalStateException | XmlPullParserException
-                | IOException e) {
-            Log.e(TAG, "Submit Failed", e);
+        } catch (Exception e) {
+            Log.e(TAG, "ReportLog Submit Failed", e);
             instrumentation.sendStatus(INST_STATUS_ERROR, null);
         }
     }
@@ -275,11 +273,10 @@ public class DeviceReportLog extends ReportLog {
      * does not appear in the result XML.
      */
     public void submit() {
-        Log.i(TAG, "Submit");
         try {
             store.close();
-        } catch (IOException e) {
-            Log.e(TAG, "Submit Failed", e);
+        } catch (Exception e) {
+            Log.e(TAG, "ReportLog Submit Failed", e);
         }
     }
 }

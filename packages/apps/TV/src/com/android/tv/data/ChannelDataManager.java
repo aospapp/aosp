@@ -50,6 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * The class to manage channel data.
@@ -72,7 +73,7 @@ public class ChannelDataManager {
     private QueryAllChannelsTask mChannelsUpdateTask;
     private final List<Runnable> mPostRunnablesAfterChannelUpdate = new ArrayList<>();
 
-    private final Set<Listener> mListeners = new ArraySet<>();
+    private final Set<Listener> mListeners = new CopyOnWriteArraySet<>();
     private final Map<Long, ChannelWrapper> mChannelWrapperMap = new HashMap<>();
     private final Map<String, MutableInt> mChannelCountMap = new HashMap<>();
     private final Channel.DefaultComparator mChannelComparator;
@@ -296,6 +297,16 @@ public class ChannelDataManager {
     }
 
     /**
+     * Checks if the channel exists in DB.
+     *
+     * <p>Note that the channels of the removed inputs can not be obtained from {@link #getChannel}.
+     * In that case this method is used to check if the channel exists in the DB.
+     */
+    public boolean doesChannelExistInDb(long channelId) {
+        return mChannelWrapperMap.get(channelId) != null;
+    }
+
+    /**
      * Returns true if and only if there exists at least one channel and all channels are hidden.
      */
     public boolean areAllChannelsHidden() {
@@ -360,22 +371,19 @@ public class ChannelDataManager {
     }
 
     public void notifyChannelBrowsableChanged() {
-        // Copy the original collection to allow the callee to modify the listeners.
-        for (Listener l : mListeners.toArray(new Listener[mListeners.size()])) {
+        for (Listener l : mListeners) {
             l.onChannelBrowsableChanged();
         }
     }
 
     private void notifyChannelListUpdated() {
-        // Copy the original collection to allow the callee to modify the listeners.
-        for (Listener l : mListeners.toArray(new Listener[mListeners.size()])) {
+        for (Listener l : mListeners) {
             l.onChannelListUpdated();
         }
     }
 
     private void notifyLoadFinished() {
-        // Copy the original collection to allow the callee to modify the listeners.
-        for (Listener l : mListeners.toArray(new Listener[mListeners.size()])) {
+        for (Listener l : mListeners) {
             l.onLoadFinished();
         }
     }

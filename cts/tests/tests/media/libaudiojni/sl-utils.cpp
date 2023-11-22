@@ -20,7 +20,7 @@
 #include "sl-utils.h"
 #include <utils/Mutex.h>
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 // These will wind up in <SLES/OpenSLES_Android.h>
 #define SL_ANDROID_SPEAKER_QUAD (SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT \

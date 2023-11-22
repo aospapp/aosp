@@ -7,6 +7,8 @@ from autotest_lib.client.bin import fio_util, test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import cryptohome
 
+CRYPTOHOMESTRESS_START = '/tmp/cryptohomestress_begin'
+CRYPTOHOMESTRESS_END = '/tmp/cryptohomestress_end'
 TEST_USER = 'test@chromium.org'
 TEST_PASSWORD = 'test'
 
@@ -20,10 +22,14 @@ class platform_CryptohomeFio(test.test):
     USE_TMPFS = 'tmpfs'
     DISK_CONFIG_KEYS = [ USE_CRYPTO, USE_PLAIN, USE_TMPFS ]
 
-    def initialize(self, from_internal_disk_only=True):
+    def initialize(self, from_internal_disk_only=False):
         """ Check that we are running on the fixed device"""
         if from_internal_disk_only and not utils.is_booted_from_internal_disk():
             raise error.TestNAError('Test only on internal disk')
+
+        if os.path.exists(CRYPTOHOMESTRESS_END):
+            os.unlink(CRYPTOHOMESTRESS_END)
+        open(CRYPTOHOMESTRESS_START, 'w').close()
 
     def run_once(self, runtime, disk_configs,
                  script=None, sysctls_list=None):
@@ -39,7 +45,6 @@ class platform_CryptohomeFio(test.test):
             raise error.TestFail('Unknown keys in disk config')
         for config in disk_configs:
             for sysctls in sysctls_list or [ {} ]:
-
                 graph_descr = ''
                 for key, val in sysctls.iteritems():
                     utils.sysctl(key, val)
@@ -69,10 +74,14 @@ class platform_CryptohomeFio(test.test):
                     name_prefix=graph_descr + config))
                 self.write_perf_keyval(results)
 
-
                 logging.info('Finished with FS stress, cleaning up.')
                 if config == self.USE_CRYPTO:
                     cryptohome.unmount_vault(TEST_USER)
                     cryptohome.remove_vault(TEST_USER)
                 else:
                     shutil.rmtree(self.__work_dir)
+
+    def cleanup(self):
+        open(CRYPTOHOMESTRESS_END, 'w').close()
+        if os.path.exists(CRYPTOHOMESTRESS_START):
+            os.unlink(CRYPTOHOMESTRESS_START)

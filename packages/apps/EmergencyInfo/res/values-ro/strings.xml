@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Persoane de contact pentru urgențe"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Adăugați o persoană de contact"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Nu s-a găsit niciun selector de persoane de contact"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Nu se poate afișa persoana de contact"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Eliminați <xliff:g id="CONTACT_NAME">%1$s</xliff:g> din persoanele de contact pentru urgențe?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Eliminați persoana de contact"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Informațiile de contact nu pot fi citite în mod corespunzător"</string>
     <string name="remove" msgid="1243949503772376064">"Eliminați"</string>
     <string name="cancel" msgid="7401575239009060939">"Anulați"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Informații în caz de urgență"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Informațiile introduse aici pot fi utile celor care acordă primul ajutor într-o situație de urgență. Sunt stocate doar pe dispozitiv și oricine le poate citi din tastatura numerică de urgență, fără să deblocheze telefonul."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Continuați"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Nu s-au specificat informații în caz de urgență"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Nu există informații despre proprietarul telefonului"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Dacă acesta este telefonul dvs., atingeți pictograma creion pentru a adăuga informații care vor fi afișate aici în caz de urgență"</string>
     <string name="clear_all" msgid="8899013032870561633">"Ștergeți tot"</string>
     <string name="clear" msgid="3648880442502887163">"Ștergeți"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Ștergeți toate informațiile și persoanele de contact?"</string>

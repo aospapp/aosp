@@ -16,113 +16,107 @@
 
 package com.android.deskclock;
 
-import android.animation.ObjectAnimator;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
+import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.support.annotation.ColorInt;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
+
+import static com.android.deskclock.AnimatorUtils.ARGB_EVALUATOR;
 
 /**
- * Base activity class that changes with window's background color dynamically based on the
- * current hour.
+ * Base activity class that changes the app window's color based on the current hour.
  */
-public class BaseActivity extends AppCompatActivity {
+public abstract class BaseActivity extends AppCompatActivity {
 
-    /**
-     * Key used to save/restore the current background color from the saved instance state.
-     */
-    private static final String KEY_BACKGROUND_COLOR = "background_color";
+    /** Sets the app window color on each frame of the {@link #mAppColorAnimator}. */
+    private final AppColorAnimationListener mAppColorAnimationListener
+            = new AppColorAnimationListener();
 
-    /**
-     * Duration in millis to animate changes to the background color.
-     */
-    private static final long BACKGROUND_COLOR_ANIMATION_DURATION = 3000L;
+    /** The current animator that is changing the app window color or {@code null}. */
+    private ValueAnimator mAppColorAnimator;
 
-    /**
-     * {@link BroadcastReceiver} to update the background color whenever the system time changes.
-     */
-    private BroadcastReceiver mOnTimeChangedReceiver;
-
-    /**
-     * {@link ColorDrawable} used to draw the window's background.
-     */
+    /** Draws the app window's color. */
     private ColorDrawable mBackground;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        final int currentColor = Utils.getCurrentHourColor();
-        final int backgroundColor = savedInstanceState == null ? currentColor
-                : savedInstanceState.getInt(KEY_BACKGROUND_COLOR, currentColor);
-        setBackgroundColor(backgroundColor, false /* animate */);
+        // Allow the content to layout behind the status and navigation bars.
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+
+        final @ColorInt int color = ThemeUtils.resolveColor(this, android.R.attr.windowBackground);
+        adjustAppColor(color, false /* animate */);
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
 
-        // Register mOnTimeChangedReceiver to update current background color periodically.
-        if (mOnTimeChangedReceiver == null) {
-            final IntentFilter filter = new IntentFilter();
-            filter.addAction(Intent.ACTION_TIME_TICK);
-            filter.addAction(Intent.ACTION_TIME_CHANGED);
-            filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
-            registerReceiver(mOnTimeChangedReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    setBackgroundColor(Utils.getCurrentHourColor(), true /* animate */);
-                }
-            }, filter);
-        }
-
-        // Ensure the background color is up-to-date.
-        setBackgroundColor(Utils.getCurrentHourColor(), true /* animate */);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        // Stop updating the background color when not active.
-        if (mOnTimeChangedReceiver != null) {
-            unregisterReceiver(mOnTimeChangedReceiver);
-            mOnTimeChangedReceiver = null;
-        }
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-
-        // Save the background color so we can animate the change when the activity is restored.
-        if (mBackground != null) {
-            outState.putInt(KEY_BACKGROUND_COLOR, mBackground.getColor());
-        }
+        // Ensure the app window color is up-to-date.
+        final @ColorInt int color = ThemeUtils.resolveColor(this, android.R.attr.windowBackground);
+        adjustAppColor(color, false /* animate */);
     }
 
     /**
-     * Sets the current background color to the provided value and animates the change if desired.
+     * Adjusts the current app window color of this activity; animates the change if desired.
      *
-     * @param color the ARGB value to set as the current background color
+     * @param color   the ARGB value to set as the current app window color
      * @param animate {@code true} if the change should be animated
      */
-    protected void setBackgroundColor(int color, boolean animate) {
+    protected void adjustAppColor(@ColorInt int color, boolean animate) {
+        // Create and install the drawable that defines the window color.
         if (mBackground == null) {
             mBackground = new ColorDrawable(color);
             getWindow().setBackgroundDrawable(mBackground);
         }
 
-        if (mBackground.getColor() != color) {
+        // Cancel the current window color animation if one exists.
+        if (mAppColorAnimator != null) {
+            mAppColorAnimator.cancel();
+        }
+
+        final @ColorInt int currentColor = mBackground.getColor();
+        if (currentColor != color) {
             if (animate) {
-                ObjectAnimator.ofObject(mBackground, "color", AnimatorUtils.ARGB_EVALUATOR, color)
-                        .setDuration(BACKGROUND_COLOR_ANIMATION_DURATION)
-                        .start();
+                mAppColorAnimator = ValueAnimator.ofObject(ARGB_EVALUATOR, currentColor, color)
+                        .setDuration(3000L);
+                mAppColorAnimator.addUpdateListener(mAppColorAnimationListener);
+                mAppColorAnimator.addListener(mAppColorAnimationListener);
+                mAppColorAnimator.start();
             } else {
-                mBackground.setColor(color);
+                setAppColor(color);
+            }
+        }
+    }
+
+    private void setAppColor(@ColorInt int color) {
+        mBackground.setColor(color);
+    }
+
+    /**
+     * Sets the app window color to the current color produced by the animator.
+     */
+    private final class AppColorAnimationListener extends AnimatorListenerAdapter
+            implements AnimatorUpdateListener {
+        @Override
+        public void onAnimationUpdate(ValueAnimator valueAnimator) {
+            final @ColorInt int color = (int) valueAnimator.getAnimatedValue();
+            setAppColor(color);
+        }
+
+        @Override
+        public void onAnimationEnd(Animator animation) {
+            if (mAppColorAnimator == animation) {
+                mAppColorAnimator = null;
             }
         }
     }

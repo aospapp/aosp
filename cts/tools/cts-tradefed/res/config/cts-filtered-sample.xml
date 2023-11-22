@@ -17,12 +17,13 @@
 
     <include name="common-compatibility-config" />
 
-    <option name="compatibility:plan" value="cts-filtered-sample" />
+    <option name="plan" value="cts-filtered-sample" />
 
     <!-- Tell all AndroidJUnitTests to only run the medium sized tests -->
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:size:medium" />
 
-    <!-- Tell 64bit CtsContentTestCases which timeout to use -->
+    <!-- Include 64bit CtsContentTestCases and tell it which timeout to use -->
+    <option name="compatibility:include-filter" value="arm64-v8a CtsContentTestCases" />
     <option name="compatibility:module-arg" value="arm64-v8a CtsContentTestCases:test-timeout:600" />
 
     <!-- Include CtsGestureTestCases but only run the tests on arm32 -->
@@ -32,6 +33,7 @@
     <option name="compatibility:exclude-filter" value="CtsMediaStressTestCases" />
 
     <!-- Include CtsUtilTestCases but only run the small tests -->
+    <option name="compatibility:include-filter" value="CtsUtilTestCases" />
     <option name="compatibility:module-arg" value="CtsUtilTestCases:size:small" />
 
 </configuration>

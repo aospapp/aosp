@@ -33,6 +33,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
  */
 public class ConnectorKindDebuggee extends SyncDebuggee {
 
+    @Override
     public void run() {
     int i=0;
         while(true) {   

@@ -371,7 +371,7 @@ public class ItsSerializer {
         try {
             Object keyValue = getKeyValue(md, keyObj);
             if (keyValue == null) {
-                return new MetadataEntry(keyName, JSONObject.NULL);
+                return null;
             }
             int arrayLen = Array.getLength(keyValue);
             Type elmtType = ((GenericArrayType)keyType).getGenericComponentType();

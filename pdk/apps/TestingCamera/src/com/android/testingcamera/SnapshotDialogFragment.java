@@ -24,7 +24,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-class SnapshotDialogFragment extends DialogFragment
+public class SnapshotDialogFragment extends DialogFragment
                 implements OnScanCompletedListener{
 
     private ImageView mInfoImage;

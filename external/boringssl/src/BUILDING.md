@@ -2,14 +2,18 @@
 
 ## Build Prerequisites
 
-  * [CMake](http://www.cmake.org/download/) 2.8.8 or later is required.
+  * [CMake](https://cmake.org/download/) 2.8.11 or later is required.
 
   * Perl 5.6.1 or later is required. On Windows,
-    [Strawberry Perl](http://strawberryperl.com/) and MSYS Perl have both been
-    reported to work. If not found by CMake, it may be configured explicitly by
-    setting `PERL_EXECUTABLE`.
+    [Active State Perl](http://www.activestate.com/activeperl/) has been
+    reported to work, as has MSYS Perl.
+    [Strawberry Perl](http://strawberryperl.com/) also works but it adds GCC
+    to `PATH`, which can confuse some build tools when identifying the compiler
+    (removing `C:\Strawberry\c\bin` from `PATH` should resolve any problems).
+    If Perl is not found by CMake, it may be configured explicitly by setting
+    `PERL_EXECUTABLE`.
 
-  * On Windows you currently must use [Ninja](https://martine.github.io/ninja/)
+  * On Windows you currently must use [Ninja](https://ninja-build.org/)
     to build; on other platforms, it is not required, but recommended, because
     it makes builds faster.
 
@@ -20,22 +24,16 @@
     by CMake, it may be configured explicitly by setting
     `CMAKE_ASM_NASM_COMPILER`.
 
-  * A C compiler is required. On Windows, MSVC 12 (Visual Studio 2013) or later
-    with Platform SDK 8.1 or later are supported. Recent versions of GCC and
-    Clang should work on non-Windows platforms, and maybe on Windows too.
+  * A C compiler is required. On Windows, MSVC 14 (Visual Studio 2015) or later
+    with Platform SDK 8.1 or later are supported. Recent versions of GCC (4.8+)
+    and Clang should work on non-Windows platforms, and maybe on Windows too.
+    To build the tests, you also need a C++ compiler with C++11 support.
 
   * [Go](https://golang.org/dl/) is required. If not found by CMake, the go
     executable may be configured explicitly by setting `GO_EXECUTABLE`.
 
-  * If you change crypto/chacha/chacha\_vec.c, you will need the
-    arm-linux-gnueabihf-gcc compiler:
-
-    ```
-    wget https://releases.linaro.org/14.11/components/toolchain/binaries/arm-linux-gnueabihf/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz && \
-    echo bc4ca2ced084d2dc12424815a4442e19cb1422db87068830305d90075feb1a3b  gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz | sha256sum -c && \
-    tar xf gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz && \
-    sudo mv gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf /opt/
-    ```
+  * To build the x86 and x86\_64 assembly, your assembler must support AVX2
+    instructions and MOVBE. If using GNU binutils, you must have 2.22 or later.
 
 ## Building
 
@@ -58,7 +56,8 @@ files because the build scripts will detect changes to them and rebuild
 themselves automatically.
 
 Note that the default build flags in the top-level `CMakeLists.txt` are for
-debugging—optimisation isn't enabled.
+debugging—optimisation isn't enabled. Pass `-DCMAKE_BUILD_TYPE=Release` to
+`cmake` to configure a release build.
 
 If you want to cross-compile then there is an example toolchain file for 32-bit
 Intel in `util/`. Wipe out the build directory, recreate it and run `cmake` like
@@ -75,24 +74,27 @@ In order to serve environments where code-size is important as well as those
 where performance is the overriding concern, `OPENSSL_SMALL` can be defined to
 remove some code that is especially large.
 
+See [CMake's documentation](https://cmake.org/cmake/help/v3.4/manual/cmake-variables.7.html)
+for other variables which may be used to configure the build.
+
 ### Building for Android
 
 It's possible to build BoringSSL with the Android NDK using CMake. This has
 been tested with version 10d of the NDK.
 
 Unpack the Android NDK somewhere and export `ANDROID_NDK` to point to the
-directory. Clone https://github.com/taka-no-me/android-cmake into `util/`.  Then
-make a build directory as above and run CMake *twice* like this:
+directory. Then make a build directory as above and run CMake like this:
 
-    cmake -DANDROID_NATIVE_API_LEVEL=android-9 \
-          -DANDROID_ABI=armeabi-v7a \
-          -DCMAKE_TOOLCHAIN_FILE=../util/android-cmake/android.toolchain.cmake \
+    cmake -DANDROID_ABI=armeabi-v7a \
+          -DCMAKE_TOOLCHAIN_FILE=../third_party/android-cmake/android.toolchain.cmake \
           -DANDROID_NATIVE_API_LEVEL=16 \
           -GNinja ..
 
-Once you've run that twice, Ninja should produce Android-compatible binaries.
-You can replace `armeabi-v7a` in the above with `arm64-v8a` to build aarch64
-binaries.
+Once you've run that, Ninja should produce Android-compatible binaries.  You
+can replace `armeabi-v7a` in the above with `arm64-v8a` and use API level 21 or
+higher to build aarch64 binaries.
+
+For other options, see [android-cmake's documentation](./third_party/android-cmake/README.md).
 
 ## Known Limitations on Windows
 
@@ -131,6 +133,18 @@ to enabling the corresponding ARM feature.
 
 Note that if a feature is enabled in this way, but not actually supported at
 run-time, BoringSSL will likely crash.
+
+## Assembling ARMv8 with Clang
+
+In order to support the ARMv8 crypto instructions, Clang requires that the
+architecture be `armv8-a+crypto`. However, setting that as a general build flag
+would allow the compiler to assume that crypto instructions are *always*
+supported, even without testing for them.
+
+It's possible to set the architecture in an assembly file using the `.arch`
+directive, but only very recent versions of Clang support this. If
+`BORINGSSL_CLANG_SUPPORTS_DOT_ARCH` is defined then `.arch` directives will be
+used with Clang, otherwise you may need to craft acceptable assembler flags.
 
 # Running tests
 

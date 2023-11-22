@@ -57,7 +57,8 @@ class video_MultiplePlayback(test.test):
                 os.path.join(self.bindir, 'video.html')))
 
         # Waiting for test video to load.
-        tab1.WaitForJavaScriptExpression('testvideo.currentTime < 1.0', 5)
+        tab1.WaitForJavaScriptCondition('testvideo.currentTime < 1.0',
+                                        timeout=5)
 
         tab2 = browser.tabs.New()
         tab2.Navigate(browser.platform.http_server.UrlOf(
@@ -95,5 +96,5 @@ class video_MultiplePlayback(test.test):
         if dut_board == 'x86-mario':
            raise error.TestNAError('This test is not available on %s' %
                                     dut_board)
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             self.run_video_tests(cr.browser)

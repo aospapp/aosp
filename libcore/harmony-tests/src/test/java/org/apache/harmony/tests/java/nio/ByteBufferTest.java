@@ -17,6 +17,7 @@
 
 package org.apache.harmony.tests.java.nio;
 
+import java.io.RandomAccessFile;
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -29,6 +30,9 @@ import java.nio.InvalidMarkException;
 import java.nio.LongBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.ShortBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
@@ -2030,6 +2034,28 @@ public class ByteBufferTest extends AbstractBufferTest {
             ByteBuffer.wrap(new byte[10], Integer.MAX_VALUE, 2);
             fail("Should throw IndexOutOfBoundsException");
         } catch (IndexOutOfBoundsException e) {
+        }
+    }
+
+    // http://b/34045479
+    public void testMappedByteBuffer_Put_ReadOnlyHeapByteBuffer() throws Exception {
+        // Create a temp file
+        byte[] data = new byte[] {1, 2, 3, 4};
+        Path tempFile = Files.createTempFile("mmap", "test");
+        Files.write(tempFile, data);
+
+        // Create a read-only heap buffer
+        ByteBuffer readOnlySource = ByteBuffer.allocate(4).asReadOnlyBuffer();
+        try (RandomAccessFile tempRAF = new RandomAccessFile(tempFile.toFile(), "rw")) {
+            FileChannel tempFileChannel = tempRAF.getChannel();
+            ByteBuffer mappedByteBuffer =
+                tempFileChannel.map(FileChannel.MapMode.READ_WRITE, 0, tempFileChannel.size());
+
+            // Try to put a non-empty, read-only heap byte buffer into a mapped byte buffer.
+            mappedByteBuffer.put(readOnlySource);
+            tempFileChannel.close();
+        } finally {
+            Files.delete(tempFile);
         }
     }
 

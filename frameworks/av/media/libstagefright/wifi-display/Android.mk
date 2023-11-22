@@ -24,7 +24,6 @@ LOCAL_SHARED_LIBRARIES:= \
         libbinder                       \
         libcutils                       \
         liblog                          \
-        libgui                          \
         libmedia                        \
         libstagefright                  \
         libstagefright_foundation       \
@@ -32,8 +31,8 @@ LOCAL_SHARED_LIBRARIES:= \
         libutils                        \
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
-LOCAL_CLANG := true
-LOCAL_SANITIZE := signed-integer-overflow
+LOCAL_SANITIZE := signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 LOCAL_MODULE:= libstagefright_wfd
 

@@ -83,6 +83,7 @@ public:
         NO_LAYER_STACK = 0xFFFFFFFF,
     };
 
+    // clang-format off
     DisplayDevice(
             const sp<SurfaceFlinger>& flinger,
             DisplayType type,
@@ -94,7 +95,9 @@ public:
             const wp<IBinder>& displayToken,
             const sp<DisplaySurface>& displaySurface,
             const sp<IGraphicBufferProducer>& producer,
-            EGLConfig config);
+            EGLConfig config,
+            bool supportWideColor);
+    // clang-format on
 
     ~DisplayDevice();
 
@@ -146,6 +149,7 @@ public:
     status_t beginFrame(bool mustRecompose) const;
 #ifdef USE_HWC2
     status_t prepareFrame(HWComposer& hwc);
+    bool getWideColorSupport() const { return mDisplayHasWideColor; }
 #else
     status_t prepareFrame(const HWComposer& hwc) const;
 #endif
@@ -242,7 +246,11 @@ private:
     static status_t orientationToTransfrom(int orientation,
             int w, int h, Transform* tr);
 
+    // The identifier of the active layer stack for this display. Several displays
+    // can use the same layer stack: A z-ordered group of layers (sometimes called
+    // "surfaces"). Any given layer can only be on a single layer stack.
     uint32_t mLayerStack;
+
     int mOrientation;
     static uint32_t sPrimaryDisplayOrientation;
     // user-provided visible area of the layer stack
@@ -260,7 +268,34 @@ private:
 #ifdef USE_HWC2
     // current active color mode
     android_color_mode_t mActiveColorMode;
+
+    // Need to know if display is wide-color capable or not.
+    // Initialized by SurfaceFlinger when the DisplayDevice is created.
+    // Fed to RenderEngine during composition.
+    bool mDisplayHasWideColor;
 #endif
+};
+
+struct DisplayDeviceState {
+    DisplayDeviceState() = default;
+    DisplayDeviceState(DisplayDevice::DisplayType type, bool isSecure);
+
+    bool isValid() const { return type >= 0; }
+    bool isMainDisplay() const { return type == DisplayDevice::DISPLAY_PRIMARY; }
+    bool isVirtualDisplay() const { return type >= DisplayDevice::DISPLAY_VIRTUAL; }
+
+    static std::atomic<int32_t> nextDisplayId;
+    int32_t displayId = nextDisplayId++;
+    DisplayDevice::DisplayType type = DisplayDevice::DISPLAY_ID_INVALID;
+    sp<IGraphicBufferProducer> surface;
+    uint32_t layerStack = DisplayDevice::NO_LAYER_STACK;
+    Rect viewport;
+    Rect frame;
+    uint8_t orientation = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    String8 displayName;
+    bool isSecure = false;
 };
 
 }; // namespace android

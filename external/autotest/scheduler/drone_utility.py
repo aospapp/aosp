@@ -18,7 +18,6 @@ import common
 from autotest_lib.client.common_lib import utils, global_config, error
 from autotest_lib.client.common_lib import logging_manager
 from autotest_lib.client.common_lib.cros import retry
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.scheduler import drone_logging_config
 from autotest_lib.scheduler import email_manager, scheduler_config
 from autotest_lib.server import hosts, subcommand
@@ -38,9 +37,6 @@ LXC_CLEANUP_SCRIPT = os.path.join(common.autotest_dir, 'site_utils',
 LXC_CLEANUP_LOG_FILE = os.path.join(common.autotest_dir, 'logs',
                                     'lxc_cleanup.log')
 
-
-_STATS_KEY = 'drone_utility'
-timer = autotest_stats.Timer(_STATS_KEY)
 
 class _MethodCall(object):
     def __init__(self, method, args, kwargs):
@@ -123,7 +119,6 @@ class BaseDroneUtility(object):
 
 
     @classmethod
-    @timer.decorate
     def _get_process_info(cls):
         """Parse ps output for all process information.
 
@@ -179,7 +174,6 @@ class BaseDroneUtility(object):
         return processes
 
 
-    @timer.decorate
     def _read_pidfiles(self, pidfile_paths):
         pidfiles = {}
         for pidfile_path in pidfile_paths:
@@ -194,7 +188,6 @@ class BaseDroneUtility(object):
         return pidfiles
 
 
-    @timer.decorate
     def refresh(self, pidfile_paths):
         """
         pidfile_paths should be a list of paths to check for pidfiles.
@@ -256,16 +249,12 @@ class BaseDroneUtility(object):
         return (signal.SIGKILL,)
 
 
-    @timer.decorate
     def kill_processes(self, process_list):
         """Send signals escalating in severity to the processes in process_list.
 
         @param process_list: A list of drone_manager.Process objects
                              representing the processes to kill.
         """
-        kill_proc_key = 'kill_processes'
-        autotest_stats.Gauge(_STATS_KEY).send('%s.%s' % (kill_proc_key, 'net'),
-                                              len(process_list))
         try:
             logging.info('List of process to be killed: %s', process_list)
             processes_to_kill = {}
@@ -278,9 +267,6 @@ class BaseDroneUtility(object):
                 sig_counts.update(utils.nuke_pids(
                         [-process.pid for process in processes],
                         signal_queue=signal_queue))
-            for name, count in sig_counts.iteritems():
-                autotest_stats.Gauge(_STATS_KEY).send(
-                        '%s.%s' % (kill_proc_key, name), count)
         except error.AutoservRunError as e:
             self._warn('Error occured when killing processes. Error: %s' % e)
 
@@ -408,7 +394,16 @@ class BaseDroneUtility(object):
                     os.path.join(source_path, filename),
                     os.path.join(destination_path, filename))
         elif os.path.isdir(source_path):
-            shutil.copytree(source_path, destination_path, symlinks=True)
+            try:
+                shutil.copytree(source_path, destination_path, symlinks=True)
+            except shutil.Error:
+                # Ignore copy directory error due to missing files. The cause
+                # of this behavior is that, gs_offloader zips up folders with
+                # too many files. There is a race condition that repair job
+                # tries to copy provision job results to the test job result
+                # folder, meanwhile gs_offloader is uploading the provision job
+                # result and zipping up folders which contains too many files.
+                pass
         elif os.path.islink(source_path):
             # copied from shutil.copytree()
             link_to = os.readlink(source_path)
@@ -601,17 +596,12 @@ def return_data(data):
 def main():
     logging_manager.configure_logging(
             drone_logging_config.DroneLoggingConfig())
-    with timer.get_client('decode'):
-        calls = parse_input()
+    calls = parse_input()
     args = _parse_args(sys.argv[1:])
-    if args.call_time is not None:
-        autotest_stats.Gauge(_STATS_KEY).send('invocation_overhead',
-                                              time.time() - args.call_time)
 
     drone_utility = DroneUtility()
     return_value = drone_utility.execute_calls(calls)
-    with timer.get_client('encode'):
-        return_data(return_value)
+    return_data(return_value)
 
 
 if __name__ == '__main__':

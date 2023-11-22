@@ -45,6 +45,7 @@ public class VMDeath002Test extends JDWPSyncTestCase {
 
     static String DEBUGGEE_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.Events.EventDebuggee";
 
+    @Override
     protected String getDebuggeeClassName() {
         return DEBUGGEE_CLASS_NAME;
     }

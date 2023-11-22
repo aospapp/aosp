@@ -19,6 +19,7 @@ package android.view.accessibility.cts;
 import android.os.Message;
 import android.os.Parcel;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityRecord;
@@ -158,7 +159,25 @@ public class AccessibilityEventTest extends TestCase {
         assertEqualsAccessiblityEvent(marshaledEvent, unmarshaledEvent);
     }
 
+    /**
+     * While CharSequence is immutable, some classes implementing it are mutable. Make sure they
+     * can't change the object by changing the objects backing CharSequence
+     */
+    @SmallTest
+    public void testChangeTextAfterSetting_shouldNotAffectEvent() {
+        final String originalText = "Cassowary";
+        final String newText = "Hornbill";
+        AccessibilityEvent event = AccessibilityEvent.obtain();
+        StringBuffer updatingString = new StringBuffer(originalText);
+        event.setBeforeText(updatingString);
+        event.setContentDescription(updatingString);
 
+        updatingString.delete(0, updatingString.length());
+        updatingString.append(newText);
+
+        assertTrue(TextUtils.equals(originalText, event.getBeforeText()));
+        assertTrue(TextUtils.equals(originalText, event.getContentDescription()));
+    }
 
     /**
      * Fully populates the {@link AccessibilityEvent} to marshal.

@@ -9,7 +9,7 @@
  * Copyright (c) 2003-2009 Thomas Graf <tgraf@suug.ch>
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/cli/utils.h>
 
 static void print_usage(void)
@@ -48,7 +48,6 @@ static void print(struct nl_cache_ops *ops, void *arg)
 			"brief",
 			"detailed",
 			"stats",
-			"env",
 		};
 		int i;
 
@@ -82,9 +81,9 @@ static void print(struct nl_cache_ops *ops, void *arg)
 
 		printf("    genl:\n" \
 		       "        name: %s\n" \
-		       "        family: %d\n" \
+		       "        user-hdr: %d\n" \
 		       "        id: %d\n",
-		       genl_ops->o_name, genl_ops->o_family, genl_ops->o_id);
+		       genl_ops->o_name, genl_ops->o_hdrsize, genl_ops->o_id);
 
 		if (genl_ops->o_ncmds) {
 			int i;

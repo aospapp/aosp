@@ -16,15 +16,13 @@
 
 package android.webkit.cts;
 
-import android.cts.util.EvaluateJsResultPollingCheck;
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
 import android.os.Message;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.webkit.HttpAuthHandler;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -35,6 +33,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
 import android.util.Pair;
+
+import com.android.compatibility.common.util.EvaluateJsResultPollingCheck;
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -565,6 +567,31 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         }
     }
 
+    // Verify that OnRenderProcessGone returns false by default
+    public void testOnRenderProcessGoneDefault() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        final WebViewClient webViewClient = new WebViewClient();
+        assertFalse(webViewClient.onRenderProcessGone(mOnUiThread.getWebView(), null));
+    }
+
+    public void testOnRenderProcessGone() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        final MockWebViewClient webViewClient = new MockWebViewClient();
+        mOnUiThread.setWebViewClient(webViewClient);
+        mOnUiThread.loadUrl("chrome://kill");
+        new PollingCheck(TEST_TIMEOUT * 5) {
+            @Override
+            protected boolean check() {
+                return webViewClient.hasRenderProcessGoneCalled();
+            }
+        }.run();
+        assertFalse(webViewClient.didRenderProcessCrash());
+    }
+
     private void requireLoadedPage() throws Throwable {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -591,6 +618,8 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         private int mShouldOverrideUrlLoadingCallCount;
         private String mLastShouldOverrideUrl;
         private WebResourceRequest mLastShouldOverrideResourceRequest;
+        private boolean mOnRenderProcessGoneCalled;
+        private boolean mRenderProcessCrashed;
 
         public MockWebViewClient() {
             super(mOnUiThread);
@@ -666,6 +695,14 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
 
         public String getLoginRequestArgs() {
             return mOnReceivedLoginArgs;
+        }
+
+        public boolean hasRenderProcessGoneCalled() {
+            return mOnRenderProcessGoneCalled;
+        }
+
+        public boolean didRenderProcessCrash() {
+            return mRenderProcessCrashed;
         }
 
         @Override
@@ -765,6 +802,13 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
             mLastShouldOverrideResourceRequest = request;
             mShouldOverrideUrlLoadingCallCount++;
             return false;
+        }
+
+        @Override
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail  detail) {
+            mOnRenderProcessGoneCalled = true;
+            mRenderProcessCrashed = detail.didCrash();
+            return true;
         }
     }
 }

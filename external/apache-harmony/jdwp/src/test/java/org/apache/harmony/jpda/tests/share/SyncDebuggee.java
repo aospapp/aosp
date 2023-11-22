@@ -39,6 +39,7 @@ public abstract class SyncDebuggee extends Debuggee {
     /**
      * Initializes the synchronization channel.
      */
+    @Override
     public void onStart() {
         super.onStart();
         synchronizer = createSynchronizer();
@@ -55,6 +56,7 @@ public abstract class SyncDebuggee extends Debuggee {
     /**
      * Terminates the synchronization channel.
      */
+    @Override
     public void onFinish() {
         if (synchronizer != null) {
             synchronizer.stop();

@@ -190,13 +190,13 @@ public class NdefTest extends TestCase {
 
         // 3 records, 7 chunks
         assertEquals(new NdefMessage(
-                new NdefRecord(NdefRecord.TNF_EXTERNAL_TYPE, null, null, new byte[] {1,2,3,4}),
+                new NdefRecord(NdefRecord.TNF_EXTERNAL_TYPE, new byte[] {0x21}, null, new byte[] {1,2,3,4}),
                 new NdefRecord(NdefRecord.TNF_EMPTY, null, null, null),
-                new NdefRecord(NdefRecord.TNF_MIME_MEDIA, null, null, new byte[] {11,12,13,14})),
+                new NdefRecord(NdefRecord.TNF_MIME_MEDIA, new byte[] {0x21}, null, new byte[] {11,12,13,14})),
                 new NdefMessage(new byte[] {
-                        (byte)0xB4, 0, 1, 1, (byte)0x36, 0, 2, 2, 3, (byte)0x16, 0, 1, 4,
+                        (byte)0xB4, 1, 1, (byte)0x21, 1, (byte)0x36, 0, 2, 2, 3, (byte)0x16, 0, 1, 4,
                         (byte)0x10, 0, 0,
-                        (byte)0x32, 0, 2, 11, 12, (byte)0x36, 0, 1, 13, (byte)0x56, 0, 1, 14
+                        (byte)0x32, 1, 2, (byte)0x21, 11, 12, (byte)0x36, 0, 1, 13, (byte)0x56, 0, 1, 14
                 }));
 
         // 255 byte payload
@@ -435,7 +435,7 @@ public class NdefTest extends TestCase {
         NdefRecord r;
 
         // single short record
-        assertEquals(new byte[] {(byte)0xD0, 0, 0},
+        assertEquals(new byte[] {(byte)0xD8, 0, 0, 0},
                 new NdefMessage(
                         new NdefRecord(NdefRecord.TNF_EMPTY, null, null, null)).toByteArray());
 
@@ -456,7 +456,7 @@ public class NdefTest extends TestCase {
 
         // 3 records
         r = new NdefRecord(NdefRecord.TNF_EMPTY, null, null, null);
-        assertEquals(new byte[] {(byte)0x90, 0, 0, (byte)0x10, 0, 0, (byte)0x50, 0, 0},
+        assertEquals(new byte[] {(byte)0x98, 0, 0, 0, (byte)0x18, 0, 0, 0, (byte)0x58, 0, 0, 0},
                 new NdefMessage(r, r, r).toByteArray());
 
         // 256 byte payload

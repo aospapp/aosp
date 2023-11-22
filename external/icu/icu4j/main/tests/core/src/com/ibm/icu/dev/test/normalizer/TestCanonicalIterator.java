@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and
@@ -11,6 +13,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.Utility;
@@ -26,10 +30,6 @@ public class TestCanonicalIterator extends TestFmwk {
     
     static final boolean SHOW_NAMES = false;
 
-    public static void main(String[] args) throws Exception {
-        new TestCanonicalIterator().run(args);
-    }
-    
     static final String testArray[][] = {
         {"\u00C5d\u0307\u0327", "A\u030Ad\u0307\u0327, A\u030Ad\u0327\u0307, A\u030A\u1E0B\u0327, "
             + "A\u030A\u1E11\u0307, \u00C5d\u0307\u0327, \u00C5d\u0327\u0307, "
@@ -39,6 +39,7 @@ public class TestCanonicalIterator extends TestFmwk {
         {"x\u0307\u0327", "x\u0307\u0327, x\u0327\u0307, \u1E8B\u0327"},
     };
 
+    @Test
     public void TestExhaustive() {
         int counter = 0;
         CanonicalIterator it = new CanonicalIterator("");
@@ -114,6 +115,7 @@ public class TestCanonicalIterator extends TestFmwk {
         return x;
     }
     
+    @Test
     public void TestBasic() {
 //      This is not interesting anymore as the data is already built 
 //      beforehand
@@ -163,7 +165,7 @@ public class TestCanonicalIterator extends TestFmwk {
         }
     }
     
-    public void expectEqual(String message, String item, Object a, Object b) {
+    private void expectEqual(String message, String item, Object a, Object b) {
         if (!a.equals(b)) {
             errln("FAIL: " + message + getReadable(item));
             errln("\t" + getReadable(a));
@@ -188,7 +190,7 @@ public class TestCanonicalIterator extends TestFmwk {
         return "[" + (SHOW_NAMES ? hex(s) + "; " : "") + hex(s) + "]";
     }
     
-    public void characterTest(String s, int ch, CanonicalIterator it)
+    private void characterTest(String s, int ch, CanonicalIterator it)
     {
         int mixedCounter = 0;
         int lastMixedCounter = -1;

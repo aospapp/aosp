@@ -16,13 +16,25 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
+
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class RegionTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RegionTest {
 
     // DIFFERENCE
     private final static int[][] DIFFERENCE_WITH1 = {{0, 0}, {4, 4},
@@ -99,18 +111,24 @@ public class RegionTest extends AndroidTestCase {
 
     private Region mRegion;
 
-    private void assertPointsInsideRegion(int[][] area) {
+    private void verifyPointsInsideRegion(int[][] area) {
         for (int i = 0; i < area.length; i ++) {
             assertTrue(mRegion.contains(area[i][0], area[i][1]));
         }
     }
 
-    private void assertPointsOutsideRegion(int[][] area) {
+    private void verifyPointsOutsideRegion(int[][] area) {
         for (int i = 0; i < area.length; i ++) {
             assertFalse(mRegion.contains(area[i][0], area[i][1]));
         }
     }
 
+    @Before
+    public void setup() {
+        mRegion = new Region();
+    }
+
+    @Test
     public void testConstructor() {
         // Test Region()
         new Region();
@@ -127,9 +145,8 @@ public class RegionTest extends AndroidTestCase {
         new Region(0, 0, 100, 100);
     }
 
+    @Test
     public void testSet1() {
-
-        mRegion = new Region();
         Rect rect = new Rect(1, 2, 3, 4);
         Region oriRegion = new Region(rect);
         assertTrue(mRegion.set(oriRegion));
@@ -139,9 +156,8 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(4, mRegion.getBounds().bottom);
     }
 
+    @Test
     public void testSet2() {
-
-        mRegion = new Region();
         Rect rect = new Rect(1, 2, 3, 4);
         assertTrue(mRegion.set(rect));
         assertEquals(1, mRegion.getBounds().left);
@@ -150,9 +166,8 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(4, mRegion.getBounds().bottom);
     }
 
+    @Test
     public void testSet3() {
-
-        mRegion = new Region();
         assertTrue(mRegion.set(1, 2, 3, 4));
         assertEquals(1, mRegion.getBounds().left);
         assertEquals(2, mRegion.getBounds().top);
@@ -160,18 +175,16 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(4, mRegion.getBounds().bottom);
     }
 
+    @Test
     public void testIsRect() {
-
-        mRegion = new Region();
         assertFalse(mRegion.isRect());
         mRegion = new Region(1, 2, 3, 4);
         assertTrue(mRegion.isRect());
     }
 
+    @Test
     public void testIsComplex() {
-
-        // Region is null
-        mRegion = new Region();
+        // Region is empty
         assertFalse(mRegion.isComplex());
 
         // Only one rectangle
@@ -186,9 +199,8 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.isComplex());
     }
 
+    @Test
     public void testQuickContains1() {
-
-        mRegion = new Region();
         Rect rect = new Rect(1, 2, 3, 4);
         // This region not contains expected rectangle.
         assertFalse(mRegion.quickContains(rect));
@@ -200,9 +212,8 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.quickContains(rect));
     }
 
+    @Test
     public void testQuickContains2() {
-
-        mRegion = new Region();
         // This region not contains expected rectangle.
         assertFalse(mRegion.quickContains(1, 2, 3, 4));
         mRegion.set(1, 2, 3, 4);
@@ -213,8 +224,8 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.quickContains(1, 2, 3, 4));
     }
 
+    @Test
     public void testUnion() {
-
         Rect rect1 = new Rect();
         Rect rect2 = new Rect(0, 0, 20, 20);
         Rect rect3 = new Rect(5, 5, 10, 10);
@@ -222,8 +233,6 @@ public class RegionTest extends AndroidTestCase {
         Rect rect5 = new Rect(40, 40, 60, 60);
 
         // union (inclusive-or) the two regions
-        mRegion = null;
-        mRegion = new Region();
         mRegion.set(rect2);
         // union null rectangle
         assertTrue(mRegion.contains(6, 6));
@@ -235,29 +244,28 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.union(rect3));
-        assertPointsInsideRegion(UNION_WITH1);
-        assertPointsOutsideRegion(UNION_WITHOUT1);
+        verifyPointsInsideRegion(UNION_WITH1);
+        verifyPointsOutsideRegion(UNION_WITHOUT1);
 
         // 2. union rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.union(rect4));
-        assertPointsInsideRegion(UNION_WITH2);
-        assertPointsOutsideRegion(UNION_WITHOUT2);
+        verifyPointsInsideRegion(UNION_WITH2);
+        verifyPointsOutsideRegion(UNION_WITHOUT2);
 
         // 3. union rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.union(rect5));
-        assertPointsInsideRegion(UNION_WITH3);
-        assertPointsOutsideRegion(UNION_WITHOUT3);
+        verifyPointsInsideRegion(UNION_WITH3);
+        verifyPointsOutsideRegion(UNION_WITHOUT3);
     }
 
+    @Test
     public void testContains() {
-
-        mRegion = new Region();
         mRegion.set(2, 2, 5, 5);
         // Not contain (1, 1).
         assertFalse(mRegion.contains(1, 1));
@@ -288,9 +296,8 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(7, 7));
     }
 
+    @Test
     public void testEmpty() {
-
-        mRegion = new Region();
         assertTrue(mRegion.isEmpty());
         mRegion = null;
         mRegion = new Region(1, 2, 3, 4);
@@ -299,16 +306,13 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.isEmpty());
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testGetBoundsNull() {
+        mRegion.getBounds(null);
+    }
+
+    @Test
     public void testGetBounds() {
-
-        // Exception
-        try {
-            mRegion.getBounds(null);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            //except here
-        }
-
         // Normal, return true.
         Rect rect1 = new Rect(1, 2, 3, 4);
         mRegion = new Region(rect1);
@@ -319,26 +323,25 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.getBounds(rect2));
     }
 
+    @Test
     public void testOp1() {
-
         Rect rect1 = new Rect();
         Rect rect2 = new Rect(0, 0, 20, 20);
         Rect rect3 = new Rect(5, 5, 10, 10);
         Rect rect4 = new Rect(10, 10, 30, 30);
         Rect rect5 = new Rect(40, 40, 60, 60);
 
-        assertNullRegionOp1(rect1);
-        assertDifferenceOp1(rect1, rect2, rect3, rect4, rect5);
-        assertIntersectOp1(rect1, rect2, rect3, rect4, rect5);
-        assertUnionOp1(rect1, rect2, rect3, rect4, rect5);
-        assertXorOp1(rect1, rect2, rect3, rect4, rect5);
-        assertReverseDifferenceOp1(rect1, rect2, rect3, rect4, rect5);
-        assertReplaceOp1(rect1, rect2, rect3, rect4, rect5);
+        verifyNullRegionOp1(rect1);
+        verifyDifferenceOp1(rect1, rect2, rect3, rect4, rect5);
+        verifyIntersectOp1(rect1, rect2, rect3, rect4, rect5);
+        verifyUnionOp1(rect1, rect2, rect3, rect4, rect5);
+        verifyXorOp1(rect1, rect2, rect3, rect4, rect5);
+        verifyReverseDifferenceOp1(rect1, rect2, rect3, rect4, rect5);
+        verifyReplaceOp1(rect1, rect2, rect3, rect4, rect5);
     }
 
-    private void assertNullRegionOp1(Rect rect1) {
+    private void verifyNullRegionOp1(Rect rect1) {
         // Region without rectangle
-        mRegion = null;
         mRegion = new Region();
         assertFalse(mRegion.op(rect1, Region.Op.DIFFERENCE));
         assertFalse(mRegion.op(rect1, Region.Op.INTERSECT));
@@ -348,11 +351,10 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.op(rect1, Region.Op.REPLACE));
     }
 
-    private void assertDifferenceOp1(Rect rect1, Rect rect2, Rect rect3,
+    private void verifyDifferenceOp1(Rect rect1, Rect rect2, Rect rect3,
             Rect rect4, Rect rect5) {
         // DIFFERENCE, Region with rectangle
         // subtract the op region from the first region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         mRegion.set(rect2);
@@ -362,28 +364,27 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(rect2);
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(rect3, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH1);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT1);
+        verifyPointsInsideRegion(DIFFERENCE_WITH1);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT1);
 
         // 2. subtract rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(11, 11));
         assertTrue(mRegion.op(rect4, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT2);
 
         // 3. subtract rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.op(rect5, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT3);
     }
 
-    private void assertIntersectOp1(Rect rect1, Rect rect2, Rect rect3,
+    private void verifyIntersectOp1(Rect rect1, Rect rect2, Rect rect3,
             Rect rect4, Rect rect5) {
         // INTERSECT, Region with rectangle
         // intersect the two regions
-        mRegion = null;
         mRegion = new Region();
         // intersect null rectangle
         mRegion.set(rect2);
@@ -393,26 +394,24 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.op(rect3, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH1);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT1);
+        verifyPointsInsideRegion(INTERSECT_WITH1);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT1);
 
         // 2. intersect rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(9, 9));
         assertTrue(mRegion.op(rect4, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH2);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT2);
+        verifyPointsInsideRegion(INTERSECT_WITH2);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT2);
 
         // 3. intersect rectangle out of this region
         mRegion.set(rect2);
         assertFalse(mRegion.op(rect5, Region.Op.INTERSECT));
     }
 
-    private void assertUnionOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4,
-            Rect rect5) {
+    private void verifyUnionOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4, Rect rect5) {
         // UNION, Region with rectangle
         // union (inclusive-or) the two regions
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // union null rectangle
@@ -425,31 +424,29 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(rect3, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH1);
-        assertPointsOutsideRegion(UNION_WITHOUT1);
+        verifyPointsInsideRegion(UNION_WITH1);
+        verifyPointsOutsideRegion(UNION_WITHOUT1);
 
         // 2. union rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(rect4, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH2);
-        assertPointsOutsideRegion(UNION_WITHOUT2);
+        verifyPointsInsideRegion(UNION_WITH2);
+        verifyPointsOutsideRegion(UNION_WITHOUT2);
 
         // 3. union rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(rect5, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH3);
-        assertPointsOutsideRegion(UNION_WITHOUT3);
+        verifyPointsInsideRegion(UNION_WITH3);
+        verifyPointsOutsideRegion(UNION_WITHOUT3);
     }
 
-    private void assertXorOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4,
-            Rect rect5) {
+    private void verifyXorOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4, Rect rect5) {
         // XOR, Region with rectangle
         // exclusive-or the two regions
-        mRegion = null;
         mRegion = new Region();
         // xor null rectangle
         mRegion.set(rect2);
@@ -460,8 +457,8 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(rect3, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH1);
-        assertPointsOutsideRegion(XOR_WITHOUT1);
+        verifyPointsInsideRegion(XOR_WITH1);
+        verifyPointsOutsideRegion(XOR_WITHOUT1);
 
         // 2. xor rectangle overlap this region
         mRegion.set(rect2);
@@ -469,23 +466,21 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(11, 11));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(rect4, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH2);
-        assertPointsOutsideRegion(XOR_WITHOUT2);
+        verifyPointsInsideRegion(XOR_WITH2);
+        verifyPointsOutsideRegion(XOR_WITHOUT2);
 
         // 3. xor rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(rect5, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH3);
-        assertPointsOutsideRegion(XOR_WITHOUT3);
+        verifyPointsInsideRegion(XOR_WITH3);
+        verifyPointsOutsideRegion(XOR_WITHOUT3);
     }
 
-    private void assertReverseDifferenceOp1(Rect rect1, Rect rect2, Rect rect3,
-            Rect rect4, Rect rect5) {
+    private void verifyReverseDifferenceOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4, Rect rect5) {
         // REVERSE_DIFFERENCE, Region with rectangle
         // reverse difference the first region from the op region
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // reverse difference null rectangle
@@ -503,23 +498,21 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(11, 11));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(rect4, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
 
         // 3. reverse difference rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(rect5, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
     }
 
-    private void assertReplaceOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4,
-            Rect rect5) {
+    private void verifyReplaceOp1(Rect rect1, Rect rect2, Rect rect3, Rect rect4, Rect rect5) {
         // REPLACE, Region with rectangle
         // replace the dst region with the op region
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // subtract null rectangle
@@ -544,25 +537,24 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(rect5, mRegion.getBounds());
     }
 
+    @Test
     public void testOp2() {
-
         Rect rect2 = new Rect(0, 0, 20, 20);
         Rect rect3 = new Rect(5, 5, 10, 10);
         Rect rect4 = new Rect(10, 10, 30, 30);
         Rect rect5 = new Rect(40, 40, 60, 60);
 
-        assertNullRegionOp2();
-        assertDifferenceOp2(rect2);
-        assertIntersectOp2(rect2);
-        assertUnionOp2(rect2);
-        assertXorOp2(rect2);
-        assertReverseDifferenceOp2(rect2);
-        assertReplaceOp2(rect2, rect3, rect4, rect5);
+        verifyNullRegionOp2();
+        verifyDifferenceOp2(rect2);
+        verifyIntersectOp2(rect2);
+        verifyUnionOp2(rect2);
+        verifyXorOp2(rect2);
+        verifyReverseDifferenceOp2(rect2);
+        verifyReplaceOp2(rect2, rect3, rect4, rect5);
     }
 
-    private void assertNullRegionOp2() {
+    private void verifyNullRegionOp2() {
         // Region without rectangle
-        mRegion = null;
         mRegion = new Region();
         assertFalse(mRegion.op(0, 0, 0, 0, Region.Op.DIFFERENCE));
         assertFalse(mRegion.op(0, 0, 0, 0, Region.Op.INTERSECT));
@@ -572,10 +564,9 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.op(0, 0, 0, 0, Region.Op.REPLACE));
     }
 
-    private void assertDifferenceOp2(Rect rect2) {
+    private void verifyDifferenceOp2(Rect rect2) {
         // DIFFERENCE, Region with rectangle
         // subtract the op region from the first region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         mRegion.set(rect2);
@@ -585,27 +576,26 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(rect2);
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(5, 5, 10, 10, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH1);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT1);
+        verifyPointsInsideRegion(DIFFERENCE_WITH1);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT1);
 
         // 2. subtract rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(11, 11));
         assertTrue(mRegion.op(10, 10, 30, 30, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT2);
 
         // 3. subtract rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.op(40, 40, 60, 60, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT3);
     }
 
-    private void assertIntersectOp2(Rect rect2) {
+    private void verifyIntersectOp2(Rect rect2) {
         // INTERSECT, Region with rectangle
         // intersect the two regions
-        mRegion = null;
         mRegion = new Region();
         // intersect null rectangle
         mRegion.set(rect2);
@@ -615,25 +605,24 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.op(5, 5, 10, 10, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH1);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT1);
+        verifyPointsInsideRegion(INTERSECT_WITH1);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT1);
 
         // 2. intersect rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(9, 9));
         assertTrue(mRegion.op(10, 10, 30, 30, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH2);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT2);
+        verifyPointsInsideRegion(INTERSECT_WITH2);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT2);
 
         // 3. intersect rectangle out of this region
         mRegion.set(rect2);
         assertFalse(mRegion.op(40, 40, 60, 60, Region.Op.INTERSECT));
     }
 
-    private void assertUnionOp2(Rect rect2) {
+    private void verifyUnionOp2(Rect rect2) {
         // UNION, Region with rectangle
         // union (inclusive-or) the two regions
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // union null rectangle
@@ -646,30 +635,29 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(5, 5, 10, 10, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH1);
-        assertPointsOutsideRegion(UNION_WITHOUT1);
+        verifyPointsInsideRegion(UNION_WITH1);
+        verifyPointsOutsideRegion(UNION_WITHOUT1);
 
         // 2. union rectangle overlap this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(10, 10, 30, 30, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH2);
-        assertPointsOutsideRegion(UNION_WITHOUT2);
+        verifyPointsInsideRegion(UNION_WITH2);
+        verifyPointsOutsideRegion(UNION_WITHOUT2);
 
         // 3. union rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(40, 40, 60, 60, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH3);
-        assertPointsOutsideRegion(UNION_WITHOUT3);
+        verifyPointsInsideRegion(UNION_WITH3);
+        verifyPointsOutsideRegion(UNION_WITHOUT3);
     }
 
-    private void assertXorOp2(Rect rect2) {
+    private void verifyXorOp2(Rect rect2) {
         // XOR, Region with rectangle
         // exclusive-or the two regions
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // xor null rectangle
@@ -680,8 +668,8 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(5, 5, 10, 10, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH1);
-        assertPointsOutsideRegion(XOR_WITHOUT1);
+        verifyPointsInsideRegion(XOR_WITH1);
+        verifyPointsOutsideRegion(XOR_WITHOUT1);
 
         // 2. xor rectangle overlap this region
         mRegion.set(rect2);
@@ -689,22 +677,21 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(11, 11));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(10, 10, 30, 30, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH2);
-        assertPointsOutsideRegion(XOR_WITHOUT2);
+        verifyPointsInsideRegion(XOR_WITH2);
+        verifyPointsOutsideRegion(XOR_WITHOUT2);
 
         // 3. xor rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(40, 40, 60, 60, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH3);
-        assertPointsOutsideRegion(XOR_WITHOUT3);
+        verifyPointsInsideRegion(XOR_WITH3);
+        verifyPointsOutsideRegion(XOR_WITHOUT3);
     }
 
-    private void assertReverseDifferenceOp2(Rect rect2) {
+    private void verifyReverseDifferenceOp2(Rect rect2) {
         // REVERSE_DIFFERENCE, Region with rectangle
         // reverse difference the first region from the op region
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // reverse difference null rectangle
@@ -720,21 +707,20 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(11, 11));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(10, 10, 30, 30, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
         // reverse difference rectangle out of this region
         mRegion.set(rect2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(40, 40, 60, 60, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
     }
 
-    private void assertReplaceOp2(Rect rect2, Rect rect3, Rect rect4, Rect rect5) {
+    private void verifyReplaceOp2(Rect rect2, Rect rect3, Rect rect4, Rect rect5) {
         // REPLACE, Region w1ith rectangle
         // replace the dst region with the op region
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(rect2);
         // subtract null rectangle
@@ -759,26 +745,25 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(rect5, mRegion.getBounds());
     }
 
+    @Test
     public void testOp3() {
-
         Region region1 = new Region();
         Region region2 = new Region(0, 0, 20, 20);
         Region region3 = new Region(5, 5, 10, 10);
         Region region4 = new Region(10, 10, 30, 30);
         Region region5 = new Region(40, 40, 60, 60);
 
-        assertNullRegionOp3(region1);
-        assertDifferenceOp3(region1, region2, region3, region4, region5);
-        assertIntersectOp3(region1, region2, region3, region4, region5);
-        assertUnionOp3(region1, region2, region3, region4, region5);
-        assertXorOp3(region1, region2, region3, region4, region5);
-        assertReverseDifferenceOp3(region1, region2, region3, region4, region5);
-        assertReplaceOp3(region1, region2, region3, region4, region5);
+        verifyNullRegionOp3(region1);
+        verifyDifferenceOp3(region1, region2, region3, region4, region5);
+        verifyIntersectOp3(region1, region2, region3, region4, region5);
+        verifyUnionOp3(region1, region2, region3, region4, region5);
+        verifyXorOp3(region1, region2, region3, region4, region5);
+        verifyReverseDifferenceOp3(region1, region2, region3, region4, region5);
+        verifyReplaceOp3(region1, region2, region3, region4, region5);
     }
 
-    private void assertNullRegionOp3(Region region1) {
+    private void verifyNullRegionOp3(Region region1) {
         // Region without rectangle
-        mRegion = null;
         mRegion = new Region();
         assertFalse(mRegion.op(region1, Region.Op.DIFFERENCE));
         assertFalse(mRegion.op(region1, Region.Op.INTERSECT));
@@ -788,11 +773,10 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.op(region1, Region.Op.REPLACE));
     }
 
-    private void assertDifferenceOp3(Region region1, Region region2,
+    private void verifyDifferenceOp3(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // DIFFERENCE, Region with rectangle
         // subtract the op region from the first region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         mRegion.set(region2);
@@ -802,28 +786,27 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(region2);
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(region3, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH1);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT1);
+        verifyPointsInsideRegion(DIFFERENCE_WITH1);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT1);
 
         // 2. subtract rectangle overlap this region
         mRegion.set(region2);
         assertTrue(mRegion.contains(11, 11));
         assertTrue(mRegion.op(region4, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT2);
 
         // 3. subtract rectangle out of this region
         mRegion.set(region2);
         assertTrue(mRegion.op(region5, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT3);
     }
 
-    private void assertIntersectOp3(Region region1, Region region2,
+    private void verifyIntersectOp3(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // INTERSECT, Region with rectangle
         // intersect the two regions
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(region2);
         // intersect null rectangle
@@ -833,26 +816,25 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(region2);
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.op(region3, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH1);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT1);
+        verifyPointsInsideRegion(INTERSECT_WITH1);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT1);
 
         // 2. intersect rectangle overlap this region
         mRegion.set(region2);
         assertTrue(mRegion.contains(9, 9));
         assertTrue(mRegion.op(region4, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH2);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT2);
+        verifyPointsInsideRegion(INTERSECT_WITH2);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT2);
 
         // 3. intersect rectangle out of this region
         mRegion.set(region2);
         assertFalse(mRegion.op(region5, Region.Op.INTERSECT));
     }
 
-    private void assertUnionOp3(Region region1, Region region2, Region region3,
+    private void verifyUnionOp3(Region region1, Region region2, Region region3,
             Region region4, Region region5) {
         // UNION, Region with rectangle
         // union (inclusive-or) the two regions
-        mRegion = null;
         mRegion = new Region();
         // union null rectangle
         mRegion.set(region2);
@@ -865,31 +847,30 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(region3, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH1);
-        assertPointsOutsideRegion(UNION_WITHOUT1);
+        verifyPointsInsideRegion(UNION_WITH1);
+        verifyPointsOutsideRegion(UNION_WITHOUT1);
 
         // 2. union rectangle overlap this region
         mRegion.set(region2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(region4, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH2);
-        assertPointsOutsideRegion(UNION_WITHOUT2);
+        verifyPointsInsideRegion(UNION_WITH2);
+        verifyPointsOutsideRegion(UNION_WITHOUT2);
 
         // 3. union rectangle out of this region
         mRegion.set(region2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(region5, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH3);
-        assertPointsOutsideRegion(UNION_WITHOUT3);
+        verifyPointsInsideRegion(UNION_WITH3);
+        verifyPointsOutsideRegion(UNION_WITHOUT3);
     }
 
-    private void assertXorOp3(Region region1, Region region2, Region region3,
+    private void verifyXorOp3(Region region1, Region region2, Region region3,
             Region region4, Region region5) {
         // XOR, Region with rectangle
         // exclusive-or the two regions
-        mRegion = null;
         mRegion = new Region();
         // xor null rectangle
         mRegion.set(region2);
@@ -900,8 +881,8 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(2, 2));
         assertTrue(mRegion.contains(6, 6));
         assertTrue(mRegion.op(region3, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH1);
-        assertPointsOutsideRegion(XOR_WITHOUT1);
+        verifyPointsInsideRegion(XOR_WITH1);
+        verifyPointsOutsideRegion(XOR_WITHOUT1);
 
         // 2. xor rectangle overlap this region
         mRegion.set(region2);
@@ -909,23 +890,22 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(11, 11));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(region4, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH2);
-        assertPointsOutsideRegion(XOR_WITHOUT2);
+        verifyPointsInsideRegion(XOR_WITH2);
+        verifyPointsOutsideRegion(XOR_WITHOUT2);
 
         // 3. xor rectangle out of this region
         mRegion.set(region2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(region5, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH3);
-        assertPointsOutsideRegion(XOR_WITHOUT3);
+        verifyPointsInsideRegion(XOR_WITH3);
+        verifyPointsOutsideRegion(XOR_WITHOUT3);
     }
 
-    private void assertReverseDifferenceOp3(Region region1, Region region2,
+    private void verifyReverseDifferenceOp3(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // REVERSE_DIFFERENCE, Region with rectangle
         // reverse difference the first region from the op region
-        mRegion = null;
         mRegion = new Region();
         // reverse difference null rectangle
         mRegion.set(region2);
@@ -943,23 +923,22 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.contains(11, 11));
         assertFalse(mRegion.contains(21, 21));
         assertTrue(mRegion.op(region4, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
 
         // 3. reverse difference rectangle out of this region
         mRegion.set(region2);
         assertTrue(mRegion.contains(2, 2));
         assertFalse(mRegion.contains(41, 41));
         assertTrue(mRegion.op(region5, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
     }
 
-    private void assertReplaceOp3(Region region1, Region region2, Region region3,
+    private void verifyReplaceOp3(Region region1, Region region2, Region region3,
             Region region4, Region region5) {
         // REPLACE, Region with rectangle
         // replace the dst region with the op region
-        mRegion = null;
         mRegion = new Region();
         mRegion.set(region2);
         // subtract null rectangle
@@ -984,8 +963,8 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(region5.getBounds(), mRegion.getBounds());
     }
 
+    @Test
     public void testOp4() {
-
         Rect rect1 = new Rect();
         Rect rect2 = new Rect(0, 0, 20, 20);
 
@@ -995,20 +974,19 @@ public class RegionTest extends AndroidTestCase {
         Region region4 = new Region(10, 10, 30, 30);
         Region region5 = new Region(40, 40, 60, 60);
 
-        assertNullRegionOp4(rect1, region1);
-        assertDifferenceOp4(rect1, rect2, region1, region3, region4, region5);
-        assertIntersectOp4(rect1, rect2, region1, region3, region4, region5);
-        assertUnionOp4(rect1, rect2, region1, region3, region4, region5);
-        assertXorOp4(rect1, rect2, region1, region3, region4, region5);
-        assertReverseDifferenceOp4(rect1, rect2, region1, region3, region4,
+        verifyNullRegionOp4(rect1, region1);
+        verifyDifferenceOp4(rect1, rect2, region1, region3, region4, region5);
+        verifyIntersectOp4(rect1, rect2, region1, region3, region4, region5);
+        verifyUnionOp4(rect1, rect2, region1, region3, region4, region5);
+        verifyXorOp4(rect1, rect2, region1, region3, region4, region5);
+        verifyReverseDifferenceOp4(rect1, rect2, region1, region3, region4,
                 region5);
-        assertReplaceOp4(rect1, rect2, region1, region2, region3, region4,
+        verifyReplaceOp4(rect1, rect2, region1, region2, region3, region4,
                 region5);
     }
 
-    private void assertNullRegionOp4(Rect rect1, Region region1) {
+    private void verifyNullRegionOp4(Rect rect1, Region region1) {
         // Region without rectangle
-        mRegion = null;
         mRegion = new Region();
         assertFalse(mRegion.op(rect1, region1, Region.Op.DIFFERENCE));
         assertFalse(mRegion.op(rect1, region1, Region.Op.INTERSECT));
@@ -1019,11 +997,10 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.op(rect1, region1, Region.Op.REPLACE));
     }
 
-    private void assertDifferenceOp4(Rect rect1, Rect rect2, Region region1,
+    private void verifyDifferenceOp4(Rect rect1, Rect rect2, Region region1,
             Region region3, Region region4, Region region5) {
         // DIFFERENCE, Region with rectangle
         // subtract the op region from the first region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         assertTrue(mRegion.op(rect2, region1, Region.Op.DIFFERENCE));
@@ -1031,27 +1008,26 @@ public class RegionTest extends AndroidTestCase {
         // 1. subtract rectangle inside this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region3, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH1);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT1);
+        verifyPointsInsideRegion(DIFFERENCE_WITH1);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT1);
 
         // 2. subtract rectangle overlap this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region4, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT2);
 
         // 3. subtract rectangle out of this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region5, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT3);
     }
 
-    private void assertIntersectOp4(Rect rect1, Rect rect2, Region region1,
+    private void verifyIntersectOp4(Rect rect1, Rect rect2, Region region1,
             Region region3, Region region4, Region region5) {
         // INTERSECT, Region with rectangle
         // intersect the two regions
-        mRegion = null;
         mRegion = new Region();
         // intersect null rectangle
         mRegion.set(rect1);
@@ -1060,25 +1036,24 @@ public class RegionTest extends AndroidTestCase {
         // 1. intersect rectangle inside this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region3, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH1);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT1);
+        verifyPointsInsideRegion(INTERSECT_WITH1);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT1);
 
         // 2. intersect rectangle overlap this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region4, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH2);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT2);
+        verifyPointsInsideRegion(INTERSECT_WITH2);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT2);
 
         // 3. intersect rectangle out of this region
         mRegion.set(rect1);
         assertFalse(mRegion.op(rect2, region5, Region.Op.INTERSECT));
     }
 
-    private void assertUnionOp4(Rect rect1, Rect rect2, Region region1,
+    private void verifyUnionOp4(Rect rect1, Rect rect2, Region region1,
             Region region3, Region region4, Region region5) {
         // UNION, Region with rectangle
         // union (inclusive-or) the two regions
-        mRegion = null;
         mRegion = new Region();
         // union null rectangle
         mRegion.set(rect1);
@@ -1088,27 +1063,26 @@ public class RegionTest extends AndroidTestCase {
         // 1. union rectangle inside this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region3, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH1);
-        assertPointsOutsideRegion(UNION_WITHOUT1);
+        verifyPointsInsideRegion(UNION_WITH1);
+        verifyPointsOutsideRegion(UNION_WITHOUT1);
 
         // 2. union rectangle overlap this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region4, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH2);
-        assertPointsOutsideRegion(UNION_WITHOUT2);
+        verifyPointsInsideRegion(UNION_WITH2);
+        verifyPointsOutsideRegion(UNION_WITHOUT2);
 
         // 3. union rectangle out of this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region5, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH3);
-        assertPointsOutsideRegion(UNION_WITHOUT3);
+        verifyPointsInsideRegion(UNION_WITH3);
+        verifyPointsOutsideRegion(UNION_WITHOUT3);
     }
 
-    private void assertXorOp4(Rect rect1, Rect rect2, Region region1,
+    private void verifyXorOp4(Rect rect1, Rect rect2, Region region1,
             Region region3, Region region4, Region region5) {
         // XOR, Region with rectangle
         // exclusive-or the two regions
-        mRegion = null;
         mRegion = new Region();
         // xor null rectangle
         mRegion.set(rect1);
@@ -1117,27 +1091,26 @@ public class RegionTest extends AndroidTestCase {
         // 1. xor rectangle inside this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region3, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH1);
-        assertPointsOutsideRegion(XOR_WITHOUT1);
+        verifyPointsInsideRegion(XOR_WITH1);
+        verifyPointsOutsideRegion(XOR_WITHOUT1);
 
         // 2. xor rectangle overlap this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region4, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH2);
-        assertPointsOutsideRegion(XOR_WITHOUT2);
+        verifyPointsInsideRegion(XOR_WITH2);
+        verifyPointsOutsideRegion(XOR_WITHOUT2);
 
         // 3. xor rectangle out of this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region5, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH3);
-        assertPointsOutsideRegion(XOR_WITHOUT3);
+        verifyPointsInsideRegion(XOR_WITH3);
+        verifyPointsOutsideRegion(XOR_WITHOUT3);
     }
 
-    private void assertReverseDifferenceOp4(Rect rect1, Rect rect2,
+    private void verifyReverseDifferenceOp4(Rect rect1, Rect rect2,
             Region region1, Region region3, Region region4, Region region5) {
         // REVERSE_DIFFERENCE, Region with rectangle
         // reverse difference the first region from the op region
-        mRegion = null;
         mRegion = new Region();
         // reverse difference null rectangle
         mRegion.set(rect1);
@@ -1150,21 +1123,20 @@ public class RegionTest extends AndroidTestCase {
         // 2. reverse difference rectangle overlap this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region4, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
 
         // 3. reverse difference rectangle out of this region
         mRegion.set(rect1);
         assertTrue(mRegion.op(rect2, region5, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
     }
 
-    private void assertReplaceOp4(Rect rect1, Rect rect2, Region region1,
+    private void verifyReplaceOp4(Rect rect1, Rect rect2, Region region1,
             Region region2, Region region3, Region region4, Region region5) {
         // REPLACE, Region with rectangle
         // replace the dst region with the op region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         mRegion.set(rect1);
@@ -1186,26 +1158,25 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(region5.getBounds(), mRegion.getBounds());
     }
 
+    @Test
     public void testOp5() {
-
         Region region1 = new Region();
         Region region2 = new Region(0, 0, 20, 20);
         Region region3 = new Region(5, 5, 10, 10);
         Region region4 = new Region(10, 10, 30, 30);
         Region region5 = new Region(40, 40, 60, 60);
 
-        assertNullRegionOp5(region1);
-        assertDifferenceOp5(region1, region2, region3, region4, region5);
-        assertIntersectOp5(region1, region2, region3, region4, region5);
-        assertUnionOp5(region1, region2, region3, region4, region5);
-        assertXorOp5(region1, region2, region3, region4, region5);
-        assertReverseDifferenceOp5(region1, region2, region3, region4, region5);
-        assertReplaceOp5(region1, region2, region3, region4, region5);
+        verifyNullRegionOp5(region1);
+        verifyDifferenceOp5(region1, region2, region3, region4, region5);
+        verifyIntersectOp5(region1, region2, region3, region4, region5);
+        verifyUnionOp5(region1, region2, region3, region4, region5);
+        verifyXorOp5(region1, region2, region3, region4, region5);
+        verifyReverseDifferenceOp5(region1, region2, region3, region4, region5);
+        verifyReplaceOp5(region1, region2, region3, region4, region5);
     }
 
-    private void assertNullRegionOp5(Region region1) {
+    private void verifyNullRegionOp5(Region region1) {
         // Region without rectangle
-        mRegion = null;
         mRegion = new Region();
         assertFalse(mRegion.op(mRegion, region1, Region.Op.DIFFERENCE));
         assertFalse(mRegion.op(mRegion, region1, Region.Op.INTERSECT));
@@ -1215,11 +1186,10 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.op(mRegion, region1, Region.Op.REPLACE));
     }
 
-    private void assertDifferenceOp5(Region region1, Region region2,
+    private void verifyDifferenceOp5(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // DIFFERENCE, Region with rectangle
         // subtract the op region from the first region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         mRegion.set(region1);
@@ -1228,27 +1198,26 @@ public class RegionTest extends AndroidTestCase {
         // 1. subtract rectangle inside this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region3, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH1);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT1);
+        verifyPointsInsideRegion(DIFFERENCE_WITH1);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT1);
 
         // 2. subtract rectangle overlap this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region4, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT2);
 
         // 3. subtract rectangle out of this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region5, Region.Op.DIFFERENCE));
-        assertPointsInsideRegion(DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(DIFFERENCE_WITHOUT3);
     }
 
-    private void assertIntersectOp5(Region region1, Region region2,
+    private void verifyIntersectOp5(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // INTERSECT, Region with rectangle
         // intersect the two regions
-        mRegion = null;
         mRegion = new Region();
         // intersect null rectangle
         mRegion.set(region1);
@@ -1257,25 +1226,24 @@ public class RegionTest extends AndroidTestCase {
         // 1. intersect rectangle inside this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region3, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH1);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT1);
+        verifyPointsInsideRegion(INTERSECT_WITH1);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT1);
 
         // 2. intersect rectangle overlap this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region4, Region.Op.INTERSECT));
-        assertPointsInsideRegion(INTERSECT_WITH2);
-        assertPointsOutsideRegion(INTERSECT_WITHOUT2);
+        verifyPointsInsideRegion(INTERSECT_WITH2);
+        verifyPointsOutsideRegion(INTERSECT_WITHOUT2);
 
         // 3. intersect rectangle out of this region
         mRegion.set(region1);
         assertFalse(mRegion.op(region2, region5, Region.Op.INTERSECT));
     }
 
-    private void assertUnionOp5(Region region1, Region region2,
+    private void verifyUnionOp5(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // UNION, Region with rectangle
         // union (inclusive-or) the two regions
-        mRegion = null;
         mRegion = new Region();
         // union null rectangle
         mRegion.set(region1);
@@ -1285,27 +1253,26 @@ public class RegionTest extends AndroidTestCase {
         // 1. union rectangle inside this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region3, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH1);
-        assertPointsOutsideRegion(UNION_WITHOUT1);
+        verifyPointsInsideRegion(UNION_WITH1);
+        verifyPointsOutsideRegion(UNION_WITHOUT1);
 
         // 2. union rectangle overlap this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region4, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH2);
-        assertPointsOutsideRegion(UNION_WITHOUT2);
+        verifyPointsInsideRegion(UNION_WITH2);
+        verifyPointsOutsideRegion(UNION_WITHOUT2);
 
         // 3. union rectangle out of this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region5, Region.Op.UNION));
-        assertPointsInsideRegion(UNION_WITH3);
-        assertPointsOutsideRegion(UNION_WITHOUT3);
+        verifyPointsInsideRegion(UNION_WITH3);
+        verifyPointsOutsideRegion(UNION_WITHOUT3);
     }
 
-    private void assertXorOp5(Region region1, Region region2,
+    private void verifyXorOp5(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // XOR, Region with rectangle
         // exclusive-or the two regions
-        mRegion = null;
         mRegion = new Region();
         // xor null rectangle
         mRegion.set(region1);
@@ -1314,27 +1281,26 @@ public class RegionTest extends AndroidTestCase {
         // 1. xor rectangle inside this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region3, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH1);
-        assertPointsOutsideRegion(XOR_WITHOUT1);
+        verifyPointsInsideRegion(XOR_WITH1);
+        verifyPointsOutsideRegion(XOR_WITHOUT1);
 
         // 2. xor rectangle overlap this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region4, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH2);
-        assertPointsOutsideRegion(XOR_WITHOUT2);
+        verifyPointsInsideRegion(XOR_WITH2);
+        verifyPointsOutsideRegion(XOR_WITHOUT2);
 
         // 3. xor rectangle out of this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region5, Region.Op.XOR));
-        assertPointsInsideRegion(XOR_WITH3);
-        assertPointsOutsideRegion(XOR_WITHOUT3);
+        verifyPointsInsideRegion(XOR_WITH3);
+        verifyPointsOutsideRegion(XOR_WITHOUT3);
     }
 
-    private void assertReverseDifferenceOp5(Region region1, Region region2,
+    private void verifyReverseDifferenceOp5(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // REVERSE_DIFFERENCE, Region with rectangle
         // reverse difference the first region from the op region
-        mRegion = null;
         mRegion = new Region();
         // reverse difference null rectangle
         mRegion.set(region1);
@@ -1347,21 +1313,20 @@ public class RegionTest extends AndroidTestCase {
         // 2. reverse difference rectangle overlap this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region4, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH2);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT2);
 
         // 3. reverse difference rectangle out of this region
         mRegion.set(region1);
         assertTrue(mRegion.op(region2, region5, Region.Op.REVERSE_DIFFERENCE));
-        assertPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
-        assertPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
+        verifyPointsInsideRegion(REVERSE_DIFFERENCE_WITH3);
+        verifyPointsOutsideRegion(REVERSE_DIFFERENCE_WITHOUT3);
     }
 
-    private void assertReplaceOp5(Region region1, Region region2,
+    private void verifyReplaceOp5(Region region1, Region region2,
             Region region3, Region region4, Region region5) {
         // REPLACE, Region with rectangle
         // replace the dst region with the op region
-        mRegion = null;
         mRegion = new Region();
         // subtract null rectangle
         mRegion.set(region1);
@@ -1383,8 +1348,8 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(region5.getBounds(), mRegion.getBounds());
     }
 
+    @Test
     public void testGetBoundaryPath1() {
-        mRegion = new Region();
         assertTrue(mRegion.getBoundaryPath().isEmpty());
 
         // Both clip and path are non-null.
@@ -1395,9 +1360,8 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.getBoundaryPath().isEmpty());
     }
 
+    @Test
     public void testGetBoundaryPath2() {
-
-        mRegion = new Region();
         Path path = new Path();
         assertFalse(mRegion.getBoundaryPath(path));
 
@@ -1419,9 +1383,8 @@ public class RegionTest extends AndroidTestCase {
         assertTrue(mRegion.getBoundaryPath(path));
     }
 
+    @Test
     public void testSetPath() {
-
-        mRegion = new Region();
         // Both clip and path are null.
         Region clip = new Region();
         Path path = new Path();
@@ -1468,8 +1431,8 @@ public class RegionTest extends AndroidTestCase {
         assertNotSame(unexpected.right, actual.right);
     }
 
+    @Test
     public void testTranslate1() {
-
         Rect rect1 = new Rect(0, 0, 20, 20);
         Rect rect2 = new Rect(10, 10, 30, 30);
         mRegion = new Region(0, 0, 20, 20);
@@ -1478,8 +1441,8 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(rect2, mRegion.getBounds());
     }
 
+    @Test
     public void testTranslate2() {
-
         Region dst = new Region();
         Rect rect1 = new Rect(0, 0, 20, 20);
         Rect rect2 = new Rect(10, 10, 30, 30);
@@ -1491,11 +1454,10 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(rect2, dst.getBounds());
     }
 
+    @Test
     public void testWriteToParcel() {
-
         int flags = 0;
         Rect oriRect = new Rect(0, 0, 10, 10);
-        mRegion = new Region();
 
         // test reading/writing an empty parcel
         Parcel p = Parcel.obtain();
@@ -1535,13 +1497,13 @@ public class RegionTest extends AndroidTestCase {
         assertEquals(15, dst.getBounds().right);
     }
 
+    @Test
     public void testDescribeContents() {
-
-        mRegion = new Region();
         int actual = mRegion.describeContents();
         assertEquals(0, actual);
     }
 
+    @Test
     public void testQuickReject1() {
         Rect oriRect = new Rect(0, 0, 20, 20);
         Rect rect1 = new Rect();
@@ -1549,7 +1511,6 @@ public class RegionTest extends AndroidTestCase {
         Rect rect3 = new Rect(0, 0, 10, 10);
         Rect rect4 = new Rect(10, 10, 30, 30);
 
-        mRegion = new Region();
         // Return true if the region is empty
         assertTrue(mRegion.quickReject(rect1));
         mRegion.set(oriRect);
@@ -1560,8 +1521,8 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.quickReject(rect4));
     }
 
+    @Test
     public void testQuickReject2() {
-        mRegion = new Region();
         // Return true if the region is empty
         assertTrue(mRegion.quickReject(0, 0, 0, 0));
         mRegion.set(0, 0, 20, 20);
@@ -1572,6 +1533,7 @@ public class RegionTest extends AndroidTestCase {
         assertFalse(mRegion.quickReject(10, 10, 30, 30));
     }
 
+    @Test
     public void testQuickReject3() {
         Region oriRegion = new Region(0, 0, 20, 20);
         Region region1 = new Region();
@@ -1579,7 +1541,6 @@ public class RegionTest extends AndroidTestCase {
         Region region3 = new Region(0, 0, 10, 10);
         Region region4 = new Region(10, 10, 30, 30);
 
-        mRegion = new Region();
         // Return true if the region is empty
         assertTrue(mRegion.quickReject(region1));
         mRegion.set(oriRegion);
@@ -1589,5 +1550,4 @@ public class RegionTest extends AndroidTestCase {
         mRegion.set(oriRegion);
         assertFalse(mRegion.quickReject(region4));
     }
-
 }

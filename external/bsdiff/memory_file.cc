@@ -4,45 +4,39 @@
 
 #include "memory_file.h"
 
-#include "bspatch.h"
+#include <algorithm>
+#include <string.h>
 
 namespace bsdiff {
 
-MemoryFile::MemoryFile(std::unique_ptr<FileInterface> file, size_t size)
-    : file_(std::move(file)) {
-  buffer_.reserve(size);
-}
-
-MemoryFile::~MemoryFile() {
-  Close();
-}
+MemoryFile::MemoryFile(const uint8_t* data, size_t size)
+    : data_(data), size_(size) {}
 
 bool MemoryFile::Read(void* buf, size_t count, size_t* bytes_read) {
-  return false;
-}
-
-bool MemoryFile::Write(const void* buf, size_t count, size_t* bytes_written) {
-  const uint8_t* data = static_cast<const uint8_t*>(buf);
-  buffer_.insert(buffer_.end(), data, data + count);
-  *bytes_written = count;
+  count = std::min(count, static_cast<size_t>(size_ - offset_));
+  memcpy(buf, data_ + offset_, count);
+  offset_ += count;
+  *bytes_read = count;
   return true;
 }
 
-bool MemoryFile::Seek(off_t pos) {
+bool MemoryFile::Write(const void* buf, size_t count, size_t* bytes_written) {
   return false;
 }
 
-bool MemoryFile::Close() {
-  if (!WriteAll(file_, buffer_.data(), buffer_.size()))
+bool MemoryFile::Seek(off_t pos) {
+  if (pos > static_cast<off_t>(size_) || pos < 0)
     return false;
-  // Prevent writing |buffer_| to |file_| again if Close() is called more than
-  // once.
-  buffer_.clear();
-  return file_->Close();
+  offset_ = pos;
+  return true;
+}
+
+bool MemoryFile::Close() {
+  return true;
 }
 
 bool MemoryFile::GetSize(uint64_t* size) {
-  *size = buffer_.size();
+  *size = size_;
   return true;
 }
 

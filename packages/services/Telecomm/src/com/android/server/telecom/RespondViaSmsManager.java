@@ -18,25 +18,24 @@ package com.android.server.telecom;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.os.SomeArgs;
-import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.SmsApplication;
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.telecom.Connection;
+import android.telecom.Log;
 import android.telecom.Response;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.TextUtils;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -176,26 +175,28 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
      */
     private void rejectCallWithMessage(Context context, String phoneNumber, String textMessage,
             int subId) {
-        if (textMessage != null) {
-            final ComponentName component =
-                    SmsApplication.getDefaultRespondViaMessageApplication(context,
-                            true /*updateIfNeeded*/);
-            if (component != null) {
-                // Build and send the intent
-                final Uri uri = Uri.fromParts(Constants.SCHEME_SMSTO, phoneNumber, null);
-                final Intent intent = new Intent(TelephonyManager.ACTION_RESPOND_VIA_MESSAGE, uri);
-                intent.putExtra(Intent.EXTRA_TEXT, textMessage);
-                if (SubscriptionManager.isValidSubscriptionId(subId)) {
-                    intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
-                }
+        if (TextUtils.isEmpty(textMessage)) {
+            Log.w(RespondViaSmsManager.this, "Couldn't send SMS message: empty text message. ");
+            return;
+        }
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+            Log.w(RespondViaSmsManager.this, "Couldn't send SMS message: Invalid SubId: " +
+                    subId);
+            return;
+        }
 
-                SomeArgs args = SomeArgs.obtain();
-                args.arg1 = phoneNumber;
-                args.arg2 = context;
-                mHandler.obtainMessage(MSG_SHOW_SENT_TOAST, args).sendToTarget();
-                intent.setComponent(component);
-                context.startService(intent);
-            }
+        SmsManager smsManager = SmsManager.getSmsManagerForSubscriptionId(subId);
+        try {
+            smsManager.sendTextMessage(phoneNumber, null, textMessage, null /*sentIntent*/,
+                    null /*deliveryIntent*/);
+
+            SomeArgs args = SomeArgs.obtain();
+            args.arg1 = phoneNumber;
+            args.arg2 = context;
+            mHandler.obtainMessage(MSG_SHOW_SENT_TOAST, args).sendToTarget();
+        } catch (IllegalArgumentException e) {
+            Log.w(RespondViaSmsManager.this, "Couldn't send SMS message: " +
+                    e.getMessage());
         }
     }
 }

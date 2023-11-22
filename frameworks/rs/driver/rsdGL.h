@@ -73,7 +73,7 @@ typedef struct RsdGLRec {
 
 bool rsdGLSetInternalSurface(const android::renderscript::Context *rsc,
                              RsNativeWindow sur);
-bool rsdGLInit(const android::renderscript::Context *rsc);
+int32_t rsdGLInit(const android::renderscript::Context *rsc);
 void rsdGLShutdown(const android::renderscript::Context *rsc);
 bool rsdGLSetSurface(const android::renderscript::Context *rsc,
                      uint32_t w, uint32_t h, RsNativeWindow sur);

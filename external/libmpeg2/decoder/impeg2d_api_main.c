@@ -3136,7 +3136,8 @@ IV_API_CALL_STATUS_T impeg2d_api_entity(iv_obj_t *ps_dechdl,
         bytes_remaining -= ps_dec_op->s_ivd_video_decode_op_t.u4_num_bytes_consumed;
     }
 
-    if((1 != ps_dec_state->u2_decode_header) && ((bytes_remaining > 0) || ps_dec_state->u1_flushfrm))
+    if((1 != ps_dec_state->u2_decode_header) &&
+        (((bytes_remaining > 0) && (1 == ps_dec_state->u2_header_done)) || ps_dec_state->u1_flushfrm))
     {
         if(ps_dec_state->u1_flushfrm)
         {

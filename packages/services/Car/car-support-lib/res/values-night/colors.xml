@@ -15,11 +15,14 @@
 -->
 <resources>
     <!-- Aliases for material colors that may be used programmatically -->
+    <color name="car_headline0">@color/car_headline0_light</color>
     <color name="car_headline1">@color/car_headline1_light</color>
     <color name="car_headline2">@color/car_headline2_light</color>
     <color name="car_title">@color/car_title_light</color>
     <color name="car_body1">@color/car_body1_light</color>
     <color name="car_body2">@color/car_body2_light</color>
+    <color name="car_key1">@color/car_key1_light</color>
+    <color name="car_key2">@color/car_key2_light</color>
     <color name="car_caption">@color/car_caption_light</color>
     <color name="car_micro">@color/car_micro_light</color>
     <color name="car_card">@color/car_card_dark</color>
@@ -27,6 +30,6 @@
     <color name="car_card_ripple_light_color_background">@color/car_card_ripple_light_color_background_light</color>
     <color name="car_overscroll_glow">@color/car_overscroll_glow_dark</color>
     <color name="car_tint">@color/car_tint_light</color>
-    <color name="car_list_divider">#1fffffff</color>
+    <color name="car_list_divider">@color/car_white_1000</color>
     <color name="car_unavailable_category">@color/car_grey_50</color>
 </resources>

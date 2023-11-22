@@ -43,8 +43,15 @@ public class MainInteractionService extends VoiceInteractionService {
     private CountDownLatch mResumeLatch;
 
     @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.i(TAG, "onCreate received");
+    }
+
+    @Override
     public void onReady() {
         super.onReady();
+        Log.i(TAG, "onReady received");
         mReady = true;
     }
 

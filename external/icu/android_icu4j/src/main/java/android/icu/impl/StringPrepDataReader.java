@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ******************************************************************************
  * Copyright (C) 2003-2015, International Business Machines Corporation and
@@ -47,13 +49,10 @@ public final class StringPrepDataReader implements ICUBinary.Authenticate {
         return ICUBinary.getChars(byteBuffer, length, 0);
     }
 
-    public byte[] getDataFormatVersion(){
-        return DATA_FORMAT_VERSION;
-    }
-    
+    @Override
     public boolean isDataVersionAcceptable(byte version[]){
-        return version[0] == DATA_FORMAT_VERSION[0] 
-               && version[2] == DATA_FORMAT_VERSION[2] 
+        return version[0] == DATA_FORMAT_VERSION[0]
+               && version[2] == DATA_FORMAT_VERSION[2]
                && version[3] == DATA_FORMAT_VERSION[3];
     }
     public int[] readIndexes(int length)throws IOException{
@@ -63,7 +62,7 @@ public final class StringPrepDataReader implements ICUBinary.Authenticate {
              indexes[i] = byteBuffer.getInt();
         }
         return indexes;
-    } 
+    }
 
     public byte[] getUnicodeVersion(){
         return ICUBinary.getVersionByteArrayFromCompactInt(unicodeVersion);

@@ -1,12 +1,14 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2001-2015, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2001-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v1.8.1 : format : IntlTestDecimalFormatAPI
  * Source File: $ICU4CRoot/source/test/intltest/dcfmapts.cpp
  **/
@@ -22,25 +24,21 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.text.CurrencyPluralInfo;
 import android.icu.text.DecimalFormat;
 import android.icu.text.DecimalFormatSymbols;
 import android.icu.text.NumberFormat;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 // This is an API test, not a unit test.  It doesn't test very many cases, and doesn't
 // try to test the full functionality.  It just calls each function in the class and
 // verifies that it works on a basic level.
-@RunWith(IcuTestFmwkRunner.class)
 public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
-    
-    public static void main(String[] args)  throws Exception {
-        new IntlTestDecimalFormatAPIC().run(args);
-    }
 
     // This test checks various generic API methods in DecimalFormat to achieve 100% API coverage.
+    @Test
     public void TestAPI() {
 
         logln("DecimalFormat API test---");
@@ -56,7 +54,7 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         final String pattern = new String("#,##0.# FF");
         final DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.FRENCH);
         final CurrencyPluralInfo infoInput = new CurrencyPluralInfo(ULocale.FRENCH);
-        
+
         DecimalFormat pat = null;
         try {
             pat = new DecimalFormat(pattern);
@@ -70,7 +68,8 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         } catch (IllegalArgumentException e) {
             errln("ERROR: Could not create DecimalFormat (pattern, symbols)");
         }
-        
+
+        @SuppressWarnings("unused")
         DecimalFormat cust2 = null;
         try {
             cust2 = new DecimalFormat(pattern, symbols, infoInput, NumberFormat.PLURALCURRENCYSTYLE);
@@ -130,7 +129,7 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         double d2 = pat.parse(text, pos).doubleValue();
         if (d2 != d) {
             errln(
-                "ERROR: Roundtrip failed (via parse(" + Double.toString(d2) + " != " + Double.toString(d) + ")) for " + text); 
+                "ERROR: Roundtrip failed (via parse(" + Double.toString(d2) + " != " + Double.toString(d) + ")) for " + text);
         }
         logln(text + " parsed into " + (long) d2);
 
@@ -195,7 +194,7 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         pat.setDecimalSeparatorAlwaysShown(true);
         boolean tf = pat.isDecimalSeparatorAlwaysShown();
         logln(
-            "DecimalSeparatorIsAlwaysShown (should be true) is " + (tf ? "true" : "false")); 
+            "DecimalSeparatorIsAlwaysShown (should be true) is " + (tf ? "true" : "false"));
         if (tf != true) {
             errln("ERROR: setDecimalSeparatorAlwaysShown() failed");
         }
@@ -207,7 +206,13 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         String locPat;
         locPat = pat.toLocalizedPattern();
         logln("Localized pattern is " + locPat);
-        
+
+        pat.setCurrencyPluralInfo(infoInput);
+        if(!infoInput.equals(pat.getCurrencyPluralInfo())) {
+            errln("ERROR: set/get CurrencyPluralInfo() failed");
+        }
+
+
         pat.setCurrencyPluralInfo(infoInput);
         if(!infoInput.equals(pat.getCurrencyPluralInfo())) {
             errln("ERROR: set/get CurrencyPluralInfo() failed");
@@ -251,21 +256,22 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         //        catch (Exception e) {
         //            errln("ERROR: Couldn't create a DecimalFormat");
         //        }
-       
+
     }
 
+    @Test
     public void TestRounding() {
         double Roundingnumber = 2.55;
         double Roundingnumber1 = -2.55;
         //+2.55 results   -2.55 results
         double result[] = {
-            3, -3,   
-            2, -2, 
-            3, -2, 
-            2, -3, 
-            3, -3, 
-            3, -3, 
-            3, -3 
+            3, -3,
+            2, -2,
+            3, -2,
+            2, -3,
+            3, -3,
+            3, -3,
+            3, -3
         };
         DecimalFormat pat = new DecimalFormat();
         String s = "";
@@ -279,28 +285,29 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
             pat.setRoundingMode(mode);
             if (pat.getRoundingMode() != mode) {
                 errln(
-                     "SetRoundingMode or GetRoundingMode failed for mode=" + mode); 
+                     "SetRoundingMode or GetRoundingMode failed for mode=" + mode);
             }
 
             //for +2.55 with RoundingIncrement=1.0
             pat.setRoundingIncrement(1.0);
             resultStr = pat.format(Roundingnumber);
-            message = "round(" + (double) Roundingnumber
-                    + "," + mode + ",FALSE) with RoundingIncrement=1.0==>"; 
+            message = "round(" + Roundingnumber
+                    + "," + mode + ",FALSE) with RoundingIncrement=1.0==>";
             verify(message, resultStr, result[i++]);
             message = "";
             resultStr = "";
 
             //for -2.55 with RoundingIncrement=1.0
             resultStr = pat.format(Roundingnumber1);
-            message = "round(" + (double) Roundingnumber1
-                    + "," + mode + ",FALSE) with RoundingIncrement=1.0==>"; 
+            message = "round(" + Roundingnumber1
+                    + "," + mode + ",FALSE) with RoundingIncrement=1.0==>";
             verify(message, resultStr, result[i++]);
             message = "";
             resultStr = "";
         }
     }
 
+    @Test
     public void testFormatToCharacterIterator() {
 
         Number number = new Double(350.76);
@@ -354,7 +361,7 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         v.add(new FieldContainer(4, 6, NumberFormat.Field.FRACTION));
         return v;
     }
-    
+
 //    private static Vector getPositiveCurrencyVectorTR() {
 //        Vector v = new Vector();
 //        v.add(new FieldContainer(0, 3, NumberFormat.Field.INTEGER));
@@ -444,8 +451,8 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         List<FieldContainer> v = new ArrayList<FieldContainer>(1);
         v.add(new FieldContainer(0, 1, NumberFormat.Field.INTEGER));
         return v;
-    }    
-    
+    }
+
     private void t_Format(int count, Object object, Format format,
             List<FieldContainer> expectedResults) {
         List<FieldContainer> results = findFields(format.formatToCharacterIterator(object));
@@ -460,11 +467,11 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
     private static boolean compare(List vector1, List vector2) {
         return vector1.size() == vector2.size() && vector1.containsAll(vector2);
     }
-    
+
     /**
      * finds attributes with regards to char index in this
      * AttributedCharacterIterator, and puts them in a vector
-     * 
+     *
      * @param iterator
      * @return a vector, each entry in this vector are of type FieldContainer ,
      *         which stores start and end indexes and an attribute this range
@@ -518,6 +525,7 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         this.value = value;
         }
 
+        @Override
         public boolean equals(Object obj) {
         if (!(obj instanceof FieldContainer))
         return false;
@@ -526,7 +534,7 @@ public class IntlTestDecimalFormatAPIC extends android.icu.dev.test.TestFmwk {
         return (start == fc.start && end == fc.end
         && attribute == fc.attribute && value.equals(fc.value));
         }
-    } 
+    }
 
     /*Helper functions */
     public void verify(String message, String got, double expected) {

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2011, Google, International Business Machines Corporation
@@ -20,7 +22,7 @@ class CaseFoldTransliterator extends Transliterator{
      * Package accessible ID.
      */
     static final String _ID = "Any-CaseFold";
-    
+
     // TODO: Add variants for tr, az, lt, default = default locale
 
     /**
@@ -28,6 +30,7 @@ class CaseFoldTransliterator extends Transliterator{
      */
     static void register() {
         Transliterator.registerFactory(_ID, new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new CaseFoldTransliterator();
             }
@@ -36,7 +39,7 @@ class CaseFoldTransliterator extends Transliterator{
         Transliterator.registerSpecialInverse("CaseFold", "Upper", false);
     }
 
-    private UCaseProps csp;
+    private final UCaseProps csp;
     private ReplaceableContextIterator iter;
     private StringBuilder result;
 
@@ -54,6 +57,7 @@ class CaseFoldTransliterator extends Transliterator{
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
+    @Override
     protected synchronized void handleTransliterate(Replaceable text,
                                        Position offsets, boolean isIncremental) {
         if(csp==null) {
@@ -62,7 +66,7 @@ class CaseFoldTransliterator extends Transliterator{
 
         if(offsets.start >= offsets.limit) {
             return;
-        } 
+        }
 
         iter.setText(text);
         result.setLength(0);
@@ -104,9 +108,9 @@ class CaseFoldTransliterator extends Transliterator{
         }
         offsets.start = offsets.limit;
     }
-    
+
     static SourceTargetUtility sourceTargetUtility = null;
-    
+
     /* (non-Javadoc)
      * @see android.icu.text.Transliterator#addSourceTargetSet(android.icu.text.UnicodeSet, android.icu.text.UnicodeSet, android.icu.text.UnicodeSet)
      */
@@ -115,6 +119,7 @@ class CaseFoldTransliterator extends Transliterator{
         synchronized (UppercaseTransliterator.class) {
             if (sourceTargetUtility == null) {
                 sourceTargetUtility = new SourceTargetUtility(new Transform<String,String>() {
+                    @Override
                     public String transform(String source) {
                         return UCharacter.foldCase(source, true);
                     }

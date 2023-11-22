@@ -43,7 +43,10 @@ By default, information is reported for DUTs named as command-line
 arguments.  Options are also available for selecting groups of
 hosts:
   --board/-b BOARD - Only include hosts with the given board.
-  --pool/-p POOL - Only include hosts in the given pool.
+  --pool/-p POOL - Only include hosts in the given pool. The user
+      might be interested in the following pools: bvt, cq,
+      continuous, cts, or suites.
+
 
 The selected hosts may also be filtered based on status:
   -w/--working - Only include hosts in a working state.
@@ -110,8 +113,8 @@ import time
 import common
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.server import frontend
-from autotest_lib.site_utils import status_history
-
+from autotest_lib.server.lib import status_history
+from autotest_lib.site_utils import lab_inventory
 
 # The fully qualified name makes for lines that are too long, so
 # shorten it locally.
@@ -421,7 +424,10 @@ def _parse_command(argv):
                              'of the given board')
     parser.add_argument('-p', '--pool',
                         help='Display history for all DUTs '
-                             'in the given pool')
+                             'in the given pool. You might '
+                             'be interested in the following pools: '
+                             + ', '.join(lab_inventory.MANAGED_POOLS[:-1])
+                             +', or '+ lab_inventory.MANAGED_POOLS[-1] +'.')
     parser.add_argument('hostnames',
                         nargs='*',
                         help='host names of DUTs to report on')

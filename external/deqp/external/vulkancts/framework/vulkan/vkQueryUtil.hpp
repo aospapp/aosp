@@ -34,26 +34,27 @@ namespace vk
 
 // API queries
 
-std::vector<VkPhysicalDevice>				enumeratePhysicalDevices					(const InstanceInterface& vk, VkInstance instance);
-std::vector<VkQueueFamilyProperties>		getPhysicalDeviceQueueFamilyProperties		(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
-VkPhysicalDeviceFeatures					getPhysicalDeviceFeatures					(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
-VkPhysicalDeviceProperties					getPhysicalDeviceProperties					(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
-VkPhysicalDeviceMemoryProperties			getPhysicalDeviceMemoryProperties			(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
-VkFormatProperties							getPhysicalDeviceFormatProperties			(const InstanceInterface& vk, VkPhysicalDevice physicalDevice, VkFormat format);
-VkImageFormatProperties						getPhysicalDeviceImageFormatProperties		(const InstanceInterface& vk, VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags);
-std::vector<VkSparseImageFormatProperties>	getPhysicalDeviceSparseImageFormatProperties(const InstanceInterface& vk, VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkSampleCountFlagBits samples, VkImageUsageFlags usage, VkImageTiling tiling);
+std::vector<VkPhysicalDevice>					enumeratePhysicalDevices						(const InstanceInterface& vk, VkInstance instance);
+std::vector<VkQueueFamilyProperties>			getPhysicalDeviceQueueFamilyProperties			(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
+VkPhysicalDeviceFeatures						getPhysicalDeviceFeatures						(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
+VkPhysicalDeviceProperties						getPhysicalDeviceProperties						(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
+VkPhysicalDeviceMemoryProperties				getPhysicalDeviceMemoryProperties				(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
+VkFormatProperties								getPhysicalDeviceFormatProperties				(const InstanceInterface& vk, VkPhysicalDevice physicalDevice, VkFormat format);
+VkImageFormatProperties							getPhysicalDeviceImageFormatProperties			(const InstanceInterface& vk, VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags);
+std::vector<VkSparseImageFormatProperties>		getPhysicalDeviceSparseImageFormatProperties	(const InstanceInterface& vk, VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkSampleCountFlagBits samples, VkImageUsageFlags usage, VkImageTiling tiling);
 
-VkMemoryRequirements						getBufferMemoryRequirements					(const DeviceInterface& vk, VkDevice device, VkBuffer buffer);
-VkMemoryRequirements						getImageMemoryRequirements					(const DeviceInterface& vk, VkDevice device, VkImage image);
+VkMemoryRequirements							getBufferMemoryRequirements						(const DeviceInterface& vk, VkDevice device, VkBuffer buffer);
+VkMemoryRequirements							getImageMemoryRequirements						(const DeviceInterface& vk, VkDevice device, VkImage image);
+std::vector<VkSparseImageMemoryRequirements>	getImageSparseMemoryRequirements				(const DeviceInterface& vk, VkDevice device, VkImage image);
 
-std::vector<VkLayerProperties>				enumerateInstanceLayerProperties			(const PlatformInterface& vkp);
-std::vector<VkExtensionProperties>			enumerateInstanceExtensionProperties		(const PlatformInterface& vkp, const char* layerName);
-std::vector<VkLayerProperties>				enumerateDeviceLayerProperties				(const InstanceInterface& vki, VkPhysicalDevice physicalDevice);
-std::vector<VkExtensionProperties>			enumerateDeviceExtensionProperties			(const InstanceInterface& vki, VkPhysicalDevice physicalDevice, const char* layerName);
+std::vector<VkLayerProperties>					enumerateInstanceLayerProperties				(const PlatformInterface& vkp);
+std::vector<VkExtensionProperties>				enumerateInstanceExtensionProperties			(const PlatformInterface& vkp, const char* layerName);
+std::vector<VkLayerProperties>					enumerateDeviceLayerProperties					(const InstanceInterface& vki, VkPhysicalDevice physicalDevice);
+std::vector<VkExtensionProperties>				enumerateDeviceExtensionProperties				(const InstanceInterface& vki, VkPhysicalDevice physicalDevice, const char* layerName);
 
 // Feature / extension support
 
-bool										isShaderStageSupported						(const VkPhysicalDeviceFeatures& deviceFeatures, VkShaderStageFlagBits stage);
+bool											isShaderStageSupported							(const VkPhysicalDeviceFeatures& deviceFeatures, VkShaderStageFlagBits stage);
 
 struct RequiredExtension
 {
@@ -102,7 +103,8 @@ template<typename LayerIterator>
 bool										isLayerSupported						(LayerIterator begin, LayerIterator end, const RequiredLayer& required);
 bool										isLayerSupported						(const std::vector<VkLayerProperties>& layers, const RequiredLayer& required);
 
-// Return variable initialization validation
+namespace ValidateQueryBits
+{
 
 typedef struct
 {
@@ -111,6 +113,7 @@ typedef struct
 } QueryMemberTableEntry;
 
 template <typename Context, typename Interface, typename Type>
+//!< Return variable initialization validation
 bool validateInitComplete(Context context, void (Interface::*Function)(Context, Type*)const, const Interface& interface, const QueryMemberTableEntry* queryMemberTableEntry)
 {
 	const QueryMemberTableEntry	*iterator;
@@ -129,6 +132,32 @@ bool validateInitComplete(Context context, void (Interface::*Function)(Context, 
 
 	return true;
 }
+
+template<typename IterT>
+//! Overwrite a range of objects with an 8-bit pattern.
+inline void fillBits (IterT beg, const IterT end, const deUint8 pattern = 0xdeu)
+{
+	for (; beg < end; ++beg)
+		deMemset(&(*beg), static_cast<int>(pattern), sizeof(*beg));
+}
+
+template<typename IterT>
+//! Verify that each byte of a range of objects is equal to an 8-bit pattern.
+bool checkBits (IterT beg, const IterT end, const deUint8 pattern = 0xdeu)
+{
+	for (; beg < end; ++beg)
+	{
+		const deUint8* elementBytes = reinterpret_cast<const deUint8*>(&(*beg));
+		for (std::size_t i = 0u; i < sizeof(*beg); ++i)
+		{
+			if (elementBytes[i] != pattern)
+				return false;
+		}
+	}
+	return true;
+}
+
+} // ValidateQueryBits
 
 // Template implementations
 

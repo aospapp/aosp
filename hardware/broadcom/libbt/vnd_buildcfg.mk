@@ -11,7 +11,7 @@ ifeq (,$(wildcard $(SRC)))
 SRC := $(call my-dir)/include/vnd_generic.txt
 endif
 GEN := $(generated_sources)/vnd_buildcfg.h
-TOOL := $(LOCAL_PATH)/gen-buildcfg.sh
+TOOL := $(call my-dir)/gen-buildcfg.sh
 
 $(GEN): PRIVATE_PATH := $(call my-dir)
 $(GEN): PRIVATE_CUSTOM_TOOL = $(TOOL) $< $@

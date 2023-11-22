@@ -16,52 +16,73 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.MotionEvent;
 import android.widget.SeekBar;
-import android.widget.SeekBar.OnSeekBarChangeListener;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link SeekBar}.
  */
-public class SeekBarTest extends ActivityInstrumentationTestCase2<SeekBarCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class SeekBarTest {
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
     private SeekBar mSeekBar;
 
-    private Activity mActivity;
+    @Rule
+    public ActivityTestRule<SeekBarCtsActivity> mActivityRule =
+            new ActivityTestRule<>(SeekBarCtsActivity.class);
 
-    private Instrumentation mInstrumentation;
-
-    public SeekBarTest() {
-        super("android.widget.cts", SeekBarCtsActivity.class);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mInstrumentation = getInstrumentation();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
         mSeekBar = (SeekBar) mActivity.findViewById(R.id.seekBar);
     }
 
+    @Test
     public void testConstructor() {
         new SeekBar(mActivity);
 
         new SeekBar(mActivity, null);
 
         new SeekBar(mActivity, null, android.R.attr.seekBarStyle);
+
+        new SeekBar(mActivity, null, 0, android.R.style.Widget_DeviceDefault_SeekBar);
+
+        new SeekBar(mActivity, null, 0, android.R.style.Widget_DeviceDefault_Light_SeekBar);
+
+        new SeekBar(mActivity, null, 0, android.R.style.Widget_Material_SeekBar);
+
+        new SeekBar(mActivity, null, 0, android.R.style.Widget_Material_Light_SeekBar);
     }
 
+    @Test
     public void testSetOnSeekBarChangeListener() {
-        MockOnSeekBarListener listener = new MockOnSeekBarListener();
+        SeekBar.OnSeekBarChangeListener mockChangeListener =
+                mock(SeekBar.OnSeekBarChangeListener.class);
 
-        mSeekBar.setOnSeekBarChangeListener(listener);
-        listener.reset();
+        mSeekBar.setOnSeekBarChangeListener(mockChangeListener);
         long downTime = SystemClock.uptimeMillis();
         long eventTime = SystemClock.uptimeMillis();
         int seekBarXY[] = new int[2];
@@ -70,66 +91,28 @@ public class SeekBarTest extends ActivityInstrumentationTestCase2<SeekBarCtsActi
                 seekBarXY[0], seekBarXY[1], 0);
         mInstrumentation.sendPointerSync(event);
         mInstrumentation.waitForIdleSync();
-        assertTrue(listener.hasCalledOnStartTrackingTouch());
+        verify(mockChangeListener, times(1)).onStartTrackingTouch(mSeekBar);
         // while starting to track, the progress is changed also
-        assertTrue(listener.hasCalledOnProgressChanged());
+        verify(mockChangeListener, atLeastOnce()).onProgressChanged(eq(mSeekBar), anyInt(),
+                eq(true));
 
-        listener.reset();
+        reset(mockChangeListener);
         downTime = SystemClock.uptimeMillis();
         eventTime = SystemClock.uptimeMillis();
         event = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_MOVE,
                 seekBarXY[0] + (mSeekBar.getWidth() >> 1), seekBarXY[1], 0);
         mInstrumentation.sendPointerSync(event);
         mInstrumentation.waitForIdleSync();
-        assertTrue(listener.hasCalledOnProgressChanged());
+        verify(mockChangeListener, atLeastOnce()).onProgressChanged(eq(mSeekBar), anyInt(),
+                eq(true));
 
-        listener.reset();
+        reset(mockChangeListener);
         downTime = SystemClock.uptimeMillis();
         eventTime = SystemClock.uptimeMillis();
         event = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_UP,
                 seekBarXY[0] + (mSeekBar.getWidth() >> 1), seekBarXY[1], 0);
         mInstrumentation.sendPointerSync(event);
         mInstrumentation.waitForIdleSync();
-        assertTrue(listener.hasCalledOnStopTrackingTouch());
-
-        mSeekBar.setOnSeekBarChangeListener(null);
-    }
-
-    private class MockOnSeekBarListener implements OnSeekBarChangeListener {
-        private boolean mHasCalledOnProgressChanged;
-
-        private boolean mHasCalledOnStartTrackingTouch;
-
-        private boolean mHasCalledOnStopTrackingTouch;
-
-        public boolean hasCalledOnProgressChanged() {
-            return mHasCalledOnProgressChanged;
-        }
-
-        public boolean hasCalledOnStartTrackingTouch() {
-            return mHasCalledOnStartTrackingTouch;
-        }
-
-        public boolean hasCalledOnStopTrackingTouch() {
-            return mHasCalledOnStopTrackingTouch;
-        }
-
-        public void reset(){
-            mHasCalledOnProgressChanged = false;
-            mHasCalledOnStartTrackingTouch = false;
-            mHasCalledOnStopTrackingTouch = false;
-        }
-
-        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromTouch) {
-            mHasCalledOnProgressChanged = true;
-        }
-
-        public void onStartTrackingTouch(SeekBar seekBar) {
-            mHasCalledOnStartTrackingTouch = true;
-        }
-
-        public void onStopTrackingTouch(SeekBar seekBar) {
-            mHasCalledOnStopTrackingTouch = true;
-        }
+        verify(mockChangeListener, times(1)).onStopTrackingTouch(mSeekBar);
     }
 }

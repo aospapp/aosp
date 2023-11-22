@@ -28,7 +28,6 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.media.tv.TvInputInfo;
-import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -52,7 +51,6 @@ import com.android.tv.data.Program;
 import com.android.tv.util.BitmapUtils;
 import com.android.tv.util.BitmapUtils.ScaledBitmapInfo;
 import com.android.tv.util.ImageLoader;
-import com.android.tv.util.PermissionUtils;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
 
@@ -128,14 +126,8 @@ public class NotificationService extends Service implements Recommender.Listener
     @Override
     public void onCreate() {
         if (DEBUG) Log.d(TAG, "onCreate");
+        TvApplication.setCurrentRunningProcess(this, true);
         super.onCreate();
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M
-                && !PermissionUtils.hasAccessAllEpg(this)) {
-            Log.w(TAG, "Live TV requires the system permission on this platform.");
-            stopSelf();
-            return;
-        }
-
         mCurrentNotificationCount = 0;
         mNotificationChannels = new long[NOTIFICATION_COUNT];
         for (int i = 0; i < NOTIFICATION_COUNT; ++i) {
@@ -426,8 +418,7 @@ public class NotificationService extends Service implements Recommender.Listener
     }
 
     private void sendNotification(int notificationId, Bitmap channelLogo, Channel channel,
-            Bitmap posterArtBitmap, Program program, String inputDisplayName1) {
-
+            Bitmap posterArtBitmap, Program program, String inputDisplayName) {
         final long programDurationMs = program.getEndTimeUtcMillis() - program
                 .getStartTimeUtcMillis();
         long programLeftTimsMs = program.getEndTimeUtcMillis() - System.currentTimeMillis();
@@ -442,16 +433,18 @@ public class NotificationService extends Service implements Recommender.Listener
                 : overlayChannelLogo(channelLogo, posterArtBitmap);
         String channelDisplayName = channel.getDisplayName();
         Notification notification = new Notification.Builder(this)
-                .setContentIntent(notificationIntent).setContentTitle(program.getTitle())
-                .setContentText(inputDisplayName1 + " " +
-                        (TextUtils.isEmpty(channelDisplayName) ? channel.getDisplayNumber()
-                                : channelDisplayName)).setContentInfo(channelDisplayName)
+                .setContentIntent(notificationIntent)
+                .setContentTitle(program.getTitle())
+                .setContentText(TextUtils.isEmpty(channelDisplayName) ? channel.getDisplayNumber()
+                        : channelDisplayName)
+                .setContentInfo(channelDisplayName)
                 .setAutoCancel(true).setLargeIcon(largeIconBitmap)
                 .setSmallIcon(R.drawable.ic_launcher_s)
                 .setCategory(Notification.CATEGORY_RECOMMENDATION)
                 .setProgress((programProgress > 0) ? 100 : 0, programProgress, false)
-                .setSortKey(mRecommender.getChannelSortKey(channel.getId())).build();
-        notification.color = Utils.getColor(getResources(), R.color.recommendation_card_background);
+                .setSortKey(mRecommender.getChannelSortKey(channel.getId()))
+                .build();
+        notification.color = getResources().getColor(R.color.recommendation_card_background, null);
         if (!TextUtils.isEmpty(program.getThumbnailUri())) {
             notification.extras
                     .putString(Notification.EXTRA_BACKGROUND_IMAGE_URI, program.getThumbnailUri());

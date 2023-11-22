@@ -23,6 +23,7 @@ def get_install_path(filename, host=None):
     PATHS = ['/bin',
              '/sbin',
              '/system/bin',
+             '/system/xbin',
              '/usr/bin',
              '/usr/sbin',
              '/usr/local/bin',

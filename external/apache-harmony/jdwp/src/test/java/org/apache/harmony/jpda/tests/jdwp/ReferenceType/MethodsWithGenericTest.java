@@ -42,6 +42,7 @@ public class MethodsWithGenericTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.MethodsWithGeneric command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/MethodsWithGenericDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.MethodsWithGenericDebuggee";
     }

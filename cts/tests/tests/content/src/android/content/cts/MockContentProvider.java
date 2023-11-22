@@ -16,24 +16,21 @@
 
 package android.content.cts;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
-import java.util.HashMap;
+import static android.support.v4.util.Preconditions.checkArgument;
+import static junit.framework.Assert.assertEquals;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.ContentProvider;
+import android.content.ContentProvider.PipeDataWriter;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.content.UriMatcher;
-import android.content.ContentProvider.PipeDataWriter;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
+import android.database.CursorWrapper;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -45,10 +42,17 @@ import android.os.ParcelFileDescriptor;
 import android.text.TextUtils;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
+
 public class MockContentProvider extends ContentProvider
         implements PipeDataWriter<String> {
-
-    private SQLiteOpenHelper mOpenHelper;
 
     private static final String DEFAULT_AUTHORITY = "ctstest";
     private static final String DEFAULT_DBNAME = "ctstest.db";
@@ -62,11 +66,16 @@ public class MockContentProvider extends ContentProvider
     private static final int SELF_ID = 6;
     private static final int CRASH_ID = 6;
 
+    private static @Nullable Uri sRefreshedUri;
+    private static boolean sRefreshReturnValue;
+
     private final String mAuthority;
     private final String mDbName;
     private final UriMatcher URL_MATCHER;
     private HashMap<String, String> CTSDBTABLE1_LIST_PROJECTION_MAP;
     private HashMap<String, String> CTSDBTABLE2_LIST_PROJECTION_MAP;
+
+    private SQLiteOpenHelper mOpenHelper;
 
     private static class DatabaseHelper extends SQLiteOpenHelper {
 
@@ -110,12 +119,12 @@ public class MockContentProvider extends ContentProvider
         URL_MATCHER.addURI(mAuthority, "self", SELF_ID);
         URL_MATCHER.addURI(mAuthority, "crash", CRASH_ID);
 
-        CTSDBTABLE1_LIST_PROJECTION_MAP = new HashMap<String, String>();
+        CTSDBTABLE1_LIST_PROJECTION_MAP = new HashMap<>();
         CTSDBTABLE1_LIST_PROJECTION_MAP.put("_id", "_id");
         CTSDBTABLE1_LIST_PROJECTION_MAP.put("key", "key");
         CTSDBTABLE1_LIST_PROJECTION_MAP.put("value", "value");
 
-        CTSDBTABLE2_LIST_PROJECTION_MAP = new HashMap<String, String>();
+        CTSDBTABLE2_LIST_PROJECTION_MAP = new HashMap<>();
         CTSDBTABLE2_LIST_PROJECTION_MAP.put("_id", "_id");
         CTSDBTABLE2_LIST_PROJECTION_MAP.put("key", "key");
         CTSDBTABLE2_LIST_PROJECTION_MAP.put("value", "value");
@@ -188,6 +197,21 @@ public class MockContentProvider extends ContentProvider
         default:
             throw new IllegalArgumentException("Unknown URL " + uri);
         }
+    }
+
+    @Override
+    public String[] getStreamTypes(@NonNull Uri uri, @NonNull String mimeTypeFilter) {
+        if (URL_MATCHER.match(uri) == TESTTABLE2_ID) {
+            switch (Integer.parseInt(uri.getPathSegments().get(1)) % 10) {
+                case 0:
+                    return new String[]{"image/jpeg"};
+                case 1:
+                    return new String[]{"audio/mpeg"};
+                case 2:
+                    return new String[]{"video/mpeg", "audio/mpeg"};
+            }
+        }
+        return super.getStreamTypes(uri, mimeTypeFilter);
     }
 
     @Override
@@ -281,11 +305,7 @@ public class MockContentProvider extends ContentProvider
         }
 
         /* If no sort order is specified use the default */
-        String orderBy;
-        if (TextUtils.isEmpty(sortOrder))
-            orderBy = "_id";
-        else
-            orderBy = sortOrder;
+        String orderBy = TextUtils.isEmpty(sortOrder) ? "_id" : sortOrder;
 
         SQLiteDatabase db = mOpenHelper.getReadableDatabase();
         Cursor c = qb.query(db, projection, selection, selectionArgs, null, null, orderBy,
@@ -385,6 +405,13 @@ public class MockContentProvider extends ContentProvider
         }
     }
 
+    @Override
+    public boolean refresh(Uri uri, @Nullable Bundle args,
+            @Nullable CancellationSignal cancellationSignal) {
+        sRefreshedUri = uri;
+        return sRefreshReturnValue;
+    }
+
     private void crashOnLaunchIfNeeded() {
         if (getCrashOnLaunch(getContext())) {
             // The test case wants us to crash our process on first launch.
@@ -411,6 +438,14 @@ public class MockContentProvider extends ContentProvider
         } else {
             file.delete();
         }
+    }
+
+    public static void setRefreshReturnValue(boolean value) {
+        sRefreshReturnValue = value;
+    }
+
+    public static void assertRefreshed(Uri expectedUri) {
+        assertEquals(sRefreshedUri, expectedUri);
     }
 
     private static File getCrashOnLaunchFile(Context context) {

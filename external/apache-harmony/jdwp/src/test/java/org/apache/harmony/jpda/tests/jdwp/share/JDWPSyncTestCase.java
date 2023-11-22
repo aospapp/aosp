@@ -40,6 +40,7 @@ public abstract class JDWPSyncTestCase extends JDWPTestCase {
     /**
      * This method is invoked right before starting debuggee VM.
      */
+    @Override
     protected void beforeDebuggeeStart() {
         synchronizer = createSynchronizer();
         int port = synchronizer.bindServer();
@@ -58,6 +59,7 @@ public abstract class JDWPSyncTestCase extends JDWPTestCase {
      * Overrides inherited method to resume debuggee VM and then to establish
      * sync connection.
      */
+    @Override
     protected void internalSetUp() throws Exception {
         super.internalSetUp();
 
@@ -71,6 +73,7 @@ public abstract class JDWPSyncTestCase extends JDWPTestCase {
     /**
      * Overrides inherited method to close sync connection upon exit.
      */
+    @Override
     protected void internalTearDown() {
         if (synchronizer != null) {
             if (null != finalSyncMessage) {

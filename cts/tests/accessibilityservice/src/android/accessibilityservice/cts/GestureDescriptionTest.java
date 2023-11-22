@@ -15,6 +15,7 @@
 package android.accessibilityservice.cts;
 
 import android.accessibilityservice.GestureDescription;
+import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
 import android.test.InstrumentationTestCase;
@@ -35,7 +36,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
 
     public void testCreateStroke_noDuration_shouldThrow() {
         try {
-            new GestureDescription.StrokeDescription(mNominalPath, 0, 0);
+            new StrokeDescription(mNominalPath, 0, 0);
             fail("Missing exception for stroke with no duration.");
         } catch (IllegalArgumentException e) {
         }
@@ -43,7 +44,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
 
     public void testCreateStroke_negativeStartTime_shouldThrow() {
         try {
-            new GestureDescription.StrokeDescription(mNominalPath, -1, NOMINAL_PATH_DURATION);
+            new StrokeDescription(mNominalPath, -1, NOMINAL_PATH_DURATION);
             fail("Missing exception for stroke with negative start time.");
         } catch (IllegalArgumentException e) {
         }
@@ -54,7 +55,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         negativeStartXPath.moveTo(-1, 0);
         negativeStartXPath.lineTo(10, 10);
         try {
-            new GestureDescription.StrokeDescription(negativeStartXPath, 0, NOMINAL_PATH_DURATION);
+            new StrokeDescription(negativeStartXPath, 0, NOMINAL_PATH_DURATION);
             fail("Missing exception for stroke with negative start x coord.");
         } catch (IllegalArgumentException e) {
         }
@@ -65,7 +66,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         negativeStartYPath.moveTo(0, -1);
         negativeStartYPath.lineTo(10, 10);
         try {
-            new GestureDescription.StrokeDescription(negativeStartYPath, 0, NOMINAL_PATH_DURATION);
+            new StrokeDescription(negativeStartYPath, 0, NOMINAL_PATH_DURATION);
             fail("Missing exception for stroke with negative start y coord.");
         } catch (IllegalArgumentException e) {
         }
@@ -76,7 +77,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         negativeEndXPath.moveTo(0, 0);
         negativeEndXPath.lineTo(-10, 10);
         try {
-            new GestureDescription.StrokeDescription(negativeEndXPath, 0, NOMINAL_PATH_DURATION);
+            new StrokeDescription(negativeEndXPath, 0, NOMINAL_PATH_DURATION);
             fail("Missing exception for stroke with negative end x coord.");
         } catch (IllegalArgumentException e) {
         }
@@ -87,7 +88,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         negativeEndYPath.moveTo(0, 0);
         negativeEndYPath.lineTo(10, -10);
         try {
-            new GestureDescription.StrokeDescription(negativeEndYPath, 0, NOMINAL_PATH_DURATION);
+            new StrokeDescription(negativeEndYPath, 0, NOMINAL_PATH_DURATION);
             fail("Missing exception for stroke with negative end y coord.");
         } catch (IllegalArgumentException e) {
         }
@@ -96,7 +97,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
     public void testCreateStroke_withEmptyPath_shouldThrow() {
         Path emptyPath = new Path();
         try {
-            new GestureDescription.StrokeDescription(emptyPath, 0, NOMINAL_PATH_DURATION);
+            new StrokeDescription(emptyPath, 0, NOMINAL_PATH_DURATION);
             fail("Missing exception for empty path.");
         } catch (IllegalArgumentException e) {
         }
@@ -109,10 +110,28 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         multiContourPath.moveTo(20, 0);
         multiContourPath.lineTo(20, 10);
         try {
-            new GestureDescription.StrokeDescription(multiContourPath, 0, NOMINAL_PATH_DURATION);
+            new StrokeDescription(multiContourPath, 0, NOMINAL_PATH_DURATION);
             fail("Missing exception for stroke with multi-contour path.");
         } catch (IllegalArgumentException e) {
         }
+    }
+
+    public void testStrokeDescriptionWillContinue() {
+        StrokeDescription strokeDescription = new StrokeDescription(mNominalPath, 0, 100);
+        assertFalse(strokeDescription.willContinue());
+
+        StrokeDescription continuedStroke = new StrokeDescription(mNominalPath, 0, 100, true);
+        assertTrue(continuedStroke.willContinue());
+
+        strokeDescription = new StrokeDescription(mNominalPath, 0, 100, false);
+        assertFalse(strokeDescription.willContinue());
+
+        StrokeDescription continuation =
+                continuedStroke.continueStroke(mNominalPath, 0, 100, false);
+        assertFalse(continuation.willContinue());
+
+        continuation = continuedStroke.continueStroke(mNominalPath, 0, 100, true);
+        assertTrue(continuation.willContinue());
     }
 
     public void testAddStroke_allowUpToMaxPaths() {
@@ -121,15 +140,13 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
             Path path = new Path();
             path.moveTo(i, i);
             path.lineTo(10 + i, 10 + i);
-            gestureBuilder.addStroke(
-                    new GestureDescription.StrokeDescription(path, 0, NOMINAL_PATH_DURATION));
+            gestureBuilder.addStroke(new StrokeDescription(path, 0, NOMINAL_PATH_DURATION));
         }
         Path path = new Path();
         path.moveTo(10, 10);
         path.lineTo(20, 20);
         try {
-            gestureBuilder.addStroke(
-                    new GestureDescription.StrokeDescription(path, 0, NOMINAL_PATH_DURATION));
+            gestureBuilder.addStroke(new StrokeDescription(path, 0, NOMINAL_PATH_DURATION));
             fail("Missing exception for adding too many strokes.");
         } catch (RuntimeException e) {
         }
@@ -141,8 +158,8 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         path.lineTo(20, 20);
         GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
         try {
-            gestureBuilder.addStroke(new GestureDescription.StrokeDescription(
-                    path, 0, GestureDescription.getMaxGestureDuration() + 1));
+            gestureBuilder.addStroke(
+                    new StrokeDescription(path, 0, GestureDescription.getMaxGestureDuration() + 1));
             fail("Missing exception for adding stroke with duration too long.");
         } catch (RuntimeException e) {
         }
@@ -166,7 +183,7 @@ public class GestureDescriptionTest extends InstrumentationTestCase {
         Path path = new Path();
         path.moveTo(x, startY);
         path.lineTo(x, endY);
-        GestureDescription.StrokeDescription strokeDescription = new GestureDescription.StrokeDescription(path, start, duration);
+        StrokeDescription strokeDescription = new StrokeDescription(path, start, duration);
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.addStroke(strokeDescription);
 

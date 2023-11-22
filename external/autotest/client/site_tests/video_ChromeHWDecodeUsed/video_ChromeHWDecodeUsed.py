@@ -7,6 +7,7 @@ import time
 import shutil
 
 from autotest_lib.client.bin import test
+from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.video import histogram_verifier
 from autotest_lib.client.cros.video import constants
@@ -17,8 +18,30 @@ class video_ChromeHWDecodeUsed(test.test):
     """This test verifies VDA works in Chrome."""
     version = 1
 
+    def is_skipping_test(self, codec):
+        """Determine whether this test should skip.
 
-    def run_once(self, is_mse, video_file):
+        @param codec: the codec to be tested. Example values: 'vp8', 'vp9', 'h264'.
+        """
+        blacklist = [
+                # (board, milestone, codec); None if don't care.
+
+                # kevin did support hw decode, but not ready in M54 and M55.
+                ('kevin', 54, 'vp8'),('kevin', 55, 'vp8')
+        ]
+
+        entry = (utils.get_current_board(), utils.get_chrome_milestone(), codec)
+        for black_entry in blacklist:
+            for i, to_match in enumerate(black_entry):
+                if to_match and str(to_match) != entry[i]:
+                    break
+            else:
+                return True
+
+        return False
+
+
+    def run_once(self, codec, is_mse, video_file, arc_mode=None):
         """
         Tests whether VDA works by verifying histogram for the loaded video.
 
@@ -26,22 +49,31 @@ class video_ChromeHWDecodeUsed(test.test):
         @param video_file: Sample video file to be loaded in Chrome.
 
         """
-        with chrome.Chrome() as cr:
+        if self.is_skipping_test(codec):
+            raise error.TestNAError('Skipping test run on this board.')
+
+        with chrome.Chrome(arc_mode=arc_mode,
+                           init_network_controller=True) as cr:
             # This will execute for MSE video by accesing shaka player
             if is_mse:
-                 tab1 = cr.browser.tabs[0]
+                 tab1 = cr.browser.tabs.New()
                  tab1.Navigate(video_file)
                  tab1.WaitForDocumentReadyStateToBeComplete()
                  # Running the test longer to check errors and longer playback
                  # for MSE videos.
                  time.sleep(30)
             else:
-            #This execute for normal video for downloading html file
+                 #This execute for normal video for downloading html file
                  shutil.copy2(constants.VIDEO_HTML_FILEPATH, self.bindir)
+                 video_path = os.path.join(constants.CROS_VIDEO_DIR,
+                                           'files', video_file)
+                 shutil.copy2(video_path, self.bindir)
+
                  cr.browser.platform.SetHTTPServerDirectories(self.bindir)
-                 tab = cr.browser.tabs[0]
+                 tab = cr.browser.tabs.New()
                  html_fullpath = os.path.join(self.bindir, 'video.html')
                  url = cr.browser.platform.http_server.UrlOf(html_fullpath)
+
                  player = native_html5_player.NativeHtml5Player(
                          tab,
                          full_url = url,

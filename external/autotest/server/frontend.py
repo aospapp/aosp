@@ -13,20 +13,25 @@ For docs, see:
     http://docs.djangoproject.com/en/dev/ref/models/querysets/#queryset-api
 """
 
+#pylint: disable=missing-docstring
+
 import getpass
 import os
 import re
-import time
-import traceback
 
 import common
+
 from autotest_lib.frontend.afe import rpc_client_lib
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import priorities
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.tko import db
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 try:
     from autotest_lib.server.site_common import site_utils as server_utils
@@ -37,7 +42,6 @@ form_ntuples_from_machines = server_utils.form_ntuples_from_machines
 GLOBAL_CONFIG = global_config.global_config
 DEFAULT_SERVER = 'autotest'
 
-_tko_timer = autotest_stats.Timer('tko')
 
 def dump_object(header, obj):
     """
@@ -105,7 +109,6 @@ class RpcClient(object):
                 print result
             return result
         except Exception:
-            print 'FAILED RPC CALL: %s %s' % (call, dargs)
             raise
 
 
@@ -137,7 +140,8 @@ class TKO(RpcClient):
         self._db = None
 
 
-    @_tko_timer.decorate
+    @metrics.SecondsTimerDecorator(
+            'chromeos/autotest/tko/get_job_status_duration')
     def get_job_test_statuses_from_db(self, job_id):
         """Get job test statuses from the database.
 
@@ -181,7 +185,307 @@ class TKO(RpcClient):
         return [TestStatus(self, e) for e in entries['groups']]
 
 
+class _StableVersionMap(object):
+    """
+    A mapping from board names to strings naming software versions.
+
+    The mapping is meant to allow finding a nominally "stable" version
+    of software associated with a given board.  The mapping identifies
+    specific versions of software that should be installed during
+    operations such as repair.
+
+    Conceptually, there are multiple version maps, each handling
+    different types of image.  For instance, a single board may have
+    both a stable OS image (e.g. for CrOS), and a separate stable
+    firmware image.
+
+    Each different type of image requires a certain amount of special
+    handling, implemented by a subclass of `StableVersionMap`.  The
+    subclasses take care of pre-processing of arguments, delegating
+    actual RPC calls to this superclass.
+
+    @property _afe      AFE object through which to make the actual RPC
+                        calls.
+    @property _android  Value of the `android` parameter to be passed
+                        when calling the `get_stable_version` RPC.
+    """
+
+    # DEFAULT_BOARD - The stable_version RPC API recognizes this special
+    # name as a mapping to use when no specific mapping for a board is
+    # present.  This default mapping is only allowed for CrOS image
+    # types; other image type subclasses exclude it.
+    #
+    # TODO(jrbarnette):  This value is copied from
+    # site_utils.stable_version_utils, because if we import that
+    # module here, it breaks unit tests.  Something about the Django
+    # setup...
+    DEFAULT_BOARD = 'DEFAULT'
+
+
+    def __init__(self, afe, android):
+        self._afe = afe
+        self._android = android
+
+
+    def get_all_versions(self):
+        """
+        Get all mappings in the stable versions table.
+
+        Extracts the full content of the `stable_version` table
+        in the AFE database, and returns it as a dictionary
+        mapping board names to version strings.
+
+        @return A dictionary mapping board names to version strings.
+        """
+        return self._afe.run('get_all_stable_versions')
+
+
+    def get_version(self, board):
+        """
+        Get the mapping of one board in the stable versions table.
+
+        Look up and return the version mapped to the given board in the
+        `stable_versions` table in the AFE database.
+
+        @param board  The board to be looked up.
+
+        @return The version mapped for the given board.
+        """
+        return self._afe.run('get_stable_version',
+                             board=board, android=self._android)
+
+
+    def set_version(self, board, version):
+        """
+        Change the mapping of one board in the stable versions table.
+
+        Set the mapping in the `stable_versions` table in the AFE
+        database for the given board to the given version.
+
+        @param board    The board to be updated.
+        @param version  The new version to be assigned to the board.
+        """
+        self._afe.run('set_stable_version',
+                      version=version, board=board)
+
+
+    def delete_version(self, board):
+        """
+        Remove the mapping of one board in the stable versions table.
+
+        Remove the mapping in the `stable_versions` table in the AFE
+        database for the given board.
+
+        @param board    The board to be updated.
+        """
+        self._afe.run('delete_stable_version', board=board)
+
+
+class _OSVersionMap(_StableVersionMap):
+    """
+    Abstract stable version mapping for full OS images of various types.
+    """
+
+    def get_all_versions(self):
+        # TODO(jrbarnette):  We exclude non-OS (i.e. firmware) version
+        # mappings, but the returned dict doesn't distinguish CrOS
+        # boards from Android boards; both will be present, and the
+        # subclass can't distinguish them.
+        #
+        # Ultimately, the right fix is to move knowledge of image type
+        # over to the RPC server side.
+        #
+        versions = super(_OSVersionMap, self).get_all_versions()
+        for board in versions.keys():
+            if '/' in board:
+                del versions[board]
+        return versions
+
+
+class _CrosVersionMap(_OSVersionMap):
+    """
+    Stable version mapping for Chrome OS release images.
+
+    This class manages a mapping of Chrome OS board names to known-good
+    release (or canary) images.  The images selected can be installed on
+    DUTs during repair tasks, as a way of getting a DUT into a known
+    working state.
+    """
+
+    def __init__(self, afe):
+        super(_CrosVersionMap, self).__init__(afe, False)
+
+    @staticmethod
+    def format_image_name(board, version):
+        """
+        Return an image name for a given `board` and `version`.
+
+        This formats `board` and `version` into a string identifying an
+        image file.  The string represents part of a URL for access to
+        the image.
+
+        The returned image name is typically of a form like
+        "falco-release/R55-8872.44.0".
+        """
+        build_pattern = GLOBAL_CONFIG.get_config_value(
+                'CROS', 'stable_build_pattern')
+        return build_pattern % (board, version)
+
+    def get_image_name(self, board):
+        """
+        Return the full image name of the stable version for `board`.
+
+        This finds the stable version for `board`, and returns a string
+        identifying the associated image as for `format_image_name()`,
+        above.
+
+        @return A string identifying the image file for the stable
+                image for `board`.
+        """
+        return self.format_image_name(board, self.get_version(board))
+
+
+class _AndroidVersionMap(_OSVersionMap):
+    """
+    Stable version mapping for Android release images.
+
+    This class manages a mapping of Android/Brillo board names to
+    known-good images.
+    """
+
+    def __init__(self, afe):
+        super(_AndroidVersionMap, self).__init__(afe, True)
+
+
+    def get_all_versions(self):
+        versions = super(_AndroidVersionMap, self).get_all_versions()
+        del versions[self.DEFAULT_BOARD]
+        return versions
+
+
+class _SuffixHackVersionMap(_StableVersionMap):
+    """
+    Abstract super class for mappings using a pseudo-board name.
+
+    For non-OS image type mappings, we look them up in the
+    `stable_versions` table by constructing a "pseudo-board" from the
+    real board name plus a suffix string that identifies the image type.
+    So, for instance the name "lulu/firmware" is used to look up the
+    FAFT firmware version for lulu boards.
+    """
+
+    # _SUFFIX - The suffix used in constructing the "pseudo-board"
+    # lookup key.  Each subclass must define this value for itself.
+    #
+    _SUFFIX = None
+
+    def __init__(self, afe):
+        super(_SuffixHackVersionMap, self).__init__(afe, False)
+
+
+    def get_all_versions(self):
+        # Get all the mappings from the AFE, extract just the mappings
+        # with our suffix, and replace the pseudo-board name keys with
+        # the real board names.
+        #
+        all_versions = super(
+                _SuffixHackVersionMap, self).get_all_versions()
+        return {
+            board[0 : -len(self._SUFFIX)]: all_versions[board]
+                for board in all_versions.keys()
+                    if board.endswith(self._SUFFIX)
+        }
+
+
+    def get_version(self, board):
+        board += self._SUFFIX
+        return super(_SuffixHackVersionMap, self).get_version(board)
+
+
+    def set_version(self, board, version):
+        board += self._SUFFIX
+        super(_SuffixHackVersionMap, self).set_version(board, version)
+
+
+    def delete_version(self, board):
+        board += self._SUFFIX
+        super(_SuffixHackVersionMap, self).delete_version(board)
+
+
+class _FAFTVersionMap(_SuffixHackVersionMap):
+    """
+    Stable version mapping for firmware versions used in FAFT repair.
+
+    When DUTs used for FAFT fail repair, stable firmware may need to be
+    flashed directly from original tarballs.  The FAFT firmware version
+    mapping finds the appropriate tarball for a given board.
+    """
+
+    _SUFFIX = '/firmware'
+
+    def get_version(self, board):
+        # If there's no mapping for `board`, the lookup will return the
+        # default CrOS version mapping.  To eliminate that case, we
+        # require a '/' character in the version, since CrOS versions
+        # won't match that.
+        #
+        # TODO(jrbarnette):  This is, of course, a hack.  Ultimately,
+        # the right fix is to move handling to the RPC server side.
+        #
+        version = super(_FAFTVersionMap, self).get_version(board)
+        return version if '/' in version else None
+
+
+class _FirmwareVersionMap(_SuffixHackVersionMap):
+    """
+    Stable version mapping for firmware supplied in Chrome OS images.
+
+    A Chrome OS image bundles a version of the firmware that the
+    device should update to when the OS version is installed during
+    AU.
+
+    Test images suppress the firmware update during AU.  Instead, during
+    repair and verify we check installed firmware on a DUT, compare it
+    against the stable version mapping for the board, and update when
+    the DUT is out-of-date.
+    """
+
+    _SUFFIX = '/rwfw'
+
+    def get_version(self, board):
+        # If there's no mapping for `board`, the lookup will return the
+        # default CrOS version mapping.  To eliminate that case, we
+        # require the version start with "Google_", since CrOS versions
+        # won't match that.
+        #
+        # TODO(jrbarnette):  This is, of course, a hack.  Ultimately,
+        # the right fix is to move handling to the RPC server side.
+        #
+        version = super(_FirmwareVersionMap, self).get_version(board)
+        return version if version.startswith('Google_') else None
+
+
 class AFE(RpcClient):
+
+    # Known image types for stable version mapping objects.
+    # CROS_IMAGE_TYPE - Mappings for Chrome OS images.
+    # FAFT_IMAGE_TYPE - Mappings for Firmware images for FAFT repair.
+    # FIRMWARE_IMAGE_TYPE - Mappings for released RW Firmware images.
+    # ANDROID_IMAGE_TYPE - Mappings for Android images.
+    #
+    CROS_IMAGE_TYPE = 'cros'
+    FAFT_IMAGE_TYPE = 'faft'
+    FIRMWARE_IMAGE_TYPE = 'firmware'
+    ANDROID_IMAGE_TYPE = 'android'
+
+    _IMAGE_MAPPING_CLASSES = {
+        CROS_IMAGE_TYPE: _CrosVersionMap,
+        FAFT_IMAGE_TYPE: _FAFTVersionMap,
+        FIRMWARE_IMAGE_TYPE: _FirmwareVersionMap,
+        ANDROID_IMAGE_TYPE: _AndroidVersionMap
+    }
+
+
     def __init__(self, user=None, server=None, print_log=True, debug=False,
                  reply_debug=False, job=None):
         self.job = job
@@ -191,6 +495,16 @@ class AFE(RpcClient):
                                   print_log=print_log,
                                   debug=debug,
                                   reply_debug=reply_debug)
+
+
+    def get_stable_version_map(self, image_type):
+        """
+        Return a stable version mapping for the given image type.
+
+        @return An object mapping board names to version strings for
+                software of the given image type.
+        """
+        return self._IMAGE_MAPPING_CLASSES[image_type](self)
 
 
     def host_statuses(self, live=None):
@@ -344,435 +658,13 @@ class AFE(RpcClient):
                         success=success)
 
 
-    def create_job_by_test(self, tests, kernel=None, use_container=False,
-                           kernel_cmdline=None, **dargs):
-        """
-        Given a test name, fetch the appropriate control file from the server
-        and submit it.
-
-        @param kernel: A comma separated list of kernel versions to boot.
-        @param kernel_cmdline: The command line used to boot all kernels listed
-                in the kernel parameter.
-
-        Returns a list of job objects
-        """
-        assert ('hosts' in dargs or
-                'atomic_group_name' in dargs and 'synch_count' in dargs)
-        if kernel:
-            kernel_list =  re.split('[\s,]+', kernel.strip())
-            kernel_info = []
-            for version in kernel_list:
-                kernel_dict = {'version': version}
-                if kernel_cmdline is not None:
-                    kernel_dict['cmdline'] = kernel_cmdline
-                kernel_info.append(kernel_dict)
-        else:
-            kernel_info = None
-        control_file = self.generate_control_file(
-                tests=tests, kernel=kernel_info, use_container=use_container)
-        if control_file.is_server:
-            dargs['control_type'] = control_data.CONTROL_TYPE_NAMES.SERVER
-        else:
-            dargs['control_type'] = control_data.CONTROL_TYPE_NAMES.CLIENT
-        dargs['dependencies'] = dargs.get('dependencies', []) + \
-                                control_file.dependencies
-        dargs['control_file'] = control_file.control_file
-        if not dargs.get('synch_count', None):
-            dargs['synch_count'] = control_file.synch_count
-        if 'hosts' in dargs and len(dargs['hosts']) < dargs['synch_count']:
-            # will not be able to satisfy this request
-            return None
-        return self.create_job(**dargs)
-
-
-    def create_job(self, control_file, name=' ', priority='Medium',
-                control_type=control_data.CONTROL_TYPE_NAMES.CLIENT, **dargs):
+    def create_job(self, control_file, name=' ',
+                   priority=priorities.Priority.DEFAULT,
+                   control_type=control_data.CONTROL_TYPE_NAMES.CLIENT,
+                   **dargs):
         id = self.run('create_job', name=name, priority=priority,
                  control_file=control_file, control_type=control_type, **dargs)
         return self.get_jobs(id=id)[0]
-
-
-    def run_test_suites(self, pairings, kernel, kernel_label=None,
-                        priority='Medium', wait=True, poll_interval=10,
-                        email_from=None, email_to=None, timeout_mins=10080,
-                        max_runtime_mins=10080, kernel_cmdline=None):
-        """
-        Run a list of test suites on a particular kernel.
-
-        Poll for them to complete, and return whether they worked or not.
-
-        @param pairings: List of MachineTestPairing objects to invoke.
-        @param kernel: Name of the kernel to run.
-        @param kernel_label: Label (string) of the kernel to run such as
-                    '<kernel-version> : <config> : <date>'
-                    If any pairing object has its job_label attribute set it
-                    will override this value for that particular job.
-        @param kernel_cmdline: The command line to boot the kernel(s) with.
-        @param wait: boolean - Wait for the results to come back?
-        @param poll_interval: Interval between polling for job results (in mins)
-        @param email_from: Send notification email upon completion from here.
-        @param email_from: Send notification email upon completion to here.
-        """
-        jobs = []
-        for pairing in pairings:
-            try:
-                new_job = self.invoke_test(pairing, kernel, kernel_label,
-                                           priority, timeout_mins=timeout_mins,
-                                           kernel_cmdline=kernel_cmdline,
-                                           max_runtime_mins=max_runtime_mins)
-                if not new_job:
-                    continue
-                jobs.append(new_job)
-            except Exception, e:
-                traceback.print_exc()
-        if not wait or not jobs:
-            return
-        tko = TKO()
-        while True:
-            time.sleep(60 * poll_interval)
-            result = self.poll_all_jobs(tko, jobs, email_from, email_to)
-            if result is not None:
-                return result
-
-
-    def result_notify(self, job, email_from, email_to):
-        """
-        Notify about the result of a job. Will always print, if email data
-        is provided, will send email for it as well.
-
-            job: job object to notify about
-            email_from: send notification email upon completion from here
-            email_from: send notification email upon completion to here
-        """
-        if job.result == True:
-            subject = 'Testing PASSED: '
-        else:
-            subject = 'Testing FAILED: '
-        subject += '%s : %s\n' % (job.name, job.id)
-        text = []
-        for platform in job.results_platform_map:
-            for status in job.results_platform_map[platform]:
-                if status == 'Total':
-                    continue
-                for host in job.results_platform_map[platform][status]:
-                    text.append('%20s %10s %10s' % (platform, status, host))
-                    if status == 'Failed':
-                        for test_status in job.test_status[host].fail:
-                            text.append('(%s, %s) : %s' % \
-                                        (host, test_status.test_name,
-                                         test_status.reason))
-                        text.append('')
-
-        base_url = 'http://' + self.server
-
-        params = ('columns=test',
-                  'rows=machine_group',
-                  "condition=tag~'%s-%%25'" % job.id,
-                  'title=Report')
-        query_string = '&'.join(params)
-        url = '%s/tko/compose_query.cgi?%s' % (base_url, query_string)
-        text.append(url + '\n')
-        url = '%s/afe/#tab_id=view_job&object_id=%s' % (base_url, job.id)
-        text.append(url + '\n')
-
-        body = '\n'.join(text)
-        print '---------------------------------------------------'
-        print 'Subject: ', subject
-        print body
-        print '---------------------------------------------------'
-        if email_from and email_to:
-            print 'Sending email ...'
-            utils.send_email(email_from, email_to, subject, body)
-        print
-
-
-    def print_job_result(self, job):
-        """
-        Print the result of a single job.
-            job: a job object
-        """
-        if job.result is None:
-            print 'PENDING',
-        elif job.result == True:
-            print 'PASSED',
-        elif job.result == False:
-            print 'FAILED',
-        elif job.result == "Abort":
-            print 'ABORT',
-        print ' %s : %s' % (job.id, job.name)
-
-
-    def poll_all_jobs(self, tko, jobs, email_from=None, email_to=None):
-        """
-        Poll all jobs in a list.
-            jobs: list of job objects to poll
-            email_from: send notification email upon completion from here
-            email_from: send notification email upon completion to here
-
-        Returns:
-            a) All complete successfully (return True)
-            b) One or more has failed (return False)
-            c) Cannot tell yet (return None)
-        """
-        results = []
-        for job in jobs:
-            if getattr(job, 'result', None) is None:
-                job.result = self.poll_job_results(tko, job)
-                if job.result is not None:
-                    self.result_notify(job, email_from, email_to)
-
-            results.append(job.result)
-            self.print_job_result(job)
-
-        if None in results:
-            return None
-        elif False in results or "Abort" in results:
-            return False
-        else:
-            return True
-
-
-    def _included_platform(self, host, platforms):
-        """
-        See if host's platforms matches any of the patterns in the included
-        platforms list.
-        """
-        if not platforms:
-            return True        # No filtering of platforms
-        for platform in platforms:
-            if re.search(platform, host.platform):
-                return True
-        return False
-
-
-    def invoke_test(self, pairing, kernel, kernel_label, priority='Medium',
-                    kernel_cmdline=None, **dargs):
-        """
-        Given a pairing of a control file to a machine label, find all machines
-        with that label, and submit that control file to them.
-
-        @param kernel_label: Label (string) of the kernel to run such as
-                '<kernel-version> : <config> : <date>'
-                If any pairing object has its job_label attribute set it
-                will override this value for that particular job.
-
-        @returns A list of job objects.
-        """
-        # The pairing can override the job label.
-        if pairing.job_label:
-            kernel_label = pairing.job_label
-        job_name = '%s : %s' % (pairing.machine_label, kernel_label)
-        hosts = self.get_hosts(multiple_labels=[pairing.machine_label])
-        platforms = pairing.platforms
-        hosts = [h for h in hosts if self._included_platform(h, platforms)]
-        dead_statuses = self.host_statuses(live=False)
-        host_list = [h.hostname for h in hosts if h.status not in dead_statuses]
-        print 'HOSTS: %s' % host_list
-        if pairing.atomic_group_sched:
-            dargs['synch_count'] = pairing.synch_count
-            dargs['atomic_group_name'] = pairing.machine_label
-        else:
-            dargs['hosts'] = host_list
-        new_job = self.create_job_by_test(name=job_name,
-                                          dependencies=[pairing.machine_label],
-                                          tests=[pairing.control_file],
-                                          priority=priority,
-                                          kernel=kernel,
-                                          kernel_cmdline=kernel_cmdline,
-                                          use_container=pairing.container,
-                                          **dargs)
-        if new_job:
-            if pairing.testname:
-                new_job.testname = pairing.testname
-            print 'Invoked test %s : %s' % (new_job.id, job_name)
-        return new_job
-
-
-    def _job_test_results(self, tko, job, debug, tests=[]):
-        """
-        Retrieve test results for a job
-        """
-        job.test_status = {}
-        try:
-            test_statuses = tko.get_status_counts(job=job.id)
-        except Exception:
-            print "Ignoring exception on poll job; RPC interface is flaky"
-            traceback.print_exc()
-            return
-
-        for test_status in test_statuses:
-            # SERVER_JOB is buggy, and often gives false failures. Ignore it.
-            if test_status.test_name == 'SERVER_JOB':
-                continue
-            # if tests is not empty, restrict list of test_statuses to tests
-            if tests and test_status.test_name not in tests:
-                continue
-            if debug:
-                print test_status
-            hostname = test_status.hostname
-            if hostname not in job.test_status:
-                job.test_status[hostname] = TestResults()
-            job.test_status[hostname].add(test_status)
-
-
-    def _job_results_platform_map(self, job, debug):
-        # Figure out which hosts passed / failed / aborted in a job
-        # Creates a 2-dimensional hash, stored as job.results_platform_map
-        #     1st index - platform type (string)
-        #     2nd index - Status (string)
-        #         'Completed' / 'Failed' / 'Aborted'
-        #     Data indexed by this hash is a list of hostnames (text strings)
-        job.results_platform_map = {}
-        try:
-            job_statuses = self.get_host_queue_entries(job=job.id)
-        except Exception:
-            print "Ignoring exception on poll job; RPC interface is flaky"
-            traceback.print_exc()
-            return None
-
-        platform_map = {}
-        job.job_status = {}
-        job.metahost_index = {}
-        for job_status in job_statuses:
-            # This is basically "for each host / metahost in the job"
-            if job_status.host:
-                hostname = job_status.host.hostname
-            else:              # This is a metahost
-                metahost = job_status.meta_host
-                index = job.metahost_index.get(metahost, 1)
-                job.metahost_index[metahost] = index + 1
-                hostname = '%s.%s' % (metahost, index)
-            job.job_status[hostname] = job_status.status
-            status = job_status.status
-            # Skip hosts that failed verify or repair:
-            # that's a machine failure, not a job failure
-            if hostname in job.test_status:
-                verify_failed = False
-                for failure in job.test_status[hostname].fail:
-                    if (failure.test_name == 'verify' or
-                            failure.test_name == 'repair'):
-                        verify_failed = True
-                        break
-                if verify_failed:
-                    continue
-            if hostname in job.test_status and job.test_status[hostname].fail:
-                # If the any tests failed in the job, we want to mark the
-                # job result as failed, overriding the default job status.
-                if status != "Aborted":         # except if it's an aborted job
-                    status = 'Failed'
-            if job_status.host:
-                platform = job_status.host.platform
-            else:              # This is a metahost
-                platform = job_status.meta_host
-            if platform not in platform_map:
-                platform_map[platform] = {'Total' : [hostname]}
-            else:
-                platform_map[platform]['Total'].append(hostname)
-            new_host_list = platform_map[platform].get(status, []) + [hostname]
-            platform_map[platform][status] = new_host_list
-        job.results_platform_map = platform_map
-
-
-    def set_platform_results(self, test_job, platform, result):
-        """
-        Result must be None, 'FAIL', 'WARN' or 'GOOD'
-        """
-        if test_job.platform_results[platform] is not None:
-            # We're already done, and results recorded. This can't change later.
-            return
-        test_job.platform_results[platform] = result
-        # Note that self.job refers to the metajob we're IN, not the job
-        # that we're excuting from here.
-        testname = '%s.%s' % (test_job.testname, platform)
-        if self.job:
-            self.job.record(result, None, testname, status='')
-
-
-    def poll_job_results(self, tko, job, enough=1, debug=False):
-        """
-        Analyse all job results by platform
-
-          params:
-            tko: a TKO object representing the results DB.
-            job: the job to be examined.
-            enough: the acceptable delta between the number of completed
-                    tests and the total number of tests.
-            debug: enable debugging output.
-
-          returns:
-            False: if any platform has more than |enough| failures
-            None:  if any platform has less than |enough| machines
-                   not yet Good.
-            True:  if all platforms have at least |enough| machines
-                   Good.
-        """
-        self._job_test_results(tko, job, debug)
-        if job.test_status == {}:
-            return None
-        self._job_results_platform_map(job, debug)
-
-        good_platforms = []
-        failed_platforms = []
-        aborted_platforms = []
-        unknown_platforms = []
-        platform_map = job.results_platform_map
-        for platform in platform_map:
-            if not job.platform_results.has_key(platform):
-                # record test start, but there's no way to do this right now
-                job.platform_results[platform] = None
-            total = len(platform_map[platform]['Total'])
-            completed = len(platform_map[platform].get('Completed', []))
-            failed = len(platform_map[platform].get('Failed', []))
-            aborted = len(platform_map[platform].get('Aborted', []))
-
-            # We set up what we want to record here, but don't actually do
-            # it yet, until we have a decisive answer for this platform
-            if aborted or failed:
-                bad = aborted + failed
-                if (bad > 1) or (bad * 2 >= total):
-                    platform_test_result = 'FAIL'
-                else:
-                    platform_test_result = 'WARN'
-
-            if aborted > enough:
-                aborted_platforms.append(platform)
-                self.set_platform_results(job, platform, platform_test_result)
-            elif (failed * 2 >= total) or (failed > enough):
-                failed_platforms.append(platform)
-                self.set_platform_results(job, platform, platform_test_result)
-            elif (completed >= enough) and (completed + enough >= total):
-                good_platforms.append(platform)
-                self.set_platform_results(job, platform, 'GOOD')
-            else:
-                unknown_platforms.append(platform)
-            detail = []
-            for status in platform_map[platform]:
-                if status == 'Total':
-                    continue
-                detail.append('%s=%s' % (status,platform_map[platform][status]))
-            if debug:
-                print '%20s %d/%d %s' % (platform, completed, total,
-                                         ' '.join(detail))
-                print
-
-        if len(aborted_platforms) > 0:
-            if debug:
-                print 'Result aborted - platforms: ',
-                print ' '.join(aborted_platforms)
-            return "Abort"
-        if len(failed_platforms) > 0:
-            if debug:
-                print 'Result bad - platforms: ' + ' '.join(failed_platforms)
-            return False
-        if len(unknown_platforms) > 0:
-            if debug:
-                platform_list = ' '.join(unknown_platforms)
-                print 'Result unknown - platforms: ', platform_list
-            return None
-        if debug:
-            platform_list = ' '.join(good_platforms)
-            print 'Result good - all platforms passed: ', platform_list
-        return True
 
 
     def abort_jobs(self, jobs):
@@ -784,6 +676,60 @@ class AFE(RpcClient):
         """
         for job in jobs:
             self.run('abort_host_queue_entries', job_id=job)
+
+
+    def get_hosts_by_attribute(self, attribute, value):
+        """
+        Get the list of hosts that share the same host attribute value.
+
+        @param attribute: String of the host attribute to check.
+        @param value: String of the value that is shared between hosts.
+
+        @returns List of hostnames that all have the same host attribute and
+                 value.
+        """
+        return self.run('get_hosts_by_attribute',
+                        attribute=attribute, value=value)
+
+
+    def lock_host(self, host, lock_reason, fail_if_locked=False):
+        """
+        Lock the given host with the given lock reason.
+
+        Locking a host that's already locked using the 'modify_hosts' rpc
+        will raise an exception. That's why fail_if_locked exists so the
+        caller can determine if the lock succeeded or failed.  This will
+        save every caller from wrapping lock_host in a try-except.
+
+        @param host: hostname of host to lock.
+        @param lock_reason: Reason for locking host.
+        @param fail_if_locked: Return False if host is already locked.
+
+        @returns Boolean, True if lock was successful, False otherwise.
+        """
+        try:
+            self.run('modify_hosts',
+                     host_filter_data={'hostname': host},
+                     update_data={'locked': True,
+                                  'lock_reason': lock_reason})
+        except Exception:
+            return not fail_if_locked
+        return True
+
+
+    def unlock_hosts(self, locked_hosts):
+        """
+        Unlock the hosts.
+
+        Unlocking a host that's already unlocked will do nothing so we don't
+        need any special try-except clause here.
+
+        @param locked_hosts: List of hostnames of hosts to unlock.
+        """
+        self.run('modify_hosts',
+                 host_filter_data={'hostname__in': locked_hosts},
+                 update_data={'locked': False,
+                              'lock_reason': ''})
 
 
 class TestResults(object):
@@ -928,7 +874,7 @@ class Host(RpcObject):
 
     Fields:
         status, lock_time, locked_by, locked, hostname, invalid,
-        synch_id, labels, platform, protection, dirty, id
+        labels, platform, protection, dirty, id
     """
     def __repr__(self):
         return 'HOST OBJECT: %s' % self.hostname
@@ -1005,31 +951,3 @@ class HostAttribute(RpcObject):
     """
     def __repr__(self):
         return 'HOST ATTRIBUTE %d' % self.id
-
-
-class MachineTestPairing(object):
-    """
-    Object representing the pairing of a machine label with a control file
-
-    machine_label: use machines from this label
-    control_file: use this control file (by name in the frontend)
-    platforms: list of rexeps to filter platforms by. [] => no filtering
-    job_label: The label (name) to give to the autotest job launched
-            to run this pairing.  '<kernel-version> : <config> : <date>'
-    """
-    def __init__(self, machine_label, control_file, platforms=[],
-                 container=False, atomic_group_sched=False, synch_count=0,
-                 testname=None, job_label=None):
-        self.machine_label = machine_label
-        self.control_file = control_file
-        self.platforms = platforms
-        self.container = container
-        self.atomic_group_sched = atomic_group_sched
-        self.synch_count = synch_count
-        self.testname = testname
-        self.job_label = job_label
-
-
-    def __repr__(self):
-        return '%s %s %s %s' % (self.machine_label, self.control_file,
-                                self.platforms, self.container)

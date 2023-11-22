@@ -16,11 +16,13 @@
 
 #include <minikin/MinikinFont.h>
 #include "HbFontCache.h"
+#include "MinikinInternal.h"
 
-namespace android {
+namespace minikin {
 
 MinikinFont::~MinikinFont() {
+    android::AutoMutex _l(gMinikinLock);
     purgeHbFontLocked(this);
 }
 
-}  // namespace android
+}  // namespace minikin

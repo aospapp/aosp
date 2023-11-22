@@ -193,7 +193,7 @@ SOURCES += Marshal_Unseal.c
 SOURCES += Marshal_VerifySignature.c
 SOURCES += Marshal_ZGen_2Phase.c
 SOURCES += Manufacture.c
-HOST_SOURCES += MathFunctions.c
+SOURCES += MathFunctions.c
 SOURCES += MemoryLib.c
 SOURCES += NV.c
 HOST_SOURCES += NVMem.c
@@ -303,13 +303,27 @@ SOURCES += stubs_ecc.c
 SOURCES += stubs_hash.c
 SOURCES += stubs_sym.c
 CFLAGS += -DEMBEDDED_MODE
+# Configure system headers appropriately.
+CFLAGS += -DTHIRD_PARTY
 ifneq ($(ROOTDIR),)
 CFLAGS += -I$(ROOTDIR)
 endif
 endif
 
-OBJS = $(patsubst %.c,$(obj)/%.o,$(SOURCES))
-DEPS = $(patsubst %.c,$(obj)/%.d,$(SOURCES))
+# Caller may specify OBJ_PREFIX to prefix all object filenames in the
+# archive with a common string.  This allows the caller's linker
+# script to group the data and bss sections for this library in one
+# place.  For example, if OBJ_PREFIX=Tpm2_, the caller's linker script
+# can have something like
+#
+#	__bss_libtpm2_start = .;
+#	Tpm2_*(.bss)
+#	__bss_libtpm2_end = .;
+#
+# Using a unique prefix is necessary in this case because files in
+# archives only have a filename, not a full path.
+OBJS = $(patsubst %.c,$(obj)/$(OBJ_PREFIX)%.o,$(SOURCES))
+DEPS = $(patsubst %.c,$(obj)/$(OBJ_PREFIX)%.d,$(SOURCES))
 
 # This is the default target
 $(obj)/libtpm2.a: $(OBJS)
@@ -320,7 +334,7 @@ $(obj):
 	@echo "  MKDIR   $(obj)"
 	$(Q)mkdir -p $(obj)
 
-$(obj)/%.d $(obj)/%.o: %.c | $(obj)
+$(obj)/$(OBJ_PREFIX)%.d $(obj)/$(OBJ_PREFIX)%.o: %.c | $(obj)
 	@echo "  CC      $(notdir $<)"
 	$(Q)$(CC) $(CFLAGS) -c -MMD -MF $(basename $@).d -o $(basename $@).o $<
 

@@ -22,13 +22,13 @@ namespace tpm_manager {
 constexpr char kTpmNvramInterface[] = "org.chromium.TpmNvram";
 
 // Methods exported by tpm_manager nvram D-Bus interface.
-constexpr char kDefineNvram[] = "DefineNvram";
-constexpr char kDestroyNvram[] = "DestroyNvram";
-constexpr char kWriteNvram[] = "WriteNvram";
-constexpr char kReadNvram[] = "ReadNvram";
-constexpr char kIsNvramDefined[] = "IsNvramDefined";
-constexpr char kIsNvramLocked[] = "IsNvramLocked";
-constexpr char kGetNvramSize[] = "GetNvramSize";
+constexpr char kDefineSpace[] = "DefineSpace";
+constexpr char kDestroySpace[] = "DestroySpace";
+constexpr char kWriteSpace[] = "WriteSpace";
+constexpr char kReadSpace[] = "ReadSpace";
+constexpr char kLockSpace[] = "LockSpace";
+constexpr char kListSpaces[] = "ListSpaces";
+constexpr char kGetSpaceInfo[] = "GetSpaceInfo";
 
 }  // namespace tpm_manager
 

@@ -17,6 +17,7 @@
 package libcore.io;
 
 import android.system.ErrnoException;
+import android.system.OsConstants;
 import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructStat;
@@ -32,7 +33,6 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import static android.system.OsConstants.*;
-import static dalvik.system.BlockGuard.DISALLOW_NETWORK;
 
 /**
  * Informs BlockGuard of any activity it should be aware of.
@@ -61,7 +61,11 @@ public class BlockGuardOs extends ForwardingOs {
 
     @Override public FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException {
         BlockGuard.getThreadPolicy().onNetwork();
-        return tagSocket(os.accept(fd, peerAddress));
+        final FileDescriptor acceptFd = os.accept(fd, peerAddress);
+        if (isInetSocket(acceptFd)) {
+            tagSocket(acceptFd);
+        }
+        return acceptFd;
     }
 
     @Override public boolean access(String path, int mode) throws ErrnoException {
@@ -91,7 +95,9 @@ public class BlockGuardOs extends ForwardingOs {
                     // connections in methods like onDestroy which will run on the UI thread.
                     BlockGuard.getThreadPolicy().onNetwork();
                 }
-                untagSocket(fd);
+                if (isInetSocket(fd)) {
+                    untagSocket(fd);
+                }
             }
         } catch (ErrnoException ignored) {
             // We're called via Socket.close (which doesn't ask for us to be called), so we
@@ -102,6 +108,14 @@ public class BlockGuardOs extends ForwardingOs {
         os.close(fd);
     }
 
+    private static boolean isInetSocket(FileDescriptor fd) throws ErrnoException{
+        return isInetDomain(Libcore.os.getsockoptInt(fd, SOL_SOCKET, SO_DOMAIN));
+    }
+
+    private static boolean isInetDomain(int domain) {
+        return (domain == AF_INET) || (domain == AF_INET6);
+    }
+
     private static boolean isLingerSocket(FileDescriptor fd) throws ErrnoException {
         StructLinger linger = Libcore.os.getsockoptLinger(fd, SOL_SOCKET, SO_LINGER);
         return linger.isOn() && linger.l_linger > 0;
@@ -110,6 +124,12 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public void connect(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException {
         BlockGuard.getThreadPolicy().onNetwork();
         os.connect(fd, address, port);
+    }
+
+    @Override public void connect(FileDescriptor fd, SocketAddress address) throws ErrnoException,
+            SocketException {
+        BlockGuard.getThreadPolicy().onNetwork();
+        os.connect(fd, address);
     }
 
     @Override public void fchmod(FileDescriptor fd, int mode) throws ErrnoException {
@@ -181,7 +201,7 @@ public class BlockGuardOs extends ForwardingOs {
 
     @Override public FileDescriptor open(String path, int flags, int mode) throws ErrnoException {
         BlockGuard.getThreadPolicy().onReadFromDisk();
-        if ((mode & O_ACCMODE) != O_RDONLY) {
+        if ((flags & O_ACCMODE) != O_RDONLY) {
             BlockGuard.getThreadPolicy().onWriteToDisk();
         }
         return os.open(path, flags, mode);
@@ -285,13 +305,19 @@ public class BlockGuardOs extends ForwardingOs {
     }
 
     @Override public FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException {
-        return tagSocket(os.socket(domain, type, protocol));
+        final FileDescriptor fd = os.socket(domain, type, protocol);
+        if (isInetDomain(domain)) {
+            tagSocket(fd);
+        }
+        return fd;
     }
 
     @Override public void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException {
         os.socketpair(domain, type, protocol, fd1, fd2);
-        tagSocket(fd1);
-        tagSocket(fd2);
+        if (isInetDomain(domain)) {
+            tagSocket(fd1);
+            tagSocket(fd2);
+        }
     }
 
     @Override public StructStat stat(String path) throws ErrnoException {
@@ -322,5 +348,50 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public int writev(FileDescriptor fd, Object[] buffers, int[] offsets, int[] byteCounts) throws ErrnoException, InterruptedIOException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return os.writev(fd, buffers, offsets, byteCounts);
+    }
+
+    @Override public void execv(String filename, String[] argv) throws ErrnoException {
+        BlockGuard.getThreadPolicy().onReadFromDisk();
+        os.execv(filename, argv);
+    }
+
+    @Override public void execve(String filename, String[] argv, String[] envp)
+            throws ErrnoException {
+        BlockGuard.getThreadPolicy().onReadFromDisk();
+        os.execve(filename, argv, envp);
+    }
+
+    @Override public byte[] getxattr(String path, String name) throws ErrnoException {
+        BlockGuard.getThreadPolicy().onReadFromDisk();
+        return os.getxattr(path, name);
+    }
+
+    @Override public void msync(long address, long byteCount, int flags) throws ErrnoException {
+        if ((flags & OsConstants.MS_SYNC) != 0) {
+            BlockGuard.getThreadPolicy().onWriteToDisk();
+        }
+        os.msync(address, byteCount, flags);
+    }
+
+    @Override public void removexattr(String path, String name) throws ErrnoException {
+        BlockGuard.getThreadPolicy().onWriteToDisk();
+        os.removexattr(path, name);
+    }
+
+    @Override public void setxattr(String path, String name, byte[] value, int flags)
+            throws ErrnoException {
+        BlockGuard.getThreadPolicy().onWriteToDisk();
+        os.setxattr(path, name, value, flags);
+    }
+
+    @Override public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount,
+            int flags, SocketAddress address) throws ErrnoException, SocketException {
+        BlockGuard.getThreadPolicy().onNetwork();
+        return os.sendto(fd, bytes, byteOffset, byteCount, flags, address);
+    }
+
+    @Override public void unlink(String pathname) throws ErrnoException {
+        BlockGuard.getThreadPolicy().onWriteToDisk();
+        os.unlink(pathname);
     }
 }

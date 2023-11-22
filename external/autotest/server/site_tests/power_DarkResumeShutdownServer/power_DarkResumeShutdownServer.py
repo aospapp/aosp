@@ -23,7 +23,8 @@ class power_DarkResumeShutdownServer(test.test):
     version = 1
 
 
-    def initialize(self, host):
+    def initialize(self, host, power_method=None):
+        self._power_method = power_method
         # save original boot id
         self.orig_boot_id = host.get_boot_id()
 
@@ -82,7 +83,7 @@ class power_DarkResumeShutdownServer(test.test):
         if not self.platform_supports_dark_resume(platform):
             return
 
-        host.power_on()
+        host.power_on(power_method=self._power_method)
         # The IO redirection is to make the command return right away. For now,
         # don't go through sys_power for suspending since those code paths use
         # the RTC.
@@ -90,7 +91,7 @@ class power_DarkResumeShutdownServer(test.test):
         host.run('/usr/bin/powerd_dbus_suspend --delay=1 '
                  '> /dev/null 2>&1 < /dev/null &')
         time.sleep(SUSPEND_WAIT_SECONDS)
-        host.power_off()
+        host.power_off(power_method=self._power_method)
 
         # wait for power manager to give up and shut down
         logging.info('waiting for power off')
@@ -105,7 +106,7 @@ class power_DarkResumeShutdownServer(test.test):
             logging.info('good, host is now off')
 
         # restart host
-        host.power_on()
+        host.power_on(power_method=self._power_method)
         host.servo.power_normal_press()
         if not host.wait_up(timeout=BOOT_WAIT_SECONDS):
             raise error.TestFail('DUT did not turn back on after shutting down')
@@ -114,7 +115,7 @@ class power_DarkResumeShutdownServer(test.test):
     def cleanup(self, host):
         # make sure that the machine is not suspended and that the power is on
         # when exiting the test
-        host.power_on()
+        host.power_on(power_method=self._power_method)
         host.servo.ctrl_key()
 
         # try to clean up the mess we've made if shutdown failed

@@ -15,6 +15,14 @@
 
 #define LOG_TAG "NativeConverter"
 
+#include <stdlib.h>
+#include <string.h>
+
+#include <memory>
+#include <vector>
+
+#include <android/log.h>
+
 #include "IcuUtilities.h"
 #include "JNIHelp.h"
 #include "JniConstants.h"
@@ -23,19 +31,12 @@
 #include "ScopedPrimitiveArray.h"
 #include "ScopedStringChars.h"
 #include "ScopedUtfChars.h"
-#include "cutils/log.h"
 #include "toStringArray.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_cb.h"
 #include "unicode/uniset.h"
 #include "unicode/ustring.h"
 #include "unicode/utypes.h"
-
-#include <memory>
-#include <vector>
-
-#include <stdlib.h>
-#include <string.h>
 
 #define NativeConverter_REPORT 0
 #define NativeConverter_IGNORE 1

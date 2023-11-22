@@ -38,9 +38,11 @@ public class CellBroadcastListItem extends RelativeLayout {
     private TextView mChannelView;
     private TextView mMessageView;
     private TextView mDateView;
+    private Context mContext;
 
     public CellBroadcastListItem(Context context, AttributeSet attrs) {
         super(context, attrs);
+        mContext = context;
     }
 
     CellBroadcastMessage getMessage() {
@@ -69,7 +71,7 @@ public class CellBroadcastListItem extends RelativeLayout {
 
         setBackground(background);
 
-        mChannelView.setText(CellBroadcastResources.getDialogTitleResource(message));
+        mChannelView.setText(CellBroadcastResources.getDialogTitleResource(mContext, message));
         mDateView.setText(message.getDateString(getContext()));
         mMessageView.setText(formatMessage(message));
     }

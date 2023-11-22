@@ -42,6 +42,7 @@ public class MethodsTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.Methods command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/MethodsDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.MethodsDebuggee";
     }

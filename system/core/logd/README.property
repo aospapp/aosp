@@ -2,13 +2,14 @@ The properties that logd and friends react to are:
 
 name                       type default  description
 ro.logd.auditd             bool   true   Enable selinux audit daemon
-ro.logd.auditd.dmesg       bool   true   selinux audit messages duplicated and
-                                         sent on to dmesg log
+ro.logd.auditd.dmesg       bool   true   selinux audit messages sent to dmesg.
+ro.logd.auditd.main        bool   true   selinux audit messages sent to main.
+ro.logd.auditd.events      bool   true   selinux audit messages sent to events.
 persist.logd.security      bool   false  Enable security buffer.
 ro.device_owner            bool   false  Override persist.logd.security to false
 ro.logd.kernel             bool+ svelte+ Enable klogd daemon
 ro.logd.statistics         bool+ svelte+ Enable logcat -S statistics.
-ro.build.type              string        if user, logd.statistics &
+ro.debuggable              number        if not "1", logd.statistics &
                                          ro.logd.kernel default false.
 logd.logpersistd.enable    bool   auto   Safe to start logpersist daemon service
 logd.logpersistd          string persist Enable logpersist daemon, "logcatd"
@@ -55,10 +56,10 @@ persist.log.tag.<tag>      string build  default for log.tag.<tag>
 NB:
 - auto - managed by /init
 - bool+ - "true", "false" and comma separated list of "eng" (forced false if
-  ro.build.type is "user") or "svelte" (forced false if ro.config.low_ram is
+  ro.debuggable is not "1") or "svelte" (forced false if ro.config.low_ram is
   true).
 - svelte - see ro.config.low_ram for details.
-- svelte+ - see ro.config.low_ram and ro.build.type for details.
+- svelte+ - see ro.config.low_ram and ro.debuggable for details.
 - ro - <base property> temporary override, ro.<base property> platform default.
 - persist - <base property> override, persist.<base property> platform default.
 - build - VERBOSE for native, DEBUG for jvm isLoggable, or developer option.

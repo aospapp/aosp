@@ -18,206 +18,362 @@
 
 #define LOG_NDEBUG 0
 
+#include "android_runtime/AndroidRuntime.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_av.h"
 #include "utils/Log.h"
-#include "android_runtime/AndroidRuntime.h"
 
 #include <string.h>
 
 namespace android {
 static jmethodID method_onConnectionStateChanged;
 static jmethodID method_onAudioStateChanged;
+static jmethodID method_onCodecConfigChanged;
 
-static const btav_interface_t *sBluetoothA2dpInterface = NULL;
+static struct {
+  jclass clazz;
+  jmethodID constructor;
+  jmethodID getCodecType;
+  jmethodID getCodecPriority;
+  jmethodID getSampleRate;
+  jmethodID getBitsPerSample;
+  jmethodID getChannelMode;
+  jmethodID getCodecSpecific1;
+  jmethodID getCodecSpecific2;
+  jmethodID getCodecSpecific3;
+  jmethodID getCodecSpecific4;
+} android_bluetooth_BluetoothCodecConfig;
+
+static const btav_source_interface_t* sBluetoothA2dpInterface = NULL;
 static jobject mCallbacksObj = NULL;
-static JNIEnv *sCallbackEnv = NULL;
 
-static bool checkCallbackThread() {
-    // Always fetch the latest callbackEnv from AdapterService.
-    // Caching this could cause this sCallbackEnv to go out-of-sync
-    // with the AdapterService's ENV if an ASSOCIATE/DISASSOCIATE event
-    // is received
-    //if (sCallbackEnv == NULL) {
-    sCallbackEnv = getCallbackEnv();
-    //}
+static void bta2dp_connection_state_callback(btav_connection_state_t state,
+                                             bt_bdaddr_t* bd_addr) {
+  ALOGI("%s", __func__);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    JNIEnv* env = AndroidRuntime::getJNIEnv();
-    if (sCallbackEnv != env || sCallbackEnv == NULL) return false;
-    return true;
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+  if (!addr.get()) {
+    ALOGE("Fail to new jbyteArray bd addr for connection state");
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+                                   (jbyte*)bd_addr);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnectionStateChanged,
+                               (jint)state, addr.get());
 }
 
-static void bta2dp_connection_state_callback(btav_connection_state_t state, bt_bdaddr_t* bd_addr) {
-    jbyteArray addr;
+static void bta2dp_audio_state_callback(btav_audio_state_t state,
+                                        bt_bdaddr_t* bd_addr) {
+  ALOGI("%s", __func__);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    ALOGI("%s", __FUNCTION__);
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t)));
+  if (!addr.get()) {
+    ALOGE("Fail to new jbyteArray bd addr for connection state");
+    return;
+  }
 
-    if (!checkCallbackThread()) {                                       \
-        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__); \
-        return;                                                         \
-    }
-    addr = sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t));
-    if (!addr) {
-        ALOGE("Fail to new jbyteArray bd addr for connection state");
-        checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-        return;
-    }
-
-    sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t), (jbyte*) bd_addr);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onConnectionStateChanged, (jint) state,
-                                 addr);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-    sCallbackEnv->DeleteLocalRef(addr);
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(bt_bdaddr_t),
+                                   (jbyte*)bd_addr);
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAudioStateChanged,
+                               (jint)state, addr.get());
 }
 
-static void bta2dp_audio_state_callback(btav_audio_state_t state, bt_bdaddr_t* bd_addr) {
-    jbyteArray addr;
+static void bta2dp_audio_config_callback(
+    btav_a2dp_codec_config_t codec_config,
+    std::vector<btav_a2dp_codec_config_t> codecs_local_capabilities,
+    std::vector<btav_a2dp_codec_config_t> codecs_selectable_capabilities) {
+  ALOGI("%s", __func__);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
 
-    ALOGI("%s", __FUNCTION__);
+  jobject codecConfigObj = sCallbackEnv->NewObject(
+      android_bluetooth_BluetoothCodecConfig.clazz,
+      android_bluetooth_BluetoothCodecConfig.constructor,
+      (jint)codec_config.codec_type, (jint)codec_config.codec_priority,
+      (jint)codec_config.sample_rate, (jint)codec_config.bits_per_sample,
+      (jint)codec_config.channel_mode, (jlong)codec_config.codec_specific_1,
+      (jlong)codec_config.codec_specific_2,
+      (jlong)codec_config.codec_specific_3,
+      (jlong)codec_config.codec_specific_4);
 
-    if (!checkCallbackThread()) {                                       \
-        ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__); \
-        return;                                                         \
-    }
-    addr = sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t));
-    if (!addr) {
-        ALOGE("Fail to new jbyteArray bd addr for connection state");
-        checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-        return;
-    }
+  jsize i = 0;
+  jobjectArray local_capabilities_array = sCallbackEnv->NewObjectArray(
+      (jsize)codecs_local_capabilities.size(),
+      android_bluetooth_BluetoothCodecConfig.clazz, NULL);
+  for (auto const& cap : codecs_local_capabilities) {
+    jobject capObj = sCallbackEnv->NewObject(
+        android_bluetooth_BluetoothCodecConfig.clazz,
+        android_bluetooth_BluetoothCodecConfig.constructor,
+        (jint)cap.codec_type, (jint)cap.codec_priority, (jint)cap.sample_rate,
+        (jint)cap.bits_per_sample, (jint)cap.channel_mode,
+        (jlong)cap.codec_specific_1, (jlong)cap.codec_specific_2,
+        (jlong)cap.codec_specific_3, (jlong)cap.codec_specific_4);
+    sCallbackEnv->SetObjectArrayElement(local_capabilities_array, i++, capObj);
+    sCallbackEnv->DeleteLocalRef(capObj);
+  }
 
-    sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t), (jbyte*) bd_addr);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onAudioStateChanged, (jint) state,
-                                 addr);
-    checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-    sCallbackEnv->DeleteLocalRef(addr);
+  i = 0;
+  jobjectArray selectable_capabilities_array = sCallbackEnv->NewObjectArray(
+      (jsize)codecs_selectable_capabilities.size(),
+      android_bluetooth_BluetoothCodecConfig.clazz, NULL);
+  for (auto const& cap : codecs_selectable_capabilities) {
+    jobject capObj = sCallbackEnv->NewObject(
+        android_bluetooth_BluetoothCodecConfig.clazz,
+        android_bluetooth_BluetoothCodecConfig.constructor,
+        (jint)cap.codec_type, (jint)cap.codec_priority, (jint)cap.sample_rate,
+        (jint)cap.bits_per_sample, (jint)cap.channel_mode,
+        (jlong)cap.codec_specific_1, (jlong)cap.codec_specific_2,
+        (jlong)cap.codec_specific_3, (jlong)cap.codec_specific_4);
+    sCallbackEnv->SetObjectArrayElement(selectable_capabilities_array, i++,
+                                        capObj);
+    sCallbackEnv->DeleteLocalRef(capObj);
+  }
+
+  sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onCodecConfigChanged,
+                               codecConfigObj, local_capabilities_array,
+                               selectable_capabilities_array);
 }
 
-static btav_callbacks_t sBluetoothA2dpCallbacks = {
-    sizeof(sBluetoothA2dpCallbacks),
-    bta2dp_connection_state_callback,
-    bta2dp_audio_state_callback,
-    NULL, /* audio_config_cb */
+static btav_source_callbacks_t sBluetoothA2dpCallbacks = {
+    sizeof(sBluetoothA2dpCallbacks), bta2dp_connection_state_callback,
+    bta2dp_audio_state_callback, bta2dp_audio_config_callback,
 };
 
 static void classInitNative(JNIEnv* env, jclass clazz) {
-    method_onConnectionStateChanged =
-        env->GetMethodID(clazz, "onConnectionStateChanged", "(I[B)V");
+  jclass jniBluetoothCodecConfigClass =
+      env->FindClass("android/bluetooth/BluetoothCodecConfig");
+  android_bluetooth_BluetoothCodecConfig.constructor =
+      env->GetMethodID(jniBluetoothCodecConfigClass, "<init>", "(IIIIIJJJJ)V");
+  android_bluetooth_BluetoothCodecConfig.getCodecType =
+      env->GetMethodID(jniBluetoothCodecConfigClass, "getCodecType", "()I");
+  android_bluetooth_BluetoothCodecConfig.getCodecPriority =
+      env->GetMethodID(jniBluetoothCodecConfigClass, "getCodecPriority", "()I");
+  android_bluetooth_BluetoothCodecConfig.getSampleRate =
+      env->GetMethodID(jniBluetoothCodecConfigClass, "getSampleRate", "()I");
+  android_bluetooth_BluetoothCodecConfig.getBitsPerSample =
+      env->GetMethodID(jniBluetoothCodecConfigClass, "getBitsPerSample", "()I");
+  android_bluetooth_BluetoothCodecConfig.getChannelMode =
+      env->GetMethodID(jniBluetoothCodecConfigClass, "getChannelMode", "()I");
+  android_bluetooth_BluetoothCodecConfig.getCodecSpecific1 = env->GetMethodID(
+      jniBluetoothCodecConfigClass, "getCodecSpecific1", "()J");
+  android_bluetooth_BluetoothCodecConfig.getCodecSpecific2 = env->GetMethodID(
+      jniBluetoothCodecConfigClass, "getCodecSpecific2", "()J");
+  android_bluetooth_BluetoothCodecConfig.getCodecSpecific3 = env->GetMethodID(
+      jniBluetoothCodecConfigClass, "getCodecSpecific3", "()J");
+  android_bluetooth_BluetoothCodecConfig.getCodecSpecific4 = env->GetMethodID(
+      jniBluetoothCodecConfigClass, "getCodecSpecific4", "()J");
 
-    method_onAudioStateChanged =
-        env->GetMethodID(clazz, "onAudioStateChanged", "(I[B)V");
+  method_onConnectionStateChanged =
+      env->GetMethodID(clazz, "onConnectionStateChanged", "(I[B)V");
 
-    ALOGI("%s: succeeds", __FUNCTION__);
+  method_onAudioStateChanged =
+      env->GetMethodID(clazz, "onAudioStateChanged", "(I[B)V");
+
+  method_onCodecConfigChanged = env->GetMethodID(
+      clazz, "onCodecConfigChanged",
+      "(Landroid/bluetooth/BluetoothCodecConfig;[Landroid/bluetooth/"
+      "BluetoothCodecConfig;[Landroid/bluetooth/BluetoothCodecConfig;)V");
+
+  ALOGI("%s: succeeds", __func__);
 }
 
-static void initNative(JNIEnv *env, jobject object) {
-    const bt_interface_t* btInf;
-    bt_status_t status;
+static std::vector<btav_a2dp_codec_config_t> prepareCodecPreferences(
+    JNIEnv* env, jobject object, jobjectArray codecConfigArray) {
+  std::vector<btav_a2dp_codec_config_t> codec_preferences;
 
-    if ( (btInf = getBluetoothInterface()) == NULL) {
-        ALOGE("Bluetooth module is not loaded");
-        return;
+  int numConfigs = env->GetArrayLength(codecConfigArray);
+  for (int i = 0; i < numConfigs; i++) {
+    jobject jcodecConfig = env->GetObjectArrayElement(codecConfigArray, i);
+    if (jcodecConfig == nullptr) continue;
+    if (!env->IsInstanceOf(jcodecConfig,
+                           android_bluetooth_BluetoothCodecConfig.clazz)) {
+      ALOGE("Invalid BluetoothCodecConfig instance");
+      continue;
     }
+    jint codecType = env->CallIntMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getCodecType);
+    jint codecPriority = env->CallIntMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getCodecPriority);
+    jint sampleRate = env->CallIntMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getSampleRate);
+    jint bitsPerSample = env->CallIntMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getBitsPerSample);
+    jint channelMode = env->CallIntMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getChannelMode);
+    jlong codecSpecific1 = env->CallLongMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getCodecSpecific1);
+    jlong codecSpecific2 = env->CallLongMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getCodecSpecific2);
+    jlong codecSpecific3 = env->CallLongMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getCodecSpecific3);
+    jlong codecSpecific4 = env->CallLongMethod(
+        jcodecConfig, android_bluetooth_BluetoothCodecConfig.getCodecSpecific4);
 
-    if (sBluetoothA2dpInterface !=NULL) {
-         ALOGW("Cleaning up A2DP Interface before initializing...");
-         sBluetoothA2dpInterface->cleanup();
-         sBluetoothA2dpInterface = NULL;
-    }
+    btav_a2dp_codec_config_t codec_config = {
+        .codec_type = static_cast<btav_a2dp_codec_index_t>(codecType),
+        .codec_priority =
+            static_cast<btav_a2dp_codec_priority_t>(codecPriority),
+        .sample_rate = static_cast<btav_a2dp_codec_sample_rate_t>(sampleRate),
+        .bits_per_sample =
+            static_cast<btav_a2dp_codec_bits_per_sample_t>(bitsPerSample),
+        .channel_mode =
+            static_cast<btav_a2dp_codec_channel_mode_t>(channelMode),
+        .codec_specific_1 = codecSpecific1,
+        .codec_specific_2 = codecSpecific2,
+        .codec_specific_3 = codecSpecific3,
+        .codec_specific_4 = codecSpecific4};
 
-    if (mCallbacksObj != NULL) {
-         ALOGW("Cleaning up A2DP callback object");
-         env->DeleteGlobalRef(mCallbacksObj);
-         mCallbacksObj = NULL;
-    }
-
-    if ( (sBluetoothA2dpInterface = (btav_interface_t *)
-          btInf->get_profile_interface(BT_PROFILE_ADVANCED_AUDIO_ID)) == NULL) {
-        ALOGE("Failed to get Bluetooth A2DP Interface");
-        return;
-    }
-
-    if ( (status = sBluetoothA2dpInterface->init(&sBluetoothA2dpCallbacks)) != BT_STATUS_SUCCESS) {
-        ALOGE("Failed to initialize Bluetooth A2DP, status: %d", status);
-        sBluetoothA2dpInterface = NULL;
-        return;
-    }
-
-    mCallbacksObj = env->NewGlobalRef(object);
+    codec_preferences.push_back(codec_config);
+  }
+  return codec_preferences;
 }
 
-static void cleanupNative(JNIEnv *env, jobject object) {
-    const bt_interface_t* btInf;
+static void initNative(JNIEnv* env, jobject object,
+                       jobjectArray codecConfigArray) {
+  const bt_interface_t* btInf = getBluetoothInterface();
+  if (btInf == NULL) {
+    ALOGE("Bluetooth module is not loaded");
+    return;
+  }
 
-    if ( (btInf = getBluetoothInterface()) == NULL) {
-        ALOGE("Bluetooth module is not loaded");
-        return;
-    }
+  if (sBluetoothA2dpInterface != NULL) {
+    ALOGW("Cleaning up A2DP Interface before initializing...");
+    sBluetoothA2dpInterface->cleanup();
+    sBluetoothA2dpInterface = NULL;
+  }
 
-    if (sBluetoothA2dpInterface !=NULL) {
-        sBluetoothA2dpInterface->cleanup();
-        sBluetoothA2dpInterface = NULL;
-    }
+  if (mCallbacksObj != NULL) {
+    ALOGW("Cleaning up A2DP callback object");
+    env->DeleteGlobalRef(mCallbacksObj);
+    mCallbacksObj = NULL;
+  }
 
-    if (mCallbacksObj != NULL) {
-        env->DeleteGlobalRef(mCallbacksObj);
-        mCallbacksObj = NULL;
-    }
+  if ((mCallbacksObj = env->NewGlobalRef(object)) == NULL) {
+    ALOGE("Failed to allocate Global Ref for A2DP Callbacks");
+    return;
+  }
+
+  android_bluetooth_BluetoothCodecConfig.clazz = (jclass)env->NewGlobalRef(
+      env->FindClass("android/bluetooth/BluetoothCodecConfig"));
+  if (android_bluetooth_BluetoothCodecConfig.clazz == nullptr) {
+    ALOGE("Failed to allocate Global Ref for BluetoothCodecConfig class");
+    return;
+  }
+
+  sBluetoothA2dpInterface =
+      (btav_source_interface_t*)btInf->get_profile_interface(
+          BT_PROFILE_ADVANCED_AUDIO_ID);
+  if (sBluetoothA2dpInterface == NULL) {
+    ALOGE("Failed to get Bluetooth A2DP Interface");
+    return;
+  }
+
+  std::vector<btav_a2dp_codec_config_t> codec_priorities =
+      prepareCodecPreferences(env, object, codecConfigArray);
+
+  bt_status_t status =
+      sBluetoothA2dpInterface->init(&sBluetoothA2dpCallbacks, codec_priorities);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed to initialize Bluetooth A2DP, status: %d", status);
+    sBluetoothA2dpInterface = NULL;
+    return;
+  }
 }
 
-static jboolean connectA2dpNative(JNIEnv *env, jobject object, jbyteArray address) {
-    jbyte *addr;
-    bt_bdaddr_t * btAddr;
-    bt_status_t status;
+static void cleanupNative(JNIEnv* env, jobject object) {
+  const bt_interface_t* btInf = getBluetoothInterface();
+  if (btInf == NULL) {
+    ALOGE("Bluetooth module is not loaded");
+    return;
+  }
 
-    ALOGI("%s: sBluetoothA2dpInterface: %p", __FUNCTION__, sBluetoothA2dpInterface);
-    if (!sBluetoothA2dpInterface) return JNI_FALSE;
+  if (sBluetoothA2dpInterface != NULL) {
+    sBluetoothA2dpInterface->cleanup();
+    sBluetoothA2dpInterface = NULL;
+  }
 
-    addr = env->GetByteArrayElements(address, NULL);
-    btAddr = (bt_bdaddr_t *) addr;
-    if (!addr) {
-        jniThrowIOException(env, EINVAL);
-        return JNI_FALSE;
-    }
+  env->DeleteGlobalRef(android_bluetooth_BluetoothCodecConfig.clazz);
+  android_bluetooth_BluetoothCodecConfig.clazz = nullptr;
 
-    if ((status = sBluetoothA2dpInterface->connect((bt_bdaddr_t *)addr)) != BT_STATUS_SUCCESS) {
-        ALOGE("Failed HF connection, status: %d", status);
-    }
-    env->ReleaseByteArrayElements(address, addr, 0);
-    return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+  if (mCallbacksObj != NULL) {
+    env->DeleteGlobalRef(mCallbacksObj);
+    mCallbacksObj = NULL;
+  }
 }
 
-static jboolean disconnectA2dpNative(JNIEnv *env, jobject object, jbyteArray address) {
-    jbyte *addr;
-    bt_status_t status;
+static jboolean connectA2dpNative(JNIEnv* env, jobject object,
+                                  jbyteArray address) {
+  ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
+  if (!sBluetoothA2dpInterface) return JNI_FALSE;
 
-    if (!sBluetoothA2dpInterface) return JNI_FALSE;
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
 
-    addr = env->GetByteArrayElements(address, NULL);
-    if (!addr) {
-        jniThrowIOException(env, EINVAL);
-        return JNI_FALSE;
-    }
+  bt_status_t status = sBluetoothA2dpInterface->connect((bt_bdaddr_t*)addr);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed HF connection, status: %d", status);
+  }
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
 
-    if ( (status = sBluetoothA2dpInterface->disconnect((bt_bdaddr_t *)addr)) != BT_STATUS_SUCCESS) {
-        ALOGE("Failed HF disconnection, status: %d", status);
-    }
-    env->ReleaseByteArrayElements(address, addr, 0);
-    return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+static jboolean disconnectA2dpNative(JNIEnv* env, jobject object,
+                                     jbyteArray address) {
+  if (!sBluetoothA2dpInterface) return JNI_FALSE;
+
+  jbyte* addr = env->GetByteArrayElements(address, NULL);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  bt_status_t status = sBluetoothA2dpInterface->disconnect((bt_bdaddr_t*)addr);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed HF disconnection, status: %d", status);
+  }
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
+static jboolean setCodecConfigPreferenceNative(JNIEnv* env, jobject object,
+                                               jobjectArray codecConfigArray) {
+  if (!sBluetoothA2dpInterface) return JNI_FALSE;
+
+  std::vector<btav_a2dp_codec_config_t> codec_preferences =
+      prepareCodecPreferences(env, object, codecConfigArray);
+
+  bt_status_t status = sBluetoothA2dpInterface->config_codec(codec_preferences);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed codec configuration, status: %d", status);
+  }
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
 static JNINativeMethod sMethods[] = {
-    {"classInitNative", "()V", (void *) classInitNative},
-    {"initNative", "()V", (void *) initNative},
-    {"cleanupNative", "()V", (void *) cleanupNative},
-    {"connectA2dpNative", "([B)Z", (void *) connectA2dpNative},
-    {"disconnectA2dpNative", "([B)Z", (void *) disconnectA2dpNative},
+    {"classInitNative", "()V", (void*)classInitNative},
+    {"initNative", "([Landroid/bluetooth/BluetoothCodecConfig;)V",
+     (void*)initNative},
+    {"cleanupNative", "()V", (void*)cleanupNative},
+    {"connectA2dpNative", "([B)Z", (void*)connectA2dpNative},
+    {"disconnectA2dpNative", "([B)Z", (void*)disconnectA2dpNative},
+    {"setCodecConfigPreferenceNative",
+     "([Landroid/bluetooth/BluetoothCodecConfig;)Z",
+     (void*)setCodecConfigPreferenceNative},
 };
 
-int register_com_android_bluetooth_a2dp(JNIEnv* env)
-{
-    return jniRegisterNativeMethods(env, "com/android/bluetooth/a2dp/A2dpStateMachine",
-                                    sMethods, NELEM(sMethods));
+int register_com_android_bluetooth_a2dp(JNIEnv* env) {
+  return jniRegisterNativeMethods(env,
+                                  "com/android/bluetooth/a2dp/A2dpStateMachine",
+                                  sMethods, NELEM(sMethods));
 }
-
 }

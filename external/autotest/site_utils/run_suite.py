@@ -38,34 +38,44 @@ This script exits with one of the following codes:
 6- INVALID_OPTIONS: If options are not valid.
 """
 
-
-import datetime as datetime_base
-import ast, getpass, json, logging, optparse, os, re, sys, time
+import argparse
+import ast
+from collections import namedtuple
 from datetime import datetime
+from datetime import timedelta
+import getpass
+import json
+import logging
+import os
+import re
+import sys
+import time
 
 import common
+from chromite.lib import buildbot_annotations as annotations
+
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config, enum
 from autotest_lib.client.common_lib import priorities
 from autotest_lib.client.common_lib import time_utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.frontend.afe.json_rpc import proxy
 from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
+from autotest_lib.server.cros.dynamic_suite import reporting
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.site_utils import diagnosis_utils
 from autotest_lib.site_utils import job_overhead
 
-
 CONFIG = global_config.global_config
 
-WMATRIX_RETRY_URL = CONFIG.get_config_value('BUG_REPORTING',
-                                            'wmatrix_retry_url')
+_DEFAULT_AUTOTEST_INSTANCE = CONFIG.get_config_value(
+        'SERVER', 'hostname', type=str)
+_URL_PATTERN = CONFIG.get_config_value('CROS', 'log_url_pattern', type=str)
 
 # Return code that will be sent back to autotest_rpc_server.py
 RETURN_CODES = enum.Enum(
@@ -80,7 +90,6 @@ SEVERITY = {RETURN_CODES.OK: 0,
             RETURN_CODES.SUITE_TIMEOUT: 2,
             RETURN_CODES.INFRA_FAILURE: 3,
             RETURN_CODES.ERROR: 4}
-ANDROID_BUILD_REGEX = r'.+/.+/[0-9]+'
 
 
 def get_worse_code(code1, code2):
@@ -95,120 +104,180 @@ def get_worse_code(code1, code2):
     return code1 if SEVERITY[code1] >= SEVERITY[code2] else code2
 
 
-def parse_options():
-    #pylint: disable-msg=C0111
-    usage = "usage: %prog [options]"
-    parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-b", "--board", dest="board")
-    parser.add_option("-i", "--build", dest="build")
-    parser.add_option("-w", "--web", dest="web", default=None,
-                      help="Address of a webserver to receive suite requests.")
-    parser.add_option('--firmware_rw_build', dest='firmware_rw_build',
-                      default=None,
-                      help='Firmware build to be installed in dut RW firmware.')
-    parser.add_option('--firmware_ro_build', dest='firmware_ro_build',
-                      default=None,
-                      help='Firmware build to be installed in dut RO firmware.')
-    parser.add_option('--test_source_build', dest='test_source_build',
-                      default=None,
-                      help=('Build that contains the test code, '
-                            'e.g., it can be the value of `--build`, '
-                            '`--firmware_rw_build` or `--firmware_ro_build` '
-                            'arguments. Default is None, that is, use the test '
-                            'code from `--build` (CrOS image)'))
+def bool_str(x):
+    """Boolean string type for option arguments.
+
+    @param x: string representation of boolean value.
+
+    """
+    if x == 'True':
+        return True
+    elif x == 'False':
+        return False
+    else:
+        raise argparse.ArgumentTypeError(
+            '%s is not one of True or False' % (x,))
+
+
+def _get_priority_value(x):
+    """Convert a priority representation to its int value.
+
+    Priorities can be described either by an int value (possibly as a string)
+    or a name string.  This function coerces both forms to an int value.
+
+    This function is intended for casting command line arguments during
+    parsing.
+
+    @param x: priority value as an int, int string, or name string
+
+    @returns: int value of priority
+    """
+    try:
+        return int(x)
+    except ValueError:
+        try:
+            return priorities.Priority.get_value(x)
+        except AttributeError:
+            raise argparse.ArgumentTypeError(
+                'Unknown priority level %s.  Try one of %s.'
+                % (x, ', '.join(priorities.Priority.names)))
+
+
+def make_parser():
+    """Make ArgumentParser instance for run_suite.py."""
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s [options]")
+    parser.add_argument("-b", "--board", dest="board")
+    parser.add_argument("-i", "--build", dest="build")
+    parser.add_argument(
+        "-w", "--web", dest="web", default=None,
+        help="Address of a webserver to receive suite requests.")
+    parser.add_argument(
+        '--firmware_rw_build', dest='firmware_rw_build', default=None,
+        help='Firmware build to be installed in dut RW firmware.')
+    parser.add_argument(
+        '--firmware_ro_build', dest='firmware_ro_build', default=None,
+        help='Firmware build to be installed in dut RO firmware.')
+    parser.add_argument(
+        '--test_source_build', dest='test_source_build', default=None,
+        help=('Build that contains the test code, '
+              'e.g., it can be the value of `--build`, '
+              '`--firmware_rw_build` or `--firmware_ro_build` '
+              'arguments. Default is None, that is, use the test '
+              'code from `--build` (CrOS image)'))
     #  This should just be a boolean flag, but the autotest "proxy" code
     #  can't handle flags that don't take arguments.
-    parser.add_option("-n", "--no_wait", dest="no_wait", default="False",
-                      help='Must pass "True" or "False" if used.')
+    parser.add_argument(
+        "-n", "--no_wait", dest="no_wait", default=False, type=bool_str,
+        help='Must pass "True" or "False" if used.')
     # If you really want no pool, --pool="" will do it. USE WITH CARE.
-    parser.add_option("-p", "--pool", dest="pool", default="suites")
-    parser.add_option("-s", "--suite_name", dest="name")
-    parser.add_option("-a", "--afe_timeout_mins", type="int",
-                      dest="afe_timeout_mins", default=30)
-    parser.add_option("-t", "--timeout_mins", type="int",
-                      dest="timeout_mins", default=1440)
-    parser.add_option("-x", "--max_runtime_mins", type="int",
-                      dest="max_runtime_mins", default=1440)
-    parser.add_option("-d", "--delay_sec", type="int",
-                      dest="delay_sec", default=10)
-    parser.add_option("-m", "--mock_job_id", dest="mock_job_id",
-                      help="Attach to existing job id for already running "
-                           "suite, and creates report.")
+    parser.add_argument("-p", "--pool", dest="pool", default="suites")
+    parser.add_argument("-s", "--suite_name", dest="name")
+    parser.add_argument("-a", "--afe_timeout_mins", type=int,
+                        dest="afe_timeout_mins", default=30)
+    parser.add_argument("-t", "--timeout_mins", type=int,
+                        dest="timeout_mins", default=1440)
+    parser.add_argument("-x", "--max_runtime_mins", type=int,
+                        dest="max_runtime_mins", default=1440)
+    parser.add_argument("-d", "--delay_sec", type=int,
+                        dest="delay_sec", default=10)
+    parser.add_argument("-m", "--mock_job_id", dest="mock_job_id",
+                        help="Attach to existing job id for already running "
+                        "suite, and creates report.")
     # NOTE(akeshet): This looks similar to --no_wait, but behaves differently.
     # --no_wait is passed in to the suite rpc itself and affects the suite,
     # while this does not.
-    parser.add_option("-c", "--create_and_return", dest="create_and_return",
-                      action="store_true",
-                      help="Create the suite and print the job id, then "
-                           "finish immediately.")
-    parser.add_option("-u", "--num", dest="num", type="int", default=None,
-                      help="Run on at most NUM machines.")
+    parser.add_argument("-c", "--create_and_return", dest="create_and_return",
+                        action="store_true",
+                        help="Create the suite and print the job id, then "
+                        "finish immediately.")
+    parser.add_argument("-u", "--num", dest="num", type=int, default=None,
+                        help="Run on at most NUM machines.")
     #  Same boolean flag issue applies here.
-    parser.add_option("-f", "--file_bugs", dest="file_bugs", default='False',
-                      help='File bugs on test failures. Must pass "True" or '
-                           '"False" if used.')
-    parser.add_option("-l", "--bypass_labstatus", dest="bypass_labstatus",
-                      action="store_true", help='Bypass lab status check.')
+    parser.add_argument(
+        "-f", "--file_bugs", dest="file_bugs", default=False, type=bool_str,
+        help=('File bugs on test failures. Must pass "True" or '
+              '"False" if used.'))
+    parser.add_argument("-l", "--bypass_labstatus", dest="bypass_labstatus",
+                        action="store_true", help='Bypass lab status check.')
     # We allow either a number or a string for the priority.  This way, if you
     # know what you're doing, one can specify a custom priority level between
     # other levels.
-    parser.add_option("-r", "--priority", dest="priority",
-                      default=priorities.Priority.DEFAULT,
-                      action="store", help="Priority of suite")
-    parser.add_option('--retry', dest='retry', default='False',
-                      action='store', help='Enable test retry. '
-                      'Must pass "True" or "False" if used.')
-    parser.add_option('--max_retries', dest='max_retries', default=None,
-                      type='int', action='store', help='Maximum retries'
-                      'allowed at suite level. No limit if not specified.')
-    parser.add_option('--minimum_duts', dest='minimum_duts', type=int,
-                      default=0, action='store',
-                      help='Check that the pool has at least such many '
-                           'healthy machines, otherwise suite will not run. '
-                           'Default to 0.')
-    parser.add_option('--suite_min_duts', dest='suite_min_duts', type=int,
-                      default=0, action='store',
-                      help='Preferred minimum number of machines. Scheduler '
-                           'will prioritize on getting such many machines for '
-                           'the suite when it is competing with another suite '
-                           'that has a higher priority but already got minimum '
-                           'machines it needs. Default to 0.')
-    parser.add_option("--suite_args", dest="suite_args",
-                      default=None, action="store",
-                      help="Argument string for suite control file.")
-    parser.add_option('--offload_failures_only', dest='offload_failures_only',
-                      action='store', default='False',
-                      help='Only enable gs_offloading for failed tests. '
-                           'Successful tests will be deleted. Must pass "True"'
-                           ' or "False" if used.')
-    parser.add_option('--use_suite_attr', dest='use_suite_attr',
-                      action='store_true', default=False,
-                      help='Advanced. Run the suite based on ATTRIBUTES of '
-                      'control files, rather than SUITE.')
-    parser.add_option('--json_dump', dest='json_dump', action='store_true',
-                      default=False,
-                      help='Dump the output of run_suite to stdout.')
-    parser.add_option('--run_prod_code', dest='run_prod_code',
-                      action='store_true', default=False,
-                      help='Run the test code that lives in prod aka the test '
-                           'code currently on the lab servers.')
-    options, args = parser.parse_args()
-    return parser, options, args
+    parser.add_argument("-r", "--priority", dest="priority",
+                        type=_get_priority_value,
+                        default=priorities.Priority.DEFAULT,
+                        action="store",
+                        help="Priority of suite. Either numerical value, or "
+                        "one of (" + ", ".join(priorities.Priority.names)
+                        + ").")
+    parser.add_argument(
+        '--retry', dest='retry', default=False, type=bool_str, action='store',
+        help='Enable test retry.  Must pass "True" or "False" if used.')
+    parser.add_argument('--max_retries', dest='max_retries', default=None,
+                        type=int, action='store', help='Maximum retries'
+                        'allowed at suite level. No limit if not specified.')
+    parser.add_argument('--minimum_duts', dest='minimum_duts', type=int,
+                        default=0, action='store',
+                        help='Check that the pool has at least such many '
+                        'healthy machines, otherwise suite will not run. '
+                        'Default to 0.')
+    parser.add_argument('--suite_min_duts', dest='suite_min_duts', type=int,
+                        default=0, action='store',
+                        help='Preferred minimum number of machines. Scheduler '
+                        'will prioritize on getting such many machines for '
+                        'the suite when it is competing with another suite '
+                        'that has a higher priority but already got minimum '
+                        'machines it needs. Default to 0.')
+    parser.add_argument("--suite_args", dest="suite_args",
+                        default=None, action="store",
+                        help="Argument string for suite control file.")
+    parser.add_argument('--offload_failures_only',
+                        dest='offload_failures_only', type=bool_str,
+                        action='store', default=False,
+                        help='Only enable gs_offloading for failed tests. '
+                        'Successful tests will be deleted. Must pass "True"'
+                        ' or "False" if used.')
+    parser.add_argument('--use_suite_attr', dest='use_suite_attr',
+                        action='store_true', default=False,
+                        help='Advanced. Run the suite based on ATTRIBUTES of '
+                        'control files, rather than SUITE.')
+    parser.add_argument('--json_dump', dest='json_dump', action='store_true',
+                        default=False,
+                        help='Dump the output of run_suite to stdout.')
+    parser.add_argument(
+        '--run_prod_code', dest='run_prod_code',
+        action='store_true', default=False,
+        help='Run the test code that lives in prod aka the test '
+        'code currently on the lab servers.')
+    parser.add_argument(
+        '--delay_minutes', type=int, default=0,
+        help=('Delay the creation of test jobs for a given '
+              'number of minutes. This argument can be used to '
+              'force provision jobs being delayed, which helps '
+              'to distribute loads across devservers.'))
+    parser.add_argument(
+        '--skip_duts_check', dest='skip_duts_check', action='store_true',
+        default=False, help='If True, skip minimum available DUTs check')
+    parser.add_argument(
+        '--job_keyvals', dest='job_keyvals', type=ast.literal_eval,
+        action='store', default=None,
+        help='A dict of job keyvals to be inject to suite control file')
+    parser.add_argument(
+        '--test_args', dest='test_args', type=ast.literal_eval,
+        action='store', default=None,
+        help=('A dict of args passed all the way to each individual test that '
+              'will be actually ran.'))
+    return parser
 
 
-def verify_options_and_args(options, args):
-    """Verify the validity of options and args.
+def verify_options(options):
+    """Verify the validity of options.
 
     @param options: The parsed options to verify.
-    @param args: The parsed args to verify.
 
     @returns: True if verification passes, False otherwise.
 
     """
-    if args:
-        print 'Unknown arguments: ' + str(args)
-        return False
-
     if options.mock_job_id and (
             not options.build or not options.name or not options.board):
         print ('When using -m, need to specify build, board and suite '
@@ -227,23 +296,14 @@ def verify_options_and_args(options, args):
     if options.num is not None and options.num < 1:
         print 'Number of machines must be more than 0, if specified.'
         return False
-    if options.no_wait != 'True' and options.no_wait != 'False':
-        print 'Please specify "True" or "False" for --no_wait.'
-        return False
-    if options.file_bugs != 'True' and options.file_bugs != 'False':
-        print 'Please specify "True" or "False" for --file_bugs.'
-        return False
-    if options.retry != 'True' and options.retry != 'False':
-        print 'Please specify "True" or "False" for --retry'
-        return False
-    if options.retry == 'False' and options.max_retries is not None:
+    if not options.retry and options.max_retries is not None:
         print 'max_retries can only be used with --retry=True'
         return False
     if options.use_suite_attr and options.suite_args is not None:
         print ('The new suite control file cannot parse the suite_args: %s.'
                'Please not specify any suite_args here.' % options.suite_args)
         return False
-    if options.no_wait == 'True' and options.retry == 'True':
+    if options.no_wait and options.retry:
         print 'Test retry is not available when using --no_wait=True'
     # Default to use the test code in CrOS build.
     if not options.test_source_build and options.build:
@@ -256,7 +316,7 @@ def change_options_for_suite_attr(options):
 
     If specify 'use_suite_attr' from the cmd line, it indicates to run the
     new style suite control file, suite_attr_wrapper. Then, change the
-    options.suite_name to 'suite_attr_wrapper', change the options.suite_args to
+    options.name to 'suite_attr_wrapper', change the options.suite_args to
     include the arguments needed by suite_attr_wrapper.
 
     @param options: The verified options.
@@ -280,22 +340,43 @@ def change_options_for_suite_attr(options):
     return options
 
 
-def get_pretty_status(status):
-    """
-    Converts a status string into a pretty-for-printing string.
+class TestResult(object):
 
-    @param status: Status to convert.
+    """Represents the result of a TestView."""
 
-    @return: Returns pretty string.
-             GOOD    -> [ PASSED ]
-             TEST_NA -> [ INFO ]
-             other   -> [ FAILED ]
-    """
-    if status == 'GOOD':
-        return '[ PASSED ]'
-    elif status == 'TEST_NA':
-        return '[  INFO  ]'
-    return '[ FAILED ]'
+    def __init__(self, test_view, retry_count=0):
+        """Initialize instance.
+
+        @param test_view: TestView instance.
+        @param retry_count: Retry count for test.  Optional.
+        """
+        self.name = test_view.get_testname()
+        self.status = test_view['status']
+        self.reason = test_view['reason']
+        self.retry_count = retry_count
+
+    _PRETTY_STATUS_MAP = {
+        'GOOD':    '[ PASSED ]',
+        'TEST_NA': '[  INFO  ]',
+    }
+
+    @property
+    def _pretty_status(self):
+        """Pretty status string."""
+        return self._PRETTY_STATUS_MAP.get(self.status, '[ FAILED ]')
+
+    def log_using(self, log_function, name_column_width):
+        """Log the test result using the given log function.
+
+        @param log_function: Log function to use.  Example: logging.info
+        @param name_column_width: Width of name column for formatting.
+        """
+        padded_name = self.name.ljust(name_column_width)
+        log_function('%s%s', padded_name, self._pretty_status)
+        if self.status != 'GOOD':
+            log_function('%s  %s: %s', padded_name, self.status, self.reason)
+        if self.retry_count > 0:
+            log_function('%s  retry_count: %s', padded_name, self.retry_count)
 
 
 def get_original_suite_name(suite_name, suite_args):
@@ -317,15 +398,6 @@ def get_original_suite_name(suite_name, suite_args):
     return suite_name
 
 
-def GetBuildbotStepLink(anchor_text, url):
-    """Generate a buildbot formatted link.
-
-    @param anchor_text    The link text.
-    @param url            The url to link to.
-    """
-    return '@@@STEP_LINK@%s@%s@@@' % (anchor_text, url)
-
-
 class LogLink(object):
     """Information needed to record a link in the logs.
 
@@ -338,10 +410,11 @@ class LogLink(object):
     @var bug_id  Id of a bug to link to, or None.
     """
 
-    _BUG_URL_PREFIX = CONFIG.get_config_value('BUG_REPORTING',
-                                              'tracker_url')
-    _URL_PATTERN = CONFIG.get_config_value('CROS',
-                                           'log_url_pattern', type=str)
+    # A list of tests that don't get retried so skip the dashboard.
+    _SKIP_RETRY_DASHBOARD = ['provision']
+
+    _BUG_LINK_PREFIX = 'Auto-Bug'
+    _LOG_LINK_PREFIX = 'Test-Logs'
 
 
     @classmethod
@@ -351,7 +424,7 @@ class LogLink(object):
         @param bug_id: The id of the bug.
         @return: A link, eg: https://crbug.com/<bug_id>.
         """
-        return '%s%s' % (cls._BUG_URL_PREFIX, bug_id)
+        return reporting_utils.link_crbug(bug_id)
 
 
     def __init__(self, anchor, server, job_string, bug_info=None, reason=None,
@@ -367,7 +440,7 @@ class LogLink(object):
         @param testname    Optional Arg that supplies the testname.
         """
         self.anchor = anchor
-        self.url = self._URL_PATTERN % (server, job_string)
+        self.url = _URL_PATTERN % (server, job_string)
         self.reason = reason
         self.retry_count = retry_count
         self.testname = testname
@@ -378,49 +451,83 @@ class LogLink(object):
             self.bug_count = None
 
 
-    def GenerateBuildbotLink(self):
+    @property
+    def bug_url(self):
+        """URL of associated bug."""
+        if self.bug_id:
+            return reporting_utils.link_crbug(self.bug_id)
+        else:
+            return None
+
+
+    @property
+    def _bug_count_text(self):
+        """Return bug count as human friendly text."""
+        if self.bug_count is None:
+            bug_info = 'unknown number of reports'
+        elif self.bug_count == 1:
+            bug_info = 'new report'
+        else:
+            bug_info = '%s reports' % self.bug_count
+        return bug_info
+
+
+    def GenerateBuildbotLinks(self):
         """Generate a link formatted to meet buildbot expectations.
 
-        If there is a bug associated with this link, report that;
+        If there is a bug associated with this link, report a link to the bug
+        and a link to the job logs;
         otherwise report a link to the job logs.
 
-        @return A link formatted for the buildbot log annotator.
+        @return A list of links formatted for the buildbot log annotator.
         """
+        bug_info_strings = []
         info_strings = []
+
         if self.retry_count > 0:
             info_strings.append('retry_count: %d' % self.retry_count)
-
-        if self.bug_id:
-            url = self.get_bug_link(self.bug_id)
-            if self.bug_count is None:
-                bug_info = 'unknown number of reports'
-            elif self.bug_count == 1:
-                bug_info = 'new report'
-            else:
-                bug_info = '%s reports' % self.bug_count
-            info_strings.append(bug_info)
-        else:
-            url = self.url
+            bug_info_strings.append('retry_count: %d' % self.retry_count)
 
         if self.reason:
-            info_strings.append(self.reason.strip())
+            bug_info_strings.append(self.reason)
+            info_strings.append(self.reason)
 
+        # Add the bug link to buildbot_links
+        if self.bug_url:
+            bug_info_strings.append(self._bug_count_text)
+
+            bug_anchor_text = self._format_anchor_text(self._BUG_LINK_PREFIX,
+                                                       bug_info_strings)
+
+            yield annotations.StepLink(bug_anchor_text, self.bug_url)
+
+        anchor_text = self._format_anchor_text(self._LOG_LINK_PREFIX,
+                                               info_strings)
+        yield annotations.StepLink(anchor_text, self.url)
+
+
+    def _format_anchor_text(self, prefix, info_strings):
+        """Format anchor text given a prefix and info strings.
+
+        @param prefix        The prefix of the anchor text.
+        @param info_strings  The infos presented in the anchor text.
+        @return A anchor_text with the right prefix and info strings.
+        """
+        anchor_text = '[{prefix}]: {anchor}'.format(
+            prefix=prefix,
+            anchor=self.anchor.strip())
         if info_strings:
-            info = ', '.join(info_strings)
-            anchor_text = '%(anchor)s: %(info)s' % {
-                    'anchor': self.anchor.strip(), 'info': info}
-        else:
-            anchor_text = self.anchor.strip()
+            info_text = ', '.join(info_strings)
+            anchor_text += ': ' + info_text
+        return anchor_text
 
-        return GetBuildbotStepLink(anchor_text, url)
-
-
-    def GenerateTextLink(self):
-        """Generate a link to the job's logs, for consumption by a human.
+    @property
+    def text_link(self):
+        """Link to the job's logs, for consumption by a human.
 
         @return A link formatted for human readability.
         """
-        return '%s%s' % (self.anchor, self.url)
+        return '%s %s' % (self.anchor, self.url)
 
 
     def GenerateWmatrixRetryLink(self):
@@ -428,12 +535,11 @@ class LogLink(object):
 
         @return A link formatted for the buildbot log annotator.
         """
-        if not self.testname:
+        if not self.testname or self.testname in self._SKIP_RETRY_DASHBOARD:
             return None
-
-        return GetBuildbotStepLink(
-                'Flaky test dashboard view for test %s' %
-                self.testname, WMATRIX_RETRY_URL % self.testname)
+        return annotations.StepLink(
+            text='[Flake-Dashboard]: %s' % self.testname,
+            url=reporting_utils.link_retry_url(self.testname))
 
 
 class Timings(object):
@@ -493,7 +599,7 @@ class Timings(object):
             end_candidate = time_utils.time_string_to_datetime(
                     view['test_finished_time'])
 
-        if view.get_testname() == TestView.SUITE_PREP:
+        if view.get_testname() == TestView.SUITE_JOB:
             self.suite_start_time = start_candidate
         else:
             self._UpdateFirstTestStartTime(start_candidate)
@@ -547,60 +653,6 @@ class Timings(object):
                                            self.tests_end_time))
 
 
-    def SendResultsToStatsd(self, suite, build, board):
-        """
-        Sends data to statsd.
-
-        1. Makes a data_key of the form: run_suite.$board.$branch.$suite
-            eg: stats/gauges/<hostname>/run_suite/<board>/<branch>/<suite>/
-        2. Computes timings for several start and end event pairs.
-        3. Sends all timing values to statsd.
-
-        @param suite: scheduled suite that we want to record the results of.
-        @param build: the build that this suite ran on.
-                      eg: 'lumpy-release/R26-3570.0.0'
-        @param board: the board that this suite ran on.
-        """
-        if sys.version_info < (2, 7):
-            logging.error('Sending run_suite perf data to statsd requires'
-                          'python 2.7 or greater.')
-            return
-
-        # Constructs the key used for logging statsd timing data.
-        data_key = utils.get_data_key('run_suite', suite, build, board)
-
-        # Since we don't want to try subtracting corrupted datetime values
-        # we catch TypeErrors in time_utils.time_string_to_datetime and insert
-        # None instead. This means that even if, say,
-        # keyvals.get(constants.ARTIFACT_FINISHED_TIME) returns a corrupt
-        # value the member artifact_end_time is set to None.
-        if self.download_start_time:
-            if self.payload_end_time:
-                autotest_stats.Timer(data_key).send('payload_download_time',
-                        (self.payload_end_time -
-                         self.download_start_time).total_seconds())
-
-            if self.artifact_end_time:
-                autotest_stats.Timer(data_key).send('artifact_download_time',
-                        (self.artifact_end_time -
-                         self.download_start_time).total_seconds())
-
-        if self.tests_end_time:
-            if self.suite_start_time:
-                autotest_stats.Timer(data_key).send('suite_run_time',
-                        (self.tests_end_time -
-                         self.suite_start_time).total_seconds())
-
-            if self.tests_start_time:
-                autotest_stats.Timer(data_key).send('tests_run_time',
-                        (self.tests_end_time -
-                         self.tests_start_time).total_seconds())
-
-
-_DEFAULT_AUTOTEST_INSTANCE = CONFIG.get_config_value(
-        'SERVER', 'hostname', type=str)
-
-
 def instance_for_pool(pool_name):
     """
     Return the hostname of the server that should be used to service a suite
@@ -618,7 +670,7 @@ class TestView(object):
     """Represents a test view and provides a set of helper functions."""
 
 
-    SUITE_PREP = 'Suite prep'
+    SUITE_JOB = 'Suite job'
     INFRA_TESTS = ['provision']
 
 
@@ -649,7 +701,7 @@ class TestView(object):
         # In this case, the abort reason will be None.
         # Update the reason with proper information.
         if (self.is_relevant_suite_view() and
-                not self.get_testname() == self.SUITE_PREP and
+                not self.get_testname() == self.SUITE_JOB and
                 self.view['status'] == 'ABORT' and
                 not self.view['reason']):
             self.view['reason'] = 'Timed out, did not run.'
@@ -687,7 +739,7 @@ class TestView(object):
 
         There are four special cases.
         1) A test view is for the suite job's SERVER_JOB.
-           In this case, this method will return 'Suite prep'.
+           In this case, this method will return 'Suite job'.
 
         2) A test view is of a child job or a solo test run not part of a
            suite, and for a SERVER_JOB or CLIENT_JOB.
@@ -729,8 +781,8 @@ class TestView(object):
 
         if (self.is_suite_view and
                 self.view['test_name'].startswith('SERVER_JOB')):
-            # Rename suite job's SERVER_JOB to 'Suite prep'.
-            self.testname = self.SUITE_PREP
+            # Rename suite job's SERVER_JOB to 'Suite job'.
+            self.testname = self.SUITE_JOB
             return self.testname
 
         if (self.view['test_name'].startswith('SERVER_JOB') or
@@ -757,7 +809,7 @@ class TestView(object):
 
         @returns: True if it is relevant. False otherwise.
         """
-        return (self.get_testname() == self.SUITE_PREP or
+        return (self.get_testname() == self.SUITE_JOB or
                 (self.is_suite_view and
                     not self.view['test_name'].startswith('CLIENT_JOB') and
                     not self.view['subdir']))
@@ -807,8 +859,8 @@ class TestView(object):
                   False otherwise.
         """
         if (self.is_relevant_suite_view() and
-                self.get_testname() != self.SUITE_PREP):
-            # Any relevant suite test view except SUITE_PREP
+                self.get_testname() != self.SUITE_JOB):
+            # Any relevant suite test view except SUITE_JOB
             # did not hit its own timeout because it was not ever run.
             return False
         start = (datetime.strptime(
@@ -827,7 +879,7 @@ class TestView(object):
     def is_aborted(self):
         """Check if the view was aborted.
 
-        For suite prep and child job test views, we check job keyval
+        For suite job and child job test views, we check job keyval
         'aborted_by' and test status.
 
         For relevant suite job test views, we only check test status
@@ -839,7 +891,7 @@ class TestView(object):
         """
 
         if (self.is_relevant_suite_view() and
-                self.get_testname() != self.SUITE_PREP):
+                self.get_testname() != self.SUITE_JOB):
             return self.view['status'] == 'ABORT'
         else:
             return (bool(self.view['job_keyvals'].get('aborted_by')) and
@@ -891,7 +943,7 @@ class TestView(object):
         will be stored in the suite job's keyvals. This method attempts to
         retrieve bug info of the test from |suite_job_keyvals|. It will return
         None if no bug info is found. No need to check bug info if the view is
-        SUITE_PREP.
+        SUITE_JOB.
 
         @param suite_job_keyvals: The job keyval dictionary of the suite job.
                 All the bug info about child jobs are stored in
@@ -902,7 +954,7 @@ class TestView(object):
                   times the bug has been seen.
 
         """
-        if self.get_testname() == self.SUITE_PREP:
+        if self.get_testname() == self.SUITE_JOB:
             return None
         if (self.view['test_name'].startswith('SERVER_JOB') or
                 self.view['test_name'].startswith('CLIENT_JOB')):
@@ -919,7 +971,7 @@ class TestView(object):
     def should_display_buildbot_link(self):
         """Check whether a buildbot link should show for this view.
 
-        For suite prep view, show buildbot link if it fails.
+        For suite job view, show buildbot link if it fails.
         For normal test view,
             show buildbot link if it is a retry
             show buildbot link if it hits its own timeout.
@@ -933,7 +985,7 @@ class TestView(object):
         """
         is_bad_status = (self.view['status'] != 'GOOD' and
                          self.view['status'] != 'TEST_NA')
-        if self.get_testname() == self.SUITE_PREP:
+        if self.get_testname() == self.SUITE_JOB:
             return is_bad_status
         else:
             if self.is_retry():
@@ -953,6 +1005,28 @@ class TestView(object):
             cd = control_data.parse_control_string(control_file)
             attributes = list(cd.attributes)
         return attributes
+
+
+    def override_afe_job_id(self, afe_job_id):
+        """Overrides the AFE job id for the test.
+
+        @param afe_job_id: The new AFE job id to use.
+        """
+        self.view['afe_job_id'] = afe_job_id
+
+
+def log_buildbot_links(log_func, links):
+    """Output buildbot links to log.
+
+    @param log_func: Logging function to use.
+    @param links: Iterable of LogLink instances.
+    """
+    for link in links:
+        for generated_link in link.GenerateBuildbotLinks():
+            log_func(generated_link)
+        wmatrix_link = link.GenerateWmatrixRetryLink()
+        if wmatrix_link:
+            log_func(wmatrix_link)
 
 
 class ResultCollector(object):
@@ -975,7 +1049,7 @@ class ResultCollector(object):
 
     2) Collect the child jobs' results from tko_test_view_2.
     For child jobs, we pull all the test views associated with them.
-    (Note 'SERVER_JOB'/'CLIENT_JOB' are handled speically)
+    (Note 'SERVER_JOB'/'CLIENT_JOB' are handled specially)
 
     3) Generate web and buildbot links.
     4) Compute timings of the suite run.
@@ -1003,7 +1077,6 @@ class ResultCollector(object):
                       from _suite_views and _child_views.
     @var _web_links: A list of web links pointing to the results of jobs.
     @var _buildbot_links: A list of buildbot links for non-passing tests.
-    @var _max_testname_width: Max width of all test names.
     @var _solo_test_run: True if this is a single test run.
     @var return_code: The exit code that should be returned by run_suite.
     @var return_message: Any message that should be displayed to explain
@@ -1030,9 +1103,9 @@ class ResultCollector(object):
         self._child_views = []
         self._test_views = []
         self._retry_counts = {}
+        self._missing_results = {}
         self._web_links = []
         self._buildbot_links = []
-        self._max_testname_width = 0
         self._num_child_jobs = 0
         self.return_code = None
         self.return_message = ''
@@ -1042,11 +1115,17 @@ class ResultCollector(object):
         self._solo_test_run = solo_test_run
 
 
+    @property
+    def buildbot_links(self):
+        """Provide public access to buildbot links."""
+        return self._buildbot_links
+
+
     def _fetch_relevant_test_views_of_suite(self):
         """Fetch relevant test views of the suite job.
 
         For the suite job, there will be a test view for SERVER_JOB, and views
-        for results of its child jobs. For example, assume we've ceated
+        for results of its child jobs. For example, assume we've created
         a suite job (afe_job_id: 40) that runs dummy_Pass, dummy_Fail,
         dummy_Pass.bluetooth. Assume dummy_Pass was aborted before running while
         dummy_Path.bluetooth got TEST_NA as no duts have bluetooth.
@@ -1078,6 +1157,16 @@ class ResultCollector(object):
             v = TestView(v, suite_job, self._suite_name, self._build, self._user,
                          solo_test_run=self._solo_test_run)
             if v.is_relevant_suite_view():
+                # If the test doesn't have results in TKO and is being
+                # displayed in the suite view instead of the child view,
+                # then afe_job_id is incorrect and from the suite.
+                # Override it based on the AFE job id which was missing
+                # results.
+                # TODO: This is likely inaccurate if a test has multiple
+                # tries which all fail TKO parse stage.
+                if v['test_name'] in self._missing_results:
+                    v.override_afe_job_id(
+                            self._missing_results[v['test_name']][0])
                 relevant_views.append(v)
         return relevant_views
 
@@ -1103,15 +1192,18 @@ class ResultCollector(object):
     def _fetch_test_views_of_child_jobs(self, jobs=None):
         """Fetch test views of child jobs.
 
-        @returns: A tuple (child_views, retry_counts)
+        @returns: A tuple (child_views, retry_counts, missing_results)
                   child_views is list of TestView objects, representing
-                  all valid views. retry_counts is a dictionary that maps
-                  test_idx to retry counts. It only stores retry
-                  counts that are greater than 0.
+                  all valid views.
+                  retry_counts is a dictionary that maps test_idx to retry
+                  counts. It only stores retry counts that are greater than 0.
+                  missing_results is a dictionary that maps test names to
+                  lists of job ids.
 
         """
         child_views = []
         retry_counts = {}
+        missing_results = {}
         child_jobs = jobs or self._afe.get_jobs(parent_job_id=self._suite_job_id)
         if child_jobs:
             self._num_child_jobs = len(child_jobs)
@@ -1120,6 +1212,8 @@ class ResultCollector(object):
                      for v in self._tko.run(
                          call='get_detailed_test_views', afe_job_id=job.id,
                          invalid=0)]
+            if len(views) == 0:
+                missing_results.setdefault(job.name, []).append(job.id)
             contains_test_failure = any(
                     v.is_test() and v['status'] != 'GOOD' for v in views)
             for v in views:
@@ -1132,7 +1226,7 @@ class ResultCollector(object):
                     retry_count = self._compute_retry_count(v)
                     if retry_count > 0:
                         retry_counts[v['test_idx']] = retry_count
-        return child_views, retry_counts
+        return child_views, retry_counts, missing_results
 
 
     def _generate_web_and_buildbot_links(self):
@@ -1153,8 +1247,7 @@ class ResultCollector(object):
             bug_info = v.get_bug_info(suite_job_keyvals)
             job_id_owner = v.get_job_id_owner_str()
             link = LogLink(
-                    anchor=v.get_testname().ljust(
-                            self._max_testname_width),
+                    anchor=v.get_testname(),
                     server=self._instance_server,
                     job_string=job_id_owner,
                     bug_info=bug_info, retry_count=retry_count,
@@ -1208,7 +1301,7 @@ class ResultCollector(object):
             # The order of checking each case is important.
             if v.is_experimental():
                 continue
-            if v.get_testname() == TestView.SUITE_PREP:
+            if v.get_testname() == TestView.SUITE_JOB:
                 if v.is_aborted() and v.hit_timeout():
                     current_code = RETURN_CODES.SUITE_TIMEOUT
                 elif v.is_in_fail_status():
@@ -1228,7 +1321,7 @@ class ResultCollector(object):
                     # because the suite has timed out, but may
                     # also because it was aborted by the user.
                     # Since suite timing out is determined by checking
-                    # the suite prep view, we simply ignore this view here.
+                    # the suite job view, we simply ignore this view here.
                     current_code = RETURN_CODES.OK
                 elif v.is_in_fail_status():
                     # The test job failed.
@@ -1252,26 +1345,34 @@ class ResultCollector(object):
                 code, tests_passed_after_retry)
 
 
+    def _make_test_results(self):
+        """Make TestResults for collected tests.
+
+        @returns: List of TestResult instances.
+        """
+        test_results = []
+        for test_view in self._test_views:
+            test_result = TestResult(
+                test_view=test_view,
+                retry_count=self._retry_counts.get(test_view['test_idx'], 0))
+            test_results.append(test_result)
+        return test_results
+
+
     def output_results(self):
         """Output test results, timings and web links."""
         # Output test results
-        for v in self._test_views:
-            display_name = v.get_testname().ljust(self._max_testname_width)
-            logging.info('%s%s', display_name,
-                         get_pretty_status(v['status']))
-            if v['status'] != 'GOOD':
-                logging.info('%s  %s: %s', display_name, v['status'],
-                             v['reason'])
-            if v.is_retry():
-                retry_count = self._retry_counts.get(v['test_idx'], 0)
-                logging.info('%s  retry_count: %s',
-                             display_name, retry_count)
+        test_results = self._make_test_results()
+        max_name_length = max(len(test_result.name)
+                              for test_result in test_results)
+        for test_result in test_results:
+            test_result.log_using(logging.info, max_name_length + 3)
         # Output suite timings
         logging.info(self.timings)
         # Output links to test logs
         logging.info('\nLinks to test logs:')
         for link in self._web_links:
-            logging.info(link.GenerateTextLink())
+            logging.info(link.text_link)
         logging.info('\n')
 
 
@@ -1294,52 +1395,53 @@ class ResultCollector(object):
         output_dict = {}
         tests_dict = output_dict.setdefault('tests', {})
         for v in self._test_views:
-          test_name = v.get_testname()
-          test_info = tests_dict.setdefault(test_name, {})
-          test_info.update({
-              'status': v['status'],
-              'attributes': v.get_control_file_attributes() or list(),
-              'reason': v['reason'],
-              'retry_count': self._retry_counts.get(v['test_idx'], 0),
-              })
+            test_name = v.get_testname()
+            test_info = tests_dict.setdefault(test_name, {})
+            test_info.update({
+                'status': v['status'],
+                'attributes': v.get_control_file_attributes() or list(),
+                'reason': v['reason'],
+                'retry_count': self._retry_counts.get(v['test_idx'], 0),
+                })
+            # For aborted test, the control file will not be parsed and thus
+            # fail to get the attributes info. Therefore, the subsystems the
+            # abort test testing will be missing. For this case, we will assume
+            # the aborted test will test all subsystems, set subsystem:default.
+            if (test_info['status'] == 'ABORT' and
+                not any('subsystem:' in a for a in test_info['attributes'])):
+                test_info['attributes'].append('subsystem:default')
 
         # Write the links to test logs into the |tests_dict| of |output_dict|.
         # For test whose status is not 'GOOD', the link is also buildbot_link.
         for link in self._web_links:
-          test_name = link.anchor.strip()
-          test_info = tests_dict.get(test_name)
-          if test_info:
-            test_info['link_to_logs'] = link.url
-            # Write the wmatrix link into the dict.
-            if link in self._buildbot_links and link.testname:
-              test_info['wmatrix_link'] = WMATRIX_RETRY_URL % link.testname
-            # Write the bug url into the dict.
-            if link.bug_id:
-              test_info['bug_url'] = link.get_bug_link(link.bug_id)
+            test_name = link.anchor.strip()
+            test_info = tests_dict.get(test_name)
+            if test_info:
+                test_info['link_to_logs'] = link.url
+                # Write the wmatrix link into the dict.
+                if link in self._buildbot_links and link.testname:
+                    test_info['wmatrix_link'] \
+                        = reporting_utils.link_retry_url(link.testname)
+                # Write the bug url into the dict.
+                if link.bug_id:
+                    test_info['bug_url'] = link.bug_url
 
         # Write the suite timings into |output_dict|
-        time_dict = output_dict.setdefault('suite_timings', {})
-        time_dict.update({
-            'download_start' : str(self.timings.download_start_time),
-            'payload_download_end' : str(self.timings.payload_end_time),
-            'suite_start' : str(self.timings.suite_start_time),
-            'artifact_download_end' : str(self.timings.artifact_end_time),
-            'tests_start' : str(self.timings.tests_start_time),
-            'tests_end' : str(self.timings.tests_end_time),
-            })
+        timings = self.timings
+        if timings is not None:
+            time_dict = output_dict.setdefault('suite_timings', {})
+            time_dict.update({
+                'download_start' : str(timings.download_start_time),
+                'payload_download_end' : str(timings.payload_end_time),
+                'suite_start' : str(timings.suite_start_time),
+                'artifact_download_end' : str(timings.artifact_end_time),
+                'tests_start' : str(timings.tests_start_time),
+                'tests_end' : str(timings.tests_end_time),
+                })
 
         output_dict['suite_job_id'] = self._suite_job_id
 
         return output_dict
-
-
-    def output_buildbot_links(self):
-        """Output buildbot links."""
-        for link in self._buildbot_links:
-            logging.info(link.GenerateBuildbotLink())
-            wmatrix_link = link.GenerateWmatrixRetryLink()
-            if wmatrix_link:
-                logging.info(wmatrix_link)
 
 
     def run(self):
@@ -1355,13 +1457,13 @@ class ResultCollector(object):
 
         """
         if self._solo_test_run:
-            self._test_views, self.retry_count = (
+            self._test_views, self.retry_count, self._missing_results = (
                   self._fetch_test_views_of_child_jobs(
                           jobs=self._afe.get_jobs(id=self._suite_job_id)))
         else:
-            self._suite_views = self._fetch_relevant_test_views_of_suite()
-            self._child_views, self._retry_counts = (
+            self._child_views, self._retry_counts, self._missing_results = (
                     self._fetch_test_views_of_child_jobs())
+            self._suite_views = self._fetch_relevant_test_views_of_suite()
             self._test_views = self._suite_views + self._child_views
         # For hostless job in Starting status, there is no test view associated.
         # This can happen when a suite job in Starting status is aborted. When
@@ -1373,8 +1475,6 @@ class ResultCollector(object):
             return
         self.is_aborted = any([view['job_keyvals'].get('aborted_by')
                                for view in self._suite_views])
-        self._max_testname_width = max(
-                [len(v.get_testname()) for v in self._test_views]) + 3
         self._generate_web_and_buildbot_links()
         self._record_timings()
         self._compute_return_code()
@@ -1382,10 +1482,6 @@ class ResultCollector(object):
 
     def gather_timing_stats(self):
         """Collect timing related statistics."""
-        # Send timings to statsd.
-        self.timings.SendResultsToStatsd(
-                self._original_suite_name, self._build, self._board)
-
         # Record suite runtime in metadata db.
         # Some failure modes can leave times unassigned, report sentinel value
         # in that case.
@@ -1399,6 +1495,27 @@ class ResultCollector(object):
                 self._board, self._build, self._num_child_jobs, runtime_in_secs)
 
 
+def _make_builds_from_options(options):
+    """Create a dict of builds for creating a suite job.
+
+    The returned dict maps version label prefixes to build names.  Together,
+    each key-value pair describes a complete label.
+
+    @param options: SimpleNamespace from argument parsing.
+
+    @return: dict mapping version label prefixes to build names
+    """
+    builds = {}
+    if options.build:
+        prefix = provision.get_version_label_prefix(options.build)
+        builds[prefix] = options.build
+    if options.firmware_rw_build:
+        builds[provision.FW_RW_VERSION_PREFIX] = options.firmware_rw_build
+    if options.firmware_ro_build:
+        builds[provision.FW_RO_VERSION_PREFIX] = options.firmware_ro_build
+    return builds
+
+
 @retry.retry(error.StageControlFileFailure, timeout_min=10)
 def create_suite(afe, options):
     """Create a suite with retries.
@@ -1408,45 +1525,35 @@ def create_suite(afe, options):
 
     @return: The afe_job_id of the new suite job.
     """
-    builds = {}
-    if options.build:
-        if re.match(ANDROID_BUILD_REGEX, options.build):
-            builds[provision.ANDROID_BUILD_VERSION_PREFIX] = options.build
-        else:
-            builds[provision.CROS_VERSION_PREFIX] = options.build
-    if options.firmware_rw_build:
-        builds[provision.FW_RW_VERSION_PREFIX] = options.firmware_rw_build
-    if options.firmware_ro_build:
-        builds[provision.FW_RO_VERSION_PREFIX] = options.firmware_ro_build
-    wait = options.no_wait == 'False'
-    file_bugs = options.file_bugs == 'True'
-    retry = options.retry == 'True'
-    offload_failures_only = options.offload_failures_only == 'True'
-    try:
-        priority = int(options.priority)
-    except ValueError:
-        try:
-            priority = priorities.Priority.get_value(options.priority)
-        except AttributeError:
-            print 'Unknown priority level %s.  Try one of %s.' % (
-                  options.priority, ', '.join(priorities.Priority.names))
-            raise
     logging.info('%s Submitted create_suite_job rpc',
                  diagnosis_utils.JobTimer.format_time(datetime.now()))
-    return afe.run('create_suite_job', name=options.name,
-                   board=options.board, build=options.build,
-                   builds=builds, test_source_build=options.test_source_build,
-                   check_hosts=wait, pool=options.pool,
-                   num=options.num,
-                   file_bugs=file_bugs, priority=priority,
-                   suite_args=options.suite_args,
-                   wait_for_results=wait,
-                   timeout_mins=options.timeout_mins,
-                   max_runtime_mins=options.max_runtime_mins,
-                   job_retry=retry, max_retries=options.max_retries,
-                   suite_min_duts=options.suite_min_duts,
-                   offload_failures_only=offload_failures_only,
-                   run_prod_code=options.run_prod_code)
+    return afe.run(
+        'create_suite_job',
+        name=options.name,
+        board=options.board,
+        builds=_make_builds_from_options(options),
+        test_source_build=options.test_source_build,
+        check_hosts=not options.no_wait,
+        pool=options.pool,
+        num=options.num,
+        file_bugs=options.file_bugs,
+        priority=options.priority,
+        suite_args=options.suite_args,
+        wait_for_results=not options.no_wait,
+        timeout_mins=options.timeout_mins + options.delay_minutes,
+        max_runtime_mins=options.max_runtime_mins + options.delay_minutes,
+        job_retry=options.retry,
+        max_retries=options.max_retries,
+        suite_min_duts=options.suite_min_duts,
+        offload_failures_only=options.offload_failures_only,
+        run_prod_code=options.run_prod_code,
+        delay_minutes=options.delay_minutes,
+        job_keyvals=options.job_keyvals,
+        test_args=options.test_args,
+    )
+
+
+SuiteResult = namedtuple('SuiteResult', ['return_code', 'output_dict'])
 
 
 def main_without_exception_handling(options):
@@ -1473,7 +1580,7 @@ def main_without_exception_handling(options):
 
     utils.setup_logging(logfile=log_name)
 
-    if not options.bypass_labstatus:
+    if not options.bypass_labstatus and not options.web:
         utils.check_lab_status(options.build)
     instance_server = (options.web if options.web else
                        instance_for_pool(options.pool))
@@ -1499,17 +1606,25 @@ def main_without_exception_handling(options):
     else:
         try:
             rpc_helper.check_dut_availability(options.board, options.pool,
-                                              options.minimum_duts)
+                                              options.minimum_duts,
+                                              options.skip_duts_check)
             job_id = create_suite(afe, options)
             job_created_on = time.time()
-        except diagnosis_utils.NotEnoughDutsError:
-            logging.info(GetBuildbotStepLink(
-                    'Pool Health Bug', LogLink.get_bug_link(rpc_helper.bug)))
-            raise
+        except diagnosis_utils.NotEnoughDutsError as e:
+            e.add_suite_name(options.name)
+            e.add_build(options.test_source_build)
+            pool_health_bug = reporting.PoolHealthBug(e)
+            bug_id = reporting.Reporter().report(pool_health_bug).bug_id
+            if bug_id is not None:
+                logging.info(annotations.StepLink(
+                    text='Pool Health Bug',
+                    url=reporting_utils.link_crbug(bug_id)))
+                e.add_bug_id(bug_id)
+            raise e
         except (error.CrosDynamicSuiteException,
                 error.RPCException, proxy.JSONRPCException) as e:
-            logging.warning('Error Message: %s', e)
-            return (RETURN_CODES.INFRA_FAILURE, {'return_message': e})
+            logging.exception('Error Message: %s', e)
+            return (RETURN_CODES.INFRA_FAILURE, {'return_message': str(e)})
         except AttributeError:
             return (RETURN_CODES.INVALID_OPTIONS, {})
 
@@ -1520,159 +1635,198 @@ def main_without_exception_handling(options):
     logging.info('%s Created suite job: %s',
                  job_timer.format_time(job_timer.job_created_time),
                  job_url)
-    # TODO(akeshet): Move this link-printing to chromite.
-    logging.info(GetBuildbotStepLink('Suite created', job_url))
+    logging.info(annotations.StepLink(
+        text='Link to suite',
+        url=job_url))
 
     if options.create_and_return:
         msg = '--create_and_return was specified, terminating now.'
         logging.info(msg)
         return (RETURN_CODES.OK, {'return_message':msg})
 
+    if options.no_wait:
+        return _handle_job_nowait(job_id, options, instance_server)
+    else:
+        return _handle_job_wait(afe, job_id, options, job_timer, is_real_time)
+
+
+def _handle_job_wait(afe, job_id, options, job_timer, is_real_time):
+    """Handle suite job synchronously.
+
+    @param afe              AFE instance.
+    @param job_id           Suite job id.
+    @param options          Parsed options.
+    @param job_timer        JobTimer for suite job.
+    @param is_real_time     Whether or not to handle job timeout.
+
+    @return SuiteResult of suite job.
+    """
+    code = RETURN_CODES.OK
+    output_dict = {}
+    rpc_helper = diagnosis_utils.RPCHelper(afe)
+    instance_server = afe.server
+    while not afe.get_jobs(id=job_id, finished=True):
+        # Note that this call logs output, preventing buildbot's
+        # 9000 second silent timeout from kicking in. Let there be no
+        # doubt, this is a hack. The timeout is from upstream buildbot and
+        # this is the easiest work around.
+        if job_timer.first_past_halftime():
+            rpc_helper.diagnose_job(job_id, instance_server)
+        if job_timer.debug_output_timer.poll():
+            logging.info('The suite job has another %s till timeout.',
+                            job_timer.timeout_hours - job_timer.elapsed_time())
+        time.sleep(10)
+    logging.info('%s Suite job is finished.',
+                 diagnosis_utils.JobTimer.format_time(datetime.now()))
+    # For most cases, ResultCollector should be able to determine whether
+    # a suite has timed out by checking information in the test view.
+    # However, occationally tko parser may fail on parsing the
+    # job_finished time from the job's keyval file. So we add another
+    # layer of timeout check in run_suite. We do the check right after
+    # the suite finishes to make it as accurate as possible.
+    # There is a minor race condition here where we might have aborted
+    # for some reason other than a timeout, and the job_timer thinks
+    # it's a timeout because of the jitter in waiting for results.
+    # The consequence would be that run_suite exits with code
+    # SUITE_TIMEOUT while it should  have returned INFRA_FAILURE
+    # instead, which should happen very rarely.
+    # Note the timeout will have no sense when using -m option.
+    is_suite_timeout = job_timer.is_suite_timeout()
+
+    # Extract the original suite name to record timing.
+    original_suite_name = get_original_suite_name(options.name,
+                                                    options.suite_args)
+    # Start collecting test results.
+    logging.info('%s Start collectint test results and dump them to json.',
+                 diagnosis_utils.JobTimer.format_time(datetime.now()))
     TKO = frontend_wrappers.RetryingTKO(server=instance_server,
                                         timeout_min=options.afe_timeout_mins,
                                         delay_sec=options.delay_sec)
-    code = RETURN_CODES.OK
-    wait = options.no_wait == 'False'
-    output_dict = {}
-    if wait:
-        while not afe.get_jobs(id=job_id, finished=True):
-            # Note that this call logs output, preventing buildbot's
-            # 9000 second silent timeout from kicking in. Let there be no
-            # doubt, this is a hack. The timeout is from upstream buildbot and
-            # this is the easiest work around.
-            if job_timer.first_past_halftime():
-                rpc_helper.diagnose_job(job_id, instance_server)
-            if job_timer.debug_output_timer.poll():
-                logging.info('The suite job has another %s till timeout.',
-                             job_timer.timeout_hours - job_timer.elapsed_time())
-            time.sleep(10)
-        # For most cases, ResultCollector should be able to determine whether
-        # a suite has timed out by checking information in the test view.
-        # However, occationally tko parser may fail on parsing the
-        # job_finished time from the job's keyval file. So we add another
-        # layer of timeout check in run_suite. We do the check right after
-        # the suite finishes to make it as accurate as possible.
-        # There is a minor race condition here where we might have aborted
-        # for some reason other than a timeout, and the job_timer thinks
-        # it's a timeout because of the jitter in waiting for results.
-        # The consequence would be that run_suite exits with code
-        # SUITE_TIMEOUT while it should  have returned INFRA_FAILURE
-        # instead, which should happen very rarely.
-        # Note the timeout will have no sense when using -m option.
-        is_suite_timeout = job_timer.is_suite_timeout()
+    collector = ResultCollector(instance_server=instance_server,
+                                afe=afe, tko=TKO, build=options.build,
+                                board=options.board,
+                                suite_name=options.name,
+                                suite_job_id=job_id,
+                                original_suite_name=original_suite_name)
+    collector.run()
+    # Dump test outputs into json.
+    output_dict = collector.get_results_dict()
+    output_dict['autotest_instance'] = instance_server
+    if not options.json_dump:
+        collector.output_results()
+    code = collector.return_code
+    return_message = collector.return_message
+    if is_real_time:
+        # Do not record stats if the suite was aborted (either by a user
+        # or through the golo rpc).
+        # Also do not record stats if is_aborted is None, indicating
+        # aborting status is unknown yet.
+        if collector.is_aborted == False:
+            logging.info('%s Gathering timing stats for the suite job.',
+                         diagnosis_utils.JobTimer.format_time(datetime.now()))
+            collector.gather_timing_stats()
 
-        # Extract the original suite name to record timing.
-        original_suite_name = get_original_suite_name(options.name,
-                                                      options.suite_args)
-        # Start collecting test results.
-        collector = ResultCollector(instance_server=instance_server,
-                                    afe=afe, tko=TKO, build=options.build,
-                                    board=options.board,
-                                    suite_name=options.name,
-                                    suite_job_id=job_id,
-                                    original_suite_name=original_suite_name)
-        collector.run()
-        # Dump test outputs into json.
-        output_dict = collector.get_results_dict()
-        output_dict['autotest_instance'] = instance_server
-        if not options.json_dump:
-          collector.output_results()
-        code = collector.return_code
-        return_message = collector.return_message
-        if is_real_time:
-            # Do not record stats if the suite was aborted (either by a user
-            # or through the golo rpc).
-            # Also do not record stats if is_aborted is None, indicating
-            # aborting status is unknown yet.
-            if collector.is_aborted == False:
-                collector.gather_timing_stats()
+        if collector.is_aborted == True and is_suite_timeout:
+            # There are two possible cases when a suite times out.
+            # 1. the suite job was aborted due to timing out
+            # 2. the suite job succeeded, but some child jobs
+            #    were already aborted before the suite job exited.
+            # The case 2 was handled by ResultCollector,
+            # here we handle case 1.
+            old_code = code
+            code = get_worse_code(
+                    code, RETURN_CODES.SUITE_TIMEOUT)
+            if old_code != code:
+                return_message = 'Suite job timed out.'
+                logging.info('Upgrade return code from %s to %s '
+                                'because suite job has timed out.',
+                                RETURN_CODES.get_string(old_code),
+                                RETURN_CODES.get_string(code))
 
-            if collector.is_aborted == True and is_suite_timeout:
-                # There are two possible cases when a suite times out.
-                # 1. the suite job was aborted due to timing out
-                # 2. the suite job succeeded, but some child jobs
-                #    were already aborted before the suite job exited.
-                # The case 2 was handled by ResultCollector,
-                # here we handle case 1.
-                old_code = code
-                code = get_worse_code(
-                        code, RETURN_CODES.SUITE_TIMEOUT)
-                if old_code != code:
-                    return_message = 'Suite job timed out.'
-                    logging.info('Upgrade return code from %s to %s '
-                                 'because suite job has timed out.',
-                                 RETURN_CODES.get_string(old_code),
-                                 RETURN_CODES.get_string(code))
-            if is_suite_timeout:
-                logging.info('\nAttempting to diagnose pool: %s', options.pool)
-                try:
-                    # Add some jitter to make up for any latency in
-                    # aborting the suite or checking for results.
-                    cutoff = (job_timer.timeout_hours +
-                              datetime_base.timedelta(hours=0.3))
-                    rpc_helper.diagnose_pool(
-                            options.board, options.pool, cutoff)
-                except proxy.JSONRPCException as e:
-                    logging.warning('Unable to diagnose suite abort.')
+        logging.info('\n %s Attempting to display pool info: %s',
+                     diagnosis_utils.JobTimer.format_time(datetime.now()),
+                     options.pool)
+        try:
+            # Add some jitter to make up for any latency in
+            # aborting the suite or checking for results.
+            cutoff = (job_timer.timeout_hours +
+                      timedelta(hours=0.3))
+            rpc_helper.diagnose_pool(
+                    options.board, options.pool, cutoff)
+        except proxy.JSONRPCException:
+            logging.warning('Unable to display pool info.')
 
-        # And output return message.
-        if return_message:
-            logging.info('Reason: %s', return_message)
-            output_dict['return_message'] = return_message
+    # And output return message.
+    if return_message:
+        logging.info('Reason: %s', return_message)
+        output_dict['return_message'] = return_message
 
-        logging.info('\nOutput below this line is for buildbot consumption:')
-        collector.output_buildbot_links()
-    else:
-        logging.info('Created suite job: %r', job_id)
-        link = LogLink(options.name, instance_server,
-                       '%s-%s' % (job_id, getpass.getuser()))
-        logging.info(link.GenerateBuildbotLink())
-        output_dict['return_message'] = '--no_wait specified; Exiting.'
-        logging.info('--no_wait specified; Exiting.')
-    return (code, output_dict)
+    logging.info('\n %s Output below this line is for buildbot consumption:',
+                 diagnosis_utils.JobTimer.format_time(datetime.now()))
+    log_buildbot_links(logging.info, collector._buildbot_links)
+    return SuiteResult(code, output_dict)
+
+
+def _handle_job_nowait(job_id, options, instance_server):
+    """Handle suite job asynchronously.
+
+    @param job_id           Suite job id.
+    @param options          Parsed options.
+    @param instance_server  Autotest instance hostname.
+
+    @return SuiteResult of suite job.
+    """
+    logging.info('Created suite job: %r', job_id)
+    link = LogLink(options.name, instance_server,
+                    '%s-%s' % (job_id, getpass.getuser()))
+    for generate_link in link.GenerateBuildbotLinks():
+        logging.info(generate_link)
+    logging.info('--no_wait specified; Exiting.')
+    return SuiteResult(RETURN_CODES.OK,
+                        {'return_message': '--no_wait specified; Exiting.'})
 
 
 def main():
     """Entry point."""
     utils.verify_not_root_user()
-    code = RETURN_CODES.OK
-    output_dict = {}
 
+    parser = make_parser()
+    options = parser.parse_args()
     try:
-        parser, options, args = parse_options()
         # Silence the log when dumping outputs into json
         if options.json_dump:
             logging.disable(logging.CRITICAL)
 
-        if not verify_options_and_args(options, args):
+        if not verify_options(options):
             parser.print_help()
             code = RETURN_CODES.INVALID_OPTIONS
+            output_dict = {'return_code': RETURN_CODES.INVALID_OPTIONS}
         else:
-            (code, output_dict) = main_without_exception_handling(options)
+            code, output_dict = main_without_exception_handling(options)
     except diagnosis_utils.BoardNotAvailableError as e:
-        output_dict['return_message'] = 'Skipping testing: %s' % e.message
+        output_dict = {'return_message': 'Skipping testing: %s' % e.message}
         code = RETURN_CODES.BOARD_NOT_AVAILABLE
         logging.info(output_dict['return_message'])
     except utils.TestLabException as e:
-        output_dict['return_message'] = 'TestLabException: %s' % e
+        output_dict = {'return_message': 'TestLabException: %s' % e}
         code = RETURN_CODES.INFRA_FAILURE
         logging.exception(output_dict['return_message'])
     except Exception as e:
-        output_dict['return_message'] = 'Unhandled run_suite exception: %s' % e
+        output_dict = {
+            'return_message': 'Unhandled run_suite exception: %s' % e
+        }
         code = RETURN_CODES.INFRA_FAILURE
         logging.exception(output_dict['return_message'])
 
     # Dump test outputs into json.
     output_dict['return_code'] = code
-    output_json = json.dumps(output_dict, sort_keys=True)
     if options.json_dump:
+        output_json = json.dumps(output_dict, sort_keys=True)
         output_json_marked = '#JSON_START#%s#JSON_END#' % output_json.strip()
         sys.stdout.write(output_json_marked)
 
     logging.info('Will return from run_suite with status: %s',
                   RETURN_CODES.get_string(code))
-    autotest_stats.Counter('run_suite.%s' %
-                           RETURN_CODES.get_string(code)).increment()
     return code
 
 

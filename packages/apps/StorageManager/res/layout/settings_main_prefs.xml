@@ -25,6 +25,9 @@
         android:layout_width="match_parent"
         android:layout_weight="1">
 
+        <include android:id="@+id/empty_state"
+            layout="@layout/deletion_helper_empty_state"/>
+
         <FrameLayout
             android:id="@+id/main_content"
             android:layout_width="match_parent"

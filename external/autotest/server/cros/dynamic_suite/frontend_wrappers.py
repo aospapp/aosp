@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
 import math
 import threading
 
@@ -10,8 +11,13 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.frontend.afe.json_rpc import proxy
 from autotest_lib.server import frontend
-from chromite.lib import retry_util
-from chromite.lib import timeout_util
+try:
+    from chromite.lib import retry_util
+    from chromite.lib import timeout_util
+except ImportError:
+    logging.warn('Unable to import chromite.')
+    retry_util = None
+    timeout_util = None
 
 
 def convert_timeout_to_retry(backoff, timeout_min, delay_sec):
@@ -50,7 +56,18 @@ class RetryingAFE(frontend.AFE):
         super(RetryingAFE, self).__init__(**dargs)
 
 
+    def set_timeout(self, timeout_min):
+        """Set timeout minutes for the AFE server.
+
+        @param timeout_min: The timeout minutes for AFE server.
+        """
+        self.timeout_min = timeout_min
+
+
     def run(self, call, **dargs):
+        if retry_util is None:
+            raise ImportError('Unable to import chromite. Please consider to '
+                              'run build_externals to build site packages.')
         # exc_retry: We retry if this exception is raised.
         # blacklist: Exceptions that we raise immediately if caught.
         exc_retry = Exception

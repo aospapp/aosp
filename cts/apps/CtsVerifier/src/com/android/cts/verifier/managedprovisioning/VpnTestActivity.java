@@ -56,7 +56,7 @@ public class VpnTestActivity extends PassFailButtons.Activity {
     private DevicePolicyManager mDevicePolicyManager;
     private UserManager mUserManager;
     private static final String TAG = "DeviceOwnerPositiveTestActivity";
-    private static final int REQUEST_VPN_CODE = 1;
+    private static final int REQUEST_VPN_CODE = 54321;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,12 +81,13 @@ public class VpnTestActivity extends PassFailButtons.Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int result, Intent data) {
-        if (requestCode == REQUEST_VPN_CODE && result == RESULT_OK) {
+        if (requestCode == REQUEST_VPN_CODE) {
+            // We don't care about the result - ideally it should automatically cancel, but if
+            // some custom component doesn't do that, try to establish the connection anyway
+            // and see what happens.
             establishVpn();
         } else {
-            // vpn connection canceled by user
-            Log.w(TAG, "Test failed, canceled by user");
-            populateInfo(R.string.device_owner_vpn_connection_canceled);
+            Log.w(TAG, "Unexpected request code: " + requestCode);
         }
     }
 

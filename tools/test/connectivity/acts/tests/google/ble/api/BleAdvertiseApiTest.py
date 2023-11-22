@@ -20,11 +20,11 @@ after you set all attributes of each object. If this test suite doesn't pass,
 then other test suites utilising Ble Advertisements will also fail.
 """
 
-from acts.controllers.android import SL4AAPIError
+from acts.controllers import sl4a_client
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import adv_fail
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
-from acts.test_utils.bt.bt_test_utils import get_advanced_droid_list
 from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
 from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseTxPower
 from acts.test_utils.bt.BleEnum import JavaInteger
@@ -37,10 +37,10 @@ class BleAdvertiseVerificationError(Exception):
 class BleAdvertiseApiTest(BluetoothBaseTest):
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
-        self.droid_list = get_advanced_droid_list(self.android_devices)
-        self.droid = self.android_devices[0].droid
+        self.ad_dut = self.android_devices[0]
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='d6d8d0a6-7b3e-4e4b-a5d0-bcfd6e207474')
     def test_adv_settings_defaults(self):
         """Tests the default advertisement settings.
 
@@ -63,7 +63,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 0
         """
         test_result = True
-        droid = self.droid
+        droid = self.ad_dut.droid
         adv_settings = droid.bleBuildAdvertiseSettings()
         adv_mode = droid.bleGetAdvertiseSettingsMode(adv_settings)
         tx_power_level = droid.bleGetAdvertiseSettingsTxPowerLevel(
@@ -92,6 +92,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='f2a276ae-1436-43e4-aba7-1ede787200ee')
     def test_adv_data_defaults(self):
         """Tests the default advertisement data.
 
@@ -114,7 +115,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 0
         """
         test_result = True
-        droid = self.droid
+        droid = self.ad_dut.droid
         adv_data = droid.bleBuildAdvertiseData()
         service_uuids = droid.bleGetAdvertiseDataServiceUuids(adv_data)
         include_tx_power_level = droid.bleGetAdvertiseDataIncludeTxPowerLevel(
@@ -150,6 +151,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='8d462e60-6b4e-49f3-9ef4-5a8b612d285d')
     def test_adv_settings_set_adv_mode_balanced(self):
         """Tests advertise settings balanced mode.
 
@@ -173,7 +175,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_BALANCED.value
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
@@ -181,6 +183,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return self.verify_adv_settings_adv_mode(droid, exp_adv_mode)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='334fefeb-365f-4ee3-9be0-42b1fabe3178')
     def test_adv_settings_set_adv_mode_low_power(self):
         """Tests advertise settings low power mode.
 
@@ -204,7 +207,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_POWER.value
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
@@ -212,6 +215,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return self.verify_adv_settings_adv_mode(droid, exp_adv_mode)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='ce087782-1535-4694-944a-e962c22638ed')
     def test_adv_settings_set_adv_mode_low_latency(self):
         """Tests advertise settings low latency mode.
 
@@ -235,7 +239,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_mode = AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
@@ -243,6 +247,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return self.verify_adv_settings_adv_mode(droid, exp_adv_mode)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='59b52be9-d38b-4814-af08-c68aa8910a16')
     def test_adv_settings_set_invalid_adv_mode(self):
         """Tests advertise settings invalid advertising mode.
 
@@ -264,12 +269,13 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 2
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_mode = -1
         self.log.debug("Step 2: Set the filtering mode to -1")
         return self.verify_invalid_adv_settings_adv_mode(droid, exp_adv_mode)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='d8292633-831f-41c4-974a-ad267e9795e9')
     def test_adv_settings_set_adv_tx_power_level_high(self):
         """Tests advertise settings tx power level high.
 
@@ -293,7 +299,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_tx_power = (
             AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_HIGH.value)
         self.log.debug(
@@ -302,6 +308,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='d577de1f-4fd9-43d5-beff-c0696c5e0ea1')
     def test_adv_settings_set_adv_tx_power_level_medium(self):
         """Tests advertise settings tx power level medium.
 
@@ -326,7 +333,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         test_result = True
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_tx_power = (
             AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_MEDIUM.value)
         self.log.debug(
@@ -335,6 +342,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='e972f8b5-a3cf-4b3f-9223-a8a74c0fd855')
     def test_adv_settings_set_adv_tx_power_level_low(self):
         """Tests advertise settings tx power level low.
 
@@ -358,15 +366,15 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_tx_power = (
             AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_LOW.value)
-        self.log.debug(
-            "Step 2: Set the filtering settings object's value to ".format(
-                exp_adv_tx_power))
+        self.log.debug("Step 2: Set the filtering settings object's value to ".
+                       format(exp_adv_tx_power))
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='e972f8b5-a3cf-4b3f-9223-a8a74c0fd855')
     def test_adv_settings_set_adv_tx_power_level_ultra_low(self):
         """Tests advertise settings tx power level ultra low.
 
@@ -390,16 +398,15 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
-        exp_adv_tx_power = (
-            AdvertiseSettingsAdvertiseTxPower.ADVERTISE_TX_POWER_ULTRA_LOW.
-            value)
-        self.log.debug(
-            "Step 2: Set the filtering settings object's value to ".format(
-                exp_adv_tx_power))
+        droid = self.ad_dut.droid
+        exp_adv_tx_power = (AdvertiseSettingsAdvertiseTxPower.
+                            ADVERTISE_TX_POWER_ULTRA_LOW.value)
+        self.log.debug("Step 2: Set the filtering settings object's value to ".
+                       format(exp_adv_tx_power))
         return self.verify_adv_settings_tx_power_level(droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='e972f8b5-a3cf-4b3f-9223-a8a74c0fd855')
     def test_adv_settings_set_invalid_adv_tx_power_level(self):
         """Tests advertise settings invalid advertising tx power level.
 
@@ -421,13 +428,14 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_adv_tx_power = -1
         self.log.debug("Step 2: Set the filtering mode to -1")
         return self.verify_invalid_adv_settings_tx_power_level(
             droid, exp_adv_tx_power)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='1be71f77-64af-42b7-84cb-e06df0836966')
     def test_adv_settings_set_is_connectable_true(self):
         """Tests advertise settings is connectable true.
 
@@ -451,7 +459,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_is_connectable = True
         self.log.debug(
             "Step 2: Set the filtering settings object's value to {}".format(
@@ -460,6 +468,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                                        exp_is_connectable)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='f9865333-9198-4385-938d-5fc641ee9968')
     def test_adv_settings_set_is_connectable_false(self):
         """Tests advertise settings is connectable false.
 
@@ -483,7 +492,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_is_connectable = False
         self.log.debug("Step 2: Set the filtering settings object's value to "
                        + str(exp_is_connectable))
@@ -491,6 +500,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                                        exp_is_connectable)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='a770ed7e-c6cd-4533-8876-e42e68f8b4fb')
     def test_adv_data_set_service_uuids_empty(self):
         """Tests advertisement data's service uuids to empty.
 
@@ -514,13 +524,14 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_service_uuids = []
         self.log.debug("Step 2: Set the filtering data object's value to " +
                        str(exp_service_uuids))
         return self.verify_adv_data_service_uuids(droid, exp_service_uuids)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='3da511db-d024-45c8-be3c-fe8e123129fa')
     def test_adv_data_set_service_uuids_single(self):
         """Tests advertisement data's service uuids to empty.
 
@@ -544,13 +555,14 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_service_uuids = ["00000000-0000-1000-8000-00805f9b34fb"]
         self.log.debug("Step 2: Set the filtering data object's value to " +
                        str(exp_service_uuids))
         return self.verify_adv_data_service_uuids(droid, exp_service_uuids)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='15073359-d607-4a76-b60a-00a4b34f9a85')
     def test_adv_data_set_service_uuids_multiple(self):
         """Tests advertisement data's service uuids to multiple uuids.
 
@@ -574,14 +586,17 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
-        exp_service_uuids = ["00000000-0000-1000-8000-00805f9b34fb",
-                             "00000000-0000-1000-8000-00805f9b34fb"]
+        droid = self.ad_dut.droid
+        exp_service_uuids = [
+            "00000000-0000-1000-8000-00805f9b34fb",
+            "00000000-0000-1000-8000-00805f9b34fb"
+        ]
         self.log.debug("Step 2: Set the filtering data object's value to " +
                        str(exp_service_uuids))
         return self.verify_adv_data_service_uuids(droid, exp_service_uuids)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='af783a71-ef80-4974-a077-16a4ed8f0114')
     def test_adv_data_set_service_uuids_invalid_uuid(self):
         """Tests advertisement data's service uuids to an invalid uuid.
 
@@ -603,7 +618,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_service_uuids = ["0"]
         self.log.debug("Step 2: Set the filtering data service uuids to " +
                        str(exp_service_uuids))
@@ -611,6 +626,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                                           exp_service_uuids)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='51d634e7-6271-4cc0-a57b-3c1b632a7db6')
     def test_adv_data_set_service_data(self):
         """Tests advertisement data's service data.
 
@@ -634,9 +650,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_service_data_uuid = "00000000-0000-1000-8000-00805f9b34fb"
-        exp_service_data = "1,2,3"
+        exp_service_data = [1, 2, 3]
         self.log.debug(
             "Step 2: Set the filtering data object's service data uuid to: {}, "
             "service data: {}".format(exp_service_data_uuid, exp_service_data))
@@ -644,6 +660,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                                  exp_service_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='aa18b0af-2a41-4b2a-af64-ea639961d561')
     def test_adv_data_set_service_data_invalid_service_data(self):
         """Tests advertisement data's invalid service data.
 
@@ -667,7 +684,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_service_data_uuid = "00000000-0000-1000-8000-00805f9b34fb"
         exp_service_data = "helloworld"
         self.log.debug(
@@ -677,6 +694,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid, exp_service_data_uuid, exp_service_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='13a75a47-eff4-429f-a436-d244bbfe4496')
     def test_adv_data_set_service_data_invalid_service_data_uuid(self):
         """Tests advertisement data's invalid service data and uuid.
 
@@ -700,7 +718,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_service_data_uuid = "0"
         exp_service_data = "1,2,3"
         self.log.debug(
@@ -710,6 +728,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid, exp_service_data_uuid, exp_service_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='386024e2-212e-4eed-8ef3-43d0c0239ea5')
     def test_adv_data_set_manu_id(self):
         """Tests advertisement data's manufacturers data and id.
 
@@ -733,9 +752,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_manu_id = 0
-        exp_manu_specific_data = "1,2,3"
+        exp_manu_specific_data = [1, 2, 3]
         self.log.debug(
             "Step 2: Set the filtering data object's service data manu id: {}"
             ", manu specific data: {}".format(exp_manu_id,
@@ -744,6 +763,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                             exp_manu_specific_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='650ceff2-2760-4a34-90fb-e637a2c5ebb5')
     def test_adv_data_set_manu_id_invalid_manu_id(self):
         """Tests advertisement data's manufacturers invalid id.
 
@@ -766,9 +786,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_manu_id = -1
-        exp_manu_specific_data = "1,2,3"
+        exp_manu_specific_data = [1, 2, 3]
         self.log.debug(
             "Step 2: Set the filtering data object's service data manu id: {}"
             ", manu specific data: {}".format(exp_manu_id,
@@ -777,6 +797,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                                     exp_manu_specific_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='27ccd7d7-9cd2-4e95-8198-ef6ca746d1cc')
     def test_adv_data_set_manu_id_invalid_manu_specific_data(self):
         """Tests advertisement data's manufacturers invalid specific data.
 
@@ -799,9 +820,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_manu_id = 0
-        exp_manu_specific_data = "helloworld"
+        exp_manu_specific_data = ['helloworld']
         self.log.debug(
             "Step 2: Set the filtering data object's service data manu id: {}"
             ", manu specific data: {}".format(exp_manu_id,
@@ -810,6 +831,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                                     exp_manu_specific_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='8e78d444-cd25-4c17-9532-53972a6f0ffe')
     def test_adv_data_set_manu_id_max(self):
         """Tests advertisement data's manufacturers id to the max size.
 
@@ -833,9 +855,9 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 3
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_manu_id = JavaInteger.MAX.value
-        exp_manu_specific_data = "1,2,3"
+        exp_manu_specific_data = [1, 2, 3]
         self.log.debug(
             "Step 2: Set the filtering data object's service data manu id: {}"
             ", manu specific data: {}".format(exp_manu_id,
@@ -844,6 +866,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                                             exp_manu_specific_data)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='6c4866b7-ddf5-44ef-a231-0af683c6db80')
     def test_adv_data_set_include_tx_power_level_true(self):
         """Tests advertisement data's include tx power level to True.
 
@@ -867,7 +890,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_include_tx_power_level = True
         self.log.debug(
             "Step 2: Set the filtering data object's include tx power level: "
@@ -876,6 +899,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid, exp_include_tx_power_level)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='db06cc5f-60cf-4f04-b0fe-0c354f987541')
     def test_adv_data_set_include_tx_power_level_false(self):
         """Tests advertisement data's include tx power level to False.
 
@@ -899,7 +923,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_include_tx_power_level = False
         self.log.debug(
             "Step 2: Set the filtering data object's include tx power level: {}"
@@ -908,6 +932,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid, exp_include_tx_power_level)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='e99480c4-fd37-4791-a8d0-7eb8f8f72d62')
     def test_adv_data_set_include_device_name_true(self):
         """Tests advertisement data's include device name to True.
 
@@ -931,7 +956,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         self.log.debug("Step 1: Setup environment.")
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_include_device_name = True
         self.log.debug(
             "Step 2: Set the filtering data object's include device name: {}"
@@ -940,6 +965,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             droid, exp_include_device_name)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='b89ed642-c426-4777-8217-7bb8c2058592')
     def test_adv_data_set_include_device_name_false(self):
         """Tests advertisement data's include device name to False.
 
@@ -964,15 +990,16 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         """
         self.log.debug("Step 1: Setup environment.")
         test_result = True
-        droid = self.droid
+        droid = self.ad_dut.droid
         exp_include_device_name = False
         self.log.debug(
-            "Step 2: Set the filtering data object's include device name: {}".format(
-                exp_include_device_name))
+            "Step 2: Set the filtering data object's include device name: {}".
+            format(exp_include_device_name))
         return self.verify_adv_data_include_device_name(
             droid, exp_include_device_name)
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='5033bcf5-a841-4b8b-af35-92c7237c7b36')
     def test_advertisement_greater_than_31_bytes(self):
         """Tests advertisement data's size to be greater than 31 bytes.
 
@@ -995,22 +1022,21 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
         Priority: 1
         """
         test_result = True
-        droid = self.droid
+        droid = self.ad_dut.droid
         ed = self.android_devices[0].ed
         service_data = []
         for i in range(25):
             service_data.append(i)
         droid.bleAddAdvertiseDataServiceData(
-            "0000110D-0000-1000-8000-00805F9B34FB",
-            ','.join(map(str, service_data)))
+            "0000110D-0000-1000-8000-00805F9B34FB", service_data)
         advcallback, adv_data, adv_settings = generate_ble_advertise_objects(
             droid)
         droid.bleStartBleAdvertising(advcallback, adv_data, adv_settings)
         try:
             ed.pop_event(adv_fail.format(advcallback))
-        except SL4AAPIError:
-            self.log.info("{} event was not found.".format(adv_fail.format(
-                advcallback)))
+        except sl4a_client.Sl4aApiError:
+            self.log.info("{} event was not found.".format(
+                adv_fail.format(advcallback)))
             return False
         return test_result
 
@@ -1085,9 +1111,8 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("exp value: {}, Actual value: {}".format(
                 exp_service_uuids, service_uuids))
             return False
-        self.log.debug(
-            "Advertise Data's service uuids {}, value test Passed.".format(
-                exp_service_uuids))
+        self.log.debug("Advertise Data's service uuids {}, value test Passed.".
+                       format(exp_service_uuids))
         return True
 
     def verify_adv_data_service_data(self, droid, exp_service_data_uuid,
@@ -1183,7 +1208,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("Set Advertise settings invalid filtering mode "
                            "passed with input as {}".format(exp_adv_mode))
             return False
-        except SL4AAPIError:
+        except sl4a_client.Sl4aApiError:
             self.log.debug("Set Advertise settings invalid filtering mode "
                            "failed successfully with input as {}".format(
                                exp_adv_mode))
@@ -1197,7 +1222,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("Set Advertise settings invalid tx power level " +
                            " with input as {}".format(exp_adv_tx_power))
             return False
-        except SL4AAPIError:
+        except sl4a_client.Sl4aApiError:
             self.log.debug("Set Advertise settings invalid tx power level "
                            "failed successfullywith input as {}".format(
                                exp_adv_tx_power))
@@ -1210,7 +1235,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
             self.log.debug("Set Advertise Data service uuids " +
                            " with input as {}".format(exp_service_uuids))
             return False
-        except SL4AAPIError:
+        except sl4a_client.Sl4aApiError:
             self.log.debug("Set Advertise Data invalid service uuids failed "
                            "successfully with input as {}".format(
                                exp_service_uuids))
@@ -1226,7 +1251,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                            ", service data: {}".format(exp_service_data_uuid,
                                                        exp_service_data))
             return False
-        except SL4AAPIError:
+        except sl4a_client.Sl4aApiError:
             self.log.debug("Set Advertise Data service data uuid: " + str(
                 exp_service_data_uuid) + ", service data: " + str(
                     exp_service_data) + " failed successfully.")
@@ -1242,7 +1267,7 @@ class BleAdvertiseApiTest(BluetoothBaseTest):
                            ", manu specific data: " + str(
                                exp_manu_specific_data))
             return False
-        except SL4AAPIError:
+        except sl4a_client.Sl4aApiError:
             self.log.debug("Set Advertise Data manu id: {},"
                            " manu specific data: {},".format(
                                exp_manu_id, exp_manu_specific_data))

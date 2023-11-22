@@ -18,6 +18,7 @@
 //#define LOG_NDEBUG 0
 
 #include <cutils/compiler.h>
+#include <cutils/atomic.h>
 #include <utils/Log.h>
 #include <media/nbaio/PipeReader.h>
 
@@ -25,9 +26,7 @@ namespace android {
 
 PipeReader::PipeReader(Pipe& pipe) :
         NBAIO_Source(pipe.mFormat),
-        mPipe(pipe),
-        // any data already in the pipe is not visible to this PipeReader
-        mFront(android_atomic_acquire_load(&pipe.mRear)),
+        mPipe(pipe), mFifoReader(mPipe.mFifo, false /*throttlesWriter*/, true /*flush*/),
         mFramesOverrun(0),
         mOverruns(0)
 {
@@ -50,51 +49,50 @@ ssize_t PipeReader::availableToRead()
     if (CC_UNLIKELY(!mNegotiated)) {
         return NEGOTIATE;
     }
-    int32_t rear = android_atomic_acquire_load(&mPipe.mRear);
-    // read() is not multi-thread safe w.r.t. itself, so no mutex or atomic op needed to read mFront
-    size_t avail = rear - mFront;
-    if (CC_UNLIKELY(avail > mPipe.mMaxFrames)) {
-        // Discard 1/16 of the most recent data in pipe to avoid another overrun immediately
-        int32_t oldFront = mFront;
-        mFront = rear - mPipe.mMaxFrames + (mPipe.mMaxFrames >> 4);
-        mFramesOverrun += (size_t) (mFront - oldFront);
+    size_t lost;
+    ssize_t avail = mFifoReader.available(&lost);
+    if (avail == -EOVERFLOW || lost > 0) {
+        mFramesOverrun += lost;
         ++mOverruns;
-        return OVERRUN;
+        avail = OVERRUN;
     }
     return avail;
 }
 
 ssize_t PipeReader::read(void *buffer, size_t count)
 {
-    ssize_t avail = availableToRead();
-    if (CC_UNLIKELY(avail <= 0)) {
-        return avail;
+    size_t lost;
+    ssize_t actual = mFifoReader.read(buffer, count, NULL /*timeout*/, &lost);
+    ALOG_ASSERT(actual <= count);
+    if (actual == -EOVERFLOW || lost > 0) {
+        mFramesOverrun += lost;
+        ++mOverruns;
+        actual = OVERRUN;
     }
-    // An overrun can occur from here on and be silently ignored,
-    // but it will be caught at next read()
-    if (CC_LIKELY(count > (size_t) avail)) {
-        count = avail;
+    if (actual <= 0) {
+        return actual;
     }
-    size_t front = mFront & (mPipe.mMaxFrames - 1);
-    size_t red = mPipe.mMaxFrames - front;
-    if (CC_LIKELY(red > count)) {
-        red = count;
+    mFramesRead += (size_t) actual;
+    return actual;
+}
+
+ssize_t PipeReader::flush()
+{
+    if (CC_UNLIKELY(!mNegotiated)) {
+        return NEGOTIATE;
     }
-    // In particular, an overrun during the memcpy will result in reading corrupt data
-    memcpy(buffer, (char *) mPipe.mBuffer + (front * mFrameSize), red * mFrameSize);
-    // We could re-read the rear pointer here to detect the corruption, but why bother?
-    if (CC_UNLIKELY(front + red == mPipe.mMaxFrames)) {
-        if (CC_UNLIKELY((count -= red) > front)) {
-            count = front;
-        }
-        if (CC_LIKELY(count > 0)) {
-            memcpy((char *) buffer + (red * mFrameSize), mPipe.mBuffer, count * mFrameSize);
-            red += count;
-        }
+    size_t lost;
+    ssize_t flushed = mFifoReader.flush(&lost);
+    if (flushed == -EOVERFLOW || lost > 0) {
+        mFramesOverrun += lost;
+        ++mOverruns;
+        flushed = OVERRUN;
     }
-    mFront += red;
-    mFramesRead += red;
-    return red;
+    if (flushed <= 0) {
+        return flushed;
+    }
+    mFramesRead += (size_t) flushed;  // we consider flushed frames as read, but not lost frames
+    return flushed;
 }
 
 }   // namespace android

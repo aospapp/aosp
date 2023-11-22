@@ -4,14 +4,13 @@
 
 import logging, threading, time
 
-from autotest_lib.client.cros.crash_test import CrashTest
+from autotest_lib.client.cros.crash.crash_test import CrashTest
 from autotest_lib.server import autotest, test
 from autotest_lib.client.common_lib import error
 
 _WAIT_DELAY = 15
 _LONG_TIMEOUT = 200
 _SUSPEND_TIME = 30
-_WAKE_PRESS_IN_SEC = 0.2
 _CRASH_PATHS = [CrashTest._SYSTEM_CRASH_DIR.replace("/crash",""),
                 CrashTest._FALLBACK_USER_CRASH_DIR.replace("/crash",""),
                 CrashTest._USER_CRASH_DIRS.replace("/crash","")]
@@ -124,9 +123,25 @@ class platform_ExternalUsbPeripherals(test.test):
         @param boot_id: boot id obtained prior to suspending
 
         """
-        self.host.servo.power_key(_WAKE_PRESS_IN_SEC)
         self.host.test_wait_for_resume(boot_id, _LONG_TIMEOUT)
         logging.debug('--- Resumed')
+        self.suspend_status = False
+
+    def close_lid(self):
+        """Close lid through servo to suspend the device."""
+        boot_id = self.host.get_boot_id()
+        logging.info('Closing lid...')
+        self.host.servo.lid_close()
+        self.host.test_wait_for_sleep(_LONG_TIMEOUT)
+        self.suspend_status = True
+        return boot_id
+
+
+    def open_lid(self, boot_id):
+        """Open lid through servo to resume."""
+        logging.info('Opening lid...')
+        self.host.servo.lid_open()
+        self.host.test_wait_for_resume(boot_id, _LONG_TIMEOUT)
         self.suspend_status = False
 
 
@@ -140,7 +155,8 @@ class platform_ExternalUsbPeripherals(test.test):
         result = True
         if str(self.host.run('ls %s' % crash_path,
                               ignore_status=True)).find('crash') != -1:
-            crash_out = self.host.run('ls %s/crash/' % crash_path).stdout
+            crash_out = self.host.run('ls %s/crash/' % crash_path,
+                                      ignore_status=True).stdout
             crash_files = crash_out.strip().split('\n')
             for crash_file in crash_files:
                 if crash_file.find('.meta') != -1 and \
@@ -248,10 +264,12 @@ class platform_ExternalUsbPeripherals(test.test):
         """Disconnect servo hub"""
         self.set_hub_power(False)
         self.host.servo.set('usb_mux_sel3', 'servo_sees_usbkey')
+        self.host.reboot()
 
 
     def run_once(self, host, client_autotest, action_sequence, repeat,
-                 usb_list=None, usb_checks=None, crash_check=False):
+                 usb_list=None, usb_checks=None,
+                 crash_check=False, stress_rack=False):
         self.client_autotest = client_autotest
         self.host = host
         self.autotest_client = autotest.Autotest(self.host)
@@ -265,6 +283,13 @@ class platform_ExternalUsbPeripherals(test.test):
         self.action_step = None
 
         self.host.servo.switch_usbkey('dut')
+        self.set_hub_power(False)
+        if (stress_rack):
+            self.host.servo.set('usb_mux_sel1', 'dut_sees_usbkey')
+        else:
+            self.host.servo.set('usb_mux_sel1', 'servo_sees_usbkey')
+            self.host.servo.set('usb_mux_oe2', 'off')
+            self.host.servo.set('usb_mux_oe4', 'off')
         self.host.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
         time.sleep(_WAIT_DELAY)
 
@@ -303,6 +328,9 @@ class platform_ExternalUsbPeripherals(test.test):
                 if action == 'RESUME':
                     self.action_resume(boot_id)
                     time.sleep(_WAIT_DELAY)
+                elif action == 'OPENLID':
+                    self.open_lid(boot_id)
+                    time.sleep(_WAIT_DELAY)
                 elif action == 'UNPLUG':
                     self.set_hub_power(False)
                 elif action == 'PLUG':
@@ -321,6 +349,8 @@ class platform_ExternalUsbPeripherals(test.test):
                         self.login_status = False
                     elif action == 'SUSPEND':
                         boot_id = self.action_suspend()
+                    elif action == 'CLOSELID':
+                        boot_id = self.close_lid()
                 else:
                     logging.info('WRONG ACTION: %s .', self.action_step)
 

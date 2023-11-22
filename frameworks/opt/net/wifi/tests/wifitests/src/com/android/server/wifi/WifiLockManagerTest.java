@@ -18,7 +18,6 @@ package com.android.server.wifi;
 
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.*;
-import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.*;
 
 import android.content.Context;

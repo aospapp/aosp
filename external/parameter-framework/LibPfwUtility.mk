@@ -40,16 +40,8 @@ LOCAL_SRC_FILES := \
     upstream/utility/Tokenizer.cpp \
     upstream/utility/Utility.cpp
 
-target_copy_headers := \
-    upstream/utility/NonCopyable.hpp \
-    upstream/utility/ErrorContext.hpp \
-    upstream/utility/Utility.h \
-    upstream/utility/convert.hpp
-
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/upstream/utility/
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/upstream/utility/
 LOCAL_CFLAGS := -frtti -fexceptions
-
-LOCAL_COPY_HEADERS := $(target_copy_headers)
 
 LOCAL_CLANG := true

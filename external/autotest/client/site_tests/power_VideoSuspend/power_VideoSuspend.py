@@ -19,7 +19,7 @@ class power_VideoSuspend(test.test):
         if video_urls is None:
             raise error.TestError('no videos to play')
 
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab = cr.browser.tabs[0]
             tab.Navigate(cr.browser.platform.http_server.UrlOf(
@@ -27,27 +27,27 @@ class power_VideoSuspend(test.test):
             tab.WaitForDocumentReadyStateToBeComplete()
 
             for url in video_urls:
-                self.suspend_with_video(cr.browser, tab, url)
+                self._suspend_with_video(cr.browser, tab, url)
 
 
-    def check_video_is_playing(self, tab):
-        def get_current_time():
+    def _check_video_is_playing(self, tab):
+        def _get_current_time():
             return tab.EvaluateJavaScript('player.currentTime')
 
-        old_time = get_current_time()
+        old_time = _get_current_time()
         utils.poll_for_condition(
-            condition=lambda: get_current_time() > old_time,
+            condition=lambda: _get_current_time() > old_time,
             exception=error.TestError('Player stuck until timeout.'))
 
 
-    def suspend_with_video(self, browser, tab, video_url):
+    def _suspend_with_video(self, browser, tab, video_url):
         logging.info('testing %s', video_url)
         tab.EvaluateJavaScript('play("%s")' % video_url)
 
-        self.check_video_is_playing(tab)
+        self._check_video_is_playing(tab)
 
         time.sleep(2)
         sys_power.kernel_suspend(10)
         time.sleep(2)
 
-        self.check_video_is_playing(tab)
+        self._check_video_is_playing(tab)

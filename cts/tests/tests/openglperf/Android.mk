@@ -24,7 +24,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner ctsdeviceutil
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsopenglperf_jni libnativehelper_compat_libc++
 
@@ -40,11 +40,5 @@ LOCAL_SDK_VERSION := current
 LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
-
-# Make the replica island app and copy it to CTS out dir.
-cts_replica_name := com.replica.replicaisland
-cts_replica_apk := $(CTS_TESTCASES_OUT)/$(cts_replica_name).apk
-$(cts_replica_apk): $(call intermediates-dir-for,APPS,$(cts_replica_name))/package.apk
-	$(call copy-file-to-target)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

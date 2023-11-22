@@ -154,6 +154,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mHostNfcFEmulationManager.onUserSwitched();
         mT3tIdentifiersCache.onUserSwitched();
         mEnabledNfcFServices.onUserSwitched(userId);
+        mNfcFServicesCache.onUserSwitched();
         mNfcFServicesCache.invalidateCache(userId);
     }
 
@@ -207,49 +208,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         ComponentName defaultPaymentService =
                 getDefaultServiceForCategory(userId, CardEmulation.CATEGORY_PAYMENT, false);
         if (DBG) Log.d(TAG, "Current default: " + defaultPaymentService);
-        if (defaultPaymentService != null) {
-            // Validate the default is still installed and handling payment
-            ApduServiceInfo serviceInfo = mServiceCache.getService(userId, defaultPaymentService);
-            if (serviceInfo == null || !serviceInfo.hasCategory(CardEmulation.CATEGORY_PAYMENT)) {
-                if (serviceInfo == null) {
-                    Log.e(TAG, "Default payment service unexpectedly removed.");
-                } else if (!serviceInfo.hasCategory(CardEmulation.CATEGORY_PAYMENT)) {
-                    if (DBG) Log.d(TAG, "Default payment service had payment category removed");
-                }
-                int numPaymentServices = 0;
-                ComponentName lastFoundPaymentService = null;
-                for (ApduServiceInfo service : services) {
-                    if (service.hasCategory(CardEmulation.CATEGORY_PAYMENT))  {
-                        numPaymentServices++;
-                        lastFoundPaymentService = service.getComponent();
-                    }
-                }
-                if (DBG) Log.d(TAG, "Number of payment services is " +
-                        Integer.toString(numPaymentServices));
-                if (numPaymentServices == 0) {
-                    if (DBG) Log.d(TAG, "Default removed, no services left.");
-                    // No payment services left, unset default and don't ask the user
-                    setDefaultServiceForCategoryChecked(userId, null, CardEmulation.CATEGORY_PAYMENT);
-                } else if (numPaymentServices == 1) {
-                    // Only one left, automatically make it the default
-                    if (DBG) Log.d(TAG, "Default removed, making remaining service default.");
-                    setDefaultServiceForCategoryChecked(userId, lastFoundPaymentService,
-                            CardEmulation.CATEGORY_PAYMENT);
-                } else if (numPaymentServices > 1) {
-                    // More than one left, unset default and ask the user if he wants
-                    // to set a new one
-                    if (DBG) Log.d(TAG, "Default removed, asking user to pick.");
-                    setDefaultServiceForCategoryChecked(userId, null,
-                            CardEmulation.CATEGORY_PAYMENT);
-                    Intent intent = new Intent(mContext, DefaultRemovedActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    mContext.startActivityAsUser(intent, UserHandle.CURRENT);
-                }
-            } else {
-                // Default still exists and handles the category, nothing do
-                if (DBG) Log.d(TAG, "Default payment service still ok.");
-            }
-        } else {
+        if (defaultPaymentService == null) {
             // A payment service may have been removed, leaving only one;
             // in that case, automatically set that app as default.
             int numPaymentServices = 0;
@@ -398,7 +357,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
                 throws RemoteException {
             NfcPermissions.validateUserId(userId);
             NfcPermissions.enforceAdminPermissions(mContext);
-            if (!isServiceRegistered(userId, service)) {
+            if (service != null && !isServiceRegistered(userId, service)) {
                 return false;
             }
             return mPreferredServices.setDefaultForNextTap(service);

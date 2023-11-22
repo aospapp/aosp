@@ -15,18 +15,11 @@
  */
 package vogar.target.junit;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
-import junit.framework.AssertionFailedError;
 import vogar.monitor.TargetMonitor;
-import vogar.target.Runner;
 import vogar.target.RunnerFactory;
+import vogar.target.TargetRunner;
 import vogar.target.TestEnvironment;
 
 /**
@@ -35,50 +28,19 @@ import vogar.target.TestEnvironment;
 public class JUnitRunnerFactory implements RunnerFactory {
 
     @Override @Nullable
-    public Runner newRunner(TargetMonitor monitor, String qualification,
+    public TargetRunner newRunner(TargetMonitor monitor, String qualification,
             Class<?> klass, AtomicReference<String> skipPastReference,
             TestEnvironment testEnvironment, int timeoutSeconds, boolean profile,
             String[] args) {
         if (supports(klass)) {
-            List<VogarTest> tests = createVogarTests(klass, qualification, args);
-            return new JUnitRunner(monitor, skipPastReference, testEnvironment, timeoutSeconds,
-                    tests);
+            return new JUnitTargetRunner(monitor, skipPastReference, testEnvironment,
+                    timeoutSeconds, klass, qualification, args);
         } else {
             return null;
         }
     }
 
-    @VisibleForTesting
-    public static List<VogarTest> createVogarTests(
-            Class<?> testClass, String qualification, String[] args) {
-
-        Set<String> methodNames = new LinkedHashSet<>();
-        if (qualification != null) {
-            methodNames.add(qualification);
-        }
-        Collections.addAll(methodNames, args);
-
-        final List<VogarTest> tests;
-        if (Junit3.isJunit3Test(testClass)) {
-            tests = Junit3.classToVogarTests(testClass, methodNames);
-        } else if (Junit4.isJunit4Test(testClass)) {
-            tests = Junit4.classToVogarTests(testClass, methodNames);
-        } else {
-            throw new AssertionFailedError("Unknown JUnit type: " + testClass.getName());
-        }
-
-        // Sort the tests to ensure consistent ordering.
-        Collections.sort(tests, new Comparator<VogarTest>() {
-            @Override
-            public int compare(VogarTest o1, VogarTest o2) {
-                return o1.toString().compareTo(o2.toString());
-            }
-        });
-        return tests;
-    }
-
-    @VisibleForTesting
-    boolean supports(Class<?> klass) {
+    private boolean supports(Class<?> klass) {
         return Junit3.isJunit3Test(klass) || Junit4.isJunit4Test(klass);
     }
 }

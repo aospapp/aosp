@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// chromeTesting.Networking provides wrappers around chrome.networkingPrivate
+// chromeTesting.Networking provides wrappers around chrome.networking.onc
 // functions. The result of each asynchronous call can be accessed through
 // chromeTesting.networking.callStatus, which is a dictionary of the form:
 //    {
@@ -46,8 +46,16 @@ Networking.prototype.getEnabledNetworkDevices = function() {
   if (!this._setupFunctionCall("getEnabledNetworkDevices"))
     return;
   var self = this;
-  chrome.networkingPrivate.getEnabledNetworkTypes(function(networkTypes) {
-    self._setResult("getEnabledNetworkDevices", networkTypes);
+  chrome.networking.onc.getDeviceStates(function(deviceState) {
+    // De-dupe network types by using a dictionary.
+    // TODO(stevenjb): remove the de-dupe logic here after crbug.com/679945 is
+    // fixed.
+    var networkTypes = {};
+    deviceState.forEach(function(device) {
+      if (device.State == 'Enabled')
+        networkTypes[device.Type] = true;
+    });
+    self._setResult("getEnabledNetworkDevices", Object.keys(networkTypes));
   });
 };
 
@@ -55,28 +63,28 @@ Networking.prototype.enableNetworkDevice = function(type) {
   if (!this._setupFunctionCall("enableNetworkDevice"))
     return;
   var self = this;
-  chrome.networkingPrivate.enableNetworkType(type);
+  chrome.networking.onc.enableNetworkType(type);
 };
 
 Networking.prototype.disableNetworkDevice = function(type) {
   if (!this._setupFunctionCall("disableNetworkDevice"))
     return;
   var self = this;
-  chrome.networkingPrivate.disableNetworkType(type);
+  chrome.networking.onc.disableNetworkType(type);
 };
 
 Networking.prototype.requestNetworkScan = function() {
   if (!this._setupFunctionCall("requestNetworkScan"))
     return;
   var self = this;
-  chrome.networkingPrivate.requestNetworkScan();
+  chrome.networking.onc.requestNetworkScan();
 };
 
 Networking.prototype.createNetwork = function(shared, properties) {
   if (!this._setupFunctionCall("createNetwork"))
     return;
   var self = this;
-  chrome.networkingPrivate.createNetwork(shared, properties, function(guid) {
+  chrome.networking.onc.createNetwork(shared, properties, function(guid) {
     self._setResult("createNetwork", guid);
   });
 };
@@ -85,7 +93,7 @@ Networking.prototype.setProperties = function(guid, properties) {
   if (!this._setupFunctionCall("setProperties"))
     return;
   var self = this;
-  chrome.networkingPrivate.setProperties(guid, properties, function() {
+  chrome.networking.onc.setProperties(guid, properties, function() {
     self._setResult("setProperties", null);
   });
 };
@@ -94,7 +102,10 @@ Networking.prototype.findNetworks = function(type) {
   if (!this._setupFunctionCall("findNetworks"))
     return;
   var self = this;
-  chrome.networkingPrivate.getVisibleNetworks(type, function(networks) {
+  chrome.networking.onc.getNetworks({
+    visible: true,
+    networkType: type
+  }, function(networks) {
     self._setResult("findNetworks", networks);
   });
 };
@@ -103,7 +114,7 @@ Networking.prototype.getNetworks = function(properties) {
   if (!this._setupFunctionCall("getNetworks"))
     return;
   var self = this;
-  chrome.networkingPrivate.getNetworks(properties, function(networkList) {
+  chrome.networking.onc.getNetworks(properties, function(networkList) {
     self._setResult("getNetworks", networkList);
   });
 };
@@ -112,7 +123,7 @@ Networking.prototype.getNetworkInfo = function(networkId) {
   if (!this._setupFunctionCall("getNetworkInfo"))
     return;
   var self = this;
-  chrome.networkingPrivate.getProperties(networkId, function(networkInfo) {
+  chrome.networking.onc.getProperties(networkId, function(networkInfo) {
     self._setResult("getNetworkInfo", networkInfo);
   });
 };
@@ -121,7 +132,7 @@ Networking.prototype.connectToNetwork = function(networkId) {
   if (!this._setupFunctionCall("connectToNetwork"))
     return;
   var self = this;
-  chrome.networkingPrivate.startConnect(networkId, function() {
+  chrome.networking.onc.startConnect(networkId, function() {
     self._setResult("connectToNetwork", null);
   });
 };
@@ -130,7 +141,7 @@ Networking.prototype.disconnectFromNetwork = function(networkId) {
   if (!this._setupFunctionCall("disconnectFromNetwork"))
     return;
   var self = this;
-  chrome.networkingPrivate.startDisconnect(networkId, function() {
+  chrome.networking.onc.startDisconnect(networkId, function() {
     self._setResult("disconnectFromNetwork", null);
   });
 };
@@ -139,7 +150,7 @@ Networking.prototype.setWifiTDLSEnabledState = function(ip_or_mac, enable) {
   if (!this._setupFunctionCall("setWifiTDLSEnabledState"))
     return;
   var self = this;
-  chrome.networkingPrivate.setWifiTDLSEnabledState(
+  chrome.networking.onc.setWifiTDLSEnabledState(
       ip_or_mac, enable, function(result) {
     self._setResult("setWifiTDLSEnabledState", result);
   });
@@ -149,7 +160,7 @@ Networking.prototype.getWifiTDLSStatus = function(ip_or_mac) {
   if (!this._setupFunctionCall("getWifiTDLSStatus"))
     return;
   var self = this;
-  chrome.networkingPrivate.getWifiTDLSStatus(ip_or_mac,
+  chrome.networking.onc.getWifiTDLSStatus(ip_or_mac,
       function(TDLSStatus) {
     self._setResult("getWifiTDLSStatus", TDLSStatus);
   });
@@ -159,7 +170,7 @@ Networking.prototype.getCaptivePortalStatus = function(networkPath) {
   if (!this._setupFunctionCall("getCaptivePortalStatus"))
     return;
   var self = this;
-  chrome.networkingPrivate.getCaptivePortalStatus(networkPath,
+  chrome.networking.onc.getCaptivePortalStatus(networkPath,
       function(CaptivePortalStatus) {
     self._setResult("getCaptivePortalStatus", CaptivePortalStatus);
   });
@@ -170,7 +181,7 @@ Networking.prototype.onNetworkListChanged = function() {
   if (!this._setupFunctionCall("onNetworkListChanged"))
     return;
   var self = this;
-  chrome.networkingPrivate.onNetworkListChanged.addListener(
+  chrome.networking.onc.onNetworkListChanged.addListener(
       function(changes) {
     self._setResult("onNetworkListChanged", changes);
   });
@@ -180,7 +191,7 @@ Networking.prototype.onPortalDetectionCompleted = function() {
   if (!this._setupFunctionCall("onPortalDetectionCompleted"))
     return;
   var self = this;
-  chrome.networkingPrivate.onPortalDetectionCompleted.addListener(
+  chrome.networking.onc.onPortalDetectionCompleted.addListener(
       function(networkPath, state) {
     self._setResult("onPortalDetectionCompleted", networkPath);
   });

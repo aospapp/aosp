@@ -1,3 +1,7 @@
+2015-06-26  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* readelf.c (get_mips_dynamic_type): Handle DT_MIPS_RLD_MAP_REL.
+
 2014-12-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* readelf.c (arm_attr_tag_ABI_VFP_args): Add "compatible".

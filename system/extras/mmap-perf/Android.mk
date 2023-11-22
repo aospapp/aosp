@@ -23,7 +23,7 @@ LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)
 LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
 LOCAL_CLANG := true
-LOCAL_CFLAGS += -g -Wall -Werror -std=c++11 -Wno-missing-field-initializers -Wno-sign-compare -O3
+LOCAL_CFLAGS += -g -Wall -Werror -Wno-missing-field-initializers -Wno-sign-compare -O3
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_CXX_STL := libc++_static
 LOCAL_STATIC_LIBRARIES := libc

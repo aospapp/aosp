@@ -46,6 +46,7 @@
                 <action android:name="com.android.cts.net.hostside.app2.action.GET_RESTRICT_BACKGROUND_STATUS" />
                 <action android:name="com.android.cts.net.hostside.app2.action.CHECK_NETWORK" />
                 <action android:name="com.android.cts.net.hostside.app2.action.SEND_NOTIFICATION" />
+                <action android:name="com.android.cts.net.hostside.app2.action.SHOW_TOAST" />
                 </intent-filter>
         </receiver>
     </application>

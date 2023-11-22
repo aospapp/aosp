@@ -62,7 +62,7 @@ struct options {
 class AddIntsService : public BBinder
 {
   public:
-    AddIntsService(int cpu = unbound);
+    explicit AddIntsService(int cpu = unbound);
     virtual ~AddIntsService() {}
 
     enum command {

@@ -17,6 +17,7 @@
 #ifndef __ANDROID_DLEXT_H__
 #define __ANDROID_DLEXT_H__
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/cdefs.h>
@@ -128,7 +129,8 @@ typedef struct {
   struct android_namespace_t* library_namespace;
 } android_dlextinfo;
 
-extern void* android_dlopen_ext(const char* filename, int flag, const android_dlextinfo* extinfo);
+void* android_dlopen_ext(const char* filename, int flag, const android_dlextinfo* extinfo)
+  __INTRODUCED_IN(21);
 
 __END_DECLS
 

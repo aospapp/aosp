@@ -101,6 +101,9 @@ class Platform(object):
   def tracing_controller(self):
     return self._tracing_controller
 
+  def Initialize(self):
+    pass
+
   def CanMonitorThermalThrottling(self):
     """Platforms may be able to detect thermal throttling.
 
@@ -109,6 +112,9 @@ class Platform(object):
     API to detect if this has happened and interpret results accordingly.
     """
     return self._platform_backend.CanMonitorThermalThrottling()
+
+  def GetSystemLog(self):
+    return self._platform_backend.GetSystemLog()
 
   def IsThermallyThrottled(self):
     """Returns True if the device is currently thermally throttled."""
@@ -149,14 +155,27 @@ class Platform(object):
     Examples: On Mac, 13 for Mavericks, 14 for Yosemite."""
     return self._platform_backend.GetOSVersionNumber()
 
+  def GetSystemTotalPhysicalMemory(self):
+    """Returns an integer with the total physical memory in bytes."""
+    return self._platform_backend.GetSystemTotalPhysicalMemory()
+
   def CanFlushIndividualFilesFromSystemCache(self):
     """Returns true if the disk cache can be flushed for specific files."""
     return self._platform_backend.CanFlushIndividualFilesFromSystemCache()
 
+  def SupportFlushEntireSystemCache(self):
+    """Returns true if entire system cache can be flushed.
+
+    Also checks that platform has required privilegues to flush system caches.
+    """
+    return self._platform_backend.SupportFlushEntireSystemCache()
+
   def FlushEntireSystemCache(self):
     """Flushes the OS's file cache completely.
 
-    This function may require root or administrator access."""
+    This function may require root or administrator access. Clients should
+    call SupportFlushEntireSystemCache to check first.
+    """
     return self._platform_backend.FlushEntireSystemCache()
 
   def FlushSystemCacheForDirectory(self, directory):
@@ -398,3 +417,9 @@ class Platform(object):
   def local_servers(self):
     """Returns the currently running local servers."""
     return self._local_server_controller.local_servers
+
+  def HasBattOrConnected(self):
+    return  self._platform_backend.HasBattOrConnected()
+
+  def WaitForTemperature(self, temp):
+    return self._platform_backend.WaitForTemperature(temp)

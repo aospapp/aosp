@@ -22,21 +22,16 @@
 #include "rsAnimation.h"
 #include "rs.h"
 
-#if !defined(__RS_PDK__)
-    #include <androidfw/Asset.h>
-#endif
-
 #include <inttypes.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 FileA3D::FileA3D(Context *rsc) : ObjectBase(rsc) {
     mAlloc = nullptr;
     mData = nullptr;
     mWriteStream = nullptr;
     mReadStream = nullptr;
-    mAsset = nullptr;
 
     mMajorVersion = 0;
     mMinorVersion = 1;
@@ -58,11 +53,6 @@ FileA3D::~FileA3D() {
     }
     if (mAlloc) {
         free(mAlloc);
-    }
-    if (mAsset) {
-#if !defined(__RS_PDK__)
-        delete mAsset;
-#endif
     }
 }
 
@@ -87,17 +77,12 @@ void FileA3D::parseHeader(IStream *headerStream) {
             entry->mLength = headerStream->loadU32();
         }
         entry->mRsObj = nullptr;
-        mIndex.push(entry);
+        mIndex.push_back(entry);
     }
 }
 
 bool FileA3D::load(Asset *asset) {
-#if !defined(__RS_PDK__)
-    mAsset = asset;
-    return load(asset->getBuffer(false), asset->getLength());
-#else
     return false;
-#endif
 }
 
 bool FileA3D::load(const void *data, size_t length) {
@@ -179,6 +164,7 @@ bool FileA3D::load(FILE *f) {
 
     len = fread(headerData, 1, headerSize, f);
     if (len != headerSize) {
+        free(headerData);
         return false;
     }
 
@@ -385,9 +371,11 @@ void FileA3D::appendToFile(Context *con, ObjectBase *obj) {
     indexEntry->mType = obj->getClassId();
     indexEntry->mOffset = mWriteStream->getPos();
     indexEntry->mRsObj = obj;
-    mWriteIndex.push(indexEntry);
+    mWriteIndex.push_back(indexEntry);
     obj->serialize(con, mWriteStream);
     indexEntry->mLength = mWriteStream->getPos() - indexEntry->mOffset;
     mWriteStream->align(4);
 }
 
+} // namespace renderscript
+} // namespace android

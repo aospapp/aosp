@@ -29,9 +29,10 @@ public final class DexTask extends Task {
     private final File jar;
     private final Action action;
     private final File localDex;
+    private final boolean multidex;
 
     public DexTask(AndroidSdk androidSdk, Classpath classpath, boolean benchmark, String name,
-            File jar, Action action, File localDex) {
+            File jar, Action action, File localDex, boolean multidex) {
         super("dex " + name);
         this.androidSdk = androidSdk;
         this.classpath = classpath;
@@ -39,6 +40,7 @@ public final class DexTask extends Task {
         this.jar = jar;
         this.action = action;
         this.localDex = localDex;
+        this.multidex = multidex;
     }
 
     @Override protected Result execute() throws Exception {
@@ -47,7 +49,7 @@ public final class DexTask extends Task {
         if (benchmark && action != null) {
             cp.addAll(classpath);
         }
-        androidSdk.dex(localDex, cp);
+        androidSdk.dex(multidex, localDex, cp);
         return Result.SUCCESS;
     }
 }

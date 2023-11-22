@@ -19,6 +19,9 @@
 
 #include "trunks/tpm_state.h"
 
+#include <map>
+
+#include <base/callback.h>
 #include <base/macros.h>
 
 #include "trunks/tpm_generated.h"
@@ -32,7 +35,7 @@ class TrunksFactory;
 class TRUNKS_EXPORT TpmStateImpl : public TpmState {
  public:
   explicit TpmStateImpl(const TrunksFactory& factory);
-  ~TpmStateImpl() override;
+  ~TpmStateImpl() override = default;
 
   // TpmState methods.
   TPM_RC Initialize() override;
@@ -52,23 +55,30 @@ class TRUNKS_EXPORT TpmStateImpl : public TpmState {
   uint32_t GetLockoutThreshold() override;
   uint32_t GetLockoutInterval() override;
   uint32_t GetLockoutRecovery() override;
+  uint32_t GetMaxNVSize() override;
+  bool GetTpmProperty(TPM_PT property, uint32_t* value) override;
+  bool GetAlgorithmProperties(TPM_ALG_ID algorithm,
+                              TPMA_ALGORITHM* properties) override;
 
  private:
-  // This helped method calls Tpm2_GetCapability with TPM_CAP_TPM_PROPERTIES
-  // and |property|. The returned structure is validated, and the value returned
-  // is stored in the out argument |value|. Returns TPM_RC_SUCCESS on success.
-  TPM_RC GetTpmProperty(uint32_t property, uint32_t* value);
+  // This helper method calls TPM2_GetCapability in a loop until all available
+  // capabilities of the given type are sent to the |callback|. The callback
+  // returns the next property value to query if there is more data available or
+  // 0 if the capability data was empty.
+  using CapabilityCallback = base::Callback<uint32_t(const TPMU_CAPABILITIES&)>;
+  TPM_RC GetCapability(const CapabilityCallback& callback,
+                       TPM_CAP capability,
+                       uint32_t property,
+                       uint32_t max_properties_per_call);
+  // Queries TPM properties and populates tpm_properties_.
+  TPM_RC CacheTpmProperties();
+  // Queries algorithm properties and populates algorithm_properties_.
+  TPM_RC CacheAlgorithmProperties();
 
   const TrunksFactory& factory_;
-  bool initialized_;
-  TPMA_PERMANENT permanent_flags_;
-  TPMA_STARTUP_CLEAR startup_clear_flags_;
-  uint32_t lockout_counter_;
-  uint32_t lockout_threshold_;
-  uint32_t lockout_interval_;
-  uint32_t lockout_recovery_;
-  TPMA_ALGORITHM rsa_flags_;
-  TPMA_ALGORITHM ecc_flags_;
+  bool initialized_{false};
+  std::map<TPM_PT, uint32_t> tpm_properties_;
+  std::map<TPM_ALG_ID, TPMA_ALGORITHM> algorithm_properties_;
 
   DISALLOW_COPY_AND_ASSIGN(TpmStateImpl);
 };

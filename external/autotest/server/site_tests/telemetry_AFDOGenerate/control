@@ -8,25 +8,22 @@ AUTHOR = "llozano@chromium.org c-compiler-chrome@google.com"
 NAME = "telemetry_AFDOGenerate"
 PURPOSE = "Produce profile (AFDO format) of normal browsing for optimization."
 ATTRIBUTES = "suite:AFDO_record"
-SUITE = "AFDO_record"
 TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "telemetry"
 TEST_TYPE = "server"
-# The test uses gsutil to do upload, which is not supported in container.
-REQUIRE_SSP = False
 
 DOC = """
 Run a pre-defined set of benchmarks on the DUT and create a sampled profile
 of the chrome execution. The profile is generated in AFDO format.
-See go/afdo for more information about AFDO.
-For now, this test is only designed to run on lumpy and parrot boards.
-It will fail if run on other boards.
+See go/chromeos-toolchain and search for AFDO for more information about AFDO.
+For now, this test can only run on devices that support LBR PMU events and
+that have at lest 2GB of space in /tmp (autotest limitation).
 
 Example invocation:
 /usr/bin/test_that --debug --board=lumpy <DUT IP>
   --args="ignore_failures=True local=True gs_test_location=True"
-  telemetry_PGOGenerate
+  telemetry_AFDOGenerate
 """
 
 args_dict = utils.args_to_dict(args)

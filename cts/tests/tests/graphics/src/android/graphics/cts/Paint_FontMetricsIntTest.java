@@ -16,17 +16,25 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertNotNull;
+
 import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Paint_FontMetricsIntTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Paint_FontMetricsIntTest {
+    @Test
     public void testConstructor() {
-        // new the FontMetricsInt instance
         new Paint.FontMetricsInt();
     }
 
+    @Test
     public void testToString() {
         // set the expected value
         int top = 1;

@@ -16,10 +16,13 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.graphics.drawable.DrawableWrapper;
 import android.util.AttributeSet;
@@ -38,6 +41,7 @@ import java.lang.reflect.Field;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ListViewCompat extends ListView {
 
     public static final int INVALID_POSITION = -1;
@@ -226,7 +230,7 @@ public class ListViewCompat extends ListView {
 
         try {
             // AbsListView.mIsChildViewEnabled controls the selector's state so we need to
-            // modify it's value
+            // modify its value
             final boolean isChildViewEnabled = mIsChildViewEnabled.getBoolean(this);
             if (sel.isEnabled() != isChildViewEnabled) {
                 mIsChildViewEnabled.set(this, !isChildViewEnabled);

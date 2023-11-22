@@ -16,12 +16,13 @@
 -->
 
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
+    xmlns:tools="http://schemas.android.com/tools" android:shape="rectangle">
 
     <corners
         android:topLeftRadius="@dimen/suw_card_corner_radius"
         android:topRightRadius="@dimen/suw_card_corner_radius" />
 
-    <solid android:color="@color/background_material_light" />
+    <!-- Ignore PrivateResource: This should be fixed -->
+    <solid android:color="@color/background_material_light" tools:ignore="PrivateResource" />
 
 </shape>

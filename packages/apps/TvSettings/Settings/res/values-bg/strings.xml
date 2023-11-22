@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Сканирането винаги е налице"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Разрешете на услугата на Google за местоположението и другите приложения да сканират за мрежи дори когато Wi-Fi е изключен"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Позволете на услугата на Google за местоположение и другите приложения да сканират за мрежи дори когато функцията за Wi-Fi е изключена"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Скрийнсейвър"</string>
     <string name="device_display" msgid="101455384386372747">"Дисплей"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Батерия: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Устройството се раздвоява…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Установена е връзка"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Промяна на името"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Въведете ново име за този аксесоар"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Търсят се аксесоари…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Преди да сдвоите устройствата си с Bluetooth, се уверете, че са в съответния режим"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Бе намерено устройство и то ще се сдвои автоматично след <xliff:g id="COUNTDOWN">%1$s</xliff:g> секунди"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Клавиатура"</string>
     <string name="system_home" msgid="2858989138172296012">"Начален екран"</string>
     <string name="system_search" msgid="2837264654143247611">"Търсене"</string>
+    <string name="system_google" msgid="8560404305602209622">"Googlе"</string>
     <string name="system_security" msgid="8230080273993484407">"Сигурност и ограничения"</string>
     <string name="system_speech" msgid="8128688499687306982">"Говор"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Входове"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Опции на програмиста"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Няма"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Употреба и диагностика"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Уроци"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Системна актуализация"</string>
     <string name="about_preference" msgid="4131396784531360434">"Информация"</string>
     <string name="device_name" msgid="2670488158531273028">"Име на устройството"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Опции за показване"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Конфигуриране"</string>
     <string name="captions_language" msgid="2835554055388996343">"Език"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"По подразбиране"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Размер на текста"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Стил на надписите"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Персонализирани опции"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Преход на скалата на анимация"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Скала за продължителност за Animator"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Строгият режим е активиран"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Показване на употребата на процесора"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Профилиране на ГП"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Активиране на трасиранията"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Без съхраняване на дейностите"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"От най-добро към най-лошо: синьо, зелено, светлочервено, червено"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Примигв. на целите повърхности на прозорците при актуал. им"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Примигване на екр. при дълги операции в гл. нишка"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Наслагването на екрана показва текущата употреба на процесора"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Измерване на времето за изобр. в adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Включване"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Изключване"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Принудително спиране"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ако принудително спрете приложение, то може да не функционира правилно."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Деинсталиране"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Искате ли да деинсталирате това приложение?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Деинсталиране на актуализациите"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Всички актуализации на това системно приложение на Android ще бъдат деинсталирани."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Деактивиране"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Изчистване на кеша"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Известия"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Разрешения"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Приложението не е налице"</string>
     <string name="settings_ok" msgid="3321630456511355983">"ОК"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Отказ"</string>
     <string name="settings_on" msgid="6892236264945435013">"Вкл."</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Да се изтрие ли цялата ви лична информация и всички изтеглени приложения? Не можете да отмените това действие!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Изтриване на всичко"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Изберете име за устройството си <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Името ще ви помогне да разпознаете устройството си <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, когато осъществявате достъп до него от други устройства, например от телефона, таблета или компютъра си."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Дайте име на устройството си <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, за да го идентифицирате по-лесно, когато предавате на него или се свързвате с него от други устройства."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Дневна стая"</item>
-    <item msgid="3722089849939477581">"Стая за домашно кино"</item>
-    <item msgid="6108590585438763574">"Хол"</item>
-    <item msgid="2581035245390468625">"Трапезария"</item>
-    <item msgid="3127487827308695324">"Допълнителна стая"</item>
-    <item msgid="6172018430592195063">"Спалня"</item>
-    <item msgid="8120010459866284578">"Кухня"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Телевизор в дневната"</item>
+    <item msgid="8122798759665439456">"Телевизор в хола"</item>
+    <item msgid="1389347662738182100">"Телевизор в спалнята"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Въвеждане на персонализирано име…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Въвеждане на персонализирано име…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Преименуване на това устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Понастоящем името на това устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g> е „<xliff:g id="DEVICENAME">%2$s</xliff:g>“"</string>
     <string name="change_setting" msgid="2047402388786162246">"Промяна"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Рестартиране в безопасен режим"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Искате ли да рестартирате в безопасен режим?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Това действие ще деактивира всички приложения на трети страни, които сте инсталирали. Те ще бъдат възстановени, когато рестартирате отново."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Сигналът за програмна грешка се заснема"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Налични виртуални клавиатури"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Управление на клавиатурите"</string>
 </resources>

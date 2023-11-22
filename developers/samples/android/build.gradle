@@ -23,7 +23,6 @@ List<String> samples = [
 "ui/actionbarcompat/ActionBarCompat-Basic",
 "ui/actionbarcompat/ActionBarCompat-Styled",
 "ui/actionbarcompat/ActionBarCompat-ListPopupMenu",
-"ui/actionbarcompat/ActionBarCompat-ShareActionProvider",
 "notification/BasicNotifications",
 "notification/CustomNotifications",
 "ui/actionbar/DoneBar",
@@ -117,6 +116,20 @@ List<String> samples = [
 "wearable/wear/WearSpeakerSample",
 "wearable/wear/WearDrawers",
 "ui/window/DragAndDropAcrossApps",
+"wearable/wear/WearNotifications",
+"system/AppShortcuts",
+"input/keyboard/CommitContentSampleApp",
+"input/keyboard/CommitContentSampleIME",
+"content/ShareActionProvider",
+"wearable/wear/WearVerifyRemoteApp",
+"wearable/wear/WearHighBandwidthNetworking",
+"content/documentsUi/ContentProviderPaging",
+"notification/NotificationChannels",
+"media/PictureInPicture",
+"input/autofill/AutofillFramework",
+"views/EmojiCompat",
+"ui/fonts/DownloadableFonts",
+"wearable/wear/WearComplicationProvidersTestSuite",
 ]
 
 List<String> taskNames = [

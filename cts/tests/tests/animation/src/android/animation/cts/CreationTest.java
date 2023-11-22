@@ -16,38 +16,48 @@
 
 package android.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.animation.AnimatorInflater;
 import android.animation.ObjectAnimator;
-import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
-import android.os.Debug;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 
-import android.animation.cts.R;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class CreationTest {
+    private static final float EPSILON = 0.0001f;
 
     private ButtonViewActivity mActivity;
 
-    public CreationTest() {
-        super(ButtonViewActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ButtonViewActivity> mActivityRule =
+            new ActivityTestRule<>(ButtonViewActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        setActivityInitialTouchMode(false);
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorCreation() {
         ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
         verifyValues(animator, 0, 1);
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorResourceCreation() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator);
@@ -55,6 +65,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorPvh1() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator_pvh1);
@@ -62,6 +73,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorPvh2() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator_pvh2);
@@ -69,6 +81,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorPvhKf1() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator_pvh_kf1);
@@ -76,6 +89,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorPvhKf2() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator_pvh_kf2);
@@ -83,6 +97,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorPvhKf3() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator_pvh_kf3);
@@ -90,6 +105,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testValueAnimatorPvhKf4() {
         ValueAnimator animator = (ValueAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.value_animator_pvh_kf4);
@@ -97,6 +113,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testObjectAnimator() {
         ObjectAnimator animator = (ObjectAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.object_animator);
@@ -105,6 +122,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testObjectAnimatorPvh1() {
         ObjectAnimator animator = (ObjectAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.object_animator_pvh1);
@@ -114,6 +132,7 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
     }
 
     @UiThreadTest
+    @Test
     public void testObjectAnimatorPvhKf1() {
         ObjectAnimator animator = (ObjectAnimator)
                 AnimatorInflater.loadAnimator(mActivity, R.animator.object_animator_pvh_kf1);
@@ -138,32 +157,26 @@ public class CreationTest extends ActivityInstrumentationTestCase2<ButtonViewAct
         }
     }
 
-    private void assertRoughlyEqual(float checkValue, float correctValue) {
-        // use epsilon for float compares
-        final float epsilon = .0001f;
-        assertTrue(checkValue > correctValue - epsilon && checkValue < correctValue + epsilon);
-    }
-
     private void verifyValues(ValueAnimator animator, float... values) {
         animator.setCurrentFraction(0);
-        assertRoughlyEqual((Float) animator.getAnimatedValue(), values[0]);
+        assertEquals((Float) animator.getAnimatedValue(), values[0], EPSILON);
         for (int i = 1; i < values.length - 1; ++i) {
             animator.setCurrentFraction((float) i / (values.length - 1));
-            assertRoughlyEqual((Float) animator.getAnimatedValue(), values[i]);
+            assertEquals((Float) animator.getAnimatedValue(), values[i], EPSILON);
         }
         animator.setCurrentFraction(1);
-        assertRoughlyEqual((Float) animator.getAnimatedValue(), values[values.length - 1]);
+        assertEquals((Float) animator.getAnimatedValue(), values[values.length - 1], EPSILON);
     }
 
     private void verifyValues(ObjectAnimator animator, String propertyName, float... values) {
         animator.setCurrentFraction(0);
-        assertRoughlyEqual((Float) animator.getAnimatedValue(propertyName), values[0]);
+        assertEquals((Float) animator.getAnimatedValue(propertyName), values[0], EPSILON);
         for (int i = 1; i < values.length - 1; ++i) {
             animator.setCurrentFraction((float) i / (values.length - 1));
-            assertRoughlyEqual((Float) animator.getAnimatedValue(propertyName), values[i]);
+            assertEquals((Float) animator.getAnimatedValue(propertyName), values[i], EPSILON);
         }
         animator.setCurrentFraction(1);
-        assertRoughlyEqual((Float) animator.getAnimatedValue(propertyName),
-                values[values.length - 1]);
+        assertEquals((Float) animator.getAnimatedValue(propertyName), values[values.length - 1],
+                EPSILON);
     }
 }

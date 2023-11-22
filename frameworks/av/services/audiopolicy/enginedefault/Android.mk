@@ -35,13 +35,12 @@ LOCAL_MODULE := libaudiopolicyenginedefault
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_STATIC_LIBRARIES := \
-    libmedia_helper \
     libaudiopolicycomponents \
-    libxml2
 
 LOCAL_SHARED_LIBRARIES += \
+    liblog \
     libcutils \
     libutils \
-    libaudioutils \
+    libmedia_helper
 
 include $(BUILD_SHARED_LIBRARY)

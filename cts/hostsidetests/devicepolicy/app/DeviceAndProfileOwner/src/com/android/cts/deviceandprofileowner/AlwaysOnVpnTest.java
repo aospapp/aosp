@@ -17,6 +17,7 @@
 package com.android.cts.deviceandprofileowner;
 
 import android.os.Bundle;
+import android.os.UserManager;
 
 import com.android.cts.deviceandprofileowner.vpn.VpnTestHelper;
 
@@ -63,6 +64,18 @@ public class AlwaysOnVpnTest extends BaseDeviceAdminTest {
         VpnTestHelper.checkPing(TEST_ADDRESS);
     }
 
+    public void testDisallowConfigVpn() throws Exception {
+        mDevicePolicyManager.addUserRestriction(
+                ADMIN_RECEIVER_COMPONENT, UserManager.DISALLOW_CONFIG_VPN);
+        try {
+            testAlwaysOnVpn();
+        } finally {
+            // clear the user restriction
+            mDevicePolicyManager.clearUserRestriction(ADMIN_RECEIVER_COMPONENT,
+                    UserManager.DISALLOW_CONFIG_VPN);
+        }
+    }
+
     public void testAllowedApps() throws Exception {
         final Bundle restrictions = new Bundle();
         restrictions.putStringArray(RESTRICTION_ALLOWED, new String[] {mPackageName});
@@ -97,4 +110,3 @@ public class AlwaysOnVpnTest extends BaseDeviceAdminTest {
         assertNull(mDevicePolicyManager.getAlwaysOnVpnPackage(ADMIN_RECEIVER_COMPONENT));
     }
 }
-

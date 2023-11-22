@@ -2,15 +2,40 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import datetime
+import re
 
 from autotest_lib.client.cros import constants
+from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
+
+LABEL_REGEX = r',.*:'
+_LABEL_UPDATE_DURATION_METRIC = metrics.SecondsDistribution(
+        'chromeos/autotest/provision/label_update_durations')
 
 # job_labels should be a string like "name:setting,name:setting"
+# However setting might also contain ',' therefore we need more advanced logic
+# than split.
 # non-provisionable labels are currently skipped, so they're safe to pass in.
 job_labels = locals().get('job_labels') or ','.join(args)
-labels_list = [label.strip() for label in job_labels.split(',') if label]
+labels_list = []
+while job_labels:
+    # Split based off of a comma followed by colon regex.
+    split = re.split(LABEL_REGEX, job_labels)
+    # First value found is a proper key value pair.
+    labels_list.append(split[0].strip())
+    # Remove this key value pair.
+    job_labels = job_labels[len(split[0]):]
+    # If a comma remains at the start of the remaining labels, remove it.
+    # This should happen on every loop except the last one.
+    if job_labels.startswith(','):
+        job_labels = job_labels.lstrip(',')
 
 
 def provision_machine(machine):
@@ -18,15 +43,34 @@ def provision_machine(machine):
     Run the appropriate provisioning tests to make the machine's labels match
     those given in job_labels.
     """
-    host = hosts.create_host(machine, try_lab_servo=True)
-
-    fixed, provisionable = provision.filter_labels(labels_list)
-
     job.record('START', None, 'provision')
+    host = hosts.create_target_machine(machine, try_lab_servo=True)
     try:
         job.sysinfo.add_logdir(constants.AUTOUPDATE_PRESERVE_LOG)
         provision.run_special_task_actions(job, host, labels_list,
                                            provision.Provision)
+        host.verify()
+
+        # Let's update the labels on the host and track how long it takes.
+        # Don't fail while updating the labels, provision is flaky enough by
+        # itself.
+        label_update_success = True
+        start_time = datetime.datetime.now()
+        try:
+            host.update_labels()
+        except Exception as e:
+            logging.exception('Exception while updating labels: %s', e)
+            label_update_success = False
+
+        end_time = datetime.datetime.now()
+        duration = (end_time - start_time).total_seconds()
+
+        fields = {'success': label_update_success,
+                  # TODO(kevcheng): Need a better way of classifying testbeds.
+                  'board': (host.get_board()
+                            if not utils.machine_is_testbed(machine)
+                            else host.get_platform())}
+        _LABEL_UPDATE_DURATION_METRIC.add(duration, fields=fields)
     except Exception as e:
         logging.exception(e)
         job.record('END FAIL', None, 'provision')
@@ -57,8 +101,9 @@ def provision_machine(machine):
     else:
         # If we finish successfully, nothing in autotest ever looks at the
         # status.log, so it's purely for human consumption and tracability.
+        hostname = utils.get_hostname_from_machine(machine)
         job.record('END GOOD', None, 'provision',
-                   '%s provisioned successfully' % machine)
+                   '%s provisioned successfully' % hostname)
 
 
 job.parallel_simple(provision_machine, machines)

@@ -1,9 +1,10 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import os
 
 from telemetry.internal.actions import page_action
+from telemetry.internal.actions import utils
+from telemetry.util import js_template
 
 
 class ScrollBounceAction(page_action.PageAction):
@@ -41,10 +42,8 @@ class ScrollBounceAction(page_action.PageAction):
       self._element_function = '(document.scrollingElement || document.body)'
 
   def WillRunAction(self, tab):
-    for js_file in ['gesture_common.js', 'scroll_bounce.js']:
-      with open(os.path.join(os.path.dirname(__file__), js_file)) as f:
-        js = f.read()
-        tab.ExecuteJavaScript(js)
+    utils.InjectJavaScript(tab, 'gesture_common.js')
+    utils.InjectJavaScript(tab, 'scroll_bounce.js')
 
     # Fail if browser doesn't support synthetic scroll bounce gestures.
     if not tab.EvaluateJavaScript(
@@ -63,36 +62,37 @@ class ScrollBounceAction(page_action.PageAction):
       raise page_action.PageActionNotSupported(
           'ScrollBounce page action does not support mouse input')
 
-    done_callback = 'function() { window.__scrollBounceActionDone = true; }'
     tab.ExecuteJavaScript("""
         window.__scrollBounceActionDone = false;
-        window.__scrollBounceAction = new __ScrollBounceAction(%s);"""
-        % (done_callback))
+        window.__scrollBounceAction = new __ScrollBounceAction(
+            function() { window.__scrollBounceActionDone = true; });""")
 
   def RunAction(self, tab):
-    code = '''
+    code = js_template.Render('''
         function(element, info) {
           if (!element) {
             throw Error('Cannot find element: ' + info);
           }
           window.__scrollBounceAction.start({
             element: element,
-            left_start_ratio: %s,
-            top_start_ratio: %s,
-            direction: '%s',
-            distance: %s,
-            overscroll: %s,
-            repeat_count: %s,
-            speed: %s
+            left_start_ratio: {{ left_start_ratio }},
+            top_start_ratio: {{ top_start_ratio }},
+            direction: {{ direction }},
+            distance: {{ distance }},
+            overscroll: {{ overscroll }},
+            repeat_count: {{ repeat_count }},
+            speed: {{ speed }}
           });
-        }''' % (self._left_start_ratio,
-                self._top_start_ratio,
-                self._direction,
-                self._distance,
-                self._overscroll,
-                self._repeat_count,
-                self._speed)
+        }''',
+        left_start_ratio=self._left_start_ratio,
+        top_start_ratio=self._top_start_ratio,
+        direction=self._direction,
+        distance=self._distance,
+        overscroll=self._overscroll,
+        repeat_count=self._repeat_count,
+        speed=self._speed)
     page_action.EvaluateCallbackWithElement(
         tab, code, selector=self._selector, text=self._text,
         element_function=self._element_function)
-    tab.WaitForJavaScriptExpression('window.__scrollBounceActionDone', 60)
+    tab.WaitForJavaScriptCondition(
+        'window.__scrollBounceActionDone', timeout=60)

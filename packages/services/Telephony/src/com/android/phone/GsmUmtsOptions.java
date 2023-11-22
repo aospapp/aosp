@@ -16,12 +16,11 @@
 
 package com.android.phone;
 
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.PersistableBundle;
 import android.preference.Preference;
-import android.preference.PreferenceActivity;
+import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
@@ -43,20 +42,20 @@ public class GsmUmtsOptions {
     private static final String BUTTON_OPERATOR_SELECTION_EXPAND_KEY = "button_carrier_sel_key";
     private static final String BUTTON_CARRIER_SETTINGS_KEY = "carrier_settings_key";
     public static final String EXTRA_SUB_ID = "sub_id";
-    private PreferenceActivity mPrefActivity;
+    private PreferenceFragment mPrefFragment;
     private PreferenceScreen mPrefScreen;
     private int mSubId;
 
-    public GsmUmtsOptions(PreferenceActivity prefActivity, PreferenceScreen prefScreen,
+    public GsmUmtsOptions(PreferenceFragment prefFragment, PreferenceScreen prefScreen,
             final int subId) {
-        mPrefActivity = prefActivity;
+        mPrefFragment = prefFragment;
         mPrefScreen = prefScreen;
         mSubId = subId;
         create();
     }
 
     protected void create() {
-        mPrefActivity.addPreferencesFromResource(R.xml.gsm_umts_options);
+        mPrefFragment.addPreferencesFromResource(R.xml.gsm_umts_options);
         mButtonAPNExpand = (PreferenceScreen) mPrefScreen.findPreference(BUTTON_APN_EXPAND_KEY);
         boolean removedAPNExpand = false;
         mButtonOperatorSelectionExpand =
@@ -67,7 +66,7 @@ public class GsmUmtsOptions {
             mButtonOperatorSelectionExpand.setEnabled(false);
         } else {
             log("Not a CDMA phone");
-            Resources res = mPrefActivity.getResources();
+            Resources res = mPrefFragment.getResources();
             PersistableBundle carrierConfig =
                     PhoneGlobals.getInstance().getCarrierConfigForSubId(mSubId);
 
@@ -120,7 +119,7 @@ public class GsmUmtsOptions {
                             // This will setup the Home and Search affordance
                             intent.putExtra(":settings:show_fragment_as_subsetting", true);
                             intent.putExtra(EXTRA_SUB_ID, mSubId);
-                            mPrefActivity.startActivity(intent);
+                            mPrefFragment.startActivity(intent);
                             return true;
                         }
             });
@@ -134,7 +133,7 @@ public class GsmUmtsOptions {
                             intent.setComponent(new ComponentName("com.android.phone",
                                     "com.android.phone.NetworkSetting"));
                             intent.putExtra(EXTRA_SUB_ID, mSubId);
-                            mPrefActivity.startActivity(intent);
+                            mPrefFragment.startActivity(intent);
                             return true;
                         }
             });

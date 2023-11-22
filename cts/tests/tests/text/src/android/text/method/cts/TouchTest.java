@@ -16,10 +16,17 @@
 
 package android.text.method.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Layout;
 import android.text.SpannableString;
 import android.text.TextPaint;
@@ -29,8 +36,14 @@ import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.widget.TextView;
 
-public class TouchTest extends ActivityInstrumentationTestCase2<CtsActivity> {
-    private Activity mActivity;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TouchTest {
     private static final String LONG_TEXT = "Scrolls the specified widget to the specified " +
             "coordinates, except constrains the X scrolling position to the horizontal regions " +
             "of the text that will be visible after scrolling to the specified Y position." +
@@ -40,80 +53,64 @@ public class TouchTest extends ActivityInstrumentationTestCase2<CtsActivity> {
             "of the text that will be visible after scrolling to the specified Y position." +
             "This is the description of the test.";
 
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
     private boolean mReturnFromTouchEvent;
+    private TextView mTextView;
 
-    public TouchTest() {
-        super("android.text.cts", CtsActivity.class);
+    @Rule
+    public ActivityTestRule<CtsActivity> mActivityRule = new ActivityTestRule<>(CtsActivity.class);
+
+    @UiThreadTest
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        mTextView = new TextViewNoIme(mActivity);
+        mTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testScrollTo() throws Throwable {
-        final TextView tv = new TextViewNoIme(mActivity);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.setContentView(tv);
-                tv.setSingleLine(true);
-                tv.setLines(2);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setContentView(mTextView);
+            mTextView.setSingleLine(true);
+            mTextView.setLines(2);
         });
-        getInstrumentation().waitForIdleSync();
-        TextPaint paint = tv.getPaint();
-        final Layout layout = tv.getLayout();
+        mInstrumentation.waitForIdleSync();
+        TextPaint paint = mTextView.getPaint();
+        final Layout layout = mTextView.getLayout();
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                tv.setText(LONG_TEXT);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> mTextView.setText(LONG_TEXT));
+        mInstrumentation.waitForIdleSync();
 
         // get the total length of string
         final int width = getTextWidth(LONG_TEXT, paint);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                Touch.scrollTo(tv, layout, width - tv.getWidth() - 1, 0);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        assertEquals(width - tv.getWidth() - 1, tv.getScrollX());
-        assertEquals(0, tv.getScrollY());
+        mActivityRule.runOnUiThread(
+                () -> Touch.scrollTo(mTextView, layout, width - mTextView.getWidth() - 1, 0));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(width - mTextView.getWidth() - 1, mTextView.getScrollX());
+        assertEquals(0, mTextView.getScrollY());
 
         // the X to which scroll is greater than the total length of string.
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                Touch.scrollTo(tv, layout, width + 100, 5);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        assertEquals(width - tv.getWidth(), tv.getScrollX(), 1.0f);
-        assertEquals(5, tv.getScrollY());
+        mActivityRule.runOnUiThread(() -> Touch.scrollTo(mTextView, layout, width + 100, 5));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(width - mTextView.getWidth(), mTextView.getScrollX(), 1.0f);
+        assertEquals(5, mTextView.getScrollY());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                Touch.scrollTo(tv, layout, width - 10, 5);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        assertEquals(width - tv.getWidth(), tv.getScrollX(), 1.0f);
-        assertEquals(5, tv.getScrollY());
+        mActivityRule.runOnUiThread(() -> Touch.scrollTo(mTextView, layout, width - 10, 5));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(width - mTextView.getWidth(), mTextView.getScrollX(), 1.0f);
+        assertEquals(5, mTextView.getScrollY());
     }
 
+    @Test
     public void testOnTouchEvent() throws Throwable {
-        final TextView tv = new TextViewNoIme(mActivity);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-
         // Create a string that is wider than the screen.
         DisplayMetrics metrics = mActivity.getResources().getDisplayMetrics();
         int screenWidth = metrics.widthPixels;
-        TextPaint paint = tv.getPaint();
+        TextPaint paint = mTextView.getPaint();
         String text = LONG_TEXT;
         int textWidth = Math.round(paint.measureText(text));
         while (textWidth < screenWidth) {
@@ -126,14 +123,12 @@ public class TouchTest extends ActivityInstrumentationTestCase2<CtsActivity> {
         assertTrue(dragAmount > 0);
         final String finalText = text;
         final SpannableString spannable = new SpannableString(finalText);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.setContentView(tv);
-                tv.setSingleLine(true);
-                tv.setText(finalText);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setContentView(mTextView);
+            mTextView.setSingleLine(true);
+            mTextView.setText(finalText);
         });
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
 
         long downTime = SystemClock.uptimeMillis();
         long eventTime = SystemClock.uptimeMillis();
@@ -143,49 +138,40 @@ public class TouchTest extends ActivityInstrumentationTestCase2<CtsActivity> {
                 MotionEvent.ACTION_MOVE, 0, 0, 0);
         final MotionEvent event3 = MotionEvent.obtain(downTime, eventTime,
                 MotionEvent.ACTION_UP, 0, 0, 0);
-        assertEquals(0, tv.getScrollX());
-        assertEquals(0, tv.getScrollY());
+        assertEquals(0, mTextView.getScrollX());
+        assertEquals(0, mTextView.getScrollY());
         mReturnFromTouchEvent = false;
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mReturnFromTouchEvent = Touch.onTouchEvent(tv, spannable, event1);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> mReturnFromTouchEvent = Touch.onTouchEvent(mTextView, spannable, event1));
+        mInstrumentation.waitForIdleSync();
         assertTrue(mReturnFromTouchEvent);
         // TextView has not been scrolled.
-        assertEquals(0, tv.getScrollX());
-        assertEquals(0, tv.getScrollY());
-        assertEquals(0, Touch.getInitialScrollX(tv, spannable));
-        assertEquals(0, Touch.getInitialScrollY(tv, spannable));
+        assertEquals(0, mTextView.getScrollX());
+        assertEquals(0, mTextView.getScrollY());
+        assertEquals(0, Touch.getInitialScrollX(mTextView, spannable));
+        assertEquals(0, Touch.getInitialScrollY(mTextView, spannable));
 
         mReturnFromTouchEvent = false;
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mReturnFromTouchEvent = Touch.onTouchEvent(tv, spannable, event2);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> mReturnFromTouchEvent = Touch.onTouchEvent(mTextView, spannable, event2));
+        mInstrumentation.waitForIdleSync();
         assertTrue(mReturnFromTouchEvent);
         // TextView has been scrolled.
-        assertEquals(dragAmount, tv.getScrollX());
-        assertEquals(0, tv.getScrollY());
-        assertEquals(0, Touch.getInitialScrollX(tv, spannable));
-        assertEquals(0, Touch.getInitialScrollY(tv, spannable));
+        assertEquals(dragAmount, mTextView.getScrollX());
+        assertEquals(0, mTextView.getScrollY());
+        assertEquals(0, Touch.getInitialScrollX(mTextView, spannable));
+        assertEquals(0, Touch.getInitialScrollY(mTextView, spannable));
 
         mReturnFromTouchEvent = false;
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mReturnFromTouchEvent = Touch.onTouchEvent(tv, spannable, event3);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> mReturnFromTouchEvent = Touch.onTouchEvent(mTextView, spannable, event3));
+        mInstrumentation.waitForIdleSync();
         assertTrue(mReturnFromTouchEvent);
         // TextView has not been scrolled.
-        assertEquals(dragAmount, tv.getScrollX());
-        assertEquals(0, tv.getScrollY());
-        assertEquals(-1, Touch.getInitialScrollX(tv, spannable));
-        assertEquals(-1, Touch.getInitialScrollY(tv, spannable));
+        assertEquals(dragAmount, mTextView.getScrollX());
+        assertEquals(0, mTextView.getScrollY());
+        assertEquals(-1, Touch.getInitialScrollX(mTextView, spannable));
+        assertEquals(-1, Touch.getInitialScrollY(mTextView, spannable));
     }
 
     private int getTextWidth(String str, TextPaint paint) {

@@ -16,7 +16,6 @@
 package android.media.cts;
 
 import android.content.pm.PackageManager;
-import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.AudioCapabilities;
@@ -36,7 +35,9 @@ import android.media.MediaPlayer;
 import android.os.Build;
 import android.util.Log;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.DynamicConfigDeviceSide;
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -54,12 +55,8 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
     private static final int TIMEOUT_US = 1000000;  // 1 sec
     private static final int IFRAME_INTERVAL = 10;          // 10 seconds between I-frames
 
-    private final MediaCodecList mRegularCodecs =
-            new MediaCodecList(MediaCodecList.REGULAR_CODECS);
     private final MediaCodecList mAllCodecs =
             new MediaCodecList(MediaCodecList.ALL_CODECS);
-    private final MediaCodecInfo[] mRegularInfos =
-            mRegularCodecs.getCodecInfos();
     private final MediaCodecInfo[] mAllInfos =
             mAllCodecs.getCodecInfos();
 
@@ -215,7 +212,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         if (!checkDecoder(MIMETYPE_VIDEO_AVC, AVCProfileHigh, AVCLevel4)) {
             return; // skip
         }
-        if (Build.VERSION.SDK_INT < 18) {
+        if (ApiLevelUtil.isBefore(18)) {
             MediaUtils.skipTest(TAG, "fragmented mp4 not supported");
             return;
         }
@@ -388,7 +385,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
         // check if there is an adaptive decoder for each
         for (String mime : supportedFormats) {
             skipped = false;
-            // implicit assumption that QVGA video is always valid.
+            // implicit assumption that QCIF video is always valid.
             MediaFormat format = MediaFormat.createVideoFormat(mime, 176, 144);
             format.setFeatureEnabled(CodecCapabilities.FEATURE_AdaptivePlayback, true);
             String codec = mAllCodecs.findDecoderForFormat(format);
@@ -498,7 +495,7 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
                 MediaFormat format = null;
                 try {
                     codec = MediaCodec.createByCodecName(info.getName());
-                    // implicit assumption that QVGA video is always valid.
+                    // implicit assumption that QCIF video is always valid.
                     format = createReasonableVideoFormat(caps, mime, isEncoder, 176, 144);
                     format.setInteger(
                             MediaFormat.KEY_COLOR_FORMAT,
@@ -538,11 +535,13 @@ public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {
             int minWidth = vcaps.getSupportedWidths().getLower();
             int minHeight = vcaps.getSupportedHeightsFor(minWidth).getLower();
             int minBitrate = vcaps.getBitrateRange().getLower();
+            int minFrameRate = Math.max(vcaps.getSupportedFrameRatesFor(minWidth, minHeight)
+                    .getLower().intValue(), 1);
             format = MediaFormat.createVideoFormat(mime, minWidth, minHeight);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, caps.colorFormats[0]);
             format.setInteger(MediaFormat.KEY_BIT_RATE, minBitrate);
-            format.setInteger(MediaFormat.KEY_FRAME_RATE, 10);
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, minFrameRate);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
         } else {
             AudioCapabilities acaps = caps.getAudioCapabilities();
             int minSampleRate = acaps.getSupportedSampleRateRanges()[0].getLower();

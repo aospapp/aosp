@@ -293,7 +293,8 @@ public final class Headers {
       // Workaround for applications that set trailing "\r", "\n" or "\r\n" on header values.
       // http://b/26422335, http://b/26889631 Android used to allow anything except '\0'.
       int valueLen = value.length();
-      if (valueLen >= 2 && value.charAt(valueLen - 2) == '\r' && value.charAt(valueLen - 1) == '\n') {
+      if (valueLen >= 2 && value.charAt(valueLen - 2) == '\r'
+          && value.charAt(valueLen - 1) == '\n') {
         value = value.substring(0, value.length() - 2);
       } else if (valueLen > 0
               && (value.charAt(valueLen - 1) == '\n'
@@ -307,8 +308,8 @@ public final class Headers {
         // ANDROID-BEGIN
         // http://b/28867041 - keep things working for apps that rely on Android's (out of spec)
         // UTF-8 header encoding behavior.
-        // if (c <= '\u001f' || c >= '\u007f') {
-        if (c <= '\u001f' || c == '\u007f') {
+        // if ((c <= '\u001f' && c != '\u0009' /* htab */) || c >= '\u007f') {
+        if ((c <= '\u001f' && c != '\u0009' /* htab */) || c == '\u007f') {
         // ANDROID-END
           throw new IllegalArgumentException(String.format(
               "Unexpected char %#04x at %d in header value: %s", (int) c, i, value));

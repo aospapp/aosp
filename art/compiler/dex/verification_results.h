@@ -19,18 +19,20 @@
 
 #include <stdint.h>
 #include <set>
-#include <vector>
 
+#include "base/dchecked_vector.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "class_reference.h"
 #include "method_reference.h"
 #include "safe_map.h"
+#include "utils/atomic_method_ref_map.h"
 
 namespace art {
 
 namespace verifier {
 class MethodVerifier;
+class VerifierDepsTest;
 }  // namespace verifier
 
 class CompilerOptions;
@@ -38,35 +40,49 @@ class VerifiedMethod;
 
 // Used by CompilerCallbacks to track verification information from the Runtime.
 class VerificationResults {
-  public:
-    explicit VerificationResults(const CompilerOptions* compiler_options);
-    ~VerificationResults();
+ public:
+  explicit VerificationResults(const CompilerOptions* compiler_options);
+  ~VerificationResults();
 
-    void ProcessVerifiedMethod(verifier::MethodVerifier* method_verifier)
-        SHARED_REQUIRES(Locks::mutator_lock_)
-        REQUIRES(!verified_methods_lock_);
+  void ProcessVerifiedMethod(verifier::MethodVerifier* method_verifier)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!verified_methods_lock_);
 
-    const VerifiedMethod* GetVerifiedMethod(MethodReference ref)
-        REQUIRES(!verified_methods_lock_);
+  void CreateVerifiedMethodFor(MethodReference ref)
+      REQUIRES(!verified_methods_lock_);
 
-    void AddRejectedClass(ClassReference ref) REQUIRES(!rejected_classes_lock_);
-    bool IsClassRejected(ClassReference ref) REQUIRES(!rejected_classes_lock_);
+  const VerifiedMethod* GetVerifiedMethod(MethodReference ref)
+      REQUIRES(!verified_methods_lock_);
 
-    bool IsCandidateForCompilation(MethodReference& method_ref,
-                                   const uint32_t access_flags);
+  void AddRejectedClass(ClassReference ref) REQUIRES(!rejected_classes_lock_);
+  bool IsClassRejected(ClassReference ref) REQUIRES(!rejected_classes_lock_);
 
-  private:
-    const CompilerOptions* const compiler_options_;
+  bool IsCandidateForCompilation(MethodReference& method_ref, const uint32_t access_flags);
 
-    // Verified methods.
-    typedef SafeMap<MethodReference, const VerifiedMethod*,
-        MethodReferenceComparator> VerifiedMethodMap;
-    ReaderWriterMutex verified_methods_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
-    VerifiedMethodMap verified_methods_ GUARDED_BY(verified_methods_lock_);
+  // Add a dex file to enable using the atomic map.
+  void AddDexFile(const DexFile* dex_file) REQUIRES(!verified_methods_lock_);
 
-    // Rejected classes.
-    ReaderWriterMutex rejected_classes_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
-    std::set<ClassReference> rejected_classes_ GUARDED_BY(rejected_classes_lock_);
+ private:
+  // Verified methods. The method array is fixed to avoid needing a lock to extend it.
+  using AtomicMap = AtomicMethodRefMap<const VerifiedMethod*>;
+  using VerifiedMethodMap = SafeMap<MethodReference,
+                                    const VerifiedMethod*,
+                                    MethodReferenceComparator>;
+
+  VerifiedMethodMap verified_methods_ GUARDED_BY(verified_methods_lock_);
+  const CompilerOptions* const compiler_options_;
+
+  // Dex2oat can add dex files to atomic_verified_methods_ to avoid locking when calling
+  // GetVerifiedMethod.
+  AtomicMap atomic_verified_methods_;
+
+  ReaderWriterMutex verified_methods_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+
+  // Rejected classes.
+  ReaderWriterMutex rejected_classes_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+  std::set<ClassReference> rejected_classes_ GUARDED_BY(rejected_classes_lock_);
+
+  friend class verifier::VerifierDepsTest;
 };
 
 }  // namespace art

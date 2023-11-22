@@ -5,6 +5,8 @@
 #include <GL/gl.h>
 #include <string.h>
 
+#include <memory>
+
 #include "base/logging.h"
 
 #include "glx_stuff.h"
@@ -23,7 +25,7 @@ typedef GLint (* PFNGLXGETSWAPINTERVALMESAPROC) (void);
 #endif
 PFNGLXSWAPINTERVALMESAPROC _glXSwapIntervalMESA = NULL;
 
-scoped_ptr<GLInterface> g_main_gl_interface;
+std::unique_ptr<GLInterface> g_main_gl_interface;
 
 GLInterface* GLInterface::Create() {
   return new GLXInterface;

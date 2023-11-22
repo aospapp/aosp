@@ -16,19 +16,38 @@
 
 package android.view.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Transformation;
-
 import android.view.cts.R;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link AlphaAnimation}.
  */
-public class AlphaAnimationTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AlphaAnimationTest {
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testConstructor() {
         XmlResourceParser parser = mContext.getResources().getAnimation(R.anim.alpha);
         AttributeSet attrs = Xml.asAttributeSet(parser);
@@ -37,16 +56,19 @@ public class AlphaAnimationTest extends AndroidTestCase {
         new AlphaAnimation(0.0f, 1.0f);
     }
 
+    @Test
     public void testWillChangeBounds() {
         AlphaAnimation animation = new AlphaAnimation(mContext, null);
         assertFalse(animation.willChangeBounds());
     }
 
+    @Test
     public void testWillChangeTransformationMatrix() {
         AlphaAnimation animation = new AlphaAnimation(0.0f, 0.5f);
         assertFalse(animation.willChangeTransformationMatrix());
     }
 
+    @Test
     public void testApplyTransformation() {
         MyAlphaAnimation animation = new MyAlphaAnimation(0.0f, 1.0f);
         Transformation transformation = new Transformation();

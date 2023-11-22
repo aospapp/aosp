@@ -498,8 +498,13 @@ public class PackageInfo extends DocInfo implements ContainerInfo {
           clsInfoDiff.add(deltaClsInfo);
         }
       } else {
-        Errors.error(Errors.REMOVED_CLASS, cInfo.position(), "Removed public class "
-            + cInfo.qualifiedName());
+        if (cInfo.isDeprecated()) {
+          Errors.error(Errors.REMOVED_DEPRECATED_CLASS, cInfo.position(),
+              "Removed deprecated public class " + cInfo.qualifiedName());
+        } else {
+          Errors.error(Errors.REMOVED_CLASS, cInfo.position(),
+              "Removed public class " + cInfo.qualifiedName());
+        }
         consistent = false;
       }
     }

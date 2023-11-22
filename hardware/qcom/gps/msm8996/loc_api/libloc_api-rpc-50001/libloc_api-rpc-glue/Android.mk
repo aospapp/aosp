@@ -44,17 +44,16 @@ LOCAL_C_INCLUDES:= \
     $(TARGET_OUT_HEADERS)/libloc-rpc/rpc_inc \
     $(TOP)/hardware/msm7k/librpc
 
-LOCAL_COPY_HEADERS_TO:= libloc_api-rpc-qc/$(RPC_INC)
-LOCAL_COPY_HEADERS:= \
-    $(RPC_INC)/loc_api_rpc_glue.h \
-    $(RPC_INC)/loc_api_fixup.h \
-    $(RPC_INC)/loc_api_sync_call.h \
-    $(RPC_INC)/loc_apicb_appinit.h \
-    $(RPC_INC)/LocApiRpc.h
 
 LOCAL_MODULE:= libloc_api-rpc-qc
 LOCAL_MODULE_OWNER := qcom
 
 LOCAL_MODULE_TAGS := optional
+LOCAL_PROPRIETARY_MODULE := true
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libloc_api-rpc-qc_headers
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH/$(RPC_INC))
+include $(BUILD_HEADER_LIBRARY)

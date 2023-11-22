@@ -59,6 +59,7 @@ public class AllThreadsDebuggee extends SyncDebuggee {
 
     static Object waitForStart = new Object();
 
+    @Override
     public void run() {
         DebuggeeThread thrd = new DebuggeeThread(TESTED_THREAD,
                 logWriter, synchronizer); 
@@ -83,7 +84,7 @@ public class AllThreadsDebuggee extends SyncDebuggee {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -95,6 +96,7 @@ public class AllThreadsDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             logWriter.println(getName() +  ": started...");

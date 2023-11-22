@@ -66,7 +66,7 @@
                             ((UWORD32)x >> 24);
 
 
-#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = 0; nop_i < nop_cnt; nop_i++);}
+#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = (nop_cnt) ; nop_i > 0 ; nop_i--) asm("nop");}
 
 #define POPCNT_U32(x)       __builtin_popcount(x)
 
@@ -149,7 +149,7 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
         r = 1;                                          \
     }                                                   \
 }
-#define GCC_ENABLE 1
+#define GCC_ENABLE 0
 
 #if GCC_ENABLE
 #define _mm256_loadu2_m128i(X,Y) _mm256_insertf128_si256(_mm256_castsi128_si256(_mm_loadu_si128((Y))), _mm_loadu_si128((X)),1);

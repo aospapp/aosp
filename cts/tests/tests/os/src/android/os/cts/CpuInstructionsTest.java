@@ -17,8 +17,9 @@
 
 package android.os.cts;
 
-import android.os.cts.CpuFeatures;
 import android.os.cts.CpuInstructions;
+
+import com.android.compatibility.common.util.CpuFeatures;
 
 import junit.framework.TestCase;
 

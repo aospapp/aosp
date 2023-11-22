@@ -38,6 +38,7 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         removeRestrictBackgroundWhitelist(mUid);
         removeRestrictBackgroundBlacklist(mUid);
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
 
         registerBroadcastReceiver();
     }
@@ -68,7 +69,11 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         }
 
         Log.i(TAG, "testDataAndBatterySaverModes_meteredNetwork() tests");
-        setMeteredNetwork();
+        if (!setMeteredNetwork()) {
+            Log.w(TAG, "testDataAndBatterySaverModes_meteredNetwork() skipped because "
+                    + "device cannot use a metered network");
+            return;
+        }
 
         try {
             setRestrictBackground(true);
@@ -139,7 +144,7 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
             return;
         }
 
-        if (mCm.isActiveNetworkMetered()) {
+        if (!setUnmeteredNetwork()) {
             Log.w(TAG, "testDataAndBatterySaverModes_nonMeteredNetwork() skipped because network"
                     + " is metered");
             return;
@@ -195,5 +200,75 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         assertBackgroundNetworkAccess(true);
         removeRestrictBackgroundBlacklist(mUid);
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+    }
+
+    /**
+     * Tests that powersave whitelists works as expected when doze and battery saver modes
+     * are enabled.
+     */
+    public void testDozeAndBatterySaverMode_powerSaveWhitelists() throws Exception {
+        if (!isSupported()) {
+            return;
+        }
+        if (!isDozeModeEnabled()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Doze Mode");
+            return;
+        }
+
+        setBatterySaverMode(true);
+        setDozeMode(true);
+
+        try {
+            addPowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(true);
+
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+
+            addPowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+
+            removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+        } finally {
+            setBatterySaverMode(false);
+            setDozeMode(false);
+        }
+    }
+
+    /**
+     * Tests that powersave whitelists works as expected when doze and appIdle modes
+     * are enabled.
+     */
+    public void testDozeAndAppIdle_powerSaveWhitelists() throws Exception {
+        if (!isSupported()) {
+            return;
+        }
+        if (!isDozeModeEnabled()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Doze Mode");
+            return;
+        }
+
+        setDozeMode(true);
+        setAppIdle(true);
+
+        try {
+            addPowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(true);
+
+            removePowerSaveModeWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+
+            addPowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+
+            removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+            assertBackgroundNetworkAccess(false);
+        } finally {
+            setAppIdle(false);
+            setDozeMode(false);
+        }
     }
 }

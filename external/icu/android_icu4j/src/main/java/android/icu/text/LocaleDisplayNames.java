@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2016, International Business Machines Corporation and    *
@@ -102,7 +104,7 @@ public abstract class LocaleDisplayNames {
         if (FACTORY_DISPLAYCONTEXT != null) {
             try {
                 result = (LocaleDisplayNames) FACTORY_DISPLAYCONTEXT.invoke(null,
-                        locale, (Object[])contexts);
+                        locale, contexts);
             } catch (InvocationTargetException e) {
                 // fall through
             } catch (IllegalAccessException e) {
@@ -151,6 +153,10 @@ public abstract class LocaleDisplayNames {
     // names for entire locales
     /**
      * Returns the display name of the provided ulocale.
+     * When no display names are available for all or portions
+     * of the original locale ID, those portions may be
+     * used directly (possibly in a more canonical form) as
+     * part of the  returned display name.
      * @param locale the locale whose display name to return
      * @return the display name of the provided locale
      */
@@ -158,6 +164,10 @@ public abstract class LocaleDisplayNames {
 
     /**
      * Returns the display name of the provided locale.
+     * When no display names are available for all or portions
+     * of the original locale ID, those portions may be
+     * used directly (possibly in a more canonical form) as
+     * part of the  returned display name.
      * @param locale the locale whose display name to return
      * @return the display name of the provided locale
      */
@@ -165,6 +175,10 @@ public abstract class LocaleDisplayNames {
 
     /**
      * Returns the display name of the provided locale id.
+     * When no display names are available for all or portions
+     * of the original locale ID, those portions may be
+     * used directly (possibly in a more canonical form) as
+     * part of the  returned display name.
      * @param localeId the id of the locale whose display name to return
      * @return the display name of the provided locale
      */
@@ -237,106 +251,98 @@ public abstract class LocaleDisplayNames {
     public abstract String keyValueDisplayName(String key, String value);
 
 
-    /** 
-     * Return a list of information used to construct a UI list of locale names. 
-     * @param collator how to collate—should normally be Collator.getInstance(getDisplayLocale()) 
-     * @param inSelf if true, compares the nameInSelf, otherwise the nameInDisplayLocale. 
-     * Set depending on which field (displayLocale vs self) is to show up in the UI. 
-     * If both are to show up in the UI, then it should be the one used for the primary sort order. 
-     * @param localeSet a list of locales to present in a UI list. The casing uses the settings in the LocaleDisplayNames instance. 
-     * @return an ordered list of UiListItems. 
+    /**
+     * Return a list of information used to construct a UI list of locale names.
+     * @param collator how to collate—should normally be Collator.getInstance(getDisplayLocale())
+     * @param inSelf if true, compares the nameInSelf, otherwise the nameInDisplayLocale.
+     * Set depending on which field (displayLocale vs self) is to show up in the UI.
+     * If both are to show up in the UI, then it should be the one used for the primary sort order.
+     * @param localeSet a list of locales to present in a UI list. The casing uses the settings in the LocaleDisplayNames instance.
+     * @return an ordered list of UiListItems.
      * @throws IllformedLocaleException if any of the locales in localeSet are malformed.
-     * @hide draft / provisional / internal are hidden on Android
-     */ 
-    public List<UiListItem> getUiList(Set<ULocale> localeSet, boolean inSelf, Comparator<Object> collator) { 
-        return getUiListCompareWholeItems(localeSet, UiListItem.getComparator(collator, inSelf)); 
-    } 
+     */
+    public List<UiListItem> getUiList(Set<ULocale> localeSet, boolean inSelf, Comparator<Object> collator) {
+        return getUiListCompareWholeItems(localeSet, UiListItem.getComparator(collator, inSelf));
+    }
 
-    /** 
-     * Return a list of information used to construct a UI list of locale names, providing more access to control the sorting.  
-     * Normally use getUiList instead. 
-     * @param comparator how to sort the UiListItems in the result. 
-     * @param localeSet a list of locales to present in a UI list. The casing uses the settings in the LocaleDisplayNames instance. 
-     * @return an ordered list of UiListItems. 
+    /**
+     * Return a list of information used to construct a UI list of locale names, providing more access to control the sorting.
+     * Normally use getUiList instead.
+     * @param comparator how to sort the UiListItems in the result.
+     * @param localeSet a list of locales to present in a UI list. The casing uses the settings in the LocaleDisplayNames instance.
+     * @return an ordered list of UiListItems.
      * @throws IllformedLocaleException if any of the locales in localeSet are malformed.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public abstract List<UiListItem> getUiListCompareWholeItems(Set<ULocale> localeSet, Comparator<UiListItem> comparator);
 
-    /** 
-     * Struct-like class used to return information for constructing a UI list, each corresponding to a locale. 
-     * @hide draft / provisional / internal are hidden on Android
+    /**
+     * Struct-like class used to return information for constructing a UI list, each corresponding to a locale.
      */
-    public static class UiListItem { 
-        /** 
-         * Returns the minimized locale for an input locale, such as sr-Cyrl → sr 
-         * @hide draft / provisional / internal are hidden on Android
+    public static class UiListItem {
+        /**
+         * Returns the minimized locale for an input locale, such as sr-Cyrl → sr
          */
-        public final ULocale minimized; 
-        /** 
-         * Returns the modified locale for an input locale, such as sr → sr-Cyrl, where there is also an sr-Latn in the list 
-         * @hide draft / provisional / internal are hidden on Android
+        public final ULocale minimized;
+        /**
+         * Returns the modified locale for an input locale, such as sr → sr-Cyrl, where there is also an sr-Latn in the list
          */
-        public final ULocale modified; 
-        /** 
-         * Returns the name of the modified locale in the display locale, such as "Englisch (VS)" (for 'en-US', where the display locale is 'de'). 
-         * @hide draft / provisional / internal are hidden on Android
+        public final ULocale modified;
+        /**
+         * Returns the name of the modified locale in the display locale, such as "Englisch (VS)" (for 'en-US', where the display locale is 'de').
          */
-        public final String nameInDisplayLocale; 
-        /** 
-         * Returns the name of the modified locale in itself, such as "English (US)" (for 'en-US'). 
-         * @hide draft / provisional / internal are hidden on Android
+        public final String nameInDisplayLocale;
+        /**
+         * Returns the name of the modified locale in itself, such as "English (US)" (for 'en-US').
          */
-        public final String nameInSelf; 
+        public final String nameInSelf;
 
-        /**  
-         * Constructor, normally only called internally. 
-         * @param minimized locale for an input locale 
-         * @param modified modified for an input locale 
-         * @param nameInDisplayLocale name of the modified locale in the display locale 
-         * @param nameInSelf name of the modified locale in itself 
-         * @hide draft / provisional / internal are hidden on Android
+        /**
+         * Constructor, normally only called internally.
+         * @param minimized locale for an input locale
+         * @param modified modified for an input locale
+         * @param nameInDisplayLocale name of the modified locale in the display locale
+         * @param nameInSelf name of the modified locale in itself
          */
-        public UiListItem(ULocale minimized, ULocale modified, String nameInDisplayLocale, String nameInSelf) { 
-            this.minimized = minimized; 
-            this.modified = modified; 
-            this.nameInDisplayLocale = nameInDisplayLocale; 
-            this.nameInSelf = nameInSelf; 
-        } 
+        public UiListItem(ULocale minimized, ULocale modified, String nameInDisplayLocale, String nameInSelf) {
+            this.minimized = minimized;
+            this.modified = modified;
+            this.nameInDisplayLocale = nameInDisplayLocale;
+            this.nameInSelf = nameInSelf;
+        }
 
         /**
          * {@inheritDoc}
-         * 
-         * @hide draft / provisional / internal are hidden on Android
          */
-        @Override 
-        public boolean equals(Object obj) { 
-            UiListItem other = (UiListItem)obj; 
-            return nameInDisplayLocale.equals(other.nameInDisplayLocale) 
-                    && nameInSelf.equals(other.nameInSelf) 
-                    && minimized.equals(other.minimized) 
-                    && modified.equals(other.modified); 
-        } 
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || !(obj instanceof UiListItem)) {
+                return false;
+            }
+            UiListItem other = (UiListItem)obj;
+            return nameInDisplayLocale.equals(other.nameInDisplayLocale)
+                    && nameInSelf.equals(other.nameInSelf)
+                    && minimized.equals(other.minimized)
+                    && modified.equals(other.modified);
+        }
 
         /**
          * {@inheritDoc}
-         * 
-         * @hide draft / provisional / internal are hidden on Android
          */
-        @Override 
-        public int hashCode() { 
-            return modified.hashCode() ^ nameInDisplayLocale.hashCode(); 
-        } 
+        @Override
+        public int hashCode() {
+            return modified.hashCode() ^ nameInDisplayLocale.hashCode();
+        }
 
         /**
          * {@inheritDoc}
-         * 
-         * @hide draft / provisional / internal are hidden on Android
          */
-        @Override 
-        public String toString() { 
-            return "{" + minimized + ", " + modified + ", " + nameInDisplayLocale + ", " + nameInSelf  + "}"; 
-        } 
+        @Override
+        public String toString() {
+            return "{" + minimized + ", " + modified + ", " + nameInDisplayLocale + ", " + nameInSelf  + "}";
+        }
 
         /**
          * Return a comparator that compares the locale names for the display locale or the in-self names,
@@ -344,26 +350,26 @@ public abstract class LocaleDisplayNames {
          * @param inSelf if true, compares the nameInSelf, otherwise the nameInDisplayLocale
          * @param comparator (meant for strings, but because Java Collator doesn't have &lt;String&gt;...)
          * @return UiListItem comparator
-         * @hide draft / provisional / internal are hidden on Android
          */
         public static Comparator<UiListItem> getComparator(Comparator<Object> comparator, boolean inSelf) {
             return new UiListItemComparator(comparator, inSelf);
         }
 
-        private static class UiListItemComparator implements Comparator<UiListItem> { 
-            private final Comparator<Object> collator; 
-            private final boolean useSelf; 
-            UiListItemComparator(Comparator<Object> collator, boolean useSelf) { 
-                this.collator = collator; 
-                this.useSelf = useSelf; 
-            } 
-            public int compare(UiListItem o1, UiListItem o2) { 
-                int result = useSelf ? collator.compare(o1.nameInSelf, o2.nameInSelf) 
-                        : collator.compare(o1.nameInDisplayLocale, o2.nameInDisplayLocale); 
-                return result != 0 ? result : o1.modified.compareTo(o2.modified); // just in case 
-            } 
-        } 
-    } 
+        private static class UiListItemComparator implements Comparator<UiListItem> {
+            private final Comparator<Object> collator;
+            private final boolean useSelf;
+            UiListItemComparator(Comparator<Object> collator, boolean useSelf) {
+                this.collator = collator;
+                this.useSelf = useSelf;
+            }
+            @Override
+            public int compare(UiListItem o1, UiListItem o2) {
+                int result = useSelf ? collator.compare(o1.nameInSelf, o2.nameInSelf)
+                        : collator.compare(o1.nameInDisplayLocale, o2.nameInDisplayLocale);
+                return result != 0 ? result : o1.modified.compareTo(o2.modified); // just in case
+            }
+        }
+    }
     /**
      * Sole constructor.  (For invocation by subclass constructors,
      * typically implicit.)
@@ -507,9 +513,9 @@ public abstract class LocaleDisplayNames {
             return value;
         }
 
-        @Override 
-        public List<UiListItem> getUiListCompareWholeItems(Set<ULocale> localeSet, Comparator<UiListItem> comparator) { 
-            return Collections.emptyList(); 
-        } 
+        @Override
+        public List<UiListItem> getUiListCompareWholeItems(Set<ULocale> localeSet, Comparator<UiListItem> comparator) {
+            return Collections.emptyList();
+        }
     }
 }

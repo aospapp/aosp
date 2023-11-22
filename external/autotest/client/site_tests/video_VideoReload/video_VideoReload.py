@@ -1,12 +1,14 @@
-# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import os
+import shutil
 
-from autotest_lib.client.bin import test, utils
-from autotest_lib.client.common_lib import error
+from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.video import constants
+from autotest_lib.client.cros.video import native_html5_player
 
 WAIT_TIMEOUT_S = 30
 
@@ -14,35 +16,27 @@ class video_VideoReload(test.test):
     """This test verifies reloading video works in Chrome."""
     version = 1
 
-    def run_once(self, html):
+    def run_once(self, video_file):
         """Tests whether Chrome reloads video after reloading the tab.
 
-        @param html: Sample html file to be loaded and reloaded in Chrome.
+        @param video_file: fullpath to video to play.
         """
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
+            shutil.copy2(constants.VIDEO_HTML_FILEPATH, self.bindir)
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab = cr.browser.tabs[0]
-            tab.Navigate(cr.browser.platform.http_server.UrlOf(
-                    os.path.join(self.bindir, html)))
-
-            def is_video_at_start():
-                """Checks if video is at the start position."""
-                return tab.EvaluateJavaScript(
-                        '(typeof videoAtStart != "undefined") && videoAtStart')
-
-            # Expect video being loaded and started for the first time.
-            utils.poll_for_condition(
-                    is_video_at_start,
-                    exception=error.TestError('Video is not started'),
-                    timeout=WAIT_TIMEOUT_S,
-                    sleep_interval=1)
-
-            # Reload the tab after playing video for a while.
-            tab.EvaluateJavaScript('playAndReload()')
-
-            # Expect video being restarted after reloading the tab.
-            utils.poll_for_condition(
-                    is_video_at_start,
-                    exception=error.TestError('Video is not restarted'),
-                    timeout=WAIT_TIMEOUT_S,
-                    sleep_interval=1)
+            html_fullpath = os.path.join(self.bindir, 'video.html')
+            url = cr.browser.platform.http_server.UrlOf(html_fullpath)
+            player = native_html5_player.NativeHtml5Player(
+                 tab,
+                 full_url = url,
+                 video_id = 'video',
+                 video_src_path = video_file,
+                 event_timeout = 30)
+            player.load_video()
+            player.play()
+            player.verify_video_can_play(5)
+            player.reload_page()
+            player.load_video()
+            player.play()
+            player.verify_video_can_play(5)

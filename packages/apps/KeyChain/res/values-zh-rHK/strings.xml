@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"應用程式「%s」已提出憑證要求。選擇憑證即可讓應用程式今後在伺服器上使用這個身分。"</string>
     <string name="requesting_server" msgid="5832565605998634370">"應用程式已識別提出要求的伺服器為「%s」。除非您信任應用程式，否則請勿允許應用程式存取憑證。"</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"您可以從外部儲存裝置中副檔名為 %1$s 或 %2$s 的 PKCS#12 檔案安裝憑證。"</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"安裝"</string>
-    <string name="allow_button" msgid="5340501035618157678">"允許"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"安裝憑證"</string>
+    <string name="allow_button" msgid="3030990695030371561">"選取"</string>
     <string name="deny_button" msgid="3766539809121892584">"拒絕"</string>
 </resources>

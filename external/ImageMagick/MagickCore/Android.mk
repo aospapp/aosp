@@ -118,7 +118,8 @@ LOCAL_SRC_FILES := accelerate.c\
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/.. \
     external/freetype/include
 
-LOCAL_CFLAGS += -DHAVE_CONFIG_H
+LOCAL_CFLAGS += -DHAVE_CONFIG_H -Wno-unused-parameter -Wno-deprecated-register \
+    -Wno-enum-conversion -Wno-for-loop-analysis
 
 LOCAL_STATIC_LIBRARIES += libbz
 LOCAL_SHARED_LIBRARIES += libft2 liblzma libxml2 libicuuc libpng libjpeg

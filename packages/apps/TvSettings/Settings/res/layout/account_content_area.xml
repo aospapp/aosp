@@ -27,15 +27,13 @@
         android:layout_height="match_parent"
         android:layout_alignParentTop="true"
         android:clipToPadding="false"
-        android:clipChildren="false"
-        android:layout_marginStart="@dimen/setup_description_margin_start" />
+        android:clipChildren="false"/>
 
     <FrameLayout
         android:id="@+id/action"
         android:layout_width="@dimen/setup_scroll_list_width"
         android:layout_height="match_parent"
         android:layout_centerVertical="true"
-        android:layout_marginStart="@dimen/setup_action_margin_start"
         android:layout_toEndOf="@id/description" />
 
 </android.support.v17.leanback.widget.NonOverlappingRelativeLayout>

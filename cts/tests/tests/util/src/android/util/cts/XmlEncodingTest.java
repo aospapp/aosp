@@ -16,25 +16,32 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Xml;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.Vector;
-
-import junit.framework.TestCase;
-
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.Vector;
 
 
 /**
  * TestCases for android.util.Xml.Encoding.
  */
 //FIXME: This is a duplicated testcase. Need to improve the coverage tool in future.
-public class XmlEncodingTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class XmlEncodingTest {
 
     private static final String STR_ISO_8859_1 = "ISO-8859-1";
     private static final String STR_US_ASCII = "US-ASCII";
@@ -68,8 +75,8 @@ public class XmlEncodingTest extends TestCase {
     private static final String STR_START_TAG = "start:";
     private static final String STR_CHARACTERS_TAG = "characters:";
 
+    @Test
     public void testValueOf() {
-
         // test US-ASCII
         DefaultContentHandler dc = new DefaultContentHandler();
         try {
@@ -201,7 +208,7 @@ public class XmlEncodingTest extends TestCase {
 
     class DefaultContentHandler implements ContentHandler {
 
-        public Vector<String> mVec = new Vector<String>();
+        public Vector<String> mVec = new Vector<>();
 
         public void characters(char[] ch, int start, int length) throws SAXException {
             mVec.add(STR_CHARACTERS_TAG + new String(ch));

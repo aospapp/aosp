@@ -16,60 +16,80 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.Matrix;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
+import android.graphics.drawable.PaintDrawable;
+import android.net.Uri;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.AttributeSet;
+import android.util.Xml;
+import android.widget.ImageView;
+import android.widget.ImageView.ScaleType;
+import android.widget.cts.util.TestUtils;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import android.content.res.ColorStateList;
-import android.graphics.Color;
-
-import android.graphics.drawable.ColorDrawable;
-import android.test.suitebuilder.annotation.SmallTest;
-import android.widget.cts.util.TestUtils;
-import android.widget.cts.util.ViewTestUtils;
-import org.junit.Assert;
-import org.xmlpull.v1.XmlPullParser;
-
-import android.app.Activity;
-import android.content.Context;
-import android.cts.util.WidgetTestUtils;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.Matrix;
-import android.graphics.PorterDuff;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Icon;
-import android.graphics.drawable.PaintDrawable;
-import android.net.Uri;
-import android.test.ActivityInstrumentationTestCase;
-import android.test.UiThreadTest;
-import android.util.AttributeSet;
-import android.util.StateSet;
-import android.util.Xml;
-import android.widget.ImageView;
-import android.widget.ImageView.ScaleType;
-
-import android.widget.cts.R;
-
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
-
-
 /**
  * Test {@link ImageView}.
  */
-@SmallTest
-public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsActivity> {
-    private ImageView mImageView;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ImageViewTest {
     private Activity mActivity;
+    private ImageView mImageViewRegular;
 
-    public ImageViewTest() {
-        super("android.widget.cts", ImageViewCtsActivity.class);
+    @Rule
+    public ActivityTestRule<ImageViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ImageViewCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mImageViewRegular = (ImageView) mActivity.findViewById(R.id.imageview_regular);
     }
 
     /**
@@ -83,40 +103,18 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
     }
 
     private void createSampleImage(File imagefile, int resid) {
-        InputStream source = null;
-        OutputStream target = null;
-
-        try {
-            source = mActivity.getResources().openRawResource(resid);
-            target = new FileOutputStream(imagefile);
-
+        try (InputStream source = mActivity.getResources().openRawResource(resid);
+             OutputStream target = new FileOutputStream(imagefile)) {
             byte[] buffer = new byte[1024];
             for (int len = source.read(buffer); len > 0; len = source.read(buffer)) {
                 target.write(buffer, 0, len);
             }
         } catch (IOException e) {
             fail(e.getMessage());
-        } finally {
-            try {
-                if (source != null) {
-                    source.close();
-                }
-                if (target != null) {
-                    target.close();
-                }
-            } catch (IOException ignored) {
-                // Ignore the IOException.
-            }
         }
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mImageView = null;
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new ImageView(mActivity);
 
@@ -130,114 +128,122 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         AttributeSet attrs = Xml.asAttributeSet(parser);
         new ImageView(mActivity, attrs);
         new ImageView(mActivity, attrs, 0);
-
-        try {
-            new ImageView(null, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            new ImageView(null, null, 0);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
     }
 
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext1() {
+        new ImageView(null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext2() {
+        new ImageView(null, null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext3() {
+        new ImageView(null, null, -1);
+    }
+
+    @UiThreadTest
+    @Test
     public void testInvalidateDrawable() {
-        ImageView imageView = new ImageView(mActivity);
-        imageView.invalidateDrawable(null);
+        mImageViewRegular.invalidateDrawable(null);
     }
 
+    @UiThreadTest
+    @Test
     public void testSetAdjustViewBounds() {
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setScaleType(ScaleType.FIT_XY);
+        mImageViewRegular.setScaleType(ScaleType.FIT_XY);
 
-        imageView.setAdjustViewBounds(false);
-        assertFalse(imageView.getAdjustViewBounds());
-        assertEquals(ScaleType.FIT_XY, imageView.getScaleType());
+        mImageViewRegular.setAdjustViewBounds(false);
+        assertFalse(mImageViewRegular.getAdjustViewBounds());
+        assertEquals(ScaleType.FIT_XY, mImageViewRegular.getScaleType());
 
-        imageView.setAdjustViewBounds(true);
-        assertTrue(imageView.getAdjustViewBounds());
-        assertEquals(ScaleType.FIT_CENTER, imageView.getScaleType());
+        mImageViewRegular.setAdjustViewBounds(true);
+        assertTrue(mImageViewRegular.getAdjustViewBounds());
+        assertEquals(ScaleType.FIT_CENTER, mImageViewRegular.getScaleType());
     }
 
+    @UiThreadTest
+    @Test
     public void testSetMaxWidth() {
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setMaxWidth(120);
-        imageView.setMaxWidth(-1);
+        mImageViewRegular.setMaxWidth(120);
+        mImageViewRegular.setMaxWidth(-1);
     }
 
+    @UiThreadTest
+    @Test
     public void testSetMaxHeight() {
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setMaxHeight(120);
-        imageView.setMaxHeight(-1);
+        mImageViewRegular.setMaxHeight(120);
+        mImageViewRegular.setMaxHeight(-1);
     }
 
+    @UiThreadTest
+    @Test
     public void testGetDrawable() {
-        final ImageView imageView = new ImageView(mActivity);
         final PaintDrawable drawable1 = new PaintDrawable();
         final PaintDrawable drawable2 = new PaintDrawable();
 
-        assertNull(imageView.getDrawable());
+        assertNull(mImageViewRegular.getDrawable());
 
-        imageView.setImageDrawable(drawable1);
-        assertEquals(drawable1, imageView.getDrawable());
-        assertNotSame(drawable2, imageView.getDrawable());
+        mImageViewRegular.setImageDrawable(drawable1);
+        assertEquals(drawable1, mImageViewRegular.getDrawable());
+        assertNotSame(drawable2, mImageViewRegular.getDrawable());
     }
 
     @UiThreadTest
+    @Test
     public void testSetImageIcon() {
-        mImageView = findImageViewById(R.id.imageview);
-        mImageView.setImageIcon(null);
-        assertNull(mImageView.getDrawable());
+        mImageViewRegular.setImageIcon(null);
+        assertNull(mImageViewRegular.getDrawable());
 
         Icon icon = Icon.createWithResource(mActivity, R.drawable.testimage);
-        mImageView.setImageIcon(icon);
-        assertTrue(mImageView.isLayoutRequested());
-        assertNotNull(mImageView.getDrawable());
+        mImageViewRegular.setImageIcon(icon);
+        assertTrue(mImageViewRegular.isLayoutRequested());
+        assertNotNull(mImageViewRegular.getDrawable());
         Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
         BitmapDrawable testimageBitmap = (BitmapDrawable) drawable;
-        Drawable imageViewDrawable = mImageView.getDrawable();
+        Drawable imageViewDrawable = mImageViewRegular.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
         WidgetTestUtils.assertEquals(testimageBitmap.getBitmap(), imageViewBitmap.getBitmap());
     }
 
     @UiThreadTest
+    @Test
     public void testSetImageResource() {
-        mImageView = findImageViewById(R.id.imageview);
-        mImageView.setImageResource(-1);
-        assertNull(mImageView.getDrawable());
+        mImageViewRegular.setImageResource(-1);
+        assertNull(mImageViewRegular.getDrawable());
 
-        mImageView.setImageResource(R.drawable.testimage);
-        assertTrue(mImageView.isLayoutRequested());
-        assertNotNull(mImageView.getDrawable());
+        mImageViewRegular.setImageResource(R.drawable.testimage);
+        assertTrue(mImageViewRegular.isLayoutRequested());
+        assertNotNull(mImageViewRegular.getDrawable());
         Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
         BitmapDrawable testimageBitmap = (BitmapDrawable) drawable;
-        Drawable imageViewDrawable = mImageView.getDrawable();
+        Drawable imageViewDrawable = mImageViewRegular.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
         WidgetTestUtils.assertEquals(testimageBitmap.getBitmap(), imageViewBitmap.getBitmap());
     }
 
     @UiThreadTest
+    @Test
     public void testSetImageURI() {
-        mImageView = findImageViewById(R.id.imageview);
-        mImageView.setImageURI(null);
-        assertNull(mImageView.getDrawable());
+        mImageViewRegular.setImageURI(null);
+        assertNull(mImageViewRegular.getDrawable());
 
-        File dbDir = getInstrumentation().getTargetContext().getDir("tests",
-                Context.MODE_PRIVATE);
+        File dbDir = mActivity.getDir("tests", Context.MODE_PRIVATE);
         File imagefile = new File(dbDir, "tempimage.jpg");
         if (imagefile.exists()) {
             imagefile.delete();
         }
         createSampleImage(imagefile, R.raw.testimage);
         final String path = imagefile.getPath();
-        mImageView.setImageURI(Uri.parse(path));
-        assertTrue(mImageView.isLayoutRequested());
-        assertNotNull(mImageView.getDrawable());
+        mImageViewRegular.setImageURI(Uri.parse(path));
+        assertTrue(mImageViewRegular.isLayoutRequested());
+        assertNotNull(mImageViewRegular.getDrawable());
 
-        Drawable imageViewDrawable = mImageView.getDrawable();
+        Drawable imageViewDrawable = mImageViewRegular.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
         Bitmap.Config viewConfig = imageViewBitmap.getBitmap().getConfig();
         Bitmap testimageBitmap = WidgetTestUtils.getUnscaledAndDitheredBitmap(
@@ -247,179 +253,178 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
     }
 
     @UiThreadTest
+    @Test
     public void testSetImageDrawable() {
-        mImageView = findImageViewById(R.id.imageview);
-
-        mImageView.setImageDrawable(null);
-        assertNull(mImageView.getDrawable());
+        mImageViewRegular.setImageDrawable(null);
+        assertNull(mImageViewRegular.getDrawable());
 
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
-        mImageView.setImageDrawable(drawable);
-        assertTrue(mImageView.isLayoutRequested());
-        assertNotNull(mImageView.getDrawable());
+        mImageViewRegular.setImageDrawable(drawable);
+        assertTrue(mImageViewRegular.isLayoutRequested());
+        assertNotNull(mImageViewRegular.getDrawable());
         BitmapDrawable testimageBitmap = (BitmapDrawable) drawable;
-        Drawable imageViewDrawable = mImageView.getDrawable();
+        Drawable imageViewDrawable = mImageViewRegular.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
         WidgetTestUtils.assertEquals(testimageBitmap.getBitmap(), imageViewBitmap.getBitmap());
     }
 
     @UiThreadTest
+    @Test
     public void testSetImageBitmap() {
-        mImageView = findImageViewById(R.id.imageview);
-
-        mImageView.setImageBitmap(null);
+        mImageViewRegular.setImageBitmap(null);
         // A BitmapDrawable is always created for the ImageView.
-        assertNotNull(mImageView.getDrawable());
+        assertNotNull(mImageViewRegular.getDrawable());
 
         final Bitmap bitmap =
             BitmapFactory.decodeResource(mActivity.getResources(), R.drawable.testimage);
-        mImageView.setImageBitmap(bitmap);
-        assertTrue(mImageView.isLayoutRequested());
-        assertNotNull(mImageView.getDrawable());
-        Drawable imageViewDrawable = mImageView.getDrawable();
+        mImageViewRegular.setImageBitmap(bitmap);
+        assertTrue(mImageViewRegular.isLayoutRequested());
+        assertNotNull(mImageViewRegular.getDrawable());
+        Drawable imageViewDrawable = mImageViewRegular.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
         WidgetTestUtils.assertEquals(bitmap, imageViewBitmap.getBitmap());
     }
 
+    @UiThreadTest
+    @Test
     public void testSetImageState() {
-        mImageView = new ImageView(mActivity);
         int[] state = new int[8];
-        mImageView.setImageState(state, false);
-        assertSame(state, mImageView.onCreateDrawableState(0));
+        mImageViewRegular.setImageState(state, false);
+        assertSame(state, mImageViewRegular.onCreateDrawableState(0));
     }
 
+    @UiThreadTest
+    @Test
     public void testSetSelected() {
-        mImageView = new ImageView(mActivity);
-        assertFalse(mImageView.isSelected());
+        assertFalse(mImageViewRegular.isSelected());
 
-        mImageView.setSelected(true);
-        assertTrue(mImageView.isSelected());
+        mImageViewRegular.setSelected(true);
+        assertTrue(mImageViewRegular.isSelected());
 
-        mImageView.setSelected(false);
-        assertFalse(mImageView.isSelected());
+        mImageViewRegular.setSelected(false);
+        assertFalse(mImageViewRegular.isSelected());
     }
 
+    @UiThreadTest
+    @Test
     public void testSetImageLevel() {
         PaintDrawable drawable = new PaintDrawable();
         drawable.setLevel(0);
 
-        ImageView imageView = new ImageView(mActivity);
-        imageView.setImageDrawable(drawable);
-        imageView.setImageLevel(1);
+        mImageViewRegular.setImageDrawable(drawable);
+        mImageViewRegular.setImageLevel(1);
         assertEquals(1, drawable.getLevel());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessScaleType() {
-        final ImageView imageView = new ImageView(mActivity);
+        assertNotNull(mImageViewRegular.getScaleType());
 
-        try {
-            imageView.setScaleType(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
-        assertNotNull(imageView.getScaleType());
+        mImageViewRegular.setScaleType(ImageView.ScaleType.CENTER);
+        assertEquals(ImageView.ScaleType.CENTER, mImageViewRegular.getScaleType());
 
-        imageView.setScaleType(ImageView.ScaleType.CENTER);
-        assertEquals(ImageView.ScaleType.CENTER, imageView.getScaleType());
+        mImageViewRegular.setScaleType(ImageView.ScaleType.MATRIX);
+        assertEquals(ImageView.ScaleType.MATRIX, mImageViewRegular.getScaleType());
 
-        imageView.setScaleType(ImageView.ScaleType.MATRIX);
-        assertEquals(ImageView.ScaleType.MATRIX, imageView.getScaleType());
+        mImageViewRegular.setScaleType(ImageView.ScaleType.FIT_START);
+        assertEquals(ImageView.ScaleType.FIT_START, mImageViewRegular.getScaleType());
 
-        imageView.setScaleType(ImageView.ScaleType.FIT_START);
-        assertEquals(ImageView.ScaleType.FIT_START, imageView.getScaleType());
+        mImageViewRegular.setScaleType(ImageView.ScaleType.FIT_END);
+        assertEquals(ImageView.ScaleType.FIT_END, mImageViewRegular.getScaleType());
 
-        imageView.setScaleType(ImageView.ScaleType.FIT_END);
-        assertEquals(ImageView.ScaleType.FIT_END, imageView.getScaleType());
+        mImageViewRegular.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        assertEquals(ImageView.ScaleType.CENTER_CROP, mImageViewRegular.getScaleType());
 
-        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        assertEquals(ImageView.ScaleType.CENTER_CROP, imageView.getScaleType());
-
-        imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        assertEquals(ImageView.ScaleType.CENTER_INSIDE, imageView.getScaleType());
+        mImageViewRegular.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        assertEquals(ImageView.ScaleType.CENTER_INSIDE, mImageViewRegular.getScaleType());
     }
 
-    public void testAccessImageMatrix() {
-        final ImageView imageView = new ImageView(mActivity);
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testSetNullScaleType() {
+        mImageViewRegular.setScaleType(null);
+    }
 
-        imageView.setImageMatrix(null);
-        assertNotNull(imageView.getImageMatrix());
+    @UiThreadTest
+    @Test
+    public void testAccessImageMatrix() {
+        mImageViewRegular.setImageMatrix(null);
+        assertNotNull(mImageViewRegular.getImageMatrix());
 
         final Matrix matrix = new Matrix();
-        imageView.setImageMatrix(matrix);
-        assertEquals(matrix, imageView.getImageMatrix());
+        mImageViewRegular.setImageMatrix(matrix);
+        assertEquals(matrix, mImageViewRegular.getImageMatrix());
     }
 
     @UiThreadTest
+    @Test
     public void testAccessBaseline() {
-        mImageView = findImageViewById(R.id.imageview);
-
-        mImageView.setImageDrawable(null);
-        assertNull(mImageView.getDrawable());
+        mImageViewRegular.setImageDrawable(null);
+        assertNull(mImageViewRegular.getDrawable());
 
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
-        mImageView.setImageDrawable(drawable);
+        mImageViewRegular.setImageDrawable(drawable);
 
-        assertEquals(-1, mImageView.getBaseline());
+        assertEquals(-1, mImageViewRegular.getBaseline());
 
-        mImageView.setBaseline(50);
-        assertEquals(50, mImageView.getBaseline());
+        mImageViewRegular.setBaseline(50);
+        assertEquals(50, mImageViewRegular.getBaseline());
 
-        mImageView.setBaselineAlignBottom(true);
-        assertTrue(mImageView.getBaselineAlignBottom());
-        assertEquals(mImageView.getMeasuredHeight(), mImageView.getBaseline());
+        mImageViewRegular.setBaselineAlignBottom(true);
+        assertTrue(mImageViewRegular.getBaselineAlignBottom());
+        assertEquals(mImageViewRegular.getMeasuredHeight(), mImageViewRegular.getBaseline());
 
-        mImageView.setBaselineAlignBottom(false);
-        assertFalse(mImageView.getBaselineAlignBottom());
-        assertEquals(50, mImageView.getBaseline());
+        mImageViewRegular.setBaselineAlignBottom(false);
+        assertFalse(mImageViewRegular.getBaselineAlignBottom());
+        assertEquals(50, mImageViewRegular.getBaseline());
     }
 
     @UiThreadTest
+    @Test
     public void testSetColorFilter1() {
-        mImageView = findImageViewById(R.id.imageview);
-
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
-        mImageView.setImageDrawable(drawable);
+        mImageViewRegular.setImageDrawable(drawable);
 
-        mImageView.setColorFilter(null);
+        mImageViewRegular.setColorFilter(null);
         assertNull(drawable.getColorFilter());
 
-        mImageView.setColorFilter(0, PorterDuff.Mode.CLEAR);
+        mImageViewRegular.setColorFilter(0, PorterDuff.Mode.CLEAR);
         assertNotNull(drawable.getColorFilter());
-        assertNotNull(mImageView.getColorFilter());
+        assertNotNull(mImageViewRegular.getColorFilter());
     }
 
     @UiThreadTest
+    @Test
     public void testClearColorFilter() {
-        mImageView = findImageViewById(R.id.imageview);
-
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
-        mImageView.setImageDrawable(drawable);
+        mImageViewRegular.setImageDrawable(drawable);
 
         ColorFilter cf = new ColorFilter();
-        mImageView.setColorFilter(cf);
+        mImageViewRegular.setColorFilter(cf);
 
-        mImageView.clearColorFilter();
+        mImageViewRegular.clearColorFilter();
         assertNull(drawable.getColorFilter());
-        assertNull(mImageView.getColorFilter());
+        assertNull(mImageViewRegular.getColorFilter());
     }
 
     @UiThreadTest
+    @Test
     public void testSetColorFilter2() {
-        mImageView = findImageViewById(R.id.imageview);
-
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
-        mImageView.setImageDrawable(drawable);
+        mImageViewRegular.setImageDrawable(drawable);
 
-        mImageView.setColorFilter(null);
+        mImageViewRegular.setColorFilter(null);
         assertNull(drawable.getColorFilter());
-        assertNull(mImageView.getColorFilter());
+        assertNull(mImageViewRegular.getColorFilter());
 
         ColorFilter cf = new ColorFilter();
-        mImageView.setColorFilter(cf);
+        mImageViewRegular.setColorFilter(cf);
         assertSame(cf, drawable.getColorFilter());
-        assertSame(cf, mImageView.getColorFilter());
+        assertSame(cf, mImageViewRegular.getColorFilter());
     }
 
+    @Test
     public void testDrawableStateChanged() {
         MockImageView imageView = spy(new MockImageView(mActivity));
         Drawable selectorDrawable = mActivity.getDrawable(R.drawable.statelistdrawable);
@@ -433,28 +438,35 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         // Test that our image view has indeed called its own drawableStateChanged()
         verify(imageView, times(1)).drawableStateChanged();
         // And verify that image view's state matches that of our drawable
-        Assert.assertArrayEquals(imageView.getDrawableState(), selectorDrawable.getState());
+        assertArrayEquals(imageView.getDrawableState(), selectorDrawable.getState());
     }
 
+    @Test
     public void testOnCreateDrawableState() {
         MockImageView mockImageView = new MockImageView(mActivity);
 
-        assertEquals(MockImageView.getEnabledStateSet(), mockImageView.onCreateDrawableState(0));
+        assertArrayEquals(MockImageView.getEnabledStateSet(),
+                mockImageView.onCreateDrawableState(0));
 
         int[] expected = new int[]{1, 2, 3};
         mockImageView.setImageState(expected, false);
-        assertSame(expected, mockImageView.onCreateDrawableState(1));
+        assertArrayEquals(expected, mockImageView.onCreateDrawableState(1));
 
         mockImageView.setImageState(expected, true);
-        try {
-            mockImageView.onCreateDrawableState(-1);
-            fail("should throw IndexOutOfBoundsException");
-        } catch (IndexOutOfBoundsException e) {
-        }
     }
 
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testOnCreateDrawableStateInvalid() {
+        MockImageView mockImageView = (MockImageView) findImageViewById(R.id.imageview_custom);
+        mockImageView.setImageState(new int[] {1, 2, 3}, true);
+        mockImageView.onCreateDrawableState(-1);
+    }
+
+    @UiThreadTest
+    @Test
     public void testOnDraw() {
-        MockImageView mockImageView = new MockImageView(mActivity);
+        MockImageView mockImageView = (MockImageView) findImageViewById(R.id.imageview_custom);
+
         Drawable drawable = spy(mActivity.getDrawable(R.drawable.icon_red));
         mockImageView.setImageDrawable(drawable);
         mockImageView.onDraw(new Canvas());
@@ -462,13 +474,15 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         verify(drawable, atLeastOnce()).draw(any(Canvas.class));
     }
 
+    @UiThreadTest
+    @Test
     public void testOnMeasure() {
-        mImageView = findImageViewById(R.id.imageview);
-        mImageView.measure(200, 150);
-        assertTrue(mImageView.getMeasuredWidth() <= 200);
-        assertTrue(mImageView.getMeasuredHeight() <= 150);
+        mImageViewRegular.measure(200, 150);
+        assertTrue(mImageViewRegular.getMeasuredWidth() <= 200);
+        assertTrue(mImageViewRegular.getMeasuredHeight() <= 150);
     }
 
+    @Test
     public void testSetFrame() {
         MockImageView mockImageView = spy(new MockImageView(mActivity));
         verify(mockImageView, never()).onSizeChanged(anyInt(), anyInt(), anyInt(), anyInt());
@@ -486,123 +500,130 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         verify(mockImageView, times(1)).onSizeChanged(anyInt(), anyInt(), anyInt(), anyInt());
     }
 
+    @UiThreadTest
+    @Test
     public void testVerifyDrawable() {
-        MockImageView mockImageView = new MockImageView(mActivity);
+        MockImageView mockImageView = (MockImageView) findImageViewById(R.id.imageview_custom);
+
         Drawable drawable = new ColorDrawable(0xFFFF0000);
         mockImageView.setImageDrawable(drawable);
         Drawable backgroundDrawable = new ColorDrawable(0xFF0000FF);
         mockImageView.setBackgroundDrawable(backgroundDrawable);
 
-        assertFalse(mockImageView.verifyDrawable(null));
         assertFalse(mockImageView.verifyDrawable(new ColorDrawable(0xFF00FF00)));
         assertTrue(mockImageView.verifyDrawable(drawable));
         assertTrue(mockImageView.verifyDrawable(backgroundDrawable));
     }
 
     @UiThreadTest
+    @Test
     public void testImageTintBasics() {
-        mImageView = findImageViewById(R.id.image_tint);
+        ImageView imageViewTinted = (ImageView) mActivity.findViewById(R.id.imageview_tint);
 
         assertEquals("Image tint inflated correctly",
-                Color.WHITE, mImageView.getImageTintList().getDefaultColor());
+                Color.WHITE, imageViewTinted.getImageTintList().getDefaultColor());
         assertEquals("Image tint mode inflated correctly",
-                PorterDuff.Mode.SRC_OVER, mImageView.getImageTintMode());
+                PorterDuff.Mode.SRC_OVER, imageViewTinted.getImageTintMode());
 
-        mImageView.setImageTintMode(PorterDuff.Mode.SRC_IN);
-        assertEquals(PorterDuff.Mode.SRC_IN, mImageView.getImageTintMode());
+        imageViewTinted.setImageTintMode(PorterDuff.Mode.SRC_IN);
+        assertEquals(PorterDuff.Mode.SRC_IN, imageViewTinted.getImageTintMode());
     }
 
+    @UiThreadTest
+    @Test
     public void testImageTintDrawableUpdates() {
         Drawable drawable = spy(mActivity.getDrawable(R.drawable.icon_red));
 
-        ImageView view = new ImageView(mActivity);
-        view.setImageDrawable(drawable);
+        mImageViewRegular.setImageDrawable(drawable);
         // No image tint applied by default
         verify(drawable, never()).setTintList(any(ColorStateList.class));
 
-        view.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        mImageViewRegular.setImageTintList(ColorStateList.valueOf(Color.WHITE));
         // Image tint applied when setImageTintList() called after setImageDrawable()
         verify(drawable, times(1)).setTintList(any(ColorStateList.class));
 
-        view.setImageDrawable(null);
-        view.setImageDrawable(drawable);
+        mImageViewRegular.setImageDrawable(null);
+        mImageViewRegular.setImageDrawable(drawable);
         // Image tint applied when setImageTintList() called before setImageDrawable()
         verify(drawable, times(2)).setTintList(any(ColorStateList.class));
     }
 
     @UiThreadTest
+    @Test
     public void testImageTintVisuals() {
-        mImageView = findImageViewById(R.id.image_tint_with_source);
-        TestUtils.assertAllPixelsOfColor("All pixels should be white", mImageView,
+        ImageView imageViewTinted = (ImageView) mActivity.findViewById(
+                R.id.imageview_tint_with_source);
+
+        TestUtils.assertAllPixelsOfColor("All pixels should be white", imageViewTinted,
                 0xFFFFFFFF, 1, false);
 
         // Use translucent white tint. Together with SRC_OVER mode (defined in XML) the end
         // result should be a fully opaque image view with solid fill color in between red
         // and white.
-        mImageView.setImageTintList(ColorStateList.valueOf(0x80FFFFFF));
-        TestUtils.assertAllPixelsOfColor("All pixels should be light red", mImageView,
+        imageViewTinted.setImageTintList(ColorStateList.valueOf(0x80FFFFFF));
+        TestUtils.assertAllPixelsOfColor("All pixels should be light red", imageViewTinted,
                 0xFFFF8080, 1, false);
 
         // Switch to SRC_IN mode. This should completely ignore the original drawable set on
         // the image view and use the last set tint color (50% alpha white).
-        mImageView.setImageTintMode(PorterDuff.Mode.SRC_IN);
-        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha white", mImageView,
+        imageViewTinted.setImageTintMode(PorterDuff.Mode.SRC_IN);
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha white", imageViewTinted,
                 0x80FFFFFF, 1, false);
 
         // Switch to DST mode. This should completely ignore the last set tint color and use the
         // the original drawable set on the image view.
-        mImageView.setImageTintMode(PorterDuff.Mode.DST);
-        TestUtils.assertAllPixelsOfColor("All pixels should be red", mImageView,
+        imageViewTinted.setImageTintMode(PorterDuff.Mode.DST);
+        TestUtils.assertAllPixelsOfColor("All pixels should be red", imageViewTinted,
                 0xFFFF0000, 1, false);
     }
 
     @UiThreadTest
+    @Test
     public void testAlpha() {
-        mImageView = findImageViewById(R.id.imageview);
-        mImageView.setImageResource(R.drawable.blue_fill);
+        mImageViewRegular.setImageResource(R.drawable.blue_fill);
 
-        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageViewRegular,
                 0xFF0000FF, 1, false);
 
-        mImageView.setAlpha(128);
-        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha blue", mImageView,
+        mImageViewRegular.setAlpha(128);
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha blue", mImageViewRegular,
                 0x800000FF, 1, false);
 
-        mImageView.setAlpha(0);
-        TestUtils.assertAllPixelsOfColor("All pixels should be transparent", mImageView,
+        mImageViewRegular.setAlpha(0);
+        TestUtils.assertAllPixelsOfColor("All pixels should be transparent", mImageViewRegular,
                 0x00000000, 1, false);
 
-        mImageView.setAlpha(255);
-        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+        mImageViewRegular.setAlpha(255);
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageViewRegular,
                 0xFF0000FF, 1, false);
     }
 
     @UiThreadTest
+    @Test
     public void testImageAlpha() {
-        mImageView = findImageViewById(R.id.imageview);
-        mImageView.setImageResource(R.drawable.blue_fill);
+        mImageViewRegular.setImageResource(R.drawable.blue_fill);
 
-        assertEquals(255, mImageView.getImageAlpha());
-        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+        assertEquals(255, mImageViewRegular.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageViewRegular,
                 0xFF0000FF, 1, false);
 
-        mImageView.setImageAlpha(128);
-        assertEquals(128, mImageView.getImageAlpha());
-        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha blue", mImageView,
+        mImageViewRegular.setImageAlpha(128);
+        assertEquals(128, mImageViewRegular.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha blue", mImageViewRegular,
                 0x800000FF, 1, false);
 
-        mImageView.setImageAlpha(0);
-        assertEquals(0, mImageView.getImageAlpha());
-        TestUtils.assertAllPixelsOfColor("All pixels should be transparent", mImageView,
+        mImageViewRegular.setImageAlpha(0);
+        assertEquals(0, mImageViewRegular.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be transparent", mImageViewRegular,
                 0x00000000, 1, false);
 
-        mImageView.setImageAlpha(255);
-        assertEquals(255, mImageView.getImageAlpha());
-        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageView,
+        mImageViewRegular.setImageAlpha(255);
+        assertEquals(255, mImageViewRegular.getImageAlpha());
+        TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageViewRegular,
                 0xFF0000FF, 1, false);
     }
 
-    protected static class MockImageView extends ImageView {
+    public static class MockImageView extends ImageView {
         public MockImageView(Context context) {
             super(context);
         }
@@ -619,29 +640,31 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
             return ENABLED_STATE_SET;
         }
 
-        public static int[] getPressedEnabledStateSet() {
-            return PRESSED_ENABLED_STATE_SET;
-        }
         @Override
         protected void drawableStateChanged() {
             super.drawableStateChanged();
         }
+
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
         }
+
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         }
+
         @Override
         protected boolean onSetAlpha(int alpha) {
             return super.onSetAlpha(alpha);
         }
+
         @Override
         protected boolean setFrame(int l, int t, int r, int b) {
             return super.setFrame(l, t, r, b);
         }
+
         @Override
         protected boolean verifyDrawable(Drawable dr) {
             return super.verifyDrawable(dr);

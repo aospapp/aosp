@@ -565,6 +565,7 @@ enum OMX_QCOM_EXTN_INDEXTYPE
 
     OMX_QTIIndexParamVPXColorSpaceExtraData = 0x7F000062,
 
+    OMX_QTIIndexParamEnableAVTimerTimestamps = 0x7F000063,
 };
 
 /**

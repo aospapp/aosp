@@ -18,6 +18,8 @@ package android.acceleration.cts;
 
 import android.acceleration.HardwareAcceleratedActivity;
 
+import com.android.compatibility.common.util.VendorInterfaceTest;
+
 /**
  * Test that uses an Activity with hardware acceleration enabled.
  */
@@ -28,6 +30,7 @@ public class HardwareAccelerationTest
         super(HardwareAcceleratedActivity.class);
     }
 
+    @VendorInterfaceTest
     public void testIsHardwareAccelerated() {
         // Hardware acceleration should be available on devices with GL ES 2 or higher...
         if (getGlEsVersion(mActivity) >= 2) {

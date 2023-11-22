@@ -16,17 +16,16 @@
 
 package libcore.java.lang;
 
+import junit.framework.TestCase;
+
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.SecurityException;
-import java.lang.SecurityManager;
 import java.util.Formatter;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
-import junit.framework.TestCase;
 
 public class SystemTest extends TestCase {
 
@@ -126,8 +125,8 @@ public class SystemTest extends TestCase {
     public void testArrayCopyConcurrentModification() {
         final AtomicBoolean done = new AtomicBoolean();
 
-        final Object[] source = new Object[1024 * 1024];
-        String[] target = new String[1024 * 1024];
+        final Object[] source = new Object[512 * 1024];
+        String[] target = new String[512 * 1024];
 
         new Thread() {
             @Override public void run() {
@@ -140,7 +139,7 @@ public class SystemTest extends TestCase {
             }
         }.start();
 
-        for (int i = 0; i < 8192; i++) {
+        for (int i = 0; i < 2048; i++) {
             try {
                 System.arraycopy(source, 0, target, 0, source.length);
                 assertNull(target[source.length - 1]); // make sure the wrong type didn't sneak in

@@ -40,6 +40,7 @@
 #include "NetdConstants.h"
 #include "NetdNativeService.h"
 #include "NetlinkManager.h"
+#include "Stopwatch.h"
 #include "DnsProxyListener.h"
 #include "MDnsSdListener.h"
 #include "FwmarkServer.h"
@@ -49,9 +50,12 @@ using android::sp;
 using android::IPCThreadState;
 using android::ProcessState;
 using android::defaultServiceManager;
+using android::net::CommandListener;
+using android::net::DnsProxyListener;
+using android::net::FwmarkServer;
 using android::net::NetdNativeService;
+using android::net::NetlinkManager;
 
-static void blockSigpipe();
 static void remove_pid_file();
 static bool write_pid_file();
 
@@ -63,6 +67,7 @@ android::RWLock android::net::gBigNetdLock;
 
 int main() {
     using android::net::gCtls;
+    Stopwatch s;
 
     ALOGI("Netd 1.0 starting");
     remove_pid_file();
@@ -76,6 +81,8 @@ int main() {
     };
 
     gCtls = new android::net::Controllers();
+    gCtls->init();
+
     CommandListener cl;
     nm->setBroadcaster((SocketListener *) &cl);
 
@@ -87,7 +94,7 @@ int main() {
     // Set local DNS mode, to prevent bionic from proxying
     // back to this service, recursively.
     setenv("ANDROID_DNS_MODE", "local", 1);
-    DnsProxyListener dpl(&gCtls->netCtrl);
+    DnsProxyListener dpl(&gCtls->netCtrl, &gCtls->eventReporter);
     if (dpl.startListener()) {
         ALOGE("Unable to start DnsProxyListener (%s)", strerror(errno));
         exit(1);
@@ -99,17 +106,19 @@ int main() {
         exit(1);
     }
 
-    FwmarkServer fwmarkServer(&gCtls->netCtrl);
+    FwmarkServer fwmarkServer(&gCtls->netCtrl, &gCtls->eventReporter);
     if (fwmarkServer.startListener()) {
         ALOGE("Unable to start FwmarkServer (%s)", strerror(errno));
         exit(1);
     }
 
+    Stopwatch subTime;
     status_t ret;
     if ((ret = NetdNativeService::start()) != android::OK) {
         ALOGE("Unable to start NetdNativeService: %d", ret);
         exit(1);
     }
+    ALOGI("Registering NetdNativeService: %.1fms", subTime.getTimeAndReset());
 
     /*
      * Now that we're up, we can respond to commands. Starting the listener also tells
@@ -119,8 +128,11 @@ int main() {
         ALOGE("Unable to start CommandListener (%s)", strerror(errno));
         exit(1);
     }
+    ALOGI("Starting CommandListener: %.1fms", subTime.getTimeAndReset());
 
     write_pid_file();
+
+    ALOGI("Netd started in %dms", static_cast<int>(s.timeTaken()));
 
     IPCThreadState::self()->joinThreadPool();
 
@@ -161,14 +173,4 @@ static bool write_pid_file() {
 
 static void remove_pid_file() {
     unlink(PID_FILE_PATH);
-}
-
-static void blockSigpipe()
-{
-    sigset_t mask;
-
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGPIPE);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) != 0)
-        ALOGW("WARNING: SIGPIPE not blocked\n");
 }

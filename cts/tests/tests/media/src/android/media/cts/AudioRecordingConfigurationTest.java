@@ -17,28 +17,32 @@
 package android.media.cts;
 
 import android.content.pm.PackageManager;
-import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioRecordingConfiguration;
 import android.media.MediaRecorder;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Parcel;
 import android.util.Log;
+
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
-    private final static String TAG = "AudioRecordingConfigurationTest";
+    private static final String TAG = "AudioRecordingConfigurationTest";
 
-    private final static int TEST_SAMPLE_RATE = 16000;
-    private final static int TEST_AUDIO_SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION;
+    private static final int TEST_SAMPLE_RATE = 16000;
+    private static final int TEST_AUDIO_SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION;
 
-    private final static int TEST_TIMING_TOLERANCE_MS = 70;
+    private static final int TEST_TIMING_TOLERANCE_MS = 70;
+    private static final long SLEEP_AFTER_STOP_FOR_INACTIVITY_MS = 1000;
 
     private AudioRecord mAudioRecord;
     private Looper mLooper;
@@ -90,6 +94,7 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
             mAudioRecord.stop();
             mAudioRecord.release();
             mLooper.quit();
+            Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
         }
         super.tearDown();
     }
@@ -124,49 +129,82 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
 
         // stopping recording: verify there are less active record configurations
         mAudioRecord.stop();
-        Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+        Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
         configs = am.getActiveRecordingConfigurations();
-        assertTrue("end of recording not reported in record configs",
-                configs.size() < nbConfigsDuringRecording);
+        assertEquals("Unexpected number of recording configs after stop",
+                configs.size(), 0);
     }
 
     public void testCallback() throws Exception {
         if (!hasMicrophone()) {
             return;
         }
-        AudioManager am = new AudioManager(getContext());
-        assertNotNull("Could not create AudioManager", am);
+        doCallbackTest(false /* no custom Handler for callback */);
+    }
 
-        MyAudioRecordingCallback callback = new MyAudioRecordingCallback(
-                mAudioRecord.getAudioSessionId(), TEST_AUDIO_SOURCE);
-        am.registerAudioRecordingCallback(callback, null /*handler*/);
+    public void testCallbackHandler() throws Exception {
+        if (!hasMicrophone()) {
+            return;
+        }
+        doCallbackTest(true /* use custom Handler for callback */);
+    }
 
-        assertEquals(AudioRecord.STATE_INITIALIZED, mAudioRecord.getState());
-        mAudioRecord.startRecording();
-        assertEquals(AudioRecord.RECORDSTATE_RECORDING, mAudioRecord.getRecordingState());
-        Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+    private void doCallbackTest(boolean useHandlerInCallback) throws Exception {
+        final Handler h;
+        if (useHandlerInCallback) {
+            HandlerThread handlerThread = new HandlerThread(TAG);
+            handlerThread.start();
+            h = new Handler(handlerThread.getLooper());
+        } else {
+            h = null;
+        }
+        try {
+            AudioManager am = new AudioManager(getContext());
+            assertNotNull("Could not create AudioManager", am);
 
-        assertTrue("AudioRecordingCallback not called", callback.mCalled);
-        assertTrue("Expected record configuration was not found", callback.mParamMatch);
+            MyAudioRecordingCallback callback = new MyAudioRecordingCallback(
+                    mAudioRecord.getAudioSessionId(), TEST_AUDIO_SOURCE);
+            am.registerAudioRecordingCallback(callback, h /*handler*/);
 
-        // stopping recording: callback is called with no match
-        callback.reset();
-        mAudioRecord.stop();
-        Thread.sleep(TEST_TIMING_TOLERANCE_MS);
-        assertTrue("AudioRecordingCallback not called", callback.mCalled);
-        assertFalse("Should not have found test record configuration", callback.mParamMatch);
+            assertEquals(AudioRecord.STATE_INITIALIZED, mAudioRecord.getState());
+            mAudioRecord.startRecording();
+            assertEquals(AudioRecord.RECORDSTATE_RECORDING, mAudioRecord.getRecordingState());
+            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
 
-        // unregister callback and start recording again
-        am.unregisterAudioRecordingCallback(callback);
-        callback.reset();
-        mAudioRecord.startRecording();
-        Thread.sleep(TEST_TIMING_TOLERANCE_MS);
-        assertFalse("Unregistered callback was called", callback.mCalled);
+            assertTrue("AudioRecordingCallback not called after start", callback.mCalled);
+            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
 
-        // just call the callback once directly so it's marked as tested
-        final AudioManager.AudioRecordingCallback arc =
-                (AudioManager.AudioRecordingCallback) callback;
-        arc.onRecordingConfigChanged(new ArrayList<AudioRecordingConfiguration>());
+            final AudioDeviceInfo testDevice = mAudioRecord.getRoutedDevice();
+            assertTrue("AudioRecord null routed device after start", testDevice != null);
+            final boolean match = verifyAudioConfig(mAudioRecord.getAudioSource(),
+                    mAudioRecord.getAudioSessionId(), mAudioRecord.getFormat(),
+                    testDevice, callback.mConfigs);
+            assertTrue("Expected record configuration was not found", match);
+
+            // stopping recording: callback is called with no match
+            callback.reset();
+            mAudioRecord.stop();
+            Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
+            assertTrue("AudioRecordingCallback not called after stop", callback.mCalled);
+            assertEquals("Should not have found record configurations", callback.mConfigs.size(),
+                    0);
+
+            // unregister callback and start recording again
+            am.unregisterAudioRecordingCallback(callback);
+            callback.reset();
+            mAudioRecord.startRecording();
+            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+            assertFalse("Unregistered callback was called", callback.mCalled);
+
+            // just call the callback once directly so it's marked as tested
+            final AudioManager.AudioRecordingCallback arc =
+                    (AudioManager.AudioRecordingCallback) callback;
+            arc.onRecordingConfigChanged(new ArrayList<AudioRecordingConfiguration>());
+        } finally {
+            if (h != null) {
+                h.getLooper().quit();
+            }
+        }
     }
 
     public void testParcel() throws Exception {
@@ -203,14 +241,14 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
 
     class MyAudioRecordingCallback extends AudioManager.AudioRecordingCallback {
         boolean mCalled = false;
-        boolean mParamMatch = false;
+        List<AudioRecordingConfiguration> mConfigs;
         final AudioManager mAM;
         final int mTestSource;
         final int mTestSession;
 
         void reset() {
             mCalled = false;
-            mParamMatch = false;
+            mConfigs = null;
         }
 
         MyAudioRecordingCallback(int session, int source) {
@@ -222,8 +260,7 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
         @Override
         public void onRecordingConfigChanged(List<AudioRecordingConfiguration> configs) {
             mCalled = true;
-            mParamMatch = verifyAudioConfig(mTestSource, mTestSession, mAudioRecord.getFormat(),
-                    mAudioRecord.getRoutedDevice(), configs);
+            mConfigs = configs;
         }
     }
 
@@ -238,6 +275,8 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
         final Iterator<AudioRecordingConfiguration> confIt = configs.iterator();
         while (confIt.hasNext()) {
             final AudioRecordingConfiguration config = confIt.next();
+            final AudioDeviceInfo configDevice = config.getAudioDevice();
+            assertTrue("Current recording config has null device", configDevice != null);
             if ((config.getClientAudioSource() == source)
                     && (config.getClientAudioSessionId() == session)
                     // test the client format matches that requested (same as the AudioRecord's)
@@ -253,7 +292,7 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
                     && ((config.getFormat().getChannelMask() != AudioFormat.CHANNEL_INVALID)
                             || (config.getFormat().getChannelIndexMask() !=
                                     AudioFormat.CHANNEL_INVALID))
-                    && deviceMatch(device, config.getAudioDevice())) {
+                    && deviceMatch(device, configDevice)) {
                 return true;
             }
         }

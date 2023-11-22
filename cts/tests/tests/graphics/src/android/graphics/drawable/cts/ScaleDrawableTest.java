@@ -16,33 +16,65 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import android.content.Context;
+import android.content.res.Resources;
+import android.content.res.XmlResourceParser;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.Rect;
+import android.graphics.cts.R;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Drawable.ConstantState;
+import android.graphics.drawable.ScaleDrawable;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.AttributeSet;
+import android.util.StateSet;
+import android.view.Gravity;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.Arrays;
 
-import android.content.res.Resources;
-import android.content.res.XmlResourceParser;
-import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.ClipDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Drawable.ConstantState;
-import android.graphics.drawable.ScaleDrawable;
-import android.os.Debug;
-import android.test.AndroidTestCase;
-import android.util.AttributeSet;
-import android.util.DisplayMetrics;
-import android.util.StateSet;
-import android.view.Gravity;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ScaleDrawableTest {
+    private Context mContext;
 
-public class ScaleDrawableTest extends AndroidTestCase {
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testConstructor() {
         Drawable d = new BitmapDrawable();
         ScaleDrawable scaleDrawable = new ScaleDrawable(d, Gravity.CENTER, 100, 200);
@@ -52,134 +84,94 @@ public class ScaleDrawableTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testInvalidateDrawable() {
         ScaleDrawable scaleDrawable = new ScaleDrawable(new BitmapDrawable(),
                 Gravity.CENTER, 100, 200);
 
-        MockCallback cb = new MockCallback();
-        scaleDrawable.setCallback(cb);
+        Drawable.Callback callback = mock(Drawable.Callback.class);
+        scaleDrawable.setCallback(callback);
         scaleDrawable.invalidateDrawable(null);
-        assertTrue(cb.hasCalledInvalidate());
+        verify(callback, times(1)).invalidateDrawable(any());
 
-        cb.reset();
+        reset(callback);
         scaleDrawable.invalidateDrawable(new BitmapDrawable());
-        assertTrue(cb.hasCalledInvalidate());
+        verify(callback, times(1)).invalidateDrawable(any());
 
-        cb.reset();
+        reset(callback);
         scaleDrawable.setCallback(null);
         scaleDrawable.invalidateDrawable(null);
-        assertFalse(cb.hasCalledInvalidate());
+        verify(callback, never()).invalidateDrawable(any());
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testScheduleDrawable() {
         ScaleDrawable scaleDrawable = new ScaleDrawable(new BitmapDrawable(),
                 Gravity.CENTER, 100, 200);
 
-        MockCallback cb = new MockCallback();
-        scaleDrawable.setCallback(cb);
+        Drawable.Callback callback = mock(Drawable.Callback.class);
+        scaleDrawable.setCallback(callback);
         scaleDrawable.scheduleDrawable(null, null, 0);
-        assertTrue(cb.hasCalledSchedule());
+        verify(callback, times(1)).scheduleDrawable(any(), any(), anyLong());
 
-        cb.reset();
-        scaleDrawable.scheduleDrawable(new BitmapDrawable(), new Runnable() {
-            public void run() {
-            }
-        }, 1000L);
-        assertTrue(cb.hasCalledSchedule());
+        reset(callback);
+        scaleDrawable.scheduleDrawable(new BitmapDrawable(), () -> {}, 1000L);
+        verify(callback, times(1)).scheduleDrawable(any(), any(), anyLong());
 
-        cb.reset();
+        reset(callback);
         scaleDrawable.setCallback(null);
         scaleDrawable.scheduleDrawable(null, null, 0);
-        assertFalse(cb.hasCalledSchedule());
+        verify(callback, never()).scheduleDrawable(any(), any(), anyLong());
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testUnscheduleDrawable() {
         ScaleDrawable scaleDrawable = new ScaleDrawable(new BitmapDrawable(),
                 Gravity.CENTER, 100, 200);
 
-        MockCallback cb = new MockCallback();
-        scaleDrawable.setCallback(cb);
+        Drawable.Callback callback = mock(Drawable.Callback.class);
+        scaleDrawable.setCallback(callback);
         scaleDrawable.unscheduleDrawable(null, null);
-        assertTrue(cb.hasCalledUnschedule());
+        verify(callback, times(1)).unscheduleDrawable(any(), any());
 
-        cb.reset();
-        scaleDrawable.unscheduleDrawable(new BitmapDrawable(), new Runnable() {
-            public void run() {
-            }
-        });
-        assertTrue(cb.hasCalledUnschedule());
+        reset(callback);
+        scaleDrawable.unscheduleDrawable(new BitmapDrawable(), () -> {});
+        verify(callback, times(1)).unscheduleDrawable(any(), any());
 
-        cb.reset();
+        reset(callback);
         scaleDrawable.setCallback(null);
         scaleDrawable.unscheduleDrawable(null, null);
-        assertFalse(cb.hasCalledUnschedule());
+        verify(callback, never()).unscheduleDrawable(any(), any());
     }
 
-    private static class MockCallback implements Drawable.Callback {
-        private boolean mCalledInvalidate;
-        private boolean mCalledSchedule;
-        private boolean mCalledUnschedule;
-
-        public void invalidateDrawable(Drawable who) {
-            mCalledInvalidate = true;
-        }
-
-        public void scheduleDrawable(Drawable who, Runnable what, long when) {
-            mCalledSchedule = true;
-        }
-
-        public void unscheduleDrawable(Drawable who, Runnable what) {
-            mCalledUnschedule = true;
-        }
-
-        public boolean hasCalledInvalidate() {
-            return mCalledInvalidate;
-        }
-
-        public boolean hasCalledSchedule() {
-            return mCalledSchedule;
-        }
-
-        public boolean hasCalledUnschedule() {
-            return mCalledUnschedule;
-        }
-
-        public int getResolvedLayoutDirection(Drawable who) {
-            return 0;
-        }
-
-        public void reset() {
-            mCalledInvalidate = false;
-            mCalledSchedule = false;
-            mCalledUnschedule = false;
-        }
-    }
-
+    @Test
     public void testDraw() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         scaleDrawable.draw(new Canvas());
-        assertFalse(mockDrawable.hasCalledDraw());
+        verify(mockDrawable, never()).draw(any());
 
         // this method will call the contained drawable's draw method
         // if the contained drawable's level doesn't equal 0.
         mockDrawable.setLevel(1);
         scaleDrawable.draw(new Canvas());
-        assertTrue(mockDrawable.hasCalledDraw());
+        verify(mockDrawable, times(1)).draw(any());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
+        doNothing().when(mockDrawable).draw(any());
         scaleDrawable.draw(null);
-        assertTrue(mockDrawable.hasCalledDraw());
+        verify(mockDrawable, times(1)).draw(any());
     }
 
+    @Test
     public void testGetChangingConfigurations() {
         final int SUPER_CONFIG = 1;
         final int CONTAINED_DRAWABLE_CONFIG = 2;
 
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new ColorDrawable(Color.YELLOW);
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         assertEquals(0, scaleDrawable.getChangingConfigurations());
@@ -192,91 +184,99 @@ public class ScaleDrawableTest extends AndroidTestCase {
                 scaleDrawable.getChangingConfigurations());
     }
 
+    @Test
     public void testGetPadding() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // this method will call contained drawable's getPadding method.
         scaleDrawable.getPadding(new Rect());
-        assertTrue(mockDrawable.hasCalledGetPadding());
-
-        // input null as param
-        try {
-            scaleDrawable.getPadding(null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-        }
+        verify(mockDrawable, times(1)).getPadding(any());
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testGetPaddingNull() {
+        Drawable mockDrawable = new ColorDrawable(Color.YELLOW);
+        ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
+
+        scaleDrawable.getPadding(null);
+    }
+
+    @Test
     public void testSetVisible() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
         assertTrue(scaleDrawable.isVisible());
 
         assertTrue(scaleDrawable.setVisible(false, false));
         assertFalse(scaleDrawable.isVisible());
-        assertTrue(mockDrawable.hasCalledSetVisible());
+        verify(mockDrawable, atLeastOnce()).setVisible(anyBoolean(), anyBoolean());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         assertFalse(scaleDrawable.setVisible(false, false));
         assertFalse(scaleDrawable.isVisible());
-        assertTrue(mockDrawable.hasCalledSetVisible());
+        verify(mockDrawable, times(1)).setVisible(anyBoolean(), anyBoolean());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         assertTrue(scaleDrawable.setVisible(true, false));
         assertTrue(scaleDrawable.isVisible());
-        assertTrue(mockDrawable.hasCalledSetVisible());
+        verify(mockDrawable, times(1)).setVisible(anyBoolean(), anyBoolean());
     }
 
+    @Test
     public void testSetAlpha() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // this method will call contained drawable's setAlpha method.
         scaleDrawable.setAlpha(100);
-        assertTrue(mockDrawable.hasCalledSetAlpha());
+        verify(mockDrawable, times(1)).setAlpha(anyInt());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         scaleDrawable.setAlpha(Integer.MAX_VALUE);
-        assertTrue(mockDrawable.hasCalledSetAlpha());
+        verify(mockDrawable, times(1)).setAlpha(anyInt());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         scaleDrawable.setAlpha(-1);
-        assertTrue(mockDrawable.hasCalledSetAlpha());
+        verify(mockDrawable, times(1)).setAlpha(anyInt());
     }
 
+    @Test
     public void testSetColorFilter() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // this method will call contained drawable's setColorFilter method.
         scaleDrawable.setColorFilter(new ColorFilter());
-        assertTrue(mockDrawable.hasCalledSetColorFilter());
+        verify(mockDrawable, times(1)).setColorFilter(any());
 
-        mockDrawable.reset();
+        reset(mockDrawable);
         scaleDrawable.setColorFilter(null);
-        assertTrue(mockDrawable.hasCalledSetColorFilter());
+        verify(mockDrawable, times(1)).setColorFilter(any());
     }
 
+    @Test
     public void testGetOpacity() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // This method will call contained drawable's getOpacity method.
         scaleDrawable.setLevel(1);
         scaleDrawable.getOpacity();
-        assertTrue(mockDrawable.hasCalledGetOpacity());
+        verify(mockDrawable, times(1)).getOpacity();
     }
 
+    @Test
     public void testIsStateful() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // this method will call contained drawable's isStateful method.
         scaleDrawable.isStateful();
-        assertTrue(mockDrawable.hasCalledIsStateful());
+        verify(mockDrawable, times(1)).isStateful();
     }
 
+    @Test
     public void testOnStateChange() {
         Drawable d = new MockDrawable();
         MockScaleDrawable scaleDrawable = new MockScaleDrawable(d, Gravity.CENTER, 100, 200);
@@ -297,6 +297,7 @@ public class ScaleDrawableTest extends AndroidTestCase {
         // expected, no Exception thrown out, test success
     }
 
+    @Test
     public void testInitialLevel() throws XmlPullParserException, IOException {
         ScaleDrawable dr = new ScaleDrawable(null, Gravity.CENTER, 1, 1);
         Resources res = mContext.getResources();
@@ -320,6 +321,7 @@ public class ScaleDrawableTest extends AndroidTestCase {
         assertEquals(5000, clone.getLevel());
     }
 
+    @Test
     public void testOnLevelChange() {
         MockDrawable mockDrawable = new MockDrawable();
         MockScaleDrawable mockScaleDrawable = new MockScaleDrawable(
@@ -336,8 +338,9 @@ public class ScaleDrawableTest extends AndroidTestCase {
         assertTrue(mockScaleDrawable.hasCalledOnBoundsChange());
     }
 
+    @Test
     public void testOnBoundsChange() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = new ColorDrawable(Color.YELLOW);
         float scaleWidth = 0.3f;
         float scaleHeight = 0.3f;
         MockScaleDrawable mockScaleDrawable = new MockScaleDrawable(
@@ -393,25 +396,28 @@ public class ScaleDrawableTest extends AndroidTestCase {
         assertEquals(bounds.bottom, mockDrawable.getBounds().bottom);
     }
 
+    @Test
     public void testGetIntrinsicWidth() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // this method will call contained drawable's getIntrinsicWidth method.
         scaleDrawable.getIntrinsicWidth();
-        assertTrue(mockDrawable.hasCalledGetIntrinsicWidth());
+        verify(mockDrawable, times(1)).getIntrinsicWidth();
     }
 
+    @Test
     public void testGetIntrinsicHeight() {
-        MockDrawable mockDrawable = new MockDrawable();
+        Drawable mockDrawable = spy(new ColorDrawable(Color.RED));
         ScaleDrawable scaleDrawable = new ScaleDrawable(mockDrawable, Gravity.CENTER, 100, 200);
 
         // this method will call contained drawable's getIntrinsicHeight method.
         scaleDrawable.getIntrinsicHeight();
-        assertTrue(mockDrawable.hasCalledGetIntrinsicHeight());
+        verify(mockDrawable, times(1)).getIntrinsicHeight();
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testGetConstantState() {
         ScaleDrawable scaleDrawable = new ScaleDrawable(new BitmapDrawable(),
                 Gravity.CENTER, 100, 200);
@@ -427,6 +433,7 @@ public class ScaleDrawableTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         ScaleDrawable scaleDrawable = new ScaleDrawable(new BitmapDrawable(),
                 Gravity.RIGHT, 100, 200);
@@ -466,97 +473,57 @@ public class ScaleDrawableTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testMutate() {
         ScaleDrawable d1 = (ScaleDrawable) mContext.getDrawable(R.drawable.scaledrawable);
         ScaleDrawable d2 = (ScaleDrawable) mContext.getDrawable(R.drawable.scaledrawable);
         ScaleDrawable d3 = (ScaleDrawable) mContext.getDrawable(R.drawable.scaledrawable);
+        int restoreAlpha = d1.getAlpha();
 
-        d1.setAlpha(100);
-        assertEquals(100, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+        try {
+            // verify bad behavior - modify before mutate pollutes other drawables
+            d1.setAlpha(100);
+            assertEquals(100, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
 
-        d1.mutate();
-        d1.setAlpha(200);
-        assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
-        assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+            d1.mutate();
+            d1.setAlpha(200);
+            assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
+            assertEquals(100, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
 
-        d2.setAlpha(50);
-        assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
-        assertEquals(50, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
-        assertEquals(50, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+            d2.setAlpha(50);
+            assertEquals(200, ((BitmapDrawable) d1.getDrawable()).getPaint().getAlpha());
+            assertEquals(50, ((BitmapDrawable) d2.getDrawable()).getPaint().getAlpha());
+            assertEquals(50, ((BitmapDrawable) d3.getDrawable()).getPaint().getAlpha());
+        } finally {
+            // restore externally visible state, since other tests may use the drawable
+            mContext.getDrawable(R.drawable.scaledrawable).setAlpha(restoreAlpha);
+        }
     }
 
+    // Since Mockito can't mock or spy on protected methods, we have a custom extension
+    // of Drawable to track calls to protected methods. This class also has empty implementations
+    // of the base abstract methods.
     private static class MockDrawable extends Drawable {
-        private boolean mCalledDraw = false;
-        private boolean mCalledGetPadding = false;
-        private boolean mCalledSetVisible = false;
-        private boolean mCalledSetAlpha = false;
-        private boolean mCalledGetOpacity = false;
-        private boolean mCalledSetColorFilter = false;
-        private boolean mCalledIsStateful = false;
-        private boolean mCalledGetIntrinsicWidth = false;
-        private boolean mCalledGetIntrinsicHeight = false;
-        private boolean mCalledSetState = false;
         private boolean mCalledOnLevelChange = false;
 
         @Override
         public void draw(Canvas canvas) {
-            mCalledDraw = true;
         }
 
         @Override
         public int getOpacity() {
-            mCalledGetOpacity = true;
             return 0;
         }
 
         @Override
         public void setAlpha(int alpha) {
-            mCalledSetAlpha = true;
         }
 
         @Override
         public void setColorFilter(ColorFilter cf) {
-            mCalledSetColorFilter = true;
-        }
-
-        @Override
-        public boolean getPadding(Rect padding) {
-            mCalledGetPadding = true;
-            return super.getPadding(padding);
-        }
-
-        @Override
-        public boolean setVisible(boolean visible, boolean restart) {
-            mCalledSetVisible = true;
-            return super.setVisible(visible, restart);
-        }
-
-        @Override
-        public boolean isStateful() {
-            mCalledIsStateful = true;
-            return super.isStateful();
-        }
-
-        @Override
-        public int getIntrinsicWidth() {
-            mCalledGetIntrinsicWidth = true;
-            return super.getIntrinsicWidth();
-        }
-
-        @Override
-        public int getIntrinsicHeight() {
-            mCalledGetIntrinsicHeight = true;
-            return super.getIntrinsicHeight();
-
-        }
-
-        @Override
-        public boolean setState(final int[] stateSet) {
-            mCalledSetState = true;
-            return super.setState(stateSet);
         }
 
         @Override
@@ -565,61 +532,11 @@ public class ScaleDrawableTest extends AndroidTestCase {
             return super.onLevelChange(level);
         }
 
-        public boolean hasCalledDraw() {
-            return mCalledDraw;
-        }
-
-        public boolean hasCalledGetPadding() {
-            return mCalledGetPadding;
-        }
-
-        public boolean hasCalledSetVisible() {
-            return mCalledSetVisible;
-        }
-
-        public boolean hasCalledSetAlpha() {
-            return mCalledSetAlpha;
-        }
-
-        public boolean hasCalledGetOpacity() {
-            return mCalledGetOpacity;
-        }
-
-        public boolean hasCalledSetColorFilter() {
-            return mCalledSetColorFilter;
-        }
-
-        public boolean hasCalledIsStateful() {
-            return mCalledIsStateful;
-        }
-
-        public boolean hasCalledGetIntrinsicWidth() {
-            return mCalledGetIntrinsicWidth;
-        }
-
-        public boolean hasCalledGetIntrinsicHeight() {
-            return mCalledGetIntrinsicHeight;
-        }
-
-        public boolean hasCalledSetState() {
-            return mCalledSetState;
-        }
-
         public boolean hasCalledOnLevelChange() {
             return mCalledOnLevelChange;
         }
 
         public void reset() {
-            mCalledDraw = false;
-            mCalledGetPadding = false;
-            mCalledSetVisible = false;
-            mCalledSetAlpha = false;
-            mCalledGetOpacity = false;
-            mCalledSetColorFilter = false;
-            mCalledIsStateful = false;
-            mCalledGetIntrinsicWidth = false;
-            mCalledGetIntrinsicHeight = false;
-            mCalledSetState = false;
             mCalledOnLevelChange = false;
         }
     }

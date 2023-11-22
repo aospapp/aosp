@@ -40,7 +40,7 @@
 
 
 #include <arm_math.h>
-#include <plat/inc/cmsis/arm_common_tables.h>
+#include <plat/cmsis/arm_common_tables.h>
 
 /**    
  * @ingroup groupTransforms    

@@ -396,6 +396,16 @@ public class RVCVRecordActivity extends Activity {
                 CamcorderProfile.QUALITY_HIGH // existence guaranteed
         };
 
+        private String [] mPreferredFocusMode = {
+                Camera.Parameters.FOCUS_MODE_FIXED,
+                Camera.Parameters.FOCUS_MODE_INFINITY,
+                // the following two modes are more likely to mess up recording
+                // but they are still better than FOCUS_MODE_AUTO, which requires
+                // calling autoFocus explicitly to focus.
+                Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO,
+                Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
+        };
+
         CameraContext() {
             try {
                 mCamera = Camera.open(); // attempt to get a default Camera instance (0)
@@ -417,6 +427,7 @@ public class RVCVRecordActivity extends Activity {
          */
         void setupCamera() {
             CamcorderProfile profile = null;
+            boolean isSetNeeded = false;
             Camera.Parameters param = mCamera.getParameters();
             List<Camera.Size> pre_sz = param.getSupportedPreviewSizes();
             List<Camera.Size> pic_sz = param.getSupportedPictureSizes();
@@ -443,13 +454,26 @@ public class RVCVRecordActivity extends Activity {
                     if (valid == 2) {
                         param.setPreviewSize(profile.videoFrameWidth, profile.videoFrameHeight);
                         param.setPictureSize(profile.videoFrameWidth, profile.videoFrameHeight);
-                        mCamera.setParameters(param);
+                        isSetNeeded = true;
                         break;
                     } else {
                         profile = null;
                     }
                 }
             }
+
+            for (String i : mPreferredFocusMode) {
+                if (param.getSupportedFocusModes().contains(i)){
+                    param.setFocusMode(i);
+                    isSetNeeded = true;
+                    break;
+                }
+            }
+
+            if (isSetNeeded) {
+                mCamera.setParameters(param);
+            }
+
             if (profile != null) {
                 param = mCamera.getParameters(); //acquire proper fov after change the picture size
                 float fovW = param.getHorizontalViewAngle();

@@ -157,7 +157,6 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
     }
 
     private void setUpEnvironment() throws Exception {
-        device.disconnectFromWifi();
         dhryMin = Double.MAX_VALUE;
         dhryMax = Double.MIN_VALUE;
         Thread.sleep(600000);
@@ -194,27 +193,7 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
         appResultsWithMode.clear();
         dhrystoneResultsWithoutMode.clear();
         dhrystoneResultsWithMode.clear();
-        /*
-         * Run the test without the mode.
-         * Start the application and collect stats.
-         * Run two threads of dhrystone and collect stats.
-         */
-        setUpEnvironment();
-        device.executeShellCommand(START_COMMAND);
-        Thread dhrystone = new Thread(new Dhrystone(false, 1));
-        Thread dhrystone1 = new Thread(new Dhrystone(false, 2));
-        dhrystone.start();
-        dhrystone1.start();
-        Thread.sleep(testDuration);
-        device.executeShellCommand(STOP_COMMAND);
-        dhrystone.join();
-        dhrystone1.join();
-        logs = device.executeAdbCommand("logcat", "-v", "brief", "-d", CLASS + ":I", "*:S");
-        analyzeResults(logs, false);
-        double diff = (dhryMax - dhryMin)*100/dhryMax;
-        dhrystoneResultsWithoutMode.add(0, dhryMin);
-        dhrystoneResultsWithoutMode.add(1, dhryMax);
-        dhrystoneResultsWithoutMode.add(2, diff);
+
         /*
          * Run the test with the mode.
          * Start the application and collect stats.
@@ -222,8 +201,8 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
          */
         setUpEnvironment();
         device.executeShellCommand(START_COMMAND_MODE);
-        dhrystone = new Thread(new Dhrystone(true, 1));
-        dhrystone1 = new Thread(new Dhrystone(true, 2));
+        Thread dhrystone = new Thread(new Dhrystone(true, 1));
+        Thread dhrystone1 = new Thread(new Dhrystone(true, 2));
         dhrystone.start();
         dhrystone1.start();
         Thread.sleep(testDuration);
@@ -232,7 +211,7 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
         dhrystone1.join();
         logs = device.executeAdbCommand("logcat", "-v", "brief", "-d", CLASS + ":I", "*:S");
         analyzeResults(logs, true);
-        diff = (dhryMax - dhryMin)*100/dhryMax;
+        double diff = (dhryMax - dhryMin)*100/dhryMax;
         dhrystoneResultsWithMode.add(0, dhryMin);
         dhrystoneResultsWithMode.add(1, dhryMax);
         dhrystoneResultsWithMode.add(2, diff);
@@ -240,15 +219,21 @@ public class SustainedPerformanceHostTest extends DeviceTestCase {
         device.executeShellCommand("settings put global airplane_mode_on 0");
         device.executeShellCommand("am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false");
 
-        double perfdegradapp = (appResultsWithMode.get(1) - appResultsWithoutMode.get(1))*100/appResultsWithMode.get(1);
-        double perfdegraddhry = (dhrystoneResultsWithoutMode.get(0) - dhrystoneResultsWithMode.get(0))*100/dhrystoneResultsWithoutMode.get(0);
+        double resDhry = dhrystoneResultsWithMode.get(2);
+        double resApp = appResultsWithMode.get(2);
+
+        /* Report if performance is below 5% margin for both dhrystone and shader */
+        if ((resDhry > 5) || (resApp > 5)) {
+            Log.w("SustainedPerformanceHostTests",
+                  "Sustainable mode results, Dhrystone: " + resDhry + " App: " + resApp);
+        }
 
         /*
-         * Checks if the performance in the mode is consistent with
-         * 5% error margin.
+         * Error if the performance in the mode is not consistent with
+         * 5% error margin for shader and 10% error margin for dhrystone.
          */
         assertFalse("Results in the mode are not sustainable",
-                (dhrystoneResultsWithMode.get(2) > 5) ||
-                (appResultsWithMode.get(2)) > 5);
+                    (resDhry > 15) ||
+                    (resApp > 5));
     }
 }

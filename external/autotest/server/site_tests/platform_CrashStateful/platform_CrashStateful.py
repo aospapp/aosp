@@ -60,7 +60,7 @@ class platform_CrashStateful(test.test):
         @param dir: directory where encrypted file system is stored
         @param mnt: mount point for encrypted file system
         """
-        self._run('umount %s' % edir)
+        self._run('umount %s' % mnt)
         self._run('rm -R %s' % edir)
         self._run('rm -R %s' % mnt)
 

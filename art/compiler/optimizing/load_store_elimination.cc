@@ -15,6 +15,8 @@
  */
 
 #include "load_store_elimination.h"
+
+#include "escape.h"
 #include "side_effects_analysis.h"
 
 #include <iostream>
@@ -31,54 +33,18 @@ constexpr size_t kMaxNumberOfHeapLocations = 32;
 // whether it's a singleton, returned, etc.
 class ReferenceInfo : public ArenaObject<kArenaAllocMisc> {
  public:
-  ReferenceInfo(HInstruction* reference, size_t pos) : reference_(reference), position_(pos) {
-    is_singleton_ = true;
-    is_singleton_and_not_returned_ = true;
-    if (!reference_->IsNewInstance() && !reference_->IsNewArray()) {
-      // For references not allocated in the method, don't assume anything.
-      is_singleton_ = false;
-      is_singleton_and_not_returned_ = false;
-      return;
-    }
-
-    // Visit all uses to determine if this reference can spread into the heap,
-    // a method call, etc.
-    for (const HUseListNode<HInstruction*>& use : reference_->GetUses()) {
-      HInstruction* user = use.GetUser();
-      DCHECK(!user->IsNullCheck()) << "NullCheck should have been eliminated";
-      if (user->IsBoundType()) {
-        // BoundType shouldn't normally be necessary for a NewInstance.
-        // Just be conservative for the uncommon cases.
-        is_singleton_ = false;
-        is_singleton_and_not_returned_ = false;
-        return;
-      }
-      if (user->IsPhi() || user->IsSelect() || user->IsInvoke() ||
-          (user->IsInstanceFieldSet() && (reference_ == user->InputAt(1))) ||
-          (user->IsUnresolvedInstanceFieldSet() && (reference_ == user->InputAt(1))) ||
-          (user->IsStaticFieldSet() && (reference_ == user->InputAt(1))) ||
-          (user->IsUnresolvedStaticFieldSet() && (reference_ == user->InputAt(0))) ||
-          (user->IsArraySet() && (reference_ == user->InputAt(2)))) {
-        // reference_ is merged to HPhi/HSelect, passed to a callee, or stored to heap.
-        // reference_ isn't the only name that can refer to its value anymore.
-        is_singleton_ = false;
-        is_singleton_and_not_returned_ = false;
-        return;
-      }
-      if ((user->IsUnresolvedInstanceFieldGet() && (reference_ == user->InputAt(0))) ||
-          (user->IsUnresolvedInstanceFieldSet() && (reference_ == user->InputAt(0)))) {
-        // The field is accessed in an unresolved way. We mark the object as a singleton to
-        // disable load/store optimizations on it.
-        // Note that we could optimize this case and still perform some optimizations until
-        // we hit the unresolved access, but disabling is the simplest.
-        is_singleton_ = false;
-        is_singleton_and_not_returned_ = false;
-        return;
-      }
-      if (user->IsReturn()) {
-        is_singleton_and_not_returned_ = false;
-      }
-    }
+  ReferenceInfo(HInstruction* reference, size_t pos)
+      : reference_(reference),
+        position_(pos),
+        is_singleton_(true),
+        is_singleton_and_not_returned_(true),
+        is_singleton_and_not_deopt_visible_(true),
+        has_index_aliasing_(false) {
+    CalculateEscape(reference_,
+                    nullptr,
+                    &is_singleton_,
+                    &is_singleton_and_not_returned_,
+                    &is_singleton_and_not_deopt_visible_);
   }
 
   HInstruction* GetReference() const {
@@ -96,17 +62,43 @@ class ReferenceInfo : public ArenaObject<kArenaAllocMisc> {
     return is_singleton_;
   }
 
-  // Returns true if reference_ is a singleton and not returned to the caller.
+  // Returns true if reference_ is a singleton and not returned to the caller or
+  // used as an environment local of an HDeoptimize instruction.
   // The allocation and stores into reference_ may be eliminated for such cases.
-  bool IsSingletonAndNotReturned() const {
-    return is_singleton_and_not_returned_;
+  bool IsSingletonAndRemovable() const {
+    return is_singleton_and_not_returned_ && is_singleton_and_not_deopt_visible_;
+  }
+
+  // Returns true if reference_ is a singleton and returned to the caller or
+  // used as an environment local of an HDeoptimize instruction.
+  bool IsSingletonAndNonRemovable() const {
+    return is_singleton_ &&
+           (!is_singleton_and_not_returned_ || !is_singleton_and_not_deopt_visible_);
+  }
+
+  bool HasIndexAliasing() {
+    return has_index_aliasing_;
+  }
+
+  void SetHasIndexAliasing(bool has_index_aliasing) {
+    // Only allow setting to true.
+    DCHECK(has_index_aliasing);
+    has_index_aliasing_ = has_index_aliasing;
   }
 
  private:
   HInstruction* const reference_;
-  const size_t position_;     // position in HeapLocationCollector's ref_info_array_.
-  bool is_singleton_;         // can only be referred to by a single name in the method.
-  bool is_singleton_and_not_returned_;  // reference_ is singleton and not returned to caller.
+  const size_t position_;  // position in HeapLocationCollector's ref_info_array_.
+
+  // Can only be referred to by a single name in the method.
+  bool is_singleton_;
+  // Is singleton and not returned to caller.
+  bool is_singleton_and_not_returned_;
+  // Is singleton and not used as an environment local of HDeoptimize.
+  bool is_singleton_and_not_deopt_visible_;
+  // Some heap locations with reference_ have array index aliasing,
+  // e.g. arr[i] and arr[j] may be the same location.
+  bool has_index_aliasing_;
 
   DISALLOW_COPY_AND_ASSIGN(ReferenceInfo);
 };
@@ -168,7 +160,9 @@ class HeapLocation : public ArenaObject<kArenaAllocMisc> {
   const int16_t declaring_class_def_index_;  // declaring class's def's dex index.
   bool value_killed_by_loop_side_effects_;   // value of this location may be killed by loop
                                              // side effects because this location is stored
-                                             // into inside a loop.
+                                             // into inside a loop. This gives
+                                             // better info on whether a singleton's location
+                                             // value may be killed by loop side effects.
 
   DISALLOW_COPY_AND_ASSIGN(HeapLocation);
 };
@@ -200,8 +194,7 @@ class HeapLocationCollector : public HGraphVisitor {
                          kArenaAllocLSE),
         has_heap_stores_(false),
         has_volatile_(false),
-        has_monitor_operations_(false),
-        may_deoptimize_(false) {}
+        has_monitor_operations_(false) {}
 
   size_t GetNumberOfHeapLocations() const {
     return heap_locations_.size();
@@ -232,13 +225,6 @@ class HeapLocationCollector : public HGraphVisitor {
 
   bool HasMonitorOps() const {
     return has_monitor_operations_;
-  }
-
-  // Returns whether this method may be deoptimized.
-  // Currently we don't have meta data support for deoptimizing
-  // a method that eliminates allocations/stores.
-  bool MayDeoptimize() const {
-    return may_deoptimize_;
   }
 
   // Find and return the heap location index in heap_locations_.
@@ -359,6 +345,8 @@ class HeapLocationCollector : public HGraphVisitor {
         // Different constant indices do not alias.
         return false;
       }
+      ReferenceInfo* ref_info = loc1->GetReferenceInfo();
+      ref_info->SetHasIndexAliasing(true);
     }
     return true;
   }
@@ -420,8 +408,26 @@ class HeapLocationCollector : public HGraphVisitor {
   void VisitInstanceFieldSet(HInstanceFieldSet* instruction) OVERRIDE {
     HeapLocation* location = VisitFieldAccess(instruction->InputAt(0), instruction->GetFieldInfo());
     has_heap_stores_ = true;
-    if (instruction->GetBlock()->GetLoopInformation() != nullptr) {
-      location->SetValueKilledByLoopSideEffects(true);
+    if (location->GetReferenceInfo()->IsSingleton()) {
+      // A singleton's location value may be killed by loop side effects if it's
+      // defined before that loop, and it's stored into inside that loop.
+      HLoopInformation* loop_info = instruction->GetBlock()->GetLoopInformation();
+      if (loop_info != nullptr) {
+        HInstruction* ref = location->GetReferenceInfo()->GetReference();
+        DCHECK(ref->IsNewInstance());
+        if (loop_info->IsDefinedOutOfTheLoop(ref)) {
+          // ref's location value may be killed by this loop's side effects.
+          location->SetValueKilledByLoopSideEffects(true);
+        } else {
+          // ref is defined inside this loop so this loop's side effects cannot
+          // kill its location value at the loop header since ref/its location doesn't
+          // exist yet at the loop header.
+        }
+      }
+    } else {
+      // For non-singletons, value_killed_by_loop_side_effects_ is inited to
+      // true.
+      DCHECK_EQ(location->IsValueKilledByLoopSideEffects(), true);
     }
   }
 
@@ -473,10 +479,6 @@ class HeapLocationCollector : public HGraphVisitor {
     CreateReferenceInfoForReferenceType(instruction);
   }
 
-  void VisitDeoptimize(HDeoptimize* instruction ATTRIBUTE_UNUSED) OVERRIDE {
-    may_deoptimize_ = true;
-  }
-
   void VisitMonitorOperation(HMonitorOperation* monitor ATTRIBUTE_UNUSED) OVERRIDE {
     has_monitor_operations_ = true;
   }
@@ -488,7 +490,6 @@ class HeapLocationCollector : public HGraphVisitor {
                             // alias analysis and won't be as effective.
   bool has_volatile_;       // If there are volatile field accesses.
   bool has_monitor_operations_;    // If there are monitor operations.
-  bool may_deoptimize_;
 
   DISALLOW_COPY_AND_ASSIGN(HeapLocationCollector);
 };
@@ -522,7 +523,8 @@ class LSEVisitor : public HGraphVisitor {
         removed_loads_(graph->GetArena()->Adapter(kArenaAllocLSE)),
         substitute_instructions_for_loads_(graph->GetArena()->Adapter(kArenaAllocLSE)),
         possibly_removed_stores_(graph->GetArena()->Adapter(kArenaAllocLSE)),
-        singleton_new_instances_(graph->GetArena()->Adapter(kArenaAllocLSE)) {
+        singleton_new_instances_(graph->GetArena()->Adapter(kArenaAllocLSE)),
+        singleton_new_arrays_(graph->GetArena()->Adapter(kArenaAllocLSE)) {
   }
 
   void VisitBasicBlock(HBasicBlock* block) OVERRIDE {
@@ -559,19 +561,24 @@ class LSEVisitor : public HGraphVisitor {
     }
 
     // At this point, stores in possibly_removed_stores_ can be safely removed.
-    size = possibly_removed_stores_.size();
-    for (size_t i = 0; i < size; i++) {
-      HInstruction* store = possibly_removed_stores_[i];
+    for (HInstruction* store : possibly_removed_stores_) {
       DCHECK(store->IsInstanceFieldSet() || store->IsStaticFieldSet() || store->IsArraySet());
       store->GetBlock()->RemoveInstruction(store);
     }
 
-    // TODO: remove unnecessary allocations.
-    // Eliminate instructions in singleton_new_instances_ that:
-    // - don't have uses,
-    // - don't have finalizers,
-    // - are instantiable and accessible,
-    // - have no/separate clinit check.
+    // Eliminate allocations that are not used.
+    for (HInstruction* new_instance : singleton_new_instances_) {
+      if (!new_instance->HasNonEnvironmentUses()) {
+        new_instance->RemoveEnvironmentUsers();
+        new_instance->GetBlock()->RemoveInstruction(new_instance);
+      }
+    }
+    for (HInstruction* new_array : singleton_new_arrays_) {
+      if (!new_array->HasNonEnvironmentUses()) {
+        new_array->RemoveEnvironmentUsers();
+        new_array->GetBlock()->RemoveInstruction(new_array);
+      }
+    }
   }
 
  private:
@@ -582,7 +589,7 @@ class LSEVisitor : public HGraphVisitor {
   void KeepIfIsStore(HInstruction* heap_value) {
     if (heap_value == kDefaultHeapValue ||
         heap_value == kUnknownHeapValue ||
-        !heap_value->IsInstanceFieldSet()) {
+        !(heap_value->IsInstanceFieldSet() || heap_value->IsArraySet())) {
       return;
     }
     auto idx = std::find(possibly_removed_stores_.begin(),
@@ -624,14 +631,17 @@ class LSEVisitor : public HGraphVisitor {
       for (size_t i = 0; i < heap_values.size(); i++) {
         HeapLocation* location = heap_location_collector_.GetHeapLocation(i);
         ReferenceInfo* ref_info = location->GetReferenceInfo();
-        if (!ref_info->IsSingleton() || location->IsValueKilledByLoopSideEffects()) {
-          // heap value is killed by loop side effects (stored into directly, or due to
-          // aliasing).
+        if (ref_info->IsSingletonAndRemovable() &&
+            !location->IsValueKilledByLoopSideEffects()) {
+          // A removable singleton's field that's not stored into inside a loop is
+          // invariant throughout the loop. Nothing to do.
+          DCHECK(ref_info->IsSingletonAndRemovable());
+        } else {
+          // heap value is killed by loop side effects (stored into directly, or
+          // due to aliasing). Or the heap value may be needed after method return
+          // or deoptimization.
           KeepIfIsStore(pre_header_heap_values[i]);
           heap_values[i] = kUnknownHeapValue;
-        } else {
-          // A singleton's field that's not stored into inside a loop is invariant throughout
-          // the loop.
         }
       }
     }
@@ -642,26 +652,59 @@ class LSEVisitor : public HGraphVisitor {
     if (predecessors.size() == 0) {
       return;
     }
+
     ArenaVector<HInstruction*>& heap_values = heap_values_for_[block->GetBlockId()];
     for (size_t i = 0; i < heap_values.size(); i++) {
-      HInstruction* pred0_value = heap_values_for_[predecessors[0]->GetBlockId()][i];
-      heap_values[i] = pred0_value;
-      if (pred0_value != kUnknownHeapValue) {
-        for (size_t j = 1; j < predecessors.size(); j++) {
-          HInstruction* pred_value = heap_values_for_[predecessors[j]->GetBlockId()][i];
-          if (pred_value != pred0_value) {
-            heap_values[i] = kUnknownHeapValue;
-            break;
-          }
+      HInstruction* merged_value = nullptr;
+      // Whether merged_value is a result that's merged from all predecessors.
+      bool from_all_predecessors = true;
+      ReferenceInfo* ref_info = heap_location_collector_.GetHeapLocation(i)->GetReferenceInfo();
+      HInstruction* singleton_ref = nullptr;
+      if (ref_info->IsSingleton()) {
+        // We do more analysis of liveness when merging heap values for such
+        // cases since stores into such references may potentially be eliminated.
+        singleton_ref = ref_info->GetReference();
+      }
+
+      for (HBasicBlock* predecessor : predecessors) {
+        HInstruction* pred_value = heap_values_for_[predecessor->GetBlockId()][i];
+        if ((singleton_ref != nullptr) &&
+            !singleton_ref->GetBlock()->Dominates(predecessor)) {
+          // singleton_ref is not live in this predecessor. Skip this predecessor since
+          // it does not really have the location.
+          DCHECK_EQ(pred_value, kUnknownHeapValue);
+          from_all_predecessors = false;
+          continue;
+        }
+        if (merged_value == nullptr) {
+          // First seen heap value.
+          merged_value = pred_value;
+        } else if (pred_value != merged_value) {
+          // There are conflicting values.
+          merged_value = kUnknownHeapValue;
+          break;
         }
       }
 
-      if (heap_values[i] == kUnknownHeapValue) {
+      if (merged_value == kUnknownHeapValue || ref_info->IsSingletonAndNonRemovable()) {
+        // There are conflicting heap values from different predecessors,
+        // or the heap value may be needed after method return or deoptimization.
         // Keep the last store in each predecessor since future loads cannot be eliminated.
-        for (size_t j = 0; j < predecessors.size(); j++) {
-          ArenaVector<HInstruction*>& pred_values = heap_values_for_[predecessors[j]->GetBlockId()];
+        for (HBasicBlock* predecessor : predecessors) {
+          ArenaVector<HInstruction*>& pred_values = heap_values_for_[predecessor->GetBlockId()];
           KeepIfIsStore(pred_values[i]);
         }
+      }
+
+      if ((merged_value == nullptr) || !from_all_predecessors) {
+        DCHECK(singleton_ref != nullptr);
+        DCHECK((singleton_ref->GetBlock() == block) ||
+               !singleton_ref->GetBlock()->Dominates(block));
+        // singleton_ref is not defined before block or defined only in some of its
+        // predecessors, so block doesn't really have the location at its entry.
+        heap_values[i] = kUnknownHeapValue;
+      } else {
+        heap_values[i] = merged_value;
       }
     }
   }
@@ -726,13 +769,16 @@ class LSEVisitor : public HGraphVisitor {
       heap_values[idx] = constant;
       return;
     }
-    if (heap_value != kUnknownHeapValue && heap_value->IsInstanceFieldSet()) {
-      HInstruction* store = heap_value;
-      // This load must be from a singleton since it's from the same field
-      // that a "removed" store puts the value. That store must be to a singleton's field.
-      DCHECK(ref_info->IsSingleton());
-      // Get the real heap value of the store.
-      heap_value = store->InputAt(1);
+    if (heap_value != kUnknownHeapValue) {
+      if (heap_value->IsInstanceFieldSet() || heap_value->IsArraySet()) {
+        HInstruction* store = heap_value;
+        // This load must be from a singleton since it's from the same
+        // field/element that a "removed" store puts the value. That store
+        // must be to a singleton's field/element.
+        DCHECK(ref_info->IsSingleton());
+        // Get the real heap value of the store.
+        heap_value = heap_value->IsInstanceFieldSet() ? store->InputAt(1) : store->InputAt(2);
+      }
     }
     if (heap_value == kUnknownHeapValue) {
       // Load isn't eliminated. Put the load as the value into the HeapLocation.
@@ -788,20 +834,19 @@ class LSEVisitor : public HGraphVisitor {
     if (Equal(heap_value, value)) {
       // Store into the heap location with the same value.
       same_value = true;
-    } else if (index != nullptr) {
-      // For array element, don't eliminate stores since it can be easily aliased
-      // with non-constant index.
-    } else if (!heap_location_collector_.MayDeoptimize() &&
-               ref_info->IsSingletonAndNotReturned()) {
-      // Store into a field of a singleton that's not returned. The value cannot be
-      // killed due to aliasing/invocation. It can be redundant since future loads can
+    } else if (index != nullptr && ref_info->HasIndexAliasing()) {
+      // For array element, don't eliminate stores if the index can be aliased.
+    } else if (ref_info->IsSingleton()) {
+      // Store into a field of a singleton. The value cannot be killed due to
+      // aliasing/invocation. It can be redundant since future loads can
       // directly get the value set by this instruction. The value can still be killed due to
       // merging or loop side effects. Stores whose values are killed due to merging/loop side
       // effects later will be removed from possibly_removed_stores_ when that is detected.
+      // Stores whose values may be needed after method return or deoptimization
+      // are also removed from possibly_removed_stores_ when that is detected.
       possibly_redundant = true;
       HNewInstance* new_instance = ref_info->GetReference()->AsNewInstance();
-      DCHECK(new_instance != nullptr);
-      if (new_instance->IsFinalizable()) {
+      if (new_instance != nullptr && new_instance->IsFinalizable()) {
         // Finalizable objects escape globally. Need to keep the store.
         possibly_redundant = false;
       } else {
@@ -809,9 +854,6 @@ class LSEVisitor : public HGraphVisitor {
         if (loop_info != nullptr) {
           // instruction is a store in the loop so the loop must does write.
           DCHECK(side_effects_.GetLoopEffects(loop_info->GetHeader()).DoesAnyWrite());
-          // If it's a singleton, IsValueKilledByLoopSideEffects() must be true.
-          DCHECK(!ref_info->IsSingleton() ||
-                 heap_location_collector_.GetHeapLocation(idx)->IsValueKilledByLoopSideEffects());
 
           if (loop_info->IsDefinedOutOfTheLoop(original_ref)) {
             DCHECK(original_ref->GetBlock()->Dominates(loop_info->GetPreHeader()));
@@ -830,7 +872,7 @@ class LSEVisitor : public HGraphVisitor {
 
     if (!same_value) {
       if (possibly_redundant) {
-        DCHECK(instruction->IsInstanceFieldSet());
+        DCHECK(instruction->IsInstanceFieldSet() || instruction->IsArraySet());
         // Put the store as the heap value. If the value is loaded from heap
         // by a load later, this store isn't really redundant.
         heap_values[idx] = instruction;
@@ -910,6 +952,33 @@ class LSEVisitor : public HGraphVisitor {
                      value);
   }
 
+  void VisitDeoptimize(HDeoptimize* instruction) {
+    const ArenaVector<HInstruction*>& heap_values =
+        heap_values_for_[instruction->GetBlock()->GetBlockId()];
+    for (HInstruction* heap_value : heap_values) {
+      // Filter out fake instructions before checking instruction kind below.
+      if (heap_value == kUnknownHeapValue || heap_value == kDefaultHeapValue) {
+        continue;
+      }
+      // A store is kept as the heap value for possibly removed stores.
+      if (heap_value->IsInstanceFieldSet() || heap_value->IsArraySet()) {
+        // Check whether the reference for a store is used by an environment local of
+        // HDeoptimize.
+        HInstruction* reference = heap_value->InputAt(0);
+        DCHECK(heap_location_collector_.FindReferenceInfoOf(reference)->IsSingleton());
+        for (const HUseListNode<HEnvironment*>& use : reference->GetEnvUses()) {
+          HEnvironment* user = use.GetUser();
+          if (user->GetHolder() == instruction) {
+            // The singleton for the store is visible at this deoptimization
+            // point. Need to keep the store so that the heap value is
+            // seen by the interpreter.
+            KeepIfIsStore(heap_value);
+          }
+        }
+      }
+    }
+  }
+
   void HandleInvoke(HInstruction* invoke) {
     ArenaVector<HInstruction*>& heap_values =
         heap_values_for_[invoke->GetBlock()->GetBlockId()];
@@ -936,6 +1005,10 @@ class LSEVisitor : public HGraphVisitor {
   }
 
   void VisitInvokeUnresolved(HInvokeUnresolved* invoke) OVERRIDE {
+    HandleInvoke(invoke);
+  }
+
+  void VisitInvokePolymorphic(HInvokePolymorphic* invoke) OVERRIDE {
     HandleInvoke(invoke);
   }
 
@@ -969,11 +1042,10 @@ class LSEVisitor : public HGraphVisitor {
       // new_instance isn't used for field accesses. No need to process it.
       return;
     }
-    if (!heap_location_collector_.MayDeoptimize() &&
-        ref_info->IsSingletonAndNotReturned() &&
+    if (ref_info->IsSingletonAndRemovable() &&
         !new_instance->IsFinalizable() &&
-        !new_instance->CanThrow()) {
-      // TODO: add new_instance to singleton_new_instances_ and enable allocation elimination.
+        !new_instance->NeedsChecks()) {
+      singleton_new_instances_.push_back(new_instance);
     }
     ArenaVector<HInstruction*>& heap_values =
         heap_values_for_[new_instance->GetBlock()->GetBlockId()];
@@ -983,6 +1055,27 @@ class LSEVisitor : public HGraphVisitor {
       size_t offset = heap_location_collector_.GetHeapLocation(i)->GetOffset();
       if (ref == new_instance && offset >= mirror::kObjectHeaderSize) {
         // Instance fields except the header fields are set to default heap values.
+        heap_values[i] = kDefaultHeapValue;
+      }
+    }
+  }
+
+  void VisitNewArray(HNewArray* new_array) OVERRIDE {
+    ReferenceInfo* ref_info = heap_location_collector_.FindReferenceInfoOf(new_array);
+    if (ref_info == nullptr) {
+      // new_array isn't used for array accesses. No need to process it.
+      return;
+    }
+    if (ref_info->IsSingletonAndRemovable()) {
+      singleton_new_arrays_.push_back(new_array);
+    }
+    ArenaVector<HInstruction*>& heap_values =
+        heap_values_for_[new_array->GetBlock()->GetBlockId()];
+    for (size_t i = 0; i < heap_values.size(); i++) {
+      HeapLocation* location = heap_location_collector_.GetHeapLocation(i);
+      HInstruction* ref = location->GetReferenceInfo()->GetReference();
+      if (ref == new_array && location->GetIndex() != nullptr) {
+        // Array elements are set to default heap values.
         heap_values[i] = kDefaultHeapValue;
       }
     }
@@ -1016,6 +1109,7 @@ class LSEVisitor : public HGraphVisitor {
   ArenaVector<HInstruction*> possibly_removed_stores_;
 
   ArenaVector<HInstruction*> singleton_new_instances_;
+  ArenaVector<HInstruction*> singleton_new_arrays_;
 
   DISALLOW_COPY_AND_ASSIGN(LSEVisitor);
 };
@@ -1028,8 +1122,8 @@ void LoadStoreElimination::Run() {
     return;
   }
   HeapLocationCollector heap_location_collector(graph_);
-  for (HReversePostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    heap_location_collector.VisitBasicBlock(it.Current());
+  for (HBasicBlock* block : graph_->GetReversePostOrder()) {
+    heap_location_collector.VisitBasicBlock(block);
   }
   if (heap_location_collector.GetNumberOfHeapLocations() > kMaxNumberOfHeapLocations) {
     // Bail out if there are too many heap locations to deal with.
@@ -1047,8 +1141,8 @@ void LoadStoreElimination::Run() {
   }
   heap_location_collector.BuildAliasingMatrix();
   LSEVisitor lse_visitor(graph_, heap_location_collector, side_effects_);
-  for (HReversePostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    lse_visitor.VisitBasicBlock(it.Current());
+  for (HBasicBlock* block : graph_->GetReversePostOrder()) {
+    lse_visitor.VisitBasicBlock(block);
   }
   lse_visitor.RemoveInstructions();
 }

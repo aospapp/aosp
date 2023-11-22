@@ -5,8 +5,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    mockito-target \
-    android-support-test
+    mockito-target-minus-junit4 \
+    android-support-test \
+    legacy-android-test
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
@@ -14,6 +15,7 @@ LOCAL_JAVA_LIBRARIES := android.test.runner
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := BlockedNumberProviderTest
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_INSTRUMENTATION_FOR := BlockedNumberProvider
 LOCAL_CERTIFICATE := shared

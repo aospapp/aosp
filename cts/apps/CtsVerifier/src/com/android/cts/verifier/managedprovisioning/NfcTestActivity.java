@@ -22,6 +22,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -52,6 +53,7 @@ public class NfcTestActivity extends Activity {
     private static final String NFC_BEAM_ACTIVITY = "com.android.nfc.BeamShareActivity";
     private static final String SAMPLE_IMAGE_FILENAME = "image_to_share.jpg";
     private static final String SAMPLE_IMAGE_CONTENT = "sample image";
+    private static final String SAMPLE_TEXT = "sample text";
     private static final int MARGIN = 80;
     private static final int TEXT_SIZE = 200;
 
@@ -76,11 +78,28 @@ public class NfcTestActivity extends Activity {
                     UserManager.DISALLOW_OUTGOING_BEAM);
         }
 
-        final Uri uri = createUriForImage(SAMPLE_IMAGE_FILENAME, SAMPLE_IMAGE_CONTENT);
-        Uri[] uris = new Uri[] { uri };
-
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        mNfcAdapter.setBeamPushUris(uris, this);
+
+        final Intent shareIntent = new Intent(Intent.ACTION_SEND);
+
+        // Sending a large amount of data requires hand-over to bluetooth, so determine here
+        // if supported by the device. If bluetooth is not supported, a simple text message
+        // will be transferred instead.
+        final boolean hasBluetooth =
+                getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+
+        if (hasBluetooth) {
+            final Uri uri = createUriForImage(SAMPLE_IMAGE_FILENAME, SAMPLE_IMAGE_CONTENT);
+            Uri[] uris = new Uri[]{uri};
+
+            mNfcAdapter.setBeamPushUris(uris, this);
+
+            shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+            shareIntent.setType("image/jpg");
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } else {
+            shareIntent.putExtra(Intent.EXTRA_TEXT, SAMPLE_TEXT);
+        }
 
         findViewById(R.id.manual_beam_button).setOnClickListener(new OnClickListener() {
             @Override
@@ -91,10 +110,6 @@ public class NfcTestActivity extends Activity {
         findViewById(R.id.intent_share_button).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent shareIntent = new Intent(Intent.ACTION_SEND);
-                shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-                shareIntent.setType("image/jpg");
-                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 // Specify the package name of NfcBeamActivity so that the tester don't need to
                 // select the activity manually.
                 shareIntent.setClassName(NFC_BEAM_PACKAGE, NFC_BEAM_ACTIVITY);

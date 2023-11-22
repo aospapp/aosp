@@ -33,6 +33,11 @@
 #include "vktApiFeatureInfo.hpp"
 #include "vktApiCommandBuffersTests.hpp"
 #include "vktApiCopiesAndBlittingTests.hpp"
+#include "vktApiImageClearingTests.hpp"
+#include "vktApiFillBufferTests.hpp"
+#include "vktApiDescriptorPoolTests.hpp"
+#include "vktApiNullHandleTests.hpp"
+#include "vktApiGranularityTests.hpp"
 
 namespace vkt
 {
@@ -62,6 +67,11 @@ void createApiTests (tcu::TestCaseGroup* apiTests)
 	apiTests->addChild(createTestGroup					(testCtx, "buffer_view", "BufferView tests", createBufferViewTests));
 	apiTests->addChild(createCommandBuffersTests		(testCtx));
 	apiTests->addChild(createCopiesAndBlittingTests		(testCtx));
+	apiTests->addChild(createImageClearingTests			(testCtx));
+	apiTests->addChild(createFillAndUpdateBufferTests	(testCtx));
+	apiTests->addChild(createDescriptorPoolTests		(testCtx));
+	apiTests->addChild(createNullHandleTests			(testCtx));
+	apiTests->addChild(createGranularityQueryTests		(testCtx));
 }
 
 } // anonymous

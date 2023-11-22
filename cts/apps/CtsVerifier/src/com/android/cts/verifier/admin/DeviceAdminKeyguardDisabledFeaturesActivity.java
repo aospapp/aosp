@@ -20,6 +20,8 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.hardware.fingerprint.FingerprintManager;
 import android.provider.Settings;
 
@@ -30,6 +32,7 @@ import com.android.cts.verifier.managedprovisioning.ByodHelperActivity;
 import com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver;
 import com.android.cts.verifier.managedprovisioning.KeyguardDisabledFeaturesActivity;
 
+import java.util.List;
 
 /**
  * Tests for Device Admin keyguard disabled features.
@@ -54,15 +57,27 @@ public class DeviceAdminKeyguardDisabledFeaturesActivity extends KeyguardDisable
     @Override
     protected void setupTests(ArrayTestListAdapter adapter) {
         setupFingerprintTests(adapter);
-        setupDisableTrustAgentsTest(adapter);
-        adapter.add(new DialogTestListItem(this, R.string.device_admin_keyguard_disable_camera,
-                getTestIdPrefix()+"KeyguardDisableCamera",
-                R.string.device_admin_keyguard_disable_camera_instruction,
-                new Intent(ByodHelperActivity.ACTION_LOCKNOW)));
+        if (hasTrustAgents()) {
+            setupDisableTrustAgentsTest(adapter);
+        }
+
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
+            adapter.add(new DialogTestListItem(this, R.string.device_admin_keyguard_disable_camera,
+                    getTestIdPrefix()+"KeyguardDisableCamera",
+                    R.string.device_admin_keyguard_disable_camera_instruction,
+                    new Intent(ByodHelperActivity.ACTION_LOCKNOW)));
+        }
 
         adapter.add(new DialogTestListItem(this, R.string.device_admin_disable_notifications,
                 "DeviceAdmin_DisableNotifications",
                 R.string.device_admin_disable_notifications_instruction,
                 new Intent(ByodHelperActivity.ACTION_NOTIFICATION_ON_LOCKSCREEN)));
+    }
+
+    private boolean hasTrustAgents() {
+        PackageManager packageManager = getPackageManager();
+        Intent intent = new Intent("android.service.trust.TrustAgentService");
+        List<ResolveInfo> resolveInfos = packageManager.queryIntentServices(intent, 0);
+       return resolveInfos.size() > 0;
     }
 }

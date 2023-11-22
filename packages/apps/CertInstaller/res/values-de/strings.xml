@@ -34,7 +34,7 @@
     <string name="password_empty_error" msgid="591713406761723025">"Gib das Passwort ein."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Gib einen Namen ein."</string>
     <string name="name_char_error" msgid="3176618568784938968">"Gib einen Namen ein, der ausschließlich aus Buchstaben und Zahlen besteht."</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"Das Zertifikat konnte nicht gespeichert werden. Der Speicher für die Anmeldeinformationen wurde nicht aktiviert oder falsch initialisiert."</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"Das Zertifikat konnte nicht gespeichert werden. Der Speicher für die Anmeldedaten wurde nicht aktiviert oder falsch initialisiert."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Das Zertifikat ist nicht installiert."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Kein zu installierendes Zertifikat"</string>
     <string name="invalid_cert" msgid="7704228670980743590">"Das Zertifikat ist ungültig."</string>

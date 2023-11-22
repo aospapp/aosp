@@ -26,13 +26,13 @@
     <string name="header_category_personal" msgid="8893959635328775096">"Personal"</string>
     <string name="accounts_category_title" msgid="7591072907146317425">"Cuentas"</string>
     <string name="add_account" msgid="4098060223200619258">"Añadir cuenta"</string>
-    <string name="account_header_remove_account" msgid="3288957118207682685">"Eliminar cuenta"</string>
+    <string name="account_header_remove_account" msgid="3288957118207682685">"Quitar cuenta"</string>
     <string name="account_sync" msgid="773808124331714965">"Elegir aplicaciones sincronizadas"</string>
     <string name="sync_now" msgid="8732244492880016471">"Sincronizar ahora"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"Sincronizando…"</string>
     <string name="last_synced" msgid="6178494892357077274">"Última sincronización: <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"Desactivado"</string>
-    <string name="account_remove" msgid="4313580520737295272">"Eliminar cuenta"</string>
+    <string name="account_remove" msgid="4313580520737295272">"Quitar cuenta"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"No se puede eliminar la cuenta"</string>
     <!-- no translation found for sync_item_title (2716687595867726981) -->
     <skip />
@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Búsqueda siempre disponible"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Permitir que el servicio de ubicación de Google y otras aplicaciones busquen redes aunque la conexión Wi-Fi esté desactivada"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Permite que el servicio de ubicación de Google y otras aplicaciones busquen redes, aunque la conexión Wi-Fi esté desactivada"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Salvapantallas"</string>
     <string name="device_display" msgid="101455384386372747">"Pantalla"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Batería: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Desincronizando dispositivo…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Conectado"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Cambiar nombre"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Introduce un nombre nuevo para este accesorio"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Buscando accesorios..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Antes de vincular tus dispositivos Bluetooth, comprueba que el modo de vinculación está activado"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Se ha encontrado un dispositivo y se vinculará automáticamente en <xliff:g id="COUNTDOWN">%1$s</xliff:g> segundos"</string>
@@ -91,13 +93,15 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Teclado"</string>
     <string name="system_home" msgid="2858989138172296012">"Pantalla de inicio"</string>
     <string name="system_search" msgid="2837264654143247611">"Búsqueda"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Seguridad y restricciones"</string>
     <string name="system_speech" msgid="8128688499687306982">"Voz"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Entradas"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Accesibilidad"</string>
-    <string name="system_developer_options" msgid="3237985523474863638">"Opciones de desarrollo"</string>
+    <string name="system_developer_options" msgid="3237985523474863638">"Opciones para desarrolladores"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ninguno"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Uso y diagnósticos"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Tutoriales"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Actualización del sistema"</string>
     <string name="about_preference" msgid="4131396784531360434">"Información"</string>
     <string name="device_name" msgid="2670488158531273028">"Nombre del dispositivo"</string>
@@ -115,7 +119,7 @@
       <item quantity="one">Solo te queda <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> paso para ser un desarrollador</item>
     </plurals>
     <string name="about_ads" msgid="3364786994943748337">"Anuncios"</string>
-    <string name="show_dev_on" msgid="8997172736024819952">"¡Ahora están activadas las opciones de desarrollo!"</string>
+    <string name="show_dev_on" msgid="8997172736024819952">"¡Ahora están activadas las opciones para desarrolladores!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"No es necesario, ya eres un desarrollador"</string>
     <string name="device_info_default" msgid="4519181343309136050">"Desconocido"</string>
     <string name="selinux_status" msgid="8000422283341040360">"Estado de SELinux"</string>
@@ -159,7 +163,7 @@
     <string name="title_ssid" msgid="4858945903642469730">"Introduce el nombre de la red Wi-Fi"</string>
     <string name="title_internet_connection" msgid="8710084774588697646">"Conexión a Internet"</string>
     <string name="connected" msgid="7563100162902079938">"Conectada"</string>
-    <string name="not_connected" msgid="6858480380326923017">"Sin conexión"</string>
+    <string name="not_connected" msgid="6858480380326923017">"No conectado"</string>
     <string name="wifi_setting_header_other_options" msgid="3638677601577777216">"Otras opciones"</string>
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Ver todo"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Ver menos"</string>
@@ -251,7 +255,7 @@
     <string name="storage_format_as_private" msgid="4169495230765116075">"Borrar y formatear como almacenamiento dispositivo"</string>
     <string name="storage_format_as_public" msgid="8568317076021814054">"Borrar y formatear como almacenamiento extraíble"</string>
     <string name="storage_format_for_private" msgid="7095270113028182032">"Formatear como almacenamiento del dispositivo"</string>
-    <string name="storage_not_connected" msgid="6378589497819596096">"Sin conexión"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"No conectado"</string>
     <string name="storage_migrate" msgid="1304058078948715456">"Migrar datos a este almacenamiento"</string>
     <string name="storage_migrate_away" msgid="3410590501311323877">"Migrar datos a otro almacenamiento"</string>
     <string name="storage_no_apps" msgid="579118619398668670">"Sin aplicaciones para incluir en copia seguridad"</string>
@@ -355,7 +359,7 @@
     <string name="off" msgid="5264189545064767245">"No"</string>
     <string name="google_location_services_title" msgid="3382840371861269146">"Servicios de ubicación de Google"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Servicios de ubicación externos"</string>
-    <string name="location_reporting" msgid="3054236612250063073">"Informes de Ubicación"</string>
+    <string name="location_reporting" msgid="3054236612250063073">"Informes de ubicación"</string>
     <string name="location_history" msgid="2946680949724247804">"Historial de Ubicaciones"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google utiliza esta función en productos como Google Now y Google Maps. Al activar los informes de ubicación, los productos de Google que utilicen esta función pueden almacenar y utilizar los datos de ubicación más recientes del dispositivo asociados a tu cuenta de Google."</string>
     <string name="location_history_desc" msgid="3861249867748294369">"Si el historial de ubicaciones está activado en esta cuenta, Google puede almacenar los datos de ubicación del dispositivo para que los utilicen las aplicaciones.\n\nPor ejemplo, Google Maps puede ofrecerte indicaciones y Google Now puede informarte sobre el estado del tráfico en tu viaje.\n\nPuedes desactivar el historial de ubicaciones en cualquier momento, pero no se eliminará. Para consultar y gestionar el historial de ubicaciones, accede a la página maps.google.com/locationhistory."</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Opciones de visualización"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Configurar"</string>
     <string name="captions_language" msgid="2835554055388996343">"Idioma"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Predeterminado"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Tamaño de la letra"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Estilo de subtítulos"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Opciones personalizadas"</string>
@@ -415,7 +420,7 @@
     <string name="system_install_voice_data" msgid="8920883886563714355">"Instalar archivos de datos de voz"</string>
     <string name="system_general" msgid="3535958631591158282">"General"</string>
     <string name="system_debugging" msgid="7204447785851191331">"Depuración"</string>
-    <string name="system_input" msgid="6164987320529039626">"Introducción de texto"</string>
+    <string name="system_input" msgid="6164987320529039626">"Entrada"</string>
     <string name="system_drawing" msgid="6573389872154957039">"Dibujo"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Supervisión"</string>
     <string name="system_apps" msgid="6293850468968494924">"Aplicaciones"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Escala de transición-animación"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Escala de duración del animador"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Modo estricto"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Mostrar uso de la CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Representación GPU perfil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Habilitar trazas"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Destruir actividades"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"De mejor a peor: azul, verde, rojo claro, rojo"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Iluminar superficies de ventana al actualizarse"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Destellar si las aplicaciones tardan mucho en el proceso principal"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Suporponer el uso de la CPU en la pantalla"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Medir tiempo representación en adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Sí"</string>
     <string name="action_off_title" msgid="3157728958166559966">"No"</string>
@@ -476,7 +479,7 @@
     <string name="disagree" msgid="9170636026862400981">"No aceptar"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Orígenes desconocidos"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Permitir la instalación de aplicaciones que no sean de Play Store"</string>
-    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Permitir fuentes desconocidas"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Permitir orígenes desconocidos"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Tu dispositivo y tus datos personales son más vulnerables a los ataques de aplicaciones de orígenes desconocidos. Aceptas ser el único responsable de cualquier daño que se pueda producir en tu dispositivo o de la pérdida de datos que se pueda derivar del uso de estas aplicaciones."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verificar aplicaciones"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"No permitir la instalación de aplicaciones que puedan provocar daños o mostrar una advertencia antes de instalarlas"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Forzar detención"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Si se detiene una aplicación, es posible que no funcione correctamente."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Desinstalar"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"¿Quieres desinstalar esta aplicación?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Desinstalar actualizaciones"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Se desinstalarán todas las actualizaciones de esta aplicación del sistema Android."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Inhabilitar"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Borrar caché"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Notificaciones"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Permisos"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Aplicación no disponible"</string>
     <string name="settings_ok" msgid="3321630456511355983">"Aceptar"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Cancelar"</string>
     <string name="settings_on" msgid="6892236264945435013">"Activado"</string>
@@ -623,14 +626,14 @@
     <string name="device_daydreams_select" msgid="2112338101206187695">"Salvapantallas"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Iniciar ahora"</string>
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Cuándo se activa"</string>
-    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"El salvapantallas se activa después de este período de inactividad, y la pantalla se apaga si no se ha seleccionado ningún salvapantallas."</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"El salvapantallas se activa después de este periodo de inactividad, y la pantalla se apaga si no se ha seleccionado ningún salvapantallas."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Después de <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> de inactividad"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Poner el dispositivo en suspensión"</string>
-    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"La pantalla se apaga después de este período de inactividad."</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"La pantalla se apaga después de este periodo de inactividad."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Ninguna cuenta está almacenando datos de copia de seguridad en este momento."</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"¿Quieres dejar de crear copias de seguridad de las contraseñas Wi-Fi, de los marcadores y de otros ajustes y datos de aplicaciones, además de borrar todas las copias de los servidores de Google?"</string>
-    <string name="privacy_backup_data" msgid="1796662583830120812">"Copiar mis datos"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Copia de seguridad de mis datos"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"Cuenta de copia de seguridad"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Restauración automática"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Restablecer dispositivo"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"¿Quieres borrar toda tu información personal y las aplicaciones descargadas? Esta acción no se puede deshacer."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Borrar todo"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Elige un nombre para tu <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Un nombre te permite identificar tu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> al acceder a él desde otros dispositivos, como tu teléfono, tablet u ordenador."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Ponle un nombre a tu <xliff:g id="DEVICEMODEL">%1$s</xliff:g> para poder identificarlo cuando envíe contenido o te conectes a él con otros dispositivos."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Salón"</item>
-    <item msgid="3722089849939477581">"Sala multimedia"</item>
-    <item msgid="6108590585438763574">"Sala de estar"</item>
-    <item msgid="2581035245390468625">"Comedor"</item>
-    <item msgid="3127487827308695324">"Estudio"</item>
-    <item msgid="6172018430592195063">"Dormitorio"</item>
-    <item msgid="8120010459866284578">"Cocina"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV del salón"</item>
+    <item msgid="8122798759665439456">"TV de la sala de estar"</item>
+    <item msgid="1389347662738182100">"TV del dormitorio"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Introducir nombre personalizado…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Introducir un nombre personalizado…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Cambia el nombre a este <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"El nombre actual de este <xliff:g id="DEVICEMODEL">%1$s</xliff:g> es \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Cambiar"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Reiniciar en modo seguro"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"¿Quieres reiniciar en modo seguro?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Se inhabilitarán todas las aplicaciones externas que hayas instalado. Estas se restaurarán la próxima vez que reinicies."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Capturando informe de errores"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Teclados virtuales disponibles"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Administrar teclados"</string>
 </resources>

@@ -137,7 +137,7 @@ single commit, use git rebase -i before you run repo upload.</p>
 <pre><code>repo download <em>&lt;TARGET&gt;</em> <em>&lt;CHANGE&gt;</em>
 </code></pre>
 <p>Downloads the specified change from the review system and makes it available in your project's local working directory.</p>
-<p>For example, to download <a href="https://android-review.googlesource.com/23823">change 23823</a> into your platform/frameworks/base directory:</p>
+<p>For example, to download <a href="https://android-review.googlesource.com/23823">change 23823</a> into your platform/build directory:</p>
 <pre><code>$ repo download platform/build 23823
 </code></pre>
 <p>A <code>repo sync</code> should effectively remove any commits retrieved via <code>repo download</code>. Or, you can check out the remote branch; e.g., <code>git checkout m/master</code>.</p>

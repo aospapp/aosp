@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Приложението %s поиска сертификат. Избирането на такъв ще му разреши да използва тази самоличност със сървърите сега и в бъдеще."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Приложението идентифицира искащия сървър като %s, но трябва да дадете на приложението достъп до сертификата само ако му имате доверие."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Можете да инсталирате сертификати от файл с формат PKCS#12 с разширение %1$s или %2$s, намиращ се във външното хранилище."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Инсталиране"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Разрешаване"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Инсталиране на сертификат"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Избиране"</string>
     <string name="deny_button" msgid="3766539809121892584">"Отказ"</string>
 </resources>

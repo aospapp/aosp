@@ -3,20 +3,29 @@ Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends},REMOVE_ME))dnl
 define(UTIL_LINUX_NG_DEFINES,
 ifdef(`UTIL_LINUX_NG', ``libblkid-dev (>= 2.16), uuid-dev (>= 2.16),''))dnl
-define(DIETLIBC_DEFINES,
-ifdef(`DIETLIBC', ``dietlibc-dev (>> 0.30) [alpha amd64 arm hppa i386 ia64 powerpc ppc64 s390 sparc],''))dnl
 Source: e2fsprogs
 Section: admin
 Priority: required
 Maintainer: Theodore Y. Ts'o <tytso@mit.edu>
-Build-Depends: gettext, texinfo, pkg-config, DIETLIBC_DEFINES gcc-multilib [mips mipsel], debhelper (>= 7.0), UTIL_LINUX_NG_DEFINES m4
-Standards-Version: 3.9.5
+Build-Depends: gettext, texinfo, pkg-config, gcc-multilib [mips mipsel], libfuse-dev [linux-any kfreebsd-any], libattr1-dev, debhelper (>= 9.0), UTIL_LINUX_NG_DEFINES m4
+Standards-Version: 3.9.8
 Homepage: http://e2fsprogs.sourceforge.net
+
+ifdef(`FUSE2FS',``
+Package: fuse2fs
+Priority: optional
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Architecture: linux-any kfreebsd-any
+Description: ext2 / ext3 / ext4 file system driver for FUSE
+ fuse2fs is a FUSE file system client that supports reading and
+ writing from devices or image files containing ext2, ext3, and ext4
+ file systems.
+'')dnl
 
 ifdef(`E2FSCK_STATIC',``
 Package: e2fsck-static
 Priority: optional
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}
 Recommends: sash | bash-static | zsh-static | busybox-static | zsh30-static
 Architecture: any
 Description: statically-linked version of the ext2/ext3/ext4 filesystem checker
@@ -66,7 +75,7 @@ Description: command-line interface parsing library
  libss provides a simple command-line interface parser which will
  accept input from the user, parse the command into an argv argument
  vector, and then dispatch it to a handler function.
- . 
+ .
  It was originally inspired by the Multics SubSystem library.
 
 Package: ss-dev
@@ -78,7 +87,7 @@ Description: command-line interface parsing library - headers and static librari
  This package includes a tool that parses a command table to generate
  a simple command-line interface parser, the include files needed to
  compile and use it, and the static libs.
- . 
+ .
  It was originally inspired by the Multics SubSystem library.
  .
  This package contains the development environment for the ss library.
@@ -124,8 +133,9 @@ Description: runtime components for the Universally Unique ID library
  different CPU’s. It is used by libuuid as well as the uuidgen
  program.
 
+ifdef(`UDEB_PKGS',``
 Package: libuuid1-udeb
-XC-Package-Type: udeb
+Package-Type: udeb
 Section: debian-installer
 Priority: optional
 Depends: ${shlibs:Depends}
@@ -135,6 +145,7 @@ Description: stripped down universally unique id library, for debian-installer
  See RFC 4122 for more information.
  .
  This is a minimal package for debian-installer.
+'')dnl
 
 Package: uuid-dev
 Section: libdevel
@@ -159,8 +170,9 @@ Description: block device id library
  filesystems by hard-coded device names, but via a logical naming 
  system instead.
 
+ifdef(`UDEB_PKGS',``
 Package: libblkid1-udeb
-XC-Package-Type: udeb
+Package-Type: udeb
 Section: debian-installer
 Priority: optional
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -173,6 +185,7 @@ Description: stripped down block device id library, for debian-installer
  system instead.
  .
  This is a minimal package for debian-installer.
+'')dnl
 
 Package: libblkid-dev
 Section: libdevel
@@ -189,8 +202,9 @@ Description: block device id library - headers and static libraries
  This package contains the development environment for the blkid library.
 '')dnl
 
+ifdef(`UDEB_PKGS',``
 Package: e2fsprogs-udeb
-XC-Package-Type: udeb
+Package-Type: udeb
 Section: debian-installer
 Priority: optional
 Depends: ${shlibs:Depends}, ${misc:Depends}
@@ -199,8 +213,9 @@ Description: stripped-down versions of e2fsprogs, for debian-installer
  This package is an e2fsprogs package built for a reduced size, so that
  it can help to save space in debian-installer.
  .
- Don't attempt to install this package, it has no support for a couple of
+ Don'''``t attempt to install this package, it has no support for a couple of
  features you surely want.  Anyway it should refuse to install.
+'')dnl
 
 Package: e2fslibs
 Section: libs
@@ -243,7 +258,7 @@ ifdef(`UTIL_LINUX_NG',
 ``Pre-Depends: ${shlibs:Depends}, ${misc:Depends}
 '')dnl
 Multi-Arch: foreign
-Suggests: gpart, parted, e2fsck-static
+Suggests: gpart, parted, fuse2fs, e2fsck-static
 Conflicts: dump (<< 0.4b4-4), quota (<< 1.55-8.1), initscripts (<< 2.85-4), sysvinit (<< 2.85-4)
 Replaces: hurd (<= 20040301-1), libblkid1 (<< 1.38+1.39-WIP-2005.12.10-2), libuuid1 (<< 1.38+1.39-WIP-2005.12.10-2)
 Architecture: any
@@ -253,8 +268,9 @@ Description: ext2/ext3/ext4 file system utilities
  hard disks on Debian and other Linux systems.
  .
  This package contains programs for creating, checking, and maintaining
- ext2/3/4-based file systems.
-
+ ext2/3/4-based file systems.  It also includes the "badblocks" program,
+ which can be used to scan for bad blocks on a disk or other storage device.
+ifdef(`USE_DBGSYM',,``
 Package: e2fsprogs-dbg
 Section: debug
 Priority: extra
@@ -264,8 +280,9 @@ Description: debugging information for e2fsprogs
  This package includes the debug information useful for debugging e2fsprogs
  and its libraries, contained in the e2fsprogs and e2fsck-static packages.
  The debug information is used for execution tracing and core
- dump analysis. 
-ifdef(`UTIL_LINUX_NG',,``
+ dump analysis.
+'')
+ifdef(`USE_DBGSYM',,ifdef(`UTIL_LINUX_NG',,``
 Package: uuid-runtime-dbg
 Section: debug
 Priority: extra
@@ -276,8 +293,8 @@ Description: debugging information for uuid-runtime
  uuid runtime programs, contained in the uuid-runtime package.
  The debugging information is used for execution tracing and core
  dump analysis.
-'')dnl
-
+''))dnl
+ifdef(`USE_DBGSYM',,``
 Package: e2fslibs-dbg
 Section: debug
 Priority: extra
@@ -307,7 +324,8 @@ Description: debugging information for libss2
  This package includes the debug information useful for debugging the
  ss library, contained in the libss2 package.  The debug information
  is used for execution tracing and core dump analysis.
-ifdef(`UTIL_LINUX_NG',,``
+'')dnl
+ifdef(`USE_DBGSYM',,ifdef(`UTIL_LINUX_NG',,``
 Package: libblkid1-dbg
 Section: debug
 Priority: extra
@@ -327,4 +345,4 @@ Description: debugging information for libuuid1
  This package includes the debug information useful for debugging the
  UUID library, contained in the libuuid1 package.  The debug
  information is used for execution tracing and core dump analysis.
-'')dnl
+''))dnl

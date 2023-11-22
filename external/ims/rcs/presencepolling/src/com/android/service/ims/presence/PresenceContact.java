@@ -34,6 +34,7 @@ public class PresenceContact {
 
     String mDisplayName = null;
     String mPhoneNumber = null;
+    String mFormattedNumber = null;
     String mRawContactId = null;
     String mContactId = null;
     String mDataId = null;
@@ -43,10 +44,11 @@ public class PresenceContact {
 
     String mVtUri = null;
 
-    public PresenceContact(String name, String number, String rawContactId,
+    public PresenceContact(String name, String number, String formattedNumber, String rawContactId,
             String contactId, String dataId) {
         mDisplayName = name;
         mPhoneNumber = number;
+        mFormattedNumber = formattedNumber;
         mRawContactId = rawContactId;
         mContactId = contactId;
         mDataId = dataId;
@@ -58,6 +60,10 @@ public class PresenceContact {
 
     public String getPhoneNumber() {
         return mPhoneNumber;
+    }
+
+    public String getFormattedNumber() {
+        return mFormattedNumber;
     }
 
     public String getRawContactId() {

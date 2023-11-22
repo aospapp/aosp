@@ -51,6 +51,7 @@ typedef enum OMX_INDEXEXTTYPE {
     OMX_IndexConfigCallbackRequest,  /**< reference: OMX_CONFIG_CALLBACKREQUESTTYPE */
     OMX_IndexConfigCommitMode,                      /**< reference: OMX_CONFIG_COMMITMODETYPE */
     OMX_IndexConfigCommit,                          /**< reference: OMX_CONFIG_COMMITTYPE */
+    OMX_IndexConfigAndroidVendorExtension,          /**< reference: OMX_CONFIG_VENDOR_EXTENSIONTYPE */
 
     /* Port parameters and configurations */
     OMX_IndexExtPortStartUnused = OMX_IndexKhronosExtensions + 0x00200000,
@@ -90,6 +91,57 @@ typedef enum OMX_INDEXEXTTYPE {
 
     OMX_IndexExtMax = 0x7FFFFFFF
 } OMX_INDEXEXTTYPE;
+#define OMX_MAX_STRINGVALUE_SIZE OMX_MAX_STRINGNAME_SIZE
+#define OMX_MAX_ANDROID_VENDOR_PARAMCOUNT 32
+
+typedef enum OMX_ANDROID_VENDOR_VALUETYPE {
+    OMX_AndroidVendorValueInt32 = 0,   /*<< int32_t value */
+    OMX_AndroidVendorValueInt64,       /*<< int64_t value */
+    OMX_AndroidVendorValueString,      /*<< string value */
+    OMX_AndroidVendorValueEndUnused,
+} OMX_ANDROID_VENDOR_VALUETYPE;
+
+/**
+ *
+ *  cKey        : parameter value name.
+ *  eValueType  : parameter value type
+ *  bSet        : if false, the parameter is not set (for OMX_GetConfig) or is unset (OMX_SetConfig)
+ *                if true, the parameter is set to the corresponding value below
+ *  nInt32      : int32 value
+ *  nInt64      : int64 value
+ *  cString     : string value
+ */
+typedef struct OMX_CONFIG_ANDROID_VENDOR_PARAMTYPE {
+    OMX_U8 cKey[OMX_MAX_STRINGNAME_SIZE];
+    OMX_ANDROID_VENDOR_VALUETYPE eValueType;
+    OMX_BOOL bSet;
+    union {
+        OMX_S32 nInt32;
+        OMX_S64 nInt64;
+        OMX_U8 cString[OMX_MAX_STRINGVALUE_SIZE];
+    };
+} OMX_CONFIG_ANDROID_VENDOR_PARAMTYPE;
+
+/**
+ *  nSize       : size of the structure in bytes
+ *  nVersion    : OMX specification version information
+ *  cName       : name of vendor extension
+ *  nParamCount : the number of parameter values that are part of this vendor extension
+ *  nParamSizeUsed : the size of nParam
+ *                (must be at least 1 and at most OMX_MAX_ANDROID_VENDOR_PARAMCOUNT)
+ *  nParam      : the parameter values
+ */
+typedef struct OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE {
+    OMX_U32 nSize;
+    OMX_VERSIONTYPE nVersion;
+    OMX_U32 nIndex;
+    OMX_U8  cName[OMX_MAX_STRINGNAME_SIZE];
+    OMX_DIRTYPE eDir;
+    OMX_U32 nParamCount;
+    OMX_U32 nParamSizeUsed;
+    OMX_CONFIG_ANDROID_VENDOR_PARAMTYPE nParam[1];
+} OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE;
+
 
 #ifdef __cplusplus
 }

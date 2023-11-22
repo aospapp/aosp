@@ -128,10 +128,6 @@ class _JetstreamBypasser(_BaseFwBypasser):
 
     def bypass_dev_boot_usb(self):
         """Bypass the dev mode firmware logic to boot USB."""
-        # TODO: Confirm if it is a proper way to trigger dev boot USB.
-        # We can't verify it this time due to a bug that always boots into
-        # USB on dev mode.
-        self.servo.enable_development_mode()
         self.servo.switch_usbkey('dut')
         time.sleep(self.faft_config.firmware_screen)
         self.servo.toggle_development_switch()
@@ -142,6 +138,10 @@ class _JetstreamBypasser(_BaseFwBypasser):
         self.servo.switch_usbkey('host')
         time.sleep(self.faft_config.usb_plug)
         self.servo.switch_usbkey('dut')
+        if not self.client_host.ping_wait_up(
+                timeout=self.faft_config.delay_reboot_to_ping):
+            psc = self.servo.get_power_state_controller()
+            psc.power_on(psc.REC_ON)
 
 
     def trigger_dev_to_rec(self):
@@ -241,7 +241,6 @@ class _BaseModeSwitcher(object):
         if to_mode == 'rec':
             self._enable_rec_mode_and_reboot(usb_state='dut')
             if wait_for_dut_up:
-                self.bypass_rec_mode()
                 self.wait_for_client()
 
         elif to_mode == 'dev':
@@ -262,6 +261,35 @@ class _BaseModeSwitcher(object):
         logging.info('-[ModeSwitcher]-[ end reboot_to_mode(%r, %r, %r) ]-',
                      to_mode, from_mode, wait_for_dut_up)
 
+    def simple_reboot(self, reboot_type='warm', sync_before_boot=True):
+        """Simple reboot method
+
+        Just reboot the DUT using either cold or warm reset.  Does not wait for
+        DUT to come back online.  Will wait for test to handle this.
+
+        @param reboot_type: A string of reboot type, 'warm' or 'cold'.
+                            If reboot_type != warm/cold, raise exception.
+        @param sync_before_boot: True to sync to disk before booting.
+                                 If sync_before_boot=False, DUT offline before
+                                 calling mode_aware_reboot.
+        """
+        if reboot_type == 'warm':
+            reboot_method = self.servo.get_power_state_controller().warm_reset
+        elif reboot_type == 'cold':
+            reboot_method = self.servo.get_power_state_controller().reset
+        else:
+            raise NotImplementedError('Not supported reboot_type: %s',
+                                      reboot_type)
+        if sync_before_boot:
+            boot_id = self.faft_framework.get_bootid()
+            self.faft_framework.blocking_sync()
+        logging.info("-[ModeSwitcher]-[ start simple_reboot(%r) ]-",
+                     reboot_type)
+        reboot_method()
+        if sync_before_boot:
+            self.wait_for_client_offline(orig_boot_id=boot_id)
+        logging.info("-[ModeSwitcher]-[ end simple_reboot(%r) ]-",
+                     reboot_type)
 
     def mode_aware_reboot(self, reboot_type=None, reboot_method=None,
                           sync_before_boot=True, wait_for_dut_up=True):
@@ -275,6 +303,8 @@ class _BaseModeSwitcher(object):
         @param reboot_method: A custom method to do the reboot. Only use it if
                               reboot_type='custom'.
         @param sync_before_boot: True to sync to disk before booting.
+                                 If sync_before_boot=False, DUT offline before
+                                 calling mode_aware_reboot.
         @param wait_for_dut_up: True to wait DUT online again. False to do the
                                 reboot only.
         """
@@ -288,29 +318,23 @@ class _BaseModeSwitcher(object):
 
         logging.info("-[ModeSwitcher]-[ start mode_aware_reboot(%r, %s, ..) ]-",
                      reboot_type, reboot_method.__name__)
-        is_normal = is_dev = False
+        is_dev = False
         if sync_before_boot:
-            if wait_for_dut_up:
-                is_normal = self.checkers.mode_checker('normal')
-                is_dev = self.checkers.mode_checker('dev')
+            is_dev = self.checkers.mode_checker('dev')
             boot_id = self.faft_framework.get_bootid()
             self.faft_framework.blocking_sync()
-        logging.info("-[mode_aware_reboot]-[ is_normal=%s is_dev=%s ]-",
-                     is_normal, is_dev);
+        logging.info("-[mode_aware_reboot]-[ is_dev=%s ]-", is_dev);
         reboot_method()
         if sync_before_boot:
             self.wait_for_client_offline(orig_boot_id=boot_id)
+        # Encapsulating the behavior of skipping dev firmware screen,
+        # hitting ctrl-D
+        # Note that if booting from recovery mode, will not
+        # call bypass_dev_mode because can't determine prior to
+        # reboot if we're going to boot up in dev or normal mode.
+        if is_dev:
+            self.bypass_dev_mode()
         if wait_for_dut_up:
-            # For encapsulating the behavior of skipping firmware screen,
-            # e.g. requiring unplug and plug USB, the variants are not
-            # hard coded in tests. We keep this logic in this
-            # mode_aware_reboot method.
-            if not is_dev:
-                self.servo.switch_usbkey('host')
-            if not is_normal:
-                self.bypass_dev_mode()
-            if not is_dev:
-                self.bypass_rec_mode()
             self.wait_for_client()
         logging.info("-[ModeSwitcher]-[ end mode_aware_reboot(%r, %s, ..) ]-",
                      reboot_type, reboot_method.__name__)
@@ -340,6 +364,7 @@ class _BaseModeSwitcher(object):
         """
         psc = self.servo.get_power_state_controller()
         psc.power_off()
+        time.sleep(self.faft_config.ec_boot_to_pwr_button)
         psc.power_on(psc.REC_OFF)
 
 

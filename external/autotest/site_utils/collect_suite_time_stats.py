@@ -66,7 +66,6 @@ import common
 from autotest_lib.client.common_lib import host_queue_entry_states
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib.cros.graphite import autotest_es
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import models
 from autotest_lib.frontend.tko import models as tko_models
@@ -396,13 +395,6 @@ def analyze_suites(start_time, end_time):
                     suite_name, suite_job_id, suite_runtime)),
             print_suite_stats(suite_stats)
 
-            if _options.cron_mode:
-                key = utils.get_data_key(
-                        'suite_time_stats', suite_name, hit['build'],
-                        hit['board'])
-                autotest_stats.Timer(key).send('suite_runtime', suite_runtime)
-                for stat, val in suite_stats.iteritems():
-                    autotest_stats.Timer(key).send(stat, val)
         except Exception as e:
             print('ERROR: Exception is raised while processing suite %s' % (
                     suite_job_id))

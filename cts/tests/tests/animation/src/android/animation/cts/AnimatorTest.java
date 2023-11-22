@@ -15,41 +15,63 @@
  */
 package android.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.app.Instrumentation;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.AccelerateInterpolator;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.List;
 
-public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class AnimatorTest {
     private AnimationActivity mActivity;
     private Animator mAnimator;
     private long mDuration = 1000;
-    public AnimatorTest() {
-        super(AnimationActivity.class);
-    }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        setActivityInitialTouchMode(false);
-        mActivity = getActivity();
+    @Rule
+    public ActivityTestRule<AnimationActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationActivity.class);
+
+    @Before
+    public void setup() {
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+        mActivity = mActivityRule.getActivity();
         mAnimator = mActivity.createAnimatorWithDuration(mDuration);
     }
 
+    @Test
     public void testConstructor() {
         mAnimator = new ValueAnimator();
         assertNotNull(mAnimator);
     }
 
+    @Test
     public void testClone() {
         Animator animatorClone = mAnimator.clone();
         assertEquals(mAnimator.getDuration(), animatorClone.getDuration());
     }
 
+    @Test
     public void testStartDelay() {
         long startDelay = 1000;
         mAnimator.setStartDelay(startDelay);
@@ -57,12 +79,14 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
     }
 
     @UiThreadTest
+    @Test
     public void testStart() throws Exception {
         mAnimator.start();
         assertTrue(mAnimator.isRunning());
         assertTrue(mAnimator.isStarted());
     }
 
+    @Test
     public void testGetDuration() throws Throwable {
         final long duration = 2000;
         Animator animatorLocal = mActivity.createAnimatorWithDuration(duration);
@@ -70,12 +94,14 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         assertEquals(duration, animatorLocal.getDuration());
     }
 
+    @Test
     public void testIsRunning() throws Throwable {
         assertFalse(mAnimator.isRunning());
         startAnimation(mAnimator);
         assertTrue(mAnimator.isRunning());
     }
 
+    @Test
     public void testIsStarted() throws Throwable {
         assertFalse(mAnimator.isRunning());
         assertFalse(mAnimator.isStarted());
@@ -86,6 +112,7 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         assertTrue(mAnimator.isStarted());
     }
 
+    @Test
     public void testSetInterpolator() throws Throwable {
         AccelerateInterpolator interpolator = new AccelerateInterpolator();
         ValueAnimator mValueAnimator = mActivity.createAnimatorWithInterpolator(interpolator);
@@ -93,17 +120,15 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         assertTrue(interpolator.equals(mValueAnimator.getInterpolator()));
     }
 
+    @Test
     public void testCancel() throws Throwable {
         startAnimation(mAnimator);
-        Thread.sleep(100);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mAnimator.cancel();
-            }
-        });
+        SystemClock.sleep(100);
+        mActivityRule.runOnUiThread(mAnimator::cancel);
         assertFalse(mAnimator.isRunning());
     }
 
+    @Test
     public void testEnd() throws Throwable {
         Object object = mActivity.view.newBall;
         String property = "y";
@@ -115,13 +140,15 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         animator.setInterpolator(new AccelerateInterpolator());
         ((ObjectAnimator)animator).setRepeatMode(ValueAnimator.REVERSE);
         startAnimation(animator);
-        Thread.sleep(100);
+        SystemClock.sleep(100);
         endAnimation(animator);
         float y = mActivity.view.newBall.getY();
-        assertEquals(y, endY);
+        assertEquals(y, endY, 0.0f);
     }
 
+    @Test
     public void testSetListener() throws Throwable {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         List<Animator.AnimatorListener> listListeners = mAnimator.getListeners();
         assertNull(listListeners);
         MyListener listener = new MyListener();
@@ -131,29 +158,22 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         mAnimator.addListener(listener);
         mAnimator.setDuration(100l);
         startAnimation(mAnimator);
-        Thread.sleep(200);
+        SystemClock.sleep(200);
 
         assertTrue(listener.mStart);
         assertFalse(listener.mEnd);
         assertTrue(listener.mRepeat >= 0);
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mAnimator.cancel();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(mAnimator::cancel);
+        instrumentation.waitForIdleSync();
         assertTrue(listener.mCancel);
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mAnimator.end();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(mAnimator::end);
+        instrumentation.waitForIdleSync();
         assertTrue(listener.mEnd);
     }
 
+    @Test
     public void testRemoveListener() throws Throwable {
         List<Animator.AnimatorListener> listListenersOne = mAnimator.getListeners();
         assertNull(listListenersOne);
@@ -168,6 +188,7 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         assertNull(listListenersThree);
     }
 
+    @Test
     public void testRemoveAllListenerers() throws Throwable {
         MyListener listener1 = new MyListener();
         MyListener listener2 = new MyListener();
@@ -182,7 +203,8 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         assertNull(listListenersTwo);
     }
 
-    public void testNullObjectAnimator()  throws Throwable {
+    @Test
+    public void testNullObjectAnimator() throws Throwable {
         Object object = mActivity.view.newBall;
         final ObjectAnimator animator = ObjectAnimator.ofFloat(object, "y", 0, 100);
         MyListener listener = new MyListener();
@@ -191,15 +213,10 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         startAnimation(animator);
         int sleepCount = 0;
         while (mActivity.view.newBall.getY() == 0 && sleepCount++ < 50) {
-            Thread.sleep(1);
+            SystemClock.sleep(1);
         }
         assertNotSame(0, mActivity.view.newBall.getY());
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                animator.setTarget(null);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> animator.setTarget(null));
         assertTrue(listener.mCancel);
     }
 
@@ -226,20 +243,11 @@ public class AnimatorTest extends ActivityInstrumentationTestCase2<AnimationActi
         }
     }
     private void startAnimation(final Animator animator) throws Throwable {
-        this.runTestOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.startAnimation(animator);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mActivity.startAnimation(animator));
     }
 
     private void endAnimation(final Animator animator) throws Throwable {
-        Thread animationRunnable = new Thread() {
-            public void run() {
-                animator.end();
-            }
-        };
-        this.runTestOnUiThread(animationRunnable);
+        mActivityRule.runOnUiThread(animator::end);
     }
 }
 

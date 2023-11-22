@@ -16,7 +16,10 @@
 
 package android.graphics.drawable.shapes.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -25,39 +28,45 @@ import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.drawable.shapes.Shape;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class ShapeTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ShapeTest {
     private static final int TEST_WIDTH  = 100;
     private static final int TEST_HEIGHT = 200;
 
     private static final int TEST_COLOR_1 = 0xFF00FF00;
     private static final int TEST_COLOR_2 = 0xFFFF0000;
 
-    @SmallTest
+    @Test
     public void testSize() {
         MockShape mockShape = new MockShape();
         assertFalse(mockShape.hasCalledOnResize());
 
         mockShape.resize(200f, 300f);
-        assertEquals(200f, mockShape.getWidth());
-        assertEquals(300f, mockShape.getHeight());
+        assertEquals(200f, mockShape.getWidth(), 0.0f);
+        assertEquals(300f, mockShape.getHeight(), 0.0f);
         assertTrue(mockShape.hasCalledOnResize());
 
         mockShape.resize(0f, 0f);
-        assertEquals(0f, mockShape.getWidth());
-        assertEquals(0f, mockShape.getHeight());
+        assertEquals(0f, mockShape.getWidth(), 0.0f);
+        assertEquals(0f, mockShape.getHeight(), 0.0f);
 
         mockShape.resize(Float.MAX_VALUE, Float.MAX_VALUE);
-        assertEquals(Float.MAX_VALUE, mockShape.getWidth());
-        assertEquals(Float.MAX_VALUE, mockShape.getHeight());
+        assertEquals(Float.MAX_VALUE, mockShape.getWidth(), 0.0f);
+        assertEquals(Float.MAX_VALUE, mockShape.getHeight(), 0.0f);
 
         mockShape.resize(-1, -1);
-        assertEquals(0f, mockShape.getWidth());
-        assertEquals(0f, mockShape.getHeight());
+        assertEquals(0f, mockShape.getWidth(), 0.0f);
+        assertEquals(0f, mockShape.getHeight(), 0.0f);
     }
 
-    @SmallTest
+    @Test
     public void testOnResize() {
         MockShape mockShape = new MockShape();
         assertFalse(mockShape.hasCalledOnResize());
@@ -76,26 +85,26 @@ public class ShapeTest extends TestCase {
         assertTrue(mockShape.hasCalledOnResize());
     }
 
-    @SmallTest
+    @Test
     public void testClone() throws CloneNotSupportedException {
         Shape shape = new MockShape();
         shape.resize(100f, 200f);
         Shape clonedShape = shape.clone();
-        assertEquals(100f, shape.getWidth());
-        assertEquals(200f, shape.getHeight());
+        assertEquals(100f, shape.getWidth(), 0.0f);
+        assertEquals(200f, shape.getHeight(), 0.0f);
 
         assertNotSame(shape, clonedShape);
-        assertEquals(shape.getWidth(), clonedShape.getWidth());
-        assertEquals(shape.getHeight(), clonedShape.getHeight());
+        assertEquals(shape.getWidth(), clonedShape.getWidth(), 0.0f);
+        assertEquals(shape.getHeight(), clonedShape.getHeight(), 0.0f);
     }
 
-    @SmallTest
+    @Test
     public void testHasAlpha() {
         Shape shape = new MockShape();
         assertTrue(shape.hasAlpha());
     }
 
-    @SmallTest
+    @Test
     public void testDraw() {
         Shape shape = new MockShape();
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Config.ARGB_8888);
@@ -113,7 +122,7 @@ public class ShapeTest extends TestCase {
         assertEquals(0, bitmap.getPixel(0, 0));
     }
 
-    @SmallTest
+    @Test
     public void testGetOutline() {
         Shape shape = new MockShape();
         Outline outline = new Outline();

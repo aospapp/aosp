@@ -24,7 +24,7 @@ namespace android {
 class BpBatteryPropertiesListener : public BpInterface<IBatteryPropertiesListener>
 {
 public:
-    BpBatteryPropertiesListener(const sp<IBinder>& impl)
+    explicit BpBatteryPropertiesListener(const sp<IBinder>& impl)
         : BpInterface<IBatteryPropertiesListener>(impl)
     {
     }
@@ -42,5 +42,23 @@ public:
 IMPLEMENT_META_INTERFACE(BatteryPropertiesListener, "android.os.IBatteryPropertiesListener");
 
 // ----------------------------------------------------------------------------
+
+status_t BnBatteryPropertiesListener::onTransact(uint32_t code, const Parcel& data,
+                                                 Parcel* reply, uint32_t flags)
+{
+    switch(code) {
+        case TRANSACT_BATTERYPROPERTIESCHANGED: {
+            CHECK_INTERFACE(IBatteryPropertiesListener, data, reply);
+            struct BatteryProperties props = {};
+            if (data.readInt32() != 0) {
+                props.readFromParcel((Parcel*)&data);
+            }
+            batteryPropertiesChanged(props);
+            return NO_ERROR;
+        }
+        default:
+            return BBinder::onTransact(code, data, reply, flags);
+    }
+};
 
 }; // namespace android

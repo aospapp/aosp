@@ -63,10 +63,16 @@ RequestID Connection::FinishRequestAsync(
   // Make sure the produced Closure holds a reference to the instance of this
   // connection.
   auto connection = std::static_pointer_cast<Connection>(shared_from_this());
-  auto callback = [connection, success_callback, error_callback] {
+  auto callback = [](std::shared_ptr<Connection> connection,
+                     const SuccessCallback& success_callback,
+                     const ErrorCallback& error_callback) {
     connection->FinishRequestAsyncHelper(success_callback, error_callback);
   };
-  transport_->RunCallbackAsync(FROM_HERE, base::Bind(callback));
+  transport_->RunCallbackAsync(FROM_HERE,
+                               base::Bind(callback,
+                                          base::Passed(&connection),
+                                          success_callback,
+                                          error_callback));
   return 1;
 }
 

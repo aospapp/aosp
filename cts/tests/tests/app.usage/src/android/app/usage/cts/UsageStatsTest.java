@@ -30,6 +30,7 @@ import android.os.SystemClock;
 import android.test.InstrumentationTestCase;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +38,6 @@ import java.util.Map;
 
 import android.util.SparseLongArray;
 import junit.framework.AssertionFailedError;
-import libcore.io.IoUtils;
-import libcore.io.Streams;
 import org.junit.Ignore;
 
 /**
@@ -94,7 +93,8 @@ public class UsageStatsTest extends InstrumentationTestCase {
 
     private static void assertLessThanOrEqual(long left, long right) {
         if (left > right) {
-            throw new AssertionFailedError("Expected " + left + " to be less than or equal to " + right);
+            throw new AssertionFailedError("Expected " + left + " to be less than or equal to "
+                    + right);
         }
     }
 
@@ -103,16 +103,23 @@ public class UsageStatsTest extends InstrumentationTestCase {
                 getInstrumentation().getContext().getPackageName(), mode);
         ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
                 .executeShellCommand(command);
-        try {
-            Streams.readFully(new FileInputStream(pfd.getFileDescriptor()));
+        try (FileInputStream fis = new FileInputStream(pfd.getFileDescriptor())){
+            final byte[] buffer = new byte[4096];
+            while (fis.read(buffer) != -1) { }
         } finally {
-            IoUtils.closeQuietly(pfd.getFileDescriptor());
+            try {
+                pfd.close();
+            } catch (IOException e) {
+                // Ignore.
+            }
         }
     }
 
     private void launchSubActivity(Class<? extends Activity> clazz) {
-        final Instrumentation.ActivityResult result = new Instrumentation.ActivityResult(0, new Intent());
-        final Instrumentation.ActivityMonitor monitor = new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
+        final Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(0, new Intent());
+        final Instrumentation.ActivityMonitor monitor =
+                new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
         getInstrumentation().addMonitor(monitor);
         launchActivity(mTargetPackage, clazz, null);
         mStartedActivities.add(monitor.waitForActivity());
@@ -198,7 +205,8 @@ public class UsageStatsTest extends InstrumentationTestCase {
 
         long endTime = System.currentTimeMillis();
         long startTime = endTime - MINUTE;
-        Map<String, UsageStats> statsMap = mUsageStatsManager.queryAndAggregateUsageStats(startTime, endTime);
+        Map<String, UsageStats> statsMap = mUsageStatsManager.queryAndAggregateUsageStats(startTime,
+                endTime);
         assertFalse(statsMap.isEmpty());
         assertTrue(statsMap.containsKey(mTargetPackage));
         final UsageStats before = statsMap.get(mTargetPackage);
@@ -284,20 +292,23 @@ public class UsageStatsTest extends InstrumentationTestCase {
             final int intervalType = intervalLengths.keyAt(i);
             final long intervalDuration = intervalLengths.valueAt(i);
             final long startTime = endTime - (2 * intervalDuration);
-            final List<UsageStats> statsList = mUsageStatsManager.queryUsageStats(intervalType, startTime, endTime);
+            final List<UsageStats> statsList = mUsageStatsManager.queryUsageStats(intervalType,
+                    startTime, endTime);
             assertFalse(statsList.isEmpty());
 
             boolean foundPackage = false;
             for (UsageStats stats : statsList) {
                 // Verify that each period is a day long.
-                assertLessThanOrEqual(stats.getLastTimeStamp() - stats.getFirstTimeStamp(), intervalDuration);
+                assertLessThanOrEqual(stats.getLastTimeStamp() - stats.getFirstTimeStamp(),
+                        intervalDuration);
                 if (stats.getPackageName().equals(mTargetPackage) &&
                         stats.getLastTimeUsed() >= beforeTime - TIME_DIFF_THRESHOLD) {
                     foundPackage = true;
                 }
             }
 
-            assertTrue("Did not find package " + mTargetPackage + " in interval " + intervalType, foundPackage);
+            assertTrue("Did not find package " + mTargetPackage + " in interval " + intervalType,
+                    foundPackage);
         }
     }
 

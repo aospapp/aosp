@@ -22,27 +22,32 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef void *(*alloc_fn)(size_t size);
-typedef void (*free_fn)(void *ptr);
+typedef void* (*alloc_fn)(size_t size);
+typedef void (*free_fn)(void* ptr);
 
 typedef struct {
   alloc_fn alloc;
-  free_fn  free;
+  free_fn free;
 } allocator_t;
 
 // allocator_t abstractions for the osi_*alloc and osi_free functions
 extern const allocator_t allocator_malloc;
 extern const allocator_t allocator_calloc;
 
-char *osi_strdup(const char *str);
-char *osi_strndup(const char *str, size_t len);
+char* osi_strdup(const char* str);
+char* osi_strndup(const char* str, size_t len);
 
-void *osi_malloc(size_t size);
-void *osi_calloc(size_t size);
-void osi_free(void *ptr);
+void* osi_malloc(size_t size);
+void* osi_calloc(size_t size);
+void osi_free(void* ptr);
 
 // Free a buffer that was previously allocated with function |osi_malloc|
 // or |osi_calloc| and reset the pointer to that buffer to NULL.
 // |p_ptr| is a pointer to the buffer pointer to be reset.
 // |p_ptr| cannot be NULL.
-void osi_free_and_reset(void **p_ptr);
+void osi_free_and_reset(void** p_ptr);
+
+// Dump allocation-related statistics and debug info to the |fd| file
+// descriptor.
+// The information is in user-readable text format. The |fd| must be valid.
+void osi_allocator_debug_dump(int fd);

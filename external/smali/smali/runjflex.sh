@@ -11,7 +11,7 @@
 # this script should be checked in to the repository
 
 # Update when switching to a different version of jflex
-EXPECTED_JFLEX_VERSION="1.4.3"
+EXPECTED_JFLEX_VERSION="1.6.1"
 EXPECTED_JFLEX_VERSION_STR="This is JFlex $EXPECTED_JFLEX_VERSION"
 
 # Get the location of this script used to find locations of other things in the tree.

@@ -34,11 +34,9 @@ LOCAL_SRC_FILES := \
   StripSource.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
-  libexpat \
+  liblog \
   libutils \
   libcutils \
-  libcamera_metadata \
-  libcamera_client
 
 LOCAL_C_INCLUDES += \
   $(LOCAL_PATH)/../include \

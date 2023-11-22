@@ -7,13 +7,12 @@ NAME = "graphics_WebGLPerformance"
 PURPOSE = "Execute the WebGL performance test suite."
 CRITERIA = "All suite tests must not crash/hang."
 ATTRIBUTES = "suite:graphics_per-day, suite:graphics, suite:graphics_browser"
-SUITE = "graphics_per-day, graphics, graphics_browser"
 TIME = "medium"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "graphics"
 TEST_TYPE = "client"
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

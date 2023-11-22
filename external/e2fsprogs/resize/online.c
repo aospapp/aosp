@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include "resize2fs.h"
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
@@ -75,6 +76,13 @@ errcode_t online_resize_fs(ext2_filsys fs, const char *mtpt,
 			no_resize_ioctl = 1;
 	}
 
+	if (ext2fs_has_feature_sparse_super2(fs->super) &&
+	    (access("/sys/fs/ext4/features/sparse_super2", R_OK) != 0)) {
+		com_err(program_name, 0, _("kernel does not support online "
+					   "resize with sparse_super2"));
+		exit(1);
+	}
+
 	printf(_("Filesystem at %s is mounted on %s; "
 		 "on-line resizing required\n"), fs->device_name, mtpt);
 
@@ -100,16 +108,14 @@ errcode_t online_resize_fs(ext2_filsys fs, const char *mtpt,
 	 */
 	if ((access("/sys/fs/ext4/features/meta_bg_resize", R_OK) != 0) ||
 	    no_meta_bg_resize) {
-		if (!EXT2_HAS_COMPAT_FEATURE(fs->super,
-					EXT2_FEATURE_COMPAT_RESIZE_INODE) &&
+		if (!ext2fs_has_feature_resize_inode(fs->super) &&
 		    (new_desc_blocks != fs->desc_blocks)) {
 			com_err(program_name, 0,
 				_("Filesystem does not support online resizing"));
 			exit(1);
 		}
 
-		if (EXT2_HAS_COMPAT_FEATURE(fs->super,
-					EXT2_FEATURE_COMPAT_RESIZE_INODE) &&
+		if (ext2fs_has_feature_resize_inode(fs->super) &&
 		    new_desc_blocks > (fs->desc_blocks +
 				       fs->super->s_reserved_gdt_blocks)) {
 			com_err(program_name, 0,
@@ -204,7 +210,7 @@ errcode_t online_resize_fs(ext2_filsys fs, const char *mtpt,
 	 * the layout advantages of flex_bg in the new block groups,
 	 * but at least it allows on-line resizing to function.
 	 */
-	new_fs->super->s_feature_incompat &= ~EXT4_FEATURE_INCOMPAT_FLEX_BG;
+	ext2fs_clear_feature_flex_bg(new_fs->super);
 	retval = adjust_fs_info(new_fs, fs, 0, *new_size);
 	if (retval) {
 		close(fd);

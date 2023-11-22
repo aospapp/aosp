@@ -32,7 +32,6 @@ following essential elements:</p>
   <a href="https://developer.android.com/training/enterprise/app-compatibility.html">Ensuring
   Compatibility with Managed Profiles</a>)</li>
   <li>Device owner</li>
-  <li>Activation code provisioning</li>
   </ul>
 
 <p>For a complete list of requirements, see
@@ -49,9 +48,10 @@ enterprise mobility management (EMM) providers.</p>
 <ol>
   <li>Set up the device:
   <ol>
-  <li style="list-style-type: lower-alpha">Ensure the device uses a
-  <strong>userdebug</strong> or <strong>eng</strong> build.</li>
   <li style="list-style-type: lower-alpha">Factory reset the target device.</li>
+  <li style="list-style-type: lower-alpha">Ensure you do not add any user accounts
+  (e.g. those used to log into online services) to the device.
+  This can be checked in <em>Settings->Accounts</em>.</li>
   </ol></li>
   <li>Set up the testing application using one of the following methods:
   <ul>

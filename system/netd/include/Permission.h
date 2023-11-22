@@ -39,4 +39,24 @@ enum Permission {
     PERMISSION_SYSTEM  = 0x3,  // Includes PERMISSION_NETWORK.
 };
 
+inline const char *permissionToName(Permission permission) {
+    switch (permission) {
+        case PERMISSION_NONE:    return "NONE";
+        case PERMISSION_NETWORK: return "NETWORK";
+        case PERMISSION_SYSTEM:  return "SYSTEM";
+        // No default statement. We want to see errors of the form:
+        // "enumeration value 'PERMISSION_SYSTEM' not handled in switch [-Werror,-Wswitch]".
+    }
+}
+
+inline Permission stringToPermission(const char* arg) {
+    if (!strcmp(arg, "NETWORK")) {
+        return PERMISSION_NETWORK;
+    }
+    if (!strcmp(arg, "SYSTEM")) {
+        return PERMISSION_SYSTEM;
+    }
+    return PERMISSION_NONE;
+}
+
 #endif  // NETD_INCLUDE_PERMISSION_H

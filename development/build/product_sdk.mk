@@ -31,18 +31,20 @@ PRODUCT_PACKAGES += \
 	aapt2 \
 	adb \
 	aidl \
+	apksigner \
 	zipalign \
 	bcc_compat \
 	bios.bin \
 	commons-compress-1.0 \
 	dexdump \
 	dmtracedump \
+	dx \
 	emmalib \
 	etc1tool \
 	hprof-conv \
 	jython \
-	layoutlib \
-	layoutlib-tests \
+	layoutlib-legacy \
+	libaapt2_jni \
 	llvm-rs-cc \
 	sqlite3 \
 	vgabios-cirrus.bin \

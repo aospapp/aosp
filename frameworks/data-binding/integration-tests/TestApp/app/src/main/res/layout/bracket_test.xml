@@ -35,7 +35,7 @@
 
         <TextView android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
-                  android:id="@+id/indexObj"
+                  android:id="@+id/indexObjView"
                   android:text="@{array[indexObj]}"/>
 
         <TextView android:layout_width="wrap_content"

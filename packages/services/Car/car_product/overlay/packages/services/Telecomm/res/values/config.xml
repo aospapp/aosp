@@ -28,13 +28,13 @@
     <bool name="allow_local_dtmf_tones">true</bool>
 
     <!-- Package name for the default in-call UI and dialer [DO NOT TRANSLATE] -->
-    <string name="ui_default_package" translatable="false">com.google.android.car.dialer</string>
+    <string name="ui_default_package" translatable="false">com.android.car.dialer</string>
 
     <!-- Class name for the default in-call UI Service [DO NOT TRANSLATE] -->
-    <string name="incall_default_class" translatable="false">com.google.android.car.dialer.telecom.embedded.InCallServiceImpl</string>
+    <string name="incall_default_class" translatable="false">com.android.car.dialer.telecom.embedded.InCallServiceImpl</string>
 
     <!-- Class name for the default main dialer activity [DO NOT TRANSLATE] -->
-    <string name="dialer_default_class" translatable="false">com.google.android.car.dialer.TelecomActivity</string>
+    <string name="dialer_default_class" translatable="false">com.android.car.dialer.TelecomActivity</string>
 
     <!-- Flag indicating if the tty is enabled -->
     <bool name="tty_enabled">false</bool>

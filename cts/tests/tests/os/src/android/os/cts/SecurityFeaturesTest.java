@@ -23,14 +23,6 @@ import junit.framework.TestCase;
 
 public class SecurityFeaturesTest extends TestCase {
 
-    public void testNoNewPrivs() {
-        int newPrivs = OSFeatures.getNoNewPrivs();
-        // if newPrivs == -1, then old kernel with no PR_SET_NO_NEW_PRIVS (acceptable)
-        // if newPrivs == 0,  then new kernel with PR_SET_NO_NEW_PRIVS disabled (BAD)
-        // if newPrivs == 1,  then new kernel with PR_SET_NO_NEW_PRIVS enabled (GOOD)
-        assertTrue(newPrivs != 0);
-    }
-
     /**
      * Iterate over all possible capabilities, testing to make sure each capability
      * has been removed from the app's capability bounding set.

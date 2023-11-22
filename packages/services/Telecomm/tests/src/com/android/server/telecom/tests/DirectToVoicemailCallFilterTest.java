@@ -42,7 +42,6 @@ public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
 
     public void setUp() throws Exception {
         super.setUp();
-        when(mCall.getHandle()).thenReturn(TEST_HANDLE);
     }
 
     @SmallTest
@@ -79,13 +78,32 @@ public class DirectToVoicemailCallFilterTest extends TelecomTestCase {
                 ));
     }
 
+    @SmallTest
+    public void testNullResponseFromLookupHelper() {
+        CallerInfoLookupHelper.OnQueryCompleteListener queryListener = verifyLookupStart(null);
+
+        queryListener.onCallerInfoQueryComplete(null, null);
+        verify(mCallback).onCallFilteringComplete(mCall,
+                new CallFilteringResult(
+                        true, // shouldAllowCall
+                        false, // shouldReject
+                        true, // shouldAddToCallLog
+                        true // shouldShowNotification
+                ));
+    }
+
     private CallerInfoLookupHelper.OnQueryCompleteListener verifyLookupStart() {
+        return verifyLookupStart(TEST_HANDLE);
+    }
+
+    private CallerInfoLookupHelper.OnQueryCompleteListener verifyLookupStart(Uri handle) {
+        when(mCall.getHandle()).thenReturn(handle);
         DirectToVoicemailCallFilter filter =
                 new DirectToVoicemailCallFilter(mCallerInfoLookupHelper);
         filter.startFilterLookup(mCall, mCallback);
         ArgumentCaptor<CallerInfoLookupHelper.OnQueryCompleteListener> captor =
                 ArgumentCaptor.forClass(CallerInfoLookupHelper.OnQueryCompleteListener.class);
-        verify(mCallerInfoLookupHelper).startLookup(eq(TEST_HANDLE), captor.capture());
+        verify(mCallerInfoLookupHelper).startLookup(eq(handle), captor.capture());
         return captor.getValue();
     }
 }

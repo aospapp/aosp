@@ -115,7 +115,9 @@
 #define HAVE_ERROR_T 1
 
 /* Define to 1 if you have the <execinfo.h> header file. */
+#ifndef __BIONIC__
 #define HAVE_EXECINFO_H 1
+#endif
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H 1
@@ -309,7 +311,9 @@
 #define HAVE_OPENDIR 1
 
 /* Define to 1 if you have the `posix_spawn' function. */
+#ifndef __BIONIC__
 #define HAVE_POSIX_SPAWN 1
+#endif
 
 /* Define to 1 if you have the `powf' function. */
 #define HAVE_POWF 1
@@ -485,7 +489,9 @@
 #define HAVE_SYS_WAIT_H 1
 
 /* Define if the setupterm() function is supported this platform. */
+#ifndef __BIONIC__
 #define HAVE_TERMINFO 1
+#endif
 
 /* Define to 1 if you have the <termios.h> header file. */
 #define HAVE_TERMIOS_H 1
@@ -590,7 +596,11 @@
 #define LLVM_DATADIR "/opt/llvm-android/share/llvm"
 
 /* Target triple LLVM will generate code for by default */
+#if defined(__APPLE__)
+#define LLVM_DEFAULT_TARGET_TRIPLE "x86_64-apple-darwin"
+#else
 #define LLVM_DEFAULT_TARGET_TRIPLE "x86_64-unknown-linux"
+#endif
 
 /* Installation directory for documentation */
 #define LLVM_DOCSDIR "/opt/llvm-android/share/doc/llvm"
@@ -671,7 +681,7 @@
 #define LLVM_VERSION_MINOR 8
 
 /* Patch version of the LLVM API */
-#define LLVM_VERSION_PATCH 256229
+#define LLVM_VERSION_PATCH 275480
 
 /* Define if the OS needs help to load dependent libraries for dlopen(). */
 /* #undef LTDL_DLOPEN_DEPLIBS */
@@ -685,7 +695,13 @@
 #define LTDL_SHLIBPATH_VAR "LD_LIBRARY_PATH"
 
 /* Define to the extension used for shared libraries, say, ".so". */
+#if defined(__APPLE__)
+#define LTDL_SHLIB_EXT ".dylib"
+#elif defined(_WIN32)
+#define LTDL_SHLIB_EXT ".dll"
+#else
 #define LTDL_SHLIB_EXT ".so"
+#endif  /* __APPLE__ */
 
 /* Define to the system default library search path. */
 #define LTDL_SYSSEARCHPATH "/lib:/usr/lib:/usr/local/lib:/lib:/usr/lib:/lib64:/usr/lib64:/usr/local/lib64:/lib32:/usr/lib32:/usr/local/lib32:/usr/x86_64-pc-linux-gnu/lib:/usr/lib/gcc/x86_64-pc-linux-gnu/4.3.4:/usr/lib/gcc/x86_64-pc-linux-gnu/4.3.4/32:/usr/lib/gcc/x86_64-pc-linux-gnu/4.1.2:/usr/lib/gcc/x86_64-pc-linux-gnu/4.1.2/32"
@@ -704,13 +720,13 @@
 #define PACKAGE_NAME "LLVM"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "LLVM 3.8.256229"
+#define PACKAGE_STRING "LLVM 3.8.275480"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "llvm"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.8.256229"
+#define PACKAGE_VERSION "3.8.275480"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void

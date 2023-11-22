@@ -9,6 +9,7 @@
 
 #include <ctype.h>
 #include <stddef.h>
+#include <mntent.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -72,12 +73,12 @@ static struct file_info *get_file_info(const char* fpath, size_t file_size) {
 }
 
 static int store_num_cached(const char* fpath, const struct stat *sb) {
-    int fd;
+    int fd, ret = -1;
     fd = open (fpath, O_RDONLY);
 
     if (fd == -1) {
-        printf("Could not open file.");
-        return -1;
+        fprintf(stderr, "Could not open file: %s\n", fpath);
+        return ret;
     }
 
     void* mapped_addr = mmap(NULL, sb->st_size, PROT_NONE, MAP_SHARED, fd, 0);
@@ -86,25 +87,28 @@ static int store_num_cached(const char* fpath, const struct stat *sb) {
         // Calculate bit-vector size
         size_t num_file_pages = (sb->st_size + g_page_size - 1) / g_page_size;
         unsigned char* mincore_data = calloc(1, num_file_pages);
-        int ret = mincore(mapped_addr, sb->st_size, mincore_data);
-        int num_cached = 0;
-        unsigned int page = 0;
-        for (page = 0; page < num_file_pages; page++) {
-           if (mincore_data[page]) num_cached++;
-        }
-        if (num_cached > 0) {
-            struct file_info *info = get_file_info(fpath, sb->st_size);
-            info->num_cached_pages += num_cached;
-            g_total_cached += num_cached;
+        ret = mincore(mapped_addr, sb->st_size, mincore_data);
+        if (!ret) {
+            int num_cached = 0;
+            unsigned int page = 0;
+            for (page = 0; page < num_file_pages; page++) {
+                if (mincore_data[page]) num_cached++;
+            }
+            if (num_cached > 0) {
+                struct file_info *info = get_file_info(fpath, sb->st_size);
+                info->num_cached_pages += num_cached;
+                g_total_cached += num_cached;
+            }
         }
         munmap(mapped_addr, sb->st_size);
     }
 
     close(fd);
-    return 0;
+    return ret;
 }
 
-static int scan_entry(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+static int scan_entry(const char *fpath, const struct stat *sb, int typeflag,
+                      struct FTW * __attribute__((unused))ftwbuf) {
     if (typeflag == FTW_F) {
         store_num_cached(fpath, sb);
     }
@@ -130,10 +134,22 @@ int main()
     g_files = malloc(INITIAL_NUM_FILES * sizeof(struct file_info*));
     g_files_size = INITIAL_NUM_FILES;
 
-    // Walk filesystem trees
-    nftw("/system/", &scan_entry, MAX_NUM_FD, 0);
-    nftw("/vendor/", &scan_entry, MAX_NUM_FD, 0);
-    nftw("/data/", &scan_entry, MAX_NUM_FD, 0);
+    // Walk filesystem trees through procfs except rootfs/devfs/sysfs/procfs
+    FILE* fp = setmntent("/proc/mounts", "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Error opening /proc/mounts\n");
+        return -errno;
+    }
+    struct mntent* mentry;
+    while ((mentry = getmntent(fp)) != NULL) {
+        if (strcmp(mentry->mnt_type, "rootfs") != 0 &&
+            strncmp("/dev", mentry->mnt_dir, strlen("/dev")) != 0 &&
+            strncmp("/sys", mentry->mnt_dir, strlen("/sys")) != 0 &&
+            strncmp("/proc", mentry->mnt_dir, strlen("/proc")) != 0) {
+            nftw(mentry->mnt_dir, &scan_entry, MAX_NUM_FD, FTW_MOUNT | FTW_PHYS | FTW_DEPTH);
+        }
+    }
+    endmntent(fp);
 
     // Sort entries
     qsort(g_files, g_num_files, sizeof(g_files[0]), &cmpfiles);

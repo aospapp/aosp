@@ -16,46 +16,117 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.ActionBar;
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.pm.PackageManager;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
-import android.view.KeyCharacterMap;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 
-public class ContentPaneFocusTest
-        extends ActivityInstrumentationTestCase2<ContentPaneCtsActivity> {
-    public ContentPaneFocusTest() {
-        super("android.view.cts", ContentPaneCtsActivity.class);
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ContentPaneFocusTest {
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<ContentPaneCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ContentPaneCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
+    @Test
     public void testAccessActionBar() throws Throwable {
-        final Activity activity = getActivity();
+        final View v1 = mActivity.findViewById(R.id.view1);
+        mActivityRule.runOnUiThread(v1::requestFocus);
 
-        final View v1 = activity.findViewById(R.id.view1);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                v1.requestFocus();
-            }
-        });
+        mInstrumentation.waitForIdleSync();
+        sendMetaHotkey(KeyEvent.KEYCODE_TAB);
+        mInstrumentation.waitForIdleSync();
 
-        getInstrumentation().waitForIdleSync();
-        sendControlChar('<');
-        getInstrumentation().waitForIdleSync();
-
-        ActionBar action = activity.getActionBar();
+        ActionBar action = mActivity.getActionBar();
         if (action == null || !action.isShowing()) {
             // No action bar, so we only needed to make sure that the shortcut didn't cause
             // the framework to crash.
             return;
         }
 
-        final View content = activity.findViewById(android.R.id.content);
+        final View actionBar = getActionBarView();
+        // Should jump to the action bar after meta+tab
+        mActivityRule.runOnUiThread(() -> {
+            assertFalse(v1.hasFocus());
+            assertTrue(actionBar.hasFocus());
+        });
+
+        boolean isTouchScreen = mActivity.getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
+        if (isTouchScreen) {
+            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
+            mInstrumentation.waitForIdleSync();
+
+            // Shouldn't leave actionbar with normal keyboard navigation on touchscreens.
+            mActivityRule.runOnUiThread(() -> assertTrue(actionBar.hasFocus()));
+        }
+
+        sendMetaHotkey(KeyEvent.KEYCODE_TAB);
+        mInstrumentation.waitForIdleSync();
+
+        // Should jump to the first view again.
+        mActivityRule.runOnUiThread(() -> assertTrue(v1.hasFocus()));
+
+        if (isTouchScreen) {
+            mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP);
+            mInstrumentation.waitForIdleSync();
+            // Now it shouldn't go up to action bar -- it doesn't allow taking focus once left
+            // but only for touch screens.
+            mActivityRule.runOnUiThread(() -> assertTrue(v1.hasFocus()));
+        }
+    }
+
+    @Test
+    public void testNoFocusablesInContent() throws Throwable {
+        ViewGroup top = mActivity.findViewById(R.id.linearlayout);
+        top.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        mActivityRule.runOnUiThread(top::clearFocus);
+        mInstrumentation.waitForIdleSync();
+        top.clearFocus();
+        final View content = mActivity.findViewById(android.R.id.content);
+        assertTrue(content.findFocus() == null);
+        sendMetaHotkey(KeyEvent.KEYCODE_TAB);
+        mInstrumentation.waitForIdleSync();
+
+        ActionBar action = mActivity.getActionBar();
+        if (action == null || !action.isShowing()) {
+            // No action bar, so we only needed to make sure that the shortcut didn't cause
+            // the framework to crash.
+            return;
+        }
+
+        assertTrue(getActionBarView().hasFocus());
+    }
+
+    private View getActionBarView() {
+        final View content = mActivity.findViewById(android.R.id.content);
         assertNotNull(content);
         final ViewParent viewParent = content.getParent();
         assertNotNull(viewParent);
@@ -70,64 +141,28 @@ public class ContentPaneFocusTest
             }
         }
         assertNotNull(actionBarView);
-        final View actionBar = actionBarView;
-        // Should jump to the action bar after control-<
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertFalse(v1.hasFocus());
-                assertTrue(actionBar.hasFocus());
-            }
-        });
-        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
-        getInstrumentation().waitForIdleSync();
-
-        // Should jump to the first view again.
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertTrue(v1.hasFocus());
-            }
-        });
-        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_UP);
-        getInstrumentation().waitForIdleSync();
-
-        boolean isTouchScreen = activity.getPackageManager().
-                hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN);
-        if (isTouchScreen) {
-            // Now it shouldn't go up to action bar -- it doesn't allow taking focus once left
-            // but only for touch screens.
-            runTestOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(v1.hasFocus());
-                }
-            });
-        }
+        return actionBarView;
     }
 
-    private void sendControlChar(char key) throws Throwable {
-        KeyEvent tempEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A);
-        KeyCharacterMap map = tempEvent.getKeyCharacterMap();
-        sendControlKey(KeyEvent.ACTION_DOWN);
-        KeyEvent[] events = map.getEvents(new char[] {key});
-        final int controlOn = KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON;
-        for (int i = 0; i < events.length; i++) {
-            long time = SystemClock.uptimeMillis();
-            KeyEvent event = events[i];
-            KeyEvent controlKey = new KeyEvent(time, time, event.getAction(), event.getKeyCode(),
-                    event.getRepeatCount(), event.getMetaState() | controlOn);
-            getInstrumentation().sendKeySync(controlKey);
-            Thread.sleep(2);
-        }
-        sendControlKey(KeyEvent.ACTION_UP);
-    }
-
-    private void sendControlKey(int action) throws Throwable {
+    private void sendMetaHotkey(int keyCode) throws Throwable {
+        sendMetaKey(KeyEvent.ACTION_DOWN);
         long time = SystemClock.uptimeMillis();
-        KeyEvent keyEvent = new KeyEvent(time, time, action, KeyEvent.KEYCODE_CTRL_LEFT, 0,
-                KeyEvent.META_CTRL_LEFT_ON | KeyEvent.META_CTRL_ON);
-        getInstrumentation().sendKeySync(keyEvent);
+        KeyEvent metaHotkey = new KeyEvent(time, time, KeyEvent.ACTION_DOWN, keyCode,
+                0, KeyEvent.META_META_ON | KeyEvent.META_META_LEFT_ON);
+        mInstrumentation.sendKeySync(metaHotkey);
+        time = SystemClock.uptimeMillis();
+        metaHotkey = new KeyEvent(time, time, KeyEvent.ACTION_UP, keyCode,
+                0, KeyEvent.META_META_ON | KeyEvent.META_META_LEFT_ON);
+        mInstrumentation.sendKeySync(metaHotkey);
+        Thread.sleep(2);
+        sendMetaKey(KeyEvent.ACTION_UP);
+    }
+
+    private void sendMetaKey(int action) throws Throwable {
+        long time = SystemClock.uptimeMillis();
+        KeyEvent keyEvent = new KeyEvent(time, time, action, KeyEvent.KEYCODE_META_LEFT, 0,
+                KeyEvent.META_META_LEFT_ON | KeyEvent.META_META_ON);
+        mInstrumentation.sendKeySync(keyEvent);
         Thread.sleep(2);
     }
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# pylint: disable=missing-docstring
 
 import unittest, os
 import common
@@ -12,8 +13,6 @@ _APP_DIR = os.path.join(os.path.dirname(__file__), 'afe')
 class FrontendTest(unittest.TestCase):
     def setUp(self):
         setup_test_environment.set_up()
-        global_config.global_config.override_config_value(
-                'AUTOTEST_WEB', 'parameterized_jobs', 'False')
         global_config.global_config.override_config_value(
                 'SERVER', 'rpc_logging', 'False')
 

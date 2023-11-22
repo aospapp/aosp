@@ -45,7 +45,7 @@ static bool draw_this_name(const SkString& name, const SkString& filter) {
 class OverView : public SkView {
 public:
     OverView(int count, const SkViewFactory* factories[]);
-    virtual ~OverView();
+    ~OverView() override;
 
 protected:
     bool onEvent(const SkEvent&) override;
@@ -59,7 +59,9 @@ protected:
         }
         SkUnichar uni;
         if (SampleCode::CharQ(*evt, &uni)) {
-            fMatchStr.appendUnichar(uni);
+            if (uni >= ' ') {
+                fMatchStr.appendUnichar(uni);
+            }
             this->inval(nullptr);
             return true;
         }
@@ -170,4 +172,3 @@ void OverView::onDraw(SkCanvas* canvas) {
         }
     }
 }
-

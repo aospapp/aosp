@@ -16,16 +16,15 @@
 
 package android.widget.cts;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-
 import android.widget.cts.R;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A minimal application for AdapterView test.

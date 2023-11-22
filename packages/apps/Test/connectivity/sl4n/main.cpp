@@ -33,7 +33,8 @@
 
 const int kBacklogInt = 10;
 #define PORT 8080
-#define SOCK_BUF_LEN 100
+// TODO: Set to a lower buffer size and read socket data until termination
+#define SOCK_BUF_LEN 4096
 #define MEMSET_VALUE 0
 
 int client_sock;

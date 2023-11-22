@@ -1,4 +1,14 @@
-hardware_modules := gralloc hwcomposer audio nfc nfc-nci local_time \
-	power usbaudio audio_remote_submix camera usbcamera consumerir sensors vibrator \
-	tv_input fingerprint input vehicle thermal vr
+hardware_modules := \
+    audio_remote_submix \
+    camera \
+    gralloc \
+    hwcomposer \
+    input \
+    radio \
+    sensors \
+    thermal \
+    usbaudio \
+    usbcamera \
+    vehicle \
+    vr
 include $(call all-named-subdir-makefiles,$(hardware_modules))

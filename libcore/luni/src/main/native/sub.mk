@@ -11,9 +11,9 @@ LOCAL_SRC_FILES := \
     Register.cpp \
     ZipUtilities.cpp \
     android_system_OsConstants.cpp \
-    canonicalize_path.cpp \
     cbigint.cpp \
     java_lang_StringToReal.cpp \
+    java_lang_invoke_MethodHandle.cpp \
     java_math_NativeBN.cpp \
     java_util_regex_Matcher.cpp \
     java_util_regex_Pattern.cpp \
@@ -21,15 +21,15 @@ LOCAL_SRC_FILES := \
     libcore_icu_NativeConverter.cpp \
     libcore_icu_TimeZoneNames.cpp \
     libcore_io_AsynchronousCloseMonitor.cpp \
+    libcore_io_Linux.cpp \
     libcore_io_Memory.cpp \
-    libcore_io_Posix.cpp \
     libcore_util_NativeAllocationRegistry.cpp \
     org_apache_harmony_xml_ExpatParser.cpp \
-    readlink.cpp \
     sun_misc_Unsafe.cpp \
     valueOf.cpp \
 
 LOCAL_STATIC_LIBRARIES += \
+    libbase \
     libfdlibm \
 
 LOCAL_SHARED_LIBRARIES += \

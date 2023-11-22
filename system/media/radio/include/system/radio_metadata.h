@@ -46,7 +46,7 @@ enum {
     RADIO_METADATA_KEY_MIN          = RADIO_METADATA_KEY_RDS_PI,
     RADIO_METADATA_KEY_MAX          = RADIO_METADATA_KEY_CLOCK,
 };
-typedef int radio_metadata_key_t;
+typedef int32_t radio_metadata_key_t;
 
 enum {
     RADIO_METADATA_TYPE_INVALID    = -1,
@@ -56,7 +56,7 @@ enum {
     RADIO_METADATA_TYPE_RAW        = 2,      /* raw binary data (icon or art) */
     RADIO_METADATA_TYPE_CLOCK      = 3,      /* clock data, see radio_metadata_clock_t */
 };
-typedef int radio_metadata_type_t;
+typedef int32_t radio_metadata_type_t;
 
 typedef struct radio_metadata_clock {
     uint64_t utc_seconds_since_epoch;            /* Seconds since epoch at GMT + 0. */
@@ -90,8 +90,8 @@ radio_metadata_type_t radio_metadata_type_of_key(const radio_metadata_key_t key)
  */
 ANDROID_API
 int radio_metadata_allocate(radio_metadata_t **metadata,
-                            const unsigned int channel,
-                            const unsigned int sub_channel);
+                            const uint32_t channel,
+                            const uint32_t sub_channel);
 
 /*
  * De-allocate a meta data buffer.
@@ -119,7 +119,7 @@ void radio_metadata_deallocate(radio_metadata_t *metadata);
 ANDROID_API
 int radio_metadata_add_int(radio_metadata_t **metadata,
                            const radio_metadata_key_t key,
-                           const int value);
+                           const int32_t value);
 
 /*
  * Add an text meta data to the buffer.
@@ -159,7 +159,7 @@ ANDROID_API
 int radio_metadata_add_raw(radio_metadata_t **metadata,
                            const radio_metadata_key_t key,
                            const unsigned char *value,
-                           const unsigned int size);
+                           const size_t size);
 
 /*
  * Add a clock meta data to the buffer.
@@ -255,11 +255,11 @@ int radio_metadata_get_count(const radio_metadata_t *metadata);
  */
 ANDROID_API
 int radio_metadata_get_at_index(const radio_metadata_t *metadata,
-                                const unsigned int index,
+                                const uint32_t index,
                                 radio_metadata_key_t *key,
                                 radio_metadata_type_t *type,
                                 void **value,
-                                unsigned int *size);
+                                size_t *size);
 
 /*
  * Get a meta data with the specified key.
@@ -284,7 +284,24 @@ int radio_metadata_get_from_key(const radio_metadata_t *metadata,
                                 const radio_metadata_key_t key,
                                 radio_metadata_type_t *type,
                                 void **value,
-                                unsigned int *size);
+                                size_t *size);
+
+/*
+ * Get channel and sub channel associated with metadata.
+ *
+ * arguments:
+ * - metadata: the meta data buffer
+ * - channel: address where to return the channel.
+ * - sub_channel: address where to return the sub channel.
+ *
+ * returns:
+ *  0 if successfully added
+ *  -EINVAL if the buffer passed is invalid
+ */
+ANDROID_API
+int radio_metadata_get_channel(radio_metadata_t *metadata,
+                               uint32_t *channel,
+                               uint32_t *sub_channel);
 
 #ifdef __cplusplus
 }

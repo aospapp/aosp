@@ -25,12 +25,11 @@ LOCAL_C_INCLUDES += $(LOC_RPCGEN_APIS_PATH)/../../SHARED_LIBRARIES/libcommondefs
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/inc
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/libcommondefs/rpcgen/inc
 
-LOCAL_COPY_HEADERS_TO := loc_api/rpcgen/inc
-LOCAL_COPY_HEADERS := inc/loc_api_rpcgen_rpc.h
-LOCAL_COPY_HEADERS += inc/loc_api_rpcgen_common_rpc.h
-LOCAL_COPY_HEADERS += inc/loc_api_rpcgen_cb_rpc.h
-LOCAL_COPY_HEADERS += inc/loc_apicb_appinit.h
-
 LOCAL_LDLIBS += -lpthread
 LOCAL_PRELINK_MODULE := false
 include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libloc_api_rpcgen_headers
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/inc
+include $(BUILD_HEADER_LIBRARY)

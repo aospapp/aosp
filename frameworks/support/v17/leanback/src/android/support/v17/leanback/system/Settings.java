@@ -16,12 +16,15 @@
 
 package android.support.v17.leanback.system;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.support.annotation.RestrictTo;
 import android.support.v17.leanback.widget.ShadowOverlayContainer;
 import android.util.Log;
 
@@ -66,6 +69,7 @@ public class Settings {
      * Returns true if static shadows are recommended.
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public boolean preferStaticShadows() {
         return mPreferStaticShadows;
     }
@@ -125,8 +129,9 @@ public class Settings {
     private Customizations getCustomizations(Context context) {
         final PackageManager pm = context.getPackageManager();
         final Intent intent = new Intent(ACTION_PARTNER_CUSTOMIZATION);
-        if (DEBUG) Log.v(TAG, "getting oem customizations by intent: " +
-                ACTION_PARTNER_CUSTOMIZATION);
+        if (DEBUG) {
+            Log.v(TAG, "getting oem customizations by intent: " + ACTION_PARTNER_CUSTOMIZATION);
+        }
 
         Resources resources = null;
         String packageName = null;
@@ -147,7 +152,7 @@ public class Settings {
     }
 
     private static boolean isSystemApp(ResolveInfo info) {
-        return (info.activityInfo != null &&
-                (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0);
+        return (info.activityInfo != null
+                && (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0);
     }
 }

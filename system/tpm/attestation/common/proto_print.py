@@ -123,7 +123,7 @@ def ParseProto(input_file):
   current_message_stack = []
   current_enum = None
   package_re = re.compile(r'package\s+(\w+);')
-  import_re = re.compile(r'import\s+"(\w+).proto";')
+  import_re = re.compile(r'import\s+"([\w]*/)*(\w+).proto";')
   message_re = re.compile(r'message\s+(\w+)\s*{')
   field_re = re.compile(r'(optional|required|repeated)\s+(\w+)\s+(\w+)\s*=')
   enum_re = re.compile(r'enum\s+(\w+)\s*{')
@@ -174,7 +174,7 @@ def ParseProto(input_file):
     # Look for an import statement.
     match = import_re.search(line)
     if match:
-      imports.append(match.group(1))
+      imports.append(match.group(2))
   return package, imports, messages, enums
 
 
@@ -352,6 +352,9 @@ std::string GetProtoDebugStringWithIndent(const %(name)s& value,
   repeated_field = """
   output += indent + "  %(name)s: {";
   for (int i = 0; i < value.%(name)s_size(); ++i) {
+    if (i > 0) {
+      base::StringAppendF(&output, ", ");
+    }
     base::StringAppendF(&output, %(format)s);
   }
   output += "}\\n";"""
@@ -360,8 +363,8 @@ std::string GetProtoDebugStringWithIndent(const %(name)s& value,
   formats = {'bool': '"%%s", %(value)s ? "true" : "false"',
              'int32': '"%%d", %(value)s',
              'int64': '"%%ld", %(value)s',
-             'uint32': '"%%u", %(value)s',
-             'uint64': '"%%lu", %(value)s',
+             'uint32': '"%%u (0x%%08X)", %(value)s, %(value)s',
+             'uint64': '"%%lu (0x%%016X)", %(value)s, %(value)s',
              'string': '"%%s", %(value)s.c_str()',
              'bytes': """"%%s", base::HexEncode(%(value)s.data(),
                                                 %(value)s.size()).c_str()"""}

@@ -19,26 +19,19 @@
 
 #include <string>
 
-class Action;
-class Service;
-
-#define COMMAND_RETRY_TIMEOUT 5
-
 extern const char *ENV[32];
-extern bool waiting_for_exec;
-extern int have_console;
-extern std::string console_name;
+extern std::string default_console;
 extern struct selabel_handle *sehandle;
 extern struct selabel_handle *sehandle_prop;
 
 void handle_control_message(const std::string& msg, const std::string& arg);
 
-void property_changed(const char *name, const char *value);
-
-int selinux_reload_policy(void);
+void property_changed(const std::string& name, const std::string& value);
 
 void register_epoll_handler(int fd, void (*fn)());
 
 int add_environment(const char* key, const char* val);
+
+bool start_waiting_for_property(const char *name, const char *value);
 
 #endif  /* _INIT_INIT_H */

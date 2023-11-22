@@ -5,7 +5,6 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'platform'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 DOC = """
 Verifies that /var/lib/dbus/machine-id is properly rotated.
 """

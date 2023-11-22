@@ -17,7 +17,6 @@ public class DualPaymentEmulatorActivity extends BaseEmulatorActivity {
     final static int STATE_SERVICE2_SETTING_UP = 2;
     final static int STATE_MAKING_SERVICE2_DEFAULT = 3;
 
-    boolean mReceiverRegistered = false;
     int mState = STATE_IDLE;
 
     @Override
@@ -61,9 +60,6 @@ public class DualPaymentEmulatorActivity extends BaseEmulatorActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (mReceiverRegistered) {
-            unregisterReceiver(mReceiver);
-        }
     }
     public static Intent buildReaderIntent(Context context) {
         Intent readerIntent = new Intent(context, SimpleReaderActivity.class);

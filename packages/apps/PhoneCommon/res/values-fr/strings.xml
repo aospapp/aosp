@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Aucune"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Sonnerie inconnue"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Toutes les lignes sont occupées. Pour passer un appel, veuillez mettre fin à un appel sur cet appareil ou un tout autre appareil vous appartenant."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"L\'appel a été interrompu suite à la désactivation des données mobiles."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"L\'appel a été interrompu, car la limite de données mobiles a été atteinte."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Limite de données atteinte. Appel interrompu."</string>
 </resources>

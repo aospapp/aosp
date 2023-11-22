@@ -16,28 +16,52 @@
 
 package android.text.cts;
 
-import java.util.Locale;
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
+import android.content.res.Configuration;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.AutoText;
 import android.view.View;
-import android.content.res.Configuration;
 
-public class AutoTextTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.util.Locale;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AutoTextTest {
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+
+        // set locale as English.
+        Locale.setDefault(Locale.ENGLISH);
+        Configuration config = mContext.getResources().getConfiguration();
+        if (!config.locale.equals(Locale.getDefault())) {
+            config.locale = Locale.getDefault();
+            mContext.getResources().updateConfiguration(config, null);
+        }
+    }
+
+    @UiThreadTest
+    @Test
     public void testGet() {
         // Define the necessary sources.
         CharSequence src;
         String actual;
-
-        // set local as English.
-        Locale.setDefault(Locale.ENGLISH);
-        Configuration config = getContext().getResources().getConfiguration();
-        if (!config.locale.equals(Locale.getDefault())) {
-                config.locale = Locale.getDefault();
-                getContext().getResources().updateConfiguration(config, null);
-        }
         // New a View instance.
-        View view = new View(getContext());
+        View view = new View(mContext);
 
         // Test a word key not in the autotext.xml.
         src = "can";
@@ -75,14 +99,10 @@ public class AutoTextTest extends AndroidTestCase {
         assertEquals("can", actual);
     }
 
+    @UiThreadTest
+    @Test
     public void testGetSize() {
-        Locale.setDefault(Locale.ENGLISH);
-        Configuration config = getContext().getResources().getConfiguration();
-        if (!config.locale.equals(Locale.getDefault())) {
-                config.locale = Locale.getDefault();
-                getContext().getResources().updateConfiguration(config, null);
-        }
-        View view = new View(getContext());
+        View view = new View(mContext);
         // Returns the size of the auto text dictionary. Just make sure it is bigger than 0.
         assertTrue(AutoText.getSize(view) > 0);
     }

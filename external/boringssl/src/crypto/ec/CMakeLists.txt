@@ -39,13 +39,13 @@ add_executable(
 )
 
 add_executable(
-  ec_test
+  p256-x86_64_test
 
-  ec_test.cc
+  p256-x86_64_test.cc
 
   $<TARGET_OBJECTS:test_support>
 )
 
 target_link_libraries(example_mul crypto)
-target_link_libraries(ec_test crypto)
-add_dependencies(all_tests example_mul ec_test)
+target_link_libraries(p256-x86_64_test crypto)
+add_dependencies(all_tests example_mul p256-x86_64_test)

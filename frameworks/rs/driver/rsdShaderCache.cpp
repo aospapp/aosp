@@ -24,12 +24,9 @@
 #include <GLES/gl.h>
 #include <GLES2/gl2.h>
 
-using namespace android;
-using namespace android::renderscript;
-
+using android::renderscript::Context;
 
 RsdShaderCache::RsdShaderCache() {
-    mEntries.setCapacity(16);
     mVertexDirty = true;
     mFragmentDirty = true;
 }
@@ -126,7 +123,6 @@ bool RsdShaderCache::link(const Context *rsc) {
     uint32_t entryCount = mEntries.size();
     for (uint32_t ct = 0; ct < entryCount; ct ++) {
         if ((mEntries[ct]->vtx == vID) && (mEntries[ct]->frag == fID)) {
-
             //ALOGV("SC using program %i", mEntries[ct]->program);
             glUseProgram(mEntries[ct]->program);
             mCurrent = mEntries[ct];
@@ -139,7 +135,7 @@ bool RsdShaderCache::link(const Context *rsc) {
     ProgramEntry *e = new ProgramEntry(vtx->getAttribCount(),
                                        vtx->getUniformCount(),
                                        frag->getUniformCount());
-    mEntries.push(e);
+    mEntries.push_back(e);
     mCurrent = e;
     e->vtx = vID;
     e->frag = fID;
@@ -237,7 +233,7 @@ bool RsdShaderCache::link(const Context *rsc) {
     return true;
 }
 
-int32_t RsdShaderCache::vtxAttribSlot(const String8 &attrName) const {
+int32_t RsdShaderCache::vtxAttribSlot(const std::string &attrName) const {
     for (uint32_t ct=0; ct < mCurrent->vtxAttrCount; ct++) {
         if (attrName == mCurrent->vtxAttrs[ct].name) {
             return mCurrent->vtxAttrs[ct].slot;
@@ -256,7 +252,7 @@ void RsdShaderCache::cleanupVertex(RsdShader *s) {
                 glDeleteProgram(mEntries[ct]->program);
 
                 delete mEntries[ct];
-                mEntries.removeAt(ct);
+                mEntries.erase(mEntries.begin() + ct);
                 numEntries = (int32_t)mEntries.size();
                 ct --;
             }
@@ -274,7 +270,7 @@ void RsdShaderCache::cleanupFragment(RsdShader *s) {
                 glDeleteProgram(mEntries[ct]->program);
 
                 delete mEntries[ct];
-                mEntries.removeAt(ct);
+                mEntries.erase(mEntries.begin() + ct);
                 numEntries = (int32_t)mEntries.size();
                 ct --;
             }
@@ -289,4 +285,3 @@ void RsdShaderCache::cleanupAll() {
     }
     mEntries.clear();
 }
-

@@ -42,6 +42,7 @@ public class MonitorInfoTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ObjectReference.MonitorInfo command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/MonitorInfoDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.MonitorInfoDebuggee";
     }

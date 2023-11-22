@@ -17,9 +17,8 @@
 #ifndef ART_COMPILER_DEX_DEX_TO_DEX_COMPILER_H_
 #define ART_COMPILER_DEX_DEX_TO_DEX_COMPILER_H_
 
-#include "jni.h"
-
 #include "dex_file.h"
+#include "handle.h"
 #include "invoke_type.h"
 
 namespace art {
@@ -27,12 +26,15 @@ namespace art {
 class CompiledMethod;
 class CompilerDriver;
 
+namespace mirror {
+class ClassLoader;
+}  // namespace mirror
+
 namespace optimizer {
 
 enum class DexToDexCompilationLevel {
   kDontDexToDexCompile,   // Only meaning wrt image time interpretation.
-  kRequired,              // Dex-to-dex compilation required for correctness.
-  kOptimize               // Perform required transformation and peep-hole optimizations.
+  kOptimize               // Perform peep-hole optimizations.
 };
 std::ostream& operator<<(std::ostream& os, const DexToDexCompilationLevel& rhs);
 
@@ -42,7 +44,7 @@ CompiledMethod* ArtCompileDEX(CompilerDriver* driver,
                               InvokeType invoke_type,
                               uint16_t class_def_idx,
                               uint32_t method_idx,
-                              jobject class_loader,
+                              Handle<mirror::ClassLoader> class_loader,
                               const DexFile& dex_file,
                               DexToDexCompilationLevel dex_to_dex_compilation_level);
 

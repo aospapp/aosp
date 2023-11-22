@@ -54,7 +54,7 @@ pathmatch(const char *path)
  * Return true if specified path (in user-space) matches.
  */
 static int
-upathmatch(struct tcb *tcp, unsigned long upath)
+upathmatch(struct tcb *const tcp, const kernel_ulong_t upath)
 {
 	char path[PATH_MAX + 1];
 
@@ -174,6 +174,7 @@ pathtrace_match(struct tcb *tcp)
 	case SEN_faccessat:
 	case SEN_fchmodat:
 	case SEN_fchownat:
+	case SEN_fstatat64:
 	case SEN_futimesat:
 	case SEN_inotify_add_watch:
 	case SEN_mkdirat:
@@ -181,7 +182,6 @@ pathtrace_match(struct tcb *tcp)
 	case SEN_name_to_handle_at:
 	case SEN_newfstatat:
 	case SEN_openat:
-	case SEN_pipe2:
 	case SEN_readlinkat:
 	case SEN_unlinkat:
 	case SEN_utimensat:
@@ -226,8 +226,9 @@ pathtrace_match(struct tcb *tcp)
 			upathmatch(tcp, tcp->u_arg[0]) ||
 			upathmatch(tcp, tcp->u_arg[2]);
 
+	case SEN_copy_file_range:
 	case SEN_splice:
-		/* fd, x, fd, x, x */
+		/* fd, x, fd, x, x, x */
 		return fdmatch(tcp, tcp->u_arg[0]) ||
 			fdmatch(tcp, tcp->u_arg[2]);
 
@@ -247,19 +248,31 @@ pathtrace_match(struct tcb *tcp)
 	{
 		int     i, j;
 		int     nfds;
-		long   *args, oldargs[5];
-		unsigned fdsize;
+		kernel_ulong_t *args;
+		kernel_ulong_t select_args[5];
+		unsigned int oldselect_args[5];
+		unsigned int fdsize;
 		fd_set *fds;
 
-		args = tcp->u_arg;
 		if (SEN_oldselect == s->sen) {
-			if (umoven(tcp, tcp->u_arg[0], sizeof oldargs,
-				   oldargs) < 0)
-			{
-				error_msg("umoven() failed");
-				return 0;
+			if (sizeof(*select_args) == sizeof(*oldselect_args)) {
+				if (umove(tcp, tcp->u_arg[0], &select_args)) {
+					return 0;
+				}
+			} else {
+				unsigned int n;
+
+				if (umove(tcp, tcp->u_arg[0], &oldselect_args)) {
+					return 0;
+				}
+
+				for (n = 0; n < 5; ++n) {
+					select_args[n] = oldselect_args[n];
+				}
 			}
-			args = oldargs;
+			args = select_args;
+		} else {
+			args = tcp->u_arg;
 		}
 
 		/* Kernel truncates arg[0] to int, we do the same. */
@@ -277,7 +290,6 @@ pathtrace_match(struct tcb *tcp)
 			if (args[i] == 0)
 				continue;
 			if (umoven(tcp, args[i], fdsize, fds) < 0) {
-				error_msg("umoven() failed");
 				continue;
 			}
 			for (j = 0;; j++) {
@@ -299,7 +311,7 @@ pathtrace_match(struct tcb *tcp)
 	{
 		struct pollfd fds;
 		unsigned nfds;
-		unsigned long start, cur, end;
+		kernel_ulong_t start, cur, end;
 
 		start = tcp->u_arg[0];
 		nfds = tcp->u_arg[1];
@@ -310,7 +322,7 @@ pathtrace_match(struct tcb *tcp)
 			return 0;
 
 		for (cur = start; cur < end; cur += sizeof(fds))
-			if ((umoven(tcp, cur, sizeof fds, &fds) == 0)
+			if ((umove(tcp, cur, &fds) == 0)
 			    && fdmatch(tcp, fds.fd))
 				return 1;
 
@@ -327,6 +339,7 @@ pathtrace_match(struct tcb *tcp)
 	case SEN_memfd_create:
 	case SEN_perf_event_open:
 	case SEN_pipe:
+	case SEN_pipe2:
 	case SEN_printargs:
 	case SEN_socket:
 	case SEN_socketpair:

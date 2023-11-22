@@ -12,7 +12,6 @@ JNI_OnLoad called
 JNI_OnUnload called
 null
 loader null false
-loader null false
 JNI_OnLoad called
 JNI_OnUnload called
 null
@@ -21,4 +20,6 @@ null
 JNI_OnLoad called
 class null false test
 JNI_OnUnload called
+JNI_OnLoad called
 Number of loaded unload-ex maps 0
+Too small false

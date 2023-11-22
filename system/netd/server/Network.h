@@ -22,6 +22,9 @@
 #include <set>
 #include <string>
 
+namespace android {
+namespace net {
+
 // A Network represents a collection of interfaces participating as a single administrative unit.
 class Network {
 public:
@@ -56,5 +59,8 @@ protected:
     const unsigned mNetId;
     std::set<std::string> mInterfaces;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_NETWORK_H

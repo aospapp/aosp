@@ -19,11 +19,6 @@
   bug: 3473300
 },
 {
-  description: "RandomAccessFile missing finalizer",
-  name: "libcore.java.io.RandomAccessFileTest#testRandomAccessFileHasCleanupFinalizer",
-  bug: 3015023
-},
-{
   description: "ICU seems to treat unknown and invalid locales differently",
   name: "libcore.java.text.DateFormatSymbolsTest#test_getInstance_unknown_locale",
   bug: 2541757
@@ -68,12 +63,6 @@
     "org.apache.harmony.tests.java.nio.charset.CharsetTest#test_X_UTF_32LE_BOM"
   ],
   bug: 2702411
-},
-{
-  description: "Runtime.getRuntime().traceMethodCalls(true) doesn't return on the host, fails in CTS",
-  bug: 3447964,
-  result: EXEC_FAILED,
-  name: "libcore.java.lang.OldRuntimeTest#test_traceMethodCalls"
 },
 {
   description: "It's not allowed to pass null as parent class loader to a new ClassLoader anymore. Maybe we need
@@ -1305,19 +1294,6 @@
   name: "org.apache.harmony.tests.java.lang.MathTest#test_powDD"
 },
 {
-  description: "Known failures in PropertiesTest: We don't deal with comments in store()",
-  bug: 11686302,
-  result: EXEC_FAILED,
-  names: [
-    "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario0",
-    "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario1",
-    "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario2",
-    "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario3",
-    "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario9",
-    "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario11"
-  ]
-},
-{
   description: "Known failures in URLTest and URLDecoderTest",
   bug: 11686814,
   names: [
@@ -1424,25 +1400,9 @@
   ]
 },
 {
-  description: "Known precision issue in DecimalFormat",
-  bug: 17656132,
-  names: [
-    "org.apache.harmony.tests.java.text.DecimalFormatTest#test_formatDouble_bug17656132",
-    "org.apache.harmony.tests.java.text.DecimalFormatTest#test_formatDouble_roundingProblemCases"
-  ]
-},
-{
   description: "Known failure in GregorianCalendarTest",
   bug: 12778197,
   name: "org.apache.harmony.tests.java.util.GregorianCalendarTest#test_computeTime"
-},
-{
-  description: "OkHttp tests require SOCKS 5 support. Android PlainSocketImpl implements SOCKS 4",
-  bug: 96926,
-  names: [
-    "com.squareup.okhttp.SocksProxyTest#proxy",
-    "com.squareup.okhttp.SocksProxyTest#proxySelector"
-  ]
 },
 {
   description: "OkHttp tests that fail on Wear devices due to a lack of memory",
@@ -1454,7 +1414,7 @@
 },
 {
   description: "libcore.java.text.DecimalFormatSymbolsTest#test_getInstance_unknown_or_invalid_locale assumes fallback to locale other than en_US_POSIX.",
-  bug: 17374604,
+  bug: 17422813,
   names: [
     "libcore.java.text.DecimalFormatSymbolsTest#test_getInstance_unknown_or_invalid_locale"
   ]
@@ -1502,15 +1462,6 @@
   ]
 },
 {
-  description: "Need to rewrite tests for the client-side of renegotiation",
-  bug: 21876068,
-  result: EXEC_FAILED,
-  names: [
-    "com.android.org.conscrypt.NativeCryptoTest#test_SSL_renegotiate",
-    "com.android.org.conscrypt.NativeCryptoTest#test_SSL_do_handshake_clientCertificateRequested_throws_after_renegotiate"
-  ]
-},
-{
   description: "Failures in OldSHA1PRNGSecureRandomTest",
   result: EXEC_FAILED,
   names: [
@@ -1551,6 +1502,14 @@
   result: EXEC_FAILED,
   names: [
     "com.android.org.apache.harmony.luni.tests.java.net.URLClassLoaderImplTest#test_Constructor$Ljava_net_URLLjava_lang_ClassLoaderLjava_net_URLStreamHandlerFactory"
+  ]
+},
+{
+  description: "Bullhead kernel does not block send when buffer is supposed to have saturated",
+  bug: 36691333,
+  result: EXEC_FAILED,
+  names: [
+    "libcore.java.net.SocketTimeoutTest#testSocketWriteNeverTimeouts"
   ]
 }
 ]

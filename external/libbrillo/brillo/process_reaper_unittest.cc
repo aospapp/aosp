@@ -75,11 +75,11 @@ TEST_F(ProcessReaperTest, UnregisterAndReregister) {
 TEST_F(ProcessReaperTest, ReapExitedChild) {
   pid_t pid = ForkChildAndExit(123);
   EXPECT_TRUE(process_reaper_.WatchForChild(FROM_HERE, pid, base::Bind(
-      [this](const siginfo_t& info) {
+      [](decltype(this) test, const siginfo_t& info) {
         EXPECT_EQ(CLD_EXITED, info.si_code);
         EXPECT_EQ(123, info.si_status);
-        this->brillo_loop_.BreakLoop();
-      })));
+        test->brillo_loop_.BreakLoop();
+      }, base::Unretained(this))));
   brillo_loop_.Run();
 }
 
@@ -91,14 +91,23 @@ TEST_F(ProcessReaperTest, ReapedChildsMatchCallbacks) {
     // Different processes will have different exit values.
     int exit_value = 1 + i;
     pid_t pid = ForkChildAndExit(exit_value);
-    EXPECT_TRUE(process_reaper_.WatchForChild(FROM_HERE, pid, base::Bind(
-        [this, exit_value, &running_childs](const siginfo_t& info) {
-          EXPECT_EQ(CLD_EXITED, info.si_code);
-          EXPECT_EQ(exit_value, info.si_status);
-          running_childs--;
-          if (running_childs == 0)
-            this->brillo_loop_.BreakLoop();
-        })));
+    EXPECT_TRUE(process_reaper_.WatchForChild(
+        FROM_HERE,
+        pid,
+        base::Bind(
+            [](decltype(this) test,
+               int exit_value,
+               int* running_childs,
+               const siginfo_t& info) {
+              EXPECT_EQ(CLD_EXITED, info.si_code);
+              EXPECT_EQ(exit_value, info.si_status);
+              (*running_childs)--;
+              if (*running_childs == 0)
+                test->brillo_loop_.BreakLoop();
+            },
+            base::Unretained(this),
+            exit_value,
+            base::Unretained(&running_childs))));
   }
   // This sleep is optional. It helps to have more processes exit before we
   // start watching for them in the message loop.
@@ -110,21 +119,21 @@ TEST_F(ProcessReaperTest, ReapedChildsMatchCallbacks) {
 TEST_F(ProcessReaperTest, ReapKilledChild) {
   pid_t pid = ForkChildAndKill(SIGKILL);
   EXPECT_TRUE(process_reaper_.WatchForChild(FROM_HERE, pid, base::Bind(
-      [this](const siginfo_t& info) {
+      [](decltype(this) test, const siginfo_t& info) {
         EXPECT_EQ(CLD_KILLED, info.si_code);
         EXPECT_EQ(SIGKILL, info.si_status);
-        this->brillo_loop_.BreakLoop();
-      })));
+        test->brillo_loop_.BreakLoop();
+      }, base::Unretained(this))));
   brillo_loop_.Run();
 }
 
 TEST_F(ProcessReaperTest, ReapKilledAndForgottenChild) {
   pid_t pid = ForkChildAndExit(0);
   EXPECT_TRUE(process_reaper_.WatchForChild(FROM_HERE, pid, base::Bind(
-      [this](const siginfo_t& /* info */) {
+      [](decltype(this) test, const siginfo_t& /* info */) {
         ADD_FAILURE() << "Child process was still tracked.";
-        this->brillo_loop_.BreakLoop();
-      })));
+        test->brillo_loop_.BreakLoop();
+      }, base::Unretained(this))));
   EXPECT_TRUE(process_reaper_.ForgetChild(pid));
 
   // A second call should return failure.

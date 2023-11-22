@@ -37,6 +37,10 @@ import javax.obex.ObexTransport;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothDevicePicker;
+import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -54,21 +58,35 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.PowerManager;
 import android.util.Log;
+import android.widget.Toast;
 import android.os.Process;
 
-import java.io.FileNotFoundException;
+import com.android.bluetooth.BluetoothObexTransport;
+import com.android.bluetooth.IObexConnectionHandler;
+import com.android.bluetooth.ObexServerSockets;
+import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.btservice.ProfileService.IProfileServiceBinder;
+
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
+import com.android.bluetooth.sdp.SdpManager;
 
 /**
  * Performs the background Bluetooth OPP transfer. It also starts thread to
  * accept incoming OPP connection.
  */
 
-public class BluetoothOppService extends Service {
+public class BluetoothOppService extends ProfileService implements IObexConnectionHandler {
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
+
+    private static final byte OPP_FORMAT_VCARD21 = 0x01;
+    private static final byte OPP_FORMAT_VCARD30 = 0x02;
+    private static final byte OPP_FORMAT_VCAL10 = 0x03;
+    private static final byte OPP_FORMAT_ANY_TYPE_OF_OBJ = (byte) 0xFF;
+
+    private static final byte[] SUPPORTED_OPP_FORMAT = {
+            OPP_FORMAT_VCARD21, OPP_FORMAT_VCARD30, OPP_FORMAT_VCAL10, OPP_FORMAT_ANY_TYPE_OF_OBJ};
 
     private boolean userAccepted = false;
 
@@ -111,17 +129,12 @@ public class BluetoothOppService extends Service {
      * Array used when extracting strings from content provider
      */
     private CharArrayBuffer mOldChars;
-
     /**
      * Array used when extracting strings from content provider
      */
     private CharArrayBuffer mNewChars;
 
-    private BluetoothAdapter mAdapter;
-
     private PowerManager mPowerManager;
-
-    private BluetoothOppRfcommListener mSocketListener;
 
     private boolean mListenStarted = false;
 
@@ -131,6 +144,8 @@ public class BluetoothOppService extends Service {
 
     private ObexTransport mPendingConnection = null;
 
+    private int mOppSdpHandle = -1;
+
     /*
      * TODO No support for queue incoming from multiple devices.
      * Make an array list of server session to support receiving queue from
@@ -139,16 +154,13 @@ public class BluetoothOppService extends Service {
     private BluetoothOppObexServerSession mServerSession;
 
     @Override
-    public IBinder onBind(Intent arg0) {
-        throw new UnsupportedOperationException("Cannot bind to Bluetooth OPP Service");
+    protected IProfileServiceBinder initBinder() {
+        return null;
     }
 
     @Override
-    public void onCreate() {
-        super.onCreate();
+    protected void create() {
         if (V) Log.v(TAG, "onCreate");
-        mAdapter = BluetoothAdapter.getDefaultAdapter();
-        mSocketListener = new BluetoothOppRfcommListener(mAdapter);
         mShares = Lists.newArrayList();
         mBatchs = Lists.newArrayList();
         mObserver = new BluetoothShareContentObserver();
@@ -171,8 +183,6 @@ public class BluetoothOppService extends Service {
         synchronized (BluetoothOppService.this) {
             if (mAdapter == null) {
                 Log.w(TAG, "Local BT device is not enabled");
-            } else {
-                startListener();
             }
         }
         if (V) BluetoothOppPreference.getInstance(this).dump();
@@ -180,18 +190,16 @@ public class BluetoothOppService extends Service {
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (V) Log.v(TAG, "onStartCommand");
-        //int retCode = super.onStartCommand(intent, flags, startId);
-        //if (retCode == START_STICKY) {
-            if (mAdapter == null) {
-                Log.w(TAG, "Local BT device is not enabled");
-            } else {
-                startListener();
-            }
-            updateFromProvider();
-        //}
-        return START_NOT_STICKY;
+    public boolean start() {
+        if (V) Log.v(TAG, "start()");
+        updateFromProvider();
+        return true;
+    }
+
+    @Override
+    public boolean stop() {
+        mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
+        return true;
     }
 
     private void startListener() {
@@ -212,6 +220,8 @@ public class BluetoothOppService extends Service {
 
     private static final int MSG_INCOMING_CONNECTION_RETRY = 4;
 
+    private static final int MSG_INCOMING_BTOPP_CONNECTION = 100;
+
     private static final int STOP_LISTENER = 200;
 
     private Handler mHandler = new Handler() {
@@ -219,9 +229,15 @@ public class BluetoothOppService extends Service {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case STOP_LISTENER:
-                    if(mSocketListener != null){
-                        mSocketListener.stop();
+                    if (mAdapter != null && mOppSdpHandle >= 0
+                            && SdpManager.getDefaultManager() != null) {
+                        if (D) Log.d(TAG, "Removing SDP record mOppSdpHandle :" + mOppSdpHandle);
+                        boolean status =
+                                SdpManager.getDefaultManager().removeSdpRecord(mOppSdpHandle);
+                        Log.d(TAG, "RemoveSDPrecord returns " + status);
+                        mOppSdpHandle = -1;
                     }
+                    stopListeners();
                     mListenStarted = false;
                     //Stop Active INBOUND Transfer
                     if(mServerTransfer != null){
@@ -234,8 +250,14 @@ public class BluetoothOppService extends Service {
                        mTransfer =null;
                     }
                     synchronized (BluetoothOppService.this) {
-                        if (mUpdateThread == null) {
-                            stopSelf();
+                        if (mUpdateThread != null) {
+                            try {
+                                mUpdateThread.interrupt();
+                                mUpdateThread.join();
+                            } catch (InterruptedException e) {
+                                Log.e(TAG, "Interrupted", e);
+                            }
+                            mUpdateThread = null;
                         }
                     }
                     break;
@@ -269,9 +291,10 @@ public class BluetoothOppService extends Service {
                         mMediaScanInProgress = false;
                     }
                     break;
-                case BluetoothOppRfcommListener.MSG_INCOMING_BTOPP_CONNECTION:
+                case MSG_INCOMING_BTOPP_CONNECTION:
                     if (D) Log.d(TAG, "Get incoming connection");
                     ObexTransport transport = (ObexTransport)msg.obj;
+
                     /*
                      * Strategy for incoming connections:
                      * 1. If there is no ongoing transfer, no on-hold connection, start it
@@ -331,35 +354,42 @@ public class BluetoothOppService extends Service {
         }
     };
 
+    private ObexServerSockets mServerSocket;
     private void startSocketListener() {
-
-        if (V) Log.v(TAG, "start RfcommListener");
-        mSocketListener.start(mHandler);
-        if (V) Log.v(TAG, "RfcommListener started");
+        if (D) Log.d(TAG, "start Socket Listeners");
+        stopListeners();
+        mServerSocket = ObexServerSockets.createInsecure(this);
+        SdpManager sdpManager = SdpManager.getDefaultManager();
+        if (sdpManager == null || mServerSocket == null) {
+            Log.e(TAG, "ERROR:serversocket object is NULL  sdp manager :" + sdpManager
+                            + " mServerSocket:" + mServerSocket);
+            return;
+        }
+        sdpManager.createOppOpsRecord("OBEX Object Push", mServerSocket.getRfcommChannel(),
+                mServerSocket.getL2capPsm(), 0x0102, SUPPORTED_OPP_FORMAT);
     }
 
     @Override
-    public void onDestroy() {
+    public boolean cleanup() {
         if (V) Log.v(TAG, "onDestroy");
-        super.onDestroy();
         getContentResolver().unregisterContentObserver(mObserver);
         unregisterReceiver(mBluetoothReceiver);
-        mSocketListener.stop();
-
-        if(mBatchs != null) {
+        stopListeners();
+        if (mBatchs != null) {
             mBatchs.clear();
         }
-        if(mShares != null) {
+        if (mShares != null) {
             mShares.clear();
         }
-        if(mHandler != null) {
+        if (mHandler != null) {
             mHandler.removeCallbacksAndMessages(null);
         }
+        return true;
     }
 
     /* suppose we auto accept an incoming OPUSH connection */
     private void createServerSession(ObexTransport transport) {
-        mServerSession = new BluetoothOppObexServerSession(this, transport);
+        mServerSession = new BluetoothOppObexServerSession(this, transport, mServerSocket);
         mServerSession.preStart();
         if (D) Log.d(TAG, "Get ServerSession " + mServerSession.toString()
                     + " for incoming connection" + transport.toString());
@@ -373,24 +403,33 @@ public class BluetoothOppService extends Service {
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
                 switch (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
                     case BluetoothAdapter.STATE_ON:
-                        if (V) Log.v(TAG,
-                                    "Receiver BLUETOOTH_STATE_CHANGED_ACTION, BLUETOOTH_STATE_ON");
-                        startSocketListener();
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_OFF:
-                        if (V) Log.v(TAG, "Receiver DISABLED_ACTION ");
-                        //FIX: Don't block main thread
-                        /*
-                        mSocketListener.stop();
-                        mListenStarted = false;
-                        synchronized (BluetoothOppService.this) {
-                            if (mUpdateThread == null) {
-                                stopSelf();
+                        if (V) Log.v(TAG, "Bluetooth state changed: STATE_ON");
+                        startListener();
+                        // If this is within a sending process, continue the handle
+                        // logic to display device picker dialog.
+                        synchronized (this) {
+                            if (BluetoothOppManager.getInstance(context).mSendingFlag) {
+                                // reset the flags
+                                BluetoothOppManager.getInstance(context).mSendingFlag = false;
+
+                                Intent in1 = new Intent(BluetoothDevicePicker.ACTION_LAUNCH);
+                                in1.putExtra(BluetoothDevicePicker.EXTRA_NEED_AUTH, false);
+                                in1.putExtra(BluetoothDevicePicker.EXTRA_FILTER_TYPE,
+                                        BluetoothDevicePicker.FILTER_TYPE_TRANSFER);
+                                in1.putExtra(BluetoothDevicePicker.EXTRA_LAUNCH_PACKAGE,
+                                        Constants.THIS_PACKAGE_NAME);
+                                in1.putExtra(BluetoothDevicePicker.EXTRA_LAUNCH_CLASS,
+                                        BluetoothOppReceiver.class.getName());
+
+                                in1.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                context.startActivity(in1);
                             }
                         }
-                        */
-                        mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
 
+                        break;
+                    case BluetoothAdapter.STATE_TURNING_OFF:
+                        if (V) Log.v(TAG, "Bluetooth state changed: STATE_TURNING_OFF");
+                        mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
                         break;
                 }
             }
@@ -408,29 +447,36 @@ public class BluetoothOppService extends Service {
     }
 
     private class UpdateThread extends Thread {
+        private boolean isInterrupted ;
         public UpdateThread() {
             super("Bluetooth Share Service");
+            isInterrupted = false;
         }
+
+        @Override
+        public void interrupt() {
+            isInterrupted = true;
+            if (D) Log.d(TAG, "Interrupted :" + isInterrupted);
+            super.interrupt();
+        }
+
 
         @Override
         public void run() {
             Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
 
             boolean keepService = false;
-            for (;;) {
+            while (!isInterrupted) {
                 synchronized (BluetoothOppService.this) {
                     if (mUpdateThread != this) {
                         throw new IllegalStateException(
                                 "multiple UpdateThreads in BluetoothOppService");
                     }
                     if (V) Log.v(TAG, "pendingUpdate is " + mPendingUpdate + " keepUpdateThread is "
-                                + keepService + " sListenStarted is " + mListenStarted);
+                                + keepService + " sListenStarted is " + mListenStarted +
+                                " isInterrupted :" + isInterrupted );
                     if (!mPendingUpdate) {
                         mUpdateThread = null;
-                        if (!keepService && !mListenStarted) {
-                            stopSelf();
-                            break;
-                        }
                         return;
                     }
                     mPendingUpdate = false;
@@ -465,7 +511,7 @@ public class BluetoothOppService extends Service {
                  * contains an entry that's not in the array, insert a new entry
                  * in the array, move to next cursor row and next array entry.
                  */
-                while (!isAfterLast || arrayPos < mShares.size()) {
+                while (!isAfterLast || arrayPos < mShares.size() && mListenStarted) {
                     if (isAfterLast) {
                         // We're beyond the end of the cursor but there's still
                         // some
@@ -724,8 +770,7 @@ public class BluetoothOppService extends Service {
                 .getColumnIndexOrThrow(BluetoothShare.USER_CONFIRMATION));
         int newStatus = cursor.getInt(statusColumn);
 
-        if (!BluetoothShare.isStatusCompleted(info.mStatus)
-                && BluetoothShare.isStatusCompleted(newStatus)) {
+        if (BluetoothShare.isStatusCompleted(info.mStatus)) {
             mNotifier.mNotificationMgr.cancel(info.mId);
         }
 
@@ -1015,5 +1060,72 @@ public class BluetoothOppService extends Service {
                 mConnection.disconnect();
             }
         }
+    }
+
+    private void stopListeners() {
+        if (mServerSocket != null) {
+            mServerSocket.shutdown(false);
+            mServerSocket = null;
+        }
+        if (D) Log.d(TAG, "stopListeners   mServerSocket :" + mServerSocket);
+    }
+
+    private BluetoothServerSocket getConnectionSocket(boolean isL2cap) {
+        BluetoothServerSocket socket = null;
+        boolean socketCreate = false;
+        final int CREATE_RETRY_TIME = 10;
+        // It's possible that create will fail in some cases. retry for 10 times
+        for (int i = 0; i < CREATE_RETRY_TIME; i++) {
+            if (D) Log.d(TAG, " CREATE_RETRY_TIME " + i);
+            socketCreate = true;
+            try {
+                socket = (isL2cap)
+                        ? mAdapter.listenUsingInsecureL2capOn(
+                                  BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP)
+                        : mAdapter.listenUsingInsecureRfcommOn(
+                                  BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP);
+            } catch (IOException e) {
+                Log.e(TAG, "Error create ServerSockets ", e);
+                socketCreate = false;
+            }
+            if (!socketCreate) {
+                // Need to break out of this loop if BT is being turned off.
+                int state = mAdapter.getState();
+                if ((state != BluetoothAdapter.STATE_TURNING_ON)
+                        && (state != BluetoothAdapter.STATE_ON)) {
+                    Log.e(TAG, "initServerSockets failed as Bt State :" + state);
+                    break;
+                }
+                try {
+                    if (V) Log.d(TAG, "waiting 300 ms...");
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "create() was interrupted");
+                }
+            } else {
+                break;
+            }
+        }
+        if (D) Log.d(TAG, " socketCreate :" + socketCreate + " isL2cap :" + isL2cap);
+        return socket;
+    }
+
+    @Override
+    public boolean onConnect(BluetoothDevice device, BluetoothSocket socket) {
+        if (D) Log.d(TAG, " onConnect BluetoothSocket :" + socket + " \n :device :" + device);
+        BluetoothObexTransport transport = new BluetoothObexTransport(socket);
+        Message msg = Message.obtain();
+        msg.setTarget(mHandler);
+        msg.what = MSG_INCOMING_BTOPP_CONNECTION;
+        msg.obj = transport;
+        msg.sendToTarget();
+        return true;
+    }
+
+    @Override
+    public void onAcceptFailed() {
+        // TODO Auto-generated method stub
+        Log.d(TAG, " onAcceptFailed:");
+        mHandler.sendMessage(mHandler.obtainMessage(START_LISTENER));
     }
 }

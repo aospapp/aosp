@@ -89,8 +89,8 @@ public class TrustAgentInfoTest extends BaseManagedProfileTest {
     }
 
     public void testSetTrustAgentConfiguration_bothHaveTrustAgentConfigAndNonUnified() {
-        // Enable separate challenge for the managed profile.
-        mDevicePolicyManager.resetPassword("1234", 0);
+        // Precondition: separate challenge for the managed profile should have been enabled.
+
         // Set both trust agents.
         setTrustAgentConfiguration(false /* isParent */);
         setTrustAgentConfiguration(true /* isParent */);

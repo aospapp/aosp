@@ -7,7 +7,7 @@ USE_GETPROP(NEWTOY(getprop, ">2Z", TOYFLAG_USR|TOYFLAG_SBIN))
 config GETPROP
   bool "getprop"
   default y
-  depends on TOYBOX_ON_ANDROID
+  depends on TOYBOX_ON_ANDROID && TOYBOX_SELINUX
   help
     usage: getprop [NAME [DEFAULT]]
 
@@ -17,9 +17,7 @@ config GETPROP
 #define FOR_getprop
 #include "toys.h"
 
-#if defined(__ANDROID__)
-
-#include <cutils/properties.h>
+#include <sys/system_properties.h>
 
 #include <selinux/android.h>
 #include <selinux/label.h>
@@ -31,7 +29,7 @@ GLOBALS(
   struct selabel_handle *handle;
 )
 
-static char *get_property_context(char *property)
+static char *get_property_context(const char *property)
 {
   char *context = NULL;
 
@@ -41,25 +39,31 @@ static char *get_property_context(char *property)
   return context;
 }
 
-static void add_property(char *name, char *value, void *unused)
+static void read_callback(void *unused, const char *name, const char *value)
 {
   if (!(TT.size&31)) TT.nv = xrealloc(TT.nv, (TT.size+32)*2*sizeof(char *));
 
-  TT.nv[2*TT.size] = xstrdup(name);
+  TT.nv[2*TT.size] = xstrdup((char *)name);
   if (toys.optflags & FLAG_Z) {
     TT.nv[1+2*TT.size++] = get_property_context(name);
   } else {
-    TT.nv[1+2*TT.size++] = xstrdup(value);
+    TT.nv[1+2*TT.size++] = xstrdup((char *)value);
   }
 }
 
+static void add_property(const prop_info *pi, void *unused)
+{
+  __system_property_read_callback(pi, read_callback, NULL);
+}
+
 // Needed to supress extraneous "Loaded property_contexts from" message
-int selinux_log_callback(int type, const char *fmt, ...) {
+static int selinux_log_callback_local(int type, const char *fmt, ...)
+{
   va_list ap;
 
   if (type == SELINUX_INFO) return 0;
   va_start(ap, fmt);
-  verror_msg(fmt, 0, ap);
+  verror_msg((char *)fmt, 0, ap);
   va_end(ap);
   return 0;
 }
@@ -69,7 +73,7 @@ void getprop_main(void)
   if (toys.optflags & FLAG_Z) {
     union selinux_callback cb;
 
-    cb.func_log = selinux_log_callback;
+    cb.func_log = selinux_log_callback_local;
     selinux_set_callback(SELINUX_CB_LOG, cb);
     TT.handle = selinux_android_prop_context_handle();
     if (!TT.handle) error_exit("unable to get selinux property context handle");
@@ -82,13 +86,15 @@ void getprop_main(void)
       puts(context);
       if (CFG_TOYBOX_FREE) free(context);
     } else {
-      property_get(*toys.optargs, toybuf, toys.optargs[1] ? toys.optargs[1] : "");
+      if (__system_property_get(*toys.optargs, toybuf) <= 0)
+        strcpy(toybuf, toys.optargs[1] ? toys.optargs[1] : "");
       puts(toybuf);
     }
   } else {
     size_t i;
 
-    if (property_list((void *)add_property, 0)) error_exit("property_list");
+    if (__system_property_foreach(add_property, NULL))
+      error_exit("property_list");
     qsort(TT.nv, TT.size, 2*sizeof(char *), qstrcmp);
     for (i = 0; i<TT.size; i++) printf("[%s]: [%s]\n", TT.nv[i*2],TT.nv[1+i*2]);
     if (CFG_TOYBOX_FREE) {
@@ -101,11 +107,3 @@ void getprop_main(void)
   }
   if (CFG_TOYBOX_FREE && (toys.optflags & FLAG_Z)) selabel_close(TT.handle);
 }
-
-#else
-
-void getprop_main(void)
-{
-}
-
-#endif

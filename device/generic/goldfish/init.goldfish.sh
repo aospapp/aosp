@@ -66,3 +66,6 @@ case "$my_ip" in
     *) ifconfig eth1 "$my_ip" netmask 255.255.255.0 up
     ;;
 esac
+
+# take the wake lock
+echo "emulator_wake_lock" > /sys/power/wake_lock

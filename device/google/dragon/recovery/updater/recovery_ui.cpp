@@ -14,57 +14,39 @@
  * limitations under the License.
  */
 
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/fb.h>
-#include <pthread.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "common.h"
-#include "debug_cmd.h"
 #include "device.h"
-#include "edify/expr.h"
 #include "flash_device.h"
-#include "fmap.h"
 #include "screen_ui.h"
 #include "ui.h"
-#include "update_fw.h"
 #include "vboot_interface.h"
-
-extern char *reason;
 
 class DragonDevice : public Device {
   public:
     DragonDevice(RecoveryUI* ui) : Device(ui) { }
 
     virtual bool PostWipeData() {
+        if (reason) {
+            struct flash_device *spi = flash_open("spi", NULL);
 
-	if (reason) {
-		struct flash_device *spi = flash_open("spi", NULL);
+            if (spi == NULL) {
+                return true;
+            }
 
-		if (spi == NULL)
-			return true;
+            if (!strcmp(reason, "fastboot_oem_unlock")) {
+                vbnv_set_flag(spi, "dev_boot_fastboot_full_cap", 0x1);
+                vbnv_set_flag(spi, "recovery_reason", 0xC3);
+            } else if (!strcmp(reason, "fastboot_oem_lock")) {
+                vbnv_set_flag(spi, "dev_boot_fastboot_full_cap", 0x0);
+                vbnv_set_flag(spi, "recovery_reason", 0xC3);
+            }
 
-		if (!strcmp(reason, "fastboot_oem_unlock")) {
-			vbnv_set_flag(spi, "dev_boot_fastboot_full_cap", 0x1);
-			vbnv_set_flag(spi, "recovery_reason", 0xC3);
-		} else if (!strcmp(reason, "fastboot_oem_lock")) {
-			vbnv_set_flag(spi, "dev_boot_fastboot_full_cap", 0x0);
-			vbnv_set_flag(spi, "recovery_reason", 0xC3);
-		}
+            flash_close(spi);
+        }
 
-		flash_close(spi);
-	}
-
-	return true;
+        return true;
     };
 };
 

@@ -40,17 +40,6 @@ class statsd_mock_test(unittest.TestCase):
         timer.start()
         timer.stop()
 
-        class decorate_test(object):
-            """Test class to test timer decorator."""
-            test_timer = statsd.Timer('test')
-
-            @test_timer.decorate
-            def f(self):
-                """Test function to apply timer decorator to."""
-                return True
-
-        dt = decorate_test()
-        self.assertTrue(dt.f(), 'timer decorator failed.')
 
 if __name__ == '__main__':
     unittest.main()

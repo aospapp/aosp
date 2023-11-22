@@ -16,11 +16,14 @@
 package com.android.cts.intent.receiver;
 
 import android.app.Activity;
-import android.content.ClipboardManager;
 import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
+import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -28,6 +31,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Class to receive intents sent across profile boundaries, and read/write to content uri specified
@@ -54,6 +59,12 @@ public class IntentReceiverActivity extends Activity {
 
     public static final String RECEIVING_ACTIVITY_CREATED_ACTION
             = "com.android.cts.deviceowner.RECEIVING_ACTIVITY_CREATED_ACTION";
+
+    public static final String ACTION_NOTIFY_URI_CHANGE
+            = "com.android.cts.action.NOTIFY_URI_CHANGE";
+
+    public static final String ACTION_OBSERVE_URI_CHANGE
+            = "com.android.cts.action.OBSERVE_URI_CHANGE";
 
     private static final String EXTRA_CAUGHT_SECURITY_EXCEPTION = "extra_caught_security_exception";
 
@@ -103,10 +114,52 @@ public class IntentReceiverActivity extends Activity {
                 Log.i(TAG, "Caught a IOException while trying to write to " + uri, e);
             }
             setResult(Activity.RESULT_OK, result);
+        } else if (ACTION_NOTIFY_URI_CHANGE.equals(action)) {
+            Log.i(TAG, "Notifying a uri change to " + uri);
+            getContentResolver().notifyChange(uri, null);
+            setResult(Activity.RESULT_OK);
+        } else if (ACTION_OBSERVE_URI_CHANGE.equals(action)) {
+            Log.i(TAG, "Observing a uri change to " + uri);
+            HandlerThread handlerThread = new HandlerThread("observer");
+            handlerThread.start();
+            UriObserver uriObserver = new UriObserver(new Handler(handlerThread.getLooper()));
+            try {
+                getContentResolver().registerContentObserver(uri, false, uriObserver);
+                uriObserver.waitForNotify();
+                setResult(Activity.RESULT_OK, new Intent());
+            } finally {
+                getContentResolver().unregisterContentObserver(uriObserver);
+                handlerThread.quit();
+            }
         } else if (ACTION_JUST_CREATE.equals(action)) {
             sendBroadcast(new Intent(RECEIVING_ACTIVITY_CREATED_ACTION));
         }
         finish();
+    }
+
+    private class UriObserver extends ContentObserver {
+        private final Semaphore mNotificationReceived = new Semaphore(0);
+        public UriObserver(Handler handler) {
+           super(handler);
+        }
+
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+            super.onChange(selfChange, uri);
+            // Here, we can't test that uri is the uri that was called with registerContentObserver
+            // because it doesn't have the userId in the userInfo part.
+            mNotificationReceived.release(1);
+        }
+
+        private boolean waitForNotify() {
+            // The uri notification may not come immediately.
+            try {
+                return mNotificationReceived.tryAcquire(1, 30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Interrupted while waiting for notification change", e);
+                return false;
+            }
+        }
     }
 
     /**

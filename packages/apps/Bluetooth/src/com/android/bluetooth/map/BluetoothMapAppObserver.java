@@ -23,15 +23,13 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.database.ContentObserver;
 import android.net.Uri;
-import android.os.Handler;
-import com.android.bluetooth.mapapi.BluetoothMapContract;
 import android.util.Log;
+
+import com.android.bluetooth.mapapi.BluetoothMapContract;
 
 /**
  * Class to construct content observers for for email applications on the system.

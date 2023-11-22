@@ -25,7 +25,19 @@
 #include "EmulatedFakeCamera.h"
 #include "EmulatedFakeCameraDevice.h"
 
+#undef min
+#undef max
+#include <algorithm>
+
 namespace android {
+
+static const double kCheckXSpeed = 0.00000000096;
+static const double kCheckYSpeed = 0.00000000032;
+
+static const double kSquareXSpeed = 0.000000000096;
+static const double kSquareYSpeed = 0.000000000160;
+
+static const nsecs_t kSquareColorChangeIntervalNs = seconds(5);
 
 EmulatedFakeCameraDevice::EmulatedFakeCameraDevice(EmulatedFakeCamera* camera_hal)
     : EmulatedCameraDevice(camera_hal),
@@ -34,10 +46,15 @@ EmulatedFakeCameraDevice::EmulatedFakeCameraDevice(EmulatedFakeCamera* camera_ha
       mRedYUV(kRed8),
       mGreenYUV(kGreen8),
       mBlueYUV(kBlue8),
+      mSquareColor(&mRedYUV),
       mLastRedrawn(0),
+      mLastColorChange(0),
       mCheckX(0),
       mCheckY(0),
-      mCcounter(0)
+      mSquareX(0),
+      mSquareY(0),
+      mSquareXSpeed(kSquareXSpeed),
+      mSquareYSpeed(kSquareYSpeed)
 #if EFCD_ROTATE_FRAME
       , mLastRotatedAt(0),
         mCurrentFrameType(0),
@@ -124,33 +141,29 @@ status_t EmulatedFakeCameraDevice::startDevice(int width,
         /* Calculate U/V panes inside the framebuffer. */
         switch (mPixelFormat) {
             case V4L2_PIX_FMT_YVU420:
-                mFrameV = mCurrentFrame + mTotalPixels;
-                mFrameU = mFrameU + mTotalPixels / 4;
+                mFrameVOffset = mYStride * mFrameHeight;
+                mFrameUOffset = mFrameVOffset + mUVStride * (mFrameHeight / 2);
                 mUVStep = 1;
-                mUVTotalNum = mTotalPixels / 4;
                 break;
 
             case V4L2_PIX_FMT_YUV420:
-                mFrameU = mCurrentFrame + mTotalPixels;
-                mFrameV = mFrameU + mTotalPixels / 4;
+                mFrameUOffset = mYStride * mFrameHeight;
+                mFrameVOffset = mFrameUOffset + mUVStride * (mFrameHeight / 2);
                 mUVStep = 1;
-                mUVTotalNum = mTotalPixels / 4;
                 break;
 
             case V4L2_PIX_FMT_NV21:
                 /* Interleaved UV pane, V first. */
-                mFrameV = mCurrentFrame + mTotalPixels;
-                mFrameU = mFrameV + 1;
+                mFrameVOffset = mYStride * mFrameHeight;
+                mFrameUOffset = mFrameVOffset + 1;
                 mUVStep = 2;
-                mUVTotalNum = mTotalPixels / 4;
                 break;
 
             case V4L2_PIX_FMT_NV12:
                 /* Interleaved UV pane, U first. */
-                mFrameU = mCurrentFrame + mTotalPixels;
-                mFrameV = mFrameU + 1;
+                mFrameUOffset = mYStride * mFrameHeight;
+                mFrameVOffset = mFrameUOffset + 1;
                 mUVStep = 2;
-                mUVTotalNum = mTotalPixels / 4;
                 break;
 
             default:
@@ -158,6 +171,8 @@ status_t EmulatedFakeCameraDevice::startDevice(int width,
                      reinterpret_cast<const char*>(&mPixelFormat));
                 return EINVAL;
         }
+        mLastRedrawn = systemTime(SYSTEM_TIME_MONOTONIC);
+        mLastColorChange = mLastRedrawn;
         /* Number of items in a single row inside U/V panes. */
         mUVInRow = (width / 2) * mUVStep;
         mState = ECDS_STARTED;
@@ -178,7 +193,6 @@ status_t EmulatedFakeCameraDevice::stopDevice()
         return NO_ERROR;
     }
 
-    mFrameU = mFrameV = NULL;
     EmulatedCameraDevice::commonStopDevice();
     mState = ECDS_CONNECTED;
 
@@ -189,48 +203,24 @@ status_t EmulatedFakeCameraDevice::stopDevice()
  * Worker thread management overrides.
  ***************************************************************************/
 
-bool EmulatedFakeCameraDevice::inWorkerThread()
+bool EmulatedFakeCameraDevice::produceFrame(void* buffer)
 {
-    /* Wait till FPS timeout expires, or thread exit message is received. */
-    WorkerThread::SelectRes res =
-        getWorkerThread()->Select(-1, 1000000 / mEmulatedFPS);
-    if (res == WorkerThread::EXIT_THREAD) {
-        ALOGV("%s: Worker thread has been terminated.", __FUNCTION__);
-        return false;
-    }
-
-    /* Lets see if we need to generate a new frame. */
-    if ((systemTime(SYSTEM_TIME_MONOTONIC) - mLastRedrawn) >= mRedrawAfter) {
-        /*
-         * Time to generate a new frame.
-         */
-
 #if EFCD_ROTATE_FRAME
-        const int frame_type = rotateFrame();
-        switch (frame_type) {
-            case 0:
-                drawCheckerboard();
-                break;
-            case 1:
-                drawStripes();
-                break;
-            case 2:
-                drawSolid(mCurrentColor);
-                break;
-        }
-#else
-        /* Draw the checker board. */
-        drawCheckerboard();
-
-#endif  // EFCD_ROTATE_FRAME
-
-        mLastRedrawn = systemTime(SYSTEM_TIME_MONOTONIC);
+    const int frame_type = rotateFrame();
+    switch (frame_type) {
+        case 0:
+            drawCheckerboard(buffer);
+            break;
+        case 1:
+            drawStripes(buffer);
+            break;
+        case 2:
+            drawSolid(buffer, mCurrentColor);
+            break;
     }
-
-    /* Timestamp the current frame, and notify the camera HAL about new frame. */
-    mCurFrameTimestamp = systemTime(SYSTEM_TIME_MONOTONIC);
-    mCameraHAL->onNextFrameAvailable(mCurrentFrame, mCurFrameTimestamp, this);
-
+#else
+    drawCheckerboard(buffer);
+#endif  // EFCD_ROTATE_FRAME
     return true;
 }
 
@@ -238,9 +228,15 @@ bool EmulatedFakeCameraDevice::inWorkerThread()
  * Fake camera device private API
  ***************************************************************************/
 
-void EmulatedFakeCameraDevice::drawCheckerboard()
+void EmulatedFakeCameraDevice::drawCheckerboard(void* buffer)
 {
-    const int size = mFrameWidth / 10;
+    nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
+    nsecs_t elapsed = now - mLastRedrawn;
+    uint8_t* currentFrame = reinterpret_cast<uint8_t*>(buffer);
+    uint8_t* frameU = currentFrame + mFrameUOffset;
+    uint8_t* frameV = currentFrame + mFrameVOffset;
+
+    const int size = std::min(mFrameWidth, mFrameHeight) / 10;
     bool black = true;
 
     if (size == 0) {
@@ -249,33 +245,47 @@ void EmulatedFakeCameraDevice::drawCheckerboard()
         return;
     }
 
+    mCheckX += kCheckXSpeed * elapsed;
+    mCheckY += kCheckYSpeed * elapsed;
 
-    if((mCheckX / size) & 1)
+    // Allow the X and Y values to transition across two checkerboard boxes
+    // before resetting it back. This allows for the gray to black transition.
+    // Note that this is in screen size independent coordinates so that frames
+    // will look similar regardless of resolution
+    if (mCheckX > 2.0) {
+        mCheckX -= 2.0;
+    }
+    if (mCheckY > 2.0) {
+        mCheckY -= 2.0;
+    }
+
+    // Are we in the gray or black zone?
+    if (mCheckX >= 1.0)
         black = false;
-    if((mCheckY / size) & 1)
+    if (mCheckY >= 1.0)
         black = !black;
 
-    int county = mCheckY % size;
-    int checkxremainder = mCheckX % size;
-    uint8_t* Y = mCurrentFrame;
-    uint8_t* U_pos = mFrameU;
-    uint8_t* V_pos = mFrameV;
-    uint8_t* U = U_pos;
-    uint8_t* V = V_pos;
+    int county = static_cast<int>(mCheckY * size) % size;
+    int checkxremainder = static_cast<int>(mCheckX * size) % size;
 
     YUVPixel adjustedWhite = YUVPixel(mWhiteYUV);
     changeWhiteBalance(adjustedWhite.Y, adjustedWhite.U, adjustedWhite.V);
+    adjustedWhite.Y = changeExposure(adjustedWhite.Y);
+    YUVPixel adjustedBlack = YUVPixel(mBlackYUV);
+    adjustedBlack.Y = changeExposure(adjustedBlack.Y);
 
     for(int y = 0; y < mFrameHeight; y++) {
         int countx = checkxremainder;
         bool current = black;
+        uint8_t* Y = currentFrame + mYStride * y;
+        uint8_t* U = frameU + mUVStride * (y / 2);
+        uint8_t* V = frameV + mUVStride * (y / 2);
         for(int x = 0; x < mFrameWidth; x += 2) {
             if (current) {
-                mBlackYUV.get(Y, U, V);
+                adjustedBlack.get(Y, U, V);
             } else {
                 adjustedWhite.get(Y, U, V);
             }
-            *Y = changeExposure(*Y);
             Y[1] = *Y;
             Y += 2; U += mUVStep; V += mUVStep;
             countx += 2;
@@ -284,49 +294,70 @@ void EmulatedFakeCameraDevice::drawCheckerboard()
                 current = !current;
             }
         }
-        if (y & 0x1) {
-            U_pos = U;
-            V_pos = V;
-        } else {
-            U = U_pos;
-            V = V_pos;
-        }
         if(county++ >= size) {
             county = 0;
             black = !black;
         }
     }
-    mCheckX += 3;
-    mCheckY++;
 
     /* Run the square. */
-    int sqx = ((mCcounter * 3) & 255);
-    if(sqx > 128) sqx = 255 - sqx;
-    int sqy = ((mCcounter * 5) & 255);
-    if(sqy > 128) sqy = 255 - sqy;
-    const int sqsize = mFrameWidth / 10;
-    drawSquare(sqx * sqsize / 32, sqy * sqsize / 32, (sqsize * 5) >> 1,
-               (mCcounter & 0x100) ? &mRedYUV : &mGreenYUV);
-    mCcounter++;
+    const int squareSize = std::min(mFrameWidth, mFrameHeight) / 4;
+    mSquareX += mSquareXSpeed * elapsed;
+    mSquareY += mSquareYSpeed * elapsed;
+    int squareX = mSquareX * mFrameWidth;
+    int squareY = mSquareY * mFrameHeight;
+    if (squareX + squareSize > mFrameWidth) {
+        mSquareXSpeed = -mSquareXSpeed;
+        double relativeWidth = static_cast<double>(squareSize) / mFrameWidth;
+        mSquareX -= 2.0 * (mSquareX + relativeWidth - 1.0);
+        squareX = mSquareX * mFrameWidth;
+    } else if (squareX < 0) {
+        mSquareXSpeed = -mSquareXSpeed;
+        mSquareX = -mSquareX;
+        squareX = mSquareX * mFrameWidth;
+    }
+    if (squareY + squareSize > mFrameHeight) {
+        mSquareYSpeed = -mSquareYSpeed;
+        double relativeHeight = static_cast<double>(squareSize) / mFrameHeight;
+        mSquareY -= 2.0 * (mSquareY + relativeHeight - 1.0);
+        squareY = mSquareY * mFrameHeight;
+    } else if (squareY < 0) {
+        mSquareYSpeed = -mSquareYSpeed;
+        mSquareY = -mSquareY;
+        squareY = mSquareY * mFrameHeight;
+    }
+
+    if (now - mLastColorChange > kSquareColorChangeIntervalNs) {
+        mLastColorChange = now;
+        mSquareColor = mSquareColor == &mRedYUV ? &mGreenYUV : &mRedYUV;
+    }
+
+    drawSquare(buffer, squareX, squareY, squareSize, mSquareColor);
+    mLastRedrawn = now;
 }
 
-void EmulatedFakeCameraDevice::drawSquare(int x,
+void EmulatedFakeCameraDevice::drawSquare(void* buffer,
+                                          int x,
                                           int y,
                                           int size,
                                           const YUVPixel* color)
 {
-    const int square_xstop = min(mFrameWidth, x + size);
-    const int square_ystop = min(mFrameHeight, y + size);
-    uint8_t* Y_pos = mCurrentFrame + y * mFrameWidth + x;
+    uint8_t* currentFrame = reinterpret_cast<uint8_t*>(buffer);
+    uint8_t* frameU = currentFrame + mFrameUOffset;
+    uint8_t* frameV = currentFrame + mFrameVOffset;
+
+    const int square_xstop = std::min(mFrameWidth, x + size);
+    const int square_ystop = std::min(mFrameHeight, y + size);
+    uint8_t* Y_pos = currentFrame + y * mYStride + x;
 
     YUVPixel adjustedColor = *color;
     changeWhiteBalance(adjustedColor.Y, adjustedColor.U, adjustedColor.V);
 
     // Draw the square.
     for (; y < square_ystop; y++) {
-        const int iUV = (y / 2) * mUVInRow + (x / 2) * mUVStep;
-        uint8_t* sqU = mFrameU + iUV;
-        uint8_t* sqV = mFrameV + iUV;
+        const int iUV = (y / 2) * mUVStride + (x / 2) * mUVStep;
+        uint8_t* sqU = frameU + iUV;
+        uint8_t* sqV = frameV + iUV;
         uint8_t* sqY = Y_pos;
         for (int i = x; i < square_xstop; i += 2) {
             adjustedColor.get(sqY, sqU, sqV);
@@ -334,36 +365,40 @@ void EmulatedFakeCameraDevice::drawSquare(int x,
             sqY[1] = *sqY;
             sqY += 2; sqU += mUVStep; sqV += mUVStep;
         }
-        Y_pos += mFrameWidth;
+        Y_pos += mYStride;
     }
 }
 
 #if EFCD_ROTATE_FRAME
 
-void EmulatedFakeCameraDevice::drawSolid(YUVPixel* color)
+void EmulatedFakeCameraDevice::drawSolid(void* buffer, YUVPixel* color)
 {
     YUVPixel adjustedColor = *color;
     changeWhiteBalance(adjustedColor.Y, adjustedColor.U, adjustedColor.V);
 
-    /* All Ys are the same. */
-    memset(mCurrentFrame, changeExposure(adjustedColor.Y), mTotalPixels);
+    /* All Ys are the same, will fill any alignment padding but that's OK */
+    memset(mCurrentFrame, changeExposure(adjustedColor.Y),
+           mFrameHeight * mYStride);
 
     /* Fill U, and V panes. */
-    uint8_t* U = mFrameU;
-    uint8_t* V = mFrameV;
-    for (int k = 0; k < mUVTotalNum; k++, U += mUVStep, V += mUVStep) {
-        *U = color->U;
-        *V = color->V;
+    for (int y = 0; y < mFrameHeight / 2; ++y) {
+        uint8_t* U = mFrameU + y * mUVStride;
+        uint8_t* V = mFrameV + y * mUVStride;
+
+        for (int x = 0; x < mFrameWidth / 2; ++x, U += mUVStep, V += mUVStep) {
+            *U = color->U;
+            *V = color->V;
+        }
     }
 }
 
-void EmulatedFakeCameraDevice::drawStripes()
+void EmulatedFakeCameraDevice::drawStripes(void* buffer)
 {
     /* Divide frame into 4 stripes. */
     const int change_color_at = mFrameHeight / 4;
     const int each_in_row = mUVInRow / mUVStep;
     uint8_t* pY = mCurrentFrame;
-    for (int y = 0; y < mFrameHeight; y++, pY += mFrameWidth) {
+    for (int y = 0; y < mFrameHeight; y++, pY += mYStride) {
         /* Select the color. */
         YUVPixel* color;
         const int color_index = y / change_color_at;
@@ -386,7 +421,7 @@ void EmulatedFakeCameraDevice::drawStripes()
         memset(pY, changeExposure(color->Y), mFrameWidth);
 
         /* Offset of the current row inside U/V panes. */
-        const int uv_off = (y / 2) * mUVInRow;
+        const int uv_off = (y / 2) * mUVStride;
         /* Fill U, and V panes. */
         uint8_t* U = mFrameU + uv_off;
         uint8_t* V = mFrameV + uv_off;

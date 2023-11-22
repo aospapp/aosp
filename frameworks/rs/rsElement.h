@@ -22,6 +22,8 @@
 #include "rsInternalDefines.h"
 #include "rsObjectBase.h"
 
+#include <vector>
+
 // ---------------------------------------------------------------------------
 namespace android {
 namespace renderscript {
@@ -152,7 +154,7 @@ protected:
 
 
     virtual ~Element();
-    Element(Context *);
+    explicit Element(Context *);
 
     Component mComponent;
     uint32_t mBitsUnpadded;
@@ -170,10 +172,10 @@ public:
     ~ElementState();
 
     // Cache of all existing elements.
-    Vector<Element *> mElements;
+    std::vector<Element *> mElements;
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif //ANDROID_STRUCTURED_ELEMENT_H

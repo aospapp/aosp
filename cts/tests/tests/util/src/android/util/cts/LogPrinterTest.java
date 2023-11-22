@@ -16,27 +16,31 @@
 
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.util.LogPrinter;
 
-public class LogPrinterTest extends AndroidTestCase {
-    private final String mTag="LogPrinterTest";
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LogPrinterTest {
+    private static final String TAG = "LogPrinterTest";
+
+    @Test
     public void testConstructor() {
         int[] priorities = { Log.ASSERT, Log.DEBUG, Log.ERROR, Log.INFO,
                 Log.VERBOSE, Log.WARN };
         for (int i = 0; i < priorities.length; i++) {
-            new LogPrinter(priorities[i], mTag);
+            new LogPrinter(priorities[i], TAG);
         }
     }
 
+    @Test
     public void testPrintln() {
-        LogPrinter logPrinter = new LogPrinter(Log.DEBUG, mTag);
+        LogPrinter logPrinter = new LogPrinter(Log.DEBUG, TAG);
         String mMessage = "testMessage";
         logPrinter.println(mMessage);
     }

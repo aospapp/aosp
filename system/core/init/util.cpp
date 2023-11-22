@@ -14,54 +14,43 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <ftw.h>
+#include <pwd.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <errno.h>
 #include <time.h>
-#include <ftw.h>
+#include <unistd.h>
 
-#include <selinux/label.h>
 #include <selinux/android.h>
+#include <selinux/label.h>
 
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 
-#include <android-base/file.h>
-#include <android-base/strings.h>
+#include <thread>
 
+#include <android-base/file.h>
+#include <android-base/logging.h>
+#include <android-base/properties.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <android-base/unique_fd.h>
+
+#include <cutils/android_reboot.h>
 /* for ANDROID_SOCKET_* */
 #include <cutils/sockets.h>
-#include <android-base/stringprintf.h>
-
-#include <private/android_filesystem_config.h>
 
 #include "init.h"
 #include "log.h"
-#include "property_service.h"
+#include "reboot.h"
 #include "util.h"
-
-/*
- * android_name_to_id - returns the integer uid/gid associated with the given
- * name, or UINT_MAX on error.
- */
-static unsigned int android_name_to_id(const char *name)
-{
-    const struct android_id_info *info = android_ids;
-    unsigned int n;
-
-    for (n = 0; n < android_id_count; n++) {
-        if (!strcmp(info[n].name, name))
-            return info[n].aid;
-    }
-
-    return UINT_MAX;
-}
 
 static unsigned int do_decode_uid(const char *s)
 {
@@ -69,8 +58,13 @@ static unsigned int do_decode_uid(const char *s)
 
     if (!s || *s == '\0')
         return UINT_MAX;
-    if (isalpha(s[0]))
-        return android_name_to_id(s);
+
+    if (isalpha(s[0])) {
+        struct passwd* pwd = getpwnam(s);
+        if (!pwd)
+            return UINT_MAX;
+        return pwd->pw_uid;
+    }
 
     errno = 0;
     v = (unsigned int) strtoul(s, 0, 0);
@@ -87,7 +81,7 @@ static unsigned int do_decode_uid(const char *s)
 unsigned int decode_uid(const char *s) {
     unsigned int v = do_decode_uid(s);
     if (v == UINT_MAX) {
-        ERROR("decode_uid: Unable to find UID for '%s'. Returning UINT_MAX\n", s);
+        LOG(ERROR) << "decode_uid: Unable to find UID for '" << s << "'; returning UINT_MAX";
     }
     return v;
 }
@@ -101,82 +95,77 @@ unsigned int decode_uid(const char *s) {
 int create_socket(const char *name, int type, mode_t perm, uid_t uid,
                   gid_t gid, const char *socketcon)
 {
-    struct sockaddr_un addr;
-    int fd, ret, savederrno;
-    char *filecon;
-
     if (socketcon) {
         if (setsockcreatecon(socketcon) == -1) {
-            ERROR("setsockcreatecon(\"%s\") failed: %s\n", socketcon, strerror(errno));
+            PLOG(ERROR) << "setsockcreatecon(\"" << socketcon << "\") failed";
             return -1;
         }
     }
 
-    fd = socket(PF_UNIX, type, 0);
+    android::base::unique_fd fd(socket(PF_UNIX, type, 0));
     if (fd < 0) {
-        ERROR("Failed to open socket '%s': %s\n", name, strerror(errno));
+        PLOG(ERROR) << "Failed to open socket '" << name << "'";
         return -1;
     }
 
-    if (socketcon)
-        setsockcreatecon(NULL);
+    if (socketcon) setsockcreatecon(NULL);
 
+    struct sockaddr_un addr;
     memset(&addr, 0 , sizeof(addr));
     addr.sun_family = AF_UNIX;
     snprintf(addr.sun_path, sizeof(addr.sun_path), ANDROID_SOCKET_DIR"/%s",
              name);
 
-    ret = unlink(addr.sun_path);
-    if (ret != 0 && errno != ENOENT) {
-        ERROR("Failed to unlink old socket '%s': %s\n", name, strerror(errno));
-        goto out_close;
+    if ((unlink(addr.sun_path) != 0) && (errno != ENOENT)) {
+        PLOG(ERROR) << "Failed to unlink old socket '" << name << "'";
+        return -1;
     }
 
-    filecon = NULL;
+    char *filecon = NULL;
     if (sehandle) {
-        ret = selabel_lookup(sehandle, &filecon, addr.sun_path, S_IFSOCK);
-        if (ret == 0)
+        if (selabel_lookup(sehandle, &filecon, addr.sun_path, S_IFSOCK) == 0) {
             setfscreatecon(filecon);
+        }
     }
 
-    ret = bind(fd, (struct sockaddr *) &addr, sizeof (addr));
-    savederrno = errno;
+    int ret = bind(fd, (struct sockaddr *) &addr, sizeof (addr));
+    int savederrno = errno;
 
     setfscreatecon(NULL);
     freecon(filecon);
 
     if (ret) {
-        ERROR("Failed to bind socket '%s': %s\n", name, strerror(savederrno));
+        errno = savederrno;
+        PLOG(ERROR) << "Failed to bind socket '" << name << "'";
         goto out_unlink;
     }
 
-    ret = lchown(addr.sun_path, uid, gid);
-    if (ret) {
-        ERROR("Failed to lchown socket '%s': %s\n", addr.sun_path, strerror(errno));
+    if (lchown(addr.sun_path, uid, gid)) {
+        PLOG(ERROR) << "Failed to lchown socket '" << addr.sun_path << "'";
         goto out_unlink;
     }
-    ret = fchmodat(AT_FDCWD, addr.sun_path, perm, AT_SYMLINK_NOFOLLOW);
-    if (ret) {
-        ERROR("Failed to fchmodat socket '%s': %s\n", addr.sun_path, strerror(errno));
+    if (fchmodat(AT_FDCWD, addr.sun_path, perm, AT_SYMLINK_NOFOLLOW)) {
+        PLOG(ERROR) << "Failed to fchmodat socket '" << addr.sun_path << "'";
         goto out_unlink;
     }
 
-    INFO("Created socket '%s' with mode '%o', user '%d', group '%d'\n",
-         addr.sun_path, perm, uid, gid);
+    LOG(INFO) << "Created socket '" << addr.sun_path << "'"
+              << ", mode " << std::oct << perm << std::dec
+              << ", user " << uid
+              << ", group " << gid;
 
-    return fd;
+    return fd.release();
 
 out_unlink:
     unlink(addr.sun_path);
-out_close:
-    close(fd);
     return -1;
 }
 
-bool read_file(const char* path, std::string* content) {
+bool read_file(const std::string& path, std::string* content) {
     content->clear();
 
-    int fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY|O_NOFOLLOW|O_CLOEXEC));
+    android::base::unique_fd fd(
+        TEMP_FAILURE_RETRY(open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)));
     if (fd == -1) {
         return false;
     }
@@ -185,115 +174,36 @@ bool read_file(const char* path, std::string* content) {
     // or group-writable files.
     struct stat sb;
     if (fstat(fd, &sb) == -1) {
-        ERROR("fstat failed for '%s': %s\n", path, strerror(errno));
+        PLOG(ERROR) << "fstat failed for '" << path << "'";
         return false;
     }
     if ((sb.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
-        ERROR("skipping insecure file '%s'\n", path);
+        LOG(ERROR) << "skipping insecure file '" << path << "'";
         return false;
     }
 
-    bool okay = android::base::ReadFdToString(fd, content);
-    close(fd);
-    return okay;
+    return android::base::ReadFdToString(fd, content);
 }
 
-int write_file(const char* path, const char* content) {
-    int fd = TEMP_FAILURE_RETRY(open(path, O_WRONLY|O_CREAT|O_NOFOLLOW|O_CLOEXEC, 0600));
+bool write_file(const std::string& path, const std::string& content) {
+    android::base::unique_fd fd(TEMP_FAILURE_RETRY(
+        open(path.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_TRUNC | O_CLOEXEC, 0600)));
     if (fd == -1) {
-        NOTICE("write_file: Unable to open '%s': %s\n", path, strerror(errno));
-        return -1;
+        PLOG(ERROR) << "write_file: Unable to open '" << path << "'";
+        return false;
     }
-    int result = android::base::WriteStringToFd(content, fd) ? 0 : -1;
-    if (result == -1) {
-        NOTICE("write_file: Unable to write to '%s': %s\n", path, strerror(errno));
+    bool success = android::base::WriteStringToFd(content, fd);
+    if (!success) {
+        PLOG(ERROR) << "write_file: Unable to write to '" << path << "'";
     }
-    close(fd);
-    return result;
+    return success;
 }
 
-#define MAX_MTD_PARTITIONS 16
-
-static struct {
-    char name[16];
-    int number;
-} mtd_part_map[MAX_MTD_PARTITIONS];
-
-static int mtd_part_count = -1;
-
-static void find_mtd_partitions(void)
-{
-    int fd;
-    char buf[1024];
-    char *pmtdbufp;
-    ssize_t pmtdsize;
-    int r;
-
-    fd = open("/proc/mtd", O_RDONLY|O_CLOEXEC);
-    if (fd < 0)
-        return;
-
-    buf[sizeof(buf) - 1] = '\0';
-    pmtdsize = read(fd, buf, sizeof(buf) - 1);
-    pmtdbufp = buf;
-    while (pmtdsize > 0) {
-        int mtdnum, mtdsize, mtderasesize;
-        char mtdname[16];
-        mtdname[0] = '\0';
-        mtdnum = -1;
-        r = sscanf(pmtdbufp, "mtd%d: %x %x %15s",
-                   &mtdnum, &mtdsize, &mtderasesize, mtdname);
-        if ((r == 4) && (mtdname[0] == '"')) {
-            char *x = strchr(mtdname + 1, '"');
-            if (x) {
-                *x = 0;
-            }
-            INFO("mtd partition %d, %s\n", mtdnum, mtdname + 1);
-            if (mtd_part_count < MAX_MTD_PARTITIONS) {
-                strcpy(mtd_part_map[mtd_part_count].name, mtdname + 1);
-                mtd_part_map[mtd_part_count].number = mtdnum;
-                mtd_part_count++;
-            } else {
-                ERROR("too many mtd partitions\n");
-            }
-        }
-        while (pmtdsize > 0 && *pmtdbufp != '\n') {
-            pmtdbufp++;
-            pmtdsize--;
-        }
-        if (pmtdsize > 0) {
-            pmtdbufp++;
-            pmtdsize--;
-        }
-    }
-    close(fd);
-}
-
-int mtd_name_to_number(const char *name)
-{
-    int n;
-    if (mtd_part_count < 0) {
-        mtd_part_count = 0;
-        find_mtd_partitions();
-    }
-    for (n = 0; n < mtd_part_count; n++) {
-        if (!strcmp(name, mtd_part_map[n].name)) {
-            return mtd_part_map[n].number;
-        }
-    }
-    return -1;
-}
-
-time_t gettime() {
-    timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    return now.tv_sec;
-}
-
-uint64_t gettime_ns() {
-    timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000000) + now.tv_nsec;
+boot_clock::time_point boot_clock::now() {
+  timespec ts;
+  clock_gettime(CLOCK_BOOTTIME, &ts);
+  return boot_clock::time_point(std::chrono::seconds(ts.tv_sec) +
+                                std::chrono::nanoseconds(ts.tv_nsec));
 }
 
 int mkdir_recursive(const char *pathname, mode_t mode)
@@ -313,7 +223,7 @@ int mkdir_recursive(const char *pathname, mode_t mode)
         if (width == 0)
             continue;
         if ((unsigned int)width > sizeof(buf) - 1) {
-            ERROR("path too long for mkdir_recursive\n");
+            LOG(ERROR) << "path too long for mkdir_recursive";
             return -1;
         }
         memcpy(buf, pathname, width);
@@ -351,82 +261,19 @@ void sanitize(char *s)
     }
 }
 
-void make_link_init(const char *oldpath, const char *newpath)
-{
-    int ret;
-    char buf[256];
-    char *slash;
-    int width;
+int wait_for_file(const char* filename, std::chrono::nanoseconds timeout) {
+    boot_clock::time_point timeout_time = boot_clock::now() + timeout;
+    while (boot_clock::now() < timeout_time) {
+        struct stat sb;
+        if (stat(filename, &sb) != -1) return 0;
 
-    slash = strrchr(newpath, '/');
-    if (!slash)
-        return;
-    width = slash - newpath;
-    if (width <= 0 || width > (int)sizeof(buf) - 1)
-        return;
-    memcpy(buf, newpath, width);
-    buf[width] = 0;
-    ret = mkdir_recursive(buf, 0755);
-    if (ret)
-        ERROR("Failed to create directory %s: %s (%d)\n", buf, strerror(errno), errno);
-
-    ret = symlink(oldpath, newpath);
-    if (ret && errno != EEXIST)
-        ERROR("Failed to symlink %s to %s: %s (%d)\n", oldpath, newpath, strerror(errno), errno);
-}
-
-void remove_link(const char *oldpath, const char *newpath)
-{
-    char path[256];
-    ssize_t ret;
-    ret = readlink(newpath, path, sizeof(path) - 1);
-    if (ret <= 0)
-        return;
-    path[ret] = 0;
-    if (!strcmp(path, oldpath))
-        unlink(newpath);
-}
-
-int wait_for_file(const char *filename, int timeout)
-{
-    struct stat info;
-    uint64_t timeout_time_ns = gettime_ns() + timeout * UINT64_C(1000000000);
-    int ret = -1;
-
-    while (gettime_ns() < timeout_time_ns && ((ret = stat(filename, &info)) < 0))
-        usleep(10000);
-
-    return ret;
-}
-
-void open_devnull_stdio(void)
-{
-    // Try to avoid the mknod() call if we can. Since SELinux makes
-    // a /dev/null replacement available for free, let's use it.
-    int fd = open("/sys/fs/selinux/null", O_RDWR);
-    if (fd == -1) {
-        // OOPS, /sys/fs/selinux/null isn't available, likely because
-        // /sys/fs/selinux isn't mounted. Fall back to mknod.
-        static const char *name = "/dev/__null__";
-        if (mknod(name, S_IFCHR | 0600, (1 << 8) | 3) == 0) {
-            fd = open(name, O_RDWR);
-            unlink(name);
-        }
-        if (fd == -1) {
-            exit(1);
-        }
+        std::this_thread::sleep_for(10ms);
     }
-
-    dup2(fd, 0);
-    dup2(fd, 1);
-    dup2(fd, 2);
-    if (fd > 2) {
-        close(fd);
-    }
+    return -1;
 }
 
 void import_kernel_cmdline(bool in_qemu,
-                           std::function<void(const std::string&, const std::string&, bool)> fn) {
+                           const std::function<void(const std::string&, const std::string&, bool)>& fn) {
     std::string cmdline;
     android::base::ReadFileToString("/proc/cmdline", &cmdline);
 
@@ -461,20 +308,9 @@ int make_dir(const char *path, mode_t mode)
     return rc;
 }
 
-int restorecon(const char* pathname)
+int restorecon(const char* pathname, int flags)
 {
-    return selinux_android_restorecon(pathname, 0);
-}
-
-int restorecon_recursive(const char* pathname)
-{
-    return selinux_android_restorecon(pathname, SELINUX_ANDROID_RESTORECON_RECURSE);
-}
-
-int restorecon_recursive_skipce(const char* pathname)
-{
-    return selinux_android_restorecon(pathname,
-            SELINUX_ANDROID_RESTORECON_RECURSE | SELINUX_ANDROID_RESTORECON_SKIPCE);
+    return selinux_android_restorecon(pathname, flags);
 }
 
 /*
@@ -539,7 +375,7 @@ bool expand_props(const std::string& src, std::string* dst) {
             const char* end = strchr(c, '}');
             if (!end) {
                 // failed to find closing brace, abort.
-                ERROR("unexpected end of string in '%s', looking for }\n", src.c_str());
+                LOG(ERROR) << "unexpected end of string in '" << src << "', looking for }";
                 return false;
             }
             prop_name = std::string(c, end);
@@ -551,21 +387,19 @@ bool expand_props(const std::string& src, std::string* dst) {
             }
         } else {
             prop_name = c;
-            ERROR("using deprecated syntax for specifying property '%s', use ${name} instead\n",
-                  c);
+            LOG(ERROR) << "using deprecated syntax for specifying property '" << c << "', use ${name} instead";
             c += prop_name.size();
         }
 
         if (prop_name.empty()) {
-            ERROR("invalid zero-length prop name in '%s'\n", src.c_str());
+            LOG(ERROR) << "invalid zero-length property name in '" << src << "'";
             return false;
         }
 
-        std::string prop_val = property_get(prop_name.c_str());
+        std::string prop_val = android::base::GetProperty(prop_name, "");
         if (prop_val.empty()) {
             if (def_val.empty()) {
-                ERROR("property '%s' doesn't exist while expanding '%s'\n",
-                      prop_name.c_str(), src.c_str());
+                LOG(ERROR) << "property '" << prop_name << "' doesn't exist while expanding '" << src << "'";
                 return false;
             }
             prop_val = def_val;
@@ -576,4 +410,37 @@ bool expand_props(const std::string& src, std::string* dst) {
     }
 
     return true;
+}
+
+void panic() {
+    LOG(ERROR) << "panic: rebooting to bootloader";
+    DoReboot(ANDROID_RB_RESTART2, "reboot", "bootloader", false);
+}
+
+std::ostream& operator<<(std::ostream& os, const Timer& t) {
+    os << t.duration_s() << " seconds";
+    return os;
+}
+
+// Reads the content of device tree file under kAndroidDtDir directory.
+// Returns true if the read is success, false otherwise.
+bool read_android_dt_file(const std::string& sub_path, std::string* dt_content) {
+    const std::string file_name = kAndroidDtDir + sub_path;
+    if (android::base::ReadFileToString(file_name, dt_content)) {
+        if (!dt_content->empty()) {
+            dt_content->pop_back();  // Trims the trailing '\0' out.
+            return true;
+        }
+    }
+    return false;
+}
+
+bool is_android_dt_value_expected(const std::string& sub_path, const std::string& expected_content) {
+    std::string dt_content;
+    if (read_android_dt_file(sub_path, &dt_content)) {
+        if (dt_content == expected_content) {
+            return true;
+        }
+    }
+    return false;
 }

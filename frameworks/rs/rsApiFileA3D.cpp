@@ -17,8 +17,11 @@
 #include "rsContext.h"
 #include "rsFileA3D.h"
 
-using namespace android;
-using namespace android::renderscript;
+using android::Asset;
+using android::renderscript::Context;
+using android::renderscript::FileA3D;
+using android::renderscript::ObjectBase;
+using android::renderscript::rsuCopyString;
 
 RsObjectBase rsaFileA3DGetEntryByIndex(RsContext con, uint32_t index, RsFile file) {
     FileA3D *fa3d = static_cast<FileA3D *>(file);
@@ -80,17 +83,8 @@ RsFile rsaFileA3DCreateFromMemory(RsContext con, const void *data, uint32_t len)
 }
 
 RsFile rsaFileA3DCreateFromAsset(RsContext con, void *_asset) {
-#if !defined(__RS_PDK__)
-    Context *rsc = static_cast<Context *>(con);
-    Asset *asset = static_cast<Asset *>(_asset);
-    FileA3D *fa3d = new FileA3D(rsc);
-    fa3d->incUserRef();
-
-    fa3d->load(asset);
-    return fa3d;
-#else
+    ALOGE("Calling deprecated %s API", __FUNCTION__);
     return nullptr;
-#endif
 }
 
 RsFile rsaFileA3DCreateFromFile(RsContext con, const char *path) {

@@ -17,9 +17,7 @@
 package com.android.tv.settings.util;
 
 import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent.ShortcutIconResource;
-import android.content.res.Resources;
 import android.net.Uri;
 
 /**
@@ -40,22 +38,6 @@ public final class UriUtils {
      * Non instantiable.
      */
     private UriUtils() {}
-
-    /**
-     * get resource uri representation for a resource of a package
-     */
-    public static String getAndroidResourceUri(Context context, int resourceId) {
-        return getAndroidResourceUri(context.getResources(), resourceId);
-    }
-
-    /**
-     * get resource uri representation for a resource
-     */
-    public static String getAndroidResourceUri(Resources resources, int resourceId) {
-        return ContentResolver.SCHEME_ANDROID_RESOURCE
-                + SCHEME_DELIMITER + resources.getResourceName(resourceId)
-                        .replace(URI_PACKAGE_DELIMITER, URI_PATH_DELIMITER);
-    }
 
     /**
      * Gets a URI with short cut icon scheme.

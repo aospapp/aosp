@@ -23,7 +23,7 @@
 TARGET_USES_CHINOOK_SENSORHUB := false
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
-    LOCAL_KERNEL := device/huawei/angler-kernel/Image.gz-dtb
+  LOCAL_KERNEL := device/huawei/angler-kernel/Image.gz-dtb
 else
   LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
@@ -36,8 +36,12 @@ PRODUCT_COPY_FILES += \
     device/huawei/angler/init.angler.usb.rc:root/init.angler.usb.rc \
     device/huawei/angler/fstab.angler:root/fstab.angler \
     device/huawei/angler/ueventd.angler.rc:root/ueventd.angler.rc \
+    device/huawei/angler/init.recovery.angler.rc:root/init.recovery.angler.rc \
     device/huawei/angler/init.angler.power.sh:system/bin/init.angler.power.sh \
-    device/huawei/angler/uinput-fpc.kl:system/usr/keylayout/uinput-fpc.kl
+    device/huawei/angler/uinput-fpc.kl:system/usr/keylayout/uinput-fpc.kl \
+    device/huawei/angler/uinput-fpc.idc:system/usr/idc/uinput-fpc.idc \
+    device/huawei/angler/init.qcom.devwait.sh:system/bin/init.qcom.devwait.sh \
+    device/huawei/angler/init.qcom.devstart.sh:system/bin/init.qcom.devstart.sh
 
 ifeq ($(TARGET_USES_CHINOOK_SENSORHUB),true)
 PRODUCT_COPY_FILES += \
@@ -50,9 +54,16 @@ endif
 PRODUCT_COPY_FILES += \
     device/huawei/angler/init.mcfg.sh:system/bin/init.mcfg.sh
 
+PRODUCT_COPY_FILES += \
+    device/huawei/angler/init.radio.sh:system/bin/init.radio.sh
+
 # Thermal configuration
 PRODUCT_COPY_FILES += \
     device/huawei/angler/thermal-engine-angler.conf:system/etc/thermal-engine.conf
+
+# Vendor Interface Manifest
+PRODUCT_COPY_FILES += \
+    device/huawei/angler/manifest.xml:vendor/manifest.xml
 
 # Media
 PRODUCT_COPY_FILES += \
@@ -89,9 +100,10 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
     AnglerLayout
 
-# include fingerprintd
+# Fingerprint Sensor
 PRODUCT_PACKAGES += \
-    fingerprintd
+    fingerprint.angler \
+    android.hardware.biometrics.fingerprint@2.1-service
 
 # Delegation for OEM customization
 PRODUCT_OEM_PROPERTIES := \
@@ -111,7 +123,8 @@ PRODUCT_COPY_FILES += \
     device/huawei/angler/bcmdhd.cal:system/etc/wifi/bcmdhd.cal \
     device/huawei/angler/bcmdhd-pme.cal:system/etc/wifi/bcmdhd-pme.cal \
     device/huawei/angler/bcmdhd-high.cal:system/etc/wifi/bcmdhd-high.cal \
-    device/huawei/angler/bcmdhd-low.cal:system/etc/wifi/bcmdhd-low.cal
+    device/huawei/angler/bcmdhd-low.cal:system/etc/wifi/bcmdhd-low.cal \
+    device/huawei/angler/filter_ie:system/etc/wifi/filter_ie
 
 # These are the hardware-specific features
 PRODUCT_COPY_FILES += \
@@ -148,7 +161,6 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.software.verified_boot.xml:system/etc/permissions/android.software.verified_boot.xml \
     frameworks/native/data/etc/com.nxp.mifare.xml:system/etc/permissions/com.nxp.mifare.xml \
     frameworks/native/data/etc/android.hardware.opengles.aep.xml:system/etc/permissions/android.hardware.opengles.aep.xml \
-    frameworks/native/data/etc/android.hardware.vr.high_performance.xml:system/etc/permissions/android.hardware.vr.high_performance.xml \
     frameworks/native/data/etc/android.hardware.vulkan.level-0.xml:system/etc/permissions/android.hardware.vulkan.level.xml \
     frameworks/native/data/etc/android.hardware.vulkan.version-1_0_3.xml:system/etc/permissions/android.hardware.vulkan.version.xml
 
@@ -176,10 +188,25 @@ PRODUCT_CHARACTERISTICS := nosdcard
 
 PRODUCT_PACKAGES += \
     gralloc.msm8994 \
+    android.hardware.graphics.allocator@2.0-impl \
+    android.hardware.graphics.allocator@2.0-service \
+    android.hardware.graphics.mapper@2.0-impl \
     hwcomposer.msm8994 \
     libgenlock \
     memtrack.msm8994 \
-    lights.angler
+    android.hardware.memtrack@1.0-impl
+
+# Light HAL
+PRODUCT_PACKAGES += \
+    lights.angler \
+    android.hardware.light@2.0-impl
+
+# RenderScript HAL
+PRODUCT_PACKAGES += \
+    android.hardware.renderscript@1.0-impl
+
+PRODUCT_PACKAGES += \
+    android.hardware.drm@1.0-impl \
 
 USE_XML_AUDIO_POLICY_CONF := 1
 PRODUCT_PACKAGES += \
@@ -189,6 +216,9 @@ PRODUCT_PACKAGES += \
     audio.r_submix.default \
     libaudio-resampler \
     dsm_ctrl
+
+PRODUCT_PACKAGES += \
+    android.hardware.soundtrigger@2.0-impl
 
 # Audio effects
 PRODUCT_PACKAGES += \
@@ -206,8 +236,16 @@ PRODUCT_PACKAGES += \
     libOmxVdecHevc \
     libOmxVenc
 
+PRODUCT_PACKAGES += \
+    android.hardware.audio@2.0-impl \
+    android.hardware.audio.effect@2.0-impl \
+    android.hardware.broadcastradio@1.0-impl \
+    android.hardware.soundtrigger@2.0-impl
+
 #CAMERA
 PRODUCT_PACKAGES += \
+    camera.device@3.2-impl \
+    android.hardware.camera.provider@2.4-impl \
     camera.msm8994 \
     libcamera \
     libmmcamera_interface \
@@ -221,6 +259,9 @@ PRODUCT_PACKAGES += \
     libgps.utils \
     gps.msm8994
 
+PRODUCT_PACKAGES += \
+    android.hardware.graphics.composer@2.1-impl
+
 # Sensor & activity_recognition HAL
 TARGET_USES_NANOHUB_SENSORHAL := true
 NANOHUB_SENSORHAL_LID_STATE_ENABLED := true
@@ -230,7 +271,13 @@ NANOHUB_SENSORHAL_SENSORLIST := $(LOCAL_PATH)/sensorhal/sensorlist.cpp
 PRODUCT_PACKAGES += \
     sensors.angler \
     activity_recognition.angler \
-    context_hub.default
+    context_hub.default \
+    android.hardware.sensors@1.0-impl \
+    android.hardware.contexthub@1.0-impl \
+
+# new gatekeeper HAL
+PRODUCT_PACKAGES += \
+    android.hardware.gatekeeper@1.0-impl
 
 ifeq ($(TARGET_USES_CHINOOK_SENSORHUB),true)
 PRODUCT_PACKAGES += \
@@ -253,23 +300,68 @@ PRODUCT_PACKAGES += \
     charger_res_images
 
 PRODUCT_PACKAGES += \
+    android.hardware.wifi@1.0-service \
     libwpa_client \
     hostapd \
     wlutil \
+    wificond \
+    wifilogd \
     wpa_supplicant \
     wpa_supplicant.conf
+
+# Bluetooth HAL
+PRODUCT_PACKAGES += \
+    libbt-vendor \
+    android.hardware.bluetooth@1.0-impl
 
 # NFC
 PRODUCT_PACKAGES += \
     libnfc-nci \
-    nfc_nci.angler \
     NfcNci \
-    Tag
+    Tag \
+    nfc_nci.angler \
+    android.hardware.nfc@1.0-impl \
+
+# Keymaster HAL
+PRODUCT_PACKAGES += \
+    android.hardware.keymaster@3.0-impl
+
+# Vibrator
+PRODUCT_PACKAGES += \
+    android.hardware.vibrator@1.0-impl
 
 # Power HAL
 PRODUCT_PACKAGES += \
     power.angler \
-    thermal.angler
+    android.hardware.power@1.0-impl \
+
+# Thermal HAL
+PRODUCT_PACKAGES += \
+    thermal.angler \
+    android.hardware.thermal@1.0-impl
+
+#GNSS HAL
+PRODUCT_PACKAGES += \
+    android.hardware.gnss@1.0-impl
+
+#USB HAL
+PRODUCT_PACKAGES += \
+    android.hardware.usb@1.0-service
+# Library used for VTS tests  (only for userdebug and eng builds)
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+# Test HAL for hwbinder performance benchmark.
+PRODUCT_PACKAGES += \
+     android.hardware.tests.libhwbinder@1.0-impl
+
+# Test HAL for FMQ performance benchmark.
+PRODUCT_PACKAGES += \
+     android.hardware.tests.msgq@1.0-impl
+
+# For VTS profiling.
+PRODUCT_PACKAGES += \
+     libvts_profiling \
+     libvts_multidevice_proto
+endif
 
 PRODUCT_COPY_FILES += \
     device/huawei/angler/nfc/libnfc-brcm.conf:system/etc/libnfc-brcm.conf \
@@ -294,6 +386,15 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
 	persist.radio.data_con_rprt=true
 
+# Write Manufacturer & Model information in created media files.
+# IMPORTANT: ONLY SET THIS PROPERTY TO TRUE FOR PUBLIC DEVICES
+ifneq ($(filter aosp_angler% angler%, $(TARGET_PRODUCT)),)
+PRODUCT_PROPERTY_OVERRIDES += \
+    media.recorder.show_manufacturer_and_model=true
+else
+$(error "you must decide whether to write manufacturer and model information into created media files for this device. ONLY ENABLE IT FOR PUBLIC DEVICE.")
+endif  #TARGET_PRODUCT
+
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.hwui.texture_cache_size=72 \
     ro.hwui.layer_cache_size=48 \
@@ -306,10 +407,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.hwui.text_small_cache_height=1024 \
     ro.hwui.text_large_cache_width=2048 \
     ro.hwui.text_large_cache_height=1024
-
-# VR HAL
-PRODUCT_PACKAGES += \
-    vr.angler
 
 # Enable low power video mode for 4K encode
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -390,6 +487,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.audio.product.identify="angler" \
     persist.audio.fluence.speaker=true
 
+# Default OMX service to non-Treble
+PRODUCT_PROPERTY_OVERRIDES += \
+    persist.media.treble_omx=false
+
 # Enable AAC 5.1 output
 PRODUCT_PROPERTY_OVERRIDES += \
     media.aac_51_output_enabled=true
@@ -430,7 +531,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 ifeq (,$(filter aosp_angler, $(TARGET_PRODUCT)))
 PRODUCT_PACKAGES += \
-    QXDMLoggerV2
+    NexusLogger
 endif # aosp_angler
 
 PRODUCT_COPY_FILES += \
@@ -449,8 +550,12 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.radio.redir_party_num=0
 
 # OEM Unlock reporting
-ADDITIONAL_DEFAULT_PROPERTIES += \
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     ro.oem_unlock_supported=1
+
+# ro.product.first_api_level indicates the first api level the device has commercially launched on.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.product.first_api_level=23
 
 # In userdebug, add minidebug info the the boot image and the system server to support
 # diagnosing native crashes.
@@ -474,19 +579,17 @@ $(call inherit-product-if-exists, hardware/broadcom/wlan/bcmdhd/firmware/bcm4358
 
 # GPS configuration
 PRODUCT_COPY_FILES += \
-    device/huawei/angler/location/etc/gps.conf:system/etc/gps.conf:qcom
+    device/huawei/angler/gps.conf:system/etc/gps.conf:qcom
 
 # setup dm-verity configs.
 PRODUCT_SYSTEM_VERITY_PARTITION := /dev/block/platform/soc.0/f9824900.sdhci/by-name/system
 PRODUCT_VENDOR_VERITY_PARTITION := /dev/block/platform/soc.0/f9824900.sdhci/by-name/vendor
 $(call inherit-product, build/target/product/verity.mk)
 
-# b/28992626
-# For app investigation, make ASAN-lite only sanitize 32-bit.
-ifeq (true,$(SANITIZE_LITE))
-  SANITIZE_ARCH := 32
-endif
-
 # b/29995499
 $(call add-product-sanitizer-module-config,cameraserver,never)
 $(call add-product-sanitizer-module-config,mm-qcamera-daemon,never)
+
+# b/36201281
+$(call add-product-sanitizer-module-config,thermal-engine,never)
+$(call add-product-sanitizer-module-config,qmuxd,never)

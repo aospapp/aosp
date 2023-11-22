@@ -24,19 +24,16 @@ import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.accessibility.AccessibilityManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.widget.BitmapDownloader;
-import com.android.tv.settings.widget.BitmapDownloader.BitmapCallback;
-import com.android.tv.settings.widget.BitmapWorkerOptions;
 import com.android.tv.settings.widget.FrameLayoutWithShadows;
 
 /**
@@ -85,12 +82,10 @@ public class BaseContentFragment {
 
     private final LiteFragment mFragment;
     private Activity mActivity;
-    private BitmapCallback mBitmapCallBack;
     private String mTitle;
     private String mBreadcrumb;
     private String mDescription;
     private int mIconResourceId;
-    private Uri mIconUri;
     private Bitmap mIconBitmap;
     private int mIconBackgroundColor;
     private AccessibilityManager mAccessManager;
@@ -113,9 +108,6 @@ public class BaseContentFragment {
         if (mIconResourceId == 0) {
             mIconResourceId = state.getInt(EXTRA_ICON_RESOURCE_ID, 0);
         }
-        if (mIconUri == null) {
-            mIconUri = state.getParcelable(EXTRA_ICON_URI);
-        }
         if (mIconBitmap == null) {
             mIconBitmap = state.getParcelable(EXTRA_ICON_BITMAP);
         }
@@ -129,7 +121,6 @@ public class BaseContentFragment {
         outState.putString(EXTRA_BREADCRUMB, mBreadcrumb);
         outState.putString(EXTRA_DESCRIPTION, mDescription);
         outState.putInt(EXTRA_ICON_RESOURCE_ID, mIconResourceId);
-        outState.putParcelable(EXTRA_ICON_URI, mIconUri);
         outState.putParcelable(EXTRA_ICON_BITMAP, mIconBitmap);
         outState.putInt(EXTRA_ICON_BACKGROUND, mIconBackgroundColor);
     }
@@ -148,19 +139,6 @@ public class BaseContentFragment {
      */
     public void onDetach() {
         mActivity = null;
-    }
-
-    /**
-     * When ContentFragment is winding down / being destroyed, if the
-     * BitmapDownloader is still getting Bitmap for icon ImageView, we should
-     * cancel it.
-     */
-    public void onDestroyView() {
-        if (mActivity != null
-                && mBitmapCallBack != null) {
-            BitmapDownloader bitmapDownloader = BitmapDownloader.getInstance(mActivity);
-            bitmapDownloader.cancelDownload(mBitmapCallBack);
-        }
     }
 
     public View onCreateView(
@@ -187,33 +165,7 @@ public class BaseContentFragment {
                 addShadow(iconImageView, view);
                 updateViewSize(iconImageView);
             } else {
-                Uri iconUri = getIconResourceUri();
-                if (iconUri != null) {
-                    iconImageView.setVisibility(View.INVISIBLE);
-
-                    if (mActivity != null) {
-                        BitmapDownloader bitmapDownloader = BitmapDownloader.getInstance(mActivity);
-                        mBitmapCallBack = new BitmapCallback() {
-                            @Override
-                            public void onBitmapRetrieved(Bitmap bitmap) {
-                                if (bitmap != null) {
-                                    mIconBitmap = bitmap;
-                                    iconImageView.setVisibility(View.VISIBLE);
-                                    iconImageView.setImageBitmap(bitmap);
-                                    addShadow(iconImageView, view);
-                                    updateViewSize(iconImageView);
-                                }
-                            }
-                        };
-
-                        bitmapDownloader.getBitmap(new BitmapWorkerOptions.Builder(
-                                mActivity).resource(iconUri)
-                                .width(iconImageView.getLayoutParams().width).build(),
-                                mBitmapCallBack);
-                    }
-                } else {
-                    iconImageView.setVisibility(View.GONE);
-                }
+                iconImageView.setVisibility(View.GONE);
             }
         }
 
@@ -228,10 +180,6 @@ public class BaseContentFragment {
     public TextView getTitle() {
         if (mFragment.getView() == null) return null;
         return (TextView) mFragment.getView().findViewById(R.id.title);
-    }
-
-    public Uri getIconResourceUri() {
-        return mIconUri;
     }
 
     public int getIconResourceId() {
@@ -314,7 +262,7 @@ public class BaseContentFragment {
     }
 
     /**
-     * Unlike {@link #setIcon(int)} and {@link #setIcon(Uri)}, this will only work if called
+     * Unlike {@link #setIcon(int)}, this will only work if called
      * after {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)}.
      * @param iconDrawable
      */
@@ -341,39 +289,6 @@ public class BaseContentFragment {
                 iconImageView.setImageResource(iconResourceId);
                 iconImageView.setVisibility(View.VISIBLE);
                 updateViewSize(iconImageView);
-            }
-        }
-    }
-
-    public void setIcon(Uri iconUri) {
-        mIconUri = iconUri;
-        if (mFragment.getView() == null) return;
-
-        final ImageView iconImageView = (ImageView) mFragment.getView().findViewById(R.id.icon);
-        if (iconImageView != null) {
-            if (iconUri != null) {
-                iconImageView.setVisibility(View.INVISIBLE);
-
-                if (mActivity != null) {
-                    BitmapDownloader bitmapDownloader = BitmapDownloader.getInstance(mActivity);
-                    mBitmapCallBack = new BitmapCallback() {
-                        @Override
-                        public void onBitmapRetrieved(Bitmap bitmap) {
-                            if (bitmap != null) {
-                                mIconBitmap = bitmap;
-                                iconImageView.setImageBitmap(bitmap);
-                                iconImageView.setVisibility(View.VISIBLE);
-                                updateViewSize(iconImageView);
-                                fadeIn(iconImageView);
-                                addShadow(iconImageView, mFragment.getView());
-                            }
-                        }
-                    };
-
-                    bitmapDownloader.getBitmap(new BitmapWorkerOptions.Builder(mActivity).resource(
-                            iconUri).width(iconImageView.getLayoutParams().width).build(),
-                            mBitmapCallBack);
-                }
             }
         }
     }

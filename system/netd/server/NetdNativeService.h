@@ -55,6 +55,60 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
             const std::string &addrString, int prefixLength) override;
     binder::Status interfaceDelAddress(const std::string &ifName,
             const std::string &addrString, int prefixLength) override;
+
+    binder::Status setProcSysNet(
+            int32_t family, int32_t which, const std::string &ifname, const std::string &parameter,
+            const std::string &value) override;
+
+    // Metrics reporting level set / get (internal use only).
+    binder::Status getMetricsReportingLevel(int *reportingLevel) override;
+    binder::Status setMetricsReportingLevel(const int reportingLevel) override;
+
+    binder::Status ipSecAllocateSpi(
+            int32_t transformId,
+            int32_t direction,
+            const std::string& localAddress,
+            const std::string& remoteAddress,
+            int32_t inSpi,
+            int32_t* outSpi);
+
+    binder::Status ipSecAddSecurityAssociation(
+            int32_t transformId,
+            int32_t mode,
+            int32_t direction,
+            const std::string& localAddress,
+            const std::string& remoteAddress,
+            int64_t underlyingNetworkHandle,
+            int32_t spi,
+            const std::string& authAlgo,
+            const std::vector<uint8_t>& authKey,
+            int32_t authTruncBits,
+            const std::string& cryptAlgo,
+            const std::vector<uint8_t>& cryptKey,
+            int32_t cryptTruncBits,
+            int32_t encapType,
+            int32_t encapLocalPort,
+            int32_t encapRemotePort,
+            int32_t* allocatedSpi);
+
+    binder::Status ipSecDeleteSecurityAssociation(
+            int32_t transformId,
+            int32_t direction,
+            const std::string& localAddress,
+            const std::string& remoteAddress,
+            int32_t spi);
+
+    binder::Status ipSecApplyTransportModeTransform(
+            const android::base::unique_fd& socket,
+            int32_t transformId,
+            int32_t direction,
+            const std::string& localAddress,
+            const std::string& remoteAddress,
+            int32_t spi);
+
+    binder::Status ipSecRemoveTransportModeTransform(
+            const android::base::unique_fd& socket);
+
 };
 
 }  // namespace net

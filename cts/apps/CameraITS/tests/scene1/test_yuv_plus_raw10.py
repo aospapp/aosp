@@ -51,11 +51,11 @@ def main():
         tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
         rgb0 = its.image.compute_image_means(tile)
 
-        # Raw shots are 1/2 x 1/2 smaller after conversion to RGB, so scale the
-        # tile appropriately.
+        # Raw shots are 1/2 x 1/2 smaller after conversion to RGB, but tile
+        # cropping is relative.
         img = its.image.convert_capture_to_rgb_image(cap_raw, props=props)
         its.image.write_image(img, "%s_raw.jpg" % (NAME), True)
-        tile = its.image.get_image_patch(img, 0.475, 0.475, 0.05, 0.05)
+        tile = its.image.get_image_patch(img, 0.45, 0.45, 0.1, 0.1)
         rgb1 = its.image.compute_image_means(tile)
 
         rms_diff = math.sqrt(

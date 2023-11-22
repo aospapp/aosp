@@ -630,7 +630,7 @@ public class ExpatSaxParserTest extends TestCase {
      * A little endian UTF-16 file with an odd number of bytes.
      */
     public void testBug28698301_1() throws Exception {
-        checkBug28698301("bug28698301-1.xml");
+        checkBug28698301("bug28698301-1.xml", "At line 19, column 18: no element found");
     }
 
     /**
@@ -638,14 +638,15 @@ public class ExpatSaxParserTest extends TestCase {
      * reported in the bug.
      */
     public void testBug28698301_2() throws Exception {
-        checkBug28698301("bug28698301-2.xml");
+        checkBug28698301("bug28698301-2.xml", "At line 3, column 18: no element found");
     }
 
     /**
      * A big endian UTF-16 file with an odd number of bytes.
      */
     public void testBug28698301_3() throws Exception {
-        checkBug28698301("bug28698301-3.xml");
+        checkBug28698301("bug28698301-3.xml",
+            "At line 97, column 21: not well-formed (invalid token)");
     }
 
     /**
@@ -662,14 +663,15 @@ public class ExpatSaxParserTest extends TestCase {
      * range checks used == and != rather than >= and <. The patch fixes the initial jump and then
      * uses inequalities in the range check to fail fast in the event of another overflow bug.
      */
-    private void checkBug28698301(String name) throws IOException, SAXException {
+    private void checkBug28698301(String name, String expectedMessage)
+        throws IOException, SAXException {
         InputStream is = getClass().getResourceAsStream(name);
         try {
             parse(is, Encoding.UTF_16, new TestHandler());
         } catch (SAXParseException exception) {
             String message = exception.getMessage();
-            if (!message.contains("no element found")) {
-                fail("Expected 'no element found' exception, found: " + message);
+            if (!message.equals(expectedMessage)) {
+                fail("Expected '" + expectedMessage + "' exception, found: '" + message + "'");
             }
         }
     }

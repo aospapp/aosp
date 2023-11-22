@@ -14,12 +14,15 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS App test cases">
+    <option name="config-descriptor:metadata" key="component" value="framework" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsSimpleApp.apk" />
         <option name="test-file-name" value="CtsAppTestStubs.apk" />
+        <option name="test-file-name" value="CtsAppTestStubsDifferentUid.apk" />
         <option name="test-file-name" value="CtsAppTestCases.apk" />
+        <option name="test-file-name" value="CtsAppTestSdk25.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.app.cts" />

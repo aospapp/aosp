@@ -19,15 +19,14 @@
           package="android.support.design.test">
 
     <uses-sdk
-            android:minSdkVersion="9"
+            android:minSdkVersion="14"
             android:targetSdkVersion="23"
             tools:overrideLibrary="android.support.test, android.app, android.support.test.rule,
                       android.support.test.espresso, android.support.test.espresso.idling"/>
 
     <application
             android:supportsRtl="true"
-            android:theme="@style/Theme.AppCompat">
-        <uses-library android:name="android.test.runner"/>
+            android:theme="@style/Theme.Design">
 
         <activity
                 android:theme="@style/Theme.AppCompat.NoActionBar"
@@ -88,10 +87,14 @@
         <activity
                 android:name="android.support.v7.app.AppCompatActivity"/>
 
-    </application>
+        <activity
+            android:name="android.support.design.widget.AppBarLayoutCollapsePinTestActivity"
+            android:theme="@style/Theme.TranslucentStatus"/>
 
-    <instrumentation
-            android:name="android.test.InstrumentationTestRunner"
-            android:targetPackage="android.support.design.test"/>
+        <activity
+            android:name="android.support.design.widget.AppBarWithScrollbarsActivity"
+            android:theme="@style/Theme.AppCompat.Light.DarkActionBar"/>
+
+    </application>
 
 </manifest>

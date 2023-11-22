@@ -23,13 +23,14 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class MonitorContendedEnterAndEnteredDebuggee extends SyncDebuggee {
-    
+
     static final String TESTED_THREAD = "BLOCKED_THREAD";
-    
+
     static Object lock = new MonitorWaitMockMonitor();
 
     BlockedThread thread;
 
+    @Override
     public void run() {
         thread = new BlockedThread(logWriter,TESTED_THREAD);
 
@@ -54,14 +55,15 @@ public class MonitorContendedEnterAndEnteredDebuggee extends SyncDebuggee {
         }
     }
 
-    class BlockedThread extends Thread {
-        private LogWriter logWriter; 
+    static class BlockedThread extends Thread {
+        private LogWriter logWriter;
 
         public BlockedThread(LogWriter writer, String name){
             logWriter = writer;
             this.setName(name);
         }
-                
+
+        @Override
         public void run() {
             logWriter.println("--> BlockedThread: start to run");
             

@@ -1,5 +1,7 @@
+// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /***********************************************************************
- * Copyright (c) 1997-2015, International Business Machines Corporation
+ * Copyright (c) 1997-2016, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -19,6 +21,7 @@
 #include "unicode/calendar.h"
 #include "unicode/datefmt.h"
 #include "unicode/ucurr.h"
+#include "cmemory.h"
 #include "putilimp.h"
 #include "uassert.h"
 
@@ -291,14 +294,14 @@ void NumberFormatRegressionTest::Test4088161 (void)
         df->setMinimumFractionDigits(0);
         df->setMaximumFractionDigits(16);
         UnicodeString sBuf1;
-        FieldPosition fp1(0);
+        FieldPosition fp1(FieldPosition::DONT_CARE);
         logln(UnicodeString("d = ") + d);
         logln(UnicodeString("maxFractionDigits = ") + df->getMaximumFractionDigits());
 
         logln(" format(d) = '" + df->format(d, sBuf1, fp1) + "'");
         df->setMaximumFractionDigits(17);
         UnicodeString sBuf2;
-        FieldPosition fp2(0);
+        FieldPosition fp2(FieldPosition::DONT_CARE);
         logln(UnicodeString("maxFractionDigits = ") + df->getMaximumFractionDigits());
         sBuf2 = df->format(d, sBuf2, fp2);
         if(sBuf2 != "100")
@@ -383,7 +386,7 @@ void NumberFormatRegressionTest::Test4088503 (void)
     FieldPosition fp(FieldPosition::DONT_CARE);
     //try {
         logln(df->format((int32_t)123, sBuf, fp));
-        //if(fp == FieldPosition(0))
+        //if(fp == FieldPosition(FieldPosition::DONT_CARE))
         //    errln("Test for bug 4088503 failed.");
     /*} catch (Exception foo) {
         errln("Test for bug 4088503 failed.");
@@ -691,7 +694,7 @@ void NumberFormatRegressionTest::Test4090489 (void)
     double d = 1.000000000000001E7;
     //BigDecimal bd = new BigDecimal(d);
     UnicodeString sb;
-    FieldPosition fp(0);
+    FieldPosition fp(FieldPosition::DONT_CARE);
     logln(UnicodeString("d = ") + d);
     //logln("BigDecimal.toString():  " + bd.toString());
     df->format(d, sb, fp);
@@ -921,7 +924,7 @@ void NumberFormatRegressionTest::Test4070798 (void)
       delete formatter;
       return;
     }
-    failure(status, "NumberFormat::createNumberInstance", loc);
+    failure(status, "NumberFormat::createInstance", loc);
     tempString = formatter->format (-5789.9876, tempString);
 
     if (tempString == expectedDefault) {
@@ -990,7 +993,7 @@ void NumberFormatRegressionTest::Test4071005 (void)
 
     UErrorCode status = U_ZERO_ERROR;
     formatter = NumberFormat::createInstance(Locale::getCanadaFrench(), status);
-    if (failure(status, "NumberFormat::createNumberInstance", Locale::getCanadaFrench(), TRUE)){
+    if (failure(status, "NumberFormat::createInstance", Locale::getCanadaFrench(), TRUE)){
         delete formatter;
         return;
     };
@@ -1058,7 +1061,7 @@ void NumberFormatRegressionTest::Test4071014 (void)
     char loc[256]={0};
     uloc_canonicalize("de_DE_PREEURO", loc, 256, &status);
     formatter = NumberFormat::createInstance(Locale(loc), status);
-    if (failure(status, "NumberFormat::createNumberInstance", loc, TRUE)){
+    if (failure(status, "NumberFormat::createInstance", loc, TRUE)){
         delete formatter;
         return;
     }
@@ -1396,7 +1399,7 @@ void NumberFormatRegressionTest::Test4062486(void)
         return;
     }
     UnicodeString formatted;
-    FieldPosition field(0);
+    FieldPosition field(FieldPosition::DONT_CARE);
     double num = 1234.5;
     fmt->format(num, formatted, field);
     if (field.getBeginIndex() != 0 && field.getEndIndex() != 5)
@@ -2240,7 +2243,7 @@ void NumberFormatRegressionTest::Test4176114(void) {
         "000,000", "#,000,000",
         "0,000,000,000,000.0000", "#0,000,000,000,000.0000", // Reported
     };
-    int DATA_length = (int)(sizeof(DATA) / sizeof(DATA[0]));
+    int DATA_length = UPRV_LENGTHOF(DATA);
     UErrorCode status = U_ZERO_ERROR;
     UnicodeString s;
     for (int i=0; i<DATA_length; i+=2) {
@@ -2268,7 +2271,7 @@ void NumberFormatRegressionTest::Test4179818(void) {
         "1.2501", "#.#",   "1.3",
         "0.9999", "#",     "1",
     };
-    int DATA_length = (int)(sizeof(DATA) / sizeof(DATA[0])); 
+    int DATA_length = UPRV_LENGTHOF(DATA); 
     double DOUBLE[] = {
         1.2511,
         1.2501,
@@ -2498,7 +2501,7 @@ void NumberFormatRegressionTest::Test4216742(void) {
         return;
     };
     int32_t DATA[] = { INT32_MIN, INT32_MAX, -100000000, 100000000 };
-    int DATA_length = (int)(sizeof(DATA) / sizeof(DATA[0]));
+    int DATA_length = UPRV_LENGTHOF(DATA);
     for (int i=0; i<DATA_length; ++i) {
         UnicodeString str((UnicodeString)"" + DATA[i]);
         for (int m = 1; m <= 100; m++) {
@@ -2532,7 +2535,7 @@ void NumberFormatRegressionTest::Test4216742(void) {
 void NumberFormatRegressionTest::Test4217661(void) {
     const double D[] = {  0.001, 1.001, 0.006,  1.006 };
     const char*  S[] = { "0",   "1",   "0.01", "1.01" };
-    int D_length = (int)(sizeof(D) / sizeof(D[0]));
+    int D_length = UPRV_LENGTHOF(D);
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *fmt = NumberFormat::createInstance(Locale::getUS(), status);
     if (failure(status, "createInstance", Locale::getUS(), TRUE)){
@@ -2587,7 +2590,7 @@ void NumberFormatRegressionTest::Test4243011(void) {
     if (!failure(status, "DecimalFormat ct", Locale::getUS())) {
         const double NUM[] = {  -2.5,  -1.5,  -0.5,  0.5,  1.5,  2.5,  3.5,  4.5 };
         const char*  STR[] = { "-2.", "-2.", "-0.", "0.", "2.", "2.", "4.", "4." };
-        int32_t N = (int32_t)(sizeof(NUM) / sizeof(NUM[0]));
+        int32_t N = UPRV_LENGTHOF(NUM);
 
         for (int32_t i=0; i<N; ++i) {
             UnicodeString str;
@@ -2729,6 +2732,7 @@ void NumberFormatRegressionTest::TestJ691(void) {
     {                                                                     \
       char _msg[1000]; \
       int32_t len = sprintf (_msg,"File %s, line %d: Assertion Failed: " #x "==" #y "\n", __FILE__, __LINE__); \
+      (void)len;                                                         \
       U_ASSERT(len < (int32_t) sizeof(_msg));                            \
       assertEquals((const char*) _msg, x,y);                             \
     }

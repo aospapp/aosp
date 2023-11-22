@@ -27,7 +27,6 @@ public class VoidPtr extends RSBaseCompute {
     Allocation AFailed;
     int [] Failed;
 
-
     protected void setupVoidPtr(RenderScript mRS, ScriptC_void_ptr gs) {
         Type.Builder typeBuilder = new Type.Builder(mRS, Element.I32(mRS));
         Type t = typeBuilder.setX(1).create();
@@ -37,6 +36,20 @@ public class VoidPtr extends RSBaseCompute {
         Failed[0] = 0;
         AFailed.copyFrom(Failed);
         gs.set_aFailed(AFailed);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        if (AFailed != null) {
+            AFailed.destroy();
+        }
+        if (AInput != null) {
+            AInput.destroy();
+        }
+        if (AOutput != null) {
+            AOutput.destroy();
+        }
+        super.tearDown();
     }
 
     /**

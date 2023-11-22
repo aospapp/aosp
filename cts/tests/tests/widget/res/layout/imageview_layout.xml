@@ -24,24 +24,30 @@
     android:orientation="vertical">
 
     <ImageView
-        android:id="@+id/imageview"
+        android:id="@+id/imageview_regular"
         android:layout_width="320px"
         android:layout_height="240px"/>
 
     <ImageView
-        android:id="@+id/image_tint"
+        android:id="@+id/imageview_tint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:tint="@android:color/white"
         android:tintMode="src_over" />
 
     <ImageView
-        android:id="@+id/image_tint_with_source"
+        android:id="@+id/imageview_tint_with_source"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@drawable/icon_red"
         android:tint="@android:color/white"
         android:tintMode="src_over" />
+
+    <view
+        class="android.widget.cts.ImageViewTest$MockImageView"
+        android:id="@+id/imageview_custom"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
 
 </LinearLayout>
 

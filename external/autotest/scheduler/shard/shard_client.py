@@ -9,16 +9,16 @@ import argparse
 import httplib
 import logging
 import os
+import random
 import signal
-import socket
 import time
 import urllib2
 
 import common
+
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import email_manager
 from autotest_lib.scheduler import scheduler_lib
@@ -26,6 +26,14 @@ from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server import utils as server_utils
 from chromite.lib import timeout_util
 from django.db import transaction
+
+try:
+    from chromite.lib import metrics
+    from chromite.lib import ts_mon_config
+except ImportError:
+    metrics = server_utils.metrics_mock
+    ts_mon_config = server_utils.metrics_mock
+
 
 """
 Autotest shard client
@@ -80,7 +88,7 @@ On the client side, this will happen:
    The heartbeat request will also contain the ids of incomplete jobs and the
    ids of all hosts. This is used to not send objects repeatedly. For more
    information on this and alternatives considered
-   see site_rpc_interface.shard_heartbeat.
+   see rpc_interface.shard_heartbeat.
 """
 
 
@@ -89,8 +97,6 @@ HEARTBEAT_AFE_ENDPOINT = 'shard_heartbeat'
 RPC_TIMEOUT_MIN = 5
 RPC_DELAY_SEC = 5
 
-STATS_KEY = 'shard_client.%s' % socket.gethostname()
-timer = autotest_stats.Timer(STATS_KEY)
 _heartbeat_client = None
 
 
@@ -127,11 +133,13 @@ class ShardClient(object):
                 except Exception as e:
                     logging.error('Deserializing a %s fails: %s, Error: %s',
                                   message, serialized, e)
-                    autotest_stats.Counter(STATS_KEY).increment(
-                            'deserialization_failures')
+                    metrics.Counter(
+                        'chromeos/autotest/shard_client/deserialization_failed'
+                        ).increment()
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator(
+            'chromeos/autotest/shard_client/heartbeat_response_duration')
     def process_heartbeat_response(self, heartbeat_response):
         """Save objects returned by a heartbeat to the local database.
 
@@ -146,12 +154,12 @@ class ShardClient(object):
         jobs_serialized = heartbeat_response['jobs']
         suite_keyvals_serialized = heartbeat_response['suite_keyvals']
 
-        autotest_stats.Gauge(STATS_KEY).send(
-                'hosts_received', len(hosts_serialized))
-        autotest_stats.Gauge(STATS_KEY).send(
-                'jobs_received', len(jobs_serialized))
-        autotest_stats.Gauge(STATS_KEY).send(
-                'suite_keyvals_received', len(suite_keyvals_serialized))
+        metrics.Gauge('chromeos/autotest/shard_client/hosts_received'
+                      ).set(len(hosts_serialized))
+        metrics.Gauge('chromeos/autotest/shard_client/jobs_received'
+                      ).set(len(jobs_serialized))
+        metrics.Gauge('chromeos/autotest/shard_client/suite_keyvals_received'
+                      ).set(len(suite_keyvals_serialized))
 
         self._deserialize_many(hosts_serialized, models.Host, 'host')
         self._deserialize_many(jobs_serialized, models.Job, 'job')
@@ -260,7 +268,7 @@ class ShardClient(object):
     def _heartbeat_packet(self):
         """Construct the heartbeat packet.
 
-        See site_rpc_interface for a more detailed description of the heartbeat.
+        See rpc_interface for a more detailed description of the heartbeat.
 
         @return: A heartbeat packet.
         """
@@ -283,10 +291,12 @@ class ShardClient(object):
 
     def _heartbeat_failure(self, log_message):
         logging.error("Heartbeat failed. %s", log_message)
-        autotest_stats.Counter(STATS_KEY).increment('heartbeat_failures')
+        metrics.Counter('chromeos/autotest/shard_client/heartbeat_failure'
+                        ).increment()
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator(
+            'chromeos/autotest/shard_client/do_heatbeat_duration')
     def do_heartbeat(self):
         """Perform a heartbeat: Retreive new jobs.
 
@@ -294,10 +304,12 @@ class ShardClient(object):
         response of this call and processes the response by storing the returned
         objects in the local database.
         """
+        heartbeat_metrics_prefix  = 'chromeos/autotest/shard_client/heartbeat/'
+
         logging.info("Performing heartbeat.")
         packet = self._heartbeat_packet()
-        autotest_stats.Gauge(STATS_KEY).send(
-                'heartbeat.request_size', len(str(packet)))
+        metrics.Gauge(heartbeat_metrics_prefix + 'request_size').set(
+            len(str(packet)))
 
         try:
             response = self.afe.run(HEARTBEAT_AFE_ENDPOINT, **packet)
@@ -314,8 +326,8 @@ class ShardClient(object):
             self._heartbeat_failure("TimeoutError: %s" % e)
             return
 
-        autotest_stats.Gauge(STATS_KEY).send(
-                'heartbeat.response_size', len(str(response)))
+        metrics.Gauge(heartbeat_metrics_prefix + 'response_size').set(
+            len(str(response)))
         self._mark_jobs_as_uploaded([job['id'] for job in packet['jobs']])
         self.process_heartbeat_response(response)
         logging.info("Heartbeat completed.")
@@ -324,13 +336,16 @@ class ShardClient(object):
     def tick(self):
         """Performs all tasks the shard clients needs to do periodically."""
         self.do_heartbeat()
+        metrics.Counter('chromeos/autotest/shard_client/tick').increment()
 
 
     def loop(self):
         """Calls tick() until shutdown() is called."""
         while not self._shutdown:
             self.tick()
-            time.sleep(self.tick_pause_sec)
+            # Sleep with +/- 10% fuzzing to avoid phaselock of shards.
+            tick_fuzz = self.tick_pause_sec * 0.2 * (random.random() - 0.5)
+            time.sleep(self.tick_pause_sec + tick_fuzz)
 
 
     def shutdown(self):
@@ -381,14 +396,15 @@ def get_shard_client():
 
 
 def main():
+    ts_mon_config.SetupTsMonGlobalState('shard_client')
+
     try:
-        autotest_stats.Counter(STATS_KEY).increment('starts')
+        metrics.Counter('chromeos/autotest/shard_client/start').increment()
         main_without_exception_handling()
     except Exception as e:
         message = 'Uncaught exception. Terminating shard_client.'
         email_manager.manager.log_stacktrace(message)
         logging.exception(message)
-        autotest_stats.Counter(STATS_KEY).increment('uncaught_exceptions')
         raise
     finally:
         email_manager.manager.send_queued_emails()

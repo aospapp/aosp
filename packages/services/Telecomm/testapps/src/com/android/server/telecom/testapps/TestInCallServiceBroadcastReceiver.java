@@ -19,6 +19,7 @@ package com.android.server.telecom.testapps;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.telecom.TelecomManager;
 import android.util.Log;
 
 /**
@@ -56,6 +57,12 @@ public class TestInCallServiceBroadcastReceiver extends BroadcastReceiver {
         } else if (ACTION_SEND_UPGRADE_RESPONSE.equals(action)) {
             final int videoState = Integer.parseInt(intent.getData().getSchemeSpecificPart());
             TestCallList.getInstance().sendUpgradeToVideoResponse(videoState);
+        } else if (TelecomManager.ACTION_PHONE_ACCOUNT_REGISTERED.equals(action)) {
+            Log.i(TAG, "onReceive: registered " + intent.getExtras().get(
+                    TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE));
+        } else if (TelecomManager.ACTION_PHONE_ACCOUNT_UNREGISTERED.equals(action)) {
+            Log.i(TAG, "onReceive: unregistered " + intent.getExtras().get(
+                    TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE));
         }
     }
 }

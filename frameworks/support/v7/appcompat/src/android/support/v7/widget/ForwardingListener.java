@@ -16,24 +16,24 @@
 
 package android.support.v7.widget;
 
-import android.os.Build;
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.os.SystemClock;
-import android.support.v4.view.MotionEventCompat;
+import android.support.annotation.RestrictTo;
 import android.support.v7.view.menu.ShowableListMenu;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.View.OnAttachStateChangeListener;
 import android.view.ViewConfiguration;
 import android.view.ViewParent;
-import android.view.ViewTreeObserver.OnGlobalLayoutListener;
-
 
 /**
  * Abstract class that forwards touch events to a {@link ShowableListMenu}.
  *
  * @hide
  */
-public abstract class ForwardingListener implements View.OnTouchListener {
+@RestrictTo(LIBRARY_GROUP)
+public abstract class ForwardingListener
+        implements View.OnTouchListener, View.OnAttachStateChangeListener {
 
     /** Scaled touch slop, used for detecting movement outside bounds. */
     private final float mScaledTouchSlop;
@@ -45,7 +45,7 @@ public abstract class ForwardingListener implements View.OnTouchListener {
     private final int mLongPressTimeout;
 
     /** Source view from which events are forwarded. */
-    private final View mSrc;
+    final View mSrc;
 
     /** Runnable used to prevent conflicts with scrolling parents. */
     private Runnable mDisallowIntercept;
@@ -67,45 +67,13 @@ public abstract class ForwardingListener implements View.OnTouchListener {
     public ForwardingListener(View src) {
         mSrc = src;
         src.setLongClickable(true);
-
-        if (Build.VERSION.SDK_INT >= 12) {
-            addDetachListenerApi12(src);
-        } else {
-            addDetachListenerBase(src);
-        }
+        src.addOnAttachStateChangeListener(this);
 
         mScaledTouchSlop = ViewConfiguration.get(src.getContext()).getScaledTouchSlop();
         mTapTimeout = ViewConfiguration.getTapTimeout();
 
         // Use a medium-press timeout. Halfway between tap and long-press.
         mLongPressTimeout = (mTapTimeout + ViewConfiguration.getLongPressTimeout()) / 2;
-    }
-
-    private void addDetachListenerApi12(View src) {
-        src.addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
-            @Override
-            public void onViewAttachedToWindow(View v) {}
-
-            @Override
-            public void onViewDetachedFromWindow(View v) {
-                onDetachedFromWindow();
-            }
-        });
-    }
-
-    private void addDetachListenerBase(View src) {
-        src.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
-            boolean mIsAttached = mSrc.isAttachedToWindow();
-
-            @Override
-            public void onGlobalLayout() {
-                final boolean wasAttached = mIsAttached;
-                mIsAttached = mSrc.isAttachedToWindow();
-                if (wasAttached && !mIsAttached) {
-                    onDetachedFromWindow();
-                }
-            }
-        });
     }
 
     /**
@@ -143,7 +111,12 @@ public abstract class ForwardingListener implements View.OnTouchListener {
         return forwarding || wasForwarding;
     }
 
-    private void onDetachedFromWindow() {
+    @Override
+    public void onViewAttachedToWindow(View v) {
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(View v) {
         mForwarding = false;
         mActivePointerId = MotionEvent.INVALID_POINTER_ID;
 
@@ -198,7 +171,7 @@ public abstract class ForwardingListener implements View.OnTouchListener {
             return false;
         }
 
-        final int actionMasked = MotionEventCompat.getActionMasked(srcEvent);
+        final int actionMasked = srcEvent.getActionMasked();
         switch (actionMasked) {
             case MotionEvent.ACTION_DOWN:
                 mActivePointerId = srcEvent.getPointerId(0);
@@ -248,7 +221,7 @@ public abstract class ForwardingListener implements View.OnTouchListener {
         }
     }
 
-    private void onLongPress() {
+    void onLongPress() {
         clearCallbacks();
 
         final View src = mSrc;
@@ -303,7 +276,7 @@ public abstract class ForwardingListener implements View.OnTouchListener {
         dstEvent.recycle();
 
         // Always cancel forwarding when the touch stream ends.
-        final int action = MotionEventCompat.getActionMasked(srcEvent);
+        final int action = srcEvent.getActionMasked();
         final boolean keepForwarding = action != MotionEvent.ACTION_UP
                 && action != MotionEvent.ACTION_CANCEL;
 
@@ -339,6 +312,9 @@ public abstract class ForwardingListener implements View.OnTouchListener {
     }
 
     private class DisallowIntercept implements Runnable {
+        DisallowIntercept() {
+        }
+
         @Override
         public void run() {
             final ViewParent parent = mSrc.getParent();
@@ -349,6 +325,9 @@ public abstract class ForwardingListener implements View.OnTouchListener {
     }
 
     private class TriggerLongPress implements Runnable {
+        TriggerLongPress() {
+        }
+
         @Override
         public void run() {
             onLongPress();

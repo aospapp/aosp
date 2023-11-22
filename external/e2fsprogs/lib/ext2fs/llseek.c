@@ -9,9 +9,14 @@
  * %End-Header%
  */
 
+#ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
+#endif
+#ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
+#endif
 
+#include "config.h"
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
@@ -36,7 +41,7 @@
 
 #else
 #if defined(HAVE_LLSEEK)
-#include <syscall.h>
+#include <sys/syscall.h>
 
 #ifndef HAVE_LLSEEK_PROTOTYPE
 extern long long llseek (int fd, long long offset, int origin);

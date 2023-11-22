@@ -69,7 +69,8 @@ class AttachmentComposeView extends LinearLayout implements AttachmentDeletionIn
     private void populateAttachmentData(Context context) {
         ((TextView) findViewById(R.id.attachment_name)).setText(mAttachment.getName());
 
-        if (mAttachment.size > 0) {
+        // If size is -1, then it's size is unknown, hence do not show it.
+        if (mAttachment.size != -1) {
             ((TextView) findViewById(R.id.attachment_size)).
                     setText(AttachmentUtils.convertToHumanReadableSize(context, mAttachment.size));
         } else {

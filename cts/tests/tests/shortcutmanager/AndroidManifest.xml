@@ -43,6 +43,13 @@
             </intent-filter>
         </activity-alias>
 
+        <activity-alias android:name="main_shortcut_config"
+                        android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.CREATE_SHORTCUT" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- It's not exporeted, but should still be launchable. -->
         <activity android:name="android.content.pm.cts.shortcutmanager.ShortcutLaunchedActivity"
             android:exported="false"/>

@@ -5,7 +5,6 @@
 AUTHOR = "krisr@chromium.org"
 NAME = "wifi_update_router"
 PURPOSE = "Update the wificell routers."
-CRITERIA = "Update all wificell and wificell_preflight cells."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

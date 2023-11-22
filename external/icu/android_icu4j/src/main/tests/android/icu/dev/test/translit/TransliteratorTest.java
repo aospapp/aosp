@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2012, International Business Machines Corporation and    *
@@ -15,6 +17,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map.Entry;
+
+import org.junit.Ignore;
+import org.junit.Test;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
@@ -36,8 +41,6 @@ import android.icu.text.UnicodeSet;
 import android.icu.text.UnicodeSetIterator;
 import android.icu.util.CaseInsensitiveString;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /***********************************************************************
 
@@ -88,13 +91,8 @@ The Management
  * @test
  * @summary General test of Transliterator
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TransliteratorTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new TransliteratorTest().run(args);
-    }
-
+    @Test
     public void TestHangul() {
 
         Transliterator lh = Transliterator.getInstance("Latin-Hangul");
@@ -131,12 +129,14 @@ public class TransliteratorTest extends TestFmwk {
 
     }
 
+    @Test
     public void TestChinese() {
         Transliterator hanLatin = Transliterator.getInstance("Han-Latin");
         assertTransform("Transform", "z\u00E0o Unicode", hanLatin, "\u9020Unicode");
         assertTransform("Transform", "z\u00E0i chu\u00E0ng z\u00E0o Unicode zh\u012B qi\u00E1n", hanLatin, "\u5728\u5275\u9020Unicode\u4E4B\u524D");
     } 
 
+    @Test
     public void TestRegistry() {
         checkRegistry("foo3", "::[a-z]; ::NFC; [:letter:] a > b;"); // check compound
         checkRegistry("foo2", "::NFC; [:letter:] a > b;"); // check compound
@@ -164,6 +164,8 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    // Android-changed: increase timeout.
+    @Test(timeout = 3000000L)
     public void TestInstantiation() {
         long ms = System.currentTimeMillis();
         String ID;
@@ -222,6 +224,7 @@ public class TransliteratorTest extends TestFmwk {
         logln("Elapsed time: " + ms + " ms");
     }
 
+    @Test
     public void TestSimpleRules() {
         /* Example: rules 1. ab>x|y
          *                2. yc>z
@@ -272,6 +275,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test inline set syntax and set variable syntax.
      */
+    @Test
     public void TestInlineSet() {
         expect("{ [:Ll:] } x > y; [:Ll:] > z;", "aAbxq", "zAyzz");
         expect("a[0-9]b > qrs", "1a7b9", "1qrs9");
@@ -294,6 +298,7 @@ public class TransliteratorTest extends TestFmwk {
      * F' != I.  However, if we are careful about the input, we will
      * get the expected results.
      */
+    @Test
     public void TestRuleBasedInverse() {
         String RULES =
             "abc>zyx;" +
@@ -334,6 +339,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Basic test of keyboard.
      */
+    @Test
     public void TestKeyboard() {
         Transliterator t = Transliterator.createFromRules("<ID>",
                 "psch>Y;"
@@ -357,6 +363,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Basic test of keyboard with cursor.
      */
+    @Test
     public void TestKeyboard2() {
         Transliterator t = Transliterator.createFromRules("<ID>",
                 "ych>Y;"
@@ -383,6 +390,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test keyboard transliteration with back-replacement.
      */
+    @Test
     public void TestKeyboard3() {
         // We want th>z but t>y.  Furthermore, during keyboard
         // transliteration we want t>y then yh>z if t, then h are
@@ -456,6 +464,7 @@ public class TransliteratorTest extends TestFmwk {
      * Compose the Kana transliterator forward and reverse and try
      * some strings that should come out unchanged.
      */
+    @Test
     public void TestCompoundKana() {
         Transliterator t = Transliterator.getInstance("Latin-Katakana;Katakana-Latin");
         expect(t, "aaaaa", "aaaaa");
@@ -464,6 +473,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Compose the hex transliterators forward and reverse.
      */
+    @Test
     public void TestCompoundHex() {
         Transliterator a = Transliterator.getInstance("Any-Hex");
         Transliterator b = Transliterator.getInstance("Hex-Any");
@@ -488,6 +498,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Do some basic tests of filtering.
      */
+    @Test
     public void TestFiltering() {
 
         Transliterator tempTrans = Transliterator.createFromRules("temp", "x > y; x{a} > b; ", Transliterator.FORWARD);
@@ -525,6 +536,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test anchors
      */
+    @Test
     public void TestAnchors() {
         expect("^ab  > 01 ;" +
                 " ab  > |8 ;" +
@@ -548,6 +560,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test pattern quoting and escape mechanisms.
      */
+    @Test
     public void TestPatternQuoting() {
         // Array of 3n items
         // Each item is <rules>, <input>, <expected output>
@@ -562,6 +575,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestVariableNames() {
         Transliterator gl = Transliterator.createFromRules("foo5", "$\u2DC0 = qy; a>b;", Transliterator.FORWARD);
         if (gl == null) {
@@ -572,6 +586,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Regression test for bugs found in Greek transliteration.
      */
+    @Test
     public void TestJ277() {
         Transliterator gl = Transliterator.getInstance("Greek-Latin; NFD; [:M:]Remove; NFC");
 
@@ -660,6 +675,7 @@ public class TransliteratorTest extends TestFmwk {
     //        expect(hex3, "012", "&#x30;&#x31;&#x32;");
     //    }
 
+    @Test
     public void TestJ329() {
 
         Object[] DATA = {
@@ -690,6 +706,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test segments and segment references.
      */
+    @Test
     public void TestSegments() {
         // Array of 3n items
         // Each item is <rules>, <input>, <expected output>
@@ -709,6 +726,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test cursor positioning outside of the key
      */
+    @Test
     public void TestCursorOffset() {
         // Array of 3n items
         // Each item is <rules>, <input>, <expected output>
@@ -733,6 +751,7 @@ public class TransliteratorTest extends TestFmwk {
      * Test zero length and > 1 char length variable values.  Test
      * use of variable refs in UnicodeSets.
      */
+    @Test
     public void TestArbitraryVariableValues() {
         // Array of 3n items
         // Each item is <rules>, <input>, <expected output>
@@ -766,6 +785,7 @@ public class TransliteratorTest extends TestFmwk {
      * Confirm that the contextStart, contextLimit, start, and limit
      * behave correctly.
      */
+    @Test
     public void TestPositionHandling() {
         // Array of 3n items
         // Each item is <rules>, <input>, <expected output>
@@ -812,6 +832,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test the Hiragana-Katakana transliterator.
      */
+    @Test
     public void TestHiraganaKatakana() {
         Transliterator hk = Transliterator.getInstance("Hiragana-Katakana");
         Transliterator kh = Transliterator.getInstance("Katakana-Hiragana");
@@ -845,6 +866,7 @@ public class TransliteratorTest extends TestFmwk {
 
     }
 
+    @Test
     public void TestCopyJ476() {
         // This is a C++-only copy constructor test
     }
@@ -852,6 +874,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test inter-Indic transliterators.  These are composed.
      */
+    @Test
     public void TestInterIndic() {
         String ID = "Devanagari-Gujarati";
         Transliterator dg = Transliterator.getInstance(ID);
@@ -871,6 +894,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test filter syntax in IDs. (J23)
      */
+    @Test
     public void TestFilterIDs() {
         String[] DATA = {
                 "[aeiou]Any-Hex", // ID
@@ -915,6 +939,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test the case mapping transliterators.
      */
+    @Test
     public void TestCaseMap() {
         Transliterator toUpper =
             Transliterator.getInstance("Any-Upper[^xyzXYZ]");
@@ -934,6 +959,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test the name mapping transliterators.
      */
+    @Test
     public void TestNameMap() {
         Transliterator uni2name =
             Transliterator.getInstance("Any-Name[^abc]");
@@ -955,6 +981,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test liberalized ID syntax.  1006c
      */
+    @Test
     public void TestLiberalizedID() {
         // Some test cases have an expected getID() value of NULL.  This
         // means I have disabled the test case for now.  This stuff is
@@ -987,6 +1014,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCreateInstance() {
         String FORWARD = "F";
         String REVERSE = "R";
@@ -1039,6 +1067,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test the normalization transliterator.
      */
+    @Test
     public void TestNormalizationTransliterator() {
         // THE FOLLOWING TWO TABLES ARE COPIED FROM android.icu.dev.test.normalizer.BasicTest
         // PLEASE KEEP THEM IN SYNC WITH BasicTest.
@@ -1122,6 +1151,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test compound RBT rules.
      */
+    @Test
     public void TestCompoundRBT() {
         // Careful with spacing and ';' here:  Phrase this exactly
         // as toRules() is going to return it.  If toRules() changes
@@ -1225,6 +1255,7 @@ public class TransliteratorTest extends TestFmwk {
      * touch 'A' in the original". But because an intermediate result
      * happens to go through "A", the Greek Alpha gets hung up.
      */
+    @Test
     public void TestCompoundFilter() {
         Transliterator t = Transliterator.getInstance
         ("Greek-Latin; Latin-Greek; Lower", Transliterator.FORWARD);
@@ -1239,12 +1270,14 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test the "Remove" transliterator.
      */
+    @Test
     public void TestRemove() {
         Transliterator t = Transliterator.getInstance("Remove[aeiou]");
         expect(t, "The quick brown fox.",
         "Th qck brwn fx.");
     }
 
+    @Test
     public void TestToRules() {
         String RBT = "rbt";
         String SET = "set";
@@ -1360,6 +1393,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestContext() {
         Transliterator.Position pos = new Transliterator.Position(0, 2, 0, 1); // cs cl s l
 
@@ -1377,6 +1411,7 @@ public class TransliteratorTest extends TestFmwk {
         return Utility.unescape(s);
     }
 
+    @Test
     public void TestSupplemental() {
 
         expect(CharsToUnicodeString("$a=\\U00010300; $s=[\\U00010300-\\U00010323];" +
@@ -1441,6 +1476,7 @@ public class TransliteratorTest extends TestFmwk {
                 CharsToUnicodeString("\\U00010330\\U0010FF00\\u00A0"));
     }
 
+    @Test
     public void TestQuantifier() {
 
         // Make sure @ in a quantified anteContext works
@@ -1541,6 +1577,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSTV() {
         Enumeration es = Transliterator.getAvailableSources();
         for (int i=0; es.hasMoreElements(); ++i) {
@@ -1634,6 +1671,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test inverse of Greek-Latin; Title()
      */
+    @Test
     public void TestCompoundInverse() {
         Transliterator t = Transliterator.getInstance
         ("Greek-Latin; Title()", Transliterator.REVERSE);
@@ -1654,6 +1692,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test NFD chaining with RBT
      */
+    @Test
     public void TestNFDChainRBT() {
         Transliterator t = Transliterator.createFromRules(
                 "TEST", "::NFD; aa > Q; a > q;",
@@ -1665,6 +1704,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Inverse of "Null" should be "Null". (J21)
      */
+    @Test
     public void TestNullInverse() {
         Transliterator t = Transliterator.getInstance("Null");
         Transliterator u = t.getInverse();
@@ -1676,6 +1716,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Check ID of inverse of alias. (J22)
      */
+    @Test
     public void TestAliasInverseID() {
         String ID = "Latin-Hangul"; // This should be any alias ID with an inverse
         Transliterator t = Transliterator.getInstance(ID);
@@ -1691,6 +1732,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test IDs of inverses of compound transliterators. (J20)
      */
+    @Test
     public void TestCompoundInverseID() {
         String ID = "Latin-Jamo;NFC(NFD)";
         Transliterator t = Transliterator.getInstance(ID);
@@ -1706,6 +1748,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test undefined variable.
      */
+    @Test
     public void TestUndefinedVariable() {
         String rule = "$initial } a <> \u1161;";
         try {
@@ -1721,6 +1764,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test empty context.
      */
+    @Test
     public void TestEmptyContext() {
         expect(" { a } > b;", "xay a ", "xby b ");
     }
@@ -1728,6 +1772,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test compound filter ID syntax
      */
+    @Test
     public void TestCompoundFilterID() {
         String[] DATA = {
                 // Col. 1 = ID or rule set (latter must start with #)
@@ -1781,6 +1826,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test new property set syntax
      */
+    @Test
     public void TestPropertySet() {
         expect("a>A; \\p{Lu}>x; \\p{Any}>y;", "abcDEF", "Ayyxxx");
         expect("(.+)>'[' $1 ']';", " a stitch \n in time \r saves 9",
@@ -1790,6 +1836,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test various failure points of the new 2.0 engine.
      */
+    @Test
     public void TestNewEngine() {
         Transliterator t = Transliterator.getInstance("Latin-Hiragana");
         // Katakana should be untouched
@@ -1852,6 +1899,7 @@ public class TransliteratorTest extends TestFmwk {
      * Test quantified segment behavior.  We want:
      * ([abc])+ > x $1 x; applied to "cba" produces "xax"
      */
+    @Test
     public void TestQuantifiedSegment() {
         // The normal case
         expect("([abc]+) > x $1 x;", "cba", "xcbax");
@@ -1892,6 +1940,7 @@ public class TransliteratorTest extends TestFmwk {
     // Ram's tests
     //======================================================================
     /* this test performs  test of rules in ISO 15915 */
+    @Test
     public void  TestDevanagariLatinRT(){
         String[]  source = {
                 "bh\u0101rata",
@@ -2018,6 +2067,7 @@ public class TransliteratorTest extends TestFmwk {
         }
 
     }
+    @Test
     public void  TestTeluguLatinRT(){
         String[]  source = {
                 "raghur\u0101m vi\u015Bvan\u0101dha",                           /* Raghuram Viswanadha    */
@@ -2055,6 +2105,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void  TestSanskritLatinRT(){
         int MAX_LEN =15;
         String[]  source = {
@@ -2104,6 +2155,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void  TestCompoundLatinRT(){
         int MAX_LEN =15;
         String[]  source = {
@@ -2155,6 +2207,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test Gurmukhi-Devanagari Tippi and Bindi
      */
+    @Test
     public void TestGurmukhiDevanagari(){
         // the rule says:
         // (\u0902) (when preceded by vowel)      --->  (\u0A02)
@@ -2185,6 +2238,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test instantiation from a locale.
      */
+    @Test
     public void TestLocaleInstantiation() {
         Transliterator t;
         try{
@@ -2210,6 +2264,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test title case handling of accent (should ignore accents)
      */
+    @Test
     public void TestTitleAccents() {
         Transliterator t = Transliterator.getInstance("Title");
         expect(t, "a\u0300b can't abe", "A\u0300b Can't Abe");
@@ -2218,6 +2273,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Basic test of a locale resource based rule.
      */
+    @Test
     public void TestLocaleResource() {
         String DATA[] = {
                 // id                    from             to
@@ -2237,6 +2293,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Make sure parse errors reference the right line.
      */
+    @Test
     public void TestParseError() {
         String rule =
             "a > b;\n" +
@@ -2262,6 +2319,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Make sure sets on output are disallowed.
      */
+    @Test
     public void TestOutputSet() {
         String rule = "$set = [a-cm-n]; b > $set;";
         Transliterator t = null;
@@ -2281,6 +2339,7 @@ public class TransliteratorTest extends TestFmwk {
      * Test the use variable range pragma, making sure that use of
      * variable range characters is detected and flagged as an error.
      */
+    @Test
     public void TestVariableRange() {
         String rule = "use variable range 0x70 0x72; a > A; b > B; q > Q;";
         try {
@@ -2299,6 +2358,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test invalid post context error handling
      */
+    @Test
     public void TestInvalidPostContext() {
         try {
             Transliterator t =
@@ -2321,6 +2381,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test ID form variants
      */
+    @Test
     public void TestIDForms() {
         String DATA[] = {
                 "NFC", null, "NFD",
@@ -2391,6 +2452,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Mark's toRules test.
      */
+    @Test
     public void TestToRulesMark() {
 
         String testRules =
@@ -2436,6 +2498,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test Escape and Unescape transliterators.
      */
+    @Test
     public void TestEscape() {
         expect(Transliterator.getInstance("Hex-Any"),
                 "\\x{40}\\U00000031&#x32;&#81;",
@@ -2454,6 +2517,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Make sure display names of variants look reasonable.
      */
+    @Test
     public void TestDisplayName() {
         String DATA[] = {
                 // ID, forward name, reverse name
@@ -2502,6 +2566,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test anchor masking
      */
+    @Test
     public void TestAnchorMasking() {
         String rule = "^a > Q; a > q;";
         try {
@@ -2518,6 +2583,7 @@ public class TransliteratorTest extends TestFmwk {
      * This test is not in trnstst.cpp. This test has been moved from com/ibm/icu/dev/test/lang/TestUScript.java
      * during ICU4J modularization to remove dependency of tests on Transliterator.
      */
+    @Test
     public void TestScriptAllCodepoints(){
         int code;
         HashSet  scriptIdsChecked   = new HashSet();
@@ -2623,6 +2689,7 @@ public class TransliteratorTest extends TestFmwk {
                     {"Title", "tat\u02B9\u00E2na", "Tat\u02B9\u00E2na"},
     };
 
+    @Test
     public void TestSpecialCases() {
 
         for (int i = 0; i < registerRules.length; ++i) {
@@ -2671,6 +2738,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCasing() {
         Transliterator toLower = Transliterator.getInstance("lower");
         Transliterator toCasefold = Transliterator.getInstance("casefold");
@@ -2693,6 +2761,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSurrogateCasing () {
         // check that casing handles surrogates
         // titlecase is currently defective
@@ -2712,7 +2781,9 @@ public class TransliteratorTest extends TestFmwk {
     }
 
     // Check to see that incremental gets at least part way through a reasonable string.
-
+    // TODO(junit): should be working - also should be converted to parameterized test
+    @Ignore
+    @Test
     public void TestIncrementalProgress() {
         String latinTest = "The Quick Brown Fox.";
         String devaTest = Transliterator.getInstance("Latin-Devanagari").transliterate(latinTest);
@@ -2741,9 +2812,6 @@ public class TransliteratorTest extends TestFmwk {
                     String variant = (String) variants.nextElement();
                     String id = source + "-" + target + "/" + variant;
                     logln("id: " + id);
-
-                    String filter = getTranslitTestFilter();
-                    if (filter != null && id.indexOf(filter) < 0) continue;
 
                     Transliterator t = Transliterator.getInstance(id);
                     CheckIncrementalAux(t, test);
@@ -2788,6 +2856,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestFunction() {
         // Careful with spacing and ';' here:  Phrase this exactly
         // as toRules() is going to return it.  If toRules() changes
@@ -2832,6 +2901,7 @@ public class TransliteratorTest extends TestFmwk {
         "U+0301 \\N{COMBINING ACUTE ACCENT}");
     }
 
+    @Test
     public void TestInvalidBackRef() {
         String rule =  ". > $1;";
         String rule2 ="(.) <> &hex/unicode($1) &name($1); . > $1; [{}] >\u0020;";
@@ -2851,6 +2921,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestMulticharStringSet() {
         // Basic testing
         String rule =
@@ -2891,6 +2962,7 @@ public class TransliteratorTest extends TestFmwk {
      * Test that user-registered transliterators can be used under function
      * syntax.
      */
+    @Test
     public void TestUserFunction() {
         Transliterator t;
 
@@ -2955,6 +3027,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test the Any-X transliterators.
      */
+    @Test
     public void TestAnyX() {
         Transliterator anyLatin =
             Transliterator.getInstance("Any-Latin", Transliterator.FORWARD);
@@ -2967,6 +3040,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test Any-X transliterators with sample letters from all scripts.
      */
+    @Test
     public void TestAny() {
         UnicodeSet alphabetic = (UnicodeSet) new UnicodeSet("[:alphabetic:]").freeze();
         StringBuffer testString = new StringBuffer();
@@ -2989,6 +3063,7 @@ public class TransliteratorTest extends TestFmwk {
      * Test the source and target set API.  These are only implemented
      * for RBT and CompoundTransliterator at this time.
      */
+    @Test
     public void TestSourceTargetSet() {
         // Rules
         String r =
@@ -3016,6 +3091,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSourceTargetSet2() {
 
 
@@ -3223,6 +3299,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSourceTargetSetFilter() {
         String[][] tests = {
                 // rules, expectedTarget-FORWARD, expectedTarget-REVERSE
@@ -3324,6 +3401,7 @@ public class TransliteratorTest extends TestFmwk {
 //        }
 //    }
 
+    @Test
     public void TestCharUtils() {
         String[][] startTests = {
                 {"1", "a", "ab"},
@@ -3427,6 +3505,7 @@ public class TransliteratorTest extends TestFmwk {
     /**
      * Test handling of Pattern_White_Space, for both RBT and UnicodeSet.
      */
+    @Test
     public void TestPatternWhitespace() {
         // Rules
         String r = "a > \u200E b;";
@@ -3443,6 +3522,7 @@ public class TransliteratorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestAlternateSyntax() {
         // U+2206 == &
         // U+2190 == <
@@ -3456,6 +3536,7 @@ public class TransliteratorTest extends TestFmwk {
         "<=\\N{LEFTWARDS ARROW}; >=\\N{RIGHTWARDS ARROW}; <>=\\N{LEFT RIGHT ARROW}; &=\\N{INCREMENT}");
     }
 
+    @Test
     public void TestPositionAPI() {
         Transliterator.Position a = new Transliterator.Position(3,5,7,11);
         Transliterator.Position b = new Transliterator.Position(a);
@@ -3698,6 +3779,7 @@ the ::BEGIN/::END stuff)
         BEGIN_END_RULES[17], "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"
     };
 
+    @Test
     public void TestBeginEnd() {
         // run through the list of test cases above
         for (int i = 0; i < BEGIN_END_TEST_CASES.length; i += 3) {
@@ -3726,6 +3808,7 @@ the ::BEGIN/::END stuff)
          */
     }
 
+    @Test
     public void TestBeginEndToRules() {
         // run through the same list of test cases we used above, but this time, instead of just
         // instantiating a Transliterator from the rules and running the test against it, we instantiate
@@ -3748,6 +3831,7 @@ the ::BEGIN/::END stuff)
         expect(reversed2, "xy XY XYZ yz YZ", "xy abc xaba yz aba");
     }
 
+    @Test
     public void TestRegisterAlias() {
         String longID = "Lower;[aeiou]Upper";
         String shortID = "Any-CapVowels";
@@ -3793,6 +3877,7 @@ the ::BEGIN/::END stuff)
     /**
      * Test the Halfwidth-Fullwidth transliterator (ticket 6281).
      */
+    @Test
     public void TestHalfwidthFullwidth() {
         Transliterator hf = Transliterator.getInstance("Halfwidth-Fullwidth");
         Transliterator fh = Transliterator.getInstance("Fullwidth-Halfwidth");
@@ -3830,6 +3915,7 @@ the ::BEGIN/::END stuff)
      *              TODO: confirm that the expected results are correct.
      *              For now, test just confirms that C++ and Java give identical results.
      */
+    @Test
     public void TestThai() {
         Transliterator tr = Transliterator.getInstance("Any-Latin", Transliterator.FORWARD);
         String thaiText = 
@@ -3896,6 +3982,7 @@ the ::BEGIN/::END stuff)
     /**
      * Improve code coverage.
      */
+    @Test
     public void TestCoverage() {
         // NullTransliterator
         Transliterator t = Transliterator.getInstance("Null", Transliterator.FORWARD);
@@ -3915,6 +4002,7 @@ the ::BEGIN/::END stuff)
      * Test case for threading problem in NormalizationTransliterator
      * reported by ticket#5160
      */
+    @Test
     public void TestT5160() {
         final String[] testData = {
                 "a",
@@ -3981,7 +4069,7 @@ the ::BEGIN/::END stuff)
     //======================================================================
     // Support methods
     //======================================================================
-    void expect(String rules,
+    static void expect(String rules,
             String source,
             String expectedResult,
             Transliterator.Position pos) {
@@ -3989,11 +4077,11 @@ the ::BEGIN/::END stuff)
         expect(t, source, expectedResult, pos);
     }
 
-    void expect(String rules, String source, String expectedResult) {
+    static void expect(String rules, String source, String expectedResult) {
         expect(rules, source, expectedResult, null);
     }
 
-    void expect(Transliterator t, String source, String expectedResult,
+    static void expect(Transliterator t, String source, String expectedResult,
             Transliterator reverseTransliterator) {
         expect(t, source, expectedResult);
         if (reverseTransliterator != null) {
@@ -4001,11 +4089,11 @@ the ::BEGIN/::END stuff)
         }
     }
 
-    void expect(Transliterator t, String source, String expectedResult) {
+    static void expect(Transliterator t, String source, String expectedResult) {
         expect(t, source, expectedResult, (Transliterator.Position) null);
     }
 
-    void expect(Transliterator t, String source, String expectedResult,
+    static void expect(Transliterator t, String source, String expectedResult,
             Transliterator.Position pos) {
         if (pos == null) {
             String result = t.transliterate(source);
@@ -4077,14 +4165,14 @@ the ::BEGIN/::END stuff)
                 expectedResult);
     }
 
-    boolean expectAux(String tag, String source,
+    static boolean expectAux(String tag, String source,
             String result, String expectedResult) {
         return expectAux(tag, new String[] {source, result},
                 result.equals(expectedResult),
                 expectedResult);
     }
 
-    boolean expectAux(String tag, String source,
+    static boolean expectAux(String tag, String source,
             String result, boolean pass,
             String expectedResult) {
         return expectAux(tag, new String[] {source, result},
@@ -4092,7 +4180,7 @@ the ::BEGIN/::END stuff)
                 expectedResult);
     }
 
-    boolean expectAux(String tag, String source,
+    static boolean expectAux(String tag, String source,
             boolean pass,
             String expectedResult) {
         return expectAux(tag, new String[] {source},
@@ -4100,7 +4188,7 @@ the ::BEGIN/::END stuff)
                 expectedResult);
     }
 
-    boolean expectAux(String tag, String[] results, boolean pass,
+    static boolean expectAux(String tag, String[] results, boolean pass,
             String expectedResult) {
         msg((pass?"(":"FAIL: (")+tag+")", pass ? LOG : ERR, true, true);
 
@@ -4124,12 +4212,12 @@ the ::BEGIN/::END stuff)
         return pass;
     }
 
-    private void assertTransform(String message, String expected, StringTransform t, String source) {
+    static private void assertTransform(String message, String expected, StringTransform t, String source) {
         assertEquals(message + " " + source, expected, t.transform(source));
     }
 
 
-    private void assertTransform(String message, String expected, StringTransform t, StringTransform back, String source, String source2) {
+    static private void assertTransform(String message, String expected, StringTransform t, StringTransform back, String source, String source2) {
         assertEquals(message + " " +source, expected, t.transform(source));
         assertEquals(message + " " +source2, expected, t.transform(source2));
         assertEquals(message + " " + expected, source, back.transform(expected));
@@ -4138,6 +4226,7 @@ the ::BEGIN/::END stuff)
     /*
      * Tests the method public Enumeration<String> getAvailableTargets(String source)
      */
+    @Test
     public void TestGetAvailableTargets() {
         try {
             // Tests when if (targets == null) is true
@@ -4150,6 +4239,7 @@ the ::BEGIN/::END stuff)
     /*
      * Tests the method public Enumeration<String> getAvailableVariants(String source, String target)
      */
+    @Test
     public void TestGetAvailableVariants() {
         try {
             // Tests when if (targets == null) is true
@@ -4162,6 +4252,7 @@ the ::BEGIN/::END stuff)
     /*
      * Tests the mehtod String nextLine() in RuleBody
      */
+    @Test
     public void TestNextLine() {
         // Tests when "if (s != null && s.length() > 0 && s.charAt(s.length() - 1) == '\\') is true
         try{

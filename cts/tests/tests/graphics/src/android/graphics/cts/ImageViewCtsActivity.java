@@ -16,17 +16,16 @@
 
 package android.graphics.cts;
 
-import android.graphics.cts.R;
-
 import android.app.Activity;
+import android.graphics.drawable.AnimationDrawable;
 import android.os.Bundle;
 
 /**
- * A minimal application for {@link ImageView} test.
+ * A minimal application for {@link AnimationDrawable} test.
  */
 public class ImageViewCtsActivity extends Activity {
     /**
-     * Called with the activity is first created.
+     * Called when the activity is first created.
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {

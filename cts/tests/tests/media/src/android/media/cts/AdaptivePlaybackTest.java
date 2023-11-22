@@ -1092,7 +1092,9 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             boolean sawOutputEos = false;
             int deadDecoderCounter = 0;
             ArrayList<String> frames = new ArrayList<String>();
-            while ((waitForEos && !sawOutputEos) || frameIx < frameEndIx) {
+            String buf = null;
+            // After all input buffers are queued, dequeue as many output buffers as possible.
+            while ((waitForEos && !sawOutputEos) || frameIx < frameEndIx || buf != null) {
                 if (frameIx < frameEndIx) {
                     if (queueInputBuffer(
                             media,
@@ -1103,7 +1105,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                     }
                 }
 
-                String buf = dequeueAndReleaseOutputBuffer(info);
+                buf = dequeueAndReleaseOutputBuffer(info);
                 if (buf != null) {
                     // Some decoders output a 0-sized buffer at the end. Disregard those.
                     if (info.size > 0) {

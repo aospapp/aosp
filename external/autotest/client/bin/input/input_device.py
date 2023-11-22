@@ -16,6 +16,7 @@ import array
 import copy
 import fcntl
 import os.path
+import re
 import select
 import struct
 import time
@@ -23,6 +24,12 @@ import time
 from collections import OrderedDict
 
 from linux_input import *
+
+
+# The regular expression of possible keyboard types.
+KEYBOARD_TYPES = '(keyboard|chromeos-ec-i2c|cros-ec-spi|cros-ec-i2c|cros_ec)'
+
+_DEVICE_INFO_FILE = '/proc/bus/input/devices'
 
 
 class Valuator:
@@ -609,6 +616,35 @@ def print_report(device):
         print 'Left=%d Fingers=%d X=%d Y=%d Pressure=%d' % (l, f, x, y, z)
         if device.is_mt():
             device.print_slots()
+
+
+def get_device_node(device_type):
+    """Get the keyboard device node through device info file.
+
+    Example of the keyboard device information looks like
+
+    I: Bus=0011 Vendor=0001 Product=0001 Version=ab41
+    N: Name="AT Translated Set 2 keyboard"
+    P: Phys=isa0060/serio0/input0
+    S: Sysfs=/devices/platform/i8042/serio0/input/input5
+    U: Uniq=
+    H: Handlers=sysrq kbd event5
+    """
+    device_node = None
+    device_found = None
+    device_pattern = re.compile('N: Name=.*%s' % device_type, re.I)
+    event_number_pattern = re.compile(r'H: Handlers=.*event(\d?)', re.I)
+    with open(_DEVICE_INFO_FILE) as info:
+        for line in info:
+            if device_found:
+                result = event_number_pattern.search(line)
+                if result:
+                    event_number = int(result.group(1))
+                    device_node = '/dev/input/event%d' % event_number
+                    break
+            else:
+                device_found = device_pattern.search(line)
+    return device_node
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ import os
 import re
 import sys
 import time
-import traceback
+#import traceback
 # Please limit the use of the uinput library to this file. Try not to spread
 # dependencies and abstract as much as possible to make switching to a different
 # input library in the future easier.
@@ -36,7 +36,7 @@ def xcommand(cmd, user=None):
     @return a modified command line string with necessary X setup
     """
     logging.warning('xcommand will be deprecated under freon!')
-    traceback.print_stack()
+    #traceback.print_stack()
     if user is not None:
         cmd = 'su %s -c \'%s\'' % (user, cmd)
     if not utils.is_freon():
@@ -117,6 +117,15 @@ def hide_cursor():
         press_keys(['KEY_UP'])
     else:
         press_key_X('Up')
+
+
+def hide_typing_cursor():
+    """Hides typing cursor."""
+    # Press the tab key to move outside the typing bar.
+    if utils.is_freon():
+        press_keys(['KEY_TAB'])
+    else:
+        press_key_X('Tab')
 
 
 def screen_wakeup():
@@ -850,22 +859,39 @@ def get_content_protection(output_name):
     return False
 
 
-def wflinfo_cmd():
-    """
-    Return a wflinfo command appropriate to the current graphics platform/api.
-    """
-    return 'wflinfo -p %s -a %s' % (utils.graphics_platform(),
-                                    utils.graphics_api())
-
-
 def is_sw_rasterizer():
     """Return true if OpenGL is using a software rendering."""
-    cmd = wflinfo_cmd() + ' | grep "OpenGL renderer string"'
+    cmd = utils.wflinfo_cmd() + ' | grep "OpenGL renderer string"'
     output = utils.run(cmd)
     result = output.stdout.splitlines()[0]
     logging.info('wflinfo: %s', result)
     # TODO(ihf): Find exhaustive error conditions (especially ARM).
     return 'llvmpipe' in result.lower() or 'soft' in result.lower()
+
+
+def get_gles_version():
+    cmd = utils.wflinfo_cmd()
+    wflinfo = utils.system_output(cmd, retain_output=False, ignore_status=False)
+    # OpenGL version string: OpenGL ES 3.0 Mesa 10.5.0-devel
+    version = re.findall(r'OpenGL version string: '
+                         r'OpenGL ES ([0-9]+).([0-9]+)', wflinfo)
+    if version:
+        version_major = int(version[0][0])
+        version_minor = int(version[0][1])
+        return (version_major, version_minor)
+    return (None, None)
+
+
+def get_egl_version():
+    cmd = 'eglinfo'
+    eglinfo = utils.system_output(cmd, retain_output=False, ignore_status=False)
+    # EGL version string: 1.4 (DRI2)
+    version = re.findall(r'EGL version string: ([0-9]+).([0-9]+)', eglinfo)
+    if version:
+        version_major = int(version[0][0])
+        version_minor = int(version[0][1])
+        return (version_major, version_minor)
+    return (None, None)
 
 
 class GraphicsKernelMemory(object):
@@ -879,29 +905,35 @@ class GraphicsKernelMemory(object):
     # present.
     # e.g. ".../memory" vs ".../gpu_memory" -- if the system has either one of
     # these, the test will read from that path.
-
+    amdgpu_fields = {
+        'gem_objects': ['/sys/kernel/debug/dri/0/amdgpu_gem_info'],
+        'memory': ['/sys/kernel/debug/dri/0/amdgpu_gtt_mm'],
+    }
+    arm_fields = {}
     exynos_fields = {
-        'gem_objects': ['/sys/kernel/debug/dri/0/exynos_gem_objects'],
+        'gem_objects': ['/sys/kernel/debug/dri/?/exynos_gem_objects'],
         'memory': ['/sys/class/misc/mali0/device/memory',
                    '/sys/class/misc/mali0/device/gpu_memory'],
     }
+    mediatek_fields = {}  # TODO(crosbug.com/p/58189) add nodes
     # TODO Add memory nodes once the GPU patches landed.
     rockchip_fields = {}
     tegra_fields = {
         'memory': ['/sys/kernel/debug/memblock/memory'],
     }
-    x86_fields = {
+    i915_fields = {
         'gem_objects': ['/sys/kernel/debug/dri/0/i915_gem_objects'],
         'memory': ['/sys/kernel/debug/dri/0/i915_gem_gtt'],
     }
-    arm_fields = {}
+
     arch_fields = {
-        'exynos5': exynos_fields,
-        'tegra': tegra_fields,
-        'rockchip': rockchip_fields,
-        'i386': x86_fields,
-        'x86_64': x86_fields,
+        'amdgpu': amdgpu_fields,
         'arm': arm_fields,
+        'exynos5': exynos_fields,
+        'i915': i915_fields,
+        'mediatek': mediatek_fields,
+        'rockchip': rockchip_fields,
+        'tegra': tegra_fields,
     }
 
     num_errors = 0
@@ -913,11 +945,19 @@ class GraphicsKernelMemory(object):
         keyvals = {}
 
         # Get architecture type and list of sysfs fields to read.
-        arch = utils.get_cpu_soc_family()
+        soc = utils.get_cpu_soc_family()
 
-        if not arch in self.arch_fields:
-            raise error.TestFail('Architecture "%s" not yet supported.' % arch)
-        fields = self.arch_fields[arch]
+        arch = utils.get_cpu_arch()
+        if arch == 'x86_64' or arch == 'i386':
+            pci_vga_device = utils.run("lspci | grep VGA").stdout.rstrip('\n')
+            if "Advanced Micro Devices" in pci_vga_device:
+                soc = 'amdgpu'
+            elif "Intel Corporation" in pci_vga_device:
+                soc = 'i915'
+
+        if not soc in self.arch_fields:
+            raise error.TestFail('Error: Architecture "%s" not yet supported.' % soc)
+        fields = self.arch_fields[soc]
 
         for field_name in fields:
             possible_field_paths = fields[field_name]

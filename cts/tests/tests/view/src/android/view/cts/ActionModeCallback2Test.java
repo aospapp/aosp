@@ -16,17 +16,36 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+
+import android.content.Context;
 import android.graphics.Rect;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
-public class ActionModeCallback2Test extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ActionModeCallback2Test {
     private static final int VIEW_WIDTH = 123;
     private static final int VIEW_HEIGHT = 456;
 
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testCallbackOnGetContentRectDefaultWithView() {
         View view = new View(mContext);
         view.setLeft(0);
@@ -35,7 +54,7 @@ public class ActionModeCallback2Test extends AndroidTestCase {
         view.setBottom(VIEW_HEIGHT);
 
         Rect outRect = new Rect();
-        MockActionModeCallback2 callback = new MockActionModeCallback2();
+        ActionMode.Callback2 callback = new MockActionModeCallback2();
         callback.onGetContentRect(null, view, outRect);
 
         assertEquals(0, outRect.top);
@@ -44,9 +63,10 @@ public class ActionModeCallback2Test extends AndroidTestCase {
         assertEquals(VIEW_WIDTH, outRect.right);
     }
 
+    @Test
     public void testCallbackOnGetContentRectDefaultWithoutView() {
         Rect outRect = new Rect();
-        MockActionModeCallback2 callback = new MockActionModeCallback2();
+        ActionMode.Callback2 callback = new MockActionModeCallback2();
         callback.onGetContentRect(null, null, outRect);
 
         assertEquals(0, outRect.top);

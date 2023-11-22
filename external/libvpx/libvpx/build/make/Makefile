@@ -26,7 +26,7 @@ test-no-data-check:: .DEFAULT
 testdata:: .DEFAULT
 utiltest: .DEFAULT
 exampletest-no-data-check utiltest-no-data-check: .DEFAULT
-
+test_%: .DEFAULT ;
 
 # Note: md5sum is not installed on OS X, but openssl is. Openssl may not be
 # installed on cygwin, so we need to autodetect here.
@@ -90,7 +90,7 @@ all:
 
 .PHONY: clean
 clean::
-	rm -f $(OBJS-yes) $(OBJS-yes:.o=.d) $(OBJS-yes:.asm.s.o=.asm.s)
+	rm -f $(OBJS-yes) $(OBJS-yes:.o=.d) $(OBJS-yes:.asm.S.o=.asm.S)
 	rm -f $(CLEAN-OBJS)
 
 .PHONY: clean
@@ -119,29 +119,30 @@ utiltest:
 test-no-data-check::
 exampletest-no-data-check utiltest-no-data-check:
 
-# Add compiler flags for intrinsic files
+# Force to realign stack always on OS/2
 ifeq ($(TOOLCHAIN), x86-os2-gcc)
-STACKREALIGN=-mstackrealign
-else
-STACKREALIGN=
+CFLAGS += -mstackrealign
 endif
 
+# x86[_64]
 $(BUILD_PFX)%_mmx.c.d: CFLAGS += -mmmx
 $(BUILD_PFX)%_mmx.c.o: CFLAGS += -mmmx
-$(BUILD_PFX)%_sse2.c.d: CFLAGS += -msse2 $(STACKREALIGN)
-$(BUILD_PFX)%_sse2.c.o: CFLAGS += -msse2 $(STACKREALIGN)
-$(BUILD_PFX)%_sse3.c.d: CFLAGS += -msse3 $(STACKREALIGN)
-$(BUILD_PFX)%_sse3.c.o: CFLAGS += -msse3 $(STACKREALIGN)
-$(BUILD_PFX)%_ssse3.c.d: CFLAGS += -mssse3 $(STACKREALIGN)
-$(BUILD_PFX)%_ssse3.c.o: CFLAGS += -mssse3 $(STACKREALIGN)
-$(BUILD_PFX)%_sse4.c.d: CFLAGS += -msse4.1 $(STACKREALIGN)
-$(BUILD_PFX)%_sse4.c.o: CFLAGS += -msse4.1 $(STACKREALIGN)
-$(BUILD_PFX)%_avx.c.d: CFLAGS += -mavx $(STACKREALIGN)
-$(BUILD_PFX)%_avx.c.o: CFLAGS += -mavx $(STACKREALIGN)
-$(BUILD_PFX)%_avx2.c.d: CFLAGS += -mavx2 $(STACKREALIGN)
-$(BUILD_PFX)%_avx2.c.o: CFLAGS += -mavx2 $(STACKREALIGN)
-$(BUILD_PFX)%vp9_reconintra.c.d: CFLAGS += $(STACKREALIGN)
-$(BUILD_PFX)%vp9_reconintra.c.o: CFLAGS += $(STACKREALIGN)
+$(BUILD_PFX)%_sse2.c.d: CFLAGS += -msse2
+$(BUILD_PFX)%_sse2.c.o: CFLAGS += -msse2
+$(BUILD_PFX)%_sse3.c.d: CFLAGS += -msse3
+$(BUILD_PFX)%_sse3.c.o: CFLAGS += -msse3
+$(BUILD_PFX)%_ssse3.c.d: CFLAGS += -mssse3
+$(BUILD_PFX)%_ssse3.c.o: CFLAGS += -mssse3
+$(BUILD_PFX)%_sse4.c.d: CFLAGS += -msse4.1
+$(BUILD_PFX)%_sse4.c.o: CFLAGS += -msse4.1
+$(BUILD_PFX)%_avx.c.d: CFLAGS += -mavx
+$(BUILD_PFX)%_avx.c.o: CFLAGS += -mavx
+$(BUILD_PFX)%_avx2.c.d: CFLAGS += -mavx2
+$(BUILD_PFX)%_avx2.c.o: CFLAGS += -mavx2
+
+# POWER
+$(BUILD_PFX)%_vsx.c.d: CFLAGS += -maltivec -mvsx
+$(BUILD_PFX)%_vsx.c.o: CFLAGS += -maltivec -mvsx
 
 $(BUILD_PFX)%.c.d: %.c
 	$(if $(quiet),@echo "    [DEP] $@")
@@ -184,13 +185,13 @@ $(BUILD_PFX)%.asm.o: %.asm
 	$(qexec)$(if $(CONFIG_DEPENDENCY_TRACKING),,mkdir -p $(dir $@))
 	$(qexec)$(AS) $(ASFLAGS) -o $@ $<
 
-$(BUILD_PFX)%.s.d: %.s
+$(BUILD_PFX)%.S.d: %.S
 	$(if $(quiet),@echo "    [DEP] $@")
 	$(qexec)mkdir -p $(dir $@)
 	$(qexec)$(SRC_PATH_BARE)/build/make/gen_asm_deps.sh \
             --build-pfx=$(BUILD_PFX) --depfile=$@ $(ASFLAGS) $< > $@
 
-$(BUILD_PFX)%.s.o: %.s
+$(BUILD_PFX)%.S.o: %.S
 	$(if $(quiet),@echo "    [AS] $@")
 	$(qexec)$(if $(CONFIG_DEPENDENCY_TRACKING),,mkdir -p $(dir $@))
 	$(qexec)$(AS) $(ASFLAGS) -o $@ $<
@@ -202,8 +203,8 @@ $(BUILD_PFX)%.c.S: %.c
 	$(qexec)$(if $(CONFIG_DEPENDENCY_TRACKING),,mkdir -p $(dir $@))
 	$(qexec)$(CC) -S $(CFLAGS) -o $@ $<
 
-.PRECIOUS: %.asm.s
-$(BUILD_PFX)%.asm.s: %.asm
+.PRECIOUS: %.asm.S
+$(BUILD_PFX)%.asm.S: %.asm
 	$(if $(quiet),@echo "    [ASM CONVERSION] $@")
 	$(qexec)mkdir -p $(dir $@)
 	$(qexec)$(ASM_CONVERSION) <$< >$@
@@ -422,7 +423,6 @@ ifneq ($(call enabled,DIST-SRCS),)
     DIST-SRCS-yes            += build/make/gen_asm_deps.sh
     DIST-SRCS-yes            += build/make/Makefile
     DIST-SRCS-$(CONFIG_MSVS)  += build/make/gen_msvs_def.sh
-    DIST-SRCS-$(CONFIG_MSVS)  += build/make/gen_msvs_proj.sh
     DIST-SRCS-$(CONFIG_MSVS)  += build/make/gen_msvs_sln.sh
     DIST-SRCS-$(CONFIG_MSVS)  += build/make/gen_msvs_vcxproj.sh
     DIST-SRCS-$(CONFIG_MSVS)  += build/make/msvs_common.sh
@@ -453,3 +453,5 @@ all: $(BUILD_TARGETS)
 install:: $(INSTALL_TARGETS)
 dist: $(INSTALL_TARGETS)
 test::
+
+.SUFFIXES:  # Delete default suffix rules

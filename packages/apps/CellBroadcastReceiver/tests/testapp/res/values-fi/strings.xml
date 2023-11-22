@@ -44,5 +44,5 @@
     <string name="button_gsm_ucs2_with_language_umts_type" msgid="1722368447645668730">"Lähetä GSM UCS-2 kielellä"</string>
     <string name="button_delay_broadcast" msgid="751650250579017537">"5 sekunnin viive ennen lähettämistä"</string>
     <string name="message_id_label" msgid="1445077194410403236">"Viestin tunnus:"</string>
-    <string name="category_id_label" msgid="6935815032327981691">"Luokka:"</string>
+    <string name="category_id_label" msgid="6935815032327981691">"Arvot:"</string>
 </resources>

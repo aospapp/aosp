@@ -50,6 +50,8 @@ public:
     virtual bool            recordingEnabled();
     virtual void            releaseRecordingFrame(const sp<IMemory>& mem);
     virtual void            releaseRecordingFrameHandle(native_handle_t *handle);
+    virtual void            releaseRecordingFrameHandleBatch(
+                                    const std::vector<native_handle_t*>& handles);
     virtual status_t        autoFocus();
     virtual status_t        cancelAutoFocus();
     virtual status_t        takePicture(int msgType);
@@ -70,7 +72,7 @@ public:
             bool legacyMode = false);
     ~CameraClient();
 
-    status_t initialize(CameraModule *module);
+    virtual status_t initialize(sp<CameraProviderManager> manager) override;
 
     virtual status_t dump(int fd, const Vector<String16>& args);
 
@@ -98,11 +100,15 @@ private:
     // internal function used by sendCommand to enable/disable shutter sound.
     status_t                enableShutterSound(bool enable);
 
+    static sp<CameraClient>        getClientFromCookie(void* user);
+
     // these are static callback functions
     static void             notifyCallback(int32_t msgType, int32_t ext1, int32_t ext2, void* user);
     static void             dataCallback(int32_t msgType, const sp<IMemory>& dataPtr,
             camera_frame_metadata_t *metadata, void* user);
     static void             dataCallbackTimestamp(nsecs_t timestamp, int32_t msgType, const sp<IMemory>& dataPtr, void* user);
+    static void             handleCallbackTimestampBatch(
+                                    int32_t msgType, const std::vector<HandleTimestampMessage>&, void* user);
     // handlers for messages
     void                    handleShutter(void);
     void                    handlePreviewData(int32_t msgType, const sp<IMemory>& mem,

@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-#include "art_method-inl.h"
+#include "art_method.h"
+#include "base/enums.h"
 #include "jni.h"
-#include "scoped_thread_state_change.h"
+#include "mirror/array-inl.h"
+#include "mirror/class-inl.h"
+#include "mirror/dex_cache-inl.h"
+#include "scoped_thread_state_change-inl.h"
 #include "stack.h"
 #include "thread.h"
 
@@ -28,7 +32,7 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_cloneResolvedMethods(JNIEnv* env,
                                                                     jclass,
                                                                     jclass cls) {
   ScopedObjectAccess soa(Thread::Current());
-  mirror::DexCache* dex_cache = soa.Decode<mirror::Class*>(cls)->GetDexCache();
+  mirror::DexCache* dex_cache = soa.Decode<mirror::Class>(cls)->GetDexCache();
   size_t num_methods = dex_cache->NumResolvedMethods();
   ArtMethod** methods = dex_cache->GetResolvedMethods();
   CHECK_EQ(num_methods != 0u, methods != nullptr);
@@ -42,10 +46,10 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_cloneResolvedMethods(JNIEnv* env,
     array = env->NewLongArray(num_methods);
   }
   CHECK(array != nullptr);
-  mirror::PointerArray* pointer_array = soa.Decode<mirror::PointerArray*>(array);
+  mirror::PointerArray* pointer_array = soa.Decode<mirror::PointerArray>(array).Ptr();
   for (size_t i = 0; i != num_methods; ++i) {
-    ArtMethod* method = mirror::DexCache::GetElementPtrSize(methods, i, sizeof(void*));
-    pointer_array->SetElementPtrSize(i, method, sizeof(void*));
+    ArtMethod* method = mirror::DexCache::GetElementPtrSize(methods, i, kRuntimePointerSize);
+    pointer_array->SetElementPtrSize(i, method, kRuntimePointerSize);
   }
   return array;
 }
@@ -53,16 +57,16 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_cloneResolvedMethods(JNIEnv* env,
 extern "C" JNIEXPORT void JNICALL Java_Main_restoreResolvedMethods(
     JNIEnv*, jclass, jclass cls, jobject old_cache) {
   ScopedObjectAccess soa(Thread::Current());
-  mirror::DexCache* dex_cache = soa.Decode<mirror::Class*>(cls)->GetDexCache();
+  mirror::DexCache* dex_cache = soa.Decode<mirror::Class>(cls)->GetDexCache();
   size_t num_methods = dex_cache->NumResolvedMethods();
-  ArtMethod** methods = soa.Decode<mirror::Class*>(cls)->GetDexCache()->GetResolvedMethods();
+  ArtMethod** methods = soa.Decode<mirror::Class>(cls)->GetDexCache()->GetResolvedMethods();
   CHECK_EQ(num_methods != 0u, methods != nullptr);
-  mirror::PointerArray* old = soa.Decode<mirror::PointerArray*>(old_cache);
+  ObjPtr<mirror::PointerArray> old = soa.Decode<mirror::PointerArray>(old_cache);
   CHECK_EQ(methods != nullptr, old != nullptr);
   CHECK_EQ(num_methods, static_cast<size_t>(old->GetLength()));
   for (size_t i = 0; i != num_methods; ++i) {
-    ArtMethod* method = old->GetElementPtrSize<ArtMethod*>(i, sizeof(void*));
-    mirror::DexCache::SetElementPtrSize(methods, i, method, sizeof(void*));
+    ArtMethod* method = old->GetElementPtrSize<ArtMethod*>(i, kRuntimePointerSize);
+    mirror::DexCache::SetElementPtrSize(methods, i, method, kRuntimePointerSize);
   }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2014, ARM Limited
+// Copyright 2014, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,14 +27,14 @@
 #ifndef TEST_TEST_H_
 #define TEST_TEST_H_
 
-#include "vixl/utils.h"
+#include "utils-vixl.h"
 
 namespace vixl {
 
 // Each actual test is represented by a Test instance.
 // Tests are appended to a static linked list upon creation.
 class Test {
-  typedef void (TestFunction)();
+  typedef void(TestFunction)();
 
  public:
   Test(const char* name, TestFunction* callback);
@@ -52,12 +52,18 @@ class Test {
   static void set_trace_reg(bool value) { trace_reg_ = value; }
   static bool trace_write() { return trace_write_; }
   static void set_trace_write(bool value) { trace_write_ = value; }
+  static bool trace_branch() { return trace_branch_; }
+  static void set_trace_branch(bool value) { trace_branch_ = value; }
+  static bool disassemble() { return disassemble_; }
+  static void set_disassemble(bool value) { disassemble_ = value; }
   static bool coloured_trace() { return coloured_trace_; }
   static void set_coloured_trace(bool value) { coloured_trace_ = value; }
   static bool instruction_stats() { return instruction_stats_; }
   static void set_instruction_stats(bool value) { instruction_stats_ = value; }
-  static bool sim_test_trace() { return sim_test_trace_; }
-  static void set_sim_test_trace(bool value) { sim_test_trace_ = value; }
+  static bool generate_test_trace() { return generate_test_trace_; }
+  static void set_generate_test_trace(bool value) {
+    generate_test_trace_ = value;
+  }
 
   // The debugger is needed to trace register values.
   static bool run_debugger() { return debug_; }
@@ -73,19 +79,21 @@ class Test {
   static bool trace_sim_;
   static bool trace_reg_;
   static bool trace_write_;
+  static bool trace_branch_;
+  static bool disassemble_;
   static bool coloured_trace_;
   static bool instruction_stats_;
-  static bool sim_test_trace_;
+  static bool generate_test_trace_;
 };
 
 // Define helper macros for test files.
 
 // Macro to register a test. It instantiates a Test and registers its
 // callback function.
-#define TEST_(Name)                                                            \
-void Test##Name();                                                             \
-Test test_##Name(#Name, &Test##Name);                                          \
-void Test##Name()
+#define TEST_(Name)                     \
+  void Test##Name();                    \
+  Test test_##Name(#Name, &Test##Name); \
+  void Test##Name()
 }  // namespace vixl
 
 #endif  // TEST_TEST_H_

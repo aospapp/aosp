@@ -17,8 +17,8 @@ BIG_BUCK_BUNNY_YT_URL = 'https://www.youtube.com/watch?v=YE7VzlLtp-4'
 GMAPS_MTV_URL = 'https://www.google.com/maps/@37.4249155,-122.072205,13z?force=webgl'
 PEACEKEEPER_URL = 'http://peacekeeper.futuremark.com/run.action'
 WEBGL_AQUARIUM_URL = \
-    'https://webglsamples.googlecode.com/hg/aquarium/aquarium.html'
-WEBGL_BLOB_URL = 'https://webglsamples.googlecode.com/hg/blob/blob.html'
+    'http://webglsamples.org/aquarium/aquarium.html'
+WEBGL_BLOB_URL = 'http://webglsamples.org/blob/blob.html'
 WEBGL_SPIRITBOX_URL = \
     'http://www.webkit.org/blog-files/webgl/SpiritBox.html'
 VIMEO_COUCHMODE_URL = 'http://vimeo.com/couchmode/'

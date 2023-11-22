@@ -102,18 +102,45 @@ TEST(time, mktime_10310929) {
 #if !defined(__LP64__)
   // 32-bit bionic stupidly had a signed 32-bit time_t.
   ASSERT_EQ(-1, mktime(&t));
+  ASSERT_EQ(EOVERFLOW, errno);
 #else
   // Everyone else should be using a signed 64-bit time_t.
   ASSERT_GE(sizeof(time_t) * 8, 64U);
 
   setenv("TZ", "America/Los_Angeles", 1);
   tzset();
+  errno = 0;
   ASSERT_EQ(static_cast<time_t>(4108348800U), mktime(&t));
+  ASSERT_EQ(0, errno);
 
   setenv("TZ", "UTC", 1);
   tzset();
+  errno = 0;
   ASSERT_EQ(static_cast<time_t>(4108320000U), mktime(&t));
+  ASSERT_EQ(0, errno);
 #endif
+}
+
+TEST(time, mktime_EOVERFLOW) {
+  struct tm t;
+  memset(&t, 0, sizeof(tm));
+
+  // LP32 year range is 1901-2038, so this year is guaranteed not to overflow.
+  t.tm_year = 2016 - 1900;
+
+  t.tm_mon = 2;
+  t.tm_mday = 10;
+
+  errno = 0;
+  ASSERT_NE(static_cast<time_t>(-1), mktime(&t));
+  ASSERT_EQ(0, errno);
+
+  // This will overflow for LP32 or LP64.
+  t.tm_year = INT_MAX;
+
+  errno = 0;
+  ASSERT_EQ(static_cast<time_t>(-1), mktime(&t));
+  ASSERT_EQ(EOVERFLOW, errno);
 }
 
 TEST(time, strftime) {
@@ -174,6 +201,27 @@ TEST(time, strftime_null_tm_zone) {
   EXPECT_EQ(2U, strftime(buf, sizeof(buf), "<%Z>", &t));
   EXPECT_STREQ("<>", buf);
 #endif
+}
+
+TEST(time, strftime_l) {
+  locale_t cloc = newlocale(LC_ALL, "C.UTF-8", 0);
+  locale_t old_locale = uselocale(cloc);
+
+  setenv("TZ", "UTC", 1);
+
+  struct tm t;
+  memset(&t, 0, sizeof(tm));
+  t.tm_year = 200;
+  t.tm_mon = 2;
+  t.tm_mday = 10;
+
+  // Date and time as text.
+  char buf[64];
+  EXPECT_EQ(24U, strftime_l(buf, sizeof(buf), "%c", &t, cloc));
+  EXPECT_STREQ("Sun Mar 10 00:00:00 2100", buf);
+
+  uselocale(old_locale);
+  freelocale(cloc);
 }
 
 TEST(time, strptime) {
@@ -273,7 +321,7 @@ struct Counter {
   }
 
  public:
-  Counter(void (*fn)(sigval_t)) : value(0), timer_valid(false) {
+  explicit Counter(void (*fn)(sigval_t)) : value(0), timer_valid(false) {
     memset(&se, 0, sizeof(se));
     se.sigev_notify = SIGEV_THREAD;
     se.sigev_notify_function = fn;
@@ -461,14 +509,14 @@ TEST(time, timer_delete_terminates) {
 
 struct TimerDeleteData {
   timer_t timer_id;
-  pthread_t thread_id;
+  pid_t tid;
   volatile bool complete;
 };
 
 static void TimerDeleteCallback(sigval_t value) {
   TimerDeleteData* tdd = reinterpret_cast<TimerDeleteData*>(value.sival_ptr);
 
-  tdd->thread_id = pthread_self();
+  tdd->tid = gettid();
   timer_delete(tdd->timer_id);
   tdd->complete = true;
 }
@@ -500,8 +548,9 @@ TEST(time, timer_delete_from_timer_thread) {
   // Since bionic timers are implemented by creating a thread to handle the
   // callback, verify that the thread actually completes.
   cur_time = time(NULL);
-  while (pthread_detach(tdd.thread_id) != ESRCH && (time(NULL) - cur_time) < 5);
-  ASSERT_EQ(ESRCH, pthread_detach(tdd.thread_id));
+  while ((kill(tdd.tid, 0) != -1 || errno != ESRCH) && (time(NULL) - cur_time) < 5);
+  ASSERT_EQ(-1, kill(tdd.tid, 0));
+  ASSERT_EQ(ESRCH, errno);
 #endif
 }
 
@@ -572,4 +621,93 @@ TEST(time, clock_nanosleep) {
   timespec in;
   timespec out;
   ASSERT_EQ(EINVAL, clock_nanosleep(-1, 0, &in, &out));
+}
+
+TEST(time, clock_nanosleep_thread_cputime_id) {
+  timespec in;
+  in.tv_sec = 1;
+  in.tv_nsec = 0;
+  ASSERT_EQ(EINVAL, clock_nanosleep(CLOCK_THREAD_CPUTIME_ID, 0, &in, nullptr));
+}
+
+TEST(time, bug_31938693) {
+  // User-visible symptoms in N:
+  // http://b/31938693
+  // https://code.google.com/p/android/issues/detail?id=225132
+
+  // Actual underlying bug (the code change, not the tzdata upgrade that first exposed the bug):
+  // http://b/31848040
+
+  // This isn't a great test, because very few time zones were actually affected, and there's
+  // no real logic to which ones were affected: it was just a coincidence of the data that came
+  // after them in the tzdata file.
+
+  time_t t = 1475619727;
+  struct tm tm;
+
+  setenv("TZ", "America/Los_Angeles", 1);
+  tzset();
+  ASSERT_TRUE(localtime_r(&t, &tm) != nullptr);
+  EXPECT_EQ(15, tm.tm_hour);
+
+  setenv("TZ", "Europe/London", 1);
+  tzset();
+  ASSERT_TRUE(localtime_r(&t, &tm) != nullptr);
+  EXPECT_EQ(23, tm.tm_hour);
+
+  setenv("TZ", "America/Atka", 1);
+  tzset();
+  ASSERT_TRUE(localtime_r(&t, &tm) != nullptr);
+  EXPECT_EQ(13, tm.tm_hour);
+
+  setenv("TZ", "Pacific/Apia", 1);
+  tzset();
+  ASSERT_TRUE(localtime_r(&t, &tm) != nullptr);
+  EXPECT_EQ(12, tm.tm_hour);
+
+  setenv("TZ", "Pacific/Honolulu", 1);
+  tzset();
+  ASSERT_TRUE(localtime_r(&t, &tm) != nullptr);
+  EXPECT_EQ(12, tm.tm_hour);
+
+  setenv("TZ", "Asia/Magadan", 1);
+  tzset();
+  ASSERT_TRUE(localtime_r(&t, &tm) != nullptr);
+  EXPECT_EQ(9, tm.tm_hour);
+}
+
+TEST(time, bug_31339449) {
+  // POSIX says localtime acts as if it calls tzset.
+  // tzset does two things:
+  //  1. it sets the time zone ctime/localtime/mktime/strftime will use.
+  //  2. it sets the global `tzname`.
+  // POSIX says localtime_r need not set `tzname` (2).
+  // Q: should localtime_r set the time zone (1)?
+  // Upstream tzcode (and glibc) answer "no", everyone else answers "yes".
+
+  // Pick a time, any time...
+  time_t t = 1475619727;
+
+  // Call tzset with a specific timezone.
+  setenv("TZ", "America/Atka", 1);
+  tzset();
+
+  // If we change the timezone and call localtime, localtime should use the new timezone.
+  setenv("TZ", "America/Los_Angeles", 1);
+  struct tm* tm_p = localtime(&t);
+  EXPECT_EQ(15, tm_p->tm_hour);
+
+  // Reset the timezone back.
+  setenv("TZ", "America/Atka", 1);
+  tzset();
+
+#if defined(__BIONIC__)
+  // If we change the timezone again and call localtime_r, localtime_r should use the new timezone.
+  setenv("TZ", "America/Los_Angeles", 1);
+  struct tm tm = {};
+  localtime_r(&t, &tm);
+  EXPECT_EQ(15, tm.tm_hour);
+#else
+  // The BSDs agree with us, but glibc gets this wrong.
+#endif
 }

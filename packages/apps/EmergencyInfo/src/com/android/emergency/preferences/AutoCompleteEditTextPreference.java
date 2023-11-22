@@ -154,6 +154,7 @@ public class AutoCompleteEditTextPreference extends DialogPreference {
             }
             onAddEditTextToDialogView(view, editText);
         }
+        editText.setSelection(editText.getText().length());
     }
 
     /**

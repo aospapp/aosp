@@ -135,9 +135,7 @@ public class DeviceInfoStore extends InfoStore {
      */
     @Override
     public void addResult(String name, float value) throws IOException {
-        checkName(name);
-        mJsonWriter.name(name);
-        mJsonWriter.value(value);
+        addResult(name, (double) value);
     }
 
     /**
@@ -146,8 +144,12 @@ public class DeviceInfoStore extends InfoStore {
     @Override
     public void addResult(String name, double value) throws IOException {
         checkName(name);
-        mJsonWriter.name(name);
-        mJsonWriter.value(value);
+        if (isDoubleNaNOrInfinite(value)) {
+            return;
+        } else {
+            mJsonWriter.name(name);
+            mJsonWriter.value(value);
+        }
     }
 
     /**
@@ -203,13 +205,11 @@ public class DeviceInfoStore extends InfoStore {
      */
     @Override
     public void addArrayResult(String name, float[] array) throws IOException {
-        checkName(name);
-        mJsonWriter.name(name);
-        mJsonWriter.beginArray();
-        for (float value : checkArray(array)) {
-            mJsonWriter.value(value);
+        double[] doubleArray = new double[array.length];
+        for (int i = 0; i < array.length; i++) {
+            doubleArray[i] = array[i];
         }
-        mJsonWriter.endArray();
+        addArrayResult(name, doubleArray);
     }
 
     /**
@@ -221,6 +221,9 @@ public class DeviceInfoStore extends InfoStore {
         mJsonWriter.name(name);
         mJsonWriter.beginArray();
         for (double value : checkArray(array)) {
+            if (isDoubleNaNOrInfinite(value)) {
+                continue;
+            }
             mJsonWriter.value(value);
         }
         mJsonWriter.endArray();

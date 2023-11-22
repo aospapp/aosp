@@ -30,7 +30,7 @@
        new-instance v0, Ldot/junit/opcodes/iget_object/TestStubs;
        invoke-direct {v0}, dot/junit/opcodes/iget_object/TestStubs/<init>()V
 
-       iget-object v1, v2, dot.junit.opcodes.iget_object.TestStubs.TestStubProtectedField Ljava/lang/Object;
+       iget-object v1, v0, dot.junit.opcodes.iget_object.TestStubs.TestStubProtectedField Ljava/lang/Object;
        return-object v1
 .end method
 

@@ -22,46 +22,49 @@
 #include "gc/collector/concurrent_copying-inl.h"
 #include "gc/heap.h"
 #include "mirror/object_reference.h"
+#include "mirror/object-readbarrier-inl.h"
 #include "mirror/reference.h"
 #include "runtime.h"
 #include "utils.h"
 
 namespace art {
 
+// Disabled for performance reasons.
+static constexpr bool kCheckDebugDisallowReadBarrierCount = false;
+
 template <typename MirrorType, ReadBarrierOption kReadBarrierOption, bool kAlwaysUpdateField>
 inline MirrorType* ReadBarrier::Barrier(
     mirror::Object* obj, MemberOffset offset, mirror::HeapReference<MirrorType>* ref_addr) {
   constexpr bool with_read_barrier = kReadBarrierOption == kWithReadBarrier;
   if (kUseReadBarrier && with_read_barrier) {
-    if (kIsDebugBuild) {
+    if (kCheckDebugDisallowReadBarrierCount) {
       Thread* const self = Thread::Current();
       if (self != nullptr) {
         CHECK_EQ(self->GetDebugDisallowReadBarrierCount(), 0u);
       }
     }
     if (kUseBakerReadBarrier) {
-      // The higher bits of the rb_ptr, rb_ptr_high_bits (must be zero)
-      // is used to create artificial data dependency from the is_gray
-      // load to the ref field (ptr) load to avoid needing a load-load
-      // barrier between the two.
-      uintptr_t rb_ptr_high_bits;
-      bool is_gray = HasGrayReadBarrierPointer(obj, &rb_ptr_high_bits);
+      // fake_address_dependency (must be zero) is used to create artificial data dependency from
+      // the is_gray load to the ref field (ptr) load to avoid needing a load-load barrier between
+      // the two.
+      uintptr_t fake_address_dependency;
+      bool is_gray = IsGray(obj, &fake_address_dependency);
+      if (kEnableReadBarrierInvariantChecks) {
+        CHECK_EQ(fake_address_dependency, 0U) << obj << " rb_state=" << obj->GetReadBarrierState();
+      }
       ref_addr = reinterpret_cast<mirror::HeapReference<MirrorType>*>(
-          rb_ptr_high_bits | reinterpret_cast<uintptr_t>(ref_addr));
+          fake_address_dependency | reinterpret_cast<uintptr_t>(ref_addr));
       MirrorType* ref = ref_addr->AsMirrorPtr();
       MirrorType* old_ref = ref;
       if (is_gray) {
         // Slow-path.
         ref = reinterpret_cast<MirrorType*>(Mark(ref));
         // If kAlwaysUpdateField is true, update the field atomically. This may fail if mutator
-        // updates before us, but it's ok.
+        // updates before us, but it's OK.
         if (kAlwaysUpdateField && ref != old_ref) {
-          obj->CasFieldStrongRelaxedObjectWithoutWriteBarrier<false, false>(
+          obj->CasFieldStrongReleaseObjectWithoutWriteBarrier<false, false>(
               offset, old_ref, ref);
         }
-      }
-      if (kEnableReadBarrierInvariantChecks) {
-        CHECK_EQ(rb_ptr_high_bits, 0U) << obj << " rb_ptr=" << obj->GetReadBarrierPointer();
       }
       AssertToSpaceInvariant(obj, offset, ref);
       return ref;
@@ -77,7 +80,7 @@ inline MirrorType* ReadBarrier::Barrier(
         ref = reinterpret_cast<MirrorType*>(Mark(old_ref));
         // Update the field atomically. This may fail if mutator updates before us, but it's ok.
         if (ref != old_ref) {
-          obj->CasFieldStrongRelaxedObjectWithoutWriteBarrier<false, false>(
+          obj->CasFieldStrongReleaseObjectWithoutWriteBarrier<false, false>(
               offset, old_ref, ref);
         }
       }
@@ -179,6 +182,26 @@ inline MirrorType* ReadBarrier::BarrierForRoot(mirror::CompressedReference<Mirro
   }
 }
 
+template <typename MirrorType>
+inline MirrorType* ReadBarrier::IsMarked(MirrorType* ref) {
+  // Only read-barrier configurations can have mutators run while
+  // the GC is marking.
+  if (!kUseReadBarrier) {
+    return ref;
+  }
+  // IsMarked does not handle null, so handle it here.
+  if (ref == nullptr) {
+    return nullptr;
+  }
+  // IsMarked should only be called when the GC is marking.
+  if (!Thread::Current()->GetIsGcMarking()) {
+    return ref;
+  }
+
+  return reinterpret_cast<MirrorType*>(
+      Runtime::Current()->GetHeap()->ConcurrentCopyingCollector()->IsMarked(ref));
+}
+
 inline bool ReadBarrier::IsDuringStartup() {
   gc::Heap* heap = Runtime::Current()->GetHeap();
   if (heap == nullptr) {
@@ -199,7 +222,7 @@ inline bool ReadBarrier::IsDuringStartup() {
 
 inline void ReadBarrier::AssertToSpaceInvariant(mirror::Object* obj, MemberOffset offset,
                                                 mirror::Object* ref) {
-  if (kEnableToSpaceInvariantChecks || kIsDebugBuild) {
+  if (kEnableToSpaceInvariantChecks) {
     if (ref == nullptr || IsDuringStartup()) {
       return;
     }
@@ -210,7 +233,7 @@ inline void ReadBarrier::AssertToSpaceInvariant(mirror::Object* obj, MemberOffse
 
 inline void ReadBarrier::AssertToSpaceInvariant(GcRootSource* gc_root_source,
                                                 mirror::Object* ref) {
-  if (kEnableToSpaceInvariantChecks || kIsDebugBuild) {
+  if (kEnableToSpaceInvariantChecks) {
     if (ref == nullptr || IsDuringStartup()) {
       return;
     }
@@ -220,23 +243,17 @@ inline void ReadBarrier::AssertToSpaceInvariant(GcRootSource* gc_root_source,
 }
 
 inline mirror::Object* ReadBarrier::Mark(mirror::Object* obj) {
-  return Runtime::Current()->GetHeap()->ConcurrentCopyingCollector()->Mark(obj);
+  return Runtime::Current()->GetHeap()->ConcurrentCopyingCollector()->MarkFromReadBarrier(obj);
 }
 
-inline bool ReadBarrier::HasGrayReadBarrierPointer(mirror::Object* obj,
-                                                   uintptr_t* out_rb_ptr_high_bits) {
-  mirror::Object* rb_ptr = obj->GetReadBarrierPointer();
-  uintptr_t rb_ptr_bits = reinterpret_cast<uintptr_t>(rb_ptr);
-  uintptr_t rb_ptr_low_bits = rb_ptr_bits & rb_ptr_mask_;
-  if (kEnableReadBarrierInvariantChecks) {
-    CHECK(rb_ptr_low_bits == white_ptr_ || rb_ptr_low_bits == gray_ptr_ ||
-          rb_ptr_low_bits == black_ptr_)
-        << "obj=" << obj << " rb_ptr=" << rb_ptr << " " << PrettyTypeOf(obj);
-  }
-  bool is_gray = rb_ptr_low_bits == gray_ptr_;
-  // The high bits are supposed to be zero. We check this on the caller side.
-  *out_rb_ptr_high_bits = rb_ptr_bits & ~rb_ptr_mask_;
-  return is_gray;
+inline bool ReadBarrier::IsGray(mirror::Object* obj, uintptr_t* fake_address_dependency) {
+  return obj->GetReadBarrierState(fake_address_dependency) == gray_state_;
+}
+
+inline bool ReadBarrier::IsGray(mirror::Object* obj) {
+  // Use a load-acquire to load the read barrier bit to avoid reordering with the subsequent load.
+  // GetReadBarrierStateAcquire() has load-acquire semantics.
+  return obj->GetReadBarrierStateAcquire() == gray_state_;
 }
 
 }  // namespace art

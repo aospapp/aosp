@@ -30,6 +30,12 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/MediaDefs.h>
+#include <media/stagefright/Utils.h>
+
+// default buffer prepare/ready/underflow marks
+static const int kReadyMarkMs     = 5000;  // 5 seconds
+static const int kPrepareMarkMs   = 1500;  // 1.5 seconds
+static const int kUnderflowMarkMs = 1000;  // 1 second
 
 namespace android {
 
@@ -48,6 +54,7 @@ NuPlayer::HTTPLiveSource::HTTPLiveSource(
       mFetchMetaDataGeneration(0),
       mHasMetadata(false),
       mMetadataSelected(false) {
+    getDefaultBufferingSettings(&mBufferingSettings);
     if (headers) {
         mExtraHeaders = *headers;
 
@@ -75,6 +82,42 @@ NuPlayer::HTTPLiveSource::~HTTPLiveSource() {
     }
 }
 
+status_t NuPlayer::HTTPLiveSource::getDefaultBufferingSettings(
+            BufferingSettings* buffering /* nonnull */) {
+    buffering->mInitialBufferingMode = BUFFERING_MODE_TIME_ONLY;
+    buffering->mRebufferingMode = BUFFERING_MODE_TIME_ONLY;
+    buffering->mInitialWatermarkMs = kPrepareMarkMs;
+    buffering->mRebufferingWatermarkLowMs = kUnderflowMarkMs;
+    buffering->mRebufferingWatermarkHighMs = kReadyMarkMs;
+
+    return OK;
+}
+
+status_t NuPlayer::HTTPLiveSource::setBufferingSettings(const BufferingSettings& buffering) {
+    if (buffering.IsSizeBasedBufferingMode(buffering.mInitialBufferingMode)
+            || buffering.IsSizeBasedBufferingMode(buffering.mRebufferingMode)
+            || (buffering.IsTimeBasedBufferingMode(buffering.mRebufferingMode)
+                && buffering.mRebufferingWatermarkLowMs > buffering.mRebufferingWatermarkHighMs)) {
+        return BAD_VALUE;
+    }
+
+    mBufferingSettings = buffering;
+
+    if (mBufferingSettings.mInitialBufferingMode == BUFFERING_MODE_NONE) {
+        mBufferingSettings.mInitialWatermarkMs = BufferingSettings::kNoWatermark;
+    }
+    if (mBufferingSettings.mRebufferingMode == BUFFERING_MODE_NONE) {
+        mBufferingSettings.mRebufferingWatermarkLowMs = BufferingSettings::kNoWatermark;
+        mBufferingSettings.mRebufferingWatermarkHighMs = INT32_MAX;
+    }
+
+    if (mLiveSession != NULL) {
+        mLiveSession->setBufferingSettings(mBufferingSettings);
+    }
+
+    return OK;
+}
+
 void NuPlayer::HTTPLiveSource::prepareAsync() {
     if (mLiveLooper == NULL) {
         mLiveLooper = new ALooper;
@@ -93,6 +136,7 @@ void NuPlayer::HTTPLiveSource::prepareAsync() {
 
     mLiveLooper->registerHandler(mLiveSession);
 
+    mLiveSession->setBufferingSettings(mBufferingSettings);
     mLiveSession->connectAsync(
             mURL.c_str(), mExtraHeaders.isEmpty() ? NULL : &mExtraHeaders);
 }
@@ -100,26 +144,38 @@ void NuPlayer::HTTPLiveSource::prepareAsync() {
 void NuPlayer::HTTPLiveSource::start() {
 }
 
-sp<AMessage> NuPlayer::HTTPLiveSource::getFormat(bool audio) {
-    sp<AMessage> format;
-    status_t err = -EWOULDBLOCK;
+sp<MetaData> NuPlayer::HTTPLiveSource::getFormatMeta(bool audio) {
+    sp<MetaData> meta;
     if (mLiveSession != NULL) {
-        err = mLiveSession->getStreamFormat(
+        mLiveSession->getStreamFormatMeta(
                 audio ? LiveSession::STREAMTYPE_AUDIO
                       : LiveSession::STREAMTYPE_VIDEO,
-                &format);
+                &meta);
     }
 
+    return meta;
+}
+
+sp<AMessage> NuPlayer::HTTPLiveSource::getFormat(bool audio) {
+    sp<MetaData> meta;
+    status_t err = -EWOULDBLOCK;
+    if (mLiveSession != NULL) {
+        err = mLiveSession->getStreamFormatMeta(
+                audio ? LiveSession::STREAMTYPE_AUDIO
+                      : LiveSession::STREAMTYPE_VIDEO,
+                &meta);
+    }
+
+    sp<AMessage> format;
     if (err == -EWOULDBLOCK) {
         format = new AMessage();
         format->setInt32("err", err);
         return format;
     }
 
-    if (err != OK) {
+    if (err != OK || convertMetaDataToMessage(meta, &format) != OK) {
         return NULL;
     }
-
     return format;
 }
 
@@ -201,8 +257,12 @@ status_t NuPlayer::HTTPLiveSource::selectTrack(size_t trackIndex, bool select, i
     return (err == OK || err == BAD_VALUE) ? (status_t)OK : err;
 }
 
-status_t NuPlayer::HTTPLiveSource::seekTo(int64_t seekTimeUs) {
-    return mLiveSession->seekTo(seekTimeUs);
+status_t NuPlayer::HTTPLiveSource::seekTo(int64_t seekTimeUs, MediaPlayerSeekMode mode) {
+    if (mLiveSession->isSeekable()) {
+        return mLiveSession->seekTo(seekTimeUs, mode);
+    } else {
+        return INVALID_OPERATION;
+    }
 }
 
 void NuPlayer::HTTPLiveSource::pollForRawData(
@@ -304,8 +364,9 @@ void NuPlayer::HTTPLiveSource::onSessionNotify(const sp<AMessage> &msg) {
                 notifyVideoSizeChanged();
             }
 
-            uint32_t flags = FLAG_CAN_PAUSE;
+            uint32_t flags = 0;
             if (mLiveSession->isSeekable()) {
+                flags |= FLAG_CAN_PAUSE;
                 flags |= FLAG_CAN_SEEK;
                 flags |= FLAG_CAN_SEEK_BACKWARD;
                 flags |= FLAG_CAN_SEEK_FORWARD;

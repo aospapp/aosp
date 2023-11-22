@@ -75,6 +75,11 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
     // PIN code dialog for checking old PIN. This is internal only.
     private static final int PIN_DIALOG_TYPE_OLD_PIN = 4;
 
+    /**
+     * PIN code dialog for unlocking DVR playback
+     */
+    public static final int PIN_DIALOG_TYPE_UNLOCK_DVR = 5;
+
     private static final int PIN_DIALOG_RESULT_SUCCESS = 0;
     private static final int PIN_DIALOG_RESULT_FAIL = 1;
 
@@ -104,14 +109,20 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
     private SharedPreferences mSharedPreferences;
     private String mPrevPin;
     private String mPin;
+    private String mRatingString;
     private int mWrongPinCount;
     private long mDisablePinUntil;
     private final Handler mHandler = new Handler();
 
     public PinDialogFragment(int type, ResultListener listener) {
+        this(type, listener, null);
+    }
+
+    public PinDialogFragment(int type, ResultListener listener, String rating) {
         mType = type;
         mListener = listener;
         mRetCode = PIN_DIALOG_RESULT_FAIL;
+        mRatingString = rating;
     }
 
     @Override
@@ -173,6 +184,9 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
                 break;
             case PIN_DIALOG_TYPE_UNLOCK_PROGRAM:
                 mTitleView.setText(R.string.pin_enter_unlock_program);
+                break;
+            case PIN_DIALOG_TYPE_UNLOCK_DVR:
+                mTitleView.setText(getString(R.string.pin_enter_unlock_dvr, mRatingString));
                 break;
             case PIN_DIALOG_TYPE_ENTER_PIN:
                 mTitleView.setText(R.string.pin_enter_pin);
@@ -269,6 +283,7 @@ public class PinDialogFragment extends SafeDismissDialogFragment {
         switch (mType) {
             case PIN_DIALOG_TYPE_UNLOCK_CHANNEL:
             case PIN_DIALOG_TYPE_UNLOCK_PROGRAM:
+            case PIN_DIALOG_TYPE_UNLOCK_DVR:
             case PIN_DIALOG_TYPE_ENTER_PIN:
                 // TODO: Implement limited number of retrials and timeout logic.
                 if (TextUtils.isEmpty(getPin()) || pin.equals(getPin())) {

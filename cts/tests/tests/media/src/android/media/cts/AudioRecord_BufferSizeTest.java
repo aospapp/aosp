@@ -17,12 +17,13 @@
 package android.media.cts;
 
 import android.content.pm.PackageManager;
-import android.cts.util.PollingCheck;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.ArrayList;
 import java.util.List;

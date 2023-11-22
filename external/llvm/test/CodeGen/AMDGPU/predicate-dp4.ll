@@ -3,7 +3,7 @@
 ; CHECK-LABEL: {{^}}main:
 ; CHECK: PRED_SETE_INT * Pred,
 ; CHECK: DOT4 T{{[0-9]+}}.X, T0.X, T0.X, Pred_sel_one
-define void @main(<4 x float> inreg) #0 {
+define amdgpu_ps void @main(<4 x float> inreg) {
 main_body:
   %1 = extractelement <4 x float> %0, i32 0
   %2 = bitcast float %1 to i32
@@ -11,7 +11,7 @@ main_body:
   br i1 %3, label %IF, label %ENDIF
 
 IF:                                             ; preds = %main_body
-  %4 = call float @llvm.AMDGPU.dp4(<4 x float> %0, <4 x float> %0)
+  %4 = call float @llvm.r600.dot4(<4 x float> %0, <4 x float> %0)
   br label %ENDIF
 
 ENDIF:                                            ; preds = %IF, %main_body
@@ -21,7 +21,6 @@ ENDIF:                                            ; preds = %IF, %main_body
   ret void
 }
 
-declare float @llvm.AMDGPU.dp4(<4 x float>, <4 x float>) #1
+declare float @llvm.r600.dot4(<4 x float>, <4 x float>) #1
 declare void @llvm.R600.store.swizzle(<4 x float>, i32, i32)
 attributes #1 = { readnone }
-attributes #0 = { "ShaderType"="0" }

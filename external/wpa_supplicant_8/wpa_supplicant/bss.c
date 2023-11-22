@@ -12,6 +12,7 @@
 #include "utils/eloop.h"
 #include "common/ieee802_11_defs.h"
 #include "drivers/driver.h"
+#include "eap_peer/eap.h"
 #include "wpa_supplicant_i.h"
 #include "config.h"
 #include "notify.h"
@@ -92,6 +93,7 @@ static struct wpa_bss_anqp * wpa_bss_anqp_clone(struct wpa_bss_anqp *anqp)
 	ANQP_DUP(nai_realm);
 	ANQP_DUP(anqp_3gpp);
 	ANQP_DUP(domain_name);
+	ANQP_DUP(fils_realm_info);
 #endif /* CONFIG_INTERWORKING */
 #ifdef CONFIG_HS20
 	ANQP_DUP(hs20_capability_list);
@@ -167,6 +169,7 @@ static void wpa_bss_anqp_free(struct wpa_bss_anqp *anqp)
 	wpabuf_free(anqp->nai_realm);
 	wpabuf_free(anqp->anqp_3gpp);
 	wpabuf_free(anqp->domain_name);
+	wpabuf_free(anqp->fils_realm_info);
 
 	while ((elem = dl_list_first(&anqp->anqp_elems,
 				     struct wpa_bss_anqp_elem, list))) {
@@ -213,8 +216,8 @@ static void wpa_bss_update_pending_connect(struct wpa_supplicant *wpa_s,
 }
 
 
-static void wpa_bss_remove(struct wpa_supplicant *wpa_s, struct wpa_bss *bss,
-			   const char *reason)
+void wpa_bss_remove(struct wpa_supplicant *wpa_s, struct wpa_bss *bss,
+		    const char *reason)
 {
 	if (wpa_s->last_scan_res) {
 		unsigned int i;
@@ -266,9 +269,9 @@ struct wpa_bss * wpa_bss_get(struct wpa_supplicant *wpa_s, const u8 *bssid,
 }
 
 
-static void calculate_update_time(const struct os_reltime *fetch_time,
-				  unsigned int age_ms,
-				  struct os_reltime *update_time)
+void calculate_update_time(const struct os_reltime *fetch_time,
+			   unsigned int age_ms,
+			   struct os_reltime *update_time)
 {
 	os_time_t usec;
 
@@ -300,6 +303,47 @@ static void wpa_bss_copy_res(struct wpa_bss *dst, struct wpa_scan_res *src,
 	dst->snr = src->snr;
 
 	calculate_update_time(fetch_time, src->age, &dst->last_update);
+}
+
+
+static int wpa_bss_is_wps_candidate(struct wpa_supplicant *wpa_s,
+				    struct wpa_bss *bss)
+{
+#ifdef CONFIG_WPS
+	struct wpa_ssid *ssid;
+	struct wpabuf *wps_ie;
+	int pbc = 0, ret;
+
+	wps_ie = wpa_bss_get_vendor_ie_multi(bss, WPS_IE_VENDOR_TYPE);
+	if (!wps_ie)
+		return 0;
+
+	if (wps_is_selected_pbc_registrar(wps_ie)) {
+		pbc = 1;
+	} else if (!wps_is_addr_authorized(wps_ie, wpa_s->own_addr, 1)) {
+		wpabuf_free(wps_ie);
+		return 0;
+	}
+
+	for (ssid = wpa_s->conf->ssid; ssid; ssid = ssid->next) {
+		if (!(ssid->key_mgmt & WPA_KEY_MGMT_WPS))
+			continue;
+		if (ssid->ssid_len &&
+		    (ssid->ssid_len != bss->ssid_len ||
+		     os_memcmp(ssid->ssid, bss->ssid, ssid->ssid_len) != 0))
+			continue;
+
+		if (pbc)
+			ret = eap_is_wps_pbc_enrollee(&ssid->eap);
+		else
+			ret = eap_is_wps_pin_enrollee(&ssid->eap);
+		wpabuf_free(wps_ie);
+		return ret;
+	}
+	wpabuf_free(wps_ie);
+#endif /* CONFIG_WPS */
+
+	return 0;
 }
 
 
@@ -341,7 +385,8 @@ static int wpa_bss_remove_oldest_unknown(struct wpa_supplicant *wpa_s)
 	struct wpa_bss *bss;
 
 	dl_list_for_each(bss, &wpa_s->bss, struct wpa_bss, list) {
-		if (!wpa_bss_known(wpa_s, bss)) {
+		if (!wpa_bss_known(wpa_s, bss) &&
+		    !wpa_bss_is_wps_candidate(wpa_s, bss)) {
 			wpa_bss_remove(wpa_s, bss, __func__);
 			return 0;
 		}
@@ -551,6 +596,42 @@ wpa_bss_update(struct wpa_supplicant *wpa_s, struct wpa_bss *bss,
 	       struct wpa_scan_res *res, struct os_reltime *fetch_time)
 {
 	u32 changes;
+
+	if (bss->last_update_idx == wpa_s->bss_update_idx) {
+		struct os_reltime update_time;
+
+		/*
+		 * Some drivers (e.g., cfg80211) include multiple BSS entries
+		 * for the same BSS if that BSS's channel changes. The BSS list
+		 * implementation in wpa_supplicant does not do that and we need
+		 * to filter out the obsolete results here to make sure only the
+		 * most current BSS information remains in the table.
+		 */
+		wpa_printf(MSG_DEBUG, "BSS: " MACSTR
+			   " has multiple entries in the scan results - select the most current one",
+			   MAC2STR(bss->bssid));
+		calculate_update_time(fetch_time, res->age, &update_time);
+		wpa_printf(MSG_DEBUG,
+			   "Previous last_update: %u.%06u (freq %d%s)",
+			   (unsigned int) bss->last_update.sec,
+			   (unsigned int) bss->last_update.usec,
+			   bss->freq,
+			   (bss->flags & WPA_BSS_ASSOCIATED) ? " assoc" : "");
+		wpa_printf(MSG_DEBUG, "New last_update: %u.%06u (freq %d%s)",
+			   (unsigned int) update_time.sec,
+			   (unsigned int) update_time.usec,
+			   res->freq,
+			   (res->flags & WPA_SCAN_ASSOCIATED) ? " assoc" : "");
+		if ((bss->flags & WPA_BSS_ASSOCIATED) ||
+		    (!(res->flags & WPA_SCAN_ASSOCIATED) &&
+		     !os_reltime_before(&bss->last_update, &update_time))) {
+			wpa_printf(MSG_DEBUG,
+				   "Ignore this BSS entry since the previous update looks more current");
+			return bss;
+		}
+		wpa_printf(MSG_DEBUG,
+			   "Accept this BSS entry since it looks more current than the previous update");
+	}
 
 	changes = wpa_bss_compare_res(bss, res);
 	if (changes & WPA_BSS_FREQ_CHANGED_FLAG)

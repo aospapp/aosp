@@ -210,9 +210,12 @@ junit.framework.AssertionFailedError: This test requires a SIM card with carrier
 Cert hash: 61ed377e85d386a8dfee6b864bd85b0bfaa5af81
 </pre>
 
-<p>You may need a developer UICC to update it with the correct applet and
-certificate rules. However, the UICC does not require active cellular service to
-pass CTS tests.</p>
+<p>In order to validate the implementation via CTS using
+<code>CtsCarrierApiTestCases.apk</code>, you must have a developer UICC with
+the correct UICC rules or ARF support. You may ask the SIM card vendor
+of your choice to prepare a developer UICC with the right ARF as described in
+this section and use that UICC to run the tests. The UICC does not require
+active cellular service to pass CTS tests.</p>
 
 <h3 id=run_tests>Running tests</h3>
 <p>For convenience, the Android 7.0 CTS supports a device token that restricts

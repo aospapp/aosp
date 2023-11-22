@@ -37,6 +37,13 @@ public class TestMin extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestMinRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inA;
         public float inB;
@@ -44,13 +51,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloatFloatFloat() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x7121573el, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x7121573fl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xbdad0b097121573el, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xbdad0b097121573fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloatFloatFloat(inA, out);
             verifyResultsMinFloatFloatFloat(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloatFloatFloat(inA, out);
             verifyResultsMinFloatFloatFloat(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloatFloatFloat: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloatFloatFloat(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloat2Float2Float2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x49b4e454l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x49b4e455l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x2f1cc4b149b4e454l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x2f1cc4b149b4e455l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloat2Float2Float2(inA, out);
             verifyResultsMinFloat2Float2Float2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat2Float2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloat2Float2Float2(inA, out);
             verifyResultsMinFloat2Float2Float2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat2Float2Float2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloat2Float2Float2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloat3Float3Float3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x4b92e5f5l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x4b92e5f6l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x8381a2d14b92e5f5l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x8381a2d14b92e5f6l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloat3Float3Float3(inA, out);
             verifyResultsMinFloat3Float3Float3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat3Float3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloat3Float3Float3(inA, out);
             verifyResultsMinFloat3Float3Float3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat3Float3Float3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloat3Float3Float3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloat4Float4Float4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x4d70e796l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x4d70e797l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xd7e680f14d70e796l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xd7e680f14d70e797l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloat4Float4Float4(inA, out);
             verifyResultsMinFloat4Float4Float4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat4Float4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloat4Float4Float4(inA, out);
             verifyResultsMinFloat4Float4Float4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat4Float4Float4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloat4Float4Float4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -368,13 +391,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalfHalfHalf() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xf239c45l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xf239c46l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x561e96e00f239c45l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x561e96e00f239c46l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalfHalfHalf(inA, out);
             verifyResultsMinHalfHalfHalf(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalfHalfHalf: " + e.toString());
         }
@@ -383,9 +407,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalfHalfHalf(inA, out);
             verifyResultsMinHalfHalfHalf(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalfHalfHalf: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalfHalfHalf(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -452,13 +479,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalf2Half2Half2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa8079b33l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xa8079b34l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x8d1d4d26a8079b33l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x8d1d4d26a8079b34l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalf2Half2Half2(inA, out);
             verifyResultsMinHalf2Half2Half2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf2Half2Half2: " + e.toString());
         }
@@ -467,9 +495,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalf2Half2Half2(inA, out);
             verifyResultsMinHalf2Half2Half2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf2Half2Half2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalf2Half2Half2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -536,13 +567,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalf3Half3Half3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x6a6ac02l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x6a6ac03l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb2d1cd1006a6ac02l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xb2d1cd1006a6ac03l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalf3Half3Half3(inA, out);
             verifyResultsMinHalf3Half3Half3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf3Half3Half3: " + e.toString());
         }
@@ -551,9 +583,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalf3Half3Half3(inA, out);
             verifyResultsMinHalf3Half3Half3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf3Half3Half3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalf3Half3Half3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -620,13 +655,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalf4Half4Half4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6545bcd1l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6545bcd2l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xd8864cf96545bcd1l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xd8864cf96545bcd2l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalf4Half4Half4(inA, out);
             verifyResultsMinHalf4Half4Half4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf4Half4Half4: " + e.toString());
         }
@@ -635,9 +671,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalf4Half4Half4(inA, out);
             verifyResultsMinHalf4Half4Half4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf4Half4Half4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalf4Half4Half4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -704,13 +743,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloat2FloatFloat2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x503b89a6l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x503b89a7l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xe354e297503b89a6l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xe354e297503b89a7l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloat2FloatFloat2(inA, out);
             verifyResultsMinFloat2FloatFloat2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat2FloatFloat2: " + e.toString());
         }
@@ -719,9 +759,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloat2FloatFloat2(inA, out);
             verifyResultsMinFloat2FloatFloat2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat2FloatFloat2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloat2FloatFloat2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -783,13 +826,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloat3FloatFloat3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x3ea67e02l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x3ea67e03l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x38a495af3ea67e02l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x38a495af3ea67e03l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloat3FloatFloat3(inA, out);
             verifyResultsMinFloat3FloatFloat3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat3FloatFloat3: " + e.toString());
         }
@@ -798,9 +842,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloat3FloatFloat3(inA, out);
             verifyResultsMinFloat3FloatFloat3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat3FloatFloat3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloat3FloatFloat3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -862,13 +909,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinFloat4FloatFloat4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x2d11725el, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x2d11725fl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x8df448c72d11725el, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x8df448c72d11725fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinFloat4FloatFloat4(inA, out);
             verifyResultsMinFloat4FloatFloat4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat4FloatFloat4: " + e.toString());
         }
@@ -877,9 +925,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinFloat4FloatFloat4(inA, out);
             verifyResultsMinFloat4FloatFloat4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinFloat4FloatFloat4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinFloat4FloatFloat4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -941,13 +992,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalf2HalfHalf2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x64f79509l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x64f7950al, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x15246c9664f79509l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x15246c9664f7950al, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalf2HalfHalf2(inA, out);
             verifyResultsMinHalf2HalfHalf2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf2HalfHalf2: " + e.toString());
         }
@@ -956,9 +1008,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalf2HalfHalf2(inA, out);
             verifyResultsMinHalf2HalfHalf2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf2HalfHalf2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalf2HalfHalf2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1025,13 +1080,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalf3HalfHalf3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x179126adl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x179126ael, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x3fb18d15179126adl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x3fb18d15179126ael, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalf3HalfHalf3(inA, out);
             verifyResultsMinHalf3HalfHalf3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf3HalfHalf3: " + e.toString());
         }
@@ -1040,9 +1096,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalf3HalfHalf3(inA, out);
             verifyResultsMinHalf3HalfHalf3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf3HalfHalf3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalf3HalfHalf3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1109,13 +1168,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinHalf4HalfHalf4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xca2ab851l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xca2ab852l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x6a3ead93ca2ab851l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x6a3ead93ca2ab852l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinHalf4HalfHalf4(inA, out);
             verifyResultsMinHalf4HalfHalf4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf4HalfHalf4: " + e.toString());
         }
@@ -1124,9 +1184,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinHalf4HalfHalf4(inA, out);
             verifyResultsMinHalf4HalfHalf4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinHalf4HalfHalf4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinHalf4HalfHalf4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1199,13 +1262,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinCharCharChar() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0xe8196e0l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0xe8196e1l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0x78bd3bd20e8196e0l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 1, 0x78bd3bd20e8196e1l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinCharCharChar(inA, out);
             verifyResultsMinCharCharChar(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinCharCharChar: " + e.toString());
         }
@@ -1214,9 +1278,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinCharCharChar(inA, out);
             verifyResultsMinCharCharChar(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinCharCharChar: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinCharCharChar(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1277,13 +1344,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinChar2Char2Char2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0xc8ef5ae2l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0xc8ef5ae3l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0x29373baac8ef5ae2l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 2, 0x29373baac8ef5ae3l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinChar2Char2Char2(inA, out);
             verifyResultsMinChar2Char2Char2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinChar2Char2Char2: " + e.toString());
         }
@@ -1292,9 +1360,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinChar2Char2Char2(inA, out);
             verifyResultsMinChar2Char2Char2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinChar2Char2Char2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinChar2Char2Char2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1355,13 +1426,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinChar3Char3Char3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0x278e6bb1l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0x278e6bb2l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0x4eebbb94278e6bb1l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 3, 0x4eebbb94278e6bb2l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinChar3Char3Char3(inA, out);
             verifyResultsMinChar3Char3Char3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinChar3Char3Char3: " + e.toString());
         }
@@ -1370,9 +1442,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinChar3Char3Char3(inA, out);
             verifyResultsMinChar3Char3Char3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinChar3Char3Char3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinChar3Char3Char3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1433,13 +1508,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinChar4Char4Char4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0x862d7c80l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0x862d7c81l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0x74a03b7d862d7c80l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_8, 4, 0x74a03b7d862d7c81l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_8, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinChar4Char4Char4(inA, out);
             verifyResultsMinChar4Char4Char4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinChar4Char4Char4: " + e.toString());
         }
@@ -1448,9 +1524,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinChar4Char4Char4(inA, out);
             verifyResultsMinChar4Char4Char4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinChar4Char4Char4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinChar4Char4Char4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1517,13 +1596,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUcharUcharUchar() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x3445490bl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x3445490cl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x1469cbe93445490bl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 1, 0x1469cbe93445490cl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUcharUcharUchar(inA, out);
             verifyResultsMinUcharUcharUchar(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUcharUcharUchar: " + e.toString());
         }
@@ -1532,9 +1612,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUcharUcharUchar(inA, out);
             verifyResultsMinUcharUcharUchar(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUcharUcharUchar: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUcharUcharUchar(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1595,13 +1678,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUchar2Uchar2Uchar2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0xcaf0b355l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0xcaf0b356l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0x3c36fd71caf0b355l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 2, 0x3c36fd71caf0b356l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUchar2Uchar2Uchar2(inA, out);
             verifyResultsMinUchar2Uchar2Uchar2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUchar2Uchar2Uchar2: " + e.toString());
         }
@@ -1610,9 +1694,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUchar2Uchar2Uchar2(inA, out);
             verifyResultsMinUchar2Uchar2Uchar2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUchar2Uchar2Uchar2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUchar2Uchar2Uchar2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1673,13 +1760,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUchar3Uchar3Uchar3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0xccceb4f6l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0xccceb4f7l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0x909bdb91ccceb4f6l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 3, 0x909bdb91ccceb4f7l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUchar3Uchar3Uchar3(inA, out);
             verifyResultsMinUchar3Uchar3Uchar3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUchar3Uchar3Uchar3: " + e.toString());
         }
@@ -1688,9 +1776,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUchar3Uchar3Uchar3(inA, out);
             verifyResultsMinUchar3Uchar3Uchar3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUchar3Uchar3Uchar3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUchar3Uchar3Uchar3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1751,13 +1842,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUchar4Uchar4Uchar4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0xceacb697l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0xceacb698l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0xe500b9b1ceacb697l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_8, 4, 0xe500b9b1ceacb698l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_8, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUchar4Uchar4Uchar4(inA, out);
             verifyResultsMinUchar4Uchar4Uchar4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUchar4Uchar4Uchar4: " + e.toString());
         }
@@ -1766,9 +1858,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUchar4Uchar4Uchar4(inA, out);
             verifyResultsMinUchar4Uchar4Uchar4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUchar4Uchar4Uchar4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUchar4Uchar4Uchar4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1835,13 +1930,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinShortShortShort() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0xf2c0a572l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0xf2c0a573l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0x265d6881f2c0a572l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 1, 0x265d6881f2c0a573l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinShortShortShort(inA, out);
             verifyResultsMinShortShortShort(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShortShortShort: " + e.toString());
         }
@@ -1850,9 +1946,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinShortShortShort(inA, out);
             verifyResultsMinShortShortShort(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShortShortShort: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinShortShortShort(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1913,13 +2012,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinShort2Short2Short2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0x69f3c358l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0x69f3c359l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0xac037aa769f3c358l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 2, 0xac037aa769f3c359l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinShort2Short2Short2(inA, out);
             verifyResultsMinShort2Short2Short2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShort2Short2Short2: " + e.toString());
         }
@@ -1928,9 +2028,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinShort2Short2Short2(inA, out);
             verifyResultsMinShort2Short2Short2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShort2Short2Short2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinShort2Short2Short2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -1991,13 +2094,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinShort3Short3Short3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x6bd1c4f9l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x6bd1c4fal, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x6858c76bd1c4f9l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 3, 0x6858c76bd1c4fal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinShort3Short3Short3(inA, out);
             verifyResultsMinShort3Short3Short3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShort3Short3Short3: " + e.toString());
         }
@@ -2006,9 +2110,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinShort3Short3Short3(inA, out);
             verifyResultsMinShort3Short3Short3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShort3Short3Short3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinShort3Short3Short3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2069,13 +2176,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinShort4Short4Short4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0x6dafc69al, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0x6dafc69bl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0x54cd36e76dafc69al, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_16, 4, 0x54cd36e76dafc69bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinShort4Short4Short4(inA, out);
             verifyResultsMinShort4Short4Short4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShort4Short4Short4: " + e.toString());
         }
@@ -2084,9 +2192,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinShort4Short4Short4(inA, out);
             verifyResultsMinShort4Short4Short4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinShort4Short4Short4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinShort4Short4Short4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2153,13 +2264,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUshortUshortUshort() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0xcc4e79c5l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0xcc4e79c6l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0xf8a042afcc4e79c5l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 1, 0xf8a042afcc4e79c6l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUshortUshortUshort(inA, out);
             verifyResultsMinUshortUshortUshort(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshortUshortUshort: " + e.toString());
         }
@@ -2168,9 +2280,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUshortUshortUshort(inA, out);
             verifyResultsMinUshortUshortUshort(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshortUshortUshort: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUshortUshortUshort(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2231,13 +2346,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUshort2Ushort2Ushort2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0x878f4ca3l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0x878f4ca4l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0x2743846f878f4ca3l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 2, 0x2743846f878f4ca4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUshort2Ushort2Ushort2(inA, out);
             verifyResultsMinUshort2Ushort2Ushort2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshort2Ushort2Ushort2: " + e.toString());
         }
@@ -2246,9 +2362,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUshort2Ushort2Ushort2(inA, out);
             verifyResultsMinUshort2Ushort2Ushort2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshort2Ushort2Ushort2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUshort2Ushort2Ushort2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2309,13 +2428,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUshort3Ushort3Ushort3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0xd0743e3al, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0xd0743e3bl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0xa7331d68d0743e3al, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 3, 0xa7331d68d0743e3bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUshort3Ushort3Ushort3(inA, out);
             verifyResultsMinUshort3Ushort3Ushort3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshort3Ushort3Ushort3: " + e.toString());
         }
@@ -2324,9 +2444,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUshort3Ushort3Ushort3(inA, out);
             verifyResultsMinUshort3Ushort3Ushort3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshort3Ushort3Ushort3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUshort3Ushort3Ushort3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2387,13 +2510,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUshort4Ushort4Ushort4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0x19592fd1l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0x19592fd2l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0x2722b66219592fd1l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_16, 4, 0x2722b66219592fd2l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_16, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUshort4Ushort4Ushort4(inA, out);
             verifyResultsMinUshort4Ushort4Ushort4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshort4Ushort4Ushort4: " + e.toString());
         }
@@ -2402,9 +2526,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUshort4Ushort4Ushort4(inA, out);
             verifyResultsMinUshort4Ushort4Ushort4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUshort4Ushort4Ushort4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUshort4Ushort4Ushort4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2471,13 +2598,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinIntIntInt() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xe703dfd7l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xe703dfd8l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xfb5d72ade703dfd7l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xfb5d72ade703dfd8l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinIntIntInt(inA, out);
             verifyResultsMinIntIntInt(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinIntIntInt: " + e.toString());
         }
@@ -2486,9 +2614,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinIntIntInt(inA, out);
             verifyResultsMinIntIntInt(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinIntIntInt: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinIntIntInt(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2549,13 +2680,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinInt2Int2Int2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x13df0b41l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x13df0b42l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x4bc6c69713df0b41l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x4bc6c69713df0b42l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinInt2Int2Int2(inA, out);
             verifyResultsMinInt2Int2Int2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinInt2Int2Int2: " + e.toString());
         }
@@ -2564,9 +2696,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinInt2Int2Int2(inA, out);
             verifyResultsMinInt2Int2Int2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinInt2Int2Int2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinInt2Int2Int2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2627,13 +2762,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinInt3Int3Int3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0xdeb4532al, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0xdeb4532bl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x58ac4a91deb4532al, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x58ac4a91deb4532bl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinInt3Int3Int3(inA, out);
             verifyResultsMinInt3Int3Int3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinInt3Int3Int3: " + e.toString());
         }
@@ -2642,9 +2778,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinInt3Int3Int3(inA, out);
             verifyResultsMinInt3Int3Int3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinInt3Int3Int3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinInt3Int3Int3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2705,13 +2844,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinInt4Int4Int4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0xa9899b13l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0xa9899b14l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x6591ce8ca9899b13l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x6591ce8ca9899b14l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinInt4Int4Int4(inA, out);
             verifyResultsMinInt4Int4Int4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinInt4Int4Int4: " + e.toString());
         }
@@ -2720,9 +2860,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinInt4Int4Int4(inA, out);
             verifyResultsMinInt4Int4Int4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinInt4Int4Int4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinInt4Int4Int4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2789,13 +2932,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUintUintUint() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xde387ca0l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xde387ca1l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xe66a5218de387ca0l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xe66a5218de387ca1l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUintUintUint(inA, out);
             verifyResultsMinUintUintUint(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUintUintUint: " + e.toString());
         }
@@ -2804,9 +2948,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUintUintUint(inA, out);
             verifyResultsMinUintUintUint(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUintUintUint: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUintUintUint(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2867,13 +3014,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUint2Uint2Uint2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0xbd9009a2l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0xbd9009a3l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0x51b17a26bd9009a2l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 2, 0x51b17a26bd9009a3l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUint2Uint2Uint2(inA, out);
             verifyResultsMinUint2Uint2Uint2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUint2Uint2Uint2: " + e.toString());
         }
@@ -2882,9 +3030,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUint2Uint2Uint2(inA, out);
             verifyResultsMinUint2Uint2Uint2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUint2Uint2Uint2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUint2Uint2Uint2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -2945,13 +3096,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUint3Uint3Uint3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0x1c2f1a71l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0x1c2f1a72l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0x7765fa101c2f1a71l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 3, 0x7765fa101c2f1a72l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUint3Uint3Uint3(inA, out);
             verifyResultsMinUint3Uint3Uint3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUint3Uint3Uint3: " + e.toString());
         }
@@ -2960,9 +3112,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUint3Uint3Uint3(inA, out);
             verifyResultsMinUint3Uint3Uint3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUint3Uint3Uint3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUint3Uint3Uint3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3023,13 +3178,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUint4Uint4Uint4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0x7ace2b40l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0x7ace2b41l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0x9d1a79f97ace2b40l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 4, 0x9d1a79f97ace2b41l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_32, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUint4Uint4Uint4(inA, out);
             verifyResultsMinUint4Uint4Uint4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUint4Uint4Uint4: " + e.toString());
         }
@@ -3038,9 +3194,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUint4Uint4Uint4(inA, out);
             verifyResultsMinUint4Uint4Uint4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUint4Uint4Uint4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUint4Uint4Uint4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3107,13 +3266,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinLongLongLong() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0xde2e29eel, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0xde2e29efl, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0x1e87c507de2e29eel, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 1, 0x1e87c507de2e29efl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinLongLongLong(inA, out);
             verifyResultsMinLongLongLong(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLongLongLong: " + e.toString());
         }
@@ -3122,9 +3282,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinLongLongLong(inA, out);
             verifyResultsMinLongLongLong(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLongLongLong: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinLongLongLong(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3185,13 +3348,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinLong2Long2Long2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0x7154fcb8l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0x7154fcb9l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0x5a1aed657154fcb8l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 2, 0x5a1aed657154fcb9l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinLong2Long2Long2(inA, out);
             verifyResultsMinLong2Long2Long2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLong2Long2Long2: " + e.toString());
         }
@@ -3200,9 +3364,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinLong2Long2Long2(inA, out);
             verifyResultsMinLong2Long2Long2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLong2Long2Long2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinLong2Long2Long2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3263,13 +3430,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinLong3Long3Long3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0xcff40d87l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0xcff40d88l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0x7fcf6d4ecff40d87l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 3, 0x7fcf6d4ecff40d88l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinLong3Long3Long3(inA, out);
             verifyResultsMinLong3Long3Long3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLong3Long3Long3: " + e.toString());
         }
@@ -3278,9 +3446,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinLong3Long3Long3(inA, out);
             verifyResultsMinLong3Long3Long3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLong3Long3Long3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinLong3Long3Long3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3341,13 +3512,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinLong4Long4Long4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0x2e931e56l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0x2e931e57l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0xa583ed382e931e56l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.SIGNED_64, 4, 0xa583ed382e931e57l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.SIGNED_64, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinLong4Long4Long4(inA, out);
             verifyResultsMinLong4Long4Long4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLong4Long4Long4: " + e.toString());
         }
@@ -3356,9 +3528,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinLong4Long4Long4(inA, out);
             verifyResultsMinLong4Long4Long4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinLong4Long4Long4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinLong4Long4Long4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3425,13 +3600,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUlongUlongUlong() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x3e23ed8dl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x3e23ed8el, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x21750b943e23ed8dl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 1, 0x21750b943e23ed8el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 1), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUlongUlongUlong(inA, out);
             verifyResultsMinUlongUlongUlong(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlongUlongUlong: " + e.toString());
         }
@@ -3440,9 +3616,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUlongUlongUlong(inA, out);
             verifyResultsMinUlongUlongUlong(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlongUlongUlong: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUlongUlongUlong(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3503,13 +3682,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUlong2Ulong2Ulong2() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0x6c4dc5dfl, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0x6c4dc5e0l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0xd739efe16c4dc5dfl, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 2, 0xd739efe16c4dc5e0l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 2), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUlong2Ulong2Ulong2(inA, out);
             verifyResultsMinUlong2Ulong2Ulong2(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlong2Ulong2Ulong2: " + e.toString());
         }
@@ -3518,9 +3698,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUlong2Ulong2Ulong2(inA, out);
             verifyResultsMinUlong2Ulong2Ulong2(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlong2Ulong2Ulong2: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUlong2Ulong2Ulong2(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3581,13 +3764,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUlong3Ulong3Ulong3() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0x6e2bc780l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0x6e2bc781l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0x2b9ece016e2bc780l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 3, 0x2b9ece016e2bc781l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 3), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUlong3Ulong3Ulong3(inA, out);
             verifyResultsMinUlong3Ulong3Ulong3(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlong3Ulong3Ulong3: " + e.toString());
         }
@@ -3596,9 +3780,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUlong3Ulong3Ulong3(inA, out);
             verifyResultsMinUlong3Ulong3Ulong3(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlong3Ulong3Ulong3: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUlong3Ulong3Ulong3(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {
@@ -3659,13 +3846,14 @@ public class TestMin extends RSBaseCompute {
     }
 
     private void checkMinUlong4Ulong4Ulong4() {
-        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x7009c921l, false);
-        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x7009c922l, false);
+        Allocation inA = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x8003ac217009c921l, false);
+        Allocation inB = createRandomAllocation(mRS, Element.DataType.UNSIGNED_64, 4, 0x8003ac217009c922l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.UNSIGNED_64, 4), INPUTSIZE);
             script.set_gAllocInB(inB);
             script.forEach_testMinUlong4Ulong4Ulong4(inA, out);
             verifyResultsMinUlong4Ulong4Ulong4(inA, inB, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlong4Ulong4Ulong4: " + e.toString());
         }
@@ -3674,9 +3862,12 @@ public class TestMin extends RSBaseCompute {
             scriptRelaxed.set_gAllocInB(inB);
             scriptRelaxed.forEach_testMinUlong4Ulong4Ulong4(inA, out);
             verifyResultsMinUlong4Ulong4Ulong4(inA, inB, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testMinUlong4Ulong4Ulong4: " + e.toString());
         }
+        inA.destroy();
+        inB.destroy();
     }
 
     private void verifyResultsMinUlong4Ulong4Ulong4(Allocation inA, Allocation inB, Allocation out, boolean relaxed) {

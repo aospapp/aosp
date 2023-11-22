@@ -16,6 +16,13 @@
   -->
 
 <merge xmlns:android="http://schemas.android.com/apk/res/android" >
+    <View
+        android:id="@+id/block_screen_for_tune"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black" />
+
     <include layout="@layout/block_screen"
         android:id="@+id/hide_screen" />
 
@@ -26,13 +33,6 @@
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
         android:layout_gravity="center" />
-
-    <View
-        android:id="@+id/block_screen_for_tune"
-        android:visibility="gone"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@android:color/black" />
 
     <include layout="@layout/block_screen"
         android:id="@+id/block_screen" />

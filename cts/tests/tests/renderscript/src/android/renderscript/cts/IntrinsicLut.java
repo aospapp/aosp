@@ -28,7 +28,16 @@ public class IntrinsicLut extends IntrinsicBase {
     short mBlue[] = new short[256];
     short mAlpha[] = new short[256];
 
-
+    @Override
+    protected void tearDown() throws Exception {
+        if (mIntrinsic != null) {
+            mIntrinsic.destroy();
+        }
+        if (mScript != null) {
+            mScript.destroy();
+        }
+        super.tearDown();
+    }
 
     public void createTest() {
         java.util.Random r = new java.util.Random(100);
@@ -89,6 +98,7 @@ public class IntrinsicLut extends IntrinsicBase {
         if (kid == null) {
             throw new IllegalStateException("kid must be valid");
         }
+        s.destroy();
     }
 
 }

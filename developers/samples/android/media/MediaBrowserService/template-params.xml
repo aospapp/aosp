@@ -19,7 +19,12 @@
     <group>Media</group>
     <package>com.example.android.mediabrowserservice</package>
 
-    <minSdk>21</minSdk>
+    <minSdk>19</minSdk>
+
+    <!-- Include additional dependencies here.-->
+    <dependency>com.android.support:support-compat:25.3.0</dependency>
+    <dependency>com.android.support:support-media-compat:25.3.0</dependency>
+    <dependency>com.android.support:appcompat-v7:25.3.0</dependency>
 
     <strings>
         <intro>
@@ -40,6 +45,9 @@ local UI.
     <!-- The basic templates have already been enabled. Uncomment more as desired. -->
     <template src="base-build" />
     <template src="base-application" />
+
+    <use_support_library_vector_drawables>true</use_support_library_vector_drawables>
+
     <metadata>
     <status>PUBLISHED</status>
     <categories>Media</categories>
@@ -54,11 +62,11 @@ local UI.
         <img>screenshots/3-music-notification.png</img>
     </screenshots>
     <api_refs>
-        <android>android.service.media.MediaBrowserService</android>
-        <android>android.media.browse.MediaBrowser</android>
-        <android>android.media.session.MediaSession</android>
-        <android>android.media.session.MediaController</android>
-        <android>android.app.Notification.MediaStyle</android>
+        <android>android.support.v4.media.MediaBrowserServiceCompat</android>
+        <android>android.support.v4.media.MediaBrowserCompat</android>
+        <android>android.support.v4.media.session.MediaSessionCompat</android>
+        <android>android.support.v4.media.session.MediaControllerCompat</android>
+        <android>android.support.v7.app.NotificationCompat.MediaStyle</android>
     </api_refs>
     <description>
 <![CDATA[
@@ -77,7 +85,7 @@ local UI.
 <![CDATA[
 To implement a MediaBrowserService, you need to:
 
-- Extend android.service.media.MediaBrowserService, implementing the media
+- Extend MediaBrowserServiceCompat, implementing the media
   browsing related methods onGetRoot and onLoadChildren;
 
 - In onCreate, start a new MediaSession and call super.setSessionToken() with

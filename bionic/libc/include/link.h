@@ -28,12 +28,14 @@
 #ifndef _LINK_H_
 #define _LINK_H_
 
+#include <sys/cdefs.h>
 #include <sys/types.h>
+
 #include <elf.h>
 
 __BEGIN_DECLS
 
-#if __LP64__
+#if defined(__LP64__)
 #define ElfW(type) Elf64_ ## type
 #else
 #define ElfW(type) Elf32_ ## type
@@ -46,7 +48,11 @@ struct dl_phdr_info {
   ElfW(Half) dlpi_phnum;
 };
 
+#if defined(__arm__)
+int dl_iterate_phdr(int (*)(struct dl_phdr_info*, size_t, void*), void*) __INTRODUCED_IN(21);
+#else
 int dl_iterate_phdr(int (*)(struct dl_phdr_info*, size_t, void*), void*);
+#endif
 
 #ifdef __arm__
 typedef long unsigned int* _Unwind_Ptr;

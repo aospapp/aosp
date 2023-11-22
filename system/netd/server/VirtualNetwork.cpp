@@ -23,6 +23,9 @@
 #define LOG_TAG "Netd"
 #include "log/log.h"
 
+namespace android {
+namespace net {
+
 VirtualNetwork::VirtualNetwork(unsigned netId, bool hasDns, bool secure) :
         Network(netId), mHasDns(hasDns), mSecure(secure) {
 }
@@ -121,3 +124,6 @@ int VirtualNetwork::removeInterface(const std::string& interface) {
     mInterfaces.erase(interface);
     return 0;
 }
+
+}  // namespace net
+}  // namespace android

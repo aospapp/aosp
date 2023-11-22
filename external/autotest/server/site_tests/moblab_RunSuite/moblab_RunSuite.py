@@ -6,7 +6,6 @@ import logging
 import os
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import global_config
 from autotest_lib.server.cros import moblab_test
 from autotest_lib.server.hosts import moblab_host
 
@@ -31,15 +30,18 @@ class moblab_RunSuite(moblab_test.MoblabTest):
 
         @raises AutoservRunError if the suite does not complete successfully.
         """
-        # Fetch the board of the DUT's assigned to this Moblab. There should
-        # only be one type.
-        board = host.afe.get_hosts()[0].platform
+        try:
+            # Fetch the board of the DUT's assigned to this Moblab. There should
+            # only be one type.
+            board = host.afe.get_hosts()[0].platform
+        except IndexError:
+            raise error.TestFail('All hosts for this MobLab are down. Please '
+                                 'request the lab admins to take a look.')
         # TODO (crbug.com/399132) sbasi - Replace repair version with actual
         # stable_version for the given board.
-        stable_version = host.afe.run('get_stable_version', board=board)
-        build_pattern = global_config.global_config.get_config_value(
-                'CROS', 'stable_build_pattern')
-        build = build_pattern % (board, stable_version)
+        stable_version_map = host.afe.get_stable_version_map(
+                host.afe.CROS_IMAGE_TYPE)
+        build = stable_version_map.get_image_name(board)
 
         logging.debug('Running suite: %s.', suite_name)
         try:

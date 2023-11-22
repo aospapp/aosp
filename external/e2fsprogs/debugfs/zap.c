@@ -5,6 +5,7 @@
  * under the terms of the GNU Public License.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -173,9 +174,7 @@ void do_block_dump(int argc, char *argv[])
 	errcode_t	errcode;
 	blk64_t		block;
 	char		*file = NULL;
-	unsigned int	i, j;
 	int		c, err;
-	int		suppress = -1;
 
 	if (check_fs_open(argv[0]))
 		return;
@@ -228,11 +227,21 @@ void do_block_dump(int argc, char *argv[])
 		goto errout;
 	}
 
-	for (i=0; i < current_fs->blocksize; i += 16) {
+	do_byte_hexdump(stdout, buf, current_fs->blocksize);
+errout:
+	free(buf);
+}
+
+void do_byte_hexdump(FILE *fp, unsigned char *buf, size_t bufsize)
+{
+	size_t		i, j;
+	int		suppress = -1;
+
+	for (i = 0; i < bufsize; i += 16) {
 		if (suppress < 0) {
 			if (i && memcmp(buf + i, buf + i - 16, 16) == 0) {
 				suppress = i;
-				printf("*\n");
+				fprintf(fp, "*\n");
 				continue;
 			}
 		} else {
@@ -240,20 +249,16 @@ void do_block_dump(int argc, char *argv[])
 				continue;
 			suppress = -1;
 		}
-		printf("%04o  ", i);
+		fprintf(fp, "%04o  ", (unsigned int)i);
 		for (j = 0; j < 16; j++) {
-			printf("%02x", buf[i+j]);
+			fprintf(fp, "%02x", buf[i+j]);
 			if ((j % 2) == 1)
-				putchar(' ');
+				fprintf(fp, " ");
 		}
-		putchar(' ');
+		fprintf(fp, " ");
 		for (j = 0; j < 16; j++)
-			printf("%c", isprint(buf[i+j]) ? buf[i+j] : '.');
-		putchar('\n');
+			fprintf(fp, "%c", isprint(buf[i+j]) ? buf[i+j] : '.');
+		fprintf(fp, "\n");
 	}
-	putchar('\n');
-
-errout:
-	free(buf);
-	return;
+	fprintf(fp, "\n");
 }

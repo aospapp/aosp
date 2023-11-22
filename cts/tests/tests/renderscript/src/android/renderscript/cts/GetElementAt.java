@@ -33,6 +33,23 @@ public class GetElementAt extends RSBaseCompute {
     ScriptC_get_element_at_x_y script_xy;
 
     @Override
+    protected void tearDown() throws Exception {
+        if (mOut != null) {
+            mOut.destroy();
+        }
+        if (gIn != null) {
+            gIn.destroy();
+        }
+        if (script_x != null) {
+            script_x.destroy();
+        }
+        if (script_xy != null) {
+            script_xy.destroy();
+        }
+        super.tearDown();
+    }
+
+    @Override
     public void forEach(int testId, Allocation mOut) throws RSRuntimeException {
         switch (testId) {
         case TEST_ID_X:

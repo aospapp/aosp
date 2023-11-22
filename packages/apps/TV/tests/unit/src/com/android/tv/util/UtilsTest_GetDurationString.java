@@ -15,8 +15,8 @@
  */
 package com.android.tv.util;
 
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.text.format.DateUtils;
 
 import java.util.Calendar;
@@ -230,6 +230,14 @@ public class UtilsTest_GetDurationString extends AndroidTestCase {
         assertEquals("2/2, 23:00 – 00:00",
                 Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
                         getFebOfThisYearInMillis(2, 23), getFebOfThisYearInMillis(3, 0), true,
+                        DateUtils.FORMAT_24HOUR));
+        assertEquals("2/2, 12:00 AM – 2/3, 12:00 AM",
+                Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
+                        getFebOfThisYearInMillis(2, 0), getFebOfThisYearInMillis(3, 0), true,
+                        DateUtils.FORMAT_12HOUR));
+        assertEquals("2/2, 00:00 – 2/3, 00:00",
+                Utils.getDurationString(getContext(), DATE_THIS_YEAR_2_1_MS,
+                        getFebOfThisYearInMillis(2, 0), getFebOfThisYearInMillis(3, 0), true,
                         DateUtils.FORMAT_24HOUR));
     }
 

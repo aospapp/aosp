@@ -318,6 +318,7 @@ public class ComputeTest extends RSBaseCompute {
         t.invoke_test();
         waitForMessage();
         checkForErrors();
+        t.destroy();
     }
 
     private void checkInit(ScriptC_array_init s) {
@@ -388,6 +389,7 @@ public class ComputeTest extends RSBaseCompute {
         mRS.finish();
         waitForMessage();
         checkForErrors();
+        t.destroy();
     }
 
 
@@ -675,6 +677,7 @@ public class ComputeTest extends RSBaseCompute {
             waitForMessage();
         }
         checkForErrors();
+        s.destroy();
     }
 
     public void testMatrix() {
@@ -683,6 +686,7 @@ public class ComputeTest extends RSBaseCompute {
         mRS.finish();
         waitForMessage();
         checkForErrors();
+        s.destroy();
     }
 
     private boolean initializeStructObject(ScriptC_struct_object s) {
@@ -704,6 +708,7 @@ public class ComputeTest extends RSBaseCompute {
             waitForMessage();
         }
         checkForErrors();
+        s.destroy();
     }
 
     /**
@@ -714,6 +719,7 @@ public class ComputeTest extends RSBaseCompute {
         t.invoke_test();
         waitForMessage();
         checkForErrors();
+        t.destroy();
     }
 
     void setUpAllocation(Allocation a, int val) {
@@ -762,6 +768,11 @@ public class ComputeTest extends RSBaseCompute {
         } catch (RSRuntimeException e) {
         }
         checkForErrors();
+
+        in.destroy();
+        out.destroy();
+        badOut.destroy();
+        s.destroy();
     }
 
     /**
@@ -802,5 +813,10 @@ public class ComputeTest extends RSBaseCompute {
         assertEquals(2, i2[0]);
 
         checkForErrors();
+
+        ai1.destroy();
+        ai2.destroy();
+        instance_1.destroy();
+        instance_2.destroy();
     }
 }

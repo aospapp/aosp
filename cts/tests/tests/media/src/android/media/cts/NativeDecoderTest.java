@@ -20,7 +20,6 @@ import android.media.cts.R;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo;
@@ -34,6 +33,8 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;

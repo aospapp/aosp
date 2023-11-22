@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009, International Business Machines Corporation and         *
@@ -7,6 +9,8 @@
  */
 package android.icu.dev.test.duration;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.duration.BasicPeriodFormatterService;
 import android.icu.impl.duration.DurationFormatter;
@@ -14,17 +18,10 @@ import android.icu.impl.duration.PeriodBuilder;
 import android.icu.impl.duration.PeriodFormatterService;
 import android.icu.text.DurationFormat;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class RegressionTest extends TestFmwk {
-
-    public static void main(String[] args) {
-        new RegressionTest().run(args);
-    }
-    
     // bug6397
+    @Test
     public void TestDisallowedMillis() {
         // original test case
         // if we don't support milliseconds, format times less than 1 second as 

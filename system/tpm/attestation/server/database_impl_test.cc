@@ -37,8 +37,7 @@ const char kFakeCredential[] = "1234";
 
 namespace attestation {
 
-class DatabaseImplTest : public testing::Test,
-                         public DatabaseIO {
+class DatabaseImplTest : public testing::Test, public DatabaseIO {
  public:
   ~DatabaseImplTest() override = default;
   void SetUp() override {
@@ -108,8 +107,9 @@ TEST_F(DatabaseImplTest, DecryptFailure) {
 }
 
 TEST_F(DatabaseImplTest, WriteSuccess) {
-  database_->GetMutableProtobuf()->mutable_credentials()->
-      set_platform_credential("test");
+  database_->GetMutableProtobuf()
+      ->mutable_credentials()
+      ->set_platform_credential("test");
   std::string expected_data;
   database_->GetProtobuf().SerializeToString(&expected_data);
   EXPECT_TRUE(database_->SaveChanges());
@@ -118,16 +118,18 @@ TEST_F(DatabaseImplTest, WriteSuccess) {
 
 TEST_F(DatabaseImplTest, WriteFailure) {
   fake_persistent_data_writable_ = false;
-  database_->GetMutableProtobuf()->mutable_credentials()->
-      set_platform_credential("test");
+  database_->GetMutableProtobuf()
+      ->mutable_credentials()
+      ->set_platform_credential("test");
   EXPECT_FALSE(database_->SaveChanges());
 }
 
 TEST_F(DatabaseImplTest, EncryptFailure) {
   EXPECT_CALL(mock_crypto_utility_, EncryptData(_, _, _, _))
       .WillRepeatedly(Return(false));
-  database_->GetMutableProtobuf()->mutable_credentials()->
-      set_platform_credential("test");
+  database_->GetMutableProtobuf()
+      ->mutable_credentials()
+      ->set_platform_credential("test");
   EXPECT_FALSE(database_->SaveChanges());
 }
 

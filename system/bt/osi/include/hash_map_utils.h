@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include "osi/include/hash_map.h"
+#include <string>
+#include <unordered_map>
 
 // Creates a hash map based on the |params| string containing key and value
 // pairs.  Pairs are expected in the form "key=value" separated by the ';'
@@ -29,9 +30,11 @@
 //   "key0=;key1=value1;"        -> map: [key0]="" [key1]="value1"
 //   "=value0;key1=value1;"      -> map: [key1]="value1"
 // A new hash map or NULL is returned and is owned by the caller.
-hash_map_t *hash_map_utils_new_from_string_params(const char *params);
+std::unordered_map<std::string, std::string>
+hash_map_utils_new_from_string_params(const char* params);
 
 // Dumps the contents of the hash_map to the log for debugging purposes.
 // If |map| is not NULL, all entries of |map| will be dumped, otherwise nothing
 // will be dumped. Note that this function does not take the ownership of |map|.
-void hash_map_utils_dump_string_keys_string_values(hash_map_t *map);
+void hash_map_utils_dump_string_keys_string_values(
+    std::unordered_map<std::string, std::string>& map);

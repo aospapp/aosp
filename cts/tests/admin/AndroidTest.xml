@@ -14,8 +14,10 @@
      limitations under the License.
 -->
 <configuration description="Config for the CTS device admin tests">
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <option name="config-descriptor:metadata" key="component" value="framework" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
+        <option name="install-arg" value="-t" />
         <option name="test-file-name" value="CtsAdminApp.apk" />
         <option name="test-file-name" value="CtsAdminTestCases.apk" />
     </target_preparer>
@@ -23,17 +25,15 @@
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver" />
         <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver2" />
+        <option name="run-command" value="dpm set-profile-owner --user cur android.admin.app/.CtsDeviceAdminProfileOwner" />
+        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminProfileOwner" />
+        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver" />
+        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver2" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.admin.cts" />
-        <option name="runtime-hint" value="20s" />
+        <option name="runtime-hint" value="17m" />
     </test>
 
-    <!-- Instrument the app to clear the device admins so the apk can be uninstalled -->
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstrumentationPreparer">
-        <option name="apk" value="CtsAdminApp.apk" />
-        <option name="package" value="android.admin.app" />
-        <option name="when" value="after" />
-    </target_preparer>
 </configuration>

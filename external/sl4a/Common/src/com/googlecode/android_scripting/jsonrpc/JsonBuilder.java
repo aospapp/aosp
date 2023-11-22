@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2016 Google Inc.
+ * Copyright (C) 2017 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.googlecode.android_scripting.jsonrpc;
@@ -35,6 +35,15 @@ import org.apache.commons.codec.binary.Base64Codec;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import com.android.internal.net.LegacyVpnInfo;
+import com.googlecode.android_scripting.ConvertUtils;
+import com.googlecode.android_scripting.Log;
+import com.googlecode.android_scripting.event.Event;
+//FIXME: Refactor classes, constants and conversions out of here
+import com.googlecode.android_scripting.facade.telephony.InCallServiceImpl;
+import com.googlecode.android_scripting.facade.telephony.TelephonyConstants;
+import com.googlecode.android_scripting.facade.telephony.TelephonyUtils;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -84,22 +93,14 @@ import android.telephony.CellSignalStrengthLte;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.ModemActivityInfo;
 import android.telephony.NeighboringCellInfo;
-import android.telephony.SmsMessage;
 import android.telephony.SignalStrength;
+import android.telephony.SmsMessage;
 import android.telephony.SubscriptionInfo;
-import android.telephony.gsm.GsmCellLocation;
 import android.telephony.VoLteServiceState;
+import android.telephony.gsm.GsmCellLocation;
 import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
-
-import com.googlecode.android_scripting.ConvertUtils;
-import com.googlecode.android_scripting.Log;
-import com.googlecode.android_scripting.event.Event;
-//FIXME: Refactor classes, constants and conversions out of here
-import com.googlecode.android_scripting.facade.telephony.InCallServiceImpl;
-import com.googlecode.android_scripting.facade.telephony.TelephonyUtils;
-import com.googlecode.android_scripting.facade.telephony.TelephonyConstants;
 
 public class JsonBuilder {
 
@@ -127,7 +128,7 @@ public class JsonBuilder {
             return data;
         }
         if (data instanceof JsonSerializable) {
-            return ((JsonSerializable)data).toJSON();
+            return ((JsonSerializable) data).toJSON();
         }
         if (data instanceof JSONObject) {
             return data;
@@ -268,7 +269,7 @@ public class JsonBuilder {
         if (data instanceof byte[]) {
             JSONArray result = new JSONArray();
             for (byte b : (byte[]) data) {
-                result.put(b&0xFF);
+                result.put(b & 0xFF);
             }
             return result;
         }
@@ -305,13 +306,15 @@ public class JsonBuilder {
         if (data instanceof VoLteServiceState) {
             return buildVoLteServiceStateEvent((VoLteServiceState) data);
         }
+        if (data instanceof LegacyVpnInfo) {
+            return buildLegacyVpnInfo((LegacyVpnInfo) data);
+        }
         if (data instanceof ModemActivityInfo) {
             return buildModemActivityInfo((ModemActivityInfo) data);
         }
         if (data instanceof SignalStrength) {
             return buildSignalStrength((SignalStrength) data);
         }
-
 
         return data.toString();
         // throw new JSONException("Failed to build JSON result. " +
@@ -405,7 +408,7 @@ public class JsonBuilder {
             }
         }
         result.put("manufacturerSpecificDataList", manufacturerDataList);
-        result.put("manufacturereIdList", idList);
+        result.put("manufacturerIdList", idList);
         ArrayList<String> serviceUuidList = new ArrayList<String>();
         ArrayList<String> serviceDataList = new ArrayList<String>();
         if (scanResult.getScanRecord().getServiceData() != null) {
@@ -591,7 +594,6 @@ public class JsonBuilder {
         result.put("distanceCm", scanResult.distanceCm);
         result.put("distanceSdCm", scanResult.distanceSdCm);
         result.put("is80211McRTTResponder", scanResult.is80211mcResponder());
-        result.put("isAutoJoinCandidate", scanResult.isAutoJoinCandidate);
         result.put("numConnection", scanResult.numConnection);
         result.put("passpointNetwork", scanResult.isPasspointNetwork());
         result.put("numIpConfigFailures", scanResult.numIpConfigFailures);
@@ -697,8 +699,7 @@ public class JsonBuilder {
         result.put("rssi", data.getRssi());
         result.put("lac", data.getLac());
         result.put("psc", data.getPsc());
-        String networkType =
-                TelephonyUtils.getNetworkTypeString(data.getNetworkType());
+        String networkType = TelephonyUtils.getNetworkTypeString(data.getNetworkType());
         result.put("network_type", build(networkType));
         return result;
     }
@@ -708,10 +709,8 @@ public class JsonBuilder {
         JSONObject result = new JSONObject();
         result.put("rat", "lte");
         result.put("registered", data.isRegistered());
-        CellIdentityLte cellidentity =
-                ((CellInfoLte) data).getCellIdentity();
-        CellSignalStrengthLte signalstrength =
-                ((CellInfoLte) data).getCellSignalStrength();
+        CellIdentityLte cellidentity = ((CellInfoLte) data).getCellIdentity();
+        CellSignalStrengthLte signalstrength = ((CellInfoLte) data).getCellSignalStrength();
         result.put("mcc", cellidentity.getMcc());
         result.put("mnc", cellidentity.getMnc());
         result.put("cid", cellidentity.getCi());
@@ -728,10 +727,8 @@ public class JsonBuilder {
         JSONObject result = new JSONObject();
         result.put("rat", "gsm");
         result.put("registered", data.isRegistered());
-        CellIdentityGsm cellidentity =
-                ((CellInfoGsm) data).getCellIdentity();
-        CellSignalStrengthGsm signalstrength =
-                ((CellInfoGsm) data).getCellSignalStrength();
+        CellIdentityGsm cellidentity = ((CellInfoGsm) data).getCellIdentity();
+        CellSignalStrengthGsm signalstrength = ((CellInfoGsm) data).getCellSignalStrength();
         result.put("mcc", cellidentity.getMcc());
         result.put("mnc", cellidentity.getMnc());
         result.put("cid", cellidentity.getCid());
@@ -746,10 +743,8 @@ public class JsonBuilder {
         JSONObject result = new JSONObject();
         result.put("rat", "wcdma");
         result.put("registered", data.isRegistered());
-        CellIdentityWcdma cellidentity =
-                ((CellInfoWcdma) data).getCellIdentity();
-        CellSignalStrengthWcdma signalstrength =
-                ((CellInfoWcdma) data).getCellSignalStrength();
+        CellIdentityWcdma cellidentity = ((CellInfoWcdma) data).getCellIdentity();
+        CellSignalStrengthWcdma signalstrength = ((CellInfoWcdma) data).getCellSignalStrength();
         result.put("mcc", cellidentity.getMcc());
         result.put("mnc", cellidentity.getMnc());
         result.put("cid", cellidentity.getCid());
@@ -765,10 +760,8 @@ public class JsonBuilder {
         JSONObject result = new JSONObject();
         result.put("rat", "cdma");
         result.put("registered", data.isRegistered());
-        CellIdentityCdma cellidentity =
-                ((CellInfoCdma) data).getCellIdentity();
-        CellSignalStrengthCdma signalstrength =
-                ((CellInfoCdma) data).getCellSignalStrength();
+        CellIdentityCdma cellidentity = ((CellInfoCdma) data).getCellIdentity();
+        CellSignalStrengthCdma signalstrength = ((CellInfoCdma) data).getCellSignalStrength();
         result.put("network_id", cellidentity.getNetworkId());
         result.put("system_id", cellidentity.getSystemId());
         result.put("basestation_id", cellidentity.getBasestationId());
@@ -1102,11 +1095,26 @@ public class JsonBuilder {
     }
 
     private static JSONObject buildVoLteServiceStateEvent(
-        VoLteServiceState volteInfo)
+            VoLteServiceState volteInfo)
             throws JSONException {
         JSONObject info = new JSONObject();
         info.put(TelephonyConstants.VoLteServiceStateContainer.SRVCC_STATE,
-            TelephonyUtils.getSrvccStateString(volteInfo.getSrvccState()));
+                TelephonyUtils.getSrvccStateString(volteInfo.getSrvccState()));
+        return info;
+    }
+
+    private static JSONObject buildLegacyVpnInfo(LegacyVpnInfo data) throws JSONException {
+        JSONObject info = new JSONObject();
+        if (data == null) {
+            return info;
+        }
+        info.put("state", data.state);
+        info.put("key", data.key);
+        String intentStr = "";
+        if (data.intent != null) {
+            intentStr = data.intent.toString();
+        }
+        info.put("intent", intentStr);
         return info;
     }
 
@@ -1117,10 +1125,10 @@ public class JsonBuilder {
         info.put("Timestamp", modemInfo.getTimestamp());
         info.put("SleepTimeMs", modemInfo.getSleepTimeMillis());
         info.put("IdleTimeMs", modemInfo.getIdleTimeMillis());
-        //convert from int[] to List<Integer> for proper JSON translation
+        // convert from int[] to List<Integer> for proper JSON translation
         int[] txTimes = modemInfo.getTxTimeMillis();
         List<Integer> tmp = new ArrayList<Integer>(txTimes.length);
-        for(int val : txTimes) {
+        for (int val : txTimes) {
             tmp.add(val);
         }
         info.put("TxTimeMs", build(tmp));
@@ -1128,60 +1136,61 @@ public class JsonBuilder {
         info.put("EnergyUsedMw", modemInfo.getEnergyUsed());
         return info;
     }
+
     private static JSONObject buildSignalStrength(SignalStrength signalStrength)
             throws JSONException {
         JSONObject info = new JSONObject();
         info.put(TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM,
-            signalStrength.getGsmSignalStrength());
+                signalStrength.getGsmSignalStrength());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_DBM,
-            signalStrength.getGsmDbm());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_DBM,
+                signalStrength.getGsmDbm());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_LEVEL,
-            signalStrength.getGsmLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_LEVEL,
+                signalStrength.getGsmLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_ASU_LEVEL,
-            signalStrength.getGsmAsuLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_ASU_LEVEL,
+                signalStrength.getGsmAsuLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_BIT_ERROR_RATE,
-            signalStrength.getGsmBitErrorRate());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_GSM_BIT_ERROR_RATE,
+                signalStrength.getGsmBitErrorRate());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_DBM,
-            signalStrength.getCdmaDbm());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_DBM,
+                signalStrength.getCdmaDbm());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_LEVEL,
-            signalStrength.getCdmaLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_LEVEL,
+                signalStrength.getCdmaLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_ASU_LEVEL,
-            signalStrength.getCdmaAsuLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_ASU_LEVEL,
+                signalStrength.getCdmaAsuLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_ECIO,
-            signalStrength.getCdmaEcio());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_CDMA_ECIO,
+                signalStrength.getCdmaEcio());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_EVDO_DBM,
-            signalStrength.getEvdoDbm());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_EVDO_DBM,
+                signalStrength.getEvdoDbm());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_EVDO_ECIO,
-            signalStrength.getEvdoEcio());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_EVDO_ECIO,
+                signalStrength.getEvdoEcio());
         info.put(TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE,
-            signalStrength.getLteSignalStrength());
+                signalStrength.getLteSignalStrength());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE_DBM,
-            signalStrength.getLteDbm());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE_DBM,
+                signalStrength.getLteDbm());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE_LEVEL,
-            signalStrength.getLteLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE_LEVEL,
+                signalStrength.getLteLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE_ASU_LEVEL,
-            signalStrength.getLteAsuLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LTE_ASU_LEVEL,
+                signalStrength.getLteAsuLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LEVEL,
-            signalStrength.getLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_LEVEL,
+                signalStrength.getLevel());
         info.put(
-            TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_ASU_LEVEL,
-            signalStrength.getAsuLevel());
+                TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_ASU_LEVEL,
+                signalStrength.getAsuLevel());
         info.put(TelephonyConstants.SignalStrengthContainer.SIGNAL_STRENGTH_DBM,
-            signalStrength.getDbm());
+                signalStrength.getDbm());
         return info;
     }
 

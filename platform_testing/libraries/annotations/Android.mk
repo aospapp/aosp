@@ -19,6 +19,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE := platform-test-annotations
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SDK_VERSION := current  # To allow use from CTS
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 # Build for host side tests

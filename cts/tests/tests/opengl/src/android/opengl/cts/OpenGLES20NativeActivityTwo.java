@@ -20,8 +20,11 @@ import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.Bundle;
+import android.view.Window;
+import android.view.WindowManager;
 
 import java.lang.InterruptedException;
+import java.lang.UnsupportedOperationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -48,12 +51,19 @@ public class OpenGLES20NativeActivityTwo extends Activity {
     }
 
     public void setView(int type, int i, float[] vertexColors ) {
+        // Note: Flags should be modified before the content view is set
+        Window window = getWindow();
+        window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_FULLSCREEN
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
         view = new OpenGLES20View(this,type,i, vertexColors, mLatch);
         setContentView(view);
     }
 
     public void setView(int type, int i) {
-
+        throw new UnsupportedOperationException("No views without vertexColors, please!");
     }
 
     public int getNoOfAttachedShaders() {

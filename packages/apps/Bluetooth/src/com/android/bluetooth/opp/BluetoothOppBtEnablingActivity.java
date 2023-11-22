@@ -33,8 +33,6 @@
 package com.android.bluetooth.opp;
 
 import com.android.bluetooth.R;
-import com.android.internal.app.AlertActivity;
-import com.android.internal.app.AlertController;
 
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
@@ -48,6 +46,9 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
+
+import com.android.internal.app.AlertActivity;
+import com.android.internal.app.AlertController;
 
 /**
  * This class is designed to show BT enabling progress.

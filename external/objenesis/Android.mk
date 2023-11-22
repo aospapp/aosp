@@ -19,7 +19,7 @@ LOCAL_PATH := $(call my-dir)
 # build for the host JVM
 #-----------------------
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, main/src)
+LOCAL_SRC_FILES := $(call all-java-files-under, main/src/main/java)
 LOCAL_MODULE := objenesis-host
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_HOST_JAVA_LIBRARY)
@@ -27,7 +27,7 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 # build for host dalvik
 #-----------------------
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, main/src)
+LOCAL_SRC_FILES := $(call all-java-files-under, main/src/main/java)
 LOCAL_MODULE := objenesis-hostdex
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
@@ -37,7 +37,7 @@ include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := $(call all-java-files-under, main/src)
+LOCAL_SRC_FILES := $(call all-java-files-under, main/src/main/java)
 # ideally this should be called just 'objenesis', but that name is
 # already used by a prebuilt host lib.
 LOCAL_MODULE := objenesis-target
@@ -54,23 +54,8 @@ LOCAL_MODULE := objenesis-tck-target
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := objenesis-target
-LOCAL_SRC_FILES := $(call all-java-files-under, tck/src)
-LOCAL_JAVA_RESOURCE_DIRS := tck/src
+LOCAL_SRC_FILES := $(call all-java-files-under, tck/src/main/java)
+LOCAL_JAVA_RESOURCE_DIRS := tck/src/main/resources
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
-# -------------------------------
-# Builds the deployable Objenesis TCK for Android
-# To build and run:
-#    make APP-ObjenesisTck
-#    adb install -r out/target/product/generic/data/app/ObjenesisTck.apk
-#    adb shell am instrument -w org.objenesis.tck.android/.TckInstrumentation
-
-LOCAL_PATH := $(LOCAL_PATH)/tck-android
-include $(CLEAR_VARS)
-LOCAL_PACKAGE_NAME := ObjenesisTck
-LOCAL_MODULE_TAGS := tests
-LOCAL_CERTIFICATE := platform
-
-LOCAL_STATIC_JAVA_LIBRARIES := objenesis-tck-target
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
-include $(BUILD_PACKAGE)
+include $(call all-makefiles-under, $(LOCAL_PATH))

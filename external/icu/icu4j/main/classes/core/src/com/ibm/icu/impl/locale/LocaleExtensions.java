@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2010, International Business Machines Corporation and    *
@@ -197,6 +199,7 @@ public class LocaleExtensions {
     }
 
 
+    @Override
     public String toString() {
         return _id;
     }
@@ -205,10 +208,12 @@ public class LocaleExtensions {
         return _id;
     }
 
+    @Override
     public int hashCode() {
         return _id.hashCode();
     }
 
+    @Override
     public boolean equals(Object other) {
         if (this == other) {
             return true;

@@ -33,7 +33,6 @@ public class AppWidgetManagerPermissionTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mAppWidgetManager = AppWidgetManager.getInstance(getContext());
-        assertNotNull(mAppWidgetManager);
     }
 
     /**
@@ -49,6 +48,7 @@ public class AppWidgetManagerPermissionTest extends AndroidTestCase {
                 .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS)) {
             return;
         }
+        assertNotNull(mAppWidgetManager);
 
         try {
             final boolean bound = mAppWidgetManager.bindAppWidgetIdIfAllowed(1,

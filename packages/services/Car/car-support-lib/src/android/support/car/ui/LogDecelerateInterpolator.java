@@ -17,6 +17,9 @@ package android.support.car.ui;
 
 import android.view.animation.Interpolator;
 
+/**
+ * @hide
+ */
 public class LogDecelerateInterpolator implements Interpolator {
 
     int mBase;

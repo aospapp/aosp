@@ -242,4 +242,7 @@ void VehicleNetworkAudioHelper::onHalRestart(bool /*inMocking*/) {
     mFocusWait.signal();
 }
 
+void VehicleNetworkAudioHelper::onPropertySet(const vehicle_prop_value_t &value __attribute__((unused))) {
+}
+
 }; // namespace android

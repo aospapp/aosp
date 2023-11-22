@@ -11,6 +11,7 @@ import os
 import signal
 import unittest
 
+import common
 from autotest_lib.client.common_lib import base_job, error
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server.cros import provision
@@ -56,14 +57,7 @@ class DynamicSuiteTest(mox.MoxTestBase):
     def testVetReimageAndRunBuildArgFail(self):
         """Should fail verification if both |builds| and |build| are not set.
         """
-        self._DARGS['build'] = None
         self._DARGS['builds'] = None
-        self.assertRaises(error.SuiteArgumentException,
-                          dynamic_suite.SuiteSpec,
-                          **self._DARGS)
-        self._DARGS['build'] = 'build1'
-        self._DARGS['builds'] = {'cros-version': 'build2',
-                                 'firmware-version': 'build3'}
         self.assertRaises(error.SuiteArgumentException,
                           dynamic_suite.SuiteSpec,
                           **self._DARGS)
@@ -118,15 +112,18 @@ class DynamicSuiteTest(mox.MoxTestBase):
         self.assertEquals(spec.num, None)
         self.assertEquals(spec.check_hosts, True)
         self.assertEquals(spec.add_experimental, True)
-        self.assertEquals(spec.suite_dependencies, [])
+        self.assertEquals(
+                spec.suite_dependencies,
+                ['cros-version:build_1', 'fwrw-version:fwrw_build_1'])
 
 
     def testReimageAndSIGTERM(self):
         """Should reimage_and_run that causes a SIGTERM and fails cleanly."""
-        def suicide(*_):
+        def suicide(*_, **__):
             """Send SIGTERM to current process to exit.
 
             @param _: Ignored.
+            @param __: Ignored.
             """
             os.kill(os.getpid(), signal.SIGTERM)
 
@@ -151,8 +148,9 @@ class DynamicSuiteTest(mox.MoxTestBase):
         spec.test_source_build = Suite.get_test_source_build(self._BUILDS)
         spec.devserver = self.mox.CreateMock(dev_server.ImageServer)
         spec.devserver.stage_artifacts(
-                spec.builds[provision.CROS_VERSION_PREFIX],
-                ['control_files', 'test_suites']).WithSideEffects(suicide)
+                image=spec.builds[provision.CROS_VERSION_PREFIX],
+                artifacts=['control_files', 'test_suites']
+                ).WithSideEffects(suicide)
         spec.run_prod_code = False
 
         self.mox.ReplayAll()

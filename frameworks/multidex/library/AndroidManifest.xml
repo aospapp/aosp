@@ -15,5 +15,5 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.support.multidex">
-    <uses-sdk android:minSdkVersion="4"/>
+    <meta-data android:name="android.support.VERSION" android:value="${multidex-version}" />
 </manifest>

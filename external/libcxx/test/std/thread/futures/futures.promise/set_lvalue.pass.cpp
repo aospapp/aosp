@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 // UNSUPPORTED: libcpp-has-no-threads
+// UNSUPPORTED: c++98, c++03
 
 // <future>
 
@@ -17,6 +18,8 @@
 
 #include <future>
 #include <cassert>
+
+#include "test_macros.h"
 
 int main()
 {
@@ -30,6 +33,7 @@ int main()
         assert(j == 3);
         ++i;
         assert(j == 4);
+#ifndef TEST_HAS_NO_EXCEPTIONS
         try
         {
             p.set_value(i);
@@ -39,5 +43,6 @@ int main()
         {
             assert(e.code() == make_error_code(std::future_errc::promise_already_satisfied));
         }
+#endif
     }
 }

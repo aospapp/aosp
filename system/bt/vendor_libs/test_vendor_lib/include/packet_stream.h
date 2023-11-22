@@ -17,12 +17,12 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 #include <memory>
+#include <vector>
 
-#include "vendor_libs/test_vendor_lib/include/command_packet.h"
-#include "vendor_libs/test_vendor_lib/include/event_packet.h"
-#include "vendor_libs/test_vendor_lib/include/packet.h"
+#include "command_packet.h"
+#include "event_packet.h"
+#include "packet.h"
 
 namespace test_vendor_lib {
 
@@ -45,7 +45,7 @@ class PacketStream {
 
   // Sends an event to file descriptor |fd|. The ownership of the event is left
   // with the caller.
-  bool SendEvent(const EventPacket& event, int fd) const;
+  bool SendEvent(std::unique_ptr<EventPacket> event, int fd) const;
 
  private:
   // Checks if |type| is in the valid range from DATA_TYPE_COMMAND to

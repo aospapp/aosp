@@ -15,5 +15,6 @@ class enterprise_RemoraRequisitionServer(test.test):
         self.client = host
 
         tpm_utils.ClearTPMOwnerRequest(self.client)
-        autotest.Autotest(self.client).run_test('enterprise_RemoraRequisition')
+        autotest.Autotest(self.client).run_test('enterprise_RemoraRequisition',
+                                                check_client_result=True)
         tpm_utils.ClearTPMOwnerRequest(self.client)

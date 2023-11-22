@@ -18,7 +18,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.ClassType;
 
-import org.apache.harmony.jpda.tests.framework.LogWriter;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
@@ -26,6 +25,7 @@ public class NewInstance002Debuggee extends SyncDebuggee {
 
     static class TestClass {
         // Field used to check correct execution of constructor.
+        @SuppressWarnings("unused")
         private final int checkField;
 
         // Constructor invoked from JDWP ClassType.NewInstance command.
@@ -42,9 +42,11 @@ public class NewInstance002Debuggee extends SyncDebuggee {
         logWriter.println("NewInstance002Debuggee.execMethod()");
     }
 
+    @Override
     public void run() {
         // Preload TestClass so it is available during the test.
-        Class c = null;
+        @SuppressWarnings("unused")
+        Class<?> c = null;
         try {
             c = Class.forName("org.apache.harmony.jpda.tests.jdwp.ClassType.NewInstance002Debuggee$TestClass");
         } catch (ClassNotFoundException e) {

@@ -27,15 +27,15 @@ class _StoryMatcher(object):
         (story.name and self._regex.search(story.name)))
 
 
-class _StoryLabelMatcher(object):
-  def __init__(self, labels_str):
-    self._labels = labels_str.split(',') if labels_str else None
+class _StoryTagMatcher(object):
+  def __init__(self, tags_str):
+    self._tags = tags_str.split(',') if tags_str else None
 
   def __nonzero__(self):
-    return self._labels is not None
+    return self._tags is not None
 
   def HasLabelIn(self, story):
-    return self and bool(story.labels.intersection(self._labels))
+    return self and bool(story.tags.intersection(self._tags))
 
 
 class StoryFilter(command_line.ArgumentHandlerMixIn):
@@ -48,18 +48,19 @@ class StoryFilter(command_line.ArgumentHandlerMixIn):
         help='Use only stories whose names match the given filter regexp.')
     group.add_option('--story-filter-exclude',
         help='Exclude stories whose names match the given filter regexp.')
-    group.add_option('--story-label-filter',
-        help='Use only stories that have any of these labels')
-    group.add_option('--story-label-filter-exclude',
-        help='Exclude stories that have any of these labels')
+    group.add_option('--story-tag-filter',
+        help='Use only stories that have any of these tags')
+    group.add_option('--story-tag-filter-exclude',
+        help='Exclude stories that have any of these tags')
     parser.add_option_group(group)
 
   @classmethod
   def ProcessCommandLineArgs(cls, parser, args):
     cls._include_regex = _StoryMatcher(args.story_filter)
     cls._exclude_regex = _StoryMatcher(args.story_filter_exclude)
-    cls._include_labels = _StoryLabelMatcher(args.story_label_filter)
-    cls._exclude_labels = _StoryLabelMatcher(args.story_label_filter_exclude)
+
+    cls._include_tags = _StoryTagMatcher(args.story_tag_filter)
+    cls._exclude_tags = _StoryTagMatcher(args.story_tag_filter_exclude)
 
     if cls._include_regex.has_compile_error:
       raise parser.error('--story-filter: Invalid regex.')
@@ -69,12 +70,12 @@ class StoryFilter(command_line.ArgumentHandlerMixIn):
   @classmethod
   def IsSelected(cls, story):
     # Exclude filters take priority.
-    if cls._exclude_labels.HasLabelIn(story):
+    if cls._exclude_tags.HasLabelIn(story):
       return False
     if cls._exclude_regex.HasMatch(story):
       return False
 
-    if cls._include_labels and not cls._include_labels.HasLabelIn(story):
+    if cls._include_tags and not cls._include_tags.HasLabelIn(story):
       return False
     if cls._include_regex and not cls._include_regex.HasMatch(story):
       return False

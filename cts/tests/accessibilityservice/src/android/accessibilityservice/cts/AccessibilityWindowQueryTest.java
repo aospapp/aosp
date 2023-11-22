@@ -16,6 +16,7 @@
 
 package android.accessibilityservice.cts;
 
+import static android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE;
 import static android.view.accessibility.AccessibilityNodeInfo.ACTION_CLEAR_FOCUS;
 import static android.view.accessibility.AccessibilityNodeInfo.ACTION_CLEAR_SELECTION;
 import static android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK;
@@ -27,9 +28,11 @@ import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.UiAutomation;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Rect;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.view.Gravity;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
@@ -53,18 +56,44 @@ import java.util.concurrent.TimeoutException;
  */
 public class AccessibilityWindowQueryTest
         extends AccessibilityActivityTestCase<AccessibilityWindowQueryActivity> {
-
+    private static String CONTENT_VIEW_RES_NAME =
+            "android.accessibilityservice.cts:id/added_content";
     private static final long TIMEOUT_WINDOW_STATE_IDLE = 500;
+    private final UiAutomation.AccessibilityEventFilter mWindowsChangedFilter =
+            new UiAutomation.AccessibilityEventFilter() {
+                @Override
+                public boolean accept(AccessibilityEvent event) {
+                    return (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED);
+                }
+            };
+
 
     public AccessibilityWindowQueryTest() {
         super(AccessibilityWindowQueryActivity.class);
     }
 
     @MediumTest
-    public void testFindByText() throws Exception {
+    public void testFindByText() throws Throwable {
+        // First, make the root view of the activity an accessibility node. This allows us to
+        // later exclude views that are part of the activity's DecorView.
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getActivity().findViewById(R.id.added_content)
+                    .setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+            }
+        });
+
+        // Start looking from the added content instead of from the root accessibility node so
+        // that nodes that we don't expect (i.e. window control buttons) are not included in the
+        // list of accessibility nodes returned by findAccessibilityNodeInfosByText.
+        final AccessibilityNodeInfo addedContent = getInstrumentation().getUiAutomation()
+                .getRootInActiveWindow().findAccessibilityNodeInfosByViewId(CONTENT_VIEW_RES_NAME)
+                        .get(0);
+
         // find a view by text
-        List<AccessibilityNodeInfo> buttons = getInstrumentation().getUiAutomation()
-                .getRootInActiveWindow().findAccessibilityNodeInfosByText("b");
+        List<AccessibilityNodeInfo> buttons = addedContent.findAccessibilityNodeInfosByText("b");
+
         assertEquals(9, buttons.size());
     }
 
@@ -84,6 +113,11 @@ public class AccessibilityWindowQueryTest
 
     @MediumTest
     public void testNoWindowsAccessIfFlagNotSet() throws Exception {
+        // Clear window access flag
+        AccessibilityServiceInfo info = getInstrumentation().getUiAutomation().getServiceInfo();
+        info.flags &= ~AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        getInstrumentation().getUiAutomation().setServiceInfo(info);
+
         // Make sure the windows cannot be accessed.
         UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
         assertTrue(uiAutomation.getWindows().isEmpty());
@@ -555,6 +589,26 @@ public class AccessibilityWindowQueryTest
             // Android TV doesn't support the divider window
             return;
         }
+
+        // Get com.android.internal.R.bool.config_supportsSplitScreenMultiWindow
+        try {
+            if (!getInstrumentation().getContext().getResources().getBoolean(
+                    Resources.getSystem().getIdentifier(
+                            "config_supportsSplitScreenMultiWindow", "bool", "android"))) {
+                // Check if split screen multi window is not supported.
+                return;
+            }
+        } catch (Resources.NotFoundException e) {
+            // Do nothing, assume split screen multi window is supported.
+        }
+
+        // Get com.android.internal.R.bool.config_supportsMultiWindow
+        if (!getInstrumentation().getContext().getResources().getBoolean(
+                Resources.getSystem().getIdentifier("config_supportsMultiWindow", "bool",
+                        "android"))) {
+            // Check if multiWindow is supported.
+            return;
+        }
         setAccessInteractiveWindowsFlag();
         final UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
         assertFalse(isDividerWindowPresent(uiAutomation));
@@ -565,22 +619,41 @@ public class AccessibilityWindowQueryTest
                         AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN));
             }
         };
-        UiAutomation.AccessibilityEventFilter windowsChangedFilter =
-                new UiAutomation.AccessibilityEventFilter() {
-            @Override
-            public boolean accept(AccessibilityEvent event) {
-                return (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED);
-            }
-        };
 
-        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, windowsChangedFilter,
+        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, mWindowsChangedFilter,
                 TIMEOUT_ASYNC_PROCESSING);
         waitForIdle();
         assertTrue(isDividerWindowPresent(uiAutomation));
-        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, windowsChangedFilter,
+        uiAutomation.executeAndWaitForEvent(toggleSplitScreenRunnable, mWindowsChangedFilter,
                 TIMEOUT_ASYNC_PROCESSING);
         waitForIdle();
         assertFalse(isDividerWindowPresent(uiAutomation));
+    }
+
+    public void testFindPictureInPictureWindow() throws Exception {
+        if (!getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(FEATURE_PICTURE_IN_PICTURE)) {
+            return;
+        }
+        final UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
+        uiAutomation.executeAndWaitForEvent(() -> {
+            getInstrumentation().runOnMainSync(() -> {
+                getActivity().enterPictureInPictureMode();
+            });
+        }, mWindowsChangedFilter, TIMEOUT_ASYNC_PROCESSING);
+        waitForIdle();
+
+        // We should be able to find a picture-in-picture window now
+        int numPictureInPictureWindows = 0;
+        final List<AccessibilityWindowInfo> windows = uiAutomation.getWindows();
+        final int windowCount = windows.size();
+        for (int i = 0; i < windowCount; i++) {
+            final AccessibilityWindowInfo window = windows.get(i);
+            if (window.isInPictureInPictureMode()) {
+                numPictureInPictureWindows++;
+            }
+        }
+        assertTrue(numPictureInPictureWindows >= 1);
     }
 
     private boolean isDividerWindowPresent(UiAutomation uiAutomation) {
@@ -817,7 +890,6 @@ public class AccessibilityWindowQueryTest
             classNameAndTextList.add("android.widget.ButtonB8");
             classNameAndTextList.add("android.widget.ButtonB9");
 
-            String contentViewIdResName = "android.accessibilityservice.cts:id/added_content";
             boolean verifyContent = false;
 
             Queue<AccessibilityNodeInfo> fringe = new LinkedList<AccessibilityNodeInfo>();
@@ -828,7 +900,7 @@ public class AccessibilityWindowQueryTest
                 AccessibilityNodeInfo current = fringe.poll();
 
                 if (!verifyContent
-                        && contentViewIdResName.equals(current.getViewIdResourceName())) {
+                        && CONTENT_VIEW_RES_NAME.equals(current.getViewIdResourceName())) {
                     verifyContent = true;
                 }
 

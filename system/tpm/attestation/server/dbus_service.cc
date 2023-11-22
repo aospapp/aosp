@@ -32,8 +32,7 @@ namespace attestation {
 DBusService::DBusService(const scoped_refptr<dbus::Bus>& bus,
                          AttestationInterface* service)
     : dbus_object_(nullptr, bus, dbus::ObjectPath(kAttestationServicePath)),
-      service_(service) {
-}
+      service_(service) {}
 
 void DBusService::Register(const CompletionAction& callback) {
   brillo::dbus_utils::DBusInterface* dbus_interface =
@@ -42,11 +41,9 @@ void DBusService::Register(const CompletionAction& callback) {
   dbus_interface->AddMethodHandler(kCreateGoogleAttestedKey,
                                    base::Unretained(this),
                                    &DBusService::HandleCreateGoogleAttestedKey);
-  dbus_interface->AddMethodHandler(kGetKeyInfo,
-                                   base::Unretained(this),
+  dbus_interface->AddMethodHandler(kGetKeyInfo, base::Unretained(this),
                                    &DBusService::HandleGetKeyInfo);
-  dbus_interface->AddMethodHandler(kGetEndorsementInfo,
-                                   base::Unretained(this),
+  dbus_interface->AddMethodHandler(kGetEndorsementInfo, base::Unretained(this),
                                    &DBusService::HandleGetEndorsementInfo);
   dbus_interface->AddMethodHandler(kGetAttestationKeyInfo,
                                    base::Unretained(this),
@@ -57,15 +54,12 @@ void DBusService::Register(const CompletionAction& callback) {
   dbus_interface->AddMethodHandler(kCreateCertifiableKey,
                                    base::Unretained(this),
                                    &DBusService::HandleCreateCertifiableKey);
-  dbus_interface->AddMethodHandler(kDecrypt,
-                                   base::Unretained(this),
+  dbus_interface->AddMethodHandler(kDecrypt, base::Unretained(this),
                                    &DBusService::HandleDecrypt);
-  dbus_interface->AddMethodHandler(kSign,
-                                   base::Unretained(this),
+  dbus_interface->AddMethodHandler(kSign, base::Unretained(this),
                                    &DBusService::HandleSign);
   dbus_interface->AddMethodHandler(
-      kRegisterKeyWithChapsToken,
-      base::Unretained(this),
+      kRegisterKeyWithChapsToken, base::Unretained(this),
       &DBusService::HandleRegisterKeyWithChapsToken);
 
   dbus_object_.RegisterAsync(callback);
@@ -78,8 +72,8 @@ void DBusService::HandleCreateGoogleAttestedKey(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const CreateGoogleAttestedKeyReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const CreateGoogleAttestedKeyReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
                      const CreateGoogleAttestedKeyReply& reply) {
@@ -96,13 +90,11 @@ void DBusService::HandleGetKeyInfo(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const GetKeyInfoReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const GetKeyInfoReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
-                     const GetKeyInfoReply& reply) {
-    response->Return(reply);
-  };
+                     const GetKeyInfoReply& reply) { response->Return(reply); };
   service_->GetKeyInfo(
       request,
       base::Bind(callback, SharedResponsePointer(std::move(response))));
@@ -115,8 +107,8 @@ void DBusService::HandleGetEndorsementInfo(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const GetEndorsementInfoReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const GetEndorsementInfoReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
                      const GetEndorsementInfoReply& reply) {
@@ -134,8 +126,8 @@ void DBusService::HandleGetAttestationKeyInfo(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const GetAttestationKeyInfoReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const GetAttestationKeyInfoReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
                      const GetAttestationKeyInfoReply& reply) {
@@ -153,8 +145,8 @@ void DBusService::HandleActivateAttestationKey(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const ActivateAttestationKeyReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const ActivateAttestationKeyReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
                      const ActivateAttestationKeyReply& reply) {
@@ -172,8 +164,8 @@ void DBusService::HandleCreateCertifiableKey(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const CreateCertifiableKeyReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const CreateCertifiableKeyReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
                      const CreateCertifiableKeyReply& reply) {
@@ -190,13 +182,11 @@ void DBusService::HandleDecrypt(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const DecryptReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const DecryptReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
-                     const DecryptReply& reply) {
-    response->Return(reply);
-  };
+                     const DecryptReply& reply) { response->Return(reply); };
   service_->Decrypt(
       request,
       base::Bind(callback, SharedResponsePointer(std::move(response))));
@@ -208,13 +198,11 @@ void DBusService::HandleSign(
   VLOG(1) << __func__;
   // Convert |response| to a shared_ptr so |service_| can safely copy the
   // callback.
-  using SharedResponsePointer = std::shared_ptr<
-      DBusMethodResponse<const SignReply&>>;
+  using SharedResponsePointer =
+      std::shared_ptr<DBusMethodResponse<const SignReply&>>;
   // A callback that fills the reply protobuf and sends it.
   auto callback = [](const SharedResponsePointer& response,
-                     const SignReply& reply) {
-    response->Return(reply);
-  };
+                     const SignReply& reply) { response->Return(reply); };
   service_->Sign(
       request,
       base::Bind(callback, SharedResponsePointer(std::move(response))));

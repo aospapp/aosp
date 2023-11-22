@@ -20,13 +20,9 @@
 #include "dwarf_unwind.h"
 #include "environment.h"
 
-std::vector<uint64_t> UnwindCallChain(ArchType, const ThreadEntry&, const RegSet&,
-                                      const std::vector<char>&) {
+std::vector<uint64_t> UnwindCallChain(int, const ThreadEntry&, const RegSet&,
+                                      const char*, size_t, bool) {
   return std::vector<uint64_t>();
-}
-
-bool ProcessKernelSymbols(const std::string&, std::function<bool(const KernelSymbol&)>) {
-  return false;
 }
 
 bool GetKernelBuildId(BuildId*) {

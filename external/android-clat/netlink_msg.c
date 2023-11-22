@@ -22,8 +22,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include <netlink-local.h>
-#include <netlink-types.h>
+#include <netlink-private/object-api.h>
+#include <netlink-private/types.h>
 #include <netlink/socket.h>
 #include <netlink/netlink.h>
 #include <netlink/msg.h>

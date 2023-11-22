@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ************************************************************************************
  * Copyright (C) 2007-2015, Google Inc, International Business Machines Corporation
@@ -30,6 +32,7 @@ public class IterableComparator<T> implements Comparator<Iterable<T>> {
         this.shorterFirst = shorterFirst ? 1 : -1;
     }
 
+    @Override
     public int compare(Iterable<T> a, Iterable<T> b) {
         if (a == null) {
             return b == null ? 0 : -shorterFirst;

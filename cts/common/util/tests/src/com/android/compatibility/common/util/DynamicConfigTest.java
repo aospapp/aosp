@@ -16,6 +16,8 @@
 
 package com.android.compatibility.common.util;
 
+import com.android.tradefed.util.FileUtil;
+
 import junit.framework.TestCase;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -28,7 +30,7 @@ import java.io.IOException;
  * Unit tests for {@link DynamicConfig}
  */
 public class DynamicConfigTest extends TestCase {
-    private static final String correctConfig =
+    private static final String CORRECT_CONFIG =
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
             "<dynamicConfig>\n" +
             "    <entry key=\"test-config-1\">\n" +
@@ -53,7 +55,7 @@ public class DynamicConfigTest extends TestCase {
             "    </entry>\n" +
             "</dynamicConfig>\n";
 
-    private static final String configWrongNodeName =
+    private static final String CONFIG_WRONG_NODE_NAME =
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
             "<dynamicCsonfig>\n" +  //The node name dynamicConfig is intentionally mistyped
             "    <entry key=\"test-config-1\">\n" +
@@ -80,25 +82,29 @@ public class DynamicConfigTest extends TestCase {
 
     public void testCorrectConfig() throws Exception {
         DynamicConfig config = new DynamicConfig();
-        File file = createFileFromStr(correctConfig);
-        config.initializeConfig(file);
-
-        assertEquals("Wrong Config", config.getValue("test-config-1"), "test config 1");
-        assertEquals("Wrong Config", config.getValue("test-config-2"), "testconfig2");
-        assertEquals("Wrong Config List", config.getValues("config-list").get(0), "config0");
-        assertEquals("Wrong Config List", config.getValues("config-list").get(2), "config2");
-        assertEquals("Wrong Config List", config.getValues("config-list-2").get(2), "C");
+        File file = createFileFromStr(CORRECT_CONFIG);
+        try {
+            config.initializeConfig(file);
+            assertEquals("Wrong Config", config.getValue("test-config-1"), "test config 1");
+            assertEquals("Wrong Config", config.getValue("test-config-2"), "testconfig2");
+            assertEquals("Wrong Config List", config.getValues("config-list").get(0), "config0");
+            assertEquals("Wrong Config List", config.getValues("config-list").get(2), "config2");
+            assertEquals("Wrong Config List", config.getValues("config-list-2").get(2), "C");
+        } finally {
+            FileUtil.deleteFile(file);
+        }
     }
 
     public void testConfigWithWrongNodeName() throws Exception {
         DynamicConfig config = new DynamicConfig();
-        File file = createFileFromStr(configWrongNodeName);
-
+        File file = createFileFromStr(CONFIG_WRONG_NODE_NAME);
         try {
             config.initializeConfig(file);
             fail("Cannot detect error when config file has wrong node name");
         } catch (XmlPullParserException e) {
             //expected
+        } finally {
+            FileUtil.deleteFile(file);
         }
     }
 
@@ -107,6 +113,7 @@ public class DynamicConfigTest extends TestCase {
         FileOutputStream stream = new FileOutputStream(file);
         stream.write(configStr.getBytes());
         stream.flush();
+        stream.close();
         return file;
     }
 }

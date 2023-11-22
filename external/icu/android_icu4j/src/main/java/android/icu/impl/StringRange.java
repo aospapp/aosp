@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2015, Google, Inc., International Business Machines Corporation and
@@ -35,6 +37,7 @@ public class StringRange {
     }
 
     public static final Comparator<int[]> COMPARE_INT_ARRAYS = new Comparator<int[]>() {
+        @Override
         public int compare(int[] o1, int[] o2) {
             int minIndex = Math.min(o1.length, o2.length);
             for (int i = 0; i < minIndex; ++i) {
@@ -71,8 +74,8 @@ public class StringRange {
                         }
                     }
                     // We failed to find continuation. Add what we have and restart
-                    adder.add(start, end == null ? null 
-                        : !shorterPairs ? end 
+                    adder.add(start, end == null ? null
+                        : !shorterPairs ? end
                             : end.substring(prefixLen, end.length()));
                 }
                 // new possible range
@@ -81,8 +84,8 @@ public class StringRange {
                 lastCp = s.codePointBefore(s.length());
                 prefixLen = s.length() - Character.charCount(lastCp);
             }
-            adder.add(start, end == null ? null 
-                : !shorterPairs ? end 
+            adder.add(start, end == null ? null
+                : !shorterPairs ? end
                     : end.substring(prefixLen, end.length()));
         } else {
             // not a fast algorithm, but ok for now
@@ -90,19 +93,19 @@ public class StringRange {
             // first sort by lengths
             Relation<Integer,Ranges> lengthToArrays = Relation.of(new TreeMap<Integer,Set<Ranges>>(), TreeSet.class);
             for (String s : source) {
-                Ranges item = new Ranges(s); 
+                Ranges item = new Ranges(s);
                 lengthToArrays.put(item.size(), item);
             }
             // then compact items of each length and emit compacted sets
             for (Entry<Integer, Set<Ranges>> entry : lengthToArrays.keyValuesSet()) {
                 LinkedList<Ranges> compacted = compact(entry.getKey(), entry.getValue());
-                for (Ranges ranges : compacted) {   
+                for (Ranges ranges : compacted) {
                     adder.add(ranges.start(), ranges.end(shorterPairs));
                 }
             }
         }
     }
-    
+
     /**
      * Faster but not as good compaction. Only looks at final codepoint.
      * @param source set of strings
@@ -140,8 +143,9 @@ public class StringRange {
         }
         @Override
         public boolean equals(Object obj) {
-            return compareTo((Range)obj) == 0;
+            return this == obj || (obj != null && obj instanceof Range && compareTo((Range)obj) == 0);
         }
+        @Override
         public int compareTo(Range that) {
             int diff = min - that.min;
             if (diff != 0) {
@@ -187,7 +191,7 @@ public class StringRange {
            if (DEBUG) System.out.println(" => " + this);
            return true;
         }
-        
+
         public String start() {
             StringBuilder result = new StringBuilder();
             for (int i = 0; i < ranges.length; ++i) {
@@ -217,6 +221,7 @@ public class StringRange {
         public Integer size() {
             return ranges.length;
         }
+        @Override
         public int compareTo(Ranges other) {
             int diff = ranges.length - other.ranges.length;
             if (diff != 0) {
@@ -261,7 +266,7 @@ public class StringRange {
         add(0, startOffset, startCps, endCps, builder, output);
         return output;
     }
-    
+
     private static void add(int endIndex, int startOffset, int[] starts, int[] ends, StringBuilder builder, Collection<String> output) {
         int start = starts[endIndex+startOffset];
         int end = ends[endIndex];

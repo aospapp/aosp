@@ -20,8 +20,11 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import com.android.internal.logging.MetricsLogger;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import android.net.Uri;
 import android.provider.ContactsContract;
+import android.util.Log;
 
 import java.io.ByteArrayInputStream;
 
@@ -29,21 +32,22 @@ import java.io.ByteArrayInputStream;
  * Provides methods to read name, phone number, photo, etc. from contacts.
  */
 public class EmergencyContactManager {
+    private static final String TAG = "EmergencyContactManager";
 
     /**
      * Returns a {@link Contact} that contains all the relevant information of the contact indexed
-     * by {@code @contactUri}.
+     * by {@code @phoneUri}.
      */
-    public static Contact getContact(Context context, Uri contactUri) {
+    public static Contact getContact(Context context, Uri phoneUri) {
         String phoneNumber = null;
         String phoneType = null;
         String name = null;
         Bitmap photo = null;
         final Uri contactLookupUri =
                 ContactsContract.Contacts.getLookupUri(context.getContentResolver(),
-                        contactUri);
+                        phoneUri);
         Cursor cursor = context.getContentResolver().query(
-                contactUri,
+                phoneUri,
                 new String[]{ContactsContract.Contacts.DISPLAY_NAME,
                         ContactsContract.CommonDataKinds.Phone.NUMBER,
                         ContactsContract.CommonDataKinds.Phone.TYPE,
@@ -69,7 +73,9 @@ public class EmergencyContactManager {
                     try {
                         if (cursor2.moveToNext()) {
                             byte[] data = cursor2.getBlob(0);
-                            photo = BitmapFactory.decodeStream(new ByteArrayInputStream(data));
+                            if (data != null) {
+                                photo = BitmapFactory.decodeStream(new ByteArrayInputStream(data));
+                            }
                         }
                     } finally {
                         if (cursor2 != null) {
@@ -83,25 +89,32 @@ public class EmergencyContactManager {
                 cursor.close();
             }
         }
-        return new Contact(contactLookupUri, contactUri, name, phoneNumber, phoneType, photo);
+        return new Contact(contactLookupUri, phoneUri, name, phoneNumber, phoneType, photo);
     }
 
-    /** Returns whether the contact uri is not null and corresponds to an existing contact. */
-    public static boolean isValidEmergencyContact(Context context, Uri contactUri) {
-        return contactUri != null && contactExists(context, contactUri);
+    /** Returns whether the phone uri is not null and corresponds to an existing phone number. */
+    public static boolean isValidEmergencyContact(Context context, Uri phoneUri) {
+        return phoneUri != null && phoneExists(context, phoneUri);
     }
 
-    private static boolean contactExists(Context context, Uri contactUri) {
-        Cursor cursor = context.getContentResolver().query(contactUri, null, null, null, null);
+    private static boolean phoneExists(Context context, Uri phoneUri) {
+        Cursor cursor = null;
         try {
+            cursor = context.getContentResolver().query(phoneUri, null, null, null, null);
             if (cursor != null && cursor.moveToFirst()) {
+                MetricsLogger.action(context, MetricsEvent.ACTION_PHONE_EXISTS, 1);
                 return true;
             }
+        } catch (SecurityException e) {
+            Log.w(TAG, "Unable to read contact information", e);
+            MetricsLogger.action(context, MetricsEvent.ACTION_PHONE_EXISTS, 2);
+            return false;
         } finally {
             if (cursor != null) {
                 cursor.close();
             }
         }
+        MetricsLogger.action(context, MetricsEvent.ACTION_PHONE_EXISTS, 0);
         return false;
     }
 
@@ -113,7 +126,7 @@ public class EmergencyContactManager {
          * The contact uri is associated to a particular phone number and can be used to reload that
          * number and keep the number displayed in the preferences fresh.
          */
-        private final Uri mContactUri;
+        private final Uri mPhoneUri;
         /** The display name of the contact. */
         private final String mName;
         /** The emergency contact's phone number selected by the user. */
@@ -125,13 +138,13 @@ public class EmergencyContactManager {
 
         /** Constructs a new contact. */
         public Contact(Uri contactLookupUri,
-                       Uri contactUri,
+                       Uri phoneUri,
                        String name,
                        String phoneNumber,
                        String phoneType,
                        Bitmap photo) {
             mContactLookupUri = contactLookupUri;
-            mContactUri = contactUri;
+            mPhoneUri = phoneUri;
             mName = name;
             mPhoneNumber = phoneNumber;
             mPhoneType = phoneType;
@@ -144,12 +157,12 @@ public class EmergencyContactManager {
         }
 
         /**
-         * The contact uri as defined in ContactsContract.CommonDataKinds.Phone.CONTENT_URI. Use
+         * The phone uri as defined in ContactsContract.CommonDataKinds.Phone.CONTENT_URI. Use
          * this to reload the contact. This links to a particular phone number of the emergency
-         * contact
+         * contact.
          */
-        public Uri getContactUri() {
-            return mContactUri;
+        public Uri getPhoneUri() {
+            return mPhoneUri;
         }
 
         /** Returns the display name of the contact. */

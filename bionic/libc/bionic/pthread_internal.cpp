@@ -34,20 +34,38 @@
 #include <sys/mman.h>
 
 #include "private/bionic_futex.h"
+#include "private/bionic_sdk_version.h"
 #include "private/bionic_tls.h"
 #include "private/libc_logging.h"
-#include "private/ScopedPthreadMutexLocker.h"
 
-static pthread_internal_t* g_thread_list = NULL;
-static pthread_mutex_t g_thread_list_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_internal_t* g_thread_list = nullptr;
+static pthread_rwlock_t g_thread_list_lock = PTHREAD_RWLOCK_INITIALIZER;
+
+template <bool write> class ScopedRWLock {
+ public:
+  ScopedRWLock(pthread_rwlock_t* rwlock) : rwlock_(rwlock) {
+    (write ? pthread_rwlock_wrlock : pthread_rwlock_rdlock)(rwlock_);
+  }
+
+  ~ScopedRWLock() {
+    pthread_rwlock_unlock(rwlock_);
+  }
+
+ private:
+  pthread_rwlock_t* rwlock_;
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ScopedRWLock);
+};
+
+typedef ScopedRWLock<true> ScopedWriteLock;
+typedef ScopedRWLock<false> ScopedReadLock;
 
 pthread_t __pthread_internal_add(pthread_internal_t* thread) {
-  ScopedPthreadMutexLocker locker(&g_thread_list_lock);
+  ScopedWriteLock locker(&g_thread_list_lock);
 
   // We insert at the head.
   thread->next = g_thread_list;
-  thread->prev = NULL;
-  if (thread->next != NULL) {
+  thread->prev = nullptr;
+  if (thread->next != nullptr) {
     thread->next->prev = thread;
   }
   g_thread_list = thread;
@@ -55,12 +73,12 @@ pthread_t __pthread_internal_add(pthread_internal_t* thread) {
 }
 
 void __pthread_internal_remove(pthread_internal_t* thread) {
-  ScopedPthreadMutexLocker locker(&g_thread_list_lock);
+  ScopedWriteLock locker(&g_thread_list_lock);
 
-  if (thread->next != NULL) {
+  if (thread->next != nullptr) {
     thread->next->prev = thread->prev;
   }
-  if (thread->prev != NULL) {
+  if (thread->prev != nullptr) {
     thread->prev->next = thread->next;
   } else {
     g_thread_list = thread->next;
@@ -82,17 +100,26 @@ void __pthread_internal_remove_and_free(pthread_internal_t* thread) {
 pthread_internal_t* __pthread_internal_find(pthread_t thread_id) {
   pthread_internal_t* thread = reinterpret_cast<pthread_internal_t*>(thread_id);
 
-  // check if thread is pthread_self() before acquiring the lock
-  if (thread == __get_thread()) {
-    return thread;
+  // Check if we're looking for ourselves before acquiring the lock.
+  if (thread == __get_thread()) return thread;
+
+  ScopedReadLock locker(&g_thread_list_lock);
+  for (pthread_internal_t* t = g_thread_list; t != nullptr; t = t->next) {
+    if (t == thread) return thread;
   }
 
-  ScopedPthreadMutexLocker locker(&g_thread_list_lock);
-
-  for (pthread_internal_t* t = g_thread_list; t != NULL; t = t->next) {
-    if (t == thread) {
-      return thread;
+  // Historically we'd return null, but
+  if (bionic_get_application_target_sdk_version() >= __ANDROID_API_O__) {
+    if (thread == nullptr) {
+      // This seems to be a common mistake, and it's relatively harmless because
+      // there will never be a valid thread at address 0, whereas other invalid
+      // addresses might sometimes contain threads or things that look enough like
+      // threads for us to do some real damage by continuing.
+      // TODO: try getting rid of this when Treble lets us keep vendor blobs on an old API level.
+      __libc_format_log(ANDROID_LOG_WARN, "libc", "invalid pthread_t (0) passed to libc");
+    } else {
+      __libc_fatal("invalid pthread_t %p passed to libc", thread);
     }
   }
-  return NULL;
+  return nullptr;
 }

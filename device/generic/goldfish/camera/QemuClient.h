@@ -22,8 +22,6 @@
  * in the emulator via qemu pipe.
  */
 
-#include <hardware/qemud.h>
-
 namespace android {
 
 /****************************************************************************

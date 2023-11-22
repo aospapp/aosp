@@ -103,7 +103,7 @@ class DarkResumeUtils(object):
         host.run('mount --bind %s %s' % (TMP_POWER_DIR, POWER_DIR))
 
         logging.debug('Restarting powerd with new settings')
-        host.run('restart powerd')
+        host.run('stop powerd; start powerd')
 
         logging.debug('Starting XMLRPC session to watch for dark resumes')
         self._client_proxy = self._get_xmlrpc_proxy()
@@ -118,7 +118,7 @@ class DarkResumeUtils(object):
         self._host.run('umount %s' % POWER_DIR)
 
         logging.debug('Restarting powerd to revert to old settings')
-        self._host.run('restart powerd')
+        self._host.run('stop powerd; start powerd')
 
 
     def suspend(self):

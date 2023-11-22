@@ -48,6 +48,11 @@ R"(place/for/output/p/IFoo.java : \
 p/IFoo.aidl :
 )";
 
+const char kExpectedNinjaDepFileContents[] =
+R"(place/for/output/p/IFoo.java : \
+  p/IFoo.aidl
+)";
+
 const char kExpectedParcelableDepFileContents[] =
 R"( : \
   p/Foo.aidl
@@ -66,11 +71,12 @@ class AidlTest : public ::testing::Test {
 
   unique_ptr<AidlInterface> Parse(const string& path,
                                   const string& contents,
-                                  TypeNamespace* types) {
+                                  TypeNamespace* types,
+                                  AidlError* error = nullptr) {
     io_delegate_.SetFileContents(path, contents);
     unique_ptr<AidlInterface> ret;
     std::vector<std::unique_ptr<AidlImport>> imports;
-    ::android::aidl::internals::load_and_validate_aidl(
+    AidlError actual_error = ::android::aidl::internals::load_and_validate_aidl(
         preprocessed_files_,
         import_paths_,
         path,
@@ -78,6 +84,9 @@ class AidlTest : public ::testing::Test {
         types,
         &ret,
         &imports);
+    if (error != nullptr) {
+      *error = actual_error;
+    }
     return ret;
   }
 
@@ -263,6 +272,88 @@ TEST_F(AidlTest, FailOnParcelable) {
   EXPECT_NE(0, ::android::aidl::compile_aidl_to_java(options, io_delegate_));
 }
 
+TEST_F(AidlTest, FailOnDuplicateConstantNames) {
+  AidlError reported_error;
+  EXPECT_EQ(nullptr,
+            Parse("p/IFoo.aidl",
+                   R"(package p;
+                      interface IFoo {
+                        const String DUPLICATED = "d";
+                        const int DUPLICATED = 1;
+                      }
+                   )",
+                   &cpp_types_,
+                   &reported_error));
+  EXPECT_EQ(AidlError::BAD_CONSTANTS, reported_error);
+}
+
+TEST_F(AidlTest, FailOnMalformedConstHexValue) {
+  AidlError reported_error;
+  EXPECT_EQ(nullptr,
+            Parse("p/IFoo.aidl",
+                   R"(package p;
+                      interface IFoo {
+                        const int BAD_HEX_VALUE = 0xffffffffffffffffff;
+                      }
+                   )",
+                   &cpp_types_,
+                   &reported_error));
+  EXPECT_EQ(AidlError::BAD_CONSTANTS, reported_error);
+}
+
+TEST_F(AidlTest, ParsePositiveConstHexValue) {
+  AidlError reported_error;
+  auto cpp_parse_result =
+    Parse("p/IFoo.aidl",
+           R"(package p;
+              interface IFoo {
+                const int POSITIVE_HEX_VALUE = 0xf5;
+              }
+           )",
+           &cpp_types_,
+           &reported_error);
+  EXPECT_NE(nullptr, cpp_parse_result);
+  const auto& cpp_int_constants = cpp_parse_result->GetIntConstants();
+  EXPECT_EQ((size_t)1, cpp_int_constants.size());
+  EXPECT_EQ("POSITIVE_HEX_VALUE", cpp_int_constants[0]->GetName());
+  EXPECT_EQ(245, cpp_int_constants[0]->GetValue());
+}
+
+TEST_F(AidlTest, ParseNegativeConstHexValue) {
+  AidlError reported_error;
+  auto cpp_parse_result =
+    Parse("p/IFoo.aidl",
+           R"(package p;
+              interface IFoo {
+                const int NEGATIVE_HEX_VALUE = 0xffffffff;
+              }
+           )",
+           &cpp_types_,
+           &reported_error);
+  EXPECT_NE(nullptr, cpp_parse_result);
+  const auto& cpp_int_constants = cpp_parse_result->GetIntConstants();
+  EXPECT_EQ((size_t)1, cpp_int_constants.size());
+  EXPECT_EQ("NEGATIVE_HEX_VALUE", cpp_int_constants[0]->GetName());
+  EXPECT_EQ(-1, cpp_int_constants[0]->GetValue());
+}
+
+TEST_F(AidlTest, UnderstandsNestedParcelables) {
+  io_delegate_.SetFileContents(
+      "p/Outer.aidl",
+      "package p; parcelable Outer.Inner cpp_header \"baz/header\";");
+  import_paths_.push_back("");
+  const string input_path = "p/IFoo.aidl";
+  const string input = "package p; import p.Outer; interface IFoo"
+                       " { Outer.Inner get(); }";
+
+  auto cpp_parse_result = Parse(input_path, input, &cpp_types_);
+  EXPECT_NE(nullptr, cpp_parse_result);
+  auto cpp_type = cpp_types_.FindTypeByCanonicalName("p.Outer.Inner");
+  ASSERT_NE(nullptr, cpp_type);
+  // C++ uses "::" instead of "." to refer to a inner class.
+  EXPECT_EQ("::p::Outer::Inner", cpp_type->CppType());
+}
+
 TEST_F(AidlTest, UnderstandsNativeParcelables) {
   io_delegate_.SetFileContents(
       "p/Bar.aidl",
@@ -305,6 +396,24 @@ TEST_F(AidlTest, WritesCorrectDependencyFile) {
   EXPECT_TRUE(io_delegate_.GetWrittenContents(options.dep_file_name_,
                                               &actual_dep_file_contents));
   EXPECT_EQ(actual_dep_file_contents, kExpectedDepFileContents);
+}
+
+TEST_F(AidlTest, WritesCorrectDependencyFileNinja) {
+  // While the in tree build system always gives us an output file name,
+  // other android tools take advantage of our ability to infer the intended
+  // file name.  This test makes sure we handle this correctly.
+  JavaOptions options;
+  options.input_file_name_ = "p/IFoo.aidl";
+  options.output_base_folder_ = "place/for/output";
+  options.dep_file_name_ = "dep/file/path";
+  options.dep_file_ninja_ = true;
+  io_delegate_.SetFileContents(options.input_file_name_,
+                               "package p; interface IFoo {}");
+  EXPECT_EQ(0, ::android::aidl::compile_aidl_to_java(options, io_delegate_));
+  string actual_dep_file_contents;
+  EXPECT_TRUE(io_delegate_.GetWrittenContents(options.dep_file_name_,
+                                              &actual_dep_file_contents));
+  EXPECT_EQ(actual_dep_file_contents, kExpectedNinjaDepFileContents);
 }
 
 TEST_F(AidlTest, WritesTrivialDependencyFileForParcelable) {

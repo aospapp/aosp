@@ -33,14 +33,14 @@
   },
   'targets': [
     {
-      'target_name': 'dbus_interface_proto',
+      'target_name': 'interface_proto',
       'type': 'static_library',
       'variables': {
         'proto_in_dir': '.',
         'proto_out_dir': 'include/trunks',
       },
       'sources': [
-        '<(proto_in_dir)/dbus_interface.proto',
+        '<(proto_in_dir)/interface.proto',
       ],
       'includes': ['../../../../platform2/common-mk/protoc.gypi'],
     },
@@ -61,10 +61,10 @@
         'tpm_state_impl.cc',
         'tpm_utility_impl.cc',
         'trunks_factory_impl.cc',
-        'trunks_proxy.cc',
+        'trunks_dbus_proxy.cc',
       ],
       'dependencies': [
-        'dbus_interface_proto',
+        'interface_proto',
       ],
       'conditions': [
         ['USE_ftdi_tpm == 1', {
@@ -118,10 +118,10 @@
         'resource_manager.cc',
         'tpm_handle.cc',
         'tpm_simulator_handle.cc',
-        'trunks_service.cc',
+        'trunks_dbus_service.cc',
       ],
       'dependencies': [
-        'dbus_interface_proto',
+        'interface_proto',
       ],
     },
     {
@@ -136,7 +136,7 @@
         ],
       },
       'dependencies': [
-        'dbus_interface_proto',
+        'interface_proto',
         'trunks',
         'trunksd_lib',
       ],

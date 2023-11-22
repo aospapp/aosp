@@ -22,10 +22,10 @@
 #include <string>
 #include <vector>
 
+#include "base/array_ref.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "os.h"
-#include "utils/array_ref.h"
 
 namespace art {
 
@@ -52,7 +52,10 @@ class ElfWriter {
   virtual ~ElfWriter() {}
 
   virtual void Start() = 0;
-  virtual void SetLoadedSectionSizes(size_t rodata_size, size_t text_size, size_t bss_size) = 0;
+  virtual void PrepareDynamicSection(size_t rodata_size,
+                                     size_t text_size,
+                                     size_t bss_size,
+                                     size_t bss_roots_offset) = 0;
   virtual void PrepareDebugInfo(const ArrayRef<const debug::MethodDebugInfo>& method_infos) = 0;
   virtual OutputStream* StartRoData() = 0;
   virtual void EndRoData(OutputStream* rodata) = 0;
@@ -60,7 +63,6 @@ class ElfWriter {
   virtual void EndText(OutputStream* text) = 0;
   virtual void WriteDynamicSection() = 0;
   virtual void WriteDebugInfo(const ArrayRef<const debug::MethodDebugInfo>& method_infos) = 0;
-  virtual void WritePatchLocations(const ArrayRef<const uintptr_t>& patch_locations) = 0;
   virtual bool End() = 0;
 
   // Get the ELF writer's stream. This stream can be used for writing data directly

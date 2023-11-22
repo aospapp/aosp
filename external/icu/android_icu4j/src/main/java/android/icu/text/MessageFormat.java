@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
 * Copyright (c) 2004-2016, International Business Machines
@@ -306,7 +308,7 @@ import android.icu.util.ULocale.Category;
  * System.out.println(msgFmt.format(args));
  * args.put("num_files", 3);
  * System.out.println(msgFmt.format(args));
- * 
+ *
  * <em>output</em>:
  * There are no files on disk "MyDisk".
  * There are 3 files on "MyDisk".
@@ -428,7 +430,7 @@ public class MessageFormat extends UFormat {
     public ULocale getULocale() {
         return ulocale;
     }
-    
+
     /**
      * Sets the pattern used by this message format.
      * Parses the pattern and caches Format objects for simple argument types.
@@ -1024,6 +1026,7 @@ public class MessageFormat extends UFormat {
      * @throws IllegalArgumentException if <code>arguments</code> is
      *         an array of Object and this format uses named arguments
      */
+    @Override
     public final StringBuffer format(Object arguments, StringBuffer result,
                                      FieldPosition pos)
     {
@@ -1066,6 +1069,7 @@ public class MessageFormat extends UFormat {
      *         <code>arguments</code> array is not of the type
      *         expected by the corresponding argument or custom Format object.
      */
+    @Override
     public AttributedCharacterIterator formatToCharacterIterator(Object arguments) {
         if (arguments == null) {
             throw new NullPointerException(
@@ -1117,7 +1121,7 @@ public class MessageFormat extends UFormat {
                     "This method is not available in MessageFormat objects " +
                     "that use named argument.");
         }
-        
+
         // Count how many slots we need in the array.
         int maxArgId = -1;
         for (int partIndex = 0; (partIndex = nextTopLevelArgStart(partIndex)) >= 0;) {
@@ -1136,7 +1140,7 @@ public class MessageFormat extends UFormat {
 
         return resultArray;
     }
-    
+
     /**
      * <strong>[icu]</strong> Parses the string, returning the results in a Map.
      * This is similar to the version that returns an array
@@ -1156,9 +1160,9 @@ public class MessageFormat extends UFormat {
         if (pos.getIndex() == backupStartPos) {
             return null;
         }
-        return result;        
+        return result;
     }
-    
+
     /**
      * Parses text from the beginning of the given string to produce an object
      * array.
@@ -1232,7 +1236,7 @@ public class MessageFormat extends UFormat {
             // We do not support parsing Plural formats. (No REPLACE_NUMBER here.)
             assert type==Part.Type.ARG_START : "Unexpected Part "+part+" in parsed message.";
             int argLimit=msgPattern.getLimitPartIndex(i);
-            
+
             ArgType argType=part.getArgType();
             part=msgPattern.getPart(++i);
             // Compute the argId, so we can use it as a key.
@@ -1370,6 +1374,7 @@ public class MessageFormat extends UFormat {
      *         In case of error, returns null.
      * @throws NullPointerException if <code>pos</code> is null.
      */
+    @Override
     public Object parseObject(String source, ParsePosition pos) {
         if (!msgPattern.hasNamedArguments()) {
             return parse(source, pos);
@@ -1393,7 +1398,7 @@ public class MessageFormat extends UFormat {
         } else {
             other.customFormatArgStarts = null;
         }
-        
+
         if (cachedFormatters != null) {
             other.cachedFormatters = new HashMap<Integer, Format>();
             Iterator<Map.Entry<Integer, Format>> it = cachedFormatters.entrySet().iterator();
@@ -1404,7 +1409,7 @@ public class MessageFormat extends UFormat {
         } else {
             other.cachedFormatters = null;
         }
-        
+
         other.msgPattern = msgPattern == null ? null : (MessagePattern)msgPattern.clone();
         other.stockDateFormatter =
                 stockDateFormatter == null ? null : (DateFormat) stockDateFormatter.clone();
@@ -1466,6 +1471,7 @@ public class MessageFormat extends UFormat {
          * @return resolved MessageFormat.Field constant
          * @throws InvalidObjectException if the constant could not be resolved.
          */
+        @Override
         protected Object readResolve() throws InvalidObjectException {
             if (this.getClass() != MessageFormat.Field.class) {
                 throw new InvalidObjectException(
@@ -1778,7 +1784,7 @@ public class MessageFormat extends UFormat {
      * as soon as it finds an argument, or it reaches the end of the string.
      * @param from Index in the pattern string to start from.
      * @return A substring from the pattern string representing the longest possible
-     *         substring with no arguments. 
+     *         substring with no arguments.
      */
     private String getLiteralStringUntilNextArgument(int from) {
         StringBuilder b = new StringBuilder();
@@ -2034,6 +2040,7 @@ public class MessageFormat extends UFormat {
             msgFormat = mf;
             this.type = type;
         }
+        @Override
         public String select(Object ctx, double number) {
             if(rules == null) {
                 rules = PluralRules.forLocale(msgFormat.ulocale, type);

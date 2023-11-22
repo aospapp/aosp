@@ -845,9 +845,10 @@ static VAStatus pnw__convert_sliceparameter_buffer(VAEncSliceParameterBufferH264
 static VAStatus pnw__H264ES_process_slice_param(context_ENC_p ctx, object_buffer_p obj_buffer)
 {
     /* Prepare InParams for macros of current slice, insert slice header, insert do slice command */
-    VAEncSliceParameterBuffer *pBuf_per_core, *pBuffer;
+    VAEncSliceParameterBuffer *pBuf_per_core = NULL, *pBuffer = NULL;
     pnw_cmdbuf_p cmdbuf = ctx->obj_context->pnw_cmdbuf;
     PIC_PARAMS *psPicParams = (PIC_PARAMS *)(cmdbuf->pic_params_p);
+    bool pBufferAlloced = false;
     unsigned int i, j, slice_per_core;
     VAStatus vaStatus = VA_STATUS_SUCCESS;
 
@@ -870,6 +871,8 @@ static VAStatus pnw__H264ES_process_slice_param(context_ENC_p ctx, object_buffer
             vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
             goto out2;
         }
+
+        pBufferAlloced = true;
 
         pnw__convert_sliceparameter_buffer((VAEncSliceParameterBufferH264 *)obj_buffer->buffer_data,
                                            pBuffer,
@@ -905,7 +908,7 @@ static VAStatus pnw__H264ES_process_slice_param(context_ENC_p ctx, object_buffer
             drv_debug_msg(VIDEO_DEBUG_ERROR, "Run out of memory!\n");
 
             /* free the converted VAEncSliceParameterBuffer */
-            if (obj_buffer->size == sizeof(VAEncSliceParameterBufferH264))
+            if (pBufferAlloced)
                 free(pBuffer);
             free(obj_buffer->buffer_data);
             return VA_STATUS_ERROR_ALLOCATION_FAILED;
@@ -964,7 +967,7 @@ static VAStatus pnw__H264ES_process_slice_param(context_ENC_p ctx, object_buffer
     }
 out1:
     /* free the converted VAEncSliceParameterBuffer */
-    if (obj_buffer->size == sizeof(VAEncSliceParameterBufferH264))
+    if (pBufferAlloced)
         free(pBuffer);
 
 out2:

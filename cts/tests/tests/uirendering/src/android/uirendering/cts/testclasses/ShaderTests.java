@@ -21,19 +21,23 @@ import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ComposeShader;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.RadialGradient;
 import android.graphics.Shader;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
-import android.uirendering.cts.R;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @MediumTest
+@RunWith(AndroidJUnit4.class)
 public class ShaderTests extends ActivityTestBase {
     @Test
     public void testSinglePixelBitmapShader() {
@@ -134,5 +138,41 @@ public class ShaderTests extends ActivityTestBase {
                 })
                 // expect extremely similar rendering results between SW and HW, since there's no AA
                 .runWithComparer(new MSSIMComparer(0.98f));
+    }
+
+    @Test
+    public void testRepeatAlphaGradientShader() {
+        createTest()
+                .addCanvasClient(new CanvasClient() {
+                    Paint mPaint = new Paint();
+                    @Override
+                    public void draw(Canvas canvas, int width, int height) {
+                        if (mPaint.getShader() == null) {
+                            mPaint.setShader(new LinearGradient(0, 0, width / 2.0f, height,
+                                    Color.TRANSPARENT, Color.WHITE, Shader.TileMode.REPEAT));
+                        }
+                        canvas.drawColor(Color.WHITE);
+                        canvas.drawRect(0, 0, width, height, mPaint);
+                    }
+                })
+                .runWithVerifier(new ColorVerifier(Color.WHITE));
+    }
+
+    @Test
+    public void testClampAlphaGradientShader() {
+        createTest()
+                .addCanvasClient(new CanvasClient() {
+                    Paint mPaint = new Paint();
+                    @Override
+                    public void draw(Canvas canvas, int width, int height) {
+                        if (mPaint.getShader() == null) {
+                            mPaint.setShader(new LinearGradient(0, 0, width / 2.0f, height,
+                                    Color.TRANSPARENT, Color.WHITE, Shader.TileMode.CLAMP));
+                        }
+                        canvas.drawColor(Color.WHITE);
+                        canvas.drawRect(0, 0, width, height, mPaint);
+                    }
+                })
+                .runWithVerifier(new ColorVerifier(Color.WHITE));
     }
 }

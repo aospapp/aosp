@@ -2,7 +2,7 @@
 
 import unittest
 import common
-from autotest_lib.tko import status_lib
+from autotest_lib.tko import status_lib, parser_lib
 from autotest_lib.client.common_lib import log
 
 
@@ -173,7 +173,7 @@ class parser_test(unittest.TestCase):
     available_versions = [0, 1]
     def test_can_import_available_versions(self):
         for version in self.available_versions:
-            p = status_lib.parser(0)
+            p = parser_lib.parser(0)
             self.assertNotEqual(p, None)
 
 

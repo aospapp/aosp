@@ -307,7 +307,14 @@ static void wpas_p2p_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 		return;
 	}
 
+	if (wpa_s->clear_driver_scan_cache) {
+		wpa_printf(MSG_DEBUG,
+			   "Request driver to clear scan cache due to local BSS flush");
+		params->only_new_results = 1;
+	}
 	ret = wpa_drv_scan(wpa_s, params);
+	if (ret == 0)
+		wpa_s->curr_scan_cookie = params->scan_cookie;
 	wpa_scan_free_params(params);
 	work->ctx = NULL;
 	if (ret) {
@@ -320,6 +327,7 @@ static void wpas_p2p_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 	os_get_reltime(&wpa_s->scan_trigger_time);
 	wpa_s->scan_res_handler = wpas_p2p_scan_res_handler;
 	wpa_s->own_scan_requested = 1;
+	wpa_s->clear_driver_scan_cache = 0;
 	wpa_s->p2p_scan_work = work;
 }
 
@@ -807,7 +815,7 @@ grp_owner:
 					      wpa_s->own_addr);
 		} else if (!s && !go_wpa_s) {
 			if (wpas_p2p_add_group_interface(wpa_s,
-							 WPA_IF_P2P_GO) < 0) {
+							 WPA_IF_P2P_GROUP) < 0) {
 				wpa_printf(MSG_ERROR,
 					   "P2P: Failed to allocate a new interface for the group");
 				return P2PS_SETUP_NONE;
@@ -1076,7 +1084,7 @@ static int wpas_p2p_persistent_group(struct wpa_supplicant *wpa_s,
 		   "go_dev_addr=" MACSTR,
 		   MAC2STR(bssid), group_capab, MAC2STR(go_dev_addr));
 
-	return group_capab & P2P_GROUP_CAPAB_PERSISTENT_GROUP;
+	return !!(group_capab & P2P_GROUP_CAPAB_PERSISTENT_GROUP);
 }
 
 
@@ -1301,7 +1309,6 @@ static void wpas_group_formation_completed(struct wpa_supplicant *wpa_s,
 	int client;
 	int persistent;
 	u8 go_dev_addr[ETH_ALEN];
-	int network_id = -1;
 
 	/*
 	 * This callback is likely called for the main interface. Update wpa_s
@@ -1376,16 +1383,15 @@ static void wpas_group_formation_completed(struct wpa_supplicant *wpa_s,
 	}
 
 	if (persistent)
-		network_id = wpas_p2p_store_persistent_group(wpa_s->p2pdev,
-							     ssid, go_dev_addr);
+		wpas_p2p_store_persistent_group(wpa_s->p2pdev,
+						ssid, go_dev_addr);
 	else {
 		os_free(wpa_s->global->add_psk);
 		wpa_s->global->add_psk = NULL;
 	}
-	if (network_id < 0 && ssid)
-		network_id = ssid->id;
+
 	if (!client) {
-		wpas_notify_p2p_group_started(wpa_s, ssid, network_id, 0);
+		wpas_notify_p2p_group_started(wpa_s, ssid, persistent, 0, NULL);
 		os_get_reltime(&wpa_s->global->p2p_go_wait_client);
 	}
 }
@@ -1750,7 +1756,6 @@ static void p2p_go_configured(void *ctx, void *data)
 	struct wpa_supplicant *wpa_s = ctx;
 	struct p2p_go_neg_results *params = data;
 	struct wpa_ssid *ssid;
-	int network_id = -1;
 
 	wpa_s->ap_configured_cb = NULL;
 	wpa_s->ap_configured_cb_ctx = NULL;
@@ -1797,14 +1802,15 @@ static void p2p_go_configured(void *ctx, void *data)
 
 		os_get_reltime(&wpa_s->global->p2p_go_wait_client);
 		if (params->persistent_group) {
-			network_id = wpas_p2p_store_persistent_group(
+			wpas_p2p_store_persistent_group(
 				wpa_s->p2pdev, ssid,
 				wpa_s->global->p2p_dev_addr);
 			wpas_p2p_add_psk_list(wpa_s, ssid);
 		}
-		if (network_id < 0)
-			network_id = ssid->id;
-		wpas_notify_p2p_group_started(wpa_s, ssid, network_id, 0);
+
+		wpas_notify_p2p_group_started(wpa_s, ssid,
+					      params->persistent_group, 0,
+					      NULL);
 		wpas_p2p_cross_connect_setup(wpa_s);
 		wpas_p2p_set_group_idle_timeout(wpa_s);
 
@@ -1884,7 +1890,7 @@ static void wpas_start_wps_go(struct wpa_supplicant *wpa_s,
 	wpa_config_set_network_defaults(ssid);
 	ssid->temporary = 1;
 	ssid->p2p_group = 1;
-	ssid->p2p_persistent_group = params->persistent_group;
+	ssid->p2p_persistent_group = !!params->persistent_group;
 	ssid->mode = group_formation ? WPAS_MODE_P2P_GROUP_FORMATION :
 		WPAS_MODE_P2P_GO;
 	ssid->frequency = params->freq;
@@ -1951,7 +1957,12 @@ static void wpas_p2p_clone_config(struct wpa_supplicant *dst,
 	d = dst->conf;
 	s = src->conf;
 
-#define C(n) if (s->n) d->n = os_strdup(s->n)
+#define C(n)                            \
+do {                                    \
+	if (s->n && !d->n)              \
+		d->n = os_strdup(s->n); \
+} while (0)
+
 	C(device_name);
 	C(manufacturer);
 	C(model_name);
@@ -1979,28 +1990,14 @@ static void wpas_p2p_clone_config(struct wpa_supplicant *dst,
 	d->disable_scan_offload = s->disable_scan_offload;
 	d->passive_scan = s->passive_scan;
 
-	if (s->wps_nfc_dh_privkey && s->wps_nfc_dh_pubkey) {
+	if (s->wps_nfc_dh_privkey && s->wps_nfc_dh_pubkey &&
+	    !d->wps_nfc_pw_from_config) {
+		wpabuf_free(d->wps_nfc_dh_privkey);
+		wpabuf_free(d->wps_nfc_dh_pubkey);
 		d->wps_nfc_dh_privkey = wpabuf_dup(s->wps_nfc_dh_privkey);
 		d->wps_nfc_dh_pubkey = wpabuf_dup(s->wps_nfc_dh_pubkey);
 	}
 	d->p2p_cli_probe = s->p2p_cli_probe;
-}
-
-
-static void wpas_p2p_clone_config_dh(struct wpa_supplicant *dst,
-				     const struct wpa_supplicant *src)
-{
-	struct wpa_config *d;
-	const struct wpa_config *s;
-
-	d = dst->conf;
-	s = src->conf;
-
-	if (s->wps_nfc_dh_privkey && s->wps_nfc_dh_pubkey &&
-	    !d->wps_nfc_dh_privkey && !d->wps_nfc_dh_pubkey) {
-		d->wps_nfc_dh_privkey = wpabuf_dup(s->wps_nfc_dh_privkey);
-		d->wps_nfc_dh_pubkey = wpabuf_dup(s->wps_nfc_dh_pubkey);
-	}
 }
 
 
@@ -2255,7 +2252,7 @@ static void wpas_go_neg_completed(void *ctx, struct p2p_go_neg_results *res)
 		group_wpa_s = wpa_s->parent;
 		wpa_s->global->p2p_group_formation = group_wpa_s;
 		if (group_wpa_s != wpa_s)
-			wpas_p2p_clone_config_dh(group_wpa_s, wpa_s);
+			wpas_p2p_clone_config(group_wpa_s, wpa_s);
 	}
 
 	group_wpa_s->p2p_in_provisioning = 1;
@@ -2298,6 +2295,8 @@ static void wpas_dev_found(void *ctx, const u8 *addr,
 			   const struct p2p_peer_info *info,
 			   int new_device)
 {
+	u8 *wfd_dev_info = NULL;
+	u8 wfd_dev_info_len = 0;
 #ifndef CONFIG_NO_STDOUT_DEBUG
 	struct wpa_supplicant *wpa_s = ctx;
 	char devtype[WPS_DEV_TYPE_BUFSIZE];
@@ -2306,6 +2305,12 @@ static void wpas_dev_found(void *ctx, const u8 *addr,
 #ifdef CONFIG_WIFI_DISPLAY
 	wfd_dev_info_hex = wifi_display_subelem_hex(info->wfd_subelems,
 						    WFD_SUBELEM_DEVICE_INFO);
+	if (wfd_dev_info_hex) {
+		wfd_dev_info_len = strlen(wfd_dev_info_hex) / 2;
+		wfd_dev_info = os_zalloc(wfd_dev_info_len);
+		// Only used for notification, so not handling error.
+		hexstr2bin(wfd_dev_info_hex, wfd_dev_info, wfd_dev_info_len);
+	}
 #endif /* CONFIG_WIFI_DISPLAY */
 
 	if (info->p2ps_instance) {
@@ -2372,7 +2377,9 @@ done:
 	os_free(wfd_dev_info_hex);
 #endif /* CONFIG_NO_STDOUT_DEBUG */
 
-	wpas_notify_p2p_device_found(ctx, info->p2p_device_addr, new_device);
+	wpas_notify_p2p_device_found(ctx, addr, info, wfd_dev_info,
+				     wfd_dev_info_len, new_device);
+	os_free(wfd_dev_info);
 }
 
 
@@ -3018,12 +3025,31 @@ static void wpas_invitation_received(void *ctx, const u8 *sa, const u8 *bssid,
 			   MAC2STR(sa), op_freq, wpa_ssid_txt(ssid, ssid_len));
 		if (s) {
 			int go = s->mode == WPAS_MODE_P2P_GO;
+			if (go) {
+				wpa_msg_global(wpa_s, MSG_INFO,
+					       P2P_EVENT_INVITATION_ACCEPTED
+					       "sa=" MACSTR
+					       " persistent=%d freq=%d",
+					       MAC2STR(sa), s->id, op_freq);
+			} else {
+				wpa_msg_global(wpa_s, MSG_INFO,
+					       P2P_EVENT_INVITATION_ACCEPTED
+					       "sa=" MACSTR
+					       " persistent=%d",
+					       MAC2STR(sa), s->id);
+			}
 			wpas_p2p_group_add_persistent(
 				wpa_s, s, go, 0, op_freq, 0, 0, 0, 0, NULL,
 				go ? P2P_MAX_INITIAL_CONN_WAIT_GO_REINVOKE : 0,
 				1);
 		} else if (bssid) {
 			wpa_s->user_initiated_pd = 0;
+			wpa_msg_global(wpa_s, MSG_INFO,
+				       P2P_EVENT_INVITATION_ACCEPTED
+				       "sa=" MACSTR " go_dev_addr=" MACSTR
+				       " bssid=" MACSTR " unknown-network",
+				       MAC2STR(sa), MAC2STR(go_dev_addr),
+				       MAC2STR(bssid));
 			wpas_p2p_join(wpa_s, bssid, go_dev_addr,
 				      wpa_s->p2p_wps_method, 0, op_freq,
 				      ssid, ssid_len);
@@ -3324,10 +3350,6 @@ static int wpas_p2p_default_channels(struct wpa_supplicant *wpa_s,
 }
 
 
-enum chan_allowed {
-	NOT_ALLOWED, NO_IR, ALLOWED
-};
-
 static int has_channel(struct wpa_global *global,
 		       struct hostapd_hw_modes *mode, u8 chan, int *flags)
 {
@@ -3362,7 +3384,7 @@ static int wpas_p2p_get_center_80mhz(struct wpa_supplicant *wpa_s,
 				     u8 channel)
 {
 	u8 center_channels[] = { 42, 58, 106, 122, 138, 155 };
-	unsigned int i;
+	size_t i;
 
 	if (mode->mode != HOSTAPD_MODE_IEEE80211A)
 		return 0;
@@ -4996,6 +5018,12 @@ static void wpas_p2p_join_scan_req(struct wpa_supplicant *wpa_s, int freq,
 	params.extra_ies = wpabuf_head(ies);
 	params.extra_ies_len = wpabuf_len(ies);
 
+	if (wpa_s->clear_driver_scan_cache) {
+		wpa_printf(MSG_DEBUG,
+			   "Request driver to clear scan cache due to local BSS flush");
+		params.only_new_results = 1;
+	}
+
 	/*
 	 * Run a scan to update BSS table and start Provision Discovery once
 	 * the new scan results become available.
@@ -5005,6 +5033,7 @@ static void wpas_p2p_join_scan_req(struct wpa_supplicant *wpa_s, int freq,
 		os_get_reltime(&wpa_s->scan_trigger_time);
 		wpa_s->scan_res_handler = wpas_p2p_scan_res_join;
 		wpa_s->own_scan_requested = 1;
+		wpa_s->clear_driver_scan_cache = 0;
 	}
 
 	wpabuf_free(ies);
@@ -5229,9 +5258,11 @@ static int wpas_p2p_setup_freqs(struct wpa_supplicant *wpa_s, int freq,
 		if (!res && max_pref_freq > 0) {
 			*num_pref_freq = max_pref_freq;
 			i = 0;
-			while (wpas_p2p_disallowed_freq(wpa_s->global,
-							pref_freq_list[i]) &&
-			       i < *num_pref_freq) {
+			while (i < *num_pref_freq &&
+			       (!p2p_supported_freq(wpa_s->global->p2p,
+						    pref_freq_list[i]) ||
+				wpas_p2p_disallowed_freq(wpa_s->global,
+							 pref_freq_list[i]))) {
 				wpa_printf(MSG_DEBUG,
 					   "P2P: preferred_freq_list[%d]=%d is disallowed",
 					   i, pref_freq_list[i]);
@@ -5373,6 +5404,9 @@ int wpas_p2p_connect(struct wpa_supplicant *wpa_s, const u8 *peer_addr,
 			wpa_s->p2p_pin[sizeof(wpa_s->p2p_pin) - 1] = '\0';
 		wpa_printf(MSG_DEBUG, "P2P: Randomly generated PIN: %s",
 			   wpa_s->p2p_pin);
+	} else if (wps_method == WPS_P2PS) {
+		/* Force the P2Ps default PIN to be used */
+		os_strlcpy(wpa_s->p2p_pin, "12345670", sizeof(wpa_s->p2p_pin));
 	} else
 		wpa_s->p2p_pin[0] = '\0';
 
@@ -5591,9 +5625,9 @@ static int wpas_p2p_select_go_freq(struct wpa_supplicant *wpa_s, int freq)
 						 &size, pref_freq_list);
 		if (!res && size > 0) {
 			i = 0;
-			while (wpas_p2p_disallowed_freq(wpa_s->global,
-							pref_freq_list[i]) &&
-			       i < size) {
+			while (i < size &&
+			       wpas_p2p_disallowed_freq(wpa_s->global,
+							pref_freq_list[i])) {
 				wpa_printf(MSG_DEBUG,
 					   "P2P: preferred_freq_list[%d]=%d is disallowed",
 					   i, pref_freq_list[i]);
@@ -5994,7 +6028,7 @@ wpas_p2p_get_group_iface(struct wpa_supplicant *wpa_s, int addr_allocated,
 			"P2P: Use primary interface for group operations");
 		wpa_s->p2p_first_connection_timeout = 0;
 		if (wpa_s != wpa_s->p2pdev)
-			wpas_p2p_clone_config_dh(wpa_s, wpa_s->p2pdev);
+			wpas_p2p_clone_config(wpa_s, wpa_s->p2pdev);
 		return wpa_s;
 	}
 
@@ -6308,7 +6342,8 @@ struct p2p_group * wpas_p2p_group_init(struct wpa_supplicant *wpa_s,
 	struct p2p_group *group;
 	struct p2p_group_config *cfg;
 
-	if (wpa_s->global->p2p_disabled || wpa_s->global->p2p == NULL)
+	if (wpa_s->global->p2p_disabled || wpa_s->global->p2p == NULL ||
+	    !ssid->p2p_group)
 		return NULL;
 
 	cfg = os_zalloc(sizeof(*cfg));
@@ -6621,6 +6656,12 @@ int wpas_p2p_listen(struct wpa_supplicant *wpa_s, unsigned int timeout)
 	if (wpa_s->global->p2p_disabled || wpa_s->global->p2p == NULL)
 		return -1;
 
+	if (wpa_s->p2p_lo_started) {
+		wpa_printf(MSG_DEBUG,
+			"P2P: Cannot start P2P listen, it is offloaded");
+		return -1;
+	}
+
 	wpa_supplicant_cancel_sched_scan(wpa_s);
 	wpas_p2p_clear_pending_action_tx(wpa_s);
 
@@ -6694,7 +6735,7 @@ int wpas_p2p_probe_req_rx(struct wpa_supplicant *wpa_s, const u8 *addr,
 		return 0;
 
 	switch (p2p_probe_req_rx(wpa_s->global->p2p, addr, dst, bssid,
-				 ie, ie_len, rx_freq)) {
+				 ie, ie_len, rx_freq, wpa_s->p2p_lo_started)) {
 	case P2P_PREQ_NOT_P2P:
 		wpas_notify_preq(wpa_s, addr, dst, bssid, ie, ie_len,
 				 ssi_signal);
@@ -6927,7 +6968,6 @@ void wpas_p2p_completed(struct wpa_supplicant *wpa_s)
 {
 	struct wpa_ssid *ssid = wpa_s->current_ssid;
 	u8 go_dev_addr[ETH_ALEN];
-	int network_id = -1;
 	int persistent;
 	int freq;
 	u8 ip[3 * 4];
@@ -6986,11 +7026,10 @@ void wpas_p2p_completed(struct wpa_supplicant *wpa_s)
 			       ip_addr);
 
 	if (persistent)
-		network_id = wpas_p2p_store_persistent_group(wpa_s->p2pdev,
-							     ssid, go_dev_addr);
-	if (network_id < 0)
-		network_id = ssid->id;
-	wpas_notify_p2p_group_started(wpa_s, ssid, network_id, 1);
+		wpas_p2p_store_persistent_group(wpa_s->p2pdev,
+						ssid, go_dev_addr);
+
+	wpas_notify_p2p_group_started(wpa_s, ssid, persistent, 1, ip);
 }
 
 
@@ -8371,17 +8410,17 @@ static int wpas_p2p_nfc_auth_join(struct wpa_supplicant *wpa_s,
 		return -1;
 	}
 
-	if (wpa_s->parent->p2p_oob_dev_pw_id !=
+	if (wpa_s->p2pdev->p2p_oob_dev_pw_id !=
 	    DEV_PW_NFC_CONNECTION_HANDOVER &&
-	    !wpa_s->parent->p2p_oob_dev_pw) {
+	    !wpa_s->p2pdev->p2p_oob_dev_pw) {
 		wpa_printf(MSG_DEBUG, "P2P: No NFC Dev Pw known");
 		return -1;
 	}
 	res = wpas_ap_wps_add_nfc_pw(
-		wpa_s, wpa_s->parent->p2p_oob_dev_pw_id,
-		wpa_s->parent->p2p_oob_dev_pw,
-		wpa_s->parent->p2p_peer_oob_pk_hash_known ?
-		wpa_s->parent->p2p_peer_oob_pubkey_hash : NULL);
+		wpa_s, wpa_s->p2pdev->p2p_oob_dev_pw_id,
+		wpa_s->p2pdev->p2p_oob_dev_pw,
+		wpa_s->p2pdev->p2p_peer_oob_pk_hash_known ?
+		wpa_s->p2pdev->p2p_peer_oob_pubkey_hash : NULL);
 	if (res)
 		return res;
 
@@ -8399,16 +8438,16 @@ static int wpas_p2p_nfc_auth_join(struct wpa_supplicant *wpa_s,
 
 	wpa_s->global->p2p_invite_group = wpa_s;
 	persistent = ssid->p2p_persistent_group &&
-		wpas_p2p_get_persistent(wpa_s->parent,
+		wpas_p2p_get_persistent(wpa_s->p2pdev,
 					params->peer->p2p_device_addr,
 					ssid->ssid, ssid->ssid_len);
-	wpa_s->parent->pending_invite_ssid_id = -1;
+	wpa_s->p2pdev->pending_invite_ssid_id = -1;
 
 	return p2p_invite(wpa_s->global->p2p, params->peer->p2p_device_addr,
 			  P2P_INVITE_ROLE_ACTIVE_GO, wpa_s->own_addr,
 			  ssid->ssid, ssid->ssid_len, ssid->frequency,
 			  wpa_s->global->p2p_dev_addr, persistent, 0,
-			  wpa_s->parent->p2p_oob_dev_pw_id);
+			  wpa_s->p2pdev->p2p_oob_dev_pw_id);
 }
 
 
@@ -9196,4 +9235,87 @@ void wpas_p2p_ap_deinit(struct wpa_supplicant *wpa_s)
 	if (wpa_s->ap_iface->bss)
 		wpa_s->ap_iface->bss[0]->p2p_group = NULL;
 	wpas_p2p_group_deinit(wpa_s);
+}
+
+
+int wpas_p2p_lo_start(struct wpa_supplicant *wpa_s, unsigned int freq,
+		      unsigned int period, unsigned int interval,
+		      unsigned int count)
+{
+	struct p2p_data *p2p = wpa_s->global->p2p;
+	u8 *device_types;
+	size_t dev_types_len;
+	struct wpabuf *buf;
+	int ret;
+
+	if (wpa_s->p2p_lo_started) {
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"P2P Listen offload is already started");
+		return 0;
+	}
+
+	if (wpa_s->global->p2p == NULL ||
+	    !(wpa_s->drv_flags & WPA_DRIVER_FLAGS_P2P_LISTEN_OFFLOAD)) {
+		wpa_printf(MSG_DEBUG, "P2P: Listen offload not supported");
+		return -1;
+	}
+
+	if (!p2p_supported_freq(wpa_s->global->p2p, freq)) {
+		wpa_printf(MSG_ERROR, "P2P: Input channel not supported: %u",
+			   freq);
+		return -1;
+	}
+
+	/* Get device type */
+	dev_types_len = (wpa_s->conf->num_sec_device_types + 1) *
+		WPS_DEV_TYPE_LEN;
+	device_types = os_malloc(dev_types_len);
+	if (!device_types)
+		return -1;
+	os_memcpy(device_types, wpa_s->conf->device_type, WPS_DEV_TYPE_LEN);
+	os_memcpy(&device_types[WPS_DEV_TYPE_LEN], wpa_s->conf->sec_device_type,
+		  wpa_s->conf->num_sec_device_types * WPS_DEV_TYPE_LEN);
+
+	/* Get Probe Response IE(s) */
+	buf = p2p_build_probe_resp_template(p2p, freq);
+	if (!buf) {
+		os_free(device_types);
+		return -1;
+	}
+
+	ret = wpa_drv_p2p_lo_start(wpa_s, freq, period, interval, count,
+				   device_types, dev_types_len,
+				   wpabuf_mhead_u8(buf), wpabuf_len(buf));
+	if (ret < 0)
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"P2P: Failed to start P2P listen offload");
+
+	os_free(device_types);
+	wpabuf_free(buf);
+
+	if (ret == 0) {
+		wpa_s->p2p_lo_started = 1;
+
+		/* Stop current P2P listen if any */
+		wpas_stop_listen(wpa_s);
+	}
+
+	return ret;
+}
+
+
+int wpas_p2p_lo_stop(struct wpa_supplicant *wpa_s)
+{
+	int ret;
+
+	if (!wpa_s->p2p_lo_started)
+		return 0;
+
+	ret = wpa_drv_p2p_lo_stop(wpa_s);
+	if (ret < 0)
+		wpa_dbg(wpa_s, MSG_DEBUG,
+			"P2P: Failed to stop P2P listen offload");
+
+	wpa_s->p2p_lo_started = 0;
+	return ret;
 }

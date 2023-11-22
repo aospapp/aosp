@@ -1,5 +1,0 @@
-#!/bin/sh
-. "$(dirname "$0")"/../common.sh
-
-reset_time "timestamp"
-reset_counter "runs"

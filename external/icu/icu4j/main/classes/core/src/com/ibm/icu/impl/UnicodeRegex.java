@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2015, Google, International Business Machines Corporation
@@ -72,7 +74,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
      * consistent with Java regex, so be careful of the differences.
      * <p>Not thread-safe; create a separate copy for different threads.
      * <p>In the future, we may extend this to support other regex packages.
-     * 
+     *
      * @regex A modified Java regex pattern, as in the input to
      *        Pattern.compile(), except that all "character classes" are
      *        processed as if they were UnicodeSet patterns. Example:
@@ -80,6 +82,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
      * @return A processed Java regex pattern, suitable for input to
      *         Pattern.compile().
      */
+    @Override
     public String transform(String regex) {
         StringBuilder result = new StringBuilder();
         UnicodeSet temp = new UnicodeSet();
@@ -148,7 +151,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
 
     /**
      * Compile a regex string, after processing by fix(...).
-     * 
+     *
      * @param regex Raw regex pattern, as in fix(...).
      * @return Pattern
      */
@@ -158,7 +161,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
 
     /**
      * Compile a regex string, after processing by fix(...).
-     * 
+     *
      * @param regex Raw regex pattern, as in fix(...).
      * @return Pattern
      */
@@ -168,7 +171,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
 
     /**
      * Compile a composed string from a set of BNF lines; see the List version for more information.
-     * 
+     *
      * @param bnfLines Series of BNF lines.
      * @return Pattern
      */
@@ -192,10 +195,10 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
      * </pre>
      * <p>
      * Caveats: at this point the parsing is simple; for example, # cannot be
-     * quoted (use \\u0023); you can set it to null to disable. 
+     * quoted (use \\u0023); you can set it to null to disable.
      * The equality sign and a few others can be reset with
      * setBnfX().
-     * 
+     *
      * @param lines Series of lines that represent a BNF expression. The lines contain
      *          a series of statements that of the form x=y;. A statement can take
      *          multiple lines, but there can't be multiple statements on a line.
@@ -211,7 +214,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
             for (Entry<String, String> entry : variables.entrySet()) {
                 String variable   = entry.getKey(),
                        definition = entry.getValue();
-                
+
                 for (Entry<String, String> entry2 : variables.entrySet()) {
                     String variable2 = entry2.getKey(),
                            definition2 = entry2.getValue();
@@ -222,13 +225,13 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
                     if (!altered2.equals(definition2)) {
                         unused.remove(variable);
                         variables.put(variable2, altered2);
-                        if (log != null) {
-                            try {
-                                log.append(variable2 + "=" + altered2 + ";");
-                            } catch (IOException e) {
-                                throw (IllegalArgumentException) new IllegalArgumentException().initCause(e);
-                            }
-                        }
+//                        if (log != null) {
+//                            try {
+//                                log.append(variable2 + "=" + altered2 + ";");
+//                            } catch (IOException e) {
+//                                throw (IllegalArgumentException) new IllegalArgumentException().initCause(e);
+//                            }
+//                        }
                     }
                 }
             }
@@ -298,12 +301,13 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
         }
         return result;
     }
-    
-    
+
+
 
     /* (non-Javadoc)
      * @see com.ibm.icu.util.Freezable#cloneAsThawed()
      */
+    @Override
     public UnicodeRegex cloneAsThawed() {
         // TODO Auto-generated method stub
         try {
@@ -316,6 +320,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
     /* (non-Javadoc)
      * @see com.ibm.icu.util.Freezable#freeze()
      */
+    @Override
     public UnicodeRegex freeze() {
         // no action needed now.
         return this;
@@ -324,6 +329,7 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
     /* (non-Javadoc)
      * @see com.ibm.icu.util.Freezable#isFrozen()
      */
+    @Override
     public boolean isFrozen() {
         // at this point, always true
         return true;
@@ -344,13 +350,14 @@ public class UnicodeRegex implements Cloneable, Freezable<UnicodeRegex>, StringT
         }
     }
 
-    private static UnicodeRegex STANDARD = new UnicodeRegex();
+    private static final UnicodeRegex STANDARD = new UnicodeRegex();
     private String bnfCommentString = "#";
     private String bnfVariableInfix = "=";
     private String bnfLineSeparator = "\n";
-    private Appendable log = null;
+//    private Appendable log = null;
 
     private Comparator<Object> LongestFirst = new Comparator<Object>() {
+        @Override
         public int compare(Object obj0, Object obj1) {
             String arg0 = obj0.toString();
             String arg1 = obj1.toString();

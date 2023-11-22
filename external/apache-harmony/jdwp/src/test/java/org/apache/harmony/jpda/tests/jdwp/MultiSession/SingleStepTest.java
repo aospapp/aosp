@@ -33,7 +33,6 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -46,6 +45,7 @@ public class SingleStepTest extends JDWPSyncTestCase {
 
     private String DEBUGGEE_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.MultiSession.SingleStepDebuggee";
 
+    @Override
     protected String getDebuggeeClassName() {
         return DEBUGGEE_CLASS_NAME;
     }
@@ -137,8 +137,6 @@ public class SingleStepTest extends JDWPSyncTestCase {
 
         //ckeck if received events are expected
         int result = 0;
-        int autoEvents = 0;
-        int wrongEvents = 0;
         for (int i = 0; i < eventsCount; i++) {
             ParsedEvent event = parsedEvents[i];
             logWriter.println("=> Event #" + i + ";");
@@ -156,7 +154,6 @@ public class SingleStepTest extends JDWPSyncTestCase {
             // check if event is expected
             if (eventKind == JDWPConstants.EventKind.VM_DEATH) {
                 if (parsedEvents[i].getRequestID() == 0) {
-                    autoEvents++;
                     logWriter.println("=> found auto VM_DEATH event!");
                     // for automatical event suspend policy can be changed
                 } else {
@@ -165,7 +162,6 @@ public class SingleStepTest extends JDWPSyncTestCase {
                     result = 1;
                 }
             } else {
-                wrongEvents++;
                 logWriter.println("## FAILURE: unexpected event kind: "
                         + eventKind);
                 result = 2;
@@ -180,6 +176,7 @@ public class SingleStepTest extends JDWPSyncTestCase {
         logWriter.println("==> testSingleStep001 PASSED!");
     }
 
+    @Override
     protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {

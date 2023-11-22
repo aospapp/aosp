@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Ei mitään"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Tuntematon soittoääni"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Kaikki linjat ovat käytössä. Jos haluat soittaa, sulje jokin puhelu tällä tai jollain muulla laitteellasi."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Puhelu päättyi, koska mobiilidata poistettiin käytöstä."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Puhelu päättyi, koska mobiilidatan käyttöraja saavutettiin."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Dataraja saavutettu. Puhelu päättyi."</string>
 </resources>

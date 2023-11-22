@@ -19,7 +19,14 @@ package foo.bar.permission;
 import android.Manifest;
 import android.app.Activity;
 import android.app.LoaderManager;
+import android.bluetooth.BluetoothDevice;
+import android.companion.AssociationRequest;
+import android.companion.BluetoothDeviceFilter;
+import android.companion.BluetoothLEDeviceFilter;
+import android.companion.CompanionDeviceManager;
 import android.content.CursorLoader;
+import android.content.Intent;
+import android.content.IntentSender;
 import android.content.Loader;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -35,7 +42,6 @@ import android.widget.SimpleCursorAdapter;
 import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -44,6 +50,8 @@ import java.util.List;
 public class PermissionActivity extends Activity implements LoaderManager.LoaderCallbacks<Cursor> {
 
     public static final String LOG_TAG = "PermissionActivity";
+
+    private static final int CHOOSE_DEVICE_REQUEST = 1;
 
     private static final int CONTACTS_LOADER = 1;
 
@@ -170,6 +178,13 @@ public class PermissionActivity extends Activity implements LoaderManager.Loader
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == CHOOSE_DEVICE_REQUEST) {
+            BluetoothDevice device = data.getParcelableExtra(CompanionDeviceManager.EXTRA_DEVICE);
+        }
+    }
+
+    @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[],
             int[] grantResults) {
         switch (requestCode) {
@@ -221,17 +236,20 @@ public class PermissionActivity extends Activity implements LoaderManager.Loader
     }
 
     private void showContacts() {
-        if (checkSelfPermission(Manifest.permission.READ_CONTACTS)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {Manifest.permission.READ_CONTACTS},
-                    PERMISSIONS_REQUEST_READ_CONTACTS);
-            return;
-        }
+        getPackageManager().isInstantApp();
 
-        if (getLoaderManager().getLoader(CONTACTS_LOADER) == null) {
-            getLoaderManager().initLoader(CONTACTS_LOADER, null, this);
-        }
-        mListView.setAdapter(mContactsAdapter);
+
+//        if (checkSelfPermission(Manifest.permission.READ_CONTACTS)
+//                != PackageManager.PERMISSION_GRANTED) {
+//            requestPermissions(new String[] {Manifest.permission.READ_CONTACTS},
+//                    PERMISSIONS_REQUEST_READ_CONTACTS);
+//            return;
+//        }
+//
+//        if (getLoaderManager().getLoader(CONTACTS_LOADER) == null) {
+//            getLoaderManager().initLoader(CONTACTS_LOADER, null, this);
+//        }
+//        mListView.setAdapter(mContactsAdapter);
     }
 
     private void showEvents() {

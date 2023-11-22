@@ -22,8 +22,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.cts.util.PollingCheck;
 import android.os.IBinder;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.concurrent.Callable;
 

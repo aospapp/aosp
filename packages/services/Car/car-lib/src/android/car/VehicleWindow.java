@@ -23,7 +23,7 @@ import android.annotation.SystemApi;
  * @hide
  */
 @SystemApi
-public class VehicleWindow {
+public final class VehicleWindow {
     public static final int WINDOW_FRONT_WINDSHIELD = 0x0001;
     public static final int WINDOW_REAR_WINDSHIELD = 0x0002;
     public static final int WINDOW_ROOF_TOP = 0x0004;
@@ -33,5 +33,7 @@ public class VehicleWindow {
     public static final int WINDOW_ROW_2_RIGHT = 0x0200;
     public static final int WINDOW_ROW_3_LEFT = 0x1000;
     public static final int WINDOW_ROW_3_RIGHT = 0x2000;
+
+    private VehicleWindow() {}
 }
 

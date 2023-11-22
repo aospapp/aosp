@@ -40,7 +40,7 @@ abstract class ShortcutPackageItem {
 
     private final ShortcutPackageInfo mPackageInfo;
 
-    protected final ShortcutUser mShortcutUser;
+    protected ShortcutUser mShortcutUser;
 
     protected ShortcutPackageItem(@NonNull ShortcutUser shortcutUser,
             int packageUserId, @NonNull String packageName,
@@ -51,6 +51,13 @@ abstract class ShortcutPackageItem {
         mPackageInfo = Preconditions.checkNotNull(packageInfo);
     }
 
+    /**
+     * Change the parent {@link ShortcutUser}.  Need it in the restore code.
+     */
+    public void replaceUser(ShortcutUser user) {
+        mShortcutUser = user;
+    }
+
     public ShortcutUser getUser() {
         return mShortcutUser;
     }
@@ -58,8 +65,7 @@ abstract class ShortcutPackageItem {
     /**
      * ID of the user who actually has this package running on.  For {@link ShortcutPackage},
      * this is the same thing as {@link #getOwnerUserId}, but if it's a {@link ShortcutLauncher} and
-     * {@link #getOwnerUserId} is of a work profile, then this ID could be the user who owns the
-     * profile.
+     * {@link #getOwnerUserId} is of work profile, then this ID is of the primary user.
      */
     public int getPackageUserId() {
         return mPackageUserId;
@@ -79,12 +85,12 @@ abstract class ShortcutPackageItem {
         return mPackageInfo;
     }
 
-    public void refreshPackageInfoAndSave() {
+    public void refreshPackageSignatureAndSave() {
         if (mPackageInfo.isShadow()) {
             return; // Don't refresh for shadow user.
         }
         final ShortcutService s = mShortcutUser.mService;
-        mPackageInfo.refresh(s, this);
+        mPackageInfo.refreshSignature(s, this);
         s.scheduleSaveUser(getOwnerUserId());
     }
 
@@ -100,27 +106,31 @@ abstract class ShortcutPackageItem {
             }
             return; // Not installed, no need to restore yet.
         }
+        boolean blockRestore = false;
         if (!mPackageInfo.hasSignatures()) {
             s.wtf("Attempted to restore package " + mPackageName + ", user=" + mPackageUserId
                     + " but signatures not found in the restore data.");
+            blockRestore = true;
+        }
+        if (!blockRestore) {
+            final PackageInfo pi = s.getPackageInfoWithSignatures(mPackageName, mPackageUserId);
+            if (!mPackageInfo.canRestoreTo(s, pi)) {
+                // Package is now installed, but can't restore.  Let the subclass do the cleanup.
+                blockRestore = true;
+            }
+        }
+        if (blockRestore) {
             onRestoreBlocked();
-            return;
+        } else {
+            if (ShortcutService.DEBUG) {
+                Slog.d(TAG, String.format("Restored package: %s/%d on user %d", mPackageName,
+                        mPackageUserId, getOwnerUserId()));
+            }
+
+            onRestored();
         }
 
-        final PackageInfo pi = s.getPackageInfoWithSignatures(mPackageName, mPackageUserId);
-        if (!mPackageInfo.canRestoreTo(s, pi)) {
-            // Package is now installed, but can't restore.  Let the subclass do the cleanup.
-            onRestoreBlocked();
-            return;
-        }
-        if (ShortcutService.DEBUG) {
-            Slog.d(TAG, String.format("Restored package: %s/%d on user %d", mPackageName,
-                    mPackageUserId, getOwnerUserId()));
-        }
-
-        onRestored();
-
-        // Now the package is not shadow.
+        // Either way, it's no longer a shadow.
         mPackageInfo.setShadow(false);
 
         s.scheduleSaveUser(mPackageUserId);

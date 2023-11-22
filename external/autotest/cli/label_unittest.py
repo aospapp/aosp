@@ -45,31 +45,28 @@ class label_list_unittest(cli_mock.cli_unittest):
 
 
     def test_label_list_labels_only(self):
-        self.run_cmd(argv=['atest', 'label', 'list', '--ignore_site_file'],
+        self.run_cmd(argv=['atest', 'label', 'list'],
                      rpcs=[('get_labels', {}, True, self.values)],
                      out_words_ok=['label0', 'label1', 'label2'],
                      out_words_no=['plat0', 'plat1'])
 
 
     def test_label_list_labels_only_valid(self):
-        self.run_cmd(argv=['atest', 'label', 'list', '-d',
-                           '--ignore_site_file'],
+        self.run_cmd(argv=['atest', 'label', 'list', '-d'],
                      rpcs=[('get_labels', {}, True, self.values)],
                      out_words_ok=['label0', 'label1'],
                      out_words_no=['label2', 'plat0', 'plat1'])
 
 
     def test_label_list_labels_and_platforms(self):
-        self.run_cmd(argv=['atest', 'label', 'list', '--all',
-                           '--ignore_site_file'],
+        self.run_cmd(argv=['atest', 'label', 'list', '--all'],
                      rpcs=[('get_labels', {}, True, self.values)],
                      out_words_ok=['label0', 'label1', 'label2',
                                    'plat0', 'plat1'])
 
 
     def test_label_list_platforms_only(self):
-        self.run_cmd(argv=['atest', 'label', 'list', '-t',
-                           '--ignore_site_file'],
+        self.run_cmd(argv=['atest', 'label', 'list', '-t'],
                      rpcs=[('get_labels', {}, True, self.values)],
                      out_words_ok=['plat0', 'plat1'],
                      out_words_no=['label0', 'label1', 'label2'])
@@ -77,7 +74,7 @@ class label_list_unittest(cli_mock.cli_unittest):
 
     def test_label_list_platforms_only_valid(self):
         self.run_cmd(argv=['atest', 'label', 'list',
-                           '-t', '--valid-only', '--ignore_site_file'],
+                           '-t', '--valid-only'],
                      rpcs=[('get_labels', {}, True, self.values)],
                      out_words_ok=['plat0'],
                      out_words_no=['label0', 'label1', 'label2',
@@ -86,8 +83,7 @@ class label_list_unittest(cli_mock.cli_unittest):
 
 class label_create_unittest(cli_mock.cli_unittest):
     def test_execute_create_two_labels(self):
-        self.run_cmd(argv=['atest', 'label', 'create', 'label0', 'label1',
-                           '--ignore_site_file'],
+        self.run_cmd(argv=['atest', 'label', 'create', 'label0', 'label1'],
                      rpcs=[('add_label',
                             {'name': 'label0', 'platform': False,
                              'only_if_needed': False},
@@ -100,8 +96,7 @@ class label_create_unittest(cli_mock.cli_unittest):
 
 
     def test_execute_create_two_labels_bad(self):
-        self.run_cmd(argv=['atest', 'label', 'create', 'label0', 'label1',
-                           '--ignore_site_file'],
+        self.run_cmd(argv=['atest', 'label', 'create', 'label0', 'label1'],
                      rpcs=[('add_label',
                             {'name': 'label0', 'platform': False,
                              'only_if_needed': False},
@@ -120,8 +115,7 @@ class label_create_unittest(cli_mock.cli_unittest):
 
 class label_delete_unittest(cli_mock.cli_unittest):
     def test_execute_delete_labels(self):
-        self.run_cmd(argv=['atest', 'label', 'delete', 'label0', 'label1',
-                           '--ignore_site_file', '--no-confirmation'],
+        self.run_cmd(argv=['atest', 'label', 'delete', 'label0', 'label1', '--no-confirmation'],
                      rpcs=[('delete_label', {'id': 'label0'}, True, None),
                            ('delete_label', {'id': 'label1'}, True, None)],
                      out_words_ok=['Deleted', 'label0', 'label1'])
@@ -130,7 +124,7 @@ class label_delete_unittest(cli_mock.cli_unittest):
 class label_add_unittest(cli_mock.cli_unittest):
     def test_execute_add_labels_to_hosts(self):
         self.run_cmd(argv=['atest', 'label', 'add', 'label0',
-                           '--machine', 'host0,host1', '--ignore_site_file'],
+                           '--machine', 'host0,host1'],
                      rpcs=[('label_add_hosts', {'id': 'label0',
                                                 'hosts': ['host1', 'host0']},
                             True, None)],
@@ -140,7 +134,7 @@ class label_add_unittest(cli_mock.cli_unittest):
 class label_remove_unittest(cli_mock.cli_unittest):
     def test_execute_remove_labels_from_hosts(self):
         self.run_cmd(argv=['atest', 'label', 'remove', 'label0',
-                           '--machine', 'host0,host1', '--ignore_site_file'],
+                           '--machine', 'host0,host1'],
                      rpcs=[('label_remove_hosts', {'id': 'label0',
                                                'hosts': ['host1', 'host0']},
                             True, None)],

@@ -33,6 +33,7 @@ public class OwnedMonitorsStackDepthInfoTest extends JDWPSyncTestCase {
 
     static final String thisCommandName = "ThreadReference.OwnedMonitorsStackDepthInfo command ";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.OwnedMonitorsStackDepthInfoDebuggee";
     }

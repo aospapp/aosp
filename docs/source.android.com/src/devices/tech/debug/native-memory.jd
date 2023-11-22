@@ -16,22 +16,28 @@ page.title=Debugging Native Memory Use
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<p>This tip assumes that you are working with an eng
-or userdebug build of the platform, not on a production device.</p>
-<p>Android's native memory allocator has some useful debugging features.  You
-can turn on memory tracking with:</p>
-<pre><code>  $ adb shell setprop libc.debug.malloc 1
-  $ adb shell stop
-  $ adb shell start
-</code></pre>
-<p>You need to restart the runtime so that zygote and all processes launched from
-it are restarted with the property set.  Now all app processes have memory
-tracking turned on.  You can look at these with DDMS, but first you need to
-turn on its native memory UI:</p>
-<ul>
-<li>Open ~/.android/ddms.cfg</li>
-<li>Add a line "native=true"</li>
-</ul>
+<h2 id="malloc_debug">Malloc debug</h2>
+
+<p>See <a
+href="https://android.googlesource.com/platform/bionic/+/master/libc/malloc_debug/README.md">Malloc
+Debug</a> and <a
+href="https://android.googlesource.com/platform/bionic/+/master/libc/malloc_debug/README_api.md">Native
+Memory Tracking using libc Callbacks</a> for a thorough description of the
+debugging options available for native memory issues.</p>
+
+<h2 id="ddms">Dalvik Debug Monitor Server</h2>
+
+<p>You can also use the <a
+href="https://developer.android.com/studio/profile/ddms.html">Dalvik Debug
+Monitor Server</a> (DDMS) to obtain a graphical view of Malloc Debug
+output.</p>
+
+<p>To use DDMS, first turn on its native memory UI:</p>
+<ol>
+<li>Open <code>~/.android/ddms.cfg</code></li>
+<li>Add the line: <code>native=true</code></li>
+</ol>
+
 <p>Upon relaunching DDMS and selecting a process, you can switch to the new
-native allocation tab and populate it with a list of allocations.  This is
+native allocation tab and populate it with a list of allocations. This is
 especially useful for debugging memory leaks.</p>

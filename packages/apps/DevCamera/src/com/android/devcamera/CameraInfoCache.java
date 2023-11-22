@@ -49,6 +49,7 @@ public class CameraInfoCache {
     private Integer mRawFormat;
     private int mBestFaceMode;
     private int mHardwareLevel;
+    private Size mDepthCloudSize = null;
 
     /**
      * Constructor.
@@ -94,6 +95,10 @@ public class CameraInfoCache {
                     mRawSize = size;
                     lowestStall = stall;
                 }
+            }
+            if (formats[i] == ImageFormat.DEPTH_POINT_CLOUD) {
+                Size size = returnLargestSize(map.getOutputSizes(formats[i]));
+                mDepthCloudSize = size;
             }
         }
 
@@ -288,4 +293,7 @@ public class CameraInfoCache {
         return mRawSize;
     }
 
+    public Size getDepthCloudSize() {
+        return mDepthCloudSize;
+    }
 }

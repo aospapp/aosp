@@ -18,10 +18,21 @@
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
-    android:paddingRight="?android:attr/scrollbarSize"
     android:background="?android:attr/selectableItemBackground"
-    android:padding="15dip"
+    android:minHeight="?android:attr/listPreferredItemHeight"
+    android:paddingStart="?android:attr/dialogPreferredPadding"
+    android:paddingEnd="?android:attr/dialogPreferredPadding"
     >
+    <RadioButton
+        android:id="@+id/cert_item_selected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:clickable="false"
+        android:focusable="false"
+        android:layout_weight="0"
+        android:paddingEnd="@dimen/radio_label_padding"
+    />
     <RelativeLayout
         android:layout_width="0px"
         android:layout_height="wrap_content"
@@ -46,13 +57,4 @@
             android:textColor="?android:attr/textColorSecondary"
         />
     </RelativeLayout>
-    <RadioButton
-        android:id="@+id/cert_item_selected"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:clickable="false"
-        android:focusable="false"
-        android:layout_weight="0"
-    />
 </LinearLayout>

@@ -28,6 +28,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * overridden default method.
  */
 public class InvokeMethodDefault002Test extends JDWPSyncTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return InvokeMethodDefault002Debuggee.class.getName();
     }
@@ -124,7 +125,7 @@ public class InvokeMethodDefault002Test extends JDWPSyncTestCase {
         logWriter.println(" Method ID=" + targetMethodID);
 
         // The method argument.
-        Value throwValue = new Value(shouldThrow);
+        Value throwValue = Value.createBoolean(shouldThrow);
         // Invoke method.
         packet = new CommandPacket(
                 JDWPCommands.ObjectReferenceCommandSet.CommandSetID,

@@ -36,9 +36,9 @@
 #include <hardware/hardware.h>
 #ifdef BAYTRAIL
 #include <ufo/gralloc.h>
-#endif
-#ifndef BAYTRAIL
+#else
 #include <hal/hal_public.h>
+#include <sync/sync.h>
 #endif
 
 using namespace android;
@@ -49,16 +49,19 @@ using namespace android;
 
 #define LOG_TAG "pvr_drv_video"
 
-static hw_module_t const *module;
-static gralloc_module_t *mAllocMod; /* get by force hw_module_t */
+#ifdef BAYTRAIL
+static const gralloc_module_t *mGralloc;
+#else
+static const hw_device_t *mGralloc;
+#endif
 
 int gralloc_lock(buffer_handle_t handle,
-                int usage, int left, int top, int width, int height,
-                void** vaddr)
+                 int usage, int left, int top, int width, int height,
+                 void** vaddr)
 {
     int err, j;
 
-    if (!mAllocMod) {
+    if (!mGralloc) {
         ALOGW("%s: gralloc module has not been initialized. Should initialize it first", __func__);
         if (gralloc_init()) {
             ALOGE("%s: can't find the %s module", __func__, GRALLOC_HARDWARE_MODULE_ID);
@@ -66,36 +69,20 @@ int gralloc_lock(buffer_handle_t handle,
         }
     }
 
-    err = mAllocMod->lock(mAllocMod, handle, usage,
-                          left, top, width, height,
-                          vaddr);
-    ALOGV("gralloc_lock: handle is %p, usage is %x, vaddr is %p.\n", handle, usage, *vaddr);
-
-//#ifdef BAYTRAIL
-#if 0
-    unsigned char *tmp_buffer = (unsigned char *)(*vaddr);
-    int dst_stride;
-    if (width <= 512)
-        dst_stride = 512;
-    else if (width <= 1024)
-        dst_stride = 1024;
-    else if (width <= 1280)
-        dst_stride = 1280;
-    else if (width <= 2048)
-        dst_stride = 2048;
-
-    int align_h = 32;
-    int dsth = (height + align_h - 1) & ~(align_h - 1);
-    LOGD("width is %d, dst_stride is %d, dsth is %d.\n",
-         width, dst_stride, dsth);
-
-    for (j = 0; j < dst_stride * dsth * 3 / 2; j = j + 4096) {
-        *(tmp_buffer + j) = 0xa5;
-        if (*(tmp_buffer + j) !=  0xa5)
-            LOGE("access page failed, width is %d, dst_stride is %d, dsth is %d.\n",
-                 width, dst_stride, dsth);
-    }
+#ifdef BAYTRAIL
+    err = mGralloc->lock(mGralloc, handle, usage,
+                         left, top, width, height,
+                         vaddr);
+#else
+    const gralloc1_rect_t r = {
+        .left   = left,
+        .top    = top,
+        .width  = width,
+        .height = height
+    };
+    err = gralloc_lock_async_img(mGralloc, handle, usage, &r, vaddr, -1);
 #endif
+    ALOGV("gralloc_lock: handle is %p, usage is %x, vaddr is %p.\n", handle, usage, *vaddr);
     if (err){
         ALOGE("lock(...) failed %d (%s).\n", err, strerror(-err));
         return -1;
@@ -110,7 +97,7 @@ int gralloc_unlock(buffer_handle_t handle)
 {
     int err;
 
-    if (!mAllocMod) {
+    if (!mGralloc) {
         ALOGW("%s: gralloc module has not been initialized. Should initialize it first", __func__);
         if (gralloc_init()) {
             ALOGE("%s: can't find the %s module", __func__, GRALLOC_HARDWARE_MODULE_ID);
@@ -118,7 +105,16 @@ int gralloc_unlock(buffer_handle_t handle)
         }
     }
 
-    err = mAllocMod->unlock(mAllocMod, handle);
+#ifdef BAYTRAIL
+    err = mGralloc->unlock(mGralloc, handle);
+#else
+    int releaseFence = -1;
+    err = gralloc_unlock_async_img(mGralloc, handle, &releaseFence);
+    if (releaseFence >= 0) {
+        sync_wait(releaseFence, -1);
+        close(releaseFence);
+    }
+#endif
     if (err) {
         ALOGE("unlock(...) failed %d (%s)", err, strerror(-err));
         return -1;
@@ -129,15 +125,68 @@ int gralloc_unlock(buffer_handle_t handle)
     return err;
 }
 
+int gralloc_register(buffer_handle_t handle)
+{
+    int err = 0;
+
+    if (!mGralloc) {
+        ALOGW("%s: gralloc module has not been initialized.", __func__);
+        if (gralloc_init()) {
+            ALOGE("%s: can't find the %s module", __func__,
+                    GRALLOC_HARDWARE_MODULE_ID);
+            return -1;
+        }
+    }
+
+    err = gralloc_register_img(mGralloc, handle);
+    if (err) {
+        ALOGE("%s failed with %d (%s).\n", __func__, err, strerror(-err));
+        return -1;
+    } else {
+        ALOGV("registered buffer %p successfully\n", handle);
+    }
+
+    return err;
+}
+
+int gralloc_unregister(buffer_handle_t handle)
+{
+    int err = 0;
+
+    if (!mGralloc) {
+        ALOGW("%s: gralloc module has not been initialized.", __func__);
+        if (gralloc_init()) {
+            ALOGE("%s: can't find the %s module", __func__,
+                    GRALLOC_HARDWARE_MODULE_ID);
+            return -1;
+        }
+    }
+
+    err = gralloc_unregister_img(mGralloc, handle);
+    if (err) {
+        ALOGE("%s failed with %d (%s).\n", __func__, err, strerror(-err));
+        return -1;
+    } else {
+        ALOGV("unregistered buffer %p successfully\n", handle);
+    }
+
+    return err;
+}
+
 int gralloc_init(void)
 {
-    int err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
+    int err;
+
+#ifdef BAYTRAIL
+    err = hw_get_module(GRALLOC_HW_MODULE_ID, (const hw_module_t **)&mGralloc);
+#else
+    err = gralloc_open_img(&mGralloc);
+#endif
     if (err) {
         ALOGE("FATAL: can't find the %s module", GRALLOC_HARDWARE_MODULE_ID);
         return -1;
     } else
         ALOGD("hw_get_module returned\n");
-    mAllocMod = (gralloc_module_t *)module;
 
     return 0;
 }
@@ -145,13 +194,14 @@ int gralloc_init(void)
 int gralloc_getdisplaystatus(buffer_handle_t handle,  int* status)
 {
     int err;
-#ifndef BAYTRAIL
-    uint32_t _status = 0U;
-    err = mAllocMod->perform(mAllocMod, GRALLOC_MODULE_GET_DISPLAY_STATUS_IMG, handle, &_status);
-    *status = (int)_status;
-#else
+
+#ifdef BAYTRAIL
+    *status = mGralloc->perform(mGralloc, INTEL_UFO_GRALLOC_MODULE_PERFORM_GET_BO_STATUS, handle);
     err = 0;
-    *status = mAllocMod->perform(mAllocMod, INTEL_UFO_GRALLOC_MODULE_PERFORM_GET_BO_STATUS, handle);
+#else
+    uint32_t _status = 0U;
+    err = gralloc_get_display_status_img(mGralloc, handle, &_status);
+    *status = (int)_status;
 #endif
     if (err){
         ALOGE("gralloc_getdisplaystatus(...) failed %d (%s).\n", err, strerror(-err));

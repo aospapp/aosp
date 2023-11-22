@@ -23,6 +23,7 @@
 
 #include "vktImageTests.hpp"
 #include "vktImageLoadStoreTests.hpp"
+#include "vktImageMultisampleLoadStoreTests.hpp"
 #include "vktImageQualifiersTests.hpp"
 #include "vktImageSizeTests.hpp"
 #include "vktTestGroupUtil.hpp"
@@ -39,9 +40,10 @@ namespace
 void createChildren (tcu::TestCaseGroup* imageTests)
 {
 	tcu::TestContext&	testCtx		= imageTests->getTestContext();
-	
+
 	imageTests->addChild(createImageStoreTests(testCtx));
 	imageTests->addChild(createImageLoadStoreTests(testCtx));
+	imageTests->addChild(createImageMultisampleLoadStoreTests(testCtx));
 	imageTests->addChild(createImageFormatReinterpretTests(testCtx));
 	imageTests->addChild(createImageQualifiersTests(testCtx));
 	imageTests->addChild(createImageSizeTests(testCtx));

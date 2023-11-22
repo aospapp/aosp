@@ -25,6 +25,12 @@
 #include "EmulatedQemuCamera.h"
 #include "EmulatedCameraFactory.h"
 
+#undef min
+#undef max
+#include <sstream>
+#include <string>
+#include <vector>
+
 namespace android {
 
 EmulatedQemuCamera::EmulatedQemuCamera(int cameraId, struct hw_module_t* module)
@@ -65,43 +71,84 @@ status_t EmulatedQemuCamera::Initialize(const char* device_name,
     /*
      * Set customizable parameters.
      */
+    using Size = std::pair<int, int>;
+    std::vector<Size> resolutions;
+    std::stringstream ss(frame_dims);
+    std::string input;
+    while (std::getline(ss, input, ',')) {
+        int width = 0;
+        int height = 0;
+        char none = 0;
+        /* Expect only two results because that means there was nothing after
+         * the height, we don't want any trailing characters. Otherwise we just
+         * ignore this entry. */
+        if (sscanf(input.c_str(), "%dx%d%c", &width, &height, &none) == 2) {
+            resolutions.push_back(Size(width, height));
+            ALOGE("%s: %dx%d", __FUNCTION__, width, height);
+        }
+    }
+
+    /* The Android framework contains a wrapper around the v1 Camera API so that
+     * it can be used with API v2. This wrapper attempts to figure out the
+     * sensor resolution of the camera by looking at the resolution with the
+     * largest area and infer that the dimensions of that resolution must also
+     * be the size of the camera sensor. Any resolution with a dimension that
+     * exceeds the sensor size will be rejected so Camera API calls will start
+     * failing. To work around this we remove any resolutions with at least one
+     * dimension exceeding that of the max area resolution. */
+
+    /* First find the resolution with the maximum area, the "sensor size" */
+    int maxArea = 0;
+    int maxAreaWidth = 0;
+    int maxAreaHeight = 0;
+    for (const auto& res : resolutions) {
+        int area = res.first * res.second;
+        if (area > maxArea) {
+            maxArea = area;
+            maxAreaWidth = res.first;
+            maxAreaHeight = res.second;
+        }
+    }
+
+    /* Next remove any resolution with a dimension exceeding the sensor size. */
+    for (auto res = resolutions.begin(); res != resolutions.end(); ) {
+        if (res->first > maxAreaWidth || res->second > maxAreaHeight) {
+            /* Width and/or height larger than sensor, remove it */
+            res = resolutions.erase(res);
+        } else {
+            ++res;
+        }
+    }
+
+    if (resolutions.empty()) {
+        ALOGE("%s: Qemu camera has no valid resolutions", __FUNCTION__);
+        return EINVAL;
+    }
+
+    /* Next rebuild the frame size string for the camera parameters */
+    std::stringstream sizesStream;
+    for (size_t i = 0; i < resolutions.size(); ++i) {
+        if (i != 0) {
+            sizesStream << ',';
+        }
+        sizesStream << resolutions[i].first << 'x' << resolutions[i].second;
+    }
+    std::string sizes = sizesStream.str();
 
     mParameters.set(EmulatedCamera::FACING_KEY, facing_dir);
     mParameters.set(EmulatedCamera::ORIENTATION_KEY,
                     gEmulatedCameraFactory.getQemuCameraOrientation());
-    mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES, frame_dims);
-    mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES, frame_dims);
+    mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
+                    sizes.c_str());
+    mParameters.set(CameraParameters::KEY_SUPPORTED_PREVIEW_SIZES,
+                    sizes.c_str());
 
     /*
      * Use first dimension reported by the device to set current preview and
      * picture sizes.
      */
-
-    char first_dim[128];
-    /* Dimensions are separated with ',' */
-    const char* c = strchr(frame_dims, ',');
-    if (c == NULL) {
-        strncpy(first_dim, frame_dims, sizeof(first_dim));
-        first_dim[sizeof(first_dim)-1] = '\0';
-    } else if (static_cast<size_t>(c - frame_dims) < sizeof(first_dim)) {
-        memcpy(first_dim, frame_dims, c - frame_dims);
-        first_dim[c - frame_dims] = '\0';
-    } else {
-        memcpy(first_dim, frame_dims, sizeof(first_dim));
-        first_dim[sizeof(first_dim)-1] = '\0';
-    }
-
-    /* Width and height are separated with 'x' */
-    char* sep = strchr(first_dim, 'x');
-    if (sep == NULL) {
-        ALOGE("%s: Invalid first dimension format in %s",
-             __FUNCTION__, frame_dims);
-        return EINVAL;
-    }
-
-    *sep = '\0';
-    const int x = atoi(first_dim);
-    const int y = atoi(sep + 1);
+    int x = resolutions[0].first;
+    int y = resolutions[0].second;
     mParameters.setPreviewSize(x, y);
     mParameters.setPictureSize(x, y);
 

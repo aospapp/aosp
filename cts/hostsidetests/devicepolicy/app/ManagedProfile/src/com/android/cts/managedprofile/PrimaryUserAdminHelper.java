@@ -46,6 +46,6 @@ public class PrimaryUserAdminHelper extends AndroidTestCase {
                 Thread.sleep(1000);  // 1 second.
             }
         }
-        assertFalse(mDpm.isAdminActive(cn));
+        assertFalse("Clear device admin failed", mDpm.isAdminActive(cn));
     }
 }

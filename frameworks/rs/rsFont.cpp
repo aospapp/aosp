@@ -20,18 +20,16 @@
 #include "rsFont.h"
 #include "rsProgramFragment.h"
 #include "rsMesh.h"
-#ifdef __ANDROID__
-#include <cutils/properties.h>
-#endif
 
 #ifndef ANDROID_RS_SERIALIZE
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_BITMAP_H
 #endif //ANDROID_RS_SERIALIZE
+#include <string.h>
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 Font::Font(Context *rsc) : ObjectBase(rsc), mCachedGlyphs(NULL) {
     mInitialized = false;
@@ -76,9 +74,10 @@ bool Font::init(const char *name, float fontSize, uint32_t dpi, const void *data
 }
 
 void Font::preDestroy() const {
-    for (uint32_t ct = 0; ct < mRSC->mStateFont.mActiveFonts.size(); ct++) {
-        if (mRSC->mStateFont.mActiveFonts[ct] == this) {
-            mRSC->mStateFont.mActiveFonts.removeAt(ct);
+    auto& activeFonts = mRSC->mStateFont.mActiveFonts;
+    for (uint32_t ct = 0; ct < activeFonts.size(); ct++) {
+        if (activeFonts[ct] == this) {
+            activeFonts.erase(activeFonts.begin() + ct);
             break;
         }
     }
@@ -296,7 +295,7 @@ Font::CachedGlyphInfo *Font::cacheGlyph(uint32_t glyph) {
 Font * Font::create(Context *rsc, const char *name, float fontSize, uint32_t dpi,
                     const void *data, uint32_t dataLen) {
     rsc->mStateFont.checkInit();
-    Vector<Font*> &activeFonts = rsc->mStateFont.mActiveFonts;
+    auto& activeFonts = rsc->mStateFont.mActiveFonts;
 
     for (uint32_t i = 0; i < activeFonts.size(); i ++) {
         Font *ithFont = activeFonts[i];
@@ -308,7 +307,7 @@ Font * Font::create(Context *rsc, const char *name, float fontSize, uint32_t dpi
     Font *newFont = new Font(rsc);
     bool isInitialized = newFont->init(name, fontSize, dpi, data, dataLen);
     if (isInitialized) {
-        activeFonts.push(newFont);
+        activeFonts.push_back(newFont);
         rsc->mStateFont.precacheLatin(newFont);
         return newFont;
     }
@@ -345,7 +344,7 @@ FontState::FontState() {
 
 #ifdef __ANDROID__
     // Get the renderer properties
-    char property[PROPERTY_VALUE_MAX];
+    char property[PROP_VALUE_MAX];
 
     // Get the gamma
     if (property_get(PROPERTY_TEXT_GAMMA, property, nullptr) > 0) {
@@ -560,19 +559,19 @@ void FontState::initTextTexture() {
 
     // Split up our cache texture into lines of certain widths
     int32_t nextLine = 0;
-    mCacheLines.push(new CacheTextureLine(16, texType->getDimX(), nextLine, 0));
-    nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(24, texType->getDimX(), nextLine, 0));
-    nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(24, texType->getDimX(), nextLine, 0));
-    nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(32, texType->getDimX(), nextLine, 0));
-    nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(32, texType->getDimX(), nextLine, 0));
-    nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(40, texType->getDimX(), nextLine, 0));
-    nextLine += mCacheLines.top()->mMaxHeight;
-    mCacheLines.push(new CacheTextureLine(texType->getDimY() - nextLine, texType->getDimX(), nextLine, 0));
+    mCacheLines.push_back(new CacheTextureLine(16, texType->getDimX(), nextLine, 0));
+    nextLine += mCacheLines.back()->mMaxHeight;
+    mCacheLines.push_back(new CacheTextureLine(24, texType->getDimX(), nextLine, 0));
+    nextLine += mCacheLines.back()->mMaxHeight;
+    mCacheLines.push_back(new CacheTextureLine(24, texType->getDimX(), nextLine, 0));
+    nextLine += mCacheLines.back()->mMaxHeight;
+    mCacheLines.push_back(new CacheTextureLine(32, texType->getDimX(), nextLine, 0));
+    nextLine += mCacheLines.back()->mMaxHeight;
+    mCacheLines.push_back(new CacheTextureLine(32, texType->getDimX(), nextLine, 0));
+    nextLine += mCacheLines.back()->mMaxHeight;
+    mCacheLines.push_back(new CacheTextureLine(40, texType->getDimX(), nextLine, 0));
+    nextLine += mCacheLines.back()->mMaxHeight;
+    mCacheLines.push_back(new CacheTextureLine(texType->getDimY() - nextLine, texType->getDimX(), nextLine, 0));
 }
 
 // Avoid having to reallocate memory and render quad by quad
@@ -756,8 +755,9 @@ void FontState::renderText(const char *text, uint32_t len, int32_t x, int32_t y,
             char fullPath[1024];
             const char * root = getenv("ANDROID_ROOT");
             rsAssert(strlen(root) < 256);
-            strcpy(fullPath, root);
-            strcat(fullPath, "/fonts/Roboto-Regular.ttf");
+            strlcpy(fullPath, root, sizeof(fullPath));
+            strlcat(fullPath, "/fonts/Roboto-Regular.ttf", sizeof(fullPath));
+            fullPath[sizeof(fullPath)-1] = '\0';
             mDefault.set(Font::create(mRSC, fullPath, 8, mRSC->getDPI()));
         }
         currentFont = mDefault.get();
@@ -854,9 +854,6 @@ bool FontState::CacheTextureLine::fitBitmap(FT_Bitmap_ *bitmap, uint32_t *retOri
 }
 #endif //ANDROID_RS_SERIALIZE
 
-namespace android {
-namespace renderscript {
-
 RsFont rsi_FontCreateFromFile(Context *rsc,
                               char const *name, size_t name_length,
                               float fontSize, uint32_t dpi) {
@@ -878,5 +875,5 @@ RsFont rsi_FontCreateFromMemory(Context *rsc,
     return newFont;
 }
 
-} // renderscript
-} // android
+} // namespace renderscript
+} // namespace android

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /***************************************************************************************
  *
  *   Copyright (C) 1996-2010, International Business Machines
@@ -21,6 +23,9 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.Random;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import com.ibm.icu.text.DateFormat;
 import com.ibm.icu.text.SimpleDateFormat;
 import com.ibm.icu.util.ULocale;
@@ -39,28 +44,27 @@ public class IntlTestDateFormat extends com.ibm.icu.dev.test.TestFmwk {
     //private static final byte DATE = TIME + 1; //The variable is never used
     //private static final byte DATE_TIME = DATE + 1; //The variable is never used
 
-    private DateFormat fFormat = null;
-    private String fTestName = new String("getInstance");
-    private int fLimit = 3; // How many iterations it should take to reach convergence
+    private  DateFormat fFormat = null;
+    private static String fTestName = new String("getInstance");
+    private static int fLimit = 3; // How many iterations it should take to reach convergence
     private Random random; // initialized in randDouble
 
     public IntlTestDateFormat() {
         //Constructure
-    } 
-    protected void init() throws Exception{
+    }
+    
+    @Before
+    public void init() throws Exception {
         fFormat = DateFormat.getInstance();
     }
     
-    public static void main(String[] args) throws Exception {
-        new IntlTestDateFormat().run(args);
-    }
-
+    @Test
     public void TestULocale() {
         localeTest(ULocale.getDefault(), "Default Locale");
     }
 
     // This test does round-trip testing (format -> parse -> format -> parse -> etc.) of DateFormat.
-    public void localeTest(final ULocale locale, final String localeName) {
+    private void localeTest(final ULocale locale, final String localeName) {
         int timeStyle, dateStyle;
 
         // For patterns including only time information and a timezone, it may take
@@ -109,6 +113,7 @@ public class IntlTestDateFormat extends com.ibm.icu.dev.test.TestFmwk {
         }
     }
 
+    @Test
     public void TestFormat() {
         if (fFormat == null) {
             errln("FAIL: DateFormat creation failed");
@@ -226,6 +231,7 @@ public class IntlTestDateFormat extends com.ibm.icu.dev.test.TestFmwk {
         return random.nextDouble();
     }
 
+    @Test
     public void TestAvailableLocales() {
         final ULocale[] locales = DateFormat.getAvailableULocales();
         long count = locales.length;
@@ -241,6 +247,7 @@ public class IntlTestDateFormat extends com.ibm.icu.dev.test.TestFmwk {
         else errln("********** FAIL: Zero available locales or null array pointer");
     }
 
+    @Test
     public void TestRoundtrip() {
         ULocale[] locales;
         if (isQuick()) {

@@ -33,20 +33,49 @@
          There is no "radio" as radio routing is outside android (for external module) or same as
          music (for android internal module)
 		 OEM can put multiple policies as item and VEHICLE_PROPERTY_AUDIO_HW_VARIANT in vehicle HAL
-		 can decide which policy to use for the given H/W. This allows OEMs to support multuple
+		 can decide which policy to use for the given H/W. This allows OEMs to support multiple
 		 audio policy from single android S/W by detecting system's audio capability in
 		 vehicle HAL.-->
     <string-array translatable="false" name="audioRoutingPolicy">
         <!--  alll logical streams into single physical stream 0. -->
-        <item>"0:call,media,nav_guidance,voice_command,alarm,notification,system,safety,unknown"</item>
+        <item>"0:call,media,radio,nav_guidance,voice_command,alarm,notification,system,safety,unknown"</item>
         <!--  call and media to physical stream 0 while all others go to physical stream 1 -->
-        <item>"0:call,media,unknown#1:nav_guidance,voice_command,alarm,notification,system,safety"</item>
+        <item>"0:call,media,radio,unknown#1:nav_guidance,voice_command,alarm,notification,system,safety"</item>
     </string-array>
+    <!-- Timeout value in Ms for audio focus wait. Audio focus request not responsed within
+         this value will be treated as timeout and audio focus will be reset to LOSS state. -->
+    <integer name="audioFocusWaitTimeoutMs">1000</integer>
+    <!--  Configuration to enable usage of dynamic audio routing. If this is set to false,
+          dynamic audio routing is disabled and audio works in legacy mode. It may be useful
+          during initial development where audio hal does not support bus based addressing yet. -->
+    <bool name="audioUseDynamicRouting">true</bool>
+    <!-- Number of audio focus timeouts that indicate vehicle CAN bus failure. -->
+    <integer name="consecutiveHalFailures">3</integer>
+    <!-- Whether to block other audio while media audio is muted with display off. When set to true,
+         other sounds cannot be played either while display is off. If false, only media is muted
+         and other sounds can be still played. -->
+    <bool name="displayOffMuteLockAllAudio">true</bool>
 
-    <!-- This is kernel device node to allow input event injection for key inputs coming
-         from vehicle hal -->
-    <string name="inputInjectionDeviceNode">/dev/input/event2</string>
+    <string name="inputService">android.car.input.service/.DefaultInputService</string>
 
-    <string name="instrumentClusterRendererPackage">android.car.cluster.demorenderer</string>
-    <string name="instrumentClusterRendererFactoryClass">android.car.cluster.demorenderer.InstrumentClusterRendererFactory</string>
+    <string name="instrumentClusterRendererService">android.car.cluster.loggingrenderer/.LoggingClusterRenderingService</string>
+
+    <!--  Whether to enable Avtivity blocking for safety. When Activity blocking is enabled,
+          only whitelisted safe Activities will be allowed while car is not parked. -->
+    <bool name="enableActivityBlockingForSafety">true</bool>
+    <!--  Activity to be presented when un-safe activity is launched. Take a look at the javadoc of the
+          default implementation. -->
+    <string name="activityBlockingActivity">com.android.car/com.android.car.pm.ActivityBlockingActivity</string>
+    <!--  Comma separated list of activities that will be allowed by default. This only applies to
+          system apps which is included into system image and non-system app in the list will be
+          ignored. Format of each entry is either to specify package name to whitelist the whole
+          package or use format of "packagename/activity_classname" for tagging each activities.
+          Besides this, system apps with car app meta data will be auto whitelisted. -->
+    <string name="defauiltActivityWhitelist">android,com.android.systemui</string>
+    <!-- Default home activity -->
+    <string name="defaultHomeActivity">com.android.car.overview/com.android.car.overview.StreamOverviewActivity</string>
+    <!--  The com.android.car.VmsPublisherService will bind to this list of clients -->
+    <string-array translatable="false" name="vmsPublisherClients">
+        <item>"com.google.android.car.vms.publisher/.VmsPublisherClientSampleService"</item>
+    </string-array>
 </resources>

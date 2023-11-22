@@ -2,17 +2,17 @@
  *
  * Copyright 2013 Bilal Qureshi <bilal.jmi@gmail.com>
  *
- * No Standard
+ * http://pubs.opengroup.org/onlinepubs/9699919799/utilities/more.html
 
-USE_MORE(NEWTOY(more, NULL, TOYFLAG_USR|TOYFLAG_BIN))
+USE_MORE(NEWTOY(more, 0, TOYFLAG_USR|TOYFLAG_BIN))
 
 config MORE
   bool "more"
   default n
   help
-    usage: more [FILE]...
+    usage: more [FILE...]
 
-    View FILE (or stdin) one screenful at a time.
+    View FILE(s) (or stdin) one screenful at a time.
 */
 
 #define FOR_more
@@ -25,7 +25,12 @@ GLOBALS(
 
 static void signal_handler(int sig)
 {
+  // Reset the terminal whether we were signalled or exited normally.
   tcsetattr(TT.cin_fd, TCSANOW, &TT.inf);
+
+  if (sig == 0) _exit(0);
+
+  // We were actually signalled, so move to a new line and re-raise the signal.
   xputc('\n');
   signal(sig, SIG_DFL);
   raise(sig);
@@ -62,10 +67,8 @@ static int prompt(FILE *cin, const char* fmt, ...)
 
 static void do_cat_operation(int fd, char *name)
 {
-  char *buf = NULL;
-  
   if (toys.optc > 1) show_file_header(name);
-  for (; (buf = get_line(fd)); free(buf)) printf("%s\n", buf);
+  xsendfile(fd, 1);
 }
 
 void more_main()
@@ -76,7 +79,7 @@ void more_main()
   struct termios newf;
   FILE *fp, *cin;
 
-  if (!isatty(STDOUT_FILENO) || !(cin = fopen("/dev/tty", "r"))) {
+  if (!isatty(1) || !(cin = fopen("/dev/tty", "r"))) {
     loopfiles(toys.optargs, do_cat_operation);
     return;
   }
@@ -125,7 +128,8 @@ void more_main()
       }
 
       putchar(ch);
-      if (ch == '\t') col = (col | 0x7) + 1; else col++;
+      if (ch == '\t') col = (col | 0x7) + 1;
+      else col++;
       if (col == cols) putchar(ch = '\n');
       if (ch == '\n') {
         col = 0;

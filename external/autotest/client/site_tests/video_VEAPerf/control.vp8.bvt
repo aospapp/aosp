@@ -9,7 +9,6 @@ CRITERIA = """
 The test fails if the video_encode_accelerator_unittest fails or crashes.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"

@@ -35,6 +35,7 @@ class iozone(test.test):
         utils.extract_tarball_to_dir(tarball, self.srcdir)
         os.chdir(os.path.join(self.srcdir, 'src/current'))
         utils.system('patch -p3 < ../../../makefile.patch')
+        utils.system('patch -p3 < ../../../clang_fortify.patch')
 
         ctarget = os.getenv('CTARGET_default')
 
@@ -78,6 +79,9 @@ class iozone(test.test):
 
 
     def generate_keyval(self):
+        """
+        Generates a keylist.
+        """
         keylist = {}
 
         if self.auto_mode:

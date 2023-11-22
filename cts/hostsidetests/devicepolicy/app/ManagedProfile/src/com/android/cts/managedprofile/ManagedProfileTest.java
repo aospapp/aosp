@@ -20,8 +20,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.test.ActivityInstrumentationTestCase2;
 import android.support.test.InstrumentationRegistry;
+import android.test.ActivityInstrumentationTestCase2;
 
 import static com.android.cts.managedprofile.BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT;
 

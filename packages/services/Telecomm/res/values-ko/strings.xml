@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"긴급 전화번호를 차단할 수 없습니다."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g>번은 이미 차단되었습니다."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"전화를 걸 때 개인 다이얼러 사용"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"<xliff:g id="CALL_FROM">%2$s</xliff:g>의 <xliff:g id="CALL_VIA">%1$s</xliff:g> 통화"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"<xliff:g id="CALL_FROM">%2$s</xliff:g>의 <xliff:g id="CALL_VIA">%1$s</xliff:g> 화상 통화"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"전화를 받으면 <xliff:g id="CALL_VIA">%1$s</xliff:g> 통화가 종료됩니다."</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"전화를 받으면 <xliff:g id="CALL_VIA">%1$s</xliff:g> 통화가 종료됩니다."</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"전화를 받으면 <xliff:g id="CALL_VIA">%1$s</xliff:g> 화상 통화가 종료됩니다."</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"전화를 받으면 진행 중인 통화가 종료됩니다."</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"전화를 받으면 진행 중인 통화가 종료됩니다."</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"전화를 받으면 진행 중인 화상 통화가 종료됩니다."</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"통화"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"거부"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"<xliff:g id="OTHER_CALL">%1$s</xliff:g> 통화 중이므로 전화를 걸 수 없습니다."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"<xliff:g id="OTHER_CALL">%1$s</xliff:g> 통화 중이므로 전화를 걸 수 없습니다."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"다른 앱에서 통화 중이므로 전화를 걸 수 없습니다."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"수신 전화"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"부재중 전화"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"이 전화를 걸면 현재 <xliff:g id="OTHER_APP">%1$s</xliff:g>에서 진행 중인 통화가 종료됩니다."</string>
 </resources>

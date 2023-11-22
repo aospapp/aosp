@@ -18,7 +18,6 @@ TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = 'bvt-inline, smoke'
 
 job.run_test('security_OpenSSLRegressions', opts=args)
 

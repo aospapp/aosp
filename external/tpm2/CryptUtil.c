@@ -688,6 +688,7 @@ CryptHMACVerifySignature(
 //      Error Returns                     Meaning
 //
 //      TPM_RC_SIZE                       sensitive data size is larger than allowed for the scheme
+//      TPM_RC_VALUE                      the publicArea nameAlg is invalid
 //
 static TPM_RC
 CryptGenerateKeyedHash(
@@ -703,6 +704,11 @@ CryptGenerateKeyedHash(
    TPMT_KEYEDHASH_SCHEME          *scheme;
    TPM_ALG_ID                      hashAlg;
    UINT16                          hashBlockSize;
+   // Check parameter values
+   if(publicArea->nameAlg == TPM_ALG_NULL)
+   {
+       return TPM_RC_VALUE;
+   }
    scheme = &publicArea->parameters.keyedHashDetail.scheme;
    pAssert(publicArea->type == TPM_ALG_KEYEDHASH);
    // Pick the limiting hash algorithm
@@ -1927,6 +1933,7 @@ CryptGenerateNewSymmetric(
 //
 //       TPM_RC_KEY_SIZE                   key size in the public area does not match the size in the sensitive
 //                                         creation area
+//       TPM_RC_VALUE                      the publicArea nameAlg is invalid
 //
 static TPM_RC
 CryptGenerateKeySymmetric(
@@ -1939,6 +1946,11 @@ CryptGenerateKeySymmetric(
    TPM2B_NAME                     *name                      //   IN: name of the object
    )
 {
+   // Check parameter values
+   if(publicArea->nameAlg == TPM_ALG_NULL)
+   {
+       return TPM_RC_VALUE;
+   }
    // If this is not a new key, then the provided key data must be the right size
    if(publicArea->objectAttributes.sensitiveDataOrigin == CLEAR)
    {
@@ -2870,7 +2882,7 @@ CryptComputeSymValue(
 //                                         hash object
 //       TPM_RC_VALUE                      exponent is not prime or could not find a prime using the provided
 //                                         parameters for an RSA key; unsupported name algorithm for an ECC
-//                                         key
+//                                         key; unsupported name algorithm for symmetric algorithms
 //
 TPM_RC
 CryptCreateObject(
@@ -3171,7 +3183,7 @@ CryptIsSplitSign(
     TPM_ALG_ID           scheme             // IN: the algorithm selector
     )
 {
-    if(   scheme != scheme
+    if(   0
 #    ifdef   TPM_ALG_ECDAA
        || scheme == TPM_ALG_ECDAA
 #    endif   // TPM_ALG_ECDAA

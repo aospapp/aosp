@@ -12,4 +12,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := launcher-helper-lib ub-uiautomator android-suppor
 LOCAL_PACKAGE_NAME := DownloadAppFunctionalTests
 LOCAL_CERTIFICATE := platform
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

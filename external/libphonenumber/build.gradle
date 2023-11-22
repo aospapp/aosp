@@ -9,8 +9,6 @@ sourceSets {
                     'com/google/i18n/phonenumbers/CountryCodeToRegionCodeMap.java',
                     'com/google/i18n/phonenumbers/MetadataLoader.java',
                     'com/google/i18n/phonenumbers/MetadataManager.java',
-                    'com/google/i18n/phonenumbers/MetadataSource.java',
-                    'com/google/i18n/phonenumbers/MultiFileMetadataSourceImpl.java',
                     'com/google/i18n/phonenumbers/NumberParseException.java',
                     'com/google/i18n/phonenumbers/Phonemetadata.java',
                     'com/google/i18n/phonenumbers/Phonenumber.java',

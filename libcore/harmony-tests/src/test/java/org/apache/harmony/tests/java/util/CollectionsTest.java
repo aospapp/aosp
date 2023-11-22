@@ -28,6 +28,7 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.AbstractList;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -750,10 +751,11 @@ public class CollectionsTest extends junit.framework.TestCase {
             //expected
         }
 
-        Mock_ArrayList mal = new Mock_ArrayList();
-
-        mal.add(new MyInt(1));
-        mal.add(new MyInt(2));
+        List mal = new AbstractList() {
+            private final List delegate = Arrays.asList(new MyInt(1), new MyInt(2));
+            @Override public Object get(int index) { return delegate.get(index); }
+            @Override public int size() { return delegate.size(); }
+        };
 
         try {
             Collections.sort(mal, comp);

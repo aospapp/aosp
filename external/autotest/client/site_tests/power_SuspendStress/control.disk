@@ -5,7 +5,6 @@
 AUTHOR = "jwerner, chromeos-power"
 NAME = "power_SuspendStress.disk"
 ATTRIBUTES = "suite:jailed_build"
-SUITE = "jailed_build"
 PURPOSE = "Run repeated iterations of suspend/resume while stressing the disk."
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"

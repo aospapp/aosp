@@ -29,8 +29,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.os.Bundle;
-import android.os.CountDownTimer;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -46,10 +46,6 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
     private Map<Integer, Integer> mCount;
     private int[] mPowerLevel;
 
-    private TextView mTimerText;
-    private CountDownTimer mTimer;
-    private static final long REFRESH_MAC_TIME = 930000; // 15.5 min
-
     private static final int[] POWER_DBM = {-21, -15, -7, 1, 9};
 
     @Override
@@ -59,23 +55,6 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
         setPassFailButtonClickListeners();
         setInfoResources(R.string.ble_power_level_name,
                          R.string.ble_power_level_info, -1);
-        getPassButton().setEnabled(false);
-
-        mTimerText = (TextView)findViewById(R.id.ble_timer);
-        mTimer = new CountDownTimer(REFRESH_MAC_TIME, 1000) {
-            @Override
-            public void onTick(long millis) {
-                int min = (int)millis / 60000;
-                int sec = ((int)millis / 1000) % 60;
-                mTimerText.setText(min + ":" + sec);
-            }
-
-            @Override
-            public void onFinish() {
-                mTimerText.setTextColor(getResources().getColor(R.color.red));
-                mTimerText.setText("Time is up!");
-            }
-        };
 
         mRssiText = new HashMap<Integer, TextView>();
         mCountText = new HashMap<Integer, TextView>();
@@ -168,7 +147,6 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
                         for (int i : mPowerLevel) {
                             mCount.put(i, 0);
                         }
-                        mTimer.start();
                     }
                     Integer t = mCount.get(powerLevelBit) + 1;
                     mCount.put(powerLevelBit, t);
@@ -188,10 +166,6 @@ public class BleScannerPowerLevelActivity extends PassFailButtons.Activity {
                 case BleScannerService.BLE_PRIVACY_NEW_MAC_RECEIVE:
                      Toast.makeText(context, "New MAC address detected", Toast.LENGTH_SHORT)
                             .show();
-                     mTimerText.setTextColor(getResources().getColor(R.color.green));
-                     mTimerText.append("   Get new MAC address.");
-                     mTimer.cancel();
-                     getPassButton().setEnabled(true);
                      break;
             }
         }

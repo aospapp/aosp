@@ -124,6 +124,7 @@ public class Breakpoint002Debuggee extends SyncDebuggee {
       breakpointObjectSetter("this is a new object field value");
     }
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

@@ -16,10 +16,15 @@
 
 package android.graphics.drawable.cts;
 
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
-import android.R.attr;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
@@ -32,31 +37,38 @@ import android.graphics.drawable.AnimatedStateListDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.DrawableContainer.DrawableContainerState;
 import android.graphics.drawable.StateListDrawable;
-import android.test.InstrumentationTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.StateSet;
 import android.util.Xml;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 
-import static org.mockito.Mockito.mock;
-
-public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AnimatedStateListDrawableTest {
     private static final int[] STATE_EMPTY = new int[] { };
-    private static final int[] STATE_FOCUSED = new int[] { attr.state_focused };
+    private static final int[] STATE_FOCUSED = new int[] { android.R.attr.state_focused };
 
     private Context mContext;
     private Resources mResources;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
         mResources = mContext.getResources();
     }
 
+    @Test
     public void testStateListDrawable() {
         new AnimatedStateListDrawable();
 
@@ -64,6 +76,7 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         assertNotNull(new AnimatedStateListDrawable().getConstantState());
     }
 
+    @Test
     public void testAddState() {
         AnimatedStateListDrawable asld = new AnimatedStateListDrawable();
         DrawableContainerState cs = (DrawableContainerState) asld.getConstantState();
@@ -85,6 +98,7 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         assertEquals(2, cs.getChildCount());
     }
 
+    @Test
     public void testAddTransition() {
         AnimatedStateListDrawable asld = new AnimatedStateListDrawable();
         DrawableContainerState cs = (DrawableContainerState) asld.getConstantState();
@@ -114,10 +128,12 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         assertEquals(5, cs.getChildCount());
     }
 
+    @Test
     public void testIsStateful() {
         assertTrue(new AnimatedStateListDrawable().isStateful());
     }
 
+    @Test
     public void testOnStateChange() {
         AnimatedStateListDrawable asld = new AnimatedStateListDrawable();
 
@@ -141,11 +157,13 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         assertSame(unfocusedToFocused, asld.getCurrent());
     }
 
+    @Test
     public void testPreloadDensity() throws XmlPullParserException, IOException {
         runPreloadDensityTestForDrawable(
                 R.drawable.animated_state_list_density, false);
     }
 
+    @Test
     public void testPreloadDensityConstantSize() throws XmlPullParserException, IOException {
         runPreloadDensityTestForDrawable(
                 R.drawable.animated_state_list_density_constant_size, true);
@@ -186,9 +204,11 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         DrawableTestUtils.setResourcesDensity(res, densityDpi / 2);
         final StateListDrawable halfDrawable =
                 (StateListDrawable) cs.newDrawable(res);
+        // NOTE: densityDpi may not be an even number, so account for *actual* scaling in asserts
+        final float approxHalf = (float)(densityDpi / 2) / densityDpi;
         for (int i = 0; i < count; i++) {
             halfDrawable.selectDrawable(i);
-            assertEquals(Math.round(origWidth[i] / 2f), halfDrawable.getIntrinsicWidth());
+            assertEquals(Math.round(origWidth[i] * approxHalf), halfDrawable.getIntrinsicWidth());
         }
 
         // Set density to double original.
@@ -212,8 +232,7 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
 
     private XmlResourceParser getResourceParser(int resId) throws XmlPullParserException,
             IOException {
-        XmlResourceParser parser = getInstrumentation().getTargetContext().getResources().getXml(
-                resId);
+        XmlResourceParser parser = mResources.getXml(resId);
         int type;
         while ((type = parser.next()) != XmlPullParser.START_TAG
                 && type != XmlPullParser.END_DOCUMENT) {
@@ -222,6 +241,7 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         return parser;
     }
 
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         AnimatedStateListDrawable asld = (AnimatedStateListDrawable) mContext.getDrawable(
                 R.drawable.animated_state_list_density);
@@ -230,6 +250,16 @@ public class AnimatedStateListDrawableTest extends InstrumentationTestCase {
         assertFalse(asldState.isConstantSize());
         assertNull(asldState.getConstantPadding());
         assertEquals(4, asldState.getChildCount());
+    }
+
+    @Test
+    public void testParsingTransitionDefinedWithAVD() {
+        AnimatedStateListDrawable asld = (AnimatedStateListDrawable) mContext.getDrawable(
+                R.drawable.animated_state_list_with_avd);
+        DrawableContainerState asldState = (DrawableContainerState) asld.getConstantState();
+        // Ensure that everything defined in xml after the definition of a transition with AVD is
+        // parsed by checking the total drawables parsed.
+        assertEquals(6, asldState.getChildCount());
     }
 
     public abstract class MockTransition extends MockDrawable implements Animatable, Animatable2 {

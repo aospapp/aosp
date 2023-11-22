@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.os.Bundle;
 
 import com.android.tv.R;
+import com.android.tv.TvApplication;
 
 /**
  * {@link android.app.Activity} for DVR UI.
@@ -27,6 +28,7 @@ import com.android.tv.R;
 public class DvrActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        TvApplication.setCurrentRunningProcess(this, true);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dvr_main);
     }

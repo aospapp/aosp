@@ -18,9 +18,12 @@
 #define LOG_TAG "GenericSource"
 
 #include "GenericSource.h"
+#include "NuPlayerDrm.h"
 
 #include "AnotherPacketSource.h"
-
+#include <binder/IServiceManager.h>
+#include <cutils/properties.h>
+#include <media/IMediaExtractorService.h>
 #include <media/IMediaHTTPService.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
@@ -33,18 +36,17 @@
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
 #include <media/stagefright/Utils.h>
-#include "../../libstagefright/include/DRMExtractor.h"
 #include "../../libstagefright/include/NuCachedSource2.h"
-#include "../../libstagefright/include/WVMExtractor.h"
 #include "../../libstagefright/include/HTTPBase.h"
 
 namespace android {
 
-static int64_t kLowWaterMarkUs = 2000000ll;  // 2secs
-static int64_t kHighWaterMarkUs = 5000000ll;  // 5secs
-static int64_t kHighWaterMarkRebufferUs = 15000000ll;  // 15secs
-static const ssize_t kLowWaterMarkBytes = 40000;
-static const ssize_t kHighWaterMarkBytes = 200000;
+static const int kLowWaterMarkMs          = 2000;  // 2secs
+static const int kHighWaterMarkMs         = 5000;  // 5secs
+static const int kHighWaterMarkRebufferMs = 15000;  // 15secs
+
+static const int kLowWaterMarkKB  = 40;
+static const int kHighWaterMarkKB = 200;
 
 NuPlayer::GenericSource::GenericSource(
         const sp<AMessage> &notify,
@@ -59,21 +61,22 @@ NuPlayer::GenericSource::GenericSource(
       mFetchTimedTextDataGeneration(0),
       mDurationUs(-1ll),
       mAudioIsVorbis(false),
-      mIsWidevine(false),
       mIsSecure(false),
       mIsStreaming(false),
       mUIDValid(uidValid),
       mUID(uid),
       mFd(-1),
-      mDrmManagerClient(NULL),
       mBitrate(-1ll),
       mPendingReadBufferTypes(0) {
+    ALOGV("GenericSource");
+
     mBufferingMonitor = new BufferingMonitor(notify);
     resetDataSource();
-    DataSource::RegisterDefaultSniffers();
 }
 
 void NuPlayer::GenericSource::resetDataSource() {
+    ALOGV("resetDataSource");
+
     mHTTPService.clear();
     mHttpSource.clear();
     mUri.clear();
@@ -84,9 +87,6 @@ void NuPlayer::GenericSource::resetDataSource() {
     }
     mOffset = 0;
     mLength = 0;
-    setDrmPlaybackStatusIfNeeded(Playback::STOP, 0);
-    mDecryptHandle = NULL;
-    mDrmManagerClient = NULL;
     mStarted = false;
     mStopRead = true;
 
@@ -96,12 +96,19 @@ void NuPlayer::GenericSource::resetDataSource() {
         mBufferingMonitorLooper = NULL;
     }
     mBufferingMonitor->stop();
+
+    mIsDrmProtected = false;
+    mIsDrmReleased = false;
+    mIsSecure = false;
+    mMimes.clear();
 }
 
 status_t NuPlayer::GenericSource::setDataSource(
         const sp<IMediaHTTPService> &httpService,
         const char *url,
         const KeyedVector<String8, String8> *headers) {
+    ALOGV("setDataSource url: %s", url);
+
     resetDataSource();
 
     mHTTPService = httpService;
@@ -118,6 +125,8 @@ status_t NuPlayer::GenericSource::setDataSource(
 
 status_t NuPlayer::GenericSource::setDataSource(
         int fd, int64_t offset, int64_t length) {
+    ALOGV("setDataSource %d/%lld/%lld", fd, (long long)offset, (long long)length);
+
     resetDataSource();
 
     mFd = dup(fd);
@@ -130,6 +139,8 @@ status_t NuPlayer::GenericSource::setDataSource(
 }
 
 status_t NuPlayer::GenericSource::setDataSource(const sp<DataSource>& source) {
+    ALOGV("setDataSource (source: %p)", source.get());
+
     resetDataSource();
     mDataSource = source;
     return OK;
@@ -141,51 +152,13 @@ sp<MetaData> NuPlayer::GenericSource::getFileFormatMeta() const {
 
 status_t NuPlayer::GenericSource::initFromDataSource() {
     sp<IMediaExtractor> extractor;
-    String8 mimeType;
-    float confidence;
-    sp<AMessage> dummy;
-    bool isWidevineStreaming = false;
-
     CHECK(mDataSource != NULL);
 
-    if (mIsWidevine) {
-        isWidevineStreaming = SniffWVM(
-                mDataSource, &mimeType, &confidence, &dummy);
-        if (!isWidevineStreaming ||
-                strcasecmp(
-                    mimeType.string(), MEDIA_MIMETYPE_CONTAINER_WVM)) {
-            ALOGE("unsupported widevine mime: %s", mimeType.string());
-            return UNKNOWN_ERROR;
-        }
-    } else if (mIsStreaming) {
-        if (!mDataSource->sniff(&mimeType, &confidence, &dummy)) {
-            return UNKNOWN_ERROR;
-        }
-        isWidevineStreaming = !strcasecmp(
-                mimeType.string(), MEDIA_MIMETYPE_CONTAINER_WVM);
-    }
-
-    if (isWidevineStreaming) {
-        // we don't want cached source for widevine streaming.
-        mCachedSource.clear();
-        mDataSource = mHttpSource;
-        mWVMExtractor = new WVMExtractor(mDataSource);
-        mWVMExtractor->setAdaptiveStreamingMode(true);
-        if (mUIDValid) {
-            mWVMExtractor->setUID(mUID);
-        }
-        extractor = mWVMExtractor;
-    } else {
-        extractor = MediaExtractor::Create(mDataSource,
-                mimeType.isEmpty() ? NULL : mimeType.string());
-    }
+    extractor = MediaExtractor::Create(mDataSource, NULL);
 
     if (extractor == NULL) {
+        ALOGE("initFromDataSource, cannot create extractor!");
         return UNKNOWN_ERROR;
-    }
-
-    if (extractor->getDrmFlag()) {
-        checkDrmStatus(mDataSource);
     }
 
     mFileMeta = extractor->getMetaData();
@@ -194,25 +167,17 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
         if (mFileMeta->findInt64(kKeyDuration, &duration)) {
             mDurationUs = duration;
         }
-
-        if (!mIsWidevine) {
-            // Check mime to see if we actually have a widevine source.
-            // If the data source is not URL-type (eg. file source), we
-            // won't be able to tell until now.
-            const char *fileMime;
-            if (mFileMeta->findCString(kKeyMIMEType, &fileMime)
-                    && !strncasecmp(fileMime, "video/wvm", 9)) {
-                mIsWidevine = true;
-            }
-        }
     }
 
     int32_t totalBitrate = 0;
 
     size_t numtracks = extractor->countTracks();
     if (numtracks == 0) {
+        ALOGE("initFromDataSource, source has no track!");
         return UNKNOWN_ERROR;
     }
+
+    mMimes.clear();
 
     for (size_t i = 0; i < numtracks; ++i) {
         sp<IMediaSource> track = extractor->getTrack(i);
@@ -228,6 +193,8 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
 
         const char *mime;
         CHECK(meta->findCString(kKeyMIMEType, &mime));
+
+        ALOGV("initFromDataSource track[%zu]: %s", i, mime);
 
         // Do the string compare immediately with "mime",
         // we can't assume "mime" would stay valid after another
@@ -245,6 +212,8 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
                 } else {
                     mAudioIsVorbis = false;
                 }
+
+                mMimes.add(String8(mime));
             }
         } else if (!strncasecmp(mime, "video/", 6)) {
             if (mVideoTrack.mSource == NULL) {
@@ -253,15 +222,8 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
                 mVideoTrack.mPackets =
                     new AnotherPacketSource(mVideoTrack.mSource->getFormat());
 
-                // check if the source requires secure buffers
-                int32_t secure;
-                if (meta->findInt32(kKeyRequiresSecureBuffers, &secure)
-                        && secure) {
-                    mIsSecure = true;
-                    if (mUIDValid) {
-                        extractor->setUID(mUID);
-                    }
-                }
+                // video always at the beginning
+                mMimes.insertAt(String8(mime), 0);
             }
         }
 
@@ -281,14 +243,30 @@ status_t NuPlayer::GenericSource::initFromDataSource() {
         }
     }
 
+    ALOGV("initFromDataSource mSources.size(): %zu  mIsSecure: %d  mime[0]: %s", mSources.size(),
+            mIsSecure, (mMimes.isEmpty() ? "NONE" : mMimes[0].string()));
+
     if (mSources.size() == 0) {
         ALOGE("b/23705695");
         return UNKNOWN_ERROR;
     }
 
+    // Modular DRM: The return value doesn't affect source initialization.
+    (void)checkDrmInfo();
+
     mBitrate = totalBitrate;
 
     return OK;
+}
+
+status_t NuPlayer::GenericSource::getDefaultBufferingSettings(
+        BufferingSettings* buffering /* nonnull */) {
+    mBufferingMonitor->getDefaultBufferingSettings(buffering);
+    return OK;
+}
+
+status_t NuPlayer::GenericSource::setBufferingSettings(const BufferingSettings& buffering) {
+    return mBufferingMonitor->setBufferingSettings(buffering);
 }
 
 status_t NuPlayer::GenericSource::startSources() {
@@ -296,6 +274,9 @@ status_t NuPlayer::GenericSource::startSources() {
     // Widevine sources might re-initialize crypto when starting, if we delay
     // this to start(), all data buffered during prepare would be wasted.
     // (We don't actually start reading until start().)
+    //
+    // TODO: this logic may no longer be relevant after the removal of widevine
+    // support
     if (mAudioTrack.mSource != NULL && mAudioTrack.mSource->start() != OK) {
         ALOGE("failed to start audio track!");
         return UNKNOWN_ERROR;
@@ -307,18 +288,6 @@ status_t NuPlayer::GenericSource::startSources() {
     }
 
     return OK;
-}
-
-void NuPlayer::GenericSource::checkDrmStatus(const sp<DataSource>& dataSource) {
-    dataSource->getDrmInfo(mDecryptHandle, &mDrmManagerClient);
-    if (mDecryptHandle != NULL) {
-        CHECK(mDrmManagerClient);
-        if (RightsStatus::RIGHTS_VALID != mDecryptHandle->status) {
-            sp<AMessage> msg = dupNotify();
-            msg->setInt32("what", kWhatDrmNoLicense);
-            msg->post();
-        }
-    }
 }
 
 int64_t NuPlayer::GenericSource::getLastReadPosition() {
@@ -348,6 +317,7 @@ void NuPlayer::GenericSource::setOffloadAudio(bool offload) {
 }
 
 NuPlayer::GenericSource::~GenericSource() {
+    ALOGV("~GenericSource");
     if (mLooper != NULL) {
         mLooper->unregisterHandler(id());
         mLooper->stop();
@@ -356,6 +326,8 @@ NuPlayer::GenericSource::~GenericSource() {
 }
 
 void NuPlayer::GenericSource::prepareAsync() {
+    ALOGV("prepareAsync: (looper: %d)", (mLooper != NULL));
+
     if (mLooper == NULL) {
         mLooper = new ALooper;
         mLooper->setName("generic");
@@ -369,6 +341,8 @@ void NuPlayer::GenericSource::prepareAsync() {
 }
 
 void NuPlayer::GenericSource::onPrepareAsync() {
+    ALOGV("onPrepareAsync: mDataSource: %d", (mDataSource != NULL));
+
     // delayed data source creation
     if (mDataSource == NULL) {
         // set to false first, if the extractor
@@ -378,11 +352,8 @@ void NuPlayer::GenericSource::onPrepareAsync() {
         if (!mUri.empty()) {
             const char* uri = mUri.c_str();
             String8 contentType;
-            mIsWidevine = !strncasecmp(uri, "widevine://", 11);
 
-            if (!strncasecmp("http://", uri, 7)
-                    || !strncasecmp("https://", uri, 8)
-                    || mIsWidevine) {
+            if (!strncasecmp("http://", uri, 7) || !strncasecmp("https://", uri, 8)) {
                 mHttpSource = DataSource::CreateMediaHTTP(mHTTPService);
                 if (mHttpSource == NULL) {
                     ALOGE("Failed to create http source!");
@@ -395,9 +366,39 @@ void NuPlayer::GenericSource::onPrepareAsync() {
                    mHTTPService, uri, &mUriHeaders, &contentType,
                    static_cast<HTTPBase *>(mHttpSource.get()));
         } else {
-            mIsWidevine = false;
-
-            mDataSource = new FileSource(mFd, mOffset, mLength);
+            if (property_get_bool("media.stagefright.extractremote", true) &&
+                    !FileSource::requiresDrm(mFd, mOffset, mLength, nullptr /* mime */)) {
+                sp<IBinder> binder =
+                        defaultServiceManager()->getService(String16("media.extractor"));
+                if (binder != nullptr) {
+                    ALOGD("FileSource remote");
+                    sp<IMediaExtractorService> mediaExService(
+                            interface_cast<IMediaExtractorService>(binder));
+                    sp<IDataSource> source =
+                            mediaExService->makeIDataSource(mFd, mOffset, mLength);
+                    ALOGV("IDataSource(FileSource): %p %d %lld %lld",
+                            source.get(), mFd, (long long)mOffset, (long long)mLength);
+                    if (source.get() != nullptr) {
+                        mDataSource = DataSource::CreateFromIDataSource(source);
+                        if (mDataSource != nullptr) {
+                            // Close the local file descriptor as it is not needed anymore.
+                            close(mFd);
+                            mFd = -1;
+                        }
+                    } else {
+                        ALOGW("extractor service cannot make data source");
+                    }
+                } else {
+                    ALOGW("extractor service not running");
+                }
+            }
+            if (mDataSource == nullptr) {
+                ALOGD("FileSource local");
+                mDataSource = new FileSource(mFd, mOffset, mLength);
+            }
+            // TODO: close should always be done on mFd, see the lines following
+            // DataSource::CreateFromIDataSource above,
+            // and the FileSource constructor should dup the mFd argument as needed.
             mFd = -1;
         }
 
@@ -412,13 +413,9 @@ void NuPlayer::GenericSource::onPrepareAsync() {
         mCachedSource = static_cast<NuCachedSource2 *>(mDataSource.get());
     }
 
-    // For widevine or other cached streaming cases, we need to wait for
-    // enough buffering before reporting prepared.
-    // Note that even when URL doesn't start with widevine://, mIsWidevine
-    // could still be set to true later, if the streaming or file source
-    // is sniffed to be widevine. We don't want to buffer for file source
-    // in that case, so must check the flag now.
-    mIsStreaming = (mIsWidevine || mCachedSource != NULL);
+    // For cached streaming cases, we need to wait for enough
+    // buffering before reporting prepared.
+    mIsStreaming = (mCachedSource != NULL);
 
     // init extractor from data source
     status_t err = initFromDataSource();
@@ -441,32 +438,21 @@ void NuPlayer::GenericSource::onPrepareAsync() {
     }
 
     notifyFlagsChanged(
-            (mIsSecure ? FLAG_SECURE : 0)
-            | (mDecryptHandle != NULL ? FLAG_PROTECTED : 0)
-            | FLAG_CAN_PAUSE
-            | FLAG_CAN_SEEK_BACKWARD
-            | FLAG_CAN_SEEK_FORWARD
-            | FLAG_CAN_SEEK);
+            // FLAG_SECURE will be known if/when prepareDrm is called by the app
+            // FLAG_PROTECTED will be known if/when prepareDrm is called by the app
+            FLAG_CAN_PAUSE |
+            FLAG_CAN_SEEK_BACKWARD |
+            FLAG_CAN_SEEK_FORWARD |
+            FLAG_CAN_SEEK);
 
-    if (mIsSecure) {
-        // secure decoders must be instantiated before starting widevine source
-        sp<AMessage> reply = new AMessage(kWhatSecureDecodersInstantiated, this);
-        notifyInstantiateSecureDecoders(reply);
-    } else {
-        finishPrepareAsync();
-    }
-}
-
-void NuPlayer::GenericSource::onSecureDecodersInstantiated(status_t err) {
-    if (err != OK) {
-        ALOGE("Failed to instantiate secure decoders!");
-        notifyPreparedAndCleanup(err);
-        return;
-    }
     finishPrepareAsync();
+
+    ALOGV("onPrepareAsync: Done");
 }
 
 void NuPlayer::GenericSource::finishPrepareAsync() {
+    ALOGV("finishPrepareAsync");
+
     status_t err = startSources();
     if (err != OK) {
         ALOGE("Failed to init start data source!");
@@ -476,7 +462,7 @@ void NuPlayer::GenericSource::finishPrepareAsync() {
 
     if (mIsStreaming) {
         if (mBufferingMonitorLooper == NULL) {
-            mBufferingMonitor->prepare(mCachedSource, mWVMExtractor, mDurationUs, mBitrate,
+            mBufferingMonitor->prepare(mCachedSource, mDurationUs, mBitrate,
                     mIsStreaming);
 
             mBufferingMonitorLooper = new ALooper;
@@ -501,8 +487,6 @@ void NuPlayer::GenericSource::notifyPreparedAndCleanup(status_t err) {
             {
                 Mutex::Autolock _l(mDisconnectLock);
                 mDataSource.clear();
-                mDecryptHandle = NULL;
-                mDrmManagerClient = NULL;
                 mCachedSource.clear();
                 mHttpSource.clear();
             }
@@ -526,33 +510,20 @@ void NuPlayer::GenericSource::start() {
         postReadBuffer(MEDIA_TRACK_TYPE_VIDEO);
     }
 
-    setDrmPlaybackStatusIfNeeded(Playback::START, getLastReadPosition() / 1000);
     mStarted = true;
 
     (new AMessage(kWhatStart, this))->post();
 }
 
 void NuPlayer::GenericSource::stop() {
-    // nothing to do, just account for DRM playback status
-    setDrmPlaybackStatusIfNeeded(Playback::STOP, 0);
     mStarted = false;
-    if (mIsWidevine || mIsSecure) {
-        // For widevine or secure sources we need to prevent any further reads.
-        sp<AMessage> msg = new AMessage(kWhatStopWidevine, this);
-        sp<AMessage> response;
-        (void) msg->postAndAwaitResponse(&response);
-    }
 }
 
 void NuPlayer::GenericSource::pause() {
-    // nothing to do, just account for DRM playback status
-    setDrmPlaybackStatusIfNeeded(Playback::PAUSE, 0);
     mStarted = false;
 }
 
 void NuPlayer::GenericSource::resume() {
-    // nothing to do, just account for DRM playback status
-    setDrmPlaybackStatusIfNeeded(Playback::START, getLastReadPosition() / 1000);
     mStarted = true;
 
     (new AMessage(kWhatResume, this))->post();
@@ -574,14 +545,6 @@ void NuPlayer::GenericSource::disconnect() {
     } else if (httpSource != NULL) {
         static_cast<HTTPBase *>(httpSource.get())->disconnect();
     }
-}
-
-void NuPlayer::GenericSource::setDrmPlaybackStatusIfNeeded(int playbackStatus, int64_t position) {
-    if (mDecryptHandle != NULL) {
-        mDrmManagerClient->setPlaybackStatus(mDecryptHandle, playbackStatus, position);
-    }
-    mSubtitleTrack.mPackets = new AnotherPacketSource(NULL);
-    mTimedTextTrack.mPackets = new AnotherPacketSource(NULL);
 }
 
 status_t NuPlayer::GenericSource::feedMoreTSData() {
@@ -665,8 +628,10 @@ void NuPlayer::GenericSource::onMessageReceived(const sp<AMessage> &msg) {
           } else {
               timeUs = mVideoLastDequeueTimeUs;
           }
-          readBuffer(trackType, timeUs, &actualTimeUs, formatChange);
-          readBuffer(counterpartType, -1, NULL, formatChange);
+          readBuffer(trackType, timeUs, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */,
+                  &actualTimeUs, formatChange);
+          readBuffer(counterpartType, -1, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */,
+                  NULL, !formatChange);
           ALOGV("timeUs %lld actualTimeUs %lld", (long long)timeUs, (long long)actualTimeUs);
 
           break;
@@ -691,6 +656,12 @@ void NuPlayer::GenericSource::onMessageReceived(const sp<AMessage> &msg) {
           break;
       }
 
+      case kWhatGetTrackInfo:
+      {
+          onGetTrackInfo(msg);
+          break;
+      }
+
       case kWhatSelectTrack:
       {
           onSelectTrack(msg);
@@ -709,28 +680,28 @@ void NuPlayer::GenericSource::onMessageReceived(const sp<AMessage> &msg) {
           break;
       }
 
-      case kWhatSecureDecodersInstantiated:
+      case kWhatPrepareDrm:
       {
-          int32_t err;
-          CHECK(msg->findInt32("err", &err));
-          onSecureDecodersInstantiated(err);
-          break;
-      }
-
-      case kWhatStopWidevine:
-      {
-          // mStopRead is only used for Widevine to prevent the video source
-          // from being read while the associated video decoder is shutting down.
-          mStopRead = true;
-          if (mVideoTrack.mSource != NULL) {
-              mVideoTrack.mPackets->clear();
-          }
+          status_t status = onPrepareDrm(msg);
           sp<AMessage> response = new AMessage;
+          response->setInt32("status", status);
           sp<AReplyToken> replyID;
           CHECK(msg->senderAwaitsResponse(&replyID));
           response->postReply(replyID);
           break;
       }
+
+      case kWhatReleaseDrm:
+      {
+          status_t status = onReleaseDrm();
+          sp<AMessage> response = new AMessage;
+          response->setInt32("status", status);
+          sp<AReplyToken> replyID;
+          CHECK(msg->senderAwaitsResponse(&replyID));
+          response->postReply(replyID);
+          break;
+      }
+
       default:
           Source::onMessageReceived(msg);
           break;
@@ -741,8 +712,8 @@ void NuPlayer::GenericSource::fetchTextData(
         uint32_t sendWhat,
         media_track_type type,
         int32_t curGen,
-        sp<AnotherPacketSource> packets,
-        sp<AMessage> msg) {
+        const sp<AnotherPacketSource>& packets,
+        const sp<AMessage>& msg) {
     int32_t msgGeneration;
     CHECK(msg->findInt32("generation", &msgGeneration));
     if (msgGeneration != curGen) {
@@ -759,7 +730,7 @@ void NuPlayer::GenericSource::fetchTextData(
     CHECK(msg->findInt64("timeUs", &timeUs));
 
     int64_t subTimeUs;
-    readBuffer(type, timeUs, &subTimeUs);
+    readBuffer(type, timeUs, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */, &subTimeUs);
 
     int64_t delayUs = subTimeUs - timeUs;
     if (msg->what() == kWhatFetchSubtitleData) {
@@ -775,8 +746,8 @@ void NuPlayer::GenericSource::sendTextData(
         uint32_t what,
         media_track_type type,
         int32_t curGen,
-        sp<AnotherPacketSource> packets,
-        sp<AMessage> msg) {
+        const sp<AnotherPacketSource>& packets,
+        const sp<AMessage>& msg) {
     int32_t msgGeneration;
     CHECK(msg->findInt32("generation", &msgGeneration));
     if (msgGeneration != curGen) {
@@ -790,7 +761,7 @@ void NuPlayer::GenericSource::sendTextData(
     }
 
     int64_t nextSubTimeUs;
-    readBuffer(type, -1, &nextSubTimeUs);
+    readBuffer(type, -1, MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC /* mode */, &nextSubTimeUs);
 
     sp<ABuffer> buffer;
     status_t dequeueStatus = packets->dequeueAccessUnit(&buffer);
@@ -851,7 +822,7 @@ sp<MetaData> NuPlayer::GenericSource::getFormatMeta(bool audio) {
     }
 }
 
-void NuPlayer::GenericSource::onGetFormatMeta(sp<AMessage> msg) const {
+void NuPlayer::GenericSource::onGetFormatMeta(const sp<AMessage>& msg) const {
     int32_t audio;
     CHECK(msg->findInt32("audio", &audio));
 
@@ -880,15 +851,17 @@ status_t NuPlayer::GenericSource::dequeueAccessUnit(
         return -EWOULDBLOCK;
     }
 
+    // If has gone through stop/releaseDrm sequence, we no longer send down any buffer b/c
+    // the codec's crypto object has gone away (b/37960096).
+    // Note: This will be unnecessary when stop() changes behavior and releases codec (b/35248283).
+    if (!mStarted && mIsDrmReleased) {
+        return -EWOULDBLOCK;
+    }
+
     Track *track = audio ? &mAudioTrack : &mVideoTrack;
 
     if (track->mSource == NULL) {
         return -EWOULDBLOCK;
-    }
-
-    if (mIsWidevine && !audio) {
-        // try to read a buffer as we may not have been able to the last time
-        postReadBuffer(MEDIA_TRACK_TYPE_VIDEO);
     }
 
     status_t finalResult;
@@ -960,6 +933,34 @@ size_t NuPlayer::GenericSource::getTrackCount() const {
 }
 
 sp<AMessage> NuPlayer::GenericSource::getTrackInfo(size_t trackIndex) const {
+    sp<AMessage> msg = new AMessage(kWhatGetTrackInfo, this);
+    msg->setSize("trackIndex", trackIndex);
+
+    sp<AMessage> response;
+    sp<RefBase> format;
+    status_t err = msg->postAndAwaitResponse(&response);
+    if (err == OK && response != NULL) {
+        CHECK(response->findObject("format", &format));
+        return static_cast<AMessage*>(format.get());
+    } else {
+        return NULL;
+    }
+}
+
+void NuPlayer::GenericSource::onGetTrackInfo(const sp<AMessage>& msg) const {
+    size_t trackIndex;
+    CHECK(msg->findSize("trackIndex", &trackIndex));
+
+    sp<AMessage> response = new AMessage;
+    sp<AMessage> format = doGetTrackInfo(trackIndex);
+    response->setObject("format", format);
+
+    sp<AReplyToken> replyID;
+    CHECK(msg->senderAwaitsResponse(&replyID));
+    response->postReply(replyID);
+}
+
+sp<AMessage> NuPlayer::GenericSource::doGetTrackInfo(size_t trackIndex) const {
     size_t trackCount = mSources.size();
     if (trackIndex >= trackCount) {
         return NULL;
@@ -1023,7 +1024,7 @@ ssize_t NuPlayer::GenericSource::getSelectedTrack(media_track_type type) const {
     }
 }
 
-void NuPlayer::GenericSource::onGetSelectedTrack(sp<AMessage> msg) const {
+void NuPlayer::GenericSource::onGetSelectedTrack(const sp<AMessage>& msg) const {
     int32_t tmpType;
     CHECK(msg->findInt32("type", &tmpType));
     media_track_type type = (media_track_type)tmpType;
@@ -1079,7 +1080,7 @@ status_t NuPlayer::GenericSource::selectTrack(size_t trackIndex, bool select, in
     return err;
 }
 
-void NuPlayer::GenericSource::onSelectTrack(sp<AMessage> msg) {
+void NuPlayer::GenericSource::onSelectTrack(const sp<AMessage>& msg) {
     int32_t trackIndex, select;
     int64_t timeUs;
     CHECK(msg->findInt32("trackIndex", &trackIndex));
@@ -1186,9 +1187,10 @@ status_t NuPlayer::GenericSource::doSelectTrack(size_t trackIndex, bool select, 
     return INVALID_OPERATION;
 }
 
-status_t NuPlayer::GenericSource::seekTo(int64_t seekTimeUs) {
+status_t NuPlayer::GenericSource::seekTo(int64_t seekTimeUs, MediaPlayerSeekMode mode) {
     sp<AMessage> msg = new AMessage(kWhatSeek, this);
     msg->setInt64("seekTimeUs", seekTimeUs);
+    msg->setInt32("mode", mode);
 
     sp<AMessage> response;
     status_t err = msg->postAndAwaitResponse(&response);
@@ -1199,12 +1201,14 @@ status_t NuPlayer::GenericSource::seekTo(int64_t seekTimeUs) {
     return err;
 }
 
-void NuPlayer::GenericSource::onSeek(sp<AMessage> msg) {
+void NuPlayer::GenericSource::onSeek(const sp<AMessage>& msg) {
     int64_t seekTimeUs;
+    int32_t mode;
     CHECK(msg->findInt64("seekTimeUs", &seekTimeUs));
+    CHECK(msg->findInt32("mode", &mode));
 
     sp<AMessage> response = new AMessage;
-    status_t err = doSeek(seekTimeUs);
+    status_t err = doSeek(seekTimeUs, (MediaPlayerSeekMode)mode);
     response->setInt32("err", err);
 
     sp<AReplyToken> replyID;
@@ -1212,30 +1216,30 @@ void NuPlayer::GenericSource::onSeek(sp<AMessage> msg) {
     response->postReply(replyID);
 }
 
-status_t NuPlayer::GenericSource::doSeek(int64_t seekTimeUs) {
+status_t NuPlayer::GenericSource::doSeek(int64_t seekTimeUs, MediaPlayerSeekMode mode) {
     mBufferingMonitor->updateDequeuedBufferTime(-1ll);
 
     // If the Widevine source is stopped, do not attempt to read any
     // more buffers.
+    //
+    // TODO: revisit after widevine is removed.  May be able to
+    // combine mStopRead with mStarted.
     if (mStopRead) {
         return INVALID_OPERATION;
     }
     if (mVideoTrack.mSource != NULL) {
         int64_t actualTimeUs;
-        readBuffer(MEDIA_TRACK_TYPE_VIDEO, seekTimeUs, &actualTimeUs);
+        readBuffer(MEDIA_TRACK_TYPE_VIDEO, seekTimeUs, mode, &actualTimeUs);
 
-        seekTimeUs = actualTimeUs;
-        mVideoLastDequeueTimeUs = seekTimeUs;
+        if (mode != MediaPlayerSeekMode::SEEK_CLOSEST) {
+            seekTimeUs = actualTimeUs;
+        }
+        mVideoLastDequeueTimeUs = actualTimeUs;
     }
 
     if (mAudioTrack.mSource != NULL) {
         readBuffer(MEDIA_TRACK_TYPE_AUDIO, seekTimeUs);
         mAudioLastDequeueTimeUs = seekTimeUs;
-    }
-
-    setDrmPlaybackStatusIfNeeded(Playback::START, seekTimeUs / 1000);
-    if (!mStarted) {
-        setDrmPlaybackStatusIfNeeded(Playback::PAUSE, 0);
     }
 
     // If currently buffering, post kWhatBufferingEnd first, so that
@@ -1249,9 +1253,7 @@ status_t NuPlayer::GenericSource::doSeek(int64_t seekTimeUs) {
 
 sp<ABuffer> NuPlayer::GenericSource::mediaBufferToABuffer(
         MediaBuffer* mb,
-        media_track_type trackType,
-        int64_t /* seekTimeUs */,
-        int64_t *actualTimeUs) {
+        media_track_type trackType) {
     bool audio = trackType == MEDIA_TRACK_TYPE_AUDIO;
     size_t outLength = mb->range_length();
 
@@ -1260,11 +1262,26 @@ sp<ABuffer> NuPlayer::GenericSource::mediaBufferToABuffer(
     }
 
     sp<ABuffer> ab;
-    if (mIsSecure && !audio) {
+
+    if (mIsDrmProtected)   {
+        // Modular DRM
+        // Enabled for both video/audio so 1) media buffer is reused without extra copying
+        // 2) meta data can be retrieved in onInputBufferFetched for calling queueSecureInputBuffer.
+
         // data is already provided in the buffer
         ab = new ABuffer(NULL, mb->range_length());
         mb->add_ref();
         ab->setMediaBufferBase(mb);
+
+        // Modular DRM: Required b/c of the above add_ref.
+        // If ref>0, there must be an observer, or it'll crash at release().
+        // TODO: MediaBuffer might need to be revised to ease such need.
+        mb->setObserver(this);
+        // setMediaBufferBase() interestingly doesn't increment the ref count on its own.
+        // Extra increment (since we want to keep mb alive and attached to ab beyond this function
+        // call. This is to counter the effect of mb->release() towards the end.
+        mb->add_ref();
+
     } else {
         ab = new ABuffer(outLength);
         memcpy(ab->data(),
@@ -1287,16 +1304,6 @@ sp<ABuffer> NuPlayer::GenericSource::mediaBufferToABuffer(
     int64_t timeUs;
     CHECK(mb->meta_data()->findInt64(kKeyTime, &timeUs));
     meta->setInt64("timeUs", timeUs);
-
-#if 0
-    // Temporarily disable pre-roll till we have a full solution to handle
-    // both single seek and continous seek gracefully.
-    if (seekTimeUs > timeUs) {
-        sp<AMessage> extra = new AMessage;
-        extra->setInt64("resume-at-mediaTimeUs", seekTimeUs);
-        meta->setMessage("extra", extra);
-    }
-#endif
 
     if (trackType == MEDIA_TRACK_TYPE_VIDEO) {
         int32_t layerId;
@@ -1337,10 +1344,6 @@ sp<ABuffer> NuPlayer::GenericSource::mediaBufferToABuffer(
         meta->setBuffer("mpegUserData", mpegUserData);
     }
 
-    if (actualTimeUs) {
-        *actualTimeUs = timeUs;
-    }
-
     mb->release();
     mb = NULL;
 
@@ -1358,7 +1361,7 @@ void NuPlayer::GenericSource::postReadBuffer(media_track_type trackType) {
     }
 }
 
-void NuPlayer::GenericSource::onReadBuffer(sp<AMessage> msg) {
+void NuPlayer::GenericSource::onReadBuffer(const sp<AMessage>& msg) {
     int32_t tmpType;
     CHECK(msg->findInt32("trackType", &tmpType));
     media_track_type trackType = (media_track_type)tmpType;
@@ -1372,8 +1375,12 @@ void NuPlayer::GenericSource::onReadBuffer(sp<AMessage> msg) {
 }
 
 void NuPlayer::GenericSource::readBuffer(
-        media_track_type trackType, int64_t seekTimeUs, int64_t *actualTimeUs, bool formatChange) {
+        media_track_type trackType, int64_t seekTimeUs, MediaPlayerSeekMode mode,
+        int64_t *actualTimeUs, bool formatChange) {
     // Do not read data if Widevine source is stopped
+    //
+    // TODO: revisit after widevine is removed.  May be able to
+    // combine mStopRead with mStarted.
     if (mStopRead) {
         return;
     }
@@ -1382,19 +1389,11 @@ void NuPlayer::GenericSource::readBuffer(
     switch (trackType) {
         case MEDIA_TRACK_TYPE_VIDEO:
             track = &mVideoTrack;
-            if (mIsWidevine) {
-                maxBuffers = 2;
-            } else {
-                maxBuffers = 8;  // too large of a number may influence seeks
-            }
+            maxBuffers = 8;  // too large of a number may influence seeks
             break;
         case MEDIA_TRACK_TYPE_AUDIO:
             track = &mAudioTrack;
-            if (mIsWidevine) {
-                maxBuffers = 8;
-            } else {
-                maxBuffers = 64;
-            }
+            maxBuffers = 64;
             break;
         case MEDIA_TRACK_TYPE_SUBTITLE:
             track = &mSubtitleTrack;
@@ -1418,13 +1417,13 @@ void NuPlayer::GenericSource::readBuffer(
 
     bool seeking = false;
     if (seekTimeUs >= 0) {
-        options.setSeekTo(seekTimeUs, MediaSource::ReadOptions::SEEK_PREVIOUS_SYNC);
+        options.setSeekTo(seekTimeUs, mode);
         seeking = true;
     }
 
-    const bool couldReadMultiple = (!mIsWidevine && track->mSource->supportReadMultiple());
+    const bool couldReadMultiple = (track->mSource->supportReadMultiple());
 
-    if (mIsWidevine || couldReadMultiple) {
+    if (couldReadMultiple) {
         options.setNonBlocking();
     }
 
@@ -1465,9 +1464,20 @@ void NuPlayer::GenericSource::readBuffer(
 
             queueDiscontinuityIfNeeded(seeking, formatChange, trackType, track);
 
-            sp<ABuffer> buffer = mediaBufferToABuffer(
-                    mbuf, trackType, seekTimeUs,
-                    numBuffers == 0 ? actualTimeUs : NULL);
+            sp<ABuffer> buffer = mediaBufferToABuffer(mbuf, trackType);
+            if (numBuffers == 0 && actualTimeUs != nullptr) {
+                *actualTimeUs = timeUs;
+            }
+            if (seeking && buffer != nullptr) {
+                sp<AMessage> meta = buffer->meta();
+                if (meta != nullptr && mode == MediaPlayerSeekMode::SEEK_CLOSEST
+                        && seekTimeUs > timeUs) {
+                    sp<AMessage> extra = new AMessage;
+                    extra->setInt64("resume-at-mediaTimeUs", seekTimeUs);
+                    meta->setMessage("extra", extra);
+                }
+            }
+
             track->mPackets->queueAccessUnit(buffer);
             formatChange = false;
             seeking = false;
@@ -1528,24 +1538,66 @@ NuPlayer::GenericSource::BufferingMonitor::BufferingMonitor(const sp<AMessage> &
       mFirstDequeuedBufferRealUs(-1ll),
       mFirstDequeuedBufferMediaUs(-1ll),
       mlastDequeuedBufferMediaUs(-1ll) {
+      getDefaultBufferingSettings(&mSettings);
 }
 
 NuPlayer::GenericSource::BufferingMonitor::~BufferingMonitor() {
 }
 
+void NuPlayer::GenericSource::BufferingMonitor::getDefaultBufferingSettings(
+        BufferingSettings *buffering /* nonnull */) {
+    buffering->mInitialBufferingMode = BUFFERING_MODE_TIME_ONLY;
+    buffering->mRebufferingMode = BUFFERING_MODE_TIME_THEN_SIZE;
+    buffering->mInitialWatermarkMs = kHighWaterMarkMs;
+    buffering->mRebufferingWatermarkLowMs = kLowWaterMarkMs;
+    buffering->mRebufferingWatermarkHighMs = kHighWaterMarkRebufferMs;
+    buffering->mRebufferingWatermarkLowKB = kLowWaterMarkKB;
+    buffering->mRebufferingWatermarkHighKB = kHighWaterMarkKB;
+
+    ALOGV("BufferingMonitor::getDefaultBufferingSettings{%s}",
+            buffering->toString().string());
+}
+
+status_t NuPlayer::GenericSource::BufferingMonitor::setBufferingSettings(
+        const BufferingSettings &buffering) {
+    ALOGV("BufferingMonitor::setBufferingSettings{%s}",
+            buffering.toString().string());
+
+    Mutex::Autolock _l(mLock);
+    if (buffering.IsSizeBasedBufferingMode(buffering.mInitialBufferingMode)
+            || (buffering.IsTimeBasedBufferingMode(buffering.mRebufferingMode)
+                && buffering.mRebufferingWatermarkLowMs > buffering.mRebufferingWatermarkHighMs)
+            || (buffering.IsSizeBasedBufferingMode(buffering.mRebufferingMode)
+                && buffering.mRebufferingWatermarkLowKB > buffering.mRebufferingWatermarkHighKB)) {
+        return BAD_VALUE;
+    }
+    mSettings = buffering;
+    if (mSettings.mInitialBufferingMode == BUFFERING_MODE_NONE) {
+        mSettings.mInitialWatermarkMs = BufferingSettings::kNoWatermark;
+    }
+    if (!mSettings.IsTimeBasedBufferingMode(mSettings.mRebufferingMode)) {
+        mSettings.mRebufferingWatermarkLowMs = BufferingSettings::kNoWatermark;
+        mSettings.mRebufferingWatermarkHighMs = INT32_MAX;
+    }
+    if (!mSettings.IsSizeBasedBufferingMode(mSettings.mRebufferingMode)) {
+        mSettings.mRebufferingWatermarkLowKB = BufferingSettings::kNoWatermark;
+        mSettings.mRebufferingWatermarkHighKB = INT32_MAX;
+    }
+    return OK;
+}
+
 void NuPlayer::GenericSource::BufferingMonitor::prepare(
         const sp<NuCachedSource2> &cachedSource,
-        const sp<WVMExtractor> &wvmExtractor,
         int64_t durationUs,
         int64_t bitrate,
         bool isStreaming) {
     Mutex::Autolock _l(mLock);
-    prepare_l(cachedSource, wvmExtractor, durationUs, bitrate, isStreaming);
+    prepare_l(cachedSource, durationUs, bitrate, isStreaming);
 }
 
 void NuPlayer::GenericSource::BufferingMonitor::stop() {
     Mutex::Autolock _l(mLock);
-    prepare_l(NULL /* cachedSource */, NULL /* wvmExtractor */, -1 /* durationUs */,
+    prepare_l(NULL /* cachedSource */, -1 /* durationUs */,
             -1 /* bitrate */, false /* isStreaming */);
 }
 
@@ -1600,22 +1652,17 @@ void NuPlayer::GenericSource::BufferingMonitor::updateDequeuedBufferTime(int64_t
 
 void NuPlayer::GenericSource::BufferingMonitor::prepare_l(
         const sp<NuCachedSource2> &cachedSource,
-        const sp<WVMExtractor> &wvmExtractor,
         int64_t durationUs,
         int64_t bitrate,
         bool isStreaming) {
-    ALOGW_IF(wvmExtractor != NULL && cachedSource != NULL,
-            "WVMExtractor and NuCachedSource are both present when "
-            "BufferingMonitor::prepare_l is called, ignore NuCachedSource");
 
     mCachedSource = cachedSource;
-    mWVMExtractor = wvmExtractor;
     mDurationUs = durationUs;
     mBitrate = bitrate;
     mIsStreaming = isStreaming;
     mAudioTimeUs = 0;
     mVideoTimeUs = 0;
-    mPrepareBuffering = (cachedSource != NULL || wvmExtractor != NULL);
+    mPrepareBuffering = (cachedSource != NULL);
     cancelPollBuffering_l();
     mOffloadAudio = false;
     mFirstDequeuedBufferRealUs = -1ll;
@@ -1699,9 +1746,7 @@ void NuPlayer::GenericSource::BufferingMonitor::sendCacheStats_l() {
     int32_t kbps = 0;
     status_t err = UNKNOWN_ERROR;
 
-    if (mWVMExtractor != NULL) {
-        err = mWVMExtractor->getEstimatedBandwidthKbps(&kbps);
-    } else if (mCachedSource != NULL) {
+    if (mCachedSource != NULL) {
         err = mCachedSource->getEstimatedBandwidthKbps(&kbps);
     }
 
@@ -1741,10 +1786,7 @@ void NuPlayer::GenericSource::BufferingMonitor::onPollBuffering_l() {
     int64_t cachedDurationUs = -1ll;
     ssize_t cachedDataRemaining = -1;
 
-    if (mWVMExtractor != NULL) {
-        cachedDurationUs =
-                mWVMExtractor->getCachedDurationUs(&finalStatus);
-    } else if (mCachedSource != NULL) {
+    if (mCachedSource != NULL) {
         cachedDataRemaining =
                 mCachedSource->approxDataRemaining(&finalStatus);
 
@@ -1772,7 +1814,9 @@ void NuPlayer::GenericSource::BufferingMonitor::onPollBuffering_l() {
 
         stopBufferingIfNecessary_l();
         return;
-    } else if (cachedDurationUs >= 0ll) {
+    }
+
+    if (cachedDurationUs >= 0ll) {
         if (mDurationUs > 0ll) {
             int64_t cachedPosUs = getLastReadPosition_l() + cachedDurationUs;
             int percentage = 100.0 * cachedPosUs / mDurationUs;
@@ -1783,36 +1827,40 @@ void NuPlayer::GenericSource::BufferingMonitor::onPollBuffering_l() {
             notifyBufferingUpdate_l(percentage);
         }
 
-        ALOGV("onPollBuffering_l: cachedDurationUs %.1f sec",
-                cachedDurationUs / 1000000.0f);
+        ALOGV("onPollBuffering_l: cachedDurationUs %.1f sec", cachedDurationUs / 1000000.0f);
 
-        if (cachedDurationUs < kLowWaterMarkUs) {
-            // Take into account the data cached in downstream components to try to avoid
-            // unnecessary pause.
-            if (mOffloadAudio && mFirstDequeuedBufferRealUs >= 0) {
-                int64_t downStreamCacheUs = mlastDequeuedBufferMediaUs - mFirstDequeuedBufferMediaUs
-                        - (ALooper::GetNowUs() - mFirstDequeuedBufferRealUs);
-                if (downStreamCacheUs > 0) {
-                    cachedDurationUs += downStreamCacheUs;
+        if (mPrepareBuffering) {
+            if (cachedDurationUs > mSettings.mInitialWatermarkMs * 1000) {
+                stopBufferingIfNecessary_l();
+            }
+        } else if (mSettings.IsTimeBasedBufferingMode(mSettings.mRebufferingMode)) {
+            if (cachedDurationUs < mSettings.mRebufferingWatermarkLowMs * 1000) {
+                // Take into account the data cached in downstream components to try to avoid
+                // unnecessary pause.
+                if (mOffloadAudio && mFirstDequeuedBufferRealUs >= 0) {
+                    int64_t downStreamCacheUs =
+                        mlastDequeuedBufferMediaUs - mFirstDequeuedBufferMediaUs
+                            - (ALooper::GetNowUs() - mFirstDequeuedBufferRealUs);
+                    if (downStreamCacheUs > 0) {
+                        cachedDurationUs += downStreamCacheUs;
+                    }
                 }
-            }
 
-            if (cachedDurationUs < kLowWaterMarkUs) {
-                startBufferingIfNecessary_l();
-            }
-        } else {
-            int64_t highWaterMark = mPrepareBuffering ? kHighWaterMarkUs : kHighWaterMarkRebufferUs;
-            if (cachedDurationUs > highWaterMark) {
+                if (cachedDurationUs < mSettings.mRebufferingWatermarkLowMs * 1000) {
+                    startBufferingIfNecessary_l();
+                }
+            } else if (cachedDurationUs > mSettings.mRebufferingWatermarkHighMs * 1000) {
                 stopBufferingIfNecessary_l();
             }
         }
-    } else if (cachedDataRemaining >= 0) {
+    } else if (cachedDataRemaining >= 0
+            && mSettings.IsSizeBasedBufferingMode(mSettings.mRebufferingMode)) {
         ALOGV("onPollBuffering_l: cachedDataRemaining %zd bytes",
                 cachedDataRemaining);
 
-        if (cachedDataRemaining < kLowWaterMarkBytes) {
+        if (cachedDataRemaining < (mSettings.mRebufferingWatermarkLowKB << 10)) {
             startBufferingIfNecessary_l();
-        } else if (cachedDataRemaining > kHighWaterMarkBytes) {
+        } else if (cachedDataRemaining > (mSettings.mRebufferingWatermarkHighKB << 10)) {
             stopBufferingIfNecessary_l();
         }
     }
@@ -1836,6 +1884,169 @@ void NuPlayer::GenericSource::BufferingMonitor::onMessageReceived(const sp<AMess
           TRESPASS();
           break;
     }
+}
+
+// Modular DRM
+status_t NuPlayer::GenericSource::prepareDrm(
+        const uint8_t uuid[16], const Vector<uint8_t> &drmSessionId, sp<ICrypto> *crypto)
+{
+    ALOGV("prepareDrm");
+
+    sp<AMessage> msg = new AMessage(kWhatPrepareDrm, this);
+    // synchronous call so just passing the address but with local copies of "const" args
+    uint8_t UUID[16];
+    memcpy(UUID, uuid, sizeof(UUID));
+    Vector<uint8_t> sessionId = drmSessionId;
+    msg->setPointer("uuid", (void*)UUID);
+    msg->setPointer("drmSessionId", (void*)&sessionId);
+    msg->setPointer("crypto", (void*)crypto);
+
+    sp<AMessage> response;
+    status_t status = msg->postAndAwaitResponse(&response);
+
+    if (status == OK && response != NULL) {
+        CHECK(response->findInt32("status", &status));
+        ALOGV_IF(status == OK, "prepareDrm: mCrypto: %p (%d)", crypto->get(),
+                (*crypto != NULL ? (*crypto)->getStrongCount() : 0));
+        ALOGD("prepareDrm ret: %d ", status);
+    } else {
+        ALOGE("prepareDrm err: %d", status);
+    }
+
+    return status;
+}
+
+status_t NuPlayer::GenericSource::releaseDrm()
+{
+    ALOGV("releaseDrm");
+
+    sp<AMessage> msg = new AMessage(kWhatReleaseDrm, this);
+
+    // synchronous call to update the source states before the player proceedes with crypto cleanup
+    sp<AMessage> response;
+    status_t status = msg->postAndAwaitResponse(&response);
+
+    if (status == OK && response != NULL) {
+        ALOGD("releaseDrm ret: OK ");
+    } else {
+        ALOGE("releaseDrm err: %d", status);
+    }
+
+    return status;
+}
+
+status_t NuPlayer::GenericSource::onPrepareDrm(const sp<AMessage> &msg)
+{
+    ALOGV("onPrepareDrm ");
+
+    mIsDrmProtected = false;
+    mIsDrmReleased = false;
+    mIsSecure = false;
+
+    uint8_t *uuid;
+    Vector<uint8_t> *drmSessionId;
+    sp<ICrypto> *outCrypto;
+    CHECK(msg->findPointer("uuid", (void**)&uuid));
+    CHECK(msg->findPointer("drmSessionId", (void**)&drmSessionId));
+    CHECK(msg->findPointer("crypto", (void**)&outCrypto));
+
+    status_t status = OK;
+    sp<ICrypto> crypto = NuPlayerDrm::createCryptoAndPlugin(uuid, *drmSessionId, status);
+    if (crypto == NULL) {
+        ALOGE("onPrepareDrm: createCrypto failed. status: %d", status);
+        return status;
+    }
+    ALOGV("onPrepareDrm: createCryptoAndPlugin succeeded for uuid: %s",
+            DrmUUID::toHexString(uuid).string());
+
+    *outCrypto = crypto;
+    // as long a there is an active crypto
+    mIsDrmProtected = true;
+
+    if (mMimes.size() == 0) {
+        status = UNKNOWN_ERROR;
+        ALOGE("onPrepareDrm: Unexpected. Must have at least one track. status: %d", status);
+        return status;
+    }
+
+    // first mime in this list is either the video track, or the first audio track
+    const char *mime = mMimes[0].string();
+    mIsSecure = crypto->requiresSecureDecoderComponent(mime);
+    ALOGV("onPrepareDrm: requiresSecureDecoderComponent mime: %s  isSecure: %d",
+            mime, mIsSecure);
+
+    // Checking the member flags while in the looper to send out the notification.
+    // The legacy mDecryptHandle!=NULL check (for FLAG_PROTECTED) is equivalent to mIsDrmProtected.
+    notifyFlagsChanged(
+            (mIsSecure ? FLAG_SECURE : 0) |
+            // Setting "protected screen" only for L1: b/38390836
+            (mIsSecure ? FLAG_PROTECTED : 0) |
+            FLAG_CAN_PAUSE |
+            FLAG_CAN_SEEK_BACKWARD |
+            FLAG_CAN_SEEK_FORWARD |
+            FLAG_CAN_SEEK);
+
+    return status;
+}
+
+status_t NuPlayer::GenericSource::onReleaseDrm()
+{
+    if (mIsDrmProtected) {
+        mIsDrmProtected = false;
+        // to prevent returning any more buffer after stop/releaseDrm (b/37960096)
+        mIsDrmReleased = true;
+        ALOGV("onReleaseDrm: mIsDrmProtected is reset.");
+    } else {
+        ALOGE("onReleaseDrm: mIsDrmProtected is already false.");
+    }
+
+    return OK;
+}
+
+status_t NuPlayer::GenericSource::checkDrmInfo()
+{
+    // clearing the flag at prepare in case the player is reused after stop/releaseDrm with the
+    // same source without being reset (called by prepareAsync/initFromDataSource)
+    mIsDrmReleased = false;
+
+    if (mFileMeta == NULL) {
+        ALOGI("checkDrmInfo: No metadata");
+        return OK; // letting the caller responds accordingly
+    }
+
+    uint32_t type;
+    const void *pssh;
+    size_t psshsize;
+
+    if (!mFileMeta->findData(kKeyPssh, &type, &pssh, &psshsize)) {
+        ALOGV("checkDrmInfo: No PSSH");
+        return OK; // source without DRM info
+    }
+
+    Parcel parcel;
+    NuPlayerDrm::retrieveDrmInfo(pssh, psshsize, &parcel);
+    ALOGV("checkDrmInfo: MEDIA_DRM_INFO PSSH size: %d  Parcel size: %d  objects#: %d",
+          (int)psshsize, (int)parcel.dataSize(), (int)parcel.objectsCount());
+
+    if (parcel.dataSize() == 0) {
+        ALOGE("checkDrmInfo: Unexpected parcel size: 0");
+        return UNKNOWN_ERROR;
+    }
+
+    // Can't pass parcel as a message to the player. Converting Parcel->ABuffer to pass it
+    // to the Player's onSourceNotify then back to Parcel for calling driver's notifyListener.
+    sp<ABuffer> drmInfoBuffer = ABuffer::CreateAsCopy(parcel.data(), parcel.dataSize());
+    notifyDrmInfo(drmInfoBuffer);
+
+    return OK;
+}
+
+void NuPlayer::GenericSource::signalBufferReturned(MediaBuffer *buffer)
+{
+    //ALOGV("signalBufferReturned %p  refCount: %d", buffer, buffer->localRefcount());
+
+    buffer->setObserver(NULL);
+    buffer->release(); // this leads to delete since that there is no observor
 }
 
 }  // namespace android

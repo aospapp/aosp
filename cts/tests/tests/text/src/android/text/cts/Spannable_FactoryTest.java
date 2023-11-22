@@ -16,13 +16,24 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Spannable;
-import android.text.SpannableString;
 import android.text.Spannable.Factory;
+import android.text.SpannableString;
 
-public class Spannable_FactoryTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Spannable_FactoryTest {
+    @Test
     public void testNewSpannable() {
         final String text = "test newSpannable";
         Factory factory = Spannable.Factory.getInstance();
@@ -31,14 +42,15 @@ public class Spannable_FactoryTest extends AndroidTestCase {
         assertNotNull(spannable);
         assertTrue(spannable instanceof SpannableString);
         assertEquals(text, spannable.toString());
-
-        try {
-            factory.newSpannable(null);
-            fail("should throw NullPointerException here");
-        } catch (NullPointerException e) {
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testNewSpannableNull() {
+        Factory factory = Spannable.Factory.getInstance();
+        factory.newSpannable(null);
+    }
+
+    @Test
     public void testGetInstance() {
         Spannable.Factory factory = Spannable.Factory.getInstance();
         assertNotNull(factory);

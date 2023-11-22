@@ -9,9 +9,17 @@ phone_common_dir := ../../apps/PhoneCommon
 src_dirs := src $(phone_common_dir)/src sip/src
 res_dirs := res $(phone_common_dir)/res sip/res
 
-LOCAL_JAVA_LIBRARIES := telephony-common voip-common ims-common
+LOCAL_JAVA_LIBRARIES := \
+        telephony-common \
+        voip-common \
+        ims-common \
+        org.apache.http.legacy
+
 LOCAL_STATIC_JAVA_LIBRARIES := \
-        org.apache.http.legacy \
+        android-support-v7-appcompat \
+        android-support-v7-preference \
+        android-support-v7-recyclerview \
+        android-support-v14-preference \
         guava \
         volley
 

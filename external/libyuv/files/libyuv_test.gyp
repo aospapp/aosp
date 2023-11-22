@@ -8,7 +8,9 @@
 
 {
   'variables': {
-    'libyuv_disable_jpeg%': 0,
+    # Can be enabled if your jpeg has GYP support.
+    'libyuv_disable_jpeg%': 1,
+    'mips_msa%': 0,  # Default to msa off.
   },
   'targets': [
     {
@@ -52,11 +54,6 @@
             '-fexceptions',
           ],
         }],
-        [ 'OS == "ios" and target_subarch == 64', {
-          'defines': [
-            'LIBYUV_DISABLE_NEON'
-          ],
-        }],
         [ 'OS == "ios"', {
           'xcode_settings': {
             'DEBUGGING_SYMBOLS': 'YES',
@@ -91,12 +88,18 @@
             'LIBYUV_NEON'
           ],
         }],
+        [ '(target_arch == "mipsel" or target_arch == "mips64el") \
+          and (mips_msa == 1)', {
+          'defines': [
+            'LIBYUV_MSA'
+          ],
+        }],
       ], # conditions
       'defines': [
         # Enable the following 3 macros to turn off assembly for specified CPU.
         # 'LIBYUV_DISABLE_X86',
         # 'LIBYUV_DISABLE_NEON',
-        # 'LIBYUV_DISABLE_MIPS',
+        # 'LIBYUV_DISABLE_DSPR2',
         # Enable the following macro to build libyuv as a shared library (dll).
         # 'LIBYUV_USING_SHARED_LIBRARY',
       ],
@@ -151,12 +154,6 @@
         'libyuv.gyp:libyuv',
       ],
       'conditions': [
-        [ 'OS == "ios" and target_subarch == 64', {
-          'defines': [
-            'LIBYUV_DISABLE_NEON'
-          ],
-        }],
-
         [ 'OS != "ios" and libyuv_disable_jpeg != 1', {
           'defines': [
             'HAVE_JPEG',
@@ -181,40 +178,16 @@
     ['OS=="android"', {
       'targets': [
         {
-          # TODO(kjellander): Figure out what to change in build/apk_test.gypi
-          # to it can be used instead of the copied code below. Using it in its
-          # current version was not possible, since the target starts with 'lib',
-          # which somewhere confuses the variables.
-          'target_name': 'libyuv_unittest_apk',
+          'target_name': 'yuv_unittest_apk',
           'type': 'none',
           'variables': {
-            # These are used to configure java_apk.gypi included below.
-            'test_type': 'gtest',
-            'apk_name': 'libyuv_unittest',
-            'test_suite_name': 'libyuv_unittest',
-            'intermediate_dir': '<(PRODUCT_DIR)/libyuv_unittest_apk',
-            'input_shlib_path': '<(SHARED_LIB_DIR)/<(SHARED_LIB_PREFIX)libyuv_unittest<(SHARED_LIB_SUFFIX)',
-            'final_apk_path': '<(intermediate_dir)/libyuv_unittest-debug.apk',
-            'java_in_dir': '<(DEPTH)/testing/android/native_test/java',
-            'test_runner_path': '<(DEPTH)/util/android/test_runner.py',
-            'native_lib_target': 'libyuv_unittest',
-            'gyp_managed_install': 0,
+            'test_suite_name': 'yuv_unittest',
+            'input_shlib_path': '<(SHARED_LIB_DIR)/(SHARED_LIB_PREFIX)libyuv_unittest<(SHARED_LIB_SUFFIX)',
           },
           'includes': [
-            'build/android/test_runner.gypi',
-            'build/java_apk.gypi',
-           ],
+            'build/apk_test.gypi',
+          ],
           'dependencies': [
-            '<(DEPTH)/base/base.gyp:base_java',
-            # TODO(kjellander): Figure out why base_build_config_gen is needed
-            # here. It really shouldn't since it's a dependency of base_java
-            # above, but there's always 0 tests run if it's missing.
-            '<(DEPTH)/base/base.gyp:base_build_config_gen',
-            '<(DEPTH)/build/android/pylib/device/commands/commands.gyp:chromium_commands',
-            '<(DEPTH)/build/android/pylib/remote/device/dummy/dummy.gyp:remote_device_dummy_apk',
-            '<(DEPTH)/testing/android/appurify_support.gyp:appurify_support_java',
-            '<(DEPTH)/testing/android/on_device_instrumentation.gyp:reporter_java',
-            '<(DEPTH)/tools/android/android_tools.gyp:android_tools',
             'libyuv_unittest',
           ],
         },

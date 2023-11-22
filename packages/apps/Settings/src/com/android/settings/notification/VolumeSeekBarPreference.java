@@ -59,15 +59,18 @@ public class VolumeSeekBarPreference extends SeekBarPreference {
     }
 
     public VolumeSeekBarPreference(Context context, AttributeSet attrs, int defStyleAttr) {
-        this(context, attrs, defStyleAttr, 0);
+        super(context, attrs, defStyleAttr);
+        setLayoutResource(R.layout.preference_volume_slider);
     }
 
     public VolumeSeekBarPreference(Context context, AttributeSet attrs) {
-        this(context, attrs, 0);
+        super(context, attrs);
+        setLayoutResource(R.layout.preference_volume_slider);
     }
 
     public VolumeSeekBarPreference(Context context) {
-        this(context, null);
+        super(context);
+        setLayoutResource(R.layout.preference_volume_slider);
     }
 
     public void setStream(int stream) {
@@ -88,9 +91,10 @@ public class VolumeSeekBarPreference extends SeekBarPreference {
         mStopped = true;
         if (mVolumizer != null) {
             mVolumizer.stop();
+            mVolumizer = null;
         }
     }
-    
+
     @Override
     public void onBindViewHolder(PreferenceViewHolder view) {
         super.onBindViewHolder(view);
@@ -146,7 +150,9 @@ public class VolumeSeekBarPreference extends SeekBarPreference {
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromTouch) {
         super.onProgressChanged(seekBar, progress, fromTouch);
-        mCallback.onStreamValueChanged(mStream, progress);
+        if (mCallback != null) {
+            mCallback.onStreamValueChanged(mStream, progress);
+        }
     }
 
     private void updateIconView() {

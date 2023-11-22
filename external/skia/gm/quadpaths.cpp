@@ -6,6 +6,7 @@
  */
 
 #include "gm.h"
+#include "sk_tool_utils.h"
 #include "SkCanvas.h"
 #include "SkPaint.h"
 #include "SkPath.h"
@@ -47,7 +48,7 @@ protected:
             SkPath::FillType fFill;
             const char*      fName;
         };
-        static const FillAndName gFills[] = {
+        constexpr FillAndName gFills[] = {
             {SkPath::kWinding_FillType, "Winding"},
             {SkPath::kEvenOdd_FillType, "Even / Odd"},
             {SkPath::kInverseWinding_FillType, "Inverse Winding"},
@@ -57,7 +58,7 @@ protected:
             SkPaint::Style fStyle;
             const char*    fName;
         };
-        static const StyleAndName gStyles[] = {
+        constexpr StyleAndName gStyles[] = {
             {SkPaint::kFill_Style, "Fill"},
             {SkPaint::kStroke_Style, "Stroke"},
             {SkPaint::kStrokeAndFill_Style, "Stroke And Fill"},
@@ -67,7 +68,7 @@ protected:
             SkPaint::Join fJoin;
             const char*   fName;
         };
-        static const CapAndName gCaps[] = {
+        constexpr CapAndName gCaps[] = {
             {SkPaint::kButt_Cap, SkPaint::kBevel_Join, "Butt"},
             {SkPaint::kRound_Cap, SkPaint::kRound_Join, "Round"},
             {SkPaint::kSquare_Cap, SkPaint::kBevel_Join, "Square"}
@@ -190,7 +191,7 @@ protected:
             SkPath::FillType fFill;
             const char*      fName;
         };
-        static const FillAndName gFills[] = {
+        constexpr FillAndName gFills[] = {
             {SkPath::kWinding_FillType, "Winding"},
             {SkPath::kEvenOdd_FillType, "Even / Odd"},
             {SkPath::kInverseWinding_FillType, "Inverse Winding"},
@@ -200,7 +201,7 @@ protected:
             SkPaint::Style fStyle;
             const char*    fName;
         };
-        static const StyleAndName gStyles[] = {
+        constexpr StyleAndName gStyles[] = {
             {SkPaint::kFill_Style, "Fill"},
             {SkPaint::kStroke_Style, "Stroke"},
             {SkPaint::kStrokeAndFill_Style, "Stroke And Fill"},
@@ -210,7 +211,7 @@ protected:
             SkPaint::Join fJoin;
             const char*   fName;
         };
-        static const CapAndName gCaps[] = {
+        constexpr CapAndName gCaps[] = {
             {SkPaint::kButt_Cap, SkPaint::kBevel_Join, "Butt"},
             {SkPaint::kRound_Cap, SkPaint::kRound_Join, "Round"},
             {SkPaint::kSquare_Cap, SkPaint::kBevel_Join, "Square"}

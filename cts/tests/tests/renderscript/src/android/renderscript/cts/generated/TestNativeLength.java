@@ -37,17 +37,25 @@ public class TestNativeLength extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeLengthRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkNativeLengthFloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xd1df20ecl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xbe51f0c4d1df20ecl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeLengthFloatFloat(inV, out);
             verifyResultsNativeLengthFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthFloatFloat(inV, out);
             verifyResultsNativeLengthFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -114,11 +124,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthFloat2Float() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xf1b4824cl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xf7c2930af1b4824cl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeLengthFloat2Float(inV, out);
             verifyResultsNativeLengthFloat2Float(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloat2Float: " + e.toString());
         }
@@ -126,9 +137,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthFloat2Float(inV, out);
             verifyResultsNativeLengthFloat2Float(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloat2Float: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthFloat2Float(Allocation inV, Allocation out, boolean relaxed) {
@@ -185,11 +198,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthFloat3Float() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x50bb10adl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xf7c29dac50bb10adl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeLengthFloat3Float(inV, out);
             verifyResultsNativeLengthFloat3Float(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloat3Float: " + e.toString());
         }
@@ -197,9 +211,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthFloat3Float(inV, out);
             verifyResultsNativeLengthFloat3Float(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloat3Float: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthFloat3Float(Allocation inV, Allocation out, boolean relaxed) {
@@ -256,11 +272,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthFloat4Float() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xafc19f0el, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xf7c2a84dafc19f0el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNativeLengthFloat4Float(inV, out);
             verifyResultsNativeLengthFloat4Float(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloat4Float: " + e.toString());
         }
@@ -268,9 +285,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthFloat4Float(inV, out);
             verifyResultsNativeLengthFloat4Float(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthFloat4Float: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthFloat4Float(Allocation inV, Allocation out, boolean relaxed) {
@@ -333,11 +352,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthHalfHalf() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x1777436l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x576f8cda01777436l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeLengthHalfHalf(inV, out);
             verifyResultsNativeLengthHalfHalf(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalfHalf: " + e.toString());
         }
@@ -345,9 +365,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthHalfHalf(inV, out);
             verifyResultsNativeLengthHalfHalf(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthHalfHalf(Allocation inV, Allocation out, boolean relaxed) {
@@ -409,11 +431,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthHalf2Half() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xbffb8a74l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xafbca308bffb8a74l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeLengthHalf2Half(inV, out);
             verifyResultsNativeLengthHalf2Half(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalf2Half: " + e.toString());
         }
@@ -421,9 +444,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthHalf2Half(inV, out);
             verifyResultsNativeLengthHalf2Half(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalf2Half: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthHalf2Half(Allocation inV, Allocation out, boolean relaxed) {
@@ -485,11 +510,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthHalf3Half() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x9a26417l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xafbca34809a26417l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeLengthHalf3Half(inV, out);
             verifyResultsNativeLengthHalf3Half(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalf3Half: " + e.toString());
         }
@@ -497,9 +523,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthHalf3Half(inV, out);
             verifyResultsNativeLengthHalf3Half(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalf3Half: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthHalf3Half(Allocation inV, Allocation out, boolean relaxed) {
@@ -561,11 +589,12 @@ public class TestNativeLength extends RSBaseCompute {
     }
 
     private void checkNativeLengthHalf4Half() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x53493dbal, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xafbca38753493dbal, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.forEach_testNativeLengthHalf4Half(inV, out);
             verifyResultsNativeLengthHalf4Half(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalf4Half: " + e.toString());
         }
@@ -573,9 +602,11 @@ public class TestNativeLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNativeLengthHalf4Half(inV, out);
             verifyResultsNativeLengthHalf4Half(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeLengthHalf4Half: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNativeLengthHalf4Half(Allocation inV, Allocation out, boolean relaxed) {

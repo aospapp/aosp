@@ -148,6 +148,7 @@ static const std::string GetFeatureName(int feature) {
       {FEAT_BRANCH_STACK, "branch_stack"},
       {FEAT_PMU_MAPPINGS, "pmu_mappings"},
       {FEAT_GROUP_DESC, "group_desc"},
+      {FEAT_FILE, "file"},
   };
   auto it = feature_name_map.find(feature);
   if (it != feature_name_map.end()) {
@@ -157,20 +158,14 @@ static const std::string GetFeatureName(int feature) {
 }
 
 void DumpRecordCommand::DumpAttrSection() {
-  const std::vector<FileAttr>& attrs = record_file_reader_->AttrSection();
+  std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
   for (size_t i = 0; i < attrs.size(); ++i) {
     const auto& attr = attrs[i];
-    printf("file_attr %zu:\n", i + 1);
-    DumpPerfEventAttr(attr.attr, 1);
-    printf("  ids[file_section]: offset %" PRId64 ", size %" PRId64 "\n", attr.ids.offset,
-           attr.ids.size);
-    std::vector<uint64_t> ids;
-    if (!record_file_reader_->ReadIdsForAttr(attr, &ids)) {
-      return;
-    }
-    if (!ids.empty()) {
+    printf("attr %zu:\n", i + 1);
+    DumpPerfEventAttr(*attr.attr, 1);
+    if (!attr.ids.empty()) {
       printf("  ids:");
-      for (const auto& id : ids) {
+      for (const auto& id : attr.ids) {
         printf(" %" PRId64, id);
       }
       printf("\n");
@@ -206,6 +201,25 @@ void DumpRecordCommand::DumpFeatureSection() {
     } else if (feature == FEAT_CMDLINE) {
       std::vector<std::string> cmdline = record_file_reader_->ReadCmdlineFeature();
       PrintIndented(1, "cmdline: %s\n", android::base::Join(cmdline, ' ').c_str());
+    } else if (feature == FEAT_FILE) {
+      std::string file_path;
+      uint32_t file_type;
+      uint64_t min_vaddr;
+      std::vector<Symbol> symbols;
+      size_t read_pos = 0;
+      PrintIndented(1, "file:\n");
+      while (record_file_reader_->ReadFileFeature(read_pos, &file_path,
+                                                  &file_type, &min_vaddr,
+                                                  &symbols)) {
+        PrintIndented(2, "file_path %s\n", file_path.c_str());
+        PrintIndented(2, "file_type %s\n", DsoTypeToString(static_cast<DsoType>(file_type)));
+        PrintIndented(2, "min_vaddr 0x%" PRIx64 "\n", min_vaddr);
+        PrintIndented(2, "symbols:\n");
+        for (const auto& symbol : symbols) {
+          PrintIndented(3, "%s [0x%" PRIx64 "-0x%" PRIx64 "]\n", symbol.DemangledName(),
+                        symbol.addr, symbol.addr + symbol.len);
+        }
+      }
     }
   }
 }

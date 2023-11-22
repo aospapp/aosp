@@ -23,6 +23,8 @@
 
 namespace art {
 
+class CodeGenerator;
+
 /**
  * Implements optimizations specific to each instruction.
  *
@@ -35,16 +37,20 @@ namespace art {
  */
 class InstructionSimplifier : public HOptimization {
  public:
-  InstructionSimplifier(HGraph* graph,
-                        OptimizingCompilerStats* stats = nullptr,
-                        const char* name = kInstructionSimplifierPassName)
-      : HOptimization(graph, name, stats) {}
+  explicit InstructionSimplifier(HGraph* graph,
+                                 CodeGenerator* codegen,
+                                 OptimizingCompilerStats* stats = nullptr,
+                                 const char* name = kInstructionSimplifierPassName)
+      : HOptimization(graph, name, stats),
+        codegen_(codegen) {}
 
   static constexpr const char* kInstructionSimplifierPassName = "instruction_simplifier";
 
   void Run() OVERRIDE;
 
  private:
+  CodeGenerator* codegen_;
+
   DISALLOW_COPY_AND_ASSIGN(InstructionSimplifier);
 };
 

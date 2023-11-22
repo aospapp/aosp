@@ -44,6 +44,8 @@ set(TCUTIL_SRCS
 	tcuResultCollector.hpp
 	tcuSurface.cpp
 	tcuSurface.hpp
+	tcuSurfaceAccess.cpp
+	tcuSurfaceAccess.hpp
 	tcuTestCase.cpp
 	tcuTestCase.hpp
 	tcuTestContext.cpp
@@ -89,6 +91,8 @@ set(TCUTIL_SRCS
 	tcuTestHierarchyUtil.hpp
 	tcuAstcUtil.cpp
 	tcuAstcUtil.hpp
+	tcuRasterizationVerifier.cpp
+	tcuRasterizationVerifier.hpp
 	)
 
 set(TCUTIL_LIBS

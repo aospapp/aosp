@@ -16,7 +16,6 @@
 package android.support.v17.leanback.widget;
 
 import android.os.Build;
-import android.view.View;
 import android.view.ViewGroup;
 
 
@@ -42,6 +41,9 @@ final class StaticShadowHelper {
      * Interface used when we do not support Shadow animations.
      */
     private static final class ShadowHelperStubImpl implements ShadowHelperVersionImpl {
+        ShadowHelperStubImpl() {
+        }
+
         @Override
         public void prepareParent(ViewGroup parent) {
             // do nothing
@@ -63,6 +65,9 @@ final class StaticShadowHelper {
      * Implementation used on JBMR2 (and above).
      */
     private static final class ShadowHelperJbmr2Impl implements ShadowHelperVersionImpl {
+        ShadowHelperJbmr2Impl() {
+        }
+
         @Override
         public void prepareParent(ViewGroup parent) {
             ShadowHelperJbmr2.prepareParent(parent);
@@ -83,7 +88,7 @@ final class StaticShadowHelper {
      * Returns the StaticShadowHelper.
      */
     private StaticShadowHelper() {
-        if (Build.VERSION.SDK_INT >= 18) {
+        if (Build.VERSION.SDK_INT >= 21) {
             mSupportsShadow = true;
             mImpl = new ShadowHelperJbmr2Impl();
         } else {

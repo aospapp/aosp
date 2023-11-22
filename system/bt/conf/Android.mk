@@ -1,3 +1,5 @@
+# Cannot convert to Android.bp as resource copying has not
+# yet implemented for soong as of 12/16/2016
 LOCAL_PATH := $(call my-dir)
 
 # Bluetooth bt_stack.conf config file

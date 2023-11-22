@@ -16,12 +16,15 @@
 
 package android.support.v7.app;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v7.appcompat.R;
 import android.support.v7.view.ActionMode;
 import android.util.TypedValue;
@@ -90,9 +93,10 @@ public class AppCompatDialog extends Dialog implements AppCompatCallback {
         getDelegate().setContentView(view, params);
     }
 
+    @SuppressWarnings("TypeParameterUnusedInFormals")
     @Nullable
     @Override
-    public View findViewById(@IdRes int id) {
+    public <T extends View> T findViewById(@IdRes int id) {
         return getDelegate().findViewById(id);
     }
 
@@ -140,6 +144,8 @@ public class AppCompatDialog extends Dialog implements AppCompatCallback {
     /**
      * @hide
      */
+    @Override
+    @RestrictTo(LIBRARY_GROUP)
     public void invalidateOptionsMenu() {
         getDelegate().invalidateOptionsMenu();
     }

@@ -2,6 +2,7 @@
 <carrier_config_list>
 <carrier_config>
 <boolean name="carrier_volte_available_bool" value="true" />
+<boolean name="display_hd_audio_property_bool" value="false" />
 <int name="volte_replacement_rat_int" value="3" />
 </carrier_config>
 </carrier_config_list>

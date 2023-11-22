@@ -27,21 +27,17 @@ class ClassWithFinals {
   public ClassWithFinals obj;
   public static boolean doThrow = false;
 
-  /// CHECK-START: void ClassWithFinals.<init>(boolean) register (after)
-  /// CHECK:      MemoryBarrier kind:StoreStore
-  /// CHECK-NEXT: ReturnVoid
   public ClassWithFinals(boolean cond) {
-    x = 0;
-    if (doThrow) {
-      // avoid inlining
-      throw new RuntimeException();
-    }
+    x = 1;
+    throw new RuntimeException();
+    // should not inline this constructor
   }
 
   /// CHECK-START: void ClassWithFinals.<init>() register (after)
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK-NEXT: ReturnVoid
   public ClassWithFinals() {
+    // Exactly one constructor barrier.
     x = 0;
   }
 
@@ -50,7 +46,7 @@ class ClassWithFinals {
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK-NEXT: ReturnVoid
   public ClassWithFinals(int x) {
-    // This should have two barriers:
+    // This should have exactly two barriers:
     //   - one for the constructor
     //   - one for the `new` which should be inlined.
     obj = new ClassWithFinals();
@@ -67,6 +63,8 @@ class InheritFromClassWithFinals extends ClassWithFinals {
   /// CHECK-NOT:  InvokeStaticOrDirect
   public InheritFromClassWithFinals() {
     // Should inline the super constructor.
+    //
+    // Exactly one constructor barrier here.
   }
 
   /// CHECK-START: void InheritFromClassWithFinals.<init>(boolean) register (after)
@@ -82,6 +80,7 @@ class InheritFromClassWithFinals extends ClassWithFinals {
   /// CHECK-START: void InheritFromClassWithFinals.<init>(int) register (after)
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK:      MemoryBarrier kind:StoreStore
+  /// CHECK-NOT:  MemoryBarrier kind:StoreStore
   /// CHECK:      ReturnVoid
 
   /// CHECK-START: void InheritFromClassWithFinals.<init>(int) register (after)
@@ -99,12 +98,13 @@ class HaveFinalsAndInheritFromClassWithFinals extends ClassWithFinals {
 
   /// CHECK-START: void HaveFinalsAndInheritFromClassWithFinals.<init>() register (after)
   /// CHECK:      MemoryBarrier kind:StoreStore
+  /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK-NEXT: ReturnVoid
 
   /// CHECK-START: void HaveFinalsAndInheritFromClassWithFinals.<init>() register (after)
   /// CHECK-NOT: InvokeStaticOrDirect
   public HaveFinalsAndInheritFromClassWithFinals() {
-    // Should inline the super constructor and remove the memory barrier.
+    // Should inline the super constructor and keep the memory barrier.
     y = 0;
   }
 
@@ -122,17 +122,19 @@ class HaveFinalsAndInheritFromClassWithFinals extends ClassWithFinals {
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK:      MemoryBarrier kind:StoreStore
+  /// CHECK:      MemoryBarrier kind:StoreStore
+  /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK-NEXT: ReturnVoid
 
   /// CHECK-START: void HaveFinalsAndInheritFromClassWithFinals.<init>(int) register (after)
   /// CHECK-NOT:  InvokeStaticOrDirect
   public HaveFinalsAndInheritFromClassWithFinals(int unused) {
-    // Should inline the super constructor and keep just one memory barrier.
+    // Should inline the super constructor and keep keep both memory barriers.
     y = 0;
 
-    // Should inline new instance and keep one barrier.
+    // Should inline new instance and keep both memory barriers.
     new HaveFinalsAndInheritFromClassWithFinals();
-    // Should inline new instance and keep one barrier.
+    // Should inline new instance and have exactly one barrier.
     new InheritFromClassWithFinals();
   }
 }
@@ -146,6 +148,7 @@ public class Main {
   /// CHECK-NOT:  MemoryBarrier kind:StoreStore
   public static ClassWithFinals noInlineNoConstructorBarrier() {
     return new ClassWithFinals(false);
+    // should not inline the constructor
   }
 
   /// CHECK-START: void Main.inlineNew() register (after)
@@ -170,6 +173,7 @@ public class Main {
 
   /// CHECK-START: void Main.inlineNew2() register (after)
   /// CHECK:      MemoryBarrier kind:StoreStore
+  /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK-NEXT: ReturnVoid
 
   /// CHECK-START: void Main.inlineNew2() register (after)
@@ -179,6 +183,8 @@ public class Main {
   }
 
   /// CHECK-START: void Main.inlineNew3() register (after)
+  /// CHECK:      MemoryBarrier kind:StoreStore
+  /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK:      MemoryBarrier kind:StoreStore
   /// CHECK-NEXT: ReturnVoid

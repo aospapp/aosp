@@ -13,7 +13,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 """
 A simple JSON RPC client.
 """
@@ -21,11 +20,14 @@ import json
 import time
 from urllib import request
 
+
 class HTTPError(Exception):
     pass
 
+
 class RemoteError(Exception):
     pass
+
 
 def JSONCounter():
     """A counter that generates JSON RPC call IDs.
@@ -38,9 +40,11 @@ def JSONCounter():
         yield i
         i += 1
 
+
 class JSONRPCClient:
     COUNTER = JSONCounter()
     headers = {'content-type': 'application/json'}
+
     def __init__(self, baseurl):
         self._baseurl = baseurl
 
@@ -115,4 +119,5 @@ class JSONRPCClient:
     def __getattr__(self, name):
         def rpc_call(*args):
             return self.call('uci', name, *args)
+
         return rpc_call

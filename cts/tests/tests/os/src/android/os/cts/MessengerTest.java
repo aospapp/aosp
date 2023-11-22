@@ -31,6 +31,7 @@ import android.os.Messenger;
 import android.os.Parcel;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
+import android.os.ShellCallback;
 import android.test.AndroidTestCase;
 
 import java.io.FileDescriptor;
@@ -91,7 +92,7 @@ public class MessengerTest extends AndroidTestCase {
 
         @Override
         public void shellCommand(FileDescriptor in, FileDescriptor out, FileDescriptor err,
-                String[] args, ResultReceiver resultReceiver) {
+                String[] args, ShellCallback shellCallback, ResultReceiver resultReceiver) {
         }
 
     };

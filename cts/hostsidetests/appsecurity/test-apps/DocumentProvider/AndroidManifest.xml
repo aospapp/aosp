@@ -36,5 +36,8 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".WebLinkActivity">
+        </activity>
     </application>
 </manifest>

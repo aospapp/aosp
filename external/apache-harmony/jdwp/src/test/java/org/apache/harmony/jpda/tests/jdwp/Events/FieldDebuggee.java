@@ -40,6 +40,7 @@ public class FieldDebuggee extends SyncDebuggee {
     
     private int testIntField = 0;
     
+    @Override
     public void run(){
         
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

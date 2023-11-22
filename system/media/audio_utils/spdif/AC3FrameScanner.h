@@ -18,6 +18,7 @@
 #define ANDROID_AUDIO_AC3_FRAME_SCANNER_H
 
 #include <stdint.h>
+#include <system/audio.h>
 #include <audio_utils/spdif/FrameScanner.h>
 
 namespace android {
@@ -34,7 +35,7 @@ namespace android {
 class AC3FrameScanner : public FrameScanner
 {
 public:
-    AC3FrameScanner();
+    explicit AC3FrameScanner(audio_format_t format);
     virtual ~AC3FrameScanner();
 
     virtual int getMaxChannels()   const { return 5 + 1; } // 5.1 surround
@@ -58,6 +59,7 @@ protected:
     uint32_t  mStreamType;
     // substream index
     uint32_t  mSubstreamID;
+    audio_format_t mFormat;
 
     // used to recognize the start of an AC3 sync frame
     static const uint8_t  kSyncBytes[];

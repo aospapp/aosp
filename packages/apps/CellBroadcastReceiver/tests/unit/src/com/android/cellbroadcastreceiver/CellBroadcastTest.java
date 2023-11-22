@@ -17,13 +17,21 @@
 package com.android.cellbroadcastreceiver;
 
 import android.content.Context;
+import android.os.IBinder;
 import android.os.PersistableBundle;
+import android.os.ServiceManager;
+import android.telephony.SmsManager;
 import android.util.Log;
 import android.telephony.CarrierConfigManager;
 import android.util.SparseArray;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -40,6 +48,8 @@ public abstract class CellBroadcastTest {
 
     private SparseArray<PersistableBundle> mBundles = new SparseArray<>();
 
+    MockedServiceManager mMockedServiceManager;
+
     @Mock
     Context mContext;
     @Mock
@@ -48,6 +58,7 @@ public abstract class CellBroadcastTest {
     protected void setUp(String tag) throws Exception {
         TAG = tag;
         MockitoAnnotations.initMocks(this);
+        mMockedServiceManager = new MockedServiceManager();
         initContext();
     }
 
@@ -56,8 +67,7 @@ public abstract class CellBroadcastTest {
                 getSystemService(eq(Context.CARRIER_CONFIG_SERVICE));
     }
 
-    protected void carrierConfigSetStringArray(int subId, String key, String[] values) {
-        //doReturn(values).when(mCarrierConfigManager.getConfig(subId)).getStringArray(eq(key));
+    void carrierConfigSetStringArray(int subId, String key, String[] values) {
         if (mBundles.get(subId) == null) {
             mBundles.put(subId, new PersistableBundle());
         }
@@ -66,6 +76,7 @@ public abstract class CellBroadcastTest {
     }
 
     protected void tearDown() throws Exception {
+        mMockedServiceManager.restoreAllServices();
     }
 
     protected static void logd(String s) {

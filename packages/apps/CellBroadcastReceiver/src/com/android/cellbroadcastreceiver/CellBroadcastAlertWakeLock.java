@@ -22,7 +22,7 @@ import android.util.Log;
 
 /**
  * Hold a wakelock that can be acquired in the CellBroadcastAlertService and
- * released in the CellBroadcastAlertFullScreen Activity.
+ * released in the CellBroadcastAlertDialog Activity.
  */
 class CellBroadcastAlertWakeLock {
     private static final String TAG = "CellBroadcastAlertWakeLock";

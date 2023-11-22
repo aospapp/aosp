@@ -24,7 +24,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_COMPATIBILITY_SUITE := cts
 
 LOCAL_MODULE := CtsSustainedPerformanceHostTestCases
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt compatibility-host-util
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 

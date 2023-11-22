@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2003-2009, International Business Machines Corporation and    *
@@ -8,6 +10,8 @@ package com.ibm.icu.dev.test.stringprep;
 
 import java.util.Locale;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.StringPrep;
 import com.ibm.icu.text.StringPrepParseException;
@@ -17,9 +21,6 @@ import com.ibm.icu.text.StringPrepParseException;
  *
  */
 public class TestStringPrep extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new TestStringPrep().run(args);
-    }
     /*
        There are several special identifiers ("who") which need to be
        understood universally, rather than in the context of a particular
@@ -99,6 +100,7 @@ public class TestStringPrep extends TestFmwk {
         "test@www.\u0024.com",
         "help@\u00C3\u00BC.com",
     };
+    @Test
     public void TestNFS4MixedPrep(){
         for(int i=0; i< mixed_prep_data.length; i++){
             try{
@@ -127,6 +129,7 @@ public class TestStringPrep extends TestFmwk {
 
          }
     }
+    @Test
     public void TestCISPrep(){
 
         for(int i=0;i< (TestData.conformanceTestCases.length);i++){
@@ -149,6 +152,7 @@ public class TestStringPrep extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCSPrep(){
         
         // Checking for bidi is turned off
@@ -198,6 +202,7 @@ public class TestStringPrep extends TestFmwk {
         }
     }
     
+    @Test
     public void TestCoverage(){
         if (new StringPrepParseException("coverage", 0, "", 0,0) == null){
             errln("Construct StringPrepParseException(String, int, String, int, int)");
@@ -205,6 +210,7 @@ public class TestStringPrep extends TestFmwk {
     }
     
     /* Tests the method public static StringPrep getInstance(int profile) */
+    @Test
     public void TestGetInstance(){
         // Tests when "if (profile < 0 || profile > MAX_PROFILE)" is true
         int[] neg_num_cases = {-100,-50,-10,-5,-2,-1};
@@ -240,6 +246,7 @@ public class TestStringPrep extends TestFmwk {
     }
     
     /* Test the method public String prepare(String src, int options) */
+    @Test
     public void TestPrepare() {
         StringPrep sp = StringPrep.getInstance(0);
         try {
@@ -255,6 +262,7 @@ public class TestStringPrep extends TestFmwk {
      * Tests the constructor public StringPrepParseException(String message, int error, String rules, int pos, int
      * lineNumber)
      */
+    @Test
     public void TestStringPrepParseException() {
         Locale locales[] = {Locale.US, Locale.FRENCH, Locale.SIMPLIFIED_CHINESE};
         String rules = "This is a very odd little set of rules, just for testing, you know...";
@@ -266,6 +274,7 @@ public class TestStringPrep extends TestFmwk {
     }
     
     /* Tests the method public boolean equals(Object other) for StringPrepParseException */
+    @Test
     public void TestStringPrepParseExceptionEquals(){
         StringPrepParseException sppe = new StringPrepParseException("dummy",0,"dummy",0,0);
         StringPrepParseException sppe_clone = new StringPrepParseException("dummy",0,"dummy",0,0);
@@ -301,6 +310,7 @@ public class TestStringPrep extends TestFmwk {
     }
     
     /* Tests the method public int getError() */
+    @Test
     public void TestGetError(){
         for(int i=0; i < 5; i++){
             StringPrepParseException sppe = new StringPrepParseException("dummy",i,"dummy",0,0);
@@ -311,6 +321,7 @@ public class TestStringPrep extends TestFmwk {
     }
     
     /* Tests the private void setPreContext(char[] str, int pos) */
+    @Test
     public void TestSetPreContext(){
         String WordAtLeast16Characters = "abcdefghijklmnopqrstuvwxyz";
         for(int i=0; i < 5; i++){

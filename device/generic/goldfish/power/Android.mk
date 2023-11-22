@@ -22,7 +22,19 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -DQEMU_HARDWARE
 LOCAL_SHARED_LIBRARIES := liblog libcutils
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
 LOCAL_SRC_FILES := power_qemu.c
 LOCAL_MODULE := power.goldfish
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_CFLAGS += -DQEMU_HARDWARE
+LOCAL_SHARED_LIBRARIES := liblog libcutils
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
+LOCAL_SRC_FILES := power_qemu.c
+LOCAL_MODULE := power.ranchu
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)

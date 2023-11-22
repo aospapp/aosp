@@ -35,9 +35,8 @@ class CommandTransceiver {
   // |callback| will be called with the |response| data from the TPM. If a
   // transmission error occurs |callback| will be called with a well-formed
   // error |response|.
-  virtual void SendCommand(
-      const std::string& command,
-      const ResponseCallback& callback) = 0;
+  virtual void SendCommand(const std::string& command,
+                           const ResponseCallback& callback) = 0;
 
   // Sends a TPM |command| synchronously (i.e. waits for a response) and returns
   // the response. If a transmission error occurs the response will be populated

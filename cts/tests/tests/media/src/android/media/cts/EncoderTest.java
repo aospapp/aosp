@@ -19,7 +19,6 @@ package android.media.cts;
 import android.media.cts.R;
 
 import android.content.Context;
-import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -27,6 +26,8 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
 import java.io.InputStream;
@@ -161,7 +162,7 @@ public class EncoderTest extends AndroidTestCase {
         try {
             pool.shutdown();
             assertTrue("timed out waiting for encoder threads",
-                    pool.awaitTermination(5, TimeUnit.MINUTES));
+                    pool.awaitTermination(10, TimeUnit.MINUTES));
         } catch (InterruptedException e) {
             fail("interrupted while waiting for encoder threads");
         }

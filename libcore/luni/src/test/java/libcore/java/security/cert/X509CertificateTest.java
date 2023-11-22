@@ -16,7 +16,7 @@
 
 package libcore.java.security.cert;
 
-import tests.support.resource.Support_Resources;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -56,11 +56,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-
 import javax.security.auth.x500.X500Principal;
-
 import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
+import tests.support.resource.Support_Resources;
 
 public class X509CertificateTest extends TestCase {
     private Provider[] mX509Providers;
@@ -173,7 +172,7 @@ public class X509CertificateTest extends TestCase {
             final SimpleDateFormat sdf =
                     new SimpleDateFormat("MMM dd HH:mm:ss yyyy zzz", Locale.US);
 
-            final BufferedReader buf = new BufferedReader(new InputStreamReader(ris));
+            final BufferedReader buf = new BufferedReader(new InputStreamReader(ris, UTF_8));
             String line = buf.readLine();
             int index = line.indexOf('=');
             assertEquals("notBefore", line.substring(0, index));
@@ -199,7 +198,7 @@ public class X509CertificateTest extends TestCase {
     private BigInteger getRsaCertificateSerial() throws Exception {
         final InputStream ris = Support_Resources.getStream("x509/cert-rsa-serial.txt");
         try {
-            final BufferedReader buf = new BufferedReader(new InputStreamReader(ris));
+            final BufferedReader buf = new BufferedReader(new InputStreamReader(ris, UTF_8));
 
             String line = buf.readLine();
             int index = line.indexOf('=');

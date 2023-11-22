@@ -10,7 +10,6 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'servo, wificell'
 ATTRIBUTES = 'suite:wifi_matfunc, suite:wifi_matfunc_bcm4371'
-SUITE = 'wifi_matfunc, wifi_matfunc_bcm4371'
 DOC = """
 This test uses servo to simulate lid close and open events and checks that the
 wifi adapter is brought back up and connects to a 802.11a network on channels

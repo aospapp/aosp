@@ -23,6 +23,21 @@
 
 namespace android {
 
+template<typename T>
+static inline constexpr uint32_t low32(const T n) {
+    return static_cast<uint32_t>(static_cast<uint64_t>(n));
+}
+
+template<typename T>
+static inline constexpr uint32_t high32(const T n) {
+    return static_cast<uint32_t>(static_cast<uint64_t>(n)>>32);
+}
+
+template<typename T>
+static inline constexpr T to64(const uint32_t lo, const uint32_t hi) {
+    return static_cast<T>(static_cast<uint64_t>(hi)<<32 | lo);
+}
+
 BufferItem::BufferItem() :
     mGraphicBuffer(NULL),
     mFence(NULL),
@@ -56,16 +71,19 @@ size_t BufferItem::getPodSize() const {
     addAligned(size, mCrop);
     addAligned(size, mTransform);
     addAligned(size, mScalingMode);
-    addAligned(size, mTimestampLo);
-    addAligned(size, mTimestampHi);
+    addAligned(size, low32(mTimestamp));
+    addAligned(size, high32(mTimestamp));
     addAligned(size, mIsAutoTimestamp);
     addAligned(size, mDataSpace);
-    addAligned(size, mFrameNumberLo);
-    addAligned(size, mFrameNumberHi);
+    addAligned(size, low32(mFrameNumber));
+    addAligned(size, high32(mFrameNumber));
     addAligned(size, mSlot);
     addAligned(size, mIsDroppable);
     addAligned(size, mAcquireCalled);
     addAligned(size, mTransformToDisplayInverse);
+    addAligned(size, mAutoRefresh);
+    addAligned(size, mQueuedBuffer);
+    addAligned(size, mIsStale);
     return size;
 }
 
@@ -73,11 +91,11 @@ size_t BufferItem::getFlattenedSize() const {
     size_t size = sizeof(uint32_t); // Flags
     if (mGraphicBuffer != 0) {
         size += mGraphicBuffer->getFlattenedSize();
-        FlattenableUtils::align<4>(size);
+        size = FlattenableUtils::align<4>(size);
     }
     if (mFence != 0) {
         size += mFence->getFlattenedSize();
-        FlattenableUtils::align<4>(size);
+        size = FlattenableUtils::align<4>(size);
     }
     size += mSurfaceDamage.getFlattenedSize();
     size = FlattenableUtils::align<8>(size);
@@ -141,16 +159,19 @@ status_t BufferItem::flatten(
     writeAligned(buffer, size, mCrop);
     writeAligned(buffer, size, mTransform);
     writeAligned(buffer, size, mScalingMode);
-    writeAligned(buffer, size, mTimestampLo);
-    writeAligned(buffer, size, mTimestampHi);
+    writeAligned(buffer, size, low32(mTimestamp));
+    writeAligned(buffer, size, high32(mTimestamp));
     writeAligned(buffer, size, mIsAutoTimestamp);
     writeAligned(buffer, size, mDataSpace);
-    writeAligned(buffer, size, mFrameNumberLo);
-    writeAligned(buffer, size, mFrameNumberHi);
+    writeAligned(buffer, size, low32(mFrameNumber));
+    writeAligned(buffer, size, high32(mFrameNumber));
     writeAligned(buffer, size, mSlot);
     writeAligned(buffer, size, mIsDroppable);
     writeAligned(buffer, size, mAcquireCalled);
     writeAligned(buffer, size, mTransformToDisplayInverse);
+    writeAligned(buffer, size, mAutoRefresh);
+    writeAligned(buffer, size, mQueuedBuffer);
+    writeAligned(buffer, size, mIsStale);
 
     return NO_ERROR;
 }
@@ -183,6 +204,8 @@ status_t BufferItem::unflatten(
         status_t err = mFence->unflatten(buffer, size, fds, count);
         if (err) return err;
         size -= FlattenableUtils::align<4>(buffer);
+
+        mFenceTime = std::make_shared<FenceTime>(mFence);
     }
 
     status_t err = mSurfaceDamage.unflatten(buffer, size);
@@ -194,19 +217,27 @@ status_t BufferItem::unflatten(
         return NO_MEMORY;
     }
 
+    uint32_t timestampLo = 0, timestampHi = 0;
+    uint32_t frameNumberLo = 0, frameNumberHi = 0;
+
     readAligned(buffer, size, mCrop);
     readAligned(buffer, size, mTransform);
     readAligned(buffer, size, mScalingMode);
-    readAligned(buffer, size, mTimestampLo);
-    readAligned(buffer, size, mTimestampHi);
+    readAligned(buffer, size, timestampLo);
+    readAligned(buffer, size, timestampHi);
+    mTimestamp = to64<int64_t>(timestampLo, timestampHi);
     readAligned(buffer, size, mIsAutoTimestamp);
     readAligned(buffer, size, mDataSpace);
-    readAligned(buffer, size, mFrameNumberLo);
-    readAligned(buffer, size, mFrameNumberHi);
+    readAligned(buffer, size, frameNumberLo);
+    readAligned(buffer, size, frameNumberHi);
+    mFrameNumber = to64<uint64_t>(frameNumberLo, frameNumberHi);
     readAligned(buffer, size, mSlot);
     readAligned(buffer, size, mIsDroppable);
     readAligned(buffer, size, mAcquireCalled);
     readAligned(buffer, size, mTransformToDisplayInverse);
+    readAligned(buffer, size, mAutoRefresh);
+    readAligned(buffer, size, mQueuedBuffer);
+    readAligned(buffer, size, mIsStale);
 
     return NO_ERROR;
 }

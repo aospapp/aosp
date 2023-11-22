@@ -17,7 +17,7 @@ import its.device
 import its.caps
 import its.objects
 import os.path
-import pylab
+from matplotlib import pylab
 import matplotlib
 import matplotlib.pyplot
 import numpy
@@ -40,6 +40,14 @@ def main():
                              its.caps.manual_post_proc(props) and
                              its.caps.per_frame_control(props) and
                              its.caps.ev_compensation(props))
+
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
 
         ev_compensation_range = props['android.control.aeCompensationRange']
         range_min = ev_compensation_range[0]
@@ -69,7 +77,7 @@ def main():
             req["android.tonemap.curveRed"] = [0.0,0.0, 1.0,1.0]
             req["android.tonemap.curveGreen"] = [0.0,0.0, 1.0,1.0]
             req["android.tonemap.curveBlue"] = [0.0,0.0, 1.0,1.0]
-            caps = cam.do_capture([req]*THREASH_CONVERGE_FOR_EV)
+            caps = cam.do_capture([req]*THREASH_CONVERGE_FOR_EV, fmt)
 
             for cap in caps:
                 if (cap['metadata']['android.control.aeState'] == LOCKED):

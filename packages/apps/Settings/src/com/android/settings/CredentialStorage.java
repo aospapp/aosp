@@ -47,6 +47,7 @@ import android.widget.Toast;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.org.bouncycastle.asn1.ASN1InputStream;
 import com.android.org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import com.android.settings.vpn2.VpnUtils;
 
 import sun.security.util.ObjectIdentifier;
 import sun.security.x509.AlgorithmId;
@@ -272,7 +273,7 @@ public final class CredentialStorage extends Activity {
             }
         }
 
-        int flags = (uid == Process.WIFI_UID) ? KeyStore.FLAG_NONE : KeyStore.FLAG_ENCRYPTED;
+        int flags = KeyStore.FLAG_NONE;
 
         if (bundle.containsKey(Credentials.EXTRA_USER_CERTIFICATE_NAME)) {
             String certName = bundle.getString(Credentials.EXTRA_USER_CERTIFICATE_NAME);
@@ -293,6 +294,10 @@ public final class CredentialStorage extends Activity {
                 return;
             }
         }
+
+        // Send the broadcast.
+        Intent broadcast = new Intent(KeyChain.ACTION_KEYCHAIN_CHANGED);
+        sendBroadcast(broadcast);
 
         setResult(RESULT_OK);
     }
@@ -361,11 +366,20 @@ public final class CredentialStorage extends Activity {
             if (success) {
                 Toast.makeText(CredentialStorage.this,
                                R.string.credentials_erased, Toast.LENGTH_SHORT).show();
+                clearLegacyVpnIfEstablished();
             } else {
                 Toast.makeText(CredentialStorage.this,
                                R.string.credentials_not_erased, Toast.LENGTH_SHORT).show();
             }
             finish();
+        }
+    }
+
+    private void clearLegacyVpnIfEstablished() {
+        boolean isDone = VpnUtils.disconnectLegacyVpn(getApplicationContext());
+        if (isDone) {
+            Toast.makeText(CredentialStorage.this, R.string.vpn_disconnected,
+                    Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -418,7 +432,7 @@ public final class CredentialStorage extends Activity {
 
         final int launchedFromUserId;
         try {
-            int launchedFromUid = android.app.ActivityManagerNative.getDefault()
+            int launchedFromUid = android.app.ActivityManager.getService()
                     .getLaunchedFromUid(getActivityToken());
             if (launchedFromUid == -1) {
                 Log.e(TAG, ACTION_INSTALL + " must be started with startActivityForResult");

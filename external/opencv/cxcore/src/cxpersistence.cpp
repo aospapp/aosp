@@ -4675,7 +4675,7 @@ icvReadGraph( CvFileStorage* fs, CvFileNode* node )
     if( header_dt )
         CV_CALL( header_size = icvCalcElemSize( header_dt, header_size ));
 
-    if( vtx_dt > 0 )
+    if( vtx_dt )
     {
         CV_CALL( src_vtx_size = icvCalcElemSize( vtx_dt, 0 ));
         CV_CALL( vtx_size = icvCalcElemSize( vtx_dt, vtx_size ));

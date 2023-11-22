@@ -45,7 +45,7 @@ struct SizedBuffer {
      * Constructs a SizedBuffer of a provided
      * length.
      */
-    SizedBuffer(uint32_t length) {
+    explicit SizedBuffer(uint32_t length) {
         if (length != 0) {
             buffer.reset(new uint8_t[length]);
         } else {
@@ -75,7 +75,7 @@ struct SizedBuffer {
  */
 struct GateKeeperMessage {
     GateKeeperMessage() : error(ERROR_NONE) {}
-    GateKeeperMessage(gatekeeper_error_t error) : error(error) {}
+    explicit GateKeeperMessage(gatekeeper_error_t error) : error(error) {}
     virtual ~GateKeeperMessage() {}
 
     /**

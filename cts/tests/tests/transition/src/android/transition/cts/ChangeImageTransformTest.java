@@ -15,10 +15,20 @@
  */
 package android.transition.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.ChangeImageTransform;
 import android.transition.TransitionManager;
 import android.transition.TransitionValues;
@@ -29,6 +39,12 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class ChangeImageTransformTest extends BaseTransitionTest {
     ChangeImageTransform mChangeImageTransform;
     Matrix mStartMatrix;
@@ -37,8 +53,9 @@ public class ChangeImageTransformTest extends BaseTransitionTest {
     ImageView mImageView;
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
+        super.setup();
         resetTransition();
         mStartMatrix = null;
         mEndMatrix = null;
@@ -53,29 +70,33 @@ public class ChangeImageTransformTest extends BaseTransitionTest {
         resetListener();
     }
 
+    @Test
     public void testCenterToFitXY() throws Throwable {
         transformImage(ScaleType.CENTER, ScaleType.FIT_XY);
-        assertMatrixMatches(centerMatrix(), mStartMatrix);
-        assertMatrixMatches(fitXYMatrix(), mEndMatrix);
+        verifyMatrixMatches(centerMatrix(), mStartMatrix);
+        verifyMatrixMatches(fitXYMatrix(), mEndMatrix);
     }
 
+    @Test
     public void testCenterCropToFitCenter() throws Throwable {
         transformImage(ScaleType.CENTER_CROP, ScaleType.FIT_CENTER);
-        assertMatrixMatches(centerCropMatrix(), mStartMatrix);
-        assertMatrixMatches(fitCenterMatrix(), mEndMatrix);
+        verifyMatrixMatches(centerCropMatrix(), mStartMatrix);
+        verifyMatrixMatches(fitCenterMatrix(), mEndMatrix);
     }
 
+    @Test
     public void testCenterInsideToFitEnd() throws Throwable {
         transformImage(ScaleType.CENTER_INSIDE, ScaleType.FIT_END);
         // CENTER_INSIDE and CENTER are the same when the image is smaller than the View
-        assertMatrixMatches(centerMatrix(), mStartMatrix);
-        assertMatrixMatches(fitEndMatrix(), mEndMatrix);
+        verifyMatrixMatches(centerMatrix(), mStartMatrix);
+        verifyMatrixMatches(fitEndMatrix(), mEndMatrix);
     }
 
+    @Test
     public void testFitStartToCenter() throws Throwable {
         transformImage(ScaleType.FIT_START, ScaleType.CENTER);
-        assertMatrixMatches(fitStartMatrix(), mStartMatrix);
-        assertMatrixMatches(centerMatrix(), mEndMatrix);
+        verifyMatrixMatches(fitStartMatrix(), mStartMatrix);
+        verifyMatrixMatches(centerMatrix(), mEndMatrix);
     }
 
     private Matrix centerMatrix() {
@@ -188,7 +209,7 @@ public class ChangeImageTransformTest extends BaseTransitionTest {
         return matrix;
     }
 
-    private void assertMatrixMatches(Matrix expected, Matrix matrix) {
+    private void verifyMatrixMatches(Matrix expected, Matrix matrix) {
         if (expected == null) {
             assertNull(matrix);
             return;
@@ -209,41 +230,34 @@ public class ChangeImageTransformTest extends BaseTransitionTest {
 
     private void transformImage(ScaleType startScale, final ScaleType endScale) throws Throwable {
         final ImageView imageView = enterImageViewScene(startScale);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                TransitionManager.beginDelayedTransition(mSceneRoot, mChangeImageTransform);
-                imageView.setScaleType(endScale);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            TransitionManager.beginDelayedTransition(mSceneRoot, mChangeImageTransform);
+            imageView.setScaleType(endScale);
         });
         waitForStart();
-        int expectedEndCount = (startScale == endScale) ? 0 : 1;
-        assertEquals(expectedEndCount, mListener.endLatch.getCount());
-        waitForEnd(200);
+        verify(mListener, (startScale == endScale) ? times(1) : never()).onTransitionEnd(any());
+        waitForEnd(1000);
     }
 
     private ImageView enterImageViewScene(final ScaleType scaleType) throws Throwable {
         enterScene(R.layout.scene4);
         final ViewGroup container = (ViewGroup) mActivity.findViewById(R.id.holder);
         final ImageView[] imageViews = new ImageView[1];
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mImageView = new ImageView(mActivity);
-                mImage = mActivity.getDrawable(android.R.drawable.ic_media_play);
-                mImageView.setImageDrawable(mImage);
-                mImageView.setScaleType(scaleType);
-                imageViews[0] = mImageView;
-                container.addView(mImageView);
-                LayoutParams layoutParams = mImageView.getLayoutParams();
-                DisplayMetrics metrics = mActivity.getResources().getDisplayMetrics();
-                float size = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 50, metrics);
-                layoutParams.width = Math.round(size);
-                layoutParams.height = Math.round(size * 2);
-                mImageView.setLayoutParams(layoutParams);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mImageView = new ImageView(mActivity);
+            mImage = mActivity.getDrawable(android.R.drawable.ic_media_play);
+            mImageView.setImageDrawable(mImage);
+            mImageView.setScaleType(scaleType);
+            imageViews[0] = mImageView;
+            container.addView(mImageView);
+            LayoutParams layoutParams = mImageView.getLayoutParams();
+            DisplayMetrics metrics = mActivity.getResources().getDisplayMetrics();
+            float size = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 50, metrics);
+            layoutParams.width = Math.round(size);
+            layoutParams.height = Math.round(size * 2);
+            mImageView.setLayoutParams(layoutParams);
         });
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
         return imageViews[0];
     }
 

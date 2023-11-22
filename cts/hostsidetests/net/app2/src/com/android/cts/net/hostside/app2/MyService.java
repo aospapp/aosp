@@ -20,31 +20,92 @@ import static com.android.cts.net.hostside.app2.Common.ACTION_RECEIVER_READY;
 import static com.android.cts.net.hostside.app2.Common.DYNAMIC_RECEIVER;
 import static com.android.cts.net.hostside.app2.Common.TAG;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
+import android.widget.Toast;
+
+import com.android.cts.net.hostside.IMyService;
 
 /**
  * Service used to dynamically register a broadcast receiver.
  */
 public class MyService extends Service {
+    private static final String NOTIFICATION_CHANNEL_ID = "MyService";
+
+    private MyBroadcastReceiver mReceiver;
+
+    // TODO: move MyBroadcast static functions here - they were kept there to make git diff easier.
+
+    private IMyService.Stub mBinder =
+        new IMyService.Stub() {
+
+        @Override
+        public void registerBroadcastReceiver() {
+            if (mReceiver != null) {
+                Log.d(TAG, "receiver already registered: " + mReceiver);
+                return;
+            }
+            final Context context = getApplicationContext();
+            mReceiver = new MyBroadcastReceiver(DYNAMIC_RECEIVER);
+            context.registerReceiver(mReceiver, new IntentFilter(ACTION_RECEIVER_READY));
+            context.registerReceiver(mReceiver,
+                    new IntentFilter(ACTION_RESTRICT_BACKGROUND_CHANGED));
+            Log.d(TAG, "receiver registered");
+        }
+
+        @Override
+        public int getCounters(String receiverName, String action) {
+            return MyBroadcastReceiver.getCounter(getApplicationContext(), action, receiverName);
+        }
+
+        @Override
+        public String checkNetworkStatus() {
+            return MyBroadcastReceiver.checkNetworkStatus(getApplicationContext());
+        }
+
+        @Override
+        public String getRestrictBackgroundStatus() {
+            return MyBroadcastReceiver.getRestrictBackgroundStatus(getApplicationContext());
+        }
+
+        @Override
+        public void sendNotification(int notificationId, String notificationType) {
+            MyBroadcastReceiver .sendNotification(getApplicationContext(), NOTIFICATION_CHANNEL_ID,
+                    notificationId, notificationType);
+        }
+      };
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return mBinder;
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "MyService.onStartCommand: " + intent);
+    public void onCreate() {
         final Context context = getApplicationContext();
-        final MyBroadcastReceiver myReceiver = new MyBroadcastReceiver(DYNAMIC_RECEIVER);
-        context.registerReceiver(myReceiver, new IntentFilter(ACTION_RECEIVER_READY));
-        context.registerReceiver(myReceiver, new IntentFilter(ACTION_RESTRICT_BACKGROUND_CHANGED));
-        Log.d(TAG, "receiver registered");
-        return START_STICKY;
+        ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
+                .createNotificationChannel(new NotificationChannel(NOTIFICATION_CHANNEL_ID,
+                        NOTIFICATION_CHANNEL_ID, NotificationManager.IMPORTANCE_DEFAULT));
+    }
+
+    @Override
+    public void onDestroy() {
+        final Context context = getApplicationContext();
+        ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE))
+                .deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
+        if (mReceiver != null) {
+            Log.d(TAG, "onDestroy(): unregistering " + mReceiver);
+            getApplicationContext().unregisterReceiver(mReceiver);
+        }
+
+        super.onDestroy();
     }
 }

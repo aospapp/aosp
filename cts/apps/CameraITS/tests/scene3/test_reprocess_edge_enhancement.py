@@ -22,7 +22,7 @@ import matplotlib
 import matplotlib.pyplot
 import numpy
 import os.path
-import pylab
+from matplotlib import pylab
 
 
 def test_edge_mode(cam, edge_mode, sensitivity, exp, fd, out_surface,

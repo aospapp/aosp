@@ -1,7 +1,6 @@
 package com.android.cts.monkey;
 
-import com.android.compatibility.common.util.AbiUtils;
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -9,6 +8,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiUtils;
 
 import java.io.File;
 
@@ -41,9 +41,10 @@ abstract class AbstractMonkeyTest extends DeviceTestCase implements IAbiReceiver
         super.setUp();
         mDevice = getDevice();
         String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         for (int i = 0; i < PKGS.length; i++) {
             mDevice.uninstallPackage(PKGS[i]);
-            File app = MigrationHelper.getTestFile(mBuild, APKS[i]);
+            File app = buildHelper.getTestFile(APKS[i]);
             mDevice.installPackage(app, false, options);
         }
         clearLogCat();

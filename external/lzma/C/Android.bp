@@ -3,9 +3,12 @@
 cc_library {
     name: "liblzma",
     host_supported: true,
+    vendor_available: true,
+    sdk_version: "9",
+    stl: "none",
 
     cflags: ["-D_7ZIP_ST", "-Wno-empty-body"],
-    clang_cflags: ["-Wno-self-assign"],
+    clang_cflags: ["-Wno-self-assign", "-Werror"],
 
     export_include_dirs: ["."],
 
@@ -48,4 +51,13 @@ cc_library {
         "XzEnc.c",
         "XzIn.c",
     ],
+
+    target: {
+        linux_bionic: {
+            enabled: true,
+        },
+        windows: {
+            enabled: true,
+        },
+    },
 }

@@ -3928,6 +3928,10 @@ public class AccessibilityTextTraversalTest
 
         // Set selection at the end.
         final int textLength = editText.getText().length();
+        arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, textLength);
+        arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, textLength);
+        assertTrue(text.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments));
+
         // Verify the selection position.
         assertEquals(textLength, Selection.getSelectionStart(editText.getText()));
         assertEquals(textLength, Selection.getSelectionEnd(editText.getText()));

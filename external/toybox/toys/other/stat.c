@@ -2,26 +2,30 @@
  * Copyright 2012 <warior.linux@gmail.com>
  * Copyright 2013 <anand.sinha85@gmail.com>
 
-USE_STAT(NEWTOY(stat, "<1c:f", TOYFLAG_BIN)) 
+USE_STAT(NEWTOY(stat, "<1c:fLt", TOYFLAG_BIN)) 
 
 config STAT
   bool stat
   default y
   help
-    usage: stat [-f] [-c FORMAT] FILE...
+    usage: stat [-tfL] [-c FORMAT] FILE...
 
     Display status of files or filesystems.
 
-    -f display filesystem status instead of file status
-    -c Output specified FORMAT string instead of default
+    -c	Output specified FORMAT string instead of default
+    -f	display filesystem status instead of file status
+    -L	Follow symlinks
+    -t	terse (-c "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o")
+    	      (with -f = -c "%n %i %l %t %s %S %b %f %a %c %d")
 
     The valid format escape sequences for files:
-    %a  Access bits (octal) |%A  Access bits (flags)|%b  Blocks allocated
-    %B  Bytes per block     |%d  Device ID (dec)    |%D  Device ID (hex)
+    %a  Access bits (octal) |%A  Access bits (flags)|%b  Size/512
+    %B  Bytes per %b (512)  |%d  Device ID (dec)    |%D  Device ID (hex)
     %f  All mode bits (hex) |%F  File type          |%g  Group ID
     %G  Group name          |%h  Hard links         |%i  Inode
-    %n  Filename            |%N  Long filename      |%o  I/O block size
-    %s  Size (bytes)        |%u  User ID            |%U  User name
+    %m  Mount point         |%n  Filename           |%N  Long filename
+    %o  I/O block size      |%s  Size (bytes)       |%t  Devtype major (hex)
+    %T  Devtype minor (hex) |%u  User ID            |%U  User name
     %x  Access time         |%X  Access unix time   |%y  File write time
     %Y  File write unix time|%z  Dir change time    |%Z  Dir change unix time
 
@@ -29,7 +33,7 @@ config STAT
     %a  Available blocks    |%b  Total blocks       |%c  Total inodes
     %d  Free inodes         |%f  Free blocks        |%i  File system ID
     %l  Max filename length |%n  File name          |%s  Fragment size
-    %S  Best transfer size  |%t  Filesystem type    |%T  Filesystem type name
+    %S  Best transfer size  |%t  FS type (hex)      |%T  FS type (driver name)
 */
 
 #define FOR_stat
@@ -42,27 +46,32 @@ GLOBALS(
     struct stat st;
     struct statfs sf;
   } stat;
-  struct passwd *user_name;
-  struct group *group_name;
+  char *file, *pattern;
+  int patlen;
 )
 
+// Force numeric output to long long instead of manually typecasting everything
+// and safely parse length prefix
+static void out(char c, long long val)
+{
+  sprintf(toybuf, "%.*sll%c", TT.patlen, TT.pattern, c);
+  printf(toybuf, val);
+}
 
-// Note: the atime, mtime, and ctime fields in struct stat are the start
-// of embedded struct timespec, but posix won't let them use that
-// struct definition for legacy/namespace reasons.
+// Output string with parsed length prefix
+static void strout(char *val)
+{
+  sprintf(toybuf, "%.*ss", TT.patlen, TT.pattern);
+  printf(toybuf, val);
+}
 
 static void date_stat_format(struct timespec *ts)
 {
-  strftime(toybuf, sizeof(toybuf), "%Y-%m-%d %H:%M:%S",
+  char *s = toybuf+128;
+  strftime(s, sizeof(toybuf)-128, "%Y-%m-%d %H:%M:%S",
     localtime(&(ts->tv_sec)));
-  xprintf("%s.%09ld", toybuf, ts->tv_nsec);
-}
-
-// Force numeric output to long long instead of manually typecasting everything
-static void out(char c, long long val)
-{
-  sprintf(toybuf, "%%ll%c", c);
-  printf(toybuf, val);
+  sprintf(s+strlen(s), ".%09ld", ts->tv_nsec);
+  strout(s);
 }
 
 static void print_stat(char type)
@@ -74,9 +83,9 @@ static void print_stat(char type)
     char str[11];
 
     mode_to_string(stat->st_mode, str);
-    xprintf("%s", str);
+    strout(str);
   } else if (type == 'b') out('u', stat->st_blocks);
-  else if (type == 'B') out('u', stat->st_blksize);
+  else if (type == 'B') out('d', 512);
   else if (type == 'd') out('d', stat->st_dev);
   else if (type == 'D') out('x', stat->st_dev);
   else if (type == 'f') out('x', stat->st_mode);
@@ -87,25 +96,37 @@ static void print_stat(char type)
 
     for (i = 1; filetype != (i*8192) && i < 7; i++) t += strlen(t)+1;
     if (!stat->st_size && filetype == S_IFREG) t = "regular empty file";
-    xprintf("%s", t);
+    strout(t);
   } else if (type == 'g') out('u', stat->st_gid);
-  else if (type == 'G') xprintf("%8s", TT.group_name->gr_name);
+  else if (type == 'G') strout(getgroupname(stat->st_gid));
   else if (type == 'h') out('u', stat->st_nlink);
   else if (type == 'i') out('u', stat->st_ino);
-  else if (type == 'N') {
-    xprintf("`%s'", *toys.optargs);
+  else if (type == 'm') {
+    struct mtab_list *mt = xgetmountlist(0);
+    dev_t dev = stat->st_rdev ? stat->st_rdev : stat->st_dev;
+
+    // This mount point could exist multiple times, so show oldest.
+    for (dlist_terminate(mt); mt; mt = mt->next) if (mt->stat.st_dev == dev) {
+      strout(mt->dir);
+      break;
+    }
+    llist_traverse(mt, free);
+  } else if (type == 'N') {
+    xprintf("`%s'", TT.file);
     if (S_ISLNK(stat->st_mode))
-      if (0<readlink(*toys.optargs, toybuf, sizeof(toybuf)))
+      if (readlink0(TT.file, toybuf, sizeof(toybuf)))
         xprintf(" -> `%s'", toybuf);
   } else if (type == 'o') out('u', stat->st_blksize);
   else if (type == 's') out('u', stat->st_size);
+  else if (type == 't') out('x', dev_major(stat->st_rdev));
+  else if (type == 'T') out('x', dev_minor(stat->st_rdev));
   else if (type == 'u') out('u', stat->st_uid);
-  else if (type == 'U') xprintf("%8s", TT.user_name->pw_name);
-  else if (type == 'x') date_stat_format((void *)&stat->st_atime);
+  else if (type == 'U') strout(getusername(stat->st_uid));
+  else if (type == 'x') date_stat_format(&stat->st_atim);
   else if (type == 'X') out('u', stat->st_atime);
-  else if (type == 'y') date_stat_format((void *)&stat->st_mtime);
+  else if (type == 'y') date_stat_format(&stat->st_mtim);
   else if (type == 'Y') out('u', stat->st_mtime);
-  else if (type == 'z') date_stat_format((void *)&stat->st_ctime);
+  else if (type == 'z') date_stat_format(&stat->st_ctim);
   else if (type == 'Z') out('u', stat->st_ctime);
   else xprintf("?");
 }
@@ -136,48 +157,54 @@ static void print_statfs(char type) {
 
     for (i=0; i<ARRAY_LEN(nn); i++)
       if (nn[i].num == statfs->f_type) s = nn[i].name;
-    fputs(s, stdout);
-  } else if (type == 'i')
-    xprintf("%08x%08x", statfs->f_fsid.__val[0], statfs->f_fsid.__val[1]);
-  else if (type == 's') out('d', statfs->f_frsize);
+    strout(s);
+  } else if (type == 'i') {
+    char buf[32];
+
+    sprintf(buf, "%08x%08x", statfs->f_fsid.__val[0], statfs->f_fsid.__val[1]);
+    strout(buf);
+  } else if (type == 's') out('d', statfs->f_frsize);
   else if (type == 'S') out('d', statfs->f_bsize);
-  else xprintf("?");
+  else strout("?");
 }
 
 void stat_main(void)
 {
-  int flagf = toys.optflags & FLAG_f;
-  char *format = flagf
+  int flagf = toys.optflags & FLAG_f, i;
+  char *format, *f;
+
+  if (toys.optflags&FLAG_t) {
+    format = flagf ? "%n %i %l %t %s %S %b %f %a %c %d" :
+                     "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o";
+  } else format = flagf
     ? "  File: \"%n\"\n    ID: %i Namelen: %l    Type: %t\n"
       "Block Size: %s    Fundamental block size: %S\n"
       "Blocks: Total: %b\tFree: %f\tAvailable: %a\n"
       "Inodes: Total: %c\tFree: %d"
     : "  File: %N\n  Size: %s\t Blocks: %b\t IO Blocks: %B\t%F\n"
       "Device: %Dh/%dd\t Inode: %i\t Links: %h\n"
-      "Access: (%a/%A)\tUid: (%u/%U)\tGid: (%g/%G)\n"
+      "Access: (%a/%A)\tUid: (%5u/%8U)\tGid: (%5g/%8G)\n"
       "Access: %x\nModify: %y\nChange: %z";
 
   if (toys.optflags & FLAG_c) format = TT.fmt;
 
-  for (; *toys.optargs; toys.optargs++) {
-    char *f;
+  for (i = 0; toys.optargs[i]; i++) {
+    int L = toys.optflags & FLAG_L;
 
-    if (flagf && !statfs(*toys.optargs, (void *)&TT.stat));
-    else if (!flagf && !lstat(*toys.optargs, (void *)&TT.stat)) {
-      struct stat *stat = (struct stat*)&TT.stat;
-
-      // check user and group name
-      TT.user_name = getpwuid(stat->st_uid);
-      TT.group_name = getgrgid(stat->st_gid);
-    } else {
-      perror_msg("'%s'", *toys.optargs);
+    TT.file = toys.optargs[i];
+    if (flagf && !statfs(TT.file, (void *)&TT.stat));
+    else if (flagf || (L ? stat : lstat)(TT.file, (void *)&TT.stat)) {
+      perror_msg("'%s'", TT.file);
       continue;
     }
 
     for (f = format; *f; f++) {
       if (*f != '%') putchar(*f);
       else {
-        if (*++f == 'n') xprintf("%s", *toys.optargs);
+        f = next_printf(f, &TT.pattern);
+        TT.patlen = f-TT.pattern;
+        if (TT.patlen>99) error_exit("bad %s", TT.pattern);
+        if (*f == 'n') strout(TT.file);
         else if (flagf) print_statfs(*f);
         else print_stat(*f);
       }

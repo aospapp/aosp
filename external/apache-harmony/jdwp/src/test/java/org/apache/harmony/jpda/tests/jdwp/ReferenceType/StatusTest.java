@@ -42,6 +42,7 @@ public class StatusTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.Status command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/StatusDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.StatusDebuggee";
     }

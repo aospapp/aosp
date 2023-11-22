@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
+
 #include "aslr_test.h"
 
 unsigned int get_mmap_rnd_bits(bool compat) {
@@ -111,17 +113,32 @@ std::string scrape_addr(const char *exec_name, const char *lib_match) {
 }
 
 unsigned int calc_mmap_entropy(const char *exec_name, const char *lib_match, size_t samp_sz) {
-    uint64_t min_addr = 0, max_addr = 0;
+    uint64_t addr, min_addr, max_addr;
 
     std::unordered_set<uint64_t> addrs = { };
 
     // get our first value
-    uint64_t addr = min_addr = max_addr = std::stoll(scrape_addr(exec_name, lib_match), 0, 16);
+    std::string addr_str = scrape_addr(exec_name, lib_match);
+    if (addr_str.empty()) {
+        std::cerr << "empty first address";
+        return 0;
+    }
+    if (!isxdigit(addr_str[0])) {
+        std::cerr << "invalid address: " << addr_str;
+        return 0;
+    }
+    addr = min_addr = max_addr = std::stoll(addr_str, 0, 16);
     addrs.insert(addr);
     for (unsigned int i = 0; i < samp_sz - 1; ++i) {
-        std::string addr_str = scrape_addr(exec_name, lib_match);
-        if (addr_str.empty())
+        addr_str = scrape_addr(exec_name, lib_match);
+        if (addr_str.empty()) {
+            std::cerr << "empty address";
             return 0;
+        }
+        if (!isxdigit(addr_str[0])) {
+            std::cerr << "invalid address: " << addr_str;
+            return 0;
+        }
         addr = std::stoll(addr_str, 0, 16);
         if (addr < min_addr)
             min_addr = addr;

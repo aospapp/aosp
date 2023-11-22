@@ -1,4 +1,8 @@
-/* jconfigint.h.  Generated from jconfigint.h.in by configure.  */
+/* jconfigint.h.  Customized for android on the basis of jconfigint.h.in. */
+
+#ifndef __JCONFIGINT_H__
+#define __JCONFIGINT_H__
+
 /* libjpeg-turbo build number */
 #define BUILD ""
 
@@ -21,4 +25,16 @@
 #define PACKAGE_NAME "libjpeg-turbo"
 
 /* Version number of package */
-#define VERSION "1.4.2"
+#define VERSION "1.5.1"
+
+/* The size of `size_t', as reported by the compiler through the
+ * builtin macro __SIZEOF_SIZE_T__. If the compiler does not
+ * report __SIZEOF_SIZE_T__ add a custom rule for the compiler
+ * here. */
+#ifdef __SIZEOF_SIZE_T__
+#define SIZEOF_SIZE_T __SIZEOF_SIZE_T__
+#else
+#error cannot determine the size of size_t
+#endif
+
+#endif // __JCONFIGINT_H__

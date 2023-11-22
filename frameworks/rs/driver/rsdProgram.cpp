@@ -30,8 +30,11 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::Program;
+using android::renderscript::ProgramFragment;
+using android::renderscript::ProgramVertex;
 
 bool rsdProgramVertexInit(const Context *rsc, const ProgramVertex *pv,
                           const char* shader, size_t shaderLen,

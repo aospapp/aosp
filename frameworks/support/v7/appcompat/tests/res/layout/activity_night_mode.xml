@@ -25,4 +25,10 @@
         android:layout_height="wrap_content"
         android:text="@string/night_mode" />
 
+    <View
+        android:id="@+id/view_background"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:background="@drawable/test_night_color_conversion_background" />
+
 </LinearLayout>

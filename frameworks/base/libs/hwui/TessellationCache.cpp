@@ -18,7 +18,6 @@
 #include <utils/Trace.h>
 
 #include "Caches.h"
-#include "OpenGLRenderer.h"
 #include "PathTessellator.h"
 #include "ShadowTessellator.h"
 #include "TessellationCache.h"
@@ -136,7 +135,7 @@ public:
 
 class TessellationCache::TessellationProcessor : public TaskProcessor<VertexBuffer*> {
 public:
-    TessellationProcessor(Caches& caches)
+    explicit TessellationProcessor(Caches& caches)
             : TaskProcessor<VertexBuffer*>(&caches.tasks) {}
     ~TessellationProcessor() {}
 
@@ -150,7 +149,7 @@ public:
 
 class TessellationCache::Buffer {
 public:
-    Buffer(const sp<Task<VertexBuffer*> >& task)
+    explicit Buffer(const sp<Task<VertexBuffer*> >& task)
             : mTask(task)
             , mBuffer(nullptr) {
     }
@@ -270,7 +269,7 @@ void tessellateShadows(
 
 class ShadowProcessor : public TaskProcessor<TessellationCache::vertexBuffer_pair_t> {
 public:
-    ShadowProcessor(Caches& caches)
+    explicit ShadowProcessor(Caches& caches)
             : TaskProcessor<TessellationCache::vertexBuffer_pair_t>(&caches.tasks) {}
     ~ShadowProcessor() {}
 
@@ -367,21 +366,6 @@ void TessellationCache::precacheShadows(const Matrix4* drawTransform, const Rect
     mShadowProcessor->add(task);
     task->incStrong(nullptr); // not using sp<>s, so manually ref while in the cache
     mShadowCache.put(key, task.get());
-}
-
-void TessellationCache::getShadowBuffers(const Matrix4* drawTransform, const Rect& localClip,
-        bool opaque, const SkPath* casterPerimeter,
-        const Matrix4* transformXY, const Matrix4* transformZ,
-        const Vector3& lightCenter, float lightRadius, vertexBuffer_pair_t& outBuffers) {
-    ShadowDescription key(casterPerimeter, drawTransform);
-    ShadowTask* task = static_cast<ShadowTask*>(mShadowCache.get(key));
-    if (!task) {
-        precacheShadows(drawTransform, localClip, opaque, casterPerimeter,
-                transformXY, transformZ, lightCenter, lightRadius);
-        task = static_cast<ShadowTask*>(mShadowCache.get(key));
-    }
-    LOG_ALWAYS_FATAL_IF(task == nullptr, "shadow not precached");
-    outBuffers = task->getResult();
 }
 
 sp<TessellationCache::ShadowTask> TessellationCache::getShadowTask(

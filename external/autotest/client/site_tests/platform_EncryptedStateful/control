@@ -10,7 +10,6 @@ Fails if the mount-encrypted helper does not operated as expected
 """
 TIME = "SHORT"
 ATTRIBUTES = "suite:security"
-SUITE = "security"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "security"
 TEST_TYPE = "client"

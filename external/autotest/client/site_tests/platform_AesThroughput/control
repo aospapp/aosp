@@ -11,7 +11,6 @@ This test is a benchmark.
 This test will fail if the output of openssl cannot be parsed.
 """
 ATTRIBUTES = "suite:hwqual, suite:kernel_per-build_benchmarks"
-SUITE = "kernel_per-build_benchmarks, hwqual"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "platform"

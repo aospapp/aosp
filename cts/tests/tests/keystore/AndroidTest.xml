@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Keystore test cases">
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <option name="config-descriptor:metadata" key="component" value="security" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsKeystoreTestCases.apk" />
     </target_preparer>

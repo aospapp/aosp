@@ -21,10 +21,10 @@ import static com.android.tv.testing.uihelper.Constants.MENU;
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
 
 import android.support.test.filters.SdkSuppress;
+import android.support.test.filters.SmallTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.view.KeyEvent;
 
 import com.android.tv.R;

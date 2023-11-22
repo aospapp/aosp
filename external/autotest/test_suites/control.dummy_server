@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "dummy_server"
 PURPOSE = "To be run while testing the infrastructure and test harness."
-CRITERIA = "None."
 
 TIME = "SHORT"
 TEST_CATEGORY = "Dummy"

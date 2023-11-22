@@ -27,7 +27,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.android.settings.ChooseLockSettingsHelper;
-import com.android.settings.InstrumentedActivity;
+import com.android.settings.core.InstrumentedActivity;
 import com.android.settings.R;
 import com.android.setupwizardlib.GlifLayout;
 
@@ -36,7 +36,7 @@ import com.android.setupwizardlib.GlifLayout;
  */
 public abstract class FingerprintEnrollBase extends InstrumentedActivity
         implements View.OnClickListener {
-    static final int RESULT_FINISHED = FingerprintSettings.RESULT_FINISHED;
+    public static final int RESULT_FINISHED = FingerprintSettings.RESULT_FINISHED;
     static final int RESULT_SKIP = FingerprintSettings.RESULT_SKIP;
     static final int RESULT_TIMEOUT = FingerprintSettings.RESULT_TIMEOUT;
 

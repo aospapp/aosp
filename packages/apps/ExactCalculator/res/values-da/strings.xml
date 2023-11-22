@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"slet"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"vis inversfunktioner"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"skjul inversfunktioner"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Ingen formel"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Intet resultat"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Tal og grundlæggende handlinger"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Avancerede handlinger"</string>
     <string name="error_nan" msgid="5674077944929888710">"Ikke et tal"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Ugyldigt udtryk"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Afbrudt"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Uendeligt?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Ingen division med 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Teksten blev kopieret"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Beregningen blev annulleret"</string>
-    <string name="timeout" msgid="802690170415591535">"Timeout. Værdien kan være uendelig eller udefineret."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Beregningen blev annulleret."</string>
+    <string name="timeout" msgid="5461892570729418573">"Værdien kan være uendelig eller udefineret."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Brug længere timeouts"</string>
     <string name="dismiss" msgid="7872443888515066216">"Luk"</string>
     <string name="exact" msgid="2597237880041789948">"(eksakt)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Svar med indledende cifre"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Vis som brøk"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Open source-licenser"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Historik"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Ryd"</string>
+    <string name="title_history" msgid="7820912156315181539">"Historik"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Naviger op"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Timeout"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Vil du rydde historik og hukommelse?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Nuværende udtryk"</string>
+    <string name="no_history" msgid="4331262030447527188">"Ingen historik"</string>
 </resources>

@@ -20,16 +20,16 @@
 #include "HwModule.h"
 #include "IOProfile.h"
 #include "AudioGain.h"
-#include <hardware/audio.h>
 #include <policy.h>
+#include <system/audio.h>
 
 namespace android {
 
-HwModule::HwModule(const char *name, uint32_t halVersion)
+HwModule::HwModule(const char *name, uint32_t halVersionMajor, uint32_t halVersionMinor)
     : mName(String8(name)),
-      mHandle(AUDIO_MODULE_HANDLE_NONE),
-      mHalVersion(halVersion)
+      mHandle(AUDIO_MODULE_HANDLE_NONE)
 {
+    setHalVersion(halVersionMajor, halVersionMinor);
 }
 
 HwModule::~HwModule()
@@ -42,8 +42,8 @@ HwModule::~HwModule()
     }
 }
 
-status_t HwModule::addOutputProfile(String8 name, const audio_config_t *config,
-                                    audio_devices_t device, String8 address)
+status_t HwModule::addOutputProfile(const String8& name, const audio_config_t *config,
+                                    audio_devices_t device, const String8& address)
 {
     sp<IOProfile> profile = new OutputProfile(name);
 
@@ -93,7 +93,7 @@ void HwModule::setProfiles(const IOProfileCollection &profiles)
     }
 }
 
-status_t HwModule::removeOutputProfile(String8 name)
+status_t HwModule::removeOutputProfile(const String8& name)
 {
     for (size_t i = 0; i < mOutputProfiles.size(); i++) {
         if (mOutputProfiles[i]->getName() == name) {
@@ -105,8 +105,8 @@ status_t HwModule::removeOutputProfile(String8 name)
     return NO_ERROR;
 }
 
-status_t HwModule::addInputProfile(String8 name, const audio_config_t *config,
-                                   audio_devices_t device, String8 address)
+status_t HwModule::addInputProfile(const String8& name, const audio_config_t *config,
+                                   audio_devices_t device, const String8& address)
 {
     sp<IOProfile> profile = new InputProfile(name);
     profile->addAudioProfile(new AudioProfile(config->format, config->channel_mask,
@@ -122,7 +122,7 @@ status_t HwModule::addInputProfile(String8 name, const audio_config_t *config,
     return addInputProfile(profile);
 }
 
-status_t HwModule::removeInputProfile(String8 name)
+status_t HwModule::removeInputProfile(const String8& name)
 {
     for (size_t i = 0; i < mInputProfiles.size(); i++) {
         if (mInputProfiles[i]->getName() == name) {
@@ -227,7 +227,7 @@ void HwModule::dump(int fd)
     result.append(buffer);
     snprintf(buffer, SIZE, "  - handle: %d\n", mHandle);
     result.append(buffer);
-    snprintf(buffer, SIZE, "  - version: %u.%u\n", mHalVersion >> 8, mHalVersion & 0xFF);
+    snprintf(buffer, SIZE, "  - version: %u.%u\n", getHalVersionMajor(), getHalVersionMinor());
     result.append(buffer);
     write(fd, result.string(), result.size());
     if (mOutputProfiles.size()) {

@@ -153,22 +153,22 @@ public abstract class AbstractMediaItemPresenter extends RowPresenter {
      */
     public static class ViewHolder extends RowPresenter.ViewHolder {
 
-        private final View mMediaRowView;
-        private final View mSelectorView;
+        final View mMediaRowView;
+        final View mSelectorView;
         private final View mMediaItemDetailsView;
-        private final ViewFlipper mMediaItemNumberViewFlipper;
-        private final TextView mMediaItemNumberView;
-        private final View mMediaItemPausedView;
+        final ViewFlipper mMediaItemNumberViewFlipper;
+        final TextView mMediaItemNumberView;
+        final View mMediaItemPausedView;
 
-        private final View mMediaItemPlayingView;
+        final View mMediaItemPlayingView;
         private final TextView mMediaItemNameView;
         private final TextView mMediaItemDurationView;
         private final View mMediaItemRowSeparator;
         private final ViewGroup mMediaItemActionsContainer;
         private final List<Presenter.ViewHolder> mActionViewHolders;
-        private MultiActionsProvider.MultiAction[] mMediaItemRowActions;
+        MultiActionsProvider.MultiAction[] mMediaItemRowActions;
         AbstractMediaItemPresenter mRowPresenter;
-        private ValueAnimator mFocusViewAnimator;
+        ValueAnimator mFocusViewAnimator;
 
         public ViewHolder(View view) {
             super(view);
@@ -203,9 +203,10 @@ public abstract class AbstractMediaItemPresenter extends RowPresenter {
             TypedValue typedValue = new TypedValue();
             boolean found = view.getContext().getTheme().resolveAttribute(
                     R.attr.playbackMediaItemNumberViewFlipperLayout, typedValue, true);
-            View mergeView = LayoutInflater.from(view.getContext()).
-                    inflate(found ? typedValue.resourceId :
-                            R.layout.lb_media_item_number_view_flipper,
+            View mergeView = LayoutInflater.from(view.getContext())
+                    .inflate(found
+                            ? typedValue.resourceId
+                            : R.layout.lb_media_item_number_view_flipper,
                             mMediaItemNumberViewFlipper, true);
 
             mMediaItemNumberView = (TextView) mergeView.findViewById(R.id.initial);
@@ -241,8 +242,8 @@ public abstract class AbstractMediaItemPresenter extends RowPresenter {
             mMediaItemRowActions = actionList;
             for (int i = mActionViewHolders.size(); i < actionList.length; i++) {
                 final int actionIndex = i;
-                final Presenter.ViewHolder actionViewHolder = actionPresenter.
-                        onCreateViewHolder(getMediaItemActionsContainer());
+                final Presenter.ViewHolder actionViewHolder =
+                        actionPresenter.onCreateViewHolder(getMediaItemActionsContainer());
                 getMediaItemActionsContainer().addView(actionViewHolder.view);
                 mActionViewHolders.add(actionViewHolder);
                 actionViewHolder.view.setOnFocusChangeListener(new View.OnFocusChangeListener() {
@@ -371,7 +372,7 @@ public abstract class AbstractMediaItemPresenter extends RowPresenter {
          * @param position The index of the child view to display.
          */
         public void setSelectedMediaItemNumberView(int position) {
-            if (position >= 0 & position < mMediaItemNumberViewFlipper.getChildCount()) {
+            if (position >= 0 && position < mMediaItemNumberViewFlipper.getChildCount()) {
                 mMediaItemNumberViewFlipper.setDisplayedChild(position);
             }
         }
@@ -426,8 +427,8 @@ public abstract class AbstractMediaItemPresenter extends RowPresenter {
         if (mThemeId != 0) {
             context = new ContextThemeWrapper(context, mThemeId);
         }
-        View view = LayoutInflater.from(context).
-                inflate(R.layout.lb_row_media_item, parent, false);
+        View view =
+                LayoutInflater.from(context).inflate(R.layout.lb_row_media_item, parent, false);
         final ViewHolder vh = new ViewHolder(view);
         vh.mRowPresenter = this;
         if (mBackgroundColorSet) {
@@ -582,7 +583,7 @@ public abstract class AbstractMediaItemPresenter extends RowPresenter {
      * @param isDetails Whether the changed-focused view is for a media item details (true) or
      *                  an action (false).
      */
-    private static ValueAnimator updateSelector(final View selectorView,
+    static ValueAnimator updateSelector(final View selectorView,
             View focusChangedView, ValueAnimator layoutAnimator, boolean isDetails) {
         int animationDuration = focusChangedView.getContext().getResources()
                 .getInteger(android.R.integer.config_shortAnimTime);

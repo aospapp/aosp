@@ -31,10 +31,20 @@ import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.channels.DatagramChannel;
+import libcore.io.Libcore;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class DatagramSocketTest extends junit.framework.TestCase {
+import static android.system.OsConstants.IPPROTO_IP;
+import static android.system.OsConstants.IP_MULTICAST_ALL;
 
-    static final class DatagramServer extends Thread {
+public class DatagramSocketTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
+
+    static final class DatagramServer extends Thread implements AutoCloseable {
 
         volatile boolean running = true;
 
@@ -70,8 +80,6 @@ public class DatagramSocketTest extends junit.framework.TestCase {
                 }
             } catch (IOException e) {
                 fail();
-            } finally {
-                serverSocket.close();
             }
         }
 
@@ -79,16 +87,28 @@ public class DatagramSocketTest extends junit.framework.TestCase {
             return serverSocket.getLocalPort();
         }
 
-        public void stopServer() {
+        @Override
+        public void close() throws Exception {
             running = false;
+            try {
+                join();
+            } finally {
+                serverSocket.close();
+            }
         }
     }
 
     /**
      * java.net.DatagramSocket#DatagramSocket()
      */
-    public void test_Constructor() throws SocketException {
-        new DatagramSocket();
+    public void test_Constructor() throws Exception {
+        try (DatagramSocket ds = new DatagramSocket()) {
+            // Datagram sockets bound to the wildcard INADDR_ANY address should by default only
+            // receive messages from groups they explicitly joined.
+            boolean multicastAllEnabled = Libcore.os.getsockoptInt(ds.getFileDescriptor$(),
+                    IPPROTO_IP, IP_MULTICAST_ALL) == 1;
+            assertFalse(multicastAllEnabled);
+        }
     }
 
     /**
@@ -103,10 +123,11 @@ public class DatagramSocketTest extends junit.framework.TestCase {
      * java.net.DatagramSocket#DatagramSocket(int, java.net.InetAddress)
      */
     public void test_ConstructorILjava_net_InetAddress() throws IOException {
-        DatagramSocket ds = new DatagramSocket(0, InetAddress.getLocalHost());
-        assertTrue("Created socket with incorrect port", ds.getLocalPort() != 0);
-        assertEquals("Created socket with incorrect address", InetAddress
-                .getLocalHost(), ds.getLocalAddress());
+        try (DatagramSocket ds = new DatagramSocket(0, InetAddress.getLocalHost())) {
+            assertTrue("Created socket with incorrect port", ds.getLocalPort() != 0);
+            assertEquals("Created socket with incorrect address", InetAddress
+                    .getLocalHost(), ds.getLocalAddress());
+        }
     }
 
     /**
@@ -126,18 +147,21 @@ public class DatagramSocketTest extends junit.framework.TestCase {
     }
 
     public void test_connectLjava_net_InetAddressI() throws Exception {
-        DatagramSocket ds = new DatagramSocket();
-        InetAddress inetAddress = InetAddress.getLocalHost();
-        ds.connect(inetAddress, 0);
-        assertEquals("Incorrect InetAddress", inetAddress, ds.getInetAddress());
-        assertEquals("Incorrect Port", 0, ds.getPort());
-        ds.disconnect();
+        try (DatagramSocket ds = new DatagramSocket()) {
+            InetAddress inetAddress = InetAddress.getLocalHost();
+            ds.connect(inetAddress, 0);
+            assertEquals("Incorrect InetAddress", inetAddress, ds.getInetAddress());
+            assertEquals("Incorrect Port", 0, ds.getPort());
+            ds.disconnect();
+        }
 
-        ds = new java.net.DatagramSocket();
-        inetAddress = InetAddress.getByName("FE80:0000:0000:0000:020D:60FF:FE0F:A776%4");
-        ds.connect(inetAddress, 0);
-        assertEquals(inetAddress, ds.getInetAddress());
-        ds.disconnect();
+        try (DatagramSocket ds = new DatagramSocket()) {
+            InetAddress inetAddress =
+                    InetAddress.getByName("FE80:0000:0000:0000:020D:60FF:FE0F:A776%4");
+            ds.connect(inetAddress, 0);
+            assertEquals(inetAddress, ds.getInetAddress());
+            ds.disconnect();
+        }
     }
 
     public void testConnect_connectToSelf() throws Exception {
@@ -177,189 +201,182 @@ public class DatagramSocketTest extends junit.framework.TestCase {
     }
 
     public void testConnect_echoServer() throws Exception {
-        final DatagramSocket ds = new DatagramSocket(0);
+        try (DatagramSocket ds = new DatagramSocket(0);
+             DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK)) {
+            server.start();
 
-        final DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
-        server.start();
+            ds.connect(Inet6Address.LOOPBACK, server.getPort());
 
-        ds.connect(Inet6Address.LOOPBACK, server.getPort());
+            final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
+            final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length);
+            final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
 
-        final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
-        final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length);
-        final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
+            ds.send(send);
+            ds.setSoTimeout(2000);
+            ds.receive(receive);
 
-        ds.send(send);
-        ds.setSoTimeout(2000);
-        ds.receive(receive);
-        ds.close();
-
-        assertEquals(sendBytes.length, receive.getLength());
-        assertPacketDataEquals(send, receive);
-        assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
-
-        server.stopServer();
+            assertEquals(sendBytes.length, receive.getLength());
+            assertPacketDataEquals(send, receive);
+            assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
+        }
     }
 
     // Validate that once connected we cannot send to another address.
     public void testConnect_throwsOnAddressMismatch() throws Exception {
-        final DatagramSocket ds = new DatagramSocket(0);
+        try (DatagramSocket ds = new DatagramSocket(0);
+             DatagramServer s1 = new DatagramServer(Inet6Address.LOOPBACK);
+             DatagramServer s2 = new DatagramServer(Inet6Address.LOOPBACK)) {
 
-        DatagramServer s1 = new DatagramServer(Inet6Address.LOOPBACK);
-        DatagramServer s2 = new DatagramServer(Inet6Address.LOOPBACK);
-        try {
             ds.connect(Inet6Address.LOOPBACK, s1.getPort());
-            ds.send(new DatagramPacket(new byte[10], 10, Inet6Address.LOOPBACK, s2.getPort()));
-            fail();
-        } catch (IllegalArgumentException expected) {
-        } finally {
-            ds.close();
-            s1.stopServer();
-            s2.stopServer();
+            try {
+                ds.send(new DatagramPacket(new byte[10], 10, Inet6Address.LOOPBACK, s2.getPort()));
+                fail();
+            } catch (IllegalArgumentException expected) {
+            }
         }
     }
 
     // Validate that we can connect, then disconnect, then connect then
     // send/recv.
     public void testConnect_connectDisconnectConnectThenSendRecv() throws Exception {
-        final DatagramSocket ds = new DatagramSocket(0);
+        try (DatagramSocket ds = new DatagramSocket(0);
+             DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
+             DatagramServer broken = new DatagramServer(Inet6Address.LOOPBACK, false)) {
+            server.start();
+            broken.start();
 
-        final DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
-        final DatagramServer broken = new DatagramServer(Inet6Address.LOOPBACK, false);
-        server.start();
-        broken.start();
+            final int serverPortNumber = server.getPort();
+            ds.connect(Inet6Address.LOOPBACK, broken.getPort());
+            ds.disconnect();
+            ds.connect(Inet6Address.LOOPBACK, serverPortNumber);
 
-        final int serverPortNumber = server.getPort();
-        ds.connect(Inet6Address.LOOPBACK, broken.getPort());
-        ds.disconnect();
-        ds.connect(Inet6Address.LOOPBACK, serverPortNumber);
+            final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
+            final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length);
+            final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
+            ds.send(send);
+            ds.setSoTimeout(2000);
+            ds.receive(receive);
 
-        final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
-        final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length);
-        final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
-        ds.send(send);
-        ds.setSoTimeout(2000);
-        ds.receive(receive);
-        ds.close();
-
-        assertPacketDataEquals(send, receive);
-        assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
-
-        server.stopServer();
-        broken.stopServer();
+            assertPacketDataEquals(send, receive);
+            assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
+        }
     }
 
     // Validate that we can connect/disconnect then send/recv to any address
     public void testConnect_connectDisconnectThenSendRecv() throws Exception {
-        final DatagramSocket ds = new DatagramSocket(0);
+        try (DatagramSocket ds = new DatagramSocket(0);
+             DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK)) {
+            server.start();
 
-        final DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
-        server.start();
+            final int serverPortNumber = server.getPort();
+            ds.connect(Inet6Address.LOOPBACK, serverPortNumber);
+            ds.disconnect();
 
-        final int serverPortNumber = server.getPort();
-        ds.connect(Inet6Address.LOOPBACK, serverPortNumber);
-        ds.disconnect();
+            final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
+            final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length,
+                    Inet6Address.LOOPBACK, serverPortNumber);
+            final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
+            ds.send(send);
+            ds.setSoTimeout(2000);
+            ds.receive(receive);
 
-        final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
-        final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length,
-                Inet6Address.LOOPBACK, serverPortNumber);
-        final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
-        ds.send(send);
-        ds.setSoTimeout(2000);
-        ds.receive(receive);
-        ds.close();
-
-        assertPacketDataEquals(send, receive);
-        assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
-
-        server.stopServer();
+            assertPacketDataEquals(send, receive);
+            assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
+        }
     }
 
     public void testConnect_connectTwice() throws Exception {
-        final DatagramSocket ds = new DatagramSocket(0);
+        try (DatagramSocket ds = new DatagramSocket(0);
+             DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
+             DatagramServer broken = new DatagramServer(Inet6Address.LOOPBACK)) {
+            server.start();
+            broken.start();
 
-        final DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
-        final DatagramServer broken = new DatagramServer(Inet6Address.LOOPBACK);
-        server.start();
-        broken.start();
+            final int serverPortNumber = server.getPort();
+            ds.connect(Inet6Address.LOOPBACK, broken.getPort());
+            ds.connect(Inet6Address.LOOPBACK, serverPortNumber);
+            ds.disconnect();
 
-        final int serverPortNumber = server.getPort();
-        ds.connect(Inet6Address.LOOPBACK, broken.getPort());
-        ds.connect(Inet6Address.LOOPBACK, serverPortNumber);
-        ds.disconnect();
+            final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
+            final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length,
+                    Inet6Address.LOOPBACK, serverPortNumber);
+            final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
+            ds.send(send);
+            ds.setSoTimeout(2000);
+            ds.receive(receive);
 
-        final byte[] sendBytes = { 'T', 'e', 's', 't', 0 };
-        final DatagramPacket send = new DatagramPacket(sendBytes, sendBytes.length,
-                Inet6Address.LOOPBACK, serverPortNumber);
-        final DatagramPacket receive = new DatagramPacket(new byte[20], 20);
-        ds.send(send);
-        ds.setSoTimeout(2000);
-        ds.receive(receive);
-        ds.close();
-
-        assertPacketDataEquals(send, receive);
-        assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
-
-        server.stopServer();
-        broken.stopServer();
+            assertPacketDataEquals(send, receive);
+            assertEquals(Inet6Address.LOOPBACK, receive.getAddress());
+        }
     }
 
     public void testConnect_zeroAddress() throws Exception {
-        DatagramSocket ds = new DatagramSocket();
-        byte[] addressBytes = { 0, 0, 0, 0 };
-        InetAddress inetAddress = InetAddress.getByAddress(addressBytes);
-        ds.connect(inetAddress, 0);
+        try (DatagramSocket ds = new DatagramSocket()) {
+            byte[] addressBytes = { 0, 0, 0, 0 };
+            InetAddress inetAddress = InetAddress.getByAddress(addressBytes);
+            ds.connect(inetAddress, 0);
+        }
 
-        ds = new java.net.DatagramSocket();
-        byte[] addressTestBytes = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0 };
-        inetAddress = InetAddress.getByAddress(addressTestBytes);
-        ds.connect(inetAddress, 0);
+        try (DatagramSocket ds = new DatagramSocket()) {
+            byte[] addressTestBytes = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0 };
+            InetAddress inetAddress = InetAddress.getByAddress(addressTestBytes);
+            ds.connect(inetAddress, 0);
+        }
     }
 
     public void test_disconnect() throws Exception {
-        DatagramSocket ds = new DatagramSocket();
-        InetAddress inetAddress = InetAddress.getLocalHost();
-        ds.connect(inetAddress, 0);
-        ds.disconnect();
-        assertNull("Incorrect InetAddress", ds.getInetAddress());
-        assertEquals("Incorrect Port", -1, ds.getPort());
+        try (DatagramSocket ds = new DatagramSocket()) {
+            InetAddress inetAddress = InetAddress.getLocalHost();
+            ds.connect(inetAddress, 0);
+            ds.disconnect();
+            assertNull("Incorrect InetAddress", ds.getInetAddress());
+            assertEquals("Incorrect Port", -1, ds.getPort());
+        }
 
-        ds = new DatagramSocket();
-        inetAddress = InetAddress.getByName("FE80:0000:0000:0000:020D:60FF:FE0F:A776%4");
-        ds.connect(inetAddress, 0);
-        ds.disconnect();
-        assertNull("Incorrect InetAddress", ds.getInetAddress());
-        assertEquals("Incorrect Port", -1, ds.getPort());
+        try (DatagramSocket ds = new DatagramSocket()) {
+            InetAddress inetAddress =
+                    InetAddress.getByName("FE80:0000:0000:0000:020D:60FF:FE0F:A776%4");
+            ds.connect(inetAddress, 0);
+            ds.disconnect();
+            assertNull("Incorrect InetAddress", ds.getInetAddress());
+            assertEquals("Incorrect Port", -1, ds.getPort());
+        }
     }
 
     public void test_getLocalAddress() throws Exception {
         // Test for method java.net.InetAddress
         // java.net.DatagramSocket.getLocalAddress()
         InetAddress local = InetAddress.getLocalHost();
-        DatagramSocket ds = new java.net.DatagramSocket(0, local);
-        assertEquals(InetAddress.getByName(InetAddress.getLocalHost().getHostName()), ds.getLocalAddress());
+        try (DatagramSocket ds = new DatagramSocket(0, local)) {
+            assertEquals(InetAddress.getByName(InetAddress.getLocalHost().getHostName()),
+                    ds.getLocalAddress());
+        }
 
         // now check behavior when the ANY address is returned
-        DatagramSocket s = new DatagramSocket(0);
-        assertTrue("ANY address not IPv6: " + s.getLocalSocketAddress(), s.getLocalAddress() instanceof Inet6Address);
-        s.close();
+        try (DatagramSocket s = new DatagramSocket(0)) {
+            assertTrue("ANY address not IPv6: " + s.getLocalSocketAddress(),
+                    s.getLocalAddress() instanceof Inet6Address);
+        }
     }
 
     public void test_getLocalPort() throws SocketException {
-        DatagramSocket ds = new DatagramSocket();
-        assertTrue("Returned incorrect port", ds.getLocalPort() != 0);
+        try (DatagramSocket ds = new DatagramSocket()) {
+            assertTrue("Returned incorrect port", ds.getLocalPort() != 0);
+        }
     }
 
     public void test_getPort() throws IOException {
-        DatagramSocket theSocket = new DatagramSocket();
-        assertEquals("Expected -1 for remote port as not connected", -1,
-                theSocket.getPort());
+        try (DatagramSocket theSocket = new DatagramSocket()) {
+            assertEquals("Expected -1 for remote port as not connected", -1,
+                    theSocket.getPort());
 
-        // Now connect the socket and validate that we get the right port
-        int portNumber = 49152; // any valid port, even if it is unreachable
-        theSocket.connect(InetAddress.getLocalHost(), portNumber);
-        assertEquals("getPort returned wrong value", portNumber, theSocket
-                .getPort());
+            // Now connect the socket and validate that we get the right port
+            int portNumber = 49152; // any valid port, even if it is unreachable
+            theSocket.connect(InetAddress.getLocalHost(), portNumber);
+            assertEquals("getPort returned wrong value", portNumber, theSocket
+                    .getPort());
+        }
     }
 
     public void test_getReceiveBufferSize() throws Exception {
@@ -389,12 +406,15 @@ public class DatagramSocketTest extends junit.framework.TestCase {
     }
 
     public void test_getSoTimeout() throws Exception {
-        DatagramSocket ds = new DatagramSocket();
-        final int timeoutSet = 100;
-        ds.setSoTimeout(timeoutSet);
-        int actualTimeout = ds.getSoTimeout();
-        // The kernel can round the requested value based on the HZ setting. We allow up to 10ms.
-        assertTrue("Returned incorrect timeout", Math.abs(actualTimeout - timeoutSet) <= 10);
+        try (DatagramSocket ds = new DatagramSocket()) {
+            final int timeoutSet = 100;
+            ds.setSoTimeout(timeoutSet);
+            int actualTimeout = ds.getSoTimeout();
+            // The kernel can round the requested value based on the HZ setting. We allow up to
+            // 10ms.
+            assertTrue("Returned incorrect timeout",
+                    Math.abs(actualTimeout - timeoutSet) <= 10);
+        }
     }
 
     static final class TestDatagramSocketImpl extends DatagramSocketImpl {
@@ -593,23 +613,25 @@ public class DatagramSocketTest extends junit.framework.TestCase {
             }
         }
 
-        DatagramSocket ds = new DatagramSocket(new InetSocketAddress(
-                InetAddress.getLocalHost(), 0));
-        assertTrue(ds.getBroadcast());
-        assertTrue("Created socket with incorrect port", ds.getLocalPort() != 0);
-        assertEquals("Created socket with incorrect address", InetAddress
-                .getLocalHost(), ds.getLocalAddress());
+        try (DatagramSocket ds = new DatagramSocket(
+                new InetSocketAddress(InetAddress.getLocalHost(), 0))) {
+            assertTrue(ds.getBroadcast());
+            assertTrue("Created socket with incorrect port", ds.getLocalPort() != 0);
+            assertEquals("Created socket with incorrect address", InetAddress
+                    .getLocalHost(), ds.getLocalAddress());
+        }
 
         try {
-            ds = new java.net.DatagramSocket(new UnsupportedSocketAddress());
+            new DatagramSocket(new UnsupportedSocketAddress());
             fail("No exception when constructing datagramSocket with unsupported SocketAddress type");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         // regression for HARMONY-894
-        ds = new DatagramSocket(null);
-        assertTrue(ds.getBroadcast());
+        try (DatagramSocket ds = new DatagramSocket(null)) {
+            assertTrue(ds.getBroadcast());
+        }
     }
 
 
@@ -677,50 +699,52 @@ public class DatagramSocketTest extends junit.framework.TestCase {
     }
 
     public void test_isConnected() throws Exception {
-        DatagramServer ds = new DatagramServer(Inet6Address.LOOPBACK);
+        try (DatagramServer ds = new DatagramServer(Inet6Address.LOOPBACK)) {
 
-        // base test
-        DatagramSocket theSocket = new DatagramSocket(0);
-        assertFalse(theSocket.isConnected());
-        theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, ds.getPort()));
-        assertTrue(theSocket.isConnected());
+            // base test
+            try (DatagramSocket theSocket = new DatagramSocket(0)) {
+                assertFalse(theSocket.isConnected());
+                theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, ds.getPort()));
+                assertTrue(theSocket.isConnected());
 
-        // reconnect the socket and make sure we get the right answer
-        theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, ds.getPort()));
-        assertTrue(theSocket.isConnected());
+                // reconnect the socket and make sure we get the right answer
+                theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, ds.getPort()));
+                assertTrue(theSocket.isConnected());
 
-        // now disconnect the socket and make sure we get the right answer
-        theSocket.disconnect();
-        assertFalse(theSocket.isConnected());
-        theSocket.close();
+                // now disconnect the socket and make sure we get the right answer
+                theSocket.disconnect();
+                assertFalse(theSocket.isConnected());
+            }
 
-        // now check behavior when socket is closed when connected
-        theSocket = new DatagramSocket(0);
-        theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, ds.getPort()));
-        theSocket.close();
-        assertTrue(theSocket.isConnected());
+            // now check behavior when socket is closed when connected
+            DatagramSocket theSocket = new DatagramSocket(0);
+            theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, ds.getPort()));
+            theSocket.close();
+            assertTrue(theSocket.isConnected());
+        }
     }
 
     public void test_getRemoteSocketAddress() throws Exception {
-        DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
-        DatagramSocket s = new DatagramSocket(0);
-        s.connect(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()));
+        try (DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK)) {
+            try (DatagramSocket s = new DatagramSocket(0)) {
+                s.connect(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()));
 
-        assertEquals(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()),
-                s.getRemoteSocketAddress());
-        s.close();
+                assertEquals(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()),
+                        s.getRemoteSocketAddress());
+            }
 
-        // now create one that is not connected and validate that we get the
-        // right answer
-        DatagramSocket theSocket = new DatagramSocket(null);
-        theSocket.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0));
-        assertNull(theSocket.getRemoteSocketAddress());
+            // now create one that is not connected and validate that we get the
+            // right answer
+            try (DatagramSocket theSocket = new DatagramSocket(null)) {
+                theSocket.bind(new InetSocketAddress(InetAddress.getLocalHost(), 0));
+                assertNull(theSocket.getRemoteSocketAddress());
 
-        // now connect and validate we get the right answer
-        theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()));
-        assertEquals(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()),
-                theSocket.getRemoteSocketAddress());
-        theSocket.close();
+                // now connect and validate we get the right answer
+                theSocket.connect(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()));
+                assertEquals(new InetSocketAddress(Inet6Address.LOOPBACK, server.getPort()),
+                        theSocket.getRemoteSocketAddress());
+            }
+        }
     }
 
     public void test_getLocalSocketAddress_late_bind() throws Exception {
@@ -864,34 +888,36 @@ public class DatagramSocketTest extends junit.framework.TestCase {
     }
 
     public void test_getBroadcast() throws Exception {
-        DatagramSocket theSocket = new DatagramSocket();
-        theSocket.setBroadcast(true);
-        assertTrue("getBroadcast false when it should be true", theSocket.getBroadcast());
-        theSocket.setBroadcast(false);
-        assertFalse("getBroadcast true when it should be False", theSocket.getBroadcast());
+        try (DatagramSocket theSocket = new DatagramSocket()) {
+            theSocket.setBroadcast(true);
+            assertTrue("getBroadcast false when it should be true", theSocket.getBroadcast());
+            theSocket.setBroadcast(false);
+            assertFalse("getBroadcast true when it should be False", theSocket.getBroadcast());
+        }
     }
 
     public void test_setTrafficClassI() throws Exception {
         int IPTOS_LOWCOST = 0x2;
         int IPTOS_THROUGHPUT = 0x8;
-        DatagramSocket theSocket = new DatagramSocket(0);
+        try (DatagramSocket theSocket = new DatagramSocket(0)) {
 
-        // validate that value set must be between 0 and 255
-        try {
-            theSocket.setTrafficClass(256);
-            fail("No exception when traffic class set to 256");
-        } catch (IllegalArgumentException e) {
+            // validate that value set must be between 0 and 255
+            try {
+                theSocket.setTrafficClass(256);
+                fail("No exception when traffic class set to 256");
+            } catch (IllegalArgumentException e) {
+            }
+
+            try {
+                theSocket.setTrafficClass(-1);
+                fail("No exception when traffic class set to -1");
+            } catch (IllegalArgumentException e) {
+            }
+
+            // now validate that we can set it to some good values
+            theSocket.setTrafficClass(IPTOS_LOWCOST);
+            theSocket.setTrafficClass(IPTOS_THROUGHPUT);
         }
-
-        try {
-            theSocket.setTrafficClass(-1);
-            fail("No exception when traffic class set to -1");
-        } catch (IllegalArgumentException e) {
-        }
-
-        // now validate that we can set it to some good values
-        theSocket.setTrafficClass(IPTOS_LOWCOST);
-        theSocket.setTrafficClass(IPTOS_THROUGHPUT);
     }
 
 
@@ -911,19 +937,20 @@ public class DatagramSocketTest extends junit.framework.TestCase {
     }
 
     public void test_getChannel() throws Exception {
-        assertNull(new DatagramSocket().getChannel());
+        try (DatagramSocket ds = new DatagramSocket()) {
+            assertNull(ds.getChannel());
+        }
 
-        DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
-        DatagramSocket ds = new DatagramSocket(0);
-        assertNull(ds.getChannel());
-        ds.disconnect();
-        ds.close();
-        server.stopServer();
+        try (DatagramServer server = new DatagramServer(Inet6Address.LOOPBACK);
+             DatagramSocket ds = new DatagramSocket(0)) {
+            assertNull(ds.getChannel());
+            ds.disconnect();
+        }
 
-        DatagramChannel channel = DatagramChannel.open();
-        DatagramSocket socket = channel.socket();
-        assertEquals(channel, socket.getChannel());
-        socket.close();
+        try (DatagramChannel channel = DatagramChannel.open();
+             DatagramSocket socket = channel.socket()) {
+            assertEquals(channel, socket.getChannel());
+        }
     }
 
     public void testReceiveOversizePacket() throws Exception {
@@ -940,5 +967,29 @@ public class DatagramSocketTest extends junit.framework.TestCase {
         ds.receive(receive);
         ds.close();
         assertEquals(new String("01234"), new String(recvBuffer, 0, recvBuffer.length, "UTF-8"));
+    }
+
+    // Receive twice reusing the same DatagramPacket.
+    // http://b/33957878
+    public void testReceiveTwice() throws Exception {
+        try (DatagramSocket ds = new DatagramSocket();
+             DatagramSocket sds = new DatagramSocket()) {
+            sds.connect(ds.getLocalSocketAddress());
+            DatagramPacket p = new DatagramPacket(new byte[16], 16);
+
+            byte[] smallPacketBytes = "01234".getBytes("UTF-8");
+            DatagramPacket smallPacket =
+                    new DatagramPacket(smallPacketBytes, smallPacketBytes.length);
+            sds.send(smallPacket);
+            ds.receive(p);
+            assertPacketDataEquals(smallPacket, p);
+
+            byte[] largePacketBytes = "0123456789".getBytes("UTF-8");
+            DatagramPacket largerPacket =
+                    new DatagramPacket(largePacketBytes, largePacketBytes.length);
+            sds.send(largerPacket);
+            ds.receive(p);
+            assertPacketDataEquals(largerPacket, p);
+        }
     }
 }

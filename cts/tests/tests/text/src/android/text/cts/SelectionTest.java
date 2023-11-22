@@ -16,14 +16,25 @@
 
 package android.text.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 
-public class SelectionTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SelectionTest {
+    @Test
     public void testGetSelectionStart() {
         CharSequence text = "hello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -41,6 +52,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(-1, Selection.getSelectionStart(null));
     }
 
+    @Test
     public void testGetSelectionEnd() {
         CharSequence text = "hello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -58,6 +70,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(-1, Selection.getSelectionStart(null));
     }
 
+    @Test
     public void testSetSelection1() {
         CharSequence text = "hello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -87,6 +100,7 @@ public class SelectionTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetSelection2() {
         SpannableStringBuilder builder = new SpannableStringBuilder("hello, world");
         assertEquals(-1, Selection.getSelectionStart(builder));
@@ -113,6 +127,7 @@ public class SelectionTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testRemoveSelection() {
         CharSequence text = "hello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -132,6 +147,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(-1, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testSelectAll() {
         CharSequence text = "hello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -158,6 +174,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(empty));
     }
 
+    @Test
     public void testMoveLeft() {
         CharSequence text = "hello\nworld";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -185,6 +202,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testMoveRight() {
         CharSequence text = "hello\nworld";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -216,6 +234,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(text.length(), Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testMoveUp() {
         CharSequence text = "Google\nhello,world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -255,6 +274,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testMoveDown() {
         CharSequence text = "hello,world\nGoogle";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -292,6 +312,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(18, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testExtendSelection() {
         CharSequence text = "hello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -338,6 +359,7 @@ public class SelectionTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testExtendLeft() {
         CharSequence text = "Google\nhello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -364,6 +386,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testExtendRight() {
         CharSequence text = "Google\nhello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -386,6 +409,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(text.length(), Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testExtendUp() {
         CharSequence text = "Google\nhello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -416,6 +440,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testExtendDown() {
         CharSequence text = "Google\nhello, world";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -437,6 +462,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(text.length(), Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testExtendToLeftEdge() {
         CharSequence text = "hello\nworld";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -472,6 +498,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testExtendToRightEdge() {
         CharSequence text = "hello\nworld";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -498,6 +525,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(text.length(), Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testMoveToLeftEdge() {
         CharSequence text = "hello\nworld";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -529,6 +557,7 @@ public class SelectionTest extends AndroidTestCase {
         assertEquals(0, Selection.getSelectionEnd(builder));
     }
 
+    @Test
     public void testMoveToRightEdge() {
         CharSequence text = "hello\nworld";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);

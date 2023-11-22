@@ -16,8 +16,10 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-
 ifeq ($(SOUND_TRIGGER_USE_STUB_MODULE), 1)
+    ifneq ($(USE_LEGACY_LOCAL_AUDIO_HAL), true)
+        $(error Requires building with USE_LEGACY_LOCAL_AUDIO_HAL=true)
+    endif
     LOCAL_CFLAGS += -DSOUND_TRIGGER_USE_STUB_MODULE
 endif
 
@@ -25,22 +27,42 @@ LOCAL_SRC_FILES:=               \
     SoundTriggerHwService.cpp
 
 LOCAL_SHARED_LIBRARIES:= \
-    libui \
     liblog \
     libutils \
     libbinder \
     libcutils \
     libhardware \
     libsoundtrigger \
-    libmedia \
+    libaudioclient \
     libserviceutility
+
+
+ifeq ($(USE_LEGACY_LOCAL_AUDIO_HAL),true)
+# libhardware configuration
+LOCAL_SRC_FILES +=               \
+    SoundTriggerHalLegacy.cpp
+else
+# Treble configuration
+LOCAL_SRC_FILES +=               \
+    SoundTriggerHalHidl.cpp
+
+LOCAL_SHARED_LIBRARIES += \
+    libhwbinder \
+    libhidlbase \
+    libhidltransport \
+    libbase \
+    libaudiohal \
+    android.hardware.soundtrigger@2.0 \
+    android.hardware.audio.common@2.0
+endif
+
 
 LOCAL_C_INCLUDES += \
     $(TOPDIR)frameworks/av/services/audioflinger
 
 LOCAL_MULTILIB := $(AUDIOSERVER_MULTILIB)
 
-LOCAL_CFLAGS := -Wall -Werror
+LOCAL_CFLAGS += -Wall -Werror
 
 LOCAL_MODULE:= libsoundtriggerservice
 

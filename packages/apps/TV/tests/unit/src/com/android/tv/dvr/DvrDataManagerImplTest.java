@@ -16,7 +16,7 @@
 
 package com.android.tv.dvr;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.tv.testing.dvr.RecordingTestUtils;
 
@@ -30,6 +30,7 @@ import java.util.List;
  */
 @SmallTest
 public class DvrDataManagerImplTest extends TestCase {
+    private static final String INPUT_ID = "input_id";
     private static final int CHANNEL_ID = 273;
 
     public void testGetNextScheduledStartTimeAfter() throws Exception {
@@ -37,32 +38,33 @@ public class DvrDataManagerImplTest extends TestCase {
         List<ScheduledRecording> scheduledRecordings = new ArrayList<>();
         assertNextStartTime(scheduledRecordings, 0L, DvrDataManager.NEXT_START_TIME_NOT_FOUND);
         scheduledRecordings.add(RecordingTestUtils
-                .createTestRecordingWithIdAndPeriod(id++, CHANNEL_ID, 10L, 20L));
+                .createTestRecordingWithIdAndPeriod(id++, INPUT_ID, CHANNEL_ID, 10L, 20L));
         assertNextStartTime(scheduledRecordings, 9L, 10L);
         assertNextStartTime(scheduledRecordings, 10L, DvrDataManager.NEXT_START_TIME_NOT_FOUND);
         scheduledRecordings.add(RecordingTestUtils
-                .createTestRecordingWithIdAndPeriod(id++, CHANNEL_ID, 20L, 30L));
+                .createTestRecordingWithIdAndPeriod(id++, INPUT_ID, CHANNEL_ID, 20L, 30L));
         assertNextStartTime(scheduledRecordings, 9L, 10L);
         assertNextStartTime(scheduledRecordings, 10L, 20L);
         assertNextStartTime(scheduledRecordings, 20L, DvrDataManager.NEXT_START_TIME_NOT_FOUND);
         scheduledRecordings.add(RecordingTestUtils
-                .createTestRecordingWithIdAndPeriod(id++, CHANNEL_ID, 30L, 40L));
+                .createTestRecordingWithIdAndPeriod(id++, INPUT_ID, CHANNEL_ID, 30L, 40L));
         assertNextStartTime(scheduledRecordings, 9L, 10L);
         assertNextStartTime(scheduledRecordings, 10L, 20L);
         assertNextStartTime(scheduledRecordings, 20L, 30L);
         assertNextStartTime(scheduledRecordings, 30L, DvrDataManager.NEXT_START_TIME_NOT_FOUND);
         scheduledRecordings.clear();
         scheduledRecordings.add(RecordingTestUtils
-                .createTestRecordingWithIdAndPeriod(id++, CHANNEL_ID, 10L, 20L));
+                .createTestRecordingWithIdAndPeriod(id++, INPUT_ID, CHANNEL_ID, 10L, 20L));
         scheduledRecordings.add(RecordingTestUtils
-                .createTestRecordingWithIdAndPeriod(id++, CHANNEL_ID, 10L, 20L));
+                .createTestRecordingWithIdAndPeriod(id++, INPUT_ID, CHANNEL_ID, 10L, 20L));
         scheduledRecordings.add(RecordingTestUtils
-                .createTestRecordingWithIdAndPeriod(id++, CHANNEL_ID, 10L, 20L));
+                .createTestRecordingWithIdAndPeriod(id++, INPUT_ID, CHANNEL_ID, 10L, 20L));
         assertNextStartTime(scheduledRecordings, 9L, 10L);
         assertNextStartTime(scheduledRecordings, 10L, DvrDataManager.NEXT_START_TIME_NOT_FOUND);
     }
 
-    private void assertNextStartTime(List<ScheduledRecording> scheduledRecordings, long startTime, long expected) {
+    private void assertNextStartTime(List<ScheduledRecording> scheduledRecordings, long startTime,
+            long expected) {
         assertEquals("getNextScheduledStartTimeAfter()", expected,
                 DvrDataManagerImpl.getNextStartTimeAfter(scheduledRecordings, startTime));
     }

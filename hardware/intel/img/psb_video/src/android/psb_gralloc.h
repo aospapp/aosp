@@ -41,6 +41,10 @@ int gralloc_lock(buffer_handle_t handle, int usage,
 
 int gralloc_unlock(buffer_handle_t handle);
 
+int gralloc_register(buffer_handle_t handle);
+
+int gralloc_unregister(buffer_handle_t handle);
+
 int gralloc_init(void);
 
 int gralloc_getdisplaystatus(buffer_handle_t handle,  int* status);

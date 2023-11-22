@@ -13,17 +13,17 @@ LOCAL_C_INCLUDES:= \
 	$(TOP)/frameworks/base/core/jni \
 
 LOCAL_SHARED_LIBRARIES := \
-	libstagefright liblog libutils libbinder libstagefright_foundation \
-        libandroid_runtime \
-        libmedia
+    liblog libutils libbinder \
+    libandroid_runtime \
+    libmedia
 
 LOCAL_MODULE:= libstagefright_http_support
 
 LOCAL_CFLAGS += -Wno-multichar
 
 LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
-LOCAL_SANITIZE := signed-integer-overflow
+LOCAL_SANITIZE := signed-integer-overflow cfi
+LOCAL_SANITIZE_DIAG := cfi
 
 include $(BUILD_SHARED_LIBRARY)
 

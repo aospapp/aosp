@@ -18,7 +18,7 @@ package com.example.android.actionbarcompat.searchview;
 
 import android.os.Bundle;
 import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.SearchView;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -27,10 +27,10 @@ import android.view.MenuItem;
  * This sample shows you how to use {@link SearchView} to provide a search function in a single
  * Activity, when utilizing ActionBarCompat.
  *
- * This Activity extends from {@link ActionBarActivity}, which provides all of the function
+ * This Activity extends from {@link AppCompatActivity}, which provides all of the function
  * necessary to display a compatible Action Bar on devices running Android v2.1+.
  */
-public class SearchActivity extends ActionBarActivity {
+public class SearchActivity extends AppCompatActivity {
 
     private AppListFragment mAppListFragment;
 

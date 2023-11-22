@@ -64,8 +64,7 @@ public final class ImageLoader {
 
     private static final ThreadFactory sThreadFactory = new NamedThreadFactory("ImageLoader");
 
-    private static final BlockingQueue<Runnable> sPoolWorkQueue = new LinkedBlockingQueue<Runnable>(
-            128);
+    private static final BlockingQueue<Runnable> sPoolWorkQueue = new LinkedBlockingQueue<>(128);
 
     /**
      * An private {@link Executor} that can be used to execute tasks in parallel.
@@ -380,7 +379,7 @@ public final class ImageLoader {
         public LoadTvInputLogoTask(Context context, ImageCache cache, TvInputInfo info) {
             super(context,
                     cache,
-                    info.getId() + "-logo",
+                    getTvInputLogoKey(info.getId()),
                     context.getResources()
                             .getDimensionPixelSize(R.dimen.channel_banner_input_logo_size),
                     context.getResources()
@@ -401,6 +400,13 @@ public final class ImageLoader {
                 return null;
             }
             return BitmapUtils.createScaledBitmapInfo(getKey(), original, mMaxWidth, mMaxHeight);
+        }
+
+        /**
+         * Returns key of TV input logo.
+         */
+        public static String getTvInputLogoKey(String inputId) {
+            return inputId + "-logo";
         }
     }
 

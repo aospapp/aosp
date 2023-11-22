@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
-import android.cts.util.MediaUtils;
 import android.graphics.Rect;
 import android.graphics.ImageFormat;
 import android.media.cts.CodecUtils;
@@ -44,6 +43,8 @@ import android.util.Log;
 import android.view.Surface;
 
 import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;

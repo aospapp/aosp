@@ -16,62 +16,50 @@
 
 #pragma once
 
-#include <string>
+#include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "base/files/scoped_file.h"
-#include "base/message_loop/message_loop.h"
 
 namespace test_vendor_lib {
 
 // Manages communications between test channel and the controller. Mirrors the
 // HciTransport for the test channel.
-class TestChannelTransport : public base::MessageLoopForIO::Watcher {
+class TestChannelTransport {
  public:
-  TestChannelTransport(bool enabled, int port);
+  TestChannelTransport() {}
 
-  ~TestChannelTransport() = default;
+  ~TestChannelTransport() {}
+
+  // Opens a port and returns the file descriptor for the socket.
+  // Returns -1 on an error.
+  int SetUp(int port);
+
+  // Closes the port (if succesfully opened in SetUp).
+  void CleanUp();
 
   // Waits for a connection request from the test channel program and
-  // allocates the file descriptor to watch for run-time parameters at. This
-  // file descriptor gets stored in |fd_|.
-  bool SetUp();
+  // returns the file descriptor to watch for run-time parameters.
+  // Returns -1 on an error.
+  int Accept(int listen_fd);
 
-  int GetFd();
-
-  // Because it imposes a different flow of work, the test channel must be
-  // actively enabled to be used. |enabled_| is set by the vendor manager.
-  bool IsEnabled();
-
-  // Turns the test channel off for use in circumstances where an error occurs
-  // and leaving the channel on would crash Bluetooth (e.g. if the test channel
-  // is unable to bind to its socket, Bluetooth should still start without the
-  // channel enabled).
-  void Disable();
-
-  // Sets the callback that fires when data is read in
-  // |OnFileCanReadWithoutBlocking|.
+  // Sets the callback that fires when data is read in WatchFd().
   void RegisterCommandHandler(
-      std::function<void(const std::string&, const std::vector<std::string>&)>
-          callback);
+      const std::function<void(const std::string&,
+                               const std::vector<std::string>&)>& callback);
+
+  void OnCommandReady(int fd, std::function<void(void)> unwatch);
 
  private:
-  // base::MessageLoopForIO::Watcher overrides:
-  void OnFileCanReadWithoutBlocking(int fd) override;
-
-  void OnFileCanWriteWithoutBlocking(int fd) override;
-
   std::function<void(const std::string&, const std::vector<std::string>&)>
       command_handler_;
 
-  // File descriptor to watch for test hook data.
-  std::unique_ptr<base::ScopedFD> fd_;
+  int listen_fd_ = -1;
 
-  // TODO(dennischeng): Get port and enabled flag from a config file.
-  int port_;
-  bool enabled_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestChannelTransport);
+  TestChannelTransport(const TestChannelTransport& cmdPckt) = delete;
+  TestChannelTransport& operator=(const TestChannelTransport& cmdPckt) = delete;
 };
 
 }  // namespace test_vendor_lib

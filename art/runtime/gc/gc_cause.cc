@@ -29,18 +29,23 @@ const char* PrettyCause(GcCause cause) {
     case kGcCauseBackground: return "Background";
     case kGcCauseExplicit: return "Explicit";
     case kGcCauseForNativeAlloc: return "NativeAlloc";
+    case kGcCauseForNativeAllocBackground: return "NativeAllocBackground";
     case kGcCauseCollectorTransition: return "CollectorTransition";
     case kGcCauseDisableMovingGc: return "DisableMovingGc";
     case kGcCauseHomogeneousSpaceCompact: return "HomogeneousSpaceCompact";
     case kGcCauseTrim: return "HeapTrim";
     case kGcCauseInstrumentation: return "Instrumentation";
     case kGcCauseAddRemoveAppImageSpace: return "AddRemoveAppImageSpace";
+    case kGcCauseDebugger: return "Debugger";
     case kGcCauseClassLinker: return "ClassLinker";
     case kGcCauseJitCodeCache: return "JitCodeCache";
-    default:
-      LOG(FATAL) << "Unreachable";
-      UNREACHABLE();
+    case kGcCauseAddRemoveSystemWeakHolder: return "SystemWeakHolder";
+    case kGcCauseHprof: return "Hprof";
+    case kGcCauseGetObjectsAllocated: return "ObjectsAllocated";
+    case kGcCauseProfileSaver: return "ProfileSaver";
   }
+  LOG(FATAL) << "Unreachable";
+  UNREACHABLE();
 }
 
 std::ostream& operator<<(std::ostream& os, const GcCause& gc_cause) {

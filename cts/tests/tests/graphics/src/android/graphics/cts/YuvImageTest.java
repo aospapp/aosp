@@ -15,29 +15,33 @@
  */
 package android.graphics.cts;
 
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
-import java.lang.Math;
-import java.io.IOException;
-import java.util.Arrays;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
-import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-import android.graphics.cts.R;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 
-public class YuvImageTest extends AndroidTestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class YuvImageTest {
     // Coefficients are taken from jcolor.c in libjpeg.
     private static final int CSHIFT = 16;
     private static final int CYR = 19595;
@@ -50,55 +54,52 @@ public class YuvImageTest extends AndroidTestCase {
     private static final int CVG = -27439;
     private static final int CVB = -5329;
 
-    private static String TAG = "YuvImageTest";
+    private static final String TAG = "YuvImageTest";
 
-    private int[] mFormats = { ImageFormat.NV21, ImageFormat.YUY2 };
+    private static final int[] FORMATS = { ImageFormat.NV21, ImageFormat.YUY2 };
 
     private static final int WIDTH = 256;
     private static final int HEIGHT = 128;
-    private Bitmap[] mTestBitmaps = new Bitmap[1];
 
-    private int[] mRectWidths = { 128, 124, 123 };
-    private int[] mRectHeights = { 64, 60, 59 };
+    private static final int[] RECT_WIDTHS = { 128, 124, 123 };
+    private static final int[] RECT_HEIGHTS = { 64, 60, 59 };
 
     // Various rectangles:
     // mRects[0] : a normal one.
     // mRects[1] : same size to that of mRects[1], but its left-top point is shifted
     // mRects[2] : sides are not multiples of 16
     // mRects[3] : the left-top point is at an odd position
-    private Rect[] mRects = { new Rect(0, 0, 0 + mRectWidths[0],  0 + mRectHeights[0]),
-            new Rect(10, 10, 10 + mRectWidths[0], 10 + mRectHeights[0]),
-            new Rect(0, 0, 0 + mRectWidths[1], 0 + mRectHeights[1]),
-            new Rect(11, 11, 11 + mRectWidths[1], 11 + mRectHeights[1]) };
+    private static final Rect[] RECTS = { new Rect(0, 0, 0 + RECT_WIDTHS[0],  0 + RECT_HEIGHTS[0]),
+            new Rect(10, 10, 10 + RECT_WIDTHS[0], 10 + RECT_HEIGHTS[0]),
+            new Rect(0, 0, 0 + RECT_WIDTHS[1], 0 + RECT_HEIGHTS[1]),
+            new Rect(11, 11, 11 + RECT_WIDTHS[1], 11 + RECT_HEIGHTS[1]) };
 
     // Two rectangles of same size but at different positions
-    private Rect[] mRectsShifted = { mRects[0], mRects[1] };
+    private static final Rect[] RECTS_SHIFTED = { RECTS[0], RECTS[1] };
 
     // A rect whose side lengths are odd.
-    private Rect mRectOddSides = new Rect(10, 10, 10 + mRectWidths[2],
-            10 + mRectHeights[2]);
+    private static final Rect RECT_ODD_SIDES = new Rect(10, 10, 10 + RECT_WIDTHS[2],
+            10 + RECT_HEIGHTS[2]);
 
-    private int[] mPaddings = { 0, 32 };
+    private static final int[] PADDINGS = { 0, 32 };
 
     // There are three color components and
     // each should be within a square difference of 15 * 15.
-    private int mMseMargin = 3 * (15 * 15);
+    private static final int MSE_MARGIN = 3 * (15 * 15);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+    private Bitmap[] mTestBitmaps = new Bitmap[1];
 
-    public void testYuvImage(){
+    @Test
+    public void testYuvImage() {
         int width = 100;
         int height = 100;
         byte[] yuv = new byte[width * height * 2];
         YuvImage image;
 
         // normal case: test that the required formats are all supported
-        for (int i = 0; i < mFormats.length; ++i) {
+        for (int i = 0; i < FORMATS.length; ++i) {
             try {
-                image = new YuvImage(yuv, mFormats[i], width, height, null);
+                new YuvImage(yuv, FORMATS[i], width, height, null);
             } catch (Exception e) {
                 Log.e(TAG, "unexpected exception", e);
                 fail("unexpected exception");
@@ -106,88 +107,78 @@ public class YuvImageTest extends AndroidTestCase {
         }
 
         // normal case: test that default strides are returned correctly
-        for (int i = 0; i < mFormats.length; ++i) {
+        for (int i = 0; i < FORMATS.length; ++i) {
             int[] expected = null;
             int[] actual = null;
-            if (mFormats[i] == ImageFormat.NV21) {
-                expected = new int[] {width, width};
-            } else if (mFormats[i] == ImageFormat.YUY2) {
-                expected = new int[] {width * 2};
+            if (FORMATS[i] == ImageFormat.NV21) {
+                expected = new int[]{width, width};
+            } else if (FORMATS[i] == ImageFormat.YUY2) {
+                expected = new int[]{width * 2};
             }
 
             try {
-                image = new YuvImage(yuv, mFormats[i], width, height, null);
+                image = new YuvImage(yuv, FORMATS[i], width, height, null);
                 actual = image.getStrides();
                 assertTrue("default strides not calculated correctly",
                         Arrays.equals(expected, actual));
-            } catch (Exception e){
+            } catch (Exception e) {
                 Log.e(TAG, "unexpected exception", e);
                 fail("unexpected exception");
             }
         }
+    }
 
-        int format = mFormats[0];
+    @Test(expected=IllegalArgumentException.class)
+    public void testYuvImageNegativeWidth(){
+        new YuvImage(new byte[100 * 100 * 2], FORMATS[0], -1, 100, null);
+    }
 
-        // abnormal case: width is non-positive
-        try {
-            image = new YuvImage(yuv, format, -1, height, null);
-            fail("not catching illegal width");
-        } catch(IllegalArgumentException e) {
-          // expected
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testYuvImageNegativeHeight(){
+        new YuvImage(new byte[100 * 100 * 2], FORMATS[0], 100, -1, null);
+    }
 
-        // abnormal case: height is non-positive
-        try {
-            image = new YuvImage(yuv, format, width, -1, null);
-            fail("not catching illegal height");
-        } catch(IllegalArgumentException e) {
-          // expected
-        }
-
-        // abnormal case: yuv array is null
-        try {
-            image = new YuvImage(null, format, width, height, null);
-            fail("not catching null yuv data");
-        } catch(IllegalArgumentException e) {
-          // expected
-        }
-
+    @Test(expected=IllegalArgumentException.class)
+    public void testYuvImageNullArray(){
+        new YuvImage(null, FORMATS[0], 100, 100, null);
    }
 
+    @Test
     public void testCompressYuvToJpeg() {
         generateTestBitmaps(WIDTH, HEIGHT);
 
         // test if handling compression parameters correctly
-        checkParameters();
+        verifyParameters();
 
         // test various cases by varing
         // <ImageFormat, Bitmap, HasPaddings, Rect>
-        for (int i = 0; i < mFormats.length; ++i) {
+        for (int i = 0; i < FORMATS.length; ++i) {
             for (int j = 0; j < mTestBitmaps.length; ++j) {
-                for (int k = 0; k < mPaddings.length; ++k) {
-                    YuvImage image = generateYuvImage(mFormats[i],
-                        mTestBitmaps[j], mPaddings[k]);
-                    for (int l = 0; l < mRects.length; ++l) {
+                for (int k = 0; k < PADDINGS.length; ++k) {
+                    YuvImage image = generateYuvImage(FORMATS[i],
+                        mTestBitmaps[j], PADDINGS[k]);
+                    for (int l = 0; l < RECTS.length; ++l) {
 
                         // test compressing the same rect in
                         // mTestBitmaps[j] and image.
                         compressRects(mTestBitmaps[j], image,
-                                mRects[l], mRects[l]);
+                                RECTS[l], RECTS[l]);
                     }
 
                     // test compressing different rects in
                     // mTestBitmap[j] and image.
-                    compressRects(mTestBitmaps[j], image, mRectsShifted[0],
-                            mRectsShifted[1]);
+                    compressRects(mTestBitmaps[j], image, RECTS_SHIFTED[0],
+                            RECTS_SHIFTED[1]);
 
                     // test compressing a rect whose side lengths are odd.
-                    compressOddRect(mTestBitmaps[j], image, mRectOddSides);
+                    compressOddRect(mTestBitmaps[j], image, RECT_ODD_SIDES);
                 }
             }
         }
 
     }
 
+    @Test
     public void testGetHeight() {
         generateTestBitmaps(WIDTH, HEIGHT);
         YuvImage image = generateYuvImage(ImageFormat.YUY2, mTestBitmaps[0], 0);
@@ -195,6 +186,7 @@ public class YuvImageTest extends AndroidTestCase {
         assertEquals(mTestBitmaps[0].getWidth(), image.getWidth());
     }
 
+    @Test
     public void testGetYuvData() {
         generateTestBitmaps(WIDTH, HEIGHT);
         int width = mTestBitmaps[0].getWidth();
@@ -210,6 +202,7 @@ public class YuvImageTest extends AndroidTestCase {
         assertEquals(yuv, image.getYuvData());
     }
 
+    @Test
     public void testGetYuvFormat() {
         generateTestBitmaps(WIDTH, HEIGHT);
         YuvImage image = generateYuvImage(ImageFormat.YUY2, mTestBitmaps[0], 0);
@@ -221,7 +214,7 @@ public class YuvImageTest extends AndroidTestCase {
         Canvas c = new Canvas(dst);
 
         // mTestBitmap[0] = scaled testimage.jpg
-        Resources res = getContext().getResources();
+        Resources res = InstrumentationRegistry.getTargetContext().getResources();
         Bitmap src = BitmapFactory.decodeResource(res, R.drawable.testimage);
         c.drawBitmap(src, null, new Rect(0, 0, WIDTH, HEIGHT), null);
         mTestBitmaps[0] = dst;
@@ -263,8 +256,9 @@ public class YuvImageTest extends AndroidTestCase {
         actual = compressDecompress(image, actualRect);
 
         Rect expectedRect = sameRect ? actualRect : rect1;
-        expected = Bitmap.createBitmap(testBitmap, expectedRect.left, expectedRect.top, expectedRect.width(), expectedRect.height());
-        compareBitmaps(expected, actual, mMseMargin, sameRect);
+        expected = Bitmap.createBitmap(testBitmap, expectedRect.left, expectedRect.top,
+                expectedRect.width(), expectedRect.height());
+        compareBitmaps(expected, actual, MSE_MARGIN, sameRect);
     }
 
     // Compress rect in image.
@@ -280,7 +274,7 @@ public class YuvImageTest extends AndroidTestCase {
         expected = Bitmap.createBitmap(testBitmap, newRect.left, newRect.top,
               newRect.width(), newRect.height());
 
-        compareBitmaps(expected, actual, mMseMargin, true);
+        compareBitmaps(expected, actual, MSE_MARGIN, true);
     }
 
     // Compress rect in image to a jpeg and then decode the jpeg to a bitmap.
@@ -392,7 +386,7 @@ public class YuvImageTest extends AndroidTestCase {
         yuv[2] = (byte) (((CVR * r + CVG * g + CVB * b) >> CSHIFT) + 128);
     }
 
-    private void checkParameters() {
+    private void verifyParameters() {
         int format = ImageFormat.NV21;
         int[] argb = new int[WIDTH * HEIGHT];
         mTestBitmaps[0].getPixels(argb, 0, WIDTH, 0, 0, WIDTH, HEIGHT);

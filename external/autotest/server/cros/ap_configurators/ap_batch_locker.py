@@ -8,7 +8,6 @@ import random
 from time import sleep
 
 import common
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros.ap_configurators import \
     ap_configurator_factory
@@ -74,7 +73,7 @@ def construct_ap_lockers(ap_spec, retries, hostname_matching_only=False,
             ap_lockers_list.append(ApLocker(ap, retries))
 
     if not len(ap_lockers_list):
-        raise error.TestError('Found no matching APs to test against.')
+        logging.error('Found no matching APs to test against for %s', ap_spec)
 
     logging.debug('Found %d APs', len(ap_lockers_list))
     return ap_lockers_list

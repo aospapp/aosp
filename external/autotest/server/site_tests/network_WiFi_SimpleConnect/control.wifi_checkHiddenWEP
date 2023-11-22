@@ -6,8 +6,9 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_SimpleConnect.wifi_checkHiddenWEP'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = "suite:wifi_correctness_cros_core, suite:wifi_flaky, suite:wifi_release"
-SUITE = 'wifi_flaky, wifi_correctness_cros_core, wifi_release'
+ATTRIBUTES = ('suite:wifi_correctness_cros_core, suite:wifi_flaky, '
+              'suite:wifi_matfunc, suite:wifi_release, subsystem:wifi,'
+              'suite:android_wifi_connect')
 DEPENDENCIES = 'wificell'
 
 DOC = """

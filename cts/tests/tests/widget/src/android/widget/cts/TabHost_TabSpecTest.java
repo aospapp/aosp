@@ -16,8 +16,11 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.app.Instrumentation;
@@ -27,38 +30,47 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TabHost;
 import android.widget.TextView;
-import android.widget.TabHost.TabSpec;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
- * Test {@link TabSpec}.
+ * Test {@link TabHost.TabSpec}.
  */
-public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHostCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TabHost_TabSpecTest {
     private static final String TAG_TAB2 = "tab 2";
 
-    private TabHost mTabHost;
     private TabHostCtsActivity mActivity;
+    private TabHost mTabHost;
 
-    public TabHost_TabSpecTest() {
-        super("android.widget.cts", TabHostCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<TabHostCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TabHostCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
         mTabHost = mActivity.getTabHost();
     }
 
     @UiThreadTest
+    @Test
     public void testSetIndicator1() {
-        TabSpec tabSpec = mTabHost.newTabSpec(TAG_TAB2);
+        TabHost.TabSpec tabSpec = mTabHost.newTabSpec(TAG_TAB2);
 
         // normal value
         tabSpec.setIndicator(TAG_TAB2).setContent(new MockTabContentFactoryText());
@@ -80,8 +92,9 @@ public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHos
     }
 
     @UiThreadTest
+    @Test
     public void testSetIndicator2() {
-        TabSpec tabSpec = mTabHost.newTabSpec(TAG_TAB2);
+        TabHost.TabSpec tabSpec = mTabHost.newTabSpec(TAG_TAB2);
 
         // normal value
         Drawable d = new ColorDrawable(Color.GRAY);
@@ -133,29 +146,31 @@ public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHos
     }
 
     @UiThreadTest
+    @Test
     public void testSetContent1() {
-        TabSpec tabSpec2 = mTabHost.newTabSpec("tab spec 2");
+        TabHost.TabSpec tabSpec2 = mTabHost.newTabSpec("tab spec 2");
         tabSpec2.setIndicator("tab 2");
         // TabContentFactory to create a TextView as the content of the tab.
-        tabSpec2.setContent(android.widget.cts.R.id.tabhost_textview);
+        tabSpec2.setContent(R.id.tabhost_textview);
         mTabHost.addTab(tabSpec2);
         mTabHost.setCurrentTab(1);
         TextView currentView = (TextView) mTabHost.getCurrentView();
         assertEquals(mActivity.getResources().getString(R.string.hello_world),
                 currentView.getText().toString());
 
-        TabSpec tabSpec3 = mTabHost.newTabSpec("tab spec 3");
+        TabHost.TabSpec tabSpec3 = mTabHost.newTabSpec("tab spec 3");
         tabSpec3.setIndicator("tab 3");
         // TabContentFactory to create a ListView as the content of the tab.
-        tabSpec3.setContent(android.widget.cts.R.id.tabhost_listview);
+        tabSpec3.setContent(R.id.tabhost_listview);
         mTabHost.addTab(tabSpec3);
         mTabHost.setCurrentTab(2);
         assertTrue(mTabHost.getCurrentView() instanceof ListView);
     }
 
     @UiThreadTest
+    @Test
     public void testSetContent2() {
-        TabSpec tabSpec2 = mTabHost.newTabSpec("tab spec 2");
+        TabHost.TabSpec tabSpec2 = mTabHost.newTabSpec("tab spec 2");
         tabSpec2.setIndicator("tab 2");
         // TabContentFactory to create a TextView as the content of the tab.
         tabSpec2.setContent(new MockTabContentFactoryText());
@@ -164,7 +179,7 @@ public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHos
         TextView currentView = (TextView) mTabHost.getCurrentView();
         assertEquals("tab spec 2", currentView.getText().toString());
 
-        TabSpec tabSpec3 = mTabHost.newTabSpec("tab spec 3");
+        TabHost.TabSpec tabSpec3 = mTabHost.newTabSpec("tab spec 3");
         tabSpec3.setIndicator("tab 3");
         // TabContentFactory to create a ListView as the content of the tab.
         tabSpec3.setContent(new MockTabContentFactoryList());
@@ -173,22 +188,21 @@ public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHos
         assertTrue(mTabHost.getCurrentView() instanceof ListView);
     }
 
+    @Test
     public void testSetContent3() {
         // The scheme of uri string must be "ctstest" to launch MockURLSpanTestActivity
         Uri uri = Uri.parse("ctstest://tabhost_tabspec/test");
         final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                TabSpec tabSpec = mTabHost.newTabSpec("tab spec");
-                tabSpec.setIndicator("tab");
-                tabSpec.setContent(intent);
-                mTabHost.addTab(tabSpec);
-                mTabHost.setCurrentTab(1);
-            }
+        mActivity.runOnUiThread(() -> {
+            TabHost.TabSpec tabSpec = mTabHost.newTabSpec("tab spec");
+            tabSpec.setIndicator("tab");
+            tabSpec.setContent(intent);
+            mTabHost.addTab(tabSpec);
+            mTabHost.setCurrentTab(1);
         });
 
-        Instrumentation instrumentation = getInstrumentation();
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         ActivityMonitor am = instrumentation.addMonitor(MockURLSpanTestActivity.class.getName(),
                 null, false);
 

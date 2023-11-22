@@ -25,6 +25,7 @@
 #include <fcntl.h>
 
 #include <android-base/stringprintf.h>
+#include <cutils/properties.h>
 
 #include "perfprofdcore.h"
 #include "configreader.h"
@@ -102,7 +103,7 @@ class PerfProfdTest : public testing::Test {
     if (test_dir == "") {
       ASSERT_TRUE(executable_path != nullptr);
       std::string s(executable_path);
-      auto found = s.find_last_of("/");
+      auto found = s.find_last_of('/');
       test_dir = s.substr(0,found);
       dest_dir = test_dir;
       dest_dir += "/tmp";
@@ -125,7 +126,7 @@ static std::string squeezeWhite(const std::string &str,
 {
   if (dump) { fprintf(stderr, "raw %s is %s\n", tag, str.c_str()); }
   std::string result(str);
-  std::replace( result.begin(), result.end(), '\n', ' ');
+  std::replace(result.begin(), result.end(), '\n', ' ');
   auto new_end = std::unique(result.begin(), result.end(), bothWhiteSpace);
   result.erase(new_end, result.end());
   while (result.begin() != result.end() && std::isspace(*result.rbegin())) {
@@ -133,6 +134,38 @@ static std::string squeezeWhite(const std::string &str,
   }
   if (dump) { fprintf(stderr, "squeezed %s is %s\n", tag, result.c_str()); }
   return result;
+}
+
+//
+// Replace all occurrences of a string with another string.
+//
+static std::string replaceAll(const std::string &str,
+                              const std::string &from,
+                              const std::string &to)
+{
+  std::string ret = "";
+  size_t pos = 0;
+  while (pos < str.size()) {
+    size_t found = str.find(from, pos);
+    if (found == std::string::npos) {
+      ret += str.substr(pos);
+      break;
+    }
+    ret += str.substr(pos, found - pos) + to;
+    pos = found + from.size();
+  }
+  return ret;
+}
+
+//
+// Replace occurrences of special variables in the string.
+//
+static std::string expandVars(const std::string &str) {
+#ifdef __LP64__
+  return replaceAll(str, "$NATIVE_TESTS", "/data/nativetest64");
+#else
+  return replaceAll(str, "$NATIVE_TESTS", "/data/nativetest");
+#endif
 }
 
 ///
@@ -169,7 +202,7 @@ class PerfProfdRunner {
   {
     std::string semaphore(test_dir);
     semaphore += "/" SEMAPHORE_FILENAME;
-    close(open(semaphore.c_str(), O_WRONLY|O_CREAT));
+    close(open(semaphore.c_str(), O_WRONLY|O_CREAT, 0600));
   }
 
   void write_processed_file(int start_seq, int end_seq)
@@ -292,6 +325,15 @@ static void compareLogMessages(const std::string &actual,
      }
      EXPECT_TRUE(wasFound);
    }
+}
+
+TEST_F(PerfProfdTest, TestUtil)
+{
+  EXPECT_EQ("", replaceAll("", "", ""));
+  EXPECT_EQ("zzbc", replaceAll("abc", "a", "zz"));
+  EXPECT_EQ("azzc", replaceAll("abc", "b", "zz"));
+  EXPECT_EQ("abzz", replaceAll("abc", "c", "zz"));
+  EXPECT_EQ("xxyyzz", replaceAll("abc", "abc", "xxyyzz"));
 }
 
 TEST_F(PerfProfdTest, MissingGMS)
@@ -522,8 +564,8 @@ TEST_F(PerfProfdTest, BasicRunWithCannedPerf)
   readEncodedProfile("BasicRunWithCannedPerf",
                      encodedProfile);
 
-  // Expect 29 load modules
-  EXPECT_EQ(29, encodedProfile.programs_size());
+  // Expect 45 programs
+  EXPECT_EQ(45, encodedProfile.programs_size());
 
   // Check a couple of load modules
   { const auto &lm0 = encodedProfile.load_modules(0);
@@ -570,6 +612,81 @@ TEST_F(PerfProfdTest, BasicRunWithCannedPerf)
   }
 }
 
+TEST_F(PerfProfdTest, CallchainRunWithCannedPerf)
+{
+  // This test makes sure that the perf.data converter
+  // can handle call chains.
+  //
+  std::string input_perf_data(test_dir);
+  input_perf_data += "/callchain.canned.perf.data";
+
+  // Set up config to avoid these annotations (they are tested elsewhere)
+  ConfigReader config;
+  config.overrideUnsignedEntry("collect_cpu_utilization", 0);
+  config.overrideUnsignedEntry("collect_charging_state", 0);
+  config.overrideUnsignedEntry("collect_camera_active", 0);
+
+  // Kick off encoder and check return code
+  PROFILE_RESULT result =
+      encode_to_proto(input_perf_data, encoded_file_path(0).c_str(), config, 0);
+  EXPECT_EQ(OK_PROFILE_COLLECTION, result);
+
+  // Read and decode the resulting perf.data.encoded file
+  wireless_android_play_playlog::AndroidPerfProfile encodedProfile;
+  readEncodedProfile("BasicRunWithCannedPerf",
+                     encodedProfile);
+
+
+  // Expect 3 programs 8 load modules
+  EXPECT_EQ(3, encodedProfile.programs_size());
+  EXPECT_EQ(8, encodedProfile.load_modules_size());
+
+  // Check a couple of load modules
+  { const auto &lm0 = encodedProfile.load_modules(0);
+    std::string act_lm0 = encodedLoadModuleToString(lm0);
+    std::string sqact0 = squeezeWhite(act_lm0, "actual for lm 0");
+    const std::string expected_lm0 = RAW_RESULT(
+        name: "/system/bin/dex2oat"
+        build_id: "ee12bd1a1de39422d848f249add0afc4"
+                                                );
+    std::string sqexp0 = squeezeWhite(expected_lm0, "expected_lm0");
+    EXPECT_STREQ(sqexp0.c_str(), sqact0.c_str());
+  }
+  { const auto &lm1 = encodedProfile.load_modules(1);
+    std::string act_lm1 = encodedLoadModuleToString(lm1);
+    std::string sqact1 = squeezeWhite(act_lm1, "actual for lm 1");
+    const std::string expected_lm1 = RAW_RESULT(
+        name: "/system/bin/linker"
+        build_id: "a36715f673a4a0aa76ef290124c516cc"
+                                                );
+    std::string sqexp1 = squeezeWhite(expected_lm1, "expected_lm1");
+    EXPECT_STREQ(sqexp1.c_str(), sqact1.c_str());
+  }
+
+  // Examine some of the samples now
+  { const auto &p0 = encodedProfile.programs(0);
+    const auto &lm1 = p0.modules(0);
+    std::string act_lm1 = encodedModuleSamplesToString(lm1);
+    std::string sqact1 = squeezeWhite(act_lm1, "actual for lm1");
+    const std::string expected_lm1 = RAW_RESULT(
+        load_module_id: 0
+        address_samples { address: 108552 count: 2 }
+                                                );
+    std::string sqexp1 = squeezeWhite(expected_lm1, "expected_lm1");
+    EXPECT_STREQ(sqexp1.c_str(), sqact1.c_str());
+  }
+  { const auto &p4 = encodedProfile.programs(2);
+    const auto &lm2 = p4.modules(1);
+    std::string act_lm2 = encodedModuleSamplesToString(lm2);
+    std::string sqact2 = squeezeWhite(act_lm2, "actual for lm2");
+    const std::string expected_lm2 = RAW_RESULT(
+        load_module_id: 2 address_samples { address: 403913 count: 1 } address_samples { address: 840761 count: 1 } address_samples { address: 846481 count: 1 } address_samples { address: 999053 count: 1 } address_samples { address: 1012959 count: 1 } address_samples { address: 1524309 count: 1 } address_samples { address: 1580779 count: 1 } address_samples { address: 4287986288 count: 1 }
+                                                );
+    std::string sqexp2 = squeezeWhite(expected_lm2, "expected_lm2");
+    EXPECT_STREQ(sqexp2.c_str(), sqact2.c_str());
+  }
+}
+
 TEST_F(PerfProfdTest, BasicRunWithLivePerf)
 {
   //
@@ -608,7 +725,7 @@ TEST_F(PerfProfdTest, BasicRunWithLivePerf)
   // Verify log contents
   const std::string expected = RAW_RESULT(
       I: starting Android Wide Profiling daemon
-      I: config file path set to /data/nativetest/perfprofd_test/perfprofd.conf
+      I: config file path set to $NATIVE_TESTS/perfprofd_test/perfprofd.conf
       I: random seed set to 12345678
       I: sleep 674 seconds
       I: initiating profile collection
@@ -618,7 +735,7 @@ TEST_F(PerfProfdTest, BasicRunWithLivePerf)
                                           );
   // check to make sure log excerpt matches
   compareLogMessages(mock_perfprofdutils_getlogged(),
-                     expected, "BasicRunWithLivePerf", true);
+                     expandVars(expected), "BasicRunWithLivePerf", true);
 }
 
 TEST_F(PerfProfdTest, MultipleRunWithLivePerf)
@@ -664,7 +781,7 @@ TEST_F(PerfProfdTest, MultipleRunWithLivePerf)
   // Verify log contents
   const std::string expected = RAW_RESULT(
       I: starting Android Wide Profiling daemon
-      I: config file path set to /data/nativetest/perfprofd_test/perfprofd.conf
+      I: config file path set to $NATIVE_TESTS/perfprofd_test/perfprofd.conf
       I: random seed set to 12345678
       I: sleep 674 seconds
       I: initiating profile collection
@@ -682,7 +799,69 @@ TEST_F(PerfProfdTest, MultipleRunWithLivePerf)
                                           );
   // check to make sure log excerpt matches
   compareLogMessages(mock_perfprofdutils_getlogged(),
-                     expected, "BasicRunWithLivePerf", true);
+                     expandVars(expected), "BasicRunWithLivePerf", true);
+}
+
+TEST_F(PerfProfdTest, CallChainRunWithLivePerf)
+{
+  //
+  // Callchain profiles are only supported on certain devices.
+  // For now this test is stubbed out except when run on "angler".
+  //
+  char propBuf[PROPERTY_VALUE_MAX];
+  propBuf[0] = '\0';
+  property_get("ro.hardware", propBuf, "");
+  if (strcmp(propBuf, "angler")) {
+    return;
+  }
+
+  //
+  // Collect a callchain profile, so as to exercise the code in
+  // perf_data post-processing that digests callchains.
+  //
+  PerfProfdRunner runner;
+  std::string ddparam("destination_directory="); ddparam += dest_dir;
+  runner.addToConfig(ddparam);
+  std::string cfparam("config_directory="); cfparam += test_dir;
+  runner.addToConfig(cfparam);
+  runner.addToConfig("main_loop_iterations=1");
+  runner.addToConfig("use_fixed_seed=12345678");
+  runner.addToConfig("max_unprocessed_profiles=100");
+  runner.addToConfig("collection_interval=9999");
+  runner.addToConfig("stack_profile=1");
+  runner.addToConfig("sample_duration=2");
+
+  // Create semaphore file
+  runner.create_semaphore_file();
+
+  // Kick off daemon
+  int daemon_main_return_code = runner.invoke();
+
+  // Check return code from daemon
+  EXPECT_EQ(0, daemon_main_return_code);
+
+  // Read and decode the resulting perf.data.encoded file
+  wireless_android_play_playlog::AndroidPerfProfile encodedProfile;
+  readEncodedProfile("CallChainRunWithLivePerf", encodedProfile);
+
+  // Examine what we get back. Since it's a live profile, we can't
+  // really do much in terms of verifying the contents.
+  EXPECT_LT(0, encodedProfile.programs_size());
+
+  // Verify log contents
+  const std::string expected = RAW_RESULT(
+      I: starting Android Wide Profiling daemon
+      I: config file path set to $NATIVE_TESTS/perfprofd_test/perfprofd.conf
+      I: random seed set to 12345678
+      I: sleep 674 seconds
+      I: initiating profile collection
+      I: profile collection complete
+      I: sleep 9325 seconds
+      I: finishing Android Wide Profiling daemon
+                                          );
+  // check to make sure log excerpt matches
+  compareLogMessages(mock_perfprofdutils_getlogged(),
+                     expandVars(expected), "CallChainRunWithLivePerf", true);
 }
 
 int main(int argc, char **argv) {

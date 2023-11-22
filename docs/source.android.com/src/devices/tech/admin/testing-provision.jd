@@ -47,8 +47,8 @@ development machine.</p>
 <a href="{@docRoot}source/downloading.html">Downloading the Source</a>. The AfW
 Test Harness source code is in the <code>./test/AfwTestHarness</code> project.
 The branch name determines the version of AfW Test Harness to download (each
-Android platform has a separate version of AfW Test Harness). For Android 6.0,
-the branch name is <code>afw-test-harness-marshmallow-dev</code>. To initialize
+Android platform has a separate version of AfW Test Harness). For Android 7.0,
+the branch name is <code>afw-test-harness-nougat-dev</code>. To initialize
 the repo and download source code for this branch, use:</p>
 
 <pre>
@@ -56,7 +56,7 @@ $ mkdir WORKING_DIRECTORY
 $ cd WORKING_DIRECTORY
 $ git config --global user.name "Your Name"
 $ git config --global user.email "you@example.com"
-$ repo init -u https://android.googlesource.com/platform/manifest -b afw-test-harness-marshmallow-dev
+$ repo init -u https://android.googlesource.com/platform/manifest -b afw-test-harness-nougat-dev
 $ repo sync -j24
 </pre>
 
@@ -67,6 +67,14 @@ the corresponding tag. Available branches include:</p>
 <tr>
 <th>Branch Name</td>
 <th>Supported Android Platform</td>
+</tr>
+<tr>
+<td>afw-test-harness-nougat-dev</td>
+<td>Android 7.0</td>
+</tr>
+<tr>
+<td>afw-test-harness-2.1</td>
+<td>Android 7.0</td>
 </tr>
 <tr>
 <td>afw-test-harness-marshmallow-dev</td>

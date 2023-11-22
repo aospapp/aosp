@@ -20,8 +20,10 @@
 #include <stdint.h>
 #include <sys/cdefs.h>
 
+#ifndef _HW_DONT_INCLUDE_CORE_
 #include <cutils/native_handle.h>
 #include <system/graphics.h>
+#endif // _HW_DONT_INCLUDE_CORE_
 
 __BEGIN_DECLS
 
@@ -200,6 +202,12 @@ typedef struct hw_device_t {
     int (*close)(struct hw_device_t* device);
 
 } hw_device_t;
+
+#ifdef __cplusplus
+#define TO_HW_DEVICE_T_OPEN(x) reinterpret_cast<struct hw_device_t**>(x)
+#else
+#define TO_HW_DEVICE_T_OPEN(x) (struct hw_device_t**)(x)
+#endif
 
 /**
  * Name of the hal_module_info

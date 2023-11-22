@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/lex.c,v 1.218 2016/01/20 21:34:12 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/lex.c,v 1.228 2016/08/01 21:38:03 tg Exp $");
 
 /*
  * states while lexing word
@@ -462,10 +462,12 @@ yylex(int cf)
 							break;
 						}
 					} else if (c == '/') {
+						c2 = ADELIM;
+ parse_adelim_slash:
 						*wp++ = CHAR;
 						*wp++ = c;
 						if ((c = getsc()) == '/') {
-							*wp++ = ADELIM;
+							*wp++ = c2;
 							*wp++ = c;
 						} else
 							ungetsc(c);
@@ -475,6 +477,13 @@ yylex(int cf)
 						statep->ls_adelim.num = 1;
 						statep->nparen = 0;
 						break;
+					} else if (c == '@') {
+						c2 = getsc();
+						ungetsc(c2);
+						if (c2 == '/') {
+							c2 = CHAR;
+							goto parse_adelim_slash;
+						}
 					}
 					/*
 					 * If this is a trim operation,
@@ -526,33 +535,13 @@ yylex(int cf)
 				*wp++ = COMSUB;
 				/*
 				 * We need to know whether we are within double
-				 * quotes, since most shells translate \" to "
-				 * within "…`…\"…`…". This is not done in POSIX
-				 * mode (§2.2.3 Double-Quotes: “The backquote
-				 * shall retain its special meaning introducing
-				 * the other form of command substitution (see
-				 * Command Substitution). The portion of the
-				 * quoted string from the initial backquote and
-				 * the characters up to the next backquote that
-				 * is not preceded by a <backslash>, having
-				 * escape characters removed, defines that
-				 * command whose output replaces "`...`" when
-				 * the word is expanded.”; §2.6.3 Command
-				 * Substitution: “Within the backquoted style
-				 * of command substitution, <backslash> shall
-				 * retain its literal meaning, except when
-				 * followed by: '$', '`', or <backslash>. The
-				 * search for the matching backquote shall be
-				 * satisfied by the first unquoted non-escaped
-				 * backquote; during this search, if a
-				 * non-escaped backquote is encountered[…],
-				 * undefined results occur.”).
+				 * quotes in order to translate \" to " within
+				 * "…`…\"…`…" because, unlike for COMSUBs, the
+				 * outer double quoteing changes the backslash
+				 * meaning for the inside. For more details:
+				 * http://austingroupbugs.net/view.php?id=1015
 				 */
 				statep->ls_bool = false;
-#ifdef austingroupbugs1015_is_still_not_resolved
-				if (Flag(FPOSIX))
-					break;
-#endif
 				s2 = statep;
 				base = state_info.base;
 				while (/* CONSTCOND */ 1) {
@@ -907,20 +896,11 @@ yylex(int cf)
 #ifndef MKSH_LEGACY_MODE
 	    (c == '&' && !Flag(FSH) && !Flag(FPOSIX)) ||
 #endif
-	    c == '<' || c == '>')) {
+	    c == '<' || c == '>') && ((c2 = Xlength(ws, wp)) == 0 ||
+	    (c2 == 2 && dp[0] == CHAR && ksh_isdigit(dp[1])))) {
 		struct ioword *iop = alloc(sizeof(struct ioword), ATEMP);
 
-		if (Xlength(ws, wp) == 0)
-			iop->unit = c == '<' ? 0 : 1;
-		else for (iop->unit = 0, c2 = 0; c2 < Xlength(ws, wp); c2 += 2) {
-			if (dp[c2] != CHAR)
-				goto no_iop;
-			if (!ksh_isdigit(dp[c2 + 1]))
-				goto no_iop;
-			iop->unit = iop->unit * 10 + ksh_numdig(dp[c2 + 1]);
-			if (iop->unit >= FDBASE)
-				goto no_iop;
-		}
+		iop->unit = c2 == 2 ? ksh_numdig(dp[1]) : c == '<' ? 0 : 1;
 
 		if (c == '&') {
 			if ((c2 = getsc()) != '>') {
@@ -1000,6 +980,16 @@ yylex(int cf)
 				if (cf & CONTIN)
 					goto Again;
 			}
+		} else if (c == '\0' && !(cf & HEREDELIM)) {
+			struct ioword **p = heres;
+
+			while (p < herep)
+				if ((*p)->ioflag & IOHERESTR)
+					++p;
+				else
+					/* ksh -c 'cat <<EOF' can cause this */
+					yyerror(Tf_heredoc,
+					    evalstr((*p)->delim, 0));
 		}
 		return (c);
 	}
@@ -1173,7 +1163,7 @@ readhere(struct ioword *iop)
 	while (c != '\n') {
 		if (!c)
 			/* oops, reached EOF */
-			yyerror("%s '%s' unclosed\n", "here document", eof);
+			yyerror(Tf_heredoc, eof);
 		/* store character */
 		Xcheck(xs, xp);
 		Xput(xs, xp, c);
@@ -1273,7 +1263,7 @@ getsc_uu(void)
 				s->start = s->str = "\n";
 				s->type = SEOF;
 			} else {
-				s->start = s->str = " ";
+				s->start = s->str = T1space;
 				s->type = SWORDS;
 			}
 			break;
@@ -1359,8 +1349,11 @@ getsc_line(Source *s)
 		ksh_tmout_state = TMOUT_READING;
 		alarm(ksh_tmout);
 	}
-	if (interactive)
+	if (interactive) {
+		if (cur_prompt == PS1)
+			histsave(&s->line, NULL, HIST_FLUSH, true);
 		change_winsz();
+	}
 #ifndef MKSH_NO_CMDLINE_EDITING
 	if (have_tty && (
 #if !MKSH_S_NOVI
@@ -1481,7 +1474,7 @@ set_prompt(int to, Source *s)
 				if (*ps1 != '!' || *++ps1 == '!')
 					shf_putchar(*ps1++, shf);
 				else
-					shf_fprintf(shf, "%lu", s ?
+					shf_fprintf(shf, Tf_lu, s ?
 					    (unsigned long)s->line + 1 : 0UL);
 			ps1 = shf_sclose(shf);
 			saved_lineno = current_lineno;
@@ -1573,38 +1566,55 @@ get_brace_var(XString *wsp, char *wp)
 {
 	char c;
 	enum parse_state {
-		PS_INITIAL, PS_SAW_HASH, PS_IDENT,
-		PS_NUMBER, PS_VAR1
+		PS_INITIAL, PS_SAW_PERCENT, PS_SAW_HASH, PS_SAW_BANG,
+		PS_IDENT, PS_NUMBER, PS_VAR1
 	} state = PS_INITIAL;
 
 	while (/* CONSTCOND */ 1) {
 		c = getsc();
 		/* State machine to figure out where the variable part ends. */
 		switch (state) {
+		case PS_SAW_HASH:
+			if (ctype(c, C_VAR1)) {
+				char c2;
+
+				c2 = getsc();
+				ungetsc(c2);
+				if (c2 != /*{*/ '}') {
+					ungetsc(c);
+					goto out;
+				}
+			}
+			goto ps_common;
+		case PS_SAW_BANG:
+			switch (c) {
+			case '@':
+			case '#':
+			case '-':
+			case '?':
+				goto out;
+			}
+			goto ps_common;
 		case PS_INITIAL:
-			if (c == '#' || c == '!' || c == '%') {
+			switch (c) {
+			case '%':
+				state = PS_SAW_PERCENT;
+				goto next;
+			case '#':
 				state = PS_SAW_HASH;
-				break;
+				goto next;
+			case '!':
+				state = PS_SAW_BANG;
+				goto next;
 			}
 			/* FALLTHROUGH */
-		case PS_SAW_HASH:
+		case PS_SAW_PERCENT:
+ ps_common:
 			if (ksh_isalphx(c))
 				state = PS_IDENT;
 			else if (ksh_isdigit(c))
 				state = PS_NUMBER;
-			else if (c == '#') {
-				if (state == PS_SAW_HASH) {
-					char c2;
-
-					c2 = getsc();
-					ungetsc(c2);
-					if (c2 != /*{*/ '}') {
-						ungetsc(c);
-						goto out;
-					}
-				}
-				state = PS_VAR1;
-			} else if (ctype(c, C_VAR1))
+			else if (ctype(c, C_VAR1))
 				state = PS_VAR1;
 			else
 				goto out;
@@ -1627,6 +1637,7 @@ get_brace_var(XString *wsp, char *wp)
 				}
 				goto out;
 			}
+ next:
 			break;
 		case PS_NUMBER:
 			if (!ksh_isdigit(c))

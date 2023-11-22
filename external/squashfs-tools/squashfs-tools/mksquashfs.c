@@ -127,6 +127,12 @@ unsigned int id_count = 0;
 int file_count = 0, sym_count = 0, dev_count = 0, dir_count = 0, fifo_count = 0,
 	sock_count = 0;
 
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+int whitelisted_count = 0;
+#endif
+/* ANDROID CHANGES END */
+
 /* write position within data section */
 long long bytes = 0, total_bytes = 0;
 
@@ -330,6 +336,24 @@ void write_filesystem_tables(struct squashfs_super_block *sBlk, int nopad);
 unsigned short get_checksum_mem(char *buff, int bytes);
 void check_usable_phys_mem(int total_mem);
 
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+static int whitelisted(struct stat *buf);
+static void add_whitelist_entry(char *filename, struct stat *buf);
+static int add_whitelist(char *path);
+static void process_whitelist_file(char *argv);
+
+#define WHITELIST_SIZE 8192
+int whitelist = 0;
+
+struct whitelist_info {
+	dev_t			st_dev;
+	ino_t			st_ino;
+};
+char *whitelist_filename = NULL;
+struct whitelist_info *whitelist_paths = NULL;
+#endif
+/* ANDROID CHANGES END */
 
 void prep_exit()
 {
@@ -863,11 +887,29 @@ static inline unsigned int get_parent_no(struct dir_info *dir)
 
 /* ANDROID CHANGES START*/
 #ifdef ANDROID
+
+/* Round up the passed |n| value to the smallest multiple of 4096 greater or
+ * equal than |n| and return the 4K-block number for that value. */
+static unsigned long long round_up_block(unsigned long long n) {
+	const unsigned long long kMapBlockSize = 4096;
+	return (n + kMapBlockSize - 1) / kMapBlockSize;
+}
+
 static inline void write_block_map_entry(char *sub_path, unsigned long long start_block, unsigned long long total_size,
 		char * mount_point, FILE *block_map_file) {
 	if (block_map_file) {
-		unsigned long long round_start = (start_block + (1 << 12) - 1) >> 12;
-		unsigned long long round_end = ((start_block + total_size) >> 12) - 1;
+		/* We assign each 4K block based on what file the first byte of the block
+		 * belongs to. The current file consists of the chunk of bytes in the
+		 * interval [start_block, start_block + total_size), (closed on the left end
+		 * and open on the right end). We then compute the first block whose first
+		 * byte is equal to or greater than start_block as |round_start| and then
+		 * the first block whose first byte is *past* this interval, as
+		 * |round_end + 1|. This means that the blocks that should be assigned to
+		 * the current file are in the interval [round_start, round_end + 1), or
+		 * simply [round_start, round_end].
+		 */
+		unsigned long long round_start = round_up_block(start_block);
+		unsigned long long round_end = round_up_block(start_block + total_size) - 1;
 		if (round_start && total_size && round_start <= round_end) {
 			fprintf(block_map_file, "/%s", mount_point);
 			if (sub_path[0] != '/') fprintf(block_map_file, "/");
@@ -3060,7 +3102,16 @@ struct inode_info *lookup_inode3(struct stat *buf, int pseudo, int id,
 	*/
 	inode->no_fragments = no_fragments;
 	inode->always_use_fragments = always_use_fragments;
+
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+	/* Check the whitelist */
+	inode->noD = whitelisted(buf);
+#else
 	inode->noD = noD;
+#endif
+/* ANDROID CHANGES END */
+
 	inode->noF = noF;
 
 	inode->next = inode_info[ino_hash];
@@ -4744,6 +4795,150 @@ void process_exclude_file(char *argv)
 	fclose(fd);
 }
 
+/* ANDROID CHANGES START*/
+#ifdef ANDROID
+/*
+ * Return TRUE (don't compress) if the (regular) file is in the 
+ * whitelist. Else return the Global noD value.
+ * 
+ * Note : These functions are lifted 100% from the existing exclude 
+ * file code. For maintainability, I've kept this code separate from 
+ * the exclude code instead of having common code for both paths.
+ */
+static int 
+whitelisted(struct stat *buf)
+{
+	int i;
+
+	/*
+	 * only regular files in the whitelist
+	 */
+	if (!S_ISREG(buf->st_mode))
+		return noD;
+	for (i = 0; i < whitelist; i++) {
+		if ((whitelist_paths[i].st_dev == buf->st_dev) &&
+		    (whitelist_paths[i].st_ino == buf->st_ino)) {
+			/* Don't compress */
+			whitelisted_count++;
+			return TRUE;
+		}
+	}
+	return noD;
+}
+
+static void
+add_whitelist_entry(char *filename, struct stat *buf)
+{
+	if (!S_ISREG(buf->st_mode)) {
+		BAD_ERROR("Cannot whitelist %s only regular files can be whitelisted",
+			  filename);
+	}
+	if (whitelist % WHITELIST_SIZE == 0) {
+		whitelist_paths = realloc(whitelist_paths, 
+					  (whitelist + WHITELIST_SIZE)
+					  * sizeof(struct whitelist_info));
+		if (whitelist_paths == NULL)
+			MEM_ERROR();
+	}
+	whitelist_paths[whitelist].st_dev = buf->st_dev;
+	whitelist_paths[whitelist++].st_ino = buf->st_ino;
+}
+
+static int 
+add_whitelist(char *path)
+{
+	int i;
+	char *filename;
+	struct stat buf;
+
+	/* Absolute of (filesystem) relative path */
+	if (path[0] == '/' || strncmp(path, "./", 2) == 0 ||
+	    strncmp(path, "../", 3) == 0) {
+		if(lstat(path, &buf) == -1) {
+			BAD_ERROR("Cannot stat whitelist dir/file %s because "
+				  "%s", path, strerror(errno));
+		}
+		add_whitelist_entry(path, &buf);
+		return TRUE;
+	}
+
+	/* pathname relative to mksquashfs source dirs */
+	for(i = 0; i < source; i++) {
+		int res = asprintf(&filename, "%s/%s", source_path[i], path);
+		if(res == -1)
+			BAD_ERROR("asprintf failed in add_whitelist\n");
+		if(lstat(filename, &buf) == -1) {
+			if(!(errno == ENOENT || errno == ENOTDIR)) {
+				BAD_ERROR("Cannot stat whitelist dir/file %s "
+					  "because %s", filename, strerror(errno));
+			}
+			free(filename);
+			continue;
+		}
+		add_whitelist_entry(filename, &buf);
+		free(filename);
+	}
+	return TRUE;
+}
+
+static void 
+process_whitelist_file(char *argv)
+{
+	FILE *fd;
+	char buffer[MAX_LINE + 1]; /* overflow safe */
+	char *filename;
+
+	fd = fopen(argv, "r");
+	if(fd == NULL)
+		BAD_ERROR("Failed to open whitelist file \"%s\" because %s\n",
+			argv, strerror(errno));
+
+	while(fgets(filename = buffer, MAX_LINE + 1, fd) != NULL) {
+		int len = strlen(filename);
+
+		if(len == MAX_LINE && filename[len - 1] != '\n')
+			/* line too large */
+			BAD_ERROR("Line too long when reading "
+				"whitelist file \"%s\", larger than %d "
+				"bytes\n", argv, MAX_LINE);
+
+		/*
+		 * Remove '\n' terminator if it exists (the last line
+		 * in the file may not be '\n' terminated)
+		 */
+		if(len && filename[len - 1] == '\n')
+			filename[len - 1] = '\0';
+
+		/* Skip any leading whitespace */
+		while(isspace(*filename))
+			filename ++;
+
+		/* if comment line, skip */
+		if(*filename == '#')
+			continue;
+
+		/*
+		 * check for initial backslash, to accommodate
+		 * filenames with leading space or leading # character
+		 */
+		if(*filename == '\\')
+			filename ++;
+
+		/* if line is now empty after skipping characters, skip it */
+		if(*filename == '\0')
+			continue;
+
+		add_whitelist(filename);
+	}
+
+	if(ferror(fd))
+		BAD_ERROR("Reading whitelist file \"%s\" failed because %s\n",
+			argv, strerror(errno));
+
+	fclose(fd);
+}
+#endif
+/* ANDROID CHANGES END */
 
 #define RECOVER_ID "Squashfs recovery file v1.0\n"
 #define RECOVER_ID_SIZE 28
@@ -4989,6 +5184,9 @@ void write_filesystem_tables(struct squashfs_super_block *sBlk, int nopad)
 				group->gr_name, id_table[i]->id);
 		}
 	}
+	
+	printf("Number of whitelisted (uncompressed) files %d\n", 
+	       whitelisted_count);
 }
 
 
@@ -5697,6 +5895,12 @@ print_compressor_options:
 				exit(1);
 			}
 			fs_config_file = argv[i];
+		} else if(strcmp(argv[i], "-whitelist") == 0) {
+			if(++i == argc) {
+				ERROR("%s: -whitelist missing filename\n", argv[0]);
+				exit(1);
+			}
+			whitelist_filename = argv[i];
 		}
 		else if(strcmp(argv[i], "-t") == 0) {
 			if(++i == argc) {
@@ -5816,6 +6020,8 @@ printOptions:
 				"acceptable compression ratio of a block to\n\t\t\t"
 				"<compress_thresh_per> otherwise don't compress. "
 				"Default 0%\n");
+			ERROR("-whitelist <file>\tAndroid specific whitelist "
+			      "one entry per line (no wildcards)\n");
 #endif
 /* ANDROID CHANGES END */
 			ERROR("-noI\t\t\tdo not compress inode table\n");
@@ -5931,6 +6137,8 @@ printOptions:
 	} else if (mount_point) {
 		fs_config_func = fs_config;
 	}
+	if (whitelist_filename)
+		process_whitelist_file(whitelist_filename);
 #endif
 /* ANDROID CHANGES END */
 

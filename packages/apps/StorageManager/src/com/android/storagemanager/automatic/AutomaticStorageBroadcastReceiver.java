@@ -24,7 +24,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.SystemProperties;
 import android.text.format.DateUtils;
-
 /**
  * A {@link BroadcastReceiver} listening for {@link Intent#ACTION_BOOT_COMPLETED} broadcasts to
  * schedule an automatic storage management job. Automatic storage management jobs are only
@@ -37,6 +36,7 @@ public class AutomaticStorageBroadcastReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        // Automatic deletion service
         JobScheduler jobScheduler =
                 (JobScheduler) context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
         ComponentName component = new ComponentName(context,

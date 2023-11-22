@@ -18,8 +18,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.ObjectReference;
 
-import java.util.Random;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -44,6 +42,7 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
 
     static final String referrerObjSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/ReferringObjectsReferrer001;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.ReferringObjectsDebuggee";
     }
@@ -96,7 +95,7 @@ public class ReferringObjectsTest extends JDWPSyncTestCase {
         logWriter.println("==> " + thisTestName + " for " + thisCommandName + ": START...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        // Get the number of referrer objects in ReferringObjectsDebugee
+        // Get the number of referrer objects in ReferringObjectsDebuggee
         long debuggeeRefTypeID = getClassIDBySignature(debuggeeSignature);
         long referringObjNumID = debuggeeWrapper.vmMirror.getFieldID(
                 debuggeeRefTypeID, "referringObjNum");

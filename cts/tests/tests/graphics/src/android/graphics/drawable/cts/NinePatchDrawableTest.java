@@ -16,40 +16,55 @@
 
 package android.graphics.drawable.cts;
 
-import android.content.res.Resources.Theme;
-import android.graphics.Outline;
-import android.graphics.cts.R;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.res.Resources;
+import android.content.res.Resources.Theme;
 import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.NinePatch;
+import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff.Mode;
 import android.graphics.Rect;
 import android.graphics.Region;
-import android.graphics.Bitmap.Config;
-import android.graphics.PorterDuff.Mode;
+import android.graphics.cts.R;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.NinePatchDrawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.test.InstrumentationTestCase;
+import android.graphics.drawable.NinePatchDrawable;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Xml;
+
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-public class NinePatchDrawableTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class NinePatchDrawableTest {
     // A small value is actually making sure that the values are matching
     // exactly with the golden image.
     // We can increase the threshold if the Skia is drawing with some variance
@@ -66,14 +81,14 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
 
     private Resources mResources;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mResources = getInstrumentation().getTargetContext().getResources();
+    @Before
+    public void setup() {
+        mResources = InstrumentationRegistry.getTargetContext().getResources();
         mNinePatchDrawable = getNinePatchDrawable(R.drawable.ninepatch_0);
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testConstructors() {
         byte[] chunk = new byte[MIN_CHUNK_SIZE];
         chunk[MIN_CHUNK_SIZE - 1] = 1;
@@ -97,6 +112,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testDraw() {
         Bitmap bmp = Bitmap.createBitmap(9, 9, Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
@@ -105,32 +121,31 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
 
         mNinePatchDrawable.setBounds(0, 0, 9, 9);
         mNinePatchDrawable.draw(c);
-        assertColorFillRect(bmp, 0, 0, 4, 4, Color.RED);
-        assertColorFillRect(bmp, 5, 0, 4, 4, Color.BLUE);
-        assertColorFillRect(bmp, 0, 5, 4, 4, ocean);
-        assertColorFillRect(bmp, 5, 5, 4, 4, Color.YELLOW);
-        assertColorFillRect(bmp, 4, 0, 1, 9, Color.WHITE);
-        assertColorFillRect(bmp, 0, 4, 9, 1, Color.WHITE);
+        verifyColorFillRect(bmp, 0, 0, 4, 4, Color.RED);
+        verifyColorFillRect(bmp, 5, 0, 4, 4, Color.BLUE);
+        verifyColorFillRect(bmp, 0, 5, 4, 4, ocean);
+        verifyColorFillRect(bmp, 5, 5, 4, 4, Color.YELLOW);
+        verifyColorFillRect(bmp, 4, 0, 1, 9, Color.WHITE);
+        verifyColorFillRect(bmp, 0, 4, 9, 1, Color.WHITE);
 
         bmp.eraseColor(0xff000000);
 
         mNinePatchDrawable.setBounds(0, 0, 3, 3);
         mNinePatchDrawable.draw(c);
-        assertColorFillRect(bmp, 0, 0, 1, 1, Color.RED);
-        assertColorFillRect(bmp, 2, 0, 1, 1, Color.BLUE);
-        assertColorFillRect(bmp, 0, 2, 1, 1, ocean);
-        assertColorFillRect(bmp, 2, 2, 1, 1, Color.YELLOW);
-        assertColorFillRect(bmp, 1, 0, 1, 3, Color.WHITE);
-        assertColorFillRect(bmp, 0, 1, 3, 1, Color.WHITE);
-
-        try {
-            mNinePatchDrawable.draw(null);
-            fail("The method should check whether the canvas is null.");
-        } catch (NullPointerException e) {
-            // expected
-        }
+        verifyColorFillRect(bmp, 0, 0, 1, 1, Color.RED);
+        verifyColorFillRect(bmp, 2, 0, 1, 1, Color.BLUE);
+        verifyColorFillRect(bmp, 0, 2, 1, 1, ocean);
+        verifyColorFillRect(bmp, 2, 2, 1, 1, Color.YELLOW);
+        verifyColorFillRect(bmp, 1, 0, 1, 3, Color.WHITE);
+        verifyColorFillRect(bmp, 0, 1, 3, 1, Color.WHITE);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testDrawNullCanvas() {
+        mNinePatchDrawable.draw(null);
+    }
+
+    @Test
     public void testGetChangingConfigurations() {
         ConstantState constantState = mNinePatchDrawable.getConstantState();
 
@@ -153,6 +168,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(0xffff,  mNinePatchDrawable.getChangingConfigurations());
     }
 
+    @Test
     public void testGetPadding() {
         Rect r = new Rect();
         NinePatchDrawable npd = (NinePatchDrawable) mResources.getDrawable(R.drawable.ninepatch_0);
@@ -171,6 +187,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertTrue(r.bottom > 0);
     }
 
+    @Test
     public void testSetAlpha() {
         assertEquals(0xff, mNinePatchDrawable.getPaint().getAlpha());
 
@@ -184,10 +201,11 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(0xfe, mNinePatchDrawable.getPaint().getAlpha());
     }
 
+    @Test
     public void testSetColorFilter() {
         assertNull(mNinePatchDrawable.getPaint().getColorFilter());
 
-        MockColorFilter cf = new MockColorFilter();
+        ColorFilter cf = new ColorFilter();
         mNinePatchDrawable.setColorFilter(cf);
         assertSame(cf, mNinePatchDrawable.getPaint().getColorFilter());
 
@@ -195,6 +213,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertNull(mNinePatchDrawable.getPaint().getColorFilter());
     }
 
+    @Test
     public void testSetTint() {
         mNinePatchDrawable.setTint(Color.BLACK);
         mNinePatchDrawable.setTintMode(Mode.SRC_OVER);
@@ -205,6 +224,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         mNinePatchDrawable.setTintMode(null);
     }
 
+    @Test
     public void testSetDither() {
         mNinePatchDrawable.setDither(false);
         assertFalse(mNinePatchDrawable.getPaint().isDither());
@@ -213,6 +233,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertTrue(mNinePatchDrawable.getPaint().isDither());
     }
 
+    @Test
     public void testSetFilterBitmap() {
         mNinePatchDrawable.setFilterBitmap(false);
         assertFalse(mNinePatchDrawable.getPaint().isFilterBitmap());
@@ -221,6 +242,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertTrue(mNinePatchDrawable.getPaint().isFilterBitmap());
     }
 
+    @Test
     public void testIsFilterBitmap() {
         mNinePatchDrawable.setFilterBitmap(false);
         assertFalse(mNinePatchDrawable.isFilterBitmap());
@@ -234,6 +256,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
                 mNinePatchDrawable.getPaint().isFilterBitmap());
     }
 
+    @Test
     public void testGetPaint() {
         Paint paint = mNinePatchDrawable.getPaint();
         assertNotNull(paint);
@@ -241,6 +264,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertSame(paint, mNinePatchDrawable.getPaint());
     }
 
+    @Test
     public void testGetIntrinsicWidth() {
         Bitmap bmp = getBitmapUnscaled(R.drawable.ninepatch_0);
         assertEquals(bmp.getWidth(), mNinePatchDrawable.getIntrinsicWidth());
@@ -252,6 +276,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(9, mNinePatchDrawable.getIntrinsicWidth());
     }
 
+    @Test
     public void testGetMinimumWidth() {
         Bitmap bmp = getBitmapUnscaled(R.drawable.ninepatch_0);
         assertEquals(bmp.getWidth(), mNinePatchDrawable.getMinimumWidth());
@@ -263,6 +288,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(9, mNinePatchDrawable.getMinimumWidth());
     }
 
+    @Test
     public void testGetIntrinsicHeight() {
         Bitmap bmp = getBitmapUnscaled(R.drawable.ninepatch_0);
         assertEquals(bmp.getHeight(), mNinePatchDrawable.getIntrinsicHeight());
@@ -274,6 +300,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(9, mNinePatchDrawable.getIntrinsicHeight());
     }
 
+    @Test
     public void testGetMinimumHeight() {
         Bitmap bmp = getBitmapUnscaled(R.drawable.ninepatch_0);
         assertEquals(bmp.getHeight(), mNinePatchDrawable.getMinimumHeight());
@@ -287,13 +314,16 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
 
     // Known failure: Bug 2834281 - Bitmap#hasAlpha seems to return true for
     // images without alpha
-    public void suppress_testGetOpacity() {
+    @Ignore
+    @Test
+    public void testGetOpacity() {
         assertEquals(PixelFormat.OPAQUE, mNinePatchDrawable.getOpacity());
 
         mNinePatchDrawable = getNinePatchDrawable(R.drawable.ninepatch_1);
         assertEquals(PixelFormat.TRANSLUCENT, mNinePatchDrawable.getOpacity());
     }
 
+    @Test
     public void testGetTransparentRegion() {
         // opaque image
         Region r = mNinePatchDrawable.getTransparentRegion();
@@ -314,6 +344,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(new Rect(1, 1, 7, 7), r.getBounds());
     }
 
+    @Test
     public void testGetConstantState() {
         assertNotNull(mNinePatchDrawable.getConstantState());
 
@@ -326,6 +357,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertEquals(0xff, constantState.getChangingConfigurations());
     }
 
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         int sourceWidth = 80;
         int sourceHeight = 120;
@@ -357,6 +389,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         assertTrue(sourceWidth != ninePatchDrawable.getIntrinsicWidth());
     }
 
+    @Test
     public void testMutate() {
         NinePatchDrawable d1 =
             (NinePatchDrawable) mResources.getDrawable(R.drawable.ninepatchdrawable);
@@ -395,11 +428,11 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         void setTargetDensity(NinePatchDrawable dr, int density);
     }
 
-    private void testSetTargetDensityOuter(TargetDensitySetter densitySetter) {
+    private void verifySetTargetDensityOuter(TargetDensitySetter densitySetter) {
         final Resources res = mResources;
         final int densityDpi = res.getConfiguration().densityDpi;
         try {
-            testSetTargetDensityInner(res, DENSITY_IMAGES[0], DENSITY_VALUES, densitySetter);
+            verifySetTargetDensityInner(res, DENSITY_IMAGES[0], DENSITY_VALUES, densitySetter);
         } catch (IOException | XmlPullParserException e) {
             throw new RuntimeException(e);
         } finally {
@@ -407,7 +440,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         }
     }
 
-    private void testSetTargetDensityInner(Resources res, int sourceResId, int[] densities,
+    private void verifySetTargetDensityInner(Resources res, int sourceResId, int[] densities,
             TargetDensitySetter densitySetter) throws XmlPullParserException, IOException {
         final Rect tempPadding = new Rect();
 
@@ -455,53 +488,46 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testSetTargetDensity() {
-        testSetTargetDensityOuter(new TargetDensitySetter() {
-            @Override
-            public void setTargetDensity(NinePatchDrawable dr, int density) {
-                dr.setTargetDensity(density);
-            }
-        });
+        verifySetTargetDensityOuter((dr, density) -> dr.setTargetDensity(density));
     }
 
+    @Test
     public void testSetTargetDensity_Canvas() {
         // This should be identical to calling setTargetDensity(int) with the
         // value returned by Canvas.getDensity().
-        testSetTargetDensityOuter(new TargetDensitySetter() {
-            @Override
-            public void setTargetDensity(NinePatchDrawable dr, int density) {
-                Canvas c = new Canvas();
-                c.setDensity(density);
-                dr.setTargetDensity(c);
-            }
+        verifySetTargetDensityOuter((dr, density) -> {
+            Canvas c = new Canvas();
+            c.setDensity(density);
+            dr.setTargetDensity(c);
         });
     }
 
+    @Test
     public void testSetTargetDensity_DisplayMetrics() {
         // This should be identical to calling setTargetDensity(int) with the
         // value of DisplayMetrics.densityDpi.
-        testSetTargetDensityOuter(new TargetDensitySetter() {
-            @Override
-            public void setTargetDensity(NinePatchDrawable dr, int density) {
-                DisplayMetrics dm = new DisplayMetrics();
-                dm.densityDpi = density;
-                dr.setTargetDensity(dm);
-            }
+        verifySetTargetDensityOuter((dr, density) -> {
+            DisplayMetrics dm = new DisplayMetrics();
+            dm.densityDpi = density;
+            dr.setTargetDensity(dm);
         });
     }
 
+    @Test
     public void testPreloadDensity() throws XmlPullParserException, IOException {
         final Resources res = mResources;
         final int densityDpi = res.getConfiguration().densityDpi;
         try {
-            testPreloadDensityInner(res, DENSITY_IMAGES[0], DENSITY_VALUES,
+            verifyPreloadDensityInner(res, DENSITY_IMAGES[0], DENSITY_VALUES,
                     DENSITY_GOLDEN_IMAGES[0]);
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
     }
 
-    private void testPreloadDensityInner(Resources res, int sourceResId, int[] densities,
+    private void verifyPreloadDensityInner(Resources res, int sourceResId, int[] densities,
             int[] goldenResIds) throws XmlPullParserException, IOException {
         // Capture initial state at preload density.
         final int preloadDensityDpi = densities[0];
@@ -560,17 +586,18 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         return preloadedDrawable;
     }
 
+    @Test
     public void testOutlinePreloadDensity() throws XmlPullParserException, IOException {
         final Resources res = mResources;
         final int densityDpi = res.getConfiguration().densityDpi;
         try {
-            testOutlinePreloadDensityInner(res);
+            verifyOutlinePreloadDensityInner(res);
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
     }
 
-    private static void testOutlinePreloadDensityInner(Resources res)
+    private static void verifyOutlinePreloadDensityInner(Resources res)
             throws XmlPullParserException, IOException {
         // Capture initial state at preload density.
         final int preloadDensityDpi = DENSITY_VALUES[0];
@@ -612,7 +639,7 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
         }
     }
 
-    private void assertColorFillRect(Bitmap bmp, int x, int y, int w, int h, int color) {
+    private void verifyColorFillRect(Bitmap bmp, int x, int y, int w, int h, int color) {
         for (int i = x; i < x + w; i++) {
             for (int j = y; j < y + h; j++) {
                 assertEquals(color, bmp.getPixel(i, j));
@@ -687,8 +714,5 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
                 }
             }
         }
-    }
-
-    private class MockColorFilter extends ColorFilter {
     }
 }

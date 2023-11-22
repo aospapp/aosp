@@ -5,7 +5,6 @@
 AUTHOR = "akeshet, chromeos-lab-infrastructure"
 NAME = "test_that_wrapper"
 PURPOSE = "Wrapper for ad-hoc suites kicked of by test_that tool."
-CRITERIA = "All tests must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"
@@ -42,7 +41,7 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'ccs': ['beeps@chromium.org']
+    'cc': ['chromeos-lab-errors@google.com']
 }
 
 
@@ -64,7 +63,8 @@ for desc in descriptions:
 combined_predicate = lambda test: any(f(test) for f in sub_predicates)
 
 args_dict['name'] = NAME
-args_dict['max_runtime_mins'] = 20
+if 'max_runtime_mins' not in args_dict:
+    args_dict['max_runtime_mins'] = 20
 args_dict['predicate'] = combined_predicate
 args_dict['job'] = job
 args_dict['add_experimental'] = True

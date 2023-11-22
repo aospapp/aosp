@@ -8,8 +8,7 @@ from autotest_lib.client.common_lib import utils
 
 AUTHOR = 'sbasi, achuith, rohitbm'
 NAME = 'telemetry_Benchmarks.image_decoding.image_decoding_measurement'
-ATTRIBUTES = "suite:crosbolt_perf_nightly"
-SUITE = 'crosbolt_perf_nightly'
+ATTRIBUTES = 'suite:crosbolt_perf_nightly'
 TIME = 'LONG'
 TEST_CATEGORY = 'Benchmark'
 TEST_CLASS = 'performance'

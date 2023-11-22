@@ -2406,7 +2406,7 @@ typedef struct
     /**
      *  lt_ref_pic_poc_lsb_sps[]
      */
-    WORD8 ai1_lt_ref_pic_poc_lsb_sps[MAX_LTREF_PICS_SPS];
+    UWORD16 au2_lt_ref_pic_poc_lsb_sps[MAX_LTREF_PICS_SPS];
 
     /**
      *  used_by_curr_pic_lt_sps_flag[]

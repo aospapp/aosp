@@ -14,92 +14,110 @@
      limitations under the License.
 -->
 
-<android.widget.cts.MyHorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/horizontal_scroll_view"
-    android:layout_width="100px"
-    android:layout_height="100px">
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+    <view
+        class="android.widget.cts.HorizontalScrollViewTest$MyHorizontalScrollView"
+        android:id="@+id/horizontal_scroll_view_custom"
+        android:layout_width="100px"
+        android:layout_height="100px">
 
-    <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="250px"
-        android:layout_height="wrap_content">
-
-        <Button
-            android:id="@+id/first_horizontal_child"
+        <LinearLayout
+            android:orientation="horizontal"
             android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_1"/>
+            android:layout_height="wrap_content">
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:id="@+id/first_horizontal_child"
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:id="@+id/last_horizontal_child"
-            android:layout_width="250px"
-            android:layout_height="100px"
-            android:text="@string/vertical_text_3"/>
-    </LinearLayout>
+            <Button
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_2"/>
 
-</android.widget.cts.MyHorizontalScrollView>
+            <Button
+                android:id="@+id/last_horizontal_child"
+                android:layout_width="250px"
+                android:layout_height="100px"
+                android:text="@string/vertical_text_3"/>
+        </LinearLayout>
+
+    </view>
+
+    <HorizontalScrollView
+        android:id="@+id/horizontal_scroll_view_regular"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <view
+        class="android.widget.cts.HorizontalScrollViewTest$MyHorizontalScrollView"
+        android:id="@+id/horizontal_scroll_view_custom_empty"
+        android:layout_width="100px"
+        android:layout_height="100px" />
+</LinearLayout>

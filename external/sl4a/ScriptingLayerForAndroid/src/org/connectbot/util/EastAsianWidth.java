@@ -20,7 +20,6 @@ package org.connectbot.util;
 import android.util.Log;
 
 /**
- * @author Kenny Root
  *
  */
 public class EastAsianWidth {

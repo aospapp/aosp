@@ -51,8 +51,11 @@ public class OpenGLES20NativeActivityOne extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window window = getWindow();
-        window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
-
+        window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_FULLSCREEN
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
         int viewType = getIntent().getIntExtra(EXTRA_VIEW_TYPE, -1);
         int viewIndex = getIntent().getIntExtra(EXTRA_VIEW_INDEX, -1);
 

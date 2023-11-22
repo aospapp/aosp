@@ -39,9 +39,7 @@ class ScopedKeyHandleTest : public testing::Test {
   ScopedKeyHandleTest() {}
   ~ScopedKeyHandleTest() override {}
 
-  void SetUp() override {
-    factory_.set_tpm(&mock_tpm_);
-  }
+  void SetUp() override { factory_.set_tpm(&mock_tpm_); }
 
  protected:
   TrunksFactoryForTest factory_;

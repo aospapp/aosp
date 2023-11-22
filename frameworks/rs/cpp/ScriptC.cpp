@@ -17,8 +17,7 @@
 #include "RenderScript.h"
 #include "rsCppInternal.h"
 
-using namespace android;
-using namespace RSC;
+using android::RSC::ScriptC;
 
 ScriptC::ScriptC(sp<RS> rs,
                  const void *codeTxt, size_t codeLength,

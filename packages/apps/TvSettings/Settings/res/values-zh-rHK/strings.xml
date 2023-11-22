@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"以太網"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"掃描永遠可用"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"允許 Google 的位置服務和其他應用程式掃描網絡 (即使 Wi-Fi 已關閉)"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允許 Google 的位置資訊服務和其他應用程式掃瞄網絡 (即使 Wi-Fi 已關閉)"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"螢幕保護程式"</string>
     <string name="device_display" msgid="101455384386372747">"顯示"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"剩餘電量：<xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"正在解除配對裝置…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"已連線"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"變更名稱"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"為此配件輸入新名稱"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"正在搜尋配件…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"配對藍牙裝置前，請確認裝置處於配對模式"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"已找到一部裝置，其將於 <xliff:g id="COUNTDOWN">%1$s</xliff:g> 秒後自動配對"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"鍵盤"</string>
     <string name="system_home" msgid="2858989138172296012">"主畫面"</string>
     <string name="system_search" msgid="2837264654143247611">"搜尋"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"安全和限制"</string>
     <string name="system_speech" msgid="8128688499687306982">"語音"</string>
     <string name="system_inputs" msgid="2413907183796651102">"輸入"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"開發人員選項"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"無"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"使用情況與診斷"</string>
+    <string name="tutorials" msgid="3731493987558093244">"教學課程"</string>
     <string name="about_system_update" msgid="7282772247661356586">"系統更新"</string>
     <string name="about_preference" msgid="4131396784531360434">"關於"</string>
     <string name="device_name" msgid="2670488158531273028">"裝置名稱"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"顯示選項"</string>
     <string name="captions_configure" msgid="5537548915977371014">"設定"</string>
     <string name="captions_language" msgid="2835554055388996343">"語言"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"預設"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"文字大小"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"字幕樣式"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"自訂選項"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"轉場動畫比例"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Animator 片長比例"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"嚴格模式已啟用"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"顯示 CPU 使用量"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"分析 GPU 轉譯"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"啟用追蹤"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"不要保留活動"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"由最好至最差：藍色、綠色、淺紅色、紅色"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"更新視窗表層時閃動整個表層"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"當應用程式在主執行緒中進行長時間作業時，讓屏幕閃爍"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"在屏幕上重疊顯示目前的 CPU 使用量"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"量度「adb shell dumpsys gfxinfo」指令中的轉譯時間"</string>
     <string name="action_on_title" msgid="6852389884236870765">"開啟"</string>
     <string name="action_off_title" msgid="3157728958166559966">"關閉"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"強制停止"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"如果您強制停止應用程式，應用程式或會不能正常操作。"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"解除安裝"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"您要解除安裝這個應用程式嗎？"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"解除安裝更新"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"即將解除安裝這個 Android 系統應用程式的所有更新。"</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"停用"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"清除快取"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"通知"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"權限"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"無法啟動應用程式"</string>
     <string name="settings_ok" msgid="3321630456511355983">"確定"</string>
     <string name="settings_cancel" msgid="304280412158061225">"取消"</string>
     <string name="settings_on" msgid="6892236264945435013">"開啟"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"您要清除所有個人資訊和已下載的應用程式嗎？您無法復原這項操作！"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"全部清除"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"為 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 選擇名稱"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"當您透過手機、平板電腦或電腦等裝置存取 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 時，名稱將有助您識別要存取的裝置。"</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"為您的 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 命名，以便從其他裝置投放內容或與其他裝置連線時識別此裝置。"</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"客廳"</item>
-    <item msgid="3722089849939477581">"視聽室"</item>
-    <item msgid="6108590585438763574">"起居室"</item>
-    <item msgid="2581035245390468625">"飯廳"</item>
-    <item msgid="3127487827308695324">"書房"</item>
-    <item msgid="6172018430592195063">"睡房"</item>
-    <item msgid="8120010459866284578">"廚房"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"客廳電視"</item>
+    <item msgid="8122798759665439456">"家庭活動室電視"</item>
+    <item msgid="1389347662738182100">"睡房電視"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"輸入自訂名稱…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"輸入自訂名稱…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"重新命名此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 目前命名為「<xliff:g id="DEVICENAME">%2$s</xliff:g>」"</string>
     <string name="change_setting" msgid="2047402388786162246">"變更"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"重新開機進入安全模式"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"您要重新開機進入安全模式嗎？"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"這會停用所有已安裝的第三方應用程式。您必須再次重新開機才能復原這些應用程式。"</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"正在擷取錯誤報告"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"可用的虛擬鍵盤"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"管理鍵盤"</string>
 </resources>

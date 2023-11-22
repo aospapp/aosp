@@ -7,7 +7,6 @@ NAME = 'platform_CheckWiFiBootstrappingProcesses'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:tendo_experimental"
-SUITE='tendo_experimental'
 
 DOC = """
 This test has a static list of process names that should be running

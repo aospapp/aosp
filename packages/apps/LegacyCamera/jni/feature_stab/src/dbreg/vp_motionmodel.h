@@ -120,7 +120,7 @@ enum VP_MOTION_MODEL {
   VP_VFE_AFFINE=120
 };
 
-#define VP_REFID -1   /* Default ID used for reference frame */
+#define VP_REFID (-1)   /* Default ID used for reference frame */
 
 typedef struct {
   VP_TRS par;            /* Contains the motion paramerers.
@@ -205,16 +205,16 @@ typedef struct {
 /* Warp a 2d point (assuming the z component is zero) */
 #define VP_WARP_POINT_2D(inx,iny,m,outx,outy) do {\
   VP_PAR vpTmpWarpPnt___= MWX(m)*(inx)+MWY(m)*(iny)+MWW(m); \
-  outx = (MXX(m)*((VP_PAR)inx)+MXY(m)*((VP_PAR)iny)+MXW(m))/vpTmpWarpPnt___; \
-  outy = (MYX(m)*((VP_PAR)inx)+MYY(m)*((VP_PAR)iny)+MYW(m))/vpTmpWarpPnt___; } while (0)
+  (outx) = (MXX(m)*((VP_PAR)(inx))+MXY(m)*((VP_PAR)(iny))+MXW(m))/vpTmpWarpPnt___; \
+  (outy) = (MYX(m)*((VP_PAR)(inx))+MYY(m)*((VP_PAR)(iny))+MYW(m))/vpTmpWarpPnt___; } while (0)
 
 /* Warp a 3d point */
 #define VP_WARP_POINT_3D(inx,iny,inz,m,outx,outy,outz) do {\
-  VP_PAR vpTmpWarpPnt___= MWX(m)*(inx)+MWY(m)*(iny)+MWZ(m)*((VP_PAR)inz)+MWW(m); \
-  outx = (MXX(m)*((VP_PAR)inx)+MXY(m)*((VP_PAR)iny)+MXZ(m)*((VP_PAR)inz)+MXW(m))/vpTmpWarpPnt___; \
-  outy = (MYX(m)*((VP_PAR)inx)+MYY(m)*((VP_PAR)iny)+MYZ(m)*((VP_PAR)inz)+MYW(m))/vpTmpWarpPnt___; \
-  outz = MZX(m)*((VP_PAR)inx)+MZY(m)*((VP_PAR)iny)+MZZ(m)*((VP_PAR)inz)+MZW(m); \
-  if ((m).type==VP_MOTION_PROJ_3D) outz/=vpTmpWarpPnt___; } while (0)
+  VP_PAR vpTmpWarpPnt___= MWX(m)*(inx)+MWY(m)*(iny)+MWZ(m)*((VP_PAR)(inz))+MWW(m); \
+  (outx) = (MXX(m)*((VP_PAR)(inx))+MXY(m)*((VP_PAR)(iny))+MXZ(m)*((VP_PAR)(inz))+MXW(m))/vpTmpWarpPnt___; \
+  (outy) = (MYX(m)*((VP_PAR)(inx))+MYY(m)*((VP_PAR)(iny))+MYZ(m)*((VP_PAR)(inz))+MYW(m))/vpTmpWarpPnt___; \
+  (outz) = MZX(m)*((VP_PAR)(inx))+MZY(m)*((VP_PAR)(iny))+MZZ(m)*((VP_PAR)(inz))+MZW(m); \
+  if ((m).type==VP_MOTION_PROJ_3D) (outz)/=vpTmpWarpPnt___; } while (0)
 
 /* Projections of each component */
 #define VP_PROJW_3D(m,x,y,z,f)   ( MWX(m)*(x)+MWY(m)*(y)+MWZ(m)*(z)+MWW(m) )
@@ -224,15 +224,15 @@ typedef struct {
 
 /* Scale Down a matrix by Sfactor */
 #define VP_SCALEDOWN(m,Sfactor) do { \
-  MXW(m) /= (VP_PAR)Sfactor; MWX(m) *= (VP_PAR)Sfactor; \
-  MYW(m) /= (VP_PAR)Sfactor; MWY(m) *= (VP_PAR)Sfactor; \
-  MZW(m) /= (VP_PAR)Sfactor; MWZ(m) *= (VP_PAR)Sfactor; } while (0)
+  MXW(m) /= (VP_PAR)(Sfactor); MWX(m) *= (VP_PAR)(Sfactor); \
+  MYW(m) /= (VP_PAR)(Sfactor); MWY(m) *= (VP_PAR)(Sfactor); \
+  MZW(m) /= (VP_PAR)(Sfactor); MWZ(m) *= (VP_PAR)(Sfactor); } while (0)
 
 /* Scale Up a matrix by Sfactor */
 #define VP_SCALEUP(m,Sfactor) do { \
-  MXW(m) *= (VP_PAR)Sfactor; MWX(m) /= (VP_PAR)Sfactor; \
-  MYW(m) *= (VP_PAR)Sfactor; MWY(m) /= (VP_PAR)Sfactor; \
-  MZW(m) *= (VP_PAR)Sfactor; MWZ(m) /= (VP_PAR)Sfactor; } while (0)
+  MXW(m) *= (VP_PAR)(Sfactor); MWX(m) /= (VP_PAR)(Sfactor); \
+  MYW(m) *= (VP_PAR)(Sfactor); MWY(m) /= (VP_PAR)(Sfactor); \
+  MZW(m) *= (VP_PAR)(Sfactor); MWZ(m) /= (VP_PAR)(Sfactor); } while (0)
 
 /* Normalize the transformation matrix so that MWW is 1 */
 #define VP_NORMALIZE(m) if (MWW(m)!=(VP_PAR)0.0) do { \
@@ -253,15 +253,15 @@ typedef struct {
 
 /* w' projection given a point x,y,0,f */
 #define VP_PROJZ(m,x,y,f) ( \
-    MWX(m)*((VP_PAR)x)+MWY(m)*((VP_PAR)y)+MWW(m)*((VP_PAR)f))
+    MWX(m)*((VP_PAR)(x))+MWY(m)*((VP_PAR)(y))+MWW(m)*((VP_PAR)(f)))
 
 /* X Projection given a point x,y,0,f and w' */
 #define VP_PROJX(m,x,y,w,f) (\
-   (MXX(m)*((VP_PAR)x)+MXY(m)*((VP_PAR)y)+MXW(m)*((VP_PAR)f))/((VP_PAR)w))
+   (MXX(m)*((VP_PAR)(x))+MXY(m)*((VP_PAR)(y))+MXW(m)*((VP_PAR)(f)))/((VP_PAR)(w)))
 
 /* Y Projection given a point x,y,0,f and the w' */
 #define VP_PROJY(m,x,y,w,f) (\
-  (MYX(m)*((VP_PAR)x)+MYY(m)*((VP_PAR)y)+MYW(m)*((VP_PAR)f))/((VP_PAR)w))
+  (MYX(m)*((VP_PAR)(x))+MYY(m)*((VP_PAR)(y))+MYW(m)*((VP_PAR)(f)))/((VP_PAR)(w)))
 
 /* Set the reference id for a motion */
 #define VP_SET_REFID(m,id) do { (m).refid=id; } while (0)

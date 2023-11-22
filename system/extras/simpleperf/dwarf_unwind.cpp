@@ -27,7 +27,7 @@
   do {                                           \
     uint64_t value;                              \
     if (GetRegValue(regs, perf_regno, &value)) { \
-      dst = value;                               \
+      (dst) = value;                             \
     }                                            \
   } while (0)
 
@@ -94,11 +94,16 @@ static ucontext_t BuildUContextFromRegs(const RegSet& regs __attribute__((unused
   return ucontext;
 }
 
-std::vector<uint64_t> UnwindCallChain(ArchType arch, const ThreadEntry& thread,
-                                      const RegSet& regs, const std::vector<char>& stack) {
+std::vector<uint64_t> UnwindCallChain(int abi, const ThreadEntry& thread,
+                                      const RegSet& regs, const char* stack,
+                                      size_t stack_size, bool strict_arch_check) {
   std::vector<uint64_t> result;
-  if (arch != GetBuildArch()) {
-    LOG(ERROR) << "can't unwind data recorded on a different architecture";
+  ArchType arch = (abi != PERF_SAMPLE_REGS_ABI_32) ?
+                      ScopedCurrentArch::GetCurrentArch() :
+                      ScopedCurrentArch::GetCurrentArch32();
+  if (!IsArchTheSame(arch, GetBuildArch(), strict_arch_check)) {
+    LOG(FATAL) << "simpleperf is built in arch " << GetArchString(GetBuildArch())
+            << ", and can't do stack unwinding for arch " << GetArchString(arch);
     return result;
   }
   uint64_t sp_reg_value;
@@ -108,27 +113,31 @@ std::vector<uint64_t> UnwindCallChain(ArchType arch, const ThreadEntry& thread,
   }
   uint64_t stack_addr = sp_reg_value;
 
-  std::vector<backtrace_map_t> bt_maps(thread.maps.size());
+  std::vector<backtrace_map_t> bt_maps(thread.maps->size());
   size_t map_index = 0;
-  for (auto& map : thread.maps) {
+  for (auto& map : *thread.maps) {
     backtrace_map_t& bt_map = bt_maps[map_index++];
     bt_map.start = map->start_addr;
     bt_map.end = map->start_addr + map->len;
     bt_map.offset = map->pgoff;
-    bt_map.name = map->dso->GetAccessiblePath();
+    bt_map.name = map->dso->GetDebugFilePath();
   }
   std::unique_ptr<BacktraceMap> backtrace_map(BacktraceMap::Create(thread.pid, bt_maps));
 
   backtrace_stackinfo_t stack_info;
   stack_info.start = stack_addr;
-  stack_info.end = stack_addr + stack.size();
-  stack_info.data = reinterpret_cast<const uint8_t*>(stack.data());
+  stack_info.end = stack_addr + stack_size;
+  stack_info.data = reinterpret_cast<const uint8_t*>(stack);
 
   std::unique_ptr<Backtrace> backtrace(
       Backtrace::CreateOffline(thread.pid, thread.tid, backtrace_map.get(), stack_info, true));
   ucontext_t ucontext = BuildUContextFromRegs(regs);
   if (backtrace->Unwind(0, &ucontext)) {
     for (auto it = backtrace->begin(); it != backtrace->end(); ++it) {
+      // Unwinding in arm architecture can return 0 pc address.
+      if (it->pc == 0) {
+        break;
+      }
       result.push_back(it->pc);
     }
   }

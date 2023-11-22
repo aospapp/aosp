@@ -45,6 +45,7 @@ public class ConstantPoolTest extends JDWPSyncTestCase {
     static final String debuggeeClass = "org/apache/harmony/jpda/tests/jdwp/ReferenceType/ConstantPoolDebuggee.class";
 
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.ConstantPoolDebuggee";
     }

@@ -42,6 +42,7 @@ public class CdmaSmsDispatcherTest extends TelephonyTest {
     private SMSDispatcher.SmsTracker mSmsTracker;
 
     private CdmaSMSDispatcher mCdmaSmsDispatcher;
+    private CdmaSmsDispatcherTestHandler mCdmaSmsDispatcherTestHandler;
 
     private class CdmaSmsDispatcherTestHandler extends HandlerThread {
 
@@ -63,13 +64,15 @@ public class CdmaSmsDispatcherTest extends TelephonyTest {
 
         setupMockPackagePermissionChecks();
 
-        new CdmaSmsDispatcherTestHandler(TAG).start();
+        mCdmaSmsDispatcherTestHandler = new CdmaSmsDispatcherTestHandler(TAG);
+        mCdmaSmsDispatcherTestHandler.start();
         waitUntilReady();
     }
 
     @After
     public void tearDown() throws Exception {
         mCdmaSmsDispatcher = null;
+        mCdmaSmsDispatcherTestHandler.quit();
         super.tearDown();
     }
 
@@ -77,7 +80,7 @@ public class CdmaSmsDispatcherTest extends TelephonyTest {
     public void testSendSms() {
         doReturn(mServiceState).when(mPhone).getServiceState();
         mCdmaSmsDispatcher.sendSms(mSmsTracker);
-        verify(mSimulatedCommandsVerifier).sendCdmaSms(any(byte[].class), any(Message.class));
+        verify(mSimulatedCommandsVerifier).sendCdmaSms(nullable(byte[].class), any(Message.class));
     }
 
     @Test @SmallTest

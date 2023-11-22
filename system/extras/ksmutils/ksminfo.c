@@ -241,7 +241,7 @@ static int read_pages(struct ksm_pages *kp, pm_map_t **maps, size_t num_maps, ui
                         pagemap[i]);
                 continue;
             }
-            if (!(flags & PM_PAGE_KSM)) {
+            if (!(flags & KPF_KSM)) {
                 continue;
             }
             vaddr = pm_map_start(maps[i]) + j * pm_kernel_pagesize(ker);
@@ -482,4 +482,3 @@ exit:
 
     return rc;
 }
-

@@ -26,7 +26,7 @@
 
 #include <telephony/ril.h>
 #define LOG_TAG "RILD"
-#include <utils/Log.h>
+#include <log/log.h>
 #include <cutils/properties.h>
 #include <cutils/sockets.h>
 #include <sys/capability.h>
@@ -36,21 +36,21 @@
 #include <libril/ril_ex.h>
 
 #include <private/android_filesystem_config.h>
-#include "hardware/qemu_pipe.h"
 
 #define LIB_PATH_PROPERTY   "rild.libpath"
 #define LIB_ARGS_PROPERTY   "rild.libargs"
 #define MAX_LIB_ARGS        16
-#define MAX_CAP_NUM         (CAP_TO_INDEX(CAP_LAST_CAP) + 1)
 
 static void usage(const char *argv0) {
     fprintf(stderr, "Usage: %s -l <ril impl library> [-- <args for impl library>]\n", argv0);
     exit(EXIT_FAILURE);
 }
 
-extern char rild[MAX_SOCKET_NAME_LENGTH];
+extern char ril_service_name_base[MAX_SERVICE_NAME_LENGTH];
+extern char ril_service_name[MAX_SERVICE_NAME_LENGTH];
 
 extern void RIL_register (const RIL_RadioFunctions *callbacks);
+extern void rilc_thread_pool ();
 
 extern void RIL_register_socket (RIL_RadioFunctions *(*rilUimInit)
         (const struct RIL_Env *, int, char **), RIL_SOCKET_TYPE socketType, int argc, char **argv);
@@ -60,7 +60,7 @@ extern void RIL_onRequestComplete(RIL_Token t, RIL_Errno e,
 
 extern void RIL_onRequestAck(RIL_Token t);
 
-extern void RIL_setRilSocketName(char *);
+extern void RIL_setServiceName(char *);
 
 #if defined(ANDROID_MULTI_SIM)
 extern void RIL_onUnsolicitedResponse(int unsolResponse, const void *data,
@@ -97,65 +97,30 @@ static int make_argv(char * args, char ** argv) {
     return count;
 }
 
-/*
- * switchUser - Switches UID to radio, preserving CAP_NET_ADMIN capabilities.
- * Our group, cache, was set by init.
- */
-void switchUser() {
-    char debuggable[PROP_VALUE_MAX];
-
-    prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);
-    if (setresuid(AID_RADIO, AID_RADIO, AID_RADIO) == -1) {
-        RLOGE("setresuid failed: %s", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-
-    struct __user_cap_header_struct header;
-    memset(&header, 0, sizeof(header));
-    header.version = _LINUX_CAPABILITY_VERSION_3;
-    header.pid = 0;
-
-    struct __user_cap_data_struct data[MAX_CAP_NUM];
-    memset(&data, 0, sizeof(data));
-
-    data[CAP_TO_INDEX(CAP_NET_ADMIN)].effective |= CAP_TO_MASK(CAP_NET_ADMIN);
-    data[CAP_TO_INDEX(CAP_NET_ADMIN)].permitted |= CAP_TO_MASK(CAP_NET_ADMIN);
-
-    data[CAP_TO_INDEX(CAP_NET_RAW)].effective |= CAP_TO_MASK(CAP_NET_RAW);
-    data[CAP_TO_INDEX(CAP_NET_RAW)].permitted |= CAP_TO_MASK(CAP_NET_RAW);
-
-    data[CAP_TO_INDEX(CAP_BLOCK_SUSPEND)].effective |= CAP_TO_MASK(CAP_BLOCK_SUSPEND);
-    data[CAP_TO_INDEX(CAP_BLOCK_SUSPEND)].permitted |= CAP_TO_MASK(CAP_BLOCK_SUSPEND);
-
-    if (capset(&header, &data[0]) == -1) {
-        RLOGE("capset failed: %s", strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-
-    /*
-     * Debuggable build only:
-     * Set DUMPABLE that was cleared by setuid() to have tombstone on RIL crash
-     */
-    property_get("ro.debuggable", debuggable, "0");
-    if (strcmp(debuggable, "1") == 0) {
-        prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
-    }
-}
-
 int main(int argc, char **argv) {
-    const char * rilLibPath = NULL;
+    // vendor ril lib path either passed in as -l parameter, or read from rild.libpath property
+    const char *rilLibPath = NULL;
+    // ril arguments either passed in as -- parameter, or read from rild.libargs property
     char **rilArgv;
+    // handle for vendor ril lib
     void *dlHandle;
+    // Pointer to ril init function in vendor ril
     const RIL_RadioFunctions *(*rilInit)(const struct RIL_Env *, int, char **);
+    // Pointer to sap init function in vendor ril
     RIL_RadioFunctions *(*rilUimInit)(const struct RIL_Env *, int, char **);
     const char *err_str = NULL;
 
+    // functions returned by ril init function in vendor ril
     const RIL_RadioFunctions *funcs;
+    // lib path from rild.libpath property (if it's read)
     char libPath[PROPERTY_VALUE_MAX];
+    // flat to indicate if -- parameters are present
     unsigned char hasLibArgs = 0;
 
     int i;
+    // ril/socket id received as -c parameter, otherwise set to 0
     const char *clientId = NULL;
+
     RLOGD("**RIL Daemon Started**");
     RLOGD("**RILd param count=%d**", argc);
 
@@ -183,8 +148,9 @@ int main(int argc, char **argv) {
         exit(0);
     }
     if (strncmp(clientId, "0", MAX_CLIENT_ID_LENGTH)) {
-        strlcat(rild, clientId, MAX_SOCKET_NAME_LENGTH);
-        RIL_setRilSocketName(rild);
+        strncpy(ril_service_name, ril_service_name_base, MAX_SERVICE_NAME_LENGTH);
+        strncat(ril_service_name, clientId, MAX_SERVICE_NAME_LENGTH);
+        RIL_setServiceName(ril_service_name);
     }
 
     if (rilLibPath == NULL) {
@@ -196,128 +162,6 @@ int main(int argc, char **argv) {
             rilLibPath = libPath;
         }
     }
-
-    /* special override when in the emulator */
-#if 1
-    {
-        static char*  arg_overrides[5];
-        static char   arg_device[32];
-        int           done = 0;
-
-#define  REFERENCE_RIL_PATH  "libreference-ril.so"
-
-        /* first, read /proc/cmdline into memory */
-        char          buffer[2048] = {'\0'}, *p, *q;
-        int           len;
-        struct stat   st;
-        int           fd = open("/proc/cmdline",O_RDONLY);
-
-        if (fd < 0) {
-            RLOGE("could not open /proc/cmdline:%s", strerror(errno));
-            goto OpenLib;
-        }
-
-        if (fstat(fd, &st)) {
-            RLOGE("fstat error: %s", strerror(errno));
-            close(fd);
-            goto OpenLib;
-        }
-
-        if ((unsigned long)st.st_size > sizeof(buffer) - 1) {
-            RLOGE("Size of /proc/cmdline exceeds buffer");
-            close(fd);
-            goto OpenLib;
-        }
-
-        do {
-            len = read(fd,buffer,sizeof(buffer) - 1); }
-        while (len == -1 && errno == EINTR);
-
-        if (len < 0) {
-            RLOGE("could not read /proc/cmdline:%s", strerror(errno));
-            close(fd);
-            goto OpenLib;
-        }
-        close(fd);
-
-        if (strstr(buffer, "android.qemud=") != NULL)
-        {
-            /* the qemud daemon is launched after rild, so
-            * give it some time to create its GSM socket
-            */
-            int  tries = 5;
-#define  QEMUD_SOCKET_NAME    "qemud"
-
-            while (1) {
-                int  fd;
-
-                sleep(1);
-
-                fd = qemu_pipe_open("qemud:gsm");
-                if (fd < 0) {
-                    fd = socket_local_client(
-                                QEMUD_SOCKET_NAME,
-                                ANDROID_SOCKET_NAMESPACE_RESERVED,
-                                SOCK_STREAM );
-                }
-                if (fd >= 0) {
-                    close(fd);
-                    snprintf( arg_device, sizeof(arg_device), "%s/%s",
-                                ANDROID_SOCKET_DIR, QEMUD_SOCKET_NAME );
-
-                    arg_overrides[1] = "-s";
-                    arg_overrides[2] = arg_device;
-                    done = 1;
-                    break;
-                }
-                RLOGD("could not connect to %s socket: %s",
-                    QEMUD_SOCKET_NAME, strerror(errno));
-                if (--tries == 0)
-                    break;
-            }
-            if (!done) {
-                RLOGE("could not connect to %s socket (giving up): %s",
-                    QEMUD_SOCKET_NAME, strerror(errno));
-                while(1)
-                    sleep(0x00ffffff);
-            }
-        }
-
-        /* otherwise, try to see if we passed a device name from the kernel */
-        if (!done) do {
-#define  KERNEL_OPTION  "android.ril="
-#define  DEV_PREFIX     "/dev/"
-
-            p = strstr( buffer, KERNEL_OPTION );
-            if (p == NULL)
-                break;
-
-            p += sizeof(KERNEL_OPTION)-1;
-            q  = strpbrk( p, " \t\n\r" );
-            if (q != NULL)
-                *q = 0;
-
-            snprintf( arg_device, sizeof(arg_device), DEV_PREFIX "%s", p );
-            arg_device[sizeof(arg_device)-1] = 0;
-            arg_overrides[1] = "-d";
-            arg_overrides[2] = arg_device;
-            done = 1;
-
-        } while (0);
-
-        if (done) {
-            argv = arg_overrides;
-            argc = 3;
-            i    = 1;
-            hasLibArgs = 1;
-            rilLibPath = REFERENCE_RIL_PATH;
-
-            RLOGD("overriding with %s %s", arg_overrides[1], arg_overrides[2]);
-        }
-    }
-OpenLib:
-#endif
-    switchUser();
 
     dlHandle = dlopen(rilLibPath, RTLD_NOW);
 
@@ -360,7 +204,7 @@ OpenLib:
     }
 
     rilArgv[argc++] = "-c";
-    rilArgv[argc++] = clientId;
+    rilArgv[argc++] = (char*)clientId;
     RLOGD("RIL_Init argc = %d clientId = %s", argc, rilArgv[argc-1]);
 
     // Make sure there's a reasonable argv[0]
@@ -381,6 +225,8 @@ OpenLib:
     RLOGD("RIL_register_socket completed");
 
 done:
+
+    rilc_thread_pool();
 
     RLOGD("RIL_Init starting sleep loop");
     while (true) {

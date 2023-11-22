@@ -43,29 +43,32 @@ def _get_control_files_to_process(autotest_dir):
                                             add_experimental=True)
 
 
-def get_suite_control_files(autotest_dir):
+def get_suite_control_files(autotest_dir, external_autotest_dirs=None):
     """
     Partition all control files in autotest_dir based on suite.
 
     @param autotest_dir: Directory to walk looking for control files.
+    @param external_autotest_dirs: A list of directories under which to search
+            for extra Autotest tests. Defaults to None.
+
     @return suite_control_files: A dictionary mapping suite->[control files]
                                  as described in this files docstring.
     @raise ValueError: If autotest_dir doesn't exist.
     """
     if not os.path.exists(autotest_dir):
-      raise ValueError('Could not find directory: %s, failed to map suites to'
+        raise ValueError('Could not find directory: %s, failed to map suites to'
                        ' their control files.' % autotest_dir)
 
-    autotest_dir = autotest_dir.rstrip('/')
     suite_control_files = collections.defaultdict(list)
+    for d in [autotest_dir] + (external_autotest_dirs or []):
+        d = d.rstrip('/')
+        for test in _get_control_files_to_process(d):
+            for suite_name in test.suite_tag_parts:
+                if suite_name in SUITE_BLACKLIST:
+                    continue
 
-    for test in _get_control_files_to_process(autotest_dir):
-        for suite_name in suite.Suite.parse_tag(test.suite):
-            if suite_name in SUITE_BLACKLIST:
-                continue
-
-            suite_control_files[suite_name].append(
-                test.path.replace('%s/' % autotest_dir, ''))
+                suite_control_files[suite_name].append(
+                    test.path.replace('%s/' % d, ''))
     return suite_control_files
 
 
@@ -75,7 +78,13 @@ def main():
     """
     options = suite_preprocessor.parse_options()
 
-    suite_control_files = get_suite_control_files(options.autotest_dir)
+    if options.extra_autotest_dirs:
+        extra_autotest_dirs = options.extra_autotest_dirs.split(',')
+    else:
+        extra_autotest_dirs = None
+
+    suite_control_files = get_suite_control_files(options.autotest_dir,
+                                                  extra_autotest_dirs)
     if options.output_file:
         with open(options.output_file, 'w') as file_obj:
             json.dump(suite_control_files, file_obj)

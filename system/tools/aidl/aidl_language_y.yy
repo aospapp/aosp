@@ -29,7 +29,7 @@ int yylex(yy::parser::semantic_type *, yy::parser::location_type *, void *);
     AidlArgument::Direction direction;
     std::vector<std::unique_ptr<AidlArgument>>* arg_list;
     AidlMethod* method;
-    AidlConstant* constant;
+    AidlMember* constant;
     std::vector<std::unique_ptr<AidlMember>>* members;
     AidlQualifiedName* qname;
     AidlInterface* interface_obj;
@@ -37,11 +37,11 @@ int yylex(yy::parser::semantic_type *, yy::parser::location_type *, void *);
     AidlDocument* parcelable_list;
 }
 
-%token<token> IDENTIFIER INTERFACE ONEWAY C_STR
+%token<token> IDENTIFIER INTERFACE ONEWAY C_STR HEXVALUE
 %token<integer> INTVALUE
 
 %token '(' ')' ',' '=' '[' ']' '<' '>' '.' '{' '}' ';'
-%token IN OUT INOUT PACKAGE IMPORT PARCELABLE CPP_HEADER CONST INT
+%token IN OUT INOUT PACKAGE IMPORT PARCELABLE CPP_HEADER CONST INT STRING
 %token ANNOTATION_NULLABLE ANNOTATION_UTF8 ANNOTATION_UTF8_CPP
 
 %type<parcelable_list> parcelable_decls
@@ -79,7 +79,10 @@ identifier
  | CPP_HEADER
   { $$ = new AidlToken("cpp_header", ""); }
  | INT
-  { $$ = new AidlToken("int", ""); };
+  { $$ = new AidlToken("int", ""); }
+ | STRING
+  { $$ = new AidlToken("String", ""); }
+ ;
 
 package
  : {}
@@ -137,32 +140,37 @@ parcelable_decl
   };
 
 interface_decl
- : INTERFACE identifier '{' members '}' {
-    $$ = new AidlInterface($2->GetText(), @2.begin.line, $1->GetComments(),
-                           false, $4, ps->Package());
-    delete $1;
-    delete $2;
-  }
- | ONEWAY INTERFACE identifier '{' members '}' {
-    $$ = new AidlInterface($3->GetText(), @3.begin.line, $1->GetComments(),
-                           true, $5, ps->Package());
-    delete $1;
+ : annotation_list INTERFACE identifier '{' members '}' {
+    $$ = new AidlInterface($3->GetText(), @2.begin.line, $2->GetComments(),
+                           false, $5, ps->Package());
+    $$->Annotate($1);
     delete $2;
     delete $3;
   }
- | INTERFACE error '{' members '}' {
-    fprintf(stderr, "%s:%d: syntax error in interface declaration.  Expected type name, saw \"%s\"\n",
-            ps->FileName().c_str(), @2.begin.line, $2->GetText().c_str());
-    $$ = NULL;
-    delete $1;
+ | annotation_list ONEWAY INTERFACE identifier '{' members '}' {
+    $$ = new AidlInterface($4->GetText(), @4.begin.line, $2->GetComments(),
+                           true, $6, ps->Package());
+    $$->Annotate($1);
     delete $2;
+    delete $3;
+    delete $4;
   }
- | INTERFACE error '}' {
-    fprintf(stderr, "%s:%d: syntax error in interface declaration.  Expected type name, saw \"%s\"\n",
-            ps->FileName().c_str(), @2.begin.line, $2->GetText().c_str());
+ | annotation_list INTERFACE error '{' members '}' {
+    fprintf(stderr, "%s:%d: syntax error in interface declaration.  Expected "
+                    "type name, saw \"%s\"\n",
+            ps->FileName().c_str(), @3.begin.line, $3->GetText().c_str());
     $$ = NULL;
-    delete $1;
     delete $2;
+    delete $3;
+    delete $5;
+  }
+ | annotation_list INTERFACE error '}' {
+    fprintf(stderr, "%s:%d: syntax error in interface declaration.  Expected "
+                    "type name, saw \"%s\"\n",
+            ps->FileName().c_str(), @3.begin.line, $3->GetText().c_str());
+    $$ = NULL;
+    delete $2;
+    delete $3;
   };
 
 members
@@ -181,8 +189,19 @@ members
 
 constant_decl
  : CONST INT identifier '=' INTVALUE ';' {
-    $$ = new AidlConstant($3->GetText(), $5);
- };
+    $$ = new AidlIntConstant($3->GetText(), $5);
+    delete $3;
+   }
+ | CONST INT identifier '=' HEXVALUE ';' {
+    $$ = new AidlIntConstant($3->GetText(), $5->GetText(), @5.begin.line);
+    delete $3;
+   }
+ | CONST STRING identifier '=' C_STR ';' {
+    $$ = new AidlStringConstant($3->GetText(), $5->GetText(), @5.begin.line);
+    delete $3;
+    delete $5;
+   }
+ ;
 
 method_decl
  : type identifier '(' arg_list ')' ';' {
@@ -256,9 +275,6 @@ type
  : annotation_list unannotated_type {
     $$ = $2;
     $2->Annotate($1);
-  }
- | unannotated_type {
-    $$ = $1;
   };
 
 generic_list
@@ -273,10 +289,10 @@ generic_list
   };
 
 annotation_list
- : annotation_list annotation
-  { $$ = static_cast<AidlType::Annotation>($1 | $2); }
- | annotation
-  { $$ = $1; };
+ :
+  { $$ = AidlType::AnnotationNone; }
+ | annotation_list annotation
+  { $$ = static_cast<AidlType::Annotation>($1 | $2); };
 
 annotation
  : ANNOTATION_NULLABLE

@@ -344,6 +344,7 @@ public class TreeSetTest extends junit.framework.TestCase {
 
         assertTrue(treeSet.spliterator().hasCharacteristics(Spliterator.DISTINCT));
         SpliteratorTester.runDistinctTests(keys);
+        SpliteratorTester.assertSupportsTrySplit(treeSet);
     }
 
     /**

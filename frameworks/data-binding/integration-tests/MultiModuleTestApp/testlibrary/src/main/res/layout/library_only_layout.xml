@@ -29,7 +29,8 @@
                     tools:context=".TestLibraryMainActivity">
 
         <TextView android:text="@{obj1.field}" android:layout_width="wrap_content"
-                  android:layout_height="wrap_content"/>
+                  android:layout_height="wrap_content"
+        android:onClick="{(v) -> obj1.clickHandler(v)}"/>
 
     </RelativeLayout>
 </layout>

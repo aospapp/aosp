@@ -250,7 +250,7 @@ enum LinkerInitialized { LINKER_INITIALIZED };
 // it is leaked so that its destructors are not called at exit. If you need
 // thread-safe initialization, use base/lazy_instance.h instead.
 #define CR_DEFINE_STATIC_LOCAL(type, name, arguments) \
-  static type& name = *new type arguments
+  static type& name = *new type arguments /* NOLINT */
 
 }  // base
 

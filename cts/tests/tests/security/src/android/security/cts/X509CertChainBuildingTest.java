@@ -18,6 +18,7 @@ package android.security.cts;
 
 import android.content.res.AssetManager;
 import android.net.http.X509TrustManagerExtensions;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -40,6 +41,7 @@ import javax.net.ssl.X509TrustManager;
  * {@link X509TrustManagerExtensions#checkServerTrusted(X509Certificate[], String, String)} when
  * multiple possible certificate paths exist.
  */
+@SecurityTest
 public class X509CertChainBuildingTest extends AndroidTestCase {
     private static final String CERT_ASSET_DIR = "path_building";
 

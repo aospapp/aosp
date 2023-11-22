@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alerta de emergência"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Transmissão por celular"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Configurações do alerta de emergência"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Transmitir mensagens"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Ativar as notificações"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Mostrar transmissões de alerta de emergência"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Lembrete de alerta"</string>
@@ -112,6 +113,6 @@
     <item msgid="9097229303902157183">"A cada 2 minutos"</item>
     <item msgid="5718214950343391480">"A cada cinco minutos"</item>
     <item msgid="3863339891188103437">"A cada 15 minutos"</item>
-    <item msgid="6868848414437854609">"Desativados"</item>
+    <item msgid="6868848414437854609">"Desativado"</item>
   </string-array>
 </resources>

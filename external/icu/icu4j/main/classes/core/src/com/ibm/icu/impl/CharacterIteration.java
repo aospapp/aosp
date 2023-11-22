@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2013, International Business Machines Corporation and         *
@@ -29,11 +31,11 @@ public final class CharacterIteration {
     public static int next32(CharacterIterator ci) {
         // If the current position is at a surrogate pair, move to the trail surrogate
         //   which leaves it in position for underlying iterator's next() to work.
-        int c= ci.current();
+        int c = ci.current();
         if (c >= UTF16.LEAD_SURROGATE_MIN_VALUE && c<=UTF16.LEAD_SURROGATE_MAX_VALUE) {
             c = ci.next();   
             if (c<UTF16.TRAIL_SURROGATE_MIN_VALUE || c>UTF16.TRAIL_SURROGATE_MAX_VALUE) {
-               c = ci.previous();   
+                ci.previous();   
             }
         }
 

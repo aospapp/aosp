@@ -34,7 +34,7 @@ namespace tpm_manager {
 // tpm_managerd over D-Bus.
 // Usage:
 // std::unique_ptr<TpmNvramInterface> tpm_manager = new TpmNvramDBusProxy();
-// tpm_manager->DefineNvram(...);
+// tpm_manager->DefineSpace(...);
 class TPM_MANAGER_EXPORT TpmNvramDBusProxy : public TpmNvramInterface {
  public:
   TpmNvramDBusProxy() = default;
@@ -45,20 +45,20 @@ class TPM_MANAGER_EXPORT TpmNvramDBusProxy : public TpmNvramInterface {
   bool Initialize();
 
   // TpmNvramInterface methods.
-  void DefineNvram(const DefineNvramRequest& request,
-                   const DefineNvramCallback& callback) override;
-  void DestroyNvram(const DestroyNvramRequest& request,
-                    const DestroyNvramCallback& callback) override;
-  void WriteNvram(const WriteNvramRequest& request,
-                  const WriteNvramCallback& callback) override;
-  void ReadNvram(const ReadNvramRequest& request,
-                 const ReadNvramCallback& callback) override;
-  void IsNvramDefined(const IsNvramDefinedRequest& request,
-                      const IsNvramDefinedCallback& callback) override;
-  void IsNvramLocked(const IsNvramLockedRequest& request,
-                     const IsNvramLockedCallback& callback) override;
-  void GetNvramSize(const GetNvramSizeRequest& request,
-                    const GetNvramSizeCallback& callback) override;
+  void DefineSpace(const DefineSpaceRequest& request,
+                   const DefineSpaceCallback& callback) override;
+  void DestroySpace(const DestroySpaceRequest& request,
+                    const DestroySpaceCallback& callback) override;
+  void WriteSpace(const WriteSpaceRequest& request,
+                  const WriteSpaceCallback& callback) override;
+  void ReadSpace(const ReadSpaceRequest& request,
+                 const ReadSpaceCallback& callback) override;
+  void LockSpace(const LockSpaceRequest& request,
+                 const LockSpaceCallback& callback) override;
+  void ListSpaces(const ListSpacesRequest& request,
+                  const ListSpacesCallback& callback) override;
+  void GetSpaceInfo(const GetSpaceInfoRequest& request,
+                    const GetSpaceInfoCallback& callback) override;
 
   void set_object_proxy(dbus::ObjectProxy* object_proxy) {
     object_proxy_ = object_proxy;
@@ -66,9 +66,9 @@ class TPM_MANAGER_EXPORT TpmNvramDBusProxy : public TpmNvramInterface {
 
  private:
   // Template method to call a given |method_name| remotely via dbus.
-  template<typename ReplyProtobufType,
-           typename RequestProtobufType,
-           typename CallbackType>
+  template <typename ReplyProtobufType,
+            typename RequestProtobufType,
+            typename CallbackType>
   void CallMethod(const std::string& method_name,
                   const RequestProtobufType& request,
                   const CallbackType& callback);

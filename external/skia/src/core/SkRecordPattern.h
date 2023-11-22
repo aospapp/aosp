@@ -8,6 +8,7 @@
 #ifndef SkRecordPattern_DEFINED
 #define SkRecordPattern_DEFINED
 
+#include "SkRecord.h"
 #include "SkTLogic.h"
 
 namespace SkRecords {
@@ -147,7 +148,7 @@ private:
     template <typename T>
     int matchFirst(T* first, SkRecord* record, int i) {
         if (i < record->count()) {
-            if (record->mutate<bool>(i, *first)) {
+            if (record->mutate(i, *first)) {
                 return i+1;
             }
         }
@@ -158,7 +159,7 @@ private:
     template <typename T>
     int matchFirst(Greedy<T>* first, SkRecord* record, int i) {
         while (i < record->count()) {
-            if (!record->mutate<bool>(i, *first)) {
+            if (!record->mutate(i, *first)) {
                 return i;
             }
             i++;

@@ -14,7 +14,9 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Compilation Test">
+    <option name="config-descriptor:metadata" key="component" value="libcore" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsCompilationTestCases.jar" />
+        <option name="runtime-hint" value="9m45s" />
     </test>
 </configuration>

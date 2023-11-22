@@ -15,21 +15,31 @@
  */
 package android.graphics.cts;
 
-import java.io.ByteArrayOutputStream;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.Bitmap.Config;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Bitmap_CompressFormatTest extends AndroidTestCase{
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.io.ByteArrayOutputStream;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Bitmap_CompressFormatTest {
+    @Test
     public void testValueOf(){
         assertEquals(CompressFormat.JPEG, CompressFormat.valueOf("JPEG"));
         assertEquals(CompressFormat.PNG, CompressFormat.valueOf("PNG"));
         assertEquals(CompressFormat.WEBP, CompressFormat.valueOf("WEBP"));
     }
 
+    @Test
     public void testValues(){
         CompressFormat[] comFormat = CompressFormat.values();
 

@@ -19,11 +19,12 @@ package android.provider.cts;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.cts.util.PollingCheck;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.SearchRecentSuggestions;
 import android.test.ProviderTestCase2;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 public class SearchRecentSuggestionsTest extends
         ProviderTestCase2<TestSearchRecentSuggestionsProvider> {

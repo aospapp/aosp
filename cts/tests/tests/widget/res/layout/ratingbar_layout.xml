@@ -14,18 +14,19 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical">
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <RatingBar android:id="@+id/ratingbar_constructor"
+    <RatingBar
+        android:id="@+id/ratingbar_constructor"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:isIndicator="false"
         android:numStars="50"
         android:rating="1.2"
-        android:stepSize="0.2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"/>
+        android:stepSize="0.2" />
 
 </LinearLayout>

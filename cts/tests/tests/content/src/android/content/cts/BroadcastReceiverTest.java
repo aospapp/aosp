@@ -49,6 +49,9 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
             "android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT";
     private static final String ACTION_BROADCAST_DISABLED =
             "android.content.cts.BroadcastReceiverTest.BROADCAST_DISABLED";
+    private static final String TEST_PACKAGE_NAME = "android.content.cts";
+
+    private static final String SIGNATURE_PERMISSION = "android.content.cts.SIGNATURE_PERMISSION";
 
     private static final long SEND_BROADCAST_TIMEOUT = 15000;
     private static final long START_SERVICE_TIMEOUT  = 3000;
@@ -58,7 +61,7 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
                     "android.content.cts.MockReceiverDisableable");
 
     public BroadcastReceiverTest() {
-        super("android.content.cts", MockActivity.class);
+        super(TEST_PACKAGE_NAME, MockActivity.class);
     }
 
     @Override
@@ -182,8 +185,90 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
         activity.unregisterReceiver(internalReceiver);
     }
 
-    public void testOnReceiverOrdered() throws InterruptedException {
-        MockReceiverInternalOrder internalOrderReceiver = new MockReceiverInternalOrder();
+    public void testManifestReceiverPackage() throws InterruptedException {
+        MockReceiverInternal internalReceiver = new MockReceiverInternal();
+
+        Bundle map = new Bundle();
+        map.putString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY,
+                MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE);
+        map.putString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY,
+                MockReceiver.RESULT_EXTRAS_REMOVE_VALUE);
+        getInstrumentation().getContext().sendOrderedBroadcast(
+                new Intent(ACTION_BROADCAST_MOCKTEST)
+                        .setPackage(TEST_PACKAGE_NAME).addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
+                null, internalReceiver,
+                null, RESULT_INITIAL_CODE, RESULT_INITIAL_DATA, map);
+        internalReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);
+
+        // These are set by MockReceiver.
+        assertEquals(MockReceiver.RESULT_CODE, internalReceiver.getResultCode());
+        assertEquals(MockReceiver.RESULT_DATA, internalReceiver.getResultData());
+
+        Bundle resultExtras = internalReceiver.getResultExtras(false);
+        assertEquals(MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY));
+        assertEquals(MockReceiver.RESULT_EXTRAS_ADD_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_ADD_KEY));
+        assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
+    }
+
+    public void testManifestReceiverComponent() throws InterruptedException {
+        MockReceiverInternal internalReceiver = new MockReceiverInternal();
+
+        Bundle map = new Bundle();
+        map.putString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY,
+                MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE);
+        map.putString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY,
+                MockReceiver.RESULT_EXTRAS_REMOVE_VALUE);
+        getInstrumentation().getContext().sendOrderedBroadcast(
+                new Intent(ACTION_BROADCAST_MOCKTEST)
+                        .setClass(getActivity(), MockReceiver.class)
+                        .addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
+                null, internalReceiver,
+                null, RESULT_INITIAL_CODE, RESULT_INITIAL_DATA, map);
+        internalReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);
+
+        // These are set by MockReceiver.
+        assertEquals(MockReceiver.RESULT_CODE, internalReceiver.getResultCode());
+        assertEquals(MockReceiver.RESULT_DATA, internalReceiver.getResultData());
+
+        Bundle resultExtras = internalReceiver.getResultExtras(false);
+        assertEquals(MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY));
+        assertEquals(MockReceiver.RESULT_EXTRAS_ADD_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_ADD_KEY));
+        assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
+    }
+
+    public void testManifestReceiverPermission() throws InterruptedException {
+        MockReceiverInternal internalReceiver = new MockReceiverInternal();
+
+        Bundle map = new Bundle();
+        map.putString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY,
+                MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE);
+        map.putString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY,
+                MockReceiver.RESULT_EXTRAS_REMOVE_VALUE);
+        getInstrumentation().getContext().sendOrderedBroadcast(
+                new Intent(ACTION_BROADCAST_MOCKTEST)
+                        .addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
+                SIGNATURE_PERMISSION, internalReceiver,
+                null, RESULT_INITIAL_CODE, RESULT_INITIAL_DATA, map);
+        internalReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);
+
+        // These are set by MockReceiver.
+        assertEquals(MockReceiver.RESULT_CODE, internalReceiver.getResultCode());
+        assertEquals(MockReceiver.RESULT_DATA, internalReceiver.getResultData());
+
+        Bundle resultExtras = internalReceiver.getResultExtras(false);
+        assertEquals(MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY));
+        assertEquals(MockReceiver.RESULT_EXTRAS_ADD_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_ADD_KEY));
+        assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
+    }
+
+    public void testNoManifestReceiver() throws InterruptedException {
+        MockReceiverInternal internalReceiver = new MockReceiverInternal();
 
         Bundle map = new Bundle();
         map.putString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY,
@@ -192,19 +277,20 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
                 MockReceiver.RESULT_EXTRAS_REMOVE_VALUE);
         getInstrumentation().getContext().sendOrderedBroadcast(
                 new Intent(ACTION_BROADCAST_MOCKTEST).addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
-                null, internalOrderReceiver,
+                null, internalReceiver,
                 null, RESULT_INITIAL_CODE, RESULT_INITIAL_DATA, map);
-        internalOrderReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);
+        internalReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);
 
-        assertEquals(RESULT_INTERNAL_FINAL_CODE, internalOrderReceiver.getResultCode());
-        assertEquals(RESULT_INTERNAL_FINAL_DATA, internalOrderReceiver.getResultData());
+        // The MockReceiver should not have run, so we should still have the initial result.
+        assertEquals(RESULT_INITIAL_CODE, internalReceiver.getResultCode());
+        assertEquals(RESULT_INITIAL_DATA, internalReceiver.getResultData());
 
-        Bundle resultExtras = internalOrderReceiver.getResultExtras(false);
+        Bundle resultExtras = internalReceiver.getResultExtras(false);
         assertEquals(MockReceiver.RESULT_EXTRAS_INVARIABLE_VALUE,
                 resultExtras.getString(MockReceiver.RESULT_EXTRAS_INVARIABLE_KEY));
-        assertEquals(MockReceiver.RESULT_EXTRAS_ADD_VALUE,
-                resultExtras.getString(MockReceiver.RESULT_EXTRAS_ADD_KEY));
-        assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
+        assertNull(resultExtras.getString(MockReceiver.RESULT_EXTRAS_ADD_KEY));
+        assertEquals(MockReceiver.RESULT_EXTRAS_REMOVE_VALUE,
+                resultExtras.getString(MockReceiver.RESULT_EXTRAS_REMOVE_KEY));
     }
 
     public void testAbortBroadcast() throws InterruptedException {
@@ -223,7 +309,8 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
         // MockReceiverFirst --> MockReceiverAbort --> MockReceiver --> internalOrderReceiver.
         // And MockReceiver is the receiver which will be aborted.
         getInstrumentation().getContext().sendOrderedBroadcast(
-                new Intent(ACTION_BROADCAST_TESTABORT).addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
+                new Intent(ACTION_BROADCAST_TESTABORT)
+                        .setPackage(TEST_PACKAGE_NAME).addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
                 null, internalOrderReceiver,
                 null, RESULT_INITIAL_CODE, RESULT_INITIAL_DATA, map);
         internalOrderReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);

@@ -22,20 +22,23 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <mutex>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <log/log.h>
+#include <chrono>
+#include <memory>
+#include <mutex>
+#include <thread>
+
+#include <android-base/logging.h>
 #include <private/android_filesystem_config.h>
 
-#include <utils/SystemClock.h>
-
 #include <processgroup/processgroup.h>
+
+using namespace std::chrono_literals;
 
 // Uncomment line below use memory cgroups for keeping track of (forked) PIDs
 // #define USE_MEMCG 1
@@ -112,7 +115,7 @@ static int initCtx(uid_t uid, int pid, struct ctx *ctx)
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
         ret = -errno;
-        SLOGW("failed to open %s: %s", path, strerror(errno));
+        PLOG(WARNING) << "failed to open " << path;
         return ret;
     }
 
@@ -121,7 +124,7 @@ static int initCtx(uid_t uid, int pid, struct ctx *ctx)
     ctx->buf_len = 0;
     ctx->initialized = true;
 
-    SLOGV("Initialized context for %s", path);
+    LOG(VERBOSE) << "Initialized context for " << path;
 
     return 0;
 }
@@ -141,7 +144,7 @@ static int refillBuffer(struct ctx *ctx)
 
     ctx->buf_len += ret;
     ctx->buf[ctx->buf_len] = 0;
-    SLOGV("Read %zd to buffer: %s", ret, ctx->buf);
+    LOG(VERBOSE) << "Read " << ret << " to buffer: " << ctx->buf;
 
     assert(ctx->buf_len <= sizeof(ctx->buf));
 
@@ -201,11 +204,10 @@ static int removeProcessGroup(uid_t uid, int pid)
 
 static void removeUidProcessGroups(const char *uid_path)
 {
-    DIR *uid = opendir(uid_path);
+    std::unique_ptr<DIR, decltype(&closedir)> uid(opendir(uid_path), closedir);
     if (uid != NULL) {
-        struct dirent cur;
-        struct dirent *dir;
-        while ((readdir_r(uid, &cur, &dir) == 0) && dir) {
+        dirent* dir;
+        while ((dir = readdir(uid.get())) != nullptr) {
             char path[PROCESSGROUP_MAX_PATH_LEN];
 
             if (dir->d_type != DT_DIR) {
@@ -217,24 +219,22 @@ static void removeUidProcessGroups(const char *uid_path)
             }
 
             snprintf(path, sizeof(path), "%s/%s", uid_path, dir->d_name);
-            SLOGV("removing %s\n", path);
-            rmdir(path);
+            LOG(VERBOSE) << "removing " << path;
+            if (rmdir(path) == -1) PLOG(WARNING) << "failed to remove " << path;
         }
-        closedir(uid);
     }
 }
 
 void removeAllProcessGroups()
 {
-    SLOGV("removeAllProcessGroups()");
-    const char *cgroup_root_path = getCgroupRootPath();
-    DIR *root = opendir(cgroup_root_path);
+    LOG(VERBOSE) << "removeAllProcessGroups()";
+    const char* cgroup_root_path = getCgroupRootPath();
+    std::unique_ptr<DIR, decltype(&closedir)> root(opendir(cgroup_root_path), closedir);
     if (root == NULL) {
-        SLOGE("failed to open %s: %s", cgroup_root_path, strerror(errno));
+        PLOG(ERROR) << "failed to open " << cgroup_root_path;
     } else {
-        struct dirent cur;
-        struct dirent *dir;
-        while ((readdir_r(root, &cur, &dir) == 0) && dir) {
+        dirent* dir;
+        while ((dir = readdir(root.get())) != nullptr) {
             char path[PROCESSGROUP_MAX_PATH_LEN];
 
             if (dir->d_type != DT_DIR) {
@@ -246,15 +246,13 @@ void removeAllProcessGroups()
 
             snprintf(path, sizeof(path), "%s/%s", cgroup_root_path, dir->d_name);
             removeUidProcessGroups(path);
-            SLOGV("removing %s\n", path);
-            rmdir(path);
+            LOG(VERBOSE) << "removing " << path;
+            if (rmdir(path) == -1) PLOG(WARNING) << "failed to remove " << path;
         }
-        closedir(root);
     }
 }
 
-static int killProcessGroupOnce(uid_t uid, int initialPid, int signal)
-{
+static int doKillProcessGroupOnce(uid_t uid, int initialPid, int signal) {
     int processes = 0;
     struct ctx ctx;
     pid_t pid;
@@ -266,19 +264,13 @@ static int killProcessGroupOnce(uid_t uid, int initialPid, int signal)
         if (pid == 0) {
             // Should never happen...  but if it does, trying to kill this
             // will boomerang right back and kill us!  Let's not let that happen.
-            SLOGW("Yikes, we've been told to kill pid 0!  How about we don't do that.");
+            LOG(WARNING) << "Yikes, we've been told to kill pid 0!  How about we don't do that?";
             continue;
         }
-        if (pid != initialPid) {
-            // We want to be noisy about killing processes so we can understand
-            // what is going on in the log; however, don't be noisy about the base
-            // process, since that it something we always kill, and we have already
-            // logged elsewhere about killing it.
-            SLOGI("Killing pid %d in uid %d as part of process group %d", pid, uid, initialPid);
-        }
-        int ret = kill(pid, signal);
-        if (ret == -1) {
-            SLOGW("failed to kill pid %d: %s", pid, strerror(errno));
+        LOG(VERBOSE) << "Killing pid " << pid << " in uid " << uid
+                     << " as part of process group " << initialPid;
+        if (kill(pid, signal) == -1) {
+            PLOG(WARNING) << "kill(" << pid << ", " << signal << ") failed";
         }
     }
 
@@ -289,27 +281,27 @@ static int killProcessGroupOnce(uid_t uid, int initialPid, int signal)
     return processes;
 }
 
-int killProcessGroup(uid_t uid, int initialPid, int signal)
-{
-    int processes;
-    const int sleep_us = 5 * 1000;  // 5ms
-    int64_t startTime = android::uptimeMillis();
-    int retry = 40;
+static int killProcessGroup(uid_t uid, int initialPid, int signal, int retry) {
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 
-    while ((processes = killProcessGroupOnce(uid, initialPid, signal)) > 0) {
-        SLOGV("killed %d processes for processgroup %d\n", processes, initialPid);
+    int processes;
+    while ((processes = doKillProcessGroupOnce(uid, initialPid, signal)) > 0) {
+        LOG(VERBOSE) << "killed " << processes << " processes for processgroup " << initialPid;
         if (retry > 0) {
-            usleep(sleep_us);
+            std::this_thread::sleep_for(5ms);
             --retry;
         } else {
-            SLOGE("failed to kill %d processes for processgroup %d\n",
-                    processes, initialPid);
+            LOG(ERROR) << "failed to kill " << processes << " processes for processgroup "
+                       << initialPid;
             break;
         }
     }
 
-    SLOGV("Killed process group uid %d pid %d in %" PRId64 "ms, %d procs remain", uid, initialPid,
-            android::uptimeMillis()-startTime, processes);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    LOG(VERBOSE) << "Killed process group uid " << uid << " pid " << initialPid << " in "
+                 << static_cast<int>(ms) << "ms, " << processes << " procs remain";
 
     if (processes == 0) {
         return removeProcessGroup(uid, initialPid);
@@ -318,67 +310,66 @@ int killProcessGroup(uid_t uid, int initialPid, int signal)
     }
 }
 
-static int mkdirAndChown(const char *path, mode_t mode, uid_t uid, gid_t gid)
+int killProcessGroup(uid_t uid, int initialPid, int signal) {
+    return killProcessGroup(uid, initialPid, signal, 40 /*maxRetry*/);
+}
+
+int killProcessGroupOnce(uid_t uid, int initialPid, int signal) {
+    return killProcessGroup(uid, initialPid, signal, 0 /*maxRetry*/);
+}
+
+static bool mkdirAndChown(const char *path, mode_t mode, uid_t uid, gid_t gid)
 {
-    int ret;
-
-    ret = mkdir(path, mode);
-    if (ret < 0 && errno != EEXIST) {
-        return -errno;
+    if (mkdir(path, mode) == -1 && errno != EEXIST) {
+        return false;
     }
 
-    ret = chown(path, uid, gid);
-    if (ret < 0) {
-        ret = -errno;
+    if (chown(path, uid, gid) == -1) {
+        int saved_errno = errno;
         rmdir(path);
-        return ret;
+        errno = saved_errno;
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
 int createProcessGroup(uid_t uid, int initialPid)
 {
     char path[PROCESSGROUP_MAX_PATH_LEN] = {0};
-    int ret;
 
     convertUidToPath(path, sizeof(path), uid);
 
-    ret = mkdirAndChown(path, 0750, AID_SYSTEM, AID_SYSTEM);
-    if (ret < 0) {
-        SLOGE("failed to make and chown %s: %s", path, strerror(-ret));
-        return ret;
+    if (!mkdirAndChown(path, 0750, AID_SYSTEM, AID_SYSTEM)) {
+        PLOG(ERROR) << "failed to make and chown " << path;
+        return -errno;
     }
 
     convertUidPidToPath(path, sizeof(path), uid, initialPid);
 
-    ret = mkdirAndChown(path, 0750, AID_SYSTEM, AID_SYSTEM);
-    if (ret < 0) {
-        SLOGE("failed to make and chown %s: %s", path, strerror(-ret));
-        return ret;
+    if (!mkdirAndChown(path, 0750, AID_SYSTEM, AID_SYSTEM)) {
+        PLOG(ERROR) << "failed to make and chown " << path;
+        return -errno;
     }
 
     strlcat(path, PROCESSGROUP_CGROUP_PROCS_FILE, sizeof(path));
 
     int fd = open(path, O_WRONLY);
-    if (fd < 0) {
-        ret = -errno;
-        SLOGE("failed to open %s: %s", path, strerror(errno));
+    if (fd == -1) {
+        int ret = -errno;
+        PLOG(ERROR) << "failed to open " << path;
         return ret;
     }
 
     char pid[PROCESSGROUP_MAX_PID_LEN + 1] = {0};
     int len = snprintf(pid, sizeof(pid), "%d", initialPid);
 
-    ret = write(fd, pid, len);
-    if (ret < 0) {
+    int ret = 0;
+    if (write(fd, pid, len) < 0) {
         ret = -errno;
-        SLOGE("failed to write '%s' to %s: %s", pid, path, strerror(errno));
-    } else {
-        ret = 0;
+        PLOG(ERROR) << "failed to write '" << pid << "' to " << path;
     }
 
     close(fd);
     return ret;
 }
-

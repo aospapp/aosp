@@ -18,6 +18,7 @@
 #define ART_RUNTIME_GC_SPACE_REGION_SPACE_INL_H_
 
 #include "region_space.h"
+#include "thread-inl.h"
 
 namespace art {
 namespace gc {
@@ -78,7 +79,7 @@ inline mirror::Object* RegionSpace::AllocNonvirtual(size_t num_bytes, size_t* by
       for (size_t i = 0; i < num_regions_; ++i) {
         Region* r = &regions_[i];
         if (r->IsFree()) {
-          r->Unfree(time_);
+          r->Unfree(this, time_);
           r->SetNewlyAllocated();
           ++num_non_free_regions_;
           obj = r->Alloc(num_bytes, bytes_allocated, usable_size, bytes_tl_bulk_allocated);
@@ -91,7 +92,7 @@ inline mirror::Object* RegionSpace::AllocNonvirtual(size_t num_bytes, size_t* by
       for (size_t i = 0; i < num_regions_; ++i) {
         Region* r = &regions_[i];
         if (r->IsFree()) {
-          r->Unfree(time_);
+          r->Unfree(this, time_);
           ++num_non_free_regions_;
           obj = r->Alloc(num_bytes, bytes_allocated, usable_size, bytes_tl_bulk_allocated);
           CHECK(obj != nullptr);
@@ -116,18 +117,17 @@ inline mirror::Object* RegionSpace::Region::Alloc(size_t num_bytes, size_t* byte
                                                   size_t* bytes_tl_bulk_allocated) {
   DCHECK(IsAllocated() && IsInToSpace());
   DCHECK_ALIGNED(num_bytes, kAlignment);
-  Atomic<uint8_t*>* atomic_top = reinterpret_cast<Atomic<uint8_t*>*>(&top_);
   uint8_t* old_top;
   uint8_t* new_top;
   do {
-    old_top = atomic_top->LoadRelaxed();
+    old_top = top_.LoadRelaxed();
     new_top = old_top + num_bytes;
     if (UNLIKELY(new_top > end_)) {
       return nullptr;
     }
-  } while (!atomic_top->CompareExchangeWeakSequentiallyConsistent(old_top, new_top));
-  reinterpret_cast<Atomic<uint64_t>*>(&objects_allocated_)->FetchAndAddSequentiallyConsistent(1);
-  DCHECK_LE(atomic_top->LoadRelaxed(), end_);
+  } while (!top_.CompareExchangeWeakRelaxed(old_top, new_top));
+  objects_allocated_.FetchAndAddRelaxed(1);
+  DCHECK_LE(Top(), end_);
   DCHECK_LT(old_top, end_);
   DCHECK_LE(new_top, end_);
   *bytes_allocated = num_bytes;
@@ -234,22 +234,37 @@ void RegionSpace::WalkInternal(ObjectCallback* callback, void* arg) {
       continue;
     }
     if (r->IsLarge()) {
+      // Avoid visiting dead large objects since they may contain dangling pointers to the
+      // from-space.
+      DCHECK_GT(r->LiveBytes(), 0u) << "Visiting dead large object";
       mirror::Object* obj = reinterpret_cast<mirror::Object*>(r->Begin());
-      if (obj->GetClass() != nullptr) {
-        callback(obj, arg);
-      }
+      DCHECK(obj->GetClass() != nullptr);
+      callback(obj, arg);
     } else if (r->IsLargeTail()) {
       // Do nothing.
     } else {
+      // For newly allocated and evacuated regions, live bytes will be -1.
       uint8_t* pos = r->Begin();
       uint8_t* top = r->Top();
-      while (pos < top) {
-        mirror::Object* obj = reinterpret_cast<mirror::Object*>(pos);
-        if (obj->GetClass<kDefaultVerifyFlags, kWithoutReadBarrier>() != nullptr) {
+      const bool need_bitmap =
+          r->LiveBytes() != static_cast<size_t>(-1) &&
+          r->LiveBytes() != static_cast<size_t>(top - pos);
+      if (need_bitmap) {
+        GetLiveBitmap()->VisitMarkedRange(
+            reinterpret_cast<uintptr_t>(pos),
+            reinterpret_cast<uintptr_t>(top),
+            [callback, arg](mirror::Object* obj) {
           callback(obj, arg);
-          pos = reinterpret_cast<uint8_t*>(GetNextObject(obj));
-        } else {
-          break;
+        });
+      } else {
+        while (pos < top) {
+          mirror::Object* obj = reinterpret_cast<mirror::Object*>(pos);
+          if (obj->GetClass<kDefaultVerifyFlags, kWithoutReadBarrier>() != nullptr) {
+            callback(obj, arg);
+            pos = reinterpret_cast<uint8_t*>(GetNextObject(obj));
+          } else {
+            break;
+          }
         }
       }
     }
@@ -298,13 +313,13 @@ mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocate
       DCHECK_EQ(left + num_regs, right);
       Region* first_reg = &regions_[left];
       DCHECK(first_reg->IsFree());
-      first_reg->UnfreeLarge(time_);
+      first_reg->UnfreeLarge(this, time_);
       ++num_non_free_regions_;
       first_reg->SetTop(first_reg->Begin() + num_bytes);
       for (size_t p = left + 1; p < right; ++p) {
         DCHECK_LT(p, num_regions_);
         DCHECK(regions_[p].IsFree());
-        regions_[p].UnfreeLargeTail(time_);
+        regions_[p].UnfreeLargeTail(this, time_);
         ++num_non_free_regions_;
       }
       *bytes_allocated = num_bytes;
@@ -320,6 +335,28 @@ mirror::Object* RegionSpace::AllocLarge(size_t num_bytes, size_t* bytes_allocate
   }
   return nullptr;
 }
+
+inline size_t RegionSpace::Region::BytesAllocated() const {
+  if (IsLarge()) {
+    DCHECK_LT(begin_ + kRegionSize, Top());
+    return static_cast<size_t>(Top() - begin_);
+  } else if (IsLargeTail()) {
+    DCHECK_EQ(begin_, Top());
+    return 0;
+  } else {
+    DCHECK(IsAllocated()) << static_cast<uint>(state_);
+    DCHECK_LE(begin_, Top());
+    size_t bytes;
+    if (is_a_tlab_) {
+      bytes = thread_->GetThreadLocalBytesAllocated();
+    } else {
+      bytes = static_cast<size_t>(Top() - begin_);
+    }
+    DCHECK_LE(bytes, kRegionSize);
+    return bytes;
+  }
+}
+
 
 }  // namespace space
 }  // namespace gc

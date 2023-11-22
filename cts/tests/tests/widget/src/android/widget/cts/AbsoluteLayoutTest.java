@@ -16,44 +16,56 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.content.Context;
-import android.cts.util.WidgetTestUtils;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.ViewGroup;
 import android.widget.AbsoluteLayout;
 import android.widget.AbsoluteLayout.LayoutParams;
 
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 
-@SuppressWarnings("deprecation")
-public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActivity> {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AbsoluteLayoutTest {
     private static final int DEFAULT_X      = 5;
     private static final int DEFAULT_Y      = 10;
     private static final int DEFAULT_WIDTH  = 20;
     private static final int DEFAULT_HEIGHT = 30;
 
     private Activity mActivity;
+    private AbsoluteLayout mAbsoluteLayout;
     private MyAbsoluteLayout mMyAbsoluteLayout;
     private LayoutParams mAbsoluteLayoutParams;
 
-    public AbsoluteLayoutTest() {
-        super("android.widget.cts", CtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<AbsoluteLayoutCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AbsoluteLayoutCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mMyAbsoluteLayout = new MyAbsoluteLayout(mActivity);
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mAbsoluteLayout = (AbsoluteLayout) mActivity.findViewById(R.id.absolute_view);
+        mMyAbsoluteLayout = (MyAbsoluteLayout) mActivity.findViewById(R.id.absolute_view_custom);
         mAbsoluteLayoutParams = new LayoutParams(DEFAULT_WIDTH, DEFAULT_HEIGHT,
                 DEFAULT_X, DEFAULT_Y);
     }
@@ -64,6 +76,7 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
         return Xml.asAttributeSet(parser);
     }
 
+    @Test
     public void testConstructor() throws XmlPullParserException, IOException {
         AttributeSet attrs = getAttributeSet();
 
@@ -74,14 +87,8 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
         new AbsoluteLayout(mActivity, attrs, -1);
     }
 
-    public void testOnMeasure() {
-        // onMeasure() is implementation details, do NOT test
-    }
-
-    public void testOnLayout() {
-        // onMeasure() is implementation details, do NOT test
-    }
-
+    @UiThreadTest
+    @Test
     public void testCheckLayoutParams() {
         assertTrue(mMyAbsoluteLayout.checkLayoutParams(mAbsoluteLayoutParams));
 
@@ -90,15 +97,11 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
         assertFalse(mMyAbsoluteLayout.checkLayoutParams(null));
     }
 
-    public void testGenerateLayoutParams1() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.setContentView(R.layout.absolute_layout);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        AbsoluteLayout layout = (AbsoluteLayout) mActivity.findViewById(R.id.absolute_view);
-        LayoutParams params = (LayoutParams) layout.generateLayoutParams(getAttributeSet());
+    @UiThreadTest
+    @Test
+    public void testGenerateLayoutParamsFromAttributeSet() throws Throwable {
+        LayoutParams params = (LayoutParams) mAbsoluteLayout.generateLayoutParams(
+                getAttributeSet());
 
         assertNotNull(params);
         assertEquals(LayoutParams.MATCH_PARENT, params.width);
@@ -107,7 +110,9 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
         assertEquals(0, params.y);
     }
 
-    public void testGenerateLayoutParams2() {
+    @UiThreadTest
+    @Test
+    public void testGenerateLayoutParamsFromLayoutParams() {
         LayoutParams params =
             (LayoutParams) mMyAbsoluteLayout.generateLayoutParams(mAbsoluteLayoutParams);
 
@@ -115,15 +120,15 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
         assertEquals(DEFAULT_HEIGHT, params.height);
         assertEquals(0, params.x);
         assertEquals(0, params.y);
-
-        try {
-            mMyAbsoluteLayout.generateLayoutParams((LayoutParams) null);
-            fail("did not throw NullPointerException when ViewGroup.LayoutParams is null.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testGenerateLayoutParamsFromNull() {
+        mMyAbsoluteLayout.generateLayoutParams((LayoutParams) null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testGenerateDefaultLayoutParams() {
         LayoutParams params = (LayoutParams) mMyAbsoluteLayout.generateDefaultLayoutParams();
 
@@ -133,9 +138,13 @@ public class AbsoluteLayoutTest extends ActivityInstrumentationTestCase2<CtsActi
         assertEquals(0, params.y);
     }
 
-    private static class MyAbsoluteLayout extends AbsoluteLayout {
+    public static class MyAbsoluteLayout extends AbsoluteLayout {
         public MyAbsoluteLayout(Context context) {
             super(context);
+        }
+
+        public MyAbsoluteLayout(Context context, AttributeSet attrs) {
+            super(context, attrs);
         }
 
         @Override

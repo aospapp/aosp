@@ -16,7 +16,7 @@ The common options are:
 See topic_common.py for a High Level Design and Algorithm.
 """
 
-import os, sys
+import sys
 from autotest_lib.cli import topic_common, action_common
 
 
@@ -55,7 +55,7 @@ class label_help(label):
 
 
 class label_list(action_common.atest_list, label):
-    """atest label list [--platform] [--all] [--atomicgroup]
+    """atest label list [--platform] [--all]
     [--valid-only] [--machine <machine>]
     [--blist <file>] [<labels>]"""
     def __init__(self):
@@ -74,11 +74,6 @@ class label_list(action_common.atest_list, label):
                                      'platform labels'),
                                action='store_true')
 
-        self.parser.add_option('--atomicgroup',
-                               help=('Display only atomic group labels '
-                                     'along with the atomic group name.'),
-                               action='store_true')
-
         self.parser.add_option('-m', '--machine',
                                help='List LABELs of MACHINE',
                                type='string',
@@ -90,10 +85,10 @@ class label_list(action_common.atest_list, label):
                                                  inline_option='machine')
         (options, leftover) = super(label_list, self).parse([host_info])
 
-        exclusives = [options.all, options.platform_only, options.atomicgroup]
+        exclusives = [options.all, options.platform_only]
         if exclusives.count(True) > 1:
             self.invalid_syntax('Only specify one of --all,'
-                                '--platform, --atomicgroup')
+                                '--platform')
 
         if len(self.hosts) > 1:
             self.invalid_syntax(('Only one machine name allowed. '
@@ -101,7 +96,6 @@ class label_list(action_common.atest_list, label):
                                  'instead.') %
                                 (sys.argv[0], ','.join(self.hosts)))
         self.all = options.all
-        self.atomicgroup = options.atomicgroup
         self.platform_only = options.platform_only
         self.valid_only = options.valid_only
         return (options, leftover)
@@ -132,10 +126,6 @@ class label_list(action_common.atest_list, label):
             results = [label for label in results
                        if label['platform']]
             keys = ['name', 'invalid']
-        elif self.atomicgroup:
-            results = [label for label in results
-                       if label['atomic_group']]
-            keys = ['name', 'atomic_group.name', 'invalid']
         elif not self.all:
             results = [label for label in results
                        if not label['platform']]
@@ -176,6 +166,7 @@ class label_delete(action_common.atest_delete, label):
 
 
 class label_add_or_remove(label):
+    """Parent for `atest label` add and `label remove`"""
     def __init__(self):
         super(label_add_or_remove, self).__init__()
         lower_words = tuple(word.lower() for word in self.usage_words)

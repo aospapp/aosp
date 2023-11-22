@@ -15,7 +15,8 @@
 -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        style="@style/RootLayoutPadding">
 
     <Button android:id="@+id/start_btn"
             android:text="@string/network_screen_off_test_start"

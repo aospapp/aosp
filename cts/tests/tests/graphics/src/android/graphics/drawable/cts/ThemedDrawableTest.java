@@ -16,31 +16,40 @@
 
 package android.graphics.drawable.cts;
 
-import android.annotation.TargetApi;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
 import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Shader.TileMode;
+import android.graphics.cts.R;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.NinePatchDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.os.Debug;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.Gravity;
 
-import android.graphics.cts.R;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-@TargetApi(21)
-public class ThemedDrawableTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ThemedDrawableTest {
+    private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
         // Workaround for ContextImpl.setTheme() being broken.
         final Theme theme = mContext.getResources().newTheme();
         theme.applyStyle(R.style.Theme_ThemedDrawableTest, true);
@@ -48,19 +57,20 @@ public class ThemedDrawableTest extends AndroidTestCase {
         ctxTheme.setTo(theme);
     }
 
-    @Override
+    @Before
     public void testAndroidTestCaseSetupProperly() {
         final TypedArray t = mContext.obtainStyledAttributes(new int[]{R.attr.themeType});
         assertTrue("Theme was applied correctly", t.getInt(0, -1) == 0);
     }
 
+    @Test
     public void testBitmapDrawable() {
         BitmapDrawable d = (BitmapDrawable) mContext.getDrawable(R.drawable.bitmapdrawable_theme);
 
-        internalTestBitmapDrawable(d);
+        verifyBitmapDrawable(d);
     }
 
-    private void internalTestBitmapDrawable(BitmapDrawable d) {
+    private void verifyBitmapDrawable(BitmapDrawable d) {
         assertEquals(true, d.hasAntiAlias());
         assertEquals(true, d.isAutoMirrored());
         // assertEquals(true, d.hasDither());
@@ -72,12 +82,14 @@ public class ThemedDrawableTest extends AndroidTestCase {
         assertEquals(TileMode.MIRROR, d.getTileModeY());
     }
 
+    @Test
     public void testColorDrawable() {
         ColorDrawable d = (ColorDrawable) mContext.getDrawable(R.drawable.colordrawable_theme);
 
         assertEquals(Color.BLACK, d.getColor());
     }
 
+    @Test
     public void testGradientDrawable() {
         GradientDrawable d = (GradientDrawable) mContext.getDrawable(
                 R.drawable.gradientdrawable_theme);
@@ -122,19 +134,21 @@ public class ThemedDrawableTest extends AndroidTestCase {
         // assertEquals(1.0, d.getStrokeDashGap());
     }
 
+    @Test
     public void testNinePatchDrawable() {
         NinePatchDrawable d = (NinePatchDrawable) mContext.getDrawable(
                 R.drawable.ninepatchdrawable_theme);
 
-        internalTestNinePatchDrawable(d);
+        verifyNinePatchDrawable(d);
     }
 
-    private void internalTestNinePatchDrawable(NinePatchDrawable d) {
+    private void verifyNinePatchDrawable(NinePatchDrawable d) {
         assertEquals(true, d.isAutoMirrored());
         // assertEquals(true, d.hasDither());
         // assertNotNull(d.getNinePatch());
     }
 
+    @Test
     public void testRippleDrawable() {
         RippleDrawable d = (RippleDrawable) mContext.getDrawable(
                 R.drawable.rippledrawable_theme);
@@ -142,6 +156,7 @@ public class ThemedDrawableTest extends AndroidTestCase {
         // assertEquals(Color.BLACK, d.getColor());
     }
 
+    @Test
     public void testLayerDrawable() {
         LayerDrawable d = (LayerDrawable) mContext.getDrawable(R.drawable.layerdrawable_theme);
 
@@ -150,9 +165,9 @@ public class ThemedDrawableTest extends AndroidTestCase {
         assertEquals(true, d.isAutoMirrored());
 
         BitmapDrawable bitmapDrawable  = (BitmapDrawable) d.getDrawable(0);
-        internalTestBitmapDrawable(bitmapDrawable);
+        verifyBitmapDrawable(bitmapDrawable);
 
         NinePatchDrawable ninePatchDrawable = (NinePatchDrawable) d.getDrawable(1);
-        internalTestNinePatchDrawable(ninePatchDrawable);
+        verifyNinePatchDrawable(ninePatchDrawable);
     }
 }

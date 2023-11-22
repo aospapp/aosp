@@ -14,8 +14,7 @@ Fails if any of the following conditions occur:
   - core pattern is not recognized as as 'core'
   - crash is sent without user consent
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:smoke"
-SUITE = "bvt-perbuild, smoke"
+ATTRIBUTES = "suite:bvt-cq, suite:smoke"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "logging"
@@ -26,7 +25,8 @@ Test that user space crashes are detected and handled appropriately.
 """
 
 BUG_TEMPLATE = {
-    'labels': ['OS-Chrome', 'Cr-Internals-Logging', 'Cr-OS-Systems'],
+    'labels': ['OS-Chrome'],
+    'components': ['Internals>Logging', 'OS>Systems'],
     'owner': 'vapier@chromium.org',
     'cc': ['vapier@chromium.org', 'benchan@chromium.org'],
 }

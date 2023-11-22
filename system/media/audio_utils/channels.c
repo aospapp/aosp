@@ -33,7 +33,7 @@ static inline int32_t clamp24(int32_t sample)
  * Converts a uint8x3_t into an int32_t
  */
 inline int32_t uint8x3_to_int32(uint8x3_t val) {
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
     int32_t temp = (val.c[0] << 24 | val.c[1] << 16 | val.c[2] << 8) >> 8;
 #else
     int32_t temp = (val.c[2] << 24 | val.c[1] << 16 | val.c[0] << 8) >> 8;
@@ -46,7 +46,7 @@ inline int32_t uint8x3_to_int32(uint8x3_t val) {
  */
 inline uint8x3_t int32_to_uint8x3(int32_t in) {
     uint8x3_t out;
-#ifdef HAVE_BIG_ENDIAN
+#if HAVE_BIG_ENDIAN
     out.c[2] = in;
     out.c[1] = in >> 8;
     out.c[0] = in >> 16;
@@ -67,23 +67,23 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
  */
 #define EXPAND_CHANNELS(in_buff, in_buff_chans, out_buff, out_buff_chans, num_in_bytes, zero) \
 { \
-    size_t num_in_samples = num_in_bytes / sizeof(*in_buff); \
-    size_t num_out_samples = (num_in_samples * out_buff_chans) / in_buff_chans; \
-    typeof(out_buff) dst_ptr = out_buff + num_out_samples - 1; \
+    size_t num_in_samples = (num_in_bytes) / sizeof(*(in_buff)); \
+    size_t num_out_samples = (num_in_samples * (out_buff_chans)) / (in_buff_chans); \
+    typeof(out_buff) dst_ptr = (out_buff) + num_out_samples - 1; \
     size_t src_index; \
-    typeof(in_buff) src_ptr = in_buff + num_in_samples - 1; \
-    size_t num_zero_chans = out_buff_chans - in_buff_chans; \
-    for (src_index = 0; src_index < num_in_samples; src_index += in_buff_chans) { \
+    typeof(in_buff) src_ptr = (in_buff) + num_in_samples - 1; \
+    size_t num_zero_chans = (out_buff_chans) - (in_buff_chans); \
+    for (src_index = 0; src_index < num_in_samples; src_index += (in_buff_chans)) { \
         size_t dst_offset; \
         for (dst_offset = 0; dst_offset < num_zero_chans; dst_offset++) { \
             *dst_ptr-- = zero; \
         } \
-        for (; dst_offset < out_buff_chans; dst_offset++) { \
+        for (; dst_offset < (out_buff_chans); dst_offset++) { \
             *dst_ptr-- = *src_ptr--; \
         } \
     } \
     /* return number of *bytes* generated */ \
-    return num_out_samples * sizeof(*out_buff); \
+    return num_out_samples * sizeof(*(out_buff)); \
 }
 
 /* Channel expands from a MONO input buffer to a MULTICHANNEL output buffer by duplicating the
@@ -98,24 +98,24 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
  */
 #define EXPAND_MONO_TO_MULTI(in_buff, in_buff_chans, out_buff, out_buff_chans, num_in_bytes, zero) \
 { \
-    size_t num_in_samples = num_in_bytes / sizeof(*in_buff); \
-    size_t num_out_samples = (num_in_samples * out_buff_chans) / in_buff_chans; \
-    typeof(out_buff) dst_ptr = out_buff + num_out_samples - 1; \
+    size_t num_in_samples = (num_in_bytes) / sizeof(*(in_buff)); \
+    size_t num_out_samples = (num_in_samples * (out_buff_chans)) / (in_buff_chans); \
+    typeof(out_buff) dst_ptr = (out_buff) + num_out_samples - 1; \
     size_t src_index; \
-    typeof(in_buff) src_ptr = in_buff + num_in_samples - 1; \
-    size_t num_zero_chans = out_buff_chans - in_buff_chans - 1; \
-    for (src_index = 0; src_index < num_in_samples; src_index += in_buff_chans) { \
+    typeof(in_buff) src_ptr = (in_buff) + num_in_samples - 1; \
+    size_t num_zero_chans = (out_buff_chans) - (in_buff_chans) - 1; \
+    for (src_index = 0; src_index < num_in_samples; src_index += (in_buff_chans)) { \
         size_t dst_offset; \
         for (dst_offset = 0; dst_offset < num_zero_chans; dst_offset++) { \
             *dst_ptr-- = zero; \
         } \
-        for (; dst_offset < out_buff_chans; dst_offset++) { \
+        for (; dst_offset < (out_buff_chans); dst_offset++) { \
             *dst_ptr-- = *src_ptr; \
         } \
         src_ptr--; \
     } \
     /* return number of *bytes* generated */ \
-    return num_out_samples * sizeof(*out_buff); \
+    return num_out_samples * sizeof(*(out_buff)); \
 }
 
 /* Channel contracts (removes from audio frame end) from an input buffer to an output buffer.
@@ -127,21 +127,21 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
  */
 #define CONTRACT_CHANNELS(in_buff, in_buff_chans, out_buff, out_buff_chans, num_in_bytes) \
 { \
-    size_t num_in_samples = num_in_bytes / sizeof(*in_buff); \
-    size_t num_out_samples = (num_in_samples * out_buff_chans) / in_buff_chans; \
-    size_t num_skip_samples = in_buff_chans - out_buff_chans; \
+    size_t num_in_samples = (num_in_bytes) / sizeof(*(in_buff)); \
+    size_t num_out_samples = (num_in_samples * (out_buff_chans)) / (in_buff_chans); \
+    size_t num_skip_samples = (in_buff_chans) - (out_buff_chans); \
     typeof(out_buff) dst_ptr = out_buff; \
     typeof(in_buff) src_ptr = in_buff; \
     size_t src_index; \
-    for (src_index = 0; src_index < num_in_samples; src_index += in_buff_chans) { \
+    for (src_index = 0; src_index < num_in_samples; src_index += (in_buff_chans)) { \
         size_t dst_offset; \
-        for (dst_offset = 0; dst_offset < out_buff_chans; dst_offset++) { \
+        for (dst_offset = 0; dst_offset < (out_buff_chans); dst_offset++) { \
             *dst_ptr++ = *src_ptr++; \
         } \
         src_ptr += num_skip_samples; \
     } \
     /* return number of *bytes* generated */ \
-    return num_out_samples * sizeof(*out_buff); \
+    return num_out_samples * sizeof(*(out_buff)); \
 }
 
 /* Channel contracts from a MULTICHANNEL input buffer to a MONO output buffer by mixing the
@@ -158,7 +158,7 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
  */
 #define CONTRACT_TO_MONO(in_buff, out_buff, num_in_bytes) \
 { \
-    size_t num_in_samples = num_in_bytes / sizeof(*in_buff); \
+    size_t num_in_samples = (num_in_bytes) / sizeof(*(in_buff)); \
     size_t num_out_samples = (num_in_samples * out_buff_chans) / in_buff_chans; \
     size_t num_skip_samples = in_buff_chans - 2; \
     typeof(out_buff) dst_ptr = out_buff; \
@@ -176,7 +176,7 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
         src_ptr += num_skip_samples; \
     } \
     /* return number of *bytes* generated */ \
-    return num_out_samples * sizeof(*out_buff); \
+    return num_out_samples * sizeof(*(out_buff)); \
 }
 
 /* Channel contracts from a MULTICHANNEL uint8x3_t input buffer to a MONO uint8x3_t output buffer
@@ -191,7 +191,7 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
  */
 #define CONTRACT_TO_MONO_24(in_buff, out_buff, num_in_bytes) \
 { \
-    size_t num_in_samples = num_in_bytes / sizeof(*in_buff); \
+    size_t num_in_samples = (num_in_bytes) / sizeof(*(in_buff)); \
     size_t num_out_samples = (num_in_samples * out_buff_chans) / in_buff_chans; \
     size_t num_skip_samples = in_buff_chans - 2; \
     typeof(out_buff) dst_ptr = out_buff; \
@@ -205,7 +205,7 @@ inline uint8x3_t int32_to_uint8x3(int32_t in) {
         src_ptr += num_skip_samples; \
     } \
     /* return number of *bytes* generated */ \
-    return num_out_samples * sizeof(*out_buff); \
+    return num_out_samples * sizeof(*(out_buff)); \
 }
 
 /*

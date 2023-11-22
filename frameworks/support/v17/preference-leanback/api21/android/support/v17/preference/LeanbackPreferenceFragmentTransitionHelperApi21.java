@@ -16,14 +16,20 @@
 
 package android.support.v17.preference;
 
-import android.support.v17.leanback.transition.FadeAndShortSlide;
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Fragment;
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
+import android.support.v17.leanback.transition.FadeAndShortSlide;
 import android.transition.Transition;
 import android.view.Gravity;
 
 /**
  * @hide
  */
+@RequiresApi(21)
+@RestrictTo(LIBRARY_GROUP)
 public class LeanbackPreferenceFragmentTransitionHelperApi21 {
 
     public static void addTransitions(Fragment f) {

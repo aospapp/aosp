@@ -17,9 +17,10 @@
  *****************************************************************************
  * Originally developed and contributed by Ittiam Systems Pvt. Ltd, Bangalore
 */
+#ifdef __ANDROID__
 #include "log/log.h"
 #include <cutils/log.h>
-
+#endif
 #include "ih264_typedefs.h"
 #include "ih264_macros.h"
 #include "ih264_platform_macros.h"
@@ -291,6 +292,8 @@ WORD32 ih264d_insert_lt_node(dpb_manager_t *ps_dpb_mgr,
             ps_mov_node->s_bot_field.u1_reference_info = IS_LONG_TERM;
             ps_mov_node->s_top_field.u1_long_term_frame_idx = u4_lt_idx;
             ps_mov_node->s_bot_field.u1_long_term_frame_idx = u4_lt_idx;
+            u1_mark_bot_field_long_term = 1;
+            u1_mark_top_field_long_term = 1;
         }
 
         ps_mov_node->u1_lt_idx = u4_lt_idx; //Assign the LT index to the node
@@ -337,7 +340,7 @@ WORD32 ih264d_insert_lt_node(dpb_manager_t *ps_dpb_mgr,
         /* Increment LT buf count only if new LT node inserted    */
         /* If Increment during top_field is done, don't increment */
         /* for bottom field, as both them are part of same pic.   */
-        if(!u1_mark_bot_field_long_term)
+        if(u1_mark_bot_field_long_term)
             ps_dpb_mgr->u1_num_lt_ref_bufs++;
 
     }
@@ -374,7 +377,16 @@ WORD32 ih264d_insert_st_node(dpb_manager_t *ps_dpb_mgr,
         {
             /* Can occur only for field bottom pictures */
             ps_dpb_info[i].s_bot_field.u1_reference_info = IS_SHORT_TERM;
-            return 0;
+
+            /*signal an error in the case of frame pic*/
+            if(ps_dpb_info[i].ps_pic_buf->u1_pic_type == FRM_PIC)
+            {
+                return ERROR_DBP_MANAGER_T;
+            }
+            else
+            {
+                return OK;
+            }
         }
 
         if((ps_dpb_info[i].u1_used_as_ref == UNUSED_FOR_REF)
@@ -877,8 +889,10 @@ WORD32 ih264d_read_mmco_commands(struct _DecStruct * ps_dec)
                 {
                     if (j >= MAX_REF_BUFS)
                     {
+#ifdef __ANDROID__
                         ALOGE("b/25818142");
                         android_errorWriteLog(0x534e4554, "25818142");
+#endif
                         ps_dpb_cmds->u1_num_of_commands = 0;
                         return -1;
                     }
@@ -1278,11 +1292,22 @@ WORD32 ih264d_do_mmco_buffer(dpb_commands_t *ps_dpb_cmds,
                                           u4_cur_pic_num);
                     if(ret != OK)
                         return ret;
-                    ret = ih264d_delete_st_node_or_make_lt(ps_dpb_mgr,
-                                                     u4_cur_pic_num, u4_lt_idx,
-                                                     u1_fld_pic_flag);
-                    if(ret != OK)
-                        return ret;
+
+                    if(ps_dpb_mgr->u1_num_st_ref_bufs > 0)
+
+                    {
+                        ret = ih264d_delete_st_node_or_make_lt(ps_dpb_mgr,
+                                                               u4_cur_pic_num,
+                                                               u4_lt_idx,
+                                                               u1_fld_pic_flag);
+                        if(ret != OK)
+                            return ret;
+                    }
+                    else
+                    {
+                        return ERROR_DBP_MANAGER_T;
+                    }
+
                     u1_marked_lt = 1;
                     break;
                 }

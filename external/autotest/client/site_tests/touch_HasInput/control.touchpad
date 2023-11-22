@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if the device does not have touchpad input.
 """
 ATTRIBUTES = "suite:bvt-perbuild, suite:touch"
-SUITE = "bvt-perbuild,touch"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"

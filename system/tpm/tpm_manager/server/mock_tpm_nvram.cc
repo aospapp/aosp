@@ -23,92 +23,139 @@ using testing::Invoke;
 using testing::Return;
 
 MockTpmNvram::MockTpmNvram() {
-  ON_CALL(*this, DefineNvram(_, _))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeDefineNvram));
-  ON_CALL(*this, DestroyNvram(_))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeDestroyNvram));
-  ON_CALL(*this, WriteNvram(_, _))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeWriteNvram));
-  ON_CALL(*this, ReadNvram(_, _))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeReadNvram));
-  ON_CALL(*this, IsNvramDefined(_, _))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeIsNvramDefined));
-  ON_CALL(*this, IsNvramLocked(_, _))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeIsNvramLocked));
-  ON_CALL(*this, GetNvramSize(_, _))
-      .WillByDefault(Invoke(this, &MockTpmNvram::FakeGetNvramSize));
+  ON_CALL(*this, DefineSpace(_, _, _, _, _))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeDefineSpace));
+  ON_CALL(*this, DestroySpace(_))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeDestroySpace));
+  ON_CALL(*this, WriteSpace(_, _, _))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeWriteSpace));
+  ON_CALL(*this, ReadSpace(_, _, _))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeReadSpace));
+  ON_CALL(*this, LockSpace(_, _, _, _))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeLockSpace));
+  ON_CALL(*this, ListSpaces(_))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeListSpaces));
+  ON_CALL(*this, GetSpaceInfo(_, _, _, _, _, _))
+      .WillByDefault(Invoke(this, &MockTpmNvram::FakeGetSpaceInfo));
 }
 
 MockTpmNvram::~MockTpmNvram() {}
 
-bool MockTpmNvram::FakeDefineNvram(uint32_t index, size_t length) {
-  if (length == 0) {
-    return false;
+NvramResult MockTpmNvram::FakeDefineSpace(
+    uint32_t index,
+    size_t size,
+    const std::vector<NvramSpaceAttribute>& attributes,
+    const std::string& authorization_value,
+    NvramSpacePolicy policy) {
+  if (size == 0) {
+    return NVRAM_RESULT_INVALID_PARAMETER;
+  }
+  if (nvram_map_.count(index) != 0) {
+    return NVRAM_RESULT_SPACE_ALREADY_EXISTS;
   }
   NvSpace ns;
-  ns.data.resize(length, '\xff');
-  ns.written = false;
+  ns.data.resize(size, '\xff');
+  ns.read_locked = false;
+  ns.write_locked = false;
+  ns.attributes = attributes;
+  ns.authorization_value = authorization_value;
+  ns.policy = policy;
   nvram_map_[index] = ns;
-  return true;
+  return NVRAM_RESULT_SUCCESS;
 }
 
-bool MockTpmNvram::FakeDestroyNvram(uint32_t index) {
-  auto it = nvram_map_.find(index);
-  if (it == nvram_map_.end()) {
-    return false;
+NvramResult MockTpmNvram::FakeDestroySpace(uint32_t index) {
+  if (nvram_map_.count(index) == 0) {
+    return NVRAM_RESULT_SPACE_DOES_NOT_EXIST;
   }
-  nvram_map_.erase(it);
-  return true;
+  nvram_map_.erase(index);
+  return NVRAM_RESULT_SUCCESS;
 }
 
-bool MockTpmNvram::FakeWriteNvram(uint32_t index, const std::string& data) {
-  auto it = nvram_map_.find(index);
-  if (it == nvram_map_.end()) {
-    return false;
+NvramResult MockTpmNvram::FakeWriteSpace(
+    uint32_t index,
+    const std::string& data,
+    const std::string& authorization_value) {
+  if (nvram_map_.count(index) == 0) {
+    return NVRAM_RESULT_SPACE_DOES_NOT_EXIST;
   }
-  NvSpace& nv = it->second;
-  if (nv.written || nv.data.size() < data.size()) {
-    return false;
+  if (nvram_map_[index].authorization_value != authorization_value) {
+    return NVRAM_RESULT_ACCESS_DENIED;
   }
-  nv.data.replace(0, data.size(), data);
-  nv.written = true;
-  return true;
+  if (nvram_map_[index].write_locked) {
+    return NVRAM_RESULT_OPERATION_DISABLED;
+  }
+  std::string& space_data = nvram_map_[index].data;
+  size_t size = space_data.size();
+  if (data.size() > size) {
+    return NVRAM_RESULT_INVALID_PARAMETER;
+  }
+  space_data = data;
+  space_data.resize(size);
+  return NVRAM_RESULT_SUCCESS;
 }
 
-bool MockTpmNvram::FakeReadNvram(uint32_t index, std::string* data) {
-  auto it = nvram_map_.find(index);
-  if (it == nvram_map_.end()) {
-    return false;
+NvramResult MockTpmNvram::FakeReadSpace(
+    uint32_t index,
+    std::string* data,
+    const std::string& authorization_value) {
+  if (nvram_map_.count(index) == 0) {
+    return NVRAM_RESULT_SPACE_DOES_NOT_EXIST;
   }
-  const NvSpace& nv = it->second;
-  if (!nv.written) {
-    return false;
+  if (nvram_map_[index].authorization_value != authorization_value) {
+    return NVRAM_RESULT_ACCESS_DENIED;
   }
-  data->assign(nv.data);
-  return true;
+  if (nvram_map_[index].read_locked) {
+    return NVRAM_RESULT_OPERATION_DISABLED;
+  }
+  *data = nvram_map_[index].data;
+  return NVRAM_RESULT_SUCCESS;
 }
 
-bool MockTpmNvram::FakeIsNvramDefined(uint32_t index, bool* defined) {
-  *defined = (nvram_map_.find(index) != nvram_map_.end());
-  return true;
+NvramResult MockTpmNvram::FakeLockSpace(
+    uint32_t index,
+    bool lock_read,
+    bool lock_write,
+    const std::string& authorization_value) {
+  if (nvram_map_.count(index) == 0) {
+    return NVRAM_RESULT_SPACE_DOES_NOT_EXIST;
+  }
+  if (nvram_map_[index].authorization_value != authorization_value) {
+    return NVRAM_RESULT_ACCESS_DENIED;
+  }
+  if (lock_read) {
+    nvram_map_[index].read_locked = true;
+  }
+  if (lock_write) {
+    nvram_map_[index].write_locked = true;
+  }
+  return NVRAM_RESULT_SUCCESS;
 }
 
-bool MockTpmNvram::FakeIsNvramLocked(uint32_t index, bool* locked) {
-  bool defined;
-  if (!IsNvramDefined(index, &defined) || !defined) {
-    return false;
+NvramResult MockTpmNvram::FakeListSpaces(std::vector<uint32_t>* index_list) {
+  for (auto iter : nvram_map_) {
+    index_list->push_back(iter.first);
   }
-  *locked = nvram_map_[index].written;
-  return true;
+  return NVRAM_RESULT_SUCCESS;
 }
 
-bool MockTpmNvram::FakeGetNvramSize(uint32_t index, size_t* size) {
-  bool defined;
-  if (!IsNvramDefined(index, &defined) || !defined) {
-    return false;
+NvramResult MockTpmNvram::FakeGetSpaceInfo(
+    uint32_t index,
+    size_t* size,
+    bool* is_read_locked,
+    bool* is_write_locked,
+    std::vector<NvramSpaceAttribute>* attributes,
+    NvramSpacePolicy* policy) {
+  if (nvram_map_.count(index) == 0) {
+    return NVRAM_RESULT_SPACE_DOES_NOT_EXIST;
   }
-  *size = nvram_map_[index].data.size();
-  return true;
+  NvSpace& space = nvram_map_[index];
+  *size = space.data.size();
+  *is_read_locked = space.read_locked;
+  *is_write_locked = space.write_locked;
+  *attributes = space.attributes;
+  *policy = space.policy;
+  return NVRAM_RESULT_SUCCESS;
 }
 
 }  // namespace tpm_manager

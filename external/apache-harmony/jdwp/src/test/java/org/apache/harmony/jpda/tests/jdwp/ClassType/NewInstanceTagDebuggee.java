@@ -21,8 +21,6 @@ package org.apache.harmony.jpda.tests.jdwp.ClassType;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
-import java.nio.charset.Charset;
-
 public class NewInstanceTagDebuggee extends SyncDebuggee {
     static class MyObject extends Object {
     }

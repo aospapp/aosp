@@ -249,6 +249,11 @@ set_myanmar_properties (hb_glyph_info_t &info)
     case 0x104Au: case 0x104Bu:
       cat = (indic_category_t) OT_P;
       break;
+
+    case 0xAA74u: case 0xAA75u: case 0xAA76u:
+      /* https://github.com/roozbehp/unicode-data/issues/3 */
+      cat = (indic_category_t) OT_C;
+      break;
   }
 
   if (cat == OT_M)
@@ -516,6 +521,7 @@ const hb_ot_complex_shaper_t _hb_ot_complex_shaper_myanmar_old =
   NULL, /* decompose */
   NULL, /* compose */
   NULL, /* setup_masks */
+  NULL, /* disable_otl */
   HB_OT_SHAPE_ZERO_WIDTH_MARKS_BY_GDEF_LATE,
   true, /* fallback_position */
 };
@@ -533,6 +539,7 @@ const hb_ot_complex_shaper_t _hb_ot_complex_shaper_myanmar =
   NULL, /* decompose */
   NULL, /* compose */
   setup_masks_myanmar,
+  NULL, /* disable_otl */
   HB_OT_SHAPE_ZERO_WIDTH_MARKS_BY_GDEF_EARLY,
   false, /* fallback_position */
 };

@@ -25,9 +25,13 @@
 
 #include <gtest/gtest.h>
 
+#include "Fwmark.h"
 #include "NetdConstants.h"
 #include "SockDiag.h"
 #include "UidRanges.h"
+
+namespace android {
+namespace net {
 
 class SockDiagTest : public ::testing::Test {
 protected:
@@ -96,18 +100,12 @@ TEST_F(SockDiagTest, TestDump) {
 
     int v4SocketsSeen = 0;
     bool seenclient46 = false;
-    bool seenNull = false;
     char src[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
 
     fprintf(stderr, "Ports:\n  server=%d. client46=%d, client6=%d\n",
             port, ntohs(client46.sin6_port), ntohs(client6.sin6_port));
 
     auto checkIPv4Dump = [&] (uint8_t /* proto */, const inet_diag_msg *msg) {
-        if (msg == nullptr) {
-            EXPECT_FALSE(seenNull);
-            seenNull = true;
-            return false;
-        }
         EXPECT_EQ(htonl(INADDR_LOOPBACK), msg->id.idiag_src[0]);
         v4SocketsSeen++;
         seenclient46 |= (msg->id.idiag_sport == client46.sin6_port);
@@ -127,11 +125,6 @@ TEST_F(SockDiagTest, TestDump) {
     bool seenClient6 = false, seenServer46 = false, seenServer6 = false;
 
     auto checkIPv6Dump = [&] (uint8_t /* proto */, const inet_diag_msg *msg) {
-        if (msg == nullptr) {
-            EXPECT_FALSE(seenNull);
-            seenNull = true;
-            return false;
-        }
         struct in6_addr *saddr = (struct in6_addr *) msg->id.idiag_src;
         EXPECT_TRUE(
             IN6_IS_ADDR_LOOPBACK(saddr) ||
@@ -155,7 +148,6 @@ TEST_F(SockDiagTest, TestDump) {
     SockDiag sd;
     ASSERT_TRUE(sd.open()) << "Failed to open SOCK_DIAG socket";
 
-    seenNull = false;
     int ret = sd.sendDumpRequest(IPPROTO_TCP, AF_INET, "127.0.0.1");
     ASSERT_EQ(0, ret) << "Failed to send IPv4 dump request: " << strerror(-ret);
     fprintf(stderr, "Sent IPv4 dump\n");
@@ -164,14 +156,12 @@ TEST_F(SockDiagTest, TestDump) {
     EXPECT_TRUE(seenclient46);
     EXPECT_FALSE(seenServer46);
 
-    seenNull = false;
     ret = sd.sendDumpRequest(IPPROTO_TCP, AF_INET6, "127.0.0.1");
     ASSERT_EQ(0, ret) << "Failed to send mapped dump request: " << strerror(-ret);
     fprintf(stderr, "Sent mapped dump\n");
     sd.readDiagMsg(IPPROTO_TCP, checkIPv6Dump);
     EXPECT_TRUE(seenServer46);
 
-    seenNull = false;
     ret = sd.sendDumpRequest(IPPROTO_TCP, AF_INET6, "::1");
     ASSERT_EQ(0, ret) << "Failed to send IPv6 dump request: " << strerror(-ret);
     fprintf(stderr, "Sent IPv6 dump\n");
@@ -278,6 +268,7 @@ enum MicroBenchmarkTestType {
     UID_EXCLUDE_LOOPBACK,
     UIDRANGE,
     UIDRANGE_EXCLUDE_LOOPBACK,
+    PERMISSION,
 };
 
 const char *testTypeName(MicroBenchmarkTestType mode) {
@@ -288,9 +279,29 @@ const char *testTypeName(MicroBenchmarkTestType mode) {
         TO_STRING_TYPE(UID_EXCLUDE_LOOPBACK);
         TO_STRING_TYPE(UIDRANGE);
         TO_STRING_TYPE(UIDRANGE_EXCLUDE_LOOPBACK);
+        TO_STRING_TYPE(PERMISSION);
     }
 #undef TO_STRING_TYPE
 }
+
+static struct {
+    unsigned netId;
+    bool explicitlySelected;
+    Permission permission;
+} permissionTestcases[] = {
+    { 42, false, PERMISSION_NONE,    },
+    { 42, false, PERMISSION_NETWORK, },
+    { 42, false, PERMISSION_SYSTEM,  },
+    { 42, true,  PERMISSION_NONE,    },
+    { 42, true,  PERMISSION_NETWORK, },
+    { 42, true,  PERMISSION_SYSTEM,  },
+    { 43, false, PERMISSION_NONE,    },
+    { 43, false, PERMISSION_NETWORK, },
+    { 43, false, PERMISSION_SYSTEM,  },
+    { 43, true,  PERMISSION_NONE,    },
+    { 43, true,  PERMISSION_NETWORK, },
+    { 43, true,  PERMISSION_SYSTEM,  },
+};
 
 class SockDiagMicroBenchmarkTest : public ::testing::TestWithParam<MicroBenchmarkTestType> {
 
@@ -305,9 +316,14 @@ protected:
     constexpr static int MAX_SOCKETS = 500;
     constexpr static int ADDRESS_SOCKETS = 500;
     constexpr static int UID_SOCKETS = 50;
+    constexpr static int PERMISSION_SOCKETS = 16;
+
     constexpr static uid_t START_UID = 8000;  // START_UID + number of sockets must be <= 9999.
     constexpr static int CLOSE_UID = START_UID + UID_SOCKETS - 42;  // Close to the end
     static_assert(START_UID + MAX_SOCKETS < 9999, "Too many sockets");
+
+    constexpr static int TEST_NETID = 42;  // One of the OEM netIds.
+
 
     int howManySockets() {
         MicroBenchmarkTestType mode = GetParam();
@@ -319,6 +335,30 @@ protected:
         case UIDRANGE:
         case UIDRANGE_EXCLUDE_LOOPBACK:
             return UID_SOCKETS;
+        case PERMISSION:
+            return ARRAY_SIZE(permissionTestcases);
+        }
+    }
+
+    int modifySocketForTest(int s, int i) {
+        MicroBenchmarkTestType mode = GetParam();
+        switch (mode) {
+        case UID:
+        case UID_EXCLUDE_LOOPBACK:
+        case UIDRANGE:
+        case UIDRANGE_EXCLUDE_LOOPBACK: {
+            uid_t uid = START_UID + i;
+            return fchown(s, uid, -1);
+        }
+        case PERMISSION: {
+            Fwmark fwmark;
+            fwmark.netId = permissionTestcases[i].netId;
+            fwmark.explicitlySelected = permissionTestcases[i].explicitlySelected;
+            fwmark.permission = permissionTestcases[i].permission;
+            return setsockopt(s, SOL_SOCKET, SO_MARK, &fwmark.intValue, sizeof(fwmark.intValue));
+        }
+        default:
+            return 0;
         }
     }
 
@@ -346,6 +386,11 @@ protected:
                 UidRanges uidRanges;
                 uidRanges.parseFrom(ARRAY_SIZE(uidRangeStrings), (char **) uidRangeStrings);
                 ret = mSd.destroySockets(uidRanges, skipUids, excludeLoopback);
+                break;
+            }
+            case PERMISSION: {
+                ret = mSd.destroySocketsLackingPermission(TEST_NETID, PERMISSION_NETWORK, false);
+                break;
             }
         }
         return ret;
@@ -373,6 +418,11 @@ protected:
             case UID_EXCLUDE_LOOPBACK:
             case UIDRANGE_EXCLUDE_LOOPBACK:
                 return false;
+            case PERMISSION:
+                if (permissionTestcases[i].netId != 42) return false;
+                if (permissionTestcases[i].explicitlySelected != 1) return true;
+                Permission permission = permissionTestcases[i].permission;
+                return permission != PERMISSION_NETWORK && permission != PERMISSION_SYSTEM;
         }
     }
 
@@ -424,11 +474,10 @@ TEST_P(SockDiagMicroBenchmarkTest, TestMicroBenchmark) {
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < numSockets; i++) {
         int s = socket(AF_INET6, SOCK_STREAM, 0);
-        uid_t uid = START_UID + i;
-        ASSERT_EQ(0, fchown(s, uid, -1));
         clientlen = sizeof(client);
         ASSERT_EQ(0, connect(s, (sockaddr *) &server, sizeof(server)))
             << "Connecting socket " << i << " failed " << strerror(errno);
+        ASSERT_EQ(0, modifySocketForTest(s, i));
         serversockets[i] = accept(listensocket, (sockaddr *) &client, &clientlen);
         ASSERT_NE(-1, serversockets[i])
             << "Accepting socket " << i << " failed " << strerror(errno);
@@ -472,4 +521,8 @@ constexpr int SockDiagMicroBenchmarkTest::CLOSE_UID;
 
 INSTANTIATE_TEST_CASE_P(Address, SockDiagMicroBenchmarkTest,
                         testing::Values(ADDRESS, UID, UIDRANGE,
-                                        UID_EXCLUDE_LOOPBACK, UIDRANGE_EXCLUDE_LOOPBACK));
+                                        UID_EXCLUDE_LOOPBACK, UIDRANGE_EXCLUDE_LOOPBACK,
+                                        PERMISSION));
+
+}  // namespace net
+}  // namespace android

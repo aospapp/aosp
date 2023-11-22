@@ -44,6 +44,7 @@ public class NewInstanceTest extends JDWPSyncTestCase {
      * Returns full name of debuggee class which is used by this test.
      * @return full name of debuggee class.
      */
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ArrayType.NewInstanceDebuggee";
     }

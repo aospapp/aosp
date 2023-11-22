@@ -16,9 +16,6 @@
 
 apply plugin: 'java'
 
-sourceCompatibility = dataBindingConfig.javaSourceCompatibility
-targetCompatibility = dataBindingConfig.javaTargetCompatibility
-
 sourceSets {
     main {
         java {
@@ -38,17 +35,26 @@ sourceSets {
 dependencies {
     testCompile 'junit:junit:4.12'
     compile project(':dataBinding:baseLibrary')
-    compile 'com.tunnelvisionlabs:antlr4:4.5'
+    compile 'org.antlr:antlr4:4.5.3'
     compile 'commons-io:commons-io:2.4'
     compile 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
     compile 'com.google.guava:guava:17.0'
+    compile 'com.android.tools:annotations:24.5.0'
+}
+
+project.tasks.create(name : "generateXmlLexer", type : JavaExec) {
+    classpath configurations.runtime
+    main "org.antlr.v4.Tool"
+    workingDir projectDir
+    args "XMLLexer.g4", "-visitor", "-lib", projectDir.absolutePath, "-o", "src/main/xml-gen/android/databinding/parser", "-package", "android.databinding.parser"
 }
 
 project.tasks.create(name : "generateXmlParser", type : JavaExec) {
     classpath configurations.runtime
     main "org.antlr.v4.Tool"
     workingDir projectDir
-    args "XMLParser.g4", "-visitor", "-o", "src/main/java/android/databinding/parser", "-package", "android.databinding.parser", "-lib", "."
+    args "XMLParser.g4", "-visitor", "-lib", projectDir.absolutePath, "-o", "src/main/xml-gen/android/databinding/parser", "-package", "android.databinding.parser"
+    dependsOn "generateXmlLexer"
 }
 
 project.tasks.create(name : "generateGrammar", type : JavaExec) {

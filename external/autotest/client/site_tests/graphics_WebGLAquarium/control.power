@@ -11,11 +11,11 @@ TEST_CATEGORY = "Performance"
 TEST_CLASS = "graphics"
 TEST_TYPE = "client"
 BUG_TEMPLATE = {
-    "labels": ["Cr-OS-Kernel-Graphics"],
+    "components": ["OS>Kernel>Graphics"],
 }
 
 DOC = """
 This runs the WebGL aquarium test and measures power consumption.
 """
 
-job.run_test("graphics_WebGLAquarium", power_test=True)
+job.run_test("graphics_WebGLAquarium", power_test=True, tag='power')

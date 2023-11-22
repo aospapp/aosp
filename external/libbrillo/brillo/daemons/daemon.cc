@@ -15,7 +15,7 @@
 namespace brillo {
 
 Daemon::Daemon() : exit_code_{EX_OK} {
-  brillo_message_loop_.SetAsCurrent();
+  message_loop_.SetAsCurrent();
 }
 
 Daemon::~Daemon() {
@@ -26,7 +26,7 @@ int Daemon::Run() {
   if (exit_code != EX_OK)
     return exit_code;
 
-  brillo_message_loop_.Run();
+  message_loop_.Run();
 
   OnShutdown(&exit_code_);
 
@@ -35,7 +35,7 @@ int Daemon::Run() {
   // Run a secondary loop to make sure all those are processed.
   // This becomes important when working with D-Bus since dbus::Bus does
   // a bunch of clean-up tasks asynchronously when shutting down.
-  while (brillo_message_loop_.RunOnce(false /* may_block */)) {}
+  while (message_loop_.RunOnce(false /* may_block */)) {}
 
   return exit_code_;
 }

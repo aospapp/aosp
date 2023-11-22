@@ -95,7 +95,7 @@ struct eapol_sm {
 		SUPP_BE_RECEIVE = 4,
 		SUPP_BE_RESPONSE = 5,
 		SUPP_BE_FAIL = 6,
-		SUPP_BE_TIMEOUT = 7, 
+		SUPP_BE_TIMEOUT = 7,
 		SUPP_BE_SUCCESS = 8
 	} SUPP_BE_state; /* dot1xSuppBackendPaeState */
 	/* Variables */
@@ -249,6 +249,8 @@ SM_STATE(SUPP_PAE, CONNECTING)
 	SM_ENTRY(SUPP_PAE, CONNECTING);
 
 	if (sm->eapTriggerStart)
+		send_start = 1;
+	if (sm->ctx->preauth)
 		send_start = 1;
 	sm->eapTriggerStart = FALSE;
 
@@ -1999,6 +2001,7 @@ static void eapol_sm_notify_status(void *ctx, const char *status,
 
 
 #ifdef CONFIG_EAP_PROXY
+
 static void eapol_sm_eap_proxy_cb(void *ctx)
 {
 	struct eapol_sm *sm = ctx;
@@ -2006,6 +2009,18 @@ static void eapol_sm_eap_proxy_cb(void *ctx)
 	if (sm->ctx->eap_proxy_cb)
 		sm->ctx->eap_proxy_cb(sm->ctx->ctx);
 }
+
+
+static void
+eapol_sm_eap_proxy_notify_sim_status(void *ctx,
+				     enum eap_proxy_sim_state sim_state)
+{
+	struct eapol_sm *sm = ctx;
+
+	if (sm->ctx->eap_proxy_notify_sim_status)
+		sm->ctx->eap_proxy_notify_sim_status(sm->ctx->ctx, sim_state);
+}
+
 #endif /* CONFIG_EAP_PROXY */
 
 
@@ -2034,6 +2049,7 @@ static const struct eapol_callbacks eapol_cb =
 	eapol_sm_notify_status,
 #ifdef CONFIG_EAP_PROXY
 	eapol_sm_eap_proxy_cb,
+	eapol_sm_eap_proxy_notify_sim_status,
 #endif /* CONFIG_EAP_PROXY */
 	eapol_sm_set_anon_id
 };
@@ -2141,20 +2157,41 @@ int eapol_sm_failed(struct eapol_sm *sm)
 }
 
 
+#ifdef CONFIG_EAP_PROXY
 int eapol_sm_get_eap_proxy_imsi(struct eapol_sm *sm, char *imsi, size_t *len)
 {
-#ifdef CONFIG_EAP_PROXY
 	if (sm->eap_proxy == NULL)
 		return -1;
 	return eap_proxy_get_imsi(sm->eap_proxy, imsi, len);
-#else /* CONFIG_EAP_PROXY */
-	return -1;
-#endif /* CONFIG_EAP_PROXY */
 }
+#endif /* CONFIG_EAP_PROXY */
 
 
 void eapol_sm_erp_flush(struct eapol_sm *sm)
 {
 	if (sm)
 		eap_peer_erp_free_keys(sm->eap);
+}
+
+
+struct wpabuf * eapol_sm_build_erp_reauth_start(struct eapol_sm *sm)
+{
+#ifdef CONFIG_ERP
+	if (!sm)
+		return NULL;
+	return eap_peer_build_erp_reauth_start(sm->eap, 0);
+#else /* CONFIG_ERP */
+	return NULL;
+#endif /* CONFIG_ERP */
+}
+
+
+void eapol_sm_process_erp_finish(struct eapol_sm *sm, const u8 *buf,
+				 size_t len)
+{
+#ifdef CONFIG_ERP
+	if (!sm)
+		return;
+	eap_peer_finish(sm->eap, (const struct eap_hdr *) buf, len);
+#endif /* CONFIG_ERP */
 }

@@ -16,7 +16,9 @@ class hardware_StorageWearoutDetect(test.test):
     The test will be failed if:
     - At least one SMART variable has value under its threshold
       or
-    - eMMC wear out status variable is in 90-100% band or higher.
+    - eMMC wear out status variable is in 90-100% band or higher (
+      DEVICE_LIFE_TIME_EST_TYP_A). Seeing this consistently means the lab
+      device may have to be replaced.
     """
 
     version = 1

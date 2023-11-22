@@ -12,11 +12,17 @@ LOCAL_SRC_FILES := \
     EGL_test.cpp \
 
 LOCAL_SHARED_LIBRARIES := \
+	android.hardware.configstore@1.0 \
+	android.hardware.configstore-utils \
 	libEGL \
 	libcutils \
 	libbinder \
+	libhidlbase \
+	libhidltransport \
 	libutils \
 	libgui \
+	libbase \
+	liblog \
 
 LOCAL_C_INCLUDES := \
     bionic/libc/private \

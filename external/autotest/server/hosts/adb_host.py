@@ -1,27 +1,40 @@
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+import datetime
+import errno
 import functools
 import logging
 import os
 import re
+import signal
 import stat
 import sys
 import time
 
 import common
 
+from autotest_lib.client.bin import utils as client_utils
+from autotest_lib.client.common_lib import android_utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
+from autotest_lib.server import afe_utils
 from autotest_lib.server import autoserv_parser
 from autotest_lib.server import constants as server_constants
 from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
+from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.hosts import abstract_ssh
+from autotest_lib.server.hosts import adb_label
+from autotest_lib.server.hosts import base_label
 from autotest_lib.server.hosts import teststation_host
 
+
+CONFIG = global_config.global_config
 
 ADB_CMD = 'adb'
 FASTBOOT_CMD = 'fastboot'
@@ -35,14 +48,19 @@ DEVICE_NO_SERIAL_TAG = '<NO_SERIAL>'
 # 0146B5580B01801B    device
 # 018e0ecb20c97a62    device
 # 172.22.75.141:5555  device
-DEVICE_FINDER_REGEX = ('^(?P<SERIAL>([\w]+)|(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})|' +
+# localhost:22        device
+DEVICE_FINDER_REGEX = (r'^(?P<SERIAL>([\w-]+)|((tcp:)?' +
+                       '\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}([:]5555)?)|' +
+                       '((tcp:)?localhost([:]22)?)|' +
                        re.escape(DEVICE_NO_SERIAL_MSG) +
-                       ')([:]5555)?[ \t]+(?:device|fastboot)')
+                       r')[ \t]+(?:device|fastboot)')
 CMD_OUTPUT_PREFIX = 'ADB_CMD_OUTPUT'
 CMD_OUTPUT_REGEX = ('(?P<OUTPUT>[\s\S]*)%s:(?P<EXIT_CODE>\d{1,3})' %
                     CMD_OUTPUT_PREFIX)
 RELEASE_FILE = 'ro.build.version.release'
 BOARD_FILE = 'ro.product.device'
+SDK_FILE = 'ro.build.version.sdk'
+LOGCAT_FILE_FMT = 'logcat_%s.log'
 TMP_DIR = '/data/local/tmp'
 # Regex to pull out file type, perms and symlink. Example:
 # lrwxrwx--- 1 6 root system 2015-09-12 19:21 blah_link -> ./blah
@@ -61,32 +79,26 @@ DEFAULT_WAIT_UP_TIME_SECONDS = 300
 # Maximum number of seconds to wait for a device to be up after it's wiped.
 WAIT_UP_AFTER_WIPE_TIME_SECONDS = 1200
 
+# Default timeout for retrying adb/fastboot command.
+DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS = 10
+
 OS_TYPE_ANDROID = 'android'
 OS_TYPE_BRILLO = 'brillo'
 
 # Regex to parse build name to get the detailed build information.
-BUILD_REGEX = ('(?P<BRANCH>([^/]+))/(?P<BOARD>([^/]+))-'
+BUILD_REGEX = ('(?P<BRANCH>([^/]+))/(?P<BUILD_TARGET>([^/]+))-'
                '(?P<BUILD_TYPE>([^/]+))/(?P<BUILD_ID>([^/]+))')
 # Regex to parse devserver url to get the detailed build information. Sample
 # url: http://$devserver:8080/static/branch/target/build_id
 DEVSERVER_URL_REGEX = '.*/%s/*' % BUILD_REGEX
 
-ANDROID_IMAGE_FILE_FMT = '%(board)s-img-%(build_id)s.zip'
-ANDROID_BOOTLOADER = 'bootloader.img'
-ANDROID_RADIO = 'radio.img'
-ANDROID_BOOT = 'boot.img'
-ANDROID_SYSTEM = 'system.img'
-ANDROID_VENDOR = 'vendor.img'
-BRILLO_VENDOR_PARTITIONS_FILE_FMT = (
-        '%(board)s-vendor_partitions-%(build_id)s.zip')
+ANDROID_IMAGE_FILE_FMT = '%(build_target)s-img-%(build_id)s.zip'
 
-# Image files not inside the image zip file. These files should be downloaded
-# directly from devserver.
-ANDROID_STANDALONE_IMAGES = [ANDROID_BOOTLOADER, ANDROID_RADIO]
-# Image files that are packaged in a zip file, e.g., shamu-img-123456.zip
-ANDROID_ZIPPED_IMAGES = [ANDROID_BOOT, ANDROID_SYSTEM, ANDROID_VENDOR]
-# All image files to be flashed to an Android device.
-ANDROID_IMAGES = ANDROID_STANDALONE_IMAGES + ANDROID_ZIPPED_IMAGES
+BRILLO_VENDOR_PARTITIONS_FILE_FMT = (
+        '%(build_target)s-vendor_partitions-%(build_id)s.zip')
+AUTOTEST_SERVER_PACKAGE_FILE_FMT = (
+        '%(build_target)s-autotest_server_package-%(build_id)s.tar.bz2')
+ADB_DEVICE_PREFIXES = ['product:', 'model:', 'device:']
 
 # Command to provision a Brillo device.
 # os_image_dir: The full path of the directory that contains all the Android image
@@ -97,6 +109,31 @@ BRILLO_PROVISION_CMD = (
         'sudo ANDROID_PROVISION_OS_PARTITIONS=%(os_image_dir)s '
         'ANDROID_PROVISION_VENDOR_PARTITIONS=%(vendor_partition_dir)s '
         '%(vendor_partition_dir)s/provision-device')
+
+# Default timeout in minutes for fastboot commands.
+DEFAULT_FASTBOOT_RETRY_TIMEOUT_MIN = 10
+
+# Default permissions for files/dirs copied from the device.
+_DEFAULT_FILE_PERMS = 0o600
+_DEFAULT_DIR_PERMS = 0o700
+
+# Constants for getprop return value for a given property.
+PROPERTY_VALUE_TRUE = '1'
+
+# Timeout used for retrying installing apk. After reinstall apk failed, we try
+# to reboot the device and try again.
+APK_INSTALL_TIMEOUT_MIN = 5
+
+# The amount of time to wait for package verification to be turned off.
+DISABLE_PACKAGE_VERIFICATION_TIMEOUT_MIN = 1
+
+# Directory where (non-Brillo) Android stores tombstone crash logs.
+ANDROID_TOMBSTONE_CRASH_LOG_DIR = '/data/tombstones'
+# Directory where Brillo stores crash logs for native (non-Java) crashes.
+BRILLO_NATIVE_CRASH_LOG_DIR = '/data/misc/crash_reporter/crash'
+
+# A specific string value to return when a timeout has occurred.
+TIMEOUT_MSG = 'TIMEOUT_OCCURRED'
 
 class AndroidInstallError(error.InstallError):
     """Generic error for Android installation related exceptions."""
@@ -113,6 +150,12 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
                                         _DETECTABLE_LABELS)
 
     _parser = autoserv_parser.autoserv_parser
+
+    # Minimum build id that supports server side packaging. Older builds may
+    # not have server side package built or with Autotest code change to support
+    # server-side packaging.
+    MIN_VERSION_SUPPORT_SSP = CONFIG.get_config_value(
+            'AUTOSERV', 'min_launch_control_build_id_support_ssp', type=int)
 
     @staticmethod
     def check_host(host, timeout=10):
@@ -141,25 +184,22 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             result = host.run(
                     'test -f %s' % server_constants.ANDROID_TESTER_FILEFLAG,
                     timeout=timeout)
-        except (error.AutoservRunError, error.AutoservSSHTimeout):
+        except (error.GenericHostRunError, error.AutoservSSHTimeout):
             if current_user is not None:
                 host.user = current_user
             return False
         return result.exit_status == 0
 
 
-    # TODO(garnold) Remove the 'serials' argument once all clients are made to
-    # not use it.
     def _initialize(self, hostname='localhost', serials=None,
                     adb_serial=None, fastboot_serial=None,
-                    device_hostname=None, teststation=None, *args, **dargs):
+                    teststation=None, *args, **dargs):
         """Initialize an ADB Host.
 
         This will create an ADB Host. Hostname should always refer to the
         test station connected to an Android DUT. This will be the DUT
         to test with.  If there are multiple, serial must be specified or an
-        exception will be raised.  If device_hostname is supplied then all
-        ADB commands will run over TCP/IP.
+        exception will be raised.
 
         @param hostname: Hostname of the machine running ADB.
         @param serials: DEPRECATED (to be removed)
@@ -168,87 +208,86 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @param fastboot_serial: A fastboot device serial. If None, defaults to
                                 the ADB serial (or assumes a single device if
                                 the latter is None).
-        @param device_hostname: Hostname or IP of the android device we want to
-                                interact with. If supplied all ADB interactions
-                                run over TCP/IP.
         @param teststation: The teststation object ADBHost should use.
         """
         # Sets up the is_client_install_supported field.
         super(ADBHost, self)._initialize(hostname=hostname,
                                          is_client_install_supported=False,
                                          *args, **dargs)
-        if device_hostname and (adb_serial or fastboot_serial):
-            raise error.AutoservError(
-                    'TCP/IP and USB modes are mutually exclusive')
-
 
         self.tmp_dirs = []
-        self._device_hostname = device_hostname
-        self._use_tcpip = False
-        # TODO (sbasi/kevcheng): Once the teststation host is committed,
-        # refactor the serial retrieval.
-        adb_serial = adb_serial or self.host_attributes.get('serials', None)
+        self.labels = base_label.LabelRetriever(adb_label.ADB_LABELS)
+        adb_serial = adb_serial or self._afe_host.attributes.get('serials')
+        fastboot_serial = (fastboot_serial or
+                self._afe_host.attributes.get('fastboot_serial'))
+
         self.adb_serial = adb_serial
-        self.fastboot_serial = fastboot_serial or adb_serial
+        if adb_serial:
+            adb_prefix = any(adb_serial.startswith(p)
+                             for p in ADB_DEVICE_PREFIXES)
+            self.fastboot_serial = (fastboot_serial or
+                    ('tcp:%s' % adb_serial.split(':')[0] if
+                    ':' in adb_serial and not adb_prefix else adb_serial))
+            self._use_tcpip = ':' in adb_serial and not adb_prefix
+        else:
+            self.fastboot_serial = fastboot_serial or adb_serial
+            self._use_tcpip = False
         self.teststation = (teststation if teststation
-                else teststation_host.create_teststationhost(hostname=hostname))
+                else teststation_host.create_teststationhost(
+                        hostname=hostname,
+                        user=self.user,
+                        password=self.password,
+                        port=self.port
+                ))
 
         msg ='Initializing ADB device on host: %s' % hostname
-        if self._device_hostname:
-            msg += ', device hostname: %s' % self._device_hostname
         if self.adb_serial:
             msg += ', ADB serial: %s' % self.adb_serial
         if self.fastboot_serial:
             msg += ', fastboot serial: %s' % self.fastboot_serial
         logging.debug(msg)
 
-        # Try resetting the ADB daemon on the device, however if we are
-        # creating the host to do a repair job, the device maybe inaccesible
-        # via ADB.
-        try:
-            self._reset_adbd_connection()
-        except (error.AutotestHostRunError, error.AutoservRunError) as e:
-            logging.error('Unable to reset the device adb daemon connection: '
-                          '%s.', e)
         self._os_type = None
 
 
     def _connect_over_tcpip_as_needed(self):
         """Connect to the ADB device over TCP/IP if so configured."""
-        if not self._device_hostname:
+        if not self._use_tcpip:
             return
         logging.debug('Connecting to device over TCP/IP')
-        if self._device_hostname == self.adb_serial:
-            # We previously had a connection to this device, restart the ADB
-            # server.
-            self.adb_run('kill-server')
-        # Ensure that connection commands don't run over TCP/IP.
-        self._use_tcpip = False
-        self.adb_run('tcpip 5555', timeout=10, ignore_timeout=True)
-        time.sleep(2)
-        try:
-            self.adb_run('connect %s' % self._device_hostname)
-        except (error.AutoservRunError, error.CmdError) as e:
-            raise error.AutoservError('Failed to connect via TCP/IP: %s' % e)
-        # Allow ADB a bit of time after connecting before interacting with the
-        # device.
-        time.sleep(5)
-        # Switch back to using TCP/IP.
-        self._use_tcpip = True
+        self.adb_run('connect %s' % self.adb_serial)
 
 
     def _restart_adbd_with_root_permissions(self):
         """Restarts the adb daemon with root permissions."""
-        self.adb_run('root')
+        @retry.retry(error.GenericHostRunError, timeout_min=20/60.0,
+                     delay_sec=1)
+        def run_adb_root():
+            """Run command `adb root`."""
+            self.adb_run('root')
+
+        # adb command may flake with error "device not found". Retry the root
+        # command to reduce the chance of flake.
+        run_adb_root()
         # TODO(ralphnathan): Remove this sleep once b/19749057 is resolved.
         time.sleep(1)
+        self._connect_over_tcpip_as_needed()
         self.adb_run('wait-for-device')
+
+
+    def _set_tcp_port(self):
+        """Ensure the device remains in tcp/ip mode after a reboot."""
+        if not self._use_tcpip:
+            return
+        port = self.adb_serial.split(':')[-1]
+        self.run('setprop persist.adb.tcp.port %s' % port)
 
 
     def _reset_adbd_connection(self):
         """Resets adbd connection to the device after a reboot/initialization"""
-        self._restart_adbd_with_root_permissions()
         self._connect_over_tcpip_as_needed()
+        self._restart_adbd_with_root_permissions()
+        self._set_tcp_port()
 
 
     # pylint: disable=missing-docstring
@@ -271,6 +310,29 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         Refer to _device_run method for docstring for parameters.
         """
         return self._device_run(FASTBOOT_CMD, command, **kwargs)
+
+
+    # pylint: disable=missing-docstring
+    @retry.retry(error.GenericHostRunError,
+                 timeout_min=DEFAULT_FASTBOOT_RETRY_TIMEOUT_MIN)
+    def _fastboot_run_with_retry(self, command, **kwargs):
+        """Runs an fastboot command with retry.
+
+        This command will launch on the test station.
+
+        Refer to _device_run method for docstring for parameters.
+        """
+        return self.fastboot_run(command, **kwargs)
+
+
+    def _log_adb_pid(self):
+        """Log the pid of adb server.
+
+        adb's server is known to have bugs and randomly restart. BY logging
+        the server's pid it will allow us to better debug random adb failures.
+        """
+        adb_pid = self.teststation.run('pgrep -f "adb.*server"')
+        logging.debug('ADB Server PID: %s', adb_pid.stdout)
 
 
     def _device_run(self, function, command, shell=False,
@@ -318,16 +380,18 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         if function != ADB_CMD and shell:
             raise error.CmdError('shell option is only applicable to `adb`.')
 
-        cmd = '%s%s ' % ('sudo -n ' if require_sudo else '', function)
+        client_side_cmd = 'timeout --signal=%d %d %s' % (signal.SIGKILL,
+                                                         timeout + 1, function)
+        cmd = '%s%s ' % ('sudo -n ' if require_sudo else '', client_side_cmd)
 
         if serial:
             cmd += '-s %s ' % serial
-        elif self._use_tcpip:
-            cmd += '-s %s:5555 ' % self._device_hostname
 
         if shell:
             cmd += '%s ' % SHELL_CMD
         cmd += command
+
+        self._log_adb_pid()
 
         if verbose:
             logging.debug('Command: %s', cmd)
@@ -339,10 +403,40 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
                 connect_timeout=connect_timeout, args=args)
 
 
-    def get_board_name(self):
-        """Get the name of the board, e.g., shamu, dragonboard etc.
+    def _run_output_with_retry(self, cmd):
+        """Call run_output method for the given command with retry.
+
+        adb command can be flaky some time, and the command may fail or return
+        empty string. It may take several retries until a value can be returned.
+
+        @param cmd: The command to run.
+
+        @return: Return value from the command after retry.
         """
+        try:
+            return client_utils.poll_for_condition(
+                    lambda: self.run_output(cmd, ignore_status=True),
+                    timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS,
+                    sleep_interval=0.5,
+                    desc='Get return value for command `%s`' % cmd)
+        except client_utils.TimeoutError:
+            return ''
+
+
+    def get_device_aliases(self):
+        """Get all aliases for this device."""
+        product = self.get_product_name()
+        return android_utils.AndroidAliases.get_product_aliases(product)
+
+    def get_product_name(self):
+        """Get the product name of the device, eg., shamu, bat"""
         return self.run_output('getprop %s' % BOARD_FILE)
+
+    def get_board_name(self):
+        """Get the name of the board, e.g., shamu, bat_land etc.
+        """
+        product = self.get_product_name()
+        return android_utils.AndroidAliases.get_board_name(product)
 
 
     @label_decorator()
@@ -357,11 +451,25 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
 
     def job_start(self):
-        """
-        Disable log collection on adb_hosts.
+        """Overload of parent which intentionally doesn't log certain files.
 
-        TODO(sbasi): crbug.com/305427
+        The parent implementation attempts to log certain Linux files, such as
+        /var/log, which do not exist on Android, thus there is no call to the
+        parent's job_start().  The sync call is made so that logcat logs can be
+        approximately matched to server logs.
         """
+        # Try resetting the ADB daemon on the device, however if we are
+        # creating the host to do a repair job, the device maybe inaccesible
+        # via ADB.
+        try:
+            self._reset_adbd_connection()
+        except error.GenericHostRunError as e:
+            logging.error('Unable to reset the device adb daemon connection: '
+                          '%s.', e)
+
+        if self.is_up():
+            self._sync_time()
+            self._enable_native_crash_logging()
 
 
     def run(self, command, timeout=3600, ignore_status=False,
@@ -398,28 +506,61 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @raises AutoservSSHTimeout: Ssh connection has timed out.
         """
         command = ('"%s; echo %s:\$?"' %
-                (utils.sh_escape(command), CMD_OUTPUT_PREFIX))
-        result = self.adb_run(
-                command, shell=True, timeout=timeout,
-                ignore_status=ignore_status, ignore_timeout=ignore_timeout,
-                stdout=stdout_tee, stderr=stderr_tee,
-                connect_timeout=connect_timeout, options=options, stdin=stdin,
-                verbose=verbose, args=args)
-        if not result:
-            # In case of timeouts.
-            return None
+                   (utils.sh_escape(command), CMD_OUTPUT_PREFIX))
 
-        parse_output = re.match(CMD_OUTPUT_REGEX, result.stdout)
-        if not parse_output and not ignore_status:
-            raise error.AutoservRunError(
-                    'Failed to parse the exit code for command: %s' %
-                    command, result)
-        elif parse_output:
-            result.stdout = parse_output.group('OUTPUT')
-            result.exit_status = int(parse_output.group('EXIT_CODE'))
-            if result.exit_status != 0 and not ignore_status:
-                raise error.AutoservRunError(command, result)
-        return result
+        def _run():
+            """Run the command and try to parse the exit code.
+            """
+            result = self.adb_run(
+                    command, shell=True, timeout=timeout,
+                    ignore_status=ignore_status, ignore_timeout=ignore_timeout,
+                    stdout=stdout_tee, stderr=stderr_tee,
+                    connect_timeout=connect_timeout, options=options,
+                    stdin=stdin, verbose=verbose, args=args)
+            if not result:
+                # In case of timeouts. Set the return to a specific string
+                # value. That way the caller of poll_for_condition knows
+                # a timeout occurs and should return None. Return None here will
+                # lead to the command to be retried.
+                return TIMEOUT_MSG
+            parse_output = re.match(CMD_OUTPUT_REGEX, result.stdout)
+            if not parse_output and not ignore_status:
+                logging.error('Failed to parse the exit code for command: `%s`.'
+                              ' result: `%s`', command, result.stdout)
+                return None
+            elif parse_output:
+                result.stdout = parse_output.group('OUTPUT')
+                result.exit_status = int(parse_output.group('EXIT_CODE'))
+                if result.exit_status != 0 and not ignore_status:
+                    raise error.AutoservRunError(command, result)
+            return result
+
+        result = client_utils.poll_for_condition(
+                lambda: _run(),
+                timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS,
+                sleep_interval=0.5,
+                desc='Run command `%s`' % command)
+        return None if result == TIMEOUT_MSG else result
+
+
+    def check_boot_to_adb_complete(self, exception_type=error.TimeoutException):
+        """Check if the device has finished booting and accessible by adb.
+
+        @param exception_type: Type of exception to raise. Default is set to
+                error.TimeoutException for retry.
+
+        @raise exception_type: If the device has not finished booting yet, raise
+                an exception of type `exception_type`.
+        """
+        bootcomplete = self._run_output_with_retry('getprop dev.bootcomplete')
+        if bootcomplete != PROPERTY_VALUE_TRUE:
+            raise exception_type('dev.bootcomplete is %s.' % bootcomplete)
+        if self.get_os_type() == OS_TYPE_ANDROID:
+            boot_completed = self._run_output_with_retry(
+                    'getprop sys.boot_completed')
+            if boot_completed != PROPERTY_VALUE_TRUE:
+                raise exception_type('sys.boot_completed is %s.' %
+                                     boot_completed)
 
 
     def wait_up(self, timeout=DEFAULT_WAIT_UP_TIME_SECONDS, command=ADB_CMD):
@@ -440,6 +581,8 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         def _wait_up():
             if not self.is_up(command=command):
                 raise error.TimeoutException('Device is still down.')
+            if command == ADB_CMD:
+                self.check_boot_to_adb_complete()
             return True
 
         try:
@@ -454,8 +597,12 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
 
     def wait_down(self, timeout=DEFAULT_WAIT_DOWN_TIME_SECONDS,
-                  warning_timer=None, old_boot_id=None, command=ADB_CMD):
-        """Wait till the host goes down, i.e., not accessible by given command.
+                  warning_timer=None, old_boot_id=None, command=ADB_CMD,
+                  boot_id=None):
+        """Wait till the host goes down.
+
+        Return when the host is down (not accessible via the command) OR when
+        the device's boot_id changes (if a boot_id was provided).
 
         Overrides wait_down from AbstractSSHHost.
 
@@ -467,6 +614,8 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @param command: `adb`, test if the device can be accessed by adb
                 command, or `fastboot`, test if the device can be accessed by
                 fastboot command. Default is set to `adb`.
+        @param boot_id: UUID of previous boot (consider the device down when the
+                        boot_id changes from this value). Ignored if None.
 
         @returns True if the device goes down before the timeout, False
                  otherwise.
@@ -474,9 +623,17 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @retry.retry(error.TimeoutException, timeout_min=timeout/60.0,
                      delay_sec=1)
         def _wait_down():
-            if self.is_up(command=command):
-                raise error.TimeoutException('Device is still up.')
-            return True
+            up = self.is_up(command=command)
+            if not up:
+                return True
+            if boot_id:
+                try:
+                    new_boot_id = self.get_boot_id()
+                    if new_boot_id != boot_id:
+                        return True
+                except error.GenericHostRunError:
+                    pass
+            raise error.TimeoutException('Device is still up.')
 
         try:
             _wait_down()
@@ -495,13 +652,29 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         """
         # Not calling super.reboot() as we want to reboot the ADB device not
         # the test station we are running ADB on.
+        boot_id = self.get_boot_id()
         self.adb_run('reboot', timeout=10, ignore_timeout=True)
-        if not self.wait_down():
+        if not self.wait_down(boot_id=boot_id):
             raise error.AutoservRebootError(
                     'ADB Device is still up after reboot')
         if not self.wait_up():
             raise error.AutoservRebootError(
                     'ADB Device failed to return from reboot.')
+        self._reset_adbd_connection()
+
+
+    def fastboot_reboot(self):
+        """Do a fastboot reboot to go back to adb.
+
+        @raises AutoservRebootError if reboot failed.
+        """
+        self.fastboot_run('reboot')
+        if not self.wait_down(command=FASTBOOT_CMD):
+            raise error.AutoservRebootError(
+                    'Device is still in fastboot mode after reboot')
+        if not self.wait_up():
+            raise error.AutoservRebootError(
+                    'Device failed to boot to adb after fastboot reboot.')
         self._reset_adbd_connection()
 
 
@@ -543,10 +716,28 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @returns a list of devices attached to the test station.
         """
         if use_adb:
-            result = self.adb_run('devices')
+            result = self.adb_run('devices').stdout
+            if self.adb_serial and self.adb_serial not in result:
+                self._connect_over_tcpip_as_needed()
         else:
-            result = self.fastboot_run('devices')
-        return self.parse_device_serials(result.stdout)
+            result = self.fastboot_run('devices').stdout
+            if (self.fastboot_serial and
+                self.fastboot_serial not in result):
+                # fastboot devices won't list the devices using TCP
+                try:
+                    if 'product' in self.fastboot_run('getvar product',
+                                                      timeout=2).stderr:
+                        result += '\n%s\tfastboot' % self.fastboot_serial
+                # The main reason we do a general Exception catch here instead
+                # of setting ignore_timeout/status to True is because even when
+                # the fastboot process has been nuked, it still stays around and
+                # so bgjob wants to warn us of this and tries to read the
+                # /proc/<pid>/stack file which then promptly returns an
+                # 'Operation not permitted' error since we're running as moblab
+                # and we don't have permission to read those files.
+                except Exception:
+                    pass
+        return self.parse_device_serials(result)
 
 
     def adb_devices(self):
@@ -587,7 +778,10 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             serial = self.adb_serial
             # ADB has a device state, if the device is not online, no
             # subsequent ADB command will complete.
-            if len(devices) == 0 or not self.is_device_ready():
+            # DUT with single device connected may not have adb_serial set.
+            # Therefore, skip checking if serial is in the list of adb devices
+            # if self.adb_serial is not set.
+            if (serial and serial not in devices) or not self.is_device_ready():
                 logging.debug('Waiting for device to enter the ready state.')
                 return False
         elif command == FASTBOOT_CMD:
@@ -599,25 +793,49 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         return bool(devices and (not serial or serial in devices))
 
 
+    def stop_loggers(self):
+        """Inherited stop_loggers function.
+
+        Calls parent function and captures logcat, since the end of the run
+        is logically the end/stop of the logcat log.
+        """
+        super(ADBHost, self).stop_loggers()
+
+        # When called from atest and tools like it there will be no job.
+        if not self.job:
+            return
+
+        # Record logcat log to a temporary file on the teststation.
+        tmp_dir = self.teststation.get_tmp_dir()
+        logcat_filename = LOGCAT_FILE_FMT % self.adb_serial
+        teststation_filename = os.path.join(tmp_dir, logcat_filename)
+        try:
+            self.adb_run('logcat -v time -d > "%s"' % (teststation_filename),
+                         timeout=20)
+        except (error.GenericHostRunError, error.AutoservSSHTimeout,
+                error.CmdTimeoutError):
+            return
+        # Copy-back the log to the drone's results directory.
+        results_logcat_filename = os.path.join(self.job.resultdir,
+                                               logcat_filename)
+        self.teststation.get_file(teststation_filename,
+                                  results_logcat_filename)
+        try:
+            self.teststation.run('rm -rf %s' % tmp_dir)
+        except (error.GenericHostRunError, error.AutoservSSHTimeout) as e:
+            logging.warn('failed to remove dir %s: %s', tmp_dir, e)
+
+        self._collect_crash_logs()
+
+
     def close(self):
         """Close the ADBHost object.
 
         Called as the test ends. Will return the device to USB mode and kill
         the ADB server.
         """
-        if self._use_tcpip:
-            # Return the device to usb mode.
-            self.adb_run('usb')
-        # TODO(sbasi) Originally, we would kill the server after each test to
-        # reduce the opportunity for bad server state to hang around.
-        # Unfortunately, there is a period of time after each kill during which
-        # the Android device becomes unusable, and if we start the next test
-        # too quickly, we'll get an error complaining about no ADB device
-        # attached.
-        #self.adb_run('kill-server')
-        # |close| the associated teststation as well.
+        super(ADBHost, self).close()
         self.teststation.close()
-        return super(ADBHost, self).close()
 
 
     def syslog(self, message, tag='autotest'):
@@ -637,9 +855,17 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
     def is_device_ready(self):
         """Return the if the device is ready for ADB commands."""
-        dev_state = self.adb_run('get-state').stdout.strip()
-        logging.debug('Current device state: %s', dev_state)
-        return dev_state == 'device'
+        try:
+            # Retry to avoid possible flakes.
+            is_ready = client_utils.poll_for_condition(
+                lambda: self.adb_run('get-state').stdout.strip() == 'device',
+                timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS, sleep_interval=1,
+                desc='Waiting for device state to be `device`')
+        except client_utils.TimeoutError:
+            is_ready = False
+
+        logging.debug('Device state is %sready', '' if is_ready else 'NOT ')
+        return is_ready
 
 
     def verify_connectivity(self):
@@ -652,12 +878,21 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
     def verify_software(self):
         """Verify working software on an adb_host.
 
-        TODO (crbug.com/532222): Actually implement this method.
         """
         # Check if adb and fastboot are present.
         self.teststation.run('which adb')
         self.teststation.run('which fastboot')
         self.teststation.run('which unzip')
+
+        # Apply checks only for Android device.
+        if self.get_os_type() == OS_TYPE_ANDROID:
+            # Make sure ro.boot.hardware and ro.build.product match.
+            hardware = self._run_output_with_retry('getprop ro.boot.hardware')
+            product = self._run_output_with_retry('getprop ro.build.product')
+            if hardware != product:
+                raise error.AutoservHostError('ro.boot.hardware: %s does not '
+                                              'match to ro.build.product: %s' %
+                                              (hardware, product))
 
 
     def verify_job_repo_url(self, tag=''):
@@ -671,18 +906,31 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         return
 
 
-    def repair(self):
-        """Attempt to get the DUT to pass `self.verify()`."""
-        try:
-            self.ensure_adb_mode(timeout=30)
+    def repair(self, board=None, os=None):
+        """Attempt to get the DUT to pass `self.verify()`.
+
+        @param board: Board name of the device. For host created in testbed,
+                      it does not have host labels and attributes. Therefore,
+                      the board name needs to be passed in from the testbed
+                      repair call.
+        @param os: OS of the device. For host created in testbed, it does not
+                   have host labels and attributes. Therefore, the OS needs to
+                   be passed in from the testbed repair call.
+        """
+        if self.is_up():
+            logging.debug('The device is up and accessible by adb. No need to '
+                          'repair.')
             return
-        except error.AutoservError as e:
-            logging.error(e)
+        # Force to do a reinstall in repair first. The reason is that it
+        # requires manual action to put the device into fastboot mode.
+        # If repair tries to switch the device back to adb mode, one will
+        # have to change it back to fastboot mode manually again.
         logging.debug('Verifying the device is accessible via fastboot.')
         self.ensure_bootloader_mode()
+        subdir_tag = self.adb_serial if board else None
         if not self.job.run_test(
-                'provision_AndroidUpdate', host=self, value=None,
-                force=True, repair=True):
+                'provision_AndroidUpdate', host=self, value=None, force=True,
+                repair=True, board=board, os=os, subdir_tag=subdir_tag):
             raise error.AutoservRepairTotalFailure(
                     'Unable to repair the device.')
 
@@ -737,7 +985,7 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         # Cleanup the test station.
         try:
             self.teststation.run('rm -rf %s' % tmp_dir)
-        except (error.AutoservRunError, error.AutoservSSHTimeout) as e:
+        except (error.GenericHostRunError, error.AutoservSSHTimeout) as e:
             logging.warn('failed to remove dir %s: %s', tmp_dir, e)
 
 
@@ -752,7 +1000,7 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @returns a dict of the file permissions and symlink.
         """
         # Grab file info.
-        file_info = self.run_output('ls -l %s' % dest)
+        file_info = self.run_output('ls -ld %s' % dest)
         symlink = None
         perms = 0
         match = re.match(FILE_INFO_REGEX, file_info)
@@ -792,12 +1040,10 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @param preserve_symlinks: Try to preserve symlinks instead of
                                   transforming them into files/dirs on copy.
         """
-        # Stage the files on the test station.
-        tmp_dir = self.teststation.get_tmp_dir()
-        dest_path = os.path.join(tmp_dir, os.path.basename(source))
-
-        if delete_dest:
-            self.teststation.run('rm -rf %s' % dest)
+        # Stage the files on the test station under teststation_temp_dir.
+        teststation_temp_dir = self.teststation.get_tmp_dir()
+        teststation_dest = os.path.join(teststation_temp_dir,
+                                        os.path.basename(source))
 
         source_info = {}
         if preserve_symlinks or preserve_perm:
@@ -805,20 +1051,64 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
         # If we want to preserve symlinks, just create it here, otherwise pull
         # the file off the device.
+        #
+        # TODO(sadmac): Directories containing symlinks won't behave as
+        # expected.
         if preserve_symlinks and source_info['symlink']:
             os.symlink(source_info['symlink'], dest)
         else:
-            self.adb_run('pull %s %s' % (source, dest_path))
+            self.adb_run('pull %s %s' % (source, teststation_temp_dir))
 
             # Copy over the file from the test station and clean up.
-            self.teststation.get_file(dest_path, dest)
+            self.teststation.get_file(teststation_dest, dest,
+                                      delete_dest=delete_dest)
             try:
-                self.teststation.run('rm -rf %s' % tmp_dir)
-            except (error.AutoservRunError, error.AutoservSSHTimeout) as e:
-                logging.warn('failed to remove dir %s: %s', tmp_dir, e)
+                self.teststation.run('rm -rf %s' % teststation_temp_dir)
+            except (error.GenericHostRunError, error.AutoservSSHTimeout) as e:
+                logging.warn('failed to remove dir %s: %s',
+                             teststation_temp_dir, e)
 
-        if preserve_perm:
-            os.chmod(dest, source_info['perms'])
+            # Source will be copied under dest if either:
+            #  1. Source is a directory and doesn't end with /.
+            #  2. Source is a file and dest is a directory.
+            command = '[ -d %s ]' % source
+            source_is_dir = self.run(command,
+                                     ignore_status=True).exit_status == 0
+            logging.debug('%s on the device %s a directory', source,
+                          'is' if source_is_dir else 'is not')
+
+            if ((source_is_dir and not source.endswith(os.sep)) or
+                (not source_is_dir and os.path.isdir(dest))):
+                receive_path = os.path.join(dest, os.path.basename(source))
+            else:
+                receive_path = dest
+
+            if not os.path.exists(receive_path):
+                logging.warning('Expected file %s does not exist; skipping'
+                                ' permissions copy', receive_path)
+                return
+
+            # Set the permissions of the received file/dirs.
+            if os.path.isdir(receive_path):
+                for root, _dirs, files in os.walk(receive_path):
+                    def process(rel_path, default_perm):
+                        info = self._get_file_info(os.path.join(source,
+                                                                rel_path))
+                        if info['perms'] != 0:
+                            target = os.path.join(receive_path, rel_path)
+                            if preserve_perm:
+                                os.chmod(target, info['perms'])
+                            else:
+                                os.chmod(target, default_perm)
+
+                    rel_root = os.path.relpath(root, receive_path)
+                    process(rel_root, _DEFAULT_DIR_PERMS)
+                    for f in files:
+                        process(os.path.join(rel_root, f), _DEFAULT_FILE_PERMS)
+            elif preserve_perm:
+                os.chmod(receive_path, source_info['perms'])
+            else:
+                os.chmod(receive_path, _DEFAULT_FILE_PERMS)
 
 
     def get_release_version(self):
@@ -851,9 +1141,6 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
     def get_platform(self):
         """Determine the correct platform label for this host.
-
-        TODO (crbug.com/536250): Figure out what we want to do for adb_host's
-                                 get_platform.
 
         @returns a string representing this host's platform.
         """
@@ -914,7 +1201,7 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         self._forward(reverse, args)
 
 
-    def rpc_port_forward(self, port, local_port):
+    def create_ssh_tunnel(self, port, local_port):
         """
         Forwards a port securely through a tunnel process from the server
         to the DUT for RPC server connection.
@@ -927,10 +1214,10 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @return: the tunnel process.
         """
         self.add_forwarding('tcp:%s' % port, 'tcp:%s' % port)
-        return super(ADBHost, self).rpc_port_forward(port, local_port)
+        return super(ADBHost, self).create_ssh_tunnel(port, local_port)
 
 
-    def rpc_port_disconnect(self, tunnel_proc, port):
+    def disconnect_ssh_tunnel(self, tunnel_proc, port):
         """
         Disconnects a previously forwarded port from the server to the DUT for
         RPC server connection.
@@ -938,12 +1225,12 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         packets from the AdbHost to the DUT.
 
         @param tunnel_proc: the original tunnel process returned from
-                            |rpc_port_forward|.
+                            |create_ssh_tunnel|.
         @param port: remote port on the DUT.
 
         """
         self.remove_forwarding('tcp:%s' % port)
-        super(ADBHost, self).rpc_port_disconnect(tunnel_proc, port)
+        super(ADBHost, self).disconnect_ssh_tunnel(tunnel_proc, port)
 
 
     def ensure_bootloader_mode(self):
@@ -971,7 +1258,9 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         """
         if self.is_up():
             return
-        self.fastboot_run('reboot')
+        # Ignore timeout error to allow `fastboot reboot` to fail quietly and
+        # check if the device is in adb mode.
+        self.fastboot_run('reboot', timeout=timeout, ignore_timeout=True)
         if not self.wait_up(timeout=timeout):
             raise error.AutoservError(
                     'The device failed to reboot into adb mode.')
@@ -979,14 +1268,14 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
 
     @classmethod
-    def _get_build_info_from_build_url(cls, build_url):
+    def get_build_info_from_build_url(cls, build_url):
         """Get the Android build information from the build url.
 
         @param build_url: The url to use for downloading Android artifacts.
                 pattern: http://$devserver:###/static/branch/target/build_id
 
-        @return: A dictionary of build information, including keys: board,
-                 branch, target, build_id.
+        @return: A dictionary of build information, including keys:
+                 build_target, branch, target, build_id.
         @raise AndroidInstallError: If failed to parse build_url.
         """
         if not build_url:
@@ -994,9 +1283,9 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
         try:
             match = re.match(DEVSERVER_URL_REGEX, build_url)
-            return {'board': match.group('BOARD'),
+            return {'build_target': match.group('BUILD_TARGET'),
                     'branch': match.group('BRANCH'),
-                    'target': ('%s-%s' % (match.group('BOARD'),
+                    'target': ('%s-%s' % (match.group('BUILD_TARGET'),
                                           match.group('BUILD_TYPE'))),
                     'build_id': match.group('BUILD_ID')}
         except (AttributeError, IndexError, ValueError) as e:
@@ -1004,19 +1293,32 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
                     'Failed to parse build url: %s\nError: %s' % (build_url, e))
 
 
-    @retry.retry(error.AutoservRunError, timeout_min=10)
-    def _download_file(self, build_url, file, dest_dir):
+    @retry.retry(error.GenericHostRunError, timeout_min=10)
+    def download_file(self, build_url, file, dest_dir, unzip=False,
+                      unzip_dest=None):
         """Download the given file from the build url.
 
         @param build_url: The url to use for downloading Android artifacts.
                 pattern: http://$devserver:###/static/branch/target/build_id
         @param file: Name of the file to be downloaded, e.g., boot.img.
         @param dest_dir: Destination folder for the file to be downloaded to.
+        @param unzip: If True, unzip the downloaded file.
+        @param unzip_dest: Location to unzip the downloaded file to. If not
+                           provided, dest_dir is used.
         """
-        src_url = os.path.join(build_url, file)
+        # Append the file name to the url if build_url is linked to the folder
+        # containing the file.
+        if not build_url.endswith('/%s' % file):
+            src_url = os.path.join(build_url, file)
+        else:
+            src_url = build_url
         dest_file = os.path.join(dest_dir, file)
         try:
             self.teststation.run('wget -q -O "%s" "%s"' % (dest_file, src_url))
+            if unzip:
+                unzip_dest = unzip_dest or dest_dir
+                self.teststation.run('unzip "%s/%s" -x -d "%s"' %
+                                     (dest_dir, file, unzip_dest))
         except:
             # Delete the destination file if download failed.
             self.teststation.run('rm -f "%s"' % dest_file)
@@ -1032,18 +1334,18 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
         @return: Path to the directory contains image files.
         """
-        build_info = self._get_build_info_from_build_url(build_url)
+        build_info = self.get_build_info_from_build_url(build_url)
 
         zipped_image_file = ANDROID_IMAGE_FILE_FMT % build_info
         image_dir = self.teststation.get_tmp_dir()
-        image_files = [zipped_image_file] + ANDROID_STANDALONE_IMAGES
 
         try:
-            for image_file in image_files:
-                self._download_file(build_url, image_file, image_dir)
-
-            self.teststation.run('unzip "%s/%s" -x -d "%s"' %
-                                 (image_dir, zipped_image_file, image_dir))
+            self.download_file(build_url, zipped_image_file, image_dir,
+                               unzip=True)
+            images = android_utils.AndroidImageFiles.get_standalone_images(
+                    build_info['build_target'])
+            for image_file in images:
+                self.download_file(build_url, image_file, image_dir)
 
             return image_dir
         except:
@@ -1060,22 +1362,18 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
 
         @return: Path to the directory contains image files.
         """
-        build_info = self._get_build_info_from_build_url(build_url)
+        build_info = self.get_build_info_from_build_url(build_url)
 
         zipped_image_file = ANDROID_IMAGE_FILE_FMT % build_info
         vendor_partitions_file = BRILLO_VENDOR_PARTITIONS_FILE_FMT % build_info
         image_dir = self.teststation.get_tmp_dir()
-        image_files = [zipped_image_file, vendor_partitions_file]
 
         try:
-            for image_file in image_files:
-                self._download_file(build_url, image_file, image_dir)
-
-            self.teststation.run('unzip "%s/%s" -x -d "%s"' %
-                                 (image_dir, zipped_image_file, image_dir))
-            self.teststation.run('unzip "%s/%s" -x -d "%s"' %
-                                 (image_dir, vendor_partitions_file,
-                                  os.path.join(image_dir, 'vendor')))
+            self.download_file(build_url, zipped_image_file, image_dir,
+                               unzip=True)
+            self.download_file(build_url, vendor_partitions_file, image_dir,
+                               unzip=True,
+                               unzip_dest=os.path.join(image_dir, 'vendor'))
             return image_dir
         except:
             self.teststation.run('rm -rf %s' % image_dir)
@@ -1096,15 +1394,15 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         devserver = dev_server.AndroidBuildServer.resolve(build_name,
                                                           self.hostname)
         build_name = devserver.translate(build_name)
-        branch, target, build_id = utils.parse_android_build(build_name)
-        is_brillo = os_type == OS_TYPE_BRILLO
-        devserver.trigger_download(target, build_id, branch, is_brillo,
-                                   synchronous=False)
+        branch, target, build_id = utils.parse_launch_control_build(build_name)
+        devserver.trigger_download(target, build_id, branch,
+                                   os=os_type, synchronous=False)
         return '%s/static/%s' % (devserver.url(), build_name), devserver
 
 
     def install_android(self, build_url, build_local_path=None, wipe=True,
-                        flash_all=False):
+                        flash_all=False, disable_package_verification=True,
+                        skip_setup_wizard=True):
         """Install the Android DUT.
 
         Following are the steps used here to provision an android device:
@@ -1139,19 +1437,31 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             self.ensure_bootloader_mode()
 
             if wipe:
-                self.fastboot_run('-w')
+                self._fastboot_run_with_retry('-w')
 
             # Get all *.img file in the build_local_path.
             list_file_cmd = 'ls -d %s' % os.path.join(build_local_path, '*.img')
             image_files = self.teststation.run(
                     list_file_cmd).stdout.strip().split()
             images = dict([(os.path.basename(f), f) for f in image_files])
-            for image, image_file in images.items():
-                if image not in ANDROID_IMAGES:
+            build_info = self.get_build_info_from_build_url(build_url)
+            board = build_info['build_target']
+            all_images = (
+                    android_utils.AndroidImageFiles.get_standalone_images(board)
+                    + android_utils.AndroidImageFiles.get_zipped_images(board))
+
+            # Sort images to be flashed, bootloader needs to be the first one.
+            bootloader = android_utils.AndroidImageFiles.BOOTLOADER
+            sorted_images = sorted(
+                    images.items(),
+                    key=lambda pair: 0 if pair[0] == bootloader else 1)
+            for image, image_file in sorted_images:
+                if image not in all_images:
                     continue
                 logging.info('Flashing %s...', image_file)
-                self.fastboot_run('flash %s %s' % (image[:-4], image_file))
-                if image == ANDROID_BOOTLOADER:
+                self._fastboot_run_with_retry('-S 256M flash %s %s' %
+                                              (image[:-4], image_file))
+                if image == android_utils.AndroidImageFiles.BOOTLOADER:
                     self.fastboot_run('reboot-bootloader')
                     self.wait_up(command=FASTBOOT_CMD)
         except Exception as e:
@@ -1164,6 +1474,15 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             timeout = (WAIT_UP_AFTER_WIPE_TIME_SECONDS if wipe else
                        DEFAULT_WAIT_UP_TIME_SECONDS)
             self.ensure_adb_mode(timeout=timeout)
+            if disable_package_verification:
+                # TODO: Use a whitelist of devices to do this for rather than
+                # doing it by default.
+                self.disable_package_verification()
+            if skip_setup_wizard:
+                try:
+                    self.skip_setup_wizard()
+                except error.GenericHostRunError:
+                    logging.error('Could not skip setup wizard.')
         logging.info('Successfully installed Android build staged at %s.',
                      build_url)
 
@@ -1205,6 +1524,8 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             cmd = (BRILLO_PROVISION_CMD %
                    {'os_image_dir': build_local_path,
                     'vendor_partition_dir': vendor_partition_dir})
+            if self.fastboot_serial:
+                cmd += ' -s %s ' % self.fastboot_serial
             self.teststation.run(cmd)
         except Exception as e:
             logging.error('Install Brillo build failed with error: %s', e)
@@ -1216,6 +1537,14 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             self.ensure_adb_mode()
         logging.info('Successfully installed Android build staged at %s.',
                      build_url)
+
+
+    @property
+    def job_repo_url_attribute(self):
+        """Get the host attribute name for job_repo_url, which should append the
+        adb serial.
+        """
+        return '%s_%s' % (constants.JOB_REPO_URL, self.adb_serial)
 
 
     def machine_install(self, build_url=None, build_local_path=None, wipe=True,
@@ -1232,7 +1561,14 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         @param flash_all: If True, all img files found in img_path will be
                 flashed. Otherwise, only boot and system are flashed.
 
-        @returns Name of the image installed.
+        @returns A tuple of (image_name, host_attributes).
+                image_name is the name of image installed, e.g.,
+                git_mnc-release/shamu-userdebug/1234
+                host_attributes is a dictionary of (attribute, value), which
+                can be saved to afe_host_attributes table in database. This
+                method returns a dictionary with a single entry of
+                `job_repo_url_[adb_serial]`: devserver_url, where devserver_url
+                is a url to the build staged on devserver.
         """
         os_type = os_type or self.get_os_type()
         if not build_url and self._parser.options.image:
@@ -1249,7 +1585,8 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
             raise error.InstallError(
                     'Installation of os type %s is not supported.' %
                     self.get_os_type())
-        return build_url.split('static/')[-1]
+        return (build_url.split('static/')[-1],
+                {self.job_repo_url_attribute: build_url})
 
 
     def list_files_glob(self, path_glob):
@@ -1265,18 +1602,333 @@ class ADBHost(abstract_ssh.AbstractSSHHost):
         # This is just in case path_glob has no path separator.
         base_path = os.path.dirname(path_glob) or '.'
         result = self.run('find %s -path \'%s\' -print' %
-                          (base_path, path_glob))
+                          (base_path, path_glob), ignore_status=True)
         if result.exit_status != 0:
             return []
         return result.stdout.splitlines()
 
 
-    def install_apk(self, apk):
+    @retry.retry(error.GenericHostRunError,
+                 timeout_min=DISABLE_PACKAGE_VERIFICATION_TIMEOUT_MIN)
+    def disable_package_verification(self):
+        """Disables package verification on an android device.
+
+        Disables the package verificatoin manager allowing any package to be
+        installed without checking
+        """
+        logging.info('Disabling package verification on %s.', self.adb_serial)
+        self.check_boot_to_adb_complete()
+        self.run('am broadcast -a '
+                 'com.google.gservices.intent.action.GSERVICES_OVERRIDE -e '
+                 'global:package_verifier_enable 0')
+
+
+    @retry.retry(error.GenericHostRunError, timeout_min=APK_INSTALL_TIMEOUT_MIN)
+    def install_apk(self, apk, force_reinstall=True):
         """Install the specified apk.
 
         This will install the apk and override it if it's already installed and
         will also allow for downgraded apks.
 
         @param apk: The path to apk file.
+        @param force_reinstall: True to reinstall the apk even if it's already
+                installed. Default is set to True.
+
+        @returns a CMDResult object.
         """
-        self.adb_run('install -r -d %s' % apk)
+        try:
+            client_utils.poll_for_condition(
+                    lambda: self.run('pm list packages',
+                                     ignore_status=True).exit_status == 0,
+                    timeout=120)
+            client_utils.poll_for_condition(
+                    lambda: self.run('service list | grep mount',
+                                     ignore_status=True).exit_status == 0,
+                    timeout=120)
+            return self.adb_run('install %s -d %s' %
+                                ('-r' if force_reinstall else '', apk))
+        except error.GenericHostRunError:
+            self.reboot()
+            raise
+
+
+    def uninstall_package(self, package):
+        """Remove the specified package.
+
+        @param package: Android package name.
+
+        @raises GenericHostRunError: uninstall failed
+        """
+        result = self.adb_run('uninstall %s' % package)
+
+        if self.is_apk_installed(package):
+            raise error.GenericHostRunError('Uninstall of "%s" failed.'
+                                            % package, result)
+
+    def save_info(self, results_dir, include_build_info=True):
+        """Save info about this device.
+
+        @param results_dir: The local directory to store the info in.
+        @param include_build_info: If true this will include the build info
+                                   artifact.
+        """
+        if include_build_info:
+            teststation_temp_dir = self.teststation.get_tmp_dir()
+
+            job_repo_url = afe_utils.get_host_attribute(
+                    self, self.job_repo_url_attribute)
+            build_info = ADBHost.get_build_info_from_build_url(
+                    job_repo_url)
+
+            target = build_info['target']
+            branch = build_info['branch']
+            build_id = build_info['build_id']
+
+            devserver_url = dev_server.AndroidBuildServer.get_server_url(
+                    job_repo_url)
+            ds = dev_server.AndroidBuildServer(devserver_url)
+
+            ds.trigger_download(target, build_id, branch, files='BUILD_INFO',
+                                synchronous=True)
+
+            pull_base_url = ds.get_pull_url(target, build_id, branch)
+
+            source_path = os.path.join(teststation_temp_dir, 'BUILD_INFO')
+
+            self.download_file(pull_base_url, 'BUILD_INFO',
+                               teststation_temp_dir)
+
+            destination_path = os.path.join(
+                    results_dir, 'BUILD_INFO-%s' % self.adb_serial)
+            self.teststation.get_file(source_path, destination_path)
+
+
+
+    @retry.retry(error.GenericHostRunError, timeout_min=0.2)
+    def _confirm_apk_installed(self, package_name):
+        """Confirm if apk is already installed with the given name.
+
+        `pm list packages` command is not reliable some time. The retry helps to
+        reduce the chance of false negative.
+
+        @param package_name: Name of the package, e.g., com.android.phone.
+
+        @raise AutoservRunError: If the package is not found or pm list command
+                failed for any reason.
+        """
+        name = 'package:%s' % package_name
+        self.adb_run('shell pm list packages | grep -w "%s"' % name)
+
+
+    def is_apk_installed(self, package_name):
+        """Check if apk is already installed with the given name.
+
+        @param package_name: Name of the package, e.g., com.android.phone.
+
+        @return: True if package is installed. False otherwise.
+        """
+        try:
+            self._confirm_apk_installed(package_name)
+            return True
+        except:
+            return False
+
+    @retry.retry(error.GenericHostRunError, timeout_min=1)
+    def skip_setup_wizard(self):
+        """Skip the setup wizard.
+
+        Skip the starting setup wizard that normally shows up on android.
+        """
+        logging.info('Skipping setup wizard on %s.', self.adb_serial)
+        self.check_boot_to_adb_complete()
+        self.run('am start -n com.google.android.setupwizard/'
+                 '.SetupWizardExitActivity')
+
+
+    def get_attributes_to_clear_before_provision(self):
+        """Get a list of attributes to be cleared before machine_install starts.
+        """
+        return [self.job_repo_url_attribute]
+
+
+    def get_labels(self):
+        """Return a list of the labels gathered from the devices connected.
+
+        @return: A list of strings that denote the labels from all the devices
+                 connected.
+        """
+        return self.labels.get_labels(self)
+
+
+    def update_labels(self):
+        """Update the labels for this testbed."""
+        self.labels.update_labels(self)
+
+
+    def stage_server_side_package(self, image=None):
+        """Stage autotest server-side package on devserver.
+
+        @param image: A build name, e.g., git_mnc_dev/shamu-eng/123
+
+        @return: A url to the autotest server-side package.
+
+        @raise: error.AutoservError if fail to locate the build to test with, or
+                fail to stage server-side package.
+        """
+        # If enable_drone_in_restricted_subnet is False, do not set hostname
+        # in devserver.resolve call, so a devserver in non-restricted subnet
+        # is picked to stage autotest server package for drone to download.
+        hostname = self.hostname
+        if not utils.ENABLE_DRONE_IN_RESTRICTED_SUBNET:
+            hostname = None
+        if image:
+            ds = dev_server.AndroidBuildServer.resolve(image, hostname)
+        else:
+            info = self.host_info_store.get()
+            job_repo_url = afe_utils.get_host_attribute(
+                    self, self.job_repo_url_attribute)
+            if job_repo_url:
+                devserver_url, image = (
+                        tools.get_devserver_build_from_package_url(
+                                job_repo_url, True))
+                # If enable_drone_in_restricted_subnet is True, use the
+                # existing devserver. Otherwise, resolve a new one in
+                # non-restricted subnet.
+                if utils.ENABLE_DRONE_IN_RESTRICTED_SUBNET:
+                    ds = dev_server.AndroidBuildServer(devserver_url)
+                else:
+                    ds = dev_server.AndroidBuildServer.resolve(image)
+            elif info.build is not None:
+                ds = dev_server.AndroidBuildServer.resolve(info.build, hostname)
+            else:
+                raise error.AutoservError(
+                        'Failed to stage server-side package. The host has '
+                        'no job_report_url attribute or version label.')
+
+        branch, target, build_id = utils.parse_launch_control_build(image)
+        build_target, _ = utils.parse_launch_control_target(target)
+
+        # For any build older than MIN_VERSION_SUPPORT_SSP, server side
+        # packaging is not supported.
+        try:
+            # Some build ids may have special character before the actual
+            # number, skip such characters.
+            actual_build_id = build_id
+            if build_id.startswith('P'):
+                actual_build_id = build_id[1:]
+            if int(actual_build_id) < self.MIN_VERSION_SUPPORT_SSP:
+                raise error.AutoservError(
+                        'Build %s is older than %s. Server side packaging is '
+                        'disabled.' % (image, self.MIN_VERSION_SUPPORT_SSP))
+        except ValueError:
+            raise error.AutoservError(
+                    'Failed to compare build id in %s with the minimum '
+                    'version that supports server side packaging. Server '
+                    'side packaging is disabled.' % image)
+
+        ds.stage_artifacts(target, build_id, branch,
+                           artifacts=['autotest_server_package'])
+        autotest_server_package_name = (AUTOTEST_SERVER_PACKAGE_FILE_FMT %
+                                        {'build_target': build_target,
+                                         'build_id': build_id})
+        return '%s/static/%s/%s' % (ds.url(), image,
+                                    autotest_server_package_name)
+
+
+    def _sync_time(self):
+        """Approximate synchronization of time between host and ADB device.
+
+        This sets the ADB/Android device's clock to approximately the same
+        time as the Autotest host for the purposes of comparing Android system
+        logs such as logcat to logs from the Autotest host system.
+        """
+        command = 'date '
+        sdk_version = int(self.run('getprop %s' % SDK_FILE).stdout)
+        if sdk_version < 23:
+            # Android L and earlier use this format: date -s (format).
+            command += ('-s %s' %
+                        datetime.datetime.now().strftime('%Y%m%d.%H%M%S'))
+        else:
+            # Android M and later use this format: date -u (format).
+            command += ('-u %s' %
+                        datetime.datetime.utcnow().strftime('%m%d%H%M%Y.%S'))
+        self.run(command, timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS,
+                 ignore_timeout=True)
+
+
+    def _enable_native_crash_logging(self):
+        """Enable native (non-Java) crash logging.
+        """
+        if self.get_os_type() == OS_TYPE_ANDROID:
+            self._enable_android_native_crash_logging()
+
+
+    def _enable_brillo_native_crash_logging(self):
+        """Enables native crash logging for a Brillo DUT.
+        """
+        try:
+            self.run('touch /data/misc/metrics/enabled',
+                     timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS,
+                     ignore_timeout=True)
+            # If running, crash_sender will delete crash files every hour.
+            self.run('stop crash_sender',
+                     timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS,
+                     ignore_timeout=True)
+        except error.GenericHostRunError as e:
+            logging.warn(e)
+            logging.warn('Failed to enable Brillo native crash logging.')
+
+
+    def _enable_android_native_crash_logging(self):
+        """Enables native crash logging for an Android DUT.
+        """
+        # debuggerd should be enabled by default on Android.
+        result = self.run('pgrep debuggerd',
+                          timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS,
+                          ignore_timeout=True, ignore_status=True)
+        if not result or result.exit_status != 0:
+            logging.debug('Unable to confirm that debuggerd is running.')
+
+
+    def _collect_crash_logs(self):
+        """Copies crash log files from the DUT to the drone.
+        """
+        if self.get_os_type() == OS_TYPE_BRILLO:
+            self._collect_crash_logs_dut(BRILLO_NATIVE_CRASH_LOG_DIR)
+        elif self.get_os_type() == OS_TYPE_ANDROID:
+            self._collect_crash_logs_dut(ANDROID_TOMBSTONE_CRASH_LOG_DIR)
+
+
+    def _collect_crash_logs_dut(self, log_directory):
+        """Copies native crash logs from the Android/Brillo DUT to the drone.
+
+        @param log_directory: absolute path of the directory on the DUT where
+                log files are stored.
+        """
+        files = None
+        try:
+            result = self.run('find %s -maxdepth 1 -type f' % log_directory,
+                              timeout=DEFAULT_COMMAND_RETRY_TIMEOUT_SECONDS)
+            files = result.stdout.strip().split()
+        except (error.GenericHostRunError, error.AutoservSSHTimeout,
+                error.CmdTimeoutError):
+            logging.debug('Unable to call find %s, unable to find crash logs',
+                          log_directory)
+        if not files:
+            logging.debug('There are no crash logs on the DUT.')
+            return
+
+        crash_dir = os.path.join(self.job.resultdir, 'crash')
+        try:
+            os.mkdir(crash_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise e
+
+        for f in files:
+            logging.debug('DUT native crash file produced: %s', f)
+            dest = os.path.join(crash_dir, os.path.basename(f))
+            # We've had cases where the crash file on the DUT has permissions
+            # "000". Let's override permissions to make them sane for the user
+            # collecting the crashes.
+            self.get_file(source=f, dest=dest, preserve_perm=False)

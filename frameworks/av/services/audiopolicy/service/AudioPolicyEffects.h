@@ -23,7 +23,6 @@
 #include <cutils/misc.h>
 #include <media/AudioEffect.h>
 #include <system/audio.h>
-#include <hardware/audio_effect.h>
 #include <utils/Vector.h>
 #include <utils/SortedVector.h>
 
@@ -62,7 +61,8 @@ public:
                              audio_session_t audioSession);
 
     // Add all input effects associated to this input
-    status_t releaseInputEffects(audio_io_handle_t input);
+    status_t releaseInputEffects(audio_io_handle_t input,
+                                 audio_session_t audioSession);
 
 
     // Return a list of effect descriptors for default output effects
@@ -135,7 +135,7 @@ private:
     // class to store voctor of AudioEffects
     class EffectVector {
     public:
-        EffectVector(audio_session_t session) : mSessionId(session), mRefCount(0) {}
+        explicit EffectVector(audio_session_t session) : mSessionId(session), mRefCount(0) {}
         /*virtual*/ ~EffectVector() {}
 
         // Enable or disable all effects in effect vector
@@ -178,12 +178,12 @@ private:
                          size_t *curSize,
                          size_t *totSize);
 
-    // protects access to mInputSources, mInputs, mOutputStreams, mOutputSessions
+    // protects access to mInputSources, mInputSessions, mOutputStreams, mOutputSessions
     Mutex mLock;
     // Automatic input effects are configured per audio_source_t
     KeyedVector< audio_source_t, EffectDescVector* > mInputSources;
     // Automatic input effects are unique for audio_io_handle_t
-    KeyedVector< audio_io_handle_t, EffectVector* > mInputs;
+    KeyedVector< audio_session_t, EffectVector* > mInputSessions;
 
     // Automatic output effects are organized per audio_stream_type_t
     KeyedVector< audio_stream_type_t, EffectDescVector* > mOutputStreams;

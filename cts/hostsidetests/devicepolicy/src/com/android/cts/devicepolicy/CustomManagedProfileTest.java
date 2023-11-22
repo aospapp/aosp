@@ -52,7 +52,6 @@ public class CustomManagedProfileTest extends BaseDevicePolicyTest {
             throws DeviceNotAvailableException {
         final String testName = expected ? "testIsProvisioningAllowedTrue"
                 : "testIsProvisioningAllowedFalse";
-        assertTrue(runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PreManagedProfileTest", testName,
-                userId));
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PreManagedProfileTest", testName, userId);
     }
 }

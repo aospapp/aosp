@@ -16,7 +16,6 @@
 package android.view.cts.surfacevalidator;
 
 import android.animation.ValueAnimator;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.view.View;
 import android.widget.FrameLayout;

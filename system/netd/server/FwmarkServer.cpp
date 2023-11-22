@@ -18,14 +18,24 @@
 
 #include "Fwmark.h"
 #include "FwmarkCommand.h"
+#include "NetdConstants.h"
 #include "NetworkController.h"
 #include "resolv_netid.h"
 
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <utils/String16.h>
 
-FwmarkServer::FwmarkServer(NetworkController* networkController) :
-        SocketListener("fwmarkd", true), mNetworkController(networkController) {
+using android::String16;
+using android::net::metrics::INetdEventListener;
+
+namespace android {
+namespace net {
+
+FwmarkServer::FwmarkServer(NetworkController* networkController, EventReporter* eventReporter) :
+        SocketListener("fwmarkd", true), mNetworkController(networkController),
+        mEventReporter(eventReporter) {
 }
 
 bool FwmarkServer::onDataAvailable(SocketClient* client) {
@@ -47,15 +57,16 @@ bool FwmarkServer::onDataAvailable(SocketClient* client) {
 
 int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
     FwmarkCommand command;
+    FwmarkConnectInfo connectInfo;
 
-    iovec iov;
-    iov.iov_base = &command;
-    iov.iov_len = sizeof(command);
-
+    iovec iov[2] = {
+        { &command, sizeof(command) },
+        { &connectInfo, sizeof(connectInfo) },
+    };
     msghdr message;
     memset(&message, 0, sizeof(message));
-    message.msg_iov = &iov;
-    message.msg_iovlen = 1;
+    message.msg_iov = iov;
+    message.msg_iovlen = ARRAY_SIZE(iov);
 
     union {
         cmsghdr cmh;
@@ -66,12 +77,14 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
     message.msg_control = cmsgu.cmsg;
     message.msg_controllen = sizeof(cmsgu.cmsg);
 
-    int messageLength = TEMP_FAILURE_RETRY(recvmsg(client->getSocket(), &message, 0));
+    int messageLength = TEMP_FAILURE_RETRY(recvmsg(client->getSocket(), &message, MSG_CMSG_CLOEXEC));
     if (messageLength <= 0) {
         return -errno;
     }
 
-    if (messageLength != sizeof(command)) {
+    if (!((command.cmdId != FwmarkCommand::ON_CONNECT_COMPLETE && messageLength == sizeof(command))
+            || (command.cmdId == FwmarkCommand::ON_CONNECT_COMPLETE
+            && messageLength == sizeof(command) + sizeof(connectInfo)))) {
         return -EBADMSG;
     }
 
@@ -152,6 +165,37 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
             break;
         }
 
+        case FwmarkCommand::ON_CONNECT_COMPLETE: {
+            // Called after a socket connect() completes.
+            // This reports connect event including netId, destination IP address, destination port,
+            // uid, connect latency, and connect errno if any.
+
+            // Skip reporting if connect() happened on a UDP socket.
+            int socketProto;
+            socklen_t intSize = sizeof(socketProto);
+            const int ret = getsockopt(*socketFd, SOL_SOCKET, SO_PROTOCOL, &socketProto, &intSize);
+            if ((ret != 0) || (socketProto == IPPROTO_UDP)) {
+                break;
+            }
+
+            android::sp<android::net::metrics::INetdEventListener> netdEventListener =
+                    mEventReporter->getNetdEventListener();
+
+            if (netdEventListener != nullptr) {
+                char addrstr[INET6_ADDRSTRLEN];
+                char portstr[sizeof("65536")];
+                const int ret = getnameinfo((sockaddr*) &connectInfo.addr, sizeof(connectInfo.addr),
+                        addrstr, sizeof(addrstr), portstr, sizeof(portstr),
+                        NI_NUMERICHOST | NI_NUMERICSERV);
+
+                netdEventListener->onConnectEvent(fwmark.netId, connectInfo.error,
+                        connectInfo.latencyMs,
+                        (ret == 0) ? String16(addrstr) : String16(""),
+                        (ret == 0) ? strtoul(portstr, NULL, 10) : 0, client->getUid());
+            }
+            break;
+        }
+
         case FwmarkCommand::SELECT_NETWORK: {
             fwmark.netId = command.netId;
             if (command.netId == NETID_UNSET) {
@@ -211,3 +255,6 @@ int FwmarkServer::processClient(SocketClient* client, int* socketFd) {
 
     return 0;
 }
+
+}  // namespace net
+}  // namespace android

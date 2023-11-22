@@ -49,12 +49,6 @@ in the pool to keep the pool at the target COUNT.
 When reducing pool size, working DUTs will be returned after broken
 DUTs, if it's necessary to achieve the target COUNT.
 
-If the selected target POOL is for a Freon board, *and* the selected
-spare pool has no DUTs (in any state), *and* the corresponding
-non-Freon spare pool is populated, then the non-Freon pool will
-be used for the Freon board.  A similar rule applies to balancing
-non-Freon boards when there is an available Freon spare pool.
-
 """
 
 
@@ -64,17 +58,21 @@ import time
 
 import common
 from autotest_lib.server import frontend
-from autotest_lib.site_utils import host_label_utils
-from autotest_lib.site_utils import status_history
+from autotest_lib.server.lib import status_history
+from autotest_lib.site_utils import lab_inventory
 from autotest_lib.site_utils.suite_scheduler import constants
 
 from chromite.lib import parallel
 
 
 _POOL_PREFIX = constants.Labels.POOL_PREFIX
-_BOARD_PREFIX = constants.Labels.BOARD_PREFIX
+# This is the ratio of all boards we should calculate the default max number of
+# broken boards against.  It seemed like the best choice that was neither too
+# strict nor lax.
+_MAX_BROKEN_BOARDS_DEFAULT_RATIO = 3.0 / 8.0
 
-_FREON_BOARD_TAG = 'freon'
+_ALL_CRITICAL_POOLS = 'all_critical_pools'
+_SPARE_DEFAULT = lab_inventory.SPARE_POOL
 
 
 def _log_message(message, *args):
@@ -172,92 +170,21 @@ class _DUTPool(object):
 
     """
 
-
-    @staticmethod
-    def _get_platform_label(board):
-        """Return the platform label associated with `board`.
-
-        When swapping between freon and non-freon boards, the
-        platform label must also change (because wmatrix reports
-        build results against platform labels, not boards).  So, we
-        must be able to get the platform label from the board name.
-
-        For non-freon boards, the platform label is based on a name
-        assigned by the firmware, which in some cases is different
-        from the board name.  For freon boards, the platform label
-        is always the board name.
-
-        @param board The board name to convert to a platform label.
-        @return The platform label for the given board name.
-
-        """
-        if board.endswith(_FREON_BOARD_TAG):
-            return board
-        if board.startswith('x86-'):
-            return board[len('x86-') :]
-        platform_map = {
-          'daisy': 'snow',
-          'daisy_spring': 'spring',
-          'daisy_skate': 'skate',
-          'parrot_ivb': 'parrot_2',
-          'falco_li': 'falco'
-        }
-        return platform_map.get(board, board)
-
-
-    @staticmethod
-    def _freon_board_toggle(board):
-        """Toggle a board name between freon and non-freon.
-
-        For boards naming a freon build, return the name of the
-        associated non-freon board.  For boards naming non-freon
-        builds, return the name of the associated freon board.
-
-        @param board The board name to be toggled.
-        @return A new board name, toggled for freon.
-
-        """
-        if board.endswith(_FREON_BOARD_TAG):
-            # The actual board name ends with either "-freon" or
-            # "_freon", so we have to strip off one extra character.
-            return board[: -len(_FREON_BOARD_TAG) - 1]
-        else:
-            # The actual board name will end with either "-freon" or
-            # "_freon"; we have to figure out which one to use.
-            joiner = '_'
-            if joiner in board:
-                joiner = '-'
-            return joiner.join([board, _FREON_BOARD_TAG])
-
-
-    def __init__(self, afe, board, pool, start_time, end_time,
-                 use_freon=False):
+    def __init__(self, afe, board, pool, start_time, end_time):
         self.board = board
         self.pool = pool
         self.working_hosts = []
         self.broken_hosts = []
         self.ineligible_hosts = []
-        self.total_hosts = self._get_hosts(
-                afe, start_time, end_time, use_freon)
-        self.labels = set([_BOARD_PREFIX + self.board,
-                           self._get_platform_label(self.board),
-                           _POOL_PREFIX + self.pool])
+        self.total_hosts = self._get_hosts(afe, start_time, end_time)
+        self._labels = [_POOL_PREFIX + self.pool]
 
 
-    def _get_hosts(self, afe, start_time, end_time, use_freon):
+    def _get_hosts(self, afe, start_time, end_time):
         all_histories = (
             status_history.HostJobHistory.get_multiple_histories(
                     afe, start_time, end_time,
                     board=self.board, pool=self.pool))
-        if not all_histories and use_freon:
-            alternate_board = self._freon_board_toggle(self.board)
-            alternate_histories = (
-                status_history.HostJobHistory.get_multiple_histories(
-                        afe, start_time, end_time,
-                        board=alternate_board, pool=self.pool))
-            if alternate_histories:
-                self.board = alternate_board
-                all_histories = alternate_histories
         for h in all_histories:
             host = h.host
             host_pools = [l for l in host.labels
@@ -285,7 +212,7 @@ class _DUTPool(object):
                 or AFE.remove_labels().
 
         """
-        return self.labels
+        return self._labels
 
     def calculate_spares_needed(self, target_total):
         """Calculate and log the spares needed to achieve a target.
@@ -371,14 +298,11 @@ def _exchange_labels(dry_run, hosts, target_pool, spare_pool):
               len(hosts), spare_pool.pool, target_pool.pool)
     additions = target_pool.pool_labels
     removals = spare_pool.pool_labels
-    intersection = additions & removals
-    additions -= intersection
-    removals -= intersection
     for host in hosts:
         if not dry_run:
             _log_message('Updating host: %s.', host.hostname)
-            host.remove_labels(list(removals))
-            host.add_labels(list(additions))
+            host.remove_labels(removals)
+            host.add_labels(additions)
         else:
             _log_message('atest label remove -m %s %s',
                          host.hostname, ' '.join(removals))
@@ -386,7 +310,7 @@ def _exchange_labels(dry_run, hosts, target_pool, spare_pool):
                          host.hostname, ' '.join(additions))
 
 
-def _balance_board(arguments, afe, board, start_time, end_time):
+def _balance_board(arguments, afe, board, pool, start_time, end_time):
     """Balance one board as requested by command line arguments.
 
     @param arguments     Parsed command line arguments.
@@ -394,6 +318,7 @@ def _balance_board(arguments, afe, board, start_time, end_time):
                          for actual execution.
     @param afe           AFE object to be used for the changes.
     @param board         Board to be balanced.
+    @param pool          Pool of the board to be balanced.
     @param start_time    Start time for HostJobHistory objects in
                          the DUT pools.
     @param end_time      End time for HostJobHistory objects in the
@@ -401,8 +326,8 @@ def _balance_board(arguments, afe, board, start_time, end_time):
 
     """
     spare_pool = _DUTPool(afe, board, arguments.spare,
-                          start_time, end_time, use_freon=True)
-    main_pool = _DUTPool(afe, board, arguments.pool,
+                          start_time, end_time)
+    main_pool = _DUTPool(afe, board, pool,
                          start_time, end_time)
 
     target_total = main_pool.total_hosts
@@ -485,6 +410,52 @@ def _balance_board(arguments, afe, board, start_time, end_time):
                      main_pool, spare_pool)
 
 
+def _too_many_broken_boards(inventory, pool, arguments):
+    """
+    Get the inventory of boards and check if too many boards are broken.
+
+    @param inventory: inventory object to determine board status inventory.
+    @param pool: The pool to check on for the board.
+    @param arguments     Parsed command line arguments.
+
+    @return True if the number of boards with 1 or more broken duts exceed
+    max_broken_boards, False otherwise.
+    """
+    # Let's check if we even need to check for this max_broken_boards.
+    if arguments.force_rebalance or arguments.max_broken_boards == 0:
+        return False
+
+    # Let's get the number of broken duts for the specified pool and
+    # check that it's less than arguments.max_broken_boards.  Or if
+    # it's not specified, calculate the default number of max broken
+    # boards based on the total number of boards per pool.
+    # TODO(kevcheng): Revisit to see if there's a better way to
+    # calculate the default max_broken_boards.
+    max_broken_boards = arguments.max_broken_boards
+    if max_broken_boards is None:
+        total_num_boards = len(inventory.get_managed_boards(pool=pool))
+        max_broken_boards = int(_MAX_BROKEN_BOARDS_DEFAULT_RATIO *
+                                total_num_boards)
+        _log_info(arguments.dry_run,
+                  'Default max broken boards calculated to be %d for '
+                  '%s pool',
+                  max_broken_boards, pool)
+
+
+    broken_boards = [board for board, counts in inventory.items()
+                     if counts.get_broken(pool) != 0]
+    broken_boards.sort()
+    num_of_broken_boards = len(broken_boards)
+    # TODO(kevcheng): Track which boards have broken duts, we can limit the
+    # number of boards we go through in the main loop with this knowledge.
+    _log_message('There are %d boards in the %s pool with at least 1 '
+                 'broken DUT (max threshold %d)', num_of_broken_boards,
+                 pool, max_broken_boards)
+    for broken_board in broken_boards:
+        _log_message(broken_board)
+    return num_of_broken_boards > max_broken_boards
+
+
 def _parse_command(argv):
     """Parse the command line arguments.
 
@@ -517,10 +488,10 @@ def _parse_command(argv):
                              help='Remove the specified number of DUTs '
                                   'from the pool for every BOARD')
 
-    parser.add_argument('-s', '--spare', default='suites',
+    parser.add_argument('-s', '--spare', default=_SPARE_DEFAULT,
                         metavar='POOL',
                         help='Pool from which to draw replacement '
-                             'spares (default: pool:suites)')
+                             'spares (default: pool:%s)' % _SPARE_DEFAULT)
     parser.add_argument('-n', '--dry-run', action='store_true',
                         help='Report actions to take in the form of '
                              'shell commands')
@@ -540,11 +511,20 @@ def _parse_command(argv):
                              'lab.')
 
     parser.add_argument('--all-boards', action='store_true',
-                        help='Rebalance all boards.')
+                        help='Rebalance all managed boards.  This will do a '
+                             'very expensive check to see how many boards have '
+                             'at least one broken DUT.  To bypass that check, '
+                             'set --max-broken-boards to 0.')
+    parser.add_argument('--max-broken-boards',
+                        default=None, type=int,
+                        help='Only rebalance all boards if number of boards '
+                             'with broken DUTs in the specified pool '
+                             'is less than COUNT.')
 
     parser.add_argument('pool',
                         metavar='POOL',
-                        help='Name of the pool to balance.')
+                        help='Name of the pool to balance.  Use %s to balance '
+                             'all critical pools' % _ALL_CRITICAL_POOLS)
     parser.add_argument('boards', nargs='*',
                         metavar='BOARD',
                         help='Names of boards to balance.')
@@ -557,7 +537,10 @@ def _parse_command(argv):
                      '--all-boards')
     if arguments.boards and arguments.all_boards:
         parser.error('Cannot specify boards with --all-boards.')
-
+    if (arguments.pool == _ALL_CRITICAL_POOLS and
+            arguments.spare != _SPARE_DEFAULT):
+        parser.error('Cannot specify --spare pool to be %s when balancing all '
+                     'critical pools.' % _SPARE_DEFAULT)
     return arguments
 
 
@@ -567,27 +550,47 @@ def main(argv):
     @param argv  Command line arguments including `sys.argv[0]`.
 
     """
-    def balancer(i, board):
+    def balancer(i, board, pool):
       """Balance the specified board.
 
       @param i The index of the board.
       @param board The board name.
+      @param pool The pool to rebalance for the board.
       """
       if i > 0:
           _log_message('')
-      _balance_board(arguments, afe, board, start_time, end_time)
+      _balance_board(arguments, afe, board, pool, start_time, end_time)
 
     arguments = _parse_command(argv)
     end_time = time.time()
     start_time = end_time - 24 * 60 * 60
     afe = frontend.AFE(server=None)
     boards = arguments.boards
+    pools = (lab_inventory.CRITICAL_POOLS
+             if arguments.pool == _ALL_CRITICAL_POOLS
+             else [arguments.pool])
+    board_info = []
     if arguments.all_boards:
-        boards = host_label_utils.get_all_boards(
-            labels=[_POOL_PREFIX + arguments.pool])
-    board_args = list(enumerate(boards))
+        inventory = lab_inventory.get_inventory(afe)
+        for pool in pools:
+            if _too_many_broken_boards(inventory, pool, arguments):
+                _log_error('Refusing to balance all boards for %s pool, '
+                           'too many boards with at least 1 broken DUT '
+                           'detected.', pool)
+            else:
+                boards_in_pool = inventory.get_managed_boards(pool=pool)
+                current_len_board_info = len(board_info)
+                board_info.extend([(i + current_len_board_info, board, pool)
+                                   for i, board in enumerate(boards_in_pool)])
+    else:
+        # We have specified boards with a specified pool, setup the args to the
+        # balancer properly.
+        for pool in pools:
+            current_len_board_info = len(board_info)
+            board_info.extend([(i + current_len_board_info, board, pool)
+                               for i, board in enumerate(boards)])
     try:
-        parallel.RunTasksInProcessPool(balancer, board_args, processes=8)
+        parallel.RunTasksInProcessPool(balancer, board_info, processes=8)
     except KeyboardInterrupt:
         pass
 

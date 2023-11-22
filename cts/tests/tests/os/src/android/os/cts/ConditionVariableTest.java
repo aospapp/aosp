@@ -16,8 +16,10 @@
 package android.os.cts;
 
 import junit.framework.TestCase;
-import android.cts.util.TestThread;
+
 import android.os.ConditionVariable;
+
+import com.android.compatibility.common.util.TestThread;
 
 public class ConditionVariableTest extends TestCase {
     private static final int WAIT_TIME = 3000;

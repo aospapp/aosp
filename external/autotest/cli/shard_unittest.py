@@ -1,5 +1,4 @@
-# pylint: disable-msg=C0111
-#!/usr/bin/python
+#!/usr/bin/env python2
 #
 # Copyright 2008 Google Inc. All Rights Reserved.
 
@@ -45,6 +44,41 @@ class shard_create_unittest(cli_mock.cli_unittest):
                             'This value must be unique (shard1)'}''')],
                      out_words_no=['shard0'],
                      err_words_ok=['shard0', 'ValidationError'])
+
+
+class shard_add_boards_unittest(cli_mock.cli_unittest):
+    def test_execute_add_boards_to_shard(self):
+        self.run_cmd(argv=['atest', 'shard', 'add_boards',
+                           '-l', 'board:lumpy', 'shard0'],
+                     rpcs=[('add_board_to_shard',
+                           {'hostname': 'shard0', 'labels':'board:lumpy'},
+                            True, 42)],
+                     out_words_ok=['Added boards', 'board:lumpy', 'shard0'])
+
+
+    def test_execute_add_boards_to_shard_bad(self):
+        self.run_cmd(argv=['atest', 'shard', 'add_boards',
+                           '-l', 'board:lumpy', 'shard0'],
+                     rpcs=[('add_board_to_shard',
+                           {'hostname': 'shard0', 'labels':'board:lumpy'},
+                            False,
+                            '''RPCException: board:lumpy is already on shard
+                            shard0''')],
+                     out_words_no=['shard0'],
+                     err_words_ok=['shard0', 'RPCException'])
+
+
+    def test_execute_add_boards_to_shard_fail_when_shard_nonexist(self):
+        self.run_cmd(argv=['atest', 'shard', 'add_boards',
+                           '-l', 'board:lumpy', 'shard0'],
+                     rpcs=[('add_board_to_shard',
+                           {'hostname': 'shard0', 'labels':'board:lumpy'},
+                            False,
+                            '''DoesNotExist: Shard matching query does not
+                            exist. Lookup parameters were {'hostname':
+                            'shard0'}''')],
+                     out_words_no=['shard0'],
+                     err_words_ok=['shard0', 'DoesNotExist:'])
 
 
 class shard_delete_unittest(cli_mock.cli_unittest):

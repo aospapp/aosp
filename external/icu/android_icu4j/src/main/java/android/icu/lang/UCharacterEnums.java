@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2004-2016, International Business Machines Corporation and
@@ -18,7 +20,7 @@ public class UCharacterEnums {
     private UCharacterEnums() {}
 
     /**
-     * 'Enum' for the CharacterCategory constants.  These constants are 
+     * 'Enum' for the CharacterCategory constants.  These constants are
      * compatible in name <b>but not in value</b> with those defined in
      * {@link java.lang.Character}.
      * @see UCharacterCategory
@@ -27,11 +29,11 @@ public class UCharacterEnums {
         /**
          * Unassigned character type
          */
-        public static final byte UNASSIGNED              = 0; 
+        public static final byte UNASSIGNED              = 0;
 
         /**
          * Character type Cn
-         * Not Assigned (no characters in [UnicodeData.txt] have this property) 
+         * Not Assigned (no characters in [UnicodeData.txt] have this property)
          */
         public static final byte GENERAL_OTHER_TYPES     = 0;
 
@@ -85,7 +87,7 @@ public class UCharacterEnums {
          * Character type Nl
          */
         public static final byte LETTER_NUMBER           = 10;
-        
+
         /**
          * Character type No
          */
@@ -135,7 +137,7 @@ public class UCharacterEnums {
          * Character type Ps
          */
         public static final byte START_PUNCTUATION       = 20;
-        
+
         /**
          * Character type Pe
          */
@@ -160,17 +162,17 @@ public class UCharacterEnums {
          * Character type Sc
          */
         public static final byte CURRENCY_SYMBOL         = 25;
-        
+
         /**
          * Character type Sk
          */
         public static final byte MODIFIER_SYMBOL         = 26;
-        
+
         /**
          * Character type So
          */
         public static final byte OTHER_SYMBOL            = 27;
-        
+
         /**
          * Character type Pi
          * @see #INITIAL_QUOTE_PUNCTUATION
@@ -196,9 +198,11 @@ public class UCharacterEnums {
          * @see #FINAL_PUNCTUATION
          */
         public static final byte FINAL_QUOTE_PUNCTUATION   = 29;
-        
+
         /**
-         * Character type count
+         * One more than the highest normal ECharacterCategory value.
+         * This numeric value is stable (will not change), see
+         * http://www.unicode.org/policies/stability_policy.html#Property_Value
          * @hide unsupported on Android
          */
         public static final byte CHAR_CATEGORY_COUNT     = 30;
@@ -273,7 +277,7 @@ public class UCharacterEnums {
 
         /**
          * Directional type AN
-         */                                                    
+         */
         public static final int ARABIC_NUMBER              = 5;
 
         /**
@@ -309,7 +313,7 @@ public class UCharacterEnums {
 
         /**
          * Directional type S
-         */      
+         */
         public static final int SEGMENT_SEPARATOR          = 8;
 
         /**
@@ -356,7 +360,7 @@ public class UCharacterEnums {
         /**
          * Directional type LRO
          */
-        public static final int LEFT_TO_RIGHT_OVERRIDE     = 12;  
+        public static final int LEFT_TO_RIGHT_OVERRIDE     = 12;
 
         /**
          * Equivalent to {@link
@@ -458,9 +462,13 @@ public class UCharacterEnums {
         public static final byte POP_DIRECTIONAL_ISOLATE     = 22;
 
         /**
-         * Number of directional types
+         * One more than the highest normal ECharacterDirection value.
+         * The highest value is available via UCharacter.getIntPropertyMaxValue(UProperty.BIDI_CLASS).
+         *
+         * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
          * @hide unsupported on Android
          */
+        @Deprecated
         public static final int CHAR_DIRECTION_COUNT       = 23;
 
         /**

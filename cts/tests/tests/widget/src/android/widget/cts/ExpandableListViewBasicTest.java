@@ -16,48 +16,57 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-import android.cts.util.PollingCheck;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.app.Instrumentation;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.widget.BaseExpandableListAdapter;
 import android.widget.ExpandableListAdapter;
 import android.widget.ExpandableListView;
 import android.widget.cts.util.ExpandableListScenario;
-import android.widget.cts.util.ListUtil;
 import android.widget.cts.util.ExpandableListScenario.MyGroup;
+import android.widget.cts.util.ListUtil;
+
+import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.List;
 
-public class ExpandableListViewBasicTest extends
-        ActivityInstrumentationTestCase2<ExpandableListSimple> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ExpandableListViewBasicTest {
+    private Instrumentation mInstrumentation;
     private ExpandableListScenario mActivity;
     private ExpandableListView mExpandableListView;
     private ExpandableListAdapter mAdapter;
     private ListUtil mListUtil;
 
-    public ExpandableListViewBasicTest() {
-        super(ExpandableListSimple.class);
-    }
+    @Rule
+    public ActivityTestRule<ExpandableListBasic> mActivityRule =
+            new ActivityTestRule<>(ExpandableListBasic.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mActivity = getActivity();
-        new PollingCheck() {
-            @Override
-                protected boolean check() {
-                return mActivity.hasWindowFocus();
-            }
-        }.run();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        PollingCheck.waitFor(mActivity::hasWindowFocus);
         mExpandableListView = mActivity.getExpandableListView();
         mAdapter = mExpandableListView.getExpandableListAdapter();
-        mListUtil = new ListUtil(mExpandableListView, getInstrumentation());
+        mListUtil = new ListUtil(mExpandableListView, mInstrumentation);
     }
 
-    @MediumTest
+    @Test
     public void testPreconditions() {
         assertNotNull(mActivity);
         assertNotNull(mExpandableListView);
@@ -69,40 +78,43 @@ public class ExpandableListViewBasicTest extends
         assertTrue("Could not find group to expand", groupPos >= 0);
         assertFalse("Group is already expanded", mExpandableListView.isGroupExpanded(groupPos));
         mListUtil.arrowScrollToSelectedPosition(groupPos);
-        getInstrumentation().waitForIdleSync();
-        sendKeys(KeyEvent.KEYCODE_DPAD_CENTER);
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
+        CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
+                KeyEvent.KEYCODE_DPAD_CENTER);
+        mInstrumentation.waitForIdleSync();
         assertTrue("Group did not expand", mExpandableListView.isGroupExpanded(groupPos));
 
         return groupPos;
     }
 
-    @MediumTest
+    @Test
     public void testExpandGroup() {
         expandGroup(-1, true);
     }
 
-    @MediumTest
+    @Test
     public void testCollapseGroup() {
         final int groupPos = expandGroup(-1, true);
 
-        sendKeys(KeyEvent.KEYCODE_DPAD_CENTER);
-        getInstrumentation().waitForIdleSync();
+        CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
+                KeyEvent.KEYCODE_DPAD_CENTER);
+        mInstrumentation.waitForIdleSync();
         assertFalse("Group did not collapse", mExpandableListView.isGroupExpanded(groupPos));
     }
 
-    @MediumTest
-    public void testExpandedGroupMovement() {
+    @Test
+    public void testExpandedGroupMovement() throws Throwable {
         // Expand the first group
         mListUtil.arrowScrollToSelectedPosition(0);
-        sendKeys(KeyEvent.KEYCODE_DPAD_CENTER);
-        getInstrumentation().waitForIdleSync();
+        CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
+                KeyEvent.KEYCODE_DPAD_CENTER);
+        mInstrumentation.waitForIdleSync();
 
         // Ensure it expanded
         assertTrue("Group did not expand", mExpandableListView.isGroupExpanded(0));
 
         // Wait until that's all good
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
 
         // Make sure it expanded
         assertTrue("Group did not expand", mExpandableListView.isGroupExpanded(0));
@@ -117,12 +129,8 @@ public class ExpandableListViewBasicTest extends
                 mAdapter instanceof BaseExpandableListAdapter);
         final BaseExpandableListAdapter adapter = (BaseExpandableListAdapter) mAdapter;
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                adapter.notifyDataSetChanged();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(adapter::notifyDataSetChanged);
+        mInstrumentation.waitForIdleSync();
 
         // Make sure the right group is expanded
         assertTrue("The expanded state didn't stay with the proper group",
@@ -131,22 +139,22 @@ public class ExpandableListViewBasicTest extends
                 mExpandableListView.isGroupExpanded(0));
     }
 
-    @MediumTest
+    @Test
     public void testContextMenus() {
-        ExpandableListTester tester = new ExpandableListTester(mExpandableListView, this);
+        ExpandableListTester tester = new ExpandableListTester(mExpandableListView);
         tester.testContextMenus();
     }
 
-    @MediumTest
+    @Test
     public void testConvertionBetweenFlatAndPacked() {
-        ExpandableListTester tester = new ExpandableListTester(mExpandableListView, this);
-        tester.testConvertionBetweenFlatAndPackedOnGroups();
-        tester.testConvertionBetweenFlatAndPackedOnChildren();
+        ExpandableListTester tester = new ExpandableListTester(mExpandableListView);
+        tester.testConversionBetweenFlatAndPackedOnGroups();
+        tester.testConversionBetweenFlatAndPackedOnChildren();
     }
 
-    @MediumTest
+    @Test
     public void testSelectedPosition() {
-        ExpandableListTester tester = new ExpandableListTester(mExpandableListView, this);
+        ExpandableListTester tester = new ExpandableListTester(mExpandableListView);
         tester.testSelectedPositionOnGroups();
         tester.testSelectedPositionOnChildren();
     }

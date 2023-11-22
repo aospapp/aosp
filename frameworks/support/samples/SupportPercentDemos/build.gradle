@@ -8,7 +8,7 @@ android {
     compileSdkVersion project.ext.currentSdk
 
     defaultConfig {
-        minSdkVersion 11
+        minSdkVersion 14
     }
 
     sourceSets {
@@ -19,8 +19,14 @@ android {
     }
 
     lintOptions {
-        // TODO: fix errors and reenable.
-        abortOnError false
+        abortOnError true
+    }
+
+    signingConfigs {
+        debug {
+            // Use a local debug keystore to avoid build server issues.
+            storeFile project.rootProject.init.debugKeystore
+        }
     }
 
     compileOptions {

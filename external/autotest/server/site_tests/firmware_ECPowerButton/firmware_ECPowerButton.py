@@ -30,7 +30,7 @@ class firmware_ECPowerButton(FirmwareTest):
     POWER_BUTTON_POWERD_DURATION = 6
 
     # Duration of holding down power button to shut down without powerd
-    POWER_BUTTON_NO_POWERD_DURATION = 10
+    POWER_BUTTON_NO_POWERD_DURATION = 11
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECPowerButton, self).initialize(host, cmdline_args)

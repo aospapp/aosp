@@ -5,11 +5,17 @@
 AUTHOR = "Chrome OS Team"
 NAME = "power_FlashVideoSuspend"
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+
+# This test has no actual dependency on servo.  However, a common
+# failure mode when there's a bug is that the DUT goes offline, and
+# must be power cycled.  Servo can do that automatically, so we
+# restrict testing to devices that have a servo, to avoid needing
+# manual repair.
+DEPENDENCIES = "servo"
 
 DOC = """
 Suspends the system with a Youtube video playing in HTML5 mode.

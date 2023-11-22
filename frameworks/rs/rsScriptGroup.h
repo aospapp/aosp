@@ -41,7 +41,7 @@ public:
     virtual SG_API_Version getApiVersion() const { return SG_V1; }
     virtual void execute(Context *rsc);
 
-    Vector<ObjectBaseRef<ScriptKernelID> > mKernels;
+    std::vector<ObjectBaseRef<ScriptKernelID> > mKernels;
 
     class Link {
     public:
@@ -56,11 +56,11 @@ public:
 
     class Node {
     public:
-        Node(Script *);
+        explicit Node(Script *);
 
-        Vector<const ScriptKernelID *> mKernels;
-        Vector<Link *> mOutputs;
-        Vector<Link *> mInputs;
+        std::vector<const ScriptKernelID *> mKernels;
+        std::vector<Link *> mOutputs;
+        std::vector<Link *> mInputs;
         bool mSeen;
         int mOrder;
         Script *mScript;
@@ -68,16 +68,16 @@ public:
 
     class IO {
     public:
-        IO(const ScriptKernelID *);
+        explicit IO(const ScriptKernelID *);
 
         const ScriptKernelID *mKernel;
         ObjectBaseRef<Allocation> mAlloc;
     };
 
-    Vector<Link *> mLinks;
-    Vector<Node *> mNodes;
-    Vector<IO *> mInputs;
-    Vector<IO *> mOutputs;
+    std::vector<Link *> mLinks;
+    std::vector<Node *> mNodes;
+    std::vector<IO *> mInputs;
+    std::vector<IO *> mOutputs;
 
     static ScriptGroup * create(Context *rsc,
                            ScriptKernelID ** kernels, size_t kernelsSize,
@@ -103,11 +103,11 @@ private:
     // executes. Skips the exeuction if validation fails.
     bool validateInputAndOutput(Context *);
 
-    ScriptGroup(Context *);
+    explicit ScriptGroup(Context *);
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif
 

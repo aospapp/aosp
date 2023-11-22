@@ -35,7 +35,7 @@ __BEGIN_DECLS
 #define BT_STACK_TEST_MODULE_ID "bluetooth_test"
 
 
-/* Bluetooth profile interface IDs */
+/** Bluetooth profile interface IDs */
 
 #define BT_PROFILE_HANDSFREE_ID "handsfree"
 #define BT_PROFILE_HANDSFREE_CLIENT_ID "handsfree_client"
@@ -44,12 +44,16 @@ __BEGIN_DECLS
 #define BT_PROFILE_HEALTH_ID "health"
 #define BT_PROFILE_SOCKETS_ID "socket"
 #define BT_PROFILE_HIDHOST_ID "hidhost"
+#define BT_PROFILE_HIDDEV_ID "hiddev"
 #define BT_PROFILE_PAN_ID "pan"
 #define BT_PROFILE_MAP_CLIENT_ID "map_client"
 #define BT_PROFILE_SDP_CLIENT_ID "sdp"
 #define BT_PROFILE_GATT_ID "gatt"
 #define BT_PROFILE_AV_RC_ID "avrcp"
 #define BT_PROFILE_AV_RC_CTRL_ID "avrcp_ctrl"
+
+/** Bluetooth test interface IDs */
+#define BT_TEST_INTERFACE_MCAP_ID "mcap_test"
 
 /** Bluetooth Address */
 typedef struct {
@@ -162,6 +166,11 @@ typedef struct
     uint16_t total_trackable_advertisers;
     bool extended_scan_support;
     bool debug_logging_supported;
+    bool le_2m_phy_supported;
+    bool le_coded_phy_supported;
+    bool le_extended_advertising_supported;
+    bool le_periodic_advertising_supported;
+    uint16_t le_maximum_advertising_data_length;
 }bt_local_le_features_t;
 
 /* Bluetooth Adapter and Remote Device property types */
@@ -267,12 +276,13 @@ typedef struct
 /** Bluetooth Out Of Band data for bonding */
 typedef struct
 {
+   uint8_t le_bt_dev_addr[7]; /* LE Bluetooth Device Address */
    uint8_t c192[16]; /* Simple Pairing Hash C-192 */
    uint8_t r192[16]; /* Simple Pairing Randomizer R-192 */
    uint8_t c256[16]; /* Simple Pairing Hash C-256 */
    uint8_t r256[16]; /* Simple Pairing Randomizer R-256 */
    uint8_t sm_tk[16]; /* Security Manager TK Value */
-   uint8_t le_sc_c[16]; /* LE Secure Connections Random Value */
+   uint8_t le_sc_c[16]; /* LE Secure Connections Confirmation Value */
    uint8_t le_sc_r[16]; /* LE Secure Connections Random Value */
 } bt_out_of_band_data_t;
 
@@ -552,9 +562,6 @@ typedef struct {
     /** BLE Test Mode APIs */
     /* opcode MUST be one of: LE_Receiver_Test, LE_Transmitter_Test, LE_Test_End */
     int (*le_test_mode)(uint16_t opcode, uint8_t *buf, uint8_t len);
-
-    /* enable or disable bluetooth HCI snoop log */
-    int (*config_hci_snoop_log)(uint8_t enable);
 
     /** Sets the OS call-out functions that bluedroid needs for alarms and wake locks.
       * This should be called immediately after a successful |init|.

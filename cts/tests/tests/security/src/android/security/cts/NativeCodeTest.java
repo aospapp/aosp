@@ -16,21 +16,18 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
+
 import junit.framework.TestCase;
 
+@SecurityTest
 public class NativeCodeTest extends TestCase {
 
     static {
         System.loadLibrary("ctssecurity_jni");
     }
 
-    public void testVroot() throws Exception {
-        assertTrue("Device is vulnerable to CVE-2013-6282. Please apply security patch at "
-                   + "https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/"
-                   + "commit/arch/arm/include/asm/uaccess.h?id="
-                   + "8404663f81d212918ff85f493649a7991209fa04", doVrootTest());
-    }
-
+    @SecurityTest
     public void testPerfEvent() throws Exception {
         assertFalse("Device is vulnerable to CVE-2013-2094. Please apply security patch "
                     + "at http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/"
@@ -38,10 +35,12 @@ public class NativeCodeTest extends TestCase {
                     doPerfEventTest());
     }
 
+    @SecurityTest
     public void testPerfEvent2() throws Exception {
         assertTrue(doPerfEventTest2());
     }
 
+    @SecurityTest
     public void testFutex() throws Exception {
         assertTrue("Device is vulnerable to CVE-2014-3153, a vulnerability in the futex() system "
                    + "call. Please apply the security patch at "
@@ -50,6 +49,7 @@ public class NativeCodeTest extends TestCase {
                    doFutexTest());
     }
 
+    @SecurityTest
     public void testNvmapIocFromId() throws Exception {
         assertTrue("Device is vulnerable to CVE-2014-5332. "
                    + "NVIDIA has released code fixes to upstream repositories and device vendors. "
@@ -58,6 +58,7 @@ public class NativeCodeTest extends TestCase {
                    doNvmapIocFromIdTest());
     }
 
+    @SecurityTest
     public void testPingPongRoot() throws Exception {
         assertTrue("Device is vulnerable to CVE-2015-3636, a vulnerability in the ping "
                    + "socket implementation. Please apply the security patch at "
@@ -65,6 +66,7 @@ public class NativeCodeTest extends TestCase {
                    doPingPongRootTest());
     }
 
+    @SecurityTest
     public void testPipeReadV() throws Exception {
         assertTrue("Device is vulnerable to CVE-2015-1805 and/or CVE-2016-0774,"
                    + " a vulnerability in the pipe_read() function."
@@ -74,6 +76,7 @@ public class NativeCodeTest extends TestCase {
                    doPipeReadVTest());
     }
 
+    @SecurityTest
     public void testSysVipc() throws Exception {
         assertTrue("Android does not support Sys V IPC, it must "
                    + "be removed from the kernel. In the kernel config: "
@@ -104,16 +107,7 @@ public class NativeCodeTest extends TestCase {
      */
     private static native boolean doPerfEventTest2();
 
-    /**
-     * ANDROID-11234878 / CVE-2013-6282
-     *
-     * Returns true if the device is patched against the vroot vulnerability, false otherwise.
-     *
-     * The following patch addresses this bug:
-     * https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/arch/arm/include/asm/uaccess.h?id=8404663f81d212918ff85f493649a7991209fa04
-     */
-    private static native boolean doVrootTest();
-
+    @SecurityTest
     public void testCVE20141710() throws Exception {
         assertTrue("Device is vulnerable to CVE-2014-1710", doCVE20141710Test());
     }

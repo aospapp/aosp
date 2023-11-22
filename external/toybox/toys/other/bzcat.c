@@ -319,9 +319,9 @@ static int read_block_header(struct bunzip_data *bd, struct bwdata *bw)
 static int read_huffman_data(struct bunzip_data *bd, struct bwdata *bw)
 {
   struct group_data *hufGroup;
-  int hh, ii, jj, kk, runPos, dbufCount, symCount, selector, nextSym,
+  int ii, jj, kk, runPos, dbufCount, symCount, selector, nextSym,
     *byteCount, *base, *limit;
-  unsigned int *dbuf = bw->dbuf;
+  unsigned hh, *dbuf = bw->dbuf;
   unsigned char uc;
 
   // We've finished reading and digesting the block header.  Now read this
@@ -401,7 +401,9 @@ static int read_huffman_data(struct bunzip_data *bd, struct bwdata *bw)
        literal used is the one at the head of the mtfSymbol array.) */
     if (runPos) {
       runPos = 0;
-      if (dbufCount+hh > bd->dbufSize) return RETVAL_DATA_ERROR;
+      // Check for integer overflow
+      if (hh>bd->dbufSize || dbufCount+hh>bd->dbufSize)
+        return RETVAL_DATA_ERROR;
 
       uc = bd->symToByte[bd->mtfSymbol[0]];
       byteCount[uc] += hh;
@@ -452,9 +454,6 @@ static void burrows_wheeler_prep(struct bunzip_data *bd, struct bwdata *bw)
   int ii, jj;
   unsigned int *dbuf = bw->dbuf;
   int *byteCount = bw->byteCount;
-
-  // Technically this part is preparation for the burrows-wheeler
-  // transform, but it's quick and convenient to do here.
 
   // Turn byteCount into cumulative occurrence counts of 0 to n-1.
   jj = 0;
@@ -649,7 +648,10 @@ static char *bunzipStream(int src_fd, int dst_fd)
 
   if (!(i = start_bunzip(&bd,src_fd, 0, 0))) {
     i = write_bunzip_data(bd,bd->bwdata, dst_fd, 0, 0);
-    if (i==RETVAL_LAST_BLOCK && bd->bwdata[0].headerCRC==bd->totalCRC) i = 0;
+    if (i==RETVAL_LAST_BLOCK) {
+      if (bd->bwdata[0].headerCRC==bd->totalCRC) i = 0;
+      else i = RETVAL_DATA_ERROR;
+    }
   }
   flush_bunzip_outbuf(bd, dst_fd);
 

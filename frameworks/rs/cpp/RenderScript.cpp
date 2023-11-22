@@ -25,15 +25,8 @@
 #include <dlfcn.h>
 #include <unistd.h>
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && defined(__ANDROID__)
-#include <cutils/properties.h>
-#else
-#include "rsCompatibilityLib.h"
-#endif
-
-
-using namespace android;
-using namespace RSC;
+using android::RSC::RS;
+using android::RSC::RSError;
 
 bool RS::gInitialized = false;
 bool RS::usingNative = false;
@@ -62,7 +55,7 @@ RS::~RS() {
             RS::dispatch->ContextDeinitToClient(mContext);
 
             void *res = nullptr;
-            int status = pthread_join(mMessageThreadId, &res);
+            pthread_join(mMessageThreadId, &res);
 
             RS::dispatch->ContextDestroy(mContext);
             mContext = nullptr;
@@ -91,9 +84,9 @@ static bool loadSO(const char* filename, int targetApi) {
 }
 
 static uint32_t getProp(const char *str) {
-#if !defined(__LP64__) && !defined(RS_SERVER) && defined(__ANDROID__)
+#if !defined(__LP64__) && defined(__ANDROID__)
     char buf[256];
-    property_get(str, buf, "0");
+    android::renderscript::property_get(str, buf, "0");
     return atoi(buf);
 #else
     return 0;

@@ -44,7 +44,15 @@ COMMON_CFLAGS := -Wall -Werror -Wextra
 include $(CLEAR_VARS)
 
 ifeq ($(NANOHUB_SENSORHAL_NAME_OVERRIDE),)
+ifeq ($(TARGET_DEVICE),angler_treble)
+LOCAL_MODULE := sensors.angler
+else
+ifeq ($(TARGET_DEVICE),bullhead_treble)
+LOCAL_MODULE := sensors.bullhead
+else
 LOCAL_MODULE := sensors.$(TARGET_DEVICE)
+endif
+endif
 else
 LOCAL_MODULE := $(NANOHUB_SENSORHAL_NAME_OVERRIDE)
 endif
@@ -52,11 +60,12 @@ endif
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google
+LOCAL_PROPRIETARY_MODULE := true
 
 LOCAL_CFLAGS += $(COMMON_CFLAGS)
 
 LOCAL_C_INCLUDES += \
-	device/google/contexthub/firmware/inc \
+	device/google/contexthub/firmware/os/inc \
 	device/google/contexthub/util/common
 
 LOCAL_SRC_FILES := \
@@ -64,10 +73,20 @@ LOCAL_SRC_FILES := \
 	../../../../$(NANOHUB_SENSORHAL_SENSORLIST)
 
 LOCAL_SHARED_LIBRARIES := \
+	liblog \
 	libcutils \
 	libhubconnection \
 	libstagefright_foundation \
 	libutils
+
+ifeq ($(NANOHUB_SENSORHAL_DIRECT_REPORT_ENABLED), true)
+LOCAL_CFLAGS += -DDIRECT_REPORT_ENABLED
+endif
+
+ifeq ($(NANOHUB_SENSORHAL_DYNAMIC_SENSOR_EXT_ENABLED), true)
+LOCAL_CFLAGS += -DDYNAMIC_SENSOR_EXT_ENABLED
+LOCAL_SHARED_LIBRARIES += libdynamic_sensor_ext
+endif
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -79,11 +98,12 @@ LOCAL_MODULE := activity_recognition.$(TARGET_DEVICE)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google
+LOCAL_PROPRIETARY_MODULE := true
 
 LOCAL_CFLAGS += $(COMMON_CFLAGS)
 
 LOCAL_C_INCLUDES += \
-	device/google/contexthub/firmware/inc \
+	device/google/contexthub/firmware/os/inc \
 	device/google/contexthub/util/common
 
 LOCAL_SRC_FILES := \
@@ -105,8 +125,12 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := libhubconnection
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google
+LOCAL_PROPRIETARY_MODULE := true
 
 LOCAL_CFLAGS += $(COMMON_CFLAGS)
+ifeq ($(PRODUCT_FULL_TREBLE),true)
+LOCAL_CFLAGS += -DUSE_SENSORSERVICE_TO_GET_FIFO
+endif
 
 ifeq ($(NANOHUB_SENSORHAL_LID_STATE_ENABLED), true)
 LOCAL_CFLAGS += -DLID_STATE_REPORTING_ENABLED
@@ -120,21 +144,30 @@ ifeq ($(NANOHUB_SENSORHAL_DOUBLE_TOUCH_ENABLED), true)
 LOCAL_CFLAGS += -DDOUBLE_TOUCH_ENABLED
 endif
 
+ifeq ($(NANOHUB_SENSORHAL_DIRECT_REPORT_ENABLED), true)
+LOCAL_CFLAGS += -DDIRECT_REPORT_ENABLED
+endif
+
 LOCAL_C_INCLUDES += \
-	device/google/contexthub/firmware/inc \
-	device/google/contexthub/util/common
+    device/google/contexthub/firmware/os/inc
 
 LOCAL_SRC_FILES := \
-	hubconnection.cpp \
-	../util/common/file.cpp \
-	../util/common/JSONObject.cpp \
-	../util/common/ring.cpp
+    hubconnection.cpp \
+    directchannel.cpp
+
+LOCAL_STATIC_LIBRARIES := \
+    libhubutilcommon
 
 LOCAL_SHARED_LIBRARIES := \
-	libcutils \
-	liblog \
-	libstagefright_foundation \
-	libutils
+    android.frameworks.schedulerservice@1.0 \
+    libcutils \
+    libhardware \
+    libhardware_legacy \
+    libhidlbase \
+    libhidltransport \
+    liblog \
+    libstagefright_foundation \
+    libutils \
 
 include $(BUILD_SHARED_LIBRARY)
 

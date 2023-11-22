@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2001-2015, International Business Machines Corporation and    *
@@ -26,6 +28,8 @@ import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.text.DateFormat;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
@@ -35,22 +39,15 @@ import android.icu.util.JapaneseCalendar;
 import android.icu.util.SimpleTimeZone;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /** 
  * Performs regression test for DateFormat
  **/
-@RunWith(IcuTestFmwkRunner.class)
 public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
-
-    public static void main(String[] args) throws Exception{
-        new DateFormatRegressionTest().run(args);
-    }
-    
     /**
      * @bug 4029195
      */
+    @Test
     public void Test4029195() {
         Calendar cal = Calendar.getInstance();
         Date today = cal.getTime();
@@ -89,6 +86,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4052408
      */
+    @Test
     public void Test4052408() {
     
         DateFormat fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.US); 
@@ -168,6 +166,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * @bug 4056591
      * Verify the function of the [s|g]et2DigitYearStart() API.
      */
+    @Test
     public void Test4056591() {
     
         try {
@@ -213,6 +212,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4059917
      */
+    @Test
     public void Test4059917() {        
         SimpleDateFormat fmt;
         String myDate;
@@ -245,6 +245,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4060212
      */
+    @Test
     public void Test4060212() {
         String dateString = "1995-040.05:01:29";
         logln("dateString= " + dateString);
@@ -273,6 +274,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4061287
      */
+    @Test
     public void Test4061287() {
     
         SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy");
@@ -296,6 +298,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4065240
      */
+    @Test
     public void Test4065240() {
         Date curDate;
         DateFormat shortdate, fulldate;
@@ -362,6 +365,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4071441
      */
+    @Test
     public void Test4071441() {
         DateFormat fmtA = DateFormat.getInstance();
         DateFormat fmtB = DateFormat.getInstance();
@@ -399,6 +403,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4073003
      */
+    @Test
     public void Test4073003() {
         try {
             DateFormat fmt = DateFormat.getDateInstance(DateFormat.SHORT, Locale.US);
@@ -425,6 +430,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4089106
      */
+    @Test
     public void Test4089106() {
         TimeZone def = TimeZone.getDefault();
         try {
@@ -445,6 +451,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4100302
      */
+    @Test
     public void Test4100302() {
         
         Locale locales[] = {
@@ -489,6 +496,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4101483
      */
+    @Test
     public void Test4101483() {
         SimpleDateFormat sdf = new SimpleDateFormat("z", Locale.US);
         FieldPosition fp = new FieldPosition(DateFormat.TIMEZONE_FIELD);
@@ -510,6 +518,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * NT; it would actually have failed on any non-US locale.  Now it should
      * work on all locales.
      */
+    @Test
     public void Test4103340() {
     
         // choose a date that is the FIRST of some month 
@@ -533,6 +542,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4103341
      */
+    @Test
     public void Test4103341() {
         TimeZone saveZone = TimeZone.getDefault();
         try {
@@ -550,6 +560,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4104136
      */
+    @Test
     public void Test4104136() {
         SimpleDateFormat sdf = new SimpleDateFormat();
         String pattern = "'time' hh:mm";
@@ -584,6 +595,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * StringIndexOutOfBoundsException during the second parse.  However,
      * this is not seen.
      */
+    @Test
     public void Test4104522() {
         SimpleDateFormat sdf = new SimpleDateFormat();
         String pattern = "'time' hh:mm";
@@ -604,6 +616,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * @bug 4106807
      */
+    @Test
     public void Test4106807() {
         Date dt;
         DateFormat df = DateFormat.getDateTimeInstance();
@@ -657,6 +670,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      */
     
     // {sfb} what to do with this one ?? 
+    @Test
     public void Test4108407() {
         /*
     // TODO user.timezone is a protected system property, catch securityexception and warn
@@ -679,6 +693,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * @bug 4134203
      * SimpleDateFormat won't parse "GMT"
      */
+    @Test
     public void Test4134203() {
         String dateFormat = "MM/dd/yy HH:mm:ss zzz";
         SimpleDateFormat fmt = new SimpleDateFormat(dateFormat);
@@ -696,6 +711,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * @bug 4151631
      * SimpleDateFormat incorrect handling of 2 single quotes in format()
      */
+    @Test
     public void Test4151631() {
         String pattern = 
             "'TO_DATE('''dd'-'MM'-'yyyy HH:mm:ss''' , ''DD-MM-YYYY HH:MI:SS'')'"; 
@@ -720,6 +736,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * 'z' at end of date format throws index exception in SimpleDateFormat
      * CANNOT REPRODUCE THIS BUG ON 1.2FCS
      */
+    @Test
     public void Test4151706() {
         String dateString = "Thursday, 31-Dec-98 23:00:00 GMT";
         SimpleDateFormat fmt = new SimpleDateFormat("EEEE, dd-MMM-yy HH:mm:ss z", Locale.US);
@@ -745,6 +762,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * Cannot reproduce this bug under 1.2 FCS -- it may be a convoluted duplicate
      * of some other bug that has been fixed.
      */
+    @Test
     public void Test4162071() {
         String dateString = "Thu, 30-Jul-1999 11:51:14 GMT";
         String format = "EEE', 'dd-MMM-yyyy HH:mm:ss z"; // RFC 822/1123
@@ -762,6 +780,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     /**
      * DateFormat shouldn't parse year "-1" as a two-digit year (e.g., "-1" . 1999).
      */
+    @Test
     public void Test4182066() {
         SimpleDateFormat fmt = new SimpleDateFormat("MM/dd/yy", Locale.US);
         SimpleDateFormat dispFmt = new SimpleDateFormat("MMM dd yyyy HH:mm:ss GG", Locale.US);
@@ -843,6 +862,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
      * j32 {JDK Bug 4210209 4209272}
      * DateFormat cannot parse Feb 29 2000 when setLenient(false)
      */
+    @Test
     public void Test4210209() {
     
         String pattern = "MMM d, yyyy";
@@ -877,6 +897,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
         logln("Attempt to set Calendar to Feb 29 2000: " + disp.format(d));
     }
     
+    @Test
     public void Test714() {
         //TimeZone Offset
         TimeZone defaultTZ = TimeZone.getDefault();
@@ -895,6 +916,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
         }
     }
 
+    @Test
     public void Test_GEec() {
         class PatternAndResult {
             private String pattern;
@@ -951,6 +973,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     static final char kHindiZero  = 0x0966;
     static final char kLatinZero  = 0x0030;
 
+    @Test
     public void TestHindiArabicDigits()
     {
         String s;
@@ -1037,6 +1060,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     // Ticket#5683
     // Some ICU4J 3.6 data files contain garbage data which prevent the code to resolve another
     // bundle as an alias.  zh_TW should be equivalent to zh_Hant_TW
+    @Test
     public void TestT5683() {
         Locale[] aliasLocales = {
             new Locale("zh", "CN"),
@@ -1074,6 +1098,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     // case expects Islamic month name is different from Gregorian month name.
     // However, some locales (in this code, zh_CN) may intentionally use the same
     // month name for both Gregorian and Islamic calendars. See #9645.
+    @Test
     public void Test5006GetShortMonths() throws Exception {
         // Currently supported NLV locales
         Locale ENGLISH = new Locale("en", "US"); // We don't support 'en' alone
@@ -1176,6 +1201,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
         }
     }
     
+    @Test
     public void TestParsing() {
         String pattern = "EEE-WW-MMMM-yyyy";
         String text = "mon-02-march-2011";
@@ -1197,6 +1223,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
     }
 
     // Date formatting with Dangi calendar in en locale (#9987)
+    @Test
     public void TestDangiFormat() {
         DateFormat fmt = DateFormat.getDateInstance(DateFormat.MEDIUM, new ULocale("en@calendar=dangi"));
         String calType = fmt.getCalendar().getType();
@@ -1210,6 +1237,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
         assertEquals("Bad date format", "Mo1 20, 2013", dangiDateStr);
     }
     
+    @Test
     public void TestT10110() {
         try {
             SimpleDateFormat formatter = new SimpleDateFormat("Gy年M月d日E", new Locale("zh_Hans"));
@@ -1225,6 +1253,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
         errln("No exception thrown at all for bad pattern!");
     }
 
+    @Test
     public void TestT10239() {
         
         class TestDateFormatItem {
@@ -1285,6 +1314,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
   }
   
 
+    @Test
     public void TestT10334() {
         String pattern = new String("'--: 'EEE-WW-MMMM-yyyy");
         String text = new String("--mon-02-march-2011");
@@ -1357,6 +1387,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
 
     }
 
+    @Test
     public void TestT10619() {
         
         class TestDateFormatLeniencyItem {
@@ -1418,6 +1449,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
         }
   }
     
+    @Test
   public void TestT10906()
   {
       String pattern = new String("MM-dd-yyyy");
@@ -1437,6 +1469,7 @@ public class DateFormatRegressionTest extends android.icu.dev.test.TestFmwk {
   }
 
     // Test case for numeric field format threading problem
+    @Test
     public void TestT11363() {
 
         class TestThread extends Thread {

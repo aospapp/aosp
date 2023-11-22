@@ -18,6 +18,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+import socket
 import traceback
 
 from json import decoder
@@ -31,6 +32,10 @@ except django_exceptions.ImproperlyConfigured:
     from json import encoder
     json_encoder = encoder.JSONEncoder()
 
+# TODO(akeshet): Eliminate this and replace with monarch metrics. (At the
+# moment, I don't think we can just easily swap out, because this module is
+# called by apache for rpc handling, and we don't have a ts_mon thread for that
+# yet).
 from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 
 
@@ -106,6 +111,7 @@ class ServiceHandler(object):
 
         metadata = request.copy()
         metadata['_type'] = 'rpc'
+        metadata['rpc_server'] = socket.gethostname()
         timer = autotest_stats.Timer('rpc', metadata=metadata)
 
         try:

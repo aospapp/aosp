@@ -6,16 +6,15 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2003-2006 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  */
 
-#include <netlink-local.h>
-#include <netlink-tc.h>
+#include <netlink-private/netlink.h>
+#include <netlink-private/tc.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
-#include <netlink/route/tc.h>
+#include <netlink-private/route/tc-api.h>
 #include <netlink/route/classifier.h>
-#include <netlink/route/classifier-modules.h>
 #include <netlink/route/cls/police.h>
 
 /**
@@ -23,7 +22,7 @@
  * @{
  */
 
-static struct trans_tbl police_types[] = {
+static const struct trans_tbl police_types[] = {
 	__ADD(TC_POLICE_UNSPEC,unspec)
 	__ADD(TC_POLICE_OK,ok)
 	__ADD(TC_POLICE_RECLASSIFY,reclassify)

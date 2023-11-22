@@ -22,7 +22,7 @@ import android.graphics.Bitmap;
 import android.os.UserManager;
 import android.test.AndroidTestCase;
 
-import android.cts.util.BitmapUtils;
+import com.android.compatibility.common.util.BitmapUtils;
 import com.android.cts.customizationapp.R;
 
 /**

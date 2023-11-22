@@ -22,7 +22,7 @@ public enum TestStatus {
     PASS("pass"),
     FAIL("fail");
 
-    private String mValue;
+    private final String mValue;
 
     private TestStatus(String storedValue) {
         mValue = storedValue;

@@ -68,20 +68,22 @@ public class DeviceAdminPasswordTest extends BaseDeviceAdminTest {
     }
 
     private void assertHasPassword() {
-        dpm.setPasswordMinimumLength(mAdminComponent, 1);
+        final int currentQuality = dpm.getPasswordQuality(mAdminComponent);
+        dpm.setPasswordQuality(mAdminComponent, DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
         try {
             assertTrue("No password set", dpm.isActivePasswordSufficient());
         } finally {
-            dpm.setPasswordMinimumLength(mAdminComponent, 0);
+            dpm.setPasswordQuality(mAdminComponent, currentQuality);
         }
     }
 
     private void assertNoPassword() {
-        dpm.setPasswordMinimumLength(mAdminComponent, 1);
+        final int currentQuality = dpm.getPasswordQuality(mAdminComponent);
+        dpm.setPasswordQuality(mAdminComponent, DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
         try {
             assertFalse("Password is set", dpm.isActivePasswordSufficient());
         } finally {
-            dpm.setPasswordMinimumLength(mAdminComponent, 0);
+            dpm.setPasswordQuality(mAdminComponent, currentQuality);
         }
     }
 

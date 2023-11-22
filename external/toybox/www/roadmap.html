@@ -15,7 +15,7 @@ build itself using the result to build Linux From Scratch (version 6.8).
 We also aim to replace Android's Toolbox.</p>
 
 <p>At a secondary level we'd like to meet other use cases. We've analyzed
-the commands provided by similar projects (klibc, sash, sbase, s6, embutils,
+the commands provided by similar projects (klibc, sash, sbase, embutils,
 nash, and beastiebox), along with various vendor configurations of busybox,
 and some end user requests.</p>
 
@@ -35,7 +35,7 @@ and progress towards implementing it.</p>
 <li><a href=#android>Android Toolbox</a></li>
 <li><a href=#tizen>Tizen Core</a></li>
 <li>Miscelaneous: <a href=#klibc>klibc</a>, <a href=#glibc>glibc</a>,
-<a href=#sash>sash</a>, <a href=#sbase>sbase</a>, <a href=#s6>s6</a>,
+<a href=#sash>sash</a>, <a href=#sbase>sbase</a>,
 <a href=#uclinux>uclinux</a>...</li>
 </ul>
 
@@ -96,7 +96,7 @@ source.)</p>
 alias bg cd command fc fg getopts hash jobs kill read type ulimit umask
 unalias wait exit if while for case export set unset trap exec function source
 </span>
-<b></blockquote>
+</b></blockquote>
 
 <p>A few other commands are judgement calls, providing command-line
 internationalization support (iconv locale localedef), System V inter-process
@@ -193,9 +193,9 @@ su sync tar umount useradd userdel usermod zcat
 <a name="dev_env">
 <h2><a href="#dev_env">Use case: provide a self-hosting development environment</a></h2>
 
-<p>The following commands are enough to build the Aboriginal Linux development
-environment, boot it to a shell prompt, and build Linux From Scratch 6.8 under
-it. (Aboriginal Linux currently uses BusyBox for this, thus provides a
+<p>The following commands are enough to build the <a href=http://landley.net/aboriginal/about.html>Aboriginal Linux</a> development
+environment, boot it to a shell prompt, and build <a href=http://www.linuxfromscratch.org/lfs/view/6.8/>Linux From Scratch 6.8</a> under
+it. (Aboriginal Linux <a href=http://landley.net/aboriginal/history.html>currently uses</a> BusyBox for this, thus providing a
 drop-in test environment for toybox. We install both implementations side
 by side, redirecting the symlinks a command at a time until the older
 package is no longer used, and can be removed.)</p>
@@ -269,60 +269,75 @@ system/core/toolbox/Android.mk</a> the toolbox directory builds the
 following commands:</p>
 
 <blockquote><b>
-dd getevent iftop ioctl log
-nandread newfs_msdos ps prlimit
-sendevent start stop top
+dd getevent newfs_msdos
 </b></blockquote>
 
-<h3>Other Android core commands</h3>
+<p>The toolbox makefile also builds the BSD grep right now, because toybox
+grep is missing <code>--color</code>.</p>
 
-<p>Other than the toolbox directory, the currently interesting
-subdirectories in the core repository are init,
-logcat, logwrapper, reboot, and run-as.</p>
+<h3>Other Android /system/bin commands</h3>
+
+<p>Other than the toolbox links, the currently interesting
+binaries in /system/bin are:</p>
 
 <ul>
-<li><b>init</b> - Android's PID 1</li>
-<li><b>logcat</b> - read android log format</li>
-<li><b>logwrapper</b> - redirect stdio to android log</li>
-<li><b>reboot</b> - Android's reboot(1)</li>
-<li><b>run-as</b> - subset of sudo</li>
+<li><b>arping</b> - ARP REQUEST tool (iputils)</li>
+<li><b>blkid</b> - identify block devices (e2fsprogs)</li>
+<li><b>e2fsck</b> - fsck for ext2/ext3/ext4 (e2fsprogs)</li>
+<li><b>fsck.f2fs</b> - fsck for f2fs (f2fs-tools)</li>
+<li><b>fsck_msdos</b> - fsck for FAT (BSD)</li>
+<li><b>gzip</b> - compression/decompression tool (zlib)</li>
+<li><b>ip</b> - network routing tool (iproute2)</li>
+<li><b>iptables/ip6tables</b> - IPv4/IPv6 NAT admin (iptables)</li>
+<li><b>iw</b> - wireless device config tool (iw)</li>
+<li><b>logwrapper</b> - redirect stdio to android log (Android)</li>
+<li><b>make_ext4fs</b> - make ext4 fs (Android)</li>
+<li><b>make_f2fs</b> - make f2fs fs (f2fs-tools)</li>
+<li><b>ping/ping6</b> - ICMP ECHO_REQUEST tool (iputils)</li>
+<li><b>reboot</b> - reboot (Android)</li>
+<li><b>resize2fs</b> - resize ext2/ext3/ext4 fs (e2fsprogs)</li>
+<li><b>sh</b> - mksh (BSD)</li>
+<li><b>ss</b> - socket statistics (iproute2)</li>
+<li><b>tc</b> - traffic control (iproute2)</li>
+<li><b>tracepath/tracepath6</b> - trace network path (iputils)</li>
+<li><b>traceroute/traceroute6</b> - trace network route (iputils)</li>
 </ul>
 
-<p>Almost all of these reinvent an existing wheel with less functionality and a
-different user interface. We may want to provide that interface, but
-implementing the full commands (fdisk, init, and sudo) come first.</p>
+<p>The names in parentheses are the source.</p>
 
 <h3>Analysis</h3>
 
 <p>For reference, combining everything listed above, we get:</p>
 
 <blockquote><b>
-dd getevent iftop init ioctl
-log logcat logwrapper nandread
-newfs_msdos ps prlimit reboot run-as
-sendevent start stop top
+arping blkid e2fsck dd fsck.f2fs fsck_msdos getevent gzip ip iptables
+ip6tables iw logwrapper make_ext4fs make_f2fs newfs_msdos ping ping6
+reboot resize2fs sh ss tc tracepath tracepath6 traceroute traceroute6
 </b></blockquote>
 
 <p>We may eventually implement all of that, but for toybox 1.0 we need to
-focus a bit. For our first pass, let's grab just logcat and logwrapper
-from the "core" commands (since the rest have some full/standard version
-providing that functionality, which we can implement a shim interface
-for later).</p>
+focus a bit. For our first pass, let's just replace all the "toolbox"
+commands.</p>
 
 <p>This means toybox should implement (or finish implementing):</p>
 <blockquote><b>
 <span id=toolbox>
-dd getevent iftop ioctl log logcat logwrapper
-nandread newfs_msdos ps prlimit sendevent
-start stop top
+dd getevent grep gzip newfs_msdos
 </span>
 </b></blockquote>
 
 <p>Update: Android.mk is currently building the following toybox files out
-of "pending". These should be a priority for cleanup:</p>
+of "pending". These should be a priority for cleanup (ones marked with *
+don't have a symlink, so they're a lot less visible):</p>
 
 <blockquote><b>
-dd expr lsof more netstat route tar tr traceroute
+chrt dd expr getfattr* lsof modprobe more setfattr* tar tr traceroute
+</b></blockquote>
+
+<p>Android wishlist:</p>
+
+<blockquote><b>
+mtools genvfatfs mke2fs gene2fs
 </b></blockquote>
 
 <hr />
@@ -567,56 +582,6 @@ passwd pidof ps stat su truncate unshare uptime watch
 who
 </span>
 </p></blockquote>
-
-<hr />
-<a name=s6 />
-<h2>s6</h2>
-
-<p>The website <a href=http://skarnet.org/software/>skarnet</a> has a bunch
-of small utilities as part of something called "s6". This includes the
-<a href=http://skarnet.org/software/s6-portable-utils>s6-portabile-utils</a>
-and the <a href=http://skarnet.org/software/s6-linux-utils>s6-linux-utils</a>.
-</p>
-
-<p>Both packages rely on multiple bespoke external libraries without which
-they can't compile. The source is completely uncommented and doesn't wrap at
-80 characters. Doing a find for *.c files brings up the following commands:</p>
-
-<blockquote><b>
-<span id=s6>
-basename cat chmod chown chroot clock cut devd dirname echo env expr false
-format-filter freeramdisk grep halt head hiercopy hostname linkname ln
-logwatch ls maximumtime memoryhog mkdir mkfifo mount nice nuke pause
-pivotchroot poweroff printenv quote quote-filter reboot rename rmrf sleep
-sort swapoff swapon sync tail test touch true umount uniquename unquote
-unquote-filter update-symlinks
-</span>
-</b></blockquote>
-
-<p>Triage: memoryhog isn't even listed on the website nor does it have
-a documentation file, clock seems like a subset
-of date, devd is some sort of netlink wrapper that spawns its command line
-every time it gets a message (maybe this is meant to implement part of
-udev/mdev?), format-filter is sort of awk's '{print $2}' function split out
-into its own command, hiercopy a subset of "cp -r", maximumtime is something
-I implemented as a shell script (more/timeout.sh in Aboriginal Linux),
-nuke isn't the same as klibc (this one's "kill SIG -1" only with hardwared
-SIG options), pause is a program that literally waits to be killed (I
-generally sleep 999999999 which is a little over 30 years),
-pivotchroot is a subset of switch_root, rmrf is rm -rf...</p>
-
-<p>I see "nuke" resurface, and if "rmrf" wasn't also here I might think
-klibc had a point.</b>
-
-<blockquote>
-basename cat chmod chown chroot cut dirname echo env expr false
-freeramdisk grep halt head hostname linkname ln
-logwatch ls mkdir mkfifo mount nice
-pivotchroot poweroff printenv quote quote-filter reboot rename sleep
-sort swapoff swapon sync tail test touch true umount uniquename unquote
-unquote-filter update-symlinks
-</blockquote>
-
 
 <hr />
 <a name=nash />

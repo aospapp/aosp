@@ -62,6 +62,7 @@ SoftVideoDecoderOMXComponent::SoftVideoDecoderOMXComponent(
         mCropWidth(width),
         mCropHeight(height),
         mOutputPortSettingsChange(NONE),
+        mUpdateColorAspects(false),
         mMinInputBufferSize(384), // arbitrary, using one uncompressed macroblock
         mMinCompressionRatio(1),  // max input size is normally the output size
         mComponentRole(componentRole),
@@ -428,10 +429,6 @@ OMX_ERRORTYPE SoftVideoDecoderOMXComponent::internalSetParameter(
 
             if (formatParams->nPortIndex > kMaxPortIndex) {
                 return OMX_ErrorBadPortIndex;
-            }
-
-            if (formatParams->nIndex != 0) {
-                return OMX_ErrorNoMore;
             }
 
             if (formatParams->nPortIndex == kInputPortIndex) {

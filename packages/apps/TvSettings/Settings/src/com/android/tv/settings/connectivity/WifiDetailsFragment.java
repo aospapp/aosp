@@ -93,6 +93,14 @@ public class WifiDetailsFragment extends LeanbackPreferenceFragment
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mConnectivityListener != null) {
+            mConnectivityListener.destroy();
+        }
+    }
+
+    @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.wifi_details, null);
 

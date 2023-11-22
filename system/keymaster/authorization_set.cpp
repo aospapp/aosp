@@ -65,7 +65,7 @@ bool AuthorizationSet::reserve_elems(size_t count) {
     if (is_valid() != OK)
         return false;
 
-    if (count >= elems_capacity_) {
+    if (count > elems_capacity_) {
         keymaster_key_param_t* new_elems = new (std::nothrow) keymaster_key_param_t[count];
         if (new_elems == NULL) {
             set_invalid(ALLOCATION_FAILURE);
@@ -177,6 +177,32 @@ void AuthorizationSet::Deduplicate() {
     // Since KM_TAG_INVALID == 0, all of the invalid entries are first.
     elems_size_ -= invalid_count;
     memmove(elems_, elems_ + invalid_count, size() * sizeof(*elems_));
+}
+
+void AuthorizationSet::Union(const keymaster_key_param_set_t& set) {
+    if (set.length == 0)
+        return;
+
+    push_back(set);
+    Deduplicate();
+}
+
+void AuthorizationSet::Difference(const keymaster_key_param_set_t& set) {
+    if (set.length == 0)
+        return;
+
+    Deduplicate();
+
+    for (size_t i = 0; i < set.length; i++) {
+        int index = -1;
+        do {
+            index = find(set.params[i].tag, index);
+            if (index != -1 && keymaster_param_compare(&elems_[index], &set.params[i]) == 0) {
+                erase(index);
+                break;
+            }
+        } while (index != -1);
+    }
 }
 
 void AuthorizationSet::CopyToParamSet(keymaster_key_param_set_t* set) const {

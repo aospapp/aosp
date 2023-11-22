@@ -14,38 +14,31 @@
  * limitations under the License.
  */
 
-#include "rsdCore.h"
 #include "rsdAllocation.h"
+#include "rsdCore.h"
 
-#include "rsAllocation.h"
-
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include "system/window.h"
-#include "ui/Rect.h"
-#include "ui/GraphicBufferMapper.h"
-#endif
+#include <android/native_window.h>
 
 #ifdef RS_COMPATIBILITY_LIB
 #include "rsCompatibilityLib.h"
 #else
 #include "rsdFrameBufferObj.h"
-#include "gui/GLConsumer.h"
-#include "gui/CpuConsumer.h"
-#include "gui/Surface.h"
-#include "hardware/gralloc.h"
+#include <vndk/window.h>
 
 #include <GLES/gl.h>
 #include <GLES2/gl2.h>
 #include <GLES/glext.h>
 #endif
 
-#ifdef RS_SERVER
-// server requires malloc.h for memalign
-#include <malloc.h>
-#endif
-
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::Element;
+using android::renderscript::Type;
+using android::renderscript::rs_allocation;
+using android::renderscript::rsBoxFilter565;
+using android::renderscript::rsBoxFilter8888;
+using android::renderscript::rsMax;
+using android::renderscript::rsRound;
 
 #ifndef RS_COMPATIBILITY_LIB
 const static GLenum gFaceOrder[] = {
@@ -103,7 +96,7 @@ uint8_t *GetOffsetPtr(const android::renderscript::Allocation *alloc,
 static void Update2DTexture(const Context *rsc, const Allocation *alloc, const void *ptr,
                             uint32_t xoff, uint32_t yoff, uint32_t lod,
                             RsAllocationCubemapFace face, uint32_t w, uint32_t h) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
 
     rsAssert(drv->textureID);
@@ -118,7 +111,7 @@ static void Update2DTexture(const Context *rsc, const Allocation *alloc, const v
 }
 
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 static void Upload2DTexture(const Context *rsc, const Allocation *alloc, bool isFirstUpload) {
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
 
@@ -162,7 +155,7 @@ static void Upload2DTexture(const Context *rsc, const Allocation *alloc, bool is
 #endif
 
 static void UploadToTexture(const Context *rsc, const Allocation *alloc) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
 
     if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_IO_INPUT) {
@@ -200,7 +193,7 @@ static void UploadToTexture(const Context *rsc, const Allocation *alloc) {
 }
 
 static void AllocateRenderTarget(const Context *rsc, const Allocation *alloc) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
 
     if (!drv->glFormat) {
@@ -225,7 +218,7 @@ static void AllocateRenderTarget(const Context *rsc, const Allocation *alloc) {
 }
 
 static void UploadToBufferObject(const Context *rsc, const Allocation *alloc) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
 
     rsAssert(!alloc->mHal.state.type->getDimY());
@@ -256,7 +249,7 @@ static size_t DeriveYUVLayout(int yuv, Allocation::Hal::DrvState *state) {
     // For the flexible YCbCr format, layout is initialized during call to
     // Allocation::ioReceive.  Return early and avoid clobberring any
     // pre-existing layout.
-    if (yuv == HAL_PIXEL_FORMAT_YCbCr_420_888) {
+    if (yuv == RS_YUV_420_888) {
         return 0;
     }
 #endif
@@ -272,9 +265,8 @@ static size_t DeriveYUVLayout(int yuv, Allocation::Hal::DrvState *state) {
     state->yuv.step = 1;
     state->lodCount = 3;
 
-#ifndef RS_SERVER
     switch(yuv) {
-    case HAL_PIXEL_FORMAT_YV12:
+    case RS_YUV_YV12:
         state->lod[2].stride = rsRound(state->lod[0].stride >> 1, 16);
         state->lod[2].mallocPtr = ((uint8_t *)state->lod[0].mallocPtr) +
                 (state->lod[0].stride * state->lod[0].dimY);
@@ -285,7 +277,7 @@ static size_t DeriveYUVLayout(int yuv, Allocation::Hal::DrvState *state) {
                 (state->lod[2].stride * state->lod[2].dimY);
         uvSize += state->lod[1].stride * state->lod[2].dimY;
         break;
-    case HAL_PIXEL_FORMAT_YCrCb_420_SP:  // NV21
+    case RS_YUV_NV21:
         //state->lod[1].dimX = state->lod[0].dimX;
         state->lod[1].stride = state->lod[0].stride;
         state->lod[2].stride = state->lod[0].stride;
@@ -298,7 +290,6 @@ static size_t DeriveYUVLayout(int yuv, Allocation::Hal::DrvState *state) {
     default:
         rsAssert(0);
     }
-#endif
     return uvSize;
 }
 
@@ -454,7 +445,6 @@ bool rsdAllocationInitStrided(const Context *rsc, Allocation *alloc, bool forceZ
         rsAssert(!"Size mismatch");
     }
 
-#ifndef RS_SERVER
     drv->glTarget = GL_NONE;
     if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_GRAPHICS_TEXTURE) {
         if (alloc->mHal.state.hasFaces) {
@@ -467,7 +457,6 @@ bool rsdAllocationInitStrided(const Context *rsc, Allocation *alloc, bool forceZ
             drv->glTarget = GL_ARRAY_BUFFER;
         }
     }
-#endif
 
 #ifndef RS_COMPATIBILITY_LIB
     drv->glType = rsdTypeToGLType(alloc->mHal.state.type->getElement()->getComponent().getType());
@@ -481,8 +470,9 @@ bool rsdAllocationInitStrided(const Context *rsc, Allocation *alloc, bool forceZ
         drv->uploadDeferred = true;
     }
 
-
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     drv->readBackFBO = nullptr;
+#endif
 
     // fill out the initial state of the buffer if we couldn't use the user-provided ptr and USAGE_SHARED was accepted
     if ((alloc->mHal.state.userProvidedPtr != 0) && (drv->useUserProvidedPtr == false)) {
@@ -543,7 +533,7 @@ void rsdAllocationDestroy(const Context *rsc, Allocation *alloc) {
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
 
     if (alloc->mHal.state.baseAlloc == nullptr) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
         if (drv->bufferID) {
             // Causes a SW crash....
             //ALOGV(" mBufferID %i", mBufferID);
@@ -571,24 +561,24 @@ void rsdAllocationDestroy(const Context *rsc, Allocation *alloc) {
         }
 
 #ifndef RS_COMPATIBILITY_LIB
+#ifndef RS_VENDOR_LIB
         if (drv->readBackFBO != nullptr) {
             delete drv->readBackFBO;
             drv->readBackFBO = nullptr;
         }
-
+#endif
         if ((alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_IO_OUTPUT) &&
             (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT)) {
-
-            DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
             ANativeWindow *nw = drv->wndSurface;
             if (nw) {
-                GraphicBufferMapper &mapper = GraphicBufferMapper::get();
-                mapper.unlock(drv->wndBuffer->handle);
-                int32_t r = nw->cancelBuffer(nw, drv->wndBuffer, -1);
-
+                //If we have an attached surface, need to release it.
+                AHardwareBuffer* ahwb = ANativeWindowBuffer_getHardwareBuffer(drv->wndBuffer);
+                int fenceID = -1;
+                AHardwareBuffer_unlock(ahwb, &fenceID);
+                ANativeWindow_cancelBuffer(nw, drv->wndBuffer, fenceID);
+                ANativeWindow_release(nw);
                 drv->wndSurface = nullptr;
-                native_window_api_disconnect(nw, NATIVE_WINDOW_API_CPU);
-                nw->decStrong(nullptr);
+                drv->wndBuffer = nullptr;
             }
         }
 #endif
@@ -627,7 +617,7 @@ void rsdAllocationResize(const Context *rsc, const Allocation *alloc,
 }
 
 static void rsdAllocationSyncFromFBO(const Context *rsc, const Allocation *alloc) {
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     if (!alloc->getIsScript()) {
         return; // nothing to sync
     }
@@ -713,21 +703,23 @@ void rsdAllocationMarkDirty(const Context *rsc, const Allocation *alloc) {
 #ifndef RS_COMPATIBILITY_LIB
 static bool IoGetBuffer(const Context *rsc, Allocation *alloc, ANativeWindow *nw) {
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
-
-    int32_t r = native_window_dequeue_buffer_and_wait(nw, &drv->wndBuffer);
+    // Must lock the whole surface
+    int fenceID = -1;
+    int r = ANativeWindow_dequeueBuffer(nw, &drv->wndBuffer, &fenceID);
     if (r) {
-        rsc->setError(RS_ERROR_DRIVER, "Error getting next IO output buffer.");
+        rsc->setError(RS_ERROR_DRIVER, "Error dequeueing IO output buffer.");
+        close(fenceID);
         return false;
     }
 
-    // Must lock the whole surface
-    GraphicBufferMapper &mapper = GraphicBufferMapper::get();
-    Rect bounds(drv->wndBuffer->width, drv->wndBuffer->height);
-
     void *dst = nullptr;
-    mapper.lock(drv->wndBuffer->handle,
-            GRALLOC_USAGE_SW_READ_NEVER | GRALLOC_USAGE_SW_WRITE_OFTEN,
-            bounds, &dst);
+    AHardwareBuffer* ahwb = ANativeWindowBuffer_getHardwareBuffer(drv->wndBuffer);
+    r = AHardwareBuffer_lock(ahwb, AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN,
+                             fenceID, NULL, &dst);
+    if (r) {
+        rsc->setError(RS_ERROR_DRIVER, "Error Locking IO output buffer.");
+        return false;
+    }
     alloc->mHal.drvState.lod[0].mallocPtr = dst;
     alloc->mHal.drvState.lod[0].stride = drv->wndBuffer->stride * alloc->mHal.state.elementSizeBytes;
     rsAssert((alloc->mHal.drvState.lod[0].stride & 0xf) == 0);
@@ -739,75 +731,35 @@ static bool IoGetBuffer(const Context *rsc, Allocation *alloc, ANativeWindow *nw
 void rsdAllocationSetSurface(const Context *rsc, Allocation *alloc, ANativeWindow *nw) {
 #ifndef RS_COMPATIBILITY_LIB
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
-    ANativeWindow *old = drv->wndSurface;
-
-    if (nw) {
-        nw->incStrong(nullptr);
-    }
-
-    if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_GRAPHICS_RENDER_TARGET) {
-        //TODO finish support for render target + script
-        drv->wnd = nw;
-        return;
-    }
 
     // Cleanup old surface if there is one.
     if (drv->wndSurface) {
         ANativeWindow *old = drv->wndSurface;
-        GraphicBufferMapper &mapper = GraphicBufferMapper::get();
-        mapper.unlock(drv->wndBuffer->handle);
-        old->cancelBuffer(old, drv->wndBuffer, -1);
+        AHardwareBuffer* ahwb = ANativeWindowBuffer_getHardwareBuffer(drv->wndBuffer);
+        int fenceID = -1;
+        int32_t r = AHardwareBuffer_unlock(ahwb, &fenceID);
+        if (r) {
+            rsc->setError(RS_ERROR_DRIVER, "Error unlocking output buffer.");
+            close(fenceID);
+            return;
+        }
+        r = ANativeWindow_cancelBuffer(old, drv->wndBuffer, fenceID);
+        if (r) {
+            rsc->setError(RS_ERROR_DRIVER, "Error canceling output buffer.");
+            return;
+        }
+        ANativeWindow_release(old);
         drv->wndSurface = nullptr;
-
-        native_window_api_disconnect(old, NATIVE_WINDOW_API_CPU);
-        old->decStrong(nullptr);
+        drv->wndBuffer = nullptr;
     }
 
-    if (nw != nullptr) {
-        int32_t r;
-        uint32_t flags = 0;
-
-        if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT) {
-            flags |= GRALLOC_USAGE_SW_READ_RARELY | GRALLOC_USAGE_SW_WRITE_OFTEN;
-        }
-        if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_GRAPHICS_RENDER_TARGET) {
-            flags |= GRALLOC_USAGE_HW_RENDER;
-        }
-
-        r = native_window_api_connect(nw, NATIVE_WINDOW_API_CPU);
+    if (nw) {
+        int32_t r = ANativeWindow_setBuffersGeometry(nw, alloc->mHal.drvState.lod[0].dimX,
+                                                 alloc->mHal.drvState.lod[0].dimY,
+                                                 WINDOW_FORMAT_RGBA_8888);
         if (r) {
-            rsc->setError(RS_ERROR_DRIVER, "Error setting IO output buffer usage.");
-            goto error;
-        }
-
-        r = native_window_set_usage(nw, flags);
-        if (r) {
-            rsc->setError(RS_ERROR_DRIVER, "Error setting IO output buffer usage.");
-            goto error;
-        }
-
-        r = native_window_set_buffers_dimensions(nw, alloc->mHal.drvState.lod[0].dimX,
-                                                 alloc->mHal.drvState.lod[0].dimY);
-        if (r) {
-            rsc->setError(RS_ERROR_DRIVER, "Error setting IO output buffer dimensions.");
-            goto error;
-        }
-
-        int format = 0;
-        const Element *e = alloc->mHal.state.type->getElement();
-        if ((e->getType() != RS_TYPE_UNSIGNED_8) ||
-            (e->getVectorSize() != 4)) {
-            // We do not check for RGBA, RGBx, to allow for interop with U8_4
-
-            rsc->setError(RS_ERROR_DRIVER, "Surface passed to setSurface is not U8_4, RGBA.");
-            goto error;
-        }
-        format = PIXEL_FORMAT_RGBA_8888;
-
-        r = native_window_set_buffers_format(nw, format);
-        if (r) {
-            rsc->setError(RS_ERROR_DRIVER, "Error setting IO output buffer format.");
-            goto error;
+            rsc->setError(RS_ERROR_DRIVER, "Error setting IO output buffer geometry.");
+            return;
         }
 
         IoGetBuffer(rsc, alloc, nw);
@@ -815,14 +767,6 @@ void rsdAllocationSetSurface(const Context *rsc, Allocation *alloc, ANativeWindo
     }
 
     return;
-
- error:
-
-    if (nw) {
-        nw->decStrong(nullptr);
-    }
-
-
 #endif
 }
 
@@ -830,21 +774,29 @@ void rsdAllocationIoSend(const Context *rsc, Allocation *alloc) {
 #ifndef RS_COMPATIBILITY_LIB
     DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
     ANativeWindow *nw = drv->wndSurface;
+#ifndef RS_VENDOR_LIB
     if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_GRAPHICS_RENDER_TARGET) {
         RsdHal *dc = (RsdHal *)rsc->mHal.drv;
         RSD_CALL_GL(eglSwapBuffers, dc->gl.egl.display, dc->gl.egl.surface);
         return;
     }
+#endif
     if (nw) {
         if (alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT) {
-            GraphicBufferMapper &mapper = GraphicBufferMapper::get();
-            mapper.unlock(drv->wndBuffer->handle);
-            int32_t r = nw->queueBuffer(nw, drv->wndBuffer, -1);
+            AHardwareBuffer* ahwb = ANativeWindowBuffer_getHardwareBuffer(drv->wndBuffer);
+            int fenceID = -1;
+            int32_t r = AHardwareBuffer_unlock(ahwb, &fenceID);
+            if (r) {
+                rsc->setError(RS_ERROR_DRIVER, "Error unlock output buffer.");
+                close(fenceID);
+                return;
+            }
+            r = ANativeWindow_queueBuffer(nw, drv->wndBuffer, fenceID);
             if (r) {
                 rsc->setError(RS_ERROR_DRIVER, "Error sending IO output buffer.");
                 return;
             }
-
+            drv->wndBuffer = nullptr;
             IoGetBuffer(rsc, alloc, nw);
         }
     } else {
@@ -855,12 +807,6 @@ void rsdAllocationIoSend(const Context *rsc, Allocation *alloc) {
 }
 
 void rsdAllocationIoReceive(const Context *rsc, Allocation *alloc) {
-#ifndef RS_COMPATIBILITY_LIB
-    DrvAllocation *drv = (DrvAllocation *)alloc->mHal.drv;
-    if (!(alloc->mHal.state.usageFlags & RS_ALLOCATION_USAGE_SCRIPT)) {
-        drv->surfaceTexture->updateTexImage();
-    }
-#endif
     if (alloc->mHal.state.yuv) {
         DeriveYUVLayout(alloc->mHal.state.yuv, &alloc->mHal.drvState);
     }
@@ -921,10 +867,10 @@ void rsdAllocationData2D(const Context *rsc, const Allocation *alloc,
             size_t clineSize = lineSize;
             int lod = 1;
             int maxLod = 2;
-            if (alloc->mHal.state.yuv == HAL_PIXEL_FORMAT_YV12) {
+            if (alloc->mHal.state.yuv == RS_YUV_YV12) {
                 maxLod = 3;
                 clineSize >>= 1;
-            } else if (alloc->mHal.state.yuv == HAL_PIXEL_FORMAT_YCrCb_420_SP) {
+            } else if (alloc->mHal.state.yuv == RS_YUV_NV21) {
                 lod = 2;
                 maxLod = 3;
             }
@@ -1271,14 +1217,8 @@ void rsdAllocationUpdateCachedObject(const Context *rsc,
 {
     obj->p = alloc;
 #ifdef __LP64__
-    if (alloc != nullptr) {
-        obj->r = alloc->mHal.drvState.lod[0].mallocPtr;
-        obj->v1 = alloc->mHal.drv;
-        obj->v2 = (void *)alloc->mHal.drvState.lod[0].stride;
-    } else {
-        obj->r = nullptr;
-        obj->v1 = nullptr;
-        obj->v2 = nullptr;
-    }
+    obj->unused1 = nullptr;
+    obj->unused2 = nullptr;
+    obj->unused3 = nullptr;
 #endif
 }

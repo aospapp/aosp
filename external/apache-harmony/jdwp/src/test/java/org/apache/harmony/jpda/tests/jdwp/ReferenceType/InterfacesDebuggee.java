@@ -30,6 +30,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class InterfacesDebuggee extends SyncDebuggee {
 
+    @Override
     public void run() {
         CheckedClass_Interfaces001 checkedClass = new CheckedClass_Interfaces001();
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

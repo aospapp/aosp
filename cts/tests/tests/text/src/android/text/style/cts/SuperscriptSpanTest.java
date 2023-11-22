@@ -16,14 +16,21 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.SuperscriptSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class SuperscriptSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SuperscriptSpanTest {
+    @Test
     public void testConstructor() {
         SuperscriptSpan superscriptSpan = new SuperscriptSpan();
 
@@ -37,6 +44,7 @@ public class SuperscriptSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateMeasureState() {
         // the expected result is: tp.baselineShift += (int) (tp.ascent() / 2)
         SuperscriptSpan superscriptSpan = new SuperscriptSpan();
@@ -48,15 +56,16 @@ public class SuperscriptSpanTest extends TestCase {
 
         superscriptSpan.updateMeasureState(tp);
         assertEquals(baselineShift + (int) (ascent / 2), tp.baselineShift);
-
-        try {
-            superscriptSpan.updateMeasureState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        SuperscriptSpan superscriptSpan = new SuperscriptSpan();
+
+        superscriptSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testUpdateDrawState() {
         // the expected result is: tp.baselineShift += (int) (tp.ascent() / 2)
         SuperscriptSpan superscriptSpan = new SuperscriptSpan();
@@ -68,25 +77,28 @@ public class SuperscriptSpanTest extends TestCase {
 
         superscriptSpan.updateDrawState(tp);
         assertEquals(baselineShift + (int) (ascent / 2), tp.baselineShift);
-
-        try {
-            superscriptSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        SuperscriptSpan superscriptSpan = new SuperscriptSpan();
+
+        superscriptSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         SuperscriptSpan superscriptSpan = new SuperscriptSpan();
         superscriptSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         SuperscriptSpan superscriptSpan = new SuperscriptSpan();
         superscriptSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

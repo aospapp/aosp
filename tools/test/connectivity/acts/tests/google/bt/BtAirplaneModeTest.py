@@ -17,21 +17,34 @@
 Test script to test various airplane mode scenarios and how it
 affects Bluetooth state.
 """
-from queue import Empty
-import time
+
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
+from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
+from queue import Empty
+import time
 
 
 class BtAirplaneModeTest(BluetoothBaseTest):
     default_timeout = 10
     grace_timeout = 4
+    WAIT_TIME_ANDROID_STATE_SETTLING = 5
 
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
         self.dut = self.android_devices[0]
 
+    def setup_test(self):
+        super(BluetoothBaseTest, self).setup_test()
+        # Ensure testcase starts with Airplane mode off
+        if not toggle_airplane_mode_by_adb(self.log, self.dut, False):
+            return False
+        time.sleep(self.WAIT_TIME_ANDROID_STATE_SETTLING)
+        return True
+
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='11209b74-f27f-44cc-b336-8cf7f168f653')
     def test_bt_on_toggle_airplane_mode_on(self):
         """Test that toggles airplane mode on while BT on
 
@@ -56,13 +69,13 @@ class BtAirplaneModeTest(BluetoothBaseTest):
         if not bluetooth_enabled_check(self.dut):
             self.log.error("Failed to set Bluetooth state to enabled")
             return False
-        self.dut.droid.connectivityToggleAirplaneMode(True)
-        # Since there is no callback for airplane mode toggling we need
-        # to give the connectivity manger grace time to turn off the radios.
-        time.sleep(self.grace_timeout)
+        if not toggle_airplane_mode_by_adb(self.log, self.dut, True):
+            self.log.error("Failed to toggle airplane mode on")
+            return False
         return not self.dut.droid.bluetoothCheckState()
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='823bb1e1-ce39-43a9-9f2c-0bd2a9b8793f')
     def test_bt_on_toggle_airplane_mode_on_bt_remains_off(self):
         """Test that verifies BT remains off after airplane mode toggles
 
@@ -89,7 +102,9 @@ class BtAirplaneModeTest(BluetoothBaseTest):
         if not bluetooth_enabled_check(self.dut):
             self.log.error("Failed to set Bluetooth state to enabled")
             return False
-        self.dut.droid.connectivityToggleAirplaneMode(True)
+        if not toggle_airplane_mode_by_adb(self.log, self.dut, True):
+            self.log.error("Failed to toggle airplane mode on")
+            return False
         toggle_timeout = 60
         self.log.info(
             "Waiting {} seconds until verifying Bluetooth state.".format(
@@ -98,6 +113,7 @@ class BtAirplaneModeTest(BluetoothBaseTest):
         return not self.dut.droid.bluetoothCheckState()
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='d3977a15-c4b8-4dad-b4e4-98e7c3216688')
     def test_bt_on_toggle_airplane_mode_on_then_off(self):
         """Test that toggles airplane mode both on and off
 
@@ -125,9 +141,11 @@ class BtAirplaneModeTest(BluetoothBaseTest):
         if not bluetooth_enabled_check(self.dut):
             self.log.error("Failed to set Bluetooth state to enabled")
             return False
-        self.dut.droid.connectivityToggleAirplaneMode(True)
-        self.dut.droid.connectivityToggleAirplaneMode(False)
-        # Since there is no callback for airplane mode toggling off we need
-        # to give the connectivity manger grace time to turn on the radios.
-        time.sleep(self.grace_timeout)
+        if not toggle_airplane_mode_by_adb(self.log, self.dut, True):
+            self.log.error("Failed to toggle airplane mode on")
+            return False
+        if not toggle_airplane_mode_by_adb(self.log, self.dut, False):
+            self.log.error("Failed to toggle airplane mode off")
+            return False
+        time.sleep(self.WAIT_TIME_ANDROID_STATE_SETTLING)
         return self.dut.droid.bluetoothCheckState()

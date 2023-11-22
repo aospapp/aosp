@@ -16,7 +16,14 @@
 package com.android.cts.net.hostside.app2;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.RemoteException;
+import android.util.Log;
+
+import com.android.cts.net.hostside.INetworkStateObserver;
 
 public final class Common {
 
@@ -26,25 +33,13 @@ public final class Common {
     // AbstractRestrictBackgroundNetworkTestCase.java
     static final String MANIFEST_RECEIVER = "ManifestReceiver";
     static final String DYNAMIC_RECEIVER = "DynamicReceiver";
-    static final String ACTION_GET_COUNTERS =
-            "com.android.cts.net.hostside.app2.action.GET_COUNTERS";
-    static final String ACTION_GET_RESTRICT_BACKGROUND_STATUS =
-            "com.android.cts.net.hostside.app2.action.GET_RESTRICT_BACKGROUND_STATUS";
-    static final String ACTION_CHECK_NETWORK =
-            "com.android.cts.net.hostside.app2.action.CHECK_NETWORK";
+
     static final String ACTION_RECEIVER_READY =
             "com.android.cts.net.hostside.app2.action.RECEIVER_READY";
     static final String ACTION_FINISH_ACTIVITY =
             "com.android.cts.net.hostside.app2.action.FINISH_ACTIVITY";
-    static final String ACTION_SEND_NOTIFICATION =
-            "com.android.cts.net.hostside.app2.action.SEND_NOTIFICATION";
-    static final String EXTRA_ACTION = "com.android.cts.net.hostside.app2.extra.ACTION";
-    static final String EXTRA_RECEIVER_NAME =
-            "com.android.cts.net.hostside.app2.extra.RECEIVER_NAME";
-    static final String EXTRA_NOTIFICATION_ID =
-            "com.android.cts.net.hostside.app2.extra.NOTIFICATION_ID";
-    static final String EXTRA_NOTIFICATION_TYPE =
-            "com.android.cts.net.hostside.app2.extra.NOTIFICATION_TYPE";
+    static final String ACTION_SHOW_TOAST =
+            "com.android.cts.net.hostside.app2.action.SHOW_TOAST";
 
     static final String NOTIFICATION_TYPE_CONTENT = "CONTENT";
     static final String NOTIFICATION_TYPE_DELETE = "DELETE";
@@ -54,12 +49,46 @@ public final class Common {
     static final String NOTIFICATION_TYPE_ACTION_BUNDLE = "ACTION_BUNDLE";
     static final String NOTIFICATION_TYPE_ACTION_REMOTE_INPUT = "ACTION_REMOTE_INPUT";
 
+    static final String TEST_PKG = "com.android.cts.net.hostside";
+    static final String KEY_NETWORK_STATE_OBSERVER = TEST_PKG + ".observer";
+
     static int getUid(Context context) {
         final String packageName = context.getPackageName();
         try {
             return context.getPackageManager().getPackageUid(packageName, 0);
         } catch (NameNotFoundException e) {
             throw new IllegalStateException("Could not get UID for " + packageName, e);
+        }
+    }
+
+    static void notifyNetworkStateObserver(Context context, Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        final Bundle extras = intent.getExtras();
+        if (extras == null) {
+            return;
+        }
+        final INetworkStateObserver observer = INetworkStateObserver.Stub.asInterface(
+                extras.getBinder(KEY_NETWORK_STATE_OBSERVER));
+        if (observer != null) {
+            try {
+                if (!observer.isForeground()) {
+                    Log.e(TAG, "App didn't come to foreground");
+                    observer.onNetworkStateChecked(null);
+                    return;
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "Error occurred while reading the proc state: " + e);
+            }
+            AsyncTask.execute(() -> {
+                try {
+                    observer.onNetworkStateChecked(
+                            MyBroadcastReceiver.checkNetworkStatus(context));
+                } catch (RemoteException e) {
+                    Log.e(TAG, "Error occurred while notifying the observer: " + e);
+                }
+            });
         }
     }
 }

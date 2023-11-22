@@ -10,11 +10,11 @@
  *
  * And then you can include the :setup-wizard-lib project as one of your dependencies
  *      dependencies {
- *          compile project(path: ':setup-wizard-lib', configuration: 'icsCompatRelease')
+ *          compile project(path: ':setup-wizard-lib', configuration: 'gingerbreadCompatRelease')
  *      }
  */
 
 apply from: 'standalone-rules.gradle'
 
-android.compileSdkVersion 23
-android.buildToolsVersion '23.0.2'
+android.compileSdkVersion 25
+android.buildToolsVersion '25.0.0'

@@ -15,10 +15,11 @@
 #   limitations under the License.
 
 import enum
-
 """This module has the global key values that are used across framework
 modules.
 """
+
+
 class Config(enum.Enum):
     """Enum values for test config related lookups.
     """
@@ -32,10 +33,13 @@ class Config(enum.Enum):
     key_test_paths = "testpaths"
     key_port = "Port"
     key_address = "Address"
+    key_random = "random"
+    key_test_case_iterations = "test_case_iterations"
     # Config names for controllers packaged in ACTS.
     key_android_device = "AndroidDevice"
     key_native_android_device = "NativeAndroidDevice"
-    key_access_point = "AP"
+    key_relay_device = "RelayDevice"
+    key_access_point = "AccessPoint"
     key_attenuator = "Attenuator"
     key_iperf_server = "IPerfServer"
     key_monsoon = "Monsoon"
@@ -50,6 +54,7 @@ class Config(enum.Enum):
     m_key_monsoon = "monsoon"
     m_key_android_device = "android_device"
     m_key_native_android_device = "native_android_device"
+    m_key_relay_device = "relay_device_controller"
     m_key_access_point = "access_point"
     m_key_attenuator = "attenuator"
     m_key_iperf_server = "iperf_server"
@@ -61,14 +66,11 @@ class Config(enum.Enum):
 
     # Controller names packaged with ACTS.
     builtin_controller_names = [
-        key_android_device,
-        key_native_android_device,
-        key_access_point,
-        key_attenuator,
-        key_iperf_server,
-        key_monsoon,
+        key_android_device, key_native_android_device, key_relay_device,
+        key_access_point, key_attenuator, key_iperf_server, key_monsoon,
         key_sniffer
     ]
+
 
 def get_name_by_value(value):
     for name, member in Config.__members__.items():
@@ -76,16 +78,19 @@ def get_name_by_value(value):
             return name
     return None
 
+
 def get_internal_value(external_value):
     """Translates the value of an external key to the value of its
     corresponding internal key.
     """
     return value_to_value(external_value, "i%s")
 
+
 def get_module_name(name_in_config):
     """Translates the name of a controller in config file to its module name.
     """
     return value_to_value(name_in_config, "m_%s")
+
 
 def value_to_value(ref_value, pattern):
     """Translates the value of a key to the value of its corresponding key. The

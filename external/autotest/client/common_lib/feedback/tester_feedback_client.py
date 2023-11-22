@@ -33,6 +33,8 @@ class Client(client.Client):
         self._remote_addr = remote_addr
         self._query_num = 0
         self._rpc_proxy = None
+        self.tmp_dir = None
+        self.dut_tmp_dir = None
 
 
     def _make_query_call(self, query_num, query_method, **kwargs):
@@ -50,19 +52,21 @@ class Client(client.Client):
 
     # Interface overrides.
     #
-    def _initialize_impl(self, _test, _host):
+    def _initialize_impl(self, test, host):
         """Initializes the feedback object.
 
         Initializes an XML-RPC proxy and registers the client at the remote end.
 
-        @param _test: An object representing the test case (unused).
-        @param _host: An object representing the DUT (unused).
+        @param test: An object representing the test case.
+        @param host: An object representing the DUT.
         """
         self._rpc_proxy = xmlrpclib.ServerProxy('http://%s' % self._remote_addr)
         try:
             self._rpc_proxy.new_client(self._client_id)
         except xmlrpclib.Error as e:
             raise error.TestError('Feedback client registration error: %s' % e)
+        self.tmp_dir = test.tmpdir
+        self.dut_tmp_dir = host.get_tmp_dir()
 
 
     def _new_query_impl(self, query_id):

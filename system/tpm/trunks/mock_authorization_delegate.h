@@ -31,12 +31,10 @@ class MockAuthorizationDelegate : public AuthorizationDelegate {
   MockAuthorizationDelegate();
   ~MockAuthorizationDelegate() override;
 
-  MOCK_METHOD4(GetCommandAuthorization, bool(const std::string&,
-                                             bool,
-                                             bool,
-                                             std::string*));
-  MOCK_METHOD2(CheckResponseAuthorization, bool(const std::string&,
-                                                const std::string&));
+  MOCK_METHOD4(GetCommandAuthorization,
+               bool(const std::string&, bool, bool, std::string*));
+  MOCK_METHOD2(CheckResponseAuthorization,
+               bool(const std::string&, const std::string&));
   MOCK_METHOD1(EncryptCommandParameter, bool(std::string*));
   MOCK_METHOD1(DecryptResponseParameter, bool(std::string*));
 

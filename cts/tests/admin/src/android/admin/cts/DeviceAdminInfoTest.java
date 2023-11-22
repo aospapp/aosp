@@ -50,6 +50,10 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
         return new ComponentName("android.admin.app", "android.admin.app.CtsDeviceAdminReceiver2");
     }
 
+    static ComponentName getProfileOwnerComponent() {
+        return new ComponentName("android.admin.app", "android.admin.app.CtsDeviceAdminProfileOwner");
+    }
+
     public void testDeviceAdminInfo() throws Exception {
         if (!mDeviceAdmin) {
             Log.w(TAG, "Skipping testDeviceAdminInfo");

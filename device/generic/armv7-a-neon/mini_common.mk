@@ -38,10 +38,11 @@ PRODUCT_PACKAGES += \
     TestingCamera \
     WAPPushManager \
     audio \
-    audio_policy.default \
     audio.primary.default \
     com.android.future.usb.accessory \
     hostapd \
+    wificond \
+    wifilogd \
     librs_jni \
     libvideoeditor_core \
     libvideoeditor_jni \

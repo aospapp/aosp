@@ -27,7 +27,7 @@ namespace android {
 class BitFieldParser {
 public:
 
-    BitFieldParser(uint8_t *data);
+    explicit BitFieldParser(uint8_t *data);
     virtual ~BitFieldParser();
 
     /**

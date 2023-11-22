@@ -20,6 +20,7 @@ import android.app.INotificationManager;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.os.RemoteException;
+import android.support.annotation.NonNull;
 import android.support.v14.preference.SwitchPreference;
 import android.util.Log;
 
@@ -30,7 +31,7 @@ public class NotificationsPreference extends SwitchPreference {
     private static final String TAG = "NotificationsPreference";
 
     private final INotificationManager mNotificationManager;
-    private final ApplicationsState.AppEntry mEntry;
+    private ApplicationsState.AppEntry mEntry;
 
     public NotificationsPreference(Context context, ApplicationsState.AppEntry entry) {
         super(context);
@@ -38,6 +39,15 @@ public class NotificationsPreference extends SwitchPreference {
 
         mNotificationManager = NotificationManager.getService();
 
+        refresh();
+    }
+
+    /**
+     * Set entry and refresh pref.
+     * @param entry entry
+     */
+    public void setEntry(@NonNull ApplicationsState.AppEntry entry) {
+        mEntry = entry;
         refresh();
     }
 

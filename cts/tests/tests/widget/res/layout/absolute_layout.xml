@@ -14,14 +14,17 @@
      limitations under the License.
 -->
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
     <AbsoluteLayout
         android:id="@+id/absolute_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="0.5"
         android:layout_x="1dip"
         android:layout_y="2dip">
 
@@ -35,5 +38,25 @@
             android:text="@string/hello_world"/>
 
     </AbsoluteLayout>
+
+    <view
+        class="android.widget.cts.AbsoluteLayoutTest$MyAbsoluteLayout"
+        android:id="@+id/absolute_view_custom"
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="0.5"
+        android:layout_x="1dip"
+        android:layout_y="2dip">
+
+        <TextView
+            android:id="@+id/absolute_textview2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_x="10dip"
+            android:layout_y="20dip"
+            android:background="@drawable/blue"
+            android:text="@string/hello_world"/>
+
+    </view>
 
 </LinearLayout>

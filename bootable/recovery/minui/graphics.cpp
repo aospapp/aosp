@@ -14,35 +14,22 @@
  * limitations under the License.
  */
 
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <fcntl.h>
-#include <stdio.h>
-
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-
-#include <linux/fb.h>
-#include <linux/kd.h>
-
-#include <time.h>
-
-#include "font_10x18.h"
-#include "minui.h"
 #include "graphics.h"
 
-struct GRFont {
-    GRSurface* texture;
-    int cwidth;
-    int cheight;
-};
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <memory>
+
+#include "font_10x18.h"
+#include "graphics_adf.h"
+#include "graphics_drm.h"
+#include "graphics_fbdev.h"
+#include "minui/minui.h"
 
 static GRFont* gr_font = NULL;
-static minui_backend* gr_backend = NULL;
+static MinuiBackend* gr_backend = nullptr;
 
 static int overscan_percent = OVERSCAN_PERCENT;
 static int overscan_offset_x = 0;
@@ -60,15 +47,20 @@ static bool outside(int x, int y)
     return x < 0 || x >= gr_draw->width || y < 0 || y >= gr_draw->height;
 }
 
-int gr_measure(const char *s)
+const GRFont* gr_sys_font()
 {
-    return gr_font->cwidth * strlen(s);
+    return gr_font;
 }
 
-void gr_font_size(int *x, int *y)
+int gr_measure(const GRFont* font, const char *s)
 {
-    *x = gr_font->cwidth;
-    *y = gr_font->cheight;
+    return font->char_width * strlen(s);
+}
+
+void gr_font_size(const GRFont* font, int *x, int *y)
+{
+    *x = font->char_width;
+    *y = font->char_height;
 }
 
 static void text_blend(unsigned char* src_p, int src_row_bytes,
@@ -103,34 +95,32 @@ static void text_blend(unsigned char* src_p, int src_row_bytes,
     }
 }
 
-void gr_text(int x, int y, const char *s, bool bold)
+void gr_text(const GRFont* font, int x, int y, const char *s, bool bold)
 {
-    GRFont* font = gr_font;
-
     if (!font->texture || gr_current_a == 0) return;
 
-    bold = bold && (font->texture->height != font->cheight);
+    bold = bold && (font->texture->height != font->char_height);
 
     x += overscan_offset_x;
     y += overscan_offset_y;
 
     unsigned char ch;
     while ((ch = *s++)) {
-        if (outside(x, y) || outside(x+font->cwidth-1, y+font->cheight-1)) break;
+        if (outside(x, y) || outside(x+font->char_width-1, y+font->char_height-1)) break;
 
         if (ch < ' ' || ch > '~') {
             ch = '?';
         }
 
-        unsigned char* src_p = font->texture->data + ((ch - ' ') * font->cwidth) +
-                               (bold ? font->cheight * font->texture->row_bytes : 0);
+        unsigned char* src_p = font->texture->data + ((ch - ' ') * font->char_width) +
+                               (bold ? font->char_height * font->texture->row_bytes : 0);
         unsigned char* dst_p = gr_draw->data + y*gr_draw->row_bytes + x*gr_draw->pixel_bytes;
 
         text_blend(src_p, font->texture->row_bytes,
                    dst_p, gr_draw->row_bytes,
-                   font->cwidth, font->cheight);
+                   font->char_width, font->char_height);
 
-        x += font->cwidth;
+        x += font->char_width;
     }
 }
 
@@ -267,145 +257,108 @@ unsigned int gr_get_height(GRSurface* surface) {
     return surface->height;
 }
 
-static void gr_init_font(void)
-{
-    gr_font = reinterpret_cast<GRFont*>(calloc(sizeof(*gr_font), 1));
-
-    int res = res_create_alpha_surface("font", &(gr_font->texture));
-    if (res == 0) {
-        // The font image should be a 96x2 array of character images.  The
-        // columns are the printable ASCII characters 0x20 - 0x7f.  The
-        // top row is regular text; the bottom row is bold.
-        gr_font->cwidth = gr_font->texture->width / 96;
-        gr_font->cheight = gr_font->texture->height / 2;
-    } else {
-        printf("failed to read font: res=%d\n", res);
-
-        // fall back to the compiled-in font.
-        gr_font->texture = reinterpret_cast<GRSurface*>(malloc(sizeof(*gr_font->texture)));
-        gr_font->texture->width = font.width;
-        gr_font->texture->height = font.height;
-        gr_font->texture->row_bytes = font.width;
-        gr_font->texture->pixel_bytes = 1;
-
-        unsigned char* bits = reinterpret_cast<unsigned char*>(malloc(font.width * font.height));
-        gr_font->texture->data = reinterpret_cast<unsigned char*>(bits);
-
-        unsigned char data;
-        unsigned char* in = font.rundata;
-        while((data = *in++)) {
-            memset(bits, (data & 0x80) ? 255 : 0, data & 0x7f);
-            bits += (data & 0x7f);
-        }
-
-        gr_font->cwidth = font.cwidth;
-        gr_font->cheight = font.cheight;
-    }
-}
-
-#if 0
-// Exercises many of the gr_*() functions; useful for testing.
-static void gr_test() {
-    GRSurface** images;
-    int frames;
-    int result = res_create_multi_surface("icon_installing", &frames, &images);
-    if (result < 0) {
-        printf("create surface %d\n", result);
-        gr_exit();
-        return;
+int gr_init_font(const char* name, GRFont** dest) {
+    GRFont* font = static_cast<GRFont*>(calloc(1, sizeof(*gr_font)));
+    if (font == nullptr) {
+        return -1;
     }
 
-    time_t start = time(NULL);
-    int x;
-    for (x = 0; x <= 1200; ++x) {
-        if (x < 400) {
-            gr_color(0, 0, 0, 255);
-        } else {
-            gr_color(0, (x-400)%128, 0, 255);
-        }
-        gr_clear();
-
-        gr_color(255, 0, 0, 255);
-        GRSurface* frame = images[x%frames];
-        gr_blit(frame, 0, 0, frame->width, frame->height, x, 0);
-
-        gr_color(255, 0, 0, 128);
-        gr_fill(400, 150, 600, 350);
-
-        gr_color(255, 255, 255, 255);
-        gr_text(500, 225, "hello, world!", 0);
-        gr_color(255, 255, 0, 128);
-        gr_text(300+x, 275, "pack my box with five dozen liquor jugs", 1);
-
-        gr_color(0, 0, 255, 128);
-        gr_fill(gr_draw->width - 200 - x, 300, gr_draw->width - x, 500);
-
-        gr_draw = gr_backend->flip(gr_backend);
-    }
-    printf("getting end time\n");
-    time_t end = time(NULL);
-    printf("got end time\n");
-    printf("start %ld end %ld\n", (long)start, (long)end);
-    if (end > start) {
-        printf("%.2f fps\n", ((double)x) / (end-start));
-    }
-}
-#endif
-
-void gr_flip() {
-    gr_draw = gr_backend->flip(gr_backend);
-}
-
-int gr_init(void)
-{
-    gr_init_font();
-
-    gr_backend = open_adf();
-    if (gr_backend) {
-        gr_draw = gr_backend->init(gr_backend);
-        if (!gr_draw) {
-            gr_backend->exit(gr_backend);
-        }
+    int res = res_create_alpha_surface(name, &(font->texture));
+    if (res < 0) {
+        free(font);
+        return res;
     }
 
-    if (!gr_draw) {
-        gr_backend = open_drm();
-        gr_draw = gr_backend->init(gr_backend);
-    }
+    // The font image should be a 96x2 array of character images.  The
+    // columns are the printable ASCII characters 0x20 - 0x7f.  The
+    // top row is regular text; the bottom row is bold.
+    font->char_width = font->texture->width / 96;
+    font->char_height = font->texture->height / 2;
 
-    if (!gr_draw) {
-        gr_backend = open_fbdev();
-        gr_draw = gr_backend->init(gr_backend);
-        if (gr_draw == NULL) {
-            return -1;
-        }
-    }
-
-    overscan_offset_x = gr_draw->width * overscan_percent / 100;
-    overscan_offset_y = gr_draw->height * overscan_percent / 100;
-
-    gr_flip();
-    gr_flip();
+    *dest = font;
 
     return 0;
 }
 
-void gr_exit(void)
+static void gr_init_font(void)
 {
-    gr_backend->exit(gr_backend);
+    int res = gr_init_font("font", &gr_font);
+    if (res == 0) {
+        return;
+    }
+
+    printf("failed to read font: res=%d\n", res);
+
+
+    // fall back to the compiled-in font.
+    gr_font = static_cast<GRFont*>(calloc(1, sizeof(*gr_font)));
+    gr_font->texture = static_cast<GRSurface*>(malloc(sizeof(*gr_font->texture)));
+    gr_font->texture->width = font.width;
+    gr_font->texture->height = font.height;
+    gr_font->texture->row_bytes = font.width;
+    gr_font->texture->pixel_bytes = 1;
+
+    unsigned char* bits = static_cast<unsigned char*>(malloc(font.width * font.height));
+    gr_font->texture->data = bits;
+
+    unsigned char data;
+    unsigned char* in = font.rundata;
+    while((data = *in++)) {
+        memset(bits, (data & 0x80) ? 255 : 0, data & 0x7f);
+        bits += (data & 0x7f);
+    }
+
+    gr_font->char_width = font.char_width;
+    gr_font->char_height = font.char_height;
 }
 
-int gr_fb_width(void)
-{
-    return gr_draw->width - 2*overscan_offset_x;
+void gr_flip() {
+  gr_draw = gr_backend->Flip();
 }
 
-int gr_fb_height(void)
-{
-    return gr_draw->height - 2*overscan_offset_y;
+int gr_init() {
+  gr_init_font();
+
+  auto backend = std::unique_ptr<MinuiBackend>{ std::make_unique<MinuiBackendAdf>() };
+  gr_draw = backend->Init();
+
+  if (!gr_draw) {
+    backend = std::make_unique<MinuiBackendDrm>();
+    gr_draw = backend->Init();
+  }
+
+  if (!gr_draw) {
+    backend = std::make_unique<MinuiBackendFbdev>();
+    gr_draw = backend->Init();
+  }
+
+  if (!gr_draw) {
+    return -1;
+  }
+
+  gr_backend = backend.release();
+
+  overscan_offset_x = gr_draw->width * overscan_percent / 100;
+  overscan_offset_y = gr_draw->height * overscan_percent / 100;
+
+  gr_flip();
+  gr_flip();
+
+  return 0;
 }
 
-void gr_fb_blank(bool blank)
-{
-    gr_backend->blank(gr_backend, blank);
+void gr_exit() {
+  delete gr_backend;
+}
+
+int gr_fb_width() {
+  return gr_draw->width - 2 * overscan_offset_x;
+}
+
+int gr_fb_height() {
+  return gr_draw->height - 2 * overscan_offset_y;
+}
+
+void gr_fb_blank(bool blank) {
+  gr_backend->Blank(blank);
 }

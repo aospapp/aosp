@@ -39,5 +39,9 @@
     <item name="frac25610pperc" type="dimen" format="fraction">25610%p</item>
     <item name="frac6553510pperc" type="dimen" format="fraction">6553510%p</item>
     <item name="frac6553610pperc" type="dimen" format="fraction">6553610%p</item>
+
+    <!-- Size of the image view in AVD test. Choosing a size of 90px to make sure it also works on
+    watches. -->
+    <dimen name="imageview_fixed_size">90px</dimen>
 </resources>
 

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2004, International Business Machines Corporation and    *
@@ -8,6 +10,8 @@
 package com.ibm.icu.dev.test.normalizer;
 
 import java.util.Random;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.lang.UCharacter;
@@ -28,10 +32,7 @@ public class NormalizationMonkeyTest extends TestFmwk {
     public NormalizationMonkeyTest() {
     }
     
-    public static void main(String[] args) throws Exception {
-        new NormalizationMonkeyTest().run(args);
-    }
-    
+    @Test
     public void TestNormalize() {
         if (unicode_NFD == null) {
             try {
@@ -41,12 +42,7 @@ public class NormalizationMonkeyTest extends TestFmwk {
                 unicode_NFKC = new UnicodeNormalizer(UnicodeNormalizer.KC, true);
             }
             catch (Exception e) {
-                String msg = "Normalization tests could not be run: " + e.getMessage();
-                if (isModularBuild()) {
-                    warnln(msg);
-                } else {
-                    errln(msg);
-                }
+                errln("Normalization tests could not be run: " + e.getMessage());
             }
         }
         int i = 0;

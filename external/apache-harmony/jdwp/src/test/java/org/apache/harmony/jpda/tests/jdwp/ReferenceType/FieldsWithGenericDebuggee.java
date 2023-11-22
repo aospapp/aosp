@@ -29,13 +29,14 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class FieldsWithGenericDebuggee extends SyncDebuggee {
-    
+
     static long staticLongField;
     String[] stringArrayField;
     Object[] objectArrayField;
 //    Class<String> classObjectField_2;
-    Class classObjectField;
+    Class<?> classObjectField;
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("--> Debuggee: FieldsWithGenericDebuggee...");

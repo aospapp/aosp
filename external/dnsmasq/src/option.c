@@ -102,6 +102,7 @@ struct myoption {
 #define LOPT_PXE_PROMT 291
 #define LOPT_PXE_SERV  292
 #define LOPT_TEST      293
+#define LOPT_LISTNMARK 294
 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
@@ -208,6 +209,9 @@ static const struct myoption opts[] =
     { "cname", 1, 0, LOPT_CNAME },
     { "pxe-prompt", 1, 0, LOPT_PXE_PROMT },
     { "pxe-service", 1, 0, LOPT_PXE_SERV },
+#ifdef __ANDROID__
+    { "listen-mark", 1, 0, LOPT_LISTNMARK },
+#endif /* __ANDROID__ */
     { "test", 0, 0, LOPT_TEST },
     { NULL, 0, 0, 0 }
   };
@@ -322,6 +326,7 @@ static struct {
   { LOPT_CNAME, ARG_DUP, "<alias>,<target>", gettext_noop("Specify alias name for LOCAL DNS name."), NULL },
   { LOPT_PXE_PROMT, ARG_DUP, "<prompt>,[<timeout>]", gettext_noop("Prompt to send to PXE clients."), NULL },
   { LOPT_PXE_SERV, ARG_DUP, "<service>", gettext_noop("Boot service for PXE menu."), NULL },
+  { LOPT_LISTNMARK, ARG_ONE, NULL, gettext_noop("Socket mark to use for listen sockets."), NULL },
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
@@ -2497,6 +2502,19 @@ static char *one_opt(int option, char *arg, char *gen_prob, int nest)
 	break;
       }
       
+    case LOPT_LISTNMARK: /* --listen-mark */
+      {
+	char *endptr;
+	uint32_t mark = strtoul(arg, &endptr, 0);
+my_syslog(LOG_WARNING, "passed-in mark: %s", arg);
+	if (!*endptr)
+	  daemon->listen_mark = mark;
+	else
+	  problem = _("invalid mark");
+my_syslog(LOG_WARNING, "daemon->listen_mark: 0x%x, *endptr=%d", daemon->listen_mark, *endptr);
+	break;
+      }
+
     default:
       return _("unsupported option (check that dnsmasq was compiled with DHCP/TFTP/DBus support)");
 

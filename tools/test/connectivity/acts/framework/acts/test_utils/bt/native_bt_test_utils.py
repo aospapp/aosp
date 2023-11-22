@@ -14,11 +14,13 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from acts.logger import LoggerProxy
+import logging
+
 from subprocess import call
 import time
 
-log = LoggerProxy()
+log = logging
+
 
 def setup_native_bluetooth(native_devices):
     for n in native_devices:
@@ -35,4 +37,3 @@ def setup_native_bluetooth(native_devices):
         time.sleep(5)  #temporary sleep statement
         droid.BluetoothBinderRegisterBLE()
         time.sleep(5)  #temporary sleep statement
-

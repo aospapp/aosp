@@ -10,6 +10,7 @@ USE_DEALLOCVT(NEWTOY(deallocvt, ">1", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_NEEDROOT))
 config OPENVT
   bool "openvt"
   default n
+  depends on TOYBOX_FORK
   help
     usage: openvt [-c N] [-sw] [command [command_options]]
 
@@ -99,7 +100,7 @@ void openvt_main(void)
   xioctl(fd, VT_GETSTATE, &vstate);
 
   close(0);  //new vt becomes stdin
-  vt_fd = xopen(toybuf, O_RDWR);
+  vt_fd = xopen_stdio(toybuf, O_RDWR);
   if (toys.optflags & FLAG_s) {
     ioctl(vt_fd, VT_ACTIVATE, TT.vt_num);
     ioctl(vt_fd, VT_WAITACTIVE, TT.vt_num);

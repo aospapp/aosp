@@ -249,7 +249,7 @@ public class HashtableTest extends junit.framework.TestCase {
         }
     }
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // implementation dependent
 //    /**
 //     * java.util.Hashtable#elements()
@@ -285,7 +285,7 @@ public class HashtableTest extends junit.framework.TestCase {
 //        }
 //        assertTrue("unexpected NoSuchElementException", !exception);
 //    }
-// END android-removed
+// END Android-removed
 
     /**
      * java.util.Hashtable#entrySet()
@@ -301,11 +301,11 @@ public class HashtableTest extends junit.framework.TestCase {
         while (e.hasMoreElements())
             assertTrue("Returned incorrect entry set", s2.contains(e
                     .nextElement()));
-// BEGIN android-removed
+// BEGIN Android-removed
 // implementation dependent
 //        assertEquals("Not synchronized",
 //                "java.util.Collections$SynchronizedSet", s.getClass().getName());
-// END android-removed
+// END Android-removed
 
         boolean exception = false;
         try {
@@ -338,7 +338,7 @@ public class HashtableTest extends junit.framework.TestCase {
         assertEquals("Could not retrieve element", "FVal 2", ((String) h.get("FKey 2"))
                 );
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // implementation dependent
 //        // Regression for HARMONY-262
 //        ReusableKey k = new ReusableKey();
@@ -358,7 +358,7 @@ public class HashtableTest extends junit.framework.TestCase {
 //        } catch (NullPointerException e) {
 //            //expected
 //        }
-// END android-removed
+// END Android-removed
     }
 
     /**
@@ -469,11 +469,11 @@ public class HashtableTest extends junit.framework.TestCase {
             assertTrue("Returned incorrect key set", s
                     .contains(e.nextElement()));
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // implementation dependent
 //        assertEquals("Not synchronized",
 //                "java.util.Collections$SynchronizedSet", s.getClass().getName());
-// END android-removed
+// END Android-removed
 
         Map map = new Hashtable(101);
         map.put(new Integer(1), "1");
@@ -548,7 +548,7 @@ public class HashtableTest extends junit.framework.TestCase {
         }
     }
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // implementation dependent
 //    /**
 //     * java.util.Hashtable#keySet()
@@ -592,7 +592,7 @@ public class HashtableTest extends junit.framework.TestCase {
 //        }
 //        assertTrue("unexpected NoSuchElementException", !exception);
 //    }
-// END android-removed
+// END Android-removed
 
     /**
      * java.util.Hashtable#put(java.lang.Object, java.lang.Object)
@@ -751,11 +751,11 @@ public class HashtableTest extends junit.framework.TestCase {
         while (e.hasMoreElements())
             assertTrue("Returned incorrect values", c.contains(e.nextElement()));
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // implementation dependent
 //        assertEquals("Not synchronized",
 //                "java.util.Collections$SynchronizedCollection", c.getClass().getName());
-// END android-removed
+// END Android-removed
 
         Hashtable myHashtable = new Hashtable();
         for (int i = 0; i < 100; i++)

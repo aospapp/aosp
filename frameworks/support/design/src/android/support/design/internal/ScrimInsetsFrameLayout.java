@@ -16,12 +16,15 @@
 
 package android.support.design.internal;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
+import android.support.annotation.RestrictTo;
 import android.support.design.R;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.WindowInsetsCompat;
@@ -32,11 +35,12 @@ import android.widget.FrameLayout;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ScrimInsetsFrameLayout extends FrameLayout {
 
-    private Drawable mInsetForeground;
+    Drawable mInsetForeground;
 
-    private Rect mInsets;
+    Rect mInsets;
 
     private Rect mTempRect = new Rect();
 
@@ -71,7 +75,7 @@ public class ScrimInsetsFrameLayout extends FrameLayout {
                                 insets.getSystemWindowInsetRight(),
                                 insets.getSystemWindowInsetBottom());
                         onInsetsChanged(insets);
-                        setWillNotDraw(mInsets.isEmpty() || mInsetForeground == null);
+                        setWillNotDraw(!insets.hasSystemWindowInsets() || mInsetForeground == null);
                         ViewCompat.postInvalidateOnAnimation(ScrimInsetsFrameLayout.this);
                         return insets.consumeSystemWindowInsets();
                     }

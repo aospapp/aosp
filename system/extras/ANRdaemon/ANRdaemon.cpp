@@ -84,6 +84,7 @@ static int idle_threshold = 10;
 
 static bool quit = false;
 static bool suspend= false;
+static bool dump_requested = false;
 static bool err = false;
 static char err_msg[100];
 static bool tracing = false;
@@ -133,7 +134,7 @@ static void get_cpu_stat(cpu_stat_t *cpu) {
 
     if ((fp = fopen("/proc/stat", "r")) == NULL) {
         err = true;
-        sprintf(err_msg, "can't read from /proc/stat with errno %d", errno);
+        snprintf(err_msg, sizeof(err_msg), "can't read from /proc/stat with errno %d", errno);
     } else {
         if (fscanf(fp, params, &cpu->utime, &cpu->ntime,
                 &cpu->stime, &cpu->itime, &cpu->iowtime, &cpu->irqtime,
@@ -143,6 +144,7 @@ static void get_cpu_stat(cpu_stat_t *cpu) {
              * is_heavy_loaded() will return false.
              */
             ALOGE("Error in getting cpu status. Skipping this check.");
+            fclose(fp);
             return;
         }
 
@@ -156,7 +158,7 @@ static void get_cpu_stat(cpu_stat_t *cpu) {
 /*
  * Calculate cpu usage in the past interval.
  * If tracing is on, increase the idle threshold by 1.00% so that we do not
- * turn on and off tracing frequently whe the cpu load is right close to
+ * turn on and off tracing frequently when the cpu load is right close to
  * threshold.
  */
 static bool is_heavy_load(void) {
@@ -191,7 +193,7 @@ static int dfs_enable(bool enable, const char* path) {
     int fd = open(path, O_WRONLY);
     if (fd == -1) {
         err = true;
-        sprintf(err_msg, "Can't open %s. Error: %d", path, errno);
+        snprintf(err_msg, sizeof(err_msg), "Can't open %s. Error: %d", path, errno);
         return -1;
     }
     const char* control = (enable?"1":"0");
@@ -204,7 +206,7 @@ static int dfs_enable(bool enable, const char* path) {
         }
 
         err = true;
-        sprintf(err_msg, "Error %d in writing to %s.", errno, path);
+        snprintf(err_msg, sizeof(err_msg), "Error %d in writing to %s.", errno, path);
     }
     close(fd);
     return (err?-1:0);
@@ -215,16 +217,16 @@ static int dfs_enable(bool enable, const char* path) {
  */
 static void dfs_set_property(uint64_t mtag, const char* mapp, bool enable) {
     char buf[64];
-    snprintf(buf, 64, "%#" PRIx64, mtag);
+    snprintf(buf, sizeof(buf), "%#" PRIx64, mtag);
     if (property_set(dfs_tags_property, buf) < 0) {
         err = true;
-        sprintf(err_msg, "Failed to set debug tags system properties.");
+        snprintf(err_msg, sizeof(err_msg), "Failed to set debug tags system properties.");
     }
 
     if (strlen(mapp) > 0
             && property_set(dfs_apps_property, mapp) < 0) {
         err = true;
-        sprintf(err_msg, "Failed to set debug applications.");
+        snprintf(err_msg, sizeof(err_msg), "Failed to set debug applications.");
     }
 
     if (log_sched) {
@@ -246,107 +248,20 @@ static void dfs_set_property(uint64_t mtag, const char* mapp, bool enable) {
 }
 
 /*
- * Start logging when cpu usage is high. Meanwhile, moniter the cpu usage and
- * stop logging when it drops down.
- */
-static void start_tracing(void) {
-    ALOGD("High cpu usage, start logging.");
-
-    if (dfs_enable(true, dfs_control_path) != 0) {
-        ALOGE("Failed to start tracing.");
-        return;
-    }
-    tracing = true;
-
-    /* Stop logging when cpu usage drops or the daemon is suspended.*/
-    do {
-        usleep(tracing_check_period);
-    } while (!suspend && is_heavy_load());
-
-    if (dfs_enable(false, dfs_control_path) != 0) {
-        ALOGE("Failed to stop tracing.");
-    }
-
-    ALOGD("Usage back to low, stop logging.");
-    tracing = false;
-}
-
-/*
- * Set the tracing log buffer size.
- * Note the actual buffer size will be buf_size_kb * number of cores.
- * E.g. for dory, the total buffer size is buf_size_kb * 4.
- */
-static int set_tracing_buffer_size(void) {
-    int fd = open(dfs_buffer_size_path, O_WRONLY);
-    if (fd == -1) {
-        err = true;
-        sprintf(err_msg, "Can't open atrace buffer size file under /d/tracing.");
-        return -1;
-    }
-    ssize_t len = strlen(buf_size_kb);
-    if (write(fd, buf_size_kb, len) != len) {
-        err = true;
-        sprintf(err_msg, "Error in writing to atrace buffer size file.");
-    }
-    close(fd);
-    return (err?-1:0);
-
-}
-
-/*
- * Main loop to moniter the cpu usage and decided whether to start logging.
- */
-static void start(void) {
-    if ((set_tracing_buffer_size()) != 0)
-        return;
-
-    dfs_set_property(tag, apps, true);
-    dfs_poke_binder();
-
-    get_cpu_stat(&old_cpu);
-    sleep(check_period);
-
-    while (!quit && !err) {
-        if (!suspend && is_heavy_load()) {
-            /*
-             * Increase process priority to make sure we can stop logging when
-             * necessary and do not overwrite the buffer
-             */
-            setpriority(PRIO_PROCESS, 0, -20);
-            start_tracing();
-            setpriority(PRIO_PROCESS, 0, 0);
-        }
-        sleep(check_period);
-    }
-    return;
-}
-
-/*
  * Dump the log in a compressed format for systrace to visualize.
+ * Create a dump file "dump_of_anrdaemon.<current_time>" under /data/misc/anrd
  */
 static void dump_trace()
 {
-    int remain_attempts = 5;
-    suspend = true;
-    while (tracing) {
-        ALOGI("Waiting logging to stop.");
-        usleep(tracing_check_period);
-        remain_attempts--;
-        if (remain_attempts == 0) {
-            ALOGE("Can't stop logging after 5 attempts. Dump aborted.");
-            return;
-        }
-    }
-
-    /*
-     * Create a dump file "dump_of_anrdaemon.<current_time>" under /data/misc/anrd
-     */
     time_t now = time(0);
     struct tm  tstruct;
     char time_buf[time_buf_size];
     char path_buf[path_buf_size];
     const char* header = " done\nTRACE:\n";
     ssize_t header_len = strlen(header);
+
+    ALOGI("Started to dump ANRdaemon trace.");
+
     tstruct = *localtime(&now);
     strftime(time_buf, time_buf_size, "%Y-%m-%d.%X", &tstruct);
     snprintf(path_buf, path_buf_size, "/data/misc/anrd/dump_of_anrdaemon.%s", time_buf);
@@ -442,8 +357,105 @@ static void dump_trace()
     close(trace_fd);
     close(output_fd);
 
-    suspend = false;
     ALOGI("Finished dump. Output file stored at: %s", path_buf);
+}
+
+/*
+ * Start logging when cpu usage is high. Meanwhile, moniter the cpu usage and
+ * stop logging when it drops down.
+ */
+static void start_tracing(void) {
+    ALOGD("High cpu usage, start logging.");
+
+    if (dfs_enable(true, dfs_control_path) != 0) {
+        ALOGE("Failed to start tracing.");
+        return;
+    }
+    tracing = true;
+
+    /* Stop logging when cpu usage drops or the daemon is suspended.*/
+    do {
+        usleep(tracing_check_period);
+    } while (!suspend && !dump_requested && is_heavy_load());
+
+    if (dfs_enable(false, dfs_control_path) != 0) {
+        ALOGE("Failed to stop tracing.");
+        err = true;
+        return;
+    }
+    tracing = false;
+
+    if (suspend) {
+        ALOGI("trace stopped due to suspend. Send SIGCONT to resume.");
+    } else if (dump_requested) {
+        ALOGI("trace stopped due to dump request.");
+        dump_trace();
+        dump_requested = false;
+    } else {
+        ALOGD("Usage back to low, stop logging.");
+    }
+}
+
+/*
+ * Set the tracing log buffer size.
+ * Note the actual buffer size will be buf_size_kb * number of cores.
+ */
+static int set_tracing_buffer_size(void) {
+    int fd = open(dfs_buffer_size_path, O_WRONLY);
+    if (fd == -1) {
+        err = true;
+        snprintf(err_msg, sizeof(err_msg), "Can't open atrace buffer size file under /d/tracing.");
+        return -1;
+    }
+    ssize_t len = strlen(buf_size_kb);
+    if (write(fd, buf_size_kb, len) != len) {
+        err = true;
+        snprintf(err_msg, sizeof(err_msg), "Error in writing to atrace buffer size file.");
+    }
+    close(fd);
+    return (err?-1:0);
+
+}
+
+/*
+ * Main loop to moniter the cpu usage and decided whether to start logging.
+ */
+static void start(void) {
+    if ((set_tracing_buffer_size()) != 0)
+        return;
+
+    dfs_set_property(tag, apps, true);
+    dfs_poke_binder();
+
+    get_cpu_stat(&old_cpu);
+    sleep(check_period);
+
+    while (!quit && !err) {
+        if (!suspend && is_heavy_load()) {
+            /*
+             * Increase process priority to make sure we can stop logging when
+             * necessary and do not overwrite the buffer
+             */
+            setpriority(PRIO_PROCESS, 0, -20);
+            start_tracing();
+            setpriority(PRIO_PROCESS, 0, 0);
+        }
+        sleep(check_period);
+    }
+    return;
+}
+
+/*
+ * If trace is not running, dump trace right away.
+ * If trace is running, request to dump trace.
+ */
+static void request_dump_trace()
+{
+    if (!tracing) {
+        dump_trace();
+    } else if (!dump_requested) {
+        dump_requested = true;
+    }
 }
 
 static void handle_signal(int signo)
@@ -460,7 +472,7 @@ static void handle_signal(int signo)
             suspend = false;
             break;
         case SIGUSR1:
-            dump_trace();
+            request_dump_trace();
     }
 }
 

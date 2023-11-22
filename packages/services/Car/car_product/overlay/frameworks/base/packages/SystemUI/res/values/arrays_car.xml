@@ -33,7 +33,7 @@
         <!-- Launch the lenspicker for all the facets. The lens picker will trampoline into the last run app or display a list of valid apps -->
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
-        <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.HOME;launchFlags=0x14000000;package=com.google.android.car.launcher;end</item>
+        <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;S.system_command=show_notifications;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
     </array>
@@ -53,10 +53,10 @@
         <item></item>
     </array>
     <array name="car_facet_package_filters">
-        <item>com.google.android.apps.maps</item>
-        <item>com.google.android.car.dialer</item>
+        <item>com.android.car.mapsplaceholder</item>
+        <item>com.android.car.dialer</item>
+        <item>com.android.car.overview</item>
         <item></item>
-        <item></item>
-        <item>com.google.android.car.hvac;com.android.settings;com.android.vending;com.google.android.car.bugreport;com.google.android.car.kitchensink;com.google.android.car.systemupdater;org.chromium.webview_shell;com.android.contacts;org.codeaurora.bluetooth.bttestapp;com.google.android.projection.sink;com.google.android.auto.mapclient</item>
+        <item>com.android.car.hvac;com.android.settings;com.android.car.settings;com.android.vending;com.google.android.car.bugreport;com.google.android.car.kitchensink;com.android.car.systemupdater;org.chromium.webview_shell;com.android.contacts;org.codeaurora.bluetooth.bttestapp;com.google.android.projection.sink</item>
     </array>
 </resources>

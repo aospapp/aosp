@@ -28,14 +28,17 @@ import android.location.CountryDetector;
 import android.location.CountryListener;
 import android.net.Uri;
 import android.os.Looper;
+import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
+import android.support.test.filters.FlakyTest;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -53,6 +56,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -195,8 +199,13 @@ public class CallLogManagerTest extends TelecomTestCase {
     public void testDontLogCallsFromEmergencyAccount() {
         when(mMockPhoneAccountRegistrar.getPhoneAccountUnchecked(any(PhoneAccountHandle.class)))
                 .thenReturn(makeFakePhoneAccount(EMERGENCY_ACCT_HANDLE, 0));
-        mComponentContextFixture.putBooleanResource(R.bool.allow_emergency_numbers_in_call_log,
-                false);
+        CarrierConfigManager mockCarrierConfigManager =
+                (CarrierConfigManager) mComponentContextFixture.getTestDouble()
+                        .getApplicationContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle bundle = new PersistableBundle();
+        bundle.putBoolean(CarrierConfigManager.KEY_ALLOW_EMERGENCY_NUMBERS_IN_CALL_LOG_BOOL, false);
+        when(mockCarrierConfigManager.getConfig()).thenReturn(bundle);
+
         Call fakeCall = makeFakeCall(
                 DisconnectCause.OTHER, // disconnectCauseCode
                 false, // isConference
@@ -285,7 +294,9 @@ public class CallLogManagerTest extends TelecomTestCase {
         ContentValues insertedValues = verifyInsertionWithCapture(CURRENT_USER_ID);
         assertEquals(insertedValues.getAsInteger(CallLog.Calls.TYPE),
                 Integer.valueOf(CallLog.Calls.MISSED_TYPE));
-        verify(mMissedCallNotifier).showMissedCallNotification(fakeMissedCall);
+        // Timeout needed because showMissedCallNotification is called from onPostExecute.
+        verify(mMissedCallNotifier, timeout(TEST_TIMEOUT_MILLIS))
+                .showMissedCallNotification(any(MissedCallNotifier.CallInfo.class));
     }
 
     @MediumTest
@@ -413,6 +424,7 @@ public class CallLogManagerTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @FlakyTest
     public void testLogCallDirectionOutgoingWithMultiUserCapability() {
         when(mMockPhoneAccountRegistrar.getPhoneAccountUnchecked(any(PhoneAccountHandle.class)))
                 .thenReturn(makeFakePhoneAccount(mOtherUserAccountHandle,
@@ -506,6 +518,7 @@ public class CallLogManagerTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @FlakyTest
     public void testLogCallDirectionOutgoingFromManagedProfile() {
         when(mMockPhoneAccountRegistrar.getPhoneAccountUnchecked(any(PhoneAccountHandle.class)))
                 .thenReturn(makeFakePhoneAccount(mManagedProfileAccountHandle, 0));
@@ -656,10 +669,13 @@ public class CallLogManagerTest extends TelecomTestCase {
 
     private void verifyNoInsertion() {
         try {
-            verify(mContentProvider, timeout(TEST_TIMEOUT_MILLIS).never()).insert(any(String.class),
+            Thread.sleep(TEST_TIMEOUT_MILLIS);
+            verify(mContentProvider, never()).insert(any(String.class),
                     any(Uri.class), any(ContentValues.class));
         } catch (android.os.RemoteException e) {
             fail("Remote exception occurred during test execution");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
@@ -667,10 +683,13 @@ public class CallLogManagerTest extends TelecomTestCase {
     private void verifyNoInsertionInUser(int userId) {
         try {
             Uri uri = ContentProvider.maybeAddUserId(CallLog.Calls.CONTENT_URI, userId);
-            verify(getContentProviderForUser(userId), timeout(TEST_TIMEOUT_MILLIS).never())
+            Thread.sleep(TEST_TIMEOUT_MILLIS);
+            verify(getContentProviderForUser(userId), never())
                     .insert(any(String.class), eq(uri), any(ContentValues.class));
         } catch (android.os.RemoteException e) {
             fail("Remote exception occurred during test execution");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
@@ -719,6 +738,8 @@ public class CallLogManagerTest extends TelecomTestCase {
         when(fakeCall.getViaNumber()).thenReturn(viaNumber);
         when(fakeCall.getInitiatingUser()).thenReturn(initiatingUser);
         when(fakeCall.getCallDataUsage()).thenReturn(callDataUsage);
+        when(fakeCall.isEmergencyCall()).thenReturn(
+                phoneAccountHandle.equals(EMERGENCY_ACCT_HANDLE));
         return fakeCall;
     }
 

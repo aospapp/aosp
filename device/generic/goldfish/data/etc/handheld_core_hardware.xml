@@ -22,16 +22,35 @@
      Personal Media Players (PMPs), small tablets (7" or less), and similar
      devices.
 
-     This file is identical to frameworks/native/data/etc/handheld_core_hardware.xml,
-     except the android.hardware.bluetooth
+     This file is similar to frameworks/native/data/etc/handheld_core_hardware.xml.
+     The differences are:
+         'Normal' features that are not available in goldfish:
+             android.hardware.bluetooth
+         Extra features available in goldfish:
+             android.hardware.location.gps
+             android.hardware.sensor.barometer
+             android.hardware.sensor.light
+             android.hardware.sensor.proximity
+             android.hardware.sensor.relative_humidity
+             android.hardware.telephony
+             android.hardware.telephony.gsm
+             android.software.midi
 -->
 <permissions>
     <feature name="android.hardware.audio.output" />
     <feature name="android.hardware.camera" />
     <feature name="android.hardware.location" />
+    <feature name="android.hardware.location.gps" />
     <feature name="android.hardware.location.network" />
-    <feature name="android.hardware.sensor.compass" />
     <feature name="android.hardware.sensor.accelerometer" />
+    <feature name="android.hardware.sensor.ambient_temperature" />
+    <feature name="android.hardware.sensor.compass" />
+    <feature name="android.hardware.sensor.barometer" />
+    <feature name="android.hardware.sensor.light" />
+    <feature name="android.hardware.sensor.proximity" />
+    <feature name="android.hardware.sensor.relative_humidity" />
+    <feature name="android.hardware.telephony" />
+    <feature name="android.hardware.telephony.gsm" />
     <feature name="android.hardware.touchscreen" />
     <feature name="android.hardware.microphone" />
     <feature name="android.hardware.screen.portrait" />
@@ -53,6 +72,9 @@
     <!-- Feature to specify if the device support managed users. -->
     <feature name="android.software.managed_users" />
 
+    <feature name="android.software.picture_in_picture" />
+
+    <feature name="android.software.cts" />
     <!-- devices with GPS must include android.hardware.location.gps.xml -->
     <!-- devices with an autofocus camera and/or flash must include either
          android.hardware.camera.autofocus.xml or

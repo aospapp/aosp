@@ -37,17 +37,25 @@ public class TestNan extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNanRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsUintFloat {
         public int inV;
         public Target.Floaty out;
     }
 
     private void checkNanUintFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0x6a8a10d2l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.UNSIGNED_32, 1, 0xbc42cb366a8a10d2l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testNanUintFloat(inV, out);
             verifyResultsNanUintFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNanUintFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestNan extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testNanUintFloat(inV, out);
             verifyResultsNanUintFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNanUintFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsNanUintFloat(Allocation inV, Allocation out, boolean relaxed) {

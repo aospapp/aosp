@@ -194,7 +194,8 @@ class firmware_Mosys(FirmwareTest):
         command = 'mosys -k ec info'
         if self.faft_config.chrome_ec:
           output = self.run_cmd(command)[0]
-          p = re.compile('vendor="[a-z]+" name="[ -~]+" fw_version="(.*)"')
+          p = re.compile(
+            'vendor="[A-Z]?[a-z]+" name="[ -~]+" fw_version="(.*)"')
           v = p.match(output)
           if v:
              version = v.group(1)
@@ -248,7 +249,7 @@ class firmware_Mosys(FirmwareTest):
 
         # f. mosys -k pd info
         command = 'mosys -k pd info'
-        if 'pd' in self.command_list:
+        if self.faft_config.chrome_usbpd and 'pd' in self.command_list:
           output = self.run_cmd(command)[0]
           p = re.compile('vendor="[a-z]+" name="[ -~]+" fw_version="(.*)"')
           v = p.match(output)
@@ -259,6 +260,17 @@ class firmware_Mosys(FirmwareTest):
              self._tag_failure(command)
         else:
           logging.info('Skip "%s", command not available.', command)
+
+        # g. mosys -k memory spd print all (check no error output)
+        command = 'mosys -k memory spd print all'
+        output = self.run_cmd(command)
+        p = re.compile('^dimm=".*$')
+        # Each line should start with "dimm=".
+        for i in output:
+            if not p.match(i):
+                logging.error('output does not start with dimm=%s', i)
+                self._tag_failure(command)
+                break
 
         # Add any other mosys commands or tests before this section.
         # empty failed_command indicate all passed.

@@ -19,5 +19,15 @@ package libcore.io;
 public final class Libcore {
     private Libcore() { }
 
-    public static Os os = new BlockGuardOs(new Posix());
+    /**
+     * Direct access to syscalls. Code should strongly prefer using {@link #os}
+     * unless it has a strong reason to bypass the helpful checks/guards that it
+     * provides.
+     */
+    public static Os rawOs = new Linux();
+
+    /**
+     * Access to syscalls with helpful checks/guards.
+     */
+    public static Os os = new BlockGuardOs(rawOs);
 }

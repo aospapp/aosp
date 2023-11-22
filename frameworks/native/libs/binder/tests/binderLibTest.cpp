@@ -34,6 +34,7 @@ using namespace android;
 
 static testing::Environment* binder_env;
 static char *binderservername;
+static char *binderserversuffix;
 static char binderserverarg[] = "--binderserver";
 
 static String16 binderLibTestServiceName = String16("test.binderLib");
@@ -44,6 +45,7 @@ enum BinderLibTestTranscationCode {
     BINDER_LIB_TEST_ADD_SERVER,
     BINDER_LIB_TEST_CALL_BACK,
     BINDER_LIB_TEST_NOP_CALL_BACK,
+    BINDER_LIB_TEST_GET_SELF_TRANSACTION,
     BINDER_LIB_TEST_GET_ID_TRANSACTION,
     BINDER_LIB_TEST_INDIRECT_TRANSACTION,
     BINDER_LIB_TEST_SET_ERROR_TRANSACTION,
@@ -55,6 +57,7 @@ enum BinderLibTestTranscationCode {
     BINDER_LIB_TEST_EXIT_TRANSACTION,
     BINDER_LIB_TEST_DELAYED_EXIT_TRANSACTION,
     BINDER_LIB_TEST_GET_PTR_SIZE_TRANSACTION,
+    BINDER_LIB_TEST_CREATE_BINDER_TRANSACTION,
 };
 
 pid_t start_server_process(int arg2)
@@ -70,6 +73,7 @@ pid_t start_server_process(int arg2)
         binderserverarg,
         stri,
         strpipefd1,
+        binderserversuffix,
         NULL
     };
 
@@ -252,14 +256,10 @@ class BinderLibTestEvent
             int ret;
             pthread_mutex_lock(&m_waitMutex);
             if (!m_eventTriggered) {
-#if defined(HAVE_PTHREAD_COND_TIMEDWAIT_RELATIVE)
-                pthread_cond_timeout_np(&m_waitCond, &m_waitMutex, timeout_s * 1000);
-#else
                 struct timespec ts;
                 clock_gettime(CLOCK_REALTIME, &ts);
                 ts.tv_sec += timeout_s;
                 pthread_cond_timedwait(&m_waitCond, &m_waitMutex, &ts);
-#endif
             }
             ret = m_eventTriggered ? NO_ERROR : TIMED_OUT;
             pthread_mutex_unlock(&m_waitMutex);
@@ -391,7 +391,7 @@ TEST_F(BinderLibTest, IndirectGetId2)
 
     ret = reply.readInt32(&count);
     ASSERT_EQ(NO_ERROR, ret);
-    EXPECT_EQ(ARRAY_SIZE(serverId), count);
+    EXPECT_EQ(ARRAY_SIZE(serverId), (size_t)count);
 
     for (size_t i = 0; i < (size_t)count; i++) {
         BinderLibTestBundle replyi(&reply);
@@ -441,7 +441,7 @@ TEST_F(BinderLibTest, IndirectGetId3)
 
     ret = reply.readInt32(&count);
     ASSERT_EQ(NO_ERROR, ret);
-    EXPECT_EQ(ARRAY_SIZE(serverId), count);
+    EXPECT_EQ(ARRAY_SIZE(serverId), (size_t)count);
 
     for (size_t i = 0; i < (size_t)count; i++) {
         int32_t counti;
@@ -633,7 +633,7 @@ TEST_F(BinderLibTest, PassFile) {
     }
 
     ret = read(pipefd[0], buf, sizeof(buf));
-    EXPECT_EQ(sizeof(buf), ret);
+    EXPECT_EQ(sizeof(buf), (size_t)ret);
     EXPECT_EQ(write_value, buf[0]);
 
     waitForReadData(pipefd[0], 5000); /* wait for other proccess to close pipe */
@@ -670,6 +670,62 @@ TEST_F(BinderLibTest, PromoteRemote) {
 
     ret = server->transact(BINDER_LIB_TEST_PROMOTE_WEAK_REF_TRANSACTION, data, &reply);
     EXPECT_GE(ret, 0);
+}
+
+TEST_F(BinderLibTest, CheckHandleZeroBinderHighBitsZeroCookie) {
+    status_t ret;
+    Parcel data, reply;
+
+    ret = m_server->transact(BINDER_LIB_TEST_GET_SELF_TRANSACTION, data, &reply);
+    EXPECT_EQ(NO_ERROR, ret);
+
+    const flat_binder_object *fb = reply.readObject(false);
+    ASSERT_TRUE(fb != NULL);
+    EXPECT_EQ(fb->type, BINDER_TYPE_HANDLE);
+    EXPECT_EQ(ProcessState::self()->getStrongProxyForHandle(fb->handle), m_server);
+    EXPECT_EQ(fb->cookie, (binder_uintptr_t)0);
+    EXPECT_EQ(fb->binder >> 32, (binder_uintptr_t)0);
+}
+
+TEST_F(BinderLibTest, FreedBinder) {
+    status_t ret;
+
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != NULL);
+
+    __u32 freedHandle;
+    wp<IBinder> keepFreedBinder;
+    {
+        Parcel data, reply;
+        data.writeBool(false); /* request weak reference */
+        ret = server->transact(BINDER_LIB_TEST_CREATE_BINDER_TRANSACTION, data, &reply);
+        ASSERT_EQ(NO_ERROR, ret);
+        struct flat_binder_object *freed = (struct flat_binder_object *)(reply.data());
+        freedHandle = freed->handle;
+        /* Add a weak ref to the freed binder so the driver does not
+         * delete its reference to it - otherwise the transaction
+         * fails regardless of whether the driver is fixed.
+         */
+        keepFreedBinder = reply.readWeakBinder();
+    }
+    {
+        Parcel data, reply;
+        data.writeStrongBinder(server);
+        /* Replace original handle with handle to the freed binder */
+        struct flat_binder_object *strong = (struct flat_binder_object *)(data.data());
+        __u32 oldHandle = strong->handle;
+        strong->handle = freedHandle;
+        ret = server->transact(BINDER_LIB_TEST_ADD_STRONG_REF_TRANSACTION, data, &reply);
+        /* Returns DEAD_OBJECT (-32) if target crashes and
+         * FAILED_TRANSACTION if the driver rejects the invalid
+         * object.
+         */
+        EXPECT_EQ((status_t)FAILED_TRANSACTION, ret);
+        /* Restore original handle so parcel destructor does not use
+         * the wrong handle.
+         */
+        strong->handle = oldHandle;
+    }
 }
 
 class BinderLibTestService : public BBinder
@@ -739,14 +795,10 @@ class BinderLibTestService : public BBinder
                 }
                 if (ret > 0) {
                     if (m_serverStartRequested) {
-#if defined(HAVE_PTHREAD_COND_TIMEDWAIT_RELATIVE)
-                        ret = pthread_cond_timeout_np(&m_serverWaitCond, &m_serverWaitMutex, 5000);
-#else
                         struct timespec ts;
                         clock_gettime(CLOCK_REALTIME, &ts);
                         ts.tv_sec += 5;
                         ret = pthread_cond_timedwait(&m_serverWaitCond, &m_serverWaitMutex, &ts);
-#endif
                     }
                     if (m_serverStartRequested) {
                         m_serverStartRequested = false;
@@ -777,6 +829,9 @@ class BinderLibTestService : public BBinder
                 binder->transact(BINDER_LIB_TEST_CALL_BACK, data2, &reply2);
                 return NO_ERROR;
             }
+            case BINDER_LIB_TEST_GET_SELF_TRANSACTION:
+                reply->writeStrongBinder(this);
+                return NO_ERROR;
             case BINDER_LIB_TEST_GET_ID_TRANSACTION:
                 reply->writeInt32(m_id);
                 return NO_ERROR;
@@ -890,6 +945,16 @@ class BinderLibTestService : public BBinder
                 while (wait(NULL) != -1 || errno != ECHILD)
                     ;
                 exit(EXIT_SUCCESS);
+            case BINDER_LIB_TEST_CREATE_BINDER_TRANSACTION: {
+                bool strongRef = data.readBool();
+                sp<IBinder> binder = new BBinder();
+                if (strongRef) {
+                    reply->writeStrongBinder(binder);
+                } else {
+                    reply->writeWeakBinder(binder);
+                }
+                return NO_ERROR;
+            }
             default:
                 return UNKNOWN_TRANSACTION;
             };
@@ -906,6 +971,8 @@ class BinderLibTestService : public BBinder
 
 int run_server(int index, int readypipefd)
 {
+    binderLibTestServiceName += String16(binderserversuffix);
+
     status_t ret;
     sp<IServiceManager> sm = defaultServiceManager();
     {
@@ -936,15 +1003,19 @@ int run_server(int index, int readypipefd)
 int main(int argc, char **argv) {
     int ret;
 
-    if (argc == 3 && !strcmp(argv[1], "--servername")) {
+    if (argc == 4 && !strcmp(argv[1], "--servername")) {
         binderservername = argv[2];
     } else {
         binderservername = argv[0];
     }
 
-    if (argc == 4 && !strcmp(argv[1], binderserverarg)) {
+    if (argc == 5 && !strcmp(argv[1], binderserverarg)) {
+        binderserversuffix = argv[4];
         return run_server(atoi(argv[2]), atoi(argv[3]));
     }
+    binderserversuffix = new char[16];
+    snprintf(binderserversuffix, 16, "%d", getpid());
+    binderLibTestServiceName += String16(binderserversuffix);
 
     ::testing::InitGoogleTest(&argc, argv);
     binder_env = AddGlobalTestEnvironment(new BinderLibTestEnv());

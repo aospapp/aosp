@@ -83,6 +83,7 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
      * @param message
      *            a message to be sent.
      */
+    @Override
     public synchronized void sendMessage(String message) {
         try {
             out.writeUTF(message);
@@ -103,6 +104,7 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
      *         <code>message</code> otherwise - <code>false</code>.
      * 
      */
+    @Override
     public synchronized boolean receiveMessage(String message) {
         String msg;
         try {
@@ -123,6 +125,7 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
      * 
      * @return received string or null if connection was closed.
      */
+    @Override
     public synchronized String receiveMessage() {
         String msg;
         try {

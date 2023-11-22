@@ -21,3 +21,4 @@
 #include "bt_target.h"
 #include "bt_types.h"
 #include "osi/include/allocator.h"
+#include "osi/include/compat.h"

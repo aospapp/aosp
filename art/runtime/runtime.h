@@ -28,22 +28,25 @@
 
 #include "arch/instruction_set.h"
 #include "base/macros.h"
+#include "base/mutex.h"
+#include "deoptimization_kind.h"
+#include "dex_file_types.h"
 #include "experimental_flags.h"
 #include "gc_root.h"
 #include "instrumentation.h"
 #include "jobject_comparator.h"
 #include "method_reference.h"
+#include "obj_ptr.h"
 #include "object_callbacks.h"
 #include "offsets.h"
 #include "process_state.h"
-#include "profiler_options.h"
 #include "quick/quick_method_frame_info.h"
 #include "runtime_stats.h"
-#include "safe_map.h"
 
 namespace art {
 
 namespace gc {
+  class AbstractSystemWeakHolder;
   class Heap;
   namespace collector {
     class GarbageCollector;
@@ -55,25 +58,26 @@ namespace jit {
   class JitOptions;
 }  // namespace jit
 
-namespace lambda {
-  class BoxTable;
-}  // namespace lambda
-
 namespace mirror {
-  class ClassLoader;
   class Array;
+  class ClassLoader;
+  class DexCache;
   template<class T> class ObjectArray;
   template<class T> class PrimitiveArray;
   typedef PrimitiveArray<int8_t> ByteArray;
   class String;
   class Throwable;
 }  // namespace mirror
+namespace ti {
+  class Agent;
+}  // namespace ti
 namespace verifier {
   class MethodVerifier;
   enum class VerifyMode : int8_t;
 }  // namespace verifier
 class ArenaPool;
 class ArtMethod;
+class ClassHierarchyAnalysis;
 class ClassLinker;
 class Closure;
 class CompilerCallbacks;
@@ -85,7 +89,9 @@ class MonitorList;
 class MonitorPool;
 class NullPointerHandler;
 class OatFileManager;
+class Plugin;
 struct RuntimeArgumentMap;
+class RuntimeCallbacks;
 class SignalCatcher;
 class StackOverflowHandler;
 class SuspensionHandler;
@@ -95,20 +101,6 @@ struct TraceConfig;
 class Transaction;
 
 typedef std::vector<std::pair<std::string, const void*>> RuntimeOptions;
-
-// Not all combinations of flags are valid. You may not visit all roots as well as the new roots
-// (no logical reason to do this). You also may not start logging new roots and stop logging new
-// roots (also no logical reason to do this).
-enum VisitRootFlags : uint8_t {
-  kVisitRootFlagAllRoots = 0x1,
-  kVisitRootFlagNewRoots = 0x2,
-  kVisitRootFlagStartLoggingNewRoots = 0x4,
-  kVisitRootFlagStopLoggingNewRoots = 0x8,
-  kVisitRootFlagClearRootLog = 0x10,
-  // Non moving means we can have optimizations where we don't visit some roots if they are
-  // definitely reachable from another location. E.g. ArtMethod and ArtField roots.
-  kVisitRootFlagNonMoving = 0x20,
-};
 
 class Runtime {
  public:
@@ -180,7 +172,7 @@ class Runtime {
     return compiler_options_;
   }
 
-  void AddCompilerOption(std::string option) {
+  void AddCompilerOption(const std::string& option) {
     compiler_options_.push_back(option);
   }
 
@@ -190,10 +182,6 @@ class Runtime {
 
   const std::string& GetImageLocation() const {
     return image_location_;
-  }
-
-  const ProfilerOptions& GetProfilerOptions() const {
-    return profiler_options_;
   }
 
   // Starts a runtime, which may cause threads to be started and code to run.
@@ -228,7 +216,7 @@ class Runtime {
 
   // Aborts semi-cleanly. Used in the implementation of LOG(FATAL), which most
   // callers should prefer.
-  NO_RETURN static void Abort() REQUIRES(!Locks::abort_lock_);
+  NO_RETURN static void Abort(const char* msg) REQUIRES(!Locks::abort_lock_);
 
   // Returns the "main" ThreadGroup, used when attaching user threads.
   jobject GetMainThreadGroup() const;
@@ -248,6 +236,7 @@ class Runtime {
   // Detaches the current native thread from the runtime.
   void DetachCurrentThread() REQUIRES(!Locks::mutator_lock_);
 
+  void DumpDeoptimizations(std::ostream& os);
   void DumpForSigQuit(std::ostream& os);
   void DumpLockHolders(std::ostream& os);
 
@@ -279,10 +268,10 @@ class Runtime {
   }
 
   JavaVMExt* GetJavaVM() const {
-    return java_vm_;
+    return java_vm_.get();
   }
 
-  size_t GetMaxSpinsBeforeThinkLockInflation() const {
+  size_t GetMaxSpinsBeforeThinLockInflation() const {
     return max_spins_before_thin_lock_inflation_;
   }
 
@@ -295,15 +284,15 @@ class Runtime {
   }
 
   // Is the given object the special object used to mark a cleared JNI weak global?
-  bool IsClearedJniWeakGlobal(mirror::Object* obj) SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsClearedJniWeakGlobal(ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the special object used to mark a cleared JNI weak global.
-  mirror::Object* GetClearedJniWeakGlobal() SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::Object* GetClearedJniWeakGlobal() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::Throwable* GetPreAllocatedOutOfMemoryError() SHARED_REQUIRES(Locks::mutator_lock_);
+  mirror::Throwable* GetPreAllocatedOutOfMemoryError() REQUIRES_SHARED(Locks::mutator_lock_);
 
   mirror::Throwable* GetPreAllocatedNoClassDefFoundError()
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   const std::vector<std::string>& GetProperties() const {
     return properties_;
@@ -317,52 +306,49 @@ class Runtime {
     return "2.1.0";
   }
 
-  void DisallowNewSystemWeaks() SHARED_REQUIRES(Locks::mutator_lock_);
-  void AllowNewSystemWeaks() SHARED_REQUIRES(Locks::mutator_lock_);
-  void BroadcastForNewSystemWeaks() SHARED_REQUIRES(Locks::mutator_lock_);
+  bool IsMethodHandlesEnabled() const {
+    return true;
+  }
+
+  void DisallowNewSystemWeaks() REQUIRES_SHARED(Locks::mutator_lock_);
+  void AllowNewSystemWeaks() REQUIRES_SHARED(Locks::mutator_lock_);
+  // broadcast_for_checkpoint is true when we broadcast for making blocking threads to respond to
+  // checkpoint requests. It's false when we broadcast to unblock blocking threads after system weak
+  // access is reenabled.
+  void BroadcastForNewSystemWeaks(bool broadcast_for_checkpoint = false);
 
   // Visit all the roots. If only_dirty is true then non-dirty roots won't be visited. If
   // clean_dirty is true then dirty roots will be marked as non-dirty after visiting.
   void VisitRoots(RootVisitor* visitor, VisitRootFlags flags = kVisitRootFlagAllRoots)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES(!Locks::classlinker_classes_lock_, !Locks::trace_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Visit image roots, only used for hprof since the GC uses the image space mod union table
   // instead.
-  void VisitImageRoots(RootVisitor* visitor) SHARED_REQUIRES(Locks::mutator_lock_);
+  void VisitImageRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Visit all of the roots we can do safely do concurrently.
   void VisitConcurrentRoots(RootVisitor* visitor,
                             VisitRootFlags flags = kVisitRootFlagAllRoots)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES(!Locks::classlinker_classes_lock_, !Locks::trace_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Visit all of the non thread roots, we can do this with mutators unpaused.
   void VisitNonThreadRoots(RootVisitor* visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void VisitTransactionRoots(RootVisitor* visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Visit all of the thread roots.
-  void VisitThreadRoots(RootVisitor* visitor) SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Flip thread roots from from-space refs to to-space refs.
   size_t FlipThreadRoots(Closure* thread_flip_visitor, Closure* flip_callback,
                          gc::collector::GarbageCollector* collector)
       REQUIRES(!Locks::mutator_lock_);
 
-  // Visit all other roots which must be done with mutators suspended.
-  void VisitNonConcurrentRoots(RootVisitor* visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
   // Sweep system weaks, the system weak is deleted if the visitor return null. Otherwise, the
   // system weak is updated to be the visitor's returned value.
   void SweepSystemWeaks(IsMarkedVisitor* visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Constant roots are the roots which never change after the runtime is initialized, they only
-  // need to be visited once per GC cycle.
-  void VisitConstantRoots(RootVisitor* visitor)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns a special method that calls into a trampoline for runtime method resolution
   ArtMethod* GetResolutionMethod();
@@ -371,9 +357,12 @@ class Runtime {
     return resolution_method_ != nullptr;
   }
 
-  void SetResolutionMethod(ArtMethod* method) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetResolutionMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+  void ClearResolutionMethod() {
+    resolution_method_ = nullptr;
+  }
 
-  ArtMethod* CreateResolutionMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  ArtMethod* CreateResolutionMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns a special method that calls into a trampoline for runtime imt conflicts.
   ArtMethod* GetImtConflictMethod();
@@ -383,19 +372,28 @@ class Runtime {
     return imt_conflict_method_ != nullptr;
   }
 
+  void ClearImtConflictMethod() {
+    imt_conflict_method_ = nullptr;
+  }
+
   void FixupConflictTables();
-  void SetImtConflictMethod(ArtMethod* method) SHARED_REQUIRES(Locks::mutator_lock_);
-  void SetImtUnimplementedMethod(ArtMethod* method) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetImtConflictMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+  void SetImtUnimplementedMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* CreateImtConflictMethod(LinearAlloc* linear_alloc)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void ClearImtUnimplementedMethod() {
+    imt_unimplemented_method_ = nullptr;
+  }
 
   // Returns a special method that describes all callee saves being spilled to the stack.
   enum CalleeSaveType {
-    kSaveAll,
-    kRefsOnly,
-    kRefsAndArgs,
-    kLastCalleeSaveType  // Value used for iteration
+    kSaveAllCalleeSaves,  // All callee-save registers.
+    kSaveRefsOnly,        // Only those callee-save registers that can hold references.
+    kSaveRefsAndArgs,     // References (see above) and arguments (usually caller-save registers).
+    kSaveEverything,      // All registers, including both callee-save and caller-save.
+    kLastCalleeSaveType   // Value used for iteration
   };
 
   bool HasCalleeSaveMethod(CalleeSaveType type) const {
@@ -403,17 +401,17 @@ class Runtime {
   }
 
   ArtMethod* GetCalleeSaveMethod(CalleeSaveType type)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   ArtMethod* GetCalleeSaveMethodUnchecked(CalleeSaveType type)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   QuickMethodFrameInfo GetCalleeSaveMethodFrameInfo(CalleeSaveType type) const {
     return callee_save_method_frame_infos_[type];
   }
 
   QuickMethodFrameInfo GetRuntimeMethodFrameInfo(ArtMethod* method)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   static size_t GetCalleeSaveMethodOffset(CalleeSaveType type) {
     return OFFSETOF_MEMBER(Runtime, callee_save_methods_[type]);
@@ -424,10 +422,12 @@ class Runtime {
   }
 
   void SetInstructionSet(InstructionSet instruction_set);
+  void ClearInstructionSet();
 
   void SetCalleeSaveMethod(ArtMethod* method, CalleeSaveType type);
+  void ClearCalleeSaveMethods();
 
-  ArtMethod* CreateCalleeSaveMethod() SHARED_REQUIRES(Locks::mutator_lock_);
+  ArtMethod* CreateCalleeSaveMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
   int32_t GetStat(int kind);
 
@@ -449,17 +449,14 @@ class Runtime {
     kInitialize
   };
 
-  jit::Jit* GetJit() {
+  jit::Jit* GetJit() const {
     return jit_.get();
   }
 
   // Returns true if JIT compilations are enabled. GetJit() will be not null in this case.
   bool UseJitCompilation() const;
-  // Returns true if profile saving is enabled. GetJit() will be not null in this case.
-  bool SaveProfileInfo() const;
 
   void PreZygoteFork();
-  bool InitZygote();
   void InitNonZygoteOrPostFork(
       JNIEnv* env, bool is_system_server, NativeBridgeAction action, const char* isa);
 
@@ -472,10 +469,7 @@ class Runtime {
   }
 
   void RegisterAppInfo(const std::vector<std::string>& code_paths,
-                       const std::string& profile_output_filename,
-                       const std::string& foreign_dex_profile_path,
-                       const std::string& app_dir);
-  void NotifyDexLoaded(const std::string& dex_location);
+                       const std::string& profile_output_filename);
 
   // Transaction support.
   bool IsActiveTransaction() const {
@@ -486,9 +480,9 @@ class Runtime {
   bool IsTransactionAborted() const;
 
   void AbortTransactionAndThrowAbortError(Thread* self, const std::string& abort_message)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
   void ThrowTransactionAbortError(Thread* self)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void RecordWriteFieldBoolean(mirror::Object* obj, MemberOffset field_offset, uint8_t value,
                                bool is_volatile) const;
@@ -502,18 +496,23 @@ class Runtime {
                           bool is_volatile) const;
   void RecordWriteField64(mirror::Object* obj, MemberOffset field_offset, uint64_t value,
                           bool is_volatile) const;
-  void RecordWriteFieldReference(mirror::Object* obj, MemberOffset field_offset,
-                                 mirror::Object* value, bool is_volatile) const;
+  void RecordWriteFieldReference(mirror::Object* obj,
+                                 MemberOffset field_offset,
+                                 ObjPtr<mirror::Object> value,
+                                 bool is_volatile) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
   void RecordWriteArray(mirror::Array* array, size_t index, uint64_t value) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  void RecordStrongStringInsertion(mirror::String* s) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  void RecordStrongStringInsertion(ObjPtr<mirror::String> s) const
       REQUIRES(Locks::intern_table_lock_);
-  void RecordWeakStringInsertion(mirror::String* s) const
+  void RecordWeakStringInsertion(ObjPtr<mirror::String> s) const
       REQUIRES(Locks::intern_table_lock_);
-  void RecordStrongStringRemoval(mirror::String* s) const
+  void RecordStrongStringRemoval(ObjPtr<mirror::String> s) const
       REQUIRES(Locks::intern_table_lock_);
-  void RecordWeakStringRemoval(mirror::String* s) const
+  void RecordWeakStringRemoval(ObjPtr<mirror::String> s) const
       REQUIRES(Locks::intern_table_lock_);
+  void RecordResolveString(ObjPtr<mirror::DexCache> dex_cache, dex::StringIndex string_idx) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetFaultMessage(const std::string& message) REQUIRES(!fault_message_lock_);
   // Only read by the signal handler, NO_THREAD_SAFETY_ANALYSIS to prevent lock order violations
@@ -559,10 +558,6 @@ class Runtime {
     return (experimental_flags_ & flags) != ExperimentalFlags::kNone;
   }
 
-  lambda::BoxTable* GetLambdaBoxTable() const {
-    return lambda_box_table_.get();
-  }
-
   // Create the JIT and instrumentation and code cache.
   void CreateJit();
 
@@ -586,7 +581,14 @@ class Runtime {
     return jit_options_.get();
   }
 
-  bool IsDebuggable() const;
+  bool IsJavaDebuggable() const {
+    return is_java_debuggable_;
+  }
+
+  void SetJavaDebuggable(bool value);
+
+  // Deoptimize the boot image, called for Java debuggable apps.
+  void DeoptimizeBootImage();
 
   bool IsNativeDebuggable() const {
     return is_native_debuggable_;
@@ -602,7 +604,7 @@ class Runtime {
   }
 
   // Called from class linker.
-  void SetSentinel(mirror::Object* sentinel) SHARED_REQUIRES(Locks::mutator_lock_);
+  void SetSentinel(mirror::Object* sentinel) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a normal LinearAlloc or low 4gb version if we are 64 bit AOT compiler.
   LinearAlloc* CreateLinearAlloc();
@@ -648,6 +650,53 @@ class Runtime {
     return zygote_no_threads_;
   }
 
+  // Returns if the code can be deoptimized asynchronously. Code may be compiled with some
+  // optimization that makes it impossible to deoptimize.
+  bool IsAsyncDeoptimizeable(uintptr_t code) const REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Returns a saved copy of the environment (getenv/setenv values).
+  // Used by Fork to protect against overwriting LD_LIBRARY_PATH, etc.
+  char** GetEnvSnapshot() const {
+    return env_snapshot_.GetSnapshot();
+  }
+
+  void AddSystemWeakHolder(gc::AbstractSystemWeakHolder* holder);
+  void RemoveSystemWeakHolder(gc::AbstractSystemWeakHolder* holder);
+
+  ClassHierarchyAnalysis* GetClassHierarchyAnalysis() {
+    return cha_;
+  }
+
+  NO_RETURN
+  static void Aborter(const char* abort_message);
+
+  void AttachAgent(const std::string& agent_arg);
+
+  const std::list<ti::Agent>& GetAgents() const {
+    return agents_;
+  }
+
+  RuntimeCallbacks* GetRuntimeCallbacks();
+
+  void InitThreadGroups(Thread* self);
+
+  void SetDumpGCPerformanceOnShutdown(bool value) {
+    dump_gc_performance_on_shutdown_ = value;
+  }
+
+  void IncrementDeoptimizationCount(DeoptimizationKind kind) {
+    DCHECK_LE(kind, DeoptimizationKind::kLast);
+    deoptimization_counts_[static_cast<size_t>(kind)]++;
+  }
+
+  uint32_t GetNumberOfDeoptimizations() const {
+    uint32_t result = 0;
+    for (size_t i = 0; i <= static_cast<size_t>(DeoptimizationKind::kLast); ++i) {
+      result += deoptimization_counts_[i];
+    }
+    return result;
+  }
+
  private:
   static void InitPlatformSignalHandlers();
 
@@ -658,13 +707,25 @@ class Runtime {
   bool Init(RuntimeArgumentMap&& runtime_options)
       SHARED_TRYLOCK_FUNCTION(true, Locks::mutator_lock_);
   void InitNativeMethods() REQUIRES(!Locks::mutator_lock_);
-  void InitThreadGroups(Thread* self);
   void RegisterRuntimeNativeMethods(JNIEnv* env);
 
   void StartDaemonThreads();
   void StartSignalCatcher();
 
   void MaybeSaveJitProfilingInfo();
+
+  // Visit all of the thread roots.
+  void VisitThreadRoots(RootVisitor* visitor, VisitRootFlags flags)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Visit all other roots which must be done with mutators suspended.
+  void VisitNonConcurrentRoots(RootVisitor* visitor, VisitRootFlags flags)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Constant roots are the roots which never change after the runtime is initialized, they only
+  // need to be visited once per GC cycle.
+  void VisitConstantRoots(RootVisitor* visitor)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // A pointer to the active runtime or null.
   static Runtime* instance_;
@@ -708,6 +769,9 @@ class Runtime {
   std::string class_path_string_;
   std::vector<std::string> properties_;
 
+  std::list<ti::Agent> agents_;
+  std::vector<Plugin> plugins_;
+
   // The default stack size for managed threads created by the runtime.
   size_t default_stack_size_;
 
@@ -737,12 +801,10 @@ class Runtime {
   SignalCatcher* signal_catcher_;
   std::string stack_trace_file_;
 
-  JavaVMExt* java_vm_;
+  std::unique_ptr<JavaVMExt> java_vm_;
 
   std::unique_ptr<jit::Jit> jit_;
   std::unique_ptr<jit::JitOptions> jit_options_;
-
-  std::unique_ptr<lambda::BoxTable> lambda_box_table_;
 
   // Fault message, printed when we get a SIGSEGV.
   Mutex fault_message_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
@@ -777,9 +839,6 @@ class Runtime {
   RuntimeStats stats_;
 
   const bool is_running_on_memory_tool_;
-
-  std::string profile_output_filename_;
-  ProfilerOptions profiler_options_;
 
   std::unique_ptr<TraceConfig> trace_config_;
 
@@ -837,6 +896,9 @@ class Runtime {
   // Whether we are running under native debugger.
   bool is_native_debuggable_;
 
+  // Whether Java code needs to be debuggable.
+  bool is_java_debuggable_;
+
   // The maximum number of failed boots we allow before pruning the dalvik cache
   // and trying again. This option is only inspected when we're running as a
   // zygote.
@@ -871,6 +933,30 @@ class Runtime {
 
   // Whether zygote code is in a section that should not start threads.
   bool zygote_no_threads_;
+
+  // Saved environment.
+  class EnvSnapshot {
+   public:
+    EnvSnapshot() = default;
+    void TakeSnapshot();
+    char** GetSnapshot() const;
+
+   private:
+    std::unique_ptr<char*[]> c_env_vector_;
+    std::vector<std::unique_ptr<std::string>> name_value_pairs_;
+
+    DISALLOW_COPY_AND_ASSIGN(EnvSnapshot);
+  } env_snapshot_;
+
+  // Generic system-weak holders.
+  std::vector<gc::AbstractSystemWeakHolder*> system_weak_holders_;
+
+  ClassHierarchyAnalysis* cha_;
+
+  std::unique_ptr<RuntimeCallbacks> callbacks_;
+
+  std::atomic<uint32_t> deoptimization_counts_[
+      static_cast<uint32_t>(DeoptimizationKind::kLast) + 1];
 
   DISALLOW_COPY_AND_ASSIGN(Runtime);
 };

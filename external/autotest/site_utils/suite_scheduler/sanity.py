@@ -9,7 +9,23 @@ import os
 import common
 
 
-def CheckControlFileExistance(tasks):
+_WHITELISTED_SUITES = (
+    'arc-cts',
+    'arc-cts-perbuild',
+    'arc-cts-dev',
+    'arc-cts-beta',
+    'arc-cts-stable',
+    'arc-gts',
+    'arc-gts-perbuild',
+    'arc-gts-tot',
+    'arc-nightly',
+    'arc-weekly',
+    'crosbolt_arc_perf',
+    'crosbolt_arc_perf_nightly',
+    'crosbolt_arc_perf_perbuild',
+)
+
+def CheckControlFileExistence(tasks):
     """
     Make sure that for any task that schedules a suite, that
     test_suites/control.<suite> exists. this prevents people from accidentally
@@ -26,6 +42,8 @@ def CheckControlFileExistance(tasks):
     for task in tasks:
         suite_path = os.path.join(common.autotest_dir,
                                   'test_suites', 'control.'+task.suite)
+        if task.suite in _WHITELISTED_SUITES:
+            continue
         if not os.path.exists(suite_path):
             corrections = True
             logging.warning("No suite control file for %s", task.suite)

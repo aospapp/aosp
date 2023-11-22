@@ -28,20 +28,23 @@ import libcore.io.Memory;
 import static android.system.OsConstants.*;
 
 /**
- * A memory-mapped file. Use {@link #mmap} to map a file, {@link #close} to unmap a file,
+ * A memory-mapped file. Use {@link #mmapRO} to map a file, {@link #close} to unmap a file,
  * and either {@link #bigEndianIterator} or {@link #littleEndianIterator} to get a seekable
- * {@link BufferIterator} over the mapped data.
+ * {@link BufferIterator} over the mapped data. This class is not thread safe.
  */
 public final class MemoryMappedFile implements AutoCloseable {
-    private long address;
-    private final long size;
+    private boolean closed;
+    private final long address;
+    private final int size;
 
-    /**
-     * Use this if you've called {@code mmap} yourself.
-     */
+    /** Public for layoutlib only. */
     public MemoryMappedFile(long address, long size) {
         this.address = address;
-        this.size = size;
+        // For simplicity when bounds checking, only sizes up to Integer.MAX_VALUE are supported.
+        if (size < 0 || size > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Unsupported file size=" + size);
+        }
+        this.size = (int) size;
     }
 
     /**
@@ -49,10 +52,13 @@ public final class MemoryMappedFile implements AutoCloseable {
      */
     public static MemoryMappedFile mmapRO(String path) throws ErrnoException {
         FileDescriptor fd = Libcore.os.open(path, O_RDONLY, 0);
-        long size = Libcore.os.fstat(fd).st_size;
-        long address = Libcore.os.mmap(0L, size, PROT_READ, MAP_SHARED, fd, 0);
-        Libcore.os.close(fd);
-        return new MemoryMappedFile(address, size);
+        try {
+            long size = Libcore.os.fstat(fd).st_size;
+            long address = Libcore.os.mmap(0L, size, PROT_READ, MAP_SHARED, fd, 0);
+            return new MemoryMappedFile(address, size);
+        } finally {
+            Libcore.os.close(fd);
+        }
     }
 
     /**
@@ -63,31 +69,45 @@ public final class MemoryMappedFile implements AutoCloseable {
      * Calling this method invalidates any iterators over this {@code MemoryMappedFile}. It is an
      * error to use such an iterator after calling {@code close}.
      */
-    public synchronized void close() throws ErrnoException {
-        if (address != 0) {
+    public void close() throws ErrnoException {
+        if (!closed) {
+            closed = true;
             Libcore.os.munmap(address, size);
-            address = 0;
         }
+    }
+
+    public boolean isClosed() {
+        return closed;
     }
 
     /**
      * Returns a new iterator that treats the mapped data as big-endian.
      */
     public BufferIterator bigEndianIterator() {
-        return new NioBufferIterator(address, (int) size, ByteOrder.nativeOrder() != ByteOrder.BIG_ENDIAN);
+        return new NioBufferIterator(
+                this, address, size, ByteOrder.nativeOrder() != ByteOrder.BIG_ENDIAN);
     }
 
     /**
      * Returns a new iterator that treats the mapped data as little-endian.
      */
     public BufferIterator littleEndianIterator() {
-        return new NioBufferIterator(address, (int) size, ByteOrder.nativeOrder() != ByteOrder.LITTLE_ENDIAN);
+        return new NioBufferIterator(
+                this, this.address, this.size, ByteOrder.nativeOrder() != ByteOrder.LITTLE_ENDIAN);
+    }
+
+    /** Throws {@link IllegalStateException} if the file is closed. */
+    void checkNotClosed() {
+        if (closed) {
+            throw new IllegalStateException("MemoryMappedFile is closed");
+        }
     }
 
     /**
      * Returns the size in bytes of the memory-mapped region.
      */
-    public long size() {
+    public int size() {
+        checkNotClosed();
         return size;
     }
 }

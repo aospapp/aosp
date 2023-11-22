@@ -151,6 +151,9 @@ PU1_AVAIL_5_LOOP:
     mov         x20,#255
     cmp         x9,x20
     csel        x9, x20, x9, ge             //u1_pos_0_0_tmp = CLIP3(pu1_src[0] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
+    mov         x20,#0
+    cmp         x9,x20
+    csel        x9, x20, x9, LT             //u1_pos_0_0_tmp = CLIP3(pu1_src[0] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
 
 PU1_AVAIL_6_LOOP:
     LDRB        w10,[x5,#6]                 //pu1_avail[6]
@@ -198,6 +201,9 @@ PU1_AVAIL_6_LOOP:
     mov         x20,#255
     cmp         x10,x20
     csel        x10, x20, x10, ge           //u1_pos_wd_ht_tmp = CLIP3(pu1_src[(ht - 1) * src_strd] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
+    mov         x20,#0
+    cmp         x10,x20
+    csel        x10, x20, x10, LT           //u1_pos_wd_ht_tmp = CLIP3(pu1_src[(ht - 1) * src_strd] + pi1_sao_offset[edge_idx], 0, (1 << bit_depth) - 1)
 
 PU1_AVAIL_3_LOOP:
     MOV         x21,x2
@@ -713,6 +719,10 @@ SRC_LEFT_LOOP_WD_16_HT_4:
 
     SUBS        x6,x6,#16                   //Decrement the wd loop count by 16
     BLE         RE_ASSINING_LOOP            //Jump to re-assigning loop
+    MOV         x7,x16                      //Loads wd
+    MOV         x0,x15                      //Loads *pu1_src
+    SUB         x7,x7,x6
+    ADD         x0,x0,x7
     BGT         WD_16_HT_4_LOOP             //If not equal jump to width_loop
 
 

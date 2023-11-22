@@ -49,6 +49,8 @@ public abstract class DexBackedReference {
                 return new DexBackedMethodReference(dexFile, referenceIndex);
             case ReferenceType.FIELD:
                 return new DexBackedFieldReference(dexFile, referenceIndex);
+            case ReferenceType.METHOD_PROTO:
+                return new DexBackedMethodProtoReference(dexFile, referenceIndex);
             default:
                 throw new ExceptionWithContext("Invalid reference type: %d", referenceType);
         }

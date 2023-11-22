@@ -29,7 +29,7 @@ import com.squareup.okhttp.internal.framed.ErrorCode;
 import com.squareup.okhttp.internal.framed.FramedConnection;
 import com.squareup.okhttp.internal.framed.FramedStream;
 import com.squareup.okhttp.internal.framed.Header;
-import com.squareup.okhttp.internal.framed.IncomingStreamHandler;
+import com.squareup.okhttp.internal.framed.Settings;
 import com.squareup.okhttp.internal.http.HttpMethod;
 import com.squareup.okhttp.internal.ws.RealWebSocket;
 import com.squareup.okhttp.internal.ws.WebSocketProtocol;
@@ -82,6 +82,7 @@ import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
 import static com.squareup.okhttp.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
+import static com.squareup.okhttp.mockwebserver.SocketPolicy.DISCONNECT_DURING_REQUEST_BODY;
 import static com.squareup.okhttp.mockwebserver.SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY;
 import static com.squareup.okhttp.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -174,8 +175,10 @@ public final class MockWebServer implements TestRule {
   }
 
   public void setServerSocketFactory(ServerSocketFactory serverSocketFactory) {
-    if (executor != null) throw new IllegalStateException(
-        "setServerSocketFactory() must be called before start()");
+    if (executor != null) {
+      throw new IllegalStateException(
+          "setServerSocketFactory() must be called before start()");
+    }
     this.serverSocketFactory = serverSocketFactory;
   }
 
@@ -463,11 +466,12 @@ public final class MockWebServer implements TestRule {
         }
 
         if (protocol != Protocol.HTTP_1_1) {
-          FramedSocketHandler framedSocketHandler = new FramedSocketHandler(socket, protocol);
-          FramedConnection framedConnection =
-              new FramedConnection.Builder(false, socket).protocol(protocol)
-                  .handler(framedSocketHandler)
-                  .build();
+          FramedSocketHandler framedSocketListener = new FramedSocketHandler(socket, protocol);
+          FramedConnection framedConnection = new FramedConnection.Builder(false)
+              .socket(socket)
+              .protocol(protocol)
+              .listener(framedSocketListener)
+              .build();
           openFramedConnections.add(framedConnection);
           openClientSockets.remove(socket);
           return;
@@ -672,7 +676,7 @@ public final class MockWebServer implements TestRule {
     final RealWebSocket webSocket =
         new RealWebSocket(false /* is server */, source, sink, new SecureRandom(), replyExecutor,
             listener, request.getPath()) {
-          @Override protected void closeConnection() throws IOException {
+          @Override protected void close() throws IOException {
             connectionClose.countDown();
           }
         };
@@ -704,6 +708,7 @@ public final class MockWebServer implements TestRule {
       throw new RuntimeException(e);
     }
 
+    replyExecutor.shutdown();
     Util.closeQuietly(sink);
     Util.closeQuietly(source);
   }
@@ -754,8 +759,9 @@ public final class MockWebServer implements TestRule {
     long periodDelayMs = policy.getThrottlePeriod(TimeUnit.MILLISECONDS);
 
     long halfByteCount = byteCount / 2;
-    boolean disconnectHalfway =
-        !isRequest && policy.getSocketPolicy() == DISCONNECT_DURING_RESPONSE_BODY;
+    boolean disconnectHalfway = isRequest
+        ? policy.getSocketPolicy() == DISCONNECT_DURING_REQUEST_BODY
+        : policy.getSocketPolicy() == DISCONNECT_DURING_RESPONSE_BODY;
 
     while (!socket.isClosed()) {
       for (int b = 0; b < bytesPerPeriod; ) {
@@ -847,7 +853,7 @@ public final class MockWebServer implements TestRule {
   }
 
   /** Processes HTTP requests layered over framed protocols. */
-  private class FramedSocketHandler implements IncomingStreamHandler {
+  private class FramedSocketHandler extends FramedConnection.Listener {
     private final Socket socket;
     private final Protocol protocol;
     private final AtomicInteger sequenceNumber = new AtomicInteger();
@@ -857,7 +863,7 @@ public final class MockWebServer implements TestRule {
       this.protocol = protocol;
     }
 
-    @Override public void receive(FramedStream stream) throws IOException {
+    @Override public void onStream(FramedStream stream) throws IOException {
       RecordedRequest request = readRequest(stream);
       requestQueue.add(request);
       MockResponse response;
@@ -888,8 +894,14 @@ public final class MockWebServer implements TestRule {
           path = value;
         } else if (name.equals(Header.VERSION)) {
           version = value;
-        } else {
+        } else if (protocol == Protocol.SPDY_3) {
+          for (String s : value.split("\u0000", -1)) {
+            httpHeaders.add(name.utf8(), s);
+          }
+        } else if (protocol == Protocol.HTTP_2) {
           httpHeaders.add(name.utf8(), value);
+        } else {
+          throw new IllegalStateException();
         }
       }
 
@@ -904,6 +916,11 @@ public final class MockWebServer implements TestRule {
     }
 
     private void writeResponse(FramedStream stream, MockResponse response) throws IOException {
+      Settings settings = response.getSettings();
+      if (settings != null) {
+        stream.getConnection().setSettings(settings);
+      }
+
       if (response.getSocketPolicy() == SocketPolicy.NO_RESPONSE) {
         return;
       }

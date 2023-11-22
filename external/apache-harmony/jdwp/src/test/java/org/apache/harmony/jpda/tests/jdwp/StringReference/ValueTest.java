@@ -26,8 +26,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.StringReference;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -42,11 +40,12 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class ValueTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }
 
-    protected void checkString(String testString) throws UnsupportedEncodingException {
+    protected void checkString(String testString) {
         logWriter.println("=> Test string: \"" + testString + "\"");
 
         // create new string
@@ -68,7 +67,7 @@ public class ValueTest extends JDWPSyncTestCase {
      * StringReference.Value command returns string which is
      * equal to string used for CreateString command.
      */
-    public void testStringReferenceValueTest001() throws UnsupportedEncodingException {
+    public void testStringReferenceValueTest001() {
         logWriter.println("StringReferenceValueTest001 started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

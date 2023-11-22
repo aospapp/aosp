@@ -1,7 +1,8 @@
 /******************************************************************************
  *
  *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights reserved.
+ *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights
+ *                        reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -25,9 +26,9 @@
  *
  */
 
-/**********************************************************************************
+/*******************************************************************************
   $Revision: #1 $
-***********************************************************************************/
+ ******************************************************************************/
 
 #include "oi_stddefs.h"
 
@@ -42,7 +43,7 @@ extern "C" {
 #define OI_BT_MAX_ACTIVE_SLAVES 7
 
 /** the number of bytes in a Bluetooth device address (BD_ADDR) */
-#define OI_BD_ADDR_BYTE_SIZE   6
+#define OI_BD_ADDR_BYTE_SIZE 6
 
 /**
  * 48-bit Bluetooth device address
@@ -57,9 +58,10 @@ extern "C" {
  *  - array[4] contains bits 15-8, and
  *  - array[5] contains bits 7-0.
  */
-typedef struct  {
-    OI_UINT8    addr[OI_BD_ADDR_BYTE_SIZE] ;   /**< Bluetooth device address represented as an array of 8-bit values */
-} OI_BD_ADDR ;
+typedef struct {
+  /* Bluetooth device address represented as an array of 8-bit values */
+  uint8_t addr[OI_BD_ADDR_BYTE_SIZE];
+} OI_BD_ADDR;
 
 /**
  * @name Data types for working with UUIDs
@@ -75,22 +77,22 @@ typedef struct  {
 /**
  * 16-bit representation of a 128-bit UUID
  */
-typedef OI_UINT16 OI_UUID16;
+typedef uint16_t OI_UUID16;
 
 /**
  * 32-bit representation of a 128-bit UUID
  */
-typedef OI_UINT32 OI_UUID32;
+typedef uint32_t OI_UUID32;
 
 /**
  * number of bytes in a 128 bit UUID
  */
-#define OI_BT_UUID128_SIZE  16
+#define OI_BT_UUID128_SIZE 16
 
 /**
  * number of bytes in IPv6 style addresses
  */
-#define OI_BT_IPV6ADDR_SIZE  16
+#define OI_BT_IPV6ADDR_SIZE 16
 
 /**
  * type definition for a 128-bit UUID
@@ -101,14 +103,16 @@ typedef OI_UINT32 OI_UUID32;
  * stored as bytes in big-endian order.
  */
 typedef struct {
-    OI_UINT32 ms32bits;                                    /**< most significant 32 bits of 128-bit UUID */
-    OI_UINT8 base[OI_BT_UUID128_SIZE - sizeof(OI_UINT32)]; /**< remainder of 128-bit UUID, array of 8-bit values */
+  /* most significant 32 bits of 128-bit UUID */
+  uint32_t ms32bits;
+  /* remainder of 128-bit UUID, array of 8-bit values */
+  uint8_t base[OI_BT_UUID128_SIZE - sizeof(uint32_t)];
 } OI_UUID128;
 
 /** @} */
 
 /** number of bytes in a link key */
-#define OI_BT_LINK_KEY_SIZE    16
+#define OI_BT_LINK_KEY_SIZE 16
 
 /**
  * type definition for a baseband link key
@@ -134,90 +138,96 @@ typedef struct {
  *  - array[15] contains bits 120- 127.
  */
 typedef struct {
-    OI_UINT8    key[OI_BT_LINK_KEY_SIZE] ;   /**< link key represented as an array of 8-bit values */
-} OI_LINK_KEY ;
-
+  /* link key represented as an array of 8-bit values */
+  uint8_t key[OI_BT_LINK_KEY_SIZE];
+} OI_LINK_KEY;
 
 /** Out-of-band data size - C and R values are 16-bytes each */
-#define OI_BT_OOB_NUM_BYTES     16
+#define OI_BT_OOB_NUM_BYTES 16
 
 typedef struct {
-    OI_UINT8    value[OI_BT_OOB_NUM_BYTES] ;   /**< same struct used for C and R values */
-} OI_OOB_DATA ;
-
+  /* same struct used for C and R values */
+  uint8_t value[OI_BT_OOB_NUM_BYTES];
+} OI_OOB_DATA;
 
 /**
  * link key types
  */
-typedef enum  {
-    OI_LINK_KEY_TYPE_COMBO              = 0,    /**< combination key */
-    OI_LINK_KEY_TYPE_LOCAL_UNIT         = 1,    /**< local unit key */
-    OI_LINK_KEY_TYPE_REMOTE_UNIT        = 2,    /**< remote unit key */
-    OI_LINK_KEY_TYPE_DEBUG_COMBO        = 3,    /**< debug combination key */
-    OI_LINK_KEY_TYPE_UNAUTHENTICATED    = 4,    /**< Unauthenticated */
-    OI_LINK_KEY_TYPE_AUTHENTICATED      = 5,    /**< Authenticated */
-    OI_LINK_KEY_TYPE_CHANGED_COMBO      = 6     /**< Changed */
+typedef enum {
+  OI_LINK_KEY_TYPE_COMBO = 0,           /* combination key */
+  OI_LINK_KEY_TYPE_LOCAL_UNIT = 1,      /* local unit key */
+  OI_LINK_KEY_TYPE_REMOTE_UNIT = 2,     /* remote unit key */
+  OI_LINK_KEY_TYPE_DEBUG_COMBO = 3,     /* debug combination key */
+  OI_LINK_KEY_TYPE_UNAUTHENTICATED = 4, /* Unauthenticated */
+  OI_LINK_KEY_TYPE_AUTHENTICATED = 5,   /* Authenticated */
+  OI_LINK_KEY_TYPE_CHANGED_COMBO = 6    /* Changed */
 
-} OI_BT_LINK_KEY_TYPE ;
+} OI_BT_LINK_KEY_TYPE;
 
+/* Number of bytes allocated for a PIN (personal indentification number) */
+#define OI_BT_PIN_CODE_SIZE 16
 
-/** amount of space allocated for a PIN (personal indentification number) in bytes */
-#define OI_BT_PIN_CODE_SIZE    16
+/* data type for a PIN (PINs are treated as strings.) */
+typedef struct {
+  /* PIN represented as an array of 8-bit values */
+  uint8_t pin[OI_BT_PIN_CODE_SIZE];
+} OI_PIN_CODE;
 
-/** data type for a PIN (PINs are treated as strings, so endianness does not apply.) */
-typedef struct  {
-    OI_UINT8    pin[OI_BT_PIN_CODE_SIZE] ; /**< PIN represented as an array of 8-bit values */
-} OI_PIN_CODE ;
-
-/** maximum number of SCO connections per device, which is 3 as of version 2.0+EDR
+/* maximum number of SCO connections per device: 3 as of version 2.0+EDR
     of the Bluetooth specification (see sec 4.3 of vol 2 part B) */
-#define OI_BT_MAX_SCO_CONNECTIONS  3
+#define OI_BT_MAX_SCO_CONNECTIONS 3
 
 /** data type for clock offset */
-typedef OI_UINT16   OI_BT_CLOCK_OFFSET ;
+typedef uint16_t OI_BT_CLOCK_OFFSET;
 
 /** data type for a LM handle */
-typedef OI_UINT16 OI_HCI_LM_HANDLE;
+typedef uint16_t OI_HCI_LM_HANDLE;
 
 /** opaque data type for a SCO or ACL connection handle */
-typedef struct _OI_HCI_CONNECTION *OI_HCI_CONNECTION_HANDLE;
+typedef struct _OI_HCI_CONNECTION* OI_HCI_CONNECTION_HANDLE;
 
 /** data type for HCI Error Code, as defined in oi_hcispec.h */
-typedef OI_UINT8    OI_HCI_ERROR_CODE ;
+typedef uint8_t OI_HCI_ERROR_CODE;
 
 /**
  * The Bluetooth device type is indicated by a 24-bit bitfield, represented as a
- * 32-bit number in the stack. The bit layout and values for device class are specified
- * in the file oi_bt_assigned_nos.h and in the Bluetooth "Assigned Numbers" specification
- * at http://www.bluetooth.org/assigned-numbers/.
+ * 32-bit number in the stack. The bit layout and values for device class are
+ * specified in the file oi_bt_assigned_nos.h and in the Bluetooth "Assigned
+ * Numbers" specification at http://www.bluetooth.org/assigned-numbers/.
  */
-typedef OI_UINT32   OI_BT_DEVICE_CLASS ;
-
-#define OI_BT_DEV_CLASS_FORMAT_MASK        0x000003    /**< Bits 0-1 contain format type. */
-#define OI_BT_DEV_CLASS_MINOR_DEVICE_MASK  0x0000FC    /**< Bits 2-7 contain minor device class value. */
-#define OI_BT_DEV_CLASS_MAJOR_DEVICE_MASK  0x001F00    /**< Bits 8-12 contain major device class value. */
-#define OI_BT_DEV_CLASS_MAJOR_SERVICE_MASK 0xFFE000    /**< Bits 13-23 contain major service class value. */
+typedef uint32_t OI_BT_DEVICE_CLASS;
+/* Bits 0-1 contain format type. */
+#define OI_BT_DEV_CLASS_FORMAT_MASK 0x000003
+/* Bits 2-7 contain minor device class value. */
+#define OI_BT_DEV_CLASS_MINOR_DEVICE_MASK 0x0000FC
+/* Bits 8-12 contain major device class value. */
+#define OI_BT_DEV_CLASS_MAJOR_DEVICE_MASK 0x001F00
+/* Bits 13-23 contain major service class value. */
+#define OI_BT_DEV_CLASS_MAJOR_SERVICE_MASK 0xFFE000
 
 /** There is currently only one device class format defined, type 00. */
-#define OI_BT_DEV_CLASS_FORMAT_TYPE        00
+#define OI_BT_DEV_CLASS_FORMAT_TYPE 00
 
-/** Bit 13 in device class indicates limited discoverability mode (GAP v2.0+EDR, section 4.1.2.2) */
-#define OI_BT_DEV_CLASS_LIMITED_DISCO_BIT  BIT13
+/* Bit 13 in device class indicates limited discoverability mode (GAP v2.0+EDR,
+ * section 4.1.2.2)
+ */
+#define OI_BT_DEV_CLASS_LIMITED_DISCO_BIT BIT13
 
 /** macro to test validity of the Device Class Format */
-#define OI_BT_VALID_DEVICE_CLASS_FORMAT(class) (OI_BT_DEV_CLASS_FORMAT_TYPE == ((class) & OI_BT_DEV_CLASS_FORMAT_MASK))
+#define OI_BT_VALID_DEVICE_CLASS_FORMAT(class) \
+  (OI_BT_DEV_CLASS_FORMAT_TYPE == ((class) & OI_BT_DEV_CLASS_FORMAT_MASK))
 
-/** the time between baseband clock ticks, currently 625 microseconds (one slot) */
+/* the time between baseband clock ticks, currently 625 microseconds (one slot)
+ */
 #define OI_BT_TICK 625
-/** some macros to convert to/from baseband clock ticks - use no floating point! */
-#define OI_SECONDS_TO_BT_TICKS(secs)    ((secs)*1600)
-#define OI_BT_TICKS_TO_SECONDS(ticks)   ((ticks)/1600)
-#define OI_MSECS_TO_BT_TICKS(msecs)     (((msecs)*8)/5)
-#define OI_BT_TICKS_TO_MSECS(ticks)     (((ticks)*5)/8)
+/* some macros to convert to/from baseband clock ticks - no floating point! */
+#define OI_SECONDS_TO_BT_TICKS(secs) ((secs)*1600)
+#define OI_BT_TICKS_TO_SECONDS(ticks) ((ticks) / 1600)
+#define OI_MSECS_TO_BT_TICKS(msecs) (((msecs)*8) / 5)
+#define OI_BT_TICKS_TO_MSECS(ticks) (((ticks)*5) / 8)
 
 /** EIR byte order */
-#define OI_EIR_BYTE_ORDER   OI_LITTLE_ENDIAN_BYTE_ORDER
-
+#define OI_EIR_BYTE_ORDER OI_LITTLE_ENDIAN_BYTE_ORDER
 
 #ifdef __cplusplus
 }

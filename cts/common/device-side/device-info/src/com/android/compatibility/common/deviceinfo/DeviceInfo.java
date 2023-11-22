@@ -87,7 +87,7 @@ public abstract class DeviceInfo extends InstrumentationTestCase {
                     mResultCode = ResultCode.COMPLETED;
                 }
             } catch (Exception e) {
-                failed("Could not collect device info: " + e.getMessage());
+                failed("Could not collect device info", e);
             }
         }
 
@@ -132,6 +132,12 @@ public abstract class DeviceInfo extends InstrumentationTestCase {
 
     private void error(String message, Throwable exception) {
         mResultCode = ResultCode.ERROR;
+        mErrorMessage = message;
+        Log.e(LOG_TAG, message, exception);
+    }
+
+    private void failed(String message, Throwable exception) {
+        mResultCode = ResultCode.FAILED;
         mErrorMessage = message;
         Log.e(LOG_TAG, message, exception);
     }

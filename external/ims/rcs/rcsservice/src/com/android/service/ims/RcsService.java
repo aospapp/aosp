@@ -369,8 +369,8 @@ public class RcsService extends Service{
     private ImsConnectionStateListener mImsConnectionStateListener =
         new ImsConnectionStateListener() {
             @Override
-            public void onImsConnected() {
-                logger.debug("onImsConnected");
+            public void onImsConnected(int imsRadioTech) {
+                logger.debug("onImsConnected imsRadioTech=" + imsRadioTech);
                 if(mRcsStackAdaptor != null) {
                     mRcsStackAdaptor.checkSubService();
                 }

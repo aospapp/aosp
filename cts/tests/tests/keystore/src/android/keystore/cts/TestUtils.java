@@ -499,6 +499,7 @@ abstract class TestUtils extends Assert {
         result.setUserAuthenticationRequired(spec.isUserAuthenticationRequired());
         result.setUserAuthenticationValidityDurationSeconds(
                 spec.getUserAuthenticationValidityDurationSeconds());
+        result.setBoundToSpecificSecureUserId(spec.getBoundToSpecificSecureUserId());
         return result;
     }
 

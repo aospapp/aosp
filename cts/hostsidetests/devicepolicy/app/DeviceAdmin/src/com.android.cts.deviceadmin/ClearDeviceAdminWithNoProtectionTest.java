@@ -33,7 +33,7 @@ public class ClearDeviceAdminWithNoProtectionTest extends AndroidTestCase {
 
         if (dpm.isAdminActive(cn)) {
             dpm.removeActiveAdmin(cn);
-            for (int i = 0; i < 1000 && dpm.isAdminActive(cn); i++) {
+            for (int i = 0; i < 6000 && dpm.isAdminActive(cn); i++) {
                 Thread.sleep(10);
             }
         }

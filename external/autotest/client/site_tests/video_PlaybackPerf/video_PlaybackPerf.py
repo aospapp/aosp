@@ -18,7 +18,7 @@ from autotest_lib.client.cros.video import constants
 
 DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS = [
         '--disable-accelerated-video-decode']
-DOWNLOAD_BASE = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/traffic/'
+DOWNLOAD_BASE = 'http://commondatastorage.googleapis.com/chromiumos-test-assets-public/'
 
 PLAYBACK_WITH_HW_ACCELERATION = 'playback_with_hw_acceleration'
 PLAYBACK_WITHOUT_HW_ACCELERATION = 'playback_without_hw_acceleration'
@@ -53,6 +53,7 @@ class video_PlaybackPerf(test.test):
     consumption for video playback to performance dashboard.
     """
     version = 1
+    arc_mode = None
 
 
     def initialize(self):
@@ -77,7 +78,8 @@ class video_PlaybackPerf(test.test):
                                "loop=true")
 
 
-    def run_once(self, video_name, video_description, power_test=False):
+    def run_once(self, video_name, video_description, power_test=False,
+                 arc_mode=None):
         """
         Runs the video_PlaybackPerf test.
 
@@ -87,11 +89,14 @@ class video_PlaybackPerf(test.test):
         @param power_test: True if this is a power test and it would only run
                 the power test. If False, it would run the cpu usage test and
                 the dropped frame count test.
+        @param arc_mode: if 'enabled', run the test with Android enabled.
         """
         # Download test video.
         url = DOWNLOAD_BASE + video_name
-        local_path = os.path.join(self.bindir, video_name)
+        local_path = os.path.join(self.bindir, os.path.basename(video_name))
+        logging.info("Downloading %s to %s", url, local_path);
         file_utils.download_file(url, local_path)
+        self.arc_mode = arc_mode
 
         if not power_test:
             # Run the video playback dropped frame tests.
@@ -228,7 +233,8 @@ class video_PlaybackPerf(test.test):
         """
         keyvals = {}
 
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(arc_mode=self.arc_mode,
+                           init_network_controller=True) as cr:
             # Open the video playback page and start playing.
             self.start_playback(cr, local_path)
             result = gather_result(cr)
@@ -246,7 +252,8 @@ class video_PlaybackPerf(test.test):
 
         # Start chrome with disabled video hardware decode flag.
         with chrome.Chrome(extra_browser_args=
-                DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS) as cr:
+                DISABLE_ACCELERATED_VIDEO_DECODE_BROWSER_ARGS,
+                arc_mode=self.arc_mode) as cr:
             # Open the video playback page and start playing.
             self.start_playback(cr, local_path)
             result = gather_result(cr)

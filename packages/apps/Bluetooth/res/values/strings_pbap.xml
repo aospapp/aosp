@@ -13,4 +13,5 @@
     <string name="unknownName">Unknown name</string>
     <string name="localPhoneName">My name</string>
     <string name="defaultnumber">000000</string>
+    <string name="pbap_notification_group">Bluetooth Contact share</string>
 </resources>

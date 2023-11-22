@@ -26,7 +26,7 @@
 typedef __u32 __bitwise __le32;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #endif
-#define DECLARE_BITMAP(name,bits) unsigned long name[BITS_TO_LONGS(bits)]
+#define DECLARE_BITMAP(name,bits) unsigned long (name)[BITS_TO_LONGS(bits)]
 struct list_head {
   struct list_head * next, * prev;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */

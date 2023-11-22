@@ -21,6 +21,8 @@
 
 #include <utils/String16.h>
 #include <utils/String8.h>
+#include <binder/Value.h>
+#include <binder/Map.h>
 
 #include "android/aidl/tests/INamedCallback.h"
 
@@ -33,6 +35,8 @@ using android::String8;
 
 // libbinder:
 using android::binder::Status;
+using android::binder::Value;
+using android::binder::Map;
 
 // generated
 using android::aidl::tests::ITestService;
@@ -51,6 +55,11 @@ namespace client {
 bool ConfirmPrimitiveRepeat(const sp<ITestService>& s) {
   cout << "Confirming passing and returning primitives works." << endl;
 
+  Map test_map;
+  test_map["first_val"] = int8_t{-128};
+  test_map["second_val"] = int32_t{1 << 30};
+  test_map["third_val"] = String16("OHAI");
+
   if (!RepeatPrimitive(s, &ITestService::RepeatBoolean, true) ||
       !RepeatPrimitive(s, &ITestService::RepeatByte, int8_t{-128}) ||
       !RepeatPrimitive(s, &ITestService::RepeatChar, char16_t{'A'}) ||
@@ -58,6 +67,7 @@ bool ConfirmPrimitiveRepeat(const sp<ITestService>& s) {
       !RepeatPrimitive(s, &ITestService::RepeatLong, int64_t{1ll << 60}) ||
       !RepeatPrimitive(s, &ITestService::RepeatFloat, float{1.0f/3.0f}) ||
       !RepeatPrimitive(s, &ITestService::RepeatDouble, double{1.0/3.0}) ||
+      !RepeatPrimitive(s, &ITestService::RepeatMap, test_map) ||
       !RepeatPrimitive(
           s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT)  ||
       !RepeatPrimitive(
@@ -73,7 +83,15 @@ bool ConfirmPrimitiveRepeat(const sp<ITestService>& s) {
       !RepeatPrimitive(
           s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT7) ||
       !RepeatPrimitive(
-          s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT8)
+          s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT8) ||
+      !RepeatPrimitive(
+          s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT9) ||
+      !RepeatPrimitive(
+          s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT10) ||
+      !RepeatPrimitive(
+          s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT11) ||
+      !RepeatPrimitive(
+          s, &ITestService::RepeatInt, ITestService::TEST_CONSTANT12)
       ) {
     return false;
   }
@@ -86,6 +104,8 @@ bool ConfirmPrimitiveRepeat(const sp<ITestService>& s) {
       //   U+10437: The 'small letter yee' character in the deseret alphabet
       //   U+20AC: A euro sign
       String16("\xD8\x01\xDC\x37\x20\xAC"),
+      ITestService::STRING_TEST_CONSTANT(),
+      ITestService::STRING_TEST_CONSTANT2(),
   };
   for (const auto& input : inputs) {
     String16 reply;

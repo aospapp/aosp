@@ -22,7 +22,7 @@ import android.annotation.SystemApi;
  * @hide
  */
 @SystemApi
-public class VehicleZoneUtil {
+public final class VehicleZoneUtil {
 
     /**
      * Change zone flag into index with available zones.
@@ -35,7 +35,6 @@ public class VehicleZoneUtil {
      */
     public static int zoneToIndex(int zones, int zone) throws IllegalArgumentException {
         if ((zone == 0) || // check that zone is non-zero
-                (zones == 0) || // check that zones is non-zero
                 ((zone & zones) != zone) || // check that zone is inside of zones
                 ((zone & (zone - 1)) != 0)) { // check that zone only has one bit set
             throw new IllegalArgumentException("Invalid zones 0x" + Integer.toHexString(zones) +
@@ -70,21 +69,16 @@ public class VehicleZoneUtil {
         if (zones == 0) {
             return 0;
         }
-        int flag = 0x1;
-        for (int i = 0; i < 32; i++) {
-            if ((flag & zones) != 0) {
-                return flag;
-            }
-            flag <<= 1;
-        }
-        return 0;
+        int xorFlag = zones & (zones - 1);
+
+        return zones ^ xorFlag;
     }
 
     /**
      * Return bit flag of zone available after startingZone. For zones of 0x7 with startingZone of
      * 0x2, it will return 0x4. If no zone exist after startingZone, it will return 0.
      * @param zones
-     * @param startingZone A big flag representing a zone. This does not necessarily be one of flags
+     * @param startingZone A bit flag representing a zone. This does not necessarily be one of flags
      *                     available in zones.
      * @return
      * @throws IllegalArgumentException If startingZone is invalid.
@@ -95,17 +89,12 @@ public class VehicleZoneUtil {
                     "Starting zone should represent only one bit flag: 0x" +
                             Integer.toHexString(startingZone));
         }
-        int flag = startingZone<<1;
-        while (flag != 0x80000000) {
-            if ((flag & zones) != 0) {
-                return flag;
-            }
-            flag <<= 1;
-        }
-        if ((flag & zones) != 0) {
-            return flag;
-        }
-        return 0;
+
+        // Create a mask that sets all bits above the current one
+        int mask = startingZone << 1;
+        mask -= 1;
+        mask = ~mask;
+        return getFirstZone(zones & mask);
     }
 
     /**
@@ -118,15 +107,16 @@ public class VehicleZoneUtil {
         if (numberOfZones == 0) {
             return list;
         }
-        int flag = 0x1;
+
         int arrayIndex = 0;
-        for (int i = 0; i < 32; i++) {
-            if ((flag & zones) != 0) {
-                list[arrayIndex] = flag;
-                arrayIndex++;
-            }
-            flag <<= 1;
+        while (zones != 0) {
+            int xorFlag = zones & (zones - 1);
+            int zone = zones ^ xorFlag;
+            list[arrayIndex++] = zone;
+            zones = xorFlag;
         }
         return list;
     }
+
+    private VehicleZoneUtil() {}
 }

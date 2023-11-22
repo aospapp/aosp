@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <base/bind.h>
-#include <base/memory/scoped_ptr.h>
 #include <brillo/errors/error_codes.h>
 #include <brillo/strings/string_utils.h>
 
@@ -19,9 +18,8 @@ std::unique_ptr<dbus::Response> CreateDBusErrorResponse(
     dbus::MethodCall* method_call,
     const std::string& error_name,
     const std::string& error_message) {
-  auto resp = dbus::ErrorResponse::FromMethodCall(
-      method_call, error_name, error_message);
-  return std::unique_ptr<dbus::Response>(resp.release());
+  return dbus::ErrorResponse::FromMethodCall(method_call, error_name,
+                                             error_message);
 }
 
 std::unique_ptr<dbus::Response> GetDBusError(dbus::MethodCall* method_call,

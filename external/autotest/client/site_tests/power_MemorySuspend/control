@@ -5,7 +5,6 @@
 AUTHOR = "jwerner, chromeos-power"
 NAME = "power_MemorySuspend"
 ATTRIBUTES = "suite:jailed_build"
-SUITE = "jailed_build"
 TIME = "FAST"
 TEST_CATEGORY = "Regression"
 TEST_CLASS = "power"

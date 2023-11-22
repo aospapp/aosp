@@ -108,6 +108,12 @@ static void nativeDestroyState(
     delete frameSequenceState;
 }
 
+void throwIae(JNIEnv* env, const char* message, int errorCode) {
+    char buf[256];
+    snprintf(buf, sizeof(buf), "%s, error %d", message, errorCode);
+    jniThrowException(env, ILLEGAL_STATE_EXEPTION, buf);
+}
+
 static jlong JNICALL nativeGetFrame(
         JNIEnv* env, jobject clazz, jlong frameSequenceStateLong, jint frameNr,
         jobject bitmap, jint previousFrameNr) {
@@ -116,16 +122,14 @@ static jlong JNICALL nativeGetFrame(
     int ret;
     AndroidBitmapInfo info;
     void* pixels;
-    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
 
-        jniThrowException(env, ILLEGAL_STATE_EXEPTION,
-                "Couldn't get info from Bitmap ");
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
+        throwIae(env, "Couldn't get info from Bitmap", ret);
         return 0;
     }
 
     if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) < 0) {
-        jniThrowException(env, ILLEGAL_STATE_EXEPTION,
-                "Bitmap pixels couldn't be locked");
+        throwIae(env, "Bitmap pixels couldn't be locked", ret);
         return 0;
     }
 

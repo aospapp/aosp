@@ -68,7 +68,7 @@ public class LauncherCallbackTestsService extends Service {
             = new LinkedBlockingQueue();
 
     private TestCallback mCallback;
-    private Object mCallbackLock = new Object();
+    private final Object mCallbackLock = new Object();
     private final Messenger mMessenger = new Messenger(new CheckHandler());
     private final HandlerThread mCallbackThread = new HandlerThread("callback");
 

@@ -72,6 +72,7 @@ rt_sigprocmask: 1
 signalfd4: 1
 ioctl: 1
 getpriority: 1
+setpriority: 1
 exit: 1
 exit_group: 1
 chdir: 1

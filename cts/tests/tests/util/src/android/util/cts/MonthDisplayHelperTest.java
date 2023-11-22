@@ -16,123 +16,118 @@
 
 package android.util.cts;
 
-import java.util.Calendar;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.MonthDisplayHelper;
 
-public class MonthDisplayHelperTest extends AndroidTestCase {
-    private MonthDisplayHelper mHelper;
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.util.Calendar;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MonthDisplayHelperTest {
+    @Test
     public void testConstructor() {
-
-        try {
-            mHelper = new MonthDisplayHelper(2008,
-                    Calendar.DECEMBER, Calendar.MONDAY);
-            mHelper = new MonthDisplayHelper(2008, Calendar.DECEMBER);
-        } catch (Exception e) {
-            fail("shouldn't throw exception");
-        }
-
-        try {
-            mHelper = new MonthDisplayHelper(2008,
-                    Calendar.DECEMBER, Calendar.SUNDAY - 1);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
-        try {
-            mHelper = new MonthDisplayHelper(2008,
-                    Calendar.DECEMBER, Calendar.SATURDAY + 1);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
-        try {
-            mHelper = new MonthDisplayHelper(-1, Calendar.DECEMBER,
-                    Calendar.SATURDAY + 1);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
-        try {
-            mHelper = new MonthDisplayHelper(-1,
-                    Calendar.DECEMBER + 1, Calendar.SATURDAY + 1);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
-
+        new MonthDisplayHelper(2008, Calendar.DECEMBER, Calendar.MONDAY);
+        new MonthDisplayHelper(2008, Calendar.DECEMBER);
     }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testConstructorInvalidDay1() {
+        new MonthDisplayHelper(2008, Calendar.DECEMBER, Calendar.SUNDAY - 1);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testConstructorInvalidDay2() {
+        new MonthDisplayHelper(2008, Calendar.DECEMBER, Calendar.SATURDAY + 1);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testConstructorInvalidYearAndDay() {
+        new MonthDisplayHelper(-1, Calendar.DECEMBER, Calendar.SATURDAY + 1);
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testConstructorInvalidYearAndMonthAndDay() {
+        new MonthDisplayHelper(-1, Calendar.DECEMBER + 1, Calendar.SATURDAY + 1);
+    }
+
+    @Test
     public void testNumberOfDaysInCurrentMonth() {
-        assertEquals(30, new MonthDisplayHelper(2007, Calendar.SEPTEMBER)
-                .getNumberOfDaysInMonth());
-        assertEquals(28, new MonthDisplayHelper(2007, Calendar.FEBRUARY)
-        .getNumberOfDaysInMonth());
-        assertEquals(29, new MonthDisplayHelper(2008, Calendar.FEBRUARY)
-        .getNumberOfDaysInMonth());
+        assertEquals(30,
+                new MonthDisplayHelper(2007, Calendar.SEPTEMBER).getNumberOfDaysInMonth());
+        assertEquals(28,
+                new MonthDisplayHelper(2007, Calendar.FEBRUARY).getNumberOfDaysInMonth());
+        assertEquals(29,
+                new MonthDisplayHelper(2008, Calendar.FEBRUARY).getNumberOfDaysInMonth());
     }
 
+    @Test
     public void testNextMonth() {
-        mHelper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
+        MonthDisplayHelper helper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
 
-        assertArraysEqual(new int[] { 29, 30, 31, 1, 2, 3, 4 }, mHelper
-                .getDigitsForRow(0));
+        assertArrayEquals(new int[] { 29, 30, 31, 1, 2, 3, 4 }, helper.getDigitsForRow(0));
 
-        mHelper.nextMonth();
+        helper.nextMonth();
 
-        assertEquals(Calendar.SEPTEMBER, mHelper.getMonth());
-        assertArraysEqual(new int[] { 26, 27, 28, 29, 30, 31, 1 }, mHelper
-                .getDigitsForRow(0));
+        assertEquals(Calendar.SEPTEMBER, helper.getMonth());
+        assertArrayEquals(new int[] { 26, 27, 28, 29, 30, 31, 1 }, helper.getDigitsForRow(0));
     }
 
+    @Test
     public void testGetRowOf() {
-        mHelper = new MonthDisplayHelper(2007,
-                Calendar.AUGUST, Calendar.SUNDAY);
+        MonthDisplayHelper helper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
 
-        assertEquals(0, mHelper.getRowOf(2));
-        assertEquals(0, mHelper.getRowOf(4));
-        assertEquals(2, mHelper.getRowOf(12));
-        assertEquals(2, mHelper.getRowOf(18));
-        assertEquals(3, mHelper.getRowOf(19));
+        assertEquals(0, helper.getRowOf(2));
+        assertEquals(0, helper.getRowOf(4));
+        assertEquals(2, helper.getRowOf(12));
+        assertEquals(2, helper.getRowOf(18));
+        assertEquals(3, helper.getRowOf(19));
     }
 
+    @Test
     public void testHelperProperties() {
-        mHelper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
+        MonthDisplayHelper helper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
 
-        assertEquals(1, mHelper.getWeekStartDay());
-        assertEquals(3, mHelper.getOffset());
-        mHelper = new MonthDisplayHelper(2007, Calendar.AUGUST);
-        assertEquals(1, mHelper.getWeekStartDay());
-        assertEquals(3, mHelper.getOffset());
+        assertEquals(1, helper.getWeekStartDay());
+        assertEquals(3, helper.getOffset());
+        helper = new MonthDisplayHelper(2007, Calendar.AUGUST);
+        assertEquals(1, helper.getWeekStartDay());
+        assertEquals(3, helper.getOffset());
     }
 
+    @Test
     public void testMonthRows() {
-        mHelper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER);
+        MonthDisplayHelper helper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER);
 
-        assertArraysEqual(new int[] { 26, 27, 28, 29, 30, 31, 1 }, mHelper
+        assertArrayEquals(new int[] { 26, 27, 28, 29, 30, 31, 1 }, helper
                 .getDigitsForRow(0));
-        assertArraysEqual(new int[] { 2, 3, 4, 5, 6, 7, 8 }, mHelper
+        assertArrayEquals(new int[] { 2, 3, 4, 5, 6, 7, 8 }, helper
                 .getDigitsForRow(1));
-        assertArraysEqual(new int[] { 30, 1, 2, 3, 4, 5, 6 }, mHelper
+        assertArrayEquals(new int[] { 30, 1, 2, 3, 4, 5, 6 }, helper
                 .getDigitsForRow(5));
 
-        mHelper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER,
-                Calendar.MONDAY);
+        helper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER, Calendar.MONDAY);
 
-        assertArraysEqual(new int[] { 27, 28, 29, 30, 31, 1, 2 }, mHelper
+        assertArrayEquals(new int[] { 27, 28, 29, 30, 31, 1, 2 }, helper
                 .getDigitsForRow(0));
-        assertArraysEqual(new int[] { 3, 4, 5, 6, 7, 8, 9 }, mHelper
+        assertArrayEquals(new int[] { 3, 4, 5, 6, 7, 8, 9 }, helper
                 .getDigitsForRow(1));
-        assertArraysEqual(new int[] { 24, 25, 26, 27, 28, 29, 30 }, mHelper
+        assertArrayEquals(new int[] { 24, 25, 26, 27, 28, 29, 30 }, helper
                 .getDigitsForRow(4));
-        assertArraysEqual(new int[] { 1, 2, 3, 4, 5, 6, 7 }, mHelper
+        assertArrayEquals(new int[] { 1, 2, 3, 4, 5, 6, 7 }, helper
                 .getDigitsForRow(5));
     }
 
+    @Test
     public void testFirstDayOfMonth() {
-
         assertEquals("august 2007", Calendar.WEDNESDAY, new MonthDisplayHelper(
                 2007, Calendar.AUGUST).getFirstDayOfMonth());
 
@@ -141,36 +136,35 @@ public class MonthDisplayHelperTest extends AndroidTestCase {
                         .getFirstDayOfMonth());
     }
 
+    @Test
     public void testGetColumnOf() {
-        mHelper= new MonthDisplayHelper(2007,
-                Calendar.AUGUST, Calendar.SUNDAY);
+        MonthDisplayHelper helper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
 
-        assertEquals(3, mHelper.getColumnOf(1));
-        assertEquals(4, mHelper.getColumnOf(9));
-        assertEquals(5, mHelper.getColumnOf(17));
-        assertEquals(6, mHelper.getColumnOf(25));
-        assertEquals(0, mHelper.getColumnOf(26));
+        assertEquals(3, helper.getColumnOf(1));
+        assertEquals(4, helper.getColumnOf(9));
+        assertEquals(5, helper.getColumnOf(17));
+        assertEquals(6, helper.getColumnOf(25));
+        assertEquals(0, helper.getColumnOf(26));
     }
 
+    @Test
     public void testGetDayAt() {
-        mHelper = new MonthDisplayHelper(2007,
-                Calendar.AUGUST, Calendar.SUNDAY);
+        MonthDisplayHelper helper = new MonthDisplayHelper(2007, Calendar.AUGUST, Calendar.SUNDAY);
 
-        assertEquals(30, mHelper.getDayAt(0, 1));
+        assertEquals(30, helper.getDayAt(0, 1));
     }
 
+    @Test
     public void testPrevMonth() {
-        mHelper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER,
+        MonthDisplayHelper mHelper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER,
                 Calendar.SUNDAY);
 
-        assertArraysEqual(new int[] { 26, 27, 28, 29, 30, 31, 1 }, mHelper
-                .getDigitsForRow(0));
+        assertArrayEquals(new int[] { 26, 27, 28, 29, 30, 31, 1 }, mHelper.getDigitsForRow(0));
 
         mHelper.previousMonth();
 
         assertEquals(Calendar.AUGUST, mHelper.getMonth());
-        assertArraysEqual(new int[] { 29, 30, 31, 1, 2, 3, 4 }, mHelper
-                .getDigitsForRow(0));
+        assertArrayEquals(new int[] { 29, 30, 31, 1, 2, 3, 4 }, mHelper.getDigitsForRow(0));
 
         mHelper = new MonthDisplayHelper(2007, Calendar.JANUARY);
 
@@ -180,8 +174,9 @@ public class MonthDisplayHelperTest extends AndroidTestCase {
         assertEquals(Calendar.DECEMBER, mHelper.getMonth());
     }
 
+    @Test
     public void testIsWithinCurrentMonth() {
-        mHelper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER,
+        MonthDisplayHelper mHelper = new MonthDisplayHelper(2007, Calendar.SEPTEMBER,
                 Calendar.SUNDAY);
 
         // out of bounds
@@ -201,14 +196,6 @@ public class MonthDisplayHelperTest extends AndroidTestCase {
 
         // last day in month
         assertTrue(mHelper.isWithinCurrentMonth(5, 0));
-    }
-
-    private void assertArraysEqual(int[] expected, int[] actual) {
-        assertEquals("array length", expected.length, actual.length);
-        for (int i = 0; i < expected.length; i++) {
-            assertEquals("index " + i,
-                    expected[i], actual[i]);
-        }
     }
 }
 

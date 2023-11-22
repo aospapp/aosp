@@ -73,7 +73,12 @@ static VAStatus tng_yuv_processor_CreateContext(
 
     if (!dec_ctx) {
         dec_ctx = (context_DEC_p) malloc(sizeof(struct context_DEC_s));
-        CHECK_ALLOCATION(dec_ctx);
+        if(dec_ctx == NULL) {
+            free(ctx);
+            vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+            drv_debug_msg(VIDEO_DEBUG_ERROR, "%s fails with '%d' at %s:%d\n", __FUNCTION__, vaStatus, __FILE__, __LINE__);
+            return vaStatus;
+        }
         obj_context->format_data = (void *)dec_ctx;
         ctx->has_dec_ctx = 1;
         vaStatus = vld_dec_CreateContext(dec_ctx, obj_context);

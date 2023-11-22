@@ -149,6 +149,7 @@ public class PipInputManager {
         if (mStarted) {
             return;
         }
+        mStarted = true;
         mInputManager.addCallback(mTvInputCallback);
         mChannelTuner.addListener(mChannelTunerListener);
         initializePipInputList();
@@ -161,6 +162,7 @@ public class PipInputManager {
         if (!mStarted) {
             return;
         }
+        mStarted = false;
         mInputManager.removeCallback(mTvInputCallback);
         mChannelTuner.removeListener(mChannelTunerListener);
         mPipInputMap.clear();

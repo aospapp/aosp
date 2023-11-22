@@ -13,24 +13,33 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     frameworks-base-testutils \
+    services.accessibility \
+    services.appwidget \
     services.core \
     services.devicepolicy \
     services.net \
+    services.retaildemo \
     services.usage \
-    easymocklib \
     guava \
     android-support-test \
-    mockito-target \
-    ShortcutManagerTestUtils
+    mockito-target-minus-junit4 \
+    platform-test-annotations \
+    ShortcutManagerTestUtils \
+    truth-prebuilt
+
+LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/aidl
+
+LOCAL_SRC_FILES += aidl/com/android/servicestests/aidl/INetworkStateObserver.aidl
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
 LOCAL_PACKAGE_NAME := FrameworksServicesTests
+LOCAL_COMPATIBILITY_SUITE := device-tests
 
 LOCAL_CERTIFICATE := platform
 
 # These are not normally accessible from apps so they must be explicitly included.
-LOCAL_JNI_SHARED_LIBRARIES := libservicestestsjni \
+LOCAL_JNI_SHARED_LIBRARIES := \
     libbacktrace \
     libbase \
     libbinder \
@@ -46,36 +55,9 @@ LOCAL_JNI_SHARED_LIBRARIES := libservicestestsjni \
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
+LOCAL_JACK_FLAGS := --multi-dex native
+LOCAL_DX_FLAGS := --multi-dex
+
+LOCAL_STATIC_JAVA_LIBRARIES += ub-uiautomator
+
 include $(BUILD_PACKAGE)
-
-#########################################################################
-# Build JNI Shared Library
-#########################################################################
-
-LOCAL_PATH:= $(LOCAL_PATH)/jni
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE_TAGS := tests
-
-LOCAL_CFLAGS := -Wall -Wextra -Werror
-
-LOCAL_C_INCLUDES := \
-  libpcap \
-  hardware/google/apf
-
-LOCAL_SRC_FILES := $(call all-cpp-files-under)
-
-LOCAL_SHARED_LIBRARIES := \
-  libbinder \
-  libcutils \
-  libnativehelper \
-  libnetdaidl
-
-LOCAL_STATIC_LIBRARIES := \
-  libpcap \
-  libapf
-
-LOCAL_MODULE := libservicestestsjni
-
-include $(BUILD_SHARED_LIBRARY)

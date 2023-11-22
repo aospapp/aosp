@@ -16,7 +16,7 @@
                 android:permission="android.permission.SEND_CALL_LOG_CHANGE">
             <!-- Sent when the call log changes.  We use it to trigger a backup request. -->
             <intent-filter>
-                <action android:name="android.intent.action.CALL_LOG_CHANGE" />
+                <action android:name="com.android.internal.action.CALL_LOG_CHANGE" />
             </intent-filter>
         </receiver>
     </application>

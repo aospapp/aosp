@@ -7,6 +7,11 @@ SIZE_2=2T
 LOG=$test_name.log
 E2FSCK=../e2fsck/e2fsck
 
+if [ $(uname -s) = "FreeBSD" ]; then
+	# creates a 2TB filesystem
+	echo "$test_name: $DESCRIPTION: skipped for FreeBSD"
+	return 0
+fi
 
 . $cmd_dir/scripts/resize_test
 
@@ -20,7 +25,7 @@ elif [ $RC -eq 111 ]; then
 	touch $test_name.ok
 else
 	echo "$test_name: $test_description: failed"
-	touch $test_name.failed
+	ln $LOG $test_name.failed
 fi
 
 unset FEATURES SIZE_1 SIZE_2 LOG E2FSCK

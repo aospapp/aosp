@@ -169,6 +169,10 @@ std::ostream& operator<<(std::ostream& os, const AuthorizationSet& set) {
 
 namespace test {
 
+std::ostream& operator<<(std::ostream& os, const InstanceCreatorPtr& instance_creator) {
+    return os << instance_creator->name();
+}
+
 Keymaster2Test::Keymaster2Test() : op_handle_(OP_HANDLE_SENTINEL) {
     memset(&characteristics_, 0, sizeof(characteristics_));
     blob_.key_material = nullptr;
@@ -291,24 +295,26 @@ keymaster_error_t Keymaster2Test::UpdateOperation(const AuthorizationSet& additi
 }
 
 keymaster_error_t Keymaster2Test::FinishOperation(string* output) {
-    return FinishOperation("", output);
+    return FinishOperation("", "", output);
 }
 
-keymaster_error_t Keymaster2Test::FinishOperation(const string& signature, string* output) {
+keymaster_error_t Keymaster2Test::FinishOperation(const string& input, const string& signature,
+                                                  string* output) {
     AuthorizationSet additional_params;
     AuthorizationSet output_params;
-    return FinishOperation(additional_params, signature, &output_params, output);
+    return FinishOperation(additional_params, input, signature, &output_params, output);
 }
 
 keymaster_error_t Keymaster2Test::FinishOperation(const AuthorizationSet& additional_params,
-                                                  const string& signature,
+                                                  const string& input, const string& signature,
                                                   AuthorizationSet* output_params, string* output) {
+    keymaster_blob_t inp = {reinterpret_cast<const uint8_t*>(input.c_str()), input.length()};
     keymaster_blob_t sig = {reinterpret_cast<const uint8_t*>(signature.c_str()),
                             signature.length()};
     keymaster_blob_t out_tmp;
     keymaster_key_param_set_t out_params;
-    keymaster_error_t error = device()->finish(device(), op_handle_, &additional_params,
-                                               nullptr /* input */, &sig, &out_params, &out_tmp);
+    keymaster_error_t error = device()->finish(device(), op_handle_, &additional_params, &inp, &sig,
+                                               &out_params, &out_tmp);
     if (error != KM_ERROR_OK) {
         EXPECT_TRUE(out_tmp.data == nullptr);
         EXPECT_TRUE(out_params.params == nullptr);
@@ -353,10 +359,7 @@ string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string&
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, client_params(), NULL /* output_params */));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_OK, FinishOperation(&result));
+    EXPECT_EQ(KM_ERROR_OK, FinishOperation(message, "" /* signature */, &result));
     return result;
 }
 
@@ -367,11 +370,7 @@ string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string&
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, begin_params, begin_out_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(update_params, message, nullptr /* output_params */,
-                                           &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_OK, FinishOperation(update_params, "", &result));
+    EXPECT_EQ(KM_ERROR_OK, FinishOperation(update_params, message, "" /* signature */, &result));
     return result;
 }
 
@@ -382,11 +381,7 @@ string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string&
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, begin_params, output_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(update_params, message, nullptr /* output_params */,
-                                           &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_OK, FinishOperation(update_params, signature, &result));
+    EXPECT_EQ(KM_ERROR_OK, FinishOperation(update_params, message, signature, &result));
     return result;
 }
 
@@ -395,10 +390,7 @@ string Keymaster2Test::ProcessMessage(keymaster_purpose_t purpose, const string&
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(purpose, client_params(), NULL /* output_params */));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_OK, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_OK, FinishOperation(message, signature, &result));
     return result;
 }
 
@@ -622,8 +614,8 @@ keymaster_error_t Keymaster2Test::ExportKey(keymaster_key_format_t format, strin
     return error;
 }
 
-void Keymaster2Test::CheckHmacTestVector(string key, string message, keymaster_digest_t digest,
-                                         string expected_mac) {
+void Keymaster2Test::CheckHmacTestVector(const string& key, const string& message,
+                                         keymaster_digest_t digest, string expected_mac) {
     ASSERT_EQ(KM_ERROR_OK, ImportKey(AuthorizationSetBuilder()
                                          .HmacKey(key.size() * 8)
                                          .Authorization(TAG_MIN_MAC_LENGTH, expected_mac.size() * 8)
@@ -678,7 +670,8 @@ void Keymaster2Test::corrupt_key_blob() {
 
 class Sha256OnlyWrapper {
   public:
-    Sha256OnlyWrapper(const keymaster1_device_t* wrapped_device) : wrapped_device_(wrapped_device) {
+    explicit Sha256OnlyWrapper(const keymaster1_device_t* wrapped_device)
+        : wrapped_device_(wrapped_device) {
 
         new_module = *wrapped_device_->common.module;
         new_module_name = std::string("SHA 256-only ") + wrapped_device_->common.module->name;

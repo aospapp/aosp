@@ -76,5 +76,5 @@
     <string name="no_voip" msgid="3038021971231952704">"‏تماس SIP پشتیبانی نمی‌شود"</string>
     <string name="sip_system_decide" msgid="5577696249416700671">"خودکار"</string>
     <string name="sip_always_send_keepalive" msgid="4773022409239823318">"همیشه ارسال شود"</string>
-    <string name="sip_connection_service_label" msgid="6935325004265884453">"‏تماس SIP درونی"</string>
+    <string name="sip_connection_service_label" msgid="6935325004265884453">"‏تماس SIP داخلی"</string>
 </resources>

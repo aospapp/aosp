@@ -41,7 +41,7 @@ import java.util.ArrayList;
  */
 public class CellBroadcastOtherChannelsManager {
 
-    private static final String TAG = "CellBroadcastChannelsManager";
+    private static final String TAG = "CellBroadcastOtherChannelsManager";
 
     private static CellBroadcastOtherChannelsManager sInstance = null;
 
@@ -56,20 +56,39 @@ public class CellBroadcastOtherChannelsManager {
      * A range is consisted by starting channel id, ending channel id, and the tone type
      */
     public static class CellBroadcastChannelRange {
+
+        private static final String KEY_TYPE = "type";
+        private static final String KEY_EMERGENCY = "emergency";
+
         public int mStartId;
         public int mEndId;
         public ToneType mToneType;
+        public boolean mIsEmergency;
 
         public CellBroadcastChannelRange(String channelRange) throws Exception {
 
             mToneType = ToneType.CMAS_DEFAULT;
+            mIsEmergency = false;
 
             int colonIndex = channelRange.indexOf(':');
             if (colonIndex != -1){
-                // Parse the tone type
-                String[] tokens = channelRange.substring(colonIndex + 1).trim().split("=");
-                if (tokens.length == 2 && tokens[0].trim().equalsIgnoreCase("type")) {
-                    mToneType = ToneType.valueOf(tokens[1].trim().toUpperCase());
+                // Parse the tone type and emergency flag
+                String[] pairs = channelRange.substring(colonIndex + 1).trim().split(",");
+                for (String pair : pairs) {
+                    pair = pair.trim();
+                    String[] tokens = pair.split("=");
+                    if (tokens.length == 2) {
+                        String key = tokens[0].trim();
+                        String value = tokens[1].trim();
+                        switch (key) {
+                            case KEY_TYPE:
+                                mToneType = ToneType.valueOf(value.toUpperCase());
+                                break;
+                            case KEY_EMERGENCY:
+                                mIsEmergency = value.equalsIgnoreCase("true");
+                                break;
+                        }
+                    }
                 }
                 channelRange = channelRange.substring(0, colonIndex).trim();
             }
@@ -110,6 +129,11 @@ public class CellBroadcastOtherChannelsManager {
         // Check if the cache already had it.
         if (sChannelRanges.get(subId) == null) {
 
+            if (context == null) {
+                loge("context is null");
+                return null;
+            }
+
             ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
             String[] ranges;
             CarrierConfigManager configManager =
@@ -123,7 +147,7 @@ public class CellBroadcastOtherChannelsManager {
                             CarrierConfigManager.KEY_CARRIER_ADDITIONAL_CBS_CHANNELS_STRINGS);
 
                     if (ranges == null || ranges.length == 0) {
-                        log("No additional channels configured.");
+                        log("No additional channels configured. subId = " + subId);
 
                         // If there is nothing configured, store an empty list in the cache
                         // so we won't look up again next time.

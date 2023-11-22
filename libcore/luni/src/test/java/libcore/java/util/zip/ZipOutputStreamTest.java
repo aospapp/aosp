@@ -26,9 +26,16 @@ import java.util.Random;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipOutputStream;
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import libcore.junit.util.ResourceLeakageDetector.DisableResourceLeakageDetection;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public final class ZipOutputStreamTest extends TestCase {
+public final class ZipOutputStreamTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
+
     public void testShortMessage() throws IOException {
         byte[] data = "Hello World".getBytes("UTF-8");
         byte[] zipped = zip("short", data);
@@ -65,6 +72,10 @@ public final class ZipOutputStreamTest extends TestCase {
      * Reference implementation does NOT allow writing of an empty zip using a
      * {@link ZipOutputStream}.
      */
+    @DisableResourceLeakageDetection(
+            why = "InflaterOutputStream.close() does not work properly if finish() throws an"
+                    + " exception; finish() throws an exception if the output is invalid.",
+            bug = "31797037")
     public void testCreateEmpty() throws IOException {
         File result = File.createTempFile("ZipFileTest", "zip");
         ZipOutputStream out =
@@ -79,11 +90,12 @@ public final class ZipOutputStreamTest extends TestCase {
 
     /** Regression test for null comment causing a NullPointerException during write. */
     public void testNullComment() throws IOException {
-        ZipOutputStream out = new ZipOutputStream(new ByteArrayOutputStream());
-        out.setComment(null);
-        out.putNextEntry(new ZipEntry("name"));
-        out.write(new byte[1]);
-        out.closeEntry();
-        out.finish();
+        try (ZipOutputStream out = new ZipOutputStream(new ByteArrayOutputStream())) {
+            out.setComment(null);
+            out.putNextEntry(new ZipEntry("name"));
+            out.write(new byte[1]);
+            out.closeEntry();
+            out.finish();
+        }
     }
 }

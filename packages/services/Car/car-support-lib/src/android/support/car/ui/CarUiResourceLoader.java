@@ -24,7 +24,9 @@ import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
-
+/**
+ * @hide
+ */
 public class CarUiResourceLoader {
     private static final String TAG = "CarUiResourceLoader";
     private static final String CAR_UI_PACKAGE = "android.car.ui.provider";

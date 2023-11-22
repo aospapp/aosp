@@ -38,6 +38,7 @@ def main():
 
         successes = []
         failures = []
+        debug = its.caps.debug_mode()
 
         # Two different requests: auto, and manual.
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
@@ -89,7 +90,8 @@ def main():
                         for c,cap in enumerate(caps):
                             img = its.image.convert_capture_to_rgb_image(cap,
                                     props=props)
-                            its.image.write_image(img,
+                            if debug:
+                                its.image.write_image(img,
                                     "%s_n%02d_r%d_f%d_b%d_c%d.jpg"%(NAME,n,r,f,b,c))
 
                     except Exception as e:

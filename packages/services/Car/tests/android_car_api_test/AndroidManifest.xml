@@ -16,19 +16,25 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
-        package="com.android.support.car.apitest"
-        android:sharedUserId="android.uid.system" >
+        package="android.car.apitest"
+        android:sharedUserId="android.uid.system"
+        coreApp="true"
+        android:debuggable="true" >
 
     <instrumentation android:name="android.test.InstrumentationTestRunner"
-            android:targetPackage="com.android.support.car.apitest"
-            android:label="Tests for Car APIs"/>
+            android:targetPackage="android.car.apitest"
+            android:label="Tests for Car APIs"
+            android:debuggable="true" />
 
-    <application android:label="CarApiTest">
+    <application android:label="CarApiTest"
+                 android:debuggable="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name=".TestCarProxyActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+        <service android:name=".CarProjectionManagerTest$TestService"
+                 android:exported="true" />
     </application>
 </manifest>

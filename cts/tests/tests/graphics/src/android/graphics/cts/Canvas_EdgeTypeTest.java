@@ -15,19 +15,28 @@
  */
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Canvas;
+import android.graphics.Canvas.EdgeType;
 import android.graphics.Path;
 import android.graphics.RectF;
-import android.graphics.Canvas.EdgeType;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Canvas_EdgeTypeTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Canvas_EdgeTypeTest {
+    @Test
     public void testValueOf(){
         assertEquals(EdgeType.BW, EdgeType.valueOf("BW"));
         assertEquals(EdgeType.AA, EdgeType.valueOf("AA"));
     }
 
+    @Test
     public void testValues(){
         EdgeType[] edgeType = EdgeType.values();
 

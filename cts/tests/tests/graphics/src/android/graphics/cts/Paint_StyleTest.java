@@ -16,18 +16,27 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Paint;
 import android.graphics.Paint.Style;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Paint_StyleTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Paint_StyleTest {
+    @Test
     public void testValueOf() {
         assertEquals(Style.FILL, Style.valueOf("FILL"));
         assertEquals(Style.STROKE, Style.valueOf("STROKE"));
         assertEquals(Style.FILL_AND_STROKE, Style.valueOf("FILL_AND_STROKE"));
     }
 
+    @Test
     public void testValues() {
         // set the actual value
         Style[] actual = Style.values();

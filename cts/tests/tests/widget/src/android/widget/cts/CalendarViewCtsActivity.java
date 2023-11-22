@@ -19,7 +19,6 @@ package android.widget.cts;
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.CalendarView;
-import android.widget.Toolbar;
 
 /**
  * A minimal application for {@link CalendarView} test.

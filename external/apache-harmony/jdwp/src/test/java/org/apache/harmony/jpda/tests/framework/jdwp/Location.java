@@ -59,6 +59,7 @@ public class Location {
     /**
      * Converts Location to string format for printing.
      */
+    @Override
     public String toString() {
         return "Location: tag="+tag+", classID="+classID+", methodID="+methodID+", index="+index;
     }
@@ -66,6 +67,7 @@ public class Location {
     /**
      * Compares this with other Location object.
      */
+    @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Location))
             return false;

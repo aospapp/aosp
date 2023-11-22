@@ -20,13 +20,13 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"הגדרות שידורים סלולריים"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"הגדרות של שידור סלולרי אינן זמינות עבור המשתמש הזה"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"אישור"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"אין התראות פעילות באזור שלך. ניתן לשנות את ההגדרות של \'התראה\' דרך תפריט \'הגדרות\'."</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"אין התרעות פעילות באזור שלך. ניתן לשנות את ההגדרות של \'התרעה\' דרך תפריט \'הגדרות\'."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"הגדרות"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"מחק את השידורים"</string>
     <string name="message_options" msgid="3178489901903589574">"אפשרויות הודעה"</string>
     <string name="menu_view_details" msgid="1040989019045280975">"הצג פרטים"</string>
     <string name="menu_delete" msgid="128380070910799366">"מחק שידור"</string>
-    <string name="view_details_title" msgid="1780427629491781473">"פרטי התראה"</string>
+    <string name="view_details_title" msgid="1780427629491781473">"פרטי התרעה"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"למחוק שידור זה?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"למחוק את כל הודעות השידור שהתקבלו?"</string>
     <string name="button_delete" msgid="4672451757925194350">"מחק"</string>
@@ -46,29 +46,30 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"התרעת חירום"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"שידור סלולרי"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"הגדרות התרעת חירום"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"הודעות שידור"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"הפעל התרעות"</string>
-    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"הצג שידורי התראות חירום"</string>
-    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"תזכורת התראה"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"אמור הודעת התראה"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"השתמש בטקסט לדיבור כדי להגיד הודעות של התראת חירום"</string>
+    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"הצג שידורי התרעות חירום"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"תזכורת התרעה"</string>
+    <string name="enable_alert_speech_title" msgid="8052104771053526941">"הודעת התרעה תושמע בקול"</string>
+    <string name="enable_alert_speech_summary" msgid="356086178962268831">"השתמש בטקסט לדיבור כדי להגיד בקול הודעות של התרעת חירום"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"‏הגדרות ETWS"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"‏הצג שידורי בדיקה של ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"הצג שידורי בדיקה של מערכת ההתראות על צונאמי ורעידות אדמה"</string>
-    <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"הצג איומים קיצוניים"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"הצג התראות על איומים קיצוניים לנפש ולרכוש"</string>
-    <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"הצג איומים חמורים"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"הצג התראות על איומים חמורים לנפש ולרכוש"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"‏הצג התראות AMBER"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"‏הצג מבזקי חירום על חטיפת ילדים (התראת AMBER)"</string>
+    <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"איומים קיצוניים"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"הצג התרעות על איומים קיצוניים לנפש ולרכוש"</string>
+    <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"איומים חמורים"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"הצג התרעות על איומים חמורים לנפש ולרכוש"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"‏התרעות AMBER"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"‏הצג מבזקי חירום על חטיפת ילדים (התרעת AMBER)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"‏הצג שידורי בדיקה של CMAS"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"‏הצג שידורי בדיקה של Commercial Mobile Alert System"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"רטט"</string>
-    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"רטט בהתראה"</string>
+    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"רטט בהתרעה"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"הגדרות עבור ברזיל"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"הצג את שידורי ערוץ 50"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"ערוץ 50 משמש בברזיל למסירת עדכונים אזוריים"</string>
     <string name="category_dev_settings_title" msgid="6194393458398329994">"אפשרויות מפתח"</string>
-    <string name="cmas_category_heading" msgid="3923503130776640717">"קטגוריית התראה:"</string>
+    <string name="cmas_category_heading" msgid="3923503130776640717">"קטגוריית התרעה:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"גיאופיזית"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"מטאורולוגית"</string>
     <string name="cmas_category_safety" msgid="2986472639641883453">"בטיחות"</string>
@@ -102,7 +103,7 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"התקבלה:"</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> התראות שלא נקראו."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"התראות חדשות"</string>
-    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"‏הצג תיבת דו שיח לביטול הסכמה לאחר הצגת התראת CMAS הראשונה (מלבד התראה נשיאותית)."</string>
+    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"‏הצג תיבת דו שיח לביטול הסכמה לאחר הצגת התרעת CMAS הראשונה (מלבד התרעה נשיאותית)."</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"הצג תיבת דו שיח לביטול הסכמה"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"נכון לעכשיו אתה מקבל התראות חירום. האם ברצונך להמשיך לקבל התראות חירום?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"כן"</string>

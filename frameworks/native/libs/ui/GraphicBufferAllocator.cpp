@@ -18,14 +18,19 @@
 #define LOG_TAG "GraphicBufferAllocator"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
-#include <cutils/log.h>
+#include <ui/GraphicBufferAllocator.h>
 
+#include <stdio.h>
+
+#include <grallocusage/GrallocUsageConversion.h>
+
+#include <log/log.h>
 #include <utils/Singleton.h>
 #include <utils/String8.h>
 #include <utils/Trace.h>
 
-#include <ui/GraphicBufferAllocator.h>
-#include <ui/Gralloc1On0Adapter.h>
+#include <ui/Gralloc2.h>
+#include <ui/GraphicBufferMapper.h>
 
 namespace android {
 // ---------------------------------------------------------------------------
@@ -37,8 +42,11 @@ KeyedVector<buffer_handle_t,
     GraphicBufferAllocator::alloc_rec_t> GraphicBufferAllocator::sAllocList;
 
 GraphicBufferAllocator::GraphicBufferAllocator()
-  : mLoader(std::make_unique<Gralloc1::Loader>()),
-    mDevice(mLoader->getDevice()) {}
+  : mMapper(GraphicBufferMapper::getInstance()),
+    mAllocator(std::make_unique<Gralloc2::Allocator>(
+                mMapper.getGrallocMapper()))
+{
+}
 
 GraphicBufferAllocator::~GraphicBufferAllocator() {}
 
@@ -55,22 +63,25 @@ void GraphicBufferAllocator::dump(String8& result) const
     for (size_t i=0 ; i<c ; i++) {
         const alloc_rec_t& rec(list.valueAt(i));
         if (rec.size) {
-            snprintf(buffer, SIZE, "%10p: %7.2f KiB | %4u (%4u) x %4u | %8X | 0x%08x | %s\n",
-                    list.keyAt(i), rec.size/1024.0f,
-                    rec.width, rec.stride, rec.height, rec.format, rec.usage,
-                    rec.requestorName.c_str());
+            snprintf(buffer, SIZE, "%10p: %7.2f KiB | %4u (%4u) x %4u | %4u | %8X | 0x%" PRIx64
+                    " | %s\n",
+                    list.keyAt(i), rec.size/1024.0,
+                    rec.width, rec.stride, rec.height, rec.layerCount, rec.format,
+                    rec.usage, rec.requestorName.c_str());
         } else {
-            snprintf(buffer, SIZE, "%10p: unknown     | %4u (%4u) x %4u | %8X | 0x%08x | %s\n",
+            snprintf(buffer, SIZE, "%10p: unknown     | %4u (%4u) x %4u | %4u | %8X | 0x%" PRIx64
+                    " | %s\n",
                     list.keyAt(i),
-                    rec.width, rec.stride, rec.height, rec.format, rec.usage,
-                    rec.requestorName.c_str());
+                    rec.width, rec.stride, rec.height, rec.layerCount, rec.format,
+                    rec.usage, rec.requestorName.c_str());
         }
         result.append(buffer);
         total += rec.size;
     }
-    snprintf(buffer, SIZE, "Total allocated (estimate): %.2f KB\n", total/1024.0f);
+    snprintf(buffer, SIZE, "Total allocated (estimate): %.2f KB\n", total/1024.0);
     result.append(buffer);
-    std::string deviceDump = mDevice->dump();
+
+    std::string deviceDump = mAllocator->dumpDebugInfo();
     result.append(deviceDump.c_str(), deviceDump.size());
 }
 
@@ -82,8 +93,9 @@ void GraphicBufferAllocator::dumpToSystemLog()
 }
 
 status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height,
-        PixelFormat format, uint32_t usage, buffer_handle_t* handle,
-        uint32_t* stride, uint64_t graphicBufferId, std::string requestorName)
+        PixelFormat format, uint32_t layerCount, uint64_t usage,
+        buffer_handle_t* handle, uint32_t* stride,
+        uint64_t /*graphicBufferId*/, std::string requestorName)
 {
     ATRACE_CALL();
 
@@ -92,46 +104,19 @@ status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height,
     if (!width || !height)
         width = height = 1;
 
-    // Filter out any usage bits that should not be passed to the gralloc module
-    usage &= GRALLOC_USAGE_ALLOC_MASK;
+    // Ensure that layerCount is valid.
+    if (layerCount < 1)
+        layerCount = 1;
 
-    auto descriptor = mDevice->createDescriptor();
-    auto error = descriptor->setDimensions(width, height);
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGE("Failed to set dimensions to (%u, %u): %d", width, height, error);
-        return BAD_VALUE;
-    }
-    error = descriptor->setFormat(static_cast<android_pixel_format_t>(format));
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGE("Failed to set format to %d: %d", format, error);
-        return BAD_VALUE;
-    }
-    error = descriptor->setProducerUsage(
-            static_cast<gralloc1_producer_usage_t>(usage));
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGE("Failed to set producer usage to %u: %d", usage, error);
-        return BAD_VALUE;
-    }
-    error = descriptor->setConsumerUsage(
-            static_cast<gralloc1_consumer_usage_t>(usage));
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGE("Failed to set consumer usage to %u: %d", usage, error);
-        return BAD_VALUE;
-    }
+    Gralloc2::IMapper::BufferDescriptorInfo info = {};
+    info.width = width;
+    info.height = height;
+    info.layerCount = layerCount;
+    info.format = static_cast<Gralloc2::PixelFormat>(format);
+    info.usage = usage;
 
-    error = mDevice->allocate(descriptor, graphicBufferId, handle);
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGE("Failed to allocate (%u x %u) format %d usage %u: %d",
-                width, height, format, usage, error);
-        return NO_MEMORY;
-    }
-
-    error = mDevice->getStride(*handle, stride);
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGW("Failed to get stride from buffer: %d", error);
-    }
-
-    if (error == NO_ERROR) {
+    Gralloc2::Error error = mAllocator->allocate(info, stride, handle);
+    if (error == Gralloc2::Error::NONE) {
         Mutex::Autolock _l(sLock);
         KeyedVector<buffer_handle_t, alloc_rec_t>& list(sAllocList);
         uint32_t bpp = bytesPerPixel(format);
@@ -140,23 +125,29 @@ status_t GraphicBufferAllocator::allocate(uint32_t width, uint32_t height,
         rec.height = height;
         rec.stride = *stride;
         rec.format = format;
+        rec.layerCount = layerCount;
         rec.usage = usage;
         rec.size = static_cast<size_t>(height * (*stride) * bpp);
         rec.requestorName = std::move(requestorName);
         list.add(*handle, rec);
-    }
 
-    return NO_ERROR;
+        return NO_ERROR;
+    } else {
+        ALOGE("Failed to allocate (%u x %u) layerCount %u format %d "
+                "usage %" PRIx64 ": %d",
+                width, height, layerCount, format, usage,
+                error);
+        return NO_MEMORY;
+    }
 }
 
 status_t GraphicBufferAllocator::free(buffer_handle_t handle)
 {
     ATRACE_CALL();
 
-    auto error = mDevice->release(handle);
-    if (error != GRALLOC1_ERROR_NONE) {
-        ALOGE("Failed to free buffer: %d", error);
-    }
+    // We allocated a buffer from the allocator and imported it into the
+    // mapper to get the handle.  We just need to free the handle now.
+    mMapper.freeBuffer(handle);
 
     Mutex::Autolock _l(sLock);
     KeyedVector<buffer_handle_t, alloc_rec_t>& list(sAllocList);

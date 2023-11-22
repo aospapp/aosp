@@ -22,6 +22,7 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
+import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.widget.Button;
 
@@ -129,7 +130,7 @@ public class NavigationBarButton extends Button {
         }
 
         @Override
-        public boolean setState(int[] stateSet) {
+        public boolean setState(@NonNull int[] stateSet) {
             boolean needsInvalidate = super.setState(stateSet);
             boolean needsInvalidateForState = updateState();
             return needsInvalidate || needsInvalidateForState;

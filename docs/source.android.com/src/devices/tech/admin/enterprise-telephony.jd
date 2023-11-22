@@ -69,9 +69,8 @@ Examples:
 <h2 id="implementation">Implementation</h2>
 
 <p>
-Partners must implement cross-profile, search, lookup and badging for contacts
-in their Dialer Contacts and SMS/MMS Messaging apps.
-</p>
+Device implementers must implement cross-profile, search, lookup and badging
+for contacts in their Dialer Contacts and SMS/MMS Messaging apps.</p>
 
 <h3 id="cross-profile-contact-search">Cross-profile contact search</h3>
 

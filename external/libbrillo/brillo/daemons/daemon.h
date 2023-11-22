@@ -86,7 +86,7 @@ class BRILLO_EXPORT Daemon : public AsynchronousSignalHandlerInterface {
 
   // Returns a delegate to Quit() method in the base::RunLoop instance.
   base::Closure QuitClosure() const {
-    return brillo_message_loop_.QuitClosure();
+    return message_loop_.QuitClosure();
   }
 
  private:
@@ -98,10 +98,8 @@ class BRILLO_EXPORT Daemon : public AsynchronousSignalHandlerInterface {
   // |at_exit_manager_| must be first to make sure it is initialized before
   // other members, especially the |message_loop_|.
   base::AtExitManager at_exit_manager_;
-  // The main message loop for the daemon.
-  base::MessageLoopForIO message_loop_;
-  // The brillo wrapper for the main message loop.
-  BaseMessageLoop brillo_message_loop_{&message_loop_};
+  // The brillo wrapper for the base message loop.
+  BaseMessageLoop message_loop_;
   // A helper to dispatch signal handlers asynchronously, so that the main
   // system signal handler returns as soon as possible.
   AsynchronousSignalHandler async_signal_handler_;

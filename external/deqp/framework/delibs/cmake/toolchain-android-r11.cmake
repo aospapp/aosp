@@ -1,3 +1,23 @@
+#-------------------------------------------------------------------------
+# drawElements CMake utilities
+# ----------------------------
+#
+# Copyright 2016 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#-------------------------------------------------------------------------
+
 # Platform defines.
 set(CMAKE_SYSTEM_NAME Linux)
 
@@ -102,6 +122,23 @@ elseif (ANDROID_ABI STREQUAL "arm64-v8a")
 	if (DE_COMPILER STREQUAL "DE_COMPILER_GCC")
 		set(TARGET_C_FLAGS "${TARGET_C_FLAGS} -mabi=lp64")
 	endif ()
+
+elseif (ANDROID_ABI STREQUAL "x86_64")
+	set(DE_CPU					"DE_CPU_X86_64")
+	set(CMAKE_SYSTEM_PROCESSOR	x86_64-linux-android)
+	set(CMAKE_SIZEOF_VOID_P		8)
+
+	set(CMAKE_LIBRARY_PATH "/usr/lib64")
+
+	set(ANDROID_CC_PATH	"${ANDROID_NDK_PATH}/toolchains/x86_64-4.9/prebuilt/${ANDROID_NDK_HOST_OS}/")
+	set(CROSS_COMPILE	"${ANDROID_CC_PATH}bin/x86_64-linux-android-")
+	set(ANDROID_SYSROOT	"${ANDROID_NDK_PATH}/platforms/${ANDROID_NDK_TARGET}/arch-x86_64")
+
+	set(CMAKE_FIND_ROOT_PATH
+		"${ANDROID_CC_PATH}x86_64-linux-android"
+		)
+
+	set(LLVM_TRIPLE			"x86_64-none-linux-android")
 
 else ()
 	message(FATAL_ERROR "Unknown ABI \"${ANDROID_ABI}\"")

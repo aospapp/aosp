@@ -25,8 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.ClassType;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -77,7 +75,7 @@ public class SuperClassTest extends JDWPClassTypeTestCase {
      * <BR>&nbsp;&nbsp; - superclass for <A HREF="ClassTypeDebuggee.html">ClassTypeDebuggee</A>
      * class is <A HREF="../../share/SyncDebuggee.html">SyncDebuggee</A> class.;
      */
-    public void testSuperClass001() throws UnsupportedEncodingException {
+    public void testSuperClass001() {
         logWriter.println("testSuperClassTest001 started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
@@ -142,7 +140,7 @@ public class SuperClassTest extends JDWPClassTypeTestCase {
      * <BR>&nbsp;&nbsp; - INVALID_OBJECT is returned if classID is non-existent;
      * <BR>&nbsp;&nbsp; - INVALID_OBJECT is returned if instead of classID FieldID is passed;
      */
-    public void testSuperClass002() throws UnsupportedEncodingException {
+    public void testSuperClass002() {
         logWriter.println("testSuperClassTest002 started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
@@ -184,7 +182,7 @@ public class SuperClassTest extends JDWPClassTypeTestCase {
      * <BR>Then does the following check:
      * <BR>&nbsp;&nbsp; - INVALID_CLASS is returned if instead of classID ObjectID is passed;
      */
-    public void testSuperClass003() throws UnsupportedEncodingException {
+    public void testSuperClass003() {
         logWriter.println("testSuperClassTest003 started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

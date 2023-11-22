@@ -36,7 +36,7 @@ import android.database.Cursor;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
@@ -49,7 +49,7 @@ import android.widget.TextView;
  * An activity that shows the list of all the available accounts and return the
  * one selected in onResult().
  */
-public class MailboxSelectionActivity extends ActionBarActivity implements OnClickListener,
+public class MailboxSelectionActivity extends AppCompatActivity implements OnClickListener,
         LoaderManager.LoaderCallbacks<Cursor>, AdapterView.OnItemClickListener {
 
     // Used to save our instance state

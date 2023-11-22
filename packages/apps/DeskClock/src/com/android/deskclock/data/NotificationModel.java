@@ -37,6 +37,15 @@ final class NotificationModel {
         return mApplicationInForeground;
     }
 
+    //
+    // Notification IDs
+    //
+    // Used elsewhere:
+    // Integer.MAX_VALUE - 4
+    // Integer.MAX_VALUE - 5
+    // Integer.MAX_VALUE - 7
+    //
+
     /**
      * @return a value that identifies the stopwatch notification
      */
@@ -56,5 +65,51 @@ final class NotificationModel {
      */
     int getExpiredTimerNotificationId() {
         return Integer.MAX_VALUE - 3;
+    }
+
+    /**
+     * @return a value that identifies the notification for missed timers
+     */
+    int getMissedTimerNotificationId() {
+        return Integer.MAX_VALUE - 6;
+    }
+
+    //
+    // Notification Group keys
+    //
+    // Used elsewhere:
+    // "1"
+    // "4"
+
+    /**
+     * @return the group key for the stopwatch notification
+     */
+    String getStopwatchNotificationGroupKey() {
+        return "3";
+    }
+
+    /**
+     * @return the group key for the timer notification
+     */
+    String getTimerNotificationGroupKey() {
+        return "2";
+    }
+
+    //
+    // Notification Sort keys
+    //
+
+    /**
+     * @return the sort key for the timer notification
+     */
+    String getTimerNotificationSortKey() {
+        return "0";
+    }
+
+    /**
+     * @return the sort key for the missed timer notification
+     */
+    String getTimerNotificationMissedSortKey() {
+        return "1";
     }
 }

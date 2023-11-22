@@ -14,9 +14,12 @@
 
 package com.android.deskclock.timer;
 
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
+import android.text.TextUtils;
 import android.transition.AutoTransition;
 import android.transition.TransitionManager;
 import android.view.Gravity;
@@ -28,6 +31,7 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import com.android.deskclock.BaseActivity;
+import com.android.deskclock.LogUtils;
 import com.android.deskclock.R;
 import com.android.deskclock.data.DataModel;
 import com.android.deskclock.data.Timer;
@@ -58,6 +62,15 @@ public class ExpiredTimersActivity extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        final List<Timer> expiredTimers = getExpiredTimers();
+
+        // If no expired timers, finish
+        if (expiredTimers.size() == 0) {
+            LogUtils.i("No expired timers, skipping display.");
+            finish();
+            return;
+        }
+
         setContentView(R.layout.expired_timers_activity);
 
         mExpiredTimersView = (ViewGroup) findViewById(R.id.expired_timers_list);
@@ -74,8 +87,16 @@ public class ExpiredTimersActivity extends BaseActivity {
                 | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
                 | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON);
 
+        // Close dialogs and window shade, so this is fully visible
+        sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
+
+        // Honor rotation on tablets; fix the orientation on phones.
+        if (!getResources().getBoolean(R.bool.rotateAlarmAlert)) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
+        }
+
         // Create views for each of the expired timers.
-        for (Timer timer : getExpiredTimers()) {
+        for (Timer timer : expiredTimers) {
             addTimer(timer);
         }
 
@@ -139,23 +160,24 @@ public class ExpiredTimersActivity extends BaseActivity {
     private void addTimer(Timer timer) {
         TransitionManager.beginDelayedTransition(mExpiredTimersScrollView, new AutoTransition());
 
+        final int timerId = timer.getId();
         final TimerItem timerItem = (TimerItem)
                 getLayoutInflater().inflate(R.layout.timer_item, mExpiredTimersView, false);
         // Store the timer id as a tag on the view so it can be located on delete.
-        timerItem.setTag(timer.getId());
+        timerItem.setId(timerId);
         mExpiredTimersView.addView(timerItem);
 
         // Hide the label hint for expired timers.
         final TextView labelView = (TextView) timerItem.findViewById(R.id.timer_label);
         labelView.setHint(null);
+        labelView.setVisibility(TextUtils.isEmpty(timer.getLabel()) ? View.GONE : View.VISIBLE);
 
         // Add logic to the "Add 1 Minute" button.
         final View addMinuteButton = timerItem.findViewById(R.id.reset_add);
         addMinuteButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                final int index = mExpiredTimersView.indexOfChild(timerItem);
-                final Timer timer = getExpiredTimers().get(index);
+                final Timer timer = DataModel.getDataModel().getTimer(timerId);
                 DataModel.getDataModel().addTimerMinute(timer);
             }
         });
@@ -175,8 +197,15 @@ public class ExpiredTimersActivity extends BaseActivity {
     private void removeTimer(Timer timer) {
         TransitionManager.beginDelayedTransition(mExpiredTimersScrollView, new AutoTransition());
 
-        final View timerView = mExpiredTimersView.findViewWithTag(timer.getId());
-        mExpiredTimersView.removeView(timerView);
+        final int timerId = timer.getId();
+        final int count = mExpiredTimersView.getChildCount();
+        for (int i = 0; i < count; ++i) {
+            final View timerView = mExpiredTimersView.getChildAt(i);
+            if (timerView.getId() == timerId) {
+                mExpiredTimersView.removeView(timerView);
+                break;
+            }
+        }
 
         // If the second last timer was just removed, center the last timer.
         final List<Timer> expiredTimers = getExpiredTimers();
@@ -219,16 +248,19 @@ public class ExpiredTimersActivity extends BaseActivity {
         public void run() {
             final long startTime = SystemClock.elapsedRealtime();
 
-            for (int i = 0; i < mExpiredTimersView.getChildCount(); i++) {
+            final int count = mExpiredTimersView.getChildCount();
+            for (int i = 0; i < count; ++i) {
                 final TimerItem timerItem = (TimerItem) mExpiredTimersView.getChildAt(i);
-                final Timer timer = getExpiredTimers().get(i);
-                timerItem.update(timer);
+                final Timer timer = DataModel.getDataModel().getTimer(timerItem.getId());
+                if (timer != null) {
+                    timerItem.update(timer);
+                }
             }
 
             final long endTime = SystemClock.elapsedRealtime();
 
             // Try to maintain a consistent period of time between redraws.
-            final long delay = Math.max(0, startTime + 20 - endTime);
+            final long delay = Math.max(0L, startTime + 20L - endTime);
             mExpiredTimersView.postDelayed(this, delay);
         }
     }

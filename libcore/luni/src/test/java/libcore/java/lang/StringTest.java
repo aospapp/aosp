@@ -25,6 +25,7 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Locale;
 import junit.framework.TestCase;
 
@@ -546,5 +547,49 @@ public class StringTest extends TestCase {
         assertEquals(Character.toCodePoint(high, low), surrogateCP.codePoints().toArray()[0]);
         assertEquals((int) low, surrogateCP.codePoints().toArray()[1]); // Unmatched surrogate.
         assertEquals((int) '0', surrogateCP.codePoints().toArray()[2]);
+    }
+
+    public void testJoin_CharSequenceArray() {
+        assertEquals("", String.join("-"));
+        assertEquals("", String.join("-", ""));
+        assertEquals("foo", String.join("-", "foo"));
+        assertEquals("foo---bar---boo", String.join("---", "foo", "bar", "boo"));
+        assertEquals("foobarboo", String.join("", "foo", "bar", "boo"));
+        assertEquals("null-null", String.join("-", null, null));
+        assertEquals("¯\\_(ツ)_/¯", String.join("(ツ)", "¯\\_", "_/¯"));
+    }
+
+    public void testJoin_CharSequenceArray_NPE() {
+        try {
+            String.join(null, "foo", "bar");
+            fail();
+        } catch (NullPointerException expected) {}
+    }
+
+    public void testJoin_Iterable() {
+        ArrayList<String> iterable = new ArrayList<>();
+        assertEquals("", String.join("-", iterable));
+
+        iterable.add("foo");
+        assertEquals("foo", String.join("-", iterable));
+
+        iterable.add("bar");
+        assertEquals("foo...bar", String.join("...", iterable));
+
+        iterable.add("foo");
+        assertEquals("foo-bar-foo", String.join("-", iterable));
+        assertEquals("foobarfoo", String.join("", iterable));
+    }
+
+    public void testJoin_Iterable_NPE() {
+        try {
+            String.join(null, new ArrayList<String>());
+            fail();
+        } catch (NullPointerException expected) {}
+
+        try {
+            String.join("-", (Iterable<String>)null);
+            fail();
+        } catch (NullPointerException expected) {}
     }
 }

@@ -39,8 +39,8 @@ EGL_WRAPPER_DIR		= os.path.normpath(os.path.join(EGL_DIR, "wrapper"))
 
 EGL_SOURCE			= khr_util.registry_cache.RegistrySource(
 						"egl.xml",
-						31042,
-						"f5a731f46958a7cb6a5a96c811086fbaede9cc078541a26de009228eb089ae2c")
+						33315,
+						"19f3b517f0dede56a6a94b820d08149ef5e1726f58202f47d69fa27f6f483bd2")
 
 VERSION				= '1.5'
 
@@ -59,11 +59,14 @@ EXTENSIONS			= [
 	"EGL_EXT_create_context_robustness",
 	"EGL_EXT_platform_base",
 	"EGL_EXT_platform_x11",
+	"EGL_KHR_platform_wayland",
 	"EGL_ANDROID_image_native_buffer",
 	"EGL_EXT_yuv_surface",
 	"EGL_EXT_buffer_age",
 	"EGL_KHR_partial_update",
-	"EGL_KHR_swap_buffers_with_damage"
+	"EGL_KHR_swap_buffers_with_damage",
+	"EGL_KHR_mutable_render_buffer",
+	"EGL_EXT_pixel_format_float"
 ]
 PROTECTS			= [
 	"KHRONOS_SUPPORT_INT64"

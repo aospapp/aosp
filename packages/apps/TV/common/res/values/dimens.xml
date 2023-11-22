@@ -26,7 +26,7 @@
     <dimen name="setup_done_button_container_width">138dp</dimen>
     <dimen name="setup_guidedactions_selector_margin_start">24dp</dimen>
     <dimen name="setup_guidedactions_selector_margin_end">24dp</dimen>
-    <dimen name="setup_guidedactions_selector_margin_top">190dp</dimen>
+    <dimen name="setup_guidedactions_selector_margin_top">220dp</dimen>
     <dimen name="setup_guidedactions_item_container_padding_start">40dp</dimen>
     <dimen name="setup_guidedactions_item_container_padding_end">40dp</dimen>
     <dimen name="setup_guidedactions_vertical_padding">12dp</dimen>

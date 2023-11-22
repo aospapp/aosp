@@ -29,6 +29,8 @@ public class RenderScriptTest extends AndroidTestCase {
         RenderScript mRS = RenderScript.create(getContext());
         ScriptC_passthrough t = new ScriptC_passthrough(mRS);
         t.invoke_passthrough(5);
+        mRS.finish();
+        t.destroy();
         mRS.destroy();
     }
 

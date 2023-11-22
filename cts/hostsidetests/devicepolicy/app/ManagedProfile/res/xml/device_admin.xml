@@ -18,5 +18,6 @@
         <disable-camera />
         <limit-password />
         <disable-keyguard-features/>
+        <force-lock />
     </uses-policies>
 </device-admin>

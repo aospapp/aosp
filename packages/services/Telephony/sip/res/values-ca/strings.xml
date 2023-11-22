@@ -48,8 +48,8 @@
     <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"S\'ha produït un error en registrar el compte: el nom d\'usuari o la contrasenya no són correctes."</string>
     <string name="registration_status_server_unreachable" msgid="7710275557045148634">"S\'ha produït un error en registrar el compte: comprova el nom del servidor."</string>
     <string name="third_party_account_summary" msgid="9041060473615403041">"L\'aplicació <xliff:g id="ACCOUNT_OWNER">%s</xliff:g> està utilitzant aquest compte actualment."</string>
-    <string name="sip_edit_title" msgid="1967247832635750410">"Detalls del compte SIP"</string>
-    <string name="sip_edit_new_title" msgid="266414118302574305">"Detalls del compte SIP"</string>
+    <string name="sip_edit_title" msgid="1967247832635750410">"Compte SIP"</string>
+    <string name="sip_edit_new_title" msgid="266414118302574305">"Compte SIP"</string>
     <string name="domain_address_title" msgid="1968479941328225423">"Servidor"</string>
     <string name="username_title" msgid="6770064611005663470">"Nom d\'usuari"</string>
     <string name="password_title" msgid="5289013731515564295">"Contrasenya"</string>
@@ -66,7 +66,7 @@
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;No definit&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;Igual que el nom d\'usuari&gt;"</string>
     <string name="optional_summary" msgid="2363105560396317624">"&lt;Opcional&gt;"</string>
-    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Toca per mostrar-ho tot."</string>
+    <string name="advanced_settings_show" msgid="7838761602853998622">"▷ Toca per mostrar-ho tot"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ Toca per amagar-ho tot."</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"Introdueix els detalls del compte SIP nou."</string>
     <string name="empty_alert" msgid="6659484914371384024">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> és obligatori i no es pot deixar en blanc."</string>

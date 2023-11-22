@@ -290,19 +290,10 @@ keymaster_error_t AsymmetricKey::GenerateAttestation(const KeymasterContext& con
         !X509_set_serialNumber(certificate.get(), serialNumber.get() /* Don't release; copied */))
         return TranslateLastOpenSslError();
 
-    // TODO(swillden): Find useful values (if possible) for issuerName and subjectName.
-    X509_NAME_Ptr issuerName(X509_NAME_new());
-    if (!issuerName.get() ||
-        !X509_NAME_add_entry_by_txt(issuerName.get(), "CN", MBSTRING_ASC,
-                                    reinterpret_cast<const uint8_t*>("Android Keymaster"),
-                                    -1 /* len */, -1 /* loc */, 0 /* set */) ||
-        !X509_set_issuer_name(certificate.get(), issuerName.get() /* Don't release; copied  */))
-        return TranslateLastOpenSslError();
-
     X509_NAME_Ptr subjectName(X509_NAME_new());
     if (!subjectName.get() ||
         !X509_NAME_add_entry_by_txt(subjectName.get(), "CN", MBSTRING_ASC,
-                                    reinterpret_cast<const uint8_t*>("A Keymaster Key"),
+                                    reinterpret_cast<const uint8_t*>("Android Keystore Key"),
                                     -1 /* len */, -1 /* loc */, 0 /* set */) ||
         !X509_set_subject_name(certificate.get(), subjectName.get() /* Don't release; copied */))
         return TranslateLastOpenSslError();
@@ -351,6 +342,15 @@ keymaster_error_t AsymmetricKey::GenerateAttestation(const KeymasterContext& con
     const uint8_t* p = cert_chain->entries[1].data;
     X509_Ptr signing_cert(d2i_X509(nullptr, &p, cert_chain->entries[1].data_length));
     if (!signing_cert.get()) {
+        return TranslateLastOpenSslError();
+    }
+
+    // Set issuer to subject of batch certificate.
+    X509_NAME* issuerSubject = X509_get_subject_name(signing_cert.get());
+    if (!issuerSubject) {
+        return KM_ERROR_UNKNOWN_ERROR;
+    }
+    if (!X509_set_issuer_name(certificate.get(), issuerSubject)) {
         return TranslateLastOpenSslError();
     }
 

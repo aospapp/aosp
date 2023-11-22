@@ -16,8 +16,8 @@
 
 package com.android.tv.recommendation;
 
+import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.tv.data.Program;
 import com.android.tv.recommendation.RoutineWatchEvaluator.ProgramTime;
@@ -199,9 +199,11 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         List<String> wordList1 = RoutineWatchEvaluator.splitTextToWords(text1);
         List<String> wordList2 = RoutineWatchEvaluator.splitTextToWords(text2);
         assertEquals("MaximumMatchedWordSequenceLength", expectedLength,
-                mEvaluator.calculateMaximumMatchedWordSequenceLength(wordList1, wordList2));
+                RoutineWatchEvaluator.calculateMaximumMatchedWordSequenceLength(
+                        wordList1, wordList2));
         assertEquals("MaximumMatchedWordSequenceLength", expectedLength,
-                mEvaluator.calculateMaximumMatchedWordSequenceLength(wordList2, wordList1));
+                RoutineWatchEvaluator.calculateMaximumMatchedWordSequenceLength(
+                        wordList2, wordList1));
     }
 
     private void assertProgramTime(int expectedWeekDay, int expectedStartTimeOfDayInSec,
@@ -221,9 +223,9 @@ public class RoutineWatchEvaluatorTest extends EvaluatorTestCase<RoutineWatchEva
         }
         // Two tests for testing commutative law.
         assertEquals("OverlappedIntervalScore", score,
-                mEvaluator.calculateOverlappedIntervalScore(t1, t2));
+                RoutineWatchEvaluator.calculateOverlappedIntervalScore(t1, t2));
         assertEquals("OverlappedIntervalScore", score,
-                mEvaluator.calculateOverlappedIntervalScore(t2, t1));
+                RoutineWatchEvaluator.calculateOverlappedIntervalScore(t2, t1));
     }
 
     private int hourMinuteToSec(int hour, int minute) {

@@ -3,28 +3,78 @@
 # found in the LICENSE file.
 
 import csv
-import getopt
 import logging
 import os
-import re
 
 from collections import namedtuple
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
+from autotest_lib.client.cros import asan
 
 
-PS_FIELDS = "pid,ppid,comm:32,euser:%d,ruser:%d,args"
+PS_FIELDS = (
+    'pid',
+    'ppid',
+    'comm:32',
+    'euser:%(usermax)d',
+    'ruser:%(usermax)d',
+    'egroup:%(groupmax)d',
+    'rgroup:%(groupmax)d',
+    'ipcns',
+    'mntns',
+    'netns',
+    'pidns',
+    'userns',
+    'utsns',
+    'args',
+)
+# These fields aren't available via ps, so we have to get them indirectly.
+# Note: Case is significant as the fields match the /proc/PID/status file.
+STATUS_FIELDS = (
+    'CapInh',
+    'CapPrm',
+    'CapEff',
+    'CapBnd',
+    'CapAmb',
+    'Seccomp',
+)
 PsOutput = namedtuple("PsOutput",
-                      ' '.join([field.split(':')[0]
-                                for field in PS_FIELDS.split(',')]))
+                      ' '.join([field.split(':')[0].lower()
+                                for field in PS_FIELDS + STATUS_FIELDS]))
 
-MINIJAIL_OPTS = { "mj_uid": "-u",
-                  "mj_gid": "-g",
-                  "mj_pidns": "-p",
-                  "mj_caps": "-c",
-                  "mj_filter": "-S" }
+# Constants that match the values in /proc/PID/status Seccomp field.
+# See `man 5 proc` for more details.
+SECCOMP_MODE_DISABLED = '0'
+SECCOMP_MODE_STRICT = '1'
+SECCOMP_MODE_FILTER = '2'
+# For human readable strings.
+SECCOMP_MAP = {
+    SECCOMP_MODE_DISABLED: 'disabled',
+    SECCOMP_MODE_STRICT: 'strict',
+    SECCOMP_MODE_FILTER: 'filter',
+}
+
+
+def get_properties(service, init_process):
+    """Returns a dictionary of the properties of a service.
+
+    @param service: the PsOutput of the service.
+    @param init_process: the PsOutput of the init process.
+    """
+
+    properties = dict(service._asdict())
+    properties['exe'] = service.comm
+    properties['pidns'] = yes_or_no(service.pidns != init_process.pidns)
+    properties['caps'] = yes_or_no(service.capeff != init_process.capeff)
+    properties['filter'] = yes_or_no(service.seccomp == SECCOMP_MODE_FILTER)
+    return properties
+
+
+def yes_or_no(value):
+    """Returns 'Yes' or 'No' based on the truthiness of a value."""
+    return 'Yes' if value else 'No'
 
 
 class security_SandboxedServices(test.test):
@@ -35,45 +85,71 @@ class security_SandboxedServices(test.test):
     version = 1
 
 
-    def get_minijail_opts(self):
-        """Parses Minijail's help and generates a getopt string.
-        """
-
-        help = utils.system_output("minijail0 -h", ignore_status=True)
-        help_lines = help.splitlines()[1:]
-
-        opt_list = []
-
-        for line in help_lines:
-            # Example lines:
-            #     '  -c <caps>:  restrict caps to <caps>'
-            #     '  -s:         use seccomp'
-            m = re.search("-(\w)( <.+>)?:", line)
-
-            if m:
-                opt_list.append(m.groups()[0])
-
-                if m.groups()[1]:
-                    # The option takes an argument
-                    opt_list.append(':')
-
-        return ''.join(opt_list)
-
-
     def get_running_processes(self):
         """Returns a list of running processes as PsOutput objects."""
 
         usermax = utils.system_output("cut -d: -f1 /etc/passwd | wc -L",
                                       ignore_status=True)
-        usermax = max(int(usermax), 8)
-        ps_cmd = "ps --no-headers -ww -eo " + (PS_FIELDS % (usermax, usermax))
-        ps_fields_len = len(PS_FIELDS.split(','))
+        groupmax = utils.system_output('cut -d: -f1 /etc/group | wc -L',
+                                       ignore_status=True)
+        # Even if the names are all short, make sure we have enough space
+        # to hold numeric 32-bit ids too (can come up with userns).
+        usermax = max(int(usermax), 10)
+        groupmax = max(int(groupmax), 10)
+        fields = {
+            'usermax': usermax,
+            'groupmax': groupmax,
+        }
+        ps_cmd = ('ps --no-headers -ww -eo ' +
+                  (','.join(PS_FIELDS) % fields))
+        ps_fields_len = len(PS_FIELDS)
 
         output = utils.system_output(ps_cmd)
-        # crbug.com/422700: Filter out zombie processes.
-        running_processes = [PsOutput(*line.split(None, ps_fields_len - 1))
-                             for line in output.splitlines()
-                             if "<defunct>" not in line]
+        logging.debug('output of ps:\n%s', output)
+
+        # Fill in fields that `ps` doesn't support but are in /proc/PID/status.
+        # Example line output:
+        # Pid:1 CapInh:0000000000000000 CapPrm:0000001fffffffff CapEff:0000001fffffffff CapBnd:0000001fffffffff Seccomp:0
+        cmd = (
+            "awk '$1 ~ \"^(Pid|%s):\" "
+            "{printf \"%%s%%s \", $1, $NF; if ($1 == \"%s:\") printf \"\\n\"}'"
+            " /proc/[1-9]*/status"
+        ) % ('|'.join(STATUS_FIELDS), STATUS_FIELDS[-1])
+        # Processes might exit while awk is running, so ignore its exit status.
+        status_output = utils.system_output(cmd, ignore_status=True)
+        # Turn each line into a dict.
+        # [
+        #   {'pid': '1', 'CapInh': '0000000000000000', 'Seccomp': '0', ...},
+        #   {'pid': '10', ...},
+        #   ...,
+        # ]
+        status_list = list(dict(attr.split(':', 1) for attr in line.split())
+                           for line in status_output.splitlines())
+        # Create a dict mapping a pid to its extended status data.
+        # {
+        #   '1': {'pid': '1', 'CapInh': '0000000000000000', ...},
+        #   '2': {'pid': '2', ...},
+        #   ...,
+        # }
+        status_data = dict((x['Pid'], x) for x in status_list)
+        logging.debug('output of awk:\n%s', status_output)
+
+        # Now merge the two sets of process data.
+        running_processes = []
+        for line in output.splitlines():
+            # crbug.com/422700: Filter out zombie processes.
+            if '<defunct>' in line:
+                continue
+
+            fields = line.split(None, ps_fields_len - 1)
+            pid = fields[0]
+            # The process lists might not be exactly the same (since we gathered
+            # data with multiple commands), and not all fields might exist (e.g.
+            # older kernels might not have all the fields).
+            pid_data = status_data.get(pid, {})
+            status_fields = [pid_data.get(key) for key in STATUS_FIELDS]
+            running_processes.append(PsOutput(*fields + status_fields))
+
         return running_processes
 
 
@@ -82,9 +158,28 @@ class security_SandboxedServices(test.test):
         whether (and how) they are sandboxed.
         """
 
+        def load(path):
+            """Load baseline from |path| and return its fields and dictionary.
+
+            @param path: The baseline to load.
+            """
+            logging.info('Loading baseline %s', path)
+            reader = csv.DictReader(open(path))
+            return reader.fieldnames, dict((d['exe'], d) for d in reader
+                                           if not d['exe'].startswith('#'))
+
         baseline_path = os.path.join(self.bindir, 'baseline')
-        dict_reader = csv.DictReader(open(baseline_path))
-        return dict([(d["exe"], d) for d in dict_reader])
+        fields, ret = load(baseline_path)
+
+        board = utils.get_current_board()
+        baseline_path += '.' + board
+        if os.path.exists(baseline_path):
+            new_fields, new_entries = load(baseline_path)
+            if new_fields != fields:
+                raise error.TestError('header mismatch in %s' % baseline_path)
+            ret.update(new_entries)
+
+        return fields, ret
 
 
     def load_exclusions(self):
@@ -93,77 +188,25 @@ class security_SandboxedServices(test.test):
         """
 
         exclusions_path = os.path.join(self.bindir, 'exclude')
-        return set([line.strip() for line in open(exclusions_path)])
+        return set(line.strip() for line in open(exclusions_path)
+                   if not line.startswith('#'))
 
 
-    def minijail_ok(self, launcher, expected):
-        """Checks whether the Minijail invocation
-        has the correct command-line options.
-
-        @param launcher: Minijail command line for the process.
-        @param expected: Sandboxing restrictions expected.
-        """
-
-        opts, args = getopt.getopt(launcher.args.split()[1:],
-                                   self.get_minijail_opts())
-        optset = set([opt[0] for opt in opts])
-
-        missing_opts = []
-        new_opts = []
-
-        for check, opt in MINIJAIL_OPTS.iteritems():
-            if expected[check] == "Yes":
-                if opt not in optset:
-                    missing_opts.append(check)
-            elif expected[check] == "No":
-                if opt in optset:
-                    new_opts.append(check)
-
-        if len(new_opts) > 0:
-            logging.error("New Minijail opts for '%s': %s",
-                          expected["exe"], ', '.join(new_opts))
-
-        if len(missing_opts) > 0:
-            logging.error("Missing Minijail options for '%s': %s",
-                          expected["exe"], ', '.join(missing_opts))
-
-        return (len(new_opts) + len(missing_opts)) == 0
-
-
-    def dump_services(self, running_services, minijail_processes):
+    def dump_services(self, fieldnames, running_services_properties):
         """Leaves a list of running services in the results dir
         so that we can update the baseline file if necessary.
 
-        @param running_services: list of services to be logged.
-        @param minijail_processes: list of Minijail processes used to log how
-        each running service is sandboxed.
+        @param fieldnames: list of fields to be written.
+        @param running_services_properties: list of services to be logged.
         """
 
-        csv_file = csv.writer(open(os.path.join(self.resultsdir,
-                                                "running_services"), 'w'))
-
-        for service in running_services:
-            service_minijail = ""
-
-            if service.ppid in minijail_processes:
-                launcher = minijail_processes[service.ppid]
-                service_minijail = launcher.args.split("--")[0].strip()
-
-            row = [service.comm, service.euser, service.args, service_minijail]
-            csv_file.writerow(row)
-
-
-    def log_process_list(self, logger, title, list):
-        report = "%s: %s" % (title, ', '.join(list))
-        logger(report)
-
-
-    def log_process_list_warn(self, title, list):
-        self.log_process_list(logging.warn, title, list)
-
-
-    def log_process_list_error(self, title, list):
-        self.log_process_list(logging.error, title, list)
+        file_path = os.path.join(self.resultsdir, 'running_services')
+        with open(file_path, 'w') as output_file:
+            writer = csv.DictWriter(output_file, fieldnames=fieldnames,
+                                    extrasaction='ignore')
+            writer.writeheader()
+            for service_properties in running_services_properties:
+                writer.writerow(service_properties)
 
 
     def run_once(self):
@@ -174,14 +217,17 @@ class security_SandboxedServices(test.test):
         baselines for processes not seen running.
         """
 
-        baseline = self.load_baseline()
+        fieldnames, baseline = self.load_baseline()
         exclusions = self.load_exclusions()
         running_processes = self.get_running_processes()
+        is_asan = asan.running_on_asan()
+        if is_asan:
+            logging.info('ASAN image detected -> skipping seccomp checks')
 
         kthreadd_pid = -1
 
+        init_process = None
         running_services = {}
-        minijail_processes = {}
 
         # Filter running processes list
         for process in running_processes:
@@ -189,6 +235,9 @@ class security_SandboxedServices(test.test):
 
             if exe == "kthreadd":
                 kthreadd_pid = process.pid
+                continue
+            elif process.pid == "1":
+                init_process = process
                 continue
 
             # Don't worry about kernel threads
@@ -198,12 +247,10 @@ class security_SandboxedServices(test.test):
             if exe in exclusions:
                 continue
 
-            # Remember minijail0 invocations
-            if exe == "minijail0":
-                minijail_processes[process.pid] = process
-                continue
-
             running_services[exe] = process
+
+        if not init_process:
+            raise error.TestFail("Cannot find init process")
 
         # Find differences between running services and baseline
         services_set = set(running_services.keys())
@@ -219,30 +266,62 @@ class security_SandboxedServices(test.test):
 
             # If the process is not running as the correct user
             if process.euser != baseline[exe]["euser"]:
+                logging.error('%s: bad user: wanted "%s" but got "%s"',
+                              exe, baseline[exe]['euser'], process.euser)
                 sandbox_delta.append(exe)
                 continue
 
-            # If this process is supposed to be sandboxed
-            if baseline[exe]["mj_uid"] == "Yes":
-                # If it's not being launched from Minijail,
-                # it's not sandboxed wrt the baseline.
-                if process.ppid not in minijail_processes:
-                    sandbox_delta.append(exe)
-                else:
-                    launcher = minijail_processes[process.ppid]
-                    expected = baseline[exe]
-                    if not self.minijail_ok(launcher, expected):
-                        sandbox_delta.append(exe)
+            # If the process is not running as the correct group
+            if process.egroup != baseline[exe]['egroup']:
+                logging.error('%s: bad group: wanted "%s" but got "%s"',
+                              exe, baseline[exe]['egroup'], process.egroup)
+                sandbox_delta.append(exe)
+                continue
+
+            # Check the various sandbox settings.
+            if (baseline[exe]['pidns'] == 'Yes' and
+                    process.pidns == init_process.pidns):
+                logging.error('%s: missing pid ns usage', exe)
+                sandbox_delta.append(exe)
+            elif (baseline[exe]['caps'] == 'Yes' and
+                  process.capeff == init_process.capeff):
+                logging.error('%s: missing caps usage', exe)
+                sandbox_delta.append(exe)
+            elif (baseline[exe]['filter'] == 'Yes' and
+                  process.seccomp != SECCOMP_MODE_FILTER and
+                  not is_asan):
+                # Since minijail disables seccomp at runtime when ASAN is
+                # active, we can't enforce it on ASAN bots.  Just ignore
+                # the test entirely.  (Comment applies to "is_asan" above.)
+                logging.error('%s: missing seccomp usage: wanted %s (%s) but '
+                              'got %s (%s)', exe, SECCOMP_MODE_FILTER,
+                              SECCOMP_MAP[SECCOMP_MODE_FILTER], process.seccomp,
+                              SECCOMP_MAP.get(process.seccomp, '???'))
+                sandbox_delta.append(exe)
 
         # Save current run to results dir
-        self.dump_services(running_services.values(), minijail_processes)
+        running_services_properties = [get_properties(s, init_process)
+                                       for s in running_services.values()]
+        self.dump_services(fieldnames, running_services_properties)
 
         if len(stale_baselines) > 0:
-            self.log_process_list_warn("Stale baselines", stale_baselines)
+            logging.warn('Stale baselines: %r', stale_baselines)
 
         if len(new_services) > 0:
-            self.log_process_list_warn("New services", new_services)
+            logging.warn('New services: %r', new_services)
+
+            # We won't complain about new non-root services (on the assumption
+            # that they've already somewhat sandboxed things), but we'll fail
+            # with new root services (on the assumption they haven't done any
+            # sandboxing work).  If they really need to run as root, they can
+            # update the baseline to whitelist it.
+            new_root_services = [x for x in new_services
+                                 if running_services[x].euser == 'root']
+            if new_root_services:
+                logging.error('New services are not allowed to run as root, '
+                              'but these are: %r', new_root_services)
+                sandbox_delta.extend(new_root_services)
 
         if len(sandbox_delta) > 0:
-            self.log_process_list_error("Failed sandboxing", sandbox_delta)
+            logging.error('Failed sandboxing: %r', sandbox_delta)
             raise error.TestFail("One or more processes failed sandboxing")

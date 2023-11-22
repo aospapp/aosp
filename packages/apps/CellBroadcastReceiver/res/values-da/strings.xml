@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"CB-meddelelser"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"Indstillinger for Cell Broadcast-beskeder"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"Indstillinger for Cell Broadcast-meddelelser"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Denne bruger har ikke adgang til indstillingerne for Cell Broadcast"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"Der er ingen aktive advarsler i dit område. Du kan ændre indstillingerne for advarslen ved hjælp af menuen Indstillinger."</string>
@@ -46,8 +46,9 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Nødalarm"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Cell Broadcast"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Indstillinger for nødalarmer"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Udsendte beskeder"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Aktivér underretninger"</string>
-    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Vis advarselsmeddelelser om nødsituationer"</string>
+    <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Vis nødudsendelser"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alarm for påmindelse"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Læs advarselsmeddelelser op"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Brug Oplæsning for at indtale beskeder om nødalarmer"</string>
@@ -57,9 +58,9 @@
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Vis ekstreme trusler"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Vis advarsler om ekstreme trusler mod liv og ejendom"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Vis alvorlige trusler"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Vis advarsler for alvorlige trusler mod liv og ejendom"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Vis advarsler om alvorlige trusler mod liv og ejendom"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Vis advarsel om barnebortførelse"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Vis bulletiner om nødsituationer i forbindelse med børnebortførelse (advarsel om barnebortførelse)"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Vis bulletiner om nødsituationer i forbindelse med børnebortførelse (AMBER Alert)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"Vis testudsendelser fra CMAS"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"Vis testudsendelser for Commercial Mobile Alert System"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"Vibration"</string>

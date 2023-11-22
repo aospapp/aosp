@@ -1,17 +1,17 @@
-To build the tests you can use the following command at the root of your android source tree
-$ make ManagedProvisioningTests
+To run all instrumentation tests:
+$ runtest managed-provisioning
 
-The test apk then needs to be installed onto your test device via for example
-$ adb install -r out/target/product/shamu/data/app/ManagedProvisioningTests/ManagedProvisioningTests.apk
+To run all instrumentation tests in a specific class:
+$ runtest --path src/com/android/managedprovisioning/<class>.java
 
-To run all tests:
-$ adb shell am instrument -w com.android.managedprovisioning.tests/android.test.InstrumentationTestRunner
+To run a specific instrumentation test:
+$ runtest -c com.android.managedprovisioning.<class> -m <method> managed-provisioning
 
-To run all tests in a specific class:
-$ adb shell am instrument -w -e class com.android.managedprovisioning.<class> com.android.managedprovisioning.tests/android.test.InstrumentationTestRunner
+To obtain a test coverage report for instrumentation tests:
+$ packages/apps/ManagedProvisioning/tools/bash/coverage.sh
 
-To run a specific test:
-$ adb shell am instrument -w -e class com.android.managedprovisioning.<class>#<test> com.android.managedprovisioning.tests/android.test.InstrumentationTestRunner
-
-More general information can be found at
+More general information can be found at "runtest -h" and
 http://developer.android.com/reference/android/test/InstrumentationTestRunner.html
+
+To run all robolectric tests:
+make RunManagedProvisioningRoboTests

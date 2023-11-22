@@ -37,6 +37,13 @@ public class TestNativeRootn extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestNativeRootnRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatIntFloat {
         public float inV;
         public int inN;
@@ -44,13 +51,14 @@ public class TestNativeRootn extends RSBaseCompute {
     }
 
     private void checkNativeRootnFloatIntFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x237ac0f1l, false);
-        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x237ac0e9l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x6693fe5c237ac0f1l, false);
+        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x6693fe5c237ac0e9l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInN(inN);
             script.forEach_testNativeRootnFloatIntFloat(inV, out);
             verifyResultsNativeRootnFloatIntFloat(inV, inN, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloatIntFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestNativeRootn extends RSBaseCompute {
             scriptRelaxed.set_gAllocInN(inN);
             scriptRelaxed.forEach_testNativeRootnFloatIntFloat(inV, out);
             verifyResultsNativeRootnFloatIntFloat(inV, inN, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloatIntFloat: " + e.toString());
         }
+        inV.destroy();
+        inN.destroy();
     }
 
     private void verifyResultsNativeRootnFloatIntFloat(Allocation inV, Allocation inN, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestNativeRootn extends RSBaseCompute {
     }
 
     private void checkNativeRootnFloat2Int2Float2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x4afd5bcdl, false);
-        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x4afd5bc5l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x5363e8c04afd5bcdl, false);
+        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x5363e8c04afd5bc5l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInN(inN);
             script.forEach_testNativeRootnFloat2Int2Float2(inV, out);
             verifyResultsNativeRootnFloat2Int2Float2(inV, inN, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloat2Int2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestNativeRootn extends RSBaseCompute {
             scriptRelaxed.set_gAllocInN(inN);
             scriptRelaxed.forEach_testNativeRootnFloat2Int2Float2(inV, out);
             verifyResultsNativeRootnFloat2Int2Float2(inV, inN, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloat2Int2Float2: " + e.toString());
         }
+        inV.destroy();
+        inN.destroy();
     }
 
     private void verifyResultsNativeRootnFloat2Int2Float2(Allocation inV, Allocation inN, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestNativeRootn extends RSBaseCompute {
     }
 
     private void checkNativeRootnFloat3Int3Float3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x40afc886l, false);
-        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x40afc87el, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x791a272340afc886l, false);
+        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0x791a272340afc87el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInN(inN);
             script.forEach_testNativeRootnFloat3Int3Float3(inV, out);
             verifyResultsNativeRootnFloat3Int3Float3(inV, inN, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloat3Int3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestNativeRootn extends RSBaseCompute {
             scriptRelaxed.set_gAllocInN(inN);
             scriptRelaxed.forEach_testNativeRootnFloat3Int3Float3(inV, out);
             verifyResultsNativeRootnFloat3Int3Float3(inV, inN, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloat3Int3Float3: " + e.toString());
         }
+        inV.destroy();
+        inN.destroy();
     }
 
     private void verifyResultsNativeRootnFloat3Int3Float3(Allocation inV, Allocation inN, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestNativeRootn extends RSBaseCompute {
     }
 
     private void checkNativeRootnFloat4Int4Float4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x3662353fl, false);
-        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x36623537l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x9ed065863662353fl, false);
+        Allocation inN = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x9ed0658636623537l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInN(inN);
             script.forEach_testNativeRootnFloat4Int4Float4(inV, out);
             verifyResultsNativeRootnFloat4Int4Float4(inV, inN, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloat4Int4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestNativeRootn extends RSBaseCompute {
             scriptRelaxed.set_gAllocInN(inN);
             scriptRelaxed.forEach_testNativeRootnFloat4Int4Float4(inV, out);
             verifyResultsNativeRootnFloat4Int4Float4(inV, inN, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testNativeRootnFloat4Int4Float4: " + e.toString());
         }
+        inV.destroy();
+        inN.destroy();
     }
 
     private void verifyResultsNativeRootnFloat4Int4Float4(Allocation inV, Allocation inN, Allocation out, boolean relaxed) {

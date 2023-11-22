@@ -189,10 +189,11 @@ form "<code>+<i>X</i></code>".</p>
 "<code><i>kind</i>@<i>X</i></code>", where "<code><i>kind</i></code>"
 indicates which constant pool is being referred to. Each opcode that
 uses such a format explicitly allows only one kind of constant; see
-the opcode reference to figure out the correspondence. The four
+the opcode reference to figure out the correspondence. The
 kinds of constant pool are "<code>string</code>" (string pool index),
 "<code>type</code>" (type pool index), "<code>field</code>" (field
-pool index), and "<code>meth</code>" (method pool index).</p>
+pool index), "<code>meth</code>" (method pool index), and
+"<code>site</code>" (call site index).</p>
 
 <p>Similar to the representation of constant pool indices, there are
 also suggested (optional) forms that indicate prelinked offsets or
@@ -370,6 +371,8 @@ the correspondence.</p>
   <td><i>[<code>A=5</code>] <code>op</code></i> {vC, vD, vE, vF, vG},
     meth@BBBB<br/>
     <i>[<code>A=5</code>] <code>op</code></i> {vC, vD, vE, vF, vG},
+    site@BBBB<br/>
+    <i>[<code>A=5</code>] <code>op</code></i> {vC, vD, vE, vF, vG},
     type@BBBB<br/>
     <i>[<code>A=4</code>] <code>op</code></i> {vC, vD, vE, vF},
     <i><code>kind</code></i>@BBBB<br/>
@@ -431,6 +434,7 @@ the correspondence.</p>
   <td rowspan="3">AA|<i>op</i> BBBB CCCC</td>
   <td>3rc</td>
   <td><i><code>op</code></i> {vCCCC .. vNNNN}, meth@BBBB<br/>
+    <i><code>op</code></i> {vCCCC .. vNNNN}, site@BBBB<br/>
     <i><code>op</code></i> {vCCCC .. vNNNN}, type@BBBB<br/>
     <p><i>where <code>NNNN = CCCC+AA-1</code>, that is <code>A</code>
     determines the count <code>0..255</code>, and <code>C</code>
@@ -458,6 +462,31 @@ the correspondence.</p>
   </td>
   <td><i>suggested format for inline linked <code>invoke-static</code>
     and <code>invoke-virtual</code> instructions of format 3rc</i>
+  </td>
+</tr>
+<tr>
+  <td>A|G|<i>op</i> BBBB F|E|D|C HHHH
+  <td>45cc</td>
+  <td>
+    <i>[<code>A=5</code>] <code>op</code></i> {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH<br>
+    <i>[<code>A=4</code>] <code>op</code></i> {vC, vD, vE, vF}, meth@BBBB, proto@HHHH<br>
+    <i>[<code>A=3</code>] <code>op</code></i> {vC, vD, vE}, meth@BBBB, proto@HHHH<br>
+    <i>[<code>A=2</code>] <code>op</code></i> {vC, vD}, meth@BBBB, proto@HHHH<br>
+    <i>[<code>A=1</code>] <code>op</code></i> {vC}, meth@BBBB, proto@HHHH
+  </td>
+  <td>invoke-polymorphic
+  </td>
+</tr>
+<tr>
+  <td>AA|<i>op</i> BBBB CCCC HHHH
+  <td>4rcc</td>
+  <td>
+    <code>op></code> {vCCCC .. vNNNN}, meth@BBBB, proto@HHHH
+    <p><i>wheere <code>NNNN = CCCC+AA-1</code>, that is <code>A</code>
+    determines the count <code>0..255</code>, and <code>C</code>
+    determines the first register</i></p>
+  </td>
+  <td>invoke-polymorphic/range
   </td>
 </tr>
 <tr>

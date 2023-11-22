@@ -44,6 +44,7 @@ public class ClassUnloadTest extends JDWPEventTestCase {
 	public static final String TESTED_CLASS_SIGNATURE =
 		"L" + TESTED_CLASS_NAME.replace('.', '/') + ";";
 
+    @Override
     protected String getDebuggeeClassName() {
         return ClassUnloadDebuggee.class.getName();
     }

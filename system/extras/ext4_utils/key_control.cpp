@@ -1,4 +1,4 @@
-#include "key_control.h"
+#include "ext4_utils/key_control.h"
 
 #include <stdarg.h>
 #include <unistd.h>
@@ -28,9 +28,9 @@ key_serial_t add_key(const char *type,
     return syscall(__NR_add_key, type, description, payload, plen, ringid);
 }
 
-long keyctl_revoke(key_serial_t id)
+long keyctl_unlink(key_serial_t key, key_serial_t keyring)
 {
-    return keyctl(KEYCTL_REVOKE, id);
+    return keyctl(KEYCTL_UNLINK, key, keyring);
 }
 
 long keyctl_setperm(key_serial_t id, int permissions)

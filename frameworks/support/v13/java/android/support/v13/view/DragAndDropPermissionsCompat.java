@@ -16,8 +16,13 @@
 
 package android.support.v13.view;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Activity;
-import android.support.v4.os.BuildCompat;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
+import android.view.DragAndDropPermissions;
 import android.view.DragEvent;
 
 /**
@@ -43,22 +48,23 @@ public final class DragAndDropPermissionsCompat {
         }
     }
 
+    @RequiresApi(24)
     static class Api24DragAndDropPermissionsCompatImpl
             extends BaseDragAndDropPermissionsCompatImpl {
         @Override
         public Object request(Activity activity, DragEvent dragEvent) {
-            return DragAndDropPermissionsCompatApi24.request(activity, dragEvent);
+            return activity.requestDragAndDropPermissions(dragEvent);
         }
 
         @Override
         public void release(Object dragAndDropPermissions) {
-            DragAndDropPermissionsCompatApi24.release(dragAndDropPermissions);
+            ((DragAndDropPermissions) dragAndDropPermissions).release();
         }
     }
 
     private static DragAndDropPermissionsCompatImpl IMPL;
     static {
-        if (BuildCompat.isAtLeastN()) {
+        if (Build.VERSION.SDK_INT >= 24) {
             IMPL = new Api24DragAndDropPermissionsCompatImpl();
         } else {
             IMPL = new BaseDragAndDropPermissionsCompatImpl();
@@ -72,6 +78,7 @@ public final class DragAndDropPermissionsCompat {
     }
 
     /** @hide */
+    @RestrictTo(LIBRARY_GROUP)
     public static DragAndDropPermissionsCompat request(Activity activity, DragEvent dragEvent) {
         Object dragAndDropPermissions = IMPL.request(activity, dragEvent);
         if (dragAndDropPermissions != null) {

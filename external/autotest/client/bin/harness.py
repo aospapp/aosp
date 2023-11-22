@@ -3,10 +3,14 @@
 The interface between the client and the server when hosted.
 """
 
+# pylint: disable=missing-docstring
+
 __author__ = """Copyright Andy Whitcroft 2006"""
 
-import os, sys, logging
+import logging
+
 import common
+
 
 class harness(object):
     """The NULL server harness
@@ -30,12 +34,6 @@ class harness(object):
                         The job object for this job
         """
         self.job = job
-
-        configd = os.path.join(os.environ['AUTODIR'], 'configs')
-        if os.path.isdir(configd):
-            (name, dirs, files) = os.walk(configd).next()
-            job.config_set('kernel.default_config_set',
-                           [ configd + '/' ] + files)
 
 
     def run_start(self):
@@ -87,7 +85,7 @@ def select(which, job, harness_args):
     if not which:
         which = 'standalone'
 
-    logging.debug('Selected harness: %s' % which)
+    logging.debug('Selected harness: %s', which)
 
     harness_name = 'harness_%s' % which
     harness_module = common.setup_modules.import_module(harness_name,

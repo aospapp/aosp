@@ -35,7 +35,7 @@ class InteractiveXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         @return True.
 
         """
-        self._chrome = chrome.Chrome()
+        self._chrome = chrome.Chrome(init_network_controller=True)
         self._chrome.browser.platform.SetHTTPServerDirectories(
                 os.path.dirname(sys.argv[0]))
         self._tab = self._chrome.browser.tabs[0]
@@ -217,7 +217,7 @@ class InteractiveXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
         """
         if hasattr(self, '_chrome'):
-            self._chrome.browser.Close()
+            self._chrome.close();
         return True
 
 

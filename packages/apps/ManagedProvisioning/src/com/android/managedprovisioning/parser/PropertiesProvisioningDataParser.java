@@ -52,23 +52,18 @@ import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
-
-import com.android.managedprovisioning.ProvisionLogger;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
-
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.IllformedLocaleException;
-import java.util.Locale;
 import java.util.Properties;
-import java.util.Set;
 
 
 /**
@@ -85,12 +80,22 @@ import java.util.Set;
 public class PropertiesProvisioningDataParser implements ProvisioningDataParser {
 
     private final Utils mUtils;
+    private final Context mContext;
+    private final ManagedProvisioningSharedPreferences mSharedPreferences;
 
-    PropertiesProvisioningDataParser(Utils utils) {
-        mUtils = checkNotNull(utils);
+    PropertiesProvisioningDataParser(Context context, Utils utils) {
+        this(context, utils, new ManagedProvisioningSharedPreferences(context));
     }
 
-    public ProvisioningParams parse(Intent nfcIntent, Context context)
+    @VisibleForTesting
+    PropertiesProvisioningDataParser(Context context, Utils utils,
+            ManagedProvisioningSharedPreferences sharedPreferences) {
+        mContext = checkNotNull(context);
+        mUtils = checkNotNull(utils);
+        mSharedPreferences = checkNotNull(sharedPreferences);
+    }
+
+    public ProvisioningParams parse(Intent nfcIntent)
             throws IllegalProvisioningArgumentException {
         if (!ACTION_NDEF_DISCOVERED.equals(nfcIntent.getAction())) {
             throw new IllegalProvisioningArgumentException(
@@ -108,6 +113,7 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
                 String s = null;
 
                 ProvisioningParams.Builder builder = ProvisioningParams.Builder.builder()
+                        .setProvisioningId(mSharedPreferences.incrementAndGetProvisioningId())
                         .setStartedByTrustedSource(true)
                         .setProvisioningAction(mUtils.mapIntentToDpmAction(nfcIntent))
                         .setDeviceAdminPackageName(props.getProperty(
@@ -119,7 +125,7 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
 
                 // Parse time zone, locale and local time.
                 builder.setTimeZone(props.getProperty(EXTRA_PROVISIONING_TIME_ZONE))
-                        .setLocale(MessageParser.stringToLocale(
+                        .setLocale(StoreUtils.stringToLocale(
                                 props.getProperty(EXTRA_PROVISIONING_LOCALE)));
                 if ((s = props.getProperty(EXTRA_PROVISIONING_LOCAL_TIME)) != null) {
                     builder.setLocalTime(Long.parseLong(s));
@@ -212,12 +218,12 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
             // Still support SHA-1 for device admin package hash if we are provisioned by a Nfc
             // programmer.
             // TODO: remove once SHA-1 is fully deprecated.
-            builder.setPackageChecksum(mUtils.stringToByteArray(s))
+            builder.setPackageChecksum(StoreUtils.stringToByteArray(s))
                     .setPackageChecksumSupportsSha1(true);
         }
         if ((s = props.getProperty(EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM))
                 != null) {
-            builder.setSignatureChecksum(mUtils.stringToByteArray(s));
+            builder.setSignatureChecksum(StoreUtils.stringToByteArray(s));
         }
         return builder.build();
     }
@@ -247,20 +253,23 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
     /**
      * @return the first {@link NdefRecord} found with a recognized MIME-type
      */
-    private NdefRecord getFirstNdefRecord(Intent nfcIntent) {
+    public static NdefRecord getFirstNdefRecord(Intent nfcIntent) {
         // Only one first message with NFC_MIME_TYPE is used.
-        for (Parcelable rawMsg : nfcIntent.getParcelableArrayExtra(
-                NfcAdapter.EXTRA_NDEF_MESSAGES)) {
-            NdefMessage msg = (NdefMessage) rawMsg;
-            for (NdefRecord record : msg.getRecords()) {
-                String mimeType = new String(record.getType(), UTF_8);
+        final Parcelable[] ndefMessages = nfcIntent.getParcelableArrayExtra(
+                NfcAdapter.EXTRA_NDEF_MESSAGES);
+        if (ndefMessages != null) {
+            for (Parcelable rawMsg : ndefMessages) {
+                NdefMessage msg = (NdefMessage) rawMsg;
+                for (NdefRecord record : msg.getRecords()) {
+                    String mimeType = new String(record.getType(), UTF_8);
 
-                if (MIME_TYPE_PROVISIONING_NFC.equals(mimeType)) {
-                    return record;
+                    if (MIME_TYPE_PROVISIONING_NFC.equals(mimeType)) {
+                        return record;
+                    }
+
+                    // Assume only first record of message is used.
+                    break;
                 }
-
-                // Assume only first record of message is used.
-                break;
             }
         }
         return null;

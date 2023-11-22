@@ -17,23 +17,25 @@
 package libcore.java.net;
 
 import junit.framework.TestCase;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
+import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.io.File;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import libcore.io.IoUtils;
-
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static java.net.NetworkInterface.getNetworkInterfaces;
 
 public class NetworkInterfaceTest extends TestCase {
     // http://code.google.com/p/android/issues/detail?id=13784
@@ -80,7 +82,7 @@ public class NetworkInterfaceTest extends TestCase {
     }*/
 
     public void testInterfaceProperties() throws Exception {
-        for (NetworkInterface nif : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+        for (NetworkInterface nif : Collections.list(getNetworkInterfaces())) {
             assertEquals(nif, NetworkInterface.getByName(nif.getName()));
             // Skip interfaces that are inactive
             if (nif.isUp() == false) {
@@ -109,7 +111,7 @@ public class NetworkInterfaceTest extends TestCase {
     public void testDumpAll() throws Exception {
         Set<String> allNames = new HashSet<String>();
         Set<Integer> allIndexes = new HashSet<Integer>();
-        for (NetworkInterface nif : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+        for (NetworkInterface nif : Collections.list(getNetworkInterfaces())) {
             System.err.println(nif);
             System.err.println(nif.getInterfaceAddresses());
             String flags = nif.isUp() ? "UP" : "DOWN";
@@ -189,9 +191,52 @@ public class NetworkInterfaceTest extends TestCase {
         } catch(SocketException expected) {}
     }
 
+    // b/29243557
+    public void testGetNetworkInterfaces() throws Exception {
+        // Check that the interfaces we get from #getNetworkInterfaces agrees with IP-LINK(8).
+
+        // Parse output of ip link.
+        String[] cmd = { "ip", "link" };
+        Process proc = Runtime.getRuntime().exec(cmd);
+        BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+        Set<String> expectedNiNames = new HashSet<>();
+        for (String s; (s = stdInput.readLine()) != null; ) {
+            String[] split = s.split(": |@");
+            try {
+                if (split.length > 2) {
+                    expectedNiNames.add(split[1]);
+                }
+            } catch (NumberFormatException e) {
+                // Skip this line.
+            }
+        }
+
+        Enumeration<NetworkInterface> nifs = NetworkInterface.getNetworkInterfaces();
+        Set<String> actualNiNames = new HashSet<>();
+        Collections.list(nifs).forEach(ni -> actualNiNames.add(ni.getName()));
+
+        assertEquals(expectedNiNames, actualNiNames);
+    }
+
+    // Calling getSubInterfaces on interfaces with no subinterface should not throw NPE.
+    // http://b/33844501
+    public void testGetSubInterfaces() throws Exception {
+        List<NetworkInterface> nifs = Collections.list(NetworkInterface.getNetworkInterfaces());
+
+        for (NetworkInterface nif : nifs) {
+            nif.getSubInterfaces();
+        }
+    }
+
     // Is ifName a name of a Ethernet device?
     private static Pattern ethernetNamePattern = Pattern.compile("^(eth|wlan)[0-9]+$");
     private static boolean isEthernet(String ifName) throws Exception {
         return ethernetNamePattern.matcher(ifName).matches();
+    }
+
+    public void testGetInterfaceAddressesDoesNotThrowNPE() throws Exception {
+        try (MulticastSocket mcastSock = new MulticastSocket()) {
+            mcastSock.getNetworkInterface().getInterfaceAddresses();
+        }
     }
 }

@@ -37,15 +37,15 @@ public class Main {
 
     private static Object allocInDifferentLoader() throws Exception {
         final String DEX_FILE = System.getenv("DEX_LOCATION") + "/130-hprof-ex.jar";
-        Class pathClassLoader = Class.forName("dalvik.system.PathClassLoader");
+        Class<?> pathClassLoader = Class.forName("dalvik.system.PathClassLoader");
         if (pathClassLoader == null) {
             throw new AssertionError("Couldn't find path class loader class");
         }
-        Constructor constructor =
+        Constructor<?> constructor =
             pathClassLoader.getDeclaredConstructor(String.class, ClassLoader.class);
         ClassLoader loader = (ClassLoader)constructor.newInstance(
                 DEX_FILE, ClassLoader.getSystemClassLoader());
-        Class allocator = loader.loadClass("Allocator");
+        Class<?> allocator = loader.loadClass("Allocator");
         return allocator.getDeclaredMethod("allocObject", null).invoke(null);
     }
 
@@ -87,6 +87,12 @@ public class Main {
     }
 
     public static void main(String[] args) throws Exception {
+        testBasicDump();
+        testAllocationTrackingAndClassUnloading();
+        testGcAndDump();
+    }
+
+    private static void testBasicDump() throws Exception {
         // Create some data.
         Object data[] = new Object[TEST_LENGTH];
         for (int i = 0; i < data.length; i++) {
@@ -103,9 +109,11 @@ public class Main {
             }
         }
         System.out.println("Generated data.");
-
         createDumpAndConv();
-        Class klass = Class.forName("org.apache.harmony.dalvik.ddmc.DdmVmInternal");
+    }
+
+    private static void testAllocationTrackingAndClassUnloading() throws Exception {
+        Class<?> klass = Class.forName("org.apache.harmony.dalvik.ddmc.DdmVmInternal");
         if (klass == null) {
             throw new AssertionError("Couldn't find path class loader class");
         }
@@ -123,9 +131,60 @@ public class Main {
         enableMethod.invoke(null, false);
     }
 
+    private static void testGcAndDump() throws Exception {
+        Allocator allocator = new Allocator();
+        Dumper dumper = new Dumper(allocator);
+        allocator.start();
+        dumper.start();
+        try {
+            allocator.join();
+            dumper.join();
+        } catch (InterruptedException e) {
+            System.err.println("join interrupted");
+        }
+    }
+
+    private static class Allocator extends Thread {
+        private static int ARRAY_SIZE = 1024;
+        public volatile boolean running = true;
+        public void run() {
+            Object[] array = new Object[ARRAY_SIZE];
+            int i = 0;
+            while (running) {
+                array[i] = new byte[1024];
+                if (i % ARRAY_SIZE == 0) {
+                    Main.sleep(100L);
+                }
+                i = (i + 1) % ARRAY_SIZE;
+            }
+        }
+    }
+
+    private static class Dumper extends Thread {
+        Dumper(Allocator allocator) {
+            this.allocator = allocator;
+        }
+        Allocator allocator;
+        public void run() {
+            for (int i = 0; i < 5; ++i) {
+                Main.sleep(1000L);
+                createDumpAndConv();
+            }
+            allocator.running = false;
+        }
+    }
+
+    public static void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            System.err.println("sleep interrupted");
+        }
+    }
+
     private static File getHprofConf() {
         // Use the java.library.path. It points to the lib directory.
-        File libDir = new File(System.getProperty("java.library.path"));
+        File libDir = new File(System.getProperty("java.library.path").split(":")[0]);
         return new File(new File(libDir.getParentFile(), "bin"), "hprof-conv");
     }
 
@@ -153,7 +212,7 @@ public class Main {
      */
     private static Method getDumpHprofDataMethod() {
         ClassLoader myLoader = Main.class.getClassLoader();
-        Class vmdClass;
+        Class<?> vmdClass;
         try {
             vmdClass = myLoader.loadClass("dalvik.system.VMDebug");
         } catch (ClassNotFoundException cnfe) {
@@ -162,8 +221,7 @@ public class Main {
 
         Method meth;
         try {
-            meth = vmdClass.getMethod("dumpHprofData",
-                    new Class[] { String.class });
+            meth = vmdClass.getMethod("dumpHprofData", String.class);
         } catch (NoSuchMethodException nsme) {
             System.err.println("Found VMDebug but not dumpHprofData method");
             return null;

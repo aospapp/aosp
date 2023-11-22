@@ -361,10 +361,14 @@ struct wpa_ssid {
 
 	/**
 	 * pbss - Whether to use PBSS. Relevant to DMG networks only.
+	 * 0 = do not use PBSS
+	 * 1 = use PBSS
+	 * 2 = don't care (not allowed in AP mode)
 	 * Used together with mode configuration. When mode is AP, it
 	 * means to start a PCP instead of a regular AP. When mode is INFRA it
-	 * means connect to a PCP instead of AP. P2P_GO and P2P_GROUP_FORMATION
-	 * modes must use PBSS in DMG network.
+	 * means connect to a PCP instead of AP. In this mode you can also
+	 * specify 2 (don't care) meaning connect to either AP or PCP.
+	 * P2P_GO and P2P_GROUP_FORMATION modes must use PBSS in DMG network.
 	 */
 	int pbss;
 
@@ -481,6 +485,14 @@ struct wpa_ssid {
 	 * attacks against TKIP deficiencies.
 	 */
 	int wpa_ptk_rekey;
+
+	/**
+	 * group_rekey - Group rekeying time in seconds
+	 *
+	 * This value, if non-zero, is used as the dot11RSNAConfigGroupRekeyTime
+	 * parameter when operating in Authenticator role in IBSS.
+	 */
+	int group_rekey;
 
 	/**
 	 * scan_freq - Array of frequencies to scan or %NULL for all
@@ -716,6 +728,54 @@ struct wpa_ssid {
 	 *    determine whether to use a secure session or not.
 	 */
 	int macsec_policy;
+
+	/**
+	 * macsec_integ_only - Determines how MACsec are transmitted
+	 *
+	 * This setting applies only when MACsec is in use, i.e.,
+	 *  - macsec_policy is enabled
+	 *  - the key server has decided to enable MACsec
+	 *
+	 * 0: Encrypt traffic (default)
+	 * 1: Integrity only
+	 */
+	int macsec_integ_only;
+
+	/**
+	 * macsec_port - MACsec port (in SCI)
+	 *
+	 * Port component of the SCI.
+	 *
+	 * Range: 1-65534 (default: 1)
+	 */
+	int macsec_port;
+
+	/**
+	 * mka_priority - Priority of MKA Actor
+	 *
+	 * Range: 0-255 (default: 255)
+	 */
+	int mka_priority;
+
+	/**
+	 * mka_ckn - MKA pre-shared CKN
+	 */
+#define MACSEC_CKN_LEN 32
+	u8 mka_ckn[MACSEC_CKN_LEN];
+
+	/**
+	 * mka_cak - MKA pre-shared CAK
+	 */
+#define MACSEC_CAK_LEN 16
+	u8 mka_cak[MACSEC_CAK_LEN];
+
+#define MKA_PSK_SET_CKN BIT(0)
+#define MKA_PSK_SET_CAK BIT(1)
+#define MKA_PSK_SET (MKA_PSK_SET_CKN | MKA_PSK_SET_CAK)
+	/**
+	 * mka_psk_set - Whether mka_ckn and mka_cak are set
+	 */
+	u8 mka_psk_set;
 #endif /* CONFIG_MACSEC */
 
 #ifdef CONFIG_HS20
@@ -744,6 +804,14 @@ struct wpa_ssid {
 	 * this MBSS will trigger a peering attempt.
 	 */
 	int no_auto_peer;
+
+	/**
+	 * wps_disabled - WPS disabled in AP mode
+	 *
+	 * 0 = WPS enabled and configured (default)
+	 * 1 = WPS disabled
+	 */
+	int wps_disabled;
 };
 
 #endif /* CONFIG_SSID_H */

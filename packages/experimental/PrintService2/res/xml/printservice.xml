@@ -1,3 +1,0 @@
-<print-service  xmlns:android="http://schemas.android.com/apk/res/android"
-     android:settingsActivity="foo.bar.printservice2.SettingsActivity"
-     android:description="@string/description"/>

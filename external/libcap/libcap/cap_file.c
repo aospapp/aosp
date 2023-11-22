@@ -1,18 +1,27 @@
 /*
- * Copyright (c) 1997,2007 Andrew G Morgan <morgan@kernel.org>
+ * Copyright (c) 1997,2007,2016 Andrew G Morgan <morgan@kernel.org>
  *
  * This file deals with setting capabilities on files.
  */
 
 #include <sys/types.h>
-#include <sys/xattr.h>
 #include <byteswap.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
 #include <linux/xattr.h>
 
-#define XATTR_SECURITY_PREFIX "security."
+/*
+ * We hardcode the prototypes for the Linux system calls here since
+ * there are no libcap library APIs that expose the user to these
+ * details, and that way we don't need to force clients to link any
+ * other libraries to access them.
+ */
+extern ssize_t getxattr(const char *, const char *, void *, size_t);
+extern ssize_t fgetxattr(int, const char *, void *, size_t);
+extern int setxattr(const char *, const char *, const void *, size_t, int);
+extern int fsetxattr(int, const char *, const void *, size_t, int);
+extern int removexattr(const char *, const char *);
+extern int fremovexattr(int, const char *);
 
 #include "libcap.h"
 

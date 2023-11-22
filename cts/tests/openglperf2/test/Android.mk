@@ -18,9 +18,9 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-subdir-cpp-files)
 LOCAL_SRC_FILES += ../jni/graphics/Matrix.cpp
 
-LOCAL_C_INCLUDES += external/gtest/include $(LOCAL_PATH)/../jni/graphics/
-LOCAL_STATIC_LIBRARIES := libgtest_host libgtest_main_host liblog
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../jni/graphics/
+LOCAL_STATIC_LIBRARIES := liblog
 LOCAL_LDFLAGS:= -g -lpthread
 LOCAL_MODULE_HOST_OS := linux
 LOCAL_MODULE:= cts_device_opengl_test
-include $(BUILD_HOST_EXECUTABLE)
+include $(BUILD_HOST_NATIVE_TEST)

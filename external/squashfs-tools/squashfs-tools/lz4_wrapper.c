@@ -226,9 +226,10 @@ static int lz4_compress(void *strm, void *dest, void *src,  int size,
 	int res;
 
 	if(hc)
-		res = LZ4_compressHC_limitedOutput(src, dest, size, block_size);
+		res = LZ4_compress_HC(src, dest, size, block_size,
+				      LZ4HC_CLEVEL_DEFAULT);
 	else
-		res = LZ4_compress_limitedOutput(src, dest, size, block_size);
+		res = LZ4_compress_default(src, dest, size, block_size);
 
 	if(res == 0) {
 		/*

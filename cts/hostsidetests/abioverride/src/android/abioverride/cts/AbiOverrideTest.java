@@ -16,7 +16,7 @@
 
 package android.abioverride.cts;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -72,7 +72,8 @@ public class AbiOverrideTest extends DeviceTestCase implements IBuildReceiver {
         super.setUp();
         ITestDevice device = getDevice();
         device.uninstallPackage(PACKAGE);
-        File app = MigrationHelper.getTestFile(mBuild, APK_NAME);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
+        File app = buildHelper.getTestFile(APK_NAME);
         String[] options = {};
         device.installPackage(app, false, options);
     }

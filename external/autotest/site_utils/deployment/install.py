@@ -48,25 +48,31 @@ installations in parallel, separate processes.
 
 """
 
+import atexit
+from collections import namedtuple
 import functools
 import json
 import logging
 import multiprocessing
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
+import traceback
+
+from chromite.lib import gs
 
 import common
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import host_states
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros import servo_afe_board_map
 from autotest_lib.server import frontend
 from autotest_lib.server import hosts
 from autotest_lib.server.cros.dynamic_suite.constants import VERSION_PREFIX
+from autotest_lib.server.hosts import afe_store
+from autotest_lib.server.hosts import servo_host
 from autotest_lib.site_utils.deployment import commandline
 from autotest_lib.site_utils.suite_scheduler.constants import Labels
 
@@ -77,20 +83,52 @@ _DEFAULT_POOL = Labels.POOL_PREFIX + 'suites'
 
 _DIVIDER = '\n============\n'
 
+_LOG_BUCKET_NAME = 'chromeos-install-logs'
+
 _OMAHA_STATUS = 'gs://chromeos-build-release-console/omaha_status.json'
 
+# Lock reasons we'll pass when locking DUTs, depending on the
+# host's prior state.
+_LOCK_REASON_EXISTING = 'Repairing or deploying an existing host'
+_LOCK_REASON_NEW_HOST = 'Repairing or deploying a new host'
 
-def _report_write(report_log, message):
-    """Write a message to the report log.
+_ReportResult = namedtuple('_ReportResult', ['hostname', 'message'])
 
-    Report output goes both to stdout, and to a given report
-    file.
 
-    @param report_log   Write the message here and to stdout.
-    @param message      Write this message.
+class _MultiFileWriter(object):
+
+    """Group file objects for writing at once."""
+
+    def __init__(self, files):
+        """Initialize _MultiFileWriter.
+
+        @param files  Iterable of file objects for writing.
+        """
+        self._files = files
+
+    def write(self, s):
+        """Write a string to the files.
+
+        @param s  Write this string.
+        """
+        for file in self._files:
+            file.write(s)
+
+
+def _get_upload_log_path(arguments):
+    return 'gs://{bucket}/{name}'.format(
+        bucket=_LOG_BUCKET_NAME,
+        name=commandline.get_default_logdir_name(arguments))
+
+
+def _upload_logs(dirpath, gspath):
+    """Upload report logs to Google Storage.
+
+    @param dirpath  Path to directory containing the logs.
+    @param gspath   Path to GS bucket.
     """
-    report_log.write(message)
-    sys.stdout.write(message)
+    ctx = gs.GSContext()
+    ctx.Copy(dirpath, gspath, recursive=True)
 
 
 def _get_omaha_build(board):
@@ -107,10 +145,9 @@ def _get_omaha_build(board):
             R##-####.#.#.  Will return `None` if no Beta channel
             entry is found.
     """
+    ctx = gs.GSContext()
+    omaha_status = json.loads(ctx.Cat(_OMAHA_STATUS))
     omaha_board = board.replace('_', '-')
-    sp = subprocess.Popen(['gsutil', 'cat', _OMAHA_STATUS],
-                          stdout=subprocess.PIPE)
-    omaha_status = json.load(sp.stdout)
     for e in omaha_status['omaha_data']:
         if (e['channel'] == 'beta' and
                 e['board']['public_codename'] == omaha_board):
@@ -138,16 +175,15 @@ def _update_build(afe, report_log, arguments):
 
     @param afe          AFE object for RPC calls.
     @param report_log   File-like object for logging report output.
-    @param arguments    Command line arguments determining the
-                        target board and user-specified build
-                        (if any).
+    @param arguments    Command line arguments with options.
+
     @return Returns the version selected.
     """
-    afe_version = afe.run('get_stable_version',
-                          board=arguments.board)
+    version_map = afe.get_stable_version_map(afe.CROS_IMAGE_TYPE)
+    afe_version = version_map.get_version(arguments.board)
     omaha_version = _get_omaha_build(arguments.board)
-    _report_write(report_log, 'AFE   version is %s.\n' % afe_version)
-    _report_write(report_log, 'Omaha version is %s.\n' % omaha_version)
+    report_log.write('AFE   version is %s.\n' % afe_version)
+    report_log.write('Omaha version is %s.\n' % omaha_version)
     if (omaha_version is not None and
             utils.compare_versions(afe_version, omaha_version) < 0):
         version = omaha_version
@@ -157,102 +193,27 @@ def _update_build(afe, report_log, arguments):
         if utils.compare_versions(arguments.build, version) >= 0:
             version = arguments.build
         else:
-            _report_write(report_log,
-                          'Selected version %s is too old.\n' %
-                          arguments.build)
+            report_log.write('Selected version %s is too old.\n' %
+                             (arguments.build,))
     if version != afe_version and not arguments.nostable:
-        afe.run('set_stable_version',
-                version=version,
-                board=arguments.board)
+        version_map.set_version(arguments.board, version)
     return version
 
 
-def _create_host(hostname, board):
+def _create_host(hostname, afe, afe_host):
     """Create a CrosHost object for a DUT to be installed.
 
     @param hostname  Hostname of the target DUT.
-    @param board     Board name of the target DUT.
+    @param afe       A frontend.AFE object.
+    @param afe_host  AFE Host object for the DUT.
     """
-    host = hosts.create_host(hostname, try_lab_servo=True)
-    # Monkey patch our host object to think there's a board label
-    # in the AFE.  The horror!  The horror!
-    #
-    # TODO(jrbarnette):  This is wrong; we patch the method because
-    # CrosHost._servo_repair_reinstall() calls it, but that means
-    # we're coupled to the implementation of CrosHost.  Alas, it's
-    # hard to do better without either 1) copying large chunks of
-    # _servo_repair_reinstall(), or 2) extensively refactoring
-    # CrosHost.
-    host._get_board_from_afe = lambda: board
-    return host
-
-
-def _check_servo(host):
-    """Check that servo for the given host is working.
-
-    Perform these steps:
-      * Confirm that the servo host is reachable via SSH.
-      * Stop `servod` on the servo host if it's running, and restart
-        it with the host's designated board.  We deliberately ignore
-        any prior configuration.
-      * Re-verify that the servo service on the servo host is
-        working correctly.
-      * Re-initialize the DUT host object with the correct servo
-        object, since this won't have been done in the case that
-        `servod` was down.
-      * Re-initialize the servo settings, since restarting `servod`
-        can change the actual settings from the expected defaults.
-        (In particular, restarting `servod` leaves the USB stick
-        plugged in to the servo host.)
-
-    @param host  CrosHost object with the servo to be initialized.
-    """
-    if not host._servo_host:
-        raise Exception('No answer to ping from Servo host')
-    if not host._servo_host.is_up():
-        raise Exception('No answer to ssh from Servo host')
-    # Stop servod, ignoring failures, then restart with the proper
-    # board.
-    #
-    # There's a lag between when `start servod` completes and when
-    # servod is actually up and serving.  The call to time.sleep()
-    # below gives time to make sure that the verify() call won't
-    # fail.
-    servo_board = (
-        servo_afe_board_map.map_afe_board_to_servo_board(
-            host._get_board_from_afe()))
-    host._servo_host.run('stop servod || :')
-    host._servo_host.run('start servod BOARD=%s' % servo_board)
-    time.sleep(10)
-    logging.debug('Starting servo host verification')
-    host._servo_host.verify()
-    host.servo = host._servo_host.get_servo()
-    host.servo.initialize_dut()
-    if not host.servo.probe_host_usb_dev():
-        raise Exception('No USB stick detected on Servo host')
-
-
-def _configure_install_logging(log_name):
-    """Configure the logging module for `_install_dut()`.
-
-    @param log_name  Name of the log file for all output.
-    """
-    # In some cases, autotest code that we call during install may
-    # put stuff onto stdout with 'print' statements.  Most notably,
-    # the AFE frontend may print 'FAILED RPC CALL' (boo, hiss).  We
-    # want nothing from this subprocess going to the output we
-    # inherited from our parent, so redirect stdout and stderr here,
-    # before we make any AFE calls.  Note that this does what we
-    # want only because we're in a subprocess.
-    sys.stdout = open(log_name, 'w')
-    sys.stderr = sys.stdout
-    handler = logging.StreamHandler(sys.stderr)
-    formatter = logging.Formatter(_LOG_FORMAT, time_utils.TIME_FMT)
-    handler.setFormatter(formatter)
-    root_logger = logging.getLogger()
-    for h in root_logger.handlers:
-        root_logger.removeHandler(h)
-    root_logger.addHandler(handler)
+    machine_dict = {
+            'hostname': hostname,
+            'afe_host': afe_host,
+            'host_info_store': afe_store.AfeStore(hostname, afe),
+    }
+    servo_args = hosts.CrosHost.get_servo_arguments({})
+    return hosts.create_host(machine_dict, servo_args=servo_args)
 
 
 def _try_lock_host(afe_host):
@@ -262,12 +223,13 @@ def _try_lock_host(afe_host):
     logged if they occur.
 
     @param afe_host AFE Host instance to be locked.
+
     @return `True` on success, or `False` on failure.
     """
     try:
         logging.warning('Locking host now.')
         afe_host.modify(locked=True,
-                        lock_reason='Running deployment_test')
+                        lock_reason=_LOCK_REASON_EXISTING)
     except Exception as e:
         logging.exception('Failed to lock: %s', e)
         return False
@@ -281,6 +243,7 @@ def _try_unlock_host(afe_host):
     logged if they occur.
 
     @param afe_host AFE Host instance to be unlocked.
+
     @return `True` on success, or `False` on failure.
     """
     try:
@@ -290,6 +253,84 @@ def _try_unlock_host(afe_host):
         logging.exception('Failed to unlock: %s', e)
         return False
     return True
+
+
+def _update_host_attributes(afe, hostname, host_attr_dict):
+    """Update the attributes for a given host.
+
+    @param afe             AFE object for RPC calls.
+    @param hostname        Name of the host to be updated.
+    @param host_attr_dict  Dict of host attributes to store in the AFE.
+    """
+    # Let's grab the servo hostname/port/serial from host_attr_dict
+    # if possible.
+    host_attr_servo_host = None
+    host_attr_servo_port = None
+    host_attr_servo_serial = None
+    if hostname in host_attr_dict:
+        host_attr_servo_host = host_attr_dict[hostname].get(
+                servo_host.SERVO_HOST_ATTR)
+        host_attr_servo_port = host_attr_dict[hostname].get(
+                servo_host.SERVO_PORT_ATTR)
+        host_attr_servo_serial = host_attr_dict[hostname].get(
+                servo_host.SERVO_SERIAL_ATTR)
+
+    servo_hostname = (host_attr_servo_host or
+                      servo_host.make_servo_hostname(hostname))
+    servo_port = (host_attr_servo_port or
+                  str(servo_host.ServoHost.DEFAULT_PORT))
+    afe.set_host_attribute(servo_host.SERVO_HOST_ATTR,
+                           servo_hostname,
+                           hostname=hostname)
+    afe.set_host_attribute(servo_host.SERVO_PORT_ATTR,
+                           servo_port,
+                           hostname=hostname)
+    if host_attr_servo_serial:
+        afe.set_host_attribute(servo_host.SERVO_SERIAL_ATTR,
+                               host_attr_servo_serial,
+                               hostname=hostname)
+
+
+def _get_afe_host(afe, hostname, arguments, host_attr_dict):
+    """Get an AFE Host object for the given host.
+
+    If the host is found in the database, return the object
+    from the RPC call with the updated attributes in host_attr_dict.
+
+    If no host is found, create one with appropriate servo
+    attributes and the given board label.
+
+    @param afe             AFE from which to get the host.
+    @param hostname        Name of the host to look up or create.
+    @param arguments       Command line arguments with options.
+    @param host_attr_dict  Dict of host attributes to store in the AFE.
+
+    @return A tuple of the afe_host, plus a flag. The flag indicates
+            whether the Host should be unlocked if subsequent operations
+            fail.  (Hosts are always unlocked after success).
+    """
+    hostlist = afe.get_hosts([hostname])
+    unlock_on_failure = False
+    if hostlist:
+        afe_host = hostlist[0]
+        if not afe_host.locked:
+            if _try_lock_host(afe_host):
+                unlock_on_failure = True
+            else:
+                raise Exception('Failed to lock host')
+        if afe_host.status not in host_states.IDLE_STATES:
+            if unlock_on_failure and not _try_unlock_host(afe_host):
+                raise Exception('Host is in use, and failed to unlock it')
+            raise Exception('Host is in use by Autotest')
+    else:
+        afe_host = afe.create_host(hostname,
+                                   locked=True,
+                                   lock_reason=_LOCK_REASON_NEW_HOST)
+        afe_host.add_labels([Labels.BOARD_PREFIX + arguments.board])
+
+    _update_host_attributes(afe, hostname, host_attr_dict)
+    afe_host = afe.get_hosts([hostname])[0]
+    return afe_host, unlock_on_failure
 
 
 def _install_firmware(host):
@@ -336,18 +377,20 @@ def _install_firmware(host):
     host.halt()
 
 
-def _install_test_image(hostname, arguments):
+def _install_test_image(host, arguments):
     """Install a test image to the DUT.
 
     Install a stable test image on the DUT using the full servo
     repair flow.
 
-    @param hostname   Host name of the DUT to install on.
-    @param arguments  Parsed results from
-                      ArgumentParser.parse_args().
+    @param host       Host instance for the DUT being installed.
+    @param arguments  Command line arguments with options.
     """
-    host = _create_host(hostname, arguments.board)
-    _check_servo(host)
+    # Don't timeout probing for the host usb device, there could be a bunch
+    # of servos probing at the same time on the same servo host.  And
+    # since we can't pass None through the xml rpcs, use 0 to indicate None.
+    if not host.servo.probe_host_usb_dev(timeout=0):
+        raise Exception('No USB stick detected on Servo host')
     try:
         if not arguments.noinstall:
             if not arguments.nostage:
@@ -363,7 +406,7 @@ def _install_test_image(hostname, arguments):
         host.close()
 
 
-def _install_and_record(afe, hostname, arguments):
+def _install_and_update_afe(afe, hostname, arguments, host_attr_dict):
     """Perform all installation and AFE updates.
 
     First, lock the host if it exists and is unlocked.  Then,
@@ -374,83 +417,68 @@ def _install_and_record(afe, hostname, arguments):
     If installation succeeds, make sure the DUT is in the AFE,
     and make sure that it has basic labels.
 
-    @param afe          AFE object for RPC calls.
-    @param hostname     Host name of the DUT.
-    @param arguments    Command line arguments with options.
+    @param afe               AFE object for RPC calls.
+    @param hostname          Host name of the DUT.
+    @param arguments         Command line arguments with options.
+    @param host_attr_dict    Dict of host attributes to store in the AFE.
     """
-    hostlist = afe.get_hosts([hostname])
-    unlock_on_failure = False
-    if hostlist:
-        afe_host = hostlist[0]
-        if not afe_host.locked:
-            if _try_lock_host(afe_host):
-                unlock_on_failure = True
-            else:
-                raise Exception('Failed to lock host')
-        if (afe_host.status != 'Ready' and
-                 afe_host.status != 'Repair Failed'):
-            if unlock_on_failure and not _try_unlock_host(afe_host):
-                raise Exception('Host is in use, and failed to unlock it')
-            raise Exception('Host is in use by Autotest')
-    else:
-        afe_host = None
-
+    afe_host, unlock_on_failure = _get_afe_host(afe, hostname, arguments,
+                                                host_attr_dict)
     try:
-        _install_test_image(hostname, arguments)
+        host = _create_host(hostname, afe, afe_host)
+        _install_test_image(host, arguments)
+        host.labels.update_labels(host)
+        platform_labels = afe.get_labels(
+                host__hostname=hostname, platform=True)
+        if not platform_labels:
+            platform = host.get_platform()
+            new_labels = afe.get_labels(name=platform)
+            if not new_labels:
+                afe.create_label(platform, platform=True)
+            afe_host.add_labels([platform])
+        version = [label for label in afe_host.labels
+                       if label.startswith(VERSION_PREFIX)]
+        if version:
+            afe_host.remove_labels(version)
     except Exception as e:
         if unlock_on_failure and not _try_unlock_host(afe_host):
             logging.error('Failed to unlock host!')
         raise
 
-    if afe_host is not None:
-        if not _try_unlock_host(afe_host):
-            raise Exception('Failed to unlock after successful install')
-    else:
-        logging.debug('Creating host in AFE.')
-        atest_path = os.path.join(
-                os.path.dirname(os.path.abspath(sys.argv[0])),
-                'atest')
-        # Logging configuration reset sys.stdout to the log file,
-        # but apparently subprocess.call() uses FD 0, which is
-        # still our parent's stdout.  So, explicitly redirect.
-        status = subprocess.call(
-                [atest_path, 'host', 'create', hostname],
-                stdout=sys.stdout, stderr=subprocess.STDOUT)
-        if status != 0:
-            logging.error('Host creation failed, status = %d', status)
-            raise Exception('Failed to add host to AFE')
-    # Must re-query to get state changes, especially label changes.
-    afe_host = afe.get_hosts([hostname])[0]
-    have_board = any([label.startswith(Labels.BOARD_PREFIX)
-                         for label in afe_host.labels])
-    if not have_board:
-        afe_host.delete()
-        raise Exception('Failed to add labels to host')
-    version = [label for label in afe_host.labels
-                   if label.startswith(VERSION_PREFIX)]
-    if version:
-        afe_host.remove_labels(version)
+    if not _try_unlock_host(afe_host):
+        raise Exception('Install succeeded, but failed to unlock the DUT.')
 
 
-def _install_dut(arguments, hostname):
+def _install_dut(arguments, host_attr_dict, hostname):
     """Deploy or repair a single DUT.
 
     Implementation note: This function is expected to run in a
     subprocess created by a multiprocessing Pool object.  As such,
     it can't (shouldn't) write to shared files like `sys.stdout`.
 
-    @param hostname   Host name of the DUT to install on.
-    @param arguments  Parsed results from
-                      ArgumentParser.parse_args().
+    @param hostname        Host name of the DUT to install on.
+    @param arguments       Command line arguments with options.
+    @param host_attr_dict  Dict of host attributes to store in the AFE.
 
     @return On success, return `None`.  On failure, return a string
             with an error message.
     """
-    _configure_install_logging(
-            os.path.join(arguments.dir, hostname + '.log'))
+    logpath = os.path.join(arguments.logdir, hostname + '.log')
+    logfile = open(logpath, 'w')
+
+    # In some cases, autotest code that we call during install may
+    # put stuff onto stdout with 'print' statements.  Most notably,
+    # the AFE frontend may print 'FAILED RPC CALL' (boo, hiss).  We
+    # want nothing from this subprocess going to the output we
+    # inherited from our parent, so redirect stdout and stderr here,
+    # before we make any AFE calls.  Note that this does what we
+    # want only because we're in a subprocess.
+    sys.stderr = sys.stdout = logfile
+    _configure_logging_to_file(logfile)
+
     afe = frontend.AFE(server=arguments.web)
     try:
-        _install_and_record(afe, hostname, arguments)
+        _install_and_update_afe(afe, hostname, arguments, host_attr_dict)
     except Exception as e:
         logging.exception('Original exception: %s', e)
         return str(e)
@@ -468,16 +496,17 @@ def _report_hosts(report_log, heading, host_results_list):
                               output.
     @param heading            The header string to be printed before
                               results.
-    @param host_results_list  A list of (hostname, message) tuples
+    @param host_results_list  A list of _ReportResult tuples
                               to be printed one per line.
     """
     if not host_results_list:
         return
-    _report_write(report_log, heading)
-    _report_write(report_log, _DIVIDER)
-    for t in host_results_list:
-        _report_write(report_log, '%-30s %s\n' % t)
-    _report_write(report_log, '\n')
+    report_log.write(heading)
+    report_log.write(_DIVIDER)
+    for result in host_results_list:
+        report_log.write('{result.hostname:30} {result.message}\n'
+                         .format(result=result))
+    report_log.write('\n')
 
 
 def _report_results(afe, report_log, hostnames, results):
@@ -494,34 +523,140 @@ def _report_results(afe, report_log, hostnames, results):
                         as the hostnames.  `None` means the
                         corresponding host succeeded.
     """
-    success_hosts = []
+    successful_hosts = []
     success_reports = []
     failure_reports = []
-    for r, h in zip(results, hostnames):
-        if r is None:
-            success_hosts.append(h)
+    for result, hostname in zip(results, hostnames):
+        if result is None:
+            successful_hosts.append(hostname)
         else:
-            failure_reports.append((h, r))
-    if success_hosts:
-        afe_host_list = afe.get_hosts(hostnames=success_hosts)
-        afe.reverify_hosts(hostnames=success_hosts)
-        for h in afe.get_hosts(hostnames=success_hosts):
+            failure_reports.append(_ReportResult(hostname, result))
+    if successful_hosts:
+        afe.reverify_hosts(hostnames=successful_hosts)
+        for h in afe.get_hosts(hostnames=successful_hosts):
             for label in h.labels:
                 if label.startswith(Labels.POOL_PREFIX):
-                    success_reports.append(
-                            (h.hostname, 'Host already in %s' % label))
+                    result = _ReportResult(h.hostname,
+                                           'Host already in %s' % label)
+                    success_reports.append(result)
                     break
             else:
                 h.add_labels([_DEFAULT_POOL])
-                success_reports.append(
-                        (h.hostname, 'Host added to %s' % _DEFAULT_POOL))
-    _report_write(report_log, _DIVIDER)
+                result = _ReportResult(h.hostname,
+                                       'Host added to %s' % _DEFAULT_POOL)
+                success_reports.append(result)
+    report_log.write(_DIVIDER)
     _report_hosts(report_log, 'Successes', success_reports)
     _report_hosts(report_log, 'Failures', failure_reports)
-    _report_write(report_log,
-                  'Installation complete:  '
-                  '%d successes, %d failures.\n' %
-                  (len(success_reports), len(failure_reports)))
+    report_log.write(
+        'Installation complete:  %d successes, %d failures.\n' %
+        (len(success_reports), len(failure_reports)))
+
+
+def _clear_root_logger_handlers():
+    """Remove all handlers from root logger."""
+    root_logger = logging.getLogger()
+    for h in root_logger.handlers:
+        root_logger.removeHandler(h)
+
+
+def _configure_logging_to_file(logfile):
+    """Configure the logging module for `install_duts()`.
+
+    @param log_file  Log file object.
+    """
+    _clear_root_logger_handlers()
+    handler = logging.StreamHandler(logfile)
+    formatter = logging.Formatter(_LOG_FORMAT, time_utils.TIME_FMT)
+    handler.setFormatter(formatter)
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
+
+
+def _get_used_servo_ports(servo_hostname, afe):
+    """
+    Return a list of used servo ports for the given servo host.
+
+    @param servo_hostname:  Hostname of the servo host to check for.
+    @param afe:             AFE instance.
+
+    @returns a list of used ports for the given servo host.
+    """
+    used_ports = []
+    host_list = afe.get_hosts_by_attribute(
+            attribute=servo_host.SERVO_HOST_ATTR, value=servo_hostname)
+    for host in host_list:
+        afe_host = afe.get_hosts(hostname=host)
+        if afe_host:
+            servo_port = afe_host[0].attributes.get(servo_host.SERVO_PORT_ATTR)
+            if servo_port:
+                used_ports.append(int(servo_port))
+    return used_ports
+
+
+def _get_free_servo_port(servo_hostname, used_servo_ports, afe):
+    """
+    Get a free servo port for the servo_host.
+
+    @param servo_hostname:    Hostname of the servo host.
+    @param used_servo_ports:  Dict of dicts that contain the list of used ports
+                              for the given servo host.
+    @param afe:               AFE instance.
+
+    @returns a free servo port if servo_hostname is non-empty, otherwise an
+        empty string.
+    """
+    used_ports = []
+    servo_port = servo_host.ServoHost.DEFAULT_PORT
+    # If no servo hostname was specified we can assume we're dealing with a
+    # servo v3 or older deployment since the servo hostname can be
+    # inferred from the dut hostname (by appending '-servo' to it).  We only
+    # need to find a free port if we're using a servo v4 since we can use the
+    # default port for v3 and older.
+    if not servo_hostname:
+        return ''
+    # If we haven't checked this servo host yet, check the AFE if other duts
+    # used this servo host and grab the ports specified for them.
+    elif servo_hostname not in used_servo_ports:
+        used_ports = _get_used_servo_ports(servo_hostname, afe)
+    else:
+        used_ports = used_servo_ports[servo_hostname]
+    used_ports.sort()
+    if used_ports:
+        # Range is taken from servod.py in hdctools.
+        start_port = servo_host.ServoHost.DEFAULT_PORT
+        end_port = start_port - 99
+        # We'll choose first port available in descending order.
+        for port in xrange(start_port, end_port - 1, -1):
+            if port not in used_ports:
+              servo_port = port
+              break
+    used_ports.append(servo_port)
+    used_servo_ports[servo_hostname] = used_ports
+    return servo_port
+
+
+def _get_host_attributes(host_info_list, afe):
+    """
+    Get host attributes if a hostname_file was supplied.
+
+    @param host_info_list   List of HostInfo tuples (hostname, host_attr_dict).
+
+    @returns Dict of attributes from host_info_list.
+    """
+    host_attributes = {}
+    # We need to choose servo ports for these hosts but we need to make sure
+    # we don't choose ports already used. We'll store all used ports in a
+    # dict of lists where the key is the servo_host and the val is a list of
+    # ports used.
+    used_servo_ports = {}
+    for host_info in host_info_list:
+        host_attr_dict = host_info.host_attr_dict
+        host_attr_dict[servo_host.SERVO_PORT_ATTR] = _get_free_servo_port(
+                host_attr_dict[servo_host.SERVO_HOST_ATTR],used_servo_ports,
+                afe)
+        host_attributes[host_info.hostname] = host_attr_dict
+    return host_attributes
 
 
 def install_duts(argv, full_deploy):
@@ -542,27 +677,48 @@ def install_duts(argv, full_deploy):
     # put the temp files in our results directory, so that we can
     # clean up everything in one fell swoop.
     tempfile.tempdir = tempfile.mkdtemp()
+    # MALCOLM:
+    #   Be comforted.
+    #   Let's make us med'cines of our great revenge,
+    #   To cure this deadly grief.
+    atexit.register(shutil.rmtree, tempfile.tempdir)
 
     arguments = commandline.parse_command(argv, full_deploy)
     if not arguments:
         sys.exit(1)
-    sys.stderr.write('Installation output logs in %s\n' % arguments.dir)
-    report_log = open(os.path.join(arguments.dir, 'report.log'), 'w')
-    afe = frontend.AFE(server=arguments.web)
-    current_build = _update_build(afe, report_log, arguments)
-    _report_write(report_log, _DIVIDER)
-    _report_write(report_log,
-                  'Repair version for board %s is now %s.\n' %
-                  (arguments.board, current_build))
-    install_pool = multiprocessing.Pool(len(arguments.hostnames))
-    install_function = functools.partial(_install_dut, arguments)
-    results_list = install_pool.map(install_function,
-                                    arguments.hostnames)
-    _report_results(afe, report_log, arguments.hostnames, results_list)
+    sys.stderr.write('Installation output logs in %s\n' % arguments.logdir)
 
-    # MacDuff:
-    #   [ ... ]
-    #   Did you say all? O hell-kite! All?
-    #   What, all my pretty chickens and their dam
-    #   At one fell swoop?
-    shutil.rmtree(tempfile.tempdir)
+    # We don't want to distract the user with logging output, so we catch
+    # logging output in a file.
+    logging_file_path = os.path.join(arguments.logdir, 'debug.log')
+    logfile = open(logging_file_path, 'w')
+    _configure_logging_to_file(logfile)
+
+    report_log_path = os.path.join(arguments.logdir, 'report.log')
+    with open(report_log_path, 'w') as report_log_file:
+        report_log = _MultiFileWriter([report_log_file, sys.stdout])
+        afe = frontend.AFE(server=arguments.web)
+        current_build = _update_build(afe, report_log, arguments)
+        report_log.write(_DIVIDER)
+        report_log.write('Repair version for board %s is now %s.\n' %
+                         (arguments.board, current_build))
+        host_attr_dict = _get_host_attributes(arguments.host_info_list, afe)
+        install_pool = multiprocessing.Pool(len(arguments.hostnames))
+        install_function = functools.partial(_install_dut, arguments,
+                                             host_attr_dict)
+        results_list = install_pool.map(install_function, arguments.hostnames)
+        _report_results(afe, report_log, arguments.hostnames, results_list)
+
+        gspath = _get_upload_log_path(arguments)
+        report_log.write('Logs will be uploaded to %s\n' % (gspath,))
+
+    try:
+        _upload_logs(arguments.logdir, gspath)
+    except Exception as e:
+        upload_failure_log_path = os.path.join(arguments.logdir,
+                                               'gs_upload_failure.log')
+        with open(upload_failure_log_path, 'w') as file:
+            traceback.print_exc(limit=None, file=file)
+        sys.stderr.write('Failed to upload logs;'
+                         ' failure details are stored in {}.'
+                         .format(upload_failure_log_path))

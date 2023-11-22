@@ -9,7 +9,6 @@ TEST_TYPE='client'
 TEST_CLASS='Kernel'
 TEST_CATEGORY='Security, Functional'
 ATTRIBUTES = "suite:bvt-perbuild, suite:smoke"
-SUITE = "bvt-perbuild, smoke"
 DOC="""
 Test whether crypto user API is loaded, and whether it is patched to prevent
 using it to load arbitrary modules as an unpriveleged user. (It should only

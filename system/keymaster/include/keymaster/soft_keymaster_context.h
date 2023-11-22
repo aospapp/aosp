@@ -37,7 +37,7 @@ class Keymaster1Engine;
  */
 class SoftKeymasterContext : public KeymasterContext {
   public:
-    SoftKeymasterContext(const std::string& root_of_trust = "SW");
+    explicit SoftKeymasterContext(const std::string& root_of_trust = "SW");
     ~SoftKeymasterContext() override;
 
     /**

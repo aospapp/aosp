@@ -46,6 +46,10 @@ class video_YouTubeHTML5(test.test):
         yh = youtube_helper.YouTubeHelper(tab)
         # Waiting for test video to load.
         yh.wait_for_player_state(PLAYER_PLAYING_STATE)
+
+        # Set tiny resolution to prevent inadvertently caching a higher
+        # bandwidth stream which taints resolution verification.
+        yh.set_playback_quality('tiny')
         yh.set_video_duration()
 
         # Verify that YouTube is running in html5 mode.

@@ -42,8 +42,7 @@ class DatabaseIO {
 
 // An implementation of Database backed by an ordinary file. Not thread safe.
 // All methods must be called on the same thread as the Initialize() call.
-class DatabaseImpl : public Database,
-                     public DatabaseIO {
+class DatabaseImpl : public Database, public DatabaseIO {
  public:
   // Does not take ownership of pointers.
   explicit DatabaseImpl(CryptoUtility* crypto);
@@ -65,9 +64,7 @@ class DatabaseImpl : public Database,
   void Watch(const base::Closure& callback) override;
 
   // Useful for testing.
-  void set_io(DatabaseIO* io) {
-    io_ = io;
-  }
+  void set_io(DatabaseIO* io) { io_ = io; }
 
  private:
   // Encrypts |protobuf_| into |encrypted_output|. Returns true on success.

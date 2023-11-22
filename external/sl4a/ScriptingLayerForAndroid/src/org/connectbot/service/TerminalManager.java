@@ -53,8 +53,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Manager for SSH connections that runs as a background service. This service holds a list of
  * currently connected SSH bridges that are ready for connection up to a GUI if needed.
  *
- * @author jsharkey
- * @author modified by raaar
  */
 public class TerminalManager implements OnSharedPreferenceChangeListener {
 

@@ -44,7 +44,7 @@ public class ServiceLoaderTest extends junit.framework.TestCase {
       ServiceLoader.load(ServiceLoaderTestInterfaceMissingClass.class).iterator().next();
       fail();
     } catch (ServiceConfigurationError expected) {
-      assertTrue(expected.getCause() instanceof ClassNotFoundException);
+      assertTrue(expected.toString(), expected.getCause() instanceof ClassNotFoundException);
     }
   }
 
@@ -55,7 +55,7 @@ public class ServiceLoaderTest extends junit.framework.TestCase {
       ServiceLoader.load(ServiceLoaderTestInterfaceWrongType.class).iterator().next();
       fail();
     } catch (ServiceConfigurationError expected) {
-      assertTrue(expected.getCause() instanceof ClassCastException);
+      assertTrue(expected.toString(), expected.getCause() instanceof ClassCastException);
     }
   }
 

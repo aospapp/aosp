@@ -22,11 +22,15 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.ConditionVariable;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.system.ErrnoException;
+import android.system.Os;
 
 import com.android.cts.net.hostside.IRemoteSocketFactory;
 
 import java.io.FileDescriptor;
+import java.io.IOException;
 
 public class RemoteSocketFactoryClient {
     private static final int TIMEOUT_MS = 5000;
@@ -76,9 +80,14 @@ public class RemoteSocketFactoryClient {
         }
     }
 
-    public FileDescriptor openSocketFd(
-            String host, int port, int timeoutMs) throws RemoteException {
-        return mService.openSocketFd(host, port, timeoutMs).getFileDescriptor();
+    public FileDescriptor openSocketFd(String host, int port, int timeoutMs)
+            throws RemoteException, ErrnoException, IOException {
+        // Dup the filedescriptor so ParcelFileDescriptor's finalizer doesn't garbage collect it
+        // and cause our fd to become invalid. http://b/35927643 .
+        ParcelFileDescriptor pfd = mService.openSocketFd(host, port, timeoutMs);
+        FileDescriptor fd = Os.dup(pfd.getFileDescriptor());
+        pfd.close();
+        return fd;
     }
 
     public String getPackageName() throws RemoteException {

@@ -15,217 +15,144 @@
  */
 package com.android.managedprovisioning.task;
 
-import android.app.DownloadManager;
-import android.content.ComponentName;
+import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_INSTALL_PACKAGE_TASK_MS;
+import static com.android.internal.util.Preconditions.checkNotNull;
+
 import android.content.Context;
 import android.content.pm.IPackageInstallObserver;
-import android.content.pm.ActivityInfo;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.provider.Settings.Global;
 import android.text.TextUtils;
-import android.Manifest.permission;
 
-import com.android.managedprovisioning.ProvisionLogger;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import java.io.File;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
- * Installs all packages that were added. Can install a downloaded apk, or install an existing
- * package which is already installed for a different user.
- * <p>
- * Before installing from a downloaded file, each file is checked to ensure it contains the correct
- * package and admin receiver.
- * </p>
+ * Installs the management app apk from a download location provided by
+ * {@link DownloadPackageTask#getDownloadedPackageLocation()}.
  */
-public class InstallPackageTask {
+public class InstallPackageTask extends AbstractProvisioningTask {
     public static final int ERROR_PACKAGE_INVALID = 0;
     public static final int ERROR_INSTALLATION_FAILED = 1;
-    public static final int ERROR_PACKAGE_NAME_INVALID = 2;
 
-    private final Context mContext;
-    private final Callback mCallback;
+    private final SettingsFacade mSettingsFacade;
+    private final DownloadPackageTask mDownloadPackageTask;
 
     private PackageManager mPm;
-    private int mPackageVerifierEnable;
-    private Set<InstallInfo> mPackagesToInstall;
+    private boolean mInitialPackageVerifierEnabled;
 
     /**
-     * Create an InstallPackageTask. When run, this will attempt to install the device admin
-     * packages if it is non-null.
+     * Create an InstallPackageTask. When run, this will attempt to install the device admin package
+     * if it is non-null.
      *
      * {@see #run(String, String)} for more detail on package installation.
      */
-    public InstallPackageTask (Context context, Callback callback) {
-        mCallback = callback;
-        mContext = context;
-        mPackagesToInstall = new HashSet<InstallInfo>();
-        mPm = mContext.getPackageManager();
+    public InstallPackageTask(
+            DownloadPackageTask downloadPackageTask,
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        this(new SettingsFacade(), downloadPackageTask, context, params, callback);
+    }
+
+    @VisibleForTesting
+    InstallPackageTask(
+            SettingsFacade settingsFacade,
+            DownloadPackageTask downloadPackageTask,
+            Context context,
+            ProvisioningParams params,
+            Callback callback) {
+        super(context, params, callback);
+
+        mPm = context.getPackageManager();
+        mSettingsFacade = checkNotNull(settingsFacade);
+        mDownloadPackageTask = checkNotNull(downloadPackageTask);
+    }
+
+    @Override
+    public int getStatusMsgId() {
+        return R.string.progress_install;
     }
 
     /**
-     * Should be called before {@link #run}.
-     */
-    public void addInstallIfNecessary(String packageName, String packageLocation) {
-        if (!TextUtils.isEmpty(packageName)) {
-            mPackagesToInstall.add(new InstallInfo(packageName, packageLocation));
-        }
-    }
-
-    /**
-     * Install all packages given by {@link #addPackageToInstall}. Each package will be installed
-     * from the given location if one is provided. If a null or empty location is provided, and the
-     * package is installed for a different user, it will be enabled for the calling user. If the
-     * package location is not provided and the package is not installed for any other users, this
-     * task will produce an error.
+     * Installs a package. The package will be installed from the given location if one is provided.
+     * If a null or empty location is provided, and the package is installed for a different user,
+     * it will be enabled for the calling user. If the package location is not provided and the
+     * package is not installed for any other users, this task will produce an error.
      *
      * Errors will be indicated if a downloaded package is invalid, or installation fails.
      */
-    public void run() {
-        if (mPackagesToInstall.size() == 0) {
-            ProvisionLogger.loge("No downloaded packages to install");
-            mCallback.onSuccess();
+    @Override
+    public void run(int userId) {
+        startTaskTimer();
+        String packageLocation = mDownloadPackageTask.getDownloadedPackageLocation();
+        String packageName = mProvisioningParams.inferDeviceAdminPackageName();
+
+        ProvisionLogger.logi("Installing package");
+        mInitialPackageVerifierEnabled = mSettingsFacade.isPackageVerifierEnabled(mContext);
+        if (TextUtils.isEmpty(packageLocation)) {
+            // Do not log time if not installing any package, as that isn't useful.
+            success();
             return;
         }
-        ProvisionLogger.logi("Installing package(s)");
 
-        for (InstallInfo info : mPackagesToInstall) {
-            if (TextUtils.isEmpty(info.location)) {
-                installExistingPackage(info);
+        // Temporarily turn off package verification.
+        mSettingsFacade.setPackageVerifierEnabled(mContext, false);
 
-            } else if (packageContentIsCorrect(info.packageName, info.location)) {
-                // Temporarily turn off package verification.
-                mPackageVerifierEnable = Global.getInt(mContext.getContentResolver(),
-                        Global.PACKAGE_VERIFIER_ENABLE, 1);
-                Global.putInt(mContext.getContentResolver(), Global.PACKAGE_VERIFIER_ENABLE, 0);
-
-                // Allow for replacing an existing package.
-                // Needed in case this task is performed multiple times.
-                mPm.installPackage(Uri.parse("file://" + info.location),
-                        new PackageInstallObserver(info),
-                        /* flags */ PackageManager.INSTALL_REPLACE_EXISTING,
-                        mContext.getPackageName());
-            } else {
-                // Error should have been reported in packageContentIsCorrect().
-                return;
-            }
-        }
+        // Allow for replacing an existing package.
+        // Needed in case this task is performed multiple times.
+        mPm.installPackage(Uri.parse("file://" + packageLocation),
+                new PackageInstallObserver(packageName, packageLocation),
+                /* flags */ PackageManager.INSTALL_REPLACE_EXISTING,
+                mContext.getPackageName());
     }
 
-    private boolean packageContentIsCorrect(String packageName, String packageLocation) {
-        PackageInfo pi = mPm.getPackageArchiveInfo(packageLocation, PackageManager.GET_RECEIVERS);
-        if (pi == null) {
-            ProvisionLogger.loge("Package could not be parsed successfully.");
-            mCallback.onError(ERROR_PACKAGE_INVALID);
-            return false;
-        }
-        if (!pi.packageName.equals(packageName)) {
-            ProvisionLogger.loge("Package name in apk (" + pi.packageName
-                    + ") does not match package name specified by programmer ("
-                    + packageName + ").");
-            mCallback.onError(ERROR_PACKAGE_INVALID);
-            return false;
-        }
-        if (pi.receivers != null) {
-            for (ActivityInfo ai : pi.receivers) {
-                if (!TextUtils.isEmpty(ai.permission) &&
-                        ai.permission.equals(android.Manifest.permission.BIND_DEVICE_ADMIN)) {
-                    return true;
-                }
-            }
-        }
-        ProvisionLogger.loge("Installed package has no admin receiver.");
-        mCallback.onError(ERROR_PACKAGE_INVALID);
-        return false;
+    @Override
+    protected int getMetricsCategory() {
+        return PROVISIONING_INSTALL_PACKAGE_TASK_MS;
     }
 
     private class PackageInstallObserver extends IPackageInstallObserver.Stub {
-        private final InstallInfo mInstallInfo;
+        private final String mPackageName;
+        private final String mPackageLocation;
 
-        public PackageInstallObserver(InstallInfo installInfo) {
-            mInstallInfo = installInfo;
+        public PackageInstallObserver(String packageName, String packageLocation) {
+            mPackageName = packageName;
+            mPackageLocation = packageLocation;
         }
 
         @Override
         public void packageInstalled(String packageName, int returnCode) {
-            if (packageName != null && !packageName.equals(mInstallInfo.packageName))  {
+            mSettingsFacade.setPackageVerifierEnabled(mContext, mInitialPackageVerifierEnabled);
+            if (packageName != null && !packageName.equals(mPackageName))  {
                 ProvisionLogger.loge("Package doesn't have expected package name.");
-                mCallback.onError(ERROR_PACKAGE_INVALID);
+                error(ERROR_PACKAGE_INVALID);
                 return;
             }
             if (returnCode == PackageManager.INSTALL_SUCCEEDED) {
-                mInstallInfo.doneInstalling = true;
-                ProvisionLogger.logd(
-                        "Package " + mInstallInfo.packageName + " is succesfully installed.");
-                checkSuccess();
+                ProvisionLogger.logd("Package " + mPackageName + " is succesfully installed.");
+                stopTaskTimer();
+                success();
             } else if (returnCode == PackageManager.INSTALL_FAILED_VERSION_DOWNGRADE) {
-                mInstallInfo.doneInstalling = true;
-                ProvisionLogger.logd("Current version of " + mInstallInfo.packageName
+                ProvisionLogger.logd("Current version of " + mPackageName
                         + " higher than the version to be installed. It was not reinstalled.");
-                checkSuccess();
+                // If the package is already at a higher version: success.
+                // Do not log time if package is already at a higher version, as that isn't useful.
+                success();
             } else {
                 ProvisionLogger.logd(
-                        "Installing package " + mInstallInfo.packageName + " failed.");
+                        "Installing package " + mPackageName + " failed.");
                 ProvisionLogger.logd(
                         "Errorcode returned by IPackageInstallObserver = " + returnCode);
-                mCallback.onError(ERROR_INSTALLATION_FAILED);
+                error(ERROR_INSTALLATION_FAILED);
             }
             // remove the file containing the apk in order not to use too much space.
-            new File(mInstallInfo.location).delete();
-        }
-    }
-
-    /**
-     * Calls the success callback once all of the packages that needed to be installed are
-     * successfully installed.
-     */
-    private void checkSuccess() {
-        for (InstallInfo info : mPackagesToInstall) {
-            if (!info.doneInstalling) {
-                return;
-            }
-        }
-        // Set package verification flag to its original value.
-        Global.putInt(mContext.getContentResolver(), Global.PACKAGE_VERIFIER_ENABLE,
-                mPackageVerifierEnable);
-        mCallback.onSuccess();
-    }
-
-    /**
-     * Attempt to install this package from an existing package installed under a different user.
-     * If this package is already installed for this user, this is a no-op. If it is not installed
-     * for another user, this will produce an error.
-     * @param info The package to install
-     */
-    private void installExistingPackage(InstallInfo info) {
-        try {
-            ProvisionLogger.logi("Installing existing package " + info.packageName);
-            mPm.installExistingPackage(info.packageName);
-            info.doneInstalling = true;
-        } catch (PackageManager.NameNotFoundException e) {
-            mCallback.onError(ERROR_PACKAGE_INVALID);
-            return;
-        }
-        checkSuccess();
-    }
-
-    public abstract static class Callback {
-        public abstract void onSuccess();
-        public abstract void onError(int errorCode);
-    }
-
-    private static class InstallInfo {
-        public String packageName;
-        public String location;
-        public boolean doneInstalling;
-
-        public InstallInfo(String packageName, String location) {
-            this.packageName = packageName;
-            this.location = location;
+            new File(mPackageLocation).delete();
         }
     }
 }

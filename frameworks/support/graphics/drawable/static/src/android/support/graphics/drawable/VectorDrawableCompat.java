@@ -14,12 +14,8 @@
 
 package android.support.graphics.drawable;
 
-import android.support.v4.content.res.ResourcesCompat;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 
-import android.annotation.TargetApi;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
@@ -37,33 +33,164 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
-import android.graphics.Region;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
+import android.support.v4.content.res.ResourcesCompat;
+import android.support.v4.content.res.TypedArrayUtils;
+import android.support.v4.graphics.PathParser;
+import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v4.util.ArrayMap;
 import android.util.AttributeSet;
+import android.util.LayoutDirection;
 import android.util.Log;
 import android.util.Xml;
+
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Stack;
 
 /**
- * For API 23 and above, this class is delegating to the framework's {@link VectorDrawable}.
+ * For API 24 and above, this class is delegating to the framework's {@link VectorDrawable}.
  * For older API version, this class lets you create a drawable based on an XML vector graphic.
- * <p>
- * VectorDrawableCompat are defined in the same XML format as {@link VectorDrawable}.
- * </p>
+ * <p/>
  * You can always create a VectorDrawableCompat object and use it as a Drawable by the Java API.
  * In order to refer to VectorDrawableCompat inside a XML file,  you can use app:srcCompat attribute
  * in AppCompat library's ImageButton or ImageView.
+ * <p/>
+ * <strong>Note:</strong> To optimize for the re-drawing performance, one bitmap cache is created
+ * for each VectorDrawableCompat. Therefore, referring to the same VectorDrawableCompat means
+ * sharing the same bitmap cache. If these references don't agree upon on the same size, the bitmap
+ * will be recreated and redrawn every time size is changed. In other words, if a VectorDrawable is
+ * used for different sizes, it is more efficient to create multiple VectorDrawables, one for each
+ * size.
+ * <p/>
+ * VectorDrawableCompat can be defined in an XML file with the <code>&lt;vector></code> element.
+ * <p/>
+ * The VectorDrawableCompat has the following elements:
+ * <p/>
+ * <dt><code>&lt;vector></code></dt>
+ * <dl>
+ * <dd>Used to define a vector drawable
+ * <dl>
+ * <dt><code>android:name</code></dt>
+ * <dd>Defines the name of this vector drawable.</dd>
+ * <dt><code>android:width</code></dt>
+ * <dd>Used to define the intrinsic width of the drawable.
+ * This support all the dimension units, normally specified with dp.</dd>
+ * <dt><code>android:height</code></dt>
+ * <dd>Used to define the intrinsic height the drawable.
+ * This support all the dimension units, normally specified with dp.</dd>
+ * <dt><code>android:viewportWidth</code></dt>
+ * <dd>Used to define the width of the viewport space. Viewport is basically
+ * the virtual canvas where the paths are drawn on.</dd>
+ * <dt><code>android:viewportHeight</code></dt>
+ * <dd>Used to define the height of the viewport space. Viewport is basically
+ * the virtual canvas where the paths are drawn on.</dd>
+ * <dt><code>android:tint</code></dt>
+ * <dd>The color to apply to the drawable as a tint. By default, no tint is applied.</dd>
+ * <dt><code>android:tintMode</code></dt>
+ * <dd>The Porter-Duff blending mode for the tint color. Default is src_in.</dd>
+ * <dt><code>android:autoMirrored</code></dt>
+ * <dd>Indicates if the drawable needs to be mirrored when its layout direction is
+ * RTL (right-to-left). Default is false.</dd>
+ * <dt><code>android:alpha</code></dt>
+ * <dd>The opacity of this drawable. Default is 1.</dd>
+ * </dl></dd>
+ * </dl>
+ *
+ * <dl>
+ * <dt><code>&lt;group></code></dt>
+ * <dd>Defines a group of paths or subgroups, plus transformation information.
+ * The transformations are defined in the same coordinates as the viewport.
+ * And the transformations are applied in the order of scale, rotate then translate.
+ * <dl>
+ * <dt><code>android:name</code></dt>
+ * <dd>Defines the name of the group.</dd>
+ * <dt><code>android:rotation</code></dt>
+ * <dd>The degrees of rotation of the group. Default is 0.</dd>
+ * <dt><code>android:pivotX</code></dt>
+ * <dd>The X coordinate of the pivot for the scale and rotation of the group.
+ * This is defined in the viewport space. Default is 0.</dd>
+ * <dt><code>android:pivotY</code></dt>
+ * <dd>The Y coordinate of the pivot for the scale and rotation of the group.
+ * This is defined in the viewport space. Default is 0.</dd>
+ * <dt><code>android:scaleX</code></dt>
+ * <dd>The amount of scale on the X Coordinate. Default is 1.</dd>
+ * <dt><code>android:scaleY</code></dt>
+ * <dd>The amount of scale on the Y coordinate. Default is 1.</dd>
+ * <dt><code>android:translateX</code></dt>
+ * <dd>The amount of translation on the X coordinate.
+ * This is defined in the viewport space. Default is 0.</dd>
+ * <dt><code>android:translateY</code></dt>
+ * <dd>The amount of translation on the Y coordinate.
+ * This is defined in the viewport space. Default is 0.</dd>
+ * </dl></dd>
+ * </dl>
+ *
+ * <dl>
+ * <dt><code>&lt;path></code></dt>
+ * <dd>Defines paths to be drawn.
+ * <dl>
+ * <dt><code>android:name</code></dt>
+ * <dd>Defines the name of the path.</dd>
+ * <dt><code>android:pathData</code></dt>
+ * <dd>Defines path data using exactly same format as "d" attribute
+ * in the SVG's path data. This is defined in the viewport space.</dd>
+ * <dt><code>android:fillColor</code></dt>
+ * <dd>Specifies the color used to fill the path.
+ * If this property is animated, any value set by the animation will override the original value.
+ * No path fill is drawn if this property is not specified.</dd>
+ * <dt><code>android:strokeColor</code></dt>
+ * <dd>Specifies the color used to draw the path outline.
+ * If this property is animated, any value set by the animation will override the original value.
+ * No path outline is drawn if this property is not specified.</dd>
+ * <dt><code>android:strokeWidth</code></dt>
+ * <dd>The width a path stroke. Default is 0.</dd>
+ * <dt><code>android:strokeAlpha</code></dt>
+ * <dd>The opacity of a path stroke. Default is 1.</dd>
+ * <dt><code>android:fillAlpha</code></dt>
+ * <dd>The opacity to fill the path with. Default is 1.</dd>
+ * <dt><code>android:trimPathStart</code></dt>
+ * <dd>The fraction of the path to trim from the start, in the range from 0 to 1. Default is 0.</dd>
+ * <dt><code>android:trimPathEnd</code></dt>
+ * <dd>The fraction of the path to trim from the end, in the range from 0 to 1. Default is 1.</dd>
+ * <dt><code>android:trimPathOffset</code></dt>
+ * <dd>Shift trim region (allows showed region to include the start and end), in the range
+ * from 0 to 1. Default is 0.</dd>
+ * <dt><code>android:strokeLineCap</code></dt>
+ * <dd>Sets the linecap for a stroked path: butt, round, square. Default is butt.</dd>
+ * <dt><code>android:strokeLineJoin</code></dt>
+ * <dd>Sets the lineJoin for a stroked path: miter,round,bevel. Default is miter.</dd>
+ * <dt><code>android:strokeMiterLimit</code></dt>
+ * <dd>Sets the Miter limit for a stroked path. Default is 4.</dd>
+ * </dl></dd>
+ * </dl>
+ *
+ * <dl>
+ * <dt><code>&lt;clip-path></code></dt>
+ * <dd>Defines path to be the current clip. Note that the clip path only apply to
+ * the current group and its children.
+ * <dl>
+ * <dt><code>android:name</code></dt>
+ * <dd>Defines the name of the clip path.</dd>
+ * <dt><code>android:pathData</code></dt>
+ * <dd>Defines clip path using the same format as "d" attribute
+ * in the SVG's path data.</dd>
+ * </dl></dd>
+ * </dl>
+ * <p/>
+ * Note that theme attributes in XML file are supported through
+ * <code>{@link #inflate(Resources, XmlPullParser, AttributeSet, Theme)}</code>.
  */
-@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class VectorDrawableCompat extends VectorDrawableCommon {
     static final String LOGTAG = "VectorDrawableCompat";
 
@@ -108,11 +235,11 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
     private final Matrix mTmpMatrix = new Matrix();
     private final Rect mTmpBounds = new Rect();
 
-    private VectorDrawableCompat() {
+    VectorDrawableCompat() {
         mVectorState = new VectorDrawableCompatState();
     }
 
-    private VectorDrawableCompat(@NonNull VectorDrawableCompatState state) {
+    VectorDrawableCompat(@NonNull VectorDrawableCompatState state) {
         mVectorState = state;
         mTintFilter = updateTintFilter(mTintFilter, state.mTint, state.mTintMode);
     }
@@ -137,7 +264,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
     @Override
     public ConstantState getConstantState() {
-        if (mDelegateDrawable != null) {
+        if (mDelegateDrawable != null && Build.VERSION.SDK_INT >= 24) {
             // Such that the configuration can be refreshed.
             return new VectorDrawableDelegateState(mDelegateDrawable.getConstantState());
         }
@@ -367,18 +494,35 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         return false;
     }
 
+    @Override
+    public boolean isAutoMirrored() {
+        if (mDelegateDrawable != null) {
+            return DrawableCompat.isAutoMirrored(mDelegateDrawable);
+        }
+        return mVectorState.mAutoMirrored;
+    }
+
+    @Override
+    public void setAutoMirrored(boolean mirrored) {
+        if (mDelegateDrawable != null) {
+            DrawableCompat.setAutoMirrored(mDelegateDrawable, mirrored);
+            return;
+        }
+        mVectorState.mAutoMirrored = mirrored;
+    }
     /**
      * The size of a pixel when scaled from the intrinsic dimension to the viewport dimension. This
      * is used to calculate the path animation accuracy.
      *
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public float getPixelSize() {
-        if (mVectorState == null && mVectorState.mVPathRenderer == null ||
-                mVectorState.mVPathRenderer.mBaseWidth == 0 ||
-                mVectorState.mVPathRenderer.mBaseHeight == 0 ||
-                mVectorState.mVPathRenderer.mViewportHeight == 0 ||
-                mVectorState.mVPathRenderer.mViewportWidth == 0) {
+        if (mVectorState == null || mVectorState.mVPathRenderer == null
+                || mVectorState.mVPathRenderer.mBaseWidth == 0
+                || mVectorState.mVPathRenderer.mBaseHeight == 0
+                || mVectorState.mVPathRenderer.mViewportHeight == 0
+                || mVectorState.mVPathRenderer.mViewportWidth == 0) {
             return 1; // fall back to 1:1 pixel mapping.
         }
         float intrinsicWidth = mVectorState.mVPathRenderer.mBaseWidth;
@@ -401,7 +545,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
     @Nullable
     public static VectorDrawableCompat create(@NonNull Resources res, @DrawableRes int resId,
                                               @Nullable Theme theme) {
-        if (Build.VERSION.SDK_INT >= 23) {
+        if (Build.VERSION.SDK_INT >= 24) {
             final VectorDrawableCompat drawable = new VectorDrawableCompat();
             drawable.mDelegateDrawable = ResourcesCompat.getDrawable(res, resId, theme);
             drawable.mCachedConstantStateDelegate = new VectorDrawableDelegateState(
@@ -442,7 +586,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         return drawable;
     }
 
-    private static int applyAlpha(int color, float alpha) {
+    static int applyAlpha(int color, float alpha) {
         int alphaBytes = Color.alpha(color);
         color &= 0x00FFFFFF;
         color |= ((int) (alphaBytes * alpha)) << 24;
@@ -472,8 +616,8 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         final VPathRenderer pathRenderer = new VPathRenderer();
         state.mVPathRenderer = pathRenderer;
 
-        final TypedArray a = obtainAttributes(res, theme, attrs,
-                AndroidResources.styleable_VectorDrawableTypeArray);
+        final TypedArray a = TypedArrayUtils.obtainAttributes(res, theme, attrs,
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_TYPE_ARRAY);
 
         updateStateFromTypedArray(a, parser);
         a.recycle();
@@ -502,7 +646,11 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
             case 15:
                 return Mode.SCREEN;
             case 16:
-                return Mode.ADD;
+                if (Build.VERSION.SDK_INT >= 11) {
+                    return Mode.ADD;
+                } else {
+                    return defaultMode;
+                }
             default:
                 return defaultMode;
         }
@@ -517,24 +665,24 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         // state.mChangingConfigurations |= Utils.getChangingConfigurations(a);
 
         final int mode = TypedArrayUtils.getNamedInt(a, parser, "tintMode",
-                AndroidResources.styleable_VectorDrawable_tintMode, -1);
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_TINT_MODE, -1);
         state.mTintMode = parseTintModeCompat(mode, Mode.SRC_IN);
 
         final ColorStateList tint =
-                a.getColorStateList(AndroidResources.styleable_VectorDrawable_tint);
+                a.getColorStateList(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_TINT);
         if (tint != null) {
             state.mTint = tint;
         }
 
         state.mAutoMirrored = TypedArrayUtils.getNamedBoolean(a, parser, "autoMirrored",
-                AndroidResources.styleable_VectorDrawable_autoMirrored, state.mAutoMirrored);
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_AUTO_MIRRORED, state.mAutoMirrored);
 
         pathRenderer.mViewportWidth = TypedArrayUtils.getNamedFloat(a, parser, "viewportWidth",
-                AndroidResources.styleable_VectorDrawable_viewportWidth,
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_VIEWPORT_WIDTH,
                 pathRenderer.mViewportWidth);
 
         pathRenderer.mViewportHeight = TypedArrayUtils.getNamedFloat(a, parser, "viewportHeight",
-                AndroidResources.styleable_VectorDrawable_viewportHeight,
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_VIEWPORT_HEIGHT,
                 pathRenderer.mViewportHeight);
 
         if (pathRenderer.mViewportWidth <= 0) {
@@ -546,9 +694,9 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         }
 
         pathRenderer.mBaseWidth = a.getDimension(
-                AndroidResources.styleable_VectorDrawable_width, pathRenderer.mBaseWidth);
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_WIDTH, pathRenderer.mBaseWidth);
         pathRenderer.mBaseHeight = a.getDimension(
-                AndroidResources.styleable_VectorDrawable_height, pathRenderer.mBaseHeight);
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_HEIGHT, pathRenderer.mBaseHeight);
         if (pathRenderer.mBaseWidth <= 0) {
             throw new XmlPullParserException(a.getPositionDescription() +
                     "<vector> tag requires width > 0");
@@ -559,10 +707,10 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
         // shown up from API 11.
         final float alphaInFloat = TypedArrayUtils.getNamedFloat(a, parser, "alpha",
-                AndroidResources.styleable_VectorDrawable_alpha, pathRenderer.getAlpha());
+                AndroidResources.STYLEABLE_VECTOR_DRAWABLE_ALPHA, pathRenderer.getAlpha());
         pathRenderer.setAlpha(alphaInFloat);
 
-        final String name = a.getString(AndroidResources.styleable_VectorDrawable_name);
+        final String name = a.getString(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_NAME);
         if (name != null) {
             pathRenderer.mRootName = name;
             pathRenderer.mVGTargetsMap.put(name, pathRenderer);
@@ -581,7 +729,11 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         groupStack.push(pathRenderer.mRootGroup);
 
         int eventType = parser.getEventType();
-        while (eventType != XmlPullParser.END_DOCUMENT) {
+        final int innerDepth = parser.getDepth() + 1;
+
+        // Parse everything until the end of the vector element.
+        while (eventType != XmlPullParser.END_DOCUMENT
+                && (parser.getDepth() >= innerDepth || eventType != XmlPullParser.END_TAG)) {
             if (eventType == XmlPullParser.START_TAG) {
                 final String tagName = parser.getName();
                 final VGroup currentGroup = groupStack.peek();
@@ -665,7 +817,11 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
     // We don't support RTL auto mirroring since the getLayoutDirection() is for API 17+.
     private boolean needMirroring() {
-        return false;
+        if (Build.VERSION.SDK_INT >= 17) {
+            return isAutoMirrored() && getLayoutDirection() == LayoutDirection.RTL;
+        } else {
+            return false;
+        }
     }
 
     // Extra override functions for delegation for SDK >= 7.
@@ -720,10 +876,11 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
     }
 
     /**
-     * Constant state for delegating the creating drawable job for SDK >= 23.
+     * Constant state for delegating the creating drawable job for SDK >= 24.
      * Instead of creating a VectorDrawable, create a VectorDrawableCompat instance which contains
      * a delegated VectorDrawable instance.
      */
+    @RequiresApi(24)
     private static class VectorDrawableDelegateState extends ConstantState {
         private final ConstantState mDelegateState;
 
@@ -920,7 +1077,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         /////////////////////////////////////////////////////
         // Variables below need to be copied (deep copy if applicable) for mutation.
         private int mChangingConfigurations;
-        private final VGroup mRootGroup;
+        final VGroup mRootGroup;
         float mBaseWidth = 0;
         float mBaseHeight = 0;
         float mViewportWidth = 0;
@@ -1064,6 +1221,8 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
                     final Paint fillPaint = mFillPaint;
                     fillPaint.setColor(applyAlpha(fullPath.mFillColor, fullPath.mFillAlpha));
                     fillPaint.setColorFilter(filter);
+                    mRenderPath.setFillType(fullPath.mFillRule == 0 ? Path.FillType.WINDING
+                            : Path.FillType.EVEN_ODD);
                     canvas.drawPath(mRenderPath, fillPaint);
                 }
 
@@ -1136,7 +1295,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         // Variables below need to be copied (deep copy if applicable) for mutation.
         final ArrayList<Object> mChildren = new ArrayList<Object>();
 
-        private float mRotate = 0;
+        float mRotate = 0;
         private float mPivotX = 0;
         private float mPivotY = 0;
         private float mScaleX = 1;
@@ -1147,7 +1306,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         // mLocalMatrix is updated based on the update of transformation information,
         // either parsed from the XML or by animation.
         private final Matrix mLocalMatrix = new Matrix();
-        private int mChangingConfigurations;
+        int mChangingConfigurations;
         private int[] mThemeAttrs;
         private String mGroupName = null;
 
@@ -1203,8 +1362,8 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         }
 
         public void inflate(Resources res, AttributeSet attrs, Theme theme, XmlPullParser parser) {
-            final TypedArray a = obtainAttributes(res, theme, attrs,
-                    AndroidResources.styleable_VectorDrawableGroup);
+            final TypedArray a = TypedArrayUtils.obtainAttributes(res, theme, attrs,
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP);
             updateStateFromTypedArray(a, parser);
             a.recycle();
         }
@@ -1218,26 +1377,26 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
             // This is added in API 11
             mRotate = TypedArrayUtils.getNamedFloat(a, parser, "rotation",
-                    AndroidResources.styleable_VectorDrawableGroup_rotation, mRotate);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_ROTATION, mRotate);
 
-            mPivotX = a.getFloat(AndroidResources.styleable_VectorDrawableGroup_pivotX, mPivotX);
-            mPivotY = a.getFloat(AndroidResources.styleable_VectorDrawableGroup_pivotY, mPivotY);
+            mPivotX = a.getFloat(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_PIVOT_X, mPivotX);
+            mPivotY = a.getFloat(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_PIVOT_Y, mPivotY);
 
             // This is added in API 11
             mScaleX = TypedArrayUtils.getNamedFloat(a, parser, "scaleX",
-                    AndroidResources.styleable_VectorDrawableGroup_scaleX, mScaleX);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_SCALE_X, mScaleX);
 
             // This is added in API 11
             mScaleY = TypedArrayUtils.getNamedFloat(a, parser, "scaleY",
-                    AndroidResources.styleable_VectorDrawableGroup_scaleY, mScaleY);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_SCALE_Y, mScaleY);
 
             mTranslateX = TypedArrayUtils.getNamedFloat(a, parser, "translateX",
-                    AndroidResources.styleable_VectorDrawableGroup_translateX, mTranslateX);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_TRANSLATE_X, mTranslateX);
             mTranslateY = TypedArrayUtils.getNamedFloat(a, parser, "translateY",
-                    AndroidResources.styleable_VectorDrawableGroup_translateY, mTranslateY);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_TRANSLATE_Y, mTranslateY);
 
             final String groupName =
-                    a.getString(AndroidResources.styleable_VectorDrawableGroup_name);
+                    a.getString(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_GROUP_NAME);
             if (groupName != null) {
                 mGroupName = groupName;
             }
@@ -1366,15 +1525,15 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
                 indent += "    ";
             }
             Log.v(LOGTAG, indent + "current path is :" + mPathName +
-                    " pathData is " + NodesToString(mNodes));
+                    " pathData is " + nodesToString(mNodes));
 
         }
 
-        public String NodesToString(PathParser.PathDataNode[] nodes) {
+        public String nodesToString(PathParser.PathDataNode[] nodes) {
             String result = " ";
             for (int i = 0; i < nodes.length; i++) {
-                result += nodes[i].type + ":";
-                float[] params = nodes[i].params;
+                result += nodes[i].mType + ":";
+                float[] params = nodes[i].mParams;
                 for (int j = 0; j < params.length; j++) {
                     result += params[j] + ",";
                 }
@@ -1445,8 +1604,8 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
             if (!hasPathData) {
                 return;
             }
-            final TypedArray a = obtainAttributes(r, theme, attrs,
-                    AndroidResources.styleable_VectorDrawableClipPath);
+            final TypedArray a = TypedArrayUtils.obtainAttributes(r, theme, attrs,
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_CLIP_PATH);
             updateStateFromTypedArray(a);
             a.recycle();
         }
@@ -1456,13 +1615,13 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
             // mChangingConfigurations |= Utils.getChangingConfigurations(a);;
 
             final String pathName =
-                    a.getString(AndroidResources.styleable_VectorDrawableClipPath_name);
+                    a.getString(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_CLIP_PATH_NAME);
             if (pathName != null) {
                 mPathName = pathName;
             }
 
             final String pathData =
-                    a.getString(AndroidResources.styleable_VectorDrawableClipPath_pathData);
+                    a.getString(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_CLIP_PATH_PATH_DATA);
             if (pathData != null) {
                 mNodes = PathParser.createNodesFromPathData(pathData);
             }
@@ -1487,7 +1646,7 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
 
         int mFillColor = Color.TRANSPARENT;
         float mStrokeAlpha = 1.0f;
-        int mFillRule;
+        int mFillRule = 0; // 0 is default value as "non-zero" fill type.
         float mFillAlpha = 1.0f;
         float mTrimPathStart = 0;
         float mTrimPathEnd = 1;
@@ -1552,8 +1711,8 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
         }
 
         public void inflate(Resources r, AttributeSet attrs, Theme theme, XmlPullParser parser) {
-            final TypedArray a = obtainAttributes(r, theme, attrs,
-                    AndroidResources.styleable_VectorDrawablePath);
+            final TypedArray a = TypedArrayUtils.obtainAttributes(r, theme, attrs,
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH);
             updateStateFromTypedArray(a, parser);
             a.recycle();
         }
@@ -1577,41 +1736,47 @@ public class VectorDrawableCompat extends VectorDrawableCommon {
                 return;
             }
 
-            final String pathName = a.getString(AndroidResources.styleable_VectorDrawablePath_name);
+            final String pathName = a.getString(
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_NAME);
             if (pathName != null) {
                 mPathName = pathName;
             }
             final String pathData =
-                    a.getString(AndroidResources.styleable_VectorDrawablePath_pathData);
+                    a.getString(AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_PATH_DATA);
             if (pathData != null) {
                 mNodes = PathParser.createNodesFromPathData(pathData);
             }
 
             mFillColor = TypedArrayUtils.getNamedColor(a, parser, "fillColor",
-                    AndroidResources.styleable_VectorDrawablePath_fillColor, mFillColor);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_FILL_COLOR, mFillColor);
             mFillAlpha = TypedArrayUtils.getNamedFloat(a, parser, "fillAlpha",
-                    AndroidResources.styleable_VectorDrawablePath_fillAlpha, mFillAlpha);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_FILL_ALPHA, mFillAlpha);
             final int lineCap = TypedArrayUtils.getNamedInt(a, parser, "strokeLineCap",
-                    AndroidResources.styleable_VectorDrawablePath_strokeLineCap, -1);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_STROKE_LINE_CAP, -1);
             mStrokeLineCap = getStrokeLineCap(lineCap, mStrokeLineCap);
             final int lineJoin = TypedArrayUtils.getNamedInt(a, parser, "strokeLineJoin",
-                    AndroidResources.styleable_VectorDrawablePath_strokeLineJoin, -1);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_STROKE_LINE_JOIN, -1);
             mStrokeLineJoin = getStrokeLineJoin(lineJoin, mStrokeLineJoin);
             mStrokeMiterlimit = TypedArrayUtils.getNamedFloat(a, parser, "strokeMiterLimit",
-                    AndroidResources.styleable_VectorDrawablePath_strokeMiterLimit,
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_STROKE_MITER_LIMIT,
                     mStrokeMiterlimit);
             mStrokeColor = TypedArrayUtils.getNamedColor(a, parser, "strokeColor",
-                    AndroidResources.styleable_VectorDrawablePath_strokeColor, mStrokeColor);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_STROKE_COLOR, mStrokeColor);
             mStrokeAlpha = TypedArrayUtils.getNamedFloat(a, parser, "strokeAlpha",
-                    AndroidResources.styleable_VectorDrawablePath_strokeAlpha, mStrokeAlpha);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_STROKE_ALPHA, mStrokeAlpha);
             mStrokeWidth = TypedArrayUtils.getNamedFloat(a, parser, "strokeWidth",
-                    AndroidResources.styleable_VectorDrawablePath_strokeWidth, mStrokeWidth);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_STROKE_WIDTH, mStrokeWidth);
             mTrimPathEnd = TypedArrayUtils.getNamedFloat(a, parser, "trimPathEnd",
-                    AndroidResources.styleable_VectorDrawablePath_trimPathEnd, mTrimPathEnd);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_TRIM_PATH_END, mTrimPathEnd);
             mTrimPathOffset = TypedArrayUtils.getNamedFloat(a, parser, "trimPathOffset",
-                    AndroidResources.styleable_VectorDrawablePath_trimPathOffset, mTrimPathOffset);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_TRIM_PATH_OFFSET,
+                    mTrimPathOffset);
             mTrimPathStart = TypedArrayUtils.getNamedFloat(a, parser, "trimPathStart",
-                    AndroidResources.styleable_VectorDrawablePath_trimPathStart, mTrimPathStart);
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_TRIM_PATH_START,
+                    mTrimPathStart);
+            mFillRule = TypedArrayUtils.getNamedInt(a, parser, "fillType",
+                    AndroidResources.STYLEABLE_VECTOR_DRAWABLE_PATH_TRIM_PATH_FILLTYPE,
+                    mFillRule);
         }
 
         @Override

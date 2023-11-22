@@ -102,9 +102,16 @@ class OmahaRequestParams {
   inline std::string os_version() const { return os_version_; }
   inline std::string os_sp() const { return os_sp_; }
   inline std::string os_board() const { return image_props_.board; }
+  inline std::string os_build_fingerprint() const {
+    return image_props_.build_fingerprint;
+  }
   inline std::string board_app_id() const { return image_props_.product_id; }
   inline std::string canary_app_id() const {
     return image_props_.canary_product_id;
+  }
+  inline void set_app_id(const std::string& app_id) {
+    image_props_.product_id = app_id;
+    image_props_.canary_product_id = app_id;
   }
   inline std::string app_lang() const { return app_lang_; }
   inline std::string hwid() const { return hwid_; }
@@ -236,9 +243,8 @@ class OmahaRequestParams {
 
  private:
   FRIEND_TEST(OmahaRequestParamsTest, IsValidChannelTest);
-  FRIEND_TEST(OmahaRequestParamsTest, ShouldLockDownTest);
   FRIEND_TEST(OmahaRequestParamsTest, ChannelIndexTest);
-  FRIEND_TEST(OmahaRequestParamsTest, LsbPreserveTest);
+  FRIEND_TEST(OmahaRequestParamsTest, ToMoreStableChannelFlagTest);
   FRIEND_TEST(OmahaRequestParamsTest, CollectECFWVersionsTest);
 
   // Returns true if |channel| is a valid channel, false otherwise.

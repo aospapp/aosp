@@ -18,6 +18,9 @@
 #include "VideoDecoderTrace.h"
 #include <string.h>
 
+#define MAX_PICTURE_WIDTH_VC1   1920
+#define MAX_PICTURE_HEIGHT_VC1  1088
+
 VideoDecoderWMV::VideoDecoderWMV(const char *mimeType)
     : VideoDecoderBase(mimeType, VBP_VC1),
       mBufferIDs(NULL),
@@ -48,6 +51,11 @@ Decode_Status VideoDecoderWMV::start(VideoConfigBuffer *buffer) {
     vbp_data_vc1 *data = NULL;
     status = parseBuffer(buffer->data, buffer->size, &data);
     CHECK_STATUS("parseBuffer");
+
+    if (data->se_data->CODED_WIDTH > MAX_PICTURE_WIDTH_VC1 ||
+            data->se_data->CODED_HEIGHT > MAX_PICTURE_HEIGHT_VC1) {
+        return DECODE_INVALID_DATA;
+    }
 
     status = startVA(data);
     return status;
@@ -88,6 +96,11 @@ Decode_Status VideoDecoderWMV::decode(VideoDecodeBuffer *buffer) {
 
     status = parseBuffer(buffer->data, buffer->size, &data);
     CHECK_STATUS("parseBuffer");
+
+    if (data->se_data->CODED_WIDTH > MAX_PICTURE_WIDTH_VC1 ||
+            data->se_data->CODED_HEIGHT > MAX_PICTURE_HEIGHT_VC1) {
+        return DECODE_INVALID_DATA;
+    }
 
     if (!mVAStarted) {
         status = startVA(data);

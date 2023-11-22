@@ -34,6 +34,7 @@ class JDWPArrayReferenceTestCase extends JDWPSyncTestCase {
      * all testcases in this test.
      * @return full name of debuggee class.
      */
+    @Override
     protected String getDebuggeeClassName() {
         return ArrayReferenceDebuggee.class.getName();
     }

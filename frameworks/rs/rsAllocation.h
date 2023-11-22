@@ -19,14 +19,9 @@
 
 #include "rsType.h"
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include <ui/GraphicBuffer.h>
-#include "rsGrallocConsumer.h"
-#include "gui/CpuConsumer.h"
-#include "gui/GLConsumer.h"
-#else
-struct ANativeWindowBuffer;
-#endif
+#include <vector>
+
+struct AHardwareBuffer;
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -34,6 +29,7 @@ namespace android {
 namespace renderscript {
 
 class Program;
+class GrallocConsumer;
 
 /*****************************************************************************
  * CAUTION
@@ -71,7 +67,7 @@ public:
             bool hasReferences;
             void * userProvidedPtr;
             int32_t surfaceTextureID;
-            ANativeWindowBuffer *nativeBuffer;
+            AHardwareBuffer *nativeBuffer;
             int64_t timestamp;
 
             // Allocation adapter state
@@ -213,29 +209,15 @@ public:
     bool hasSameDims(const Allocation *Other) const;
 
 protected:
-    Vector<const Program *> mToDirtyList;
+    std::vector<const Program *> mToDirtyList;
     ObjectBaseRef<const Type> mType;
     void setType(const Type *t) {
         mType.set(t);
         mHal.state.type = t;
     }
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-    class NewBufferListener : public android::ConsumerBase::FrameAvailableListener {
-    public:
-        NewBufferListener(uint32_t numAlloc);
-        virtual ~NewBufferListener();
-        const android::renderscript::Context *rsc;
-        const android::renderscript::Allocation **alloc;
-
-        virtual void onFrameAvailable(const BufferItem& item);
-    private:
-        uint32_t mNumAlloc;
-    };
-
-    sp<NewBufferListener> mBufferListener;
-    sp< GrallocConsumer > mGrallocConsumer;
-    sp<IGraphicBufferProducer> mGraphicBufferProducer;
+#ifndef RS_COMPATIBILITY_LIB
+    GrallocConsumer *mGrallocConsumer = nullptr;
     bool mBufferQueueInited = false;
     uint32_t mCurrentIdx;
 #endif
@@ -253,6 +235,6 @@ private:
     void packVec3Allocation(Context *rsc, OStream *stream) const;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif

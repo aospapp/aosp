@@ -9785,7 +9785,7 @@ _bfd_mips_elf_size_dynamic_sections (bfd *output_bfd,
 	return FALSE;
 
       if (info->executable
-	  && !MIPS_ELF_ADD_DYNAMIC_ENTRY (info, DT_MIPS_RLD_MAP2, 0))
+	  && !MIPS_ELF_ADD_DYNAMIC_ENTRY (info, DT_MIPS_RLD_MAP_REL, 0))
 	return FALSE;
 
       /* The DT_DEBUG entry may be filled in by the dynamic linker and
@@ -11496,12 +11496,15 @@ _bfd_mips_elf_finish_dynamic_sections (bfd *output_bfd,
 		    break;
 		  }
 		s = h->root.u.def.section;
+
+		/* The MIPS_RLD_MAP tag stores the absolute address of the
+		   debug pointer.  */
 		dyn.d_un.d_ptr = (s->output_section->vma + s->output_offset
 				  + h->root.u.def.value);
 	      }
 	      break;
 
-	    case DT_MIPS_RLD_MAP2:
+	    case DT_MIPS_RLD_MAP_REL:
 	      {
 		struct elf_link_hash_entry *h;
 		bfd_vma dt_addr, rld_addr;
@@ -11514,6 +11517,8 @@ _bfd_mips_elf_finish_dynamic_sections (bfd *output_bfd,
 		  }
 		s = h->root.u.def.section;
 
+		/* The MIPS_RLD_MAP_REL tag stores the offset to the debug
+		   pointer, relative to the address of the tag.  */
 		dt_addr = (sdyn->output_section->vma + sdyn->output_offset
 			   + (b - sdyn->contents));
 		rld_addr = (s->output_section->vma + s->output_offset
@@ -15446,8 +15451,8 @@ _bfd_mips_elf_get_target_dtag (bfd_vma dtag)
       return "MIPS_HIPAGENO";
     case DT_MIPS_RLD_MAP:
       return "MIPS_RLD_MAP";
-    case DT_MIPS_RLD_MAP2:
-      return "MIPS_RLD_MAP2";
+    case DT_MIPS_RLD_MAP_REL:
+      return "MIPS_RLD_MAP_REL";
     case DT_MIPS_DELTA_CLASS:
       return "MIPS_DELTA_CLASS";
     case DT_MIPS_DELTA_CLASS_NO:

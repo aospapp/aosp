@@ -21,7 +21,6 @@ import java.io.IOException;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.cts.util.CtsAndroidTestCase;
 import android.media.midi.MidiDevice;
 import android.media.midi.MidiDevice.MidiConnection;
 import android.media.midi.MidiDeviceInfo;
@@ -32,6 +31,8 @@ import android.media.midi.MidiReceiver;
 import android.media.midi.MidiSender;
 import android.os.Handler;
 import android.os.Looper;
+
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 /**
  * Test MIDI when there may be no MIDI devices available. There is not much we

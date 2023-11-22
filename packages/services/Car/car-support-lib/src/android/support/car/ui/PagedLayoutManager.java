@@ -28,6 +28,7 @@ import android.view.animation.Interpolator;
 /**
  * An extension of {@link LinearLayoutManager} that adds some helper methods for paging
  * such as whether or not it is at the top or bottom of a list and layout param checking.
+ * @hide
  */
 public class PagedLayoutManager extends LinearLayoutManager {
     private static final String TAG = PagedLayoutManager.class.getSimpleName();

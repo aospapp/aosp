@@ -44,6 +44,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.TotalCaptureResult;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -311,6 +312,17 @@ public class CameraControlPane extends ControlPane {
     }
 
     private CaptureCallback mResultListener = new CaptureCallback() {
+        @Override
+        public void onCaptureStarted(CameraCaptureSession session,
+                CaptureRequest request, long timestamp, long frameNumber) {
+        }
+
+        @Override
+        public void onCaptureProgressed(CameraCaptureSession session,
+                CaptureRequest request, CaptureResult partialResult) {
+        }
+
+        @Override
         public void onCaptureCompleted(
                 CameraCaptureSession session,
                 CaptureRequest request,
@@ -320,6 +332,32 @@ public class CameraControlPane extends ControlPane {
                 mRecentResults.remove();
             }
         }
+
+        @Override
+        public void onCaptureFailed(CameraCaptureSession session,
+                CaptureRequest request, CaptureFailure failure) {
+            TLog.e("Capture failed for request " + request +
+                    " on frame  " + failure.getFrameNumber() + ": Reason " + failure.getReason() +
+                    ". Images captured: " + failure.wasImageCaptured());
+        }
+
+        @Override
+        public void onCaptureSequenceCompleted(CameraCaptureSession session,
+                int sequenceId, long frameNumber) {
+        }
+
+        @Override
+        public void onCaptureSequenceAborted(CameraCaptureSession session,
+                int sequenceId) {
+        }
+
+        @Override
+        public void onCaptureBufferLost(CameraCaptureSession session,
+                CaptureRequest request, Surface target, long frameNumber) {
+            TLog.e("Lost buffer for Surface " + target + " for request " + request +
+                    " on frame " + frameNumber);
+        }
+
     };
 
     private void setUpUI(Context context) {

@@ -17,16 +17,17 @@
 shared_library("bluetooth.default") {
   # HAL layer
   sources = [
-    "//btif/src/bluetooth.c",
+    "//btif/src/bluetooth.cc",
   ]
 
   # platform specific
   sources += [
-    "bte_main.c",
-    "bte_init.c",
-    "bte_logmsg.c",
-    "bte_conf.c",
-    "stack_config.c",
+    "bte_conf.cc",
+    "bte_init.cc",
+    "bte_init_cpp_logging.cc",
+    "bte_logmsg.cc",
+    "bte_main.cc",
+    "stack_config.cc",
   ]
 
   include_dirs = [
@@ -51,13 +52,11 @@ shared_library("bluetooth.default") {
     "//brcm/include",
     "//embdrv/sbc/encoder/include",
     "//embdrv/sbc/decoder/include",
-    "//audio_a2dp_hw",
     "//utils/include",
     "//test/suite",
   ]
 
   deps = [
-    "//audio_a2dp_hw:audio.a2dp.default",
     "//bta",
     "//btcore",
     "//btif",
@@ -66,6 +65,7 @@ shared_library("bluetooth.default") {
     "//hci",
     "//osi",
     "//stack",
+    "//third_party/libchrome:base",
     "//third_party/tinyxml2",
     "//udrv",
     "//utils",
@@ -81,5 +81,6 @@ shared_library("bluetooth.default") {
     "-lresolv",
     "-lrt",
     "-lz",
+    "-latomic",
   ]
 }

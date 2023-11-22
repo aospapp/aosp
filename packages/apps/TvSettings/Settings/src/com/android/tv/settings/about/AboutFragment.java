@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ResolveInfo;
 import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -43,6 +44,7 @@ import android.widget.Toast;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.settingslib.DeviceInfoUtils;
 import com.android.tv.settings.LongClickPreference;
+import com.android.tv.settings.MainFragment;
 import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.name.DeviceManager;
@@ -70,6 +72,7 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
     private static final String KEY_SAFETY_LEGAL = "safetylegal";
     private static final String KEY_DEVICE_NAME = "device_name";
     private static final String KEY_RESTART = "restart";
+    private static final String KEY_TUTORIALS = "tutorials";
 
     static final int TAPS_TO_BE_A_DEVELOPER = 7;
 
@@ -211,6 +214,7 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
                 android.os.Build.TYPE.equals("eng") ? 1 : 0) == 1;
         mDevHitCountdown = developerEnabled ? -1 : TAPS_TO_BE_A_DEVELOPER;
         mDevHitToast = null;
+        updateTutorials();
     }
 
     @Override
@@ -364,5 +368,17 @@ public class AboutFragment extends LeanbackPreferenceFragment implements
         Intent intent = new Intent(Intent.ACTION_BUG_REPORT);
         intent.setPackage(reporterPackage);
         startActivityForResult(intent, 0);
+    }
+
+    private void updateTutorials() {
+        final Preference deviceTutorialsPref = findPreference(KEY_TUTORIALS);
+        if (deviceTutorialsPref != null) {
+            final ResolveInfo info = MainFragment.systemIntentIsHandled(getContext(),
+                    deviceTutorialsPref.getIntent());
+            deviceTutorialsPref.setVisible(info != null);
+            if (info != null) {
+                deviceTutorialsPref.setTitle(info.loadLabel(getContext().getPackageManager()));
+            }
+        }
     }
 }

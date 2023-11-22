@@ -18,11 +18,13 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclGroup.h"
+#include "clang/AST/RecordLayout.h"
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/TargetInfo.h"
@@ -74,7 +76,41 @@
 
 #include "rs_cc_options.h"
 
-#include "strip_unknown_attributes.h"
+#include "StripUnkAttr/strip_unknown_attributes_pass.h"
+
+namespace {
+class VersionInfoPass : public llvm::ModulePass {
+  const clang::CodeGenOptions &mCodeGenOpts;
+
+  const char *getSlangLLVMVersion() const {
+    if (mCodeGenOpts.getDebugInfo() != clang::codegenoptions::NoDebugInfo)
+      return LLVM_VERSION_STRING;
+    return nullptr;
+  }
+
+public:
+  static char ID;
+  VersionInfoPass(const clang::CodeGenOptions &codegenOpts)
+      : ModulePass(ID), mCodeGenOpts(codegenOpts) {}
+  virtual bool runOnModule(llvm::Module &M) override {
+    const char *versionString = getSlangLLVMVersion();
+    if (!versionString)
+      return false;
+    auto &ctx = M.getContext();
+    auto md = M.getOrInsertNamedMetadata("slang.llvm.version");
+    auto ver = llvm::MDString::get(ctx, versionString);
+    md->addOperand(
+        llvm::MDNode::get(ctx, llvm::ArrayRef<llvm::Metadata *>(ver)));
+    return true;
+  }
+};
+
+char VersionInfoPass::ID = 0;
+
+llvm::ModulePass *createVersionInfoPass(const clang::CodeGenOptions &cgo) {
+  return new VersionInfoPass(cgo);
+}
+}
 
 namespace slang {
 
@@ -95,11 +131,7 @@ void Backend::CreateModulePasses() {
     llvm::PassManagerBuilder PMBuilder;
     PMBuilder.OptLevel = mCodeGenOpts.OptimizationLevel;
     PMBuilder.SizeLevel = mCodeGenOpts.OptimizeSize;
-    if (mCodeGenOpts.UnitAtATime) {
-      PMBuilder.DisableUnitAtATime = 0;
-    } else {
-      PMBuilder.DisableUnitAtATime = 1;
-    }
+    PMBuilder.DisableUnitAtATime = 0; // TODO Pirama confirm if this is right
 
     if (mCodeGenOpts.UnrollLoops) {
       PMBuilder.DisableUnrollLoops = 0;
@@ -110,6 +142,11 @@ void Backend::CreateModulePasses() {
     PMBuilder.populateModulePassManager(*mPerModulePasses);
     // Add a pass to strip off unknown/unsupported attributes.
     mPerModulePasses->add(createStripUnknownAttributesPass());
+    if (!mContext->isCompatLib()) {
+      // The version info pass is used to ensure that debugging
+      // is matched between slang and bcc.
+      mPerModulePasses->add(createVersionInfoPass(mCodeGenOpts));
+    }
   }
 }
 
@@ -226,7 +263,7 @@ Backend::Backend(RSContext *Context, clang::DiagnosticsEngine *DiagEngine,
       mRefCount(mContext->getASTContext()),
       mASTChecker(Context, Context->getTargetAPI(), IsFilterscript),
       mForEachHandler(Context),
-      mLLVMContext(llvm::getGlobalContext()), mDiagEngine(*DiagEngine),
+      mLLVMContext(slang::getGlobalLLVMContext()), mDiagEngine(*DiagEngine),
       mCodeGenOpts(CodeGenOpts), mPragmas(Pragmas) {
   mGen = CreateLLVMCodeGen(mDiagEngine, "", HeaderSearchOpts, PreprocessorOpts,
       mCodeGenOpts, mLLVMContext);
@@ -343,7 +380,208 @@ void Backend::HandleTranslationUnit(clang::ASTContext &Ctx) {
   }
 }
 
+// Insert explicit padding fields into struct to follow the current layout.
+//
+// A similar algorithm is present in PadHelperFunctionStruct().
+void Backend::PadStruct(clang::RecordDecl* RD) {
+  // Example of padding:
+  //
+  //   // ORIGINAL CODE                   // TRANSFORMED CODE
+  //   struct foo {                       struct foo {
+  //     int a;                             int a;
+  //     // 4 bytes of padding              char <RS_PADDING_FIELD_NAME>[4];
+  //     long b;                            long b;
+  //     int c;                             int c;
+  //     // 4 bytes of (tail) padding       char <RS_PADDING_FIELD_NAME>[4];
+  //   };                                 };
+
+  // We collect all of RD's fields in a vector FieldsInfo.  We
+  // represent tail padding as an entry in the FieldsInfo vector with a
+  // null FieldDecl.
+  typedef std::pair<size_t, clang::FieldDecl*> FieldInfoType;  // (pre-field padding bytes, field)
+  std::vector<FieldInfoType> FieldsInfo;
+
+  // RenderScript is C99-based, so we only expect to see fields.  We
+  // could iterate over fields, but instead let's iterate over
+  // everything, to verify that there are only fields.
+  for (clang::Decl* D : RD->decls()) {
+    clang::FieldDecl* FD = clang::dyn_cast<clang::FieldDecl>(D);
+    slangAssert(FD && "found a non field declaration within a struct");
+    FieldsInfo.push_back(std::make_pair(size_t(0), FD));
+  }
+
+  clang::ASTContext& ASTC = mContext->getASTContext();
+
+  // ASTContext caches record layout.  We may transform the record in a way
+  // that would render this cached information incorrect.  clang does
+  // not provide any way to invalidate this cached information.  We
+  // take the following approach:
+  //
+  // 1. ASSUME that record layout has not yet been computed for RD.
+  //
+  // 2. Create a temporary clone of RD, and compute its layout.
+  //    ASSUME that we know how to clone RD in a way that copies all the
+  //    properties that are relevant to its layout.
+  //
+  // 3. Use the layout information from the temporary clone to
+  //    transform RD.
+  //
+  // NOTE: ASTContext also caches TypeInfo (see
+  //       ASTContext::getTypeInfo()).  ASSUME that inserting padding
+  //       fields doesn't change the type in any way that affects
+  //       TypeInfo.
+  //
+  // NOTE: A RecordType knows its associated RecordDecl -- so even
+  //       while we're manipulating RD, the associated RecordType
+  //       still recognizes RD as its RecordDecl.  ASSUME that we
+  //       don't do anything during our manipulation that would cause
+  //       the RecordType to be followed to RD while RD is in a
+  //       partially transformed state.
+
+  // The assumptions above may be brittle, and if they are incorrect,
+  // we may get mysterious failures.
+
+  // create a temporary clone
+  clang::RecordDecl* RDForLayout =
+      clang::RecordDecl::Create(ASTC, clang::TTK_Struct, RD->getDeclContext(),
+                                clang::SourceLocation(), clang::SourceLocation(),
+                                nullptr /* IdentifierInfo */);
+  RDForLayout->startDefinition();
+  RDForLayout->setTypeForDecl(RD->getTypeForDecl());
+  if (RD->hasAttrs())
+    RDForLayout->setAttrs(RD->getAttrs());
+  RDForLayout->completeDefinition();
+
+  // move all fields from RD to RDForLayout
+  for (const auto &info : FieldsInfo) {
+    RD->removeDecl(info.second);
+    info.second->setLexicalDeclContext(RDForLayout);
+    RDForLayout->addDecl(info.second);
+  }
+
+  const clang::ASTRecordLayout& RL = ASTC.getASTRecordLayout(RDForLayout);
+
+  // An exportable type cannot contain a bitfield.  However, it's
+  // possible that this current type might have a bitfield and yet
+  // share a common initial sequence with an exportable type, so even
+  // if the current type has a bitfield, the current type still
+  // needs to have explicit padding inserted (in case the two types
+  // under discussion are members of a union).  We don't need to
+  // insert any padding after the bitfield, however, because that
+  // would be beyond the common initial sequence.
+  bool foundBitField = false;
+
+  // Is there any padding in this struct?
+  bool foundPadding = false;
+
+  unsigned fieldNo = 0;
+  uint64_t fieldPrePaddingOffset = 0;  // byte offset of pre-field padding within struct
+  for (auto &info : FieldsInfo) {
+    const clang::FieldDecl* FD = info.second;
+
+    if ((foundBitField = FD->isBitField()))
+      break;
+
+    const uint64_t fieldOffset = RL.getFieldOffset(fieldNo) >> 3;
+    const size_t prePadding = fieldOffset - fieldPrePaddingOffset;
+    foundPadding |= (prePadding != 0);
+    info.first = prePadding;
+
+    // get ready for the next field
+    //
+    //   assumes that getTypeSize() is the storage size of the Type -- for example,
+    //   that it includes a struct's tail padding (if any)
+    //
+    fieldPrePaddingOffset = fieldOffset + (ASTC.getTypeSize(FD->getType()) >> 3);
+    ++fieldNo;
+  }
+
+  if (!foundBitField) {
+    // In order to ensure that the front end (including reflected
+    // code) and back end agree on struct size (not just field
+    // offsets) we may need to add explicit tail padding, just as we'e
+    // added explicit padding between fields.
+    slangAssert(RL.getSize().getQuantity() >= fieldPrePaddingOffset);
+    if (const size_t tailPadding = RL.getSize().getQuantity() - fieldPrePaddingOffset) {
+      foundPadding = true;
+      FieldsInfo.push_back(std::make_pair(tailPadding, nullptr));
+    }
+  }
+
+  if (false /* change to "true" for extra debugging output */) {
+   if (foundPadding) {
+     std::cout << "PadStruct(" << RD->getNameAsString() << "):" << std::endl;
+     for (const auto &info : FieldsInfo)
+       std::cout << "  " << info.first << ", " << (info.second ? info.second->getNameAsString() : "<tail>") << std::endl;
+   }
+  }
+
+  if (foundPadding && Slang::IsLocInRSHeaderFile(RD->getLocation(), mSourceMgr)) {
+    mContext->ReportError(RD->getLocation(), "system structure contains padding: '%0'")
+        << RD->getName();
+  }
+
+  // now move fields from RDForLayout to RD, and add any necessary
+  // padding fields
+  const clang::QualType byteType = ASTC.getIntTypeForBitwidth(8, false /* not signed */);
+  clang::IdentifierInfo* const paddingIdentifierInfo = &ASTC.Idents.get(RS_PADDING_FIELD_NAME);
+  for (const auto &info : FieldsInfo) {
+    if (info.first != 0) {
+      // Create a padding field: "char <RS_PADDING_FIELD_NAME>[<info.first>];"
+
+      // TODO: Do we need to do anything else to keep this field from being shown in debugger?
+      //       There's no source location, and the field is marked as implicit.
+      const clang::QualType paddingType =
+          ASTC.getConstantArrayType(byteType,
+                                    llvm::APInt(sizeof(info.first) << 3, info.first),
+                                    clang::ArrayType::Normal, 0 /* IndexTypeQuals */);
+      clang::FieldDecl* const FD =
+          clang::FieldDecl::Create(ASTC, RD, clang::SourceLocation(), clang::SourceLocation(),
+                                   paddingIdentifierInfo,
+                                   paddingType,
+                                   nullptr,  // TypeSourceInfo*
+                                   nullptr,  // BW (bitwidth)
+                                   false,    // Mutable = false
+                                   clang::ICIS_NoInit);
+      FD->setImplicit(true);
+      RD->addDecl(FD);
+    }
+    if (info.second != nullptr) {
+      RDForLayout->removeDecl(info.second);
+      info.second->setLexicalDeclContext(RD);
+      RD->addDecl(info.second);
+    }
+  }
+
+  // There does not appear to be any safe way to delete a RecordDecl
+  // -- for example, there is no RecordDecl destructor to invalidate
+  // cached record layout, and if we were to get unlucky, some future
+  // RecordDecl could be allocated in the same place as a deleted
+  // RDForLayout and "inherit" the cached record layout from
+  // RDForLayout.
+}
+
 void Backend::HandleTagDeclDefinition(clang::TagDecl *D) {
+  // we want to insert explicit padding fields into structs per http://b/29154200 and http://b/28070272
+  switch (D->getTagKind()) {
+    case clang::TTK_Struct:
+      PadStruct(llvm::cast<clang::RecordDecl>(D));
+      break;
+
+    case clang::TTK_Union:
+      // cannot be part of an exported type
+      break;
+
+    case clang::TTK_Enum:
+      // a scalar
+      break;
+
+    case clang::TTK_Class:
+    case clang::TTK_Interface:
+    default:
+      slangAssert(false && "Unexpected TagTypeKind");
+      break;
+  }
   mGen->HandleTagDeclDefinition(D);
 }
 
@@ -363,10 +601,11 @@ Backend::~Backend() {
 void Backend::AnnotateFunction(clang::FunctionDecl *FD) {
   if (FD &&
       FD->hasBody() &&
+      !FD->isImplicit() &&
       !Slang::IsLocInRSHeaderFile(FD->getLocation(), mSourceMgr)) {
     mRefCount.Init();
     mRefCount.SetDeclContext(FD);
-    mRefCount.Visit(FD->getBody());
+    mRefCount.HandleParamsAndLocals(FD);
   }
 }
 
@@ -430,9 +669,9 @@ bool Backend::HandleTopLevelDecl(clang::DeclGroupRef D) {
     }
 
     if (getTargetAPI() >= SLANG_FEATURE_SINGLE_SOURCE_API) {
-      if (FD && FD->hasBody() &&
+      if (FD && FD->hasBody() && !FD->isImplicit() &&
           !Slang::IsLocInRSHeaderFile(FD->getLocation(), mSourceMgr)) {
-        if (FD->hasAttr<clang::KernelAttr>()) {
+        if (FD->hasAttr<clang::RenderScriptKernelAttr>()) {
           // Log functions with attribute "kernel" by their names, and assign
           // them slot numbers. Any other function cannot be used in a
           // rsForEach() or rsForEachWithOptions() call, including old-style
@@ -537,7 +776,7 @@ void Backend::dumpExportVarInfo(llvm::Module *M) {
             static_cast<const RSExportPrimitiveType*>(ET);
         ExportVarInfo.push_back(
             llvm::MDString::get(
-              mLLVMContext, llvm::utostr_32(PT->getType())));
+              mLLVMContext, llvm::utostr(PT->getType())));
         if (PT->isRSObjectType()) {
           countsAsRSObject = true;
         }
@@ -553,7 +792,7 @@ void Backend::dumpExportVarInfo(llvm::Module *M) {
       case RSExportType::ExportClassMatrix: {
         ExportVarInfo.push_back(
             llvm::MDString::get(
-              mLLVMContext, llvm::utostr_32(
+              mLLVMContext, llvm::utostr(
                   /* TODO Strange value.  This pushes just a number, quite
                    * different than the other cases.  What is this used for?
                    * These are the metadata values that some partner drivers
@@ -586,11 +825,66 @@ void Backend::dumpExportVarInfo(llvm::Module *M) {
 
     if (countsAsRSObject) {
       mRSObjectSlotsMetadata->addOperand(llvm::MDNode::get(mLLVMContext,
-          llvm::MDString::get(mLLVMContext, llvm::utostr_32(slotCount))));
+          llvm::MDString::get(mLLVMContext, llvm::utostr(slotCount))));
     }
 
     slotCount++;
   }
+}
+
+// A similar algorithm is present in Backend::PadStruct().
+static void PadHelperFunctionStruct(llvm::Module *M,
+                                    llvm::StructType **paddedStructType,
+                                    std::vector<unsigned> *origFieldNumToPaddedFieldNum,
+                                    llvm::StructType *origStructType) {
+  slangAssert(origFieldNumToPaddedFieldNum->empty());
+  origFieldNumToPaddedFieldNum->resize(2 * origStructType->getNumElements());
+
+  llvm::LLVMContext &llvmContext = M->getContext();
+
+  const llvm::DataLayout *DL = &M->getDataLayout();
+  const llvm::StructLayout *SL = DL->getStructLayout(origStructType);
+
+  // Field types -- including any padding fields we need to insert.
+  std::vector<llvm::Type *> paddedFieldTypes;
+  paddedFieldTypes.reserve(2 * origStructType->getNumElements());
+
+  // Is there any padding in this struct?
+  bool foundPadding = false;
+
+  llvm::Type *const byteType = llvm::Type::getInt8Ty(llvmContext);
+  unsigned origFieldNum = 0, paddedFieldNum = 0;
+  uint64_t fieldPrePaddingOffset = 0;  // byte offset of pre-field padding within struct
+  for (llvm::Type *fieldType : origStructType->elements()) {
+    const uint64_t fieldOffset = SL->getElementOffset(origFieldNum);
+    const size_t prePadding = fieldOffset - fieldPrePaddingOffset;
+    if (prePadding != 0) {
+      foundPadding = true;
+      paddedFieldTypes.push_back(llvm::ArrayType::get(byteType, prePadding));
+      ++paddedFieldNum;
+    }
+    paddedFieldTypes.push_back(fieldType);
+    (*origFieldNumToPaddedFieldNum)[origFieldNum] = paddedFieldNum;
+
+    // get ready for the next field
+    fieldPrePaddingOffset = fieldOffset + DL->getTypeAllocSize(fieldType);
+    ++origFieldNum;
+    ++paddedFieldNum;
+  }
+
+  // In order to ensure that the front end (including reflected code)
+  // and back end agree on struct size (not just field offsets) we may
+  // need to add explicit tail padding, just as we'e added explicit
+  // padding between fields.
+  slangAssert(SL->getSizeInBytes() >= fieldPrePaddingOffset);
+  if (const size_t tailPadding = SL->getSizeInBytes() - fieldPrePaddingOffset) {
+    foundPadding = true;
+    paddedFieldTypes.push_back(llvm::ArrayType::get(byteType, tailPadding));
+  }
+
+  *paddedStructType = (foundPadding
+                       ? llvm::StructType::get(llvmContext, paddedFieldTypes)
+                       : origStructType);
 }
 
 void Backend::dumpExportFunctionInfo(llvm::Module *M) {
@@ -620,7 +914,10 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
 
       // Create helper function
       {
-        llvm::StructType *HelperFunctionParameterTy = nullptr;
+        llvm::StructType *OrigHelperFunctionParameterTy = nullptr;
+        llvm::StructType *PaddedHelperFunctionParameterTy = nullptr;
+
+        std::vector<unsigned> OrigFieldNumToPaddedFieldNum;
         std::vector<bool> isStructInput;
 
         if (!F->getArgumentList().empty()) {
@@ -635,11 +932,14 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
                   isStructInput.push_back(false);
               }
           }
-          HelperFunctionParameterTy =
+          OrigHelperFunctionParameterTy =
               llvm::StructType::get(mLLVMContext, HelperFunctionParameterTys);
+          PadHelperFunctionStruct(M,
+                                  &PaddedHelperFunctionParameterTy, &OrigFieldNumToPaddedFieldNum,
+                                  OrigHelperFunctionParameterTy);
         }
 
-        if (!EF->checkParameterPacketType(HelperFunctionParameterTy)) {
+        if (!EF->checkParameterPacketType(OrigHelperFunctionParameterTy)) {
           fprintf(stderr, "Failed to export function %s: parameter type "
                           "mismatch during creation of helper function.\n",
                   EF->getName().c_str());
@@ -649,16 +949,16 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
             fprintf(stderr, "Expected:\n");
             Expected->getLLVMType()->dump();
           }
-          if (HelperFunctionParameterTy) {
+          if (OrigHelperFunctionParameterTy) {
             fprintf(stderr, "Got:\n");
-            HelperFunctionParameterTy->dump();
+            OrigHelperFunctionParameterTy->dump();
           }
         }
 
         std::vector<llvm::Type*> Params;
-        if (HelperFunctionParameterTy) {
+        if (PaddedHelperFunctionParameterTy) {
           llvm::PointerType *HelperFunctionParameterTyP =
-              llvm::PointerType::getUnqual(HelperFunctionParameterTy);
+              llvm::PointerType::getUnqual(PaddedHelperFunctionParameterTy);
           Params.push_back(HelperFunctionParameterTyP);
         }
 
@@ -691,17 +991,17 @@ void Backend::dumpExportFunctionInfo(llvm::Module *M) {
 
           // getelementptr and load instruction for all elements in
           // parameter .p
-          for (size_t i = 0; i < EF->getNumParameters(); i++) {
+          for (size_t origFieldNum = 0; origFieldNum < EF->getNumParameters(); origFieldNum++) {
             // getelementptr
             Idx[1] = llvm::ConstantInt::get(
-              llvm::Type::getInt32Ty(mLLVMContext), i);
+              llvm::Type::getInt32Ty(mLLVMContext), OrigFieldNumToPaddedFieldNum[origFieldNum]);
 
             llvm::Value *Ptr = NULL;
 
             Ptr = IB->CreateInBoundsGEP(HelperFunctionParameter, Idx);
 
             // Load is only required for non-struct ptrs
-            if (isStructInput[i]) {
+            if (isStructInput[origFieldNum]) {
                 Params.push_back(Ptr);
             } else {
                 llvm::Value *V = IB->CreateLoad(Ptr);
@@ -763,7 +1063,7 @@ void Backend::dumpExportForEachInfo(llvm::Module *M) {
 
     ExportForEachInfo.push_back(
         llvm::MDString::get(mLLVMContext,
-                            llvm::utostr_32(EFE->getSignatureMetadata())));
+                            llvm::utostr(EFE->getSignatureMetadata())));
 
     mExportForEachSignatureMetadata->addOperand(
         llvm::MDNode::get(mLLVMContext, ExportForEachInfo));
@@ -804,14 +1104,14 @@ void Backend::dumpExportReduceInfo(llvm::Module *M) {
 
     addString(Idx++, (*I)->getNameReduce());
 
-    addOperand(Idx++, llvm::MDString::get(mLLVMContext, llvm::utostr_32((*I)->getAccumulatorTypeSize())));
+    addOperand(Idx++, llvm::MDString::get(mLLVMContext, llvm::utostr((*I)->getAccumulatorTypeSize())));
 
     llvm::SmallVector<llvm::Metadata *, 2> Accumulator;
     Accumulator.push_back(
       llvm::MDString::get(mLLVMContext, (*I)->getNameAccumulator()));
     Accumulator.push_back(llvm::MDString::get(
       mLLVMContext,
-      llvm::utostr_32((*I)->getAccumulatorSignatureMetadata())));
+      llvm::utostr((*I)->getAccumulatorSignatureMetadata())));
     addOperand(Idx++, llvm::MDTuple::get(mLLVMContext, Accumulator));
 
     addString(Idx++, (*I)->getNameInitializer(), false);

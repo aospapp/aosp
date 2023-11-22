@@ -107,9 +107,6 @@ public class ClearPage {
       }
     }
     data.setValue("toroot", toroot);
-    if (Doclava.USE_UPDATED_TEMPLATES) {
-      data.setValue("useUpdatedTemplates", "true");
-    }
     data.setValue("filename", filename);
 
     if (!fullPath) {
@@ -180,9 +177,10 @@ public class ClearPage {
       return;
     }
     if (!isValidContentType(allowExcepted, toPath, DROIDDOC_VALID_CONTENT_TYPES)) {
-        Errors.error(Errors.INVALID_CONTENT_TYPE, null, "Failed to process " + from
-                + ": Invalid file type. Please move the file to frameworks/base/docs/image_sources/... or docs/downloads/...");
-        return;
+      Errors.error(Errors.INVALID_CONTENT_TYPE, (SourcePositionInfo) null, "Failed to process "
+          + from + ": Invalid file type. Please move the file to "
+          + "frameworks/base/docs/image_sources/... or docs/downloads/...");
+      return;
     }
 
     long sizel = from.length();

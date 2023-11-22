@@ -1,6 +1,6 @@
-diff -ur src/mockito/java/com/google/dexmaker/mockito/DexmakerMockMaker.java patched_src/mockito/java/com/google/dexmaker/mockito/DexmakerMockMaker.java
---- src/mockito/java/com/google/dexmaker/mockito/DexmakerMockMaker.java	2013-01-07 11:27:13.000000000 -0800
-+++ patched_src/mockito/java/com/google/dexmaker/mockito/DexmakerMockMaker.java	2013-02-15 11:27:44.000000000 -0800
+diff -ur a/mockito/src/main/java/com/google/dexmaker/mockito/DexmakerMockMaker.java b/mockito/src/main/java/com/google/dexmaker/mockito/DexmakerMockMaker.java
+--- a/mockito/src/main/java/com/google/dexmaker/mockito/DexmakerMockMaker.java	2013-01-07 11:27:13.000000000 -0800
++++ b/mockito/src/main/java/com/google/dexmaker/mockito/DexmakerMockMaker.java	2013-02-15 11:27:44.000000000 -0800
 @@ -45,9 +45,10 @@
              Class[] classesToMock = new Class[extraInterfaces.length + 1];
              classesToMock[0] = typeToMock;

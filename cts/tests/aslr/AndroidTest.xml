@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Aslr Malloc test cases">
+    <option name="config-descriptor:metadata" key="component" value="security" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsAslrMallocTestCases->/data/local/tmp/CtsAslrMallocTestCases" />
@@ -22,7 +23,7 @@
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsAslrMallocTestCases" />
-        <option name="runtime-hint" value="3m30s" />
+        <option name="runtime-hint" value="10m30s" />
         <!-- test-timeout unit is ms, value = 10 min -->
         <option name="native-test-timeout" value="600000" />
     </test>

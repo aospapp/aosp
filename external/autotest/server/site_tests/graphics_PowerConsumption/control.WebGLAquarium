@@ -8,11 +8,11 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "graphics"
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TEST_TYPE = "server"
 DEPENDENCIES = "rpm, power:battery"
 BUG_TEMPLATE = {
-    "labels": ["OS-Chrome", "Cr-OS-Kernel-Graphics"],
+    "labels": ["OS-Chrome"],
+    "components": ["OS>Kernel>Graphics"],
 }
 
 DOC = """
@@ -30,8 +30,8 @@ def _run_client_test(machine):
     if not client.has_power():
         raise error.TestError("This test requires RPM support.")
 
-    client.power_off()
     try:
+        client.power_off()
         client_at = autotest.Autotest(client)
         client_at.run_test("graphics_WebGLAquarium", power_test=True)
     finally:

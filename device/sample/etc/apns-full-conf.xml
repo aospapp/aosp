@@ -367,11 +367,21 @@
      mvno_type="imsi"
   />
 
+  <apn carrier="Jump Roam"
+      mcc="204"
+      mnc="04"
+      apn="mobiledata"
+      authtype="0"
+      mvno_type="spn"
+      mvno_match_data="Jump"
+  />
+
   <apn carrier="Truphone"
       mcc="204"
       mnc="04"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
       mvno_match_data="204043914"
       mvno_type="imsi"
   />
@@ -380,7 +390,8 @@
       mcc="204"
       mnc="04"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
       mvno_match_data="20404794"
       mvno_type="imsi"
   />
@@ -965,6 +976,29 @@
       type="default,supl"
   />
 
+  <apn carrier="netgprs.com"
+      mcc="206"
+      mnc="10"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="BE-Transatel"
+      mvno_type="spn"
+   />
+
+
+ <apn carrier="netgprs.com"
+      mcc="206"
+      mnc="10"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="BB00"
+      mvno_type="gid"
+  />
+
   <apn carrier="BASE WAP"
       mcc="206"
       mnc="20"
@@ -1168,6 +1202,16 @@
       apn="websfr"
       protocol="IP"
       type="dun"
+  />
+
+  <apn carrier="Truphone"
+       mcc="208"
+       mnc="09"
+       apn="truphone.com"
+       mmsc="http://mmsc.truphone.com:1981/mm1"
+       type="default,supl,mms,dun"
+       mvno_match_data="208090022"
+       mvno_type="imsi"
   />
 
   <apn carrier="SFR webphone"
@@ -1520,6 +1564,17 @@
       apn="mobiledata"
       mmsc="http://mms"
       type="default,supl,mms"
+  />
+
+  <apn carrier="netgprs.com"
+      mcc="208"
+      mnc="22"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="FR-Transatel"
+      mvno_type="spn"
   />
 
   <apn carrier="Virgin mobile"
@@ -2130,7 +2185,8 @@
       mcc="214"
       mnc="27"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
   <apn carrier="Tuenti"
@@ -3106,6 +3162,28 @@
       type="mms"
   />
 
+  <apn carrier="netgprs.com"
+      mcc="228"
+      mnc="03"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="CH-Transatel"
+      mvno_type="spn"
+   />
+
+   <apn carrier="netgprs.com"
+      mcc="228"
+      mnc="03"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="BB00"
+      mvno_type="gid"
+  />
+
   <apn carrier="T-Mobile CZ"
       mcc="230"
       mnc="01"
@@ -3527,6 +3605,15 @@
       mmsport="8080"
       mvno_type="spn"
       mvno_match_data="giffgaff"
+  />
+
+  <apn carrier="Jump UK"
+      mcc="234"
+      mnc="10"
+      apn="mobiledata"
+      authtype="0"
+      mvno_type="spn"
+      mvno_match_data="Jump"
   />
 
   <apn carrier="O2 MOBILE WEB"
@@ -4010,7 +4097,8 @@
       mcc="234"
       mnc="25"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
   <apn carrier="Jersey Telecom"
@@ -5563,6 +5651,13 @@
       type="mms"
   />
 
+  <apn carrier="VODA internet"
+      mcc="250"
+      mnc="28"
+      apn="vodalte.ru"
+      type="default,supl"
+  />
+
   <apn carrier="Beeline Internet"
       mcc="250"
       mnc="99"
@@ -5935,14 +6030,28 @@
       mcc="260"
       mnc="33"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
+  />
+
+  <apn carrier="Rebtel"
+      mcc="260"
+      mnc="44"
+      apn="rebtel"
+      mmsc="http://mmsc.rebtel.com"
+      mmsproxy="185.114.248.80"
+      mmsport="8080"
+      type="default,supl,mms"
   />
 
   <apn carrier="Telekom Internet"
       mcc="262"
       mnc="01"
-      apn=""
-      type="ia"
+      apn="internet.telekom"
+      user="telekom"
+      password="telekom"
+      authtype="1"
+      type="default,supl,ia"
       protocol="IPV4V6"
   />
 
@@ -5953,10 +6062,28 @@
       user="telekom"
       password="telekom"
       mmsc="http://mms.t-mobile.de/servlets/mms"
-      mmsproxy="172.28.23.131"
+      mmsproxy="109.237.176.193"
       mmsport="8008"
+      bearer_bitmask="1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17"
       authtype="1"
-      type="default,supl,mms"
+      type="mms"
+      protocol="IPV4V6"
+  />
+
+  <apn carrier="Telekom Internet"
+      mcc="262"
+      mnc="01"
+      apn="hos"
+      user="telekom"
+      password="telekom"
+      mmsc="http://mms.t-mobile.de/servlets/mms"
+      mmsproxy="109.237.176.193"
+      mmsport="8008"
+      bearer_bitmask="18"
+      authtype="1"
+      type="mms"
+      protocol="IPV4V6"
+      user_visible="false"
   />
 
   <apn carrier="Telekom Internet"
@@ -6124,7 +6251,8 @@
       mcc="262"
       mnc="42"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
   <apn carrier="Vodafone Net2"
@@ -6250,6 +6378,28 @@
       mmsproxy="212.66.75.3"
       mmsport="8080"
       type="mms"
+  />
+
+   <apn carrier="netgprs.com"
+      mcc="270"
+      mnc="77"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="BB00"
+      mvno_type="gid"
+  />
+
+  <apn carrier="netgprs.com"
+      mcc="270"
+      mnc="77"
+      apn="netgprs.com"
+      user="tsl"
+      password="tsl"
+      type="default,supl"
+      mvno_match_data="LU-Transatel"
+      mvno_type="spn"
   />
 
   <apn carrier="Orange"
@@ -6451,8 +6601,6 @@
       mcc="280"
       mnc="01"
       apn="cytamobile"
-      user="user"
-      password="pass"
       mmsc="http://mmsc.cyta.com.cy"
       mmsproxy="212.31.96.161"
       mmsport="8080"
@@ -6471,15 +6619,19 @@
       type="mms"
   />
 
-  <apn carrier="MTN Wap"
+  <apn carrier="MTN Internet"
       mcc="280"
       mnc="10"
-      apn="wap"
-      user="wap"
-      password="wap"
-      proxy="172.24.97.3"
-      port="3130"
+      apn="internet"
       type="default,supl"
+  />
+
+  <apn carrier="PrimeTel"
+      mcc="280"
+      mnc="20"
+      apn="ip.primetel"
+      mmsc="http://mms.primetel"
+      type="default,supl,mms"
   />
 
   <apn carrier="MTel"
@@ -8211,7 +8363,7 @@
       mnc="004"
       apn="internet"
       authtype="3"
-      type="default,mms,supl,fota,ims,cbs"
+      type="default,mms,supl,fota,cbs"
       mmsc="http://mms.vtext.com/servlets/mms"
       protocol="IPV4V6"
       bearer_bitmask="4|5|6|7|8|12"
@@ -8222,7 +8374,7 @@
       mnc="004"
       apn="internet"
       authtype="3"
-      type="default,mms,supl,fota,ims,cbs,dun"
+      type="default,mms,supl,fota,cbs,dun"
       mmsc="http://mms.vtext.com/servlets/mms"
       protocol="IPV4V6"
       bearer_bitmask="4|5|6|7|8|12"
@@ -8975,22 +9127,13 @@
       roaming_protocol="IPV4V6"
   />
 
-  <apn carrier="T-Mobile US 160"
-      mcc="310"
-      mnc="160"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
 
   <apn carrier="T-Mobile US 160"
       mcc="310"
       mnc="160"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9089,19 +9232,9 @@
   <apn carrier="T-Mobile US 200"
       mcc="310"
       mnc="200"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 200"
-      mcc="310"
-      mnc="200"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9145,19 +9278,9 @@
   <apn carrier="T-Mobile US 210"
       mcc="310"
       mnc="210"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 210"
-      mcc="310"
-      mnc="210"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9201,19 +9324,9 @@
   <apn carrier="T-Mobile US 220"
       mcc="310"
       mnc="220"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 220"
-      mcc="310"
-      mnc="220"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9257,19 +9370,9 @@
   <apn carrier="T-Mobile US 230"
       mcc="310"
       mnc="230"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 230"
-      mcc="310"
-      mnc="230"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9313,19 +9416,9 @@
   <apn carrier="T-Mobile US 240"
       mcc="310"
       mnc="240"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 240"
-      mcc="310"
-      mnc="240"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9369,19 +9462,9 @@
   <apn carrier="T-Mobile US 250"
       mcc="310"
       mnc="250"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 250"
-      mcc="310"
-      mnc="250"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9425,18 +9508,8 @@
   <apn carrier="T-Mobile GPRS"
       mcc="310"
       mnc="260"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile GPRS"
-      mcc="310"
-      mnc="260"
       apn="fast.t-mobile.com"
-      type="default,supl"
+      type="default,supl,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9461,7 +9534,7 @@
        type="mms"
        protocol="IPV6"
        roaming_protocol="IPV6"
-       bearer_bitmask="18"
+       bearer="18"
   />
 
   <apn carrier="T-Mobile IMS"
@@ -9482,7 +9555,7 @@
        modem_cognitive="true"
        protocol="IPV6"
        roaming_protocol="IPV6"
-       bearer_bitmask="18"
+       bearer="18"
   />
 
   <apn carrier="Project Fi - T"
@@ -9577,19 +9650,9 @@
   <apn carrier="T-Mobile US 270"
       mcc="310"
       mnc="270"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 270"
-      mcc="310"
-      mnc="270"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9640,19 +9703,9 @@
   <apn carrier="T-Mobile US 300"
       mcc="310"
       mnc="300"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 300"
-      mcc="310"
-      mnc="300"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -9697,7 +9750,8 @@
       mcc="310"
       mnc="30"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
 
@@ -9705,17 +9759,8 @@
       mcc="310"
       mnc="300"
       apn="truphone.com"
-      type="default,supl"
-  />
-
-  <apn carrier="T-Mobile US 310"
-      mcc="310"
-      mnc="310"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
   <apn carrier="T-Mobile US 310"
@@ -9723,7 +9768,7 @@
       mnc="310"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -10334,19 +10379,9 @@
   <apn carrier="T-Mobile US 490"
       mcc="310"
       mnc="490"
-      apn=""
-      type="ia"
-      protocol="IPiV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 490"
-      mcc="310"
-      mnc="490"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -10410,19 +10445,9 @@
   <apn carrier="T-Mobile US 530"
       mcc="310"
       mnc="530"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 530"
-      mcc="310"
-      mnc="530"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -10621,19 +10646,9 @@
   <apn carrier="T-Mobile US 590"
       mcc="310"
       mnc="590"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 590"
-      mcc="310"
-      mnc="590"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -10787,19 +10802,9 @@
   <apn carrier="T-Mobile US 640"
       mcc="310"
       mnc="640"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 640"
-      mcc="310"
-      mnc="640"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -10842,19 +10847,9 @@
   <apn carrier="T-Mobile US 660"
       mcc="310"
       mnc="660"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 660"
-      mcc="310"
-      mnc="660"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -11039,19 +11034,9 @@
   <apn carrier="T-Mobile US 800"
       mcc="310"
       mnc="800"
-      apn=""
-      type="ia"
-      protocol="IPV4V6"
-      roaming_protocol="IPV4V6"
-      mtu="1440"
-  />
-
-  <apn carrier="T-Mobile US 800"
-      mcc="310"
-      mnc="800"
       apn="fast.t-mobile.com"
       mmsc="http://mms.msg.eng.t-mobile.com/mms/wapenc"
-      type="default,supl,mms"
+      type="default,supl,mms,ia"
       protocol="IPV6"
       roaming_protocol="IP"
       mtu="1440"
@@ -13824,7 +13809,7 @@
       mnc="480"
       apn="internet"
       authtype="3"
-      type="default,mms,supl,fota,ims,cbs"
+      type="default,mms,supl,fota,cbs"
       mmsc="http://mms.vtext.com/servlets/mms"
       protocol="IPV4V6"
       bearer_bitmask="4|5|6|7|8|12"
@@ -13836,7 +13821,7 @@
       mnc="480"
       apn="internet"
       authtype="3"
-      type="default,mms,supl,fota,ims,cbs,dun"
+      type="default,mms,supl,fota,cbs,dun"
       mmsc="http://mms.vtext.com/servlets/mms"
       protocol="IPV4V6"
       bearer_bitmask="4|5|6|7|8|12"
@@ -14916,6 +14901,28 @@
       protocol="IP"
       roaming_protocol="IP"
   />
+
+  <apn carrier="Cleartalk"
+      mcc="311"
+      mnc="750"
+      apn="CdmaNai"
+      authtype="3"
+      type="default,mms,supl,dun"
+      mmsc="http://mms.cleartalk.us/cleartalk/mms.php"
+      protocol="IPV4V6"
+      bearer_bitmask="6"
+  />
+  <apn carrier="ClearTalk LTE"
+      mcc="311"
+      mnc="750"
+      apn="home.netamerica.com"
+      type="default,mms,supl,dun"
+      bearer_bitmask="14"
+      protocol="IPV4V6"
+      roaming_protocol="IPV4V6"
+      mmsc="http://mms.cleartalk.us/cleartalk/mms.php"
+      mtu="1428"
+    />
 
   <apn carrier="MobileNation"
       mcc="311"
@@ -25457,7 +25464,8 @@
       mcc="454"
       mnc="08"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
   <apn carrier="one2free"
@@ -26421,7 +26429,8 @@
       mcc="505"
       mnc="02"
       apn="truphone.com"
-      type="default,supl"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
       mvno_match_data="50502100"
       mvno_type="imsi"
   />
@@ -26517,6 +26526,14 @@
       mmsproxy="10.176.57.25"
       mmsport="8799"
       type="default,supl,mms"
+  />
+
+  <apn carrier="Truphone"
+      mcc="505"
+      mnc="38"
+      apn="truphone.com"
+      mmsc="http://mmsc.truphone.com:1981/mm1"
+      type="default,supl,mms,dun"
   />
 
   <apn carrier="Telstra MMS"

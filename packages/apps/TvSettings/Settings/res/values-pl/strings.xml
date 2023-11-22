@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Skanowanie zawsze dostępne"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Zezwalaj usłudze lokalizacyjnej Google i innym aplikacjom na skanowanie w poszukiwaniu sieci nawet przy wyłączonym Wi‑Fi"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Zezwalaj usłudze lokalizacyjnej Google i innym aplikacjom na skanowanie w poszukiwaniu sieci nawet przy wyłączonym Wi-Fi"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Wygaszacz ekranu"</string>
     <string name="device_display" msgid="101455384386372747">"Ekran"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Bateria <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Anuluję sparowanie urządzenia…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Połączone"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Zmień nazwę"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Wpisz nową nazwę tego akcesorium"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Szukam akcesoriów…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Przed parowaniem urządzeń Bluetooth upewnij się, że są w trybie parowania"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Wykryto urządzenie. Zostanie ono sparowane za <xliff:g id="COUNTDOWN">%1$s</xliff:g> s"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Klawiatura"</string>
     <string name="system_home" msgid="2858989138172296012">"Ekran główny"</string>
     <string name="system_search" msgid="2837264654143247611">"Wyszukiwanie"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Bezpieczeństwo i ograniczenia"</string>
     <string name="system_speech" msgid="8128688499687306982">"Mowa"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Wejścia"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Opcje programistyczne"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Brak"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Użycie i diagnostyka"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Samouczki"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Aktualizacje systemu"</string>
     <string name="about_preference" msgid="4131396784531360434">"Informacje"</string>
     <string name="device_name" msgid="2670488158531273028">"Nazwa urządzenia"</string>
@@ -138,7 +142,7 @@
     <string name="battery_status_title" msgid="2557264957661087826">"Stan baterii"</string>
     <string name="battery_level_title" msgid="100046129713781009">"Poziom naładowania baterii"</string>
     <string name="sim_status_title" msgid="498929467188844611">"Stan karty SIM"</string>
-    <string name="imei_information_title" msgid="5208860549282877136">"Informacje o IMEI"</string>
+    <string name="imei_information_title" msgid="5208860549282877136">"Numer IMEI"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Adres Bluetooth"</string>
     <string name="status_up_time" msgid="1674116490191446110">"Czas działania"</string>
     <string name="status_wimax_mac_address" msgid="1102907383444152052">"Adres MAC 4G"</string>
@@ -374,6 +378,7 @@
     <string name="display_options" msgid="5504549024985225774">"Opcje wyświetlania"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfiguracja"</string>
     <string name="captions_language" msgid="2835554055388996343">"Język"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Domyślny"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Rozmiar tekstu"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Styl napisów"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Opcje niestandardowe"</string>
@@ -450,7 +455,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Skala animacji przejścia"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Skala długości animacji"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Tryb ścisły włączony"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Pokaż użycie procesora"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Profil renderowania GPU"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Włącz śledzenia"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Nie zachowuj działań"</string>
@@ -468,7 +472,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Najlepszy-najg.: nieb., ziel., jasnoczerw., czerw."</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Podświetlaj całe aktualizowane powierzchnie okien"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Miganie ekranu podczas długich operacji w wątku głównym"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Nakładka na ekranie pokazująca bieżące użycie procesora"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mierz czas renderowania w adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Wł."</string>
     <string name="action_off_title" msgid="3157728958166559966">"Wyłącz"</string>
@@ -608,7 +611,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Wymuś zatrzymanie"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Jeśli wymusisz zatrzymanie aplikacji, może ona zadziałać nieprawidłowo."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Odinstaluj"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Odinstalować tę aplikację?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Odinstaluj aktualizacje"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Wszystkie aktualizacje tej aplikacji systemowej Androida zostaną odinstalowane."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Wyłącz"</string>
@@ -625,6 +627,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Wyczyść pamięć podręczną"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Powiadomienia"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Uprawnienia"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Aplikacja niedostępna"</string>
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Anuluj"</string>
     <string name="settings_on" msgid="6892236264945435013">"Wł."</string>
@@ -648,17 +651,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Wymazać wszystkie Twoje informacje osobiste i pobrane aplikacje? Nie można tego cofnąć."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Wymaż wszystko"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Wybierz nazwę urządzenia <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Nazwa pozwala rozpoznać urządzenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, gdy chcesz uzyskać dostęp z innego urządzenia, np. telefonu, tabletu czy komputera."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Nadaj nazwę swojemu urządzeniu <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, by móc je łatwo rozpoznać podczas przesyłania treści lub łączenia się z innych urządzeń."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Salon"</item>
-    <item msgid="3722089849939477581">"Pokój multimedialny"</item>
-    <item msgid="6108590585438763574">"Pokój rodzinny"</item>
-    <item msgid="2581035245390468625">"Jadalnia"</item>
-    <item msgid="3127487827308695324">"Pokój dzienny"</item>
-    <item msgid="6172018430592195063">"Sypialnia"</item>
-    <item msgid="8120010459866284578">"Kuchnia"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Telewizor w salonie"</item>
+    <item msgid="8122798759665439456">"Telewizor w pokoju rodzinnym"</item>
+    <item msgid="1389347662738182100">"Telewizor w sypialni"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Wpisz własną nazwę…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Wpisz własną nazwę…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Zmień nazwę tego urządzenia <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"To urządzenie <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ma nazwę „<xliff:g id="DEVICENAME">%2$s</xliff:g>”"</string>
     <string name="change_setting" msgid="2047402388786162246">"Zmień"</string>
@@ -673,4 +673,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Uruchom w trybie awaryjnym"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Chcesz uruchomić urządzenie w trybie awaryjnym?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"W ten sposób wyłączysz wszystkie zainstalowane aplikacje innych firm. Zostaną one przywrócone po zrestartowaniu urządzenia."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Zapisuję raport o błędzie"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Dostępne klawiatury wirtualne"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Zarządzaj klawiaturami"</string>
 </resources>

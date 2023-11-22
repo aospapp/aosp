@@ -57,6 +57,7 @@
  * booleans or conditional rules are thrown away a warning is printed.
  */
 
+#include <ctype.h>
 #include <getopt.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -64,15 +65,14 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/mman.h>
-
-#ifdef DARWIN
-#include <ctype.h>
-#endif
 
 #include <sepol/module_to_cil.h>
 #include <sepol/policydb/policydb.h>
@@ -919,6 +919,8 @@ int main(int argc, char **argv)
 				protocol = IPPROTO_TCP;
 			else if (!strcmp(ans, "udp") || !strcmp(ans, "UDP"))
 				protocol = IPPROTO_UDP;
+			else if (!strcmp(ans, "dccp") || !strcmp(ans, "DCCP"))
+				protocol = IPPROTO_DCCP;
 			else {
 				printf("unknown protocol\n");
 				break;

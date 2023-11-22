@@ -16,26 +16,36 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
-import android.cts.util.WidgetTestUtils;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.SimpleCursorTreeAdapter;
 import android.widget.TextView;
 
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link SimpleCursorTreeAdapter}.
  */
-public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SimpleCursorTreeAdapterTest {
     private static final int GROUP_LAYOUT = R.layout.cursoradapter_group0;
 
     private static final int CHILD_LAYOUT = R.layout.cursoradapter_item0;
@@ -66,13 +76,13 @@ public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
 
     private Cursor mChildCursor;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         mGroupCursor = createTestCursor(2, 20, "group");
         new MockSimpleCursorTreeAdapter(mContext, mGroupCursor,
@@ -89,6 +99,7 @@ public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testBindChildView() {
         mGroupCursor = createTestCursor(2, 20, "group");
         mChildCursor = createTestCursor(3, 4, "child");
@@ -107,8 +118,9 @@ public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
         assertEquals("child12", view.getText().toString());
     }
 
-    // The param context and isExpanded is never readed.
+    // The param context and isExpanded is never read.
     @UiThreadTest
+    @Test
     public void testBindGroupView() {
         mGroupCursor = createTestCursor(2, 20, "group");
         mGroupCursor.moveToFirst();
@@ -126,6 +138,7 @@ public class SimpleCursorTreeAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetViewImage() {
         mGroupCursor = createTestCursor(2, 20, "group");
         mSimpleCursorTreeAdapter = new MockSimpleCursorTreeAdapter(mContext, mGroupCursor,

@@ -59,6 +59,7 @@ public class SuspendDebuggee extends SyncDebuggee {
         }
     }
     
+    @Override
     public void run() {
         
         logWriter.println("--> SuspendDebuggee: START...");
@@ -124,6 +125,7 @@ class SuspendDebuggee_Thread extends Thread {
         threadKind = threadNumber % 3;
     }
 
+    @Override
     public void run() {
         SuspendDebuggee parent = SuspendDebuggee.suspendDebuggeeThis;
         synchronized (parent) { 

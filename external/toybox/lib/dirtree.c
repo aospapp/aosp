@@ -5,19 +5,20 @@
 
 #include "toys.h"
 
-static int notdotdot(char *name)
+int isdotdot(char *name)
 {
-  if (name[0]=='.' && (!name[1] || (name[1]=='.' && !name[2]))) return 0;
+  if (name[0]=='.' && (!name[1] || (name[1]=='.' && !name[2]))) return 1;
 
-  return 1;
+  return 0;
 }
 
-// Default callback, filters out "." and "..".
+// Default callback, filters out "." and ".." except at top level.
 
 int dirtree_notdotdot(struct dirtree *catch)
 {
   // Should we skip "." and ".."?
-  return notdotdot(catch->name) ? DIRTREE_SAVE|DIRTREE_RECURSE : 0;
+  return (!catch->parent||!isdotdot(catch->name))
+    *(DIRTREE_SAVE|DIRTREE_RECURSE);
 }
 
 // Create a dirtree node from a path, with stat and symlink info.
@@ -54,7 +55,7 @@ struct dirtree *dirtree_add_node(struct dirtree *parent, char *name, int flags)
   return dt;
 
 error:
-  if (!(flags&DIRTREE_SHUTUP) && notdotdot(name)) {
+  if (!(flags&DIRTREE_SHUTUP) && !isdotdot(name)) {
     char *path = parent ? dirtree_path(parent, 0) : "";
 
     perror_msg("%s%s%s", path, parent ? "/" : "", name);
@@ -96,29 +97,23 @@ int dirtree_parentfd(struct dirtree *node)
   return node->parent ? node->parent->dirfd : AT_FDCWD;
 }
 
-// Handle callback for a node in the tree. Returns saved node(s) or NULL.
-//
-// By default, allocates a tree of struct dirtree, not following symlinks
-// If callback==NULL, or callback always returns 0, allocate tree of struct
-// dirtree and return root of tree.  Otherwise call callback(node) on each
-// hit, free structures after use, and return NULL.
-//
+// Handle callback for a node in the tree. Returns saved node(s) if
+// callback returns DIRTREE_SAVE, otherwise frees consumed nodes and
+// returns NULL. If !callback return top node unchanged.
+// If !new return DIRTREE_ABORTVAL
 
 struct dirtree *dirtree_handle_callback(struct dirtree *new,
           int (*callback)(struct dirtree *node))
 {
   int flags;
 
-  if (!new) return 0;
-  if (!callback) callback = dirtree_notdotdot;
+  if (!new) return DIRTREE_ABORTVAL;
+  if (!callback) return new;
   flags = callback(new);
 
-  if (S_ISDIR(new->st.st_mode)) {
-    if (flags & (DIRTREE_RECURSE|DIRTREE_COMEAGAIN)) {
-      new->dirfd = openat(dirtree_parentfd(new), new->name, O_CLOEXEC);
-      flags = dirtree_recurse(new, callback, flags);
-    }
-  }
+  if (S_ISDIR(new->st.st_mode) && (flags & (DIRTREE_RECURSE|DIRTREE_COMEAGAIN)))
+    flags = dirtree_recurse(new, callback,
+      openat(dirtree_parentfd(new), new->name, O_CLOEXEC), flags);
 
   // If this had children, it was callback's job to free them already.
   if (!(flags & DIRTREE_SAVE)) {
@@ -133,12 +128,13 @@ struct dirtree *dirtree_handle_callback(struct dirtree *new,
 // callback(). Uses and closes supplied ->dirfd.
 
 int dirtree_recurse(struct dirtree *node,
-          int (*callback)(struct dirtree *node), int flags)
+          int (*callback)(struct dirtree *node), int dirfd, int flags)
 {
   struct dirtree *new, **ddt = &(node->child);
   struct dirent *entry;
   DIR *dir;
 
+  node->dirfd = dirfd;
   if (node->dirfd == -1 || !(dir = fdopendir(node->dirfd))) {
     if (!(flags & DIRTREE_SHUTUP)) {
       char *path = dirtree_path(node, 0);
@@ -155,6 +151,7 @@ int dirtree_recurse(struct dirtree *node,
 
   // The extra parentheses are to shut the stupid compiler up.
   while ((entry = readdir(dir))) {
+    if ((flags&DIRTREE_PROC) && !isdigit(*entry->d_name)) continue;
     if (!(new = dirtree_add_node(node, entry->d_name, flags))) continue;
     new = dirtree_handle_callback(new, callback);
     if (new == DIRTREE_ABORTVAL) break;
@@ -176,19 +173,21 @@ int dirtree_recurse(struct dirtree *node,
   return flags;
 }
 
-// Create dirtree root
-struct dirtree *dirtree_start(char *name, int symfollow)
+// Create dirtree from path, using callback to filter nodes. If !callback
+// return just the top node. Use dirtree_notdotdot callback to allocate a
+// tree of struct dirtree nodes and return pointer to root node for later
+// processing.
+// Returns DIRTREE_ABORTVAL if path didn't exist (use DIRTREE_SHUTUP to handle
+// error message yourself).
+
+struct dirtree *dirtree_flagread(char *path, int flags,
+  int (*callback)(struct dirtree *node))
 {
-  return dirtree_add_node(0, name, DIRTREE_SYMFOLLOW*!!symfollow);
+  return dirtree_handle_callback(dirtree_add_node(0, path, flags), callback);
 }
 
-// Create dirtree from path, using callback to filter nodes.
-// If callback == NULL allocate a tree of struct dirtree nodes and return
-// pointer to root node.
-
+// Common case
 struct dirtree *dirtree_read(char *path, int (*callback)(struct dirtree *node))
 {
-  struct dirtree *root = dirtree_start(path, 0);
-
-  return root ? dirtree_handle_callback(root, callback) : DIRTREE_ABORTVAL;
+  return dirtree_flagread(path, 0, callback);
 }

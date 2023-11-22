@@ -19,19 +19,21 @@
 #include <limits.h>
 #include <time.h>
 #include <linux/input.h>
+
+#include <functional>
+
 #include <cutils/klog.h>
+#include <minui/minui.h>
 #include <utils/SystemClock.h>
-#include "minui/minui.h"
 
 #define NEXT_TIMEOUT_MS 5000
 #define LAST_TIMEOUT_MS 30000
 
 #define LOGE(x...) do { KLOG_ERROR("slideshow", x); } while (0)
 
-static int input_cb(int fd, unsigned int epevents, void *data)
+static int input_cb(int fd, unsigned int epevents, int *key_code)
 {
     struct input_event ev;
-    int *key_code = (int *)data;
 
     *key_code = -1;
 
@@ -108,7 +110,8 @@ int main(int argc, char **argv)
         return usage();
     }
 
-    if (gr_init() == -1 || ev_init(input_cb, &key_code) == -1) {
+    if (gr_init() == -1 || ev_init(std::bind(&input_cb, std::placeholders::_1,
+                                             std::placeholders::_2, &key_code)) == -1) {
         LOGE("failed to initialize minui\n");
         return EXIT_FAILURE;
     }

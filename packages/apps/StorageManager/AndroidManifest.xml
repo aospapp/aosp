@@ -36,13 +36,22 @@
         android:allowBackup="false"
         android:supportsRtl="true">
         <!--  Initial Page -->
-        <activity android:name="DeletionHelperActivity"
+        <activity android:name=".deletionhelper.DeletionHelperActivity"
                   android:label="@string/deletion_helper_title"
                   android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.os.storage.action.MANAGE_STORAGE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+        </activity>
+
+        <!-- Warning for activating the storage manager. -->
+        <activity android:name=".automatic.WarningDialogActivity"
+                  android:excludeFromRecents="true"
+                  android:label=""
+                  android:noHistory="true"
+                  android:taskAffinity=".WarningDialogActivity"
+                  android:theme="@style/TransparentDialog">
         </activity>
 
         <!-- Automatic storage management tasks. -->
@@ -57,8 +66,6 @@
                   android:enabled="@bool/enable_automatic_storage_management">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <!-- This is required on HTC devices to support their "quickboot" feature -->
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 
@@ -68,7 +75,9 @@
                 <action android:name="com.android.storagemanager.automatic.DISMISS" />
                 <action android:name="com.android.storagemanager.automatic.ACTIVATE" />
                 <action android:name="com.android.storagemanager.automatic.NO_THANKS" />
+                <action android:name="com.android.storagemanager.automatic.SHOW_NOTIFICATION" />
                 <action android:name="com.android.storagemanager.automatic.DEBUG_SHOW_NOTIFICATION" />
+                <action android:name="com.android.storagemanager.automatic.SHOW_SETTINGS" />
             </intent-filter>
         </receiver>
 

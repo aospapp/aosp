@@ -16,6 +16,10 @@ POWERWASH_COMMAND = 'safe fast keepimg'
 
 STATEFUL_MARKER_FILE = '/mnt/stateful_partition/platform_Powerwash_flag'
 
+# Log files to help debugging what happened during last clobbering (powerwash).
+CLOBBER_STATE_LOG_FILE = '/mnt/stateful_partition/unencrypted/clobber-state.log'
+CLOBBER_LOG_FILE = '/mnt/stateful_partition/unencrypted/clobber.log'
+
 
 class platform_Powerwash(test.test):
     """Powerwash a device."""
@@ -43,6 +47,12 @@ class platform_Powerwash(test.test):
         if marker is None or marker.exit_status == 0:
             raise error.TestFail("Powerwash cycle didn't remove the marker "
                                  "file on the stateful partition.")
+
+        # Capture powerwash logs.
+        logging.debug('Powerwash logs: %r', self._host.run(
+                'cat %s %s 2>/dev/null' % (CLOBBER_LOG_FILE,
+                                           CLOBBER_STATE_LOG_FILE),
+                ignore_status=True).stdout.strip())
 
         # Check the powerwash counter before and after the powerwash to verify
         # it was incremented. This file should be preserved by the powerwash.

@@ -23,6 +23,7 @@
 #include <binder/Parcel.h>
 #include <utils/String8.h>
 #include <utils/SystemClock.h>
+#include <utils/CallStack.h>
 
 #include <private/binder/Static.h>
 
@@ -67,11 +68,6 @@ bool checkCallingPermission(const String16& permission, int32_t* outPid, int32_t
 
 bool checkPermission(const String16& permission, pid_t pid, uid_t uid)
 {
-#ifdef __BRILLO__
-    // Brillo doesn't currently run ActivityManager or support framework permissions.
-    return true;
-#endif
-
     sp<IPermissionController> pc;
     gDefaultServiceManagerLock.lock();
     pc = gPermissionController;
@@ -131,7 +127,7 @@ bool checkPermission(const String16& permission, pid_t pid, uid_t uid)
 class BpServiceManager : public BpInterface<IServiceManager>
 {
 public:
-    BpServiceManager(const sp<IBinder>& impl)
+    explicit BpServiceManager(const sp<IBinder>& impl)
         : BpInterface<IServiceManager>(impl)
     {
     }
@@ -140,10 +136,17 @@ public:
     {
         unsigned n;
         for (n = 0; n < 5; n++){
+            if (n > 0) {
+                if (!strcmp(ProcessState::self()->getDriverName().c_str(), "/dev/vndbinder")) {
+                    ALOGI("Waiting for vendor service %s...", String8(name).string());
+                    CallStack stack(LOG_TAG);
+                } else {
+                    ALOGI("Waiting for service %s...", String8(name).string());
+                }
+                sleep(1);
+            }
             sp<IBinder> svc = checkService(name);
             if (svc != NULL) return svc;
-            ALOGI("Waiting for service %s...\n", String8(name).string());
-            sleep(1);
         }
         return NULL;
     }

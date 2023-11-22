@@ -54,8 +54,8 @@ public class EmlMessageLoaderTest extends LoaderTestCase {
 
     @SmallTest
     public void testLoadingBlankEml() throws Exception {
-        final Uri emptyEmlUri = TestProvider.uri(
-                new Uri.Builder().scheme("content").authority("empty").path("empty").build());
+        final Uri emptyEmlUri = new Uri.Builder().scheme("content").authority(
+                TestProvider.AUTHORITY).path("empty").build();
         final ContentValues cv = new ContentValues(2);
         cv.put(OpenableColumns.DISPLAY_NAME, "Empty.eml");
         cv.put(OpenableColumns.SIZE, 0);

@@ -7,16 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++98, c++03, libcxxabi-no-exceptions
+
 #include <cassert>
 #include <cstdlib>
 
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-
 struct A {};
-
-#if __has_feature(cxx_nullptr)
 
 void test1()
 {
@@ -25,8 +21,9 @@ void test1()
         throw nullptr;
         assert(false);
     }
-    catch (int*)
+    catch (int* p)
     {
+        assert(!p);
     }
     catch (long*)
     {
@@ -41,8 +38,9 @@ void test2()
         throw nullptr;
         assert(false);
     }
-    catch (A*)
+    catch (A* p)
     {
+        assert(!p);
     }
     catch (int*)
     {
@@ -55,29 +53,13 @@ void catch_nullptr_test() {
   try {
     throw nullptr;
     assert(false);
-  } catch (Catch) {
-    // nothing todo
+  } catch (Catch c) {
+    assert(!c);
   } catch (...) {
     assert(false);
   }
 }
 
-#else
-
-void test1()
-{
-}
-
-void test2()
-{
-}
-
-template <class Catch>
-void catch_nullptr_test()
-{
-}
-
-#endif
 
 int main()
 {

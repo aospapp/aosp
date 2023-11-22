@@ -17,18 +17,18 @@
 
 <sample>
     <name>DirectBoot</name>
-    <group>Android N Preview</group>  <!-- This field will be deprecated in the future
+    <group>Security</group>  <!-- This field will be deprecated in the future
                             and replaced with the "categories" tags below. -->
     <package>com.example.android.directboot</package>
 
     <minSdk>24</minSdk>
-    <compileSdkVersion>24</compileSdkVersion>
-    <targetSdkVersion>24</targetSdkVersion>
+    <compileSdkVersion>25</compileSdkVersion>
+    <targetSdkVersion>25</targetSdkVersion>
 
     <!-- Include additional dependencies here.-->
     <!-- dependency>com.google.android.gms:play-services:5.0.+</dependency -->
-    <dependency>com.android.support:recyclerview-v7:24.0.0</dependency>
-    <dependency>com.android.support:design:24.0.0</dependency>
+    <dependency>com.android.support:recyclerview-v7:25.0.1</dependency>
+    <dependency>com.android.support:design:25.0.1</dependency>
 
     <template src="base" />
 
@@ -45,7 +45,7 @@ go off after reboot even before the user enters their credentials.
 
     <metadata>
         <status>PUBLISHED</status>
-        <categories>Android N Preview</categories>
+        <categories>Security</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>

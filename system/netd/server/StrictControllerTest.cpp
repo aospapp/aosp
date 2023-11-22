@@ -45,7 +45,7 @@ TEST_F(StrictControllerTest, TestEnableStrict) {
         ":st_penalty_reject -",
         ":st_clear_caught -",
         ":st_clear_detect -",
-        "COMMIT\n\x04"
+        "COMMIT\n"
     };
 
     std::vector<std::string> v4 = {
@@ -69,7 +69,7 @@ TEST_F(StrictControllerTest, TestEnableStrict) {
         "-A st_clear_detect -p tcp -m state --state ESTABLISHED -m u32 --u32 "
             "\"0>>22&0x3C@ 12>>26&0x3C@ 0&0x0=0x0\" -j st_clear_caught",
         "-A st_clear_detect -p udp -j st_clear_caught",
-        "COMMIT\n\x04"
+        "COMMIT\n"
     };
 
     std::vector<std::string> v6 = {
@@ -94,7 +94,7 @@ TEST_F(StrictControllerTest, TestEnableStrict) {
         "-A st_clear_detect -p tcp -m state --state ESTABLISHED -m u32 --u32 "
             "\"52>>26&0x3C@ 40&0x0=0x0\" -j st_clear_caught",
         "-A st_clear_detect -p udp -j st_clear_caught",
-        "COMMIT\n\x04"
+        "COMMIT\n"
     };
 
     std::string commandsCommon = android::base::Join(common, '\n');
@@ -119,6 +119,6 @@ TEST_F(StrictControllerTest, TestDisableStrict) {
         ":st_penalty_reject -\n"
         ":st_clear_caught -\n"
         ":st_clear_detect -\n"
-        "COMMIT\n\x04";
+        "COMMIT\n";
     expectIptablesRestoreCommands({ expected });
 }

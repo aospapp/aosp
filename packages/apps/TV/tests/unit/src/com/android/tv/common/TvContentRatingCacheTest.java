@@ -18,9 +18,9 @@ package com.android.tv.common;
 
 import android.content.ComponentCallbacks2;
 import android.media.tv.TvContentRating;
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.tv.testing.TvContentRatingConstants;
 import com.android.tv.util.Utils;
@@ -42,7 +42,7 @@ public class TvContentRatingCacheTest extends AndroidTestCase {
      */
     public static final String Y7_AND_MA = TvContentRatingConstants.STRING_US_TV_Y7_US_TV_FV + ","
             + TvContentRatingConstants.STRING_US_TV_MA;
-    TvContentRatingCache mCache = TvContentRatingCache.getInstance();
+    final TvContentRatingCache mCache = TvContentRatingCache.getInstance();
 
     @Override
     protected void setUp() throws Exception {

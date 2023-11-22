@@ -15,19 +15,25 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Shader;
-import android.graphics.Bitmap.Config;
-import android.graphics.Shader.TileMode;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-import junit.framework.TestCase;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class BitmapShaderTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BitmapShaderTest {
     private static final int TILE_WIDTH = 20;
     private static final int TILE_HEIGHT = 20;
     private static final int BORDER_WIDTH = 5;
@@ -35,6 +41,7 @@ public class BitmapShaderTest extends TestCase {
     private static final int CENTER_COLOR = Color.RED;
     private static final int NUM_TILES = 4;
 
+    @Test
     public void testBitmapShader() {
         Bitmap tile = Bitmap.createBitmap(TILE_WIDTH, TILE_HEIGHT, Config.ARGB_8888);
         tile.eraseColor(BORDER_COLOR);
@@ -56,7 +63,7 @@ public class BitmapShaderTest extends TestCase {
 
         for (int y = 0; y < NUM_TILES; y++) {
             for (int x = 0; x < NUM_TILES; x++) {
-                checkTile(b, x * TILE_WIDTH, y * TILE_HEIGHT);
+                verifyTile(b, x * TILE_WIDTH, y * TILE_HEIGHT);
             }
         }
     }
@@ -65,14 +72,14 @@ public class BitmapShaderTest extends TestCase {
      * Check the colors of the tile at the given coordinates in the given
      * bitmap.
      */
-    private void checkTile(Bitmap bitmap, int tileX, int tileY) {
+    private void verifyTile(Bitmap bitmap, int tileX, int tileY) {
         for (int y = 0; y < TILE_HEIGHT; y++) {
             for (int x = 0; x < TILE_WIDTH; x++) {
                 if (x < BORDER_WIDTH || x >= TILE_WIDTH - BORDER_WIDTH ||
                     y < BORDER_WIDTH || y >= TILE_HEIGHT - BORDER_WIDTH) {
-                    assertColor(BORDER_COLOR, bitmap, x + tileY, y + tileY);
+                    verifyColor(BORDER_COLOR, bitmap, x + tileX, y + tileY);
                 } else {
-                    assertColor(CENTER_COLOR, bitmap, x + tileY, y + tileY);
+                    verifyColor(CENTER_COLOR, bitmap, x + tileX, y + tileY);
                 }
             }
         }
@@ -83,11 +90,75 @@ public class BitmapShaderTest extends TestCase {
      * matches the given color. Simply returns if the coordinates are outside
      * the bitmap area.
      */
-    private void assertColor(int color, Bitmap bitmap, int x, int y) {
+    private void verifyColor(int color, Bitmap bitmap, int x, int y) {
         if (x < bitmap.getWidth() && y < bitmap.getHeight()) {
             assertEquals(color, bitmap.getPixel(x, y));
-        } else {
-            return;
         }
+    }
+
+    @Test
+    public void testClamp() {
+        Bitmap bitmap = Bitmap.createBitmap(2, 1, Config.ARGB_8888);
+        bitmap.setPixel(0, 0, Color.RED);
+        bitmap.setPixel(1, 0, Color.BLUE);
+
+        BitmapShader shader = new BitmapShader(bitmap,
+                Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+
+        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, Config.ARGB_8888);
+        Canvas canvas = new Canvas(dstBitmap);
+        Paint paint = new Paint();
+        paint.setShader(shader);
+        canvas.drawRect(0, 0, 4, 1, paint);
+        canvas.setBitmap(null);
+
+        int[] pixels = new int[4];
+        dstBitmap.getPixels(pixels, 0, 4, 0, 0, 4, 1);
+        Assert.assertArrayEquals(new int[] { Color.RED, Color.BLUE, Color.BLUE, Color.BLUE },
+                pixels);
+    }
+
+    @Test
+    public void testRepeat() {
+        Bitmap bitmap = Bitmap.createBitmap(2, 1, Config.ARGB_8888);
+        bitmap.setPixel(0, 0, Color.RED);
+        bitmap.setPixel(1, 0, Color.BLUE);
+
+        BitmapShader shader = new BitmapShader(bitmap,
+                Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
+
+        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, Config.ARGB_8888);
+        Canvas canvas = new Canvas(dstBitmap);
+        Paint paint = new Paint();
+        paint.setShader(shader);
+        canvas.drawRect(0, 0, 4, 1, paint);
+        canvas.setBitmap(null);
+
+        int[] pixels = new int[4];
+        dstBitmap.getPixels(pixels, 0, 4, 0, 0, 4, 1);
+        Assert.assertArrayEquals(new int[] { Color.RED, Color.BLUE, Color.RED, Color.BLUE },
+                pixels);
+    }
+
+    @Test
+    public void testMirror() {
+        Bitmap bitmap = Bitmap.createBitmap(2, 1, Config.ARGB_8888);
+        bitmap.setPixel(0, 0, Color.RED);
+        bitmap.setPixel(1, 0, Color.BLUE);
+
+        BitmapShader shader = new BitmapShader(bitmap,
+                Shader.TileMode.MIRROR, Shader.TileMode.MIRROR);
+
+        Bitmap dstBitmap = Bitmap.createBitmap(4, 1, Config.ARGB_8888);
+        Canvas canvas = new Canvas(dstBitmap);
+        Paint paint = new Paint();
+        paint.setShader(shader);
+        canvas.drawRect(0, 0, 4, 1, paint);
+        canvas.setBitmap(null);
+
+        int[] pixels = new int[4];
+        dstBitmap.getPixels(pixels, 0, 4, 0, 0, 4, 1);
+        Assert.assertArrayEquals(new int[] { Color.RED, Color.BLUE, Color.BLUE, Color.RED },
+                pixels);
     }
 }

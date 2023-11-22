@@ -803,8 +803,8 @@ void RSReflectionJava::genExportFunction(const RSExportFunc *EF) {
   endFunction();
 }
 
-void RSReflectionJava::genPairwiseDimCheck(std::string name0,
-                                           std::string name1) {
+void RSReflectionJava::genPairwiseDimCheck(const std::string &name0,
+                                           const std::string &name1) {
 
   mOut.indent() << "// Verify dimensions\n";
   mOut.indent() << "t0 = " << name0 << ".getType();\n";
@@ -1655,7 +1655,7 @@ void RSReflectionJava::genPrimitiveTypeExportVariable(const RSExportVar *EV) {
   const RSExportPrimitiveType *EPT =
       static_cast<const RSExportPrimitiveType *>(EV->getType());
   std::string TypeName = GetTypeName(EPT);
-  std::string VarName = EV->getName();
+  const std::string &VarName = EV->getName();
 
   genPrivateExportVariable(TypeName, EV->getName());
 
@@ -1713,7 +1713,7 @@ void RSReflectionJava::genPrimitiveTypeExportVariable(const RSExportVar *EV) {
 void RSReflectionJava::genInitValue(const clang::APValue &Val, bool asBool) {
   switch (Val.getKind()) {
   case clang::APValue::Int: {
-    llvm::APInt api = Val.getInt();
+    const llvm::APInt &api = Val.getInt();
     if (asBool) {
       mOut << ((api.getSExtValue() == 0) ? "false" : "true");
     } else {
@@ -1727,7 +1727,7 @@ void RSReflectionJava::genInitValue(const clang::APValue &Val, bool asBool) {
   }
 
   case clang::APValue::Float: {
-    llvm::APFloat apf = Val.getFloat();
+    const llvm::APFloat &apf = Val.getFloat();
     llvm::SmallString<30> s;
     apf.toString(s);
     mOut << s.c_str();
@@ -1762,7 +1762,7 @@ void RSReflectionJava::genPointerTypeExportVariable(const RSExportVar *EV) {
 
   PointeeType = static_cast<const RSExportPointerType *>(ET)->getPointeeType();
   std::string TypeName = GetTypeName(ET);
-  std::string VarName = EV->getName();
+  const std::string &VarName = EV->getName();
 
   genPrivateExportVariable(TypeName, VarName);
 
@@ -1806,7 +1806,7 @@ void RSReflectionJava::genMatrixTypeExportVariable(const RSExportVar *EV) {
 
   const RSExportType *ET = EV->getType();
   std::string TypeName = GetTypeName(ET);
-  std::string VarName = EV->getName();
+  const std::string &VarName = EV->getName();
 
   genPrivateExportVariable(TypeName, VarName);
 
@@ -1870,7 +1870,7 @@ void RSReflectionJava::genSetExportVariable(const std::string &TypeName,
                                             unsigned Dimension) {
   if (!EV->isConst()) {
     const char *FieldPackerName = "fp";
-    std::string VarName = EV->getName();
+    const std::string &VarName = EV->getName();
     const RSExportType *ET = EV->getType();
     startFunction(AM_PublicSynchronized, false, "void", "set_" + VarName, 1,
                   TypeName.c_str(), "v");
@@ -1980,7 +1980,7 @@ void RSReflectionJava::genPackVarOfType(const RSExportType *ET,
       Level++;
     }
     std::string IndexVarName("ct");
-    IndexVarName.append(llvm::utostr_32(Level));
+    IndexVarName.append(llvm::utostr(Level));
 
     mOut.indent() << "for (int " << IndexVarName << " = 0; " << IndexVarName
                   << " < " << ECAT->getNumElement() << "; " << IndexVarName << "++)";
@@ -2531,18 +2531,10 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
       if (ElementType->getClass() != RSExportType::ExportClassRecord) {
         genAddElement(ECAT->getElementType(), VarName, ECAT->getNumElement());
       } else {
-        std::string NewElementBuilderName(mElementBuilderName);
-        NewElementBuilderName.append(1, '_');
-
-        RSReflectionJavaElementBuilder builder(
-            NewElementBuilderName.c_str(),
-            static_cast<const RSExportRecordType *>(ElementType),
-            mRenderScriptVar, mOut, mRSContext, mReflection);
-        builder.generate();
-
+        slangAssert((ArraySize == 0) && "Cannot reflect multidimensional array types");
         ArraySize = ECAT->getNumElement();
         genAddStatementStart();
-        *mOut << NewElementBuilderName << ".create()";
+        *mOut << ElementType->getElementName() << ".createElement(" << mRenderScriptVar << ")";
         genAddStatementEnd(VarName, ArraySize);
       }
       break;
@@ -2579,17 +2571,8 @@ void RSReflectionJavaElementBuilder::genAddElement(const RSExportType *ET,
         if (F->getType()->getClass() != RSExportType::ExportClassRecord) {
           genAddElement(F->getType(), FieldName, 0);
         } else {
-          std::string NewElementBuilderName(mElementBuilderName);
-          NewElementBuilderName.append(1, '_');
-
-          RSReflectionJavaElementBuilder builder(
-              NewElementBuilderName.c_str(),
-              static_cast<const RSExportRecordType *>(F->getType()),
-              mRenderScriptVar, mOut, mRSContext, mReflection);
-          builder.generate();
-
           genAddStatementStart();
-          *mOut << NewElementBuilderName << ".create()";
+          *mOut << F->getType()->getElementName() << ".createElement(" << mRenderScriptVar << ")";
           genAddStatementEnd(FieldName, ArraySize);
         }
 

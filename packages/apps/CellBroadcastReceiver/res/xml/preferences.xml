@@ -23,24 +23,24 @@
                         android:key="category_alert_settings">
 
         <!-- Enable CMAS Extreme Threat alerts -->
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="enable_cmas_extreme_threat_alerts"
                             android:summary="@string/enable_cmas_extreme_threat_alerts_summary"
                             android:title="@string/enable_cmas_extreme_threat_alerts_title" />
 
         <!-- Enable CMAS Severe Threat alerts -->
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="enable_cmas_severe_threat_alerts"
                             android:summary="@string/enable_cmas_severe_threat_alerts_summary"
                             android:title="@string/enable_cmas_severe_threat_alerts_title" />
 
         <!-- Enable CMAS AMBER alerts -->
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="enable_cmas_amber_alerts"
                             android:summary="@string/enable_cmas_amber_alerts_summary"
                             android:title="@string/enable_cmas_amber_alerts_title" />
 
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="enable_emergency_alerts"
                             android:summary="@string/enable_emergency_alerts_summary"
                             android:title="@string/enable_emergency_alerts_title" />
@@ -52,12 +52,12 @@
                         android:defaultValue="@string/alert_reminder_interval_default_value"
                         android:dialogTitle="@string/alert_reminder_interval_title" />
 
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="enable_alert_vibrate"
                             android:summary="@string/enable_alert_vibrate_summary"
                             android:title="@string/enable_alert_vibrate_title" />
 
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="enable_alert_speech"
                             android:summary="@string/enable_alert_speech_summary"
                             android:title="@string/enable_alert_speech_title" />
@@ -68,7 +68,7 @@
     <PreferenceCategory android:title="@string/category_etws_settings_title"
                         android:key="category_etws_settings">
 
-        <CheckBoxPreference android:defaultValue="false"
+        <SwitchPreference android:defaultValue="false"
                             android:key="enable_etws_test_alerts"
                             android:summary="@string/enable_etws_test_alerts_summary"
                             android:title="@string/enable_etws_test_alerts_title" />
@@ -80,7 +80,7 @@
 
     <!-- Default value is true for Brazil. This preference is ignored and hidden
          unless the boolean "show_brazil_settings" is set to true in config.xml. -->
-    <CheckBoxPreference android:defaultValue="true"
+    <SwitchPreference android:defaultValue="true"
                         android:key="enable_channel_50_alerts"
                         android:summary="@string/enable_channel_50_alerts_summary"
                         android:title="@string/enable_channel_50_alerts_title" />
@@ -91,12 +91,12 @@
     <PreferenceCategory android:title="@string/category_dev_settings_title"
                         android:key="category_dev_settings">
 
-        <CheckBoxPreference android:defaultValue="false"
+        <SwitchPreference android:defaultValue="false"
                             android:key="enable_cmas_test_alerts"
                             android:summary="@string/enable_cmas_test_alerts_summary"
                             android:title="@string/enable_cmas_test_alerts_title" />
 
-        <CheckBoxPreference android:defaultValue="true"
+        <SwitchPreference android:defaultValue="true"
                             android:key="show_cmas_opt_out_dialog"
                             android:summary="@string/show_cmas_opt_out_summary"
                             android:title="@string/show_cmas_opt_out_title" />

@@ -15,50 +15,25 @@
  */
 package android.car.test;
 
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
+import android.car.Car;
 import android.car.CarManagerBase;
 import android.os.IBinder;
 import android.os.RemoteException;
-
-import com.android.car.vehiclenetwork.IVehicleNetworkHalMock;
-import com.android.car.vehiclenetwork.VehicleNetwork.VehicleNetworkHalMock;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropConfigs;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
-import com.android.car.vehiclenetwork.VehiclePropConfigsParcelable;
-import com.android.car.vehiclenetwork.VehiclePropValueParcelable;
-import com.android.internal.annotations.GuardedBy;
-
-import java.lang.ref.WeakReference;
 
 /**
  * API for testing only. Allows mocking vehicle hal.
  * @hide
  */
 @SystemApi
-public class CarTestManager implements CarManagerBase {
-
-    /**
-     * Flag for {@link #startMocking(VehicleNetworkHalMock, int)}.
-     * This is for passing no flag.
-     */
-    public static final int FLAG_MOCKING_NONE = 0x0;
-
-    /**
-     * Flag for {@link #startMocking(VehicleNetworkHalMock, int)}.
-     * When this flag is set, shutdown request from mocked vehicle HAL will shutdown the system
-     * instead of avoiding shutdown, which is the default behavior.
-     * This can be used to test shutdown flow manually using mocking.
-     */
-    public static final int FLAG_MOCKING_REAL_SHUTDOWN = 0x1;
+public final class CarTestManager implements CarManagerBase {
 
     private final ICarTest mService;
 
-    @GuardedBy("this")
-    private VehicleNetworkHalMock mHalMock;
-    private IVehicleNetworkHalMockImpl mHalMockImpl;
 
-    public CarTestManager(CarTestManagerBinderWrapper wrapper) {
-        mService = ICarTest.Stub.asInterface(wrapper.binder);
+    public CarTestManager(IBinder carServiceBinder) {
+        mService = ICarTest.Stub.asInterface(carServiceBinder);
     }
 
     @Override
@@ -67,126 +42,36 @@ public class CarTestManager implements CarManagerBase {
     }
 
     /**
-     * Inject vehicle prop value event.
-     * @param value
+     * Releases all car services. This make sense for test purpose when it is necessary to reduce
+     * interference between testing and real instances of Car Service. For example changing audio
+     * focus in CarAudioService may affect framework's AudioManager listeners. AudioManager has a
+     * lot of complex logic which is hard to mock.
      */
-    public void injectEvent(VehiclePropValue value) {
+    @RequiresPermission(Car.PERMISSION_CAR_TEST_SERVICE)
+    public void stopCarService(IBinder token) {
         try {
-            mService.injectEvent(new VehiclePropValueParcelable(value));
+            mService.stopCarService(token);
         } catch (RemoteException e) {
             handleRemoteException(e);
         }
     }
 
     /**
-     * Check if given property is supported by vehicle hal.
-     * @param property
-     * @return
+     * Re-initializes previously released car service.
+     *
+     * @see {@link #stopCarService(IBinder)}
      */
-    public boolean isPropertySupported(int property) {
+    @RequiresPermission(Car.PERMISSION_CAR_TEST_SERVICE)
+    public void startCarService(IBinder token) {
         try {
-            return mService.isPropertySupported(property);
-        } catch (RemoteException e) {
-            handleRemoteException(e);
-        }
-        return false;
-    }
-    /**
-     * Start mocking vehicle HAL. It is somewhat strange to re-use interface in lower level
-     * API, but this is only for testing, and interface is exactly the same.
-     * @param mock
-     * @flags Combination of FLAG_MOCKING_*
-     */
-    public void startMocking(VehicleNetworkHalMock mock, int flags) {
-        IVehicleNetworkHalMockImpl halMockImpl = new IVehicleNetworkHalMockImpl(this);
-        synchronized (this) {
-            mHalMock = mock;
-            mHalMockImpl = halMockImpl;
-        }
-        try {
-            mService.startMocking(halMockImpl, flags);
+            mService.startCarService(token);
         } catch (RemoteException e) {
             handleRemoteException(e);
         }
     }
 
-    /**
-     * Stop previously started mocking.
-     */
-    public void stopMocking() {
-        IVehicleNetworkHalMockImpl halMockImpl;
-        synchronized (this) {
-            halMockImpl = mHalMockImpl;
-            mHalMock = null;
-            mHalMockImpl = null;
-        }
-        try {
-            mService.stopMocking(halMockImpl);
-        } catch (RemoteException e) {
-            handleRemoteException(e);
-        }
-    }
-
-    private synchronized VehicleNetworkHalMock getHalMock() {
-        return mHalMock;
-    }
-
-    private void handleRemoteException(RemoteException e) {
-        //TODO
-    }
-
-    private static class IVehicleNetworkHalMockImpl extends IVehicleNetworkHalMock.Stub {
-        private final WeakReference<CarTestManager> mTestManager;
-
-        private IVehicleNetworkHalMockImpl(CarTestManager testManager) {
-            mTestManager = new WeakReference<CarTestManager>(testManager);
-        }
-
-        @Override
-        public VehiclePropConfigsParcelable onListProperties() {
-            CarTestManager testManager = mTestManager.get();
-            if (testManager == null) {
-                return null;
-            }
-            VehiclePropConfigs configs = testManager.getHalMock().onListProperties();
-            return new VehiclePropConfigsParcelable(configs);
-        }
-
-        @Override
-        public void onPropertySet(VehiclePropValueParcelable value) {
-            CarTestManager testManager = mTestManager.get();
-            if (testManager == null) {
-                return;
-            }
-            testManager.getHalMock().onPropertySet(value.value);
-        }
-
-        @Override
-        public VehiclePropValueParcelable onPropertyGet(VehiclePropValueParcelable value) {
-            CarTestManager testManager = mTestManager.get();
-            if (testManager == null) {
-                return null;
-            }
-            VehiclePropValue retValue = testManager.getHalMock().onPropertyGet(value.value);
-            return new VehiclePropValueParcelable(retValue);
-        }
-
-        @Override
-        public void onPropertySubscribe(int property, float sampleRate, int zones) {
-            CarTestManager testManager = mTestManager.get();
-            if (testManager == null) {
-                return;
-            }
-            testManager.getHalMock().onPropertySubscribe(property, sampleRate, zones);
-        }
-
-        @Override
-        public void onPropertyUnsubscribe(int property) {
-            CarTestManager testManager = mTestManager.get();
-            if (testManager == null) {
-                return;
-            }
-            testManager.getHalMock().onPropertyUnsubscribe(property);
-        }
+    private static void handleRemoteException(RemoteException e) {
+        // let test fail
+        throw new RuntimeException(e);
     }
 }

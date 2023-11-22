@@ -19,7 +19,7 @@
     <group>Wearable</group>
     <package>com.example.android.google.wearable.watchviewstub</package>
 
-    <targetSdkVersionWear>22</targetSdkVersionWear>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <strings>
         <intro>
@@ -31,7 +31,7 @@
     <template src="base-build"/>
     <template src="Wear"/>
     <metadata>
-        <status>PUBLISHED</status>
+        <status>DEPRECATED</status>
         <categories>Wearable</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

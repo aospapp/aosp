@@ -42,7 +42,7 @@ public final class ReplaceTextCommentScanner extends BaseModifyCommentScanner {
 
   @Override
   public String toString() {
-    return "ReplaceCommentText{" +
+    return "ReplaceTextCommentScanner{" +
         "oldText='" + oldText + '\'' +
         ", newText='" + newText + '\'' +
         '}';

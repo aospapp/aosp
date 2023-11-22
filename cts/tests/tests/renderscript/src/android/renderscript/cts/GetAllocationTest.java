@@ -47,6 +47,10 @@ public class GetAllocationTest extends RSBaseCompute {
             tempArray[i],
             out[i]);
         }
+
+        mTemp.destroy();
+        mOut.destroy();
+        ms.destroy();
     }
 
 }

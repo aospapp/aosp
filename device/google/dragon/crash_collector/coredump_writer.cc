@@ -24,8 +24,8 @@
 #include <unistd.h>
 
 #include <android-base/file.h>
-#include <log/logger.h>
-#include <nativehelper/ScopedFd.h>
+#include <android-base/unique_fd.h>
+#include <log/log.h>
 
 // From external/google-breakpad.
 #include "common/linux/elf_core_dump.h"
@@ -114,15 +114,16 @@ CoredumpWriter::~CoredumpWriter() {
 }
 
 ssize_t CoredumpWriter::WriteCoredump() {
-  ScopedFd fd_dest(TEMP_FAILURE_RETRY(open(coredump_filename_.c_str(),
-                                           O_WRONLY | O_CREAT | O_EXCL,
-                                           S_IRUSR | S_IWUSR)));
-  if (fd_dest.get() == -1) {
+  android::base::unique_fd fd_dest(
+      TEMP_FAILURE_RETRY(open(coredump_filename_.c_str(),
+                              O_WRONLY | O_CREAT | O_EXCL,
+                              S_IRUSR | S_IWUSR)));
+  if (fd_dest == -1) {
     ALOGE("Failed to open: %s, errno = %d", coredump_filename_.c_str(), errno);
     return -1;
   }
-  ssize_t result = WriteCoredumpToFD(fd_dest.get());
-  fd_dest.reset();
+  ssize_t result = WriteCoredumpToFD(fd_dest);
+  fd_dest.reset(-1);
   if (result == -1)
     unlink(coredump_filename_.c_str());
   return result;
@@ -371,25 +372,25 @@ bool CoredumpWriter::WriteAuxv(const std::vector<char>& note_buf,
     return false;
   }
 
-  ScopedFd fd(TEMP_FAILURE_RETRY(open(
+  android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(
       output_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC | O_EXCL,
       S_IRUSR | S_IWUSR)));
-  if (fd.get() == -1) {
+  if (fd == -1) {
     ALOGE("Failed to open %s", output_path.c_str());
     return false;
   }
   // The contents of NT_AUXV is in the same format as that of /proc/[pid]/auxv.
   return android::base::WriteFully(
-      fd.get(), note.GetDescription().data(), note.GetDescription().length());
+      fd, note.GetDescription().data(), note.GetDescription().length());
 }
 
 bool CoredumpWriter::WriteMaps(const std::vector<Phdr>& program_headers,
                                const FileMappings& file_mappings,
                                const std::string& output_path) {
-  ScopedFd fd(TEMP_FAILURE_RETRY(open(
+  android::base::unique_fd fd(TEMP_FAILURE_RETRY(open(
       output_path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC | O_EXCL,
       S_IRUSR | S_IWUSR)));
-  if (fd.get() == -1) {
+  if (fd == -1) {
     ALOGE("Failed to open %s", output_path.c_str());
     return false;
   }
@@ -418,7 +419,7 @@ bool CoredumpWriter::WriteMaps(const std::vector<Phdr>& program_headers,
         0,  // Fake inode value.
         path.c_str());
     if (len < 0 || len > kBufSize ||
-        !android::base::WriteFully(fd.get(), buf, len)) {
+        !android::base::WriteFully(fd, buf, len)) {
       return false;
     }
   }

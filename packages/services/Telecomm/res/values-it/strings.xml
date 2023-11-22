@@ -19,10 +19,10 @@
     <string name="telecommAppLabel" product="default" msgid="382363169988504520">"Gestione chiamate"</string>
     <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Telefono"</string>
     <string name="unknown" msgid="6878797917991465859">"Sconosciuto"</string>
-    <string name="notification_missedCallTitle" msgid="7554385905572364535">"Chiamata senza risposta"</string>
+    <string name="notification_missedCallTitle" msgid="7554385905572364535">"Chiamata persa"</string>
     <string name="notification_missedWorkCallTitle" msgid="6242489980390803090">"Chiamata di lavoro persa"</string>
-    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Chiamate senza risposta"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> chiamate senza risposta"</string>
+    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Chiamate perse"</string>
+    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> chiamate perse"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"Chiamata senza risposta da <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
     <string name="notification_missedCall_call_back" msgid="2684890353590890187">"Richiama"</string>
     <string name="notification_missedCall_message" msgid="3049928912736917988">"Messaggio"</string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Impossibile bloccare un numero di emergenza."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> è già bloccato."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Utilizzo dell\'app Telefono personale per chiamare"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Chiamata <xliff:g id="CALL_VIA">%1$s</xliff:g> da <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videochiamata <xliff:g id="CALL_VIA">%1$s</xliff:g> da <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Se rispondi, la chiamata <xliff:g id="CALL_VIA">%1$s</xliff:g> verrà terminata"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Se rispondi, le chiamate <xliff:g id="CALL_VIA">%1$s</xliff:g> verranno terminate"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Se rispondi, la videochiamata <xliff:g id="CALL_VIA">%1$s</xliff:g> verrà terminata"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Se rispondi, la chiamata in corso verrà terminata"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Se rispondi, le chiamate in corso verranno terminate"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Se rispondi, la videochiamata in corso verrà terminata"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Rispondi"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Rifiuta"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Impossibile effettuare la chiamata a causa della chiamata <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Impossibile effettuare la chiamata a causa delle chiamate <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Impossibile effettuare la chiamata a causa di una chiamata in un\'altra app."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Chiamate in arrivo"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Chiamate perse"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Se effettui questa chiamata, la chiamata di <xliff:g id="OTHER_APP">%1$s</xliff:g> verrà terminata."</string>
 </resources>

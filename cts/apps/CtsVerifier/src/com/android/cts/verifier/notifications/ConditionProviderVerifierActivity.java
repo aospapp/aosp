@@ -27,7 +27,6 @@ import android.os.Parcelable;
 import android.provider.Settings;
 import android.provider.Settings.Secure;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -60,6 +59,7 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
         tests.add(new IsEnabledTest());
         tests.add(new ServiceStartedTest());
         tests.add(new CreateAutomaticZenRuleTest());
+        tests.add(new UpdateAutomaticZenRuleTest());
         tests.add(new GetAutomaticZenRuleTest());
         tests.add(new GetAutomaticZenRulesTest());
         tests.add(new SubscribeAutomaticZenRuleTest());
@@ -156,6 +156,54 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
                 status = PASS;
             } else {
                 logFail();
+                status = FAIL;
+            }
+            next();
+        }
+
+        @Override
+        void tearDown() {
+            if (id != null) {
+                mNm.removeAutomaticZenRule(id);
+            }
+            MockConditionProvider.resetData(mContext);
+            delay();
+        }
+    }
+
+    private class UpdateAutomaticZenRuleTest extends InteractiveTestCase {
+        private String id = null;
+
+        @Override
+        View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.cp_update_rule);
+        }
+
+        @Override
+        void setUp() {
+            id = mNm.addAutomaticZenRule(createRule("BeforeUpdate", "beforeValue",
+                    NotificationManager.INTERRUPTION_FILTER_ALARMS));
+            status = READY;
+            delay();
+        }
+
+        @Override
+        void test() {
+            AutomaticZenRule updated = mNm.getAutomaticZenRule(id);
+            updated.setName("AfterUpdate");
+            updated.setConditionId(MockConditionProvider.toConditionId("afterValue"));
+            updated.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+
+            try {
+                boolean success = mNm.updateAutomaticZenRule(id, updated);
+                if (success && updated.equals(mNm.getAutomaticZenRule(id))) {
+                    status = PASS;
+                } else {
+                    logFail();
+                    status = FAIL;
+                }
+            } catch (Exception e) {
+                logFail("update failed", e);
                 status = FAIL;
             }
             next();
@@ -399,6 +447,11 @@ public class ConditionProviderVerifierActivity extends InteractiveVerifierActivi
                                 // Now that it's subscribed, remove the rule and verify that it
                                 // unsubscribes.
                                 mNm.removeAutomaticZenRule(id);
+                                try {
+                                    Thread.sleep(3000);
+                                } catch (InterruptedException e) {
+                                    logFail("unexpected InterruptedException");
+                                }
                                 MockConditionProvider.probeSubscribe(mContext,
                                         new MockConditionProvider.ParcelableListResultCatcher() {
                                             @Override

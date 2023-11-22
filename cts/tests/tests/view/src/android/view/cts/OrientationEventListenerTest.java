@@ -16,44 +16,63 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.OrientationEventListener;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link OrientationEventListener}.
  */
-public class OrientationEventListenerTest extends AndroidTestCase {
-    public void testConstructor() {
-        new MockOrientationEventListener(mContext);
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class OrientationEventListenerTest {
+    private Context mContext;
 
-        new MockOrientationEventListener(mContext, SensorManager.SENSOR_DELAY_UI);
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
+    @Test
+    public void testConstructor() {
+        new MyOrientationEventListener(mContext);
+
+        new MyOrientationEventListener(mContext, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    @Test
     public void testEnableAndDisable() {
-        MockOrientationEventListener listener = new MockOrientationEventListener(mContext);
+        MyOrientationEventListener listener = new MyOrientationEventListener(mContext);
         listener.enable();
         listener.disable();
     }
 
+    @Test
     public void testCanDetectOrientation() {
         SensorManager sm = (SensorManager)mContext.getSystemService(Context.SENSOR_SERVICE);
         // Orientation can only be detected if there is an accelerometer
         boolean hasSensor = (sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null);
-        
-        MockOrientationEventListener listener = new MockOrientationEventListener(mContext);
+
+        MyOrientationEventListener listener = new MyOrientationEventListener(mContext);
         assertEquals(hasSensor, listener.canDetectOrientation());
     }
 
-    private static class MockOrientationEventListener extends OrientationEventListener {
-        public MockOrientationEventListener(Context context) {
+    private static class MyOrientationEventListener extends OrientationEventListener {
+        public MyOrientationEventListener(Context context) {
             super(context);
         }
 
-        public MockOrientationEventListener(Context context, int rate) {
+        public MyOrientationEventListener(Context context, int rate) {
             super(context, rate);
         }
 

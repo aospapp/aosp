@@ -5,8 +5,9 @@
 AUTHOR = 'zeuthen'
 NAME = 'brillo_BootLoader'
 TIME = 'LONG'
+TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'Server'
-SUITE = ''
+ATTRIBUTES = 'suite:brillo-bvt'
 
 DOC = """
 A/B tests for boot loader and boot_control HAL implementation.

@@ -5,6 +5,7 @@
          on print sends an email to svetoslavganov@google.com</string>
     <string name="settings">This is an activitiy with some print service settings.</string>
     <string name="info">More info about %1$s.</string>
+    <string name="select_printer">Select printer</string>
     <string name="settings_activity_label">Settings activity</string>
     <string name="add_pritners_activity_label">Add printers activity</string>
 

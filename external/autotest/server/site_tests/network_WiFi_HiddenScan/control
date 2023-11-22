@@ -7,8 +7,7 @@ NAME = 'network_WiFi_HiddenScan'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:wifi_matfunc, suite:wifi_matfunc_bcm4371'
-SUITE = 'wifi_matfunc, wifi_matfunc_bcm4371'
-DEPENDENCIES = 'wificell'
+DEPENDENCIES = 'wificell, packet_capture'
 
 DOC = """
 This test scans for hidden networks. The test verifies that the 802.11

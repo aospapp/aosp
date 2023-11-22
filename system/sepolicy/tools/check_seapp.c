@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <sepol/sepol.h>
 #include <sepol/policydb/policydb.h>
-#include <pcre.h>
+#include <pcre2.h>
 
 #define TABLE_SIZE 1024
 #define KVP_NUM_OF_RULES (sizeof(rules) / sizeof(key_map))
@@ -23,7 +23,7 @@
 /**
  * Initializes an empty, static list.
  */
-#define list_init(free_fn) { .head = NULL, .tail = NULL, .freefn = free_fn }
+#define list_init(free_fn) { .head = NULL, .tail = NULL, .freefn = (free_fn) }
 
 /**
  * given an item in the list, finds the offset for the container
@@ -35,7 +35,7 @@
  *
  */
 #define list_entry(element, type, name) \
-		(type *)(((uint8_t *)element) - (uint8_t *)&(((type *)NULL)->name))
+		(type *)(((uint8_t *)(element)) - (uint8_t *)&(((type *)NULL)->name))
 
 /**
  * Iterates over the list, do not free elements from the list when using this.
@@ -43,7 +43,7 @@
  * @var The variable name for the cursor
  */
 #define list_for_each(list, var) \
-	for(var = (list)->head; var != NULL; var = var->next)
+	for(var = (list)->head; var != NULL; var = var->next) /*NOLINT*/
 
 
 typedef struct hash_entry hash_entry;
@@ -91,8 +91,8 @@ struct list {
 };
 
 struct key_map_regex {
-	pcre *compiled;
-	pcre_extra *extra;
+	pcre2_code *compiled;
+	pcre2_match_data *match_data;
 };
 
 /**
@@ -194,6 +194,7 @@ static bool validate_bool(char *value, char **errmsg);
 static bool validate_levelFrom(char *value, char **errmsg);
 static bool validate_selinux_type(char *value, char **errmsg);
 static bool validate_selinux_level(char *value, char **errmsg);
+static bool validate_uint(char *value, char **errmsg);
 
 /**
  * The heart of the mapping process, this must be updated if a new key value pair is added
@@ -202,13 +203,15 @@ static bool validate_selinux_level(char *value, char **errmsg);
 key_map rules[] = {
                 /*Inputs*/
                 { .name = "isSystemServer", .dir = dir_in, .fn_validate = validate_bool },
-                { .name = "isAutoPlayApp",  .dir = dir_in, .fn_validate = validate_bool },
+                { .name = "isEphemeralApp",  .dir = dir_in, .fn_validate = validate_bool },
+                { .name = "isV2App",        .dir = dir_in, .fn_validate = validate_bool },
                 { .name = "isOwner",        .dir = dir_in, .fn_validate = validate_bool },
                 { .name = "user",           .dir = dir_in,                              },
                 { .name = "seinfo",         .dir = dir_in,                              },
                 { .name = "name",           .dir = dir_in,                              },
                 { .name = "path",           .dir = dir_in,                              },
                 { .name = "isPrivApp",      .dir = dir_in, .fn_validate = validate_bool },
+                { .name = "minTargetSdkVersion", .dir = dir_in, .fn_validate = validate_uint },
                 /*Outputs*/
                 { .name = "domain",         .dir = dir_out, .fn_validate = validate_selinux_type  },
                 { .name = "type",           .dir = dir_out, .fn_validate = validate_selinux_type  },
@@ -320,14 +323,15 @@ static bool match_regex(key_map *assert, const key_map *check) {
 
 	char *tomatch = check->data;
 
-	int ret = pcre_exec(assert->regex.compiled, assert->regex.extra, tomatch,
-			strlen(tomatch), 0, 0, NULL, 0);
+	int ret = pcre2_match(assert->regex.compiled, (PCRE2_SPTR) tomatch,
+				PCRE2_ZERO_TERMINATED, 0, 0,
+				assert->regex.match_data, NULL);
 
-	/* 0 from pcre_exec means matched */
-	return !ret;
+	/* ret > 0 from pcre2_match means matched */
+	return ret > 0;
 }
 
-static bool compile_regex(key_map *km, const char **errbuf, int *erroff) {
+static bool compile_regex(key_map *km, int *errcode, PCRE2_SIZE *erroff) {
 
 	size_t size;
 	char *anchored;
@@ -341,13 +345,21 @@ static bool compile_regex(key_map *km, const char **errbuf, int *erroff) {
 	anchored = alloca(size);
 	sprintf(anchored, "^%s$", km->data);
 
-	km->regex.compiled = pcre_compile(anchored, PCRE_DOTALL, errbuf, erroff,
-			NULL );
+	km->regex.compiled = pcre2_compile((PCRE2_SPTR) anchored,
+						PCRE2_ZERO_TERMINATED,
+						PCRE2_DOTALL,
+						errcode, erroff,
+						NULL);
 	if (!km->regex.compiled) {
 		return false;
 	}
 
-	km->regex.extra = pcre_study(km->regex.compiled, 0, errbuf);
+	km->regex.match_data = pcre2_match_data_create_from_pattern(
+			km->regex.compiled, NULL);
+	if (!km->regex.match_data) {
+		pcre2_code_free(km->regex.compiled);
+		return false;
+	}
 	return true;
 }
 
@@ -408,6 +420,19 @@ static bool validate_selinux_level(char *value, char **errmsg) {
 	return true;
 }
 
+static bool validate_uint(char *value, char **errmsg) {
+
+	char *endptr;
+	long longvalue;
+	longvalue = strtol(value, &endptr, 10);
+	if (('\0' != *endptr) || (longvalue < 0) || (longvalue > INT32_MAX)) {
+		*errmsg = "Expecting a valid unsigned integer";
+		return false;
+	}
+
+	return true;
+}
+
 /**
  * Validates a key_map against a set of enforcement rules, this
  * function exits the application on a type that cannot be properly
@@ -423,12 +448,13 @@ static bool validate_selinux_level(char *value, char **errmsg) {
 static bool key_map_validate(key_map *m, const char *filename, int lineno,
 		bool is_neverallow) {
 
-	int erroff;
-	const char *errbuf;
+	PCRE2_SIZE erroff;
+	int errcode;
 	bool rc = true;
 	char *key = m->name;
 	char *value = m->data;
 	char *errmsg = NULL;
+	char errstr[256];
 
 	log_info("Validating %s=%s\n", key, value);
 
@@ -438,10 +464,13 @@ static bool key_map_validate(key_map *m, const char *filename, int lineno,
 	 */
 	if (is_neverallow) {
 		if (!m->regex.compiled) {
-			rc = compile_regex(m, &errbuf, &erroff);
+			rc = compile_regex(m, &errcode, &erroff);
 			if (!rc) {
-				log_error("Invalid regex on line %d : %s PCRE error: %s at offset %d",
-					lineno, value, errbuf, erroff);
+				pcre2_get_error_message(errcode,
+							(PCRE2_UCHAR*) errstr,
+							sizeof(errstr));
+				log_error("Invalid regex on line %d : %s PCRE error: %s at offset %lu",
+						lineno, value, errstr, erroff);
 			}
 		}
 		goto out;
@@ -572,11 +601,11 @@ static void rule_map_free(rule_map *rm, bool is_in_htable) {
 		free(m->data);
 
 		if (m->regex.compiled) {
-			pcre_free(m->regex.compiled);
+			pcre2_code_free(m->regex.compiled);
 		}
 
-		if (m->regex.extra) {
-			pcre_free_study(m->regex.extra);
+		if (m->regex.match_data) {
+			pcre2_match_data_free(m->regex.match_data);
 		}
 	}
 
@@ -884,8 +913,7 @@ static void init() {
 		}
 
 		if (sepol_policydb_read(pol.db, pol.pf) < 0) {
-			log_error("Could not lod policy file to db: %s!\n",
-					strerror(errno));
+			log_error("Could not load policy file to db: invalid input file!\n");
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -974,6 +1002,7 @@ static void rule_add(rule_map *rm) {
 	list *list_to_addto;
 
 	e.key = rm->key;
+	e.data = NULL;
 
 	log_info("Searching for key: %s\n", e.key);
 	/* Check to see if it has already been added*/

@@ -263,13 +263,13 @@ public final class CreateDocument extends DOMTestCase {
 
         domImpl = builder.getDOMImplementation();
 
-        // BEGIN android-changed
+        // BEGIN Android-changed
         //     Our exception priorities differ from the spec
         try {
             domImpl.createDocument(namespaceURI, "", docType);
             fail();
         } catch (DOMException ex) {
         }
-        // END android-changed
+        // END Android-changed
     }
 }

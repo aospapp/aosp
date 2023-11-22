@@ -16,6 +16,8 @@
 
 #include "jit_compiler.h"
 
+#include "android-base/stringprintf.h"
+
 #include "arch/instruction_set.h"
 #include "arch/instruction_set_features.h"
 #include "art_method-inl.h"
@@ -32,6 +34,7 @@
 #include "oat_file-inl.h"
 #include "oat_quick_method_header.h"
 #include "object_lock.h"
+#include "optimizing/register_allocator.h"
 #include "thread_list.h"
 
 namespace art {
@@ -57,14 +60,14 @@ extern "C" void jit_unload(void* handle) {
 
 extern "C" bool jit_compile_method(
     void* handle, ArtMethod* method, Thread* self, bool osr)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   auto* jit_compiler = reinterpret_cast<JitCompiler*>(handle);
   DCHECK(jit_compiler != nullptr);
   return jit_compiler->CompileMethod(self, method, osr);
 }
 
 extern "C" void jit_types_loaded(void* handle, mirror::Class** types, size_t count)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   auto* jit_compiler = reinterpret_cast<JitCompiler*>(handle);
   DCHECK(jit_compiler != nullptr);
   if (jit_compiler->GetCompilerOptions()->GetGenerateDebugInfo()) {
@@ -80,7 +83,7 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   std::string error;
-  StringAppendV(&error, fmt, ap);
+  android::base::StringAppendV(&error, fmt, ap);
   LOG(FATAL) << error;
   va_end(ap);
   exit(EXIT_FAILURE);
@@ -88,18 +91,16 @@ NO_RETURN static void Usage(const char* fmt, ...) {
 
 JitCompiler::JitCompiler() {
   compiler_options_.reset(new CompilerOptions(
-      CompilerOptions::kDefaultCompilerFilter,
+      CompilerFilter::kDefaultCompilerFilter,
       CompilerOptions::kDefaultHugeMethodThreshold,
       CompilerOptions::kDefaultLargeMethodThreshold,
       CompilerOptions::kDefaultSmallMethodThreshold,
       CompilerOptions::kDefaultTinyMethodThreshold,
       CompilerOptions::kDefaultNumDexMethodsThreshold,
-      CompilerOptions::kDefaultInlineDepthLimit,
       CompilerOptions::kDefaultInlineMaxCodeUnits,
       /* no_inline_from */ nullptr,
-      /* include_patch_information */ false,
       CompilerOptions::kDefaultTopKProfileThreshold,
-      Runtime::Current()->IsDebuggable(),
+      Runtime::Current()->IsJavaDebuggable(),
       CompilerOptions::kDefaultGenerateDebugInfo,
       /* implicit_null_checks */ true,
       /* implicit_so_checks */ true,
@@ -110,7 +111,9 @@ JitCompiler::JitCompiler() {
       /* abort_on_hard_verifier_failure */ false,
       /* dump_cfg_file_name */ "",
       /* dump_cfg_append */ false,
-      /* force_determinism */ false));
+      /* force_determinism */ false,
+      RegisterAllocator::kRegisterAllocatorDefault,
+      /* passes_to_run */ nullptr));
   for (const std::string& argument : Runtime::Current()->GetCompilerOptions()) {
     compiler_options_->ParseCompilerOption(argument, Usage);
   }
@@ -121,42 +124,38 @@ JitCompiler::JitCompiler() {
     if (option.starts_with("--instruction-set-variant=")) {
       StringPiece str = option.substr(strlen("--instruction-set-variant=")).data();
       VLOG(compiler) << "JIT instruction set variant " << str;
-      instruction_set_features_.reset(InstructionSetFeatures::FromVariant(
-          instruction_set, str.as_string(), &error_msg));
+      instruction_set_features_ = InstructionSetFeatures::FromVariant(
+          instruction_set, str.as_string(), &error_msg);
       if (instruction_set_features_ == nullptr) {
         LOG(WARNING) << "Error parsing " << option << " message=" << error_msg;
       }
     } else if (option.starts_with("--instruction-set-features=")) {
       StringPiece str = option.substr(strlen("--instruction-set-features=")).data();
       VLOG(compiler) << "JIT instruction set features " << str;
-      if (instruction_set_features_.get() == nullptr) {
-        instruction_set_features_.reset(InstructionSetFeatures::FromVariant(
-            instruction_set, "default", &error_msg));
+      if (instruction_set_features_ == nullptr) {
+        instruction_set_features_ = InstructionSetFeatures::FromVariant(
+            instruction_set, "default", &error_msg);
         if (instruction_set_features_ == nullptr) {
           LOG(WARNING) << "Error parsing " << option << " message=" << error_msg;
         }
       }
-      instruction_set_features_.reset(
-          instruction_set_features_->AddFeaturesFromString(str.as_string(), &error_msg));
+      instruction_set_features_ =
+          instruction_set_features_->AddFeaturesFromString(str.as_string(), &error_msg);
       if (instruction_set_features_ == nullptr) {
         LOG(WARNING) << "Error parsing " << option << " message=" << error_msg;
       }
     }
   }
   if (instruction_set_features_ == nullptr) {
-    instruction_set_features_.reset(InstructionSetFeatures::FromCppDefines());
+    instruction_set_features_ = InstructionSetFeatures::FromCppDefines();
   }
   cumulative_logger_.reset(new CumulativeLogger("jit times"));
-  method_inliner_map_.reset(new DexFileToMethodInlinerMap);
   compiler_driver_.reset(new CompilerDriver(
       compiler_options_.get(),
       /* verification_results */ nullptr,
-      method_inliner_map_.get(),
       Compiler::kOptimizing,
       instruction_set,
       instruction_set_features_.get(),
-      /* boot_image */ false,
-      /* app_image */ false,
       /* image_classes */ nullptr,
       /* compiled_classes */ nullptr,
       /* compiled_methods */ nullptr,
@@ -172,46 +171,26 @@ JitCompiler::JitCompiler() {
 
   size_t thread_count = compiler_driver_->GetThreadCount();
   if (compiler_options_->GetGenerateDebugInfo()) {
-#ifdef __ANDROID__
-    const char* prefix = "/data/misc/trace";
-#else
-    const char* prefix = "/tmp";
-#endif
     DCHECK_EQ(thread_count, 1u)
         << "Generating debug info only works with one compiler thread";
-    std::string perf_filename = std::string(prefix) + "/perf-" + std::to_string(getpid()) + ".map";
-    perf_file_.reset(OS::CreateEmptyFileWriteOnly(perf_filename.c_str()));
-    if (perf_file_ == nullptr) {
-      LOG(ERROR) << "Could not create perf file at " << perf_filename <<
-                    " Are you on a user build? Perf only works on userdebug/eng builds";
-    }
+    jit_logger_.reset(new JitLogger());
+    jit_logger_->OpenLog();
   }
-
-  size_t inline_depth_limit = compiler_driver_->GetCompilerOptions().GetInlineDepthLimit();
-  DCHECK_LT(thread_count * inline_depth_limit, std::numeric_limits<uint16_t>::max())
-      << "ProfilingInfo's inline counter can potentially overflow";
 }
 
 JitCompiler::~JitCompiler() {
-  if (perf_file_ != nullptr) {
-    UNUSED(perf_file_->Flush());
-    UNUSED(perf_file_->Close());
+  if (compiler_options_->GetGenerateDebugInfo()) {
+    jit_logger_->CloseLog();
   }
 }
 
 bool JitCompiler::CompileMethod(Thread* self, ArtMethod* method, bool osr) {
   DCHECK(!method->IsProxyMethod());
+  DCHECK(method->GetDeclaringClass()->IsResolved());
+
   TimingLogger logger("JIT compiler timing logger", true, VLOG_IS_ON(jit));
-  StackHandleScope<2> hs(self);
   self->AssertNoPendingException();
   Runtime* runtime = Runtime::Current();
-
-  // Ensure the class is initialized.
-  Handle<mirror::Class> h_class(hs.NewHandle(method->GetDeclaringClass()));
-  if (!runtime->GetClassLinker()->EnsureInitialized(self, h_class, true, true)) {
-    VLOG(jit) << "JIT failed to initialize " << PrettyMethod(method);
-    return false;
-  }
 
   // Do the compilation.
   bool success = false;
@@ -219,19 +198,8 @@ bool JitCompiler::CompileMethod(Thread* self, ArtMethod* method, bool osr) {
     TimingLogger::ScopedTiming t2("Compiling", &logger);
     JitCodeCache* const code_cache = runtime->GetJit()->GetCodeCache();
     success = compiler_driver_->GetCompiler()->JitCompile(self, code_cache, method, osr);
-    if (success && (perf_file_ != nullptr)) {
-      const void* ptr = method->GetEntryPointFromQuickCompiledCode();
-      std::ostringstream stream;
-      stream << std::hex
-             << reinterpret_cast<uintptr_t>(ptr)
-             << " "
-             << code_cache->GetMemorySizeOfCodePointer(ptr)
-             << " "
-             << PrettyMethod(method)
-             << std::endl;
-      std::string str = stream.str();
-      bool res = perf_file_->WriteFully(str.c_str(), str.size());
-      CHECK(res);
+    if (success && (jit_logger_ != nullptr)) {
+      jit_logger_->WriteLog(code_cache, method, osr);
     }
   }
 

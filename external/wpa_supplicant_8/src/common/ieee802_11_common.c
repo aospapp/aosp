@@ -179,6 +179,90 @@ static int ieee802_11_parse_vendor_specific(const u8 *pos, size_t elen,
 }
 
 
+static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
+				      struct ieee802_11_elems *elems,
+				      int show_errors)
+{
+	u8 ext_id;
+
+	if (elen < 1) {
+		if (show_errors) {
+			wpa_printf(MSG_MSGDUMP,
+				   "short information element (Ext)");
+		}
+		return -1;
+	}
+
+	ext_id = *pos++;
+	elen--;
+
+	switch (ext_id) {
+	case WLAN_EID_EXT_ASSOC_DELAY_INFO:
+		if (elen != 1)
+			break;
+		elems->assoc_delay_info = pos;
+		break;
+	case WLAN_EID_EXT_FILS_REQ_PARAMS:
+		if (elen < 3)
+			break;
+		elems->fils_req_params = pos;
+		elems->fils_req_params_len = elen;
+		break;
+	case WLAN_EID_EXT_FILS_KEY_CONFIRM:
+		elems->fils_key_confirm = pos;
+		elems->fils_key_confirm_len = elen;
+		break;
+	case WLAN_EID_EXT_FILS_SESSION:
+		if (elen != FILS_SESSION_LEN)
+			break;
+		elems->fils_session = pos;
+		break;
+	case WLAN_EID_EXT_FILS_HLP_CONTAINER:
+		if (elen < 2 * ETH_ALEN)
+			break;
+		elems->fils_hlp = pos;
+		elems->fils_hlp_len = elen;
+		break;
+	case WLAN_EID_EXT_FILS_IP_ADDR_ASSIGN:
+		if (elen < 1)
+			break;
+		elems->fils_ip_addr_assign = pos;
+		elems->fils_ip_addr_assign_len = elen;
+		break;
+	case WLAN_EID_EXT_KEY_DELIVERY:
+		if (elen < WPA_KEY_RSC_LEN)
+			break;
+		elems->key_delivery = pos;
+		elems->key_delivery_len = elen;
+		break;
+	case WLAN_EID_EXT_FILS_WRAPPED_DATA:
+		elems->fils_wrapped_data = pos;
+		elems->fils_wrapped_data_len = elen;
+		break;
+	case WLAN_EID_EXT_FILS_PUBLIC_KEY:
+		if (elen < 1)
+			break;
+		elems->fils_pk = pos;
+		elems->fils_pk_len = elen;
+		break;
+	case WLAN_EID_EXT_FILS_NONCE:
+		if (elen != FILS_NONCE_LEN)
+			break;
+		elems->fils_nonce = pos;
+		break;
+	default:
+		if (show_errors) {
+			wpa_printf(MSG_MSGDUMP,
+				   "IEEE 802.11 element parsing ignored unknown element extension (ext_id=%u elen=%u)",
+				   ext_id, (unsigned int) elen);
+		}
+		return -1;
+	}
+
+	return 0;
+}
+
+
 /**
  * ieee802_11_parse_elems - Parse information elements in management frames
  * @start: Pointer to the start of IEs
@@ -374,6 +458,39 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 		case WLAN_EID_SUPPORTED_OPERATING_CLASSES:
 			elems->supp_op_classes = pos;
 			elems->supp_op_classes_len = elen;
+			break;
+		case WLAN_EID_RRM_ENABLED_CAPABILITIES:
+			elems->rrm_enabled = pos;
+			elems->rrm_enabled_len = elen;
+			break;
+		case WLAN_EID_CAG_NUMBER:
+			elems->cag_number = pos;
+			elems->cag_number_len = elen;
+			break;
+		case WLAN_EID_AP_CSN:
+			if (elen < 1)
+				break;
+			elems->ap_csn = pos;
+			break;
+		case WLAN_EID_FILS_INDICATION:
+			if (elen < 2)
+				break;
+			elems->fils_indic = pos;
+			elems->fils_indic_len = elen;
+			break;
+		case WLAN_EID_DILS:
+			if (elen < 2)
+				break;
+			elems->dils = pos;
+			elems->dils_len = elen;
+			break;
+		case WLAN_EID_FRAGMENT:
+			/* TODO */
+			break;
+		case WLAN_EID_EXTENSION:
+			if (ieee802_11_parse_extension(pos, elen, elems,
+						       show_errors))
+				unknown++;
 			break;
 		default:
 			unknown++;
@@ -671,6 +788,25 @@ enum hostapd_hw_mode ieee80211_freq_to_channel_ext(unsigned int freq,
 			*op_class = 117;
 		else
 			*op_class = 115;
+
+		*channel = (freq - 5000) / 5;
+
+		return HOSTAPD_MODE_IEEE80211A;
+	}
+
+	/* 5 GHz, channels 52..64 */
+	if (freq >= 5260 && freq <= 5320) {
+		if ((freq - 5000) % 5)
+			return NUM_HOSTAPD_MODES;
+
+		if (vht_opclass)
+			*op_class = vht_opclass;
+		else if (sec_channel == 1)
+			*op_class = 119;
+		else if (sec_channel == -1)
+			*op_class = 120;
+		else
+			*op_class = 118;
 
 		*channel = (freq - 5000) / 5;
 
@@ -1312,4 +1448,149 @@ size_t mbo_add_ie(u8 *buf, size_t len, const u8 *attr, size_t attr_len)
 	os_memcpy(buf, attr, attr_len);
 
 	return 6 + attr_len;
+}
+
+
+static const struct country_op_class us_op_class[] = {
+	{ 1, 115 },
+	{ 2, 118 },
+	{ 3, 124 },
+	{ 4, 121 },
+	{ 5, 125 },
+	{ 12, 81 },
+	{ 22, 116 },
+	{ 23, 119 },
+	{ 24, 122 },
+	{ 25, 126 },
+	{ 26, 126 },
+	{ 27, 117 },
+	{ 28, 120 },
+	{ 29, 123 },
+	{ 30, 127 },
+	{ 31, 127 },
+	{ 32, 83 },
+	{ 33, 84 },
+	{ 34, 180 },
+};
+
+static const struct country_op_class eu_op_class[] = {
+	{ 1, 115 },
+	{ 2, 118 },
+	{ 3, 121 },
+	{ 4, 81 },
+	{ 5, 116 },
+	{ 6, 119 },
+	{ 7, 122 },
+	{ 8, 117 },
+	{ 9, 120 },
+	{ 10, 123 },
+	{ 11, 83 },
+	{ 12, 84 },
+	{ 17, 125 },
+	{ 18, 180 },
+};
+
+static const struct country_op_class jp_op_class[] = {
+	{ 1, 115 },
+	{ 30, 81 },
+	{ 31, 82 },
+	{ 32, 118 },
+	{ 33, 118 },
+	{ 34, 121 },
+	{ 35, 121 },
+	{ 36, 116 },
+	{ 37, 119 },
+	{ 38, 119 },
+	{ 39, 122 },
+	{ 40, 122 },
+	{ 41, 117 },
+	{ 42, 120 },
+	{ 43, 120 },
+	{ 44, 123 },
+	{ 45, 123 },
+	{ 56, 83 },
+	{ 57, 84 },
+	{ 58, 121 },
+	{ 59, 180 },
+};
+
+static const struct country_op_class cn_op_class[] = {
+	{ 1, 115 },
+	{ 2, 118 },
+	{ 3, 125 },
+	{ 4, 116 },
+	{ 5, 119 },
+	{ 6, 126 },
+	{ 7, 81 },
+	{ 8, 83 },
+	{ 9, 84 },
+};
+
+static u8
+global_op_class_from_country_array(u8 op_class, size_t array_size,
+				   const struct country_op_class *country_array)
+{
+	size_t i;
+
+	for (i = 0; i < array_size; i++) {
+		if (country_array[i].country_op_class == op_class)
+			return country_array[i].global_op_class;
+	}
+
+	return 0;
+}
+
+
+u8 country_to_global_op_class(const char *country, u8 op_class)
+{
+	const struct country_op_class *country_array;
+	size_t size;
+	u8 g_op_class;
+
+	if (country_match(us_op_class_cc, country)) {
+		country_array = us_op_class;
+		size = ARRAY_SIZE(us_op_class);
+	} else if (country_match(eu_op_class_cc, country)) {
+		country_array = eu_op_class;
+		size = ARRAY_SIZE(eu_op_class);
+	} else if (country_match(jp_op_class_cc, country)) {
+		country_array = jp_op_class;
+		size = ARRAY_SIZE(jp_op_class);
+	} else if (country_match(cn_op_class_cc, country)) {
+		country_array = cn_op_class;
+		size = ARRAY_SIZE(cn_op_class);
+	} else {
+		/*
+		 * Countries that do not match any of the above countries use
+		 * global operating classes
+		 */
+		return op_class;
+	}
+
+	g_op_class = global_op_class_from_country_array(op_class, size,
+							country_array);
+
+	/*
+	 * If the given operating class did not match any of the country's
+	 * operating classes, assume that global operating class is used.
+	 */
+	return g_op_class ? g_op_class : op_class;
+}
+
+
+const struct oper_class_map * get_oper_class(const char *country, u8 op_class)
+{
+	const struct oper_class_map *op;
+
+	if (country)
+		op_class = country_to_global_op_class(country, op_class);
+
+	op = &global_op_class[0];
+	while (op->op_class && op->op_class != op_class)
+		op++;
+
+	if (!op->op_class)
+		return NULL;
+
+	return op;
 }

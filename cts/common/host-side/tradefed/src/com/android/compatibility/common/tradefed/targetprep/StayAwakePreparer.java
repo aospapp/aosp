@@ -22,8 +22,6 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
-import java.util.Arrays;
-
 /**
  * Modifies the 'Stay Awake' setting of the device, so that the device's screen stays on
  * whenever charging via USB

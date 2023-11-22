@@ -18,6 +18,7 @@ package android.security.cts;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 import junit.framework.TestCase;
@@ -36,6 +37,7 @@ import java.util.HashSet;
 /**
  * Verify that the SELinux configuration is sane.
  */
+@SecurityTest
 public class SELinuxTest extends AndroidTestCase {
 
     static {

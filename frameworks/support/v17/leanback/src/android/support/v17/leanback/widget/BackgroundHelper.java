@@ -15,9 +15,11 @@
  */
 package android.support.v17.leanback.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.graphics.drawable.Drawable;
 import android.os.Build;
-import android.support.v17.leanback.widget.BackgroundHelperKitkat;
+import android.support.annotation.RestrictTo;
 import android.view.View;
 
 
@@ -25,15 +27,19 @@ import android.view.View;
  * Helper for view backgrounds.
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public final class BackgroundHelper {
 
     final static BackgroundHelperVersionImpl sImpl;
 
-    static interface BackgroundHelperVersionImpl {
-        public void setBackgroundPreservingAlpha(View view, Drawable drawable);
+    interface BackgroundHelperVersionImpl {
+        void setBackgroundPreservingAlpha(View view, Drawable drawable);
     }
 
     private static final class BackgroundHelperStubImpl implements BackgroundHelperVersionImpl {
+        BackgroundHelperStubImpl() {
+        }
+
         @Override
         public void setBackgroundPreservingAlpha(View view, Drawable drawable) {
             // Cannot query drawable alpha
@@ -42,6 +48,9 @@ public final class BackgroundHelper {
     }
 
     private static final class BackgroundHelperKitkatImpl implements BackgroundHelperVersionImpl {
+        BackgroundHelperKitkatImpl() {
+        }
+
         @Override
         public void setBackgroundPreservingAlpha(View view, Drawable drawable) {
             BackgroundHelperKitkat.setBackgroundPreservingAlpha(view, drawable);

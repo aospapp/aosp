@@ -19,5 +19,7 @@ LOCAL_C_INCLUDES := \
 
 #LOCAL_32_BIT_ONLY := true
 
+LOCAL_CFLAGS += -Werror
+
 include $(BUILD_NATIVE_TEST)
 

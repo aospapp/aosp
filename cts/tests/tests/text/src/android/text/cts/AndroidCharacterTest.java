@@ -16,15 +16,27 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.AndroidCharacter;
 
-public class AndroidCharacterTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AndroidCharacterTest {
+    @Test
     public void testConstructor() {
         new AndroidCharacter();
     }
 
+    @Test
     public void testGetDirectionalities() {
         char[] src = new char[128];
         for (int i = 0; i < src.length; i++) {
@@ -45,6 +57,7 @@ public class AndroidCharacterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetEastAsianWidth() {
         // LATIN CAPITAL LETTER U WITH CARON (U+01D3)
         assertEquals(AndroidCharacter.EAST_ASIAN_WIDTH_NEUTRAL,
@@ -71,6 +84,7 @@ public class AndroidCharacterTest extends AndroidTestCase {
                 AndroidCharacter.getEastAsianWidth((char)0x319F));
     }
 
+    @Test
     public void testGetEastAsianWidths() {
         char[] src = {
                 0x01D3, 0xFFFD, 0xFF86, 0xFF41, 0x0041, 0x319f,
@@ -104,6 +118,7 @@ public class AndroidCharacterTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetMirror() {
         assertEquals('A', AndroidCharacter.getMirror('A'));
         assertEquals('B', AndroidCharacter.getMirror('B'));
@@ -113,6 +128,7 @@ public class AndroidCharacterTest extends AndroidTestCase {
         assertEquals('<', AndroidCharacter.getMirror('>'));
     }
 
+    @Test
     public void testMirror() {
         char[] src = new char[64];
         for (int i = 0; i < src.length; i++) {

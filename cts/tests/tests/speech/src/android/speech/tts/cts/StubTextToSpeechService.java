@@ -90,9 +90,14 @@ public class StubTextToSpeechService extends TextToSpeechService {
             }
         }
 
-        byte[] data = { 0x01, 0x2 };
-        if (callback.audioAvailable(data, 0, data.length) != TextToSpeech.SUCCESS) {
-            return;
+        // Ten chunks with each a time point.
+        for (int i = 0; i < 10; i++) {
+            byte[] data = {0x01, 0x2};
+            if (callback.audioAvailable(data, 0, data.length) != TextToSpeech.SUCCESS) {
+                Log.i("TEST", "audioavailable returned not success");
+                return;
+            }
+            callback.rangeStart(i * 5, i * 5 + 5, i * 10);
         }
         if (callback.done() != TextToSpeech.SUCCESS) {
             return;

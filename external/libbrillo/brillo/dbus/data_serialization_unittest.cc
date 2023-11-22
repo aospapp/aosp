@@ -144,7 +144,7 @@ TEST(DBusUtils, Signatures_Protobufs) {
 // Test that a byte can be properly written and read. We only have this
 // test for byte, as repeating this for other basic types is too redundant.
 TEST(DBusUtils, AppendAndPopByte) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   AppendValueToWriter(&writer, uint8_t{123});
   EXPECT_EQ("y", message->GetSignature());
@@ -168,7 +168,7 @@ TEST(DBusUtils, AppendAndPopByte) {
 
 // Check all basic types can be properly written and read.
 TEST(DBusUtils, AppendAndPopBasicDataTypes) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
 
   // Append 0, true, 2, 3, 4, 5, 6, 7, 8.0, "string", "/object/path".
@@ -234,7 +234,7 @@ TEST(DBusUtils, AppendAndPopFileDescriptor) {
     return;
   }
 
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
 
   // Append stdout.
@@ -261,7 +261,7 @@ TEST(DBusUtils, AppendAndPopFileDescriptor) {
 
 // Check all variant types can be properly written and read.
 TEST(DBusUtils, AppendAndPopVariantDataTypes) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
 
   // Append 10, false, 12, 13, 14, 15, 16, 17, 18.5, "data", "/obj/path".
@@ -330,7 +330,7 @@ TEST(DBusUtils, AppendAndPopVariantDataTypes) {
 }
 
 TEST(DBusUtils, AppendAndPopBasicAny) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
 
   // Append 10, true, 12, 13, 14, 15, 16, 17, 18.5, "data", "/obj/path".
@@ -389,7 +389,7 @@ TEST(DBusUtils, AppendAndPopBasicAny) {
 }
 
 TEST(DBusUtils, ArrayOfBytes) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<uint8_t> bytes{1, 2, 3};
   AppendValueToWriter(&writer, bytes);
@@ -404,7 +404,7 @@ TEST(DBusUtils, ArrayOfBytes) {
 }
 
 TEST(DBusUtils, ArrayOfBytes_Empty) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<uint8_t> bytes;
   AppendValueToWriter(&writer, bytes);
@@ -419,7 +419,7 @@ TEST(DBusUtils, ArrayOfBytes_Empty) {
 }
 
 TEST(DBusUtils, ArrayOfStrings) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<std::string> strings{"foo", "bar", "baz"};
   AppendValueToWriter(&writer, strings);
@@ -434,7 +434,7 @@ TEST(DBusUtils, ArrayOfStrings) {
 }
 
 TEST(DBusUtils, ArrayOfInt64) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<int64_t> values{-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5,
                               std::numeric_limits<int64_t>::min(),
@@ -451,7 +451,7 @@ TEST(DBusUtils, ArrayOfInt64) {
 }
 
 TEST(DBusUtils, ArrayOfObjectPaths) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<ObjectPath> object_paths{
       ObjectPath("/object/path/1"),
@@ -470,7 +470,7 @@ TEST(DBusUtils, ArrayOfObjectPaths) {
 }
 
 TEST(DBusUtils, ArraysAsVariant) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<int> int_array{1, 2, 3};
   std::vector<std::string> str_array{"foo", "bar", "baz"};
@@ -510,7 +510,7 @@ TEST(DBusUtils, ArraysAsVariant) {
 }
 
 TEST(DBusUtils, VariantDictionary) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   VariantDictionary values{
       {"key1", uint8_t{10}},
@@ -550,7 +550,7 @@ TEST(DBusUtils, VariantDictionary) {
 }
 
 TEST(DBusUtils, StringToStringMap) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::map<std::string, std::string> values{
       {"key1", "value1"},
@@ -571,7 +571,7 @@ TEST(DBusUtils, StringToStringMap) {
 }
 
 TEST(DBusUtils, Pair) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::pair<std::string, int> struct1{"value2", 3};
   AppendValueToWriter(&writer, struct1);
@@ -592,7 +592,7 @@ TEST(DBusUtils, Pair) {
 }
 
 TEST(DBusUtils, Tuple) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::tuple<std::string, int> struct1{"value2", 3};
   AppendValueToWriter(&writer, struct1);
@@ -615,7 +615,7 @@ TEST(DBusUtils, Tuple) {
 }
 
 TEST(DBusUtils, ReinterpretVariant) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<std::string> str_array{"foo", "bar", "baz"};
   std::map<std::string, std::string> dict_ss{{"k1", "v1"}, {"k2", "v2"}};
@@ -699,7 +699,7 @@ struct DBusType<Person> {
 };
 
 TEST(DBusUtils, CustomStruct) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<Person> people{{"John", "Doe", 32}, {"Jane", "Smith", 48}};
   AppendValueToWriter(&writer, people);
@@ -724,7 +724,7 @@ TEST(DBusUtils, CustomStruct) {
 }
 
 TEST(DBusUtils, CustomStructInComplexTypes) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   std::vector<Person> people{{"John", "Doe", 32}, {"Jane", "Smith", 48}};
   std::vector<std::map<int, Person>> data{
@@ -747,21 +747,21 @@ TEST(DBusUtils, CustomStructInComplexTypes) {
 }
 
 TEST(DBusUtils, EmptyVariant) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   EXPECT_DEATH(AppendValueToWriter(&writer, Any{}),
                "Must not be called on an empty Any");
 }
 
 TEST(DBusUtils, IncompatibleVariant) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   EXPECT_DEATH(AppendValueToWriter(&writer, Any{2.2f}),
                "Type 'float' is not supported by D-Bus");
 }
 
 TEST(DBusUtils, Protobuf) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
 
   dbus_utils_test::TestMessage test_message;

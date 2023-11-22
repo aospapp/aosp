@@ -34,9 +34,6 @@ import java.util.Set;
 public final class TvSettings {
     private TvSettings() {}
 
-    public static final String PREFS_FILE = "settings";
-    public static final String PREF_TV_WATCH_LOGGING_ENABLED = "tv_watch_logging_enabled";
-    public static final String PREF_CLOSED_CAPTION_ENABLED = "is_cc_enabled";  // boolean value
     public static final String PREF_DISPLAY_MODE = "display_mode";  // int value
     public static final String PREF_PIP_LAYOUT = "pip_layout"; // int value
     public static final String PREF_PIP_SIZE = "pip_size";  // int value
@@ -49,7 +46,6 @@ public final class TvSettings {
     public @interface PipSound {}
     public static final int PIP_SOUND_MAIN = 0;
     public static final int PIP_SOUND_PIP_WINDOW = PIP_SOUND_MAIN + 1;
-    public static final int PIP_SOUND_LAST = PIP_SOUND_PIP_WINDOW;
 
     // PIP layouts
     @Retention(RetentionPolicy.SOURCE)
@@ -225,7 +221,7 @@ public final class TvSettings {
 
     private static Set<String> getContentRatingSystemSet(Context context) {
         return new HashSet<>(PreferenceManager.getDefaultSharedPreferences(context)
-                .getStringSet(PREF_CONTENT_RATING_SYSTEMS, Collections.<String>emptySet()));
+                .getStringSet(PREF_CONTENT_RATING_SYSTEMS, Collections.emptySet()));
     }
 
     @ContentRatingLevel

@@ -22,7 +22,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 # Adb test cases, but name 'aadb' ensures adb tests run before all other modules depending on adb
 LOCAL_MODULE := CtsAadbHostTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed
 
 LOCAL_CTS_TEST_PACKAGE := android.aadb
 

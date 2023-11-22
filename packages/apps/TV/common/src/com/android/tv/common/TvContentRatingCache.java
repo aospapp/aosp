@@ -39,7 +39,7 @@ public final class TvContentRatingCache implements MemoryManageable {
 
     private final static TvContentRatingCache INSTANCE = new TvContentRatingCache();
 
-    public final static TvContentRatingCache getInstance() {
+    public static TvContentRatingCache getInstance() {
         return INSTANCE;
     }
 

@@ -16,31 +16,36 @@
 
 package android.text.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.os.Parcel;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Annotation;
 
-public class AnnotationTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AnnotationTest {
 
     private static final String KEY1 = "name";
     private static final String KEY2 = "family name";
     private static final String VALUE1 = "John";
     private static final String VALUE2 = "Smith";
     private static final int NOFLAG = 0;
+
     private Annotation mAnnotation;
 
-    @Override
-    protected void setUp() throws Exception {
-
-        super.setUp();
-        mAnnotation = null;
-    }
-
+    @Test
     public void testConstructor() {
         // new the Annotation instance
         new Annotation(KEY1, VALUE1);
     }
 
+    @Test
     public void testGetValue() {
         // new the Annotation instance
         mAnnotation = new Annotation(KEY1, VALUE1);
@@ -49,6 +54,7 @@ public class AnnotationTest extends AndroidTestCase {
         assertEquals(VALUE2, mAnnotation.getValue());
     }
 
+    @Test
     public void testGetKey() {
         // new the Annotation instance
         mAnnotation = new Annotation(KEY1, VALUE1);
@@ -57,12 +63,14 @@ public class AnnotationTest extends AndroidTestCase {
         assertEquals(KEY2, mAnnotation.getKey());
     }
 
+    @Test
     public void testGetSpanTypeId() {
         mAnnotation = new Annotation(KEY1, VALUE1);
         // Because of the return value is a hide value, we only can assert the return value isn't 0.
         assertTrue(mAnnotation.getSpanTypeId() != 0);
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel dest = Parcel.obtain();
         try {

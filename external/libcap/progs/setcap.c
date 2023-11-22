@@ -171,6 +171,7 @@ int main(int argc, char **argv)
 	    retval = cap_set_file(*++argv, cap_d);
 	    if (retval != 0) {
 		int explained = 0;
+		int oerrno = errno;
 #ifdef linux
 		cap_value_t cap;
 		cap_flag_value_t per_state;
@@ -193,7 +194,7 @@ int main(int argc, char **argv)
 		
 		fprintf(stderr,
 			"Failed to set capabilities on file `%s' (%s)\n",
-			argv[0], strerror(errno));
+			argv[0], strerror(oerrno));
 		if (!explained) {
 		    usage();
 		}

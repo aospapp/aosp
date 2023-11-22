@@ -16,6 +16,9 @@
 
 package android.support.v7.view;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.ViewPropertyAnimatorCompat;
 import android.support.v4.view.ViewPropertyAnimatorListener;
 import android.support.v4.view.ViewPropertyAnimatorListenerAdapter;
@@ -30,13 +33,14 @@ import java.util.ArrayList;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ViewPropertyAnimatorCompatSet {
 
-    private final ArrayList<ViewPropertyAnimatorCompat> mAnimators;
+    final ArrayList<ViewPropertyAnimatorCompat> mAnimators;
 
     private long mDuration = -1;
     private Interpolator mInterpolator;
-    private ViewPropertyAnimatorListener mListener;
+    ViewPropertyAnimatorListener mListener;
 
     private boolean mIsStarted;
 
@@ -77,7 +81,7 @@ public class ViewPropertyAnimatorCompatSet {
         mIsStarted = true;
     }
 
-    private void onAnimationsEnded() {
+    void onAnimationsEnded() {
         mIsStarted = false;
     }
 

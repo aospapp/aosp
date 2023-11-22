@@ -6,8 +6,9 @@ from functools import partial
 import logging
 
 from telemetry.core import exceptions
-from telemetry.core import util
 from telemetry.internal.browser import web_contents
+
+import py_utils
 
 
 class Oobe(web_contents.WebContents):
@@ -19,10 +20,10 @@ class Oobe(web_contents.WebContents):
     logging.debug('%d contexts in Gaia page' % max_context_id)
     for gaia_iframe_context in range(max_context_id + 1):
       try:
-        if self.EvaluateJavaScriptInContext(
+        if self.EvaluateJavaScript(
             "document.readyState == 'complete' && "
             "document.getElementById('Email') != null",
-            gaia_iframe_context):
+            context_id=gaia_iframe_context):
           return gaia_iframe_context
       except exceptions.EvaluateException:
         pass
@@ -36,21 +37,27 @@ class Oobe(web_contents.WebContents):
 
   def _ExecuteOobeApi(self, api, *args):
     logging.info('Invoking %s' % api)
-    self.WaitForJavaScriptExpression("typeof Oobe == 'function'", 20)
+    self.WaitForJavaScriptCondition("typeof Oobe == 'function'", timeout=120)
 
-    if self.EvaluateJavaScript("typeof %s == 'undefined'" % api):
+    if self.EvaluateJavaScript(
+        "typeof {{ @api }} == 'undefined'", api=api):
       raise exceptions.LoginException('%s js api missing' % api)
 
-    js = api + '(' + ("'%s'," * len(args)).rstrip(',') + ');'
-    self.ExecuteJavaScript(js % args)
+    # Example values:
+    #   |api|:    'doLogin'
+    #   |args|:   ['username', 'pass', True]
+    #   Executes: 'doLogin("username", "pass", true)'
+    self.ExecuteJavaScript('{{ @f }}({{ *args }})', f=api, args=args)
 
   def NavigateGuestLogin(self):
     """Logs in as guest."""
     self._ExecuteOobeApi('Oobe.guestLoginForTesting')
 
-  def NavigateFakeLogin(self, username, password, gaia_id):
+  def NavigateFakeLogin(self, username, password, gaia_id,
+                        enterprise_enroll=False):
     """Fake user login."""
-    self._ExecuteOobeApi('Oobe.loginForTesting', username, password, gaia_id)
+    self._ExecuteOobeApi('Oobe.loginForTesting', username, password, gaia_id,
+                         enterprise_enroll)
 
   def NavigateGaiaLogin(self, username, password,
                         enterprise_enroll=False,
@@ -65,8 +72,8 @@ class Oobe(web_contents.WebContents):
     self._NavigateGaiaLogin(username, password, enterprise_enroll)
 
     if enterprise_enroll:
-      self.WaitForJavaScriptExpression('Oobe.isEnrollmentSuccessfulForTest()',
-                                       30)
+      self.WaitForJavaScriptCondition(
+          'Oobe.isEnrollmentSuccessfulForTest()', timeout=30)
       self._ExecuteOobeApi('Oobe.enterpriseEnrollmentDone')
 
   def _NavigateGaiaLogin(self, username, password, enterprise_enroll):
@@ -79,39 +86,40 @@ class Oobe(web_contents.WebContents):
         return partial(Oobe._NavigateIFrameLogin,
                        add_user_for_testing=not enterprise_enroll)
       return None
-    util.WaitFor(_GetGaiaFunction, 20)(self, username, password)
+    py_utils.WaitFor(_GetGaiaFunction, 20)(self, username, password)
 
   def _NavigateIFrameLogin(self, username, password, add_user_for_testing):
     """Logs into the IFrame-based GAIA screen"""
-    gaia_iframe_context = util.WaitFor(self._GaiaIFrameContext, timeout=30)
+    gaia_iframe_context = py_utils.WaitFor(self._GaiaIFrameContext, timeout=30)
 
     if add_user_for_testing:
       self._ExecuteOobeApi('Oobe.showAddUserForTesting')
-    self.ExecuteJavaScriptInContext("""
-        document.getElementById('Email').value='%s';
-        document.getElementById('Passwd').value='%s';
-        document.getElementById('signIn').click();"""
-            % (username, password),
-        gaia_iframe_context)
+    self.ExecuteJavaScript("""
+        document.getElementById('Email').value= {{ username }};
+        document.getElementById('Passwd').value= {{ password }};
+        document.getElementById('signIn').click();""",
+        username=username, password=password,
+        context_id=gaia_iframe_context)
 
   def _NavigateWebViewLogin(self, username, password, wait_for_close):
     """Logs into the webview-based GAIA screen"""
     self._NavigateWebViewEntry('identifierId', username, 'identifierNext')
-    self._NavigateWebViewEntry('password', password, 'next')
+    self._NavigateWebViewEntry('password', password, 'passwordNext')
     if wait_for_close:
-      util.WaitFor(lambda: not self._GaiaWebviewContext(), 20)
+      py_utils.WaitFor(lambda: not self._GaiaWebviewContext(), 60)
 
-  def _NavigateWebViewEntry(self, field, value, nextField):
+  def _NavigateWebViewEntry(self, field, value, next_field):
     self._WaitForField(field)
-    self._WaitForField(nextField)
+    self._WaitForField(next_field)
     gaia_webview_context = self._GaiaWebviewContext()
     gaia_webview_context.EvaluateJavaScript("""
-       document.getElementById('%s').value='%s';
-       document.getElementById('%s').click()"""
-           % (field, value, nextField))
+       document.getElementById({{ field }}).value= {{ value }};
+       document.getElementById({{ next_field }}).click()""",
+       field=field, value=value, next_field=next_field)
 
-  def _WaitForField(self, field_id):
-    gaia_webview_context = util.WaitFor(self._GaiaWebviewContext, 5)
-    util.WaitFor(gaia_webview_context.HasReachedQuiescence, 20)
-    gaia_webview_context.WaitForJavaScriptExpression(
-        "document.getElementById('%s') != null" % field_id, 20)
+  def _WaitForField(self, field):
+    gaia_webview_context = py_utils.WaitFor(self._GaiaWebviewContext, 5)
+    py_utils.WaitFor(gaia_webview_context.HasReachedQuiescence, 20)
+    gaia_webview_context.WaitForJavaScriptCondition(
+        "document.getElementById({{ field }}) != null",
+        field=field, timeout=20)

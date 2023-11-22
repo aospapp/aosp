@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007-2015, International Business Machines Corporation and
@@ -16,6 +18,8 @@ import java.util.MissingResourceException;
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeConstants.Field;
 import javax.xml.datatype.Duration;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.DurationFormat;
@@ -163,16 +167,9 @@ public class ICUDurationTest extends TestFmwk {
     }
 
     /**
-     * @param args
-     */
-    public static void main(String[] args) {
-        new ICUDurationTest().run(args);
-    }
-    
-    
-    /**
      * Basic test
      */
+    @Test
     public void TestBasics() {
         DurationFormat df;
         String expect;
@@ -214,6 +211,7 @@ public class ICUDurationTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSimpleXMLDuration() {
         Duration d;
         DurationFormat df;
@@ -269,6 +267,7 @@ public class ICUDurationTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestXMLDuration() {
         final class TestCase {
             final String localeString;
@@ -324,6 +323,7 @@ public class ICUDurationTest extends TestFmwk {
     }
 
 
+    @Test
     public void TestBadObjectError() {
         Runtime r = Runtime.getRuntime();
         DurationFormat df = DurationFormat.getInstance(new ULocale("en"));
@@ -343,6 +343,7 @@ public class ICUDurationTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBadLocaleError() {
         try {
             DurationFormat df = DurationFormat.getInstance(new ULocale("und"));
@@ -355,6 +356,7 @@ public class ICUDurationTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestResourceWithCalendar() {
         DurationFormat df = DurationFormat.getInstance(new ULocale("th@calendar=buddhist"));
         // should pass, but return a default formatter for th.
@@ -366,6 +368,7 @@ public class ICUDurationTest extends TestFmwk {
     /* Tests the class
      *      DurationFormat
      */
+    @Test
     public void TestDurationFormat(){
         @SuppressWarnings("serial")
         class TestDurationFormat extends DurationFormat {
@@ -387,6 +390,7 @@ public class ICUDurationTest extends TestFmwk {
         } catch(Exception e){}
     }
 
+    @Test
     public void TestFromNowTo() {
         class TestCase {
             ULocale locale;

@@ -18,22 +18,16 @@ package io.appium.droiddriver.base;
 
 import android.util.Log;
 
-import io.appium.droiddriver.DroidDriver;
-import io.appium.droiddriver.Poller;
 import io.appium.droiddriver.UiElement;
-import io.appium.droiddriver.actions.InputInjector;
-import io.appium.droiddriver.exceptions.ElementNotFoundException;
-import io.appium.droiddriver.exceptions.TimeoutException;
 import io.appium.droiddriver.finders.ByXPath;
 import io.appium.droiddriver.finders.Finder;
 import io.appium.droiddriver.util.Logs;
 
 /**
- * Base DroidDriver that implements the common operations.
+ * Enhances AbstractDroidDriver to include basic element handling and matching operations.
  */
-public abstract class BaseDroidDriver<R, E extends BaseUiElement<R, E>> implements DroidDriver {
+public abstract class BaseDroidDriver<R, E extends BaseUiElement<R, E>> extends AbstractDroidDriver {
 
-  private Poller poller = new DefaultPoller();
   private E rootElement;
 
   @Override
@@ -41,57 +35,6 @@ public abstract class BaseDroidDriver<R, E extends BaseUiElement<R, E>> implemen
     Logs.call(Log.VERBOSE, this, "find", finder);
     return finder.find(getRootElement());
   }
-
-  @Override
-  public boolean has(Finder finder) {
-    try {
-      refreshUiElementTree();
-      find(finder);
-      return true;
-    } catch (ElementNotFoundException enfe) {
-      return false;
-    }
-  }
-
-  @Override
-  public boolean has(Finder finder, long timeoutMillis) {
-    try {
-      getPoller().pollFor(this, finder, Poller.EXISTS, timeoutMillis);
-      return true;
-    } catch (TimeoutException e) {
-      return false;
-    }
-  }
-
-  @Override
-  public UiElement on(Finder finder) {
-    Logs.call(this, "on", finder);
-    return getPoller().pollFor(this, finder, Poller.EXISTS);
-  }
-
-  @Override
-  public void checkExists(Finder finder) {
-    Logs.call(this, "checkExists", finder);
-    getPoller().pollFor(this, finder, Poller.EXISTS);
-  }
-
-  @Override
-  public void checkGone(Finder finder) {
-    Logs.call(this, "checkGone", finder);
-    getPoller().pollFor(this, finder, Poller.GONE);
-  }
-
-  @Override
-  public Poller getPoller() {
-    return poller;
-  }
-
-  @Override
-  public void setPoller(Poller poller) {
-    this.poller = poller;
-  }
-
-  public abstract InputInjector getInjector();
 
   protected abstract E newRootElement();
 

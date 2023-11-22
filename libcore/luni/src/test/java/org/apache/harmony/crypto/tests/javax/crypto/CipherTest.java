@@ -561,6 +561,7 @@ public class CipherTest extends junit.framework.TestCase {
         }
         try {
             Cipher.getMaxAllowedKeyLength("");
+            fail();
         } catch (NoSuchAlgorithmException expected) {
         }
         try {

@@ -18,6 +18,7 @@ package android.car.hardware;
 
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.car.VehicleAreaType;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.SparseArray;
@@ -52,11 +53,11 @@ public class CarPropertyConfig<T> implements Parcelable {
 
     public int getPropertyId() { return mPropertyId; }
     public Class<T> getPropertyType() { return mType; }
-    public int getAreaType() { return mAreaType; }
+    public @VehicleAreaType.VehicleAreaTypeValue int getAreaType() { return mAreaType; }
 
     /** Returns true if this property doesn't hold car area-specific configuration */
     public boolean isGlobalProperty() {
-        return mAreaType == 0;
+        return mAreaType == VehicleAreaType.VEHICLE_AREA_TYPE_NONE;
     }
 
     public int getAreaCount() {
@@ -84,7 +85,7 @@ public class CarPropertyConfig<T> implements Parcelable {
     }
 
     public boolean hasArea(int areaId) {
-        return mSupportedAreas.indexOfKey(areaId) != -1;
+        return mSupportedAreas.indexOfKey(areaId) >= 0;
     }
 
     @Nullable
@@ -119,7 +120,7 @@ public class CarPropertyConfig<T> implements Parcelable {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeInt(mPropertyId);
-        dest.writeSerializable(mType);
+        dest.writeString(mType.getName());
         dest.writeInt(mAreaType);
         dest.writeInt(mSupportedAreas.size());
         for (int i = 0; i < mSupportedAreas.size(); i++) {
@@ -131,7 +132,12 @@ public class CarPropertyConfig<T> implements Parcelable {
     @SuppressWarnings("unchecked")
     private CarPropertyConfig(Parcel in) {
         mPropertyId = in.readInt();
-        mType = (Class<T>) in.readSerializable();
+        String className = in.readString();
+        try {
+            mType = (Class<T>) Class.forName(className);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Class not found: " + className);
+        }
         mAreaType = in.readInt();
         int areaSize = in.readInt();
         mSupportedAreas = new SparseArray<>(areaSize);

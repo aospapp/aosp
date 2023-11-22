@@ -793,7 +793,7 @@ public class NativeNfcTag implements TagEndpoint {
             int supportedNdefLength = ndefinfo[0];
             int cardState = ndefinfo[1];
             byte[] buff = readNdef();
-            if (buff != null) {
+            if (buff != null && buff.length > 0) {
                 try {
                     ndefMsg = new NdefMessage(buff);
                     addNdefTechnology(ndefMsg,
@@ -806,12 +806,18 @@ public class NativeNfcTag implements TagEndpoint {
                    // Create an intent anyway, without NDEF messages
                    generateEmptyNdef = true;
                 }
-            } else {
+            } else if(buff != null){
+                // Empty buffer, unformatted tags fall into this case
                 generateEmptyNdef = true;
             }
 
             if (generateEmptyNdef) {
                 ndefMsg = null;
+                addNdefTechnology(null,
+                      getConnectedHandle(),
+                      getConnectedLibNfcType(),
+                      getConnectedTechnology(),
+                      supportedNdefLength, cardState);
                 foundFormattable = false;
                 reconnect();
             }

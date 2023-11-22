@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 import android.content.ContentResolver;
 import android.provider.Settings;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A helper class which serves only to make it easier to lookup timeout values. This class should
@@ -31,6 +32,22 @@ public final class Timeouts {
 
         public long getCallScreeningTimeoutMillis(ContentResolver cr) {
             return Timeouts.getCallScreeningTimeoutMillis(cr);
+        }
+
+        public long getCallRemoveUnbindInCallServicesDelay(ContentResolver cr) {
+            return Timeouts.getCallRemoveUnbindInCallServicesDelay(cr);
+        }
+
+        public long getRetryBluetoothConnectAudioBackoffMillis(ContentResolver cr) {
+            return Timeouts.getRetryBluetoothConnectAudioBackoffMillis(cr);
+        }
+
+        public long getBluetoothPendingTimeoutMillis(ContentResolver cr) {
+            return Timeouts.getBluetoothPendingTimeoutMillis(cr);
+        }
+
+        public long getEmergencyCallbackWindowMillis(ContentResolver cr) {
+            return Timeouts.getEmergencyCallbackWindowMillis(cr);
         }
     }
 
@@ -53,22 +70,22 @@ public final class Timeouts {
     }
 
     /**
-     * Returns the longest period, in milliseconds, to wait for the query for direct-to-voicemail
-     * to complete. If the query goes beyond this timeout, the incoming call screen is shown to the
-     * user.
-     */
-    public static long getDirectToVoicemailMillis(ContentResolver contentResolver) {
-        return get(contentResolver, "direct_to_voicemail_ms", 500L);
-    }
-
-    /**
      * Returns the amount of time to wait before disconnecting a call that was canceled via
      * NEW_OUTGOING_CALL broadcast. This timeout allows apps which repost the call using a gateway
      * to reuse the existing call, preventing the call from causing a start->end->start jank in the
      * in-call UI.
      */
     public static long getNewOutgoingCallCancelMillis(ContentResolver contentResolver) {
-        return get(contentResolver, "new_outgoing_call_cancel_ms", 400L);
+        return get(contentResolver, "new_outgoing_call_cancel_ms", 500L);
+    }
+
+    /**
+     * Returns the maximum amount of time to wait before disconnecting a call that was canceled via
+     * NEW_OUTGOING_CALL broadcast. This prevents malicious or poorly configured apps from
+     * forever tying up the Telecom stack.
+     */
+    public static long getMaxNewOutgoingCallCancelMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "max_new_outgoing_call_cancel_ms", 10000L);
     }
 
     /**
@@ -126,15 +143,6 @@ public final class Timeouts {
     }
 
     /**
-     * Returns the amount of time after a Logging session has been started that Telecom is set to
-     * perform a sweep to check and make sure that the session is still not incomplete (stale).
-     */
-    public static long getStaleSessionCleanupTimeoutMillis(ContentResolver contentResolver) {
-        return get(contentResolver, "stale_session_cleanup_timeout_millis",
-                Log.DEFAULT_SESSION_TIMEOUT_MS);
-    }
-
-    /**
      * Returns the amount of time to wait for the call screening service to allow or disallow a
      * call.
      */
@@ -143,9 +151,11 @@ public final class Timeouts {
     }
 
     /**
-     * Returns the amount of time to wait for the block checker to allow or disallow a call.
+     * Returns the amount of time after an emergency call that incoming calls should be treated
+     * as potential emergency callbacks.
      */
-    public static long getBlockCheckTimeoutMillis(ContentResolver contentResolver) {
-        return get(contentResolver, "block_check_timeout_millis", 500L);
+    public static long getEmergencyCallbackWindowMillis(ContentResolver contentResolver) {
+      return get(contentResolver, "emergency_callback_window_millis",
+          TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES));
     }
 }

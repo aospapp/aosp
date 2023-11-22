@@ -37,6 +37,13 @@ public class TestAtan2pi extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestAtan2piRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inNumerator;
         public float inDenominator;
@@ -44,13 +51,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piFloatFloatFloat() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x81dcb793l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x5a748df4l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x3276ace81dcb793l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xc4961da25a748df4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piFloatFloatFloat(inNumerator, out);
             verifyResultsAtan2piFloatFloatFloat(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloatFloatFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piFloatFloatFloat(inNumerator, out);
             verifyResultsAtan2piFloatFloatFloat(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloatFloatFloat: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piFloatFloatFloat(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piFloat2Float2Float2() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x53d1a0b3l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xcc5c5614l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x3b26f42853d1a0b3l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x393d275fcc5c5614l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piFloat2Float2Float2(inNumerator, out);
             verifyResultsAtan2piFloat2Float2Float2(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloat2Float2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piFloat2Float2Float2(inNumerator, out);
             verifyResultsAtan2piFloat2Float2Float2(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloat2Float2Float2: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piFloat2Float2Float2(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piFloat3Float3Float3() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xf69d8cb4l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x9f37e94dl, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x16b59d61f69d8cb4l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x2a168a89f37e94dl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piFloat3Float3Float3(inNumerator, out);
             verifyResultsAtan2piFloat3Float3Float3(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloat3Float3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piFloat3Float3Float3(inNumerator, out);
             verifyResultsAtan2piFloat3Float3Float3(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloat3Float3Float3: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piFloat3Float3Float3(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piFloat4Float4Float4() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x996978b5l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x72137c86l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xf244469b996978b5l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xcc05a9f172137c86l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piFloat4Float4Float4(inNumerator, out);
             verifyResultsAtan2piFloat4Float4Float4(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloat4Float4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piFloat4Float4Float4(inNumerator, out);
             verifyResultsAtan2piFloat4Float4Float4(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piFloat4Float4Float4: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piFloat4Float4Float4(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -368,13 +391,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piHalfHalfHalf() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x2ee67becl, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x25ffb4c5l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xd223ff622ee67becl, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0xc2e33c3f25ffb4c5l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piHalfHalfHalf(inNumerator, out);
             verifyResultsAtan2piHalfHalfHalf(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalfHalfHalf: " + e.toString());
         }
@@ -383,9 +407,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piHalfHalfHalf(inNumerator, out);
             verifyResultsAtan2piHalfHalfHalf(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalfHalfHalf: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piHalfHalfHalf(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -452,13 +479,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piHalf2Half2Half2() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x8b8c5d68l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x50194d61l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0xcae3b8068b8c5d68l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x639fd76050194d61l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piHalf2Half2Half2(inNumerator, out);
             verifyResultsAtan2piHalf2Half2Half2(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalf2Half2Half2: " + e.toString());
         }
@@ -467,9 +495,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piHalf2Half2Half2(inNumerator, out);
             verifyResultsAtan2piHalf2Half2Half2(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalf2Half2Half2: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piHalf2Half2Half2(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -536,13 +567,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piHalf3Half3Half3() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xd6fe8dd7l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x3bd91f18l, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x85828915d6fe8dd7l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x48b3ced83bd91f18l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piHalf3Half3Half3(inNumerator, out);
             verifyResultsAtan2piHalf3Half3Half3(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalf3Half3Half3: " + e.toString());
         }
@@ -551,9 +583,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piHalf3Half3Half3(inNumerator, out);
             verifyResultsAtan2piHalf3Half3Half3(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalf3Half3Half3: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piHalf3Half3Half3(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {
@@ -620,13 +655,14 @@ public class TestAtan2pi extends RSBaseCompute {
     }
 
     private void checkAtan2piHalf4Half4Half4() {
-        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x2270be46l, false);
-        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x2798f0cfl, false);
+        Allocation inNumerator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x40215a252270be46l, false);
+        Allocation inDenominator = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0x2dc7c6502798f0cfl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocInDenominator(inDenominator);
             script.forEach_testAtan2piHalf4Half4Half4(inNumerator, out);
             verifyResultsAtan2piHalf4Half4Half4(inNumerator, inDenominator, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalf4Half4Half4: " + e.toString());
         }
@@ -635,9 +671,12 @@ public class TestAtan2pi extends RSBaseCompute {
             scriptRelaxed.set_gAllocInDenominator(inDenominator);
             scriptRelaxed.forEach_testAtan2piHalf4Half4Half4(inNumerator, out);
             verifyResultsAtan2piHalf4Half4Half4(inNumerator, inDenominator, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testAtan2piHalf4Half4Half4: " + e.toString());
         }
+        inNumerator.destroy();
+        inDenominator.destroy();
     }
 
     private void verifyResultsAtan2piHalf4Half4Half4(Allocation inNumerator, Allocation inDenominator, Allocation out, boolean relaxed) {

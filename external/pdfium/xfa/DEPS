@@ -1,4 +1,6 @@
 include_rules = [
-  '+core/include',
+  '+core/fpdfapi/parser',
+  '+core/fxcrt',
+  '+core/fxge',
   '+third_party/bigint'
 ]

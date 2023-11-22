@@ -18,44 +18,59 @@
 #define TPM_MANAGER_SERVER_TPM_NVRAM_H_
 
 #include <string>
+#include <vector>
+
+#include "tpm_manager/common/tpm_manager.pb.h"
 
 namespace tpm_manager {
 
-// TpmNvram is an interface for accessing Nvram functionality on a Tpm.
+// TpmNvram is an interface for working with TPM NVRAM.
 class TpmNvram {
  public:
   TpmNvram() = default;
   virtual ~TpmNvram() = default;
 
-  // This method creates a NVRAM space in the TPM. Returns true iff
-  // the space was successfully created.
-  virtual bool DefineNvram(uint32_t index, size_t length) = 0;
+  // Creates an NVRAM space in the TPM. Returns true on success.
+  virtual NvramResult DefineSpace(
+      uint32_t index,
+      size_t size,
+      const std::vector<NvramSpaceAttribute>& attributes,
+      const std::string& authorization_value,
+      NvramSpacePolicy policy) = 0;
 
-  // This method destroys a defined NVRAM space. Returns true iff the NVRAM
-  // space was successfully destroyed.
-  virtual bool DestroyNvram(uint32_t index) = 0;
+  // Destroys an NVRAM space in the TPM. Returns true on success.
+  virtual NvramResult DestroySpace(uint32_t index) = 0;
 
-  // This method writes |data| to the NVRAM space defined by |index|. The size
-  // of |data| must be equal or less than the size of the NVRAM space. Returns
-  // true on success. Once written to, the NVRAM space is locked and cannot be
-  // written to again.
-  virtual bool WriteNvram(uint32_t index, const std::string& data) = 0;
+  // Writes |data| to the NVRAM space at |index|. The size of |data| must be
+  // equal or less than the size of the NVRAM space. Returns true on success.
+  virtual NvramResult WriteSpace(uint32_t index,
+                                 const std::string& data,
+                                 const std::string& authorization_value) = 0;
 
-  // This method reads all the contents of the NVRAM space at |index| and writes
-  // it into |data|. Returns true on success.
-  virtual bool ReadNvram(uint32_t index, std::string* data) = 0;
+  // Reads all the |data| in the NVRAM space at |index|. Returns true on
+  // success.
+  virtual NvramResult ReadSpace(uint32_t index,
+                                std::string* data,
+                                const std::string& authorization_value) = 0;
 
-  // This method sets the out argument |defined| to true iff the NVRAM space
-  // referred to by |index| is defined. Returns true on success.
-  virtual bool IsNvramDefined(uint32_t index, bool* defined) = 0;
+  // Locks the NVRAM space at |index|. Returns true on success.
+  virtual NvramResult LockSpace(uint32_t index,
+                                bool lock_read,
+                                bool lock_write,
+                                const std::string& authorization_value) = 0;
 
-  // This method sets the out argument |locked| to true iff the NVRAM space
-  // referred to by |index| is locked. Returns true on success.
-  virtual bool IsNvramLocked(uint32_t index, bool* locked) = 0;
+  // Lists all existing NVRAM spaces. Returns true on success.
+  virtual NvramResult ListSpaces(std::vector<uint32_t>* index_list) = 0;
 
-  // This method sets the out argument |size| to the size of the NVRAM space
-  // referred to by |index|. Returns true on success.
-  virtual bool GetNvramSize(uint32_t index, size_t* size) = 0;
+  // Provides basic information about a given space. All pointer are optional
+  // and may be NULL. Returns true on success.
+  virtual NvramResult GetSpaceInfo(
+      uint32_t index,
+      size_t* size,
+      bool* is_read_locked,
+      bool* is_write_locked,
+      std::vector<NvramSpaceAttribute>* attributes,
+      NvramSpacePolicy* policy) = 0;
 };
 
 }  // namespace tpm_manager

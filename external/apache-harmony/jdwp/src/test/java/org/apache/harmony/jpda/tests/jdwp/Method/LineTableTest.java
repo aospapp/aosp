@@ -25,8 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.Method;
 
-import java.io.UnsupportedEncodingException;
-
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -42,7 +40,7 @@ public class LineTableTest extends JDWPMethodTestCase {
      * For each received method sends Method.LineTable command
      * and prints returned LineTable.
      */
-    public void testLineTableTest001() throws UnsupportedEncodingException {
+    public void testLineTableTest001() {
         logWriter.println("testLineTableTest001 started");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

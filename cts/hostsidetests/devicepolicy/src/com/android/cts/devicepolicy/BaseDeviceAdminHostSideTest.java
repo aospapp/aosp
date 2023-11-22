@@ -27,47 +27,24 @@ import javax.annotation.Nullable;
  */
 public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
 
-    private static final String ADMIN_RECEIVER_TEST_CLASS = "BaseDeviceAdminTest$AdminReceiver";
-
-    private static final String UNPROTECTED_ADMIN_RECEIVER_TEST_CLASS =
-            "DeviceAdminReceiverWithNoProtection";
-
     protected int mUserId;
 
-    /** returns "com.android.cts.deviceadmin" */
-    protected final String getDeviceAdminJavaPackage() {
-        return "com.android.cts.deviceadmin";
-    }
-
-    /** e.g. 23, 24, etc. */
     protected abstract int getTargetApiVersion();
 
-    /** e.g. CtsDeviceAdminApp24.apk */
     protected final String getDeviceAdminApkFileName() {
-        return "CtsDeviceAdminApp" + getTargetApiVersion() + ".apk";
+        return DeviceAdminHelper.getDeviceAdminApkFileName(getTargetApiVersion());
     }
 
-    /** e.g. "com.android.cts.deviceadmin24" */
     protected final String getDeviceAdminApkPackage() {
-        return getDeviceAdminJavaPackage() + getTargetApiVersion();
+        return DeviceAdminHelper.getDeviceAdminApkPackage(getTargetApiVersion());
     }
 
-    /**
-     * e.g.
-     * "com.android.cts.deviceadmin24/com.android.cts.deviceadmin.BaseDeviceAdminTest$AdminReceiver"
-     */
     protected final String getAdminReceiverComponent() {
-        return getDeviceAdminApkPackage() + "/" + getDeviceAdminJavaPackage() + "." +
-                ADMIN_RECEIVER_TEST_CLASS;
+        return DeviceAdminHelper.getAdminReceiverComponent(getTargetApiVersion());
     }
 
-    /**
-     * e.g.
-     * "com.android.cts.deviceadmin24/com.android.cts.deviceadmin.DeviceAdminReceiverWithNoProtection"
-     */
     protected final String getUnprotectedAdminReceiverComponent() {
-        return getDeviceAdminApkPackage() + "/" + getDeviceAdminJavaPackage() + "." +
-                UNPROTECTED_ADMIN_RECEIVER_TEST_CLASS;
+        return DeviceAdminHelper.getUnprotectedAdminReceiverComponent(getTargetApiVersion());
     }
 
     @Override
@@ -85,23 +62,22 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
     @Override
     protected void tearDown() throws Exception {
         if (mHasFeature) {
-            assertTrue("Failed to remove admin",
-                    removeAdmin(getAdminReceiverComponent(), mUserId));
+            assertTrue("Failed to remove admin", removeAdmin(getAdminReceiverComponent(), mUserId));
             getDevice().uninstallPackage(getDeviceAdminApkPackage());
         }
 
         super.tearDown();
     }
 
-    protected boolean runTests(@Nonnull String apk, @Nonnull String className,
+    protected void runTests(@Nonnull String apk, @Nonnull String className,
             @Nullable String method) throws DeviceNotAvailableException {
-        return runDeviceTestsAsUser(apk,
-                getDeviceAdminJavaPackage() + "." + className, method, mUserId);
+        runDeviceTestsAsUser(apk,
+                DeviceAdminHelper.getDeviceAdminJavaPackage() + "." + className, method, mUserId);
     }
 
-    protected boolean runTests(@Nonnull String apk, @Nonnull String className)
+    protected void runTests(@Nonnull String apk, @Nonnull String className)
             throws DeviceNotAvailableException {
-        return runTests(apk, className, null);
+        runTests(apk, className, null);
     }
 
     /**
@@ -111,14 +87,11 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
-
-        assertTrue("Some of device side tests failed",
-                runTests(getDeviceAdminApkPackage(), "DeviceAdminTest"));
+        runTests(getDeviceAdminApkPackage(), "DeviceAdminTest");
     }
 
     private void clearPasswordForDeviceOwner() throws Exception {
-        assertTrue("Failed to clear password",
-                runTests(getDeviceAdminApkPackage(), "ClearPasswordTest"));
+        runTests(getDeviceAdminApkPackage(), "ClearPasswordTest");
     }
 
     private void makeDoAndClearPassword() throws Exception {
@@ -142,8 +115,8 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
         // If there's a password, clear it.
         makeDoAndClearPassword();
         try {
-            assertTrue(runTests(getDeviceAdminApkPackage(), "DeviceAdminPasswordTest",
-                            "testResetPassword_nycRestrictions"));
+            runTests(getDeviceAdminApkPackage(), "DeviceAdminPasswordTest",
+                            "testResetPassword_nycRestrictions");
         } finally {
             makeDoAndClearPassword();
         }
@@ -162,8 +135,7 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
         clearPasswordForDeviceOwner();
 
         try {
-            assertTrue("Some of device side tests failed",
-                    runTests(getDeviceAdminApkPackage(), "DeviceOwnerPasswordTest"));
+            runTests(getDeviceAdminApkPackage(), "DeviceOwnerPasswordTest");
         } finally {
             clearPasswordForDeviceOwner();
         }

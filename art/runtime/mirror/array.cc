@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "array.h"
+#include "array-inl.h"
 
 #include "class.h"
 #include "class-inl.h"
@@ -23,7 +23,6 @@
 #include "dex_file-inl.h"
 #include "gc/accounting/card_table-inl.h"
 #include "object-inl.h"
-#include "object_array.h"
 #include "object_array-inl.h"
 #include "handle_scope-inl.h"
 #include "thread.h"
@@ -31,6 +30,8 @@
 
 namespace art {
 namespace mirror {
+
+using android::base::StringPrintf;
 
 // Create a multi-dimensional array of Objects or primitive types.
 //
@@ -43,7 +44,7 @@ namespace mirror {
 static Array* RecursiveCreateMultiArray(Thread* self,
                                         Handle<Class> array_class, int current_dimension,
                                         Handle<mirror::IntArray> dimensions)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   int32_t array_length = dimensions->Get(current_dimension);
   StackHandleScope<1> hs(self);
   Handle<Array> new_array(
@@ -51,7 +52,7 @@ static Array* RecursiveCreateMultiArray(Thread* self,
           Array::Alloc<true>(self, array_class.Get(), array_length,
                              array_class->GetComponentSizeShift(),
                              Runtime::Current()->GetHeap()->GetCurrentAllocator())));
-  if (UNLIKELY(new_array.Get() == nullptr)) {
+  if (UNLIKELY(new_array == nullptr)) {
     CHECK(self->IsExceptionPending());
     return nullptr;
   }
@@ -60,7 +61,7 @@ static Array* RecursiveCreateMultiArray(Thread* self,
     for (int32_t i = 0; i < array_length; i++) {
       StackHandleScope<1> hs2(self);
       Handle<mirror::Class> h_component_type(hs2.NewHandle(array_class->GetComponentType()));
-      Array* sub_array = RecursiveCreateMultiArray(self, h_component_type,
+      ObjPtr<Array> sub_array = RecursiveCreateMultiArray(self, h_component_type,
                                                    current_dimension + 1, dimensions);
       if (UNLIKELY(sub_array == nullptr)) {
         CHECK(self->IsExceptionPending());
@@ -93,35 +94,35 @@ Array* Array::CreateMultiArray(Thread* self, Handle<Class> element_class,
 
   // Find/generate the array class.
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  mirror::Class* element_class_ptr = element_class.Get();
+  ObjPtr<mirror::Class>  element_class_ptr = element_class.Get();
   StackHandleScope<1> hs(self);
   MutableHandle<mirror::Class> array_class(
       hs.NewHandle(class_linker->FindArrayClass(self, &element_class_ptr)));
-  if (UNLIKELY(array_class.Get() == nullptr)) {
+  if (UNLIKELY(array_class == nullptr)) {
     CHECK(self->IsExceptionPending());
     return nullptr;
   }
   for (int32_t i = 1; i < dimensions->GetLength(); ++i) {
-    mirror::Class* array_class_ptr = array_class.Get();
+    ObjPtr<mirror::Class> array_class_ptr = array_class.Get();
     array_class.Assign(class_linker->FindArrayClass(self, &array_class_ptr));
-    if (UNLIKELY(array_class.Get() == nullptr)) {
+    if (UNLIKELY(array_class == nullptr)) {
       CHECK(self->IsExceptionPending());
       return nullptr;
     }
   }
   // Create the array.
-  Array* new_array = RecursiveCreateMultiArray(self, array_class, 0, dimensions);
+  ObjPtr<Array> new_array = RecursiveCreateMultiArray(self, array_class, 0, dimensions);
   if (UNLIKELY(new_array == nullptr)) {
     CHECK(self->IsExceptionPending());
   }
-  return new_array;
+  return new_array.Ptr();
 }
 
 void Array::ThrowArrayIndexOutOfBoundsException(int32_t index) {
   art::ThrowArrayIndexOutOfBoundsException(index, GetLength());
 }
 
-void Array::ThrowArrayStoreException(Object* object) {
+void Array::ThrowArrayStoreException(ObjPtr<Object> object) {
   art::ThrowArrayStoreException(object->GetClass(), this->GetClass());
 }
 
@@ -136,12 +137,13 @@ Array* Array::CopyOf(Thread* self, int32_t new_length) {
       heap->GetCurrentNonMovingAllocator();
   const auto component_size = GetClass()->GetComponentSize();
   const auto component_shift = GetClass()->GetComponentSizeShift();
-  Array* new_array = Alloc<true>(self, GetClass(), new_length, component_shift, allocator_type);
+  ObjPtr<Array> new_array = Alloc<true>(self, GetClass(), new_length, component_shift, allocator_type);
   if (LIKELY(new_array != nullptr)) {
-    memcpy(new_array->GetRawData(component_size, 0), h_this->GetRawData(component_size, 0),
+    memcpy(new_array->GetRawData(component_size, 0),
+           h_this->GetRawData(component_size, 0),
            std::min(h_this->GetLength(), new_length) << component_shift);
   }
-  return new_array;
+  return new_array.Ptr();
 }
 
 

@@ -119,7 +119,7 @@ public class CaseResult implements ICaseResult {
     public void mergeFrom(ICaseResult otherCaseResult) {
         if (!otherCaseResult.getName().equals(getName())) {
             throw new IllegalArgumentException(String.format(
-                "Cannot merge case result with mismatched name. Expected %s, Found %d",
+                "Cannot merge case result with mismatched name. Expected %s, Found %s",
                         otherCaseResult.getName(), getName()));
         }
 

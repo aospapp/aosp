@@ -81,6 +81,7 @@
 #define NUM_FRAMES_LIMIT 0x7FFFFFFF
 #endif
 
+IHEVCD_ERROR_T ihevcd_check_out_buf_size(codec_t *ps_codec);
 IHEVCD_ERROR_T ihevcd_fmt_conv(codec_t *ps_codec,
                                process_ctxt_t *ps_proc,
                                UWORD8 *pu1_y_dst,
@@ -203,6 +204,18 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
 
     ps_dec_op->u4_output_present = 0;
     ps_dec_op->u4_progressive_frame_flag = 1;
+    if(ps_codec->i4_sps_done)
+    {
+        sps_t *ps_sps = (ps_codec->s_parse.ps_sps_base + ps_codec->i4_sps_id);
+        profile_tier_lvl_info_t *ps_ptl;
+        ps_ptl = &ps_sps->s_ptl;
+        if((0 == ps_ptl->s_ptl_gen.i1_general_progressive_source_flag) &&
+           (1 == ps_ptl->s_ptl_gen.i1_general_interlaced_source_flag))
+        {
+            ps_dec_op->u4_progressive_frame_flag = 0;
+        }
+    }
+
     ps_dec_op->u4_is_ref_flag = 1;
     ps_dec_op->e_output_format = ps_codec->e_chroma_fmt;
     ps_dec_op->u4_is_ref_flag = 1;
@@ -224,7 +237,30 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
     if(ps_codec->ps_disp_buf)
     {
         pic_buf_t *ps_disp_buf = ps_codec->ps_disp_buf;
+        sei_params_t *ps_sei = &ps_disp_buf->s_sei_params;
 
+        if(ps_sei->i1_sei_parameters_present_flag &&
+           ps_sei->i1_pic_timing_params_present_flag)
+        {
+            UWORD32 u4_pic_struct;
+            u4_pic_struct = ps_sei->s_pic_timing_sei_params.u4_pic_struct;
+            switch(u4_pic_struct)
+            {
+                case 1:
+                    ps_dec_op->e4_fld_type = IV_TOP_FLD;
+                    ps_dec_op->u4_progressive_frame_flag = 0;
+                    break;
+                case 2:
+                    ps_dec_op->e4_fld_type = IV_BOT_FLD;
+                    ps_dec_op->u4_progressive_frame_flag = 0;
+                    break;
+                case 0:
+                default:
+                    ps_dec_op->e4_fld_type = IV_FLD_TYPE_DEFAULT;
+                    ps_dec_op->u4_progressive_frame_flag = 1;
+                    break;
+            }
+        }
         ps_dec_op->u4_output_present = 1;
         ps_dec_op->u4_ts = ps_disp_buf->u4_ts;
         if((ps_codec->i4_flush_mode == 0) && (ps_codec->s_parse.i4_end_of_frame == 0))
@@ -471,6 +507,10 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
                 ihevcd_init_proc_ctxt(ps_proc, 0);
             }
 
+            /* Output buffer check */
+            ret = ihevcd_check_out_buf_size(ps_codec);
+            RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
             /* Set remaining number of rows to be processed */
             ret = ihevcd_fmt_conv(ps_codec, &ps_codec->as_process[prev_proc_idx],
                                   ps_dec_ip->s_out_buffer.pu1_bufs[0],
@@ -628,6 +668,7 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
 
         if(IHEVCD_IGNORE_SLICE == ret)
         {
+            ps_codec->s_parse.i4_cur_slice_idx = MAX(0, (ps_codec->s_parse.i4_cur_slice_idx - 1));
             ps_codec->pu1_inp_bitsbuf += (nal_ofst + nal_len);
             ps_codec->i4_bytes_remaining -= (nal_ofst + nal_len);
 
@@ -635,7 +676,7 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
         }
 
         if((IVD_RES_CHANGED == ret) ||
-           (IHEVCD_UNSUPPORTED_DIMENSIONS == ret))
+           (IVD_STREAM_WIDTH_HEIGHT_NOT_SUPPORTED == ret))
         {
             break;
         }

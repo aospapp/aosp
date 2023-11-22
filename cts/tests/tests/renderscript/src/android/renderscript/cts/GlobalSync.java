@@ -42,6 +42,17 @@ public class GlobalSync extends RSBaseCompute {
         AIn.copyFrom(In);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (AFailed != null) {
+            AFailed.destroy();
+        }
+        if (AIn != null) {
+            AIn.destroy();
+        }
+        super.tearDown();
+    }
+
     /**
      * Test whether we are properly synchronizing extern global data
      * when going from kernel to invokable.

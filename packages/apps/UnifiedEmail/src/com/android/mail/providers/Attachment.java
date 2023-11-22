@@ -160,6 +160,14 @@ public class Attachment implements Parcelable {
      */
     public String providerData;
 
+    /**
+     * Streamable mime type of the attachment in case it's a virtual file.
+     *
+     * Might be null. If null, then the default type (contentType) is assumed
+     * to be streamable.
+     */
+    public String virtualMimeType;
+
     private transient Uri mIdentifierUri;
 
     /**
@@ -186,6 +194,7 @@ public class Attachment implements Parcelable {
         supportsDownloadAgain = in.readInt() == 1;
         type = in.readInt();
         flags = in.readInt();
+        virtualMimeType = in.readString();
     }
 
     public Attachment(Cursor cursor) {
@@ -211,6 +220,7 @@ public class Attachment implements Parcelable {
                 cursor.getColumnIndex(AttachmentColumns.SUPPORTS_DOWNLOAD_AGAIN)) == 1;
         type = cursor.getInt(cursor.getColumnIndex(AttachmentColumns.TYPE));
         flags = cursor.getInt(cursor.getColumnIndex(AttachmentColumns.FLAGS));
+        virtualMimeType = cursor.getString(cursor.getColumnIndex(AttachmentColumns.VIRTUAL_MIME_TYPE));
     }
 
     public Attachment(JSONObject srcJson) {
@@ -228,6 +238,7 @@ public class Attachment implements Parcelable {
         supportsDownloadAgain = srcJson.optBoolean(AttachmentColumns.SUPPORTS_DOWNLOAD_AGAIN, true);
         type = srcJson.optInt(AttachmentColumns.TYPE);
         flags = srcJson.optInt(AttachmentColumns.FLAGS);
+        virtualMimeType = srcJson.optString(AttachmentColumns.VIRTUAL_MIME_TYPE, null);
     }
 
     /**
@@ -257,6 +268,7 @@ public class Attachment implements Parcelable {
             type = inline ? AttachmentType.INLINE_CURRENT_MESSAGE : AttachmentType.STANDARD;
             partId = cid;
             flags = 0;
+            virtualMimeType = null;
 
             // insert attachment into content provider so that we can open the file
             final ContentResolver resolver = context.getContentResolver();
@@ -303,6 +315,7 @@ public class Attachment implements Parcelable {
         type = values.getAsInteger(AttachmentColumns.TYPE);
         flags = values.getAsInteger(AttachmentColumns.FLAGS);
         partId = values.getAsString(AttachmentColumns.CONTENT_ID);
+        virtualMimeType = values.getAsString(AttachmentColumns.VIRTUAL_MIME_TYPE);
     }
 
     /**
@@ -328,6 +341,7 @@ public class Attachment implements Parcelable {
         values.put(AttachmentColumns.TYPE, type);
         values.put(AttachmentColumns.FLAGS, flags);
         values.put(AttachmentColumns.CONTENT_ID, partId);
+        values.put(AttachmentColumns.VIRTUAL_MIME_TYPE, virtualMimeType);
 
         return values;
     }
@@ -348,6 +362,7 @@ public class Attachment implements Parcelable {
         dest.writeInt(supportsDownloadAgain ? 1 : 0);
         dest.writeInt(type);
         dest.writeInt(flags);
+        dest.writeString(virtualMimeType);
     }
 
     public JSONObject toJSON() throws JSONException {
@@ -367,6 +382,7 @@ public class Attachment implements Parcelable {
         result.put(AttachmentColumns.SUPPORTS_DOWNLOAD_AGAIN, supportsDownloadAgain);
         result.put(AttachmentColumns.TYPE, type);
         result.put(AttachmentColumns.FLAGS, flags);
+        result.put(AttachmentColumns.VIRTUAL_MIME_TYPE, virtualMimeType);
 
         return result;
     }

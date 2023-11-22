@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "kernel_per-build_benchmarks"
 PURPOSE = "Gather benchmark/performance data for kernel evaluation."
-CRITERIA = "All tests with SUITE=kernel_per-build_benchmarks must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.storage.StorageManager;
 import android.provider.BaseColumns;
@@ -231,11 +232,14 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
 
     private static MmsSmsDatabaseHelper sDeInstance = null;
     private static MmsSmsDatabaseHelper sCeInstance = null;
+
+    private static final String[] BIND_ARGS_NONE = new String[0];
+
     private static boolean sTriedAutoIncrement = false;
     private static boolean sFakeLowStorageTest = false;     // for testing only
 
     static final String DATABASE_NAME = "mmssms.db";
-    static final int DATABASE_VERSION = 64;
+    static final int DATABASE_VERSION = 66;
     private final Context mContext;
     private LowStorageMonitor mLowStorageMonitor;
 
@@ -319,133 +323,110 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
 
     public static void updateThread(SQLiteDatabase db, long thread_id) {
         if (thread_id < 0) {
-            updateAllThreads(db, null, null);
+            updateThreads(db, null, null);
             return;
         }
-
-        db.beginTransaction();
-        try {
-            // Delete the row for this thread in the threads table if
-            // there are no more messages attached to it in either
-            // the sms or pdu tables.
-            int rows = db.delete(MmsSmsProvider.TABLE_THREADS,
-                      "_id = ? AND _id NOT IN" +
-                      "          (SELECT thread_id FROM sms " +
-                      "           UNION SELECT thread_id FROM pdu)",
-                      new String[] { String.valueOf(thread_id) });
-            if (rows > 0) {
-                // If this deleted a row, let's remove orphaned canonical_addresses and get outta here
-                removeUnferencedCanonicalAddresses(db);
-            } else {
-                // Update the message count in the threads table as the sum
-                // of all messages in both the sms and pdu tables.
-                db.execSQL(
-                        "  UPDATE threads SET message_count = " +
-                                "     (SELECT COUNT(sms._id) FROM sms LEFT JOIN threads " +
-                                "      ON threads._id = " + Sms.THREAD_ID +
-                                "      WHERE " + Sms.THREAD_ID + " = " + thread_id +
-                                "        AND sms." + Sms.TYPE + " != 3) + " +
-                                "     (SELECT COUNT(pdu._id) FROM pdu LEFT JOIN threads " +
-                                "      ON threads._id = " + Mms.THREAD_ID +
-                                "      WHERE " + Mms.THREAD_ID + " = " + thread_id +
-                                "        AND (m_type=132 OR m_type=130 OR m_type=128)" +
-                                "        AND " + Mms.MESSAGE_BOX + " != 3) " +
-                                "  WHERE threads._id = " + thread_id + ";");
-
-                // Update the date and the snippet (and its character set) in
-                // the threads table to be that of the most recent message in
-                // the thread.
-                db.execSQL(
-                "  UPDATE threads" +
-                "  SET" +
-                "  date =" +
-                "    (SELECT date FROM" +
-                "        (SELECT date * 1000 AS date, thread_id FROM pdu" +
-                "         UNION SELECT date, thread_id FROM sms)" +
-                "     WHERE thread_id = " + thread_id + " ORDER BY date DESC LIMIT 1)," +
-                "  snippet =" +
-                "    (SELECT snippet FROM" +
-                "        (SELECT date * 1000 AS date, sub AS snippet, thread_id FROM pdu" +
-                "         UNION SELECT date, body AS snippet, thread_id FROM sms)" +
-                "     WHERE thread_id = " + thread_id + " ORDER BY date DESC LIMIT 1)," +
-                "  snippet_cs =" +
-                "    (SELECT snippet_cs FROM" +
-                "        (SELECT date * 1000 AS date, sub_cs AS snippet_cs, thread_id FROM pdu" +
-                "         UNION SELECT date, 0 AS snippet_cs, thread_id FROM sms)" +
-                "     WHERE thread_id = " + thread_id + " ORDER BY date DESC LIMIT 1)" +
-                "  WHERE threads._id = " + thread_id + ";");
-
-                // Update the error column of the thread to indicate if there
-                // are any messages in it that have failed to send.
-                // First check to see if there are any messages with errors in this thread.
-                String query = "SELECT thread_id FROM sms WHERE type=" +
-                        Telephony.TextBasedSmsColumns.MESSAGE_TYPE_FAILED +
-                        " AND thread_id = " + thread_id +
-                        " LIMIT 1";
-                int setError = 0;
-                Cursor c = db.rawQuery(query, null);
-                if (c != null) {
-                    try {
-                        setError = c.getCount();    // Because of the LIMIT 1, count will be 1 or 0.
-                    } finally {
-                        c.close();
-                    }
-                }
-                // What's the current state of the error flag in the threads table?
-                String errorQuery = "SELECT error FROM threads WHERE _id = " + thread_id;
-                c = db.rawQuery(errorQuery, null);
-                if (c != null) {
-                    try {
-                        if (c.moveToNext()) {
-                            int curError = c.getInt(0);
-                            if (curError != setError) {
-                                // The current thread error column differs, update it.
-                                db.execSQL("UPDATE threads SET error=" + setError +
-                                        " WHERE _id = " + thread_id);
-                            }
-                        }
-                    } finally {
-                        c.close();
-                    }
-                }
-            }
-            db.setTransactionSuccessful();
-        } catch (Throwable ex) {
-            Log.e(TAG, ex.getMessage(), ex);
-        } finally {
-            db.endTransaction();
-        }
+        updateThreads(db, "(thread_id = ?)", new String[]{ String.valueOf(thread_id) });
     }
 
-    public static void updateAllThreads(SQLiteDatabase db, String where, String[] whereArgs) {
+    /**
+     * Update all threads containing SMS matching the 'where' condition. Note that the condition
+     * is applied to individual messages in the sms table, NOT the threads table.
+     */
+    public static void updateThreads(SQLiteDatabase db, String where, String[] whereArgs) {
+        if (where == null) {
+            where = "1";
+        }
+        if (whereArgs == null) {
+            whereArgs = BIND_ARGS_NONE;
+        }
         db.beginTransaction();
         try {
-            if (where == null) {
-                where = "";
-            } else {
-                where = "WHERE (" + where + ")";
+            // Delete rows in the threads table if
+            // there are no more messages attached to it in either
+            // the sms or pdu tables.
+            // Note that we do this regardless of whether they match 'where'.
+            int rows = db.delete(MmsSmsProvider.TABLE_THREADS,
+                    "_id NOT IN (" +
+                        " SELECT DISTINCT thread_id FROM sms WHERE thread_id IS NOT NULL" +
+                        " UNION" +
+                        " SELECT DISTINCT thread_id FROM pdu WHERE thread_id IS NOT NULL)",
+                        null);
+            if (rows > 0) {
+                // If this deleted a row, let's remove orphaned canonical_addresses
+                removeUnferencedCanonicalAddresses(db);
             }
-            String query = "SELECT _id FROM threads WHERE _id IN " +
-                           "(SELECT DISTINCT thread_id FROM sms " + where + ")";
-            Cursor c = db.rawQuery(query, whereArgs);
-            if (c != null) {
-                try {
-                    while (c.moveToNext()) {
-                        updateThread(db, c.getInt(0));
-                    }
-                } finally {
-                    c.close();
-                }
-            }
-            // TODO: there are several db operations in this function. Lets wrap them in a
-            // transaction to make it faster.
-            // remove orphaned threads
-            db.delete(MmsSmsProvider.TABLE_THREADS,
-                    "_id NOT IN (SELECT DISTINCT thread_id FROM sms where thread_id NOT NULL " +
-                    "UNION SELECT DISTINCT thread_id FROM pdu where thread_id NOT NULL)", null);
 
-            // remove orphaned canonical_addresses
-            removeUnferencedCanonicalAddresses(db);
+            // Update the message count in the threads table as the sum
+            // of all messages in both the sms and pdu tables.
+            db.execSQL(
+                    " UPDATE threads" +
+                    " SET message_count = (" +
+                        " SELECT COUNT(sms._id) FROM sms" +
+                        " WHERE " + Sms.THREAD_ID + " = threads._id" +
+                        " AND sms." + Sms.TYPE + " != 3" +
+                    " ) + (" +
+                        " SELECT COUNT(pdu._id) FROM pdu" +
+                        " WHERE " + Mms.THREAD_ID + " = threads._id" +
+                        " AND (m_type=132 OR m_type=130 OR m_type=128)" +
+                        " AND " + Mms.MESSAGE_BOX + " != 3" +
+                    " )" +
+                    " WHERE EXISTS (" +
+                        " SELECT _id" +
+                        " FROM sms" +
+                        " WHERE thread_id = threads._id" +
+                        " AND (" + where + ")" +
+                        " LIMIT 1" +
+                    " );",
+                    whereArgs);
+
+            // Update the date and the snippet (and its character set) in
+            // the threads table to be that of the most recent message in
+            // the thread.
+            db.execSQL(
+                    " WITH matches AS (" +
+                        " SELECT date * 1000 AS date, sub AS snippet, sub_cs AS snippet_cs, thread_id" +
+                        " FROM pdu" +
+                        " WHERE thread_id = threads._id" +
+                        " UNION" +
+                        " SELECT date, body AS snippet, 0 AS snippet_cs, thread_id" +
+                        " FROM sms" +
+                        " WHERE thread_id = threads._id" +
+                        " ORDER BY date DESC" +
+                        " LIMIT 1" +
+                    " )" +
+                    " UPDATE threads" +
+                    " SET date   = (SELECT date FROM matches)," +
+                        " snippet    = (SELECT snippet FROM matches)," +
+                        " snippet_cs = (SELECT snippet_cs FROM matches)" +
+                    " WHERE EXISTS (" +
+                        " SELECT _id" +
+                        " FROM sms" +
+                        " WHERE thread_id = threads._id" +
+                        " AND (" + where + ")" +
+                        " LIMIT 1" +
+                    " );",
+                    whereArgs);
+
+            // Update the error column of the thread to indicate if there
+            // are any messages in it that have failed to send.
+            // First check to see if there are any messages with errors in this thread.
+            db.execSQL(
+                    " UPDATE threads" +
+                    " SET error = EXISTS (" +
+                        " SELECT type" +
+                        " FROM sms" +
+                        " WHERE type=" + Telephony.TextBasedSmsColumns.MESSAGE_TYPE_FAILED +
+                        " AND thread_id = threads._id" +
+                    " )" +
+                    " WHERE EXISTS (" +
+                        " SELECT _id" +
+                        " FROM sms" +
+                        " WHERE thread_id = threads._id" +
+                        " AND (" + where + ")" +
+                        " LIMIT 1" +
+                    " );",
+                    whereArgs);
 
             db.setTransactionSuccessful();
         } catch (Throwable ex) {
@@ -581,12 +562,22 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
 
     private void createIndices(SQLiteDatabase db) {
         createThreadIdIndex(db);
+        createThreadIdDateIndex(db);
     }
 
     private void createThreadIdIndex(SQLiteDatabase db) {
         try {
             db.execSQL("CREATE INDEX IF NOT EXISTS typeThreadIdIndex ON sms" +
             " (type, thread_id);");
+        } catch (Exception ex) {
+            Log.e(TAG, "got exception creating indices: " + ex.toString());
+        }
+    }
+
+    private void createThreadIdDateIndex(SQLiteDatabase db) {
+        try {
+            db.execSQL("CREATE INDEX IF NOT EXISTS threadIdDateIndex ON sms" +
+            " (thread_id, date);");
         } catch (Exception ex) {
             Log.e(TAG, "got exception creating indices: " + ex.toString());
         }
@@ -903,7 +894,10 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
                    "sub_id INTEGER DEFAULT " + SubscriptionManager.INVALID_SUBSCRIPTION_ID + ", " +
                    "pdu TEXT," + // the raw PDU for this part
                    "deleted INTEGER DEFAULT 0," + // bool to indicate if row is deleted
-                   "message_body TEXT);"); // message body
+                   "message_body TEXT," + // message body
+                   "display_originating_addr TEXT);"
+                   // email address if from an email gateway, otherwise same as address
+        );
 
         db.execSQL("CREATE TABLE attachments (" +
                    "sms_id INTEGER," +
@@ -1423,7 +1417,8 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
 
             db.beginTransaction();
             try {
-                upgradeDatabaseToVersion63(db);
+                // upgrade to 63: just add a happy little index.
+                createThreadIdDateIndex(db);
                 db.setTransactionSuccessful();
             } catch (Throwable ex) {
                 Log.e(TAG, ex.getMessage(), ex);
@@ -1440,6 +1435,38 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
             db.beginTransaction();
             try {
                 upgradeDatabaseToVersion64(db);
+                db.setTransactionSuccessful();
+            } catch (Throwable ex) {
+                Log.e(TAG, ex.getMessage(), ex);
+                break;
+            } finally {
+                db.endTransaction();
+            }
+            // fall through
+        case 64:
+            if (currentVersion <= 64) {
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                upgradeDatabaseToVersion65(db);
+                db.setTransactionSuccessful();
+            } catch (Throwable ex) {
+                Log.e(TAG, ex.getMessage(), ex);
+                break;
+            } finally {
+                db.endTransaction();
+            }
+            // fall through
+        case 65:
+            if (currentVersion <= 65) {
+                return;
+            }
+
+            db.beginTransaction();
+            try {
+                upgradeDatabaseToVersion66(db);
                 db.setTransactionSuccessful();
             } catch (Throwable ex) {
                 Log.e(TAG, ex.getMessage(), ex);
@@ -1722,12 +1749,32 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
             " WHERE INSTR(" + Part._DATA + ", '" + partsDirName + "') > 0");
     }
 
-    private void upgradeDatabaseToVersion63(SQLiteDatabase db) {
+    private void upgradeDatabaseToVersion64(SQLiteDatabase db) {
         db.execSQL("ALTER TABLE " + SmsProvider.TABLE_RAW +" ADD COLUMN deleted INTEGER DEFAULT 0");
     }
 
-    private void upgradeDatabaseToVersion64(SQLiteDatabase db) {
-        db.execSQL("ALTER TABLE " + SmsProvider.TABLE_RAW +" ADD COLUMN message_body TEXT");
+    private void upgradeDatabaseToVersion65(SQLiteDatabase db) {
+        // aosp and internal code diverged at version 63. Aosp did createThreadIdDateIndex() on
+        // upgrading to 63, whereas internal (nyc) added column 'deleted'. A device upgrading from
+        // nyc will have columns deleted and message_body in raw table with version 64, but not
+        // createThreadIdDateIndex()
+        try {
+            db.execSQL("ALTER TABLE " + SmsProvider.TABLE_RAW + " ADD COLUMN message_body TEXT");
+        } catch (SQLiteException e) {
+            Log.w(TAG, "[upgradeDatabaseToVersion65] Exception adding column message_body; " +
+                    "trying createThreadIdDateIndex() instead: " + e);
+            createThreadIdDateIndex(db);
+        }
+    }
+
+    private void upgradeDatabaseToVersion66(SQLiteDatabase db) {
+        try {
+            db.execSQL("ALTER TABLE " + SmsProvider.TABLE_RAW
+                    + " ADD COLUMN display_originating_addr TEXT");
+        } catch (SQLiteException e) {
+            Log.e(TAG, "[upgradeDatabaseToVersion66] Exception adding column "
+                    + "display_originating_addr; " + e);
+        }
     }
 
     @Override

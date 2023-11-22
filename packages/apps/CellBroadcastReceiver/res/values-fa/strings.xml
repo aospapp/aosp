@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"هشدار اضطراری"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"پخش سلولی"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"تنظیمات هشدار اضطراری"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"پیام‌های پخش"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"روشن کردن اعلان‌ها"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"نمایش پخش‌های هشدار اضطراری"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"یادآور هشدار"</string>

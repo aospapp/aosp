@@ -19,7 +19,8 @@ API Usage:
 """
 
 import logging, optparse, os, re, sys, string, struct
-import logging_config, logging_manager
+import logging_config
+import logging_manager
 
 
 def _str_to_num(n):

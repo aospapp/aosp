@@ -20,6 +20,9 @@ import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelperT
 
 import junit.framework.TestCase;
 
+/**
+ * Unit tests for {@link CompatibilityConsole}.
+ */
 public class CompatibilityConsoleTest extends TestCase {
 
     @Override
@@ -32,13 +35,8 @@ public class CompatibilityConsoleTest extends TestCase {
         CompatibilityBuildHelperTest.setProperty(null);
     }
 
-    public void testHelpExists() throws Exception {
-        CompatibilityConsole console = new CompatibilityConsole() {};
-        assertFalse("No help", console.getGenericHelpString(null).isEmpty());
-    }
-
     public void testPromptExists() throws Exception {
-        CompatibilityConsole console = new CompatibilityConsole() {};
+        CompatibilityConsole console = new CompatibilityConsole();
         assertFalse("No prompt", console.getConsolePrompt().isEmpty());
     }
 }

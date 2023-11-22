@@ -5,8 +5,7 @@
 NAME = 'graphics_GLMark2.bvt-cq'
 AUTHOR = 'chromeos-gfx'
 PURPOSE = 'Benchmark the graphics library performance.'
-#TODO(ihf): Move this test back to bvt-cq once it works on freon.
-#SUITE = 'bvt-cq'
+ATTRIBUTES = 'suite:bvt-cq'
 TIME='MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "gl"
@@ -15,7 +14,7 @@ JOB_RETRIES = 2
 # Reboot in the lab after the test ends.
 DEPENDENCIES='cleanup-reboot'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

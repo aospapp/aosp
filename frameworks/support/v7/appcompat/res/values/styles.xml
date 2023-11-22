@@ -241,6 +241,7 @@
     <eat-comment />
     <style name="Animation.AppCompat.Dialog" parent="Base.Animation.AppCompat.Dialog" />
     <style name="Animation.AppCompat.DropDownUp" parent="Base.Animation.AppCompat.DropDownUp" />
+    <style name="Animation.AppCompat.Tooltip" parent="Base.Animation.AppCompat.Tooltip" />
 
 
     <!-- Text styles -->
@@ -297,6 +298,12 @@
     <style name="TextAppearance.AppCompat.Widget.Switch" parent="Base.TextAppearance.AppCompat.Widget.Switch" />
 
     <style name="TextAppearance.AppCompat.Widget.TextView.SpinnerItem" parent="Base.TextAppearance.AppCompat.Widget.TextView.SpinnerItem" />
+
+    <style name="TextAppearance.AppCompat.Widget.Button.Colored" parent="Base.TextAppearance.AppCompat.Widget.Button.Colored" />
+
+    <style name="TextAppearance.AppCompat.Widget.Button.Borderless.Colored" parent="Base.TextAppearance.AppCompat.Widget.Button.Borderless.Colored" />
+
+    <style name="TextAppearance.AppCompat.Tooltip" parent="Base.TextAppearance.AppCompat.Tooltip"/>
 
     <!--
          The following themes are deprecated.

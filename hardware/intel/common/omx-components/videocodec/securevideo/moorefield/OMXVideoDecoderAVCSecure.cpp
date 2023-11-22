@@ -659,6 +659,9 @@ void OMXVideoDecoderAVCSecure::MemFreeDataBuffer(OMX_U8 *pBuffer) {
         ALOGE("%s: Faild to munmap %p",__FUNCTION__, dataBuffer);
         return;
     }
+
+    native_handle_close(native_handle);
+    native_handle_delete(native_handle);
     ALOGV("Free databuffer %p with data = %p", dataBuffer, dataBuffer->data);
     --mNumInportBuffers;
 }

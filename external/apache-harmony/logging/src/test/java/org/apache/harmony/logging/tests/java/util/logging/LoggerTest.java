@@ -23,10 +23,12 @@ import org.apache.harmony.logging.tests.java.util.logging.util.EnvironmentHelper
 
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.function.Supplier;
 import java.util.logging.Filter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -1320,7 +1322,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.CONFIG);
-        child.config(null);
+        child.config((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1334,8 +1336,67 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.INFO);
-        this.sharedLogger.config(null);
+        this.sharedLogger.config((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test config(Supplier<String>) with normal values.
+      */
+    public void testConfig_Supplier() {
+        this.sharedLogger.setLevel(Level.CONFIG);
+        this.sharedLogger.config(() -> "config msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "config msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.CONFIG);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.config(() -> "config again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+
+
+    /*
+      * Test config(Supplier<String>) with null values.
+      */
+    public void testConfig_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.CONFIG);
+        child.config(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.CONFIG);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.config(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.config((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1363,6 +1424,30 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test fine(Supplier<String>) with normal values.
+      */
+    public void testFine_Supplier() {
+        this.sharedLogger.setLevel(Level.FINE);
+        this.sharedLogger.fine(() -> "fine msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertEquals(r.getMessage(), "fine msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.FINE);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.CONFIG);
+        this.sharedLogger.fine(() -> "fine again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
       * Test fine(String) with null values.
       */
     public void testFine_Null() {
@@ -1370,9 +1455,8 @@ public class LoggerTest extends TestCase {
         Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
         child.addHandler(new MockHandler());
         child.setParent(parent);
-
         child.setLevel(Level.FINE);
-        child.fine(null);
+        child.fine((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1386,8 +1470,40 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.CONFIG);
-        this.sharedLogger.fine(null);
+        this.sharedLogger.fine((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test fine(Supplier<String>) with null values.
+      */
+    public void testFine_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+        child.setLevel(Level.FINE);
+        child.fine(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.FINE);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.CONFIG);
+        this.sharedLogger.fine(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.fine((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1415,6 +1531,31 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test finer(Supplier<String>) with normal values.
+      */
+    public void testFiner_Supplier() {
+        this.sharedLogger.setLevel(Level.FINER);
+        this.sharedLogger.finer(() -> "finer msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "finer msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.FINER);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.FINE);
+        this.sharedLogger.finer(() -> "finer again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+
+    /*
       * Test finer(String) with null values.
       */
     public void testFiner_Null() {
@@ -1424,7 +1565,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.FINER);
-        child.finer(null);
+        child.finer((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1438,8 +1579,41 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.FINE);
-        this.sharedLogger.finer(null);
+        this.sharedLogger.finer((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test finer(Supplier<String>) with null values.
+      */
+    public void testFiner_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.FINER);
+        child.finer(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.FINER);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.FINE);
+        this.sharedLogger.finer(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.finer((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1467,6 +1641,31 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test finest(Supplier<String>) with normal values.
+      */
+    public void testFinest_Supplier() {
+        this.sharedLogger.setLevel(Level.FINEST);
+        this.sharedLogger.finest(() -> "finest msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "finest msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.FINEST);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.FINER);
+        this.sharedLogger.finest(() -> "finest again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+
+    /*
       * Test finest(String) with null values.
       */
     public void testFinest_Null() {
@@ -1476,7 +1675,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.FINEST);
-        child.finest(null);
+        child.finest((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1490,8 +1689,41 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.FINER);
-        this.sharedLogger.finest(null);
+        this.sharedLogger.finest((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test finest(Supplier<String>) with null values.
+      */
+    public void testFinest_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.FINEST);
+        child.finest(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.FINEST);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.FINER);
+        this.sharedLogger.finest(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.finest((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1519,6 +1751,30 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test info(Supplier<String>) with normal values.
+      */
+    public void testInfo_Supplier() {
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.info(() -> "info msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "info msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.WARNING);
+        this.sharedLogger.info(() -> "info again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
       * Test info(String) with null values.
       */
     public void testInfo_Null() {
@@ -1528,7 +1784,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.INFO);
-        child.info(null);
+        child.info((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1542,8 +1798,41 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.WARNING);
-        this.sharedLogger.info(null);
+        this.sharedLogger.info((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test info(Supplier<String>) with null values.
+      */
+    public void testInfo_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.INFO);
+        child.info(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.WARNING);
+        this.sharedLogger.info(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.info((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1571,6 +1860,30 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test warning(Supplier<String>) with normal values.
+      */
+    public void testWarning_Supplier() {
+        this.sharedLogger.setLevel(Level.WARNING);
+        this.sharedLogger.warning(() -> "warning msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "warning msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.WARNING);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.SEVERE);
+        this.sharedLogger.warning(() -> "warning again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
       * Test warning(String) with null values.
       */
     public void testWarning_Null() {
@@ -1580,7 +1893,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.WARNING);
-        child.warning(null);
+        child.warning((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1594,8 +1907,41 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.SEVERE);
-        this.sharedLogger.warning(null);
+        this.sharedLogger.warning((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test warning(Supplier<String>) with null values.
+      */
+    public void testWarning_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.WARNING);
+        child.warning(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.WARNING);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.SEVERE);
+        this.sharedLogger.warning(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.warning((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1623,6 +1969,30 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test severe(Supplier<String>) with normal values.
+      */
+    public void testSevere_Supplier() {
+        this.sharedLogger.setLevel(Level.SEVERE);
+        this.sharedLogger.severe(() -> "severe msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "severe msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.SEVERE);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.severe(() -> "severe again");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
       * Test severe(String) with null values.
       */
     public void testSevere_Null() {
@@ -1632,7 +2002,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.SEVERE);
-        child.severe(null);
+        child.severe((String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1646,8 +2016,41 @@ public class LoggerTest extends TestCase {
         assertSame(r.getThrown(), null);
 
         this.sharedLogger.setLevel(Level.OFF);
-        this.sharedLogger.severe(null);
+        this.sharedLogger.severe((String)null);
         assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test severe(Supplier<String>) with null values.
+      */
+    public void testSevere_Supplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.SEVERE);
+        child.severe(() -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.SEVERE);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.severe(() -> (String)null);
+        assertTrue(CallVerificationStack.getInstance().empty());
+
+        try {
+            child.severe((Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1677,6 +2080,32 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test log(Level, Supplier<String>) with normal values.
+      */
+    public void testLog_LevelSupplier() {
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.log(Level.INFO, () -> "log(Level, String) msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "log(Level, String) msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.log(Level.CONFIG, () -> "log(Level, String) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.log(Level.OFF, () -> "log(Level, String) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
       * Test log(Level, String) with null message.
       */
     public void testLog_LevelString_NullMsg() {
@@ -1686,7 +2115,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.INFO);
-        child.log(Level.INFO, null);
+        child.log(Level.INFO, (String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1698,6 +2127,35 @@ public class LoggerTest extends TestCase {
         assertSame(r.getLevel(), Level.INFO);
         assertNull(r.getParameters());
         assertSame(r.getThrown(), null);
+    }
+
+    /*
+      * Test log(Level, Supplier<String>) with null message.
+      */
+    public void testLog_LevelSupplier_NullMsg() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.INFO);
+        child.log(Level.INFO, () -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        try {
+            child.log(Level.INFO, (Supplier<String>) null);
+            fail();
+        } catch(NullPointerException expected) {}
     }
 
     /*
@@ -1919,6 +2377,67 @@ public class LoggerTest extends TestCase {
         }
     }
 
+
+    /*
+      * Test log(Level, Throwable, Supplier<String>) with normal values.
+      */
+    public void testLog_LevelThrowableSupplier_Normal() {
+        Throwable t = new Throwable();
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.log(Level.INFO, t,
+                () -> "log(Level, Throwable, Supplier<String>) msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "log(Level, Throwable, Supplier<String>) msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), t);
+
+        this.sharedLogger.log(Level.CONFIG, t,
+                () -> "log(Level, Throwable, Supplier<String>) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger
+                .log(Level.OFF, "log(Level, Throwable, Supplier<String>) msg", t);
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+
+    /*
+      * Test log(Level, Throwable, Supplier<String>) with null message and throwable.
+      */
+    public void testLog_LevelThrowableSupplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.INFO);
+        child.log(Level.INFO, (Throwable) null, () -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        try {
+            child.log(Level.INFO, (Throwable) null, (Supplier<String>)null);
+            fail();
+        } catch(NullPointerException expected) {}
+    }
+
     /*
       * Test logp(Level, String, String, String) with normal values.
       */
@@ -1958,7 +2477,7 @@ public class LoggerTest extends TestCase {
         child.setParent(parent);
 
         child.setLevel(Level.INFO);
-        child.logp(Level.INFO, null, null, null);
+        child.logp(Level.INFO, (String)null, (String)null, (String)null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
         assertSame(r.getLoggerName(), child.getName());
@@ -1980,6 +2499,78 @@ public class LoggerTest extends TestCase {
         try {
             this.sharedLogger.logp(null, "sourceClass", "sourceMethod",
                     "logp(Level, String, String, String) msg");
+            fail("Should throw NullPointerException!");
+        } catch (NullPointerException e) {
+        }
+    }
+
+    /*
+      * Test logp(Level, String, String, Supplier<String>) with normal values.
+      */
+    public void testLogp_LevelStringStringSupplier_Normal() {
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.logp(Level.INFO, "sourceClass", "sourceMethod",
+                () -> "logp(Level, String, String, Supplier<String>) msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(), "logp(Level, String, String, Supplier<String>) msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), "sourceClass");
+        assertSame(r.getSourceMethodName(), "sourceMethod");
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.logp(Level.CONFIG, "sourceClass", "sourceMethod",
+                 () -> "logp(Level, String, String, Supplier<String>) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.logp(Level.OFF, "sourceClass", "sourceMethod",
+                 () -> "logp(Level, String, String, Supplier<String>) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test logp(Level, String, String, Supplier<String>) with null message.
+      */
+    public void testLogp_LevelStringStringSupplier_NullMsg() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.INFO);
+        child.logp(Level.INFO, (String)null, (String)null, () -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        try {
+            child.logp(Level.INFO, (String)null, (String)null, (Supplier<String>)null);
+            fail();
+        } catch(NullPointerException expected) {}
+
+    }
+
+    /*
+      * Test logp(Level, String, String, Supplier<String>) with null level.
+      */
+    public void testLogp_LevelStringStringSupplier_NullLevel() {
+        // this.sharedLogger.setLevel(Level.OFF);
+        try {
+            this.sharedLogger.logp(null, "sourceClass", "sourceMethod",
+                    () -> "logp(Level, String, String, String) msg");
             fail("Should throw NullPointerException!");
         } catch (NullPointerException e) {
         }
@@ -2196,6 +2787,80 @@ public class LoggerTest extends TestCase {
             this.sharedLogger.logp(null, "sourceClass", "sourceMethod",
                     "log(Level, String, String, String, Throwable) msg",
                     new Throwable());
+            fail("Should throw NullPointerException!");
+        } catch (NullPointerException e) {
+        }
+    }
+
+    /*
+      * Test logp(Level, String, String, Throwable, Supplier<String>) with normal values.
+      */
+    public void testLogp_LevelStringStringThrowableSupplier_Normal() {
+        Throwable t = new Throwable();
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.logp(Level.INFO, "sourceClass", "sourceMethod", t,
+                () -> "logp(Level, String, String, Throwable, Supplier<String>) msg");
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(),
+                "logp(Level, String, String, Throwable, Supplier<String>) msg");
+        assertSame(r.getResourceBundleName(), this.sharedLogger
+                .getResourceBundleName());
+        assertSame(r.getResourceBundle(), this.sharedLogger.getResourceBundle());
+        assertSame(r.getSourceClassName(), "sourceClass");
+        assertSame(r.getSourceMethodName(), "sourceMethod");
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), t);
+
+        this.sharedLogger.logp(Level.CONFIG, "sourceClass", "sourceMethod", t,
+                () -> "logp(Level, String, String, Throwable, Supplier<String>) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.logp(Level.OFF, "sourceClass", "sourceMethod", t,
+                () -> "logp(Level, String, String, Throwable, Supplier<String>) msg");
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test logp(Level, String, String, Throwable, Supplier<String>) with null message and
+      * throwable.
+      */
+    public void testLogp_LevelStringStringThrowableSupplier_Null() {
+        Logger child = new MockLogger("childLogger", null);
+        Logger parent = new MockLogger("parentLogger", VALID_RESOURCE_BUNDLE2);
+        child.addHandler(new MockHandler());
+        child.setParent(parent);
+
+        child.setLevel(Level.INFO);
+        child.logp(Level.INFO, null, null, (Throwable) null, () -> (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), child.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), parent.getResourceBundleName());
+        assertSame(r.getResourceBundle(), parent.getResourceBundle());
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+
+        try {
+            child.logp(Level.INFO, null, null, (Throwable) null, (Supplier<String>) null);
+            fail();
+        } catch (NullPointerException expected) {}
+    }
+
+    /*
+      * Test logp(Level, String, String, Throwable, Supplier<String>) with null level.
+      */
+    public void testLogp_LevelStringStringThrowableSupplier_NullLevel() {
+        // this.sharedLogger.setLevel(Level.OFF);
+        try {
+            this.sharedLogger.logp(null, "sourceClass", "sourceMethod",
+                    new Throwable(), () -> "log(Level, String, String, Throwable, Supplier) msg");
             fail("Should throw NullPointerException!");
         } catch (NullPointerException e) {
         }
@@ -2433,7 +3098,7 @@ public class LoggerTest extends TestCase {
       */
     public void testLogrb_LevelStringStringStringObjects_NullMsgObj() {
         this.sharedLogger.setLevel(Level.INFO);
-        this.sharedLogger.logrb(Level.INFO, null, null, null, null,
+        this.sharedLogger.logrb(Level.INFO, (String)null, (String)null, (String)null, (String)null,
                 (Object[]) null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
@@ -2496,6 +3161,87 @@ public class LoggerTest extends TestCase {
     }
 
     /*
+      * Test logrb(Level, String, String, ResourceBundle, String, Object...) with normal
+      * values.
+      */
+    public void testLogrb_LevelStringStringResourceBundleStringObjectEllipsis_Normal() {
+        Object[] params = new Object[2];
+        params[0] = new Object();
+        params[1] = new Object();
+        this.sharedLogger.setLevel(Level.INFO);
+        ResourceBundle rb = ResourceBundle.getBundle(VALID_RESOURCE_BUNDLE2);
+        this.sharedLogger.logrb(Level.INFO, "sourceClass", "sourceMethod",
+                rb,
+                "logrb(Level, String, String, ResourceBundle, String, Object...) msg",
+                params[0], params[1]);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(),
+                "logrb(Level, String, String, ResourceBundle, String, Object...) msg");
+        assertEquals(r.getResourceBundleName(), VALID_RESOURCE_BUNDLE2);
+        assertEquals(r.getSourceClassName(), "sourceClass");
+        assertEquals(r.getSourceMethodName(), "sourceMethod");
+        assertSame(r.getLevel(), Level.INFO);
+        assertEquals(2, r.getParameters().length);
+        assertSame(params[0], r.getParameters()[0]);
+        assertSame(params[1], r.getParameters()[1]);
+        assertSame(r.getThrown(), null);
+
+        this.sharedLogger.logrb(Level.CONFIG, "sourceClass", "sourceMethod",
+                rb,
+                "logrb(Level, String, String, ResourceBundle, String, Object...) msg",
+                params[0], params[1]);
+        assertTrue(CallVerificationStack.getInstance().empty());
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.logrb(Level.OFF, "sourceClass", "sourceMethod",
+                VALID_RESOURCE_BUNDLE2,
+                "logrb(Level, String, String, ResourceBundle, String, Object...) msg",
+                params);
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test logrb(Level, String, String, ResourceBundle, String, Object...) with null
+      * message and object.
+      */
+    public void testLogrb_LevelStringStringResourceBundleStringObjectEllipsis_NullMsgObj() {
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.logrb(Level.INFO, (String)null, (String)null, (ResourceBundle)null,
+                (String)null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), null);
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+    }
+
+    /*
+      * Test logrb(Level, String, String, ResourceBundle, String, Object...) with null
+      * level.
+      */
+    public void testLogrb_LevelStringStringResourceBundleStringObjectEllipsis_NullLevel() {
+        // this.sharedLogger.setLevel(Level.OFF);
+        ResourceBundle rb = ResourceBundle.getBundle(VALID_RESOURCE_BUNDLE2);
+        try {
+            this.sharedLogger
+                    .logrb(
+                            null,
+                            "sourceClass",
+                            "sourceMethod",
+                            rb,
+                            "logrb(Level, String, String, ResourceBundle, String, Object...) msg");
+            fail("Should throw NullPointerException!");
+        } catch (NullPointerException e) {
+        }
+    }
+
+    /*
       * Test logrb(Level, String, String, String, String, Throwable) with normal
       * values.
       */
@@ -2536,9 +3282,9 @@ public class LoggerTest extends TestCase {
       * Test logrb(Level, String, String, String, String, Throwable) with null
       * message and throwable.
       */
-    public void testLogrb_LevelStringTStringStringhrowable_NullMsgObj() {
+    public void testLogrb_LevelStringStringStringThrowable_NullMsgObj() {
         this.sharedLogger.setLevel(Level.INFO);
-        this.sharedLogger.logrb(Level.INFO, null, null, null, null,
+        this.sharedLogger.logrb(Level.INFO, (String)null, (String)null, (String)null, (String)null,
                 (Throwable) null);
         LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
         assertTrue(CallVerificationStack.getInstance().empty());
@@ -2594,6 +3340,85 @@ public class LoggerTest extends TestCase {
         assertSame(r.getLevel(), Level.ALL);
         assertNull(r.getParameters());
         assertSame(r.getThrown(), t);
+    }
+
+    /*
+      * Test logrb(Level, String, String, ResourceBundle, String, Throwable) with normal
+      * values.
+      */
+    public void testLogrb_LevelStringStringResourceBundleStringThrowable_Normal() {
+        Throwable t = new Throwable();
+        ResourceBundle rb = ResourceBundle.getBundle(VALID_RESOURCE_BUNDLE2);
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.logrb(Level.parse("1611"), "sourceClass",
+                "sourceMethod", rb,
+                "logrb(Level, String, String, ResourceBundle, String, Throwable) msg",
+                t);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertEquals(r.getMessage(),
+                "logrb(Level, String, String, ResourceBundle, String, Throwable) msg");
+        assertEquals(r.getResourceBundleName(), VALID_RESOURCE_BUNDLE2);
+        assertEquals(r.getSourceClassName(), "sourceClass");
+        assertEquals(r.getSourceMethodName(), "sourceMethod");
+        assertSame(r.getLevel(), Level.parse("1611"));
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), t);
+        assertNull(Level.parse("1611").getResourceBundleName());
+
+        this.sharedLogger.logrb(Level.CONFIG, "sourceClass", "sourceMethod",
+                rb,
+                "logrb(Level, String, String, ResourceBundle, String, Throwable) msg",
+                t);
+        assertTrue(CallVerificationStack.getInstance().empty());
+        this.sharedLogger.setLevel(Level.OFF);
+        this.sharedLogger.logrb(Level.OFF, "sourceClass", "sourceMethod",
+                rb,
+                "logrb(Level, String, String, ResourceBundle, String, Throwable) msg",
+                t);
+        assertTrue(CallVerificationStack.getInstance().empty());
+    }
+
+    /*
+      * Test logrb(Level, String, String, ResourceBundle, String, Throwable) with null
+      * message and throwable.
+      */
+    public void testLogrb_LevelStringStringResourceBundleStringThrowable_NullMsgObj() {
+        this.sharedLogger.setLevel(Level.INFO);
+        this.sharedLogger.logrb(Level.INFO, (String)null, (String)null, (ResourceBundle)null,
+                (String)null, (Throwable) null);
+        LogRecord r = (LogRecord) CallVerificationStack.getInstance().pop();
+        assertTrue(CallVerificationStack.getInstance().empty());
+        assertSame(r.getLoggerName(), this.sharedLogger.getName());
+        assertNull(r.getMessage());
+        assertSame(r.getResourceBundleName(), null);
+        assertSame(r.getSourceClassName(), null);
+        assertSame(r.getSourceMethodName(), null);
+        assertSame(r.getLevel(), Level.INFO);
+        assertNull(r.getParameters());
+        assertSame(r.getThrown(), null);
+    }
+
+    /*
+      * Test logrb(Level, String, String, ResourceBundle, String, Throwable) with null
+      * level.
+      */
+    public void testLogrb_LevelStringStringResourceBundleStringThrowable_NullLevel() {
+        ResourceBundle rb = ResourceBundle.getBundle(VALID_RESOURCE_BUNDLE2);
+        // this.sharedLogger.setLevel(Level.OFF);
+        try {
+            this.sharedLogger
+                    .logrb(
+                            null,
+                            "sourceClass",
+                            "sourceMethod",
+                            rb,
+                            "log(Level, String, String, ResourceBundle, String, Throwable) msg",
+                            new Throwable());
+            fail("Should throw NullPointerException!");
+        } catch (NullPointerException e) {
+        }
     }
 
     /*
@@ -3030,6 +3855,73 @@ public class LoggerTest extends TestCase {
             if (logPropsStream != null) {
                 logPropsStream.close();
             }
+        }
+    }
+
+
+    /*
+     * test setResourceBundle
+     */
+    public void test_setResourceBundle() throws Exception {
+        assertNull(LogManager.getLogManager().getLogger("testSetResourceBundle"));
+
+        // Create a new logger
+        Logger log1 = Logger.getLogger("testSetResourceBundle");
+        assertNull(log1.getResourceBundle());
+
+        // Set bundle
+        ResourceBundle resourceBundle = ResourceBundle.getBundle(VALID_RESOURCE_BUNDLE);
+        log1.setResourceBundle(resourceBundle);
+
+        assertEquals(VALID_VALUE, log1.getResourceBundle().getString(VALID_KEY));
+        assertEquals(log1.getResourceBundleName(), VALID_RESOURCE_BUNDLE);
+
+        // Set again the same bundle
+        log1.setResourceBundle(resourceBundle);
+        assertEquals(VALID_VALUE, log1.getResourceBundle().getString(VALID_KEY));
+        assertEquals(log1.getResourceBundleName(), VALID_RESOURCE_BUNDLE);
+
+        // Try different one and fail
+        ResourceBundle anotherResourceBundle = ResourceBundle.getBundle(VALID_RESOURCE_BUNDLE2);
+        try {
+            log1.setResourceBundle(anotherResourceBundle);
+            fail();
+        } catch(IllegalArgumentException expected) {
+        }
+    }
+
+    /*
+     * test setResourceBundle
+     */
+    public void test_setResourceBundle_badInputs() throws Exception {
+        assertNull(LogManager.getLogManager().getLogger("testSetResourceBundle_badInputs"));
+
+        // Create a new logger
+        Logger log1 = Logger.getLogger("testSetResourceBundle_badInputs");
+        assertNull(log1.getResourceBundle());
+
+        // NPE
+        try {
+            log1.setResourceBundle(null);
+            fail();
+        } catch(NullPointerException expected) {
+        }
+
+        // ResourceBundle with an empty name
+        try {
+            log1.setResourceBundle(new ResourceBundle() {
+                    @Override
+                    protected Object handleGetObject(String key) {
+                        return null;
+                    }
+
+                    @Override
+                    public Enumeration<String> getKeys() {
+                        return null;
+                    }
+                });
+            fail();
+        } catch(IllegalArgumentException expected) {
         }
     }
 

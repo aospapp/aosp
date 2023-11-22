@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2013-2015, International Business Machines
@@ -490,7 +492,7 @@ final class CollationDataReader /* all static */ {
     }
 
     private static final class IsAcceptable implements ICUBinary.Authenticate {
-        // @Override when we switch to Java 6
+        @Override
         public boolean isDataVersionAcceptable(byte version[]) {
             return version[0] == 5;
         }

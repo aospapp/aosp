@@ -50,7 +50,7 @@
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Anuluj"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> uzyska możliwość nawiązywania połączeń i kontrolowania wszystkich ich aspektów. Tylko zaufane aplikacje powinny być ustawiane jako domyślna aplikacja telefoniczna."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Zablokowane numery"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Nie będziesz otrzymywać połączeń ani SMS-ów z zablokowanych numerów."</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Nie będziesz otrzymywać połączeń ani SMS-ów z zablokowanych numerów."</string>
     <string name="block_number" msgid="1101252256321306179">"Dodaj numer"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"Odblokować <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"Odblokuj"</string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Nie można zablokować numeru alarmowego."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"Numer <xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> jest już zablokowany."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Wykonuję połączenie z osobistego telefonu"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Połączenie w <xliff:g id="CALL_VIA">%1$s</xliff:g> od: <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Połączenie wideo w <xliff:g id="CALL_VIA">%1$s</xliff:g> od: <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Jeśli odbierzesz połączenie, zakończysz rozmowę w <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Jeśli odbierzesz połączenie, zakończysz rozmowy w <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Jeśli odbierzesz połączenie, zakończysz rozmowę wideo w <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Jeśli odbierzesz połączenie, zakończysz trwającą rozmowę"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Jeśli odbierzesz połączenie, zakończysz trwające rozmowy"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Jeśli odbierzesz połączenie, zakończysz rozmowę wideo"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Odbierz"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Odrzuć"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Nie możesz zadzwonić z powodu trwającej rozmowy w <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Nie możesz zadzwonić z powodu trwających rozmów w <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Nie możesz zadzwonić z powodu trwającej rozmowy w innej aplikacji."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Połączenia przychodzące"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Połączenia nieodebrane"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Jeśli zadzwonisz, połączenie w aplikacji <xliff:g id="OTHER_APP">%1$s</xliff:g> zostanie zakończone."</string>
 </resources>

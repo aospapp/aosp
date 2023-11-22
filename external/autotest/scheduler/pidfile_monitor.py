@@ -5,12 +5,20 @@ Pidfile monitor.
 """
 
 import logging
-import time, traceback
+import time
+import traceback
+
+import common
+
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
-from autotest_lib.scheduler import drone_manager, email_manager
+from autotest_lib.scheduler import drone_manager
 from autotest_lib.scheduler import scheduler_config
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 def _get_pidfile_timeout_secs():
@@ -105,12 +113,6 @@ class PidfileRunMonitor(object):
 
 
     def _handle_pidfile_error(self, error, message=''):
-        metadata = {'_type': 'scheduler_error',
-                    'error': 'autoserv died without writing exit code',
-                    'process': str(self._state.process),
-                    'pidfile_id': str(self.pidfile_id)}
-        autotest_stats.Counter('autoserv_died_without_writing_exit_code',
-                               metadata=metadata).increment()
         self.on_lost_process(self._state.process)
 
 
@@ -155,14 +157,13 @@ class PidfileRunMonitor(object):
         """\
         Called when no pidfile is found or no pid is in the pidfile.
         """
-        message = 'No pid found at %s' % self.pidfile_id
         if time.time() - self._start_time > _get_pidfile_timeout_secs():
             # If we aborted the process, and we find that it has exited without
             # writing a pidfile, then it's because we killed it, and thus this
             # isn't a surprising situation.
             if not self._killed:
-                email_manager.manager.enqueue_notify_email(
-                    'Process has failed to write pidfile', message)
+                metrics.Counter('chromeos/autotest/errors/scheduler/no_pidfile'
+                                ).increment()
             else:
                 logging.warning("%s didn't exit after SIGTERM", self.pidfile_id)
             self.on_lost_process()

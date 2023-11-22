@@ -23,15 +23,16 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-    $(call all-java-files-under, src) \
-    $(call all-java-files-under, cglib-and-asm/src)
+    $(call all-java-files-under, src/main/java)
 
-LOCAL_JAVA_LIBRARIES := junit objenesis-host ant
+LOCAL_JAVA_LIBRARIES := junit-host objenesis-host
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    mockito-byte-buddy-host \
+    mockito-byte-buddy-agent-host
 LOCAL_MODULE := mockito-host
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
-
 
 ###################################################################
 # Target build
@@ -44,31 +45,15 @@ include $(CLEAR_VARS)
 
 # Exclude source used to dynamically create classes since target builds use 
 # dexmaker instead and including it causes conflicts.
-explicit_target_excludes := \
-    src/org/mockito/internal/creation/AbstractMockitoMethodProxy.java \
-    src/org/mockito/internal/creation/AcrossJVMSerializationFeature.java \
-    src/org/mockito/internal/creation/CglibMockMaker.java \
-    src/org/mockito/internal/creation/DelegatingMockitoMethodProxy.java \
-    src/org/mockito/internal/creation/MethodInterceptorFilter.java \
-    src/org/mockito/internal/creation/MockitoMethodProxy.java \
-    src/org/mockito/internal/creation/SerializableMockitoMethodProxy.java \
-    src/org/mockito/internal/invocation/realmethod/FilteredCGLIBProxyRealMethod.java \
-    src/org/mockito/internal/invocation/realmethod/CGLIBProxyRealMethod.java \
-    src/org/mockito/internal/invocation/realmethod/HasCGLIBMethodProxy.java
-
 target_src_files := \
-    $(call all-java-files-under, src)
+    $(call all-java-files-under, src/main/java)
 target_src_files := \
-    $(filter-out src/org/mockito/internal/creation/cglib/%, $(target_src_files))
-target_src_files := \
-    $(filter-out src/org/mockito/internal/creation/jmock/%, $(target_src_files))
-target_src_files := \
-    $(filter-out $(explicit_target_excludes), $(target_src_files))
+    $(filter-out src/main/java/org/mockito/internal/creation/bytebuddy/%, $(target_src_files))
 
 LOCAL_SRC_FILES := $(target_src_files)
-LOCAL_JAVA_LIBRARIES := junit4-target objenesis-target
+LOCAL_JAVA_LIBRARIES := junit objenesis-target
 LOCAL_MODULE := mockito-api
-LOCAL_SDK_VERSION := 10
+LOCAL_SDK_VERSION := 16
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -77,20 +62,21 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := mockito-target
-LOCAL_STATIC_JAVA_LIBRARIES := mockito-target-minus-junit4 junit4-target
-LOCAL_SDK_VERSION := 10
+LOCAL_STATIC_JAVA_LIBRARIES := mockito-target-minus-junit4 junit
+LOCAL_SDK_VERSION := 16
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
-# A mockito target that doesn't pull in junit4-target. This is used to work around
-# issues caused by multiple copies of junit4 in the classpath, usually when a test
+# A mockito target that doesn't pull in junit. This is used to work around
+# issues caused by multiple copies of junit in the classpath, usually when a test
 # using mockito is run using android.test.runner.
 include $(CLEAR_VARS)
 LOCAL_MODULE := mockito-target-minus-junit4
 LOCAL_STATIC_JAVA_LIBRARIES := mockito-api dexmaker dexmaker-mockmaker objenesis-target
-LOCAL_JAVA_LIBRARIES := junit4-target
-LOCAL_SDK_VERSION := 10
+LOCAL_JAVA_LIBRARIES := junit
+LOCAL_SDK_VERSION := 16
 LOCAL_MODULE_TAGS := optional
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 
@@ -99,19 +85,27 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 ###################################################################
 
 # Builds the Mockito source code, but does not include any run-time
-# dependencies. Since host modules are not compiled against the SDK,
-# an explicit inclusion of core-junit-hostdex is needed in contrast
-# with the target module above.
+# dependencies.
 ifeq ($(HOST_OS),linux)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(target_src_files)
-LOCAL_JAVA_LIBRARIES := core-junit-hostdex junit4-target-hostdex \
+LOCAL_JAVA_LIBRARIES := \
+    junit-hostdex \
     objenesis-hostdex
 LOCAL_MODULE := mockito-api-hostdex
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif # HOST_OS == linux
 
+# Host prebuilt dependencies.
+# ============================================================
+include $(CLEAR_VARS)
+
+LOCAL_PREBUILT_JAVA_LIBRARIES := \
+    mockito-byte-buddy-host:lib/byte-buddy-1.6.9$(COMMON_JAVA_PACKAGE_SUFFIX) \
+    mockito-byte-buddy-agent-host:lib/byte-buddy-agent-1.6.9$(COMMON_JAVA_PACKAGE_SUFFIX) \
+
+include $(BUILD_HOST_PREBUILT)
 
 ###################################################
 # Clean up temp vars

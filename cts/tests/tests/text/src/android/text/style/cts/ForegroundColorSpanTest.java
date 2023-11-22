@@ -16,15 +16,22 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Color;
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.ForegroundColorSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class ForegroundColorSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ForegroundColorSpanTest {
+    @Test
     public void testConstructor() {
         ForegroundColorSpan f = new ForegroundColorSpan(Color.GREEN);
 
@@ -38,6 +45,7 @@ public class ForegroundColorSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetForegroundColor() {
         ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(Color.BLUE);
         assertEquals(Color.BLUE, foregroundColorSpan.getForegroundColor());
@@ -46,6 +54,7 @@ public class ForegroundColorSpanTest extends TestCase {
         assertEquals(Color.BLACK, foregroundColorSpan.getForegroundColor());
     }
 
+    @Test
     public void testUpdateDrawState() {
         ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(Color.CYAN);
 
@@ -58,25 +67,28 @@ public class ForegroundColorSpanTest extends TestCase {
         foregroundColorSpan = new ForegroundColorSpan(Color.DKGRAY);
         foregroundColorSpan.updateDrawState(tp);
         assertEquals(Color.DKGRAY, tp.getColor());
-
-        try {
-            foregroundColorSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(Color.CYAN);
+
+        foregroundColorSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(Color.RED);
         foregroundColorSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(Color.RED);
         foregroundColorSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

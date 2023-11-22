@@ -38,6 +38,7 @@ public class ClassPrepareDebuggee extends SyncDebuggee {
         runDebuggee(ClassPrepareDebuggee.class);
     }
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         

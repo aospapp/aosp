@@ -198,7 +198,8 @@ values are unlikely to be needed).</p>
   <td>method prototype identifiers list. These are identifiers for all
     prototypes referred to by this file. This list must be sorted in
     return-type (by <code>type_id</code> index) major order, and then
-    by arguments (also by <code>type_id</code> index). The list must not
+    by argument list (lexicographic ordering, individual arguments
+    ordered by <code>type_id</code> index). The list must not
     contain any duplicate entries.
   </td>
 </tr>
@@ -236,6 +237,21 @@ values are unlikely to be needed).</p>
   </td>
 </tr>
 <tr>
+  <td>call_site_ids</td>
+  <td>call_site_id_item[]</td>
+  <td>call site identifiers list. These are identifiers for all call sites
+    referred to by this file, whether defined in the file or not. This list
+    must be sorted in ascending order of <code>call_site_off</code>. This
+    list must not contain any duplicate entries.
+</tr>
+<tr>
+  <td>method_handles</td>
+  <td>method_handle_item[]</td>
+  <td>method handles list. A list of all method handles referred to by this file,
+    whether defined in the file or not. This list is not sorted and may contain
+    duplicates which will logically correspond to different method handle instances.
+</tr>
+<tr>
   <td>data</td>
   <td>ubyte[]</td>
   <td>data area, containing all the support data for the tables listed above.
@@ -271,8 +287,8 @@ encodes a format version number as three decimal digits, which is
 expected to increase monotonically over time as the format evolves.</p>
 
 <pre>
-ubyte[8] DEX_FILE_MAGIC = { 0x64 0x65 0x78 0x0a 0x30 0x33 0x37 0x00 }
-                        = "dex\n037\0"
+ubyte[8] DEX_FILE_MAGIC = { 0x64 0x65 0x78 0x0a 0x30 0x33 0x38 0x00 }
+                        = "dex\n038\0"
 </pre>
 
 <p class="note"><strong>Note:</strong> At least a couple earlier versions of the format have
@@ -284,15 +300,17 @@ platform (February&ndash;March 2008). In several respects, these earlier
 versions of the format differ significantly from the version described in this
 document.</p>
 
+<p class="note"><strong>Note:</strong> Support for version
+<code>038</code> of the format was added in the Android 8.0
+release. Version <code>038</code> added new bytecodes
+(<code>invoke-polymorphic</code> and <code>invoke-custom</code>) and
+data for method handles.
+
 <p class="note"><strong>Note:</strong> Support for version <code>037</code> of
-the format was added in the Android 7.0 release. Prior to this release most
+the format was added in the Android 7.0 release. Prior to version <code>037</code> most
 versions of Android have used version <code>035</code> of the format. The only
 difference between versions <code>035</code> and <code>037</code> is the
-addition of default methods and the adjustment of the <code>invoke</code>
-instruction semantics to support this feature. Due to a Dalvik bug present in
-older versions of Android, Dex version <code>036</code> has been skipped.
-Dex version <code>036</code> is not valid for any version of Android and never
-will be.</p>
+addition of default methods and the adjustment of the <code>invoke</code>.
 
 <h3 id="endian-constant">ENDIAN_CONSTANT and REVERSE_ENDIAN_CONSTANT</h3>
 <h4>embedded in header_item</h4>
@@ -647,6 +665,26 @@ be both compact and straightforward to parse.</p>
   <td>ubyte[size]</td>
   <td>eight-byte bit pattern, zero-extended <i>to the right</i>, and
     interpreted as an IEEE754 64-bit floating point value
+  </td>
+</tr>
+<tr>
+  <td>VALUE_METHOD_TYPE</td>
+  <td>0x15</td>
+  <td>size - 1 (0&hellip;3)</td>
+  <td>ubyte[size]</td>
+  <td>unsigned (zero-extended) four-byte integer value,
+    interpreted as an index into
+    the <code>proto_ids</code> section and representing a method type value
+  </td>
+</tr>
+<tr>
+  <td>VALUE_METHOD_HANDLE</td>
+  <td>0x16</td>
+  <td>size - 1 (0&hellip;3)</td>
+  <td>ubyte[size]</td>
+  <td>unsigned (zero-extended) four-byte integer value,
+    interpreted as an index into
+    the <code>method_handles</code> section and representing a method handle value
   </td>
 </tr>
 <tr>
@@ -1219,9 +1257,8 @@ may appear in a <code>.dex</code> file.
 <tr>
   <td>map_off</td>
   <td>uint</td>
-  <td>offset from the start of the file to the map item, or
-    <code>0</code> if this file has no map. The offset, if non-zero,
-    should be to an offset into the <code>data</code> section,
+  <td>offset from the start of the file to the map item. The offset, which must
+    be non-zero, should be to an offset into the <code>data</code> section,
     and the data should be in the format specified by "<code>map_list</code>"
     below.
   </td>
@@ -1243,7 +1280,7 @@ may appear in a <code>.dex</code> file.
 <tr>
   <td>type_ids_size</td>
   <td>uint</td>
-  <td>count of elements in the type identifiers list</td>
+  <td>count of elements in the type identifiers list, at most 65535</td>
 </tr>
 <tr>
   <td>type_ids_off</td>
@@ -1258,7 +1295,7 @@ may appear in a <code>.dex</code> file.
 <tr>
   <td>proto_ids_size</td>
   <td>uint</td>
-  <td>count of elements in the prototype identifiers list</td>
+  <td>count of elements in the prototype identifiers list, at most 65535</td>
 </tr>
 <tr>
   <td>proto_ids_off</td>
@@ -1452,6 +1489,18 @@ be ordered by initial offset and must not overlap.</p>
   <td>TYPE_CLASS_DEF_ITEM</td>
   <td>0x0006</td>
   <td>0x20</td>
+</tr>
+<tr>
+  <td>call_site_id_item</td>
+  <td>TYPE_CALL_SITE_ID_ITEM</td>
+  <td>0x0007</td>
+  <td>0x04</td>
+</tr>
+<tr>
+  <td>method_handle_item</td>
+  <td>TYPE_METHOD_HANDLE_ITEM</td>
+  <td>0x0008</td>
+  <td>0x08</td>
 </tr>
 <tr>
   <td>map_list</td>
@@ -1835,6 +1884,135 @@ be ordered by initial offset and must not overlap.</p>
 </tbody>
 </table>
 
+<h3 id="call-site-id-item">call_site_id_item</h3>
+<h4>appears in the call_site_ids section</h4>
+<h4>alignment: 4 bytes</h4>
+
+<table class="format">
+<thead>
+<tr>
+  <th>Name</th>
+  <th>Format</th>
+  <th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>call_site_off</td>
+  <td>uint</td>
+  <td>offset from the start of the file to call site defintion. The offset should
+  be in the data section, and the data there should be in the format specified by
+  "call_site_item" below.
+  </td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="call-site-item">call_site_item</h3>
+<h4>appears in the data section</h4>
+<h4>alignment: none (byte aligned)</h4>
+
+<p> The call_site_item is an encoded_array_item whose elements correspond to the arguments
+provided to a bootstrap linker method. The first three arguments are:
+<ol>
+<li>A method handle representing the bootstrap linker method (VALUE_METHOD_HANDLE).</li>
+<li>A method name that the bootstrap linker should resolve (VALUE_STRING).</li>
+<li>A method type corresponding to the type of the method name to be resolved (VALUE_METHOD_TYPE).</li>
+</ol>
+
+<p>Any additional arguments are constant values passed to the bootstrap linker method. These arguments are
+passed in order and without any type conversions.
+
+<p>The method handle representing the bootstrap linker method must have return type <code>java.lang.invoke.CallSite</code>. The first three parameter types are:
+<ol>
+<li><code>java.lang.invoke.Lookup</code></li>
+<li><code>java.lang.String</code></li>
+<li><code>java.lang.invoke.MethodType</code></li>
+</ol>
+
+<p>The parameter types of any additional arguments are determined from their constant values.
+
+<h3 id="method-handle-item">method_handle_item</h3>
+<h4>appears in the method_handles section</h4>
+<h4>alignment: 4 bytes</h4>
+
+<table class="format">
+<thead>
+<tr>
+  <th>Name</th>
+  <th>Format</th>
+  <th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>method_handle_type</td>
+  <td>ushort</td>
+  <td>type of the method handle; see table below
+  </td>
+</tr>
+<tr>
+  <td>unused</td>
+  <td>ushort</td>
+  <td><i>(unused)</i></td>
+</tr>
+<tr>
+  <td>field_or_method_id</td>
+  <td>ushort</td>
+  <td>Field or method id depending on whether the method handle type is an accessor or a method invoker</td>
+</tr>
+<tr>
+  <td>unused</td>
+  <td>ushort</td>
+  <td><i>(unused)</i></td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="method-handle-type-codes">Method Handle Type Codes</h3>
+
+<table class="format">
+<thead>
+<tr>
+  <th>Constant</th>
+  <th>Value</th>
+  <th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>METHOD_HANDLE_TYPE_STATIC_PUT</td>
+  <td>0x00</td>
+  <td>Method handle is a static field setter (accessor)</td>
+</tr>
+<tr>
+  <td>METHOD_HANDLE_TYPE_STATIC_GET</td>
+  <td>0x01</td>
+  <td>Method handle is a static field getter (accessor)</td>
+</tr>
+<tr>
+  <td>METHOD_HANDLE_TYPE_INSTANCE_PUT</td>
+  <td>0x02</td>
+  <td>Method handle is an instance field setter (accessor)</td>
+</tr>
+<tr>
+  <td>METHOD_HANDLE_TYPE_INSTANCE_GET</td>
+  <td>0x03</td>
+  <td>Method handle is an instance field getter (accessor)</td>
+</tr>
+<tr>
+  <td>METHOD_HANDLE_TYPE_INVOKE_STATIC</td>
+  <td>0x04</td>
+  <td>Method handle is a static method invoker</td>
+</tr>
+<tr>
+  <td>METHOD_HANDLE_TYPE_INVOKE_INSTANCE</td>
+  <td>0x05</td>
+  <td>Method handle is an instance method invoker</td>
+</tr>
+</tbody>
+</table>
+
 <h3 id="class-data-item">class_data_item</h3>
 <h4>referenced from class_def_item</h4>
 <h4>appears in the data section</h4>
@@ -1902,6 +2080,8 @@ be ordered by initial offset and must not overlap.</p>
     encoded elements. This list should <i>not</i> include inherited
     methods unless overridden by the class that this item represents. The
     methods must be sorted by <code>method_idx</code> in increasing order.
+    The <code>method_idx</code> of a virtual method must <i>not</i> be the same
+    as any direct method.
   </td>
 </tr>
 </tbody>
@@ -2983,6 +3163,90 @@ that has a name.)</p>
   <td>value</td>
   <td>Class[]</td>
   <td>array of the member classes</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="dalvik-annotation-method-parameters">dalvik.annotation.MethodParameters</h3>
+<h4>appears on methods</h4>
+
+<p class="note"><strong>Note:</strong> This annotation was added after Android
+7.1. Its presence on earlier Android releases will be ignored.</p>
+
+<p>A <code>MethodParameters</code> annotation is optional and can be used to
+provide parameter metadata such as parameter names and modifiers.</p>
+
+<p>The annotation can be omitted from a method or constructor safely when the
+parameter metadata is not required at runtime.
+<code>java.lang.reflect.Parameter.isNamePresent()</code> can be used to check
+whether metadata is present for a parameter, and the associated reflection
+methods such as <code>java.lang.reflect.Parameter.getName()</code> will fall
+back to default behavior at runtime if the information is not present.</p>
+
+<p>When including parameter metadata, compilers must include information
+for generated classes such as enums, since the parameter metadata
+includes whether or not a parameter is synthetic or mandated.</p>
+
+<p>A <code>MethodParameters</code> annotation describes only individual method
+parameters. Therefore, compilers may omit the annotation entirely
+for constructors and methods that have no parameters, for the sake of code-size
+and runtime efficiency.</p>
+
+<p>The arrays documented below must be the same size as for the
+<code>method_id_item</code> dex structure associated with the method, otherwise
+a <code>java.lang.reflect.MalformedParametersException</code> will be thrown at
+runtime.</p>
+
+<p>That is: <code>method_id_item.proto_idx</code> ->
+<code>proto_id_item.parameters_off</code> ->
+<code>type_list.size</code> must be the same as <code>names().length</code> and
+<code>accessFlags().length</code>.</p>
+
+<p>Because <code>MethodParameters</code> describes all formal method
+parameters, even those not explicitly or implicitly declared in source code,
+the size of the arrays may differ from the Signature or other metadata
+information that is based only on explicit parameters declared in source
+code. <code>MethodParameters</code> will also not include any information about
+type annotation receiver parameters that do not exist in the actual method
+signature.</p>
+
+<table class="format">
+<thead>
+<tr>
+  <th>Name</th>
+  <th>Format</th>
+  <th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>names</td>
+  <td>String[]</td>
+  <td>The names of formal parameters for the associated method. The array
+must not be null but must be empty if there are no formal parameters. A value in
+the array must be null if the formal parameter with that index has no name.<br>
+If parameter name strings are empty or contain '.', ';', '[' or '/' then a
+<code>java.lang.reflect.MalformedParametersException</code> will be thrown at
+runtime.
+  </td>
+</tr>
+<tr>
+  <td>accessFlags</td>
+  <td>int[]</td>
+  <td>The access flags of the formal parameters for the associated method. The
+array must not be null but must be empty if there are no formal parameters.<br>
+
+The value is a bit mask with the following values:<br>
+  <ul>
+    <li>0x0010 : final, the parameter was declared final</li>
+    <li>0x1000 : synthetic, the parameter was introduced by the compiler</li>
+    <li>0x8000 : mandated, the parameter is synthetic but also implied by the language
+specification</li>
+  </ul>
+
+If any bits are set outside of this set then a
+<code>java.lang.reflect.MalformedParametersException</code> will be thrown at runtime.
+  </td>
 </tr>
 </tbody>
 </table>

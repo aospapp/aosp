@@ -114,6 +114,7 @@ public abstract class JDWPRawTestCase extends TestCase {
      * Overrides inherited JUnit method to provide initialization and invocation
      * of internalSetUp() and internalTearDown() methods.
      */
+    @Override
     protected void setUp() throws Exception {
         super.setUp();
 
@@ -148,6 +149,7 @@ public abstract class JDWPRawTestCase extends TestCase {
      * Overrides inherited JUnit method to provide cleanup and invocation of
      * internalTearDown() method.
      */
+    @Override
     protected void tearDown() throws Exception {
         logWriter.println("----------------------------------------");
         internalTearDown();

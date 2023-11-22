@@ -26,17 +26,15 @@
 #include <fcntl.h>
 
 #include "ui.h"
-#include "cutils/properties.h"
 #include "install.h"
 #include "common.h"
 #include "adb_install.h"
 #include "minadbd/fuse_adb_provider.h"
 #include "fuse_sideload.h"
 
-static RecoveryUI* ui = NULL;
+#include <android-base/properties.h>
 
-static void
-set_usb_driver(bool enabled) {
+static void set_usb_driver(RecoveryUI* ui, bool enabled) {
     int fd = open("/sys/class/android_usb/android0/enable", O_WRONLY);
     if (fd < 0) {
         ui->Print("failed to open driver control: %s\n", strerror(errno));
@@ -50,19 +48,17 @@ set_usb_driver(bool enabled) {
     }
 }
 
-static void
-stop_adbd() {
-    property_set("ctl.stop", "adbd");
-    set_usb_driver(false);
+static void stop_adbd(RecoveryUI* ui) {
+    ui->Print("Stopping adbd...\n");
+    android::base::SetProperty("ctl.stop", "adbd");
+    set_usb_driver(ui, false);
 }
 
-
-static void
-maybe_restart_adbd() {
+static void maybe_restart_adbd(RecoveryUI* ui) {
     if (is_ro_debuggable()) {
         ui->Print("Restarting adbd...\n");
-        set_usb_driver(true);
-        property_set("ctl.start", "adbd");
+        set_usb_driver(ui, true);
+        android::base::SetProperty("ctl.start", "adbd");
     }
 }
 
@@ -70,14 +66,11 @@ maybe_restart_adbd() {
 // package, before timing out.
 #define ADB_INSTALL_TIMEOUT 300
 
-int
-apply_from_adb(RecoveryUI* ui_, bool* wipe_cache, const char* install_file) {
+int apply_from_adb(RecoveryUI* ui, bool* wipe_cache, const char* install_file) {
     modified_flash = true;
 
-    ui = ui_;
-
-    stop_adbd();
-    set_usb_driver(true);
+    stop_adbd(ui);
+    set_usb_driver(ui, true);
 
     ui->Print("\n\nNow send the package you want to apply\n"
               "to the device with \"adb sideload <filename>\"...\n");
@@ -85,7 +78,7 @@ apply_from_adb(RecoveryUI* ui_, bool* wipe_cache, const char* install_file) {
     pid_t child;
     if ((child = fork()) == 0) {
         execl("/sbin/recovery", "recovery", "--adbd", NULL);
-        _exit(-1);
+        _exit(EXIT_FAILURE);
     }
 
     // FUSE_SIDELOAD_HOST_PATHNAME will start to exist once the host
@@ -137,8 +130,8 @@ apply_from_adb(RecoveryUI* ui_, bool* wipe_cache, const char* install_file) {
         }
     }
 
-    set_usb_driver(false);
-    maybe_restart_adbd();
+    set_usb_driver(ui, false);
+    maybe_restart_adbd(ui);
 
     return result;
 }

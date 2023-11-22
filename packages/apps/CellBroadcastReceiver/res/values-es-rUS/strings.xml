@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"Difusiones por teléfono celular"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"Configuración de servicios de difusión celular"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"Servicios de difusión celular"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"La configuración de la emisión móvil no está disponible para este usuario."</string>
     <string name="button_dismiss" msgid="1234221657930516287">"Aceptar"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"No hay alertas activas en tu zona. Puedes modificar la configuración de las alertas en el menú Configuración."</string>
@@ -46,9 +46,10 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alerta de emergencia"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Transmisión por teléfono celular"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Configuración de alertas de emergencia"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mensajes de transmisión"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Activar notificaciones"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Mostrar las difusiones de alerta de emergencia"</string>
-    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alerta de recordatorio"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Recordatorio del alerta"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Voz para los mensajes de alerta"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utilizar texto a voz para los mensajes de alerta de emergencia"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Configuración de ETWS"</string>

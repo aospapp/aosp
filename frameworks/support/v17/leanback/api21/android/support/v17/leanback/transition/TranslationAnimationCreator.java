@@ -1,15 +1,18 @@
 package android.support.v17.leanback.transition;
 
-import android.support.v17.leanback.R;
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
 import android.graphics.Path;
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
+import android.support.v17.leanback.R;
 import android.transition.Transition;
-import android.transition.TransitionValues;
 import android.transition.Transition.TransitionListener;
+import android.transition.TransitionValues;
 import android.view.View;
 
 /**
@@ -18,6 +21,8 @@ import android.view.View;
  * will not blink out or shift suddenly when the transition is interrupted.
  * @hide
  */
+@RequiresApi(21)
+@RestrictTo(LIBRARY_GROUP)
 class TranslationAnimationCreator {
 
     /**
@@ -83,7 +88,7 @@ class TranslationAnimationCreator {
         private final float mTerminalX;
         private final float mTerminalY;
 
-        private TransitionPositionListener(View movingView, View viewInHierarchy,
+        TransitionPositionListener(View movingView, View viewInHierarchy,
                 int startX, int startY, float terminalX, float terminalY) {
             mMovingView = movingView;
             mViewInHierarchy = viewInHierarchy;

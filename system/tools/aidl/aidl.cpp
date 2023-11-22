@@ -176,6 +176,12 @@ int check_types(const string& filename,
                 TypeNamespace* types) {
   int err = 0;
 
+  if (c->IsUtf8() && c->IsUtf8InCpp()) {
+    cerr << filename << ":" << c->GetLine()
+         << "Interface cannot be marked as both @utf8 and @utf8InCpp";
+    err = 1;
+  }
+
   // Has to be a pointer due to deleting copy constructor. No idea why.
   map<string, const AidlMethod*> method_names;
   for (const auto& m : c->GetMethods()) {
@@ -186,7 +192,7 @@ int check_types(const string& filename,
     }
 
     const ValidatableType* return_type =
-        types->GetReturnType(m->GetType(), filename);
+        types->GetReturnType(m->GetType(), filename, *c);
 
     if (!return_type) {
       err = 1;
@@ -208,7 +214,7 @@ int check_types(const string& filename,
       }
 
       const ValidatableType* arg_type =
-          types->GetArgType(*arg, index, filename);
+          types->GetArgType(*arg, index, filename, *c);
 
       if (!arg_type) {
         err = 1;
@@ -241,16 +247,20 @@ int check_types(const string& filename,
 
 void write_common_dep_file(const string& output_file,
                            const vector<string>& aidl_sources,
-                           CodeWriter* writer) {
+                           CodeWriter* writer,
+                           const bool ninja) {
   // Encode that the output file depends on aidl input files.
   writer->Write("%s : \\\n", output_file.c_str());
   writer->Write("  %s", Join(aidl_sources, " \\\n  ").c_str());
-  writer->Write("\n\n");
+  writer->Write("\n");
 
-  // Output "<input_aidl_file>: " so make won't fail if the input .aidl file
-  // has been deleted, moved or renamed in incremental build.
-  for (const auto& src : aidl_sources) {
-    writer->Write("%s :\n", src.c_str());
+  if (!ninja) {
+    writer->Write("\n");
+    // Output "<input_aidl_file>: " so make won't fail if the input .aidl file
+    // has been deleted, moved or renamed in incremental build.
+    for (const auto& src : aidl_sources) {
+      writer->Write("%s :\n", src.c_str());
+    }
   }
 }
 
@@ -275,7 +285,8 @@ bool write_java_dep_file(const JavaOptions& options,
     }
   }
 
-  write_common_dep_file(output_file_name, source_aidl, writer.get());
+  write_common_dep_file(output_file_name, source_aidl, writer.get(),
+                        options.DependencyFileNinja());
 
   return true;
 }
@@ -304,27 +315,31 @@ bool write_cpp_dep_file(const CppOptions& options,
     }
   }
 
-  vector<string> headers;
-  for (ClassNames c : {ClassNames::CLIENT,
-                       ClassNames::SERVER,
-                       ClassNames::INTERFACE}) {
-    headers.push_back(options.OutputHeaderDir() + '/' +
-                      HeaderFile(interface, c, false /* use_os_sep */));
+  write_common_dep_file(options.OutputCppFilePath(), source_aidl, writer.get(),
+                        options.DependencyFileNinja());
+
+  if (!options.DependencyFileNinja()) {
+    vector<string> headers;
+    for (ClassNames c : {ClassNames::CLIENT,
+                         ClassNames::SERVER,
+                         ClassNames::INTERFACE}) {
+      headers.push_back(options.OutputHeaderDir() + '/' +
+                        HeaderFile(interface, c, false /* use_os_sep */));
+    }
+
+    writer->Write("\n");
+
+    // Generated headers also depend on the source aidl files.
+    writer->Write("%s : \\\n    %s\n", Join(headers, " \\\n    ").c_str(),
+                  Join(source_aidl, " \\\n    ").c_str());
   }
-
-  write_common_dep_file(options.OutputCppFilePath(), source_aidl, writer.get());
-  writer->Write("\n");
-
-  // Generated headers also depend on the source aidl files.
-  writer->Write("%s : \\\n    %s\n", Join(headers, " \\\n    ").c_str(),
-                Join(source_aidl, " \\\n    ").c_str());
 
   return true;
 }
 
 string generate_outputFileName(const JavaOptions& options,
                                const AidlInterface& interface) {
-    string name = interface.GetName();
+    const string& name = interface.GetName();
     string package = interface.GetPackage();
     string result;
 
@@ -403,6 +418,34 @@ int check_and_assign_method_ids(const char * filename,
 
     // success
     return 0;
+}
+
+bool validate_constants(const AidlInterface& interface) {
+  bool success = true;
+  set<string> names;
+  for (const std::unique_ptr<AidlIntConstant>& int_constant :
+       interface.GetIntConstants()) {
+    if (names.count(int_constant->GetName()) > 0) {
+      LOG(ERROR) << "Found duplicate constant name '" << int_constant->GetName()
+                 << "'";
+      success = false;
+    }
+    names.insert(int_constant->GetName());
+    // We've logged an error message for this on object construction.
+    success = success && int_constant->IsValid();
+  }
+  for (const std::unique_ptr<AidlStringConstant>& string_constant :
+       interface.GetStringConstants()) {
+    if (names.count(string_constant->GetName()) > 0) {
+      LOG(ERROR) << "Found duplicate constant name '" << string_constant->GetName()
+                 << "'";
+      success = false;
+    }
+    names.insert(string_constant->GetName());
+    // We've logged an error message for this on object construction.
+    success = success && string_constant->IsValid();
+  }
+  return success;
 }
 
 // TODO: Remove this in favor of using the YACC parser b/25479378
@@ -502,8 +545,8 @@ bool parse_preprocessed_file(const IoDelegate& io_delegate,
 }
 
 AidlError load_and_validate_aidl(
-    const std::vector<std::string> preprocessed_files,
-    const std::vector<std::string> import_paths,
+    const std::vector<std::string>& preprocessed_files,
+    const std::vector<std::string>& import_paths,
     const std::string& input_file_name,
     const IoDelegate& io_delegate,
     TypeNamespace* types,
@@ -616,6 +659,9 @@ AidlError load_and_validate_aidl(
   if (check_and_assign_method_ids(input_file_name.c_str(),
                                   interface->GetMethods()) != 0) {
     return AidlError::BAD_METHOD_ID;
+  }
+  if (!validate_constants(*interface)) {
+    return AidlError::BAD_CONSTANTS;
   }
 
   if (returned_interface)

@@ -13,15 +13,19 @@ import traceback
 import common   # pylint: disable=unused-import
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import logging_config
-from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import constants
+from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros import xmlrpc_server
 from autotest_lib.client.cros.multimedia import audio_facade_native
 from autotest_lib.client.cros.multimedia import browser_facade_native
+from autotest_lib.client.cros.multimedia import cfm_facade_native
 from autotest_lib.client.cros.multimedia import display_facade_native
+from autotest_lib.client.cros.multimedia import facade_resource
+from autotest_lib.client.cros.multimedia import input_facade_native
+from autotest_lib.client.cros.multimedia import kiosk_facade_native
 from autotest_lib.client.cros.multimedia import system_facade_native
 from autotest_lib.client.cros.multimedia import usb_facade_native
-from autotest_lib.client.cros.multimedia import facade_resource
+from autotest_lib.client.cros.multimedia import video_facade_native
 
 
 class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
@@ -29,12 +33,28 @@ class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
     def __init__(self, resource):
         """Initializes the facade objects."""
+
+        # TODO: (crbug.com/618111) Add test driven switch for
+        # supporting arc_mode enabled or disabled. At this time
+        # if ARC build is tested, arc_mode is always enabled.
+        arc_res = None
+        if utils.get_board_property('CHROMEOS_ARC_VERSION'):
+            logging.info('Using ARC resource on ARC enabled board.')
+            from autotest_lib.client.cros.multimedia import arc_resource
+            arc_res = arc_resource.ArcResource()
+
         self._facades = {
-            'audio': audio_facade_native.AudioFacadeNative(resource),
+            'audio': audio_facade_native.AudioFacadeNative(
+                    resource, arc_resource=arc_res),
+            'video': video_facade_native.VideoFacadeNative(
+                    resource, arc_resource=arc_res),
             'display': display_facade_native.DisplayFacadeNative(resource),
             'system': system_facade_native.SystemFacadeNative(),
             'usb': usb_facade_native.USBFacadeNative(),
             'browser': browser_facade_native.BrowserFacadeNative(resource),
+            'input': input_facade_native.InputFacadeNative(),
+            'cfm': cfm_facade_native.CFMFacadeNative(resource),
+            'kiosk': kiosk_facade_native.KioskFacadeNative(resource)
         }
 
 
@@ -83,9 +103,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true', required=False,
                         help=('create a debug console with a ServerProxy "s" '
                               'connecting to the XML RPC sever at localhost'))
-    parser.add_argument('--restart', action='store_true', required=False,
-                        help=('restart the XML RPC server without clearing '
-                              'the previous state'))
     args = parser.parse_args()
 
     if args.debug:
@@ -99,9 +116,9 @@ if __name__ == '__main__':
 
 
         # Restart Cras to clean up any audio activities.
-        utils.restart_job('cras')
+        upstart.restart_job('cras')
 
-        with facade_resource.FacadeResource(restart=args.restart) as res:
+        with facade_resource.FacadeResource() as res:
             server = xmlrpc_server.XmlRpcServer(
                     'localhost', constants.MULTIMEDIA_XMLRPC_SERVER_PORT)
             server.register_delegate(MultimediaXmlRpcDelegate(res))

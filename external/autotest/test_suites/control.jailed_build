@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "jailed_build"
 PURPOSE = "Quartine potentially dangerous tests."
-CRITERIA = "All tests with SUITE=jailed_build must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

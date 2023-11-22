@@ -5,10 +5,10 @@
  * found in the LICENSE file.
  */
 
-#include "SkChecksum.h"
 #include "SkMessageBus.h"
 #include "SkMipMap.h"
 #include "SkMutex.h"
+#include "SkOpts.h"
 #include "SkPixelRef.h"
 #include "SkResourceCache.h"
 #include "SkTraceMemoryDump.h"
@@ -46,15 +46,24 @@ void SkResourceCache::Key::init(void* nameSpace, uint64_t sharedID, size_t dataS
     fSharedID_lo = (uint32_t)sharedID;
     fSharedID_hi = (uint32_t)(sharedID >> 32);
     fNamespace = nameSpace;
-    // skip unhashed fields when computing the murmur
-    fHash = SkChecksum::Murmur3(this->as32() + kUnhashedLocal32s,
-                                (fCount32 - kUnhashedLocal32s) << 2);
+    // skip unhashed fields when computing the hash
+    fHash = SkOpts::hash(this->as32() + kUnhashedLocal32s,
+                         (fCount32 - kUnhashedLocal32s) << 2);
 }
 
-#include "SkTDynamicHash.h"
+#include "SkTHash.h"
+
+namespace {
+    struct HashTraits {
+        static uint32_t Hash(const SkResourceCache::Key& key) { return key.hash(); }
+        static const SkResourceCache::Key& GetKey(const SkResourceCache::Rec* rec) {
+            return rec->getKey();
+        }
+    };
+}
 
 class SkResourceCache::Hash :
-    public SkTDynamicHash<SkResourceCache::Rec, SkResourceCache::Key> {};
+    public SkTHashTable<SkResourceCache::Rec*, SkResourceCache::Key, HashTraits> {};
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -82,7 +91,7 @@ public:
     // The pixelref will ref() the colortable (if not NULL), and unref() in destructor
     SkOneShotDiscardablePixelRef(const SkImageInfo&, SkDiscardableMemory*, size_t rowBytes,
                                  SkColorTable*);
-    ~SkOneShotDiscardablePixelRef();
+    ~SkOneShotDiscardablePixelRef() override;
 
 protected:
     bool onNewLockPixels(LockRec*) override;
@@ -189,8 +198,8 @@ bool SkResourceCacheDiscardableAllocator::allocPixelRef(SkBitmap* bitmap, SkColo
     }
 
     SkImageInfo info = bitmap->info();
-    bitmap->setPixelRef(new SkOneShotDiscardablePixelRef(info, dm, bitmap->rowBytes(),
-                                                         ctable))->unref();
+    bitmap->setPixelRef(
+            sk_make_sp<SkOneShotDiscardablePixelRef>(info, dm, bitmap->rowBytes(), ctable), 0, 0);
     bitmap->lockPixels();
     return bitmap->readyToDraw();
 }
@@ -224,8 +233,8 @@ SkResourceCache::~SkResourceCache() {
 bool SkResourceCache::find(const Key& key, FindVisitor visitor, void* context) {
     this->checkMessages();
 
-    Rec* rec = fHash->find(key);
-    if (rec) {
+    if (auto found = fHash->find(key)) {
+        Rec* rec = *found;
         if (visitor(*rec, context)) {
             this->moveToHead(rec);  // for our LRU
             return true;
@@ -254,14 +263,13 @@ void SkResourceCache::add(Rec* rec) {
 
     SkASSERT(rec);
     // See if we already have this key (racy inserts, etc.)
-    Rec* existing = fHash->find(rec->getKey());
-    if (existing) {
+    if (nullptr != fHash->find(rec->getKey())) {
         delete rec;
         return;
     }
 
     this->addToHead(rec);
-    fHash->add(rec);
+    fHash->set(rec);
 
     if (gDumpCacheTransactions) {
         SkString bytesStr, totalStr;
@@ -279,7 +287,7 @@ void SkResourceCache::remove(Rec* rec) {
     size_t used = rec->bytesUsed();
     SkASSERT(used <= fTotalBytesUsed);
 
-    this->detach(rec);
+    this->release(rec);
     fHash->remove(rec->getKey());
 
     fTotalBytesUsed -= used;
@@ -395,7 +403,7 @@ SkCachedData* SkResourceCache::newCachedData(size_t bytes) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void SkResourceCache::detach(Rec* rec) {
+void SkResourceCache::release(Rec* rec) {
     Rec* prev = rec->fPrev;
     Rec* next = rec->fNext;
 
@@ -425,7 +433,7 @@ void SkResourceCache::moveToHead(Rec* rec) {
 
     this->validate();
 
-    this->detach(rec);
+    this->release(rec);
 
     fHead->fPrev = rec;
     rec->fNext = fHead;
@@ -544,15 +552,6 @@ void SkResourceCache::checkMessages() {
 
 SK_DECLARE_STATIC_MUTEX(gMutex);
 static SkResourceCache* gResourceCache = nullptr;
-static void cleanup_gResourceCache() {
-    // We'll clean this up in our own tests, but disable for clients.
-    // Chrome seems to have funky multi-process things going on in unit tests that
-    // makes this unsafe to delete when the main process atexit()s.
-    // SkLazyPtr does the same sort of thing.
-#if SK_DEVELOPER
-    delete gResourceCache;
-#endif
-}
 
 /** Must hold gMutex when calling. */
 static SkResourceCache* get_cache() {
@@ -564,7 +563,6 @@ static SkResourceCache* get_cache() {
 #else
         gResourceCache = new SkResourceCache(SK_DEFAULT_IMAGE_CACHE_LIMIT);
 #endif
-        atexit(cleanup_gResourceCache);
     }
     return gResourceCache;
 }

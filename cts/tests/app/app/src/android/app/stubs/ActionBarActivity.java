@@ -18,6 +18,7 @@ package android.app.stubs;
 import android.app.ActionBar;
 import android.app.Activity;
 import android.os.Bundle;
+import android.view.Menu;
 
 public class ActionBarActivity extends Activity {
 
@@ -28,5 +29,11 @@ public class ActionBarActivity extends Activity {
         if (bar != null) {
             bar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.flat_menu, menu);
+        return true;
     }
 }

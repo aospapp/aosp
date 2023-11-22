@@ -19,7 +19,7 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
 
 
     @chrome_binary_test.nuke_chrome
-    def run_once(self, videos, use_cr_source_dir=True, gtest_filter=''):
+    def run_once(self, videos, use_cr_source_dir=True):
         """
         Runs video_decode_accelerator_unittest on the videos.
 
@@ -39,9 +39,6 @@ class video_VideoDecodeAccelerator(chrome_binary_test.ChromeBinaryTest):
         last_test_failure = None
         for video in videos:
             cmd_line = ('--test_video_data="%s%s"' % (path, video))
-
-            if gtest_filter:
-              cmd_line = '%s --gtest_filter=%s' % (cmd_line, gtest_filter)
 
             if utils.is_freon():
                 cmd_line += ' --ozone-platform=gbm'

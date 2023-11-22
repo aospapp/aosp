@@ -17,9 +17,8 @@
 #include "rsSignal.h"
 #include <errno.h>
 
-using namespace android;
-using namespace android::renderscript;
-
+namespace android {
+namespace renderscript {
 
 Signal::Signal() {
     mSet = true;
@@ -33,13 +32,13 @@ Signal::~Signal() {
 bool Signal::init() {
     int status = pthread_mutex_init(&mMutex, nullptr);
     if (status) {
-        ALOGE("LocklessFifo mutex init failure");
+        ALOGE("Signal::init: mutex init failure: %s", strerror(status));
         return false;
     }
 
     status = pthread_cond_init(&mCondition, nullptr);
     if (status) {
-        ALOGE("LocklessFifo condition init failure");
+        ALOGE("Signal::init: condition init failure: %s", strerror(status));
         pthread_mutex_destroy(&mMutex);
         return false;
     }
@@ -48,11 +47,9 @@ bool Signal::init() {
 }
 
 void Signal::set() {
-    int status;
-
-    status = pthread_mutex_lock(&mMutex);
+    int status = pthread_mutex_lock(&mMutex);
     if (status) {
-        ALOGE("LocklessCommandFifo: error %i locking for set condition.", status);
+        ALOGE("Signal::set: error locking for set condition: %s", strerror(status));
         return;
     }
 
@@ -60,54 +57,37 @@ void Signal::set() {
 
     status = pthread_cond_signal(&mCondition);
     if (status) {
-        ALOGE("LocklessCommandFifo: error %i on set condition.", status);
+        ALOGE("Signal::set: error on set condition: %s", strerror(status));
     }
 
     status = pthread_mutex_unlock(&mMutex);
     if (status) {
-        ALOGE("LocklessCommandFifo: error %i unlocking for set condition.", status);
+        ALOGE("Signal::set: error unlocking for set condition: %s", strerror(status));
     }
 }
 
-bool Signal::wait(uint64_t timeout) {
-    int status;
-    bool ret = false;
-
-    status = pthread_mutex_lock(&mMutex);
+void Signal::wait() {
+    int status = pthread_mutex_lock(&mMutex);
     if (status) {
-        ALOGE("LocklessCommandFifo: error %i locking for condition.", status);
-        return false;
+        ALOGE("Signal::wait: error locking for condition: %s", strerror(status));
+        return;
     }
 
     if (!mSet) {
-        if (!timeout) {
-            status = pthread_cond_wait(&mCondition, &mMutex);
-        } else {
-#if defined(HAVE_PTHREAD_COND_TIMEDWAIT_RELATIVE)
-            status = pthread_cond_timeout_np(&mCondition, &mMutex, timeout / 1000000);
-#else
-            // This is safe it will just make things less reponsive
-            status = pthread_cond_wait(&mCondition, &mMutex);
-#endif
-        }
+        status = pthread_cond_wait(&mCondition, &mMutex);
     }
 
     if (!status) {
         mSet = false;
-        ret = true;
     } else {
-#ifndef RS_SERVER
-        if (status != ETIMEDOUT) {
-            ALOGE("LocklessCommandFifo: error %i waiting for condition.", status);
-        }
-#endif
+        ALOGE("Signal::wait: error waiting for condition: %s", strerror(status));
     }
 
     status = pthread_mutex_unlock(&mMutex);
     if (status) {
-        ALOGE("LocklessCommandFifo: error %i unlocking for condition.", status);
+        ALOGE("Signal::wait: error unlocking for condition: %s", strerror(status));
     }
-
-    return ret;
 }
 
+} // namespace renderscript
+} // namespace android

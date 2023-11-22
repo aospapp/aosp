@@ -57,9 +57,9 @@ class BluetoothInstanceFactory {
   virtual ~BluetoothInstanceFactory() = default;
 
   // Callback invoked as a result of a call to RegisterInstance.
-  using RegisterCallback = std::function<void(
-      BLEStatus status, const UUID& app_uuid,
-      std::unique_ptr<BluetoothInstance> instance)>;
+  using RegisterCallback =
+      std::function<void(BLEStatus status, const UUID& app_uuid,
+                         std::unique_ptr<BluetoothInstance> instance)>;
 
   // Registers an instance for the given unique identifier |app_uuid|.
   // On success, this asynchronously invokes |callback| with a unique pointer

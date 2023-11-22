@@ -56,7 +56,8 @@ virtual void SubMethod(int subarg) const;
 
 }  // namespace android
 
-#endif  // HEADER_INCLUDE_GUARD_H_)";
+#endif  // HEADER_INCLUDE_GUARD_H_
+)";
 
 const char kExpectedEnumOutput[] =
 R"(enum Foo {

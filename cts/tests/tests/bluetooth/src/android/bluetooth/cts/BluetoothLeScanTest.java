@@ -28,6 +28,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.ParcelUuid;
 import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
@@ -85,6 +86,9 @@ public class BluetoothLeScanTest extends AndroidTestCase {
         if (!mLocationOn) {
             TestUtils.enableLocation(getContext());
         }
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "pm grant android.bluetooth.cts android.permission.ACCESS_COARSE_LOCATION"
+        );
     }
 
     @Override

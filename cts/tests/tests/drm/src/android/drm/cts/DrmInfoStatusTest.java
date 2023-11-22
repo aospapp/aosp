@@ -30,6 +30,7 @@ public class DrmInfoStatusTest extends AndroidTestCase {
             DrmInfoRequest.TYPE_REGISTRATION_INFO;
 
     public static void testInvalidStatusCodes() throws Exception {
+        checkInvalidStatusCode(DrmInfoStatus.STATUS_ERROR + 1);
         checkInvalidStatusCode(DrmInfoStatus.STATUS_OK - 1);
     }
 

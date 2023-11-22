@@ -16,13 +16,15 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
-
-import android.app.ListActivity;
-import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.filters.LargeTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -31,21 +33,22 @@ import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.Interpolator;
 import android.view.animation.LayoutAnimationController;
+import android.view.animation.LayoutAnimationController.AnimationParameters;
 import android.view.animation.ScaleAnimation;
 import android.view.animation.Transformation;
-import android.view.animation.LayoutAnimationController.AnimationParameters;
+import android.view.cts.R;
 import android.widget.AbsListView;
 import android.widget.ListView;
 
-public class LayoutAnimationControllerTest
-        extends ActivityInstrumentationTestCase2<LayoutAnimCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private ListActivity mActivity;
-    private Animation mDefaultAnimation;
-    private ListView mListView;
-    private LayoutAnimationController mController;
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class LayoutAnimationControllerTest {
     /** Duration defined in layout_anim_controller_animation.xml is 1000 */
     private static final int DURATION = 1000;
     private static final float DELTA = 0.1f;
@@ -57,26 +60,30 @@ public class LayoutAnimationControllerTest
     /** Default max duration of these three children */
     private static final long DEFAULT_MAX_DURATION = 2000;
 
-    public LayoutAnimationControllerTest() {
-        super("android.view.cts", LayoutAnimCtsActivity.class);
-    }
+    private LayoutAnimCtsActivity mActivity;
+    private Animation mDefaultAnimation;
+    private ListView mListView;
+    private LayoutAnimationController mController;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Rule
+    public ActivityTestRule<LayoutAnimCtsActivity> mActivityRule =
+            new ActivityTestRule<>(LayoutAnimCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
         mListView = mActivity.getListView();
         mDefaultAnimation = AnimationUtils.loadAnimation(mActivity,
                 R.anim.layout_anim_controller_animation);
         mController = new LayoutAnimationController(mDefaultAnimation, DEFAULT_DELAY);
     }
 
-    public void testAccessOrder() throws InterruptedException {
-
+    @Test
+    public void testAccessOrder() throws Throwable {
         mController.setOrder(LayoutAnimationController.ORDER_NORMAL);
         assertEquals(LayoutAnimationController.ORDER_NORMAL, mController.getOrder());
 
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
 
         Animation childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -120,7 +127,7 @@ public class LayoutAnimationControllerTest
         // Test reverse order
         mController.setOrder(LayoutAnimationController.ORDER_REVERSE);
         assertEquals(LayoutAnimationController.ORDER_REVERSE, mController.getOrder());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
 
         transformation1 = new Transformation();
@@ -159,13 +166,14 @@ public class LayoutAnimationControllerTest
         assertEquals(1.0f, transformation3.getAlpha(), DELTA);
     }
 
-    public void testAccessDelay() throws InterruptedException {
+    @Test
+    public void testAccessDelay() throws Throwable {
         mController.setOrder(LayoutAnimationController.ORDER_NORMAL);
         float delay = 1.5f;
         mController.setDelay(delay);
-        assertEquals(delay, mController.getDelay());
+        assertEquals(delay, mController.getDelay(), 0.0f);
         long maxDuration = (long) (delay * INDEX_OF_CHILD3 * DURATION + DURATION);
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 maxDuration);
 
         Animation childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -229,7 +237,8 @@ public class LayoutAnimationControllerTest
         assertTrue(alpha < 1.0f);
     }
 
-    public void testAccessAnimation() throws InterruptedException {
+    @Test
+    public void testAccessAnimation() throws Throwable {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.decelerate_alpha);
         animation.setFillAfter(true);
         // duration defined in decelerate_alpha.xml is 2000
@@ -237,7 +246,7 @@ public class LayoutAnimationControllerTest
         mController.setAnimation(animation);
         assertSame(animation, mController.getAnimation());
         long maxDuration = (long) (DEFAULT_DELAY * INDEX_OF_CHILD3 * duration + duration);
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 maxDuration);
 
         Animation childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -251,7 +260,7 @@ public class LayoutAnimationControllerTest
         Animation actualAnimation = mController.getAnimation();
         assertEquals(DURATION, actualAnimation.getDuration());
         assertTrue(actualAnimation.getInterpolator() instanceof AccelerateInterpolator);
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
 
         childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -300,11 +309,12 @@ public class LayoutAnimationControllerTest
         }
     }
 
-    public void testAccessInterpolator() throws InterruptedException {
+    @Test
+    public void testAccessInterpolator() throws Throwable {
         DecelerateInterpolator interpolator = new DecelerateInterpolator(1.0f);
         mController.setInterpolator(interpolator);
         assertSame(interpolator, mController.getInterpolator());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
 
         Animation childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -317,7 +327,7 @@ public class LayoutAnimationControllerTest
 
         mController.setInterpolator(mActivity, android.R.anim.accelerate_interpolator);
         assertTrue(mController.getInterpolator() instanceof AccelerateInterpolator);
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
 
         childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -329,6 +339,7 @@ public class LayoutAnimationControllerTest
         assertTrue(delta2 > delta1);
     }
 
+    @Test
     public void testConstructor() {
         XmlResourceParser parser = mActivity.getResources().getAnimation(
                 R.anim.accelerate_decelerate_alpha);
@@ -336,9 +347,10 @@ public class LayoutAnimationControllerTest
         new LayoutAnimationController(mActivity, attrs);
         new LayoutAnimationController(mDefaultAnimation, DEFAULT_DELAY);
         LayoutAnimationController controller = new LayoutAnimationController(mDefaultAnimation);
-        assertEquals(DEFAULT_DELAY, controller.getDelay());
+        assertEquals(DEFAULT_DELAY, controller.getDelay(), 0.0f);
     }
 
+    @Test
     public void testGetDelayForView() throws Throwable {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.decelerate_alpha);
         animation.setFillAfter(true);
@@ -354,15 +366,13 @@ public class LayoutAnimationControllerTest
         final View child1 = mListView.getChildAt(INDEX_OF_CHILD1);
         final View child2 = mListView.getChildAt(INDEX_OF_CHILD2);
         final View child3 = mListView.getChildAt(INDEX_OF_CHILD3);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                child1.setLayoutParams(layoutParams1);
-                child2.setLayoutParams(layoutParams2);
-                child3.setLayoutParams(layoutParams3);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            child1.setLayoutParams(layoutParams1);
+            child2.setLayoutParams(layoutParams2);
+            child3.setLayoutParams(layoutParams3);
         });
 
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, controller,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, controller,
                 DEFAULT_MAX_DURATION);
 
         assertEquals(0, controller.getDelayForView(child1));
@@ -380,6 +390,7 @@ public class LayoutAnimationControllerTest
         return layoutParams;
     }
 
+    @Test
     public void testGetTransformedIndex() {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.decelerate_alpha);
         animation.setFillAfter(true);
@@ -406,6 +417,7 @@ public class LayoutAnimationControllerTest
         assertEquals(0, controller.getTransformedIndex(animationParams));
     }
 
+    @Test
     public void testStart() {
         Animation animation = new ScaleAnimation(0.0f, 10.0f, 0.0f, 20.0f);
         animation.setStartTime(500);
@@ -417,17 +429,19 @@ public class LayoutAnimationControllerTest
         assertEquals(Animation.START_ON_FIRST_FRAME, controller.getAnimation().getStartTime());
     }
 
-    public void testIsDone() throws InterruptedException {
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+    @Test
+    public void testIsDone() throws Throwable {
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
         assertTrue(mController.isDone());
     }
 
-    public void testGetAnimationForView() throws InterruptedException {
+    @Test
+    public void testGetAnimationForView() throws Throwable {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.decelerate_alpha);
         animation.setFillAfter(true);
         mController.setAnimation(animation);
-        AnimationTestUtils.assertRunController(getInstrumentation(), mListView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mListView, mController,
                 DEFAULT_MAX_DURATION);
         Animation childAnimation1 = mListView.getChildAt(INDEX_OF_CHILD1).getAnimation();
         Animation childAnimation2 = mListView.getChildAt(INDEX_OF_CHILD2).getAnimation();
@@ -442,6 +456,7 @@ public class LayoutAnimationControllerTest
         assertEquals(2000, childAnimation3.getStartOffset());
     }
 
+    @Test
     public void testWillOverlap() {
         LayoutAnimationController controller = new LayoutAnimationController(mDefaultAnimation);
 

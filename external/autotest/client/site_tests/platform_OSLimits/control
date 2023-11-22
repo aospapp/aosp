@@ -25,7 +25,6 @@ or unexpected values for sysctls:
   - vm/mmap_min_addr
 """
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

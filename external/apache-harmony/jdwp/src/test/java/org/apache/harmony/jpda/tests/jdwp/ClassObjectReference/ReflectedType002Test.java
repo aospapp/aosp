@@ -18,12 +18,7 @@
 
 package org.apache.harmony.jpda.tests.jdwp.ClassObjectReference;
 
-import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
-import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
-import org.apache.harmony.jpda.tests.jdwp.ClassObjectReference.AbstractReflectedTypeTestCase.TypeSignatureAndTag;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -37,6 +32,7 @@ public class ReflectedType002Test extends AbstractReflectedTypeTestCase {
      * Returns full name of debuggee class which is used by this test.
      * @return full name of debuggee class.
      */
+    @Override
     protected String getDebuggeeClassName() {
         return ReflectedType002Debuggee.class.getName();
     }

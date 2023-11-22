@@ -20,6 +20,7 @@
 #include "instrumentation.h"
 
 #include "atomic.h"
+#include "base/arena_containers.h"
 #include "base/histogram-inl.h"
 #include "base/macros.h"
 #include "base/mutex.h"
@@ -29,6 +30,7 @@
 #include "method_reference.h"
 #include "oat_file.h"
 #include "object_callbacks.h"
+#include "profile_compilation_info.h"
 #include "safe_map.h"
 #include "thread_pool.h"
 
@@ -36,6 +38,7 @@ namespace art {
 
 class ArtMethod;
 class LinearAlloc;
+class InlineCache;
 class ProfilingInfo;
 
 namespace jit {
@@ -70,7 +73,11 @@ class JitCodeCache {
   size_t DataCacheSize() REQUIRES(!lock_);
 
   bool NotifyCompilationOf(ArtMethod* method, Thread* self, bool osr)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!lock_);
+
+  void NotifyMethodRedefined(ArtMethod* method)
+      REQUIRES(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   // Notify to the code cache that the compiler wants to use the
@@ -78,28 +85,39 @@ class JitCodeCache {
   // and therefore ensure the returned profiling info object is not
   // collected.
   ProfilingInfo* NotifyCompilerUse(ArtMethod* method, Thread* self)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   void DoneCompiling(ArtMethod* method, Thread* self, bool osr)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   void DoneCompilerUse(ArtMethod* method, Thread* self)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   // Allocate and write code and its metadata to the code cache.
+  // `cha_single_implementation_list` needs to be registered via CHA (if it's
+  // still valid), since the compiled code still needs to be invalidated if the
+  // single-implementation assumptions are violated later. This needs to be done
+  // even if `has_should_deoptimize_flag` is false, which can happen due to CHA
+  // guard elimination.
   uint8_t* CommitCode(Thread* self,
                       ArtMethod* method,
-                      const uint8_t* vmap_table,
+                      uint8_t* stack_map,
+                      uint8_t* method_info,
+                      uint8_t* roots_data,
                       size_t frame_size_in_bytes,
                       size_t core_spill_mask,
                       size_t fp_spill_mask,
                       const uint8_t* code,
                       size_t code_size,
-                      bool osr)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+                      size_t data_size,
+                      bool osr,
+                      Handle<mirror::ObjectArray<mirror::Object>> roots,
+                      bool has_should_deoptimize_flag,
+                      const ArenaSet<ArtMethod*>& cha_single_implementation_list)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   // Return true if the code cache contains this pc.
@@ -108,14 +126,23 @@ class JitCodeCache {
   // Return true if the code cache contains this method.
   bool ContainsMethod(ArtMethod* method) REQUIRES(!lock_);
 
-  // Reserve a region of data of size at least "size". Returns null if there is no more room.
-  uint8_t* ReserveData(Thread* self, size_t size, ArtMethod* method)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  // Allocate a region of data that contain `size` bytes, and potentially space
+  // for storing `number_of_roots` roots. Returns null if there is no more room.
+  // Return the number of bytes allocated.
+  size_t ReserveData(Thread* self,
+                     size_t stack_map_size,
+                     size_t method_info_size,
+                     size_t number_of_roots,
+                     ArtMethod* method,
+                     uint8_t** stack_map_data,
+                     uint8_t** method_info_data,
+                     uint8_t** roots_data)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   // Clear data from the data portion of the code cache.
-  void ClearData(Thread* self, void* data)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  void ClearData(Thread* self, uint8_t* stack_map_data, uint8_t* roots_data)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!lock_);
 
   CodeCacheBitmap* GetLiveBitmap() const {
@@ -125,31 +152,32 @@ class JitCodeCache {
   // Return whether we should do a full collection given the current state of the cache.
   bool ShouldDoFullCollection()
       REQUIRES(lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Perform a collection on the code cache.
   void GarbageCollectCache(Thread* self)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Given the 'pc', try to find the JIT compiled code associated with it.
   // Return null if 'pc' is not in the code cache. 'method' is passed for
   // sanity check.
   OatQuickMethodHeader* LookupMethodHeader(uintptr_t pc, ArtMethod* method)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   OatQuickMethodHeader* LookupOsrMethodHeader(ArtMethod* method)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Remove all methods in our cache that were allocated by 'alloc'.
   void RemoveMethodsIn(Thread* self, const LinearAlloc& alloc)
       REQUIRES(!lock_)
-      REQUIRES(Locks::classlinker_classes_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void ClearGcRootsInInlineCaches(Thread* self) REQUIRES(!lock_);
+  void CopyInlineCacheInto(const InlineCache& ic, Handle<mirror::ObjectArray<mirror::Class>> array)
+      REQUIRES(!lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a 'ProfileInfo' for 'method'. If 'retry_allocation' is true,
   // will collect and retry if the first allocation is unsuccessful.
@@ -158,7 +186,7 @@ class JitCodeCache {
                                   const std::vector<uint32_t>& entries,
                                   bool retry_allocation)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool OwnsSpace(const void* mspace) const NO_THREAD_SAFETY_ANALYSIS {
     return mspace == code_mspace_ || mspace == data_mspace_;
@@ -168,9 +196,9 @@ class JitCodeCache {
 
   // Adds to `methods` all profiled methods which are part of any of the given dex locations.
   void GetProfiledMethods(const std::set<std::string>& dex_base_locations,
-                          std::vector<MethodReference>& methods)
+                          std::vector<ProfileMethodInfo>& methods)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   uint64_t GetLastUpdateTimeNs() const;
 
@@ -183,11 +211,32 @@ class JitCodeCache {
 
   void InvalidateCompiledCodeFor(ArtMethod* method, const OatQuickMethodHeader* code)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void Dump(std::ostream& os) REQUIRES(!lock_);
 
   bool IsOsrCompiled(ArtMethod* method) REQUIRES(!lock_);
+
+  void SweepRootTables(IsMarkedVisitor* visitor)
+      REQUIRES(!lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // The GC needs to disallow the reading of inline caches when it processes them,
+  // to avoid having a class being used while it is being deleted.
+  void AllowInlineCacheAccess() REQUIRES(!lock_);
+  void DisallowInlineCacheAccess() REQUIRES(!lock_);
+  void BroadcastForInlineCacheAccess() REQUIRES(!lock_);
+
+  // Notify the code cache that the method at the pointer 'old_method' is being moved to the pointer
+  // 'new_method' since it is being made obsolete.
+  void MoveObsoleteMethod(ArtMethod* old_method, ArtMethod* new_method)
+      REQUIRES(!lock_) REQUIRES(Locks::mutator_lock_);
+
+  // Dynamically change whether we want to garbage collect code. Should only be used
+  // by tests.
+  void SetGarbageCollectCode(bool value) {
+    garbage_collect_code_ = value;
+  }
 
  private:
   // Take ownership of maps.
@@ -202,29 +251,40 @@ class JitCodeCache {
   // allocation fails. Return null if the allocation fails.
   uint8_t* CommitCodeInternal(Thread* self,
                               ArtMethod* method,
-                              const uint8_t* vmap_table,
+                              uint8_t* stack_map,
+                              uint8_t* method_info,
+                              uint8_t* roots_data,
                               size_t frame_size_in_bytes,
                               size_t core_spill_mask,
                               size_t fp_spill_mask,
                               const uint8_t* code,
                               size_t code_size,
-                              bool osr)
+                              size_t data_size,
+                              bool osr,
+                              Handle<mirror::ObjectArray<mirror::Object>> roots,
+                              bool has_should_deoptimize_flag,
+                              const ArenaSet<ArtMethod*>& cha_single_implementation_list)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   ProfilingInfo* AddProfilingInfoInternal(Thread* self,
                                           ArtMethod* method,
                                           const std::vector<uint32_t>& entries)
       REQUIRES(lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // If a collection is in progress, wait for it to finish. Return
   // whether the thread actually waited.
   bool WaitForPotentialCollectionToComplete(Thread* self)
       REQUIRES(lock_) REQUIRES(!Locks::mutator_lock_);
 
-  // Free in the mspace allocations taken by 'method'.
-  void FreeCode(const void* code_ptr, ArtMethod* method) REQUIRES(lock_);
+  // Remove CHA dependents and underlying allocations for entries in `method_headers`.
+  void FreeAllMethodHeaders(const std::unordered_set<OatQuickMethodHeader*>& method_headers)
+      REQUIRES(!lock_)
+      REQUIRES(!Locks::cha_lock_);
+
+  // Free in the mspace allocations for `code_ptr`.
+  void FreeCode(const void* code_ptr) REQUIRES(lock_);
 
   // Number of bytes allocated in the code cache.
   size_t CodeCacheSizeLocked() REQUIRES(lock_);
@@ -244,15 +304,15 @@ class JitCodeCache {
 
   void DoCollection(Thread* self, bool collect_profiling_info)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void RemoveUnmarkedCode(Thread* self)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void MarkCompiledCodeOnThreadStacks(Thread* self)
       REQUIRES(!lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool CheckLiveCompiledCodeHasProfilingInfo()
       REQUIRES(lock_);
@@ -261,6 +321,11 @@ class JitCodeCache {
   uint8_t* AllocateCode(size_t code_size) REQUIRES(lock_);
   void FreeData(uint8_t* data) REQUIRES(lock_);
   uint8_t* AllocateData(size_t data_size) REQUIRES(lock_);
+
+  bool IsWeakAccessEnabled(Thread* self) const;
+  void WaitUntilInlineCacheAccessible(Thread* self)
+      REQUIRES(!lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Lock for guarding allocations, collections, and the method_code_map_.
   Mutex lock_;
@@ -304,8 +369,8 @@ class JitCodeCache {
   // It is atomic to avoid locking when reading it.
   Atomic<uint64_t> last_update_time_ns_;
 
-  // Whether we can do garbage collection.
-  const bool garbage_collect_code_;
+  // Whether we can do garbage collection. Not 'const' as tests may override this.
+  bool garbage_collect_code_;
 
   // The size in bytes of used memory for the data portion of the code cache.
   size_t used_memory_for_data_ GUARDED_BY(lock_);
@@ -319,9 +384,6 @@ class JitCodeCache {
   // Number of compilations for on-stack-replacement done throughout the lifetime of the JIT.
   size_t number_of_osr_compilations_ GUARDED_BY(lock_);
 
-  // Number of deoptimizations done throughout the lifetime of the JIT.
-  size_t number_of_deoptimizations_ GUARDED_BY(lock_);
-
   // Number of code cache collections done throughout the lifetime of the JIT.
   size_t number_of_collections_ GUARDED_BY(lock_);
 
@@ -333,6 +395,14 @@ class JitCodeCache {
 
   // Histograms for keeping track of profiling info statistics.
   Histogram<uint64_t> histogram_profiling_info_memory_use_ GUARDED_BY(lock_);
+
+  // Whether the GC allows accessing weaks in inline caches. Note that this
+  // is not used by the concurrent collector, which uses
+  // Thread::SetWeakRefAccessEnabled instead.
+  Atomic<bool> is_weak_access_enabled_;
+
+  // Condition to wait on for accessing inline caches.
+  ConditionVariable inline_cache_cond_ GUARDED_BY(lock_);
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(JitCodeCache);
 };

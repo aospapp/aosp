@@ -98,7 +98,8 @@ class ChameleonScreenTest(object):
 
 
     def test_screen_with_image(self, expected_resolution, test_mirrored=None,
-                               error_list=None, retry_count=2):
+                               error_list=None, chameleon_supported=True,
+                               retry_count=2):
         """Tests the screen with image loaded.
 
         @param expected_resolution: A tuple (width, height) for the expected
@@ -108,6 +109,10 @@ class ChameleonScreenTest(object):
                               mirrored.
         @param error_list: A list to append the error message to or None.
         @param retry_count: A count to retry the screen test.
+        @param chameleon_supported: Whether resolution is supported by
+                                    chameleon. The DP RX doesn't support
+                                    4K resolution. The max supported resolution
+                                    is 2560x1600. See crbug/585900.
         @return: None if the check passes; otherwise, a string of error message.
         """
         if test_mirrored is None:
@@ -120,23 +125,35 @@ class ChameleonScreenTest(object):
             test_image_size = utils.wait_for_value_changed(
                     self._display_facade.get_external_resolution,
                     old_value=None)
+        error = None
+        if test_image_size != expected_resolution:
+            error = ('Screen size %s is not as expected %s!'
+                     % (str(test_image_size), str(expected_resolution)))
+            if test_mirrored:
+                # For the case of mirroring, depending on hardware vs
+                # software mirroring, screen size can be different.
+                logging.info('Warning: %s', error)
+                error = None
+            else:
+                error_list.append(error)
 
-        error = self._resolution_comparer.compare(expected_resolution)
-        if not error:
-            while retry_count:
-                retry_count = retry_count - 1
-                try:
-                    self.load_test_image(test_image_size)
-                    error = self.test_screen(expected_resolution, test_mirrored)
-                    if error is None:
-                        return error
-                    elif retry_count > 0:
-                        logging.info('Retry screen comparison again...')
-                finally:
-                    self.unload_test_image()
+        if chameleon_supported:
+            error = self._resolution_comparer.compare(expected_resolution)
+            if not error:
+                while retry_count:
+                    retry_count = retry_count - 1
+                    try:
+                        self.load_test_image(test_image_size)
+                        error = self.test_screen(expected_resolution, test_mirrored)
+                        if error is None:
+                            return error
+                        elif retry_count > 0:
+                            logging.info('Retry screen comparison again...')
+                    finally:
+                        self.unload_test_image()
 
-        if error and error_list is not None:
-            error_list.append(error)
+            if error and error_list is not None:
+                error_list.append(error)
         return error
 
 

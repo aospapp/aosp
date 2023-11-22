@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -70,10 +70,11 @@ Deflater_init(JNIEnv *env, jclass cls, jint level,
         JNU_ThrowOutOfMemoryError(env, 0);
         return jlong_zero;
     } else {
-        char *msg;
-        switch (deflateInit2(strm, level, Z_DEFLATED,
-                             nowrap ? -MAX_WBITS : MAX_WBITS,
-                             DEF_MEM_LEVEL, strategy)) {
+        const char *msg;
+        int ret = deflateInit2(strm, level, Z_DEFLATED,
+                               nowrap ? -MAX_WBITS : MAX_WBITS,
+                               DEF_MEM_LEVEL, strategy);
+        switch (ret) {
           case Z_OK:
             return ptr_to_jlong(strm);
           case Z_MEM_ERROR:
@@ -85,7 +86,11 @@ Deflater_init(JNIEnv *env, jclass cls, jint level,
             JNU_ThrowIllegalArgumentException(env, 0);
             return jlong_zero;
           default:
-            msg = strm->msg;
+            msg = ((strm->msg != NULL) ? strm->msg :
+                   (ret == Z_VERSION_ERROR) ?
+                   "zlib returned Z_VERSION_ERROR: "
+                   "compile time and runtime zlib implementations differ" :
+                   "unknown error initializing zlib library");
             free(strm);
             JNU_ThrowInternalError(env, msg);
             return jlong_zero;

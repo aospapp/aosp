@@ -1,10 +1,31 @@
 package android.support.v7.widget;
 
+import static android.support.v7.widget.LayoutState.LAYOUT_END;
+import static android.support.v7.widget.LayoutState.LAYOUT_START;
+import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
+import static android.support.v7.widget.StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS;
+import static android.support.v7.widget.StaggeredGridLayoutManager.GAP_HANDLING_NONE;
+import static android.support.v7.widget.StaggeredGridLayoutManager.HORIZONTAL;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.util.StateSet;
 import android.view.View;
 import android.view.ViewGroup;
+
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -17,27 +38,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static android.support.v7.widget.LayoutState.LAYOUT_END;
-import static android.support.v7.widget.LayoutState.LAYOUT_START;
-import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
-import static android.support.v7.widget.StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS;
-import static android.support.v7.widget.StaggeredGridLayoutManager.GAP_HANDLING_NONE;
-import static android.support.v7.widget.StaggeredGridLayoutManager.HORIZONTAL;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
-
-import org.hamcrest.CoreMatchers;
-import org.hamcrest.MatcherAssert;
-
-public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
+abstract class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrumentationTest {
 
     protected static final boolean DEBUG = false;
     protected static final int AVG_ITEM_PER_VIEW = 3;
-    protected static final String TAG = "StaggeredGridLayoutManagerTest";
+    protected static final String TAG = "SGLM_TEST";
     volatile WrappedLayoutManager mLayoutManager;
     GridTestAdapter mAdapter;
 
@@ -81,11 +86,10 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
 
     void setupByConfig(Config config, GridTestAdapter adapter) throws Throwable {
         mAdapter = adapter;
-        mRecyclerView = new RecyclerView(getActivity());
+        mRecyclerView = new WrappedRecyclerView(getActivity());
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.setHasFixedSize(true);
-        mLayoutManager = new WrappedLayoutManager(config.mSpanCount,
-                config.mOrientation);
+        mLayoutManager = new WrappedLayoutManager(config.mSpanCount, config.mOrientation);
         mLayoutManager.setGapStrategy(config.mGapStrategy);
         mLayoutManager.setReverseLayout(config.mReverseLayout);
         mRecyclerView.setLayoutManager(mLayoutManager);
@@ -125,7 +129,7 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
     protected void waitForMainThread(int count) throws Throwable {
         final AtomicInteger i = new AtomicInteger(count);
         while (i.get() > 0) {
-            runTestOnUiThread(new Runnable() {
+            mActivityRule.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     i.decrementAndGet();
@@ -246,7 +250,7 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
 
     protected void scrollToPositionWithOffset(final int position, final int offset)
             throws Throwable {
-        runTestOnUiThread(new Runnable() {
+        mActivityRule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mLayoutManager.scrollToPositionWithOffset(position, offset);
@@ -442,13 +446,13 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
 
         @Override
         public String toString() {
-            return "[CONFIG:" +
-                    " span:" + mSpanCount + "," +
-                    " orientation:" + (mOrientation == HORIZONTAL ? "horz," : "vert,") +
-                    " reverse:" + (mReverseLayout ? "T" : "F") +
-                    " itemCount:" + mItemCount +
-                    " wrapContent:" + mWrap +
-                    " gap strategy: " + gapStrategyName(mGapStrategy);
+            return "[CONFIG:"
+                    + "span:" + mSpanCount
+                    + ",orientation:" + (mOrientation == HORIZONTAL ? "horz," : "vert,")
+                    + ",reverse:" + (mReverseLayout ? "T" : "F")
+                    + ",itemCount:" + mItemCount
+                    + ",wrapContent:" + mWrap
+                    + ",gap_strategy:" + gapStrategyName(mGapStrategy);
         }
 
         protected static String gapStrategyName(int gapStrategy) {
@@ -456,9 +460,9 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
                 case GAP_HANDLING_NONE:
                     return "none";
                 case GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS:
-                    return "move spans";
+                    return "move_spans";
             }
-            return "gap strategy: unknown";
+            return "gap_strategy:unknown";
         }
 
         @Override
@@ -470,12 +474,13 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
     class WrappedLayoutManager extends StaggeredGridLayoutManager {
 
         CountDownLatch layoutLatch;
+        CountDownLatch prefetchLatch;
         OnLayoutListener mOnLayoutListener;
         // gradle does not yet let us customize manifest for tests which is necessary to test RTL.
         // until bug is fixed, we'll fake it.
         // public issue id: 57819
         Boolean mFakeRTL;
-        CountDownLatch snapLatch;
+        CountDownLatch mSnapLatch;
 
         @Override
         boolean isLayoutRTL() {
@@ -499,15 +504,32 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
             });
         }
 
+        public void expectPrefetch(int count) {
+            prefetchLatch = new CountDownLatch(count);
+        }
+
+        public void waitForPrefetch(int seconds) throws Throwable {
+            prefetchLatch.await(seconds * (DEBUG ? 100 : 1), SECONDS);
+            checkForMainThreadException();
+            MatcherAssert.assertThat("all prefetches should complete on time",
+                    prefetchLatch.getCount(), CoreMatchers.is(0L));
+            // use a runnable to ensure RV layout is finished
+            getInstrumentation().runOnMainSync(new Runnable() {
+                @Override
+                public void run() {
+                }
+            });
+        }
+
         public void expectIdleState(int count) {
-            snapLatch = new CountDownLatch(count);
+            mSnapLatch = new CountDownLatch(count);
             mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
                 @Override
                 public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
                     super.onScrollStateChanged(recyclerView, newState);
                     if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                        snapLatch.countDown();
-                        if (snapLatch.getCount() == 0L) {
+                        mSnapLatch.countDown();
+                        if (mSnapLatch.getCount() == 0L) {
                             mRecyclerView.removeOnScrollListener(this);
                         }
                     }
@@ -516,10 +538,10 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
         }
 
         public void waitForSnap(int seconds) throws Throwable {
-            snapLatch.await(seconds * (DEBUG ? 100 : 1), SECONDS);
+            mSnapLatch.await(seconds * (DEBUG ? 100 : 1), SECONDS);
             checkForMainThreadException();
             MatcherAssert.assertThat("all scrolling should complete on time",
-                    snapLatch.getCount(), CoreMatchers.is(0L));
+                    mSnapLatch.getCount(), CoreMatchers.is(0L));
             // use a runnable to ensure RV layout is finished
             getInstrumentation().runOnMainSync(new Runnable() {
                 @Override
@@ -703,21 +725,20 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
 
         Map<Item, Rect> collectChildCoordinates() throws Throwable {
             final Map<Item, Rect> items = new LinkedHashMap<Item, Rect>();
-            runTestOnUiThread(new Runnable() {
+            mActivityRule.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    final int start = mPrimaryOrientation.getStartAfterPadding();
+                    final int end = mPrimaryOrientation.getEndAfterPadding();
                     final int childCount = getChildCount();
                     for (int i = 0; i < childCount; i++) {
                         View child = getChildAt(i);
-                        // do it if and only if child is visible
-                        if (child.getRight() < 0 || child.getBottom() < 0 ||
-                                child.getLeft() >= getWidth() || child.getTop() >= getHeight()) {
-                            // invisible children may be drawn in cases like scrolling so we should
-                            // ignore them
+                        // ignore child if it fits the recycling constraints
+                        if (mPrimaryOrientation.getDecoratedStart(child) >= end
+                                || mPrimaryOrientation.getDecoratedEnd(child) < start) {
                             continue;
                         }
-                        LayoutParams lp = (LayoutParams) child
-                                .getLayoutParams();
+                        LayoutParams lp = (LayoutParams) child.getLayoutParams();
                         TestViewHolder vh = (TestViewHolder) lp.mViewHolder;
                         items.put(vh.mBoundItem, getViewBounds(child));
                     }
@@ -785,6 +806,13 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
                             layoutToString("ERROR") + "\n msg:" + msg);
                 }
             }
+        }
+
+        @Override
+        public void collectAdjacentPrefetchPositions(int dx, int dy, RecyclerView.State state,
+                LayoutPrefetchRegistry layoutPrefetchRegistry) {
+            if (prefetchLatch != null) prefetchLatch.countDown();
+            super.collectAdjacentPrefetchPositions(dx, dy, state, layoutPrefetchRegistry);
         }
     }
 
@@ -854,6 +882,7 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
                         / AVG_ITEM_PER_VIEW : mRecyclerViewHeight / AVG_ITEM_PER_VIEW;
             }
             super.onBindViewHolder(holder, position);
+
             Item item = mItems.get(position);
             RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) holder.itemView
                     .getLayoutParams();
@@ -862,8 +891,8 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
                         .setFullSpan(mFullSpanItems.contains(item.mAdapterIndex));
             } else {
                 StaggeredGridLayoutManager.LayoutParams slp
-                        = (StaggeredGridLayoutManager.LayoutParams) mLayoutManager
-                        .generateDefaultLayoutParams();
+                    = (StaggeredGridLayoutManager.LayoutParams) mLayoutManager
+                    .generateDefaultLayoutParams();
                 holder.itemView.setLayoutParams(slp);
                 slp.setFullSpan(mFullSpanItems.contains(item.mAdapterIndex));
                 lp = slp;
@@ -882,7 +911,13 @@ public class BaseStaggeredGridLayoutManagerTest extends BaseRecyclerViewInstrume
                 lp.rightMargin = 7;
                 lp.bottomMargin = 9;
             }
-
+            // Good to have colors for debugging
+            StateListDrawable stl = new StateListDrawable();
+            stl.addState(new int[]{android.R.attr.state_focused},
+                    new ColorDrawable(Color.RED));
+            stl.addState(StateSet.WILD_CARD, new ColorDrawable(Color.BLUE));
+            //noinspection deprecation using this for kitkat tests
+            holder.itemView.setBackgroundDrawable(stl);
             if (mOnBindCallback != null) {
                 mOnBindCallback.onBoundItem(holder, position);
             }

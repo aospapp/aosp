@@ -33,7 +33,7 @@ namespace trunks {
 // commands to the trunksd D-Bus daemon. See TrunksDBusService for details on
 // how the commands are handled once they reach trunksd. A TrunksDBusProxy
 // instance must be used in only one thread.
-class TRUNKS_EXPORT TrunksDBusProxy: public CommandTransceiver {
+class TRUNKS_EXPORT TrunksDBusProxy : public CommandTransceiver {
  public:
   TrunksDBusProxy();
   ~TrunksDBusProxy() override;

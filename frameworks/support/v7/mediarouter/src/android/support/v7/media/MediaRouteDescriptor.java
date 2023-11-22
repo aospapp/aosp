@@ -15,10 +15,13 @@
  */
 package android.support.v7.media;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.RestrictTo;
 import android.text.TextUtils;
 
 import java.util.ArrayList;
@@ -37,32 +40,32 @@ import java.util.List;
  * </p>
  */
 public final class MediaRouteDescriptor {
-    private static final String KEY_ID = "id";
-    private static final String KEY_GROUP_MEMBER_IDS = "groupMemberIds";
-    private static final String KEY_NAME = "name";
-    private static final String KEY_DESCRIPTION = "status";
-    private static final String KEY_ICON_URI = "iconUri";
-    private static final String KEY_ENABLED = "enabled";
-    private static final String KEY_CONNECTING = "connecting";
-    private static final String KEY_CONNECTION_STATE = "connectionState";
-    private static final String KEY_CONTROL_FILTERS = "controlFilters";
-    private static final String KEY_PLAYBACK_TYPE = "playbackType";
-    private static final String KEY_PLAYBACK_STREAM = "playbackStream";
-    private static final String KEY_DEVICE_TYPE = "deviceType";
-    private static final String KEY_VOLUME = "volume";
-    private static final String KEY_VOLUME_MAX = "volumeMax";
-    private static final String KEY_VOLUME_HANDLING = "volumeHandling";
-    private static final String KEY_PRESENTATION_DISPLAY_ID = "presentationDisplayId";
-    private static final String KEY_EXTRAS = "extras";
-    private static final String KEY_CAN_DISCONNECT = "canDisconnect";
-    private static final String KEY_SETTINGS_INTENT = "settingsIntent";
-    private static final String KEY_MIN_CLIENT_VERSION = "minClientVersion";
-    private static final String KEY_MAX_CLIENT_VERSION = "maxClientVersion";
+    static final String KEY_ID = "id";
+    static final String KEY_GROUP_MEMBER_IDS = "groupMemberIds";
+    static final String KEY_NAME = "name";
+    static final String KEY_DESCRIPTION = "status";
+    static final String KEY_ICON_URI = "iconUri";
+    static final String KEY_ENABLED = "enabled";
+    static final String KEY_CONNECTING = "connecting";
+    static final String KEY_CONNECTION_STATE = "connectionState";
+    static final String KEY_CONTROL_FILTERS = "controlFilters";
+    static final String KEY_PLAYBACK_TYPE = "playbackType";
+    static final String KEY_PLAYBACK_STREAM = "playbackStream";
+    static final String KEY_DEVICE_TYPE = "deviceType";
+    static final String KEY_VOLUME = "volume";
+    static final String KEY_VOLUME_MAX = "volumeMax";
+    static final String KEY_VOLUME_HANDLING = "volumeHandling";
+    static final String KEY_PRESENTATION_DISPLAY_ID = "presentationDisplayId";
+    static final String KEY_EXTRAS = "extras";
+    static final String KEY_CAN_DISCONNECT = "canDisconnect";
+    static final String KEY_SETTINGS_INTENT = "settingsIntent";
+    static final String KEY_MIN_CLIENT_VERSION = "minClientVersion";
+    static final String KEY_MAX_CLIENT_VERSION = "maxClientVersion";
 
-    private final Bundle mBundle;
-    private List<IntentFilter> mControlFilters;
+    final Bundle mBundle;
+    List<IntentFilter> mControlFilters;
 
-    private MediaRouteDescriptor(Bundle bundle, List<IntentFilter> controlFilters) {
+    MediaRouteDescriptor(Bundle bundle, List<IntentFilter> controlFilters) {
         mBundle = bundle;
         mControlFilters = controlFilters;
     }
@@ -87,6 +90,7 @@ public final class MediaRouteDescriptor {
      * </p>
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public List<String> getGroupMemberIds() {
         return mBundle.getStringArrayList(KEY_GROUP_MEMBER_IDS);
     }
@@ -189,7 +193,7 @@ public final class MediaRouteDescriptor {
         return mControlFilters;
     }
 
-    private void ensureControlFilters() {
+    void ensureControlFilters() {
         if (mControlFilters == null) {
             mControlFilters = mBundle.<IntentFilter>getParcelableArrayList(KEY_CONTROL_FILTERS);
             if (mControlFilters == null) {
@@ -274,6 +278,7 @@ public final class MediaRouteDescriptor {
      * Gets the minimum client version required for this route.
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public int getMinClientVersion() {
         return mBundle.getInt(KEY_MIN_CLIENT_VERSION,
                 MediaRouteProviderProtocol.CLIENT_VERSION_START);
@@ -283,6 +288,7 @@ public final class MediaRouteDescriptor {
      * Gets the maximum client version required for this route.
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     public int getMaxClientVersion() {
         return mBundle.getInt(KEY_MAX_CLIENT_VERSION, Integer.MAX_VALUE);
     }
@@ -405,6 +411,7 @@ public final class MediaRouteDescriptor {
          * </p>
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         public Builder addGroupMemberId(String groupMemberId) {
             if (TextUtils.isEmpty(groupMemberId)) {
                 throw new IllegalArgumentException("groupMemberId must not be empty");
@@ -427,6 +434,7 @@ public final class MediaRouteDescriptor {
          * </p>
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         public Builder addGroupMemberIds(Collection<String> groupMemberIds) {
             if (groupMemberIds == null) {
                 throw new IllegalArgumentException("groupMemberIds must not be null");
@@ -655,6 +663,7 @@ public final class MediaRouteDescriptor {
          * A router whose version is lower than this will not be able to connect to this route.
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         public Builder setMinClientVersion(int minVersion) {
             mBundle.putInt(KEY_MIN_CLIENT_VERSION, minVersion);
             return this;
@@ -665,6 +674,7 @@ public final class MediaRouteDescriptor {
          * A router whose version is higher than this will not be able to connect to this route.
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         public Builder setMaxClientVersion(int maxVersion) {
             mBundle.putInt(KEY_MAX_CLIENT_VERSION, maxVersion);
             return this;

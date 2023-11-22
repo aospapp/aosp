@@ -16,6 +16,27 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Movie;
+import android.graphics.Paint;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -23,42 +44,38 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import android.content.Context;
-import android.cts.util.WidgetTestUtils;
-import android.graphics.Canvas;
-import android.graphics.Movie;
-import android.graphics.Paint;
-import android.test.ActivityInstrumentationTestCase2;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MovieTest {
+    private final int MOVIE = R.drawable.animated;
 
-public class MovieTest extends ActivityInstrumentationTestCase2<MockActivity> {
+    private Context mContext;
+    private Resources mResources;
     private Movie mMovie;
-    private final int MOVIE = android.graphics.cts.R.drawable.animated;
 
-    public MovieTest() {
-        super("android.graphics.cts", MockActivity.class);
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mResources = mContext.getResources();
+        mMovie = mResources.getMovie(MOVIE);
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mMovie = getActivity().getResources().getMovie(MOVIE);
-    }
-
+    @Test
     public void testDraw1() {
         Canvas c = new Canvas();
         Paint p = new Paint();
         mMovie.draw(c, 100, 200, p);
     }
 
+    @Test
     public void testDraw2() {
         Canvas c = new Canvas();
         mMovie.draw(c, 100, 200);
     }
 
+    @Test
     public void testDecodeFile() throws Exception {
-        mMovie = null;
-        File dbDir = getInstrumentation().getTargetContext().getDir("tests",
-                Context.MODE_PRIVATE);
+        File dbDir = mContext.getDir("tests", Context.MODE_PRIVATE);
         File imagefile = new File(dbDir, "animated.gif");
         if (imagefile.exists()) {
             imagefile.delete();
@@ -67,30 +84,18 @@ public class MovieTest extends ActivityInstrumentationTestCase2<MockActivity> {
         mMovie = Movie.decodeFile(imagefile.getPath());
         assertNotNull(mMovie);
 
-        mMovie = null;
         mMovie = Movie.decodeFile("/no file path");
         assertNull(mMovie);
     }
 
     private void writeSampleImage(File imagefile) throws Exception {
-        InputStream source = null;
-        OutputStream target = null;
-
-        try {
-            source = getActivity().getResources().openRawResource(MOVIE);
-            target = new FileOutputStream(imagefile);
+        try (InputStream source = mResources.openRawResource(MOVIE);
+             OutputStream target = new FileOutputStream(imagefile)) {
 
             byte[] buffer = new byte[1024];
             for (int len = source.read(buffer); len > 0; len = source
                     .read(buffer)) {
                 target.write(buffer, 0, len);
-            }
-        } finally {
-            if (source != null) {
-                source.close();
-            }
-            if (target != null) {
-                target.close();
             }
         }
     }
@@ -108,29 +113,26 @@ public class MovieTest extends ActivityInstrumentationTestCase2<MockActivity> {
 
     }
 
+    @Test
     public void testDecodeByteArray() throws Exception {
-        mMovie = null;
-        InputStream is = getActivity().getResources().openRawResource(MOVIE);
+        InputStream is = mResources.openRawResource(MOVIE);
         byte[] bytes = inputStreamToBytes(is);
         mMovie = Movie.decodeByteArray(bytes, 0, bytes.length);
         is.close();
         assertNotNull(mMovie);
     }
 
-    public void testDecodeStream() {
+    @Test
+    public void testDecodeStream() throws IOException {
         assertFalse(mMovie.isOpaque());
         mMovie = null;
-        try {
-            InputStream is = getActivity().getResources()
-                    .openRawResource(MOVIE);
+        try (InputStream is = mResources.openRawResource(MOVIE)) {
             mMovie = Movie.decodeStream(is);
-            is.close();
-        } catch (Exception e) {
-            fail("shouldn't throw exception");
         }
         assertNotNull(mMovie);
     }
 
+    @Test
     public void testSetTime() {
         assertTrue(mMovie.setTime(1000));
         assertFalse(mMovie.setTime(Integer.MAX_VALUE));
@@ -138,17 +140,17 @@ public class MovieTest extends ActivityInstrumentationTestCase2<MockActivity> {
         assertFalse(mMovie.setTime(-1));
     }
 
+    @Test
     public void testGetMovieProperties() {
         assertEquals(1000, mMovie.duration());
         assertFalse(mMovie.isOpaque());
 
-        int expectedHeight = getActivity().getResources().getDrawable(MOVIE).getIntrinsicHeight();
-        int scaledHeight = WidgetTestUtils.convertDipToPixels(getActivity(), mMovie.height());
+        int expectedHeight = mResources.getDrawable(MOVIE).getIntrinsicHeight();
+        int scaledHeight = WidgetTestUtils.convertDipToPixels(mContext, mMovie.height());
         assertEquals(expectedHeight, scaledHeight);
 
-        int expectedWidth = getActivity().getResources().getDrawable(MOVIE).getIntrinsicWidth();
-        int scaledWidth = WidgetTestUtils.convertDipToPixels(getActivity(), mMovie.width());
+        int expectedWidth = mResources.getDrawable(MOVIE).getIntrinsicWidth();
+        int scaledWidth = WidgetTestUtils.convertDipToPixels(mContext, mMovie.width());
         assertEquals(expectedWidth, scaledWidth);
-
     }
 }

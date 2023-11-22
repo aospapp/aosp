@@ -23,8 +23,11 @@ import android.media.MediaPlayer;
 import android.os.ConditionVariable;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,6 +38,7 @@ import java.io.RandomAccessFile;
 
 import android.security.cts.R;
 
+@SecurityTest
 public class MediaServerCrashTest extends AndroidTestCase {
     private static final String TAG = "MediaServerCrashTest";
 
@@ -120,11 +124,16 @@ public class MediaServerCrashTest extends AndroidTestCase {
     }
 
     private void checkIfMediaServerDiedForDrm(int res) throws Exception {
-        if (!convertDmToFl(res, mFlFilePath)) {
+        AssetFileDescriptor afd = mContext.getResources().openRawResourceFd(res);
+        FileInputStream dmStream = afd.createInputStream();
+        RandomAccessFile flFile = new RandomAccessFile(mFlFilePath, "rw");
+        if (!MediaUtils.convertDmToFl(mContext, dmStream, flFile)) {
             Log.w(TAG, "Can not convert dm to fl, skip checkIfMediaServerDiedForDrm");
             mMediaPlayer.release();
             return;
         }
+        dmStream.close();
+        flFile.close();
         Log.d(TAG, "intermediate fl file is " + mFlFilePath);
 
         ParcelFileDescriptor flFd = null;
@@ -153,125 +162,5 @@ public class MediaServerCrashTest extends AndroidTestCase {
         } finally {
             mMediaPlayer.release();
         }
-    }
-
-    private boolean convertDmToFl(int res, String flFilePath) throws Exception {
-        AssetFileDescriptor afd = getContext().getResources().openRawResourceFd(res);
-        FileInputStream inputStream = afd.createInputStream();
-        int inputLength = (int)afd.getLength();
-        byte[] fileData = new byte[inputLength];
-        int readSize = inputStream.read(fileData, 0, inputLength);
-        assertEquals("can not pull in all data", readSize, inputLength);
-        inputStream.close();
-        afd.close();
-
-        FileOutputStream flStream = new FileOutputStream(new File(flFilePath));
-
-        DrmManagerClient drmClient = null;
-        try {
-            drmClient = new DrmManagerClient(mContext);
-        } catch (IllegalArgumentException e) {
-            Log.w(TAG, "DrmManagerClient instance could not be created, context is Illegal.");
-            return false;
-        } catch (IllegalStateException e) {
-            Log.w(TAG, "DrmManagerClient didn't initialize properly.");
-            return false;
-        }
-
-        if (drmClient == null) {
-            Log.w(TAG, "Failed to create DrmManagerClient.");
-            return false;
-        }
-
-        int convertSessionId = -1;
-        try {
-            convertSessionId = drmClient.openConvertSession(MIMETYPE_DRM_MESSAGE);
-        } catch (IllegalArgumentException e) {
-            Log.w(TAG, "Conversion of Mimetype: " + MIMETYPE_DRM_MESSAGE
-                    + " is not supported.", e);
-            return false;
-        } catch (IllegalStateException e) {
-            Log.w(TAG, "Could not access Open DrmFramework.", e);
-            return false;
-        }
-
-        if (convertSessionId < 0) {
-            Log.w(TAG, "Failed to open session.");
-            return false;
-        }
-
-        DrmConvertedStatus convertedStatus = null;
-        try {
-            convertedStatus = drmClient.convertData(convertSessionId, fileData);
-        } catch (IllegalArgumentException e) {
-            Log.w(TAG, "Buffer with data to convert is illegal. Convertsession: "
-                    + convertSessionId, e);
-            return false;
-        } catch (IllegalStateException e) {
-            Log.w(TAG, "Could not convert data. Convertsession: " + convertSessionId, e);
-            return false;
-        }
-
-        if (convertedStatus == null ||
-                convertedStatus.statusCode != DrmConvertedStatus.STATUS_OK ||
-                convertedStatus.convertedData == null) {
-            Log.w(TAG, "Error in converting data. Convertsession: " + convertSessionId);
-            try {
-                drmClient.closeConvertSession(convertSessionId);
-            } catch (IllegalStateException e) {
-                Log.w(TAG, "Could not close session. Convertsession: " +
-                       convertSessionId, e);
-            }
-            return false;
-        }
-
-        flStream.write(convertedStatus.convertedData, 0, convertedStatus.convertedData.length);
-        flStream.close();
-
-        try {
-            convertedStatus = drmClient.closeConvertSession(convertSessionId);
-        } catch (IllegalStateException e) {
-            Log.w(TAG, "Could not close convertsession. Convertsession: " +
-                    convertSessionId, e);
-            return false;
-        }
-
-        if (convertedStatus == null ||
-                convertedStatus.statusCode != DrmConvertedStatus.STATUS_OK ||
-                convertedStatus.convertedData == null) {
-            Log.w(TAG, "Error in closing session. Convertsession: " + convertSessionId);
-            return false;
-        }
-
-        RandomAccessFile flRandomAccessFile = null;
-        try {
-            flRandomAccessFile = new RandomAccessFile(flFilePath, "rw");
-            flRandomAccessFile.seek(convertedStatus.offset);
-            flRandomAccessFile.write(convertedStatus.convertedData);
-        } catch (FileNotFoundException e) {
-            Log.w(TAG, "File: " + flFilePath + " could not be found.", e);
-            return false;
-        } catch (IOException e) {
-            Log.w(TAG, "Could not access File: " + flFilePath + " .", e);
-            return false;
-        } catch (IllegalArgumentException e) {
-            Log.w(TAG, "Could not open file in mode: rw", e);
-            return false;
-        } catch (SecurityException e) {
-            Log.w(TAG, "Access to File: " + flFilePath +
-                    " was denied denied by SecurityManager.", e);
-            return false;
-        } finally {
-            if (flRandomAccessFile != null) {
-                try {
-                    flRandomAccessFile.close();
-                } catch (IOException e) {
-                    Log.w(TAG, "Failed to close File:" + flFilePath + ".", e);
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 }

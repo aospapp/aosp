@@ -1,5 +1,5 @@
-#ifndef ANDOID_RENDERSCRIPT_MAP_H
-#define ANDOID_RENDERSCRIPT_MAP_H
+#ifndef ANDROID_RENDERSCRIPT_MAP_H
+#define ANDROID_RENDERSCRIPT_MAP_H
 
 #include <stddef.h>
 
@@ -164,4 +164,4 @@ private:
 }  // namespace renderscript
 }  // namespace android
 
-#endif  // ANDOID_RENDERSCRIPT_MAP_H
+#endif  // ANDROID_RENDERSCRIPT_MAP_H

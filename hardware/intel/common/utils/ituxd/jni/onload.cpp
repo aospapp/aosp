@@ -25,10 +25,13 @@ int register_intel_thermal_ituxd(JNIEnv* env);
 
 using namespace android;
 
+#define UNUSED(expr) (void)(expr)
+
 extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     JNIEnv* env = NULL;
     jint result = -1;
+    UNUSED(reserved);
 
     if (vm->GetEnv((void**) &env, JNI_VERSION_1_4) != JNI_OK) {
         ALOGE("GetEnv failed!");

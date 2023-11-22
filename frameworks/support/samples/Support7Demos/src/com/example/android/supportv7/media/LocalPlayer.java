@@ -16,6 +16,7 @@
 
 package com.example.android.supportv7.media;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Presentation;
 import android.content.Context;
@@ -26,8 +27,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.support.v7.media.MediaRouter.RouteInfo;
 import android.support.v7.media.MediaItemStatus;
+import android.support.v7.media.MediaRouter.RouteInfo;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -373,6 +374,7 @@ public abstract class LocalPlayer extends Player implements
         }
     }
 
+    @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     private static final class ICSMediaPlayer {
         public static final void setSurface(MediaPlayer player, Surface surface) {
             player.setSurface(surface);
@@ -398,7 +400,6 @@ public abstract class LocalPlayer extends Player implements
 
             // add surface holder callback
             SurfaceHolder holder = mSurfaceView.getHolder();
-            holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
             holder.addCallback(this);
         }
 
@@ -412,11 +413,8 @@ public abstract class LocalPlayer extends Player implements
         public void release() {
             super.release();
 
-            // dismiss presentation display
-            if (mPresentation != null) {
-                Log.i(TAG, "Dismissing presentation because the activity is no longer visible.");
-                mPresentation.dismiss();
-                mPresentation = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                releasePresentation();
             }
 
             // remove surface holder callback
@@ -428,6 +426,7 @@ public abstract class LocalPlayer extends Player implements
             mLayout.setVisibility(View.GONE);
         }
 
+        @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
         @Override
         public void updatePresentation() {
             // Get the current route and its presentation display.
@@ -490,7 +489,10 @@ public abstract class LocalPlayer extends Player implements
             int width = getVideoWidth();
             int height = getVideoHeight();
             if (width > 0 && height > 0) {
-                if (mPresentation == null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1
+                        && mPresentation != null) {
+                    mPresentation.updateSize(width, height);
+                } else {
                     int surfaceWidth = mLayout.getWidth();
                     int surfaceHeight = mLayout.getHeight();
 
@@ -510,8 +512,6 @@ public abstract class LocalPlayer extends Player implements
                     }
                     Log.i(TAG, "video rect is " + lp.width + "x" + lp.height);
                     mSurfaceView.setLayoutParams(lp);
-                } else {
-                    mPresentation.updateSize(width, height);
                 }
             }
         }
@@ -540,7 +540,18 @@ public abstract class LocalPlayer extends Player implements
             }
         };
 
+        @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+        private void releasePresentation() {
+            // dismiss presentation display
+            if (mPresentation != null) {
+                Log.i(TAG, "Dismissing presentation because the activity is no longer visible.");
+                mPresentation.dismiss();
+                mPresentation = null;
+            }
+        }
+
         // Presentation
+        @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
         private final class DemoPresentation extends Presentation {
             private SurfaceView mPresentationSurfaceView;
 
@@ -559,7 +570,6 @@ public abstract class LocalPlayer extends Player implements
                 // Set up the surface view.
                 mPresentationSurfaceView = (SurfaceView)findViewById(R.id.surface_view);
                 SurfaceHolder holder = mPresentationSurfaceView.getHolder();
-                holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
                 holder.addCallback(SurfaceViewPlayer.this);
                 Log.i(TAG, "Presentation created");
             }

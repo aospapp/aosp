@@ -22,6 +22,11 @@ class platform_CryptohomeKeyEviction(test.test):
 
 
     def run_once(self):
+        # Make sure that the tpm is owned.
+        status = cryptohome.get_tpm_status()
+        if not status['Owned']:
+            cryptohome.take_tpm_ownership()
+
         self.user = 'first_user@nowhere.com'
         password = 'test_password'
         self._cryptohome_proxy.ensure_clean_cryptohome_for(self.user, password)

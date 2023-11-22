@@ -73,7 +73,7 @@ bool RSExportForEach::validateAndConstructParams(
   mResultType = FD->getReturnType().getCanonicalType();
   // Compute kernel functions are defined differently when the
   // "__attribute__((kernel))" is set.
-  if (FD->hasAttr<clang::KernelAttr>()) {
+  if (FD->hasAttr<clang::RenderScriptKernelAttr>()) {
     valid &= validateAndConstructKernelParams(Context, FD);
   } else {
     valid &= validateAndConstructOldStyleParams(Context, FD);
@@ -434,8 +434,8 @@ bool RSExportForEach::isRSForEachFunc(unsigned int targetAPI,
   }
 
   // Anything tagged as a kernel("") is definitely used with ForEach.
-  if (auto *Kernel = FD->getAttr<clang::KernelAttr>()) {
-    return Kernel->getKernelKind().empty();
+  if (FD->hasAttr<clang::RenderScriptKernelAttr>()) {
+    return true;
   }
 
   if (RSSpecialFunc::isGraphicsRootRSFunc(targetAPI, FD)) {
@@ -469,7 +469,7 @@ bool RSExportForEach::isRSForEachFunc(unsigned int targetAPI,
 unsigned RSExportForEach::getNumInputs(unsigned int targetAPI,
                                        const clang::FunctionDecl *FD) {
   unsigned numInputs = 0;
-  for (const clang::ParmVarDecl* param : FD->params()) {
+  for (const clang::ParmVarDecl* param : FD->parameters()) {
     if (!isSpecialKernelParameter(param->getName())) {
       numInputs++;
     }

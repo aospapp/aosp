@@ -35,6 +35,7 @@ public class EnableCollectionDebuggee extends SyncDebuggee {
     static EnableCollectionObject001_02 patternObject;
     static boolean patternObject_Finalized = false;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: EnableCollectionDebuggee: START");
         
@@ -131,6 +132,7 @@ public class EnableCollectionDebuggee extends SyncDebuggee {
 }
 
 class EnableCollectionObject001_01 {
+    @Override
     protected void finalize() throws Throwable {
         EnableCollectionDebuggee.checkedObject_Finalized = true;
         super.finalize();
@@ -138,6 +140,7 @@ class EnableCollectionObject001_01 {
 }   
 
 class EnableCollectionObject001_02 {
+    @Override
     protected void finalize() throws Throwable {
         EnableCollectionDebuggee.patternObject_Finalized = true;
         super.finalize();

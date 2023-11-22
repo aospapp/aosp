@@ -41,8 +41,6 @@ public class PropertyCheck extends PreconditionPreparer {
             description = "Whether to throw an error for an unexpected property value")
     protected boolean mThrowError = false;
 
-    private static final String LOG_TAG = PropertyCheck.class.getSimpleName();
-
     @Override
     public void run(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
             BuildError, DeviceNotAvailableException {
@@ -59,7 +57,7 @@ public class PropertyCheck extends PreconditionPreparer {
                     mExpectedPropertyValue, propertyValue, mPropertyName);
             // Handle unexpected property value with either exception or warning
             if(mThrowError) {
-                throw new TargetSetupError(msg);
+                throw new TargetSetupError(msg, device.getDeviceDescriptor());
             } else {
                 logWarning(msg);
             }

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2014, International Business Machines Corporation and
@@ -15,18 +17,14 @@
  
  import java.util.Locale;
 
+import org.junit.Before;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
  
- @RunWith(IcuTestFmwkRunner.class)
-public class CollationSpanishTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new CollationSpanishTest().run(args);
-    }
-    
+ public class CollationSpanishTest extends TestFmwk {
     private static char[][] testSourceCases = {
         {0x61, 0x6c, 0x69, 0x61, 0x73},
         {0x45, 0x6c, 0x6c, 0x69, 0x6f, 0x74},
@@ -69,11 +67,14 @@ public class CollationSpanishTest extends TestFmwk {
     private Collator myCollation = null;
     
     public CollationSpanishTest() {
-
     }
-    protected void init()throws Exception{
+    
+    @Before
+    public void init() throws Exception {
         myCollation = Collator.getInstance(new Locale("es", "ES"));
     }
+    
+    @Test
     public void TestTertiary(){
         int i = 0;
         myCollation.setStrength(Collator.TERTIARY);
@@ -82,6 +83,7 @@ public class CollationSpanishTest extends TestFmwk {
         }
     }
     
+    @Test
     public void TestPrimary(){
         int i;
         myCollation.setStrength(Collator.PRIMARY);

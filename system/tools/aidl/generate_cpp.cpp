@@ -60,6 +60,7 @@ const char kIBinderHeader[] = "binder/IBinder.h";
 const char kIInterfaceHeader[] = "binder/IInterface.h";
 const char kParcelHeader[] = "binder/Parcel.h";
 const char kStatusHeader[] = "binder/Status.h";
+const char kString16Header[] = "utils/String16.h";
 const char kStrongPointerHeader[] = "utils/StrongPointer.h";
 
 unique_ptr<AstNode> BreakOnStatusNotOk() {
@@ -278,20 +279,31 @@ unique_ptr<Declaration> DefineClientTransaction(const TypeNamespace& types,
                      "getInterfaceDescriptor()")));
   b->AddStatement(GotoErrorOnBadStatus());
 
-  // Serialization looks roughly like:
-  //     _aidl_ret_status = _aidl_data.WriteInt32(in_param_name);
-  //     if (_aidl_ret_status != ::android::OK) { goto error; }
-  for (const AidlArgument* a : method.GetInArguments()) {
+  for (const auto& a: method.GetArguments()) {
     const Type* type = a->GetType().GetLanguageType<Type>();
-    string method = type->WriteToParcelMethod();
-
     string var_name = ((a->IsOut()) ? "*" : "") + a->GetName();
     var_name = type->WriteCast(var_name);
-    b->AddStatement(new Assignment(
-        kAndroidStatusVarName,
-        new MethodCall(StringPrintf("%s.%s", kDataVarName, method.c_str()),
-                       ArgList(var_name))));
-    b->AddStatement(GotoErrorOnBadStatus());
+
+    if (a->IsIn()) {
+      // Serialization looks roughly like:
+      //     _aidl_ret_status = _aidl_data.WriteInt32(in_param_name);
+      //     if (_aidl_ret_status != ::android::OK) { goto error; }
+      const string& method = type->WriteToParcelMethod();
+      b->AddStatement(new Assignment(
+          kAndroidStatusVarName,
+          new MethodCall(StringPrintf("%s.%s", kDataVarName, method.c_str()),
+                         ArgList(var_name))));
+      b->AddStatement(GotoErrorOnBadStatus());
+    } else if (a->IsOut() && a->GetType().IsArray()) {
+      // Special case, the length of the out array is written into the parcel.
+      //     _aidl_ret_status = _aidl_data.writeVectorSize(&out_param_name);
+      //     if (_aidl_ret_status != ::android::OK) { goto error; }
+      b->AddStatement(new Assignment(
+          kAndroidStatusVarName,
+          new MethodCall(StringPrintf("%s.writeVectorSize", kDataVarName),
+                         ArgList(var_name))));
+      b->AddStatement(GotoErrorOnBadStatus());
+    }
   }
 
   // Invoke the transaction on the remote binder and confirm status.
@@ -333,7 +345,7 @@ unique_ptr<Declaration> DefineClientTransaction(const TypeNamespace& types,
   // If the method is expected to return something, read it first by convention.
   const Type* return_type = method.GetType().GetLanguageType<Type>();
   if (return_type != types.VoidType()) {
-    string method_call = return_type->ReadFromParcelMethod();
+    const string& method_call = return_type->ReadFromParcelMethod();
     b->AddStatement(new Assignment(
         kAndroidStatusVarName,
         new MethodCall(StringPrintf("%s.%s", kReplyVarName,
@@ -432,18 +444,29 @@ bool HandleServerTransaction(const TypeNamespace& types,
   interface_check->OnTrue()->AddLiteral("break");
 
   // Deserialize each "in" parameter to the transaction.
-  for (const AidlArgument* a : method.GetInArguments()) {
+  for (const auto& a: method.GetArguments()) {
     // Deserialization looks roughly like:
     //     _aidl_ret_status = _aidl_data.ReadInt32(&in_param_name);
     //     if (_aidl_ret_status != ::android::OK) { break; }
     const Type* type = a->GetType().GetLanguageType<Type>();
-    string readMethod = type->ReadFromParcelMethod();
+    const string& readMethod = type->ReadFromParcelMethod();
 
-    b->AddStatement(new Assignment{
-        kAndroidStatusVarName,
-        new MethodCall{string(kDataVarName) + "." + readMethod,
-                       "&" + BuildVarName(*a)}});
-    b->AddStatement(BreakOnStatusNotOk());
+    if (a->IsIn()) {
+      b->AddStatement(new Assignment{
+          kAndroidStatusVarName,
+          new MethodCall{string(kDataVarName) + "." + readMethod,
+                         "&" + BuildVarName(*a)}});
+      b->AddStatement(BreakOnStatusNotOk());
+    } else if (a->IsOut() && a->GetType().IsArray()) {
+      // Special case, the length of the out array is written into the parcel.
+      //     _aidl_ret_status = _aidl_data.resizeOutVector(&out_param_name);
+      //     if (_aidl_ret_status != ::android::OK) { break; }
+      b->AddStatement(new Assignment{
+          kAndroidStatusVarName,
+          new MethodCall{string(kDataVarName) + ".resizeOutVector",
+                         "&" + BuildVarName(*a)}});
+      b->AddStatement(BreakOnStatusNotOk());
+    }
   }
 
   // Call the actual method.  This is implemented by the subclass.
@@ -484,7 +507,7 @@ bool HandleServerTransaction(const TypeNamespace& types,
     //     _aidl_ret_status = data.WriteInt32(out_param_name);
     //     if (_aidl_ret_status != ::android::OK) { break; }
     const Type* type = a->GetType().GetLanguageType<Type>();
-    string writeMethod = type->WriteToParcelMethod();
+    const string& writeMethod = type->WriteToParcelMethod();
 
     b->AddStatement(new Assignment{
         kAndroidStatusVarName,
@@ -572,14 +595,30 @@ unique_ptr<Document> BuildInterfaceSource(const TypeNamespace& /* types */,
     fq_name = interface.GetPackage() + "." + fq_name;
   }
 
-  unique_ptr<ConstructorDecl> meta_if{new ConstructorDecl{
+  vector<unique_ptr<Declaration>> decls;
+
+  unique_ptr<MacroDecl> meta_if{new MacroDecl{
       "IMPLEMENT_META_INTERFACE",
       ArgList{vector<string>{ClassName(interface, ClassNames::BASE),
                              '"' + fq_name + '"'}}}};
+  decls.push_back(std::move(meta_if));
+
+  for (const auto& constant: interface.GetStringConstants()) {
+    unique_ptr<MethodImpl> getter(new MethodImpl(
+        "const ::android::String16&",
+        ClassName(interface, ClassNames::INTERFACE),
+        constant->GetName(),
+        {}));
+    getter->GetStatementBlock()->AddLiteral(
+        StringPrintf("static const ::android::String16 value(%s)",
+                     constant->GetValue().c_str()));
+    getter->GetStatementBlock()->AddLiteral("return value");
+    decls.push_back(std::move(getter));
+  }
 
   return unique_ptr<Document>{new CppSource{
       include_list,
-      NestInNamespaces(std::move(meta_if), interface.GetSplitPackage())}};
+      NestInNamespaces(std::move(decls), interface.GetSplitPackage())}};
 }
 
 unique_ptr<Document> BuildClientHeader(const TypeNamespace& types,
@@ -672,12 +711,12 @@ unique_ptr<Document> BuildInterfaceHeader(const TypeNamespace& types,
   unique_ptr<ClassDecl> if_class{
       new ClassDecl{ClassName(interface, ClassNames::INTERFACE),
                     "::android::IInterface"}};
-  if_class->AddPublic(unique_ptr<Declaration>{new ConstructorDecl{
+  if_class->AddPublic(unique_ptr<Declaration>{new MacroDecl{
       "DECLARE_META_INTERFACE",
       ArgList{vector<string>{ClassName(interface, ClassNames::BASE)}}}});
 
   unique_ptr<Enum> constant_enum{new Enum{"", "int32_t"}};
-  for (const auto& constant : interface.GetConstants()) {
+  for (const auto& constant : interface.GetIntConstants()) {
     constant_enum->AddValue(
         constant->GetName(), std::to_string(constant->GetValue()));
   }
@@ -685,16 +724,28 @@ unique_ptr<Document> BuildInterfaceHeader(const TypeNamespace& types,
     if_class->AddPublic(std::move(constant_enum));
   }
 
-  unique_ptr<Enum> call_enum{new Enum{"Call"}};
-  for (const auto& method : interface.GetMethods()) {
-    // Each method gets an enum entry and pure virtual declaration.
-    if_class->AddPublic(BuildMethodDecl(*method, types, true));
-    call_enum->AddValue(
-        UpperCase(method->GetName()),
-        StringPrintf("::android::IBinder::FIRST_CALL_TRANSACTION + %d",
-                     method->GetId()));
+  if (!interface.GetStringConstants().empty()) {
+    includes.insert(kString16Header);
   }
-  if_class->AddPublic(std::move(call_enum));
+  for (const auto& constant : interface.GetStringConstants()) {
+    unique_ptr<MethodDecl> getter(new MethodDecl(
+          "const ::android::String16&", constant->GetName(),
+          {}, MethodDecl::IS_STATIC));
+    if_class->AddPublic(std::move(getter));
+  }
+
+  if (!interface.GetMethods().empty()) {
+    unique_ptr<Enum> call_enum{new Enum{"Call"}};
+    for (const auto& method : interface.GetMethods()) {
+      // Each method gets an enum entry and pure virtual declaration.
+      if_class->AddPublic(BuildMethodDecl(*method, types, true));
+      call_enum->AddValue(
+          UpperCase(method->GetName()),
+          StringPrintf("::android::IBinder::FIRST_CALL_TRANSACTION + %d",
+                       method->GetId()));
+    }
+    if_class->AddPublic(std::move(call_enum));
+  }
 
   return unique_ptr<Document>{new CppHeader{
       BuildHeaderGuard(interface, ClassNames::INTERFACE),

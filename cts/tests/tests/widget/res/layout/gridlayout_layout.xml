@@ -16,8 +16,6 @@
  -->
 <GridLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/gridlayout"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    >
-</GridLayout>
+    android:layout_height="match_parent" />

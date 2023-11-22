@@ -19,11 +19,13 @@ package android.accessibilityservice.cts;
 import android.accessibilityservice.AccessibilityService.MagnificationController;
 import android.accessibilityservice.AccessibilityService.MagnificationController.OnMagnificationChangedListener;
 import android.accessibilityservice.AccessibilityServiceInfo;
-import android.content.res.Resources;
+import android.app.Instrumentation;
+import android.content.Context;
 import android.graphics.Region;
 import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.util.DisplayMetrics;
+import android.view.WindowManager;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,16 +41,18 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
     public static final String ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED =
             "accessibility_display_magnification_enabled";
     private StubMagnificationAccessibilityService mService;
+    private Instrumentation mInstrumentation;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        ShellCommandBuilder.create(this)
+        ShellCommandBuilder.create(this.getInstrumentation())
                 .deleteSecureSetting(ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED)
                 .run();
+        mInstrumentation = getInstrumentation();
         // Starting the service will force the accessibility subsystem to examine its settings, so
         // it will update magnification in the process to disable it.
-        mService = StubMagnificationAccessibilityService.enableSelf(this);
+        mService = StubMagnificationAccessibilityService.enableSelf(mInstrumentation);
     }
 
     @Override
@@ -79,8 +83,10 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
 
     public void testSetScaleAndCenter() {
         final MagnificationController controller = mService.getMagnificationController();
-        final Resources res = getInstrumentation().getTargetContext().getResources();
-        final DisplayMetrics metrics = res.getDisplayMetrics();
+        final WindowManager wm = (WindowManager) mInstrumentation.getContext().getSystemService(
+                Context.WINDOW_SERVICE);
+        final DisplayMetrics metrics = new DisplayMetrics();
+        wm.getDefaultDisplay().getMetrics(metrics);
         final float scale = 2.0f;
         final float x = metrics.widthPixels / 4.0f;
         final float y = metrics.heightPixels / 4.0f;
@@ -138,7 +144,7 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
         mService.runOnServiceSync(() -> mService.disableSelf());
         mService = null;
         InstrumentedAccessibilityService service = InstrumentedAccessibilityService.enableService(
-                this, InstrumentedAccessibilityService.class);
+                mInstrumentation, InstrumentedAccessibilityService.class);
         final MagnificationController controller2 = service.getMagnificationController();
         try {
             assertEquals("Magnification must reset when a service dies",
@@ -159,7 +165,7 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
         mService.runOnServiceSync(() -> mService.disableSelf());
         mService = null;
         InstrumentedAccessibilityService service = InstrumentedAccessibilityService.enableService(
-                this, InstrumentedAccessibilityService.class);
+                mInstrumentation, InstrumentedAccessibilityService.class);
         try {
             final MagnificationController controller = service.getMagnificationController();
             Region magnificationRegion = controller.getMagnificationRegion();
@@ -171,13 +177,13 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
     }
 
     public void testGetMagnificationRegion_whenMagnificationGesturesEnabled_shouldNotBeEmpty() {
-        ShellCommandBuilder.create(this)
+        ShellCommandBuilder.create(mInstrumentation)
                 .putSecureSetting(ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED, "1")
                 .run();
         mService.runOnServiceSync(() -> mService.disableSelf());
         mService = null;
         InstrumentedAccessibilityService service = InstrumentedAccessibilityService.enableService(
-                this, InstrumentedAccessibilityService.class);
+                mInstrumentation, InstrumentedAccessibilityService.class);
         try {
             final MagnificationController controller = service.getMagnificationController();
             Region magnificationRegion = controller.getMagnificationRegion();
@@ -185,7 +191,7 @@ public class AccessibilityMagnificationTest extends InstrumentationTestCase {
                     + "gestures are active", magnificationRegion.isEmpty());
         } finally {
             service.runOnServiceSync(() -> service.disableSelf());
-            ShellCommandBuilder.create(this)
+            ShellCommandBuilder.create(mInstrumentation)
                     .deleteSecureSetting(ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED)
                     .run();
         }

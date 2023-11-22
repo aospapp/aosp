@@ -4,6 +4,8 @@
 
 __author__ = 'gps@google.com (Gregory P. Smith)'
 
+import json
+import tempfile
 import unittest
 import common
 from autotest_lib.client.common_lib import test
@@ -290,6 +292,217 @@ class Test_base_test_execute(TestTestCase):
         self.test.execute(postprocess_profiled_run=True, iterations=1)
         self.god.check_playback()
 
+
+    def test_output_single_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        self.test.output_perf_value("Test", 1, units="ms", higher_is_better=True)
+
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms", "type": "scalar",
+                           "value": 1, "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_single_perf_value_twice(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        self.test.output_perf_value("Test", 1, units="ms", higher_is_better=True)
+        self.test.output_perf_value("Test", 2, units="ms", higher_is_better=True)
+
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values", "values": [1, 2],
+                           "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_single_perf_value_three_times(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        self.test.output_perf_value("Test", 1, units="ms",
+                                    higher_is_better=True)
+        self.test.output_perf_value("Test", 2, units="ms", higher_is_better=True)
+        self.test.output_perf_value("Test", 3, units="ms", higher_is_better=True)
+
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values", "values": [1, 2, 3],
+                           "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_list_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        self.test.output_perf_value("Test", [1, 2, 3], units="ms",
+                                    higher_is_better=False)
+
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values", "values": [1, 2, 3],
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_single_then_list_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test", 1, units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test", [4, 3, 2], units="ms",
+                                    higher_is_better=False)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values",
+                           "values": [1, 4, 3, 2],
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_list_then_list_perf_value(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+        self.test.output_perf_value("Test", [1, 2, 3], units="ms",
+                                    higher_is_better=False)
+        self.test.output_perf_value("Test", [4, 3, 2], units="ms",
+                                    higher_is_better=False)
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values",
+                           "values": [1, 2, 3, 4, 3, 2],
+                           "improvement_direction": "down"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_single_perf_value_input_string(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        self.test.output_perf_value("Test", u'-0.34', units="ms",
+                                    higher_is_better=True)
+
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms", "type": "scalar",
+                           "value": -0.34, "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+
+    def test_output_single_perf_value_input_list_of_string(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        self.test.output_perf_value("Test", [0, u'-0.34', 1], units="ms",
+                                    higher_is_better=True)
+
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {"Test": {"summary": {"units": "ms",
+                           "type": "list_of_scalar_values",
+                           "values": [0, -0.34, 1],
+                           "improvement_direction": "up"}}}
+        self.assertDictEqual(expected_result, json.loads(f.read()))
+
+    def test_chart_supplied(self):
+        self.test.resultsdir = tempfile.mkdtemp()
+
+        test_data = [("tcp_tx", "ch006_mode11B_none", "BT_connected_but_not_streaming", 0),
+                     ("tcp_tx", "ch006_mode11B_none", "BT_streaming_audiofile", 5),
+                     ("tcp_tx", "ch006_mode11B_none", "BT_disconnected_again", 0),
+                     ("tcp_rx", "ch006_mode11B_none", "BT_connected_but_not_streaming", 0),
+                     ("tcp_rx", "ch006_mode11B_none", "BT_streaming_audiofile", 8),
+                     ("tcp_rx", "ch006_mode11B_none", "BT_disconnected_again", 0),
+                     ("udp_tx", "ch006_mode11B_none", "BT_connected_but_not_streaming", 0),
+                     ("udp_tx", "ch006_mode11B_none", "BT_streaming_audiofile", 6),
+                     ("udp_tx", "ch006_mode11B_none", "BT_disconnected_again", 0),
+                     ("udp_rx", "ch006_mode11B_none", "BT_connected_but_not_streaming", 0),
+                     ("udp_rx", "ch006_mode11B_none", "BT_streaming_audiofile", 8),
+                     ("udp_rx", "ch006_mode11B_none", "BT_streaming_audiofile", 9),
+                     ("udp_rx", "ch006_mode11B_none", "BT_disconnected_again", 0)]
+
+
+        for (config_tag, ap_config_tag, bt_tag, drop) in test_data:
+          self.test.output_perf_value(config_tag + '_' + bt_tag + '_drop',
+                                      drop, units='percent_drop',
+                                      higher_is_better=False,
+                                      graph=ap_config_tag + '_drop')
+        f = open(self.test.resultsdir + "/results-chart.json")
+        expected_result = {
+          "ch006_mode11B_none_drop": {
+            "udp_tx_BT_streaming_audiofile_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 6.0,
+              "improvement_direction": "down"
+            },
+            "udp_rx_BT_disconnected_again_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "tcp_tx_BT_disconnected_again_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "tcp_rx_BT_streaming_audiofile_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 8.0,
+              "improvement_direction": "down"
+            },
+            "udp_tx_BT_connected_but_not_streaming_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "tcp_tx_BT_connected_but_not_streaming_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "udp_tx_BT_disconnected_again_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "tcp_tx_BT_streaming_audiofile_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 5.0,
+              "improvement_direction": "down"
+            },
+            "tcp_rx_BT_connected_but_not_streaming_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "udp_rx_BT_connected_but_not_streaming_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            },
+            "udp_rx_BT_streaming_audiofile_drop": {
+              "units": "percent_drop",
+              "type": "list_of_scalar_values",
+              "values": [
+                8.0,
+                9.0
+              ],
+              "improvement_direction": "down"
+            },
+            "tcp_rx_BT_disconnected_again_drop": {
+              "units": "percent_drop",
+              "type": "scalar",
+              "value": 0.0,
+              "improvement_direction": "down"
+            }
+          }
+        }
+        self.maxDiff = None
+        self.assertDictEqual(expected_result, json.loads(f.read()))
 
 if __name__ == '__main__':
     unittest.main()

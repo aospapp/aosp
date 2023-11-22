@@ -19,14 +19,18 @@ package android.car;
 import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
+import android.car.annotation.FutureFeature;
 import android.car.content.pm.CarPackageManager;
+import android.car.hardware.CarDiagnosticManager;
 import android.car.hardware.CarSensorManager;
-import android.car.hardware.camera.CarCameraManager;
+import android.car.hardware.CarVendorExtensionManager;
+import android.car.hardware.cabin.CarCabinManager;
 import android.car.hardware.hvac.CarHvacManager;
 import android.car.hardware.radio.CarRadioManager;
 import android.car.media.CarAudioManager;
-import android.car.navigation.CarNavigationManager;
+import android.car.navigation.CarNavigationStatusManager;
 import android.car.test.CarTestManagerBinderWrapper;
+import android.car.vms.VmsSubscriberManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -39,6 +43,8 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.car.internal.FeatureConfiguration;
+import com.android.car.internal.FeatureUtil;
 import com.android.internal.annotations.GuardedBy;
 
 import java.lang.annotation.Retention;
@@ -50,7 +56,14 @@ import java.util.HashMap;
  *   This API works only for devices with {@link PackageManager#FEATURE_AUTOMOTIVE}
  *   Calling this API on a device with no such feature will lead to an exception.
  */
-public class Car {
+public final class Car {
+
+    /**
+     * Represent the version of Car API. This is only updated when there is API change.
+     * 1 : N
+     * 2 : O
+     */
+    public static final int VERSION = 2;
 
     /** Service name for {@link CarSensorManager}, to be used in {@link #getCarManager(String)}. */
     public static final String SENSOR_SERVICE = "sensor";
@@ -58,8 +71,8 @@ public class Car {
     /** Service name for {@link CarInfoManager}, to be used in {@link #getCarManager(String)}. */
     public static final String INFO_SERVICE = "info";
 
-    /** Service name for {@link CarAppContextManager}. */
-    public static final String APP_CONTEXT_SERVICE = "app_context";
+    /** Service name for {@link CarAppFocusManager}. */
+    public static final String APP_FOCUS_SERVICE = "app_focus";
 
     /** Service name for {@link CarPackageManager} */
     public static final String PACKAGE_SERVICE = "package";
@@ -67,7 +80,7 @@ public class Car {
     /** Service name for {@link CarAudioManager} */
     public static final String AUDIO_SERVICE = "audio";
     /**
-     * Service name for {@link CarNavigationManager}
+     * Service name for {@link CarNavigationStatusManager}
      * @hide
      */
     public static final String CAR_NAVIGATION_SERVICE = "car_navigation_service";
@@ -76,7 +89,12 @@ public class Car {
      * @hide
      */
     @SystemApi
-    public static final String CAMERA_SERVICE = "camera";
+    public static final String CABIN_SERVICE = "cabin";
+
+    /**
+     * @hide
+     */
+    public static final String DIAGNOSTIC_SERVICE = "diagnostic";
 
     /**
      * @hide
@@ -97,6 +115,19 @@ public class Car {
     public static final String PROJECTION_SERVICE = "projection";
 
     /**
+     * @hide
+     */
+    @SystemApi
+    public static final String VENDOR_EXTENSION_SERVICE = "vendor_extension";
+
+    /**
+     * @FutureFeature Cannot drop due to usage in non-flag protected place.
+     * @hide
+     */
+    @SystemApi
+    public static final String VMS_SUBSCRIBER_SERVICE = "vehicle_map_subscriber_service";
+
+    /**
      * Service for testing. This is system app only feature.
      * Service name for {@link CarTestManager}, to be used in {@link #getCarManager(String)}.
      * @hide
@@ -114,7 +145,20 @@ public class Car {
     public static final String PERMISSION_SPEED = "android.car.permission.CAR_SPEED";
 
     /**
-     * Permission necessary to use {@link CarNavigationManager}.
+     * Permission necessary to change car audio volume through {@link CarAudioManager}.
+     */
+    public static final String PERMISSION_CAR_CONTROL_AUDIO_VOLUME =
+            "android.car.permission.CAR_CONTROL_AUDIO_VOLUME";
+
+    /**
+     * Permission necessary to change car audio settings through {@link CarAudioManager}.
+     * @hide
+     */
+    public static final String PERMISSION_CAR_CONTROL_AUDIO_SETTINGS =
+            "android.car.permission.CAR_CONTROL_AUDIO_SETTINGS";
+
+    /**
+     * Permission necessary to use {@link CarNavigationStatusManager}.
      * @hide
      */
     public static final String PERMISSION_CAR_NAVIGATION_MANAGER =
@@ -136,11 +180,11 @@ public class Car {
             "android.car.permission.CONTROL_APP_BLOCKING";
 
     /**
-     * Permission necessary to access Car Camera APIs.
+     * Permission necessary to access Car Cabin APIs.
      * @hide
      */
     @SystemApi
-    public static final String PERMISSION_CAR_CAMERA = "android.car.permission.CAR_CAMERA";
+    public static final String PERMISSION_CAR_CABIN = "android.car.permission.CAR_CABIN";
 
     /**
      * Permission necessary to access Car HVAC APIs.
@@ -156,8 +200,9 @@ public class Car {
     @SystemApi
     public static final String PERMISSION_CAR_RADIO = "android.car.permission.CAR_RADIO";
 
+
     /**
-     * Permission necesary to access Car PRJECTION system APIs.
+     * Permission necessary to access Car PROJECTION system APIs.
      * @hide
      */
     @SystemApi
@@ -166,23 +211,60 @@ public class Car {
     /**
      * Permission necessary to mock vehicle hal for testing.
      * @hide
+     * @deprecated mocking vehicle HAL in car service is no longer supported.
      */
     @SystemApi
     public static final String PERMISSION_MOCK_VEHICLE_HAL =
             "android.car.permission.CAR_MOCK_VEHICLE_HAL";
 
-    /** Type of car connection: platform runs directly in car. */
-    public static final int CONNECTION_TYPE_EMBEDDED = 5;
     /**
-     * Type of car connection: platform runs directly in car but with mocked vehicle hal.
-     * This will only happen in testing environment.
+     * Permission necessary to access CarTestService.
      * @hide
      */
-    public static final int CONNECTION_TYPE_EMBEDDED_MOCKING = 6;
+    @SystemApi
+    public static final String PERMISSION_CAR_TEST_SERVICE =
+            "android.car.permission.CAR_TEST_SERVICE";
+
+    /**
+     * Permissions necessary to access VMS publisher APIs.
+     *
+     * @hide
+     */
+    @FutureFeature
+    @SystemApi
+    public static final String PERMISSION_VMS_PUBLISHER = "android.car.permission.VMS_PUBLISHER";
+
+    /**
+     * Permissions necessary to access VMS subscriber APIs.
+     *
+     * @hide
+     */
+    @FutureFeature
+    @SystemApi
+    public static final String PERMISSION_VMS_SUBSCRIBER = "android.car.permission.VMS_SUBSCRIBER";
+
+    /**
+     * Permissions necessary to read diagnostic information.
+     *
+     * @hide
+     */
+    @FutureFeature
+    public static final String PERMISSION_CAR_DIAGNOSTIC_READ = "android.car.permission.DIAGNOSTIC_READ";
+
+    /**
+     * Permissions necessary to clear diagnostic information.
+     *
+     * @hide
+     */
+    @FutureFeature
+    public static final String PERMISSION_CAR_DIAGNOSTIC_CLEAR = "android.car.permission.DIAGNOSTIC_CLEAR";
+
+    /** Type of car connection: platform runs directly in car. */
+    public static final int CONNECTION_TYPE_EMBEDDED = 5;
 
 
     /** @hide */
-    @IntDef({CONNECTION_TYPE_EMBEDDED, CONNECTION_TYPE_EMBEDDED_MOCKING})
+    @IntDef({CONNECTION_TYPE_EMBEDDED})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ConnectionType {}
 
@@ -201,15 +283,13 @@ public class Car {
 
     private static final String CAR_SERVICE_CLASS = "com.android.car.CarService";
 
-    private static final String CAR_TEST_MANAGER_CLASS = "android.car.CarTestManager";
-
     private static final long CAR_SERVICE_BIND_RETRY_INTERVAL_MS = 500;
     private static final long CAR_SERVICE_BIND_MAX_RETRY = 20;
 
     private final Context mContext;
-    private final Looper mLooper;
     @GuardedBy("this")
     private ICar mService;
+    private final boolean mOwnsService;
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
@@ -265,24 +345,25 @@ public class Car {
     /** Handler for generic event dispatching. */
     private final Handler mEventHandler;
 
-    private final Handler mMainThreadEvetHandler;
+    private final Handler mMainThreadEventHandler;
 
     /**
      * A factory method that creates Car instance for all Car API access.
      * @param context
      * @param serviceConnectionListener listener for monitoring service connection.
-     * @param looper Looper to dispatch all listeners. If null, it will use main thread. Note that
-     *        service connection listener will be always in main thread regardless of this Looper.
+     * @param handler the handler on which the callback should execute, or null to execute on the
+     * service's main thread. Note: the service connection listener will be always on the main
+     * thread regardless of the handler given.
      * @return Car instance if system is in car environment and returns {@code null} otherwise.
      */
     public static Car createCar(Context context, ServiceConnection serviceConnectionListener,
-            @Nullable Looper looper) {
+            @Nullable Handler handler) {
         if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
             Log.e(CarLibLog.TAG_CAR, "FEATURE_AUTOMOTIVE not declared while android.car is used");
             return null;
         }
         try {
-          return new Car(context, serviceConnectionListener, looper);
+          return new Car(context, serviceConnectionListener, handler);
         } catch (IllegalArgumentException e) {
           // Expected when car service loader is not available.
         }
@@ -293,53 +374,50 @@ public class Car {
      * A factory method that creates Car instance for all Car API access using main thread {@code
      * Looper}.
      *
-     * @see #createCar(Context, ServiceConnection, Looper)
+     * @see #createCar(Context, ServiceConnection, Handler)
      */
     public static Car createCar(Context context, ServiceConnection serviceConnectionListener) {
       return createCar(context, serviceConnectionListener, null);
     }
 
     private Car(Context context, ServiceConnection serviceConnectionListener,
-            @Nullable Looper looper) {
+            @Nullable Handler handler) {
         mContext = context;
+        mEventHandler = determineEventHandler(handler);
+        mMainThreadEventHandler = determineMainThreadEventHandler(mEventHandler);
+
+        mService = null;
+        mOwnsService = true;
         mServiceConnectionListenerClient = serviceConnectionListener;
-        if (looper == null) {
-            mLooper = Looper.getMainLooper();
-        } else {
-            mLooper = looper;
-        }
-        mEventHandler = new Handler(mLooper);
-        if (mLooper == Looper.getMainLooper()) {
-            mMainThreadEvetHandler = mEventHandler;
-        } else {
-            mMainThreadEvetHandler = new Handler(Looper.getMainLooper());
-        }
     }
+
 
     /**
      * Car constructor when ICar binder is already available.
-     * @param context
-     * @param service
-     * @param looper
-     *
      * @hide
      */
-    public Car(Context context, ICar service, @Nullable Looper looper) {
+    public Car(Context context, ICar service, @Nullable Handler handler) {
         mContext = context;
-        if (looper == null) {
-            mLooper = Looper.getMainLooper();
-        } else {
-            mLooper = looper;
-        }
-        mEventHandler = new Handler(mLooper);
-        if (mLooper == Looper.getMainLooper()) {
-            mMainThreadEvetHandler = mEventHandler;
-        } else {
-            mMainThreadEvetHandler = new Handler(Looper.getMainLooper());
-        }
+        mEventHandler = determineEventHandler(handler);
+        mMainThreadEventHandler = determineMainThreadEventHandler(mEventHandler);
+
         mService = service;
+        mOwnsService = false;
         mConnectionState = STATE_CONNECTED;
         mServiceConnectionListenerClient = null;
+    }
+
+    private static Handler determineMainThreadEventHandler(Handler eventHandler) {
+        Looper mainLooper = Looper.getMainLooper();
+        return (eventHandler.getLooper() == mainLooper) ? eventHandler : new Handler(mainLooper);
+    }
+
+    private static Handler determineEventHandler(@Nullable Handler handler) {
+        if (handler == null) {
+            Looper looper = Looper.getMainLooper();
+            handler = new Handler(looper);
+        }
+        return handler;
     }
 
     /**
@@ -368,12 +446,15 @@ public class Car {
                 return;
             }
             mEventHandler.removeCallbacks(mConnectionRetryRunnable);
-            mMainThreadEvetHandler.removeCallbacks(mConnectionRetryFailedRunnable);
+            mMainThreadEventHandler.removeCallbacks(mConnectionRetryFailedRunnable);
             mConnectionRetryCount = 0;
             tearDownCarManagers();
             mService = null;
             mConnectionState = STATE_DISCONNECTED;
-            mContext.unbindService(mServiceConnectionListener);
+
+            if (mOwnsService) {
+                mContext.unbindService(mServiceConnectionListener);
+            }
         }
     }
 
@@ -405,10 +486,10 @@ public class Car {
      * SensorManagerService sensorManagerService = car.getCarManager(Car.SENSOR_SERVICE);
      * @param serviceName Name of service that should be created like {@link #SENSOR_SERVICE}.
      * @return Matching service manager or null if there is no such service.
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
     public Object getCarManager(String serviceName) throws CarNotConnectedException {
-        CarManagerBase manager = null;
+        CarManagerBase manager;
         ICar service = getICarOrThrow();
         synchronized (mCarManagerLock) {
             manager = mServiceMap.get(serviceName);
@@ -424,7 +505,7 @@ public class Car {
                     if (manager == null) {
                         Log.w(CarLibLog.TAG_CAR,
                                 "getCarManager could not create manager for service:" +
-                                serviceName);
+                                        serviceName);
                         return null;
                     }
                     mServiceMap.put(serviceName, manager);
@@ -451,14 +532,25 @@ public class Car {
      * original exception.
      *
      * @param e exception from XyzCarService.
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      * @hide
      */
     public static void checkCarNotConnectedExceptionFromCarService(
             IllegalStateException e) throws CarNotConnectedException, IllegalStateException {
         String message = e.getMessage();
-        if (message.equals(CAR_NOT_CONNECTED_EXCEPTION_MSG)) {
+        if (CAR_NOT_CONNECTED_EXCEPTION_MSG.equals(message)) {
             throw new CarNotConnectedException();
+        } else {
+            throw e;
+        }
+    }
+
+    /** @hide */
+    public static void hideCarNotConnectedExceptionFromCarService(
+            IllegalStateException e) throws IllegalStateException {
+        String message = e.getMessage();
+        if (CAR_NOT_CONNECTED_EXCEPTION_MSG.equals(message)) {
+            return; //ignore
         } else {
             throw e;
         }
@@ -469,39 +561,52 @@ public class Car {
         CarManagerBase manager = null;
         switch (serviceName) {
             case AUDIO_SERVICE:
-                manager = new CarAudioManager(binder, mContext);
+                manager = new CarAudioManager(binder, mContext, mEventHandler);
                 break;
             case SENSOR_SERVICE:
-                manager = new CarSensorManager(binder, mContext, mLooper);
+                manager = new CarSensorManager(binder, mContext, mEventHandler);
                 break;
             case INFO_SERVICE:
                 manager = new CarInfoManager(binder);
                 break;
-            case APP_CONTEXT_SERVICE:
-                manager = new CarAppContextManager(binder, mLooper);
+            case APP_FOCUS_SERVICE:
+                manager = new CarAppFocusManager(binder, mEventHandler);
                 break;
             case PACKAGE_SERVICE:
                 manager = new CarPackageManager(binder, mContext);
                 break;
             case CAR_NAVIGATION_SERVICE:
-                manager = new CarNavigationManager(binder, mLooper);
+                manager = new CarNavigationStatusManager(binder);
                 break;
-            case CAMERA_SERVICE:
-                manager = new CarCameraManager(binder, mContext);
+            case CABIN_SERVICE:
+                manager = new CarCabinManager(binder, mContext, mEventHandler);
+                break;
+            case DIAGNOSTIC_SERVICE:
+                if (FeatureConfiguration.ENABLE_DIAGNOSTIC) {
+                    manager = new CarDiagnosticManager(binder, mContext, mEventHandler);
+                }
                 break;
             case HVAC_SERVICE:
-                manager = new CarHvacManager(binder, mContext, mLooper);
+                manager = new CarHvacManager(binder, mContext, mEventHandler);
                 break;
             case PROJECTION_SERVICE:
-                manager = new CarProjectionManager(binder, mLooper);
+                manager = new CarProjectionManager(binder, mEventHandler);
                 break;
             case RADIO_SERVICE:
-                manager = new CarRadioManager(binder, mLooper);
+                manager = new CarRadioManager(binder, mEventHandler);
+                break;
+            case VENDOR_EXTENSION_SERVICE:
+                manager = new CarVendorExtensionManager(binder, mEventHandler);
                 break;
             case TEST_SERVICE:
                 /* CarTestManager exist in static library. So instead of constructing it here,
                  * only pass binder wrapper so that CarTestManager can be constructed outside. */
                 manager = new CarTestManagerBinderWrapper(binder);
+                break;
+            case VMS_SUBSCRIBER_SERVICE:
+                if (FeatureConfiguration.ENABLE_VEHICLE_MAP_SERVICE) {
+                    manager = new VmsSubscriberManager(binder, mEventHandler);
+                }
                 break;
         }
         return manager;
@@ -517,7 +622,7 @@ public class Car {
             mConnectionRetryCount++;
             if (mConnectionRetryCount > CAR_SERVICE_BIND_MAX_RETRY) {
                 Log.w(CarLibLog.TAG_CAR, "cannot bind to car service after max retry");
-                mMainThreadEvetHandler.post(mConnectionRetryFailedRunnable);
+                mMainThreadEventHandler.post(mConnectionRetryFailedRunnable);
             } else {
                 mEventHandler.postDelayed(mConnectionRetryRunnable,
                         CAR_SERVICE_BIND_RETRY_INTERVAL_MS);

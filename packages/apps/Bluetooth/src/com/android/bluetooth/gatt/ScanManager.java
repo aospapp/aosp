@@ -37,14 +37,16 @@ import android.util.Log;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
-import com.android.internal.app.IBatteryStats;
 
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -68,9 +70,6 @@ public class ScanManager {
     private static final int MSG_FLUSH_BATCH_RESULTS = 2;
     private static final int MSG_SCAN_TIMEOUT = 3;
 
-    // Maximum msec before scan gets downgraded to opportunistic
-    private static final int SCAN_TIMEOUT_MS = 30 * 60 * 1000;
-
     private static final String ACTION_REFRESH_BATCHED_SCAN =
             "com.android.bluetooth.gatt.REFRESH_BATCHED_SCAN";
 
@@ -83,7 +82,6 @@ public class ScanManager {
 
     private Integer curUsedTrackableAdvertisements;
     private GattService mService;
-    private IBatteryStats mBatteryStats;
     private BroadcastReceiver mBatchAlarmReceiver;
     private boolean mBatchAlarmReceiverRegistered;
     private ScanNative mScanNative;
@@ -95,15 +93,14 @@ public class ScanManager {
     private CountDownLatch mLatch;
 
     ScanManager(GattService service) {
-        mRegularScanClients = new HashSet<ScanClient>();
-        mBatchClients = new HashSet<ScanClient>();
+        mRegularScanClients = Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
+        mBatchClients = Collections.newSetFromMap(new ConcurrentHashMap<ScanClient, Boolean>());
         mService = service;
         mScanNative = new ScanNative();
         curUsedTrackableAdvertisements = 0;
     }
 
     void start() {
-        mBatteryStats = IBatteryStats.Stub.asInterface(ServiceManager.getService("batterystats"));
         HandlerThread thread = new HandlerThread("BluetoothScanManager");
         thread.start();
         mHandler = new ClientHandler(thread.getLooper());
@@ -113,6 +110,25 @@ public class ScanManager {
         mRegularScanClients.clear();
         mBatchClients.clear();
         mScanNative.cleanup();
+
+        if (mHandler != null) {
+            // Shut down the thread
+            mHandler.removeCallbacksAndMessages(null);
+            Looper looper = mHandler.getLooper();
+            if (looper != null) {
+                looper.quit();
+            }
+            mHandler = null;
+        }
+    }
+
+    void registerScanner(UUID uuid) {
+        mScanNative.registerScannerNative(
+            uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+    }
+
+    void unregisterScanner(int scannerId) {
+        mScanNative.unregisterScannerNative(scannerId);
     }
 
     /**
@@ -156,8 +172,8 @@ public class ScanManager {
         sendMessage(MSG_FLUSH_BATCH_RESULTS, client);
     }
 
-    void callbackDone(int clientIf, int status) {
-        logd("callback done for clientIf - " + clientIf + " status - " + status);
+    void callbackDone(int scannerId, int status) {
+        if (DBG) Log.d(TAG, "callback done for scannerId - " + scannerId + " status - " + status);
         if (status == 0) {
             mLatch.countDown();
         }
@@ -197,7 +213,7 @@ public class ScanManager {
                     handleFlushBatchResults(client);
                     break;
                 case MSG_SCAN_TIMEOUT:
-                    mScanNative.regularScanTimeout();
+                    mScanNative.regularScanTimeout(client);
                     break;
                 default:
                     // Shouldn't happen.
@@ -207,7 +223,7 @@ public class ScanManager {
 
         void handleStartScan(ScanClient client) {
             Utils.enforceAdminPermission(mService);
-            logd("handling starting scan");
+            if (DBG) Log.d(TAG, "handling starting scan");
 
             if (!isScanSupported(client)) {
                 Log.e(TAG, "Scan settings not supported");
@@ -228,20 +244,12 @@ public class ScanManager {
                 if (!mScanNative.isOpportunisticScanClient(client)) {
                     mScanNative.configureRegularScanParams();
 
-                    if (!mScanNative.isFirstMatchScanClient(client)) {
+                    if (!mScanNative.isExemptFromScanDowngrade(client)) {
                         Message msg = mHandler.obtainMessage(MSG_SCAN_TIMEOUT);
                         msg.obj = client;
                         // Only one timeout message should exist at any time
-                        mHandler.removeMessages(MSG_SCAN_TIMEOUT);
-                        mHandler.sendMessageDelayed(msg, SCAN_TIMEOUT_MS);
+                        mHandler.sendMessageDelayed(msg, AppScanStats.SCAN_TIMEOUT_MS);
                     }
-                }
-
-                // Update BatteryStats with this workload.
-                try {
-                    mBatteryStats.noteBleScanStarted(client.workSource);
-                } catch (RemoteException e) {
-                    /* ignore */
                 }
             }
         }
@@ -251,11 +259,6 @@ public class ScanManager {
             if (client == null) return;
 
             if (mRegularScanClients.contains(client)) {
-                // The ScanClient passed in just holds the clientIf. We retrieve the real client,
-                // which may have workSource set.
-                client = mScanNative.getRegularScanClient(client.clientIf);
-                if (client == null) return;
-
                 mScanNative.stopRegularScan(client);
 
                 if (mScanNative.numRegularScanClients() == 0) {
@@ -265,19 +268,12 @@ public class ScanManager {
                 if (!mScanNative.isOpportunisticScanClient(client)) {
                     mScanNative.configureRegularScanParams();
                 }
-
-                // Update BatteryStats with this workload.
-                try {
-                    mBatteryStats.noteBleScanStopped(client.workSource);
-                } catch (RemoteException e) {
-                    /* ignore */
-                }
             } else {
                 mScanNative.stopBatchScan(client);
             }
             if (client.appDied) {
-                logd("app died, unregister client - " + client.clientIf);
-                mService.unregisterClient(client.clientIf);
+                if (DBG) Log.d(TAG, "app died, unregister scanner - " + client.scannerId);
+                mService.unregisterScanner(client.scannerId);
             }
         }
 
@@ -286,7 +282,7 @@ public class ScanManager {
             if (!mBatchClients.contains(client)) {
                 return;
             }
-            mScanNative.flushBatchResults(client.clientIf);
+            mScanNative.flushBatchResults(client.scannerId);
         }
 
         private boolean isBatchClient(ScanClient client) {
@@ -316,13 +312,13 @@ public class ScanManager {
      */
     class BatchScanParams {
         int scanMode;
-        int fullScanClientIf;
-        int truncatedScanClientIf;
+        int fullScanscannerId;
+        int truncatedScanscannerId;
 
         BatchScanParams() {
             scanMode = -1;
-            fullScanClientIf = -1;
-            truncatedScanClientIf = -1;
+            fullScanscannerId = -1;
+            truncatedScanscannerId = -1;
         }
 
         @Override
@@ -334,8 +330,8 @@ public class ScanManager {
                 return false;
             }
             BatchScanParams other = (BatchScanParams) obj;
-            return scanMode == other.scanMode && fullScanClientIf == other.fullScanClientIf
-                    && truncatedScanClientIf == other.truncatedScanClientIf;
+            return scanMode == other.scanMode && fullScanscannerId == other.fullScanscannerId
+                    && truncatedScanscannerId == other.truncatedScanscannerId;
 
         }
     }
@@ -393,7 +389,7 @@ public class ScanManager {
         private static final int FILTER_LOGIC_TYPE = 1;
         // Filter indices that are available to user. It's sad we need to maintain filter index.
         private final Deque<Integer> mFilterIndexStack;
-        // Map of clientIf and Filter indices used by client.
+        // Map of scannerId and Filter indices used by client.
         private final Map<Integer, Deque<Integer>> mClientFilterIndexMap;
         // Keep track of the clients that uses ALL_PASS filters.
         private final Set<Integer> mAllPassRegularClients = new HashSet<>();
@@ -444,15 +440,19 @@ public class ScanManager {
         }
 
         void configureRegularScanParams() {
-            logd("configureRegularScanParams() - queue=" + mRegularScanClients.size());
+            if (DBG) {
+                Log.d(TAG, "configureRegularScanParams() - queue=" + mRegularScanClients.size());
+            }
             int curScanSetting = Integer.MIN_VALUE;
             ScanClient client = getAggressiveClient(mRegularScanClients);
             if (client != null) {
                 curScanSetting = client.settings.getScanMode();
             }
 
-            logd("configureRegularScanParams() - ScanSetting Scan mode=" + curScanSetting +
-                    " mLastConfiguredScanSetting=" + mLastConfiguredScanSetting);
+            if (DBG) {
+                Log.d(TAG, "configureRegularScanParams() - ScanSetting Scan mode=" + curScanSetting
+                                + " mLastConfiguredScanSetting=" + mLastConfiguredScanSetting);
+            }
 
             if (curScanSetting != Integer.MIN_VALUE &&
                     curScanSetting != ScanSettings.SCAN_MODE_OPPORTUNISTIC) {
@@ -463,15 +463,18 @@ public class ScanManager {
                     scanWindow = Utils.millsToUnit(scanWindow);
                     scanInterval = Utils.millsToUnit(scanInterval);
                     gattClientScanNative(false);
-                    logd("configureRegularScanParams - scanInterval = " + scanInterval +
-                        "configureRegularScanParams - scanWindow = " + scanWindow);
-                    gattSetScanParametersNative(client.clientIf, scanInterval, scanWindow);
+                    if (DBG) {
+                        Log.d(TAG, "configureRegularScanParams - scanInterval = " + scanInterval
+                                        + "configureRegularScanParams - scanWindow = "
+                                        + scanWindow);
+                    }
+                    gattSetScanParametersNative(client.scannerId, scanInterval, scanWindow);
                     gattClientScanNative(true);
                     mLastConfiguredScanSetting = curScanSetting;
                 }
             } else {
                 mLastConfiguredScanSetting = curScanSetting;
-                logd("configureRegularScanParams() - queue emtpy, scan stopped");
+                if (DBG) Log.d(TAG, "configureRegularScanParams() - queue emtpy, scan stopped");
             }
         }
 
@@ -524,6 +527,12 @@ public class ScanManager {
             }
         }
 
+        private boolean isExemptFromScanDowngrade(ScanClient client) {
+          return isOpportunisticScanClient(client)
+              || isFirstMatchScanClient(client)
+              || !shouldUseAllPassFilter(client);
+        }
+
         private boolean isOpportunisticScanClient(ScanClient client) {
             return client.settings.getScanMode() == ScanSettings.SCAN_MODE_OPPORTUNISTIC;
         }
@@ -533,27 +542,27 @@ public class ScanManager {
         }
 
         private void resetBatchScan(ScanClient client) {
-            int clientIf = client.clientIf;
+            int scannerId = client.scannerId;
             BatchScanParams batchScanParams = getBatchScanParams();
             // Stop batch if batch scan params changed and previous params is not null.
             if (mBatchScanParms != null && (!mBatchScanParms.equals(batchScanParams))) {
-                logd("stopping BLe Batch");
+                if (DBG) Log.d(TAG, "stopping BLe Batch");
                 resetCountDownLatch();
-                gattClientStopBatchScanNative(clientIf);
+                gattClientStopBatchScanNative(scannerId);
                 waitForCallback();
                 // Clear pending results as it's illegal to config storage if there are still
                 // pending results.
-                flushBatchResults(clientIf);
+                flushBatchResults(scannerId);
             }
             // Start batch if batchScanParams changed and current params is not null.
             if (batchScanParams != null && (!batchScanParams.equals(mBatchScanParms))) {
                 int notifyThreshold = 95;
-                logd("Starting BLE batch scan");
+                if (DBG) Log.d(TAG, "Starting BLE batch scan");
                 int resultType = getResultType(batchScanParams);
                 int fullScanPercent = getFullScanStoragePercent(resultType);
                 resetCountDownLatch();
-                logd("configuring batch scan storage, appIf " + client.clientIf);
-                gattClientConfigBatchScanStorageNative(client.clientIf, fullScanPercent,
+                if (DBG) Log.d(TAG, "configuring batch scan storage, appIf " + client.scannerId);
+                gattClientConfigBatchScanStorageNative(client.scannerId, fullScanPercent,
                         100 - fullScanPercent, notifyThreshold);
                 waitForCallback();
                 resetCountDownLatch();
@@ -561,7 +570,7 @@ public class ScanManager {
                         Utils.millsToUnit(getBatchScanIntervalMillis(batchScanParams.scanMode));
                 int scanWindow =
                         Utils.millsToUnit(getBatchScanWindowMillis(batchScanParams.scanMode));
-                gattClientStartBatchScanNative(clientIf, resultType, scanInterval,
+                gattClientStartBatchScanNative(scannerId, resultType, scanInterval,
                         scanWindow, 0, DISCARD_OLDEST_WHEN_BUFFER_FULL);
                 waitForCallback();
             }
@@ -592,9 +601,9 @@ public class ScanManager {
             for (ScanClient client : mBatchClients) {
                 params.scanMode = Math.max(params.scanMode, client.settings.getScanMode());
                 if (client.settings.getScanResultType() == ScanSettings.SCAN_RESULT_TYPE_FULL) {
-                    params.fullScanClientIf = client.clientIf;
+                    params.fullScanscannerId = client.scannerId;
                 } else {
-                    params.truncatedScanClientIf = client.clientIf;
+                    params.truncatedScanscannerId = client.scannerId;
                 }
             }
             return params;
@@ -655,7 +664,7 @@ public class ScanManager {
                         Log.e(TAG, "Error freeing for onfound/onlost filter resources "
                                     + entriesToFree);
                         try {
-                            mService.onScanManagerErrorCallback(client.clientIf,
+                            mService.onScanManagerErrorCallback(client.scannerId,
                                             ScanCallback.SCAN_FAILED_INTERNAL_ERROR);
                         } catch (RemoteException e) {
                             Log.e(TAG, "failed on onScanManagerCallback at freeing", e);
@@ -665,25 +674,25 @@ public class ScanManager {
             }
             mRegularScanClients.remove(client);
             if (numRegularScanClients() == 0) {
-                logd("stop scan");
+                if (DBG) Log.d(TAG, "stop scan");
                 gattClientScanNative(false);
             }
-            removeScanFilters(client.clientIf);
+            removeScanFilters(client.scannerId);
         }
 
-        void regularScanTimeout() {
-            for (ScanClient client : mRegularScanClients) {
-                if (!isOpportunisticScanClient(client) && !isFirstMatchScanClient(client)) {
-                    logd("clientIf set to scan opportunisticly: " + client.clientIf);
-                    setOpportunisticScanClient(client);
-                    client.stats.setScanTimeout();
-                }
+        void regularScanTimeout(ScanClient client) {
+            if (!isExemptFromScanDowngrade(client) && client.stats.isScanningTooLong()) {
+                Log.w(TAG,
+                        "Moving scan client to opportunistic (scannerId " + client.scannerId + ")");
+                setOpportunisticScanClient(client);
+                removeScanFilters(client.scannerId);
+                client.stats.setScanTimeout();
             }
 
             // The scan should continue for background scans
             configureRegularScanParams();
             if (numRegularScanClients() == 0) {
-                logd("stop scan");
+                if (DBG) Log.d(TAG, "stop scan");
                 gattClientScanNative(false);
             }
         }
@@ -702,32 +711,32 @@ public class ScanManager {
         }
 
         // Find the regular scan client information.
-        ScanClient getRegularScanClient(int clientIf) {
+        ScanClient getRegularScanClient(int scannerId) {
             for (ScanClient client : mRegularScanClients) {
-              if (client.clientIf == clientIf) return client;
+              if (client.scannerId == scannerId) return client;
             }
             return null;
         }
 
         void stopBatchScan(ScanClient client) {
             mBatchClients.remove(client);
-            removeScanFilters(client.clientIf);
+            removeScanFilters(client.scannerId);
             if (!isOpportunisticScanClient(client)) {
                 resetBatchScan(client);
             }
         }
 
-        void flushBatchResults(int clientIf) {
-            logd("flushPendingBatchResults - clientIf = " + clientIf);
-            if (mBatchScanParms.fullScanClientIf != -1) {
+        void flushBatchResults(int scannerId) {
+            if (DBG) Log.d(TAG, "flushPendingBatchResults - scannerId = " + scannerId);
+            if (mBatchScanParms.fullScanscannerId != -1) {
                 resetCountDownLatch();
-                gattClientReadScanReportsNative(mBatchScanParms.fullScanClientIf,
+                gattClientReadScanReportsNative(mBatchScanParms.fullScanscannerId,
                         SCAN_RESULT_TYPE_FULL);
                 waitForCallback();
             }
-            if (mBatchScanParms.truncatedScanClientIf != -1) {
+            if (mBatchScanParms.truncatedScanscannerId != -1) {
                 resetCountDownLatch();
-                gattClientReadScanReportsNative(mBatchScanParms.truncatedScanClientIf,
+                gattClientReadScanReportsNative(mBatchScanParms.truncatedScanscannerId,
                         SCAN_RESULT_TYPE_TRUNCATED);
                 waitForCallback();
             }
@@ -758,15 +767,21 @@ public class ScanManager {
         // If no offload filter can/needs to be set, set ALL_PASS filter.
         // Otherwise offload all filters to hardware and enable all filters.
         private void configureScanFilters(ScanClient client) {
-            int clientIf = client.clientIf;
+            int scannerId = client.scannerId;
             int deliveryMode = getDeliveryMode(client);
             int trackEntries = 0;
+
+            // Do not add any filters set by opportunistic scan clients
+            if (isOpportunisticScanClient(client)) {
+                return;
+            }
+
             if (!shouldAddAllPassFilterToController(client, deliveryMode)) {
                 return;
             }
 
             resetCountDownLatch();
-            gattClientScanFilterEnableNative(clientIf, true);
+            gattClientScanFilterEnableNative(scannerId, true);
             waitForCallback();
 
             if (shouldUseAllPassFilter(client)) {
@@ -774,7 +789,7 @@ public class ScanManager {
                         ALL_PASS_FILTER_INDEX_BATCH_SCAN : ALL_PASS_FILTER_INDEX_REGULAR_SCAN;
                 resetCountDownLatch();
                 // Don't allow Onfound/onlost with all pass
-                configureFilterParamter(clientIf, client, ALL_PASS_FILTER_SELECTION,
+                configureFilterParamter(scannerId, client, ALL_PASS_FILTER_SELECTION,
                                 filterIndex, 0);
                 waitForCallback();
             } else {
@@ -786,7 +801,7 @@ public class ScanManager {
                     int filterIndex = mFilterIndexStack.pop();
                     while (!queue.isEmpty()) {
                         resetCountDownLatch();
-                        addFilterToController(clientIf, queue.pop(), filterIndex);
+                        addFilterToController(scannerId, queue.pop(), filterIndex);
                         waitForCallback();
                     }
                     resetCountDownLatch();
@@ -796,19 +811,19 @@ public class ScanManager {
                             Log.e(TAG, "No hardware resources for onfound/onlost filter " +
                                     trackEntries);
                             try {
-                                mService.onScanManagerErrorCallback(clientIf,
+                                mService.onScanManagerErrorCallback(scannerId,
                                             ScanCallback.SCAN_FAILED_INTERNAL_ERROR);
                             } catch (RemoteException e) {
                                 Log.e(TAG, "failed on onScanManagerCallback", e);
                             }
                         }
                     }
-                    configureFilterParamter(clientIf, client, featureSelection, filterIndex,
+                    configureFilterParamter(scannerId, client, featureSelection, filterIndex,
                                             trackEntries);
                     waitForCallback();
                     clientFilterIndices.add(filterIndex);
                 }
-                mClientFilterIndexMap.put(clientIf, clientFilterIndices);
+                mClientFilterIndexMap.put(scannerId, clientFilterIndices);
             }
         }
 
@@ -821,47 +836,47 @@ public class ScanManager {
             }
 
             if (deliveryMode == DELIVERY_MODE_BATCH) {
-                mAllPassBatchClients.add(client.clientIf);
+                mAllPassBatchClients.add(client.scannerId);
                 return mAllPassBatchClients.size() == 1;
             } else {
-                mAllPassRegularClients.add(client.clientIf);
+                mAllPassRegularClients.add(client.scannerId);
                 return mAllPassRegularClients.size() == 1;
             }
         }
 
-        private void removeScanFilters(int clientIf) {
-            Deque<Integer> filterIndices = mClientFilterIndexMap.remove(clientIf);
+        private void removeScanFilters(int scannerId) {
+            Deque<Integer> filterIndices = mClientFilterIndexMap.remove(scannerId);
             if (filterIndices != null) {
                 mFilterIndexStack.addAll(filterIndices);
                 for (Integer filterIndex : filterIndices) {
                     resetCountDownLatch();
-                    gattClientScanFilterParamDeleteNative(clientIf, filterIndex);
+                    gattClientScanFilterParamDeleteNative(scannerId, filterIndex);
                     waitForCallback();
                 }
             }
             // Remove if ALL_PASS filters are used.
-            removeFilterIfExisits(mAllPassRegularClients, clientIf,
+            removeFilterIfExisits(mAllPassRegularClients, scannerId,
                     ALL_PASS_FILTER_INDEX_REGULAR_SCAN);
-            removeFilterIfExisits(mAllPassBatchClients, clientIf,
+            removeFilterIfExisits(mAllPassBatchClients, scannerId,
                     ALL_PASS_FILTER_INDEX_BATCH_SCAN);
         }
 
-        private void removeFilterIfExisits(Set<Integer> clients, int clientIf, int filterIndex) {
-            if (!clients.contains(clientIf)) {
+        private void removeFilterIfExisits(Set<Integer> clients, int scannerId, int filterIndex) {
+            if (!clients.contains(scannerId)) {
                 return;
             }
-            clients.remove(clientIf);
+            clients.remove(scannerId);
             // Remove ALL_PASS filter iff no app is using it.
             if (clients.isEmpty()) {
                 resetCountDownLatch();
-                gattClientScanFilterParamDeleteNative(clientIf, filterIndex);
+                gattClientScanFilterParamDeleteNative(scannerId, filterIndex);
                 waitForCallback();
             }
         }
 
-        private ScanClient getBatchScanClient(int clientIf) {
+        private ScanClient getBatchScanClient(int scannerId) {
             for (ScanClient client : mBatchClients) {
-                if (client.clientIf == clientIf) {
+                if (client.scannerId == scannerId) {
                     return client;
                 }
             }
@@ -872,13 +887,13 @@ public class ScanManager {
          * Return batch scan result type value defined in bt stack.
          */
         private int getResultType(BatchScanParams params) {
-            if (params.fullScanClientIf != -1 && params.truncatedScanClientIf != -1) {
+            if (params.fullScanscannerId != -1 && params.truncatedScanscannerId != -1) {
                 return SCAN_RESULT_TYPE_BOTH;
             }
-            if (params.truncatedScanClientIf != -1) {
+            if (params.truncatedScanscannerId != -1) {
                 return SCAN_RESULT_TYPE_TRUNCATED;
             }
-            if (params.fullScanClientIf != -1) {
+            if (params.fullScanscannerId != -1) {
                 return SCAN_RESULT_TYPE_FULL;
             }
             return -1;
@@ -895,26 +910,26 @@ public class ScanManager {
             return client.filters.size() > mFilterIndexStack.size();
         }
 
-        private void addFilterToController(int clientIf, ScanFilterQueue.Entry entry,
+        private void addFilterToController(int scannerId, ScanFilterQueue.Entry entry,
                 int filterIndex) {
-            logd("addFilterToController: " + entry.type);
+            if (DBG) Log.d(TAG, "addFilterToController: " + entry.type);
             switch (entry.type) {
                 case ScanFilterQueue.TYPE_DEVICE_ADDRESS:
-                    logd("add address " + entry.address);
-                    gattClientScanFilterAddNative(clientIf, entry.type, filterIndex, 0, 0, 0, 0, 0,
+                    if (DBG) Log.d(TAG, "add address " + entry.address);
+                    gattClientScanFilterAddNative(scannerId, entry.type, filterIndex, 0, 0, 0, 0, 0,
                             0,
                             "", entry.address, (byte) entry.addr_type, new byte[0], new byte[0]);
                     break;
 
                 case ScanFilterQueue.TYPE_SERVICE_DATA:
-                    gattClientScanFilterAddNative(clientIf, entry.type, filterIndex, 0, 0, 0, 0, 0,
+                    gattClientScanFilterAddNative(scannerId, entry.type, filterIndex, 0, 0, 0, 0, 0,
                             0,
                             "", "", (byte) 0, entry.data, entry.data_mask);
                     break;
 
                 case ScanFilterQueue.TYPE_SERVICE_UUID:
                 case ScanFilterQueue.TYPE_SOLICIT_UUID:
-                    gattClientScanFilterAddNative(clientIf, entry.type, filterIndex, 0, 0,
+                    gattClientScanFilterAddNative(scannerId, entry.type, filterIndex, 0, 0,
                             entry.uuid.getLeastSignificantBits(),
                             entry.uuid.getMostSignificantBits(),
                             entry.uuid_mask.getLeastSignificantBits(),
@@ -923,8 +938,8 @@ public class ScanManager {
                     break;
 
                 case ScanFilterQueue.TYPE_LOCAL_NAME:
-                    logd("adding filters: " + entry.name);
-                    gattClientScanFilterAddNative(clientIf, entry.type, filterIndex, 0, 0, 0, 0, 0,
+                    if (DBG) Log.d(TAG, "adding filters: " + entry.name);
+                    gattClientScanFilterAddNative(scannerId, entry.type, filterIndex, 0, 0, 0, 0, 0,
                             0,
                             entry.name, "", (byte) 0, new byte[0], new byte[0]);
                     break;
@@ -933,7 +948,7 @@ public class ScanManager {
                     int len = entry.data.length;
                     if (entry.data_mask.length != len)
                         return;
-                    gattClientScanFilterAddNative(clientIf, entry.type, filterIndex, entry.company,
+                    gattClientScanFilterAddNative(scannerId, entry.type, filterIndex, entry.company,
                             entry.company_mask, 0, 0, 0, 0, "", "", (byte) 0,
                             entry.data, entry.data_mask);
                     break;
@@ -953,7 +968,7 @@ public class ScanManager {
         }
 
         // Configure filter parameters.
-        private void configureFilterParamter(int clientIf, ScanClient client, int featureSelection,
+        private void configureFilterParamter(int scannerId, ScanClient client, int featureSelection,
                 int filterIndex, int numOfTrackingEntries) {
             int deliveryMode = getDeliveryMode(client);
             int rssiThreshold = Byte.MIN_VALUE;
@@ -962,9 +977,11 @@ public class ScanManager {
             int onLostTimeout = getOnFoundOnLostTimeoutMillis(settings, false);
             int onFoundCount = getOnFoundOnLostSightings(settings);
             onLostTimeout = 10000;
-            logd("configureFilterParamter " + onFoundTimeout + " " + onLostTimeout + " "
-                    + onFoundCount + " " + numOfTrackingEntries);
-            FilterParams FiltValue = new FilterParams(clientIf, filterIndex, featureSelection,
+            if (DBG) {
+                Log.d(TAG, "configureFilterParamter " + onFoundTimeout + " " + onLostTimeout + " "
+                                + onFoundCount + " " + numOfTrackingEntries);
+            }
+            FilterParams FiltValue = new FilterParams(scannerId, filterIndex, featureSelection,
                     LIST_LOGIC_TYPE, FILTER_LOGIC_TYPE, rssiThreshold, rssiThreshold, deliveryMode,
                     onFoundTimeout, onLostTimeout, onFoundCount, numOfTrackingEntries);
             gattClientScanFilterParamAddNative(FiltValue);
@@ -1063,7 +1080,10 @@ public class ScanManager {
                     break;
                 default:
                     val = 1;
-                    logd("Invalid setting for getNumOfMatches() " + settings.getNumOfMatches());
+                    if (DBG) {
+                        Log.d(TAG, "Invalid setting for getNumOfMatches() "
+                                        + settings.getNumOfMatches());
+                    }
             }
             return val;
         }
@@ -1095,6 +1115,9 @@ public class ScanManager {
 
 
         /************************** Regular scan related native methods **************************/
+        private native void registerScannerNative(long app_uuid_lsb, long app_uuid_msb);
+        private native void unregisterScannerNative(int scannerId);
+
         private native void gattClientScanNative(boolean start);
 
         private native void gattSetScanParametersNative(int client_if, int scan_interval,
@@ -1139,9 +1162,5 @@ public class ScanManager {
         private native void gattClientStopBatchScanNative(int client_if);
 
         private native void gattClientReadScanReportsNative(int client_if, int scan_type);
-    }
-
-    private void logd(String s) {
-        if (DBG) Log.d(TAG, s);
     }
 }

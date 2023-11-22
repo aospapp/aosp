@@ -29,7 +29,6 @@ public abstract class TabView implements HasTabVisible {
     private String title;
     protected boolean visible;
     private Map<String, String> savedState;
-    protected boolean autorefresh = false;
 
     public Widget getWidget() {
         return htmlPanel;
@@ -125,13 +124,5 @@ public abstract class TabView implements HasTabVisible {
         // allow control-click on windows or command-click on macs (control-click is overridden
         // on macs to take the place of right-click)
         return event.getCtrlKey() || event.getMetaKey() || middleMouseButton;
-    }
-
-    public boolean isAutorefreshOn() {
-        return autorefresh;
-    }
-
-    public void setAutorefresh(boolean autorefresh) {
-        this.autorefresh = autorefresh;
     }
 }

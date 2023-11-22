@@ -146,7 +146,7 @@ void freeNonDispHandle (Handle handle, const VkAllocationCallbacks* pAllocator)
 	} while (deGetFalse())
 
 // \todo [2015-07-14 pyry] Check FUNC type by checkedCastToPtr<T>() or similar
-#define VK_NULL_FUNC_ENTRY(NAME, FUNC)	{ #NAME, (deFunctionPtr)FUNC }
+#define VK_NULL_FUNC_ENTRY(NAME, FUNC)	{ #NAME, (deFunctionPtr)FUNC }  // NOLINT(FUNC)
 
 #define VK_NULL_DEFINE_DEVICE_OBJ(NAME)				\
 struct NAME											\
@@ -167,7 +167,6 @@ VK_NULL_DEFINE_DEVICE_OBJ(RenderPass);
 VK_NULL_DEFINE_DEVICE_OBJ(DescriptorSetLayout);
 VK_NULL_DEFINE_DEVICE_OBJ(Sampler);
 VK_NULL_DEFINE_DEVICE_OBJ(Framebuffer);
-VK_NULL_DEFINE_DEVICE_OBJ(CommandPool);
 
 class Instance
 {
@@ -234,6 +233,18 @@ public:
 										~SwapchainKHR	(void) {}
 };
 
+class IndirectCommandsLayoutNVX
+{
+public:
+	IndirectCommandsLayoutNVX (VkDevice, const VkIndirectCommandsLayoutCreateInfoNVX*) {}
+};
+
+class ObjectTableNVX
+{
+public:
+	ObjectTableNVX (VkDevice, const VkObjectTableCreateInfoNVX*) {}
+};
+
 void* allocateHeap (const VkMemoryAllocateInfo* pAllocInfo)
 {
 	// \todo [2015-12-03 pyry] Alignment requirements?
@@ -260,6 +271,10 @@ public:
 						DeviceMemory	(VkDevice, const VkMemoryAllocateInfo* pAllocInfo)
 							: m_memory(allocateHeap(pAllocInfo))
 						{
+							// \todo [2016-08-03 pyry] In some cases leaving data unintialized would help valgrind analysis,
+							//						   but currently it mostly hinders it.
+							if (m_memory)
+								deMemset(m_memory, 0xcd, (size_t)pAllocInfo->allocationSize);
 						}
 						~DeviceMemory	(void)
 						{
@@ -314,6 +329,71 @@ public:
 						{}
 };
 
+class DescriptorUpdateTemplateKHR
+{
+public:
+	DescriptorUpdateTemplateKHR (VkDevice, const VkDescriptorUpdateTemplateCreateInfoKHR*) {}
+};
+
+
+class CommandPool
+{
+public:
+										CommandPool		(VkDevice device, const VkCommandPoolCreateInfo*)
+											: m_device(device)
+										{}
+										~CommandPool	(void);
+
+	VkCommandBuffer						allocate		(VkCommandBufferLevel level);
+	void								free			(VkCommandBuffer buffer);
+
+private:
+	const VkDevice						m_device;
+
+	vector<CommandBuffer*>				m_buffers;
+};
+
+CommandPool::~CommandPool (void)
+{
+	for (size_t ndx = 0; ndx < m_buffers.size(); ++ndx)
+		delete m_buffers[ndx];
+}
+
+VkCommandBuffer CommandPool::allocate (VkCommandBufferLevel level)
+{
+	CommandBuffer* const	impl	= new CommandBuffer(m_device, VkCommandPool(reinterpret_cast<deUintptr>(this)), level);
+
+	try
+	{
+		m_buffers.push_back(impl);
+	}
+	catch (...)
+	{
+		delete impl;
+		throw;
+	}
+
+	return reinterpret_cast<VkCommandBuffer>(impl);
+}
+
+void CommandPool::free (VkCommandBuffer buffer)
+{
+	CommandBuffer* const	impl	= reinterpret_cast<CommandBuffer*>(buffer);
+
+	for (size_t ndx = 0; ndx < m_buffers.size(); ++ndx)
+	{
+		if (m_buffers[ndx] == impl)
+		{
+			std::swap(m_buffers[ndx], m_buffers.back());
+			m_buffers.pop_back();
+			delete impl;
+			return;
+		}
+	}
+
+	DE_FATAL("VkCommandBuffer not owned by VkCommandPool");
+}
+
 class DescriptorSet
 {
 public:
@@ -366,8 +446,7 @@ void DescriptorPool::free (VkDescriptorSet set)
 	DescriptorSet* const	impl	= reinterpret_cast<DescriptorSet*>((deUintptr)set.getInternal());
 
 	DE_ASSERT(m_flags & VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-
-	delete impl;
+	DE_UNREF(m_flags);
 
 	for (size_t ndx = 0; ndx < m_managedSets.size(); ++ndx)
 	{
@@ -375,6 +454,7 @@ void DescriptorPool::free (VkDescriptorSet set)
 		{
 			std::swap(m_managedSets[ndx], m_managedSets.back());
 			m_managedSets.pop_back();
+			delete impl;
 			return;
 		}
 	}
@@ -466,6 +546,68 @@ VKAPI_ATTR VkResult VKAPI_CALL enumeratePhysicalDevices (VkInstance, deUint32* p
 	return VK_SUCCESS;
 }
 
+VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceFeatures (VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures* pFeatures)
+{
+	DE_UNREF(physicalDevice);
+
+	// Enable all features allow as many tests to run as possible
+	pFeatures->robustBufferAccess							= VK_TRUE;
+	pFeatures->fullDrawIndexUint32							= VK_TRUE;
+	pFeatures->imageCubeArray								= VK_TRUE;
+	pFeatures->independentBlend								= VK_TRUE;
+	pFeatures->geometryShader								= VK_TRUE;
+	pFeatures->tessellationShader							= VK_TRUE;
+	pFeatures->sampleRateShading							= VK_TRUE;
+	pFeatures->dualSrcBlend									= VK_TRUE;
+	pFeatures->logicOp										= VK_TRUE;
+	pFeatures->multiDrawIndirect							= VK_TRUE;
+	pFeatures->drawIndirectFirstInstance					= VK_TRUE;
+	pFeatures->depthClamp									= VK_TRUE;
+	pFeatures->depthBiasClamp								= VK_TRUE;
+	pFeatures->fillModeNonSolid								= VK_TRUE;
+	pFeatures->depthBounds									= VK_TRUE;
+	pFeatures->wideLines									= VK_TRUE;
+	pFeatures->largePoints									= VK_TRUE;
+	pFeatures->alphaToOne									= VK_TRUE;
+	pFeatures->multiViewport								= VK_TRUE;
+	pFeatures->samplerAnisotropy							= VK_TRUE;
+	pFeatures->textureCompressionETC2						= VK_TRUE;
+	pFeatures->textureCompressionASTC_LDR					= VK_TRUE;
+	pFeatures->textureCompressionBC							= VK_TRUE;
+	pFeatures->occlusionQueryPrecise						= VK_TRUE;
+	pFeatures->pipelineStatisticsQuery						= VK_TRUE;
+	pFeatures->vertexPipelineStoresAndAtomics				= VK_TRUE;
+	pFeatures->fragmentStoresAndAtomics						= VK_TRUE;
+	pFeatures->shaderTessellationAndGeometryPointSize		= VK_TRUE;
+	pFeatures->shaderImageGatherExtended					= VK_TRUE;
+	pFeatures->shaderStorageImageExtendedFormats			= VK_TRUE;
+	pFeatures->shaderStorageImageMultisample				= VK_TRUE;
+	pFeatures->shaderStorageImageReadWithoutFormat			= VK_TRUE;
+	pFeatures->shaderStorageImageWriteWithoutFormat			= VK_TRUE;
+	pFeatures->shaderUniformBufferArrayDynamicIndexing		= VK_TRUE;
+	pFeatures->shaderSampledImageArrayDynamicIndexing		= VK_TRUE;
+	pFeatures->shaderStorageBufferArrayDynamicIndexing		= VK_TRUE;
+	pFeatures->shaderStorageImageArrayDynamicIndexing		= VK_TRUE;
+	pFeatures->shaderClipDistance							= VK_TRUE;
+	pFeatures->shaderCullDistance							= VK_TRUE;
+	pFeatures->shaderFloat64								= VK_TRUE;
+	pFeatures->shaderInt64									= VK_TRUE;
+	pFeatures->shaderInt16									= VK_TRUE;
+	pFeatures->shaderResourceResidency						= VK_TRUE;
+	pFeatures->shaderResourceMinLod							= VK_TRUE;
+	pFeatures->sparseBinding								= VK_TRUE;
+	pFeatures->sparseResidencyBuffer						= VK_TRUE;
+	pFeatures->sparseResidencyImage2D						= VK_TRUE;
+	pFeatures->sparseResidencyImage3D						= VK_TRUE;
+	pFeatures->sparseResidency2Samples						= VK_TRUE;
+	pFeatures->sparseResidency4Samples						= VK_TRUE;
+	pFeatures->sparseResidency8Samples						= VK_TRUE;
+	pFeatures->sparseResidency16Samples						= VK_TRUE;
+	pFeatures->sparseResidencyAliased						= VK_TRUE;
+	pFeatures->variableMultisampleRate						= VK_TRUE;
+	pFeatures->inheritedQueries								= VK_TRUE;
+}
+
 VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceProperties (VkPhysicalDevice, VkPhysicalDeviceProperties* props)
 {
 	deMemset(props, 0, sizeof(VkPhysicalDeviceProperties));
@@ -476,8 +618,121 @@ VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceProperties (VkPhysicalDevice, VkPhys
 
 	deMemcpy(props->deviceName, "null", 5);
 
-	// \todo [2015-09-25 pyry] Fill in reasonable limits
-	props->limits.maxTexelBufferElements	= 8096;
+	// Spec minmax
+	props->limits.maxImageDimension1D									= 4096;
+	props->limits.maxImageDimension2D									= 4096;
+	props->limits.maxImageDimension3D									= 256;
+	props->limits.maxImageDimensionCube									= 4096;
+	props->limits.maxImageArrayLayers									= 256;
+	props->limits.maxTexelBufferElements								= 65536;
+	props->limits.maxUniformBufferRange									= 16384;
+	props->limits.maxStorageBufferRange									= 1u<<27;
+	props->limits.maxPushConstantsSize									= 128;
+	props->limits.maxMemoryAllocationCount								= 4096;
+	props->limits.maxSamplerAllocationCount								= 4000;
+	props->limits.bufferImageGranularity								= 131072;
+	props->limits.sparseAddressSpaceSize								= 1u<<31;
+	props->limits.maxBoundDescriptorSets								= 4;
+	props->limits.maxPerStageDescriptorSamplers							= 16;
+	props->limits.maxPerStageDescriptorUniformBuffers					= 12;
+	props->limits.maxPerStageDescriptorStorageBuffers					= 4;
+	props->limits.maxPerStageDescriptorSampledImages					= 16;
+	props->limits.maxPerStageDescriptorStorageImages					= 4;
+	props->limits.maxPerStageDescriptorInputAttachments					= 4;
+	props->limits.maxPerStageResources									= 128;
+	props->limits.maxDescriptorSetSamplers								= 96;
+	props->limits.maxDescriptorSetUniformBuffers						= 72;
+	props->limits.maxDescriptorSetUniformBuffersDynamic					= 8;
+	props->limits.maxDescriptorSetStorageBuffers						= 24;
+	props->limits.maxDescriptorSetStorageBuffersDynamic					= 4;
+	props->limits.maxDescriptorSetSampledImages							= 96;
+	props->limits.maxDescriptorSetStorageImages							= 24;
+	props->limits.maxDescriptorSetInputAttachments						= 4;
+	props->limits.maxVertexInputAttributes								= 16;
+	props->limits.maxVertexInputBindings								= 16;
+	props->limits.maxVertexInputAttributeOffset							= 2047;
+	props->limits.maxVertexInputBindingStride							= 2048;
+	props->limits.maxVertexOutputComponents								= 64;
+	props->limits.maxTessellationGenerationLevel						= 64;
+	props->limits.maxTessellationPatchSize								= 32;
+	props->limits.maxTessellationControlPerVertexInputComponents		= 64;
+	props->limits.maxTessellationControlPerVertexOutputComponents		= 64;
+	props->limits.maxTessellationControlPerPatchOutputComponents		= 120;
+	props->limits.maxTessellationControlTotalOutputComponents			= 2048;
+	props->limits.maxTessellationEvaluationInputComponents				= 64;
+	props->limits.maxTessellationEvaluationOutputComponents				= 64;
+	props->limits.maxGeometryShaderInvocations							= 32;
+	props->limits.maxGeometryInputComponents							= 64;
+	props->limits.maxGeometryOutputComponents							= 64;
+	props->limits.maxGeometryOutputVertices								= 256;
+	props->limits.maxGeometryTotalOutputComponents						= 1024;
+	props->limits.maxFragmentInputComponents							= 64;
+	props->limits.maxFragmentOutputAttachments							= 4;
+	props->limits.maxFragmentDualSrcAttachments							= 1;
+	props->limits.maxFragmentCombinedOutputResources					= 4;
+	props->limits.maxComputeSharedMemorySize							= 16384;
+	props->limits.maxComputeWorkGroupCount[0]							= 65535;
+	props->limits.maxComputeWorkGroupCount[1]							= 65535;
+	props->limits.maxComputeWorkGroupCount[2]							= 65535;
+	props->limits.maxComputeWorkGroupInvocations						= 128;
+	props->limits.maxComputeWorkGroupSize[0]							= 128;
+	props->limits.maxComputeWorkGroupSize[1]							= 128;
+	props->limits.maxComputeWorkGroupSize[2]							= 128;
+	props->limits.subPixelPrecisionBits									= 4;
+	props->limits.subTexelPrecisionBits									= 4;
+	props->limits.mipmapPrecisionBits									= 4;
+	props->limits.maxDrawIndexedIndexValue								= 0xffffffffu;
+	props->limits.maxDrawIndirectCount									= (1u<<16) - 1u;
+	props->limits.maxSamplerLodBias										= 2.0f;
+	props->limits.maxSamplerAnisotropy									= 16.0f;
+	props->limits.maxViewports											= 16;
+	props->limits.maxViewportDimensions[0]								= 4096;
+	props->limits.maxViewportDimensions[1]								= 4096;
+	props->limits.viewportBoundsRange[0]								= -8192.f;
+	props->limits.viewportBoundsRange[1]								= 8191.f;
+	props->limits.viewportSubPixelBits									= 0;
+	props->limits.minMemoryMapAlignment									= 64;
+	props->limits.minTexelBufferOffsetAlignment							= 256;
+	props->limits.minUniformBufferOffsetAlignment						= 256;
+	props->limits.minStorageBufferOffsetAlignment						= 256;
+	props->limits.minTexelOffset										= -8;
+	props->limits.maxTexelOffset										= 7;
+	props->limits.minTexelGatherOffset									= -8;
+	props->limits.maxTexelGatherOffset									= 7;
+	props->limits.minInterpolationOffset								= -0.5f;
+	props->limits.maxInterpolationOffset								= 0.5f; // -1ulp
+	props->limits.subPixelInterpolationOffsetBits						= 4;
+	props->limits.maxFramebufferWidth									= 4096;
+	props->limits.maxFramebufferHeight									= 4096;
+	props->limits.maxFramebufferLayers									= 256;
+	props->limits.framebufferColorSampleCounts							= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.framebufferDepthSampleCounts							= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.framebufferStencilSampleCounts						= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.framebufferNoAttachmentsSampleCounts					= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.maxColorAttachments									= 4;
+	props->limits.sampledImageColorSampleCounts							= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.sampledImageIntegerSampleCounts						= VK_SAMPLE_COUNT_1_BIT;
+	props->limits.sampledImageDepthSampleCounts							= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.sampledImageStencilSampleCounts						= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.storageImageSampleCounts								= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+	props->limits.maxSampleMaskWords									= 1;
+	props->limits.timestampComputeAndGraphics							= VK_TRUE;
+	props->limits.timestampPeriod										= 1.0f;
+	props->limits.maxClipDistances										= 8;
+	props->limits.maxCullDistances										= 8;
+	props->limits.maxCombinedClipAndCullDistances						= 8;
+	props->limits.discreteQueuePriorities								= 2;
+	props->limits.pointSizeRange[0]										= 1.0f;
+	props->limits.pointSizeRange[1]										= 64.0f; // -1ulp
+	props->limits.lineWidthRange[0]										= 1.0f;
+	props->limits.lineWidthRange[1]										= 8.0f; // -1ulp
+	props->limits.pointSizeGranularity									= 1.0f;
+	props->limits.lineWidthGranularity									= 1.0f;
+	props->limits.strictLines											= 0;
+	props->limits.standardSampleLocations								= VK_TRUE;
+	props->limits.optimalBufferCopyOffsetAlignment						= 256;
+	props->limits.optimalBufferCopyRowPitchAlignment					= 256;
+	props->limits.nonCoherentAtomSize									= 128;
 }
 
 VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceQueueFamilyProperties (VkPhysicalDevice, deUint32* count, VkQueueFamilyProperties* props)
@@ -486,7 +741,7 @@ VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceQueueFamilyProperties (VkPhysicalDev
 	{
 		deMemset(props, 0, sizeof(VkQueueFamilyProperties));
 
-		props->queueCount			= 1u;
+		props->queueCount			= 4u;
 		props->queueFlags			= VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT;
 		props->timestampValidBits	= 64;
 	}
@@ -500,7 +755,7 @@ VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceMemoryProperties (VkPhysicalDevice, 
 
 	props->memoryTypeCount				= 1u;
 	props->memoryTypes[0].heapIndex		= 0u;
-	props->memoryTypes[0].propertyFlags	= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	props->memoryTypes[0].propertyFlags	= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 	props->memoryHeapCount				= 1u;
 	props->memoryHeaps[0].size			= 1ull << 31;
@@ -520,11 +775,41 @@ VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceFormatProperties (VkPhysicalDevice, 
 											| VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT
 											| VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
 											| VK_FORMAT_FEATURE_BLIT_SRC_BIT
-											| VK_FORMAT_FEATURE_BLIT_DST_BIT;
+											| VK_FORMAT_FEATURE_BLIT_DST_BIT
+											| VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
 
 	pFormatProperties->linearTilingFeatures		= allFeatures;
 	pFormatProperties->optimalTilingFeatures	= allFeatures;
 	pFormatProperties->bufferFeatures			= allFeatures;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL getPhysicalDeviceImageFormatProperties (VkPhysicalDevice physicalDevice, VkFormat format, VkImageType type, VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags, VkImageFormatProperties* pImageFormatProperties)
+{
+	DE_UNREF(physicalDevice);
+	DE_UNREF(format);
+	DE_UNREF(type);
+	DE_UNREF(tiling);
+	DE_UNREF(usage);
+	DE_UNREF(flags);
+
+	pImageFormatProperties->maxArrayLayers		= 8;
+	pImageFormatProperties->maxExtent.width		= 4096;
+	pImageFormatProperties->maxExtent.height	= 4096;
+	pImageFormatProperties->maxExtent.depth		= 4096;
+	pImageFormatProperties->maxMipLevels		= deLog2Ceil32(4096) + 1;
+	pImageFormatProperties->maxResourceSize		= 64u * 1024u * 1024u;
+	pImageFormatProperties->sampleCounts		= VK_SAMPLE_COUNT_1_BIT|VK_SAMPLE_COUNT_4_BIT;
+
+	return VK_SUCCESS;
+}
+
+VKAPI_ATTR void VKAPI_CALL getDeviceQueue (VkDevice device, deUint32 queueFamilyIndex, deUint32 queueIndex, VkQueue* pQueue)
+{
+	DE_UNREF(device);
+	DE_UNREF(queueFamilyIndex);
+
+	if (pQueue)
+		*pQueue = reinterpret_cast<VkQueue>((deUint64)queueIndex + 1);
 }
 
 VKAPI_ATTR void VKAPI_CALL getBufferMemoryRequirements (VkDevice, VkBuffer bufferHandle, VkMemoryRequirements* requirements)
@@ -637,12 +922,14 @@ VKAPI_ATTR VkResult VKAPI_CALL resetDescriptorPool (VkDevice, VkDescriptorPool d
 
 VKAPI_ATTR VkResult VKAPI_CALL allocateCommandBuffers (VkDevice device, const VkCommandBufferAllocateInfo* pAllocateInfo, VkCommandBuffer* pCommandBuffers)
 {
+	DE_UNREF(device);
+
 	if (pAllocateInfo && pCommandBuffers)
 	{
+		CommandPool* const	poolImpl	= reinterpret_cast<CommandPool*>((deUintptr)pAllocateInfo->commandPool.getInternal());
+
 		for (deUint32 ndx = 0; ndx < pAllocateInfo->commandBufferCount; ++ndx)
-		{
-			pCommandBuffers[ndx] = reinterpret_cast<VkCommandBuffer>(new CommandBuffer(device, pAllocateInfo->commandPool, pAllocateInfo->level));
-		}
+			pCommandBuffers[ndx] = poolImpl->allocate(pAllocateInfo->level);
 	}
 
 	return VK_SUCCESS;
@@ -650,11 +937,12 @@ VKAPI_ATTR VkResult VKAPI_CALL allocateCommandBuffers (VkDevice device, const Vk
 
 VKAPI_ATTR void VKAPI_CALL freeCommandBuffers (VkDevice device, VkCommandPool commandPool, deUint32 commandBufferCount, const VkCommandBuffer* pCommandBuffers)
 {
+	CommandPool* const	poolImpl	= reinterpret_cast<CommandPool*>((deUintptr)commandPool.getInternal());
+
 	DE_UNREF(device);
-	DE_UNREF(commandPool);
 
 	for (deUint32 ndx = 0; ndx < commandBufferCount; ++ndx)
-		delete reinterpret_cast<CommandBuffer*>(pCommandBuffers[ndx]);
+		poolImpl->free(pCommandBuffers[ndx]);
 }
 
 

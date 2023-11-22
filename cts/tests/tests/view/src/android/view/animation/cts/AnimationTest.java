@@ -16,24 +16,49 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
-import android.cts.util.PollingCheck;
-import android.test.ActivityInstrumentationTestCase2;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Animation;
+import android.view.animation.Animation.AnimationListener;
 import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
-import android.view.animation.Animation.AnimationListener;
+import android.view.cts.R;
+
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -41,28 +66,33 @@ import java.util.concurrent.TimeUnit;
 /**
  * Test {@link Animation}.
  */
-public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
-    private static final float ALPHA_DELTA = 0.001f;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class AnimationTest {
+    private static final float COMPARISON_DELTA = 0.001f;
 
     /** It is defined in R.anim.accelerate_alpha */
-    private static final long ACCELERATE_ALPHA_DURATION = 1000;
+    private static final int ACCELERATE_ALPHA_DURATION = 1000;
 
     /** It is defined in R.anim.decelerate_alpha */
-    private static final long DECELERATE_ALPHA_DURATION = 2000;
+    private static final int DECELERATE_ALPHA_DURATION = 2000;
 
+    private static final int CANCELATION_TIMEOUT = 1000;
+
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
-    private Object mLockObject = new Object();
 
-    public AnimationTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         XmlResourceParser parser = mActivity.getResources().getAnimation(R.anim.alpha);
         AttributeSet attrs = Xml.asAttributeSet(parser);
@@ -73,6 +103,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         };
     }
 
+    @Test
     public void testAccessInterpolator() {
         // check default interpolator
         MyAnimation myAnimation = new MyAnimation();
@@ -99,6 +130,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(interpolator instanceof AccelerateInterpolator);
     }
 
+    @Test
     public void testDefaultFill() {
         Animation animation = new Animation() {
         };
@@ -106,7 +138,8 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertFalse(animation.getFillAfter());
     }
 
-    public void testAccessFill() {
+    @Test
+    public void testAccessFill() throws Throwable {
         View animWindow = mActivity.findViewById(R.id.anim_window);
         // XML file of R.anim.accelerate_alpha
         // <alpha xmlns:android="http://schemas.android.com/apk/res/android"
@@ -119,59 +152,63 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(animation.getFillBefore());
         assertFalse(animation.getFillAfter());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, animation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                animation);
 
         // fillBefore and fillAfter are ignored when fillEnabled is false
         Transformation transformation = new Transformation();
         // check alpha before start
         animation.getTransformation(animation.getStartTime() - 1, transformation);
         float alpha = transformation.getAlpha();
-        assertEquals(0.1f, alpha, ALPHA_DELTA);  // issue 1698355
+        assertEquals(0.1f, alpha, COMPARISON_DELTA);  // issue 1698355
 
         transformation = new Transformation();
         // check alpha after the end
         animation.getTransformation(animation.getStartTime() + animation.getDuration() + 1,
                 transformation);
         alpha = transformation.getAlpha();
-        assertEquals(0.9f, alpha, ALPHA_DELTA);  // issue 1698355
+        assertEquals(0.9f, alpha, COMPARISON_DELTA);  // issue 1698355
 
         animation.setFillEnabled(true);
         animation.setFillBefore(false);
         assertTrue(animation.isFillEnabled());
         assertFalse(animation.getFillBefore());
         assertFalse(animation.getFillAfter());
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, animation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                animation);
 
         transformation = new Transformation();
         animation.getTransformation(animation.getStartTime() - 1, transformation);
         alpha = transformation.getAlpha();
-        assertEquals(1.0f, alpha, ALPHA_DELTA);
+        assertEquals(1.0f, alpha, COMPARISON_DELTA);
 
         transformation = new Transformation();
         animation.getTransformation(animation.getStartTime() + animation.getDuration() + 1,
                 transformation);
         alpha = transformation.getAlpha();
-        assertEquals(1.0f, alpha, ALPHA_DELTA);
+        assertEquals(1.0f, alpha, COMPARISON_DELTA);
 
         animation.setFillBefore(true);
         animation.setFillAfter(true);
         assertTrue(animation.isFillEnabled());
         assertTrue(animation.getFillBefore());
         assertTrue(animation.getFillAfter());
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, animation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                animation);
 
         transformation = new Transformation();
         animation.getTransformation(animation.getStartTime() - 1, transformation);
         alpha = transformation.getAlpha();
-        assertEquals(0.1f, alpha, ALPHA_DELTA);
+        assertEquals(0.1f, alpha, COMPARISON_DELTA);
 
         transformation = new Transformation();
         animation.getTransformation(animation.getStartTime() + animation.getDuration() + 1,
                 transformation);
         alpha = transformation.getAlpha();
-        assertEquals(0.9f, alpha, ALPHA_DELTA);
+        assertEquals(0.9f, alpha, COMPARISON_DELTA);
     }
 
+    @Test
     public void testComputeDurationHint() {
         // start offset is 0, duration is 2000, repeat count is 0.
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.decelerate_alpha);
@@ -186,7 +223,8 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(8400, animation.computeDurationHint());
     }
 
-    public void testRepeatAnimation() {
+    @Test
+    public void testRepeatAnimation() throws Throwable {
         // check default repeatMode
         Animation animation = new Animation() {
         };
@@ -205,48 +243,34 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         long duration = anim.getDuration();
         assertEquals(DECELERATE_ALPHA_DURATION, duration);
         // repeat count is 0, repeat mode does not make sense.
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
 
         // test repeat mode REVERSE
         anim.setRepeatCount(1);
         anim.setRepeatMode(Animation.REVERSE);
         // we have to PollingCheck the animation status on test thread,
-        // it cannot be done on UI thread, so we invoke runOnMainSync method here.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                animWindow.startAnimation(anim);
-            }
-        });
+        // it cannot be done on UI thread, so we invoke runOnUiThread method here.
+        mActivityRule.runOnUiThread(() -> animWindow.startAnimation(anim));
 
         // check whether animation has started
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return anim.hasStarted();
-            }
-        }.run();
+        PollingCheck.waitFor(anim::hasStarted);
 
         Transformation transformation = new Transformation();
         long startTime = anim.getStartTime();
         anim.getTransformation(startTime, transformation);
         float alpha1 = transformation.getAlpha();
-        assertEquals(0.0f, alpha1, ALPHA_DELTA);
+        assertEquals(0.0f, alpha1, COMPARISON_DELTA);
 
         anim.getTransformation(startTime + 1000, transformation);
         float alpha2 = transformation.getAlpha();
 
         anim.getTransformation(startTime + 2000, transformation);
         float alpha3 = transformation.getAlpha();
-        assertEquals(1.0f, alpha3, ALPHA_DELTA);
+        assertEquals(1.0f, alpha3, COMPARISON_DELTA);
 
         // wait for animation has ended.
         // timeout is larger than duration, in case the system is sluggish
-        new PollingCheck(duration * 2 + 1000) {
-            @Override
-            protected boolean check() {
-                return anim.hasEnded();
-            }
-        }.run();
+        PollingCheck.waitFor(duration * 2 + 1000, anim::hasEnded);
 
         // get start time of reversing.
         startTime = anim.getStartTime();
@@ -255,7 +279,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
 
         anim.getTransformation(startTime + 4000, transformation);
         float alpha5 = transformation.getAlpha();
-        assertEquals(0.0f, alpha5, ALPHA_DELTA);
+        assertEquals(0.0f, alpha5, COMPARISON_DELTA);
 
         // check decelerating delta alpha when reverse. alpha should change form 0.0f to 1.0f
         // and then from 1.0f to 0.0f
@@ -270,42 +294,28 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         // test repeat mode RESTART
         anim.setRepeatMode(Animation.RESTART);
         // we have to PollingCheck the animation status on test thread,
-        // it cannot be done on UI thread, so we invoke runOnMainSync method here.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                animWindow.startAnimation(anim);
-            }
-        });
+        // it cannot be done on UI thread, so we invoke runOnUiThread method here.
+        mActivityRule.runOnUiThread(() -> animWindow.startAnimation(anim));
 
         // check whether animation has started
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return anim.hasStarted();
-            }
-        }.run();
+        PollingCheck.waitFor(anim::hasStarted);
 
         transformation = new Transformation();
         startTime = anim.getStartTime();
         anim.getTransformation(startTime, transformation);
         alpha1 = transformation.getAlpha();
-        assertEquals(0.0f, alpha1, ALPHA_DELTA);
+        assertEquals(0.0f, alpha1, COMPARISON_DELTA);
 
         anim.getTransformation(startTime + 1000, transformation);
         alpha2 = transformation.getAlpha();
 
         anim.getTransformation(startTime + 2000, transformation);
         alpha3 = transformation.getAlpha();
-        assertEquals(1.0f, alpha3, ALPHA_DELTA);
+        assertEquals(1.0f, alpha3, COMPARISON_DELTA);
 
         // wait for animation has ended.
         // timeout is larger than duration, in case the system is sluggish
-        new PollingCheck(duration * 2 + 1000) {
-            @Override
-            protected boolean check() {
-                return anim.hasEnded();
-            }
-        }.run();
+        PollingCheck.waitFor(duration * 2 + 1000, anim::hasEnded);
 
         // get start time of restarting.
         startTime = anim.getStartTime();
@@ -314,7 +324,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
 
         anim.getTransformation(startTime + 4000, transformation);
         alpha5 = transformation.getAlpha();
-        assertEquals(1.0f, alpha5, ALPHA_DELTA);
+        assertEquals(1.0f, alpha5, COMPARISON_DELTA);
 
         // check decelerating delta alpha when restart. alpha should change form 0.0f to 1.0f
         // and then from 0.0f to 1.0f again
@@ -327,7 +337,8 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(delta3 > delta4);
     }
 
-    public void testAccessStartOffset() {
+    @Test
+    public void testAccessStartOffset() throws Throwable {
         final long startOffset = 800;
         // check default startOffset
         Animation animation = new Animation() {
@@ -345,24 +356,24 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         animation.setStartOffset(startOffset);
         assertEquals(startOffset, animation.getStartOffset());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow,
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
                 animation, ACCELERATE_ALPHA_DURATION + startOffset);
 
         Transformation transformation = new Transformation();
         long startTime = animation.getStartTime();
         animation.getTransformation(startTime, transformation);
         float alpha1 = transformation.getAlpha();
-        assertEquals(0.1f, alpha1, ALPHA_DELTA);
+        assertEquals(0.1f, alpha1, COMPARISON_DELTA);
 
         animation.getTransformation(startTime + 400, transformation);
         float alpha2 = transformation.getAlpha();
         // alpha is 0.1f during start offset
-        assertEquals(0.1f, alpha2, ALPHA_DELTA);
+        assertEquals(0.1f, alpha2, COMPARISON_DELTA);
 
         animation.getTransformation(startTime + startOffset, transformation);
         float alpha3 = transformation.getAlpha();
         // alpha is 0.1f during start offset
-        assertEquals(0.1f, alpha3, ALPHA_DELTA);
+        assertEquals(0.1f, alpha3, COMPARISON_DELTA);
 
         animation.getTransformation(startTime + startOffset + 1, transformation);
         float alpha4 = transformation.getAlpha();
@@ -370,7 +381,8 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(alpha4 > 0.1f);
     }
 
-    public void testRunAccelerateAlpha() {
+    @Test
+    public void testRunAccelerateAlpha() throws Throwable {
         // check default startTime
         Animation animation = new Animation() {
         };
@@ -391,10 +403,11 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         Animation anim = AnimationUtils.loadAnimation(mActivity, R.anim.accelerate_alpha);
         assertEquals(Animation.START_ON_FIRST_FRAME, anim.getStartTime());
         assertFalse(anim.hasStarted());
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
     }
 
-    public void testGetTransformation() {
+    @Test
+    public void testGetTransformation() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
 
         // XML file of R.anim.accelerate_alpha
@@ -407,20 +420,11 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertFalse(anim.hasStarted());
 
         // we have to PollingCheck the animation status on test thread,
-        // it cannot be done on UI thread, so we invoke runOnMainSync method here.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                animWindow.startAnimation(anim);
-            }
-        });
+        // it cannot be done on UI thread, so we invoke runOnUiThread method here.
+        mActivityRule.runOnUiThread(() -> animWindow.startAnimation(anim));
 
         // check whether animation has started
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return anim.hasStarted();
-            }
-        }.run();
+        PollingCheck.waitFor(anim::hasStarted);
 
         // check transformation objects that is provided by the
         // caller and will be filled in by the animation.
@@ -428,7 +432,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         long startTime = anim.getStartTime();
         assertTrue(anim.getTransformation(startTime, transformation));
         float alpha1 = transformation.getAlpha();
-        assertEquals(0.1f, alpha1, ALPHA_DELTA);
+        assertEquals(0.1f, alpha1, COMPARISON_DELTA);
 
         assertTrue(anim.getTransformation(startTime + 250, transformation));
         float alpha2 = transformation.getAlpha();
@@ -441,16 +445,11 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
 
         // wait for animation has ended.
         // timeout is larger than duration, in case the system is sluggish
-        new PollingCheck(2000) {
-            @Override
-            protected boolean check() {
-                return anim.hasEnded();
-            }
-        }.run();
+        PollingCheck.waitFor(2000, anim::hasEnded);
 
         assertFalse(anim.getTransformation(startTime + 1000, transformation));
         float alpha5 = transformation.getAlpha();
-        assertEquals(0.9f, alpha5, ALPHA_DELTA);
+        assertEquals(0.9f, alpha5, COMPARISON_DELTA);
 
         // check decelerating delta alpha
         float delta1 = alpha2 - alpha1;
@@ -462,6 +461,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(delta3 < delta4);
     }
 
+    @Test
     public void testAccessZAdjustment() {
         // check default zAdjustment
         Animation animation = new Animation() {
@@ -478,6 +478,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(Animation.ZORDER_BOTTOM, animation.getZAdjustment());
     }
 
+    @Test
     public void testInitialize() {
         Animation animation = new Animation() {
         };
@@ -487,23 +488,31 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(animation.isInitialized());
     }
 
+    @Test
     public void testResolveSize() {
         MyAnimation myAnimation = new MyAnimation();
 
-        assertEquals(1.0f, myAnimation.resolveSize(Animation.ABSOLUTE, 1.0f, 0, 0));
-        assertEquals(2.0f, myAnimation.resolveSize(Animation.ABSOLUTE, 2.0f, 0, 0));
+        assertEquals(1.0f, myAnimation.resolveSize(Animation.ABSOLUTE, 1.0f, 0, 0),
+                COMPARISON_DELTA);
+        assertEquals(2.0f, myAnimation.resolveSize(Animation.ABSOLUTE, 2.0f, 0, 0),
+                COMPARISON_DELTA);
 
-        assertEquals(6.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_SELF, 3.0f, 2, 0));
-        assertEquals(9.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_SELF, 3.0f, 3, 0));
+        assertEquals(6.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_SELF, 3.0f, 2, 0),
+                COMPARISON_DELTA);
+        assertEquals(9.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_SELF, 3.0f, 3, 0),
+                COMPARISON_DELTA);
 
-        assertEquals(18.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_PARENT, 3.0f, 0, 6));
-        assertEquals(12.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_PARENT, 3.0f, 0, 4));
+        assertEquals(18.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_PARENT, 3.0f, 0, 6),
+                COMPARISON_DELTA);
+        assertEquals(12.0f, myAnimation.resolveSize(Animation.RELATIVE_TO_PARENT, 3.0f, 0, 4),
+                COMPARISON_DELTA);
 
         int unknownType = 7;
-        assertEquals(8.0f, myAnimation.resolveSize(unknownType, 8.0f, 3, 4));
-        assertEquals(10.0f, myAnimation.resolveSize(unknownType, 10.0f, 3, 4));
+        assertEquals(8.0f, myAnimation.resolveSize(unknownType, 8.0f, 3, 4), COMPARISON_DELTA);
+        assertEquals(10.0f, myAnimation.resolveSize(unknownType, 10.0f, 3, 4), COMPARISON_DELTA);
     }
 
+    @Test
     public void testRestrictDuration() {
         Animation animation = new Animation() {
         };
@@ -526,6 +535,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(1, animation.getRepeatCount());
     }
 
+    @Test
     public void testScaleCurrentDuration() {
         Animation animation = new Animation() {
         };
@@ -543,7 +553,9 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(-10, animation.getDuration());
     }
 
-    public void testSetAnimationListener() {
+    @LargeTest
+    @Test
+    public void testSetAnimationListener() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
 
         // XML file of R.anim.accelerate_alpha
@@ -553,48 +565,40 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         //      android:toAlpha="0.9"
         //      android:duration="1000" />
         final Animation anim = AnimationUtils.loadAnimation(mActivity, R.anim.accelerate_alpha);
-        MockAnimationListener listener = new MockAnimationListener();
+        final AnimationListener listener = mock(AnimationListener.class);
         anim.setAnimationListener(listener);
-        assertFalse(listener.hasAnimationStarted());
-        assertFalse(listener.hasAnimationEnded());
-        assertFalse(listener.hasAnimationRepeated());
+        verifyZeroInteractions(listener);
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
-        assertTrue(listener.hasAnimationStarted());
-        assertTrue(listener.hasAnimationEnded());
-        assertFalse(listener.hasAnimationRepeated());
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
+        verify(listener, times(1)).onAnimationStart(anim);
+        verify(listener, times(1)).onAnimationEnd(anim);
+        verify(listener, never()).onAnimationRepeat(anim);
 
-        listener.reset();
+        reset(listener);
         anim.setRepeatCount(2);
         anim.setRepeatMode(Animation.REVERSE);
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim, 3000);
-        assertTrue(listener.hasAnimationStarted());
-        assertTrue(listener.hasAnimationRepeated());
-        assertTrue(listener.hasAnimationEnded());
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim,
+                3000);
+        verify(listener, times(1)).onAnimationStart(anim);
+        verify(listener, times(2)).onAnimationRepeat(anim);
+        verify(listener, times(1)).onAnimationEnd(anim);
 
-        listener.reset();
+        reset(listener);
         // onAnimationEnd will not be invoked and animation should not end
         anim.setRepeatCount(Animation.INFINITE);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
-            public void run() {
-                animWindow.startAnimation(anim);
-            }
-        });
-        synchronized(mLockObject) {
-            try {
-                mLockObject.wait(4 * ACCELERATE_ALPHA_DURATION);
-            } catch (InterruptedException e) {
-                fail("thrown unexpected InterruptedException");
-            }
-        }
+        mActivityRule.runOnUiThread(() -> animWindow.startAnimation(anim));
+        // Verify that our animation doesn't call listener's onAnimationEnd even after a long
+        // period of time. We just sleep and then verify what's happened with the listener.
+        SystemClock.sleep(4 * ACCELERATE_ALPHA_DURATION);
 
-        assertTrue(listener.hasAnimationStarted());
-        assertTrue(listener.hasAnimationRepeated());
-        assertFalse(listener.hasAnimationEnded());
+        verify(listener, times(1)).onAnimationStart(anim);
+        verify(listener, atLeastOnce()).onAnimationRepeat(anim);
+        verify(listener, never()).onAnimationEnd(anim);
     }
 
+    @Test
     public void testStart() {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.accelerate_alpha);
         animation.setStartTime(0);
@@ -603,6 +607,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(Animation.START_ON_FIRST_FRAME, animation.getStartTime());
     }
 
+    @Test
     public void testStartNow() {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.accelerate_alpha);
         animation.setStartTime(0);
@@ -612,6 +617,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(currentTime, animation.getStartTime(), 100);
     }
 
+    @Test
     public void testWillChangeBounds() {
         Animation animation = new Animation() {
         };
@@ -619,6 +625,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(animation.willChangeBounds());
     }
 
+    @Test
     public void testWillChangeTransformationMatrix() {
         Animation animation = new Animation() {
         };
@@ -626,6 +633,7 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertTrue(animation.willChangeTransformationMatrix());
     }
 
+    @Test
     public void testClone() throws CloneNotSupportedException {
         MyAnimation myAnimation = new MyAnimation();
         myAnimation.setDuration(3000);
@@ -647,35 +655,39 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         assertEquals(myAnimation.getRepeatMode(), cloneAnimation.getRepeatMode());
     }
 
+    @Test
     public void testCancelImmediately() throws Throwable {
         MyAnimation anim = new MyAnimation();
         final CountDownLatch latch1 = new CountDownLatch(1);
         runCanceledAnimation(anim, latch1, false, false);
-        assertTrue(latch1.await(200, TimeUnit.MILLISECONDS));
+        assertTrue(latch1.await(CANCELATION_TIMEOUT, TimeUnit.MILLISECONDS));
         assertFalse(anim.isStillAnimating());
     }
 
+    @Test
     public void testRepeatingCancelImmediately() throws Throwable {
         MyAnimation anim = new MyAnimation();
         final CountDownLatch latch2 = new CountDownLatch(1);
         runCanceledAnimation(anim, latch2, true, false);
-        assertTrue(latch2.await(200, TimeUnit.MILLISECONDS));
+        assertTrue(latch2.await(CANCELATION_TIMEOUT, TimeUnit.MILLISECONDS));
         assertFalse(anim.isStillAnimating());
     }
 
+    @Test
     public void testCancelDelayed() throws Throwable {
         MyAnimation anim = new MyAnimation();
         final CountDownLatch latch3 = new CountDownLatch(1);
         runCanceledAnimation(anim, latch3, false, true);
-        assertTrue(latch3.await(250, TimeUnit.MILLISECONDS));
+        assertTrue(latch3.await(CANCELATION_TIMEOUT, TimeUnit.MILLISECONDS));
         assertFalse(anim.isStillAnimating());
     }
 
+    @Test
     public void testRepeatingCancelDelayed() throws Throwable {
         MyAnimation anim = new MyAnimation();
         final CountDownLatch latch4 = new CountDownLatch(1);
         runCanceledAnimation(anim, latch4, true, true);
-        assertTrue(latch4.await(250, TimeUnit.MILLISECONDS));
+        assertTrue(latch4.await(CANCELATION_TIMEOUT, TimeUnit.MILLISECONDS));
         assertFalse(anim.isStillAnimating());
     }
 
@@ -686,37 +698,22 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         // anymore. The trick is that cancel() will still allow one more frame to run,
         // so we have to insert some delay between when we cancel and when we can check
         // whether it is still animating.
-        runTestOnUiThread(new Runnable() {
-            final View view = mActivity.findViewById(R.id.anim_window);
-            public void run() {
-                anim.setDuration(delayed ? 150 : 100);
-                if (repeating) {
-                    anim.setRepeatCount(Animation.INFINITE);
-                }
-                view.startAnimation(anim);
-                if (!delayed) {
-                    anim.cancel();
-                } else {
-                    view.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            anim.cancel();
-                        }
-                    }, 50);
-                }
-                view.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        anim.setStillAnimating(false);
-                        view.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                latch.countDown();
-                            }
-                        }, 50);
-                    }
-                }, delayed ? 100 : 50);
+        final View view = mActivity.findViewById(R.id.anim_window);
+        mActivityRule.runOnUiThread(() -> {
+            anim.setDuration(delayed ? 150 : 100);
+            if (repeating) {
+                anim.setRepeatCount(Animation.INFINITE);
             }
+            view.startAnimation(anim);
+            if (!delayed) {
+                anim.cancel();
+            } else {
+                view.postDelayed(anim::cancel, 50);
+            }
+            view.postDelayed(() -> {
+                anim.setStillAnimating(false);
+                view.postDelayed(latch::countDown, 50);
+            }, delayed ? 100 : 50);
         });
     }
 
@@ -750,43 +747,6 @@ public class AnimationTest extends ActivityInstrumentationTestCase2<AnimationTes
         public boolean getTransformation(long currentTime, Transformation outTransformation) {
             mStillAnimating = true;
             return super.getTransformation(currentTime, outTransformation);
-        }
-    }
-
-    private class MockAnimationListener implements AnimationListener {
-        private boolean mHasAnimationStarted = false;
-        private boolean mHasAnimationEnded = false;
-        private boolean mHasAnimationRepeated = false;
-
-        public void onAnimationStart(Animation animation) {
-            mHasAnimationStarted = true;
-        }
-        public void onAnimationEnd(Animation animation) {
-            synchronized(mLockObject) {
-                mHasAnimationEnded = true;
-                mLockObject.notifyAll();
-            }
-        }
-        public void onAnimationRepeat(Animation animation) {
-            mHasAnimationRepeated = true;
-        }
-
-        public boolean hasAnimationStarted() {
-            return mHasAnimationStarted;
-        }
-
-        public boolean hasAnimationEnded() {
-            return mHasAnimationEnded;
-        }
-
-        public boolean hasAnimationRepeated() {
-            return mHasAnimationRepeated;
-        }
-
-        public void reset() {
-            mHasAnimationStarted = false;
-            mHasAnimationEnded = false;
-            mHasAnimationRepeated = false;
         }
     }
 }

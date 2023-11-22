@@ -16,12 +16,15 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.widget.TintableCompoundButton;
 import android.support.v7.appcompat.R;
 import android.support.v7.content.res.AppCompatResources;
@@ -32,7 +35,7 @@ import android.widget.CheckBox;
  * A {@link CheckBox} which supports compatible features on older version of the platform,
  * including:
  * <ul>
- *     <li>Allows dynamic tint of it background via the background tint methods in
+ *     <li>Allows dynamic tint of its background via the background tint methods in
  *     {@link android.support.v4.widget.CompoundButtonCompat}.</li>
  *     <li>Allows setting of the background tint using {@link R.attr#buttonTint} and
  *     {@link R.attr#buttonTintMode}.</li>
@@ -43,7 +46,7 @@ import android.widget.CheckBox;
  */
 public class AppCompatCheckBox extends CheckBox implements TintableCompoundButton {
 
-    private AppCompatCompoundButtonHelper mCompoundButtonHelper;
+    private final AppCompatCompoundButtonHelper mCompoundButtonHelper;
 
     public AppCompatCheckBox(Context context) {
         this(context, null);
@@ -84,6 +87,7 @@ public class AppCompatCheckBox extends CheckBox implements TintableCompoundButto
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     public void setSupportButtonTintList(@Nullable ColorStateList tint) {
         if (mCompoundButtonHelper != null) {
@@ -95,6 +99,7 @@ public class AppCompatCheckBox extends CheckBox implements TintableCompoundButto
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Nullable
     @Override
     public ColorStateList getSupportButtonTintList() {
@@ -107,6 +112,7 @@ public class AppCompatCheckBox extends CheckBox implements TintableCompoundButto
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     public void setSupportButtonTintMode(@Nullable PorterDuff.Mode tintMode) {
         if (mCompoundButtonHelper != null) {
@@ -118,6 +124,7 @@ public class AppCompatCheckBox extends CheckBox implements TintableCompoundButto
      * This should be accessed from {@link android.support.v4.widget.CompoundButtonCompat}
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Nullable
     @Override
     public PorterDuff.Mode getSupportButtonTintMode() {

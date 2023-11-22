@@ -51,6 +51,7 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaMuxer.h>
 #include <media/ICrypto.h>
+#include <media/MediaCodecBuffer.h>
 
 #include "screenrecord.h"
 #include "Overlay.h"
@@ -68,6 +69,7 @@ static const char* kMimeTypeAvc = "video/avc";
 // Command-line parameters.
 static bool gVerbose = false;           // chatty on stdout
 static bool gRotate = false;            // rotate 90 degrees
+static bool gMonotonicTime = false;     // use system monotonic time for timestamps
 static enum {
     FORMAT_MP4, FORMAT_H264, FORMAT_FRAMES, FORMAT_RAW_FRAMES
 } gOutputFormat = FORMAT_MP4;           // data format for output
@@ -213,7 +215,6 @@ static status_t prepareEncoder(float displayFps, sp<MediaCodec>* pCodec,
  */
 static status_t setDisplayProjection(const sp<IBinder>& dpy,
         const DisplayInfo& mainDpyInfo) {
-    status_t err;
 
     // Set the region of the layer stack we're interested in, which in our
     // case is "all of it".  If the app is rotated (so that the width of the
@@ -327,7 +328,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
 
     assert((rawFp == NULL && muxer != NULL) || (rawFp != NULL && muxer == NULL));
 
-    Vector<sp<ABuffer> > buffers;
+    Vector<sp<MediaCodecBuffer> > buffers;
     err = encoder->getOutputBuffers(&buffers);
     if (err != NO_ERROR) {
         fprintf(stderr, "Unable to get output buffers (err=%d)\n", err);
@@ -410,7 +411,10 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
                     // want to queue these up and do them on a different thread.
                     ATRACE_NAME("write sample");
                     assert(trackIdx != -1);
-                    err = muxer->writeSampleData(buffers[bufIndex], trackIdx,
+                    // TODO
+                    sp<ABuffer> buffer = new ABuffer(
+                            buffers[bufIndex]->data(), buffers[bufIndex]->size());
+                    err = muxer->writeSampleData(buffer, trackIdx,
                             ptsUsec, flags);
                     if (err != NO_ERROR) {
                         fprintf(stderr,
@@ -609,7 +613,7 @@ static status_t recordScreen(const char* fileName) {
     sp<Overlay> overlay;
     if (gWantFrameTime) {
         // Send virtual display frames to an external texture.
-        overlay = new Overlay();
+        overlay = new Overlay(gMonotonicTime);
         err = overlay->start(encoderInputSurface, &bufferProducer);
         if (err != NO_ERROR) {
             if (encoder != NULL) encoder->release();
@@ -892,6 +896,7 @@ int main(int argc, char* const argv[]) {
         { "show-frame-time",    no_argument,        NULL, 'f' },
         { "rotate",             no_argument,        NULL, 'r' },
         { "output-format",      required_argument,  NULL, 'o' },
+        { "monotonic-time",     no_argument,        NULL, 'm' },
         { NULL,                 0,                  NULL, 0 }
     };
 
@@ -970,6 +975,9 @@ int main(int argc, char* const argv[]) {
                 fprintf(stderr, "Unknown format '%s'\n", optarg);
                 return 2;
             }
+            break;
+        case 'm':
+            gMonotonicTime = true;
             break;
         default:
             if (ic != '?') {

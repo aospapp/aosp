@@ -16,15 +16,29 @@
 
 package android.drm.cts;
 
+import com.android.compatibility.common.util.MediaUtils;
 
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
+import java.io.SequenceInputStream;
+import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.Vector;
 
 import android.drm.DrmManagerClient;
 import android.drm.DrmConvertedStatus;
@@ -35,6 +49,11 @@ import android.drm.DrmInfoStatus;
 import android.drm.DrmRights;
 import android.drm.DrmStore;
 import android.drm.DrmUtils;
+import android.media.MediaExtractor;
+import android.media.MediaMetadataRetriever;
+import android.media.MediaPlayer;
+import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 
 public class DRMTest extends AndroidTestCase {
     private static String TAG = "CtsDRMTest";
@@ -194,6 +213,90 @@ public class DRMTest extends AndroidTestCase {
             } catch(Exception e) {
                 Log.v(TAG, "ProcessDrmInfo: wait was interrupted.");
             }
+        }
+    }
+
+    public void testForwardLockAccess()  throws Exception {
+        DrmManagerClient drmManager= new DrmManagerClient(mContext);
+        String[] engines = drmManager.getAvailableDrmEngines();
+        boolean haveForwardLock = false;
+        for (String engine: engines) {
+            if (engine.equals("OMA V1 Forward Lock")) {
+                haveForwardLock = true;
+            }
+        }
+        drmManager.close();
+        if (!haveForwardLock) {
+            Log.i(TAG, "Skipping forward lock test because forward lock is not available");
+            return;
+        }
+
+        Vector<InputStream> sequence = new Vector<InputStream>();
+
+        String dmHeader = "--mime_content_boundary\r\n" +
+        "Content-Type: audio/mpeg\r\n" +
+        "Content-Transfer-Encoding: binary\r\n\r\n";
+        sequence.add(new ByteArrayInputStream(dmHeader.getBytes(StandardCharsets.UTF_8)));
+
+        AssetFileDescriptor afd = mContext.getResources().openRawResourceFd(R.raw.testmp3_2);
+        FileInputStream body = afd.createInputStream();
+        sequence.add(body);
+
+        String dmFooter = "\r\n--mime_content_boundary--";
+        sequence.add(new ByteArrayInputStream(dmFooter.getBytes(StandardCharsets.UTF_8)));
+
+        SequenceInputStream dmStream = new SequenceInputStream(sequence.elements());
+        String flPath = mContext.getExternalCacheDir() + "/temp.fl";
+        RandomAccessFile flFile = new RandomAccessFile(flPath, "rw");
+        assertTrue("couldn't convert to fl file",
+                MediaUtils.convertDmToFl(mContext, dmStream,  flFile));
+        dmStream.close(); // this closes the underlying streams and AFD as well
+        flFile.close();
+
+        ParcelFileDescriptor flFd = null;
+        try {
+            // check that the .fl file can be played
+            MediaPlayer player = new MediaPlayer();
+            try {
+                flFd = ParcelFileDescriptor.open(
+                        new File(flPath), ParcelFileDescriptor.MODE_READ_ONLY);
+                player.setDataSource(flFd.getFileDescriptor(), 0, flFd.getStatSize());
+                player.prepare();
+                player.start();
+                SystemClock.sleep(2000);
+                assertTrue("player is not playing", player.isPlaying());
+                player.release();
+            } catch (Exception e) {
+                Log.d(TAG, "MediaPlayer playback failed:", e);
+            } finally {
+                player.release();
+            }
+
+            // check that the .fl file can be parsed with MediaMetadataRetriever
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            try {
+                retriever.setDataSource(flFd.getFileDescriptor());
+                String numTracks =
+                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS);
+                assertEquals("wrong number of tracks found in file", "1", numTracks);
+            } finally {
+                retriever.release();
+            }
+
+            // check that the .fl file cannot be opened with MediaExtractor
+            MediaExtractor ex = new MediaExtractor();
+            try {
+                ex.setDataSource(flFd.getFileDescriptor());
+                int n = ex.getTrackCount();
+                fail("extractor creation should have failed, but found " + n + " tracks");
+            } catch (Exception e) {
+                // ignore, expected to fail
+            } finally {
+                ex.release();
+            }
+        } finally {
+            flFd.close();
+            new File(flPath).delete();
         }
     }
 

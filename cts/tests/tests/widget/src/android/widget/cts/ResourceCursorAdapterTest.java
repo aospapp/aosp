@@ -16,23 +16,36 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static junit.framework.Assert.assertTrue;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 
 import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ResourceCursorAdapter;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link ResourceCursorAdapter}.
  */
-public class ResourceCursorAdapterTest extends InstrumentationTestCase {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ResourceCursorAdapterTest {
     private ResourceCursorAdapter mResourceCursorAdapter;
 
     private Context mContext;
@@ -41,11 +54,9 @@ public class ResourceCursorAdapterTest extends InstrumentationTestCase {
 
     private Cursor mCursor;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mResourceCursorAdapter = null;
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
         LayoutInflater layoutInflater = (LayoutInflater) mContext.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
         mParent = (ViewGroup) layoutInflater.inflate(R.layout.cursoradapter_host, null);
@@ -53,6 +64,7 @@ public class ResourceCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         MockResourceCursorAdapter adapter = new MockResourceCursorAdapter(mContext, -1, null);
         // the default is true
@@ -71,6 +83,7 @@ public class ResourceCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetViewResource() {
         mResourceCursorAdapter = new MockResourceCursorAdapter(mContext,
                 R.layout.cursoradapter_item0, mCursor);
@@ -87,6 +100,7 @@ public class ResourceCursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetDropDownViewResource() {
         mResourceCursorAdapter = new MockResourceCursorAdapter(mContext,
                 R.layout.cursoradapter_item0, mCursor);
@@ -110,8 +124,9 @@ public class ResourceCursorAdapterTest extends InstrumentationTestCase {
         assertEquals(R.id.cursorAdapter_item0, result.getId());
     }
 
-    // parameters Context and Cursor are never readin the method
+    // parameters Context and Cursor are never read in the method
     @UiThreadTest
+    @Test
     public void testNewDropDownView() {
         mResourceCursorAdapter = new MockResourceCursorAdapter(mContext,
                 R.layout.cursoradapter_item0, mCursor);
@@ -128,6 +143,7 @@ public class ResourceCursorAdapterTest extends InstrumentationTestCase {
 
     // The parameters Context and Cursor are never read in the method
     @UiThreadTest
+    @Test
     public void testNewView() {
         mResourceCursorAdapter = new MockResourceCursorAdapter(mContext,
                 R.layout.cursoradapter_item0, mCursor);

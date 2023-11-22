@@ -16,15 +16,24 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.CharacterStyle;
 import android.text.style.MetricAffectingSpan;
 import android.text.style.SuperscriptSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class MetricAffectingSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MetricAffectingSpanTest {
+    @Test
     public void testGetUnderlying() {
         MetricAffectingSpan metricAffectingSpan = new MyMetricAffectingSpan();
         assertSame(metricAffectingSpan, metricAffectingSpan.getUnderlying());
@@ -36,18 +45,13 @@ public class MetricAffectingSpanTest extends TestCase {
         assertSame(metricAffectingSpan, result.getUnderlying());
     }
 
-    /**
-     * MyMetricAffectingSpan for test.
-     */
     private class MyMetricAffectingSpan extends MetricAffectingSpan {
         @Override
         public void updateMeasureState(TextPaint p) {
-            // implement abstract method.
         }
 
         @Override
         public void updateDrawState(TextPaint tp) {
-            // implement abstract method.
         }
     }
 }

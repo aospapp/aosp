@@ -29,6 +29,7 @@
 
     <!-- TODO: Needed because we call ActivityManager.getCurrentUser() statically. -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
 
     <!-- Used to access TelephonyManager APIs -->

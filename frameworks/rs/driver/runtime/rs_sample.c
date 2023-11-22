@@ -423,8 +423,6 @@ static float4 __attribute__((overloadable))
                                rs_sampler_value wrapS,
                                float uv, uint32_t lod) {
 
-    const uint8_t *p = (const uint8_t *)alloc->mHal.drvState.lod[lod].mallocPtr;
-
     int32_t sourceW = alloc->mHal.drvState.lod[lod].dimX;
     float pixelUV = uv * (float)(sourceW);
     int32_t iPixel = floor(pixelUV);
@@ -468,8 +466,6 @@ static float4 __attribute__((overloadable))
                                rs_sampler_value wrapS,
                                rs_sampler_value wrapT,
                                float2 uv, uint32_t lod) {
-
-    const uint8_t *p = (const uint8_t *)alloc->mHal.drvState.lod[lod].mallocPtr;
 
     int sourceW = alloc->mHal.drvState.lod[lod].dimX;
     int sourceH = alloc->mHal.drvState.lod[lod].dimY;

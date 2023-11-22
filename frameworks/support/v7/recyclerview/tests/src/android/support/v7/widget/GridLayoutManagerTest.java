@@ -19,6 +19,7 @@ package android.support.v7.widget;
 import static android.support.v7.widget.LinearLayoutManager.HORIZONTAL;
 import static android.support.v7.widget.LinearLayoutManager.VERTICAL;
 
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -29,11 +30,13 @@ import static org.junit.Assert.assertTrue;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.os.Build;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.SdkSuppress;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.v4.view.AccessibilityDelegateCompat;
 import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.test.UiThreadTest;
-import android.test.suitebuilder.annotation.MediumTest;
 import android.util.SparseIntArray;
 import android.util.StateSet;
 import android.view.View;
@@ -49,7 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@MediumTest
+@LargeTest
 @RunWith(AndroidJUnit4.class)
 public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
 
@@ -131,7 +134,8 @@ public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
                         stl.addState(new int[]{android.R.attr.state_focused},
                                 new ColorDrawable(Color.RED));
                         stl.addState(StateSet.WILD_CARD, new ColorDrawable(Color.BLUE));
-                        testViewHolder.itemView.setBackground(stl);
+                        //noinspection deprecation using this for kitkat tests
+                        testViewHolder.itemView.setBackgroundDrawable(stl);
                         return testViewHolder;
                     }
 
@@ -164,6 +168,367 @@ public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
         }
     }
 
+
+    @Test
+    public void topUnfocusableViewsVisibility() throws Throwable {
+        // The maximum number of rows that can be fully in-bounds of RV.
+        final int visibleRowCount = 5;
+        final int spanCount = 3;
+        final int consecutiveFocusableRowsCount = 4;
+        final int consecutiveUnFocusableRowsCount = 8;
+        final int itemCount = (consecutiveFocusableRowsCount + consecutiveUnFocusableRowsCount)
+                * spanCount;
+
+        final RecyclerView recyclerView = setupBasic(new Config(spanCount, itemCount)
+                        .reverseLayout(true),
+                new GridTestAdapter(itemCount, 1) {
+                    RecyclerView mAttachedRv;
+
+                    @Override
+                    public TestViewHolder onCreateViewHolder(ViewGroup parent,
+                            int viewType) {
+                        TestViewHolder testViewHolder = super.onCreateViewHolder(parent, viewType);
+                        // Good to have colors for debugging
+                        StateListDrawable stl = new StateListDrawable();
+                        stl.addState(new int[]{android.R.attr.state_focused},
+                                new ColorDrawable(Color.RED));
+                        stl.addState(StateSet.WILD_CARD, new ColorDrawable(Color.BLUE));
+                        //noinspection deprecation using this for kitkat tests
+                        testViewHolder.itemView.setBackgroundDrawable(stl);
+                        return testViewHolder;
+                    }
+
+                    @Override
+                    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+                        mAttachedRv = recyclerView;
+                    }
+
+                    @Override
+                    public void onBindViewHolder(TestViewHolder holder,
+                            int position) {
+                        super.onBindViewHolder(holder, position);
+                        if (position < spanCount * consecutiveFocusableRowsCount) {
+                            holder.itemView.setFocusable(true);
+                            holder.itemView.setFocusableInTouchMode(true);
+                        } else {
+                            holder.itemView.setFocusable(false);
+                            holder.itemView.setFocusableInTouchMode(false);
+                        }
+                        holder.itemView.setMinimumHeight(mAttachedRv.getHeight() / visibleRowCount);
+                    }
+                });
+        waitForFirstLayout(recyclerView);
+
+        // adapter position of the currently focused item.
+        int focusIndex = 1;
+        RecyclerView.ViewHolder toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+        View viewToFocus = toFocus.itemView;
+        assertTrue(requestFocus(viewToFocus, true));
+        assertSame(viewToFocus, recyclerView.getFocusedChild());
+
+        // adapter position of the item (whether focusable or not) that just becomes fully
+        // visible after focusSearch.
+        int visibleIndex = focusIndex;
+        // The VH of the above adapter position
+        RecyclerView.ViewHolder toVisible = null;
+
+        int maxFocusIndex = (consecutiveFocusableRowsCount - 1) * spanCount + focusIndex;
+        int maxVisibleIndex = (consecutiveFocusableRowsCount + visibleRowCount - 2)
+                * spanCount + visibleIndex;
+
+        // Navigate up through the focusable and unfocusable rows. The focusable rows should
+        // become focused one by one until hitting the last focusable row, at which point,
+        // unfocusable rows should become visible on the screen until the currently focused row
+        // stays on the screen.
+        int pos = focusIndex + spanCount;
+        while (pos < itemCount) {
+            focusSearch(recyclerView.getFocusedChild(), View.FOCUS_UP, true);
+            waitForIdleScroll(recyclerView);
+            focusIndex = Math.min(maxFocusIndex, (focusIndex + spanCount));
+            toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+            visibleIndex = Math.min(maxVisibleIndex, (visibleIndex + spanCount));
+            toVisible = recyclerView.findViewHolderForAdapterPosition(visibleIndex);
+
+            assertThat("Child at position " + focusIndex + " should be focused",
+                    toFocus.itemView.hasFocus(), is(true));
+            assertTrue("Focused child should be at least partially visible.",
+                    isViewPartiallyInBound(recyclerView, toFocus.itemView));
+            assertTrue("Child view at adapter pos " + visibleIndex + " should be fully visible.",
+                    isViewFullyInBound(recyclerView, toVisible.itemView));
+            pos += spanCount;
+        }
+    }
+
+    @Test
+    public void bottomUnfocusableViewsVisibility() throws Throwable {
+        // The maximum number of rows that can be fully in-bounds of RV.
+        final int visibleRowCount = 5;
+        final int spanCount = 3;
+        final int consecutiveFocusableRowsCount = 4;
+        final int consecutiveUnFocusableRowsCount = 8;
+        final int itemCount = (consecutiveFocusableRowsCount + consecutiveUnFocusableRowsCount)
+                * spanCount;
+
+        final RecyclerView recyclerView = setupBasic(new Config(spanCount, itemCount)
+                        .reverseLayout(false),
+                new GridTestAdapter(itemCount, 1) {
+                    RecyclerView mAttachedRv;
+
+                    @Override
+                    public TestViewHolder onCreateViewHolder(ViewGroup parent,
+                            int viewType) {
+                        TestViewHolder testViewHolder = super.onCreateViewHolder(parent, viewType);
+                        // Good to have colors for debugging
+                        StateListDrawable stl = new StateListDrawable();
+                        stl.addState(new int[]{android.R.attr.state_focused},
+                                new ColorDrawable(Color.RED));
+                        stl.addState(StateSet.WILD_CARD, new ColorDrawable(Color.BLUE));
+                        //noinspection deprecation using this for kitkat tests
+                        testViewHolder.itemView.setBackgroundDrawable(stl);
+                        return testViewHolder;
+                    }
+
+                    @Override
+                    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+                        mAttachedRv = recyclerView;
+                    }
+
+                    @Override
+                    public void onBindViewHolder(TestViewHolder holder,
+                            int position) {
+                        super.onBindViewHolder(holder, position);
+                        if (position < spanCount * consecutiveFocusableRowsCount) {
+                            holder.itemView.setFocusable(true);
+                            holder.itemView.setFocusableInTouchMode(true);
+                        } else {
+                            holder.itemView.setFocusable(false);
+                            holder.itemView.setFocusableInTouchMode(false);
+                        }
+                        holder.itemView.setMinimumHeight(mAttachedRv.getHeight() / visibleRowCount);
+                    }
+                });
+        waitForFirstLayout(recyclerView);
+
+        // adapter position of the currently focused item.
+        int focusIndex = 1;
+        RecyclerView.ViewHolder toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+        View viewToFocus = toFocus.itemView;
+        assertTrue(requestFocus(viewToFocus, true));
+        assertSame(viewToFocus, recyclerView.getFocusedChild());
+
+        // adapter position of the item (whether focusable or not) that just becomes fully
+        // visible after focusSearch.
+        int visibleIndex = focusIndex;
+        // The VH of the above adapter position
+        RecyclerView.ViewHolder toVisible = null;
+
+        int maxFocusIndex = (consecutiveFocusableRowsCount - 1) * spanCount + focusIndex;
+        int maxVisibleIndex = (consecutiveFocusableRowsCount + visibleRowCount - 2)
+                * spanCount + visibleIndex;
+
+        // Navigate down through the focusable and unfocusable rows. The focusable rows should
+        // become focused one by one until hitting the last focusable row, at which point,
+        // unfocusable rows should become visible on the screen until the currently focused row
+        // stays on the screen.
+        int pos = focusIndex + spanCount;
+        while (pos < itemCount) {
+            focusSearch(recyclerView.getFocusedChild(), View.FOCUS_DOWN, true);
+            waitForIdleScroll(recyclerView);
+            focusIndex = Math.min(maxFocusIndex, (focusIndex + spanCount));
+            toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+            visibleIndex = Math.min(maxVisibleIndex, (visibleIndex + spanCount));
+            toVisible = recyclerView.findViewHolderForAdapterPosition(visibleIndex);
+
+            assertThat("Child at position " + focusIndex + " should be focused",
+                    toFocus.itemView.hasFocus(), is(true));
+            assertTrue("Focused child should be at least partially visible.",
+                    isViewPartiallyInBound(recyclerView, toFocus.itemView));
+            assertTrue("Child view at adapter pos " + visibleIndex + " should be fully visible.",
+                    isViewFullyInBound(recyclerView, toVisible.itemView));
+            pos += spanCount;
+        }
+    }
+
+    @Test
+    public void leftUnfocusableViewsVisibility() throws Throwable {
+        // The maximum number of columns that can be fully in-bounds of RV.
+        final int visibleColCount = 5;
+        final int spanCount = 3;
+        final int consecutiveFocusableColsCount = 4;
+        final int consecutiveUnFocusableColsCount = 8;
+        final int itemCount = (consecutiveFocusableColsCount + consecutiveUnFocusableColsCount)
+                * spanCount;
+
+        final RecyclerView recyclerView = setupBasic(new Config(spanCount, itemCount)
+                        .orientation(HORIZONTAL).reverseLayout(true),
+                new GridTestAdapter(itemCount, 1) {
+                    RecyclerView mAttachedRv;
+
+                    @Override
+                    public TestViewHolder onCreateViewHolder(ViewGroup parent,
+                            int viewType) {
+                        TestViewHolder testViewHolder = super.onCreateViewHolder(parent, viewType);
+                        // Good to have colors for debugging
+                        StateListDrawable stl = new StateListDrawable();
+                        stl.addState(new int[]{android.R.attr.state_focused},
+                                new ColorDrawable(Color.RED));
+                        stl.addState(StateSet.WILD_CARD, new ColorDrawable(Color.BLUE));
+                        //noinspection deprecation using this for kitkat tests
+                        testViewHolder.itemView.setBackgroundDrawable(stl);
+                        return testViewHolder;
+                    }
+
+                    @Override
+                    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+                        mAttachedRv = recyclerView;
+                    }
+
+                    @Override
+                    public void onBindViewHolder(TestViewHolder holder,
+                            int position) {
+                        super.onBindViewHolder(holder, position);
+                        if (position < spanCount * consecutiveFocusableColsCount) {
+                            holder.itemView.setFocusable(true);
+                            holder.itemView.setFocusableInTouchMode(true);
+                        } else {
+                            holder.itemView.setFocusable(false);
+                            holder.itemView.setFocusableInTouchMode(false);
+                        }
+                        holder.itemView.setMinimumWidth(mAttachedRv.getWidth() / visibleColCount);
+                    }
+                });
+        waitForFirstLayout(recyclerView);
+
+        // adapter position of the currently focused item.
+        int focusIndex = 1;
+        RecyclerView.ViewHolder toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+        View viewToFocus = toFocus.itemView;
+        assertTrue(requestFocus(viewToFocus, true));
+        assertSame(viewToFocus, recyclerView.getFocusedChild());
+
+        // adapter position of the item (whether focusable or not) that just becomes fully
+        // visible after focusSearch.
+        int visibleIndex = focusIndex;
+        // The VH of the above adapter position
+        RecyclerView.ViewHolder toVisible = null;
+
+        int maxFocusIndex = (consecutiveFocusableColsCount - 1) * spanCount + focusIndex;
+        int maxVisibleIndex = (consecutiveFocusableColsCount + visibleColCount - 2)
+                * spanCount + visibleIndex;
+
+        // Navigate left through the focusable and unfocusable columns. The focusable columns should
+        // become focused one by one until hitting the last focusable column, at which point,
+        // unfocusable columns should become visible on the screen until the currently focused
+        // column stays on the screen.
+        int pos = focusIndex + spanCount;
+        while (pos < itemCount) {
+            focusSearch(recyclerView.getFocusedChild(), View.FOCUS_LEFT, true);
+            waitForIdleScroll(recyclerView);
+            focusIndex = Math.min(maxFocusIndex, (focusIndex + spanCount));
+            toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+            visibleIndex = Math.min(maxVisibleIndex, (visibleIndex + spanCount));
+            toVisible = recyclerView.findViewHolderForAdapterPosition(visibleIndex);
+
+            assertThat("Child at position " + focusIndex + " should be focused",
+                    toFocus.itemView.hasFocus(), is(true));
+            assertTrue("Focused child should be at least partially visible.",
+                    isViewPartiallyInBound(recyclerView, toFocus.itemView));
+            assertTrue("Child view at adapter pos " + visibleIndex + " should be fully visible.",
+                    isViewFullyInBound(recyclerView, toVisible.itemView));
+            pos += spanCount;
+        }
+    }
+
+    @Test
+    public void rightUnfocusableViewsVisibility() throws Throwable {
+        // The maximum number of columns that can be fully in-bounds of RV.
+        final int visibleColCount = 5;
+        final int spanCount = 3;
+        final int consecutiveFocusableColsCount = 4;
+        final int consecutiveUnFocusableColsCount = 8;
+        final int itemCount = (consecutiveFocusableColsCount + consecutiveUnFocusableColsCount)
+                * spanCount;
+
+        final RecyclerView recyclerView = setupBasic(new Config(spanCount, itemCount)
+                        .orientation(HORIZONTAL).reverseLayout(false),
+                new GridTestAdapter(itemCount, 1) {
+                    RecyclerView mAttachedRv;
+
+                    @Override
+                    public TestViewHolder onCreateViewHolder(ViewGroup parent,
+                            int viewType) {
+                        TestViewHolder testViewHolder = super.onCreateViewHolder(parent, viewType);
+                        // Good to have colors for debugging
+                        StateListDrawable stl = new StateListDrawable();
+                        stl.addState(new int[]{android.R.attr.state_focused},
+                                new ColorDrawable(Color.RED));
+                        stl.addState(StateSet.WILD_CARD, new ColorDrawable(Color.BLUE));
+                        //noinspection deprecation using this for kitkat tests
+                        testViewHolder.itemView.setBackgroundDrawable(stl);
+                        return testViewHolder;
+                    }
+
+                    @Override
+                    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+                        mAttachedRv = recyclerView;
+                    }
+
+                    @Override
+                    public void onBindViewHolder(TestViewHolder holder,
+                            int position) {
+                        super.onBindViewHolder(holder, position);
+                        if (position < spanCount * consecutiveFocusableColsCount) {
+                            holder.itemView.setFocusable(true);
+                            holder.itemView.setFocusableInTouchMode(true);
+                        } else {
+                            holder.itemView.setFocusable(false);
+                            holder.itemView.setFocusableInTouchMode(false);
+                        }
+                        holder.itemView.setMinimumWidth(mAttachedRv.getWidth() / visibleColCount);
+                    }
+                });
+        waitForFirstLayout(recyclerView);
+
+        // adapter position of the currently focused item.
+        int focusIndex = 1;
+        RecyclerView.ViewHolder toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+        View viewToFocus = toFocus.itemView;
+        assertTrue(requestFocus(viewToFocus, true));
+        assertSame(viewToFocus, recyclerView.getFocusedChild());
+
+        // adapter position of the item (whether focusable or not) that just becomes fully
+        // visible after focusSearch.
+        int visibleIndex = focusIndex;
+        // The VH of the above adapter position
+        RecyclerView.ViewHolder toVisible = null;
+
+        int maxFocusIndex = (consecutiveFocusableColsCount - 1) * spanCount + focusIndex;
+        int maxVisibleIndex = (consecutiveFocusableColsCount + visibleColCount - 2)
+                * spanCount + visibleIndex;
+
+        // Navigate right through the focusable and unfocusable columns. The focusable columns
+        // should become focused one by one until hitting the last focusable column, at which point,
+        // unfocusable columns should become visible on the screen until the currently focused
+        // column stays on the screen.
+        int pos = focusIndex + spanCount;
+        while (pos < itemCount) {
+            focusSearch(recyclerView.getFocusedChild(), View.FOCUS_RIGHT, true);
+            waitForIdleScroll(recyclerView);
+            focusIndex = Math.min(maxFocusIndex, (focusIndex + spanCount));
+            toFocus = recyclerView.findViewHolderForAdapterPosition(focusIndex);
+            visibleIndex = Math.min(maxVisibleIndex, (visibleIndex + spanCount));
+            toVisible = recyclerView.findViewHolderForAdapterPosition(visibleIndex);
+
+            assertThat("Child at position " + focusIndex + " should be focused",
+                    toFocus.itemView.hasFocus(), is(true));
+            assertTrue("Focused child should be at least partially visible.",
+                    isViewPartiallyInBound(recyclerView, toFocus.itemView));
+            assertTrue("Child view at adapter pos " + visibleIndex + " should be fully visible.",
+                    isViewFullyInBound(recyclerView, toVisible.itemView));
+            pos += spanCount;
+        }
+    }
+
     @UiThreadTest
     @Test
     public void scrollWithoutLayout() throws Throwable {
@@ -178,7 +543,7 @@ public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
     public void scrollWithoutLayoutAfterInvalidate() throws Throwable {
         final RecyclerView recyclerView = setupBasic(new Config(3, 100));
         waitForFirstLayout(recyclerView);
-        runTestOnUiThread(new Runnable() {
+        mActivityRule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mGlm.setSpanCount(5);
@@ -284,11 +649,13 @@ public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.KITKAT)
     public void horizontalAccessibilitySpanIndices() throws Throwable {
         accessibilitySpanIndicesTest(HORIZONTAL);
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.KITKAT)
     public void verticalAccessibilitySpanIndices() throws Throwable {
         accessibilitySpanIndicesTest(VERTICAL);
     }
@@ -301,7 +668,7 @@ public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
         final AccessibilityNodeInfoCompat info = AccessibilityNodeInfoCompat.obtain();
         final View chosen = recyclerView.getChildAt(recyclerView.getChildCount() - 2);
         final int position = recyclerView.getChildLayoutPosition(chosen);
-        runTestOnUiThread(new Runnable() {
+        mActivityRule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 delegateCompat.onInitializeAccessibilityNodeInfo(chosen, info);
@@ -768,7 +1135,7 @@ public class GridLayoutManagerTest extends BaseGridLayoutManagerTest {
         waitForFirstLayout(rv);
         assertTrue(mGlm.supportsPredictiveItemAnimations());
         mGlm.expectLayout(1);
-        runTestOnUiThread(new Runnable() {
+        mActivityRule.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mGlm.setSpanCount(5);

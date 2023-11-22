@@ -18,6 +18,8 @@
 #define ANDROID_SURFACEFLINGERCONSUMER_H
 
 #include "DispSync.h"
+
+#include <ui/Region.h>
 #include <gui/GLConsumer.h>
 
 namespace android {
@@ -37,10 +39,9 @@ public:
     };
 
     SurfaceFlingerConsumer(const sp<IGraphicBufferConsumer>& consumer,
-            uint32_t tex, const Layer* layer)
+            uint32_t tex, Layer* layer)
         : GLConsumer(consumer, tex, GLConsumer::TEXTURE_EXTERNAL, false, false),
-          mTransformToDisplayInverse(false), mSurfaceDamage(),
-          mPrevReleaseFence(Fence::NO_FENCE), mLayer(layer)
+          mTransformToDisplayInverse(false), mSurfaceDamage(), mLayer(layer)
     {}
 
     class BufferRejecter {
@@ -61,7 +62,7 @@ public:
     // texture.
     status_t updateTexImage(BufferRejecter* rejecter, const DispSync& dispSync,
             bool* autoRefresh, bool* queuedBuffer,
-            uint64_t maxFrameNumber = 0);
+            uint64_t maxFrameNumber);
 
     // See GLConsumer::bindTextureImageLocked().
     status_t bindTextureImage();
@@ -79,14 +80,16 @@ public:
 
     nsecs_t computeExpectedPresent(const DispSync& dispSync);
 
-    virtual void setReleaseFence(const sp<Fence>& fence) override;
-    sp<Fence> getPrevReleaseFence() const;
+    sp<Fence> getPrevFinalReleaseFence() const;
 #ifdef USE_HWC2
-    void releasePendingBuffer();
+    virtual void setReleaseFence(const sp<Fence>& fence) override;
+    bool releasePendingBuffer();
 #endif
 
-    virtual bool getFrameTimestamps(uint64_t frameNumber,
-            FrameTimestamps* outTimestamps) const override;
+    void onDisconnect() override;
+    void addAndGetFrameTimestamps(
+            const NewFrameEventsEntry* newTimestamps,
+            FrameEventHistoryDelta* outDelta) override;
 
 private:
     virtual void onSidebandStreamChanged();
@@ -107,11 +110,8 @@ private:
     PendingRelease mPendingRelease;
 #endif
 
-    // The release fence of the already displayed buffer (previous frame).
-    sp<Fence> mPrevReleaseFence;
-
     // The layer for this SurfaceFlingerConsumer
-    wp<const Layer> mLayer;
+    const wp<Layer> mLayer;
 };
 
 // ----------------------------------------------------------------------------

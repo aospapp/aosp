@@ -38,26 +38,28 @@
 
 #include <private/bionic_macros.h>
 
-// Forward declarations.
-struct Header;
-class DebugData;
-struct Config;
-struct BacktraceHeader;
+#include "OptionData.h"
 
-class FreeTrackData {
+// Forward declarations.
+struct BacktraceHeader;
+struct Config;
+class DebugData;
+struct Header;
+
+class FreeTrackData : public OptionData {
  public:
-  FreeTrackData(const Config& config);
+  FreeTrackData(DebugData* debug_data, const Config& config);
   virtual ~FreeTrackData() = default;
 
-  void Add(DebugData& debug, const Header* header);
+  void Add(const Header* header);
 
-  void VerifyAll(DebugData& debug);
+  void VerifyAll();
 
   void LogBacktrace(const Header* header);
 
  private:
-  void LogFreeError(DebugData& debug, const Header* header, const uint8_t* pointer);
-  void VerifyAndFree(DebugData& debug, const Header* header, const void* pointer);
+  void LogFreeError(const Header* header, const uint8_t* pointer);
+  void VerifyAndFree(const Header* header);
 
   pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
   std::deque<const Header*> list_;

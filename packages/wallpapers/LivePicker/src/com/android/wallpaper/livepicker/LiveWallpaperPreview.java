@@ -253,8 +253,11 @@ public class LiveWallpaperPreview extends Activity {
     }
 
     public void setLiveWallpaper(final View v) {
-        if (mWallpaperManager.getWallpaperId(WallpaperManager.FLAG_LOCK) < 0) {
-            // The lock screen does not have a wallpaper, so no need to prompt; can only set both.
+        if (mWallpaperManager.getWallpaperInfo() != null
+            && mWallpaperManager.getWallpaperId(WallpaperManager.FLAG_LOCK) < 0) {
+            // The lock screen does not have a distinct wallpaper and the current wallpaper is a
+            // live wallpaper, so since we cannot preserve any static imagery on the lock screen,
+            // set the live wallpaper directly without giving the user a destination option.
             try {
                 setLiveWallpaper(v.getRootView().getWindowToken());
                 setResult(RESULT_OK);

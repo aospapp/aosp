@@ -12,8 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform, kernel"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:kernel_usb"
-SUITE = "kernel_usb"
+ATTRIBUTES = "suite:usb_detect"
 DEPENDENCIES = "servo, kernel_usb"
 
 DOC = """
@@ -45,30 +44,18 @@ def run(machine):
         # Microsoft Headphone
         str("lsusb -v -d 045e:070f") :
             ["idVendor\s+0x045e\s+Microsoft", "Audio"],
-        # Huawei 3G USB modem/dongle
-        str("lsusb -v -d 12d1:1506") :
-            ["idVendor\s+0x12d1\s+Huawei", "idProduct\s+0x1506\s+Modem"],
-        # LG Android phone (commenting out due to crbug.com/488667)
-        #str("lsusb -v -d 1004:61fa") :
-        #    ["idVendor\s+0x1004\s+LG\s+Elect", "iProduct.*LGE\s+Android"],
         # Webcam
         str("lsusb -v -d 058f:") :
             ["idVendor\s+0x058f\s+Alcor", "iProduct.*(TeckNet|2.0 PC Camera)"],
         # Mouse
         str("lsusb -v -d 04f2:0939") :
             ["idVendor\s+0x04f2\s+Chicony", "iProduct.*Optical\s+Mouse"],
-        # Card Reader
-        str("lsusb -v -d 0bda:0306") :
-            ["idVendor\s+0x0bda\s+Realtek", "iProduct.*USB3.0\s+Card\s+Reader"],
+
         }
 
     vendor_id_dict_control_file = {'045e': 'Microsoft Headphone',
-                                   '12d1': 'Huawei 3G modem/dongle',
-                                   #commenting out due to crbug.com/488667
-                                   #'1004': 'LG Android phone',
                                    '058f': 'Webcam',
                                    '04f2': 'Mouse',
-                                   '0bda': 'Card Reader',
                                   }
 
     job.run_test("kernel_ExternalUsbPeripheralsDetectionTest", host=host,

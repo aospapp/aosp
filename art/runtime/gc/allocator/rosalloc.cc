@@ -16,6 +16,13 @@
 
 #include "rosalloc.h"
 
+#include <map>
+#include <list>
+#include <sstream>
+#include <vector>
+
+#include "android-base/stringprintf.h"
+
 #include "base/memory_tool.h"
 #include "base/mutex-inl.h"
 #include "gc/space/memory_tool_settings.h"
@@ -26,14 +33,11 @@
 #include "thread-inl.h"
 #include "thread_list.h"
 
-#include <map>
-#include <list>
-#include <sstream>
-#include <vector>
-
 namespace art {
 namespace gc {
 namespace allocator {
+
+using android::base::StringPrintf;
 
 static constexpr bool kUsePrefetchDuringAllocRun = false;
 static constexpr bool kPrefetchNewRunDataByZeroing = false;
@@ -133,7 +137,7 @@ void* RosAlloc::AllocPages(Thread* self, size_t num_pages, uint8_t page_map_type
     DCHECK_EQ(fpr_byte_size % kPageSize, static_cast<size_t>(0));
     if (req_byte_size <= fpr_byte_size) {
       // Found one.
-      free_page_runs_.erase(it++);
+      it = free_page_runs_.erase(it);
       if (kTraceRosAlloc) {
         LOG(INFO) << "RosAlloc::AllocPages() : Erased run 0x"
                   << std::hex << reinterpret_cast<intptr_t>(fpr)
@@ -141,7 +145,8 @@ void* RosAlloc::AllocPages(Thread* self, size_t num_pages, uint8_t page_map_type
       }
       if (req_byte_size < fpr_byte_size) {
         // Split.
-        FreePageRun* remainder = reinterpret_cast<FreePageRun*>(reinterpret_cast<uint8_t*>(fpr) + req_byte_size);
+        FreePageRun* remainder =
+            reinterpret_cast<FreePageRun*>(reinterpret_cast<uint8_t*>(fpr) + req_byte_size);
         if (kIsDebugBuild) {
           remainder->magic_num_ = kMagicNumFree;
         }
@@ -364,86 +369,74 @@ size_t RosAlloc::FreePages(Thread* self, void* ptr, bool already_zero) {
                 << std::hex << reinterpret_cast<uintptr_t>(fpr->End(this)) << " [" << std::dec
                 << (fpr->End(this) == End() ? page_map_size_ : ToPageMapIndex(fpr->End(this))) << "]";
     }
-    auto higher_it = free_page_runs_.upper_bound(fpr);
-    if (higher_it != free_page_runs_.end()) {
-      for (auto it = higher_it; it != free_page_runs_.end(); ) {
-        FreePageRun* h = *it;
-        DCHECK_EQ(h->ByteSize(this) % kPageSize, static_cast<size_t>(0));
+    for (auto it = free_page_runs_.upper_bound(fpr); it != free_page_runs_.end(); ) {
+      FreePageRun* h = *it;
+      DCHECK_EQ(h->ByteSize(this) % kPageSize, static_cast<size_t>(0));
+      if (kTraceRosAlloc) {
+        LOG(INFO) << "RosAlloc::FreePages() : trying to coalesce with a higher free page run 0x"
+                  << std::hex << reinterpret_cast<uintptr_t>(h) << " [" << std::dec << ToPageMapIndex(h) << "] -0x"
+                  << std::hex << reinterpret_cast<uintptr_t>(h->End(this)) << " [" << std::dec
+                  << (h->End(this) == End() ? page_map_size_ : ToPageMapIndex(h->End(this))) << "]";
+      }
+      if (fpr->End(this) == h->Begin()) {
         if (kTraceRosAlloc) {
-          LOG(INFO) << "RosAlloc::FreePages() : trying to coalesce with a higher free page run 0x"
-                    << std::hex << reinterpret_cast<uintptr_t>(h) << " [" << std::dec << ToPageMapIndex(h) << "] -0x"
-                    << std::hex << reinterpret_cast<uintptr_t>(h->End(this)) << " [" << std::dec
-                    << (h->End(this) == End() ? page_map_size_ : ToPageMapIndex(h->End(this))) << "]";
+          LOG(INFO) << "Success";
         }
-        if (fpr->End(this) == h->Begin()) {
-          if (kTraceRosAlloc) {
-            LOG(INFO) << "Success";
-          }
-          // Clear magic num since this is no longer the start of a free page run.
-          if (kIsDebugBuild) {
-            h->magic_num_ = 0;
-          }
-          free_page_runs_.erase(it++);
-          if (kTraceRosAlloc) {
-            LOG(INFO) << "RosAlloc::FreePages() : (coalesce) Erased run 0x" << std::hex
-                      << reinterpret_cast<intptr_t>(h)
-                      << " from free_page_runs_";
-          }
-          fpr->SetByteSize(this, fpr->ByteSize(this) + h->ByteSize(this));
-          DCHECK_EQ(fpr->ByteSize(this) % kPageSize, static_cast<size_t>(0));
-        } else {
-          // Not adjacent. Stop.
-          if (kTraceRosAlloc) {
-            LOG(INFO) << "Fail";
-          }
-          break;
+        // Clear magic num since this is no longer the start of a free page run.
+        if (kIsDebugBuild) {
+          h->magic_num_ = 0;
         }
+        it = free_page_runs_.erase(it);
+        if (kTraceRosAlloc) {
+          LOG(INFO) << "RosAlloc::FreePages() : (coalesce) Erased run 0x" << std::hex
+                    << reinterpret_cast<intptr_t>(h)
+                    << " from free_page_runs_";
+        }
+        fpr->SetByteSize(this, fpr->ByteSize(this) + h->ByteSize(this));
+        DCHECK_EQ(fpr->ByteSize(this) % kPageSize, static_cast<size_t>(0));
+      } else {
+        // Not adjacent. Stop.
+        if (kTraceRosAlloc) {
+          LOG(INFO) << "Fail";
+        }
+        break;
       }
     }
     // Try to coalesce in the lower address direction.
-    auto lower_it = free_page_runs_.upper_bound(fpr);
-    if (lower_it != free_page_runs_.begin()) {
-      --lower_it;
-      for (auto it = lower_it; ; ) {
-        // We want to try to coalesce with the first element but
-        // there's no "<=" operator for the iterator.
-        bool to_exit_loop = it == free_page_runs_.begin();
+    for (auto it = free_page_runs_.upper_bound(fpr); it != free_page_runs_.begin(); ) {
+      --it;
 
-        FreePageRun* l = *it;
-        DCHECK_EQ(l->ByteSize(this) % kPageSize, static_cast<size_t>(0));
+      FreePageRun* l = *it;
+      DCHECK_EQ(l->ByteSize(this) % kPageSize, static_cast<size_t>(0));
+      if (kTraceRosAlloc) {
+        LOG(INFO) << "RosAlloc::FreePages() : trying to coalesce with a lower free page run 0x"
+                  << std::hex << reinterpret_cast<uintptr_t>(l) << " [" << std::dec << ToPageMapIndex(l) << "] -0x"
+                  << std::hex << reinterpret_cast<uintptr_t>(l->End(this)) << " [" << std::dec
+                  << (l->End(this) == End() ? page_map_size_ : ToPageMapIndex(l->End(this))) << "]";
+      }
+      if (l->End(this) == fpr->Begin()) {
         if (kTraceRosAlloc) {
-          LOG(INFO) << "RosAlloc::FreePages() : trying to coalesce with a lower free page run 0x"
-                    << std::hex << reinterpret_cast<uintptr_t>(l) << " [" << std::dec << ToPageMapIndex(l) << "] -0x"
-                    << std::hex << reinterpret_cast<uintptr_t>(l->End(this)) << " [" << std::dec
-                    << (l->End(this) == End() ? page_map_size_ : ToPageMapIndex(l->End(this))) << "]";
+          LOG(INFO) << "Success";
         }
-        if (l->End(this) == fpr->Begin()) {
-          if (kTraceRosAlloc) {
-            LOG(INFO) << "Success";
-          }
-          free_page_runs_.erase(it--);
-          if (kTraceRosAlloc) {
-            LOG(INFO) << "RosAlloc::FreePages() : (coalesce) Erased run 0x" << std::hex
-                      << reinterpret_cast<intptr_t>(l)
-                      << " from free_page_runs_";
-          }
-          l->SetByteSize(this, l->ByteSize(this) + fpr->ByteSize(this));
-          DCHECK_EQ(l->ByteSize(this) % kPageSize, static_cast<size_t>(0));
-          // Clear magic num since this is no longer the start of a free page run.
-          if (kIsDebugBuild) {
-            fpr->magic_num_ = 0;
-          }
-          fpr = l;
-        } else {
-          // Not adjacent. Stop.
-          if (kTraceRosAlloc) {
-            LOG(INFO) << "Fail";
-          }
-          break;
+        it = free_page_runs_.erase(it);
+        if (kTraceRosAlloc) {
+          LOG(INFO) << "RosAlloc::FreePages() : (coalesce) Erased run 0x" << std::hex
+                    << reinterpret_cast<intptr_t>(l)
+                    << " from free_page_runs_";
         }
-        if (to_exit_loop) {
-          break;
+        l->SetByteSize(this, l->ByteSize(this) + fpr->ByteSize(this));
+        DCHECK_EQ(l->ByteSize(this) % kPageSize, static_cast<size_t>(0));
+        // Clear magic num since this is no longer the start of a free page run.
+        if (kIsDebugBuild) {
+          fpr->magic_num_ = 0;
         }
+        fpr = l;
+      } else {
+        // Not adjacent. Stop.
+        if (kTraceRosAlloc) {
+          LOG(INFO) << "Fail";
+        }
+        break;
       }
     }
   }
@@ -1021,7 +1014,7 @@ size_t RosAlloc::BulkFree(Thread* self, void** ptrs, size_t num_ptrs) {
 
   // First mark slots to free in the bulk free bit map without locking the
   // size bracket locks. On host, unordered_set is faster than vector + flag.
-#ifdef __ANDROID__
+#ifdef ART_TARGET_ANDROID
   std::vector<Run*> runs;
 #else
   std::unordered_set<Run*, hash_run, eq_run> runs;
@@ -1088,7 +1081,7 @@ size_t RosAlloc::BulkFree(Thread* self, void** ptrs, size_t num_ptrs) {
     DCHECK_EQ(run->magic_num_, kMagicNum);
     // Set the bit in the bulk free bit map.
     freed_bytes += run->AddToBulkFreeList(ptr);
-#ifdef __ANDROID__
+#ifdef ART_TARGET_ANDROID
     if (!run->to_be_bulk_freed_) {
       run->to_be_bulk_freed_ = true;
       runs.push_back(run);
@@ -1103,7 +1096,7 @@ size_t RosAlloc::BulkFree(Thread* self, void** ptrs, size_t num_ptrs) {
   // union the bulk free bit map into the thread-local free bit map
   // (for thread-local runs.)
   for (Run* run : runs) {
-#ifdef __ANDROID__
+#ifdef ART_TARGET_ANDROID
     DCHECK(run->to_be_bulk_freed_);
     run->to_be_bulk_freed_ = false;
 #endif
@@ -1977,7 +1970,7 @@ void RosAlloc::Run::Verify(Thread* self, RosAlloc* rosalloc, bool running_on_mem
       CHECK_LE(obj_size + memory_tool_modifier, kLargeSizeThreshold)
           << "A run slot contains a large object " << Dump();
       CHECK_EQ(SizeToIndex(obj_size + memory_tool_modifier), idx)
-          << PrettyTypeOf(obj) << " "
+          << obj->PrettyTypeOf() << " "
           << "obj_size=" << obj_size << "(" << obj_size + memory_tool_modifier << "), idx=" << idx
           << " A run slot contains an object with wrong size " << Dump();
     }
@@ -2079,26 +2072,30 @@ void RosAlloc::LogFragmentationAllocFailure(std::ostream& os, size_t failed_allo
   size_t largest_continuous_free_pages = 0;
   WriterMutexLock wmu(self, bulk_free_lock_);
   MutexLock mu(self, lock_);
+  uint64_t total_free = 0;
   for (FreePageRun* fpr : free_page_runs_) {
     largest_continuous_free_pages = std::max(largest_continuous_free_pages,
                                              fpr->ByteSize(this));
+    total_free += fpr->ByteSize(this);
   }
+  size_t required_bytes = 0;
+  const char* new_buffer_msg = "";
   if (failed_alloc_bytes > kLargeSizeThreshold) {
     // Large allocation.
-    size_t required_bytes = RoundUp(failed_alloc_bytes, kPageSize);
-    if (required_bytes > largest_continuous_free_pages) {
-      os << "; failed due to fragmentation (required continguous free "
-         << required_bytes << " bytes where largest contiguous free "
-         <<  largest_continuous_free_pages << " bytes)";
-    }
+    required_bytes = RoundUp(failed_alloc_bytes, kPageSize);
   } else {
     // Non-large allocation.
-    size_t required_bytes = numOfPages[SizeToIndex(failed_alloc_bytes)] * kPageSize;
-    if (required_bytes > largest_continuous_free_pages) {
-      os << "; failed due to fragmentation (required continguous free "
-         << required_bytes << " bytes for a new buffer where largest contiguous free "
-         <<  largest_continuous_free_pages << " bytes)";
-    }
+    required_bytes = numOfPages[SizeToIndex(failed_alloc_bytes)] * kPageSize;
+    new_buffer_msg = " for a new buffer";
+  }
+  if (required_bytes > largest_continuous_free_pages) {
+    os << "; failed due to fragmentation ("
+       << "required contiguous free " << required_bytes << " bytes" << new_buffer_msg
+       << ", largest contiguous free " << largest_continuous_free_pages << " bytes"
+       << ", total free pages " << total_free << " bytes"
+       << ", space footprint " << footprint_ << " bytes"
+       << ", space max capacity " << max_capacity_ << " bytes"
+       << ")" << std::endl;
   }
 }
 

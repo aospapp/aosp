@@ -23,8 +23,6 @@ import com.android.bluetooth.Utils;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothProfile;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
@@ -64,8 +62,10 @@ public abstract class ProfileService extends Service {
     }
 
     protected abstract IProfileServiceBinder initBinder();
+
     protected abstract boolean start();
     protected abstract boolean stop();
+    protected void create() {}
     protected boolean cleanup() {
         return true;
     }
@@ -107,6 +107,7 @@ public abstract class ProfileService extends Service {
         super.onCreate();
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mBinder = initBinder();
+        create();
     }
 
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -150,6 +151,10 @@ public abstract class ProfileService extends Service {
 
     public IBinder onBind(Intent intent) {
         if (DBG) log("onBind");
+        if (mAdapter != null && mBinder == null) {
+            // initBinder returned null, you can't bind
+            throw new UnsupportedOperationException("Cannot bind to " + mName);
+        }
         return mBinder;
     }
 
@@ -225,14 +230,6 @@ public abstract class ProfileService extends Service {
         AdapterService adapterService = AdapterService.getAdapterService();
         if (adapterService != null) {
             adapterService.onProfileServiceStateChanged(getClass().getName(), state);
-        }
-    }
-
-    public void notifyProfileConnectionStateChanged(BluetoothDevice device,
-            int profileId, int newState, int prevState) {
-        AdapterService adapterService = AdapterService.getAdapterService();
-        if (adapterService != null) {
-            adapterService.onProfileConnectionStateChanged(device, profileId, newState, prevState);
         }
     }
 

@@ -92,7 +92,7 @@ int module_markBootSuccessful(boot_control_module_t *module)
   return 0;
 }
 
-#define COPY_BUF_SIZE 1024*1024
+#define COPY_BUF_SIZE (1024*1024)
 
 static bool copy_data(int src_fd, int dst_fd, size_t num_bytes)
 {

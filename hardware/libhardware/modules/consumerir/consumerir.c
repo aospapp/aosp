@@ -18,11 +18,11 @@
 #include <errno.h>
 #include <malloc.h>
 #include <string.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <hardware/hardware.h>
 #include <hardware/consumerir.h>
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 static const consumerir_freq_range_t consumerir_freqs[] = {
     {.min = 30000, .max = 30000},

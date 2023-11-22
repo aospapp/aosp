@@ -16,14 +16,11 @@
 
 package io.appium.droiddriver.instrumentation;
 
+import android.app.Activity;
 import android.app.Instrumentation;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
-
-import java.util.List;
-import java.util.concurrent.Callable;
-
 import io.appium.droiddriver.actions.InputInjector;
 import io.appium.droiddriver.base.BaseDroidDriver;
 import io.appium.droiddriver.base.DroidDriverContext;
@@ -31,11 +28,36 @@ import io.appium.droiddriver.exceptions.NoRunningActivityException;
 import io.appium.droiddriver.util.ActivityUtils;
 import io.appium.droiddriver.util.InstrumentationUtils;
 import io.appium.droiddriver.util.Logs;
+import java.util.List;
+import java.util.concurrent.Callable;
 
-/**
- * Implementation of DroidDriver that is driven via instrumentation.
- */
+/** Implementation of DroidDriver that is driven via instrumentation. */
 public class InstrumentationDriver extends BaseDroidDriver<View, ViewElement> {
+  private static final Callable<View> FIND_ROOT_VIEW =
+      new Callable<View>() {
+        @Override
+        public View call() {
+          InstrumentationUtils.checkMainThread();
+          Activity runningActivity = ActivityUtils.getRunningActivityNoWait();
+          if (runningActivity == null) {
+            // runningActivity changed since last call!
+            return null;
+          }
+
+          List<View> views = RootFinder.getRootViews();
+          if (views.size() > 1) {
+            Logs.log(Log.VERBOSE, "views.size()=" + views.size());
+            for (View view : views) {
+              if (view.hasWindowFocus()) {
+                return view;
+              }
+            }
+          }
+          // Fall back to DecorView.
+          // TODO(kjin): Should wait until a view hasWindowFocus?
+          return runningActivity.getWindow().getDecorView();
+        }
+      };
   private final DroidDriverContext<View, ViewElement> context;
   private final InputInjector injector;
   private final InstrumentationUiDevice uiDevice;
@@ -61,41 +83,22 @@ public class InstrumentationDriver extends BaseDroidDriver<View, ViewElement> {
     return new ViewElement(context, rawElement, parent);
   }
 
-  private static final Callable<View> FIND_ROOT_VIEW = new Callable<View>() {
-    @Override
-    public View call() {
-      List<View> views = RootFinder.getRootViews();
-      if (views.size() > 1) {
-        Logs.log(Log.VERBOSE, "views.size()=" + views.size());
-        for (View view : views) {
-          if (view.hasWindowFocus()) {
-            return view;
-          }
-        }
-      }
-      // Fall back to DecorView.
-      return ActivityUtils.getRunningActivity().getWindow().getDecorView();
-    }
-  };
-
   private View findRootView() {
-    waitForRunningActivity();
-    return InstrumentationUtils.runOnMainSyncWithTimeout(FIND_ROOT_VIEW);
-  }
-
-  private void waitForRunningActivity() {
     long timeoutMillis = getPoller().getTimeoutMillis();
     long end = SystemClock.uptimeMillis() + timeoutMillis;
     while (true) {
-      if (ActivityUtils.getRunningActivity() != null) {
-        return;
-      }
       long remainingMillis = end - SystemClock.uptimeMillis();
       if (remainingMillis < 0) {
-        throw new NoRunningActivityException(String.format(
-            "Cannot find the running activity after %d milliseconds", timeoutMillis));
+        throw new NoRunningActivityException(
+            String.format("Cannot find the running activity after %d milliseconds", timeoutMillis));
       }
-      SystemClock.sleep(Math.min(250, remainingMillis));
+
+      if (ActivityUtils.getRunningActivity(remainingMillis) != null) {
+        View view = InstrumentationUtils.runOnMainSyncWithTimeout(FIND_ROOT_VIEW);
+        if (view != null) {
+          return view;
+        }
+      }
     }
   }
 

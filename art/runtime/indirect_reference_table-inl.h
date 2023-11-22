@@ -19,9 +19,12 @@
 
 #include "indirect_reference_table.h"
 
+#include "android-base/stringprintf.h"
+
+#include "base/dumpable.h"
 #include "gc_root-inl.h"
-#include "runtime-inl.h"
-#include "verify_object-inl.h"
+#include "obj_ptr-inl.h"
+#include "verify_object.h"
 
 namespace art {
 namespace mirror {
@@ -36,21 +39,27 @@ inline bool IndirectReferenceTable::GetChecked(IndirectRef iref) const {
     return false;
   }
   if (UNLIKELY(GetIndirectRefKind(iref) == kHandleScopeOrInvalid)) {
-    LOG(ERROR) << "JNI ERROR (app bug): invalid " << kind_ << " " << iref;
-    AbortIfNoCheckJNI();
+    AbortIfNoCheckJNI(android::base::StringPrintf("JNI ERROR (app bug): invalid %s %p",
+                                                  GetIndirectRefKindString(kind_),
+                                                  iref));
     return false;
   }
-  const int topIndex = segment_state_.parts.topIndex;
-  int idx = ExtractIndex(iref);
-  if (UNLIKELY(idx >= topIndex)) {
-    LOG(ERROR) << "JNI ERROR (app bug): accessed stale " << kind_ << " "
-               << iref << " (index " << idx << " in a table of size " << topIndex << ")";
-    AbortIfNoCheckJNI();
+  const uint32_t top_index = segment_state_.top_index;
+  uint32_t idx = ExtractIndex(iref);
+  if (UNLIKELY(idx >= top_index)) {
+    std::string msg = android::base::StringPrintf(
+        "JNI ERROR (app bug): accessed stale %s %p  (index %d in a table of size %d)",
+        GetIndirectRefKindString(kind_),
+        iref,
+        idx,
+        top_index);
+    AbortIfNoCheckJNI(msg);
     return false;
   }
   if (UNLIKELY(table_[idx].GetReference()->IsNull())) {
-    LOG(ERROR) << "JNI ERROR (app bug): accessed deleted " << kind_ << " " << iref;
-    AbortIfNoCheckJNI();
+    AbortIfNoCheckJNI(android::base::StringPrintf("JNI ERROR (app bug): accessed deleted %s %p",
+                                                  GetIndirectRefKindString(kind_),
+                                                  iref));
     return false;
   }
   if (UNLIKELY(!CheckEntry("use", iref, idx))) {
@@ -60,36 +69,54 @@ inline bool IndirectReferenceTable::GetChecked(IndirectRef iref) const {
 }
 
 // Make sure that the entry at "idx" is correctly paired with "iref".
-inline bool IndirectReferenceTable::CheckEntry(const char* what, IndirectRef iref, int idx) const {
+inline bool IndirectReferenceTable::CheckEntry(const char* what,
+                                               IndirectRef iref,
+                                               uint32_t idx) const {
   IndirectRef checkRef = ToIndirectRef(idx);
   if (UNLIKELY(checkRef != iref)) {
-    LOG(ERROR) << "JNI ERROR (app bug): attempt to " << what
-               << " stale " << kind_ << " " << iref
-               << " (should be " << checkRef << ")";
-    AbortIfNoCheckJNI();
+    std::string msg = android::base::StringPrintf(
+        "JNI ERROR (app bug): attempt to %s stale %s %p (should be %p)",
+        what,
+        GetIndirectRefKindString(kind_),
+        iref,
+        checkRef);
+    AbortIfNoCheckJNI(msg);
     return false;
   }
   return true;
 }
 
 template<ReadBarrierOption kReadBarrierOption>
-inline mirror::Object* IndirectReferenceTable::Get(IndirectRef iref) const {
+inline ObjPtr<mirror::Object> IndirectReferenceTable::Get(IndirectRef iref) const {
   if (!GetChecked(iref)) {
     return nullptr;
   }
   uint32_t idx = ExtractIndex(iref);
-  mirror::Object* obj = table_[idx].GetReference()->Read<kReadBarrierOption>();
+  ObjPtr<mirror::Object> obj = table_[idx].GetReference()->Read<kReadBarrierOption>();
   VerifyObject(obj);
   return obj;
 }
 
-inline void IndirectReferenceTable::Update(IndirectRef iref, mirror::Object* obj) {
+inline void IndirectReferenceTable::Update(IndirectRef iref, ObjPtr<mirror::Object> obj) {
   if (!GetChecked(iref)) {
     LOG(WARNING) << "IndirectReferenceTable Update failed to find reference " << iref;
     return;
   }
   uint32_t idx = ExtractIndex(iref);
   table_[idx].SetReference(obj);
+}
+
+inline void IrtEntry::Add(ObjPtr<mirror::Object> obj) {
+  ++serial_;
+  if (serial_ == kIRTPrevCount) {
+    serial_ = 0;
+  }
+  references_[serial_] = GcRoot<mirror::Object>(obj);
+}
+
+inline void IrtEntry::SetReference(ObjPtr<mirror::Object> obj) {
+  DCHECK_LT(serial_, kIRTPrevCount);
+  references_[serial_] = GcRoot<mirror::Object>(obj);
 }
 
 }  // namespace art

@@ -32,9 +32,10 @@ public:
                                 void *buffer,
                                 const sp<IMemory>& sharedBuffer,
                                 audio_session_t sessionId,
-                                int uid,
+                                uid_t uid,
                                 audio_output_flags_t flags,
-                                track_type type);
+                                track_type type,
+                                audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
     virtual             ~Track();
     virtual status_t    initCheck() const;
 
@@ -58,6 +59,10 @@ public:
             bool        isOffloaded() const
                                 { return (mFlags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) != 0; }
             bool        isDirect() const { return (mFlags & AUDIO_OUTPUT_FLAG_DIRECT) != 0; }
+            bool        isOffloadedOrDirect() const { return (mFlags
+                            & (AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD
+                                    | AUDIO_OUTPUT_FLAG_DIRECT)) != 0; }
+
             status_t    setParameters(const String8& keyValuePairs);
             status_t    attachAuxEffect(int EffectId);
             void        setAuxBuffer(int EffectId, int32_t *buffer);
@@ -74,6 +79,13 @@ public:
     virtual status_t    setSyncEvent(const sp<SyncEvent>& event);
 
     virtual bool        isFastTrack() const { return (mFlags & AUDIO_OUTPUT_FLAG_FAST) != 0; }
+
+// implement volume handling.
+   VolumeShaper::Status applyVolumeShaper(
+                                const sp<VolumeShaper::Configuration>& configuration,
+                                const sp<VolumeShaper::Operation>& operation);
+sp<VolumeShaper::State> getVolumeShaperState(int id);
+    sp<VolumeHandler>   getVolumeHandler() { return mVolumeHandler; }
 
 protected:
     // for numerous
@@ -117,10 +129,9 @@ protected:
 
 public:
     void triggerEvents(AudioSystem::sync_event_t type);
-    void invalidate();
+    virtual void invalidate();
     void disable();
 
-    bool isInvalid() const { return mIsInvalid; }
     int fastIndex() const { return mFastIndex; }
 
 protected:
@@ -152,6 +163,8 @@ protected:
 
     ExtendedTimestamp  mSinkTimestamp;
 
+    sp<VolumeHandler>  mVolumeHandler; // handles multiple VolumeShaper configs and operations
+
 private:
     // The following fields are only for fast tracks, and should be in a subclass
     int                 mFastIndex; // index within FastMixerState::mFastTracks[];
@@ -165,8 +178,7 @@ private:
     volatile float      mCachedVolume;  // combined master volume and stream type volume;
                                         // 'volatile' means accessed without lock or
                                         // barrier, but is read/written atomically
-    bool                mIsInvalid; // non-resettable latch, set by invalidate()
-    AudioTrackServerProxy*  mAudioTrackServerProxy;
+    sp<AudioTrackServerProxy>  mAudioTrackServerProxy;
     bool                mResumeToStopping; // track was paused in stopping state.
     bool                mFlushHwPending; // track requests for thread flush
     audio_output_flags_t mFlags;
@@ -188,7 +200,7 @@ public:
                                 audio_format_t format,
                                 audio_channel_mask_t channelMask,
                                 size_t frameCount,
-                                int uid);
+                                uid_t uid);
     virtual             ~OutputTrack();
 
     virtual status_t    start(AudioSystem::sync_event_t event =
@@ -214,8 +226,8 @@ private:
     Vector < Buffer* >          mBufferQueue;
     AudioBufferProvider::Buffer mOutBuffer;
     bool                        mActive;
-    DuplicatingThread* const mSourceThread; // for waitTimeMs() in write()
-    AudioTrackClientProxy*      mClientProxy;
+    DuplicatingThread* const    mSourceThread; // for waitTimeMs() in write()
+    sp<AudioTrackClientProxy>   mClientProxy;
 };  // end of OutputTrack
 
 // playback track, used by PatchPanel

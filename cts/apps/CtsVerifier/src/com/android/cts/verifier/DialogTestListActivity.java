@@ -21,10 +21,12 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -49,6 +51,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
     private final int mInstructionsStringId;
 
     protected Button mPrepareTestButton;
+    protected ListView mTestFeaturesList;
 
     protected int mCurrentTestPosition;
 
@@ -85,15 +88,31 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
 
         mCurrentTestPosition = 0;
 
-        TextView instructionTextView = (TextView)findViewById(R.id.test_instructions);
+        TextView instructionTextView = (TextView) findViewById(R.id.test_instructions);
         instructionTextView.setText(mInstructionsStringId);
-        mPrepareTestButton = (Button)findViewById(R.id.prepare_test_button);
+        mPrepareTestButton = (Button) findViewById(R.id.prepare_test_button);
+        mTestFeaturesList = (ListView) findViewById(android.R.id.list);
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            mTestFeaturesList.setOnTouchListener((View v, MotionEvent e) -> {
+                switch (e.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                        break;
+                    case MotionEvent.ACTION_UP:
+                        v.getParent().requestDisallowInterceptTouchEvent(false);
+                        break;
+                    default:
+                }
+                return false;
+            });
+        }
     }
 
     /**
      * Subclasses must add their tests items to the provided adapter(usually instances of
      * {@link DialogTestListItem} or {@link DialogTestListItemWithIcon} but any class deriving from
      * {@link TestListAdapter.TestListItem} will do).
+     *
      * @param adapter The adapter to add test items to.
      */
     protected abstract void setupTests(ArrayTestListAdapter adapter);
@@ -165,7 +184,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
                 .getItem(position);
         if (test instanceof DialogTestListItem) {
             mCurrentTestPosition = position;
-            ((DialogTestListItem)test).performTest(this);
+            ((DialogTestListItem) test).performTest(this);
         } else {
             try {
                 super.handleItemClick(l, v, position, id);
@@ -180,6 +199,7 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
 
     /**
      * Start a test's manual intent
+     *
      * @param test The test the manual intent of which is to be started.
      * @return true if activity could be started successfully, false otherwise.
      */
@@ -209,6 +229,15 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         getListView().smoothScrollToPosition(mCurrentTestPosition + 1);
     }
 
+    protected void setTestResult(String testName, int result) {
+        // Bundle result in an intent to feed into handleLaunchTestResult
+        Intent resultIntent = new Intent();
+        TestResult.addResultData(resultIntent, result, testName, /* testDetails */ null,
+                /* reportLog */ null);
+        handleLaunchTestResult(RESULT_OK, resultIntent);
+        getListView().smoothScrollToPosition(mCurrentTestPosition + 1);
+    }
+
     protected void showToast(int messageId) {
         String message = getString(messageId);
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
@@ -218,10 +247,15 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
 
         public interface TestCallback {
             void onPass();
+
             void onFail();
         }
 
         private String mManualInstruction;
+
+        public DialogTestListItem(Context context, String nameId, String testId) {
+            super(nameId, testId, null, null, null, null);
+        }
 
         public DialogTestListItem(Context context, int nameResId, String testId) {
             super(context.getString(nameResId), testId, null, null, null, null);

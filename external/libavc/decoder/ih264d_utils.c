@@ -451,7 +451,6 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
 {
     UWORD8 u1_pic_type, u1_nal_ref_idc;
     dec_slice_params_t *ps_cur_slice = ps_dec->ps_cur_slice;
-    WORD32 ret;
 
     /* If nal_ref_idc is equal to 0 for one slice or slice data partition NAL
      unit of a particular picture, it shall be equal to 0 for all slice and
@@ -475,34 +474,29 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
             if(ps_dec->ps_dpb_cmds->u1_long_term_reference_flag == 0)
             {
                 ih264d_reset_ref_bufs(ps_dec->ps_dpb_mgr);
-
-                {
-                    ret = ih264d_insert_st_node(ps_dec->ps_dpb_mgr,
-                                          ps_dec->ps_cur_pic,
-                                          ps_dec->u1_pic_buf_id,
-                                          ps_cur_slice->u2_frame_num);
-                    if(ret != OK)
-                        return ret;
-                }
+                /* ignore DPB errors */
+                ih264d_insert_st_node(ps_dec->ps_dpb_mgr,
+                                      ps_dec->ps_cur_pic,
+                                      ps_dec->u1_pic_buf_id,
+                                      ps_cur_slice->u2_frame_num);
             }
             else
             {
                 /* Equivalent of inserting a pic directly as longterm Pic */
 
                 {
-                    ret = ih264d_insert_st_node(ps_dec->ps_dpb_mgr,
+                    /* ignore DPB errors */
+                    ih264d_insert_st_node(ps_dec->ps_dpb_mgr,
                                           ps_dec->ps_cur_pic,
                                           ps_dec->u1_pic_buf_id,
                                           ps_cur_slice->u2_frame_num);
-                    if(ret != OK)
-                        return ret;
+
                     /* Set longTermIdx = 0, MaxLongTermFrameIdx = 0 */
-                    ret = ih264d_delete_st_node_or_make_lt(
+                    ih264d_delete_st_node_or_make_lt(
                                     ps_dec->ps_dpb_mgr,
                                     ps_cur_slice->u2_frame_num, 0,
                                     ps_cur_slice->u1_field_pic_flag);
-                    if(ret != OK)
-                        return ret;
+
                     ps_dec->ps_dpb_mgr->u1_max_lt_pic_idx_plus1 = 1;
                 }
             }
@@ -513,19 +507,16 @@ WORD32 ih264d_end_of_pic_processing(dec_struct_t *ps_dec)
             {
                 UWORD16 u2_pic_num = ps_cur_slice->u2_frame_num;
 
+                /* ignore DPB errors */
+                ih264d_do_mmco_buffer(ps_dec->ps_dpb_cmds, ps_dec->ps_dpb_mgr,
+                              ps_dec->ps_cur_sps->u1_num_ref_frames, u2_pic_num,
+                              (ps_dec->ps_cur_sps->u2_u4_max_pic_num_minus1),
+                              ps_dec->u1_nal_unit_type, ps_dec->ps_cur_pic,
+                              ps_dec->u1_pic_buf_id,
+                              ps_cur_slice->u1_field_pic_flag,
+                              ps_dec->e_dec_status);
 
 
-                ret = ih264d_do_mmco_buffer(
-                                ps_dec->ps_dpb_cmds, ps_dec->ps_dpb_mgr,
-                                ps_dec->ps_cur_sps->u1_num_ref_frames,
-                                u2_pic_num,
-                                (ps_dec->ps_cur_sps->u2_u4_max_pic_num_minus1),
-                                ps_dec->u1_nal_unit_type, ps_dec->ps_cur_pic,
-                                ps_dec->u1_pic_buf_id,
-                                ps_cur_slice->u1_field_pic_flag,
-                                ps_dec->e_dec_status);
-                if(ret != OK)
-                    return ret;
             }
         }
         ih264d_update_default_index_list(ps_dec->ps_dpb_mgr);
@@ -685,11 +676,7 @@ WORD32 ih264d_init_dec_mb_grp(dec_struct_t *ps_dec)
     dec_seq_params_t *ps_seq = ps_dec->ps_cur_sps;
     UWORD8 u1_frm = ps_seq->u1_frame_mbs_only_flag;
 
-    ps_dec->u1_recon_mb_grp = PARSE_MB_GROUP_4;
-
-    //NMB set to width in MBs for non-mbaff cases
-    if(0 == ps_seq->u1_mb_aff_flag)
-        ps_dec->u1_recon_mb_grp = ps_dec->u2_frm_wd_in_mbs;
+    ps_dec->u1_recon_mb_grp = ps_dec->u2_frm_wd_in_mbs << ps_seq->u1_mb_aff_flag;
 
     ps_dec->u1_recon_mb_grp_pair = ps_dec->u1_recon_mb_grp >> 1;
 
@@ -1570,7 +1557,6 @@ WORD32 ih264d_decode_gaps_in_frame_num(dec_struct_t *ps_dec,
 
     ps_cur_slice = ps_dec->ps_cur_slice;
     ps_pic_params = ps_dec->ps_cur_pps;
-    ps_cur_slice->u1_field_pic_flag = 0;
 
     i4_frame_gaps = 0;
     ps_dpb_mgr = ps_dec->ps_dpb_mgr;
@@ -1887,6 +1873,7 @@ WORD16 ih264d_allocate_dynamic_bufs(dec_struct_t * ps_dec)
     size = sizeof(parse_pmbarams_t) * (ps_dec->u1_recon_mb_grp);
     pv_buf = ps_dec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
     ps_dec->ps_parse_mb_data = pv_buf;
 
     size = sizeof(parse_part_params_t)
@@ -1905,6 +1892,10 @@ WORD16 ih264d_allocate_dynamic_bufs(dec_struct_t * ps_dec)
     pv_buf = ps_dec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
     RETURN_IF((NULL == pv_buf), IV_FAIL);
     ps_dec->p_ctxt_inc_mb_map = pv_buf;
+
+    /* 0th entry of CtxtIncMbMap will be always be containing default values
+     for CABAC context representing MB not available */
+    ps_dec->p_ctxt_inc_mb_map += 1;
 
     size = (sizeof(mv_pred_t) * ps_dec->u1_recon_mb_grp
                         * 16);
@@ -1953,8 +1944,9 @@ WORD16 ih264d_allocate_dynamic_bufs(dec_struct_t * ps_dec)
 
     if(ps_dec->u1_separate_parse)
     {
+        /* Needs one extra row of info, to hold top row data */
         size = sizeof(mb_neigbour_params_t)
-                        * 2 * ((u4_wd_mbs + 2) * u4_ht_mbs);
+                        * 2 * ((u4_wd_mbs + 2) * (u4_ht_mbs + 1));
     }
     else
     {
@@ -2011,10 +2003,7 @@ WORD16 ih264d_allocate_dynamic_bufs(dec_struct_t * ps_dec)
 
     /* Allocate memory for packed pred info */
     num_entries = u4_total_mbs;
-    if(1 == ps_dec->ps_cur_sps->u1_num_ref_frames)
-        num_entries *= 16;
-    else
-        num_entries *= 16 * 2;
+    num_entries *= 16 * 2;
 
     size = sizeof(pred_info_pkd_t) * num_entries;
     pv_buf = ps_dec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
@@ -2088,9 +2077,6 @@ WORD16 ih264d_allocate_dynamic_bufs(dec_struct_t * ps_dec)
     RETURN_IF((NULL == pv_buf), IV_FAIL);
     ps_dec->pu1_pic_buf_base = pv_buf;
 
-    /* 0th entry of CtxtIncMbMap will be always be containing default values
-     for CABAC context representing MB not available */
-    ps_dec->p_ctxt_inc_mb_map += 1;
     /* Post allocation Increment Actions */
 
     /***************************************************************************/

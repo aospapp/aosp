@@ -41,6 +41,7 @@ public abstract class AccessibilityClickAction extends AccessibilityAction {
       super(timeoutMillis);
     }
 
+    @SuppressWarnings("IdentityBinaryExpression")
     @Override
     protected boolean perform(AccessibilityNodeInfo node, UiElement element) {
       return SINGLE.perform(element) && SINGLE.perform(element);

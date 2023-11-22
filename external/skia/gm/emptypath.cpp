@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2011 Google Inc.
  *
@@ -6,6 +5,7 @@
  * found in the LICENSE file.
  */
 #include "gm.h"
+#include "sk_tool_utils.h"
 #include "SkCanvas.h"
 #include "SkPaint.h"
 #include "SkPath.h"
@@ -45,7 +45,7 @@ protected:
             SkPath::FillType fFill;
             const char*      fName;
         };
-        static const FillAndName gFills[] = {
+        constexpr FillAndName gFills[] = {
             {SkPath::kWinding_FillType, "Winding"},
             {SkPath::kEvenOdd_FillType, "Even / Odd"},
             {SkPath::kInverseWinding_FillType, "Inverse Winding"},
@@ -55,7 +55,7 @@ protected:
             SkPaint::Style fStyle;
             const char*    fName;
         };
-        static const StyleAndName gStyles[] = {
+        constexpr StyleAndName gStyles[] = {
             {SkPaint::kFill_Style, "Fill"},
             {SkPaint::kStroke_Style, "Stroke"},
             {SkPaint::kStrokeAndFill_Style, "Stroke And Fill"},
@@ -201,7 +201,7 @@ protected:
             canvas->translate(0, 40);
         }
     }
-    
+
 private:
     typedef GM INHERITED;
 };

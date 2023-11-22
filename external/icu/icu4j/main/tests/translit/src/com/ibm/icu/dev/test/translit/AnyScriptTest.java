@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2014, Google, International Business Machines Corporation and
@@ -5,6 +7,8 @@
  *******************************************************************************
  */
 package com.ibm.icu.dev.test.translit;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.lang.UScript;
@@ -18,17 +22,15 @@ import com.ibm.icu.util.ULocale;
  * @author markdavis
  *
  */
-public class AnyScriptTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new AnyScriptTest().run(args);
-    }
-    
+public class AnyScriptTest extends TestFmwk {    
+    @Test
     public void TestContext() {
         Transliterator t = Transliterator.createFromRules("foo", "::[bc]; a{b}d > B;", Transliterator.FORWARD);
         String sample = "abd abc b";
         assertEquals("context works", "aBd abc b", t.transform(sample));
     }
 
+    @Test
     public void TestScripts(){
         // get a couple of characters of each script for testing
         
@@ -43,7 +45,7 @@ public class AnyScriptTest extends TestFmwk {
         String test = testBuffer.toString();
         logln("Test line: " + test);
         
-        int inclusion = getInclusion();
+        int inclusion = TestFmwk.getExhaustiveness();
         boolean testedUnavailableScript = false;
         
         for (int script = 0; script < UScript.CODE_LIMIT; ++script) {
@@ -94,6 +96,7 @@ public class AnyScriptTest extends TestFmwk {
     /**
      * Check to make sure that wide characters are converted when going to narrow scripts.
      */
+    @Test
     public void TestForWidth(){
         Transliterator widen = Transliterator.getInstance("halfwidth-fullwidth");
         Transliterator narrow = Transliterator.getInstance("fullwidth-halfwidth");
@@ -127,6 +130,7 @@ public class AnyScriptTest extends TestFmwk {
 
     }
     
+    @Test
     public void TestCommonDigits() {
         UnicodeSet westernDigitSet = new UnicodeSet("[0-9]");
         UnicodeSet westernDigitSetAndMarks = new UnicodeSet("[[0-9][:Mn:]]");

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2012 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,18 @@ import java.util.concurrent.Callable;
 import junit.framework.Assert;
 
 public abstract class PollingCheck {
-
     private static final long TIME_SLICE = 50;
-    private long mTimeoutMs = 3000;
+    private long mTimeout = 3000;
+
+    public static interface PollingCheckCondition {
+        boolean canProceed();
+    }
 
     public PollingCheck() {
     }
 
-    public PollingCheck(long timeoutMs) {
-        mTimeoutMs = timeoutMs;
+    public PollingCheck(long timeout) {
+        mTimeout = timeout;
     }
 
     protected abstract boolean check();
@@ -39,8 +42,8 @@ public abstract class PollingCheck {
             return;
         }
 
-        long timeoutMs = mTimeoutMs;
-        while (timeoutMs > 0) {
+        long timeout = mTimeout;
+        while (timeout > 0) {
             try {
                 Thread.sleep(TIME_SLICE);
             } catch (InterruptedException e) {
@@ -51,23 +54,41 @@ public abstract class PollingCheck {
                 return;
             }
 
-            timeoutMs -= TIME_SLICE;
+            timeout -= TIME_SLICE;
         }
 
         Assert.fail("unexpected timeout");
     }
 
-    public static void check(CharSequence message, long timeoutMs, Callable<Boolean> condition)
+    public static void check(CharSequence message, long timeout, Callable<Boolean> condition)
             throws Exception {
-        while (timeoutMs > 0) {
+        while (timeout > 0) {
             if (condition.call()) {
                 return;
             }
 
             Thread.sleep(TIME_SLICE);
-            timeoutMs -= TIME_SLICE;
+            timeout -= TIME_SLICE;
         }
 
         Assert.fail(message.toString());
+    }
+
+    public static void waitFor(final PollingCheckCondition condition) {
+        new PollingCheck() {
+            @Override
+            protected boolean check() {
+                return condition.canProceed();
+            }
+        }.run();
+    }
+
+    public static void waitFor(long timeout, final PollingCheckCondition condition) {
+        new PollingCheck(timeout) {
+            @Override
+            protected boolean check() {
+                return condition.canProceed();
+            }
+        }.run();
     }
 }

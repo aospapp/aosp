@@ -51,6 +51,7 @@ public class CombinedEventsTest extends CombinedEventsTestCase {
     private boolean eventVmDeathReceived = false;
     private boolean eventMethodExitReceived = false;
 
+    @Override
     protected String getDebuggeeClassName() {
         return CombinedEventsDebuggee.class.getName();
     }

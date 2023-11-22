@@ -17,6 +17,8 @@ package com.android.mail.utils;
 
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetFileDescriptor.AutoCloseInputStream;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
@@ -187,13 +189,13 @@ public class AttachmentUtils {
         try {
             final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-kk:mm:ss");
             file = File.createTempFile(dateFormat.format(new Date()), ".attachment", cacheDir);
-            final ParcelFileDescriptor fileDescriptor = attachmentFds != null
-                    && attachment.contentUri != null ? (ParcelFileDescriptor) attachmentFds
+            final AssetFileDescriptor fileDescriptor = attachmentFds != null
+                    && attachment.contentUri != null ? (AssetFileDescriptor) attachmentFds
                     .getParcelable(attachment.contentUri.toString())
                     : null;
             if (fileDescriptor != null) {
                 // Get the input stream from the file descriptor
-                inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+                inputStream = new AutoCloseInputStream(fileDescriptor);
             } else {
                 if (attachment.contentUri == null) {
                     // The contentUri of the attachment is null.  This can happen when sending a
@@ -203,7 +205,15 @@ public class AttachmentUtils {
                     throw new FileNotFoundException("Missing contentUri in attachment");
                 }
                 // Attempt to open the file
-                inputStream = context.getContentResolver().openInputStream(attachment.contentUri);
+                if (attachment.virtualMimeType == null) {
+                    inputStream = context.getContentResolver().openInputStream(attachment.contentUri);
+                } else {
+                    AssetFileDescriptor fd = context.getContentResolver().openTypedAssetFileDescriptor(
+                            attachment.contentUri, attachment.virtualMimeType, null, null);
+                    if (fd != null) {
+                        inputStream = new AutoCloseInputStream(fd);
+                    }
+                }
             }
             outputStream = new FileOutputStream(file);
             final long now = SystemClock.elapsedRealtime();

@@ -5,11 +5,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import collections
+import unittest
 
 import common
-
 from autotest_lib.client.common_lib import host_queue_entry_states
-from autotest_lib.client.common_lib.test_utils import unittest
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
 from autotest_lib.frontend.afe import models

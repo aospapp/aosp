@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 #include "gm.h"
+#include "sk_tool_utils.h"
 #include "SkCanvas.h"
 #include "SkGradientShader.h"
 #include "SkPath.h"
@@ -15,20 +16,20 @@ static void makebm(SkBitmap* bm, int w, int h) {
 
     SkCanvas    canvas(*bm);
     SkScalar    s = SkIntToScalar(SkMin32(w, h));
-    static const SkPoint     kPts0[] = { { 0, 0 }, { s, s } };
-    static const SkPoint     kPts1[] = { { s, 0 }, { 0, s } };
-    static const SkScalar    kPos[] = { 0, SK_Scalar1/2, SK_Scalar1 };
-    static const SkColor kColors0[] = {0x40FF00FF, 0xF0FFFF00, 0x4000FFFF };
-    static const SkColor kColors1[] = {0xF0FF00FF, 0x80FFFF00, 0xF000FFFF };
+    const SkPoint     kPts0[] = { { 0, 0 }, { s, s } };
+    const SkPoint     kPts1[] = { { s, 0 }, { 0, s } };
+    const SkScalar    kPos[] = { 0, SK_Scalar1/2, SK_Scalar1 };
+    const SkColor kColors0[] = {0x40FF00FF, 0xF0FFFF00, 0x4000FFFF };
+    const SkColor kColors1[] = {0xF0FF00FF, 0x80FFFF00, 0xF000FFFF };
 
 
     SkPaint     paint;
 
-    paint.setShader(SkGradientShader::CreateLinear(kPts0, kColors0, kPos,
-                    SK_ARRAY_COUNT(kColors0), SkShader::kClamp_TileMode))->unref();
+    paint.setShader(SkGradientShader::MakeLinear(kPts0, kColors0, kPos,
+                    SK_ARRAY_COUNT(kColors0), SkShader::kClamp_TileMode));
     canvas.drawPaint(paint);
-    paint.setShader(SkGradientShader::CreateLinear(kPts1, kColors1, kPos,
-                    SK_ARRAY_COUNT(kColors1), SkShader::kClamp_TileMode))->unref();
+    paint.setShader(SkGradientShader::MakeLinear(kPts1, kColors1, kPos,
+                    SK_ARRAY_COUNT(kColors1), SkShader::kClamp_TileMode));
     canvas.drawPaint(paint);
 }
 
@@ -41,9 +42,9 @@ struct LabeledMatrix {
 
 DEF_SIMPLE_GM_BG(shadertext2, canvas, 1800, 900,
                  sk_tool_utils::color_to_565(0xFFDDDDDD)) {
-        static const char kText[] = "SKIA";
-        static const int kTextLen = SK_ARRAY_COUNT(kText) - 1;
-        static const int kPointSize = 55;
+        constexpr char kText[] = "SKIA";
+        constexpr int kTextLen = SK_ARRAY_COUNT(kText) - 1;
+        constexpr int kPointSize = 55;
 
         SkTDArray<LabeledMatrix> matrices;
         matrices.append()->fMatrix.reset();
@@ -105,7 +106,7 @@ DEF_SIMPLE_GM_BG(shadertext2, canvas, 1800, 900,
         canvas->drawBitmap(bmp, 0, 0);
         canvas->translate(0, bmp.height() + labelPaint.getTextSize() + 15.f);
 
-        static const char kLabelLabel[] = "localM / canvasM";
+        constexpr char kLabelLabel[] = "localM / canvasM";
         canvas->drawText(kLabelLabel, strlen(kLabelLabel), 0, 0, labelPaint);
         canvas->translate(0, 15.f);
 
@@ -136,11 +137,9 @@ DEF_SIMPLE_GM_BG(shadertext2, canvas, 1800, 900,
                 canvas->translate(0, kPadY / 2 + kPointSize);
                 columnH += kPadY / 2 + kPointSize;
                 for (int lm = 0; lm < localMatrices.count(); ++lm) {
-                    paint.setShader(
-                            SkShader::CreateBitmapShader(bmp,
-                                                         SkShader::kMirror_TileMode,
-                                                         SkShader::kRepeat_TileMode,
-                                                         &localMatrices[lm].fMatrix))->unref();
+                    paint.setShader(SkShader::MakeBitmapShader(bmp, SkShader::kMirror_TileMode,
+                                                               SkShader::kRepeat_TileMode,
+                                                               &localMatrices[lm].fMatrix));
 
                     canvas->save();
                         canvas->concat(matrices[m].fMatrix);
@@ -174,8 +173,8 @@ DEF_SIMPLE_GM_BG(shadertext2, canvas, 1800, 900,
             if (0 == s) {
                 canvas->drawLine(0.f, -kPadY, 0.f, columnH + kPadY, outlinePaint);
                 canvas->translate(kPadX / 2, 0.f);
-                static const char kFillLabel[] = "Filled";
-                static const char kStrokeLabel[] = "Stroked";
+                constexpr char kFillLabel[] = "Filled";
+                constexpr char kStrokeLabel[] = "Stroked";
                 SkScalar y = columnH + kPadY / 2;
                 SkScalar fillX = -outlinePaint.measureText(kFillLabel, strlen(kFillLabel)) - kPadX;
                 SkScalar strokeX = kPadX;

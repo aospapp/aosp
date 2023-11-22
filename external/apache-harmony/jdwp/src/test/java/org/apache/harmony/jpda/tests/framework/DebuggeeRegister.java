@@ -25,7 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.framework;
 
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -72,7 +71,7 @@ public class DebuggeeRegister {
      * 
      * @return array of DebuggeeWrappers
      */
-    public List getAllRegistered() {
+    public List<DebuggeeWrapper> getAllRegistered() {
         return registered;
     }
 
@@ -80,8 +79,7 @@ public class DebuggeeRegister {
      * Stops each of registered DebuggeeWrappers by invoking DebuggeeWrapper.stop().
      */
     public void stopAllRegistered() {
-        for (Iterator iter = registered.iterator(); iter.hasNext(); ) {
-            DebuggeeWrapper wrapper = (DebuggeeWrapper)iter.next();
+        for (DebuggeeWrapper wrapper : registered) {
             if (wrapper != null) {
                 wrapper.stop();
             }

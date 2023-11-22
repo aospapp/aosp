@@ -45,7 +45,7 @@ class display_HDCPScreen(test.test):
         display_facade = factory.create_display_facade()
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
 

@@ -14,7 +14,6 @@ TEST_CLASS = "power"
 TEST_TYPE = "client"
 
 ATTRIBUTES = "suite:kernel_daily_regression"
-SUITE = "kernel_daily_regression"
 
 DOC = """
 This test verifies that the backlight does not get dimmed during video playback.

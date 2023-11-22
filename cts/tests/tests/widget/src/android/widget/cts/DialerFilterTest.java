@@ -16,55 +16,65 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static com.android.compatibility.common.util.WidgetTestUtils.sameCharSequence;
 
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.cts.util.PollingCheck;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
-import android.text.Editable;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Spannable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Xml;
 import android.view.KeyCharacterMap;
-import android.view.KeyEvent;
 import android.widget.DialerFilter;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 
-public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFilterCtsActivity> {
+import com.android.compatibility.common.util.CtsKeyEventUtil;
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DialerFilterTest {
     private Activity mActivity;
     private Instrumentation mInstrumentation;
     private DialerFilter mDialerFilter;
 
-    public DialerFilterTest() {
-        super("android.widget.cts", DialerFilterCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<DialerFilterCtsActivity> mActivityRule =
+            new ActivityTestRule<>(DialerFilterCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mActivity = getActivity();
-        new PollingCheck() {
-            @Override
-                protected boolean check() {
-                return mActivity.hasWindowFocus();
-            }
-        }.run();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        PollingCheck.waitFor(mActivity::hasWindowFocus);
 
         mDialerFilter = (DialerFilter) mActivity.findViewById(R.id.dialer_filter);
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         final XmlPullParser parser = mActivity.getResources().getXml(R.layout.dialerfilter_layout);
         final AttributeSet attrs = Xml.asAttributeSet(parser);
@@ -74,34 +84,32 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
     }
 
     @UiThreadTest
+    @Test
     public void testIsQwertyKeyboard() {
         // Simply call the method. Return value may depend on the default keyboard.
         mDialerFilter.isQwertyKeyboard();
     }
 
-    public void testOnKeyUpDown() {
+    @Test
+    public void testOnKeyUpDown() throws Throwable {
         // The exact behavior depends on the implementation of DialerKeyListener and
         // TextKeyListener, but even that may be changed. Simply assert basic scenarios.
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mDialerFilter.setMode(DialerFilter.DIGITS_ONLY);
-                mDialerFilter.requestFocus();
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mDialerFilter.setMode(DialerFilter.DIGITS_ONLY);
+            mDialerFilter.requestFocus();
         });
         mInstrumentation.waitForIdleSync();
 
         assertTrue(mDialerFilter.hasFocus());
 
-        mInstrumentation.sendStringSync("123");
+        CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
         assertEquals("", mDialerFilter.getLetters().toString());
         assertEquals("123", mDialerFilter.getDigits().toString());
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mDialerFilter.clearText();
-                mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mDialerFilter.clearText();
+            mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -110,47 +118,44 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
                 = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "adg" in case of 12-key(NUMERIC) keyboard
-            mInstrumentation.sendStringSync("234");
+            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "234");
         }
         else {
-            mInstrumentation.sendStringSync("adg");
+            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "adg");
         }
         assertEquals("ADG", mDialerFilter.getLetters().toString());
         assertEquals("", mDialerFilter.getDigits().toString());
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mDialerFilter.clearText();
-                mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mDialerFilter.clearText();
+            mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
         });
         mInstrumentation.waitForIdleSync();
 
         // 12-key support
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "adg" in case of 12-key(NUMERIC) keyboard
-            mInstrumentation.sendStringSync("234");
+            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "234");
         }
         else {
-            mInstrumentation.sendStringSync("adg");
+            CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "adg");
         }
         assertEquals("ADG", mDialerFilter.getLetters().toString());
         // A, D, K may map to numbers on some keyboards. Don't test.
 
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mDialerFilter.clearText();
-                mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            mDialerFilter.clearText();
+            mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
         });
         mInstrumentation.waitForIdleSync();
 
-        mInstrumentation.sendStringSync("123");
+        CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
         // 1, 2, 3 may map to letters on some keyboards. Don't test.
         assertEquals("123", mDialerFilter.getDigits().toString());
     }
 
     @UiThreadTest
+    @Test
     public void testAccessMode() {
         mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS_NO_LETTERS);
         assertEquals(DialerFilter.DIGITS_AND_LETTERS_NO_LETTERS, mDialerFilter.getMode());
@@ -163,6 +168,7 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
     }
 
     @UiThreadTest
+    @Test
     public void testGetLetters() {
         assertEquals("", mDialerFilter.getLetters().toString());
 
@@ -172,6 +178,7 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
     }
 
     @UiThreadTest
+    @Test
     public void testGetDigits() {
         assertEquals("", mDialerFilter.getDigits().toString());
 
@@ -181,6 +188,7 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
     }
 
     @UiThreadTest
+    @Test
     public void testGetFilterText() {
         assertEquals("", mDialerFilter.getFilterText().toString());
 
@@ -196,6 +204,7 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
     }
 
     @UiThreadTest
+    @Test
     public void testAppend() {
         mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
         mDialerFilter.append("ANDROID");
@@ -236,16 +245,17 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
         assertEquals("", mDialerFilter.getLetters().toString());
         assertEquals("", mDialerFilter.getDigits().toString());
         assertEquals("", mDialerFilter.getFilterText().toString());
-
-        try {
-            mDialerFilter.append(null);
-            fail("A NullPointerException should be thrown out.");
-        } catch (final NullPointerException e) {
-            // expected, test success.
-        }
     }
 
     @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAppendNull() {
+        mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
+        mDialerFilter.append(null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testClearText() {
         assertEquals("", mDialerFilter.getLetters().toString());
         assertEquals("", mDialerFilter.getDigits().toString());
@@ -262,112 +272,116 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
     }
 
     @UiThreadTest
+    @Test
     public void testSetLettersWatcher() {
-        MockTextWatcher tw = new MockTextWatcher("A");
+        final TextWatcher mockTextWatcher = mock(TextWatcher.class);
 
         Spannable span = (Spannable) mDialerFilter.getLetters();
-        assertEquals(-1, span.getSpanStart(tw));
-        assertEquals(-1, span.getSpanEnd(tw));
+        assertEquals(-1, span.getSpanStart(mockTextWatcher));
+        assertEquals(-1, span.getSpanEnd(mockTextWatcher));
 
         mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
-        mDialerFilter.setLettersWatcher(tw);
+        mDialerFilter.setLettersWatcher(mockTextWatcher);
         mDialerFilter.append("ANDROID");
-        assertEquals("ANDROID", tw.getText());
+        verify(mockTextWatcher, times(1)).onTextChanged(sameCharSequence("ANDROID"), eq(0),
+                eq(0), eq(7));
 
         span = (Spannable) mDialerFilter.getLetters();
-        assertEquals(0, span.getSpanStart(tw));
-        assertEquals(mDialerFilter.getLetters().length(), span.getSpanEnd(tw));
+        assertEquals(0, span.getSpanStart(mockTextWatcher));
+        assertEquals(mDialerFilter.getLetters().length(), span.getSpanEnd(mockTextWatcher));
         assertEquals("ANDROID", span.toString());
 
-        tw = new MockTextWatcher("");
-        mDialerFilter.setLettersWatcher(tw);
+        reset(mockTextWatcher);
+        mDialerFilter.setLettersWatcher(mockTextWatcher);
         mDialerFilter.append("");
-        assertEquals("", tw.getText());
-
-        try {
-            mDialerFilter.setLettersWatcher(new MockTextWatcher(null));
-            mDialerFilter.append(null);
-            fail("A NullPointerException should be thrown out.");
-        } catch (final NullPointerException e) {
-            // expected, test success.
-        }
+        verifyZeroInteractions(mockTextWatcher);
     }
 
     @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testSetLettersWatcherWithNullAppend() {
+        final TextWatcher mockTextWatcher = mock(TextWatcher.class);
+
+        mDialerFilter.setLettersWatcher(mockTextWatcher);
+        mDialerFilter.append(null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testSetDigitsWatcher() {
-        final MockTextWatcher tw = new MockTextWatcher("9");
+        final TextWatcher mockTextWatcher = mock(TextWatcher.class);
 
         Spannable span = (Spannable) mDialerFilter.getDigits();
-        assertEquals(-1, span.getSpanStart(tw));
-        assertEquals(-1, span.getSpanEnd(tw));
+        assertEquals(-1, span.getSpanStart(mockTextWatcher));
+        assertEquals(-1, span.getSpanEnd(mockTextWatcher));
 
-        mDialerFilter.setDigitsWatcher(tw);
-        assertEquals(0, span.getSpanStart(tw));
-        assertEquals(mDialerFilter.getDigits().length(), span.getSpanEnd(tw));
+        mDialerFilter.setDigitsWatcher(mockTextWatcher);
+        assertEquals(0, span.getSpanStart(mockTextWatcher));
+        assertEquals(mDialerFilter.getDigits().length(), span.getSpanEnd(mockTextWatcher));
 
         mDialerFilter.setMode(DialerFilter.DIGITS_ONLY);
         mDialerFilter.append("12345");
-        assertEquals("12345", tw.getText());
+        verify(mockTextWatcher, times(1)).onTextChanged(sameCharSequence("12345"), eq(0),
+                eq(0), eq(5));
     }
 
     @UiThreadTest
+    @Test
     public void testSetFilterWatcher() {
-        final MockTextWatcher tw = new MockTextWatcher("A");
+        final TextWatcher mockTextWatcher = mock(TextWatcher.class);
 
         Spannable span = (Spannable) mDialerFilter.getLetters();
-        assertEquals(-1, span.getSpanStart(tw));
-        assertEquals(-1, span.getSpanEnd(tw));
+        assertEquals(-1, span.getSpanStart(mockTextWatcher));
+        assertEquals(-1, span.getSpanEnd(mockTextWatcher));
 
         mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
-        mDialerFilter.setFilterWatcher(tw);
+        mDialerFilter.setFilterWatcher(mockTextWatcher);
         mDialerFilter.append("ANDROID");
-        assertEquals("ANDROID", tw.getText());
+        verify(mockTextWatcher, times(1)).onTextChanged(sameCharSequence("ANDROID"), eq(0),
+                eq(0), eq(7));
         span = (Spannable) mDialerFilter.getLetters();
 
-        assertEquals(0, span.getSpanStart(tw));
-        assertEquals(mDialerFilter.getLetters().length(), span.getSpanEnd(tw));
+        assertEquals(0, span.getSpanStart(mockTextWatcher));
+        assertEquals(mDialerFilter.getLetters().length(), span.getSpanEnd(mockTextWatcher));
 
         mDialerFilter.setMode(DialerFilter.DIGITS_ONLY);
-        mDialerFilter.setFilterWatcher(tw);
+        mDialerFilter.setFilterWatcher(mockTextWatcher);
         mDialerFilter.append("12345");
-        assertEquals("12345", tw.getText());
+        verify(mockTextWatcher, times(1)).onTextChanged(sameCharSequence("12345"), eq(0),
+                eq(0), eq(5));
     }
 
     @UiThreadTest
+    @Test
     public void testRemoveFilterWatcher() {
-        final MockTextWatcher tw = new MockTextWatcher("A");
+        final TextWatcher mockTextWatcher = mock(TextWatcher.class);
 
         Spannable span = (Spannable) mDialerFilter.getLetters();
-        assertEquals(-1, span.getSpanStart(tw));
-        assertEquals(-1, span.getSpanEnd(tw));
+        assertEquals(-1, span.getSpanStart(mockTextWatcher));
+        assertEquals(-1, span.getSpanEnd(mockTextWatcher));
 
         mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
-        mDialerFilter.setFilterWatcher(tw);
+        mDialerFilter.setFilterWatcher(mockTextWatcher);
         mDialerFilter.append("ANDROID");
-        assertEquals("ANDROID", tw.getText());
+        verify(mockTextWatcher, times(1)).onTextChanged(sameCharSequence("ANDROID"), eq(0),
+                eq(0), eq(7));
 
         span = (Spannable) mDialerFilter.getLetters();
-        assertEquals(0, span.getSpanStart(tw));
-        assertEquals(mDialerFilter.getLetters().length(), span.getSpanEnd(tw));
+        assertEquals(0, span.getSpanStart(mockTextWatcher));
+        assertEquals(mDialerFilter.getLetters().length(), span.getSpanEnd(mockTextWatcher));
 
-        mDialerFilter.removeFilterWatcher(tw);
+        reset(mockTextWatcher);
+        mDialerFilter.removeFilterWatcher(mockTextWatcher);
         mDialerFilter.append("GOLF");
-        assertEquals("ANDROID", tw.getText());
+        verifyZeroInteractions(mockTextWatcher);
 
-        assertEquals(-1, span.getSpanStart(tw));
-        assertEquals(-1, span.getSpanEnd(tw));
-    }
-
-    public void testOnFinishInflate() {
-        // onFinishInflate() is implementation details, do NOT test
-    }
-
-    public void testOnFocusChanged() {
-        // onFocusChanged() is implementation details, do NOT test
+        assertEquals(-1, span.getSpanStart(mockTextWatcher));
+        assertEquals(-1, span.getSpanEnd(mockTextWatcher));
     }
 
     @UiThreadTest
-    public void testOnModechange() {
+    @Test
+    public void testOnModeChange() {
         final MockDialerFilter dialerFilter = createMyDialerFilter();
         dialerFilter.onFinishInflate();
 
@@ -399,33 +413,6 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
                 RelativeLayout.LayoutParams.WRAP_CONTENT));
 
         return dialerFilter;
-    }
-
-    private class MockTextWatcher implements TextWatcher {
-        private String mString;
-
-        public MockTextWatcher(final String s) {
-            mString = s;
-        }
-
-        public void beforeTextChanged(final CharSequence s, final int start, final int count,
-                final int after) {
-            Log.d("DialerFilterTest", "MockTextWatcher beforeTextChanged");
-        }
-
-        public void onTextChanged(final CharSequence s, final int start, final int before,
-                final int count) {
-            Log.d("DialerFilterTest", "MockTextWatcher onTextChanged");
-            mString = s.toString();
-        }
-
-        public void afterTextChanged(final Editable s) {
-            Log.d("DialerFilterTest", "MockTextWatcher afterTextChanged");
-        }
-
-        public String getText() {
-            return mString;
-        }
     }
 
     /**

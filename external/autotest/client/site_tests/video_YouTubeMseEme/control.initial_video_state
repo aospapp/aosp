@@ -9,8 +9,6 @@ CRITERIA = """
 This test will fail if the browser's initial MSE/EME video state doesn't conform
 to the standards.
 """
-ATTRIBUTES = "suite:youtube_mse_eme"
-SUITE = "youtube_mse_eme"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

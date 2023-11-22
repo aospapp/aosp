@@ -8,9 +8,7 @@ AUTHOR = 'harpreet'
 TIME = 'SHORT'
 NAME = 'cellular_ChromeEndToEnd.autoconnectCellular'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:network3g_att, suite:network3g_tmobile,'
-              'suite:network3g_verizon, suite:network3g')
-SUITE = 'network3g_att, network3g_tmobile, network3g_verizon, network3g'
+ATTRIBUTES = 'suite:cellular_endtoend'
 DEPENDENCIES = 'servo'
 
 DOC = """

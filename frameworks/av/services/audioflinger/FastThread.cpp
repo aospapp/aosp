@@ -22,6 +22,7 @@
 #include "Configuration.h"
 #include <linux/futex.h>
 #include <sys/syscall.h>
+#include <cutils/atomic.h>
 #include <utils/Log.h>
 #include <utils/Trace.h>
 #include "FastThread.h"
@@ -169,7 +170,7 @@ bool FastThread::threadLoop()
                 }
                 int policy = sched_getscheduler(0) & ~SCHED_RESET_ON_FORK;
                 if (!(policy == SCHED_FIFO || policy == SCHED_RR)) {
-                    ALOGE("did not receive expected priority boost");
+                    ALOGE("did not receive expected priority boost on time");
                 }
                 // This may be overly conservative; there could be times that the normal mixer
                 // requests such a brief cold idle that it doesn't require resetting this flag.

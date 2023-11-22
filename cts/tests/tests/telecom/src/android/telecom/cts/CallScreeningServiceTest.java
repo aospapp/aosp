@@ -136,7 +136,7 @@ public class CallScreeningServiceTest extends InstrumentationTestCase {
 
     private void setupConnectionService() throws Exception {
         mConnectionService = new MockConnectionService();
-        CtsConnectionService.setUp(TEST_PHONE_ACCOUNT_HANDLE, mConnectionService);
+        CtsConnectionService.setUp(mConnectionService);
 
         mTelecomManager.registerPhoneAccount(TEST_PHONE_ACCOUNT);
         TestUtils.enablePhoneAccount(getInstrumentation(), TEST_PHONE_ACCOUNT_HANDLE);

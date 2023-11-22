@@ -19,7 +19,6 @@ package android.media.cts;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -28,6 +27,7 @@ import android.media.AudioTrack;
 import android.media.PlaybackParams;
 import android.util.Log;
 
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
@@ -371,6 +371,43 @@ public class AudioTrackTest extends CtsAndroidTestCase {
         //     were first configured with a legacy stream type
         assertEquals(TEST_NAME + ": attributes content type", expectedContentType,
                 aa.getContentType());
+    }
+
+    // Test case 5: build AudioTrack with attributes and performance mode
+    public void testBuilderAttributesPerformanceMode() throws Exception {
+        // constants for test
+        final String TEST_NAME = "testBuilderAttributesPerformanceMode";
+        final int testPerformanceModes[] = new int[] {
+            AudioTrack.PERFORMANCE_MODE_NONE,
+            AudioTrack.PERFORMANCE_MODE_LOW_LATENCY,
+            AudioTrack.PERFORMANCE_MODE_POWER_SAVING,
+        };
+        // construct various attributes with different preset performance modes.
+        final AudioAttributes testAttributes[] = new AudioAttributes[] {
+            new AudioAttributes.Builder().build(),
+            new AudioAttributes.Builder().setFlags(AudioAttributes.FLAG_LOW_LATENCY).build(),
+            new AudioAttributes.Builder().setFlags(AudioAttributes.FLAG_DEEP_BUFFER).build(),
+        };
+        for (int performanceMode : testPerformanceModes) {
+            for (AudioAttributes attributes : testAttributes) {
+                final AudioTrack track = new AudioTrack.Builder()
+                    .setPerformanceMode(performanceMode)
+                    .setAudioAttributes(attributes)
+                    .build();
+                // save results
+                final int actualPerformanceMode = track.getPerformanceMode();
+                // release track before the test exits
+                track.release();
+                final String result = "Attribute flags: " + attributes.getAllFlags()
+                        + " set performance mode: " + performanceMode
+                        + " actual performance mode: " + actualPerformanceMode;
+                Log.d(TEST_NAME, result);
+                assertTrue(TEST_NAME + ": " + result,
+                        actualPerformanceMode == performanceMode  // either successful
+                        || actualPerformanceMode == AudioTrack.PERFORMANCE_MODE_NONE // or none
+                        || performanceMode == AudioTrack.PERFORMANCE_MODE_NONE);
+            }
+        }
     }
 
     // -----------------------------------------------------------------

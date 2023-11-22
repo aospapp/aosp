@@ -36,6 +36,14 @@ public class SendToClientBlockingTest extends RSBaseCompute {
         random = new Random();
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mScript != null) {
+            mScript.destroy();
+        }
+        super.tearDown();
+    }
+
     RSMessageHandler mRsMessageForTest = new RSMessageHandler() {
         public void run() {
             switch (mID) {

@@ -16,14 +16,22 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.StrikethroughSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class StrikethroughSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class StrikethroughSpanTest {
+    @Test
     public void testConstructor() {
         StrikethroughSpan strikethroughSpan = new StrikethroughSpan();
 
@@ -37,6 +45,7 @@ public class StrikethroughSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateDrawState() {
         StrikethroughSpan strikethroughSpan = new StrikethroughSpan();
 
@@ -46,25 +55,28 @@ public class StrikethroughSpanTest extends TestCase {
 
         strikethroughSpan.updateDrawState(tp);
         assertTrue(tp.isStrikeThruText());
-
-        try {
-            strikethroughSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        StrikethroughSpan strikethroughSpan = new StrikethroughSpan();
+
+        strikethroughSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         StrikethroughSpan strikethroughSpan = new StrikethroughSpan();
         strikethroughSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         StrikethroughSpan strikethroughSpan = new StrikethroughSpan();
         strikethroughSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

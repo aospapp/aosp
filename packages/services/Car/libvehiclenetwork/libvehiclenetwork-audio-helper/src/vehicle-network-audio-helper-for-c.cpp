@@ -43,6 +43,7 @@ vehicle_network_audio_helper_t* vehicle_network_audio_helper_create(nsecs_t time
 
 error:
     delete helperObj;
+    delete helper;
     return NULL;
 }
 

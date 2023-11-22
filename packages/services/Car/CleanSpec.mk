@@ -49,6 +49,8 @@ $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/androi
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/PACKAGING/android.car*)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/android.support.car*)
 $(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/PACKAGING/android.support.car*)
+$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/android.car7_intermediates/)
+$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/JAVA_LIBRARIES/android.car_intermediates/)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

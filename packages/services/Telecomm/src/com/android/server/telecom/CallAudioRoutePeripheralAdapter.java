@@ -16,66 +16,68 @@
 
 package com.android.server.telecom;
 
+import com.android.server.telecom.bluetooth.BluetoothRouteManager;
+
 /**
  * A class that acts as a listener to things that could change call audio routing, namely
  * bluetooth status, wired headset status, and dock status.
  */
 public class CallAudioRoutePeripheralAdapter implements WiredHeadsetManager.Listener,
-        DockManager.Listener, BluetoothManager.BluetoothStateListener {
+        DockManager.Listener, BluetoothRouteManager.BluetoothStateListener {
 
     private final CallAudioRouteStateMachine mCallAudioRouteStateMachine;
-    private final BluetoothManager mBluetoothManager;
+    private final BluetoothRouteManager mBluetoothRouteManager;
 
     public CallAudioRoutePeripheralAdapter(
             CallAudioRouteStateMachine callAudioRouteStateMachine,
-            BluetoothManager bluetoothManager,
+            BluetoothRouteManager bluetoothManager,
             WiredHeadsetManager wiredHeadsetManager,
             DockManager dockManager) {
         mCallAudioRouteStateMachine = callAudioRouteStateMachine;
-        mBluetoothManager = bluetoothManager;
+        mBluetoothRouteManager = bluetoothManager;
 
-        mBluetoothManager.setBluetoothStateListener(this);
+        mBluetoothRouteManager.setListener(this);
         wiredHeadsetManager.addListener(this);
         dockManager.addListener(this);
     }
 
     public boolean isBluetoothAudioOn() {
-        return mBluetoothManager.isBluetoothAudioConnected();
+        return mBluetoothRouteManager.isBluetoothAudioConnectedOrPending();
     }
 
     @Override
     public void onBluetoothStateChange(int oldState, int newState) {
         switch (oldState) {
-            case BluetoothManager.BLUETOOTH_DISCONNECTED:
-            case BluetoothManager.BLUETOOTH_UNINITIALIZED:
+            case BluetoothRouteManager.BLUETOOTH_DISCONNECTED:
+            case BluetoothRouteManager.BLUETOOTH_UNINITIALIZED:
                 switch (newState) {
-                    case BluetoothManager.BLUETOOTH_DEVICE_CONNECTED:
-                    case BluetoothManager.BLUETOOTH_AUDIO_CONNECTED:
+                    case BluetoothRouteManager.BLUETOOTH_DEVICE_CONNECTED:
+                    case BluetoothRouteManager.BLUETOOTH_AUDIO_CONNECTED:
                         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
                                 CallAudioRouteStateMachine.CONNECT_BLUETOOTH);
                         break;
                 }
                 break;
-            case BluetoothManager.BLUETOOTH_DEVICE_CONNECTED:
+            case BluetoothRouteManager.BLUETOOTH_DEVICE_CONNECTED:
                 switch (newState) {
-                    case BluetoothManager.BLUETOOTH_DISCONNECTED:
+                    case BluetoothRouteManager.BLUETOOTH_DISCONNECTED:
                         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
                                 CallAudioRouteStateMachine.DISCONNECT_BLUETOOTH);
                         break;
-                    case BluetoothManager.BLUETOOTH_AUDIO_CONNECTED:
+                    case BluetoothRouteManager.BLUETOOTH_AUDIO_CONNECTED:
                         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
                                 CallAudioRouteStateMachine.SWITCH_BLUETOOTH);
                         break;
                 }
                 break;
-            case BluetoothManager.BLUETOOTH_AUDIO_CONNECTED:
-            case BluetoothManager.BLUETOOTH_AUDIO_PENDING:
+            case BluetoothRouteManager.BLUETOOTH_AUDIO_CONNECTED:
+            case BluetoothRouteManager.BLUETOOTH_AUDIO_PENDING:
                 switch (newState) {
-                    case BluetoothManager.BLUETOOTH_DISCONNECTED:
+                    case BluetoothRouteManager.BLUETOOTH_DISCONNECTED:
                         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
                                 CallAudioRouteStateMachine.DISCONNECT_BLUETOOTH);
                         break;
-                    case BluetoothManager.BLUETOOTH_DEVICE_CONNECTED:
+                    case BluetoothRouteManager.BLUETOOTH_DEVICE_CONNECTED:
                         mCallAudioRouteStateMachine.sendMessageWithSessionInfo(
                                 CallAudioRouteStateMachine.BT_AUDIO_DISCONNECT);
                         break;

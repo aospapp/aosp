@@ -27,7 +27,7 @@ class SymmetricKey;
 
 class SymmetricKeyFactory : public KeyFactory {
   public:
-    SymmetricKeyFactory(const KeymasterContext* context) : KeyFactory(context) {}
+    explicit SymmetricKeyFactory(const KeymasterContext* context) : KeyFactory(context) {}
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
                                   KeymasterKeyBlob* key_blob, AuthorizationSet* hw_enforced,

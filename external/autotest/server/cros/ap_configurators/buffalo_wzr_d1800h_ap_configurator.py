@@ -33,7 +33,7 @@ class BuffalowzrAPConfigurator(
         return [{'band': ap_spec.BAND_2GHZ,
                  'modes': [ap_spec.MODE_B, ap_spec.MODE_N, ap_spec.MODE_G]},
                 {'band': ap_spec.BAND_5GHZ,
-                 'modes': [ap_spec.MODE_N, ap_spec.MODE_A]}]
+                 'modes': [ap_spec.MODE_N, ap_spec.MODE_A, ap_spec.MODE_AC]}]
 
 
     def get_supported_bands(self):

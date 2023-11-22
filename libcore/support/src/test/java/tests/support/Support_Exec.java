@@ -114,28 +114,6 @@ public class Support_Exec extends TestCase {
         }
     }
 
-    /**
-     * Starts the process described by 'builder', and asserts that it sees
-     * 'expectedOut' on stdout and 'expectedErr' on stderr. Times out after
-     * 10s.
-     */
-    public static void execAndCheckOutput(ProcessBuilder builder,
-            String expectedOut, String expectedErr) throws Exception {
-        Process process = builder.start();
-        ExecutorService executorService = Executors.newFixedThreadPool(2);
-        try {
-            Future<String> errFuture =
-                    executorService.submit(streamToStringCallable(process.getErrorStream()));
-            Future<String> outFuture =
-                    executorService.submit(streamToStringCallable(process.getInputStream()));
-            assertEquals(expectedOut, outFuture.get(10, TimeUnit.SECONDS));
-            assertEquals(expectedErr, errFuture.get(10, TimeUnit.SECONDS));
-        } finally {
-            executorService.shutdown();
-            process.waitFor();
-        }
-    }
-
     private static Callable<String> streamToStringCallable(final InputStream in) {
         return new Callable<String>() {
             public String call() throws Exception {

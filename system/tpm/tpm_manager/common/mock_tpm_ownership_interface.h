@@ -28,10 +28,12 @@ class MockTpmOwnershipInterface : public TpmOwnershipInterface {
   MockTpmOwnershipInterface();
   ~MockTpmOwnershipInterface() override;
 
-  MOCK_METHOD2(GetTpmStatus, void(const GetTpmStatusRequest& request,
-                                  const GetTpmStatusCallback& callback));
-  MOCK_METHOD2(TakeOwnership, void(const TakeOwnershipRequest& request,
-                                   const TakeOwnershipCallback& callback));
+  MOCK_METHOD2(GetTpmStatus,
+               void(const GetTpmStatusRequest& request,
+                    const GetTpmStatusCallback& callback));
+  MOCK_METHOD2(TakeOwnership,
+               void(const TakeOwnershipRequest& request,
+                    const TakeOwnershipCallback& callback));
   MOCK_METHOD2(RemoveOwnerDependency,
                void(const RemoveOwnerDependencyRequest& request,
                     const RemoveOwnerDependencyCallback& callback));

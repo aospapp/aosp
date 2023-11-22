@@ -16,6 +16,8 @@
 
 package android.leanbackjank.app;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Point;
@@ -102,7 +104,7 @@ public class Utils {
 
     public static long getDuration(String videoUrl) {
         MediaMetadataRetriever mmr = new MediaMetadataRetriever();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.ICE_CREAM_SANDWICH)) {
             mmr.setDataSource(videoUrl, new HashMap<String, String>());
         } else {
             mmr.setDataSource(videoUrl);

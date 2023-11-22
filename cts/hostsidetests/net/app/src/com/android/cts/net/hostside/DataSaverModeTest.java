@@ -20,20 +20,24 @@ import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLE
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_WHITELISTED;
 
+import android.util.Log;
+
 public class DataSaverModeTest extends AbstractRestrictBackgroundNetworkTestCase {
 
     private static final String[] REQUIRED_WHITELISTED_PACKAGES = {
         "com.android.providers.downloads"
     };
 
+    private boolean mIsDataSaverSupported;
+
     @Override
     public void setUp() throws Exception {
         super.setUp();
 
+        mIsDataSaverSupported = isDataSaverSupported();
         if (!isSupported()) return;
 
         // Set initial state.
-        setMeteredNetwork();
         setRestrictBackground(false);
         removeRestrictBackgroundWhitelist(mUid);
         removeRestrictBackgroundBlacklist(mUid);
@@ -50,6 +54,37 @@ public class DataSaverModeTest extends AbstractRestrictBackgroundNetworkTestCase
 
         try {
             resetMeteredNetwork();
+        } finally {
+            setRestrictBackground(false);
+        }
+    }
+
+    @Override
+    protected boolean setUpActiveNetworkMeteringState() throws Exception {
+        return setMeteredNetwork();
+    }
+
+    @Override
+    protected boolean isSupported() throws Exception {
+        if (!mIsDataSaverSupported) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Data Saver Mode");
+        }
+        return mIsDataSaverSupported && super.isSupported();
+    }
+
+    /**
+     * As per CDD requirements, if the device doesn't support data saver mode then
+     * ConnectivityManager.getRestrictBackgroundStatus() will always return
+     * RESTRICT_BACKGROUND_STATUS_DISABLED. So, enable the data saver mode and check if
+     * ConnectivityManager.getRestrictBackgroundStatus() for an app in background returns
+     * RESTRICT_BACKGROUND_STATUS_DISABLED or not.
+     */
+    private boolean isDataSaverSupported() throws Exception {
+        assertMyRestrictBackgroundStatus(RESTRICT_BACKGROUND_STATUS_DISABLED);
+        try {
+            setRestrictBackground(true);
+            return !isMyRestrictBackgroundStatus(RESTRICT_BACKGROUND_STATUS_DISABLED);
         } finally {
             setRestrictBackground(false);
         }
@@ -98,19 +133,25 @@ public class DataSaverModeTest extends AbstractRestrictBackgroundNetworkTestCase
         assertsForegroundAlwaysHasNetworkAccess();
         assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
 
-        // Make sure foreground app doesn't lose access upon enabling it.
+        // Make sure foreground app doesn't lose access upon enabling Data Saver.
         setRestrictBackground(false);
-        launchActivity();
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
         setRestrictBackground(true);
         assertForegroundNetworkAccess();
+
+        // Although it should not have access while the screen is off.
+        turnScreenOff();
+        assertBackgroundNetworkAccess(false);
+        turnScreenOn();
+        assertForegroundNetworkAccess();
+
+        // Goes back to background state.
         finishActivity();
         assertBackgroundNetworkAccess(false);
 
-        // Same for foreground service.
+        // Make sure foreground service doesn't lose access upon enabling Data Saver.
         setRestrictBackground(false);
-        startForegroundService();
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_FOREGROUND_SERVICE);
         setRestrictBackground(true);
         assertForegroundNetworkAccess();
         stopForegroundService();
@@ -125,26 +166,34 @@ public class DataSaverModeTest extends AbstractRestrictBackgroundNetworkTestCase
         assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
 
         assertsForegroundAlwaysHasNetworkAccess();
+        assertRestrictBackgroundChangedReceived(1);
         assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
 
-        // Make sure blacklist prevails over whitelist.
+        // UID policies live by the Highlander rule: "There can be only one".
+        // Hence, if app is whitelisted, it should not be blacklisted anymore.
         setRestrictBackground(true);
         assertRestrictBackgroundChangedReceived(2);
         assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
         addRestrictBackgroundWhitelist(mUid);
         assertRestrictBackgroundChangedReceived(3);
-        assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
+        assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_WHITELISTED);
 
         // Check status after removing blacklist.
+        // ...re-enables first
+        addRestrictBackgroundBlacklist(mUid);
+        assertRestrictBackgroundChangedReceived(4);
+        assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
+        assertsForegroundAlwaysHasNetworkAccess();
+        // ... remove blacklist - access's still rejected because Data Saver is on
         removeRestrictBackgroundBlacklist(mUid);
         assertRestrictBackgroundChangedReceived(4);
-        assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_WHITELISTED);
+        assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_ENABLED);
+        assertsForegroundAlwaysHasNetworkAccess();
+        // ... finally, disable Data Saver
         setRestrictBackground(false);
         assertRestrictBackgroundChangedReceived(5);
         assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_DISABLED);
-
         assertsForegroundAlwaysHasNetworkAccess();
-        assertDataSaverStatusOnBackground(RESTRICT_BACKGROUND_STATUS_DISABLED);
     }
 
     public void testGetRestrictBackgroundStatus_requiredWhitelistedPackages() throws Exception {

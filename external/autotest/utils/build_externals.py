@@ -12,7 +12,12 @@ Usage?  Just run it.
     utils/build_externals.py
 """
 
-import compileall, logging, os, sys
+import argparse
+import compileall
+import logging
+import os
+import sys
+
 import common
 from autotest_lib.client.common_lib import logging_config, logging_manager
 from autotest_lib.client.common_lib import utils
@@ -47,6 +52,7 @@ def main():
     Find all ExternalPackage classes defined in this file and ask them to
     fetch, build and install themselves.
     """
+    options = parse_arguments(sys.argv[1:])
     logging_manager.configure_logging(BuildExternalsLoggingConfig(),
                                       verbose=True)
     os.umask(022)
@@ -66,9 +72,10 @@ def main():
         os.environ[env_python_path_varname] = ':'.join([
             install_dir, env_python_path])
 
-    fetched_packages, fetch_errors = fetch_necessary_packages(package_dir,
-                                                              install_dir)
-    install_errors = build_and_install_packages(fetched_packages, install_dir)
+    fetched_packages, fetch_errors = fetch_necessary_packages(
+        package_dir, install_dir, set(options.names_to_check))
+    install_errors = build_and_install_packages(
+        fetched_packages, install_dir, options.use_chromite_master)
 
     # Byte compile the code after it has been installed in its final
     # location as .pyc files contain the path passed to compile_dir().
@@ -88,19 +95,39 @@ def main():
     return len(errors)
 
 
-def fetch_necessary_packages(dest_dir, install_dir):
+def parse_arguments(args):
+    """Parse command line arguments.
+
+    @param args: The command line arguments to parse. (ususally sys.argsv[1:])
+
+    @returns An argparse.Namespace populated with argument values.
+    """
+    parser = argparse.ArgumentParser(
+            description='Command to build third party dependencies required '
+                        'for autotest.')
+    parser.add_argument('--use_chromite_master', action='store_true',
+                        help='Update chromite to master branch, rather than '
+                             'prod.')
+    parser.add_argument('--names_to_check', nargs='*', type=str, default=set(),
+                        help='Package names to check whether they are needed '
+                             'in current system.')
+    return parser.parse_args(args)
+
+
+def fetch_necessary_packages(dest_dir, install_dir, names_to_check=set()):
     """
     Fetches all ExternalPackages into dest_dir.
 
     @param dest_dir: Directory the packages should be fetched into.
     @param install_dir: Directory where packages will later installed.
+    @param names_to_check: A set of package names to check whether they are
+                           needed on current system. Default is empty.
 
     @returns A tuple containing two lists:
              * A list of ExternalPackage instances that were fetched and
                need to be installed.
              * A list of error messages for any failed fetches.
     """
-    names_to_check = sys.argv[1:]
     errors = []
     fetched_packages = []
     for package_class in external_packages.ExternalPackage.subclasses:
@@ -124,18 +151,23 @@ def fetch_necessary_packages(dest_dir, install_dir):
     return fetched_packages, errors
 
 
-def build_and_install_packages(packages, install_dir):
+def build_and_install_packages(packages, install_dir,
+                               use_chromite_master=False):
     """
     Builds and installs all packages into install_dir.
 
     @param packages - A list of already fetched ExternalPackage instances.
     @param install_dir - Directory the packages should be installed into.
+    @param use_chromite_master: True if updating chromite to master branch.
 
     @returns A list of error messages for any installs that failed.
     """
     errors = []
     for package in packages:
-        result = package.build_and_install(install_dir)
+        if use_chromite_master and package.name.lower() == 'chromiterepo':
+            result = package.build_and_install(install_dir, master_branch=True)
+        else:
+            result = package.build_and_install(install_dir)
         if isinstance(result, bool):
             success = result
             message = None

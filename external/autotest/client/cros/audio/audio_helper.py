@@ -88,12 +88,16 @@ def set_volume_levels(volume, capture):
     @param capture: The capture gain to set.
     """
     logging.info('Setting volume level to %d', volume)
-    utils.system('/usr/bin/cras_test_client --volume %d' % volume)
-    logging.info('Setting capture gain to %d', capture)
-    utils.system('/usr/bin/cras_test_client --capture_gain %d' % capture)
-    utils.system('/usr/bin/cras_test_client --dump_server_info')
-    utils.system('/usr/bin/cras_test_client --mute 0')
-    utils.system('amixer -c 0 contents')
+    try:
+        utils.system('/usr/bin/cras_test_client --volume %d' % volume)
+        logging.info('Setting capture gain to %d', capture)
+        utils.system('/usr/bin/cras_test_client --capture_gain %d' % capture)
+        utils.system('/usr/bin/cras_test_client --dump_server_info')
+        utils.system('/usr/bin/cras_test_client --mute 0')
+        utils.system('amixer -c 0 contents')
+    except error.CmdError, e:
+        raise error.TestError(
+                '*** Can not tune volume through CRAS. *** (' + str(e) + ')')
 
 def loopback_latency_check(**args):
     """Checks loopback latency.
@@ -787,106 +791,10 @@ def compare_one_channel_correlation(test_data, golden_data, parameters):
     return result_dict
 
 
-def get_one_channel_stat(data, data_format):
-    """Gets statistic information of data.
-
-    @param data: A list containing one channel data.
-    @param data_format: A dict containing data format of data.
-
-    @return: The sox stat parsed result. An object containing
-             sameple_count: An int. Samples read.
-             length: A float. Length in seconds.
-             rms: A float. RMS amplitude.
-             rough_frequency: A float. Rough frequency.
-    """
-    if not data:
-        raise ValueError('Data is empty. Can not get stat')
-    raw_data = audio_data.AudioRawData(
-            binary=None, channel=1,
-            sample_format=data_format['sample_format'])
-    raw_data.copy_channel_data([data])
-    with tempfile.NamedTemporaryFile() as raw_data_file:
-        raw_data_path = raw_data_file.name
-        raw_data.write_to_file(raw_data_path)
-
-        bits = 8 * (audio_data.SAMPLE_FORMATS[
-                    data_format['sample_format']]['size_bytes'])
-        stat = sox_utils.get_stat(raw_data_path, channels=1, bits=bits,
-                                  rate=data_format['rate'])
-        return stat
-
-
-def compare_one_channel_frequency(test_data, test_data_format,
-                                  golden_data, golden_data_format):
-    """Compares two one-channel data by frequency.
-
-    @param test_data: A list containing the data to compare against golden data.
-    @param test_data_format: A dict containing data format of test data.
-    @param golden_data: A list containing the golden data.
-    @param golden_data_format: A dict containing data format of golden data.
-
-    @returns: A dict containing:
-              test_data_frequency: test data frequency.
-              golden_data_frequency: golden data frequency.
-              equal: A bool containing comparing result.
-
-    @raises: ValueError if the test data RMS is too small to be meaningful.
-
-    """
-    result_dict = dict()
-    golden_data_stat = get_one_channel_stat(golden_data, golden_data_format)
-    logging.info('Get golden data one channel stat: %s', golden_data_stat)
-    test_data_stat = get_one_channel_stat(test_data, test_data_format)
-    logging.info('Get test data one channel stat: %s', test_data_stat)
-
-    result_dict['golden_data_frequency'] = golden_data_stat.rough_frequency
-    result_dict['test_data_frequency'] = test_data_stat.rough_frequency
-    result_dict['equal'] = True if (
-            abs(result_dict['test_data_frequency'] -
-                result_dict['golden_data_frequency']) < _FREQUENCY_DIFF_THRESHOLD
-            ) else False
-    logging.debug('result_dict: %r', result_dict)
-    if test_data_stat.rms < _MEANINGFUL_RMS_THRESHOLD:
-        raise ValueError('Recorded RMS %f is too small to be meaningful.',
-                         test_data_stat.rms)
-    return result_dict
-
-
-def compare_one_channel_data(test_data, test_data_format,
-                             golden_data, golden_data_format, method,
-                             parameters):
-    """Compares two one-channel data.
-
-    @param test_data: A list containing the data to compare against golden data.
-    @param test_data_format: The data format of test data.
-    @param golden_data: A list containing the golden data.
-    @param golden_data_format: The data format of golden data.
-    @param method: The comparing method. Currently only 'correlation' is
-                   supported.
-    @param parameters: A dict containing parameters for method.
-
-    @returns: A dict containing:
-              index: The index of similarity where 1 means they are different
-                  only by a positive scale.
-              best_delay: The best delay of test data in relative to golden
-                  data.
-              equal: A bool containing comparing result.
-
-    @raises: NotImplementedError if method is not supported.
-    """
-    if method == 'correlation':
-        return compare_one_channel_correlation(test_data, golden_data,
-                parameters)
-    if method == 'frequency':
-        return compare_one_channel_frequency(
-                test_data, test_data_format, golden_data, golden_data_format)
-    raise NotImplementedError('method %s is not implemented' % method)
-
-
-def compare_data(golden_data_binary, golden_data_format,
-                 test_data_binary, test_data_format,
-                 channel_map, method, parameters=None):
-    """Compares two raw data.
+def compare_data_correlation(golden_data_binary, golden_data_format,
+                             test_data_binary, test_data_format,
+                             channel_map, parameters=None):
+    """Compares two raw data using correlation.
 
     @param golden_data_binary: The binary containing golden data.
     @param golden_data_format: The data format of golden data.
@@ -898,16 +806,11 @@ def compare_data(golden_data_binary, golden_data_format,
                         golden data. Channel 1 of test data should map to
                         channel 0 of golden data. Channel 2 to 7 of test data
                         should be skipped.
-    @param method: The method to compare data. Use 'correlation' to compare
-                   general data. Use 'frequency' to compare data containing
-                   sine wave.
-
     @param parameters: A dict containing parameters for method, if needed.
-
-    @returns: A boolean for compare result.
 
     @raises: NotImplementedError if file type is not raw.
              NotImplementedError if sampling rates of two data are not the same.
+             error.TestFail if golden data and test data are not equal.
     """
     if parameters is None:
         parameters = dict()
@@ -936,26 +839,26 @@ def compare_data(golden_data_binary, golden_data_format,
         result_dict = dict(test_channel=test_channel,
                            golden_channel=golden_channel)
         result_dict.update(
-                compare_one_channel_data(
-                        test_data_one_channel, test_data_format,
-                        golden_data_one_channel, golden_data_format, method,
+                compare_one_channel_correlation(
+                        test_data_one_channel, golden_data_one_channel,
                         parameters))
         compare_results.append(result_dict)
     logging.info('compare_results: %r', compare_results)
-    return_value = False if not compare_results else True
     for result in compare_results:
         if not result['equal']:
-            logging.error(
-                    'Failed on test channel %d and golden channel %d',
-                    result['test_channel'], result['golden_channel'])
-            return_value = False
+            error_msg = ('Failed on test channel %d and golden channel %d with '
+                         'index %f') % (
+                                 result['test_channel'],
+                                 result['golden_channel'],
+                                 result['index'])
+            logging.error(error_msg)
+            raise error.TestFail(error_msg)
     # Also checks best delay are exactly the same.
-    if method == 'correlation':
-        best_delays = set([result['best_delay'] for result in compare_results])
-        if len(best_delays) > 1:
-            logging.error('There are more than one best delay.')
-            return_value = False
-    return return_value
+    best_delays = set([result['best_delay'] for result in compare_results])
+    if len(best_delays) > 1:
+        error_msg = 'There are more than one best delay: %s' % best_delays
+        logging.error(error_msg)
+        raise error.TestFail(error_msg)
 
 
 class _base_rms_test(test.test):
@@ -982,7 +885,7 @@ class chrome_rms_test(_base_rms_test):
         # Just do the import here for those who really need it.
         from autotest_lib.client.common_lib.cros import chrome
 
-        self.chrome = chrome.Chrome()
+        self.chrome = chrome.Chrome(init_network_controller=True)
 
         # The audio configuration could be changed when we
         # restart chrome.
@@ -995,7 +898,7 @@ class chrome_rms_test(_base_rms_test):
 
     def cleanup(self, *args):
         try:
-            self.chrome.browser.Close()
+            self.chrome.close()
         finally:
             super(chrome_rms_test, self).cleanup()
 

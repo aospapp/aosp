@@ -160,6 +160,7 @@ typedef enum camera_metadata_tag {
     ANDROID_CONTROL_AVAILABLE_MODES,                  // byte[]       | public
     ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST_RANGE, // int32[]      | public
     ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST,       // int32        | public
+    ANDROID_CONTROL_ENABLE_ZSL,                       // enum         | public
     ANDROID_CONTROL_END,
 
     ANDROID_DEMOSAIC_MODE =                           // enum         | system
@@ -604,6 +605,12 @@ typedef enum camera_metadata_enum_android_control_awb_lock_available {
     ANDROID_CONTROL_AWB_LOCK_AVAILABLE_FALSE,
     ANDROID_CONTROL_AWB_LOCK_AVAILABLE_TRUE,
 } camera_metadata_enum_android_control_awb_lock_available_t;
+
+// ANDROID_CONTROL_ENABLE_ZSL
+typedef enum camera_metadata_enum_android_control_enable_zsl {
+    ANDROID_CONTROL_ENABLE_ZSL_FALSE,
+    ANDROID_CONTROL_ENABLE_ZSL_TRUE,
+} camera_metadata_enum_android_control_enable_zsl_t;
 
 
 // ANDROID_DEMOSAIC_MODE

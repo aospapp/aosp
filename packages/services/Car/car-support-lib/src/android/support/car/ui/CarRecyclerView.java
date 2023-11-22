@@ -34,6 +34,7 @@ import java.lang.reflect.InvocationTargetException;
  *
  * It also has the ability to fade children as they scroll off screen that can be set
  * with {@link #setFadeLastItem(boolean)}.
+ * @hide
  */
 public class CarRecyclerView extends RecyclerView {
     private static final String PARCEL_CLASS = "android.os.Parcel";

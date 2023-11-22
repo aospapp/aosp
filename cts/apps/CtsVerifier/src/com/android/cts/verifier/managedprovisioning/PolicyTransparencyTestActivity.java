@@ -45,9 +45,13 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
         AdapterView.OnItemSelectedListener {
     public static final String ACTION_SHOW_POLICY_TRANSPARENCY_TEST =
             "com.android.cts.verifier.managedprovisioning.action.SHOW_POLICY_TRANSPARENCY_TEST";
+
+    // Identifies a test to perform. Type String. The possible values are the ones underneath.
     public static final String EXTRA_TEST =
             "com.android.cts.verifier.managedprovisioning.extra.TEST";
 
+    // In this case: should also contain an extra
+    // {@link CommandReceiverActivity.EXTRA_USER_RESTRICTION}
     public static final String TEST_CHECK_USER_RESTRICTION = "check-user-restriction";
     public static final String TEST_CHECK_AUTO_TIME_REQUIRED = "check-auto-time-required";
     public static final String TEST_CHECK_KEYGURAD_UNREDACTED_NOTIFICATION =
@@ -63,6 +67,8 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
             "com.android.cts.verifier.managedprovisioning.extra.SETTINGS_INTENT_ACTION";
     public static final String EXTRA_TITLE =
             "com.android.cts.verifier.managedprovisioning.extra.TITLE";
+    // Identifies the test in the calling activity. We will set the result for this test.
+    // Type: String
     public static final String EXTRA_TEST_ID =
             "com.android.cts.verifier.managedprovisioning.extra.TEST_ID";
 
@@ -266,7 +272,8 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
         return mTestId;
     }
 
-    public class DummyAccessibilityService extends AccessibilityService {
+    public static class DummyAccessibilityService extends AccessibilityService {
+
         @Override
         public void onAccessibilityEvent(AccessibilityEvent event) {
             // Do nothing
@@ -278,7 +285,7 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
         }
     }
 
-    public class DummyInputMethod extends InputMethodService {
+    public static class DummyInputMethod extends InputMethodService {
         @Override
         public boolean onEvaluateFullscreenMode() {
             return false;

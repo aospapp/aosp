@@ -5,7 +5,6 @@
 NAME = "desktopui_CrashyRebootServer"
 AUTHOR = "cmasone, jrbarnette"
 ATTRIBUTES = "suite:gpu_hang"
-SUITE = "gpu_hang"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 

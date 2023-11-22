@@ -16,33 +16,47 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.test.InstrumentationTestCase;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.LinearInterpolator;
 import android.widget.Scroller;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link Scroller}.
  */
-public class ScrollerTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ScrollerTest {
     private Scroller mScroller;
 
     private Context mTargetContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mTargetContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mTargetContext = InstrumentationRegistry.getTargetContext();
         mScroller = new Scroller(mTargetContext);
     }
 
+    @Test
     public void testConstructor() {
         new Scroller(mTargetContext);
 
         new Scroller(mTargetContext, new LinearInterpolator());
     }
 
+    @Test
     public void testIsFinished() {
         mScroller.forceFinished(true);
         assertTrue(mScroller.isFinished());
@@ -51,6 +65,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertFalse(mScroller.isFinished());
     }
 
+    @Test
     public void testGetDuration() {
         assertEquals(0, mScroller.getDuration());
 
@@ -70,6 +85,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertTrue(mScroller.getDuration() > 0);
     }
 
+    @Test
     public void testAccessFinalX() {
         assertEquals(0, mScroller.getFinalX());
         assertTrue(mScroller.isFinished());
@@ -84,6 +100,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertFalse(mScroller.isFinished());
     }
 
+    @Test
     public void testAccessFinalY() {
         assertEquals(0, mScroller.getFinalY());
         assertTrue(mScroller.isFinished());
@@ -99,6 +116,8 @@ public class ScrollerTest extends InstrumentationTestCase {
     }
 
     // We can not get the precise currX and currY when scrolling
+    @LargeTest
+    @Test
     public void testScrollMode() {
         assertEquals(0, mScroller.getFinalX());
         assertEquals(0, mScroller.getFinalY());
@@ -114,11 +133,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertEquals(5000, mScroller.getDuration());
         assertFalse(mScroller.isFinished());
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(1000);
 
         assertTrue(mScroller.computeScrollOffset());
         // between the start and final position
@@ -131,11 +146,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         int curX = mScroller.getCurrX();
         int curY = mScroller.getCurrY();
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(1000);
 
         assertTrue(mScroller.computeScrollOffset());
         // between the start and final position
@@ -148,11 +159,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertTrue(mScroller.getCurrY() < curY);
         assertFalse(mScroller.isFinished());
 
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(3000);
 
         assertTrue(mScroller.computeScrollOffset());
         // reach the final position
@@ -164,6 +171,8 @@ public class ScrollerTest extends InstrumentationTestCase {
     }
 
     // We can not get the precise currX and currY when scrolling
+    @LargeTest
+    @Test
     public void testScrollModeWithDefaultDuration() {
         assertEquals(0, mScroller.getFinalX());
         assertEquals(0, mScroller.getFinalY());
@@ -183,11 +192,7 @@ public class ScrollerTest extends InstrumentationTestCase {
 
         // the default duration is too short to get fine controlled
         // we just check whether the scroller reaches the destination
-        try {
-            Thread.sleep(defaultDuration);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(defaultDuration);
 
         assertTrue(mScroller.computeScrollOffset());
         // reach the final position
@@ -199,6 +204,8 @@ public class ScrollerTest extends InstrumentationTestCase {
     }
 
     // We can not get the precise currX and currY when scrolling
+    @LargeTest
+    @Test
     public void testFlingMode() {
         assertEquals(0, mScroller.getFinalX());
         assertEquals(0, mScroller.getFinalY());
@@ -216,11 +223,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertTrue(duration > 0);
         assertFalse(mScroller.isFinished());
 
-        try {
-            Thread.sleep(duration / 3);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(duration / 3);
         assertTrue(mScroller.computeScrollOffset());
 
         int currX = mScroller.getCurrX();
@@ -234,11 +237,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertFalse(mScroller.isFinished());
 
         // wait for the same duration as the last
-        try {
-            Thread.sleep(duration / 3);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(duration / 3);
         assertTrue(mScroller.computeScrollOffset());
 
         int previousX = currX;
@@ -258,11 +257,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertTrue(Math.abs(currY - previousY) < Math.abs(previousY - 0));
 
         // wait until the scroll finishes
-        try {
-            Thread.sleep(duration);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(duration);
         assertTrue(mScroller.computeScrollOffset());
 
         assertEquals(mScroller.getFinalX(), mScroller.getCurrX());
@@ -272,6 +267,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertFalse(mScroller.computeScrollOffset());
     }
 
+    @Test
     public void testAbortAnimation() {
         mScroller.startScroll(0, 0, 2000, -2000, 5000);
         mScroller.computeScrollOffset();
@@ -296,6 +292,8 @@ public class ScrollerTest extends InstrumentationTestCase {
     }
 
     // We can not get the precise duration after it is extended
+    @LargeTest
+    @Test
     public void testExtendDuration() {
         mScroller.startScroll(0, 0, 0, 0, 5000);
         assertEquals(5000, mScroller.getDuration());
@@ -310,11 +308,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         mScroller.startScroll(0, 0, 0, 0, 500);
         assertEquals(500, mScroller.getDuration());
 
-        try {
-            Thread.sleep(1500);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(1500);
         // the duration get extended and the scroll get started again, though the animation
         // is forced aborted, can not get the precise duration after it is extended
         mScroller.abortAnimation();
@@ -326,11 +320,7 @@ public class ScrollerTest extends InstrumentationTestCase {
         mScroller = new Scroller(mTargetContext, new LinearInterpolator());
         mScroller.startScroll(0, 0, 5000, 5000, 5000);
 
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(1000);
         mScroller.computeScrollOffset();
         int curX = mScroller.getCurrX();
         int curY = mScroller.getCurrY();
@@ -341,20 +331,14 @@ public class ScrollerTest extends InstrumentationTestCase {
         assertTrue(mScroller.getCurrY() - curY < curY - 0);
     }
 
+    @LargeTest
+    @Test
     public void testTimePassed() {
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(1000);
         // can not get precise time
         assertTrue(mScroller.timePassed() > 1000);
 
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            fail("unexpected InterruptedException when sleep");
-        }
+        SystemClock.sleep(2000);
         // can not get precise time
         // time has passed more than 2000 + 1000
         assertTrue(mScroller.timePassed() > 3000);

@@ -239,12 +239,15 @@ public class AndroidSdk {
     /**
      * Converts all the .class files on 'classpath' into a dex file written to 'output'.
      */
-    public void dex(File output, Classpath classpath) {
+    public void dex(boolean multidex, File output, Classpath classpath) {
         mkdir.mkdirs(output.getParentFile());
 
-        String key = dexCache.makeKey(classpath);
-        if (key != null) {
-            boolean cacheHit = dexCache.getFromCache(output, key);
+        String classpathSubKey = dexCache.makeKey(classpath);
+        String cacheKey = null;
+        if (classpathSubKey != null) {
+            String multidexSubKey = "mdex=" + multidex;
+            cacheKey = dexCache.makeKey(classpathSubKey, multidexSubKey);
+            boolean cacheHit = dexCache.getFromCache(output, cacheKey);
             if (cacheHit) {
                 log.verbose("dex cache hit for " + classpath);
                 return;
@@ -262,15 +265,19 @@ public class AndroidSdk {
          * Memory options pulled from build/core/definitions.mk to
          * handle large dx input when building dex for APK.
          */
-        new Command.Builder(log)
+        Command.Builder builder = new Command.Builder(log)
                 .args("dx")
                 .args("-JXms16M")
-                .args("-JXmx1536M")
-                .args("--dex")
+                .args("-JXmx1536M");
+        if (multidex) {
+            builder.args("--multi-dex");
+        }
+        builder.args("--dex")
                 .args("--output=" + output)
                 .args("--core-library")
-                .args((Object[]) Strings.objectsToStrings(classpath.getElements())).execute();
-        dexCache.insert(key, output);
+                .args((Object[]) Strings.objectsToStrings(classpath.getElements()));
+        builder.execute();
+        dexCache.insert(cacheKey, output);
     }
 
     public void packageApk(File apk, File manifest) {

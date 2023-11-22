@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2011-2014, International Business Machines
@@ -367,6 +369,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
      * Iterates from the current state of this trie.
      * @return A new CharsTrie.Iterator.
      */
+    @Override
     public Iterator iterator() {
         return new Iterator(chars_, pos_, remainingMatchLength_, 0);
     }
@@ -454,6 +457,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
         /**
          * @return true if there are more elements.
          */
+        @Override
         public boolean hasNext() /*const*/ { return pos_>=0 || !stack_.isEmpty(); }
 
         /**
@@ -466,6 +470,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
          * @return An Entry with the string and value of the next element.
          * @throws NoSuchElementException - iteration has no more elements.
          */
+        @Override
         public Entry next() {
             int pos=pos_;
             if(pos<0) {
@@ -550,6 +555,7 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
          * Iterator.remove() is not supported.
          * @throws UnsupportedOperationException (always)
          */
+        @Override
         public void remove() {
             throw new UnsupportedOperationException();
         }

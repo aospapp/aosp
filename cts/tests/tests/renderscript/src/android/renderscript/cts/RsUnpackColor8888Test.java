@@ -26,6 +26,14 @@ public class RsUnpackColor8888Test extends RSBaseCompute {
     private ScriptC_rs_unpack_color_8888 script;
 
     @Override
+    protected void tearDown() throws Exception {
+        if (script != null) {
+            script.destroy();
+        }
+        super.tearDown();
+    }
+
+    @Override
     public void forEach(int testId, Allocation mIn, Allocation mOut) throws RSRuntimeException {
         script.forEach_root(mIn, mOut);
     }
@@ -59,6 +67,9 @@ public class RsUnpackColor8888Test extends RSBaseCompute {
                 assertEquals(refArray[i+j], outArray[i+j]);
             }
         }
+
+        mAllocationIn.destroy();
+        mAllocationOut.destroy();
     }
 
     private static Float4 rs_UnpackColor8888(byte[] c) {

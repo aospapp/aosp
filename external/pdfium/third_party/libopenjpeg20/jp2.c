@@ -561,6 +561,7 @@ static OPJ_BOOL opj_jp2_read_ihdr( opj_jp2_t *jp2,
 	p_image_header_data += 2;
 
 	/* allocate memory for components */
+	opj_free(jp2->comps);
 	jp2->comps = (opj_jp2_comps_t*) opj_calloc(jp2->numcomps, sizeof(opj_jp2_comps_t));
 	if (jp2->comps == 0) {
 		opj_event_msg(p_manager, EVT_ERROR, "Not enough memory to handle image header (ihdr)\n");
@@ -971,6 +972,14 @@ static void opj_jp2_apply_pclr(opj_image_t *image, opj_jp2_color_t *color)
 	nr_channels = color->jp2_pclr->nr_channels;
 
 	old_comps = image->comps;
+	/* Overflow check: prevent integer overflow */
+	for (i = 0; i < nr_channels; ++i) {
+		cmp = cmap[i].cmp;
+		if (old_comps[cmp].h == 0 || old_comps[cmp].w > ((OPJ_UINT32)-1) / sizeof(OPJ_INT32) / old_comps[cmp].h) {
+			return;
+		}
+	}
+
 	new_comps = (opj_image_comp_t*)
 			opj_malloc(nr_channels * sizeof(opj_image_comp_t));
 	if (!new_comps) {
@@ -1010,22 +1019,28 @@ static void opj_jp2_apply_pclr(opj_image_t *image, opj_jp2_color_t *color)
 		/* Palette mapping: */
 		cmp = cmap[i].cmp; pcol = cmap[i].pcol;
 		src = old_comps[cmp].data;
-    assert( src );
+		dst = new_comps[i].data;
 		max = new_comps[i].w * new_comps[i].h;
+
+		/* Prevent null pointer access */
+		if (!src || !dst) {
+			for (j = 0; j < nr_channels; ++j) {
+				opj_free(new_comps[j].data);
+			}
+			opj_free(new_comps);
+			new_comps = NULL;
+			return;
+		}
 
 		/* Direct use: */
     if(cmap[i].mtyp == 0) {
       assert( cmp == 0 ); // probably wrong.
-      dst = new_comps[i].data;
-      assert( dst );
       for(j = 0; j < max; ++j) {
         dst[j] = src[j];
       }
     }
     else {
       assert( i == pcol ); // probably wrong?
-      dst = new_comps[i].data;
-      assert( dst );
       for(j = 0; j < max; ++j) {
         /* The index */
         if((k = src[j]) < 0) k = 0; else if(k > top_k) k = top_k;
@@ -1758,6 +1773,7 @@ void opj_jp2_setup_decoder(opj_jp2_t *jp2, opj_dparameters_t *parameters)
 
 	/* further JP2 initializations go here */
 	jp2->color.jp2_has_colr = 0;
+	jp2->comps = NULL;
     jp2->ignore_pclr_cmap_cdef = parameters->flags & OPJ_DPARAMETERS_IGNORE_PCLR_CMAP_CDEF_FLAG;
 }
 
@@ -1815,7 +1831,6 @@ OPJ_BOOL opj_jp2_setup_encoder(	opj_jp2_t *jp2,
 	jp2->numcomps = image->numcomps;	/* NC */
 	jp2->comps = (opj_jp2_comps_t*) opj_malloc(jp2->numcomps * sizeof(opj_jp2_comps_t));
 	if (!jp2->comps) {
-		jp2->comps = NULL;
 		opj_event_msg(p_manager, EVT_ERROR, "Not enough memory when setup the JP2 encoder\n");
 		/* Memory of jp2->cl will be freed by opj_jp2_destroy */
 		return OPJ_FALSE;

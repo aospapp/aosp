@@ -18,12 +18,13 @@
 #ifndef LLVM_MC_SUBTARGETFEATURE_H
 #define LLVM_MC_SUBTARGETFEATURE_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Support/DataTypes.h"
 #include <bitset>
+#include <vector>
 
 namespace llvm {
+template <typename T> class ArrayRef;
   class raw_ostream;
   class StringRef;
 
@@ -39,8 +40,8 @@ public:
   FeatureBitset(const bitset<MAX_SUBTARGET_FEATURES>& B) : bitset(B) {}
 
   FeatureBitset(std::initializer_list<unsigned> Init) : bitset() {
-    for (auto I = Init.begin() , E = Init.end(); I != E; ++I)
-      set(*I);
+    for (auto I : Init)
+      set(I);
   }
 };
 
@@ -58,6 +59,11 @@ struct SubtargetFeatureKV {
   // Compare routine for std::lower_bound
   bool operator<(StringRef S) const {
     return StringRef(Key) < S;
+  }
+
+  // Compare routine for std::is_sorted.
+  bool operator<(const SubtargetFeatureKV &Other) const {
+    return StringRef(Key) < StringRef(Other.Key);
   }
 };
 
@@ -98,14 +104,13 @@ public:
   /// Adding Features.
   void AddFeature(StringRef String, bool Enable = true);
 
-  /// ToggleFeature - Toggle a feature and returns the newly updated feature
-  /// bits.
-  FeatureBitset ToggleFeature(FeatureBitset Bits, StringRef String,
-                         ArrayRef<SubtargetFeatureKV> FeatureTable);
+  /// ToggleFeature - Toggle a feature and update the feature bits.
+  static void ToggleFeature(FeatureBitset &Bits, StringRef String,
+                            ArrayRef<SubtargetFeatureKV> FeatureTable);
 
-  /// Apply the feature flag and return the newly updated feature bits.
-  FeatureBitset ApplyFeatureFlag(FeatureBitset Bits, StringRef Feature,
-                                 ArrayRef<SubtargetFeatureKV> FeatureTable);
+  /// Apply the feature flag and update the feature bits.
+  static void ApplyFeatureFlag(FeatureBitset &Bits, StringRef Feature,
+                               ArrayRef<SubtargetFeatureKV> FeatureTable);
 
   /// Get feature bits of a CPU.
   FeatureBitset getFeatureBits(StringRef CPU,

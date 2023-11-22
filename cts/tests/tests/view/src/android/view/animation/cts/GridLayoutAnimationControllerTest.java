@@ -16,12 +16,14 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-
-import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.filters.LargeTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -29,19 +31,20 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.animation.GridLayoutAnimationController;
-import android.view.animation.Transformation;
 import android.view.animation.GridLayoutAnimationController.AnimationParameters;
+import android.view.animation.Transformation;
+import android.view.cts.R;
 import android.widget.AbsListView;
 import android.widget.GridView;
 
-public class GridLayoutAnimationControllerTest
-    extends ActivityInstrumentationTestCase2<GridLayoutAnimCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private GridLayoutAnimCtsActivity mActivity;
-    private Animation mDefaultAnimation;
-    private GridLayoutAnimationController mController;
-    /** The GridView will be 3*3 */
-    private GridView mGridView;
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class GridLayoutAnimationControllerTest {
     /** Default delay of GridLayoutAnimationController */
     private static final float DEFAULT_DELAY = 0.5f;
     /** Default max duration of running */
@@ -57,14 +60,19 @@ public class GridLayoutAnimationControllerTest
     private static final int INDEX_OF_CHILD8 = 7;
     private static final int INDEX_OF_CHILD9 = 8;
 
-    public GridLayoutAnimationControllerTest() {
-        super("android.view.cts", GridLayoutAnimCtsActivity.class);
-    }
+    private GridLayoutAnimCtsActivity mActivity;
+    private Animation mDefaultAnimation;
+    private GridLayoutAnimationController mController;
+    /** The GridView will be 3*3 */
+    private GridView mGridView;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Rule
+    public ActivityTestRule<GridLayoutAnimCtsActivity> mActivityRule =
+            new ActivityTestRule<>(GridLayoutAnimCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
         mDefaultAnimation = AnimationUtils.loadAnimation(mActivity,
                 R.anim.layout_anim_controller_animation);
         mController = new GridLayoutAnimationController(mDefaultAnimation, DEFAULT_DELAY,
@@ -72,6 +80,7 @@ public class GridLayoutAnimationControllerTest
         mGridView = mActivity.getGridView();
     }
 
+    @Test
     public void testConstructor() {
         XmlResourceParser parser = mActivity.getResources().getAnimation(
                 R.anim.accelerate_decelerate_alpha);
@@ -80,17 +89,18 @@ public class GridLayoutAnimationControllerTest
         GridLayoutAnimationController controller =
                 new GridLayoutAnimationController(mDefaultAnimation);
         // Default rowDelay and columnDelay is 0.5f
-        assertEquals(DEFAULT_DELAY, controller.getRowDelay());
-        assertEquals(DEFAULT_DELAY, controller.getColumnDelay());
+        assertEquals(DEFAULT_DELAY, controller.getRowDelay(), 0.0f);
+        assertEquals(DEFAULT_DELAY, controller.getColumnDelay(), 0.0f);
         new GridLayoutAnimationController(mDefaultAnimation, 0.5f, 0.5f);
     }
 
-    public void testAccessDelay() throws InterruptedException {
+    @Test
+    public void testAccessDelay() throws Throwable {
         float delay = 1.5f;
         long maxDuration = 13000;
         mController.setRowDelay(delay);
-        assertEquals(delay, mController.getRowDelay());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, mController,
+        assertEquals(delay, mController.getRowDelay(), 0.0f);
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, mController,
                 maxDuration);
 
         Animation childAnimation1 = mGridView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -99,8 +109,8 @@ public class GridLayoutAnimationControllerTest
         assertChildrenDelay(childAnimation1, childAnimation4, childAnimation7);
 
         mController.setColumnDelay(delay);
-        assertEquals(delay, mController.getColumnDelay());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, mController,
+        assertEquals(delay, mController.getColumnDelay(), 0.0f);
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, mController,
                 maxDuration);
 
         childAnimation1 = mGridView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -174,11 +184,12 @@ public class GridLayoutAnimationControllerTest
         assertTrue(alpha < 1.0f);
     }
 
-    public void testAccessDirection() throws InterruptedException {
+    @Test
+    public void testAccessDirection() throws Throwable {
         mController.setDirection(GridLayoutAnimationController.DIRECTION_BOTTOM_TO_TOP);
         assertEquals(GridLayoutAnimationController.DIRECTION_BOTTOM_TO_TOP,
                 mController.getDirection());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, mController,
                 DEFAULT_MAX_DURATION);
 
         Animation childAnimation1 = mGridView.getChildAt(INDEX_OF_CHILD1).getAnimation();
@@ -225,7 +236,7 @@ public class GridLayoutAnimationControllerTest
         mController.setDirection(GridLayoutAnimationController.DIRECTION_TOP_TO_BOTTOM);
         assertEquals(GridLayoutAnimationController.DIRECTION_TOP_TO_BOTTOM,
                 mController.getDirection());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, mController,
                 DEFAULT_MAX_DURATION);
 
         transformation1 = new Transformation();
@@ -266,6 +277,7 @@ public class GridLayoutAnimationControllerTest
         assertIsRunningAnimation(transformation3.getAlpha());
     }
 
+    @Test
     public void testGetDelayForView() throws Throwable {
         Animation animation = AnimationUtils.loadAnimation(mActivity, R.anim.decelerate_alpha);
         animation.setFillAfter(true);
@@ -299,21 +311,19 @@ public class GridLayoutAnimationControllerTest
         final View child7 = mGridView.getChildAt(INDEX_OF_CHILD7);
         final View child8 = mGridView.getChildAt(INDEX_OF_CHILD8);
         final View child9 = mGridView.getChildAt(INDEX_OF_CHILD9);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                child1.setLayoutParams(layoutParams1);
-                child2.setLayoutParams(layoutParams2);
-                child3.setLayoutParams(layoutParams3);
-                child4.setLayoutParams(layoutParams4);
-                child5.setLayoutParams(layoutParams5);
-                child6.setLayoutParams(layoutParams6);
-                child7.setLayoutParams(layoutParams7);
-                child8.setLayoutParams(layoutParams8);
-                child9.setLayoutParams(layoutParams9);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            child1.setLayoutParams(layoutParams1);
+            child2.setLayoutParams(layoutParams2);
+            child3.setLayoutParams(layoutParams3);
+            child4.setLayoutParams(layoutParams4);
+            child5.setLayoutParams(layoutParams5);
+            child6.setLayoutParams(layoutParams6);
+            child7.setLayoutParams(layoutParams7);
+            child8.setLayoutParams(layoutParams8);
+            child9.setLayoutParams(layoutParams9);
         });
 
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, controller,
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, controller,
                 DEFAULT_MAX_DURATION);
 
         assertEquals(0, controller.getDelayForView(child1));
@@ -337,10 +347,11 @@ public class GridLayoutAnimationControllerTest
         return layoutParams;
     }
 
-    public void testAccessDirectionPriority() throws InterruptedException {
+    @Test
+    public void testAccessDirectionPriority() throws Throwable {
         // Before setting DirectionPriority, childAnimation7 will be later than childAnimation2,
         // and childAnimation8 will be later than childAnimation3
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, mController,
                 DEFAULT_MAX_DURATION);
         Animation childAnimation1 = mGridView.getChildAt(INDEX_OF_CHILD1).getAnimation();
         Animation childAnimation2 = mGridView.getChildAt(INDEX_OF_CHILD2).getAnimation();
@@ -373,7 +384,7 @@ public class GridLayoutAnimationControllerTest
         mController.setDirectionPriority(GridLayoutAnimationController.PRIORITY_COLUMN);
         assertEquals(GridLayoutAnimationController.PRIORITY_COLUMN,
                 mController.getDirectionPriority());
-        AnimationTestUtils.assertRunController(getInstrumentation(), mGridView, mController,
+        AnimationTestUtils.assertRunController(mActivityRule, mGridView, mController,
                 DEFAULT_MAX_DURATION);
         childAnimation1 = mGridView.getChildAt(INDEX_OF_CHILD1).getAnimation();
         childAnimation2 = mGridView.getChildAt(INDEX_OF_CHILD2).getAnimation();
@@ -401,6 +412,7 @@ public class GridLayoutAnimationControllerTest
         assertIsRunningAnimation(transformation2.getAlpha());
     }
 
+    @Test
     public void testWillOverlap() {
         GridLayoutAnimationController controller = new GridLayoutAnimationController(
                 mDefaultAnimation);

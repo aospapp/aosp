@@ -277,6 +277,14 @@ struct eapol_ctx {
 	 * @ctx: eapol_ctx from eap_peer_sm_init() call
 	 */
 	void (*eap_proxy_cb)(void *ctx);
+
+	/**
+	 * eap_proxy_notify_sim_status - Notification of SIM status change
+	 * @ctx: eapol_ctx from eap_peer_sm_init() call
+	 * @status: One of enum value from sim_state
+	 */
+	void (*eap_proxy_notify_sim_status)(void *ctx,
+					    enum eap_proxy_sim_state sim_state);
 #endif /* CONFIG_EAP_PROXY */
 
 	/**
@@ -328,6 +336,9 @@ void eapol_sm_set_ext_pw_ctx(struct eapol_sm *sm,
 			     struct ext_password_data *ext);
 int eapol_sm_failed(struct eapol_sm *sm);
 void eapol_sm_erp_flush(struct eapol_sm *sm);
+struct wpabuf * eapol_sm_build_erp_reauth_start(struct eapol_sm *sm);
+void eapol_sm_process_erp_finish(struct eapol_sm *sm, const u8 *buf,
+				 size_t len);
 int eapol_sm_get_eap_proxy_imsi(struct eapol_sm *sm, char *imsi, size_t *len);
 #else /* IEEE8021X_EAPOL */
 static inline struct eapol_sm *eapol_sm_init(struct eapol_ctx *ctx)
@@ -436,6 +447,15 @@ static inline int eapol_sm_failed(struct eapol_sm *sm)
 	return 0;
 }
 static inline void eapol_sm_erp_flush(struct eapol_sm *sm)
+{
+}
+static inline struct wpabuf *
+eapol_sm_build_erp_reauth_start(struct eapol_sm *sm)
+{
+	return NULL;
+}
+static inline void eapol_sm_process_erp_finish(struct eapol_sm *sm,
+					       const u8 *buf, size_t len)
 {
 }
 #endif /* IEEE8021X_EAPOL */

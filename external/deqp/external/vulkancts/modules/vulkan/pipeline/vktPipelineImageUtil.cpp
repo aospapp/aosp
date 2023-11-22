@@ -164,6 +164,42 @@ VkBorderColor getFormatBorderColor (BorderColor color, VkFormat format)
 	return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 }
 
+void getLookupScaleBias (vk::VkFormat format, tcu::Vec4& lookupScale, tcu::Vec4& lookupBias)
+{
+	if (!isCompressedFormat(format))
+	{
+		const tcu::TextureFormatInfo	fmtInfo	= tcu::getTextureFormatInfo(mapVkFormat(format));
+
+		// Needed to normalize various formats to 0..1 range for writing into RT
+		lookupScale	= fmtInfo.lookupScale;
+		lookupBias	= fmtInfo.lookupBias;
+	}
+	else
+	{
+		switch (format)
+		{
+			case VK_FORMAT_EAC_R11_SNORM_BLOCK:
+				lookupScale	= tcu::Vec4(0.5f, 1.0f, 1.0f, 1.0f);
+				lookupBias	= tcu::Vec4(0.5f, 0.0f, 0.0f, 0.0f);
+				break;
+
+			case VK_FORMAT_EAC_R11G11_SNORM_BLOCK:
+				lookupScale	= tcu::Vec4(0.5f, 0.5f, 1.0f, 1.0f);
+				lookupBias	= tcu::Vec4(0.5f, 0.5f, 0.0f, 0.0f);
+				break;
+
+			default:
+				// else: All supported compressed formats are fine with no normalization.
+				//		 ASTC LDR blocks decompress to f16 so querying normalization parameters
+				//		 based on uncompressed formats would actually lead to massive precision loss
+				//		 and complete lack of coverage in case of R8G8B8A8_UNORM RT.
+				lookupScale	= tcu::Vec4(1.0f);
+				lookupBias	= tcu::Vec4(0.0f);
+				break;
+		}
+	}
+}
+
 de::MovePtr<tcu::TextureLevel> readColorAttachment (const vk::DeviceInterface&	vk,
 													vk::VkDevice				device,
 													vk::VkQueue					queue,
@@ -315,19 +351,42 @@ de::MovePtr<tcu::TextureLevel> readColorAttachment (const vk::DeviceInterface&	v
 	VK_CHECK(vk.waitForFences(device, 1, &fence.get(), 0, ~(0ull) /* infinity */));
 
 	// Read buffer data
-	invalidateMappedMemoryRange(vk, device, bufferAlloc->getMemory(), bufferAlloc->getOffset(), pixelDataSize);
+	invalidateMappedMemoryRange(vk, device, bufferAlloc->getMemory(), bufferAlloc->getOffset(), VK_WHOLE_SIZE);
 	tcu::copy(*resultLevel, tcu::ConstPixelBufferAccess(resultLevel->getFormat(), resultLevel->getSize(), bufferAlloc->getHostPtr()));
 
 	return resultLevel;
 }
 
-void uploadTestTexture (const DeviceInterface&			vk,
-						VkDevice						device,
-						VkQueue							queue,
-						deUint32						queueFamilyIndex,
-						Allocator&						allocator,
-						const TestTexture&				srcTexture,
-						VkImage							destImage)
+namespace
+{
+
+VkImageAspectFlags getImageAspectFlags (const tcu::TextureFormat textureFormat)
+{
+	VkImageAspectFlags imageAspectFlags = 0;
+
+	if (tcu::hasDepthComponent(textureFormat.order))
+		imageAspectFlags |= VK_IMAGE_ASPECT_DEPTH_BIT;
+
+	if (tcu::hasStencilComponent(textureFormat.order))
+		imageAspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
+	if (imageAspectFlags == 0)
+		imageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	return imageAspectFlags;
+}
+
+} // anonymous
+
+void uploadTestTextureInternal (const DeviceInterface&			vk,
+								VkDevice						device,
+								VkQueue							queue,
+								deUint32						queueFamilyIndex,
+								Allocator&						allocator,
+								const TestTexture&				srcTexture,
+								const TestTexture*				srcStencilTexture,
+								tcu::TextureFormat				format,
+								VkImage							destImage)
 {
 	deUint32						bufferSize;
 	Move<VkBuffer>					buffer;
@@ -335,10 +394,20 @@ void uploadTestTexture (const DeviceInterface&			vk,
 	Move<VkCommandPool>				cmdPool;
 	Move<VkCommandBuffer>			cmdBuffer;
 	Move<VkFence>					fence;
-	std::vector<deUint32>			levelDataSizes;
+	const VkImageAspectFlags		imageAspectFlags	= getImageAspectFlags(format);
+	deUint32						stencilOffset		= 0u;
 
 	// Calculate buffer size
 	bufferSize =  (srcTexture.isCompressed())? srcTexture.getCompressedSize(): srcTexture.getSize();
+
+	// Stencil-only texture should be provided if (and only if) the image has a combined DS format
+	DE_ASSERT((tcu::hasDepthComponent(format.order) && tcu::hasStencilComponent(format.order)) == (srcStencilTexture != DE_NULL));
+
+	if (srcStencilTexture != DE_NULL)
+	{
+		stencilOffset	= static_cast<deUint32>(deAlign32(static_cast<deInt32>(bufferSize), 4));
+		bufferSize		= stencilOffset + srcStencilTexture->getSize();
+	}
 
 	// Create source buffer
 	{
@@ -421,11 +490,11 @@ void uploadTestTexture (const DeviceInterface&			vk,
 		VK_QUEUE_FAMILY_IGNORED,						// deUint32					dstQueueFamilyIndex;
 		destImage,										// VkImage					image;
 		{												// VkImageSubresourceRange	subresourceRange;
-			VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspect	aspect;
-			0u,										// deUint32			baseMipLevel;
-			(deUint32)srcTexture.getNumLevels(),	// deUint32			mipLevels;
-			0u,										// deUint32			baseArraySlice;
-			(deUint32)srcTexture.getArraySize(),	// deUint32			arraySize;
+			imageAspectFlags,						// VkImageAspectFlags	aspectMask;
+			0u,										// deUint32				baseMipLevel;
+			(deUint32)srcTexture.getNumLevels(),	// deUint32				mipLevels;
+			0u,										// deUint32				baseArraySlice;
+			(deUint32)srcTexture.getArraySize(),	// deUint32				arraySize;
 		}
 	};
 
@@ -441,11 +510,11 @@ void uploadTestTexture (const DeviceInterface&			vk,
 		VK_QUEUE_FAMILY_IGNORED,						// deUint32					dstQueueFamilyIndex;
 		destImage,										// VkImage					image;
 		{												// VkImageSubresourceRange	subresourceRange;
-			VK_IMAGE_ASPECT_COLOR_BIT,				// VkImageAspect	aspect;
-			0u,										// deUint32			baseMipLevel;
-			(deUint32)srcTexture.getNumLevels(),	// deUint32			mipLevels;
-			0u,										// deUint32			baseArraySlice;
-			(deUint32)srcTexture.getArraySize(),	// deUint32			arraySize;
+			imageAspectFlags,						// VkImageAspectFlags	aspectMask;
+			0u,										// deUint32				baseMipLevel;
+			(deUint32)srcTexture.getNumLevels(),	// deUint32				mipLevels;
+			0u,										// deUint32				baseArraySlice;
+			(deUint32)srcTexture.getArraySize(),	// deUint32				arraySize;
 		}
 	};
 
@@ -457,11 +526,28 @@ void uploadTestTexture (const DeviceInterface&			vk,
 		(const VkCommandBufferInheritanceInfo*)DE_NULL,
 	};
 
-	const std::vector<VkBufferImageCopy>	copyRegions		= srcTexture.getBufferCopyRegions();
+	std::vector<VkBufferImageCopy>	copyRegions		= srcTexture.getBufferCopyRegions();
 
 	// Write buffer data
 	srcTexture.write(reinterpret_cast<deUint8*>(bufferAlloc->getHostPtr()));
-	flushMappedMemoryRange(vk, device, bufferAlloc->getMemory(), bufferAlloc->getOffset(), bufferSize);
+
+	if (srcStencilTexture != DE_NULL)
+	{
+		DE_ASSERT(stencilOffset != 0u);
+
+		srcStencilTexture->write(reinterpret_cast<deUint8*>(bufferAlloc->getHostPtr()) + stencilOffset);
+
+		std::vector<VkBufferImageCopy>	stencilCopyRegions = srcStencilTexture->getBufferCopyRegions();
+		for (size_t regionIdx = 0; regionIdx < stencilCopyRegions.size(); regionIdx++)
+		{
+			VkBufferImageCopy region = stencilCopyRegions[regionIdx];
+			region.bufferOffset += stencilOffset;
+
+			copyRegions.push_back(region);
+		}
+	}
+
+	flushMappedMemoryRange(vk, device, bufferAlloc->getMemory(), bufferAlloc->getOffset(), VK_WHOLE_SIZE);
 
 	// Copy buffer to image
 	VK_CHECK(vk.beginCommandBuffer(*cmdBuffer, &cmdBufferBeginInfo));
@@ -488,6 +574,47 @@ void uploadTestTexture (const DeviceInterface&			vk,
 	VK_CHECK(vk.waitForFences(device, 1, &fence.get(), true, ~(0ull) /* infinity */));
 }
 
+void uploadTestTexture (const DeviceInterface&			vk,
+						VkDevice						device,
+						VkQueue							queue,
+						deUint32						queueFamilyIndex,
+						Allocator&						allocator,
+						const TestTexture&				srcTexture,
+						VkImage							destImage)
+{
+	if (tcu::isCombinedDepthStencilType(srcTexture.getTextureFormat().type))
+	{
+		de::MovePtr<TestTexture> srcDepthTexture;
+		de::MovePtr<TestTexture> srcStencilTexture;
+
+		if (tcu::hasDepthComponent(srcTexture.getTextureFormat().order))
+		{
+			tcu::TextureFormat format;
+			switch (srcTexture.getTextureFormat().type) {
+			case tcu::TextureFormat::UNSIGNED_INT_16_8_8:
+				format = tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::UNORM_INT16);
+				break;
+			case tcu::TextureFormat::UNSIGNED_INT_24_8_REV:
+				format = tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::UNSIGNED_INT_24_8_REV);
+				break;
+			case tcu::TextureFormat::FLOAT_UNSIGNED_INT_24_8_REV:
+				format = tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::FLOAT);
+				break;
+			default:
+				DE_ASSERT(0);
+				break;
+			}
+			srcDepthTexture = srcTexture.copy(format);
+		}
+
+		if (tcu::hasStencilComponent(srcTexture.getTextureFormat().order))
+			srcStencilTexture = srcTexture.copy(tcu::getEffectiveDepthStencilTextureFormat(srcTexture.getTextureFormat(), tcu::Sampler::MODE_STENCIL));
+
+		uploadTestTextureInternal(vk, device, queue, queueFamilyIndex, allocator, *srcDepthTexture, srcStencilTexture.get(), srcTexture.getTextureFormat(), destImage);
+	}
+	else
+		uploadTestTextureInternal(vk, device, queue, queueFamilyIndex, allocator, srcTexture, DE_NULL, srcTexture.getTextureFormat(), destImage);
+}
 
 // Utilities for test textures
 
@@ -508,7 +635,6 @@ std::vector<tcu::PixelBufferAccess> getLevelsVector (const TcuTextureType& textu
 
 	return levels;
 }
-
 
 // TestTexture
 
@@ -606,7 +732,7 @@ std::vector<VkBufferImageCopy> TestTexture::getBufferCopyRegions (void) const
 {
 	std::vector<deUint32>			offsetMultiples;
 	std::vector<VkBufferImageCopy>	regions;
-	deUint32						layerDataOffset	= 0;
+	deUint32						layerDataOffset = 0;
 
 	offsetMultiples.push_back(4);
 
@@ -648,6 +774,18 @@ std::vector<VkBufferImageCopy> TestTexture::getBufferCopyRegions (void) const
 	}
 	else
 	{
+		std::vector<VkImageAspectFlags>	imageAspects;
+		tcu::TextureFormat				textureFormat	= getTextureFormat();
+
+		if (tcu::hasDepthComponent(textureFormat.order))
+			imageAspects.push_back(VK_IMAGE_ASPECT_DEPTH_BIT);
+
+		if (tcu::hasStencilComponent(textureFormat.order))
+			imageAspects.push_back(VK_IMAGE_ASPECT_STENCIL_BIT);
+
+		if (imageAspects.empty())
+			imageAspects.push_back(VK_IMAGE_ASPECT_COLOR_BIT);
+
 		offsetMultiples.push_back(getLevel(0, 0).getFormat().getPixelSize());
 
 		for (int levelNdx = 0; levelNdx < getNumLevels(); levelNdx++)
@@ -658,26 +796,29 @@ std::vector<VkBufferImageCopy> TestTexture::getBufferCopyRegions (void) const
 
 				layerDataOffset = getNextMultiple(offsetMultiples, layerDataOffset);
 
-				const VkBufferImageCopy layerRegion =
+				for (size_t aspectIndex = 0; aspectIndex < imageAspects.size(); ++aspectIndex)
 				{
-					layerDataOffset,						// VkDeviceSize				bufferOffset;
-					(deUint32)level.getWidth(),				// deUint32					bufferRowLength;
-					(deUint32)level.getHeight(),			// deUint32					bufferImageHeight;
-					{										// VkImageSubresourceLayers	imageSubresource;
-						VK_IMAGE_ASPECT_COLOR_BIT,
-						(deUint32)levelNdx,
-						(deUint32)layerNdx,
-						1u
-					},
-					{ 0u, 0u, 0u },							// VkOffset3D			imageOffset;
-					{										// VkExtent3D			imageExtent;
-						(deUint32)level.getWidth(),
-						(deUint32)level.getHeight(),
-						(deUint32)level.getDepth()
-					}
-				};
+					const VkBufferImageCopy layerRegion =
+					{
+						layerDataOffset,						// VkDeviceSize				bufferOffset;
+						(deUint32)level.getWidth(),				// deUint32					bufferRowLength;
+						(deUint32)level.getHeight(),			// deUint32					bufferImageHeight;
+						{										// VkImageSubresourceLayers	imageSubresource;
+							imageAspects[aspectIndex],
+							(deUint32)levelNdx,
+							(deUint32)layerNdx,
+							1u
+						},
+						{ 0u, 0u, 0u },							// VkOffset3D			imageOffset;
+						{										// VkExtent3D			imageExtent;
+							(deUint32)level.getWidth(),
+							(deUint32)level.getHeight(),
+							(deUint32)level.getDepth()
+						}
+					};
 
-				regions.push_back(layerRegion);
+					regions.push_back(layerRegion);
+				}
 				layerDataOffset += level.getWidth() * level.getHeight() * level.getDepth() * level.getFormat().getPixelSize();
 			}
 		}
@@ -730,6 +871,13 @@ void TestTexture::write (deUint8* destPtr) const
 	}
 }
 
+void TestTexture::copyToTexture (TestTexture& destTexture) const
+{
+	for (int levelNdx = 0; levelNdx < getNumLevels(); levelNdx++)
+		for (int layerNdx = 0; layerNdx < getArraySize(); layerNdx++)
+			tcu::copy(destTexture.getLevel(levelNdx, layerNdx), getLevel(levelNdx, layerNdx));
+}
+
 void TestTexture::populateLevels (const std::vector<tcu::PixelBufferAccess>& levels)
 {
 	for (size_t levelNdx = 0; levelNdx < levels.size(); levelNdx++)
@@ -757,8 +905,10 @@ void TestTexture::populateCompressedLevels (tcu::CompressedTexFormat format, con
 		else
 		{
 			// Generate random compressed data
-			for (int byteNdx = 0; byteNdx < compressedLevel->getDataSize(); byteNdx++)
-				compressedData[byteNdx] = 0xFF & random.getUint32();
+			// Random initial values cause assertion during the decompression in case of COMPRESSEDTEXFORMAT_ETC1_RGB8 format
+			if (format != tcu::COMPRESSEDTEXFORMAT_ETC1_RGB8)
+				for (int byteNdx = 0; byteNdx < compressedLevel->getDataSize(); byteNdx++)
+					compressedData[byteNdx] = 0xFF & random.getUint32();
 		}
 
 		m_compressedLevels.push_back(compressedLevel);
@@ -820,6 +970,21 @@ const tcu::Texture1D& TestTexture1D::getTexture (void) const
 	return m_texture;
 }
 
+tcu::Texture1D& TestTexture1D::getTexture (void)
+{
+	return m_texture;
+}
+
+de::MovePtr<TestTexture> TestTexture1D::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTexture1D(format, m_texture.getWidth()));
+
+	copyToTexture(*texture);
+
+	return texture;
+}
 
 // TestTexture1DArray
 
@@ -877,11 +1042,26 @@ const tcu::Texture1DArray& TestTexture1DArray::getTexture (void) const
 	return m_texture;
 }
 
+tcu::Texture1DArray& TestTexture1DArray::getTexture (void)
+{
+	return m_texture;
+}
+
 int TestTexture1DArray::getArraySize (void) const
 {
 	return m_texture.getNumLayers();
 }
 
+de::MovePtr<TestTexture> TestTexture1DArray::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTexture1DArray(format, m_texture.getWidth(), getArraySize()));
+
+	copyToTexture(*texture);
+
+	return texture;
+}
 
 // TestTexture2D
 
@@ -929,6 +1109,21 @@ const tcu::Texture2D& TestTexture2D::getTexture (void) const
 	return m_texture;
 }
 
+tcu::Texture2D& TestTexture2D::getTexture (void)
+{
+	return m_texture;
+}
+
+de::MovePtr<TestTexture> TestTexture2D::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTexture2D(format, m_texture.getWidth(), m_texture.getHeight()));
+
+	copyToTexture(*texture);
+
+	return texture;
+}
 
 // TestTexture2DArray
 
@@ -986,11 +1181,26 @@ const tcu::Texture2DArray& TestTexture2DArray::getTexture (void) const
 	return m_texture;
 }
 
+tcu::Texture2DArray& TestTexture2DArray::getTexture (void)
+{
+	return m_texture;
+}
+
 int TestTexture2DArray::getArraySize (void) const
 {
 	return m_texture.getNumLayers();
 }
 
+de::MovePtr<TestTexture> TestTexture2DArray::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTexture2DArray(format, m_texture.getWidth(), m_texture.getHeight(), getArraySize()));
+
+	copyToTexture(*texture);
+
+	return texture;
+}
 
 // TestTexture3D
 
@@ -1038,6 +1248,21 @@ const tcu::Texture3D& TestTexture3D::getTexture (void) const
 	return m_texture;
 }
 
+tcu::Texture3D& TestTexture3D::getTexture (void)
+{
+	return m_texture;
+}
+
+de::MovePtr<TestTexture> TestTexture3D::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTexture3D(format, m_texture.getWidth(), m_texture.getHeight(), m_texture.getDepth()));
+
+	copyToTexture(*texture);
+
+	return texture;
+}
 
 // TestTextureCube
 
@@ -1092,14 +1317,14 @@ int TestTextureCube::getNumLevels (void) const
 	return m_texture.getNumLevels();
 }
 
-tcu::PixelBufferAccess TestTextureCube::getLevel (int level, int face)
+tcu::PixelBufferAccess TestTextureCube::getLevel (int level, int layer)
 {
-	return m_texture.getLevelFace(level, (tcu::CubeFace)face);
+	return m_texture.getLevelFace(level, tcuFaceMapping[layer]);
 }
 
-const tcu::ConstPixelBufferAccess TestTextureCube::getLevel (int level, int face) const
+const tcu::ConstPixelBufferAccess TestTextureCube::getLevel (int level, int layer) const
 {
-	return m_texture.getLevelFace(level, (tcu::CubeFace)face);
+	return m_texture.getLevelFace(level, tcuFaceMapping[layer]);
 }
 
 int TestTextureCube::getArraySize (void) const
@@ -1110,6 +1335,22 @@ int TestTextureCube::getArraySize (void) const
 const tcu::TextureCube& TestTextureCube::getTexture (void) const
 {
 	return m_texture;
+}
+
+tcu::TextureCube& TestTextureCube::getTexture (void)
+{
+	return m_texture;
+}
+
+de::MovePtr<TestTexture> TestTextureCube::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTextureCube(format, m_texture.getSize()));
+
+	copyToTexture(*texture);
+
+	return texture;
 }
 
 // TestTextureCubeArray
@@ -1173,6 +1414,22 @@ int TestTextureCubeArray::getArraySize (void) const
 const tcu::TextureCubeArray& TestTextureCubeArray::getTexture (void) const
 {
 	return m_texture;
+}
+
+tcu::TextureCubeArray& TestTextureCubeArray::getTexture (void)
+{
+	return m_texture;
+}
+
+de::MovePtr<TestTexture> TestTextureCubeArray::copy(const tcu::TextureFormat format) const
+{
+	DE_ASSERT(!isCompressed());
+
+	de::MovePtr<TestTexture>	texture	(new TestTextureCubeArray(format, m_texture.getSize(), getArraySize()));
+
+	copyToTexture(*texture);
+
+	return texture;
 }
 
 } // pipeline

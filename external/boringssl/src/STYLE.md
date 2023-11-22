@@ -14,10 +14,10 @@ concerned, balance consistency within a module with the benefits of a
 given rule. Module-wide deviations on naming should be respected while
 integer and return value conventions take precedence over consistency.
 
-Some modules have seen few changes, so they still retain the original
-indentation style for now. When editing these, try to retain the
-original style. For Emacs, `doc/c-indentation.el` from OpenSSL may be
-helpful in this.
+Modules from OpenSSL's legacy ASN.1 and X.509 stack are retained for
+compatibility and left largely unmodified. To ease importing patches from
+upstream, they match OpenSSL's new indentation style. For Emacs,
+`doc/openssl-c-indent.el` from OpenSSL may be helpful in this.
 
 
 ## Language
@@ -27,7 +27,9 @@ Google style guide do not apply. Support for C99 features depends on
 our target platforms. Typically, Chromium's target MSVC is the most
 restrictive.
 
-Variable declarations in the middle of a function are allowed.
+Variable declarations in the middle of a function or inside a `for` loop are
+allowed and preferred where possible. Note that the common `goto err` cleanup
+pattern requires lifting some variable declarations.
 
 Comments should be `/* C-style */` for consistency.
 
@@ -42,6 +44,16 @@ not
 
 Rather than `malloc()` and `free()`, use the wrappers `OPENSSL_malloc()`
 and `OPENSSL_free()`. Use the standard C `assert()` function freely.
+
+Use the following wrappers, found in `crypto/internal.h` instead of the
+corresponding C standard library functions. They behave the same but avoid
+confusing undefined behavior.
+
+* `OPENSSL_memchr`
+* `OPENSSL_memcmp`
+* `OPENSSL_memcpy`
+* `OPENSSL_memmove`
+* `OPENSSL_memset`
 
 For new constants, prefer enums when the values are sequential and typed
 constants for flags. If adding values to an existing set of `#define`s,
@@ -157,7 +169,7 @@ For example,
     /* CBB_add_asn sets |*out_contents| to a |CBB| into which the contents of an
      * ASN.1 object can be written. The |tag| argument will be used as the tag for
      * the object. It returns one on success or zero on error. */
-    OPENSSL_EXPORT int CBB_add_asn1(CBB *cbb, CBB *out_contents, uint8_t tag);
+    OPENSSL_EXPORT int CBB_add_asn1(CBB *cbb, CBB *out_contents, unsigned tag);
 
 
 ## Documentation

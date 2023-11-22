@@ -414,8 +414,16 @@ UWORD32  ihevcd_bits_num_bits_remaining(bitstrm_t *ps_bitstrm)
                                  3) + ps_bitstrm->u4_bit_ofst;
 
     u4_size_in_bits = (UWORD32)(ps_bitstrm->pu1_buf_max -
-                    ps_bitstrm->pu1_buf_base);
-    return (u4_size_in_bits - u4_bits_consumed);
+                    ps_bitstrm->pu1_buf_base) - 8;
+    u4_size_in_bits <<= 3;
+    if(u4_size_in_bits > u4_bits_consumed)
+    {
+        return (u4_size_in_bits - u4_bits_consumed);
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 /**

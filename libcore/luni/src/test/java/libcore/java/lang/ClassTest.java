@@ -23,6 +23,11 @@ import java.io.OutputStream;
 import junit.framework.TestCase;
 
 import dalvik.system.PathClassLoader;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Method;
+import java.util.TreeMap;
+import java.util.function.Function;
 
 public class ClassTest extends TestCase {
 
@@ -120,4 +125,190 @@ public class ClassTest extends TestCase {
           fail("Got exception");
       }
     }
+
+    public static class TestGetVirtualMethod_Super {
+        protected String protectedMethod() {
+            return "protectedMethod";
+        }
+
+        public String publicMethod() {
+            return "publicMethod";
+        }
+
+        /* package */ String packageMethod() {
+            return "packageMethod";
+        }
+    }
+
+    public static class TestGetVirtualMethod extends TestGetVirtualMethod_Super {
+        public static void staticMethod(String foo) {
+        }
+
+        public String publicMethod2() {
+            return "publicMethod2";
+        }
+
+        protected String protectedMethod2() {
+            return "protectedMethod2";
+        }
+
+        private String privateMethod() {
+            return "privateMethod";
+        }
+
+        /* package */ String packageMethod2() {
+            return "packageMethod2";
+        }
+    }
+
+    public void test_getVirtualMethod() throws Exception {
+        final Class<?>[] noArgs = new Class<?>[] { };
+
+        TestGetVirtualMethod instance = new TestGetVirtualMethod();
+        TestGetVirtualMethod_Super super_instance = new TestGetVirtualMethod_Super();
+
+        // Package private methods from the queried class as well as super classes
+        // must be returned.
+        Method m = TestGetVirtualMethod.class.getInstanceMethod("packageMethod2", noArgs);
+        assertNotNull(m);
+        assertEquals("packageMethod2", m.invoke(instance));
+        m = TestGetVirtualMethod.class.getInstanceMethod("packageMethod", noArgs);
+        assertNotNull(m);
+        assertEquals("packageMethod", m.invoke(instance));
+
+        // Protected methods from both the queried class as well as super classes must
+        // be returned.
+        m = TestGetVirtualMethod.class.getInstanceMethod("protectedMethod2", noArgs);
+        assertNotNull(m);
+        assertEquals("protectedMethod2", m.invoke(instance));
+        m = TestGetVirtualMethod.class.getInstanceMethod("protectedMethod", noArgs);
+        assertNotNull(m);
+        assertEquals("protectedMethod", m.invoke(instance));
+
+        // Public methods from the queried classes and all its super classes must be
+        // returned.
+        m = TestGetVirtualMethod.class.getInstanceMethod("publicMethod2", noArgs);
+        assertNotNull(m);
+        assertEquals("publicMethod2", m.invoke(instance));
+        m = TestGetVirtualMethod.class.getInstanceMethod("publicMethod", noArgs);
+        assertNotNull(m);
+        assertEquals("publicMethod", m.invoke(instance));
+
+        m = TestGetVirtualMethod.class.getInstanceMethod("privateMethod", noArgs);
+        assertNotNull(m);
+
+        assertNull(TestGetVirtualMethod.class.getInstanceMethod("staticMethod", noArgs));
+    }
+
+    public void test_toString() throws Exception {
+        final String outerClassName = getClass().getName();
+        final String packageProtectedClassName = PackageProtectedClass.class.getName();
+
+        assertToString("int", int.class);
+        assertToString("class [I", int[].class);
+        assertToString("class java.lang.Object", Object.class);
+        assertToString("class [Ljava.lang.Object;", Object[].class);
+        assertToString("class java.lang.Integer", Integer.class);
+        assertToString("interface java.util.function.Function", Function.class);
+        assertToString(
+                "class " + outerClassName + "$PublicStaticInnerClass",
+                PublicStaticInnerClass.class);
+        assertToString(
+                "class " + outerClassName + "$DefaultStaticInnerClass",
+                DefaultStaticInnerClass.class);
+        assertToString(
+                "interface " + outerClassName + "$PublicInnerInterface",
+                PublicInnerInterface.class);
+        assertToString(
+                "class " + packageProtectedClassName,
+                PackageProtectedClass.class);
+        assertToString(
+                "class " + outerClassName + "$PrivateStaticInnerClass",
+                PrivateStaticInnerClass.class);
+        assertToString("interface java.lang.annotation.Retention", Retention.class);
+        assertToString("class java.lang.annotation.RetentionPolicy", RetentionPolicy.class);
+        assertToString("class java.util.TreeMap", TreeMap.class);
+        assertToString(
+                "interface " + outerClassName + "$WildcardInterface",
+                WildcardInterface.class);
+    }
+
+    private static void assertToString(String expected, Class<?> clazz) {
+        assertEquals(expected, clazz.toString());
+    }
+
+    public void test_getTypeName() throws Exception {
+        final String outerClassName = getClass().getName();
+        final String packageProtectedClassName = PackageProtectedClass.class.getName();
+
+        assertGetTypeName("int", int.class);
+        assertGetTypeName("int[]", int[].class);
+        assertGetTypeName("java.lang.Object", Object.class);
+        assertGetTypeName("java.lang.Object[]", Object[].class);
+        assertGetTypeName("java.lang.Integer", Integer.class);
+        assertGetTypeName("java.util.function.Function", Function.class);
+        assertGetTypeName(outerClassName + "$PublicStaticInnerClass", PublicStaticInnerClass.class);
+        assertGetTypeName(
+                outerClassName + "$DefaultStaticInnerClass",
+                DefaultStaticInnerClass.class);
+        assertGetTypeName(outerClassName + "$PublicInnerInterface", PublicInnerInterface.class);
+        assertGetTypeName(packageProtectedClassName, PackageProtectedClass.class);
+        assertGetTypeName(
+                outerClassName + "$PrivateStaticInnerClass",
+                PrivateStaticInnerClass.class);
+        assertGetTypeName("java.lang.annotation.Retention", Retention.class);
+        assertGetTypeName("java.lang.annotation.RetentionPolicy", RetentionPolicy.class);
+        assertGetTypeName("java.util.TreeMap", TreeMap.class);
+        assertGetTypeName(outerClassName + "$WildcardInterface", WildcardInterface.class);
+    }
+
+    private void assertGetTypeName(String expected, Class<?> clazz) {
+        assertEquals(expected, clazz.getTypeName());
+    }
+
+    public void test_toGenericString() throws Exception {
+        final String outerClassName = getClass().getName();
+        final String packageProtectedClassName = PackageProtectedClass.class.getName();
+
+        assertToGenericString("int", int.class);
+        assertToGenericString("public abstract final class [I", int[].class);
+        assertToGenericString("public class java.lang.Object", Object.class);
+        assertToGenericString("public abstract final class [Ljava.lang.Object;", Object[].class);
+        assertToGenericString("public final class java.lang.Integer", Integer.class);
+        assertToGenericString(
+                "public abstract interface java.util.function.Function<T,R>",
+                Function.class);
+        assertToGenericString("public static class " + outerClassName + "$PublicStaticInnerClass",
+                PublicStaticInnerClass.class);
+        assertToGenericString("static class " + outerClassName + "$DefaultStaticInnerClass",
+                DefaultStaticInnerClass.class);
+        assertToGenericString(
+                "public abstract static interface " + outerClassName + "$PublicInnerInterface",
+                PublicInnerInterface.class);
+        assertToGenericString("class " + packageProtectedClassName, PackageProtectedClass.class);
+        assertToGenericString(
+                "private static class " + outerClassName + "$PrivateStaticInnerClass",
+                PrivateStaticInnerClass.class);
+        assertToGenericString(
+                "public abstract @interface java.lang.annotation.Retention", Retention.class);
+        assertToGenericString("public final enum java.lang.annotation.RetentionPolicy",
+                RetentionPolicy.class);
+        assertToGenericString("public class java.util.TreeMap<K,V>", TreeMap.class);
+        assertToGenericString(
+                "abstract static interface " + outerClassName + "$WildcardInterface<T,U>",
+                WildcardInterface.class);
+    }
+
+    private static void assertToGenericString(String expected, Class<?> clazz) {
+        assertEquals(expected, clazz.toGenericString());
+    }
+
+    private static class PrivateStaticInnerClass {}
+    static class DefaultStaticInnerClass {}
+    public static class PublicStaticInnerClass {}
+    public interface PublicInnerInterface {}
+    interface WildcardInterface<
+            T extends Number,
+            U extends Function<? extends Number, ? super Number>>
+            extends Comparable<T> {}
 }

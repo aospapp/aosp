@@ -42,7 +42,7 @@
 #include <media/AudioTrack.h>
 #include <media/mediarecorder.h>
 #include <media/AudioEffect.h>
-#include <audio_effects/effect_aec.h>
+#include <system/audio_effects/effect_aec.h>
 #include <system/audio.h>
 
 #include <ScopedUtfChars.h>
@@ -473,7 +473,7 @@ void AudioStream::decode(int tick)
 class AudioGroup
 {
 public:
-    AudioGroup(const String16 &opPackageName);
+    explicit AudioGroup(const String16 &opPackageName);
     ~AudioGroup();
     bool set(int sampleRate, int sampleCount);
 
@@ -509,7 +509,7 @@ private:
     class NetworkThread : public Thread
     {
     public:
-        NetworkThread(AudioGroup *group) : Thread(false), mGroup(group) {}
+        explicit NetworkThread(AudioGroup *group) : Thread(false), mGroup(group) {}
 
         bool start()
         {
@@ -529,7 +529,7 @@ private:
     class DeviceThread : public Thread
     {
     public:
-        DeviceThread(AudioGroup *group) : Thread(false), mGroup(group) {}
+        explicit DeviceThread(AudioGroup *group) : Thread(false), mGroup(group) {}
 
         bool start()
         {

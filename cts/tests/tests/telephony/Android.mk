@@ -24,7 +24,12 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_JAVA_LIBRARIES := telephony-common
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner ctsdeviceutil
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    ctstestrunner \
+    compatibility-device-util \
+    legacy-android-test
+
+LOCAL_HOST_SHARED_LIBRARIES := compatibility-device-telephony-preconditions
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -38,3 +43,4 @@ LOCAL_COMPATIBILITY_SUITE := cts
 LOCAL_JAVA_LIBRARIES += android.test.runner
 
 include $(BUILD_CTS_PACKAGE)
+include $(call all-makefiles-under,$(LOCAL_PATH))

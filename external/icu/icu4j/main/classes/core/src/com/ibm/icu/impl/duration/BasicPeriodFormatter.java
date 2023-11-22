@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2010, International Business Machines Corporation and   *
@@ -24,9 +26,9 @@ class BasicPeriodFormatter implements PeriodFormatter {
   private PeriodFormatterData data;
   private Customizations customs;
 
-  BasicPeriodFormatter(BasicPeriodFormatterFactory factory, 
+  BasicPeriodFormatter(BasicPeriodFormatterFactory factory,
                        String localeName,
-                       PeriodFormatterData data, 
+                       PeriodFormatterData data,
                        Customizations customs) {
     this.factory = factory;
     this.localeName = localeName;
@@ -34,17 +36,19 @@ class BasicPeriodFormatter implements PeriodFormatter {
     this.customs = customs;
   }
 
-  public String format(Period period) {
+  @Override
+public String format(Period period) {
     if (!period.isSet()) {
       throw new IllegalArgumentException("period is not set");
     }
     return format(period.timeLimit, period.inFuture, period.counts);
   }
 
+  @Override
   public PeriodFormatter withLocale(String locName) {
     if (!this.localeName.equals(locName)) {
       PeriodFormatterData newData = factory.getData(locName);
-      return new BasicPeriodFormatter(factory, locName, newData, 
+      return new BasicPeriodFormatter(factory, locName, newData,
                                       customs);
     }
     return this;
@@ -58,7 +62,7 @@ class BasicPeriodFormatter implements PeriodFormatter {
       }
     }
 
-    // if the data does not allow formatting of zero periods, 
+    // if the data does not allow formatting of zero periods,
     // remove these from consideration.  If the result has no
     // periods set, return null to indicate we could not format
     // the duration.
@@ -77,13 +81,13 @@ class BasicPeriodFormatter implements PeriodFormatter {
     // set, merge them with seconds and force display of seconds to
     // decimal with 3 places.
     boolean forceD3Seconds = false;
-    if (data.useMilliseconds() != EMilliSupport.YES && 
+    if (data.useMilliseconds() != EMilliSupport.YES &&
         (mask & (1 << TimeUnit.MILLISECOND.ordinal)) != 0) {
       int sx = TimeUnit.SECOND.ordinal;
       int mx = TimeUnit.MILLISECOND.ordinal;
       int sf = 1 << sx;
       int mf = 1 << mx;
-      switch (data.useMilliseconds()) {      
+      switch (data.useMilliseconds()) {
         case EMilliSupport.WITH_SECONDS: {
           // if there are seconds, merge with seconds, otherwise leave alone
           if ((mask & sf) != 0) {
@@ -174,7 +178,7 @@ class BasicPeriodFormatter implements PeriodFormatter {
         cv = ECountVariant.INTEGER;
       }
       boolean isLast = i == last;
-      boolean mustSkip = data.appendUnit(unit, count, cv, customs.unitVariant, 
+      boolean mustSkip = data.appendUnit(unit, count, cv, customs.unitVariant,
                                          countSep, useDigitPrefix, multiple, isLast, wasSkipped, sb);
       skipped |= mustSkip;
       wasSkipped = false;

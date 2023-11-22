@@ -16,16 +16,20 @@
 
 #include "jni_internal.h"
 
+#include "android-base/stringprintf.h"
+
 #include "art_method-inl.h"
 #include "common_compiler_test.h"
 #include "indirect_reference_table.h"
 #include "java_vm_ext.h"
 #include "jni_env_ext.h"
 #include "mirror/string-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "ScopedLocalRef.h"
 
 namespace art {
+
+using android::base::StringPrintf;
 
 // TODO: Convert to CommonRuntimeTest. Currently MakeExecutable is used.
 class JniInternalTest : public CommonCompilerTest {
@@ -58,7 +62,7 @@ class JniInternalTest : public CommonCompilerTest {
   void ExpectException(jclass exception_class) {
     ScopedObjectAccess soa(env_);
     EXPECT_TRUE(env_->ExceptionCheck())
-        << PrettyDescriptor(soa.Decode<mirror::Class*>(exception_class));
+        << mirror::Class::PrettyDescriptor(soa.Decode<mirror::Class>(exception_class));
     jthrowable exception = env_->ExceptionOccurred();
     EXPECT_NE(nullptr, exception);
     env_->ExceptionClear();
@@ -619,7 +623,7 @@ class JniInternalTest : public CommonCompilerTest {
         class_loader_ = LoadDex("MyClassNatives");
         StackHandleScope<1> hs(soa.Self());
         Handle<mirror::ClassLoader> loader(
-            hs.NewHandle(soa.Decode<mirror::ClassLoader*>(class_loader_)));
+            hs.NewHandle(soa.Decode<mirror::ClassLoader>(class_loader_)));
         mirror::Class* c = class_linker_->FindClass(soa.Self(), "LMyClassNatives;", loader);
         const auto pointer_size = class_linker_->GetImagePointerSize();
         ArtMethod* method = direct ? c->FindDirectMethod(method_name, method_sig, pointer_size) :
@@ -679,6 +683,7 @@ TEST_F(JniInternalTest, AllocObject) {
   ASSERT_TRUE(env_->IsInstanceOf(o, c));
   // ...whose fields haven't been initialized because
   // we didn't call a constructor.
+  // Even with string compression empty string has `count == 0`.
   ASSERT_EQ(0, env_->GetIntField(o, env_->GetFieldID(c, "count", "I")));
 }
 
@@ -860,6 +865,11 @@ TEST_F(JniInternalTest, GetStaticMethodID) {
   GetStaticMethodIdBadArgumentTest(true);
 }
 
+static size_t GetLocalsCapacity(JNIEnv* env) {
+  ScopedObjectAccess soa(Thread::Current());
+  return reinterpret_cast<JNIEnvExt*>(env)->locals.Capacity();
+}
+
 TEST_F(JniInternalTest, FromReflectedField_ToReflectedField) {
   jclass jlrField = env_->FindClass("java/lang/reflect/Field");
   jclass c = env_->FindClass("java/lang/String");
@@ -868,11 +878,15 @@ TEST_F(JniInternalTest, FromReflectedField_ToReflectedField) {
   ASSERT_NE(fid, nullptr);
   // Turn the fid into a java.lang.reflect.Field...
   jobject field = env_->ToReflectedField(c, fid, JNI_FALSE);
-  for (size_t i = 0; i <= kLocalsMax; ++i) {
+  size_t capacity_before = GetLocalsCapacity(env_);
+  for (size_t i = 0; i <= 10; ++i) {
     // Regression test for b/18396311, ToReflectedField leaking local refs causing a local
     // reference table overflows with 512 references to ArtField
     env_->DeleteLocalRef(env_->ToReflectedField(c, fid, JNI_FALSE));
   }
+  size_t capacity_after = GetLocalsCapacity(env_);
+  ASSERT_EQ(capacity_before, capacity_after);
+
   ASSERT_NE(c, nullptr);
   ASSERT_TRUE(env_->IsInstanceOf(field, jlrField));
   // ...and back again.
@@ -880,8 +894,16 @@ TEST_F(JniInternalTest, FromReflectedField_ToReflectedField) {
   ASSERT_NE(fid2, nullptr);
   // Make sure we can actually use it.
   jstring s = env_->NewStringUTF("poop");
-  ASSERT_EQ(4, env_->GetIntField(s, fid2));
-
+  if (mirror::kUseStringCompression) {
+    ASSERT_EQ(mirror::String::GetFlaggedCount(4, /* compressible */ true),
+              env_->GetIntField(s, fid2));
+    // Create incompressible string
+    jstring s_16 = env_->NewStringUTF("\u0444\u0444");
+    ASSERT_EQ(mirror::String::GetFlaggedCount(2, /* compressible */ false),
+              env_->GetIntField(s_16, fid2));
+  } else {
+    ASSERT_EQ(4, env_->GetIntField(s, fid2));
+  }
   // Bad arguments.
   GetFromReflectedField_ToReflectedFieldBadArgumentTest(false);
   GetFromReflectedField_ToReflectedFieldBadArgumentTest(true);
@@ -899,11 +921,14 @@ TEST_F(JniInternalTest, FromReflectedMethod_ToReflectedMethod) {
   ASSERT_NE(mid, nullptr);
   // Turn the mid into a java.lang.reflect.Constructor...
   jobject method = env_->ToReflectedMethod(c, mid, JNI_FALSE);
-  for (size_t i = 0; i <= kLocalsMax; ++i) {
+  size_t capacity_before = GetLocalsCapacity(env_);
+  for (size_t i = 0; i <= 10; ++i) {
     // Regression test for b/18396311, ToReflectedMethod leaking local refs causing a local
     // reference table overflows with 512 references to ArtMethod
     env_->DeleteLocalRef(env_->ToReflectedMethod(c, mid, JNI_FALSE));
   }
+  size_t capacity_after = GetLocalsCapacity(env_);
+  ASSERT_EQ(capacity_before, capacity_after);
   ASSERT_NE(method, nullptr);
   ASSERT_TRUE(env_->IsInstanceOf(method, jlrConstructor));
   // ...and back again.
@@ -1098,8 +1123,9 @@ TEST_F(JniInternalTest, RegisterAndUnregisterNatives) {
   ExpectException(aioobe_); \
   \
   /* Prepare a couple of buffers. */ \
-  std::unique_ptr<scalar_type[]> src_buf(new scalar_type[size]); \
-  std::unique_ptr<scalar_type[]> dst_buf(new scalar_type[size]); \
+  /* NOLINT, no parentheses around scalar_type. */ \
+  std::unique_ptr<scalar_type[]> src_buf(new scalar_type[size]); /* NOLINT */ \
+  std::unique_ptr<scalar_type[]> dst_buf(new scalar_type[size]); /* NOLINT */ \
   for (jsize i = 0; i < size; ++i) { src_buf[i] = scalar_type(i); } \
   for (jsize i = 0; i < size; ++i) { dst_buf[i] = scalar_type(-1); } \
   \
@@ -1124,7 +1150,7 @@ TEST_F(JniInternalTest, RegisterAndUnregisterNatives) {
     << "GetPrimitiveArrayCritical not equal"; \
   env_->ReleasePrimitiveArrayCritical(a, v, 0); \
   /* GetXArrayElements */ \
-  scalar_type* xs = env_->get_elements_fn(a, nullptr); \
+  scalar_type* xs = env_->get_elements_fn(a, nullptr); /* NOLINT, scalar_type */ \
   EXPECT_EQ(memcmp(&src_buf[0], xs, size * sizeof(scalar_type)), 0) \
     << # get_elements_fn " not equal"; \
   env_->release_elements_fn(a, xs, 0); \
@@ -1590,7 +1616,7 @@ TEST_F(JniInternalTest, GetStringUTFChars_ReleaseStringUTFChars) {
 TEST_F(JniInternalTest, GetStringChars_ReleaseStringChars) {
   jstring s = env_->NewStringUTF("hello");
   ScopedObjectAccess soa(env_);
-  mirror::String* s_m = soa.Decode<mirror::String*>(s);
+  ObjPtr<mirror::String> s_m = soa.Decode<mirror::String>(s);
   ASSERT_TRUE(s != nullptr);
 
   jchar expected[] = { 'h', 'e', 'l', 'l', 'o' };
@@ -1632,13 +1658,28 @@ TEST_F(JniInternalTest, GetStringCritical_ReleaseStringCritical) {
 
   jboolean is_copy = JNI_TRUE;
   chars = env_->GetStringCritical(s, &is_copy);
-  EXPECT_EQ(JNI_FALSE, is_copy);
+  if (mirror::kUseStringCompression) {
+    // is_copy has to be JNI_TRUE because "hello" is all-ASCII
+    EXPECT_EQ(JNI_TRUE, is_copy);
+  } else {
+    EXPECT_EQ(JNI_FALSE, is_copy);
+  }
   EXPECT_EQ(expected[0], chars[0]);
   EXPECT_EQ(expected[1], chars[1]);
   EXPECT_EQ(expected[2], chars[2]);
   EXPECT_EQ(expected[3], chars[3]);
   EXPECT_EQ(expected[4], chars[4]);
   env_->ReleaseStringCritical(s, chars);
+
+  if (mirror::kUseStringCompression) {
+    // is_copy has to be JNI_FALSE because "\xed\xa0\x81\xed\xb0\x80" is incompressible
+    jboolean is_copy_16 = JNI_TRUE;
+    jstring s_16 = env_->NewStringUTF("\xed\xa0\x81\xed\xb0\x80");
+    chars = env_->GetStringCritical(s_16, &is_copy_16);
+    EXPECT_EQ(2, env_->GetStringLength(s_16));
+    EXPECT_EQ(4, env_->GetStringUTFLength(s_16));
+    env_->ReleaseStringCritical(s_16, chars);
+  }
 }
 
 TEST_F(JniInternalTest, GetObjectArrayElement_SetObjectArrayElement) {
@@ -2213,7 +2254,7 @@ TEST_F(JniInternalTest, MonitorExitNotAllUnlocked) {
 
 static bool IsLocked(JNIEnv* env, jobject jobj) {
   ScopedObjectAccess soa(env);
-  LockWord lock_word = soa.Decode<mirror::Object*>(jobj)->GetLockWord(true);
+  LockWord lock_word = soa.Decode<mirror::Object>(jobj)->GetLockWord(true);
   switch (lock_word.GetState()) {
     case LockWord::kHashCode:
     case LockWord::kUnlocked:
@@ -2267,20 +2308,26 @@ TEST_F(JniInternalTest, IndirectReferenceTableOffsets) {
   // The segment_state_ field is private, and we want to avoid friend declaration. So we'll check
   // by modifying memory.
   // The parameters don't really matter here.
-  IndirectReferenceTable irt(5, 5, IndirectRefKind::kGlobal, true);
-  uint32_t old_state = irt.GetSegmentState();
+  std::string error_msg;
+  IndirectReferenceTable irt(5,
+                             IndirectRefKind::kGlobal,
+                             IndirectReferenceTable::ResizableCapacity::kNo,
+                             &error_msg);
+  ASSERT_TRUE(irt.IsValid()) << error_msg;
+  IRTSegmentState old_state = irt.GetSegmentState();
 
   // Write some new state directly. We invert parts of old_state to ensure a new value.
-  uint32_t new_state = old_state ^ 0x07705005;
-  ASSERT_NE(old_state, new_state);
+  IRTSegmentState new_state;
+  new_state.top_index = old_state.top_index ^ 0x07705005;
+  ASSERT_NE(old_state.top_index, new_state.top_index);
 
   uint8_t* base = reinterpret_cast<uint8_t*>(&irt);
   int32_t segment_state_offset =
       IndirectReferenceTable::SegmentStateOffset(sizeof(void*)).Int32Value();
-  *reinterpret_cast<uint32_t*>(base + segment_state_offset) = new_state;
+  *reinterpret_cast<IRTSegmentState*>(base + segment_state_offset) = new_state;
 
   // Read and compare.
-  EXPECT_EQ(new_state, irt.GetSegmentState());
+  EXPECT_EQ(new_state.top_index, irt.GetSegmentState().top_index);
 }
 
 // Test the offset computation of JNIEnvExt offsets. b/26071368.
@@ -2297,6 +2344,41 @@ TEST_F(JniInternalTest, JNIEnvExtOffsets) {
       IndirectReferenceTable::SegmentStateOffset(sizeof(void*)).Uint32Value();
   uint32_t segment_state_computed = JNIEnvExt::SegmentStateOffset(sizeof(void*)).Uint32Value();
   EXPECT_EQ(segment_state_now, segment_state_computed);
+}
+
+static size_t gGlobalRefCount = 0;
+static const JNINativeInterface* gOriginalEnv = nullptr;
+
+static jobject CountNewGlobalRef(JNIEnv* env, jobject o) {
+  ++gGlobalRefCount;
+  return gOriginalEnv->NewGlobalRef(env, o);
+}
+
+// Test the table override.
+TEST_F(JniInternalTest, JNIEnvExtTableOverride) {
+  JNINativeInterface env_override;
+  memcpy(&env_override, env_->functions, sizeof(JNINativeInterface));
+
+  gOriginalEnv = env_->functions;
+  env_override.NewGlobalRef = CountNewGlobalRef;
+  gGlobalRefCount = 0;
+
+  jclass local = env_->FindClass("java/lang/Object");
+  ASSERT_TRUE(local != nullptr);
+
+  // Set the table, add a global ref, see whether the counter increases.
+  JNIEnvExt::SetTableOverride(&env_override);
+
+  jobject global = env_->NewGlobalRef(local);
+  EXPECT_EQ(1u, gGlobalRefCount);
+  env_->DeleteGlobalRef(global);
+
+  // Reset
+  JNIEnvExt::SetTableOverride(nullptr);
+
+  jobject global2 = env_->NewGlobalRef(local);
+  EXPECT_EQ(1u, gGlobalRefCount);
+  env_->DeleteGlobalRef(global2);
 }
 
 }  // namespace art

@@ -79,7 +79,7 @@ void eap_fast_derive_master_secret(const u8 *pac_key, const u8 *server_random,
 
 	/*
 	 * RFC 4851, Section 5.1:
-	 * master_secret = T-PRF(PAC-Key, "PAC to master secret label hash", 
+	 * master_secret = T-PRF(PAC-Key, "PAC to master secret label hash",
 	 *                       server_random + client_random, 48)
 	 */
 	os_memcpy(seed, server_random, TLS_RANDOM_LEN);
@@ -93,8 +93,7 @@ void eap_fast_derive_master_secret(const u8 *pac_key, const u8 *server_random,
 }
 
 
-u8 * eap_fast_derive_key(void *ssl_ctx, struct tls_connection *conn,
-			 const char *label, size_t len)
+u8 * eap_fast_derive_key(void *ssl_ctx, struct tls_connection *conn, size_t len)
 {
 	u8 *out;
 
@@ -102,7 +101,7 @@ u8 * eap_fast_derive_key(void *ssl_ctx, struct tls_connection *conn,
 	if (out == NULL)
 		return NULL;
 
-	if (tls_connection_prf(ssl_ctx, conn, label, 1, 1, out, len)) {
+	if (tls_connection_get_eap_fast_key(ssl_ctx, conn, out, len)) {
 		os_free(out);
 		return NULL;
 	}

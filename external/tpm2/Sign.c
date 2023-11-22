@@ -63,7 +63,11 @@ TPM2_Sign(
    // NOTE: this does not guarantee that the 'digest' is actually produced using
    // the indicated hash algorithm, but at least it might be.
    {
-       if(       in->digest.t.size
+       if(
+#if defined(SUPPORT_PADDING_ONLY_RSASSA) && SUPPORT_PADDING_ONLY_RSASSA == YES
+           in->inScheme.details.any.hashAlg != TPM_ALG_NULL &&
+#endif
+           in->digest.t.size
              != CryptGetHashDigestSize(in->inScheme.details.any.hashAlg))
              return TPM_RC_SIZE + RC_Sign_digest;
    }

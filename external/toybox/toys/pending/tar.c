@@ -184,7 +184,7 @@ static void add_file(struct archive_handler *tar, char **nam, struct stat *st)
   if (!*hname) return;
   while ((c = strstr(hname, "../"))) hname = c + 3;
   if (warn && hname != name) {
-    printf("removing leading '%.*s' "
+    fprintf(stderr, "removing leading '%.*s' "
         "from member names\n", (int)(hname-name), name);
     warn = 0;
   }
@@ -228,8 +228,8 @@ static void add_file(struct archive_handler *tar, char **nam, struct stat *st)
   else if (S_ISFIFO(st->st_mode)) hdr.type = '6';
   else if (S_ISBLK(st->st_mode) || S_ISCHR(st->st_mode)) {
     hdr.type = (S_ISCHR(st->st_mode))?'3':'4';
-    itoo(hdr.major, sizeof(hdr.major), major(st->st_rdev));
-    itoo(hdr.minor, sizeof(hdr.minor), minor(st->st_rdev));
+    itoo(hdr.major, sizeof(hdr.major), dev_major(st->st_rdev));
+    itoo(hdr.minor, sizeof(hdr.minor), dev_minor(st->st_rdev));
   } else {
     error_msg("unknown file type '%o'", st->st_mode & S_IFMT);
     return;
@@ -274,7 +274,7 @@ static int add_to_tar(struct dirtree *node)
     return ((DIRTREE_RECURSE | ((toys.optflags & FLAG_h)?DIRTREE_SYMFOLLOW:0)));
   }
 
-  if (node->parent && !dirtree_notdotdot(node)) return 0;
+  if (!dirtree_notdotdot(node)) return 0;
   path = dirtree_path(node, 0);
   add_file(hdl, &path, &(node->st)); //path may be modified
   free(path);
@@ -365,8 +365,16 @@ static void extract_to_disk(struct archive_handler *tar)
   struct stat ex;
   struct file_header *file_hdr = &tar->file_hdr;
 
-  if (file_hdr->name[strlen(file_hdr->name)-1] == '/')
-    file_hdr->name[strlen(file_hdr->name)-1] = 0;
+  flags = strlen(file_hdr->name);
+  if (flags>2) {
+    if (strstr(file_hdr->name, "/../") || !strcmp(file_hdr->name, "../") ||
+        !strcmp(file_hdr->name+flags-3, "/.."))
+    {
+      error_msg("drop %s", file_hdr->name);
+    }
+  }
+
+  if (file_hdr->name[flags-1] == '/') file_hdr->name[flags-1] = 0;
   //Regular file with preceding path
   if ((s = strrchr(file_hdr->name, '/'))) {
     if (mkpathat(AT_FDCWD, file_hdr->name, 00, 2) && errno !=EEXIST) {
@@ -623,7 +631,7 @@ CHECK_MAGIC:
     file_hdr->gname = xstrdup(tar.gname);
     maj = otoi(tar.major, sizeof(tar.major));
     min = otoi(tar.minor, sizeof(tar.minor));
-    file_hdr->device = makedev(maj, min);
+    file_hdr->device = dev_makedev(maj, min);
 
     if (tar.type <= '7') {
       if (tar.link[0]) {
@@ -788,7 +796,7 @@ void tar_main(void)
     for (tmp = TT.inc; tmp; tmp = tmp->next) {
       TT.handle = tar_hdl;
       //recurse thru dir and add files to archive
-      dirtree_handle_callback(dirtree_start(tmp->arg, toys.optflags & FLAG_h),
+      dirtree_flagread(tmp->arg, DIRTREE_SYMFOLLOW*!!(toys.optflags&FLAG_h),
         add_to_tar);
     }
     memset(toybuf, 0, 1024);

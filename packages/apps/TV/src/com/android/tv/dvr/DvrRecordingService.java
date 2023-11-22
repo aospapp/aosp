@@ -20,7 +20,6 @@ import android.app.AlarmManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Binder;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
@@ -29,10 +28,10 @@ import android.util.Log;
 
 import com.android.tv.ApplicationSingletons;
 import com.android.tv.TvApplication;
+import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.util.Clock;
 import com.android.tv.util.RecurringRunner;
-import com.android.tv.common.SoftPreconditions;
 
 /**
  * DVR Scheduler service.
@@ -60,31 +59,18 @@ public class DvrRecordingService extends Service {
 
     private final Clock mClock = Clock.SYSTEM;
     private RecurringRunner mReaperRunner;
-    private WritableDvrDataManager mDataManager;
-
-    /**
-     * Class for clients to access. Because we know this service always
-     * runs in the same process as its clients, we don't need to deal with
-     * IPC.
-     */
-    public class SchedulerBinder extends Binder {
-        Scheduler getScheduler() {
-            return mScheduler;
-        }
-    }
-
-    private final IBinder mBinder = new SchedulerBinder();
 
     private Scheduler mScheduler;
     private HandlerThread mHandlerThread;
 
     @Override
     public void onCreate() {
+        TvApplication.setCurrentRunningProcess(this, true);
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate();
         SoftPreconditions.checkFeatureEnabled(this, CommonFeatures.DVR, TAG);
         ApplicationSingletons singletons = TvApplication.getSingletons(this);
-        mDataManager = (WritableDvrDataManager) singletons.getDvrDataManager();
+        WritableDvrDataManager dataManager = (WritableDvrDataManager) singletons.getDvrDataManager();
 
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         // mScheduler may have been set for testing.
@@ -92,12 +78,13 @@ public class DvrRecordingService extends Service {
             mHandlerThread = new HandlerThread(HANDLER_THREAD_NAME);
             mHandlerThread.start();
             mScheduler = new Scheduler(mHandlerThread.getLooper(), singletons.getDvrManager(),
-                    singletons.getDvrSessionManger(), mDataManager,
-                    singletons.getChannelDataManager(), this, mClock, alarmManager);
+                    singletons.getInputSessionManager(), dataManager,
+                    singletons.getChannelDataManager(), singletons.getTvInputManagerHelper(), this,
+                    mClock, alarmManager);
+            mScheduler.start();
         }
-        mDataManager.addScheduledRecordingListener(mScheduler);
         mReaperRunner = new RecurringRunner(this, java.util.concurrent.TimeUnit.DAYS.toMillis(1),
-                new ScheduledProgramReaper(mDataManager, mClock), null);
+                new ScheduledProgramReaper(dataManager, mClock), null);
         mReaperRunner.start();
     }
 
@@ -112,10 +99,10 @@ public class DvrRecordingService extends Service {
     public void onDestroy() {
         if (DEBUG) Log.d(TAG, "onDestroy");
         mReaperRunner.stop();
-        mDataManager.removeScheduledRecordingListener(mScheduler);
+        mScheduler.stop();
         mScheduler = null;
         if (mHandlerThread != null) {
-            mHandlerThread.quit();
+            mHandlerThread.quitSafely();
             mHandlerThread = null;
         }
         super.onDestroy();
@@ -124,7 +111,7 @@ public class DvrRecordingService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return null;
     }
 
     @VisibleForTesting

@@ -14,7 +14,7 @@ bool check_caching(void *buf, unsigned char *vec, size_t size, bool is_cached);
 
 //Tests
 int mmap_test(int test_runs, unsigned long long alloc_size);
-int pageinout_test(int test_runs, unsigned long long file_size);
-int thrashing_test(int test_runs);
+int pageinout_test(int test_runs, bool cache, unsigned long long file_size);
+int thrashing_test(int test_runs, bool cache);
 
 #endif //__PAGINGTEST_H__

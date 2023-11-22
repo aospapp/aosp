@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -18,6 +19,8 @@
 
 #include "e2fsck.h"
 #include <pwd.h>
+
+extern e2fsck_t e2fsck_global_ctx;   /* Try your very best not to use this! */
 
 struct string {
 	char	*s;
@@ -232,6 +235,8 @@ static FILE *save_output(const char *s0, const char *s1, const char *s2)
 	}
 
 	if (pid == 0) {
+		if (e2fsck_global_ctx && e2fsck_global_ctx->progress_fd)
+			close(e2fsck_global_ctx->progress_fd);
 		if (daemon(0, 0) < 0) {
 			perror("daemon");
 			exit(1);

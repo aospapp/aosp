@@ -15,22 +15,21 @@
  */
 
 #define LOG_TAG "Sprites"
-
 //#define LOG_NDEBUG 0
 
 #include "SpriteController.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <utils/String8.h>
 #include <gui/Surface.h>
 
+// ToDo: Fix code to be warning free
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <SkBitmap.h>
 #include <SkCanvas.h>
 #include <SkColor.h>
 #include <SkPaint.h>
-#include <SkXfermode.h>
 #pragma GCC diagnostic pop
 
 #include <android/native_window.h>
@@ -216,7 +215,7 @@ void SpriteController::doUpdateSprites() {
                 SkCanvas surfaceCanvas(surfaceBitmap);
 
                 SkPaint paint;
-                paint.setXfermodeMode(SkXfermode::kSrc_Mode);
+                paint.setBlendMode(SkBlendMode::kSrc);
                 surfaceCanvas.drawBitmap(update.state.icon.bitmap, 0, 0, &paint);
 
                 if (outBuffer.width > update.state.icon.bitmap.width()) {

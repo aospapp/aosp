@@ -15,24 +15,30 @@
 ** limitations under the License.
 */
 
-#define LOG_TAG "mediaextractor"
-//#define LOG_NDEBUG 0
-
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
-#include <utils/Log.h>
+
+#include <string>
+
+#include <android-base/logging.h>
+#include <utils/misc.h>
 
 // from LOCAL_C_INCLUDES
 #include "IcuUtils.h"
 #include "MediaExtractorService.h"
 #include "MediaUtils.h"
-#include "minijail/minijail.h"
+#include "minijail.h"
 
 using namespace android;
+
+static const char kSystemSeccompPolicyPath[] =
+        "/system/etc/seccomp_policy/mediaextractor.policy";
+static const char kVendorSeccompPolicyPath[] =
+        "/vendor/etc/seccomp_policy/mediaextractor.policy";
 
 int main(int argc __unused, char** argv)
 {
@@ -42,7 +48,14 @@ int main(int argc __unused, char** argv)
         20 /* upper limit as percentage of physical RAM */);
 
     signal(SIGPIPE, SIG_IGN);
-    MiniJail();
+
+    //b/62255959: this forces libutis.so to dlopen vendor version of libutils.so
+    //before minijail is on. This is dirty but required since some syscalls such
+    //as pread64 are used by linker but aren't allowed in the minijail. By
+    //calling the function before entering minijail, we can force dlopen.
+    android::report_sysprop_change();
+
+    SetUpMinijail(kSystemSeccompPolicyPath, kVendorSeccompPolicyPath);
 
     InitializeIcuOrDie();
 

@@ -24,7 +24,7 @@ import android.view.cts.R;
 
 public class ViewTestCtsActivity extends Activity {
     private boolean mHasWindowFocus = false;
-    private Object mHasWindowFocusLock = new Object();
+    private final Object mHasWindowFocusLock = new Object();
 
     @Override
     protected void onCreate(Bundle icicle) {

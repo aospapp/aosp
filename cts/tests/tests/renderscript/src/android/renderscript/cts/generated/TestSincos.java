@@ -37,6 +37,13 @@ public class TestSincos extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestSincosRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloatFloat {
         public float inV;
         public Target.Floaty outCos;
@@ -44,13 +51,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosFloatFloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xe46c48d4l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xb8748e13e46c48d4l, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosFloatFloatFloat(inV, out);
             verifyResultsSincosFloatFloatFloat(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloatFloatFloat: " + e.toString());
         }
@@ -60,9 +69,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosFloatFloatFloat(inV, out);
             verifyResultsSincosFloatFloatFloat(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloatFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosFloatFloatFloat(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -132,13 +144,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosFloat2Float2Float2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x3e2fc77cl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xc85bab4e3e2fc77cl, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosFloat2Float2Float2(inV, out);
             verifyResultsSincosFloat2Float2Float2(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloat2Float2Float2: " + e.toString());
         }
@@ -148,9 +162,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosFloat2Float2Float2(inV, out);
             verifyResultsSincosFloat2Float2Float2(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloat2Float2Float2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosFloat2Float2Float2(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -220,13 +237,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosFloat3Float3Float3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x400dc91dl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x1cc0896e400dc91dl, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosFloat3Float3Float3(inV, out);
             verifyResultsSincosFloat3Float3Float3(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloat3Float3Float3: " + e.toString());
         }
@@ -236,9 +255,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosFloat3Float3Float3(inV, out);
             verifyResultsSincosFloat3Float3Float3(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloat3Float3Float3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosFloat3Float3Float3(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -308,13 +330,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosFloat4Float4Float4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x41ebcabel, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x7125678e41ebcabel, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosFloat4Float4Float4(inV, out);
             verifyResultsSincosFloat4Float4Float4(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloat4Float4Float4: " + e.toString());
         }
@@ -324,9 +348,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosFloat4Float4Float4(inV, out);
             verifyResultsSincosFloat4Float4Float4(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosFloat4Float4Float4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosFloat4Float4Float4(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -403,13 +430,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosHalfHalfHalf() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x9ffeac75l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 1, 0x9a00091a9ffeac75l, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 1), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosHalfHalfHalf(inV, out);
             verifyResultsSincosHalfHalfHalf(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalfHalfHalf: " + e.toString());
         }
@@ -419,9 +448,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosHalfHalfHalf(inV, out);
             verifyResultsSincosHalfHalfHalf(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalfHalfHalf: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosHalfHalfHalf(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -498,13 +530,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosHalf2Half2Half2() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x1b528cc9l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 2, 0x87e4d0311b528cc9l, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 2), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosHalf2Half2Half2(inV, out);
             verifyResultsSincosHalf2Half2Half2(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf2Half2Half2: " + e.toString());
         }
@@ -514,9 +548,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosHalf2Half2Half2(inV, out);
             verifyResultsSincosHalf2Half2Half2(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf2Half2Half2: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosHalf2Half2Half2(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -593,13 +630,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosHalf3Half3Half3() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0x79f19d98l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 3, 0xad99501a79f19d98l, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 3), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosHalf3Half3Half3(inV, out);
             verifyResultsSincosHalf3Half3Half3(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf3Half3Half3: " + e.toString());
         }
@@ -609,9 +648,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosHalf3Half3Half3(inV, out);
             verifyResultsSincosHalf3Half3Half3(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf3Half3Half3: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosHalf3Half3Half3(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {
@@ -688,13 +730,15 @@ public class TestSincos extends RSBaseCompute {
     }
 
     private void checkSincosHalf4Half4Half4() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xd890ae67l, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_16, 4, 0xd34dd003d890ae67l, false);
         try {
             Allocation outCos = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_16, 4), INPUTSIZE);
             script.set_gAllocOutCos(outCos);
             script.forEach_testSincosHalf4Half4Half4(inV, out);
             verifyResultsSincosHalf4Half4Half4(inV, outCos, out, false);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf4Half4Half4: " + e.toString());
         }
@@ -704,9 +748,12 @@ public class TestSincos extends RSBaseCompute {
             scriptRelaxed.set_gAllocOutCos(outCos);
             scriptRelaxed.forEach_testSincosHalf4Half4Half4(inV, out);
             verifyResultsSincosHalf4Half4Half4(inV, outCos, out, true);
+            outCos.destroy();
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testSincosHalf4Half4Half4: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsSincosHalf4Half4Half4(Allocation inV, Allocation outCos, Allocation out, boolean relaxed) {

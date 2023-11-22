@@ -15,37 +15,47 @@
  */
 package android.view.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.SurfaceHolder.BadSurfaceTypeException;
 
-public class SurfaceHolder_BadSurfaceTypeExceptionTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SurfaceHolder_BadSurfaceTypeExceptionTest {
+    @Test
     public void testBadSurfaceTypeException(){
         BadSurfaceTypeException ne = null;
-        boolean isThrowed = false;
+        boolean isThrown = false;
 
         try {
             ne = new BadSurfaceTypeException();
             throw ne;
         } catch (BadSurfaceTypeException e) {
             assertSame(ne, e);
-            isThrowed = true;
+            isThrown = true;
         } finally {
-            if (!isThrowed) {
+            if (!isThrown) {
                 fail("should throw out InflateException");
             }
         }
 
         String name = "SurfaceHolder_BadSurfaceTypeExceptionTest";
-        isThrowed = false;
+        isThrown = false;
 
         try {
             ne = new BadSurfaceTypeException(name);
             throw ne;
         } catch (BadSurfaceTypeException e) {
             assertSame(ne, e);
-            isThrowed = true;
+            isThrown = true;
         } finally {
-            if (!isThrowed) {
+            if (!isThrown) {
                 fail("should throw out InflateException");
             }
         }

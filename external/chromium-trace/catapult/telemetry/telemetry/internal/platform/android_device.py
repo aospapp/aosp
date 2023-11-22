@@ -1,12 +1,10 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 import logging
 import os
-import re
-import subprocess
 
-from telemetry.core import util
 from telemetry.internal.platform import cros_device
 from telemetry.internal.platform import device
 from telemetry.internal.platform.profiler import monsoon
@@ -16,6 +14,7 @@ from devil.android import device_errors
 from devil.android import device_utils
 from devil.android.sdk import adb_wrapper
 
+import py_utils
 
 class AndroidDevice(device.Device):
   """ Class represents information for connecting to an android device.
@@ -49,8 +48,7 @@ class AndroidDevice(device.Device):
 
 def _ListSerialsOfHealthyOnlineDevices(blacklist):
   return [d.adb.GetDeviceSerial()
-          for d in device_utils.DeviceUtils.HealthyDevices(blacklist)
-          if d.IsOnline()]
+          for d in device_utils.DeviceUtils.HealthyDevices(blacklist)]
 
 
 def GetDeviceSerials(blacklist):
@@ -82,7 +80,7 @@ The Monsoon's power output has been enabled. Please now ensure that:
 
 Waiting for device...
 """)
-      util.WaitFor(_ListSerialsOfHealthyOnlineDevices(blacklist), 600)
+      py_utils.WaitFor(_ListSerialsOfHealthyOnlineDevices(blacklist), 600)
       device_serials = _ListSerialsOfHealthyOnlineDevices(blacklist)
     except IOError:
       return []
@@ -99,21 +97,22 @@ Waiting for device...
 
 def GetDevice(finder_options):
   """Return a Platform instance for the device specified by |finder_options|."""
+  android_platform_options = finder_options.remote_platform_options
   if not CanDiscoverDevices():
     logging.info(
         'No adb command found. Will not try searching for Android browsers.')
     return None
 
-  if finder_options.android_blacklist_file:
+  if android_platform_options.android_blacklist_file:
     blacklist = device_blacklist.Blacklist(
-        finder_options.android_blacklist_file)
+        android_platform_options.android_blacklist_file)
   else:
     blacklist = None
 
-  if (finder_options.device
-      and finder_options.device in GetDeviceSerials(blacklist)):
+  if (android_platform_options.device
+      and android_platform_options.device in GetDeviceSerials(blacklist)):
     return AndroidDevice(
-        finder_options.device,
+        android_platform_options.device,
         enable_performance_mode=not finder_options.no_performance_mode)
 
   devices = AndroidDevice.GetAllConnectedDevices(blacklist)
@@ -154,23 +153,6 @@ def CanDiscoverDevices():
     return False
 
   try:
-    with open(os.devnull, 'w') as devnull:
-      adb_process = subprocess.Popen(
-          ['adb', 'devices'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-          stdin=devnull)
-      stdout = adb_process.communicate()[0]
-    if re.search(re.escape('????????????\tno permissions'), stdout) != None:
-      logging.warn('adb devices gave a permissions error. '
-                   'Consider running adb as root:')
-      logging.warn('  adb kill-server')
-      logging.warn('  sudo `which adb` devices\n\n')
-    return True
-  except OSError:
-    pass
-  try:
-    adb_path = adb_wrapper.AdbWrapper.GetAdbPath()
-    os.environ['PATH'] = os.pathsep.join(
-        [os.path.dirname(adb_path), os.environ['PATH']])
     device_utils.DeviceUtils.HealthyDevices(None)
     return True
   except (device_errors.CommandFailedError, device_errors.CommandTimeoutError,
@@ -181,12 +163,18 @@ def CanDiscoverDevices():
 def FindAllAvailableDevices(options):
   """Returns a list of available devices.
   """
+  # Disable Android device discovery when remote testing a CrOS device
+  if options.cros_remote:
+    return []
+
+  android_platform_options = options.remote_platform_options
   devices = []
   try:
     if CanDiscoverDevices():
       blacklist = None
-      if options.android_blacklist_file:
-        blacklist = device_blacklist.Blacklist(options.android_blacklist_file)
+      if android_platform_options.android_blacklist_file:
+        blacklist = device_blacklist.Blacklist(
+            android_platform_options.android_blacklist_file)
       devices = AndroidDevice.GetAllConnectedDevices(blacklist)
   finally:
     if not devices and _HasValidAdb():

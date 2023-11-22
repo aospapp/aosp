@@ -39,6 +39,7 @@ class VideoPlayer(object):
         self.video_src_path = video_src_path
         self.event_timeout = event_timeout
         self.polling_wait_time = polling_wait_time
+        self.tab.Navigate(self.full_url)
 
 
     @method_logger.log
@@ -48,8 +49,9 @@ class VideoPlayer(object):
         @param wait_for_canplay: video will be verified before play
 
         """
-        self.tab.Navigate(self.full_url)
         self.tab.WaitForDocumentReadyStateToBeComplete()
+        self.wait_for_script_ready()
+        time.sleep(2)
         self.inject_source_file()
         if wait_for_canplay:
              self.wait_for_video_ready()
@@ -63,6 +65,17 @@ class VideoPlayer(object):
 
         """
         pass
+
+
+    @method_logger.log
+    def wait_for_script_ready(self):
+        """
+        Wait for Javascript variables and functions to be defined.
+
+        """
+        exception_msg = 'Script did not ready in time.'
+
+        self._wait_for_event(self.is_javascript_ready, exception_msg)
 
 
     @method_logger.log
@@ -80,18 +93,21 @@ class VideoPlayer(object):
 
 
     @method_logger.log
-    def verify_video_can_play(self):
+    def verify_video_can_play(self, duration=0):
         """
         Plays video and ensures that reported video current time is > 0.
+
+        @param duration: duration to play a video
         @raises: error.TestError if current time is not > 0 after time > 0s
 
         """
-        exception_msg = 'Expected current > 0 after %ds' %self.event_timeout
+        exception_msg = 'Expected current time >%ds.' %duration
 
         self.play()
 
         # check that video is playing
-        self._wait_for_event(lambda : self.currentTime() > 0.0, exception_msg)
+        self._wait_for_event(
+                  lambda : self.currentTime() > duration, exception_msg)
 
         self.pause()
 

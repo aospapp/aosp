@@ -17,12 +17,13 @@
 #ifndef ANDROID_SF_FRAMEBUFFER_SURFACE_H
 #define ANDROID_SF_FRAMEBUFFER_SURFACE_H
 
+#include "DisplaySurface.h"
+#include "HWComposerBufferCache.h"
+
 #include <stdint.h>
 #include <sys/types.h>
 
 #include <gui/ConsumerBase.h>
-
-#include "DisplaySurface.h"
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -68,8 +69,8 @@ private:
     // BufferQueue and releases the previously latched buffer to the
     // BufferQueue.  The new buffer is returned in the 'buffer' argument.
 #ifdef USE_HWC2
-    status_t nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence,
-            android_dataspace_t& outDataspace);
+    status_t nextBuffer(uint32_t& outSlot, sp<GraphicBuffer>& outBuffer,
+            sp<Fence>& outFence, android_dataspace_t& outDataspace);
 #else
     status_t nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence);
 #endif
@@ -93,6 +94,8 @@ private:
     HWComposer& mHwc;
 
 #ifdef USE_HWC2
+    HWComposerBufferCache mHwcBufferCache;
+
     // Previous buffer to release after getting an updated retire fence
     bool mHasPendingRelease;
     int mPreviousBufferSlot;

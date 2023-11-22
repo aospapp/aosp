@@ -75,8 +75,8 @@ TEST_F(PolicySessionTest, StartBoundSessionSuccess) {
 TEST_F(PolicySessionTest, StartBoundSessionFailure) {
   PolicySessionImpl session(factory_);
   TPM_HANDLE handle = TPM_RH_FIRST;
-  EXPECT_CALL(mock_session_manager_, StartSession(TPM_SE_POLICY, handle,
-                                                  _, true, _))
+  EXPECT_CALL(mock_session_manager_,
+              StartSession(TPM_SE_POLICY, handle, _, true, _))
       .WillRepeatedly(Return(TPM_RC_FAILURE));
   EXPECT_EQ(TPM_RC_FAILURE, session.StartBoundSession(handle, "auth", true));
 }
@@ -94,8 +94,8 @@ TEST_F(PolicySessionTest, StartUnboundSessionSuccess) {
 
 TEST_F(PolicySessionTest, StartUnboundSessionFailure) {
   PolicySessionImpl session(factory_);
-  EXPECT_CALL(mock_session_manager_, StartSession(TPM_SE_POLICY, TPM_RH_NULL,
-                                                  _, true, _))
+  EXPECT_CALL(mock_session_manager_,
+              StartSession(TPM_SE_POLICY, TPM_RH_NULL, _, true, _))
       .WillRepeatedly(Return(TPM_RC_FAILURE));
   EXPECT_EQ(TPM_RC_FAILURE, session.StartUnboundSession(true));
 }
@@ -106,8 +106,7 @@ TEST_F(PolicySessionTest, GetDigestSuccess) {
   TPM2B_DIGEST policy_digest;
   policy_digest.size = SHA256_DIGEST_SIZE;
   EXPECT_CALL(mock_tpm_, PolicyGetDigestSync(_, _, _, _))
-      .WillOnce(DoAll(SetArgPointee<2>(policy_digest),
-                      Return(TPM_RC_SUCCESS)));
+      .WillOnce(DoAll(SetArgPointee<2>(policy_digest), Return(TPM_RC_SUCCESS)));
   EXPECT_EQ(TPM_RC_SUCCESS, session.GetDigest(&digest));
   EXPECT_EQ(static_cast<size_t>(SHA256_DIGEST_SIZE), digest.size());
 }
@@ -128,8 +127,7 @@ TEST_F(PolicySessionTest, PolicyORSuccess) {
   digests.push_back("digest3");
   TPML_DIGEST tpm_digests;
   EXPECT_CALL(mock_tpm_, PolicyORSync(_, _, _, _))
-      .WillOnce(DoAll(SaveArg<2>(&tpm_digests),
-                      Return(TPM_RC_SUCCESS)));
+      .WillOnce(DoAll(SaveArg<2>(&tpm_digests), Return(TPM_RC_SUCCESS)));
   EXPECT_EQ(TPM_RC_SUCCESS, session.PolicyOR(digests));
   EXPECT_EQ(tpm_digests.count, digests.size());
   EXPECT_EQ(StringFrom_TPM2B_DIGEST(tpm_digests.digests[0]), digests[0]);
@@ -161,8 +159,7 @@ TEST_F(PolicySessionTest, PolicyPCRSuccess) {
   TPML_PCR_SELECTION pcr_select;
   TPM2B_DIGEST pcr_value;
   EXPECT_CALL(mock_tpm_, PolicyPCRSync(_, _, _, _, _))
-      .WillOnce(DoAll(SaveArg<2>(&pcr_value),
-                      SaveArg<3>(&pcr_select),
+      .WillOnce(DoAll(SaveArg<2>(&pcr_value), SaveArg<3>(&pcr_select),
                       Return(TPM_RC_SUCCESS)));
   EXPECT_EQ(TPM_RC_SUCCESS, session.PolicyPCR(pcr_index, pcr_digest));
   uint8_t pcr_select_index = pcr_index / 8;

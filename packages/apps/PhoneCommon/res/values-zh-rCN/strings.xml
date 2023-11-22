@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"无"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"未知铃声"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"您的通话数量已达上限。如要拨打电话，请在此设备或您的其他设备上中断其中一个通话。"</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"移动数据网络已停用，因此通话中断。"</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"已达到移动数据网络流量上限，因此通话中断。"</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"已达到数据流量上限，因此通话中断。"</string>
 </resources>

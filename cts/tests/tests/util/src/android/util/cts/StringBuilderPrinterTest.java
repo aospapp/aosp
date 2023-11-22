@@ -15,10 +15,20 @@
  */
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.StringBuilderPrinter;
 
-public class StringBuilderPrinterTest extends AndroidTestCase{
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class StringBuilderPrinterTest {
+    @Test
     public void testStringBuilderPrinter(){
         StringBuilder strBuilder = new StringBuilder("Hello");
         StringBuilderPrinter strBuilderPrinter = new StringBuilderPrinter(strBuilder);

@@ -1,5 +1,7 @@
+// Copyright (C) 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
 /********************************************************************
- * Copyright (c) 2011-2015, International Business Machines Corporation
+ * Copyright (c) 2011-2016, International Business Machines Corporation
  * and others. All Rights Reserved.
  ********************************************************************/
 /* C API TEST FOR DATE INTERVAL FORMAT */
@@ -17,8 +19,6 @@
 
 static void TestDateIntervalFormat(void);
 static void TestFPos_SkelWithSeconds(void);
-
-#define LEN(a) (sizeof(a)/sizeof(a[0]))
 
 void addDateIntervalFormatTest(TestNode** root);
 
@@ -136,7 +136,7 @@ static const double deltas[] = {
 	8640000000.0, // 100 days
 	-1.0
 };
-enum { kNumDeltas = sizeof(deltas)/sizeof(deltas[0]) - 1 };
+enum { kNumDeltas = UPRV_LENGTHOF(deltas) - 1 };
 
 typedef struct {
     int32_t posBegin;
@@ -282,8 +282,7 @@ static void TestFPos_SkelWithSeconds()
 	    UChar   ubuf[kSizeUBuf];
 	    int32_t ulen, uelen;
 	    UErrorCode status = U_ZERO_ERROR;
-	    
-	    u_strFromUTF8(ubuf, kSizeUBuf, &ulen, locSkelItemPtr->skeleton, -1, &status);
+            ulen = u_unescape(locSkelItemPtr->skeleton, ubuf, kSizeUBuf);
 	    udifmt = udtitvfmt_open(locSkelItemPtr->locale, ubuf, ulen, zoneGMT, -1, &status);
 	    if ( U_FAILURE(status) ) {
            log_data_err("FAIL: udtitvfmt_open for locale %s, skeleton %s: %s\n",

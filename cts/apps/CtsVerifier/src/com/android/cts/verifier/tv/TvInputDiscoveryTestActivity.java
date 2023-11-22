@@ -53,6 +53,8 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
     private View mVerifyEpgItem;
     private View mTriggerSetupItem;
     private View mVerifyTriggerSetupItem;
+    private View mSupportThirdPartyInputYesItem;
+    private View mSupportThirdPartyInputNoItem;
     private boolean mTuneVerified;
     private boolean mOverlayViewVerified;
     private boolean mGlobalSearchVerified;
@@ -62,7 +64,17 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
     public void onClick(View v) {
         final View postTarget = getPostTarget();
 
-        if (containsButton(mGoToSetupItem, v)) {
+        if (containsButton(mSupportThirdPartyInputYesItem, v)) {
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            setButtonEnabled(mGoToSetupItem, true);
+            return;
+        } else if (containsButton(mSupportThirdPartyInputNoItem, v)){
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            getPassButton().setEnabled(true);
+            return;
+        } else if (containsButton(mGoToSetupItem, v)) {
             final Runnable failCallback = new Runnable() {
                 @Override
                 public void run() {
@@ -139,9 +151,14 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
 
     @Override
     protected void createTestItems() {
+        mSupportThirdPartyInputYesItem = createUserItem(
+                R.string.tv_input_discover_test_third_party_tif_input_support,
+                R.string.tv_yes, this);
+        setButtonEnabled(mSupportThirdPartyInputYesItem, true);
+        mSupportThirdPartyInputNoItem = createButtonItem(R.string.tv_no, this);
+        setButtonEnabled(mSupportThirdPartyInputNoItem, true);
         mGoToSetupItem = createUserItem(R.string.tv_input_discover_test_go_to_setup,
                 R.string.tv_launch_tv_app, this);
-        setButtonEnabled(mGoToSetupItem, true);
         mVerifySetupItem = createAutoItem(R.string.tv_input_discover_test_verify_setup);
         mTuneToChannelItem = createUserItem(R.string.tv_input_discover_test_tune_to_channel,
                 R.string.tv_launch_tv_app, this);
@@ -155,11 +172,11 @@ public class TvInputDiscoveryTestActivity extends TvAppVerifierActivity
         mGoToEpgItem = createUserItem(R.string.tv_input_discover_test_go_to_epg,
                 R.string.tv_launch_epg, this);
         mVerifyEpgItem = createUserItem(R.string.tv_input_discover_test_verify_epg,
-                android.R.string.yes, this);
+                R.string.tv_yes, this);
         mTriggerSetupItem = createUserItem(R.string.tv_input_discover_test_trigger_setup,
                 R.string.tv_launch_setup, this);
         mVerifyTriggerSetupItem = createUserItem(
-                R.string.tv_input_discover_test_verify_trigger_setup, android.R.string.yes, this);
+                R.string.tv_input_discover_test_verify_trigger_setup, R.string.tv_yes, this);
     }
 
     @Override

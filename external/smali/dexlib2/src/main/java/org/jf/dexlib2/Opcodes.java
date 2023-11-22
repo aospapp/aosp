@@ -39,6 +39,10 @@ import javax.annotation.Nullable;
 import java.util.EnumMap;
 import java.util.HashMap;
 
+import static org.jf.dexlib2.VersionMap.NO_VERSION;
+import static org.jf.dexlib2.VersionMap.mapApiToArtVersion;
+import static org.jf.dexlib2.VersionMap.mapArtVersionToApi;
+
 public class Opcodes {
 
     /**
@@ -52,12 +56,12 @@ public class Opcodes {
 
     @Nonnull
     public static Opcodes forApi(int api) {
-        return new Opcodes(api, VersionMap.mapApiToArtVersion(api), false);
+        return new Opcodes(api, NO_VERSION, false);
     }
 
     @Nonnull
     public static Opcodes forApi(int api, boolean experimental) {
-        return new Opcodes(api, VersionMap.mapApiToArtVersion(api), experimental);
+        return new Opcodes(api, NO_VERSION, experimental);
     }
 
     @Nonnull
@@ -67,7 +71,7 @@ public class Opcodes {
 
     @Nonnull
     public static Opcodes forArtVersion(int artVersion, boolean experimental) {
-        return new Opcodes(VersionMap.mapArtVersionToApi(artVersion), artVersion, experimental);
+        return new Opcodes(NO_VERSION, artVersion, experimental);
     }
 
     @Deprecated
@@ -81,17 +85,25 @@ public class Opcodes {
     }
 
     private Opcodes(int api, int artVersion, boolean experimental) {
-        this.api = api;
-        this.artVersion = artVersion;
+        if (api >= 21) {
+            this.api = api;
+            this.artVersion = mapApiToArtVersion(api);
+        } else if (artVersion >= 0 && artVersion < 39) {
+            this.api = mapArtVersionToApi(artVersion);
+            this.artVersion = artVersion;
+        } else {
+            this.api = api;
+            this.artVersion = artVersion;
+        }
 
         opcodeValues = new EnumMap<Opcode, Short>(Opcode.class);
         opcodesByName = Maps.newHashMap();
 
         int version;
         if (isArt()) {
-            version = artVersion;
+            version = this.artVersion;
         } else {
-            version = api;
+            version = this.api;
         }
 
         for (Opcode opcode: Opcode.values()) {
@@ -142,6 +154,6 @@ public class Opcodes {
     }
 
     public boolean isArt() {
-        return artVersion != VersionMap.NO_VERSION;
+        return artVersion != NO_VERSION;
     }
 }

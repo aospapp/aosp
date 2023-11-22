@@ -17,6 +17,8 @@
 #ifndef _DIRECTORY_H_
 #define _DIRECTORY_H_
 
+#include "ext4_utils/ext4_utils.h"
+
 struct dentry {
 	char *path;
 	char *full_path;

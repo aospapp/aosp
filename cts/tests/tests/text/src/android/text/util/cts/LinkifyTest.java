@@ -16,9 +16,15 @@
 
 package android.text.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.URLSpan;
@@ -28,6 +34,10 @@ import android.text.util.Linkify.TransformFilter;
 import android.util.Patterns;
 import android.widget.TextView;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,26 +45,26 @@ import java.util.regex.Pattern;
 /**
  * Test {@link Linkify}.
  */
-public class LinkifyTest extends AndroidTestCase {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class LinkifyTest {
     private static final Pattern LINKIFY_TEST_PATTERN = Pattern.compile(
             "(test:)?[a-zA-Z0-9]+(\\.pattern)?");
 
-    private MatchFilter mMatchFilterStartWithDot = new MatchFilter() {
-        public final boolean acceptMatch(final CharSequence s, final int start, final int end) {
-            if (start == 0) {
+    private MatchFilter mMatchFilterStartWithDot =
+            (final CharSequence s, final int start, final int end) -> {
+                if (start == 0) {
+                    return true;
+                }
+
+                if (s.charAt(start - 1) == '.') {
+                    return false;
+                }
+
                 return true;
-            }
+            };
 
-            if (s.charAt(start - 1) == '.') {
-                return false;
-            }
-
-            return true;
-        }
-    };
-
-    private TransformFilter mTransformFilterUpperChar = new TransformFilter() {
-        public final String transformUrl(final Matcher match, String url) {
+    private TransformFilter mTransformFilterUpperChar = (final Matcher match, String url) -> {
             StringBuilder buffer = new StringBuilder();
             String matchingRegion = match.group();
 
@@ -67,14 +77,22 @@ public class LinkifyTest extends AndroidTestCase {
                 }
             }
             return buffer.toString();
-        }
-    };
+        };
 
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testConstructor() {
         new Linkify();
     }
 
-    public void testAddLinks1() {
+    @Test
+    public void testAddLinksToSpannable() {
         // Verify URLs including the ones that have new gTLDs, and the
         // ones that look like gTLDs (and so are accepted by linkify)
         // and the ones that should not be linkified due to non-compliant
@@ -101,44 +119,45 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals(1, spans.length);
         assertEquals("mailto:name@gmail.com", spans[0].getURL());
 
-        try {
-            Linkify.addLinks((Spannable) null, Linkify.WEB_URLS);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
         assertFalse(Linkify.addLinks((Spannable) null, 0));
     }
 
-    public void testAddLinks2() {
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToSpannableNullWithWebUrls() {
+        Linkify.addLinks((Spannable) null, Linkify.WEB_URLS);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAddLinksToTextView() {
         String text = "www.google.com, name@gmail.com";
         TextView tv = new TextView(mContext);
         tv.setText(text);
 
         assertTrue(Linkify.addLinks(tv, Linkify.WEB_URLS));
-        URLSpan[] spans = ((Spannable)tv.getText()).getSpans(0, text.length(), URLSpan.class);
+        URLSpan[] spans = ((Spannable) tv.getText()).getSpans(0, text.length(), URLSpan.class);
         assertEquals(1, spans.length);
         assertEquals("http://www.google.com", spans[0].getURL());
 
         SpannableString spannable = SpannableString.valueOf(text);
         tv.setText(spannable);
         assertTrue(Linkify.addLinks(tv, Linkify.EMAIL_ADDRESSES));
-        spans = ((Spannable)tv.getText()).getSpans(0, text.length(), URLSpan.class);
+        spans = ((Spannable) tv.getText()).getSpans(0, text.length(), URLSpan.class);
         assertEquals(1, spans.length);
         assertEquals("mailto:name@gmail.com", spans[0].getURL());
 
-        try {
-            Linkify.addLinks((TextView)null, Linkify.WEB_URLS);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
-        assertFalse(Linkify.addLinks((TextView)null, 0));
+        assertFalse(Linkify.addLinks((TextView) null, 0));
     }
 
-    public void testAddLinks3() {
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToTextViewNullWithWebUrls() {
+        Linkify.addLinks((TextView) null, Linkify.WEB_URLS);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAddLinksToTextViewWithScheme() {
         String text = "Alan, Charlie";
         TextView tv = new TextView(mContext);
         tv.setText(text);
@@ -157,20 +176,6 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("test:google.pattern", spans[0].getURL());
         assertEquals("test:AZ0101.pattern", spans[1].getURL());
 
-        try {
-            Linkify.addLinks((TextView) null, LINKIFY_TEST_PATTERN, "Test:");
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
-        try {
-            Linkify.addLinks(tv, null, "Test:");
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
         tv = new TextView(mContext);
         tv.setText(text);
         Linkify.addLinks(tv, LINKIFY_TEST_PATTERN, null);
@@ -180,10 +185,26 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("test:AZ0101.pattern", spans[1].getURL());
     }
 
-    public void testAddLinks4() {
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToTextViewWithSchemeNullView() {
+        Linkify.addLinks((TextView) null, LINKIFY_TEST_PATTERN, "Test:");
+    }
+
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToTextViewWithSchemeNullPattern() {
+        TextView tv = new TextView(mContext);
+        tv.setText("Alan, Charlie");
+        Linkify.addLinks(tv, null, "Test:");
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAddLinksToTextViewWithSchemeAndFilter() {
         TextView tv = new TextView(mContext);
 
-        String text =  "FilterUpperCase.pattern, 12.345.pattern";
+        String text = "FilterUpperCase.pattern, 12.345.pattern";
         tv.setText(text);
         Linkify.addLinks(tv, LINKIFY_TEST_PATTERN, "Test:",
                 mMatchFilterStartWithDot, mTransformFilterUpperChar);
@@ -191,22 +212,6 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals(2, spans.length);
         assertEquals("test:ilterpperase.pattern", spans[0].getURL());
         assertEquals("test:12", spans[1].getURL());
-
-        try {
-            Linkify.addLinks((TextView) null, LINKIFY_TEST_PATTERN, "Test:",
-                    mMatchFilterStartWithDot, mTransformFilterUpperChar);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
-        try {
-            Linkify.addLinks(tv, null, "Test:",
-                    mMatchFilterStartWithDot, mTransformFilterUpperChar);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
 
         tv.setText(text);
         Linkify.addLinks(tv, LINKIFY_TEST_PATTERN, null,
@@ -232,7 +237,24 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("test:12", spans[1].getURL());
     }
 
-    public void testAddLinks5() {
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToTextViewWithSchemeAndFilterNullView() {
+        Linkify.addLinks((TextView) null, LINKIFY_TEST_PATTERN, "Test:",
+                mMatchFilterStartWithDot, mTransformFilterUpperChar);
+    }
+
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToTextViewWithSchemeAndFilterNullPattern() {
+        TextView tv = new TextView(mContext);
+        tv.setText("FilterUpperCase.pattern, 12.345.pattern");
+        Linkify.addLinks(tv, null, "Test:",
+                mMatchFilterStartWithDot, mTransformFilterUpperChar);
+    }
+
+    @Test
+    public void testAddLinksToSpannableWithScheme() {
         String text = "google.pattern, test:AZ0101.pattern";
 
         SpannableString spannable = new SpannableString(text);
@@ -242,18 +264,6 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("test:google.pattern", spans[0].getURL());
         assertEquals("test:AZ0101.pattern", spans[1].getURL());
 
-        try {
-            Linkify.addLinks((Spannable)null, LINKIFY_TEST_PATTERN, "Test:");
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-        }
-
-        try {
-            Linkify.addLinks(spannable, null, "Test:");
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-        }
-
         spannable = new SpannableString(text);
         Linkify.addLinks(spannable, LINKIFY_TEST_PATTERN, null);
         spans = (spannable.getSpans(0, spannable.length(), URLSpan.class));
@@ -262,7 +272,23 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("test:AZ0101.pattern", spans[1].getURL());
     }
 
-    public void testAddLinks6() {
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToSpannableWithSchemeNullSpannable() {
+        Linkify.addLinks((Spannable)null, LINKIFY_TEST_PATTERN, "Test:");
+    }
+
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToSpannableWithSchemeNullPattern() {
+        String text = "google.pattern, test:AZ0101.pattern";
+        SpannableString spannable = new SpannableString(text);
+
+        Linkify.addLinks(spannable, null, "Test:");
+    }
+
+    @Test
+    public void testAddLinksToSpannableWithSchemeAndFilter() {
         String text = "FilterUpperCase.pattern, 12.345.pattern";
 
         SpannableString spannable = new SpannableString(text);
@@ -272,22 +298,6 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals(2, spans.length);
         assertEquals("test:ilterpperase.pattern", spans[0].getURL());
         assertEquals("test:12", spans[1].getURL());
-
-        try {
-            Linkify.addLinks((Spannable)null, LINKIFY_TEST_PATTERN, "Test:",
-                    mMatchFilterStartWithDot, mTransformFilterUpperChar);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
-        try {
-            Linkify.addLinks(spannable, null, "Test:", mMatchFilterStartWithDot,
-                    mTransformFilterUpperChar);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
 
         spannable = new SpannableString(text);
         Linkify.addLinks(spannable, LINKIFY_TEST_PATTERN, null, mMatchFilterStartWithDot,
@@ -313,7 +323,25 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("test:12", spans[1].getURL());
     }
 
-    public void testAddLinks7() {
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToSpannableWithSchemeAndFilterNullSpannable() {
+        Linkify.addLinks((Spannable)null, LINKIFY_TEST_PATTERN, "Test:",
+                mMatchFilterStartWithDot, mTransformFilterUpperChar);
+    }
+
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddLinksToSpannableWithSchemeAndFilterNullPattern() {
+        String text = "FilterUpperCase.pattern, 12.345.pattern";
+        SpannableString spannable = new SpannableString(text);
+
+        Linkify.addLinks(spannable, null, "Test:", mMatchFilterStartWithDot,
+                mTransformFilterUpperChar);
+    }
+
+    @Test
+    public void testAddLinksPhoneNumbers() {
         String numbersInvalid = "123456789 not a phone number";
         String numbersUKLocal = "tel:(0812)1234560 (0812)1234561";
         String numbersUSLocal = "tel:(812)1234562 (812)123.4563 "
@@ -342,17 +370,10 @@ public class LinkifyTest extends AndroidTestCase {
             assertEquals("tel:+18005551214", spans[8].getURL());
         }
 
-        try {
-            Linkify.addLinks((Spannable) null, Linkify.WEB_URLS);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // expect
-        }
-
         assertFalse(Linkify.addLinks((Spannable) null, 0));
     }
 
-    @SmallTest
+    @Test
     public void testAddLinks_addsLinksWhenDefaultSchemeIsNull() {
         Spannable spannable = new SpannableString("any https://android.com any android.com any");
         Linkify.addLinks(spannable, Patterns.AUTOLINK_WEB_URL, null, null, null);
@@ -363,7 +384,7 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("android.com", spans[1].getURL());
     }
 
-    @SmallTest
+    @Test
     public void testAddLinks_addsLinksWhenSchemesArrayIsNull() {
         Spannable spannable = new SpannableString("any https://android.com any android.com any");
         Linkify.addLinks(spannable, Patterns.AUTOLINK_WEB_URL, "http://", null, null);
@@ -375,7 +396,7 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("http://android.com", spans[1].getURL());
     }
 
-    @SmallTest
+    @Test
     public void testAddLinks_prependsDefaultSchemeToBeginingOfLink() {
         Spannable spannable = new SpannableString("any android.com any");
         Linkify.addLinks(spannable, Patterns.AUTOLINK_WEB_URL, "http://",
@@ -386,7 +407,7 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("http://android.com", spans[0].getURL());
     }
 
-    @SmallTest
+    @Test
     public void testAddLinks_doesNotPrependSchemeIfSchemeExists() {
         Spannable spannable = new SpannableString("any https://android.com any");
         Linkify.addLinks(spannable, Patterns.AUTOLINK_WEB_URL, "http://",
@@ -399,7 +420,8 @@ public class LinkifyTest extends AndroidTestCase {
 
     // Add links with scheme (array)
 
-    @SmallTest
+    @UiThreadTest
+    @Test
     public void testAddLinks_withTextView_addsLinksWhenDefaultSchemeIsNull() {
         Pattern pattern = Pattern.compile("\\b((http|https)://)?android\\.com+\\b");
         TextView textView = new TextView(mContext);
@@ -413,7 +435,8 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("android.com", spans[1].getURL());
     }
 
-    @SmallTest
+    @UiThreadTest
+    @Test
     public void testAddLinks_withTextView_addsLinksWhenSchemesArrayIsNull() {
         Pattern pattern = Pattern.compile("\\b((http|https)://)?android\\.com+\\b");
         TextView textView = new TextView(mContext);
@@ -428,7 +451,8 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("http://android.com", spans[1].getURL());
     }
 
-    @SmallTest
+    @UiThreadTest
+    @Test
     public void testAddLinks_withTextView_prependsDefaultSchemeToBeginingOfLink() {
         Pattern pattern = Pattern.compile("\\b((http|https)://)?android\\.com+\\b");
         TextView textView = new TextView(mContext);
@@ -442,7 +466,8 @@ public class LinkifyTest extends AndroidTestCase {
         assertEquals("http://android.com", spans[0].getURL());
     }
 
-    @SmallTest
+    @UiThreadTest
+    @Test
     public void testAddLinks_withTextView_doesNotPrependSchemeIfSchemeExists() {
         Pattern pattern = Pattern.compile("\\b((http|https)://)?android\\.com+\\b");
         TextView textView = new TextView(mContext);
@@ -458,189 +483,183 @@ public class LinkifyTest extends AndroidTestCase {
 
     // WEB_URLS Related Tests
 
-    @SmallTest
+    @Test
     public void testAddLinks_doesNotAddLinksForUrlWithoutProtocolAndWithoutKnownTld()
-            throws Exception {
+            {
         Spannable spannable = new SpannableString("hey man.its me");
         boolean linksAdded = Linkify.addLinks(spannable, Linkify.ALL);
         assertFalse("Should not add link with unknown TLD", linksAdded);
     }
 
-    @SmallTest
-    public void testAddLinks_shouldNotAddEmailAddressAsUrl() throws Exception {
+    @Test
+    public void testAddLinks_shouldNotAddEmailAddressAsUrl() {
         String url = "name@gmail.com";
-        assertAddLinksWithWebUrlFails("Should not recognize email address as URL", url);
+        verifyAddLinksWithWebUrlFails("Should not recognize email address as URL", url);
     }
 
-    public void testAddLinks_acceptsUrlsWithCommasInRequestParameterValues() throws Exception {
+    @Test
+    public void testAddLinks_acceptsUrlsWithCommasInRequestParameterValues() {
         String url = "https://android.com/path?ll=37.4221,-122.0836&z=17&pll=37.4221,-122.0836";
-        assertAddLinksWithWebUrlSucceeds("Should accept commas", url);
+        verifyAddLinksWithWebUrlSucceeds("Should accept commas", url);
     }
 
-    @SmallTest
-    public void testAddLinks_addsLinksForUrlWithProtocolWithoutTld() throws Exception {
+    @Test
+    public void testAddLinks_addsLinksForUrlWithProtocolWithoutTld() {
         String url = "http://android/#notld///a/n/d/r/o/i/d&p1=1&p2=2";
-        assertAddLinksWithWebUrlSucceeds("Should accept URL starting with protocol but does not" +
+        verifyAddLinksWithWebUrlSucceeds("Should accept URL starting with protocol but does not" +
                 " have TLD", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesProtocolCaseInsensitive() throws Exception {
+    @Test
+    public void testAddLinks_matchesProtocolCaseInsensitive() {
         String url = "hTtP://android.com";
-        assertAddLinksWithWebUrlSucceeds("Protocol matching should be case insensitive", url);
+        verifyAddLinksWithWebUrlSucceeds("Protocol matching should be case insensitive", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesValidUrlWithSchemeAndHostname() throws Exception {
+    @Test
+    public void testAddLinks_matchesValidUrlWithSchemeAndHostname() {
         String url = "http://www.android.com";
-        assertAddLinksWithWebUrlSucceeds("Should match valid URL with scheme and hostname", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match valid URL with scheme and hostname", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesValidUrlWithSchemeHostnameAndNewTld() throws Exception {
+    @Test
+    public void testAddLinks_matchesValidUrlWithSchemeHostnameAndNewTld() {
         String url = "http://www.android.me";
-        assertAddLinksWithWebUrlSucceeds("Should match valid URL with scheme hostname and new TLD",
+        verifyAddLinksWithWebUrlSucceeds("Should match valid URL with scheme hostname and new TLD",
                 url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesValidUrlWithHostnameAndNewTld() throws Exception {
+    @Test
+    public void testAddLinks_matchesValidUrlWithHostnameAndNewTld() {
         String url = "android.camera";
-        assertAddLinksWithWebUrlSucceeds("Should match valid URL with hostname and new TLD", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match valid URL with hostname and new TLD", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesPunycodeUrl() throws Exception {
+    @Test
+    public void testAddLinks_matchesPunycodeUrl() {
         String url = "http://xn--fsqu00a.xn--unup4y";
-        assertAddLinksWithWebUrlSucceeds("Should match Punycode URL", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match Punycode URL", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesPunycodeUrlWithoutProtocol() throws Exception {
+    @Test
+    public void testAddLinks_matchesPunycodeUrlWithoutProtocol() {
         String url = "xn--fsqu00a.xn--unup4y";
-        assertAddLinksWithWebUrlSucceeds("Should match Punycode URL without protocol", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match Punycode URL without protocol", url);
     }
 
-    @SmallTest
-    public void testAddLinks_doesNotMatchPunycodeTldThatStartsWithDash() throws Exception {
+    @Test
+    public void testAddLinks_doesNotMatchPunycodeTldThatStartsWithDash() {
         String url = "xn--fsqu00a.-xn--unup4y";
-        assertAddLinksWithWebUrlFails("Should not match Punycode TLD that starts with dash", url);
+        verifyAddLinksWithWebUrlFails("Should not match Punycode TLD that starts with dash", url);
     }
 
-    @SmallTest
-    public void testAddLinks_partiallyMatchesPunycodeTldThatEndsWithDash() throws Exception {
+    @Test
+    public void testAddLinks_partiallyMatchesPunycodeTldThatEndsWithDash() {
         String url = "http://xn--fsqu00a.xn--unup4y-";
-        assertAddLinksWithWebUrlPartiallyMatches("Should partially match Punycode TLD that ends " +
+        verifyAddLinksWithWebUrlPartiallyMatches("Should partially match Punycode TLD that ends " +
                 "with dash", "http://xn--fsqu00a.xn--unup4y", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlWithUnicodeDomainName() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlWithUnicodeDomainName() {
         String url = "http://\uD604\uAE08\uC601\uC218\uC99D.kr";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with Unicode domain name", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with Unicode domain name", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlWithUnicodeDomainNameWithoutProtocol() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlWithUnicodeDomainNameWithoutProtocol() {
         String url = "\uD604\uAE08\uC601\uC218\uC99D.kr";
-        assertAddLinksWithWebUrlSucceeds("Should match URL without protocol and with Unicode " +
+        verifyAddLinksWithWebUrlSucceeds("Should match URL without protocol and with Unicode " +
                 "domain name", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlWithUnicodeDomainNameAndTld() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlWithUnicodeDomainNameAndTld() {
         String url = "\uB3C4\uBA54\uC778.\uD55C\uAD6D";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with Unicode domain name and TLD", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with Unicode domain name and TLD", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlWithUnicodePath() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlWithUnicodePath() {
         String url = "http://android.com/\u2019/a";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with Unicode path", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with Unicode path", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesValidUrlWithPort() throws Exception {
+    @Test
+    public void testAddLinks_matchesValidUrlWithPort() {
         String url = "http://www.example.com:8080";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with port", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with port", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlWithPortAndQuery() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlWithPortAndQuery() {
         String url = "http://www.example.com:8080/?foo=bar";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with port and query", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with port and query", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlWithTilde() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlWithTilde() {
         String url = "http://www.example.com:8080/~user/?foo=bar";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with tilde", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with tilde", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesUrlStartingWithHttpAndDoesNotHaveTld() throws Exception {
+    @Test
+    public void testAddLinks_matchesUrlStartingWithHttpAndDoesNotHaveTld() {
         String url = "http://android/#notld///a/n/d/r/o/i/d&p1=1&p2=2";
-        assertAddLinksWithWebUrlSucceeds("Should match URL without a TLD and starting with http",
+        verifyAddLinksWithWebUrlSucceeds("Should match URL without a TLD and starting with http",
                 url);
     }
 
-    @SmallTest
-    public void testAddLinks_doesNotMatchUrlsWithoutProtocolAndWithUnknownTld() throws Exception {
+    @Test
+    public void testAddLinks_doesNotMatchUrlsWithoutProtocolAndWithUnknownTld() {
         String url = "thank.you";
-        assertAddLinksWithWebUrlFails("Should not match URL that does not start with a protocol " +
+        verifyAddLinksWithWebUrlFails("Should not match URL that does not start with a protocol " +
                 "and does not contain a known TLD", url);
     }
 
-    @SmallTest
-    public void testAddLinks_partiallyMatchesUrlWithInvalidRequestParameter() throws Exception {
-        String url = "http://android.com?p=value";
-        assertAddLinksWithWebUrlPartiallyMatches("Should partially match URL with invalid " +
-                "request parameter", "http://android.com", url);
-    }
-
-    @SmallTest
-    public void testAddLinks_matchesValidUrlWithEmoji() throws Exception {
+    @Test
+    public void testAddLinks_matchesValidUrlWithEmoji() {
         String url = "Thank\u263A.com";
-        assertAddLinksWithWebUrlSucceeds("Should match URL with emoji", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match URL with emoji", url);
     }
 
-    @SmallTest
+    @Test
     public void testAddLinks_doesNotMatchUrlsWithEmojiWithoutProtocolAndWithoutKnownTld()
-            throws Exception {
+            {
         String url = "Thank\u263A.you";
-        assertAddLinksWithWebUrlFails("Should not match URLs containing emoji and with unknown " +
+        verifyAddLinksWithWebUrlFails("Should not match URLs containing emoji and with unknown " +
                 "TLD", url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesDomainNameWithSurrogatePairs() throws Exception {
+    @Test
+    public void testAddLinks_matchesDomainNameWithSurrogatePairs() {
         String url = "android\uD83C\uDF38.com";
-        assertAddLinksWithWebUrlSucceeds("Should match domain name with Unicode surrogate pairs",
+        verifyAddLinksWithWebUrlSucceeds("Should match domain name with Unicode surrogate pairs",
                 url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesTldWithSurrogatePairs() throws Exception {
+    @Test
+    public void testAddLinks_matchesTldWithSurrogatePairs() {
         String url = "http://android.\uD83C\uDF38com";
-        assertAddLinksWithWebUrlSucceeds("Should match TLD with Unicode surrogate pairs", url);
+        verifyAddLinksWithWebUrlSucceeds("Should match TLD with Unicode surrogate pairs", url);
     }
 
-    @SmallTest
-    public void testAddLinks_doesNotMatchUrlWithExcludedSurrogate() throws Exception {
+    @Test
+    public void testAddLinks_doesNotMatchUrlWithExcludedSurrogate() {
         String url = "android\uD83F\uDFFE.com";
-        assertAddLinksWithWebUrlFails("Should not match URL with excluded Unicode surrogate" +
+        verifyAddLinksWithWebUrlFails("Should not match URL with excluded Unicode surrogate" +
                 " pair",  url);
     }
 
-    @SmallTest
-    public void testAddLinks_matchesPathWithSurrogatePairs() throws Exception {
+    @Test
+    public void testAddLinks_matchesPathWithSurrogatePairs() {
         String url = "http://android.com/path-with-\uD83C\uDF38?v=\uD83C\uDF38f";
-        assertAddLinksWithWebUrlSucceeds("Should match path and query with Unicode surrogate pairs",
+        verifyAddLinksWithWebUrlSucceeds("Should match path and query with Unicode surrogate pairs",
                 url);
     }
 
-    @SmallTest
-    public void testAddLinks__doesNotMatchUnicodeSpaces() throws Exception {
+    @Test
+    public void testAddLinks__doesNotMatchUnicodeSpaces() {
         String part1 = "http://and";
         String part2 = "roid.com";
         String[] emptySpaces = new String[]{
@@ -664,196 +683,269 @@ public class LinkifyTest extends AndroidTestCase {
 
         for (String emptySpace : emptySpaces) {
             String url = part1 + emptySpace + part2;
-            assertAddLinksWithWebUrlPartiallyMatches("Should not include empty space with code: " +
+            verifyAddLinksWithWebUrlPartiallyMatches("Should not include empty space with code: " +
                     emptySpace.codePointAt(0), part1, url);
         }
     }
 
+    @Test
+    public void testAddLinks_matchesDomainNameWithDash() {
+        String url = "http://a-nd.r-oid.com";
+        verifyAddLinksWithWebUrlSucceeds("Should match domain name with '-'", url);
+
+        url = "a-nd.r-oid.com";
+        verifyAddLinksWithWebUrlSucceeds("Should match domain name with '-'", url);
+    }
+
+    @Test
+    public void testAddLinks_matchesDomainNameWithUnderscore() {
+        String url = "http://a_nd.r_oid.com";
+        verifyAddLinksWithWebUrlSucceeds("Should match domain name with '_'", url);
+
+        url = "a_nd.r_oid.com";
+        verifyAddLinksWithWebUrlSucceeds("Should match domain name with '_'", url);
+    }
+
+    @Test
+    public void testAddLinks_matchesPathAndQueryWithDollarSign() {
+        String url = "http://android.com/path$?v=$val";
+        verifyAddLinksWithWebUrlSucceeds("Should match path and query with '$'", url);
+
+        url = "android.com/path$?v=$val";
+        verifyAddLinksWithWebUrlSucceeds("Should match path and query with '$'", url);
+    }
+
+    @Test
+    public void testAddLinks_matchesEmptyPathWithQueryParams() {
+        String url = "http://android.com?q=v";
+        verifyAddLinksWithWebUrlSucceeds("Should match empty path with query params", url);
+
+        url = "android.com?q=v";
+        verifyAddLinksWithWebUrlSucceeds("Should match empty path with query params", url);
+
+        url = "http://android.com/?q=v";
+        verifyAddLinksWithWebUrlSucceeds("Should match empty path with query params", url);
+
+        url = "android.com/?q=v";
+        verifyAddLinksWithWebUrlSucceeds("Should match empty path with query params", url);
+    }
+
     // EMAIL_ADDRESSES Related Tests
 
-    public void testAddLinks_email_matchesShortValidEmail() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesShortValidEmail() {
         String email = "a@a.co";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesRegularEmail() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesRegularEmail() {
         String email = "email@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesEmailWithMultipleSubdomains() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesEmailWithMultipleSubdomains() {
         String email = "email@e.somelongdomainnameforandroid.abc.uk";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithDot() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithDot() {
         String email = "e.mail@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithPlus() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithPlus() {
         String email = "e+mail@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithUnderscore() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithUnderscore() {
         String email = "e_mail@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithDash() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithDash() {
         String email = "e-mail@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithApostrophe() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithApostrophe() {
         String email = "e'mail@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithDigits() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithDigits() {
         String email = "123@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesUnicodeLocalPart() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesUnicodeLocalPart() {
         String email = "\uD604\uAE08\uC601\uC218\uC99D@android.kr";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartWithEmoji() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartWithEmoji() {
         String email = "smiley\u263A@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_matchesLocalPartWithSurrogatePairs()
-            throws Exception {
+            {
         String email = "a\uD83C\uDF38a@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesDomainWithDash() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesDomainWithDash() {
         String email = "email@an-droid.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesUnicodeDomain() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesUnicodeDomain() {
         String email = "email@\uD604\uAE08\uC601\uC218\uC99D.kr";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_matchesUnicodeLocalPartAndDomain()
-            throws Exception {
+            {
         String email = "\uD604\uAE08\uC601\uC218\uC99D@\uD604\uAE08\uC601\uC218\uC99D.kr";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesDomainWithEmoji() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesDomainWithEmoji() {
         String email = "smiley@\u263Aandroid.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_matchesDomainWithSurrogatePairs()
-            throws Exception {
+            {
         String email = "email@\uD83C\uDF38android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_matchesLocalPartAndDomainWithSurrogatePairs()
-            throws Exception {
+            {
         String email = "a\uD83C\uDF38a@\uD83C\uDF38android.com";
-        assertAddLinksWithEmailSucceeds("Should match email: " + email, email);
+        verifyAddLinksWithEmailSucceeds("Should match email: " + email, email);
     }
 
-    public void testAddLinks_partiallyMatchesEmailEndingWithDot() throws Exception {
+    @Test
+    public void testAddLinks_partiallyMatchesEmailEndingWithDot() {
         String email = "email@android.co.uk.";
-        assertAddLinksWithEmailPartiallyMatches("Should partially match email ending with dot",
+        verifyAddLinksWithEmailPartiallyMatches("Should partially match email ending with dot",
                 "mailto:email@android.co.uk", email);
     }
 
+    @Test
     public void testAddLinks_email_partiallyMatchesLocalPartStartingWithDot()
-            throws Exception {
+            {
         String email = ".email@android.com";
-        assertAddLinksWithEmailPartiallyMatches("Should partially match email starting " +
+        verifyAddLinksWithEmailPartiallyMatches("Should partially match email starting " +
                 "with dot", "mailto:email@android.com", email);
     }
 
-    public void testAddLinks_email_doesNotMatchStringWithoutAtSign() throws Exception {
+    @Test
+    public void testAddLinks_email_doesNotMatchStringWithoutAtSign() {
         String email = "android.com";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
-    public void testAddLinks_email_doesNotMatchPlainString() throws Exception {
+    @Test
+    public void testAddLinks_email_doesNotMatchPlainString() {
         String email = "email";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
-    public void testAddLinks_email_doesNotMatchEmailWithoutTld() throws Exception {
+    @Test
+    public void testAddLinks_email_doesNotMatchEmailWithoutTld() {
         String email = "email@android";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_doesNotMatchLocalPartEndingWithDot()
-            throws Exception {
+            {
         String email = "email.@android.com";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_doesNotMatchDomainStartingWithDash()
-            throws Exception {
+            {
         String email = "email@-android.com";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_doesNotMatchDomainWithConsecutiveDots()
-            throws Exception {
+            {
         String email = "email@android..com";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
-    public void testAddLinks_email_doesNotMatchEmailWithIp() throws Exception {
+    @Test
+    public void testAddLinks_email_doesNotMatchEmailWithIp() {
         String email = "email@127.0.0.1";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
+    @Test
     public void testAddLinks_email_doesNotMatchEmailWithInvalidTld()
-            throws Exception {
+            {
         String email = "email@android.c";
-        assertAddLinksWithEmailFails("Should not match email: " + email, email);
+        verifyAddLinksWithEmailFails("Should not match email: " + email, email);
     }
 
-    public void testAddLinks_email_matchesLocalPartUpTo64Chars() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesLocalPartUpTo64Chars() {
         String localPart = "";
         for (int i = 0; i < 64; i++) {
             localPart += "a";
         }
         String email = localPart + "@android.com";
-        assertAddLinksWithEmailSucceeds("Should match email local part of length: " +
+        verifyAddLinksWithEmailSucceeds("Should match email local part of length: " +
                 localPart.length(), email);
 
         email = localPart + "a@android.com";
-        assertAddLinksWithEmailFails("Should not match email local part of length:" +
+        verifyAddLinksWithEmailFails("Should not match email local part of length:" +
                 localPart.length(), email);
     }
 
-    public void testAddLinks_email_matchesSubdomainUpTo63Chars() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesSubdomainUpTo63Chars() {
         String subdomain = "";
         for (int i = 0; i < 63; i++) {
             subdomain += "a";
         }
         String email = "email@" + subdomain + ".com";
 
-        assertAddLinksWithEmailSucceeds("Should match email subdomain of length: " +
+        verifyAddLinksWithEmailSucceeds("Should match email subdomain of length: " +
                 subdomain.length(), email);
 
         subdomain += "a";
         email = "email@" + subdomain + ".com";
 
-        assertAddLinksWithEmailFails("Should not match email subdomain of length:" +
+        verifyAddLinksWithEmailFails("Should not match email subdomain of length:" +
                 subdomain.length(), email);
     }
 
-    public void testAddLinks_email_matchesDomainUpTo255Chars() throws Exception {
+    @Test
+    public void testAddLinks_email_matchesDomainUpTo255Chars() {
         String domain = "";
         while (domain.length() <= 250) {
             domain += "d.";
@@ -861,42 +953,42 @@ public class LinkifyTest extends AndroidTestCase {
         domain += "com";
         assertEquals(255, domain.length());
         String email = "a@" + domain;
-        assertAddLinksWithEmailSucceeds("Should match email domain of length: " +
+        verifyAddLinksWithEmailSucceeds("Should match email domain of length: " +
                 domain.length(), email);
 
         email = email + "m";
-        assertAddLinksWithEmailFails("Should not match email domain of length:" +
+        verifyAddLinksWithEmailFails("Should not match email domain of length:" +
                 domain.length(), email);
     }
 
     // Utility functions
-    private static void assertAddLinksWithWebUrlSucceeds(String msg, String url) {
-        assertAddLinksSucceeds(msg, url, Linkify.WEB_URLS);
+    private static void verifyAddLinksWithWebUrlSucceeds(String msg, String url) {
+        verifyAddLinksSucceeds(msg, url, Linkify.WEB_URLS);
     }
 
-    private static void assertAddLinksWithWebUrlFails(String msg, String url) {
-        assertAddLinksFails(msg, url, Linkify.WEB_URLS);
+    private static void verifyAddLinksWithWebUrlFails(String msg, String url) {
+        verifyAddLinksFails(msg, url, Linkify.WEB_URLS);
     }
 
-    private static void assertAddLinksWithWebUrlPartiallyMatches(String msg, String expected,
+    private static void verifyAddLinksWithWebUrlPartiallyMatches(String msg, String expected,
             String url) {
-        assertAddLinksPartiallyMatches(msg, expected, url, Linkify.WEB_URLS);
+        verifyAddLinksPartiallyMatches(msg, expected, url, Linkify.WEB_URLS);
     }
 
-    private static void assertAddLinksWithEmailSucceeds(String msg, String url) {
-        assertAddLinksSucceeds(msg, url, Linkify.EMAIL_ADDRESSES);
+    private static void verifyAddLinksWithEmailSucceeds(String msg, String url) {
+        verifyAddLinksSucceeds(msg, url, Linkify.EMAIL_ADDRESSES);
     }
 
-    private static void assertAddLinksWithEmailFails(String msg, String url) {
-        assertAddLinksFails(msg, url, Linkify.EMAIL_ADDRESSES);
+    private static void verifyAddLinksWithEmailFails(String msg, String url) {
+        verifyAddLinksFails(msg, url, Linkify.EMAIL_ADDRESSES);
     }
 
-    private static void assertAddLinksWithEmailPartiallyMatches(String msg, String expected,
+    private static void verifyAddLinksWithEmailPartiallyMatches(String msg, String expected,
             String url) {
-        assertAddLinksPartiallyMatches(msg, expected, url, Linkify.EMAIL_ADDRESSES);
+        verifyAddLinksPartiallyMatches(msg, expected, url, Linkify.EMAIL_ADDRESSES);
     }
 
-    private static void assertAddLinksSucceeds(String msg, String string, int type) {
+    private static void verifyAddLinksSucceeds(String msg, String string, int type) {
         String str = "start " + string + " end";
         Spannable spannable = new SpannableString(str);
 
@@ -910,14 +1002,14 @@ public class LinkifyTest extends AndroidTestCase {
                 str.length() - " end".length(), spannable.getSpanEnd(spans[0]));
     }
 
-    private static void assertAddLinksFails(String msg, String string, int type) {
+    private static void verifyAddLinksFails(String msg, String string, int type) {
         Spannable spannable = new SpannableString("start " + string + " end");
         boolean linksAdded = Linkify.addLinks(spannable, type);
         assertFalse(msg, linksAdded);
     }
 
-    private static void assertAddLinksPartiallyMatches(String msg, String expected,
-                                                       String string, int type) {
+    private static void verifyAddLinksPartiallyMatches(String msg, String expected,
+            String string, int type) {
         Spannable spannable = new SpannableString("start " + string + " end");
         boolean linksAdded = Linkify.addLinks(spannable, type);
         URLSpan[] spans = spannable.getSpans(0, spannable.length(), URLSpan.class);

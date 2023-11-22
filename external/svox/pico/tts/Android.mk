@@ -7,6 +7,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libttspico_engine
+LOCAL_MULTILIB := 32
 
 LOCAL_SRC_FILES := \
 	com_svox_picottsengine.cpp \
@@ -36,6 +37,7 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libttspico
+LOCAL_MULTILIB := 32
 	
 LOCAL_SRC_FILES := \
 	com_svox_picottsengine.cpp \

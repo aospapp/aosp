@@ -21,13 +21,13 @@
 
 #include "arch/instruction_set.h"
 #include "arch/mips/instruction_set_features_mips.h"
+#include "base/array_ref.h"
 #include "base/bit_utils.h"
 #include "base/casts.h"
 #include "base/unix_file/fd_file.h"
 #include "elf_utils.h"
 #include "leb128.h"
 #include "linker/error_delaying_output_stream.h"
-#include "utils/array_ref.h"
 
 namespace art {
 
@@ -36,6 +36,7 @@ namespace art {
 // The basic layout of the elf file:
 //   Elf_Ehdr                    - The ELF header.
 //   Elf_Phdr[]                  - Program headers for the linker.
+//   .note.gnu.build-id          - Optional build ID section (SHA-1 digest).
 //   .rodata                     - DEX files and oat metadata.
 //   .text                       - Compiled code.
 //   .bss                        - Zero-initialized writeable section.
@@ -75,6 +76,10 @@ template <typename ElfTypes>
 class ElfBuilder FINAL {
  public:
   static constexpr size_t kMaxProgramHeaders = 16;
+  // SHA-1 digest.  Not using SHA_DIGEST_LENGTH from openssl/sha.h to avoid
+  // spreading this header dependency for just this single constant.
+  static constexpr size_t kBuildIdLen = 20;
+
   using Elf_Addr = typename ElfTypes::Addr;
   using Elf_Off = typename ElfTypes::Off;
   using Elf_Word = typename ElfTypes::Word;
@@ -458,6 +463,49 @@ class ElfBuilder FINAL {
     } abiflags_;
   };
 
+  class BuildIdSection FINAL : public Section {
+   public:
+    BuildIdSection(ElfBuilder<ElfTypes>* owner,
+                   const std::string& name,
+                   Elf_Word type,
+                   Elf_Word flags,
+                   const Section* link,
+                   Elf_Word info,
+                   Elf_Word align,
+                   Elf_Word entsize)
+        : Section(owner, name, type, flags, link, info, align, entsize),
+          digest_start_(-1) {
+    }
+
+    void Write() {
+      // The size fields are 32-bit on both 32-bit and 64-bit systems, confirmed
+      // with the 64-bit linker and libbfd code. The size of name and desc must
+      // be a multiple of 4 and it currently is.
+      this->WriteUint32(4);  // namesz.
+      this->WriteUint32(kBuildIdLen);  // descsz.
+      this->WriteUint32(3);  // type = NT_GNU_BUILD_ID.
+      this->WriteFully("GNU", 4);  // name.
+      digest_start_ = this->Seek(0, kSeekCurrent);
+      static_assert(kBuildIdLen % 4 == 0, "expecting a mutliple of 4 for build ID length");
+      this->WriteFully(std::string(kBuildIdLen, '\0').c_str(), kBuildIdLen);  // desc.
+    }
+
+    off_t GetDigestStart() {
+      CHECK_GT(digest_start_, 0);
+      return digest_start_;
+    }
+
+   private:
+    bool WriteUint32(uint32_t v) {
+      return this->WriteFully(&v, sizeof(v));
+    }
+
+    // File offset where the build ID digest starts.
+    // Populated with zeros first, then updated with the actual value as the
+    // very last thing in the output file creation.
+    off_t digest_start_;
+  };
+
   ElfBuilder(InstructionSet isa, const InstructionSetFeatures* features, OutputStream* output)
       : isa_(isa),
         features_(features),
@@ -479,6 +527,7 @@ class ElfBuilder FINAL {
         shstrtab_(this, ".shstrtab", 0, 1),
         abiflags_(this, ".MIPS.abiflags", SHT_MIPS_ABIFLAGS, SHF_ALLOC, nullptr, 0, kPageSize, 0,
                   isa, features),
+        build_id_(this, ".note.gnu.build-id", SHT_NOTE, SHF_ALLOC, nullptr, 0, 4, 0),
         started_(false),
         write_program_headers_(false),
         loaded_size_(0u),
@@ -489,6 +538,7 @@ class ElfBuilder FINAL {
     dynamic_.phdr_type_ = PT_DYNAMIC;
     eh_frame_hdr_.phdr_type_ = PT_GNU_EH_FRAME;
     abiflags_.phdr_type_ = PT_MIPS_ABIFLAGS;
+    build_id_.phdr_type_ = PT_NOTE;
   }
   ~ElfBuilder() {}
 
@@ -619,7 +669,8 @@ class ElfBuilder FINAL {
   void PrepareDynamicSection(const std::string& elf_file_path,
                              Elf_Word rodata_size,
                              Elf_Word text_size,
-                             Elf_Word bss_size) {
+                             Elf_Word bss_size,
+                             Elf_Word bss_roots_offset) {
     std::string soname(elf_file_path);
     size_t directory_separator_pos = soname.rfind('/');
     if (directory_separator_pos != std::string::npos) {
@@ -659,10 +710,20 @@ class ElfBuilder FINAL {
       Elf_Word oatlastword_address = rodata_address + rodata_size - 4;
       dynsym_.Add(oatlastword, rodata_index, oatlastword_address, 4, STB_GLOBAL, STT_OBJECT);
     }
+    DCHECK_LE(bss_roots_offset, bss_size);
     if (bss_size != 0u) {
       Elf_Word bss_index = rodata_index + 1u + (text_size != 0 ? 1u : 0u);
       Elf_Word oatbss = dynstr_.Add("oatbss");
-      dynsym_.Add(oatbss, bss_index, bss_address, bss_size, STB_GLOBAL, STT_OBJECT);
+      dynsym_.Add(oatbss, bss_index, bss_address, bss_roots_offset, STB_GLOBAL, STT_OBJECT);
+      // Add a symbol marking the start of the GC roots part of the .bss, if not empty.
+      if (bss_roots_offset != bss_size) {
+        DCHECK_LT(bss_roots_offset, bss_size);
+        Elf_Word bss_roots_address = bss_address + bss_roots_offset;
+        Elf_Word bss_roots_size = bss_size - bss_roots_offset;
+        Elf_Word oatbssroots = dynstr_.Add("oatbssroots");
+        dynsym_.Add(
+            oatbssroots, bss_index, bss_roots_address, bss_roots_size, STB_GLOBAL, STT_OBJECT);
+      }
       Elf_Word oatbsslastword = dynstr_.Add("oatbsslastword");
       Elf_Word bsslastword_address = bss_address + bss_size - 4;
       dynsym_.Add(oatbsslastword, bss_index, bsslastword_address, 4, STB_GLOBAL, STT_OBJECT);
@@ -730,6 +791,17 @@ class ElfBuilder FINAL {
     abiflags_.End();
   }
 
+  void WriteBuildIdSection() {
+    build_id_.Start();
+    build_id_.Write();
+    build_id_.End();
+  }
+
+  void WriteBuildId(uint8_t build_id[kBuildIdLen]) {
+    stream_.Seek(build_id_.GetDigestStart(), kSeekSet);
+    stream_.WriteFully(build_id, kBuildIdLen);
+  }
+
   // Returns true if all writes and seeks on the output stream succeeded.
   bool Good() {
     return stream_.Good();
@@ -780,9 +852,9 @@ class ElfBuilder FINAL {
                               EF_MIPS_PIC       |
                               EF_MIPS_CPIC      |
                               EF_MIPS_ABI_O32   |
-                              features->AsMipsInstructionSetFeatures()->IsR6()
-                                  ? EF_MIPS_ARCH_32R6
-                                  : EF_MIPS_ARCH_32R2);
+                              (features->AsMipsInstructionSetFeatures()->IsR6()
+                                   ? EF_MIPS_ARCH_32R6
+                                   : EF_MIPS_ARCH_32R2));
         break;
       }
       case kMips64: {
@@ -807,7 +879,7 @@ class ElfBuilder FINAL {
     elf_header.e_ident[EI_MAG2]       = ELFMAG2;
     elf_header.e_ident[EI_MAG3]       = ELFMAG3;
     elf_header.e_ident[EI_CLASS]      = (sizeof(Elf_Addr) == sizeof(Elf32_Addr))
-                                         ? ELFCLASS32 : ELFCLASS64;;
+                                         ? ELFCLASS32 : ELFCLASS64;
     elf_header.e_ident[EI_DATA]       = ELFDATA2LSB;
     elf_header.e_ident[EI_VERSION]    = EV_CURRENT;
     elf_header.e_ident[EI_OSABI]      = ELFOSABI_LINUX;
@@ -921,6 +993,7 @@ class ElfBuilder FINAL {
   Section debug_line_;
   StringSection shstrtab_;
   AbiflagsSection abiflags_;
+  BuildIdSection build_id_;
   std::vector<std::unique_ptr<Section>> other_sections_;
 
   // List of used section in the order in which they were written.

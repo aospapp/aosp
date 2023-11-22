@@ -47,14 +47,14 @@ jobjectArray toStringArray(JNIEnv* env, Counter* counter, Getter* getter) {
 
 struct VectorCounter {
     const std::vector<std::string>& strings;
-    VectorCounter(const std::vector<std::string>& strings) : strings(strings) {}
+    explicit VectorCounter(const std::vector<std::string>& strings) : strings(strings) {}
     size_t operator()() {
         return strings.size();
     }
 };
 struct VectorGetter {
     const std::vector<std::string>& strings;
-    VectorGetter(const std::vector<std::string>& strings) : strings(strings) {}
+    explicit VectorGetter(const std::vector<std::string>& strings) : strings(strings) {}
     const char* operator()(size_t i) {
         return strings[i].c_str();
     }

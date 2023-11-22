@@ -109,6 +109,25 @@ table.testdetails td.module {
     font-weight: bold;
 }
 
+table.incompletemodules {
+    background-color: rgb(212, 233, 169);
+    border-collapse:collapse;
+    margin-left:auto;
+    margin-right:auto;
+}
+
+table.incompletemodules th {
+    background-color: #A5C639;
+    border: 1px outset gray;
+    padding: 0.5em;
+}
+
+table.incompletemodules td {
+    border: 1px outset #A5C639;
+    padding: 0.5em;
+    text-align: center;
+}
+
 /* Test cell details */
 td.failed {
     background-color: #FA5858;

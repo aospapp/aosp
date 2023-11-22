@@ -43,12 +43,12 @@
 
 #include <android/configuration.h>
 
-#include <cutils/log.h>
 #include <cutils/properties.h>
+#include <log/log.h>
 
 #include "HWComposer.h"
-#include "HWC2On1Adapter.h"
 #include "HWC2.h"
+#include "ComposerHal.h"
 
 #include "../Layer.h"           // needed only for debugging
 #include "../SurfaceFlinger.h"
@@ -59,10 +59,8 @@ namespace android {
 
 // ---------------------------------------------------------------------------
 
-HWComposer::HWComposer(const sp<SurfaceFlinger>& flinger)
-    : mFlinger(flinger),
-      mAdapter(),
-      mHwcDevice(),
+HWComposer::HWComposer(bool useVrComposer)
+    : mHwcDevice(),
       mDisplayData(2),
       mFreeDisplaySlots(),
       mHwcDisplaySlots(),
@@ -76,7 +74,7 @@ HWComposer::HWComposer(const sp<SurfaceFlinger>& flinger)
         mVSyncCounts[i] = 0;
     }
 
-    loadHwcModule();
+    loadHwcModule(useVrComposer);
 }
 
 HWComposer::~HWComposer() {}
@@ -105,42 +103,10 @@ void HWComposer::setEventHandler(EventHandler* handler)
 }
 
 // Load and prepare the hardware composer module.  Sets mHwc.
-void HWComposer::loadHwcModule()
+void HWComposer::loadHwcModule(bool useVrComposer)
 {
     ALOGV("loadHwcModule");
-
-    hw_module_t const* module;
-
-    if (hw_get_module(HWC_HARDWARE_MODULE_ID, &module) != 0) {
-        ALOGE("%s module not found, aborting", HWC_HARDWARE_MODULE_ID);
-        abort();
-    }
-
-    hw_device_t* device = nullptr;
-    int error = module->methods->open(module, HWC_HARDWARE_COMPOSER, &device);
-    if (error != 0) {
-        ALOGE("Failed to open HWC device (%s), aborting", strerror(-error));
-        abort();
-    }
-
-    uint32_t majorVersion = (device->version >> 24) & 0xF;
-    if (majorVersion == 2) {
-        mHwcDevice = std::make_unique<HWC2::Device>(
-                reinterpret_cast<hwc2_device_t*>(device));
-    } else {
-        mAdapter = std::make_unique<HWC2On1Adapter>(
-                reinterpret_cast<hwc_composer_device_1_t*>(device));
-        uint8_t minorVersion = mAdapter->getHwc1MinorVersion();
-        if (minorVersion < 1) {
-            ALOGE("Cannot adapt to HWC version %d.%d",
-                    static_cast<int32_t>((minorVersion >> 8) & 0xF),
-                    static_cast<int32_t>(minorVersion & 0xF));
-            abort();
-        }
-        mHwcDevice = std::make_unique<HWC2::Device>(
-                static_cast<hwc2_device_t*>(mAdapter.get()));
-    }
-
+    mHwcDevice = std::make_unique<HWC2::Device>(useVrComposer);
     mRemainingHwcVirtualDisplays = mHwcDevice->getMaxVirtualDisplayCount();
 }
 
@@ -199,12 +165,12 @@ void HWComposer::hotplug(const std::shared_ptr<HWC2::Display>& display,
         }
         disp = DisplayDevice::DISPLAY_EXTERNAL;
     }
-    mEventHandler->onHotplugReceived(disp,
+    mEventHandler->onHotplugReceived(this, disp,
             connected == HWC2::Connection::Connected);
 }
 
 void HWComposer::invalidate(const std::shared_ptr<HWC2::Display>& /*display*/) {
-    mFlinger->repaintEverything();
+    mEventHandler->onInvalidateReceived(this);
 }
 
 void HWComposer::vsync(const std::shared_ptr<HWC2::Display>& display,
@@ -250,7 +216,7 @@ void HWComposer::vsync(const std::shared_ptr<HWC2::Display>& display,
     snprintf(tag, sizeof(tag), "HW_VSYNC_%1u", disp);
     ATRACE_INT(tag, ++mVSyncCounts[disp] & 1);
 
-    mEventHandler->onVSyncReceived(disp, timestamp);
+    mEventHandler->onVSyncReceived(this, disp, timestamp);
 }
 
 status_t HWComposer::allocateVirtualDisplay(uint32_t width, uint32_t height,
@@ -258,6 +224,15 @@ status_t HWComposer::allocateVirtualDisplay(uint32_t width, uint32_t height,
     if (mRemainingHwcVirtualDisplays == 0) {
         ALOGE("allocateVirtualDisplay: No remaining virtual displays");
         return NO_MEMORY;
+    }
+
+    if (SurfaceFlinger::maxVirtualDisplaySize != 0 &&
+        (width > SurfaceFlinger::maxVirtualDisplaySize ||
+         height > SurfaceFlinger::maxVirtualDisplaySize)) {
+        ALOGE("createVirtualDisplay: Can't create a virtual display with"
+                      " a dimension > %" PRIu64 " (tried %u x %u)",
+              SurfaceFlinger::maxVirtualDisplaySize, width, height);
+        return INVALID_OPERATION;
     }
 
     std::shared_ptr<HWC2::Display> display;
@@ -305,22 +280,22 @@ std::shared_ptr<HWC2::Layer> HWComposer::createLayer(int32_t displayId) {
     return layer;
 }
 
-nsecs_t HWComposer::getRefreshTimestamp(int32_t disp) const {
+nsecs_t HWComposer::getRefreshTimestamp(int32_t displayId) const {
     // this returns the last refresh timestamp.
     // if the last one is not available, we estimate it based on
     // the refresh period and whatever closest timestamp we have.
     Mutex::Autolock _l(mLock);
     nsecs_t now = systemTime(CLOCK_MONOTONIC);
-    auto vsyncPeriod = getActiveConfig(disp)->getVsyncPeriod();
-    return now - ((now - mLastHwVSync[disp]) % vsyncPeriod);
+    auto vsyncPeriod = getActiveConfig(displayId)->getVsyncPeriod();
+    return now - ((now - mLastHwVSync[displayId]) % vsyncPeriod);
 }
 
-bool HWComposer::isConnected(int32_t disp) const {
-    if (!isValidDisplay(disp)) {
-        ALOGE("isConnected: Attempted to access invalid display %d", disp);
+bool HWComposer::isConnected(int32_t displayId) const {
+    if (!isValidDisplay(displayId)) {
+        ALOGE("isConnected: Attempted to access invalid display %d", displayId);
         return false;
     }
-    return mDisplayData[disp].hwcDisplay->isConnected();
+    return mDisplayData[displayId].hwcDisplay->isConnected();
 }
 
 std::vector<std::shared_ptr<const HWC2::Display::Config>>
@@ -342,14 +317,14 @@ std::vector<std::shared_ptr<const HWC2::Display::Config>>
 std::shared_ptr<const HWC2::Display::Config>
         HWComposer::getActiveConfig(int32_t displayId) const {
     if (!isValidDisplay(displayId)) {
-        ALOGE("getActiveConfigs: Attempted to access invalid display %d",
+        ALOGV("getActiveConfigs: Attempted to access invalid display %d",
                 displayId);
         return nullptr;
     }
     std::shared_ptr<const HWC2::Display::Config> config;
     auto error = mDisplayData[displayId].hwcDisplay->getActiveConfig(&config);
     if (error == HWC2::Error::BadConfig) {
-        ALOGV("getActiveConfig: No config active, returning null");
+        ALOGE("getActiveConfig: No config active, returning null");
         return nullptr;
     } else if (error != HWC2::Error::None) {
         ALOGE("getActiveConfig failed for display %d: %s (%d)", displayId,
@@ -404,14 +379,15 @@ status_t HWComposer::setActiveColorMode(int32_t displayId, android_color_mode_t 
 }
 
 
-void HWComposer::setVsyncEnabled(int32_t disp, HWC2::Vsync enabled) {
-    if (disp < 0 || disp >= HWC_DISPLAY_VIRTUAL) {
-        ALOGD("setVsyncEnabled: Ignoring for virtual display %d", disp);
+void HWComposer::setVsyncEnabled(int32_t displayId, HWC2::Vsync enabled) {
+    if (displayId < 0 || displayId >= HWC_DISPLAY_VIRTUAL) {
+        ALOGD("setVsyncEnabled: Ignoring for virtual display %d", displayId);
         return;
     }
 
-    if (!isValidDisplay(disp)) {
-        ALOGE("setVsyncEnabled: Attempted to access invalid display %d", disp);
+    if (!isValidDisplay(displayId)) {
+        ALOGE("setVsyncEnabled: Attempted to access invalid display %d",
+               displayId);
         return;
     }
 
@@ -420,7 +396,7 @@ void HWComposer::setVsyncEnabled(int32_t disp, HWC2::Vsync enabled) {
     // that even if HWC blocks (which it shouldn't), it won't
     // affect other threads.
     Mutex::Autolock _l(mVsyncLock);
-    auto& displayData = mDisplayData[disp];
+    auto& displayData = mDisplayData[displayId];
     if (enabled != displayData.vsyncEnabled) {
         ATRACE_CALL();
         auto error = displayData.hwcDisplay->setVsyncEnabled(enabled);
@@ -428,18 +404,18 @@ void HWComposer::setVsyncEnabled(int32_t disp, HWC2::Vsync enabled) {
             displayData.vsyncEnabled = enabled;
 
             char tag[16];
-            snprintf(tag, sizeof(tag), "HW_VSYNC_ON_%1u", disp);
+            snprintf(tag, sizeof(tag), "HW_VSYNC_ON_%1u", displayId);
             ATRACE_INT(tag, enabled == HWC2::Vsync::Enable ? 1 : 0);
         } else {
             ALOGE("setVsyncEnabled: Failed to set vsync to %s on %d/%" PRIu64
-                    ": %s (%d)", to_string(enabled).c_str(), disp,
-                    mDisplayData[disp].hwcDisplay->getId(),
+                    ": %s (%d)", to_string(enabled).c_str(), displayId,
+                    mDisplayData[displayId].hwcDisplay->getId(),
                     to_string(error).c_str(), static_cast<int32_t>(error));
         }
     }
 }
 
-status_t HWComposer::setClientTarget(int32_t displayId,
+status_t HWComposer::setClientTarget(int32_t displayId, uint32_t slot,
         const sp<Fence>& acquireFence, const sp<GraphicBuffer>& target,
         android_dataspace_t dataspace) {
     if (!isValidDisplay(displayId)) {
@@ -448,11 +424,7 @@ status_t HWComposer::setClientTarget(int32_t displayId,
 
     ALOGV("setClientTarget for display %d", displayId);
     auto& hwcDisplay = mDisplayData[displayId].hwcDisplay;
-    buffer_handle_t handle = nullptr;
-    if ((target != nullptr) && target->getNativeBuffer()) {
-        handle = target->getNativeBuffer()->handle;
-    }
-    auto error = hwcDisplay->setClientTarget(handle, acquireFence, dataspace);
+    auto error = hwcDisplay->setClientTarget(slot, target, acquireFence, dataspace);
     if (error != HWC2::Error::None) {
         ALOGE("Failed to set client target for display %d: %s (%d)", displayId,
                 to_string(error).c_str(), static_cast<int32_t>(error));
@@ -483,7 +455,34 @@ status_t HWComposer::prepare(DisplayDevice& displayDevice) {
 
     uint32_t numTypes = 0;
     uint32_t numRequests = 0;
-    auto error = hwcDisplay->validate(&numTypes, &numRequests);
+
+    HWC2::Error error = HWC2::Error::None;
+
+    // First try to skip validate altogether if the HWC supports it.
+    displayData.validateWasSkipped = false;
+    if (hasCapability(HWC2::Capability::SkipValidate) &&
+            !displayData.hasClientComposition) {
+        sp<android::Fence> outPresentFence;
+        uint32_t state = UINT32_MAX;
+        error = hwcDisplay->presentOrValidate(&numTypes, &numRequests, &outPresentFence , &state);
+        if (error != HWC2::Error::None && error != HWC2::Error::HasChanges) {
+            ALOGV("skipValidate: Failed to Present or Validate");
+            return UNKNOWN_ERROR;
+        }
+        if (state == 1) { //Present Succeeded.
+            std::unordered_map<std::shared_ptr<HWC2::Layer>, sp<Fence>> releaseFences;
+            error = hwcDisplay->getReleaseFences(&releaseFences);
+            displayData.releaseFences = std::move(releaseFences);
+            displayData.lastPresentFence = outPresentFence;
+            displayData.validateWasSkipped = true;
+            displayData.presentError = error;
+            return NO_ERROR;
+        }
+        // Present failed but Validate ran.
+    } else {
+        error = hwcDisplay->validate(&numTypes, &numRequests);
+    }
+    ALOGV("SkipValidate failed, Falling back to SLOW validate/present");
     if (error != HWC2::Error::None && error != HWC2::Error::HasChanges) {
         ALOGE("prepare: validate failed for display %d: %s (%d)", displayId,
                 to_string(error).c_str(), static_cast<int32_t>(error));
@@ -589,12 +588,12 @@ bool HWComposer::hasClientComposition(int32_t displayId) const {
     return mDisplayData[displayId].hasClientComposition;
 }
 
-sp<Fence> HWComposer::getRetireFence(int32_t displayId) const {
+sp<Fence> HWComposer::getPresentFence(int32_t displayId) const {
     if (!isValidDisplay(displayId)) {
-        ALOGE("getRetireFence failed for invalid display %d", displayId);
+        ALOGE("getPresentFence failed for invalid display %d", displayId);
         return Fence::NO_FENCE;
     }
-    return mDisplayData[displayId].lastRetireFence;
+    return mDisplayData[displayId].lastPresentFence;
 }
 
 sp<Fence> HWComposer::getLayerReleaseFence(int32_t displayId,
@@ -611,7 +610,7 @@ sp<Fence> HWComposer::getLayerReleaseFence(int32_t displayId,
     return displayFences[layer];
 }
 
-status_t HWComposer::commit(int32_t displayId) {
+status_t HWComposer::presentAndGetReleaseFences(int32_t displayId) {
     ATRACE_CALL();
 
     if (!isValidDisplay(displayId)) {
@@ -620,17 +619,30 @@ status_t HWComposer::commit(int32_t displayId) {
 
     auto& displayData = mDisplayData[displayId];
     auto& hwcDisplay = displayData.hwcDisplay;
-    auto error = hwcDisplay->present(&displayData.lastRetireFence);
+
+    if (displayData.validateWasSkipped) {
+        hwcDisplay->discardCommands();
+        auto error = displayData.presentError;
+        if (error != HWC2::Error::None) {
+            ALOGE("skipValidate: failed for display %d: %s (%d)",
+                  displayId, to_string(error).c_str(), static_cast<int32_t>(error));
+            return UNKNOWN_ERROR;
+        }
+        return NO_ERROR;
+    }
+
+    auto error = hwcDisplay->present(&displayData.lastPresentFence);
     if (error != HWC2::Error::None) {
-        ALOGE("commit: present failed for display %d: %s (%d)", displayId,
-                to_string(error).c_str(), static_cast<int32_t>(error));
+        ALOGE("presentAndGetReleaseFences: failed for display %d: %s (%d)",
+              displayId, to_string(error).c_str(), static_cast<int32_t>(error));
         return UNKNOWN_ERROR;
     }
 
     std::unordered_map<std::shared_ptr<HWC2::Layer>, sp<Fence>> releaseFences;
     error = hwcDisplay->getReleaseFences(&releaseFences);
     if (error != HWC2::Error::None) {
-        ALOGE("commit: Failed to get release fences for display %d: %s (%d)",
+        ALOGE("presentAndGetReleaseFences: Failed to get release fences "
+              "for display %d: %s (%d)",
                 displayId, to_string(error).c_str(),
                 static_cast<int32_t>(error));
         return UNKNOWN_ERROR;
@@ -856,6 +868,10 @@ static String8 getFormatStr(PixelFormat format) {
 }
 */
 
+bool HWComposer::isUsingVrComposer() const {
+    return getComposer()->isUsingVrComposer();
+}
+
 void HWComposer::dump(String8& result) const {
     // TODO: In order to provide a dump equivalent to HWC1, we need to shadow
     // all the state going into the layers. This is probably better done in
@@ -869,7 +885,7 @@ HWComposer::DisplayData::DisplayData()
   : hasClientComposition(false),
     hasDeviceComposition(false),
     hwcDisplay(),
-    lastRetireFence(Fence::NO_FENCE),
+    lastPresentFence(Fence::NO_FENCE),
     outbufHandle(nullptr),
     outbufAcquireFence(Fence::NO_FENCE),
     vsyncEnabled(HWC2::Vsync::Disable) {

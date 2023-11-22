@@ -23,9 +23,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <thread>
+
 #include <android-base/errors.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/quick_exit.h>
 #include <android-base/stringprintf.h>
 
 #include "adb.h"
@@ -33,6 +36,7 @@
 #include "adb_listeners.h"
 #include "adb_utils.h"
 #include "commandline.h"
+#include "sysdeps/chrono.h"
 #include "transport.h"
 
 static std::string GetLogFilePath() {
@@ -83,12 +87,12 @@ static void setup_daemon_logging(void) {
 static BOOL WINAPI ctrlc_handler(DWORD type) {
     // TODO: Consider trying to kill a starting up adb server (if we're in
     // launch_server) by calling GenerateConsoleCtrlEvent().
-    exit(STATUS_CONTROL_C_EXIT);
+    android::base::quick_exit(STATUS_CONTROL_C_EXIT);
     return TRUE;
 }
 #endif
 
-int adb_server_main(int is_daemon, int server_port, int ack_reply_fd) {
+int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply_fd) {
 #if defined(_WIN32)
     // adb start-server starts us up with stdout and stderr hooked up to
     // anonymous pipes. When the C Runtime sees this, it makes stderr and
@@ -105,33 +109,54 @@ int adb_server_main(int is_daemon, int server_port, int ack_reply_fd) {
     }
 
     SetConsoleCtrlHandler(ctrlc_handler, TRUE);
+#else
+    signal(SIGINT, [](int) {
+        android::base::quick_exit(0);
+    });
 #endif
 
     init_transport_registration();
 
+    init_mdns_transport_discovery();
+
     usb_init();
     local_init(DEFAULT_ADB_LOCAL_TRANSPORT_PORT);
-    adb_auth_init();
 
     std::string error;
-    std::string local_name = android::base::StringPrintf("tcp:%d", server_port);
-    if (install_listener(local_name, "*smartsocket*", nullptr, 0, &error)) {
-        fatal("could not install *smartsocket* listener: %s", error.c_str());
+
+    auto start = std::chrono::steady_clock::now();
+
+    // If we told a previous adb server to quit because of version mismatch, we can get to this
+    // point before it's finished exiting. Retry for a while to give it some time.
+    while (install_listener(socket_spec, "*smartsocket*", nullptr, 0, nullptr, &error) !=
+           INSTALL_STATUS_OK) {
+        if (std::chrono::steady_clock::now() - start > 0.5s) {
+            fatal("could not install *smartsocket* listener: %s", error.c_str());
+        }
+
+        std::this_thread::sleep_for(100ms);
     }
 
-    // Inform our parent that we are up and running.
     if (is_daemon) {
         close_stdin();
         setup_daemon_logging();
+    }
 
+    adb_auth_init();
+
+    if (is_daemon) {
 #if !defined(_WIN32)
         // Start a new session for the daemon. Do this here instead of after the fork so
         // that a ctrl-c between the "starting server" and "done starting server" messages
         // gets a chance to terminate the server.
-        if (setsid() == -1) {
+        // setsid will fail with EPERM if it's already been a lead process of new session.
+        // Ignore such error.
+        if (setsid() == -1 && errno != EPERM) {
             fatal("setsid() failed: %s", strerror(errno));
         }
 #endif
+
+        // Inform our parent that we are up and running.
 
         // Any error output written to stderr now goes to adb.log. We could
         // keep around a copy of the stderr fd and use that to write any errors
@@ -167,7 +192,6 @@ int adb_server_main(int is_daemon, int server_port, int ack_reply_fd) {
 }
 
 int main(int argc, char** argv) {
-    adb_sysdeps_init();
     adb_trace_init(argv);
     return adb_commandline(argc - 1, const_cast<const char**>(argv + 1));
 }

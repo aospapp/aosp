@@ -2,16 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "scunningham"
-NAME = "policy_PopupsAllowedForUrls"
-ATTRIBUTES = "suite:regression"
-SUITE = "regression"
-TIME = "SHORT"
-TEST_CATEGORY = "General"
-TEST_CLASS = "enterprise"
-TEST_TYPE = "client"
+AUTHOR = 'scunningham'
+NAME = 'policy_PopupsAllowedForUrls'
+TIME = 'SHORT'
+TEST_CATEGORY = 'General'
+TEST_CLASS = 'enterprise'
+TEST_TYPE = 'client'
 
-DOC = """
+DOC = '''
 Verify effects of PopupsAllowedForUrls policy on client behavior.
 
 This test verifies the effect of the PopupsAllowedForUrls user policy on
@@ -25,14 +23,8 @@ that is in a domain listed in the PopupsAllowedForUrls policy. A test shall
 fail if the browser blocks popups on a page where they should be allowed, or
 allows popups on a page where they should be blocked.
 
-Usage example:
-$ test_that <IPAddress> PopupsAllowedForUrls
+'''
 
-Runs all the test cases against a device with the specified IP address, using
-the DM Test environment with the given DM Server name, and signing in to the
-device with the given username and password.
+args_dict = utils.args_to_dict(args)
 
-"""
-
-job.run_test("policy_PopupsAllowedForUrls", args=args)
-
+job.run_test('policy_PopupsAllowedForUrls', **args_dict)

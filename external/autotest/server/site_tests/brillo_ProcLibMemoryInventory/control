@@ -7,8 +7,7 @@ NAME = 'brillo_ProcLibMemoryInventory'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ''
-SUITE = ''
+ATTRIBUTES = 'suite:brillo-bvt,suite:brillo-smoke'
 
 DOC = """
 Take inventory of process and shared lib unique RSS on a Brillo device.

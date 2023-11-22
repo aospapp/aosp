@@ -20,6 +20,7 @@ import android.annotation.NonNull;
 import android.media.IAudioService;
 import android.media.ToneGenerator;
 import android.telecom.CallAudioState;
+import android.telecom.Log;
 import android.telecom.VideoProfile;
 import android.util.SparseArray;
 
@@ -106,7 +107,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
         }
 
         updateForegroundCall();
-        if (newState == CallState.DISCONNECTED) {
+        if (shouldPlayDisconnectTone(oldState, newState)) {
             playToneForDisconnectedCall(call);
         }
 
@@ -230,6 +231,9 @@ public class CallAudioManager extends CallsManagerListenerBase {
                         makeArgsForModeStateMachine());
             }
         }
+
+        // Turn off mute when a new incoming call is answered.
+        mute(false /* shouldMute */);
 
         maybeStopRingingAndCallWaitingForAnsweredOrRejectedCall(call);
     }
@@ -362,7 +366,8 @@ public class CallAudioManager extends CallsManagerListenerBase {
                 CallAudioRouteStateMachine.TOGGLE_MUTE);
     }
 
-    void mute(boolean shouldMute) {
+    @VisibleForTesting
+    public void mute(boolean shouldMute) {
         Log.v(this, "mute, shouldMute: %b", shouldMute);
 
         // Don't mute if there are any emergency calls.
@@ -413,17 +418,14 @@ public class CallAudioManager extends CallsManagerListenerBase {
             call.silence();
         }
 
-        mRingingCalls.clear();
         mRinger.stopRinging();
         mRinger.stopCallWaiting();
-        mCallAudioModeStateMachine.sendMessageWithArgs(
-                CallAudioModeStateMachine.NO_MORE_RINGING_CALLS,
-                makeArgsForModeStateMachine());
     }
 
     @VisibleForTesting
-    public void startRinging() {
-        mRinger.startRinging(mForegroundCall);
+    public boolean startRinging() {
+        return mRinger.startRinging(mForegroundCall,
+                mCallAudioRouteStateMachine.isHfpDeviceAvailable());
     }
 
     @VisibleForTesting
@@ -452,6 +454,11 @@ public class CallAudioManager extends CallsManagerListenerBase {
         return mCallAudioRouteStateMachine;
     }
 
+    @VisibleForTesting
+    public CallAudioModeStateMachine getCallAudioModeStateMachine() {
+        return mCallAudioModeStateMachine;
+    }
+
     void dump(IndentingPrintWriter pw) {
         pw.println("All calls:");
         pw.increaseIndent();
@@ -475,6 +482,16 @@ public class CallAudioManager extends CallsManagerListenerBase {
 
         pw.println("Foreground call:");
         pw.println(mForegroundCall);
+
+        pw.println("CallAudioModeStateMachine pending messages:");
+        pw.increaseIndent();
+        mCallAudioModeStateMachine.dumpPendingMessages(pw);
+        pw.decreaseIndent();
+
+        pw.println("CallAudioRouteStateMachine pending messages:");
+        pw.increaseIndent();
+        mCallAudioRouteStateMachine.dumpPendingMessages(pw);
+        pw.decreaseIndent();
     }
 
     @VisibleForTesting
@@ -730,6 +747,15 @@ public class CallAudioManager extends CallsManagerListenerBase {
             mRinger.stopRinging();
             mRinger.stopCallWaiting();
         }
+    }
+
+    private boolean shouldPlayDisconnectTone(int oldState, int newState) {
+        if (newState != CallState.DISCONNECTED) {
+            return false;
+        }
+        return oldState == CallState.ACTIVE ||
+                oldState == CallState.DIALING ||
+                oldState == CallState.ON_HOLD;
     }
 
     @VisibleForTesting

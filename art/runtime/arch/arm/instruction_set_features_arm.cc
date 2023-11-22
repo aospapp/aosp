@@ -16,7 +16,7 @@
 
 #include "instruction_set_features_arm.h"
 
-#if defined(__ANDROID__) && defined(__arm__)
+#if defined(ART_TARGET_ANDROID) && defined(__arm__)
 #include <sys/auxv.h>
 #include <asm/hwcap.h>
 #endif
@@ -24,110 +24,125 @@
 #include "signal.h"
 #include <fstream>
 
-#include "base/stringprintf.h"
-#include "utils.h"  // For Trim.
+#include "android-base/stringprintf.h"
+#include "android-base/strings.h"
+
+#include "base/logging.h"
 
 #if defined(__arm__)
 extern "C" bool artCheckForArmSdivInstruction();
+extern "C" bool artCheckForArmv8AInstructions();
 #endif
 
 namespace art {
 
-const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromVariant(
+using android::base::StringPrintf;
+
+ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromVariant(
     const std::string& variant, std::string* error_msg) {
-  // Assume all ARM processors are SMP.
-  // TODO: set the SMP support based on variant.
-  const bool smp = true;
+  static const char* arm_variants_with_armv8a[] = {
+      "cortex-a32",
+      "cortex-a35",
+      "cortex-a53",
+      "cortex-a53.a57",
+      "cortex-a53.a72",
+      "cortex-a57",
+      "cortex-a72",
+      "cortex-a73",
+      "exynos-m1",
+      "denver",
+      "kryo"
+  };
+  bool has_armv8a = FindVariantInArray(arm_variants_with_armv8a,
+                                       arraysize(arm_variants_with_armv8a),
+                                       variant);
 
   // Look for variants that have divide support.
   static const char* arm_variants_with_div[] = {
-          "cortex-a7", "cortex-a12", "cortex-a15", "cortex-a17", "cortex-a53", "cortex-a57",
-          "cortex-a53.a57", "cortex-m3", "cortex-m4", "cortex-r4", "cortex-r5",
-          "cyclone", "denver", "krait", "swift" };
-
-  bool has_div = FindVariantInArray(arm_variants_with_div, arraysize(arm_variants_with_div),
-                                    variant);
+      "cortex-a7",
+      "cortex-a12",
+      "cortex-a15",
+      "cortex-a17",
+      "krait",
+  };
+  bool has_div = has_armv8a || FindVariantInArray(arm_variants_with_div,
+                                                  arraysize(arm_variants_with_div),
+                                                  variant);
 
   // Look for variants that have LPAE support.
   static const char* arm_variants_with_lpae[] = {
-      "cortex-a7", "cortex-a15", "krait", "denver", "cortex-a53", "cortex-a57", "cortex-a53.a57"
+      "cortex-a7",
+      "cortex-a12",
+      "cortex-a15",
+      "cortex-a17",
+      "krait",
   };
-  bool has_lpae = FindVariantInArray(arm_variants_with_lpae, arraysize(arm_variants_with_lpae),
-                                     variant);
+  bool has_atomic_ldrd_strd = has_armv8a || FindVariantInArray(arm_variants_with_lpae,
+                                                               arraysize(arm_variants_with_lpae),
+                                                               variant);
 
-  if (has_div == false && has_lpae == false) {
-    // Avoid unsupported variants.
-    static const char* unsupported_arm_variants[] = {
-        // ARM processors that aren't ARMv7 compatible aren't supported.
-        "arm2", "arm250", "arm3", "arm6", "arm60", "arm600", "arm610", "arm620",
-        "cortex-m0", "cortex-m0plus", "cortex-m1",
-        "fa526", "fa626", "fa606te", "fa626te", "fmp626", "fa726te",
-        "iwmmxt", "iwmmxt2",
-        "strongarm", "strongarm110", "strongarm1100", "strongarm1110",
-        "xscale"
+  if (has_armv8a == false && has_div == false && has_atomic_ldrd_strd == false) {
+    static const char* arm_variants_with_default_features[] = {
+        "cortex-a5",
+        "cortex-a8",
+        "cortex-a9",
+        "cortex-a9-mp",
+        "default",
+        "generic"
     };
-    if (FindVariantInArray(unsupported_arm_variants, arraysize(unsupported_arm_variants),
-                           variant)) {
+    if (!FindVariantInArray(arm_variants_with_default_features,
+                            arraysize(arm_variants_with_default_features),
+                            variant)) {
       *error_msg = StringPrintf("Attempt to use unsupported ARM variant: %s", variant.c_str());
       return nullptr;
-    }
-    // Warn if the variant is unknown.
-    // TODO: some of the variants below may have feature support, but that support is currently
-    //       unknown so we'll choose conservative (sub-optimal) defaults without warning.
-    // TODO: some of the architectures may not support all features required by ART and should be
-    //       moved to unsupported_arm_variants[] above.
-    static const char* arm_variants_without_known_features[] = {
-        "default",
-        "arm7", "arm7m", "arm7d", "arm7dm", "arm7di", "arm7dmi", "arm70", "arm700", "arm700i",
-        "arm710", "arm710c", "arm7100", "arm720", "arm7500", "arm7500fe", "arm7tdmi", "arm7tdmi-s",
-        "arm710t", "arm720t", "arm740t",
-        "arm8", "arm810",
-        "arm9", "arm9e", "arm920", "arm920t", "arm922t", "arm946e-s", "arm966e-s", "arm968e-s",
-        "arm926ej-s", "arm940t", "arm9tdmi",
-        "arm10tdmi", "arm1020t", "arm1026ej-s", "arm10e", "arm1020e", "arm1022e",
-        "arm1136j-s", "arm1136jf-s",
-        "arm1156t2-s", "arm1156t2f-s", "arm1176jz-s", "arm1176jzf-s",
-        "cortex-a5", "cortex-a8", "cortex-a9", "cortex-a9-mp", "cortex-r4f",
-        "marvell-pj4", "mpcore", "mpcorenovfp"
-    };
-    if (!FindVariantInArray(arm_variants_without_known_features,
-                            arraysize(arm_variants_without_known_features),
-                            variant)) {
-      LOG(WARNING) << "Unknown instruction set features for ARM CPU variant (" << variant
+    } else {
+      // Warn if we use the default features.
+      LOG(WARNING) << "Using default instruction set features for ARM CPU variant (" << variant
           << ") using conservative defaults";
     }
   }
-  return new ArmInstructionSetFeatures(smp, has_div, has_lpae);
+  return ArmFeaturesUniquePtr(new ArmInstructionSetFeatures(has_div,
+                                                            has_atomic_ldrd_strd,
+                                                            has_armv8a));
 }
 
-const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromBitmap(uint32_t bitmap) {
-  bool smp = (bitmap & kSmpBitfield) != 0;
+ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromBitmap(uint32_t bitmap) {
   bool has_div = (bitmap & kDivBitfield) != 0;
   bool has_atomic_ldrd_strd = (bitmap & kAtomicLdrdStrdBitfield) != 0;
-  return new ArmInstructionSetFeatures(smp, has_div, has_atomic_ldrd_strd);
+  bool has_armv8a = (bitmap & kARMv8A) != 0;
+  return ArmFeaturesUniquePtr(new ArmInstructionSetFeatures(has_div,
+                                                            has_atomic_ldrd_strd,
+                                                            has_armv8a));
 }
 
-const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromCppDefines() {
-  const bool smp = true;
-#if defined(__ARM_ARCH_EXT_IDIV__)
+ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromCppDefines() {
+// Note: This will not work for now since we still build the 32-bit as __ARCH_ARM_7A__.
+#if defined(__ARM_ARCH_8A__)
+  const bool has_armv8a = true;
+#else
+  const bool has_armv8a = false;
+#endif
+#if defined (__ARM_ARCH_8A__) || defined(__ARM_ARCH_EXT_IDIV__)
   const bool has_div = true;
 #else
   const bool has_div = false;
 #endif
-#if defined(__ARM_FEATURE_LPAE)
-  const bool has_lpae = true;
+#if defined (__ARM_ARCH_8A__) || defined(__ARM_FEATURE_LPAE)
+  const bool has_atomic_ldrd_strd = true;
 #else
-  const bool has_lpae = false;
+  const bool has_atomic_ldrd_strd = false;
 #endif
-  return new ArmInstructionSetFeatures(smp, has_div, has_lpae);
+  return ArmFeaturesUniquePtr(new ArmInstructionSetFeatures(has_div,
+                                                            has_atomic_ldrd_strd,
+                                                            has_armv8a));
 }
 
-const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromCpuInfo() {
+ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromCpuInfo() {
   // Look in /proc/cpuinfo for features we need.  Only use this when we can guarantee that
   // the kernel puts the appropriate feature flags in here.  Sometimes it doesn't.
-  bool smp = false;
-  bool has_lpae = false;
+  bool has_atomic_ldrd_strd = false;
   bool has_div = false;
+  bool has_armv8a = false;
 
   std::ifstream in("/proc/cpuinfo");
   if (!in.fail()) {
@@ -145,11 +160,17 @@ const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromCpuInfo() {
             has_div = true;
           }
           if (line.find("lpae") != std::string::npos) {
-            has_lpae = true;
+            has_atomic_ldrd_strd = true;
           }
-        } else if (line.find("processor") != std::string::npos &&
-            line.find(": 1") != std::string::npos) {
-          smp = true;
+        }
+        if (line.find("architecture") != std::string::npos
+            && line.find(": 8") != std::string::npos) {
+          LOG(INFO) << "found architecture ARMv8";
+          // Android is only run on A cores, so ARMv8 implies ARMv8-A.
+          has_armv8a = true;
+          // ARMv8 CPUs have LPAE and div support.
+          has_div = true;
+          has_atomic_ldrd_strd = true;
         }
       }
     }
@@ -157,16 +178,17 @@ const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromCpuInfo() {
   } else {
     LOG(ERROR) << "Failed to open /proc/cpuinfo";
   }
-  return new ArmInstructionSetFeatures(smp, has_div, has_lpae);
+  return ArmFeaturesUniquePtr(new ArmInstructionSetFeatures(has_div,
+                                                            has_atomic_ldrd_strd,
+                                                            has_armv8a));
 }
 
-const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromHwcap() {
-  bool smp = sysconf(_SC_NPROCESSORS_CONF) > 1;
-
+ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromHwcap() {
   bool has_div = false;
-  bool has_lpae = false;
+  bool has_atomic_ldrd_strd = false;
+  bool has_armv8a = false;
 
-#if defined(__ANDROID__) && defined(__arm__)
+#if defined(ART_TARGET_ANDROID) && defined(__arm__)
   uint64_t hwcaps = getauxval(AT_HWCAP);
   LOG(INFO) << "hwcaps=" << hwcaps;
   if ((hwcaps & HWCAP_IDIVT) != 0) {
@@ -176,18 +198,27 @@ const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromHwcap() {
     has_div = true;
   }
   if ((hwcaps & HWCAP_LPAE) != 0) {
-    has_lpae = true;
+    has_atomic_ldrd_strd = true;
+  }
+  // TODO: Fix this once FPMISC makes it upstream.
+  // For now we detect if we run on an ARMv8 CPU by looking for CRC32 and SHA1
+  // (only available on ARMv8 CPUs).
+  if ((hwcaps & HWCAP2_CRC32) != 0 && (hwcaps & HWCAP2_SHA1) != 0) {
+    has_armv8a = true;
   }
 #endif
 
-  return new ArmInstructionSetFeatures(smp, has_div, has_lpae);
+  return ArmFeaturesUniquePtr(new ArmInstructionSetFeatures(has_div,
+                                                            has_atomic_ldrd_strd,
+                                                            has_armv8a));
 }
 
 // A signal handler called by a fault for an illegal instruction.  We record the fact in r0
 // and then increment the PC in the signal context to return to the next instruction.  We know the
-// instruction is an sdiv (4 bytes long).
-static void bad_divide_inst_handle(int signo ATTRIBUTE_UNUSED, siginfo_t* si ATTRIBUTE_UNUSED,
-                                   void* data) {
+// instruction is 4 bytes long.
+static void bad_instr_handle(int signo ATTRIBUTE_UNUSED,
+                            siginfo_t* si ATTRIBUTE_UNUSED,
+                            void* data) {
 #if defined(__arm__)
   struct ucontext *uc = (struct ucontext *)data;
   struct sigcontext *sc = &uc->uc_mcontext;
@@ -198,20 +229,23 @@ static void bad_divide_inst_handle(int signo ATTRIBUTE_UNUSED, siginfo_t* si ATT
 #endif
 }
 
-const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromAssembly() {
-  const bool smp = true;
-
+ArmFeaturesUniquePtr ArmInstructionSetFeatures::FromAssembly() {
   // See if have a sdiv instruction.  Register a signal handler and try to execute an sdiv
   // instruction.  If we get a SIGILL then it's not supported.
   struct sigaction sa, osa;
   sa.sa_flags = SA_ONSTACK | SA_RESTART | SA_SIGINFO;
-  sa.sa_sigaction = bad_divide_inst_handle;
+  sa.sa_sigaction = bad_instr_handle;
+  sigemptyset(&sa.sa_mask);
   sigaction(SIGILL, &sa, &osa);
 
   bool has_div = false;
+  bool has_armv8a = false;
 #if defined(__arm__)
   if (artCheckForArmSdivInstruction()) {
     has_div = true;
+  }
+  if (artCheckForArmv8AInstructions()) {
+    has_armv8a = true;
   }
 #endif
 
@@ -221,11 +255,13 @@ const ArmInstructionSetFeatures* ArmInstructionSetFeatures::FromAssembly() {
   // Use compile time features to "detect" LPAE support.
   // TODO: write an assembly LPAE support test.
 #if defined(__ARM_FEATURE_LPAE)
-  const bool has_lpae = true;
+  const bool has_atomic_ldrd_strd = true;
 #else
-  const bool has_lpae = false;
+  const bool has_atomic_ldrd_strd = false;
 #endif
-  return new ArmInstructionSetFeatures(smp, has_div, has_lpae);
+  return ArmFeaturesUniquePtr(new ArmInstructionSetFeatures(has_div,
+                                                            has_atomic_ldrd_strd,
+                                                            has_armv8a));
 }
 
 bool ArmInstructionSetFeatures::Equals(const InstructionSetFeatures* other) const {
@@ -233,43 +269,56 @@ bool ArmInstructionSetFeatures::Equals(const InstructionSetFeatures* other) cons
     return false;
   }
   const ArmInstructionSetFeatures* other_as_arm = other->AsArmInstructionSetFeatures();
-  return IsSmp() == other_as_arm->IsSmp() &&
-      has_div_ == other_as_arm->has_div_ &&
-      has_atomic_ldrd_strd_ == other_as_arm->has_atomic_ldrd_strd_;
+  return has_div_ == other_as_arm->has_div_
+      && has_atomic_ldrd_strd_ == other_as_arm->has_atomic_ldrd_strd_
+      && has_armv8a_ == other_as_arm->has_armv8a_;
+}
+
+bool ArmInstructionSetFeatures::HasAtLeast(const InstructionSetFeatures* other) const {
+  if (kArm != other->GetInstructionSet()) {
+    return false;
+  }
+  const ArmInstructionSetFeatures* other_as_arm = other->AsArmInstructionSetFeatures();
+
+  return (has_div_ || (has_div_ == other_as_arm->has_div_))
+      && (has_atomic_ldrd_strd_ || (has_atomic_ldrd_strd_ == other_as_arm->has_atomic_ldrd_strd_))
+      && (has_armv8a_ || (has_armv8a_ == other_as_arm->has_armv8a_));
 }
 
 uint32_t ArmInstructionSetFeatures::AsBitmap() const {
-  return (IsSmp() ? kSmpBitfield : 0) |
-      (has_div_ ? kDivBitfield : 0) |
-      (has_atomic_ldrd_strd_ ? kAtomicLdrdStrdBitfield : 0);
+  return (has_div_ ? kDivBitfield : 0)
+      | (has_atomic_ldrd_strd_ ? kAtomicLdrdStrdBitfield : 0)
+      | (has_armv8a_ ? kARMv8A : 0);
 }
 
 std::string ArmInstructionSetFeatures::GetFeatureString() const {
   std::string result;
-  if (IsSmp()) {
-    result += "smp";
-  } else {
-    result += "-smp";
-  }
   if (has_div_) {
-    result += ",div";
+    result += "div";
   } else {
-    result += ",-div";
+    result += "-div";
   }
   if (has_atomic_ldrd_strd_) {
     result += ",atomic_ldrd_strd";
   } else {
     result += ",-atomic_ldrd_strd";
   }
+  if (has_armv8a_) {
+    result += ",armv8a";
+  } else {
+    result += ",-armv8a";
+  }
   return result;
 }
 
-const InstructionSetFeatures* ArmInstructionSetFeatures::AddFeaturesFromSplitString(
-    const bool smp, const std::vector<std::string>& features, std::string* error_msg) const {
+std::unique_ptr<const InstructionSetFeatures>
+ArmInstructionSetFeatures::AddFeaturesFromSplitString(
+    const std::vector<std::string>& features, std::string* error_msg) const {
   bool has_atomic_ldrd_strd = has_atomic_ldrd_strd_;
   bool has_div = has_div_;
+  bool has_armv8a = has_armv8a_;
   for (auto i = features.begin(); i != features.end(); i++) {
-    std::string feature = Trim(*i);
+    std::string feature = android::base::Trim(*i);
     if (feature == "div") {
       has_div = true;
     } else if (feature == "-div") {
@@ -278,12 +327,17 @@ const InstructionSetFeatures* ArmInstructionSetFeatures::AddFeaturesFromSplitStr
       has_atomic_ldrd_strd = true;
     } else if (feature == "-atomic_ldrd_strd") {
       has_atomic_ldrd_strd = false;
+    } else if (feature == "armv8a") {
+      has_armv8a = true;
+    } else if (feature == "-armv8a") {
+      has_armv8a = false;
     } else {
       *error_msg = StringPrintf("Unknown instruction set feature: '%s'", feature.c_str());
       return nullptr;
     }
   }
-  return new ArmInstructionSetFeatures(smp, has_div, has_atomic_ldrd_strd);
+  return std::unique_ptr<const InstructionSetFeatures>(
+      new ArmInstructionSetFeatures(has_div, has_atomic_ldrd_strd, has_armv8a));
 }
 
 }  // namespace art

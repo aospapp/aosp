@@ -5,9 +5,25 @@ LOCAL_PATH:= $(call my-dir)
 # --
 
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
-init_options += -DALLOW_LOCAL_PROP_OVERRIDE=1 -DALLOW_PERMISSIVE_SELINUX=1
+init_options += \
+    -DALLOW_LOCAL_PROP_OVERRIDE=1 \
+    -DALLOW_PERMISSIVE_SELINUX=1 \
+    -DREBOOT_BOOTLOADER_ON_PANIC=1 \
+    -DDUMP_ON_UMOUNT_FAILURE=1
 else
-init_options += -DALLOW_LOCAL_PROP_OVERRIDE=0 -DALLOW_PERMISSIVE_SELINUX=0
+init_options += \
+    -DALLOW_LOCAL_PROP_OVERRIDE=0 \
+    -DALLOW_PERMISSIVE_SELINUX=0 \
+    -DREBOOT_BOOTLOADER_ON_PANIC=0 \
+    -DDUMP_ON_UMOUNT_FAILURE=0
+endif
+
+ifneq (,$(filter eng,$(TARGET_BUILD_VARIANT)))
+init_options += \
+    -DSHUTDOWN_ZERO_TIMEOUT=1
+else
+init_options += \
+    -DSHUTDOWN_ZERO_TIMEOUT=0
 endif
 
 init_options += -DLOG_UEVENTS=0
@@ -17,6 +33,7 @@ init_cflags += \
     -Wall -Wextra \
     -Wno-unused-parameter \
     -Werror \
+    -std=gnu++1z \
 
 # --
 
@@ -45,6 +62,8 @@ include $(CLEAR_VARS)
 LOCAL_CPPFLAGS := $(init_cflags)
 LOCAL_SRC_FILES:= \
     action.cpp \
+    capabilities.cpp \
+    descriptors.cpp \
     import_parser.cpp \
     init_parser.cpp \
     log.cpp \
@@ -52,7 +71,8 @@ LOCAL_SRC_FILES:= \
     service.cpp \
     util.cpp \
 
-LOCAL_STATIC_LIBRARIES := libbase libselinux
+LOCAL_STATIC_LIBRARIES := libbase libselinux liblog libprocessgroup
+LOCAL_WHOLE_STATIC_LIBRARIES := libcap
 LOCAL_MODULE := libinit
 LOCAL_SANITIZE := integer
 LOCAL_CLANG := true
@@ -65,8 +85,10 @@ LOCAL_SRC_FILES:= \
     builtins.cpp \
     devices.cpp \
     init.cpp \
+    init_first_stage.cpp \
     keychords.cpp \
     property_service.cpp \
+    reboot.cpp \
     signal_handler.cpp \
     ueventd.cpp \
     ueventd_parser.cpp \
@@ -74,7 +96,6 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_MODULE:= init
 LOCAL_C_INCLUDES += \
-    system/extras/ext4_utils \
     system/core/mkbootimg
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
@@ -89,21 +110,22 @@ LOCAL_STATIC_LIBRARIES := \
     libfec_rs \
     libsquashfs_utils \
     liblogwrap \
+    libext4_utils \
     libcutils \
-    libext4_utils_static \
     libbase \
-    libutils \
     libc \
     libselinux \
     liblog \
-    libmincrypt \
-    libcrypto_static \
+    libcrypto_utils \
+    libcrypto \
     libc++_static \
     libdl \
-    libsparse_static \
-    libz
+    libsparse \
+    libz \
+    libprocessgroup \
+    libavb
 
-# Create symlinks
+# Create symlinks.
 LOCAL_POST_INSTALL_CMD := $(hide) mkdir -p $(TARGET_ROOT_OUT)/sbin; \
     ln -sf ../init $(TARGET_ROOT_OUT)/sbin/ueventd; \
     ln -sf ../init $(TARGET_ROOT_OUT)/sbin/watchdogd
@@ -113,12 +135,14 @@ LOCAL_CLANG := true
 include $(BUILD_EXECUTABLE)
 
 
-
-
+# Unit tests.
+# =========================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := init_tests
 LOCAL_SRC_FILES := \
     init_parser_test.cpp \
+    property_service_test.cpp \
+    service_test.cpp \
     util_test.cpp \
 
 LOCAL_SHARED_LIBRARIES += \
@@ -128,4 +152,10 @@ LOCAL_SHARED_LIBRARIES += \
 LOCAL_STATIC_LIBRARIES := libinit
 LOCAL_SANITIZE := integer
 LOCAL_CLANG := true
+LOCAL_CPPFLAGS := -Wall -Wextra -Werror
 include $(BUILD_NATIVE_TEST)
+
+
+# Include targets in subdirs.
+# =========================================================
+include $(call all-makefiles-under,$(LOCAL_PATH))

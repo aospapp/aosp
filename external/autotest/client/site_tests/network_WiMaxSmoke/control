@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "network_WiMaxSmoke"
 ATTRIBUTES = "suite:wimax"
-SUITE = "wimax"
 PURPOSE = "Verify a WiMAX module can connect to a WiMAX network."
 CRITERIA = """
 This test fails if one of the following conditions occurs:

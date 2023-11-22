@@ -10,7 +10,6 @@ CRITERIA = """
   or the pseudomodem are not left in a working state.
 """
 ATTRIBUTES = "suite:network_ui"
-SUITE = "network_ui"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

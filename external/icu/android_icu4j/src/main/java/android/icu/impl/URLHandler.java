@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  ******************************************************************************
  * Copyright (C) 2005-2015, International Business Machines Corporation and
@@ -29,14 +31,14 @@ import java.util.jar.JarFile;
  */
 public abstract class URLHandler {
     public static final String PROPNAME = "urlhandler.props";
-    
+
     private static final Map<String, Method> handlers;
-    
+
     private static final boolean DEBUG = ICUDebug.enabled("URLHandler");
-    
+
     static {
         Map<String, Method> h = null;
-        
+
         BufferedReader br = null;
         try {
             @SuppressWarnings("resource")  // Closed by BufferedReader.
@@ -46,32 +48,32 @@ public abstract class URLHandler {
             if (is != null) {
                 Class<?>[] params = { URL.class };
                 br = new BufferedReader(new InputStreamReader(is));
-                
+
                 for (String line = br.readLine(); line != null; line = br.readLine()) {
                     line = line.trim();
-                    
+
                     if (line.length() == 0 || line.charAt(0) == '#') {
                         continue;
                     }
-                    
+
                     int ix = line.indexOf('=');
-                    
+
                     if (ix == -1) {
                         if (DEBUG) System.err.println("bad urlhandler line: '" + line + "'");
                         break;
                     }
-                    
+
                     String key = line.substring(0, ix).trim();
                     String value = line.substring(ix+1).trim();
-                    
+
                     try {
                         Class<?> cl = Class.forName(value);
                         Method m = cl.getDeclaredMethod("get", params);
-                        
+
                         if (h == null) {
                             h = new HashMap<String, Method>();
                         }
-                        
+
                         h.put(key, m);
                     }
                     catch (ClassNotFoundException e) {
@@ -104,16 +106,16 @@ public abstract class URLHandler {
         if (url == null) {
             return null;
         }
-        
+
         String protocol = url.getProtocol();
-        
+
         if (handlers != null) {
             Method m = handlers.get(protocol);
-            
+
             if (m != null) {
                 try {
                     URLHandler handler = (URLHandler)m.invoke(null, new Object[] { url });
-                    
+
                     if (handler != null) {
                         return handler;
                     }
@@ -129,10 +131,10 @@ public abstract class URLHandler {
                 }
             }
         }
-        
+
         return getDefault(url);
     }
-    
+
     protected static URLHandler getDefault(URL url) {
         URLHandler handler = null;
 
@@ -148,7 +150,7 @@ public abstract class URLHandler {
         }
         return handler;
     }
-    
+
     private static class FileURLHandler extends URLHandler {
         File file;
 
@@ -163,7 +165,8 @@ public abstract class URLHandler {
                 throw new IllegalArgumentException();
             }
         }
-        
+
+        @Override
         public void guide(URLVisitor v, boolean recurse, boolean strip) {
             if (file.isDirectory()) {
                 process(v, recurse, strip, "/", file.listFiles());
@@ -171,22 +174,24 @@ public abstract class URLHandler {
                 v.visit(file.getName());
             }
         }
-        
+
         private void process(URLVisitor v, boolean recurse, boolean strip, String path, File[] files) {
-            for (int i = 0; i < files.length; i++) {
-                File f = files[i];
-                
-                if (f.isDirectory()) {
-                    if (recurse) {
-                        process(v, recurse, strip, path + f.getName()+ '/', f.listFiles());
+            if (files != null) {
+                for (int i = 0; i < files.length; i++) {
+                    File f = files[i];
+
+                    if (f.isDirectory()) {
+                        if (recurse) {
+                            process(v, recurse, strip, path + f.getName()+ '/', f.listFiles());
+                        }
+                    } else {
+                        v.visit(strip? f.getName() : path + f.getName());
                     }
-                } else {
-                    v.visit(strip? f.getName() : path + f.getName());
                 }
             }
         }
     }
-    
+
     private static class JarURLHandler extends URLHandler {
         JarFile jarFile;
         String prefix;
@@ -194,9 +199,9 @@ public abstract class URLHandler {
         JarURLHandler(URL url) {
             try {
                 prefix = url.getPath();
-                
+
                 int ix = prefix.lastIndexOf("!/");
-                
+
                 if (ix >= 0) {
                     prefix = prefix.substring(ix + 2); // truncate after "!/"
                 }
@@ -220,17 +225,18 @@ public abstract class URLHandler {
                 throw new IllegalArgumentException("jar error: " + e.getMessage());
             }
         }
-        
+
+        @Override
         public void guide(URLVisitor v, boolean recurse, boolean strip) {
             try {
                 Enumeration<JarEntry> entries = jarFile.entries();
-                
+
                 while (entries.hasMoreElements()) {
                     JarEntry entry = entries.nextElement();
-                    
+
                     if (!entry.isDirectory()) { // skip just directory paths
                         String name = entry.getName();
-                        
+
                         if (name.startsWith(prefix)) {
                             name = name.substring(prefix.length());
                             int ix = name.lastIndexOf('/');
@@ -255,9 +261,9 @@ public abstract class URLHandler {
     {
         guide(visitor, recurse, true);
     }
-    
+
     public abstract void guide(URLVisitor visitor, boolean recurse, boolean strip);
-    
+
     public interface URLVisitor {
         void visit(String str);
     }

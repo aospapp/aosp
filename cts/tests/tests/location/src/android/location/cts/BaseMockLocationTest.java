@@ -16,7 +16,8 @@
 
 package android.location.cts;
 
-import android.cts.util.LocationUtils;
+import com.android.compatibility.common.util.LocationUtils;
+
 import android.test.InstrumentationTestCase;
 
 /**

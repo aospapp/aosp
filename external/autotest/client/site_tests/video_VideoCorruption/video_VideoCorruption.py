@@ -20,7 +20,7 @@ class video_VideoCorruption(test.test):
 
         @param video: Sample corrupted video file to be played in Chrome.
         """
-        with chrome.Chrome() as cr:
+        with chrome.Chrome(init_network_controller=True) as cr:
             shutil.copy2(constants.VIDEO_HTML_FILEPATH, self.bindir)
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             tab = cr.browser.tabs[0]

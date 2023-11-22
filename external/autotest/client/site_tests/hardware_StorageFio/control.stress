@@ -8,7 +8,6 @@ PURPOSE = 'Test the root device, when booted from a USB stick'
 TIME = 'LENGTHY'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:storagequal"
-SUITE = 'storagequal'
 
 DOC = """
 Send stress pattern to the disk for 30 minutes: 64K random write with 15% of

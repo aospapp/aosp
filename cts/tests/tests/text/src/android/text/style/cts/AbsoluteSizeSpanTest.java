@@ -16,14 +16,22 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.AbsoluteSizeSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class AbsoluteSizeSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AbsoluteSizeSpanTest {
+    @Test
     public void testConstructor() {
         new AbsoluteSizeSpan(0);
         new AbsoluteSizeSpan(-5);
@@ -39,6 +47,7 @@ public class AbsoluteSizeSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetSize() {
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(5);
         assertEquals(5, absoluteSizeSpan.getSize());
@@ -47,64 +56,73 @@ public class AbsoluteSizeSpanTest extends TestCase {
         assertEquals(-5, absoluteSizeSpan.getSize());
     }
 
+    @Test
     public void testGetDip() {
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(5);
         assertEquals(false, absoluteSizeSpan.getDip());
 
         absoluteSizeSpan = new AbsoluteSizeSpan(5, true);
-        assertEquals(true, absoluteSizeSpan.getDip());
+        assertTrue(absoluteSizeSpan.getDip());
     }
 
+    @Test
     public void testUpdateMeasureState() {
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(1);
 
         TextPaint tp = new TextPaint();
         absoluteSizeSpan.updateMeasureState(tp);
-        assertEquals(1.0f, tp.getTextSize());
+        assertEquals(1.0f, tp.getTextSize(), 0.0f);
 
         absoluteSizeSpan = new AbsoluteSizeSpan(10);
         absoluteSizeSpan.updateMeasureState(tp);
-        assertEquals(10.0f, tp.getTextSize());
-
-        try {
-            absoluteSizeSpan.updateMeasureState(null);
-            fail("should throw NullPointerException when TextPaint is null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+        assertEquals(10.0f, tp.getTextSize(), 0.0f);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        // Should throw NullPointerException when TextPaint is null
+        AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(1);
+
+        absoluteSizeSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testUpdateDrawState() {
         // new the AbsoluteSizeSpan instance
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(2);
 
         TextPaint tp = new TextPaint();
         absoluteSizeSpan.updateDrawState(tp);
-        assertEquals(2.0f, tp.getTextSize());
+        assertEquals(2.0f, tp.getTextSize(), 0.0f);
 
         // new the AbsoluteSizeSpan instance
         absoluteSizeSpan = new AbsoluteSizeSpan(20);
         absoluteSizeSpan.updateDrawState(tp);
-        assertEquals(20.0f, tp.getTextSize());
-
-        try {
-            absoluteSizeSpan.updateDrawState(null);
-            fail("should throw NullPointerException when TextPaint is null.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+        assertEquals(20.0f, tp.getTextSize(), 0.0f);
     }
 
+
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        // Should throw NullPointerException when TextPaint is null
+        AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(2);
+
+        absoluteSizeSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(2);
         absoluteSizeSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         AbsoluteSizeSpan absoluteSizeSpan = new AbsoluteSizeSpan(2);
         absoluteSizeSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

@@ -22,7 +22,7 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.jumpingjack</package>
 
-    <targetSdkVersionWear>22</targetSdkVersionWear>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <strings>
         <intro>

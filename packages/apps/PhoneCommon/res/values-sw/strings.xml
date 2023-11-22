@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Hamna"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Mlio usiojulikana"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Laini zote zilizopo zinatumika. Ili upige simu, kata mojawapo ya simu zinazoendelea kwenye kifaa hiki, au kwenye mojawapo ya vifaa vyako vingine."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Simu imekatika kwa sababu data ya kifaa cha mkononi imezimwa."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Simu imekatika kwa sababu umefikia kikomo ulichoweka cha data ya kifaa cha mkononi."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Kikomo cha data kimefikiwa. Simu imekatika."</string>
 </resources>

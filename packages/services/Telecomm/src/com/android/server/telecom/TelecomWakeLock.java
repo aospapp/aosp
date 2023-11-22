@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 import android.content.Context;
 import android.os.PowerManager;
+import android.telecom.Log;
 
 /**
  * Container for PowerManager / PowerManager.WakeLock access in telecom to facilitate unit testing.

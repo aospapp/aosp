@@ -19,7 +19,9 @@ package com.android.tv.data.epg;
 import android.content.Context;
 
 import com.android.tv.data.Channel;
+import com.android.tv.data.Lineup;
 import com.android.tv.data.Program;
+import com.android.tv.dvr.SeriesInfo;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,7 +30,7 @@ import java.util.List;
  * A stub class to read EPG.
  */
 public class StubEpgReader implements EpgReader{
-    public StubEpgReader(Context context) {
+    public StubEpgReader(@SuppressWarnings("unused") Context context) {
     }
 
     @Override
@@ -42,12 +44,22 @@ public class StubEpgReader implements EpgReader{
     }
 
     @Override
-    public List<Channel> getChannels() {
-        return Collections.EMPTY_LIST;
+    public List<Channel> getChannels(String lineupId) {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<Lineup> getLineups(String postalCode) {
+        return Collections.emptyList();
     }
 
     @Override
     public List<Program> getPrograms(long channelId) {
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
+    }
+
+    @Override
+    public SeriesInfo getSeriesInfo(String seriesId) {
+        return null;
     }
 }

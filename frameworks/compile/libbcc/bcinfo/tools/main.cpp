@@ -342,7 +342,7 @@ int main(int argc, char** argv) {
     const char *translatedBitcode = BT->getTranslatedBitcode();
     size_t translatedBitcodeSize = BT->getTranslatedBitcodeSize();
 
-    llvm::LLVMContext &ctx = llvm::getGlobalContext();
+    llvm::LLVMContext ctx;
     llvm::llvm_shutdown_obj called_on_exit;
 
     std::unique_ptr<llvm::MemoryBuffer> mem;

@@ -22,9 +22,8 @@ LOCAL_SRC_FILES := \
     resampler.cc \
     sinc_resampler.cc \
 
-ifeq ($(TARGET_ARCH), $(filter $(TARGET_ARCH),x86 x86_64))
-LOCAL_SRC_FILES += sinc_resampler_sse.cc
-endif
+LOCAL_SRC_FILES_x86 += sinc_resampler_sse.cc
+LOCAL_SRC_FILES_x86_64 += sinc_resampler_sse.cc
 
 # Flags passed to both C and C++ files.
 LOCAL_CFLAGS := \
@@ -36,6 +35,8 @@ LOCAL_CFLAGS_mips := $(MY_WEBRTC_COMMON_DEFS_mips)
 LOCAL_CFLAGS_arm64 := $(MY_WEBRTC_COMMON_DEFS_arm64)
 LOCAL_CFLAGS_x86_64 := $(MY_WEBRTC_COMMON_DEFS_x86_64)
 LOCAL_CFLAGS_mips64 := $(MY_WEBRTC_COMMON_DEFS_mips64)
+
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \

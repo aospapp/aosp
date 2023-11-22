@@ -2,11 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from contextlib import closing
 import logging
 import os
 import re
-import time
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
@@ -38,7 +36,7 @@ class video_ChromeRTCHWEncodeUsed(test.test):
 
         @param cr: Autotest Chrome instance.
         """
-        tab = cr.browser.tabs[0]
+        tab = cr.browser.tabs.New()
         tab.Navigate(cr.browser.platform.http_server.UrlOf(
                 os.path.join(self.bindir, 'loopback.html')))
         tab.WaitForDocumentReadyStateToBeComplete()
@@ -53,7 +51,7 @@ class video_ChromeRTCHWEncodeUsed(test.test):
         @raises error.TestError if decoding is not hardware accelerated.
         """
         tab = cr.browser.tabs.New()
-        def histograms_loaded(histogram):
+        def _histograms_loaded(histogram):
             """Returns true if histogram is loaded."""
             tab.Navigate(HISTOGRAMS_URL + histogram)
             tab.WaitForDocumentReadyStateToBeComplete()
@@ -61,7 +59,7 @@ class video_ChromeRTCHWEncodeUsed(test.test):
                     'document.documentElement.innerText.search("%s") != -1'
                     % histogram)
 
-        def histogram_sucess(histogram, bucket):
+        def _histogram_success(histogram, bucket):
             lines = tab.EvaluateJavaScript(
                     'document.documentElement.innerText').split("\n")
             lines = [line for line in lines if line.strip()]
@@ -81,15 +79,15 @@ class video_ChromeRTCHWEncodeUsed(test.test):
         for histogram, bucket in [(RTC_VIDEO_ENCODE, RTC_VIDEO_ENCODE_BUCKET),
                 (RTC_ENCODE_PROFILE, RTC_ENCODE_PROFILE_BUCKET)]:
             utils.poll_for_condition(
-                    lambda: histograms_loaded(histogram),
+                    lambda: _histograms_loaded(histogram),
                     timeout=5,
                     exception=error.TestError(
                             'Cannot find %s histogram.' % histogram),
                     sleep_interval=1)
-            histogram_sucess(histogram, bucket)
+            _histogram_success(histogram, bucket)
 
 
-    def run_once(self):
+    def run_once(self, arc_mode=None):
         # Download test video.
         url = DOWNLOAD_BASE + VIDEO_NAME
         local_path = os.path.join(self.bindir, VIDEO_NAME)
@@ -97,7 +95,9 @@ class video_ChromeRTCHWEncodeUsed(test.test):
 
         # Start chrome with test flags.
         EXTRA_BROWSER_ARGS.append(FAKE_FILE_ARG % local_path)
-        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS) as cr:
+        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
+                           arc_mode=arc_mode,
+                           init_network_controller=True) as cr:
             # Open WebRTC loopback page.
             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
             self.start_loopback(cr)

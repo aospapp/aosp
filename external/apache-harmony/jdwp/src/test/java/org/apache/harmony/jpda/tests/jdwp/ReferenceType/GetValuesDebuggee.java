@@ -36,6 +36,7 @@ public class GetValuesDebuggee extends SyncDebuggee {
     static GetValuesDebuggee getValuesDebuggeeField;
     static int[] staticArrayField;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: GetValuesDebuggee: START");
 

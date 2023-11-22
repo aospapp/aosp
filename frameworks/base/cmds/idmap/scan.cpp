@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <inttypes.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 
 #include "idmap.h"
@@ -8,6 +9,8 @@
 #include <androidfw/ResourceTypes.h>
 #include <androidfw/StreamingZipInflater.h>
 #include <androidfw/ZipFileRO.h>
+#include <cutils/jstring.h>
+#include <cutils/properties.h>
 #include <private/android_filesystem_config.h> // for AID_SYSTEM
 #include <utils/SortedVector.h>
 #include <utils/String16.h>
@@ -35,8 +38,21 @@ namespace {
 
     bool writePackagesList(const char *filename, const SortedVector<Overlay>& overlayVector)
     {
-        FILE* fout = fopen(filename, "w");
+        // the file is opened for appending so that it doesn't get truncated
+        // before we can guarantee mutual exclusion via the flock
+        FILE* fout = fopen(filename, "a");
         if (fout == NULL) {
+            return false;
+        }
+
+        if (TEMP_FAILURE_RETRY(flock(fileno(fout), LOCK_EX)) != 0) {
+            fclose(fout);
+            return false;
+        }
+
+        if (TEMP_FAILURE_RETRY(ftruncate(fileno(fout), 0)) != 0) {
+            TEMP_FAILURE_RETRY(flock(fileno(fout), LOCK_UN));
+            fclose(fout);
             return false;
         }
 
@@ -45,6 +61,8 @@ namespace {
             fprintf(fout, "%s %s\n", overlay.apk_path.string(), overlay.idmap_path.string());
         }
 
+        TEMP_FAILURE_RETRY(fflush(fout));
+        TEMP_FAILURE_RETRY(flock(fileno(fout), LOCK_UN));
         fclose(fout);
 
         // Make file world readable since Zygote (running as root) will read
@@ -65,11 +83,26 @@ namespace {
         return String8(tmp);
     }
 
-    int parse_overlay_tag(const ResXMLTree& parser, const char *target_package_name)
+    bool check_property(String16 property, String16 value) {
+        const char *prop;
+        const char *val;
+
+        prop = strndup16to8(property.string(), property.size());
+        char propBuf[PROPERTY_VALUE_MAX];
+        property_get(prop, propBuf, NULL);
+        val = strndup16to8(value.string(), value.size());
+
+        return (strcmp(propBuf, val) == 0);
+    }
+
+    int parse_overlay_tag(const ResXMLTree& parser, const char *target_package_name,
+            bool* is_static_overlay)
     {
         const size_t N = parser.getAttributeCount();
         String16 target;
         int priority = -1;
+        String16 propName = String16();
+        String16 propValue = String16();
         for (size_t i = 0; i < N; ++i) {
             size_t len;
             String16 key(parser.getAttributeName(i, &len));
@@ -86,8 +119,33 @@ namespace {
                         return -1;
                     }
                 }
+            } else if (key == String16("isStatic")) {
+                Res_value v;
+                if (parser.getAttributeValue(i, &v) == sizeof(Res_value)) {
+                    *is_static_overlay = (v.data != 0);
+                }
+            } else if (key == String16("requiredSystemPropertyName")) {
+                const char16_t *p = parser.getAttributeStringValue(i, &len);
+                if (p != NULL) {
+                    propName = String16(p, len);
+                }
+            } else if (key == String16("requiredSystemPropertyValue")) {
+                const char16_t *p = parser.getAttributeStringValue(i, &len);
+                if (p != NULL) {
+                    propValue = String16(p, len);
+                }
             }
         }
+
+        // Note that conditional property enablement/exclusion only applies if
+        // the attribute is present. In its absence, all overlays are presumed enabled.
+        if (propName.size() > 0 && propValue.size() > 0) {
+            // if property set & equal to value, then include overlay - otherwise skip
+            if (!check_property(propName, propValue)) {
+                return NO_OVERLAY_TAG;
+            }
+        }
+
         if (target == String16(target_package_name)) {
             return priority;
         }
@@ -104,17 +162,23 @@ namespace {
         }
 
         ResXMLParser::event_code_t type;
+        bool is_static_overlay = false;
+        int priority = NO_OVERLAY_TAG;
         do {
             type = parser.next();
             if (type == ResXMLParser::START_TAG) {
                 size_t len;
                 String16 tag(parser.getElementName(&len));
                 if (tag == String16("overlay")) {
-                    return parse_overlay_tag(parser, target_package_name);
+                    priority = parse_overlay_tag(parser, target_package_name, &is_static_overlay);
+                    break;
                 }
             }
         } while (type != ResXMLParser::BAD_DOCUMENT && type != ResXMLParser::END_DOCUMENT);
 
+        if (is_static_overlay) {
+            return priority;
+        }
         return NO_OVERLAY_TAG;
     }
 
@@ -171,9 +235,6 @@ int idmap_scan(const char *target_package_name, const char *target_apk_path,
 {
     String8 filename = String8(idmap_dir);
     filename.appendPath("overlays.list");
-    if (unlink(filename.string()) != 0 && errno != ENOENT) {
-        return EXIT_FAILURE;
-    }
 
     SortedVector<Overlay> overlayVector;
     const size_t N = overlay_dirs->size();
@@ -224,3 +285,4 @@ int idmap_scan(const char *target_package_name, const char *target_apk_path,
 
     return EXIT_SUCCESS;
 }
+

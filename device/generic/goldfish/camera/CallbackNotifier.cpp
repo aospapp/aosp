@@ -24,8 +24,12 @@
 #include <cutils/log.h>
 #include <MetadataBufferType.h>
 #include "EmulatedCameraDevice.h"
+#undef min
+#undef max
 #include "CallbackNotifier.h"
+#include "Exif.h"
 #include "JpegCompressor.h"
+#include "Thumbnail.h"
 
 namespace android {
 
@@ -180,6 +184,13 @@ void CallbackNotifier::releaseRecordingFrame(const void* opaque)
     }
 }
 
+void CallbackNotifier::autoFocusComplete() {
+    // Even though we don't support auto-focus we are expected to send a fake
+    // success message according to the documentation.
+    // https://developer.android.com/reference/android/hardware/Camera.AutoFocusCallback.html
+    mNotifyCB(CAMERA_MSG_FOCUS, true, 0, mCBOpaque);
+}
+
 status_t CallbackNotifier::storeMetaDataInBuffers(bool enable)
 {
     // Return error if metadata is request, otherwise silently agree.
@@ -206,19 +217,33 @@ void CallbackNotifier::cleanupCBNotifier()
     mTakingPicture = false;
 }
 
-void CallbackNotifier::onNextFrameAvailable(const void* frame,
-                                            nsecs_t timestamp,
+void CallbackNotifier::onNextFrameAvailable(nsecs_t timestamp,
                                             EmulatedCameraDevice* camera_dev)
 {
     if (isMessageEnabled(CAMERA_MSG_VIDEO_FRAME) && isVideoRecordingEnabled() &&
             isNewVideoFrameTime(timestamp)) {
-        camera_memory_t* cam_buff =
-            mGetMemoryCB(-1, camera_dev->getFrameBufferSize(), 1, NULL);
+        // This is the path for video frames, the format used here is not
+        // exposed to external users so it can be whatever the camera and the
+        // encoder can agree upon. The emulator system images use software
+        // encoders that expect a YUV420 format but the camera parameter
+        // constants cannot represent this. The closest we have is YV12 which is
+        // YVU420. So we produce YV12 frames so that we can serve those through
+        // the preview callback below and then we convert from YV12 to YUV420
+        // here. This is a pretty cheap conversion in most cases since we have
+        // to copy the frame here anyway. In the best (and most common) cases
+        // the conversion is just copying the U and V parts of the frame in
+        // different order. A slightly more expensive case is when the YV12
+        // frame has padding to ensure that rows are aligned to 16-byte
+        // boundaries. The YUV420 format expected by the encoders do not have
+        // this alignment so it has to be removed. This way the encoder gets the
+        // format it expects and the preview callback (or data callback) below
+        // gets the format that is configured in camera parameters.
+        const size_t frameSize = camera_dev->getVideoFrameBufferSize();
+        camera_memory_t* cam_buff = mGetMemoryCB(-1, frameSize, 1, NULL);
         if (NULL != cam_buff && NULL != cam_buff->data) {
-            memcpy(cam_buff->data, frame, camera_dev->getFrameBufferSize());
+            camera_dev->getCurrentFrame(cam_buff->data, V4L2_PIX_FMT_YUV420);
             mDataCBTimestamp(timestamp, CAMERA_MSG_VIDEO_FRAME,
                                cam_buff, 0, mCBOpaque);
-
             mCameraMemoryTs.push_back( cam_buff );
         } else {
             ALOGE("%s: Memory failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
@@ -229,7 +254,8 @@ void CallbackNotifier::onNextFrameAvailable(const void* frame,
         camera_memory_t* cam_buff =
             mGetMemoryCB(-1, camera_dev->getFrameBufferSize(), 1, NULL);
         if (NULL != cam_buff && NULL != cam_buff->data) {
-            memcpy(cam_buff->data, frame, camera_dev->getFrameBufferSize());
+            camera_dev->getCurrentFrame(cam_buff->data,
+                                        camera_dev->getOriginalPixelFormat());
             mDataCB(CAMERA_MSG_PREVIEW_FRAME, cam_buff, 0, NULL, mCBOpaque);
             cam_buff->release(cam_buff);
         } else {
@@ -252,13 +278,39 @@ void CallbackNotifier::onNextFrameAvailable(const void* frame,
             mNotifyCB(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mCBOpaque);
         }
         if (isMessageEnabled(CAMERA_MSG_COMPRESSED_IMAGE)) {
+            // Create EXIF data from the camera parameters, this includes things
+            // like EXIF default fields, a timestamp and GPS information.
+            ExifData* exifData = createExifData(mCameraParameters);
+
+            // Hold the frame lock while accessing the current frame to prevent
+            // concurrent modifications. Then create our JPEG from that frame.
+            EmulatedCameraDevice::FrameLock lock(*camera_dev);
+            const void* frame = camera_dev->getCurrentFrame();
+
+            // Create a thumbnail and place the pointer and size in the EXIF
+            // data structure. This transfers ownership to the EXIF data and
+            // the memory will be deallocated in the freeExifData call below.
+            int width = camera_dev->getFrameWidth();
+            int height = camera_dev->getFrameHeight();
+            int thumbWidth = mCameraParameters.getInt(
+                    CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
+            int thumbHeight = mCameraParameters.getInt(
+                    CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
+            if (thumbWidth > 0 && thumbHeight > 0) {
+                if (!createThumbnail(static_cast<const unsigned char*>(frame),
+                                     width, height, thumbWidth, thumbHeight,
+                                     mJpegQuality, exifData)) {
+                    // Not really a fatal error, we'll just keep going
+                    ALOGE("%s: Failed to create thumbnail for image",
+                          __FUNCTION__);
+                }
+            }
+
             /* Compress the frame to JPEG. Note that when taking pictures, we
              * have requested camera device to provide us with NV21 frames. */
             NV21JpegCompressor compressor;
-            status_t res =
-                compressor.compressRawImage(frame, camera_dev->getFrameWidth(),
-                                            camera_dev->getFrameHeight(),
-                                            mJpegQuality);
+            status_t res = compressor.compressRawImage(frame, width, height,
+                                                       mJpegQuality, exifData);
             if (res == NO_ERROR) {
                 camera_memory_t* jpeg_buff =
                     mGetMemoryCB(-1, compressor.getCompressedSize(), 1, NULL);
@@ -272,6 +324,8 @@ void CallbackNotifier::onNextFrameAvailable(const void* frame,
             } else {
                 ALOGE("%s: Compression failure in CAMERA_MSG_VIDEO_FRAME", __FUNCTION__);
             }
+            // The EXIF data has been consumed, free it
+            freeExifData(exifData);
         }
     }
 }

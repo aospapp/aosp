@@ -15,8 +15,6 @@
  */
 package com.android.bluetooth.gatt;
 
-import java.util.UUID;
-
 /**
  * Helper class that keeps track of callback parameters for app callbacks.
  * These are held during congestion and reported when congestion clears.

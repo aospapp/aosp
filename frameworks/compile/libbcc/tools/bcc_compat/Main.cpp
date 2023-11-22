@@ -28,15 +28,11 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <bcc/BCCContext.h>
-#include <bcc/Compiler.h>
-#include <bcc/Config/Config.h>
-#include <bcc/Renderscript/RSCompilerDriver.h>
-#include <bcc/Script.h>
+#include <bcc/CompilerConfig.h>
+#include <bcc/Config.h>
+#include <bcc/Initialization.h>
+#include <bcc/RSCompilerDriver.h>
 #include <bcc/Source.h>
-#include <bcc/Support/CompilerConfig.h>
-#include <bcc/Support/Initialization.h>
-#include <bcc/Support/InputFile.h>
-#include <bcc/Support/OutputFile.h>
 
 using namespace bcc;
 
@@ -113,9 +109,9 @@ void BCCVersionPrinter() {
 
 } // end anonymous namespace
 
-RSScript *PrepareRSScript(BCCContext &pContext,
-                          const llvm::cl::list<std::string> &pBitcodeFiles) {
-  RSScript *result = nullptr;
+Script *PrepareScript(BCCContext &pContext,
+                      const llvm::cl::list<std::string> &pBitcodeFiles) {
+  Script *result = nullptr;
 
   for (unsigned i = 0; i < pBitcodeFiles.size(); i++) {
     const std::string &input_bitcode = pBitcodeFiles[i];
@@ -134,7 +130,7 @@ RSScript *PrepareRSScript(BCCContext &pContext,
         return nullptr;
       }
     } else {
-      result = new (std::nothrow) RSScript(*source);
+      result = new (std::nothrow) Script(source);
       if (result == nullptr) {
         llvm::errs() << "Out of memory when create script for file `"
                      << input_bitcode << "'!\n";
@@ -262,7 +258,7 @@ int main(int argc, char **argv) {
   }
 
   BCCContext context;
-  RSCompilerDriver rscd(false);
+  RSCompilerDriver rscd;
   Compiler compiler;
 
   if (!ConfigCompiler(rscd)) {
@@ -274,7 +270,7 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr<RSScript> s(PrepareRSScript(context, OptInputFilenames));
+  std::unique_ptr<Script> s(PrepareScript(context, OptInputFilenames));
   if (!rscd.buildForCompatLib(*s, OutputFilename.c_str(), nullptr, OptRuntimePath.c_str(), false)) {
     fprintf(stderr, "Failed to compile script!");
     return EXIT_FAILURE;

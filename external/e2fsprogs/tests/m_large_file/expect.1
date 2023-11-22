@@ -1,15 +1,4 @@
-Filesystem label=
-OS type: Linux
-Block size=4096 (log=2)
-Fragment size=4096 (log=2)
-Stride=0 blocks, Stripe width=0 blocks
-64 inodes, 16384 blocks
-819 blocks (5.00%) reserved for the super user
-First data block=0
-Maximum filesystem blocks=16777216
-1 block group
-32768 blocks per group, 32768 fragments per group
-64 inodes per group
+Creating filesystem with 16384 4k blocks and 64 inodes
 
 Allocating group tables:    done                            
 Writing inode tables:    done                            
@@ -51,15 +40,16 @@ Reserved blocks uid:      0
 Reserved blocks gid:      0
 First inode:              11
 Inode size:	          256
-Required extra isize:     28
-Desired extra isize:      28
+Required extra isize:     32
+Desired extra isize:      32
 Default directory hash:   half_md4
 
 
 Group 0: (Blocks 0-16383)
   Primary superblock at 0, Group descriptors at 1-1
   Reserved GDT blocks at 2-4
-  Block bitmap at 5 (+5), Inode bitmap at 6 (+6)
+  Block bitmap at 5 (+5)
+  Inode bitmap at 6 (+6)
   Inode table at 7-10 (+7)
   16367 free blocks, 53 free inodes, 2 directories
   Free blocks: 17-16383

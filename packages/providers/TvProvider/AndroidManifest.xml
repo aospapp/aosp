@@ -44,19 +44,20 @@
     <!-- Allows an application to read and write all TV channel/program data.
          @hide -->
     <permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA"
-        android:protectionLevel="signatureOrSystem"
+        android:protectionLevel="signature|privileged"
         android:label="@string/permlab_accessAllEpgData"
         android:description="@string/permdesc_accessAllEpgData" />
 
     <!-- Allows an application to read and write watched programs data.
          @hide -->
     <permission android:name="com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS"
-        android:protectionLevel="signatureOrSystem"
+        android:protectionLevel="signature|privileged"
         android:label="@string/permlab_accessWatchedPrograms"
         android:description="@string/permdesc_accessWatchedPrograms" />
 
     <uses-permission android:name="com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA" />
     <uses-permission android:name="com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application android:label="@string/app_label">
         <provider
@@ -78,6 +79,21 @@
                  is sent. -->
             <intent-filter>
                 <action android:name="android.intent.action.PRE_BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Deletes transient rows on boot. -->
+        <receiver android:name="BootCompletedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Removes channels and programs when some package is fully removed. -->
+        <receiver android:name="PackageRemovedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED"/>
+                <data android:scheme="package"/>
             </intent-filter>
         </receiver>
     </application>

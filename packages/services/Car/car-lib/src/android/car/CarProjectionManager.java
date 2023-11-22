@@ -20,7 +20,6 @@ import android.annotation.SystemApi;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.RemoteException;
 
 import java.lang.ref.WeakReference;
@@ -31,7 +30,7 @@ import java.lang.ref.WeakReference;
  * @hide
  */
 @SystemApi
-public class CarProjectionManager implements CarManagerBase {
+public final class CarProjectionManager implements CarManagerBase {
     /**
      * Listener to get projected notifications.
      *
@@ -55,7 +54,7 @@ public class CarProjectionManager implements CarManagerBase {
 
     private final ICarProjection mService;
     private final Handler mHandler;
-    private final ICarProjectionListenerImpl mBinderListener;
+    private final ICarProjectionCallbackImpl mBinderListener;
 
     private CarProjectionListener mListener;
     private int mVoiceSearchFilter;
@@ -63,10 +62,10 @@ public class CarProjectionManager implements CarManagerBase {
     /**
      * @hide
      */
-    CarProjectionManager(IBinder service, Looper looper) {
+    CarProjectionManager(IBinder service, Handler handler) {
         mService = ICarProjection.Stub.asInterface(service);
-        mHandler = new Handler(looper);
-        mBinderListener = new ICarProjectionListenerImpl(this);
+        mHandler = handler;
+        mBinderListener = new ICarProjectionCallbackImpl(this);
     }
 
     /**
@@ -74,7 +73,7 @@ public class CarProjectionManager implements CarManagerBase {
      * registering multiple times will lead into only the last listener to be active.
      * @param listener
      * @param voiceSearchFilter Flags of voice search requests to get notification.
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
     public void regsiterProjectionListener(CarProjectionListener listener, int voiceSearchFilter)
             throws CarNotConnectedException {
@@ -96,14 +95,14 @@ public class CarProjectionManager implements CarManagerBase {
 
     /**
      * Unregister listener and stop listening projection events.
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public void unregsiterProjectionListener() throws CarNotConnectedException {
+    public void unregsiterProjectionListener() {
         synchronized (this) {
             try {
                 mService.unregsiterProjectionListener(mBinderListener);
             } catch (RemoteException e) {
-                throw new CarNotConnectedException(e);
+                //ignore
             }
             mListener = null;
             mVoiceSearchFilter = 0;
@@ -114,7 +113,7 @@ public class CarProjectionManager implements CarManagerBase {
      * Registers projection runner on projection start with projection service
      * to create reverse binding.
      * @param serviceIntent
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
     public void registerProjectionRunner(Intent serviceIntent) throws CarNotConnectedException {
         if (serviceIntent == null) {
@@ -133,9 +132,9 @@ public class CarProjectionManager implements CarManagerBase {
      * Unregisters projection runner on projection stop with projection service to create
      * reverse binding.
      * @param serviceIntent
-     * @throws CarNotConnectedException
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
      */
-    public void unregisterProjectionRunner(Intent serviceIntent) throws CarNotConnectedException {
+    public void unregisterProjectionRunner(Intent serviceIntent) {
         if (serviceIntent == null) {
             throw new IllegalArgumentException("null serviceIntent");
         }
@@ -143,7 +142,7 @@ public class CarProjectionManager implements CarManagerBase {
             try {
                 mService.unregisterProjectionRunner(serviceIntent);
             } catch (RemoteException e) {
-                throw new CarNotConnectedException(e);
+                //ignore
             }
         }
     }
@@ -164,11 +163,11 @@ public class CarProjectionManager implements CarManagerBase {
         listener.onVoiceAssistantRequest(fromLongPress);
     }
 
-    private static class ICarProjectionListenerImpl extends ICarProjectionListener.Stub {
+    private static class ICarProjectionCallbackImpl extends ICarProjectionCallback.Stub {
 
         private final WeakReference<CarProjectionManager> mManager;
 
-        private ICarProjectionListenerImpl(CarProjectionManager manager) {
+        private ICarProjectionCallbackImpl(CarProjectionManager manager) {
             mManager = new WeakReference<>(manager);
         }
 

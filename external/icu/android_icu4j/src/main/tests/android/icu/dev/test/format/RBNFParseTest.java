@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2004-2013, International Business Machines Corporation and    *
@@ -9,18 +11,14 @@ package android.icu.dev.test.format;
 
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.RuleBasedNumberFormat;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class RBNFParseTest extends TestFmwk {
-    public static void main(String[] args) {
-        new RBNFParseTest().run(args);
-    }
-
+    @Test
     public void TestParse() {
 
         // these rules make no sense but behave rationally
@@ -126,6 +124,7 @@ public class RBNFParseTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestLenientParse() throws Exception {
         RuleBasedNumberFormat rbnf_en, rbnf_fr;
 

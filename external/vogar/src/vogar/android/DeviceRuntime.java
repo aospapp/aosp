@@ -84,7 +84,9 @@ public final class DeviceRuntime implements Mode {
                 .workingDirectory(workingDirectory)
                 .vmCommand(vmCommand)
                 .vmArgs("-Duser.home=" + run.deviceUserHome)
-                .maxLength(1024);
+                // Use the same command line limit (4096) as adb (see
+                // _adb_connect in system/core/adb/adb_client.cpp).
+                .maxLength(4096);
         if (run.debugPort != null) {
             vmCommandBuilder.vmArgs("-Xcompiler-option", "--debuggable");
         }
@@ -142,7 +144,7 @@ public final class DeviceRuntime implements Mode {
                     action, localDex);
         } else {
             dex = new DexTask(run.androidSdk, classpath, run.benchmark, name, classpathElement,
-                    action, localDex);
+                    action, localDex, run.multidex);
         }
         return dex;
     }

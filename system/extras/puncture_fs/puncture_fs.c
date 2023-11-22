@@ -163,6 +163,10 @@ static bool puncture_fs (const char * const path, const u64 total_size,
                 (int) (100.0 * starting_max / total_size));
         hole_max = get_random_num(starting_max, ending_max);
 
+	do {
+		hole_max = get_random_num(starting_max, ending_max);
+	} while (hole_max == starting_max);
+
         create_unique_file(stay_dir,
                            hole_max - starting_max,
                            file_id++,

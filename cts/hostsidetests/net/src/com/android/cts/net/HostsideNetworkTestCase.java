@@ -16,7 +16,7 @@
 
 package com.android.cts.net;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
@@ -65,8 +65,6 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
         assertNotNull(mAbi);
         assertNotNull(mCtsBuild);
 
-        assertTrue("wi-fi not enabled", getDevice().isWifiEnabled());
-
         uninstallPackage(TEST_PKG, false);
         installPackage(TEST_APK);
     }
@@ -80,7 +78,8 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
 
     protected void installPackage(String apk) throws FileNotFoundException,
             DeviceNotAvailableException {
-        assertNull(getDevice().installPackage(MigrationHelper.getTestFile(mCtsBuild, apk), false));
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        assertNull(getDevice().installPackage(buildHelper.getTestFile(apk), false));
     }
 
     protected void uninstallPackage(String packageName, boolean shouldSucceed)

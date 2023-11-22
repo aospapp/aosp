@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if modem manager state differs from flimflam state.
 """
 ATTRIBUTES = "suite:cell_emulator"
-SUITE = "cell_emulator"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

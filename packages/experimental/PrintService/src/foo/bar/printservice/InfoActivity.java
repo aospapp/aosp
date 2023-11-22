@@ -17,11 +17,15 @@
 package foo.bar.printservice;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.printservice.PrintService;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
 /**
- * Dummy activity showing more information about a printer 
+ * Dummy activity showing more information about a printer
  */
 public class InfoActivity extends Activity {
     /** Intent-extra-key used for the name of the printer */
@@ -36,5 +40,18 @@ public class InfoActivity extends Activity {
 
         text.setText(getResources().getString(R.string.info,
                 getIntent().getStringExtra(PRINTER_NAME)));
+
+        if (getIntent().getBooleanExtra(PrintService.EXTRA_CAN_SELECT_PRINTER,
+                false)) {
+            Button selectButton = (Button) findViewById(R.id.select_button);
+
+            selectButton.setVisibility(View.VISIBLE);
+            selectButton.setOnClickListener(v -> {
+                        setResult(Activity.RESULT_OK,
+                                (new Intent()).putExtra(PrintService.EXTRA_SELECT_PRINTER, true));
+                        finish();
+                    }
+            );
+        }
     }
 }

@@ -39,6 +39,7 @@ abstract class BluetoothPbapRequest {
     protected static final byte OAP_TAGID_FORMAT = 0x07;
     protected static final byte OAP_TAGID_PHONEBOOK_SIZE = 0x08;
     protected static final byte OAP_TAGID_NEW_MISSED_CALLS = 0x09;
+    protected static final byte OAP_TAGID_PBAP_SUPPORTED_FEATURES = 0x10;
 
     protected HeaderSet mHeaderSet;
 

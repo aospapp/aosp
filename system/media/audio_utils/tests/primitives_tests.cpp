@@ -19,8 +19,10 @@
 
 #include <math.h>
 #include <vector>
-#include <cutils/log.h>
+
 #include <gtest/gtest.h>
+#include <log/log.h>
+
 #include <audio_utils/primitives.h>
 #include <audio_utils/format.h>
 #include <audio_utils/channels.h>

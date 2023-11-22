@@ -20,11 +20,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *reallocOrDie(void *buf, size_t bufSz);
 void assertMem(size_t used, size_t total);
 bool readFile(void *dst, uint32_t len, const char *fileName);
 void *loadFile(const char *fileName, uint32_t *size);
 void printHash(FILE *out, const char *pfx, const uint32_t *hash, size_t size);
 void printHashRev(FILE *out, const char *pfx, const uint32_t *hash, size_t size);
+
+#ifdef __cplusplus
+}; /* extern "C" */
+#endif
 
 #endif /* _NANOHUB_NANOAPP_H_ */

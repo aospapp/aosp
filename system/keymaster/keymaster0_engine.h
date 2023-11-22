@@ -39,7 +39,7 @@ class Keymaster0Engine {
      * Create a Keymaster0Engine, wrapping the provided keymaster0_device.  The engine takes
      * ownership of the device, and will close it during destruction.
      */
-    Keymaster0Engine(const keymaster0_device_t* keymaster0_device);
+    explicit Keymaster0Engine(const keymaster0_device_t* keymaster0_device);
     ~Keymaster0Engine();
 
     bool supports_ec() const { return supports_ec_; }

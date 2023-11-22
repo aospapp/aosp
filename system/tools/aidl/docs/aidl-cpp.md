@@ -27,10 +27,10 @@ This document describes how C++ generation works with attention to:
 
  - build interface
  - cross-language type mapping
+ - implementing a generated interface
  - C++ parcelables
  - cross-language error reporting
  - cross-language null reference handling
- - cross-language integer constants
 
 ## Detailed Design
 
@@ -89,19 +89,96 @@ interfaces.
 | float                 | float               | in    |                                                       |
 | double                | double              | in    |                                                       |
 | String                | String16            | in    | Supports null references.                             |
+| @utf8InCpp String     | std::string         | in    | @utf8InCpp causes UTF16 to UTF8 conversion in C++.    |
 | android.os.Parcelable | android::Parcelable | inout |                                                       |
+| java.util.Map         | android::binder::Map| inout | `std::map<std::string,android::binder::Value>`        |
 | T extends IBinder     | sp<T>               | in    |                                                       |
 | Arrays (T[])          | vector<T>           | inout | May contain only primitives, Strings and parcelables. |
 | List<String>          | vector<String16>    | inout |                                                       |
 | PersistableBundle     | PersistableBundle   | inout | binder/PersistableBundle.h                            |
 | List<IBinder>         | vector<sp<IBinder>> | inout |                                                       |
-| FileDescriptor        | ScopedFd            | inout | nativehelper/ScopedFd.h                               |
+| FileDescriptor        | unique_fd           | inout | android-base/unique_fd.h from libbase                 |
 
-Note that java.util.Map and java.utils.List are not good candidates for cross
-language communication because they may contain arbitrary types on the Java
-side.  For instance, Map is cast to Map<String,Object> and then the object
-values dynamically inspected and serialized as type/value pairs.  Support
-exists for sending arbitrary Java serializables, Android Bundles, etc.
+Note that annotations may be placed at the interface level, as well as on a
+type by type basis.  Interface level annotations will be applied
+opportunistically and be overridden by per type annotations.  For instance, an
+interface marked @nullable will still not allow null int parameters.
+
+### Implementing a generated interface
+
+Given an interface declaration like:
+
+```
+package foo;
+
+import bar.IAnotherInterface;
+
+interface IFoo {
+  IAnotherInterface DoSomething(int count, out List<String> output);
+}
+```
+
+`aidl-cpp` will generate a C++ interface:
+
+```
+namespace foo {
+
+// Some headers have been omitted for clarity.
+#include <android/String16.h>
+#include <cstdint>
+#include <vector>
+#include <bar/IAnotherInterface.h>
+
+// Some class members have been omitted for clarity.
+class IFoo : public android::IInterface {
+ public:
+  virtual android::binder::Status DoSomething(
+      int32_t count,
+      std::vector<android::String16>* output,
+      android::sp<bar::IAnotherInterface>* returned_value) = 0;
+};
+```
+
+Note that `aidl-cpp` will import headers for types used in the interface.  For
+imported types (e.g. parcelables and interfaces), it will import a header
+corresponding to the package/class name of the import.  For instance,
+`import bar.IAnotherInterface` causes aidl-cpp to generate
+`#include <bar/IAnotherInterface.h>`.
+
+When writing a service that implements this interface, write:
+
+```
+#include "foo/BnFoo.h"
+
+namespace unrelated_namespace {
+
+class MyFoo : public foo::BnFoo {
+ public:
+  android::binder::Status DoSomething(
+      int32_t count,
+      std::vector<android::String16>* output,
+      android::sp<bar::IAnotherInterface>* returned_value) override {
+    for (int32_t i = 0; i < count; ++i) {
+      output->push_back(String16("..."));
+    }
+    *returned_value = new InstanceOfAnotherInterface;
+    return Status::ok();
+  }
+};  // class MyFoo
+
+}  // namespace unrelated_namespace
+```
+
+Note that the output values, `output` and `returned_value` are passed by
+pointer, and that this pointer is always valid.
+
+#### Dependencies
+
+The generated C++ code will use symbols from libbinder as well as libutils.
+AIDL files using the FileDescriptor type will also explicitly require
+libnativehelper, although this is likely a transitive dependency of the other
+two, and should be included automatically within the Android build tree
+regardless.
 
 ### C++ Parcelables
 
@@ -165,6 +242,16 @@ allowing native services to explicitly control whether they allow method
 overloading via null parameters.  Java stubs and proxies currently do nothing
 with the @nullable annotation.
 
+Consider an AIDL type `in @nullable List<String> bar`.  This type
+indicates that the remote caller may pass in a list of strings, and that both
+the list and any string in the list may be null.  This type will map to a C++
+type `unique_ptr<vector<unique_ptr<String16>>>* bar`.  In this case:
+
+  - `bar` is never null
+  - `*bar` might be null
+  - `(*bar)->empty()` could be true
+  - `(**bar)[0]` could be null (and so on)
+
 ### Exception Reporting
 
 C++ methods generated by the aidl generator return `android::binder::Status`
@@ -182,20 +269,3 @@ to the service, use `Status::fromServiceSpecificError()`.  This kind of
 exception comes with a helpful message and an integer error code.  Make your
 error codes consistent across services by using interface constants (see
 below).
-
-### Integer Constants
-
-AIDL has been enhanced to support defining integer constants as part of an
-interface:
-
-```
-interface IMyInterface {
-    const int CONST_A = 1;
-    const int CONST_B = 2;
-    const int CONST_C = 3;
-    ...
-}
-```
-
-These map to appropriate 32 bit integer class constants in Java and C++ (e.g.
-`IMyInterface.CONST_A` and `IMyInterface::CONST_A` respectively).

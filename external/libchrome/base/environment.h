@@ -6,11 +6,12 @@
 #define BASE_ENVIRONMENT_H_
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "base/base_export.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
+#include "base/strings/string_piece.h"
 #include "build/build_config.h"
 
 namespace base {
@@ -27,23 +28,22 @@ class BASE_EXPORT Environment {
  public:
   virtual ~Environment();
 
-  // Static factory method that returns the implementation that provide the
-  // appropriate platform-specific instance.
-  static Environment* Create();
+  // Returns the appropriate platform-specific instance.
+  static std::unique_ptr<Environment> Create();
 
   // Gets an environment variable's value and stores it in |result|.
   // Returns false if the key is unset.
-  virtual bool GetVar(const char* variable_name, std::string* result) = 0;
+  virtual bool GetVar(StringPiece variable_name, std::string* result) = 0;
 
-  // Syntactic sugar for GetVar(variable_name, NULL);
-  virtual bool HasVar(const char* variable_name);
+  // Syntactic sugar for GetVar(variable_name, nullptr);
+  virtual bool HasVar(StringPiece variable_name);
 
   // Returns true on success, otherwise returns false.
-  virtual bool SetVar(const char* variable_name,
+  virtual bool SetVar(StringPiece variable_name,
                       const std::string& new_value) = 0;
 
   // Returns true on success, otherwise returns false.
-  virtual bool UnSetVar(const char* variable_name) = 0;
+  virtual bool UnSetVar(StringPiece variable_name) = 0;
 };
 
 
@@ -79,7 +79,7 @@ typedef std::map<NativeEnvironmentString, NativeEnvironmentString>
 // returned array will have appended to it the storage for the array itself so
 // there is only one pointer to manage, but this means that you can't copy the
 // array without keeping the original around.
-BASE_EXPORT scoped_ptr<char*[]> AlterEnvironment(
+BASE_EXPORT std::unique_ptr<char* []> AlterEnvironment(
     const char* const* env,
     const EnvironmentMap& changes);
 

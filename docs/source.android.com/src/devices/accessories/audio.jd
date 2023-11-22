@@ -33,7 +33,7 @@ music or other audio content.</p>
 <h2 id="audio-over-35mm">Audio over 3.5 mm headset connector</h2>
 <p>Many Android devices include a 3.5 mm (&#8220;mini&#8221;) headset connector.
 In addition to traditional stereo output and mono input features, the
-<a href="headset/specification.html">Wired audio headset specification</a>
+<a href="headset/plug-headset-spec.html">3.5 mm headset specification</a>
 defines standard impedances and functions that enable interoperability between
 a range of Android devices and headsets.</p>
 
@@ -47,14 +47,18 @@ a range of Android devices and headsets.</p>
     </li>
     <li><strong>Host</strong>. Enables the Android device to drive the USB bus
     and operate with a wide range of USB-based peripherals, including audio
-    interfaces. Host mode audio is described in
-    <a href="{@docRoot}devices/audio/usb.html">USB Digital Audio</a>.</li>
+    interfaces. Devices that implement host mode will be compatible with USB
+    headsets that follow the
+    <a href="{@docRoot}devices/accessories/headset/usb-headset-spec.html">USB
+    headset specification</a>.
+     Host mode audio is described in
+    <a href="{@docRoot}devices/audio/usb.html">USB Digital Audio</a>.
   </ul>
 
 <h2 id="audio-over-bluetooth">Audio over Bluetooth</h2>
 <p>An accessory that connects with Android over Bluetooth can use an Advanced
-Audio Distribution Profile (A2DP) connection stream music for playback. Playing
-audio over a Bluetooth with A2DP is supported on Android 1.5 (API Level 3) and
+Audio Distribution Profile (A2DP) connection to stream music for playback. Playing
+audio over Bluetooth with A2DP is supported on Android 1.5 (API Level 3) and
 higher. An Android user can connect to an accessory that supports this profile
 using the system Settings &gt; Bluetooth and play music directly to the
 accessory without a secondary application.</p>
@@ -70,7 +74,7 @@ output to an audio accessory, you must use Android 3.0 or higher.
 <p>To get started building an audio accessory that uses a Bluetooth connection:
 </p>
 <ul>
-<li>Select a hardware platform or build an hardware device that can support
+<li>Select a hardware platform or build a hardware device that can support
 Bluetooth communications and the A2DP connection profile.</li>
 <li>Review the ADK 2012
   <a href="http://developer.android.com/tools/adk/adk2.html#src-download">firmware

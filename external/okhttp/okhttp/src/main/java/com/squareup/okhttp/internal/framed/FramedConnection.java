@@ -35,6 +35,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import okio.Buffer;
+import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.ByteString;
 import okio.Okio;
@@ -76,10 +77,10 @@ public final class FramedConnection implements Closeable {
   final boolean client;
 
   /**
-   * User code to run in response to an incoming stream. Callbacks must not be
-   * run on the callback executor.
+   * User code to run in response to incoming streams or settings. Calls to this are always invoked
+   * on {@link #executor}.
    */
-  private final IncomingStreamHandler handler;
+  private final Listener listener;
   private final Map<Integer, FramedStream> streams = new HashMap<>();
   private final String hostName;
   private int lastGoodStreamId;
@@ -111,9 +112,8 @@ public final class FramedConnection implements Closeable {
   long bytesLeftInWriteWindow;
 
   /** Settings we communicate to the peer. */
-  // TODO: Do we want to dynamically adjust settings, or KISS and only set once?
-  final Settings okHttpSettings = new Settings();
-      // okHttpSettings.set(Settings.MAX_CONCURRENT_STREAMS, 0, max);
+  Settings okHttpSettings = new Settings();
+
   private static final int OKHTTP_CLIENT_WINDOW_SIZE = 16 * 1024 * 1024;
 
   /** Settings we receive from the peer. */
@@ -132,7 +132,7 @@ public final class FramedConnection implements Closeable {
     protocol = builder.protocol;
     pushObserver = builder.pushObserver;
     client = builder.client;
-    handler = builder.handler;
+    listener = builder.listener;
     // http://tools.ietf.org/html/draft-ietf-httpbis-http2-17#section-5.1.1
     nextStreamId = builder.client ? 1 : 2;
     if (builder.client && protocol == Protocol.HTTP_2) {
@@ -168,9 +168,9 @@ public final class FramedConnection implements Closeable {
     }
     bytesLeftInWriteWindow = peerSettings.getInitialWindowSize(DEFAULT_INITIAL_WINDOW_SIZE);
     socket = builder.socket;
-    frameWriter = variant.newWriter(Okio.buffer(Okio.sink(builder.socket)), client);
+    frameWriter = variant.newWriter(builder.sink, client);
 
-    readerRunnable = new Reader();
+    readerRunnable = new Reader(variant.newReader(builder.source, client));
     new Thread(readerRunnable).start(); // Not a daemon thread.
   }
 
@@ -207,6 +207,10 @@ public final class FramedConnection implements Closeable {
   /** Returns true if this connection is idle. */
   public synchronized boolean isIdle() {
     return idleStartTimeNs != Long.MAX_VALUE;
+  }
+
+  public synchronized int maxConcurrentStreams() {
+    return peerSettings.getMaxConcurrentStreams(Integer.MAX_VALUE);
   }
 
   /**
@@ -515,30 +519,53 @@ public final class FramedConnection implements Closeable {
     }
   }
 
+  /** Merges {@code settings} into this peer's settings and sends them to the remote peer. */
+  public void setSettings(Settings settings) throws IOException {
+    synchronized (frameWriter) {
+      synchronized (this) {
+        if (shutdown) {
+          throw new IOException("shutdown");
+        }
+        okHttpSettings.merge(settings);
+        frameWriter.settings(settings);
+      }
+    }
+  }
+
   public static class Builder {
-    private String hostName;
     private Socket socket;
-    private IncomingStreamHandler handler = IncomingStreamHandler.REFUSE_INCOMING_STREAMS;
+    private String hostName;
+    private BufferedSource source;
+    private BufferedSink sink;
+    private Listener listener = Listener.REFUSE_INCOMING_STREAMS;
     private Protocol protocol = Protocol.SPDY_3;
     private PushObserver pushObserver = PushObserver.CANCEL;
     private boolean client;
-
-    public Builder(boolean client, Socket socket) throws IOException {
-      this(((InetSocketAddress) socket.getRemoteSocketAddress()).getHostName(), client, socket);
-    }
 
     /**
      * @param client true if this peer initiated the connection; false if this
      *     peer accepted the connection.
      */
-    public Builder(String hostName, boolean client, Socket socket) throws IOException {
-      this.hostName = hostName;
+    public Builder(boolean client) throws IOException {
       this.client = client;
-      this.socket = socket;
     }
 
-    public Builder handler(IncomingStreamHandler handler) {
-      this.handler = handler;
+    public Builder socket(Socket socket) throws IOException {
+      return socket(socket, ((InetSocketAddress) socket.getRemoteSocketAddress()).getHostName(),
+          Okio.buffer(Okio.source(socket)), Okio.buffer(Okio.sink(socket)));
+    }
+
+    public Builder socket(
+        Socket socket, String hostName, BufferedSource source, BufferedSink sink) {
+      this.socket = socket;
+      this.hostName = hostName;
+      this.source = source;
+      this.sink = sink;
+      return this;
+    }
+
+    public Builder listener(Listener listener) {
+      this.listener = listener;
       return this;
     }
 
@@ -562,17 +589,17 @@ public final class FramedConnection implements Closeable {
    * write a frame, create an async task to do so.
    */
   class Reader extends NamedRunnable implements FrameReader.Handler {
-    FrameReader frameReader;
+    final FrameReader frameReader;
 
-    private Reader() {
+    private Reader(FrameReader frameReader) {
       super("OkHttp %s", hostName);
+      this.frameReader = frameReader;
     }
 
     @Override protected void execute() {
       ErrorCode connectionErrorCode = ErrorCode.INTERNAL_ERROR;
       ErrorCode streamErrorCode = ErrorCode.INTERNAL_ERROR;
       try {
-        frameReader = variant.newReader(Okio.buffer(Okio.source(socket)), client);
         if (!client) {
           frameReader.readConnectionPreface();
         }
@@ -645,9 +672,9 @@ public final class FramedConnection implements Closeable {
           executor.execute(new NamedRunnable("OkHttp %s stream %d", hostName, streamId) {
             @Override public void execute() {
               try {
-                handler.receive(newStream);
+                listener.onStream(newStream);
               } catch (IOException e) {
-                logger.log(Level.INFO, "StreamHandler failure for " + hostName, e);
+                logger.log(Level.INFO, "FramedConnection.Listener failure for " + hostName, e);
                 try {
                   newStream.close(ErrorCode.PROTOCOL_ERROR);
                 } catch (IOException ignored) {
@@ -703,6 +730,11 @@ public final class FramedConnection implements Closeable {
             streamsToNotify = streams.values().toArray(new FramedStream[streams.size()]);
           }
         }
+        executor.execute(new NamedRunnable("OkHttp %s settings", hostName) {
+          @Override public void execute() {
+            listener.onSettings(FramedConnection.this);
+          }
+        });
       }
       if (streamsToNotify != null && delta != 0) {
         for (FramedStream stream : streamsToNotify) {
@@ -877,5 +909,35 @@ public final class FramedConnection implements Closeable {
         }
       }
     });
+  }
+
+  /** Listener of streams and settings initiated by the peer. */
+  public abstract static class Listener {
+    public static final Listener REFUSE_INCOMING_STREAMS = new Listener() {
+      @Override public void onStream(FramedStream stream) throws IOException {
+        stream.close(ErrorCode.REFUSED_STREAM);
+      }
+    };
+
+    /**
+     * Handle a new stream from this connection's peer. Implementations should
+     * respond by either {@linkplain FramedStream#reply replying to the stream}
+     * or {@linkplain FramedStream#close closing it}. This response does not
+     * need to be synchronous.
+     */
+    public abstract void onStream(FramedStream stream) throws IOException;
+
+    /**
+     * Notification that the connection's peer's settings may have changed.
+     * Implementations should take appropriate action to handle the updated
+     * settings.
+     *
+     * <p>It is the implementation's responsibility to handle concurrent calls
+     * to this method. A remote peer that sends multiple settings frames will
+     * trigger multiple calls to this method, and those calls are not
+     * necessarily serialized.
+     */
+    public void onSettings(FramedConnection connection) {
+    }
   }
 }

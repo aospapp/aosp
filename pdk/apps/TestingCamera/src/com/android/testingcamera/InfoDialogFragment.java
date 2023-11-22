@@ -53,6 +53,9 @@ public class InfoDialogFragment extends DialogFragment implements View.OnClickLi
         b.append(cameraInfo.facing == CameraInfo.CAMERA_FACING_FRONT ? "FRONT\n" : "BACK\n");
         b.append("  Orientation: ");
         b.append(cameraInfo.orientation);
+        b.append("\n");
+        b.append("  Can disable shutter sound: ");
+        b.append(cameraInfo.canDisableShutterSound);
         b.append("\n\n");
         b.append("getParameters() output:\n  ");
         Camera.Parameters p = camera.getParameters();

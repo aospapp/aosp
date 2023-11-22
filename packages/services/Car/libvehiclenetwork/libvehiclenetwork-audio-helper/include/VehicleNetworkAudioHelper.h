@@ -58,9 +58,10 @@ public:
     bool waitForStreamFocus(int32_t stream, nsecs_t waitTimeNs);
 
     // from VehicleNetworkListener
-    virtual void onEvents(sp<VehiclePropValueListHolder>& events) ;
-    virtual void onHalError(int32_t errorCode, int32_t property, int32_t operation);
-    virtual void onHalRestart(bool inMocking);
+    void onEvents(sp<VehiclePropValueListHolder>& events) override;
+    void onHalError(int32_t errorCode, int32_t property, int32_t operation) override;
+    void onHalRestart(bool inMocking) override;
+    void onPropertySet(const vehicle_prop_value_t& value) override;
 private:
     void updatePropertiesLocked();
 

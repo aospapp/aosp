@@ -48,7 +48,7 @@
     <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"Профилът не бе регистриран успешно: Неправилно потребителско име или парола."</string>
     <string name="registration_status_server_unreachable" msgid="7710275557045148634">"Профилът не бе регистриран успешно: Проверете името на сървъра."</string>
     <string name="third_party_account_summary" msgid="9041060473615403041">"Този профил понастоящем се използва от приложението <xliff:g id="ACCOUNT_OWNER">%s</xliff:g>."</string>
-    <string name="sip_edit_title" msgid="1967247832635750410">"Подробности за профила за SIP"</string>
+    <string name="sip_edit_title" msgid="1967247832635750410">"Профил за SIP"</string>
     <string name="sip_edit_new_title" msgid="266414118302574305">"Подробности за профила за SIP"</string>
     <string name="domain_address_title" msgid="1968479941328225423">"Сървър"</string>
     <string name="username_title" msgid="6770064611005663470">"Потребителско име"</string>

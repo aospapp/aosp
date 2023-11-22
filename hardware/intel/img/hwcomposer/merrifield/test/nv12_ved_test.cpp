@@ -117,7 +117,7 @@ int main(int argc, char **argv) {
 		return 0;
 	if (anb == NULL)
 		return 0;
-	sp < GraphicBuffer > buf(new GraphicBuffer(anb, false));
+	sp <GraphicBuffer> buf(GraphicBuffer::from(anb));
 	//if (anw->lockBuffer(anw.get(), buf->getNativeBuffer()) != NO_ERROR)
 	//	return 0;
 	buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**) (&img));

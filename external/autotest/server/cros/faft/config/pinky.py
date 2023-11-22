@@ -11,4 +11,5 @@ class Values(veyron.Values):
     chrome_ec = True
     ec_capability = ['battery', 'charging', 'keyboard', 'arm', 'lid']
     ec_boot_to_console = 1.1
+    ec_has_powerbtn_cmd = False
     software_sync_update = 6

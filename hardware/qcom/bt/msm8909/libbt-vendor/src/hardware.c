@@ -63,7 +63,7 @@ int hw_config(int nState)
               return -1;
           }
        }
-    } else if( !(strncmp(szBtSocStatus, "on", strlen("on")))) {
+    } else if(nState == BT_VND_PWR_ON && !(strncmp(szBtSocStatus, "on", strlen("on")))) {
           //BTSOC is already on
           ALOGW("Hw_config: nState = %d", nState);
     } else {

@@ -36,10 +36,13 @@
 #include <unistd.h>
 
 #include "linker.h"
+#include "linker_dlwarning.h"
+#include "linker_globals.h"
 #include "linker_debug.h"
 #include "linker_utils.h"
 
 #include "private/bionic_prctl.h"
+#include "private/CFIShadow.h" // For kLibraryAlignment
 
 static int GetTargetElfMachine() {
 #if defined(__arm__)
@@ -245,6 +248,29 @@ bool ElfReader::VerifyElfHeader() {
     return false;
   }
 
+  if (header_.e_shentsize != sizeof(ElfW(Shdr))) {
+    // Fail if app is targeting Android O or above
+    if (get_application_target_sdk_version() >= __ANDROID_API_O__) {
+      DL_ERR_AND_LOG("\"%s\" has unsupported e_shentsize: 0x%x (expected 0x%zx)",
+                     name_.c_str(), header_.e_shentsize, sizeof(ElfW(Shdr)));
+      return false;
+    }
+    DL_WARN("\"%s\" has unsupported e_shentsize: 0x%x (expected 0x%zx)",
+            name_.c_str(), header_.e_shentsize, sizeof(ElfW(Shdr)));
+    add_dlwarning(name_.c_str(), "has invalid ELF header");
+  }
+
+  if (header_.e_shstrndx == 0) {
+    // Fail if app is targeting Android O or above
+    if (get_application_target_sdk_version() >= __ANDROID_API_O__) {
+      DL_ERR_AND_LOG("\"%s\" has invalid e_shstrndx", name_.c_str());
+      return false;
+    }
+
+    DL_WARN("\"%s\" has invalid e_shstrndx", name_.c_str());
+    add_dlwarning(name_.c_str(), "has invalid ELF header");
+  }
+
   return true;
 }
 
@@ -252,7 +278,12 @@ bool ElfReader::CheckFileRange(ElfW(Addr) offset, size_t size, size_t alignment)
   off64_t range_start;
   off64_t range_end;
 
-  return safe_add(&range_start, file_offset_, offset) &&
+  // Only header can be located at the 0 offset... This function called to
+  // check DYNSYM and DYNAMIC sections and phdr/shdr - none of them can be
+  // at offset 0.
+
+  return offset > 0 &&
+         safe_add(&range_start, file_offset_, offset) &&
          safe_add(&range_end, range_start, size) &&
          (range_start < file_size_) &&
          (range_end <= file_size_) &&
@@ -329,6 +360,51 @@ bool ElfReader::ReadDynamicSection() {
   if (dynamic_shdr == nullptr) {
     DL_ERR_AND_LOG("\"%s\" .dynamic section header was not found", name_.c_str());
     return false;
+  }
+
+  // Make sure dynamic_shdr offset and size matches PT_DYNAMIC phdr
+  size_t pt_dynamic_offset = 0;
+  size_t pt_dynamic_filesz = 0;
+  for (size_t i = 0; i < phdr_num_; ++i) {
+    const ElfW(Phdr)* phdr = &phdr_table_[i];
+    if (phdr->p_type == PT_DYNAMIC) {
+      pt_dynamic_offset = phdr->p_offset;
+      pt_dynamic_filesz = phdr->p_filesz;
+    }
+  }
+
+  if (pt_dynamic_offset != dynamic_shdr->sh_offset) {
+    if (get_application_target_sdk_version() >= __ANDROID_API_O__) {
+      DL_ERR_AND_LOG("\"%s\" .dynamic section has invalid offset: 0x%zx, "
+                     "expected to match PT_DYNAMIC offset: 0x%zx",
+                     name_.c_str(),
+                     static_cast<size_t>(dynamic_shdr->sh_offset),
+                     pt_dynamic_offset);
+      return false;
+    }
+    DL_WARN("\"%s\" .dynamic section has invalid offset: 0x%zx, "
+            "expected to match PT_DYNAMIC offset: 0x%zx",
+            name_.c_str(),
+            static_cast<size_t>(dynamic_shdr->sh_offset),
+            pt_dynamic_offset);
+    add_dlwarning(name_.c_str(), "invalid .dynamic section");
+  }
+
+  if (pt_dynamic_filesz != dynamic_shdr->sh_size) {
+    if (get_application_target_sdk_version() >= __ANDROID_API_O__) {
+      DL_ERR_AND_LOG("\"%s\" .dynamic section has invalid size: 0x%zx, "
+                     "expected to match PT_DYNAMIC filesz: 0x%zx",
+                     name_.c_str(),
+                     static_cast<size_t>(dynamic_shdr->sh_size),
+                     pt_dynamic_filesz);
+      return false;
+    }
+    DL_WARN("\"%s\" .dynamic section has invalid size: 0x%zx, "
+            "expected to match PT_DYNAMIC filesz: 0x%zx",
+            name_.c_str(),
+            static_cast<size_t>(dynamic_shdr->sh_size),
+            pt_dynamic_filesz);
+    add_dlwarning(name_.c_str(), "invalid .dynamic section");
   }
 
   if (dynamic_shdr->sh_link >= shdr_num_) {
@@ -423,6 +499,40 @@ size_t phdr_table_get_load_size(const ElfW(Phdr)* phdr_table, size_t phdr_count,
   return max_vaddr - min_vaddr;
 }
 
+// Reserve a virtual address range such that if it's limits were extended to the next 2**align
+// boundary, it would not overlap with any existing mappings.
+static void* ReserveAligned(void* hint, size_t size, size_t align) {
+  int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
+  // Address hint is only used in Art for the image mapping, and it is pretty important. Don't mess
+  // with it.
+  // FIXME: try an aligned allocation and fall back to plain mmap() if the former does not provide a
+  // mapping at the requested address?
+  if (align == PAGE_SIZE || hint != nullptr) {
+    void* mmap_ptr = mmap(hint, size, PROT_NONE, mmap_flags, -1, 0);
+    if (mmap_ptr == MAP_FAILED) {
+      return nullptr;
+    }
+    return mmap_ptr;
+  }
+
+  // Allocate enough space so that the end of the desired region aligned up is still inside the
+  // mapping.
+  size_t mmap_size = align_up(size, align) + align - PAGE_SIZE;
+  uint8_t* mmap_ptr =
+      reinterpret_cast<uint8_t*>(mmap(nullptr, mmap_size, PROT_NONE, mmap_flags, -1, 0));
+  if (mmap_ptr == MAP_FAILED) {
+    return nullptr;
+  }
+
+  uint8_t* first = align_up(mmap_ptr, align);
+  uint8_t* last = align_down(mmap_ptr + mmap_size, align) - size;
+  size_t n = arc4random_uniform((last - first) / PAGE_SIZE + 1);
+  uint8_t* start = first + n * PAGE_SIZE;
+  munmap(mmap_ptr, start - mmap_ptr);
+  munmap(start + size, mmap_ptr + mmap_size - (start + size));
+  return start;
+}
+
 // Reserve a virtual address range big enough to hold all loadable
 // segments of a program header table. This is done by creating a
 // private anonymous mmap() with PROT_NONE.
@@ -464,9 +574,8 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
              reserved_size - load_size_, load_size_, name_.c_str());
       return false;
     }
-    int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
-    start = mmap(mmap_hint, load_size_, PROT_NONE, mmap_flags, -1, 0);
-    if (start == MAP_FAILED) {
+    start = ReserveAligned(mmap_hint, load_size_, kLibraryAlignment);
+    if (start == nullptr) {
       DL_ERR("couldn't reserve %zd bytes of address space for \"%s\"", load_size_, name_.c_str());
       return false;
     }
@@ -525,9 +634,20 @@ bool ElfReader::LoadSegments() {
     }
 
     if (file_length != 0) {
+      int prot = PFLAGS_TO_PROT(phdr->p_flags);
+      if ((prot & (PROT_EXEC | PROT_WRITE)) == (PROT_EXEC | PROT_WRITE)) {
+        // W + E PT_LOAD segments are not allowed in O.
+        if (get_application_target_sdk_version() >= __ANDROID_API_O__) {
+          DL_ERR_AND_LOG("\"%s\": W + E load segments are not allowed", name_.c_str());
+          return false;
+        }
+        DL_WARN("\"%s\": W + E load segments are not allowed", name_.c_str());
+        add_dlwarning(name_.c_str(), "W+E load segments");
+      }
+
       void* seg_addr = mmap64(reinterpret_cast<void*>(seg_page_start),
                             file_length,
-                            PFLAGS_TO_PROT(phdr->p_flags),
+                            prot,
                             MAP_FIXED|MAP_PRIVATE,
                             fd_,
                             file_offset_ + file_page_start);

@@ -23,7 +23,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <netinet/icmp6.h>
 #include <netinet/in.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <poll.h>
 #include <signal.h>
@@ -44,6 +46,9 @@
 // After the others because these are not necessarily self-contained in glibc.
 #include <linux/if_addr.h>
 #include <linux/rtnetlink.h>
+
+// Include linux socket constants for setting sockopts
+#include <linux/udp.h>
 
 #include <net/if.h> // After <sys/socket.h> to work around a Mac header file bug.
 
@@ -242,6 +247,10 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "F_SETOWN", F_SETOWN);
     initConstant(env, c, "F_UNLCK", F_UNLCK);
     initConstant(env, c, "F_WRLCK", F_WRLCK);
+    initConstant(env, c, "ICMP_ECHO", ICMP_ECHO);
+    initConstant(env, c, "ICMP_ECHOREPLY", ICMP_ECHOREPLY);
+    initConstant(env, c, "ICMP6_ECHO_REQUEST", ICMP6_ECHO_REQUEST);
+    initConstant(env, c, "ICMP6_ECHO_REPLY", ICMP6_ECHO_REPLY);
 #if defined(IFA_F_DADFAILED)
     initConstant(env, c, "IFA_F_DADFAILED", IFA_F_DADFAILED);
 #endif
@@ -329,12 +338,16 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
 #endif
     initConstant(env, c, "IPV6_UNICAST_HOPS", IPV6_UNICAST_HOPS);
     initConstant(env, c, "IPV6_V6ONLY", IPV6_V6ONLY);
+    initConstant(env, c, "IP_MULTICAST_ALL", IP_MULTICAST_ALL);
     initConstant(env, c, "IP_MULTICAST_IF", IP_MULTICAST_IF);
     initConstant(env, c, "IP_MULTICAST_LOOP", IP_MULTICAST_LOOP);
     initConstant(env, c, "IP_MULTICAST_TTL", IP_MULTICAST_TTL);
     initConstant(env, c, "IP_RECVTOS", IP_RECVTOS);
     initConstant(env, c, "IP_TOS", IP_TOS);
     initConstant(env, c, "IP_TTL", IP_TTL);
+#if defined(_LINUX_CAPABILITY_VERSION_3)
+    initConstant(env, c, "_LINUX_CAPABILITY_VERSION_3", _LINUX_CAPABILITY_VERSION_3);
+#endif
     initConstant(env, c, "MAP_FIXED", MAP_FIXED);
     initConstant(env, c, "MAP_POPULATE", MAP_POPULATE);
     initConstant(env, c, "MAP_PRIVATE", MAP_PRIVATE);
@@ -399,6 +412,12 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "POLLRDNORM", POLLRDNORM);
     initConstant(env, c, "POLLWRBAND", POLLWRBAND);
     initConstant(env, c, "POLLWRNORM", POLLWRNORM);
+#if defined(PR_CAP_AMBIENT)
+    initConstant(env, c, "PR_CAP_AMBIENT", PR_CAP_AMBIENT);
+#endif
+#if defined(PR_CAP_AMBIENT_RAISE)
+    initConstant(env, c, "PR_CAP_AMBIENT_RAISE", PR_CAP_AMBIENT_RAISE);
+#endif
 #if defined(PR_GET_DUMPABLE)
     initConstant(env, c, "PR_GET_DUMPABLE", PR_GET_DUMPABLE);
 #endif
@@ -496,6 +515,9 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
 #endif
     initConstant(env, c, "SO_BROADCAST", SO_BROADCAST);
     initConstant(env, c, "SO_DEBUG", SO_DEBUG);
+#if defined(SO_DOMAIN)
+    initConstant(env, c, "SO_DOMAIN", SO_DOMAIN);
+#endif
     initConstant(env, c, "SO_DONTROUTE", SO_DONTROUTE);
     initConstant(env, c, "SO_ERROR", SO_ERROR);
     initConstant(env, c, "SO_KEEPALIVE", SO_KEEPALIVE);
@@ -506,6 +528,9 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
 #endif
 #if defined(SO_PEERCRED)
     initConstant(env, c, "SO_PEERCRED", SO_PEERCRED);
+#endif
+#if defined(SO_PROTOCOL)
+    initConstant(env, c, "SO_PROTOCOL", SO_PROTOCOL);
 #endif
     initConstant(env, c, "SO_RCVBUF", SO_RCVBUF);
     initConstant(env, c, "SO_RCVLOWAT", SO_RCVLOWAT);
@@ -551,7 +576,13 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "S_IXOTH", S_IXOTH);
     initConstant(env, c, "S_IXUSR", S_IXUSR);
     initConstant(env, c, "TCP_NODELAY", TCP_NODELAY);
+#if defined(TCP_USER_TIMEOUT)
+    initConstant(env, c, "TCP_USER_TIMEOUT", TCP_USER_TIMEOUT);
+#endif
     initConstant(env, c, "TIOCOUTQ", TIOCOUTQ);
+    initConstant(env, c, "UDP_ENCAP", UDP_ENCAP);
+    initConstant(env, c, "UDP_ENCAP_ESPINUDP_NON_IKE", UDP_ENCAP_ESPINUDP_NON_IKE);
+    initConstant(env, c, "UDP_ENCAP_ESPINUDP", UDP_ENCAP_ESPINUDP);
     // UNIX_PATH_MAX is mentioned in some versions of unix(7), but not actually declared.
     initConstant(env, c, "UNIX_PATH_MAX", sizeof(sockaddr_un::sun_path));
     initConstant(env, c, "WCONTINUED", WCONTINUED);

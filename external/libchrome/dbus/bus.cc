@@ -13,6 +13,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "dbus/exported_object.h"
 #include "dbus/message.h"
@@ -78,13 +79,13 @@ class Watch : public base::MessagePumpLibevent::Watcher {
 
  private:
   // Implement MessagePumpLibevent::Watcher.
-  void OnFileCanReadWithoutBlocking(int /* file_descriptor */) override {
+  void OnFileCanReadWithoutBlocking(int /*file_descriptor*/) override {
     const bool success = dbus_watch_handle(raw_watch_, DBUS_WATCH_READABLE);
     CHECK(success) << "Unable to allocate memory";
   }
 
   // Implement MessagePumpLibevent::Watcher.
-  void OnFileCanWriteWithoutBlocking(int /* file_descriptor */) override {
+  void OnFileCanWriteWithoutBlocking(int /*file_descriptor*/) override {
     const bool success = dbus_watch_handle(raw_watch_, DBUS_WATCH_WRITABLE);
     CHECK(success) << "Unable to allocate memory";
   }
@@ -184,7 +185,8 @@ Bus::Bus(const Options& options)
     : bus_type_(options.bus_type),
       connection_type_(options.connection_type),
       dbus_task_runner_(options.dbus_task_runner),
-      on_shutdown_(false /* manual_reset */, false /* initially_signaled */),
+      on_shutdown_(base::WaitableEvent::ResetPolicy::AUTOMATIC,
+                   base::WaitableEvent::InitialState::NOT_SIGNALED),
       connection_(NULL),
       origin_thread_id_(base::PlatformThread::CurrentId()),
       async_operations_set_up_(false),
@@ -196,8 +198,8 @@ Bus::Bus(const Options& options)
   dbus_threads_init_default();
   // The origin message loop is unnecessary if the client uses synchronous
   // functions only.
-  if (base::MessageLoop::current())
-    origin_task_runner_ = base::MessageLoop::current()->task_runner();
+  if (base::ThreadTaskRunnerHandle::IsSet())
+    origin_task_runner_ = base::ThreadTaskRunnerHandle::Get();
 }
 
 Bus::~Bus() {
@@ -878,7 +880,8 @@ std::string Bus::GetServiceOwnerAndBlock(const std::string& service_name,
     return "";
   }
 
-  scoped_ptr<Response> response(Response::FromRawMessage(response_message));
+  std::unique_ptr<Response> response(
+      Response::FromRawMessage(response_message));
   MessageReader reader(response.get());
 
   std::string service_owner;
@@ -1081,7 +1084,7 @@ void Bus::OnToggleTimeout(DBusTimeout* raw_timeout) {
 }
 
 void Bus::OnDispatchStatusChanged(DBusConnection* connection,
-                                  DBusDispatchStatus /* status */) {
+                                  DBusDispatchStatus /*status*/) {
   DCHECK_EQ(connection, connection_);
   AssertOnDBusThread();
 
@@ -1101,7 +1104,7 @@ void Bus::OnServiceOwnerChanged(DBusMessage* message) {
   // |message| will be unrefed on exit of the function. Increment the
   // reference so we can use it in Signal::FromRawMessage() below.
   dbus_message_ref(message);
-  scoped_ptr<Signal> signal(Signal::FromRawMessage(message));
+  std::unique_ptr<Signal> signal(Signal::FromRawMessage(message));
 
   // Confirm the validity of the NameOwnerChanged signal.
   if (signal->GetMember() != kNameOwnerChangedSignal ||
@@ -1178,7 +1181,7 @@ void Bus::OnDispatchStatusChangedThunk(DBusConnection* connection,
 
 // static
 DBusHandlerResult Bus::OnServiceOwnerChangedFilter(
-    DBusConnection* /* connection */,
+    DBusConnection* /*connection*/,
     DBusMessage* message,
     void* data) {
   if (dbus_message_is_signal(message,

@@ -54,6 +54,7 @@ limitations under the License.
                 android:id="@+id/remoteviews"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
                 android:visibility="gone" />
             <TextView
                 android:id="@+id/text"
@@ -67,8 +68,8 @@ limitations under the License.
     </LinearLayout>
     <ViewStub
         android:id="@+id/right_item"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:layout_marginRight="@dimen/car_list_item_right_icon_margin" />
+        android:layout_width="@dimen/car_list_item_right_icon_size"
+        android:layout_height="@dimen/car_list_item_right_icon_size"
+        android:layout_marginEnd="32dp"
+        android:layout_gravity="center_vertical" />
 </LinearLayout>

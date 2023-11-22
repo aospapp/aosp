@@ -47,8 +47,8 @@ void FileWatcherCallback(const base::Closure& callback, const FilePath&, bool) {
 
 namespace attestation {
 
-DatabaseImpl::DatabaseImpl(CryptoUtility* crypto) : io_(this), crypto_(crypto) {
-}
+DatabaseImpl::DatabaseImpl(CryptoUtility* crypto)
+    : io_(this), crypto_(crypto) {}
 
 DatabaseImpl::~DatabaseImpl() {
   brillo::SecureMemset(string_as_array(&database_key_), 0,
@@ -127,7 +127,7 @@ bool DatabaseImpl::Write(const std::string& data) {
   }
   // Sync the parent directory.
   std::string dir_name = file_path.DirName().value();
-  int dir_fd = HANDLE_EINTR(open(dir_name.c_str(), O_RDONLY|O_DIRECTORY));
+  int dir_fd = HANDLE_EINTR(open(dir_name.c_str(), O_RDONLY | O_DIRECTORY));
   if (dir_fd < 0) {
     PLOG(WARNING) << "Could not open " << dir_name << " for syncing";
     return false;

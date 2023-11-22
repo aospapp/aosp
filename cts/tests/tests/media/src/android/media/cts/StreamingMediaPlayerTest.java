@@ -15,21 +15,28 @@
  */
 package android.media.cts;
 
-import android.cts.util.MediaUtils;
+import android.media.BufferingParams;
 import android.media.MediaFormat;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.TrackInfo;
 import android.media.TimedMetaData;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.test.InstrumentationTestRunner;
 import android.util.Log;
 import android.webkit.cts.CtsTestServer;
 
 import com.android.compatibility.common.util.DynamicConfigDeviceSide;
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.IOException;
+import java.net.HttpCookie;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * Tests of MediaPlayer streaming capabilities.
@@ -54,8 +61,23 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
 
     private CtsTestServer mServer;
 
+    private String mInputUrl;
+
     @Override
     protected void setUp() throws Exception {
+        // if launched with InstrumentationTestRunner to pass a command line argument
+        if (getInstrumentation() instanceof InstrumentationTestRunner) {
+            InstrumentationTestRunner testRunner =
+                    (InstrumentationTestRunner)getInstrumentation();
+
+            Bundle arguments = testRunner.getArguments();
+            mInputUrl = arguments.getString("url");
+            Log.v(TAG, "setUp: arguments: " + arguments);
+            if (mInputUrl != null) {
+                Log.v(TAG, "setUp: arguments[url] " + mInputUrl);
+            }
+        }
+
         super.setUp();
         dynamicConfig = new DynamicConfigDeviceSide(MODULE_NAME);
     }
@@ -159,6 +181,71 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
                 + "1996AD6A1BBCB70DCB87.95733B544ACC5F01A1223A837D2CF04DF85A336"
                 + "0/key/ik0/file/m3u8", 60 * 1000);
     }
+
+    public void testHlsWithHeadersCookies() throws Exception {
+        if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
+            return; // skip
+        }
+
+        final Uri uri = Uri.parse(
+                "http://www.youtube.com/api/manifest/hls_variant/id/"
+                + "0168724d02bd9945/itag/5/source/youtube/playlist_type/DVR/ip/"
+                + "0.0.0.0/ipbits/0/expire/19000000000/sparams/ip,ipbits,expire"
+                + ",id,itag,source,playlist_type/signature/773AB8ACC68A96E5AA48"
+                + "1996AD6A1BBCB70DCB87.95733B544ACC5F01A1223A837D2CF04DF85A336"
+                + "0/key/ik0/file/m3u8");
+
+        // TODO: dummy values for headers/cookies till we find a server that actually needs them
+        HashMap<String, String> headers = new HashMap<>();
+        headers.put("header0", "value0");
+        headers.put("header1", "value1");
+
+        String cookieName = "auth_1234567";
+        String cookieValue = "0123456789ABCDEF0123456789ABCDEF";
+        HttpCookie cookie = new HttpCookie(cookieName, cookieValue);
+        cookie.setHttpOnly(true);
+        cookie.setDomain("www.youtube.com");
+        cookie.setPath("/");        // all paths
+        cookie.setSecure(false);
+        cookie.setDiscard(false);
+        cookie.setMaxAge(24 * 3600);  // 24hrs
+
+        java.util.Vector<HttpCookie> cookies = new java.util.Vector<HttpCookie>();
+        cookies.add(cookie);
+
+        // Play stream for 60 seconds
+        playLiveVideoTest(uri, headers, cookies, 60 * 1000);
+    }
+
+    public void testHlsSampleAes_bbb_audio_only_overridable() throws Exception {
+        if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
+            return; // skip
+        }
+
+        String defaultUrl = "http://storage.googleapis.com/wvmedia/cenc/hls/sample_aes/" +
+                            "bbb_1080p_30fps_11min/audio_only/prog_index.m3u8";
+
+        // if url override provided
+        String testUrl = (mInputUrl != null) ? mInputUrl : defaultUrl;
+
+        // Play stream for 60 seconds
+        playLiveAudioOnlyTest(
+                testUrl,
+                60 * 1000);
+    }
+
+    public void testHlsSampleAes_bbb_unmuxed_1500k() throws Exception {
+        if (!MediaUtils.checkDecoder(MediaFormat.MIMETYPE_VIDEO_AVC)) {
+            return; // skip
+        }
+
+        // Play stream for 60 seconds
+        playLiveVideoTest(
+                "http://storage.googleapis.com/wvmedia/cenc/hls/sample_aes/" +
+                "bbb_1080p_30fps_11min/unmuxed_1500k/prog_index.m3u8",
+                60 * 1000);
+    }
+
 
     // Streaming audio from local HTTP server
     public void testPlayMp3Stream1() throws Throwable {
@@ -287,6 +374,85 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
                 return;
             }
             fail("https playback should have failed");
+        } finally {
+            mServer.shutdown();
+        }
+    }
+
+    // TODO: unhide this test when we sort out how to expose buffering control API.
+    private void doTestBuffering() throws Throwable {
+        final String name = "ringer.mp3";
+        mServer = new CtsTestServer(mContext);
+        try {
+            String stream_url = mServer.getAssetUrl(name);
+
+            if (!MediaUtils.checkCodecsForPath(mContext, stream_url)) {
+                Log.w(TAG, "can not find stream " + stream_url + ", skipping test");
+                return; // skip
+            }
+
+            // getDefaultBufferingParams should be called after setDataSource.
+            try {
+                BufferingParams params = mMediaPlayer.getDefaultBufferingParams();
+                fail("MediaPlayer failed to check state for getDefaultBufferingParams");
+            } catch (IllegalStateException e) {
+                // expected
+            }
+
+            mMediaPlayer.setDataSource(stream_url);
+
+            mMediaPlayer.setDisplay(getActivity().getSurfaceHolder());
+            mMediaPlayer.setScreenOnWhilePlaying(true);
+
+            mOnBufferingUpdateCalled.reset();
+            mMediaPlayer.setOnBufferingUpdateListener(new MediaPlayer.OnBufferingUpdateListener() {
+                @Override
+                public void onBufferingUpdate(MediaPlayer mp, int percent) {
+                    mOnBufferingUpdateCalled.signal();
+                }
+            });
+            mMediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+                @Override
+                public boolean onError(MediaPlayer mp, int what, int extra) {
+                    fail("Media player had error " + what + " playing " + name);
+                    return true;
+                }
+            });
+
+            assertFalse(mOnBufferingUpdateCalled.isSignalled());
+
+            BufferingParams params = mMediaPlayer.getDefaultBufferingParams();
+
+            int newMark = -1;
+            BufferingParams newParams = null;
+            int initialBufferingMode = params.getInitialBufferingMode();
+            if (initialBufferingMode == BufferingParams.BUFFERING_MODE_SIZE_ONLY
+                    || initialBufferingMode == BufferingParams.BUFFERING_MODE_TIME_THEN_SIZE) {
+                newMark = params.getInitialBufferingWatermarkKB() + 1;
+                newParams = new BufferingParams.Builder(params).setInitialBufferingWatermarkKB(
+                        newMark).build();
+            } else if (initialBufferingMode == BufferingParams.BUFFERING_MODE_TIME_ONLY) {
+                newMark = params.getInitialBufferingWatermarkMs() + 1;
+                newParams = new BufferingParams.Builder(params).setInitialBufferingWatermarkMs(
+                        newMark).build();
+            } else {
+                newParams = params;
+            }
+            mMediaPlayer.setBufferingParams(newParams);
+
+            int checkMark = -1;
+            BufferingParams checkParams = mMediaPlayer.getBufferingParams();
+            if (initialBufferingMode == BufferingParams.BUFFERING_MODE_SIZE_ONLY
+                    || initialBufferingMode == BufferingParams.BUFFERING_MODE_TIME_THEN_SIZE) {
+                checkMark = checkParams.getInitialBufferingWatermarkKB();
+            } else if (initialBufferingMode == BufferingParams.BUFFERING_MODE_TIME_ONLY) {
+                checkMark = checkParams.getInitialBufferingWatermarkMs();
+            }
+            assertEquals("marks do not match", newMark, checkMark);
+
+            // TODO: add more dynamic checking, e.g., buffering shall not exceed pre-set mark.
+
+            mMediaPlayer.reset();
         } finally {
             mServer.shutdown();
         }

@@ -73,9 +73,9 @@ public final class GetElementsByTagNameNS extends DOMTestCase {
         NodeList newList;
         doc = (Document) load("staffNS", builder);
         newList = doc.getElementsByTagNameNS(namespaceURI, localName);
-        // BEGIN android-changed: Was 37, but that assumed validation.
+        // BEGIN Android-changed: Was 37, but that assumed validation.
         assertEquals("throw_Size", 36, newList.getLength());
-        // END android-changed
+        // END Android-changed
     }
     public void testGetElementsByTagNameNS2() throws Throwable {
         Document doc;

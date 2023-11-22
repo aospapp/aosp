@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Det går inte att blockera nödnummer."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> är redan blockerat."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Ringer med den egna uppringningsfunktionen"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"<xliff:g id="CALL_VIA">%1$s</xliff:g> samtal från <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"<xliff:g id="CALL_VIA">%1$s</xliff:g> videosamtal från <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Samtalet via <xliff:g id="CALL_VIA">%1$s</xliff:g> avslutas om du svarar"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Samtalen via <xliff:g id="CALL_VIA">%1$s</xliff:g> avslutas om du svarar"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Videosamtalet via <xliff:g id="CALL_VIA">%1$s</xliff:g> avslutas om du svarar"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Det pågående samtalet avslutas om du svarar"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"De pågående samtalen avslutas om du svarar"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Det pågående videosamtalet avslutas om du svarar"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Svara"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Avvisa"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Det går inte att ringa på grund av samtalet via <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Det går inte att ringa på grund av samtalen via <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Det går inte att ringa på grund av ett samtal via en annan app."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Inkommande samtal"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Missade samtal"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Ringer du det här samtalet avslutas samtalet i <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

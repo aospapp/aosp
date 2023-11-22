@@ -23,6 +23,9 @@
 namespace art {
 namespace mips64 {
 
+// Up to kow many args can be enregistered. The rest of the args must go on the stack.
+constexpr size_t kMaxRegisterArguments = 8u;
+
 static const GpuRegister kGpuArgumentRegisters[] = {
   A0, A1, A2, A3, A4, A5, A6, A7
 };
@@ -30,6 +33,33 @@ static const GpuRegister kGpuArgumentRegisters[] = {
 static const FpuRegister kFpuArgumentRegisters[] = {
   F12, F13, F14, F15, F16, F17, F18, F19
 };
+
+static constexpr ManagedRegister kCalleeSaveRegisters[] = {
+    // Core registers.
+    Mips64ManagedRegister::FromGpuRegister(S2),
+    Mips64ManagedRegister::FromGpuRegister(S3),
+    Mips64ManagedRegister::FromGpuRegister(S4),
+    Mips64ManagedRegister::FromGpuRegister(S5),
+    Mips64ManagedRegister::FromGpuRegister(S6),
+    Mips64ManagedRegister::FromGpuRegister(S7),
+    Mips64ManagedRegister::FromGpuRegister(GP),
+    Mips64ManagedRegister::FromGpuRegister(S8),
+    // No hard float callee saves.
+};
+
+static constexpr uint32_t CalculateCoreCalleeSpillMask() {
+  // RA is a special callee save which is not reported by CalleeSaveRegisters().
+  uint32_t result = 1 << RA;
+  for (auto&& r : kCalleeSaveRegisters) {
+    if (r.AsMips64().IsGpuRegister()) {
+      result |= (1 << r.AsMips64().AsGpuRegister());
+    }
+  }
+  return result;
+}
+
+static constexpr uint32_t kCoreCalleeSpillMask = CalculateCoreCalleeSpillMask();
+static constexpr uint32_t kFpCalleeSpillMask = 0u;
 
 // Calling convention
 ManagedRegister Mips64ManagedRuntimeCallingConvention::InterproceduralScratchRegister() {
@@ -123,25 +153,23 @@ const ManagedRegisterEntrySpills& Mips64ManagedRuntimeCallingConvention::EntrySp
 
 // JNI calling convention
 
-Mips64JniCallingConvention::Mips64JniCallingConvention(bool is_static, bool is_synchronized,
+Mips64JniCallingConvention::Mips64JniCallingConvention(bool is_static,
+                                                       bool is_synchronized,
+                                                       bool is_critical_native,
                                                        const char* shorty)
-    : JniCallingConvention(is_static, is_synchronized, shorty, kFramePointerSize) {
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S2));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S3));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S4));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S5));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S6));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S7));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(GP));
-  callee_save_regs_.push_back(Mips64ManagedRegister::FromGpuRegister(S8));
+    : JniCallingConvention(is_static,
+                           is_synchronized,
+                           is_critical_native,
+                           shorty,
+                           kMips64PointerSize) {
 }
 
 uint32_t Mips64JniCallingConvention::CoreSpillMask() const {
-  // Compute spill mask to agree with callee saves initialized in the constructor
-  uint32_t result = 0;
-  result = 1 << S2 | 1 << S3 | 1 << S4 | 1 << S5 | 1 << S6 | 1 << S7 | 1 << GP | 1 << S8 | 1 << RA;
-  DCHECK_EQ(static_cast<size_t>(POPCOUNT(result)), callee_save_regs_.size() + 1);
-  return result;
+  return kCoreCalleeSpillMask;
+}
+
+uint32_t Mips64JniCallingConvention::FpSpillMask() const {
+  return kFpCalleeSpillMask;
 }
 
 ManagedRegister Mips64JniCallingConvention::ReturnScratchRegister() const {
@@ -149,21 +177,40 @@ ManagedRegister Mips64JniCallingConvention::ReturnScratchRegister() const {
 }
 
 size_t Mips64JniCallingConvention::FrameSize() {
-  // ArtMethod*, RA and callee save area size, local reference segment state
-  size_t frame_data_size = kFramePointerSize +
-      (CalleeSaveRegisters().size() + 1) * kFramePointerSize + sizeof(uint32_t);
-  // References plus 2 words for HandleScope header
-  size_t handle_scope_size = HandleScope::SizeOf(kFramePointerSize, ReferenceCount());
-  // Plus return value spill area size
-  return RoundUp(frame_data_size + handle_scope_size + SizeOfReturnValue(), kStackAlignment);
+  // ArtMethod*, RA and callee save area size, local reference segment state.
+  size_t method_ptr_size = static_cast<size_t>(kFramePointerSize);
+  size_t ra_and_callee_save_area_size = (CalleeSaveRegisters().size() + 1) * kFramePointerSize;
+
+  size_t frame_data_size = method_ptr_size + ra_and_callee_save_area_size;
+  if (LIKELY(HasLocalReferenceSegmentState())) {                     // Local ref. segment state.
+    // Local reference segment state is sometimes excluded.
+    frame_data_size += sizeof(uint32_t);
+  }
+  // References plus 2 words for HandleScope header.
+  size_t handle_scope_size = HandleScope::SizeOf(kMips64PointerSize, ReferenceCount());
+
+  size_t total_size = frame_data_size;
+  if (LIKELY(HasHandleScope())) {
+    // HandleScope is sometimes excluded.
+    total_size += handle_scope_size;                                 // Handle scope size.
+  }
+
+  // Plus return value spill area size.
+  total_size += SizeOfReturnValue();
+
+  return RoundUp(total_size, kStackAlignment);
 }
 
 size_t Mips64JniCallingConvention::OutArgSize() {
   return RoundUp(NumberOfOutgoingStackArgs() * kFramePointerSize, kStackAlignment);
 }
 
+ArrayRef<const ManagedRegister> Mips64JniCallingConvention::CalleeSaveRegisters() const {
+  return ArrayRef<const ManagedRegister>(kCalleeSaveRegisters);
+}
+
 bool Mips64JniCallingConvention::IsCurrentParamInRegister() {
-  return itr_args_ < 8;
+  return itr_args_ < kMaxRegisterArguments;
 }
 
 bool Mips64JniCallingConvention::IsCurrentParamOnStack() {
@@ -181,7 +228,8 @@ ManagedRegister Mips64JniCallingConvention::CurrentParamRegister() {
 
 FrameOffset Mips64JniCallingConvention::CurrentParamStackOffset() {
   CHECK(IsCurrentParamOnStack());
-  size_t offset = displacement_.Int32Value() - OutArgSize() + ((itr_args_ - 8) * kFramePointerSize);
+  size_t args_on_stack = itr_args_ - kMaxRegisterArguments;
+  size_t offset = displacement_.Int32Value() - OutArgSize() + (args_on_stack * kFramePointerSize);
   CHECK_LT(offset, OutArgSize());
   return FrameOffset(offset);
 }
@@ -191,7 +239,7 @@ size_t Mips64JniCallingConvention::NumberOfOutgoingStackArgs() {
   size_t all_args = NumArgs() + NumberOfExtraArgumentsForJni();
 
   // Nothing on the stack unless there are more than 8 arguments
-  return (all_args > 8) ? all_args - 8 : 0;
+  return (all_args > kMaxRegisterArguments) ? all_args - kMaxRegisterArguments : 0;
 }
 }  // namespace mips64
 }  // namespace art

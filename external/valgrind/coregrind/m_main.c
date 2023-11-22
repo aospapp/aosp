@@ -2883,6 +2883,46 @@ void __aeabi_unwind_cpp_pr1(void){
    VG_(printf)("Something called __aeabi_unwind_cpp_pr1()\n");
    vg_assert(0);
 }
+
+#if defined(ANDROID) && defined(__clang__)
+/* Replace __aeabi_memcpy* functions with vgPlain_memcpy. */
+void* __aeabi_memcpy(void *dest, const void *src, SizeT n);
+void* __aeabi_memcpy(void *dest, const void *src, SizeT n)
+{
+    return VG_(memcpy)(dest, src, n);
+}
+
+void* __aeabi_memcpy4(void *dest, const void *src, SizeT n);
+void* __aeabi_memcpy4(void *dest, const void *src, SizeT n)
+{
+    return VG_(memcpy)(dest, src, n);
+}
+
+void* __aeabi_memcpy8(void *dest, const void *src, SizeT n);
+void* __aeabi_memcpy8(void *dest, const void *src, SizeT n)
+{
+    return VG_(memcpy)(dest, src, n);
+}
+
+/* Replace __aeabi_memclr* functions with vgPlain_memset. */
+void* __aeabi_memclr(void *dest, SizeT n);
+void* __aeabi_memclr(void *dest, SizeT n)
+{
+    return VG_(memset)(dest, 0, n);
+}
+
+void* __aeabi_memclr4(void *dest, SizeT n);
+void* __aeabi_memclr4(void *dest, SizeT n)
+{
+    return VG_(memset)(dest, 0, n);
+}
+
+void* __aeabi_memclr8(void *dest, SizeT n);
+void* __aeabi_memclr8(void *dest, SizeT n)
+{
+    return VG_(memset)(dest, 0, n);
+}
+#endif /* ANDROID __clang__ */
 #endif
 
 /* ---------------- Requirement 2 ---------------- */
@@ -2925,12 +2965,13 @@ asm("\n"
     "\tmovl  $vgPlain_interim_stack, %eax\n"
     "\taddl  $"VG_STRINGIFY(VG_STACK_GUARD_SZB)", %eax\n"
     "\taddl  $"VG_STRINGIFY(VG_DEFAULT_STACK_ACTIVE_SZB)", %eax\n"
+    /* allocate at least 16 bytes on the new stack, and aligned */
     "\tsubl  $16, %eax\n"
     "\tandl  $~15, %eax\n"
     /* install it, and collect the original one */
     "\txchgl %eax, %esp\n"
     /* call _start_in_C_linux, passing it the startup %esp */
-    "\tpushl %eax\n"
+    "\tmovl  %eax, (%esp)\n"
     "\tcall  _start_in_C_linux\n"
     "\thlt\n"
     ".previous\n"

@@ -69,8 +69,8 @@ TEST_F(HmacSessionTest, GetDelegateSuccess) {
 TEST_F(HmacSessionTest, StartBoundSessionSuccess) {
   HmacSessionImpl session(factory_);
   TPM_HANDLE bind_entity = TPM_RH_FIRST;
-  EXPECT_CALL(mock_session_manager_, StartSession(TPM_SE_HMAC, bind_entity,
-                                                  _, true, _))
+  EXPECT_CALL(mock_session_manager_,
+              StartSession(TPM_SE_HMAC, bind_entity, _, true, _))
       .WillOnce(Return(TPM_RC_SUCCESS));
   EXPECT_EQ(TPM_RC_SUCCESS, session.StartBoundSession(bind_entity, "", true));
 }
@@ -78,8 +78,8 @@ TEST_F(HmacSessionTest, StartBoundSessionSuccess) {
 TEST_F(HmacSessionTest, StartBoundSessionFailure) {
   HmacSessionImpl session(factory_);
   TPM_HANDLE bind_entity = TPM_RH_FIRST;
-  EXPECT_CALL(mock_session_manager_, StartSession(TPM_SE_HMAC, bind_entity,
-                                                  _, true, _))
+  EXPECT_CALL(mock_session_manager_,
+              StartSession(TPM_SE_HMAC, bind_entity, _, true, _))
       .WillOnce(Return(TPM_RC_FAILURE));
   EXPECT_EQ(TPM_RC_FAILURE, session.StartBoundSession(bind_entity, "", true));
 }

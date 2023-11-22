@@ -18,8 +18,8 @@
 #include "rsContext.h"
 #include "rsDebugHelper.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 pthread_mutex_t ObjectBase::gObjectInitMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -310,3 +310,5 @@ void ObjectBase::callUpdateCacheObject(const Context *rsc, void *dstObj) const {
     *((const void **)dstObj) = this;
 }
 
+} // namespace renderscript
+} // namespace android

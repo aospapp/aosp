@@ -245,6 +245,23 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
             new Feature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, false),
             new Feature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION_NFCF, false),
             new Feature(PackageManager.FEATURE_PICTURE_IN_PICTURE, false),
+            new Feature(PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT, false),
+            // FEATURE_FILE_BASED_ENCRYPTION is hide
+            new Feature("android.software.file_based_encryption", false),
+    };
+
+    public static final Feature[] ALL_O_FEATURES = {
+            new Feature(PackageManager.FEATURE_VULKAN_HARDWARE_COMPUTE, false),
+            // FEATURE_TELEPHONY_CARRIERLOCK is SystemApi
+            new Feature("android.hardware.telephony.carrierlock", false),
+            new Feature(PackageManager.FEATURE_WIFI_AWARE, false),
+            new Feature(PackageManager.FEATURE_EMBEDDED, false),
+            new Feature(PackageManager.FEATURE_COMPANION_DEVICE_SETUP, false),
+            new Feature(PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS, false),
+            new Feature(PackageManager.FEATURE_VR_HEADTRACKING, false),
+            // FEATURE_CTS is hide
+            new Feature("android.software.cts", false),
+            new Feature(PackageManager.FEATURE_WIFI_AWARE, false),
     };
 
     @Override
@@ -278,6 +295,9 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
 
         // add features from latest to last so that the latest requirements are put in the set first
         int apiVersion = Build.VERSION.SDK_INT;
+        if (apiVersion >= Build.VERSION_CODES.O) {
+            Collections.addAll(features, ALL_O_FEATURES);
+        }
         if (apiVersion >= Build.VERSION_CODES.N) {
             Collections.addAll(features, ALL_NYC_FEATURES);
         }

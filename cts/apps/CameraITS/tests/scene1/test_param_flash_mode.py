@@ -37,13 +37,21 @@ def main():
         # Manually set the exposure to be a little on the dark side, so that
         # it should be obvious whether the flash fired or not, and use a
         # linear tonemap.
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
+
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
         e /= 4
         req = its.objects.manual_capture_request(s, e, 0.0, True, props)
 
         for f in [0,1,2]:
             req["android.flash.mode"] = f
-            cap = cam.do_capture(req)
+            cap = cam.do_capture(req, fmt)
             flash_modes_reported.append(cap["metadata"]["android.flash.mode"])
             flash_states_reported.append(cap["metadata"]["android.flash.state"])
             img = its.image.convert_capture_to_rgb_image(cap)

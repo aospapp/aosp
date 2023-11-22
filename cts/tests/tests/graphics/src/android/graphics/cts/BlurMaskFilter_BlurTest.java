@@ -15,12 +15,21 @@
  */
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 import android.graphics.BlurMaskFilter;
 import android.graphics.BlurMaskFilter.Blur;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class BlurMaskFilter_BlurTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BlurMaskFilter_BlurTest {
+    @Test
     public void testValueOf(){
         assertEquals(Blur.NORMAL, Blur.valueOf("NORMAL"));
         assertEquals(Blur.SOLID, Blur.valueOf("SOLID"));
@@ -28,14 +37,15 @@ public class BlurMaskFilter_BlurTest extends TestCase {
         assertEquals(Blur.INNER, Blur.valueOf("INNER"));
     }
 
+    @Test
     public void testValues(){
-        Blur[] bulr = Blur.values();
+        Blur[] blur = Blur.values();
 
-        assertEquals(4, bulr.length);
-        assertEquals(Blur.NORMAL, bulr[0]);
-        assertEquals(Blur.SOLID, bulr[1]);
-        assertEquals(Blur.OUTER, bulr[2]);
-        assertEquals(Blur.INNER, bulr[3]);
+        assertEquals(4, blur.length);
+        assertEquals(Blur.NORMAL, blur[0]);
+        assertEquals(Blur.SOLID, blur[1]);
+        assertEquals(Blur.OUTER, blur[2]);
+        assertEquals(Blur.INNER, blur[3]);
 
         //Blur is used as a argument here for all the methods that use it
         assertNotNull(new BlurMaskFilter(10.24f, Blur.INNER));

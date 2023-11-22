@@ -24,14 +24,16 @@
 
 #include "arch/instruction_set.h"
 #include "base/arena_allocator.h"
+#include "base/array_ref.h"
 #include "base/bit_utils.h"
 #include "base/mutex.h"
 #include "base/timing_logger.h"
 #include "class_reference.h"
 #include "compiler.h"
 #include "dex_file.h"
+#include "dex_file_types.h"
 #include "driver/compiled_method_storage.h"
-#include "jit/offline_profiling_info.h"
+#include "jit/profile_compilation_info.h"
 #include "invoke_type.h"
 #include "method_reference.h"
 #include "mirror/class.h"  // For mirror::Class::Status.
@@ -39,7 +41,7 @@
 #include "runtime.h"
 #include "safe_map.h"
 #include "thread_pool.h"
-#include "utils/array_ref.h"
+#include "utils/atomic_method_ref_map.h"
 #include "utils/dex_cache_arrays_layout.h"
 
 namespace art {
@@ -50,6 +52,7 @@ class DexCache;
 
 namespace verifier {
 class MethodVerifier;
+class VerifierDepsTest;
 }  // namespace verifier
 
 class BitVector;
@@ -57,16 +60,14 @@ class CompiledClass;
 class CompiledMethod;
 class CompilerOptions;
 class DexCompilationUnit;
-class DexFileToMethodInlinerMap;
 struct InlineIGetIPutData;
 class InstructionSetFeatures;
 class ParallelCompilationManager;
 class ScopedObjectAccess;
 template <class Allocator> class SrcMap;
-class SrcMapElem;
-using SwapSrcMap = SrcMap<SwapAllocator<SrcMapElem>>;
 template<class T> class Handle;
 class TimingLogger;
+class VdexFile;
 class VerificationResults;
 class VerifiedMethod;
 
@@ -88,12 +89,9 @@ class CompilerDriver {
   // classes.
   CompilerDriver(const CompilerOptions* compiler_options,
                  VerificationResults* verification_results,
-                 DexFileToMethodInlinerMap* method_inliner_map,
                  Compiler::Kind compiler_kind,
                  InstructionSet instruction_set,
                  const InstructionSetFeatures* instruction_set_features,
-                 bool boot_image,
-                 bool app_image,
                  std::unordered_set<std::string>* image_classes,
                  std::unordered_set<std::string>* compiled_classes,
                  std::unordered_set<std::string>* compiled_methods,
@@ -123,18 +121,20 @@ class CompilerDriver {
                   TimingLogger* timings)
       REQUIRES(!Locks::mutator_lock_, !compiled_classes_lock_, !dex_to_dex_references_lock_);
 
+  void CompileAll(jobject class_loader,
+                  const std::vector<const DexFile*>& dex_files,
+                  VdexFile* vdex_file,
+                  TimingLogger* timings)
+      REQUIRES(!Locks::mutator_lock_, !compiled_classes_lock_, !dex_to_dex_references_lock_);
+
   // Compile a single Method.
   void CompileOne(Thread* self, ArtMethod* method, TimingLogger* timings)
-      SHARED_REQUIRES(Locks::mutator_lock_)
-      REQUIRES(!compiled_methods_lock_, !compiled_classes_lock_, !dex_to_dex_references_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_)
+      REQUIRES(!compiled_classes_lock_, !dex_to_dex_references_lock_);
 
   VerificationResults* GetVerificationResults() const {
     DCHECK(Runtime::Current()->IsAotCompiler());
     return verification_results_;
-  }
-
-  DexFileToMethodInlinerMap* GetMethodInlinerMap() const {
-    return method_inliner_map_;
   }
 
   InstructionSet GetInstructionSet() const {
@@ -153,11 +153,6 @@ class CompilerDriver {
     return compiler_.get();
   }
 
-  // Are we compiling and creating an image file?
-  bool IsBootImage() const {
-    return boot_image_;
-  }
-
   const std::unordered_set<std::string>* GetImageClasses() const {
     return image_classes_.get();
   }
@@ -172,18 +167,12 @@ class CompilerDriver {
   CompiledClass* GetCompiledClass(ClassReference ref) const
       REQUIRES(!compiled_classes_lock_);
 
-  CompiledMethod* GetCompiledMethod(MethodReference ref) const
-      REQUIRES(!compiled_methods_lock_);
-  size_t GetNonRelativeLinkerPatchCount() const
-      REQUIRES(!compiled_methods_lock_);
-
+  CompiledMethod* GetCompiledMethod(MethodReference ref) const;
+  size_t GetNonRelativeLinkerPatchCount() const;
   // Add a compiled method.
   void AddCompiledMethod(const MethodReference& method_ref,
                          CompiledMethod* const compiled_method,
-                         size_t non_relative_linker_patch_count)
-      REQUIRES(!compiled_methods_lock_);
-  // Remove and delete a compiled method.
-  void RemoveCompiledMethod(const MethodReference& method_ref) REQUIRES(!compiled_methods_lock_);
+                         size_t non_relative_linker_patch_count);
 
   void SetRequiresConstructorBarrier(Thread* self,
                                      const DexFile* dex_file,
@@ -195,58 +184,29 @@ class CompilerDriver {
                                   uint16_t class_def_index)
       REQUIRES(!requires_constructor_barrier_lock_);
 
-  // Callbacks from compiler to see what runtime checks must be generated.
-
-  bool CanAssumeTypeIsPresentInDexCache(Handle<mirror::DexCache> dex_cache,
-                                        uint32_t type_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  bool CanAssumeStringIsPresentInDexCache(const DexFile& dex_file, uint32_t string_idx)
-      REQUIRES(!Locks::mutator_lock_);
-
   // Are runtime access checks necessary in the compiled code?
-  bool CanAccessTypeWithoutChecks(uint32_t referrer_idx,
-                                  Handle<mirror::DexCache> dex_cache,
-                                  uint32_t type_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  bool CanAccessTypeWithoutChecks(ObjPtr<mirror::Class> referrer_class,
+                                  ObjPtr<mirror::Class> resolved_class)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Are runtime access and instantiable checks necessary in the code?
   // out_is_finalizable is set to whether the type is finalizable.
-  bool CanAccessInstantiableTypeWithoutChecks(uint32_t referrer_idx,
-                                              Handle<mirror::DexCache> dex_cache,
-                                              uint32_t type_idx,
+  bool CanAccessInstantiableTypeWithoutChecks(ObjPtr<mirror::Class> referrer_class,
+                                              ObjPtr<mirror::Class> resolved_class,
                                               bool* out_is_finalizable)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  bool CanEmbedTypeInCode(const DexFile& dex_file, uint32_t type_idx,
-                          bool* is_type_initialized, bool* use_direct_type_ptr,
-                          uintptr_t* direct_type_ptr, bool* out_is_finalizable);
-
-  // Query methods for the java.lang.ref.Reference class.
-  bool CanEmbedReferenceTypeInCode(ClassReference* ref,
-                                   bool* use_direct_type_ptr, uintptr_t* direct_type_ptr);
-  uint32_t GetReferenceSlowFlagOffset() const;
-  uint32_t GetReferenceDisableFlagOffset() const;
-
-  // Get the DexCache for the
-  mirror::DexCache* GetDexCache(const DexCompilationUnit* mUnit)
-    SHARED_REQUIRES(Locks::mutator_lock_);
-
-  mirror::ClassLoader* GetClassLoader(const ScopedObjectAccess& soa,
-                                      const DexCompilationUnit* mUnit)
-    SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolve compiling method's class. Returns null on failure.
   mirror::Class* ResolveCompilingMethodsClass(
       const ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
       Handle<mirror::ClassLoader> class_loader, const DexCompilationUnit* mUnit)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   mirror::Class* ResolveClass(
       const ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
-      Handle<mirror::ClassLoader> class_loader, uint16_t type_index,
+      Handle<mirror::ClassLoader> class_loader, dex::TypeIndex type_index,
       const DexCompilationUnit* mUnit)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolve a field. Returns null on failure, including incompatible class change.
   // NOTE: Unlike ClassLinker's ResolveField(), this method enforces is_static.
@@ -254,110 +214,30 @@ class CompilerDriver {
       const ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
       Handle<mirror::ClassLoader> class_loader, const DexCompilationUnit* mUnit,
       uint32_t field_idx, bool is_static)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolve a field with a given dex file.
   ArtField* ResolveFieldWithDexFile(
       const ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
       Handle<mirror::ClassLoader> class_loader, const DexFile* dex_file,
       uint32_t field_idx, bool is_static)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Get declaration location of a resolved field.
-  void GetResolvedFieldDexFileLocation(
-      ArtField* resolved_field, const DexFile** declaring_dex_file,
-      uint16_t* declaring_class_idx, uint16_t* declaring_field_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  bool IsFieldVolatile(ArtField* field) SHARED_REQUIRES(Locks::mutator_lock_);
-  MemberOffset GetFieldOffset(ArtField* field) SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Find a dex cache for a dex file.
-  inline mirror::DexCache* FindDexCache(const DexFile* dex_file)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Can we fast-path an IGET/IPUT access to an instance field? If yes, compute the field offset.
   std::pair<bool, bool> IsFastInstanceField(
       mirror::DexCache* dex_cache, mirror::Class* referrer_class,
       ArtField* resolved_field, uint16_t field_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Can we fast-path an SGET/SPUT access to a static field? If yes, compute the type index
-  // of the declaring class in the referrer's dex file.
-  std::pair<bool, bool> IsFastStaticField(
-      mirror::DexCache* dex_cache, mirror::Class* referrer_class,
-      ArtField* resolved_field, uint16_t field_idx, uint32_t* storage_index)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Return whether the declaring class of `resolved_method` is
-  // available to `referrer_class`. If this is true, compute the type
-  // index of the declaring class in the referrer's dex file and
-  // return it through the out argument `storage_index`; otherwise
-  // return DexFile::kDexNoIndex through `storage_index`.
-  bool IsClassOfStaticMethodAvailableToReferrer(mirror::DexCache* dex_cache,
-                                                mirror::Class* referrer_class,
-                                                ArtMethod* resolved_method,
-                                                uint16_t method_idx,
-                                                uint32_t* storage_index)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Is static field's in referrer's class?
-  bool IsStaticFieldInReferrerClass(mirror::Class* referrer_class, ArtField* resolved_field)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Is static field's class initialized?
-  bool IsStaticFieldsClassInitialized(mirror::Class* referrer_class,
-                                      ArtField* resolved_field)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolve a method. Returns null on failure, including incompatible class change.
   ArtMethod* ResolveMethod(
       ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
       Handle<mirror::ClassLoader> class_loader, const DexCompilationUnit* mUnit,
       uint32_t method_idx, InvokeType invoke_type, bool check_incompatible_class_change = true)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Get declaration location of a resolved field.
-  void GetResolvedMethodDexFileLocation(
-      ArtMethod* resolved_method, const DexFile** declaring_dex_file,
-      uint16_t* declaring_class_idx, uint16_t* declaring_method_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Get the index in the vtable of the method.
-  uint16_t GetResolvedMethodVTableIndex(
-      ArtMethod* resolved_method, InvokeType type)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Can we fast-path an INVOKE? If no, returns 0. If yes, returns a non-zero opaque flags value
-  // for ProcessedInvoke() and computes the necessary lowering info.
-  int IsFastInvoke(
-      ScopedObjectAccess& soa, Handle<mirror::DexCache> dex_cache,
-      Handle<mirror::ClassLoader> class_loader, const DexCompilationUnit* mUnit,
-      mirror::Class* referrer_class, ArtMethod* resolved_method, InvokeType* invoke_type,
-      MethodReference* target_method, const MethodReference* devirt_target,
-      uintptr_t* direct_code, uintptr_t* direct_method)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Is method's class initialized for an invoke?
-  // For static invokes to determine whether we need to consider potential call to <clinit>().
-  // For non-static invokes, assuming a non-null reference, the class is always initialized.
-  bool IsMethodsClassInitialized(mirror::Class* referrer_class, ArtMethod* resolved_method)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Get the layout of dex cache arrays for a dex file. Returns invalid layout if the
-  // dex cache arrays don't have a fixed layout.
-  DexCacheArraysLayout GetDexCacheArraysLayout(const DexFile* dex_file);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void ProcessedInstanceField(bool resolved);
   void ProcessedStaticField(bool resolved, bool local);
-  void ProcessedInvoke(InvokeType invoke_type, int flags);
-
-  void ComputeFieldInfo(uint32_t field_idx, const DexCompilationUnit* mUnit,
-                        const ScopedObjectAccess& soa, bool is_static,
-                        ArtField** resolved_field,
-                        mirror::Class** referrer_class,
-                        mirror::DexCache** dex_cache)
-      SHARED_REQUIRES(Locks::mutator_lock_);
 
   // Can we fast path instance field access? Computes field's offset and volatility.
   bool ComputeInstanceFieldInfo(uint32_t field_idx, const DexCompilationUnit* mUnit, bool is_put,
@@ -368,16 +248,8 @@ class CompilerDriver {
                                              const DexCompilationUnit* mUnit,
                                              bool is_put,
                                              const ScopedObjectAccess& soa)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
-
-  // Can we fastpath a interface, super class or virtual method call? Computes method's vtable
-  // index.
-  bool ComputeInvokeInfo(const DexCompilationUnit* mUnit, const uint32_t dex_pc,
-                         bool update_stats, bool enable_devirtualization,
-                         InvokeType* type, MethodReference* target_method, int* vtable_idx,
-                         uintptr_t* direct_code, uintptr_t* direct_method)
-      REQUIRES(!Locks::mutator_lock_);
 
   const VerifiedMethod* GetVerifiedMethod(const DexFile* dex_file, uint32_t method_idx) const;
   bool IsSafeCast(const DexCompilationUnit* mUnit, uint32_t dex_pc);
@@ -417,6 +289,7 @@ class CompilerDriver {
   void SetDedupeEnabled(bool dedupe_enabled) {
     compiled_method_storage_.SetDedupeEnabled(dedupe_enabled);
   }
+
   bool DedupeEnabled() const {
     return compiled_method_storage_.DedupeEnabled();
   }
@@ -450,9 +323,6 @@ class CompilerDriver {
   // Get memory usage during compilation.
   std::string GetMemoryUsageString(bool extended) const;
 
-  bool IsStringTypeIndex(uint16_t type_index, const DexFile* dex_file);
-  bool IsStringInit(uint32_t method_index, const DexFile* dex_file, int32_t* offset);
-
   void SetHadHardVerifierFailure() {
     had_hard_verifier_failure_ = true;
   }
@@ -467,7 +337,7 @@ class CompilerDriver {
 
   // Can we assume that the klass is loaded?
   bool CanAssumeClassIsLoaded(mirror::Class* klass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool MayInline(const DexFile* inlined_from, const DexFile* inlined_into) const {
     if (!kIsTargetBuild) {
@@ -483,22 +353,11 @@ class CompilerDriver {
     return current_dex_to_dex_methods_;
   }
 
- private:
-  // Return whether the declaring class of `resolved_member` is
-  // available to `referrer_class` for read or write access using two
-  // Boolean values returned as a pair. If is true at least for read
-  // access, compute the type index of the declaring class in the
-  // referrer's dex file and return it through the out argument
-  // `storage_index`; otherwise return DexFile::kDexNoIndex through
-  // `storage_index`.
-  template <typename ArtMember>
-  std::pair<bool, bool> IsClassOfStaticMemberAvailableToReferrer(mirror::DexCache* dex_cache,
-                                                                 mirror::Class* referrer_class,
-                                                                 ArtMember* resolved_member,
-                                                                 uint16_t member_idx,
-                                                                 uint32_t* storage_index)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+  const ProfileCompilationInfo* GetProfileCompilationInfo() const {
+    return profile_compilation_info_;
+  }
 
+ private:
   // Can `referrer_class` access the resolved `member`?
   // Dispatch call to mirror::Class::CanAccessResolvedField or
   // mirror::Class::CanAccessResolvedMember depending on the value of
@@ -509,44 +368,7 @@ class CompilerDriver {
                                       ArtMember* member,
                                       mirror::DexCache* dex_cache,
                                       uint32_t field_idx)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // Can we assume that the klass is initialized?
-  bool CanAssumeClassIsInitialized(mirror::Class* klass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool CanReferrerAssumeClassIsInitialized(mirror::Class* referrer_class, mirror::Class* klass)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
-  // These flags are internal to CompilerDriver for collecting INVOKE resolution statistics.
-  // The only external contract is that unresolved method has flags 0 and resolved non-0.
-  enum {
-    kBitMethodResolved = 0,
-    kBitVirtualMadeDirect,
-    kBitPreciseTypeDevirtualization,
-    kBitDirectCallToBoot,
-    kBitDirectMethodToBoot
-  };
-  static constexpr int kFlagMethodResolved              = 1 << kBitMethodResolved;
-  static constexpr int kFlagVirtualMadeDirect           = 1 << kBitVirtualMadeDirect;
-  static constexpr int kFlagPreciseTypeDevirtualization = 1 << kBitPreciseTypeDevirtualization;
-  static constexpr int kFlagDirectCallToBoot            = 1 << kBitDirectCallToBoot;
-  static constexpr int kFlagDirectMethodToBoot          = 1 << kBitDirectMethodToBoot;
-  static constexpr int kFlagsMethodResolvedVirtualMadeDirect =
-      kFlagMethodResolved | kFlagVirtualMadeDirect;
-  static constexpr int kFlagsMethodResolvedPreciseTypeDevirtualization =
-      kFlagsMethodResolvedVirtualMadeDirect | kFlagPreciseTypeDevirtualization;
-
- public:  // TODO make private or eliminate.
-  // Compute constant code and method pointers when possible.
-  void GetCodeAndMethodForDirectCall(/*out*/InvokeType* type,
-                                     InvokeType sharp_type,
-                                     bool no_guarantee_of_dex_cache_entry,
-                                     const mirror::Class* referrer_class,
-                                     ArtMethod* method,
-                                     /*out*/int* stats_flags,
-                                     MethodReference* target_method,
-                                     uintptr_t* direct_code, uintptr_t* direct_method)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
   void PreCompile(jobject class_loader,
@@ -571,9 +393,19 @@ class CompilerDriver {
                       TimingLogger* timings)
       REQUIRES(!Locks::mutator_lock_);
 
+  // Do fast verification through VerifierDeps if possible. Return whether
+  // verification was successful.
+  // NO_THREAD_SAFETY_ANALYSIS as the method accesses a guarded value in a
+  // single-threaded way.
+  bool FastVerify(jobject class_loader,
+                  const std::vector<const DexFile*>& dex_files,
+                  TimingLogger* timings)
+      NO_THREAD_SAFETY_ANALYSIS;
+
   void Verify(jobject class_loader,
               const std::vector<const DexFile*>& dex_files,
               TimingLogger* timings);
+
   void VerifyDexFile(jobject class_loader,
                      const DexFile& dex_file,
                      const std::vector<const DexFile*>& dex_files,
@@ -604,8 +436,6 @@ class CompilerDriver {
       REQUIRES(!Locks::mutator_lock_, !compiled_classes_lock_);
 
   void UpdateImageClasses(TimingLogger* timings) REQUIRES(!Locks::mutator_lock_);
-  static void FindClinitImageClassesCallback(mirror::Object* object, void* arg)
-      SHARED_REQUIRES(Locks::mutator_lock_);
 
   void Compile(jobject class_loader,
                const std::vector<const DexFile*>& dex_files,
@@ -628,7 +458,6 @@ class CompilerDriver {
 
   const CompilerOptions* const compiler_options_;
   VerificationResults* const verification_results_;
-  DexFileToMethodInlinerMap* const method_inliner_map_;
 
   std::unique_ptr<Compiler> compiler_;
   Compiler::Kind compiler_kind_;
@@ -647,21 +476,15 @@ class CompilerDriver {
   mutable Mutex compiled_classes_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
   ClassTable compiled_classes_ GUARDED_BY(compiled_classes_lock_);
 
-  typedef SafeMap<const MethodReference, CompiledMethod*, MethodReferenceComparator> MethodTable;
-
- public:
-  // Lock is public so that non-members can have lock annotations.
-  mutable Mutex compiled_methods_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+  typedef AtomicMethodRefMap<CompiledMethod*> MethodTable;
 
  private:
   // All method references that this compiler has compiled.
-  MethodTable compiled_methods_ GUARDED_BY(compiled_methods_lock_);
+  MethodTable compiled_methods_;
+
   // Number of non-relative patches in all compiled methods. These patches need space
   // in the .oat_patches ELF section if requested in the compiler options.
-  size_t non_relative_linker_patch_count_ GUARDED_BY(compiled_methods_lock_);
-
-  const bool boot_image_;
-  const bool app_image_;
+  Atomic<size_t> non_relative_linker_patch_count_;
 
   // If image_ is true, specifies the classes that will be included in the image.
   // Note if image_classes_ is null, all classes are included in the image.
@@ -721,6 +544,8 @@ class CompilerDriver {
   const BitVector* current_dex_to_dex_methods_;
 
   friend class CompileClassVisitor;
+  friend class DexToDexDecompilerTest;
+  friend class verifier::VerifierDepsTest;
   DISALLOW_COPY_AND_ASSIGN(CompilerDriver);
 };
 

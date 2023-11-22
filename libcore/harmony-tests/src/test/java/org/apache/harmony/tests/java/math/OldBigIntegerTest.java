@@ -230,7 +230,7 @@ public class OldBigIntegerTest extends junit.framework.TestCase {
         }
     }
 
-// BEGIN android-added
+// BEGIN Android-added
 //    public void testModPowPerformance() {
 //        Random rnd = new Random();
 //        for (int i = 0; i < 10; i++) {
@@ -283,7 +283,7 @@ public class OldBigIntegerTest extends junit.framework.TestCase {
 //            }
 //        }
 //    }
-// END android-added
+// END Android-added
 
 
 
@@ -342,7 +342,7 @@ public class OldBigIntegerTest extends junit.framework.TestCase {
             try {
                 return super.clone();
             } catch (CloneNotSupportedException e) {
-                throw new AssertionError(e); // android-changed
+                throw new AssertionError(e); // Android-changed
             }
         }
     }

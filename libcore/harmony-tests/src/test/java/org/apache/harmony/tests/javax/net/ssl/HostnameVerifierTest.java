@@ -71,22 +71,15 @@ public class HostnameVerifierTest extends TestCase implements
         in = new ByteArrayInputStream(X509_FOO_BAR_HANAKO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
-        assertTrue(verifier.verify("foo.com", session));
+        assertFalse(verifier.verify("foo.com", session));
         assertFalse(verifier.verify("a.foo.com", session));
-        // these checks test alternative subjects. The test data contains an
-        // alternative subject starting with a japanese kanji character. This is
-        // not supported by Android because the underlying implementation from
-        // harmony follows the definition from rfc 1034 page 10 for alternative
-        // subject names. This causes the code to drop all alternative subjects.
-        // assertTrue(verifier.verify("bar.com", session));
-        // assertFalse(verifier.verify("a.bar.com", session));
-        // assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
-
-        in = new ByteArrayInputStream(X509_NO_CNS_FOO);
-        x509 = (X509Certificate) cf.generateCertificate(in);
-        session = new mySSLSession(new X509Certificate[] {x509});
-        assertTrue(verifier.verify("foo.com", session));
-        assertFalse(verifier.verify("a.foo.com", session));
+        assertTrue(verifier.verify("bar.com", session));
+        assertFalse(verifier.verify("a.bar.com", session));
+        // The certificate has this name in the altnames section, but Conscrypt drops
+        // any altnames that are improperly encoded according to RFC 5280, which requires
+        // non-ASCII characters to be encoded in ASCII via Punycode.
+        assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
+        assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
 
         in = new ByteArrayInputStream(X509_NO_CNS_FOO);
         x509 = (X509Certificate) cf.generateCertificate(in);
@@ -123,18 +116,18 @@ public class HostnameVerifierTest extends TestCase implements
         session = new mySSLSession(new X509Certificate[] {x509});
         // try the foo.com variations
         assertFalse(verifier.verify("foo.com", session));
-        assertTrue(verifier.verify("www.foo.com", session));
-        assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
+        assertFalse(verifier.verify("www.foo.com", session));
+        assertFalse(verifier.verify("\u82b1\u5b50.foo.com", session));
         assertFalse(verifier.verify("a.b.foo.com", session));
-        // these checks test alternative subjects. The test data contains an
-        // alternative subject starting with a japanese kanji character. This is
-        // not supported by Android because the underlying implementation from
-        // harmony follows the definition from rfc 1034 page 10 for alternative
-        // subject names. This causes the code to drop all alternative subjects.
-        // assertFalse(verifier.verify("bar.com", session));
-        // assertTrue(verifier.verify("www.bar.com", session));
-        // assertTrue(verifier.verify("\u82b1\u5b50.bar.com", session));
-        // assertTrue(verifier.verify("a.b.bar.com", session));
+        assertFalse(verifier.verify("bar.com", session));
+        assertTrue(verifier.verify("www.bar.com", session));
+        assertTrue(verifier.verify("\u82b1\u5b50.bar.com", session));
+        assertFalse(verifier.verify("a.b.bar.com", session));
+        // The certificate has this name in the altnames section, but Conscrypt drops
+        // any altnames that are improperly encoded according to RFC 5280, which requires
+        // non-ASCII characters to be encoded in ASCII via Punycode.
+        assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
+        assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
     }
 
     public void testSubjectAlt() throws Exception {

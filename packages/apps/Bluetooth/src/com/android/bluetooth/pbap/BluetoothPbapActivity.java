@@ -43,17 +43,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.Preference;
-import android.util.Log;
-import android.view.View;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.EditText;
-import android.widget.TextView;
-import android.widget.Button;
-import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.text.InputFilter;
 import android.text.TextWatcher;
 import android.text.InputFilter.LengthFilter;
+import android.util.Log;
+import android.view.View;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Button;
 
 import com.android.internal.app.AlertActivity;
 import com.android.internal.app.AlertController;
@@ -194,8 +192,7 @@ public class BluetoothPbapActivity extends AlertActivity implements
     private void sendIntentToReceiver(final String intentName, final String extraName,
             final String extraValue) {
         Intent intent = new Intent(intentName);
-        intent.setClassName(BluetoothPbapService.THIS_PACKAGE_NAME, BluetoothPbapReceiver.class
-                .getName());
+        intent.setPackage(BluetoothPbapService.THIS_PACKAGE_NAME);
         if (extraName != null) {
             intent.putExtra(extraName, extraValue);
         }
@@ -205,8 +202,7 @@ public class BluetoothPbapActivity extends AlertActivity implements
     private void sendIntentToReceiver(final String intentName, final String extraName,
             final boolean extraValue) {
         Intent intent = new Intent(intentName);
-        intent.setClassName(BluetoothPbapService.THIS_PACKAGE_NAME, BluetoothPbapReceiver.class
-                .getName());
+        intent.setPackage(BluetoothPbapService.THIS_PACKAGE_NAME);
         if (extraName != null) {
             intent.putExtra(extraName, extraValue);
         }

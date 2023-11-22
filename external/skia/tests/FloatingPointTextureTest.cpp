@@ -17,6 +17,7 @@
 
 #if SK_SUPPORT_GPU
 #include "GrContext.h"
+#include "GrResourceProvider.h"
 #include "GrTexture.h"
 #include "SkHalf.h"
 
@@ -26,6 +27,12 @@ static const SkIRect DEV_RECT = SkIRect::MakeWH(DEV_W, DEV_H);
 template <typename T>
 void runFPTest(skiatest::Reporter* reporter, GrContext* context,
                T min, T max, T epsilon, T maxInt, int arraySize, GrPixelConfig config) {
+    if (0 != arraySize % 4) {
+        REPORT_FAILURE(reporter, "(0 != arraySize % 4)",
+                       SkString("arraySize must be divisible by 4."));
+        return;
+    }
+
     SkTDArray<T> controlPixelData, readBuffer;
     controlPixelData.setCount(arraySize);
     readBuffer.setCount(arraySize);
@@ -43,42 +50,50 @@ void runFPTest(skiatest::Reporter* reporter, GrContext* context,
         desc.fWidth = DEV_W;
         desc.fHeight = DEV_H;
         desc.fConfig = config;
-        desc.fOrigin = 0 == origin ?
-            kTopLeft_GrSurfaceOrigin : kBottomLeft_GrSurfaceOrigin;
-        SkAutoTUnref<GrTexture> fpTexture(context->textureProvider()->createTexture(
+        desc.fOrigin = 0 == origin ? kTopLeft_GrSurfaceOrigin : kBottomLeft_GrSurfaceOrigin;
+        sk_sp<GrTexture> fpTexture(context->resourceProvider()->createTexture(
             desc, SkBudgeted::kNo, controlPixelData.begin(), 0));
         // Floating point textures are NOT supported everywhere
         if (nullptr == fpTexture) {
             continue;
         }
-        fpTexture->readPixels(0, 0, DEV_W, DEV_H, desc.fConfig, readBuffer.begin(), 0);
+        REPORTER_ASSERT(reporter,
+                        fpTexture->readPixels(0, 0, DEV_W, DEV_H, desc.fConfig, readBuffer.begin(), 0));
         REPORTER_ASSERT(reporter,
                         0 == memcmp(readBuffer.begin(), controlPixelData.begin(), readBuffer.bytes()));
     }
 }
 
-static const int FP_CONTROL_ARRAY_SIZE = DEV_W * DEV_H * 4/*RGBA*/;
+static const int RGBA32F_CONTROL_ARRAY_SIZE = DEV_W * DEV_H * 4;
 static const float kMaxIntegerRepresentableInSPFloatingPoint = 16777216;  // 2 ^ 24
 
-DEF_GPUTEST_FOR_RENDERING_CONTEXTS(FloatingPointTextureTest, reporter, context) {
-    runFPTest<float>(reporter, context, FLT_MIN, FLT_MAX, FLT_EPSILON,
-                     kMaxIntegerRepresentableInSPFloatingPoint, 
-                     FP_CONTROL_ARRAY_SIZE, kRGBA_float_GrPixelConfig);
+DEF_GPUTEST_FOR_RENDERING_CONTEXTS(FloatingPointTextureTest, reporter, ctxInfo) {
+    runFPTest<float>(reporter, ctxInfo.grContext(), FLT_MIN, FLT_MAX, FLT_EPSILON,
+                     kMaxIntegerRepresentableInSPFloatingPoint,
+                     RGBA32F_CONTROL_ARRAY_SIZE, kRGBA_float_GrPixelConfig);
+}
+
+static const int RG32F_CONTROL_ARRAY_SIZE = DEV_W * DEV_H * 2;
+
+DEF_GPUTEST_FOR_RENDERING_CONTEXTS(FloatingPointTextureTest_RG, reporter, ctxInfo) {
+    runFPTest<float>(reporter, ctxInfo.grContext(), FLT_MIN, FLT_MAX, FLT_EPSILON,
+                     kMaxIntegerRepresentableInSPFloatingPoint,
+                     RG32F_CONTROL_ARRAY_SIZE, kRG_float_GrPixelConfig);
 }
 
 static const int HALF_ALPHA_CONTROL_ARRAY_SIZE = DEV_W * DEV_H * 1 /*alpha-only*/;
 static const SkHalf kMaxIntegerRepresentableInHalfFloatingPoint = 0x6800;  // 2 ^ 11
 
-DEF_GPUTEST_FOR_RENDERING_CONTEXTS(HalfFloatAlphaTextureTest, reporter, context) {
-    runFPTest<SkHalf>(reporter, context, SK_HalfMin, SK_HalfMax, SK_HalfEpsilon,
+DEF_GPUTEST_FOR_RENDERING_CONTEXTS(HalfFloatAlphaTextureTest, reporter, ctxInfo) {
+    runFPTest<SkHalf>(reporter, ctxInfo.grContext(), SK_HalfMin, SK_HalfMax, SK_HalfEpsilon,
         kMaxIntegerRepresentableInHalfFloatingPoint,
         HALF_ALPHA_CONTROL_ARRAY_SIZE, kAlpha_half_GrPixelConfig);
 }
 
 static const int HALF_RGBA_CONTROL_ARRAY_SIZE = DEV_W * DEV_H * 4 /*RGBA*/;
 
-DEF_GPUTEST_FOR_RENDERING_CONTEXTS(HalfFloatRGBATextureTest, reporter, context) {
-    runFPTest<SkHalf>(reporter, context, SK_HalfMin, SK_HalfMax, SK_HalfEpsilon,
+DEF_GPUTEST_FOR_RENDERING_CONTEXTS(HalfFloatRGBATextureTest, reporter, ctxInfo) {
+    runFPTest<SkHalf>(reporter, ctxInfo.grContext(), SK_HalfMin, SK_HalfMax, SK_HalfEpsilon,
         kMaxIntegerRepresentableInHalfFloatingPoint,
         HALF_RGBA_CONTROL_ARRAY_SIZE, kRGBA_half_GrPixelConfig);
 }

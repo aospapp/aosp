@@ -16,39 +16,108 @@
 
 package io.appium.droiddriver.instrumentation;
 
+import static io.appium.droiddriver.util.Strings.charSequenceToString;
+
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Checkable;
 import android.widget.TextView;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.FutureTask;
-
 import io.appium.droiddriver.actions.InputInjector;
 import io.appium.droiddriver.base.BaseUiElement;
 import io.appium.droiddriver.base.DroidDriverContext;
 import io.appium.droiddriver.finders.Attribute;
 import io.appium.droiddriver.util.InstrumentationUtils;
 import io.appium.droiddriver.util.Preconditions;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
 
-import static io.appium.droiddriver.util.Strings.charSequenceToString;
-
-/**
- * A UiElement that is backed by a View.
- */
+/** A UiElement that is backed by a View. */
 public class ViewElement extends BaseUiElement<View, ViewElement> {
+  private final DroidDriverContext<View, ViewElement> context;
+  private final View view;
+  private final Map<Attribute, Object> attributes;
+  private final boolean visible;
+  private final Rect visibleBounds;
+  private final ViewElement parent;
+  private final List<ViewElement> children;
+
+  /**
+   * A snapshot of all attributes is taken at construction. The attributes of a {@code ViewElement}
+   * instance are immutable. If the underlying view is updated, a new {@code ViewElement} instance
+   * will be created in {@link io.appium.droiddriver.DroidDriver#refreshUiElementTree}.
+   */
+  public ViewElement(DroidDriverContext<View, ViewElement> context, View view, ViewElement parent) {
+    this.context = Preconditions.checkNotNull(context);
+    this.view = Preconditions.checkNotNull(view);
+    this.parent = parent;
+    AttributesSnapshot attributesSnapshot = new AttributesSnapshot(view);
+    InstrumentationUtils.runOnMainSyncWithTimeout(attributesSnapshot);
+
+    attributes = Collections.unmodifiableMap(attributesSnapshot.attribs);
+    this.visibleBounds = attributesSnapshot.visibleBounds;
+    this.visible = attributesSnapshot.visible;
+    if (attributesSnapshot.childViews == null) {
+      this.children = null;
+    } else {
+      List<ViewElement> children = new ArrayList<>(attributesSnapshot.childViews.size());
+      for (View childView : attributesSnapshot.childViews) {
+        children.add(context.getElement(childView, this));
+      }
+      this.children = Collections.unmodifiableList(children);
+    }
+  }
+
+  @Override
+  public Rect getVisibleBounds() {
+    return visibleBounds;
+  }
+
+  @Override
+  public boolean isVisible() {
+    return visible;
+  }
+
+  @Override
+  public ViewElement getParent() {
+    return parent;
+  }
+
+  @Override
+  protected List<ViewElement> getChildren() {
+    return children;
+  }
+
+  @Override
+  protected Map<Attribute, Object> getAttributes() {
+    return attributes;
+  }
+
+  @Override
+  public InputInjector getInjector() {
+    return context.getDriver().getInjector();
+  }
+
+  @Override
+  protected void doPerformAndWait(FutureTask<Boolean> futureTask, long timeoutMillis) {
+    futureTask.run();
+    InstrumentationUtils.tryWaitForIdleSync(timeoutMillis);
+  }
+
+  @Override
+  public View getRawElement() {
+    return view;
+  }
+
   private static class AttributesSnapshot implements Callable<Void> {
+    final Map<Attribute, Object> attribs = new EnumMap<>(Attribute.class);
     private final View view;
-    final Map<Attribute, Object> attribs = new EnumMap<Attribute, Object>(Attribute.class);
     boolean visible;
     Rect visibleBounds;
     List<View> childViews;
@@ -107,9 +176,7 @@ public class ViewElement extends BaseUiElement<View, ViewElement> {
     }
 
     private String getClassName() {
-      String className = view.getClass().getName();
-      return CLASS_NAME_OVERRIDES.containsKey(className) ? CLASS_NAME_OVERRIDES.get(className)
-          : className;
+      return view.getClass().getName();
     }
 
     private String getResourceId() {
@@ -168,7 +235,7 @@ public class ViewElement extends BaseUiElement<View, ViewElement> {
       }
       ViewGroup group = (ViewGroup) view;
       int childCount = group.getChildCount();
-      childViews = new ArrayList<View>(childCount);
+      childViews = new ArrayList<>(childCount);
       for (int i = 0; i < childCount; i++) {
         View child = group.getChildAt(i);
         if (child != null) {
@@ -176,105 +243,5 @@ public class ViewElement extends BaseUiElement<View, ViewElement> {
         }
       }
     }
-  }
-
-  private static final Map<String, String> CLASS_NAME_OVERRIDES = new HashMap<String, String>();
-
-  /**
-   * Typically users find the class name to use in tests using SDK tool
-   * uiautomatorviewer. This name is returned by
-   * {@link AccessibilityNodeInfo#getClassName}. If the app uses custom View
-   * classes that do not call {@link AccessibilityNodeInfo#setClassName} with
-   * the actual class name, different types of drivers see different class names
-   * (InstrumentationDriver sees the actual class name, while UiAutomationDriver
-   * sees {@link AccessibilityNodeInfo#getClassName}).
-   * <p>
-   * If tests fail with InstrumentationDriver, find the actual class name by
-   * examining app code or by calling
-   * {@link io.appium.droiddriver.DroidDriver#dumpUiElementTree}, then
-   * call this method in setUp to override it with the class name seen in
-   * uiautomatorviewer.
-   * </p>
-   * A better solution is to use resource-id instead of classname, which is an
-   * implementation detail and subject to change.
-   */
-  public static void overrideClassName(String actualClassName, String overridingClassName) {
-    CLASS_NAME_OVERRIDES.put(actualClassName, overridingClassName);
-  }
-
-  private final DroidDriverContext<View, ViewElement> context;
-  private final View view;
-  private final Map<Attribute, Object> attributes;
-  private final boolean visible;
-  private final Rect visibleBounds;
-  private final ViewElement parent;
-  private final List<ViewElement> children;
-
-  /**
-   * A snapshot of all attributes is taken at construction. The attributes of a
-   * {@code ViewElement} instance are immutable. If the underlying view is
-   * updated, a new {@code ViewElement} instance will be created in
-   * {@link io.appium.droiddriver.DroidDriver#refreshUiElementTree}.
-   */
-  public ViewElement(DroidDriverContext<View, ViewElement> context, View view, ViewElement parent) {
-    this.context = Preconditions.checkNotNull(context);
-    this.view = Preconditions.checkNotNull(view);
-    this.parent = parent;
-    AttributesSnapshot attributesSnapshot = new AttributesSnapshot(view);
-    InstrumentationUtils.runOnMainSyncWithTimeout(attributesSnapshot);
-
-    attributes = Collections.unmodifiableMap(attributesSnapshot.attribs);
-    this.visibleBounds = attributesSnapshot.visibleBounds;
-    this.visible = attributesSnapshot.visible;
-    if (attributesSnapshot.childViews == null) {
-      this.children = null;
-    } else {
-      List<ViewElement> children = new ArrayList<ViewElement>(attributesSnapshot.childViews.size());
-      for (View childView : attributesSnapshot.childViews) {
-        children.add(context.getElement(childView, this));
-      }
-      this.children = Collections.unmodifiableList(children);
-    }
-  }
-
-  @Override
-  public Rect getVisibleBounds() {
-    return visibleBounds;
-  }
-
-  @Override
-  public boolean isVisible() {
-    return visible;
-  }
-
-  @Override
-  public ViewElement getParent() {
-    return parent;
-  }
-
-  @Override
-  protected List<ViewElement> getChildren() {
-    return children;
-  }
-
-  @Override
-  protected Map<Attribute, Object> getAttributes() {
-    return attributes;
-  }
-
-  @Override
-  public InputInjector getInjector() {
-    return context.getDriver().getInjector();
-  }
-
-  @Override
-  protected void doPerformAndWait(FutureTask<Boolean> futureTask, long timeoutMillis) {
-    futureTask.run();
-    InstrumentationUtils.tryWaitForIdleSync(timeoutMillis);
-  }
-
-  @Override
-  public View getRawElement() {
-    return view;
   }
 }

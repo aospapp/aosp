@@ -16,20 +16,29 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 
 import android.graphics.MaskFilter;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.MaskFilterSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class MaskFilterSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class MaskFilterSpanTest {
+    @Test
     public void testConstructor() {
         MaskFilter mf = new MaskFilter();
         new MaskFilterSpan(mf);
         new MaskFilterSpan(null);
     }
 
+    @Test
     public void testUpdateDrawState() {
         MaskFilter mf = new MaskFilter();
         MaskFilterSpan maskFilterSpan = new MaskFilterSpan(mf);
@@ -39,15 +48,17 @@ public class MaskFilterSpanTest extends TestCase {
 
         maskFilterSpan.updateDrawState(tp);
         assertSame(mf, tp.getMaskFilter());
-
-        try {
-            maskFilterSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        MaskFilter mf = new MaskFilter();
+        MaskFilterSpan maskFilterSpan = new MaskFilterSpan(mf);
+
+        maskFilterSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testGetMaskFilter() {
         MaskFilter expected = new MaskFilter();
 

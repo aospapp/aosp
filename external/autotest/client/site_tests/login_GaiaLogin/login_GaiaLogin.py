@@ -15,22 +15,23 @@ class login_GaiaLogin(test.test):
     version = 1
 
 
-    _USERNAME = 'powerloadtest@gmail.com'
-    # TODO(achuith): Get rid of this when crbug.com/358427 is fixed.
-    _USERNAME_DISPLAY = 'power.loadtest@gmail.com'
-    _PLTP_URL = 'https://sites.google.com/a/chromium.org/dev/chromium-os' \
-                '/testing/power-testing/pltp/pltp'
+    def run_once(self, username=None, password=None):
+        if username is None:
+            username = chrome.CAP_USERNAME
 
-    def run_once(self):
-        with tempfile.NamedTemporaryFile() as pltp:
-            file_utils.download_file(self._PLTP_URL, pltp.name)
-            self._password = pltp.read().rstrip()
+        if password is None:
+            with tempfile.NamedTemporaryFile() as cap:
+                file_utils.download_file(chrome.CAP_URL, cap.name)
+                password = cap.read().rstrip()
 
-        with chrome.Chrome(gaia_login=True, username=self._USERNAME,
-                                            password=self._password) as cr:
-            if not cryptohome.is_vault_mounted(user=self._USERNAME):
+        if not password:
+          raise error.TestFail('Password not set.')
+
+        with chrome.Chrome(gaia_login=True, username=username,
+                                            password=password) as cr:
+            if not cryptohome.is_vault_mounted(user=chrome.NormalizeEmail(username)):
                 raise error.TestFail('Expected to find a mounted vault for %s'
-                                     % self._USERNAME)
+                                     % username)
             tab = cr.browser.tabs.New()
             # TODO(achuith): Use a better signal of being logged in, instead of
             # parsing accounts.google.com.
@@ -46,8 +47,8 @@ class login_GaiaLogin(test.test):
                         }
                     }
                     res;
-            ''' % self._USERNAME_DISPLAY)
+            ''' % username)
             if not res:
                 raise error.TestFail('No references to %s on accounts page.'
-                                     % self._USERNAME_DISPLAY)
+                                     % username)
             tab.Close()

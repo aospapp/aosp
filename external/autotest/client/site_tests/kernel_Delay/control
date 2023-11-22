@@ -13,7 +13,6 @@ CRITERIA = """
 Fails if udelay() returns early.
 """
 ATTRIBUTES = "suite:kernel_per-build_regression"
-SUITE = "kernel_per-build_regression"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007-2011, International Business Machines Corporation and    *
@@ -14,6 +16,8 @@ import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Date;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.util.AnnualTimeZoneRule;
@@ -38,13 +42,10 @@ public class TimeZoneRuleTest extends TestFmwk {
 
     private static final int HOUR = 60 * 60 * 1000;
 
-    public static void main(String[] args) throws Exception {
-        new TimeZoneRuleTest().run(args);
-    }
-
     /*
      * RuleBasedTimeZone test cases
      */
+    @Test
     public void TestSimpleRuleBasedTimeZone() {
         SimpleTimeZone stz = new SimpleTimeZone(-1*HOUR, "TestSTZ",
                 Calendar.SEPTEMBER, -30, -Calendar.SATURDAY, 1*HOUR, SimpleTimeZone.WALL_TIME,
@@ -206,6 +207,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Test equivalency between OlsonTimeZone and custom RBTZ representing the
      * equivalent rules in a certain time range
      */
+    @Test
     public void TestHistoricalRuleBasedTimeZone() {
         // Compare to America/New_York with equivalent RBTZ
         TimeZone ny = TimeZone.getTimeZone("America/New_York", TimeZone.TIMEZONE_ICU);
@@ -318,6 +320,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Check if transitions returned by getNextTransition/getPreviousTransition
      * are actual time transitions.
      */
+    @Test
     public void TestOlsonTransition() {
         String[] zids = getTestZIDs();
         for (int i = 0; i < zids.length; i++) {
@@ -340,6 +343,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Check if an OlsonTimeZone and its equivalent RBTZ have the exact same
      * transitions.
      */
+    @Test
     public void TestRBTZTransition() {
         int[] STARTYEARS = {
             1950,
@@ -382,6 +386,7 @@ public class TimeZoneRuleTest extends TestFmwk {
     /*
      * Test cases for HasTimeZoneRules#hasEquivalentTransitions
      */
+    @Test
     public void TestHasEquivalentTransitions() {
         // America/New_York and America/Indiana/Indianapolis are equivalent
         // since 2006
@@ -430,6 +435,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Write out time zone rules of OlsonTimeZone into VTIMEZONE format, create a new
      * VTimeZone from the VTIMEZONE data, then compare transitions
      */
+    @Test
     public void TestVTimeZoneRoundTrip() {
         long startTime = getUTCMillis(1850, Calendar.JANUARY, 1);
         long endTime = getUTCMillis(2050, Calendar.JANUARY, 1);
@@ -503,6 +509,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Write out time zone rules of OlsonTimeZone after a cutoff date into VTIMEZONE format,
      * create a new VTimeZone from the VTIMEZONE data, then compare transitions
      */
+    @Test
     public void TestVTimeZoneRoundTripPartial() {
         long[] startTimes = new long[] {
             getUTCMillis(1900, Calendar.JANUARY, 1),
@@ -562,6 +569,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * format and create a new VTimeZone from the VTIMEZONE data, then make sure the raw offset
      * and DST savings are same in these two time zones.
      */
+    @Test
     public void TestVTimeZoneSimpleWrite() {
         long[] testTimes = new long[] {
                 getUTCMillis(2006, Calendar.JANUARY, 1),
@@ -614,6 +622,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Write out time zone rules of OlsonTimeZone into VTIMEZONE format with RFC2445 header TZURL and
      * LAST-MODIFIED, create a new VTimeZone from the VTIMEZONE data to see if the headers are preserved.
      */
+    @Test
     public void TestVTimeZoneHeaderProps() {
         String tzid = "America/Chicago";
         String tzurl = "http://source.icu-project.org";
@@ -688,6 +697,7 @@ public class TimeZoneRuleTest extends TestFmwk {
      * Extract simple rules from an OlsonTimeZone and make sure the rule format matches
      * the expected format.
      */
+    @Test
     public void TestGetSimpleRules() {
         long[] testTimes = new long[] {
                 getUTCMillis(1970, Calendar.JANUARY, 1),
@@ -735,6 +745,7 @@ public class TimeZoneRuleTest extends TestFmwk {
     /*
      * API coverage tests for TimeZoneRule 
      */
+    @Test
     public void TestTimeZoneRuleCoverage() {
         long time1 = getUTCMillis(2005, Calendar.JULY, 4);
         long time2 = getUTCMillis(2015, Calendar.JULY, 4);
@@ -1052,6 +1063,7 @@ public class TimeZoneRuleTest extends TestFmwk {
     /*
      * API coverage test for BasicTimeZone APIs in SimpleTimeZone
      */
+    @Test
     public void TestSimpleTimeZoneCoverage() {
 
         long time1 = getUTCMillis(1990, Calendar.JUNE, 1);
@@ -1115,6 +1127,7 @@ public class TimeZoneRuleTest extends TestFmwk {
     /*
      * API coverage test for VTimeZone
      */
+    @Test
     public void TestVTimeZoneCoverage() {
         final String TZID = "Europe/Moscow";
         BasicTimeZone otz = (BasicTimeZone)TimeZone.getTimeZone(TZID, TimeZone.TIMEZONE_ICU);
@@ -1225,6 +1238,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestVTimeZoneParse() {
         // Trying to create VTimeZone from empty data
         StringReader r = new StringReader("");
@@ -1297,6 +1311,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestT6216() {
         // Test case in #6216
         String tokyoTZ =
@@ -1414,6 +1429,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestT6669() {
         // getNext/PreviousTransition implementation in SimpleTimeZone
         // used to use a bad condition for detecting if DST is enabled or not.
@@ -1443,6 +1459,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         }
     }
     
+    @Test
     public void TestBasicTimeZoneCoverage() {
         TimeZone tz = TimeZone.getTimeZone("PST");
         if (tz instanceof BasicTimeZone) {
@@ -1645,7 +1662,7 @@ public class TimeZoneRuleTest extends TestFmwk {
     };
 
     private String[] getTestZIDs() {
-        if (getInclusion() > 5) {
+        if (TestFmwk.getExhaustiveness() > 5) {
             return TimeZone.getAvailableIDs();
         }
         return TESTZIDS;
@@ -1662,7 +1679,7 @@ public class TimeZoneRuleTest extends TestFmwk {
         if (idx < TESTYEARS.length) {
             loyear = TESTYEARS[idx][0];
             hiyear = TESTYEARS[idx][1];
-        } else if (idx == TESTYEARS.length && getInclusion() > 5) {
+        } else if (idx == TESTYEARS.length && TestFmwk.getExhaustiveness() > 5) {
             loyear = 1850;
             hiyear = 2050;
         } else {
@@ -1791,6 +1808,7 @@ public class TimeZoneRuleTest extends TestFmwk {
 
     // Test case for ticket#8943
     // RuleBasedTimeZone#getOffsets throws NPE
+    @Test
     public void TestT8943() {
         String id = "Ekaterinburg Time";
         String stdName = "Ekaterinburg Standard Time";

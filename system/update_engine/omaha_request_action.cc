@@ -40,7 +40,7 @@
 #include "update_engine/common/platform_constants.h"
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/connection_manager.h"
+#include "update_engine/connection_manager_interface.h"
 #include "update_engine/metrics.h"
 #include "update_engine/metrics_utils.h"
 #include "update_engine/omaha_request_params.h"
@@ -76,6 +76,14 @@ static const char* kTagDisableP2PForSharing = "DisableP2PForSharing";
 static const char* kTagPublicKeyRsa = "PublicKeyRsa";
 
 static const char* kOmahaUpdaterVersion = "0.1.0.0";
+
+// X-GoogleUpdate headers.
+static const char* kXGoogleUpdateInteractivity = "X-GoogleUpdate-Interactivity";
+static const char* kXGoogleUpdateAppId = "X-GoogleUpdate-AppId";
+static const char* kXGoogleUpdateUpdater = "X-GoogleUpdate-Updater";
+
+// updatecheck attributes (without the underscore prefix).
+static const char* kEolAttr = "eol";
 
 namespace {
 
@@ -250,11 +258,18 @@ string GetAppXml(const OmahaEvent* event,
   app_cohort_args += GetCohortArgXml(system_state->prefs(),
                                      "cohortname", kPrefsOmahaCohortName);
 
+  string fingerprint_arg;
+  if (!params->os_build_fingerprint().empty()) {
+    fingerprint_arg =
+        "fingerprint=\"" + XmlEncodeWithDefault(params->os_build_fingerprint(), "") + "\" ";
+  }
+
   string app_xml = "    <app "
       "appid=\"" + XmlEncodeWithDefault(params->GetAppId(), "") + "\" " +
       app_cohort_args +
       app_versions +
       app_channels +
+      fingerprint_arg +
       "lang=\"" + XmlEncodeWithDefault(params->app_lang(), "en-US") + "\" " +
       "board=\"" + XmlEncodeWithDefault(params->os_board(), "") + "\" " +
       "hardware_class=\"" + XmlEncodeWithDefault(params->hwid(), "") + "\" " +
@@ -339,6 +354,7 @@ struct OmahaParserData {
   bool app_cohortname_set = false;
   string updatecheck_status;
   string updatecheck_poll_interval;
+  map<string, string> updatecheck_attrs;
   string daystart_elapsed_days;
   string daystart_elapsed_seconds;
   vector<string> url_codebase;
@@ -386,6 +402,12 @@ void ParserHandlerStart(void* user_data, const XML_Char* element,
     // There is only supposed to be a single <updatecheck> element.
     data->updatecheck_status = attrs["status"];
     data->updatecheck_poll_interval = attrs["PollInterval"];
+    // Omaha sends arbitrary key-value pairs as extra attributes starting with
+    // an underscore.
+    for (const auto& attr : attrs) {
+      if (!attr.first.empty() && attr.first[0] == '_')
+        data->updatecheck_attrs[attr.first.substr(1)] = attr.second;
+    }
   } else if (data->current_path == "/response/daystart") {
     // Get the install-date.
     data->daystart_elapsed_days = attrs["elapsed_days"];
@@ -595,9 +617,10 @@ int OmahaRequestAction::GetInstallDate(SystemState* system_state) {
   // inspecting the timestamp of when OOBE happened.
 
   Time time_of_oobe;
-  if (!system_state->hardware()->IsOOBEComplete(&time_of_oobe)) {
+  if (!system_state->hardware()->IsOOBEEnabled() ||
+      !system_state->hardware()->IsOOBEComplete(&time_of_oobe)) {
     LOG(INFO) << "Not generating Omaha InstallData as we have "
-              << "no prefs file and OOBE is not complete.";
+              << "no prefs file and OOBE is not complete or not enabled.";
     return -1;
   }
 
@@ -637,6 +660,15 @@ void OmahaRequestAction::PerformAction() {
                                     ping_roll_call_days_,
                                     GetInstallDate(system_state_),
                                     system_state_));
+
+  // Set X-GoogleUpdate headers.
+  http_fetcher_->SetHeader(kXGoogleUpdateInteractivity,
+                           params_->interactive() ? "fg" : "bg");
+  http_fetcher_->SetHeader(kXGoogleUpdateAppId, params_->GetAppId());
+  http_fetcher_->SetHeader(
+      kXGoogleUpdateUpdater,
+      base::StringPrintf(
+          "%s-%s", constants::kOmahaUpdaterID, kOmahaUpdaterVersion));
 
   http_fetcher_->SetPostData(request_post.data(), request_post.size(),
                              kHttpContentTypeTextXml);
@@ -747,6 +779,9 @@ bool OmahaRequestAction::ParseResponse(OmahaParserData* parser_data,
     PersistCohortData(kPrefsOmahaCohortHint, parser_data->app_cohorthint);
   if (parser_data->app_cohortname_set)
     PersistCohortData(kPrefsOmahaCohortName, parser_data->app_cohortname);
+
+  // Parse the updatecheck attributes.
+  PersistEolStatus(parser_data->updatecheck_attrs);
 
   if (!ParseStatus(parser_data, output_object, completer))
     return false;
@@ -904,11 +939,6 @@ void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
   // Events are best effort transactions -- assume they always succeed.
   if (IsEvent()) {
     CHECK(!HasOutputPipe()) << "No output pipe allowed for event requests.";
-    if (event_->result == OmahaEvent::kResultError && successful &&
-        system_state_->hardware()->IsOfficialBuild()) {
-      LOG(INFO) << "Signalling Crash Reporter.";
-      utils::ScheduleCrashReporterUpload();
-    }
     completer.set_code(ErrorCode::kSuccess);
     return;
   }
@@ -1028,6 +1058,16 @@ void OmahaRequestAction::CompleteProcessing() {
   ScopedActionCompleter completer(processor_, this);
   OmahaResponse& output_object = const_cast<OmahaResponse&>(GetOutputObject());
   PayloadStateInterface* payload_state = system_state_->payload_state();
+
+  if (system_state_->hardware()->IsOOBEEnabled() &&
+      !system_state_->hardware()->IsOOBEComplete(nullptr) &&
+      output_object.deadline.empty() &&
+      params_->app_version() != "ForcedUpdate") {
+    output_object.update_exists = false;
+    LOG(INFO) << "Ignoring non-critical Omaha updates until OOBE is done.";
+    completer.set_code(ErrorCode::kNonCriticalUpdateInOOBE);
+    return;
+  }
 
   if (ShouldDeferDownload(&output_object)) {
     output_object.update_exists = false;
@@ -1191,7 +1231,7 @@ OmahaRequestAction::IsWallClockBasedWaitingSatisfied(
      return kWallClockWaitDoneAndUpdateCheckWaitNotRequired;
     }
   } else {
-    update_first_seen_at = Time::Now();
+    update_first_seen_at = system_state_->clock()->GetWallclockTime();
     update_first_seen_at_int = update_first_seen_at.ToInternalValue();
     if (system_state_->prefs()->SetInt64(kPrefsUpdateFirstSeenAt,
                                          update_first_seen_at_int)) {
@@ -1208,9 +1248,10 @@ OmahaRequestAction::IsWallClockBasedWaitingSatisfied(
     }
   }
 
-  TimeDelta elapsed_time = Time::Now() - update_first_seen_at;
-  TimeDelta max_scatter_period = TimeDelta::FromDays(
-      output_object->max_days_to_scatter);
+  TimeDelta elapsed_time =
+      system_state_->clock()->GetWallclockTime() - update_first_seen_at;
+  TimeDelta max_scatter_period =
+      TimeDelta::FromDays(output_object->max_days_to_scatter);
 
   LOG(INFO) << "Waiting Period = "
             << utils::FormatSecs(params_->waiting_period().InSeconds())
@@ -1380,6 +1421,17 @@ bool OmahaRequestAction::PersistCohortData(
   return true;
 }
 
+bool OmahaRequestAction::PersistEolStatus(const map<string, string>& attrs) {
+  auto eol_attr = attrs.find(kEolAttr);
+  if (eol_attr != attrs.end()) {
+    return system_state_->prefs()->SetString(kPrefsOmahaEolStatus,
+                                             eol_attr->second);
+  } else if (system_state_->prefs()->Exists(kPrefsOmahaEolStatus)) {
+    return system_state_->prefs()->Delete(kPrefsOmahaEolStatus);
+  }
+  return true;
+}
+
 void OmahaRequestAction::ActionCompleted(ErrorCode code) {
   // We only want to report this on "update check".
   if (ping_only_ || event_ != nullptr)
@@ -1471,8 +1523,8 @@ bool OmahaRequestAction::ShouldIgnoreUpdate(
 }
 
 bool OmahaRequestAction::IsUpdateAllowedOverCurrentConnection() const {
-  NetworkConnectionType type;
-  NetworkTethering tethering;
+  ConnectionType type;
+  ConnectionTethering tethering;
   ConnectionManagerInterface* connection_manager =
       system_state_->connection_manager();
   if (!connection_manager->GetConnectionProperties(&type, &tethering)) {
@@ -1482,7 +1534,7 @@ bool OmahaRequestAction::IsUpdateAllowedOverCurrentConnection() const {
   }
   bool is_allowed = connection_manager->IsUpdateAllowedOver(type, tethering);
   LOG(INFO) << "We are connected via "
-            << ConnectionManager::StringForConnectionType(type)
+            << connection_utils::StringForConnectionType(type)
             << ", Updates allowed: " << (is_allowed ? "Yes" : "No");
   return is_allowed;
 }

@@ -16,11 +16,13 @@ static SkScalar byte_to_scale(U8CPU byte) {
     }
 }
 
-SkColorFilter* SkColorMatrixFilter::CreateLightingFilter(SkColor mul, SkColor add) {
-    if (0 == add) {
-        return SkColorFilter::CreateModeFilter(mul | SK_ColorBLACK,
-                                               SkXfermode::Mode::kModulate_Mode);
+sk_sp<SkColorFilter> SkColorMatrixFilter::MakeLightingFilter(SkColor mul, SkColor add) {
+    const SkColor opaqueAlphaMask = SK_ColorBLACK;
+    // omit the alpha and compare only the RGB values
+    if (0 == (add & ~opaqueAlphaMask)) {
+        return SkColorFilter::MakeModeFilter(mul | opaqueAlphaMask, SkBlendMode::kModulate);
     }
+
     SkColorMatrix matrix;
     matrix.setScale(byte_to_scale(SkColorGetR(mul)),
                     byte_to_scale(SkColorGetG(mul)),
@@ -30,5 +32,5 @@ SkColorFilter* SkColorMatrixFilter::CreateLightingFilter(SkColor mul, SkColor ad
                          SkIntToScalar(SkColorGetG(add)),
                          SkIntToScalar(SkColorGetB(add)),
                          0);
-    return SkColorMatrixFilter::Create(matrix);
+    return SkColorFilter::MakeMatrixFilterRowMajor255(matrix.fMat);
 }

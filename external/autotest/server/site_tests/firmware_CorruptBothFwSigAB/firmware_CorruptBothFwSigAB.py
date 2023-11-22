@@ -36,7 +36,10 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
                           'mainfw_type': 'developer' if dev_mode else 'normal',
                           }))
         self.faft_client.bios.corrupt_sig(('a', 'b'),)
-        self.switcher.mode_aware_reboot()
+        self.switcher.simple_reboot()
+        if not dev_mode:
+            self.switcher.bypass_rec_mode()
+        self.switcher.wait_for_client()
 
         logging.info("Expected recovery boot and set fwb_tries flag.")
         self.check_state((self.checkers.crossystem_checker, {
@@ -46,7 +49,10 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
                               vboot.RECOVERY_REASON['RW_VERIFY_KEYBLOCK']),
                           }))
         self.faft_client.system.set_try_fw_b()
-        self.switcher.mode_aware_reboot()
+        self.switcher.simple_reboot()
+        if not dev_mode:
+            self.switcher.bypass_rec_mode()
+        self.switcher.wait_for_client()
 
         logging.info("Still expected recovery boot and restore firmware.")
         self.check_state((self.checkers.crossystem_checker, {

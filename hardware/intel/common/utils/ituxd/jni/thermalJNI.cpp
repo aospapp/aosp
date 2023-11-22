@@ -33,6 +33,8 @@ namespace android {
 #define THERMAL_ZONE_PATH "/sys/class/thermal/thermal_zone"
 #define COOLING_DEV_PATH  "/sys/class/thermal/cooling_device"
 
+#define UNUSED(expr) (void)(expr)
+
 static int readFromFile(const char *path, char* buf, size_t size, bool throwError)
 {
     if (!path)
@@ -130,6 +132,7 @@ static jboolean isFileExists(JNIEnv* env, jobject obj, jstring jPath)
 {
     const char *path = NULL;
     jboolean ret = true;
+    UNUSED(obj);
 
     path = jPath ? env->GetStringUTFChars(jPath, NULL) : NULL;
     if (!path) {
@@ -151,6 +154,7 @@ static jint getThermalZoneIndex(JNIEnv* env, jobject obj, jstring jType)
 {
     int ret;
     const char *type = NULL;
+    UNUSED(obj);
 
     type = jType ? env->GetStringUTFChars(jType, NULL) : NULL;
     if (!type) {
@@ -167,6 +171,7 @@ static jint getThermalZoneIndexContains(JNIEnv* env, jobject obj, jstring jType)
 {
     int ret;
     const char *type = NULL;
+    UNUSED(obj);
 
     type = jType ? env->GetStringUTFChars(jType, NULL) : NULL;
     if (!type) {
@@ -183,6 +188,7 @@ static jint getCoolingDeviceIndex(JNIEnv* env, jobject obj, jstring jType)
 {
     int ret;
     const char *type = NULL;
+    UNUSED(obj);
 
     type = jType ? env->GetStringUTFChars(jType, NULL) : NULL;
     if (!type) {
@@ -199,6 +205,7 @@ static jint getCoolingDeviceIndexContains(JNIEnv* env, jobject obj, jstring jTyp
 {
     int ret;
     const char *type = NULL;
+    UNUSED(obj);
 
     type = jType ? env->GetStringUTFChars(jType, NULL) : NULL;
     if (!type) {
@@ -215,6 +222,7 @@ static jint writeSysfs(JNIEnv* env, jobject obj, jstring jPath, jint jVal)
 {
     int ret;
     const char *path = NULL;
+    UNUSED(obj);
 
     path = jPath ? env->GetStringUTFChars(jPath, NULL) : NULL;
     if (!path) {
@@ -232,6 +240,7 @@ static jstring readSysfs(JNIEnv* env, jobject obj, jstring jPath)
     const char *path = NULL;
     const int SIZE = 512;
     char buf[SIZE];
+    UNUSED(obj);
 
     path = jPath ? env->GetStringUTFChars(jPath, NULL) : NULL;
     if (!path) {
@@ -258,6 +267,7 @@ static jint readSysfsTemp(JNIEnv* env, jobject obj, jstring jPath)
     // absolute zero millidegree C.
     const int ABS_ZERO = -273000;
     int ret;
+    UNUSED(obj);
 
     path = jPath ? env->GetStringUTFChars(jPath, NULL) : NULL;
     if (!path) {

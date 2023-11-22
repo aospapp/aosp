@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontaktpersonas ārkārtas situācijām"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Kontaktpersonas pievienošana"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Nevarēja atrast kontaktpersonu atlasītāju."</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Nevar parādīt kontaktpersonu."</string>
     <string name="remove_contact" msgid="6934983445723096759">"Vai noņemt kontaktpersonu <xliff:g id="CONTACT_NAME">%1$s</xliff:g> no ārkārtas situāciju kontaktpersonām?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Noņemt kontaktpersonu"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Nevar pareizi nolasīt kontaktinformāciju."</string>
     <string name="remove" msgid="1243949503772376064">"Noņemt"</string>
     <string name="cancel" msgid="7401575239009060939">"Atcelt"</string>
     <string name="ok" msgid="163967937451981024">"Labi"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Ārkārtas informācija"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Šeit ievadītā informācija var palīdzēt tiem, kas pirmie rīkosies ārkārtas situācijā. Tā tiks saglabāta tikai jūsu ierīcē, un ikviens varēs to izlasīt ārkārtas numuru sastādītāja ekrānā, neatbloķējot jūsu tālruni."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Turpināt"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Ārkārtas informācija nav sniegta"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Nav informācijas par tālruņa īpašnieku."</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Ja šis ir jūsu tālrunis, pieskarieties zīmuļa ikonai, lai pievienotu informāciju, kas tiks parādīta šeit ārkārtas gadījumā."</string>
     <string name="clear_all" msgid="8899013032870561633">"Notīrīt visu"</string>
     <string name="clear" msgid="3648880442502887163">"Notīrīt"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vai notīrīt visu informāciju un kontaktpersonas?"</string>

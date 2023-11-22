@@ -18,6 +18,9 @@
 #include "VideoDecoderTrace.h"
 #include <string.h>
 
+#define MAX_PICTURE_WIDTH_MPEG2 1920
+#define MAX_PICTURE_HEIGHT_MPEG2 1088
+
 VideoDecoderMPEG2::VideoDecoderMPEG2(const char *mimeType)
     : VideoDecoderBase(mimeType, VBP_MPEG2),
     mBufferIDs(NULL),
@@ -47,6 +50,11 @@ Decode_Status VideoDecoderMPEG2::start(VideoConfigBuffer *buffer) {
             true, // config flag
             (void**)&data);
     CHECK_STATUS("VideoDecoderBase::parseBuffer");
+
+    if (data->codec_data->frame_width > MAX_PICTURE_WIDTH_MPEG2 ||
+            data->codec_data->frame_height > MAX_PICTURE_HEIGHT_MPEG2) {
+        return DECODE_INVALID_DATA;
+    }
 
     status = startVA(data);
     return status;
@@ -84,6 +92,11 @@ Decode_Status VideoDecoderMPEG2::decode(VideoDecodeBuffer *buffer) {
             false,        // config flag
             (void**)&data);
     CHECK_STATUS("VideoDecoderBase::parseBuffer");
+
+    if (data->codec_data->frame_width > MAX_PICTURE_WIDTH_MPEG2 ||
+            data->codec_data->frame_height > MAX_PICTURE_HEIGHT_MPEG2) {
+        return DECODE_INVALID_DATA;
+    }
 
     if (!mVAStarted) {
         status = startVA(data);

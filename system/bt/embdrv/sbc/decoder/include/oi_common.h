@@ -1,7 +1,8 @@
 /******************************************************************************
  *
  *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights reserved.
+ *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights
+ *                        reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,16 +29,15 @@
  * files for the specific modules of the protocol stack being used.
  */
 
-/**********************************************************************************
+/*******************************************************************************
   $Revision: #1 $
-***********************************************************************************/
+ ******************************************************************************/
 
 #include "oi_bt_spec.h"
-#include "oi_stddefs.h"
-#include "oi_status.h"
-#include "oi_time.h"
 #include "oi_osinterface.h"
-
+#include "oi_status.h"
+#include "oi_stddefs.h"
+#include "oi_time.h"
 
 /*****************************************************************************/
 #endif /* _OI_COMMON_H */

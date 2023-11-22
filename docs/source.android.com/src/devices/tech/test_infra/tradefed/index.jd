@@ -32,7 +32,7 @@ more Android devices using ddmlib (the library behind DDMS) over adb.</p>
 if you want to jump right in and get started, you can head straight for the
 <a href="/devices/tech/test_infra/tradefed/fundamentals/index.html">Start Here</a> page.</p>
 
-<h2>Features</h2>
+<h2 id="features">Features</h2>
 <ul>
 <li>modular, flexible, scalable design</li>
 <li>has built in support for running many different types of Android tests:
@@ -43,7 +43,7 @@ if you want to jump right in and get started, you can head straight for the
 <li>supports scheduling and running tests on multiple devices in parallel</li>
 </ul>
 
-<h2>Sample Trade Federation Usecases</h2>
+<h2 id="usecases">Sample Trade Federation Usecases</h2>
 <p>Trade Federation's modularity makes it straightforward to slot into environments with existing
 build, test, and reporting infrastructures.  We list below a few demonstrative
 usecases where tradefed could enable efficient, scalable test practices.</p>
@@ -58,7 +58,7 @@ aspects of the system or the framework.</p>
 options in the case of a set of test failures.  Despite these differences, Trade Federation can
 help make each of their test processes efficient, flexible, and scalable.</p>
 
-<h3>Device OEM</h3>
+<h3 id="oem">Device OEM</h3>
 <p>A Device OEM builds hardware, and will often tweak the Android system and frameworks to run well
 on that hardware.  The OEM might strive to accomplish those goals while retaining stability
 and performance at the hardware and system levels, and making sure the framework changes don't break
@@ -78,7 +78,7 @@ result reporting modules to tie into existing test-result repositories, or to re
 directly (for instance,
 <a href="/reference/com/android/tradefed/result/EmailResultReporter.html">by email</a>).</p>
 
-<h3>App Developer</h3>
+<h3 id="developer">App Developer</h3>
 <p>An Application Developer builds an app which needs to run well across a variety of platform
 versions and a variety of devices.  If an issue comes up on a particular platform version and/or
 device, the only remedy is to add a workaround and move on.  For larger developers, the test
@@ -97,7 +97,7 @@ classify each test result by the type of device that was used for that test.  Th
 potentially generate a 2-dimensional (or multi-dimensional) compatibility matrix for every
 build of the application.</p>
 
-<h3>Testing Service</h3>
+<h3 id="testing">Testing Service</h3>
 <p>A Test Service might, for instance, allow app developers to submit apps and run tests on devices
 instrumented with power-measurement tools to determine power usage for the app.  This differs from
 the prior two usecases in that the service builder does not control the devices or the applications

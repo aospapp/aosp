@@ -20,8 +20,6 @@
     <string name="browse_title"><![CDATA[Leanback launcher jank test application]]></string>
     <string name="error">Error</string>
     <string name="ok">OK</string>
-    <string name="grid_item_template">Item %1$d</string>
-    <string name="settings">Settings</string>
 
     <!-- Error messages -->
     <string name="error_fragment_message">An error occurred</string>

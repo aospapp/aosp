@@ -60,9 +60,10 @@ AudioSource::AudioSource(
       mStartTimeUs(0),
       mMaxAmplitude(0),
       mPrevSampleTimeUs(0),
-      mFirstSampleTimeUs(-1ll),
       mInitialReadTimeUs(0),
       mNumFramesReceived(0),
+      mNumFramesSkipped(0),
+      mNumFramesLost(0),
       mNumClientOwnedBuffers(0) {
     ALOGV("sampleRate: %u, outSampleRate: %u, channelCount: %u",
             sampleRate, outSampleRate, channelCount);
@@ -277,12 +278,8 @@ status_t AudioSource::read(
     }
 
     if (mSampleRate != mOutSampleRate) {
-        if (mFirstSampleTimeUs < 0) {
-            mFirstSampleTimeUs = timeUs;
-        }
-        timeUs = mFirstSampleTimeUs + (timeUs - mFirstSampleTimeUs)
-                * (int64_t)mSampleRate / (int64_t)mOutSampleRate;
-        buffer->meta_data()->setInt64(kKeyTime, timeUs);
+            timeUs *= (int64_t)mSampleRate / (int64_t)mOutSampleRate;
+            buffer->meta_data()->setInt64(kKeyTime, timeUs);
     }
 
     *out = buffer;
@@ -300,11 +297,27 @@ void AudioSource::signalBufferReturned(MediaBuffer *buffer) {
 }
 
 status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
-    int64_t timeUs = systemTime() / 1000ll;
-    // Estimate the real sampling time of the 1st sample in this buffer
-    // from AudioRecord's latency. (Apply this adjustment first so that
-    // the start time logic is not affected.)
-    timeUs -= mRecord->latency() * 1000LL;
+    int64_t timeUs, position, timeNs;
+    ExtendedTimestamp ts;
+    ExtendedTimestamp::Location location;
+    const int32_t usPerSec = 1000000;
+
+    if (mRecord->getTimestamp(&ts) == OK &&
+            ts.getBestTimestamp(&position, &timeNs, ExtendedTimestamp::TIMEBASE_MONOTONIC,
+            &location) == OK) {
+        // Use audio timestamp.
+        timeUs = timeNs / 1000 -
+                (position - mNumFramesSkipped -
+                mNumFramesReceived + mNumFramesLost) * usPerSec / mSampleRate;
+    } else {
+        // This should not happen in normal case.
+        ALOGW("Failed to get audio timestamp, fallback to use systemclock");
+        timeUs = systemTime() / 1000ll;
+        // Estimate the real sampling time of the 1st sample in this buffer
+        // from AudioRecord's latency. (Apply this adjustment first so that
+        // the start time logic is not affected.)
+        timeUs -= mRecord->latency() * 1000LL;
+    }
 
     ALOGV("dataCallbackTimestamp: %" PRId64 " us", timeUs);
     Mutex::Autolock autoLock(mLock);
@@ -313,10 +326,15 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
         return OK;
     }
 
+    const size_t bufferSize = audioBuffer.size;
+
     // Drop retrieved and previously lost audio data.
     if (mNumFramesReceived == 0 && timeUs < mStartTimeUs) {
         (void) mRecord->getInputFramesLost();
-        ALOGV("Drop audio data at %" PRId64 "/%" PRId64 " us", timeUs, mStartTimeUs);
+        int64_t receievedFrames = bufferSize / mRecord->frameSize();
+        ALOGV("Drop audio data(%" PRId64 " frames) at %" PRId64 "/%" PRId64 " us",
+                receievedFrames, timeUs, mStartTimeUs);
+        mNumFramesSkipped += receievedFrames;
         return OK;
     }
 
@@ -325,11 +343,7 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
         // Initial delay
         if (mStartTimeUs > 0) {
             mStartTimeUs = timeUs - mStartTimeUs;
-        } else {
-            // Assume latency is constant.
-            mStartTimeUs += mRecord->latency() * 1000;
         }
-
         mPrevSampleTimeUs = mStartTimeUs;
     }
 
@@ -359,6 +373,7 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
         MediaBuffer *lostAudioBuffer = new MediaBuffer(bufferSize);
         memset(lostAudioBuffer->data(), 0, bufferSize);
         lostAudioBuffer->set_range(0, bufferSize);
+        mNumFramesLost += bufferSize / mRecord->frameSize();
         queueInputBuffer_l(lostAudioBuffer, timeUs);
     }
 
@@ -367,7 +382,6 @@ status_t AudioSource::dataCallback(const AudioRecord::Buffer& audioBuffer) {
         return OK;
     }
 
-    const size_t bufferSize = audioBuffer.size;
     MediaBuffer *buffer = new MediaBuffer(bufferSize);
     memcpy((uint8_t *) buffer->data(),
             audioBuffer.i16, audioBuffer.size);

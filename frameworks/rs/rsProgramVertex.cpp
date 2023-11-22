@@ -18,9 +18,8 @@
 #include "rsProgramVertex.h"
 #include "rsMatrix4x4.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+using android::renderscript::ProgramVertex;
+using android::renderscript::ProgramVertexState;
 
 ProgramVertex::ProgramVertex(Context *rsc, const char * shaderText, size_t shaderLength,
                              const char** textureNames, size_t textureNamesCount, const size_t *textureNamesLength,
@@ -252,5 +251,5 @@ RsProgramVertex rsi_ProgramVertexCreate(Context *rsc, const char * shaderText, s
     return pv;
 }
 
-}
-}
+} // namespace renderscript
+} // namespace android

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informazioni per le emergenze"</string>
     <string name="edit_info" msgid="5973929805855224805">"Modifica informazioni per le emergenze"</string>
-    <string name="tab_title_info" msgid="1402033103294855812">"Informazioni"</string>
+    <string name="tab_title_info" msgid="1402033103294855812">"Dati"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Contatti"</string>
     <string name="name" msgid="4286267457738861977">"Nome"</string>
     <string name="unknown_name" msgid="2834802479170495056">"Sconosciuto"</string>
@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Contatti di emergenza"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Aggiungi contatto"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Impossibile trovare il selettore di contatti"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Impossibile mostrare il contatto"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Rimuovere <xliff:g id="CONTACT_NAME">%1$s</xliff:g> dai contatti di emergenza?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Rimuovi il contatto"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Impossibile leggere correttamente le informazioni di contatto"</string>
     <string name="remove" msgid="1243949503772376064">"Rimuovi"</string>
     <string name="cancel" msgid="7401575239009060939">"Annulla"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Informazioni per le emergenze"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Le informazioni inserite qui possono essere d\'aiuto ai primi soccorritori in caso di emergenza. Vengono memorizzate soltanto sul dispositivo e chiunque può leggerle durante la chiamata di emergenza senza sbloccare il telefono."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Continua"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Nessuna informazione fornita per le emergenze"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Nessuna informazione sul proprietario del telefono"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Se questo è il tuo telefono, tocca l\'icona a forma di matita per aggiungere informazioni che verranno visualizzate qui in caso di emergenza"</string>
     <string name="clear_all" msgid="8899013032870561633">"Cancella tutto"</string>
     <string name="clear" msgid="3648880442502887163">"Cancella"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Cancellare tutte le informazioni e i contatti?"</string>

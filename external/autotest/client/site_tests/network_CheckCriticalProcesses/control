@@ -5,7 +5,6 @@
 AUTHOR = 'pstew, quiche, wiley'
 NAME = 'network_CheckCriticalProcesses'
 ATTRIBUTES = "suite:bvt-cq, suite:network_nightly, subsystem:network"
-SUITE = 'bvt-cq, network_nightly'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
@@ -18,9 +17,9 @@ It fails if any of these are not running at the time of the test.
 
 NETWORK_CRITICAL_PROCESSES = [
     'dbus-daemon',
-    'netfilter-queue',
+    'netfilter-queue|conntrackd',
     'shill',
-    'udevd',
+    'udevd|systemd-udevd',
     'update_engine',
     'wpa_supplicant',
     ]

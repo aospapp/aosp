@@ -21,6 +21,7 @@ import java.net.CookieStore;
 import java.net.InMemoryCookieStore;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +35,8 @@ public class CookiesMCompatibilityTest extends AbstractCookiesTest {
     // http://b/26456024
     public void testCookiesWithoutLeadingPeriod() throws Exception {
         CookieManager cm = new CookieManager(createCookieStore(), null);
-        Map<String, List<String>> responseHeaders = new HashMap<>();
-        List<String> list = new ArrayList<String>();
-        list.add("a=b; domain=chargepoint.com");
-        responseHeaders.put("Set-Cookie", list);
+        Map<String, List<String>> responseHeaders = Collections.singletonMap("Set-Cookie",
+                Collections.singletonList("a=b; domain=chargepoint.com"));
 
         URI uri = new URI("http://services.chargepoint.com");
         cm.put(uri, responseHeaders);
@@ -53,16 +52,14 @@ public class CookiesMCompatibilityTest extends AbstractCookiesTest {
         CookieManager cm = new CookieManager(createCookieStore(), null);
         URI uri = new URI("http://services.chargepoint.com");
         List<String> list = new ArrayList<>();
-        Map<String, List<String>> responseHeaders = new HashMap<>();
-        list.add("b=c; domain=.chargepoint.com;");
-        responseHeaders.put("Set-Cookie", list);
+        Map<String, List<String>> responseHeaders = Collections.singletonMap("Set-Cookie",
+                Collections.singletonList("b=c; domain=.chargepoint.com;"));
         cm.put(uri, responseHeaders);
         Map<String, List<String>> cookies = cm.get(
                 new URI("https://webservices.chargepoint.com/foo"),
                 responseHeaders);
 
-        assertEquals(1, cookies.size());
         List<String> cookieList = cookies.values().iterator().next();
-        assertEquals("b=c", cookieList.get(0));
+        assertEquals(Collections.singletonList("b=c"), cookieList);
     }
 }

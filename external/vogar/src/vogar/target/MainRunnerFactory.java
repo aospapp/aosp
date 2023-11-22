@@ -26,12 +26,12 @@ import vogar.monitor.TargetMonitor;
 public class MainRunnerFactory implements RunnerFactory {
 
     @Override @Nullable
-    public Runner newRunner(TargetMonitor monitor, String qualification,
+    public TargetRunner newRunner(TargetMonitor monitor, String qualification,
             Class<?> klass, AtomicReference<String> skipPastReference,
             TestEnvironment testEnvironment, int timeoutSeconds, boolean profile,
             String[] args) {
         if (new ClassAnalyzer(klass).hasMethod(true, void.class, "main", String[].class)) {
-            return new MainRunner(monitor, klass, args);
+            return new MainTargetRunner(monitor, klass, args);
         } else {
             return null;
         }

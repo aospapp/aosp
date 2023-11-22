@@ -18,6 +18,7 @@
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/opensslv.h>
 #include <openssl/pkcs12.h>
 #include <openssl/x509v3.h>
 #ifndef OPENSSL_NO_ENGINE
@@ -37,6 +38,12 @@
 #include "tls.h"
 #include "tls_openssl.h"
 
+#if !defined(CONFIG_FIPS) &&                             \
+    (defined(EAP_FAST) || defined(EAP_FAST_DYNAMIC) ||   \
+     defined(EAP_SERVER_FAST))
+#define OPENSSL_NEED_EAP_FAST_PRF
+#endif
+
 #if defined(OPENSSL_IS_BORINGSSL)
 /* stack_index_t is the return type of OpenSSL's sk_XXX_num() functions. */
 typedef size_t stack_index_t;
@@ -51,10 +58,13 @@ typedef int stack_index_t;
 #endif /* OPENSSL_NO_TLSEXT */
 #endif /* SSL_set_tlsext_status_type */
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L || \
+     defined(LIBRESSL_VERSION_NUMBER)) &&    \
+    !defined(BORINGSSL_API_VERSION)
 /*
  * SSL_get_client_random() and SSL_get_server_random() were added in OpenSSL
- * 1.1.0. Provide compatibility wrappers for older versions.
+ * 1.1.0 and newer BoringSSL revisions. Provide compatibility wrappers for
+ * older versions.
  */
 
 static size_t SSL_get_client_random(const SSL *ssl, unsigned char *out,
@@ -77,6 +87,7 @@ static size_t SSL_get_server_random(const SSL *ssl, unsigned char *out,
 }
 
 
+#ifdef OPENSSL_NEED_EAP_FAST_PRF
 static size_t SSL_SESSION_get_master_key(const SSL_SESSION *session,
 					 unsigned char *out, size_t outlen)
 {
@@ -88,6 +99,7 @@ static size_t SSL_SESSION_get_master_key(const SSL_SESSION *session,
 	os_memcpy(out, session->master_key, outlen);
 	return outlen;
 }
+#endif /* OPENSSL_NEED_EAP_FAST_PRF */
 
 #endif
 
@@ -618,7 +630,8 @@ static int tls_cryptoapi_ca_cert(SSL_CTX *ssl_ctx, SSL *ssl, const char *name)
 		wpa_printf(MSG_DEBUG, "OpenSSL: Loaded CA certificate for "
 			   "system certificate store: subject='%s'", buf);
 
-		if (!X509_STORE_add_cert(ssl_ctx->cert_store, cert)) {
+		if (!X509_STORE_add_cert(SSL_CTX_get_cert_store(ssl_ctx),
+					 cert)) {
 			tls_show_errors(MSG_WARNING, __func__,
 					"Failed to add ca_cert to OpenSSL "
 					"certificate store");
@@ -716,10 +729,16 @@ static int tls_engine_load_dynamic_generic(const char *pre[],
 
 	engine = ENGINE_by_id(id);
 	if (engine) {
-		ENGINE_free(engine);
 		wpa_printf(MSG_DEBUG, "ENGINE: engine '%s' is already "
 			   "available", id);
-		return 0;
+		/*
+		 * If it was auto-loaded by ENGINE_by_id() we might still
+		 * need to tell it which PKCS#11 module to use in legacy
+		 * (non-p11-kit) environments. Do so now; even if it was
+		 * properly initialised before, setting it again will be
+		 * harmless.
+		 */
+		goto found;
 	}
 	ERR_clear_error();
 
@@ -756,7 +775,7 @@ static int tls_engine_load_dynamic_generic(const char *pre[],
 			   id, ERR_error_string(ERR_get_error(), NULL));
 		return -1;
 	}
-
+ found:
 	while (post && post[0]) {
 		wpa_printf(MSG_DEBUG, "ENGINE: '%s' '%s'", post[0], post[1]);
 		if (ENGINE_ctrl_cmd_string(engine, post[0], post[1], 0) == 0) {
@@ -900,7 +919,7 @@ void * tls_init(const struct tls_config *conf)
 		}
 #endif /* OPENSSL_FIPS */
 #endif /* CONFIG_FIPS */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 		SSL_load_error_strings();
 		SSL_library_init();
 #ifndef OPENSSL_NO_SHA256
@@ -952,6 +971,14 @@ void * tls_init(const struct tls_config *conf)
 
 	SSL_CTX_set_options(ssl, SSL_OP_NO_SSLv2);
 	SSL_CTX_set_options(ssl, SSL_OP_NO_SSLv3);
+
+#ifdef SSL_MODE_NO_AUTO_CHAIN
+	/* Number of deployed use cases assume the default OpenSSL behavior of
+	 * auto chaining the local certificate is in use. BoringSSL removed this
+	 * functionality by default, so we need to restore it here to avoid
+	 * breaking existing use cases. */
+	SSL_CTX_clear_mode(ssl, SSL_MODE_NO_AUTO_CHAIN);
+#endif /* SSL_MODE_NO_AUTO_CHAIN */
 
 	SSL_CTX_set_info_callback(ssl, ssl_info_cb);
 	SSL_CTX_set_app_data(ssl, context);
@@ -1024,7 +1051,7 @@ void tls_deinit(void *ssl_ctx)
 
 	tls_openssl_ref_count--;
 	if (tls_openssl_ref_count == 0) {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 #ifndef OPENSSL_NO_ENGINE
 		ENGINE_cleanup();
 #endif /* OPENSSL_NO_ENGINE */
@@ -2061,7 +2088,7 @@ static int tls_connection_ca_cert(struct tls_data *data,
 #ifdef ANDROID
 	/* Single alias */
 	if (ca_cert && os_strncmp("keystore://", ca_cert, 11) == 0) {
-		if (tls_add_ca_from_keystore(ssl_ctx->cert_store,
+		if (tls_add_ca_from_keystore(SSL_CTX_get_cert_store(ssl_ctx),
 					     &ca_cert[11]) < 0)
 			return -1;
 		SSL_set_verify(conn->ssl, SSL_VERIFY_PEER, tls_verify_cb);
@@ -2081,7 +2108,7 @@ static int tls_connection_ca_cert(struct tls_data *data,
 		alias = strtok_r(aliases, delim, &savedptr);
 		for (; alias; alias = strtok_r(NULL, delim, &savedptr)) {
 			if (tls_add_ca_from_keystore_encoded(
-				    ssl_ctx->cert_store, alias)) {
+				    SSL_CTX_get_cert_store(ssl_ctx), alias)) {
 				wpa_printf(MSG_WARNING,
 					   "OpenSSL: %s - Failed to add ca_cert %s from keystore",
 					   __func__, alias);
@@ -2235,10 +2262,8 @@ static void tls_set_conn_flags(SSL *ssl, unsigned int flags)
 #ifdef SSL_OP_NO_TICKET
 	if (flags & TLS_CONN_DISABLE_SESSION_TICKET)
 		SSL_set_options(ssl, SSL_OP_NO_TICKET);
-#ifdef SSL_clear_options
 	else
 		SSL_clear_options(ssl, SSL_OP_NO_TICKET);
-#endif /* SSL_clear_options */
 #endif /* SSL_OP_NO_TICKET */
 
 #ifdef SSL_OP_NO_TLSv1
@@ -2315,7 +2340,7 @@ static int tls_connection_client_cert(struct tls_connection *conn,
 		return 0;
 
 #ifdef PKCS12_FUNCS
-#if OPENSSL_VERSION_NUMBER < 0x10002000L
+#if OPENSSL_VERSION_NUMBER < 0x10002000L || defined(LIBRESSL_VERSION_NUMBER)
 	/*
 	 * Clear previously set extra chain certificates, if any, from PKCS#12
 	 * processing in tls_parse_pkcs12() to allow OpenSSL to build a new
@@ -2344,14 +2369,25 @@ static int tls_connection_client_cert(struct tls_connection *conn,
 		BIO *bio = BIO_from_keystore(&client_cert[11]);
 		X509 *x509 = NULL;
 		int ret = -1;
-		if (bio) {
+		if (bio)
 			x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
-			BIO_free(bio);
-		}
+
 		if (x509) {
 			if (SSL_use_certificate(conn->ssl, x509) == 1)
 				ret = 0;
 			X509_free(x509);
+		}
+
+		/* Read additional certificates into the chain. */
+		while (bio) {
+			x509 = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+			if (x509) {
+				/* Takes ownership of x509 */
+				SSL_add0_chain_cert(conn->ssl, x509);
+			} else {
+				BIO_free(bio);
+				bio = NULL;
+			}
 		}
 		return ret;
 	}
@@ -3083,7 +3119,7 @@ int tls_connection_get_random(void *ssl_ctx, struct tls_connection *conn,
 }
 
 
-#ifndef CONFIG_FIPS
+#ifdef OPENSSL_NEED_EAP_FAST_PRF
 static int openssl_get_keyblock_size(SSL *ssl)
 {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
@@ -3138,18 +3174,24 @@ static int openssl_get_keyblock_size(SSL *ssl)
 		    EVP_CIPHER_iv_length(c));
 #endif
 }
-#endif /* CONFIG_FIPS */
+#endif /* OPENSSL_NEED_EAP_FAST_PRF */
 
 
-static int openssl_tls_prf(struct tls_connection *conn,
-			   const char *label, int server_random_first,
-			   int skip_keyblock, u8 *out, size_t out_len)
+int tls_connection_export_key(void *tls_ctx, struct tls_connection *conn,
+			      const char *label, u8 *out, size_t out_len)
 {
-#ifdef CONFIG_FIPS
-	wpa_printf(MSG_ERROR, "OpenSSL: TLS keys cannot be exported in FIPS "
-		   "mode");
-	return -1;
-#else /* CONFIG_FIPS */
+	if (!conn ||
+	    SSL_export_keying_material(conn->ssl, out, out_len, label,
+				       os_strlen(label), NULL, 0, 0) != 1)
+		return -1;
+	return 0;
+}
+
+
+int tls_connection_get_eap_fast_key(void *tls_ctx, struct tls_connection *conn,
+				    u8 *out, size_t out_len)
+{
+#ifdef OPENSSL_NEED_EAP_FAST_PRF
 	SSL *ssl;
 	SSL_SESSION *sess;
 	u8 *rnd;
@@ -3164,9 +3206,9 @@ static int openssl_tls_prf(struct tls_connection *conn,
 	const char *ver;
 
 	/*
-	 * TLS library did not support key generation, so get the needed TLS
-	 * session parameters and use an internal implementation of TLS PRF to
-	 * derive the key.
+	 * TLS library did not support EAP-FAST key generation, so get the
+	 * needed TLS session parameters and use an internal implementation of
+	 * TLS PRF to derive the key.
 	 */
 
 	if (conn == NULL)
@@ -3179,15 +3221,13 @@ static int openssl_tls_prf(struct tls_connection *conn,
 	if (!ver || !sess)
 		return -1;
 
-	if (skip_keyblock) {
-		skip = openssl_get_keyblock_size(ssl);
-		if (skip < 0)
-			return -1;
-		tmp_out = os_malloc(skip + out_len);
-		if (!tmp_out)
-			return -1;
-		_out = tmp_out;
-	}
+	skip = openssl_get_keyblock_size(ssl);
+	if (skip < 0)
+		return -1;
+	tmp_out = os_malloc(skip + out_len);
+	if (!tmp_out)
+		return -1;
+	_out = tmp_out;
 
 	rnd = os_malloc(2 * SSL3_RANDOM_SIZE);
 	if (!rnd) {
@@ -3200,54 +3240,31 @@ static int openssl_tls_prf(struct tls_connection *conn,
 	master_key_len = SSL_SESSION_get_master_key(sess, master_key,
 						    sizeof(master_key));
 
-	if (server_random_first) {
-		os_memcpy(rnd, server_random, SSL3_RANDOM_SIZE);
-		os_memcpy(rnd + SSL3_RANDOM_SIZE, client_random,
-			  SSL3_RANDOM_SIZE);
-	} else {
-		os_memcpy(rnd, client_random, SSL3_RANDOM_SIZE);
-		os_memcpy(rnd + SSL3_RANDOM_SIZE, server_random,
-			  SSL3_RANDOM_SIZE);
-	}
+	os_memcpy(rnd, server_random, SSL3_RANDOM_SIZE);
+	os_memcpy(rnd + SSL3_RANDOM_SIZE, client_random, SSL3_RANDOM_SIZE);
 
 	if (os_strcmp(ver, "TLSv1.2") == 0) {
 		tls_prf_sha256(master_key, master_key_len,
-			       label, rnd, 2 * SSL3_RANDOM_SIZE,
+			       "key expansion", rnd, 2 * SSL3_RANDOM_SIZE,
 			       _out, skip + out_len);
 		ret = 0;
 	} else if (tls_prf_sha1_md5(master_key, master_key_len,
-				    label, rnd, 2 * SSL3_RANDOM_SIZE,
+				    "key expansion", rnd, 2 * SSL3_RANDOM_SIZE,
 				    _out, skip + out_len) == 0) {
 		ret = 0;
 	}
 	os_memset(master_key, 0, sizeof(master_key));
 	os_free(rnd);
-	if (ret == 0 && skip_keyblock)
+	if (ret == 0)
 		os_memcpy(out, _out + skip, out_len);
 	bin_clear_free(tmp_out, skip);
 
 	return ret;
-#endif /* CONFIG_FIPS */
-}
-
-
-int tls_connection_prf(void *tls_ctx, struct tls_connection *conn,
-		       const char *label, int server_random_first,
-		       int skip_keyblock, u8 *out, size_t out_len)
-{
-	if (conn == NULL)
-		return -1;
-	if (server_random_first || skip_keyblock)
-		return openssl_tls_prf(conn, label,
-				       server_random_first, skip_keyblock,
-				       out, out_len);
-	if (SSL_export_keying_material(conn->ssl, out, out_len, label,
-				       os_strlen(label), NULL, 0, 0) == 1) {
-		wpa_printf(MSG_DEBUG, "OpenSSL: Using internal PRF");
-		return 0;
-	}
-	return openssl_tls_prf(conn, label, server_random_first,
-			       skip_keyblock, out, out_len);
+#else /* OPENSSL_NEED_EAP_FAST_PRF */
+	wpa_printf(MSG_ERROR,
+		   "OpenSSL: EAP-FAST keys cannot be exported in FIPS mode");
+	return -1;
+#endif /* OPENSSL_NEED_EAP_FAST_PRF */
 }
 
 
@@ -3976,7 +3993,7 @@ int tls_connection_set_params(void *tls_ctx, struct tls_connection *conn,
 		engine_id = "pkcs11";
 
 #if defined(EAP_FAST) || defined(EAP_FAST_DYNAMIC) || defined(EAP_SERVER_FAST)
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 	if (params->flags & TLS_CONN_EAP_FAST) {
 		wpa_printf(MSG_DEBUG,
 			   "OpenSSL: Use TLSv1_method() for EAP-FAST");
@@ -4120,10 +4137,8 @@ int tls_global_set_params(void *tls_ctx,
 #ifdef SSL_OP_NO_TICKET
 	if (params->flags & TLS_CONN_DISABLE_SESSION_TICKET)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_TICKET);
-#ifdef SSL_CTX_clear_options
 	else
 		SSL_CTX_clear_options(ssl_ctx, SSL_OP_NO_TICKET);
-#endif /* SSL_clear_options */
 #endif /*  SSL_OP_NO_TICKET */
 
 #ifdef HAVE_OCSP

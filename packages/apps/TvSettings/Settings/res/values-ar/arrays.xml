@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="sleep_timeout_entries">
-    <item msgid="1213527366819650274">"5 دقائق"</item>
+    <item msgid="1213527366819650274">"٥ دقائق"</item>
     <item msgid="6561800022721381078">"15 دقيقة"</item>
     <item msgid="7718735533503035428">"30 دقيقة"</item>
     <item msgid="8784595382489738498">"ساعة واحدة"</item>

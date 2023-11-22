@@ -25,8 +25,8 @@ namespace renderscript {
     class Mesh;
     class Element;
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #include "driver/rsdVertexArray.h"
 

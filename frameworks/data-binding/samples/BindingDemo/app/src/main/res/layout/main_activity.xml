@@ -93,7 +93,7 @@ if they are getting complex.-->
                     android:layout_row="0"
                     android:background="@android:color/holo_blue_dark"
                     android:gravity="center"
-                    android:text="@{activity.selected.name}" />
+                    android:text="@={activity.selected.name}" />
 
                 <EditText
                     android:id="@+id/selected_lastname"
@@ -104,16 +104,7 @@ if they are getting complex.-->
                     android:layout_row="1"
                     android:background="@android:color/holo_blue_bright"
                     android:gravity="center"
-                    android:text="@{activity.selected.lastName}" />
-                <Button
-                    android:id="@+id/edit_button"
-                    android:onClick="@{activity.onSave}"
-                    android:text='@{"Save changes to " + activity.selected.name}'
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_column="1"
-                    android:layout_gravity="right"
-                    android:layout_row="2"/>
+                    android:text="@={activity.selected.lastName}" />
 
                 <Button
                     android:id="@+id/delete_button"

@@ -15,7 +15,6 @@ package android.support.v17.leanback.widget;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v17.leanback.widget.picker.DatePicker;
 
 import java.util.Calendar;
 import java.util.TimeZone;
@@ -125,10 +124,10 @@ public class GuidedDatePickerAction extends GuidedAction {
         }
     }
 
-    private String mDatePickerFormat;
-    private long mDate;
-    private long mMinDate = Long.MIN_VALUE;
-    private long mMaxDate = Long.MAX_VALUE;
+    String mDatePickerFormat;
+    long mDate;
+    long mMinDate = Long.MIN_VALUE;
+    long mMaxDate = Long.MAX_VALUE;
 
     /**
      * Returns format of date Picker or null if not specified.  The format is a case insensitive

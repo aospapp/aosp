@@ -43,18 +43,18 @@
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"कॉल करने के लिए, मान्‍य नंबर डालें."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"इस समय कॉल नहीं जोड़ा जा सकता."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"गुम वॉयस मेल नंबर"</string>
-    <string name="no_vm_number_msg" msgid="1300729501030053828">"सिम कार्ड पर कोई वॉयस मेल नंबर संग्रहीत नहीं है."</string>
+    <string name="no_vm_number_msg" msgid="1300729501030053828">"सिम कार्ड पर कोई वॉयस मेल नंबर संग्रहित नहीं है."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"नंबर जोड़ें"</string>
     <string name="change_default_dialer_dialog_title" msgid="9101655962941740507">"<xliff:g id="NEW_APP">%s</xliff:g> को अपना डिफ़ॉल्ट ऐप्लिकेशन बनाएं?"</string>
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"डिफ़ॉल्ट सेट करें"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"अभी नहीं"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> कॉल करने और कॉल से संबंधित सभी पहलुओं को नियंत्रित कर पाएगा. केवल उन्हीं ऐप्लिकेशन को डिफ़ॉल्ट फ़ोन ऐप्लिकेशन के रूप में सेट करना चाहिए जिन पर आप विश्वास करते हैं."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"अवरोधित नंबर"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"आपको अवरुद्ध किए गए नंबर से कॉल या लेख संदेश प्राप्त नहीं होंगे."</string>
-    <string name="block_number" msgid="1101252256321306179">"एक नंबर जोड़ें"</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"आपको अवरुद्ध किए गए नंबर से कॉल या लेख संदेश नहीं मिलेंगे."</string>
+    <string name="block_number" msgid="1101252256321306179">"नंबर जोड़ें"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"<xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g> को अनवरोधित करें?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"अनवरोधित करें"</string>
-    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"इसके कॉल और लेख को अवरुद्ध करें"</string>
+    <string name="add_blocked_dialog_body" msgid="9030243212265516828">"इसके कॉल और लेख अवरुद्ध करें"</string>
     <string name="add_blocked_number_hint" msgid="6847675097085433553">"फ़ोन नंबर"</string>
     <string name="block_button" msgid="8822290682524373357">"अवरुद्ध करें"</string>
     <string name="non_primary_user" msgid="5180129233352533459">"केवल डिवाइस स्वामी अवरुद्ध किए गए नंबर देख और प्रबंधित कर सकते हैं."</string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"आपातकालीन नंबर अवरुद्ध करने में असमर्थ."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> पहले से अवरोधित है."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"कॉल करने के लिए व्यक्तिगत डायलर का उपयोग करना"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"<xliff:g id="CALL_FROM">%2$s</xliff:g> की ओर से <xliff:g id="CALL_VIA">%1$s</xliff:g> कॉल"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"<xliff:g id="CALL_FROM">%2$s</xliff:g> की ओर से <xliff:g id="CALL_VIA">%1$s</xliff:g> वीडियो कॉल"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"उत्तर देने से आपका <xliff:g id="CALL_VIA">%1$s</xliff:g> कॉल समाप्त हो जाएगा"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"उत्तर देने से आपके <xliff:g id="CALL_VIA">%1$s</xliff:g> कॉल समाप्त हो जाएंगे"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"उत्तर देने से आपका <xliff:g id="CALL_VIA">%1$s</xliff:g> वीडियो कॉल समाप्त हो जाएगा"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"उत्तर देने से आपका जारी कॉल समाप्त हो जाएगा"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"उत्तर देने से आपके जारी कॉल समाप्त हो जाएंगे"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"उत्तर देने से आपका जारी वीडियो कॉल समाप्त हो जाएगा"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"उत्तर दें"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"अस्वीकार करें"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"आपके <xliff:g id="OTHER_CALL">%1$s</xliff:g> कॉल के कारण कॉल नहीं लगाया जा सकता."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"आपके <xliff:g id="OTHER_CALL">%1$s</xliff:g> कॉल के कारण कॉल नहीं लगाया जा सकता."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"किसी दूसरे ऐप्लिकेशन में कॉल के कारण कॉल नहीं लगाया जा सकता."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"इनकमिंग कॉल"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"छूटे कॉल"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"इस कॉल को करने से आपका <xliff:g id="OTHER_APP">%1$s</xliff:g> कॉल समाप्त हो जाएगा."</string>
 </resources>

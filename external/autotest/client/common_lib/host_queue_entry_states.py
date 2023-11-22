@@ -18,5 +18,8 @@ ACTIVE_STATUSES = (Status.STARTING, Status.RESETTING, Status.VERIFYING,
                    Status.GATHERING, Status.CLEANING)
 COMPLETE_STATUSES = (Status.ABORTED, Status.COMPLETED, Status.FAILED,
                      Status.STOPPED, Status.TEMPLATE)
+PRE_JOB_STATUSES = (Status.RESETTING, Status.PROVISIONING, Status.VERIFYING,
+                    Status.PENDING, Status.QUEUED, Status.WAITING)
+IDLE_PRE_JOB_STATUSES = (Status.PENDING, Status.QUEUED, Status.WAITING)
 
 IntStatus = enum.Enum(*Status_list)

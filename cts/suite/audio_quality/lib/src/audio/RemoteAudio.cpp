@@ -193,7 +193,7 @@ void RemoteAudio::doStop(android::sp<android::MessageHandler>& commandHandler,
 }
 
 
-bool RemoteAudio::downloadData(const android::String8 name, android::sp<Buffer>& buffer, int& id)
+bool RemoteAudio::downloadData(const android::String8& name, android::sp<Buffer>& buffer, int& id)
 {
     CommandHandler* handler = reinterpret_cast<CommandHandler*>(mDownloadHandler.get());
     id = mDownloadId;

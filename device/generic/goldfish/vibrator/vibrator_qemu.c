@@ -20,7 +20,7 @@
 #include <cutils/log.h>
 
 #define QEMU_HARDWARE
-#include <qemu.h>
+#include "qemu.h"
 #include <hardware/hardware.h>
 #include <hardware/vibrator.h>
 

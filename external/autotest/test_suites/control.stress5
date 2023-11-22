@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "stress5"
 PURPOSE = "Stress test functionality and devices."
-CRITERIA = "All tests with SUITE=stress5 must pass."
 
 TIME = "LONG"
 TEST_CATEGORY = "Stress"

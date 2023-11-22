@@ -29,6 +29,8 @@
 #include <semaphore.h>
 
 #include <android/native_window_jni.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include "media/NdkMediaExtractor.h"
 #include "media/NdkMediaCodec.h"
@@ -658,3 +660,467 @@ extern "C" jboolean Java_android_media_cts_NativeDecoderTest_testCryptoInfoNativ
     return true;
 }
 
+// === NdkMediaCodec
+
+extern "C" jlong Java_android_media_cts_NdkMediaCodec_AMediaCodecCreateCodecByName(
+        JNIEnv *env, jclass /*clazz*/, jstring name) {
+
+    if (name == NULL) {
+        return 0;
+    }
+
+    const char *tmp = env->GetStringUTFChars(name, NULL);
+    if (tmp == NULL) {
+        return 0;
+    }
+
+    AMediaCodec *codec = AMediaCodec_createCodecByName(tmp);
+    if (codec == NULL) {
+        env->ReleaseStringUTFChars(name, tmp);
+        return 0;
+    }
+
+    env->ReleaseStringUTFChars(name, tmp);
+    return reinterpret_cast<jlong>(codec);
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecDelete(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong codec) {
+    media_status_t err = AMediaCodec_delete(reinterpret_cast<AMediaCodec *>(codec));
+    return err == AMEDIA_OK;
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecStart(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong codec) {
+    media_status_t err = AMediaCodec_start(reinterpret_cast<AMediaCodec *>(codec));
+    return err == AMEDIA_OK;
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecStop(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong codec) {
+    media_status_t err = AMediaCodec_stop(reinterpret_cast<AMediaCodec *>(codec));
+    return err == AMEDIA_OK;
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecConfigure(
+        JNIEnv *env,
+        jclass /*clazz*/,
+        jlong codec,
+        jstring mime,
+        jint width,
+        jint height,
+        jint colorFormat,
+        jint bitRate,
+        jint frameRate,
+        jint iFrameInterval,
+        jobject csd,
+        jint flags) {
+
+    AMediaFormat* format = AMediaFormat_new();
+    if (format == NULL) {
+        return false;
+    }
+
+    const char *tmp = env->GetStringUTFChars(mime, NULL);
+    if (tmp == NULL) {
+        AMediaFormat_delete(format);
+        return false;
+    }
+
+    AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, tmp);
+    env->ReleaseStringUTFChars(mime, tmp);
+
+    const char *keys[] = {
+            AMEDIAFORMAT_KEY_WIDTH,
+            AMEDIAFORMAT_KEY_HEIGHT,
+            AMEDIAFORMAT_KEY_COLOR_FORMAT,
+            AMEDIAFORMAT_KEY_BIT_RATE,
+            AMEDIAFORMAT_KEY_FRAME_RATE,
+            AMEDIAFORMAT_KEY_I_FRAME_INTERVAL
+    };
+
+    jint values[] = {width, height, colorFormat, bitRate, frameRate, iFrameInterval};
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        if (values[i] >= 0) {
+            AMediaFormat_setInt32(format, keys[i], values[i]);
+        }
+    }
+
+    if (csd != NULL) {
+        void *csdPtr = env->GetDirectBufferAddress(csd);
+        jlong csdSize = env->GetDirectBufferCapacity(csd);
+        AMediaFormat_setBuffer(format, "csd-0", csdPtr, csdSize);
+    }
+
+    media_status_t err = AMediaCodec_configure(
+            reinterpret_cast<AMediaCodec *>(codec),
+            format,
+            NULL,
+            NULL,
+            flags);
+
+    AMediaFormat_delete(format);
+    return err == AMEDIA_OK;
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecSetInputSurface(
+        JNIEnv* env, jclass /*clazz*/, jlong codec, jobject surface) {
+
+    media_status_t err = AMediaCodec_setInputSurface(
+            reinterpret_cast<AMediaCodec *>(codec),
+            ANativeWindow_fromSurface(env, surface));
+
+    return err == AMEDIA_OK;
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecSetNativeInputSurface(
+        JNIEnv* /*env*/, jclass /*clazz*/, jlong codec, jlong nativeWindow) {
+
+    media_status_t err = AMediaCodec_setInputSurface(
+            reinterpret_cast<AMediaCodec *>(codec),
+            reinterpret_cast<ANativeWindow *>(nativeWindow));
+
+    return err == AMEDIA_OK;
+
+}
+
+extern "C" jlong Java_android_media_cts_NdkMediaCodec_AMediaCodecCreateInputSurface(
+        JNIEnv* /*env*/, jclass /*clazz*/, jlong codec) {
+
+    ANativeWindow *nativeWindow;
+    media_status_t err = AMediaCodec_createInputSurface(
+            reinterpret_cast<AMediaCodec *>(codec),
+            &nativeWindow);
+
+     if (err == AMEDIA_OK) {
+         return reinterpret_cast<jlong>(nativeWindow);
+     }
+
+     return 0;
+
+}
+
+extern "C" jlong Java_android_media_cts_NdkMediaCodec_AMediaCodecCreatePersistentInputSurface(
+        JNIEnv* /*env*/, jclass /*clazz*/) {
+
+    ANativeWindow *nativeWindow;
+    media_status_t err = AMediaCodec_createPersistentInputSurface(&nativeWindow);
+
+     if (err == AMEDIA_OK) {
+         return reinterpret_cast<jlong>(nativeWindow);
+     }
+
+     return 0;
+
+}
+
+extern "C" jstring Java_android_media_cts_NdkMediaCodec_AMediaCodecGetOutputFormatString(
+        JNIEnv* env, jclass /*clazz*/, jlong codec) {
+
+    AMediaFormat *format = AMediaCodec_getOutputFormat(reinterpret_cast<AMediaCodec *>(codec));
+    const char *str = AMediaFormat_toString(format);
+    jstring jstr = env->NewStringUTF(str);
+    AMediaFormat_delete(format);
+    return jstr;
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecSignalEndOfInputStream(
+        JNIEnv* /*env*/, jclass /*clazz*/, jlong codec) {
+
+    media_status_t err = AMediaCodec_signalEndOfInputStream(reinterpret_cast<AMediaCodec *>(codec));
+    return err == AMEDIA_OK;
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecReleaseOutputBuffer(
+        JNIEnv* /*env*/, jclass /*clazz*/, jlong codec, jint index, jboolean render) {
+
+    media_status_t err = AMediaCodec_releaseOutputBuffer(
+            reinterpret_cast<AMediaCodec *>(codec),
+            index,
+            render);
+
+    return err == AMEDIA_OK;
+
+}
+
+static jobject AMediaCodecGetBuffer(
+        JNIEnv* env,
+        jlong codec,
+        jint index,
+        uint8_t *(*getBuffer)(AMediaCodec*, size_t, size_t*)) {
+
+    size_t bufsize;
+    uint8_t *buf = getBuffer(
+            reinterpret_cast<AMediaCodec *>(codec),
+            index,
+            &bufsize);
+
+    return env->NewDirectByteBuffer(buf, bufsize);
+
+}
+
+extern "C" jobject Java_android_media_cts_NdkMediaCodec_AMediaCodecGetOutputBuffer(
+        JNIEnv* env, jclass /*clazz*/, jlong codec, jint index) {
+
+    return AMediaCodecGetBuffer(env, codec, index, AMediaCodec_getOutputBuffer);
+
+}
+
+extern "C" jlongArray Java_android_media_cts_NdkMediaCodec_AMediaCodecDequeueOutputBuffer(
+        JNIEnv* env, jclass /*clazz*/, jlong codec, jlong timeoutUs) {
+
+    AMediaCodecBufferInfo info;
+    memset(&info, 0, sizeof(info));
+    int status = AMediaCodec_dequeueOutputBuffer(
+        reinterpret_cast<AMediaCodec *>(codec),
+        &info,
+        timeoutUs);
+
+    jlong ret[5] = {0};
+    ret[0] = status;
+    ret[1] = 0; // NdkMediaCodec calls ABuffer::data, which already adds offset
+    ret[2] = info.size;
+    ret[3] = info.presentationTimeUs;
+    ret[4] = info.flags;
+
+    jlongArray jret = env->NewLongArray(5);
+    env->SetLongArrayRegion(jret, 0, 5, ret);
+    return jret;
+
+}
+
+extern "C" jobject Java_android_media_cts_NdkMediaCodec_AMediaCodecGetInputBuffer(
+        JNIEnv* env, jclass /*clazz*/, jlong codec, jint index) {
+
+    return AMediaCodecGetBuffer(env, codec, index, AMediaCodec_getInputBuffer);
+
+}
+
+extern "C" jint Java_android_media_cts_NdkMediaCodec_AMediaCodecDequeueInputBuffer(
+        JNIEnv* /*env*/, jclass /*clazz*/, jlong codec, jlong timeoutUs) {
+
+    return AMediaCodec_dequeueInputBuffer(
+            reinterpret_cast<AMediaCodec *>(codec),
+            timeoutUs);
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecQueueInputBuffer(
+        JNIEnv* /*env*/,
+        jclass /*clazz*/,
+        jlong codec,
+        jint index,
+        jint offset,
+        jint size,
+        jlong presentationTimeUs,
+        jint flags) {
+
+    media_status_t err = AMediaCodec_queueInputBuffer(
+            reinterpret_cast<AMediaCodec *>(codec),
+            index,
+            offset,
+            size,
+            presentationTimeUs,
+            flags);
+
+    return err == AMEDIA_OK;
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecSetParameter(
+        JNIEnv* env, jclass /*clazz*/, jlong codec, jstring jkey, jint value) {
+
+    AMediaFormat* params = AMediaFormat_new();
+    if (params == NULL) {
+        return false;
+    }
+
+    const char *key = env->GetStringUTFChars(jkey, NULL);
+    if (key == NULL) {
+        AMediaFormat_delete(params);
+        return false;
+    }
+
+    AMediaFormat_setInt32(params, key, value);
+    media_status_t err = AMediaCodec_setParameters(
+            reinterpret_cast<AMediaCodec *>(codec),
+            params);
+    env->ReleaseStringUTFChars(jkey, key);
+    AMediaFormat_delete(params);
+    return err == AMEDIA_OK;
+
+}
+
+// === NdkInputSurface
+
+extern "C" jlong Java_android_media_cts_NdkInputSurface_eglGetDisplay(JNIEnv * /*env*/, jclass /*clazz*/) {
+
+    EGLDisplay eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (eglDisplay == EGL_NO_DISPLAY) {
+        return 0;
+    }
+
+    EGLint major, minor;
+    if (!eglInitialize(eglDisplay, &major, &minor)) {
+        return 0;
+    }
+
+    return reinterpret_cast<jlong>(eglDisplay);
+
+}
+
+extern "C" jlong Java_android_media_cts_NdkInputSurface_eglChooseConfig(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay) {
+
+    // Configure EGL for recordable and OpenGL ES 2.0.  We want enough RGB bits
+    // to minimize artifacts from possible YUV conversion.
+    EGLint attribList[] = {
+            EGL_RED_SIZE, 8,
+            EGL_GREEN_SIZE, 8,
+            EGL_BLUE_SIZE, 8,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_RECORDABLE_ANDROID, 1,
+            EGL_NONE
+    };
+
+    EGLConfig configs[1];
+    EGLint numConfigs[1];
+    if (!eglChooseConfig(reinterpret_cast<EGLDisplay>(eglDisplay), attribList, configs, 1, numConfigs)) {
+        return 0;
+    }
+    return reinterpret_cast<jlong>(configs[0]);
+
+}
+
+extern "C" jlong Java_android_media_cts_NdkInputSurface_eglCreateContext(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglConfig) {
+
+    // Configure context for OpenGL ES 2.0.
+    int attrib_list[] = {
+            EGL_CONTEXT_CLIENT_VERSION, 2,
+            EGL_NONE
+    };
+
+    EGLConfig eglContext = eglCreateContext(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLConfig>(eglConfig),
+            EGL_NO_CONTEXT,
+            attrib_list);
+
+    if (eglGetError() != EGL_SUCCESS) {
+        return 0;
+    }
+
+    return reinterpret_cast<jlong>(eglContext);
+
+}
+
+extern "C" jlong Java_android_media_cts_NdkInputSurface_createEGLSurface(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglConfig, jlong nativeWindow) {
+
+    int surfaceAttribs[] = {EGL_NONE};
+    EGLSurface eglSurface = eglCreateWindowSurface(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLConfig>(eglConfig),
+            reinterpret_cast<EGLNativeWindowType>(nativeWindow),
+            surfaceAttribs);
+
+    if (eglGetError() != EGL_SUCCESS) {
+        return 0;
+    }
+
+    return reinterpret_cast<jlong>(eglSurface);
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkInputSurface_eglMakeCurrent(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface, jlong eglContext) {
+
+    return eglMakeCurrent(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLSurface>(eglSurface),
+            reinterpret_cast<EGLSurface>(eglSurface),
+            reinterpret_cast<EGLContext>(eglContext));
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkInputSurface_eglSwapBuffers(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface) {
+
+    return eglSwapBuffers(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLSurface>(eglSurface));
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkInputSurface_eglPresentationTimeANDROID(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface, jlong nsecs) {
+
+    return eglPresentationTimeANDROID(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLSurface>(eglSurface),
+            reinterpret_cast<EGLnsecsANDROID>(nsecs));
+
+}
+
+extern "C" jint Java_android_media_cts_NdkInputSurface_eglGetWidth(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface) {
+
+    EGLint width;
+    eglQuerySurface(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLSurface>(eglSurface),
+            EGL_WIDTH,
+            &width);
+
+    return width;
+
+}
+
+extern "C" jint Java_android_media_cts_NdkInputSurface_eglGetHeight(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface) {
+
+    EGLint height;
+    eglQuerySurface(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLSurface>(eglSurface),
+            EGL_HEIGHT,
+            &height);
+
+    return height;
+
+}
+
+extern "C" jboolean Java_android_media_cts_NdkInputSurface_eglDestroySurface(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface) {
+
+    return eglDestroySurface(
+            reinterpret_cast<EGLDisplay>(eglDisplay),
+            reinterpret_cast<EGLSurface>(eglSurface));
+
+}
+
+extern "C" void Java_android_media_cts_NdkInputSurface_nativeRelease(
+        JNIEnv * /*env*/, jclass /*clazz*/, jlong eglDisplay, jlong eglSurface, jlong eglContext, jlong nativeWindow) {
+
+    if (eglDisplay != 0) {
+
+        EGLDisplay _eglDisplay = reinterpret_cast<EGLDisplay>(eglDisplay);
+        EGLSurface _eglSurface = reinterpret_cast<EGLSurface>(eglSurface);
+        EGLContext _eglContext = reinterpret_cast<EGLContext>(eglContext);
+
+        eglDestroySurface(_eglDisplay, _eglSurface);
+        eglDestroyContext(_eglDisplay, _eglContext);
+        eglReleaseThread();
+        eglTerminate(_eglDisplay);
+
+    }
+
+    ANativeWindow_release(reinterpret_cast<ANativeWindow *>(nativeWindow));
+
+}

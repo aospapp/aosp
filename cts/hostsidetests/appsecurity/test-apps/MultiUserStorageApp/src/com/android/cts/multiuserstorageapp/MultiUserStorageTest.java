@@ -17,15 +17,20 @@
 package com.android.cts.multiuserstorageapp;
 
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoAccess;
+import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertFileNoAccess;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.getAllPackageSpecificPathsExceptObb;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.readInt;
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.writeInt;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.net.Uri;
 import android.os.Environment;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 
 /**
  * Test multi-user emulated storage environment, ensuring that each user has
@@ -135,6 +140,36 @@ public class MultiUserStorageTest extends AndroidTestCase {
 
             final File otherPath = new File(basePath, String.valueOf(i));
             assertDirNoAccess(otherPath);
+        }
+    }
+
+    /**
+     * Verify that files cannot be accessed through media provider.
+     */
+    public void testMediaProviderUserIsolation() throws Exception {
+        final File myPath = Environment.getExternalStorageDirectory();
+        final int myId = android.os.Process.myUid() / 100000;
+        assertEquals(String.valueOf(myId), myPath.getName());
+
+        Log.d(TAG, "My path is " + myPath + " user id " + myId);
+        final File basePath = myPath.getParentFile();
+        for (int i = 0; i < 128; i++) {
+            if (i == myId) continue;
+            final File otherPath = new File(basePath,i + "/" + FILE_SINGLETON);
+            assertFileNoAccess(otherPath);
+
+            final String URI_MEDIA_STRING = "content://media/external/audio/media/";
+            ContentResolver contentResolver = mContext.getContentResolver();
+            ContentValues cv = new ContentValues();
+            cv.put("_data", otherPath.getAbsolutePath());
+            contentResolver.insert(Uri.parse(URI_MEDIA_STRING), cv);
+
+            try {
+                mContext.getContentResolver().openInputStream(Uri.parse(URI_MEDIA_STRING));
+                fail("Accessing through media provider should not be allowed. Path " + myPath);
+            } catch (FileNotFoundException expected) {
+                // OK
+            }
         }
     }
 

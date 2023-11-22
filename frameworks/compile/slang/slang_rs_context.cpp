@@ -57,8 +57,8 @@ RSContext::RSContext(clang::Preprocessor &PP,
       mPragmas(Pragmas),
       mTargetAPI(TargetAPI),
       mVerbose(Verbose),
-      mDataLayout(nullptr),
-      mLLVMContext(llvm::getGlobalContext()),
+      mDataLayout(Target.getDataLayout()),
+      mLLVMContext(slang::getGlobalLLVMContext()),
       mLicenseNote(nullptr),
       mRSPackageName("android.renderscript"),
       version(0),
@@ -69,7 +69,7 @@ RSContext::RSContext(clang::Preprocessor &PP,
   AddPragmaHandlers(PP, this);
 
   // Prepare target data
-  mDataLayout = new llvm::DataLayout(Target.getDataLayoutString());
+  // mDataLayout = Target.getDataLayout();
 
   // Reserve slot 0 for the root kernel.
   mExportForEach.push_back(nullptr);
@@ -134,7 +134,7 @@ bool RSContext::processExportFunc(const clang::FunctionDecl *FD) {
     }
 
     // New-style kernels with attribute "kernel" should come first in the list
-    if (FD->hasAttr<clang::KernelAttr>()) {
+    if (FD->hasAttr<clang::RenderScriptKernelAttr>()) {
       mFirstOldStyleKernel = mExportForEach.insert(mFirstOldStyleKernel, EFE) + 1;
       slangAssert((mTargetAPI < SLANG_FEATURE_SINGLE_SOURCE_API ||
                    getForEachSlotNumber(FD->getName()) ==
@@ -401,7 +401,6 @@ bool RSContext::insertExportType(const llvm::StringRef &TypeName,
 
 RSContext::~RSContext() {
   delete mLicenseNote;
-  delete mDataLayout;
   for (ExportableList::iterator I = mExportables.begin(),
           E = mExportables.end();
        I != E;

@@ -16,18 +16,19 @@
 
 package com.android.cellbroadcastreceiver;
 
+import android.app.backup.BackupManager;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.os.UserManager;
-import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
+import android.preference.TwoStatePreference;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
@@ -114,15 +115,15 @@ public class CellBroadcastSettings extends PreferenceActivity {
      */
     public static class CellBroadcastSettingsFragment extends PreferenceFragment {
 
-        private CheckBoxPreference mExtremeCheckBox;
-        private CheckBoxPreference mSevereCheckBox;
-        private CheckBoxPreference mAmberCheckBox;
-        private CheckBoxPreference mEmergencyCheckBox;
+        private TwoStatePreference mExtremeCheckBox;
+        private TwoStatePreference mSevereCheckBox;
+        private TwoStatePreference mAmberCheckBox;
+        private TwoStatePreference mEmergencyCheckBox;
         private ListPreference mReminderInterval;
-        private CheckBoxPreference mSpeechCheckBox;
-        private CheckBoxPreference mEtwsTestCheckBox;
-        private CheckBoxPreference mChannel50CheckBox;
-        private CheckBoxPreference mCmasTestCheckBox;
+        private TwoStatePreference mSpeechCheckBox;
+        private TwoStatePreference mEtwsTestCheckBox;
+        private TwoStatePreference mChannel50CheckBox;
+        private TwoStatePreference mCmasTestCheckBox;
         private PreferenceCategory mAlertCategory;
         private PreferenceCategory mETWSSettingCategory;
         private boolean mDisableSevereWhenExtremeDisabled = true;
@@ -136,23 +137,23 @@ public class CellBroadcastSettings extends PreferenceActivity {
 
             PreferenceScreen preferenceScreen = getPreferenceScreen();
 
-            mExtremeCheckBox = (CheckBoxPreference)
+            mExtremeCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS);
-            mSevereCheckBox = (CheckBoxPreference)
+            mSevereCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_SEVERE_THREAT_ALERTS);
-            mAmberCheckBox = (CheckBoxPreference)
+            mAmberCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_AMBER_ALERTS);
-            mEmergencyCheckBox = (CheckBoxPreference)
+            mEmergencyCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_EMERGENCY_ALERTS);
             mReminderInterval = (ListPreference)
                     findPreference(KEY_ALERT_REMINDER_INTERVAL);
-            mSpeechCheckBox = (CheckBoxPreference)
+            mSpeechCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_ALERT_SPEECH);
-            mEtwsTestCheckBox = (CheckBoxPreference)
+            mEtwsTestCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_ETWS_TEST_ALERTS);
-            mChannel50CheckBox = (CheckBoxPreference)
+            mChannel50CheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CHANNEL_50_ALERTS);
-            mCmasTestCheckBox = (CheckBoxPreference)
+            mCmasTestCheckBox = (TwoStatePreference)
                     findPreference(KEY_ENABLE_CMAS_TEST_ALERTS);
             mAlertCategory = (PreferenceCategory)
                     findPreference(KEY_CATEGORY_ALERT_SETTINGS);
@@ -171,7 +172,7 @@ public class CellBroadcastSettings extends PreferenceActivity {
 
                             if (mDisableSevereWhenExtremeDisabled) {
                                 if (pref.getKey().equals(KEY_ENABLE_CMAS_EXTREME_THREAT_ALERTS)) {
-                                    boolean isExtremeAlertChecked = (Boolean)newValue;
+                                    boolean isExtremeAlertChecked = (Boolean) newValue;
                                     if (mSevereCheckBox != null) {
                                         mSevereCheckBox.setEnabled(isExtremeAlertChecked);
                                         mSevereCheckBox.setChecked(false);
@@ -179,6 +180,8 @@ public class CellBroadcastSettings extends PreferenceActivity {
                                 }
                             }
 
+                            // Notify backup manager a backup pass is needed.
+                            new BackupManager(getContext()).dataChanged();
                             return true;
                         }
                     };

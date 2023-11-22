@@ -4,9 +4,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -231,6 +231,14 @@ public class Character_UnicodeBlockTest extends TestCase {
         assertEquals(Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS, Character.UnicodeBlock.of((char) 0xffef));
         assertEquals(Character.UnicodeBlock.SPECIALS, Character.UnicodeBlock.of((char) 0xfff0));
         assertEquals(Character.UnicodeBlock.SPECIALS, Character.UnicodeBlock.of((char) 0xffff));
+
+        // Blocks added in 1.8
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.of((char) 0x08a0));
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.of((char) 0x08ff));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.of((char) 0x1cc0));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.of((char) 0x1ccf));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.of((char) 0xaae0));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.of((char) 0xaaff));
 
         // Negative test: The range [0x0860, 0x08A0) is currently unassigned.
         assertEquals(null, Character.UnicodeBlock.of((char) 0x0860));
@@ -488,6 +496,30 @@ public class Character_UnicodeBlockTest extends TestCase {
         assertEquals(Character.UnicodeBlock.SUPPLEMENTARY_PRIVATE_USE_AREA_A, Character.UnicodeBlock.of(0xfffff));
         assertEquals(Character.UnicodeBlock.SUPPLEMENTARY_PRIVATE_USE_AREA_B, Character.UnicodeBlock.of(0x100000));
         assertEquals(Character.UnicodeBlock.SUPPLEMENTARY_PRIVATE_USE_AREA_B, Character.UnicodeBlock.of(0x10ffff));
+
+        // Blocks added in 1.8
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.of(0x08a0));
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.of(0x08ff));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.of(0x1cc0));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.of(0x1ccf));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.of(0xaae0));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.of(0xaaff));
+        assertEquals(Character.UnicodeBlock.MEROITIC_HIEROGLYPHS, Character.UnicodeBlock.of(0x10980));
+        assertEquals(Character.UnicodeBlock.MEROITIC_HIEROGLYPHS, Character.UnicodeBlock.of(0x1099f));
+        assertEquals(Character.UnicodeBlock.MEROITIC_CURSIVE, Character.UnicodeBlock.of(0x109a0));
+        assertEquals(Character.UnicodeBlock.MEROITIC_CURSIVE, Character.UnicodeBlock.of(0x109ff));
+        assertEquals(Character.UnicodeBlock.SORA_SOMPENG, Character.UnicodeBlock.of(0x110d0));
+        assertEquals(Character.UnicodeBlock.SORA_SOMPENG, Character.UnicodeBlock.of(0x110ff));
+        assertEquals(Character.UnicodeBlock.CHAKMA, Character.UnicodeBlock.of(0x11100));
+        assertEquals(Character.UnicodeBlock.CHAKMA, Character.UnicodeBlock.of(0x1114f));
+        assertEquals(Character.UnicodeBlock.SHARADA, Character.UnicodeBlock.of(0x11180));
+        assertEquals(Character.UnicodeBlock.SHARADA, Character.UnicodeBlock.of(0x111df));
+        assertEquals(Character.UnicodeBlock.TAKRI, Character.UnicodeBlock.of(0x11680));
+        assertEquals(Character.UnicodeBlock.TAKRI, Character.UnicodeBlock.of(0x116cf));
+        assertEquals(Character.UnicodeBlock.MIAO, Character.UnicodeBlock.of(0x16f00));
+        assertEquals(Character.UnicodeBlock.MIAO, Character.UnicodeBlock.of(0x16f9f));
+        assertEquals(Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS, Character.UnicodeBlock.of(0x1ee00));
+        assertEquals(Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS, Character.UnicodeBlock.of(0x1eeff));
 
         // Negative test: The range [0x0860, 0x08A0) is currently unassigned.
         assertEquals(null, Character.UnicodeBlock.of((char) 0x0860));
@@ -793,6 +825,37 @@ public class Character_UnicodeBlockTest extends TestCase {
         assertEquals(Character.UnicodeBlock.SUPPLEMENTARY_PRIVATE_USE_AREA_B, Character.UnicodeBlock.forName("SUPPLEMENTARY_PRIVATE_USE_AREA_B"));
         assertEquals(Character.UnicodeBlock.SUPPLEMENTARY_PRIVATE_USE_AREA_B, Character.UnicodeBlock.forName("Supplementary Private Use Area-B"));
         assertEquals(Character.UnicodeBlock.SUPPLEMENTARY_PRIVATE_USE_AREA_B, Character.UnicodeBlock.forName("SupplementaryPrivateUseArea-B"));
+
+        // Blocks added in 1.8
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.forName("ARABIC_EXTENDED_A"));
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.forName("arabic extended-A"));
+        assertEquals(Character.UnicodeBlock.ARABIC_EXTENDED_A, Character.UnicodeBlock.forName("ArabicExtended-A"));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.forName("SUNDANESE_SUPPLEMENT"));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.forName("Sundanese Supplement"));
+        assertEquals(Character.UnicodeBlock.SUNDANESE_SUPPLEMENT, Character.UnicodeBlock.forName("SundaneseSupplement"));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.forName("MEETEI_MAYEK_EXTENSIONS"));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.forName("MEETEI MAYEK EXTENSIONS"));
+        assertEquals(Character.UnicodeBlock.MEETEI_MAYEK_EXTENSIONS, Character.UnicodeBlock.forName("MeeteiMayekExtensions"));
+        assertEquals(Character.UnicodeBlock.MEROITIC_HIEROGLYPHS, Character.UnicodeBlock.forName("MEROITIC_HIEROGLYPHS"));
+        assertEquals(Character.UnicodeBlock.MEROITIC_HIEROGLYPHS, Character.UnicodeBlock.forName("MEROITIC HIEROGLYPHS"));
+        assertEquals(Character.UnicodeBlock.MEROITIC_HIEROGLYPHS, Character.UnicodeBlock.forName("MeroiticHieroglyphs"));
+        assertEquals(Character.UnicodeBlock.MEROITIC_CURSIVE, Character.UnicodeBlock.forName("MEROITIC_CURSIVE"));
+        assertEquals(Character.UnicodeBlock.MEROITIC_CURSIVE, Character.UnicodeBlock.forName("MEROITIC CURSIVE"));
+        assertEquals(Character.UnicodeBlock.MEROITIC_CURSIVE, Character.UnicodeBlock.forName("MeroiticCursive"));
+        assertEquals(Character.UnicodeBlock.SORA_SOMPENG, Character.UnicodeBlock.forName("SORA_SOMPENG"));
+        assertEquals(Character.UnicodeBlock.SORA_SOMPENG, Character.UnicodeBlock.forName("SORA SOMPENG"));
+        assertEquals(Character.UnicodeBlock.SORA_SOMPENG, Character.UnicodeBlock.forName("SoraSompeng"));
+        assertEquals(Character.UnicodeBlock.CHAKMA, Character.UnicodeBlock.forName("CHAKMA"));
+        assertEquals(Character.UnicodeBlock.SHARADA, Character.UnicodeBlock.forName("SHARADA"));
+        assertEquals(Character.UnicodeBlock.TAKRI, Character.UnicodeBlock.forName("TAKRI"));
+        assertEquals(Character.UnicodeBlock.MIAO, Character.UnicodeBlock.forName("MIAO"));
+        assertEquals(Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS,
+                     Character.UnicodeBlock.forName("ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS"));
+        assertEquals(Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS,
+                     Character.UnicodeBlock.forName("ARABIC MATHEMATICAL ALPHABETIC SYMBOLS"));
+        assertEquals(Character.UnicodeBlock.ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS,
+                     Character.UnicodeBlock.forName("ArabicMathematicalAlphabeticSymbols"));
+
     }
 
     public void test_forNameLjava_lang_StringExceptions() {

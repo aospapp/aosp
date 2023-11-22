@@ -19,6 +19,6 @@ package dot.junit.opcodes.iget_object;
 public class TestStubs {
     // used by testVFE4
     private Object TestStubField = null;
-    // used by testVFE15
+    // used by testVFE16 and testVFE35
     protected Object TestStubProtectedField = null;
 }

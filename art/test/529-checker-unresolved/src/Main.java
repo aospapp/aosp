@@ -77,6 +77,16 @@ public class Main extends UnresolvedSuperClass {
     expectEquals(123456789123456789f, UnresolvedClass.staticFloat);
     expectEquals(123456789123456789d, UnresolvedClass.staticDouble);
     expectEquals(o, UnresolvedClass.staticObject);
+
+    // Check "large" values.
+
+    UnresolvedClass.staticByte = (byte)-1;
+    UnresolvedClass.staticChar = (char)32768;
+    UnresolvedClass.staticInt = -1;
+
+    expectEquals((byte)-1, UnresolvedClass.staticByte);
+    expectEquals((char)32768, UnresolvedClass.staticChar);
+    expectEquals(-1, UnresolvedClass.staticInt);
   }
 
   /// CHECK-START: void Main.callUnresolvedInstanceFieldAccess(UnresolvedClass) register (before)
@@ -112,6 +122,43 @@ public class Main extends UnresolvedSuperClass {
     expectEquals(123456789123456789f, c.instanceFloat);
     expectEquals(123456789123456789d, c.instanceDouble);
     expectEquals(o, c.instanceObject);
+
+    // Check "large" values.
+
+    c.instanceByte = (byte)-1;
+    c.instanceChar = (char)32768;
+    c.instanceInt = -1;
+
+    expectEquals((byte)-1, c.instanceByte);
+    expectEquals((char)32768, c.instanceChar);
+    expectEquals(-1, c.instanceInt);
+  }
+
+  /// CHECK-START: void Main.callUnresolvedNull(UnresolvedClass) register (before)
+  /// CHECK-NOT: NullCheck
+  static public void callUnresolvedNull(UnresolvedClass c) {
+    int x = 0;
+    try {
+      x = c.instanceInt;
+      throw new Error("Expected NPE");
+    } catch (NullPointerException e) {
+      x -= 1;
+    }
+    expectEquals(-1, x);
+    try {
+      c.instanceInt = -1;
+      throw new Error("Expected NPE");
+    } catch (NullPointerException e) {
+      x -= 1;
+    }
+    expectEquals(-2, x);
+    try {
+      c.virtualMethod();
+      throw new Error("Expected NPE");
+    } catch (NullPointerException e) {
+      x -= 1;
+    }
+    expectEquals(-3, x);
   }
 
   static public void testInstanceOf(Object o) {
@@ -136,6 +183,7 @@ public class Main extends UnresolvedSuperClass {
     callInvokeUnresolvedSuper(m);
     callUnresolvedStaticFieldAccess();
     callUnresolvedInstanceFieldAccess(c);
+    callUnresolvedNull(null);
     testInstanceOf(m);
     testCheckCast(m);
     testLicm(2);
@@ -144,13 +192,13 @@ public class Main extends UnresolvedSuperClass {
   /// CHECK-START: void Main.testLicm(int) licm (before)
   /// CHECK:      <<Class:l\d+>>        LoadClass                                     loop:B2
   /// CHECK-NEXT: <<Clinit:l\d+>>       ClinitCheck [<<Class>>]                       loop:B2
-  /// CHECK-NEXT: <<New:l\d+>>          NewInstance [<<Clinit>>,<<Method:[i|j]\d+>>]  loop:B2
+  /// CHECK-NEXT: <<New:l\d+>>          NewInstance [<<Clinit>>]                      loop:B2
   /// CHECK-NEXT:                       InvokeUnresolved [<<New>>]                    loop:B2
 
   /// CHECK-START: void Main.testLicm(int) licm (after)
   /// CHECK:      <<Class:l\d+>>        LoadClass                                     loop:none
   /// CHECK-NEXT: <<Clinit:l\d+>>       ClinitCheck [<<Class>>]                       loop:none
-  /// CHECK:      <<New:l\d+>>          NewInstance [<<Clinit>>,<<Method:[i|j]\d+>>]  loop:B2
+  /// CHECK:      <<New:l\d+>>          NewInstance [<<Clinit>>]                      loop:B2
   /// CHECK-NEXT:                       InvokeUnresolved [<<New>>]                    loop:B2
   static public void testLicm(int count) {
     // Test to make sure we keep the initialization check after loading an unresolved class.
@@ -185,7 +233,7 @@ public class Main extends UnresolvedSuperClass {
     }
   }
 
-    public static void expectEquals(float expected, float result) {
+  public static void expectEquals(float expected, float result) {
     if (expected != result) {
       throw new Error("Expected: " + expected + ", found: " + result);
     }

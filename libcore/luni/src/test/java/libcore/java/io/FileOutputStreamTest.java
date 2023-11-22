@@ -17,14 +17,17 @@
 package libcore.java.io;
 
 import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class FileOutputStreamTest extends TestCase {
+public class FileOutputStreamTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
+
     public void testFileDescriptorOwnership() throws Exception {
         File tmp = File.createTempFile("FileOutputStreamTest", "tmp");
         FileOutputStream fos1 = new FileOutputStream(tmp);

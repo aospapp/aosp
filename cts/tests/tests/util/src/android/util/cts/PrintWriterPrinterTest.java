@@ -16,51 +16,61 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+
+import android.content.Context;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.PrintWriterPrinter;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 
-import android.content.Context;
-import android.test.AndroidTestCase;
-import android.util.PrintWriterPrinter;
-
-public class PrintWriterPrinterTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PrintWriterPrinterTest {
     private File mFile;
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        File dbDir = getContext().getDir("tests", Context.MODE_PRIVATE);
+
+    @Before
+    public void setup() throws IOException {
+        File dbDir = InstrumentationRegistry.getTargetContext().getDir("tests",
+                Context.MODE_PRIVATE);
         mFile = new File(dbDir,"print.log");
-        if (!mFile.exists())
+        if (!mFile.exists()) {
             mFile.createNewFile();
-    }
-
-    public void testConstructor() {
-
-        PrintWriterPrinter printWriterPrinter = null;
-
-        try {
-            PrintWriter pw = new PrintWriter(mFile);
-            printWriterPrinter = new PrintWriterPrinter(pw);
-        } catch (FileNotFoundException e) {
-            fail("shouldn't throw exception");
         }
     }
 
-    public void testPrintln() {
-        PrintWriterPrinter printWriterPrinter = null;
+    @After
+    public void teardown() throws Exception {
+        if (mFile.exists()) {
+            mFile.delete();
+        }
+    }
+
+    @Test
+    public void testConstructor() throws FileNotFoundException {
+        PrintWriter pw = new PrintWriter(mFile);
+        new PrintWriterPrinter(pw);
+    }
+
+    @Test
+    public void testPrintln() throws FileNotFoundException {
         String mMessage = "testMessage";
-        PrintWriter pw = null;
-        try {
-            pw = new PrintWriter(mFile);
-            printWriterPrinter = new PrintWriterPrinter(pw);
-        } catch (FileNotFoundException e) {
-            fail("shouldn't throw exception");
-        }
+        PrintWriter pw = new PrintWriter(mFile);
+        PrintWriterPrinter printWriterPrinter = new PrintWriterPrinter(pw);
         printWriterPrinter.println(mMessage);
         pw.flush();
         pw.close();
@@ -74,12 +84,5 @@ public class PrintWriterPrinterTest extends AndroidTestCase {
         }
         assertEquals(mMessage, mLine);
     }
-
-    @Override
-    protected void tearDown() throws Exception {
-        if (mFile.exists())
-            mFile.delete();
-    }
-
 }
 

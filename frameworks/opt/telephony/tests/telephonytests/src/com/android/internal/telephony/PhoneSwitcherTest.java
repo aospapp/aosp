@@ -16,28 +16,25 @@
 
 package com.android.internal.telephony;
 
-import com.android.internal.telephony.MccTable;
-import com.android.internal.telephony.mocks.ConnectivityServiceMock;
-import com.android.internal.telephony.mocks.SubscriptionControllerMock;
-import com.android.internal.telephony.mocks.TelephonyRegistryMock;
-import com.android.internal.telephony.test.SimulatedCommands;
-
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.net.StringNetworkSpecifier;
 import android.os.AsyncResult;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.net.ConnectivityManager;
-import android.net.IConnectivityManager;
-import android.net.NetworkCapabilities;
-import android.net.NetworkRequest;
-
+import android.telephony.Rlog;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import android.telephony.Rlog;
+import com.android.internal.telephony.mocks.ConnectivityServiceMock;
+import com.android.internal.telephony.mocks.SubscriptionControllerMock;
+import com.android.internal.telephony.mocks.TelephonyRegistryMock;
+import com.android.internal.telephony.test.SimulatedCommands;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -159,7 +156,7 @@ public class PhoneSwitcherTest extends AndroidTestCase {
                 addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).
                 addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED).
                 addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
-        netCap.setNetworkSpecifier(Integer.toString(subId));
+        netCap.setNetworkSpecifier(new StringNetworkSpecifier(Integer.toString(subId)));
         return cs.requestNetwork(netCap, null, 0, new Binder(), -1);
     }
 
@@ -168,7 +165,7 @@ public class PhoneSwitcherTest extends AndroidTestCase {
                 addCapability(NetworkCapabilities.NET_CAPABILITY_MMS).
                 addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED).
                 addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
-        netCap.setNetworkSpecifier(Integer.toString(subId));
+        netCap.setNetworkSpecifier(new StringNetworkSpecifier(Integer.toString(subId)));
         return cs.requestNetwork(netCap, null, 0, new Binder(), -1);
     }
 
@@ -391,6 +388,12 @@ public class PhoneSwitcherTest extends AndroidTestCase {
 //        }
 //        if (commandsInterfaces[0].isDataAllowed()) fail("data allowed");
 //        if (commandsInterfaces[1].isDataAllowed()) fail("data allowed");
+
+        for (int i = 0; i < numPhones; i++) {
+            commandsInterfaces[i].dispose();
+        }
+
+        connectivityServiceMock.die();
         testHandler.die();
         handlerThread.quit();
     }
@@ -471,6 +474,11 @@ public class PhoneSwitcherTest extends AndroidTestCase {
         if (commandsInterfaces[0].isDataAllowed()) fail("data allowed");
         if (commandsInterfaces[1].isDataAllowed() == false) fail("data not allowed");
 
+        for (int i = 0; i < numPhones; i++) {
+            commandsInterfaces[i].dispose();
+        }
+
+        connectivityServiceMock.die();
         testHandler.die();
         handlerThread.quit();
     }
@@ -540,6 +548,11 @@ public class PhoneSwitcherTest extends AndroidTestCase {
         if (commandsInterfaces[0].isDataAllowed() == false) fail("data not allowed");
         if (commandsInterfaces[1].isDataAllowed()) fail("data allowed");
 
+        for (int i = 0; i < numPhones; i++) {
+            commandsInterfaces[i].dispose();
+        }
+
+        connectivityServiceMock.die();
         testHandler.die();
         handlerThread.quit();
     }

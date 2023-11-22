@@ -297,6 +297,10 @@ def fio_parser(lines, prefix=None):
 
 
         for k, v in job.iteritems():
+            # Igonre "job options", its alphanumerc keys confuses tko.
+            # Besides, these keys are redundant.
+            if k == 'job options':
+                continue
             results.update(fio_parse_dict({k:v}, job_prefix))
 
     return results

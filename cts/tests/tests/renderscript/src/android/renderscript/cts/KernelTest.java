@@ -73,6 +73,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I8_2
         t = new Type.Builder(mRS, Element.I8_2(mRS)).setX(x).create();
@@ -87,6 +89,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I8_3
         t = new Type.Builder(mRS, Element.I8_3(mRS)).setX(x).create();
@@ -101,6 +105,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I8_4
         t = new Type.Builder(mRS, Element.I8_4(mRS)).setX(x).create();
@@ -115,6 +121,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I16
         t = new Type.Builder(mRS, Element.I16(mRS)).setX(x).create();
@@ -129,6 +137,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I16_2
         t = new Type.Builder(mRS, Element.I16_2(mRS)).setX(x).create();
@@ -143,6 +153,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I16_3
         t = new Type.Builder(mRS, Element.I16_3(mRS)).setX(x).create();
@@ -157,6 +169,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I16_4
         t = new Type.Builder(mRS, Element.I16_4(mRS)).setX(x).create();
@@ -171,6 +185,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I32
         t = new Type.Builder(mRS, Element.I32(mRS)).setX(x).create();
@@ -185,6 +201,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I32_2
         t = new Type.Builder(mRS, Element.I32_2(mRS)).setX(x).create();
@@ -199,6 +217,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I32_3
         t = new Type.Builder(mRS, Element.I32_3(mRS)).setX(x).create();
@@ -213,6 +233,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I32_4
         t = new Type.Builder(mRS, Element.I32_4(mRS)).setX(x).create();
@@ -227,6 +249,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I64
         t = new Type.Builder(mRS, Element.I64(mRS)).setX(x).create();
@@ -241,6 +265,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I64_2
         t = new Type.Builder(mRS, Element.I64_2(mRS)).setX(x).create();
@@ -255,6 +281,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I64_3
         t = new Type.Builder(mRS, Element.I64_3(mRS)).setX(x).create();
@@ -269,6 +297,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // I64_4
         t = new Type.Builder(mRS, Element.I64_4(mRS)).setX(x).create();
@@ -283,6 +313,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F32
         t = new Type.Builder(mRS, Element.F32(mRS)).setX(x).create();
@@ -296,6 +328,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F32_2
         t = new Type.Builder(mRS, Element.F32_2(mRS)).setX(x).create();
@@ -310,6 +344,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F32_3
         t = new Type.Builder(mRS, Element.F32_3(mRS)).setX(x).create();
@@ -323,6 +359,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F32_4
         t = new Type.Builder(mRS, Element.F32_4(mRS)).setX(x).create();
@@ -336,6 +374,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F64
         t = new Type.Builder(mRS, Element.F64(mRS)).setX(x).create();
@@ -349,6 +389,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F64_2
         t = new Type.Builder(mRS, Element.F64_2(mRS)).setX(x).create();
@@ -362,6 +404,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F64_3
         t = new Type.Builder(mRS, Element.F64_3(mRS)).setX(x).create();
@@ -375,6 +419,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // F64_4
         t = new Type.Builder(mRS, Element.F64_4(mRS)).setX(x).create();
@@ -388,6 +434,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // kernel_test (struct)
         in = new ScriptField_kernel_test(mRS, x).getAllocation();
@@ -400,6 +448,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // BOOLEAN
         t = new Type.Builder(mRS, Element.BOOLEAN(mRS)).setX(x).create();
@@ -413,6 +463,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // A_8
         t = new Type.Builder(mRS, Element.I8(mRS)).setX(x).create();
@@ -427,6 +479,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // RGBA_8888
         t = new Type.Builder(mRS, Element.I8_4(mRS)).setX(x).create();
@@ -441,6 +495,8 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
 
         // RGB_888
         t = new Type.Builder(mRS, Element.I8_3(mRS)).setX(x).create();
@@ -455,6 +511,11 @@ public class KernelTest extends RSBaseCompute {
             fail("should throw RSRuntimeException");
         } catch (RSRuntimeException e) {
         }
+        in.destroy();
+        out.destroy();
+
+        badOut.destroy();
+        kernel_all.destroy();
     }
 
 
@@ -477,6 +538,9 @@ public class KernelTest extends RSBaseCompute {
         mRS.finish();
         waitForMessage();
         checkForErrors();
+
+        A.destroy();
+        s.destroy();
     }
 
     public void testNoRoot() {
@@ -496,5 +560,8 @@ public class KernelTest extends RSBaseCompute {
         mRS.finish();
         waitForMessage();
         checkForErrors();
+
+        A.destroy();
+        s.destroy();
     }
 }

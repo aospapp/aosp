@@ -8,6 +8,7 @@
 
 #include <vector>
 
+#include "base/memory/ptr_util.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -25,7 +26,7 @@ namespace {
 
 class EnvironmentImpl : public Environment {
  public:
-  bool GetVar(const char* variable_name, std::string* result) override {
+  bool GetVar(StringPiece variable_name, std::string* result) override {
     if (GetVarImpl(variable_name, result))
       return true;
 
@@ -35,28 +36,28 @@ class EnvironmentImpl : public Environment {
     // I.e. HTTP_PROXY may be http_proxy for some users/systems.
     char first_char = variable_name[0];
     std::string alternate_case_var;
-    if (first_char >= 'a' && first_char <= 'z')
+    if (IsAsciiLower(first_char))
       alternate_case_var = ToUpperASCII(variable_name);
-    else if (first_char >= 'A' && first_char <= 'Z')
+    else if (IsAsciiUpper(first_char))
       alternate_case_var = ToLowerASCII(variable_name);
     else
       return false;
     return GetVarImpl(alternate_case_var.c_str(), result);
   }
 
-  bool SetVar(const char* variable_name,
+  bool SetVar(StringPiece variable_name,
               const std::string& new_value) override {
     return SetVarImpl(variable_name, new_value);
   }
 
-  bool UnSetVar(const char* variable_name) override {
+  bool UnSetVar(StringPiece variable_name) override {
     return UnSetVarImpl(variable_name);
   }
 
  private:
-  bool GetVarImpl(const char* variable_name, std::string* result) {
+  bool GetVarImpl(StringPiece variable_name, std::string* result) {
 #if defined(OS_POSIX)
-    const char* env_value = getenv(variable_name);
+    const char* env_value = getenv(variable_name.data());
     if (!env_value)
       return false;
     // Note that the variable may be defined but empty.
@@ -64,12 +65,12 @@ class EnvironmentImpl : public Environment {
       *result = env_value;
     return true;
 #elif defined(OS_WIN)
-    DWORD value_length = ::GetEnvironmentVariable(
-        UTF8ToWide(variable_name).c_str(), NULL, 0);
+    DWORD value_length =
+        ::GetEnvironmentVariable(UTF8ToWide(variable_name).c_str(), nullptr, 0);
     if (value_length == 0)
       return false;
     if (result) {
-      scoped_ptr<wchar_t[]> value(new wchar_t[value_length]);
+      std::unique_ptr<wchar_t[]> value(new wchar_t[value_length]);
       ::GetEnvironmentVariable(UTF8ToWide(variable_name).c_str(), value.get(),
                                value_length);
       *result = WideToUTF8(value.get());
@@ -80,10 +81,10 @@ class EnvironmentImpl : public Environment {
 #endif
   }
 
-  bool SetVarImpl(const char* variable_name, const std::string& new_value) {
+  bool SetVarImpl(StringPiece variable_name, const std::string& new_value) {
 #if defined(OS_POSIX)
     // On success, zero is returned.
-    return !setenv(variable_name, new_value.c_str(), 1);
+    return !setenv(variable_name.data(), new_value.c_str(), 1);
 #elif defined(OS_WIN)
     // On success, a nonzero value is returned.
     return !!SetEnvironmentVariable(UTF8ToWide(variable_name).c_str(),
@@ -91,13 +92,13 @@ class EnvironmentImpl : public Environment {
 #endif
   }
 
-  bool UnSetVarImpl(const char* variable_name) {
+  bool UnSetVarImpl(StringPiece variable_name) {
 #if defined(OS_POSIX)
     // On success, zero is returned.
-    return !unsetenv(variable_name);
+    return !unsetenv(variable_name.data());
 #elif defined(OS_WIN)
     // On success, a nonzero value is returned.
-    return !!SetEnvironmentVariable(UTF8ToWide(variable_name).c_str(), NULL);
+    return !!SetEnvironmentVariable(UTF8ToWide(variable_name).c_str(), nullptr);
 #endif
   }
 };
@@ -134,12 +135,12 @@ const char kHome[] = "HOME";
 Environment::~Environment() {}
 
 // static
-Environment* Environment::Create() {
-  return new EnvironmentImpl();
+std::unique_ptr<Environment> Environment::Create() {
+  return MakeUnique<EnvironmentImpl>();
 }
 
-bool Environment::HasVar(const char* variable_name) {
-  return GetVar(variable_name, NULL);
+bool Environment::HasVar(StringPiece variable_name) {
+  return GetVar(variable_name, nullptr);
 }
 
 #if defined(OS_WIN)
@@ -184,8 +185,8 @@ string16 AlterEnvironment(const wchar_t* env,
 
 #elif defined(OS_POSIX)
 
-scoped_ptr<char*[]> AlterEnvironment(const char* const* const env,
-                                     const EnvironmentMap& changes) {
+std::unique_ptr<char* []> AlterEnvironment(const char* const* const env,
+                                           const EnvironmentMap& changes) {
   std::string value_storage;  // Holds concatenated null-terminated strings.
   std::vector<size_t> result_indices;  // Line indices into value_storage.
 
@@ -218,7 +219,7 @@ scoped_ptr<char*[]> AlterEnvironment(const char* const* const env,
   size_t pointer_count_required =
       result_indices.size() + 1 +  // Null-terminated array of pointers.
       (value_storage.size() + sizeof(char*) - 1) / sizeof(char*);  // Buffer.
-  scoped_ptr<char*[]> result(new char*[pointer_count_required]);
+  std::unique_ptr<char* []> result(new char*[pointer_count_required]);
 
   // The string storage goes after the array of pointers.
   char* storage_data = reinterpret_cast<char*>(

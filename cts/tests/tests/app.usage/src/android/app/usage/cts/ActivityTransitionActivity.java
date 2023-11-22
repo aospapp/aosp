@@ -20,6 +20,8 @@ import android.app.Activity;
 import android.app.SharedElementCallback;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.transition.ChangeBounds;
@@ -27,7 +29,7 @@ import android.transition.Explode;
 import android.transition.Fade;
 import android.transition.Transition;
 import android.transition.Transition.TransitionListener;
-import android.transition.Transition.TransitionListenerAdapter;
+import android.transition.TransitionListenerAdapter;
 import android.view.View;
 
 import java.util.List;
@@ -192,7 +194,9 @@ public class ActivityTransitionActivity extends Activity {
             @Override
             public void onTransitionEnd(Transition transition) {
                 mEntering = false;
-                setResult(RESULT_OK);
+                Intent intent = new Intent();
+                intent.putExtra("Extra", new ExtraData("result"));
+                setResult(RESULT_OK, intent);
                 getWindow().getDecorView().post(new Runnable() {
                     @Override
                     public void run() {
@@ -216,6 +220,17 @@ public class ActivityTransitionActivity extends Activity {
             public void onTransitionResume(Transition transition) {
             }
         });
+    }
+
+    @Override
+    public void onActivityReenter(int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            ExtraData extraData = data.getParcelableExtra("Extra");
+            if (!"result".equals(extraData.data)) {
+                throw new RuntimeException("Incorrect returned intent data in onActivityReenter");
+            }
+        }
+        super.onActivityReenter(resultCode, data);
     }
 
     @Override
@@ -284,6 +299,43 @@ public class ActivityTransitionActivity extends Activity {
 
         public boolean isSet() {
             return mVisibility != -1;
+        }
+    }
+
+    /**
+     * Used to test the class loader of the returned intent.
+     */
+    public static class ExtraData implements Parcelable {
+        public final String data;
+
+        public ExtraData(String data) {
+            this.data = data;
+        }
+
+        protected ExtraData(Parcel in) {
+            this.data = in.readString();
+        }
+
+        public static final Creator<ExtraData> CREATOR = new Creator<ExtraData>() {
+            @Override
+            public ExtraData createFromParcel(Parcel in) {
+                return new ExtraData(in);
+            }
+
+            @Override
+            public ExtraData[] newArray(int size) {
+                return new ExtraData[size];
+            }
+        };
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeString(data);
         }
     }
 }

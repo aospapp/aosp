@@ -23,10 +23,12 @@
  */
 
 #include <utils/List.h>
+#include <camera/CameraParameters.h>
 
 namespace android {
 
 class EmulatedCameraDevice;
+class FrameProducer;
 
 /* Manages callbacks set via set_callbacks, enable_msg_type, and disable_msg_type
  * camera HAL API.
@@ -105,6 +107,13 @@ public:
      */
     void releaseRecordingFrame(const void* opaque);
 
+    /* Send a message to the notify callback that auto-focus has completed.
+     * This method is called from the containing emulated camera object when it
+     * has received confirmation from the camera device that auto-focusing is
+     * completed.
+     */
+    void autoFocusComplete();
+
     /* Actual handler for camera_device_ops_t::msg_type_enabled callback.
      * This method is called by the containing emulated camera object when it is
      * handing the camera_device_ops_t::msg_type_enabled callback.
@@ -129,7 +138,7 @@ public:
      * Return:
      *  true if video recording is enabled, or false if it is disabled.
      */
-    inline bool isVideoRecordingEnabled()
+    inline bool isVideoRecordingEnabled() const
     {
         return mVideoRecEnabled;
     }
@@ -144,21 +153,15 @@ public:
 
     /* Next frame is available in the camera device.
      * This is a notification callback that is invoked by the camera device when
-     * a new frame is available.
+     * a new frame is available. The captured frame is available through the
+     * |camera_dev| obejct.
      * Note that most likely this method is called in context of a worker thread
      * that camera device has created for frame capturing.
      * Param:
-     *  frame - Captured frame, or NULL if camera device didn't pull the frame
-     *      yet. If NULL is passed in this parameter use GetCurrentFrame method
-     *      of the camera device class to obtain the next frame. Also note that
-     *      the size of the frame that is passed here (as well as the frame
-     *      returned from the GetCurrentFrame method) is defined by the current
-     *      frame settings (width + height + pixel format) for the camera device.
      * timestamp - Frame's timestamp.
      * camera_dev - Camera device instance that delivered the frame.
      */
-    void onNextFrameAvailable(const void* frame,
-                              nsecs_t timestamp,
+    void onNextFrameAvailable(nsecs_t timestamp,
                               EmulatedCameraDevice* camera_dev);
 
     /* Entry point for notifications that occur in camera device.
@@ -180,6 +183,14 @@ public:
     void setJpegQuality(int jpeg_quality)
     {
         mJpegQuality = jpeg_quality;
+    }
+
+    /* Sets the camera parameters that will be used to populate exif data in the
+     * picture.
+     */
+    void setCameraParameters(CameraParameters cameraParameters)
+    {
+        mCameraParameters = cameraParameters;
     }
 
     /****************************************************************************
@@ -225,6 +236,9 @@ protected:
 
     /* JPEG quality used to compress frame during picture taking. */
     int                             mJpegQuality;
+
+    /* Camera parameters used for EXIF data in picture */
+    CameraParameters                mCameraParameters;
 
     /* Video recording status. */
     bool                            mVideoRecEnabled;

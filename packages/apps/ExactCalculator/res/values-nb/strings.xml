@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"slett"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"vis omvendte funksjoner"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"skjul omvendte funksjoner"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Ingen formel"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Ingen resultater"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Tall og grunnleggende operasjoner"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Avanserte operasjoner"</string>
     <string name="error_nan" msgid="5674077944929888710">"Ikke et tall"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Ugyldig uttrykk"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Avbrutt"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Uendelig?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Kan ikke dele på 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Teksten er kopiert"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Utregningen er avbrutt."</string>
-    <string name="timeout" msgid="802690170415591535">"Tidsavbrudd. Verdien kan være uendelig eller udefinert."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Utregningen er avbrutt."</string>
+    <string name="timeout" msgid="5461892570729418573">"Verdien kan være uendelig eller udefinert."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Bruk lengre tidsavbrudd"</string>
     <string name="dismiss" msgid="7872443888515066216">"Fjern"</string>
     <string name="exact" msgid="2597237880041789948">"(nøyaktig)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Svar med innledende siffer"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Svar som brøk"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Åpen kildekode-lisenser"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Logg"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Tøm"</string>
+    <string name="title_history" msgid="7820912156315181539">"Logg"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Gå opp"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Tidsavbrudd"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Vil du tømme loggen og minnet?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Gjeldende uttrykk"</string>
+    <string name="no_history" msgid="4331262030447527188">"Ingen logg"</string>
 </resources>

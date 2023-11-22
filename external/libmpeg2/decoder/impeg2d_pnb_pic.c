@@ -106,6 +106,14 @@ WORD32  impeg2d_dec_p_mb_params(dec_state_t *ps_dec)
                 u2_mb_addr_incr    = ps_dec->u2_num_horiz_mb - ps_dec->u2_mb_x;
             }
 
+            if ((u2_mb_addr_incr - 1) > ps_dec->u2_num_mbs_left)
+            {
+                /* If the number of skip MBs are more than the number of MBs
+                 * left, indicate error.
+                 */
+                return IV_FAIL;
+            }
+
             impeg2d_dec_skip_mbs(ps_dec, (UWORD16)(u2_mb_addr_incr - 1));
         }
 
@@ -297,6 +305,13 @@ WORD32 impeg2d_dec_pnb_mb_params(dec_state_t *ps_dec)
                 u2_mb_addr_incr    = ps_dec->u2_num_horiz_mb - ps_dec->u2_mb_x;
             }
 
+            if ((u2_mb_addr_incr - 1) > ps_dec->u2_num_mbs_left)
+            {
+                /* If the number of skip MBs are more than the number of MBs
+                 * left, indicate error.
+                 */
+                return IV_FAIL;
+            }
 
             impeg2d_dec_skip_mbs(ps_dec, (UWORD16)(u2_mb_addr_incr - 1));
         }
@@ -487,7 +502,6 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_p_b_slice(dec_state_t *ps_dec)
         WORD32 u4_pred_strd;
 
         IMPEG2D_TRACE_MB_START(ps_dec->u2_mb_x, ps_dec->u2_mb_y);
-
 
         if(ps_dec->e_pic_type == B_PIC)
             ret = impeg2d_dec_pnb_mb_params(ps_dec);
@@ -686,7 +700,6 @@ IMPEG2D_ERROR_CODES_T impeg2d_dec_p_b_slice(dec_state_t *ps_dec)
 
             }
         }
-
 
         ps_dec->u2_num_mbs_left--;
         ps_dec->u2_first_mb = 0;

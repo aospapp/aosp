@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Alertong pang-emergency"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Cell broadcast"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Mga setting ng alertong pang-emergency"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Mga mensahe ng broadcast"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"I-on ang mga notification"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Ipakita ang mga broadcast ng alertong pang-emergency"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alertong paalala"</string>

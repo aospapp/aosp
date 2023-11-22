@@ -27,6 +27,7 @@ class firmware_ECWakeSource(FirmwareTest):
         """Shutdown and hibernate EC. Then wake by power button."""
         self.faft_client.system.run_shell_command("shutdown -P now")
         time.sleep(self.SHUTDOWN_DELAY)
+        self.switcher.wait_for_client_offline()
         self.ec.send_command("hibernate 1000")
         time.sleep(self.WAKE_DELAY)
         self.servo.power_short_press()
@@ -37,16 +38,19 @@ class firmware_ECWakeSource(FirmwareTest):
             raise error.TestNAError("Nothing needs to be tested on this device")
 
         logging.info("Suspend and wake by power button.")
-        self.switcher.mode_aware_reboot(
-                'custom',
-                 lambda:self.suspend_as_reboot(self.wake_by_power_button))
+        self.suspend()
+        self.switcher.wait_for_client_offline()
+        self.servo.power_normal_press()
+        self.switcher.wait_for_client()
 
         logging.info("Suspend and wake by lid switch.")
-        self.switcher.mode_aware_reboot(
-                'custom',
-                lambda:self.suspend_as_reboot(self.wake_by_lid_switch))
+        self.suspend()
+        self.switcher.wait_for_client_offline()
+        self.servo.set('lid_open', 'no')
+        time.sleep(self.LID_DELAY)
+        self.servo.set('lid_open', 'yes')
+        self.switcher.wait_for_client()
 
         logging.info("EC hibernate and wake by power button.")
-        self.switcher.mode_aware_reboot(
-                'custom',
-                lambda:self.hibernate_and_wake_by_power_button())
+        self.hibernate_and_wake_by_power_button()
+        self.switcher.wait_for_client()

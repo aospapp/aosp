@@ -23,4 +23,6 @@ LOCAL_PACKAGE_NAME := AppSmoke
 LOCAL_STATIC_JAVA_LIBRARIES := ub-uiautomator launcher-helper-lib android-support-test
 LOCAL_CERTIFICATE := platform
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

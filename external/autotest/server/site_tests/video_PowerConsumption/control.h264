@@ -8,7 +8,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TEST_TYPE = "server"
 DEPENDENCIES = "rpm, power:battery"
 BUG_TEMPLATE = {
@@ -24,7 +23,7 @@ import logging
 from autotest_lib.client.common_lib import error
 
 
-VIDEO_NAME = "traffic-1920x1080-8005020218f6b86bfa978e550d04956e.mp4"
+VIDEO_NAME = "traffic/traffic-1920x1080-8005020218f6b86bfa978e550d04956e.mp4"
 VIDEO_DESCRIPTION = "h264_1080p"
 
 def _run_client_test(machine):
@@ -33,8 +32,8 @@ def _run_client_test(machine):
     if not client.has_power():
         raise error.TestError("This test requires RPM support.")
 
-    client.power_off()
     try:
+        client.power_off()
         client_at = autotest.Autotest(client)
         client_at.run_test("video_PlaybackPerf", video_name=VIDEO_NAME,
                            video_description=VIDEO_DESCRIPTION, power_test=True)

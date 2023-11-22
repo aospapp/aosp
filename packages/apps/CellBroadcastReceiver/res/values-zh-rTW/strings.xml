@@ -20,7 +20,7 @@
     <string name="sms_cb_settings" msgid="971917159442705371">"區域廣播設定"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"這位使用者無法修改區域廣播設定"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"確定"</string>
-    <string name="no_cell_broadcasts" msgid="5409324337492758562">"您的區域目前沒有警示。您可以使用選單中的 [設定] 選項變更 [警示] 設定。"</string>
+    <string name="no_cell_broadcasts" msgid="5409324337492758562">"你的區域目前沒有警示。你可以使用選單中的 [設定] 選項變更 [警示] 設定。"</string>
     <string name="menu_preferences" msgid="3596514894131599202">"設定"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"刪除廣播"</string>
     <string name="message_options" msgid="3178489901903589574">"訊息選項"</string>
@@ -36,16 +36,17 @@
     <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"地震與海嘯警告"</string>
     <string name="etws_test_message" msgid="8447820262584381894">"ETWS 測試訊息"</string>
     <string name="etws_other_emergency_type" msgid="5233080551309721499">"緊急警告"</string>
-    <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"國家級警示"</string>
-    <string name="cmas_extreme_alert" msgid="2588720613319969289">"緊急警示：極嚴重"</string>
+    <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"國家級警報"</string>
+    <string name="cmas_extreme_alert" msgid="2588720613319969289">"緊急警報：極嚴重"</string>
     <string name="cmas_severe_alert" msgid="4135809475315826913">"緊急警示：嚴重"</string>
-    <string name="cmas_amber_alert" msgid="6154867710264778887">"兒童綁架 (安珀警示)"</string>
-    <string name="cmas_required_monthly_test" msgid="6464047268150108932">"緊急警示每月測試"</string>
+    <string name="cmas_amber_alert" msgid="6154867710264778887">"兒童綁架 (安珀警報)"</string>
+    <string name="cmas_required_monthly_test" msgid="6464047268150108932">"每月測試用訊息"</string>
     <string name="cmas_exercise_alert" msgid="2892255514938370321">"緊急警示 (演習)"</string>
     <string name="cmas_operator_defined_alert" msgid="8755372450810011476">"緊急警示 (電信業者自訂)"</string>
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"緊急警示"</string>
-    <string name="cb_other_message_identifiers" msgid="7083176204482365281">"區域廣播"</string>
+    <string name="cb_other_message_identifiers" msgid="7083176204482365281">"警訊通知"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"緊急警示設定"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"廣播訊息"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"開啟通知"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"顯示緊急警示廣播"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"快訊提醒"</string>
@@ -59,7 +60,7 @@
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"顯示嚴重威脅"</string>
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"顯示嚴重生命財產威脅警示"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"顯示安珀警示"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"顯示兒童綁架緊急事件公告 (安珀警示)"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"顯示兒童綁架緊急事件公告 (安珀警報)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"顯示 CMAS 測試廣播"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"顯示商用行動警示系統測試廣播"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"震動"</string>
@@ -104,7 +105,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"新警示"</string>
     <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"第一次 CMAS 警示出現後顯示停用對話方塊 (國家級警示除外)。"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"顯示停用對話方塊"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"您目前已設為接收緊急警示，是否要繼續接收？"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"你目前已設為接收緊急警示，是否要繼續接收？"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"是"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"否"</string>
   <string-array name="alert_reminder_interval_entries">

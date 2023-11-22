@@ -22,8 +22,6 @@ import javax.microedition.khronos.opengles.GL10;
 import android.opengl.GLES20;
 
 public class RendererElevenShaderTest extends RendererBase {
-    private String fragmentShaderCode = Vertex.successfulcompile_vertex;
-
     public RendererElevenShaderTest(CountDownLatch latch) {
         super(latch);
     }
@@ -31,10 +29,10 @@ public class RendererElevenShaderTest extends RendererBase {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
-        int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
+        int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, Vertex.successfulcompile_vertex);
         mProgram =  GLES20.glCreateProgram();
 
-        GLES20.glAttachShader(mProgram, fragmentShader);
+        GLES20.glAttachShader(mProgram, vertexShader);
         GLES20.glLinkProgram(mProgram);
 
         mError = GLES20.glGetError();

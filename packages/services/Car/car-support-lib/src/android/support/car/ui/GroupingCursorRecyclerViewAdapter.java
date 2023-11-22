@@ -28,6 +28,7 @@ import java.util.List;
  * Maintains a list that groups adjacent items sharing the same value of
  * a "group-by" field.  The list has three types of elements: stand-alone, group header and group
  * child. Groups are collapsible and collapsed by default.
+ * @hide
  */
 public abstract class GroupingCursorRecyclerViewAdapter<VH extends RecyclerView.ViewHolder>
         extends CursorRecyclerViewAdapter<VH> {

@@ -19,7 +19,7 @@
 
 #include "art_method-inl.h"
 #include "oat_quick_method_header.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "stack_map.h"
 
 namespace art {
@@ -28,10 +28,10 @@ namespace art {
 // holding references.
 class CheckReferenceMapVisitor : public StackVisitor {
  public:
-  explicit CheckReferenceMapVisitor(Thread* thread) SHARED_REQUIRES(Locks::mutator_lock_)
+  explicit CheckReferenceMapVisitor(Thread* thread) REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     if (m->IsCalleeSaveMethod() || m->IsNative()) {
       CHECK_EQ(GetDexPc(), DexFile::kDexNoIndex);
@@ -41,10 +41,10 @@ class CheckReferenceMapVisitor : public StackVisitor {
       return true;
     }
 
-    LOG(INFO) << "At " << PrettyMethod(m, false);
+    LOG(INFO) << "At " << m->PrettyMethod(false);
 
     if (m->IsCalleeSaveMethod()) {
-      LOG(WARNING) << "no PC for " << PrettyMethod(m);
+      LOG(WARNING) << "no PC for " << m->PrettyMethod();
       return true;
     }
 
@@ -52,14 +52,14 @@ class CheckReferenceMapVisitor : public StackVisitor {
   }
 
   void CheckReferences(int* registers, int number_of_references, uint32_t native_pc_offset)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     CHECK(GetCurrentOatQuickMethodHeader()->IsOptimized());
     CheckOptimizedMethod(registers, number_of_references, native_pc_offset);
   }
 
  private:
   void CheckOptimizedMethod(int* registers, int number_of_references, uint32_t native_pc_offset)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     CodeInfo code_info = GetCurrentOatQuickMethodHeader()->GetOptimizedCodeInfo();
     CodeInfoEncoding encoding = code_info.ExtractEncoding();
@@ -67,7 +67,8 @@ class CheckReferenceMapVisitor : public StackVisitor {
     uint16_t number_of_dex_registers = m->GetCodeItem()->registers_size_;
     DexRegisterMap dex_register_map =
         code_info.GetDexRegisterMapOf(stack_map, encoding, number_of_dex_registers);
-    uint32_t register_mask = stack_map.GetRegisterMask(encoding.stack_map_encoding);
+    uint32_t register_mask = code_info.GetRegisterMaskOf(encoding, stack_map);
+    BitMemoryRegion stack_mask = code_info.GetStackMaskOf(encoding, stack_map);
     for (int i = 0; i < number_of_references; ++i) {
       int reg = registers[i];
       CHECK(reg < m->GetCodeItem()->registers_size_);
@@ -80,8 +81,7 @@ class CheckReferenceMapVisitor : public StackVisitor {
           break;
         case DexRegisterLocation::Kind::kInStack:
           DCHECK_EQ(location.GetValue() % kFrameSlotSize, 0);
-          CHECK(stack_map.GetStackMaskBit(encoding.stack_map_encoding,
-                                          location.GetValue() / kFrameSlotSize));
+          CHECK(stack_mask.LoadBit(location.GetValue() / kFrameSlotSize));
           break;
         case DexRegisterLocation::Kind::kInRegister:
         case DexRegisterLocation::Kind::kInRegisterHigh:

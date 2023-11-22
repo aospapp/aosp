@@ -68,19 +68,15 @@ public final class HttpsURLConnectionImpl extends DelegatingHttpsURLConnection {
     return delegate.client.getSslSocketFactory();
   }
 
-  // ANDROID-BEGIN
-  //  @Override public long getContentLengthLong() {
-  //    return delegate.getContentLengthLong();
-  //  }
-  // ANDROID-END
+  @Override public long getContentLengthLong() {
+    return delegate.getContentLengthLong();
+  }
 
   @Override public void setFixedLengthStreamingMode(long contentLength) {
     delegate.setFixedLengthStreamingMode(contentLength);
   }
 
-  // ANDROID-BEGIN
-  // @Override public long getHeaderFieldLong(String field, long defaultValue) {
-  //   return delegate.getHeaderFieldLong(field, defaultValue);
-  // }
-  // ANDROID-END
+  @Override public long getHeaderFieldLong(String field, long defaultValue) {
+    return delegate.getHeaderFieldLong(field, defaultValue);
+  }
 }

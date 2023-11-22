@@ -16,7 +16,7 @@
 
 package com.android.tv.ui.sidepanel;
 
-import android.app.Activity;
+import android.content.Context;
 
 import com.android.tv.R;
 import com.android.tv.data.DisplayMode;
@@ -49,8 +49,8 @@ public class DisplayModeFragment extends SideFragment {
     }
 
     @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
+    public void onAttach(Context context) {
+        super.onAttach(context);
         mTvViewUiManager = getMainActivity().getTvViewUiManager();
     }
 

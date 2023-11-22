@@ -17,7 +17,7 @@
 #if !defined (NXPLOG__H_INCLUDED)
 #define NXPLOG__H_INCLUDED
 
-#include <cutils/log.h>
+#include <log/log.h>
 
 typedef struct nci_log_level
 {
@@ -91,9 +91,9 @@ extern const char * NXPLOG_ITEM_HCPR;    /* Android logging tag for NxpHcpR   */
 /* ######################################## Defines used for Logging data ######################################### */
 #ifdef NXP_VRBS_REQ
 #define NXPLOG_FUNC_ENTRY(COMP) \
-    LOG_PRI( ANDROID_LOG_VERBOSE, (COMP), "+:%s", (__FUNCTION__))
+    LOG_PRI( ANDROID_LOG_VERBOSE, (COMP), "+:%s", (__func__))
 #define NXPLOG_FUNC_EXIT(COMP) \
-    LOG_PRI(ANDROID_LOG_VERBOSE, (COMP), "-:%s", (__FUNCTION__))
+    LOG_PRI(ANDROID_LOG_VERBOSE, (COMP), "-:%s", (__func__))
 #endif /*NXP_VRBS_REQ*/
 
 /* ################################################################################################################ */

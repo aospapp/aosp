@@ -18,9 +18,6 @@
 #include "rsCpuIntrinsic.h"
 #include "rsCpuIntrinsicInlines.h"
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -37,8 +34,8 @@ protected:
                        uint32_t xend, uint32_t outstep);
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 
 enum {
@@ -109,11 +106,12 @@ extern void rsdIntrinsicBlendAdd_K(void *dst, const void *src, uint32_t count8);
 extern void rsdIntrinsicBlendSub_K(void *dst, const void *src, uint32_t count8);
 #endif
 
+namespace android {
+namespace renderscript {
+
 void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
                                         uint32_t xstart, uint32_t xend,
                                         uint32_t outstep) {
-    RsdCpuScriptIntrinsicBlend *cp = (RsdCpuScriptIntrinsicBlend *)info->usr;
-
     // instep/outstep can be ignored--sizeof(uchar4) known at compile time
     uchar4 *out = (uchar4 *)info->outPtr[0];
     uchar4 *in = (uchar4 *)info->inPtr[0];
@@ -121,9 +119,7 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
     uint32_t x2 = xend;
 
 #if defined(ARCH_ARM_USE_INTRINSICS)
-    // Bug: 22047392 - Skip optimized version for BLEND_DST_ATOP until this
-    // been fixed.
-    if (gArchUseSIMD && info->slot != BLEND_DST_ATOP) {
+    if (gArchUseSIMD) {
         if (rsdIntrinsicBlend_K(out, in, info->slot, x1, x2) >= 0)
             return;
     }
@@ -511,3 +507,6 @@ RsdCpuScriptImpl * rsdIntrinsic_Blend(RsdCpuReferenceImpl *ctx,
                                       const Script *s, const Element *e) {
     return new RsdCpuScriptIntrinsicBlend(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

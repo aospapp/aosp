@@ -6,6 +6,7 @@
  */
 
 #include "gm.h"
+#include "sk_tool_utils.h"
 #include "SkCanvas.h"
 #include "SkDashPathEffect.h"
 
@@ -55,7 +56,7 @@ static void draw_text_set(SkCanvas* canvas, const SkPaint& paint) {
 
     canvas->translate(200, 0);
     SkPaint p(paint);
-    p.setPathEffect(SkDashPathEffect::Create(intervals, SK_ARRAY_COUNT(intervals), phase))->unref();
+    p.setPathEffect(SkDashPathEffect::Make(intervals, SK_ARRAY_COUNT(intervals), phase));
     draw_text_stroked(canvas, p, 10);
 }
 

@@ -1,13 +1,18 @@
 LOCAL_PATH:= $(call my-dir)
 
+# b/31559947, Some files caused clang-analyzer-* checks to segmentation fault.
+common_local_tidy_checks := -clang-analyzer-*
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_MODULE := libcxcore
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/cxcore/include
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%)
+
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 # cxmathfuncs.cpp has implicit cast of int struct fields.
 LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
@@ -58,6 +63,13 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/cxcore/src \
         $(LOCAL_PATH)/cv/include
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%)
+
+LOCAL_CFLAGS += -Wno-sizeof-pointer-memaccess \
+       -Wno-deprecated-register \
+       -Wno-sign-compare \
+       -Wno-parentheses-equality
+
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 
 LOCAL_SRC_FILES := \
         cv/src/cvaccum.cpp \
@@ -131,6 +143,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_MODULE    := libcvaux
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES := \
@@ -139,6 +152,13 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/cxcore/include \
         $(LOCAL_PATH)/cvaux/include
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%)
+
+LOCAL_CFLAGS += -Wno-unused-parameter \
+        -Wno-logical-op-parentheses \
+        -Wno-dangling-else \
+        -Wno-missing-field-initializers \
+        -Wno-self-assign \
+        -Wno-sizeof-pointer-memaccess
 
 LOCAL_SRC_FILES := \
         cvaux/src/camshift.cpp \
@@ -194,6 +214,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_MODULE    := libcvml
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES := \
@@ -202,6 +223,9 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/cxcore/include \
         $(LOCAL_PATH)/ml/include
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%)
+
+LOCAL_CFLAGS += -Wno-logical-op-parentheses \
+       -Wno-tautological-compare
 
 LOCAL_SRC_FILES := \
         ml/src/ml.cpp \
@@ -224,6 +248,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_MODULE    := libcvhighgui
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES := \
@@ -236,6 +261,8 @@ LOCAL_C_INCLUDES := \
 LOCAL_SHARED_LIBRARIES += libjpeg
 
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%) -DHAVE_JPEG
+
+LOCAL_CFLAGS += -Wno-unused-parameter -Wno-logical-op-parentheses
 
 # grfmt_tiff.cpp has implicit cast of int struct fields.
 LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
@@ -263,6 +290,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
+LOCAL_TIDY_CHECKS := $(common_local_tidy_checks)
 LOCAL_MODULE    := libopencv
 LOCAL_MODULE_TAGS := optional
 

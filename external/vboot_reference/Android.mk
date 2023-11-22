@@ -174,6 +174,6 @@ $(generated_sources)/futility_cmds.c: ${FUTIL_SRCS:%=${LOCAL_PATH}/%}
 LOCAL_GENERATED_SOURCES := $(generated_sources)/futility_cmds.c
 
 LOCAL_STATIC_LIBRARIES := libvboot_util-host
-LOCAL_SHARED_LIBRARIES := libcrypto-host
+LOCAL_SHARED_LIBRARIES := libcrypto
 include $(BUILD_HOST_EXECUTABLE)
 

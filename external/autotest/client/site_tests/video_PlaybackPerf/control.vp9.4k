@@ -9,7 +9,6 @@ CRITERIA = """
 The test outputs the cpu usage and dropped frame count of VP9 4K video playback.
 """
 ATTRIBUTES = "suite:crosbolt_perf_nightly"
-SUITE = "crosbolt_perf_nightly"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
@@ -21,7 +20,7 @@ This test measures the CPU usage and dropped frame count of VP9 4K video
 playback for hardware decode and software decode.
 """
 
-VIDEO_NAME = 'traffic-3840x2160-cbcdda7d7143b3e9f8efbeed0c4157b5.vp9.webm'
+VIDEO_NAME = 'traffic/traffic-3840x2160-cbcdda7d7143b3e9f8efbeed0c4157b5.vp9.webm'
 VIDEO_DESCRIPTION = 'vp9_4k'
 job.run_test('video_PlaybackPerf', video_name=VIDEO_NAME,
              video_description=VIDEO_DESCRIPTION)

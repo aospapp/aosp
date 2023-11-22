@@ -161,8 +161,8 @@ public abstract class DatabaseContentProvider extends ContentProvider {
         public synchronized SQLiteDatabase getWritableDatabase() {
             try {
                 return super.getWritableDatabase();
-            } catch (InvalidDBException e) {
-                logger.error("getWritableDatabase - caught InvalidDBException ");
+            } catch (Exception e) {
+                logger.error("getWritableDatabase exception " + e);
             }
 
             // try to delete the database file
@@ -179,8 +179,8 @@ public abstract class DatabaseContentProvider extends ContentProvider {
         public synchronized SQLiteDatabase getReadableDatabase() {
             try {
                 return super.getReadableDatabase();
-            } catch (InvalidDBException e) {
-                logger.error("getReadableDatabase - caught InvalidDBException ");
+            } catch (Exception e) {
+                logger.error("getReadableDatabase exception " + e);
             }
 
             // try to delete the database file

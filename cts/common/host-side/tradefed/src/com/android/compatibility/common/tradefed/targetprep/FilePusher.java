@@ -61,6 +61,14 @@ public class FilePusher extends PushFilePreparer implements IAbiReceiver {
      * {@inheritDoc}
      */
     @Override
+    public IAbi getAbi() {
+        return mAbi;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public File resolveRelativeFilePath(IBuildInfo buildInfo, String fileName) {
         try {
             File f = new File(getTestsDir(buildInfo),

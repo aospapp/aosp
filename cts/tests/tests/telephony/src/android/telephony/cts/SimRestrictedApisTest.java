@@ -265,4 +265,20 @@ public class SimRestrictedApisTest extends AndroidTestCase {
         } catch (SecurityException expected) {
         }
     }
+
+    /**
+     * Tests the TelephonyManager.getIccAuthentication() API. This makes a call to
+     * getIccAuthentication() API and expects a SecurityException since the test apk is not
+     * signed by certificate on the SIM.
+     */
+    public void testGetIccAuthentication() {
+        try {
+            if (isSimCardPresent()) {
+                TelephonyManager.getDefault().getIccAuthentication(TelephonyManager.APPTYPE_USIM,
+                        TelephonyManager.AUTHTYPE_EAP_AKA, "");
+                fail("Expected SecurityException. App doesn't have carrier privileges.");
+            }
+        } catch (SecurityException expected) {
+        }
+    }
 }

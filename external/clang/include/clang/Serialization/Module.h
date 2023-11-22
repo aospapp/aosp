@@ -15,6 +15,7 @@
 #ifndef LLVM_CLANG_SERIALIZATION_MODULE_H
 #define LLVM_CLANG_SERIALIZATION_MODULE_H
 
+#include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ContinuousRangeMap.h"
@@ -32,7 +33,6 @@ template <typename Info> class OnDiskIterableChainedHashTable;
 
 namespace clang {
 
-class FileEntry;
 class DeclContext;
 class Module;
 
@@ -398,20 +398,6 @@ public:
   /// IDs, so that we can interpret a true global ID (for this translation unit)
   /// as a local ID (for this module file).
   llvm::DenseMap<ModuleFile *, serialization::DeclID> GlobalToLocalDeclIDs;
-
-  /// \brief The number of C++ base specifier sets in this AST file.
-  unsigned LocalNumCXXBaseSpecifiers;
-
-  /// \brief Offset of each C++ base specifier set within the bitstream,
-  /// indexed by the C++ base specifier set ID (-1).
-  const uint32_t *CXXBaseSpecifiersOffsets;
-
-  /// \brief The number of C++ ctor initializer lists in this AST file.
-  unsigned LocalNumCXXCtorInitializers;
-
-  /// \brief Offset of each C++ ctor initializer list within the bitstream,
-  /// indexed by the C++ ctor initializer list ID minus 1.
-  const uint32_t *CXXCtorInitializersOffsets;
 
   /// \brief Array of file-level DeclIDs sorted by file.
   const serialization::DeclID *FileSortedDecls;

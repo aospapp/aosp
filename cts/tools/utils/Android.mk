@@ -24,7 +24,7 @@ LOCAL_SRC_FILES := CollectAllTests.java DescriptionGenerator.java VogarUtils.jav
 
 LOCAL_CLASSPATH := $(HOST_JDK_TOOLS_JAR)
 
-LOCAL_JAVA_LIBRARIES := junit
+LOCAL_JAVA_LIBRARIES := junit-host tradefed
 LOCAL_STATIC_JAVA_LIBRARIES := compatibility-host-util vogarexpectlib
 
 include $(BUILD_HOST_JAVA_LIBRARY)

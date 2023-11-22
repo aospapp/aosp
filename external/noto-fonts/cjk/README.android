@@ -7,4 +7,5 @@ Description:
 Noto CJK fonts, for supporting Chinese, Japanese, and Korean.
 
 Local Modifications:
-No modifications.
+The fonts have been modified to remove cmap entries for characters
+that should default to emoji style in Android.

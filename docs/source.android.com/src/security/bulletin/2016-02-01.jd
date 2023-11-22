@@ -24,12 +24,16 @@ page.title=Nexus Security Bulletin - February 2016
   </div>
 </div>
 
-<p><em>Published February 01, 2016 | Updated February 2, 2016</em></p>
+<p><em>Published February 01, 2016 | Updated March 7, 2016</em></p>
 
 <p>We have released a security update to Nexus devices through an over-the-air
 (OTA) update as part of our Android Security Bulletin Monthly Release process.
-The Nexus firmware images have also been released to the <a href="https://developers.google.com/android/nexus/images">Google Developer site</a>. Builds LMY49G or later and Android M with Security Patch Level of February 1,
-2016 or later address these issues. Refer to the <a href="https://support.google.com/nexus/answer/4457705">Nexus documentation</a> for instructions on how to check the security patch level.</p>
+The Nexus firmware images have also been released to the
+<a href="https://developers.google.com/android/nexus/images">Google Developer site</a>.
+Builds LMY49G or later and Android M with Security Patch Level of February 1,
+2016 or later address these issues. Refer to the
+<a href="https://support.google.com/nexus/answer/4457705">Nexus documentation</a>
+for instructions on how to check the security patch level.</p>
 
 <p>Partners were notified about the issues described in the bulletin on January 4,
 2016 or earlier. Where applicable, source code patches for these issues have been
@@ -43,7 +47,9 @@ it could allow remote code execution on an affected device while connected to
 the same network as the attacker.</p>
 
 <p>We have had no reports of active customer exploitation of these newly reported
-issues. Refer to the <a href="#mitigations">Mitigations</a> section for details on the <a href="https://source.android.com/security/enhancements/">Android security platform protections</a> and service protections such as SafetyNet, which improve the security of the
+issues. Refer to the <a href="#mitigations">Mitigations</a> section for details on the
+<a href="{@docRoot}security/enhancements/index.html">Android security platform protections</a>
+and service protections such as SafetyNet, which improve the security of the
 Android platform. We encourage all customers to accept these updates to their
 devices.</p>
 
@@ -51,7 +57,9 @@ devices.</p>
 
 
 <p>The table below contains a list of security vulnerabilities, the Common
-Vulnerability and Exposures ID (CVE), and their assessed severity. The <a href="https://source.android.com/security/overview/updates-resources.html#severity">severity assessment</a> is based on the effect that exploiting the vulnerability would possibly have
+Vulnerability and Exposures ID (CVE), and their assessed severity. The
+<a href="{@docRoot}security/overview/updates-resources.html#severity">severity assessment</a>
+is based on the effect that exploiting the vulnerability would possibly have
 on an affected device, assuming the platform and service mitigations are
 disabled for development purposes or if successfully bypassed.</p>
 <table>
@@ -148,11 +156,14 @@ pass media to processes such as mediaserver.
 <ul>
   <li> Android and Chrome Security Team: CVE-2016-0809, CVE-2016-0810
   <li> Broadgate Team: CVE-2016-0801, CVE-2015-0802
+  <li> Chiachih Wu (<a
+       href="https://twitter.com/chiachih_wu">@chiachih_wu</a>), Mingjian Zhou (<a
+       href="https://twitter.com/Mingjian_Zhou">@Mingjian_Zhou</a>), and Xuxian Jiang
+       of <a href="http://c0reteam.org">C0RE Team</a>, <a
+       href="http://www.360safe.com/">Qihoo 360</a>: CVE-2016-0804
   <li> David Riley of the Google Pixel C Team: CVE-2016-0812
-  <li> Dongkwan Kim (<a href="mailto:dkay@kaist.ac.kr">dkay@kaist.ac.kr</a>) of System Security Lab, KAIST: CVE-2015-6614
   <li> Gengjia Chen (<a href="https://twitter.com/@chengjia4574">@chengjia4574</a>)
        of Lab IceSword, Qihoo 360: CVE-2016-0805
-  <li> Hongil Kim (<a href="mailto:hongilk@kaist.ac.kr">hongilk@kaist.ac.kr</a>) of System Security Lab, KAIST: CVE-2015-6614
   <li> Qidan He (<a href="https://twitter.com/@Flanker_hqd">@Flanker_hqd</a>) of
        KeenLab (<a href="https://twitter.com/keen_lab">@keen_lab</a>), Tencent: CVE-2016-0811
   <li> Seven Shen (<a href="https://twitter.com/@lingtongshen">@lingtongshen</a>)
@@ -192,24 +203,22 @@ the context of the kernel without requiring user interaction.</p>
  </tr>
  <tr>
     <td>CVE-2016-0801</td>
-    <td>ANDROID-25662029*</td>
+    <td><a href="https://android.googlesource.com/kernel/msm/+/68cdc8df1cb6622980b791ce03e99c255c9888af%5E!">ANDROID-25662029</a><br />
+   <a href="https://android.googlesource.com/kernel/msm/+/68cdc8df1cb6622980b791ce03e99c255c9888af%5E!">ANDROID-25662233</a></td>
     <td>Critical</td>
     <td>4.4.4, 5.0, 5.1.1, 6.0, 6.0.1</td>
     <td>Oct 25, 2015</td>
  </tr>
  <tr>
     <td>CVE-2016-0802</td>
-    <td>ANDROID-25306181*</td>
+    <td><a href="https://android.googlesource.com/kernel/msm/+/3fffc78f70dc101add8b82af878d53457713d005%5E%21/">ANDROID-25306181</a></td>
     <td>Critical</td>
     <td>4.4.4, 5.0, 5.1.1, 6.0, 6.0.1</td>
     <td>Oct 26,2015</td>
  </tr>
 </table>
-<p>* The patch for this issue is not in AOSP. The update is contained in the
-latest binary drivers for Nexus devices available from the <a href="https://developers.google.com/android/nexus/drivers">Google Developer site</a>.</p>
 
 <h3 id=remote_code_execution_vulnerability_in_mediaserver>Remote Code Execution Vulnerability in Mediaserver</h3>
-
 
 <p>During media file and data processing of a specially crafted file,
 vulnerabilities in mediaserver could allow an attacker to cause memory
@@ -483,3 +492,4 @@ manufacturers that include these updates should set the patch string level to:
 <ul>
   <li> February 01, 2016: Bulletin published.
   <li> February 02, 2016:  Bulletin revised to include AOSP links.
+  <li> March 07, 2016: Bulletin revised to include additional AOSP links.

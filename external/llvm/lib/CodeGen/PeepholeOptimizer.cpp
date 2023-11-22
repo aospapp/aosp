@@ -394,17 +394,16 @@ namespace {
 
 char PeepholeOptimizer::ID = 0;
 char &llvm::PeepholeOptimizerID = PeepholeOptimizer::ID;
-INITIALIZE_PASS_BEGIN(PeepholeOptimizer, "peephole-opts",
+INITIALIZE_PASS_BEGIN(PeepholeOptimizer, DEBUG_TYPE,
                 "Peephole Optimizations", false, false)
 INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
-INITIALIZE_PASS_END(PeepholeOptimizer, "peephole-opts",
+INITIALIZE_PASS_END(PeepholeOptimizer, DEBUG_TYPE,
                 "Peephole Optimizations", false, false)
 
-/// optimizeExtInstr - If instruction is a copy-like instruction, i.e. it reads
-/// a single register and writes a single register and it does not modify the
-/// source, and if the source value is preserved as a sub-register of the
-/// result, then replace all reachable uses of the source with the subreg of the
-/// result.
+/// If instruction is a copy-like instruction, i.e. it reads a single register
+/// and writes a single register and it does not modify the source, and if the
+/// source value is preserved as a sub-register of the result, then replace all
+/// reachable uses of the source with the subreg of the result.
 ///
 /// Do not generate an EXTRACT that is used only in a debug use, as this changes
 /// the code. Since this code does not currently share EXTRACTs, just ignore all
@@ -555,23 +554,23 @@ optimizeExtInstr(MachineInstr *MI, MachineBasicBlock *MBB,
   return Changed;
 }
 
-/// optimizeCmpInstr - If the instruction is a compare and the previous
-/// instruction it's comparing against all ready sets (or could be modified to
-/// set) the same flag as the compare, then we can remove the comparison and use
-/// the flag from the previous instruction.
+/// If the instruction is a compare and the previous instruction it's comparing
+/// against already sets (or could be modified to set) the same flag as the
+/// compare, then we can remove the comparison and use the flag from the
+/// previous instruction.
 bool PeepholeOptimizer::optimizeCmpInstr(MachineInstr *MI,
                                          MachineBasicBlock *MBB) {
   // If this instruction is a comparison against zero and isn't comparing a
   // physical register, we can try to optimize it.
   unsigned SrcReg, SrcReg2;
   int CmpMask, CmpValue;
-  if (!TII->analyzeCompare(MI, SrcReg, SrcReg2, CmpMask, CmpValue) ||
+  if (!TII->analyzeCompare(*MI, SrcReg, SrcReg2, CmpMask, CmpValue) ||
       TargetRegisterInfo::isPhysicalRegister(SrcReg) ||
       (SrcReg2 != 0 && TargetRegisterInfo::isPhysicalRegister(SrcReg2)))
     return false;
 
   // Attempt to optimize the comparison instruction.
-  if (TII->optimizeCompareInstr(MI, SrcReg, SrcReg2, CmpMask, CmpValue, MRI)) {
+  if (TII->optimizeCompareInstr(*MI, SrcReg, SrcReg2, CmpMask, CmpValue, MRI)) {
     ++NumCmps;
     return true;
   }
@@ -586,11 +585,11 @@ bool PeepholeOptimizer::optimizeSelect(MachineInstr *MI,
   unsigned FalseOp = 0;
   bool Optimizable = false;
   SmallVector<MachineOperand, 4> Cond;
-  if (TII->analyzeSelect(MI, Cond, TrueOp, FalseOp, Optimizable))
+  if (TII->analyzeSelect(*MI, Cond, TrueOp, FalseOp, Optimizable))
     return false;
   if (!Optimizable)
     return false;
-  if (!TII->optimizeSelect(MI, LocalMIs))
+  if (!TII->optimizeSelect(*MI, LocalMIs))
     return false;
   MI->eraseFromParent();
   ++NumSelects;
@@ -600,7 +599,7 @@ bool PeepholeOptimizer::optimizeSelect(MachineInstr *MI,
 /// \brief Check if a simpler conditional branch can be
 // generated
 bool PeepholeOptimizer::optimizeCondBranch(MachineInstr *MI) {
-  return TII->optimizeCondBranch(MI);
+  return TII->optimizeCondBranch(*MI);
 }
 
 /// \brief Try to find the next source that share the same register file
@@ -1290,12 +1289,11 @@ bool PeepholeOptimizer::optimizeUncoalescableCopy(
   return true;
 }
 
-/// isLoadFoldable - Check whether MI is a candidate for folding into a later
-/// instruction. We only fold loads to virtual registers and the virtual
-/// register defined has a single use.
+/// Check whether MI is a candidate for folding into a later instruction.
+/// We only fold loads to virtual registers and the virtual register defined
+/// has a single use.
 bool PeepholeOptimizer::isLoadFoldable(
-                              MachineInstr *MI,
-                              SmallSet<unsigned, 16> &FoldAsLoadDefCandidates) {
+    MachineInstr *MI, SmallSet<unsigned, 16> &FoldAsLoadDefCandidates) {
   if (!MI->canFoldAsLoad() || !MI->mayLoad())
     return false;
   const MCInstrDesc &MCID = MI->getDesc();
@@ -1315,9 +1313,9 @@ bool PeepholeOptimizer::isLoadFoldable(
   return false;
 }
 
-bool PeepholeOptimizer::isMoveImmediate(MachineInstr *MI,
-                                        SmallSet<unsigned, 4> &ImmDefRegs,
-                                 DenseMap<unsigned, MachineInstr*> &ImmDefMIs) {
+bool PeepholeOptimizer::isMoveImmediate(
+    MachineInstr *MI, SmallSet<unsigned, 4> &ImmDefRegs,
+    DenseMap<unsigned, MachineInstr *> &ImmDefMIs) {
   const MCInstrDesc &MCID = MI->getDesc();
   if (!MI->isMoveImmediate())
     return false;
@@ -1333,12 +1331,12 @@ bool PeepholeOptimizer::isMoveImmediate(MachineInstr *MI,
   return false;
 }
 
-/// foldImmediate - Try folding register operands that are defined by move
-/// immediate instructions, i.e. a trivial constant folding optimization, if
+/// Try folding register operands that are defined by move immediate
+/// instructions, i.e. a trivial constant folding optimization, if
 /// and only if the def and use are in the same BB.
-bool PeepholeOptimizer::foldImmediate(MachineInstr *MI, MachineBasicBlock *MBB,
-                                      SmallSet<unsigned, 4> &ImmDefRegs,
-                                 DenseMap<unsigned, MachineInstr*> &ImmDefMIs) {
+bool PeepholeOptimizer::foldImmediate(
+    MachineInstr *MI, MachineBasicBlock *MBB, SmallSet<unsigned, 4> &ImmDefRegs,
+    DenseMap<unsigned, MachineInstr *> &ImmDefMIs) {
   for (unsigned i = 0, e = MI->getDesc().getNumOperands(); i != e; ++i) {
     MachineOperand &MO = MI->getOperand(i);
     if (!MO.isReg() || MO.isDef())
@@ -1353,7 +1351,7 @@ bool PeepholeOptimizer::foldImmediate(MachineInstr *MI, MachineBasicBlock *MBB,
       continue;
     DenseMap<unsigned, MachineInstr*>::iterator II = ImmDefMIs.find(Reg);
     assert(II != ImmDefMIs.end() && "couldn't find immediate definition");
-    if (TII->FoldImmediate(MI, II->second, Reg, MRI)) {
+    if (TII->FoldImmediate(*MI, *II->second, Reg, MRI)) {
       ++NumImmFold;
       return true;
     }
@@ -1376,8 +1374,7 @@ bool PeepholeOptimizer::foldImmediate(MachineInstr *MI, MachineBasicBlock *MBB,
 //
 // Should replace %vreg2 uses with %vreg1:sub1
 bool PeepholeOptimizer::foldRedundantCopy(
-    MachineInstr *MI,
-    SmallSet<unsigned, 4> &CopySrcRegs,
+    MachineInstr *MI, SmallSet<unsigned, 4> &CopySrcRegs,
     DenseMap<unsigned, MachineInstr *> &CopyMIs) {
   assert(MI->isCopy() && "expected a COPY machine instruction");
 
@@ -1474,7 +1471,7 @@ bool PeepholeOptimizer::foldRedundantNAPhysCopy(
 }
 
 bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
-  if (skipOptnoneFunction(*MF.getFunction()))
+  if (skipFunction(*MF.getFunction()))
     return false;
 
   DEBUG(dbgs() << "********** PEEPHOLE OPTIMIZER **********\n");
@@ -1490,9 +1487,7 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
 
   bool Changed = false;
 
-  for (MachineFunction::iterator I = MF.begin(), E = MF.end(); I != E; ++I) {
-    MachineBasicBlock *MBB = &*I;
-
+  for (MachineBasicBlock &MBB : MF) {
     bool SeenMoveImm = false;
 
     // During this forward scan, at some point it needs to answer the question
@@ -1517,8 +1512,8 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
     SmallSet<unsigned, 4> CopySrcRegs;
     DenseMap<unsigned, MachineInstr *> CopySrcMIs;
 
-    for (MachineBasicBlock::iterator
-           MII = I->begin(), MIE = I->end(); MII != MIE; ) {
+    for (MachineBasicBlock::iterator MII = MBB.begin(), MIE = MBB.end();
+         MII != MIE; ) {
       MachineInstr *MI = &*MII;
       // We may be erasing MI below, increment MII now.
       ++MII;
@@ -1581,7 +1576,7 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
 
       if ((isUncoalescableCopy(*MI) &&
            optimizeUncoalescableCopy(MI, LocalMIs)) ||
-          (MI->isCompare() && optimizeCmpInstr(MI, MBB)) ||
+          (MI->isCompare() && optimizeCmpInstr(MI, &MBB)) ||
           (MI->isSelect() && optimizeSelect(MI, LocalMIs))) {
         // MI is deleted.
         LocalMIs.erase(MI);
@@ -1612,14 +1607,14 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
       if (isMoveImmediate(MI, ImmDefRegs, ImmDefMIs)) {
         SeenMoveImm = true;
       } else {
-        Changed |= optimizeExtInstr(MI, MBB, LocalMIs);
+        Changed |= optimizeExtInstr(MI, &MBB, LocalMIs);
         // optimizeExtInstr might have created new instructions after MI
         // and before the already incremented MII. Adjust MII so that the
         // next iteration sees the new instructions.
         MII = MI;
         ++MII;
         if (SeenMoveImm)
-          Changed |= foldImmediate(MI, MBB, ImmDefRegs, ImmDefMIs);
+          Changed |= foldImmediate(MI, &MBB, ImmDefRegs, ImmDefMIs);
       }
 
       // Check whether MI is a load candidate for folding into a later
@@ -1641,10 +1636,8 @@ bool PeepholeOptimizer::runOnMachineFunction(MachineFunction &MF) {
             // we need it for markUsesInDebugValueAsUndef().
             unsigned FoldedReg = FoldAsLoadDefReg;
             MachineInstr *DefMI = nullptr;
-            MachineInstr *FoldMI = TII->optimizeLoadInstr(MI, MRI,
-                                                          FoldAsLoadDefReg,
-                                                          DefMI);
-            if (FoldMI) {
+            if (MachineInstr *FoldMI =
+                    TII->optimizeLoadInstr(*MI, MRI, FoldAsLoadDefReg, DefMI)) {
               // Update LocalMIs since we replaced MI with FoldMI and deleted
               // DefMI.
               DEBUG(dbgs() << "Replacing: " << *MI);
@@ -1846,7 +1839,8 @@ ValueTrackerResult ValueTracker::getNextSourceFromExtractSubreg() {
   if (ExtractSubregInputReg.SubReg)
     return ValueTrackerResult();
   // Otherwise, the value is available in the v0.sub0.
-  return ValueTrackerResult(ExtractSubregInputReg.Reg, ExtractSubregInputReg.SubIdx);
+  return ValueTrackerResult(ExtractSubregInputReg.Reg,
+                            ExtractSubregInputReg.SubIdx);
 }
 
 ValueTrackerResult ValueTracker::getNextSourceFromSubregToReg() {
@@ -1892,9 +1886,11 @@ ValueTrackerResult ValueTracker::getNextSourceFromPHI() {
 ValueTrackerResult ValueTracker::getNextSourceImpl() {
   assert(Def && "This method needs a valid definition");
 
-  assert(
-      (DefIdx < Def->getDesc().getNumDefs() || Def->getDesc().isVariadic()) &&
-      Def->getOperand(DefIdx).isDef() && "Invalid DefIdx");
+  assert(((Def->getOperand(DefIdx).isDef() &&
+           (DefIdx < Def->getDesc().getNumDefs() ||
+            Def->getDesc().isVariadic())) ||
+          Def->getOperand(DefIdx).isImplicit()) &&
+         "Invalid DefIdx");
   if (Def->isCopy())
     return getNextSourceFromCopy();
   if (Def->isBitcast())

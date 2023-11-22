@@ -1,21 +1,26 @@
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import common
+
 import logging
 import os
 import re
-import tempfile
 import time
-import urllib2
 
+import common
 from autotest_lib.client.common_lib import error, global_config
+from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.hosts import cros_host
+from autotest_lib.server.hosts import cros_repair
 
 
 AUTOTEST_INSTALL_DIR = global_config.global_config.get_config_value(
         'SCHEDULER', 'drone_installation_directory')
+
+ENABLE_SSH_TUNNEL_FOR_MOBLAB = global_config.global_config.get_config_value(
+        'CROS', 'enable_ssh_tunnel_for_moblab', type=bool, default=False)
+
 #'/usr/local/autotest'
 SHADOW_CONFIG_PATH = '%s/shadow_config.ini' % AUTOTEST_INSTALL_DIR
 ATEST_PATH = '%s/cli/atest' % AUTOTEST_INSTALL_DIR
@@ -23,8 +28,10 @@ SUBNET_DUT_SEARCH_RE = (
         r'/?.*\((?P<ip>192.168.231.*)\) at '
         '(?P<mac>[0-9a-fA-F][0-9a-fA-F]:){5}([0-9a-fA-F][0-9a-fA-F])')
 MOBLAB_IMAGE_STORAGE = '/mnt/moblab/static'
-MOBLAB_BOTO_LOCATION = '/home/moblab/.boto'
-MOBLAB_LAUNCH_CONTROL_KEY_LOCATION = '/home/moblab/.launch_control_key'
+MOBLAB_HOME = '/home/moblab'
+MOBLAB_BOTO_LOCATION = '%s/.boto' % MOBLAB_HOME
+MOBLAB_LAUNCH_CONTROL_KEY_LOCATION = '%s/.launch_control_key' % MOBLAB_HOME
+MOBLAB_SERVICE_ACCOUNT_LOCATION = '%s/.service_account.json' % MOBLAB_HOME
 MOBLAB_AUTODIR = '/usr/local/autodir'
 DHCPD_LEASE_FILE = '/var/lib/dhcp/dhcpd.leases'
 MOBLAB_SERVICES = ['moblab-scheduler-init',
@@ -36,27 +43,50 @@ MOBLAB_PROCESSES = ['apache2', 'dhcpd']
 DUT_VERIFY_SLEEP_SECS = 5
 DUT_VERIFY_TIMEOUT = 15 * 60
 MOBLAB_TMP_DIR = '/mnt/moblab/tmp'
+MOBLAB_PORT = 80
 
 
 class MoblabHost(cros_host.CrosHost):
     """Moblab specific host class."""
 
 
+    def _initialize_frontend_rpcs(self, timeout_min):
+        """Initialize frontends for AFE and TKO for a moblab host.
+
+        AFE and TKO are initialized differently based on |_use_tunnel|,
+        which indicates that whether to use ssh tunnel to connect to moblab.
+
+        @param timeout_min: The timeout minuties for AFE services.
+        """
+        if self._use_tunnel:
+            self.web_address = self.rpc_server_tracker.tunnel_connect(
+                    MOBLAB_PORT)
+        # Pass timeout_min to self.afe
+        self.afe = frontend_wrappers.RetryingAFE(timeout_min=timeout_min,
+                                                 user='moblab',
+                                                 server=self.web_address)
+        # Use default timeout_min of MoblabHost for self.tko
+        self.tko = frontend_wrappers.RetryingTKO(timeout_min=self.timeout_min,
+                                                 user='moblab',
+                                                 server=self.web_address)
+
+
     def _initialize(self, *args, **dargs):
         super(MoblabHost, self)._initialize(*args, **dargs)
+        # TODO(jrbarnette):  Our superclass already initialized
+        # _repair_strategy, and now we're re-initializing it here.
+        # That's awkward, if not actually wrong.
+        self._repair_strategy = cros_repair.create_moblab_repair_strategy()
+
         # Clear the Moblab Image Storage so that staging an image is properly
         # tested.
         if dargs.get('retain_image_storage') is not True:
             self.run('rm -rf %s/*' % MOBLAB_IMAGE_STORAGE)
-        self._dhcpd_leasefile = None
         self.web_address = dargs.get('web_address', self.hostname)
-        timeout_min = dargs.get('rpc_timeout_min', 1)
-        self.afe = frontend_wrappers.RetryingAFE(timeout_min=timeout_min,
-                                                 user='moblab',
-                                                 server=self.web_address)
-        self.tko = frontend_wrappers.RetryingTKO(timeout_min=timeout_min,
-                                                 user='moblab',
-                                                 server=self.web_address)
+        self._use_tunnel = (ENABLE_SSH_TUNNEL_FOR_MOBLAB and
+                            self.web_address == self.hostname)
+        self.timeout_min = dargs.get('rpc_timeout_min', 1)
+        self._initialize_frontend_rpcs(self.timeout_min)
 
 
     @staticmethod
@@ -122,7 +152,7 @@ class MoblabHost(cros_host.CrosHost):
         # to continue and reimage the device.
         try:
             self.wait_afe_up()
-        except (urllib2.HTTPError, urllib2.URLError) as e:
+        except Exception as e:
             logging.error('DUT has rebooted but AFE has failed to load.: %s',
                           e)
 
@@ -138,12 +168,14 @@ class MoblabHost(cros_host.CrosHost):
 
         @raises urllib2.HTTPError if AFE does not respond within the timeout.
         """
-        # Use a new AFE object with a longer timeout to wait for the AFE to
-        # load.
-        afe = frontend_wrappers.RetryingAFE(timeout_min=timeout_min,
-                                            server=self.hostname)
+        # Use moblabhost's own AFE object with a longer timeout to wait for the
+        # AFE to load. Also re-create the ssh tunnel for connections to moblab.
+        # Set the timeout_min to be longer than self.timeout_min for rebooting.
+        self._initialize_frontend_rpcs(timeout_min)
         # Verify the AFE can handle a simple request.
-        afe.get_hosts()
+        self._check_afe()
+        # Reset the timeout_min after rebooting checks for afe services.
+        self.afe.set_timeout(self.timeout_min)
 
 
     def _wake_devices(self):
@@ -212,13 +244,28 @@ class MoblabHost(cros_host.CrosHost):
         self._verify_duts()
 
 
+    @retry.retry(error.AutoservError, timeout_min=2, delay_sec=10)
+    def _verify_upstart_service(self, service):
+        """Retry to verify the required moblab services are up and running.
+
+        Regarding crbug.com/649811, moblab services takes longer to restart
+        under the new provision framework. This is a fix to retry the service
+        check until all services are successfully restarted.
+
+        @param service: the moblab upstart service.
+
+        @return True if this service is started and running, otherwise False.
+        """
+        return self.upstart_status(service)
+
+
     def _verify_moblab_services(self):
         """Verify the required Moblab services are up and running.
 
         @raises AutoservError if any moblab service is not running.
         """
         for service in MOBLAB_SERVICES:
-            if not self.upstart_status(service):
+            if not self._verify_upstart_service(service):
                 raise error.AutoservError('Moblab service: %s is not running.'
                                           % service)
         for process in MOBLAB_PROCESSES:
@@ -229,11 +276,35 @@ class MoblabHost(cros_host.CrosHost):
                                           % process)
 
 
+    def _check_afe(self):
+        """Verify whether afe of moblab works before verify its DUTs.
+
+        Verifying moblab sometimes happens after a successful provision, in
+        which case moblab is restarted but tunnel of afe is not re-connected.
+        This func is used to check whether afe is working now.
+
+        @return True if afe works, otherwise, raise urllib2.HTTPError.
+        """
+        try:
+            self.afe.get_hosts()
+        except:
+            logging.debug('AFE is not responding')
+            raise
+
+        return True
+
+
     def _verify_duts(self):
         """Verify the Moblab DUTs are up and running.
 
         @raises AutoservError if no DUTs are in the Ready State.
         """
+        # Check whether afe is well connected, if not, restart it.
+        try:
+            self._check_afe()
+        except:
+            self.wait_afe_up()
+
         # Add the DUTs if they have not yet been added.
         self.find_and_add_duts()
         # Ensure a boto file is installed in case this Moblab was wiped in
@@ -251,45 +322,6 @@ class MoblabHost(cros_host.CrosHost):
             for host in self.afe.get_hosts():
                 logging.error('DUT: %s Status: %s', host, host.status)
             raise error.AutoservError('Moblab has 0 Ready DUTs')
-
-
-    def check_device(self):
-        """Moblab specific check_device.
-
-        Runs after a repair method has been attempted:
-        * Reboots the moblab to start its services.
-        * Creates the autotest client directory in case powerwash was used to
-          wipe stateful and repair.
-        * Reinstall the dhcp lease file if it was preserved.
-        """
-        # Moblab requires a reboot to initialize it's services prior to
-        # verification.
-        self.reboot()
-        self.wait_afe_up()
-        # Stateful could have been wiped so setup an empty autotest client
-        # directory.
-        self.run('mkdir -p %s' % self.get_autodir(), ignore_status=True)
-        # Restore the dhcpd lease file if it was backed up.
-        # TODO (sbasi) - Currently this is required for repairs but may need
-        # to be expanded to regular installs as well.
-        if self._dhcpd_leasefile:
-            self.send_file(self._dhcpd_leasefile.name, DHCPD_LEASE_FILE)
-            self.run('chown dhcp:dhcp %s' % DHCPD_LEASE_FILE)
-        super(MoblabHost, self).check_device()
-
-
-    def repair(self):
-        """Moblab specific repair.
-
-        Preserves the dhcp lease file prior to repairing the device.
-        """
-        try:
-            temp = tempfile.TemporaryFile()
-            self.get_file(DHCPD_LEASE_FILE, temp.name)
-            self._dhcpd_leasefile = temp
-        except error.AutoservRunError:
-            logging.debug('Failed to retrieve dhcpd lease file from host.')
-        super(MoblabHost, self).repair()
 
 
     def get_platform(self):
@@ -311,3 +343,7 @@ class MoblabHost(cros_host.CrosHost):
         """
         self.run('mkdir -p %s' % base)
         return self.run('mktemp -d -p %s' % base).stdout.strip()
+
+
+    def get_os_type(self):
+        return 'moblab'

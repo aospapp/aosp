@@ -52,6 +52,7 @@ public class ClassTypeDebuggee extends SyncDebuggee {
     public static short f_pub_short;
     public static boolean f_pub_boolean;
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("ClassTypeDebuggee started");

@@ -48,7 +48,7 @@ public:
         //no ETaskInclude include does not involve any action.
     };
 
-    TaskGeneric(TaskType type);
+    explicit TaskGeneric(TaskType type);
 
     virtual ~TaskGeneric();
 

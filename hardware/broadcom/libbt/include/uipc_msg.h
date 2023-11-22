@@ -46,7 +46,7 @@ enum
     UIPC_STATUS_SUCCESS,
     UIPC_STATUS_FAIL
 };
-typedef UINT8 tUIPC_STATUS;
+typedef uint8_t tUIPC_STATUS;
 
 /* op_code */
 #define UIPC_OPEN_REQ                   0x00
@@ -60,39 +60,39 @@ typedef UINT8 tUIPC_STATUS;
 /* Structure of UIPC_OPEN_REQ message */
 typedef struct
 {
-    UINT8               opcode;         /* UIPC_OPEN_REQ */
+    uint8_t               opcode;         /* UIPC_OPEN_REQ */
 } tUIPC_OPEN_REQ;
 #define UIPC_OPEN_REQ_MSGLEN        (1)
 
 /* Structure of UIPC_OPEN_RSP message */
 typedef struct
 {
-    UINT8               opcode;         /* UIPC_OPEN_RESP */
+    uint8_t               opcode;         /* UIPC_OPEN_RESP */
     tUIPC_STATUS        status;         /* UIPC_STATUS */
-    UINT16              version_major;  /* UIPC_VERSION_MAJOR */
-    UINT16              version_minor;  /* UIPC_VERSION_MINOR */
-    UINT8               num_streams;    /* Number of simultaneous streams supported by the light stack */
+    uint16_t              version_major;  /* UIPC_VERSION_MAJOR */
+    uint16_t              version_minor;  /* UIPC_VERSION_MINOR */
+    uint8_t               num_streams;    /* Number of simultaneous streams supported by the light stack */
 } tUIPC_OPEN_RSP;
 #define UIPC_OPEN_RSP_MSGLEN        (7)
 
 /* Structure of UIPC_CLOSE_REQ message */
 typedef struct t_uipc_close_req
 {
-    UINT8               opcode;         /* UIPC_CLOSE_REQ */
+    uint8_t               opcode;         /* UIPC_CLOSE_REQ */
 } tUIPC_CLOSE_REQ;
 #define UIPC_CLOSE_REQ_MSGLEN       (1)
 
 /* Structure of UIPC_CLOSE_RSP message, only for BTC, full stack may ignore it */
 typedef struct t_uipc_close_rsp
 {
-    UINT8               opcode;         /* UIPC_CLOSE_RSP */
+    uint8_t               opcode;         /* UIPC_CLOSE_RSP */
 } tUIPC_CLOSE_RSP;
 #define UIPC_CLOSE_RSP_MSGLEN       (1)
 
 /* UIPC management message structures */
 typedef union
 {
-    UINT8               opcode;
+    uint8_t               opcode;
     tUIPC_OPEN_REQ      open_req;
     tUIPC_OPEN_RSP      open_resp;
     tUIPC_CLOSE_REQ     close_req;
@@ -103,8 +103,8 @@ typedef union
 #define IPC_LOG_MSG_LEN  100
 typedef struct t_uipc_log_msg
 {
-    UINT32              trace_set_mask;
-    UINT8               msg[IPC_LOG_MSG_LEN];
+    uint32_t              trace_set_mask;
+    uint8_t               msg[IPC_LOG_MSG_LEN];
 } tUIPC_LOG_MSG;
 #define UIPC_LOG_MSGLEN       (IPC_LOG_MSG_LEN + 4)
 
@@ -127,18 +127,18 @@ typedef struct t_uipc_log_msg
 
 typedef struct
 {
-    UINT8       op_code;
-    UINT8       status;
-    UINT16      acl_pkt_size;
-    UINT8       state;
-    UINT8       lp_state;           /* Low Power state */
-    UINT8       next_seqno;         /* next send seq */
-    UINT8       ack;                /* next ack seq, expected seq from peer */
-    UINT8       sent_ack;           /* last sent ack */
-    UINT8       sliding_window_size;/* window size */
-    BOOLEAN     oof_flow_control;   /* Out of Frame SW Flow Control */
-    BOOLEAN     data_integrity_type;/* Level of Data Integrity Check */
-    UINT8       rx_state;           /* rx state for incoming packet processing */
+    uint8_t       op_code;
+    uint8_t       status;
+    uint16_t      acl_pkt_size;
+    uint8_t       state;
+    uint8_t       lp_state;           /* Low Power state */
+    uint8_t       next_seqno;         /* next send seq */
+    uint8_t       ack;                /* next ack seq, expected seq from peer */
+    uint8_t       sent_ack;           /* last sent ack */
+    uint8_t       sliding_window_size;/* window size */
+    bool          oof_flow_control;   /* Out of Frame SW Flow Control */
+    bool         data_integrity_type;/* Level of Data Integrity Check */
+    uint8_t       rx_state;           /* rx state for incoming packet processing */
 } tSLIP_SYNC_INFO;
 
 /********************************
@@ -160,49 +160,49 @@ typedef struct
 
 typedef struct t_l2c_stream_info
 {
-    UINT16  local_cid;          /* Local CID                        */
-    UINT16  remote_cid;         /* Remote CID                       */
-    UINT16  out_mtu;            /* Max MTU we will send             */
-    UINT16  handle;             /* The handle used with LM          */
-    UINT16  link_xmit_quota;    /* Num outstanding pkts allowed     */
-    BOOLEAN is_flushable;       /* TRUE if flushable channel        */
+    uint16_t  local_cid;          /* Local CID                        */
+    uint16_t  remote_cid;         /* Remote CID                       */
+    uint16_t  out_mtu;            /* Max MTU we will send             */
+    uint16_t  handle;             /* The handle used with LM          */
+    uint16_t  link_xmit_quota;    /* Num outstanding pkts allowed     */
+    bool      is_flushable;       /* TRUE if flushable channel        */
 } tL2C_STREAM_INFO;
 
 typedef struct t_l2c_sync_to_lite_req
 {
-    UINT8   op_code;                       /* L2C_SYNC_TO_LITE_REQ */
-    UINT16  light_xmit_quota;              /* Total quota for light stack    */
-    UINT16  acl_data_size;                 /* Max ACL data size across HCI transport    */
-    UINT16  non_flushable_pbf;             /* L2CAP_PKT_START_NON_FLUSHABLE if controller supports */
+    uint8_t   op_code;                       /* L2C_SYNC_TO_LITE_REQ */
+    uint16_t  light_xmit_quota;              /* Total quota for light stack    */
+    uint16_t  acl_data_size;                 /* Max ACL data size across HCI transport    */
+    uint16_t  non_flushable_pbf;             /* L2CAP_PKT_START_NON_FLUSHABLE if controller supports */
                                            /* Otherwise, L2CAP_PKT_START */
-    UINT8   multi_av_data_cong_start;      /* Multi-AV queue size to start congestion */
-    UINT8   multi_av_data_cong_end;        /* Multi-AV queue size to end congestion */
-    UINT8   multi_av_data_cong_discard;    /* Multi-AV queue size to discard */
-    UINT8   num_stream;
+    uint8_t   multi_av_data_cong_start;      /* Multi-AV queue size to start congestion */
+    uint8_t   multi_av_data_cong_end;        /* Multi-AV queue size to end congestion */
+    uint8_t   multi_av_data_cong_discard;    /* Multi-AV queue size to discard */
+    uint8_t   num_stream;
     tL2C_STREAM_INFO stream;
 } tL2C_SYNC_TO_LITE_REQ;
 
 typedef struct t_l2c_sync_to_lite_resp_stream
 {
-    UINT16  lcid;
-    UINT8   status;
+    uint16_t  lcid;
+    uint8_t   status;
 } tL2C_SYNC_TO_LITE_RESP_STREAM;
 
 
 typedef struct t_l2c_sync_to_lite_resp
 {
-    UINT8   op_code;                       /* L2C_SYNC_TO_LITE_RESP */
-    UINT16  light_xmit_unacked;            /* unacked packet more than quota in light stack    */
-    UINT8   num_stream;
+    uint8_t   op_code;                       /* L2C_SYNC_TO_LITE_RESP */
+    uint16_t  light_xmit_unacked;            /* unacked packet more than quota in light stack    */
+    uint8_t   num_stream;
     tL2C_SYNC_TO_LITE_RESP_STREAM stream;
 } tL2C_SYNC_TO_LITE_RESP;
 
 typedef struct t_l2c_remove_to_lite_req
 {
-    UINT8   op_code;                       /* L2C_REMOVE_TO_LITE_REQ */
-    UINT16  light_xmit_quota;              /* Total quota for light stack    */
-    UINT8   num_stream;
-    UINT16  lcid;
+    uint8_t   op_code;                       /* L2C_REMOVE_TO_LITE_REQ */
+    uint16_t  light_xmit_quota;              /* Total quota for light stack    */
+    uint8_t   num_stream;
+    uint16_t  lcid;
 } tL2C_REMOVE_TO_LITE_REQ;
 
 typedef tL2C_SYNC_TO_LITE_RESP  tL2C_REMOVE_TO_LITE_RESP;
@@ -210,7 +210,7 @@ typedef tL2C_REMOVE_TO_LITE_REQ tL2C_FLUSH_TO_FULL_IND;
 
 typedef union t_l2c_sync_msg
 {
-    UINT8                       op_code;
+    uint8_t                       op_code;
     tL2C_SYNC_TO_LITE_REQ       sync_req;
     tL2C_SYNC_TO_LITE_RESP      sync_resp;
     tL2C_REMOVE_TO_LITE_REQ     remove_req;
@@ -242,37 +242,37 @@ typedef union t_l2c_sync_msg
 
 typedef struct
 {
-    UINT16  lcid;
-    UINT32  ssrc;
+    uint16_t  lcid;
+    uint32_t  ssrc;
 } tAVDT_SYNC_TO_BTC_LITE_REQ_STREAM;
 
 typedef struct
 {
-    UINT8   opcode;                     /* AVDT_SYNC_TO_BTC_LITE_REQ */
-    UINT8   num_stream;
+    uint8_t   opcode;                     /* AVDT_SYNC_TO_BTC_LITE_REQ */
+    uint8_t   num_stream;
     tAVDT_SYNC_TO_BTC_LITE_REQ_STREAM  stream;
 } tAVDT_SYNC_TO_BTC_LITE_REQ;
 
 typedef struct
 {
-    UINT8   opcode;                     /* AVDT_SYNC_TO_BTC_LITE_RESP */
-    UINT8   status;
+    uint8_t   opcode;                     /* AVDT_SYNC_TO_BTC_LITE_RESP */
+    uint8_t   status;
 } tAVDT_SYNC_TO_BTC_LITE_RESP;
 
 typedef struct t_avdt_scb_sync_info
 {
-    UINT8   handle;         /* SCB handle */
+    uint8_t   handle;         /* SCB handle */
     BD_ADDR peer_addr;      /* BD address of peer */
-    UINT16  local_cid;      /* Local CID                        */
-    UINT16  peer_mtu;       /* L2CAP mtu of the peer device */
-    UINT8   mux_tsid_media; /* TSID for media transport session */
-    UINT16  media_seq;      /* media packet sequence number */
+    uint16_t  local_cid;      /* Local CID                        */
+    uint16_t  peer_mtu;       /* L2CAP mtu of the peer device */
+    uint8_t   mux_tsid_media; /* TSID for media transport session */
+    uint16_t  media_seq;      /* media packet sequence number */
 } tAVDT_SCB_SYNC_INFO;
 
 typedef struct t_avdt_sync_info
 {
-    UINT8   op_code;
-    UINT8   status;
+    uint8_t   op_code;
+    uint8_t   status;
 
     tAVDT_SCB_SYNC_INFO scb_info;
 
@@ -280,7 +280,7 @@ typedef struct t_avdt_sync_info
 
 typedef union t_avdt_sync_msg
 {
-    UINT8                       op_code;
+    uint8_t                       op_code;
     tAVDT_SYNC_INFO             sync_info;
     tAVDT_SYNC_TO_BTC_LITE_REQ  btc_sync_req;
     tAVDT_SYNC_TO_BTC_LITE_RESP btc_sync_resp;
@@ -336,34 +336,34 @@ typedef union t_avdt_sync_msg
 
 typedef struct
 {
-    UINT8   opcode;     /* A2DP_START_REQ */
-    UINT16  lcid;
-    UINT16  curr_mtu;
+    uint8_t   opcode;     /* A2DP_START_REQ */
+    uint16_t  lcid;
+    uint16_t  curr_mtu;
 }tA2DP_START_REQ;
 
 typedef struct
 {
-    UINT8   opcode;     /* A2DP_STOP_REQ */
-    UINT16  lcid;
+    uint8_t   opcode;     /* A2DP_STOP_REQ */
+    uint16_t  lcid;
 }tA2DP_STOP_REQ;
 
 typedef struct
 {
-    UINT8   opcode;     /* A2DP_SUSPEND_REQ */
-    UINT16  lcid;
+    uint8_t   opcode;     /* A2DP_SUSPEND_REQ */
+    uint16_t  lcid;
 }tA2DP_SUSPEND_REQ;
 
 typedef struct
 {
-    UINT8   opcode;     /* A2DP_CLEANUP_REQ */
-    UINT16  lcid;
-    UINT16  curr_mtu;
+    uint8_t   opcode;     /* A2DP_CLEANUP_REQ */
+    uint16_t  lcid;
+    uint16_t  curr_mtu;
 } tA2DP_CLEANUP_REQ;
 
 typedef struct
 {
-    UINT8   opcode;     /* A2DP_START_RESP, A2DP_STOP_RESP, A2DP_CLEANUP_RESP, A2DP_SUSPEND_RESP */
-    UINT16  lcid;
+    uint8_t   opcode;     /* A2DP_START_RESP, A2DP_STOP_RESP, A2DP_CLEANUP_RESP, A2DP_SUSPEND_RESP */
+    uint16_t  lcid;
 }tA2DP_GENERIC_RESP;
 
 #define AUDIO_CODEC_NONE            0x0000
@@ -380,7 +380,7 @@ typedef struct
 #define AUDIO_CODEC_MP2_5_ENC       0x0400
 #define AUDIO_CODEC_MP2_5_DEC       0x0800
 
-typedef UINT16 tAUDIO_CODEC_TYPE;
+typedef uint16_t tAUDIO_CODEC_TYPE;
 
 /* SBC CODEC Parameters */
 
@@ -551,42 +551,42 @@ typedef UINT16 tAUDIO_CODEC_TYPE;
 
 typedef struct
 {
-    UINT8   sampling_freq;
-    UINT8   channel_mode;
-    UINT8   block_length;
-    UINT8   num_subbands;
-    UINT8   alloc_method;
-    UINT8   bitpool_size;   /* 2 - 250 */
+    uint8_t   sampling_freq;
+    uint8_t   channel_mode;
+    uint8_t   block_length;
+    uint8_t   num_subbands;
+    uint8_t   alloc_method;
+    uint8_t   bitpool_size;   /* 2 - 250 */
 } tCODEC_INFO_SBC;
 
 typedef struct
 {
-    UINT8   ch_mode;
-    UINT8   sampling_freq;
-    UINT8   bitrate_index;  /* 0 - 14 */
+    uint8_t   ch_mode;
+    uint8_t   sampling_freq;
+    uint8_t   bitrate_index;  /* 0 - 14 */
 } tCODEC_INFO_MP3;
 
 typedef struct
 {
-    UINT8   ch_mode;
-    UINT8   sampling_freq;
-    UINT8   bitrate_index;  /* 0 - 14 */
+    uint8_t   ch_mode;
+    uint8_t   sampling_freq;
+    uint8_t   bitrate_index;  /* 0 - 14 */
 } tCODEC_INFO_MP2;
 
 
 typedef struct
 {
-    UINT8   ch_mode;
-    UINT8   sampling_freq;
-    UINT8   bitrate_index;  /* 0 - 14 */
+    uint8_t   ch_mode;
+    uint8_t   sampling_freq;
+    uint8_t   bitrate_index;  /* 0 - 14 */
 } tCODEC_INFO_MP2_5;
 
 typedef struct
 {
-    UINT16  sampling_freq;
-    UINT8   channel_mode;   /* 0x02:mono, 0x01:dual */
-    UINT32  bitrate;        /* 0 - 320K */
-    UINT32  sbr_profile;        /* 1: ON, 0: OFF */
+    uint16_t  sampling_freq;
+    uint8_t   channel_mode;   /* 0x02:mono, 0x01:dual */
+    uint32_t  bitrate;        /* 0 - 320K */
+    uint32_t  sbr_profile;        /* 1: ON, 0: OFF */
 } tCODEC_INFO_AAC;
 
 typedef union
@@ -600,7 +600,7 @@ typedef union
 
 typedef struct
 {
-    UINT8               opcode;     /* AUDIO_CODEC_CONFIG_REQ */
+    uint8_t               opcode;     /* AUDIO_CODEC_CONFIG_REQ */
     tAUDIO_CODEC_TYPE   codec_type;
     tCODEC_INFO         codec_info;
 } tAUDIO_CODEC_CONFIG_REQ;
@@ -610,23 +610,23 @@ typedef struct
 #define AUDIO_CONFIG_FAIL_OUT_OF_MEMORY 0x02
 #define AUDIO_CONFIG_FAIL_CODEC_USED    0x03
 #define AUDIO_CONFIG_FAIL_ROUTE         0x04
-typedef UINT8 tAUDIO_CONFIG_STATUS;
+typedef uint8_t tAUDIO_CONFIG_STATUS;
 
 typedef struct
 {
-    UINT8                   opcode; /* AUDIO_CODEC_CONFIG_RESP */
+    uint8_t                   opcode; /* AUDIO_CODEC_CONFIG_RESP */
     tAUDIO_CONFIG_STATUS    status;
 } tAUDIO_CODEC_CONFIG_RESP;
 
 typedef struct
 {
-    UINT8               opcode;     /* AUDIO_CODEC_SET_BITRATE_REQ */
+    uint8_t               opcode;     /* AUDIO_CODEC_SET_BITRATE_REQ */
     tAUDIO_CODEC_TYPE   codec_type;
     union
     {
-        UINT8   sbc;
-        UINT8   mp3;
-        UINT32  aac;
+        uint8_t   sbc;
+        uint8_t   mp3;
+        uint32_t  aac;
     } codec_bitrate;
 } tAUDIO_CODEC_SET_BITRATE_REQ;
 
@@ -638,7 +638,7 @@ typedef struct
 #define AUDIO_ROUTE_SRC_BTSNK       0x05
 #define AUDIO_ROUTE_SRC_NONE        0x80
 #define MAX_AUDIO_ROUTE_SRC         6
-typedef UINT8 tAUDIO_ROUTE_SRC;
+typedef uint8_t tAUDIO_ROUTE_SRC;
 
 #define AUDIO_ROUTE_MIX_NONE        0x00
 #define AUDIO_ROUTE_MIX_HOST        0x01
@@ -648,7 +648,7 @@ typedef UINT8 tAUDIO_ROUTE_SRC;
 #define AUDIO_ROUTE_MIX_ADC         0x05
 #define AUDIO_ROUTE_MIX_RESERVED    0x06
 #define MAX_AUDIO_ROUTE_MIX         7
-typedef UINT8 tAUDIO_ROUTE_MIX;
+typedef uint8_t tAUDIO_ROUTE_MIX;
 
 #define AUDIO_ROUTE_OUT_NONE        0x0000
 #define AUDIO_ROUTE_OUT_BTA2DP      0x0001
@@ -670,8 +670,8 @@ typedef UINT8 tAUDIO_ROUTE_MIX;
 
 #define MAX_AUDIO_SINGLE_ROUTE_OUT  6
 #define MAX_AUDIO_MULTI_ROUTE_OUT   16
-typedef UINT16 tAUDIO_MULTI_ROUTE_OUT;
-typedef UINT8  tAUDIO_ROUTE_OUT;
+typedef uint16_t tAUDIO_MULTI_ROUTE_OUT;
+typedef uint8_t  tAUDIO_ROUTE_OUT;
 
 #define AUDIO_ROUTE_SF_8K           0x00
 #define AUDIO_ROUTE_SF_16K          0x01
@@ -683,7 +683,7 @@ typedef UINT8  tAUDIO_ROUTE_OUT;
 #define AUDIO_ROUTE_SF_22K          0x07
 #define AUDIO_ROUTE_SF_24K          0x08
 #define AUDIO_ROUTE_SF_NA           0xFF
-typedef UINT8 tAUDIO_ROUTE_SF;
+typedef uint8_t tAUDIO_ROUTE_SF;
 
 #define AUDIO_ROUTE_EQ_BASS_BOOST   0x00
 #define AUDIO_ROUTE_EQ_CLASSIC      0x01
@@ -696,11 +696,11 @@ typedef UINT8 tAUDIO_ROUTE_SF;
 #define AUDIO_ROUTE_DIGITAL_VOLUME_CONTROL  0x07
 
 #define AUDIO_ROUTE_EQ_CONFIG_GAIN  0xFF    /* Custion Gain Config */
-typedef UINT8 tAUDIO_ROUTE_EQ;
+typedef uint8_t tAUDIO_ROUTE_EQ;
 
 typedef struct
 {
-    UINT8               opcode;     /* AUDIO_ROUTE_CONFIG_REQ */
+    uint8_t               opcode;     /* AUDIO_ROUTE_CONFIG_REQ */
     tAUDIO_ROUTE_SRC    src;
     tAUDIO_ROUTE_SF     src_sf;
     tAUDIO_ROUTE_OUT    out;
@@ -711,46 +711,46 @@ typedef struct
 
 typedef struct
 {
-    UINT8                   opcode; /* AUDIO_ROUTE_CONFIG_RESP */
+    uint8_t                   opcode; /* AUDIO_ROUTE_CONFIG_RESP */
     tAUDIO_CONFIG_STATUS    status;
 } tAUDIO_ROUTE_CONFIG_RESP;
 
 typedef struct
 {
-    UINT16  amp[2];                 /* left/right 15 bit amplitude value        */
-    UINT16  tone[2];                /* left/right 12 bit frequency 0 - 4096Hz   */
-    UINT16  mark[2];                /* left/right 16 bit mark time 0 - 65535ms  */
-    UINT16  space[2];               /* left/right 16 bit space time 0 - 65535ms */
+    uint16_t  amp[2];                 /* left/right 15 bit amplitude value        */
+    uint16_t  tone[2];                /* left/right 12 bit frequency 0 - 4096Hz   */
+    uint16_t  mark[2];                /* left/right 16 bit mark time 0 - 65535ms  */
+    uint16_t  space[2];               /* left/right 16 bit space time 0 - 65535ms */
 } tCHIRP_CONFIG;
 
 typedef struct
 {
-    UINT8   pri_l;                  /* Primary Left scale : 0 ~ 255     */
-    UINT8   mix_l;                  /* Mixing Left scale : 0 ~ 255      */
-    UINT8   pri_r;                  /* Primary Right scale : 0 ~ 255    */
-    UINT8   mix_r;                  /* Mixing Right scale : 0 ~ 255     */
+    uint8_t   pri_l;                  /* Primary Left scale : 0 ~ 255     */
+    uint8_t   mix_l;                  /* Mixing Left scale : 0 ~ 255      */
+    uint8_t   pri_r;                  /* Primary Right scale : 0 ~ 255    */
+    uint8_t   mix_r;                  /* Mixing Right scale : 0 ~ 255     */
 } tMIX_SCALE_CONFIG;
 
 /* For custon equalizer gain configuration */
 typedef struct
 {
-    UINT32  audio_l_g0;         /* IIR biquad filter left ch gain 0 */
-    UINT32  audio_l_g1;         /* IIR biquad filter left ch gain 1 */
-    UINT32  audio_l_g2;         /* IIR biquad filter left ch gain 2 */
-    UINT32  audio_l_g3;         /* IIR biquad filter left ch gain 3 */
-    UINT32  audio_l_g4;         /* IIR biquad filter left ch gain 4 */
-    UINT32  audio_l_gl;         /* IIR biquad filter left ch global gain  */
-    UINT32  audio_r_g0;         /* IIR biquad filter left ch gain 0 */
-    UINT32  audio_r_g1;         /* IIR biquad filter left ch gain 1 */
-    UINT32  audio_r_g2;         /* IIR biquad filter left ch gain 2 */
-    UINT32  audio_r_g3;         /* IIR biquad filter left ch gain 3 */
-    UINT32  audio_r_g4;         /* IIR biquad filter left ch gain 4 */
-    UINT32  audio_r_gl;         /* IIR biquad filter left ch global gain */
+    uint32_t  audio_l_g0;         /* IIR biquad filter left ch gain 0 */
+    uint32_t  audio_l_g1;         /* IIR biquad filter left ch gain 1 */
+    uint32_t  audio_l_g2;         /* IIR biquad filter left ch gain 2 */
+    uint32_t  audio_l_g3;         /* IIR biquad filter left ch gain 3 */
+    uint32_t  audio_l_g4;         /* IIR biquad filter left ch gain 4 */
+    uint32_t  audio_l_gl;         /* IIR biquad filter left ch global gain  */
+    uint32_t  audio_r_g0;         /* IIR biquad filter left ch gain 0 */
+    uint32_t  audio_r_g1;         /* IIR biquad filter left ch gain 1 */
+    uint32_t  audio_r_g2;         /* IIR biquad filter left ch gain 2 */
+    uint32_t  audio_r_g3;         /* IIR biquad filter left ch gain 3 */
+    uint32_t  audio_r_g4;         /* IIR biquad filter left ch gain 4 */
+    uint32_t  audio_r_gl;         /* IIR biquad filter left ch global gain */
 } tEQ_GAIN_CONFIG;
 
 typedef struct
 {
-    UINT8               opcode;     /* AUDIO_MIX_CONFIG_REQ */
+    uint8_t               opcode;     /* AUDIO_MIX_CONFIG_REQ */
     tAUDIO_ROUTE_MIX    mix_src;
     tAUDIO_ROUTE_SF     mix_src_sf;
     tMIX_SCALE_CONFIG   mix_scale;
@@ -759,37 +759,37 @@ typedef struct
 
 typedef struct
 {
-    UINT8                   opcode; /* AUDIO_MIX_CONFIG_RESP */
+    uint8_t                   opcode; /* AUDIO_MIX_CONFIG_RESP */
     tAUDIO_CONFIG_STATUS    status;
 } tAUDIO_MIX_CONFIG_RESP;
 
 
 typedef struct
 {
-    UINT8   opcode;                 /* AUDIO_BURST_FRAMES_IND */
-    UINT32  burst_size;             /* in bytes */
+    uint8_t   opcode;                 /* AUDIO_BURST_FRAMES_IND */
+    uint32_t  burst_size;             /* in bytes */
 } tAUDIO_BURST_FRAMES_IND;
 
 typedef struct
 {
-    UINT8   opcode;                 /* AUDIO_BURST_END_IND */
+    uint8_t   opcode;                 /* AUDIO_BURST_END_IND */
 } tAUDIO_BURST_END_IND;
 
 typedef struct
 {
-    UINT8   opcode;                 /* AUDIO_CODEC_FLUSH_REQ */
+    uint8_t   opcode;                 /* AUDIO_CODEC_FLUSH_REQ */
 } tAUDIO_CODEC_FLUSH_REQ;
 
 typedef struct
 {
-    UINT8               opcode;     /* AUDIO_EQ_MODE_CONFIG_REQ */
+    uint8_t               opcode;     /* AUDIO_EQ_MODE_CONFIG_REQ */
     tAUDIO_ROUTE_EQ     eq_mode;
     tEQ_GAIN_CONFIG     filter_gain;    /* Valid only when eq_mode is 0xFF */
 } tAUDIO_EQ_MODE_CONFIG_REQ;
 
 typedef struct
 {
-    UINT8               opcode;     /* AUDIO_SCALE_CONFIG_REQ */
+    uint8_t               opcode;     /* AUDIO_SCALE_CONFIG_REQ */
     tMIX_SCALE_CONFIG   mix_scale;
 } tAUDIO_SCALE_CONFIG_REQ;
 

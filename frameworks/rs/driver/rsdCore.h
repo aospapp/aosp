@@ -24,7 +24,7 @@
 #include "rsMutex.h"
 #include "rsSignal.h"
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 #include "rsdGL.h"
 #endif
 
@@ -41,7 +41,7 @@ typedef struct RsdHalRec {
     ScriptTLSStruct mTlsStruct;
     android::renderscript::RsdCpuReference *mCpuRef;
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     RsdGL gl;
 #endif
 } RsdHal;

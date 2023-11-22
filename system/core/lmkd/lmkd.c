@@ -18,6 +18,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,7 +110,7 @@ struct proc {
 static struct proc *pidhash[PIDHASH_SZ];
 #define pid_hashfn(x) ((((x) >> 8) ^ (x)) & (PIDHASH_SZ - 1))
 
-#define ADJTOSLOT(adj) (adj + -OOM_SCORE_ADJ_MIN)
+#define ADJTOSLOT(adj) ((adj) + -OOM_SCORE_ADJ_MIN)
 static struct adjslot_list procadjslot_list[ADJTOSLOT(OOM_SCORE_ADJ_MAX) + 1];
 
 /*
@@ -397,9 +398,6 @@ static void ctrl_data_handler(uint32_t events) {
 }
 
 static void ctrl_connect_handler(uint32_t events __unused) {
-    struct sockaddr_storage ss;
-    struct sockaddr *addrp = (struct sockaddr *)&ss;
-    socklen_t alen;
     struct epoll_event epev;
 
     if (ctrl_dfd >= 0) {
@@ -407,8 +405,7 @@ static void ctrl_connect_handler(uint32_t events __unused) {
         ctrl_dfd_reopened = 1;
     }
 
-    alen = sizeof(ss);
-    ctrl_dfd = accept(ctrl_lfd, addrp, &alen);
+    ctrl_dfd = accept(ctrl_lfd, NULL, NULL);
 
     if (ctrl_dfd < 0) {
         ALOGE("lmkd control socket accept failed; errno=%d", errno);

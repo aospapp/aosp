@@ -30,6 +30,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class SignatureWithGenericDebuggee extends SyncDebuggee {
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("--> Debuggee: SignatureWithGenericDebuggee...");

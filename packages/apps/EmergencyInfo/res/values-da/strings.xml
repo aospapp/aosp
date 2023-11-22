@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"Oplysninger i nødsituationer"</string>
-    <string name="edit_info" msgid="5973929805855224805">"Rediger oplysninger i nødsituationer"</string>
-    <string name="tab_title_info" msgid="1402033103294855812">"Oplysninger"</string>
+    <string name="app_label" msgid="1090682794607161063">"Info til nødsituationer"</string>
+    <string name="edit_info" msgid="5973929805855224805">"Rediger info til nødsituationer"</string>
+    <string name="tab_title_info" msgid="1402033103294855812">"Info"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontaktpersoner"</string>
     <string name="name" msgid="4286267457738861977">"Navn"</string>
     <string name="unknown_name" msgid="2834802479170495056">"Ukendt"</string>
@@ -87,16 +87,20 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Kontaktpersoner til nødsituationer"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Tilføj kontaktperson"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Der kunne ikke findes en kontaktpersonvælger"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Kontaktpersonen kan ikke vises"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Vil du fjerne <xliff:g id="CONTACT_NAME">%1$s</xliff:g> fra kontaktpersoner til nødsituationer?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Fjern kontaktperson"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Kontaktoplysningerne kunne ikke læses korrekt"</string>
     <string name="remove" msgid="1243949503772376064">"Fjern"</string>
     <string name="cancel" msgid="7401575239009060939">"Annuller"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Oplysninger i nødsituationer"</string>
+    <string name="user_emergency_info_title" msgid="7827058167207376581">"Info til nødsituationer"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"De oplysninger, du angiver her, kan hjælpe førstehjælpsydere i en nødsituation. De gemmes kun på din enhed, og alle kan se dem via funktionen Nødopkald på låseskærmen uden at låse din telefon op."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Fortsæt"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Der er ikke angivet nogen oplysninger til nødsituationer"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Der er ingen oplysninger om telefonens ejer"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Hvis dette er din telefon, skal du trykke på blyantikonet for at tilføje information, som vises her, hvis der opstår en nødsituation"</string>
     <string name="clear_all" msgid="8899013032870561633">"Ryd alle"</string>
     <string name="clear" msgid="3648880442502887163">"Ryd"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Vil du rydde alle oplysninger og kontaktpersoner?"</string>

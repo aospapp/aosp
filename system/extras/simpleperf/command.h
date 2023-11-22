@@ -61,7 +61,7 @@ class Command {
 };
 
 void RegisterCommand(const std::string& cmd_name,
-                     std::function<std::unique_ptr<Command>(void)> callback);
+                     const std::function<std::unique_ptr<Command>(void)>& callback);
 void UnRegisterCommand(const std::string& cmd_name);
 std::unique_ptr<Command> CreateCommandInstance(const std::string& cmd_name);
 const std::vector<std::string> GetAllCommandNames();

@@ -93,7 +93,7 @@ public class PasswordCallbackTest extends TestCase {
             }
             pc.clearPassword();
             res = pc.getPassword();
-            if (res.equals(psw2)) {
+            if (Arrays.equals(res, psw2)) {
                 fail("Incorrect password was returned after clear");
             }
             pc.setPassword(psw1);

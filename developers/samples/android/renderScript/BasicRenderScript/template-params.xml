@@ -23,12 +23,12 @@
     <package>com.example.android.basicrenderscript</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>16</minSdk>
+    <minSdk>8</minSdk>
 
     <dependency_external>'renderscript-v8.jar'</dependency_external>
 
     <defaultConfig>
-            renderscriptTargetApi 18
+            renderscriptTargetApi 24
             renderscriptSupportModeEnabled true
     </defaultConfig>
 
@@ -43,7 +43,6 @@
     </strings>
 
     <template src="base"/>
-    <common src="media"/>
 
     <metadata>
         <status>PUBLISHED</status>

@@ -20,6 +20,7 @@
 
 #include <android-base/stringprintf.h>
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <utils/Errors.h>
 #include <utils/String16.h>
 
@@ -29,6 +30,8 @@
 
 #include "Controllers.h"
 #include "DumpWriter.h"
+#include "EventReporter.h"
+#include "InterfaceController.h"
 #include "NetdConstants.h"
 #include "NetdNativeService.h"
 #include "RouteController.h"
@@ -55,6 +58,27 @@ binder::Status checkPermission(const char *permission) {
         auto err = StringPrintf("UID %d / PID %d lacks permission %s", uid, pid, permission);
         return binder::Status::fromExceptionCode(binder::Status::EX_SECURITY, String8(err.c_str()));
     }
+}
+
+binder::Status getXfrmStatus(int xfrmCode) {
+    switch(xfrmCode) {
+        case 0:
+            return binder::Status::ok();
+        case -ENOENT:
+            return binder::Status::fromServiceSpecificError(xfrmCode);
+    }
+    return binder::Status::fromExceptionCode(xfrmCode);
+}
+
+#define ENFORCE_DEBUGGABLE() {                              \
+    char value[PROPERTY_VALUE_MAX + 1];                     \
+    if (property_get("ro.debuggable", value, NULL) != 1     \
+            || value[0] != '1') {                           \
+        return binder::Status::fromExceptionCode(           \
+            binder::Status::EX_SECURITY,                    \
+            String8("Not available in production builds.")  \
+        );                                                  \
+    }                                                       \
 }
 
 #define ENFORCE_PERMISSION(permission) {                    \
@@ -233,6 +257,157 @@ binder::Status NetdNativeService::interfaceDelAddress(const std::string &ifName,
                 String8::format("InterfaceController error: %s", strerror(-err)));
     }
     return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::setProcSysNet(
+        int32_t family, int32_t which, const std::string &ifname, const std::string &parameter,
+        const std::string &value) {
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+
+    const char *familyStr;
+    switch (family) {
+        case INetd::IPV4:
+            familyStr = "ipv4";
+            break;
+        case INetd::IPV6:
+            familyStr = "ipv6";
+            break;
+        default:
+            return binder::Status::fromServiceSpecificError(EAFNOSUPPORT, String8("Bad family"));
+    }
+
+    const char *whichStr;
+    switch (which) {
+        case INetd::CONF:
+            whichStr = "conf";
+            break;
+        case INetd::NEIGH:
+            whichStr = "neigh";
+            break;
+        default:
+            return binder::Status::fromServiceSpecificError(EINVAL, String8("Bad category"));
+    }
+
+    const int err = InterfaceController::setParameter(
+            familyStr, whichStr, ifname.c_str(), parameter.c_str(),
+            value.c_str());
+    if (err != 0) {
+        return binder::Status::fromServiceSpecificError(-err,
+                String8::format("ResolverController error: %s", strerror(-err)));
+    }
+    return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::getMetricsReportingLevel(int *reportingLevel) {
+    // This function intentionally does not lock, since the only thing it does is one read from an
+    // atomic_int.
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ENFORCE_DEBUGGABLE();
+
+    *reportingLevel = gCtls->eventReporter.getMetricsReportingLevel();
+    return binder::Status::ok();
+}
+
+binder::Status NetdNativeService::setMetricsReportingLevel(const int reportingLevel) {
+    // This function intentionally does not lock, since the only thing it does is one write to an
+    // atomic_int.
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ENFORCE_DEBUGGABLE();
+
+    return (gCtls->eventReporter.setMetricsReportingLevel(reportingLevel) == 0)
+            ? binder::Status::ok()
+            : binder::Status::fromExceptionCode(binder::Status::EX_ILLEGAL_ARGUMENT);
+}
+
+binder::Status NetdNativeService::ipSecAllocateSpi(
+        int32_t transformId,
+        int32_t direction,
+        const std::string& localAddress,
+        const std::string& remoteAddress,
+        int32_t inSpi,
+        int32_t* outSpi) {
+    // Necessary locking done in IpSecService and kernel
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ALOGD("ipSecAllocateSpi()");
+    return getXfrmStatus(gCtls->xfrmCtrl.ipSecAllocateSpi(
+                    transformId,
+                    direction,
+                    localAddress,
+                    remoteAddress,
+                    inSpi,
+                    outSpi));
+}
+
+binder::Status NetdNativeService::ipSecAddSecurityAssociation(
+        int32_t transformId,
+        int32_t mode,
+        int32_t direction,
+        const std::string& localAddress,
+        const std::string& remoteAddress,
+        int64_t underlyingNetworkHandle,
+        int32_t spi,
+        const std::string& authAlgo, const std::vector<uint8_t>& authKey, int32_t authTruncBits,
+        const std::string& cryptAlgo, const std::vector<uint8_t>& cryptKey, int32_t cryptTruncBits,
+        int32_t encapType,
+        int32_t encapLocalPort,
+        int32_t encapRemotePort,
+        int32_t* allocatedSpi) {
+    // Necessary locking done in IpSecService and kernel
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ALOGD("ipSecAddSecurityAssociation()");
+    return getXfrmStatus(gCtls->xfrmCtrl.ipSecAddSecurityAssociation(
+              transformId, mode, direction, localAddress, remoteAddress,
+              underlyingNetworkHandle,
+              spi,
+              authAlgo, authKey, authTruncBits,
+              cryptAlgo, cryptKey, cryptTruncBits,
+              encapType, encapLocalPort, encapRemotePort,
+              allocatedSpi));
+}
+
+binder::Status NetdNativeService::ipSecDeleteSecurityAssociation(
+        int32_t transformId,
+        int32_t direction,
+        const std::string& localAddress,
+        const std::string& remoteAddress,
+        int32_t spi) {
+    // Necessary locking done in IpSecService and kernel
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ALOGD("ipSecDeleteSecurityAssociation()");
+    return getXfrmStatus(gCtls->xfrmCtrl.ipSecDeleteSecurityAssociation(
+                    transformId,
+                    direction,
+                    localAddress,
+                    remoteAddress,
+                    spi));
+}
+
+binder::Status NetdNativeService::ipSecApplyTransportModeTransform(
+        const android::base::unique_fd& socket,
+        int32_t transformId,
+        int32_t direction,
+        const std::string& localAddress,
+        const std::string& remoteAddress,
+        int32_t spi) {
+    // Necessary locking done in IpSecService and kernel
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ALOGD("ipSecApplyTransportModeTransform()");
+    return getXfrmStatus(gCtls->xfrmCtrl.ipSecApplyTransportModeTransform(
+                    socket,
+                    transformId,
+                    direction,
+                    localAddress,
+                    remoteAddress,
+                    spi));
+}
+
+binder::Status NetdNativeService::ipSecRemoveTransportModeTransform(
+            const android::base::unique_fd& socket) {
+    // Necessary locking done in IpSecService and kernel
+    ENFORCE_PERMISSION(CONNECTIVITY_INTERNAL);
+    ALOGD("ipSecRemoveTransportModeTransform()");
+    return getXfrmStatus(gCtls->xfrmCtrl.ipSecRemoveTransportModeTransform(
+                    socket));
 }
 
 }  // namespace net

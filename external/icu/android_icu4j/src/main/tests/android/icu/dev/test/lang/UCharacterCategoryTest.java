@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
 *******************************************************************************
 * Copyright (C) 1996-2006, International Business Machines Corporation and    *
@@ -6,17 +8,16 @@
 *******************************************************************************
 */
 package android.icu.dev.test.lang;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacterCategory;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
 * Testing UCharacterCategory
 * @author Syn Wee Quek
 * @since April 02 2002
 */
-@RunWith(IcuTestFmwkRunner.class)
 public class UCharacterCategoryTest extends TestFmwk
 {
     // constructor -----------------------------------------------------------
@@ -30,23 +31,11 @@ public class UCharacterCategoryTest extends TestFmwk
     
       // public methods --------------------------------------------------------
       
-    public static void main(String[] arg)  
-    {
-        try
-        {
-              UCharacterCategoryTest test = new UCharacterCategoryTest();
-              test.run(arg);
-        }
-        catch (Exception e)
-        {
-              e.printStackTrace();
-        }
-    }
-    
     /**
     * Gets the name of the argument category
     * @returns category name
     */
+    @Test
     public void TestToString()
     {
           String name[] = {"Unassigned",

@@ -144,6 +144,9 @@ public class TextToSpeechTest extends AndroidTestCase {
     }
 
     public void testSpeakStop() throws Exception {
+        if (mTts == null) {
+            return;
+        }
         getTts().stop();
         final int iterations = 20;
         for (int i = 0; i < iterations; i++) {

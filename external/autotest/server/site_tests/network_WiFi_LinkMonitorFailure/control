@@ -7,7 +7,6 @@ NAME = 'network_WiFi_LinkMonitorFailure'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:wifi_matfunc"
-SUITE = 'wifi_matfunc'
 DEPENDENCIES = 'wificell'
 
 DOC = """

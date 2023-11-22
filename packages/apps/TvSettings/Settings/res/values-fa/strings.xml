@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"اترنت"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"همیشه اسکن در دسترس باشد"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"به سرویس‌ مکان google و دیگر برنامه‌ها اجازه دهید، حتی ,وقتی Wi-Fi خاموش است، شبکه‌ها را جستجو کنند."</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"به سرویس مکان و دیگر برنامه‌های Google اجازه می‌دهد حتی زمانی که Wi-Fi خاموش است، شبکه‌ها را اسکن کنند."</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"محافظ صفحه"</string>
     <string name="device_display" msgid="101455384386372747">"نمایش"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"باتری ٪٪<xliff:g id="PERCENTAGE">%1$d</xliff:g>"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"‫در حال لغو مرتبط‌سازی دستگاه..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"متصل"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"تغییر نام"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"نام جدیدی برای این وسیله جانبی وارد کنید"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"در حال جستجوی لوازم جانبی…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"قبل از مرتبط کردن دستگاه‌های بلوتوث خودتان، اطمینان حاصل کنید در حالت مرتبط‌سازی هستند"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"دستگاهی یافت شد و به‌طور خودکار بعد از <xliff:g id="COUNTDOWN">%1$s</xliff:g> ثانیه مرتبط می‌شود"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"صفحه‌کلید"</string>
     <string name="system_home" msgid="2858989138172296012">"صفحه اصلی"</string>
     <string name="system_search" msgid="2837264654143247611">"جستجو"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"امنیت و محدودیت‌ها"</string>
     <string name="system_speech" msgid="8128688499687306982">"گفتار"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ورودی‌ها"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"گزینه‌های برنامه‌نویسان"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"هیچ‌‌کدام"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"میزان استفاده و عیب‌یابی"</string>
+    <string name="tutorials" msgid="3731493987558093244">"آموزش‌های گام‌به‌گام"</string>
     <string name="about_system_update" msgid="7282772247661356586">"به‌روزرسانی سیستم"</string>
     <string name="about_preference" msgid="4131396784531360434">"درباره"</string>
     <string name="device_name" msgid="2670488158531273028">"نام دستگاه"</string>
@@ -233,7 +237,7 @@
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"شبکه متصل شد"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"شبکه متصل نیست"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"در حال حاضر به <xliff:g id="SSID">%1$s</xliff:g> متصل است. به شبکه دیگری متصل شود؟"</string>
-    <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"شبکه ناشناخته"</string>
+    <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"شبکه ناشناس"</string>
     <string name="title_ok" msgid="1021329453788761592">"تأیید"</string>
     <string name="title_cancel" msgid="4846143417666038604">"لغو"</string>
     <string name="storage_title" msgid="2132026108559493394">"حافظه"</string>
@@ -242,7 +246,7 @@
     <string name="storage_calculating_size" msgid="2644732407412520565">"در حال محاسبه..."</string>
     <string name="storage_apps_usage" msgid="4366049071039081219">"برنامه‌ها"</string>
     <string name="storage_downloads_usage" msgid="6172975879962599380">"بارگیری‌ها"</string>
-    <string name="storage_dcim_usage" msgid="2977564696540645452">"عکس‌ها و ویدیوها"</string>
+    <string name="storage_dcim_usage" msgid="2977564696540645452">"عکس‌ها و ویدئوها"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"صدا"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"متفرقه"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"داده‌های موجود در حافظه پنهان"</string>
@@ -365,13 +369,14 @@
     <string name="accessibility_service_settings" msgid="322888335240595695">"تنظیمات سرویس"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"نوشتار با کنتراست بالا"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"زیرنویس"</string>
-    <string name="accessibility_captions_description" msgid="4290317621720499628">"تنظیمات وضعیت متن زیرنویس روی ویدیو"</string>
+    <string name="accessibility_captions_description" msgid="4290317621720499628">"تنظیمات وضعیت متن زیرنویس روی ویدئو"</string>
     <string name="captions_display" msgid="735692527287125548">"نمایشگر"</string>
     <string name="captions_display_on" msgid="1989009878719500520">"روشن"</string>
     <string name="captions_display_off" msgid="496953007835201523">"خاموش"</string>
     <string name="display_options" msgid="5504549024985225774">"گزینه‌های نمایش"</string>
     <string name="captions_configure" msgid="5537548915977371014">"پیکربندی"</string>
     <string name="captions_language" msgid="2835554055388996343">"زبان"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"پیش‌فرض"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"اندازه نوشتار"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"سبک زیرنویس"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"گزینه‌های سفارشی"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"مقیاس پویانمایی انتقالی"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"مقیاس طول مدت انیماتور"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"حالت شدید فعال شد"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"نمایش میزان استفاده از CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"پردازش GPU نمایه"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"فعال کردن ردیابی"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"فعالیت‌ها را ادامه ندهید"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"از بهترین تا بدترین: آبی، سبز، قرمز روشن، قرمز"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"هنگام به‌روزرسانی سطوح پنجره همه درخشان شوند"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"چشمک زدن صفحه هنگام انجام عملیات طولانی توسط برنامه‌ها در رشته اصلی"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"هم‌پوشانی صفحه استفاده کنونی از CPU را نمایش می‌دهد"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"اندازه‌گیری زمان پردازش در adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"فعال"</string>
     <string name="action_off_title" msgid="3157728958166559966">"خاموش"</string>
@@ -476,7 +479,7 @@
     <string name="disagree" msgid="9170636026862400981">"مخالف"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"منابع ناشناس"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"اجازه نصب برنامه‌ها از منابعی غیر از فروشگاه Play"</string>
-    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"اجازه به منابع ناشناخته"</string>
+    <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"اجازه به منابع ناشناس"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"دستگاه و داده‌های شخصی‌تان در برابر حمله برنامه‌های منابع ناشناس بیشتر آسیب‌پذیر هستند. شما می‌پذیرید که مسئولیت انحصاری هرگونه آسیب به دستگاه یا از بین رفتن داده در اثر استفاده از این برنامه‌ها با خودتان است."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"تأیید برنامه‌ها"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"مجاز ندانستن یا اخطار قبل از نصب برنامه‌ای که ممکن است آسیب برساند"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"توقف اجباری"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"توقف اجباری یک برنامه، ممکن است باعث عملکرد نادرست آن شود."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"حذف نصب"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"می‌خواهید این برنامه را حذف نصب کنید؟"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"حذف نصب به‌روزرسانی‌ها"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"همه به‌روزرسانی‌های این برنامه سیستم Android حذف نصب می‌شوند."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"غیرفعال‌ کردن"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"پاک کردن حافظه پنهان"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"اعلان‌ها"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"مجوزها"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"برنامه دردسترس نیست"</string>
     <string name="settings_ok" msgid="3321630456511355983">"تأیید"</string>
     <string name="settings_cancel" msgid="304280412158061225">"لغو"</string>
     <string name="settings_on" msgid="6892236264945435013">"روشن"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"همه اطلاعات شخصی و برنامه‌های بارگیری‌شده خودتان را پاک می‌کنید؟ این عملکرد دیگر قابل بازگشت نیست!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"پاک کردن همه موارد"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"نامی برای <xliff:g id="DEVICEMODEL">%1$s</xliff:g> خود انتخاب کنید"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"نام دستگاه کمک می‌کند هنگام دسترسی به <xliff:g id="DEVICEMODEL">%1$s</xliff:g> خود از دستگاه‌های دیگر مانند تلفن، رایانه لوحی یا رایانه، آن را شناسایی کنید."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"برای <xliff:g id="DEVICEMODEL">%1$s</xliff:g> نامی انتخاب کنید تا هنگام ارسال محتوا یا اتصال به آن از سایر دستگاه‌ها، به شناسایی دستگاه کمک شود."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"اتاق پذیرایی"</item>
-    <item msgid="3722089849939477581">"اتاق رسانه"</item>
-    <item msgid="6108590585438763574">"اتاق نشیمن"</item>
-    <item msgid="2581035245390468625">"اتاق غذاخوری"</item>
-    <item msgid="3127487827308695324">"هال"</item>
-    <item msgid="6172018430592195063">"اتاق خواب"</item>
-    <item msgid="8120010459866284578">"آشپزخانه"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"تلویزیون اتاق پذیرایی"</item>
+    <item msgid="8122798759665439456">"تلویزیون اتاق نشیمن"</item>
+    <item msgid="1389347662738182100">"تلویزیون اتاق خواب"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"نام سفارشی را وارد کنید…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"نام سفارشی را وارد کنید…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"تغییر نام این <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"نام فعلی این <xliff:g id="DEVICEMODEL">%1$s</xliff:g>،‏ «<xliff:g id="DEVICENAME">%2$s</xliff:g>» است."</string>
     <string name="change_setting" msgid="2047402388786162246">"تغییر داده شود"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"راه‌اندازی مجدد در حالت ایمن"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"می‌خواهید در حالت ایمن راه‌اندازی مجدد کنید؟‌"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"با این کار همه برنامه‌های شخص ثالثی که نصب کرده‌اید غیرفعال می‌شود. با راه‌اندازی مجدد سیستم، این برنامه‌ها دوباره بازیابی می‌شوند."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"درحال ثبت گزارش اشکال"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"صفحه‌کلیدهای مجازی دردسترس"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"مدیریت صفحه‌کلیدها"</string>
 </resources>

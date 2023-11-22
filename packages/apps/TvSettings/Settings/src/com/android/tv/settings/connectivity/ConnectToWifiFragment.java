@@ -227,6 +227,7 @@ public class ConnectToWifiFragment extends MessageWizardFragment
         }
         getActivity().unregisterReceiver(mReceiver);
         mConnectivityListener.stop();
+        mConnectivityListener.destroy();
         mHandler.removeMessages(MSG_TIMEOUT);
         super.onDestroy();
     }

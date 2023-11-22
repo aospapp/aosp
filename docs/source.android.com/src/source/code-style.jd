@@ -164,7 +164,7 @@ easier for you to catch runtime problems in your code.</p>
 <h3 id="dont-use-finalizers">Don't Use Finalizers</h3>
 <p>Finalizers are a way to have a chunk of code executed when an object is
 garbage collected. While they can be handy for doing cleanup (particularly of
-external resources, there are no guarantees as to when a finalizer will be
+external resources), there are no guarantees as to when a finalizer will be
 called (or even that it will be called at all).</p>
 <p>Android doesn't use finalizers. In most cases, you can do what
 you need from a finalizer with good exception handling. If you absolutely need
@@ -579,7 +579,7 @@ device. This level is always logged. Issues that justify some logging at the
 WARNING level might also be considered for reporting to a statistics-gathering
 server.</li>
 <li><code>INFORMATIVE:</code>
-Use note that something interesting to most people happened, i.e. when a
+Use to note that something interesting to most people happened, i.e. when a
 situation is detected that is likely to have widespread impact, though isn't
 necessarily an error. Such a condition should only be logged by a module that
 reasonably believes that it is the most authoritative in that domain (to avoid
@@ -639,12 +639,12 @@ should not be logged gratuitously. A loss of network connectivity
 that has consequences within an app should be logged at the DEBUG or VERBOSE
 level (depending on whether the consequences are serious enough and unexpected
 enough to be logged in a release build).</li>
-<li>A full filesystem on a filesystem that is accessible to or on
+<li>Having a full filesystem on a filesystem that is accessible to or on
 behalf of third-party applications should not be logged at a level higher than
 INFORMATIVE.</li>
 <li>Invalid data coming from any untrusted source (including any
 file on shared storage, or data coming through just about any network
-connections) is considered expected and should not trigger any logging at a
+connection) is considered expected and should not trigger any logging at a
 level higher than DEBUG when it's detected to be invalid (and even then
 logging should be as limited as possible).</li>
 <li>Keep in mind that the <code>+</code> operator, when used on Strings,

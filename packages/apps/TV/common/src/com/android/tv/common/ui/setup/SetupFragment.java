@@ -47,11 +47,9 @@ public abstract class SetupFragment extends Fragment {
     public static final int FRAGMENT_REENTER_TRANSITION = FRAGMENT_ENTER_TRANSITION << 2;
     public static final int FRAGMENT_RETURN_TRANSITION = FRAGMENT_ENTER_TRANSITION << 3;
 
-    private OnActionClickListener mOnActionClickListener;
-
     private boolean mEnterTransitionRunning;
 
-    private TransitionListener mTransitionListener = new TransitionListener() {
+    private final TransitionListener mTransitionListener = new TransitionListener() {
         @Override
         public void onTransitionStart(Transition transition) {
             mEnterTransitionRunning = true;
@@ -103,20 +101,6 @@ public abstract class SetupFragment extends Fragment {
     }
 
     /**
-     * Returns action click listener.
-     */
-    public OnActionClickListener getOnActionClickListener() {
-        return mOnActionClickListener;
-    }
-
-    /**
-     * Sets action click listener.
-     */
-    public void setOnActionClickListener(OnActionClickListener onActionClickListener) {
-        mOnActionClickListener = onActionClickListener;
-    }
-
-    /**
      * Returns the layout resource ID for this fragment.
      */
     abstract protected int getLayoutResourceId();
@@ -130,8 +114,12 @@ public abstract class SetupFragment extends Fragment {
         });
     }
 
-    protected void onActionClick(String category, int actionId) {
-        SetupActionHelper.onActionClick(this, category, actionId);
+    protected boolean onActionClick(String category, int actionId) {
+        return SetupActionHelper.onActionClick(this, category, actionId);
+    }
+
+    protected boolean onActionClick(String category, int actionId, Bundle params) {
+        return SetupActionHelper.onActionClick(this, category, actionId, params);
     }
 
     @Override

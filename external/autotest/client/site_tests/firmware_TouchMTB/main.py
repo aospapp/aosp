@@ -314,11 +314,6 @@ class firmware_TouchMTB:
                        'noise_summary.py, located in '
                        '~/trunk/src/third_party/autotest/files/client/site_tests/firmware_TouchMTB/')
 
-            if self.options[OPTIONS.MODE] == MODE.CALIBRATION:
-                print ('Please upload the raw data to the spreadsheet after '
-                       'the calibration tests have been finished successfully:')
-                print '$ python spreadsheet.py -v'
-
 
 def upload_to_gs(log_dir):
     """Upload the gesture event files specified in log_dir to Google cloud

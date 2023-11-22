@@ -14,32 +14,20 @@
  * limitations under the License.
  */
 
+/*
+ * USAGE NOTE: Only include this header when _implementing_ a particular
+ * effect. When access to UUID and properties is enough, include the
+ * corresponding header from system/audio_effects/, which doesn't include
+ * hardware/audio_effect.h.
+ *
+ * Only code that immediately calls into HAL or implements an effect
+ * can import hardware/audio_effect.h.
+ */
+
 #ifndef ANDROID_EFFECT_LOUDNESS_ENHANCER_H_
 #define ANDROID_EFFECT_LOUDNESS_ENHANCER_H_
 
 #include <hardware/audio_effect.h>
-
-#if __cplusplus
-extern "C" {
-#endif
-
-// this effect is not defined in OpenSL ES as one of the standard effects
-static const effect_uuid_t FX_IID_LOUDNESS_ENHANCER_ =
-        {0xfe3199be, 0xaed0, 0x413f, 0x87bb, {0x11, 0x26, 0x0e, 0xb6, 0x3c, 0xf1}};
-const effect_uuid_t * const FX_IID_LOUDNESS_ENHANCER = &FX_IID_LOUDNESS_ENHANCER_;
-
-#define LOUDNESS_ENHANCER_DEFAULT_TARGET_GAIN_MB 0 // mB
-
-// enumerated parameters for DRC effect
-// to keep in sync with frameworks/base/media/java/android/media/audiofx/LoudnessEnhancer.java
-typedef enum
-{
-    LOUDNESS_ENHANCER_PARAM_TARGET_GAIN_MB = 0,// target gain expressed in mB
-} t_level_monitor_params;
-
-#if __cplusplus
-}  // extern "C"
-#endif
-
+#include <system/audio_effects/effect_loudnessenhancer.h>
 
 #endif /*ANDROID_EFFECT_LOUDNESS_ENHANCER_H_*/

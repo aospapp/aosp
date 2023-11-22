@@ -28,7 +28,7 @@ LOCAL_JAVA_LIBRARIES := \
   core-oj \
   core-libart \
   conscrypt \
-  core-junit \
+  legacy-test \
   bouncycastle \
   framework
 LOCAL_MODULE_TAGS := tests

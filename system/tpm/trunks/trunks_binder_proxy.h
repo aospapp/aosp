@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include <base/macros.h>
+
 #include "android/trunks/ITrunks.h"
 #include "trunks/command_transceiver.h"
 #include "trunks/trunks_export.h"

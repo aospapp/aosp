@@ -36,9 +36,8 @@ class CrOSTestCase(unittest.TestCase):
       assert os.path.isdir(extension_path)
       self._load_extension = extension_to_load.ExtensionToLoad(
           path=extension_path,
-          browser_type=options.browser_type,
-          is_component=True)
-      options.extensions_to_load = [self._load_extension]
+          browser_type=options.browser_type)
+      options.browser_options.extensions_to_load = [self._load_extension]
 
     browser_to_create = browser_finder.FindBrowser(options)
     self.assertTrue(browser_to_create)
@@ -78,5 +77,5 @@ class CrOSTestCase(unittest.TestCase):
           window.__login_status = s;
         });
     ''')
-    return util.WaitFor(
-        lambda: extension.EvaluateJavaScript('window.__login_status'), 10)
+    return extension.WaitForJavaScriptCondition(
+        'window.__login_status', timeout=10)

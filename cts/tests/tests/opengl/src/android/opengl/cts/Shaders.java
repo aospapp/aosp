@@ -54,4 +54,40 @@ public class Shaders {
         + "    gl_FragColor = vec4 (ct, 1.0); \n"
         + "} \n";
 
+    public static String errorcompile_frag =
+        "#ifdef GL_ES \n"
+        + "precision mediump float; \n"
+        + "#endif \n"
+        + "uniform float   mortarThickness; \n"
+        + "uniform vec3    brickColor; \n"
+        + "uniform vec3    mortarColor; \n"
+
+        + "uniform float   brickMortarWidth; \n"
+        + "uniform float   brickMortarHeight; \n"
+        + "uniform float   mhf; \n"
+
+        + "varying vec3  Position; \n"
+        + "varying float lightIntensity; \n"
+        + "\n"
+        + "void main (void){ \n"
+        + "    vec3    ct; \n"
+        + "    float   ss, tt, w, h; \n"
+        + ""
+        + "    vec3 pos = Position; \n"
+        + ""
+        + "    ss = pos.x / brickMortarWidth; \n"
+        + "    tt = pos.z / brickMortarHeight; \n"
+        + "    if (fract (tt * 0.5) > 0.5) \n"
+        + "        ss += 0.5; \n"
+
+        + "    ss = fract (ss); \n"
+        + "    tt = fract (tt); \n"
+
+        + "    w = step (mwf, ss) - step (1.0 - mwf, ss); \n"
+        + "    h = step (mhf, tt) - step (1.0 - mhf, tt); \n"
+
+        + "    ct = clamp(mix (mortarColor, brickColor, w * h) * lightIntensity, 0.0, 1.0); \n"
+
+        + "    gl_FragColor = vec4 (ct, 1); \n"
+        + "} \n";
 }

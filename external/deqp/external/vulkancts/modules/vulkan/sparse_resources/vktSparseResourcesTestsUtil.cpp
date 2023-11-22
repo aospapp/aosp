@@ -35,29 +35,7 @@ namespace vkt
 namespace sparse
 {
 
-Buffer::Buffer (const DeviceInterface&		vk,
-				const VkDevice				device,
-				Allocator&					allocator,
-				const VkBufferCreateInfo&	bufferCreateInfo,
-				const MemoryRequirement		memoryRequirement)
-	: m_buffer		(createBuffer(vk, device, &bufferCreateInfo))
-	, m_allocation	(allocator.allocate(getBufferMemoryRequirements(vk, device, *m_buffer), memoryRequirement))
-{
-	VK_CHECK(vk.bindBufferMemory(device, *m_buffer, m_allocation->getMemory(), m_allocation->getOffset()));
-}
-
-Image::Image (const DeviceInterface&	vk,
-			  const VkDevice			device,
-			  Allocator&				allocator,
-			  const VkImageCreateInfo&	imageCreateInfo,
-			  const MemoryRequirement	memoryRequirement)
-	: m_image		(createImage(vk, device, &imageCreateInfo))
-	, m_allocation	(allocator.allocate(getImageMemoryRequirements(vk, device, *m_image), memoryRequirement))
-{
-	VK_CHECK(vk.bindImageMemory(device, *m_image, m_allocation->getMemory(), m_allocation->getOffset()));
-}
-
-tcu::UVec3 getShaderGridSize(const ImageType imageType, const tcu::UVec3& imageSize, const deUint32 mipLevel)
+tcu::UVec3 getShaderGridSize (const ImageType imageType, const tcu::UVec3& imageSize, const deUint32 mipLevel)
 {
 	const deUint32 mipLevelX = std::max(imageSize.x() >> mipLevel, 1u);
 	const deUint32 mipLevelY = std::max(imageSize.y() >> mipLevel, 1u);
@@ -95,7 +73,7 @@ tcu::UVec3 getShaderGridSize(const ImageType imageType, const tcu::UVec3& imageS
 	}
 }
 
-tcu::UVec3 getLayerSize(const ImageType imageType, const tcu::UVec3& imageSize)
+tcu::UVec3 getLayerSize (const ImageType imageType, const tcu::UVec3& imageSize)
 {
 	switch (imageType)
 	{
@@ -119,7 +97,7 @@ tcu::UVec3 getLayerSize(const ImageType imageType, const tcu::UVec3& imageSize)
 	}
 }
 
-deUint32 getNumLayers(const ImageType imageType, const tcu::UVec3& imageSize)
+deUint32 getNumLayers (const ImageType imageType, const tcu::UVec3& imageSize)
 {
 	switch (imageType)
 	{
@@ -145,14 +123,14 @@ deUint32 getNumLayers(const ImageType imageType, const tcu::UVec3& imageSize)
 	}
 }
 
-deUint32 getNumPixels(const ImageType imageType, const tcu::UVec3& imageSize)
+deUint32 getNumPixels (const ImageType imageType, const tcu::UVec3& imageSize)
 {
 	const tcu::UVec3 gridSize = getShaderGridSize(imageType, imageSize);
 
 	return gridSize.x() * gridSize.y() * gridSize.z();
 }
 
-deUint32 getDimensions(const ImageType imageType)
+deUint32 getDimensions (const ImageType imageType)
 {
 	switch (imageType)
 	{
@@ -176,7 +154,7 @@ deUint32 getDimensions(const ImageType imageType)
 	}
 }
 
-deUint32 getLayerDimensions(const ImageType imageType)
+deUint32 getLayerDimensions (const ImageType imageType)
 {
 	switch (imageType)
 	{
@@ -200,33 +178,35 @@ deUint32 getLayerDimensions(const ImageType imageType)
 	}
 }
 
-bool isImageSizeSupported(const ImageType imageType, const tcu::UVec3& imageSize, const vk::VkPhysicalDeviceLimits& limits)
+bool isImageSizeSupported (const InstanceInterface& instance, const VkPhysicalDevice physicalDevice, const ImageType imageType, const tcu::UVec3& imageSize)
 {
+	const VkPhysicalDeviceProperties deviceProperties = getPhysicalDeviceProperties(instance, physicalDevice);
+
 	switch (imageType)
 	{
 		case IMAGE_TYPE_1D:
-			return	imageSize.x() <= limits.maxImageDimension1D;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimension1D;
 		case IMAGE_TYPE_1D_ARRAY:
-			return	imageSize.x() <= limits.maxImageDimension1D &&
-					imageSize.z() <= limits.maxImageArrayLayers;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimension1D &&
+					imageSize.z() <= deviceProperties.limits.maxImageArrayLayers;
 		case IMAGE_TYPE_2D:
-			return	imageSize.x() <= limits.maxImageDimension2D &&
-					imageSize.y() <= limits.maxImageDimension2D;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimension2D &&
+					imageSize.y() <= deviceProperties.limits.maxImageDimension2D;
 		case IMAGE_TYPE_2D_ARRAY:
-			return	imageSize.x() <= limits.maxImageDimension2D &&
-					imageSize.y() <= limits.maxImageDimension2D &&
-					imageSize.z() <= limits.maxImageArrayLayers;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimension2D &&
+					imageSize.y() <= deviceProperties.limits.maxImageDimension2D &&
+					imageSize.z() <= deviceProperties.limits.maxImageArrayLayers;
 		case IMAGE_TYPE_CUBE:
-			return	imageSize.x() <= limits.maxImageDimensionCube &&
-					imageSize.y() <= limits.maxImageDimensionCube;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimensionCube &&
+					imageSize.y() <= deviceProperties.limits.maxImageDimensionCube;
 		case IMAGE_TYPE_CUBE_ARRAY:
-			return	imageSize.x() <= limits.maxImageDimensionCube &&
-					imageSize.y() <= limits.maxImageDimensionCube &&
-					imageSize.z() <= limits.maxImageArrayLayers;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimensionCube &&
+					imageSize.y() <= deviceProperties.limits.maxImageDimensionCube &&
+					imageSize.z() <= deviceProperties.limits.maxImageArrayLayers;
 		case IMAGE_TYPE_3D:
-			return	imageSize.x() <= limits.maxImageDimension3D &&
-					imageSize.y() <= limits.maxImageDimension3D &&
-					imageSize.z() <= limits.maxImageDimension3D;
+			return	imageSize.x() <= deviceProperties.limits.maxImageDimension3D &&
+					imageSize.y() <= deviceProperties.limits.maxImageDimension3D &&
+					imageSize.z() <= deviceProperties.limits.maxImageDimension3D;
 		case IMAGE_TYPE_BUFFER:
 			return true;
 		default:
@@ -300,21 +280,22 @@ Move<VkPipelineLayout> makePipelineLayout (const DeviceInterface&		vk,
 {
 	const VkPipelineLayoutCreateInfo pipelineLayoutParams =
 	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType					sType;
-		DE_NULL,											// const void*						pNext;
-		0u,													// VkPipelineLayoutCreateFlags		flags;
-		1u,													// deUint32							setLayoutCount;
-		&descriptorSetLayout,								// const VkDescriptorSetLayout*		pSetLayouts;
-		0u,													// deUint32							pushConstantRangeCount;
-		DE_NULL,											// const VkPushConstantRange*		pPushConstantRanges;
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,						// VkStructureType					sType;
+		DE_NULL,															// const void*						pNext;
+		0u,																	// VkPipelineLayoutCreateFlags		flags;
+		(descriptorSetLayout != DE_NULL ? 1u : 0u),							// deUint32							setLayoutCount;
+		(descriptorSetLayout != DE_NULL ? &descriptorSetLayout : DE_NULL),	// const VkDescriptorSetLayout*		pSetLayouts;
+		0u,																	// deUint32							pushConstantRangeCount;
+		DE_NULL,															// const VkPushConstantRange*		pPushConstantRanges;
 	};
 	return createPipelineLayout(vk, device, &pipelineLayoutParams);
 }
 
-Move<VkPipeline> makeComputePipeline (const DeviceInterface&	vk,
-									  const VkDevice			device,
-									  const VkPipelineLayout	pipelineLayout,
-									  const VkShaderModule		shaderModule)
+Move<VkPipeline> makeComputePipeline (const DeviceInterface&		vk,
+									  const VkDevice				device,
+									  const VkPipelineLayout		pipelineLayout,
+									  const VkShaderModule			shaderModule,
+									  const VkSpecializationInfo*	specializationInfo)
 {
 	const VkPipelineShaderStageCreateInfo pipelineShaderStageParams =
 	{
@@ -324,7 +305,7 @@ Move<VkPipeline> makeComputePipeline (const DeviceInterface&	vk,
 		VK_SHADER_STAGE_COMPUTE_BIT,							// VkShaderStageFlagBits				stage;
 		shaderModule,											// VkShaderModule						module;
 		"main",													// const char*							pName;
-		DE_NULL,												// const VkSpecializationInfo*			pSpecializationInfo;
+		specializationInfo,										// const VkSpecializationInfo*			pSpecializationInfo;
 	};
 	const VkComputePipelineCreateInfo pipelineCreateInfo =
 	{
@@ -408,6 +389,42 @@ Move<VkSemaphore> makeSemaphore (const DeviceInterface& vk, const VkDevice devic
 	return createSemaphore(vk, device, &semaphoreCreateInfo);
 }
 
+Move<VkFence> makeFence (const DeviceInterface& vk, const VkDevice device, const VkFenceCreateFlags flags)
+{
+	const VkFenceCreateInfo fenceCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,	// VkStructureType       sType;
+		DE_NULL,								// const void*           pNext;
+		flags,									// VkFenceCreateFlags    flags;
+	};
+	return createFence(vk, device, &fenceCreateInfo);
+}
+
+Move<VkFramebuffer> makeFramebuffer (const DeviceInterface&		vk,
+									 const VkDevice				device,
+									 const VkRenderPass			renderPass,
+									 const deUint32				attachmentCount,
+									 const VkImageView*			pAttachments,
+									 const deUint32				width,
+									 const deUint32				height,
+									 const deUint32				layers)
+{
+	const VkFramebufferCreateInfo framebufferInfo =
+	{
+		VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,		// VkStructureType                             sType;
+		DE_NULL,										// const void*                                 pNext;
+		(VkFramebufferCreateFlags)0,					// VkFramebufferCreateFlags                    flags;
+		renderPass,										// VkRenderPass                                renderPass;
+		attachmentCount,								// uint32_t                                    attachmentCount;
+		pAttachments,									// const VkImageView*                          pAttachments;
+		width,											// uint32_t                                    width;
+		height,											// uint32_t                                    height;
+		layers,											// uint32_t                                    layers;
+	};
+
+	return createFramebuffer(vk, device, &framebufferInfo);
+}
+
 VkBufferMemoryBarrier makeBufferMemoryBarrier (const VkAccessFlags	srcAccessMask,
 											   const VkAccessFlags	dstAccessMask,
 											   const VkBuffer		buffer,
@@ -438,22 +455,47 @@ VkImageMemoryBarrier makeImageMemoryBarrier	(const VkAccessFlags			srcAccessMask
 {
 	const VkImageMemoryBarrier barrier =
 	{
-		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,			// VkStructureType			sType;
-		DE_NULL,										// const void*				pNext;
-		srcAccessMask,									// VkAccessFlags			outputMask;
-		dstAccessMask,									// VkAccessFlags			inputMask;
-		oldLayout,										// VkImageLayout			oldLayout;
-		newLayout,										// VkImageLayout			newLayout;
-		VK_QUEUE_FAMILY_IGNORED,						// deUint32					srcQueueFamilyIndex;
-		VK_QUEUE_FAMILY_IGNORED,						// deUint32					destQueueFamilyIndex;
-		image,											// VkImage					image;
-		subresourceRange,								// VkImageSubresourceRange	subresourceRange;
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,	// VkStructureType			sType;
+		DE_NULL,								// const void*				pNext;
+		srcAccessMask,							// VkAccessFlags			outputMask;
+		dstAccessMask,							// VkAccessFlags			inputMask;
+		oldLayout,								// VkImageLayout			oldLayout;
+		newLayout,								// VkImageLayout			newLayout;
+		VK_QUEUE_FAMILY_IGNORED,				// deUint32					srcQueueFamilyIndex;
+		VK_QUEUE_FAMILY_IGNORED,				// deUint32					destQueueFamilyIndex;
+		image,									// VkImage					image;
+		subresourceRange,						// VkImageSubresourceRange	subresourceRange;
 	};
 	return barrier;
 }
 
-vk::VkMemoryBarrier makeMemoryBarrier (const vk::VkAccessFlags	srcAccessMask,
-									   const vk::VkAccessFlags	dstAccessMask)
+VkImageMemoryBarrier makeImageMemoryBarrier (const VkAccessFlags			srcAccessMask,
+											 const VkAccessFlags			dstAccessMask,
+											 const VkImageLayout			oldLayout,
+											 const VkImageLayout			newLayout,
+											 const deUint32					srcQueueFamilyIndex,
+											 const deUint32					destQueueFamilyIndex,
+											 const VkImage					image,
+											 const VkImageSubresourceRange	subresourceRange)
+{
+	const VkImageMemoryBarrier barrier =
+	{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,	// VkStructureType			sType;
+		DE_NULL,								// const void*				pNext;
+		srcAccessMask,							// VkAccessFlags			outputMask;
+		dstAccessMask,							// VkAccessFlags			inputMask;
+		oldLayout,								// VkImageLayout			oldLayout;
+		newLayout,								// VkImageLayout			newLayout;
+		srcQueueFamilyIndex,					// deUint32					srcQueueFamilyIndex;
+		destQueueFamilyIndex,					// deUint32					destQueueFamilyIndex;
+		image,									// VkImage					image;
+		subresourceRange,						// VkImageSubresourceRange	subresourceRange;
+	};
+	return barrier;
+}
+
+VkMemoryBarrier makeMemoryBarrier (const VkAccessFlags	srcAccessMask,
+									   const VkAccessFlags	dstAccessMask)
 {
 	const VkMemoryBarrier barrier =
 	{
@@ -463,6 +505,20 @@ vk::VkMemoryBarrier makeMemoryBarrier (const vk::VkAccessFlags	srcAccessMask,
 		dstAccessMask,						// VkAccessFlags			inputMask;
 	};
 	return barrier;
+}
+
+de::MovePtr<Allocation> bindImage (const DeviceInterface& vk, const VkDevice device, Allocator& allocator, const VkImage image, const MemoryRequirement requirement)
+{
+	de::MovePtr<Allocation> alloc = allocator.allocate(getImageMemoryRequirements(vk, device, image), requirement);
+	VK_CHECK(vk.bindImageMemory(device, image, alloc->getMemory(), alloc->getOffset()));
+	return alloc;
+}
+
+de::MovePtr<Allocation> bindBuffer (const DeviceInterface& vk, const VkDevice device, Allocator& allocator, const VkBuffer buffer, const MemoryRequirement requirement)
+{
+	de::MovePtr<Allocation> alloc(allocator.allocate(getBufferMemoryRequirements(vk, device, buffer), requirement));
+	VK_CHECK(vk.bindBufferMemory(device, buffer, alloc->getMemory(), alloc->getOffset()));
+	return alloc;
 }
 
 void beginCommandBuffer (const DeviceInterface& vk, const VkCommandBuffer commandBuffer)
@@ -689,6 +745,33 @@ std::string getShaderImageFormatQualifier (const tcu::TextureFormat& format)
 	return std::string() + orderPart + typePart;
 }
 
+std::string getShaderImageCoordinates	(const ImageType	imageType,
+										 const std::string&	x,
+										 const std::string&	xy,
+										 const std::string&	xyz)
+{
+	switch (imageType)
+	{
+		case IMAGE_TYPE_1D:
+		case IMAGE_TYPE_BUFFER:
+			return x;
+
+		case IMAGE_TYPE_1D_ARRAY:
+		case IMAGE_TYPE_2D:
+			return xy;
+
+		case IMAGE_TYPE_2D_ARRAY:
+		case IMAGE_TYPE_3D:
+		case IMAGE_TYPE_CUBE:
+		case IMAGE_TYPE_CUBE_ARRAY:
+			return xyz;
+
+		default:
+			DE_ASSERT(0);
+			return "";
+	}
+}
+
 VkExtent3D mipLevelExtents (const VkExtent3D& baseExtents, const deUint32 mipLevel)
 {
 	VkExtent3D result;
@@ -700,29 +783,181 @@ VkExtent3D mipLevelExtents (const VkExtent3D& baseExtents, const deUint32 mipLev
 	return result;
 }
 
-deUint32 getImageMaxMipLevels (const VkImageFormatProperties& imageFormatProperties, const VkImageCreateInfo &imageInfo)
+deUint32 getImageMaxMipLevels (const VkImageFormatProperties& imageFormatProperties, const VkExtent3D& extent)
 {
-	const deUint32 widestEdge = std::max(std::max(imageInfo.extent.width, imageInfo.extent.height), imageInfo.extent.depth);
+	const deUint32 widestEdge = std::max(std::max(extent.width, extent.height), extent.depth);
 
 	return std::min(static_cast<deUint32>(deFloatLog2(static_cast<float>(widestEdge))) + 1u, imageFormatProperties.maxMipLevels);
 }
 
-deUint32 getImageMipLevelSizeInBytes (const VkExtent3D& baseExtents, const deUint32 layersCount, const tcu::TextureFormat& format, const deUint32 mipmapLevel)
+deUint32 getImageMipLevelSizeInBytes(const VkExtent3D& baseExtents, const deUint32 layersCount, const tcu::TextureFormat& format, const deUint32 mipmapLevel, const deUint32 mipmapMemoryAlignment)
 {
 	const VkExtent3D extents = mipLevelExtents(baseExtents, mipmapLevel);
 
-	return extents.width * extents.height * extents.depth * layersCount * tcu::getPixelSize(format);
+	return deAlign32(extents.width * extents.height * extents.depth * layersCount * tcu::getPixelSize(format), mipmapMemoryAlignment);
 }
 
-deUint32 getImageSizeInBytes (const VkExtent3D& baseExtents, const deUint32 layersCount, const tcu::TextureFormat& format, const deUint32 mipmapLevelsCount)
+deUint32 getImageSizeInBytes(const VkExtent3D& baseExtents, const deUint32 layersCount, const tcu::TextureFormat& format, const deUint32 mipmapLevelsCount, const deUint32 mipmapMemoryAlignment)
 {
 	deUint32 imageSizeInBytes = 0;
 	for (deUint32 mipmapLevel = 0; mipmapLevel < mipmapLevelsCount; ++mipmapLevel)
-	{
-		imageSizeInBytes += getImageMipLevelSizeInBytes(baseExtents, layersCount, format, mipmapLevel);
-	}
+		imageSizeInBytes += getImageMipLevelSizeInBytes(baseExtents, layersCount, format, mipmapLevel, mipmapMemoryAlignment);
 
 	return imageSizeInBytes;
+}
+
+VkSparseImageMemoryBind	makeSparseImageMemoryBind  (const DeviceInterface&		vk,
+													const VkDevice				device,
+													const VkDeviceSize			allocationSize,
+													const deUint32				memoryType,
+													const VkImageSubresource&	subresource,
+													const VkOffset3D&			offset,
+													const VkExtent3D&			extent)
+{
+	const VkMemoryAllocateInfo	allocInfo =
+	{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,	//	VkStructureType			sType;
+		DE_NULL,								//	const void*				pNext;
+		allocationSize,							//	VkDeviceSize			allocationSize;
+		memoryType,								//	deUint32				memoryTypeIndex;
+	};
+
+	VkDeviceMemory deviceMemory = 0;
+	VK_CHECK(vk.allocateMemory(device, &allocInfo, DE_NULL, &deviceMemory));
+
+	VkSparseImageMemoryBind imageMemoryBind;
+
+	imageMemoryBind.subresource		= subresource;
+	imageMemoryBind.memory			= deviceMemory;
+	imageMemoryBind.memoryOffset	= 0u;
+	imageMemoryBind.flags			= 0u;
+	imageMemoryBind.offset			= offset;
+	imageMemoryBind.extent			= extent;
+
+	return imageMemoryBind;
+}
+
+VkSparseMemoryBind makeSparseMemoryBind	(const DeviceInterface&	vk,
+										 const VkDevice			device,
+										 const VkDeviceSize		allocationSize,
+										 const deUint32			memoryType,
+										 const VkDeviceSize		resourceOffset)
+{
+	const VkMemoryAllocateInfo allocInfo =
+	{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,	//	VkStructureType	sType;
+		DE_NULL,								//	const void*		pNext;
+		allocationSize,							//	VkDeviceSize	allocationSize;
+		memoryType,								//	deUint32		memoryTypeIndex;
+	};
+
+	VkDeviceMemory deviceMemory = 0;
+	VK_CHECK(vk.allocateMemory(device, &allocInfo, DE_NULL, &deviceMemory));
+
+	VkSparseMemoryBind memoryBind;
+
+	memoryBind.resourceOffset	= resourceOffset;
+	memoryBind.size				= allocationSize;
+	memoryBind.memory			= deviceMemory;
+	memoryBind.memoryOffset		= 0u;
+	memoryBind.flags			= 0u;
+
+	return memoryBind;
+}
+
+void requireFeatures (const InstanceInterface& vki, const VkPhysicalDevice physDevice, const FeatureFlags flags)
+{
+	const VkPhysicalDeviceFeatures features = getPhysicalDeviceFeatures(vki, physDevice);
+
+	if (((flags & FEATURE_TESSELLATION_SHADER) != 0) && !features.tessellationShader)
+		throw tcu::NotSupportedError("Tessellation shader not supported");
+
+	if (((flags & FEATURE_GEOMETRY_SHADER) != 0) && !features.geometryShader)
+		throw tcu::NotSupportedError("Geometry shader not supported");
+
+	if (((flags & FEATURE_SHADER_FLOAT_64) != 0) && !features.shaderFloat64)
+		throw tcu::NotSupportedError("Double-precision floats not supported");
+
+	if (((flags & FEATURE_VERTEX_PIPELINE_STORES_AND_ATOMICS) != 0) && !features.vertexPipelineStoresAndAtomics)
+		throw tcu::NotSupportedError("SSBO and image writes not supported in vertex pipeline");
+
+	if (((flags & FEATURE_FRAGMENT_STORES_AND_ATOMICS) != 0) && !features.fragmentStoresAndAtomics)
+		throw tcu::NotSupportedError("SSBO and image writes not supported in fragment shader");
+
+	if (((flags & FEATURE_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE) != 0) && !features.shaderTessellationAndGeometryPointSize)
+		throw tcu::NotSupportedError("Tessellation and geometry shaders don't support PointSize built-in");
+}
+
+deUint32 findMatchingMemoryType (const InstanceInterface&		instance,
+								 const VkPhysicalDevice			physicalDevice,
+								 const VkMemoryRequirements&	objectMemoryRequirements,
+								 const MemoryRequirement&		memoryRequirement)
+{
+	const VkPhysicalDeviceMemoryProperties deviceMemoryProperties = getPhysicalDeviceMemoryProperties(instance, physicalDevice);
+
+	for (deUint32 memoryTypeNdx = 0; memoryTypeNdx < deviceMemoryProperties.memoryTypeCount; ++memoryTypeNdx)
+	{
+		if ((objectMemoryRequirements.memoryTypeBits & (1u << memoryTypeNdx)) != 0 &&
+			memoryRequirement.matchesHeap(deviceMemoryProperties.memoryTypes[memoryTypeNdx].propertyFlags))
+		{
+			return memoryTypeNdx;
+		}
+	}
+
+	return NO_MATCH_FOUND;
+}
+
+bool checkSparseSupportForImageType (const InstanceInterface&	instance,
+									 const VkPhysicalDevice		physicalDevice,
+									 const ImageType			imageType)
+{
+	const VkPhysicalDeviceFeatures deviceFeatures = getPhysicalDeviceFeatures(instance, physicalDevice);
+
+	if (!deviceFeatures.sparseBinding)
+		return false;
+
+	switch (mapImageType(imageType))
+	{
+		case VK_IMAGE_TYPE_2D:
+			return deviceFeatures.sparseResidencyImage2D == VK_TRUE;
+		case VK_IMAGE_TYPE_3D:
+			return deviceFeatures.sparseResidencyImage3D == VK_TRUE;
+		default:
+			DE_ASSERT(0);
+			return false;
+	};
+}
+
+bool checkSparseSupportForImageFormat (const InstanceInterface&	instance,
+									   const VkPhysicalDevice	physicalDevice,
+									   const VkImageCreateInfo&	imageInfo)
+{
+	const std::vector<VkSparseImageFormatProperties> sparseImageFormatPropVec = getPhysicalDeviceSparseImageFormatProperties(
+		instance, physicalDevice, imageInfo.format, imageInfo.imageType, imageInfo.samples, imageInfo.usage, imageInfo.tiling);
+
+	return sparseImageFormatPropVec.size() > 0u;
+}
+
+bool checkImageFormatFeatureSupport (const InstanceInterface&	instance,
+									 const VkPhysicalDevice		physicalDevice,
+									 const VkFormat				format,
+									 const VkFormatFeatureFlags	featureFlags)
+{
+	const VkFormatProperties formatProperties = getPhysicalDeviceFormatProperties(instance, physicalDevice, format);
+
+	return (formatProperties.optimalTilingFeatures & featureFlags) == featureFlags;
+}
+
+deUint32 getSparseAspectRequirementsIndex (const std::vector<VkSparseImageMemoryRequirements>&	requirements,
+										   const VkImageAspectFlags								aspectFlags)
+{
+	for (deUint32 memoryReqNdx = 0; memoryReqNdx < requirements.size(); ++memoryReqNdx)
+	{
+		if (requirements[memoryReqNdx].formatProperties.aspectMask & aspectFlags)
+			return memoryReqNdx;
+	}
+
+	return NO_MATCH_FOUND;
 }
 
 } // sparse

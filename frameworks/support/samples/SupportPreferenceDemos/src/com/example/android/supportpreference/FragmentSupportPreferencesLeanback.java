@@ -16,6 +16,7 @@
 
 package com.example.android.supportpreference;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Fragment;
 import android.os.Bundle;
@@ -26,14 +27,17 @@ import android.support.v17.preference.LeanbackSettingsFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 
+@TargetApi(17)
 public class FragmentSupportPreferencesLeanback extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // Display the fragment as the main content.
-        getFragmentManager().beginTransaction().replace(android.R.id.content,
-                new SettingsFragment()).commit();
+        if (savedInstanceState == null) {
+            getFragmentManager().beginTransaction().replace(android.R.id.content,
+                    new SettingsFragment()).commit();
+        }
     }
 
 //BEGIN_INCLUDE(support_fragment_leanback)

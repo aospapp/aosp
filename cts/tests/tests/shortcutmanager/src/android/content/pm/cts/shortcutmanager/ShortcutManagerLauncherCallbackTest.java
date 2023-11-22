@@ -32,6 +32,8 @@ import android.util.Log;
 import com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.ShortcutListAsserter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -40,9 +42,14 @@ import java.util.function.Predicate;
 public class ShortcutManagerLauncherCallbackTest extends ShortcutManagerCtsTestsBase {
 
     private static class MyCallback extends LauncherApps.Callback {
+        private final HashSet<String> mInterestedPackages = new HashSet<String>();
         private boolean called;
         private String lastPackage;
         private final List<ShortcutInfo> lastShortcuts = new ArrayList<>();
+
+        public MyCallback(String... interestedPackages) {
+            mInterestedPackages.addAll(Arrays.asList(interestedPackages));
+        }
 
         @Override
         public void onPackageRemoved(String packageName, UserHandle user) {
@@ -68,6 +75,10 @@ public class ShortcutManagerLauncherCallbackTest extends ShortcutManagerCtsTests
         @Override
         public synchronized void onShortcutsChanged(
                 String packageName, List<ShortcutInfo> shortcuts, UserHandle user) {
+            if (!mInterestedPackages.contains(packageName)) {
+                return; // Ignore other packages.
+            }
+
             final StringBuilder sb = new StringBuilder();
             for (ShortcutInfo si : shortcuts) {
                 if (sb.length() > 0) {
@@ -120,7 +131,7 @@ public class ShortcutManagerLauncherCallbackTest extends ShortcutManagerCtsTests
     }
 
     public void testCallbacks() {
-        final MyCallback c = new MyCallback();
+        final MyCallback c = new MyCallback(mPackageContext1.getPackageName());
 
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
 

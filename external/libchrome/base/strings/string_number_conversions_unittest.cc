@@ -13,6 +13,7 @@
 #include <cmath>
 #include <limits>
 
+#include "base/bit_cast.h"
 #include "base/format_macros.h"
 #include "base/macros.h"
 #include "base/strings/stringprintf.h"
@@ -137,12 +138,12 @@ TEST(StringNumberConversionsTest, StringToInt) {
   };
 
   for (size_t i = 0; i < arraysize(cases); ++i) {
-    int output = 0;
+    int output = cases[i].output ^ 1;  // Ensure StringToInt wrote something.
     EXPECT_EQ(cases[i].success, StringToInt(cases[i].input, &output));
     EXPECT_EQ(cases[i].output, output);
 
     string16 utf16_input = UTF8ToUTF16(cases[i].input);
-    output = 0;
+    output = cases[i].output ^ 1;  // Ensure StringToInt wrote something.
     EXPECT_EQ(cases[i].success, StringToInt(utf16_input, &output));
     EXPECT_EQ(cases[i].output, output);
   }
@@ -201,12 +202,13 @@ TEST(StringNumberConversionsTest, StringToUint) {
   };
 
   for (size_t i = 0; i < arraysize(cases); ++i) {
-    unsigned output = 0;
+    unsigned output =
+        cases[i].output ^ 1;  // Ensure StringToUint wrote something.
     EXPECT_EQ(cases[i].success, StringToUint(cases[i].input, &output));
     EXPECT_EQ(cases[i].output, output);
 
     string16 utf16_input = UTF8ToUTF16(cases[i].input);
-    output = 0;
+    output = cases[i].output ^ 1;  // Ensure StringToUint wrote something.
     EXPECT_EQ(cases[i].success, StringToUint(utf16_input, &output));
     EXPECT_EQ(cases[i].output, output);
   }

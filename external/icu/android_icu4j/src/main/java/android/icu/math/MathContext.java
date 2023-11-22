@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /* Generated from 'MathContext.nrx' 8 Sep 2000 11:07:48 [v2.00] */
 /* Options: Binary Comments Crossref Format Java Logo Strictargs Strictcase Trace2 Verbose3 */
 package android.icu.math;
@@ -79,7 +81,7 @@ package android.icu.math;
 
 public final class MathContext implements java.io.Serializable{
  //private static final java.lang.String $0="MathContext.nrx";
- 
+
  /* ----- Properties ----- */
  /* properties public constant */
  /**
@@ -93,7 +95,7 @@ public final class MathContext implements java.io.Serializable{
   * @see #SCIENTIFIC
   */
  public static final int PLAIN=0; // [no exponent]
- 
+
  /**
   * Standard floating point notation (with scientific exponential
   * format, where there is one digit before any decimal point).
@@ -106,7 +108,7 @@ public final class MathContext implements java.io.Serializable{
   * @see #PLAIN
   */
  public static final int SCIENTIFIC=1; // 1 digit before .
- 
+
  /**
   * Standard floating point notation (with engineering exponential
   * format, where the power of ten is a multiple of 3).
@@ -119,7 +121,7 @@ public final class MathContext implements java.io.Serializable{
   * @see #SCIENTIFIC
   */
  public static final int ENGINEERING=2; // 1-3 digits before .
- 
+
  // The rounding modes match the original BigDecimal class values
  /**
   * Rounding mode to round to a more positive number.
@@ -130,7 +132,7 @@ public final class MathContext implements java.io.Serializable{
   * should be rounded towards the next more positive digit.
   */
  public static final int ROUND_CEILING=2;
- 
+
  /**
   * Rounding mode to round towards zero.
   * Used as a setting to control the rounding mode used during a
@@ -140,7 +142,7 @@ public final class MathContext implements java.io.Serializable{
   * neither incremented nor decremented.
   */
  public static final int ROUND_DOWN=1;
- 
+
  /**
   * Rounding mode to round to a more negative number.
   * Used as a setting to control the rounding mode used during a
@@ -150,7 +152,7 @@ public final class MathContext implements java.io.Serializable{
   * should be rounded towards the next more negative digit.
   */
  public static final int ROUND_FLOOR=3;
- 
+
  /**
   * Rounding mode to round to nearest neighbor, where an equidistant
   * value is rounded down.
@@ -163,7 +165,7 @@ public final class MathContext implements java.io.Serializable{
   * ignored.
   */
  public static final int ROUND_HALF_DOWN=5;
- 
+
  /**
   * Rounding mode to round to nearest neighbor, where an equidistant
   * value is rounded to the nearest even neighbor.
@@ -180,7 +182,7 @@ public final class MathContext implements java.io.Serializable{
   * rightmost digit is odd (to make an even digit).
   */
  public static final int ROUND_HALF_EVEN=6;
- 
+
  /**
   * Rounding mode to round to nearest neighbor, where an equidistant
   * value is rounded up.
@@ -193,7 +195,7 @@ public final class MathContext implements java.io.Serializable{
   * digits are ignored.
   */
  public static final int ROUND_HALF_UP=4;
- 
+
  /**
   * Rounding mode to assert that no rounding is necessary.
   * Used as a setting to control the rounding mode used during a
@@ -204,7 +206,7 @@ public final class MathContext implements java.io.Serializable{
   * <code>ArithmeticException</code> should be thrown.
   */
  public static final int ROUND_UNNECESSARY=7;
- 
+
  /**
   * Rounding mode to round away from zero.
   * Used as a setting to control the rounding mode used during a
@@ -214,8 +216,8 @@ public final class MathContext implements java.io.Serializable{
   * be rounded up (away from zero).
   */
  public static final int ROUND_UP=0;
- 
- 
+
+
  /* properties shared */
  /**
   * The number of digits (precision) to be used for an operation.
@@ -232,7 +234,7 @@ public final class MathContext implements java.io.Serializable{
   * @serial
   */
  int digits;
- 
+
  /**
   * The form of results from an operation.
   * <p>
@@ -246,7 +248,7 @@ public final class MathContext implements java.io.Serializable{
   * @serial
   */
  int form; // values for this must fit in a byte
- 
+
  /**
   * Controls whether lost digits checking is enabled for an
   * operation.
@@ -262,7 +264,7 @@ public final class MathContext implements java.io.Serializable{
   * @serial
   */
  boolean lostDigits;
- 
+
  /**
   * The rounding algorithm to be used for an operation.
   * <p>
@@ -283,33 +285,33 @@ public final class MathContext implements java.io.Serializable{
   * @serial
   */
  int roundingMode;
- 
+
  /* properties private constant */
  // default settings
  private static final int DEFAULT_FORM=SCIENTIFIC;
  private static final int DEFAULT_DIGITS=9;
  private static final boolean DEFAULT_LOSTDIGITS=false;
  private static final int DEFAULT_ROUNDINGMODE=ROUND_HALF_UP;
- 
+
  /* properties private constant */
- 
+
  private static final int MIN_DIGITS=0; // smallest value for DIGITS.
  private static final int MAX_DIGITS=999999999; // largest value for DIGITS.  If increased,
  // the BigDecimal class may need update.
  // list of valid rounding mode values, most common two first
  private static final int ROUNDS[]=new int[]{ROUND_HALF_UP,ROUND_UNNECESSARY,ROUND_CEILING,ROUND_DOWN,ROUND_FLOOR,ROUND_HALF_DOWN,ROUND_HALF_EVEN,ROUND_UP};
- 
- 
+
+
  private static final java.lang.String ROUNDWORDS[]=new java.lang.String[]{"ROUND_HALF_UP","ROUND_UNNECESSARY","ROUND_CEILING","ROUND_DOWN","ROUND_FLOOR","ROUND_HALF_DOWN","ROUND_HALF_EVEN","ROUND_UP"}; // matching names of the ROUNDS values
- 
- 
- 
- 
+
+
+
+
  /* properties private constant unused */
- 
+
  // Serialization version
  private static final long serialVersionUID=7163376998892515376L;
- 
+
  /* properties public constant */
  /**
   * A <code>MathContext</code> object initialized to the default
@@ -322,11 +324,11 @@ public final class MathContext implements java.io.Serializable{
   */
  public static final android.icu.math.MathContext DEFAULT=new android.icu.math.MathContext(DEFAULT_DIGITS,DEFAULT_FORM,DEFAULT_LOSTDIGITS,DEFAULT_ROUNDINGMODE);
 
- 
- 
- 
+
+
+
  /* ----- Constructors ----- */
- 
+
  /**
   * Constructs a new <code>MathContext</code> with a specified
   * precision.
@@ -341,12 +343,12 @@ public final class MathContext implements java.io.Serializable{
   *                      for this <code>MathContext</code>.
   * @throws IllegalArgumentException parameter out of range.
   */
- 
+
  public MathContext(int setdigits){
   this(setdigits,DEFAULT_FORM,DEFAULT_LOSTDIGITS,DEFAULT_ROUNDINGMODE);
   return;}
 
- 
+
  /**
   * Constructs a new <code>MathContext</code> with a specified
   * precision and form.
@@ -365,7 +367,7 @@ public final class MathContext implements java.io.Serializable{
   *                      for this <code>MathContext</code>.
   * @throws IllegalArgumentException parameter out of range.
   */
- 
+
  public MathContext(int setdigits,int setform){
   this(setdigits,setform,DEFAULT_LOSTDIGITS,DEFAULT_ROUNDINGMODE);
   return;}
@@ -390,7 +392,7 @@ public final class MathContext implements java.io.Serializable{
   *                      setting for this <code>MathContext</code>.
   * @throws IllegalArgumentException parameter out of range.
   */
- 
+
  public MathContext(int setdigits,int setform,boolean setlostdigits){
   this(setdigits,setform,setlostdigits,DEFAULT_ROUNDINGMODE);
   return;}
@@ -415,16 +417,16 @@ public final class MathContext implements java.io.Serializable{
   *                        for this <code>MathContext</code>.
   * @throws IllegalArgumentException parameter out of range.
   */
- 
+
  public MathContext(int setdigits,int setform,boolean setlostdigits,int setroundingmode){super();
-  
-  
+
+
   // set values, after checking
-  if (setdigits!=DEFAULT_DIGITS) 
+  if (setdigits!=DEFAULT_DIGITS)
    {
-    if (setdigits<MIN_DIGITS) 
+    if (setdigits<MIN_DIGITS)
      throw new java.lang.IllegalArgumentException("Digits too small:"+" "+setdigits);
-    if (setdigits>MAX_DIGITS) 
+    if (setdigits>MAX_DIGITS)
      throw new java.lang.IllegalArgumentException("Digits too large:"+" "+setdigits);
    }
   {/*select*/
@@ -436,7 +438,7 @@ public final class MathContext implements java.io.Serializable{
    throw new java.lang.IllegalArgumentException("Bad form value:"+" "+setform);
   }
   }
-  if ((!(isValidRound(setroundingmode)))) 
+  if ((!(isValidRound(setroundingmode))))
    throw new java.lang.IllegalArgumentException("Bad roundingMode value:"+" "+setroundingmode);
   digits=setdigits;
   form=setform;
@@ -451,7 +453,7 @@ public final class MathContext implements java.io.Serializable{
   * @return an <code>int</code> which is the value of the digits
   *         setting
   */
- 
+
  public int getDigits(){
   return digits;
   }
@@ -465,7 +467,7 @@ public final class MathContext implements java.io.Serializable{
   *
   * @return an <code>int</code> which is the value of the form setting
   */
- 
+
  public int getForm(){
   return form;
   }
@@ -478,7 +480,7 @@ public final class MathContext implements java.io.Serializable{
   * @return a <code>boolean</code> which is the value of the lostDigits
   *           setting
   */
- 
+
  public boolean getLostDigits(){
   return lostDigits;
   }
@@ -498,7 +500,7 @@ public final class MathContext implements java.io.Serializable{
   * @return an <code>int</code> which is the value of the roundingMode
   *         setting
   */
- 
+
  public int getRoundingMode(){
   return roundingMode;
   }
@@ -539,7 +541,8 @@ public final class MathContext implements java.io.Serializable{
   *
   * @return a <code>String</code> representing the context settings.
   */
- 
+
+ @Override
  public java.lang.String toString(){
   java.lang.String formstr=null;
   int r=0;
@@ -554,7 +557,7 @@ public final class MathContext implements java.io.Serializable{
   }
   }
   {int $1=ROUNDS.length;r=0;r:for(;$1>0;$1--,r++){
-   if (roundingMode==ROUNDS[r]) 
+   if (roundingMode==ROUNDS[r])
     {
      roundword=ROUNDWORDS[r];
      break r;
@@ -564,14 +567,14 @@ public final class MathContext implements java.io.Serializable{
   return "digits="+digits+" "+"form="+formstr+" "+"lostDigits="+(lostDigits?"1":"0")+" "+"roundingMode="+roundword;
   }
 
- 
+
  /* <sgml> Test whether round is valid. </sgml> */
  // This could be made shared for use by BigDecimal for setScale.
- 
+
  private static boolean isValidRound(int testround){
   int r=0;
   {int $2=ROUNDS.length;for(r=0;$2>0;$2--,r++){
-   if (testround==ROUNDS[r]) 
+   if (testround==ROUNDS[r])
     return true;
    }
   }/*r*/

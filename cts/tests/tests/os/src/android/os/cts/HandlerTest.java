@@ -17,7 +17,7 @@
 package android.os.cts;
 
 import junit.framework.TestCase;
-import android.cts.util.TestThread;
+
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -25,6 +25,8 @@ import android.os.SystemClock;
 import android.os.Handler.Callback;
 import android.test.UiThreadTest;
 import android.util.Printer;
+
+import com.android.compatibility.common.util.TestThread;
 
 public class HandlerTest extends TestCase {
 

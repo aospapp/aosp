@@ -8,6 +8,7 @@
 #ifndef Sk4fGradientBase_DEFINED
 #define Sk4fGradientBase_DEFINED
 
+#include "Sk4fGradientPriv.h"
 #include "SkColor.h"
 #include "SkGradientShaderPriv.h"
 #include "SkMatrix.h"
@@ -15,6 +16,39 @@
 #include "SkPM4f.h"
 #include "SkShader.h"
 #include "SkTArray.h"
+
+struct Sk4fGradientInterval {
+    Sk4fGradientInterval(const Sk4f& c0, SkScalar p0,
+                         const Sk4f& c1, SkScalar p1);
+
+    bool contains(SkScalar t) const {
+        // True if t is in [p0,p1].  Note: this helper assumes a
+        // natural/increasing interval - so it's not usable in Sk4fLinearGradient.
+        SkASSERT(fP0 < fP1);
+        return t >= fP0 && t <= fP1;
+    }
+
+    SkPM4f   fC0, fDc;
+    SkScalar fP0, fP1;
+    bool     fZeroRamp;
+};
+
+class Sk4fGradientIntervalBuffer {
+public:
+    void init(const SkColor colors[], const SkScalar pos[], int count,
+              SkShader::TileMode tileMode, bool premulColors, SkScalar alpha, bool reverse);
+
+    const Sk4fGradientInterval* find(SkScalar t) const;
+    const Sk4fGradientInterval* findNext(SkScalar t, const Sk4fGradientInterval* prev,
+                                         bool increasing) const;
+
+    using BufferType = SkSTArray<8, Sk4fGradientInterval, true>;
+
+    const BufferType* operator->() const { return &fIntervals; }
+
+private:
+    BufferType fIntervals;
+};
 
 class SkGradientShaderBase::
 GradientShaderBase4fContext : public SkShader::Context {
@@ -24,38 +58,38 @@ public:
 
     uint32_t getFlags() const override { return fFlags; }
 
+    void shadeSpan(int x, int y, SkPMColor dst[], int count) override;
+    void shadeSpan4f(int x, int y, SkPM4f dst[], int count) override;
+
+    bool isValid() const;
+
 protected:
-    struct Interval {
-        Interval(SkPMColor c0, SkScalar p0,
-                 SkPMColor c1, SkScalar p1,
-                 const Sk4f& componentScale);
-        Interval(const Sk4f& c0, const Sk4f& dc,
-                 SkScalar p0, SkScalar p1);
+    virtual void mapTs(int x, int y, SkScalar ts[], int count) const = 0;
 
-        bool isZeroRamp() const { return fZeroRamp; }
-
-        // true when fx is in [p0,p1)
-        bool contains(SkScalar fx) const;
-
-        SkPM4f   fC0, fDc;
-        SkScalar fP0, fP1;
-        bool     fZeroRamp;
-    };
-
-    const Interval* findInterval(SkScalar fx) const;
-
-    SkSTArray<8, Interval, true> fIntervals;
-    SkMatrix                     fDstToPos;
-    SkMatrix::MapXYProc          fDstToPosProc;
-    uint8_t                      fDstToPosClass;
-    uint8_t                      fFlags;
-    bool                         fDither;
-    bool                         fColorsArePremul;
+    Sk4fGradientIntervalBuffer fIntervals;
+    SkMatrix                   fDstToPos;
+    SkMatrix::MapXYProc        fDstToPosProc;
+    uint8_t                    fDstToPosClass;
+    uint8_t                    fFlags;
+    bool                       fDither;
+    bool                       fColorsArePremul;
 
 private:
     using INHERITED = SkShader::Context;
 
-    mutable const Interval*      fCachedInterval;
+    void addMirrorIntervals(const SkGradientShaderBase&,
+                            const Sk4f& componentScale, bool reverse);
+
+    template<DstType, ApplyPremul, SkShader::TileMode tileMode>
+    class TSampler;
+
+    template <DstType dstType, ApplyPremul premul>
+    void shadePremulSpan(int x, int y, typename DstTraits<dstType, premul>::Type[],
+                         int count) const;
+
+    template <DstType dstType, ApplyPremul premul, SkShader::TileMode tileMode>
+    void shadeSpanInternal(int x, int y, typename DstTraits<dstType, premul>::Type[],
+                           int count) const;
 };
 
 #endif // Sk4fGradientBase_DEFINED

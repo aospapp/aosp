@@ -20,6 +20,7 @@
 #include "base/arena_containers.h"
 #include "base/arena_object.h"
 #include "block_builder.h"
+#include "dex_file_types.h"
 #include "driver/compiler_driver.h"
 #include "driver/compiler_driver-inl.h"
 #include "driver/dex_compilation_unit.h"
@@ -29,6 +30,9 @@
 #include "ssa_builder.h"
 
 namespace art {
+
+class CodeGenerator;
+class Instruction;
 
 class HInstructionBuilder : public ValueObject {
  public:
@@ -41,11 +45,14 @@ class HInstructionBuilder : public ValueObject {
                       DexCompilationUnit* dex_compilation_unit,
                       const DexCompilationUnit* const outer_compilation_unit,
                       CompilerDriver* driver,
+                      CodeGenerator* code_generator,
                       const uint8_t* interpreter_metadata,
                       OptimizingCompilerStats* compiler_stats,
-                      Handle<mirror::DexCache> dex_cache)
+                      Handle<mirror::DexCache> dex_cache,
+                      VariableSizedHandleScope* handles)
       : arena_(graph->GetArena()),
         graph_(graph),
+        handles_(handles),
         dex_file_(dex_file),
         code_item_(code_item),
         return_type_(return_type),
@@ -56,6 +63,7 @@ class HInstructionBuilder : public ValueObject {
         current_locals_(nullptr),
         latest_result_(nullptr),
         compiler_driver_(driver),
+        code_generator_(code_generator),
         dex_compilation_unit_(dex_compilation_unit),
         outer_compilation_unit_(outer_compilation_unit),
         interpreter_metadata_(interpreter_metadata),
@@ -85,6 +93,10 @@ class HInstructionBuilder : public ValueObject {
   HBasicBlock* FindBlockStartingAt(uint32_t dex_pc) const;
 
   ArenaVector<HInstruction*>* GetLocalsFor(HBasicBlock* block);
+  // Out of line version of GetLocalsFor(), which has a fast path that is
+  // beneficial to get inlined by callers.
+  ArenaVector<HInstruction*>* GetLocalsForWithAllocation(
+      HBasicBlock* block, ArenaVector<HInstruction*>* locals, const size_t vregs);
   HInstruction* ValueOfLocalAt(HBasicBlock* block, size_t local);
   HInstruction* LoadLocal(uint32_t register_index, Primitive::Type type) const;
   HInstruction* LoadNullCheckedLocal(uint32_t register_index, uint32_t dex_pc);
@@ -98,11 +110,8 @@ class HInstructionBuilder : public ValueObject {
 
   // Returns whether the current method needs access check for the type.
   // Output parameter finalizable is set to whether the type is finalizable.
-  bool NeedsAccessCheck(uint32_t type_index,
-                        Handle<mirror::DexCache> dex_cache,
-                        /*out*/bool* finalizable) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
-  bool NeedsAccessCheck(uint32_t type_index, /*out*/bool* finalizable) const;
+  bool NeedsAccessCheck(dex::TypeIndex type_index, /*out*/bool* finalizable) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<typename T>
   void Unop_12x(const Instruction& instruction, Primitive::Type type, uint32_t dex_pc);
@@ -172,9 +181,20 @@ class HInstructionBuilder : public ValueObject {
                    uint32_t* args,
                    uint32_t register_index);
 
+  // Builds an invocation node for invoke-polymorphic and returns whether the
+  // instruction is supported.
+  bool BuildInvokePolymorphic(const Instruction& instruction,
+                              uint32_t dex_pc,
+                              uint32_t method_idx,
+                              uint32_t proto_idx,
+                              uint32_t number_of_vreg_arguments,
+                              bool is_range,
+                              uint32_t* args,
+                              uint32_t register_index);
+
   // Builds a new array node and the instructions that fill it.
   void BuildFilledNewArray(uint32_t dex_pc,
-                           uint32_t type_index,
+                           dex::TypeIndex type_index,
                            uint32_t number_of_vreg_arguments,
                            bool is_range,
                            uint32_t* args,
@@ -203,11 +223,23 @@ class HInstructionBuilder : public ValueObject {
   void BuildTypeCheck(const Instruction& instruction,
                       uint8_t destination,
                       uint8_t reference,
-                      uint16_t type_index,
+                      dex::TypeIndex type_index,
                       uint32_t dex_pc);
 
   // Builds an instruction sequence for a switch statement.
   void BuildSwitch(const Instruction& instruction, uint32_t dex_pc);
+
+  // Builds a `HLoadClass` loading the given `type_index`. If `outer` is true,
+  // this method will use the outer class's dex file to lookup the type at
+  // `type_index`.
+  HLoadClass* BuildLoadClass(dex::TypeIndex type_index, uint32_t dex_pc);
+
+  HLoadClass* BuildLoadClass(dex::TypeIndex type_index,
+                             const DexFile& dex_file,
+                             Handle<mirror::Class> klass,
+                             uint32_t dex_pc,
+                             bool needs_access_check)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns the outer-most compiling method's class.
   mirror::Class* GetOutermostCompilingClass() const;
@@ -216,7 +248,7 @@ class HInstructionBuilder : public ValueObject {
   mirror::Class* GetCompilingClass() const;
 
   // Returns whether `type_index` points to the outer-most compiling method's class.
-  bool IsOutermostCompilingClass(uint16_t type_index) const;
+  bool IsOutermostCompilingClass(dex::TypeIndex type_index) const;
 
   void PotentiallySimplifyFakeString(uint16_t original_dex_register,
                                      uint32_t dex_pc,
@@ -237,7 +269,8 @@ class HInstructionBuilder : public ValueObject {
                     uint32_t register_index,
                     bool is_range,
                     const char* descriptor,
-                    HClinitCheck* clinit_check);
+                    HClinitCheck* clinit_check,
+                    bool is_unresolved);
 
   bool HandleStringInit(HInvoke* invoke,
                         uint32_t number_of_vreg_arguments,
@@ -250,23 +283,33 @@ class HInstructionBuilder : public ValueObject {
   HClinitCheck* ProcessClinitCheckForInvoke(
       uint32_t dex_pc,
       ArtMethod* method,
-      uint32_t method_idx,
       HInvokeStaticOrDirect::ClinitCheckRequirement* clinit_check_requirement)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Build a HNewInstance instruction.
-  bool BuildNewInstance(uint16_t type_index, uint32_t dex_pc);
+  bool BuildNewInstance(dex::TypeIndex type_index, uint32_t dex_pc);
 
   // Return whether the compiler can assume `cls` is initialized.
   bool IsInitialized(Handle<mirror::Class> cls) const
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Try to resolve a method using the class linker. Return null if a method could
   // not be resolved.
   ArtMethod* ResolveMethod(uint16_t method_idx, InvokeType invoke_type);
 
+  // Try to resolve a field using the class linker. Return null if it could not
+  // be found.
+  ArtField* ResolveField(uint16_t field_idx, bool is_static, bool is_put);
+
+  ObjPtr<mirror::Class> LookupResolvedType(dex::TypeIndex type_index,
+                                           const DexCompilationUnit& compilation_unit) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ObjPtr<mirror::Class> LookupReferrerClass() const REQUIRES_SHARED(Locks::mutator_lock_);
+
   ArenaAllocator* const arena_;
   HGraph* const graph_;
+  VariableSizedHandleScope* handles_;
 
   // The dex file where the method being compiled is, and the bytecode data.
   const DexFile* const dex_file_;
@@ -284,6 +327,8 @@ class HInstructionBuilder : public ValueObject {
   HInstruction* latest_result_;
 
   CompilerDriver* const compiler_driver_;
+
+  CodeGenerator* const code_generator_;
 
   // The compilation unit of the current method being compiled. Note that
   // it can be an inlined method.

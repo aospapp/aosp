@@ -58,13 +58,11 @@ TPM_RC HmacSessionImpl::StartUnboundSession(bool enable_encryption) {
   return StartBoundSession(TPM_RH_NULL, "", enable_encryption);
 }
 
-void HmacSessionImpl::SetEntityAuthorizationValue(
-    const std::string& value) {
+void HmacSessionImpl::SetEntityAuthorizationValue(const std::string& value) {
   hmac_delegate_.set_entity_authorization_value(value);
 }
 
-void HmacSessionImpl::SetFutureAuthorizationValue(
-    const std::string& value) {
+void HmacSessionImpl::SetFutureAuthorizationValue(const std::string& value) {
   hmac_delegate_.set_future_authorization_value(value);
 }
 

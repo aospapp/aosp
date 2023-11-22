@@ -16,7 +16,7 @@
  * @{
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/route/rtnl.h>
@@ -143,7 +143,7 @@ static int neightbl_msg_parser(struct nl_cache_ops *ops,
 	ntbl->nt_family = rtmsg->rtgen_family;
 
 	if (tb[NDTA_NAME] == NULL) {
-		return -NLE_MISSING_ATTR;
+		err = -NLE_MISSING_ATTR;
 		goto errout;
 	}
 
@@ -237,7 +237,7 @@ static void neightbl_dump_line(struct nl_object *arg, struct nl_dump_params *p)
 	if (ntbl->nt_parms.ntp_mask & NEIGHTBLPARM_ATTR_IFINDEX) {
 		struct nl_cache *link_cache;
 		
-		link_cache = nl_cache_mngt_require("route/link");
+		link_cache = nl_cache_mngt_require_safe("route/link");
 
 		if (link_cache) {
 			char buf[32];
@@ -245,6 +245,7 @@ static void neightbl_dump_line(struct nl_object *arg, struct nl_dump_params *p)
 				rtnl_link_i2name(link_cache,
 						 ntbl->nt_parms.ntp_ifindex,
 						 buf, sizeof(buf)));
+			nl_cache_put(link_cache);
 		} else
 			nl_dump(p, "<%u> ", ntbl->nt_parms.ntp_ifindex);
 	} else
@@ -332,21 +333,32 @@ static void neightbl_dump_stats(struct nl_object *arg, struct nl_dump_params *p)
 	if (!(ntbl->ce_mask & NEIGHTBL_ATTR_STATS))
 		return;
 
-	nl_dump_line(p, "    lookups %lld hits %lld failed %lld " \
-		    "allocations %lld destroys %lld\n",
+	nl_dump_line(p, "   " \
+                    " lookups %" PRIu64 \
+                    " hits %" PRIu64 \
+                    " failed %" PRIu64 \
+		    " allocations %" PRIu64 \
+                    " destroys %" PRIu64 \
+                    "\n",
 		ntbl->nt_stats.ndts_lookups,
 		ntbl->nt_stats.ndts_hits,
 		ntbl->nt_stats.ndts_res_failed,
 		ntbl->nt_stats.ndts_allocs,
 		ntbl->nt_stats.ndts_destroys);
 
-	nl_dump_line(p, "    hash-grows %lld forced-gc-runs %lld " \
-		    "periodic-gc-runs %lld\n",
+	nl_dump_line(p, "   " \
+                        " hash-grows %" PRIu64 \
+                        " forced-gc-runs %" PRIu64 \
+                        " periodic-gc-runs %" PRIu64 \
+                        "\n",
 		ntbl->nt_stats.ndts_hash_grows,
 		ntbl->nt_stats.ndts_forced_gc_runs,
 		ntbl->nt_stats.ndts_periodic_gc_runs);
 
-	nl_dump_line(p, "    rcv-unicast-probes %lld rcv-multicast-probes %lld\n",
+	nl_dump_line(p, "   " \
+                        " rcv-unicast-probes %" PRIu64 \
+                        " rcv-multicast-probes %" PRIu64 \
+                        "\n",
 		ntbl->nt_stats.ndts_rcv_probes_ucast,
 		ntbl->nt_stats.ndts_rcv_probes_mcast);
 }

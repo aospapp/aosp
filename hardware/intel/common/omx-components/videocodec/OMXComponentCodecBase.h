@@ -57,6 +57,8 @@ protected:
             OMX_INDEXTYPE nIndex,
             OMX_PTR pComponentConfigStructure);
 
+    virtual OMX_COLOR_FORMATTYPE GetOutputColorFormat(int width);
+
     virtual OMX_ERRORTYPE ProcessorInit(void);  /* Loaded to Idle */
     virtual OMX_ERRORTYPE ProcessorDeinit(void);/* Idle to Loaded */
     virtual OMX_ERRORTYPE ProcessorStart(void); /* Idle to Executing/Pause */

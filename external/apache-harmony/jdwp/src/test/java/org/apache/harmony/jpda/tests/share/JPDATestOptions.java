@@ -44,6 +44,7 @@ public class JPDATestOptions extends TestOptions {
      * 
      * @return option "jpda.settings.debuggeeLaunchKind" or "auto" by default.
      */
+    @Override
     public String getDebuggeeLaunchKind() {
         return System.getProperty("jpda.settings.debuggeeLaunchKind", "auto");
     }

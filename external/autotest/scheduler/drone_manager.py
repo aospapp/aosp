@@ -1,19 +1,21 @@
-import collections
 import heapq
 import os
-import Queue
-import time
-import threading
-import traceback
 import logging
 
 import common
-from autotest_lib.client.common_lib import error, global_config, utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
-from autotest_lib.scheduler import email_manager, drone_utility, drones
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import utils
+from autotest_lib.scheduler import drones
+from autotest_lib.scheduler import drone_utility
 from autotest_lib.scheduler import drone_task_queue
 from autotest_lib.scheduler import scheduler_config
 from autotest_lib.scheduler import thread_lib
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 # results on drones will be placed under the drone_installation_directory in a
@@ -158,7 +160,9 @@ class BaseDroneManager(object):
     # about a drone hitting process limit is sent.
     NOTIFY_INTERVAL = 60 * 60 * 24 # one day
     _STATS_KEY = 'drone_manager'
-    _timer = autotest_stats.Timer(_STATS_KEY)
+
+    _ACTIVE_PROCESS_GAUGE = metrics.Gauge(
+        'chromeos/autotest/drone/active_processes')
 
 
     def __init__(self):
@@ -183,9 +187,6 @@ class BaseDroneManager(object):
         self._attached_files = {}
         # heapq of _DroneHeapWrappers
         self._drone_queue = []
-        # map drone hostname to time stamp of email that
-        # has been sent about the drone hitting process limit.
-        self._notify_record = {}
         # A threaded task queue used to refresh drones asynchronously.
         if _THREADED_DRONE_MANAGER:
             self._refresh_task_queue = thread_lib.ThreadedTaskQueue(
@@ -221,7 +222,12 @@ class BaseDroneManager(object):
 
 
     def reinitialize_drones(self):
-        self._call_all_drones('initialize', self._results_dir)
+        for drone in self.get_drones():
+            with metrics.SecondsTimer(
+                    'chromeos/autotest/drone_manager/'
+                    'reinitialize_drones_duration',
+                    fields={'drone': drone.hostname}):
+                drone.call('initialize', self._results_dir)
 
 
     def shutdown(self):
@@ -349,15 +355,6 @@ class BaseDroneManager(object):
         self._drone_queue = []
 
 
-    def _call_all_drones(self, method, *args, **kwargs):
-        all_results = {}
-        for drone in self.get_drones():
-            with self._timer.get_client(
-                    '%s.%s' % (drone.hostname.replace('.', '_'), method)):
-                all_results[drone] = drone.call(method, *args, **kwargs)
-        return all_results
-
-
     def _parse_pidfile(self, drone, raw_contents):
         """Parse raw pidfile contents.
 
@@ -426,9 +423,9 @@ class BaseDroneManager(object):
                 info = self._registered_pidfile_info[pidfile_id]
                 if info.num_processes is not None:
                     drone.active_processes += info.num_processes
-        autotest_stats.Gauge(self._STATS_KEY).send(
-                '%s.%s' % (drone.hostname.replace('.', '_'),
-                           'active_processes'), drone.active_processes)
+        self._ACTIVE_PROCESS_GAUGE.set(
+                drone.active_processes,
+                fields={'drone_hostname': drone.hostname})
 
 
     def _check_drone_process_limit(self, drone):
@@ -441,20 +438,8 @@ class BaseDroneManager(object):
             percent = float(drone.active_processes) / drone.max_processes
         except ZeroDivisionError:
             percent = 100
-        max_percent = scheduler_config.config.max_processes_warning_threshold
-        if percent >= max_percent:
-            message = ('Drone %s is hitting %s of process limit.' %
-                       (drone.hostname, format(percent, '.2%')))
-            logging.warning(message)
-            last_notified = self._notify_record.get(drone.hostname, 0)
-            now = time.time()
-            if last_notified + BaseDroneManager.NOTIFY_INTERVAL < now:
-                body = ('Active processes/Process limit: %d/%d (%s)' %
-                        (drone.active_processes, drone.max_processes,
-                         format(percent, '.2%')))
-                email_manager.manager.enqueue_notify_email(message, body)
-                self._notify_record[drone.hostname] = now
-
+        metrics.Float('chromeos/autotest/drone/active_process_percentage'
+                      ).set(percent, fields={'drone_hostname': drone.hostname})
 
     def trigger_refresh(self):
         """Triggers a drone manager refresh.
@@ -476,7 +461,8 @@ class BaseDroneManager(object):
                                         (drone, [str(call) for call in calls]))
             drone.queue_call('refresh', pidfile_paths)
         logging.info("Invoking drone refresh.")
-        with self._timer.get_client('trigger_refresh'):
+        with metrics.SecondsTimer(
+                'chromeos/autotest/drone_manager/trigger_refresh_duration'):
             self._refresh_task_queue.execute(drones, wait=False)
 
 
@@ -498,7 +484,8 @@ class BaseDroneManager(object):
         # drone utility interface (each call is executed and its results are
         # places in a list, but since we never couple the refresh calls with
         # any other call, this list will always contain a single dict).
-        with self._timer.get_client('sync_refresh'):
+        with metrics.SecondsTimer(
+                'chromeos/autotest/drone_manager/sync_refresh_duration'):
             all_results = self._refresh_task_queue.get_results()
         logging.info("Drones refreshed.")
 
@@ -520,22 +507,18 @@ class BaseDroneManager(object):
             results = results_list[0]
             drone_hostname = drone.hostname.replace('.', '_')
 
-            with self._timer.get_client('%s.results' % drone_hostname):
-                for process_info in results['all_processes']:
-                    if process_info['comm'] == 'autoserv':
-                        self._add_autoserv_process(drone, process_info)
-                    drone_pid = drone.hostname, int(process_info['pid'])
-                    self._all_processes[drone_pid] = process_info
+            for process_info in results['all_processes']:
+                if process_info['comm'] == 'autoserv':
+                    self._add_autoserv_process(drone, process_info)
+                drone_pid = drone.hostname, int(process_info['pid'])
+                self._all_processes[drone_pid] = process_info
 
-                for process_info in results['parse_processes']:
-                    self._add_process(drone, process_info)
+            for process_info in results['parse_processes']:
+                self._add_process(drone, process_info)
 
-            with self._timer.get_client('%s.pidfiles' % drone_hostname):
-                self._process_pidfiles(drone, results['pidfiles'],
-                                       self._pidfiles)
-            with self._timer.get_client('%s.pidfiles_second' % drone_hostname):
-                self._process_pidfiles(drone, results['pidfiles_second_read'],
-                                       self._pidfiles_second_read)
+            self._process_pidfiles(drone, results['pidfiles'], self._pidfiles)
+            self._process_pidfiles(drone, results['pidfiles_second_read'],
+                                   self._pidfiles_second_read)
 
             self._compute_active_processes(drone)
             if drone.enabled:
@@ -545,11 +528,14 @@ class BaseDroneManager(object):
 
     def refresh(self):
         """Refresh all drones."""
-        with self._timer.get_client('refresh'):
+        with metrics.SecondsTimer(
+                'chromeos/autotest/drone_manager/refresh_duration'):
             self.trigger_refresh()
             self.sync_refresh()
 
 
+    @metrics.SecondsTimerDecorator(
+        'chromeos/autotest/drone_manager/execute_actions_duration')
     def execute_actions(self):
         """
         Called at the end of a scheduler cycle to execute all queued actions
@@ -567,10 +553,9 @@ class BaseDroneManager(object):
         try:
             self._results_drone.execute_queued_calls()
         except error.AutoservError:
-            warning = ('Results repository failed to execute calls:\n' +
-                       traceback.format_exc())
-            email_manager.manager.enqueue_notify_email(
-                'Results repository error', warning)
+            m = 'chromeos/autotest/errors/results_repository_failed'
+            metrics.Counter(m).increment(
+                fields={'drone_hostname': self._results_drone.hostname})
             self._results_drone.clear_call_queue()
 
 

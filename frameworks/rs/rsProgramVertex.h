@@ -60,8 +60,8 @@ public:
     ObjectBaseRef<Allocation> mDefaultAlloc;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif
 
 

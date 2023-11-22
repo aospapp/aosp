@@ -17,13 +17,14 @@ package android.mediastress.cts;
 
 import android.app.Instrumentation;
 import android.content.Intent;
-import android.cts.util.MediaUtils;
 import android.media.MediaFormat;
 import android.media.MediaRecorder.AudioEncoder;
 import android.media.MediaRecorder.VideoEncoder;
 import android.os.Environment;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import junit.framework.Assert;
 
@@ -69,10 +70,14 @@ public class NativeMediaTest extends ActivityInstrumentationTestCase2<NativeMedi
         waitForNativeMediaLifeCycle(activity, true);
         Thread.sleep(PLAY_WAIT_TIME_MS); // let it play for some time
         for (int i = 0; i < NUMBER_PLAY_PAUSE_REPEATITIONS; i++) {
-            instrumentation.callActivityOnPause(activity);
+            instrumentation.runOnMainSync(() -> {
+                instrumentation.callActivityOnPause(activity);
+            });
             instrumentation.waitForIdleSync();
             waitForNativeMediaLifeCycle(activity, false);
-            instrumentation.callActivityOnResume(activity);
+            instrumentation.runOnMainSync(() -> {
+                instrumentation.callActivityOnResume(activity);
+            });
             waitForNativeMediaLifeCycle(activity, true);
             Thread.sleep(PLAY_WAIT_TIME_MS); // let it play for some time
         }

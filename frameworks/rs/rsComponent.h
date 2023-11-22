@@ -65,8 +65,8 @@ protected:
     bool mIsPixel;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif
 

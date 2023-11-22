@@ -19,18 +19,57 @@
 #define COM_ANDROID_BLUETOOTH_H
 
 #include "JNIHelp.h"
-#include "jni.h"
-#include "hardware/hardware.h"
+#include "android_runtime/AndroidRuntime.h"
+#include "android_runtime/Log.h"
 #include "hardware/bluetooth.h"
+#include "hardware/hardware.h"
+#include "jni.h"
+#include "nativehelper/ScopedLocalRef.h"
+#include "utils/Log.h"
 
 namespace android {
 
-void checkAndClearExceptionFromCallback(JNIEnv* env,
-                                        const char* methodName);
+JNIEnv* getCallbackEnv();
+
+class CallbackEnv {
+public:
+    CallbackEnv(const char *methodName) : mName(methodName) {
+        mCallbackEnv = getCallbackEnv();
+    }
+
+    ~CallbackEnv() {
+      if (mCallbackEnv && mCallbackEnv->ExceptionCheck()) {
+          ALOGE("An exception was thrown by callback '%s'.", mName);
+          LOGE_EX(mCallbackEnv);
+          mCallbackEnv->ExceptionClear();
+      }
+    }
+
+    bool valid() const {
+      JNIEnv *env = AndroidRuntime::getJNIEnv();
+      if (!mCallbackEnv || (mCallbackEnv != env)) {
+          ALOGE("%s: Callback env fail: env: %p, callback: %p", mName, env, mCallbackEnv);
+          return false;
+      }
+      return true;
+    }
+
+    JNIEnv *operator-> () const {
+        return mCallbackEnv;
+    }
+
+    JNIEnv *get() const {
+        return mCallbackEnv;
+    }
+
+private:
+    JNIEnv *mCallbackEnv;
+    const char *mName;
+
+    DISALLOW_COPY_AND_ASSIGN(CallbackEnv);
+};
 
 const bt_interface_t* getBluetoothInterface();
-
-JNIEnv* getCallbackEnv();
 
 int register_com_android_bluetooth_hfp(JNIEnv* env);
 
@@ -45,6 +84,8 @@ int register_com_android_bluetooth_avrcp(JNIEnv* env);
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env);
 
 int register_com_android_bluetooth_hid(JNIEnv* env);
+
+int register_com_android_bluetooth_hidd(JNIEnv* env);
 
 int register_com_android_bluetooth_hdp(JNIEnv* env);
 

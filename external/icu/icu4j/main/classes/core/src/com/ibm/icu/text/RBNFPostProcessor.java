@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2004-2010, International Business Machines Corporation and    *
@@ -25,5 +27,5 @@ interface RBNFPostProcessor {
      * @param output the output of the main RBNF processing
      * @param ruleSet the rule set originally invoked to generate the output
      */
-    void process(StringBuffer output, NFRuleSet ruleSet);
+    void process(StringBuilder output, NFRuleSet ruleSet);
 }

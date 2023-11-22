@@ -29,15 +29,18 @@
 #include <brillo/daemons/daemon.h>
 #include <brillo/flag_helper.h>
 
+#include "update_engine/client.h"
 #include "update_engine/common/error_code.h"
 #include "update_engine/common/error_code_utils.h"
-#include "update_engine/client.h"
+#include "update_engine/omaha_utils.h"
 #include "update_engine/status_update_handler.h"
 #include "update_engine/update_status.h"
 #include "update_engine/update_status_utils.h"
 
-using chromeos_update_engine::UpdateStatusToString;
+using chromeos_update_engine::EolStatus;
 using chromeos_update_engine::ErrorCode;
+using chromeos_update_engine::UpdateStatusToString;
+using chromeos_update_engine::utils::ErrorCodeToString;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -102,9 +105,6 @@ class UpdateEngineClient : public brillo::Daemon {
 
   // Pointers to handlers for cleanup
   vector<unique_ptr<update_engine::StatusUpdateHandler>> handlers_;
-
-  // Tell whether the UpdateEngine service is available after startup.
-  bool service_is_available_{false};
 
   DISALLOW_COPY_AND_ASSIGN(UpdateEngineClient);
 };
@@ -186,8 +186,9 @@ int UpdateEngineClient::GetNeedReboot() {
 
 class UpdateWaitHandler : public ExitingStatusUpdateHandler {
  public:
-  explicit UpdateWaitHandler(bool exit_on_error)
-      : exit_on_error_(exit_on_error) {}
+  explicit UpdateWaitHandler(bool exit_on_error,
+                             update_engine::UpdateEngineClient* client)
+      : exit_on_error_(exit_on_error), client_(client) {}
 
   ~UpdateWaitHandler() override = default;
 
@@ -199,6 +200,7 @@ class UpdateWaitHandler : public ExitingStatusUpdateHandler {
 
  private:
   bool exit_on_error_;
+  update_engine::UpdateEngineClient* client_;
 };
 
 void UpdateWaitHandler::HandleStatusUpdate(int64_t /* last_checked_time */,
@@ -207,8 +209,15 @@ void UpdateWaitHandler::HandleStatusUpdate(int64_t /* last_checked_time */,
                                            const string& /* new_version */,
                                            int64_t /* new_size */) {
   if (exit_on_error_ && current_operation == UpdateStatus::IDLE) {
-    LOG(ERROR) << "Update failed, current operations is "
-               << UpdateStatusToString(current_operation);
+    int last_attempt_error;
+    ErrorCode code = ErrorCode::kSuccess;
+    if (client_ && client_->GetLastAttemptError(&last_attempt_error))
+      code = static_cast<ErrorCode>(last_attempt_error);
+
+    LOG(ERROR) << "Update failed, current operation is "
+               << UpdateStatusToString(current_operation)
+               << ", last error code is " << ErrorCodeToString(code) << "("
+               << last_attempt_error << ")";
     exit(1);
   }
   if (current_operation == UpdateStatus::UPDATED_NEED_REBOOT) {
@@ -224,6 +233,8 @@ int UpdateEngineClient::ProcessFlags() {
                 "target channel is more stable than the current channel unless "
                 "--nopowerwash is specified.");
   DEFINE_bool(check_for_update, false, "Initiate check for updates.");
+  DEFINE_string(
+      cohort_hint, "", "Set the current cohort hint to the passed value.");
   DEFINE_bool(follow, false,
               "Wait for any update operations to complete."
               "Exit status is 0 if the update succeeded, and 1 otherwise.");
@@ -250,6 +261,7 @@ int UpdateEngineClient::ProcessFlags() {
               "Shows whether rollback partition "
               "is available.");
   DEFINE_bool(show_channel, false, "Show the current and target channels.");
+  DEFINE_bool(show_cohort_hint, false, "Show the current cohort hint.");
   DEFINE_bool(show_p2p_update, false,
               "Show the current setting for peer-to-peer update sharing.");
   DEFINE_bool(show_update_over_cellular, false,
@@ -266,6 +278,7 @@ int UpdateEngineClient::ProcessFlags() {
   DEFINE_bool(prev_version, false,
               "Show the previous OS version used before the update reboot.");
   DEFINE_bool(last_attempt_error, false, "Show the last attempt error.");
+  DEFINE_bool(eol_status, false, "Show the current end-of-life status.");
 
   // Boilerplate init commands.
   base::CommandLine::Init(argc_, argv_);
@@ -321,6 +334,27 @@ int UpdateEngineClient::ProcessFlags() {
 
     LOG(INFO) << "Current update over cellular network setting: "
               << (allowed ? "ENABLED" : "DISABLED");
+  }
+
+  // Change/show the cohort hint.
+  bool set_cohort_hint =
+      base::CommandLine::ForCurrentProcess()->HasSwitch("cohort_hint");
+  if (set_cohort_hint) {
+    LOG(INFO) << "Setting cohort hint to: \"" << FLAGS_cohort_hint << "\"";
+    if (!client_->SetCohortHint(FLAGS_cohort_hint)) {
+      LOG(ERROR) << "Error setting the cohort hint.";
+      return 1;
+    }
+  }
+
+  if (FLAGS_show_cohort_hint || set_cohort_hint) {
+    string cohort_hint;
+    if (!client_->GetCohortHint(&cohort_hint)) {
+      LOG(ERROR) << "Error getting the cohort hint.";
+      return 1;
+    }
+
+    LOG(INFO) << "Current cohort hint: \"" << cohort_hint << "\"";
   }
 
   if (!FLAGS_powerwash && !FLAGS_rollback && FLAGS_channel.empty()) {
@@ -466,7 +500,7 @@ int UpdateEngineClient::ProcessFlags() {
 
   if (FLAGS_follow) {
     LOG(INFO) << "Waiting for update to complete.";
-    auto handler = new UpdateWaitHandler(true);
+    auto handler = new UpdateWaitHandler(true, client_.get());
     handlers_.emplace_back(handler);
     client_->RegisterStatusUpdateHandler(handler);
     return kContinueRunning;
@@ -507,7 +541,7 @@ int UpdateEngineClient::ProcessFlags() {
   }
 
   if (FLAGS_block_until_reboot_is_needed) {
-    auto handler = new UpdateWaitHandler(false);
+    auto handler = new UpdateWaitHandler(false, nullptr);
     handlers_.emplace_back(handler);
     client_->RegisterStatusUpdateHandler(handler);
     return kContinueRunning;
@@ -519,12 +553,23 @@ int UpdateEngineClient::ProcessFlags() {
       LOG(ERROR) << "Error getting last attempt error.";
     } else {
       ErrorCode code = static_cast<ErrorCode>(last_attempt_error);
-      string error_msg = chromeos_update_engine::utils::ErrorCodeToString(code);
-      printf("ERROR_CODE=%i\n"
-             "ERROR_MESSAGE=%s\n",
-             last_attempt_error, error_msg.c_str());
+      printf(
+          "ERROR_CODE=%i\n"
+          "ERROR_MESSAGE=%s\n",
+          last_attempt_error,
+          ErrorCodeToString(code).c_str());
     }
- }
+  }
+
+  if (FLAGS_eol_status) {
+    int eol_status;
+    if (!client_->GetEolStatus(&eol_status)) {
+      LOG(ERROR) << "Error getting the end-of-life status.";
+    } else {
+      EolStatus eol_status_code = static_cast<EolStatus>(eol_status);
+      printf("EOL_STATUS=%s\n", EolStatusToString(eol_status_code));
+    }
+  }
 
   return 0;
 }

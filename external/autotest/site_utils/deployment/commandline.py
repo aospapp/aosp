@@ -22,12 +22,18 @@ are omitted from the command line.
 """
 
 import argparse
+import collections
+import csv
+import datetime
 import os
 import re
 import subprocess
 import sys
-import time
 
+import dateutil.tz
+
+import common
+from autotest_lib.server.hosts import servo_host
 
 # _BUILD_URI_FORMAT
 # A format template for a Google storage URI that designates
@@ -67,6 +73,15 @@ _BUILD_PATTERNS = [
 _VALID_HOSTNAME_PATTERNS = [
     re.compile(r'chromeos\d+-row\d+-rack\d+-host\d+')
 ]
+
+
+# _EXPECTED_NUMBER_OF_HOST_INFO
+# The number of items per line when parsing the hostname_file csv file.
+_EXPECTED_NUMBER_OF_HOST_INFO = 8
+
+# HostInfo
+# Namedtuple to store host info for processing when creating host in the afe.
+HostInfo = collections.namedtuple('HostInfo', ['hostname', 'host_attr_dict'])
 
 
 def _build_path_exists(board, buildpath):
@@ -219,6 +234,20 @@ def _validate_hostname(hostname):
     return False
 
 
+def _is_hostname_file_valid(hostname_file):
+    """Check that the hostname file is valid.
+
+    The hostname file is deemed valid if:
+     - the file exists.
+     - the file is non-empty.
+
+    @param hostname_file  Filename of the hostname file to check.
+
+    @return `True` if the hostname file is valid, False otherse.
+    """
+    return os.path.exists(hostname_file) and os.path.getsize(hostname_file) > 0
+
+
 def _validate_arguments(arguments):
     """Check command line arguments, and account for defaults.
 
@@ -234,7 +263,18 @@ def _validate_arguments(arguments):
     @return Return `True` if there are no errors to report, or
             `False` if there are.
     """
-    if (not arguments.hostnames and
+    # If both hostnames and hostname_file are specified, complain about that.
+    if arguments.hostnames and arguments.hostname_file:
+        sys.stderr.write(
+                'DUT hostnames and hostname file both specified, only '
+                'specify one or the other.\n')
+        return False
+    if (arguments.hostname_file and
+        not _is_hostname_file_valid(arguments.hostname_file)):
+        sys.stderr.write(
+                'Specified hostname file must exist and be non-empty.\n')
+        return False
+    if (not arguments.hostnames and not arguments.hostname_file and
             (arguments.board or arguments.build)):
         sys.stderr.write(
                 'DUT hostnames are required with board or build.\n')
@@ -357,7 +397,7 @@ def _read_arguments(input, arguments):
 
     @param input      File-like object from which to read user
                       responses.
-    @param arguments  Arguments object returned from
+    @param arguments  Namespace object returned from
                       `ArgumentParser.parse_args()`.  Results are
                       stored here.
     """
@@ -371,25 +411,60 @@ def _read_arguments(input, arguments):
     arguments.hostnames = _read_hostnames(input)
 
 
-def _parse(argv):
-    """Parse the command line arguments.
+def get_default_logdir_name(arguments):
+    """Get default log directory name.
 
-    Create an argument parser for this command's syntax, parse the
-    command line, and return the result of the ArgumentParser
-    parse_args() method.
-
-    @param argv Standard command line argument vector; argv[0] is
-                assumed to be the command name.
-    @return Result returned by ArgumentParser.parse_args().
+    @param arguments  Namespace object returned from argument parsing.
+    @return  A filename as a string.
     """
-    parser = argparse.ArgumentParser(
-            prog=argv[0],
+    return '{time}-{board}'.format(
+        time=arguments.start_time.isoformat(),
+        board=arguments.board)
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser extended with boolean option pairs."""
+
+    # Arguments required when adding an option pair.
+    _REQUIRED_PAIR_ARGS = {'dest', 'default'}
+
+    def add_argument_pair(self, yes_flags, no_flags, **kwargs):
+        """Add a pair of argument flags for a boolean option.
+
+        @param yes_flags  Iterable of flags to turn option on.
+                          May also be a single string.
+        @param no_flags   Iterable of flags to turn option off.
+                          May also be a single string.
+        @param *kwargs    Other arguments to pass to add_argument()
+        """
+        missing_args = self._REQUIRED_PAIR_ARGS - set(kwargs)
+        if missing_args:
+            raise ValueError("Argument pair must have explicit %s"
+                             % (', '.join(missing_args),))
+
+        if isinstance(yes_flags, (str, unicode)):
+            yes_flags = [yes_flags]
+        if isinstance(no_flags, (str, unicode)):
+            no_flags = [no_flags]
+
+        self.add_argument(*yes_flags, action='store_true', **kwargs)
+        self.add_argument(*no_flags, action='store_false', **kwargs)
+
+
+def _make_common_parser(command_name):
+    """Create argument parser for common arguments.
+
+    @param command_name The command name.
+    @return ArgumentParser instance.
+    """
+    parser = _ArgumentParser(
+            prog=command_name,
             description='Install a test image on newly deployed DUTs')
     # frontend.AFE(server=None) will use the default web server,
     # so default for --web is `None`.
     parser.add_argument('-w', '--web', metavar='SERVER', default=None,
                         help='specify web server')
-    parser.add_argument('-d', '--dir',
+    parser.add_argument('-d', '--dir', dest='logdir',
                         help='directory for logs')
     parser.add_argument('-i', '--build',
                         help='select stable test build version')
@@ -400,12 +475,77 @@ def _parse(argv):
     parser.add_argument('-t', '--nostable', action='store_true',
                         help='skip changing stable test image '
                              '(for script testing)')
+    parser.add_argument('-f', '--hostname_file',
+                        help='CSV file that contains a list of hostnames and '
+                             'their details to install with.')
     parser.add_argument('board', nargs='?', metavar='BOARD',
                         help='board for DUTs to be installed')
     parser.add_argument('hostnames', nargs='*', metavar='HOSTNAME',
                         help='host names of DUTs to be installed')
-    return parser.parse_args(argv[1:])
+    return parser
 
+
+def _add_upload_argument_pair(parser, default):
+    """Add option pair for uploading logs.
+
+    @param parser   _ArgumentParser instance.
+    @param default  Default option value.
+    """
+    parser.add_argument_pair('--upload', '--noupload', dest='upload',
+                             default=default,
+                             help='upload logs to GS bucket',)
+
+
+def _parse_hostname_file_line(hostname_file_row):
+    """
+    Parse a line from the hostname_file and return a dict of the info.
+
+    @param hostname_file_row: List of strings from each line in the hostname
+                              file.
+
+    @returns a NamedTuple of (hostname, host_attr_dict).  host_attr_dict is a
+             dict of host attributes for the host.
+    """
+    if len(hostname_file_row) != _EXPECTED_NUMBER_OF_HOST_INFO:
+        raise Exception('hostname_file line has unexpected number of items '
+                        '%d (expect %d): %s' %
+                        (len(hostname_file_row), _EXPECTED_NUMBER_OF_HOST_INFO,
+                         hostname_file_row))
+    # The file will have the info in the following order:
+    # 0: board
+    # 1: dut hostname
+    # 2: dut/v4 mac address
+    # 3: dut ip
+    # 4: labstation hostname
+    # 5: servo serial
+    # 6: servo mac address
+    # 7: servo ip
+    return HostInfo(
+            hostname=hostname_file_row[1],
+            host_attr_dict={servo_host.SERVO_HOST_ATTR: hostname_file_row[4],
+                            servo_host.SERVO_SERIAL_ATTR: hostname_file_row[5]})
+
+
+def parse_hostname_file(hostname_file):
+    """
+    Parse the hostname_file and return a list of dicts for each line.
+
+    @param hostname_file:  CSV file that contains all the goodies.
+
+    @returns a list of dicts where each line is broken down into a dict.
+    """
+    host_info_list = []
+    # First line will be the header, no need to parse that.
+    first_line_skipped = False
+    with open(hostname_file) as f:
+        hostname_file_reader = csv.reader(f)
+        for row in hostname_file_reader:
+            if not first_line_skipped:
+                first_line_skipped = True
+                continue
+            host_info_list.append(_parse_hostname_file_line(row))
+
+    return host_info_list
 
 def parse_command(argv, full_deploy):
     """Get arguments for install from `argv` or the user.
@@ -425,19 +565,32 @@ def parse_command(argv, full_deploy):
 
     @return Result, as returned by ArgumentParser.parse_args().
     """
-    arguments = _parse(argv)
+    command_name = os.path.basename(argv[0])
+    parser = _make_common_parser(command_name)
+    _add_upload_argument_pair(parser, default=full_deploy)
+
+    arguments = parser.parse_args(argv[1:])
     arguments.full_deploy = full_deploy
     if arguments.board is None:
         _read_arguments(sys.stdin, arguments)
     elif not _validate_arguments(arguments):
         return None
-    if not arguments.dir:
-        basename = 'deploy.%s.%s' % (
-                time.strftime('%Y-%m-%d.%H:%M:%S'),
-                arguments.board)
-        arguments.dir = os.path.join(os.environ['HOME'],
+
+    arguments.start_time = datetime.datetime.now(dateutil.tz.tzlocal())
+    if not arguments.logdir:
+        basename = get_default_logdir_name(arguments)
+        arguments.logdir = os.path.join(os.environ['HOME'],
                                      'Documents', basename)
-        os.makedirs(arguments.dir)
-    elif not os.path.isdir(arguments.dir):
-        os.mkdir(arguments.dir)
+        os.makedirs(arguments.logdir)
+    elif not os.path.isdir(arguments.logdir):
+        os.mkdir(arguments.logdir)
+
+    if arguments.hostname_file:
+        # Populate arguments.hostnames with the hostnames from the file.
+        hostname_file_info_list = parse_hostname_file(arguments.hostname_file)
+        arguments.hostnames = [host_info.hostname
+                               for host_info in hostname_file_info_list]
+        arguments.host_info_list = hostname_file_info_list
+    else:
+        arguments.host_info_list = []
     return arguments

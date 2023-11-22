@@ -31,7 +31,6 @@
     <string name="play_controls_description_skip_previous" msgid="3858447678278021381">"הקודם"</string>
     <string name="channels_item_program_guide" msgid="2889807207930678418">"מדריך תכניות"</string>
     <string name="channels_item_setup" msgid="6557412175737379022">"ערוצים חדשים זמינים"</string>
-    <string name="channels_item_app_link_no_app_link" msgid="1884830234777824408">"אין קישור זמין"</string>
     <string name="channels_item_app_link_app_launcher" msgid="1395352122187670523">"פתח את <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="options_item_closed_caption" msgid="5945274655046367170">"כתוביות"</string>
     <string name="options_item_display_mode" msgid="7989243076748680140">"מצב תצוגה"</string>
@@ -126,6 +125,7 @@
     <string name="option_subrating_header" msgid="4637961301549615855">"סיווגי משנה"</string>
     <string name="pin_enter_unlock_channel" msgid="4797922378296393173">"הזן את קוד האימות שלך כדי לצפות בערוץ זה"</string>
     <string name="pin_enter_unlock_program" msgid="7311628843209871203">"הזן את קוד האימות שלך כדי לצפות בתכנית זו"</string>
+    <string name="pin_enter_unlock_dvr" msgid="1637468108723176684">"‏סיווג התוכנית הזו הוא <xliff:g id="RATING">%1$s</xliff:g>. הזן את ה-PIN שלך כדי לצפות בתוכנית זו"</string>
     <string name="pin_enter_pin" msgid="249314665028035038">"הזן את קוד האימות שלך"</string>
     <string name="pin_enter_create_pin" msgid="3385754356793309946">"‏להגדרת בקרות הוריות, צור מספר PIN"</string>
     <string name="pin_enter_new_pin" msgid="1739471585849790384">"‏הזן את מספר ה-PIN החדש"</string>
@@ -148,8 +148,6 @@
     <string name="settings_menu_licenses" msgid="1257646083838406103">"רישיונות קוד פתוח"</string>
     <string name="dialog_title_licenses" msgid="4471754920475076623">"רישיונות קוד פתוח"</string>
     <string name="settings_menu_version" msgid="2604030372029921403">"גרסה"</string>
-    <string name="about_menu_improve" msgid="3712578027009311401">"עוזרים לשפר את הערוצים בשידור חי"</string>
-    <string name="about_menu_improve_summary" msgid="7548489011760588571">"‏שתף נתוני שימוש ואבחון אנונימיים עם Google כדי שנוכל לשפר את ערוצי השידורים החיים ולמנוע בעיות כמו קריסות וקפיאת תמונה."</string>
     <string name="tvview_channel_locked" msgid="6486375335718400728">"‏כדי לצפות בערוץ הזה, לחץ על \'ימין\' והזן את מספר ה-PIN"</string>
     <string name="tvview_content_locked" msgid="391823084917017730">"‏כדי לצפות בתכנית הזו, לחץ על \'ימין\' והזן את מספר ה-PIN"</string>
     <string name="tvview_content_locked_format" msgid="3741874636031338247">"‏סיווג התכנית הזו הוא <xliff:g id="RATING">%1$s</xliff:g>.\nכדי לצפות בתכנית, לחץ ימינה והזן את ה-PIN."</string>
@@ -161,6 +159,12 @@
     <string name="tvview_msg_audio_only" msgid="1356866203687173329">"אודיו בלבד"</string>
     <string name="tvview_msg_weak_signal" msgid="1095050812622908976">"אות חלש"</string>
     <string name="tvview_msg_no_internet_connection" msgid="7655994401188888231">"אין חיבור לאינטרנט"</string>
+    <plurals name="tvview_msg_input_no_resource" formatted="false" msgid="8581894855153658823">
+      <item quantity="two">לא ניתן להפעיל את הערוץ הזה עד <xliff:g id="END_TIME_1">%1$s</xliff:g> כי ערוצים אחרים מוקלטים. \n\nלחץ על \'ימינה\' כדי לכוון את לוח הזמנים להקלטה.</item>
+      <item quantity="many">לא ניתן להפעיל את הערוץ הזה עד <xliff:g id="END_TIME_1">%1$s</xliff:g> כי ערוצים אחרים מוקלטים. \n\nלחץ על \'ימינה\' כדי לכוון את לוח הזמנים להקלטה.</item>
+      <item quantity="other">לא ניתן להפעיל את הערוץ הזה עד <xliff:g id="END_TIME_1">%1$s</xliff:g> כי ערוצים אחרים מוקלטים. \n\nלחץ על \'ימינה\' כדי לכוון את לוח הזמנים להקלטה.</item>
+      <item quantity="one">לא ניתן להפעיל את הערוץ הזה עד <xliff:g id="END_TIME_0">%1$s</xliff:g> כי ערוץ אחר מוקלט. \n\nלחץ על \'ימינה\' כדי לכוון את לוח הזמנים להקלטה.</item>
+    </plurals>
     <string name="channel_banner_no_title" msgid="8660301979190693176">"ללא כותרת"</string>
     <string name="channel_banner_locked_channel_title" msgid="2006564967318945980">"הערוץ חסום"</string>
     <string name="setup_category_new" msgid="2899355289563443627">"חדש"</string>
@@ -174,8 +178,8 @@
     <string name="setup_input_no_channels" msgid="1669327912393163331">"אין ערוצים זמינים"</string>
     <string name="setup_input_new" msgid="3337725672277046798">"חדש"</string>
     <string name="setup_input_setup_now" msgid="1772000402336958967">"לא מוגדר"</string>
-    <string name="setup_play_store_action_title" msgid="859347291072224673">"קבל מקורות נוספים"</string>
-    <string name="setup_play_store_action_description" msgid="2472226338824629506">"עיין באפליקציות שמציעות ערוצי שידורים חיים"</string>
+    <string name="setup_store_action_title" msgid="4083402039720973414">"קבלת מקורות נוספים"</string>
+    <string name="setup_store_action_description" msgid="6820482635042445297">"עיין באפליקציות שמציעות ערוצי שידורים חיים"</string>
     <string name="new_sources_title" msgid="3878933676500061895">"יש מקורות ערוצים חדשים זמינים"</string>
     <string name="new_sources_description" msgid="749649005588426813">"למקורות הערוצים החדשים יש הצעות לערוצים.\nהגדר אותם עכשיו, או עשה זאת מאוחר יותר בהגדרת מקורות הערוצים."</string>
     <string name="new_sources_action_setup" msgid="177693761664016811">"הגדר עכשיו"</string>
@@ -193,8 +197,182 @@
     <string name="msg_all_channels_hidden" msgid="777397634062471936">"כל ערוצי המקור מוסתרים.\nבחר ערוץ אחד לפחות לצפייה."</string>
     <string name="msg_channel_unavailable_unknown" msgid="765586450831081871">"מסיבה בלתי צפויה, הסרטון אינו זמין"</string>
     <string name="msg_back_key_guide" msgid="7404682718828721924">"מקש \'הקודם\' מיועד למכשירים מחוברים. לחץ על לחצן \'דף הבית\' כדי לצאת."</string>
-    <string name="msg_not_supported_device" msgid="4469404625040284722">"‏Live TV אינו נתמך במכשיר זה עם Android Lollipop."</string>
     <string name="msg_read_tv_listing_permission_denied" msgid="8882813301235518909">"‏Live TV זקוק להרשאה כדי לקרוא את לוחות שידורי הטלוויזיה."</string>
     <string name="setup_sources_text" msgid="4988039637873759839">"הגדרת המקורות שלך"</string>
     <string name="setup_sources_description" msgid="5695518946225445202">"‏ערוצי שידורים חיים משלבים בין חוויית הצפייה בערוצי טלוויזיה מסורתיים לבין ערוצי סטרימינג שמספקות אפליקציות. \n\nהתחל על ידי הגדרת מקורות הערוצים שכבר מותקנים. או חפש בחנות Google Play אפליקציות נוספות המציעות ערוצי שידורים חיים."</string>
+    <string name="channels_item_dvr" msgid="8911915252648532469">"הקלטות ולוחות זמנים"</string>
+    <string name="recording_start_dialog_10_min_duration" msgid="5739636508245795292">"10 דקות"</string>
+    <string name="recording_start_dialog_30_min_duration" msgid="4691127772622189977">"30 דקות"</string>
+    <string name="recording_start_dialog_1_hour_duration" msgid="7159533207022355641">"1 שעה"</string>
+    <string name="recording_start_dialog_3_hours_duration" msgid="295984419320006238">"3 שעות"</string>
+    <string name="dvr_main_recent" msgid="2553805424822806495">"אחרונות"</string>
+    <string name="dvr_main_scheduled" msgid="7837260963086408492">"מתוזמנות"</string>
+    <string name="dvr_main_series" msgid="8278256687595691676">"סדרה"</string>
+    <string name="dvr_main_others" msgid="2970835573614038153">"אחרות"</string>
+    <string name="dvr_msg_cannot_record_channel" msgid="6836291367918532447">"לא ניתן להקליט את הערוץ."</string>
+    <string name="dvr_msg_cannot_record_program" msgid="4184046342810946090">"לא ניתן להקליט את התוכנית."</string>
+    <string name="dvr_msg_program_scheduled" msgid="3800847542300367572">"התוכנית <xliff:g id="PROGRAMNAME">%1$s</xliff:g> תוזמנה להקלטה"</string>
+    <string name="dvr_msg_current_program_scheduled" msgid="2505247201782991463">"מקליט את התוכנית <xliff:g id="PROGRAMNAME">%1$s</xliff:g> מעכשיו עד <xliff:g id="ENDTIME">%2$s</xliff:g>"</string>
+    <string name="dvr_full_schedule_card_view_title" msgid="7198521806965950089">"לוח זמנים מלא"</string>
+    <plurals name="dvr_full_schedule_card_view_content" formatted="false" msgid="790788122541080768">
+      <item quantity="two">היומיים הבאים</item>
+      <item quantity="many">‏%1$d הימים הבאים</item>
+      <item quantity="other">‏%1$d הימים הבאים</item>
+      <item quantity="one">היום הבא</item>
+    </plurals>
+    <plurals name="dvr_program_duration" formatted="false" msgid="6742119148312354741">
+      <item quantity="two">‏%1$d דקות</item>
+      <item quantity="many">‏%1$d דקות</item>
+      <item quantity="other">‏%1$d דקות</item>
+      <item quantity="one">דקה</item>
+    </plurals>
+    <plurals name="dvr_count_new_recordings" formatted="false" msgid="3569310208305402815">
+      <item quantity="two">‏%1$d הקלטות חדשות</item>
+      <item quantity="many">‏%1$d הקלטות חדשות</item>
+      <item quantity="other">‏%1$d הקלטות חדשות</item>
+      <item quantity="one">הקלטה חדשה אחת</item>
+    </plurals>
+    <plurals name="dvr_count_recordings" formatted="false" msgid="7417379223468131391">
+      <item quantity="two">‏%1$d הקלטות</item>
+      <item quantity="many">‏%1$d הקלטות</item>
+      <item quantity="other">‏%1$d הקלטות</item>
+      <item quantity="one">הקלטה אחת</item>
+    </plurals>
+    <plurals name="dvr_count_scheduled_recordings" formatted="false" msgid="1650330290765214511">
+      <item quantity="two">‏תוזמנו %1$d הקלטות</item>
+      <item quantity="many">‏תוזמנו %1$d הקלטות</item>
+      <item quantity="other">‏תוזמנו %1$d הקלטות</item>
+      <item quantity="one">הקלטה אחת תוזמנה</item>
+    </plurals>
+    <string name="dvr_detail_watch" msgid="7085694764364338215">"צפה"</string>
+    <string name="dvr_detail_play_from_beginning" msgid="8475543568260411836">"הפעל מההתחלה"</string>
+    <string name="dvr_detail_resume_play" msgid="875591300274416373">"המשך את ההפעלה"</string>
+    <string name="dvr_detail_delete" msgid="4535881013528321898">"מחק"</string>
+    <string name="dvr_detail_series_delete" msgid="4831926831670312674">"מחק הקלטות"</string>
+    <string name="dvr_detail_series_resume" msgid="6935136228671386246">"המשך"</string>
+    <string name="dvr_detail_series_season_title" msgid="5474850936497854790">"עונה <xliff:g id="SEASON_NUMBER">%1$s</xliff:g>"</string>
+    <string name="dvr_detail_view_schedule" msgid="7137536927421904426">"הצג לוח זמנים"</string>
+    <string name="dvr_detail_read_more" msgid="2588920758094498544">"קרא עוד"</string>
+    <string name="dvr_series_deletion_title" msgid="7672649492494507574">"מחיקת הקלטות"</string>
+    <string name="dvr_series_deletion_description" msgid="994839237906552969">"בחר את הפרקים שברצונך למחוק. לא ניתן יהיה לשחזר אותם לאחר המחיקה."</string>
+    <string name="dvr_series_deletion_no_recordings" msgid="481210819034514">"אין הקלטות למחיקה."</string>
+    <string name="dvr_series_select_watched" msgid="3608122404146716502">"בחר בפרקים שנצפו"</string>
+    <string name="dvr_series_select_all" msgid="5415749261739544048">"בחר את כל הפרקים"</string>
+    <string name="dvr_series_deselect_all" msgid="1680395960166387572">"בטל את בחירת כל הפרקים"</string>
+    <string name="dvr_series_watched_info_minutes" msgid="5656926431901526030">"נצפו <xliff:g id="WATCHED">%1$d</xliff:g> מתוך <xliff:g id="DURATION">%2$d</xliff:g> דקות"</string>
+    <string name="dvr_series_watched_info_seconds" msgid="2667537184197566662">"נצפו <xliff:g id="WATCHED">%1$d</xliff:g> מתוך <xliff:g id="DURATION">%2$d</xliff:g> שניות"</string>
+    <string name="dvr_series_never_watched" msgid="6086008065876122655">"לא נצפו אף פעם"</string>
+    <plurals name="dvr_msg_episodes_deleted" formatted="false" msgid="5627112959798353905">
+      <item quantity="two">‏נמחקו %1$d מתוך %2$d פרקים</item>
+      <item quantity="many">‏נמחקו %1$d מתוך %2$d פרקים</item>
+      <item quantity="other">‏נמחקו %1$d מתוך %2$d פרקים</item>
+      <item quantity="one">‏נמחק %1$d פרק מתוך %2$d</item>
+    </plurals>
+    <string name="dvr_series_settings_priority" msgid="5836437092774185710">"עדיפות"</string>
+    <string name="dvr_series_settings_priority_highest" msgid="1072006447796648382">"הגבוהה ביותר"</string>
+    <string name="dvr_series_settings_priority_lowest" msgid="6003996497908810225">"הנמוכה ביותר"</string>
+    <string name="dvr_series_settings_priority_rank" msgid="667778382820956116">"לא. <xliff:g id="RANK">%1$d</xliff:g>"</string>
+    <string name="dvr_series_settings_channels" msgid="3164900110165729909">"ערוצים"</string>
+    <string name="dvr_series_settings_channels_all" msgid="656434955168572976">"הכול"</string>
+    <string name="dvr_priority_title" msgid="1537886929061487213">"בחירת עדיפות"</string>
+    <string name="dvr_priority_description" msgid="8362040921417154645">"כשיש יותר מדי תוכניות להקליט בו-זמנית, רק תוכניות בעלות עדיפות גבוהה יותר יוקלטו."</string>
+    <string name="dvr_priority_button_action_save" msgid="4773524273649733008">"שמור"</string>
+    <string name="dvr_priority_action_one_time_recording" msgid="8174297042282719478">"הקלטות חד-פעמיות הן בעלות העדיפות הגבוהה ביותר"</string>
+    <string name="dvr_action_cancel" msgid="8094060199570272625">"בטל"</string>
+    <string name="dvr_action_error_cancel" msgid="6822474458738023531">"בטל"</string>
+    <string name="dvr_action_error_forget_storage" msgid="5869994565663655638">"שכח"</string>
+    <string name="dvr_action_stop" msgid="1378723485295471381">"עצור"</string>
+    <string name="dvr_action_view_schedules" msgid="7442990695392774263">"הצג לוח זמנים להקלטה"</string>
+    <string name="dvr_action_record_episode" msgid="8596182676610326327">"את התוכנית הזו בלבד"</string>
+    <string name="dvr_action_record_episode_from_now_description" msgid="5125122951529985697">"עכשיו - <xliff:g id="ENDTIME">%1$s</xliff:g>"</string>
+    <string name="dvr_action_record_series" msgid="8501991316179436899">"את הסדרה כולה…"</string>
+    <string name="dvr_action_record_anyway" msgid="991470058034937231">"קביעת תזמון בכל זאת"</string>
+    <string name="dvr_action_record_instead" msgid="6821164728752215738">"הקלטת תוכנית זו במקום זאת"</string>
+    <string name="dvr_action_record_cancel" msgid="8644254745772185288">"ביטול הקלטה זאת"</string>
+    <string name="dvr_action_watch_now" msgid="7181211920959075976">"לצפייה עכשיו"</string>
+    <string name="dvr_epg_program_recordable" msgid="609229576209476903">"ניתנת להקלטה"</string>
+    <string name="dvr_epg_program_recording_scheduled" msgid="1367741844291055016">"ההקלטה מתוזמנת"</string>
+    <string name="dvr_epg_program_recording_conflict" msgid="4827911748865195373">"התנגשות בין הקלטות"</string>
+    <string name="dvr_epg_program_recording_in_progress" msgid="2158340443975313745">"מקליט"</string>
+    <string name="dvr_epg_program_recording_failed" msgid="5589124519442328896">"ההקלטה נכשלה"</string>
+    <string name="dvr_schedule_progress_message_reading_programs" msgid="6502513156469172313">"קורא תוכניות כדי ליצור לוחות זמנים להקלטות"</string>
+    <string name="dvr_series_schedules_progress_message_reading_programs" msgid="7221275889560136115">"קורא תוכניות"</string>
+    <!-- no translation found for dvr_series_schedules_progress_message_updating_programs (6670286486601662465) -->
+    <skip />
+    <string name="dvr_error_small_sized_storage_title" msgid="5020225460011469011">"‏DVR זקוק לשטח אחסון נוסף"</string>
+    <string name="dvr_error_small_sized_storage_description" msgid="8909789097974895119">"‏תוכל להקליט תוכניות עם DVR. אולם, אין מספיק מקום אחסון במכשיר שלך כרגע כדי ש-DVR יעבוד. התחבר לכונן חיצוני בגודל GB<xliff:g id="STORAGE_SIZE">%1$s</xliff:g> או יותר, ובצע את השלבים לביצוע פורמט כאחסון מכשיר."</string>
+    <string name="dvr_error_missing_storage_title" msgid="691914341845362669">"אחסון חסר"</string>
+    <string name="dvr_error_missing_storage_description" msgid="1036680750969954236">"‏חלק מהאחסון שנעשה בו שימוש ב-DVR חסר. חבר את הכונן החיצוני שבו השתמשת בעבר כדי להפעיל מחדש את ה-DVR. לחלופין, תוכל לבחור לשכוח את האחסון אם הוא אינו זמין עוד."</string>
+    <string name="dvr_error_forget_storage_title" msgid="4996547357826788002">"לשכוח את האחסון?"</string>
+    <string name="dvr_error_forget_storage_description" msgid="3973761741009546142">"כל התוכן ולוחות הזמנים שתיעדת יאבדו."</string>
+    <string name="dvr_stop_recording_dialog_title" msgid="2587018956502704278">"האם להפסיק את ההקלטה?"</string>
+    <string name="dvr_stop_recording_dialog_description" msgid="4637830189399967761">"התוכן המוקלט יישמר."</string>
+    <!-- no translation found for dvr_stop_recording_dialog_description_on_conflict (7876857267536083760) -->
+    <skip />
+    <string name="dvr_program_conflict_dialog_title" msgid="109323740107060379">"ההקלטה מתוזמנת, אבל ישנן הקלטות מתנגשות."</string>
+    <string name="dvr_channel_conflict_dialog_title" msgid="7461033430572027786">"ההקלטה החלה, אבל ישנן הקלטות מתנגשות"</string>
+    <string name="dvr_program_conflict_dialog_description_prefix" msgid="5520062013211648196">"התוכנית <xliff:g id="PROGRAMNAME">%1$s</xliff:g> תוקלט."</string>
+    <string name="dvr_channel_conflict_dialog_description_prefix" msgid="212344250779878791">"ערוץ <xliff:g id="CHANNELNAME">%1$s</xliff:g> מוקלט עכשיו."</string>
+    <string name="dvr_program_conflict_dialog_description_1" msgid="2278200346765501164">"חלקים מסוימים מהתוכנית <xliff:g id="CONFLICTPROGRAMNAME">%1$s</xliff:g> לא יוקלטו."</string>
+    <string name="dvr_program_conflict_dialog_description_2" msgid="5648524408147235696">"חלקים מסוימים מהתוכניות <xliff:g id="CONFLICTPROGRAMNAME_1">%1$s</xliff:g> ו-<xliff:g id="CONFLICTPROGRAMNAME_2">%2$s</xliff:g> לא יוקלטו."</string>
+    <string name="dvr_program_conflict_dialog_description_3" msgid="6879199850098595108">"חלקים מסוימים מהתוכניות <xliff:g id="CONFLICTPROGRAMNAME_1">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2">%2$s</xliff:g> ותוכנית אחת נוספת לא יוקלטו."</string>
+    <plurals name="dvr_program_conflict_dialog_description_many" formatted="false" msgid="1008340710252647947">
+      <item quantity="two">‏חלקים מסוימים מהתוכניות <xliff:g id="CONFLICTPROGRAMNAME_1_2">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_3">%2$s</xliff:g> ו-%3$d נוספות שתוזמנו להקלטה לא יוקלטו.</item>
+      <item quantity="many">‏חלקים מסוימים מהתוכניות <xliff:g id="CONFLICTPROGRAMNAME_1_2">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_3">%2$s</xliff:g> ו-%3$d נוספות שתוזמנו להקלטה לא יוקלטו.</item>
+      <item quantity="other">‏חלקים מסוימים מהתוכניות <xliff:g id="CONFLICTPROGRAMNAME_1_2">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_3">%2$s</xliff:g> ו-%3$d נוספות שתוזמנו להקלטה לא יוקלטו.</item>
+      <item quantity="one">חלקים מסוימים מהתוכניות <xliff:g id="CONFLICTPROGRAMNAME_1_0">%1$s</xliff:g>, <xliff:g id="CONFLICTPROGRAMNAME_2_1">%2$s</xliff:g> ואחת נוספת שתוזמנה להקלטה לא יוקלטו.</item>
+    </plurals>
+    <string name="dvr_schedule_dialog_title" msgid="5235629824986156058">"מה אתה רוצה להקליט?"</string>
+    <string name="dvr_channel_record_duration_dialog_title" msgid="4601361040431047918">"כמה זמן אתה רוצה להקליט?"</string>
+    <string name="dvr_already_scheduled_dialog_title" msgid="4525318291210934311">"כבר מתוזמן"</string>
+    <string name="dvr_already_scheduled_dialog_description" msgid="8170126125996414810">"אותה תוכנית כבר תוזמנה להקלטה ב-<xliff:g id="PROGRAMSTARTTIME">%1$s</xliff:g>."</string>
+    <string name="dvr_already_recorded_dialog_title" msgid="2760294707162057216">"כבר הוקלט"</string>
+    <string name="dvr_already_recorded_dialog_description" msgid="8966051583682746434">"‏תוכנית זו כבר הוקלטה. היא זמינה לצפייה בספריית ה-DVR."</string>
+    <!-- no translation found for dvr_series_recording_dialog_title (3521956660855853797) -->
+    <skip />
+    <!-- no translation found for dvr_series_recording_scheduled_no_conflict (2796926724821316879) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_this_series_conflict (2800805130979023066) -->
+    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_one_conflict (3632394665556633158) -->
+    <!-- no translation found for dvr_series_recording_scheduled_this_and_other_series_conflict (2331412040101938479) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_one_conflict (5213169239215104024) -->
+    <!-- no translation found for dvr_series_recording_scheduled_only_other_series_conflict (5159645486201045330) -->
+    <string name="dvr_program_not_found" msgid="3282879532038010202">"התוכנית המוקלטת לא נמצאה."</string>
+    <string name="dvr_playback_related_recordings" msgid="6978658039329924961">"הקלטות קשורות"</string>
+    <string name="dvr_msg_no_program_description" msgid="2521723281247322645">"(אין תיאור לתוכנית)"</string>
+    <plurals name="dvr_schedules_section_subtitle" formatted="false" msgid="9180744010405976007">
+      <item quantity="two">‏%1$d הקלטות</item>
+      <item quantity="many">‏%1$d הקלטות</item>
+      <item quantity="other">‏%1$d הקלטות</item>
+      <item quantity="one">הקלטה אחת</item>
+    </plurals>
+    <string name="dvr_schedules_information_separator" msgid="1669116853379998479">" / "</string>
+    <string name="dvr_schedules_deletion_info" msgid="2837586459900271031">"התוכנית <xliff:g id="PROGRAMNAME">%1$s</xliff:g> הוסרה מלוח הזמנים להקלטה"</string>
+    <string name="dvr_schedules_tuner_conflict_will_be_partially_recorded" msgid="5280490298546908729">"ההקלטה תבוצע באופן חלקי עקב התנגשויות בטיונר."</string>
+    <string name="dvr_schedules_tuner_conflict_will_not_be_recorded_info" msgid="5065400564003201095">"ההקלטה לא תבוצע עקב התנגשויות בטיונר."</string>
+    <string name="dvr_schedules_empty_state" msgid="1291529283469462741">"עדיין אין הקלטות מתוזמנות.\nניתן לתזמן הקלטה מלוח השידורים."</string>
+    <plurals name="dvr_series_schedules_header_description" formatted="false" msgid="9077188267856194114">
+      <item quantity="two">‏%1$d התנגשויות בין הקלטות</item>
+      <item quantity="many">‏%1$d התנגשויות בין הקלטות</item>
+      <item quantity="other">‏%1$d התנגשויות בין הקלטות</item>
+      <item quantity="one">‏%1$d התנגשות בין הקלטות</item>
+    </plurals>
+    <string name="dvr_series_schedules_settings" msgid="4868501926847903985">"הגדרות סדרה"</string>
+    <string name="dvr_series_schedules_start" msgid="8458768834047133835">"התחל הקלטת סדרה"</string>
+    <string name="dvr_series_schedules_stop" msgid="3427479298317584961">"הפסק הקלטת סדרה"</string>
+    <string name="dvr_series_schedules_stop_dialog_title" msgid="4975886236535334420">"האם להפסיק את הקלטת הסדרה?"</string>
+    <string name="dvr_series_schedules_stop_dialog_description" msgid="7547266283366940085">"‏פרקים מוקלטים יישארו זמינים בספריית DVR."</string>
+    <string name="dvr_series_schedules_stop_dialog_action_stop" msgid="2351839914865142478">"הפסק"</string>
+    <string name="dvr_series_schedules_empty_state" msgid="3407962945399698707">"אין פרקים זמינים.\nהם יוקלטו כשיהיו זמינים."</string>
+    <plurals name="dvr_schedules_recording_duration" formatted="false" msgid="3701771573063918552">
+      <item quantity="two">‏(%1$d דקות)</item>
+      <item quantity="many">‏(%1$d דקות)</item>
+      <item quantity="other">‏(%1$d דקות)</item>
+      <item quantity="one">‏(%1$d דקה) </item>
+    </plurals>
+    <string name="dvr_date_today" msgid="7691050705354303471">"היום"</string>
+    <string name="dvr_date_tomorrow" msgid="4136735681186981844">"מחר"</string>
+    <string name="dvr_date_yesterday" msgid="2127672919053118239">"אתמול"</string>
+    <string name="dvr_date_today_time" msgid="8359696776305244535">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> היום"</string>
+    <string name="dvr_date_tomorrow_time" msgid="8364654556105292594">"<xliff:g id="TIME_RANGE">%1$s</xliff:g> מחר"</string>
+    <string name="program_guide_critic_score" msgid="340530743913585150">"ניקוד"</string>
 </resources>

@@ -15,16 +15,15 @@
 #define LLVM_MC_MCSECTION_H
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/MC/MCAssembler.h"
+#include "llvm/MC/MCFragment.h"
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Support/Compiler.h"
 
 namespace llvm {
-class MCAssembler;
 class MCAsmInfo;
+class MCAssembler;
 class MCContext;
 class MCExpr;
 class MCFragment;

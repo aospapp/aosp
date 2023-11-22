@@ -39,9 +39,11 @@ static const unsigned format_byte_size_map[] = {
     3, /* PCM_FORMAT_S24_3LE */
 };
 
-void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
+int proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
                    struct pcm_config * config)
 {
+    int ret = 0;
+
     ALOGV("proxy_prepare(c:%d, d:%d)", profile->card, profile->device);
 
     proxy->profile = profile;
@@ -53,17 +55,25 @@ void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
     if (config->format != PCM_FORMAT_INVALID && profile_is_format_valid(profile, config->format)) {
         proxy->alsa_config.format = config->format;
     } else {
+        proxy->alsa_config.format = profile->default_config.format;
         ALOGW("Invalid format %d - using default %d.",
               config->format, profile->default_config.format);
-        proxy->alsa_config.format = profile->default_config.format;
+        // Indicate override when default format was not requested
+        if (config->format != PCM_FORMAT_INVALID) {
+            ret = -EINVAL;
+        }
     }
 
     if (config->rate != 0 && profile_is_sample_rate_valid(profile, config->rate)) {
         proxy->alsa_config.rate = config->rate;
     } else {
+        proxy->alsa_config.rate = profile->default_config.rate;
         ALOGW("Invalid sample rate %u - using default %u.",
               config->rate, profile->default_config.rate);
-        proxy->alsa_config.rate = profile->default_config.rate;
+        // Indicate override when default rate was not requested
+        if (config->rate != 0) {
+            ret = -EINVAL;
+        }
     }
 
     if (config->channels != 0 && profile_is_channel_count_valid(profile, config->channels)) {
@@ -72,6 +82,10 @@ void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
         proxy->alsa_config.channels = profile_get_closest_channel_count(profile, config->channels);
         ALOGW("Invalid channel count %u - using closest %u.",
               config->channels, proxy->alsa_config.channels);
+        // Indicate override when default channel count was not requested
+        if (config->channels != 0) {
+            ret = -EINVAL;
+        }
     }
 
     proxy->alsa_config.period_count = profile->default_config.period_count;
@@ -92,6 +106,20 @@ void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile* profile,
     } else {
         proxy->frame_size = 1;
     }
+
+    // let's check to make sure we can ACTUALLY use the maximum rate (with the channel count)
+    // Note that profile->sample_rates is sorted highest to lowest, so the scan will get
+    // us the highest working rate
+    int max_rate_index = proxy_scan_rates(proxy, profile->sample_rates);
+    if (max_rate_index >= 0) {
+        if (proxy->alsa_config.rate > profile->sample_rates[max_rate_index]) {
+            ALOGW("Limiting samplnig rate from %u to %u.",
+                  proxy->alsa_config.rate, profile->sample_rates[max_rate_index]);
+            proxy->alsa_config.rate = profile->sample_rates[max_rate_index];
+            ret = -EINVAL;
+        }
+    }
+    return ret;
 }
 
 int proxy_open(alsa_device_proxy * proxy)
@@ -111,7 +139,7 @@ int proxy_open(alsa_device_proxy * proxy)
     }
 
     if (!pcm_is_ready(proxy->pcm)) {
-        ALOGE("  proxy_open() pcm_open() failed: %s", pcm_get_error(proxy->pcm));
+        ALOGE("  proxy_open() pcm_is_ready() failed: %s", pcm_get_error(proxy->pcm));
 #if defined(LOG_PCM_PARAMS)
         log_pcm_config(&proxy->alsa_config, "config");
 #endif
@@ -230,4 +258,34 @@ void proxy_dump(const alsa_device_proxy* proxy, int fd)
         dprintf(fd, "  period_count: %d\n", proxy->alsa_config.period_count);
         dprintf(fd, "  format: %d\n", proxy->alsa_config.format);
     }
+}
+
+int proxy_scan_rates(alsa_device_proxy * proxy, unsigned sample_rates[]) {
+    alsa_device_profile* profile = proxy->profile;
+    if (profile->card < 0 || profile->device < 0) {
+        return -EINVAL;
+    }
+
+    struct pcm_config alsa_config;
+    memcpy(&alsa_config, &proxy->alsa_config, sizeof(alsa_config));
+
+    struct pcm * alsa_pcm;
+    int rate_index = 0;
+    while (sample_rates[rate_index] != 0) {
+        alsa_config.rate = sample_rates[rate_index];
+        alsa_pcm = pcm_open(profile->card, profile->device,
+                profile->direction | PCM_MONOTONIC, &alsa_config);
+        if (alsa_pcm != NULL) {
+            if (pcm_is_ready(alsa_pcm)) {
+                pcm_close(alsa_pcm);
+                return rate_index;
+            }
+
+            pcm_close(alsa_pcm);
+        }
+
+        rate_index++;
+    }
+
+    return -EINVAL;
 }

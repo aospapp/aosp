@@ -16,12 +16,10 @@
 
 package com.android.phone;
 
-import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallManager;
-import com.android.internal.telephony.Connection;
+
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaDisplayInfoRec;
 import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaSignalInfoRec;
 import com.android.internal.telephony.cdma.SignalToneUtil;
@@ -30,17 +28,14 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
-import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemProperties;
-import android.provider.Settings;
 import android.telecom.TelecomManager;
-import android.telephony.DisconnectCause;
-import android.telephony.PhoneNumberUtils;
+
 import android.telephony.PhoneStateListener;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -103,8 +98,6 @@ public class CallNotifier extends Handler {
     // We should store all the possible event type values in one place to make sure that
     // they don't step on each others' toes.
     public static final int INTERNAL_SHOW_MESSAGE_NOTIFICATION_DONE = 22;
-    // Other events from call manager
-    public static final int EVENT_OTA_PROVISION_CHANGE = 20;
 
     /**
      * Initialize the singleton CallNotifier instance.
@@ -177,7 +170,6 @@ public class CallNotifier extends Handler {
      */
     private void registerForNotifications() {
         mCM.registerForDisconnect(this, PHONE_DISCONNECT, null);
-        mCM.registerForCdmaOtaStatusChange(this, EVENT_OTA_PROVISION_CHANGE, null);
         mCM.registerForDisplayInfo(this, PHONE_STATE_DISPLAYINFO, null);
         mCM.registerForSignalInfo(this, PHONE_STATE_SIGNALINFO, null);
         mCM.registerForInCallVoicePrivacyOn(this, PHONE_ENHANCED_VP_ON, null);
@@ -212,11 +204,6 @@ public class CallNotifier extends Handler {
             case INTERNAL_SHOW_MESSAGE_NOTIFICATION_DONE:
                 if (DBG) log("Received Display Info notification done event ...");
                 PhoneDisplayMessage.dismissMessage();
-                break;
-
-            case EVENT_OTA_PROVISION_CHANGE:
-                if (DBG) log("EVENT_OTA_PROVISION_CHANGE...");
-                mApplication.handleOtaspEvent(msg);
                 break;
 
             case PHONE_ENHANCED_VP_ON:
@@ -374,18 +361,6 @@ public class CallNotifier extends Handler {
                     toneType = ToneGenerator.TONE_PROP_PROMPT;
                     toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
                     toneLengthMillis = 200;
-                    break;
-                 case TONE_OTA_CALL_END:
-                    if (mApplication.cdmaOtaConfigData.otaPlaySuccessFailureTone ==
-                            OtaUtils.OTA_PLAY_SUCCESS_FAILURE_TONE_ON) {
-                        toneType = ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD;
-                        toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                        toneLengthMillis = 750;
-                    } else {
-                        toneType = ToneGenerator.TONE_PROP_PROMPT;
-                        toneVolume = TONE_RELATIVE_VOLUME_HIPRI;
-                        toneLengthMillis = 200;
-                    }
                     break;
                 case TONE_VOICE_PRIVACY:
                     toneType = ToneGenerator.TONE_CDMA_ALERT_NETWORK_LITE;

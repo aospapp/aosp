@@ -14,14 +14,20 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Bionic test cases">
+    <option name="config-descriptor:metadata" key="component" value="bionic" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsBionicTestCases->/data/local/tmp/CtsBionicTestCases" />
         <option name="append-bitness" value="true" />
     </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="lib->/data/local/tmp/lib" />
+        <option name="append-bitness" value="true" />
+    </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsBionicTestCases" />
-        <option name="runtime-hint" value="1m10s" />
+        <option name="runtime-hint" value="12m10s" />
     </test>
 </configuration>

@@ -32,9 +32,8 @@ LOCAL_SRC_FILES := \
     sparse_fir_filter.cc \
     window_generator.cc \
 
-ifeq ($(TARGET_ARCH), $(filter $(TARGET_ARCH),x86 x86_64))
-LOCAL_SRC_FILES += fir_filter_sse.cc
-endif
+LOCAL_SRC_FILES_x86 += fir_filter_sse.cc
+LOCAL_SRC_FILES_x86_64 += fir_filter_sse.cc
 
 # Flags passed to both C and C++ files.
 LOCAL_CFLAGS := \
@@ -46,6 +45,8 @@ LOCAL_CFLAGS_mips := $(MY_WEBRTC_COMMON_DEFS_mips)
 LOCAL_CFLAGS_arm64 := $(MY_WEBRTC_COMMON_DEFS_arm64)
 LOCAL_CFLAGS_x86_64 := $(MY_WEBRTC_COMMON_DEFS_x86_64)
 LOCAL_CFLAGS_mips64 := $(MY_WEBRTC_COMMON_DEFS_mips64)
+
+LOCAL_CFLAGS += -Wno-unused-parameter
 
 # Include paths placed before CFLAGS/CPPFLAGS
 LOCAL_C_INCLUDES := \

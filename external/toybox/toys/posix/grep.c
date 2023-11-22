@@ -74,23 +74,18 @@ static void outline(char *line, char dash, char *name, long lcount, long bcount,
   if (!line || (lcount && (toys.optflags&FLAG_n)))
     printf("%ld%c", lcount, line ? dash : TT.outdelim);
   if (bcount && (toys.optflags&FLAG_b)) printf("%ld%c", bcount-1, dash);
-  if (line) xprintf("%.*s%c", trim ? trim : INT_MAX/2, line, TT.outdelim);
+  if (line) xprintf("%.*s%c", trim, line, TT.outdelim);
 }
 
 // Show matches in one file
 static void do_grep(int fd, char *name)
 {
   struct double_list *dlb = 0;
-  FILE *file = fdopen(fd, "r");
+  FILE *file = xfdopen(fd, "r");
   long lcount = 0, mcount = 0, offset = 0, after = 0, before = 0;
   char *bars = 0;
 
   if (!fd) name = "(standard input)";
-
-  if (!file) {
-    perror_msg_raw(name);
-    return;
-  }
 
   // Loop through lines of input
   for (;;) {
@@ -201,13 +196,13 @@ static void do_grep(int fd, char *name)
           while (dlb) {
             struct double_list *dl = dlist_pop(&dlb);
 
-            outline(dl->data, '-', name, lcount-before, 0, 0);
+            outline(dl->data, '-', name, lcount-before, 0, -1);
             free(dl->data);
             free(dl);
             before--;
           }
 
-          outline(line, ':', name, lcount, bcount, 0);
+          outline(line, ':', name, lcount, bcount, -1);
           if (TT.a) after = TT.a+1;
         } else outline(start+matches.rm_so, ':', name, lcount, bcount,
                        matches.rm_eo-matches.rm_so);
@@ -223,7 +218,7 @@ static void do_grep(int fd, char *name)
       int discard = (after || TT.b);
 
       if (after && --after) {
-        outline(line, '-', name, lcount, 0, 0);
+        outline(line, '-', name, lcount, 0, -1);
         discard = 0;
       }
       if (discard && TT.b) {
@@ -247,7 +242,7 @@ static void do_grep(int fd, char *name)
     if ((toys.optflags & FLAG_m) && mcount >= TT.m) break;
   }
 
-  if (toys.optflags & FLAG_c) outline(0, ':', name, mcount, 0, 0);
+  if (toys.optflags & FLAG_c) outline(0, ':', name, mcount, 0, -1);
 
   // loopfiles will also close the fd, but this frees an (opaque) struct.
   fclose(file);
@@ -318,7 +313,7 @@ static int do_grep_r(struct dirtree *new)
 {
   char *name;
 
-  if (new->parent && !dirtree_notdotdot(new)) return 0;
+  if (!dirtree_notdotdot(new)) return 0;
   if (S_ISDIR(new->st.st_mode)) return DIRTREE_RECURSE;
 
   // "grep -r onefile" doesn't show filenames, but "grep -r onedir" should.
@@ -359,7 +354,7 @@ void grep_main(void)
   toys.exitval = 1;
   if (toys.optflags & FLAG_s) {
     close(2);
-    xopen("/dev/null", O_RDWR);
+    xopen_stdio("/dev/null", O_RDWR);
   }
 
   if (toys.optflags & FLAG_r) {
@@ -368,5 +363,5 @@ void grep_main(void)
       if (!strcmp(*ss, "-")) do_grep(0, *ss);
       else dirtree_read(*ss, do_grep_r);
     }
-  } else loopfiles_rw(ss, O_RDONLY, 0, 1, do_grep);
+  } else loopfiles_rw(ss, O_RDONLY|WARN_ONLY, 0, do_grep);
 }

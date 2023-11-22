@@ -57,7 +57,7 @@ public:
     };
 
 
-    GenericPlayer(const AudioPlayback_Parameters* params);
+    explicit GenericPlayer(const AudioPlayback_Parameters* params);
     virtual ~GenericPlayer();
 
     void init(const notif_cbf_t cbf, void* notifUser);

@@ -16,9 +16,8 @@
 
 package com.android.server.telecom.tests;
 
-import com.android.server.telecom.Log;
-
 import android.content.Context;
+import android.telecom.Log;
 
 /**
  * Helper for Mockito-based test cases.

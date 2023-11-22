@@ -69,11 +69,13 @@ public class ActionCardView extends FrameLayout implements ItemListRowView.CardV
         mStateView.setText(action.getActionDescription(getContext()));
         if (action.isEnabled()) {
             setEnabled(true);
+            setFocusable(true);
             mIconView.setAlpha(OPACITY_ENABLED);
             mLabelView.setAlpha(OPACITY_ENABLED);
             mStateView.setAlpha(OPACITY_ENABLED);
         } else {
             setEnabled(false);
+            setFocusable(false);
             mIconView.setAlpha(OPACITY_DISABLED);
             mLabelView.setAlpha(OPACITY_DISABLED);
             mStateView.setAlpha(OPACITY_DISABLED);

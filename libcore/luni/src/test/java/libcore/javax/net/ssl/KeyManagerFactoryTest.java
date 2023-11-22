@@ -26,7 +26,6 @@ import java.security.Security;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Set;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -42,6 +41,7 @@ public class KeyManagerFactoryTest extends TestCase {
 
     private TestKeyStore testKeyStore;
 
+    @Override
     protected void setUp() throws Exception {
         // note the rare usage of DSA keys here in addition to RSA
         testKeyStore = new TestKeyStore.Builder()

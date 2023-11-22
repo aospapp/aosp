@@ -16,9 +16,10 @@
 
 package com.android.calculator2;
 
+import com.hp.creals.CR;
 
 import java.math.BigInteger;
-import com.hp.creals.CR;
+import java.util.Random;
 
 /**
  * Rational numbers that may turn to null if they get too big.
@@ -35,7 +36,7 @@ public class BoundedRational {
     // much faster.
     // TODO: Maybe eventually make this extend Number?
 
-    private static final int MAX_SIZE = 800; // total, in bits
+    private static final int MAX_SIZE = 10000; // total, in bits
 
     private final BigInteger mNum;
     private final BigInteger mDen;
@@ -70,11 +71,11 @@ public class BoundedRational {
 
     /**
      * Convert to readable String.
-     * Intended for output output to user.  More expensive, less useful for debugging than
+     * Intended for output to user.  More expensive, less useful for debugging than
      * toString().  Not internationalized.
      */
     public String toNiceString() {
-        BoundedRational nicer = reduce().positiveDen();
+        final BoundedRational nicer = reduce().positiveDen();
         String result = nicer.mNum.toString();
         if (!nicer.mDen.equals(BigInteger.ONE)) {
             result += "/" + nicer.mDen;
@@ -90,20 +91,51 @@ public class BoundedRational {
     }
 
     /**
+     * Returns a truncated (rounded towards 0) representation of the result.
+     * Includes n digits to the right of the decimal point.
+     * @param n result precision, >= 0
+     */
+    public String toStringTruncated(int n) {
+        String digits = mNum.abs().multiply(BigInteger.TEN.pow(n)).divide(mDen.abs()).toString();
+        int len = digits.length();
+        if (len < n + 1) {
+            digits = StringUtils.repeat('0', n + 1 - len) + digits;
+            len = n + 1;
+        }
+        return (signum() < 0 ? "-" : "") + digits.substring(0, len - n) + "."
+                + digits.substring(len - n);
+    }
+
+    /**
      * Return a double approximation.
-     * Primarily for debugging.
+     * The result is correctly rounded if numerator and denominator are
+     * exactly representable as a double.
+     * TODO: This should always be correctly rounded.
      */
     public double doubleValue() {
         return mNum.doubleValue() / mDen.doubleValue();
     }
 
-    public CR CRValue() {
+    public CR crValue() {
         return CR.valueOf(mNum).divide(CR.valueOf(mDen));
     }
 
+    public int intValue() {
+        BoundedRational reduced = reduce();
+        if (!reduced.mDen.equals(BigInteger.ONE)) {
+            throw new ArithmeticException("intValue of non-int");
+        }
+        return reduced.mNum.intValue();
+    }
+
     // Approximate number of bits to left of binary point.
+    // Negative indicates leading zeroes to the right of binary point.
     public int wholeNumberBits() {
-        return mNum.bitLength() - mDen.bitLength();
+        if (mNum.signum() == 0) {
+            return Integer.MIN_VALUE;
+        } else {
+            return mNum.bitLength() - mDen.bitLength();
+        }
     }
 
     private boolean tooBig() {
@@ -135,18 +167,22 @@ public class BoundedRational {
         return new BoundedRational(mNum.divide(divisor), mDen.divide(divisor));
     }
 
+    static Random sReduceRng = new Random();
+
     /**
-     * Return a possibly reduced version of this that's not tooBig().
+     * Return a possibly reduced version of r that's not tooBig().
      * Return null if none exists.
      */
-    private BoundedRational maybeReduce() {
-        if (!tooBig()) {
-            return this;
+    private static BoundedRational maybeReduce(BoundedRational r) {
+        if (r == null) return null;
+        // Reduce randomly, with 1/16 probability, or if the result is too big.
+        if (!r.tooBig() && (sReduceRng.nextInt() & 0xf) != 0) {
+            return r;
         }
-        BoundedRational result = positiveDen();
+        BoundedRational result = r.positiveDen();
         result = result.reduce();
         if (!result.tooBig()) {
-            return this;
+            return result;
         }
         return null;
     }
@@ -190,9 +226,13 @@ public class BoundedRational {
         }
         final BigInteger den = r1.mDen.multiply(r2.mDen);
         final BigInteger num = r1.mNum.multiply(r2.mDen).add(r2.mNum.multiply(r1.mDen));
-        return new BoundedRational(num,den).maybeReduce();
+        return maybeReduce(new BoundedRational(num,den));
     }
 
+    /**
+     * Return the argument, but with the opposite sign.
+     * Returns null only for a null argument.
+     */
     public static BoundedRational negate(BoundedRational r) {
         if (r == null) {
             return null;
@@ -200,19 +240,33 @@ public class BoundedRational {
         return new BoundedRational(r.mNum.negate(), r.mDen);
     }
 
-    static BoundedRational subtract(BoundedRational r1, BoundedRational r2) {
+    public static BoundedRational subtract(BoundedRational r1, BoundedRational r2) {
         return add(r1, negate(r2));
     }
 
-    static BoundedRational multiply(BoundedRational r1, BoundedRational r2) {
+    /**
+     * Return product of r1 and r2 without reducing the result.
+     */
+    private static BoundedRational rawMultiply(BoundedRational r1, BoundedRational r2) {
         // It's tempting but marginally unsound to reduce 0 * null to 0.  The null could represent
         // an infinite value, for which we failed to throw an exception because it was too big.
         if (r1 == null || r2 == null) {
             return null;
         }
+        // Optimize the case of our special ONE constant, since that's cheap and somewhat frequent.
+        if (r1 == ONE) {
+            return r2;
+        }
+        if (r2 == ONE) {
+            return r1;
+        }
         final BigInteger num = r1.mNum.multiply(r2.mNum);
         final BigInteger den = r1.mDen.multiply(r2.mDen);
-        return new BoundedRational(num,den).maybeReduce();
+        return new BoundedRational(num,den);
+    }
+
+    public static BoundedRational multiply(BoundedRational r1, BoundedRational r2) {
+        return maybeReduce(rawMultiply(r1, r2));
     }
 
     public static class ZeroDivisionException extends ArithmeticException {
@@ -222,9 +276,9 @@ public class BoundedRational {
     }
 
     /**
-     * Return the reciprocal of r (or null).
+     * Return the reciprocal of r (or null if the argument was null).
      */
-    static BoundedRational inverse(BoundedRational r) {
+    public static BoundedRational inverse(BoundedRational r) {
         if (r == null) {
             return null;
         }
@@ -234,11 +288,11 @@ public class BoundedRational {
         return new BoundedRational(r.mDen, r.mNum);
     }
 
-    static BoundedRational divide(BoundedRational r1, BoundedRational r2) {
+    public static BoundedRational divide(BoundedRational r1, BoundedRational r2) {
         return multiply(r1, inverse(r2));
     }
 
-    static BoundedRational sqrt(BoundedRational r) {
+    public static BoundedRational sqrt(BoundedRational r) {
         // Return non-null if numerator and denominator are small perfect squares.
         if (r == null) {
             return null;
@@ -261,10 +315,15 @@ public class BoundedRational {
     public final static BoundedRational ZERO = new BoundedRational(0);
     public final static BoundedRational HALF = new BoundedRational(1,2);
     public final static BoundedRational MINUS_HALF = new BoundedRational(-1,2);
+    public final static BoundedRational THIRD = new BoundedRational(1,3);
+    public final static BoundedRational QUARTER = new BoundedRational(1,4);
+    public final static BoundedRational SIXTH = new BoundedRational(1,6);
     public final static BoundedRational ONE = new BoundedRational(1);
     public final static BoundedRational MINUS_ONE = new BoundedRational(-1);
     public final static BoundedRational TWO = new BoundedRational(2);
     public final static BoundedRational MINUS_TWO = new BoundedRational(-2);
+    public final static BoundedRational TEN = new BoundedRational(10);
+    public final static BoundedRational TWELVE = new BoundedRational(12);
     public final static BoundedRational THIRTY = new BoundedRational(30);
     public final static BoundedRational MINUS_THIRTY = new BoundedRational(-30);
     public final static BoundedRational FORTY_FIVE = new BoundedRational(45);
@@ -272,195 +331,40 @@ public class BoundedRational {
     public final static BoundedRational NINETY = new BoundedRational(90);
     public final static BoundedRational MINUS_NINETY = new BoundedRational(-90);
 
-    private static BoundedRational map0to0(BoundedRational r) {
-        if (r == null) {
-            return null;
-        }
-        if (r.mNum.signum() == 0) {
-            return ZERO;
-        }
-        return null;
-    }
-
-    private static BoundedRational map0to1(BoundedRational r) {
-        if (r == null) {
-            return null;
-        }
-        if (r.mNum.signum() == 0) {
-            return ONE;
-        }
-        return null;
-    }
-
-    private static BoundedRational map1to0(BoundedRational r) {
-        if (r == null) {
-            return null;
-        }
-        if (r.mNum.equals(r.mDen)) {
-            return ZERO;
-        }
-        return null;
-    }
-
-    // Throw an exception if the argument is definitely out of bounds for asin or acos.
-    private static void checkAsinDomain(BoundedRational r) {
-        if (r == null) {
-            return;
-        }
-        if (r.mNum.abs().compareTo(r.mDen.abs()) > 0) {
-            throw new ArithmeticException("inverse trig argument out of range");
-        }
-    }
-
-    public static BoundedRational sin(BoundedRational r) {
-        return map0to0(r);
-    }
-
-    private final static BigInteger BIG360 = BigInteger.valueOf(360);
-
-    public static BoundedRational degreeSin(BoundedRational r) {
-        final BigInteger r_BI = asBigInteger(r);
-        if (r_BI == null) {
-            return null;
-        }
-        final int r_int = r_BI.mod(BIG360).intValue();
-        if (r_int % 30 != 0) {
-            return null;
-        }
-        switch (r_int / 10) {
-        case 0:
-            return ZERO;
-        case 3: // 30 degrees
-            return HALF;
-        case 9:
-            return ONE;
-        case 15:
-            return HALF;
-        case 18: // 180 degrees
-            return ZERO;
-        case 21:
-            return MINUS_HALF;
-        case 27:
-            return MINUS_ONE;
-        case 33:
-            return MINUS_HALF;
-        default:
-            return null;
-        }
-    }
-
-    public static BoundedRational asin(BoundedRational r) {
-        checkAsinDomain(r);
-        return map0to0(r);
-    }
-
-    public static BoundedRational degreeAsin(BoundedRational r) {
-        checkAsinDomain(r);
-        final BigInteger r2_BI = asBigInteger(multiply(r, TWO));
-        if (r2_BI == null) {
-            return null;
-        }
-        final int r2_int = r2_BI.intValue();
-        // Somewhat surprisingly, it seems to be the case that the following covers all rational
-        // cases:
-        switch (r2_int) {
-        case -2: // Corresponding to -1 argument
-            return MINUS_NINETY;
-        case -1: // Corresponding to -1/2 argument
-            return MINUS_THIRTY;
-        case 0:
-            return ZERO;
-        case 1:
-            return THIRTY;
-        case 2:
-            return NINETY;
-        default:
-            throw new AssertionError("Impossible asin arg");
-        }
-    }
-
-    public static BoundedRational tan(BoundedRational r) {
-        // Unlike the degree case, we cannot check for the singularity, since it occurs at an
-        // irrational argument.
-        return map0to0(r);
-    }
-
-    public static BoundedRational degreeTan(BoundedRational r) {
-        final BoundedRational degSin = degreeSin(r);
-        final BoundedRational degCos = degreeCos(r);
-        if (degCos != null && degCos.mNum.signum() == 0) {
-            throw new ArithmeticException("Tangent undefined");
-        }
-        return divide(degSin, degCos);
-    }
-
-    public static BoundedRational atan(BoundedRational r) {
-        return map0to0(r);
-    }
-
-    public static BoundedRational degreeAtan(BoundedRational r) {
-        final BigInteger r_BI = asBigInteger(r);
-        if (r_BI == null) {
-            return null;
-        }
-        if (r_BI.abs().compareTo(BigInteger.ONE) > 0) {
-            return null;
-        }
-        final int r_int = r_BI.intValue();
-        // Again, these seem to be all rational cases:
-        switch (r_int) {
-        case -1:
-            return MINUS_FORTY_FIVE;
-        case 0:
-            return ZERO;
-        case 1:
-            return FORTY_FIVE;
-        default:
-            throw new AssertionError("Impossible atan arg");
-        }
-    }
-
-    public static BoundedRational cos(BoundedRational r) {
-        return map0to1(r);
-    }
-
-    public static BoundedRational degreeCos(BoundedRational r) {
-        return degreeSin(add(r, NINETY));
-    }
-
-    public static BoundedRational acos(BoundedRational r) {
-        checkAsinDomain(r);
-        return map1to0(r);
-    }
-
-    public static BoundedRational degreeAcos(BoundedRational r) {
-        final BoundedRational asin_r = degreeAsin(r);
-        return subtract(NINETY, asin_r);
-    }
-
     private static final BigInteger BIG_TWO = BigInteger.valueOf(2);
+
+    /**
+     * Compute integral power of this, assuming this has been reduced and exp is >= 0.
+     */
+    private BoundedRational rawPow(BigInteger exp) {
+        if (exp.equals(BigInteger.ONE)) {
+            return this;
+        }
+        if (exp.and(BigInteger.ONE).intValue() == 1) {
+            return rawMultiply(rawPow(exp.subtract(BigInteger.ONE)), this);
+        }
+        if (exp.signum() == 0) {
+            return ONE;
+        }
+        BoundedRational tmp = rawPow(exp.shiftRight(1));
+        if (Thread.interrupted()) {
+            throw new CR.AbortedException();
+        }
+        return rawMultiply(tmp, tmp);
+    }
 
     /**
      * Compute an integral power of this.
      */
-    private BoundedRational pow(BigInteger exp) {
+    public BoundedRational pow(BigInteger exp) {
         if (exp.signum() < 0) {
             return inverse(pow(exp.negate()));
         }
         if (exp.equals(BigInteger.ONE)) {
             return this;
         }
-        if (exp.and(BigInteger.ONE).intValue() == 1) {
-            return multiply(pow(exp.subtract(BigInteger.ONE)), this);
-        }
-        if (exp.signum() == 0) {
-            return ONE;
-        }
-        BoundedRational tmp = pow(exp.shiftRight(1));
-        if (Thread.interrupted()) {
-            throw new CR.AbortedException();
-        }
-        return multiply(tmp, tmp);
+        // Reducing once at the beginning means there's no point in reducing later.
+        return reduce().rawPow(exp);
     }
 
     public static BoundedRational pow(BoundedRational base, BoundedRational exp) {
@@ -482,111 +386,6 @@ public class BoundedRational {
         return base.pow(exp.mNum);
     }
 
-    public static BoundedRational ln(BoundedRational r) {
-        if (r != null && r.signum() <= 0) {
-            throw new ArithmeticException("log(non-positive)");
-        }
-        return map1to0(r);
-    }
-
-    public static BoundedRational exp(BoundedRational r) {
-        return map0to1(r);
-    }
-
-    /**
-     * Return the base 10 log of n, if n is a power of 10, -1 otherwise.
-     * n must be positive.
-     */
-    private static long b10Log(BigInteger n) {
-        // This algorithm is very naive, but we doubt it matters.
-        long count = 0;
-        while (n.mod(BigInteger.TEN).signum() == 0) {
-            if (Thread.interrupted()) {
-                throw new CR.AbortedException();
-            }
-            n = n.divide(BigInteger.TEN);
-            ++count;
-        }
-        if (n.equals(BigInteger.ONE)) {
-            return count;
-        }
-        return -1;
-    }
-
-    public static BoundedRational log(BoundedRational r) {
-        if (r == null) {
-            return null;
-        }
-        if (r.signum() <= 0) {
-            throw new ArithmeticException("log(non-positive)");
-        }
-        r = r.reduce().positiveDen();
-        if (r == null) {
-            return null;
-        }
-        if (r.mDen.equals(BigInteger.ONE)) {
-            long log = b10Log(r.mNum);
-            if (log != -1) {
-                return new BoundedRational(log);
-            }
-        } else if (r.mNum.equals(BigInteger.ONE)) {
-            long log = b10Log(r.mDen);
-            if (log != -1) {
-                return new BoundedRational(-log);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Generalized factorial.
-     * Compute n * (n - step) * (n - 2 * step) * etc.  This can be used to compute factorial a bit
-     * faster, especially if BigInteger uses sub-quadratic multiplication.
-     */
-    private static BigInteger genFactorial(long n, long step) {
-        if (n > 4 * step) {
-            BigInteger prod1 = genFactorial(n, 2 * step);
-            if (Thread.interrupted()) {
-                throw new CR.AbortedException();
-            }
-            BigInteger prod2 = genFactorial(n - step, 2 * step);
-            if (Thread.interrupted()) {
-                throw new CR.AbortedException();
-            }
-            return prod1.multiply(prod2);
-        } else {
-            if (n == 0) {
-                return BigInteger.ONE;
-            }
-            BigInteger res = BigInteger.valueOf(n);
-            for (long i = n - step; i > 1; i -= step) {
-                res = res.multiply(BigInteger.valueOf(i));
-            }
-            return res;
-        }
-    }
-
-    /**
-     * Factorial function.
-     * Always produces non-null (or exception) when called on non-null r.
-     */
-    public static BoundedRational fact(BoundedRational r) {
-        if (r == null) {
-            return null;
-        }
-        final BigInteger rAsInt = asBigInteger(r);
-        if (rAsInt == null) {
-            throw new ArithmeticException("Non-integral factorial argument");
-        }
-        if (rAsInt.signum() < 0) {
-            throw new ArithmeticException("Negative factorial argument");
-        }
-        if (rAsInt.bitLength() > 30) {
-            // Will fail.  LongValue() may not work. Punt now.
-            throw new ArithmeticException("Factorial argument too big");
-        }
-        return new BoundedRational(genFactorial(rAsInt.longValue(), 1));
-    }
 
     private static final BigInteger BIG_FIVE = BigInteger.valueOf(5);
     private static final BigInteger BIG_MINUS_ONE = BigInteger.valueOf(-1);
@@ -597,7 +396,7 @@ public class BoundedRational {
      * Return Integer.MAX_VALUE if that's not possible.  Never returns a value less than zero, even
      * if r is a power of ten.
      */
-    static int digitsRequired(BoundedRational r) {
+    public static int digitsRequired(BoundedRational r) {
         if (r == null) {
             return Integer.MAX_VALUE;
         }

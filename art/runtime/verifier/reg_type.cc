@@ -16,23 +16,28 @@
 
 #include "reg_type-inl.h"
 
+#include "android-base/stringprintf.h"
+
 #include "base/arena_bit_vector.h"
 #include "base/bit_vector-inl.h"
 #include "base/casts.h"
 #include "class_linker-inl.h"
 #include "dex_file-inl.h"
+#include "method_verifier.h"
 #include "mirror/class.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
 #include "reg_type_cache-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 #include <limits>
 #include <sstream>
 
 namespace art {
 namespace verifier {
+
+using android::base::StringPrintf;
 
 const UndefinedType* UndefinedType::instance_ = nullptr;
 const ConflictType* ConflictType::instance_ = nullptr;
@@ -279,7 +284,7 @@ void BooleanType::Destroy() {
   }
 }
 
-std::string UndefinedType::Dump() const SHARED_REQUIRES(Locks::mutator_lock_) {
+std::string UndefinedType::Dump() const REQUIRES_SHARED(Locks::mutator_lock_) {
   return "Undefined";
 }
 
@@ -304,6 +309,7 @@ PreciseReferenceType::PreciseReferenceType(mirror::Class* klass, const StringPie
   // Note: no check for IsInstantiable() here. We may produce this in case an InstantiationError
   //       would be thrown at runtime, but we need to continue verification and *not* create a
   //       hard failure or abort.
+  CheckConstructorInvariants(this);
 }
 
 std::string UnresolvedMergedType::Dump() const {
@@ -354,26 +360,26 @@ std::string UnresolvedUninitializedThisRefType::Dump() const {
 
 std::string ReferenceType::Dump() const {
   std::stringstream result;
-  result << "Reference" << ": " << PrettyDescriptor(GetClass());
+  result << "Reference" << ": " << mirror::Class::PrettyDescriptor(GetClass());
   return result.str();
 }
 
 std::string PreciseReferenceType::Dump() const {
   std::stringstream result;
-  result << "Precise Reference" << ": "<< PrettyDescriptor(GetClass());
+  result << "Precise Reference" << ": "<< mirror::Class::PrettyDescriptor(GetClass());
   return result.str();
 }
 
 std::string UninitializedReferenceType::Dump() const {
   std::stringstream result;
-  result << "Uninitialized Reference" << ": " << PrettyDescriptor(GetClass());
+  result << "Uninitialized Reference" << ": " << mirror::Class::PrettyDescriptor(GetClass());
   result << " Allocation PC: " << GetAllocationPc();
   return result.str();
 }
 
 std::string UninitializedThisReferenceType::Dump() const {
   std::stringstream result;
-  result << "Uninitialized This Reference" << ": " << PrettyDescriptor(GetClass());
+  result << "Uninitialized This Reference" << ": " << mirror::Class::PrettyDescriptor(GetClass());
   result << "Allocation PC: " << GetAllocationPc();
   return result.str();
 }
@@ -517,11 +523,11 @@ const RegType& RegType::GetSuperClass(RegTypeCache* cache) const {
   }
 }
 
-bool RegType::IsJavaLangObject() const SHARED_REQUIRES(Locks::mutator_lock_) {
+bool RegType::IsJavaLangObject() const REQUIRES_SHARED(Locks::mutator_lock_) {
   return IsReference() && GetClass()->IsObjectClass();
 }
 
-bool RegType::IsObjectArrayTypes() const SHARED_REQUIRES(Locks::mutator_lock_) {
+bool RegType::IsObjectArrayTypes() const REQUIRES_SHARED(Locks::mutator_lock_) {
   if (IsUnresolvedTypes()) {
     DCHECK(!IsUnresolvedMergedReference());
 
@@ -542,7 +548,7 @@ bool RegType::IsObjectArrayTypes() const SHARED_REQUIRES(Locks::mutator_lock_) {
   }
 }
 
-bool RegType::IsArrayTypes() const SHARED_REQUIRES(Locks::mutator_lock_) {
+bool RegType::IsArrayTypes() const REQUIRES_SHARED(Locks::mutator_lock_) {
   if (IsUnresolvedTypes()) {
     DCHECK(!IsUnresolvedMergedReference());
 
@@ -575,7 +581,9 @@ static const RegType& SelectNonConstant(const RegType& a, const RegType& b) {
   return a.IsConstantTypes() ? b : a;
 }
 
-const RegType& RegType::Merge(const RegType& incoming_type, RegTypeCache* reg_types) const {
+const RegType& RegType::Merge(const RegType& incoming_type,
+                              RegTypeCache* reg_types,
+                              MethodVerifier* verifier) const {
   DCHECK(!Equals(incoming_type));  // Trivial equality handled by caller
   // Perform pointer equality tests for undefined and conflict to avoid virtual method dispatch.
   const UndefinedType& undefined = reg_types->Undefined();
@@ -696,13 +704,21 @@ const RegType& RegType::Merge(const RegType& incoming_type, RegTypeCache* reg_ty
       // have two sub-classes and don't know how to merge. Create a new string-based unresolved
       // type that reflects our lack of knowledge and that allows the rest of the unresolved
       // mechanics to continue.
-      return reg_types->FromUnresolvedMerge(*this, incoming_type);
+      return reg_types->FromUnresolvedMerge(*this, incoming_type, verifier);
     } else {  // Two reference types, compute Join
       mirror::Class* c1 = GetClass();
       mirror::Class* c2 = incoming_type.GetClass();
       DCHECK(c1 != nullptr && !c1->IsPrimitive());
       DCHECK(c2 != nullptr && !c2->IsPrimitive());
       mirror::Class* join_class = ClassJoin(c1, c2);
+      // Record the dependency that both `c1` and `c2` are assignable to `join_class`.
+      // The `verifier` is null during unit tests.
+      if (verifier != nullptr) {
+        VerifierDeps::MaybeRecordAssignability(
+            verifier->GetDexFile(), join_class, c1, true /* strict */, true /* is_assignable */);
+        VerifierDeps::MaybeRecordAssignability(
+            verifier->GetDexFile(), join_class, c2, true /* strict */, true /* is_assignable */);
+      }
       if (c1 == join_class && !IsPreciseReference()) {
         return *this;
       } else if (c2 == join_class && !incoming_type.IsPreciseReference()) {
@@ -719,8 +735,8 @@ const RegType& RegType::Merge(const RegType& incoming_type, RegTypeCache* reg_ty
 
 // See comment in reg_type.h
 mirror::Class* RegType::ClassJoin(mirror::Class* s, mirror::Class* t) {
-  DCHECK(!s->IsPrimitive()) << PrettyClass(s);
-  DCHECK(!t->IsPrimitive()) << PrettyClass(t);
+  DCHECK(!s->IsPrimitive()) << s->PrettyClass();
+  DCHECK(!t->IsPrimitive()) << t->PrettyClass();
   if (s == t) {
     return s;
   } else if (s->IsAssignableFrom(t)) {
@@ -737,7 +753,7 @@ mirror::Class* RegType::ClassJoin(mirror::Class* s, mirror::Class* t) {
       DCHECK(result->IsObjectClass());
       return result;
     }
-    mirror::Class* common_elem = ClassJoin(s_ct, t_ct);
+    ObjPtr<mirror::Class> common_elem = ClassJoin(s_ct, t_ct);
     ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
     mirror::Class* array_class = class_linker->FindArrayClass(Thread::Current(), &common_elem);
     DCHECK(array_class != nullptr);
@@ -773,6 +789,8 @@ void RegType::CheckInvariants() const {
   }
   if (!klass_.IsNull()) {
     CHECK(!descriptor_.empty()) << *this;
+    std::string temp;
+    CHECK_EQ(descriptor_, klass_.Read()->GetDescriptor(&temp)) << *this;
   }
 }
 
@@ -803,9 +821,7 @@ UnresolvedMergedType::UnresolvedMergedType(const RegType& resolved,
       reg_type_cache_(reg_type_cache),
       resolved_part_(resolved),
       unresolved_types_(unresolved, false, unresolved.GetAllocator()) {
-  if (kIsDebugBuild) {
-    CheckInvariants();
-  }
+  CheckConstructorInvariants(this);
 }
 void UnresolvedMergedType::CheckInvariants() const {
   CHECK(reg_type_cache_ != nullptr);
@@ -871,8 +887,11 @@ std::ostream& operator<<(std::ostream& os, const RegType& rhs) {
   return os;
 }
 
-bool RegType::CanAssignArray(const RegType& src, RegTypeCache& reg_types,
-                             Handle<mirror::ClassLoader> class_loader, bool* soft_error) const {
+bool RegType::CanAssignArray(const RegType& src,
+                             RegTypeCache& reg_types,
+                             Handle<mirror::ClassLoader> class_loader,
+                             MethodVerifier* verifier,
+                             bool* soft_error) const {
   if (!IsArrayTypes() || !src.IsArrayTypes()) {
     *soft_error = false;
     return false;
@@ -889,7 +908,7 @@ bool RegType::CanAssignArray(const RegType& src, RegTypeCache& reg_types,
   const RegType& cmp1 = reg_types.GetComponentType(*this, class_loader.Get());
   const RegType& cmp2 = reg_types.GetComponentType(src, class_loader.Get());
 
-  if (cmp1.IsAssignableFrom(cmp2)) {
+  if (cmp1.IsAssignableFrom(cmp2, verifier)) {
     return true;
   }
   if (cmp1.IsUnresolvedTypes()) {
@@ -912,7 +931,7 @@ bool RegType::CanAssignArray(const RegType& src, RegTypeCache& reg_types,
     *soft_error = false;
     return false;
   }
-  return cmp1.CanAssignArray(cmp2, reg_types, class_loader, soft_error);
+  return cmp1.CanAssignArray(cmp2, reg_types, class_loader, verifier, soft_error);
 }
 
 

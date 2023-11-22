@@ -1069,8 +1069,8 @@ int WifiLoggerCommand::handleResponse(WifiEvent &reply) {
             /* Allocate the memory indicated in memDumpSize */
             memBuffer = (char*) malloc(sizeof(char) * memDumpSize);
             if (memBuffer == NULL) {
-                ALOGE("%s: No Memory for allocating Buffer ",
-                      "size of %d", __func__, memDumpSize);
+                ALOGE("%s: No Memory for allocating Buffer size of %d",
+                      __func__, memDumpSize);
                 break;
             }
             memset(memBuffer, 0, sizeof(char) * memDumpSize);

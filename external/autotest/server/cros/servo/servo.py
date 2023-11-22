@@ -12,6 +12,10 @@ import logging, re, time, xmlrpclib
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.servo import firmware_programmer
 
+# Time to wait when probing for a usb device, it takes on avg 17 seconds
+# to do a full probe.
+_USB_PROBE_TIMEOUT = 40
+
 
 class _PowerStateController(object):
 
@@ -212,10 +216,6 @@ class Servo(object):
                           initialization.
         """
         self._server.hwinit()
-        # Workaround for bug chrome-os-partner:42349. Without this check, the
-        # gpio will briefly pulse low if we set it from high to high.
-        if self.get('dut_hub_pwren') != 'on':
-            self.set('dut_hub_pwren', 'on')
         self.set('usb_mux_oe1', 'on')
         self._usb_state = None
         self.switch_usbkey('off')
@@ -275,7 +275,10 @@ class Servo(object):
         time.sleep(Servo.SLEEP_DELAY)
 
     def volume_up(self, timeout=300):
-        """Simulate pushing the volume down button"""
+        """Simulate pushing the volume down button.
+
+        @param timeout: Timeout for setting the volume.
+        """
         self.set_get_all(['volume_up:yes',
                           'sleep:%.4f' % self.SERVO_KEY_PRESS_DELAY,
                           'volume_up:no'])
@@ -290,7 +293,10 @@ class Servo(object):
         raise error.TestFail("Failed setting volume_up to no")
 
     def volume_down(self, timeout=300):
-        """Simulate pushing the volume down button"""
+        """Simulate pushing the volume down button.
+
+        @param timeout: Timeout for setting the volume.
+        """
         self.set_get_all(['volume_down:yes',
                           'sleep:%.4f' % self.SERVO_KEY_PRESS_DELAY,
                           'volume_down:no'])
@@ -378,6 +384,16 @@ class Servo(object):
         @param press_secs : Str. Time to press key.
         """
         self._server.imaginary_key(press_secs)
+
+
+    def sysrq_x(self, press_secs=''):
+        """Simulate Alt VolumeUp X simulataneous press.
+
+        This key combination is the kernel system request (sysrq) X.
+
+        @param press_secs : Str. Time to press key.
+        """
+        self._server.sysrq_x(press_secs)
 
 
     def toggle_recovery_switch(self):
@@ -541,35 +557,16 @@ class Servo(object):
     # the USB device.
     # TODO(sbasi) Remove this code from autoserv once firmware tests have been
     # updated.
-    def probe_host_usb_dev(self):
+    def probe_host_usb_dev(self, timeout=_USB_PROBE_TIMEOUT):
         """Probe the USB disk device plugged-in the servo from the host side.
 
-        It tries to switch the USB mux to make the host unable to see the
-        USB disk and compares the result difference.
+        It uses servod to discover if there is a usb device attached to it.
 
-        Returns:
-          A string of USB disk path, like '/dev/sdb', or None if not existed.
+        @param timeout The timeout period when probing for the usb host device.
+
+        @return: String of USB disk path (e.g. '/dev/sdb') or None.
         """
-        cmd = 'ls /dev/sd[a-z]'
-        original_value = self.get_usbkey_direction()
-
-        # Make the host unable to see the USB disk.
-        self.switch_usbkey('off')
-        no_usb_set = set(self.system_output(cmd, ignore_status=True).split())
-
-        # Make the host able to see the USB disk.
-        self.switch_usbkey('host')
-        has_usb_set = set(self.system_output(cmd, ignore_status=True).split())
-
-        # Back to its original value.
-        if original_value != self.get_usbkey_direction():
-            self.switch_usbkey(original_value)
-
-        diff_set = has_usb_set - no_usb_set
-        if len(diff_set) == 1:
-            return diff_set.pop()
-        else:
-            return None
+        return self._server.probe_host_usb_dev(timeout) or None
 
 
     def image_to_servo_usb(self, image_path=None,
@@ -612,19 +609,17 @@ class Servo(object):
 
     def install_recovery_image(self, image_path=None,
                                make_image_noninteractive=False):
-        """Install the recovery image specied by the path onto the DUT.
+        """Install the recovery image specified by the path onto the DUT.
 
         This method uses google recovery mode to install a recovery image
         onto a DUT through the use of a USB stick that is mounted on a servo
         board specified by the usb_dev.  If no image path is specified
         we use the recovery image already on the usb image.
 
-        @param image_path Path on the host to the recovery image.
-        @param make_image_noninteractive Make the recovery image
-                                         noninteractive, therefore
-                                         the DUT will reboot
-                                         automatically after
-                                         installation.
+        @param image_path: Path on the host to the recovery image.
+        @param make_image_noninteractive: Make the recovery image
+                noninteractive, therefore the DUT will reboot automatically
+                after installation.
         """
         self.image_to_servo_usb(image_path, make_image_noninteractive)
         self._power_state.power_on(rec_mode=self._power_state.REC_ON)
@@ -699,7 +694,11 @@ class Servo(object):
         servo_version = self.get_servo_version()
         if servo_version.startswith('servo_v2'):
             self._programmer = firmware_programmer.ProgrammerV2(self)
-        elif servo_version.startswith('servo_v3'):
+            self._programmer_rw = firmware_programmer.ProgrammerV2RwOnly(self)
+        # Both servo v3 and v4 use the same programming methods so just leverage
+        # ProgrammerV3 for servo v4 as well.
+        elif (servo_version.startswith('servo_v3') or
+              servo_version.startswith('servo_v4')):
             self._programmer = firmware_programmer.ProgrammerV3(self)
             self._programmer_rw = firmware_programmer.ProgrammerV3RwOnly(self)
         else:
@@ -754,7 +753,15 @@ class Servo(object):
                                 for |USB_DETECTION_DELAY| after switching
                                 the power on.
         """
-        self.set('prtctl4_pwren', power_state)
+        # TODO(kevcheng): Forgive me for this terrible hack. This is just to
+        # handle beaglebones that haven't yet updated and have the
+        # safe_switch_usbkey_power RPC.  I'll remove this once all beaglebones
+        # have been updated and also think about a better way to handle
+        # situations like this.
+        try:
+            self._server.safe_switch_usbkey_power(power_state)
+        except Exception:
+            self.set('prtctl4_pwren', power_state)
         if power_state == 'off':
             time.sleep(self.USB_POWEROFF_DELAY)
         elif detection_delay:
@@ -795,7 +802,15 @@ class Servo(object):
             raise error.TestError('Unknown USB state request: %s' % usb_state)
 
         self._switch_usbkey_power('off')
-        self.set('usb_mux_sel1', mux_direction)
+        # TODO(kevcheng): Forgive me for this terrible hack. This is just to
+        # handle beaglebones that haven't yet updated and have the
+        # safe_switch_usbkey RPC.  I'll remove this once all beaglebones have
+        # been updated and also think about a better way to handle situations
+        # like this.
+        try:
+            self._server.safe_switch_usbkey(mux_direction)
+        except Exception:
+            self.set('usb_mux_sel1', mux_direction)
         time.sleep(self.USB_POWEROFF_DELAY)
         self._switch_usbkey_power('on', usb_state == 'host')
         self._usb_state = usb_state

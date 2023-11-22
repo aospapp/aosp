@@ -16,7 +16,7 @@
 
 package android.appsecurity.cts;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceTestCase;
@@ -35,7 +35,7 @@ public class UsesLibraryHostTest extends DeviceTestCase implements IAbiReceiver,
     private static final String APK_COMPAT = "CtsUsesLibraryAppCompat.apk";
 
     private IAbi mAbi;
-    private IBuildInfo mCtsBuild;
+    private CompatibilityBuildHelper mBuildHelper;
 
     @Override
     public void setAbi(IAbi abi) {
@@ -44,15 +44,16 @@ public class UsesLibraryHostTest extends DeviceTestCase implements IAbiReceiver,
 
     @Override
     public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
+        mBuildHelper = new CompatibilityBuildHelper(buildInfo);
     }
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
+        Utils.prepareSingleUser(getDevice());
         assertNotNull(mAbi);
-        assertNotNull(mCtsBuild);
+        assertNotNull(mBuildHelper);
 
         getDevice().uninstallPackage(PKG);
     }
@@ -65,20 +66,17 @@ public class UsesLibraryHostTest extends DeviceTestCase implements IAbiReceiver,
     }
 
     public void testUsesLibrary() throws Exception {
-        assertNull(getDevice().installPackage(
-                MigrationHelper.getTestFile(mCtsBuild, APK), false, false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK), false, false));
         runDeviceTests(PKG, ".UsesLibraryTest", "testUsesLibrary");
     }
 
     public void testMissingLibrary() throws Exception {
-        assertNull(getDevice().installPackage(
-                MigrationHelper.getTestFile(mCtsBuild, APK), false, false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK), false, false));
         runDeviceTests(PKG, ".UsesLibraryTest", "testMissingLibrary");
     }
 
     public void testDuplicateLibrary() throws Exception {
-        assertNull(getDevice().installPackage(
-                MigrationHelper.getTestFile(mCtsBuild, APK), false, false));
+        assertNull(getDevice().installPackage(mBuildHelper.getTestFile(APK), false, false));
         runDeviceTests(PKG, ".UsesLibraryTest", "testDuplicateLibrary");
     }
 

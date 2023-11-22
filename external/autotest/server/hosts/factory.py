@@ -4,16 +4,18 @@ import logging
 from contextlib import closing
 
 from autotest_lib.client.bin import local_host
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error, global_config
 from autotest_lib.server import utils as server_utils
-from autotest_lib.server.hosts import cros_host, ssh_host
-from autotest_lib.server.hosts import moblab_host, sonic_host
-from autotest_lib.server.hosts import adb_host, testbed
+from autotest_lib.server.cros.dynamic_suite import constants
+from autotest_lib.server.hosts import adb_host, cros_host, emulated_adb_host
+from autotest_lib.server.hosts import iota_host, moblab_host, sonic_host
+from autotest_lib.server.hosts import ssh_host, testbed
 
 
-SSH_ENGINE = global_config.global_config.get_config_value('AUTOSERV',
-                                                          'ssh_engine',
-                                                          type=str)
+CONFIG = global_config.global_config
+
+SSH_ENGINE = CONFIG.get_config_value('AUTOSERV', 'ssh_engine', type=str)
 
 # Default ssh options used in creating a host.
 DEFAULT_SSH_USER = 'root'
@@ -30,12 +32,16 @@ _started_hostnames = set()
 # overhead in checking for less common host types.
 host_types = [cros_host.CrosHost, moblab_host.MoblabHost, sonic_host.SonicHost,
               adb_host.ADBHost,]
-OS_HOST_DICT = {'cros' : cros_host.CrosHost,
-                'android': adb_host.ADBHost}
+OS_HOST_DICT = {'android': adb_host.ADBHost,
+                'brillo': adb_host.ADBHost,
+                'cros' : cros_host.CrosHost,
+                'emulated_brillo': emulated_adb_host.EmulatedADBHost,
+                'iota': iota_host.IotaHost,
+                'moblab': moblab_host.MoblabHost}
 
 
-def _get_host_arguments():
-    """Returns parameters needed to ssh into a host.
+def _get_host_arguments(machine):
+    """Get parameters to construct a host object.
 
     There are currently 2 use cases for creating a host.
     1. Through the server_job, in which case the server_job injects
@@ -44,15 +50,43 @@ def _get_host_arguments():
     2. Directly through factory.create_host, in which case we use
        the same defaults as used in the server job to create a host.
 
-    @returns: A tuple of parameters needed to create an ssh connection, ordered
-              as: ssh_user, ssh_pass, ssh_port, ssh_verbosity, ssh_options.
+    @param machine: machine dict
+    @return: A dictionary containing arguments for host specifically hostname,
+              afe_host, user, password, port, ssh_verbosity_flag and
+              ssh_options.
     """
+    hostname, afe_host = server_utils.get_host_info_from_machine(
+            machine)
+
     g = globals()
-    return (g.get('ssh_user', DEFAULT_SSH_USER),
-            g.get('ssh_pass', DEFAULT_SSH_PASS),
-            g.get('ssh_port', DEFAULT_SSH_PORT),
-            g.get('ssh_verbosity_flag', DEFAULT_SSH_VERBOSITY),
-            g.get('ssh_options', DEFAULT_SSH_OPTIONS))
+    user = afe_host.attributes.get('ssh_user', g.get('ssh_user',
+                                                     DEFAULT_SSH_USER))
+    password = afe_host.attributes.get('ssh_pass', g.get('ssh_pass',
+                                                         DEFAULT_SSH_PASS))
+    port = afe_host.attributes.get('ssh_port', g.get('ssh_port',
+                                                     DEFAULT_SSH_PORT))
+    ssh_verbosity_flag = afe_host.attributes.get('ssh_verbosity_flag',
+                                                 g.get('ssh_verbosity_flag',
+                                                       DEFAULT_SSH_VERBOSITY))
+    ssh_options = afe_host.attributes.get('ssh_options',
+                                          g.get('ssh_options',
+                                                DEFAULT_SSH_OPTIONS))
+
+    hostname, user, password, port = server_utils.parse_machine(hostname, user,
+                                                                password, port)
+
+    host_args = {
+            'hostname': hostname,
+            'afe_host': afe_host,
+            'user': user,
+            'password': password,
+            'port': int(port),
+            'ssh_verbosity_flag': ssh_verbosity_flag,
+            'ssh_options': ssh_options,
+    }
+    if isinstance(machine, dict) and 'host_info_store' in machine:
+        host_args['host_info_store'] = machine['host_info_store']
+    return host_args
 
 
 def _detect_host(connectivity_class, hostname, **args):
@@ -95,15 +129,10 @@ def _choose_connectivity_class(hostname, ssh_port):
     if (hostname == 'localhost' and ssh_port == DEFAULT_SSH_PORT):
         return local_host.LocalHost
     # by default assume we're using SSH support
-    elif SSH_ENGINE == 'paramiko':
-        # Not all systems have paramiko installed so only import paramiko host
-        # if the global_config settings call for it.
-        from autotest_lib.server.hosts import paramiko_host
-        return paramiko_host.ParamikoHost
     elif SSH_ENGINE == 'raw_ssh':
         return ssh_host.SSHHost
     else:
-        raise error.AutoServError("Unknown SSH engine %s. Please verify the "
+        raise error.AutoservError("Unknown SSH engine %s. Please verify the "
                                   "value of the configuration key 'ssh_engine' "
                                   "on autotest's global_config.ini file." %
                                   SSH_ENGINE)
@@ -120,7 +149,7 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
     @param machine: A dict representing the device under test or a String
                     representing the DUT hostname (for legacy caller support).
                     If it is a machine dict, the 'hostname' key is required.
-                    Optional 'host_attributes' key will pipe in host_attributes
+                    Optional 'afe_host' key will pipe in afe_host
                     from the autoserv runtime or the AFE.
     @param host_class: Host class to use, if None, will attempt to detect
                        the correct class.
@@ -132,31 +161,31 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
     @returns: A host object which is an instance of the newly created
               host class.
     """
-    hostname, host_attributes = server_utils.get_host_info_from_machine(
-            machine)
-    args['host_attributes'] = host_attributes
-    ssh_user, ssh_pass, ssh_port, ssh_verbosity_flag, ssh_options = \
-            _get_host_arguments()
+    detected_args = _get_host_arguments(machine)
+    hostname = detected_args.pop('hostname')
+    afe_host = detected_args['afe_host']
+    args.update(detected_args)
 
-    hostname, args['user'], args['password'], ssh_port = \
-            server_utils.parse_machine(hostname, ssh_user, ssh_pass, ssh_port)
-    args['ssh_verbosity_flag'] = ssh_verbosity_flag
-    args['ssh_options'] = ssh_options
-    args['port'] = ssh_port
+    host_os = None
+    full_os_prefix = constants.OS_PREFIX + ':'
+    # Let's grab the os from the labels if we can for host class detection.
+    for label in afe_host.labels:
+        if label.startswith(full_os_prefix):
+            host_os = label[len(full_os_prefix):]
+            break
 
     if not connectivity_class:
-        connectivity_class = _choose_connectivity_class(hostname, ssh_port)
-    host_attributes = args.get('host_attributes', {})
-    host_class = host_class or OS_HOST_DICT.get(host_attributes.get('os_type'))
-    if host_class:
-        classes = [host_class, connectivity_class]
-    else:
-        classes = [_detect_host(connectivity_class, hostname, **args),
-                   connectivity_class]
+        connectivity_class = _choose_connectivity_class(hostname, args['port'])
+    # TODO(kevcheng): get rid of the host detection using host attributes.
+    host_class = (host_class
+                  or OS_HOST_DICT.get(afe_host.attributes.get('os_type'))
+                  or OS_HOST_DICT.get(host_os)
+                  or _detect_host(connectivity_class, hostname, **args))
 
     # create a custom host class for this machine and return an instance of it
-    host_class = type("%s_host" % hostname, tuple(classes), {})
-    host_instance = host_class(hostname, **args)
+    classes = (host_class, connectivity_class)
+    custom_host_class = type("%s_host" % hostname, classes, {})
+    host_instance = custom_host_class(hostname, **args)
 
     # call job_start if this is the first time this host is being used
     if hostname not in _started_hostnames:
@@ -173,15 +202,15 @@ def create_testbed(machine, **kwargs):
                     representing the testbed hostname (for legacy caller
                     support).
                     If it is a machine dict, the 'hostname' key is required.
-                    Optional 'host_attributes' key will pipe in host_attributes
-                    from the autoserv runtime or the AFE.
+                    Optional 'afe_host' key will pipe in afe_host from
+                    the afe_host object from the autoserv runtime or the AFE.
     @param kwargs: Keyword args to pass to the testbed initialization.
 
     @returns: The testbed object with all associated host objects instantiated.
     """
-    hostname, host_attributes = server_utils.get_host_info_from_machine(
-            machine)
-    kwargs['host_attributes'] = host_attributes
+    detected_args = _get_host_arguments(machine)
+    hostname = detected_args.pop('hostname')
+    kwargs.update(detected_args)
     return testbed.TestBed(hostname, **kwargs)
 
 
@@ -192,12 +221,30 @@ def create_target_machine(machine, **kwargs):
                     representing the testbed hostname (for legacy caller
                     support).
                     If it is a machine dict, the 'hostname' key is required.
-                    Optional 'host_attributes' key will pipe in host_attributes
+                    Optional 'afe_host' key will pipe in afe_host
                     from the autoserv runtime or the AFE.
     @param kwargs: Keyword args to pass to the testbed initialization.
 
     @returns: The target machine to be used for verify/repair.
     """
+    # For Brillo/Android devices connected to moblab, the `machine` name is
+    # either `localhost` or `127.0.0.1`. It needs to be translated to the host
+    # container IP if the code is running inside a container. This way, autoserv
+    # can ssh to the moblab and run actual adb/fastboot commands.
+    is_moblab = CONFIG.get_config_value('SSP', 'is_moblab', type=bool,
+                                        default=False)
+    hostname = machine['hostname'] if isinstance(machine, dict) else machine
+    if (utils.is_in_container() and is_moblab and
+        hostname in ['localhost', '127.0.0.1']):
+        hostname = CONFIG.get_config_value('SSP', 'host_container_ip', type=str,
+                                           default=None)
+        if isinstance(machine, dict):
+            machine['hostname'] = hostname
+        else:
+            machine = hostname
+        logging.debug('Hostname of machine is converted to %s for the test to '
+                      'run inside a container.', hostname)
+
     # TODO(kevcheng): We'll want to have a smarter way of figuring out which
     # host to create (checking host labels).
     if server_utils.machine_is_testbed(machine):

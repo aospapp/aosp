@@ -16,24 +16,46 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.TextAppearanceSpan;
 
-public class TextAppearanceSpanTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TextAppearanceSpanTest {
+    private Context mContext;
+    private ColorStateList mColorStateList;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+
+        int[][] states = new int[][] { new int[0], new int[0] };
+        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
+        mColorStateList = new ColorStateList(states, colors);
+    }
+
+    @Test
     public void testConstructor() {
         new TextAppearanceSpan(mContext, 1);
         new TextAppearanceSpan(mContext, 1, 1);
 
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
-
-        TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
         Parcel p = Parcel.obtain();
         try {
             textAppearanceSpan.writeToParcel(p, 0);
@@ -42,23 +64,22 @@ public class TextAppearanceSpanTest extends AndroidTestCase {
         } finally {
             p.recycle();
         }
-        try {
-            new TextAppearanceSpan(null, -1);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
-
-        try {
-            new TextAppearanceSpan(null, -1, -1);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
 
         new TextAppearanceSpan(null, -1, -1, null, null);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext1() {
+        new TextAppearanceSpan(null, -1);
+    }
+
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext2() {
+        new TextAppearanceSpan(null, -1, -1);
+    }
+
+    @Test
     public void testGetFamily() {
         TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan(mContext, 1);
         assertNull(textAppearanceSpan.getFamily());
@@ -66,48 +87,41 @@ public class TextAppearanceSpanTest extends AndroidTestCase {
         textAppearanceSpan = new TextAppearanceSpan(mContext, 1, 1);
         assertNull(textAppearanceSpan.getFamily());
 
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
-
-        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
+        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
         assertEquals("sans", textAppearanceSpan.getFamily());
     }
 
+    @Test
     public void testUpdateMeasureState() {
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
-
-        TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
         TextPaint tp = new TextPaint();
-        tp.setTextSize((float) 1);
-        assertEquals((float) 1, tp.getTextSize());
+        tp.setTextSize(1.0f);
+        assertEquals(1.0f, tp.getTextSize(), 0.0f);
 
         textAppearanceSpan.updateMeasureState(tp);
 
-        assertEquals((float) 6, tp.getTextSize());
-
-        try {
-            textAppearanceSpan.updateMeasureState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
+        assertEquals(6.0f, tp.getTextSize(), 0.0f);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateMeasureStateNull() {
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
+        textAppearanceSpan.updateMeasureState(null);
+    }
+
+    @Test
     public void testGetTextColor() {
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
+        assertSame(mColorStateList, textAppearanceSpan.getTextColor());
 
-        TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
-        assertSame(csl, textAppearanceSpan.getTextColor());
-
-        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, null, csl);
+        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, null, mColorStateList);
         assertNull(textAppearanceSpan.getTextColor());
     }
 
+    @Test
     public void testGetTextSize() {
         TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan(mContext, 1);
         assertEquals(-1, textAppearanceSpan.getTextSize());
@@ -115,14 +129,11 @@ public class TextAppearanceSpanTest extends AndroidTestCase {
         textAppearanceSpan = new TextAppearanceSpan(mContext, 1, 1);
         assertEquals(-1, textAppearanceSpan.getTextSize());
 
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
-
-        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
+        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
         assertEquals(6, textAppearanceSpan.getTextSize());
     }
 
+    @Test
     public void testGetTextStyle() {
         TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan(mContext, 1);
         assertEquals(0, textAppearanceSpan.getTextStyle());
@@ -130,32 +141,24 @@ public class TextAppearanceSpanTest extends AndroidTestCase {
         textAppearanceSpan = new TextAppearanceSpan(mContext, 1, 1);
         assertEquals(0, textAppearanceSpan.getTextStyle());
 
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
-
-        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
+        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
         assertEquals(1, textAppearanceSpan.getTextStyle());
     }
 
+    @Test
     public void testGetLinkTextColor() {
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
+        assertSame(mColorStateList, textAppearanceSpan.getLinkTextColor());
 
-        TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
-        assertSame(csl, textAppearanceSpan.getLinkTextColor());
-
-        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, null);
+        textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, mColorStateList, null);
         assertNull(textAppearanceSpan.getLinkTextColor());
     }
 
+    @Test
     public void testUpdateDrawState() {
-        int[][] states = new int[][] { new int[0], new int[0] };
-        int[] colors = new int[] { Color.rgb(0, 0, 255), Color.BLACK };
-        ColorStateList csl = new ColorStateList(states, colors);
-
-        TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan("sans", 1, 6, csl, csl);
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
         TextPaint tp = new TextPaint();
         tp.setColor(0);
         tp.linkColor = 0;
@@ -163,28 +166,32 @@ public class TextAppearanceSpanTest extends AndroidTestCase {
 
         textAppearanceSpan.updateDrawState(tp);
 
-        int expected = csl.getColorForState(tp.drawableState, 0);
+        int expected = mColorStateList.getColorForState(tp.drawableState, 0);
         assertEquals(expected, tp.getColor());
         assertEquals(expected, tp.linkColor);
-
-        try {
-            textAppearanceSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        TextAppearanceSpan textAppearanceSpan =
+                new TextAppearanceSpan("sans", 1, 6, mColorStateList, mColorStateList);
+
+        textAppearanceSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan(mContext, 1);
         textAppearanceSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         TextAppearanceSpan textAppearanceSpan = new TextAppearanceSpan(mContext, 1);
         textAppearanceSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         String family = "sans";

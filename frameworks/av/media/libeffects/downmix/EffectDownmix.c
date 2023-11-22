@@ -16,11 +16,14 @@
 
 #define LOG_TAG "EffectDownmix"
 //#define LOG_NDEBUG 0
-#include <log/log.h>
+
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+
+#include <log/log.h>
+
 #include "EffectDownmix.h"
 
 // Do not submit with DOWNMIX_TEST_CHANNEL_INDEX defined, strictly for testing
@@ -389,7 +392,6 @@ static int Downmix_Command(effect_handle_t self, uint32_t cmdCode, uint32_t cmdS
 
     downmix_module_t *pDwmModule = (downmix_module_t *) self;
     downmix_object_t *pDownmixer;
-    int retsize;
 
     if (pDwmModule == NULL || pDwmModule->context.state == DOWNMIX_STATE_UNINITIALIZED) {
         return -EINVAL;

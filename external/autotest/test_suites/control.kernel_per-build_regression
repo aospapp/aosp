@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "kernel_per-build_regression"
 PURPOSE = "Test required functionality - longer running than bvt tests usually."
-CRITERIA = "All tests with SUITE=kernel_per-build_regression must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

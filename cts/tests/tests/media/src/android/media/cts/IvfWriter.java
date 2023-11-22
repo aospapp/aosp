@@ -16,6 +16,8 @@
 
 package android.media.cts;
 
+import android.media.MediaFormat;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
@@ -34,6 +36,7 @@ public class IvfWriter {
     private int mScale;
     private int mRate;
     private int mFrameCount;
+    private String mMimeType;
 
     /**
      * Initializes the IVF file writer.
@@ -43,15 +46,17 @@ public class IvfWriter {
      * with this timebase value.
      *
      * @param filename   name of the IVF file
+     * @param mimeType   mime type of the codec
      * @param width      frame width
      * @param height     frame height
      * @param scale      timebase scale (or numerator of the timebase fraction)
      * @param rate       timebase rate (or denominator of the timebase fraction)
      */
-    public IvfWriter(String filename,
-                     int width, int height,
-                     int scale, int rate) throws IOException {
+    public IvfWriter(
+            String filename, String mimeType, int width, int height, int scale,
+            int rate) throws IOException {
         mOutputFile = new RandomAccessFile(filename, "rw");
+        mMimeType = mimeType;
         mWidth = width;
         mHeight = height;
         mScale = scale;
@@ -67,11 +72,12 @@ public class IvfWriter {
      * Microsecond timebase is default for OMX thus stagefright.
      *
      * @param filename   name of the IVF file
+     * @param mimeType   mime type of the codec
      * @param width      frame width
      * @param height     frame height
      */
-    public IvfWriter(String filename, int width, int height) throws IOException {
-        this(filename, width, height, 1, 1000000);
+    public IvfWriter(String filename, String mimeType, int width, int height) throws IOException {
+        this(filename, mimeType, width, height, 1, 1000000);
     }
 
     /**
@@ -80,7 +86,7 @@ public class IvfWriter {
     public void close() throws IOException{
         // Write header now
         mOutputFile.seek(0);
-        mOutputFile.write(makeIvfHeader(mFrameCount, mWidth, mHeight, mScale, mRate));
+        mOutputFile.write(makeIvfHeader(mFrameCount, mWidth, mHeight, mScale, mRate, mMimeType));
         mOutputFile.close();
     }
 
@@ -107,7 +113,8 @@ public class IvfWriter {
      * @param scale      timebase scale (or numerator of the timebase fraction)
      * @param rate       timebase rate (or denominator of the timebase fraction)
      */
-    private static byte[] makeIvfHeader(int frameCount, int width, int height, int scale, int rate){
+    private static byte[] makeIvfHeader(
+            int frameCount, int width, int height, int scale, int rate, String mimeType) {
         byte[] ivfHeader = new byte[32];
         ivfHeader[0] = 'D';
         ivfHeader[1] = 'K';
@@ -117,7 +124,7 @@ public class IvfWriter {
         lay16Bits(ivfHeader, 6, 32);  // header size
         ivfHeader[8] = 'V';  // fourcc
         ivfHeader[9] = 'P';
-        ivfHeader[10] = '8';
+        ivfHeader[10] = (byte) (MediaFormat.MIMETYPE_VIDEO_VP8.equals(mimeType) ? '8' : '9');
         ivfHeader[11] = '0';
         lay16Bits(ivfHeader, 12, width);
         lay16Bits(ivfHeader, 14, height);

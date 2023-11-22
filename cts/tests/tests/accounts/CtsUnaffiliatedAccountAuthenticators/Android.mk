@@ -23,6 +23,8 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
+LOCAL_MIN_SDK_VERSION  := 1
+
 LOCAL_SDK_VERSION := current
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
@@ -38,7 +40,6 @@ LOCAL_PACKAGE_NAME := CtsUnaffiliatedAccountAuthenticators
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-LOCAL_SDK_VERSION := current
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey2
 

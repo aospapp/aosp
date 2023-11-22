@@ -5,7 +5,6 @@
 AUTHOR = "jorgelo"
 NAME = "security_SandboxStatus"
 ATTRIBUTES = "suite:bvt-inline"
-SUITE = "bvt-inline"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "security"

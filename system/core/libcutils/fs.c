@@ -21,18 +21,19 @@
 #define _ATFILE_SOURCE 1
 #define _GNU_SOURCE 1
 
-#include <cutils/fs.h>
-#include <cutils/log.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
-#include <limits.h>
-#include <stdlib.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <cutils/fs.h>
+#include <log/log.h>
 
 #define ALL_PERMS (S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO)
 #define BUF_SIZE 64
@@ -79,7 +80,7 @@ static int fs_prepare_path_impl(const char* path, mode_t mode, uid_t uid, gid_t 
 create:
     create_result = prepare_as_dir
         ? TEMP_FAILURE_RETRY(mkdir(path, mode))
-        : TEMP_FAILURE_RETRY(open(path, O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_RDONLY));
+        : TEMP_FAILURE_RETRY(open(path, O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_RDONLY, 0644));
     if (create_result == -1) {
         if (errno != EEXIST) {
             ALOGE("Failed to %s(%s): %s",

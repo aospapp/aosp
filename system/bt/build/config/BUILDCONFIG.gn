@@ -14,13 +14,15 @@
 #  limitations under the License.
 #
 
-set_default_toolchain("//build/toolchain/gcc")
+set_default_toolchain("//build/toolchain/clang")
+toolchain_config="//build/toolchain/clang:clang_config"
 
 set_defaults("executable") {
   configs = [
     "//build:linux",
     "//build:gc",
     "//build:default_include_dirs",
+    toolchain_config,
   ]
 }
 
@@ -29,6 +31,7 @@ set_defaults("shared_library") {
     "//build:linux",
     "//build:gc",
     "//build:default_include_dirs",
+    toolchain_config,
   ]
 }
 
@@ -37,6 +40,7 @@ set_defaults("source_set") {
     "//build:linux",
     "//build:gc",
     "//build:default_include_dirs",
+    toolchain_config,
   ]
 }
 
@@ -45,5 +49,6 @@ set_defaults("static_library") {
     "//build:linux",
     "//build:gc",
     "//build:default_include_dirs",
+    toolchain_config,
   ]
 }

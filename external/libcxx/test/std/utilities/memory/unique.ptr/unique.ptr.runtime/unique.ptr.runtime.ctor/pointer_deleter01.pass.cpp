@@ -18,7 +18,7 @@
 #include <memory>
 #include <cassert>
 
-#include "../../deleter.h"
+#include "deleter_types.h"
 
 struct A
 {
@@ -38,6 +38,14 @@ int main()
     std::unique_ptr<A[], Deleter<A[]> > s(p, Deleter<A[]>());
     assert(s.get() == p);
     assert(s.get_deleter().state() == 0);
+    }
+    assert(A::count == 0);
+
+    { // LWG#2520 says that nullptr is a valid input as well as null
+#ifdef _LIBCPP_VERSION
+    std::unique_ptr<A[], Deleter<A[]> > s1(NULL, Deleter<A[]>());
+#endif
+    std::unique_ptr<A[], Deleter<A[]> > s2(nullptr, Deleter<A[]>());
     }
     assert(A::count == 0);
 }

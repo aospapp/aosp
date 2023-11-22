@@ -219,7 +219,7 @@ public class WatchedHistoryManager {
             }
             Long duration = durationMap.get(channelId);
             if (duration == null) {
-                duration = 0l;
+                duration = 0L;
             }
             if (duration >= RECENT_CHANNEL_THRESHOLD_MS) {
                 continue;

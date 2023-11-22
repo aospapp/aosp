@@ -16,9 +16,17 @@
 
 package android.view.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -28,32 +36,37 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.CycleInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.Transformation;
-
 import android.view.cts.R;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link CycleInterpolator}.
  */
-public class CycleInterpolatorTest
-        extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
-
-    private Activity mActivity;
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class CycleInterpolatorTest {
     /** It is defined in R.anim.cycle_alpha */
     private static final long CYCLE_ALPHA_DURATION = 2000;
     private static final float ALPHA_DELTA = 0.001f;
 
-    public CycleInterpolatorTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructors() {
         new CycleInterpolator(1.0f);
 
@@ -62,7 +75,8 @@ public class CycleInterpolatorTest
         new CycleInterpolator(mActivity, attrs);
     }
 
-    public void testCycyleInterpolator() {
+    @Test
+    public void testCycleInterpolator() throws Throwable {
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final Animation anim = AnimationUtils.loadAnimation(mActivity, R.anim.cycle_alpha);
         assertEquals(CYCLE_ALPHA_DURATION, anim.getDuration());
@@ -73,7 +87,7 @@ public class CycleInterpolatorTest
         anim.setInterpolator(interpolator);
         assertFalse(anim.hasStarted());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
 
         Transformation transformation = new Transformation();
         long startTime = anim.getStartTime();
@@ -112,7 +126,7 @@ public class CycleInterpolatorTest
         interpolator = new CycleInterpolator(2.0f);
         anim.setInterpolator(interpolator);
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, anim);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow, anim);
 
         transformation = new Transformation();
         startTime = anim.getStartTime();
@@ -192,6 +206,7 @@ public class CycleInterpolatorTest
         assertEquals(delta12, delta4, ALPHA_DELTA);
     }
 
+    @Test
     public void testGetInterpolation() {
         CycleInterpolator cycleInterpolator = new CycleInterpolator(2.0f);
         final float out1 = cycleInterpolator.getInterpolation(0.0f);

@@ -16,8 +16,8 @@
 apply plugin: 'java'
 apply plugin: 'kotlin'
 
-sourceCompatibility = dataBindingConfig.javaTargetCompatibility
-targetCompatibility = dataBindingConfig.javaSourceCompatibility
+sourceCompatibility = dataBindingConfig.compilerJavaTargetCompatibility
+targetCompatibility = dataBindingConfig.compilerJavaSourceCompatibility
 
 sourceSets {
     main.java.srcDirs += 'src/main/kotlin'
@@ -38,7 +38,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     compile 'commons-io:commons-io:2.4'
     compile 'commons-codec:commons-codec:1.10'
-    compile 'com.tunnelvisionlabs:antlr4:4.5'
+    compile 'org.antlr:antlr4:4.5.3'
     compile 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
     testCompile 'junit:junit:4.12'
 }
@@ -60,7 +60,9 @@ uploadArchives {
     }
 }
 
-
+javadoc {
+   options.addStringOption('Xdoclint:none', '-quiet')
+}
 
 project.ext.pomName = 'Data Binding Annotation Processor'
 project.ext.pomDesc = 'The annotation processor for Data Binding. Generates binding classes for runtime.'

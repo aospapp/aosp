@@ -47,62 +47,55 @@ bool TpmNvramDBusProxy::Initialize() {
   return (object_proxy_ != nullptr);
 }
 
-void TpmNvramDBusProxy::DefineNvram(const DefineNvramRequest& request,
-                                    const DefineNvramCallback& callback) {
-  CallMethod<DefineNvramReply>(tpm_manager::kDefineNvram, request, callback);
+void TpmNvramDBusProxy::DefineSpace(const DefineSpaceRequest& request,
+                                    const DefineSpaceCallback& callback) {
+  CallMethod<DefineSpaceReply>(tpm_manager::kDefineSpace, request, callback);
 }
 
-void TpmNvramDBusProxy::DestroyNvram(const DestroyNvramRequest& request,
-                                     const DestroyNvramCallback& callback) {
-  CallMethod<DestroyNvramReply>(tpm_manager::kDestroyNvram, request, callback);
+void TpmNvramDBusProxy::DestroySpace(const DestroySpaceRequest& request,
+                                     const DestroySpaceCallback& callback) {
+  CallMethod<DestroySpaceReply>(tpm_manager::kDestroySpace, request, callback);
 }
 
-void TpmNvramDBusProxy::WriteNvram(const WriteNvramRequest& request,
-                                   const WriteNvramCallback& callback) {
-  CallMethod<WriteNvramReply>(tpm_manager::kWriteNvram, request, callback);
+void TpmNvramDBusProxy::WriteSpace(const WriteSpaceRequest& request,
+                                   const WriteSpaceCallback& callback) {
+  CallMethod<WriteSpaceReply>(tpm_manager::kWriteSpace, request, callback);
 }
 
-void TpmNvramDBusProxy::ReadNvram(const ReadNvramRequest& request,
-                                  const ReadNvramCallback& callback) {
-  CallMethod<ReadNvramReply>(tpm_manager::kReadNvram, request, callback);
+void TpmNvramDBusProxy::ReadSpace(const ReadSpaceRequest& request,
+                                  const ReadSpaceCallback& callback) {
+  CallMethod<ReadSpaceReply>(tpm_manager::kReadSpace, request, callback);
 }
 
-void TpmNvramDBusProxy::IsNvramDefined(const IsNvramDefinedRequest& request,
-                                       const IsNvramDefinedCallback& callback) {
-  CallMethod<IsNvramDefinedReply>(
-      tpm_manager::kIsNvramDefined, request, callback);
+void TpmNvramDBusProxy::LockSpace(const LockSpaceRequest& request,
+                                  const LockSpaceCallback& callback) {
+  CallMethod<LockSpaceReply>(tpm_manager::kLockSpace, request, callback);
 }
 
-void TpmNvramDBusProxy::IsNvramLocked(const IsNvramLockedRequest& request,
-                                      const IsNvramLockedCallback& callback) {
-  CallMethod<IsNvramLockedReply>(
-      tpm_manager::kIsNvramLocked, request, callback);
+void TpmNvramDBusProxy::ListSpaces(const ListSpacesRequest& request,
+                                   const ListSpacesCallback& callback) {
+  CallMethod<ListSpacesReply>(tpm_manager::kListSpaces, request, callback);
 }
 
-void TpmNvramDBusProxy::GetNvramSize(const GetNvramSizeRequest& request,
-                                     const GetNvramSizeCallback& callback) {
-  CallMethod<GetNvramSizeReply>(tpm_manager::kGetNvramSize, request, callback);
+void TpmNvramDBusProxy::GetSpaceInfo(const GetSpaceInfoRequest& request,
+                                     const GetSpaceInfoCallback& callback) {
+  CallMethod<GetSpaceInfoReply>(tpm_manager::kGetSpaceInfo, request, callback);
 }
 
-template<typename ReplyProtobufType,
-         typename RequestProtobufType,
-         typename CallbackType>
+template <typename ReplyProtobufType,
+          typename RequestProtobufType,
+          typename CallbackType>
 void TpmNvramDBusProxy::CallMethod(const std::string& method_name,
                                    const RequestProtobufType& request,
                                    const CallbackType& callback) {
   auto on_error = [callback](brillo::Error* error) {
     ReplyProtobufType reply;
-    reply.set_status(STATUS_NOT_AVAILABLE);
+    reply.set_result(NVRAM_RESULT_IPC_ERROR);
     callback.Run(reply);
   };
   brillo::dbus_utils::CallMethodWithTimeout(
-      kDBusTimeoutMS,
-      object_proxy_,
-      tpm_manager::kTpmNvramInterface,
-      method_name,
-      callback,
-      base::Bind(on_error),
-      request);
+      kDBusTimeoutMS, object_proxy_, tpm_manager::kTpmNvramInterface,
+      method_name, callback, base::Bind(on_error), request);
 }
 
 }  // namespace tpm_manager

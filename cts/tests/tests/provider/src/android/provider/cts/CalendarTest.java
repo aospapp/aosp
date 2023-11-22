@@ -25,7 +25,6 @@ import android.content.Entity;
 import android.content.EntityIterator;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.cts.util.PollingCheck;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -47,6 +46,8 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.format.Time;
 import android.util.Log;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.ArrayList;
 import java.util.HashSet;

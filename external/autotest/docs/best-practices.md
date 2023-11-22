@@ -15,7 +15,7 @@ https://github.com/autotest/autotest/wiki
 
 ## Coding style
 
-Basically PEP-8.  See [docs/coding-style.md](docs/coding-style.md)
+Basically PEP-8.  See [docs/coding-style.md](coding-style.md)
 
 ## Where should my code live?
 
@@ -102,21 +102,24 @@ but the indication about which fields are mandatory still holds.
 | SYNC\_COUNT  | No       | Integer >= 1.  Number of simultaneous devices needed for a test run.                                                                                                                                                                                                                                                                     |
 | TIME         | Yes      | Test duration: 'FAST' (<1m), 'MEDIUM' (<10m), 'LONG' (<20m), 'LENGTHY' (>30m)                                                                                                                                                                                                                                                            |
 | TEST\_TYPE   | Yes      | Client or Server                                                                                                                                                                                                                                                                                                                         |
-| SUITE        | No       | A comma-delimited string of suite names that this test should be a part of.                                                                                                                                                                                                                                                              |
+| ATTRIBUTES   | No       | Comma separated list of attribute tags to apply to this control file, used in composing suites. For instance, 'suite:foo, suite:bar, subsystem:baz'.                                                                                                                                                                                     |
 
-### Choosing a Suite
+### Running tests in suites
 
-Currently existing suites are defined in the test\_suites/ subdirectory at the
-top level of the autotest repo.  Read the docstrings there to see if your new
-test fits into one that’s already defined.
+Make sure that the suite name is listed in `site_utils/attribute_whitelist.txt`,
+then add the appropriate attribute to the ATTRIBUTES field in tests that make
+up the test suite.  For instance:
 
-When first adding a test, it should not go into the BVT suite.   A test should
-only be added to the BVT after it has been running in some non-BVT suite long
-enough to establish a track record showing that the test does not fail when run
-against working software.  A suite named experimental exists for tests intended
-for the BVT, and for which there is no more convenient home.
+```
+...
+ATTRIBUTES = 'suite:suite-a, suite:suite-b'
+...
+```
 
-### Pure python 
+would indicate that the control file above should be run as part of both
+`suite-a` and `suite-b`.
+
+### Pure python
 
 Lie, cheat and steal to keep your tests in pure python.  It will be easier to
 debug failures, it will be easier to generate meaningful error output, it will
@@ -407,7 +410,7 @@ calling setup as it maintains additional versioning logic ensuring setup is
 only done 1x per dep. The following is its method signature:
 
 ```
-def update_version(srcdir, preserve_srcdir, new_version, install, 
+def update_version(srcdir, preserve_srcdir, new_version, install,
                    *args, **dargs)
 ```
 
@@ -437,7 +440,7 @@ defining that can take any number of arguments or install the dep in any way
 they see fit. The above example uses tarballs but some are distributed as
 straight source under the src dir so their setup function only takes a top
 level path. We could avoid this by forcing a convention but that would be
-artificially constraining the deps mechanism. 
+artificially constraining the deps mechanism.
 
 Once you’ve created the dep, you will also have to add the dep to the
 autotest-deps package in chromiumos-overlay/chromeos-base/autotest-deps,

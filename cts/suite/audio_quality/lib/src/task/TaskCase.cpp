@@ -292,7 +292,7 @@ void TaskCase::releaseRemoteAudio()
     mClient = NULL;
 }
 
-void TaskCase::setDetails(android::String8 details)
+void TaskCase::setDetails(const android::String8& details)
 {
     mDetails = details;
 }

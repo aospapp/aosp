@@ -127,15 +127,13 @@ void ImageViewTest::initPrograms (SourceCollections& sourceCollections) const
 	const tcu::TextureFormat		format			= (isCompressedFormat(m_imageFormat)) ? tcu::getUncompressedFormat(mapVkCompressedFormat(m_imageFormat))
 																						  : mapVkFormat(m_imageFormat);
 
-	// \note We don't want to perform normalization on any compressed formats.
-	//		 In case of non-sRGB LDR ASTC it would lead to lack of coverage
-	//		 as uncompressed format for that is f16 but values will be in range
-	//		 0..1 already.
-	const tcu::TextureFormatInfo	formatInfo		= (!isCompressedFormat(m_imageFormat) ? tcu::getTextureFormatInfo(format)
-																						  : tcu::getTextureFormatInfo(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8)));
+	tcu::Vec4						lookupScale;
+	tcu::Vec4						lookupBias;
 
-	tcu::Vec4						swizzledScale	= swizzle(formatInfo.lookupScale, m_componentMapping);
-	tcu::Vec4						swizzledBias	= swizzle(formatInfo.lookupBias, m_componentMapping);
+	getLookupScaleBias(m_imageFormat, lookupScale, lookupBias);
+
+	tcu::Vec4						swizzledScale	= swizzle(lookupScale, m_componentMapping);
+	tcu::Vec4						swizzledBias	= swizzle(lookupBias, m_componentMapping);
 
 	switch (m_imageViewType)
 	{
@@ -343,7 +341,7 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 	const deUint32				numLevels				= ImageViewTest::getNumLevels(viewType);
 	const deUint32				arraySize				= ImageViewTest::getArraySize(viewType);
 	const VkImageAspectFlags	imageAspectFlags		= VK_IMAGE_ASPECT_COLOR_BIT;
-	const VkComponentMapping	componentMapping		= getFormatComponentMapping(imageFormat);
+	const VkComponentMapping	componentMapping		= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
 	de::MovePtr<tcu::TestCaseGroup> rangeTests (new tcu::TestCaseGroup(testCtx, "subresource_range", ""));
 
@@ -352,10 +350,10 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 		for (int configNdx = 0; configNdx < DE_LENGTH_OF_ARRAY(TEST_CASES); configNdx++)				\
 		{																								\
 			std::ostringstream		desc;																\
-			const TestCaseConfig	config	= TEST_CASES[configNdx];									\
+			const TestCaseConfig	config	= (TEST_CASES)[configNdx];									\
 			desc << "Samples level " << config.samplerLod << " with :\n" << config.subresourceRange;	\
 			rangeTests->addChild(new ImageViewTest(testCtx, config.name, desc.str().c_str(), viewType,	\
-												   imageFormat, config.samplerLod, componentMapping,		\
+												   imageFormat, config.samplerLod, componentMapping,	\
 												   config.subresourceRange));							\
 		}																								\
 	} while (deGetFalse())
@@ -390,9 +388,18 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 			{ "lod_mip_levels_array_base_and_size",			4.0f,			{ imageAspectFlags, 0u, 3u, 2u, 3u } },
 		};
 
+		const TestCaseConfig mipLevelAndArrayRemainingRangeCases[] =
+		{
+			//	name																samplerLod	subresourceRange (aspectMask, baseMipLevel, mipLevels, baseArrayLayer, arraySize)
+			{ "lod_base_mip_level_remaining_levels",								0.0f,		{ imageAspectFlags,	1u,	VK_REMAINING_MIP_LEVELS,	0u,	arraySize					} },
+			{ "base_array_layer_remaining_layers",									0.0f,		{ imageAspectFlags,	0u,	numLevels,					1u,	VK_REMAINING_ARRAY_LAYERS	} },
+			{ "lod_base_mip_level_base_array_layer_remaining_levels_and_layers",	0.0f,		{ imageAspectFlags,	2u,	VK_REMAINING_MIP_LEVELS,	2u,	VK_REMAINING_ARRAY_LAYERS	} },
+		};
+
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(arrayRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRangeCases);
+		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRemainingRangeCases);
 	}
 	else if (viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY)
 	{
@@ -424,9 +431,18 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 			{ "lod_mip_levels_array_base_and_size",			4.0f,			{ imageAspectFlags, 0u, 3u, 12u, 6u } },
 		};
 
+		const TestCaseConfig mipLevelAndArrayRemainingRangeCases[] =
+		{
+			//	name																samplerLod	subresourceRange (aspectMask, baseMipLevel, mipLevels, baseArrayLayer, arraySize)
+			{ "lod_base_mip_level_remaining_levels",								0.0f,		{ imageAspectFlags,	1u,	VK_REMAINING_MIP_LEVELS,	0u,		arraySize					} },
+			{ "base_array_layer_remaining_layers",									0.0f,		{ imageAspectFlags,	0u,	numLevels,					6u,		VK_REMAINING_ARRAY_LAYERS	} },
+			{ "lod_base_mip_level_base_array_layer_remaining_levels_and_layers",	0.0f,		{ imageAspectFlags,	2u,	VK_REMAINING_MIP_LEVELS,	12u,	VK_REMAINING_ARRAY_LAYERS	} },
+		};
+
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(arrayRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRangeCases);
+		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRemainingRangeCases);
 	}
 	else if (viewType == VK_IMAGE_VIEW_TYPE_1D || viewType == VK_IMAGE_VIEW_TYPE_2D)
 	{
@@ -454,9 +470,18 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 			{ "lod_mip_levels_array_layer_last",		4.0f,		{ imageAspectFlags, 0u, 3u, arraySize - 1u, 1u } },
 		};
 
+		const TestCaseConfig mipLevelAndArrayRemainingRangeCases[] =
+		{
+			//	name																samplerLod	subresourceRange (aspectMask, baseMipLevel, mipLevels, baseArrayLayer, arraySize)
+			{ "lod_base_mip_level_remaining_levels",								0.0f,		{ imageAspectFlags,	1u,	VK_REMAINING_MIP_LEVELS,	0u,				1u							} },
+			{ "array_layer_last_remaining_layers",									0.0f,		{ imageAspectFlags,	0u,	numLevels,					arraySize - 1u,	VK_REMAINING_ARRAY_LAYERS	} },
+			{ "lod_base_mip_level_array_layer_last_remaining_levels_and_layers",	0.0f,		{ imageAspectFlags,	2u,	VK_REMAINING_MIP_LEVELS,	arraySize - 1u,	VK_REMAINING_ARRAY_LAYERS	} },
+		};
+
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(arrayRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRangeCases);
+		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRemainingRangeCases);
 	}
 	else if (viewType == VK_IMAGE_VIEW_TYPE_CUBE)
 	{
@@ -484,9 +509,18 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 			{ "lod_mip_levels_array_layer_last",		4.0f,		{ imageAspectFlags, 0u, 3u, arraySize - 6u, 6u } },
 		};
 
+		const TestCaseConfig mipLevelAndArrayRemainingRangeCases[] =
+		{
+			//	name																samplerLod	subresourceRange (aspectMask, baseMipLevel, mipLevels, baseArrayLayer, arraySize)
+			{ "lod_base_mip_level_remaining_levels",								0.0f,		{ imageAspectFlags,	1u,	VK_REMAINING_MIP_LEVELS,	0u,				6u							} },
+			{ "array_layer_last_remaining_layers",									0.0f,		{ imageAspectFlags,	0u,	numLevels,					arraySize - 6u,	VK_REMAINING_ARRAY_LAYERS	} },
+			{ "lod_base_mip_level_array_layer_last_remaining_levels_and_layers",	0.0f,		{ imageAspectFlags,	2u,	VK_REMAINING_MIP_LEVELS,	arraySize - 6u,	VK_REMAINING_ARRAY_LAYERS	} },
+		};
+
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(arrayRangeCases);
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRangeCases);
+		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRemainingRangeCases);
 	}
 	else if (viewType == VK_IMAGE_VIEW_TYPE_3D)
 	{
@@ -496,7 +530,17 @@ static de::MovePtr<tcu::TestCaseGroup> createSubresourceRangeTests(tcu::TestCont
 			{ "lod_base_mip_level",		0.0f,		{ imageAspectFlags, 2u, numLevels - 2u, 0u, arraySize } },
 			{ "lod_mip_levels",			4.0f,		{ imageAspectFlags, 0u, 3u, 0u, arraySize } },
 		};
+
+		const TestCaseConfig mipLevelAndArrayRemainingRangeCases[] =
+		{
+			//	name																samplerLod	subresourceRange (aspectMask, baseMipLevel, mipLevels, baseArrayLayer, arraySize)
+			{ "lod_base_mip_level_remaining_levels",								0.0f,		{ imageAspectFlags,	1u,	VK_REMAINING_MIP_LEVELS,	0u,	arraySize					} },
+			{ "single_array_layer_remaining_layers",								0.0f,		{ imageAspectFlags,	0u,	numLevels,					0u,	VK_REMAINING_ARRAY_LAYERS	} },
+			{ "lod_base_mip_level_single_array_layer_remaining_levels_and_layers",	0.0f,		{ imageAspectFlags,	2u,	VK_REMAINING_MIP_LEVELS,	0u,	VK_REMAINING_ARRAY_LAYERS	} },
+		};
+
 		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelRangeCases);
+		ADD_SUBRESOURCE_RANGE_TESTS(mipLevelAndArrayRemainingRangeCases);
 	}
 
 #undef ADD_SUBRESOURCE_RANGE_TESTS
@@ -588,7 +632,8 @@ static de::MovePtr<tcu::TestCaseGroup> createComponentSwizzleTests (tcu::TestCon
 		arraySize,											// deUint32				arraySize;
 	};
 
-	const std::vector<VkComponentMapping>	componentMappings	= getComponentMappingPermutations(getFormatComponentMapping(imageFormat));
+	const VkComponentMapping				baseMapping			= { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	const std::vector<VkComponentMapping>	componentMappings	= getComponentMappingPermutations(baseMapping);
 	de::MovePtr<tcu::TestCaseGroup>			swizzleTests		(new tcu::TestCaseGroup(testCtx, "component_swizzle", ""));
 
 	for (size_t mappingNdx = 0; mappingNdx < componentMappings.size(); mappingNdx++)

@@ -13,7 +13,12 @@ must be logged in with an @google.com account to view chromeOS perf data there.
 
 """
 
-import httplib, json, math, os, re, urllib, urllib2
+import httplib
+import json
+import os
+import re
+import urllib
+import urllib2
 
 import common
 from autotest_lib.client.cros import constants
@@ -32,80 +37,6 @@ VERSION_REGEXP = r'^(\d+)\.(\d+)\.(\d+)\.(\d+)$'
 class PerfUploadingError(Exception):
     """Exception raised in perf_uploader"""
     pass
-
-
-def _aggregate_iterations(perf_values):
-    """Aggregate same measurements from multiple iterations.
-
-    Each perf measurement may exist multiple times across multiple iterations
-    of a test.  Here, the results for each unique measured perf metric are
-    aggregated across multiple iterations.
-
-    @param perf_values: A list of tko.models.perf_value_iteration objects.
-
-    @return A dictionary mapping each unique measured perf value (keyed by
-        tuple of its description and graph name) to information about that
-        perf value (in particular, the value is a list of values
-        for each iteration).
-
-    """
-    perf_data = {}
-    for perf_iteration in perf_values:
-        for perf_dict in perf_iteration.perf_measurements:
-            key = (perf_dict['description'], perf_dict['graph'])
-            if key not in perf_data:
-                perf_data[key] = {
-                    'units': perf_dict['units'],
-                    'higher_is_better': perf_dict['higher_is_better'],
-                    'graph': perf_dict['graph'],
-                    'value': [perf_dict['value']],   # Note: a list of values.
-                    'stddev': perf_dict['stddev']
-                }
-            else:
-                perf_data[key]['value'].append(perf_dict['value'])
-                # Note: the stddev will be recomputed later when the results
-                # from each of the multiple iterations are averaged together.
-    return perf_data
-
-
-def _mean_and_stddev(data, precision=4):
-    """Computes mean and standard deviation from a list of numbers.
-
-    Assumes that the list contains at least 2 numbers.
-
-    @param data: A list of numeric values.
-    @param precision: The integer number of decimal places to which to
-        round the results.
-
-    @return A 2-tuple (mean, standard_deviation), in which each value is
-        rounded to |precision| decimal places.
-
-    """
-    n = len(data)
-    mean = float(sum(data)) / n
-    # Divide by n-1 to compute "sample standard deviation".
-    variance = sum([(elem - mean) ** 2 for elem in data]) / (n - 1)
-    return round(mean, precision), round(math.sqrt(variance), precision)
-
-
-def _compute_avg_stddev(perf_data):
-    """Compute average and standard deviations as needed for perf measurements.
-
-    For any perf measurement that exists in multiple iterations (has more than
-    one measured value), compute the average and standard deviation for it and
-    then store the updated information in the dictionary.
-
-    @param perf_data: A dictionary of measured perf data as computed by
-        _aggregate_iterations(), except each value is now a single value, not a
-        list of values.
-
-    """
-    for perf_dict in perf_data.itervalues():
-        if len(perf_dict['value']) > 1:
-            perf_dict['value'], perf_dict['stddev'] = (
-                    _mean_and_stddev(map(float, perf_dict['value'])))
-        else:
-            perf_dict['value'] = perf_dict['value'][0]  # Take out of list.
 
 
 def _parse_config_file(config_file):
@@ -166,8 +97,8 @@ def _gather_presentation_info(config_data, test_name):
 
 def _format_for_upload(platform_name, cros_version, chrome_version,
                        hardware_id, variant_name, hardware_hostname,
-                       perf_data, presentation_info):
-    """Formats perf data suitably to upload to the perf dashboard.
+                       perf_data, presentation_info, jobname):
+    """Formats perf data suitable to upload to the perf dashboard.
 
     The perf dashboard expects perf data to be uploaded as a
     specially-formatted JSON string.  In particular, the JSON object must be a
@@ -180,59 +111,51 @@ def _format_for_upload(platform_name, cros_version, chrome_version,
     @param cros_version: The string chromeOS version number.
     @param chrome_version: The string chrome version number.
     @param hardware_id: String that identifies the type of hardware the test was
-        executed on.
+            executed on.
     @param variant_name: String that identifies the variant name of the board.
     @param hardware_hostname: String that identifies the name of the device the
-        test was executed on.
+            test was executed on.
     @param perf_data: A dictionary of measured perf data as computed by
-        _compute_avg_stddev().
+            _compute_avg_stddev().
     @param presentation_info: A dictionary of dashboard presentation info for
-        the given test, as identified by _gather_presentation_info().
+            the given test, as identified by _gather_presentation_info().
+    @param jobname: A string uniquely identifying the test run, this enables
+            linking back from a test result to the logs of the test run.
 
     @return A dictionary containing the formatted information ready to upload
         to the performance dashboard.
 
     """
-    dash_entries = []
     if variant_name:
         platform_name += '-' + variant_name
-    for (desc, graph), data in perf_data.iteritems():
-        # Each perf metric is named by a path that encodes the test name,
-        # a graph name (if specified), and a description.  This must be defined
-        # according to rules set by the Chrome team, as implemented in:
-        # chromium/tools/build/scripts/slave/results_dashboard.py.
-        if desc.endswith('_ref'):
-            desc = 'ref'
-        desc = desc.replace('_by_url', '')
-        desc = desc.replace('/', '_')
-        if data['graph']:
-            test_path = '%s/%s/%s' % (presentation_info['test_name'],
-                                      data['graph'], desc)
-        else:
-            test_path = '%s/%s' % (presentation_info['test_name'], desc)
 
-        new_dash_entry = {
-            'master': presentation_info['master_name'],
-            'bot': 'cros-' + platform_name,  # Prefix to clarify it's chromeOS.
-            'test': test_path,
-            'value': data['value'],
-            'error': data['stddev'],
-            'units': data['units'],
-            'higher_is_better': data['higher_is_better'],
-            'revision': _get_id_from_version(chrome_version, cros_version),
-            'supplemental_columns': {
-                'r_cros_version': cros_version,
-                'r_chrome_version': chrome_version,
-                'a_default_rev': 'r_chrome_version',
-                'a_hardware_identifier': hardware_id,
-                'a_hardware_hostname': hardware_hostname,
-            }
+    perf_values = perf_data
+    # Client side case - server side comes with its own charts data section.
+    if 'charts' not in perf_values:
+        perf_values = {
+          'format_version': '1.0',
+          'benchmark_name': presentation_info['test_name'],
+          'charts': perf_data,
         }
 
-        dash_entries.append(new_dash_entry)
-
-    json_string = json.dumps(dash_entries)
-    return {'data': json_string}
+    dash_entry = {
+        'master': presentation_info['master_name'],
+        'bot': 'cros-' + platform_name,  # Prefix to clarify it's ChromeOS.
+        'point_id': _get_id_from_version(chrome_version, cros_version),
+        'versions': {
+            'cros_version': cros_version,
+            'chrome_version': chrome_version,
+        },
+        'supplemental': {
+            'default_rev': 'r_cros_version',
+            'hardware_identifier': hardware_id,
+            'hardware_hostname': hardware_hostname,
+            'variant_name': variant_name,
+            'jobname': jobname,
+        },
+        'chart_data': perf_values,
+    }
+    return {'data': json.dumps(dash_entry)}
 
 
 def _get_version_numbers(test_attributes):
@@ -247,8 +170,13 @@ def _get_version_numbers(test_attributes):
     """
     chrome_version = test_attributes.get('CHROME_VERSION', '')
     cros_version = test_attributes.get('CHROMEOS_RELEASE_VERSION', '')
-    # Prefix the ChromeOS version number with the Chrome milestone.
-    cros_version = chrome_version[:chrome_version.find('.') + 1] + cros_version
+    cros_milestone = test_attributes.get('CHROMEOS_RELEASE_CHROME_MILESTONE')
+    # Use the release milestone as the milestone if present, othewise prefix the
+    # cros version with the with the Chrome browser milestone.
+    if cros_milestone:
+      cros_version = "%s.%s" % (cros_milestone, cros_version)
+    else:
+      cros_version = chrome_version[:chrome_version.find('.') + 1] + cros_version
     if not re.match(VERSION_REGEXP, cros_version):
         raise PerfUploadingError('CrOS version "%s" does not match expected '
                                  'format.' % cros_version)
@@ -347,30 +275,25 @@ def _send_to_dashboard(data_obj):
                 'HTTPException for JSON %s\n' % data_obj['data'])
 
 
-def upload_test(job, test):
+def upload_test(job, test, jobname):
     """Uploads any perf data associated with a test to the perf dashboard.
 
     @param job: An autotest tko.models.job object that is associated with the
         given |test|.
     @param test: An autotest tko.models.test object that may or may not be
         associated with measured perf data.
+    @param jobname: A string uniquely identifying the test run, this enables
+            linking back from a test result to the logs of the test run.
 
     """
-    if not test.perf_values:
-        return
-
-    # Aggregate values from multiple iterations together.
-    perf_data = _aggregate_iterations(test.perf_values)
-
-    # Compute averages and standard deviations as needed for measured perf
-    # values that exist in multiple iterations.  Ultimately, we only upload a
-    # single measurement (with standard deviation) for every unique measured
-    # perf metric.
-    _compute_avg_stddev(perf_data)
 
     # Format the perf data for the upload, then upload it.
     test_name = test.testname
     platform_name = job.machine_group
+    # Append the platform name with '.arc' if the suffix of the control
+    # filename is '.arc'.
+    if job.label and re.match('.*\.arc$', job.label):
+        platform_name += '.arc'
     hardware_id = test.attributes.get('hwid', '')
     hardware_hostname = test.machine
     variant_name = test.attributes.get(constants.VARIANT_KEY, None)
@@ -386,7 +309,8 @@ def upload_test(job, test):
         presentation_info = _gather_presentation_info(config_data, test_name)
         formatted_data = _format_for_upload(
                 platform_name, cros_version, chrome_version, hardware_id,
-                variant_name, hardware_hostname, perf_data, presentation_info)
+                variant_name, hardware_hostname, test.perf_values,
+                presentation_info, jobname)
         _send_to_dashboard(formatted_data)
     except PerfUploadingError as e:
         tko_utils.dprint('Error when uploading perf data to the perf '
@@ -394,3 +318,4 @@ def upload_test(job, test):
     else:
         tko_utils.dprint('Successfully uploaded perf data to the perf '
                          'dashboard for test %s.' % test_name)
+

@@ -16,13 +16,13 @@
 
 package android.voicesettings.service;
 
+import com.android.compatibility.common.util.BroadcastUtils;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.content.ComponentName;
 import android.os.Bundle;
 import android.util.Log;
-
-import android.cts.util.BroadcastUtils;
 
 public class VoiceInteractionMain extends Activity {
     static final String TAG = "VoiceInteractionMain";

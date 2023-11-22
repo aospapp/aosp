@@ -6,7 +6,6 @@ NAME = 'graphics_GLMark2'
 AUTHOR = 'chromeos-gfx'
 PURPOSE = 'Benchmark the graphics library performance.'
 ATTRIBUTES = "suite:graphics, suite:graphics_per-day, suite:graphics_system"
-SUITE = 'graphics_per-day, graphics, graphics_system'
 TIME='MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "gl"
@@ -14,7 +13,7 @@ TEST_TYPE = 'client'
 # Reboot in the lab after the test ends.
 DEPENDENCIES='cleanup-reboot'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

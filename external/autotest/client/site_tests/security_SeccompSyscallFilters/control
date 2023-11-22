@@ -12,7 +12,6 @@ different settings
 PURPOSE = "To verify that seccomp is correctly changing permissions"
 CRITERIA = "Permissions are changed to expected values after seccomp calls"
 ATTRIBUTES = "suite:security"
-SUITE = "security"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

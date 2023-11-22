@@ -141,6 +141,20 @@ class ConstructorDecl : public Declaration {
   DISALLOW_COPY_AND_ASSIGN(ConstructorDecl);
 };  // class ConstructorDecl
 
+class MacroDecl : public Declaration {
+ public:
+  MacroDecl(const std::string& name, ArgList&& arg_list);
+  virtual ~MacroDecl() = default;
+
+  void Write(CodeWriter* to) const override;
+
+ private:
+  const std::string name_;
+  const ArgList arguments_;
+
+  DISALLOW_COPY_AND_ASSIGN(MacroDecl);
+};  // class MacroDecl
+
 class MethodDecl : public Declaration {
  public:
   enum Modifiers {
@@ -148,6 +162,7 @@ class MethodDecl : public Declaration {
     IS_VIRTUAL = 1 << 1,
     IS_OVERRIDE = 1 << 2,
     IS_PURE_VIRTUAL = 1 << 3,
+    IS_STATIC = 1 << 4,
   };
 
   MethodDecl(const std::string& return_type,
@@ -169,6 +184,7 @@ class MethodDecl : public Declaration {
   bool is_virtual_ = false;
   bool is_override_ = false;
   bool is_pure_virtual_ = false;
+  bool is_static_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(MethodDecl);
 };  // class MethodDecl
@@ -287,7 +303,7 @@ class MethodCall : public AstNode {
 
 class IfStatement : public AstNode {
  public:
-  IfStatement(AstNode* expression,
+  explicit IfStatement(AstNode* expression,
               bool invert_expression = false);
   virtual ~IfStatement() = default;
   StatementBlock* OnTrue() { return &on_true_; }
@@ -349,7 +365,7 @@ class CppNamespace : public Declaration {
                std::vector<std::unique_ptr<Declaration>> declarations);
   CppNamespace(const std::string& name,
                std::unique_ptr<Declaration> declaration);
-  CppNamespace(const std::string& name);
+  explicit CppNamespace(const std::string& name);
   virtual ~CppNamespace() = default;
 
   void Write(CodeWriter* to) const override;

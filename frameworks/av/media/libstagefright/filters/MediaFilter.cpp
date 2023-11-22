@@ -31,6 +31,8 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaFilter.h>
 
+#include <media/MediaCodecBuffer.h>
+
 #include <gui/BufferItem.h>
 
 #include "ColorConvert.h"
@@ -39,6 +41,9 @@
 #include "RSFilter.h"
 #include "SaturationFilter.h"
 #include "ZeroFilter.h"
+
+#include "../include/ACodecBufferChannel.h"
+#include "../include/SharedMemoryBuffer.h"
 
 namespace android {
 
@@ -49,6 +54,9 @@ MediaFilter::MediaFilter()
     : mState(UNINITIALIZED),
       mGeneration(0),
       mGraphicBufferListener(NULL) {
+    mBufferChannel = std::make_shared<ACodecBufferChannel>(
+            new AMessage(kWhatInputBufferFilled, this),
+            new AMessage(kWhatOutputBufferDrained, this));
 }
 
 MediaFilter::~MediaFilter() {
@@ -56,8 +64,8 @@ MediaFilter::~MediaFilter() {
 
 //////////////////// PUBLIC FUNCTIONS //////////////////////////////////////////
 
-void MediaFilter::setNotificationMessage(const sp<AMessage> &msg) {
-    mNotify = msg;
+std::shared_ptr<BufferChannelBase> MediaFilter::getBufferChannel() {
+    return mBufferChannel;
 }
 
 void MediaFilter::initiateAllocateComponent(const sp<AMessage> &msg) {
@@ -189,29 +197,6 @@ void MediaFilter::onMessageReceived(const sp<AMessage> &msg) {
     }
 }
 
-//////////////////// PORT DESCRIPTION //////////////////////////////////////////
-
-MediaFilter::PortDescription::PortDescription() {
-}
-
-void MediaFilter::PortDescription::addBuffer(
-        IOMX::buffer_id id, const sp<ABuffer> &buffer) {
-    mBufferIDs.push_back(id);
-    mBuffers.push_back(buffer);
-}
-
-size_t MediaFilter::PortDescription::countBuffers() {
-    return mBufferIDs.size();
-}
-
-IOMX::buffer_id MediaFilter::PortDescription::bufferIDAt(size_t index) const {
-    return mBufferIDs.itemAt(index);
-}
-
-sp<ABuffer> MediaFilter::PortDescription::bufferAt(size_t index) const {
-    return mBuffers.itemAt(index);
-}
-
 //////////////////// HELPER FUNCTIONS //////////////////////////////////////////
 
 void MediaFilter::signalProcessBuffers() {
@@ -219,10 +204,7 @@ void MediaFilter::signalProcessBuffers() {
 }
 
 void MediaFilter::signalError(status_t error) {
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatError);
-    notify->setInt32("err", error);
-    notify->post();
+    mCallback->onError(error, ACTION_CODE_FATAL);
 }
 
 status_t MediaFilter::allocateBuffersOnPort(OMX_U32 portIndex) {
@@ -250,7 +232,8 @@ status_t MediaFilter::allocateBuffersOnPort(OMX_U32 portIndex) {
         info.mBufferID = i;
         info.mGeneration = mGeneration;
         info.mOutputFlags = 0;
-        info.mData = new ABuffer(mem->pointer(), bufferSize);
+        info.mData = new SharedMemoryBuffer(
+                isInput ? mInputFormat : mOutputFormat, mem);
         info.mData->meta()->setInt64("timeUs", 0);
 
         mBuffers[portIndex].push_back(info);
@@ -261,21 +244,15 @@ status_t MediaFilter::allocateBuffersOnPort(OMX_U32 portIndex) {
         }
     }
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatBuffersAllocated);
-
-    notify->setInt32("portIndex", portIndex);
-
-    sp<PortDescription> desc = new PortDescription;
-
+    std::vector<ACodecBufferChannel::BufferAndId> array(mBuffers[portIndex].size());
     for (size_t i = 0; i < mBuffers[portIndex].size(); ++i) {
-        const BufferInfo &info = mBuffers[portIndex][i];
-
-        desc->addBuffer(info.mBufferID, info.mData);
+        array[i] = {mBuffers[portIndex][i].mData, mBuffers[portIndex][i].mBufferID};
     }
-
-    notify->setObject("portDesc", desc);
-    notify->post();
+    if (portIndex == kPortIndexInput) {
+        mBufferChannel->setInputBufferArray(array);
+    } else {
+        mBufferChannel->setOutputBufferArray(array);
+    }
 
     return OK;
 }
@@ -309,20 +286,14 @@ void MediaFilter::postFillThisBuffer(BufferInfo *info) {
 
     info->mGeneration = mGeneration;
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatFillThisBuffer);
-    notify->setInt32("buffer-id", info->mBufferID);
-
     info->mData->meta()->clear();
-    notify->setBuffer("buffer", info->mData);
 
     sp<AMessage> reply = new AMessage(kWhatInputBufferFilled, this);
     reply->setInt32("buffer-id", info->mBufferID);
 
-    notify->setMessage("reply", reply);
-
     info->mStatus = BufferInfo::OWNED_BY_UPSTREAM;
-    notify->post();
+
+    mBufferChannel->fillThisBuffer(info->mBufferID);
 }
 
 void MediaFilter::postDrainThisBuffer(BufferInfo *info) {
@@ -330,48 +301,18 @@ void MediaFilter::postDrainThisBuffer(BufferInfo *info) {
 
     info->mGeneration = mGeneration;
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatDrainThisBuffer);
-    notify->setInt32("buffer-id", info->mBufferID);
-    notify->setInt32("flags", info->mOutputFlags);
-    notify->setBuffer("buffer", info->mData);
-
     sp<AMessage> reply = new AMessage(kWhatOutputBufferDrained, this);
     reply->setInt32("buffer-id", info->mBufferID);
 
-    notify->setMessage("reply", reply);
-
-    notify->post();
+    mBufferChannel->drainThisBuffer(info->mBufferID, info->mOutputFlags);
 
     info->mStatus = BufferInfo::OWNED_BY_UPSTREAM;
 }
 
 void MediaFilter::postEOS() {
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatEOS);
-    notify->setInt32("err", ERROR_END_OF_STREAM);
-    notify->post();
+    mCallback->onEos(ERROR_END_OF_STREAM);
 
     ALOGV("Sent kWhatEOS.");
-}
-
-void MediaFilter::sendFormatChange() {
-    sp<AMessage> notify = mNotify->dup();
-
-    notify->setInt32("what", kWhatOutputFormatChanged);
-
-    AString mime;
-    CHECK(mOutputFormat->findString("mime", &mime));
-    notify->setString("mime", mime.c_str());
-
-    notify->setInt32("stride", mStride);
-    notify->setInt32("slice-height", mSliceHeight);
-    notify->setInt32("color-format", mColorFormatOut);
-    notify->setRect("crop", 0, 0, mStride - 1, mSliceHeight - 1);
-    notify->setInt32("width", mWidth);
-    notify->setInt32("height", mHeight);
-
-    notify->post();
 }
 
 void MediaFilter::requestFillEmptyInput() {
@@ -459,11 +400,8 @@ void MediaFilter::onAllocateComponent(const sp<AMessage> &msg) {
         return;
     }
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", kWhatComponentAllocated);
     // HACK - need "OMX.google" to use MediaCodec's software renderer
-    notify->setString("componentName", "OMX.google.MediaFilter");
-    notify->post();
+    mCallback->onComponentAllocated("OMX.google.MediaFilter");
     mState = INITIALIZED;
     ALOGV("Handled kWhatAllocateComponent.");
 }
@@ -540,16 +478,9 @@ void MediaFilter::onConfigureComponent(const sp<AMessage> &msg) {
     mOutputFormat->setInt32("width", mWidth);
     mOutputFormat->setInt32("height", mHeight);
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", kWhatComponentConfigured);
-    notify->setString("componentName", "MediaFilter");
-    notify->setMessage("input-format", mInputFormat);
-    notify->setMessage("output-format", mOutputFormat);
-    notify->post();
+    mCallback->onComponentConfigured(mInputFormat, mOutputFormat);
     mState = CONFIGURED;
     ALOGV("Handled kWhatConfigureComponent.");
-
-    sendFormatChange();
 }
 
 void MediaFilter::onStart() {
@@ -558,6 +489,8 @@ void MediaFilter::onStart() {
     allocateBuffersOnPort(kPortIndexInput);
 
     allocateBuffersOnPort(kPortIndexOutput);
+
+    mCallback->onStartCompleted();
 
     status_t err = mFilter->start();
     if (err != (status_t)OK) {
@@ -597,11 +530,12 @@ void MediaFilter::onInputBufferFilled(const sp<AMessage> &msg) {
     CHECK_EQ(info->mStatus, BufferInfo::OWNED_BY_UPSTREAM);
     info->mStatus = BufferInfo::OWNED_BY_US;
 
-    sp<ABuffer> buffer;
+    sp<MediaCodecBuffer> buffer;
     int32_t err = OK;
     bool eos = false;
 
-    if (!msg->findBuffer("buffer", &buffer)) {
+    sp<RefBase> obj;
+    if (!msg->findObject("buffer", &obj)) {
         // these are unfilled buffers returned by client
         CHECK(msg->findInt32("err", &err));
 
@@ -616,6 +550,8 @@ void MediaFilter::onInputBufferFilled(const sp<AMessage> &msg) {
         }
 
         buffer.clear();
+    } else {
+        buffer = static_cast<MediaCodecBuffer *>(obj.get());
     }
 
     int32_t isCSD;
@@ -688,9 +624,11 @@ void MediaFilter::onShutdown(const sp<AMessage> &msg) {
         mState = INITIALIZED;
     }
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatShutdownCompleted);
-    notify->post();
+    if (keepComponentAllocated) {
+        mCallback->onStopCompleted();
+    } else {
+        mCallback->onReleaseCompleted();
+    }
 }
 
 void MediaFilter::onFlush() {
@@ -712,9 +650,7 @@ void MediaFilter::onFlush() {
     mPortEOS[kPortIndexOutput] = false;
     mInputEOSResult = OK;
 
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatFlushCompleted);
-    notify->post();
+    mCallback->onFlushCompleted();
     ALOGV("Posted kWhatFlushCompleted");
 
     // MediaCodec returns all input buffers after flush, so in
@@ -746,13 +682,10 @@ void MediaFilter::onCreateInputSurface() {
         return;
     }
 
-    sp<AMessage> reply = mNotify->dup();
-    reply->setInt32("what", CodecBase::kWhatInputSurfaceCreated);
-    reply->setObject(
-            "input-surface",
+    mCallback->onInputSurfaceCreated(
+            nullptr, nullptr,
             new BufferProducerWrapper(
                     mGraphicBufferListener->getIGraphicBufferProducer()));
-    reply->post();
 }
 
 void MediaFilter::onInputFrameAvailable() {
@@ -768,7 +701,8 @@ void MediaFilter::onInputFrameAvailable() {
     // TODO: check input format and convert only if necessary
     // copy RGBA graphic buffer into temporary ARGB input buffer
     BufferInfo *inputInfo = new BufferInfo;
-    inputInfo->mData = new ABuffer(buf->getWidth() * buf->getHeight() * 4);
+    inputInfo->mData = new MediaCodecBuffer(
+            mInputFormat, new ABuffer(buf->getWidth() * buf->getHeight() * 4));
     ALOGV("Copying surface data into temp buffer.");
     convertRGBAToARGB(
             (uint8_t*)bufPtr, buf->getWidth(), buf->getHeight(),
@@ -813,9 +747,7 @@ void MediaFilter::onSignalEndOfInputStream() {
     }
 
     mPortEOS[kPortIndexOutput] = true;
-    sp<AMessage> notify = mNotify->dup();
-    notify->setInt32("what", CodecBase::kWhatSignaledInputEOS);
-    notify->post();
+    mCallback->onSignaledInputEOS(OK);
 
     ALOGV("Output stream saw EOS.");
 }

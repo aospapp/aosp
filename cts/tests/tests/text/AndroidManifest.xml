@@ -68,7 +68,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-                <data android:scheme="ctstest" />
+                <data android:scheme="ctstesttext" />
             </intent-filter>
         </activity>
 

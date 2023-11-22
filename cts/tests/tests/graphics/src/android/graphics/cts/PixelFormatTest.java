@@ -16,108 +16,97 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.graphics.PixelFormat;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PixelFormatTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private PixelFormat mPixelFormat;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mPixelFormat = null;
-    }
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PixelFormatTest {
+    @Test
     public void testConstructor() {
-        mPixelFormat = null;
-        // new the PixelFormat instance
-        mPixelFormat = new PixelFormat();
+        new PixelFormat();
     }
 
+    @Test
     public void testGetPixelFormatInfo() {
+        PixelFormat pixelFormat = new PixelFormat();
 
-        // new the PixelFormat instance
-        mPixelFormat = new PixelFormat();
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGBA_8888, pixelFormat);
+        assertEquals(4, pixelFormat.bytesPerPixel);
+        assertEquals(32, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGBA_8888, mPixelFormat);
-        assertEquals(4, mPixelFormat.bytesPerPixel);
-        assertEquals(32, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGBX_8888, pixelFormat);
+        assertEquals(4, pixelFormat.bytesPerPixel);
+        assertEquals(32, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGBX_8888, mPixelFormat);
-        assertEquals(4, mPixelFormat.bytesPerPixel);
-        assertEquals(32, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGB_888, pixelFormat);
+        assertEquals(3, pixelFormat.bytesPerPixel);
+        assertEquals(24, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGB_888, mPixelFormat);
-        assertEquals(3, mPixelFormat.bytesPerPixel);
-        assertEquals(24, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGB_565, pixelFormat);
+        assertEquals(2, pixelFormat.bytesPerPixel);
+        assertEquals(16, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGB_565, mPixelFormat);
-        assertEquals(2, mPixelFormat.bytesPerPixel);
-        assertEquals(16, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGBA_5551, pixelFormat);
+        assertEquals(2, pixelFormat.bytesPerPixel);
+        assertEquals(16, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGBA_5551, mPixelFormat);
-        assertEquals(2, mPixelFormat.bytesPerPixel);
-        assertEquals(16, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGBA_4444, pixelFormat);
+        assertEquals(2, pixelFormat.bytesPerPixel);
+        assertEquals(16, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGBA_4444, mPixelFormat);
-        assertEquals(2, mPixelFormat.bytesPerPixel);
-        assertEquals(16, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.A_8, pixelFormat);
+        assertEquals(1, pixelFormat.bytesPerPixel);
+        assertEquals(8, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.A_8, mPixelFormat);
-        assertEquals(1, mPixelFormat.bytesPerPixel);
-        assertEquals(8, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.L_8, pixelFormat);
+        assertEquals(1, pixelFormat.bytesPerPixel);
+        assertEquals(8, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.L_8, mPixelFormat);
-        assertEquals(1, mPixelFormat.bytesPerPixel);
-        assertEquals(8, mPixelFormat.bitsPerPixel);
+        PixelFormat.getPixelFormatInfo(PixelFormat.LA_88, pixelFormat);
+        assertEquals(2, pixelFormat.bytesPerPixel);
+        assertEquals(16, pixelFormat.bitsPerPixel);
 
-        PixelFormat.getPixelFormatInfo(PixelFormat.LA_88, mPixelFormat);
-        assertEquals(2, mPixelFormat.bytesPerPixel);
-        assertEquals(16, mPixelFormat.bitsPerPixel);
-
-        PixelFormat.getPixelFormatInfo(PixelFormat.RGB_332, mPixelFormat);
-        assertEquals(1, mPixelFormat.bytesPerPixel);
-        assertEquals(8, mPixelFormat.bitsPerPixel);
-
-        try {
-            PixelFormat.getPixelFormatInfo(PixelFormat.UNKNOWN, mPixelFormat);
-            fail("Should throw IllegalArgumentException!");
-        } catch (IllegalArgumentException e) {
-            //excepted
-        }
-
-        try {
-            PixelFormat.getPixelFormatInfo(PixelFormat.JPEG, mPixelFormat);
-            fail("Should throw IllegalArgumentException!");
-        } catch (IllegalArgumentException e) {
-            //excepted
-        }
-
-        try {
-            PixelFormat.getPixelFormatInfo(PixelFormat.TRANSLUCENT, mPixelFormat);
-            fail("Should throw IllegalArgumentException!");
-        } catch (IllegalArgumentException e) {
-            //excepted
-        }
-
-        try {
-            PixelFormat.getPixelFormatInfo(PixelFormat.TRANSPARENT, mPixelFormat);
-            fail("Should throw IllegalArgumentException!");
-        } catch (IllegalArgumentException e) {
-            //excepted
-        }
-
-        try {
-            PixelFormat.getPixelFormatInfo(PixelFormat.OPAQUE, mPixelFormat);
-            fail("Should throw IllegalArgumentException!");
-        } catch (IllegalArgumentException e) {
-            //excepted
-        }
+        PixelFormat.getPixelFormatInfo(PixelFormat.RGB_332, pixelFormat);
+        assertEquals(1, pixelFormat.bytesPerPixel);
+        assertEquals(8, pixelFormat.bitsPerPixel);
     }
 
-    public void testFormatHasAlpha() {
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetPixelFormatInfoUnknown() {
+        PixelFormat.getPixelFormatInfo(PixelFormat.UNKNOWN, new PixelFormat());
+    }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetPixelFormatInfoJpeg() {
+        PixelFormat.getPixelFormatInfo(PixelFormat.JPEG, new PixelFormat());
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetPixelFormatInfoTranslucent() {
+        PixelFormat.getPixelFormatInfo(PixelFormat.TRANSLUCENT, new PixelFormat());
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetPixelFormatInfoTransparent() {
+        PixelFormat.getPixelFormatInfo(PixelFormat.TRANSPARENT, new PixelFormat());
+    }
+
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetPixelFormatInfoOpaque() {
+        PixelFormat.getPixelFormatInfo(PixelFormat.OPAQUE, new PixelFormat());
+    }
+
+    @Test
+    public void testFormatHasAlpha() {
         assertTrue(PixelFormat.formatHasAlpha(PixelFormat.RGBA_8888));
         assertFalse(PixelFormat.formatHasAlpha(PixelFormat.RGBX_8888));
         assertFalse(PixelFormat.formatHasAlpha(PixelFormat.RGB_888));
@@ -130,5 +119,4 @@ public class PixelFormatTest extends TestCase {
         assertFalse(PixelFormat.formatHasAlpha(PixelFormat.RGB_332));
         assertFalse(PixelFormat.formatHasAlpha(PixelFormat.UNKNOWN));
     }
-
 }

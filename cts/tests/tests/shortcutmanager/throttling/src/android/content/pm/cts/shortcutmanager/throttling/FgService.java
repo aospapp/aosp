@@ -16,11 +16,14 @@
 package android.content.pm.cts.shortcutmanager.throttling;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.cts.shortcutmanager.common.Constants;
+import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -28,6 +31,8 @@ import android.util.Log;
  * Make sure that when a fg service is running, shortcut manager calls are not throttled.
  */
 public class FgService extends Service {
+    private static final String NOTIFICATION_CHANNEL_ID = "cts/shortcutmanager/FgService";
+
     public static void start(Context context, String replyAction) {
         final Intent i =
                 new Intent().setComponent(new ComponentName(context, FgService.class))
@@ -39,10 +44,15 @@ public class FgService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
 
         // Start as foreground.
-        Notification notification = new Notification.Builder(getApplicationContext())
-                .setContentTitle("FgService")
-                .setSmallIcon(android.R.drawable.ic_popup_sync)
-                .build();
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        notificationManager.createNotificationChannel(new NotificationChannel(
+                NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_ID,
+                NotificationManager.IMPORTANCE_DEFAULT));
+        Notification notification =
+                new Notification.Builder(getApplicationContext(), NOTIFICATION_CHANNEL_ID)
+                        .setContentTitle("FgService")
+                        .setSmallIcon(android.R.drawable.ic_popup_sync)
+                        .build();
         startForeground(1, notification);
 
         final String replyAction = intent.getStringExtra(Constants.EXTRA_REPLY_ACTION);

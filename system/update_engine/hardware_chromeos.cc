@@ -16,22 +16,27 @@
 
 #include "update_engine/hardware_chromeos.h"
 
+#include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/strings/string_util.h>
+#include <brillo/key_value_store.h>
 #include <brillo/make_unique_ptr.h>
+#include <debugd/dbus-constants.h>
 #include <vboot/crossystem.h>
 
 extern "C" {
 #include "vboot/vboot_host.h"
 }
 
+#include "update_engine/common/constants.h"
 #include "update_engine/common/hardware.h"
 #include "update_engine/common/hwid_override.h"
 #include "update_engine/common/platform_constants.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
+#include "update_engine/dbus_connection.h"
 
 using std::string;
 using std::vector;
@@ -50,6 +55,14 @@ const char kPowerwashSafeDirectory[] =
 // a powerwash is performed.
 const char kPowerwashCountMarker[] = "powerwash_count";
 
+// The name of the marker file used to trigger powerwash when post-install
+// completes successfully so that the device is powerwashed on next reboot.
+const char kPowerwashMarkerFile[] =
+    "/mnt/stateful_partition/factory_install_reset";
+
+// The contents of the powerwash marker file.
+const char kPowerwashCommand[] = "safe fast keepimg reason=update_engine\n";
+
 // UpdateManager config path.
 const char* kConfigFilePath = "/etc/update_manager.conf";
 
@@ -64,10 +77,18 @@ namespace hardware {
 
 // Factory defined in hardware.h.
 std::unique_ptr<HardwareInterface> CreateHardware() {
-  return brillo::make_unique_ptr(new HardwareChromeOS());
+  std::unique_ptr<HardwareChromeOS> hardware(new HardwareChromeOS());
+  hardware->Init();
+  return std::move(hardware);
 }
 
 }  // namespace hardware
+
+void HardwareChromeOS::Init() {
+  LoadConfig("" /* root_prefix */, IsNormalBootMode());
+  debugd_proxy_.reset(
+      new org::chromium::debugdProxy(DBusConnection::Get()->GetDBus()));
+}
 
 bool HardwareChromeOS::IsOfficialBuild() const {
   return VbGetSystemPropertyInt("debug_build") == 0;
@@ -78,7 +99,32 @@ bool HardwareChromeOS::IsNormalBootMode() const {
   return !dev_mode;
 }
 
+bool HardwareChromeOS::AreDevFeaturesEnabled() const {
+  // Even though the debugd tools are also gated on devmode, checking here can
+  // save us a D-Bus call so it's worth doing explicitly.
+  if (IsNormalBootMode())
+    return false;
+
+  int32_t dev_features = debugd::DEV_FEATURES_DISABLED;
+  brillo::ErrorPtr error;
+  // Some boards may not include debugd so it's expected that this may fail,
+  // in which case we treat it as disabled.
+  if (debugd_proxy_ && debugd_proxy_->QueryDevFeatures(&dev_features, &error) &&
+      !(dev_features & debugd::DEV_FEATURES_DISABLED)) {
+    LOG(INFO) << "Debugd dev tools enabled.";
+    return true;
+  }
+  return false;
+}
+
+bool HardwareChromeOS::IsOOBEEnabled() const {
+  return is_oobe_enabled_;
+}
+
 bool HardwareChromeOS::IsOOBEComplete(base::Time* out_time_of_oobe) const {
+  if (!is_oobe_enabled_) {
+    LOG(WARNING) << "OOBE is not enabled but IsOOBEComplete() was called";
+  }
   struct stat statbuf;
   if (stat(kOOBECompletedMarker, &statbuf) != 0) {
     if (errno != ENOENT) {
@@ -150,9 +196,11 @@ bool HardwareChromeOS::SchedulePowerwash() {
   bool result = utils::WriteFile(
       kPowerwashMarkerFile, kPowerwashCommand, strlen(kPowerwashCommand));
   if (result) {
-    LOG(INFO) << "Created " << marker_file << " to powerwash on next reboot";
+    LOG(INFO) << "Created " << kPowerwashMarkerFile
+              << " to powerwash on next reboot";
   } else {
-    PLOG(ERROR) << "Error in creating powerwash marker file: " << marker_file;
+    PLOG(ERROR) << "Error in creating powerwash marker file: "
+                << kPowerwashMarkerFile;
   }
 
   return result;
@@ -163,10 +211,10 @@ bool HardwareChromeOS::CancelPowerwash() {
 
   if (result) {
     LOG(INFO) << "Successfully deleted the powerwash marker file : "
-              << marker_file;
+              << kPowerwashMarkerFile;
   } else {
     PLOG(ERROR) << "Could not delete the powerwash marker file : "
-                << marker_file;
+                << kPowerwashMarkerFile;
   }
 
   return result;
@@ -180,6 +228,24 @@ bool HardwareChromeOS::GetNonVolatileDirectory(base::FilePath* path) const {
 bool HardwareChromeOS::GetPowerwashSafeDirectory(base::FilePath* path) const {
   *path = base::FilePath(kPowerwashSafeDirectory);
   return true;
+}
+
+void HardwareChromeOS::LoadConfig(const string& root_prefix, bool normal_mode) {
+  brillo::KeyValueStore store;
+
+  if (normal_mode) {
+    store.Load(base::FilePath(root_prefix + kConfigFilePath));
+  } else {
+    if (store.Load(base::FilePath(root_prefix + kStatefulPartition +
+                                  kConfigFilePath))) {
+      LOG(INFO) << "UpdateManager Config loaded from stateful partition.";
+    } else {
+      store.Load(base::FilePath(root_prefix + kConfigFilePath));
+    }
+  }
+
+  if (!store.GetBoolean(kConfigOptsIsOOBEEnabled, &is_oobe_enabled_))
+    is_oobe_enabled_ = true;  // Default value.
 }
 
 }  // namespace chromeos_update_engine

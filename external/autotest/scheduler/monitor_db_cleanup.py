@@ -3,14 +3,21 @@ Autotest AFE Cleanup used by the scheduler
 """
 
 
-import time, logging, random
+import logging
+import random
+import time
 
+from autotest_lib.client.common_lib import utils
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import email_manager
 from autotest_lib.scheduler import scheduler_config
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import host_protections
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 class PeriodicCleanup(object):
@@ -51,15 +58,14 @@ class UserCleanup(PeriodicCleanup):
     """User cleanup that is controlled by the global config variable
        clean_interval_minutes in the SCHEDULER section.
     """
-    timer = autotest_stats.Timer('monitor_db_cleanup.user_cleanup')
-
 
     def __init__(self, db, clean_interval_minutes):
         super(UserCleanup, self).__init__(db, clean_interval_minutes)
         self._last_reverify_time = time.time()
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator(
+            'chromeos/autotest/scheduler/cleanup/user/durations')
     def _cleanup(self):
         logging.info('Running periodic cleanup')
         self._abort_timed_out_jobs()
@@ -70,7 +76,6 @@ class UserCleanup(PeriodicCleanup):
         self._django_session_cleanup()
 
 
-    @timer.decorate
     def _abort_timed_out_jobs(self):
         msg = 'Aborting all jobs that have timed out and are not complete'
         logging.info(msg)
@@ -81,19 +86,17 @@ class UserCleanup(PeriodicCleanup):
             job.abort()
 
 
-    @timer.decorate
     def _abort_jobs_past_max_runtime(self):
         """
         Abort executions that have started and are past the job's max runtime.
         """
         logging.info('Aborting all jobs that have passed maximum runtime')
         rows = self._db.execute("""
-            SELECT hqe.id
-            FROM afe_host_queue_entries AS hqe
-            INNER JOIN afe_jobs ON (hqe.job_id = afe_jobs.id)
-            WHERE NOT hqe.complete AND NOT hqe.aborted AND
-            hqe.started_on + INTERVAL afe_jobs.max_runtime_mins MINUTE <
-            NOW()""")
+            SELECT hqe.id FROM afe_host_queue_entries AS hqe
+            WHERE NOT hqe.complete AND NOT hqe.aborted AND EXISTS
+            (select * from afe_jobs where hqe.job_id=afe_jobs.id and
+             hqe.started_on + INTERVAL afe_jobs.max_runtime_mins MINUTE < NOW())
+            """)
         query = models.HostQueueEntry.objects.filter(
             id__in=[row[0] for row in rows])
         for queue_entry in query.distinct():
@@ -101,7 +104,6 @@ class UserCleanup(PeriodicCleanup):
             queue_entry.abort()
 
 
-    @timer.decorate
     def _check_for_db_inconsistencies(self):
         logging.info('Cleaning db inconsistencies')
         self._check_all_invalid_related_objects()
@@ -149,15 +151,11 @@ class UserCleanup(PeriodicCleanup):
                 first_model, first_field, second_model, second_field))
 
         if errors:
-            subject = ('%s relationships to invalid models, cleaned all' %
-                       len(errors))
-            message = '\n'.join(errors)
-            logging.warning(subject)
-            logging.warning(message)
-            email_manager.manager.enqueue_notify_email(subject, message)
+            m = 'chromeos/autotest/scheduler/cleanup/invalid_models_cleaned'
+            metrics.Counter(m).increment_by(len(errors))
+            logging.warn('Cleaned invalid models due to errors: %s'
+                         % ('\n'.join(errors)))
 
-
-    @timer.decorate
     def _clear_inactive_blocks(self):
         msg = 'Clear out blocks for all completed jobs.'
         logging.info(msg)
@@ -165,10 +163,10 @@ class UserCleanup(PeriodicCleanup):
         # treats all IN subqueries as dependent, so this optimizes much
         # better
         self._db.execute("""
-            DELETE ihq FROM afe_ineligible_host_queues ihq
-            LEFT JOIN (SELECT DISTINCT job_id FROM afe_host_queue_entries
-                       WHERE NOT complete) hqe
-            USING (job_id) WHERE hqe.job_id IS NULL""")
+                DELETE ihq FROM afe_ineligible_host_queues ihq
+                WHERE NOT EXISTS
+                    (SELECT job_id FROM afe_host_queue_entries hqe
+                     WHERE NOT hqe.complete AND hqe.job_id = ihq.job_id)""")
 
 
     def _should_reverify_hosts_now(self):
@@ -187,7 +185,6 @@ class UserCleanup(PeriodicCleanup):
         return sorted(hosts)
 
 
-    @timer.decorate
     def _reverify_dead_hosts(self):
         if not self._should_reverify_hosts_now():
             return
@@ -213,7 +210,6 @@ class UserCleanup(PeriodicCleanup):
                     host=host, task=models.SpecialTask.Task.VERIFY)
 
 
-    @timer.decorate
     def _django_session_cleanup(self):
         """Clean up django_session since django doesn't for us.
            http://www.djangoproject.com/documentation/0.96/sessions/
@@ -227,7 +223,6 @@ class TwentyFourHourUpkeep(PeriodicCleanup):
     """Cleanup that runs at the startup of monitor_db and every subsequent
        twenty four hours.
     """
-    timer = autotest_stats.Timer('monitor_db_cleanup.twentyfourhour_cleanup')
 
 
     def __init__(self, db, drone_manager, run_at_initialize=True):
@@ -245,23 +240,21 @@ class TwentyFourHourUpkeep(PeriodicCleanup):
             db, clean_interval_minutes, run_at_initialize=run_at_initialize)
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator(
+        'chromeos/autotest/scheduler/cleanup/daily/durations')
     def _cleanup(self):
         logging.info('Running 24 hour clean up')
         self._check_for_uncleanable_db_inconsistencies()
         self._cleanup_orphaned_containers()
 
 
-    @timer.decorate
     def _check_for_uncleanable_db_inconsistencies(self):
         logging.info('Checking for uncleanable DB inconsistencies')
         self._check_for_active_and_complete_queue_entries()
         self._check_for_multiple_platform_hosts()
         self._check_for_no_platform_hosts()
-        self._check_for_multiple_atomic_group_hosts()
 
 
-    @timer.decorate
     def _check_for_active_and_complete_queue_entries(self):
         query = models.HostQueueEntry.objects.filter(active=True, complete=True)
         if query.count() != 0:
@@ -279,7 +272,6 @@ class TwentyFourHourUpkeep(PeriodicCleanup):
             self._send_inconsistency_message(subject, lines)
 
 
-    @timer.decorate
     def _check_for_multiple_platform_hosts(self):
         rows = self._db.execute("""
             SELECT afe_hosts.id, hostname, COUNT(1) AS platform_count,
@@ -299,7 +291,6 @@ class TwentyFourHourUpkeep(PeriodicCleanup):
             self._send_inconsistency_message(subject, lines)
 
 
-    @timer.decorate
     def _check_for_no_platform_hosts(self):
         rows = self._db.execute("""
             SELECT hostname
@@ -314,30 +305,6 @@ class TwentyFourHourUpkeep(PeriodicCleanup):
                          ', '.join(row[0] for row in rows))
 
 
-    @timer.decorate
-    def _check_for_multiple_atomic_group_hosts(self):
-        rows = self._db.execute("""
-            SELECT afe_hosts.id, hostname,
-                   COUNT(DISTINCT afe_atomic_groups.name) AS atomic_group_count,
-                   GROUP_CONCAT(afe_labels.name),
-                   GROUP_CONCAT(afe_atomic_groups.name)
-            FROM afe_hosts
-            INNER JOIN afe_hosts_labels ON
-                    afe_hosts.id = afe_hosts_labels.host_id
-            INNER JOIN afe_labels ON afe_hosts_labels.label_id = afe_labels.id
-            INNER JOIN afe_atomic_groups ON
-                       afe_labels.atomic_group_id = afe_atomic_groups.id
-            WHERE NOT afe_hosts.invalid AND NOT afe_labels.invalid
-            GROUP BY afe_hosts.id
-            HAVING atomic_group_count > 1
-            ORDER BY hostname""")
-        if rows:
-            subject = '%s hosts with multiple atomic groups' % self._db.rowcount
-            lines = [' '.join(str(item) for item in row)
-                     for row in rows]
-            self._send_inconsistency_message(subject, lines)
-
-
     def _send_inconsistency_message(self, subject, lines):
         logging.error(subject)
         message = '\n'.join(lines)
@@ -346,7 +313,6 @@ class TwentyFourHourUpkeep(PeriodicCleanup):
         email_manager.manager.enqueue_notify_email(subject, message)
 
 
-    @timer.decorate
     def _cleanup_orphaned_containers(self):
         """Cleanup orphaned containers in each drone.
 

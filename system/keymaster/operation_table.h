@@ -27,7 +27,7 @@ class Operation;
 
 class OperationTable {
   public:
-    OperationTable(size_t table_size) : table_size_(table_size) {}
+    explicit OperationTable(size_t table_size) : table_size_(table_size) {}
 
     struct Entry {
         Entry() {

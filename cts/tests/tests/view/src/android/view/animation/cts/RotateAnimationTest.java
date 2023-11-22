@@ -16,10 +16,19 @@
 
 package android.view.animation.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
 import android.graphics.Matrix;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -27,32 +36,36 @@ import android.view.animation.Animation;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
 import android.view.animation.Transformation;
-
 import android.view.cts.R;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class RotateAnimationTest
-        extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
-
-    private Activity mActivity;
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class RotateAnimationTest {
     private static final long DURATION = 1000;
     private static final float ROTATE_DELTA = 0.001f;
     private static final float FROM_DEGREE = 0.0f;
     private static final float TO_DEGREE = 90.0f;
 
-    public RotateAnimationTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    private Instrumentation mInstrumentation;
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructors() {
-
         // Test with null AttributeSet
         new RotateAnimation(mActivity, null);
 
@@ -79,7 +92,8 @@ public class RotateAnimationTest
         new RotateAnimation(-0.6f, -0.6f, Animation.ABSOLUTE, -0.6f, Animation.ABSOLUTE, -0.6f);
     }
 
-    public void testRotateAgainstOrigin(){
+    @Test
+    public void testRotateAgainstOrigin() throws Throwable {
         final View animWindowParent = mActivity.findViewById(R.id.anim_window_parent);
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         Transformation transformation = new Transformation();
@@ -93,7 +107,8 @@ public class RotateAnimationTest
                 animWindowParent.getWidth(), animWindowParent.getHeight());
         assertTrue(rotateAnimation.isInitialized());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, rotateAnimation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                rotateAnimation);
         final long startTime = rotateAnimation.getStartTime();
 
         Matrix expectedMatrix = new Matrix();
@@ -130,7 +145,8 @@ public class RotateAnimationTest
         }
     }
 
-    public void testRotateAgainstPoint(){
+    @Test
+    public void testRotateAgainstPoint() throws Throwable {
         final View animWindowParent = mActivity.findViewById(R.id.anim_window_parent);
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         Transformation transformation = new Transformation();
@@ -149,7 +165,8 @@ public class RotateAnimationTest
                 animWindowParent.getWidth(), animWindowParent.getHeight());
         assertTrue(rotateAnimation.isInitialized());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, rotateAnimation);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                rotateAnimation);
         final long startTime = rotateAnimation.getStartTime();
 
         Matrix expectedMatrix = new Matrix();

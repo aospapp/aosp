@@ -22,21 +22,25 @@ ifeq ($(BOARD_HAVE_BLUETOOTH_LINUX), true)
 # ========================================================
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := \
-        bt_vendor_linux.c
+LOCAL_CPP_EXTENSION := .cc
 
-LOCAL_C_INCLUDES += \
+LOCAL_SRC_FILES := \
+        bt_vendor_linux.cc
+
+LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/../../
 
 LOCAL_SHARED_LIBRARIES := \
+        liblog \
         libcutils
+
+LOCAL_STATIC_LIBRARIES := libosi
 
 LOCAL_MODULE := libbt-vendor
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_CFLAGS += $(bluetooth_CFLAGS)
-LOCAL_CONLYFLAGS += $(bluetooth_CONLYFLAGS)
-LOCAL_CPPFLAGS += $(bluetooth_CPPFLAGS)
+LOCAL_CFLAGS += $(test-vendor_CFLAGS)
+LOCAL_CONLYFLAGS += $(test-vendor_CONLYFLAGS)
 
 include $(BUILD_SHARED_LIBRARY)
 

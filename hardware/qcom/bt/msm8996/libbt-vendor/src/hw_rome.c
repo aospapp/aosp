@@ -56,7 +56,6 @@ extern "C" {
 #include "hci_uart.h"
 #include "hw_rome.h"
 
-#define BT_VERSION_FILEPATH "/data/misc/bluedroid/bt_fw_version.txt"
 #define BOARD_ID_LEN 0x5
 #define MSB_NIBBLE_MASK 0xF0
 #define LSB_NIBBLE_MASK 0x0F
@@ -144,7 +143,7 @@ int get_vs_hci_event(unsigned char *rsp)
     int build_lbl_len;
 
     if( (rsp[EVENTCODE_OFFSET] == VSEVENT_CODE) || (rsp[EVENTCODE_OFFSET] == EVT_CMD_COMPLETE))
-        ALOGI("%s: Received HCI-Vendor Specific event", __FUNCTION__);
+        ALOGV("%s: Received HCI-Vendor Specific event", __FUNCTION__);
     else {
         ALOGI("%s: Failed to receive HCI-Vendor Specific event", __FUNCTION__);
         err = -EIO;
@@ -189,16 +188,6 @@ int get_vs_hci_event(unsigned char *rsp)
                                                 rsp[PATCH_SOC_VER_OFFSET]  ));
                 }
 
-                if (NULL != (btversionfile = fopen(BT_VERSION_FILEPATH, "wb"))) {
-                    fprintf(btversionfile, "Bluetooth Controller Product ID    : 0x%08x\n", productid);
-                    fprintf(btversionfile, "Bluetooth Controller Patch Version : 0x%04x\n", patchversion);
-                    fprintf(btversionfile, "Bluetooth Controller Build Version : 0x%04x\n", rome_ver);
-                    fprintf(btversionfile, "Bluetooth Controller SOC Version   : 0x%08x\n", soc_id);
-                    fclose(btversionfile);
-                }else {
-                    ALOGI("Failed to dump SOC version info. Errno:%d", errno);
-                }
-
                 /* Rome Chipset Version can be decided by Patch version and SOC version,
                 Upper 2 bytes will be used for Patch version and Lower 2 bytes will be
                 used for SOC as combination for BT host driver */
@@ -209,7 +198,7 @@ int get_vs_hci_event(unsigned char *rsp)
                 switch (err = rsp[CMD_STATUS_OFFSET])
                     {
                     case HCI_CMD_SUCCESS:
-                        ALOGI("%s: Download Packet successfully!", __FUNCTION__);
+                        ALOGV("%s: Download Packet successfully!", __FUNCTION__);
                         break;
                     case PATCH_LEN_ERROR:
                         ALOGI("%s: Invalid patch length argument passed for EDL PATCH "
@@ -239,12 +228,6 @@ int get_vs_hci_event(unsigned char *rsp)
                 *(build_label+build_lbl_len) = '\0';
 
                 ALOGI("BT SoC FW SU Build info: %s, %d", build_label, build_lbl_len);
-                if (NULL != (btversionfile = fopen(BT_VERSION_FILEPATH, "a+b"))) {
-                    fprintf(btversionfile, "Bluetooth Contoller SU Build info  : %s\n", build_label);
-                    fclose(btversionfile);
-                } else {
-                    ALOGI("Failed to dump  FW SU build info. Errno:%d", errno);
-                }
             break;
             case EDL_BOARD_ID_RESPONSE:
                 ALOGI("%s: board id %x %x!!", __FUNCTION__, rsp[6], rsp[7]);
@@ -482,7 +465,7 @@ void frame_hci_cmd_pkt(
             cmd[9]  = EXTRACT_BYTE(p_base_addr, 3);
             memcpy(&cmd[10], (pdata_buffer + offset), size);
 
-            ALOGD("%s: Sending EDL_PATCH_DLD_REQ_CMD: size: %d bytes",
+            ALOGV("%s: Sending EDL_PATCH_DLD_REQ_CMD: size: %d bytes",
                 __FUNCTION__, size);
             ALOGV("HCI-CMD %d:\t0x%x\t0x%x\t0x%x\t0x%x\t0x%x\t0x%x\t0x%x\t"
                 "0x%x\t0x%x\t0x%x\t\n", segtNo, cmd[0], cmd[1], cmd[2],
@@ -504,7 +487,7 @@ void frame_hci_cmd_pkt(
             segtNo, cmd[0], cmd[1], cmd[2], cmd[3], cmd[4]);
             break;
         case EDL_PATCH_TLV_REQ_CMD:
-            ALOGD("%s: Sending EDL_PATCH_TLV_REQ_CMD", __FUNCTION__);
+            ALOGV("%s: Sending EDL_PATCH_TLV_REQ_CMD", __FUNCTION__);
             /* Parameter Total Length */
             cmd[3] = size +2;
 
@@ -994,7 +977,7 @@ int rome_tlv_dnld_segment(int fd, int index, int seg_size, unsigned char wait_cc
         }
     }
 
-    ALOGI("%s: Successfully downloaded patch segment: %d", __FUNCTION__, index);
+    ALOGV("%s: Successfully downloaded patch segment: %d", __FUNCTION__, index);
     return err;
 }
 

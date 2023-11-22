@@ -51,7 +51,7 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
         mIsSplitSystemUser = checkIfSplitSystemUser();
         mPrimaryUserId = getDevice().getPrimaryUserId();
-        mFixedUsers = new ArrayList();
+        mFixedUsers = new ArrayList<>();
         mFixedUsers.add(mPrimaryUserId);
         if (mPrimaryUserId != USER_SYSTEM) {
             mFixedUsers.add(USER_SYSTEM);
@@ -62,6 +62,10 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
 
     @Override
     protected void tearDown() throws Exception {
+        if (getDevice().getCurrentUser() != mPrimaryUserId) {
+            CLog.w("User changed during test. Switching back to " + mPrimaryUserId);
+            getDevice().switchUser(mPrimaryUserId);
+        }
         removeTestUsers();
         super.tearDown();
     }
@@ -82,6 +86,29 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
             }
         } else {
             CLog.e("Failed to create restricted profile: %s", output);
+        }
+        throw new IllegalStateException();
+    }
+
+    /**
+     * @return the userid of the created user
+     */
+    protected int createUser()
+            throws DeviceNotAvailableException, IllegalStateException {
+        final String command = "pm create-user "
+                + "TestUser_" + System.currentTimeMillis();
+        CLog.d("Starting command: " + command);
+        final String output = getDevice().executeShellCommand(command);
+        CLog.d("Output for command " + command + ": " + output);
+
+        if (output.startsWith("Success")) {
+            try {
+                return Integer.parseInt(output.substring(output.lastIndexOf(" ")).trim());
+            } catch (NumberFormatException e) {
+                CLog.e("Failed to parse result: %s", output);
+            }
+        } else {
+            CLog.e("Failed to create user: %s", output);
         }
         throw new IllegalStateException();
     }

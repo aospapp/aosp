@@ -20,6 +20,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
@@ -64,18 +65,18 @@ public class SettingsPreparer extends PreconditionPreparer {
 
         if (mSettingName == null) {
             throw new TargetSetupError("The \"device-setting\" option must be defined for the " +
-                    "SettingsPreparer class");
+                    "SettingsPreparer class", device.getDeviceDescriptor());
         }
 
         if (mSettingType == null) {
             throw new TargetSetupError("The \"setting-type\" option must be defined for the " +
-                    "SettingsPreparer class");
+                    "SettingsPreparer class", device.getDeviceDescriptor());
         }
 
         /* At least one of the options "set-value" and "expected-values" must be set */
         if (mSetValue == null && mExpectedSettingValues.isEmpty()) {
             throw new TargetSetupError("At least one of the options \"set-value\" and " +
-                    "\"expected-values\" must be set");
+                    "\"expected-values\" must be set", device.getDeviceDescriptor());
         }
 
         String shellCmdGet = (!mExpectedSettingValues.isEmpty()) ?
@@ -90,12 +91,13 @@ public class SettingsPreparer extends PreconditionPreparer {
             if (!mExpectedSettingValues.contains(mSetValue)) {
                 throw new TargetSetupError(String.format(
                         "set-value for %s is %s, but value not found in expected-values: %s",
-                        mSettingName, mSetValue, mExpectedSettingValues.toString()));
+                        mSettingName, mSetValue, mExpectedSettingValues.toString()),
+                        device.getDeviceDescriptor());
             }
             String currentSettingValue = device.executeShellCommand(shellCmdGet).trim();
             // only change unexpected setting value
             if (!mExpectedSettingValues.contains(currentSettingValue)) {
-                logInfo("Changing value for %s from %s to %s",
+                CLog.d("Changing value for %s from %s to %s",
                         mSettingName, currentSettingValue, mSetValue);
                 device.executeShellCommand(shellCmdPut);
             }
@@ -104,7 +106,7 @@ public class SettingsPreparer extends PreconditionPreparer {
 
         /* Case 2: Only set-value given */
         if (mSetValue != null) {
-            logInfo("Setting %s to value %s", mSettingName, mSetValue);
+            CLog.d("Setting %s to value %s", mSettingName, mSetValue);
             device.executeShellCommand(shellCmdPut);
             return;
         }
@@ -117,7 +119,7 @@ public class SettingsPreparer extends PreconditionPreparer {
                         "Device setting \"%s\" returned \"%s\", not found in %s",
                         mSettingName, currentSettingValue, mExpectedSettingValues.toString());
             }
-            throw new TargetSetupError(mFailureMessage);
+            throw new TargetSetupError(mFailureMessage, device.getDeviceDescriptor());
         }
     }
 

@@ -17,6 +17,7 @@
 Bluetooth Pre-Flight Test.
 """
 
+from acts.test_decorators import test_tracker_info
 from acts.base_test import BaseTestClass
 import os
 import pprint
@@ -30,7 +31,7 @@ class BtPreFlightTest(BaseTestClass):
     def setup_class(self):
         for a in self.android_devices:
             d = a.droid
-            serial = d.getBuildSerial()
+            serial = a.serial
             self.log.info("****START: {} DEVICE INFO****".format(serial))
             self.log.info("BOOTLOADER VERSION {}".format(d.getBuildBootloader(
             )))
@@ -41,9 +42,10 @@ class BtPreFlightTest(BaseTestClass):
             self.log.info("****END: {} DEVICE INFO****".format(serial))
         return True
 
+    @test_tracker_info(uuid='7b6ac700-9e63-4871-bf7b-527c3da1e462')
     def test_setup_logging(self):
-        conf_path = "{}/bt_stack.conf".format(os.path.dirname(os.path.realpath(
-            __file__)))
+        conf_path = "{}/bt_stack.conf".format(
+            os.path.dirname(os.path.realpath(__file__)))
         log_level_check = "TRC_BTM=5"
         remount_check = "remount succeeded"
         for ad in self.android_devices:

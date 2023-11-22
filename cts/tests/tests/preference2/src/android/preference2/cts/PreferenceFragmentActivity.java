@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- package android.preference2.cts;
+package android.preference2.cts;
 
 import android.app.Activity;
 import android.app.FragmentTransaction;
 import android.os.Bundle;
+import android.preference.Preference;
 import android.preference.PreferenceFragment;
+import android.preference.PreferenceScreen;
 
 /**
  * Demonstration of PreferenceFragment, showing a single fragment in an
@@ -31,14 +33,15 @@ public class PreferenceFragmentActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        prefFragment = new PrefFragment();
 
-        FragmentTransaction transaction = getFragmentManager().beginTransaction()
-                .replace(android.R.id.content, prefFragment, PrefFragment.TAG);
-        transaction.commit();
+        prefFragment = new PrefFragment();
+        getFragmentManager()
+                .beginTransaction()
+                .replace(android.R.id.content, prefFragment, PrefFragment.TAG)
+                .commit();
     }
 
-    public class PrefFragment extends PreferenceFragment {
+    public static class PrefFragment extends PreferenceFragment {
         public static final String TAG = "Pref-1";
 
         public PrefFragment() {

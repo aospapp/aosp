@@ -35,7 +35,7 @@
 #include <cutils/log.h>
 #include <hardware/hardware.h>
 #include <hardware/fingerprint.h>
-#include <hardware/qemud.h>
+#include "qemud.h"
 
 #include <poll.h>
 
@@ -417,13 +417,21 @@ static int fingerprint_enumerate(struct fingerprint_device *device) {
     fingerprint_msg_t message = {0, {0}};
     message.type = FINGERPRINT_TEMPLATE_ENUMERATING;
     message.data.enumerated.finger.gid = qdev->group_id;
-    for (int i = 0; i < MAX_NUM_FINGERS; i++) {
-        if (qdev->listener.secureid[i] != 0 ||
-            qdev->listener.fingerid[i] != 0) {
-            template_count--;
-            message.data.enumerated.remaining_templates = template_count;
-            message.data.enumerated.finger.fid = qdev->listener.fingerid[i];
-            qdev->device.notify(&message);
+
+    if(template_count == 0) {
+        message.data.enumerated.remaining_templates = 0;
+        message.data.enumerated.finger.fid = 0;
+        qdev->device.notify(&message);
+    }
+    else {
+        for (int i = 0; i < MAX_NUM_FINGERS; i++) {
+            if (qdev->listener.secureid[i] != 0 ||
+                qdev->listener.fingerid[i] != 0) {
+                template_count--;
+                message.data.enumerated.remaining_templates = template_count;
+                message.data.enumerated.finger.fid = qdev->listener.fingerid[i];
+                qdev->device.notify(&message);
+            }
         }
     }
 
@@ -474,11 +482,11 @@ static int fingerprint_remove(struct fingerprint_device *device,
                 }
             }  // end for (idx < MAX_NUM_FINGERS)
         } while (!listIsEmpty);
+        qdev->listener.state = STATE_IDLE;
+        pthread_mutex_unlock(&qdev->lock);
         msg.type = FINGERPRINT_TEMPLATE_REMOVED;
         msg.data.removed.finger.fid = 0;
         device->notify(&msg);
-        qdev->listener.state = STATE_IDLE;
-        pthread_mutex_unlock(&qdev->lock);
     } else {
         // Delete one fingerprint
         // Look for this finger ID in our table.
@@ -658,8 +666,9 @@ static void* listenerFunction(void* data) {
     ALOGD("----------------> %s ----------------->", __FUNCTION__);
     qemu_fingerprint_device_t* qdev = (qemu_fingerprint_device_t*)data;
 
+    int fd = qemud_channel_open(FINGERPRINT_LISTEN_SERVICE_NAME);
     pthread_mutex_lock(&qdev->lock);
-    qdev->qchanfd = qemud_channel_open(FINGERPRINT_LISTEN_SERVICE_NAME);
+    qdev->qchanfd = fd;
     if (qdev->qchanfd < 0) {
         ALOGE("listener cannot open fingerprint listener service exit");
         pthread_mutex_unlock(&qdev->lock);

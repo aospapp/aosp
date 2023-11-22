@@ -48,7 +48,7 @@ protected:
     bool mShutdown;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif

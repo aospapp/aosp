@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"L\'app %s ha richiesto un certificato. La scelta di un certificato permetterà all\'app di utilizzare questa identità con i server ora e in futuro."</string>
     <string name="requesting_server" msgid="5832565605998634370">"L\'app ha identificato il server richiedente come %s, ma dovresti consentire all\'app di accedere al certificato solo se la consideri attendibile."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Puoi installare certificati da un file PKCS#12 con un\'estensione %1$s o %2$s che si trova nella memoria esterna."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Installa"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Consenti"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Installa certificato"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Seleziona"</string>
     <string name="deny_button" msgid="3766539809121892584">"Rifiuta"</string>
 </resources>

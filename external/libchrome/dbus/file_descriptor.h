@@ -5,8 +5,9 @@
 #ifndef DBUS_FILE_DESCRIPTOR_H_
 #define DBUS_FILE_DESCRIPTOR_H_
 
-#include "base/memory/scoped_ptr.h"
-#include "base/move.h"
+#include <memory>
+
+#include "base/macros.h"
 #include "dbus/dbus_export.h"
 
 namespace dbus {
@@ -33,8 +34,6 @@ namespace dbus {
 // also allows the caller to do this work on the File thread to conform
 // with i/o restrictions.
 class CHROME_DBUS_EXPORT FileDescriptor {
-  MOVE_ONLY_TYPE_FOR_CPP_03(FileDescriptor);
-
  public:
   // This provides a simple way to pass around file descriptors since they must
   // be closed on a thread that is allowed to perform I/O.
@@ -81,10 +80,12 @@ class CHROME_DBUS_EXPORT FileDescriptor {
   int value_;
   bool owner_;
   bool valid_;
+
+  DISALLOW_COPY_AND_ASSIGN(FileDescriptor);
 };
 
 using ScopedFileDescriptor =
-    scoped_ptr<FileDescriptor, FileDescriptor::Deleter>;
+    std::unique_ptr<FileDescriptor, FileDescriptor::Deleter>;
 
 }  // namespace dbus
 

@@ -16,13 +16,19 @@
 
 package android.graphics.cts;
 
-import android.graphics.PathDashPathEffect;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.PathDashPathEffect.Style;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PathDashPathEffect_StyleTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PathDashPathEffect_StyleTest {
+    @Test
     public void testValueOf() {
         assertEquals(Style.TRANSLATE, Style.valueOf("TRANSLATE"));
         assertEquals(Style.ROTATE, Style.valueOf("ROTATE"));
@@ -30,17 +36,17 @@ public class PathDashPathEffect_StyleTest extends AndroidTestCase {
         // Every Style element will be tested somewhere else.
     }
 
+    @Test
     public void testValues() {
         // set the expected value
         Style[] expected = {
                 Style.TRANSLATE,
                 Style.ROTATE,
-                Style.MORPH};
+                Style.MORPH };
         Style[] actual = Style.values();
         assertEquals(expected.length, actual.length);
         for (int i = 0; i < actual.length; i ++) {
             assertEquals(expected[i], actual[i]);
         }
     }
-
 }

@@ -8,5 +8,8 @@
         <int name="maxMessageSize" value="1048576" />
         <int name="maxImageWidth" value="2592" />
         <boolean name="voicemail_notification_persistent_bool" value="true" />
+        <string-array name="read_only_apn_types_string_array" num="1">
+            <item value="*" />
+        </string-array>
     </carrier_config>
 </carrier_config_list>

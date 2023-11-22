@@ -20,12 +20,11 @@ import android.Manifest;
 import android.accounts.Account;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
-import android.app.ActivityManagerNative;
+import android.app.ActivityManagerInternal;
 import android.app.AppOpsManager;
 import android.app.job.JobInfo;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.IContentService;
@@ -44,6 +43,7 @@ import android.database.IContentObserver;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.FactoryTest;
 import android.os.IBinder;
@@ -60,13 +60,13 @@ import android.util.SparseArray;
 import android.util.SparseIntArray;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.util.DumpUtils;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.server.LocalServices;
 import com.android.server.SystemService;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -163,9 +163,7 @@ public final class ContentService extends IContentService.Stub {
 
     @Override
     protected synchronized void dump(FileDescriptor fd, PrintWriter pw_, String[] args) {
-        mContext.enforceCallingOrSelfPermission(Manifest.permission.DUMP,
-                "caller doesn't have the DUMP permission");
-
+        if (!DumpUtils.checkDumpAndUsageStatsPermission(mContext, TAG, pw_)) return;
         final IndentingPrintWriter pw = new IndentingPrintWriter(pw_, "  ");
 
         // This makes it so that future permission checks will be in the context of this
@@ -289,30 +287,30 @@ public final class ContentService extends IContentService.Stub {
      */
     @Override
     public void registerContentObserver(Uri uri, boolean notifyForDescendants,
-                                        IContentObserver observer, int userHandle) {
+            IContentObserver observer, int userHandle, int targetSdkVersion) {
         if (observer == null || uri == null) {
             throw new IllegalArgumentException("You must pass a valid uri and observer");
         }
 
         final int uid = Binder.getCallingUid();
         final int pid = Binder.getCallingPid();
-        final int callingUserHandle = UserHandle.getCallingUserId();
-        // Registering an observer for any user other than the calling user requires uri grant or
-        // cross user permission
-        if (callingUserHandle != userHandle) {
-            if (checkUriPermission(uri, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION, userHandle)
-                    != PackageManager.PERMISSION_GRANTED) {
-                enforceCrossUserPermission(userHandle,
-                        "no permission to observe other users' provider view");
-            }
-        }
 
-        if (userHandle < 0) {
-            if (userHandle == UserHandle.USER_CURRENT) {
-                userHandle = ActivityManager.getCurrentUser();
-            } else if (userHandle != UserHandle.USER_ALL) {
-                throw new InvalidParameterException("Bad user handle for registerContentObserver: "
-                        + userHandle);
+        userHandle = handleIncomingUser(uri, pid, uid,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION, true, userHandle);
+
+        final String msg = LocalServices.getService(ActivityManagerInternal.class)
+                .checkContentProviderAccess(uri.getAuthority(), userHandle);
+        if (msg != null) {
+            if (targetSdkVersion >= Build.VERSION_CODES.O) {
+                throw new SecurityException(msg);
+            } else {
+                if (msg.startsWith("Failed to find provider")) {
+                    // Sigh, we need to quietly let apps targeting older API
+                    // levels notify on non-existent providers.
+                } else {
+                    Log.w(TAG, "Ignoring content changes for " + uri + " from " + uid + ": " + msg);
+                    return;
+                }
             }
         }
 
@@ -327,7 +325,7 @@ public final class ContentService extends IContentService.Stub {
     public void registerContentObserver(Uri uri, boolean notifyForDescendants,
                                         IContentObserver observer) {
         registerContentObserver(uri, notifyForDescendants, observer,
-                UserHandle.getCallingUserId());
+                UserHandle.getCallingUserId(), Build.VERSION_CODES.CUR_DEVELOPMENT);
     }
 
     @Override
@@ -351,8 +349,8 @@ public final class ContentService extends IContentService.Stub {
      */
     @Override
     public void notifyChange(Uri uri, IContentObserver observer,
-                             boolean observerWantsSelfNotifications, int flags,
-                             int userHandle) {
+            boolean observerWantsSelfNotifications, int flags, int userHandle,
+            int targetSdkVersion) {
         if (DEBUG) Slog.d(TAG, "Notifying update of " + uri + " for user " + userHandle
                 + " from observer " + observer + ", flags " + Integer.toHexString(flags));
 
@@ -363,21 +361,23 @@ public final class ContentService extends IContentService.Stub {
         final int uid = Binder.getCallingUid();
         final int pid = Binder.getCallingPid();
         final int callingUserHandle = UserHandle.getCallingUserId();
-        // Notify for any user other than the caller requires uri grant or cross user permission
-        if (callingUserHandle != userHandle) {
-            if (checkUriPermission(uri, pid, uid, Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                    userHandle) != PackageManager.PERMISSION_GRANTED) {
-                enforceCrossUserPermission(userHandle, "no permission to notify other users");
-            }
-        }
 
-        // We passed the permission check; resolve pseudouser targets as appropriate
-        if (userHandle < 0) {
-            if (userHandle == UserHandle.USER_CURRENT) {
-                userHandle = ActivityManager.getCurrentUser();
-            } else if (userHandle != UserHandle.USER_ALL) {
-                throw new InvalidParameterException("Bad user handle for notifyChange: "
-                        + userHandle);
+        userHandle = handleIncomingUser(uri, pid, uid,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION, true, userHandle);
+
+        final String msg = LocalServices.getService(ActivityManagerInternal.class)
+                .checkContentProviderAccess(uri.getAuthority(), userHandle);
+        if (msg != null) {
+            if (targetSdkVersion >= Build.VERSION_CODES.O) {
+                throw new SecurityException(msg);
+            } else {
+                if (msg.startsWith("Failed to find provider")) {
+                    // Sigh, we need to quietly let apps targeting older API
+                    // levels notify on non-existent providers.
+                } else {
+                    Log.w(TAG, "Ignoring notify for " + uri + " from " + uid + ": " + msg);
+                    return;
+                }
             }
         }
 
@@ -434,7 +434,7 @@ public final class ContentService extends IContentService.Stub {
 
     private int checkUriPermission(Uri uri, int pid, int uid, int modeFlags, int userHandle) {
         try {
-            return ActivityManagerNative.getDefault().checkUriPermission(
+            return ActivityManager.getService().checkUriPermission(
                     uri, pid, uid, modeFlags, userHandle, null);
         } catch (RemoteException e) {
             return PackageManager.PERMISSION_DENIED;
@@ -445,7 +445,7 @@ public final class ContentService extends IContentService.Stub {
                              boolean observerWantsSelfNotifications, boolean syncToNetwork) {
         notifyChange(uri, observer, observerWantsSelfNotifications,
                 syncToNetwork ? ContentResolver.NOTIFY_SYNC_TO_NETWORK : 0,
-                UserHandle.getCallingUserId());
+                UserHandle.getCallingUserId(), Build.VERSION_CODES.CUR_DEVELOPMENT);
     }
 
     /**
@@ -482,8 +482,7 @@ public final class ContentService extends IContentService.Stub {
             SyncManager syncManager = getSyncManager();
             if (syncManager != null) {
                 syncManager.scheduleSync(account, userId, uId, authority, extras,
-                        0 /* no delay */, 0 /* no delay */,
-                        false /* onlyThoseWithUnkownSyncableState */);
+                        SyncStorageEngine.AuthorityInfo.UNDEFINED);
             }
         } finally {
             restoreCallingIdentity(identityToken);
@@ -547,12 +546,9 @@ public final class ContentService extends IContentService.Stub {
                 getSyncManager().updateOrAddPeriodicSync(info, runAtTime,
                         flextime, extras);
             } else {
-                long beforeRuntimeMillis = (flextime) * 1000;
-                long runtimeMillis = runAtTime * 1000;
                 syncManager.scheduleSync(
                         request.getAccount(), userId, callerUid, request.getProvider(), extras,
-                        beforeRuntimeMillis, runtimeMillis,
-                        false /* onlyThoseWithUnknownSyncableState */);
+                        SyncStorageEngine.AuthorityInfo.UNDEFINED);
             }
         } finally {
             restoreCallingIdentity(identityToken);
@@ -841,8 +837,8 @@ public final class ContentService extends IContentService.Stub {
         try {
             SyncManager syncManager = getSyncManager();
             if (syncManager != null) {
-                return syncManager.getIsSyncable(
-                        account, userId, providerName);
+                return syncManager.computeSyncable(
+                        account, userId, providerName, false);
             }
         } finally {
             restoreCallingIdentity(identityToken);
@@ -857,6 +853,8 @@ public final class ContentService extends IContentService.Stub {
         }
         mContext.enforceCallingOrSelfPermission(Manifest.permission.WRITE_SYNC_SETTINGS,
                 "no permission to write the sync settings");
+
+        syncable = normalizeSyncable(syncable);
 
         int userId = UserHandle.getCallingUserId();
         long identityToken = clearCallingIdentity();
@@ -1145,6 +1143,44 @@ public final class ContentService extends IContentService.Stub {
         }
     }
 
+    private int handleIncomingUser(Uri uri, int pid, int uid, int modeFlags, boolean allowNonFull,
+            int userId) {
+        if (userId == UserHandle.USER_CURRENT) {
+            userId = ActivityManager.getCurrentUser();
+        }
+
+        if (userId == UserHandle.USER_ALL) {
+            mContext.enforceCallingOrSelfPermission(
+                    Manifest.permission.INTERACT_ACROSS_USERS_FULL, TAG);
+        } else if (userId < 0) {
+            throw new IllegalArgumentException("Invalid user: " + userId);
+        } else if (userId != UserHandle.getCallingUserId()) {
+            if (checkUriPermission(uri, pid, uid, modeFlags,
+                    userId) != PackageManager.PERMISSION_GRANTED) {
+                boolean allow = false;
+                if (mContext.checkCallingOrSelfPermission(
+                        Manifest.permission.INTERACT_ACROSS_USERS_FULL)
+                                == PackageManager.PERMISSION_GRANTED) {
+                    allow = true;
+                } else if (allowNonFull && mContext.checkCallingOrSelfPermission(
+                        Manifest.permission.INTERACT_ACROSS_USERS)
+                                == PackageManager.PERMISSION_GRANTED) {
+                    allow = true;
+                }
+                if (!allow) {
+                    final String permissions = allowNonFull
+                            ? (Manifest.permission.INTERACT_ACROSS_USERS_FULL + " or " +
+                                    Manifest.permission.INTERACT_ACROSS_USERS)
+                            : Manifest.permission.INTERACT_ACROSS_USERS_FULL;
+                    throw new SecurityException(TAG + "Neither user " + uid
+                            + " nor current process has " + permissions);
+                }
+            }
+        }
+
+        return userId;
+    }
+
     /**
      * Checks if the request is from the system or an app that has INTERACT_ACROSS_USERS_FULL
      * permission, if the userHandle is not for the caller.
@@ -1158,6 +1194,15 @@ public final class ContentService extends IContentService.Stub {
             mContext.enforceCallingOrSelfPermission(
                     Manifest.permission.INTERACT_ACROSS_USERS_FULL, message);
         }
+    }
+
+    private static int normalizeSyncable(int syncable) {
+        if (syncable > 0) {
+            return SyncStorageEngine.AuthorityInfo.SYNCABLE;
+        } else if (syncable == 0) {
+            return SyncStorageEngine.AuthorityInfo.NOT_SYNCABLE;
+        }
+        return SyncStorageEngine.AuthorityInfo.UNDEFINED;
     }
 
     /**

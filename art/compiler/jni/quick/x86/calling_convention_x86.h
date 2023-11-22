@@ -17,17 +17,21 @@
 #ifndef ART_COMPILER_JNI_QUICK_X86_CALLING_CONVENTION_X86_H_
 #define ART_COMPILER_JNI_QUICK_X86_CALLING_CONVENTION_X86_H_
 
+#include "base/enums.h"
 #include "jni/quick/calling_convention.h"
 
 namespace art {
 namespace x86 {
 
-constexpr size_t kFramePointerSize = 4;
+constexpr size_t kFramePointerSize = static_cast<size_t>(PointerSize::k32);
 
 class X86ManagedRuntimeCallingConvention FINAL : public ManagedRuntimeCallingConvention {
  public:
   X86ManagedRuntimeCallingConvention(bool is_static, bool is_synchronized, const char* shorty)
-      : ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty, kFramePointerSize),
+      : ManagedRuntimeCallingConvention(is_static,
+                                        is_synchronized,
+                                        shorty,
+                                        PointerSize::k32),
         gpr_arg_count_(0) {}
   ~X86ManagedRuntimeCallingConvention() OVERRIDE {}
   // Calling convention
@@ -48,9 +52,13 @@ class X86ManagedRuntimeCallingConvention FINAL : public ManagedRuntimeCallingCon
   DISALLOW_COPY_AND_ASSIGN(X86ManagedRuntimeCallingConvention);
 };
 
+// Implements the x86 cdecl calling convention.
 class X86JniCallingConvention FINAL : public JniCallingConvention {
  public:
-  X86JniCallingConvention(bool is_static, bool is_synchronized, const char* shorty);
+  X86JniCallingConvention(bool is_static,
+                          bool is_synchronized,
+                          bool is_critical_native,
+                          const char* shorty);
   ~X86JniCallingConvention() OVERRIDE {}
   // Calling convention
   ManagedRegister ReturnRegister() OVERRIDE;
@@ -59,14 +67,10 @@ class X86JniCallingConvention FINAL : public JniCallingConvention {
   // JNI calling convention
   size_t FrameSize() OVERRIDE;
   size_t OutArgSize() OVERRIDE;
-  const std::vector<ManagedRegister>& CalleeSaveRegisters() const OVERRIDE {
-    return callee_save_regs_;
-  }
+  ArrayRef<const ManagedRegister> CalleeSaveRegisters() const OVERRIDE;
   ManagedRegister ReturnScratchRegister() const OVERRIDE;
   uint32_t CoreSpillMask() const OVERRIDE;
-  uint32_t FpSpillMask() const OVERRIDE {
-    return 0;
-  }
+  uint32_t FpSpillMask() const OVERRIDE;
   bool IsCurrentParamInRegister() OVERRIDE;
   bool IsCurrentParamOnStack() OVERRIDE;
   ManagedRegister CurrentParamRegister() OVERRIDE;
@@ -81,9 +85,6 @@ class X86JniCallingConvention FINAL : public JniCallingConvention {
   size_t NumberOfOutgoingStackArgs() OVERRIDE;
 
  private:
-  // TODO: these values aren't unique and can be shared amongst instances
-  std::vector<ManagedRegister> callee_save_regs_;
-
   DISALLOW_COPY_AND_ASSIGN(X86JniCallingConvention);
 };
 

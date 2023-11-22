@@ -18,10 +18,11 @@ package com.android.server.telecom.callfiltering;
 
 import android.content.Context;
 import android.os.AsyncTask;
+import android.telecom.Log;
+import android.telecom.Logging.Session;
 
 import com.android.server.telecom.Call;
-import com.android.server.telecom.Log;
-import com.android.server.telecom.Session;
+import com.android.server.telecom.LogUtils;
 
 /**
  * An {@link AsyncTask} that checks if a call needs to be blocked.
@@ -61,7 +62,7 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
     protected Boolean doInBackground(String... params) {
         try {
             Log.continueSession(mBackgroundTaskSubsession, "ABCF.dIB");
-            Log.event(mIncomingCall, Log.Events.BLOCK_CHECK_INITIATED);
+            Log.addEvent(mIncomingCall, LogUtils.Events.BLOCK_CHECK_INITIATED);
             return mBlockCheckerAdapter.isBlocked(mContext, params[0]);
         } finally {
             Log.endSession();
@@ -88,7 +89,7 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
                         true // shouldShowNotification
                 );
             }
-            Log.event(mIncomingCall, Log.Events.BLOCK_CHECK_FINISHED, result);
+            Log.addEvent(mIncomingCall, LogUtils.Events.BLOCK_CHECK_FINISHED, result);
             mCallback.onCallFilteringComplete(mIncomingCall, result);
         } finally {
             Log.endSession();

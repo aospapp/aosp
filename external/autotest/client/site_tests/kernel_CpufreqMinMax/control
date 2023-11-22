@@ -13,7 +13,6 @@ CRITERIA = """
 Fails if cpufreq min or max settings cannot be adjusted.
 """
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"

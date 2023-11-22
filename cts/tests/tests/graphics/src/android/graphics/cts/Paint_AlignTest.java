@@ -16,18 +16,27 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
-import android.graphics.Paint.Align;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Paint;
+import android.graphics.Paint.Align;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Paint_AlignTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Paint_AlignTest {
+    @Test
     public void testValueOf() {
         assertEquals(Align.LEFT, Align.valueOf("LEFT"));
         assertEquals(Align.CENTER, Align.valueOf("CENTER"));
         assertEquals(Align.RIGHT, Align.valueOf("RIGHT"));
     }
 
+    @Test
     public void testValues() {
         // set the actual value
         Align[] actual = Align.values();

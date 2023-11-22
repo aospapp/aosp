@@ -28,7 +28,7 @@ import android.printservice.PrintService;
  */
 public class CustomPrintOptionsActivity extends Activity {
     /** Lock for {@link #sCallback} */
-    private static Object sLock = new Object();
+    private static final Object sLock = new Object();
 
     /** Currently registered callback for _both_ first and second print service. */
     private static CustomPrintOptionsCallback sCallback = null;

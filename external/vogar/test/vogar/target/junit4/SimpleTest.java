@@ -24,6 +24,8 @@ import org.junit.runners.Suite.SuiteClasses;
 @RunWith(Suite.class)
 @SuiteClasses({SimpleTest3.class})
 public class SimpleTest {
+
+    // This should be ignored as Suites are processed first.
     @Test
     public void simple() {
     }

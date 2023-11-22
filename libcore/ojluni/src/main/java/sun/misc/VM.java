@@ -295,7 +295,7 @@ public class VM {
         allowGetCallerClass = (s != null
                                    ? (s.isEmpty() || Boolean.parseBoolean(s))
                                    : true) ||
-             Boolean.valueOf(props.getProperty("jdk.logging.allowStackWalkSearch"));
+             Boolean.parseBoolean(props.getProperty("jdk.logging.allowStackWalkSearch"));
 
         // Remove other private system properties
         // used by java.lang.Integer.IntegerCache

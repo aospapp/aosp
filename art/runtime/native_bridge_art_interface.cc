@@ -21,18 +21,20 @@
 #include "nativebridge/native_bridge.h"
 
 #include "art_method-inl.h"
+#include "base/enums.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "dex_file-inl.h"
+#include "jni_internal.h"
 #include "mirror/class-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "sigchain.h"
 
 namespace art {
 
 static const char* GetMethodShorty(JNIEnv* env, jmethodID mid) {
   ScopedObjectAccess soa(env);
-  ArtMethod* m = soa.DecodeMethod(mid);
+  ArtMethod* m = jni::DecodeArtMethod(mid);
   return m->GetShorty();
 }
 
@@ -42,10 +44,10 @@ static uint32_t GetNativeMethodCount(JNIEnv* env, jclass clazz) {
   }
 
   ScopedObjectAccess soa(env);
-  mirror::Class* c = soa.Decode<mirror::Class*>(clazz);
+  ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(clazz);
 
   uint32_t native_method_count = 0;
-  for (auto& m : c->GetMethods(sizeof(void*))) {
+  for (auto& m : c->GetMethods(kRuntimePointerSize)) {
     native_method_count += m.IsNative() ? 1u : 0u;
   }
   return native_method_count;
@@ -57,10 +59,10 @@ static uint32_t GetNativeMethods(JNIEnv* env, jclass clazz, JNINativeMethod* met
     return 0;
   }
   ScopedObjectAccess soa(env);
-  mirror::Class* c = soa.Decode<mirror::Class*>(clazz);
+  ObjPtr<mirror::Class> c = soa.Decode<mirror::Class>(clazz);
 
   uint32_t count = 0;
-  for (auto& m : c->GetMethods(sizeof(void*))) {
+  for (auto& m : c->GetMethods(kRuntimePointerSize)) {
     if (m.IsNative()) {
       if (count < method_count) {
         methods[count].name = m.GetName();
@@ -68,7 +70,8 @@ static uint32_t GetNativeMethods(JNIEnv* env, jclass clazz, JNINativeMethod* met
         methods[count].fnPtr = m.GetEntryPointFromJni();
         count++;
       } else {
-        LOG(WARNING) << "Output native method array too small. Skipping " << PrettyMethod(&m);
+        LOG(WARNING) << "Output native method array too small. Skipping "
+                     << m.PrettyMethod();
       }
     }
   }
@@ -88,14 +91,14 @@ static android::NativeBridgeRuntimeCallbacks native_bridge_art_callbacks_ {
   GetMethodShorty, GetNativeMethodCount, GetNativeMethods
 };
 
-bool LoadNativeBridge(std::string& native_bridge_library_filename) {
+bool LoadNativeBridge(const std::string& native_bridge_library_filename) {
   VLOG(startup) << "Runtime::Setup native bridge library: "
       << (native_bridge_library_filename.empty() ? "(empty)" : native_bridge_library_filename);
   return android::LoadNativeBridge(native_bridge_library_filename.c_str(),
                                    &native_bridge_art_callbacks_);
 }
 
-void PreInitializeNativeBridge(std::string dir) {
+void PreInitializeNativeBridge(const std::string& dir) {
   VLOG(startup) << "Runtime::Pre-initialize native bridge";
 #ifndef __APPLE__  // Mac OS does not support CLONE_NEWNS.
   if (unshare(CLONE_NEWNS) == -1) {
@@ -115,7 +118,15 @@ void InitializeNativeBridge(JNIEnv* env, const char* instruction_set) {
       for (int signal = 0; signal < _NSIG; ++signal) {
         android::NativeBridgeSignalHandlerFn fn = android::NativeBridgeGetSignalHandler(signal);
         if (fn != nullptr) {
-          SetSpecialSignalHandlerFn(signal, fn);
+          sigset_t mask;
+          sigfillset(&mask);
+          SigchainAction sa = {
+            .sc_sigaction = fn,
+            .sc_mask = mask,
+            // The native bridge signal might not return back to sigchain's handler.
+            .sc_flags = SIGCHAIN_ALLOW_NORETURN,
+          };
+          AddSpecialSignalHandlerFn(signal, &sa);
         }
       }
 #endif

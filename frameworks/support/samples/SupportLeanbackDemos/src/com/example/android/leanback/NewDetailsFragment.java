@@ -13,12 +13,17 @@
  */
 package com.example.android.leanback;
 
-import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.ActivityOptionsCompat;
+import android.support.v17.leanback.app.DetailsFragmentBackgroundController;
+import android.support.v17.leanback.media.MediaPlayerAdapter;
+import android.support.v17.leanback.media.MediaPlayerGlue;
+import android.support.v17.leanback.media.PlaybackGlue;
+import android.support.v17.leanback.media.PlaybackTransportControlGlue;
 import android.support.v17.leanback.widget.Action;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.ClassPresenterSelector;
@@ -36,11 +41,15 @@ import android.support.v17.leanback.widget.Presenter;
 import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.RowPresenter;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
+import android.support.v4.app.ActivityOptionsCompat;
+import android.support.v4.content.res.ResourcesCompat;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Toast;
+import android.view.ViewGroup;
 
 public class NewDetailsFragment extends android.support.v17.leanback.app.DetailsFragment {
+
     private static final String TAG = "leanback.DetailsFragment";
     private static final String ITEM = "item";
 
@@ -48,15 +57,13 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
     private ArrayObjectAdapter mRowsAdapter;
     private PhotoItem mPhotoItem;
     final CardPresenter cardPresenter = new CardPresenter();
-    private BackgroundHelper mBackgroundHelper = new BackgroundHelper();
 
     private static final int ACTION_PLAY = 1;
     private static final int ACTION_RENT = 2;
     private static final int ACTION_BUY = 3;
 
-    private boolean TEST_OVERVIEW_ROW_ON_SECOND;
-    private boolean TEST_SHARED_ELEMENT_TRANSITION;
-    private boolean TEST_ENTRANCE_TRANSITION;
+    private boolean TEST_SHARED_ELEMENT_TRANSITION = true;
+    private boolean TEST_BACKGROUND_PLAYER;
 
     private static final long TIME_TO_LOAD_OVERVIEW_ROW_MS = 1000;
     private static final long TIME_TO_LOAD_RELATED_ROWS_MS = 2000;
@@ -66,32 +73,79 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
     private Action mActionBuy;
 
     private FullWidthDetailsOverviewSharedElementHelper mHelper;
+    private BackgroundHelper mBackgroundHelper; // used to download bitmap async.
+    private final DetailsFragmentBackgroundController mDetailsBackground =
+            new DetailsFragmentBackgroundController(this);
 
-    private void initializeTest() {
-        TEST_SHARED_ELEMENT_TRANSITION = null != getActivity().getWindow().getSharedElementEnterTransition();
-        TEST_OVERVIEW_ROW_ON_SECOND = !TEST_SHARED_ELEMENT_TRANSITION;
-        TEST_ENTRANCE_TRANSITION = true;
+    void setupTrailerVideo() {
+        MediaPlayerGlue mediaPlayerGlue = new MediaPlayerGlue(getActivity());
+        mDetailsBackground.setupVideoPlayback(mediaPlayerGlue);
+        mediaPlayerGlue.setMode(MediaPlayerGlue.REPEAT_ONE);
+        mediaPlayerGlue.setArtist("A Googler");
+        mediaPlayerGlue.setTitle("Diving with Sharks Trailer");
+        mediaPlayerGlue.setMediaSource(Uri.parse("android.resource://com.example.android.leanback/"
+                + "raw/browse"));
+    }
+
+    void setupMainVideo() {
+        Context context = getActivity();
+        MediaPlayerAdapter adapter = new MediaPlayerAdapter(context);
+        PlaybackTransportControlGlue<MediaPlayerAdapter> mediaPlayerGlue =
+                new PlaybackTransportControlGlue(context, adapter);
+        mDetailsBackground.setupVideoPlayback(mediaPlayerGlue);
+        mediaPlayerGlue.setSubtitle("A Googler");
+        mediaPlayerGlue.setTitle("Diving with Sharks");
+        mediaPlayerGlue.getPlayerAdapter().setDataSource(Uri.parse(
+                "https://storage.googleapis.com/android-tv/Sample videos/April Fool's "
+                        + "2013/Explore Treasure Mode with Google Maps.mp4"));
+        mediaPlayerGlue.addPlayerCallback(new PlaybackGlue.PlayerCallback() {
+            @Override
+            public void onPreparedStateChanged(PlaybackGlue glue) {
+                super.onPreparedStateChanged(glue);
+                PlaybackTransportControlGlue controlGlue = (PlaybackTransportControlGlue) glue;
+                controlGlue.setSeekProvider(new PlaybackSeekDiskDataProvider(
+                        controlGlue.getDuration(), 1000,
+                        "/sdcard/seek/frame_%04d.jpg"));
+            }
+        });
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "onCreate");
         super.onCreate(savedInstanceState);
-        initializeTest();
 
-        setBadgeDrawable(getActivity().getResources().getDrawable(R.drawable.ic_title));
-        setTitle("Leanback Sample App");
-        setOnSearchClickedListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(getActivity(), SearchActivity.class);
-                startActivity(intent);
+        mBackgroundHelper = new BackgroundHelper(getActivity());
+        mDetailsBackground.enableParallax();
+        if (TEST_BACKGROUND_PLAYER) {
+            if (MovieData.sStatus == MovieData.STATUS_INIT) {
+                // not own/rented, play trailer
+                setupTrailerVideo();
+            } else {
+                // bought or rented, play the main content
+                setupMainVideo();
+                // hide details main ui
+                mDetailsBackground.switchToVideo();
             }
-        });
+        }
+
+        final Context context = getActivity();
+        setBadgeDrawable(ResourcesCompat.getDrawable(context.getResources(), R.drawable.ic_title,
+                context.getTheme()));
+        setTitle("Leanback Sample App");
+        if (!TEST_BACKGROUND_PLAYER) {
+            setOnSearchClickedListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    Intent intent = new Intent(getActivity(), SearchActivity.class);
+                    startActivity(intent);
+                }
+            });
+        }
 
         mActionPlay = new Action(ACTION_PLAY, "Play");
-        mActionRent = new Action(ACTION_RENT, "Rent", "$3.99",
-                getResources().getDrawable(R.drawable.ic_action_a));
+        mActionRent = new Action(ACTION_RENT, "Rent", "$3.99", ResourcesCompat.getDrawable(
+                context.getResources(), R.drawable.ic_action_a, context.getTheme()));
         mActionBuy = new Action(ACTION_BUY, "Buy $9.99");
 
         ClassPresenterSelector ps = new ClassPresenterSelector();
@@ -100,9 +154,8 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
         dorPresenter.setOnActionClickedListener(new OnActionClickedListener() {
             @Override
             public void onActionClicked(Action action) {
-                Toast.makeText(getActivity(), action.toString(), Toast.LENGTH_SHORT).show();
-                int indexOfOverviewRow = TEST_OVERVIEW_ROW_ON_SECOND ? 1 : 0;
-                DetailsOverviewRow dor = (DetailsOverviewRow) mRowsAdapter.get(indexOfOverviewRow);
+                final Context context = getActivity();
+                DetailsOverviewRow dor = (DetailsOverviewRow) mRowsAdapter.get(0);
                 if (action.getId() == ACTION_BUY) {
                     // on the UI thread, we can modify actions adapter directly
                     SparseArrayObjectAdapter actions = (SparseArrayObjectAdapter)
@@ -110,48 +163,64 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
                     actions.set(ACTION_PLAY, mActionPlay);
                     actions.clear(ACTION_RENT);
                     actions.clear(ACTION_BUY);
-                    dor.setItem(mPhotoItem.getTitle() + "(Owned)");
-                    dor.setImageDrawable(getResources().getDrawable(R.drawable.details_img_16x9));
+                    boolean previousRented = MovieData.sStatus == MovieData.STATUS_RENTED;
+                    MovieData.sStatus = MovieData.STATUS_OWN;
+                    dor.setItem(getDisplayTitle(mPhotoItem.getTitle()));
+                    dor.setImageDrawable(ResourcesCompat.getDrawable(context.getResources(),
+                            R.drawable.details_img_16x9, context.getTheme()));
+                    if (TEST_BACKGROUND_PLAYER) {
+                        if (!previousRented) {
+                            setupMainVideo();
+                            mDetailsBackground.switchToVideo();
+                        }
+                    } else {
+                        Intent intent = new Intent(context, PlaybackOverlayActivity.class);
+                        getActivity().startActivity(intent);
+                    }
                 } else if (action.getId() == ACTION_RENT) {
                     // on the UI thread, we can modify actions adapter directly
                     SparseArrayObjectAdapter actions = (SparseArrayObjectAdapter)
                             dor.getActionsAdapter();
                     actions.set(ACTION_PLAY, mActionPlay);
                     actions.clear(ACTION_RENT);
-                    dor.setItem(mPhotoItem.getTitle() + "(Rented)");
+                    MovieData.sStatus = MovieData.STATUS_RENTED;
+                    dor.setItem(getDisplayTitle(mPhotoItem.getTitle()));
+                    if (TEST_BACKGROUND_PLAYER) {
+                        setupMainVideo();
+                        mDetailsBackground.switchToVideo();
+                    } else {
+                        Intent intent = new Intent(context, PlaybackOverlayActivity.class);
+                        getActivity().startActivity(intent);
+                    }
                 } else if (action.getId() == ACTION_PLAY) {
-                    Intent intent = new Intent(getActivity(), PlaybackOverlayActivity.class);
-                    getActivity().startActivity(intent);
+                    if (TEST_BACKGROUND_PLAYER) {
+                        mDetailsBackground.switchToVideo();
+                    } else {
+                        Intent intent = new Intent(context, PlaybackOverlayActivity.class);
+                        getActivity().startActivity(intent);
+                    }
                 }
             }
         });
-        if (TEST_OVERVIEW_ROW_ON_SECOND) {
-            dorPresenter.setInitialState(FullWidthDetailsOverviewRowPresenter.STATE_SMALL);
-        }
 
         ps.addClassPresenter(DetailsOverviewRow.class, dorPresenter);
         ps.addClassPresenter(ListRow.class, new ListRowPresenter());
 
         mRowsAdapter = new ArrayObjectAdapter(ps);
-
-        PhotoItem item = (PhotoItem) (savedInstanceState != null ?
-                savedInstanceState.getParcelable(ITEM) : null);
-        if (item != null) {
-            setItem(item);
-        }
+        updateAdapter();
 
         setOnItemViewClickedListener(new OnItemViewClickedListener() {
             @Override
             public void onItemClicked(Presenter.ViewHolder itemViewHolder, Object item,
                     RowPresenter.ViewHolder rowViewHolder, Row row) {
                 Log.i(TAG, "onItemClicked: " + item + " row " + row);
-                if (item instanceof PhotoItem){
+                if (item instanceof PhotoItem) {
                     Intent intent = new Intent(getActivity(), DetailsActivity.class);
                     intent.putExtra(DetailsActivity.EXTRA_ITEM, (PhotoItem) item);
 
                     Bundle bundle = ActivityOptionsCompat.makeSceneTransitionAnimation(
                             getActivity(),
-                            ((ImageCardView)itemViewHolder.view).getMainImageView(),
+                            ((ImageCardView) itemViewHolder.view).getMainImageView(),
                             DetailsActivity.SHARED_ELEMENT_NAME).toBundle();
                     getActivity().startActivity(intent, bundle);
                 }
@@ -174,45 +243,71 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
         } else {
             dorPresenter.setParticipatingEntranceTransition(true);
         }
-        if (TEST_ENTRANCE_TRANSITION) {
-            // don't run entrance transition if Activity is restored.
-            if (savedInstanceState == null) {
-                prepareEntranceTransition();
-            }
-        }
     }
 
     @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putParcelable(ITEM, mPhotoItem);
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        View view = super.onCreateView(inflater, container, savedInstanceState);
+        return view;
+    }
+
+    public void setBackgroundVideo(boolean backgroundVideo) {
+        TEST_BACKGROUND_PLAYER = backgroundVideo;
     }
 
     public void setItem(PhotoItem photoItem) {
         mPhotoItem = photoItem;
+        updateAdapter();
+    }
 
+    static String getDisplayTitle(String title) {
+        switch (MovieData.sStatus) {
+            case MovieData.STATUS_OWN:
+                title = title + "(Owned)";
+                break;
+            case MovieData.STATUS_RENTED:
+                title = title + "(Rented)";
+                break;
+            case MovieData.STATUS_INIT:
+            default:
+        }
+        return title;
+    }
+
+    void updateAdapter() {
+        if (mRowsAdapter == null) {
+            return;
+        }
         mRowsAdapter.clear();
         new Handler().postDelayed(new Runnable() {
+            @Override
             public void run() {
-                if (TEST_OVERVIEW_ROW_ON_SECOND) {
-                    ArrayObjectAdapter listRowAdapter = new ArrayObjectAdapter(cardPresenter);
-                    listRowAdapter.add(new PhotoItem("Hello world", R.drawable.gallery_photo_1));
-                    listRowAdapter.add(new PhotoItem("This is a test", R.drawable.gallery_photo_2));
-                    listRowAdapter.add(new PhotoItem("Android TV", R.drawable.gallery_photo_3));
-                    listRowAdapter.add(new PhotoItem("Leanback", R.drawable.gallery_photo_4));
-                    HeaderItem header = new HeaderItem(0, "Search Result");
-                    mRowsAdapter.add(0, new ListRow(header, listRowAdapter));
+                final Context context = getActivity();
+                if (context == null) {
+                    return;
                 }
 
-                Resources res = getActivity().getResources();
-                DetailsOverviewRow dor = new DetailsOverviewRow(mPhotoItem.getTitle());
-                dor.setImageDrawable(res.getDrawable(mPhotoItem.getImageResourceId()));
+                DetailsOverviewRow dor = new DetailsOverviewRow(
+                        getDisplayTitle(mPhotoItem.getTitle()));
+                dor.setImageDrawable(ResourcesCompat.getDrawable(context.getResources(),
+                        mPhotoItem.getImageResourceId(), context.getTheme()));
                 SparseArrayObjectAdapter adapter = new SparseArrayObjectAdapter();
-                adapter.set(ACTION_RENT, mActionRent);
-                adapter.set(ACTION_BUY, mActionBuy);
+                switch (MovieData.sStatus) {
+                    case MovieData.STATUS_INIT:
+                        adapter.set(ACTION_RENT, mActionRent);
+                        adapter.set(ACTION_BUY, mActionBuy);
+                        break;
+                    case MovieData.STATUS_OWN:
+                        adapter.set(ACTION_PLAY, mActionPlay);
+                        break;
+                    case MovieData.STATUS_RENTED:
+                        adapter.set(ACTION_PLAY, mActionPlay);
+                        adapter.set(ACTION_BUY, mActionBuy);
+                        break;
+                }
                 dor.setActionsAdapter(adapter);
-                int indexOfOverviewRow = TEST_OVERVIEW_ROW_ON_SECOND ? 1 : 0;
-                mRowsAdapter.add(indexOfOverviewRow, dor);
+                mRowsAdapter.add(0, dor);
                 setSelectedPosition(0, true);
                 if (TEST_SHARED_ELEMENT_TRANSITION) {
                     if (mHelper != null && !mHelper.getAutoStartSharedElementTransition()) {
@@ -223,7 +318,11 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
         }, TIME_TO_LOAD_OVERVIEW_ROW_MS);
 
         new Handler().postDelayed(new Runnable() {
+            @Override
             public void run() {
+                if (getActivity() == null) {
+                    return;
+                }
                 for (int i = 0; i < NUM_ROWS; ++i) {
                     ArrayObjectAdapter listRowAdapter = new ArrayObjectAdapter(cardPresenter);
                     listRowAdapter.add(new PhotoItem("Hello world", R.drawable.gallery_photo_1));
@@ -233,9 +332,6 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
                     HeaderItem header = new HeaderItem(i, "Row " + i);
                     mRowsAdapter.add(new ListRow(header, listRowAdapter));
                 }
-                if (TEST_ENTRANCE_TRANSITION) {
-                    startEntranceTransition();
-                }
             }
         }, TIME_TO_LOAD_RELATED_ROWS_MS);
         setAdapter(mRowsAdapter);
@@ -244,10 +340,20 @@ public class NewDetailsFragment extends android.support.v17.leanback.app.Details
     @Override
     public void onStart() {
         super.onStart();
-        if (mPhotoItem != null) {
-            mBackgroundHelper.setBackground(
-                    getActivity(), mPhotoItem.getImageResourceId());
-        }
+
+        // Restore background drawable in onStart():
+        mBackgroundHelper.loadBitmap(R.drawable.spiderman,
+                new BackgroundHelper.BitmapLoadCallback() {
+                    @Override
+                    public void onBitmapLoaded(Bitmap bitmap) {
+                        mDetailsBackground.setCoverBitmap(bitmap);
+                    }
+                });
     }
 
+    @Override
+    public void onStop() {
+        mDetailsBackground.setCoverBitmap(null);
+        super.onStop();
+    }
 }

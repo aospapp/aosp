@@ -18,9 +18,6 @@
 #include "rsCpuIntrinsic.h"
 #include "rsCpuIntrinsicInlines.h"
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -42,9 +39,6 @@ protected:
                        uint32_t xstart, uint32_t xend,
                        uint32_t outstep);
 };
-
-}
-}
 
 
 void RsdCpuScriptIntrinsicLUT::setGlobalObj(uint32_t slot, ObjectBase *data) {
@@ -97,9 +91,11 @@ void RsdCpuScriptIntrinsicLUT::invokeFreeChildren() {
     lut.clear();
 }
 
-
 RsdCpuScriptImpl * rsdIntrinsic_LUT(RsdCpuReferenceImpl *ctx,
                                     const Script *s, const Element *e) {
 
     return new RsdCpuScriptIntrinsicLUT(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

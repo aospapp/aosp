@@ -29,15 +29,18 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class MethodsWithGenericDebuggee extends SyncDebuggee {
-    
+
+    @SuppressWarnings("unused")
     static boolean staticTestMethod(double doubleParam) {
         return true;
     }
-    
+
+    @SuppressWarnings("unused")
     Object objectTestMethod(java.util.Collection stringCollection) {
         return null;
     }
-    
+
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("--> Debuggee: MethodsWithGenericDebuggee...");

@@ -14,7 +14,6 @@ package android.hardware.camera2.cts;
 import static android.hardware.camera2.cts.CameraTestUtils.*;
 import static com.android.ex.camera2.blocking.BlockingSessionCallback.*;
 
-import android.cts.util.MediaUtils;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraCaptureSession;
@@ -22,6 +21,7 @@ import android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.util.Size;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
@@ -43,6 +43,7 @@ import android.util.Log;
 import android.util.Range;
 import android.view.Surface;
 
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
 import junit.framework.AssertionFailedError;
@@ -345,6 +346,87 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 closeDevice();
                 releaseRecorder();
             }
+        }
+    }
+
+    /**
+     * <p>
+     * Test preview and video surfaces sharing the same camera stream.
+     * </p>
+     */
+    public void testVideoPreviewSurfaceSharing() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                // Re-use the MediaRecorder object for the same camera device.
+                mMediaRecorder = new MediaRecorder();
+                openDevice(mCameraIds[i]);
+                if (mStaticInfo.isHardwareLevelLegacy()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] + " is legacy, skipping");
+                    continue;
+                }
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+
+                initSupportedVideoSize(mCameraIds[i]);
+
+                videoPreviewSurfaceSharingTestByCamera();
+            } finally {
+                closeDevice();
+                releaseRecorder();
+            }
+        }
+    }
+
+    /**
+     * Test camera preview and video surface sharing for maximum supported size.
+     */
+    private void videoPreviewSurfaceSharingTestByCamera() throws Exception {
+        for (Size sz : mOrderedPreviewSizes) {
+            if (!isSupported(sz, VIDEO_FRAME_RATE, VIDEO_FRAME_RATE)) {
+                continue;
+            }
+
+            if (VERBOSE) {
+                Log.v(TAG, "Testing camera recording with video size " + sz.toString());
+            }
+
+            // Configure preview and recording surfaces.
+            mOutMediaFileName = VIDEO_FILE_PATH + "/test_video_share.mp4";
+            if (DEBUG_DUMP) {
+                mOutMediaFileName = VIDEO_FILE_PATH + "/test_video_share_" + mCamera.getId() + "_"
+                        + sz.toString() + ".mp4";
+            }
+
+            // Use AVC and AAC a/v compression format.
+            prepareRecording(sz, VIDEO_FRAME_RATE, VIDEO_FRAME_RATE);
+
+            // prepare preview surface by using video size.
+            updatePreviewSurfaceWithVideo(sz, VIDEO_FRAME_RATE);
+
+            // Start recording
+            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+            if (!startSharedRecording(/* useMediaRecorder */true, resultListener,
+                    /*useVideoStab*/false)) {
+                mMediaRecorder.reset();
+                continue;
+            }
+
+            // Record certain duration.
+            SystemClock.sleep(RECORDING_DURATION_MS);
+
+            // Stop recording and preview
+            stopRecording(/* useMediaRecorder */true);
+            // Convert number of frames camera produced into the duration in unit of ms.
+            float frameDurationMs = 1000.0f / VIDEO_FRAME_RATE;
+            float durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
+
+            // Validation.
+            validateRecording(sz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
+
+            break;
         }
     }
 
@@ -1205,6 +1287,58 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         mRecordingStartTime = SystemClock.elapsedRealtime();
     }
 
+    /**
+     * Start video recording with preview and video surfaces sharing the same
+     * camera stream.
+     *
+     * @return true if success, false if sharing is not supported.
+     */
+    private boolean startSharedRecording(boolean useMediaRecorder,
+            CameraCaptureSession.CaptureCallback listener, boolean useVideoStab) throws Exception {
+        if (!mStaticInfo.isVideoStabilizationSupported() && useVideoStab) {
+            throw new IllegalArgumentException("Video stabilization is not supported");
+        }
+
+        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>(2);
+        assertTrue("Both preview and recording surfaces should be valid",
+                mPreviewSurface.isValid() && mRecordingSurface.isValid());
+        OutputConfiguration sharedConfig = new OutputConfiguration(mPreviewSurface);
+        sharedConfig.enableSurfaceSharing();
+        sharedConfig.addSurface(mRecordingSurface);
+        outputConfigs.add(sharedConfig);
+
+        mSessionListener = new BlockingSessionCallback();
+        mSession = tryConfigureCameraSessionWithConfig(mCamera, outputConfigs,
+                mSessionListener, mHandler);
+
+        if (mSession == null) {
+            Log.i(TAG, "Sharing between preview and video is not supported");
+            return false;
+        }
+
+        CaptureRequest.Builder recordingRequestBuilder =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+        // Make sure camera output frame rate is set to correct value.
+        Range<Integer> fpsRange = Range.create(mVideoFrameRate, mVideoFrameRate);
+        recordingRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+        if (useVideoStab) {
+            recordingRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+        }
+        recordingRequestBuilder.addTarget(mRecordingSurface);
+        recordingRequestBuilder.addTarget(mPreviewSurface);
+        mSession.setRepeatingRequest(recordingRequestBuilder.build(), listener, mHandler);
+
+        if (useMediaRecorder) {
+            mMediaRecorder.start();
+        } else {
+            // TODO: need implement MediaCodec path.
+        }
+        mRecordingStartTime = SystemClock.elapsedRealtime();
+        return true;
+    }
+
+
     private void stopCameraStreaming() throws Exception {
         if (VERBOSE) {
             Log.v(TAG, "Stopping camera streaming and waiting for idle");
@@ -1282,14 +1416,15 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                                          duration, expectedDurationMs));
             }
 
-            // TODO: Don't skip this for video snapshot
-            if (!mStaticInfo.isHardwareLevelLegacy()) {
-                assertTrue(String.format(
-                        "Camera %s: Video duration doesn't match: recorded %fms, expected %fms.",
-                        mCamera.getId(), duration, expectedDurationMs),
-                        Math.abs(duration - expectedDurationMs) <
-                        DURATION_MARGIN * expectedDurationMs);
-            }
+            // Do rest of validation only for better-than-LEGACY devices
+            if (mStaticInfo.isHardwareLevelLegacy()) return;
+
+            // TODO: Don't skip this one for video snapshot on LEGACY
+            assertTrue(String.format(
+                    "Camera %s: Video duration doesn't match: recorded %fms, expected %fms.",
+                    mCamera.getId(), duration, expectedDurationMs),
+                    Math.abs(duration - expectedDurationMs) <
+                    DURATION_MARGIN * expectedDurationMs);
 
             // Check for framedrop
             long lastSampleUs = 0;

@@ -31,6 +31,9 @@ class display_SuspendStress(test.test):
     # TODO: Allow reading testcase_spec from command line.
     def run_once(self, host, test_mirrored=False, testcase_spec=None,
                  repeat_count=3, suspend_time_range=(5,7)):
+        if test_mirrored and not host.get_board_type() == 'CHROMEBOOK':
+            raise error.TestNAError('DUT is not Chromebook. Test Skipped')
+
         if testcase_spec is None:
             testcase_spec = self.DEFAULT_TESTCASE_SPEC
 
@@ -38,7 +41,7 @@ class display_SuspendStress(test.test):
         _, width, height = testcase_spec
         test_resolution = (width, height)
 
-        if not edid.is_edid_supported(host, *testcase_spec):
+        if not edid.is_edid_supported(host, testcase_spec[1], testcase_spec[2]):
             raise error.TestFail('Error: EDID is not supported by the platform'
                     ': %s', test_name)
 
@@ -48,7 +51,7 @@ class display_SuspendStress(test.test):
         display_facade = factory.create_display_facade()
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
         for chameleon_port in finder.iterate_all_ports():

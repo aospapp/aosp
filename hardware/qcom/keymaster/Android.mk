@@ -1,3 +1,5 @@
+# TODO:  Find a better way to separate build configs for ADP vs non-ADP devices
+ifneq ($(BOARD_IS_AUTOMOTIVE),true)
 LOCAL_PATH := $(call my-dir)
 
 ifneq ($(filter msm8960 msm8084,$(TARGET_BOARD_PLATFORM)),)
@@ -32,3 +34,4 @@ LOCAL_MODULE_TAGS := optional
 include $(BUILD_SHARED_LIBRARY)
 
 endif # TARGET_BOARD_PLATFORM
+endif

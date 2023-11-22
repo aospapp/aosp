@@ -42,6 +42,7 @@ public class MethodEntryDebuggee extends SyncDebuggee {
         logWriter.println("sampleMethod() is called");
     }
     
+    @Override
     public void run() {
         logWriter.println("MethodEntryDebuggee started");
         

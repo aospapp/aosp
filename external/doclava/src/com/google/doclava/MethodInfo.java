@@ -20,7 +20,14 @@ import com.google.clearsilver.jsilver.data.Data;
 import com.google.doclava.apicheck.AbstractMethodInfo;
 import com.google.doclava.apicheck.ApiInfo;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 
 public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolvable {
   public static final Comparator<MethodInfo> comparator = new Comparator<MethodInfo>() {
@@ -216,10 +223,18 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
         }
       }
 
-      if (commentDeprecated != annotationDeprecated) {
+      // Check to see that the JavaDoc contains @deprecated AND the method is marked as @Deprecated.
+      // Otherwise, warn.
+      // Note: We only do this for "included" classes (i.e. those we have source code for); we do
+      // not have comments for classes from .class files but we do know whether a method is marked
+      // as @Deprecated.
+      if (mContainingClass.isIncluded() && !isHiddenOrRemoved()
+          && commentDeprecated != annotationDeprecated) {
         Errors.error(Errors.DEPRECATION_MISMATCH, position(), "Method "
             + mContainingClass.qualifiedName() + "." + name()
-            + ": @Deprecated annotation and @deprecated doc tag do not match");
+            + ": @Deprecated annotation (" + (annotationDeprecated ? "" : "not ")
+            + "present) and @deprecated doc tag (" + (commentDeprecated ? "" : "not ")
+            + "present) do not match");
       }
 
       mIsDeprecated = commentDeprecated | annotationDeprecated;
@@ -235,6 +250,10 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
 
   public ArrayList<TypeInfo> getTypeParameters() {
     return mTypeParameters;
+  }
+
+  public boolean hasTypeParameters() {
+      return mTypeParameters != null && !mTypeParameters.isEmpty();
   }
 
   /**
@@ -493,10 +512,13 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
           }
         }
 
+        // Collect all docs requested by annotations
+        TagInfo[] auxTags = Doclava.auxSource.paramAuxTags(this, param, comment);
+
         // Okay, now add the collected parameter information to the method data
         mParamTags[i] =
             new ParamTagInfo("@param", type, name + " " + comment, parent(),
-                position);
+                position, auxTags);
 
         // while we're here, if we find any parameters that are still
         // undocumented at this point, complain. This warning is off by
@@ -506,6 +528,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
           Errors.error(Errors.UNDOCUMENTED_PARAMETER, position,
               "Undocumented parameter '" + name + "' on method '"
               + name() + "'");
+        } else {
+          Doclava.linter.lintParameter(this, param, position, mParamTags[i]);
         }
         i++;
       }
@@ -602,6 +626,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
 
     TagInfo.makeHDF(data, base + ".shortDescr", firstSentenceTags());
     TagInfo.makeHDF(data, base + ".descr", inlineTags());
+    TagInfo.makeHDF(data, base + ".descrAux", Doclava.auxSource.methodAuxTags(this));
     TagInfo.makeHDF(data, base + ".blockTags", blockTags());
     TagInfo.makeHDF(data, base + ".deprecated", deprecatedTags());
     TagInfo.makeHDF(data, base + ".seeAlso", seeTags());
@@ -620,6 +645,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       data.setValue(base + ".scope", "public");
     }
     TagInfo.makeHDF(data, base + ".returns", returnTags());
+    TagInfo.makeHDF(data, base + ".returnsAux", Doclava.auxSource.returnAuxTags(this));
 
     if (mTypeParameters != null) {
       TypeInfo.makeHDF(data, base + ".generic.typeArguments", mTypeParameters, false);
@@ -636,13 +662,14 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       }
     }
 
-
     AnnotationInstanceInfo.makeLinkListHDF(
       data,
       base + ".showAnnotations",
       showAnnotations().toArray(new AnnotationInstanceInfo[showAnnotations().size()]));
 
     setFederatedReferences(data, base);
+
+    Doclava.linter.lintMethod(this);
   }
 
   public HashSet<String> typeVariables() {
@@ -668,7 +695,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   }
 
   public String typeArgumentsName(HashSet<String> typeVars) {
-    if (mTypeParameters == null || mTypeParameters.isEmpty()) {
+    if (!hasTypeParameters()) {
       return "";
     } else {
       return TypeInfo.typeArgumentsName(mTypeParameters, typeVars);
@@ -792,24 +819,37 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
 
   public boolean isConsistent(MethodInfo mInfo) {
     boolean consistent = true;
-    if (this.mReturnType != mInfo.mReturnType && !this.mReturnType.equals(mInfo.mReturnType)) {
-      if (!mReturnType.isPrimitive() && !mInfo.mReturnType.isPrimitive()
-          && Objects.equals(mInfo.mReturnType.dimension(),  mReturnType.dimension())) {
-        // Check to see if our class extends the old class.
-        ApiInfo infoApi = mInfo.containingClass().containingPackage().containingApi();
-        ClassInfo infoReturnClass = infoApi.findClass(mInfo.mReturnType.qualifiedTypeName());
-        // Find the classes.
-        consistent = infoReturnClass != null &&
-                     infoReturnClass.isAssignableTo(mReturnType.qualifiedTypeName());
-      } else {
+    if (!mReturnType.isTypeVariable() && !mInfo.mReturnType.isTypeVariable()) {
+      if (!mReturnType.equals(mInfo.mReturnType) ||
+          mReturnType.dimension() != mInfo.mReturnType.dimension()) {
         consistent = false;
       }
-
-      if (!consistent) {
-        Errors.error(Errors.CHANGED_TYPE, mInfo.position(), "Method "
-            + mInfo.prettyQualifiedSignature() + " has changed return type from " + mReturnType
-            + " to " + mInfo.mReturnType);
+    } else if (!mReturnType.isTypeVariable() && mInfo.mReturnType.isTypeVariable()) {
+      List<ClassInfo> constraints = mInfo.resolveConstraints(mInfo.mReturnType);
+      for (ClassInfo constraint : constraints) {
+        if (!constraint.isAssignableTo(mReturnType.qualifiedTypeName())) {
+          consistent = false;
+        }
       }
+    } else if (mReturnType.isTypeVariable() && !mInfo.mReturnType.isTypeVariable()) {
+      // It's never valid to go from being a parameterized type to not being one.
+      // This would drop the implicit cast breaking backwards compatibility.
+      consistent = false;
+    } else {
+      // If both return types are parameterized then the constraints must be
+      // exactly the same.
+      List<ClassInfo> currentConstraints = mInfo.resolveConstraints(mReturnType);
+      List<ClassInfo> newConstraints = mInfo.resolveConstraints(mInfo.mReturnType);
+      if (currentConstraints.size() != newConstraints.size() ||
+          currentConstraints.retainAll(newConstraints)) {
+        consistent = false;
+      }
+    }
+
+    if (!consistent) {
+      Errors.error(Errors.CHANGED_TYPE, mInfo.position(), "Method "
+          + mInfo.prettyQualifiedSignature() + " has changed return type from " + mReturnType
+          + " to " + mInfo.mReturnType);
     }
 
     if (mIsAbstract != mInfo.mIsAbstract) {
@@ -896,6 +936,43 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
     }
 
     return consistent;
+  }
+
+  private TypeInfo getTypeParameter(String qualifiedTypeName) {
+    if (hasTypeParameters()) {
+      for (TypeInfo parameter : mTypeParameters) {
+        if (parameter.qualifiedTypeName().equals(qualifiedTypeName)) {
+          return parameter;
+        }
+      }
+    }
+    return containingClass().getTypeParameter(qualifiedTypeName);
+  }
+
+  // Given a type parameter it returns a list of all of the classes and interfaces it must extend
+  // and implement.
+  private List<ClassInfo> resolveConstraints(TypeInfo type) {
+    ApiInfo api = containingClass().containingPackage().containingApi();
+    List<ClassInfo> classes = new ArrayList<>();
+    Queue<TypeInfo> types = new LinkedList<>();
+    types.add(type);
+    while (!types.isEmpty()) {
+      type = types.poll();
+      if (!type.isTypeVariable()) {
+        ClassInfo cl = api.findClass(type.qualifiedTypeName());
+        if (cl != null) {
+          classes.add(cl);
+        }
+      } else {
+        TypeInfo parameter = getTypeParameter(type.qualifiedTypeName());
+        if (parameter.extendsBounds() != null) {
+          for (TypeInfo bound : parameter.extendsBounds()) {
+            types.add(bound);
+          }
+        }
+      }
+    }
+    return classes;
   }
 
   public void printResolutions() {

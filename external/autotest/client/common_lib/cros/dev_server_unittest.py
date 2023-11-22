@@ -6,23 +6,35 @@
 
 """Unit tests for client/common_lib/cros/dev_server.py."""
 
+import __builtin__
+
 import httplib
+import json
 import mox
+import os
 import StringIO
 import time
 import unittest
 import urllib2
 
+import common
+from autotest_lib.client.bin import utils as site_utils
+from autotest_lib.client.common_lib import android_utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
 
-def retry_mock(ExceptionToCheck, timeout_min):
+
+def retry_mock(ExceptionToCheck, timeout_min, exception_to_raise=None,
+               label=None):
     """A mock retry decorator to use in place of the actual one for testing.
 
     @param ExceptionToCheck: the exception to check.
     @param timeout_mins: Amount of time in mins to wait before timing out.
+    @param exception_to_raise: the exception to raise in retry.retry
+    @param label: used in debug messages
 
     """
     def inner_retry(func):
@@ -34,6 +46,169 @@ def retry_mock(ExceptionToCheck, timeout_min):
         return func
 
     return inner_retry
+
+
+class MockSshResponse(object):
+    """An ssh response mocked for testing."""
+
+    def __init__(self, output, exit_status=0):
+        self.stdout = output
+        self.exit_status = exit_status
+        self.stderr = 'SSH connection error occurred.'
+
+
+class MockSshError(error.CmdError):
+    """An ssh error response mocked for testing."""
+
+    def __init__(self):
+        self.result_obj = MockSshResponse('error', exit_status=255)
+
+
+E403 = urllib2.HTTPError(url='',
+                         code=httplib.FORBIDDEN,
+                         msg='Error 403',
+                         hdrs=None,
+                         fp=StringIO.StringIO('Expected.'))
+E500 = urllib2.HTTPError(url='',
+                         code=httplib.INTERNAL_SERVER_ERROR,
+                         msg='Error 500',
+                         hdrs=None,
+                         fp=StringIO.StringIO('Expected.'))
+CMD_ERROR = error.CmdError('error_cmd', MockSshError().result_obj)
+
+
+class RunCallTest(mox.MoxTestBase):
+    """Unit tests for ImageServerBase.run_call or DevServer.run_call."""
+
+    def setUp(self):
+        """Set up the test"""
+        self.test_call = 'http://nothing/test'
+        self.contents = 'true'
+        self.contents_readline = ['file/one', 'file/two']
+        self.save_ssh_config = dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER
+        super(RunCallTest, self).setUp()
+        self.mox.StubOutWithMock(urllib2, 'urlopen')
+        self.mox.StubOutWithMock(utils, 'run')
+
+
+    def tearDown(self):
+        """Tear down the test"""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = self.save_ssh_config
+        super(RunCallTest, self).tearDown()
+
+
+    def testRunCallWithSingleCallHTTP(self):
+        """Test dev_server.ImageServerBase.run_call using http with arg:
+        (call)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = False
+
+        urllib2.urlopen(mox.StrContains(self.test_call)).AndReturn(
+                StringIO.StringIO(self.contents))
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(self.test_call)
+        self.assertEquals(self.contents, response)
+
+
+    def testRunCallWithCallAndReadlineHTTP(self):
+        """Test dev_server.ImageServerBase.run_call using http with arg:
+        (call, readline=True)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = False
+
+        urllib2.urlopen(mox.StrContains(self.test_call)).AndReturn(
+                StringIO.StringIO('\n'.join(self.contents_readline)))
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(
+                self.test_call, readline=True)
+        self.assertEquals(self.contents_readline, response)
+
+
+    def testRunCallWithCallAndTimeoutHTTP(self):
+        """Test dev_server.ImageServerBase.run_call using http with args:
+        (call, timeout=xxx)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = False
+
+        urllib2.urlopen(mox.StrContains(self.test_call), data=None).AndReturn(
+                StringIO.StringIO(self.contents))
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(
+                self.test_call, timeout=60)
+        self.assertEquals(self.contents, response)
+
+
+    def testRunCallWithSingleCallSSH(self):
+        """Test dev_server.ImageServerBase.run_call using ssh with arg:
+        (call)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = True
+
+        to_return = MockSshResponse(self.contents)
+        utils.run(mox.StrContains(self.test_call),
+                  timeout=mox.IgnoreArg()).AndReturn(to_return)
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(self.test_call)
+        self.assertEquals(self.contents, response)
+
+
+    def testRunCallWithCallAndReadlineSSH(self):
+        """Test dev_server.ImageServerBase.run_call using ssh with args:
+        (call, readline=True)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = True
+
+        to_return = MockSshResponse('\n'.join(self.contents_readline))
+        utils.run(mox.StrContains(self.test_call),
+                  timeout=mox.IgnoreArg()).AndReturn(to_return)
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(
+                self.test_call, readline=True)
+        self.assertEquals(self.contents_readline, response)
+
+
+    def testRunCallWithCallAndTimeoutSSH(self):
+        """Test dev_server.ImageServerBase.run_call using ssh with args:
+        (call, timeout=xxx)."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = True
+
+        to_return = MockSshResponse(self.contents)
+        utils.run(mox.StrContains(self.test_call),
+                  timeout=mox.IgnoreArg()).AndReturn(to_return)
+        self.mox.ReplayAll()
+        response = dev_server.ImageServerBase.run_call(
+                self.test_call, timeout=60)
+        self.assertEquals(self.contents, response)
+
+
+    def testRunCallWithExceptionHTTP(self):
+        """Test dev_server.ImageServerBase.run_call using http with raising
+        exception."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = False
+        urllib2.urlopen(mox.StrContains(self.test_call)).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertRaises(urllib2.HTTPError,
+                          dev_server.ImageServerBase.run_call,
+                          self.test_call)
+
+
+    def testRunCallWithExceptionSSH(self):
+        """Test dev_server.ImageServerBase.run_call using ssh with raising
+        exception."""
+        dev_server.ENABLE_SSH_CONNECTION_FOR_DEVSERVER = True
+        utils.run(mox.StrContains(self.test_call),
+                  timeout=mox.IgnoreArg()).AndRaise(MockSshError())
+        self.mox.ReplayAll()
+        self.assertRaises(error.CmdError,
+                          dev_server.ImageServerBase.run_call,
+                          self.test_call)
+
+
+    def testRunCallByDevServerHTTP(self):
+        """Test dev_server.DevServer.run_call, which uses http, and can be
+        directly called by CrashServer."""
+        urllib2.urlopen(
+                mox.StrContains(self.test_call), data=None).AndReturn(
+                        StringIO.StringIO(self.contents))
+        self.mox.ReplayAll()
+        response = dev_server.DevServer.run_call(
+               self.test_call, timeout=60)
+        self.assertEquals(self.contents, response)
 
 
 class DevServerTest(mox.MoxTestBase):
@@ -48,12 +223,16 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def setUp(self):
+        """Set up the test"""
         super(DevServerTest, self).setUp()
         self.crash_server = dev_server.CrashServer(DevServerTest._CRASH_HOST)
         self.dev_server = dev_server.ImageServer(DevServerTest._HOST)
         self.android_dev_server = dev_server.AndroidBuildServer(
                 DevServerTest._HOST)
+        self.mox.StubOutWithMock(dev_server.ImageServerBase, 'run_call')
         self.mox.StubOutWithMock(urllib2, 'urlopen')
+        self.mox.StubOutWithMock(utils, 'run')
+        self.mox.StubOutWithMock(os.path, 'exists')
         # Hide local restricted_subnets setting.
         dev_server.RESTRICTED_SUBNETS = []
 
@@ -61,10 +240,10 @@ class DevServerTest(mox.MoxTestBase):
     def testSimpleResolve(self):
         """One devserver, verify we resolve to it."""
         self.mox.StubOutWithMock(dev_server, '_get_dev_server_list')
-        self.mox.StubOutWithMock(dev_server.DevServer, 'devserver_healthy')
+        self.mox.StubOutWithMock(dev_server.ImageServer, 'devserver_healthy')
         dev_server._get_dev_server_list().MultipleTimes().AndReturn(
                 [DevServerTest._HOST])
-        dev_server.DevServer.devserver_healthy(DevServerTest._HOST).AndReturn(
+        dev_server.ImageServer.devserver_healthy(DevServerTest._HOST).AndReturn(
                                                                         True)
         self.mox.ReplayAll()
         devserver = dev_server.ImageServer.resolve('my_build')
@@ -77,14 +256,17 @@ class DevServerTest(mox.MoxTestBase):
         bad_host, good_host = 'http://bad_host:99', 'http://good_host:8080'
         dev_server._get_dev_server_list().MultipleTimes().AndReturn(
                 [bad_host, good_host])
+        argument1 = mox.StrContains(bad_host)
+        argument2 = mox.StrContains(good_host)
 
         # Mock out bad ping failure to bad_host by raising devserver exception.
-        urllib2.urlopen(mox.StrContains(bad_host), data=None).AndRaise(
-                dev_server.DevServerException())
+        dev_server.ImageServerBase.run_call(
+                argument1, timeout=mox.IgnoreArg()).AndRaise(
+                        dev_server.DevServerException())
         # Good host is good.
-        to_return = StringIO.StringIO('{"free_disk": 1024}')
-        urllib2.urlopen(mox.StrContains(good_host),
-                        data=None).AndReturn(to_return)
+        dev_server.ImageServerBase.run_call(
+                argument2, timeout=mox.IgnoreArg()).AndReturn(
+                        '{"free_disk": 1024}')
 
         self.mox.ReplayAll()
         host = dev_server.ImageServer.resolve(0) # Using 0 as it'll hash to 0.
@@ -93,28 +275,38 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testResolveWithFailureURLError(self):
-        """Ensure we rehash on a failed ping on a bad_host after urlerror."""
-        # Retry mock just return the original method.
+        """Ensure we rehash on a failed ping using http on a bad_host after
+        urlerror."""
+        # Set retry.retry to retry_mock for just returning the original
+        # method for this test. This is to save waiting time for real retry,
+        # which is defined by dev_server.DEVSERVER_SSH_TIMEOUT_MINS.
+        # Will reset retry.retry to real retry at the end of this test.
+        real_retry = retry.retry
         retry.retry = retry_mock
+
         self.mox.StubOutWithMock(dev_server, '_get_dev_server_list')
         bad_host, good_host = 'http://bad_host:99', 'http://good_host:8080'
         dev_server._get_dev_server_list().MultipleTimes().AndReturn(
                 [bad_host, good_host])
+        argument1 = mox.StrContains(bad_host)
+        argument2 = mox.StrContains(good_host)
 
         # Mock out bad ping failure to bad_host by raising devserver exception.
-        urllib2.urlopen(mox.StrContains(bad_host),
-                data=None).MultipleTimes().AndRaise(
+        dev_server.ImageServerBase.run_call(
+                argument1, timeout=mox.IgnoreArg()).MultipleTimes().AndRaise(
                         urllib2.URLError('urlopen connection timeout'))
 
         # Good host is good.
-        to_return = StringIO.StringIO('{"free_disk": 1024}')
-        urllib2.urlopen(mox.StrContains(good_host),
-                data=None).AndReturn(to_return)
+        dev_server.ImageServerBase.run_call(
+                argument2, timeout=mox.IgnoreArg()).AndReturn(
+                        '{"free_disk": 1024}')
 
         self.mox.ReplayAll()
         host = dev_server.ImageServer.resolve(0) # Using 0 as it'll hash to 0.
         self.assertEquals(host.url(), good_host)
         self.mox.VerifyAll()
+
+        retry.retry = real_retry
 
 
     def testResolveWithManyDevservers(self):
@@ -127,8 +319,8 @@ class DevServerTest(mox.MoxTestBase):
 
         dev_server.ImageServer.servers().MultipleTimes().AndReturn(
                 [host0_expected, host1_expected])
-        dev_server.DevServer.devserver_healthy(host0_expected).AndReturn(True)
-        dev_server.DevServer.devserver_healthy(host1_expected).AndReturn(True)
+        dev_server.ImageServer.devserver_healthy(host0_expected).AndReturn(True)
+        dev_server.ImageServer.devserver_healthy(host1_expected).AndReturn(True)
 
         self.mox.ReplayAll()
         host0 = dev_server.ImageServer.resolve(0)
@@ -139,37 +331,408 @@ class DevServerTest(mox.MoxTestBase):
         self.assertEqual(host1.url(), host1_expected)
 
 
-    def _returnHttpServerError(self):
-        e500 = urllib2.HTTPError(url='',
-                                 code=httplib.INTERNAL_SERVER_ERROR,
-                                 msg='',
-                                 hdrs=None,
-                                 fp=StringIO.StringIO('Expected.'))
-        urllib2.urlopen(mox.IgnoreArg()).AndRaise(e500)
+    def testCmdErrorRetryCollectAULog(self):
+        """Devserver should retry _collect_au_log() on CMDError,
+        but pass through real exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertFalse(self.dev_server.collect_au_log(
+                '100.0.0.0', 100, 'path/'))
 
 
-    def _returnHttpForbidden(self):
-        e403 = urllib2.HTTPError(url='',
-                                 code=httplib.FORBIDDEN,
-                                 msg='',
-                                 hdrs=None,
-                                 fp=StringIO.StringIO('Expected.'))
-        urllib2.urlopen(mox.IgnoreArg()).AndRaise(e403)
+    def testURLErrorRetryCollectAULog(self):
+        """Devserver should retry _collect_au_log() on URLError,
+        but pass through real exception."""
+        self.mox.StubOutWithMock(time, 'sleep')
+
+        refused = urllib2.URLError('[Errno 111] Connection refused')
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(refused)
+        time.sleep(mox.IgnoreArg())
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E403)
+        self.mox.ReplayAll()
+        self.assertFalse(self.dev_server.collect_au_log(
+                '100.0.0.0', 100, 'path/'))
+
+
+    def testCmdErrorRetryKillAUProcess(self):
+        """Devserver should retry _kill_au_process() on CMDError,
+        but pass through real exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertFalse(self.dev_server.kill_au_process_for_host(
+                '100.0.0.0', 100))
+
+
+    def testURLErrorRetryKillAUProcess(self):
+        """Devserver should retry _kill_au_process() on URLError,
+        but pass through real exception."""
+        self.mox.StubOutWithMock(time, 'sleep')
+
+        refused = urllib2.URLError('[Errno 111] Connection refused')
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(refused)
+        time.sleep(mox.IgnoreArg())
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E403)
+        self.mox.ReplayAll()
+        self.assertFalse(self.dev_server.kill_au_process_for_host(
+                '100.0.0.0', 100))
+
+
+    def testCmdErrorRetryCleanTrackLog(self):
+        """Devserver should retry _clean_track_log() on CMDError,
+        but pass through real exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertFalse(self.dev_server.clean_track_log('100.0.0.0', 100))
+
+
+    def testURLErrorRetryCleanTrackLog(self):
+        """Devserver should retry _clean_track_log() on URLError,
+        but pass through real exception."""
+        self.mox.StubOutWithMock(time, 'sleep')
+
+        refused = urllib2.URLError('[Errno 111] Connection refused')
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(refused)
+        time.sleep(mox.IgnoreArg())
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E403)
+        self.mox.ReplayAll()
+        self.assertFalse(self.dev_server.clean_track_log('100.0.0.0', 100))
+
+
+    def _mockWriteFile(self):
+        """Mock write content to a file."""
+        mock_file = self.mox.CreateMockAnything()
+        open(mox.IgnoreArg(), 'w').AndReturn(mock_file)
+        mock_file.__enter__().AndReturn(mock_file)
+        mock_file.write(mox.IgnoreArg())
+        mock_file.__exit__(None, None, None)
+
+
+    def _preSetupForAutoUpdate(self, **kwargs):
+        """Pre-setup for testing auto_update logics and error handling in
+        devserver."""
+        response1 = (True, 100)
+        response2 = (True, 'Completed')
+        argument1 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains('cros_au'))
+        argument2 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains('get_au_status'))
+        argument3 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains('handler_cleanup'))
+        argument4 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains('collect_cros_au_log'))
+        argument5 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains('kill_au_proc'))
+
+        retry_error = None
+        if 'retry_error' in kwargs:
+            retry_error = kwargs['retry_error']
+
+        raised_error = E403
+        if 'raised_error' in kwargs:
+            raised_error = kwargs['raised_error']
+
+        if 'cros_au_error' in kwargs:
+            if retry_error:
+                dev_server.ImageServerBase.run_call(argument1).AndRaise(
+                        retry_error)
+                time.sleep(mox.IgnoreArg())
+
+            if kwargs['cros_au_error']:
+                dev_server.ImageServerBase.run_call(argument1).AndRaise(
+                        raised_error)
+            else:
+                dev_server.ImageServerBase.run_call(argument1).AndReturn(
+                        json.dumps(response1))
+
+        if 'get_au_status_error' in kwargs:
+            if retry_error:
+                dev_server.ImageServerBase.run_call(argument2).AndRaise(
+                        retry_error)
+                time.sleep(mox.IgnoreArg())
+
+            if kwargs['get_au_status_error']:
+                dev_server.ImageServerBase.run_call(argument2).AndRaise(
+                        raised_error)
+            else:
+                dev_server.ImageServerBase.run_call(argument2).AndReturn(
+                        json.dumps(response2))
+
+        if 'handler_cleanup_error' in kwargs:
+            if kwargs['handler_cleanup_error']:
+                dev_server.ImageServerBase.run_call(argument3).AndRaise(
+                        raised_error)
+            else:
+                dev_server.ImageServerBase.run_call(argument3).AndReturn('True')
+
+        if 'collect_au_log_error' in kwargs:
+            if kwargs['collect_au_log_error']:
+                dev_server.ImageServerBase.run_call(argument4).AndRaise(
+                        raised_error)
+            else:
+                dev_server.ImageServerBase.run_call(argument4).AndReturn('log')
+                os.path.exists(mox.IgnoreArg()).AndReturn(True)
+                self._mockWriteFile()
+
+        if 'kill_au_proc_error' in kwargs:
+            if kwargs['kill_au_proc_error']:
+                dev_server.ImageServerBase.run_call(argument5).AndRaise(
+                        raised_error)
+            else:
+                dev_server.ImageServerBase.run_call(argument5).AndReturn('True')
+
+
+    def testSuccessfulTriggerAutoUpdate(self):
+        """Verify the dev server's auto_update() succeeds."""
+        kwargs={'cros_au_error': False, 'get_au_status_error': False,
+                'handler_cleanup_error': False}
+        self._preSetupForAutoUpdate(**kwargs)
+
+        self.mox.ReplayAll()
+        self.dev_server.auto_update('100.0.0.0', '')
+        self.mox.VerifyAll()
+
+
+    def testSuccessfulTriggerAutoUpdateWithCollectingLog(self):
+        """Verify the dev server's auto_update() with collecting logs
+        succeeds."""
+        kwargs={'cros_au_error': False, 'get_au_status_error': False,
+                'handler_cleanup_error': False, 'collect_au_log_error': False}
+        self.mox.StubOutWithMock(__builtin__, 'open')
+        self._preSetupForAutoUpdate(**kwargs)
+
+        self.mox.ReplayAll()
+        self.dev_server.auto_update('100.0.0.0', '', log_dir='path/')
+        self.mox.VerifyAll()
+
+
+    def testCrOSAUURLErrorRetryTriggerAutoUpdateSucceed(self):
+        """Devserver should retry cros_au() on URLError."""
+        self.mox.StubOutWithMock(time, 'sleep')
+        refused = urllib2.URLError('[Errno 111] Connection refused')
+        kwargs={'retry_error': refused, 'cros_au_error': False,
+                'get_au_status_error': False, 'handler_cleanup_error': False,
+                'collect_au_log_error': False}
+        self.mox.StubOutWithMock(__builtin__, 'open')
+        self._preSetupForAutoUpdate(**kwargs)
+
+        self.mox.ReplayAll()
+        self.dev_server.auto_update('100.0.0.0', '', log_dir='path/')
+        self.mox.VerifyAll()
+
+
+    def testCrOSAUCmdErrorRetryTriggerAutoUpdateSucceed(self):
+        """Devserver should retry cros_au() on CMDError."""
+        self.mox.StubOutWithMock(time, 'sleep')
+        self.mox.StubOutWithMock(__builtin__, 'open')
+        kwargs={'retry_error': CMD_ERROR, 'cros_au_error': False,
+                'get_au_status_error': False, 'handler_cleanup_error': False,
+                'collect_au_log_error': False}
+        self._preSetupForAutoUpdate(**kwargs)
+
+        self.mox.ReplayAll()
+        self.dev_server.auto_update('100.0.0.0', '', log_dir='path/')
+        self.mox.VerifyAll()
+
+
+    def testCrOSAUURLErrorRetryTriggerAutoUpdateFail(self):
+        """Devserver should retry cros_au() on URLError, but pass through
+        real exception."""
+        self.mox.StubOutWithMock(time, 'sleep')
+        refused = urllib2.URLError('[Errno 111] Connection refused')
+        kwargs={'retry_error': refused, 'cros_au_error': True,
+                'raised_error': E500}
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '', '')
+
+
+    def testCrOSAUCmdErrorRetryTriggerAutoUpdateFail(self):
+        """Devserver should retry cros_au() on CMDError, but pass through
+        real exception."""
+        self.mox.StubOutWithMock(time, 'sleep')
+        kwargs={'retry_error': CMD_ERROR, 'cros_au_error': True}
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '', '')
+
+
+    def testGetAUStatusErrorInAutoUpdate(self):
+        """Verify devserver's auto_update() logics for handling get_au_status
+        errors.
+
+        Func auto_update() should call 'handler_cleanup' and 'collect_au_log'
+        even if '_start_auto_update()' failed.
+        """
+        self.mox.StubOutWithMock(time, 'sleep')
+        self.mox.StubOutWithMock(__builtin__, 'open')
+        kwargs={'cros_au_error': False, 'get_au_status_error': True,
+                'handler_cleanup_error': False, 'collect_au_log_error': False,
+                'kill_au_proc_error': False}
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '100.0.0.0', 'build', 'path/')
+
+
+    def testCleanUpErrorInAutoUpdate(self):
+        """Verify devserver's auto_update() logics for handling handler_cleanup
+        errors.
+
+        Func auto_update() should call 'handler_cleanup' and 'collect_au_log'
+        no matter '_start_auto_update()' succeeds or fails.
+        """
+        self.mox.StubOutWithMock(time, 'sleep')
+        self.mox.StubOutWithMock(__builtin__, 'open')
+        kwargs={'cros_au_error': False, 'get_au_status_error': False,
+                'handler_cleanup_error': True, 'collect_au_log_error': False,
+                'kill_au_proc_error': False}
+
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '100.0.0.0', 'build', 'path/')
+
+
+    def testCollectLogErrorInAutoUpdate(self):
+        """Verify devserver's auto_update() logics for handling collect_au_log
+        errors."""
+        self.mox.StubOutWithMock(time, 'sleep')
+        kwargs={'cros_au_error': False, 'get_au_status_error': False,
+                'handler_cleanup_error': False, 'collect_au_log_error': True,
+                'kill_au_proc_error': False}
+
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '100.0.0.0', 'build', 'path/')
+
+
+    def testGetAUStatusErrorAndCleanUpErrorInAutoUpdate(self):
+        """Verify devserver's auto_update() logics for handling get_au_status
+        and handler_cleanup errors.
+
+        Func auto_update() should call 'handler_cleanup' and 'collect_au_log'
+        even if '_start_auto_update()' fails.
+        """
+        self.mox.StubOutWithMock(time, 'sleep')
+        self.mox.StubOutWithMock(__builtin__, 'open')
+        kwargs={'cros_au_error': False, 'get_au_status_error': True,
+                'handler_cleanup_error': True, 'collect_au_log_error': False,
+                'kill_au_proc_error': False}
+
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '100.0.0.0', 'build', 'path/')
+
+
+    def testGetAUStatusErrorAndCleanUpErrorAndCollectLogErrorInAutoUpdate(self):
+        """Verify devserver's auto_update() logics for handling get_au_status,
+        handler_cleanup, and collect_au_log errors.
+
+        Func auto_update() should call 'handler_cleanup' and 'collect_au_log'
+        even if '_start_auto_update()' fails.
+        """
+        self.mox.StubOutWithMock(time, 'sleep')
+        kwargs={'cros_au_error': False, 'get_au_status_error': True,
+                'handler_cleanup_error': True, 'collect_au_log_error': True,
+                'kill_au_proc_error': False}
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '100.0.0.0', 'build', 'path/')
+
+
+    def testGetAUStatusErrorAndCleanUpErrorAndCollectLogErrorAndKillErrorInAutoUpdate(self):
+        """Verify devserver's auto_update() logics for handling get_au_status,
+        handler_cleanup, collect_au_log, and kill_au_proc errors.
+
+        Func auto_update() should call 'handler_cleanup' and 'collect_au_log'
+        even if '_start_auto_update()' fails.
+        """
+        self.mox.StubOutWithMock(time, 'sleep')
+
+        kwargs={'cros_au_error': False, 'get_au_status_error': True,
+                'handler_cleanup_error': True, 'collect_au_log_error': True,
+                'kill_au_proc_error': True}
+
+        for i in range(dev_server.AU_RETRY_LIMIT):
+            self._preSetupForAutoUpdate(**kwargs)
+            if i < dev_server.AU_RETRY_LIMIT - 1:
+                time.sleep(mox.IgnoreArg())
+
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.auto_update,
+                          '100.0.0.0', 'build', 'path/')
 
 
     def testSuccessfulTriggerDownloadSync(self):
         """Call the dev server's download method with synchronous=True."""
         name = 'fake/image'
         self.mox.StubOutWithMock(dev_server.ImageServer, '_finish_download')
-        to_return = StringIO.StringIO('Success')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains('stage?'))).AndReturn(to_return)
-        to_return = StringIO.StringIO('True')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains('is_staged'))).AndReturn(
-                                                                      to_return)
+        argument1 = mox.And(mox.StrContains(self._HOST), mox.StrContains(name),
+                            mox.StrContains('stage?'))
+        argument2 = mox.And(mox.StrContains(self._HOST), mox.StrContains(name),
+                            mox.StrContains('is_staged'))
+        dev_server.ImageServerBase.run_call(argument1).AndReturn('Success')
+        dev_server.ImageServerBase.run_call(argument2).AndReturn('True')
         self.dev_server._finish_download(name, mox.IgnoreArg(), mox.IgnoreArg())
 
         # Synchronous case requires a call to finish download.
@@ -181,15 +744,12 @@ class DevServerTest(mox.MoxTestBase):
     def testSuccessfulTriggerDownloadASync(self):
         """Call the dev server's download method with synchronous=False."""
         name = 'fake/image'
-        to_return = StringIO.StringIO('Success')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains('stage?'))).AndReturn(to_return)
-        to_return = StringIO.StringIO('True')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains('is_staged'))).AndReturn(
-                                                                      to_return)
+        argument1 = mox.And(mox.StrContains(self._HOST), mox.StrContains(name),
+                            mox.StrContains('stage?'))
+        argument2 = mox.And(mox.StrContains(self._HOST), mox.StrContains(name),
+                            mox.StrContains('is_staged'))
+        dev_server.ImageServerBase.run_call(argument1).AndReturn('Success')
+        dev_server.ImageServerBase.run_call(argument2).AndReturn('True')
 
         self.mox.ReplayAll()
         self.dev_server.trigger_download(name, synchronous=False)
@@ -201,9 +761,10 @@ class DevServerTest(mox.MoxTestBase):
         self.mox.StubOutWithMock(time, 'sleep')
 
         refused = urllib2.URLError('[Errno 111] Connection refused')
-        urllib2.urlopen(mox.IgnoreArg()).AndRaise(refused)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(refused)
         time.sleep(mox.IgnoreArg())
-        self._returnHttpForbidden()
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E403)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.trigger_download,
@@ -211,8 +772,9 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testErrorTriggerDownload(self):
-        """Should call the dev server's download method, fail gracefully."""
-        self._returnHttpServerError()
+        """Should call the dev server's download method using http, fail
+        gracefully."""
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E500)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.trigger_download,
@@ -220,8 +782,23 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testForbiddenTriggerDownload(self):
-        """Should call the dev server's download method, get exception."""
-        self._returnHttpForbidden()
+        """Should call the dev server's download method using http,
+        get exception."""
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E403)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.trigger_download,
+                          '')
+
+
+    def testCmdErrorTriggerDownload(self):
+        """Should call the dev server's download method using ssh, retry
+        trigger_download when getting error.CmdError, raise exception for
+        urllib2.HTTPError."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.trigger_download,
@@ -231,15 +808,14 @@ class DevServerTest(mox.MoxTestBase):
     def testSuccessfulFinishDownload(self):
         """Should successfully call the dev server's finish download method."""
         name = 'fake/image'
-        to_return = StringIO.StringIO('Success')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains('stage?'))).AndReturn(to_return)
-        to_return = StringIO.StringIO('True')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains('is_staged'))).AndReturn(
-                                                                      to_return)
+        argument1 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains(name),
+                            mox.StrContains('stage?'))
+        argument2 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains(name),
+                            mox.StrContains('is_staged'))
+        dev_server.ImageServerBase.run_call(argument1).AndReturn('Success')
+        dev_server.ImageServerBase.run_call(argument2).AndReturn('True')
 
         # Synchronous case requires a call to finish download.
         self.mox.ReplayAll()
@@ -248,9 +824,23 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testErrorFinishDownload(self):
-        """Should call the dev server's finish download method, fail gracefully.
-        """
-        self._returnHttpServerError()
+        """Should call the dev server's finish download method using http, fail
+        gracefully."""
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.finish_download,
+                          '')
+
+
+    def testCmdErrorFinishDownload(self):
+        """Should call the dev server's finish download method using ssh,
+        retry finish_download when getting error.CmdError, raise exception
+        for urllib2.HTTPError."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.finish_download,
@@ -261,9 +851,11 @@ class DevServerTest(mox.MoxTestBase):
         """Should successfully list control files from the dev server."""
         name = 'fake/build'
         control_files = ['file/one', 'file/two']
-        to_return = StringIO.StringIO('\n'.join(control_files))
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name))).AndReturn(to_return)
+        argument = mox.And(mox.StrContains(self._HOST),
+                           mox.StrContains(name))
+        dev_server.ImageServerBase.run_call(
+                argument, readline=True).AndReturn(control_files)
+
         self.mox.ReplayAll()
         paths = self.dev_server.list_control_files(name)
         self.assertEquals(len(paths), 2)
@@ -272,8 +864,10 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testFailedListControlFiles(self):
-        """Should call the dev server's list-files method, get exception."""
-        self._returnHttpServerError()
+        """Should call the dev server's list-files method using http, get
+        exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg(), readline=True).AndRaise(E500)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.list_control_files,
@@ -281,11 +875,79 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testExplodingListControlFiles(self):
-        """Should call the dev server's list-files method, get exception."""
-        self._returnHttpForbidden()
+        """Should call the dev server's list-files method using http, get
+        exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg(), readline=True).AndRaise(E403)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.list_control_files,
+                          '')
+
+
+    def testCmdErrorListControlFiles(self):
+        """Should call the dev server's list-files method using ssh, retry
+        list_control_files when getting error.CmdError, raise exception for
+        urllib2.HTTPError."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg(), readline=True).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg(), readline=True).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.list_control_files,
+                          '')
+
+    def testListSuiteControls(self):
+        """Should successfully list all contents of control files from the dev
+        server."""
+        name = 'fake/build'
+        control_contents = ['control file one', 'control file two']
+        argument = mox.And(mox.StrContains(self._HOST),
+                           mox.StrContains(name))
+        dev_server.ImageServerBase.run_call(
+                argument).AndReturn(json.dumps(control_contents))
+
+        self.mox.ReplayAll()
+        file_contents = self.dev_server.list_suite_controls(name)
+        self.assertEquals(len(file_contents), 2)
+        for f in control_contents:
+            self.assertTrue(f in file_contents)
+
+
+    def testFailedListSuiteControls(self):
+        """Should call the dev server's list_suite_controls method using http,
+        get exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.list_suite_controls,
+                          '')
+
+
+    def testExplodingListSuiteControls(self):
+        """Should call the dev server's list_suite_controls method using http,
+        get exception."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E403)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.list_suite_controls,
+                          '')
+
+
+    def testCmdErrorListSuiteControls(self):
+        """Should call the dev server's list_suite_controls method using ssh,
+        retry list_suite_controls when getting error.CmdError, raise exception
+        for urllib2.HTTPError."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.list_suite_controls,
                           '')
 
 
@@ -294,18 +956,20 @@ class DevServerTest(mox.MoxTestBase):
         name = 'fake/build'
         file = 'file/one'
         contents = 'Multi-line\nControl File Contents\n'
-        to_return = StringIO.StringIO(contents)
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(name),
-                                mox.StrContains(file))).AndReturn(to_return)
+        argument = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains(name),
+                            mox.StrContains(file))
+        dev_server.ImageServerBase.run_call(argument).AndReturn(contents)
+
         self.mox.ReplayAll()
         self.assertEquals(self.dev_server.get_control_file(name, file),
                           contents)
 
 
     def testErrorGetControlFile(self):
-        """Should try to get the contents of a control file, get exception."""
-        self._returnHttpServerError()
+        """Should try to get the contents of a control file using http, get
+        exception."""
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E500)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.get_control_file,
@@ -313,8 +977,23 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testForbiddenGetControlFile(self):
-        """Should try to get the contents of a control file, get exception."""
-        self._returnHttpForbidden()
+        """Should try to get the contents of a control file using http, get
+        exception."""
+        dev_server.ImageServerBase.run_call(mox.IgnoreArg()).AndRaise(E403)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.get_control_file,
+                          '', '')
+
+
+    def testCmdErrorGetControlFile(self):
+        """Should try to get the contents of a control file using ssh, retry
+        get_control_file when getting error.CmdError, raise exception for
+        urllib2.HTTPError."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
         self.mox.ReplayAll()
         self.assertRaises(dev_server.DevServerException,
                           self.dev_server.get_control_file,
@@ -327,13 +1006,14 @@ class DevServerTest(mox.MoxTestBase):
         self.mox.StubOutWithMock(dev_server.DevServer, 'devserver_healthy')
 
         dev_server.ImageServer.servers().AndReturn([self._HOST])
-        dev_server.DevServer.devserver_healthy(self._HOST).AndReturn(True)
+        dev_server.ImageServer.devserver_healthy(self._HOST).AndReturn(True)
 
         target = 'x86-generic-release'
         build_string = 'R18-1586.0.0-a1-b1514'
-        to_return = StringIO.StringIO(build_string)
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(target))).AndReturn(to_return)
+        argument = mox.And(mox.StrContains(self._HOST),
+                           mox.StrContains(target))
+        dev_server.ImageServerBase.run_call(argument).AndReturn(build_string)
+
         self.mox.ReplayAll()
         build = dev_server.ImageServer.get_latest_build(target)
         self.assertEquals(build_string, build)
@@ -350,18 +1030,18 @@ class DevServerTest(mox.MoxTestBase):
         dev_server.ImageServer.servers().MultipleTimes().AndReturn(
                 [host0_expected, host1_expected])
 
-        dev_server.DevServer.devserver_healthy(host0_expected).AndReturn(True)
-        dev_server.DevServer.devserver_healthy(host1_expected).AndReturn(True)
+        dev_server.ImageServer.devserver_healthy(host0_expected).AndReturn(True)
+        dev_server.ImageServer.devserver_healthy(host1_expected).AndReturn(True)
 
         target = 'x86-generic-release'
         build_string1 = 'R9-1586.0.0-a1-b1514'
         build_string2 = 'R19-1586.0.0-a1-b3514'
-        to_return1 = StringIO.StringIO(build_string1)
-        to_return2 = StringIO.StringIO(build_string2)
-        urllib2.urlopen(mox.And(mox.StrContains(host0_expected),
-                                mox.StrContains(target))).AndReturn(to_return1)
-        urllib2.urlopen(mox.And(mox.StrContains(host1_expected),
-                                mox.StrContains(target))).AndReturn(to_return2)
+        argument1 = mox.And(mox.StrContains(host0_expected),
+                            mox.StrContains(target))
+        argument2 = mox.And(mox.StrContains(host1_expected),
+                            mox.StrContains(target))
+        dev_server.ImageServerBase.run_call(argument1).AndReturn(build_string1)
+        dev_server.ImageServerBase.run_call(argument2).AndReturn(build_string2)
 
         self.mox.ReplayAll()
         build = dev_server.ImageServer.get_latest_build(target)
@@ -388,21 +1068,20 @@ class DevServerTest(mox.MoxTestBase):
             # This is embedded in the archive_url. Not needed.
             name = ''
 
-        to_return = StringIO.StringIO('Success')
-        urllib2.urlopen(mox.And(mox.StrContains(expected_archive_url),
-                                mox.StrContains(name),
-                                mox.StrContains('artifacts=%s' %
-                                                ','.join(artifacts)),
-                                mox.StrContains('files=%s' % ','.join(files)),
-                                mox.StrContains('stage?'))).AndReturn(to_return)
-        to_return = StringIO.StringIO('True')
-        urllib2.urlopen(mox.And(mox.StrContains(expected_archive_url),
-                                mox.StrContains(name),
-                                mox.StrContains('artifacts=%s' %
-                                                ','.join(artifacts)),
-                                mox.StrContains('files=%s' % ','.join(files)),
-                                mox.StrContains('is_staged'))).AndReturn(
-                                        to_return)
+        argument1 = mox.And(mox.StrContains(expected_archive_url),
+                            mox.StrContains(name),
+                            mox.StrContains('artifacts=%s' %
+                                            ','.join(artifacts)),
+                            mox.StrContains('files=%s' % ','.join(files)),
+                            mox.StrContains('stage?'))
+        argument2 = mox.And(mox.StrContains(expected_archive_url),
+                            mox.StrContains(name),
+                            mox.StrContains('artifacts=%s' %
+                                            ','.join(artifacts)),
+                            mox.StrContains('files=%s' % ','.join(files)),
+                            mox.StrContains('is_staged'))
+        dev_server.ImageServerBase.run_call(argument1).AndReturn('Success')
+        dev_server.ImageServerBase.run_call(argument2).AndReturn('True')
 
         self.mox.ReplayAll()
         self.dev_server.stage_artifacts(name, artifacts, files, archive_url)
@@ -410,14 +1089,14 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testStageArtifactsBasic(self):
-        """Basic functionality to stage artifacts (similar to trigger_download).
-        """
+        """Basic functionality to stage artifacts (similar to
+        trigger_download)."""
         self._stageTestHelper(artifacts=['full_payload', 'stateful'])
 
 
     def testStageArtifactsBasicWithFiles(self):
-        """Basic functionality to stage artifacts (similar to trigger_download).
-        """
+        """Basic functionality to stage artifacts (similar to
+        trigger_download)."""
         self._stageTestHelper(artifacts=['full_payload', 'stateful'],
                               files=['taco_bell.coupon'])
 
@@ -428,8 +1107,8 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def testStageWithArchiveURL(self):
-        """Basic functionality to stage artifacts (similar to trigger_download).
-        """
+        """Basic functionality to stage artifacts (similar to
+        trigger_download)."""
         self._stageTestHelper(files=['tasty_taco_bell.coupon'],
                               archive_url='gs://tacos_galore/my/dir')
 
@@ -459,7 +1138,7 @@ class DevServerTest(mox.MoxTestBase):
                 artifacts=mox.IgnoreArg(),
                 files=mox.IgnoreArg(),
                 archive_url=mox.IgnoreArg(),
-                error_message=mox.IgnoreArg()).AndRaise(error.TimeoutException)
+                error_message=mox.IgnoreArg()).AndRaise(site_utils.TimeoutError())
 
 
     def test_StageArtifactsTimeout(self):
@@ -517,37 +1196,39 @@ class DevServerTest(mox.MoxTestBase):
 
 
     def _testSuccessfulTriggerDownloadAndroid(self, synchronous=True):
-        """Call the dev server's download method with given synchronous setting.
+        """Call the dev server's download method with given synchronous
+        setting.
 
         @param synchronous: True to call the download method synchronously.
         """
         target = 'test_target'
         branch = 'test_branch'
         build_id = '123456'
+        artifacts = android_utils.AndroidArtifacts.get_artifacts_for_reimage(
+                None)
         self.mox.StubOutWithMock(dev_server.AndroidBuildServer,
                                  '_finish_download')
-        to_return = StringIO.StringIO('Success')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(target),
-                                mox.StrContains(branch),
-                                mox.StrContains(build_id),
-                                mox.StrContains('stage?'))).AndReturn(to_return)
-        to_return = StringIO.StringIO('True')
-        urllib2.urlopen(mox.And(mox.StrContains(self._HOST),
-                                mox.StrContains(target),
-                                mox.StrContains(branch),
-                                mox.StrContains(build_id),
-                                mox.StrContains('is_staged'))).AndReturn(
-                                                                      to_return)
+        argument1 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains(target),
+                            mox.StrContains(branch),
+                            mox.StrContains(build_id),
+                            mox.StrContains('stage?'))
+        argument2 = mox.And(mox.StrContains(self._HOST),
+                            mox.StrContains(target),
+                            mox.StrContains(branch),
+                            mox.StrContains(build_id),
+                            mox.StrContains('is_staged'))
+        dev_server.ImageServerBase.run_call(argument1).AndReturn('Success')
+        dev_server.ImageServerBase.run_call(argument2).AndReturn('True')
+
         if synchronous:
             android_build_info = {'target': target,
                                   'build_id': build_id,
                                   'branch': branch}
             build = dev_server.ANDROID_BUILD_NAME_PATTERN % android_build_info
             self.android_dev_server._finish_download(
-                    build,
-                    dev_server._ANDROID_ARTIFACTS_TO_BE_STAGED_FOR_IMAGE, '',
-                    target=target, build_id=build_id, branch=branch)
+                    build, artifacts, '', target=target, build_id=build_id,
+                    branch=branch)
 
         # Synchronous case requires a call to finish download.
         self.mox.ReplayAll()
@@ -578,6 +1259,119 @@ class DevServerTest(mox.MoxTestBase):
         self.assertEqual(dev_server.ImageServer.get_unrestricted_devservers(
                                 [('192.168.0.0', 24)]),
                          [unrestricted_devserver])
+
+
+    def testDevserverHealthy(self):
+        """Test which types of connections that method devserver_healthy uses
+        for different types of DevServer.
+
+        CrashServer always adopts DevServer.run_call.
+        ImageServer and AndroidBuildServer use ImageServerBase.run_call.
+        """
+        argument = mox.StrContains(self._HOST)
+
+        # for testing CrashServer
+        self.mox.StubOutWithMock(dev_server.DevServer, 'run_call')
+        dev_server.DevServer.run_call(
+                argument, timeout=mox.IgnoreArg()).AndReturn(
+                        '{"free_disk": 1024}')
+        # for testing ImageServer
+        dev_server.ImageServerBase.run_call(
+                argument, timeout=mox.IgnoreArg()).AndReturn(
+                        '{"free_disk": 1024}')
+        # for testing AndroidBuildServer
+        dev_server.ImageServerBase.run_call(
+                argument, timeout=mox.IgnoreArg()).AndReturn(
+                        '{"free_disk": 1024}')
+
+        self.mox.ReplayAll()
+        self.assertTrue(dev_server.CrashServer.devserver_healthy(self._HOST))
+        self.assertTrue(dev_server.ImageServer.devserver_healthy(self._HOST))
+        self.assertTrue(
+                dev_server.AndroidBuildServer.devserver_healthy(self._HOST))
+
+
+    def testLocateFile(self):
+        """Test locating files for AndriodBuildServer."""
+        file_name = 'fake_file'
+        artifacts=['full_payload', 'stateful']
+        build = 'fake_build'
+        argument = mox.And(mox.StrContains(file_name),
+                            mox.StrContains(build),
+                            mox.StrContains('locate_file'))
+        dev_server.ImageServerBase.run_call(argument).AndReturn('file_path')
+
+        self.mox.ReplayAll()
+        file_location = 'http://nothing/static/fake_build/file_path'
+        self.assertEqual(self.android_dev_server.locate_file(
+                file_name, artifacts, build, None), file_location)
+
+    def testCmdErrorLocateFile(self):
+        """Test locating files for AndriodBuildServer for retry
+        error.CmdError, and raise urllib2.URLError."""
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(CMD_ERROR)
+        dev_server.ImageServerBase.run_call(
+                mox.IgnoreArg()).AndRaise(E500)
+        self.mox.ReplayAll()
+        self.assertRaises(dev_server.DevServerException,
+                          self.dev_server.trigger_download,
+                          '')
+
+
+    def testGetAvailableDevserversForCrashServer(self):
+        """Test method get_available_devservers for CrashServer."""
+        crash_servers = ['http://crash_servers1:8080']
+        host = '127.0.0.1'
+        self.mox.StubOutWithMock(dev_server.CrashServer, 'servers')
+        dev_server.CrashServer.servers().AndReturn(crash_servers)
+        self.mox.ReplayAll()
+        self.assertEqual(dev_server.CrashServer.get_available_devservers(host),
+                        (crash_servers, False))
+
+
+    def testGetAvailableDevserversForImageServer(self):
+        """Test method get_available_devservers for ImageServer."""
+        unrestricted_host = '100.0.0.99'
+        unrestricted_servers = ['http://100.0.0.10:8080',
+                                'http://128.0.0.10:8080']
+        same_subnet_unrestricted_servers = ['http://100.0.0.10:8080']
+        restricted_host = '127.0.0.99'
+        restricted_servers = ['http://127.0.0.10:8080']
+        all_servers = unrestricted_servers + restricted_servers
+        # Set restricted subnets
+        restricted_subnets = [('127.0.0.0', 24)]
+        self.mox.StubOutWithMock(dev_server.ImageServerBase, 'servers')
+        dev_server.ImageServerBase.servers().MultipleTimes().AndReturn(
+                all_servers)
+        self.mox.ReplayAll()
+        # dut in unrestricted subnet shall be offered devserver in the same
+        # subnet first, and allow retry.
+        self.assertEqual(
+                dev_server.ImageServer.get_available_devservers(
+                        unrestricted_host, True, restricted_subnets),
+                (same_subnet_unrestricted_servers, True))
+
+        # If prefer_local_devserver is set to False, allow any devserver in
+        # unrestricted subet to be available, and retry is not allowed.
+        self.assertEqual(
+                dev_server.ImageServer.get_available_devservers(
+                        unrestricted_host, False, restricted_subnets),
+                (unrestricted_servers, False))
+
+        # When no hostname is specified, all devservers in unrestricted subnets
+        # should be considered, and retry is not allowed.
+        self.assertEqual(
+                dev_server.ImageServer.get_available_devservers(
+                        None, True, restricted_subnets),
+                (unrestricted_servers, False))
+
+        # dut in restricted subnet should only be offered devserver in the
+        # same restricted subnet, and retry is not allowed.
+        self.assertEqual(
+                dev_server.ImageServer.get_available_devservers(
+                        restricted_host, True, restricted_subnets),
+                (restricted_servers, False))
 
 
 if __name__ == "__main__":

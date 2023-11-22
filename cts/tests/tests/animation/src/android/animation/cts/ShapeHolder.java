@@ -16,10 +16,10 @@
 
 package android.animation.cts;
 
-import android.graphics.drawable.ShapeDrawable;
-import android.graphics.drawable.shapes.Shape;
 import android.graphics.Paint;
 import android.graphics.RadialGradient;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.Shape;
 
 /**
  * A data structure that holds a Shape and various properties that can be used to define

@@ -17,8 +17,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="10dip"
-        >
+        style="@style/RootLayoutPadding">
     <ListView android:id="@+id/ble_advertiser_tests"
             android:layout_height="fill_parent"
             android:layout_width="match_parent"

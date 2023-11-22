@@ -24,8 +24,6 @@ LOCAL_SRC_FILES := MemoryNativeJni.cpp
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-LOCAL_SHARED_LIBRARIES := libnativehelper
-
 LOCAL_SDK_VERSION := 14
 
 include $(BUILD_SHARED_LIBRARY)

@@ -20,21 +20,37 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
+LOCAL_USE_AAPT2 := true
+
+LOCAL_JNI_SHARED_LIBRARIES := libnativecursorwindow_jni libnativehelper_compat_libc++
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-v4 ctsdeviceutil ctstestrunner services.core
+LOCAL_STATIC_JAVA_LIBRARIES :=  \
+    compatibility-device-util \
+    ctstestrunner \
+    services.core \
+    junit \
+    legacy-android-test \
+    truth-prebuilt
+
+LOCAL_STATIC_ANDROID_LIBRARIES := android-support-v4
+
+# Use multi-dex as the compatibility-common-util-devicesidelib dependency
+# on compatibility-device-util pushes us beyond 64k methods.
+LOCAL_JACK_FLAGS := --multi-dex native
+LOCAL_DX_FLAGS := --multi-dex
 
 # Resource unit tests use a private locale and some densities
-LOCAL_AAPT_FLAGS = -c xx_YY -c cs -c small -c normal -c large -c xlarge \
-        -c 320dpi -c 240dpi -c 160dpi -c 32dpi \
-        -c kok,kok_IN,kok_419,kok_419_VARIANT,kok_Knda_419,kok_Knda_419_VARIANT,kok_VARIANT,kok_Knda,tgl,tgl_PH
+LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
-
+LOCAL_MULTILIB := both
 LOCAL_PACKAGE_NAME := CtsContentTestCases
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
 include $(BUILD_CTS_PACKAGE)
+
+include $(call all-makefiles-under,$(LOCAL_PATH))

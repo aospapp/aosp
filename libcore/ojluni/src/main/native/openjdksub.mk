@@ -1,4 +1,4 @@
-\# -*- mode: makefile -*-
+# -*- mode: makefile -*-
 # This file is included by the top-level libcore Android.mk.
 # It's not a normal makefile, so we don't include CLEAR_VARS
 # or BUILD_*_LIBRARY.
@@ -21,21 +21,27 @@ LOCAL_SRC_FILES := \
     Console_md.c \
     IOUtil.c \
     PollArrayWrapper.c \
-    InheritedChannel.c \
     SocketChannelImpl.c \
     FileChannelImpl.c \
     FileDispatcherImpl.c \
     FileOutputStream_md.c \
     FileInputStream.c \
     FileSystemPreferences.c \
+    EPoll.c \
+    EPollPort.c \
+    UnixAsynchronousServerSocketChannelImpl.c \
+    UnixAsynchronousSocketChannelImpl.c \
     io_util_md.c \
     NativeThread.c \
     FileKey.c \
     UnixFileSystem_md.c \
-    FileSystem_md.c \
     ObjectStreamClass.c \
     ObjectOutputStream.c \
     ObjectInputStream.c \
+    LinuxNativeDispatcher.c \
+    LinuxWatchService.c \
+    UnixCopyFile.c \
+    UnixNativeDispatcher.c \
     InetAddress.c \
     net_util.c \
     net_util_md.c \
@@ -44,12 +50,6 @@ LOCAL_SRC_FILES := \
     Inet6Address.c \
     Inet4Address.c \
     linux_close.cpp \
-    PlainSocketImpl.c \
-    PlainDatagramSocketImpl.c \
-    NetworkInterface.c \
-    DatagramPacket.c \
-    Inet4AddressImpl.c \
-    Inet6AddressImpl.c \
     ServerSocketChannelImpl.c \
     SocketInputStream.c \
     SocketOutputStream.c \
@@ -60,7 +60,6 @@ LOCAL_SRC_FILES := \
     ProcessEnvironment_md.c \
     System.c \
     Runtime.c \
-    Shutdown.c \
     UNIXProcess_md.c \
     Bits.c \
     Character.cpp \
@@ -70,6 +69,5 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES += \
        libcore/$(srcdir) \
        external/fdlibm \
-       external/openssl/include \
        external/zlib \
        external/icu/icu4c/source/common \

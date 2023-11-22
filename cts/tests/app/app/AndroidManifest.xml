@@ -41,6 +41,7 @@
     <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 
     <application android:label="Android TestCase"
                 android:icon="@drawable/size_48x48"
@@ -87,7 +88,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="vnd.android.cursor.dir/person" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.app.stubs.activity.INSTRUMENTATION_TEST"/>
+            </intent-filter>
         </activity>
+
+        <activity android:name="android.app.stubs.ActivityMonitorTestActivity"
+                  android:label="ActivityMonitorTestActivity" />
 
         <activity android:name="android.app.stubs.AliasActivityStub">
             <meta-data android:name="android.app.alias"
@@ -196,7 +203,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.app.stubs.ChildTabActivity" android:label="ChildTabActivity" />
+        <activity android:name="android.app.stubs.FragmentResultActivity" android:label="FragmentResultActivity" />
 
         <activity android:name="android.app.stubs.LauncherActivityStub"
                   android:label="LauncherActivityStub" >
@@ -305,17 +312,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.app.stubs.PipNotResizeableActivity"
-                  android:label="PipNotResizeableActivity"
-                  android:resizeableActivity="false"
-                  android:supportsPictureInPicture="true"
-                  android:configChanges="smallestScreenSize|orientation|screenSize|screenLayout">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
         <activity android:name="android.app.stubs.PipNotSupportedActivity"
                   android:label="PipNotSupportedActivity"
                   android:resizeableActivity="true"
@@ -328,6 +324,59 @@
         </activity>
 
         <activity android:name="android.app.stubs.KeyboardShortcutsActivity" />
+
+        <activity android:name="android.app.stubs.NewDocumentTestActivity"
+                  android:documentLaunchMode="intoExisting" />
+
+        <activity android:name="android.app.stubs.DisplayTestActivity"
+            android:configChanges="smallestScreenSize|orientation|screenSize|screenLayout" />
+
+        <activity android:name="android.app.stubs.ToolbarActivity"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <activity android:name="android.app.stubs.MaxAspectRatioActivity"
+                  android:label="MaxAspectRatioActivity"
+                  android:resizeableActivity="false"
+                  android:maxAspectRatio="1.0">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.app.stubs.MaxAspectRatioResizeableActivity"
+                  android:label="MaxAspectRatioResizeableActivity"
+                  android:resizeableActivity="true"
+                  android:maxAspectRatio="1.0">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.app.stubs.MaxAspectRatioUnsetActivity"
+                  android:label="MaxAspectRatioUnsetActivity"
+                  android:resizeableActivity="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="android.app.stubs.LiveWallpaper"
+            android:icon="@drawable/robot"
+            android:label="@string/wallpaper_title"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService">
+                </action>
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/wallpaper">
+            </meta-data>
+        </service>
 
     </application>
 

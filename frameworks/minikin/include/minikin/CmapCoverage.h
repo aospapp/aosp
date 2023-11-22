@@ -19,14 +19,17 @@
 
 #include <minikin/SparseBitSet.h>
 
-namespace android {
+#include <memory>
+#include <vector>
+
+namespace minikin {
 
 class CmapCoverage {
 public:
-    static bool getCoverage(SparseBitSet &coverage, const uint8_t* cmap_data, size_t cmap_size,
-            bool* has_cmap_format14_subtable);
+    static SparseBitSet getCoverage(const uint8_t* cmap_data, size_t cmap_size,
+            std::vector<std::unique_ptr<SparseBitSet>>* out);
 };
 
-}  // namespace android
+}  // namespace minikin
 
 #endif  // MINIKIN_CMAP_COVERAGE_H

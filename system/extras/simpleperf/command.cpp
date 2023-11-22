@@ -48,7 +48,7 @@ static std::map<std::string, callback_t>& CommandMap() {
 }
 
 void RegisterCommand(const std::string& cmd_name,
-                     std::function<std::unique_ptr<Command>(void)> callback) {
+                     const std::function<std::unique_ptr<Command>(void)>& callback) {
   CommandMap().insert(std::make_pair(cmd_name, callback));
 }
 
@@ -72,8 +72,10 @@ const std::vector<std::string> GetAllCommandNames() {
 extern void RegisterDumpRecordCommand();
 extern void RegisterHelpCommand();
 extern void RegisterListCommand();
+extern void RegisterKmemCommand();
 extern void RegisterRecordCommand();
 extern void RegisterReportCommand();
+extern void RegisterReportSampleCommand();
 extern void RegisterStatCommand();
 
 class CommandRegister {
@@ -81,7 +83,9 @@ class CommandRegister {
   CommandRegister() {
     RegisterDumpRecordCommand();
     RegisterHelpCommand();
+    RegisterKmemCommand();
     RegisterReportCommand();
+    RegisterReportSampleCommand();
 #if defined(__linux__)
     RegisterListCommand();
     RegisterRecordCommand();

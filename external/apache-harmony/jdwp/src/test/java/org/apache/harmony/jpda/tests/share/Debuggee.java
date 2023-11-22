@@ -69,10 +69,10 @@ public abstract class Debuggee {
      * @param debuggeeClass
      *            debuggee's class
      */
-    public static void runDebuggee(Class debuggeeClass) {
+    public static void runDebuggee(Class<? extends Debuggee> debuggeeClass) {
         Debuggee debuggee = null;
         try {
-            debuggee = (Debuggee) debuggeeClass.newInstance();
+            debuggee = debuggeeClass.newInstance();
         } catch (Exception e) {
             throw new TestErrorException("Debuggee can not be started: "
                     + debuggeeClass.getName(), e);

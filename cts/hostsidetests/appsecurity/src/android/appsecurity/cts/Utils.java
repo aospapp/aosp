@@ -16,7 +16,6 @@
 
 package android.appsecurity.cts;
 
-import com.android.ddmlib.Log;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult;
@@ -26,40 +25,51 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.CollectingTestListener;
 
+import java.util.Arrays;
 import java.util.Map;
 
 public class Utils {
-    private static final String TAG = "AppSecurity";
-
-    public static final int USER_OWNER = 0;
+    public static final int USER_SYSTEM = 0;
 
     public static void runDeviceTests(ITestDevice device, String packageName)
             throws DeviceNotAvailableException {
-        runDeviceTests(device, packageName, null, null, USER_OWNER);
+        runDeviceTests(device, packageName, null, null, USER_SYSTEM, null);
     }
 
     public static void runDeviceTests(ITestDevice device, String packageName, int userId)
             throws DeviceNotAvailableException {
-        runDeviceTests(device, packageName, null, null, userId);
+        runDeviceTests(device, packageName, null, null, userId, null);
     }
 
     public static void runDeviceTests(ITestDevice device, String packageName, String testClassName)
             throws DeviceNotAvailableException {
-        runDeviceTests(device, packageName, testClassName, null, USER_OWNER);
+        runDeviceTests(device, packageName, testClassName, null, USER_SYSTEM, null);
     }
 
     public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
             int userId) throws DeviceNotAvailableException {
-        runDeviceTests(device, packageName, testClassName, null, userId);
+        runDeviceTests(device, packageName, testClassName, null, userId, null);
     }
 
     public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
             String testMethodName) throws DeviceNotAvailableException {
-        runDeviceTests(device, packageName, testClassName, testMethodName, USER_OWNER);
+        runDeviceTests(device, packageName, testClassName, testMethodName, USER_SYSTEM, null);
+    }
+
+    public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
+            String testMethodName, Map<String, String> testArgs)
+                    throws DeviceNotAvailableException {
+        runDeviceTests(device, packageName, testClassName, testMethodName, USER_SYSTEM, testArgs);
     }
 
     public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
             String testMethodName, int userId) throws DeviceNotAvailableException {
+        runDeviceTests(device, packageName, testClassName, testMethodName, userId, null);
+    }
+
+    public static void runDeviceTests(ITestDevice device, String packageName, String testClassName,
+            String testMethodName, int userId, Map<String, String> testArgs)
+                    throws DeviceNotAvailableException {
         if (testClassName != null && testClassName.startsWith(".")) {
             testClassName = packageName + testClassName;
         }
@@ -72,13 +82,14 @@ public class Utils {
             testRunner.setClassName(testClassName);
         }
 
-        if (userId != USER_OWNER) {
-            // TODO: move this to RemoteAndroidTestRunner once it supports users
-            testRunner.addInstrumentationArg("hack_key", "hack_value --user " + userId);
+        if (testArgs != null && testArgs.size() > 0) {
+            for (String name : testArgs.keySet()) {
+                final String value = testArgs.get(name);
+                testRunner.addInstrumentationArg(name, value);
+            }
         }
-
         final CollectingTestListener listener = new CollectingTestListener();
-        device.runInstrumentationTests(testRunner, listener);
+        device.runInstrumentationTestsAsUser(testRunner, userId, listener);
 
         final TestRunResult result = listener.getCurrentRunResults();
         if (result.isRunFailure()) {
@@ -103,65 +114,55 @@ public class Utils {
         }
     }
 
-    private static boolean isMultiUserSupportedOnDevice(ITestDevice device)
+    /**
+     * Prepare and return a single user relevant for testing.
+     */
+    public static int[] prepareSingleUser(ITestDevice device)
             throws DeviceNotAvailableException {
-        // TODO: move this to ITestDevice once it supports users
-        final String output = device.executeShellCommand("pm get-max-users");
-        try {
-            return Integer.parseInt(output.substring(output.lastIndexOf(" ")).trim()) > 1;
-        } catch (NumberFormatException e) {
-            throw new AssertionError("Failed to parse result: " + output);
-        }
+        return prepareMultipleUsers(device, 1);
     }
 
     /**
-     * Return set of users that test should be run for, creating a secondary
-     * user if the device supports it. Always call
-     * {@link #removeUsersForTest(ITestDevice, int[])} when finished.
+     * Prepare and return two users relevant for testing.
      */
-    public static int[] createUsersForTest(ITestDevice device) throws DeviceNotAvailableException {
-        if (isMultiUserSupportedOnDevice(device)) {
-            return new int[] { USER_OWNER, createUserOnDevice(device) };
-        } else {
-            Log.d(TAG, "Single user device; skipping isolated storage tests");
-            return new int[] { USER_OWNER };
-        }
+    public static int[] prepareMultipleUsers(ITestDevice device)
+            throws DeviceNotAvailableException {
+        return prepareMultipleUsers(device, 2);
     }
 
-    public static void removeUsersForTest(ITestDevice device, int[] users)
+    /**
+     * Prepare and return multiple users relevant for testing.
+     */
+    public static int[] prepareMultipleUsers(ITestDevice device, int maxUsers)
             throws DeviceNotAvailableException {
-        for (int user : users) {
-            if (user != USER_OWNER) {
-                removeUserOnDevice(device, user);
+        final int[] userIds = getAllUsers(device);
+        for (int i = 1; i < userIds.length; i++) {
+            if (i < maxUsers) {
+                device.startUser(userIds[i]);
+            } else {
+                device.stopUser(userIds[i]);
             }
         }
-    }
-
-    private static int createUserOnDevice(ITestDevice device) throws DeviceNotAvailableException {
-        // TODO: move this to ITestDevice once it supports users
-        final String name = "CTS_" + System.currentTimeMillis();
-        final String output = device.executeShellCommand("pm create-user " + name);
-        if (output.startsWith("Success")) {
-            try {
-                final int userId = Integer.parseInt(
-                        output.substring(output.lastIndexOf(" ")).trim());
-                device.executeShellCommand("am start-user " + userId);
-                return userId;
-            } catch (NumberFormatException e) {
-                throw new AssertionError("Failed to parse result: " + output);
-            }
+        if (userIds.length > maxUsers) {
+            return Arrays.copyOf(userIds, maxUsers);
         } else {
-            throw new AssertionError("Failed to create user: " + output);
+            return userIds;
         }
     }
 
-    private static void removeUserOnDevice(ITestDevice device, int userId)
+    public static int[] getAllUsers(ITestDevice device)
             throws DeviceNotAvailableException {
-        // TODO: move this to ITestDevice once it supports users
-        final String output = device.executeShellCommand("pm remove-user " + userId);
-        if (output.startsWith("Error")) {
-            throw new AssertionError("Failed to remove user: " + output);
+        Integer primary = device.getPrimaryUserId();
+        if (primary == null) {
+            primary = USER_SYSTEM;
         }
+        int[] users = new int[] { primary };
+        for (Integer user : device.listUsers()) {
+            if ((user != USER_SYSTEM) && (user != primary)) {
+                users = Arrays.copyOf(users, users.length + 1);
+                users[users.length - 1] = user;
+            }
+        }
+        return users;
     }
-
 }

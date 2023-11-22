@@ -5,6 +5,7 @@
 import logging
 import time
 from collections import namedtuple
+from contextlib import contextmanager
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -162,6 +163,9 @@ class ChameleonVideoInputFinder(ChameleonInputFinder):
         for port in all_ports.connected:
             if port.has_video_support():
                 chameleon.ChameleonVideoInput(port).unplug()
+                # This is the workaround for samus with hdmi connection.
+                self.display_facade.reset_connector_if_applicable(
+                        port.get_connector_type())
 
         for port in all_ports.connected:
             # Skip the non-video port.
@@ -231,6 +235,30 @@ class ChameleonVideoInputFinder(ChameleonInputFinder):
 
         """
         return self._yield_all_ports(raise_error=True)
+
+
+    @contextmanager
+    def use_first_port(self):
+        """
+        Use the first connected video port and ensures it plugged.
+
+        It is used via a with statement, like the following:
+
+            finder = ChameleonVideoInputFinder(chameleon_board, display_facade)
+            with finder.use_first_port() as chameleon_port:
+                # chameleon_port is automatically plugged before this line.
+                do_some_test_on(chameleon_port)
+                # chameleon_port is automatically unplugged after this line.
+
+        @yields the first connected ChameleonVideoInput which is ensured plugged
+                before yeilding.
+
+        @raises TestFail if no connected video port.
+
+        """
+        for port in self._yield_all_ports(raise_error=True):
+            yield port
+            break
 
 
     def find_all_ports(self):

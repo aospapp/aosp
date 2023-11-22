@@ -26,8 +26,14 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.NonWritableChannelException;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class RandomAccessFileTest extends junit.framework.TestCase {
+public class RandomAccessFileTest extends TestCaseWithRules {
+    @Rule
+    public TestRule resourceLeakageDetectorRule = ResourceLeakageDetector.getRule();
 
     public String fileName;
 

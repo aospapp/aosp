@@ -41,6 +41,8 @@ static void hostapd_wpa_auth_conf(struct hostapd_bss_config *conf,
 	wconf->wpa_strict_rekey = conf->wpa_strict_rekey;
 	wconf->wpa_gmk_rekey = conf->wpa_gmk_rekey;
 	wconf->wpa_ptk_rekey = conf->wpa_ptk_rekey;
+	wconf->wpa_group_update_count = conf->wpa_group_update_count;
+	wconf->wpa_pairwise_update_count = conf->wpa_pairwise_update_count;
 	wconf->rsn_pairwise = conf->rsn_pairwise;
 	wconf->rsn_preauth = conf->rsn_preauth;
 	wconf->eapol_version = conf->eapol_version;
@@ -53,7 +55,7 @@ static void hostapd_wpa_auth_conf(struct hostapd_bss_config *conf,
 	wconf->ieee80211w = conf->ieee80211w;
 	wconf->group_mgmt_cipher = conf->group_mgmt_cipher;
 #endif /* CONFIG_IEEE80211W */
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	wconf->ssid_len = conf->ssid.ssid_len;
 	if (wconf->ssid_len > SSID_MAX_LEN)
 		wconf->ssid_len = SSID_MAX_LEN;
@@ -73,7 +75,8 @@ static void hostapd_wpa_auth_conf(struct hostapd_bss_config *conf,
 	wconf->r1kh_list = conf->r1kh_list;
 	wconf->pmk_r1_push = conf->pmk_r1_push;
 	wconf->ft_over_ds = conf->ft_over_ds;
-#endif /* CONFIG_IEEE80211R */
+	wconf->ft_psk_generate_local = conf->ft_psk_generate_local;
+#endif /* CONFIG_IEEE80211R_AP */
 #ifdef CONFIG_HS20
 	wconf->disable_gtk = conf->disable_dgaf;
 	if (conf->osen) {
@@ -401,7 +404,7 @@ static int hostapd_wpa_auth_for_each_auth(
 }
 
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 
 struct wpa_auth_ft_iface_iter_data {
 	struct hostapd_data *src_hapd;
@@ -440,7 +443,7 @@ static int hostapd_wpa_auth_ft_iter(struct hostapd_iface *iface, void *ctx)
 	return 0;
 }
 
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 
 static int hostapd_wpa_auth_send_ether(void *ctx, const u8 *dst, u16 proto,
@@ -465,7 +468,7 @@ static int hostapd_wpa_auth_send_ether(void *ctx, const u8 *dst, u16 proto,
 	}
 #endif /* CONFIG_TESTING_OPTIONS */
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (proto == ETH_P_RRB && hapd->iface->interfaces &&
 	    hapd->iface->interfaces->for_each_interface) {
 		int res;
@@ -480,7 +483,7 @@ static int hostapd_wpa_auth_send_ether(void *ctx, const u8 *dst, u16 proto,
 		if (res == 1)
 			return data_len;
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 	if (hapd->driver && hapd->driver->send_ether)
 		return hapd->driver->send_ether(hapd->drv_priv, dst,
@@ -503,7 +506,7 @@ static int hostapd_wpa_auth_send_ether(void *ctx, const u8 *dst, u16 proto,
 }
 
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 
 static int hostapd_wpa_auth_send_ft_action(void *ctx, const u8 *dst,
 					   const u8 *data, size_t data_len)
@@ -588,13 +591,33 @@ static int hostapd_wpa_auth_add_tspec(void *ctx, const u8 *sta_addr,
 	return hostapd_add_tspec(hapd, sta_addr, tspec_ie, tspec_ielen);
 }
 
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 
 int hostapd_setup_wpa(struct hostapd_data *hapd)
 {
 	struct wpa_auth_config _conf;
-	struct wpa_auth_callbacks cb;
+	static const struct wpa_auth_callbacks cb = {
+		.logger = hostapd_wpa_auth_logger,
+		.disconnect = hostapd_wpa_auth_disconnect,
+		.mic_failure_report = hostapd_wpa_auth_mic_failure_report,
+		.psk_failure_report = hostapd_wpa_auth_psk_failure_report,
+		.set_eapol = hostapd_wpa_auth_set_eapol,
+		.get_eapol = hostapd_wpa_auth_get_eapol,
+		.get_psk = hostapd_wpa_auth_get_psk,
+		.get_msk = hostapd_wpa_auth_get_msk,
+		.set_key = hostapd_wpa_auth_set_key,
+		.get_seqnum = hostapd_wpa_auth_get_seqnum,
+		.send_eapol = hostapd_wpa_auth_send_eapol,
+		.for_each_sta = hostapd_wpa_auth_for_each_sta,
+		.for_each_auth = hostapd_wpa_auth_for_each_auth,
+		.send_ether = hostapd_wpa_auth_send_ether,
+#ifdef CONFIG_IEEE80211R_AP
+		.send_ft_action = hostapd_wpa_auth_send_ft_action,
+		.add_sta = hostapd_wpa_auth_add_sta,
+		.add_tspec = hostapd_wpa_auth_add_tspec,
+#endif /* CONFIG_IEEE80211R_AP */
+	};
 	const u8 *wpa_ie;
 	size_t wpa_ie_len;
 
@@ -603,28 +626,7 @@ int hostapd_setup_wpa(struct hostapd_data *hapd)
 		_conf.tx_status = 1;
 	if (hapd->iface->drv_flags & WPA_DRIVER_FLAGS_AP_MLME)
 		_conf.ap_mlme = 1;
-	os_memset(&cb, 0, sizeof(cb));
-	cb.ctx = hapd;
-	cb.logger = hostapd_wpa_auth_logger;
-	cb.disconnect = hostapd_wpa_auth_disconnect;
-	cb.mic_failure_report = hostapd_wpa_auth_mic_failure_report;
-	cb.psk_failure_report = hostapd_wpa_auth_psk_failure_report;
-	cb.set_eapol = hostapd_wpa_auth_set_eapol;
-	cb.get_eapol = hostapd_wpa_auth_get_eapol;
-	cb.get_psk = hostapd_wpa_auth_get_psk;
-	cb.get_msk = hostapd_wpa_auth_get_msk;
-	cb.set_key = hostapd_wpa_auth_set_key;
-	cb.get_seqnum = hostapd_wpa_auth_get_seqnum;
-	cb.send_eapol = hostapd_wpa_auth_send_eapol;
-	cb.for_each_sta = hostapd_wpa_auth_for_each_sta;
-	cb.for_each_auth = hostapd_wpa_auth_for_each_auth;
-	cb.send_ether = hostapd_wpa_auth_send_ether;
-#ifdef CONFIG_IEEE80211R
-	cb.send_ft_action = hostapd_wpa_auth_send_ft_action;
-	cb.add_sta = hostapd_wpa_auth_add_sta;
-	cb.add_tspec = hostapd_wpa_auth_add_tspec;
-#endif /* CONFIG_IEEE80211R */
-	hapd->wpa_auth = wpa_init(hapd->own_addr, &_conf, &cb);
+	hapd->wpa_auth = wpa_init(hapd->own_addr, &_conf, &cb, hapd);
 	if (hapd->wpa_auth == NULL) {
 		wpa_printf(MSG_ERROR, "WPA initialization failed.");
 		return -1;
@@ -649,8 +651,8 @@ int hostapd_setup_wpa(struct hostapd_data *hapd)
 		return -1;
 	}
 
-#ifdef CONFIG_IEEE80211R
-	if (!hostapd_drv_none(hapd) && hapd->conf->ft_over_ds &&
+#ifdef CONFIG_IEEE80211R_AP
+	if (!hostapd_drv_none(hapd) &&
 	    wpa_key_mgmt_ft(hapd->conf->wpa_key_mgmt)) {
 		hapd->l2 = l2_packet_init(hapd->conf->bridge[0] ?
 					  hapd->conf->bridge :
@@ -664,7 +666,7 @@ int hostapd_setup_wpa(struct hostapd_data *hapd)
 			return -1;
 		}
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 	return 0;
 
@@ -702,8 +704,8 @@ void hostapd_deinit_wpa(struct hostapd_data *hapd)
 	}
 	ieee802_1x_deinit(hapd);
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	l2_packet_deinit(hapd->l2);
 	hapd->l2 = NULL;
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 }

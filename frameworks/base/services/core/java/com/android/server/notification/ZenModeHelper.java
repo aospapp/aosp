@@ -35,6 +35,7 @@ import android.content.pm.ServiceInfo;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.database.ContentObserver;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.AudioManagerInternal;
 import android.media.AudioSystem;
@@ -49,14 +50,18 @@ import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings.Global;
+import android.service.notification.Condition;
 import android.service.notification.ConditionProviderService;
+import android.service.notification.NotificationServiceDumpProto;
 import android.service.notification.ZenModeConfig;
 import android.service.notification.ZenModeConfig.EventInfo;
 import android.service.notification.ZenModeConfig.ScheduleInfo;
 import android.service.notification.ZenModeConfig.ZenRule;
+import android.service.notification.ZenModeProto;
 import android.util.AndroidRuntimeException;
 import android.util.Log;
 import android.util.SparseArray;
+import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.R;
 import com.android.internal.logging.MetricsLogger;
@@ -487,10 +492,27 @@ public class ZenModeHelper {
         }
     }
 
+    void dump(ProtoOutputStream proto) {
+
+        proto.write(ZenModeProto.ZEN_MODE, mZenMode);
+        synchronized (mConfig) {
+            if (mConfig.manualRule != null) {
+                proto.write(ZenModeProto.ENABLED_ACTIVE_CONDITIONS, mConfig.manualRule.toString());
+            }
+            for (ZenRule rule : mConfig.automaticRules.values()) {
+                if (rule.enabled && rule.condition.state == Condition.STATE_TRUE
+                        && !rule.snoozing) {
+                    proto.write(ZenModeProto.ENABLED_ACTIVE_CONDITIONS, rule.toString());
+                }
+            }
+            proto.write(ZenModeProto.POLICY, mConfig.toNotificationPolicy().toString());
+            proto.write(ZenModeProto.SUPPRESSED_EFFECTS, mSuppressedEffects);
+        }
+    }
+
     public void dump(PrintWriter pw, String prefix) {
         pw.print(prefix); pw.print("mZenMode=");
         pw.println(Global.zenModeToString(mZenMode));
-        dump(pw, prefix, "mDefaultConfig", mDefaultConfig);
         final int N = mConfigs.size();
         for (int i = 0; i < N; i++) {
             dump(pw, prefix, "mConfigs[u=" + mConfigs.keyAt(i) + "]", mConfigs.valueAt(i));
@@ -511,8 +533,8 @@ public class ZenModeHelper {
             pw.println(config);
             return;
         }
-        pw.printf("allow(calls=%s,callsFrom=%s,repeatCallers=%s,messages=%s,messagesFrom=%s,"
-                + "events=%s,reminders=%s,whenScreenOff,whenScreenOn=%s)\n",
+        pw.printf("allow(calls=%b,callsFrom=%s,repeatCallers=%b,messages=%b,messagesFrom=%s,"
+                + "events=%b,reminders=%b,whenScreenOff=%b,whenScreenOn=%b)\n",
                 config.allowCalls, ZenModeConfig.sourceToString(config.allowCallsFrom),
                 config.allowRepeatCallers, config.allowMessages,
                 ZenModeConfig.sourceToString(config.allowMessagesFrom),
@@ -529,7 +551,7 @@ public class ZenModeHelper {
 
     public void readXml(XmlPullParser parser, boolean forRestore)
             throws XmlPullParserException, IOException {
-        final ZenModeConfig config = ZenModeConfig.readXml(parser, mConfigMigration);
+        final ZenModeConfig config = ZenModeConfig.readXml(parser);
         if (config != null) {
             if (forRestore) {
                 //TODO: http://b/22388012
@@ -595,7 +617,7 @@ public class ZenModeHelper {
                     if (RULE_INSTANCE_GRACE_PERIOD < (currentTime - rule.creationTime)) {
                         try {
                             mPm.getPackageInfo(rule.component.getPackageName(),
-                                    PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                                    PackageManager.MATCH_ANY_USER);
                         } catch (PackageManager.NameNotFoundException e) {
                             newConfig.automaticRules.removeAt(i);
                         }
@@ -619,8 +641,10 @@ public class ZenModeHelper {
         return setConfigLocked(config, reason, true /*setRingerMode*/);
     }
 
-    public void setConfigAsync(ZenModeConfig config, String reason) {
-        mHandler.postSetConfig(config, reason);
+    public void setConfig(ZenModeConfig config, String reason) {
+        synchronized (mConfig) {
+            setConfigLocked(config, reason);
+        }
     }
 
     private boolean setConfigLocked(ZenModeConfig config, String reason, boolean setRingerMode) {
@@ -736,13 +760,16 @@ public class ZenModeHelper {
         // total silence restrictions
         final boolean muteEverything = mZenMode == Global.ZEN_MODE_NO_INTERRUPTIONS;
 
-        for (int i = USAGE_UNKNOWN; i <= USAGE_VIRTUAL_SOURCE; i++) {
-            if (i == USAGE_NOTIFICATION) {
-                applyRestrictions(muteNotifications || muteEverything, i);
-            } else if (i == USAGE_NOTIFICATION_RINGTONE) {
-                applyRestrictions(muteCalls || muteEverything, i);
+        for (int usage : AudioAttributes.SDK_USAGES) {
+            final int suppressionBehavior = AudioAttributes.SUPPRESSIBLE_USAGES.get(usage);
+            if (suppressionBehavior == AudioAttributes.SUPPRESSIBLE_NEVER) {
+                applyRestrictions(false /*mute*/, usage);
+            } else if (suppressionBehavior == AudioAttributes.SUPPRESSIBLE_NOTIFICATION) {
+                applyRestrictions(muteNotifications || muteEverything, usage);
+            } else if (suppressionBehavior == AudioAttributes.SUPPRESSIBLE_CALL) {
+                applyRestrictions(muteCalls || muteEverything, usage);
             } else {
-                applyRestrictions(muteEverything, i);
+                applyRestrictions(muteEverything, usage);
             }
         }
     }
@@ -806,7 +833,7 @@ public class ZenModeHelper {
         try {
             parser = resources.getXml(R.xml.default_zen_mode_config);
             while (parser.next() != XmlPullParser.END_DOCUMENT) {
-                final ZenModeConfig config = ZenModeConfig.readXml(parser, mConfigMigration);
+                final ZenModeConfig config = ZenModeConfig.readXml(parser);
                 if (config != null) return config;
             }
         } catch (Exception e) {
@@ -877,45 +904,6 @@ public class ZenModeHelper {
             default: return 0;
         }
     }
-
-    private final ZenModeConfig.Migration mConfigMigration = new ZenModeConfig.Migration() {
-        @Override
-        public ZenModeConfig migrate(ZenModeConfig.XmlV1 v1) {
-            if (v1 == null) return null;
-            final ZenModeConfig rt = new ZenModeConfig();
-            rt.allowCalls = v1.allowCalls;
-            rt.allowEvents = v1.allowEvents;
-            rt.allowCallsFrom = v1.allowFrom;
-            rt.allowMessages = v1.allowMessages;
-            rt.allowMessagesFrom = v1.allowFrom;
-            rt.allowReminders = v1.allowReminders;
-            // don't migrate current exit condition
-            final int[] days = ZenModeConfig.XmlV1.tryParseDays(v1.sleepMode);
-            if (days != null && days.length > 0) {
-                Log.i(TAG, "Migrating existing V1 downtime to single schedule");
-                final ScheduleInfo schedule = new ScheduleInfo();
-                schedule.days = days;
-                schedule.startHour = v1.sleepStartHour;
-                schedule.startMinute = v1.sleepStartMinute;
-                schedule.endHour = v1.sleepEndHour;
-                schedule.endMinute = v1.sleepEndMinute;
-                final ZenRule rule = new ZenRule();
-                rule.enabled = true;
-                rule.name = mContext.getResources()
-                        .getString(R.string.zen_mode_downtime_feature_name);
-                rule.conditionId = ZenModeConfig.toScheduleConditionId(schedule);
-                rule.zenMode = v1.sleepNone ? Global.ZEN_MODE_NO_INTERRUPTIONS
-                        : Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS;
-                rule.component = ScheduleConditionProvider.COMPONENT;
-                rt.automaticRules.put(ZenModeConfig.newRuleId(), rule);
-            } else {
-                Log.i(TAG, "No existing V1 downtime found, generating default schedules");
-                appendDefaultScheduleRules(rt);
-            }
-            appendDefaultEventRules(rt);
-            return rt;
-        }
-    };
 
     private final class RingerModeDelegate implements AudioManagerInternal.RingerModeDelegate {
         @Override
@@ -1082,19 +1070,12 @@ public class ZenModeHelper {
     private final class H extends Handler {
         private static final int MSG_DISPATCH = 1;
         private static final int MSG_METRICS = 2;
-        private static final int MSG_SET_CONFIG = 3;
         private static final int MSG_APPLY_CONFIG = 4;
 
         private final class ConfigMessageData {
             public final ZenModeConfig config;
             public final String reason;
             public final boolean setRingerMode;
-
-            ConfigMessageData(ZenModeConfig config, String reason) {
-                this.config = config;
-                this.reason = reason;
-                this.setRingerMode = false;
-            }
 
             ConfigMessageData(ZenModeConfig config, String reason, boolean setRingerMode) {
                 this.config = config;
@@ -1119,10 +1100,6 @@ public class ZenModeHelper {
             sendEmptyMessageDelayed(MSG_METRICS, METRICS_PERIOD_MS);
         }
 
-        private void postSetConfig(ZenModeConfig config, String reason) {
-            sendMessage(obtainMessage(MSG_SET_CONFIG, new ConfigMessageData(config, reason)));
-        }
-
         private void postApplyConfig(ZenModeConfig config, String reason, boolean setRingerMode) {
             sendMessage(obtainMessage(MSG_APPLY_CONFIG,
                     new ConfigMessageData(config, reason, setRingerMode)));
@@ -1136,12 +1113,6 @@ public class ZenModeHelper {
                     break;
                 case MSG_METRICS:
                     mMetrics.emit();
-                    break;
-                case MSG_SET_CONFIG:
-                    ConfigMessageData configData = (ConfigMessageData) msg.obj;
-                    synchronized (mConfig) {
-                        setConfigLocked(configData.config, configData.reason);
-                    }
                     break;
                 case MSG_APPLY_CONFIG:
                     ConfigMessageData applyConfigData = (ConfigMessageData) msg.obj;

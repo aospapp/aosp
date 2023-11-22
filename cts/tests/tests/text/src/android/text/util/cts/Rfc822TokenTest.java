@@ -16,14 +16,23 @@
 
 package android.text.util.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.util.Rfc822Token;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link Rfc822Token}.
  */
-public class Rfc822TokenTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Rfc822TokenTest {
+    @Test
     public void testConstructor() {
         final String name = "John Doe";
         final String address = "jdoe@example.net";
@@ -49,6 +58,7 @@ public class Rfc822TokenTest extends AndroidTestCase {
         assertNull(rfc822Token4.getComment());
     }
 
+    @Test
     public void testAccessName() {
         String name = "John Doe";
         final String address = "jdoe@example.net";
@@ -68,19 +78,19 @@ public class Rfc822TokenTest extends AndroidTestCase {
         assertNull(rfc822Token.getName());
     }
 
+    @Test
     public void testQuoteComment() {
         assertEquals("work", Rfc822Token.quoteComment("work"));
 
         assertEquals("\\\\\\(work\\)", Rfc822Token.quoteComment("\\(work)"));
-
-        try {
-            Rfc822Token.quoteComment(null);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // issue 1695243, not clear what is supposed to happen if comment is null.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testQuoteCommentNull() {
+        Rfc822Token.quoteComment(null);
+    }
+
+    @Test
     public void testAccessComment() {
         final String name = "John Doe";
         final String address = "jdoe@example.net";
@@ -100,6 +110,7 @@ public class Rfc822TokenTest extends AndroidTestCase {
         assertNull(rfc822Token.getComment());
     }
 
+    @Test
     public void testAccessAddress() {
         final String name = "John Doe";
         String address = "jdoe@example.net";
@@ -119,6 +130,7 @@ public class Rfc822TokenTest extends AndroidTestCase {
         assertNull(rfc822Token.getAddress());
     }
 
+    @Test
     public void testToString() {
         Rfc822Token rfc822Token1 = new Rfc822Token("John Doe", "jdoe@example.net", "work");
         assertEquals("John Doe (work) <jdoe@example.net>", rfc822Token1.toString());
@@ -141,32 +153,30 @@ public class Rfc822TokenTest extends AndroidTestCase {
         assertEquals("", rfc822Token6.toString());
     }
 
+    @Test
     public void testQuoteNameIfNecessary() {
         assertEquals("UPPERlower space 0123456789",
                 Rfc822Token.quoteNameIfNecessary("UPPERlower space 0123456789"));
         assertEquals("\"jdoe@example.net\"", Rfc822Token.quoteNameIfNecessary("jdoe@example.net"));
         assertEquals("\"*name\"", Rfc822Token.quoteNameIfNecessary("*name"));
 
-        try {
-            Rfc822Token.quoteNameIfNecessary(null);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // issue 1695243, not clear what is supposed to happen if name is null.
-        }
-
         assertEquals("", Rfc822Token.quoteNameIfNecessary(""));
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testQuoteNameIfNecessaryNull() {
+        Rfc822Token.quoteNameIfNecessary(null);
+    }
+
+    @Test
     public void testQuoteName() {
         assertEquals("John Doe", Rfc822Token.quoteName("John Doe"));
         assertEquals("\\\"John Doe\\\"", Rfc822Token.quoteName("\"John Doe\""));
         assertEquals("\\\\\\\"John Doe\\\"", Rfc822Token.quoteName("\\\"John Doe\""));
+    }
 
-        try {
-            Rfc822Token.quoteName(null);
-            fail("Should throw NullPointerException!");
-        } catch (NullPointerException e) {
-            // issue 1695243, not clear what is supposed to happen if name is null.
-        }
+    @Test(expected=NullPointerException.class)
+    public void testQuoteNameNull() {
+        Rfc822Token.quoteName(null);
     }
 }

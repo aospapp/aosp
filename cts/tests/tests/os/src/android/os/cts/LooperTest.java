@@ -16,7 +16,6 @@
 
 package android.os.cts;
 
-import android.cts.util.TestThread;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -25,6 +24,8 @@ import android.os.SystemClock;
 import android.test.AndroidTestCase;
 import android.util.Printer;
 import android.util.StringBuilderPrinter;
+
+import com.android.compatibility.common.util.TestThread;
 
 public class LooperTest extends AndroidTestCase {
 

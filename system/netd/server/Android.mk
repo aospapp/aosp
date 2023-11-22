@@ -21,6 +21,7 @@ include $(CLEAR_VARS)
 
 LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CLANG := true
+LOCAL_SANITIZE := unsigned-integer-overflow
 LOCAL_MODULE := libnetdaidl
 LOCAL_SHARED_LIBRARIES := \
         libbinder \
@@ -46,17 +47,25 @@ LOCAL_C_INCLUDES := \
         system/netd/include \
 
 LOCAL_CLANG := true
-LOCAL_CPPFLAGS := -std=c++11 -Wall -Werror
+LOCAL_CPPFLAGS := -Wall -Werror
+LOCAL_SANITIZE := unsigned-integer-overflow
 LOCAL_MODULE := netd
+
+# Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
+LOCAL_CPPFLAGS +=  -Wno-varargs \
+
+ifeq ($(TARGET_ARCH), x86)
+ifneq ($(TARGET_PRODUCT), gce_x86_phone)
+        LOCAL_CPPFLAGS += -D NETLINK_COMPAT32
+endif
+endif
 
 LOCAL_INIT_RC := netd.rc
 
 LOCAL_SHARED_LIBRARIES := \
         libbinder \
-        libcrypto \
         libcutils \
         libdl \
-        libhardware_legacy \
         liblog \
         liblogwrap \
         libmdnssd \
@@ -66,8 +75,6 @@ LOCAL_SHARED_LIBRARIES := \
         libsysutils \
         libbase \
         libutils \
-
-LOCAL_STATIC_LIBRARIES := \
         libpcap \
 
 LOCAL_SRC_FILES := \
@@ -78,10 +85,12 @@ LOCAL_SRC_FILES := \
         DnsProxyListener.cpp \
         DummyNetwork.cpp \
         DumpWriter.cpp \
+        EventReporter.cpp \
         FirewallController.cpp \
         FwmarkServer.cpp \
         IdletimerController.cpp \
         InterfaceController.cpp \
+        IptablesRestoreController.cpp \
         LocalNetwork.cpp \
         MDnsSdListener.cpp \
         NatController.cpp \
@@ -90,6 +99,7 @@ LOCAL_SRC_FILES := \
         NetdNativeService.cpp \
         NetlinkHandler.cpp \
         NetlinkManager.cpp \
+        NetlinkCommands.cpp \
         Network.cpp \
         NetworkController.cpp \
         PhysicalNetwork.cpp \
@@ -97,14 +107,15 @@ LOCAL_SRC_FILES := \
         ResolverController.cpp \
         RouteController.cpp \
         SockDiag.cpp \
-        SoftapController.cpp \
         StrictController.cpp \
         TetherController.cpp \
         UidRanges.cpp \
         VirtualNetwork.cpp \
+        XfrmController.cpp \
         main.cpp \
         oem_iptables_hook.cpp \
-        binder/android/net/metrics/IDnsEventListener.aidl \
+        binder/android/net/UidRange.cpp \
+        binder/android/net/metrics/INetdEventListener.aidl \
 
 LOCAL_AIDL_INCLUDES := $(LOCAL_PATH)/binder
 
@@ -117,10 +128,11 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_CFLAGS := -Wall -Werror
+LOCAL_SANITIZE := unsigned-integer-overflow
 LOCAL_CLANG := true
 LOCAL_MODULE := ndc
 LOCAL_SHARED_LIBRARIES := libcutils
-LOCAL_SRC_FILES := ndc.c
+LOCAL_SRC_FILES := ndc.cpp
 
 include $(BUILD_EXECUTABLE)
 
@@ -129,23 +141,46 @@ include $(BUILD_EXECUTABLE)
 ###
 include $(CLEAR_VARS)
 LOCAL_MODULE := netd_unit_test
+LOCAL_SANITIZE := unsigned-integer-overflow
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
+# Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
+LOCAL_CFLAGS += -Wno-varargs
+
 LOCAL_C_INCLUDES := \
+        bionic/libc/dns/include \
         system/netd/include \
         system/netd/server \
         system/netd/server/binder \
+        system/netd/tests \
         system/core/logwrapper/include \
 
 LOCAL_SRC_FILES := \
+        Controllers.cpp \
         NetdConstants.cpp IptablesBaseTest.cpp \
+        IptablesRestoreController.cpp IptablesRestoreControllerTest.cpp \
         BandwidthController.cpp BandwidthControllerTest.cpp \
         FirewallControllerTest.cpp FirewallController.cpp \
+        IdletimerController.cpp \
         NatControllerTest.cpp NatController.cpp \
+        NetlinkCommands.cpp \
+        RouteController.cpp RouteControllerTest.cpp \
         SockDiagTest.cpp SockDiag.cpp \
         StrictController.cpp StrictControllerTest.cpp \
         UidRanges.cpp \
+        binder/android/net/UidRange.cpp \
+        binder/android/net/metrics/INetdEventListener.aidl \
+        ../tests/tun_interface.cpp \
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_SHARED_LIBRARIES := liblog libbase libcutils liblogwrap libsysutils
+LOCAL_SHARED_LIBRARIES := \
+        libbase \
+        libbinder \
+        libcutils \
+        liblog \
+        liblogwrap \
+        libnetutils \
+        libsysutils \
+        libutils \
+
 include $(BUILD_NATIVE_TEST)
 

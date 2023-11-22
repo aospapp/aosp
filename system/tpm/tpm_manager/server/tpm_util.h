@@ -19,9 +19,9 @@
 
 namespace tpm_manager {
 
-#define TPM_LOG(severity, result) \
-  LOG(severity) << "TPM error 0x" << std::hex << result \
-                << " (" << Trspi_Error_String(result) << "): "
+#define TPM_LOG(severity, result)                               \
+  LOG(severity) << "TPM error 0x" << std::hex << result << " (" \
+                << Trspi_Error_String(result) << "): "
 
 }  // namespace tpm_manager
 

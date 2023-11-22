@@ -26,30 +26,11 @@
         <item>Zoom</item>
     </string-array>
 
-    <!-- The category strings to be displayed in the channel guide for LMP.
+    <!-- The category strings to be displayed in the channel guide.
          This list should be synced the data in src/com/android/tv/data/GenreItems.java -->
     <eat-comment />
-    <!-- Genre list for LMP [CHAR LIMIT=20] -->
-    <string-array name="genre_labels_l" translatable="true">
-        <item>All channels</item>
-        <item>Family/Kids</item>
-        <item>Sports</item>
-        <item>Shopping</item>
-        <item>Movies</item>
-        <item>Comedy</item>
-        <item>Travel</item>
-        <item>Drama</item>
-        <item>Education</item>
-        <item>Animal/Wildlife</item>
-        <item>News</item>
-        <item>Gaming</item>
-    </string-array>
-
-    <!-- The category strings to be displayed in the channel guide for LMP MR1.
-         This list should be synced the data in src/com/android/tv/data/GenreItems.java -->
-    <eat-comment />
-    <!-- Genre list for LMP MR1 [CHAR LIMIT=20] -->
-    <string-array name="genre_labels_l_mr1" translatable="true">
+    <!-- Genre list [CHAR LIMIT=20] -->
+    <string-array name="genre_labels" translatable="true">
         <item>All channels</item>
         <item>Family/Kids</item>
         <item>Sports</item>

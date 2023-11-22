@@ -346,9 +346,9 @@ public class CertInstaller extends Activity {
             removeDialog(PKCS12_PASSWORD_DIALOG);
             nameCredential();
         } else {
+            showDialog(PKCS12_PASSWORD_DIALOG);
             mView.setText(R.id.credential_password, "");
             mView.showError(R.string.password_error);
-            showDialog(PKCS12_PASSWORD_DIALOG);
         }
     }
 

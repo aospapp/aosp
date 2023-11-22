@@ -1,7 +1,15 @@
 import sys
 
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.server import utils
 from autotest_lib.server.cros import provision
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
+
+
+DURATION_METRIC = 'chromeos/autotest/autoserv/reset_duration'
 
 
 # A string of the form 'label1,label2:value,label3'.
@@ -11,22 +19,20 @@ labels_list = [l.strip() for l in job_labels.split(',') if l]
 
 def reset(machine):
     print 'Starting to reset host %s' % machine
-    timer = None
     try:
         job.record('START', None, 'reset')
-        target = hosts.create_target_machine(machine, initialize=False,
-                                             auto_monitor=False)
-        timer = autotest_stats.Timer('reset_time')
-        timer.start()
+        target = hosts.create_target_machine(machine)
+        hostname = utils.get_hostname_from_machine(machine)
+        with metrics.SecondsTimer(DURATION_METRIC,
+                                  fields={'dut_host_name': hostname}):
+            # Assume cleanup always runs first.
+            target.cleanup()
+            provision.run_special_task_actions(job, target, labels_list,
+                                               provision.Cleanup)
 
-        # Assume cleanup always runs first.
-        target.cleanup()
-        provision.run_special_task_actions(job, target, labels_list,
-                                           provision.Cleanup)
-
-        target.verify()
-        provision.run_special_task_actions(job, target, labels_list,
-                                           provision.Verify)
+            target.verify()
+            provision.run_special_task_actions(job, target, labels_list,
+                                               provision.Verify)
     except Exception as e:
         logging.exception(e)
         job.record('END FAIL', None, 'reset')
@@ -34,11 +40,9 @@ def reset(machine):
         # doing this.
         raise Exception('')
     else:
+        hostname = utils.get_hostname_from_machine(machine)
         job.record('END GOOD', None, 'reset',
-                   '%s reset successfully' % machine)
-    finally:
-        if timer:
-            timer.stop()
+                   '%s reset successfully' % hostname)
 
 
 job.parallel_simple(reset, machines)

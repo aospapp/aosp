@@ -32,4 +32,16 @@ public class VCardImporterNestTests extends VCardTestsBase {
                 .addExpectedNodeWithOrder("N", "parent")
                 .addExpectedNodeWithOrder("TEL", "1");
     }
+
+    public void testSimpleNestWithMime() {
+        mVerifier.initForImportTest(V21, R.raw.v21_nest_with_mime);
+        mVerifier.addPropertyNodesVerifierElem()
+                .addExpectedNodeWithOrder("N", "nest1");
+        mVerifier.addPropertyNodesVerifierElem()
+                .addExpectedNodeWithOrder("N", "nest2");
+        // Parent comes last.
+        mVerifier.addPropertyNodesVerifierElem()
+                .addExpectedNodeWithOrder("N", "parent")
+                .addExpectedNodeWithOrder("TEL", "1");
+    }
 }

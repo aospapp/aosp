@@ -16,116 +16,313 @@
 
 #define LOG_TAG "event_packet"
 
-#define VECTOR_COPY_TO_END(source, destination) \
-  std::copy(source.begin(), source.end(), std::back_inserter(destination));
+#include "event_packet.h"
 
-#include "vendor_libs/test_vendor_lib/include/event_packet.h"
-
-extern "C" {
 #include "osi/include/log.h"
 #include "stack/include/hcidefs.h"
-}  // extern "C"
+
+using std::vector;
 
 namespace test_vendor_lib {
 
-EventPacket::EventPacket(uint8_t event_code,
-                         const std::vector<uint8_t>& payload)
-    : Packet(DATA_TYPE_EVENT) {
-  Encode({event_code, static_cast<uint8_t>(payload.size())}, payload);
+EventPacket::EventPacket(uint8_t event_code)
+    : Packet(DATA_TYPE_EVENT, {event_code}) {}
+
+uint8_t EventPacket::GetEventCode() const { return GetHeader()[0]; }
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.1
+std::unique_ptr<EventPacket> EventPacket::CreateInquiryCompleteEvent(
+    uint8_t status) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      std::unique_ptr<EventPacket>(new EventPacket(HCI_INQUIRY_COMP_EVT));
+  CHECK(evt_ptr->AddPayloadOctets1(status));
+
+  return evt_ptr;
 }
 
-uint8_t EventPacket::GetEventCode() const {
-  return GetHeader()[0];
-}
-
-// static
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.14
 std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteEvent(
-    uint8_t num_hci_command_packets, uint16_t command_opcode,
-    const std::vector<uint8_t>& event_return_parameters) {
-  size_t payload_size = sizeof(num_hci_command_packets) +
-                        sizeof(command_opcode) + event_return_parameters.size();
+    uint16_t command_opcode, const vector<uint8_t>& event_return_parameters) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      std::unique_ptr<EventPacket>(new EventPacket(HCI_COMMAND_COMPLETE_EVT));
 
-  std::vector<uint8_t> payload;
-  payload.reserve(payload_size);
-  payload.push_back(num_hci_command_packets);
-  payload.push_back(command_opcode);
-  payload.push_back(command_opcode >> 8);
-  VECTOR_COPY_TO_END(event_return_parameters, payload);
+  CHECK(evt_ptr->AddPayloadOctets1(1));  // num_hci_command_packets
+  CHECK(evt_ptr->AddPayloadOctets2(command_opcode));
+  CHECK(evt_ptr->AddPayloadOctets(event_return_parameters.size(),
+                                  event_return_parameters));
 
-  return std::unique_ptr<EventPacket>(
-      new EventPacket(HCI_COMMAND_COMPLETE_EVT, payload));
+  return evt_ptr;
 }
 
-// static
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteOnlyStatusEvent(
+    uint16_t command_opcode, uint8_t status) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      std::unique_ptr<EventPacket>(new EventPacket(HCI_COMMAND_COMPLETE_EVT));
+
+  CHECK(evt_ptr->AddPayloadOctets1(1));  // num_hci_command_packets
+  CHECK(evt_ptr->AddPayloadOctets2(command_opcode));
+  CHECK(evt_ptr->AddPayloadOctets1(status));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.15
 std::unique_ptr<EventPacket> EventPacket::CreateCommandStatusEvent(
-    uint8_t status, uint8_t num_hci_command_packets, uint16_t command_opcode) {
-  size_t payload_size =
-      sizeof(status) + sizeof(num_hci_command_packets) + sizeof(command_opcode);
+    uint8_t status, uint16_t command_opcode) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      std::unique_ptr<EventPacket>(new EventPacket(HCI_COMMAND_STATUS_EVT));
 
-  std::vector<uint8_t> payload;
-  payload.reserve(payload_size);
-  payload.push_back(status);
-  payload.push_back(num_hci_command_packets);
-  payload.push_back(command_opcode);
-  payload.push_back(command_opcode >> 8);
+  CHECK(evt_ptr->AddPayloadOctets1(status));
+  CHECK(evt_ptr->AddPayloadOctets1(1));  // num_hci_command_packets
+  CHECK(evt_ptr->AddPayloadOctets2(command_opcode));
 
-  return std::unique_ptr<EventPacket>(
-      new EventPacket(HCI_COMMAND_STATUS_EVT, payload));
+  return evt_ptr;
 }
 
-//static
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.3.12
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteReadLocalName(
+    uint8_t status, const std::string& local_name) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(HCI_READ_LOCAL_NAME,
+                                                        status);
+
+  for (size_t i = 0; i < local_name.length(); i++)
+    CHECK(evt_ptr->AddPayloadOctets1(local_name[i]));
+  CHECK(evt_ptr->AddPayloadOctets1(0));  // Null terminated
+  for (size_t i = 0; i < 248 - local_name.length() - 1; i++)
+    CHECK(evt_ptr->AddPayloadOctets1(0xFF));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.1
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteReadLocalVersionInformation(
+    uint8_t status, uint8_t hci_version, uint16_t hci_revision,
+    uint8_t lmp_pal_version, uint16_t manufacturer_name,
+    uint16_t lmp_pal_subversion) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_READ_LOCAL_VERSION_INFO, status);
+
+  CHECK(evt_ptr->AddPayloadOctets1(hci_version));
+  CHECK(evt_ptr->AddPayloadOctets2(hci_revision));
+  CHECK(evt_ptr->AddPayloadOctets1(lmp_pal_version));
+  CHECK(evt_ptr->AddPayloadOctets2(manufacturer_name));
+  CHECK(evt_ptr->AddPayloadOctets2(lmp_pal_subversion));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.2
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteReadLocalSupportedCommands(
+    uint8_t status, const vector<uint8_t>& supported_commands) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_READ_LOCAL_SUPPORTED_CMDS, status);
+
+  CHECK(evt_ptr->AddPayloadOctets(64, supported_commands));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.4
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteReadLocalExtendedFeatures(
+    uint8_t status, uint8_t page_number, uint8_t maximum_page_number,
+    uint64_t extended_lmp_features) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_READ_LOCAL_EXT_FEATURES, status);
+
+  CHECK(evt_ptr->AddPayloadOctets1(page_number));
+  CHECK(evt_ptr->AddPayloadOctets1(maximum_page_number));
+  CHECK(evt_ptr->AddPayloadOctets8(extended_lmp_features));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.5
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteReadBufferSize(
+    uint8_t status, uint16_t hc_acl_data_packet_length,
+    uint8_t hc_synchronous_data_packet_length,
+    uint16_t hc_total_num_acl_data_packets,
+    uint16_t hc_total_synchronous_data_packets) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(HCI_READ_BUFFER_SIZE,
+                                                        status);
+
+  CHECK(evt_ptr->AddPayloadOctets2(hc_acl_data_packet_length));
+  CHECK(evt_ptr->AddPayloadOctets1(hc_synchronous_data_packet_length));
+  CHECK(evt_ptr->AddPayloadOctets2(hc_total_num_acl_data_packets));
+  CHECK(evt_ptr->AddPayloadOctets2(hc_total_synchronous_data_packets));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.6
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteReadBdAddr(
+    uint8_t status, const BtAddress& address) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(HCI_READ_BD_ADDR,
+                                                        status);
+
+  CHECK(evt_ptr->AddPayloadBtAddress(address));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.8
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteReadLocalSupportedCodecs(
+    uint8_t status, const vector<uint8_t>& supported_codecs,
+    const vector<uint32_t>& vendor_specific_codecs) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_READ_LOCAL_SUPPORTED_CODECS, status);
+
+  CHECK(evt_ptr->AddPayloadOctets(supported_codecs.size(), supported_codecs));
+  for (size_t i = 0; i < vendor_specific_codecs.size(); i++)
+    CHECK(evt_ptr->AddPayloadOctets4(vendor_specific_codecs[i]));
+
+  return evt_ptr;
+}
+
 std::unique_ptr<EventPacket> EventPacket::CreateInquiryResultEvent(
-    uint8_t num_responses, const std::vector<uint8_t>& bd_addresses,
-    const std::vector<uint8_t>& page_scan_repetition_mode,
-    const std::vector<uint8_t>& page_scan_period_mode,
-    const std::vector<uint8_t>& page_scan_mode,
-    const std::vector<uint8_t>& class_of_device,
-    const std::vector<uint8_t>& clock_offset) {
-  size_t payload_size = sizeof(num_responses) + bd_addresses.size() +
-                        page_scan_repetition_mode.size() +
-                        page_scan_period_mode.size() + page_scan_mode.size() +
-                        class_of_device.size() + clock_offset.size();
+    const BtAddress& address,
+    const PageScanRepetitionMode page_scan_repetition_mode,
+    uint32_t class_of_device, uint16_t clock_offset) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      std::unique_ptr<EventPacket>(new EventPacket(HCI_INQUIRY_RESULT_EVT));
 
-  std::vector<uint8_t> payload;
-  payload.reserve(payload_size);
-  payload.push_back(num_responses);
-  VECTOR_COPY_TO_END(bd_addresses, payload);
-  VECTOR_COPY_TO_END(page_scan_repetition_mode, payload);
-  VECTOR_COPY_TO_END(page_scan_mode, payload);
-  VECTOR_COPY_TO_END(class_of_device, payload);
-  VECTOR_COPY_TO_END(clock_offset, payload);
+  CHECK(evt_ptr->AddPayloadOctets1(1));  // Start with a single response
 
-  return std::unique_ptr<EventPacket>(
-      new EventPacket(HCI_INQUIRY_RESULT_EVT, payload));
+  CHECK(evt_ptr->AddPayloadBtAddress(address));
+  CHECK(evt_ptr->AddPayloadOctets1(page_scan_repetition_mode));
+  CHECK(evt_ptr->AddPayloadOctets2(kReservedZero));
+  CHECK(evt_ptr->AddPayloadOctets3(class_of_device));
+  CHECK(!(clock_offset & 0x8000));
+  CHECK(evt_ptr->AddPayloadOctets2(clock_offset));
+
+  return evt_ptr;
 }
 
-//static
+void EventPacket::AddInquiryResult(
+    const BtAddress& address,
+    const PageScanRepetitionMode page_scan_repetition_mode,
+    uint32_t class_of_device, uint16_t clock_offset) {
+  CHECK(GetEventCode() == HCI_INQUIRY_RESULT_EVT);
+
+  CHECK(IncrementPayloadCounter(1));  // Increment the number of responses
+
+  CHECK(AddPayloadBtAddress(address));
+  CHECK(AddPayloadOctets1(page_scan_repetition_mode));
+  CHECK(AddPayloadOctets2(kReservedZero));
+  CHECK(AddPayloadOctets3(class_of_device));
+  CHECK(!(clock_offset & 0x8000));
+  CHECK(AddPayloadOctets2(clock_offset));
+}
+
 std::unique_ptr<EventPacket> EventPacket::CreateExtendedInquiryResultEvent(
-    const std::vector<uint8_t>& bd_address,
-    const std::vector<uint8_t>& page_scan_repetition_mode,
-    const std::vector<uint8_t>& page_scan_period_mode,
-    const std::vector<uint8_t>& class_of_device,
-    const std::vector<uint8_t>& clock_offset,
-    const std::vector<uint8_t>& rssi,
-    const std::vector<uint8_t>& extended_inquiry_response) {
-  size_t payload_size =
-      1 + bd_address.size() + page_scan_repetition_mode.size() +
-      page_scan_period_mode.size() + class_of_device.size() +
-      clock_offset.size() + rssi.size() + extended_inquiry_response.size();
+    const BtAddress& address,
+    const PageScanRepetitionMode page_scan_repetition_mode,
+    uint32_t class_of_device, uint16_t clock_offset, uint8_t rssi,
+    const vector<uint8_t>& extended_inquiry_response) {
+  std::unique_ptr<EventPacket> evt_ptr = std::unique_ptr<EventPacket>(
+      new EventPacket(HCI_EXTENDED_INQUIRY_RESULT_EVT));
 
-  std::vector<uint8_t> payload;
-  payload.reserve(payload_size);
-  payload.push_back(1);  // Each extended inquiry result contains one device.
-  VECTOR_COPY_TO_END(bd_address, payload);
-  VECTOR_COPY_TO_END(page_scan_repetition_mode, payload);
-  VECTOR_COPY_TO_END(page_scan_period_mode, payload);
-  VECTOR_COPY_TO_END(class_of_device, payload);
-  VECTOR_COPY_TO_END(clock_offset, payload);
-  VECTOR_COPY_TO_END(rssi, payload);
-  VECTOR_COPY_TO_END(extended_inquiry_response, payload);
+  CHECK(evt_ptr->AddPayloadOctets1(1));  // Always contains a single response
 
-  return std::unique_ptr<EventPacket>(
-      new EventPacket(HCI_EXTENDED_INQUIRY_RESULT_EVT, payload));
+  CHECK(evt_ptr->AddPayloadBtAddress(address));
+  CHECK(evt_ptr->AddPayloadOctets1(page_scan_repetition_mode));
+  CHECK(evt_ptr->AddPayloadOctets1(kReservedZero));
+  CHECK(evt_ptr->AddPayloadOctets3(class_of_device));
+  CHECK(!(clock_offset & 0x8000));
+  CHECK(evt_ptr->AddPayloadOctets2(clock_offset));
+  CHECK(evt_ptr->AddPayloadOctets1(rssi));
+  CHECK(evt_ptr->AddPayloadOctets(extended_inquiry_response.size(),
+                                  extended_inquiry_response));
+  while (evt_ptr->AddPayloadOctets1(0xff))
+    ;  // Fill packet
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.2
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteLeReadBufferSize(
+    uint8_t status, uint16_t hc_le_data_packet_length,
+    uint8_t hc_total_num_le_data_packets) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_BLE_READ_BUFFER_SIZE, status);
+
+  CHECK(evt_ptr->AddPayloadOctets2(hc_le_data_packet_length));
+  CHECK(evt_ptr->AddPayloadOctets1(hc_total_num_le_data_packets));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.3
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteLeReadLocalSupportedFeatures(
+    uint8_t status, uint64_t le_features) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_BLE_READ_LOCAL_SPT_FEAT, status);
+
+  CHECK(evt_ptr->AddPayloadOctets8(le_features));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.14
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteLeReadWhiteListSize(uint8_t status,
+                                                      uint8_t white_list_size) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_BLE_READ_WHITE_LIST_SIZE, status);
+
+  CHECK(evt_ptr->AddPayloadOctets8(white_list_size));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.23
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteLeRand(
+    uint8_t status, uint64_t random_val) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(HCI_BLE_RAND, status);
+
+  CHECK(evt_ptr->AddPayloadOctets8(random_val));
+
+  return evt_ptr;
+}
+
+// Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.27
+std::unique_ptr<EventPacket>
+EventPacket::CreateCommandCompleteLeReadSupportedStates(uint8_t status,
+                                                        uint64_t le_states) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(
+          HCI_BLE_READ_SUPPORTED_STATES, status);
+
+  CHECK(evt_ptr->AddPayloadOctets8(le_states));
+
+  return evt_ptr;
+}
+
+// Vendor-specific commands (see hcidefs.h)
+
+std::unique_ptr<EventPacket> EventPacket::CreateCommandCompleteLeVendorCap(
+    uint8_t status, const vector<uint8_t>& vendor_cap) {
+  std::unique_ptr<EventPacket> evt_ptr =
+      EventPacket::CreateCommandCompleteOnlyStatusEvent(HCI_BLE_VENDOR_CAP_OCF,
+                                                        status);
+
+  CHECK(evt_ptr->AddPayloadOctets(vendor_cap.size(), vendor_cap));
+
+  return evt_ptr;
 }
 
 }  // namespace test_vendor_lib

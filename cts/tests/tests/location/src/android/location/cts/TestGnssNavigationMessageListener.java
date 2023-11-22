@@ -21,8 +21,8 @@ import junit.framework.Assert;
 import android.location.GnssNavigationMessage;
 import android.util.Log;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -45,7 +45,7 @@ class TestGnssNavigationMessageListener extends GnssNavigationMessage.Callback {
         mTag = tag;
         mCountDownLatch = new CountDownLatch(1);
         mEventsToCollect = eventsToCollect;
-        mEvents = new ArrayList<>(eventsToCollect);
+        mEvents = new CopyOnWriteArrayList<GnssNavigationMessage>();
     }
 
     @Override

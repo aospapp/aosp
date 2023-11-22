@@ -20,7 +20,7 @@
 # to investigate failures during testing.
 
 # Target settings
-jdwp_test_classpath_target := /data/jdwp/apache-harmony-jdwp-tests.jar:/data/junit/junit-targetdex.jar
+jdwp_test_classpath_target := /data/jdwp/apache-harmony-jdwp-tests.jar:/data/junit/junit.jar
 jdwp_test_runtime_bin_target := dalvikvm
 
 # Host settings
@@ -54,7 +54,8 @@ ifdef TARGET_2ND_ARCH
   ifeq ($(TARGET_IS_64_BIT),true)
     jdwp_tests_target_abis := 64 32
   else
-    $(error Unsupported multi-target configuration!)
+    jdwp_tests_target_abis := 32
+    $(warning Unsupported multi-target configuration!)
   endif
 else
   ifeq ($(TARGET_IS_64_BIT),true)
@@ -71,7 +72,7 @@ jdwp_tests_host_dependencies := \
 
 jdwp_tests_target_dependencies := \
   $(TARGET_OUT_DATA)/jdwp/apache-harmony-jdwp-tests.jar \
-  $(TARGET_OUT_DATA)/junit/junit-targetdex.jar
+  $(TARGET_OUT_DATA)/junit/junit.jar
 
 # Define a JDWP host rule
 #
@@ -169,4 +170,3 @@ run-jdwp-tests-ri: $(HOST_OUT_JAVA_LIBRARIES)/apache-harmony-jdwp-tests-host.jar
           -Djpda.settings.verbose=true \
           -Djpda.settings.debuggeeJavaPath=java \
           $(jdwp_test_suite_class_name)
-

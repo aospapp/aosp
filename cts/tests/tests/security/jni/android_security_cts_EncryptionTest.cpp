@@ -70,70 +70,6 @@ static jboolean android_security_cts_EncryptionTest_deviceIsEncrypted(JNIEnv *, 
     return rc;
 }
 
-/*
- * Function: cpuHasAes
- * Purpose: Check if we have an ARM CPU with AES instruction
- * Parameters: none
- * Returns: boolean: (true) if AES is available, (false) otherwise
- * Exceptions: none
- */
-static jboolean android_security_cts_EncryptionTest_cpuHasAes(JNIEnv *, jobject)
-{
-    jboolean rc = false;
-    AndroidCpuFamily family = android_getCpuFamily();
-    uint64_t features = android_getCpuFeatures();
-
-    if (family == ANDROID_CPU_FAMILY_ARM) {
-        rc = (features & ANDROID_CPU_ARM_FEATURE_AES) != 0;
-    } else if (family == ANDROID_CPU_FAMILY_ARM64) {
-        rc = (features & ANDROID_CPU_ARM64_FEATURE_AES) != 0;
-    }
-
-    ALOGE("EncryptionTest::cpuHasAes: %d", rc);
-    return rc;
-}
-
-/*
- * Function: cpuHasNeon
- * Purpose: Check if we have an ARM CPU with NEON instructions
- * Parameters: none
- * Returns: boolean: (true) if NEON is available, (false) otherwise
- * Exceptions: none
- */
-static jboolean android_security_cts_EncryptionTest_cpuHasNeon(JNIEnv *, jobject)
-{
-    jboolean rc = false;
-    AndroidCpuFamily family = android_getCpuFamily();
-
-    if (family == ANDROID_CPU_FAMILY_ARM) {
-        rc = (android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON) != 0;
-    } else {
-        rc = (family == ANDROID_CPU_FAMILY_ARM64);
-    }
-
-    ALOGE("EncryptionTest::cpuHasNeon: %d", rc);
-    return rc;
-}
-
-/*
- * Function: neonIsEnabled
- * Purpose: Check if libcrypto is compiled with NEON support
- * Parameters: none
- * Returns: boolean: (true) if NEON is available, (false) otherwise
- * Exceptions: none
- */
-static jboolean android_security_cts_EncryptionTest_neonIsEnabled(JNIEnv *, jobject)
-{
-#if defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)
-    jboolean rc = CRYPTO_is_NEON_capable();
-#else
-    jboolean rc = false;
-#endif
-
-    ALOGE("EncryptionTest::neonIsEnabled: %d", rc);
-    return rc;
-}
-
 static inline uint64_t ns()
 {
     struct timespec ts;
@@ -202,12 +138,6 @@ static jboolean android_security_cts_EncryptionTest_aesIsFast(JNIEnv *env, jobje
 static JNINativeMethod gMethods[] = {
     { "deviceIsEncrypted", "()Z",
             (void *) android_security_cts_EncryptionTest_deviceIsEncrypted },
-    { "cpuHasAes", "()Z",
-            (void *) android_security_cts_EncryptionTest_cpuHasAes },
-    { "cpuHasNeon", "()Z",
-            (void *) android_security_cts_EncryptionTest_cpuHasNeon },
-    { "neonIsEnabled", "()Z",
-            (void *) android_security_cts_EncryptionTest_neonIsEnabled },
     { "aesIsFast", "()Z",
             (void *) android_security_cts_EncryptionTest_aesIsFast }
 };

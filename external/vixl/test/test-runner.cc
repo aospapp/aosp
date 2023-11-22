@@ -1,4 +1,4 @@
-// Copyright 2014, ARM Limited
+// Copyright 2014, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,9 +24,10 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+
 #include "test-runner.h"
 
 // Initialize the list as empty.
@@ -40,6 +41,10 @@ bool vixl::Test::debug_ = false;
 bool vixl::Test::trace_sim_ = false;
 bool vixl::Test::trace_reg_ = false;
 bool vixl::Test::trace_write_ = false;
+bool vixl::Test::trace_branch_ = false;
+
+// Do not disassemble by default.
+bool vixl::Test::disassemble_ = false;
 
 // No colour highlight by default.
 bool vixl::Test::coloured_trace_ = false;
@@ -47,12 +52,12 @@ bool vixl::Test::coloured_trace_ = false;
 // No instruction statistics by default.
 bool vixl::Test::instruction_stats_ = false;
 
-// Don't generate simulator test traces by default.
-bool vixl::Test::sim_test_trace_ = false;
+// Don't generate traces by default.
+bool vixl::Test::generate_test_trace_ = false;
 
 // Instantiate a Test and append it to the linked list.
 vixl::Test::Test(const char* name, TestFunction* callback)
-  : name_(name), callback_(callback), next_(NULL) {
+    : name_(name), callback_(callback), next_(NULL) {
   // Append this test to the linked list.
   if (first_ == NULL) {
     VIXL_ASSERT(last_ == NULL);
@@ -81,11 +86,11 @@ static bool IsOption(const char* arg) {
 }
 
 
-static void NormalizeOption(char * arg) {
+static void NormalizeOption(char* arg) {
   // Squash all '_' characters in options. This allows --trace_sim and
   // --trace-sim to be handled in the same way, for example.
   VIXL_ASSERT(IsOption(arg));
-  for (char * c = arg; *c != '\0'; c++) {
+  for (char* c = arg; *c != '\0'; c++) {
     if (*c == '_') {
       *c = '-';
     }
@@ -94,20 +99,25 @@ static void NormalizeOption(char * arg) {
 
 
 static void PrintHelpMessage() {
-  printf("Usage:  ./test [options] [test names]\n"
+  printf(
+      "Usage:  ./test [options] [test names]\n"
       "Run all tests specified on the command line.\n"
-      "--help              Print this help message.\n"
-      "--list              List all available tests.\n"
-      "--run_all           Run all available tests.\n"
-      "--debugger          Run in the debugger.\n"
-      "--trace_all         Enable all trace options, plus --coloured_trace.\n"
-      "--trace_sim         Generate a trace of simulated instructions, as\n"
-      "                    well as disassembly from the DISASM tests.\n"
-      "--trace_reg         Generate a trace of simulated registers.\n"
-      "--trace_write       Generate a trace of memory writes.\n"
-      "--coloured_trace    Generate coloured trace.\n"
-      "--instruction_stats Log instruction statistics to vixl_stats.csv.\n"
-      "--sim_test_trace    Print result traces for SIM_* tests.\n");
+      "--help                 Print this help message.\n"
+      "--list                 List all available tests.\n"
+      "--run_all              Run all available tests.\n"
+      "--debugger             Run in the debugger.\n"
+      "--trace_all            "
+      "Enable all trace options, plus --coloured_trace.\n"
+      "--trace_sim            Generate a trace of simulated instructions, as\n"
+      "                       well as disassembly from the DISASM tests.\n"
+      "--trace_reg            Generate a trace of simulated registers.\n"
+      "--trace_write          Generate a trace of memory writes.\n"
+      "--trace_branch         Generate a trace of branches taken.\n"
+      "--disassemble          Disassemble and print generated instructions.\n"
+      "--coloured_trace       Generate coloured trace.\n"
+      "--instruction_stats    Log instruction statistics to vixl_stats.csv.\n"
+      "--generate_test_trace  "
+      "Print result traces for SIM_* and TRACE_* tests.\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -129,6 +139,7 @@ int main(int argc, char* argv[]) {
   if (IsInArgs("--trace-all", argc, argv)) {
     vixl::Test::set_trace_reg(true);
     vixl::Test::set_trace_write(true);
+    vixl::Test::set_trace_branch(true);
     vixl::Test::set_trace_sim(true);
     vixl::Test::set_coloured_trace(true);
   }
@@ -145,6 +156,10 @@ int main(int argc, char* argv[]) {
     vixl::Test::set_trace_write(true);
   }
 
+  if (IsInArgs("--trace-branch", argc, argv)) {
+    vixl::Test::set_trace_branch(true);
+  }
+
   if (IsInArgs("--trace-reg", argc, argv)) {
     vixl::Test::set_trace_reg(true);
   }
@@ -153,12 +168,16 @@ int main(int argc, char* argv[]) {
     vixl::Test::set_trace_sim(true);
   }
 
+  if (IsInArgs("--disassemble", argc, argv)) {
+    vixl::Test::set_disassemble(true);
+  }
+
   if (IsInArgs("--instruction-stats", argc, argv)) {
     vixl::Test::set_instruction_stats(true);
   }
 
-  if (IsInArgs("--sim-test-trace", argc, argv)) {
-    vixl::Test::set_sim_test_trace(true);
+  if (IsInArgs("--generate-test-trace", argc, argv)) {
+    vixl::Test::set_generate_test_trace(true);
   }
 
   // Basic (mutually-exclusive) operations.
@@ -207,4 +226,3 @@ int main(int argc, char* argv[]) {
 
   return EXIT_SUCCESS;
 }
-

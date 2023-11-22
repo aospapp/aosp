@@ -44,16 +44,10 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	antlr-runtime \
 	dexlib2
 
-#read in the version number
-SMALI_VERSION := $(shell cat $(LOCAL_PATH)/../build.gradle | \
-    grep -o -e "^version = '\(.*\)'" | grep -o -e "[0-9.]\+")
-
-SMALI_VERSION := $(SMALI_VERSION)-aosp
-
 #create a new smali.properties file using the correct version
-$(intermediates)/resources/smali.properties:
+$(intermediates)/resources/smali.properties: $(LOCAL_PATH)/../build.gradle
 	$(hide) mkdir -p $(dir $@)
-	$(hide) echo "application.version=$(SMALI_VERSION)" > $@
+	$(hide) echo "application.version=$$(grep -o -e "^version = '\(.*\)'" $< | grep -o -e "[0-9.]\+")-aosp" >$@
 
 LOCAL_JAVA_RESOURCE_FILES := $(intermediates)/resources/smali.properties
 

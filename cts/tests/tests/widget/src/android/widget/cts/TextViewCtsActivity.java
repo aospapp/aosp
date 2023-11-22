@@ -16,17 +16,16 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
+import android.widget.TextView;
 
 /**
- * A minimal application for TextView test.
+ * A minimal application for {@link TextView} test.
  */
 public class TextViewCtsActivity extends Activity {
     /**
-     * Called with the activity is first created.
+     * Called when the activity is first created.
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {

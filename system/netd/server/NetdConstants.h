@@ -45,8 +45,13 @@ enum IptablesTarget { V4, V6, V4V6 };
 int execIptables(IptablesTarget target, ...);
 int execIptablesSilently(IptablesTarget target, ...);
 int execIptablesRestore(IptablesTarget target, const std::string& commands);
+int execIptablesRestoreWithOutput(IptablesTarget target, const std::string& commands,
+                                  std::string *output);
+int execIptablesRestoreCommand(IptablesTarget target, const std::string& table,
+                               const std::string& command, std::string *output);
 bool isIfaceName(const char *name);
 int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, uint8_t *prefixlen);
+void blockSigpipe();
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 
@@ -59,21 +64,6 @@ int parsePrefix(const char *prefix, uint8_t *family, void *address, int size, ui
 #define WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 
 const uid_t INVALID_UID = static_cast<uid_t>(-1);
-
-class Stopwatch {
-public:
-    Stopwatch() : mStart(std::chrono::steady_clock::now()) {}
-    virtual ~Stopwatch() {};
-
-    float timeTaken() const {
-        using ms = std::chrono::duration<float, std::ratio<1, 1000>>;
-        return (std::chrono::duration_cast<ms>(
-                std::chrono::steady_clock::now() - mStart)).count();
-    }
-
-private:
-    std::chrono::time_point<std::chrono::steady_clock> mStart;
-};
 
 
 struct AddrinfoDeleter {

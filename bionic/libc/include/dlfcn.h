@@ -25,30 +25,37 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
 #ifndef __DLFCN_H__
 #define __DLFCN_H__
 
+#include <stdint.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+#endif
+
 typedef struct {
-    const char *dli_fname;  /* Pathname of shared object that
-                               contains address */
-    void       *dli_fbase;  /* Address at which shared object
-                               is loaded */
-    const char *dli_sname;  /* Name of nearest symbol with address
-                               lower than addr */
-    void       *dli_saddr;  /* Exact address of symbol named
-                               in dli_sname */
+  /* Pathname of shared object that contains address. */
+  const char* dli_fname;
+  /* Address at which shared object is loaded. */
+  void* dli_fbase;
+  /* Name of nearest symbol with address lower than addr. */
+  const char* dli_sname;
+  /* Exact address of symbol named in dli_sname. */
+  void* dli_saddr;
 } Dl_info;
 
-extern void* dlopen(const char*  filename, int flag);
-extern int dlclose(void*  handle);
-extern const char* dlerror(void);
-extern void* dlsym(void* handle, const char* symbol) __nonnull((2));
-extern void* dlvsym(void* handle, const char* symbol, const char* version) __nonnull((2, 3));
-extern int dladdr(const void* addr, Dl_info *info);
+void* dlopen(const char* filename, int flag);
+int dlclose(void* _Nonnull handle);
+char* dlerror(void);
+void* dlsym(void* handle, const char* _Nonnull symbol);
+void* dlvsym(void* handle, const char* _Nonnull symbol, const char* _Nonnull version) __INTRODUCED_IN(24);
+int dladdr(const void* addr, Dl_info* _Nonnull info);
 
 enum {
 #if defined(__LP64__)
@@ -69,15 +76,17 @@ enum {
 };
 
 #if defined (__LP64__)
-#define RTLD_DEFAULT  ((void*) 0)
-#define RTLD_NEXT     ((void*) -1L)
+#define RTLD_DEFAULT  __BIONIC_CAST(reinterpret_cast, void*, 0)
+#define RTLD_NEXT     __BIONIC_CAST(reinterpret_cast, void*, -1L)
 #else
-#define RTLD_DEFAULT  ((void*) 0xffffffff)
-#define RTLD_NEXT     ((void*) 0xfffffffe)
+#define RTLD_DEFAULT  __BIONIC_CAST(reinterpret_cast, void*, 0xffffffff)
+#define RTLD_NEXT     __BIONIC_CAST(reinterpret_cast, void*, 0xfffffffe)
+#endif
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
 #endif
 
 __END_DECLS
 
 #endif /* __DLFCN_H */
-
-

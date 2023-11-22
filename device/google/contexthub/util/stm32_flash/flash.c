@@ -207,6 +207,8 @@ int main(int argc, char *argv[])
 
         if (fread(&buffer[sizeof(uint32_t)], 1, length, file) < (size_t)length) {
             perror("Error reading input file");
+            free(buffer);
+            fclose(file);
             return -1;
         }
 

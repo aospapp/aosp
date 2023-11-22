@@ -271,12 +271,12 @@ public class KeyGeneratorTest extends TestCase {
                             continue;
                         }
                     }
-                    if ((i > 0) && ((i % 8 ) == 0)) {
+                    if ((i >= 64) && ((i % 8 ) == 0)) {
                         keyGenerator.init(spec, rng);
                         SecretKey key = keyGenerator.generateKey();
                         assertEquals(i, TestUtils.getKeyInfo(key).getKeySize());
                         assertEquals((i + 7) / 8, rng.getOutputSizeBytes());
-                    } else {
+                    } else if (i >= 64) {
                         try {
                             keyGenerator.init(spec, rng);
                             fail();

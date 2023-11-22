@@ -5,7 +5,6 @@
 AUTHOR = 'keybuk@chromium.org'
 NAME = 'bluetooth_Sanity_Discovery'
 ATTRIBUTES = "suite:bluetooth, suite:bluetooth_sanity"
-SUITE = 'bluetooth,bluetooth_sanity'
 TIME = 'SHORT'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'Server'

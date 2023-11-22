@@ -38,8 +38,6 @@ import org.connectbot.util.PreferenceConstants;
 import org.connectbot.util.SelectionArea;
 
 /**
- * @author kenny
- * @author modified by raaar
  */
 public class TerminalKeyListener implements OnKeyListener, OnSharedPreferenceChangeListener {
 

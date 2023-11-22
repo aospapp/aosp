@@ -192,6 +192,13 @@ struct ext4_group_desc
 	__u32	bg_reserved;
 };
 
+#define EXT4_BG_INODE_BITMAP_CSUM_HI_END	\
+	(offsetof(struct ext4_group_desc, bg_inode_bitmap_csum_hi) + \
+	 sizeof(__u16))
+#define EXT4_BG_BLOCK_BITMAP_CSUM_HI_LOCATION	\
+	(offsetof(struct ext4_group_desc, bg_block_bitmap_csum_hi) + \
+	 sizeof(__u16))
+
 #define EXT2_BG_INODE_UNINIT	0x0001 /* Inode table/bitmap not initialized */
 #define EXT2_BG_BLOCK_UNINIT	0x0002 /* Block bitmap not initialized */
 #define EXT2_BG_INODE_ZEROED	0x0004 /* On-disk itable initialized to zero */
@@ -226,15 +233,22 @@ struct ext2_dx_root_info {
 #define EXT2_HASH_FLAG_INCOMPAT	0x1
 
 struct ext2_dx_entry {
-	__u32 hash;
-	__u32 block;
+	__le32 hash;
+	__le32 block;
 };
 
 struct ext2_dx_countlimit {
-	__u16 limit;
-	__u16 count;
+	__le16 limit;
+	__le16 count;
 };
 
+/*
+ * This goes at the end of each htree block.
+ */
+struct ext2_dx_tail {
+	__le32 dt_reserved;
+	__le32 dt_checksum;	/* crc32c(uuid+inum+dxblock) */
+};
 
 /*
  * Macro-instructions used to manage group descriptors
@@ -263,6 +277,11 @@ struct ext2_dx_countlimit {
 #else
 #define EXT2_DESC_PER_BLOCK(s)		(EXT2_BLOCK_SIZE(s) / EXT2_DESC_SIZE(s))
 #endif
+
+#define EXT2_GROUPS_TO_BLOCKS(s, g)   ((blk64_t) EXT2_BLOCKS_PER_GROUP(s) * \
+				       (g))
+#define EXT2_GROUPS_TO_CLUSTERS(s, g) ((blk64_t) EXT2_CLUSTERS_PER_GROUP(s) * \
+				       (g))
 
 /*
  * Constants relative to the data blocks
@@ -306,10 +325,12 @@ struct ext2_dx_countlimit {
 #define EXT4_SNAPFILE_FL		0x01000000  /* Inode is a snapshot */
 #define EXT4_SNAPFILE_DELETED_FL	0x04000000  /* Snapshot is being deleted */
 #define EXT4_SNAPFILE_SHRUNK_FL		0x08000000  /* Snapshot shrink has completed */
+#define EXT4_INLINE_DATA_FL		0x10000000 /* Inode has inline data */
+#define EXT4_PROJINHERIT_FL		0x20000000 /* Create with parents projid */
 #define EXT2_RESERVED_FL		0x80000000 /* reserved for ext2 lib */
 
-#define EXT2_FL_USER_VISIBLE		0x004BDFFF /* User visible flags */
-#define EXT2_FL_USER_MODIFIABLE		0x004B80FF /* User modifiable flags */
+#define EXT2_FL_USER_VISIBLE		0x204BDFFF /* User visible flags */
+#define EXT2_FL_USER_MODIFIABLE		0x204B80FF /* User modifiable flags */
 
 /*
  * ioctl commands
@@ -453,9 +474,23 @@ struct ext2_inode_large {
 	__u32	i_crtime;	/* File creation time */
 	__u32	i_crtime_extra;	/* extra File creation time (nsec << 2 | epoch)*/
 	__u32	i_version_hi;	/* high 32 bits for 64-bit version */
+	__u32   i_projid;       /* Project ID */
 };
 
+#define EXT4_INODE_CSUM_HI_EXTRA_END	\
+	(offsetof(struct ext2_inode_large, i_checksum_hi) + sizeof(__u16) - \
+	 EXT2_GOOD_OLD_INODE_SIZE)
+
+#define EXT4_EPOCH_BITS 2
+#define EXT4_EPOCH_MASK ((1 << EXT4_EPOCH_BITS) - 1)
+
 #define i_dir_acl	i_size_high
+
+#define i_checksum_lo	osd2.linux2.l_i_checksum_lo
+
+#define inode_includes(size, field)			\
+       (size >= (sizeof(((struct ext2_inode_large *)0)->field) + \
+                 offsetof(struct ext2_inode_large, field)))
 
 #if defined(__KERNEL__) || defined(__linux__)
 #define i_reserved1	osd1.linux1.l_i_reserved1
@@ -480,8 +515,15 @@ struct ext2_inode_large {
 
 #define inode_uid(inode)	((inode).i_uid | (inode).osd2.linux2.l_i_uid_high << 16)
 #define inode_gid(inode)	((inode).i_gid | (inode).osd2.linux2.l_i_gid_high << 16)
+#define inode_projid(inode)	((inode).i_projid)
 #define ext2fs_set_i_uid_high(inode,x) ((inode).osd2.linux2.l_i_uid_high = (x))
 #define ext2fs_set_i_gid_high(inode,x) ((inode).osd2.linux2.l_i_gid_high = (x))
+
+static inline
+struct ext2_inode *EXT2_INODE(struct ext2_inode_large *large_inode)
+{
+	return (struct ext2_inode *) large_inode;
+}
 
 /*
  * File system states
@@ -536,6 +578,9 @@ struct ext2_inode_large {
 #define ext4_offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
 
+/* Metadata checksum algorithms */
+#define EXT2_CRC32C_CHKSUM		1
+
 /* Encryption algorithms, key size and key reference len */
 #define EXT4_ENCRYPTION_MODE_INVALID		0
 #define EXT4_ENCRYPTION_MODE_AES_256_XTS	1
@@ -556,6 +601,8 @@ struct ext2_inode_large {
 #define EXT4_MAX_PASSPHRASE_SIZE		1024
 #define EXT4_MAX_SALT_SIZE			256
 #define EXT4_PBKDF2_ITERATIONS			0xFFFF
+
+#define EXT2_LABEL_LEN				16
 
 /*
  * Policy provided via an ioctl on the topmost directory. This
@@ -624,7 +671,7 @@ struct ext2_super_block {
 	__u32	s_feature_incompat;	/* incompatible feature set */
 	__u32	s_feature_ro_compat;	/* readonly-compatible feature set */
 	__u8	s_uuid[16];		/* 128-bit uuid for volume */
-	char	s_volume_name[16];	/* volume name */
+	char	s_volume_name[EXT2_LABEL_LEN];	/* volume name */
 	char	s_last_mounted[64];	/* directory where last mounted */
 	__u32	s_algorithm_usage_bitmap; /* For compression */
 	/*
@@ -689,8 +736,10 @@ struct ext2_super_block {
 	__u32	s_backup_bgs[2];	/* If sparse_super2 enabled */
 	__u8	s_encrypt_algos[4];	/* Encryption algorithms in use  */
 	__u8	s_encrypt_pw_salt[16];	/* Salt used for string2key algorithm */
-	__u32	s_lpf_ino;		/* Location of the lost+found inode */
-	__u32   s_reserved[100];        /* Padding to the end of the block */
+	__le32	s_lpf_ino;		/* Location of the lost+found inode */
+	__le32  s_prj_quota_inum;	/* inode for tracking project quota */
+	__le32	s_checksum_seed;	/* crc32c(orig_uuid) if csum_seed set */
+	__le32	s_reserved[98];		/* Padding to the end of the block */
 	__u32	s_checksum;		/* crc32c(superblock) */
 };
 
@@ -741,6 +790,7 @@ struct ext2_super_block {
 #define EXT2_FEATURE_COMPAT_LAZY_BG		0x0040
 /* #define EXT2_FEATURE_COMPAT_EXCLUDE_INODE	0x0080 not used, legacy */
 #define EXT2_FEATURE_COMPAT_EXCLUDE_BITMAP	0x0100
+#define EXT4_FEATURE_COMPAT_SPARSE_SUPER2	0x0200
 
 
 #define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
@@ -753,8 +803,16 @@ struct ext2_super_block {
 #define EXT4_FEATURE_RO_COMPAT_HAS_SNAPSHOT	0x0080
 #define EXT4_FEATURE_RO_COMPAT_QUOTA		0x0100
 #define EXT4_FEATURE_RO_COMPAT_BIGALLOC		0x0200
+/*
+ * METADATA_CSUM implies GDT_CSUM.  When METADATA_CSUM is set, group
+ * descriptor checksums use the same algorithm as all other data
+ * structures' checksums.
+ */
 #define EXT4_FEATURE_RO_COMPAT_METADATA_CSUM	0x0400
 #define EXT4_FEATURE_RO_COMPAT_REPLICA		0x0800
+#define EXT4_FEATURE_RO_COMPAT_READONLY		0x1000
+#define EXT4_FEATURE_RO_COMPAT_PROJECT		0x2000 /* Project quota */
+
 
 #define EXT2_FEATURE_INCOMPAT_COMPRESSION	0x0001
 #define EXT2_FEATURE_INCOMPAT_FILETYPE		0x0002
@@ -767,10 +825,101 @@ struct ext2_super_block {
 #define EXT4_FEATURE_INCOMPAT_FLEX_BG		0x0200
 #define EXT4_FEATURE_INCOMPAT_EA_INODE		0x0400
 #define EXT4_FEATURE_INCOMPAT_DIRDATA		0x1000
-/* 0x2000 was EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM but this was never used */
+#define EXT4_FEATURE_INCOMPAT_CSUM_SEED		0x2000
 #define EXT4_FEATURE_INCOMPAT_LARGEDIR		0x4000 /* >2GB or 3-lvl htree */
-#define EXT4_FEATURE_INCOMPAT_INLINEDATA	0x8000 /* data in inode */
+#define EXT4_FEATURE_INCOMPAT_INLINE_DATA	0x8000 /* data in inode */
 #define EXT4_FEATURE_INCOMPAT_ENCRYPT		0x10000
+
+#define EXT4_FEATURE_COMPAT_FUNCS(name, ver, flagname) \
+static inline int ext2fs_has_feature_##name(struct ext2_super_block *sb) \
+{ \
+	return ((EXT2_SB(sb)->s_feature_compat & \
+		 EXT##ver##_FEATURE_COMPAT_##flagname) != 0); \
+} \
+static inline void ext2fs_set_feature_##name(struct ext2_super_block *sb) \
+{ \
+	EXT2_SB(sb)->s_feature_compat |= \
+		EXT##ver##_FEATURE_COMPAT_##flagname; \
+} \
+static inline void ext2fs_clear_feature_##name(struct ext2_super_block *sb) \
+{ \
+	EXT2_SB(sb)->s_feature_compat &= \
+		~EXT##ver##_FEATURE_COMPAT_##flagname; \
+}
+
+#define EXT4_FEATURE_RO_COMPAT_FUNCS(name, ver, flagname) \
+static inline int ext2fs_has_feature_##name(struct ext2_super_block *sb) \
+{ \
+	return ((EXT2_SB(sb)->s_feature_ro_compat & \
+		 EXT##ver##_FEATURE_RO_COMPAT_##flagname) != 0); \
+} \
+static inline void ext2fs_set_feature_##name(struct ext2_super_block *sb) \
+{ \
+	EXT2_SB(sb)->s_feature_ro_compat |= \
+		EXT##ver##_FEATURE_RO_COMPAT_##flagname; \
+} \
+static inline void ext2fs_clear_feature_##name(struct ext2_super_block *sb) \
+{ \
+	EXT2_SB(sb)->s_feature_ro_compat &= \
+		~EXT##ver##_FEATURE_RO_COMPAT_##flagname; \
+}
+
+#define EXT4_FEATURE_INCOMPAT_FUNCS(name, ver, flagname) \
+static inline int ext2fs_has_feature_##name(struct ext2_super_block *sb) \
+{ \
+	return ((EXT2_SB(sb)->s_feature_incompat & \
+		 EXT##ver##_FEATURE_INCOMPAT_##flagname) != 0); \
+} \
+static inline void ext2fs_set_feature_##name(struct ext2_super_block *sb) \
+{ \
+	EXT2_SB(sb)->s_feature_incompat |= \
+		EXT##ver##_FEATURE_INCOMPAT_##flagname; \
+} \
+static inline void ext2fs_clear_feature_##name(struct ext2_super_block *sb) \
+{ \
+	EXT2_SB(sb)->s_feature_incompat &= \
+		~EXT##ver##_FEATURE_INCOMPAT_##flagname; \
+}
+
+EXT4_FEATURE_COMPAT_FUNCS(dir_prealloc,		2, DIR_PREALLOC)
+EXT4_FEATURE_COMPAT_FUNCS(imagic_inodes,	2, IMAGIC_INODES)
+EXT4_FEATURE_COMPAT_FUNCS(journal,		3, HAS_JOURNAL)
+EXT4_FEATURE_COMPAT_FUNCS(xattr,		2, EXT_ATTR)
+EXT4_FEATURE_COMPAT_FUNCS(resize_inode,		2, RESIZE_INODE)
+EXT4_FEATURE_COMPAT_FUNCS(dir_index,		2, DIR_INDEX)
+EXT4_FEATURE_COMPAT_FUNCS(lazy_bg,		2, LAZY_BG)
+EXT4_FEATURE_COMPAT_FUNCS(exclude_bitmap,	2, EXCLUDE_BITMAP)
+EXT4_FEATURE_COMPAT_FUNCS(sparse_super2,	4, SPARSE_SUPER2)
+
+EXT4_FEATURE_RO_COMPAT_FUNCS(sparse_super,	2, SPARSE_SUPER)
+EXT4_FEATURE_RO_COMPAT_FUNCS(large_file,	2, LARGE_FILE)
+EXT4_FEATURE_RO_COMPAT_FUNCS(huge_file,		4, HUGE_FILE)
+EXT4_FEATURE_RO_COMPAT_FUNCS(gdt_csum,		4, GDT_CSUM)
+EXT4_FEATURE_RO_COMPAT_FUNCS(dir_nlink,		4, DIR_NLINK)
+EXT4_FEATURE_RO_COMPAT_FUNCS(extra_isize,	4, EXTRA_ISIZE)
+EXT4_FEATURE_RO_COMPAT_FUNCS(has_snapshot,	4, HAS_SNAPSHOT)
+EXT4_FEATURE_RO_COMPAT_FUNCS(quota,		4, QUOTA)
+EXT4_FEATURE_RO_COMPAT_FUNCS(bigalloc,		4, BIGALLOC)
+EXT4_FEATURE_RO_COMPAT_FUNCS(metadata_csum,	4, METADATA_CSUM)
+EXT4_FEATURE_RO_COMPAT_FUNCS(replica,		4, REPLICA)
+EXT4_FEATURE_RO_COMPAT_FUNCS(readonly,		4, READONLY)
+EXT4_FEATURE_RO_COMPAT_FUNCS(project,		4, PROJECT)
+
+EXT4_FEATURE_INCOMPAT_FUNCS(compression,	2, COMPRESSION)
+EXT4_FEATURE_INCOMPAT_FUNCS(filetype,		2, FILETYPE)
+EXT4_FEATURE_INCOMPAT_FUNCS(journal_needs_recovery,	3, RECOVER)
+EXT4_FEATURE_INCOMPAT_FUNCS(journal_dev,	3, JOURNAL_DEV)
+EXT4_FEATURE_INCOMPAT_FUNCS(meta_bg,		2, META_BG)
+EXT4_FEATURE_INCOMPAT_FUNCS(extents,		3, EXTENTS)
+EXT4_FEATURE_INCOMPAT_FUNCS(64bit,		4, 64BIT)
+EXT4_FEATURE_INCOMPAT_FUNCS(mmp,		4, MMP)
+EXT4_FEATURE_INCOMPAT_FUNCS(flex_bg,		4, FLEX_BG)
+EXT4_FEATURE_INCOMPAT_FUNCS(ea_inode,		4, EA_INODE)
+EXT4_FEATURE_INCOMPAT_FUNCS(dirdata,		4, DIRDATA)
+EXT4_FEATURE_INCOMPAT_FUNCS(csum_seed,		4, CSUM_SEED)
+EXT4_FEATURE_INCOMPAT_FUNCS(largedir,		4, LARGEDIR)
+EXT4_FEATURE_INCOMPAT_FUNCS(inline_data,	4, INLINE_DATA)
+EXT4_FEATURE_INCOMPAT_FUNCS(encrypt,		4, ENCRYPT)
 
 #define EXT2_FEATURE_COMPAT_SUPP	0
 #define EXT2_FEATURE_INCOMPAT_SUPP    (EXT2_FEATURE_INCOMPAT_FILETYPE| \
@@ -820,6 +969,14 @@ struct ext2_dir_entry {
  * stored in intel byte order, and the name_len field could never be
  * bigger than 255 chars, it's safe to reclaim the extra byte for the
  * file_type field.
+ *
+ * This structure is deprecated due to endianity issues. Please use struct
+ * ext2_dir_entry and accessor functions
+ *   ext2fs_dirent_name_len
+ *   ext2fs_dirent_set_name_len
+ *   ext2fs_dirent_file_type
+ *   ext2fs_dirent_set_file_type
+ * to get and set name_len and file_type fields.
  */
 struct ext2_dir_entry_2 {
 	__u32	inode;			/* Inode number */
@@ -827,6 +984,17 @@ struct ext2_dir_entry_2 {
 	__u8	name_len;		/* Name length */
 	__u8	file_type;
 	char	name[EXT2_NAME_LEN];	/* File name */
+};
+
+/*
+ * This is a bogus directory entry at the end of each leaf block that
+ * records checksums.
+ */
+struct ext2_dir_entry_tail {
+	__u32	det_reserved_zero1;	/* Pretend to be unused */
+	__u16	det_rec_len;		/* 12 */
+	__u16	det_reserved_name_len;	/* 0xDE00, fake namelen/filetype */
+	__u32	det_checksum;		/* crc32c(uuid+inode+dirent) */
 };
 
 /*
@@ -845,14 +1013,32 @@ struct ext2_dir_entry_2 {
 #define EXT2_FT_MAX		8
 
 /*
+ * Annoyingly, e2fsprogs always swab16s ext2_dir_entry.name_len, so we
+ * have to build ext2_dir_entry_tail with that assumption too.  This
+ * constant helps to build the dir_entry_tail to look like it has an
+ * "invalid" file type.
+ */
+#define EXT2_DIR_NAME_LEN_CSUM	0xDE00
+
+/*
  * EXT2_DIR_PAD defines the directory entries boundaries
  *
  * NOTE: It must be a multiple of 4
  */
+#define EXT2_DIR_ENTRY_HEADER_LEN	8
 #define EXT2_DIR_PAD			4
 #define EXT2_DIR_ROUND			(EXT2_DIR_PAD - 1)
-#define EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) & \
+#define EXT2_DIR_REC_LEN(name_len)	(((name_len) + \
+					  EXT2_DIR_ENTRY_HEADER_LEN + \
+					  EXT2_DIR_ROUND) & \
 					 ~EXT2_DIR_ROUND)
+
+/*
+ * Constants for ext4's extended time encoding
+ */
+#define EXT4_EPOCH_BITS 2
+#define EXT4_EPOCH_MASK ((1 << EXT4_EPOCH_BITS) - 1)
+#define EXT4_NSEC_MASK  (~0UL << EXT4_EPOCH_BITS)
 
 /*
  * This structure is used for multiple mount protection. It is written
@@ -877,6 +1063,7 @@ struct ext2_dir_entry_2 {
 #define EXT4_MMP_SEQ_FSCK  0xE24D4D50U /* mmp_seq value when being fscked */
 #define EXT4_MMP_SEQ_MAX   0xE24D4D4FU /* maximum valid mmp_seq value */
 
+/* Not endian-annotated; it's swapped at read/write time */
 struct mmp_struct {
 	__u32	mmp_magic;		/* Magic number for MMP */
 	__u32	mmp_seq;		/* Sequence no. updated periodically */
@@ -885,7 +1072,8 @@ struct mmp_struct {
 	char	mmp_bdevname[32];	/* Bdev which last updated MMP block */
 	__u16	mmp_check_interval;	/* Changed mmp_check_interval */
 	__u16	mmp_pad1;
-	__u32	mmp_pad2[227];
+	__u32	mmp_pad2[226];
+	__u32	mmp_checksum;		/* crc32c(uuid+mmp_block) */
 };
 
 /*
@@ -902,5 +1090,15 @@ struct mmp_struct {
  * Minimum interval for MMP checking in seconds.
  */
 #define EXT4_MMP_MIN_CHECK_INTERVAL     5
+
+/*
+ * Minimum size of inline data.
+ */
+#define EXT4_MIN_INLINE_DATA_SIZE	((sizeof(__u32) * EXT2_N_BLOCKS))
+
+/*
+ * Size of a parent inode in inline data directory.
+ */
+#define EXT4_INLINE_DATA_DOTDOT_SIZE	(4)
 
 #endif	/* _LINUX_EXT2_FS_H */

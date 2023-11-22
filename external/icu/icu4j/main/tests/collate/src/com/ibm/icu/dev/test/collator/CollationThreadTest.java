@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007-2014, International Business Machines Corporation and    *
@@ -15,10 +17,6 @@ import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.Collator;
 
 public class CollationThreadTest extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new CollationThreadTest().run(args);
-    }
-
     private static final String[] threadTestData;
     static {
         final Collator collator = Collator.getInstance(new Locale("pl", "", ""));
@@ -247,6 +245,7 @@ public class CollationThreadTest extends TestFmwk {
         }
     }
 
+    @org.junit.Test
     public void testThreads() {
         final Collator theCollator = Collator.getInstance(new Locale("pl", "", ""));
         final Random r = new Random();
@@ -270,6 +269,7 @@ public class CollationThreadTest extends TestFmwk {
         runThreads(threads, control);
     }
 
+    @org.junit.Test
     public void testFrozen() {
         final Collator theCollator = Collator.getInstance(new Locale("pl", "", ""));
         theCollator.freeze();

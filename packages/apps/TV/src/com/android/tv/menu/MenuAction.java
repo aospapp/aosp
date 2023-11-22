@@ -41,13 +41,16 @@ public class MenuAction {
                     R.drawable.ic_tvoption_pip);
     public static final MenuAction SYSTEMWIDE_PIP_ACTION =
             new MenuAction(R.string.options_item_pip, TvOptionsManager.OPTION_SYSTEMWIDE_PIP,
-                    R.drawable.ic_tvoption_pip);
+                    R.drawable.ic_pip_option_layout2);
     public static final MenuAction SELECT_AUDIO_LANGUAGE_ACTION =
             new MenuAction(R.string.options_item_multi_audio, TvOptionsManager.OPTION_MULTI_AUDIO,
                     R.drawable.ic_tvoption_multi_track);
     public static final MenuAction MORE_CHANNELS_ACTION =
             new MenuAction(R.string.options_item_more_channels,
                     TvOptionsManager.OPTION_MORE_CHANNELS, R.drawable.ic_store);
+    public static final MenuAction DEV_ACTION =
+            new MenuAction(R.string.options_item_developer,
+                    TvOptionsManager.OPTION_DEVELOPER, R.drawable.ic_developer_mode_tv_white_48dp);
     // TODO: Change the icon.
     public static final MenuAction SETTINGS_ACTION =
             new MenuAction(R.string.options_item_settings, TvOptionsManager.OPTION_SETTINGS,

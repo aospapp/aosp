@@ -16,28 +16,35 @@
 
 package android.graphics.cts;
 
-import android.graphics.Path;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Path.Direction;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Path_DirectionTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Path_DirectionTest {
+    @Test
     public void testValueOf() {
         assertEquals(Direction.CW, Direction.valueOf("CW"));
         assertEquals(Direction.CCW, Direction.valueOf("CCW"));
         // Every Direction element will be tested somewhere else.
     }
 
+    @Test
     public void testValues() {
         // set the expected value
         Direction[] expected = {
                 Direction.CW,
-                Direction.CCW};
+                Direction.CCW };
         Direction[] actual = Direction.values();
         assertEquals(expected.length, actual.length);
         for (int i = 0; i < actual.length; i ++) {
             assertEquals(expected[i], actual[i]);
         }
     }
-
 }

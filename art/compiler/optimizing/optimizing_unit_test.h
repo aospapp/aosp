@@ -22,7 +22,7 @@
 #include "common_compiler_test.h"
 #include "dex_file.h"
 #include "dex_instruction.h"
-#include "handle_scope-inl.h"
+#include "handle_scope.h"
 #include "scoped_thread_state_change.h"
 #include "ssa_builder.h"
 #include "ssa_liveness_analysis.h"
@@ -64,6 +64,9 @@ LiveInterval* BuildInterval(const size_t ranges[][2],
 void RemoveSuspendChecks(HGraph* graph) {
   for (HBasicBlock* block : graph->GetBlocks()) {
     if (block != nullptr) {
+      if (block->GetLoopInformation() != nullptr) {
+        block->GetLoopInformation()->SetSuspendCheck(nullptr);
+      }
       for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
         HInstruction* current = it.Current();
         if (current->IsSuspendCheck()) {
@@ -76,7 +79,9 @@ void RemoveSuspendChecks(HGraph* graph) {
 
 inline HGraph* CreateGraph(ArenaAllocator* allocator) {
   return new (allocator) HGraph(
-      allocator, *reinterpret_cast<DexFile*>(allocator->Alloc(sizeof(DexFile))), -1, false,
+      allocator,
+      *reinterpret_cast<DexFile*>(allocator->Alloc(sizeof(DexFile))),
+      /*method_idx*/-1,
       kRuntimeISA);
 }
 
@@ -90,7 +95,7 @@ inline HGraph* CreateCFG(ArenaAllocator* allocator,
 
   {
     ScopedObjectAccess soa(Thread::Current());
-    StackHandleScopeCollection handles(soa.Self());
+    VariableSizedHandleScope handles(soa.Self());
     HGraphBuilder builder(graph, *item, &handles, return_type);
     bool graph_built = (builder.BuildGraph() == kAnalysisSuccess);
     return graph_built ? graph : nullptr;

@@ -34,7 +34,7 @@
 #include "slang_version.h"
 
 #define CHECK_PARENT_EQUALITY(ParentClass, E) \
-  if (!ParentClass::equals(E))                \
+  if (!ParentClass::matchODR(E, true))        \
     return false;
 
 namespace slang {
@@ -345,6 +345,7 @@ static const clang::Type *TypeExportableHelper(
       return T;
     }
     case clang::Type::FunctionProto:
+    case clang::Type::FunctionNoProto:
       ReportTypeError(Context, VD, TopLevelRecord,
                       "function types cannot be exported: '%0'");
       return nullptr;
@@ -374,11 +375,16 @@ static const clang::Type *TypeExportableHelper(
         return nullptr;
       }
 
-      // We don't support pointer with array-type pointee or unsupported pointee
-      // type
-      if (PointeeType->isArrayType() ||
-          (TypeExportableHelper(PointeeType, SPS, Context, VD,
-                                TopLevelRecord, EK) == nullptr))
+      // We don't support pointer with array-type pointee
+      if (PointeeType->isArrayType()) {
+        ReportTypeError(Context, VD, TopLevelRecord,
+            "pointers to arrays cannot be exported: '%0'");
+        return nullptr;
+      }
+
+      // Check for unsupported pointee type
+      if (TypeExportableHelper(PointeeType, SPS, Context, VD,
+                                TopLevelRecord, EK) == nullptr)
         return nullptr;
       else
         return T;
@@ -931,11 +937,11 @@ RSExportType *RSExportType::CreateFromDecl(RSContext *Context,
 }
 
 size_t RSExportType::getStoreSize() const {
-  return getRSContext()->getDataLayout()->getTypeStoreSize(getLLVMType());
+  return getRSContext()->getDataLayout().getTypeStoreSize(getLLVMType());
 }
 
 size_t RSExportType::getAllocSize() const {
-    return getRSContext()->getDataLayout()->getTypeAllocSize(getLLVMType());
+    return getRSContext()->getDataLayout().getTypeAllocSize(getLLVMType());
 }
 
 RSExportType::RSExportType(RSContext *Context,
@@ -965,9 +971,8 @@ bool RSExportType::keep() {
   return true;
 }
 
-bool RSExportType::equals(const RSExportable *E) const {
-  CHECK_PARENT_EQUALITY(RSExportable, E);
-  return (static_cast<const RSExportType*>(E)->getClass() == getClass());
+bool RSExportType::matchODR(const RSExportType *E, bool /* LookInto */) const {
+  return (E->getClass() == getClass());
 }
 
 RSExportType::~RSExportType() {
@@ -1228,7 +1233,8 @@ llvm::Type *RSExportPrimitiveType::convertToLLVMType() const {
   return nullptr;
 }
 
-bool RSExportPrimitiveType::equals(const RSExportable *E) const {
+bool RSExportPrimitiveType::matchODR(const RSExportType *E,
+                                     bool /* LookInto */) const {
   CHECK_PARENT_EQUALITY(RSExportType, E);
   return (static_cast<const RSExportPrimitiveType*>(E)->getType() == getType());
 }
@@ -1279,10 +1285,11 @@ bool RSExportPointerType::keep() {
   return true;
 }
 
-bool RSExportPointerType::equals(const RSExportable *E) const {
-  CHECK_PARENT_EQUALITY(RSExportType, E);
-  return (static_cast<const RSExportPointerType*>(E)
-              ->getPointeeType()->equals(getPointeeType()));
+bool RSExportPointerType::matchODR(const RSExportType *E,
+                                   bool /* LookInto */) const {
+  // Exported types cannot contain pointers
+  slangAssert(false && "Not supposed to perform ODR check on pointers");
+  return false;
 }
 
 /***************************** RSExportVectorType *****************************/
@@ -1338,7 +1345,8 @@ llvm::Type *RSExportVectorType::convertToLLVMType() const {
   return llvm::VectorType::get(ElementType, getNumElement());
 }
 
-bool RSExportVectorType::equals(const RSExportable *E) const {
+bool RSExportVectorType::matchODR(const RSExportType *E,
+                                  bool /* LookInto*/) const {
   CHECK_PARENT_EQUALITY(RSExportPrimitiveType, E);
   return (static_cast<const RSExportVectorType*>(E)->getNumElement()
               == getNumElement());
@@ -1423,7 +1431,8 @@ llvm::Type *RSExportMatrixType::convertToLLVMType() const {
   return llvm::StructType::get(C, X, false);
 }
 
-bool RSExportMatrixType::equals(const RSExportable *E) const {
+bool RSExportMatrixType::matchODR(const RSExportType *E,
+                                  bool /* LookInto */) const {
   CHECK_PARENT_EQUALITY(RSExportType, E);
   return (static_cast<const RSExportMatrixType*>(E)->getDim() == getDim());
 }
@@ -1463,12 +1472,13 @@ bool RSExportConstantArrayType::keep() {
   return true;
 }
 
-bool RSExportConstantArrayType::equals(const RSExportable *E) const {
+bool RSExportConstantArrayType::matchODR(const RSExportType *E,
+                                         bool LookInto) const {
   CHECK_PARENT_EQUALITY(RSExportType, E);
   const RSExportConstantArrayType *RHS =
       static_cast<const RSExportConstantArrayType*>(E);
   return ((getNumElement() == RHS->getNumElement()) &&
-          (getElementType()->equals(RHS->getElementType())));
+          (getElementType()->matchODR(RHS->getElementType(), LookInto)));
 }
 
 /**************************** RSExportRecordType ****************************/
@@ -1516,6 +1526,9 @@ RSExportRecordType *RSExportRecordType::Create(RSContext *Context,
       return nullptr;
     }
 
+    if (FD->isImplicit() && (FD->getName() == RS_PADDING_FIELD_NAME))
+      continue;
+
     // Type
     RSExportType *ET = RSExportElement::CreateFromDecl(Context, FD);
 
@@ -1524,9 +1537,16 @@ RSExportRecordType *RSExportRecordType::Create(RSContext *Context,
           new Field(ET, FD->getName(), ERT,
                     static_cast<size_t>(RL->getFieldOffset(Index) >> 3)));
     } else {
+      // clang static analysis complains about a potential memory leak
+      // for the memory pointed by ERT at the end of this basic
+      // block. This is a false warning because the compiler does not
+      // see that the pointer to this memory is saved away in the
+      // constructor for RSExportRecordType by calling
+      // RSContext::newExportable(this). So, we disable this
+      // particular instance of the warning.
       Context->ReportError(RD->getLocation(),
                            "field type cannot be exported: '%0.%1'")
-          << RD->getName() << FD->getName();
+          << RD->getName() << FD->getName(); // NOLINT
       return nullptr;
     }
   }
@@ -1571,23 +1591,56 @@ bool RSExportRecordType::keep() {
   return true;
 }
 
-bool RSExportRecordType::equals(const RSExportable *E) const {
+bool RSExportRecordType::matchODR(const RSExportType *E, bool LookInto) const {
   CHECK_PARENT_EQUALITY(RSExportType, E);
+  // Enforce ODR checking - the type E represents must hold
+  // *exactly* the same "definition" as the one defined previously. We
+  // say two record types A and B have the same definition iff:
+  //
+  //  struct A {              struct B {
+  //    Type(a1) a1,            Type(b1) b1,
+  //    Type(a2) a2,            Type(b1) b2,
+  //    ...                     ...
+  //    Type(aN) aN             Type(bM) bM,
+  //  };                      }
+  //  Cond. #0. A = B;
+  //  Cond. #1. They have same number of fields, i.e., N = M;
+  //  Cond. #2. for (i := 1 to N)
+  //              Type(ai).matchODR(Type(bi)) must hold;
+  //  Cond. #3. for (i := 1 to N)
+  //              Name(ai) = Name(bi) must hold;
+  //
+  // where,
+  //  Type(F) = the type of field F and
+  //  Name(F) = the field name.
+
 
   const RSExportRecordType *ERT = static_cast<const RSExportRecordType*>(E);
-
-  if (ERT->getFields().size() != getFields().size())
+  // Cond. #0.
+  if (getName() != ERT->getName())
     return false;
 
-  const_field_iterator AI = fields_begin(), BI = ERT->fields_begin();
-
-  for (unsigned i = 0, e = getFields().size(); i != e; i++) {
-    if (!(*AI)->getType()->equals((*BI)->getType()))
+  // Examine fields - types and names
+  if (LookInto) {
+    // Cond. #1
+    if (ERT->getFields().size() != getFields().size())
       return false;
-    AI++;
-    BI++;
-  }
 
+    for (RSExportRecordType::const_field_iterator AI = fields_begin(),
+         BI = ERT->fields_begin(), AE = fields_end(); AI != AE; ++AI, ++BI) {
+      const RSExportType *AITy = (*AI)->getType();
+      const RSExportType *BITy = (*BI)->getType();
+      // Cond. #3; field names must agree
+      if ((*AI)->getName() != (*BI)->getName())
+        return false;
+
+      // Cond. #2; field types must agree recursively until we see another
+      // next level of RSExportRecordType - such field types will be
+      // examined and reported later when checkODR() encounters them.
+      if (!AITy->matchODR(BITy, false))
+        return false;
+    }
+  }
   return true;
 }
 

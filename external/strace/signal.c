@@ -32,14 +32,7 @@
  */
 
 #include "defs.h"
-#include <signal.h>
-
-#ifndef NSIG
-# warning NSIG is not defined, using 32
-# define NSIG 32
-#elif NSIG < 32
-# error NSIG < 32
-#endif
+#include "nsig.h"
 
 /* The libc headers do not define this constant since it should only be
    used by the implementation.  So we define it here.  */
@@ -70,6 +63,7 @@
 # endif
 #endif
 
+#include "xlat/sa_handler_values.h"
 #include "xlat/sigact_flags.h"
 #include "xlat/sigprocmaskcmds.h"
 
@@ -110,8 +104,25 @@
  *     umoven(tcp, addr, sizeof(sigset_t), &sigset)
  * may be a bad idea: it'll try to read much more data than needed
  * to fetch a sigset_t.
- * Use (NSIG / 8) as a size instead.
+ * Use NSIG_BYTES as a size instead.
  */
+
+static const char *
+get_sa_handler_str(kernel_ulong_t handler)
+{
+	return xlookup(sa_handler_values, handler);
+}
+
+static void
+print_sa_handler(kernel_ulong_t handler)
+{
+	const char *sa_handler_str = get_sa_handler_str(handler);
+
+	if (sa_handler_str)
+		tprints(sa_handler_str);
+	else
+		printaddr(handler);
+}
 
 const char *
 signame(const int sig)
@@ -124,7 +135,7 @@ signame(const int sig)
 		if (s < nsignals)
 			return signalent[s];
 #ifdef ASM_SIGRTMAX
-		if (s >= ASM_SIGRTMIN && s <= ASM_SIGRTMAX) {
+		if (s >= ASM_SIGRTMIN && s <= (unsigned int) ASM_SIGRTMAX) {
 			sprintf(buf, "SIGRT_%u", s - ASM_SIGRTMIN);
 			return buf;
 		}
@@ -157,16 +168,17 @@ const char *
 sprintsigmask_n(const char *prefix, const void *sig_mask, unsigned int bytes)
 {
 	/*
-	 * The maximum number of signal names to be printed is NSIG * 2 / 3.
+	 * The maximum number of signal names to be printed
+	 * is NSIG_BYTES * 8 * 2 / 3.
 	 * Most of signal names have length 7,
 	 * average length of signal names is less than 7.
 	 * The length of prefix string does not exceed 16.
 	 */
-	static char outstr[128 + 8 * (NSIG * 2 / 3)];
+	static char outstr[128 + 8 * (NSIG_BYTES * 8 * 2 / 3)];
 
 	char *s;
 	const uint32_t *mask;
-	uint32_t inverted_mask[NSIG / 32];
+	uint32_t inverted_mask[NSIG_BYTES / 4];
 	unsigned int size;
 	int i;
 	char sep;
@@ -175,10 +187,10 @@ sprintsigmask_n(const char *prefix, const void *sig_mask, unsigned int bytes)
 
 	mask = sig_mask;
 	/* length of signal mask in 4-byte words */
-	size = (bytes >= NSIG / 8) ? NSIG / 32 : (bytes + 3) / 4;
+	size = (bytes >= NSIG_BYTES) ? NSIG_BYTES / 4 : (bytes + 3) / 4;
 
 	/* check whether 2/3 or more bits are set */
-	if (popcount32(mask, size) >= size * 32 * 2 / 3) {
+	if (popcount32(mask, size) >= size * (4 * 8) * 2 / 3) {
 		/* show those signals that are NOT in the mask */
 		unsigned int j;
 		for (j = 0; j < size; ++j)
@@ -188,7 +200,7 @@ sprintsigmask_n(const char *prefix, const void *sig_mask, unsigned int bytes)
 	}
 
 	sep = '[';
-	for (i = 0; (i = next_set_bit(mask, i, size * 32)) >= 0; ) {
+	for (i = 0; (i = next_set_bit(mask, i, size * (4 * 8))) >= 0; ) {
 		++i;
 		*s++ = sep;
 		if ((unsigned) i < nsignals) {
@@ -223,26 +235,29 @@ printsignal(int nr)
 	tprints(signame(nr));
 }
 
-void
-print_sigset_addr_len(struct tcb *tcp, long addr, long len)
+static void
+print_sigset_addr_len_limit(struct tcb *const tcp, const kernel_ulong_t addr,
+			    const kernel_ulong_t len, const unsigned int min_len)
 {
-	char mask[NSIG / 8];
-
-	/* Here len is usually equals NSIG / 8 or current_wordsize.
+	/*
+	 * Here len is usually equal to NSIG_BYTES or current_wordsize.
 	 * But we code this defensively:
 	 */
-	if (len < 0) {
+	if (len < min_len || len > NSIG_BYTES) {
 		printaddr(addr);
 		return;
 	}
-	if (len >= NSIG / 8)
-		len = NSIG / 8;
-	else
-		len = (len + 3) & ~3;
-
+	int mask[NSIG_BYTES / sizeof(int)] = {};
 	if (umoven_or_printaddr(tcp, addr, len, mask))
 		return;
 	tprints(sprintsigmask_n("", mask, len));
+}
+
+void
+print_sigset_addr_len(struct tcb *const tcp, const kernel_ulong_t addr,
+		      const kernel_ulong_t len)
+{
+	print_sigset_addr_len_limit(tcp, addr, len, current_wordsize);
 }
 
 SYS_FUNC(sigsetmask)
@@ -257,28 +272,26 @@ SYS_FUNC(sigsetmask)
 	return 0;
 }
 
-#ifdef HAVE_SIGACTION
-
 struct old_sigaction {
 	/* sa_handler may be a libc #define, need to use other name: */
 #ifdef MIPS
 	unsigned int sa_flags;
-	void (*__sa_handler)(int);
+	unsigned long sa_handler__;
 	/* Kernel treats sa_mask as an array of longs. */
-	unsigned long sa_mask[NSIG / sizeof(long) ? NSIG / sizeof(long) : 1];
+	unsigned long sa_mask[NSIG / sizeof(long)];
 #else
-	void (*__sa_handler)(int);
+	unsigned long sa_handler__;
 	unsigned long sa_mask;
 	unsigned long sa_flags;
 #endif /* !MIPS */
 #if HAVE_SA_RESTORER
-	void (*sa_restorer)(void);
+	unsigned long sa_restorer;
 #endif
 };
 
 struct old_sigaction32 {
 	/* sa_handler may be a libc #define, need to use other name: */
-	uint32_t __sa_handler;
+	uint32_t sa_handler__;
 	uint32_t sa_mask;
 	uint32_t sa_flags;
 #if HAVE_SA_RESTORER
@@ -287,22 +300,22 @@ struct old_sigaction32 {
 };
 
 static void
-decode_old_sigaction(struct tcb *tcp, long addr)
+decode_old_sigaction(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct old_sigaction sa;
 
-#if SUPPORTED_PERSONALITIES > 1 && SIZEOF_LONG > 4
-	if (current_wordsize != sizeof(sa.__sa_handler) && current_wordsize == 4) {
+#ifndef current_wordsize
+	if (current_wordsize < sizeof(sa.sa_handler__)) {
 		struct old_sigaction32 sa32;
 
 		if (umove_or_printaddr(tcp, addr, &sa32))
 			return;
 
 		memset(&sa, 0, sizeof(sa));
-		sa.__sa_handler = (void*)(uintptr_t)sa32.__sa_handler;
+		sa.sa_handler__ = sa32.sa_handler__;
 		sa.sa_flags = sa32.sa_flags;
 #if HAVE_SA_RESTORER && defined SA_RESTORER
-		sa.sa_restorer = (void*)(uintptr_t)sa32.sa_restorer;
+		sa.sa_restorer = sa32.sa_restorer;
 #endif
 		sa.sa_mask = sa32.sa_mask;
 	} else
@@ -310,34 +323,21 @@ decode_old_sigaction(struct tcb *tcp, long addr)
 	if (umove_or_printaddr(tcp, addr, &sa))
 		return;
 
-	/* Architectures using function pointers, like
-	 * hppa, may need to manipulate the function pointer
-	 * to compute the result of a comparison. However,
-	 * the __sa_handler function pointer exists only in
-	 * the address space of the traced process, and can't
-	 * be manipulated by strace. In order to prevent the
-	 * compiler from generating code to manipulate
-	 * __sa_handler we cast the function pointers to long. */
-	tprints("{");
-	if ((long)sa.__sa_handler == (long)SIG_ERR)
-		tprints("SIG_ERR");
-	else if ((long)sa.__sa_handler == (long)SIG_DFL)
-		tprints("SIG_DFL");
-	else if ((long)sa.__sa_handler == (long)SIG_IGN)
-		tprints("SIG_IGN");
-	else
-		printaddr((long) sa.__sa_handler);
-	tprints(", ");
+	tprints("{sa_handler=");
+	print_sa_handler(sa.sa_handler__);
+	tprints(", sa_mask=");
 #ifdef MIPS
 	tprintsigmask_addr("", sa.sa_mask);
 #else
 	tprintsigmask_val("", sa.sa_mask);
 #endif
-	tprints(", ");
+	tprints(", sa_flags=");
 	printflags(sigact_flags, sa.sa_flags, "SA_???");
 #if HAVE_SA_RESTORER && defined SA_RESTORER
-	if (sa.sa_flags & SA_RESTORER)
-		tprintf(", %p", sa.sa_restorer);
+	if (sa.sa_flags & SA_RESTORER) {
+		tprints(", sa_restorer=");
+		printaddr(sa.sa_restorer);
+	}
 #endif
 	tprints("}");
 }
@@ -359,38 +359,14 @@ SYS_FUNC(signal)
 	if (entering(tcp)) {
 		printsignal(tcp->u_arg[0]);
 		tprints(", ");
-		switch (tcp->u_arg[1]) {
-		case (long) SIG_ERR:
-			tprints("SIG_ERR");
-			break;
-		case (long) SIG_DFL:
-			tprints("SIG_DFL");
-			break;
-		case (long) SIG_IGN:
-			tprints("SIG_IGN");
-			break;
-		default:
-			printaddr(tcp->u_arg[1]);
-		}
+		print_sa_handler(tcp->u_arg[1]);
 		return 0;
-	}
-	else if (!syserror(tcp)) {
-		switch (tcp->u_rval) {
-		case (long) SIG_ERR:
-			tcp->auxstr = "SIG_ERR"; break;
-		case (long) SIG_DFL:
-			tcp->auxstr = "SIG_DFL"; break;
-		case (long) SIG_IGN:
-			tcp->auxstr = "SIG_IGN"; break;
-		default:
-			tcp->auxstr = NULL;
-		}
+	} else if (!syserror(tcp)) {
+		tcp->auxstr = get_sa_handler_str(tcp->u_rval);
 		return RVAL_HEX | RVAL_STR;
 	}
 	return 0;
 }
-
-#endif /* HAVE_SIGACTION */
 
 SYS_FUNC(siggetmask)
 {
@@ -406,8 +382,6 @@ SYS_FUNC(sigsuspend)
 
 	return RVAL_DECODED;
 }
-
-#ifdef HAVE_SIGACTION
 
 /* "Old" sigprocmask, which operates with word-sized signal masks */
 SYS_FUNC(sigprocmask)
@@ -446,12 +420,10 @@ SYS_FUNC(sigprocmask)
 	return 0;
 }
 
-#endif /* HAVE_SIGACTION */
-
 SYS_FUNC(kill)
 {
-	tprintf("%ld, %s",
-		widen_to_long(tcp->u_arg[0]),
+	tprintf("%d, %s",
+		(int) tcp->u_arg[0],
 		signame(tcp->u_arg[1]));
 
 	return RVAL_DECODED;
@@ -459,9 +431,9 @@ SYS_FUNC(kill)
 
 SYS_FUNC(tgkill)
 {
-	tprintf("%ld, %ld, %s",
-		widen_to_long(tcp->u_arg[0]),
-		widen_to_long(tcp->u_arg[1]),
+	tprintf("%d, %d, %s",
+		(int) tcp->u_arg[0],
+		(int) tcp->u_arg[1],
 		signame(tcp->u_arg[2]));
 
 	return RVAL_DECODED;
@@ -476,7 +448,7 @@ SYS_FUNC(sigpending)
 
 SYS_FUNC(rt_sigprocmask)
 {
-	/* Note: arg[3] is the length of the sigset. Kernel requires NSIG / 8 */
+	/* Note: arg[3] is the length of the sigset. Kernel requires NSIG_BYTES */
 	if (entering(tcp)) {
 		printxval(sigprocmaskcmds, tcp->u_arg[0], "SIG_???");
 		tprints(", ");
@@ -485,7 +457,7 @@ SYS_FUNC(rt_sigprocmask)
 	}
 	else {
 		print_sigset_addr_len(tcp, tcp->u_arg[2], tcp->u_arg[3]);
-		tprintf(", %lu", tcp->u_arg[3]);
+		tprintf(", %" PRI_klu, tcp->u_arg[3]);
 	}
 	return 0;
 }
@@ -496,45 +468,45 @@ struct new_sigaction
 	/* sa_handler may be a libc #define, need to use other name: */
 #ifdef MIPS
 	unsigned int sa_flags;
-	void (*__sa_handler)(int);
+	unsigned long sa_handler__;
 #else
-	void (*__sa_handler)(int);
+	unsigned long sa_handler__;
 	unsigned long sa_flags;
 #endif /* !MIPS */
 #if HAVE_SA_RESTORER
-	void (*sa_restorer)(void);
+	unsigned long sa_restorer;
 #endif
 	/* Kernel treats sa_mask as an array of longs. */
-	unsigned long sa_mask[NSIG / sizeof(long) ? NSIG / sizeof(long) : 1];
+	unsigned long sa_mask[NSIG / sizeof(long)];
 };
 /* Same for i386-on-x86_64 and similar cases */
 struct new_sigaction32
 {
-	uint32_t __sa_handler;
+	uint32_t sa_handler__;
 	uint32_t sa_flags;
 #if HAVE_SA_RESTORER
 	uint32_t sa_restorer;
 #endif
-	uint32_t sa_mask[2 * (NSIG / sizeof(long) ? NSIG / sizeof(long) : 1)];
+	uint32_t sa_mask[2 * (NSIG / sizeof(long))];
 };
 
 static void
-decode_new_sigaction(struct tcb *tcp, long addr)
+decode_new_sigaction(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct new_sigaction sa;
 
-#if SUPPORTED_PERSONALITIES > 1 && SIZEOF_LONG > 4
-	if (current_wordsize != sizeof(sa.sa_flags) && current_wordsize == 4) {
+#ifndef current_wordsize
+	if (current_wordsize < sizeof(sa.sa_handler__)) {
 		struct new_sigaction32 sa32;
 
 		if (umove_or_printaddr(tcp, addr, &sa32))
 			return;
 
 		memset(&sa, 0, sizeof(sa));
-		sa.__sa_handler = (void*)(unsigned long)sa32.__sa_handler;
+		sa.sa_handler__ = sa32.sa_handler__;
 		sa.sa_flags     = sa32.sa_flags;
 #if HAVE_SA_RESTORER && defined SA_RESTORER
-		sa.sa_restorer  = (void*)(unsigned long)sa32.sa_restorer;
+		sa.sa_restorer  = sa32.sa_restorer;
 #endif
 		/* Kernel treats sa_mask as an array of longs.
 		 * For 32-bit process, "long" is uint32_t, thus, for example,
@@ -544,42 +516,31 @@ decode_new_sigaction(struct tcb *tcp, long addr)
 		 * For little-endian, it's the same.
 		 * For big-endian, we swap 32-bit words.
 		 */
-		sa.sa_mask[0] = sa32.sa_mask[0] + ((long)(sa32.sa_mask[1]) << 32);
+		sa.sa_mask[0] = ULONG_LONG(sa32.sa_mask[0], sa32.sa_mask[1]);
 	} else
 #endif
 	if (umove_or_printaddr(tcp, addr, &sa))
 		return;
 
-	/* Architectures using function pointers, like
-	 * hppa, may need to manipulate the function pointer
-	 * to compute the result of a comparison. However,
-	 * the __sa_handler function pointer exists only in
-	 * the address space of the traced process, and can't
-	 * be manipulated by strace. In order to prevent the
-	 * compiler from generating code to manipulate
-	 * __sa_handler we cast the function pointers to long. */
-	if ((long)sa.__sa_handler == (long)SIG_ERR)
-		tprints("{SIG_ERR, ");
-	else if ((long)sa.__sa_handler == (long)SIG_DFL)
-		tprints("{SIG_DFL, ");
-	else if ((long)sa.__sa_handler == (long)SIG_IGN)
-		tprints("{SIG_IGN, ");
-	else
-		tprintf("{%#lx, ", (long) sa.__sa_handler);
+	tprints("{sa_handler=");
+	print_sa_handler(sa.sa_handler__);
+	tprints(", sa_mask=");
 	/*
 	 * Sigset size is in tcp->u_arg[4] (SPARC)
 	 * or in tcp->u_arg[3] (all other),
 	 * but kernel won't handle sys_rt_sigaction
 	 * with wrong sigset size (just returns EINVAL instead).
-	 * We just fetch the right size, which is NSIG / 8.
+	 * We just fetch the right size, which is NSIG_BYTES.
 	 */
 	tprintsigmask_val("", sa.sa_mask);
-	tprints(", ");
+	tprints(", sa_flags=");
 
 	printflags(sigact_flags, sa.sa_flags, "SA_???");
 #if HAVE_SA_RESTORER && defined SA_RESTORER
-	if (sa.sa_flags & SA_RESTORER)
-		tprintf(", %p", sa.sa_restorer);
+	if (sa.sa_flags & SA_RESTORER) {
+		tprints(", sa_restorer=");
+		printaddr(sa.sa_restorer);
+	}
 #endif
 	tprints("}");
 }
@@ -594,11 +555,11 @@ SYS_FUNC(rt_sigaction)
 	} else {
 		decode_new_sigaction(tcp, tcp->u_arg[2]);
 #if defined(SPARC) || defined(SPARC64)
-		tprintf(", %#lx, %lu", tcp->u_arg[3], tcp->u_arg[4]);
+		tprintf(", %#" PRI_klx ", %" PRI_klu, tcp->u_arg[3], tcp->u_arg[4]);
 #elif defined(ALPHA)
-		tprintf(", %lu, %#lx", tcp->u_arg[3], tcp->u_arg[4]);
+		tprintf(", %" PRI_klu ", %#" PRI_klx, tcp->u_arg[3], tcp->u_arg[4]);
 #else
-		tprintf(", %lu", tcp->u_arg[3]);
+		tprintf(", %" PRI_klu, tcp->u_arg[3]);
 #endif
 	}
 	return 0;
@@ -609,36 +570,38 @@ SYS_FUNC(rt_sigpending)
 	if (exiting(tcp)) {
 		/*
 		 * One of the few syscalls where sigset size (arg[1])
-		 * is allowed to be <= NSIG / 8, not strictly ==.
+		 * is allowed to be <= NSIG_BYTES, not strictly ==.
 		 * This allows non-rt sigpending() syscall
 		 * to reuse rt_sigpending() code in kernel.
 		 */
-		print_sigset_addr_len(tcp, tcp->u_arg[0], tcp->u_arg[1]);
-		tprintf(", %lu", tcp->u_arg[1]);
+		print_sigset_addr_len_limit(tcp, tcp->u_arg[0],
+					    tcp->u_arg[1], 1);
+		tprintf(", %" PRI_klu, tcp->u_arg[1]);
 	}
 	return 0;
 }
 
 SYS_FUNC(rt_sigsuspend)
 {
-	/* NB: kernel requires arg[1] == NSIG / 8 */
+	/* NB: kernel requires arg[1] == NSIG_BYTES */
 	print_sigset_addr_len(tcp, tcp->u_arg[0], tcp->u_arg[1]);
-	tprintf(", %lu", tcp->u_arg[1]);
+	tprintf(", %" PRI_klu, tcp->u_arg[1]);
 
 	return RVAL_DECODED;
 }
 
 static void
-print_sigqueueinfo(struct tcb *tcp, int sig, unsigned long uinfo)
+print_sigqueueinfo(struct tcb *const tcp, const int sig,
+		   const kernel_ulong_t addr)
 {
 	printsignal(sig);
 	tprints(", ");
-	printsiginfo_at(tcp, uinfo);
+	printsiginfo_at(tcp, addr);
 }
 
 SYS_FUNC(rt_sigqueueinfo)
 {
-	tprintf("%lu, ", tcp->u_arg[0]);
+	tprintf("%d, ", (int) tcp->u_arg[0]);
 	print_sigqueueinfo(tcp, tcp->u_arg[1], tcp->u_arg[2]);
 
 	return RVAL_DECODED;
@@ -646,7 +609,7 @@ SYS_FUNC(rt_sigqueueinfo)
 
 SYS_FUNC(rt_tgsigqueueinfo)
 {
-	tprintf("%lu, %lu, ", tcp->u_arg[0], tcp->u_arg[1]);
+	tprintf("%d, %d, ", (int) tcp->u_arg[0], (int) tcp->u_arg[1]);
 	print_sigqueueinfo(tcp, tcp->u_arg[2], tcp->u_arg[3]);
 
 	return RVAL_DECODED;
@@ -654,36 +617,37 @@ SYS_FUNC(rt_tgsigqueueinfo)
 
 SYS_FUNC(rt_sigtimedwait)
 {
-	/* NB: kernel requires arg[3] == NSIG / 8 */
+	/* NB: kernel requires arg[3] == NSIG_BYTES */
 	if (entering(tcp)) {
 		print_sigset_addr_len(tcp, tcp->u_arg[0], tcp->u_arg[3]);
 		tprints(", ");
-		/* This is the only "return" parameter, */
-		if (tcp->u_arg[1] != 0)
-			return 0;
-		/* ... if it's NULL, can decode all on entry */
-		tprints("NULL, ");
-	}
-	else if (tcp->u_arg[1] != 0) {
-		/* syscall exit, and u_arg[1] wasn't NULL */
-		printsiginfo_at(tcp, tcp->u_arg[1]);
-		tprints(", ");
-	}
-	else {
-		/* syscall exit, and u_arg[1] was NULL */
-		return 0;
-	}
+		if (!(tcp->u_arg[1] && verbose(tcp))) {
+			/*
+			 * This is the only "return" parameter,
+			 * if we are not going to fetch it on exit,
+			 * decode all parameters on entry.
+			 */
+			printaddr(tcp->u_arg[1]);
+			tprints(", ");
+			print_timespec(tcp, tcp->u_arg[2]);
+			tprintf(", %" PRI_klu, tcp->u_arg[3]);
+		} else {
+			char *sts = xstrdup(sprint_timespec(tcp, tcp->u_arg[2]));
+			set_tcb_priv_data(tcp, sts, free);
+		}
+	} else {
+		if (tcp->u_arg[1] && verbose(tcp)) {
+			printsiginfo_at(tcp, tcp->u_arg[1]);
+			tprints(", ");
+			tprints(get_tcb_priv_data(tcp));
+			tprintf(", %" PRI_klu, tcp->u_arg[3]);
+		}
 
-	/*
-	 * Since the timeout parameter is read by the kernel
-	 * on entering syscall, it has to be decoded the same way
-	 * whether the syscall has failed or not.
-	 */
-	temporarily_clear_syserror(tcp);
-	print_timespec(tcp, tcp->u_arg[2]);
-	restore_cleared_syserror(tcp);
-
-	tprintf(", %lu", tcp->u_arg[3]);
+		if (!syserror(tcp) && tcp->u_rval) {
+			tcp->auxstr = signame(tcp->u_rval);
+			return RVAL_STR;
+		}
+	}
 	return 0;
 };
 

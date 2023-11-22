@@ -16,27 +16,32 @@
 
 package libcore.java.net;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import tests.net.StuckServer;
 
 /**
  * Test that Socket.close called on another thread interrupts a thread that's blocked doing
  * network I/O.
  */
 public class ConcurrentCloseTest extends junit.framework.TestCase {
+    private static final InetSocketAddress UNREACHABLE_ADDRESS
+            = new InetSocketAddress("192.0.2.0", 80); // RFC 5737
+
     public void test_accept() throws Exception {
         ServerSocket ss = new ServerSocket(0);
         new Killer(ss).start();
@@ -50,43 +55,36 @@ public class ConcurrentCloseTest extends junit.framework.TestCase {
     }
 
     public void test_connect() throws Exception {
-        StuckServer ss = new StuckServer(false);
         Socket s = new Socket();
         new Killer(s).start();
         try {
             System.err.println("connect...");
-            s.connect(ss.getLocalSocketAddress());
+            s.connect(UNREACHABLE_ADDRESS);
             fail("connect returned: " + s + "!");
         } catch (SocketException expected) {
             assertEquals("Socket closed", expected.getMessage());
-        } finally {
-            ss.close();
         }
     }
 
     public void test_connect_timeout() throws Exception {
-        StuckServer ss = new StuckServer(false);
         Socket s = new Socket();
         new Killer(s).start();
         try {
             System.err.println("connect (with timeout)...");
-            s.connect(ss.getLocalSocketAddress(), 3600 * 1000);
+            s.connect(UNREACHABLE_ADDRESS, 3600 * 1000);
             fail("connect returned: " + s + "!");
         } catch (SocketException expected) {
             assertEquals("Socket closed", expected.getMessage());
-        } finally {
-            ss.close();
         }
     }
 
     public void test_connect_nonBlocking() throws Exception {
-        StuckServer ss = new StuckServer(false);
         SocketChannel s = SocketChannel.open();
         new Killer(s.socket()).start();
         try {
             System.err.println("connect (non-blocking)...");
             s.configureBlocking(false);
-            s.connect(ss.getLocalSocketAddress());
+            s.connect(UNREACHABLE_ADDRESS);
             while (!s.finishConnect()) {
                 // Spin like a mad thing!
             }
@@ -98,8 +96,6 @@ public class ConcurrentCloseTest extends junit.framework.TestCase {
         } catch (ClosedChannelException alsoOkay) {
             // For now, I'm assuming that we're happy as long as we get any reasonable exception.
             // It may be that we're supposed to guarantee only one or the other.
-        } finally {
-            ss.close();
         }
     }
 
@@ -244,7 +240,7 @@ public class ConcurrentCloseTest extends junit.framework.TestCase {
     }
 
     // This thread calls the "close" method on the supplied T after 2s.
-    static class Killer<T> extends Thread {
+    static class Killer<T extends Closeable> extends Thread {
         private final T s;
 
         public Killer(T s) {
@@ -256,7 +252,7 @@ public class ConcurrentCloseTest extends junit.framework.TestCase {
                 System.err.println("sleep...");
                 Thread.sleep(2000);
                 System.err.println("close...");
-                s.getClass().getMethod("close").invoke(s);
+                s.close();
             } catch (Exception ex) {
                 ex.printStackTrace();
             }

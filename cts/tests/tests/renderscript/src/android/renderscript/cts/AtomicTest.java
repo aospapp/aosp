@@ -26,6 +26,20 @@ public class AtomicTest extends RSBaseCompute {
     Allocation mSrc;
     Allocation mReturn;
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mSrc != null) {
+            mSrc.destroy();
+        }
+        if (mReturn != null) {
+            mReturn.destroy();
+        }
+        if (mScript != null) {
+            mScript.destroy();
+        }
+        super.tearDown();
+    }
+
     private void initS(boolean fillData, int sz) {
         mSrcData = new int[sz * sz];
         mScript = new ScriptC_AtomicTest(mRS);

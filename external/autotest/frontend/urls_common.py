@@ -1,5 +1,6 @@
 import os
 from django.conf.urls import defaults
+from django.views import generic
 
 
 def generate_patterns(django_name, gwt_name):
@@ -28,9 +29,9 @@ def generate_patterns(django_name, gwt_name):
              {'document_root': os.path.join(os.path.dirname(__file__), '..',
                                             'frontend', 'client', 'www')}),
             # redirect / to compiled client
-            (r'^$', 'django.views.generic.simple.redirect_to',
-             {'url':
-              'client/autotest.%(name)s/%(name)s.html' % dict(name=gwt_name)}),
+            (r'^$', generic.RedirectView.as_view(
+                    url='client/autotest.%(name)s/%(name)s.html'
+                    % dict(name=gwt_name))),
         )
 
     return (pattern_list, debug_pattern_list)

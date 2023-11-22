@@ -275,7 +275,7 @@ static int eap_fast_derive_key_auth(struct eap_sm *sm,
 	 * Extra key material after TLS key_block: session_key_seed[40]
 	 */
 
-	sks = eap_fast_derive_key(sm->ssl_ctx, data->ssl.conn, "key expansion",
+	sks = eap_fast_derive_key(sm->ssl_ctx, data->ssl.conn,
 				  EAP_FAST_SKS_LEN);
 	if (sks == NULL) {
 		wpa_printf(MSG_DEBUG, "EAP-FAST: Failed to derive "
@@ -303,7 +303,6 @@ static int eap_fast_derive_key_provisioning(struct eap_sm *sm,
 	os_free(data->key_block_p);
 	data->key_block_p = (struct eap_fast_key_block_provisioning *)
 		eap_fast_derive_key(sm->ssl_ctx, data->ssl.conn,
-				    "key expansion",
 				    sizeof(*data->key_block_p));
 	if (data->key_block_p == NULL) {
 		wpa_printf(MSG_DEBUG, "EAP-FAST: Failed to derive key block");
@@ -485,7 +484,8 @@ static int eap_fast_phase2_request(struct eap_sm *sm,
 
 	if (*resp == NULL && config &&
 	    (config->pending_req_identity || config->pending_req_password ||
-	     config->pending_req_otp || config->pending_req_new_password)) {
+	     config->pending_req_otp || config->pending_req_new_password ||
+	     config->pending_req_sim)) {
 		wpabuf_free(data->pending_phase2_req);
 		data->pending_phase2_req = wpabuf_alloc_copy(hdr, len);
 	} else if (*resp == NULL)
@@ -710,9 +710,10 @@ static int eap_fast_get_cmk(struct eap_sm *sm, struct eap_fast_data *data,
 	if (eap_fast_get_phase2_key(sm, data, isk, sizeof(isk)) < 0)
 		return -1;
 	wpa_hexdump_key(MSG_MSGDUMP, "EAP-FAST: ISK[j]", isk, sizeof(isk));
-	sha1_t_prf(data->simck, EAP_FAST_SIMCK_LEN,
-		   "Inner Methods Compound Keys",
-		   isk, sizeof(isk), imck, sizeof(imck));
+	if (sha1_t_prf(data->simck, EAP_FAST_SIMCK_LEN,
+		       "Inner Methods Compound Keys",
+		       isk, sizeof(isk), imck, sizeof(imck)) < 0)
+		return -1;
 	data->simck_idx++;
 	os_memcpy(data->simck, imck, EAP_FAST_SIMCK_LEN);
 	wpa_hexdump_key(MSG_MSGDUMP, "EAP-FAST: S-IMCK[j]",
@@ -1677,6 +1678,10 @@ static Boolean eap_fast_has_reauth_data(struct eap_sm *sm, void *priv)
 static void eap_fast_deinit_for_reauth(struct eap_sm *sm, void *priv)
 {
 	struct eap_fast_data *data = priv;
+
+	if (data->phase2_priv && data->phase2_method &&
+	    data->phase2_method->deinit_for_reauth)
+		data->phase2_method->deinit_for_reauth(sm, data->phase2_priv);
 	os_free(data->key_block_p);
 	data->key_block_p = NULL;
 	wpabuf_free(data->pending_phase2_req);

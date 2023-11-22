@@ -16,64 +16,70 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.DigitalClock;
 import android.widget.LinearLayout;
 import android.widget.cts.util.XmlUtils;
 
-import java.io.IOException;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParserException;
 
+import java.io.IOException;
 
 /**
  * Test {@link DigitalClock}.
  */
-public class DigitalClockTest extends ActivityInstrumentationTestCase<DigitalClockCtsActivity> {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DigitalClockTest {
     private Activity mActivity;
-    private Context mContext;
 
-    public DigitalClockTest() {
-        super("android.widget.cts", DigitalClockCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<DigitalClockCtsActivity> mActivityRule =
+            new ActivityTestRule<>(DigitalClockCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mContext = getInstrumentation().getContext();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         // new the DigitalClock instance
-        new DigitalClock(mContext);
+        new DigitalClock(mActivity);
 
         // new the DigitalClock instance with null AttributeSet
-        new DigitalClock(mContext, null);
+        new DigitalClock(mActivity, null);
 
         // new the DigitalClock instance with real AttributeSet
-        new DigitalClock(mContext, getAttributeSet(R.layout.digitalclock_layout));
-
-        // Test constructor with null Context, in fact, DigitalClock(mContext) function will
-        //finally invoke this version.
-        try {
-            // Test with null Context
-            new DigitalClock(null, getAttributeSet(R.layout.digitalclock_layout));
-            fail("should throw NullPointerException");
-        } catch (Exception e) {
-        }
+        new DigitalClock(mActivity, getAttributeSet(R.layout.digitalclock_layout));
     }
 
     @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext() {
+        new DigitalClock(null, getAttributeSet(R.layout.digitalclock_layout));
+    }
+
+    @UiThreadTest
+    @Test
     public void testOnDetachedFromWindow() {
         final MockDigitalClock digitalClock = createDigitalClock();
 
@@ -88,6 +94,7 @@ public class DigitalClockTest extends ActivityInstrumentationTestCase<DigitalClo
     }
 
     @UiThreadTest
+    @Test
     public void testOnAttachedToWindow() {
         final MockDigitalClock digitalClock = createDigitalClock();
 
@@ -105,7 +112,7 @@ public class DigitalClockTest extends ActivityInstrumentationTestCase<DigitalClo
     }
 
     private MockDigitalClock createDigitalClock() {
-        MockDigitalClock datePicker = new MockDigitalClock(mContext,
+        MockDigitalClock datePicker = new MockDigitalClock(mActivity,
                 getAttributeSet(R.layout.digitalclock_layout));
 
         return datePicker;

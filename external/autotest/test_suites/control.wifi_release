@@ -5,7 +5,6 @@
 AUTHOR = 'krisr@chromium.org'
 NAME = 'wifi_release'
 PURPOSE = 'Group of WiFi tests that are run against a release candidate'
-CRITERIA = 'Run a set of tests against a given release candidate.'
 
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'

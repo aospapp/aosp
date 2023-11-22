@@ -47,7 +47,7 @@ ArbitratorErrorType MediaResourceArbitrator::Config(const char* configFilePath) 
     fp = ::fopen(configFilePath, "r");
     if (fp == NULL) {
         ALOGV("%s: can not open config xml file.\
-               try to set up default codec limitation");
+               try to set up default codec limitation", __FUNCTION__);
         SetupDefaultCodecLimitation();
         return ArbitratorErrorNone;
     }

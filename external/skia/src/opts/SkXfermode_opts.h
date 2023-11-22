@@ -133,7 +133,7 @@ XFERMODE(ColorDodge) {
 
     auto srcover = s + d*isa,
          dstover = d + s*ida,
-         otherwise = sa * Sk4f::Min(da, (d*sa)*(sa-s).approxInvert()) + s*ida + d*isa;
+         otherwise = sa * Sk4f::Min(da, (d*sa)*(sa-s).invert()) + s*ida + d*isa;
 
     // Order matters here, preferring d==0 over s==sa.
     auto colors = (d == Sk4f(0)).thenElse(dstover,
@@ -149,7 +149,7 @@ XFERMODE(ColorBurn) {
 
     auto srcover = s + d*isa,
          dstover = d + s*ida,
-         otherwise = sa*(da-Sk4f::Min(da, (da-d)*sa*s.approxInvert())) + s*ida + d*isa;
+         otherwise = sa*(da-Sk4f::Min(da, (da-d)*sa*s.invert())) + s*ida + d*isa;
 
     // Order matters here, preferring d==da over s==0.
     auto colors = (d ==      da).thenElse(dstover,
@@ -217,7 +217,7 @@ template <> void mark_dst_initialized_if_safe<Clear>(void* dst, void* end) {
 template <typename Xfermode>
 class Sk4pxXfermode : public SkProcCoeffXfermode {
 public:
-    Sk4pxXfermode(const ProcCoeff& rec, SkXfermode::Mode mode)
+    Sk4pxXfermode(const ProcCoeff& rec, SkBlendMode mode)
         : INHERITED(rec, mode) {}
 
     void xfer32(SkPMColor dst[], const SkPMColor src[], int n, const SkAlpha aa[]) const override {
@@ -269,7 +269,7 @@ private:
 template <typename Xfermode>
 class Sk4fXfermode : public SkProcCoeffXfermode {
 public:
-    Sk4fXfermode(const ProcCoeff& rec, SkXfermode::Mode mode)
+    Sk4fXfermode(const ProcCoeff& rec, SkBlendMode mode)
         : INHERITED(rec, mode) {}
 
     void xfer32(SkPMColor dst[], const SkPMColor src[], int n, const SkAlpha aa[]) const override {
@@ -315,10 +315,10 @@ private:
 
 namespace SK_OPTS_NS {
 
-static SkXfermode* create_xfermode(const ProcCoeff& rec, SkXfermode::Mode mode) {
+static SkXfermode* create_xfermode(const ProcCoeff& rec, SkBlendMode mode) {
     switch (mode) {
 #define CASE(Xfermode) \
-    case SkXfermode::k##Xfermode##_Mode: return new Sk4pxXfermode<Xfermode>(rec, mode)
+    case SkBlendMode::k##Xfermode: return new Sk4pxXfermode<Xfermode>(rec, mode)
         CASE(Clear);
         CASE(Src);
         CASE(Dst);
@@ -344,7 +344,7 @@ static SkXfermode* create_xfermode(const ProcCoeff& rec, SkXfermode::Mode mode) 
     #undef CASE
 
 #define CASE(Xfermode) \
-    case SkXfermode::k##Xfermode##_Mode: return new Sk4fXfermode<Xfermode>(rec, mode)
+    case SkBlendMode::k##Xfermode: return new Sk4fXfermode<Xfermode>(rec, mode)
         CASE(ColorDodge);
         CASE(ColorBurn);
         CASE(SoftLight);

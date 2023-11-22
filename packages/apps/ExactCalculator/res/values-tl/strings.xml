@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"i-delete"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"ipakita ang mga inverse function"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"itago ang mga inverse function"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Walang formula"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Walang resulta"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Mga numero at basic na pagpapatakbo"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Mga advanced na pagpapatakbo"</string>
     <string name="error_nan" msgid="5674077944929888710">"Hindi numero"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Bad expression"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Itinigil"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Infinite?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Hindi mahahati sa 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Kinopya ang text"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Kinansela ang pagkalkula"</string>
-    <string name="timeout" msgid="802690170415591535">"Nag-time out. Maaaring infinite o di-tinukoy ang value."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Kinansela ang pagkalkula."</string>
+    <string name="timeout" msgid="5461892570729418573">"Maaaring infinite o undefined ang value."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Gumamit ng mas mahahabang timeout"</string>
     <string name="dismiss" msgid="7872443888515066216">"I-dismiss"</string>
     <string name="exact" msgid="2597237880041789948">"(eksakto)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Sagutin gamit ang leading digits"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Sagutin bilang fraction"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Mga lisensya ng open source"</string>
+    <string name="menu_history" msgid="9006222701220105452">"History"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"I-clear"</string>
+    <string name="title_history" msgid="7820912156315181539">"History"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Mag-navigate pataas"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Timeout"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"I-clear ang history at memory?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Kasalukuyang Expression"</string>
+    <string name="no_history" msgid="4331262030447527188">"Walang History"</string>
 </resources>

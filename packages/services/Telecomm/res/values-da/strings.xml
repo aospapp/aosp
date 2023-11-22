@@ -50,7 +50,7 @@
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Annuller"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> kan foretage og administrere alle aspekter af opkald. Du bør kun indstille en app til din standardapp til opkald, hvis du har tillid til den."</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Blokerede telefonnumre"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Du modtager ikke opkald eller sms-beskeder fra blokerede numre."</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"Du modtager ikke opkald og sms-beskeder fra blokerede numre."</string>
     <string name="block_number" msgid="1101252256321306179">"Tilføj et nummer"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"Vil du ophæve blokeringen af <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>?"</string>
     <string name="unblock_button" msgid="3078048901972674170">"Ophæv blokeringen"</string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Nødnummeret kan ikke blokeres."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> er allerede blokeret."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Opkaldet foretages med det personlige opkaldsprogram"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Opkald i <xliff:g id="CALL_VIA">%1$s</xliff:g> fra <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videoopkald i <xliff:g id="CALL_VIA">%1$s</xliff:g> fra <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Hvis du besvarer, afsluttes dit opkald i <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Hvis du besvarer, afsluttes dine opkald i <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Hvis du besvarer, afsluttes dit videoopkald i <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Hvis du besvarer, afsluttes dit igangværende opkald"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Hvis du besvarer, afsluttes dine igangværende opkald"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Hvis du besvarer, afsluttes dit igangværende videoopkald"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Besvar"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Afvis"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Opkaldet kan ikke foretages på grund af dit opkald i <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Opkaldet kan ikke foretages på grund af dine opkald i <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Opkaldet kan ikke foretages på grund et opkald i en anden app."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Indgående opkald"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Ubesvarede opkald"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Hvis du foretager dette opkald, afsluttes dit opkald i <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

@@ -1,23 +1,24 @@
 /* Copyright 2008 The Android Open Source Project
  */
 
+#define LOG_TAG "Binder"
+
+#include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
+
+#include <log/log.h>
 
 #include "binder.h"
 
 #define MAX_BIO_SIZE (1 << 30)
 
 #define TRACE 0
-
-#define LOG_TAG "Binder"
-#include <cutils/log.h>
 
 void bio_init_from_txn(struct binder_io *io, struct binder_transaction_data *txn);
 
@@ -93,7 +94,7 @@ struct binder_state
     size_t mapsize;
 };
 
-struct binder_state *binder_open(size_t mapsize)
+struct binder_state *binder_open(const char* driver, size_t mapsize)
 {
     struct binder_state *bs;
     struct binder_version vers;
@@ -104,10 +105,10 @@ struct binder_state *binder_open(size_t mapsize)
         return NULL;
     }
 
-    bs->fd = open("/dev/binder", O_RDWR | O_CLOEXEC);
+    bs->fd = open(driver, O_RDWR | O_CLOEXEC);
     if (bs->fd < 0) {
-        fprintf(stderr,"binder: cannot open device (%s)\n",
-                strerror(errno));
+        fprintf(stderr,"binder: cannot open %s (%s)\n",
+                driver, strerror(errno));
         goto fail_open;
     }
 

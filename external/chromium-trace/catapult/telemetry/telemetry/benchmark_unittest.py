@@ -10,13 +10,13 @@ from telemetry import benchmark
 from telemetry.testing import options_for_unittests
 from telemetry.internal import story_runner
 from telemetry import page
-from telemetry.page import page_test
+from telemetry.page import legacy_page_test
 from telemetry.page import shared_page_state
 from telemetry import story as story_module
 from telemetry.web_perf import timeline_based_measurement
 
 
-class DummyPageTest(page_test.PageTest):
+class DummyPageTest(legacy_page_test.LegacyPageTest):
   def ValidateAndMeasurePage(self, *_):
     pass
 
@@ -138,7 +138,7 @@ class BenchmarkTest(unittest.TestCase):
     validPredicate = [False]
 
     def RunStub(test, story_set_module, finder_options, results,
-                *args): # pylint: disable=unused-argument
+                *args, **kwargs): # pylint: disable=unused-argument
       predicate = results._value_can_be_added_predicate
       valid = predicate == PredicateBenchmark.ValueCanBeAddedPredicate
       validPredicate[0] = valid

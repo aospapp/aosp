@@ -194,6 +194,29 @@ product's device.mk file.</p>
 
 <pre><code>$(call add-product-dex-preopt-module-config,Calculator,disable)</code></pre>
 
+<h2 id=other_odex>First boot installation of DEX_PREOPT files</h2>
+
+<p>Starting in Android 7.0, devices may use two system partitions to enable
+<a href="{@docRoot}devices/tech/ota/ab_updates.html">A/B system updates</a>.
+To allow use of DEX_PREOPT while keeping the size of system partitions down and allowing
+performant first boot, the preopted files can be installed in the unused second system
+partition. They are then copied to the data partition on first boot.</p>
+
+<p>Example usage (in device-common.mk):</p>
+
+<pre><code>PRODUCT_PACKAGES += \
+     cppreopts.sh
+PRODUCT_PROPERTY_OVERRIDES += \
+     ro.cp_system_other_odex=1
+</code></pre>
+
+<p>And in device's BoardConfig.mk:</p>
+<pre><code>BOARD_USES_SYSTEM_OTHER_ODEX := true</code></pre>
+
+<p>See <a href="{@docRoot}devices/tech/ota/ab_updates.html#compilation">App
+compilation in background</a> to optionally include the compilation script and
+binaries in the system image.</p>
+
 <h2 id=preloaded_classes_list>Preloaded Classes List</h2>
 
 <p>The preloaded classes list is a list of classes the zygote will initialize on
@@ -271,18 +294,20 @@ for trusted system code.
 
 <h2 id=with_dexpreopt_pic>WITH_DEXPREOPT_PIC</h2>
 
-<p>In post-L AOSP, <code>WITH_DEXPREOPT_PIC</code> can be specified to enable
-position-independent code (PIC). With this, compiled code from the image
-doesn’t have to be relocated from /system into /data/dalvik-cache, saving space
-in the data partition. However, there is a slight runtime impact because it
-disables an optimization that takes advantage of position-dependent code.
-Typically, devices wanting to save space in /data should enable PIC
-compilation.</p>
+<p>In Android 5.1.0 through Android 6.0.1, <code>WITH_DEXPREOPT_PIC</code> can
+be specified to enable position-independent code (PIC). With this, compiled
+code from the image doesn’t have to be relocated from /system into
+/data/dalvik-cache, saving space in the data partition. However, there is a
+slight runtime impact because it disables an optimization that takes advantage
+of position-dependent code.  Typically, devices wanting to save space in /data
+should enable PIC compilation.</p>
 
 <p>Example usage (in product’s device.mk):</p>
 
 <pre><code>WITH_DEXPREOPT := true
 WITH_DEXPREOPT_PIC := true</code></pre>
+
+<p>Starting in Android 7.0, PIC compilation is enabled by default.</p>
 
 <h2 id=with_art_small_mode>WITH_ART_SMALL_MODE</h2>
 
@@ -318,14 +343,35 @@ of the options discussed above affect only pre-optimization.</p>
   <li>dalvik.vm.image-dex2oat-Xms: initial heap size
   <li>dalvik.vm.image-dex2oat-Xmx: maximum heap size
   <li>dalvik.vm.image-dex2oat-filter: compiler filter option
+  <li>dalvik.vm.image-dex2oat-threads: number of threads to use
 </ul>
 
 <p>To control dex2oat while it’s compiling everything besides the boot image:</p>
 
 <ul>
-  <li> dalvik.vm.dex2oat-Xms: initial heap size
-  <li> dalvik.vm.dex2oat-Xmx: maximum heap size
-  <li> dalvik.vm.dex2oat-filter: compiler filter option
+  <li>dalvik.vm.dex2oat-Xms: initial heap size
+  <li>dalvik.vm.dex2oat-Xmx: maximum heap size
+  <li>dalvik.vm.dex2oat-filter: compiler filter option
+</ul>
+
+<p>On releases through Android 6.0, one additional option is provided for compiling everything
+besides the boot image:</p>
+<ul>
+  <li>dalvik.vm.dex2oat-threads: number of threads to use
+</ul>
+
+<p>Starting with Android 6.1, this becomes two additional options for compiling everything besides
+the boot image:</p>
+<ul>
+  <li>dalvik.vm.boot-dex2oat-threads: number of threads to use during boot time
+  <li>dalvik.vm.dex2oat-threads: number of threads to use after boot time
+</ul>
+
+<p>Starting with Android 7.1, two options are provided for controlling how memory is used when
+compiling everything besides the boot image:</p>
+<ul>
+  <li>dalvik.vm.dex2oat-very-large: minimum total dex file size in bytes to disable AOT compilation
+  <li>dalvik.vm.dex2oat-swap: use dex2oat swap file (for low-memory devices)
 </ul>
 
 <p>The options that control initial and maximum heap size for dex2oat should not

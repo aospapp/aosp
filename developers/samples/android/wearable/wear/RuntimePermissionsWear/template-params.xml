@@ -21,16 +21,15 @@
     <package>com.example.android.wearable.runtimepermissions</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>23</targetSdkVersion>
-    <targetSdkVersionWear>23</targetSdkVersionWear>
+    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
     </wearable>
 
-    <dependency>com.android.support:appcompat-v7:24.0.0</dependency>
-    <dependency>com.android.support:design:24.0.0</dependency>
-    <provided_dependency_wearable>com.google.android.wearable:wearable:1.4.0</provided_dependency_wearable>
+    <dependency>com.android.support:appcompat-v7:25.3.1</dependency>
+    <dependency>com.android.support:design:25.3.1</dependency>
 
     <strings>
         <intro>

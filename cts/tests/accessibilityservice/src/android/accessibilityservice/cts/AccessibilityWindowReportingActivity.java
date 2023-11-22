@@ -24,5 +24,6 @@ public class AccessibilityWindowReportingActivity extends AccessibilityTestActiv
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.accessibility_window_reporting_test);
+        setTitle("AccessibilityWindowReportingActivity");
     }
 }

@@ -14,8 +14,9 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Webkit test cases">
+    <option name="config-descriptor:metadata" key="component" value="webview" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsWebkitTestCases.apk" />
     </target_preparer>

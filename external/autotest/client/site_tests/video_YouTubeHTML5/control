@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if YouTube HTML5 video fails to play.
 """
 ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
-SUITE = "bvt-perbuild, partners"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

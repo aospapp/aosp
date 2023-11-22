@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2010, International Business Machines Corporation and    *
@@ -7,12 +9,14 @@
  */
 package android.icu.impl.locale;
 
+import android.icu.impl.Utility;
+
 /**
  * @hide Only a subset of ICU is exposed in Android
  */
 public final class AsciiUtil {
     public static boolean caseIgnoreMatch(String s1, String s2) {
-        if (s1 == s2) {
+        if (Utility.sameObjects(s1, s2)) {
             return true;
         }
         int len = s1.length();
@@ -32,7 +36,7 @@ public final class AsciiUtil {
     }
 
     public static int caseIgnoreCompare(String s1, String s2) {
-        if (s1 == s2) {
+        if (Utility.sameObjects(s1, s2)) {
             return 0;
         }
         return AsciiUtil.toLowerString(s1).compareTo(AsciiUtil.toLowerString(s2));
@@ -170,6 +174,7 @@ public final class AsciiUtil {
             _hash = AsciiUtil.toLowerString(key).hashCode();
         }
 
+        @Override
         public boolean equals(Object o) {
             if (this == o) {
                 return true;
@@ -180,6 +185,7 @@ public final class AsciiUtil {
             return false;
         }
 
+        @Override
         public int hashCode() {
             return _hash;
         }

@@ -19,7 +19,6 @@
 #include <jni.h>
 
 #include "media/AudioEffect.h"
-#include "hardware/audio_effect.h"
 #endif
 
 /* Interface structures */

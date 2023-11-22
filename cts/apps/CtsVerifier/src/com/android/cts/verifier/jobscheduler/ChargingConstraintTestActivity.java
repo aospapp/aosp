@@ -66,6 +66,14 @@ public class ChargingConstraintTestActivity extends ConstraintTestActivity {
             mStartButton.setEnabled(true);
         }
 
+        if (!deviceHasBattery()) {
+            // This device has hardwired power, so do not prompt about connecting
+            // or disconnecting the charger, and ignore the "no power" test.
+            findViewById(R.id.charger_prompt).setVisibility(View.GONE);
+            findViewById(R.id.unplug_prompt).setVisibility(View.GONE);
+            findViewById(R.id.unplug_test_description).setVisibility(View.GONE);
+        }
+
         hideWaitingForStableChargingViews();
 
         mTestState = STATE_NOT_RUNNING;
@@ -86,6 +94,12 @@ public class ChargingConstraintTestActivity extends ConstraintTestActivity {
     protected void onDestroy() {
         super.onDestroy();
         unregisterReceiver(mChargingChangedReceiver);
+    }
+
+    private boolean deviceHasBattery() {
+        final Intent batteryInfo = registerReceiver(null,
+                new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
     }
 
     private boolean isDevicePluggedIn() {
@@ -117,8 +131,11 @@ public class ChargingConstraintTestActivity extends ConstraintTestActivity {
                     new TestDevicePluggedInConstraint().execute();
                 }
             } else if (BatteryManager.ACTION_DISCHARGING.equals(intent.getAction())) {
-                if (mTestState == STATE_ON_CHARGING_TEST_PASSED) {
-                    new TestDeviceUnpluggedConstraint().execute();
+                // ignore this [spurious!] broadcast on non-battery devices
+                if (deviceHasBattery()) {
+                    if (mTestState == STATE_ON_CHARGING_TEST_PASSED) {
+                        new TestDeviceUnpluggedConstraint().execute();
+                    }
                 }
             } else if (Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
                 if (mTestState == STATE_WAITING_TO_START_ON_CHARGING_TEST) {

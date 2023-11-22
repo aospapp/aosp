@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Контакты для чрезвычайных ситуаций"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Добавить контакт"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Не удалось найти средство выбора контактов‏"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Не удалось показать контакт"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Удалить контакт \"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>\" из контактов для чрезвычайных ситуаций?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Удалить контакт"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Невозможно прочитать данные о контакте"</string>
     <string name="remove" msgid="1243949503772376064">"Удалить"</string>
     <string name="cancel" msgid="7401575239009060939">"Отмена"</string>
     <string name="ok" msgid="163967937451981024">"ОК"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Данные для экстренных случаев"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Информация, которую вы укажете здесь, сохранится только на вашем устройстве. Она будет доступна всем на экране вызова экстренных служб без разблокировки телефона."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Продолжить"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Нет данных для экстренных случаев"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Нет сведений о владельце"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Если телефон ваш, нажмите на значок карандаша и укажите информацию на случай экстренной ситуации."</string>
     <string name="clear_all" msgid="8899013032870561633">"Очистить все"</string>
     <string name="clear" msgid="3648880442502887163">"Очистить"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Удалить все контакты и другие данные?"</string>

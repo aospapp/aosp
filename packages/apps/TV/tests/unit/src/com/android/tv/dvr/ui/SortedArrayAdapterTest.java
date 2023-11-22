@@ -35,12 +35,13 @@ public class SortedArrayAdapterTest extends TestCase {
     public static final TestData P1 = TestData.create(1, "one");
     public static final TestData P2 = TestData.create(2, "before");
     public static final TestData P3 = TestData.create(3, "other");
+    public static final TestData EXTRA = TestData.create(4, "extra");
     private TestSortedArrayAdapter mAdapter;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mAdapter = new TestSortedArrayAdapter();
+        mAdapter = new TestSortedArrayAdapter(Integer.MAX_VALUE, null);
     }
 
     public void testContents_empty() {
@@ -60,10 +61,43 @@ public class SortedArrayAdapterTest extends TestCase {
         assertContentsInOrder(mAdapter, P2, P1);
     }
 
-    public void testAddAll_two() {
-        mAdapter.addAll(Arrays.asList(P1, P2));
+    public void testSetInitialItems_two() {
+        mAdapter.setInitialItems(Arrays.asList(P1, P2));
         assertNotEmpty();
         assertContentsInOrder(mAdapter, P2, P1);
+    }
+
+    public void testMaxInitialCount() {
+        mAdapter = new TestSortedArrayAdapter(1, null);
+        mAdapter.setInitialItems(Arrays.asList(P1, P2));
+        assertNotEmpty();
+        assertEquals(mAdapter.size(), 1);
+        assertEquals(mAdapter.get(0), P2);
+    }
+
+    public void testExtraItem() {
+        mAdapter = new TestSortedArrayAdapter(Integer.MAX_VALUE, EXTRA);
+        mAdapter.setInitialItems(Arrays.asList(P1, P2));
+        assertNotEmpty();
+        assertEquals(mAdapter.size(), 3);
+        assertEquals(mAdapter.get(0), P2);
+        assertEquals(mAdapter.get(2), EXTRA);
+        mAdapter.remove(P2);
+        mAdapter.remove(P1);
+        assertEquals(mAdapter.size(), 1);
+        assertEquals(mAdapter.get(0), EXTRA);
+    }
+
+    public void testExtraItemWithMaxCount() {
+        mAdapter = new TestSortedArrayAdapter(1, EXTRA);
+        mAdapter.setInitialItems(Arrays.asList(P1, P2));
+        assertNotEmpty();
+        assertEquals(mAdapter.size(), 2);
+        assertEquals(mAdapter.get(0), P2);
+        assertEquals(mAdapter.get(1), EXTRA);
+        mAdapter.remove(P2);
+        assertEquals(mAdapter.size(), 1);
+        assertEquals(mAdapter.get(0), EXTRA);
     }
 
     public void testRemove() {
@@ -97,7 +131,6 @@ public class SortedArrayAdapterTest extends TestCase {
 
     private void assertEmpty() {
         assertEquals("empty", true, mAdapter.isEmpty());
-        assertContentsInOrder(mAdapter, EmptyHolder.EMPTY_HOLDER);
     }
 
     private void assertNotEmpty() {
@@ -153,14 +186,16 @@ public class SortedArrayAdapterTest extends TestCase {
             }
         };
 
-        TestSortedArrayAdapter() {
-            super(new ClassPresenterSelector(), TEXT_COMPARATOR);
+        TestSortedArrayAdapter(int maxInitialCount, Object extra) {
+            super(new ClassPresenterSelector(), TEXT_COMPARATOR, maxInitialCount);
+            if (extra != null) {
+                addExtraItem((TestData) extra);
+            }
         }
 
         @Override
         long getId(TestData item) {
             return item.mId;
         }
-
     }
 }

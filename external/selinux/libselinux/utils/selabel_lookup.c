@@ -6,7 +6,7 @@
 #include <selinux/selinux.h>
 #include <selinux/label.h>
 
-static void usage(const char *progname)
+static __attribute__ ((__noreturn__)) void usage(const char *progname)
 {
 	fprintf(stderr,
 		"usage: %s -b backend [-v] [-r] -k key [-t type] [-f file]\n\n"
@@ -57,6 +57,8 @@ int main(int argc, char **argv)
 				backend = SELABEL_CTX_DB;
 			} else if (!strcmp(optarg, "prop")) {
 				backend = SELABEL_CTX_ANDROID_PROP;
+			} else if (!strcmp(optarg, "service")) {
+				backend = SELABEL_CTX_ANDROID_SERVICE;
 			} else {
 				fprintf(stderr, "Unknown backend: %s\n",
 								    optarg);

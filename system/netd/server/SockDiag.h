@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef _SOCK_DIAG_H
+#define _SOCK_DIAG_H
+
 #include <unistd.h>
 #include <sys/socket.h>
 
@@ -24,10 +27,15 @@
 #include <functional>
 #include <set>
 
+#include "NetlinkCommands.h"
+#include "Permission.h"
 #include "UidRanges.h"
 
 struct inet_diag_msg;
 class SockDiagTest;
+
+namespace android {
+namespace net {
 
 class SockDiag {
 
@@ -36,7 +44,7 @@ class SockDiag {
 
     // Callback function that is called once for every socket in the dump. A return value of true
     // means destroy the socket.
-    typedef std::function<bool(uint8_t proto, const inet_diag_msg *)> DumpCallback;
+    typedef std::function<bool(uint8_t proto, const inet_diag_msg *)> DestroyFilter;
 
     struct DestroyRequest {
         nlmsghdr nlh;
@@ -49,7 +57,8 @@ class SockDiag {
 
     int sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states);
     int sendDumpRequest(uint8_t proto, uint8_t family, const char *addrstr);
-    int readDiagMsg(uint8_t proto, DumpCallback callback);
+    int readDiagMsg(uint8_t proto, const DestroyFilter& callback);
+
     int sockDestroy(uint8_t proto, const inet_diag_msg *);
     // Destroys all sockets on the given IPv4 or IPv6 address.
     int destroySockets(const char *addrstr);
@@ -58,6 +67,10 @@ class SockDiag {
     // Destroys all "live" (CONNECTED, SYN_SENT, SYN_RECV) TCP sockets for the given UID ranges.
     int destroySockets(const UidRanges& uidRanges, const std::set<uid_t>& skipUids,
                        bool excludeLoopback);
+    // Destroys all "live" (CONNECTED, SYN_SENT, SYN_RECV) TCP sockets that no longer have
+    // the permissions required by the specified network.
+    int destroySocketsLackingPermission(unsigned netId, Permission permission,
+                                        bool excludeLoopback);
 
   private:
     friend class SockDiagTest;
@@ -66,8 +79,13 @@ class SockDiag {
     int mSocketsDestroyed;
     int sendDumpRequest(uint8_t proto, uint8_t family, uint32_t states, iovec *iov, int iovcnt);
     int destroySockets(uint8_t proto, int family, const char *addrstr);
-    int destroyLiveSockets(DumpCallback destroy);
+    int destroyLiveSockets(DestroyFilter destroy, const char *what, iovec *iov, int iovcnt);
     bool hasSocks() { return mSock != -1 && mWriteSock != -1; }
     void closeSocks() { close(mSock); close(mWriteSock); mSock = mWriteSock = -1; }
     static bool isLoopbackSocket(const inet_diag_msg *msg);
 };
+
+}  // namespace net
+}  // namespace android
+
+#endif  // _SOCK_DIAG_H

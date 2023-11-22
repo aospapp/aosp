@@ -47,6 +47,10 @@ class TraceConverter:
   zipinfo_central_info_match = re.compile(
       "^\s*(\S+)$\s*offset of local header from start of archive:\s*(\d+)"
       ".*^\s*compressed size:\s+(\d+)", re.M | re.S)
+  unreachable_line = re.compile("((\d+ bytes in \d+ unreachable allocations)|"+\
+                                "(\d+ bytes unreachable at [0-9a-f]+)|"+\
+                                "(referencing \d+ unreachable bytes in \d+ allocation(s)?)|"+\
+                                "(and \d+ similar unreachable bytes in \d+ allocation(s)?))")
   trace_lines = []
   value_lines = []
   last_frame = -1
@@ -306,8 +310,11 @@ class TraceConverter:
     revision_header = self.revision_line.search(line)
     dalvik_jni_thread_header = self.dalvik_jni_thread_line.search(line)
     dalvik_native_thread_header = self.dalvik_native_thread_line.search(line)
+    unreachable_header = self.unreachable_line.search(line)
     if process_header or signal_header or abort_message_header or thread_header or \
-        register_header or dalvik_jni_thread_header or dalvik_native_thread_header or revision_header:
+        register_header or dalvik_jni_thread_header or dalvik_native_thread_header or \
+        revision_header or unreachable_header:
+      ret = True
       if self.trace_lines or self.value_lines:
         self.PrintOutput(self.trace_lines, self.value_lines)
         self.PrintDivider()
@@ -330,11 +337,13 @@ class TraceConverter:
         print dalvik_native_thread_header.group(1)
       if revision_header:
         print revision_header.group(1)
+      if unreachable_header:
+        print unreachable_header.group(1)
       return True
     trace_line_dict = self.MatchTraceLine(line)
     if trace_line_dict is not None:
       ret = True
-      frame = trace_line_dict["frame"]
+      frame = int(trace_line_dict["frame"])
       code_addr = trace_line_dict["offset"]
       area = trace_line_dict["dso"]
       so_offset = trace_line_dict["so_offset"]
@@ -400,19 +409,21 @@ class TraceConverter:
       else:
         info = symbol.SymbolInformation(area, value)
         (source_symbol, source_location, object_symbol_with_offset) = info.pop()
-        if not source_symbol:
-          if symbol_present:
-            source_symbol = symbol.CallCppFilt(symbol_name)
-          else:
-            source_symbol = "<unknown>"
-        if not source_location:
-          source_location = area
-        if not object_symbol_with_offset:
-          object_symbol_with_offset = source_symbol
-        self.value_lines.append((addr,
-                            value,
-                            object_symbol_with_offset,
-                            source_location))
+        # If there is no information, skip this.
+        if source_symbol or source_location or object_symbol_with_offset:
+          if not source_symbol:
+            if symbol_present:
+              source_symbol = symbol.CallCppFilt(symbol_name)
+            else:
+              source_symbol = "<unknown>"
+          if not source_location:
+            source_location = area
+          if not object_symbol_with_offset:
+            object_symbol_with_offset = source_symbol
+          self.value_lines.append((addr,
+                                   value,
+                                   object_symbol_with_offset,
+                                   source_location))
 
     return ret
 
@@ -448,6 +459,55 @@ class RegisterPatternTests(unittest.TestCase):
   def test_x86_64_registers(self):
     self.assert_register_matches("x86_64", example_crashes.x86_64, '\\b(rax|rsi|r8|r12|cs|rip)\\b')
 
+class LibmemunreachablePatternTests(unittest.TestCase):
+  def test_libmemunreachable(self):
+    tc = TraceConverter()
+    lines = example_crashes.libmemunreachable.split('\n')
+
+    symbol.SetAbi(lines)
+    self.assertEquals(symbol.ARCH, "arm")
+
+    tc.UpdateAbiRegexes()
+    header_lines = 0
+    trace_lines = 0
+    for line in lines:
+      tc.ProcessLine(line)
+      if re.search(tc.unreachable_line, line) is not None:
+        header_lines += 1
+      if tc.MatchTraceLine(line) is not None:
+        trace_lines += 1
+    self.assertEquals(header_lines, 3)
+    self.assertEquals(trace_lines, 2)
+    tc.PrintOutput(tc.trace_lines, tc.value_lines)
+
+class LongASANStackTests(unittest.TestCase):
+  # Test that a long ASAN-style (non-padded frame numbers) stack trace is not split into two
+  # when the frame number becomes two digits. This happened before as the frame number was
+  # handled as a string and not converted to an integral.
+  def test_long_asan_crash(self):
+    tc = TraceConverter()
+    lines = example_crashes.long_asan_crash.splitlines()
+    symbol.SetAbi(lines)
+    tc.UpdateAbiRegexes()
+    # Test by making sure trace_line_count is monotonically non-decreasing. If the stack trace
+    # is split, a separator is printed and trace_lines is flushed.
+    trace_line_count = 0
+    for line in lines:
+      tc.ProcessLine(line)
+      self.assertLessEqual(trace_line_count, len(tc.trace_lines))
+      trace_line_count = len(tc.trace_lines)
+    # The split happened at transition of frame #9 -> #10. Make sure we have parsed (and stored)
+    # more than ten frames.
+    self.assertGreater(trace_line_count, 10)
+    tc.PrintOutput(tc.trace_lines, tc.value_lines)
+
+class ValueLinesTest(unittest.TestCase):
+  def test_value_line_skipped(self):
+    tc = TraceConverter()
+    symbol.SetAbi(["ABI: 'arm'"])
+    tc.UpdateAbiRegexes()
+    tc.ProcessLine("    12345678  00001000  .")
+    self.assertEqual([], tc.value_lines)
 
 if __name__ == '__main__':
     unittest.main()

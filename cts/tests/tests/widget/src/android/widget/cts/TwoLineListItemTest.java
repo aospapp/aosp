@@ -16,65 +16,77 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
-import android.test.ActivityInstrumentationTestCase;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
+import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
 import android.widget.TwoLineListItem;
-import android.widget.RelativeLayout.LayoutParams;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link TwoLineListItem}.
  */
-public class TwoLineListItemTest extends
-        ActivityInstrumentationTestCase<TwoLineListItemCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TwoLineListItemTest {
     private Activity mActivity;
 
-    public TwoLineListItemTest() {
-        super("android.widget.cts", TwoLineListItemCtsActivity.class);
+    @Rule
+    public ActivityTestRule<TwoLineListItemCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TwoLineListItemCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         AttributeSet attrs = mActivity.getResources().getLayout(R.layout.twolinelistitem);
         assertNotNull(attrs);
 
         new TwoLineListItem(mActivity);
-        try {
-            new TwoLineListItem(null);
-            fail("The constructor should throw NullPointerException when param Context is null.");
-        } catch (NullPointerException e) {
-        }
-
         new TwoLineListItem(mActivity, attrs);
-        try {
-            new TwoLineListItem(null, attrs);
-            fail("The constructor should throw NullPointerException when param Context is null.");
-        } catch (NullPointerException e) {
-        }
         new TwoLineListItem(mActivity, null);
-
         new TwoLineListItem(mActivity, attrs, 0);
-        try {
-            new TwoLineListItem(null, attrs, 0);
-            fail("The constructor should throw NullPointerException when param Context is null.");
-        } catch (NullPointerException e) {
-        }
         new TwoLineListItem(mActivity, null, 0);
         new TwoLineListItem(mActivity, attrs, Integer.MAX_VALUE);
         new TwoLineListItem(mActivity, attrs, Integer.MIN_VALUE);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext1() {
+        new TwoLineListItem(null);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext2() {
+        AttributeSet attrs = mActivity.getResources().getLayout(R.layout.twolinelistitem);
+        new TwoLineListItem(null, attrs);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testConstructorWithNullContext3() {
+        AttributeSet attrs = mActivity.getResources().getLayout(R.layout.twolinelistitem);
+        new TwoLineListItem(null, attrs, 0);
+    }
+
+    @Test
     public void testGetTexts() {
         TwoLineListItem twoLineListItem =
             (TwoLineListItem) mActivity.findViewById(R.id.twoLineListItem);
@@ -88,6 +100,8 @@ public class TwoLineListItemTest extends
                 twoLineListItem.getText2().getText().toString());
     }
 
+    @UiThreadTest
+    @Test
     public void testOnFinishInflate() {
         MockTwoLineListItem twoLineListItem = new MockTwoLineListItem(mActivity);
         TextView text1 = new TextView(mActivity);

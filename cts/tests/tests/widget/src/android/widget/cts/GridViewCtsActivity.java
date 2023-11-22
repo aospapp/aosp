@@ -16,17 +16,16 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
+import android.widget.GridView;
 
 /**
  * A minimal application for {@link GridView} test.
  */
 public class GridViewCtsActivity extends Activity {
     /**
-     * Called with the activity is first created.
+     * Called when the activity is first created.
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {

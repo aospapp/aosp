@@ -24,22 +24,23 @@
 class LogBuffer;
 
 class LogReader : public SocketListener {
-    LogBuffer &mLogbuf;
+    LogBuffer& mLogbuf;
 
-public:
-    LogReader(LogBuffer *logbuf);
+   public:
+    explicit LogReader(LogBuffer* logbuf);
     void notifyNewLog();
 
-    LogBuffer &logbuf(void) const { return mLogbuf; }
+    LogBuffer& logbuf(void) const {
+        return mLogbuf;
+    }
 
-protected:
-    virtual bool onDataAvailable(SocketClient *cli);
+   protected:
+    virtual bool onDataAvailable(SocketClient* cli);
 
-private:
+   private:
     static int getLogSocket();
 
-    void doSocketDelete(SocketClient *cli);
-
+    void doSocketDelete(SocketClient* cli);
 };
 
 #endif

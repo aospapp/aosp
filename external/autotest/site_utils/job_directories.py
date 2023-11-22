@@ -18,8 +18,11 @@ _AFE = frontend_wrappers.RetryingAFE()
 
 SPECIAL_TASK_PATTERN = '.*/hosts/[^/]+/(\d+)-[^/]+'
 JOB_PATTERN = '.*/(\d+)-[^/]+'
+# Pattern of a job folder, e.g., 123-debug_user, where 123 is job id and
+# debug_user is the name of user starts the job.
+JOB_FOLDER_PATTERN = '.*/(\d+-[^/]+)'
 
-def _is_job_expired(age_limit, timestamp):
+def is_job_expired(age_limit, timestamp):
   """Check whether a job timestamp is older than an age limit.
 
   @param age_limit: Minimum age, measured in days.  If the value is
@@ -68,6 +71,26 @@ def get_job_id_or_task_id(result_dir):
         return int(m_ssp_job_pattern.group(1))
 
 
+def get_job_folder_name(result_dir):
+    """Extract folder name of a job from result_dir.
+
+    @param result_dir: path to the result dir.
+            For test job:
+            /usr/local/autotest/results/2032-chromeos-test/chromeos1-rack5-host6
+            The hostname at the end is optional.
+            For special task:
+            /usr/local/autotest/results/hosts/chromeos1-rack5-host6/1343-cleanup
+
+    @returns: The name of the folder of a job. Returns None if fail to parse
+            the name matching pattern JOB_FOLDER_PATTERN from the result_dir.
+    """
+    if not result_dir:
+        return
+    m_job = re.findall(JOB_FOLDER_PATTERN, result_dir)
+    if m_job:
+        return m_job[-1]
+
+
 class _JobDirectory(object):
   """State associated with a job to be offloaded.
 
@@ -82,20 +105,12 @@ class _JobDirectory(object):
       call to `offload()` makes the first attempt to offload the
       directory to GS.  Offload is attempted, but fails to complete
       (e.g. because of a GS problem).
-   4. After the first failed offload `is_offloaded()` is false,
-      but `is_reportable()` is also false, so the failure is not
-      reported.
-   5. Another call to `offload()` again tries to offload the
-      directory, and again fails.
-   6. After a second failure, `is_offloaded()` is false and
-      `is_reportable()` is true, so the failure generates an e-mail
-      notification.
-   7. Finally, a call to `offload()` succeeds, and the directory no
+   4. Finally, a call to `offload()` succeeds, and the directory no
       longer exists.  Now `is_offloaded()` is true, so the job
       instance is deleted, and future failures will not mention this
       directory any more.
 
-  Only steps 1. and 7. are guaranteed to occur.  The others depend
+  Only steps 1. and 4. are guaranteed to occur.  The others depend
   on the timing of calls to `offload()`, and on the reliability of
   the actual offload process.
 
@@ -123,7 +138,7 @@ class _JobDirectory(object):
     If the database has not marked the job as finished, return
     `None`.  Otherwise, return a timestamp for the job.  The
     timestamp is to be used to determine expiration in
-    `_is_job_expired()`.
+    `is_job_expired()`.
 
     @return Return `None` if the job is still running; otherwise
             return a string with a timestamp in the appropriate
@@ -149,24 +164,20 @@ class _JobDirectory(object):
                      soon as it is finished.
 
     """
+    timestamp = self.get_timestamp_if_finished()
     if not self._offload_count:
-      timestamp = self.get_timestamp_if_finished()
       if not timestamp:
         return
-      if not _is_job_expired(age_limit, timestamp):
+      if not is_job_expired(age_limit, timestamp):
         return
       self._first_offload_start = time.time()
     self._offload_count += 1
     if self.process_gs_instructions():
-      queue.put([self._dirname, os.path.dirname(self._dirname)])
+      queue.put([self._dirname, os.path.dirname(self._dirname), timestamp])
 
   def is_offloaded(self):
     """Return whether this job has been successfully offloaded."""
     return not os.path.exists(self._dirname)
-
-  def is_reportable(self):
-    """Return whether this job has a reportable failure."""
-    return self._offload_count > 1
 
   def get_failure_time(self):
     """Return the time of the first offload failure."""
@@ -189,6 +200,10 @@ class _JobDirectory(object):
     return True
 
 
+NO_OFFLOAD_README = """These results have been deleted rather than offloaded.
+This is the expected behavior for passing jobs from the Commit Queue."""
+
+
 class RegularJobDirectory(_JobDirectory):
   """Subclass of _JobDirectory for regular test jobs."""
 
@@ -205,7 +220,12 @@ class RegularJobDirectory(_JobDirectory):
       with open(path, 'r') as f:
         gs_off_instructions = json.load(f)
       if gs_off_instructions.get(constants.GS_OFFLOADER_NO_OFFLOAD):
-        shutil.rmtree(os.path.dirname(path))
+        dirname = os.path.dirname(path)
+        shutil.rmtree(dirname)
+        os.mkdir(dirname)
+        breadcrumb_name = os.path.join(dirname, 'logs-removed-readme.txt')
+        with open(breadcrumb_name, 'w') as f:
+          f.write(NO_OFFLOAD_README)
 
     # Finally check if there's anything left to offload.
     if not os.listdir(self._dirname):

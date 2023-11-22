@@ -39,6 +39,8 @@ import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import libcore.icu.ICU;
+import libcore.util.ZoneInfoDB;
 
 public class MainActivity extends Activity implements View.OnClickListener {
 
@@ -67,6 +69,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
         requiredHashEditText = (EditText) findViewById(R.id.required_hash);
         logView = (TextView) findViewById(R.id.log);
         executor = Executors.newFixedThreadPool(1);
+        logString("Active libcore version: "
+                + ZoneInfoDB.getInstance().getVersion());
+        logString("Active icu4c version: "
+                + ICU.getTZDataVersion());
+        logString("Active icu4j version: "
+                + android.icu.util.TimeZone.getTZDataVersion());
     }
 
     @Override
@@ -147,9 +155,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private void logString(String value) {
         logView.append(new Date() + " " + value + "\n");
-        int scrollAmount =
-                logView.getLayout().getLineTop(logView.getLineCount()) - logView.getHeight();
-        logView.scrollTo(0, scrollAmount);
+        android.text.Layout layout = logView.getLayout();
+        if (layout != null) {
+            int scrollAmount =
+                    layout.getLineTop(logView.getLineCount()) - logView.getHeight();
+            logView.scrollTo(0, scrollAmount);
+        }
     }
 
     private static String exceptionToString(Exception e) {

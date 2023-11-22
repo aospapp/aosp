@@ -39,6 +39,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class MethodEntryTest extends JDWPEventTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return MethodEntryDebuggee.class.getName();
     }

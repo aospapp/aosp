@@ -61,6 +61,7 @@ public class FieldModification002Debuggee extends SyncDebuggee {
     /**
      * This debuggee accesses all class fields and synchronizes with debugger.
      */
+    @Override
     public void run() {
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

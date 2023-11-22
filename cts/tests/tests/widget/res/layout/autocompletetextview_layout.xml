@@ -24,10 +24,17 @@
         android:layout_height="wrap_content"
         android:text="@string/notify" />
 
-    <android.widget.cts.AutoCompleteTextViewNoIme android:id="@+id/autocompletetv_edit"
-        android:completionThreshold="1"
-        android:completionHint="@string/tabs_1"
+    <android.widget.cts.AutoCompleteTextViewNoIme
+        android:id="@+id/autocompletetv_edit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:inputType="none"/>
+        android:completionThreshold="1"
+        android:completionHint="@string/tabs_1"
+        android:inputType="none" />
+
+    <view
+        class="android.widget.cts.AutoCompleteTextViewTest$MockAutoCompleteTextView"
+        android:id="@+id/autocompletetv_custom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 </LinearLayout>

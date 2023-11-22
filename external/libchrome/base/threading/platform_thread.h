@@ -99,7 +99,7 @@ const PlatformThreadId kInvalidThreadId(0);
 
 // Valid values for priority of Thread::Options and SimpleThread::Options, and
 // SetCurrentThreadPriority(), listed in increasing order of importance.
-enum class ThreadPriority {
+enum class ThreadPriority : int {
   // Suitable for threads that shouldn't disrupt high priority work.
   BACKGROUND,
   // Default priority level.
@@ -142,8 +142,8 @@ class BASE_EXPORT PlatformThread {
   // Sleeps for the specified duration.
   static void Sleep(base::TimeDelta duration);
 
-  // Sets the thread name visible to debuggers/tools. This has no effect
-  // otherwise.
+  // Sets the thread name visible to debuggers/tools. This will try to
+  // initialize the context for current thread unless it's a WorkerThread.
   static void SetName(const std::string& name);
 
   // Gets the thread name, if previously set by SetName.
@@ -180,9 +180,14 @@ class BASE_EXPORT PlatformThread {
   // |thread_handle|.
   static void Join(PlatformThreadHandle thread_handle);
 
+  // Detaches and releases the thread handle. The thread is no longer joinable
+  // and |thread_handle| is invalidated after this call.
+  static void Detach(PlatformThreadHandle thread_handle);
+
   // Toggles the current thread's priority at runtime. A thread may not be able
   // to raise its priority back up after lowering it if the process does not
-  // have a proper permission, e.g. CAP_SYS_NICE on Linux.
+  // have a proper permission, e.g. CAP_SYS_NICE on Linux. A thread may not be
+  // able to lower its priority back down after raising it to REALTIME_AUDIO.
   // Since changing other threads' priority is not permitted in favor of
   // security, this interface is restricted to change only the current thread
   // priority (https://crbug.com/399473).

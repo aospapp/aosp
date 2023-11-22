@@ -30,7 +30,8 @@ def autoserv_run_job_command(autoserv_directory, machines,
                              ssh_options=None,
                              use_packaging=True,
                              in_lab=False,
-                             host_attributes=None):
+                             host_attributes=None,
+                             use_virtualenv=False):
     """
     Construct an autoserv command from a job or host queue entry.
 
@@ -63,11 +64,17 @@ def autoserv_run_job_command(autoserv_directory, machines,
                    the database is available and can make database calls such
                    as looking up host attributes at runtime.
     @param host_attributes: Dict of host attributes to pass into autoserv.
+    @param use_virtualenv: Whether to run autoserv inside of virtualenv. In
+                           general this should be set to True in our production
+                           lab, and probably False in most other use cases
+                           (moblab, local testing) until we rollout virtualenv
+                           support everywhere. Default: False.
 
     @returns The autoserv command line as a list of executable + parameters.
 
     """
-    command = [os.path.join(autoserv_directory, 'autoserv')]
+    script_name = 'virtualenv_autoserv' if use_virtualenv else 'autoserv'
+    command = [os.path.join(autoserv_directory, script_name)]
 
     if write_pidfile:
         command.append('-p')
@@ -131,7 +138,7 @@ def autoserv_run_job_command(autoserv_directory, machines,
 
 
 def _autoserv_command_line(machines, extra_args, job=None, queue_entry=None,
-                           verbose=True, in_lab=False):
+                           verbose=True, in_lab=False, use_virtualenv=False):
     """
     @returns The autoserv command line as a list of executable + parameters.
 
@@ -146,6 +153,7 @@ def _autoserv_command_line(machines, extra_args, job=None, queue_entry=None,
                    environment. This information is useful as autoserv knows
                    the database is available and can make database calls such
                    as looking up host attributes at runtime.
+    @param use_virtualenv: See autoserv_run_job_command.
     """
     if drone_manager is None:
         raise ImportError('Unable to import drone_manager in autoserv_utils')
@@ -153,4 +161,4 @@ def _autoserv_command_line(machines, extra_args, job=None, queue_entry=None,
     return autoserv_run_job_command(autoserv_directory,
             machines, results_directory=drone_manager.WORKING_DIRECTORY,
             extra_args=extra_args, job=job, queue_entry=queue_entry,
-            verbose=verbose, in_lab=in_lab)
+            verbose=verbose, in_lab=in_lab, use_virtualenv=use_virtualenv)

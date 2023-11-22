@@ -18,10 +18,16 @@
 
 #include <base/macros.h>
 
+#include <android/bluetooth/BnBluetoothGattClient.h>
+#include <android/bluetooth/IBluetoothGattClientCallback.h>
+
 #include "service/gatt_client.h"
-#include "service/common/bluetooth/binder/IBluetoothGattClient.h"
-#include "service/common/bluetooth/binder/IBluetoothGattClientCallback.h"
 #include "service/ipc/binder/interface_with_instances_base.h"
+
+using android::bluetooth::BnBluetoothGattClient;
+using android::bluetooth::IBluetoothGattClientCallback;
+
+using ::android::binder::Status;
 
 namespace bluetooth {
 class Adapter;
@@ -38,27 +44,27 @@ class BluetoothGattClientBinderServer : public BnBluetoothGattClient,
   ~BluetoothGattClientBinderServer() override = default;
 
   // IBluetoothGattClient overrides:
-  bool RegisterClient(
-      const android::sp<IBluetoothGattClientCallback>& callback) override;
-  void UnregisterClient(int client_id) override;
-  void UnregisterAll() override;
+  Status RegisterClient(
+      const android::sp<IBluetoothGattClientCallback>& callback,
+      bool* _aidl_return) override;
+  Status UnregisterClient(int client_id) override;
+  Status UnregisterAll() override;
 
  private:
   // Returns a pointer to the IBluetoothGattClientCallback instance
   // associated with |client_id|. Returns NULL if such a callback cannot be
   // found.
-  android::sp<IBluetoothGattClientCallback>
-      GetGattClientCallback(int client_id);
+  android::sp<IBluetoothGattClientCallback> GetGattClientCallback(
+      int client_id);
 
   // Returns a pointer to the GattClient instance associated with |client_id|.
   // Returns NULL if such a client cannot be found.
   std::shared_ptr<bluetooth::GattClient> GetGattClient(int client_id);
 
   // InterfaceWithInstancesBase override:
-  void OnRegisterInstanceImpl(
-      bluetooth::BLEStatus status,
-      android::sp<IInterface> callback,
-      bluetooth::BluetoothInstance* instance) override;
+  void OnRegisterInstanceImpl(bluetooth::BLEStatus status,
+                              android::sp<IInterface> callback,
+                              bluetooth::BluetoothInstance* instance) override;
 
   bluetooth::Adapter* adapter_;  // weak
 

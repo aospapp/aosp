@@ -25,7 +25,7 @@ class semiauto_test(test.test):
         Dialog template is on first tab.  Any other needed tabs can be opened
         using the self._browser object.
         """
-        self._browser = chrome.Chrome().browser
+        self._browser = chrome.Chrome(init_network_controller=True).browser
         self._tab = self._browser.tabs[0]
         self._browser.platform.SetHTTPServerDirectories(
                 os.path.join(self.bindir, '..', '..', 'cros'))

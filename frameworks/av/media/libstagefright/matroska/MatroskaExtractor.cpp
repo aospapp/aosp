@@ -40,7 +40,7 @@
 namespace android {
 
 struct DataSourceReader : public mkvparser::IMkvReader {
-    DataSourceReader(const sp<DataSource> &source)
+    explicit DataSourceReader(const sp<DataSource> &source)
         : mSource(source) {
     }
 
@@ -377,6 +377,16 @@ void BlockIterator::seek(
 
     *actualFrameTimeUs = -1ll;
 
+    if (seekTimeUs > INT64_MAX / 1000ll ||
+            seekTimeUs < INT64_MIN / 1000ll ||
+            (mExtractor->mSeekPreRollNs > 0 &&
+                    (seekTimeUs * 1000ll) < INT64_MIN + mExtractor->mSeekPreRollNs) ||
+            (mExtractor->mSeekPreRollNs < 0 &&
+                    (seekTimeUs * 1000ll) > INT64_MAX + mExtractor->mSeekPreRollNs)) {
+        ALOGE("cannot seek to %lld", (long long) seekTimeUs);
+        return;
+    }
+
     const int64_t seekTimeNs = seekTimeUs * 1000ll - mExtractor->mSeekPreRollNs;
 
     mkvparser::Segment* const pSegment = mExtractor->mSegment;
@@ -605,16 +615,27 @@ status_t MatroskaSource::readBlock() {
     int64_t timeUs = mBlockIter.blockTimeUs();
 
     for (int i = 0; i < block->GetFrameCount(); ++i) {
+        MatroskaExtractor::TrackInfo *trackInfo = &mExtractor->mTracks.editItemAt(mTrackIndex);
         const mkvparser::Block::Frame &frame = block->GetFrame(i);
+        size_t len = frame.len;
+        if (SIZE_MAX - len < trackInfo->mHeaderLen) {
+            return ERROR_MALFORMED;
+        }
 
-        MediaBuffer *mbuf = new MediaBuffer(frame.len);
+        len += trackInfo->mHeaderLen;
+        MediaBuffer *mbuf = new MediaBuffer(len);
+        uint8_t *data = static_cast<uint8_t *>(mbuf->data());
+        if (trackInfo->mHeader) {
+            memcpy(data, trackInfo->mHeader, trackInfo->mHeaderLen);
+        }
+
         mbuf->meta_data()->setInt64(kKeyTime, timeUs);
         mbuf->meta_data()->setInt32(kKeyIsSyncFrame, block->IsKey());
 
-        status_t err = frame.Read(mExtractor->mReader, static_cast<uint8_t *>(mbuf->data()));
+        status_t err = frame.Read(mExtractor->mReader, data + trackInfo->mHeaderLen);
         if (err == OK
                 && mExtractor->mIsWebm
-                && mExtractor->mTracks.itemAt(mTrackIndex).mEncrypted) {
+                && trackInfo->mEncrypted) {
             err = setWebmBlockCryptoInfo(mbuf);
         }
 
@@ -1164,6 +1185,42 @@ void MatroskaExtractor::getColorInformation(
     }
 }
 
+status_t MatroskaExtractor::initTrackInfo(
+        const mkvparser::Track *track, const sp<MetaData> &meta, TrackInfo *trackInfo) {
+    trackInfo->mTrackNum = track->GetNumber();
+    trackInfo->mMeta = meta;
+    trackInfo->mExtractor = this;
+    trackInfo->mEncrypted = false;
+    trackInfo->mHeader = NULL;
+    trackInfo->mHeaderLen = 0;
+
+    for(size_t i = 0; i < track->GetContentEncodingCount(); i++) {
+        const mkvparser::ContentEncoding *encoding = track->GetContentEncodingByIndex(i);
+        for(size_t j = 0; j < encoding->GetEncryptionCount(); j++) {
+            const mkvparser::ContentEncoding::ContentEncryption *encryption;
+            encryption = encoding->GetEncryptionByIndex(j);
+            trackInfo->mMeta->setData(kKeyCryptoKey, 0, encryption->key_id, encryption->key_id_len);
+            trackInfo->mEncrypted = true;
+            break;
+        }
+
+        for(size_t j = 0; j < encoding->GetCompressionCount(); j++) {
+            const mkvparser::ContentEncoding::ContentCompression *compression;
+            compression = encoding->GetCompressionByIndex(j);
+            ALOGV("compression algo %llu settings_len %lld",
+                compression->algo, compression->settings_len);
+            if (compression->algo == 3
+                    && compression->settings
+                    && compression->settings_len > 0) {
+                trackInfo->mHeader = compression->settings;
+                trackInfo->mHeaderLen = compression->settings_len;
+            }
+        }
+    }
+
+    return OK;
+}
+
 void MatroskaExtractor::addTracks() {
     const mkvparser::Tracks *tracks = mSegment->GetTracks();
 
@@ -1231,8 +1288,51 @@ void MatroskaExtractor::addTracks() {
                     continue;
                 }
 
-                meta->setInt32(kKeyWidth, vtrack->GetWidth());
-                meta->setInt32(kKeyHeight, vtrack->GetHeight());
+                const long long width = vtrack->GetWidth();
+                const long long height = vtrack->GetHeight();
+                if (width <= 0 || width > INT32_MAX) {
+                    ALOGW("track width exceeds int32_t, %lld", width);
+                    continue;
+                }
+                if (height <= 0 || height > INT32_MAX) {
+                    ALOGW("track height exceeds int32_t, %lld", height);
+                    continue;
+                }
+                meta->setInt32(kKeyWidth, (int32_t)width);
+                meta->setInt32(kKeyHeight, (int32_t)height);
+
+                // setting display width/height is optional
+                const long long displayUnit = vtrack->GetDisplayUnit();
+                const long long displayWidth = vtrack->GetDisplayWidth();
+                const long long displayHeight = vtrack->GetDisplayHeight();
+                if (displayWidth > 0 && displayWidth <= INT32_MAX
+                        && displayHeight > 0 && displayHeight <= INT32_MAX) {
+                    switch (displayUnit) {
+                    case 0: // pixels
+                        meta->setInt32(kKeyDisplayWidth, (int32_t)displayWidth);
+                        meta->setInt32(kKeyDisplayHeight, (int32_t)displayHeight);
+                        break;
+                    case 1: // centimeters
+                    case 2: // inches
+                    case 3: // aspect ratio
+                    {
+                        // Physical layout size is treated the same as aspect ratio.
+                        // Note: displayWidth and displayHeight are never zero as they are
+                        // checked in the if above.
+                        const long long computedWidth =
+                                std::max(width, height * displayWidth / displayHeight);
+                        const long long computedHeight =
+                                std::max(height, width * displayHeight / displayWidth);
+                        if (computedWidth <= INT32_MAX && computedHeight <= INT32_MAX) {
+                            meta->setInt32(kKeyDisplayWidth, (int32_t)computedWidth);
+                            meta->setInt32(kKeyDisplayHeight, (int32_t)computedHeight);
+                        }
+                        break;
+                    }
+                    default: // unknown display units, perhaps future version of spec.
+                        break;
+                    }
+                }
 
                 getColorInformation(vtrack, meta);
 
@@ -1288,21 +1388,7 @@ void MatroskaExtractor::addTracks() {
         mTracks.push();
         size_t n = mTracks.size() - 1;
         TrackInfo *trackInfo = &mTracks.editItemAt(n);
-        trackInfo->mTrackNum = track->GetNumber();
-        trackInfo->mMeta = meta;
-        trackInfo->mExtractor = this;
-
-        trackInfo->mEncrypted = false;
-        for(size_t i = 0; i < track->GetContentEncodingCount() && !trackInfo->mEncrypted; i++) {
-            const mkvparser::ContentEncoding *encoding = track->GetContentEncodingByIndex(i);
-            for(size_t j = 0; j < encoding->GetEncryptionCount(); j++) {
-                const mkvparser::ContentEncoding::ContentEncryption *encryption;
-                encryption = encoding->GetEncryptionByIndex(j);
-                meta->setData(kKeyCryptoKey, 0, encryption->key_id, encryption->key_id_len);
-                trackInfo->mEncrypted = true;
-                break;
-            }
-        }
+        initTrackInfo(track, meta, trackInfo);
 
         if (!strcmp("V_MPEG4/ISO/AVC", codecID) && codecPrivateSize == 0) {
             // Attempt to recover from AVC track without codec private data

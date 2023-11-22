@@ -131,7 +131,7 @@ public class EditInfoActivityTest extends ActivityInstrumentationTestCase2<EditI
         });
 
         String unknownName = editInfoActivity.getResources().getString(R.string.unknown_name);
-        String unknownAddress = getActivity().getResources().getString(R.string.unknown_address);
+        String unknownAddress = editInfoActivity.getResources().getString(R.string.unknown_address);
         String unknownBloodType =
                 editInfoActivity.getResources().getString(R.string.unknown_blood_type);
         String unknownAllergies =
@@ -153,13 +153,11 @@ public class EditInfoActivityTest extends ActivityInstrumentationTestCase2<EditI
         assertEquals(1, emergencyContactsPreference.getEmergencyContacts().size());
         assertEquals(1, emergencyContactsPreference.getPreferenceCount());
 
-
         EditInfoActivity.ClearAllDialogFragment clearAllDialogFragment =
                 (EditInfoActivity.ClearAllDialogFragment) editInfoActivity.getFragmentManager()
                         .findFragmentByTag(EditInfoActivity.TAG_CLEAR_ALL_DIALOG);
         assertNull(clearAllDialogFragment);
-        getInstrumentation().invokeMenuActionSync(editInfoActivity, R.id.action_clear_all,
-                0 /* flags */);
+        editInfoActivity.getMenu().performIdentifierAction(R.id.action_clear_all, 0 /* flags */);
         getInstrumentation().waitForIdleSync();
         final EditInfoActivity.ClearAllDialogFragment clearAllDialogFragmentAfterwards =
                 (EditInfoActivity.ClearAllDialogFragment) editInfoActivity.getFragmentManager()
@@ -177,15 +175,46 @@ public class EditInfoActivityTest extends ActivityInstrumentationTestCase2<EditI
         });
         getInstrumentation().waitForIdleSync();
 
-        assertEquals(unknownName, namePreference.getSummary());
-        assertEquals(unknownAddress, addressPreference.getSummary());
-        assertEquals(unknownBloodType, bloodTypePreference.getSummary().toString());
-        assertEquals(unknownAllergies, allergiesPreference.getSummary());
-        assertEquals(unknownMedications, medicationsPreference.getSummary());
-        assertEquals(unknownMedicalConditions, medicalConditionsPreference.getSummary());
-        assertEquals(unknownOrganDonor, organDonorPreference.getSummary());
-        assertEquals(0, emergencyContactsPreference.getEmergencyContacts().size());
-        assertEquals(0, emergencyContactsPreference.getPreferenceCount());
+	assertEquals(mFragments, editInfoActivity.getFragments());
+
+        // After clearing all the preferences, onCreate is called for both fragments.
+        // This makes the preferences point to old ones. Here we load what the user
+        // is seeing
+        final NameAutoCompletePreference namePreferenceAfterClear =
+                (NameAutoCompletePreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_NAME);
+        final EmergencyEditTextPreference addressPreferenceAfterClear =
+                (EmergencyEditTextPreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_ADDRESS);
+        final EmergencyListPreference bloodTypePreferenceAfterClear =
+                (EmergencyListPreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_BLOOD_TYPE);
+        final EmergencyEditTextPreference allergiesPreferenceAfterClear =
+                (EmergencyEditTextPreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_ALLERGIES);
+        final EmergencyEditTextPreference medicationsPreferenceAfterClear =
+                (EmergencyEditTextPreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_MEDICATIONS);
+        final EmergencyEditTextPreference medicalConditionsPreferenceAfterClear =
+                (EmergencyEditTextPreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_MEDICAL_CONDITIONS);
+        final EmergencyListPreference organDonorPreferenceAfterClear =
+                (EmergencyListPreference) mEditEmergencyInfoFragment
+                        .findPreference(PreferenceKeys.KEY_ORGAN_DONOR);
+
+        final EmergencyContactsPreference emergencyContactsPreferenceAfterClear =
+                (EmergencyContactsPreference) mEditEmergencyContactsFragment
+                        .findPreference(PreferenceKeys.KEY_EMERGENCY_CONTACTS);
+
+        assertEquals(unknownName, namePreferenceAfterClear.getSummary());
+        assertEquals(unknownAddress, addressPreferenceAfterClear.getSummary());
+        assertEquals(unknownBloodType, bloodTypePreferenceAfterClear.getSummary().toString());
+        assertEquals(unknownAllergies, allergiesPreferenceAfterClear.getSummary());
+        assertEquals(unknownMedications, medicationsPreferenceAfterClear.getSummary());
+        assertEquals(unknownMedicalConditions, medicalConditionsPreferenceAfterClear.getSummary());
+        assertEquals(unknownOrganDonor, organDonorPreferenceAfterClear.getSummary());
+        assertEquals(0, emergencyContactsPreferenceAfterClear.getEmergencyContacts().size());
+        assertEquals(0, emergencyContactsPreferenceAfterClear.getPreferenceCount());
 
         assertTrue(ContactTestUtils
                 .deleteContact(getActivity().getContentResolver(), "Michael", "789"));

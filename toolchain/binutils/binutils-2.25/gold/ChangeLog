@@ -1,3 +1,75 @@
+2016-10-21  Gergely Nagy  <ngg@tresorit.com>
+
+	PR gold/17704
+	* icf.cc (match_sections): Add new parameter section_addraligns.
+	Check section alignment and keep the section with the strictest
+	alignment.
+	(find_identical_sections): New local variable section_addraligns.
+	Store each section's alignment.
+	* testsuite/pr17704a_test.s: New file.
+	* testsuite/Makefile.am (pr17704a_test): New test.
+	* testsuite/Makefile.in: Regenerate.
+
+2015-07-20  Yiran Wang  <yiran@google.com>
+	Cary Coutant  <ccoutant@gmail.com>
+
+	PR gold/15574
+	* resolve.cc (Symbol_table): Remove warning about references
+	from shared objects to hidden symbols.
+	* testsuite/Makefile.am (hidden_test): Add hidden_test.syms.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/hidden_test.sh: Check dynamic symbol table; update
+	expected error messages.
+
+2016-06-28 Rahul Chaudhry  <rahulchaudhry@google.com>
+
+	Revert patch -- to be replaced by the upstream patch with tests.
+
+	2015-06-16  Yiran Wang <yiran@google.com>
+
+	    * resolve.cc disable the warning of a hidden symbol matches a
+	    reference to be resolved
+
+2016-02-05  Sriraman Tallam  <tmsriram@google.com>
+
+        * icf.cc (get_rel_addend): New function.
+        (get_section_contents):  Move merge section addend computation to a
+        new function.  Ignore negative values for SHT_REL and SHT_RELA addends.
+        Fix bug to not read past the length of the section.
+
+    Fix bug related to addend computation for MERGE sections.
+
+
+2016-02-26  Egor Kochetov  <egor.kochetov@intel.com>
+	    Cary Coutant  <ccoutant@gmail.com>
+
+	PR gold/19735
+	* ehframe.h (Cie::fde_encoding): New method.
+	* ehframe.cc (Eh_frame::read_fde): Discard FDEs for zero-length
+	address ranges.
+
+2016-02-11 Rahul Chaudhry  <rahulchaudhry@google.com>
+
+	* aarch64.cc (Target_aarch64::scan_erratum_843419_span): Remove
+	info message for every erratum 843419 found and fixed.
+
+2015-12-17  Peter Collingbourne  <pcc@google.com>
+
+	PR gold/18780
+	* arm.cc (Target_arm::do_make_data_plt): Choose PLT generator based
+	on value of --long-plt flag.
+	(Output_data_plt_arm_standard::do_get_plt_entry_size): Moved to
+	Output_data_plt_arm_short.
+	(Output_data_plt_arm_standard::do_fill_plt_entry): Likewise.
+	(Output_data_plt_arm_standard::plt_entry): Likewise.
+	(Output_data_plt_arm_standard::do_fill_first_plt_entry): Fix
+	variable reference.
+	(Output_data_plt_arm_short): New class.
+	(Output_data_plt_arm_short::do_fill_plt_entry): Error out on too large
+	PLT offsets instead of asserting.
+	(Output_data_plt_arm_long): New class.
+	* options.h (General_options): Define --long-plt flag.
+
 2016-01-15 Han Shen  <shenhan@google.com>
 
 	PR gold/19472 - need pc-relative stubs.

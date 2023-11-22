@@ -1,5 +1,0 @@
-set (libname "am2315")
-set (libdescription "libupm Humidity Sensor")
-set (module_src ${libname}.cpp)
-set (module_h ${libname}.h)
-upm_module_init()

@@ -87,16 +87,20 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Контактні особи для екстрених ситуацій"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Додати контакт"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Не вдалося знайти засіб вибору контактів"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Неможливо показати контакт"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Видалити контакта <xliff:g id="CONTACT_NAME">%1$s</xliff:g> зі списку контактів для екстрених ситуацій?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Видалити контакта"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Не вдалося переглянути контактну інформацію належним чином"</string>
     <string name="remove" msgid="1243949503772376064">"Видалити"</string>
     <string name="cancel" msgid="7401575239009060939">"Скасувати"</string>
     <string name="ok" msgid="163967937451981024">"ОК"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="user_emergency_info_title" msgid="7827058167207376581">"Дані для екстр. вип."</string>
+    <string name="user_emergency_info_title" msgid="7827058167207376581">"Для екстрених випадків"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Інформація, яку ви тут вводите, може допомогти в надзвичайних ситуаціях. Вона зберігається лише на вашому пристрої, але її може прочитати будь-яка людина навіть на заблокованому телефоні, відкривши екран екстреного виклику."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Продовжити"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Дані для екстрених випадків не вказано"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Немає інформації про власника телефона"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Якщо це ваш телефон, торкніться значка олівця, щоб додати інформацію, яка відображатиметься тут в екстреній ситуації"</string>
     <string name="clear_all" msgid="8899013032870561633">"Очистити все"</string>
     <string name="clear" msgid="3648880442502887163">"Очистити"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Очистити всю інформацію та контакти?"</string>

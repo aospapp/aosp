@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Thông báo khẩn cấp"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Chương trình phát sóng trên điện thoại di động"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Cài đặt thông báo khẩn cấp"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Thông báo truyền phát"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Bật thông báo"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Hiển thị các chương trình phát sóng báo động khẩn cấp"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Lời nhắc thông báo"</string>

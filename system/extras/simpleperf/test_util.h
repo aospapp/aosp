@@ -15,7 +15,9 @@
  */
 
 #include <map>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "read_elf.h"
 #include "workload.h"
@@ -26,3 +28,14 @@ void CreateProcesses(size_t count, std::vector<std::unique_ptr<Workload>>* workl
 
 void ParseSymbol(const ElfFileSymbol& symbol, std::map<std::string, ElfFileSymbol>* symbols);
 void CheckElfFileSymbols(const std::map<std::string, ElfFileSymbol>& symbols);
+
+bool IsRoot();
+
+#define TEST_IN_ROOT(TestStatement)                                                                \
+  do {                                                                                             \
+    if (IsRoot()) {                                                                                \
+      TestStatement;                                                                               \
+    } else {                                                                                       \
+      GTEST_LOG_(INFO) << "Didn't test \"" << #TestStatement << "\" requires root privileges";     \
+    }                                                                                              \
+  } while (0)

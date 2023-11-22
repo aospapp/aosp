@@ -22,7 +22,7 @@
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Apel nepreluat"</string>
     <string name="notification_missedWorkCallTitle" msgid="6242489980390803090">"Apel de serviciu nepreluat"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Apeluri nepreluate"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> (de) apeluri nepreluate"</string>
+    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> apeluri nepreluate"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"Apel nepreluat de la <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
     <string name="notification_missedCall_call_back" msgid="2684890353590890187">"Sunați"</string>
     <string name="notification_missedCall_message" msgid="3049928912736917988">"Mesaj"</string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"Numărul de urgență nu poate fi blocat."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> este deja blocat."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Utilizarea telefonului personal pentru a apela"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Apel <xliff:g id="CALL_VIA">%1$s</xliff:g> de la <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Apel video <xliff:g id="CALL_VIA">%1$s</xliff:g> de la <xliff:g id="CALL_FROM">%2$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Dacă răspundeți, apelul dvs. <xliff:g id="CALL_VIA">%1$s</xliff:g> va fi încheiat."</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Dacă răspundeți, apelurile dvs. <xliff:g id="CALL_VIA">%1$s</xliff:g> vor fi încheiate."</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Dacă răspundeți, apelul video <xliff:g id="CALL_VIA">%1$s</xliff:g> va fi încheiat."</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Dacă răspundeți, apelul în curs va fi încheiat."</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Dacă răspundeți, apelurile în curs vor fi încheiate."</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Dacă răspundeți, apelul video în curs va fi încheiat."</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Răspundeți"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Respingeți"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Apelul nu poate fi inițiat din cauza apelului <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Apelul nu poate fi inițiat din cauza apelurilor <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Apelul nu poate fi inițiat din cauza unui apel din altă aplicație."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Apeluri primite"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Apeluri nepreluate"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Dacă inițiați acest apel, cel din <xliff:g id="OTHER_APP">%1$s</xliff:g> va fi încheiat."</string>
 </resources>

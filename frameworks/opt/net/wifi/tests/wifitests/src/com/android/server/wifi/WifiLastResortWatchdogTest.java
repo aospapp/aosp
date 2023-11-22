@@ -41,7 +41,7 @@ import java.util.List;
 public class WifiLastResortWatchdogTest {
     WifiLastResortWatchdog mLastResortWatchdog;
     @Mock WifiMetrics mWifiMetrics;
-    @Mock WifiController mWifiController;
+    @Mock SelfRecovery mSelfRecovery;
     private String[] mSsids = {"\"test1\"", "\"test2\"", "\"test3\"", "\"test4\""};
     private String[] mBssids = {"6c:f3:7f:ae:8c:f3", "6c:f3:7f:ae:8c:f4", "de:ad:ba:b1:e5:55",
             "c0:ff:ee:ee:e3:ee"};
@@ -55,8 +55,7 @@ public class WifiLastResortWatchdogTest {
     @Before
     public void setUp() throws Exception {
         initMocks(this);
-        mLastResortWatchdog = new WifiLastResortWatchdog(mWifiMetrics);
-        mLastResortWatchdog.setWifiController(mWifiController);
+        mLastResortWatchdog = new WifiLastResortWatchdog(mSelfRecovery, mWifiMetrics);
     }
 
     private List<Pair<ScanDetail, WifiConfiguration>> createFilteredQnsCandidates(String[] ssids,
@@ -1280,8 +1279,8 @@ public class WifiLastResortWatchdogTest {
                     ssids[ssids.length - 1], bssids[ssids.length - 1],
                     WifiLastResortWatchdog.FAILURE_CODE_ASSOCIATION);
         assertEquals(true, watchdogTriggered);
-        verify(mWifiController).sendMessage(WifiController.CMD_RESTART_WIFI);
-        reset(mWifiController);
+        verify(mSelfRecovery).trigger(eq(SelfRecovery.REASON_LAST_RESORT_WATCHDOG));
+        reset(mSelfRecovery);
     }
 
     /**
@@ -1440,7 +1439,7 @@ public class WifiLastResortWatchdogTest {
         int[] levels = {-60, -86, -50, -62, -60};
         boolean[] isEphemeral = {false, false, false, false, false};
         boolean[] hasEverConnected = {true, false, false, false, false};
-        // Buffer potential candidates 1,2,3 & 4
+        // Buffer potential candidates 1,2,3,4 & 5
         List<Pair<ScanDetail, WifiConfiguration>> candidates = createFilteredQnsCandidates(ssids,
                 bssids, frequencies, caps, levels, isEphemeral, hasEverConnected);
         mLastResortWatchdog.updateAvailableNetworks(candidates);
@@ -1450,7 +1449,7 @@ public class WifiLastResortWatchdogTest {
             assertFailureCountEquals(bssids[i], 0, 0, 0);
         }
 
-        //Increment failure count for the first test network ssid & bssid
+        //Increment failure counts
         for (int i = 0; i < WifiLastResortWatchdog.FAILURE_THRESHOLD; i++) {
             mLastResortWatchdog.noteConnectionFailureAndTriggerIfNeeded(
                     ssids[1], bssids[1], WifiLastResortWatchdog.FAILURE_CODE_AUTHENTICATION);
@@ -1478,6 +1477,58 @@ public class WifiLastResortWatchdogTest {
         verify(mWifiMetrics, times(1)).incrementNumLastResortWatchdogTriggersWithBadAssociation();
         verify(mWifiMetrics, times(1)).addCountToNumLastResortWatchdogBadDhcpNetworksTotal(3);
         verify(mWifiMetrics, times(1)).incrementNumLastResortWatchdogTriggersWithBadDhcp();
+
+        // Simulate wifi connecting after triggering
+        mLastResortWatchdog.connectedStateTransition(true);
+
+        // Verify that WifiMetrics counted this as a Watchdog success
+        verify(mWifiMetrics, times(1)).incrementNumLastResortWatchdogSuccesses();
+
+        // Simulate wifi disconnecting
+        mLastResortWatchdog.connectedStateTransition(false);
+
+        // Verify that WifiMetrics has still only counted one success
+        verify(mWifiMetrics, times(1)).incrementNumLastResortWatchdogSuccesses();
+
+        // Remove the fifth network from candidates
+        candidates = createFilteredQnsCandidates(Arrays.copyOfRange(mSsids, 0, 4),
+            Arrays.copyOfRange(mBssids, 0, 4),
+            Arrays.copyOfRange(mFrequencies, 0, 4),
+            Arrays.copyOfRange(mCaps, 0, 4),
+            Arrays.copyOfRange(mLevels, 0, 4),
+            Arrays.copyOfRange(mIsEphemeral, 0, 4));
+
+        // Age out the fifth network
+        for (int i = 0; i < WifiLastResortWatchdog.MAX_BSSID_AGE; i++) {
+            mLastResortWatchdog.updateAvailableNetworks(candidates);
+        }
+
+        //Increment failure counts
+        for (int i = 0; i < WifiLastResortWatchdog.FAILURE_THRESHOLD; i++) {
+            mLastResortWatchdog.noteConnectionFailureAndTriggerIfNeeded(
+                    ssids[1], bssids[1], WifiLastResortWatchdog.FAILURE_CODE_AUTHENTICATION);
+            mLastResortWatchdog.noteConnectionFailureAndTriggerIfNeeded(
+                    ssids[2], bssids[2], WifiLastResortWatchdog.FAILURE_CODE_DHCP);
+            mLastResortWatchdog.noteConnectionFailureAndTriggerIfNeeded(
+                    ssids[3], bssids[3], WifiLastResortWatchdog.FAILURE_CODE_DHCP);
+            mLastResortWatchdog.noteConnectionFailureAndTriggerIfNeeded(
+                    ssids[0], bssids[0], WifiLastResortWatchdog.FAILURE_CODE_ASSOCIATION);
+        }
+
+        // Add network #5 back into the candidates
+        candidates = createFilteredQnsCandidates(ssids,
+                bssids, frequencies, caps, levels, isEphemeral, hasEverConnected);
+
+        // LastResortWatchdog should reactivate because there is a new network (#5) available,
+        // Not because it was successful
+        mLastResortWatchdog.updateAvailableNetworks(candidates);
+
+        // Simulate wifi connecting
+        mLastResortWatchdog.connectedStateTransition(true);
+
+        // Verify that WifiMetrics did not count another success, as the connection could be due
+        // to the newly available network #5
+        verify(mWifiMetrics, times(1)).incrementNumLastResortWatchdogSuccesses();
     }
 
     /**

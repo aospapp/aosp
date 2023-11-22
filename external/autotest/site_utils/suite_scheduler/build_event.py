@@ -5,7 +5,8 @@
 import common
 from autotest_lib.client.common_lib import priorities
 
-import base_event, forgiving_config_parser, manifest_versions, task
+import base_event, task
+
 
 class BuildEvent(base_event.BaseEvent):
     """Base class for events that come from the build system.
@@ -79,7 +80,20 @@ class BuildEvent(base_event.BaseEvent):
         return self._AllPerBranchBuildsSince(board, self._revision)
 
 
+    def GetLaunchControlBuildsForBoard(self, board):
+        """Get per-branch, per-board builds since last run of this event.
+
+        @param board: the board whose builds we want.
+
+        @return: A list of Launch Control builds for the given board, e.g.,
+                ['git_mnc_release/shamu-eng/123',
+                 'git_mnc_release/shamu-eng/124'].
+        """
+        return self._LatestLaunchControlBuilds(board)
+
+
 class NewBuild(BuildEvent):
+    """Event to trigger when new builds are available from the build system."""
     KEYWORD = 'new_build'
     PRIORITY = priorities.Priority.POSTBUILD
     TIMEOUT = 12  # 12 hours, and builds come out every 6

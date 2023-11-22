@@ -33,10 +33,11 @@ class graphics_WebGLManyPlanetsDeep(test.test):
         if self.GSC:
             keyvals = self.GSC.get_memory_keyvals()
             for key, val in keyvals.iteritems():
-                self.output_perf_value(description=key,
-                                       value=val,
-                                       units='bytes',
-                                       higher_is_better=False)
+                self.output_perf_value(
+                    description=key,
+                    value=val,
+                    units='bytes',
+                    higher_is_better=False)
             self.GSC.finalize()
             self.write_perf_keyval(keyvals)
 
@@ -48,7 +49,7 @@ class graphics_WebGLManyPlanetsDeep(test.test):
         """
         if not utils.wait_for_idle_cpu(60.0, 0.1):
             if not utils.wait_for_idle_cpu(20.0, 0.2):
-                raise error.TestFail('Could not get idle CPU.')
+                raise error.TestFail('Failed: Could not get idle CPU.')
 
         tab = browser.tabs.New()
         tab.Navigate(test_url)
@@ -89,10 +90,11 @@ class graphics_WebGLManyPlanetsDeep(test.test):
             'js_render_time_ms_std': std[1],
             'js_render_time_ms_mean': mean[1]
         })
-        self.output_perf_value(description='average_fps',
-                               value=avg_fps,
-                               units='fps',
-                               higher_is_better=True)
+        self.output_perf_value(
+            description='average_fps',
+            value=avg_fps,
+            units='fps',
+            higher_is_better=True)
 
         with open('frame_data', 'w') as f:
             line_format = '%10s %20s %20s %20s\n'
@@ -100,9 +102,9 @@ class graphics_WebGLManyPlanetsDeep(test.test):
                                    'js_render_time_ms'))
             for k in sorted(self.frame_data.keys()):
                 d = self.frame_data[k]
-                f.write(line_format %
-                        (k, d['start_time'], d['frame_elapsed_time'],
-                         d['js_elapsed_time']))
+                f.write(line_format % (k, d['start_time'],
+                                       d['frame_elapsed_time'],
+                                       d['js_elapsed_time']))
 
     def run_once(self, test_duration_secs=30, fullscreen=True):
         """Finds a brower with telemetry, and run the test.
@@ -115,15 +117,18 @@ class graphics_WebGLManyPlanetsDeep(test.test):
 
         ext_paths = []
         if fullscreen:
-            ext_paths.append(os.path.join(self.autodir, 'deps', 'graphics',
-                                          'graphics_test_extension'))
+            ext_paths.append(
+                os.path.join(self.autodir, 'deps', 'graphics',
+                             'graphics_test_extension'))
 
-        with chrome.Chrome(logged_in=False, extension_paths=ext_paths) as cr:
+        with chrome.Chrome(logged_in=False,
+                           extension_paths=ext_paths,
+                           init_network_controller=True) as cr:
             websrc_dir = os.path.join(self.autodir, 'deps', 'webgl_mpd', 'src')
             if not cr.browser.platform.SetHTTPServerDirectories(websrc_dir):
-                raise error.TestError('Unable to start HTTP server')
-            test_url = cr.browser.platform.http_server.UrlOf(os.path.join(
-                websrc_dir, 'ManyPlanetsDeep.html'))
+                raise error.TestFail('Failed: Unable to start HTTP server')
+            test_url = cr.browser.platform.http_server.UrlOf(
+                os.path.join(websrc_dir, 'ManyPlanetsDeep.html'))
             self.run_many_planets_deep_test(cr.browser, test_url)
 
         self.calculate_perf_values()

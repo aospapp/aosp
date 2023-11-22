@@ -16,13 +16,25 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+
 import android.app.Activity;
 import android.app.ActivityGroup;
+import android.app.Instrumentation;
 import android.content.Intent;
-import android.cts.util.WidgetTestUtils;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.TabHost;
@@ -30,41 +42,55 @@ import android.widget.TabHost.OnTabChangeListener;
 import android.widget.TabHost.TabSpec;
 import android.widget.TextView;
 
-import static org.mockito.Mockito.*;
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link TabHost}.
  */
 @SmallTest
-public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActivity> {
+@RunWith(AndroidJUnit4.class)
+public class TabHostTest {
     private static final String TAG_TAB1 = "tab 1";
     private static final String TAG_TAB2 = "tab 2";
     private static final int TAB_HOST_ID = android.R.id.tabhost;
 
+    private Instrumentation mInstrumentation;
     private TabHostCtsActivity mActivity;
 
-    public TabHostTest() {
-        super("android.widget.cts", TabHostCtsActivity.class);
+    @Rule
+    public ActivityTestRule<TabHostCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TabHostCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new TabHost(mActivity);
 
         new TabHost(mActivity, null);
     }
 
+    @Test
     public void testNewTabSpec() {
         TabHost tabHost = new TabHost(mActivity);
 
         assertNotNull(tabHost.newTabSpec(TAG_TAB2));
+    }
 
-        assertNotNull(tabHost.newTabSpec(null));
+    @Test(expected=IllegalArgumentException.class)
+    public void testNewTabSpecWithNullTag() {
+        TabHost tabHost = new TabHost(mActivity);
+
+        tabHost.newTabSpec(null);
     }
 
     /*
@@ -72,28 +98,31 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
      * 1. the tabWidget view and tabContent view associated with tabHost are created.
      * 2. no exception occurs when doing normal operation after setup().
      */
+    @Test
     public void testSetup1() throws Throwable {
-        final Activity activity = launchActivity("android.widget.cts", CtsActivity.class, null);
+        final Intent launchIntent = new Intent(Intent.ACTION_MAIN);
+        launchIntent.setClassName("android.widget.cts", CtsActivity.class.getName());
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final Activity activity = mInstrumentation.startActivitySync(launchIntent);
+        mInstrumentation.waitForIdleSync();
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                activity.setContentView(R.layout.tabhost_layout);
+        mActivityRule.runOnUiThread(() -> {
+            activity.setContentView(R.layout.tabhost_layout);
 
-                TabHost tabHost = (TabHost) activity.findViewById(TAB_HOST_ID);
-                assertNull(tabHost.getTabWidget());
-                assertNull(tabHost.getTabContentView());
-                tabHost.setup();
-                assertNotNull(tabHost.getTabWidget());
-                assertNotNull(tabHost.getTabContentView());
+            TabHost tabHost = (TabHost) activity.findViewById(TAB_HOST_ID);
+            assertNull(tabHost.getTabWidget());
+            assertNull(tabHost.getTabContentView());
+            tabHost.setup();
+            assertNotNull(tabHost.getTabWidget());
+            assertNotNull(tabHost.getTabContentView());
 
-                TabSpec tabSpec = tabHost.newTabSpec(TAG_TAB1);
-                tabSpec.setIndicator(TAG_TAB1);
-                tabSpec.setContent(new MyTabContentFactoryList());
-                tabHost.addTab(tabSpec);
-                tabHost.setCurrentTab(0);
-            }
+            TabSpec tabSpec = tabHost.newTabSpec(TAG_TAB1);
+            tabSpec.setIndicator(TAG_TAB1);
+            tabSpec.setContent(new MyTabContentFactoryList());
+            tabHost.addTab(tabSpec);
+            tabHost.setCurrentTab(0);
         });
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
 
         activity.finish();
     }
@@ -103,41 +132,40 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
      * 1. the tabWidget view and tabContent view associated with tabHost are created.
      * 2. no exception occurs when uses TabSpec.setContent(android.content.Intent) after setup().
      */
+    @Test
     public void testSetup2() throws Throwable {
-        final ActivityGroup activity = launchActivity("android.widget.cts",
-                ActivityGroup.class, null);
+        final Intent launchIntent = new Intent(Intent.ACTION_MAIN);
+        launchIntent.setClassName("android.widget.cts", ActivityGroup.class.getName());
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final ActivityGroup activity =
+                (ActivityGroup) mInstrumentation.startActivitySync(launchIntent);
+        mInstrumentation.waitForIdleSync();
 
+        mActivityRule.runOnUiThread(() -> {
+            activity.setContentView(R.layout.tabhost_layout);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                activity.setContentView(R.layout.tabhost_layout);
+            TabHost tabHost = (TabHost) activity.findViewById(TAB_HOST_ID);
+            assertNull(tabHost.getTabWidget());
+            assertNull(tabHost.getTabContentView());
+            tabHost.setup(activity.getLocalActivityManager());
+            assertNotNull(tabHost.getTabWidget());
+            assertNotNull(tabHost.getTabContentView());
 
-                TabHost tabHost = (TabHost) activity.findViewById(TAB_HOST_ID);
-                assertNull(tabHost.getTabWidget());
-                assertNull(tabHost.getTabContentView());
-                tabHost.setup(activity.getLocalActivityManager());
-                assertNotNull(tabHost.getTabWidget());
-                assertNotNull(tabHost.getTabContentView());
-
-                TabSpec tabSpec = tabHost.newTabSpec(TAG_TAB1);
-                tabSpec.setIndicator(TAG_TAB1);
-                Intent intent = new Intent(Intent.ACTION_VIEW, null,
-                        mActivity, CtsActivity.class);
-                tabSpec.setContent(intent);
-                tabHost.addTab(tabSpec);
-                tabHost.setCurrentTab(0);
-            }
+            TabSpec tabSpec = tabHost.newTabSpec(TAG_TAB1);
+            tabSpec.setIndicator(TAG_TAB1);
+            Intent intent = new Intent(Intent.ACTION_VIEW, null,
+                    mActivity, CtsActivity.class);
+            tabSpec.setContent(intent);
+            tabHost.addTab(tabSpec);
+            tabHost.setCurrentTab(0);
         });
-        getInstrumentation().waitForIdleSync();
+        mInstrumentation.waitForIdleSync();
 
         activity.finish();
     }
 
-    public void testOnTouchModeChanged() {
-        // implementation details
-    }
-
     @UiThreadTest
+    @Test
     public void testAddTab() {
         TabHost tabHost = mActivity.getTabHost();
         // there is a initial tab
@@ -151,27 +179,38 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
         tabHost.setCurrentTab(1);
         assertTrue(tabHost.getCurrentView() instanceof ListView);
         assertEquals(TAG_TAB2, tabHost.getCurrentTabTag());
-
-        try {
-            tabHost.addTab(tabHost.newTabSpec("tab 3"));
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
-
-        try {
-            tabHost.addTab(tabHost.newTabSpec("tab 3").setIndicator("tab 3"));
-            fail("Should throw IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-        }
-
-        try {
-            tabHost.addTab(null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-        }
     }
 
     @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddTabNoIndicatorNoContent() {
+        TabHost tabHost = mActivity.getTabHost();
+        tabHost.addTab(tabHost.newTabSpec("tab 3"));
+    }
+
+    @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddTabNoContent() {
+        TabHost tabHost = mActivity.getTabHost();
+        tabHost.addTab(tabHost.newTabSpec("tab 3").setIndicator("tab 3"));
+    }
+
+    @UiThreadTest
+    @Test(expected=IllegalArgumentException.class)
+    public void testAddTabNoIndicator() {
+        TabHost tabHost = mActivity.getTabHost();
+        tabHost.addTab(tabHost.newTabSpec("tab 3").setContent(new MyTabContentFactoryText()));
+    }
+
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testAddTabNull() {
+        TabHost tabHost = mActivity.getTabHost();
+        tabHost.addTab(null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testClearAllTabs() {
         TabHost tabHost = mActivity.getTabHost();
         MyTabContentFactoryText tcf = new MyTabContentFactoryText();
@@ -191,20 +230,19 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
         assertNull(tabHost.getCurrentView());
     }
 
+    @Test
     public void testGetTabWidget() {
         TabHost tabHost = mActivity.getTabHost();
 
         // The attributes defined in tabhost_layout.xml
         assertEquals(android.R.id.tabs, tabHost.getTabWidget().getId());
-        WidgetTestUtils.assertScaledPixels(1, tabHost.getTabWidget().getPaddingLeft(),
-                getActivity());
-        WidgetTestUtils.assertScaledPixels(1, tabHost.getTabWidget().getPaddingRight(),
-                getActivity());
-        WidgetTestUtils.assertScaledPixels(4, tabHost.getTabWidget().getPaddingTop(),
-                getActivity());
+        WidgetTestUtils.assertScaledPixels(1, tabHost.getTabWidget().getPaddingLeft(), mActivity);
+        WidgetTestUtils.assertScaledPixels(1, tabHost.getTabWidget().getPaddingRight(), mActivity);
+        WidgetTestUtils.assertScaledPixels(4, tabHost.getTabWidget().getPaddingTop(), mActivity);
     }
 
     @UiThreadTest
+    @Test
     public void testAccessCurrentTab() {
         TabHost tabHost = mActivity.getTabHost();
         assertEquals(0, tabHost.getCurrentTab());
@@ -227,6 +265,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
     }
 
     @UiThreadTest
+    @Test
     public void testGetCurrentTabView() {
         TabHost tabHost = mActivity.getTabHost();
         // current tab view is the first child of tabWidget.
@@ -242,6 +281,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
     }
 
     @UiThreadTest
+    @Test
     public void testGetCurrentView() {
         TabHost tabHost = mActivity.getTabHost();
         TextView textView = (TextView) tabHost.getCurrentView();
@@ -256,6 +296,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
     }
 
     @UiThreadTest
+    @Test
     public void testSetCurrentTabByTag() {
         TabHost tabHost = mActivity.getTabHost();
 
@@ -280,6 +321,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
     }
 
     @UiThreadTest
+    @Test
     public void testGetTabContentView() {
         TabHost tabHost = mActivity.getTabHost();
         assertEquals(3, tabHost.getTabContentView().getChildCount());
@@ -309,22 +351,13 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
         assertEquals(TabHostCtsActivity.INITIAL_VIEW_TEXT, child2.getText().toString());
     }
 
-    @UiThreadTest
-    public void testDispatchKeyEvent() {
-        // Implementation details.
-    }
-
-    @UiThreadTest
-    public void testDispatchWindowFocusChanged() {
-        // Implementation details
-    }
-
     /**
      * Check points:
      * 1. the specified callback should be invoked when the selected state of any of the items
      * in this list changes
      */
     @UiThreadTest
+    @Test
     public void testSetOnTabChangedListener() {
         TabHost tabHost = mActivity.getTabHost();
 
@@ -349,6 +382,7 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
     }
 
     @UiThreadTest
+    @Test
     public void testGetCurrentTabTag() {
         TabHost tabHost = mActivity.getTabHost();
         assertEquals(TabHostCtsActivity.INITIAL_TAB_TAG, tabHost.getCurrentTabTag());
@@ -359,11 +393,6 @@ public class TabHostTest extends ActivityInstrumentationTestCase2<TabHostCtsActi
         tabHost.addTab(tabSpec);
         tabHost.setCurrentTab(1);
         assertEquals(TAG_TAB2, tabHost.getCurrentTabTag());
-    }
-
-    @UiThreadTest
-    public void testOnAttachedToAndDetachedFromWindow() {
-        // implementation details
     }
 
     private class MyTabContentFactoryText implements TabHost.TabContentFactory {

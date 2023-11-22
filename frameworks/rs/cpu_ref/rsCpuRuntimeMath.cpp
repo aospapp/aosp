@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include <cutils/compiler.h>
-#endif
-
 #include "rsContext.h"
 #include "rsScriptC.h"
 #include "rsMatrix4x4.h"
@@ -27,8 +23,9 @@
 #include "rsCpuCore.h"
 #include "rsCpuScript.h"
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Matrix2x2;
+using android::renderscript::Matrix3x3;
+using android::renderscript::Matrix4x4;
 
 #define EXPORT_F32_FN_F32(func)                                 \
     float __attribute__((overloadable)) SC_##func(float v) {    \
@@ -47,7 +44,7 @@ using namespace android::renderscript;
 // Handle missing Gingerbread functions like tgammaf.
 float SC_tgammaf(float x) {
 #ifdef RS_COMPATIBILITY_LIB
-    return tgamma(x);
+    return __builtin_tgamma(x);
 #else
     return tgammaf(x);
 #endif

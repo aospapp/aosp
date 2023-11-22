@@ -69,9 +69,8 @@ public class WatchFacePickerJankTest extends JankTestBase {
      * Test the jank by adding watch face to favorites.
      */
     @JankTest(beforeLoop = "startFromWatchFacePickerFull",
-            afterLoop = "resetToWatchFacePickerFull",
             afterTest = "removeAllButOneWatchFace",
-            expectedFrames = SysAppTestHelper.EXPECTED_FRAMES_WATCHFACE_PICKER_TEST)
+            expectedFrames = SysAppTestHelper.EXPECTED_FRAMES_WATCHFACE_PICKER_TEST_ADD_FAVORITE)
     @GfxMonitor(processName = WEARABLE_APP_PACKAGE)
     public void testSelectWatchFaceFromFullList() {
         selectWatchFaceFromFullList(0);
@@ -91,7 +90,7 @@ public class WatchFacePickerJankTest extends JankTestBase {
     /**
      * Test the jank on flinging watch face picker.
      */
-    @JankTest(beforeLoop = "startWithFourWatchFaces", afterLoop = "resetToWatchFacePicker",
+    @JankTest(beforeTest = "startWithFourWatchFaces", beforeLoop = "resetToWatchFacePicker",
             afterTest = "removeAllButOneWatchFace",
             expectedFrames = SysAppTestHelper.EXPECTED_FRAMES_WATCHFACE_PICKER_TEST)
     @GfxMonitor(processName = WEARABLE_APP_PACKAGE)
@@ -192,8 +191,14 @@ public class WatchFacePickerJankTest extends JankTestBase {
     }
 
     private void openPicker() {
-        mHelper.swipeLeft();
-        Assert.assertNotNull(mHelper.waitForSysAppUiObject2(WATCHFACE_PREVIEW_NAME));
+        // Try 5 times in case WFP is not ready
+        for (int i = 0; i < 5; i ++) {
+            mHelper.swipeLeft();
+            if (mHelper.waitForSysAppUiObject2(WATCHFACE_PREVIEW_NAME) != null) {
+                return;
+            }
+        }
+        Assert.fail("Still cannot open WFP after several attempts");
     }
 
     private void openPickerAllList() {
@@ -225,7 +230,10 @@ public class WatchFacePickerJankTest extends JankTestBase {
         List<UiObject2> watchFaces = watchFacePickerAllList.getChildren();
         Assert.assertNotNull(watchFaces);
         int localIndex = index % 4;
-        if (watchFaces.size() <= localIndex) return;
+        if (watchFaces.size() <= localIndex) {
+            mDevice.pressBack();
+            return;
+        }
 
         Log.v(TAG, "Tapping the " + localIndex + " watchface on screen ...");
         watchFaces.get(localIndex).click();
@@ -244,7 +252,9 @@ public class WatchFacePickerJankTest extends JankTestBase {
         Assert.assertNotNull(watchFacePicker);
         List<UiObject2> watchFaces = watchFacePicker.getChildren();
         Assert.assertNotNull(watchFaces);
-        if (isOnlyOneWatchFaceInFavorites()) return;
+        if (isOnlyOneWatchFaceInFavorites()) {
+            return;
+        }
 
         Log.v(TAG, "Removing first watch face from favorites ...");
         watchFaces.get(0).swipe(Direction.DOWN, 1.0f);

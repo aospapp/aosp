@@ -134,7 +134,11 @@ private:
     ISV_BUFFERTYPE mType;
     int32_t mSurface;
     uint32_t mFlags;
+#ifdef TARGET_VPP_USE_GEN
     gralloc_module_t* mpGralloc;
+#else
+    const hw_device_t* mpGralloc;
+#endif
 };
 
 class ISVBufferManager: public RefBase

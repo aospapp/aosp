@@ -2349,7 +2349,11 @@ UINT16 TPMS_SIG_SCHEME_RSASSA_Marshal(TPMS_SIG_SCHEME_RSASSA* source,
 TPM_RC TPMS_SIG_SCHEME_RSASSA_Unmarshal(TPMS_SIG_SCHEME_RSASSA* target,
                                         BYTE** buffer,
                                         INT32* size) {
+#if defined(SUPPORT_PADDING_ONLY_RSASSA) && SUPPORT_PADDING_ONLY_RSASSA == YES
+  return TPMI_ALG_HASH_Unmarshal(&target->hashAlg, buffer, size, TRUE);
+#else
   return TPMS_SCHEME_HASH_Unmarshal(target, buffer, size);
+#endif
 }
 
 UINT16 TPMS_ENC_SCHEME_OAEP_Marshal(TPMS_ENC_SCHEME_OAEP* source,

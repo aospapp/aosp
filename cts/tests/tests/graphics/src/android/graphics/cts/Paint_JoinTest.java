@@ -16,18 +16,27 @@
 
 package android.graphics.cts;
 
-import junit.framework.TestCase;
-import android.graphics.Paint.Join;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Paint;
+import android.graphics.Paint.Join;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Paint_JoinTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Paint_JoinTest {
+    @Test
     public void testValueOf() {
         assertEquals(Join.BEVEL, Join.valueOf("BEVEL"));
         assertEquals(Join.MITER, Join.valueOf("MITER"));
         assertEquals(Join.ROUND, Join.valueOf("ROUND"));
     }
 
+    @Test
     public void testValues() {
         // set the actual value
         Join[] actual = Join.values();

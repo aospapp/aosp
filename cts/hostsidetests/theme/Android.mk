@@ -18,16 +18,20 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_RESOURCE_DIRS := assets/
+# Special handling for pre-release builds where the SDK version has not been
+# updated, in which case we'll use the version codename (ex. "O").
+ifeq (REL,$(PLATFORM_VERSION_CODENAME))
+    LOCAL_JAVA_RESOURCE_DIRS := assets/$(PLATFORM_SDK_VERSION)/
+else
+    LOCAL_JAVA_RESOURCE_DIRS := assets/$(PLATFORM_VERSION_CODENAME)/
+endif
 
 LOCAL_MODULE_TAGS := optional
 
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsThemeHostTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt compatibility-host-util
-
-LOCAL_STATIC_JAVA_LIBRARIES := cts-migration-lib
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed compatibility-host-util
 
 LOCAL_CTS_TEST_PACKAGE := android.host.theme
 

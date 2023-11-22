@@ -165,6 +165,10 @@ public class MockVideoProvider extends VideoProvider {
         } else if (CAMERA_BACK.equals(cameraId)) {
             super.changeCameraCapabilities(new VideoProfile.CameraCapabilities(
                     CAMERA_BACK_DIMENSIONS, CAMERA_BACK_DIMENSIONS));
+        } else {
+            // If the camera is nulled, we will send back a "camera ready" event so that the unit
+            // test has something to wait for.
+            super.handleCallSessionEvent(VideoProvider.SESSION_EVENT_CAMERA_READY);
         }
     }
 

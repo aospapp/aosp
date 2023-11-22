@@ -25,6 +25,11 @@
 #include <fcntl.h>
 #include <cutils/properties.h>
 #include <sys/mman.h>
+
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "fw_version_check.h"
 #include "edify/expr.h"
 
@@ -282,43 +287,44 @@ int flash_ifwi_scu_emmc(void *data, unsigned size)
 	return ret;
 }
 
-Value* FlashIfwiFuguFn(const char *name, State * state, int argc, Expr * argv[]) {
+Value* FlashIfwiFuguFn(const char *name, State * state,
+                       const std::vector<std::unique_ptr<Expr>>& argv) {
 	Value *ret = NULL;
-	char *filename = NULL;
 	unsigned char *buffer = NULL;
 	int ifwi_size;
 	FILE *f = NULL;
 
-	if (argc != 1) {
-		ErrorAbort(state, "%s() expected 1 arg, got %d", name, argc);
+	if (argv.size() != 1) {
+		ErrorAbort(state, "%s() expected 1 arg, got %zu", name, argv.size());
 		return NULL;
 	}
-	if (ReadArgs(state, argv, 1, &filename) < 0) {
+	std::vector<std::string> args;
+	if (!ReadArgs(state, argv, &args)) {
 		ErrorAbort(state, "%s() invalid args ", name);
 		return NULL;
 	}
-
-	if (filename == NULL || strlen(filename) == 0) {
+	const std::string& filename = args[0];
+	if (filename.empty()) {
 		ErrorAbort(state, "filename argument to %s can't be empty", name);
-		goto done;
+		return nullptr;
 	}
 
-	if ((f = fopen(filename,"rb")) == NULL) {
-		ErrorAbort(state, "Unable to open file %s: %s ", filename, strerror(errno));
-		goto done;
+	if ((f = fopen(filename.c_str(),"rb")) == NULL) {
+		ErrorAbort(state, "Unable to open file %s: %s ", filename.c_str(), strerror(errno));
+		return nullptr;
 	}
 
 	fseek(f, 0, SEEK_END);
 	ifwi_size = ftell(f);
 	if (ifwi_size < 0) {
 		ErrorAbort(state, "Unable to get ifwi_size ");
-		goto done;
+		return nullptr;
 	};
 	fseek(f, 0, SEEK_SET);
 
 	if ((buffer = reinterpret_cast<unsigned char *>(malloc(ifwi_size))) == NULL) {
 		ErrorAbort(state, "Unable to alloc ifwi flash buffer of size %d", ifwi_size);
-		goto done;
+		return nullptr;
 	}
 	fread(buffer, ifwi_size, 1, f);
 	fclose(f);
@@ -326,15 +332,11 @@ Value* FlashIfwiFuguFn(const char *name, State * state, int argc, Expr * argv[])
 	if(flash_ifwi_scu_emmc(buffer, ifwi_size) !=0) {
 		ErrorAbort(state, "Unable to flash ifwi in emmc");
 		free(buffer);
-		goto done;
+		return nullptr;
 	};
 
 	free(buffer);
-	ret = StringValue(strdup(""));
-
-done:
-	if (filename)
-		free(filename);
+	ret = StringValue("");
 
 	return ret;
 }

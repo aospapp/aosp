@@ -6,7 +6,6 @@ TEST_CLASS = "platform"
 TEST_TYPE = "client"
 # TODO(chromium:399007) Move to bvt once it passes on all boards.
 ATTRIBUTES = "suite:experimental"
-SUITE = "experimental"
 DOC = """
 Verifies that ChromeOS-specific udev variables are set correctly by udev rules.
 """

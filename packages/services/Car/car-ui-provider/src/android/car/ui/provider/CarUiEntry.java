@@ -512,13 +512,17 @@ public class CarUiEntry extends android.car.app.menu.CarUiEntry {
         layoutParams.gravity = Gravity.LEFT;
         // 1. If the screen width is larger than 800dp, the drawer width is kept as 704dp;
         // 2. Else the drawer width is adjusted to keep the margin end of drawer as 96dp.
-        if (width > resources.getDimension(R.dimen.car_standard_width)) {
-            layoutParams.setMarginEnd(
-                    (int) (width - resources.getDimension(R.dimen.car_drawer_standard_width)));
-        } else {
-            layoutParams.setMarginEnd(
-                    (int) resources.getDimension(R.dimen.car_card_margin));
-        }
+
+//        if (width > resources.getDimension(R.dimen.car_standard_width)) {
+//            layoutParams.setMarginEnd(
+//                    (int) (width - resources.getDimension(R.dimen.car_drawer_standard_width)));
+//        } else {
+//            layoutParams.setMarginEnd(
+//                    (int) resources.getDimension(R.dimen.car_card_margin));
+//        }
+        // TODO: For UX, need to update max drawer width for the large screen use case. The previous
+        // 704dp width no longer works.
+        layoutParams.setMarginEnd((int) resources.getDimension(R.dimen.car_card_margin));
         mContentView.findViewById(R.id.drawer).setLayoutParams(layoutParams);
     }
 

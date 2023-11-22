@@ -26,7 +26,7 @@ struct SensorConfig {
     int listIndex;
     int type;
     int32_t rate;
-    int reportLatency;
+    int64_t reportLatency;
     bool receivedEvent;
 };
 
@@ -119,7 +119,7 @@ bool parseArguments(int argc, char **argv)
 
             if (existingSensorConfigIndex >= 0) {
                 printf("Replacing previous config for sensor type %d\n", atoi(argv[currArgumentIndex+1]));
-                mSensorConfigList[existingSensorConfigIndex] = {
+                mSensorConfigList[existingSensorConfigIndex] = (SensorConfig) {
                     .listIndex = sensorIndex,
                     .type = atoi(argv[currArgumentIndex+1]),
                     .rate = atoi(argv[currArgumentIndex+2]),
@@ -127,7 +127,7 @@ bool parseArguments(int argc, char **argv)
                     .receivedEvent = false
                 };
             } else {
-                mSensorConfigList[(mNumSensorConfigs)++] = {
+                mSensorConfigList[(mNumSensorConfigs)++] = (SensorConfig) {
                     .listIndex = sensorIndex,
                     .type = atoi(argv[currArgumentIndex+1]),
                     .rate = atoi(argv[currArgumentIndex+2]),
@@ -152,7 +152,7 @@ bool parseArguments(int argc, char **argv)
 
             if (existingSensorConfigIndex >= 0) {
                 printf("Replacing previous config for sensor type %d\n", atoi(argv[currArgumentIndex+1]));
-                mSensorConfigList[existingSensorConfigIndex] = {
+                mSensorConfigList[existingSensorConfigIndex] = (SensorConfig) {
                     .listIndex = sensorIndex,
                     .type = atoi(argv[currArgumentIndex+1]),
                     .rate = atoi(argv[currArgumentIndex+2]),
@@ -160,7 +160,7 @@ bool parseArguments(int argc, char **argv)
                     .receivedEvent = false
                 };
             } else {
-                mSensorConfigList[(mNumSensorConfigs)++] = {
+                mSensorConfigList[(mNumSensorConfigs)++] = (SensorConfig) {
                     .listIndex = sensorIndex,
                     .type = atoi(argv[currArgumentIndex+1]),
                     .rate = atoi(argv[currArgumentIndex+2]),
@@ -215,8 +215,9 @@ int main(int argc, char **argv) {
     for (int i = 0; i < mNumSensorConfigs; i++) {
         if (ASensorEventQueue_registerSensor(sensorEventQueue, mSensorList[mSensorConfigList[i].listIndex],
                                              mSensorConfigList[i].rate, mSensorConfigList[i].reportLatency) < 0) {
-            printf("Unable to register sensor %d with rate %d and report latency %d\n", mSensorConfigList[i].listIndex,
-                   mSensorConfigList[i].rate, mSensorConfigList[i].reportLatency);
+            printf("Unable to register sensor %d with rate %d and report latency %" PRId64 "\n",
+                   mSensorConfigList[i].listIndex, mSensorConfigList[i].rate,
+                   mSensorConfigList[i].reportLatency);
         }
 
     }

@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/fo.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 fo{
     Countries{
         001{"heimur"}
@@ -46,7 +40,6 @@ fo{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Niðurlendsku Antilloyggjarnar"}
         AO{"Angola"}
         AQ{"Antarktis"}
         AR{"Argentina"}
@@ -138,7 +131,7 @@ fo{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Gujana"}
-        HK{"Hong Kong SAR Kina"}
+        HK{"Hong Kong"}
         HM{"Heard og McDonaldoyggjar"}
         HN{"Honduras"}
         HR{"Kroatia"}
@@ -188,11 +181,11 @@ fo{
         MF{"St-Martin"}
         MG{"Madagaskar"}
         MH{"Marshalloyggjar"}
-        MK{"Makedónia"}
+        MK{"Makedónia (FJM)"}
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Makao SAR Kina"}
+        MO{"Makao"}
         MP{"Norðaru Mariuoyggjar"}
         MQ{"Martinique"}
         MR{"Móritania"}
@@ -303,8 +296,5 @@ fo{
         GB{"UK"}
         US{"USA"}
     }
-    Countries%variant{
-        MK{"Makedónia (FJM)"}
-    }
-    Version{"2.1.19.17"}
+    Version{"2.1.28.76"}
 }

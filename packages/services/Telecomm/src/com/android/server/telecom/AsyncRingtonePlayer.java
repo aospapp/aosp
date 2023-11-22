@@ -21,6 +21,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
+import android.telecom.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.SomeArgs;
@@ -137,8 +138,8 @@ public class AsyncRingtonePlayer {
                 Uri ringtoneUri = incomingCall.getRingtone();
                 String ringtoneUriString = (ringtoneUri == null) ? "null" :
                         ringtoneUri.toSafeString();
-                Log.event(null, Log.Events.ERROR_LOG, "Failed to get ringtone from factory. " +
-                        "Skipping ringing. Uri was: " + ringtoneUriString);
+                Log.addEvent(null, LogUtils.Events.ERROR_LOG, "Failed to get ringtone from " +
+                        "factory. Skipping ringing. Uri was: " + ringtoneUriString);
                 return;
             }
         }

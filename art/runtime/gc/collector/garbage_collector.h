@@ -44,7 +44,7 @@ class Heap;
 namespace collector {
 
 struct ObjectBytePair {
-  ObjectBytePair(uint64_t num_objects = 0, int64_t num_bytes = 0)
+  explicit ObjectBytePair(uint64_t num_objects = 0, int64_t num_bytes = 0)
       : objects(num_objects), bytes(num_bytes) {}
   void Add(const ObjectBytePair& other) {
     objects += other.objects;
@@ -126,12 +126,14 @@ class GarbageCollector : public RootVisitor, public IsMarkedVisitor, public Mark
  public:
   class SCOPED_LOCKABLE ScopedPause {
    public:
-    explicit ScopedPause(GarbageCollector* collector) EXCLUSIVE_LOCK_FUNCTION(Locks::mutator_lock_);
+    explicit ScopedPause(GarbageCollector* collector, bool with_reporting = true)
+        EXCLUSIVE_LOCK_FUNCTION(Locks::mutator_lock_);
     ~ScopedPause() UNLOCK_FUNCTION();
 
    private:
     const uint64_t start_time_;
     GarbageCollector* const collector_;
+    bool with_reporting_;
   };
 
   GarbageCollector(Heap* heap, const std::string& name);
@@ -155,7 +157,7 @@ class GarbageCollector : public RootVisitor, public IsMarkedVisitor, public Mark
   // this is the allocation space, for full GC then we swap the zygote bitmaps too.
   void SwapBitmaps()
       REQUIRES(Locks::heap_bitmap_lock_)
-      SHARED_REQUIRES(Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::mutator_lock_);
   uint64_t GetTotalPausedTimeNs() REQUIRES(!pause_histogram_lock_);
   int64_t GetTotalFreedBytes() const {
     return total_freed_bytes_;
@@ -181,23 +183,32 @@ class GarbageCollector : public RootVisitor, public IsMarkedVisitor, public Mark
   void RecordFree(const ObjectBytePair& freed);
   // Record a free of large objects.
   void RecordFreeLOS(const ObjectBytePair& freed);
-  void DumpPerformanceInfo(std::ostream& os) REQUIRES(!pause_histogram_lock_);
+  virtual void DumpPerformanceInfo(std::ostream& os) REQUIRES(!pause_histogram_lock_);
 
   // Helper functions for querying if objects are marked. These are used for processing references,
   // and will be used for reading system weaks while the GC is running.
   virtual mirror::Object* IsMarked(mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) = 0;
-  virtual bool IsMarkedHeapReference(mirror::HeapReference<mirror::Object>* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) = 0;
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+  // Returns true if the given heap reference is null or is already marked. If it's already marked,
+  // update the reference (uses a CAS if do_atomic_update is true. Otherwise, returns false.
+  virtual bool IsNullOrMarkedHeapReference(mirror::HeapReference<mirror::Object>* obj,
+                                           bool do_atomic_update)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
   // Used by reference processor.
-  virtual void ProcessMarkStack() SHARED_REQUIRES(Locks::mutator_lock_) = 0;
+  virtual void ProcessMarkStack() REQUIRES_SHARED(Locks::mutator_lock_) = 0;
   // Force mark an object.
   virtual mirror::Object* MarkObject(mirror::Object* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) = 0;
-  virtual void MarkHeapReference(mirror::HeapReference<mirror::Object>* obj)
-      SHARED_REQUIRES(Locks::mutator_lock_) = 0;
-  virtual void DelayReferenceReferent(mirror::Class* klass, mirror::Reference* reference)
-      SHARED_REQUIRES(Locks::mutator_lock_) = 0;
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+  virtual void MarkHeapReference(mirror::HeapReference<mirror::Object>* obj,
+                                 bool do_atomic_update)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+  virtual void DelayReferenceReferent(ObjPtr<mirror::Class> klass,
+                                      ObjPtr<mirror::Reference> reference)
+      REQUIRES_SHARED(Locks::mutator_lock_) = 0;
+
+  bool IsTransactionActive() const {
+    return is_transaction_active_;
+  }
 
  protected:
   // Run all of the GC phases.
@@ -217,6 +228,7 @@ class GarbageCollector : public RootVisitor, public IsMarkedVisitor, public Mark
   int64_t total_freed_bytes_;
   CumulativeLogger cumulative_timings_;
   mutable Mutex pause_histogram_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+  bool is_transaction_active_;
 
  private:
   DISALLOW_IMPLICIT_CONSTRUCTORS(GarbageCollector);

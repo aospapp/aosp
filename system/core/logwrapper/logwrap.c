@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <poll.h>
-#include <sys/wait.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
-#include <stdbool.h>
+#include <poll.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
-#include <logwrap/logwrap.h>
-#include "private/android_filesystem_config.h"
-#include "cutils/log.h"
 #include <cutils/klog.h>
+#include <log/log.h>
+#include <logwrap/logwrap.h>
+#include <private/android_filesystem_config.h>
 
 #define ARRAY_SIZE(x)   (sizeof(x) / sizeof(*(x)))
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -291,8 +291,7 @@ static void print_abbr_buf(struct log_info *log_info) {
 }
 
 static int parent(const char *tag, int parent_read, pid_t pid,
-        int *chld_sts, int log_target, bool abbreviated, char *file_path,
-        const struct AndroidForkExecvpOption* opts, size_t opts_len) {
+        int *chld_sts, int log_target, bool abbreviated, char *file_path) {
     int status = 0;
     char buffer[4096];
     struct pollfd poll_fds[] = {
@@ -359,13 +358,6 @@ static int parent(const char *tag, int parent_read, pid_t pid,
             sz = TEMP_FAILURE_RETRY(
                 read(parent_read, &buffer[b], sizeof(buffer) - 1 - b));
 
-            for (size_t i = 0; sz > 0 && i < opts_len; ++i) {
-                if (opts[i].opt_type == FORK_EXECVP_OPTION_CAPTURE_OUTPUT) {
-                  opts[i].opt_capture_output.on_output(
-                      (uint8_t*)&buffer[b], sz, opts[i].opt_capture_output.user_pointer);
-                }
-            }
-
             sz += b;
             // Log one line at a time
             for (b = 0; b < sz; b++) {
@@ -408,7 +400,7 @@ static int parent(const char *tag, int parent_read, pid_t pid,
         if (poll_fds[0].revents & POLLHUP) {
             int ret;
 
-            ret = waitpid(pid, &status, WNOHANG);
+            ret = TEMP_FAILURE_RETRY(waitpid(pid, &status, 0));
             if (ret < 0) {
                 rc = errno;
                 ALOG(LOG_ERROR, "logwrap", "waitpid failed with %s\n", strerror(errno));
@@ -483,7 +475,7 @@ static void child(int argc, char* argv[]) {
 
 int android_fork_execvp_ext(int argc, char* argv[], int *status, bool ignore_int_quit,
         int log_target, bool abbreviated, char *file_path,
-        const struct AndroidForkExecvpOption* opts, size_t opts_len) {
+        void *unused_opts, int unused_opts_len) {
     pid_t pid;
     int parent_ptty;
     int child_ptty;
@@ -492,6 +484,9 @@ int android_fork_execvp_ext(int argc, char* argv[], int *status, bool ignore_int
     sigset_t blockset;
     sigset_t oldset;
     int rc = 0;
+
+    LOG_ALWAYS_FATAL_IF(unused_opts != NULL);
+    LOG_ALWAYS_FATAL_IF(unused_opts_len != 0);
 
     rc = pthread_mutex_lock(&fd_mutex);
     if (rc) {
@@ -538,13 +533,6 @@ int android_fork_execvp_ext(int argc, char* argv[], int *status, bool ignore_int
         pthread_sigmask(SIG_SETMASK, &oldset, NULL);
         close(parent_ptty);
 
-        // redirect stdin, stdout and stderr
-        for (size_t i = 0; i < opts_len; ++i) {
-            if (opts[i].opt_type == FORK_EXECVP_OPTION_INPUT) {
-                dup2(child_ptty, 0);
-                break;
-            }
-        }
         dup2(child_ptty, 1);
         dup2(child_ptty, 2);
         close(child_ptty);
@@ -561,24 +549,8 @@ int android_fork_execvp_ext(int argc, char* argv[], int *status, bool ignore_int
             sigaction(SIGQUIT, &ignact, &quitact);
         }
 
-        for (size_t i = 0; i < opts_len; ++i) {
-            if (opts[i].opt_type == FORK_EXECVP_OPTION_INPUT) {
-                size_t left = opts[i].opt_input.input_len;
-                const uint8_t* input = opts[i].opt_input.input;
-                while (left > 0) {
-                    ssize_t res =
-                        TEMP_FAILURE_RETRY(write(parent_ptty, input, left));
-                    if (res < 0) {
-                        break;
-                    }
-                    left -= res;
-                    input += res;
-                }
-            }
-        }
-
         rc = parent(argv[0], parent_ptty, pid, status, log_target,
-                    abbreviated, file_path, opts, opts_len);
+                    abbreviated, file_path);
     }
 
     if (ignore_int_quit) {

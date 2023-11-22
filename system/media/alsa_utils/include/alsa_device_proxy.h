@@ -34,7 +34,7 @@ typedef struct {
 
 
 /* State */
-void proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile * profile,
+int proxy_prepare(alsa_device_proxy * proxy, alsa_device_profile * profile,
                    struct pcm_config * config);
 int proxy_open(alsa_device_proxy * proxy);
 void proxy_close(alsa_device_proxy * proxy);
@@ -47,6 +47,14 @@ enum pcm_format proxy_get_format(const alsa_device_proxy * proxy);
 unsigned proxy_get_channel_count(const alsa_device_proxy * proxy);
 unsigned int proxy_get_period_size(const alsa_device_proxy * proxy);
 unsigned proxy_get_latency(const alsa_device_proxy * proxy);
+
+/*
+ * Scans the provided list of sample rates and finds the first one that works.
+ *
+ * returns the index of the first rate for which the ALSA device can be opened.
+ * return negative value if none work or an error occurs.
+ */
+int proxy_scan_rates(alsa_device_proxy * proxy, unsigned sample_rates[]);
 
 /* I/O */
 int proxy_write(alsa_device_proxy * proxy, const void *data, unsigned int count);

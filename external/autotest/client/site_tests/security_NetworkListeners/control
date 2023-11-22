@@ -13,8 +13,7 @@ CRITERIA = """
 Fail if the list of processes listening on the network doesn't match the
 baseline
 """
-ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
+ATTRIBUTES = "suite:bvt-cq, suite:smoke, suite:arc-bvt-cq"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"

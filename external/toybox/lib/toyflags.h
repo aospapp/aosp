@@ -25,3 +25,12 @@
 // Call setlocale to listen to environment variables.
 // This invalidates sprintf("%.*s", size, string) as a valid length constraint.
 #define TOYFLAG_LOCALE   (1<<8)
+
+// Suppress default --help processing
+#define TOYFLAG_NOHELP   (1<<9)
+
+#if CFG_TOYBOX_PEDANTIC_ARGS
+#define NO_ARGS ">0"
+#else
+#define NO_ARGS 0
+#endif

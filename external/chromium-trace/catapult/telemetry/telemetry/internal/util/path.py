@@ -2,12 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import glob
 import os
 
 from telemetry.core import util
-from catapult_base import util as catapult_util  # pylint: disable=import-error
+import py_utils as catapult_util
 
-# TODO(aiolos): Move these functions to catapult_base or here.
+# TODO(aiolos): Move these functions to catapult_util or here.
 GetBaseDir = util.GetBaseDir
 GetTelemetryDir = util.GetTelemetryDir
 GetUnittestDataDir = util.GetUnittestDataDir
@@ -15,6 +16,11 @@ GetChromiumSrcDir = util.GetChromiumSrcDir
 GetBuildDirectories = util.GetBuildDirectories
 
 IsExecutable = catapult_util.IsExecutable
+
+
+def _HasWildcardCharacters(input_string):
+  # Could make this more precise.
+  return '*' in input_string or '+' in input_string
 
 
 def FindInstalledWindowsApplication(application_path):
@@ -29,14 +35,17 @@ def FindInstalledWindowsApplication(application_path):
                   os.getenv('PROGRAMFILES'),
                   os.getenv('LOCALAPPDATA')]
   search_paths += os.getenv('PATH', '').split(os.pathsep)
-
   for search_path in search_paths:
     if not search_path:
       continue
     path = os.path.join(search_path, application_path)
-    if IsExecutable(path):
-      return path
-
+    if _HasWildcardCharacters(path):
+      paths = glob.glob(path)
+    else:
+      paths = [path]
+    for p in paths:
+      if IsExecutable(p):
+        return p
   return None
 
 

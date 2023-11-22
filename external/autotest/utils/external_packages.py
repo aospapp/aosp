@@ -2,6 +2,8 @@
 
 import logging, os, shutil, sys, tempfile, time, urllib2
 import subprocess, re
+from distutils.version import LooseVersion
+
 from autotest_lib.client.common_lib import autotemp, revision_control, utils
 
 _READ_SIZE = 64*1024
@@ -57,11 +59,17 @@ class ExternalPackage(object):
       @attribute urls - A tuple of URLs to try fetching the package from.
       @attribute local_filename - A local filename to use when saving the
               fetched package.
+      @attribute dist_name - The name of the Python distribution.  For example,
+              the package MySQLdb is included in the distribution named
+              MySQL-python.  This is generally the PyPI name.  Defaults to the
+              name part of the local_filename.
       @attribute hex_sum - The hex digest (currently SHA1) of this package
               to be used to verify its contents.
       @attribute module_name - The installed python module name to be used for
               for a version check.  Defaults to the lower case class name with
               the word Package stripped off.
+      @attribute extracted_package_path - The path to package directory after
+              extracting.
       @attribute version - The desired minimum package version.
       @attribute os_requirements - A dictionary mapping pathname tuples on the
               the OS distribution to a likely name of a package the user
@@ -80,6 +88,7 @@ class ExternalPackage(object):
     subclasses = []
     urls = ()
     local_filename = None
+    dist_name = None
     hex_sum = None
     module_name = None
     version = None
@@ -97,7 +106,20 @@ class ExternalPackage(object):
         self.verified_package = ''
         if not self.module_name:
             self.module_name = self.name.lower()
+        if not self.dist_name and self.local_filename:
+            self.dist_name = self.local_filename[:self.local_filename.rindex('-')]
         self.installed_version = ''
+
+
+    @property
+    def extracted_package_path(self):
+        """Return the package path after extracting.
+
+        If the package has assigned its own extracted_package_path, use it.
+        Or use part of its local_filename as the extracting path.
+        """
+        return self.local_filename[:-len(self._get_extension(
+                self.local_filename))]
 
 
     @property
@@ -148,12 +170,17 @@ class ExternalPackage(object):
                          install_dir)
             return True
         self.installed_version = self._get_installed_version_from_module(module)
+        if not self.installed_version:
+            return True
+
         logging.info('imported %s version %s.', self.module_name,
                      self.installed_version)
         if hasattr(self, 'minimum_version'):
-            return self.minimum_version > self.installed_version
+            return LooseVersion(self.minimum_version) > LooseVersion(
+                    self.installed_version)
         else:
-            return self.version > self.installed_version
+            return LooseVersion(self.version) > LooseVersion(
+                    self.installed_version)
 
 
     def _get_installed_version_from_module(self, module):
@@ -229,6 +256,22 @@ class ExternalPackage(object):
         return self._install_using_setup_py_and_rsync(install_dir)
 
 
+    def _get_extension(self, package):
+        """Get extension of package."""
+        valid_package_extensions = ['.tar.gz', '.tar.bz2', '.zip']
+        extension = None
+
+        for ext in valid_package_extensions:
+            if package.endswith(ext):
+                extension = ext
+                break
+
+        if not extension:
+            raise Error('Unexpected package file extension on %s' % package)
+
+        return extension
+
+
     def _build_and_install_from_package(self, install_dir):
         """
         This method may be used as a _build_and_install() implementation
@@ -246,17 +289,9 @@ class ExternalPackage(object):
         @raises OSError If the expected extraction directory does not exist.
         """
         self._extract_compressed_package()
-        if self.verified_package.endswith('.tar.gz'):
-            extension = '.tar.gz'
-        elif self.verified_package.endswith('.tar.bz2'):
-            extension = '.tar.bz2'
-        elif self.verified_package.endswith('.zip'):
-            extension = '.zip'
-        else:
-            raise Error('Unexpected package file extension on %s' %
-                        self.verified_package)
+        extension = self._get_extension(self.verified_package)
         os.chdir(os.path.dirname(self.verified_package))
-        os.chdir(self.local_filename[:-len(extension)])
+        os.chdir(self.extracted_package_path)
         extracted_dir = os.getcwd()
         try:
             return self._build_and_install_current_dir(install_dir)
@@ -337,10 +372,34 @@ class ExternalPackage(object):
         if status:
             logging.error('unzip of %s failed', egg_path)
             return False
-        egg_info = os.path.join(install_dir, 'EGG-INFO')
-        if os.path.isdir(egg_info):
-            shutil.rmtree(egg_info)
+        egg_info_dir = os.path.join(install_dir, 'EGG-INFO')
+        if os.path.isdir(egg_info_dir):
+            egg_info_new_path = self._get_egg_info_path(install_dir)
+            if egg_info_new_path:
+                if os.path.exists(egg_info_new_path):
+                    shutil.rmtree(egg_info_new_path)
+                os.rename(egg_info_dir, egg_info_new_path)
+            else:
+                shutil.rmtree(egg_info_dir)
         return True
+
+
+    def _get_egg_info_path(self, install_dir):
+        """Get egg-info path for this package.
+
+        Example path: install_dir/MySQL_python-1.2.3.egg-info
+
+        """
+        if self.dist_name:
+            egg_info_name_part = self.dist_name.replace('-', '_')
+            if self.version:
+                egg_info_filename = '%s-%s.egg-info' % (egg_info_name_part,
+                                                        self.version)
+            else:
+                egg_info_filename = '%s.egg-info' % (egg_info_name_part,)
+            return os.path.join(install_dir, egg_info_filename)
+        else:
+            return None
 
 
     def _get_temp_dir(self):
@@ -661,71 +720,6 @@ class MatplotlibPackage(ExternalPackage):
             ExternalPackage._build_and_install_current_dir_setupegg_py)
 
 
-class AtForkPackage(ExternalPackage):
-    """atfork package"""
-    version = '0.1.2'
-    local_filename = 'atfork-%s.zip' % version
-    urls = ('http://python-atfork.googlecode.com/files/' + local_filename,)
-    hex_sum = '5baa64c73e966b57fa797040585c760c502dc70b'
-
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-            ExternalPackage._build_and_install_current_dir_noegg)
-
-
-class ParamikoPackage(ExternalPackage):
-    """paramiko package"""
-    version = '1.7.5'
-    local_filename = 'paramiko-%s.zip' % version
-    urls = ('https://pypi.python.org/packages/source/p/paramiko/' + local_filename,)
-    hex_sum = 'd23e437c0d8bd6aeb181d9990a9d670fb30d0c72'
-
-
-    _build_and_install = ExternalPackage._build_and_install_from_package
-
-
-    def _check_for_pycrypto(self):
-        # NOTE(gps): Linux distros have better python-crypto packages than we
-        # can easily get today via a wget due to the library's age and staleness
-        # yet many security and behavior bugs are fixed by patches that distros
-        # already apply.  PyCrypto has a new active maintainer in 2009.  Once a
-        # new release is made (http://pycrypto.org/) we should add an installer.
-        try:
-            import Crypto
-        except ImportError:
-            logging.error('Please run "sudo apt-get install python-crypto" '
-                          'or your Linux distro\'s equivalent.')
-            return False
-        return True
-
-
-    def _build_and_install_current_dir(self, install_dir):
-        if not self._check_for_pycrypto():
-            return False
-        # paramiko 1.7.4 doesn't require building, it is just a module directory
-        # that we can rsync into place directly.
-        if not os.path.isdir('paramiko'):
-            raise Error('no paramiko directory in %s.' % os.getcwd())
-        status = system("rsync -r 'paramiko' '%s/'" % install_dir)
-        if status:
-            logging.error('%s rsync to install_dir failed.', self.name)
-            return False
-        return True
-
-
-class RequestsPackage(ExternalPackage):
-    """requests package"""
-    version = '0.11.2'
-    local_filename = 'requests-%s.tar.gz' % version
-    urls = ('http://pypi.python.org/packages/source/r/requests/' +
-            local_filename,)
-    hex_sum = '00a49e8bd6dd8955acf6f6269d1b85f50c70b712'
-
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-                        ExternalPackage._build_and_install_current_dir_setup_py)
-
-
 class JsonRPCLib(ExternalPackage):
     """jsonrpclib package"""
     version = '0.1.3'
@@ -748,7 +742,10 @@ class Httplib2Package(ExternalPackage):
     """httplib2 package"""
     version = '0.6.0'
     local_filename = 'httplib2-%s.tar.gz' % version
-    urls = ('http://httplib2.googlecode.com/files/' + local_filename,)
+    # Cannot use the newest httplib2 package 0.9.2 since it cannot be installed
+    # directly in a temp folder. So keep it as 0.6.0.
+    urls = ('https://launchpad.net/ubuntu/+archive/primary/+files/'
+            'python-httplib2_' + version + '.orig.tar.gz',)
     hex_sum = '995344b2704826cc0d61a266e995b328d92445a5'
 
     def _get_installed_version_from_module(self, module):
@@ -765,7 +762,8 @@ class GwtPackage(ExternalPackage):
 
     version = '2.3.0'
     local_filename = 'gwt-%s.zip' % version
-    urls = ('http://google-web-toolkit.googlecode.com/files/' + local_filename,)
+    urls = ('https://storage.googleapis.com/google-code-archive-downloads/'
+            'v2/code.google.com/google-web-toolkit/' + local_filename,)
     hex_sum = 'd51fce9166e6b31349659ffca89baf93e39bc84b'
     name = 'gwt'
     about_filename = 'about.txt'
@@ -807,12 +805,12 @@ class GwtPackage(ExternalPackage):
 class GVizAPIPackage(ExternalPackage):
     """gviz package"""
     module_name = 'gviz_api'
-    version = '1.7.0'
-    url_filename = 'gviz_api_py-%s.tar.gz' % version
-    local_filename = 'google-visualization-python.tar.gz'
-    urls = ('http://google-visualization-python.googlecode.com/files/%s' % (
-        url_filename),)
-    hex_sum = 'cd9a0fb4ca5c4f86c0d85756f501fd54ccf492d2'
+    version = '1.8.2'
+    local_filename = 'google-visualization-python.zip'
+    urls = ('https://github.com/google/google-visualization-python/'
+            'archive/master.zip',)
+    hex_sum = 'ec70fb8b874eae21e331332065415318f6fe4882'
+    extracted_package_path = 'google-visualization-python-master'
 
     _build_and_install = ExternalPackage._build_and_install_from_package
     _build_and_install_current_dir = (
@@ -841,13 +839,12 @@ class GdataPackage(ExternalPackage):
     """
     Pulls the GData library, giving us an API to query tracker.
     """
-
-    version = '2.0.14'
-    url_filename = 'gdata-%s.tar.gz' % version
-    local_filename = url_filename
-    urls = ('http://gdata-python-client.googlecode.com/files/%s' % (
-        url_filename),)
-    hex_sum = '5eed0e01ab931e3f706ec544fc8f06ecac384e91'
+    version = '2.0.18'
+    local_filename = 'gdata-%s.zip' % version
+    urls = ('https://github.com/google/gdata-python-client/' +
+            'archive/master.zip',)
+    hex_sum = '893f9c9f627ef92afe8f3f066311d9b3748f1732'
+    extracted_package_path = 'gdata-python-client-master'
 
     _build_and_install = ExternalPackage._build_and_install_from_package
     _build_and_install_current_dir = (
@@ -855,44 +852,6 @@ class GdataPackage(ExternalPackage):
 
     def _get_installed_version_from_module(self, module):
         # gdata doesn't contain a proper version
-        return self.version
-
-
-class GoogleAPIClientPackage(ExternalPackage):
-    """
-    Pulls the Python Google API client library.
-    """
-    version = '1.1'
-    module_name = 'apiclient'
-    url_filename = 'google-api-python-client-%s.tar.gz' % version
-    local_filename = url_filename
-    urls = ('https://google-api-python-client.googlecode.com/files/%s' % (
-        url_filename),)
-    hex_sum = '2294949683e367b3d4ecaeb77502509c5af21e60'
-
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-                        ExternalPackage._build_and_install_current_dir_setup_py)
-
-
-class GFlagsPackage(ExternalPackage):
-    """
-    Gets the Python GFlags client library.
-    """
-    # gflags doesn't contain a proper version
-    version = '2.0'
-    url_filename = 'python-gflags-%s.tar.gz' % version
-    local_filename = url_filename
-    urls = ('https://python-gflags.googlecode.com/files/%s' % (
-        url_filename),)
-    hex_sum = 'db309e6964b102ff36de319ce551db512a78281e'
-
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-                        ExternalPackage._build_and_install_current_dir_setup_py)
-
-
-    def _get_installed_version_from_module(self, module):
         return self.version
 
 
@@ -966,6 +925,25 @@ class PyMoxPackage(ExternalPackage):
         return self.version
 
 
+class MockPackage(ExternalPackage):
+    """
+    mock module
+
+    Used in unittests.
+    """
+    module_name = 'mock'
+    version = '2.0.0'
+    url_filename = 'mock-%s.tar.gz' % version
+    local_filename = url_filename
+    urls = ('http://pypi.python.org/packages/source/m/mock/%s' % (
+        url_filename),)
+    hex_sum = '397ed52eb2d8d4b326bc3fa6b38adda5f0b090d3'
+
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+                        ExternalPackage._build_and_install_current_dir_noegg)
+
+
 class PySeleniumPackage(ExternalPackage):
     """
     selenium module
@@ -1031,6 +1009,14 @@ class ElasticSearchPackage(ExternalPackage):
     _build_and_install_current_dir = (
             ExternalPackage._build_and_install_current_dir_setup_py)
 
+    def _get_installed_version_from_module(self, module):
+        # Elastic's version format is like tuple (1, 6, 0), which needs to be
+        # transferred to 1.6.0.
+        try:
+            return '.'.join(str(i) for i in module.__version__)
+        except:
+            return self.version
+
 
 class Urllib3Package(ExternalPackage):
     """elasticsearch-py package."""
@@ -1069,6 +1055,82 @@ class ImagingLibraryPackage(ExternalPackage):
             ExternalPackage._build_and_install_current_dir_noegg)
 
 
+class AstroidPackage(ExternalPackage):
+    """astroid package."""
+    version = '1.0.0'
+    url_filename = 'astroid-%s.tar.gz' % version
+    local_filename = url_filename
+    #md5=e74430dfbbe09cd18ef75bd76f95425a
+    urls = ('https://pypi.python.org/packages/15/ef/'
+            '1c01161c40ce08451254125935c5bca85b08913e610a4708760ee1432fa8/%s' %
+            (url_filename),)
+    hex_sum = '2ebba76d115cb8a2d84d8777d8535ddac86daaa6'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class LogilabCommonPackage(ExternalPackage):
+    """logilab-common package."""
+    version = '1.2.2'
+    module_name = 'logilab'
+    url_filename = 'logilab-common-%s.tar.gz' % version
+    local_filename = url_filename
+    #md5=daa7b20c8374ff5f525882cf67e258c0
+    urls = ('https://pypi.python.org/packages/63/5b/'
+            'd4d93ad9e683a06354bc5893194514fbf5d05ef86b06b0285762c3724509/%s' %
+            (url_filename),)
+    hex_sum = 'ecad2d10c31dcf183c8bed87b6ec35e7ed397d27'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class PyLintPackage(ExternalPackage):
+    """pylint package."""
+    version = '1.1.0'
+    url_filename = 'pylint-%s.tar.gz' % version
+    local_filename = url_filename
+    #md5=017299b5911838a9347a71de5f946afc
+    urls = ('https://pypi.python.org/packages/09/69/'
+            'cf252f211dbbf58bbbe01a3931092d8a8df8d55f5fe23ac5cef145aa6468/%s' %
+            (url_filename),)
+    hex_sum = 'b33594a2c627d72007bfa8c6d7619af699e26085'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class Pytz(ExternalPackage):
+    """Pytz package."""
+    version = '2016.10'
+    url_filename = 'pytz-%s.tar.gz' % version
+    local_filename = url_filename
+    #md5=cc9f16ba436efabdcef3c4d32ae4919c
+    urls = ('https://pypi.python.org/packages/42/00/'
+            '5c89fc6c9b305df84def61863528e899e9dccb196f8438f6cbe960758fc5/%s' %
+            (url_filename),)
+    hex_sum = '8d63f1e9b1ee862841b990a7d8ad1d4508d9f0be'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class Tzlocal(ExternalPackage):
+    """Tzlocal package."""
+    version = '1.3'
+    url_filename = 'tzlocal-%s.tar.gz' % version
+    local_filename = url_filename
+    # md5=3cb544b3975b59f91a793850a072d4a8
+    urls = ('https://pypi.python.org/packages/d3/64/'
+            'e4b18738496213f82b88b31c431a0e4ece143801fb6771dddd1c2bf0101b/%s' %
+            (url_filename),)
+    hex_sum = '730e9d7112335865a1dcfabec69c8c3086be424f'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
 class _ExternalGitRepo(ExternalPackage):
     """
     Parent class for any package which needs to pull a git repo.
@@ -1085,6 +1147,7 @@ class _ExternalGitRepo(ExternalPackage):
     # All the chromiumos projects used on the lab servers should have a 'prod'
     # branch used to track the software version deployed in prod.
     PROD_BRANCH = 'prod'
+    MASTER_BRANCH = 'master'
 
     def is_needed(self, unused_install_dir):
         """Tell build_externals that we need to fetch."""
@@ -1158,7 +1221,7 @@ class ChromiteRepo(_ExternalGitRepo):
 
     _GIT_URL = ('https://chromium.googlesource.com/chromiumos/chromite')
 
-    def build_and_install(self, install_dir):
+    def build_and_install(self, install_dir, master_branch=False):
         """
         Clone if the repo isn't initialized, pull clean bits if it is.
 
@@ -1167,13 +1230,17 @@ class ChromiteRepo(_ExternalGitRepo):
         directory because it doesn't need installation.
 
         @param install_dir: destination directory for chromite installation.
+        @param master_branch: if True, install master branch. Otherwise,
+                              install prod branch.
         """
+        init_branch = (self.MASTER_BRANCH if master_branch
+                       else self.PROD_BRANCH)
         local_chromite_dir = os.path.join(install_dir, 'chromite')
         git_repo = revision_control.GitRepo(
                 local_chromite_dir,
                 self._GIT_URL,
                 abs_work_tree=local_chromite_dir)
-        git_repo.reinit_repo_at(self.PROD_BRANCH)
+        git_repo.reinit_repo_at(init_branch)
 
 
         if git_repo.get_latest_commit_hash():

@@ -3,9 +3,8 @@
 # found in the LICENSE file.
 
 AUTHOR = "mohsinally"
-NAME = "login_LoginSuccess"
+NAME = "login_LoginSuccessStress"
 ATTRIBUTES = "suite:stress"
-SUITE = "stress"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "login"

@@ -1,17 +1,20 @@
 # Copyright 2014 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+import mock
 import unittest
 
 from telemetry.core import exceptions
 from telemetry import decorators
+from telemetry.internal.actions import action_runner as action_runner_module
 from telemetry.internal.actions import page_action
-from telemetry.page import action_runner as action_runner_module
 from telemetry.testing import tab_test_case
-import mock
+from telemetry.timeline import chrome_trace_category_filter
 from telemetry.timeline import model
 from telemetry.timeline import tracing_config
 from telemetry.web_perf import timeline_interaction_record as tir_module
+
+import py_utils
 
 
 class ActionRunnerInteractionTest(tab_test_case.TabTestCase):
@@ -31,7 +34,7 @@ class ActionRunnerInteractionTest(tab_test_case.TabTestCase):
     self.Navigate('interaction_enabled_page.html')
     action_runner.Wait(1)
     config = tracing_config.TracingConfig()
-    config.SetNoOverheadFilter()
+    config.chrome_trace_config.SetLowOverheadFilter()
     config.enable_chrome_trace = True
     self._browser.platform.tracing_controller.StartTracing(config)
     with action_runner.CreateInteraction('InteractionName',
@@ -51,9 +54,61 @@ class ActionRunnerInteractionTest(tab_test_case.TabTestCase):
   # Test disabled for android: crbug.com/437057
   # Test disabled for linux: crbug.com/513874
   @decorators.Disabled('android', 'chromeos', 'linux')
-  @decorators.Disabled('win')  # crbug.com/570955
   def testIssuingMultipleMeasurementInteractionRecords(self):
     self.VerifyIssuingInteractionRecords(repeatable=True)
+
+
+class ActionRunnerMeasureMemoryTest(tab_test_case.TabTestCase):
+  def setUp(self):
+    super(ActionRunnerMeasureMemoryTest, self).setUp()
+    self.action_runner = action_runner_module.ActionRunner(self._tab,
+                                                           skip_waits=True)
+    self.Navigate('blank.html')
+
+  def testWithoutTracing(self):
+    with mock.patch.object(self._tab.browser, 'DumpMemory') as mock_method:
+      self.assertIsNone(self.action_runner.MeasureMemory())
+      self.assertFalse(mock_method.called)  # No-op with no tracing.
+
+  def _testWithTracing(self, deterministic_mode=False):
+    trace_memory = chrome_trace_category_filter.ChromeTraceCategoryFilter(
+        filter_string='-*,blink.console,disabled-by-default-memory-infra')
+    config = tracing_config.TracingConfig()
+    config.enable_chrome_trace = True
+    config.chrome_trace_config.SetCategoryFilter(trace_memory)
+    self._browser.platform.tracing_controller.StartTracing(config)
+    try:
+      dump_id = self.action_runner.MeasureMemory(deterministic_mode)
+    finally:
+      trace_data = self._browser.platform.tracing_controller.StopTracing()
+
+    # If successful, i.e. we haven't balied out due to an exception, check
+    # that we can find our dump in the trace.
+    self.assertIsNotNone(dump_id)
+    timeline_model = model.TimelineModel(trace_data)
+    dump_ids = (d.dump_id for d in timeline_model.IterGlobalMemoryDumps())
+    self.assertIn(dump_id, dump_ids)
+
+  # TODO(perezju): Enable when reference browser is >= M53
+  # https://github.com/catapult-project/catapult/issues/2610
+  @decorators.Disabled('reference')
+  def testDeterministicMode(self):
+    self._testWithTracing(deterministic_mode=True)
+
+  # TODO(perezju): Enable when reference browser is >= M53
+  # https://github.com/catapult-project/catapult/issues/2610
+  @decorators.Disabled('reference')
+  def testRealisticMode(self):
+    with mock.patch.object(
+        self.action_runner, 'ForceGarbageCollection') as mock_method:
+      self._testWithTracing(deterministic_mode=False)
+      self.assertFalse(mock_method.called)  # No forced GC in "realistic" mode.
+
+  def testWithFailedDump(self):
+    with mock.patch.object(self._tab.browser, 'DumpMemory') as mock_method:
+      mock_method.return_value = False  # Dump fails!
+      with self.assertRaises(exceptions.Error):
+        self._testWithTracing()
 
 
 class ActionRunnerTest(tab_test_case.TabTestCase):
@@ -78,6 +133,39 @@ class ActionRunnerTest(tab_test_case.TabTestCase):
         self._tab.EvaluateJavaScript('document.location.pathname;'),
         '/blank.html')
 
+  def testNavigateBack(self):
+    action_runner = action_runner_module.ActionRunner(self._tab,
+                                                      skip_waits=True)
+    self.Navigate('page_with_link.html')
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/page_with_link.html"')
+
+    # Test that after 3 navigations & 3 back navs, we have to be back at the
+    # initial page
+    self.Navigate('page_with_swipeables.html')
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/page_with_swipeables.html"')
+
+    self.Navigate('blank.html')
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/blank.html"')
+
+    self.Navigate('page_with_swipeables.html')
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/page_with_swipeables.html"')
+
+    action_runner.NavigateBack()
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/blank.html"')
+
+    action_runner.NavigateBack()
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/page_with_swipeables.html"')
+
+    action_runner.NavigateBack()
+    action_runner.WaitForJavaScriptCondition(
+        'document.location.pathname === "/page_with_link.html"')
+
   def testWait(self):
     action_runner = action_runner_module.ActionRunner(self._tab)
     self.Navigate('blank.html')
@@ -99,12 +187,26 @@ class ActionRunnerTest(tab_test_case.TabTestCase):
 
     action_runner.ExecuteJavaScript('window.testing = 219;')
     action_runner.WaitForJavaScriptCondition(
-        'window.testing == 219', timeout_in_seconds=0.1)
+        'window.testing == 219', timeout=0.1)
     action_runner.ExecuteJavaScript(
         'window.setTimeout(function() { window.testing = 220; }, 50);')
     action_runner.WaitForJavaScriptCondition(
-        'window.testing == 220', timeout_in_seconds=0.1)
+        'window.testing == 220', timeout=0.1)
     self.assertEqual(220, self._tab.EvaluateJavaScript('window.testing'))
+
+  def testWaitForJavaScriptCondition_returnsValue(self):
+    action_runner = action_runner_module.ActionRunner(self._tab,
+                                                      skip_waits=True)
+    self.Navigate('blank.html')
+
+    action_runner.ExecuteJavaScript('window.testing = 0;')
+    action_runner.WaitForJavaScriptCondition(
+        'window.testing == 0', timeout=0.1)
+    action_runner.ExecuteJavaScript(
+        'window.setTimeout(function() { window.testing = 42; }, 50);')
+    self.assertEqual(
+        42,
+        action_runner.WaitForJavaScriptCondition('window.testing', timeout=10))
 
   def testWaitForElement(self):
     action_runner = action_runner_module.ActionRunner(self._tab,
@@ -158,7 +260,7 @@ class ActionRunnerTest(tab_test_case.TabTestCase):
     action_runner.WaitForElement('#test1', timeout_in_seconds=0.2)
     def WaitForElement():
       action_runner.WaitForElement(text='oo', timeout_in_seconds=0.2)
-    self.assertRaises(exceptions.TimeoutException, WaitForElement)
+    self.assertRaises(py_utils.TimeoutException, WaitForElement)
 
   def testClickElement(self):
     self.Navigate('page_with_clickables.html')
@@ -183,7 +285,8 @@ class ActionRunnerTest(tab_test_case.TabTestCase):
     self.assertRaises(exceptions.EvaluateException, WillFail)
 
   @decorators.Disabled('android', 'debug',  # crbug.com/437068
-                       'chromeos')          # crbug.com/483212
+                       'chromeos',          # crbug.com/483212
+                       'win')               # catapult/issues/2282
   def testTapElement(self):
     self.Navigate('page_with_clickables.html')
     action_runner = action_runner_module.ActionRunner(self._tab,
@@ -205,6 +308,47 @@ class ActionRunnerTest(tab_test_case.TabTestCase):
     def WillFail():
       action_runner.TapElement('#notfound')
     self.assertRaises(exceptions.EvaluateException, WillFail)
+
+  # https://github.com/catapult-project/catapult/issues/3099
+  @decorators.Disabled('android')
+  def testScrollToElement(self):
+    self.Navigate('page_with_swipeables.html')
+    action_runner = action_runner_module.ActionRunner(self._tab,
+                                                      skip_waits=True)
+
+    off_screen_element = 'document.querySelectorAll("#off-screen")[0]'
+    top_bottom_element = 'document.querySelector("#top-bottom")'
+
+    def viewport_comparator(element):
+      return action_runner.EvaluateJavaScript('''
+          (function(elem) {
+            var rect = elem.getBoundingClientRect();
+
+            if (rect.bottom < 0) {
+              // The bottom of the element is above the viewport.
+              return -1;
+            }
+            if (rect.top - window.innerHeight > 0) {
+              // rect.top provides the pixel offset of the element from the
+              // top of the page. Because that exceeds the viewport's height,
+              // we know that the element is below the viewport.
+              return 1;
+            }
+            return 0;
+          })({{ @element }});
+          ''', element=element)
+
+
+    self.assertEqual(viewport_comparator(off_screen_element), 1)
+    action_runner.ScrollPageToElement(selector='#off-screen',
+                                      speed_in_pixels_per_second=5000)
+    self.assertEqual(viewport_comparator(off_screen_element), 0)
+
+    self.assertEqual(viewport_comparator(top_bottom_element), -1)
+    action_runner.ScrollPageToElement(selector='#top-bottom',
+                                      container_selector='body',
+                                      speed_in_pixels_per_second=5000)
+    self.assertEqual(viewport_comparator(top_bottom_element), 0)
 
   @decorators.Disabled('android',   # crbug.com/437065.
                        'chromeos')  # crbug.com/483212.
@@ -255,20 +399,60 @@ class ActionRunnerTest(tab_test_case.TabTestCase):
     self.assertTrue(action_runner.EvaluateJavaScript(
         '(document.scrollingElement || document.body).scrollLeft') > 75)
 
+  def testWaitForNetworkQuiescenceSmoke(self):
+    self.Navigate('blank.html')
+    action_runner = action_runner_module.ActionRunner(self._tab)
+    action_runner.WaitForNetworkQuiescence()
+    self.assertEqual(
+        self._tab.EvaluateJavaScript('document.location.pathname;'),
+        '/blank.html')
+
+  def testEnterText(self):
+    self.Navigate('blank.html')
+    self._tab.ExecuteJavaScript(
+        '(function() {'
+        '  var elem = document.createElement("textarea");'
+        '  document.body.appendChild(elem);'
+        '  elem.focus();'
+        '})();')
+
+    action_runner = action_runner_module.ActionRunner(self._tab,
+                                                      skip_waits=True)
+    action_runner.EnterText('That is boring')  # That is boring|.
+    action_runner.PressKey('Home')  # |That is boring.
+    action_runner.PressKey('ArrowRight', repeat_count=2)  # Th|at is boring.
+    action_runner.PressKey('Delete', repeat_count=2)  # Th| is boring.
+    action_runner.EnterText('is')  # This| is boring.
+    action_runner.PressKey('End')  # This is boring|.
+    action_runner.PressKey('ArrowLeft', repeat_count=3)  # This is bor|ing.
+    action_runner.PressKey('Backspace', repeat_count=3)  # This is |ing.
+    action_runner.EnterText('interest')  # This is interest|ing.
+
+    # Check that the contents of the textarea is correct. It might take a second
+    # until all keystrokes have been handled by the browser (crbug.com/630017).
+    self._tab.WaitForJavaScriptCondition(
+        'document.querySelector("textarea").value === "This is interesting"',
+        timeout=1)
+
 
 class InteractionTest(unittest.TestCase):
 
   def setUp(self):
     self.mock_action_runner = mock.Mock(action_runner_module.ActionRunner)
 
+    def expected_js_call(method):
+      return mock.call.ExecuteJavaScript(
+          '%s({{ marker }});' % method, marker='Interaction.ABC')
+
+    self.expected_calls = [
+        expected_js_call('console.time'),
+        expected_js_call('console.timeEnd')]
+
   def testIssuingInteractionRecordCommand(self):
     with action_runner_module.Interaction(
         self.mock_action_runner, label='ABC', flags=[]):
       pass
-    expected_calls = [
-        mock.call.ExecuteJavaScript('console.time("Interaction.ABC");'),
-        mock.call.ExecuteJavaScript('console.timeEnd("Interaction.ABC");')]
-    self.assertEqual(expected_calls, self.mock_action_runner.mock_calls)
+    self.assertEqual(self.expected_calls, self.mock_action_runner.mock_calls)
 
   def testExceptionRaisedInWithInteraction(self):
     class FooException(Exception):
@@ -282,6 +466,5 @@ class InteractionTest(unittest.TestCase):
 
     # Test that the end console.timeEnd(...) isn't called because exception was
     # raised.
-    expected_calls = [
-        mock.call.ExecuteJavaScript('console.time("Interaction.ABC");')]
-    self.assertEqual(expected_calls, self.mock_action_runner.mock_calls)
+    self.assertEqual(
+        self.expected_calls[:1], self.mock_action_runner.mock_calls)

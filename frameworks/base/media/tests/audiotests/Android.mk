@@ -10,11 +10,13 @@ LOCAL_SRC_FILES := \
 
 LOCAL_SHARED_LIBRARIES :=  \
     libc \
+    liblog \
     libcutils \
     libutils \
     libbinder \
     libhardware_legacy \
-    libmedia
+    libmedia \
+    libaudioclient \
 
 LOCAL_MODULE_TAGS := tests
 

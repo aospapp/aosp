@@ -21,7 +21,7 @@
 **                  operations with PN544 controller.
 **
 *****************************************************************************/
-#include "OverrideLog.h"
+#include "_OverrideLog.h"
 #include "Pn544Interop.h"
 #include "IntervalTimer.h"
 #include "Mutex.h"
@@ -59,7 +59,7 @@ static bool gAbortNow = false; //stop timer during next callback
 *******************************************************************************/
 void pn544InteropStopPolling ()
 {
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV("%s: enter", __func__);
     gMutex.lock ();
     gTimer.kill ();
     android::startStopPolling (false);
@@ -67,7 +67,7 @@ void pn544InteropStopPolling ()
     gAbortNow = false;
     gTimer.set (gIntervalTime, pn544InteropStartPolling); //after some time, start polling again
     gMutex.unlock ();
-    ALOGD ("%s: exit", __FUNCTION__);
+    ALOGV("%s: exit", __func__);
 }
 
 
@@ -83,32 +83,32 @@ void pn544InteropStopPolling ()
 *******************************************************************************/
 void pn544InteropStartPolling (union sigval)
 {
-    ALOGD ("%s: enter", __FUNCTION__);
+    ALOGV("%s: enter", __func__);
     gMutex.lock ();
     NfcTag::ActivationState state = NfcTag::getInstance ().getActivationState ();
 
     if (gAbortNow)
     {
-        ALOGD ("%s: abort now", __FUNCTION__);
+        ALOGV("%s: abort now", __func__);
         gIsBusy = false;
         goto TheEnd;
     }
 
     if (state == NfcTag::Idle)
     {
-        ALOGD ("%s: start polling", __FUNCTION__);
+        ALOGV("%s: start polling", __func__);
         android::startStopPolling (true);
         gIsBusy = false;
     }
     else
     {
-        ALOGD ("%s: try again later", __FUNCTION__);
+        ALOGV("%s: try again later", __func__);
         gTimer.set (gIntervalTime, pn544InteropStartPolling); //after some time, start polling again
     }
 
 TheEnd:
     gMutex.unlock ();
-    ALOGD ("%s: exit", __FUNCTION__);
+    ALOGV("%s: exit", __func__);
 }
 
 
@@ -127,7 +127,7 @@ bool pn544InteropIsBusy ()
     gMutex.lock ();
     isBusy = gIsBusy;
     gMutex.unlock ();
-    ALOGD ("%s: %u", __FUNCTION__, isBusy);
+    ALOGV("%s: %u", __func__, isBusy);
     return isBusy;
 }
 
@@ -143,7 +143,7 @@ bool pn544InteropIsBusy ()
 *******************************************************************************/
 void pn544InteropAbortNow ()
 {
-    ALOGD ("%s", __FUNCTION__);
+    ALOGV("%s", __func__);
     gMutex.lock ();
     gAbortNow = true;
     gMutex.unlock ();

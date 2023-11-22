@@ -39,10 +39,10 @@
             <intent-filter>
                 <action android:name="com.android.cts.robot.ACTION_POST" />
                 <action android:name="com.android.cts.robot.ACTION_CANCEL" />
+                <action android:name="com.android.cts.robot.ACTION_RESET_SETUP_NOTIFICATION" />
+                <action android:name="com.android.cts.robot.ACTION_INLINE_REPLY" />
             </intent-filter>
         </receiver>
-
-
     </application>
 
 </manifest>

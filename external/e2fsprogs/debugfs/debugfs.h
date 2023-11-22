@@ -5,6 +5,8 @@
 #include "ss/ss.h"
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
+#include "../misc/create_inode.h"
+#include "support/quotaio.h"
 
 #ifdef __STDC__
 #define NOARGS void
@@ -21,6 +23,7 @@
 #define CHECK_FS_NOTOPEN	0x0004
 
 extern ext2_filsys current_fs;
+extern quota_ctx_t current_qctx;
 extern ext2_ino_t	root, cwd;
 extern int sci_idx;
 extern ss_request_table debug_cmds, extent_cmds;
@@ -33,13 +36,15 @@ extern int check_fs_not_open(char *name);
 extern int check_fs_read_write(char *name);
 extern int check_fs_bitmaps(char *name);
 extern ext2_ino_t string_to_inode(char *str);
-extern char *time_to_string(__u32);
-extern time_t string_to_time(const char *);
+extern char *inode_time_to_string(__u32 xtime, __u32 xtime_extra);
+extern char *time_to_string(__s64);
+extern __s64 string_to_time(const char *);
 extern unsigned long parse_ulong(const char *str, const char *cmd,
 				 const char *descr, int *err);
 extern unsigned long long parse_ulonglong(const char *str, const char *cmd,
 					  const char *descr, int *err);
-extern int strtoblk(const char *cmd, const char *str, blk64_t *ret);
+extern int strtoblk(const char *cmd, const char *str, const char *errmsg,
+		    blk64_t *ret);
 extern int common_args_process(int argc, char *argv[], int min_argc,
 			       int max_argc, const char *cmd,
 			       const char *usage, int flags);
@@ -159,9 +164,11 @@ extern void do_expand_dir(int argc, char **argv);
 extern void do_features(int argc, char **argv);
 extern void do_bmap(int argc, char **argv);
 extern void do_imap(int argc, char **argv);
+extern void do_idump(int argc, char *argv[]);
 extern void do_set_current_time(int argc, char **argv);
 extern void do_supported_features(int argc, char **argv);
 extern void do_punch(int argc, char **argv);
+extern void do_fallocate(int argc, char **argv);
 extern void do_symlink(int argc, char **argv);
 
 extern void do_dump_mmp(int argc, char **argv);
@@ -170,9 +177,29 @@ extern void do_set_mmp_value(int argc, char **argv);
 extern void do_freefrag(int argc, char **argv);
 extern void do_filefrag(int argc, char *argv[]);
 
+/* do_journal.c */
+
+extern void do_journal_write(int argc, char *argv[]);
+extern void do_journal_open(int argc, char *argv[]);
+extern void do_journal_close(int argc, char *argv[]);
+extern void do_journal_run(int argc, char *argv[]);
+
+/* quota.c */
+extern void do_list_quota(int argc, char *argv[]);
+extern void do_get_quota(int argc, char *argv[]);
+
 /* util.c */
-extern time_t string_to_time(const char *arg);
+extern __s64 string_to_time(const char *arg);
+errcode_t read_list(char *str, blk64_t **list, size_t *len);
+
+/* xattrs.c */
+void dump_inode_attributes(FILE *out, ext2_ino_t ino);
+void do_get_xattr(int argc, char **argv);
+void do_set_xattr(int argc, char **argv);
+void do_rm_xattr(int argc, char **argv);
+void do_list_xattr(int argc, char **argv);
 
 /* zap.c */
 extern void do_zap_block(int argc, char **argv);
 extern void do_block_dump(int argc, char **argv);
+extern void do_byte_hexdump(FILE *fp, unsigned char *buf, size_t bufsize);

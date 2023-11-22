@@ -17,7 +17,6 @@
 package android.telecom.cts;
 
 import android.net.Uri;
-import android.os.RemoteException;
 import android.telecom.Connection;
 import android.telecom.RemoteConnection;
 import android.telecom.VideoProfile;
@@ -50,7 +49,7 @@ public class MockVideoProvider extends VideoProvider {
     private Surface mPreviewSurface = null;
     private Surface mDisplaySurface = null;
     private VideoProfile mSessionModifyResponse = null;
-    private BaseTelecomTestWithMockServices.InvokeCounter mVideoProviderHandlerTracker;
+    private TestUtils.InvokeCounter mVideoProviderHandlerTracker;
 
     public MockVideoProvider(MockConnection mockConnection) {
         mMockConnection = mockConnection;
@@ -147,7 +146,7 @@ public class MockVideoProvider extends VideoProvider {
      */
     public void waitForVideoProviderHandler(RemoteConnection.VideoProvider remoteVideoProvider) {
         mVideoProviderHandlerTracker =
-                new BaseTelecomTestWithMockServices.InvokeCounter("WaitForHandler");
+                new TestUtils.InvokeCounter("WaitForHandler");
         remoteVideoProvider.setZoom(0);
         mVideoProviderHandlerTracker.waitForCount(1);
         mVideoProviderHandlerTracker = null;

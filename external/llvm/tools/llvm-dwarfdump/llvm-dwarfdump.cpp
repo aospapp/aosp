@@ -23,12 +23,12 @@
 #include "llvm/Support/Format.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstring>
-#include <list>
 #include <string>
 #include <system_error>
 
@@ -36,7 +36,7 @@ using namespace llvm;
 using namespace object;
 
 static cl::list<std::string>
-InputFilenames(cl::Positional, cl::desc("<input object files>"),
+InputFilenames(cl::Positional, cl::desc("<input object files or .dSYM bundles>"),
                cl::ZeroOrMore);
 
 static cl::opt<DIDumpType> DumpType(
@@ -95,24 +95,58 @@ static void DumpInput(StringRef Filename) {
   error(Filename, BuffOrErr.getError());
   std::unique_ptr<MemoryBuffer> Buff = std::move(BuffOrErr.get());
 
-  ErrorOr<std::unique_ptr<Binary>> BinOrErr =
+  Expected<std::unique_ptr<Binary>> BinOrErr =
       object::createBinary(Buff->getMemBufferRef());
-  error(Filename, BinOrErr.getError());
+  if (!BinOrErr)
+    error(Filename, errorToErrorCode(BinOrErr.takeError()));
 
   if (auto *Obj = dyn_cast<ObjectFile>(BinOrErr->get()))
     DumpObjectFile(*Obj, Filename);
   else if (auto *Fat = dyn_cast<MachOUniversalBinary>(BinOrErr->get()))
     for (auto &ObjForArch : Fat->objects()) {
       auto MachOOrErr = ObjForArch.getAsObjectFile();
-      error(Filename, MachOOrErr.getError());
+      error(Filename, errorToErrorCode(MachOOrErr.takeError()));
       DumpObjectFile(**MachOOrErr,
                      Filename + " (" + ObjForArch.getArchTypeName() + ")");
     }
 }
 
+/// If the input path is a .dSYM bundle (as created by the dsymutil tool),
+/// replace it with individual entries for each of the object files inside the
+/// bundle otherwise return the input path.
+static std::vector<std::string> expandBundle(const std::string &InputPath) {
+  std::vector<std::string> BundlePaths;
+  SmallString<256> BundlePath(InputPath);
+  // Manually open up the bundle to avoid introducing additional dependencies.
+  if (sys::fs::is_directory(BundlePath) &&
+      sys::path::extension(BundlePath) == ".dSYM") {
+    std::error_code EC;
+    sys::path::append(BundlePath, "Contents", "Resources", "DWARF");
+    for (sys::fs::directory_iterator Dir(BundlePath, EC), DirEnd;
+         Dir != DirEnd && !EC; Dir.increment(EC)) {
+      const std::string &Path = Dir->path();
+      sys::fs::file_status Status;
+      EC = sys::fs::status(Path, Status);
+      error(Path, EC);
+      switch (Status.type()) {
+      case sys::fs::file_type::regular_file:
+      case sys::fs::file_type::symlink_file:
+      case sys::fs::file_type::type_unknown:
+        BundlePaths.push_back(Path);
+        break;
+      default: /*ignore*/;
+      }
+    }
+    error(BundlePath, EC);
+  }
+  if (!BundlePaths.size())
+    BundlePaths.push_back(InputPath);
+  return BundlePaths;
+}
+
 int main(int argc, char **argv) {
   // Print a stack trace if we signal out.
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 
@@ -122,7 +156,14 @@ int main(int argc, char **argv) {
   if (InputFilenames.size() == 0)
     InputFilenames.push_back("a.out");
 
-  std::for_each(InputFilenames.begin(), InputFilenames.end(), DumpInput);
+  // Expand any .dSYM bundles to the individual object files contained therein.
+  std::vector<std::string> Objects;
+  for (const auto &F : InputFilenames) {
+    auto Objs = expandBundle(F);
+    Objects.insert(Objects.end(), Objs.begin(), Objs.end());
+  }
+
+  std::for_each(Objects.begin(), Objects.end(), DumpInput);
 
   return EXIT_SUCCESS;
 }

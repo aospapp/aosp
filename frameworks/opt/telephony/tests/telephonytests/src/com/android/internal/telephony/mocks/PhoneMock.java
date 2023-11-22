@@ -24,6 +24,8 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Registrant;
 import android.os.RegistrantList;
+import android.os.ResultReceiver;
+import android.os.WorkSource;
 import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.service.carrier.CarrierIdentifier;
@@ -155,6 +157,11 @@ public class PhoneMock extends Phone {
 
     @Override
     public void handleMessage(Message msg) {
+        throw new RuntimeException("not implemented");
+    }
+
+    @Override
+    public boolean handleUssdRequest(String ussdRequest, ResultReceiver wrappedCallback) {
         throw new RuntimeException("not implemented");
     }
 
@@ -1071,7 +1078,7 @@ public class PhoneMock extends Phone {
         throw new RuntimeException("not implemented");
     }
 
-    public CellLocation getCellLocation() {
+    public CellLocation getCellLocation(WorkSource workSource) {
         throw new RuntimeException("not implemented");
     }
 
@@ -1153,6 +1160,10 @@ public class PhoneMock extends Phone {
     }
 
     public boolean handlePinMmi(String dialString) {
+        throw new RuntimeException("not implemented");
+    }
+
+    public boolean handleUssdServiceCall(String dialString, Callback wrappedCallback) {
         throw new RuntimeException("not implemented");
     }
 

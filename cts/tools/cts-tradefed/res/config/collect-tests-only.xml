@@ -22,29 +22,14 @@
          them as passed.
          Obviously no one would modify the report before uploading to falsify this
          information, as that would be dishonest, and dishonesty kills kittens :'( -->
-    <option name="compatibility:plan" value="collect-tests-only" />
+    <option name="plan" value="collect-tests-only" />
 
     <option name="skip-preconditions" value="true" />
     <option name="skip-connectivity-check" value="true" />
+    <option name="preparer-whitelist" value="com.android.tradefed.targetprep.suite.SuiteApkInstaller" />
     <option name="preparer-whitelist" value="com.android.compatibility.common.tradefed.targetprep.ApkInstaller" />
     <option name="preparer-whitelist" value="com.android.compatibility.common.tradefed.targetprep.FilePusher" />
 
-    <!-- Tell all AndroidJUnitTests to only list the tests -->
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:collect-tests-only:true" />
-
-    <!-- Tell all GTests to only list the tests -->
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.GTest:collect-tests-only:true" />
-
-    <!-- Tell all HostTests to only list the tests -->
-    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.HostTest:collect-tests-only:true" />
-
-    <!-- Tell all DEQPTests to only list the tests -->
-    <option name="compatibility:test-arg" value="com.drawelements.deqp.runner.DeqpTestRunner:collect-tests-only:true" />
-
-    <!-- Tell all JarHostTests to only list the tests -->
-    <option name="compatibility:test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:collect-tests-only:true" />
-
-    <!-- Tell all DalvikTests to only list the tests -->
-    <option name="compatibility:test-arg" value="com.android.compatibility.testtype.DalvikTest:collect-tests-only:true" />
+    <option name="compatibility:collect-tests-only" value="true" />
 
 </configuration>

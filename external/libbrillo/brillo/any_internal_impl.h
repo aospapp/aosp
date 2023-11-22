@@ -69,7 +69,8 @@ struct IsEqualityComparableHelper {
     // IntWrapper when both overloads are provided.
     // Also this constructor must NOT be explicit.
     // NOLINTNEXTLINE(runtime/explicit)
-    IntWrapper(int /* dummy */) {}  // do nothing
+    // NOLINT: Allow implicit conversion from int.
+    IntWrapper(int /* dummy */) {}  // do nothing, NOLINT
   };
 
   // Here is an obscure trick to determine if a type U has operator==().

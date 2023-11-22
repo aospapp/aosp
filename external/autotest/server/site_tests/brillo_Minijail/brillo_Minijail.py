@@ -22,5 +22,5 @@ class brillo_Minijail(test.test):
         """
         try:
             host.run(self.TEST_EXECUTABLE)
-        except error.AutoservRunError as are:
+        except error.GenericHostRunError as are:
             raise error.TestFail(are)

@@ -16,15 +16,19 @@
 
 package android.view.cts;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.Surface;
-import android.view.Surface.OutOfResourcesException;
 
-public class Surface_OutOfResourcesExceptionTest extends AndroidTestCase {
-    private static final String NAME = "Test_Surface_OutOfResourcesException";
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Surface_OutOfResourcesExceptionTest {
+    @Test
     public void testConstructor() {
         new Surface.OutOfResourcesException();
-        new Surface.OutOfResourcesException(NAME);
+        new Surface.OutOfResourcesException("Test_Surface_OutOfResourcesException");
     }
 }

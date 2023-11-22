@@ -18,17 +18,67 @@
 
 #include <sched.h>
 
+#include <android/frameworks/displayservice/1.0/IDisplayService.h>
+#include <android/hardware/configstore/1.0/ISurfaceFlingerConfigs.h>
+#include <android/hardware/graphics/allocator/2.0/IAllocator.h>
 #include <cutils/sched_policy.h>
 #include <binder/IServiceManager.h>
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
+#include <displayservice/DisplayService.h>
+#include <hidl/LegacySupport.h>
+#include <configstore/Utils.h>
 #include "GpuService.h"
 #include "SurfaceFlinger.h"
 
 using namespace android;
 
+static status_t startGraphicsAllocatorService() {
+    using android::hardware::graphics::allocator::V2_0::IAllocator;
+
+    status_t result =
+        hardware::registerPassthroughServiceImplementation<IAllocator>();
+    if (result != OK) {
+        ALOGE("could not start graphics allocator service");
+        return result;
+    }
+
+    return OK;
+}
+
+static status_t startHidlServices() {
+    using android::frameworks::displayservice::V1_0::implementation::DisplayService;
+    using android::frameworks::displayservice::V1_0::IDisplayService;
+    using android::hardware::configstore::getBool;
+    using android::hardware::configstore::getBool;
+    using android::hardware::configstore::V1_0::ISurfaceFlingerConfigs;
+    hardware::configureRpcThreadpool(1 /* maxThreads */,
+            false /* callerWillJoin */);
+
+    status_t err;
+
+    if (getBool<ISurfaceFlingerConfigs,
+            &ISurfaceFlingerConfigs::startGraphicsAllocatorService>(false)) {
+        err = startGraphicsAllocatorService();
+        if (err != OK) {
+           return err;
+        }
+    }
+
+    sp<IDisplayService> displayservice = new DisplayService();
+    err = displayservice->registerAsService();
+
+    if (err != OK) {
+        ALOGE("Could not register IDisplayService service.");
+    }
+
+    return err;
+}
+
 int main(int, char**) {
+    startHidlServices();
+
     signal(SIGPIPE, SIG_IGN);
     // When SF is launched in its own process, limit the number of
     // binder threads to 4.
@@ -45,12 +95,10 @@ int main(int, char**) {
 
     set_sched_policy(0, SP_FOREGROUND);
 
-#ifdef ENABLE_CPUSETS
     // Put most SurfaceFlinger threads in the system-background cpuset
     // Keeps us from unnecessarily using big cores
     // Do this after the binder thread pool init
-    set_cpuset_policy(0, SP_SYSTEM);
-#endif
+    if (cpusets_enabled()) set_cpuset_policy(0, SP_SYSTEM);
 
     // initialize before clients can connect
     flinger->init();

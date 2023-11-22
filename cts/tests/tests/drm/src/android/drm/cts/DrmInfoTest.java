@@ -33,6 +33,8 @@ public class DrmInfoTest extends AndroidTestCase {
 
     public static void testInvalidInfoTypes() throws Exception {
         checkInvalidInfoType(DrmInfoRequest.TYPE_REGISTRATION_INFO - 1);
+        checkInvalidInfoType(
+                DrmInfoRequest.TYPE_RIGHTS_ACQUISITION_PROGRESS_INFO + 1);
     }
 
     public static void testValidInfoTypes() throws Exception {

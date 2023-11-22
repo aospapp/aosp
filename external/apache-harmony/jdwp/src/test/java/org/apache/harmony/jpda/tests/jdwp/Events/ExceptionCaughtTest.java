@@ -40,6 +40,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class ExceptionCaughtTest extends ExceptionBaseTest {
 
+    @Override
     protected String getDebuggeeClassName() {
         return ExceptionCaughtDebuggee.class.getName();
     }

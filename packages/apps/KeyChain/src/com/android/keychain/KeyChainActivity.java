@@ -17,7 +17,6 @@
 package com.android.keychain;
 
 import android.app.Activity;
-import android.app.ActivityManagerNative;
 import android.app.admin.IDevicePolicyManager;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -207,24 +206,6 @@ public class KeyChainActivity extends Activity {
     private void displayCertChooserDialog(final CertificateAdapter adapter) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-        TextView contextView = (TextView) View.inflate(this, R.layout.cert_chooser_header, null);
-        View footer = View.inflate(this, R.layout.cert_chooser_footer, null);
-
-        final ListView lv = (ListView) View.inflate(this, R.layout.cert_chooser, null);
-        lv.addHeaderView(contextView, null, false);
-        lv.addFooterView(footer, null, false);
-        lv.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
-        lv.setAdapter(adapter);
-        builder.setView(lv);
-
-        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-
-                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                    lv.setItemChecked(position, true);
-                    adapter.notifyDataSetChanged();
-                }
-        });
-
         boolean empty = adapter.mAliases.isEmpty();
         int negativeLabel = empty ? android.R.string.cancel : R.string.deny_button;
         builder.setNegativeButton(negativeLabel, new DialogInterface.OnClickListener() {
@@ -234,40 +215,71 @@ public class KeyChainActivity extends Activity {
         });
 
         String title;
+        int selectedItem = -1;
         Resources res = getResources();
         if (empty) {
             title = res.getString(R.string.title_no_certs);
         } else {
             title = res.getString(R.string.title_select_cert);
             String alias = getIntent().getStringExtra(KeyChain.EXTRA_ALIAS);
+
             if (alias != null) {
                 // if alias was requested, set it if found
                 int adapterPosition = adapter.mAliases.indexOf(alias);
                 if (adapterPosition != -1) {
-                    int listViewPosition = adapterPosition+1;
-                    lv.setItemChecked(listViewPosition, true);
+                    // increase by 1 to account for item 0 being the header.
+                    selectedItem = adapterPosition + 1;
                 }
             } else if (adapter.mAliases.size() == 1) {
                 // if only one choice, preselect it
-                int adapterPosition = 0;
-                int listViewPosition = adapterPosition+1;
-                lv.setItemChecked(listViewPosition, true);
+                selectedItem = 1;
             }
 
             builder.setPositiveButton(R.string.allow_button, new DialogInterface.OnClickListener() {
                 @Override public void onClick(DialogInterface dialog, int id) {
-                    int listViewPosition = lv.getCheckedItemPosition();
-                    int adapterPosition = listViewPosition-1;
-                    String alias = ((adapterPosition >= 0)
-                                    ? adapter.getItem(adapterPosition)
-                                    : null);
-                    finish(alias);
+                    if (dialog instanceof AlertDialog) {
+                        ListView lv = ((AlertDialog) dialog).getListView();
+                        int listViewPosition = lv.getCheckedItemPosition();
+                        int adapterPosition = listViewPosition-1;
+                        String alias = ((adapterPosition >= 0)
+                                        ? adapter.getItem(adapterPosition)
+                                        : null);
+                        finish(alias);
+                    } else {
+                        Log.wtf(TAG, "Expected AlertDialog, got " + dialog, new Exception());
+                        finish(null);
+                    }
                 }
             });
         }
         builder.setTitle(title);
-        final Dialog dialog = builder.create();
+        builder.setSingleChoiceItems(adapter, selectedItem, null);
+        final AlertDialog dialog = builder.create();
 
+        // Show text above and below the list to explain what the certificate will be used for,
+        // and how to install another one, respectively.
+        TextView contextView = (TextView) View.inflate(this, R.layout.cert_chooser_header, null);
+
+        final ListView lv = dialog.getListView();
+        lv.addHeaderView(contextView, null, false);
+        lv.addFooterView(View.inflate(this, R.layout.cert_install, null));
+        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) {
+                    // Header. Just text; ignore clicks.
+                    return;
+                } else if (position == adapter.getCount() + 1) {
+                    // Footer. Remove dialog so that we will recreate with possibly new content
+                    // after install returns.
+                    dialog.dismiss();
+                    Credentials.getInstance().install(KeyChainActivity.this);
+                } else {
+                    dialog.getButton(DialogInterface.BUTTON_POSITIVE).setEnabled(true);
+                    lv.setItemChecked(position, true);
+                    adapter.notifyDataSetChanged();
+                }
+            }
+        });
 
         // getTargetPackage guarantees that the returned string is
         // supplied by the system, so that an application can not
@@ -295,21 +307,14 @@ public class KeyChainActivity extends Activity {
         }
         contextView.setText(contextMessage);
 
-        String installMessage = String.format(res.getString(R.string.install_new_cert_message),
-                                              Credentials.EXTENSION_PFX, Credentials.EXTENSION_P12);
-        TextView installText = (TextView) footer.findViewById(R.id.cert_chooser_install_message);
-        installText.setText(installMessage);
-
-        Button installButton = (Button) footer.findViewById(R.id.cert_chooser_install_button);
-        installButton.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                // remove dialog so that we will recreate with
-                // possibly new content after install returns
-                dialog.dismiss();
-                Credentials.getInstance().install(KeyChainActivity.this);
-            }
-        });
-
+        if (selectedItem == -1) {
+            dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+                @Override
+                public void onShow(DialogInterface dialogInterface) {
+                     dialog.getButton(DialogInterface.BUTTON_POSITIVE).setEnabled(false);
+                }
+            });
+        }
         dialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
             @Override public void onCancel(DialogInterface dialog) {
                 finish(null);

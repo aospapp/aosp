@@ -22,8 +22,10 @@ import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.cts.CameraTestUtils.ImageVerifierListener;
+import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2MultiViewTestCase;
 import android.hardware.camera2.cts.testcases.Camera2MultiViewTestCase.CameraPreviewListener;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.media.ImageReader;
 import android.os.SystemClock;
 import android.util.Log;
@@ -232,6 +234,36 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         }
     }
 
+    /*
+     * Verify behavior of sharing surfaces within one OutputConfiguration
+     */
+    public void testSharedSurfaces() throws Exception {
+        for (String cameraId : mCameraIds) {
+            try {
+                openCamera(cameraId);
+                if (getStaticInfo(cameraId).isHardwareLevelLegacy()) {
+                    Log.i(TAG, "Camera " + cameraId + " is legacy, skipping");
+                    continue;
+                }
+                if (!getStaticInfo(cameraId).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + cameraId +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+
+                testSharedSurfacesConfigByCamera(cameraId);
+
+                testSharedSurfacesCaptureSessionByCamera(cameraId);
+
+                testSharedDeferredSurfacesByCamera(cameraId);
+            }
+            finally {
+                closeCamera(cameraId);
+            }
+        }
+    }
+
+
     /**
      * Start camera preview using input texture views and/or one image reader
      */
@@ -285,6 +317,271 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         // TODO: check the framerate is correct
         SystemClock.sleep(PREVIEW_TIME_MS);
 
+        stopPreview(cameraId);
+    }
+
+    /*
+     * Verify behavior of OutputConfiguration when sharing surfaces
+     */
+    private void testSharedSurfacesConfigByCamera(String cameraId) throws Exception {
+        Size previewSize = getOrderedPreviewSizes(cameraId).get(0);
+
+        SurfaceTexture[] previewTexture = new SurfaceTexture[2];
+        Surface[] surfaces = new Surface[2];
+
+        // Create surface textures with the same size
+        for (int i = 0; i < 2; i++) {
+            previewTexture[i] = getAvailableSurfaceTexture(
+                    WAIT_FOR_COMMAND_TO_COMPLETE, mTextureView[i]);
+            assertNotNull("Unable to get preview surface texture", previewTexture[i]);
+            previewTexture[i].setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+            // Correct the preview display rotation.
+            updatePreviewDisplayRotation(previewSize, mTextureView[i]);
+            surfaces[i] = new Surface(previewTexture[i]);
+        }
+
+        // Verify that outputConfiguration can be created with 2 surfaces with the same setting.
+        OutputConfiguration previewConfiguration = new OutputConfiguration(
+                OutputConfiguration.SURFACE_GROUP_ID_NONE, surfaces[0]);
+        previewConfiguration.enableSurfaceSharing();
+        previewConfiguration.addSurface(surfaces[1]);
+        List<Surface> previewSurfaces = previewConfiguration.getSurfaces();
+        List<Surface> inputSurfaces = Arrays.asList(surfaces);
+        assertTrue(
+                String.format("Surfaces returned from getSurfaces() don't match those passed in"),
+                previewSurfaces.equals(inputSurfaces));
+
+        // Verify that createCaptureSession fails if 2 surfaces are different size
+        SurfaceTexture outputTexture2 = new SurfaceTexture(/* random texture ID*/ 5);
+        outputTexture2.setDefaultBufferSize(previewSize.getWidth()/2,
+                previewSize.getHeight()/2);
+        Surface outputSurface2 = new Surface(outputTexture2);
+        OutputConfiguration configuration = new OutputConfiguration(
+                OutputConfiguration.SURFACE_GROUP_ID_NONE, surfaces[0]);
+        configuration.enableSurfaceSharing();
+        configuration.addSurface(outputSurface2);
+        List<OutputConfiguration> outputConfigurations = new ArrayList<>();
+        outputConfigurations.add(configuration);
+        verifyCreateSessionWithConfigsFailure(cameraId, outputConfigurations);
+
+        // Verify that outputConfiguration throws exception if 2 surfaces are different format
+        ImageReader imageReader = makeImageReader(previewSize, ImageFormat.YUV_420_888,
+                MAX_READER_IMAGES, new ImageDropperListener(), mHandler);
+        try {
+            configuration = new OutputConfiguration(OutputConfiguration.SURFACE_GROUP_ID_NONE,
+                    surfaces[0]);
+            configuration.enableSurfaceSharing();
+            configuration.addSurface(imageReader.getSurface());
+            fail("No error for invalid output config created from different format surfaces");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        // Verify that outputConfiguration can be created with deferred surface with the same
+        // setting.
+        OutputConfiguration deferredPreviewConfigure = new OutputConfiguration(
+                previewSize, SurfaceTexture.class);
+        deferredPreviewConfigure.addSurface(surfaces[0]);
+        assertTrue(String.format("Number of surfaces %d doesn't match expected value 1",
+                deferredPreviewConfigure.getSurfaces().size()),
+                deferredPreviewConfigure.getSurfaces().size() == 1);
+        assertEquals("Surface 0 in OutputConfiguration doesn't match input",
+                deferredPreviewConfigure.getSurfaces().get(0), surfaces[0]);
+
+        // Verify that outputConfiguration throws exception if deferred surface and non-deferred
+        // surface properties don't match
+        try {
+            configuration = new OutputConfiguration(previewSize, SurfaceTexture.class);
+            configuration.addSurface(imageReader.getSurface());
+            fail("No error for invalid output config created deferred class with different type");
+        } catch (IllegalArgumentException e) {
+            // expected;
+        }
+
+        // Verify that non implementation-defined formats sharing are not supported.
+        int[] unsupportedFormats =
+                {ImageFormat.YUV_420_888, ImageFormat.DEPTH16, ImageFormat.DEPTH_POINT_CLOUD,
+                 ImageFormat.JPEG, ImageFormat.RAW_SENSOR, ImageFormat.RAW_PRIVATE};
+        for (int format : unsupportedFormats) {
+            Size[] availableSizes = getStaticInfo(cameraId).getAvailableSizesForFormatChecked(
+                    format, StaticMetadata.StreamDirection.Output);
+            if (availableSizes.length == 0) {
+                continue;
+            }
+            Size size = availableSizes[0];
+
+            imageReader = makeImageReader(size, format, MAX_READER_IMAGES,
+                    new ImageDropperListener(), mHandler);
+            configuration = new OutputConfiguration(OutputConfiguration.SURFACE_GROUP_ID_NONE,
+                    imageReader.getSurface());
+            configuration.enableSurfaceSharing();
+
+            List<OutputConfiguration> outputConfigs = new ArrayList<>();
+            outputConfigs.add(configuration);
+
+            verifyCreateSessionWithConfigsFailure(cameraId, outputConfigs);
+
+        }
+    }
+
+    private void testSharedSurfacesCaptureSessionByCamera(String cameraId) throws Exception {
+        Size previewSize = getOrderedPreviewSizes(cameraId).get(0);
+        CameraPreviewListener[] previewListener = new CameraPreviewListener[2];
+        SurfaceTexture[] previewTexture = new SurfaceTexture[2];
+        Surface[] surfaces = new Surface[2];
+
+        // Create surface textures with the same size
+        for (int i = 0; i < 2; i++) {
+            previewListener[i] = new CameraPreviewListener();
+            mTextureView[i].setSurfaceTextureListener(previewListener[i]);
+            previewTexture[i] = getAvailableSurfaceTexture(
+                    WAIT_FOR_COMMAND_TO_COMPLETE, mTextureView[i]);
+            assertNotNull("Unable to get preview surface texture", previewTexture[i]);
+            previewTexture[i].setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+            // Correct the preview display rotation.
+            updatePreviewDisplayRotation(previewSize, mTextureView[i]);
+            surfaces[i] = new Surface(previewTexture[i]);
+        }
+
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+
+        // Create shared outputs for the two surface textures
+        OutputConfiguration surfaceSharedOutput = new OutputConfiguration(
+                OutputConfiguration.SURFACE_GROUP_ID_NONE, surfaces[0]);
+        surfaceSharedOutput.enableSurfaceSharing();
+        surfaceSharedOutput.addSurface(surfaces[1]);
+
+        List<OutputConfiguration> outputConfigurations = new ArrayList<>();
+        outputConfigurations.add(surfaceSharedOutput);
+
+        startPreviewWithConfigs(cameraId, outputConfigurations, null);
+
+        for (int i = 0; i < 2; i++) {
+            boolean previewDone =
+                    previewListener[i].waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+            assertTrue("Unable to start preview " + i, previewDone);
+            mTextureView[i].setSurfaceTextureListener(null);
+        }
+
+        SystemClock.sleep(PREVIEW_TIME_MS);
+
+        stopPreview(cameraId);
+    }
+
+    private void testSharedDeferredSurfacesByCamera(String cameraId) throws Exception {
+        Size previewSize = getOrderedPreviewSizes(cameraId).get(0);
+        CameraPreviewListener[] previewListener = new CameraPreviewListener[2];
+        SurfaceTexture[] previewTexture = new SurfaceTexture[2];
+        Surface[] surfaces = new Surface[2];
+
+        // Create surface textures with the same size
+        for (int i = 0; i < 2; i++) {
+            previewListener[i] = new CameraPreviewListener();
+            mTextureView[i].setSurfaceTextureListener(previewListener[i]);
+            previewTexture[i] = getAvailableSurfaceTexture(
+                    WAIT_FOR_COMMAND_TO_COMPLETE, mTextureView[i]);
+            assertNotNull("Unable to get preview surface texture", previewTexture[i]);
+            previewTexture[i].setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+            // Correct the preview display rotation.
+            updatePreviewDisplayRotation(previewSize, mTextureView[i]);
+            surfaces[i] = new Surface(previewTexture[i]);
+        }
+
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+
+        //
+        // Create deferred outputConfiguration, addSurface, createCaptureSession, addSurface, and
+        // finalizeOutputConfigurations.
+        //
+
+        OutputConfiguration surfaceSharedOutput = new OutputConfiguration(
+                previewSize, SurfaceTexture.class);
+        surfaceSharedOutput.enableSurfaceSharing();
+        surfaceSharedOutput.addSurface(surfaces[0]);
+
+        List<OutputConfiguration> outputConfigurations = new ArrayList<>();
+        outputConfigurations.add(surfaceSharedOutput);
+
+        // Run preview with one surface, and verify at least one frame is received.
+        startPreviewWithConfigs(cameraId, outputConfigurations, null);
+        boolean previewDone =
+                previewListener[0].waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+        assertTrue("Unable to start preview 0", previewDone);
+
+        SystemClock.sleep(PREVIEW_TIME_MS);
+
+        // Add deferred surface to the output configuration
+        surfaceSharedOutput.addSurface(surfaces[1]);
+        List<OutputConfiguration> deferredConfigs = new ArrayList<OutputConfiguration>();
+        deferredConfigs.add(surfaceSharedOutput);
+
+        // Run preview with both surfaces, and verify at least one frame is received for each
+        // surface.
+        updateOutputConfigs(cameraId, deferredConfigs, null);
+        previewDone =
+                previewListener[1].waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+        assertTrue("Unable to start preview 1", previewDone);
+
+        stopPreview(cameraId);
+
+        previewListener[0].reset();
+        previewListener[1].reset();
+
+        //
+        // Create outputConfiguration with a surface, createCaptureSession, addSurface, and
+        // finalizeOutputConfigurations.
+        //
+
+        surfaceSharedOutput = new OutputConfiguration(
+                OutputConfiguration.SURFACE_GROUP_ID_NONE, surfaces[0]);
+        surfaceSharedOutput.enableSurfaceSharing();
+        outputConfigurations.clear();
+        outputConfigurations.add(surfaceSharedOutput);
+
+        startPreviewWithConfigs(cameraId, outputConfigurations, null);
+        previewDone =
+                previewListener[0].waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+        assertTrue("Unable to start preview 0", previewDone);
+
+        // Add deferred surface to the output configuration, and continue running preview
+        surfaceSharedOutput.addSurface(surfaces[1]);
+        deferredConfigs.clear();
+        deferredConfigs.add(surfaceSharedOutput);
+        updateOutputConfigs(cameraId, deferredConfigs, null);
+        previewDone =
+                previewListener[1].waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+        assertTrue("Unable to start preview 1", previewDone);
+
+        SystemClock.sleep(PREVIEW_TIME_MS);
+        stopPreview(cameraId);
+
+        previewListener[0].reset();
+        previewListener[1].reset();
+
+        //
+        // Create deferred output configuration, createCaptureSession, addSurface, addSurface, and
+        // finalizeOutputConfigurations.
+
+        surfaceSharedOutput = new OutputConfiguration(
+                previewSize, SurfaceTexture.class);
+        surfaceSharedOutput.enableSurfaceSharing();
+        outputConfigurations.clear();
+        outputConfigurations.add(surfaceSharedOutput);
+        createSessionWithConfigs(cameraId, outputConfigurations);
+
+        // Add 2 surfaces to the output configuration, and run preview
+        surfaceSharedOutput.addSurface(surfaces[0]);
+        surfaceSharedOutput.addSurface(surfaces[1]);
+        deferredConfigs.clear();
+        deferredConfigs.add(surfaceSharedOutput);
+        updateOutputConfigs(cameraId, deferredConfigs, null);
+        for (int i = 0; i < 2; i++) {
+            previewDone =
+                    previewListener[i].waitForPreviewDone(WAIT_FOR_COMMAND_TO_COMPLETE);
+            assertTrue("Unable to start preview " + i, previewDone);
+        }
+
+        SystemClock.sleep(PREVIEW_TIME_MS);
         stopPreview(cameraId);
     }
 }

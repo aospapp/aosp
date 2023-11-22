@@ -220,6 +220,7 @@ public:
             return try_lock_until(chrono::steady_clock::now() + __rel_time);
         }
     template <class _Clock, class _Duration>
+        _LIBCPP_METHOD_TEMPLATE_IMPLICIT_INSTANTIATION_VIS
         bool
         try_lock_until(const chrono::time_point<_Clock, _Duration>& __abs_time);
     void unlock();
@@ -235,6 +236,7 @@ public:
             return try_lock_shared_until(chrono::steady_clock::now() + __rel_time);
         }
     template <class _Clock, class _Duration>
+        _LIBCPP_METHOD_TEMPLATE_IMPLICIT_INSTANTIATION_VIS
         bool
         try_lock_shared_until(const chrono::time_point<_Clock, _Duration>& __abs_time);
     void unlock_shared();
@@ -319,25 +321,25 @@ public:
 
     _LIBCPP_INLINE_VISIBILITY
     explicit shared_lock(mutex_type& __m)
-        : __m_(&__m),
+        : __m_(_VSTD::addressof(__m)),
           __owns_(true)
         {__m_->lock_shared();}
 
     _LIBCPP_INLINE_VISIBILITY
     shared_lock(mutex_type& __m, defer_lock_t) _NOEXCEPT
-        : __m_(&__m),
+        : __m_(_VSTD::addressof(__m)),
           __owns_(false)
         {}
 
     _LIBCPP_INLINE_VISIBILITY
     shared_lock(mutex_type& __m, try_to_lock_t)
-        : __m_(&__m),
+        : __m_(_VSTD::addressof(__m)),
           __owns_(__m.try_lock_shared())
         {}
 
     _LIBCPP_INLINE_VISIBILITY
     shared_lock(mutex_type& __m, adopt_lock_t)
-        : __m_(&__m),
+        : __m_(_VSTD::addressof(__m)),
           __owns_(true)
         {}
 
@@ -345,7 +347,7 @@ public:
         _LIBCPP_INLINE_VISIBILITY
         shared_lock(mutex_type& __m,
                     const chrono::time_point<_Clock, _Duration>& __abs_time)
-            : __m_(&__m),
+            : __m_(_VSTD::addressof(__m)),
               __owns_(__m.try_lock_shared_until(__abs_time))
             {}
 
@@ -353,7 +355,7 @@ public:
         _LIBCPP_INLINE_VISIBILITY
         shared_lock(mutex_type& __m,
                     const chrono::duration<_Rep, _Period>& __rel_time)
-            : __m_(&__m),
+            : __m_(_VSTD::addressof(__m)),
               __owns_(__m.try_lock_shared_for(__rel_time))
             {}
 

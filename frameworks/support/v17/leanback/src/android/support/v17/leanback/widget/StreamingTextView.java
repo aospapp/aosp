@@ -13,13 +13,13 @@
  */
 package android.support.v17.leanback.widget;
 
-import android.support.v17.leanback.R;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.support.v17.leanback.R;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.SpannedString;
@@ -31,7 +31,6 @@ import android.util.Property;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.EditText;
-import android.widget.TextView;
 
 import java.util.List;
 import java.util.Random;
@@ -49,7 +48,7 @@ class StreamingTextView extends EditText {
     private static final float TEXT_DOT_SCALE = 1.3F;
     private static final boolean DOTS_FOR_STABLE = false;
     private static final boolean DOTS_FOR_PENDING = true;
-    private static final boolean ANIMATE_DOTS_FOR_PENDING = true;
+    static final boolean ANIMATE_DOTS_FOR_PENDING = true;
 
     private static final long STREAM_UPDATE_DELAY_MILLIS = 50;
 
@@ -69,12 +68,12 @@ class StreamingTextView extends EditText {
         }
     };
 
-    private final Random mRandom = new Random();
+    final Random mRandom = new Random();
 
-    private Bitmap mOneDot;
-    private Bitmap mTwoDot;
+    Bitmap mOneDot;
+    Bitmap mTwoDot;
 
-    private int mStreamPosition;
+    int mStreamPosition;
     private ObjectAnimator mStreamingAnimation;
 
     public StreamingTextView(Context context, AttributeSet attrs) {
@@ -154,11 +153,11 @@ class StreamingTextView extends EditText {
         }
     }
 
-    private int getStreamPosition() {
+    int getStreamPosition() {
         return mStreamPosition;
     }
 
-    private void setStreamPosition(int streamPosition) {
+    void setStreamPosition(int streamPosition) {
         mStreamPosition = streamPosition;
         invalidate();
     }

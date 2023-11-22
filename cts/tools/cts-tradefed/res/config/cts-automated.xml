@@ -17,15 +17,16 @@
 
     <include name="cts" />
 
-    <option name="compatibility:plan" value="cts" />
+    <option name="plan" value="cts" />
 
     <option name="skip-preconditions" value="false" />
     <option name="skip-connectivity-check" value="false" />
 
-    <!-- Tell all AndroidJUnitTests to only list the tests -->
+    <!-- Tell all AndroidJUnitTests to exclude certain annotations -->
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
 
-    <!-- Tell all HostTests to only list the tests -->
+    <!-- Tell all HostTests to exclude certain annotations -->
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.HostTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
+    <option name="compatibility:test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:android.platform.test.annotations.RestrictedBuildTest" />
 
 </configuration>

@@ -34,7 +34,7 @@ struct mce {
   __u8 cpuvendor;
   __u8 inject_flags;
   __u8 severity;
-  __u8 usable_addr;
+  __u8 pad;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
   __u32 cpuid;
   __u8 cs;
@@ -47,9 +47,13 @@ struct mce {
   __u32 apicid;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
   __u64 mcgcap;
+  __u64 synd;
+  __u64 ipid;
+  __u64 ppin;
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 };
 #define MCE_GET_RECORD_LEN _IOR('M', 1, int)
 #define MCE_GET_LOG_LEN _IOR('M', 2, int)
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define MCE_GETCLEAR_FLAGS _IOR('M', 3, int)
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #endif

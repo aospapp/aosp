@@ -385,7 +385,7 @@ void RSForEachLowering::handleForEachCalls(clang::FunctionDecl* FD,
                                            unsigned int targetAPI) {
   slangAssert(FD && FD->hasBody());
 
-  mInsideKernel = FD->hasAttr<clang::KernelAttr>();
+  mInsideKernel = FD->hasAttr<clang::RenderScriptKernelAttr>();
   VisitStmt(FD->getBody());
 }
 

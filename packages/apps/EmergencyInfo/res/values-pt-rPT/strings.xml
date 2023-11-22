@@ -87,8 +87,11 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Contactos de emergência"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"Adicionar contacto"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Não foi possível localizar um selecionador de contactos"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Não é possível apresentar o contacto"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Pretende remover <xliff:g id="CONTACT_NAME">%1$s</xliff:g> dos contactos de emergência?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Remover o contacto"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Não é possível ler as informações de contacto corretamente"</string>
     <string name="remove" msgid="1243949503772376064">"Remover"</string>
     <string name="cancel" msgid="7401575239009060939">"Cancelar"</string>
     <string name="ok" msgid="163967937451981024">"Ok"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Informações de emergência"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"As informações aqui introduzidas podem ajudar os socorristas numa emergência. São armazenadas apenas no seu dispositivo e qualquer pessoa as pode ler a partir do teclado de emergência sem desbloquear o telemóvel."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Continuar"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Informações de emergência não fornecidas"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Sem informações acerca do proprietário do telemóvel"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Se este for o seu telemóvel, toque no ícone de lápis para adicionar informações que serão apresentadas aqui em caso de emergência"</string>
     <string name="clear_all" msgid="8899013032870561633">"Limpar tudo"</string>
     <string name="clear" msgid="3648880442502887163">"Limpar"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Pretende limpar todas as informações e contactos?"</string>

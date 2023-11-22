@@ -29,19 +29,20 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <utils/Atomic.h>
+#include <android-base/stringprintf.h>
 #include <binder/IInterface.h>
+#include <binder/IServiceManager.h>
 #include <binder/IPCThreadState.h>
-#include <utils/Log.h>
-#include <utils/SystemClock.h>
-#include <utils/List.h>
-#include <utils/KeyedVector.h>
-#include <log/logger.h>
 #include <binder/Parcel.h>
 #include <binder/ProcessState.h>
-#include <binder/IServiceManager.h>
-#include <utils/threads.h>
+#include <log/log.h>
+#include <utils/Atomic.h>
+#include <utils/KeyedVector.h>
+#include <utils/List.h>
+#include <utils/Log.h>
 #include <utils/String8.h>
+#include <utils/SystemClock.h>
+#include <utils/threads.h>
 
 #include <ScopedUtfChars.h>
 #include <ScopedLocalRef.h>
@@ -192,18 +193,36 @@ static void report_exception(JNIEnv* env, jthrowable excep, const char* msg)
 
     if (env->IsInstanceOf(excep, gErrorOffsets.mClass)) {
         /*
-         * It's an Error: Reraise the exception, detach this thread, and
-         * wait for the fireworks. Die even more blatantly after a minute
-         * if the gentler attempt doesn't do the trick.
-         *
-         * The GetJavaVM function isn't on the "approved" list of JNI calls
-         * that can be made while an exception is pending, so we want to
-         * get the VM ptr, throw the exception, and then detach the thread.
+         * It's an Error: Reraise the exception and ask the runtime to abort.
          */
+
+        // Try to get the exception string. Sometimes logcat isn't available,
+        // so try to add it to the abort message.
+        std::string exc_msg = "(Unknown exception message)";
+        {
+            ScopedLocalRef<jclass> exc_class(env, env->GetObjectClass(excep));
+            jmethodID method_id = env->GetMethodID(exc_class.get(),
+                                                   "toString",
+                                                   "()Ljava/lang/String;");
+            ScopedLocalRef<jstring> jstr(
+                    env,
+                    reinterpret_cast<jstring>(
+                            env->CallObjectMethod(excep, method_id)));
+            env->ExceptionClear();  // Just for good measure.
+            if (jstr.get() != nullptr) {
+                ScopedUtfChars jstr_utf(env, jstr.get());
+                exc_msg = jstr_utf.c_str();
+            }
+        }
+
         env->Throw(excep);
+        ALOGE("java.lang.Error thrown during binder transaction (stack trace follows) : ");
         env->ExceptionDescribe();
-        ALOGE("Forcefully exiting");
-        exit(1);
+
+        std::string error_msg = base::StringPrintf(
+                "java.lang.Error thrown during binder transaction: %s",
+                exc_msg.c_str());
+        env->FatalError(error_msg.c_str());
     }
 
 bail:

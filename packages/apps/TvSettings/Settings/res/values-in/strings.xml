@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Selalu aktifkan pemindaian Wi-Fi"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Izinkan layanan lokasi Google dan aplikasi lainnya untuk memindai jaringan, bahkan saat Wi-Fi tidak aktif"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Izinkan layanan lokasi Google dan aplikasi lain memindai jaringan, bahkan saat Wi-Fi nonaktif"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Screen saver"</string>
     <string name="device_display" msgid="101455384386372747">"Layar"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Baterai <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Membatalkan penyandingan perangkat…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Tersambung"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Ganti nama"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Masukkan nama baru aksesori ini"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Menelusuri aksesori..."</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Sebelum menyandingkan perangkat Bluetooth, pastikan perangkat dalam mode penyandingan"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Satu perangkat ditemukan dan akan otomatis disandingkan dalam <xliff:g id="COUNTDOWN">%1$s</xliff:g> detik"</string>
@@ -91,13 +93,15 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Keyboard"</string>
     <string name="system_home" msgid="2858989138172296012">"Layar utama"</string>
     <string name="system_search" msgid="2837264654143247611">"Penelusuran"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Keamanan &amp; pembatasan"</string>
     <string name="system_speech" msgid="8128688499687306982">"Ucapan"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Masukan"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Aksesibilitas"</string>
-    <string name="system_developer_options" msgid="3237985523474863638">"Opsi pengembang"</string>
+    <string name="system_developer_options" msgid="3237985523474863638">"Opsi developer"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Tidak ada"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Penggunaan &amp; Diagnostik"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Tutorial"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Pembaruan sistem"</string>
     <string name="about_preference" msgid="4131396784531360434">"Tentang"</string>
     <string name="device_name" msgid="2670488158531273028">"Nama perangkat"</string>
@@ -241,7 +245,7 @@
     <string name="storage_size" msgid="8958530823208352781">"Ruang total: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
     <string name="storage_calculating_size" msgid="2644732407412520565">"Menghitung..."</string>
     <string name="storage_apps_usage" msgid="4366049071039081219">"Aplikasi"</string>
-    <string name="storage_downloads_usage" msgid="6172975879962599380">"Unduhan"</string>
+    <string name="storage_downloads_usage" msgid="6172975879962599380">"Download"</string>
     <string name="storage_dcim_usage" msgid="2977564696540645452">"Foto &amp; video"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"Audio"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Serbaneka"</string>
@@ -358,7 +362,7 @@
     <string name="location_reporting" msgid="3054236612250063073">"Pelaporan Lokasi"</string>
     <string name="location_history" msgid="2946680949724247804">"Riwayat Lokasi"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google menggunakan fitur ini pada produk seperti Google Now dan Google Maps. Mengaktifkan Pelaporan Lokasi memungkinkan produk Google apa pun yang menggunakan fitur ini menyimpan dan menggunakan data lokasi terbaru perangkat yang terkait dengan Akun Google Anda."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"Saat Riwayat Lokasi diaktifkan untuk akun ini, Google dapat menyimpan data lokasi perangkat Anda untuk digunakan oleh aplikasi Anda.\n\nMisalnya, Google Maps dapat memberi petunjuk arah dan Google Now dapat memberi informasi tentang lalu lintas ngelaju.\n\nAnda dapat menonaktifkan Riwayat Lokasi kapan saja, namun menonaktifkannya tidak akan menghapusnya. Untuk melihat dan mengelola Riwayat Lokasi Anda, kunjungi maps.google.com/locationhistory."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"Saat Riwayat Lokasi diaktifkan untuk akun ini, Google dapat menyimpan data lokasi perangkat Anda untuk digunakan oleh aplikasi Anda.\n\nMisalnya, Google Maps dapat memberi petunjuk arah dan Google Now dapat memberi informasi tentang lalu lintas perjalanan.\n\nAnda dapat menonaktifkan Riwayat Lokasi kapan saja, namun menonaktifkannya tidak akan menghapusnya. Untuk melihat dan mengelola Riwayat Lokasi Anda, kunjungi maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"Hapus riwayat lokasi"</string>
     <string name="delete_location_history_desc" msgid="4142806827237093397">"Tindakan ini akan menghapus semua Riwayat Lokasi yang tersimpan dari perangkat untuk Akun Google ini. Anda tidak dapat mengurungkan penghapusan. Beberapa aplikasi, termasuk Google Now, akan berhenti bekerja."</string>
     <string name="system_services" msgid="7230571820151215779">"Layanan"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Opsi tampilan"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurasikan"</string>
     <string name="captions_language" msgid="2835554055388996343">"Bahasa"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Default"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Ukuran teks"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Gaya teks"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Opsi khusus"</string>
@@ -412,7 +417,7 @@
     <string name="system_preferred_engine" msgid="8258210139854655567">"Mesin yang dipilih"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Laju bicara"</string>
     <string name="system_play_sample" msgid="7187293932891811148">"Mainkan sampel"</string>
-    <string name="system_install_voice_data" msgid="8920883886563714355">"Pasang data suara"</string>
+    <string name="system_install_voice_data" msgid="8920883886563714355">"Instal data suara"</string>
     <string name="system_general" msgid="3535958631591158282">"Umum"</string>
     <string name="system_debugging" msgid="7204447785851191331">"Debugging"</string>
     <string name="system_input" msgid="6164987320529039626">"Masukan"</string>
@@ -441,14 +446,13 @@
     <string name="system_pointer_location" msgid="2673764026490179227">"Lokasi penunjuk"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"Menampilkan batas tata letak"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"Menampilkan pembaruan tampilan GPU"</string>
-    <string name="system_show_hardware_layer" msgid="7301942527058509453">"Menampilkan lapisan perangkat keras"</string>
+    <string name="system_show_hardware_layer" msgid="7301942527058509453">"Menampilkan lapisan hardware"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Menampilkan kelebihan GPU"</string>
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Menampilkan pembaruan permukaan"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Skala animasi jendela"</string>
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Skala animasi transisi"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Skala durasi animator"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Mode ketat diaktifkan"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Menyetel penggunaan CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Perenderan GPU profil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Mengaktifkan jejak"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Jangan simpan kegiatan"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Terbaik-terburuk: biru, hijau, merah terang, merah"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Mengedipkan seluruh permukaan jendela saat memperbarui"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Layar berkedip saat apl berjalan lama di utas utama"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Hamparan layar menampilkan penggunaan CPU saat ini"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mengukur waktu perenderan di adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Aktif"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Nonaktif"</string>
@@ -597,9 +600,8 @@
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"Buka"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Paksa berhenti"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Jika Anda menghentikan aplikasi secara paksa, mungkin fungsinya akan terganggu."</string>
-    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Copot pemasangan"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Ingin mencopot pemasangan aplikasi ini?"</string>
-    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Copot pemasangan pembaruan"</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Uninstal"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Uninstal pembaruan"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Semua pembaruan untuk aplikasi sistem Android ini akan dicopot pemasangannya."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Nonaktifkan"</string>
     <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Ingin menonaktifkan aplikasi ini?"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Hapus cache"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Notifikasi"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Izin"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Aplikasi tidak tersedia"</string>
     <string name="settings_ok" msgid="3321630456511355983">"Oke"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Batal"</string>
     <string name="settings_on" msgid="6892236264945435013">"Aktif"</string>
@@ -631,24 +634,21 @@
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Berhenti mencadangkan sandi Wi-Fi, bookmark, setelan lainnya, dan data aplikasi, serta hapus semua salinan di server Google?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"Cadangkan data saya"</string>
-    <string name="privacy_backup_account" msgid="9059939814827165020">"Cadangkan akun"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Akun backup"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Pemulihan otomatis"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Setel ulang perangkat"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"Tindakan ini akan menghapus semua data dari penyimpanan internal perangkat, termasuk akun Google, setelan serta data aplikasi dan sistem, dan aplikasi yang diunduh"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Hapus semua informasi pribadi dan aplikasi yang diunduh? Anda tidak dapat mengurungkan tindakan ini!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Hapus semua"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Pilih nama untuk <xliff:g id="DEVICEMODEL">%1$s</xliff:g> Anda"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Nama akan membantu mengidentifikasi <xliff:g id="DEVICEMODEL">%1$s</xliff:g> Anda saat mengaksesnya dari perangkat lain, misalnya ponsel, tablet, atau komputer Anda."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Beri nama <xliff:g id="DEVICEMODEL">%1$s</xliff:g> agar memudahkan identifikasi saat mentransmisikan atau menyambungkan ke perangkat tersebut dari perangkat lain."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Ruang Tamu"</item>
-    <item msgid="3722089849939477581">"Ruang Hiburan"</item>
-    <item msgid="6108590585438763574">"Ruang Keluarga"</item>
-    <item msgid="2581035245390468625">"Ruang Makan"</item>
-    <item msgid="3127487827308695324">"Kamar Pribadi"</item>
-    <item msgid="6172018430592195063">"Kamar Tidur"</item>
-    <item msgid="8120010459866284578">"Dapur"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV Ruang Tamu"</item>
+    <item msgid="8122798759665439456">"TV Ruang Keluarga"</item>
+    <item msgid="1389347662738182100">"TV Kamar Tidur"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Masukkan Nama Khusus…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Masukkan nama khusus…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Ganti nama <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ini"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Saat ini, <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ini diberi nama \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Ubah"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Boot ulang ke mode aman"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Ingin melakukan boot ulang ke mode aman?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Tindakan ini akan menonaktifkan semua aplikasi pihak ketiga yang telah terpasang. Aplikasi akan kembali pulih setelah Anda melakukan boot ulang lagi."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Mengambil foto laporan bug"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Keyboard virtual yang tersedia"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Kelola keyboard"</string>
 </resources>

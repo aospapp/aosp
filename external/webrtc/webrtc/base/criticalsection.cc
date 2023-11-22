@@ -136,7 +136,7 @@ bool TryCritScope::locked() const {
 
 void GlobalLockPod::Lock() {
 #if !defined(WEBRTC_WIN)
-  const struct timespec ts_null = {0};
+  const struct timespec ts_null = {0, 0};
 #endif
 
   while (AtomicOps::CompareAndSwap(&lock_acquired, 0, 1)) {

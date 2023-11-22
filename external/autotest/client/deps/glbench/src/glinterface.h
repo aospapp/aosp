@@ -5,7 +5,7 @@
 #ifndef BENCH_GL_GLINTERFACE_H_
 #define BENCH_GL_GLINTERFACE_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
 
 //TODO: Remove cases where PLATFORM is not defined, when no longer needed.
 //      Only synccontroltest and teartest get compiled that way, and we plan
@@ -62,6 +62,6 @@ class GLInterface {
   static GLInterface* Create();
 };
 
-extern scoped_ptr<GLInterface> g_main_gl_interface;
+extern std::unique_ptr<GLInterface> g_main_gl_interface;
 
 #endif  // BENCH_GL_GLINTERFACE_H_

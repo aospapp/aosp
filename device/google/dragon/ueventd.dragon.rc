@@ -10,9 +10,9 @@
 /dev/dri/render*        0666   system     graphics
 
 # BT
-/dev/ttyTHS3            0660   bluetooth  net_bt_stack
-/sys/devices/bt_bcm4354/rfkill/rfkill0  state  0660    bluetooth    net_bt_stack
-/sys/devices/bt_bcm4354/rfkill/rfkill0  type   0660    bluetooth    net_bt_stack
+/dev/ttyTHS3            0660   bluetooth  bluetooth
+/sys/devices/bt_bcm4354/rfkill/rfkill0  state  0660    bluetooth    bluetooth
+/sys/devices/bt_bcm4354/rfkill/rfkill0  type   0660    bluetooth    bluetooth
 
 # Backlight
 /sys/devices/50000000.host1x/54400000.dsi/54400000.dsi.0/backlight/lpm102a188a-backlight	brightness	0660	system	system

@@ -97,19 +97,6 @@ public class HostListView extends TabView implements TableActionsListener {
         });
     }
 
-    private void reinstallSelectedHosts() {
-        Set<JSONObject> selectedSet = getSelectedHosts();
-        if (selectedSet == null) {
-            return;
-        }
-
-        JSONArray array = new JSONArray();
-        for (JSONObject host : selectedSet) {
-            array.set(array.size(), host.get("hostname"));
-        }
-        AfeUtils.scheduleReinstall(array, "Hosts", jobCreateListener);
-    }
-
     private Set<JSONObject> getSelectedHosts() {
         Set<JSONObject> selectedSet = selectionManager.getSelectedObjects();
         if (selectedSet.isEmpty()) {
@@ -163,11 +150,6 @@ public class HostListView extends TabView implements TableActionsListener {
         menu.addItem("Unlock hosts", new Command() {
             public void execute() {
                 changeLockStatus(false, "");
-            }
-        });
-        menu.addItem("Reinstall hosts", new Command() {
-            public void execute() {
-                reinstallSelectedHosts();
             }
         });
 

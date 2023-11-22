@@ -43,7 +43,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
         mHasFeature = mHasFeature && hasDeviceFeature("android.software.managed_users");
         if (mHasFeature) {
             removeTestUsers();
-            installTestApps();
             // Create a managed profile
             mParentUserId = mPrimaryUserId;
             mProfileUserId = createManagedProfile(mParentUserId);
@@ -53,6 +52,13 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
             mProfileSerialNumber = Integer.toString(getUserSerialNumber(mProfileUserId));
             mMainUserSerialNumber = Integer.toString(getUserSerialNumber(mParentUserId));
             startUser(mProfileUserId);
+
+            // Install test APK.
+            installTestApps();
+
+            // Also install on the managed profile too.
+            installAppAsUser(LAUNCHER_TESTS_APK, mProfileUserId);
+            installAppAsUser(LAUNCHER_TESTS_SUPPORT_APK, mProfileUserId);
         }
     }
 
@@ -74,13 +80,30 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
 
         // Run tests to check SimpleApp exists in both profile and main user.
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
-                LAUNCHER_TESTS_CLASS,
-                "testSimpleAppInstalledForUser",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber)));
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
-                LAUNCHER_TESTS_PKG + ".LauncherAppsTests", "testSimpleAppInstalledForUser",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mMainUserSerialNumber)));
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testSimpleAppInstalledForUser",
+                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testSimpleAppInstalledForUser",
+                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mMainUserSerialNumber));
+
+        // Run the same test on the managed profile.  This still works.
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testSimpleAppInstalledForUser",
+                mProfileUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
+
+        // This tries to access main prorfile from work profiel, which is not allowed.
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testAccessPrimaryProfileFromManagedProfile",
+                mProfileUserId, Collections.singletonMap(PARAM_TEST_USER, mMainUserSerialNumber));
+
+        // Test for getProfiles.
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testGetProfiles_fromMainProfile",
+                mParentUserId);
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+                LAUNCHER_TESTS_CLASS, "testGetProfiles_fromManagedProfile",
+                mProfileUserId);
     }
 
     public void testLauncherCallbackPackageAddedProfile() throws Exception {
@@ -89,10 +112,10 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
         }
         startCallbackService();
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS,
                 "testPackageAddedCallbackForUser",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber)));
+                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
     }
 
     public void testLauncherCallbackPackageRemovedProfile() throws Exception {
@@ -102,10 +125,10 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
         startCallbackService();
         getDevice().uninstallPackage(SIMPLE_APP_PKG);
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS,
                 "testPackageRemovedCallbackForUser",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber)));
+                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
     }
 
     public void testLauncherCallbackPackageChangedProfile() throws Exception {
@@ -115,9 +138,9 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
         startCallbackService();
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-        assertTrue(runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
+        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS,
                 "testPackageChangedCallbackForUser",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber)));
+                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
     }
 }

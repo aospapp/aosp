@@ -40,7 +40,7 @@ public class MockTabActivity extends TabActivity {
         final TabHost tabHost = getTabHost();
 
         tabHost.addTab(tabHost.newTabSpec(TAB1).setIndicator(TAB1)
-                .setContent(new Intent(this, ChildTabActivity.class)));
+                .setContent(new Intent(this, MockActivity.class)));
 
         tabHost.addTab(tabHost.newTabSpec(TAB2).setIndicator(TAB2)
                 .setContent(new Intent(this, MockActivity.class)));

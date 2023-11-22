@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2004-2015, International Business Machines Corporation and
+ * Copyright (C) 2004-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -12,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+
+import org.junit.Test;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.BreakIterator;
@@ -28,18 +32,11 @@ import android.icu.util.IslamicCalendar;
 import android.icu.util.JapaneseCalendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 
 
-@RunWith(IcuTestFmwkRunner.class)
 public class GlobalizationPreferencesTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new GlobalizationPreferencesTest().run(args);
-    }
-
+    @Test
     public void TestDefault() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
         ULocale defLocale = new ULocale("en_US");
@@ -116,6 +113,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestFreezable() {
         logln("Create a new GlobalizationPreference object");
         GlobalizationPreferences gp = new GlobalizationPreferences();
@@ -269,6 +267,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         {"de_DE", "de", "es", "fr_FR", "fr"},
     };
 
+    @Test
     public void TestSetLocales() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -392,6 +391,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestResourceBundle() {
         String baseName = "android.icu.dev.data.resources.TestDataElements";
         ResourceBundle rb;
@@ -447,6 +447,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestTerritory() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -515,6 +516,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCurrency() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -609,6 +611,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCalendar() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -688,6 +691,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestTimeZone() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -770,6 +774,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }        
     }
 
+    @Test
     public void TestCollator() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -854,6 +859,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestBreakIterator() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -870,12 +876,10 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         logln("Set locale - es");
         gp.setLocale(new ULocale("es"));
         brk = gp.getBreakIterator(GlobalizationPreferences.BI_CHARACTER);
-        /* TODO: JB#5383
         locStr = brk.getLocale(ULocale.VALID_LOCALE).toString();
         if (!locStr.equals("es")) {
             errln("FAIL: Character break iterator locale is " + locStr + " Expected: es");
         }
-        */
 
         // Set explicit break sentence iterator
         logln("Set break iterator for sentence using locale hu_HU");
@@ -982,6 +986,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         */
     }
 
+    @Test
     public void TestDisplayName() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -1165,6 +1170,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestDateFormat() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -1376,6 +1382,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
 
     }
 
+    @Test
     public void TestNumberFormat() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
 
@@ -1549,6 +1556,7 @@ public class GlobalizationPreferencesTest extends TestFmwk {
      * JB#5380 GlobalizationPreferences#getCalendar() should return a Calendar object
      * initialized with the current time
      */
+    @Test
     public void TestJB5380() {
         GlobalizationPreferences gp = new GlobalizationPreferences();
         GregorianCalendar gcal = new GregorianCalendar();

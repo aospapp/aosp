@@ -16,7 +16,6 @@
 
 <PreferenceScreen
         xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:settings="http://schemas.android.com/apk/res-auto"
         android:title="@string/night_display_title">
 
     <PreferenceCategory
@@ -44,11 +43,10 @@
                 android:key="night_display_activated"
                 android:title="@string/night_display_title" />
 
-    </PreferenceCategory>
+        <com.android.settings.SeekBarPreference
+            android:key="night_display_temperature"
+            android:title="@string/night_display_temperature_title"/>
 
-    <com.android.settings.fuelgauge.WallOfTextPreference
-            android:summary="@string/night_display_text"
-            android:selectable="false"
-            settings:allowDividerAbove="true" />
+    </PreferenceCategory>
 
 </PreferenceScreen>

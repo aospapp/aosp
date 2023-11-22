@@ -10,7 +10,6 @@ Fails if the light sensor kernel module is not loaded, or its sys files
 are not exported.
 """
 ATTRIBUTES = "suite:hwqual"
-SUITE = "hwqual"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "hardware"

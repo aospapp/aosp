@@ -304,7 +304,7 @@ void Font::render(const SkPaint* paint, const glyph_t* glyphs, int numGlyphs,
     }
 
     int glyphsCount = 0;
-    SkFixed prevRsbDelta = 0;
+    int prevRsbDelta = 0;
 
     float penX = 0.0f;
 
@@ -332,14 +332,14 @@ void Font::render(const SkPaint* paint, const glyph_t* glyphs, int numGlyphs,
         }
 
         CachedGlyphInfo* cachedGlyph = getCachedGlyph(paint, glyph);
-        penX += SkFixedToFloat(AUTO_KERN(prevRsbDelta, cachedGlyph->mLsbDelta));
+        penX += AUTO_KERN(prevRsbDelta, cachedGlyph->mLsbDelta);
         prevRsbDelta = cachedGlyph->mRsbDelta;
 
         if (cachedGlyph->mIsValid && cachedGlyph->mCacheTexture) {
             drawCachedGlyph(cachedGlyph, penX, hOffset, vOffset, measure, &position, &tangent);
         }
 
-        penX += SkFixedToFloat(cachedGlyph->mAdvanceX);
+        penX += cachedGlyph->mAdvanceX;
 
         glyphsCount++;
     }
@@ -408,9 +408,15 @@ void Font::render(const SkPaint* paint, const glyph_t* glyphs,
         if (cachedGlyph->mIsValid && cachedGlyph->mCacheTexture) {
             int penX = x + (int) roundf(positions[(glyphsCount << 1)]);
             int penY = y + (int) roundf(positions[(glyphsCount << 1) + 1]);
-
+#ifdef BUGREPORT_FONT_CACHE_USAGE
+            mState->historyTracker().glyphRendered(cachedGlyph, penX, penY);
+#endif
             (*this.*render)(cachedGlyph, penX, penY,
                     bitmap, bitmapW, bitmapH, bounds, positions);
+        } else {
+#ifdef BUGREPORT_FONT_CACHE_USAGE
+            mState->historyTracker().glyphRendered(cachedGlyph, -1, -1);
+#endif
         }
 
         glyphsCount++;

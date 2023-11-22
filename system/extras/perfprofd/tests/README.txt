@@ -1,13 +1,19 @@
-Native tests for 'perfprofd'. Please run with 'runtest perfprofd'
-(a.k.a. "$ANDROID_BUILD_TOP"/development/testrunner/runtest.py).
+Native tests for 'perfprofd'. Please run with
+
+   runtest --path=system/extras/perfprofd/tests
+
+(where runtest == $ANDROID_BUILD_TOP"/development/testrunner/runtest.py).
 
 Notes:
 
-1. One of the testpoints in this test suite performs a live 'perf'
-run on the device; before invoking the test be sure that 'perf'
-has been built and installed on the device in /system/bin/perf
+1. Several of the testpoints in this unit tests perform a live 'simpleperf'
+run on the device (if you are using a userdebug build, simpleperf should
+already be available in /system/xbin/simpleperf).
 
-2. The daemon under test, perfprofd, is broken into a main function, a
+2. Part of the test is a system-wide profile, meaning that you will
+need to run 'adb root' prior to test execution.
+
+3. The daemon under test, perfprofd, is broken into a main function, a
 "core" library, and a "utils library. Picture:
 
 	+-----------+   perfprofdmain.o

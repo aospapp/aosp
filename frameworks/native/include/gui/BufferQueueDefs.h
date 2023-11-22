@@ -18,16 +18,12 @@
 #define ANDROID_GUI_BUFFERQUEUECOREDEFS_H
 
 #include <gui/BufferSlot.h>
+#include <ui/BufferQueueDefs.h>
 
 namespace android {
     class BufferQueueCore;
 
     namespace BufferQueueDefs {
-        // BufferQueue will keep track of at most this value of buffers.
-        // Attempts at runtime to increase the number of buffers past this
-        // will fail.
-        enum { NUM_BUFFER_SLOTS = 64 };
-
         typedef BufferSlot SlotsType[NUM_BUFFER_SLOTS];
     } // namespace BufferQueueDefs
 } // namespace android

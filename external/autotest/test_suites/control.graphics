@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "graphics"
 PURPOSE = "Test graphics functionality."
-CRITERIA = "All tests with SUITE=graphics should complete and not hang."
 
 TIME = "MEDIUM"
 TEST_CATEGORY = "Graphics"

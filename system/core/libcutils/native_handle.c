@@ -16,17 +16,31 @@
 
 #define LOG_TAG "NativeHandle"
 
-#include <stdint.h>
 #include <errno.h>
-#include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-#include <cutils/log.h>
+#include <android/log.h>
 #include <cutils/native_handle.h>
 
 static const int kMaxNativeFds = 1024;
 static const int kMaxNativeInts = 1024;
+
+native_handle_t* native_handle_init(char* storage, int numFds, int numInts)
+{
+    if ((uintptr_t) storage % alignof(native_handle_t)) {
+        return NULL;
+    }
+
+    native_handle_t* handle = (native_handle_t*) storage;
+    handle->version = sizeof(native_handle_t);
+    handle->numFds = numFds;
+    handle->numInts = numInts;
+
+    return handle;
+}
 
 native_handle_t* native_handle_create(int numFds, int numInts)
 {
@@ -42,6 +56,27 @@ native_handle_t* native_handle_create(int numFds, int numInts)
         h->numInts = numInts;
     }
     return h;
+}
+
+native_handle_t* native_handle_clone(const native_handle_t* handle)
+{
+    native_handle_t* clone = native_handle_create(handle->numFds, handle->numInts);
+    int i;
+
+    for (i = 0; i < handle->numFds; i++) {
+        clone->data[i] = dup(handle->data[i]);
+        if (clone->data[i] < 0) {
+            clone->numFds = i;
+            native_handle_close(clone);
+            native_handle_delete(clone);
+            return NULL;
+        }
+    }
+
+    memcpy(&clone->data[handle->numFds], &handle->data[handle->numFds],
+            sizeof(int) * handle->numInts);
+
+    return clone;
 }
 
 int native_handle_delete(native_handle_t* h)

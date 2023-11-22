@@ -18,6 +18,9 @@ class Circle {
   Circle(double radius) {
     this.radius = radius;
   }
+  public double getRadius() {
+    return radius;
+  }
   public double getArea() {
     return radius * radius * Math.PI;
   }
@@ -70,6 +73,10 @@ class Finalizable {
   }
 }
 
+interface Filter {
+  public boolean isValid(int i);
+}
+
 public class Main {
 
   /// CHECK-START: double Main.calcCircleArea(double) load_store_elimination (before)
@@ -78,7 +85,7 @@ public class Main {
   /// CHECK: InstanceFieldGet
 
   /// CHECK-START: double Main.calcCircleArea(double) load_store_elimination (after)
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
   /// CHECK-NOT: InstanceFieldGet
 
@@ -124,7 +131,6 @@ public class Main {
   }
 
   /// CHECK-START: int Main.test3(TestClass) load_store_elimination (before)
-  /// CHECK: NewInstance
   /// CHECK: StaticFieldGet
   /// CHECK: NewInstance
   /// CHECK: InstanceFieldSet
@@ -137,7 +143,6 @@ public class Main {
   /// CHECK: InstanceFieldGet
 
   /// CHECK-START: int Main.test3(TestClass) load_store_elimination (after)
-  /// CHECK: NewInstance
   /// CHECK: StaticFieldGet
   /// CHECK: NewInstance
   /// CHECK: InstanceFieldSet
@@ -149,9 +154,6 @@ public class Main {
 
   // A new allocation (even non-singleton) shouldn't alias with pre-existing values.
   static int test3(TestClass obj) {
-    // Do an allocation here to avoid the HLoadClass and HClinitCheck
-    // at the second allocation.
-    new TestClass();
     TestClass obj1 = TestClass.sTestClassObj;
     TestClass obj2 = new TestClass();  // Cannot alias with obj or obj1 which pre-exist.
     obj.next = obj2;  // Make obj2 a non-singleton.
@@ -256,7 +258,7 @@ public class Main {
   /// CHECK: InstanceFieldGet
 
   /// CHECK-START: int Main.test8() load_store_elimination (after)
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
   /// CHECK: InvokeVirtual
   /// CHECK-NOT: NullCheck
@@ -414,7 +416,7 @@ public class Main {
   /// CHECK: InstanceFieldGet
 
   /// CHECK-START: int Main.test16() load_store_elimination (after)
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
   /// CHECK-NOT: InstanceFieldGet
 
@@ -431,7 +433,7 @@ public class Main {
 
   /// CHECK-START: int Main.test17() load_store_elimination (after)
   /// CHECK: <<Const0:i\d+>> IntConstant 0
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
   /// CHECK-NOT: InstanceFieldGet
   /// CHECK: Return [<<Const0>>]
@@ -527,12 +529,12 @@ public class Main {
   /// CHECK: InstanceFieldGet
 
   /// CHECK-START: int Main.test22() load_store_elimination (after)
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
   /// CHECK-NOT: InstanceFieldGet
-  /// CHECK: NewInstance
+  /// CHECK-NOT: NewInstance
   /// CHECK-NOT: InstanceFieldSet
   /// CHECK-NOT: InstanceFieldGet
   /// CHECK-NOT: InstanceFieldGet
@@ -673,7 +675,7 @@ public class Main {
   /// CHECK: Select
 
   // Test that HSelect creates alias.
-  public static int $noinline$testHSelect(boolean b) {
+  static int $noinline$testHSelect(boolean b) {
     if (sFlag) {
       throw new Error();
     }
@@ -686,19 +688,259 @@ public class Main {
     return obj2.i;
   }
 
-  public static void assertIntEquals(int result, int expected) {
+  static int sumWithFilter(int[] array, Filter f) {
+    int sum = 0;
+    for (int i = 0; i < array.length; i++) {
+      if (f.isValid(array[i])) {
+        sum += array[i];
+      }
+    }
+    return sum;
+  }
+
+  /// CHECK-START: int Main.sumWithinRange(int[], int, int) load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldGet
+  /// CHECK: InstanceFieldGet
+
+  /// CHECK-START: int Main.sumWithinRange(int[], int, int) load_store_elimination (after)
+  /// CHECK-NOT: NewInstance
+  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldGet
+
+  // A lambda-style allocation can be eliminated after inlining.
+  static int sumWithinRange(int[] array, final int low, final int high) {
+    Filter filter = new Filter() {
+      public boolean isValid(int i) {
+        return (i >= low) && (i <= high);
+      }
+    };
+    return sumWithFilter(array, filter);
+  }
+
+  private static int mI = 0;
+  private static float mF = 0f;
+
+  /// CHECK-START: float Main.testAllocationEliminationWithLoops() load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: NewInstance
+  /// CHECK: NewInstance
+
+  /// CHECK-START: float Main.testAllocationEliminationWithLoops() load_store_elimination (after)
+  /// CHECK-NOT: NewInstance
+
+  private static float testAllocationEliminationWithLoops() {
+    for (int i0 = 0; i0 < 5; i0++) {
+      for (int i1 = 0; i1 < 5; i1++) {
+        for (int i2 = 0; i2 < 5; i2++) {
+          int lI0 = ((int) new Integer(((int) new Integer(mI))));
+          if (((boolean) new Boolean(false))) {
+            for (int i3 = 576 - 1; i3 >= 0; i3--) {
+              mF -= 976981405.0f;
+            }
+          }
+        }
+      }
+    }
+    return 1.0f;
+  }
+
+  /// CHECK-START: TestClass2 Main.testStoreStore() load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+
+  /// CHECK-START: TestClass2 Main.testStoreStore() load_store_elimination (after)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldSet
+
+  private static TestClass2 testStoreStore() {
+    TestClass2 obj = new TestClass2();
+    obj.i = 41;
+    obj.j = 42;
+    obj.i = 41;
+    obj.j = 43;
+    return obj;
+  }
+
+  /// CHECK-START: int Main.testStoreStoreWithDeoptimize(int[]) load_store_elimination (before)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK: Deoptimize
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testStoreStoreWithDeoptimize(int[]) load_store_elimination (after)
+  /// CHECK: NewInstance
+  /// CHECK: InstanceFieldSet
+  /// CHECK: InstanceFieldSet
+  /// CHECK-NOT: InstanceFieldSet
+  /// CHECK: Deoptimize
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK-NOT: ArrayGet
+
+  private static int testStoreStoreWithDeoptimize(int[] arr) {
+    TestClass2 obj = new TestClass2();
+    obj.i = 41;
+    obj.j = 42;
+    obj.i = 41;
+    obj.j = 43;
+    arr[0] = 1;  // One HDeoptimize here.
+    arr[1] = 1;
+    arr[2] = 1;
+    arr[3] = 1;
+    return arr[0] + arr[1] + arr[2] + arr[3];
+  }
+
+  /// CHECK-START: double Main.getCircleArea(double, boolean) load_store_elimination (before)
+  /// CHECK: NewInstance
+
+  /// CHECK-START: double Main.getCircleArea(double, boolean) load_store_elimination (after)
+  /// CHECK-NOT: NewInstance
+
+  private static double getCircleArea(double radius, boolean b) {
+    double area = 0d;
+    if (b) {
+      area = new Circle(radius).getArea();
+    }
+    return area;
+  }
+
+  /// CHECK-START: double Main.testDeoptimize(int[], double[], double) load_store_elimination (before)
+  /// CHECK: Deoptimize
+  /// CHECK: NewInstance
+  /// CHECK: Deoptimize
+  /// CHECK: NewInstance
+
+  /// CHECK-START: double Main.testDeoptimize(int[], double[], double) load_store_elimination (after)
+  /// CHECK: Deoptimize
+  /// CHECK: NewInstance
+  /// CHECK: Deoptimize
+  /// CHECK-NOT: NewInstance
+
+  private static double testDeoptimize(int[] iarr, double[] darr, double radius) {
+    iarr[0] = 1;  // One HDeoptimize here. Not triggered.
+    iarr[1] = 1;
+    Circle circle1 = new Circle(radius);
+    iarr[2] = 1;
+    darr[0] = circle1.getRadius();  // One HDeoptimize here, which holds circle1 live. Triggered.
+    darr[1] = circle1.getRadius();
+    darr[2] = circle1.getRadius();
+    darr[3] = circle1.getRadius();
+    return new Circle(Math.PI).getArea();
+  }
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray1() load_store_elimination (before)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray1() load_store_elimination (after)
+  /// CHECK-NOT: NewArray
+  /// CHECK-NOT: ArraySet
+  /// CHECK-NOT: ArrayGet
+  private static int testAllocationEliminationOfArray1() {
+    int[] array = new int[4];
+    array[2] = 4;
+    array[3] = 7;
+    return array[0] + array[1] + array[2] + array[3];
+  }
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray2() load_store_elimination (before)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray2() load_store_elimination (after)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+  private static int testAllocationEliminationOfArray2() {
+    // Cannot eliminate array allocation since array is accessed with non-constant
+    // index.
+    int[] array = new int[4];
+    array[2] = 4;
+    array[3] = 7;
+    int sum = 0;
+    for (int e : array) {
+      sum += e;
+    }
+    return sum;
+  }
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray3(int) load_store_elimination (before)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray3(int) load_store_elimination (after)
+  /// CHECK-NOT: NewArray
+  /// CHECK-NOT: ArraySet
+  /// CHECK-NOT: ArrayGet
+  private static int testAllocationEliminationOfArray3(int i) {
+    int[] array = new int[4];
+    array[i] = 4;
+    return array[i];
+  }
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray4(int) load_store_elimination (before)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+  /// CHECK: ArrayGet
+
+  /// CHECK-START: int Main.testAllocationEliminationOfArray4(int) load_store_elimination (after)
+  /// CHECK: NewArray
+  /// CHECK: ArraySet
+  /// CHECK: ArraySet
+  /// CHECK: ArrayGet
+  /// CHECK-NOT: ArrayGet
+  private static int testAllocationEliminationOfArray4(int i) {
+    // Cannot eliminate array allocation due to index aliasing between 1 and i.
+    int[] array = new int[4];
+    array[1] = 2;
+    array[i] = 4;
+    return array[1] + array[i];
+  }
+
+  static void assertIntEquals(int result, int expected) {
     if (expected != result) {
       throw new Error("Expected: " + expected + ", found: " + result);
     }
   }
 
-  public static void assertFloatEquals(float result, float expected) {
+  static void assertFloatEquals(float result, float expected) {
     if (expected != result) {
       throw new Error("Expected: " + expected + ", found: " + result);
     }
   }
 
-  public static void assertDoubleEquals(double result, double expected) {
+  static void assertDoubleEquals(double result, double expected) {
     if (expected != result) {
       throw new Error("Expected: " + expected + ", found: " + result);
     }
@@ -746,6 +988,35 @@ public class Main {
     assertFloatEquals(test24(), 8.0f);
     testFinalizableByForcingGc();
     assertIntEquals($noinline$testHSelect(true), 0xdead);
+    int[] array = {2, 5, 9, -1, -3, 10, 8, 4};
+    assertIntEquals(sumWithinRange(array, 1, 5), 11);
+    assertFloatEquals(testAllocationEliminationWithLoops(), 1.0f);
+    assertFloatEquals(mF, 0f);
+    assertDoubleEquals(Math.PI * Math.PI * Math.PI, getCircleArea(Math.PI, true));
+    assertDoubleEquals(0d, getCircleArea(Math.PI, false));
+
+    int[] iarray = {0, 0, 0};
+    double[] darray = {0d, 0d, 0d};
+    try {
+      assertDoubleEquals(Math.PI * Math.PI * Math.PI, testDeoptimize(iarray, darray, Math.PI));
+    } catch (Exception e) {
+      System.out.println(e);
+    }
+    assertIntEquals(iarray[0], 1);
+    assertIntEquals(iarray[1], 1);
+    assertIntEquals(iarray[2], 1);
+    assertDoubleEquals(darray[0], Math.PI);
+    assertDoubleEquals(darray[1], Math.PI);
+    assertDoubleEquals(darray[2], Math.PI);
+
+    assertIntEquals(testAllocationEliminationOfArray1(), 11);
+    assertIntEquals(testAllocationEliminationOfArray2(), 11);
+    assertIntEquals(testAllocationEliminationOfArray3(2), 4);
+    assertIntEquals(testAllocationEliminationOfArray4(2), 6);
+
+    assertIntEquals(testStoreStore().i, 41);
+    assertIntEquals(testStoreStore().j, 43);
+    assertIntEquals(testStoreStoreWithDeoptimize(new int[4]), 4);
   }
 
   static boolean sFlag;

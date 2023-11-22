@@ -16,8 +16,6 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
 

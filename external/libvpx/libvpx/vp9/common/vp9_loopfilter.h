@@ -26,8 +26,8 @@ extern "C" {
 
 #define SIMD_WIDTH 16
 
-#define MAX_REF_LF_DELTAS       4
-#define MAX_MODE_LF_DELTAS      2
+#define MAX_REF_LF_DELTAS 4
+#define MAX_MODE_LF_DELTAS 2
 
 enum lf_path {
   LF_PATH_420,
@@ -69,6 +69,7 @@ typedef struct {
 
 struct loopfilter {
   int filter_level;
+  int last_filt_level;
 
   int sharpness_level;
   int last_sharpness_level;
@@ -95,25 +96,21 @@ struct VP9LfSyncData;
 
 // This function sets up the bit masks for the entire 64x64 region represented
 // by mi_row, mi_col.
-void vp9_setup_mask(struct VP9Common *const cm,
-                    const int mi_row, const int mi_col,
-                    MODE_INFO **mi_8x8, const int mode_info_stride,
-                    LOOP_FILTER_MASK *lfm);
+void vp9_setup_mask(struct VP9Common *const cm, const int mi_row,
+                    const int mi_col, MODE_INFO **mi_8x8,
+                    const int mode_info_stride, LOOP_FILTER_MASK *lfm);
 
 void vp9_filter_block_plane_ss00(struct VP9Common *const cm,
                                  struct macroblockd_plane *const plane,
-                                 int mi_row,
-                                 LOOP_FILTER_MASK *lfm);
+                                 int mi_row, LOOP_FILTER_MASK *lfm);
 
 void vp9_filter_block_plane_ss11(struct VP9Common *const cm,
                                  struct macroblockd_plane *const plane,
-                                 int mi_row,
-                                 LOOP_FILTER_MASK *lfm);
+                                 int mi_row, LOOP_FILTER_MASK *lfm);
 
 void vp9_filter_block_plane_non420(struct VP9Common *cm,
                                    struct macroblockd_plane *plane,
-                                   MODE_INFO **mi_8x8,
-                                   int mi_row, int mi_col);
+                                   MODE_INFO **mi_8x8, int mi_row, int mi_col);
 
 void vp9_loop_filter_init(struct VP9Common *cm);
 
@@ -122,10 +119,8 @@ void vp9_loop_filter_init(struct VP9Common *cm);
 // calls this function directly.
 void vp9_loop_filter_frame_init(struct VP9Common *cm, int default_filt_lvl);
 
-void vp9_loop_filter_frame(YV12_BUFFER_CONFIG *frame,
-                           struct VP9Common *cm,
-                           struct macroblockd *mbd,
-                           int filter_level,
+void vp9_loop_filter_frame(YV12_BUFFER_CONFIG *frame, struct VP9Common *cm,
+                           struct macroblockd *mbd, int filter_level,
                            int y_only, int partial_frame);
 
 // Get the superblock lfm for a given mi_row, mi_col.
@@ -134,7 +129,7 @@ static INLINE LOOP_FILTER_MASK *get_lfm(const struct loopfilter *lf,
   return &lf->lfm[(mi_col >> 3) + ((mi_row >> 3) * lf->lfm_stride)];
 }
 
-void vp9_build_mask(struct VP9Common *cm, const MB_MODE_INFO *mbmi, int mi_row,
+void vp9_build_mask(struct VP9Common *cm, const MODE_INFO *mi, int mi_row,
                     int mi_col, int bw, int bh);
 void vp9_adjust_mask(struct VP9Common *const cm, const int mi_row,
                      const int mi_col, LOOP_FILTER_MASK *lfm);

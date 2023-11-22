@@ -129,7 +129,8 @@ class List {
   INLINE(void Allocate(int length,
                        AllocationPolicy allocator = AllocationPolicy()));
 
-  // Clears the list by setting the length to zero. Even if T is a
+  // Clears the list by freeing the storage memory. If you want to keep the
+  // memory, use Rewind(0) instead. Be aware, that even if T is a
   // pointer type, clearing the list doesn't delete the entries.
   INLINE(void Clear());
 
@@ -207,15 +208,13 @@ size_t GetMemoryUsedByList(const List<T, P>& list) {
 
 
 class Map;
-template<class> class TypeImpl;
-struct HeapTypeConfig;
-typedef TypeImpl<HeapTypeConfig> HeapType;
+class FieldType;
 class Code;
 template<typename T> class Handle;
 typedef List<Map*> MapList;
 typedef List<Code*> CodeList;
 typedef List<Handle<Map> > MapHandleList;
-typedef List<Handle<HeapType> > TypeHandleList;
+typedef List<Handle<FieldType> > TypeHandleList;
 typedef List<Handle<Code> > CodeHandleList;
 
 // Perform binary search for an element in an already sorted

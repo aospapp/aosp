@@ -19,7 +19,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photo_view_count" msgid="3466690572899800275">"<xliff:g id="CURRENT_POS">%d</xliff:g> од <xliff:g id="COUNT">%d</xliff:g>"</string>
-    <string name="retry" msgid="3319517143224679074">"Покушај поново"</string>
+    <string name="retry" msgid="3319517143224679074">"Пробај поново"</string>
     <string name="failed" msgid="1458877219699376279">"Није могуће учитати слику"</string>
     <string name="titles" msgid="8072357561981153438">"<xliff:g id="TITLE_0">%s</xliff:g>, <xliff:g id="SUBTITLE">%s</xliff:g>"</string>
 </resources>

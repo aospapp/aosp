@@ -16,17 +16,24 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Layout.Alignment;
 import android.text.style.AlignmentSpan.Standard;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link Standard}.
  */
-public class AlignmentSpan_StandardTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AlignmentSpan_StandardTest {
+    @Test
     public void testConstructor() {
         new Standard(Alignment.ALIGN_CENTER);
 
@@ -41,6 +48,7 @@ public class AlignmentSpan_StandardTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetAlignment() {
         Standard standard = new Standard(Alignment.ALIGN_NORMAL);
         assertEquals(Alignment.ALIGN_NORMAL, standard.getAlignment());
@@ -52,16 +60,19 @@ public class AlignmentSpan_StandardTest extends TestCase {
         assertEquals(Alignment.ALIGN_CENTER, standard.getAlignment());
     }
 
+    @Test
     public void testDescribeContents() {
         Standard standard = new Standard(Alignment.ALIGN_NORMAL);
         standard.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         Standard standard = new Standard(Alignment.ALIGN_NORMAL);
         standard.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

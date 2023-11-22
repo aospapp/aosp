@@ -16,35 +16,43 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
-import android.cts.util.NullWebViewUtils;
 import android.os.Parcel;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.InflateException;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RemoteViews;
 
-import android.widget.cts.R;
+import com.android.compatibility.common.util.NullWebViewUtils;
 
-public class RemoteViewsActivityTest
-        extends ActivityInstrumentationTestCase2<RemoteViewsCtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class RemoteViewsActivityTest {
     private static final String PACKAGE_NAME = "android.widget.cts";
     private Activity mActivity;
 
-    public RemoteViewsActivityTest() {
-        super(PACKAGE_NAME, RemoteViewsCtsActivity.class);
+    @Rule
+    public ActivityTestRule<RemoteViewsCtsActivity> mActivityRule =
+            new ActivityTestRule<>(RemoteViewsCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
-    @MediumTest
-    public void testGood() throws Exception {
+    @Test
+    public void testGood() {
         RemoteViews orig = new RemoteViews(PACKAGE_NAME, R.layout.remote_view_test_good);
         Parcel p = Parcel.obtain();
         orig.writeToParcel(p, 0);
@@ -69,8 +77,8 @@ public class RemoteViewsActivityTest
         assertTrue("Button not inflated", result.findViewById(R.id.button) != null);
     }
 
-    @MediumTest
-    public void testDerivedClass() throws Exception {
+    @Test
+    public void testDerivedClass() {
         RemoteViews orig = new RemoteViews(PACKAGE_NAME, R.layout.remote_view_test_bad_1);
         Parcel p = Parcel.obtain();
         orig.writeToParcel(p, 0);
@@ -95,8 +103,8 @@ public class RemoteViewsActivityTest
         assertNull("Derived class (EditText) allowed to be inflated", result);
     }
 
-    @MediumTest
-    public void testWebView() throws Exception {
+    @Test
+    public void testWebView() {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }

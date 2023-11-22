@@ -33,6 +33,8 @@
 #include "gluShaderUtil.hpp"
 #include "vkPrograms.hpp"
 
+#include "deUniquePtr.hpp"
+
 #include <map>
 
 namespace vkt
@@ -45,38 +47,42 @@ class ShaderSourceProvider
 public:
 	static std::string getSource (tcu::Archive& archive, const char* path)
 	{
-		tcu::Resource *resource = archive.getResource(path);
+		de::UniquePtr<tcu::Resource> resource(archive.getResource(path));
 
 		std::vector<deUint8> readBuffer(resource->getSize() + 1);
 		resource->read(&readBuffer[0], resource->getSize());
 		readBuffer[readBuffer.size() - 1] = 0;
 
-		return reinterpret_cast<const char*>(&readBuffer[0]);
+		return std::string(reinterpret_cast<const char*>(&readBuffer[0]));
 	}
 };
 
 typedef std::map<glu::ShaderType, const char*> ShaderMap;
 
+struct TestSpecBase
+{
+	ShaderMap				shaders;
+	vk::VkPrimitiveTopology	topology;
+};
+
 template<typename Instance>
 class InstanceFactory : public TestCase
 {
 public:
-	InstanceFactory (tcu::TestContext& testCtx, const std::string& name, const std::string& desc,
-		const std::map<glu::ShaderType, const char*> shaderPaths, const vk::VkPrimitiveTopology topology)
+	InstanceFactory (tcu::TestContext& testCtx, const std::string& name, const std::string& desc, typename Instance::TestSpec testSpec)
 		: TestCase		(testCtx, name, desc)
-		, m_shaderPaths (shaderPaths)
-		, m_topology	(topology)
+		, m_testSpec	(testSpec)
 	{
 	}
 
 	TestInstance* createInstance (Context& context) const
 	{
-		return new Instance(context, m_shaderPaths, m_topology);
+		return new Instance(context, m_testSpec);
 	}
 
 	virtual void initPrograms (vk::SourceCollections& programCollection) const
 	{
-		for (ShaderMap::const_iterator i = m_shaderPaths.begin(); i != m_shaderPaths.end(); ++i)
+		for (ShaderMap::const_iterator i = m_testSpec.shaders.begin(); i != m_testSpec.shaders.end(); ++i)
 		{
 			programCollection.glslSources.add(i->second) <<
 				glu::ShaderSource(i->first, ShaderSourceProvider::getSource(m_testCtx.getArchive(), i->second));
@@ -84,8 +90,7 @@ public:
 	}
 
 private:
-	const ShaderMap m_shaderPaths;
-	const vk::VkPrimitiveTopology m_topology;
+	const typename Instance::TestSpec m_testSpec;
 };
 
 } // Draw

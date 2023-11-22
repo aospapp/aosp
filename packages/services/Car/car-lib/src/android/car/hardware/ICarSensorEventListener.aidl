@@ -19,7 +19,7 @@ package android.car.hardware;
 import android.car.hardware.CarSensorEvent;
 
 /**
- * Binder callback for CarSensorEventListener.
+ * Binder callback for OnSensorChangedListener.
  * This is generated per each CarClient.
  * @hide
  */

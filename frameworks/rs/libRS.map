@@ -59,6 +59,7 @@ libRS {
     rsContextSetCacheDir;
     rsContextSetPriority;
     rsContextSetSurface;
+    rsDebugGetHighLevelContext;
     rsDeviceCreate;
     rsDeviceDestroy;
     rsDeviceSetConfig;
@@ -83,7 +84,6 @@ libRS {
     rsScriptForEach;
     rsScriptForEachMulti;
     rsScriptGetVarV;
-    rsScriptGroup2Create;
     rsScriptGroup2Create;
     rsScriptGroupCreate;
     rsScriptGroupExecute;

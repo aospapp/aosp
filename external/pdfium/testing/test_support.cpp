@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+
 #include "testing/utils/path_service.h"
 
 #ifdef PDF_ENABLE_V8
@@ -56,17 +58,17 @@ bool GetExternalData(const std::string& exe_path,
 }
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA
 
-void InitializeV8Common(v8::Platform** platform) {
-  v8::V8::InitializeICU();
+void InitializeV8Common(const char* exe_path, v8::Platform** platform) {
+  v8::V8::InitializeICUDefaultLocation(exe_path);
 
   *platform = v8::platform::CreateDefaultPlatform();
   v8::V8::InitializePlatform(*platform);
-  v8::V8::Initialize();
 
   // By enabling predictable mode, V8 won't post any background tasks.
-  const char predictable_flag[] = "--predictable";
-  v8::V8::SetFlagsFromString(predictable_flag,
-                             static_cast<int>(strlen(predictable_flag)));
+  // By enabling GC, it makes it easier to chase use-after-free.
+  const char v8_flags[] = "--predictable --expose-gc";
+  v8::V8::SetFlagsFromString(v8_flags, static_cast<int>(strlen(v8_flags)));
+  v8::V8::Initialize();
 }
 #endif  // PDF_ENABLE_V8
 
@@ -116,6 +118,21 @@ std::wstring GetPlatformWString(FPDF_WIDESTRING wstr) {
   return platform_string;
 }
 
+std::vector<std::string> StringSplit(const std::string& str, char delimiter) {
+  std::vector<std::string> result;
+  size_t pos = 0;
+  while (1) {
+    size_t found = str.find(delimiter, pos);
+    if (found == std::string::npos)
+      break;
+
+    result.push_back(str.substr(pos, found - pos));
+    pos = found + 1;
+  }
+  result.push_back(str.substr(pos));
+  return result;
+}
+
 std::unique_ptr<unsigned short, pdfium::FreeDeleter> GetFPDFWideString(
     const std::wstring& wstr) {
   size_t length = sizeof(uint16_t) * (wstr.length() + 1);
@@ -139,18 +156,21 @@ bool InitializeV8ForPDFium(const std::string& exe_path,
                            v8::StartupData* natives_blob,
                            v8::StartupData* snapshot_blob,
                            v8::Platform** platform) {
-  InitializeV8Common(platform);
-  if (!GetExternalData(exe_path, bin_dir, "natives_blob.bin", natives_blob))
-    return false;
-  if (!GetExternalData(exe_path, bin_dir, "snapshot_blob.bin", snapshot_blob))
-    return false;
-  v8::V8::SetNativesDataBlob(natives_blob);
-  v8::V8::SetSnapshotDataBlob(snapshot_blob);
+  InitializeV8Common(exe_path.c_str(), platform);
+  if (natives_blob && snapshot_blob) {
+    if (!GetExternalData(exe_path, bin_dir, "natives_blob.bin", natives_blob))
+      return false;
+    if (!GetExternalData(exe_path, bin_dir, "snapshot_blob.bin", snapshot_blob))
+      return false;
+    v8::V8::SetNativesDataBlob(natives_blob);
+    v8::V8::SetSnapshotDataBlob(snapshot_blob);
+  }
   return true;
 }
 #else   // V8_USE_EXTERNAL_STARTUP_DATA
-bool InitializeV8ForPDFium(v8::Platform** platform) {
-  InitializeV8Common(platform);
+bool InitializeV8ForPDFium(const std::string& exe_path,
+                           v8::Platform** platform) {
+  InitializeV8Common(exe_path.c_str(), platform);
   return true;
 }
 #endif  // V8_USE_EXTERNAL_STARTUP_DATA

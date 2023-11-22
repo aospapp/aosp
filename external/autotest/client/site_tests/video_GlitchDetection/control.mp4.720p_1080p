@@ -9,7 +9,6 @@ CRITERIA = """
 
 """
 # ATTRIBUTES = "suite:video"
-# SUITE = "video"
 TIME = "LONG"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

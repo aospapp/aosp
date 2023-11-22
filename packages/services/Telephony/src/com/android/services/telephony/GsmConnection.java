@@ -22,8 +22,8 @@ import com.android.internal.telephony.Connection;
  * Manages a single phone call handled by GSM.
  */
 final class GsmConnection extends TelephonyConnection {
-    GsmConnection(Connection connection, String telecomCallId) {
-        super(connection, telecomCallId);
+    GsmConnection(Connection connection, String telecomCallId, boolean isOutgoing) {
+        super(connection, telecomCallId, isOutgoing);
     }
 
     /**
@@ -36,7 +36,7 @@ final class GsmConnection extends TelephonyConnection {
     @Override
     public TelephonyConnection cloneConnection() {
         GsmConnection gsmConnection = new GsmConnection(getOriginalConnection(),
-                getTelecomCallId());
+                getTelecomCallId(), mIsOutgoing);
         return gsmConnection;
     }
 

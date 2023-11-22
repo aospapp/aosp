@@ -178,7 +178,7 @@ DBG .set    pop
 #endif
 
     .text
-    .align
+    .balign 4
 
     .global scanline_t32cb16blend_mips
     .ent    scanline_t32cb16blend_mips

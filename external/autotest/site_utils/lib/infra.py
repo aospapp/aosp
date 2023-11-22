@@ -40,14 +40,25 @@ def local_runner(cmd, stream_output=False):
     @param cmd: The command to run.
     @param stream_output: If True, streams the stdout of the process.
 
-    @returns: The output of cmd.
+    @returns: The output of cmd, will be stdout and stderr.
     @raises CalledProcessError: If there was a non-0 return code.
     """
-    if not stream_output:
-        return subprocess.check_output(cmd, shell=True)
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    while proc.poll() is None:
-        print proc.stdout.readline().rstrip('\n')
+    print 'Running command: %s' % cmd
+    proc = subprocess.Popen(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if stream_output:
+        output = ''
+        for newline in iter(proc.stdout.readline, ''):
+            output += newline
+            print newline.rstrip(os.linesep)
+    else:
+        output = proc.communicate()[0]
+
+    return_code = proc.wait()
+    if return_code !=0:
+        print "ERROR: '%s' failed with error:\n%s" % (cmd, output)
+        raise subprocess.CalledProcessError(return_code, cmd, output[:1024])
+    return output
 
 
 _host_objects = {}
@@ -103,7 +114,8 @@ def googlesh_runner(host, **kwargs):
         @raises CalledProcessError: If there was a non-0 return code.
         """
         out = subprocess.check_output(['googlesh', '-s', '-uchromeos-test',
-                                       '-m%s' % host, '%s' % cmd])
+                                       '-m%s' % host, '%s' % cmd],
+                                      stderr=subprocess.STDOUT)
         return out
     return runner
 
@@ -128,143 +140,3 @@ def execute_command(host, cmd, **kwargs):
         runner = googlesh_runner(host)
 
     return runner(cmd, **kwargs)
-
-
-def _csv_to_list(s):
-    """
-    Converts a list seperated by commas into a list of strings.
-
-    >>> _csv_to_list('')
-    []
-    >>> _csv_to_list('one')
-    ['one']
-    >>> _csv_to_list('one, two,three')
-    ['one', 'two', 'three']
-    """
-    return [x.strip() for x in s.split(',') if x]
-
-
-# The goal with these functions is to give you a list of hosts that are valid
-# arguments to ssh.  Note that this only really works since our instances use
-# names that are findable by our default /etc/resolv.conf `search` domains,
-# because all of our instances have names under .corp
-def sam_servers():
-    """
-    Generate a list of all scheduler/afe instances of autotest.
-
-    Note that we don't include the mysql database host if the database is split
-    from the rest of the system.
-    """
-    sams_config = global_config.global_config.get_config_value(
-            'CROS', 'sam_instances', default='')
-    sams = _csv_to_list(sams_config)
-    return set(sams)
-
-
-def extra_servers():
-    """
-    Servers that have an autotest checkout in /usr/local/autotest, but aren't
-    in any other list.
-
-    @returns: A set of hosts.
-    """
-    servers = global_config.global_config.get_config_value(
-                'CROS', 'extra_servers', default='')
-    return set(_csv_to_list(servers))
-
-
-def test_instance():
-    """
-    A server that is set up to run tests of the autotest infrastructure.
-
-    @returns: A hostname
-    """
-    server = global_config.global_config.get_config_value(
-                'CROS', 'test_instance', default='')
-    return server
-
-
-# The most reliable way to pull information about the state of the lab is to
-# look at the global/shadow config on each server.  The best way to do this is
-# via the global_config module.  Therefore, we invoke python on the remote end
-# to call global_config to get whatever values we want.
-_VALUE_FROM_CONFIG = '''
-cd /usr/local/autotest
-python -c "
-import common
-from autotest_lib.client.common_lib import global_config
-print global_config.global_config.get_config_value(
-  '%s', '%s', default='')
-"
-'''
-# There's possibly cheaper ways to do some of this, for example, we could scrape
-# instance:13467 for the list of drones, but this way you can get the list of
-# drones that is what should/will be running, and not what the scheduler thinks
-# is running.  (It could have kicked one out, or we could be bringing a new one
-# into rotation.)  So scraping the config on remote servers, while slow, gives
-# us consistent logical results.
-
-
-def _scrape_from_instances(section, key):
-    sams = sam_servers()
-    all_servers = set()
-    for sam in sams:
-        servers_csv = execute_command(sam, _VALUE_FROM_CONFIG % (section, key))
-        servers = _csv_to_list(servers_csv)
-        for server in servers:
-            if server == 'localhost':
-                all_servers.add(sam)
-            else:
-                all_servers.add(server)
-    return all_servers
-
-
-def database_servers():
-    """
-    Generate a list of all database servers running for instances of autotest.
-
-    @returns: An iterable of all hosts.
-    """
-    return _scrape_from_instances('AUTOTEST_WEB', 'host')
-
-
-def drone_servers():
-    """
-    Generate a list of all drones used by all instances of autotest in
-    production.
-
-    @returns: An iterable of drone servers.
-    """
-    return _scrape_from_instances('SCHEDULER', 'drones')
-
-
-def devserver_servers():
-    """
-    Generate a list of all devservers.
-
-    @returns: An iterable of all hosts.
-    """
-    zone = global_config.global_config.get_config_value(
-            'CLIENT', 'dns_zone')
-    servers = _scrape_from_instances('CROS', 'dev_server_hosts')
-    # The default text we get back here isn't something you can ssh into unless
-    # you've set up your /etc/resolve.conf to automatically try .cros, so we
-    # append the zone to try and make this more in line with everything else.
-    return set([server+'.'+zone for server in servers])
-
-
-def shard_servers():
-    """
-    Generate a list of all shard servers.
-
-    @returns: An iterable of all shard servers.
-    """
-    shard_hostnames = set()
-    sams = sam_servers()
-    for sam in sams:
-        afe = frontend_wrappers.RetryingAFE(server=sam)
-        shards = afe.run('get_shards')
-        for shard in shards:
-            shard_hostnames.add(shard['hostname'])
-
-    return list(shard_hostnames)

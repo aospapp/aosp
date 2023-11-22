@@ -28,6 +28,8 @@ import android.os.storage.StorageManager;
 import android.provider.AlarmClock;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.speech.RecognizerIntent;
+import android.telecom.TelecomManager;
 import android.test.AndroidTestCase;
 
 import java.util.List;
@@ -46,6 +48,23 @@ public class AvailableIntentsTest extends AndroidTestCase {
         assertNotNull(resolveInfoList);
         // one or more activity can handle this intent.
         assertTrue(resolveInfoList.size() > 0);
+    }
+
+    /**
+     * Assert target intent is not resolved by a filter with priority greater than 0.
+     * @param intent - the Intent will be handled.
+     */
+    private void assertDefaultHandlerValidPriority(final Intent intent) {
+        PackageManager packageManager = mContext.getPackageManager();
+        List<ResolveInfo> resolveInfoList = packageManager.queryIntentActivities(intent, 0);
+        assertNotNull(resolveInfoList);
+        // one or more activity can handle this intent.
+        assertTrue(resolveInfoList.size() > 0);
+        // no activities override defaults with a high priority. Only system activities can override
+        // the priority.
+        for (ResolveInfo resolveInfo : resolveInfoList) {
+            assertTrue(resolveInfo.priority <= 0);
+        }
     }
 
     /**
@@ -138,6 +157,50 @@ public class AvailableIntentsTest extends AndroidTestCase {
     }
 
     /**
+     * Test ACTION_CHANGE_PHONE_ACCOUNTS, it will display the phone account preferences.
+     */
+    public void testChangePhoneAccounts() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Intent intent = new Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS);
+            assertCanBeHandled(intent);
+        }
+    }
+
+    /**
+     * Test ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS, it will display the call accessibility preferences.
+     */
+    public void testShowCallAccessibilitySettings() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Intent intent = new Intent(TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS);
+            assertCanBeHandled(intent);
+        }
+    }
+
+    /**
+     * Test ACTION_SHOW_CALL_SETTINGS, it will display the call preferences.
+     */
+    public void testShowCallSettings() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Intent intent = new Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS);
+            assertCanBeHandled(intent);
+        }
+    }
+
+    /**
+     * Test ACTION_SHOW_RESPOND_VIA_SMS_SETTINGS, it will display the respond by SMS preferences.
+     */
+    public void testShowRespondViaSmsSettings() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            Intent intent = new Intent(TelecomManager.ACTION_SHOW_RESPOND_VIA_SMS_SETTINGS);
+            assertCanBeHandled(intent);
+        }
+    }
+
+    /**
      * Test start camera by intent
      */
     public void testCamera() {
@@ -193,11 +256,30 @@ public class AvailableIntentsTest extends AndroidTestCase {
         assertCanBeHandled(intent);
     }
 
-    public void testAlarmClock() {
+    public void testAlarmClockSetAlarm() {
         Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
         intent.putExtra(AlarmClock.EXTRA_MESSAGE, "Custom message");
         intent.putExtra(AlarmClock.EXTRA_HOUR, 12);
         intent.putExtra(AlarmClock.EXTRA_MINUTES, 0);
+        assertCanBeHandled(intent);
+    }
+
+    public void testAlarmClockSetTimer() {
+        Intent intent = new Intent(AlarmClock.ACTION_SET_TIMER);
+        intent.putExtra(AlarmClock.EXTRA_LENGTH, 60000);
+        assertCanBeHandled(intent);
+    }
+
+    public void testAlarmClockShowAlarms() {
+        Intent intent = new Intent(AlarmClock.ACTION_SHOW_ALARMS);
+        assertCanBeHandled(intent);
+    }
+
+    public void testAlarmClockShowTimers() {
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY)) {
+            return;
+        }
+        Intent intent = new Intent(AlarmClock.ACTION_SHOW_TIMERS);
         assertCanBeHandled(intent);
     }
 
@@ -246,5 +328,23 @@ public class AvailableIntentsTest extends AndroidTestCase {
 
     public void testManageStorage() {
         assertCanBeHandled(new Intent(StorageManager.ACTION_MANAGE_STORAGE));
+    }
+ 
+    public void testVoiceCommand() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
+            Intent intent = new Intent(Intent.ACTION_VOICE_COMMAND);
+            assertCanBeHandled(intent);
+            assertDefaultHandlerValidPriority(intent);
+        }
+    }
+
+    public void testVoiceSearchHandsFree() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
+            Intent intent = new Intent(RecognizerIntent.ACTION_VOICE_SEARCH_HANDS_FREE);
+            assertCanBeHandled(intent);
+            assertDefaultHandlerValidPriority(intent);
+        }
     }
 }

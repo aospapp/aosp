@@ -10,7 +10,7 @@
   "icons": { "48": "skin/chrome_bug.png",
           "128": "skin/chrome_bug.png" },
   "permissions": [
-    "http://*/", "https://*/", "tabs"
+    "webRequest", "http://*/", "https://*/", "tabs"
   ],
   "background": {
     "persistent": true,
@@ -23,6 +23,15 @@
       "js": ["ct.js"],
       "run_at": "document_end",
       "all_frames": false
+    },
+     {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["prevent_unload_popup.js"],
+      "run_at": "document_start",
+      "all_frames": true
     }
+  ],
+  "web_accessible_resources": [
+     "custom_event_listener.js"
   ]
 }

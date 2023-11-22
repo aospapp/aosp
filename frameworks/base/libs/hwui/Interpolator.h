@@ -20,6 +20,7 @@
 #include <memory>
 
 #include <cutils/compiler.h>
+#include <vector>
 
 namespace android {
 namespace uirenderer {
@@ -43,7 +44,7 @@ public:
 
 class ANDROID_API AccelerateInterpolator : public Interpolator {
 public:
-    AccelerateInterpolator(float factor) : mFactor(factor), mDoubleFactor(factor*2) {}
+    explicit AccelerateInterpolator(float factor) : mFactor(factor), mDoubleFactor(factor*2) {}
     virtual float interpolate(float input) override;
 private:
     const float mFactor;
@@ -52,7 +53,7 @@ private:
 
 class ANDROID_API AnticipateInterpolator : public Interpolator {
 public:
-    AnticipateInterpolator(float tension) : mTension(tension) {}
+    explicit AnticipateInterpolator(float tension) : mTension(tension) {}
     virtual float interpolate(float input) override;
 private:
     const float mTension;
@@ -60,7 +61,7 @@ private:
 
 class ANDROID_API AnticipateOvershootInterpolator : public Interpolator {
 public:
-    AnticipateOvershootInterpolator(float tension) : mTension(tension) {}
+    explicit AnticipateOvershootInterpolator(float tension) : mTension(tension) {}
     virtual float interpolate(float input) override;
 private:
     const float mTension;
@@ -73,7 +74,7 @@ public:
 
 class ANDROID_API CycleInterpolator : public Interpolator {
 public:
-    CycleInterpolator(float cycles) : mCycles(cycles) {}
+    explicit CycleInterpolator(float cycles) : mCycles(cycles) {}
     virtual float interpolate(float input) override;
 private:
     const float mCycles;
@@ -81,7 +82,7 @@ private:
 
 class ANDROID_API DecelerateInterpolator : public Interpolator {
 public:
-    DecelerateInterpolator(float factor) : mFactor(factor) {}
+    explicit DecelerateInterpolator(float factor) : mFactor(factor) {}
     virtual float interpolate(float input) override;
 private:
     const float mFactor;
@@ -94,10 +95,20 @@ public:
 
 class ANDROID_API OvershootInterpolator : public Interpolator {
 public:
-    OvershootInterpolator(float tension) : mTension(tension) {}
+    explicit OvershootInterpolator(float tension) : mTension(tension) {}
     virtual float interpolate(float input) override;
 private:
     const float mTension;
+};
+
+class ANDROID_API PathInterpolator : public Interpolator {
+public:
+    explicit PathInterpolator(std::vector<float>&& x, std::vector<float>&& y)
+            : mX (x), mY(y) {}
+    virtual float interpolate(float input) override;
+private:
+    std::vector<float> mX;
+    std::vector<float> mY;
 };
 
 class ANDROID_API LUTInterpolator : public Interpolator {

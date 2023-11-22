@@ -19,6 +19,7 @@ package com.android.nfc.beam;
 import com.android.nfc.R;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Notification.Builder;
@@ -43,6 +44,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
+
+import android.support.v4.content.FileProvider;
 
 /**
  * A BeamTransferManager object represents a set of files
@@ -99,6 +102,10 @@ public class BeamTransferManager implements Handler.Callback,
     static final int WAIT_FOR_NEXT_TRANSFER_MS = 4000;
 
     static final String BEAM_DIR = "beam";
+
+    static final String BEAM_NOTIFICATION_CHANNEL = "beam_notification_channel";
+
+    static final String BLUETOOTH_PACKAGE = "com.android.bluetooth";
 
     static final String ACTION_WHITELIST_DEVICE =
             "android.btopp.intent.action.WHITELIST_DEVICE";
@@ -169,11 +176,16 @@ public class BeamTransferManager implements Handler.Callback,
         mHandler.sendEmptyMessageDelayed(MSG_TRANSFER_TIMEOUT, ALIVE_CHECK_MS);
         mNotificationManager = (NotificationManager) mContext.getSystemService(
                 Context.NOTIFICATION_SERVICE);
+        NotificationChannel notificationChannel = new NotificationChannel(
+                BEAM_NOTIFICATION_CHANNEL, mContext.getString(R.string.app_name),
+                NotificationManager.IMPORTANCE_HIGH);
+        mNotificationManager.createNotificationChannel(notificationChannel);
     }
 
     void whitelistOppDevice(BluetoothDevice device) {
         if (DBG) Log.d(TAG, "Whitelisting " + device + " for BT OPP");
         Intent intent = new Intent(ACTION_WHITELIST_DEVICE);
+        intent.setPackage(BLUETOOTH_PACKAGE);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
     }
@@ -283,17 +295,19 @@ public class BeamTransferManager implements Handler.Callback,
 
     private void sendBluetoothCancelIntentAndUpdateState() {
         Intent cancelIntent = new Intent(ACTION_STOP_BLUETOOTH_TRANSFER);
+        cancelIntent.setPackage(BLUETOOTH_PACKAGE);
         cancelIntent.putExtra(BeamStatusReceiver.EXTRA_TRANSFER_ID, mBluetoothTransferId);
         mContext.sendBroadcast(cancelIntent);
         updateStateAndNotification(STATE_CANCELLED);
     }
 
     void updateNotification() {
-        Builder notBuilder = new Notification.Builder(mContext);
+        Builder notBuilder = new Notification.Builder(mContext, BEAM_NOTIFICATION_CHANNEL);
         notBuilder.setColor(mContext.getResources().getColor(
                 com.android.internal.R.color.system_notification_accent_color));
         notBuilder.setWhen(mStartTime);
         notBuilder.setVisibility(Notification.VISIBILITY_PUBLIC);
+        notBuilder.setOnlyAlertOnce(true);
         String beamString;
         if (mIncoming) {
             beamString = mContext.getString(R.string.beam_progress);
@@ -470,9 +484,11 @@ public class BeamTransferManager implements Handler.Callback,
         String filePath = mPaths.get(0);
         Uri mediaUri = mMediaUris.get(filePath);
         Uri uri =  mediaUri != null ? mediaUri :
-            Uri.parse(ContentResolver.SCHEME_FILE + "://" + filePath);
+            FileProvider.getUriForFile(mContext, "com.google.android.nfc.fileprovider",
+                    new File(filePath));
         viewIntent.setDataAndTypeAndNormalize(uri, mMimeTypes.get(filePath));
-        viewIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        viewIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK |
+                Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         return viewIntent;
     }
 

@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/syn.c,v 1.109 2016/01/19 23:12:15 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/syn.c,v 1.115 2016/09/01 12:59:12 tg Exp $");
 
 struct nesting_state {
 	int start_token;	/* token than began nesting (eg, FOR) */
@@ -31,6 +31,7 @@ struct nesting_state {
 };
 
 struct yyrecursive_state {
+	struct ioword *old_heres[HERES];
 	struct yyrecursive_state *next;
 	struct ioword **old_herep;
 	int old_symbol;
@@ -207,7 +208,7 @@ synio(int cf)
 			iop->ioflag |= IOEVAL;
 		}
 		if (herep > &heres[HERES - 1])
-			yyerror("too many %ss\n", "<<");
+			yyerror(Tf_toomany, "<<");
 		*herep++ = iop;
 	} else
 		iop->ioname = yylval.cp;
@@ -216,16 +217,7 @@ synio(int cf)
 		char *cp;
 
 		nextiop = alloc(sizeof(*iop), ATEMP);
-#ifdef MKSH_CONSERVATIVE_FDS
 		nextiop->ioname = cp = alloc(3, ATEMP);
-#else
-		nextiop->ioname = cp = alloc(5, ATEMP);
-
-		if (iop->unit > 9) {
-			*cp++ = CHAR;
-			*cp++ = digits_lc[iop->unit / 10];
-		}
-#endif
 		*cp++ = CHAR;
 		*cp++ = digits_lc[iop->unit % 10];
 		*cp = EOS;
@@ -295,12 +287,12 @@ get_command(int cf)
 		syniocf &= ~(KEYWORD|sALIAS);
 		t = newtp(TCOM);
 		t->lineno = source->line;
-		goto get_command_begin;
+		goto get_command_start;
 		while (/* CONSTCOND */ 1) {
 			bool check_assign_cmd;
 
 			if (XPsize(args) == 0) {
- get_command_begin:
+ get_command_start:
 				check_assign_cmd = true;
 				cf = sALIAS | CMDASN;
 			} else if (t->u.evalflags)
@@ -311,8 +303,8 @@ get_command(int cf)
 			case REDIR:
 				while ((iop = synio(cf)) != NULL) {
 					if (iopn >= NUFILE)
-						yyerror("too many %ss\n",
-						    "redirection");
+						yyerror(Tf_toomany,
+						    Tredirection);
 					iops[iopn++] = iop;
 				}
 				break;
@@ -447,8 +439,8 @@ get_command(int cf)
 		t = newtp((c == FOR) ? TFOR : TSELECT);
 		musthave(LWORD, CMDASN);
 		if (!is_wdvarname(yylval.cp, true))
-			yyerror("%s: %s\n", c == FOR ? "for" : Tselect,
-			    "bad identifier");
+			yyerror("%s: bad identifier\n",
+			    c == FOR ? "for" : Tselect);
 		strdupx(t->str, ident, ATEMP);
 		nesting_push(&old_nesting, c);
 		t->vars = wordlist();
@@ -511,7 +503,7 @@ get_command(int cf)
 
 	while ((iop = synio(syniocf)) != NULL) {
 		if (iopn >= NUFILE)
-			yyerror("too many %ss\n", "redirection");
+			yyerror(Tf_toomany, Tredirection);
 		iops[iopn++] = iop;
 	}
 
@@ -705,7 +697,7 @@ function_body(char *name,
 	 */
 	for (p = sname; *p; p++)
 		if (ctype(*p, C_QUOTE))
-			yyerror("%s: %s\n", sname, "invalid function name");
+			yyerror("%s: invalid function name\n", sname);
 
 	/*
 	 * Note that POSIX allows only compound statements after foo(),
@@ -812,7 +804,7 @@ static const struct tokeninfo {
 	{ "done",	DONE,	true },
 	{ "in",		IN,	true },
 	{ Tfunction,	FUNCTION, true },
-	{ "time",	TIME,	true },
+	{ Ttime,	TIME,	true },
 	{ "{",		'{',	true },
 	{ Tcbrace,	'}',	true },
 	{ "!",		BANG,	true },
@@ -859,7 +851,7 @@ syntaxerr(const char *what)
 	int c;
 
 	if (!what)
-		what = "unexpected";
+		what = Tunexpected;
 	REJECT;
 	c = token(0);
  Again:
@@ -872,15 +864,15 @@ syntaxerr(const char *what)
 			goto Again;
 		}
 		/* don't quote the EOF */
-		yyerror("%s: %s %s\n", Tsynerr, "unexpected", "EOF");
+		yyerror("%s: unexpected EOF\n", Tsynerr);
 		/* NOTREACHED */
 
 	case LWORD:
-		s = snptreef(NULL, 32, "%S", yylval.cp);
+		s = snptreef(NULL, 32, Tf_S, yylval.cp);
 		break;
 
 	case REDIR:
-		s = snptreef(redir, sizeof(redir), "%R", yylval.iop);
+		s = snptreef(redir, sizeof(redir), Tft_R, yylval.iop);
 		break;
 
 	default:
@@ -972,9 +964,11 @@ assign_command(const char *s, bool docommand)
 static int
 inalias(struct source *s)
 {
-	for (; s && s->type == SALIAS; s = s->next)
+	while (s && s->type == SALIAS) {
 		if (!(s->flags & SF_ALIASEND))
 			return (1);
+		s = s->next;
+	}
 	return (0);
 }
 
@@ -1175,7 +1169,9 @@ yyrecursive(int subtype MKSH_A_UNUSED)
 	ys->old_reject = reject;
 	ys->old_symbol = symbol;
 	ACCEPT;
+	memcpy(ys->old_heres, heres, sizeof(heres));
 	ys->old_herep = herep;
+	herep = heres;
 	ys->old_salias = sALIAS;
 	sALIAS = 0;
 	ys->next = e->yyrecursive_statep;
@@ -1185,7 +1181,7 @@ yyrecursive(int subtype MKSH_A_UNUSED)
 	yyrecursive_pop(false);
 
 	/* t->left because nested(TPAREN, ...) hides our goodies there */
-	cp = snptreef(NULL, 0, "%T", t->left);
+	cp = snptreef(NULL, 0, Tf_T, t->left);
 	tfree(t, ATEMP);
 
 	return (cp);
@@ -1202,6 +1198,7 @@ yyrecursive_pop(bool popall)
 	e->yyrecursive_statep = ys->next;
 
 	sALIAS = ys->old_salias;
+	memcpy(heres, ys->old_heres, sizeof(heres));
 	herep = ys->old_herep;
 	reject = ys->old_reject;
 	symbol = ys->old_symbol;

@@ -39,7 +39,7 @@
         android:layout_marginEnd="1dp"
         android:clipChildren="false"
         android:clipToPadding="false" />
-    // TODO: Use button action list in GuidedStepFragment
+    <!-- TODO: Use button action list in GuidedStepFragment -->
     <FrameLayout
         android:id="@+id/done_button_container"
         android:layout_width="@dimen/setup_done_button_container_width"

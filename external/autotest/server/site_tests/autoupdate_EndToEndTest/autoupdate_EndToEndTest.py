@@ -14,8 +14,7 @@ import urlparse
 from autotest_lib.client.bin import utils as client_utils
 from autotest_lib.client.common_lib import error, global_config
 from autotest_lib.client.common_lib.cros import autoupdater, dev_server
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
-from autotest_lib.server import autotest, hosts, test
+from autotest_lib.server import afe_utils, autotest, hosts, test
 from autotest_lib.server.cros.dynamic_suite import tools
 
 
@@ -511,7 +510,7 @@ class OmahaDevserver(object):
         logging.warning('Waiting for devserver to accept network requests.')
         url = 'http://%s' % self.get_netloc()
         while time.time() < deadline:
-            if dev_server.DevServer.devserver_healthy(url, timeout_min=0.1):
+            if dev_server.ImageServer.devserver_healthy(url, timeout_min=0.1):
                 break
 
             # TODO(milleral): Refactor once crbug.com/221626 is resolved.
@@ -561,6 +560,7 @@ class OmahaDevserver(object):
                 '--max_updates=1',
                 '--host_log',
                 '--static_dir=%s' % self._devserver_static_dir,
+                '--critical_update',
         ]
         remote_cmd = '( %s ) </dev/null >%s 2>&1 &' % (
                 ' '.join(cmdlist), self._devserver_stdoutfile)
@@ -892,6 +892,8 @@ class ChromiumOSTestPlatform(TestPlatform):
     def _payload_to_stateful_uri(self, payload_uri):
         """Given a payload GS URI, returns the corresponding stateful URI."""
         build_uri = payload_uri.rpartition('/')[0]
+        if build_uri.endswith('payloads'):
+            build_uri = build_uri.rpartition('/')[0]
         return self._get_stateful_uri(build_uri)
 
 
@@ -1028,11 +1030,9 @@ class ChromiumOSTestPlatform(TestPlatform):
         else:
             # Attempt to get the job_repo_url to find the stateful payload for
             # the target image.
-            try:
-                job_repo_url = self._host.lookup_job_repo_url()
-            except KeyError:
-                # If this failed, assume the stateful update is next to the
-                # update payload.
+            job_repo_url = afe_utils.get_host_attribute(
+                    self._host, self._host.job_repo_url_attribute)
+            if not job_repo_url:
                 target_stateful_uri = self._payload_to_stateful_uri(
                     target_payload_uri)
             else:
@@ -1069,7 +1069,7 @@ class ChromiumOSTestPlatform(TestPlatform):
             logging.info('Attempting to login (release %s).', release_string)
 
             client_at = autotest.Autotest(self._host)
-            client_at.run_test('login_LoginSuccess')
+            client_at.run_test('login_LoginSuccess', arc_mode='enabled')
         else:
             logging.info('Not attempting login test because %s is older than '
                          '%d.', release_string, self._LOGINABLE_MINIMUM_RELEASE)
@@ -1778,7 +1778,12 @@ class autoupdate_EndToEndTest(test.test):
         # fall back to the old behavior by picking a devserver based on the
         # payload URI, with which ImageServer.resolve will return a random
         # devserver based on the hash of the URI.
-        least_loaded_devserver = dev_server.get_least_loaded_devserver()
+        # The picked devserver needs to respect the location of the host if
+        # `prefer_local_devserver` is set to True or `restricted_subnets` is
+        # set.
+        hostname = self._host.hostname if self._host else None
+        least_loaded_devserver = dev_server.get_least_loaded_devserver(
+                hostname=hostname)
         if least_loaded_devserver:
             logging.debug('Choose the least loaded devserver: %s',
                           least_loaded_devserver)
@@ -1787,15 +1792,9 @@ class autoupdate_EndToEndTest(test.test):
             logging.warning('No devserver meets the maximum load requirement. '
                             'Pick a random devserver to use.')
             autotest_devserver = dev_server.ImageServer.resolve(
-                    test_conf['target_payload_uri'])
+                    test_conf['target_payload_uri'], host.hostname)
         devserver_hostname = urlparse.urlparse(
                 autotest_devserver.url()).hostname
-        counter_key = dev_server.ImageServer.create_stats_str(
-                'paygen', devserver_hostname, artifacts=None)
-        metadata = {'devserver': devserver_hostname,
-                    '_type': 'devserver_paygen'}
-        metadata.update(test_conf)
-        autotest_stats.Counter(counter_key, metadata=metadata).increment()
 
         # Obtain a test platform implementation.
         test_platform = TestPlatform.create(host)

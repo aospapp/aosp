@@ -111,7 +111,7 @@ void createProcess(Pipe pipe, const char *exName, const char *arg)
         char writeFdStr[16];
         snprintf(readFdStr, sizeof(readFdStr), "%d", pipe.getReadFd());
         snprintf(writeFdStr, sizeof(writeFdStr), "%d", pipe.getWriteFd());
-        execl(exName, exName, "--worker", arg, readFdStr, writeFdStr, 0);
+        execl(exName, exName, "--worker", arg, readFdStr, writeFdStr, nullptr);
         ASSERT_TRUE(0);
     }
     // parent process

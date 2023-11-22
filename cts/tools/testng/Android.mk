@@ -21,7 +21,3 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_JAVA_LIBRARIES := testng
 LOCAL_DEX_PREOPT := false
 include $(BUILD_JAVA_LIBRARY)
-
-cts_library_jar := $(CTS_TESTCASES_OUT)/$(LOCAL_MODULE).jar
-$(cts_library_jar): $(LOCAL_BUILT_MODULE)
-	$(copy-file-to-target)

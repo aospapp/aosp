@@ -30,6 +30,8 @@ LOCAL_AIDL_INCLUDES += $(LOCAL_PATH)/src
 
 LOCAL_MODULE:= CtsAccountTestsCommon
 
+LOCAL_MIN_SDK_VERSION  := 1
+
 LOCAL_SDK_VERSION := current
 
 # Build the actual static library

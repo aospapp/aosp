@@ -56,7 +56,7 @@ void OutArgument(int** x) {
 }  // namespace
 
 TEST(ResetterTest, All) {
-  scoped_ptr<int> x;
+  std::unique_ptr<int> x;
   OutArgument(&Resetter(&x).lvalue());
   EXPECT_EQ(*x, 10);
 }

@@ -6,4 +6,4 @@ from autotest_lib.client.common_lib import enum
 # priority, such as suites on old branches, will inherit a priority that makes
 # them a best effort without lengthening important build processes.
 Priority = enum.Enum('Weekly', 'Daily', 'PostBuild', 'Default', 'Build',
-                     'PFQ', 'CQ', start_value=10, step=10)
+                     'PFQ', 'CQ', 'Super',  start_value=10, step=10)

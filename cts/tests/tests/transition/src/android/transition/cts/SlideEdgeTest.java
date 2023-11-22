@@ -15,22 +15,30 @@
  */
 package android.transition.cts;
 
-import android.app.Activity;
-import android.app.Instrumentation;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
+import static com.android.compatibility.common.util.CtsMockitoUtils.within;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.Slide;
+import android.transition.Transition;
 import android.transition.TransitionManager;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 
 import org.junit.Test;
-
-import java.util.concurrent.TimeUnit;
+import org.junit.runner.RunWith;
 
 @MediumTest
-public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionActivity>  {
+@RunWith(AndroidJUnit4.class)
+public class SlideEdgeTest extends BaseTransitionTest  {
     private static final Object[][] sSlideEdgeArray = {
             { Gravity.START, "START" },
             { Gravity.END, "END" },
@@ -40,10 +48,7 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
             { Gravity.BOTTOM, "BOTTOM" },
     };
 
-    public SlideEdgeTest() {
-        super(TransitionActivity.class);
-    }
-
+    @Test
     public void testSetSide() throws Throwable {
         for (int i = 0; i < sSlideEdgeArray.length; i++) {
             int slideEdge = (Integer) (sSlideEdgeArray[i][0]);
@@ -59,39 +64,31 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
         }
     }
 
+    @Test
     public void testSlideOut() throws Throwable {
         for (int i = 0; i < sSlideEdgeArray.length; i++) {
             final int slideEdge = (Integer) (sSlideEdgeArray[i][0]);
             final Slide slide = new Slide(slideEdge);
-            final SimpleTransitionListener listener = new SimpleTransitionListener();
+            final Transition.TransitionListener listener =
+                    mock(Transition.TransitionListener.class);
             slide.addListener(listener);
 
-            final Instrumentation instrumentation = getInstrumentation();
-            final Activity activity = getActivity();
-            instrumentation.runOnMainSync(new Runnable() {
-                @Override
-                public void run() {
-                    activity.setContentView(R.layout.scene1);
-                }
-            });
-            instrumentation.waitForIdleSync();
+            mActivityRule.runOnUiThread(() -> mActivity.setContentView(R.layout.scene1));
+            mInstrumentation.waitForIdleSync();
 
-            final View redSquare = activity.findViewById(R.id.redSquare);
-            final View greenSquare = activity.findViewById(R.id.greenSquare);
-            final View hello = activity.findViewById(R.id.hello);
-            final ViewGroup sceneRoot = (ViewGroup) activity.findViewById(R.id.holder);
+            final View redSquare = mActivity.findViewById(R.id.redSquare);
+            final View greenSquare = mActivity.findViewById(R.id.greenSquare);
+            final View hello = mActivity.findViewById(R.id.hello);
+            final ViewGroup sceneRoot = (ViewGroup) mActivity.findViewById(R.id.holder);
 
-            instrumentation.runOnMainSync(new Runnable() {
-                @Override
-                public void run() {
-                    TransitionManager.beginDelayedTransition(sceneRoot, slide);
-                    redSquare.setVisibility(View.INVISIBLE);
-                    greenSquare.setVisibility(View.INVISIBLE);
-                    hello.setVisibility(View.INVISIBLE);
-                }
+            mActivityRule.runOnUiThread(() -> {
+                TransitionManager.beginDelayedTransition(sceneRoot, slide);
+                redSquare.setVisibility(View.INVISIBLE);
+                greenSquare.setVisibility(View.INVISIBLE);
+                hello.setVisibility(View.INVISIBLE);
             });
-            assertTrue(listener.startLatch.await(1, TimeUnit.SECONDS));
-            assertEquals(1, listener.endLatch.getCount());
+            verify(listener, within(1000)).onTransitionStart(any());
+            verify(listener, never()).onTransitionEnd(any());
             assertEquals(View.VISIBLE, redSquare.getVisibility());
             assertEquals(View.VISIBLE, greenSquare.getVisibility());
             assertEquals(View.VISIBLE, hello.getVisibility());
@@ -100,9 +97,9 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
             float redStartY = redSquare.getTranslationY();
 
             Thread.sleep(200);
-            assertTranslation(slideEdge, redSquare);
-            assertTranslation(slideEdge, greenSquare);
-            assertTranslation(slideEdge, hello);
+            verifyTranslation(slideEdge, redSquare);
+            verifyTranslation(slideEdge, greenSquare);
+            verifyTranslation(slideEdge, hello);
 
             final float redMidX = redSquare.getTranslationX();
             final float redMidY = redSquare.getTranslationY();
@@ -130,64 +127,52 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
                             redStartY < redSquare.getTranslationY());
                     break;
             }
-            assertTrue(listener.endLatch.await(1, TimeUnit.SECONDS));
-            instrumentation.waitForIdleSync();
+            verify(listener, within(1000)).onTransitionEnd(any());
+            mInstrumentation.waitForIdleSync();
 
-            assertNoTranslation(redSquare);
-            assertNoTranslation(greenSquare);
-            assertNoTranslation(hello);
+            verifyNoTranslation(redSquare);
+            verifyNoTranslation(greenSquare);
+            verifyNoTranslation(hello);
             assertEquals(View.INVISIBLE, redSquare.getVisibility());
             assertEquals(View.INVISIBLE, greenSquare.getVisibility());
             assertEquals(View.INVISIBLE, hello.getVisibility());
         }
     }
 
+    @Test
     public void testSlideIn() throws Throwable {
         for (int i = 0; i < sSlideEdgeArray.length; i++) {
             final int slideEdge = (Integer) (sSlideEdgeArray[i][0]);
             final Slide slide = new Slide(slideEdge);
-            final SimpleTransitionListener listener = new SimpleTransitionListener();
+            final Transition.TransitionListener listener =
+                    mock(Transition.TransitionListener.class);
             slide.addListener(listener);
 
-            final Instrumentation instrumentation = getInstrumentation();
-            final Activity activity = getActivity();
+            mActivityRule.runOnUiThread(() -> mActivity.setContentView(R.layout.scene1));
+            mInstrumentation.waitForIdleSync();
 
-            instrumentation.runOnMainSync(new Runnable() {
-                @Override
-                public void run() {
-                    activity.setContentView(R.layout.scene1);
-                }
+            final View redSquare = mActivity.findViewById(R.id.redSquare);
+            final View greenSquare = mActivity.findViewById(R.id.greenSquare);
+            final View hello = mActivity.findViewById(R.id.hello);
+            final ViewGroup sceneRoot = (ViewGroup) mActivity.findViewById(R.id.holder);
+
+            mActivityRule.runOnUiThread(() -> {
+                redSquare.setVisibility(View.INVISIBLE);
+                greenSquare.setVisibility(View.INVISIBLE);
+                hello.setVisibility(View.INVISIBLE);
             });
-            instrumentation.waitForIdleSync();
-
-            final View redSquare = activity.findViewById(R.id.redSquare);
-            final View greenSquare = activity.findViewById(R.id.greenSquare);
-            final View hello = activity.findViewById(R.id.hello);
-            final ViewGroup sceneRoot = (ViewGroup) activity.findViewById(R.id.holder);
-
-            instrumentation.runOnMainSync(new Runnable() {
-                @Override
-                public void run() {
-                    redSquare.setVisibility(View.INVISIBLE);
-                    greenSquare.setVisibility(View.INVISIBLE);
-                    hello.setVisibility(View.INVISIBLE);
-                }
-            });
-            instrumentation.waitForIdleSync();
+            mInstrumentation.waitForIdleSync();
 
             // now slide in
-            instrumentation.runOnMainSync(new Runnable() {
-                @Override
-                public void run() {
-                    TransitionManager.beginDelayedTransition(sceneRoot, slide);
-                    redSquare.setVisibility(View.VISIBLE);
-                    greenSquare.setVisibility(View.VISIBLE);
-                    hello.setVisibility(View.VISIBLE);
-                }
+            mActivityRule.runOnUiThread(() -> {
+                TransitionManager.beginDelayedTransition(sceneRoot, slide);
+                redSquare.setVisibility(View.VISIBLE);
+                greenSquare.setVisibility(View.VISIBLE);
+                hello.setVisibility(View.VISIBLE);
             });
-            assertTrue(listener.startLatch.await(1, TimeUnit.SECONDS));
+            verify(listener, within(1000)).onTransitionStart(any());
 
-            assertEquals(1, listener.endLatch.getCount());
+            verify(listener, never()).onTransitionEnd(any());
             assertEquals(View.VISIBLE, redSquare.getVisibility());
             assertEquals(View.VISIBLE, greenSquare.getVisibility());
             assertEquals(View.VISIBLE, hello.getVisibility());
@@ -196,9 +181,9 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
             final float redStartY = redSquare.getTranslationY();
 
             Thread.sleep(200);
-            assertTranslation(slideEdge, redSquare);
-            assertTranslation(slideEdge, greenSquare);
-            assertTranslation(slideEdge, hello);
+            verifyTranslation(slideEdge, redSquare);
+            verifyTranslation(slideEdge, greenSquare);
+            verifyTranslation(slideEdge, hello);
             final float redMidX = redSquare.getTranslationX();
             final float redMidY = redSquare.getTranslationY();
 
@@ -226,19 +211,19 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
                             redStartY > redSquare.getTranslationY());
                     break;
             }
-            assertTrue(listener.endLatch.await(1, TimeUnit.SECONDS));
-            instrumentation.waitForIdleSync();
+            verify(listener, within(1000)).onTransitionEnd(any());
+            mInstrumentation.waitForIdleSync();
 
-            assertNoTranslation(redSquare);
-            assertNoTranslation(greenSquare);
-            assertNoTranslation(hello);
+            verifyNoTranslation(redSquare);
+            verifyNoTranslation(greenSquare);
+            verifyNoTranslation(hello);
             assertEquals(View.VISIBLE, redSquare.getVisibility());
             assertEquals(View.VISIBLE, greenSquare.getVisibility());
             assertEquals(View.VISIBLE, hello.getVisibility());
         }
     }
 
-    private void assertTranslation(int slideEdge, View view) {
+    private void verifyTranslation(int slideEdge, View view) {
         switch (slideEdge) {
             case Gravity.LEFT:
             case Gravity.START:
@@ -261,7 +246,7 @@ public class SlideEdgeTest extends ActivityInstrumentationTestCase2<TransitionAc
         }
     }
 
-    private void assertNoTranslation(View view) {
+    private void verifyNoTranslation(View view) {
         assertEquals(0f, view.getTranslationX(), 0.01f);
         assertEquals(0f, view.getTranslationY(), 0.01f);
     }

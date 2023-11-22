@@ -86,10 +86,12 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.date_time, null);
 
+        final boolean isRestricted = SecurityFragment.isRestrictedProfileInEffect(getContext());
+
         mDatePref = findPreference(KEY_SET_DATE);
-        mDatePref.setIntent(SetDateTimeActivity.getSetDateIntent(getActivity()));
+        mDatePref.setVisible(!isRestricted);
         mTimePref = findPreference(KEY_SET_TIME);
-        mTimePref.setIntent(SetDateTimeActivity.getSetTimeIntent(getActivity()));
+        mTimePref.setVisible(!isRestricted);
 
         final boolean tsTimeCapable = SystemProperties.getBoolean("ro.config.ts.date.time", false);
         final ListPreference autoDateTimePref =
@@ -100,7 +102,9 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
             autoDateTimePref.setEntries(R.array.auto_date_time_ts_entries);
             autoDateTimePref.setEntryValues(R.array.auto_date_time_ts_entry_values);
         }
+        autoDateTimePref.setVisible(!isRestricted);
         mTimeZone = findPreference(KEY_SET_TIME_ZONE);
+        mTimeZone.setVisible(!isRestricted);
         mTime24Pref = findPreference(KEY_USE_24_HOUR);
         mTime24Pref.setOnPreferenceChangeListener(this);
     }
@@ -137,7 +141,8 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
         Date dummyDate = mDummyDate.getTime();
         mDatePref.setSummary(DateFormat.getLongDateFormat(context).format(now.getTime()));
         mTimePref.setSummary(DateFormat.getTimeFormat(getActivity()).format(now.getTime()));
-        mTimeZone.setSummary(ZoneGetter.getTimeZoneOffsetAndName(now.getTimeZone(), now.getTime()));
+        mTimeZone.setSummary(ZoneGetter.getTimeZoneOffsetAndName(getActivity(),
+                now.getTimeZone(), now.getTime()));
         mTime24Pref.setSummary(DateFormat.getTimeFormat(getActivity()).format(dummyDate));
     }
 
@@ -164,8 +169,9 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
             }
             updateTimeDateEnable();
         } else if (TextUtils.equals(preference.getKey(), KEY_USE_24_HOUR)) {
-            set24Hour((Boolean) newValue);
-            updateTimeAndDateDisplay(getActivity());
+            final boolean use24Hour = (Boolean) newValue;
+            set24Hour(use24Hour);
+            timeUpdated(use24Hour);
         }
         return true;
     }
@@ -176,14 +182,23 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
         return DateFormat.is24HourFormat(getActivity());
     }
 
-    private void set24Hour(boolean is24Hour) {
-        Settings.System.putString(getActivity().getContentResolver(),
+    private void timeUpdated(boolean use24Hour) {
+        Intent timeChanged = new Intent(Intent.ACTION_TIME_CHANGED);
+        int timeFormatPreference =
+                use24Hour ? Intent.EXTRA_TIME_PREF_VALUE_USE_24_HOUR
+                        : Intent.EXTRA_TIME_PREF_VALUE_USE_12_HOUR;
+        timeChanged.putExtra(Intent.EXTRA_TIME_PREF_24_HOUR_FORMAT, timeFormatPreference);
+        getContext().sendBroadcast(timeChanged);
+    }
+
+    private void set24Hour(boolean use24Hour) {
+        Settings.System.putString(getContext().getContentResolver(),
                 Settings.System.TIME_12_24,
-                is24Hour? HOURS_24 : HOURS_12);
+                use24Hour ? HOURS_24 : HOURS_12);
     }
 
     private void setAutoDateTime(boolean on) {
-        Settings.Global.putInt(getActivity().getContentResolver(),
+        Settings.Global.putInt(getContext().getContentResolver(),
                 Settings.Global.AUTO_TIME, on ? 1 : 0);
     }
 
@@ -192,7 +207,7 @@ public class DateTimeFragment extends LeanbackPreferenceFragment implements
 //            return AUTO_DATE_TIME_TS;
 //        }
 
-        int value = Settings.Global.getInt(getActivity().getContentResolver(),
+        int value = Settings.Global.getInt(getContext().getContentResolver(),
                 Settings.Global.AUTO_TIME, 0);
         if(value > 0) {
             return AUTO_DATE_TIME_NTP;

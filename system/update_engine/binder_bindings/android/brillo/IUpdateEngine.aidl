@@ -28,6 +28,8 @@ interface IUpdateEngine {
   void RebootIfNeeded();
   void SetChannel(in String target_channel, in boolean powewash);
   String GetChannel(in boolean get_current_channel);
+  void SetCohortHint(in String cohort_hint);
+  String GetCohortHint();
   void SetP2PUpdatePermission(in boolean enabled);
   boolean GetP2PUpdatePermission();
   void SetUpdateOverCellularPermission(in boolean enabled);
@@ -37,4 +39,5 @@ interface IUpdateEngine {
   String GetRollbackPartition();
   void RegisterStatusCallback(in IUpdateEngineStatusCallback callback);
   int GetLastAttemptError();
+  int GetEolStatus();
 }

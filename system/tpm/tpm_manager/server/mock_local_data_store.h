@@ -31,6 +31,9 @@ class MockLocalDataStore : public LocalDataStore {
   MOCK_METHOD1(Read, bool(LocalData*));
   MOCK_METHOD1(Write, bool(const LocalData&));
 
+  const LocalData& GetFakeData() const { return fake_; }
+  LocalData& GetMutableFakeData() { return fake_; }
+
  private:
   LocalData fake_;
 };

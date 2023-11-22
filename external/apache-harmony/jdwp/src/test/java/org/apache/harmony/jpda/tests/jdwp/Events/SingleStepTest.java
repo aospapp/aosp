@@ -46,6 +46,7 @@ public class SingleStepTest extends JDWPEventTestCase {
 
     private String DEBUGGEE_CLASS_NAME = "org.apache.harmony.jpda.tests.jdwp.Events.SingleStepDebuggee";
 
+    @Override
     protected String getDebuggeeClassName() {
         return DEBUGGEE_CLASS_NAME;
     }

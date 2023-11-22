@@ -19,6 +19,6 @@ package dot.junit.opcodes.iget_wide;
 public class TestStubs {
     // used by testVFE4
     private long TestStubField = 50;
-    // ussed by testVFE15
+    // ussed by testVFE15 and testVFE35
     protected long TestStubProtectedField = 50;
 }

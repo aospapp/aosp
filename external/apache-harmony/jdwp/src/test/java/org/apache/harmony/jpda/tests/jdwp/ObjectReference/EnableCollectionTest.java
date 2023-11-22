@@ -45,6 +45,7 @@ public class EnableCollectionTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ObjectReference::EnableCollection command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/EnableCollectionDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.EnableCollectionDebuggee";
     }

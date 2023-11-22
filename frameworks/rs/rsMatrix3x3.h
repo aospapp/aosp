@@ -46,7 +46,7 @@ struct Matrix3x3 : public rs_matrix3x3 {
     }
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif  // ANDROID_RS_MATRIX_3x3_H

@@ -41,6 +41,7 @@ public class InterruptTest extends JDWPSyncTestCase {
     static String waitForString = "java.lang.InterruptedException";
     boolean isReceived = false;
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.InterruptDebuggee";
     }
@@ -95,6 +96,7 @@ public class InterruptTest extends JDWPSyncTestCase {
 
     class RecvThread extends Thread {
 
+        @Override
         public void run() {
             logWriter.println("wait for " + waitForString);
             isReceived = synchronizer.receiveMessage(waitForString);

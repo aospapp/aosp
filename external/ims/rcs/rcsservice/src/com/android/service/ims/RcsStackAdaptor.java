@@ -85,6 +85,10 @@ import com.android.service.ims.presence.AlarmBroadcastReceiver;
 public class RcsStackAdaptor{
     private static final boolean DEBUG = true;
 
+    private static final String PERSIST_SERVICE_NAME =
+            "com.android.service.ims.presence.PersistService";
+    private static final String PERSIST_SERVICE_PACKAGE = "com.android.service.ims.presence";
+
     // The logger
     private Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -238,11 +242,12 @@ public class RcsStackAdaptor{
                 SystemProperties.set("rcs.publish.status",
                         String.valueOf(publishState));
 
-                // broadcast publish state change intent
                 Intent publishIntent = new Intent(RcsPresence.ACTION_PUBLISH_STATE_CHANGED);
-                publishIntent.putExtra(RcsPresence.EXTRA_PUBLISH_STATE,
-                        publishState);
+                publishIntent.putExtra(RcsPresence.EXTRA_PUBLISH_STATE, publishState);
+                // Start PersistService and broadcast to other receivers that are listening
+                // dynamically.
                 mContext.sendStickyBroadcast(publishIntent);
+                launchPersistService(publishIntent);
             }
 
             mPublishingState = publishState;
@@ -441,6 +446,13 @@ public class RcsStackAdaptor{
         }
 
         return  ResultCode.SUCCESS;
+    }
+
+    private void launchPersistService(Intent intent) {
+        ComponentName component = new ComponentName(PERSIST_SERVICE_PACKAGE,
+                PERSIST_SERVICE_NAME);
+        intent.setComponent(component);
+        mContext.startService(intent);
     }
 
     private void createListeningThread() {

@@ -46,6 +46,7 @@ public class ConfigTest extends AndroidTestCase {
         KEYBOARDHIDDEN,
         NAVIGATION,
         ORIENTATION,
+        COLOR_MODE,
         WIDTH,
         HEIGHT,
         DENSITY,
@@ -117,6 +118,9 @@ public class ConfigTest extends AndroidTestCase {
                     break;
                 case ORIENTATION:
                     mConfig.orientation = value;
+                    break;
+                case COLOR_MODE:
+                    mConfig.colorMode = value;
                     break;
                 case WIDTH:
                     mMetrics.widthPixels = value;
@@ -355,6 +359,34 @@ public class ConfigTest extends AndroidTestCase {
         checkValue(res, R.configVarying.simple, "simple square");
         checkValue(res, R.configVarying.bag,
                 R.styleable.TestConfig, new String[]{"bag square"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.COLOR_MODE, Configuration.COLOR_MODE_HDR_YES);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple hdr");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag hdr"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.COLOR_MODE, Configuration.COLOR_MODE_HDR_NO);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple ldr");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag ldr"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.COLOR_MODE, Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_YES);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple widecg");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag widecg"});
+
+        config = makeEmptyConfig();
+        config.setProperty(Properties.COLOR_MODE, Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_NO);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple nowidecg");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag nowidecg"});
 
         config = makeEmptyConfig();
         config.setProperty(Properties.SCREENLAYOUT, Configuration.SCREENLAYOUT_SIZE_SMALL);
@@ -891,9 +923,9 @@ public class ConfigTest extends AndroidTestCase {
 // nokeys is set
 
     @MediumTest
-    public void testPrecidence() {
+    public void testPrecedence() {
         /**
-         * Check for precidence of resources selected when there are multiple
+         * Check for precedence of resources selected when there are multiple
          * options matching the current config.
          */
         TotalConfig config = makeEmptyConfig();
@@ -939,6 +971,18 @@ public class ConfigTest extends AndroidTestCase {
         checkValue(res, R.configVarying.simple, "simple landscape");
         checkValue(res, R.configVarying.bag,
                 R.styleable.TestConfig, new String[]{"bag landscape"});
+
+        config.setProperty(Properties.COLOR_MODE, Configuration.COLOR_MODE_HDR_YES);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple hdr");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag hdr"});
+
+        config.setProperty(Properties.COLOR_MODE, Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_YES);
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple widecg");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag widecg"});
 
         config.setProperty(Properties.SCREENLAYOUT, Configuration.SCREENLAYOUT_SIZE_XLARGE);
         res = config.getResources();
@@ -1153,6 +1197,42 @@ public class ConfigTest extends AndroidTestCase {
     }
 
     @MediumTest
+    public void testNormalLocales() {
+        Resources res;
+        TotalConfig config = makeClassicConfig();
+        // Hebrew
+        config.setProperty(Properties.LANGUAGE, "iw");
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple iw");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag iw"});
+
+        // Hebrew for Israel
+        config.setProperty(Properties.LANGUAGE, "iw");
+        config.setProperty(Properties.COUNTRY, "IL");
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple iw IL");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag iw IL"});
+
+        config = makeClassicConfig();
+        // Macedonian
+        config.setProperty(Properties.LANGUAGE, "mk");
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple mk");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag mk"});
+
+        // Macedonian for Macedonia
+        config.setProperty(Properties.LANGUAGE, "mk");
+        config.setProperty(Properties.COUNTRY, "MK");
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple mk MK");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[]{"bag mk MK"});
+    }
+
+    @MediumTest
     public void testExtendedLocales() {
         TotalConfig config = makeClassicConfig();
         // BCP 47 Locale kok
@@ -1225,9 +1305,9 @@ public class ConfigTest extends AndroidTestCase {
         config.setProperty(Properties.LANGUAGE, "fil");
         config.setProperty(Properties.COUNTRY, "US");
         Resources res = config.getResources();
-        checkValue(res, R.configVarying.simple, "simple tl");
+        checkValue(res, R.configVarying.simple, "simple fil");  // We have this resource in 'fil'
         checkValue(res, R.configVarying.bag,
-                R.styleable.TestConfig, new String[] { "bag tl" });
+                R.styleable.TestConfig, new String[] { "bag tl" });  // But this comes from 'tl'
 
         // Ensure that "fil-PH" is mapped to "tl-PH" correctly.
         config = makeClassicConfig();
@@ -1237,6 +1317,24 @@ public class ConfigTest extends AndroidTestCase {
         checkValue(res, R.configVarying.simple, "simple tl PH");
         checkValue(res, R.configVarying.bag,
                 R.styleable.TestConfig, new String[] { "bag tl PH" });
+
+        // Ensure that "fil-SA" works with no "tl" version.
+        config = makeClassicConfig();
+        config.setProperty(Properties.LANGUAGE, "fil");
+        config.setProperty(Properties.COUNTRY, "SA");
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple fil");  // This comes from 'fil'
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[] { "bag fil SA" });  // And this from 'fil-SA'
+
+        // Ensure that "tlh" is not mistakenly treated as a "tl" variant.
+        config = makeClassicConfig();
+        config.setProperty(Properties.LANGUAGE, "tlh");
+        config.setProperty(Properties.COUNTRY, "US");
+        res = config.getResources();
+        checkValue(res, R.configVarying.simple, "simple tlh");
+        checkValue(res, R.configVarying.bag,
+                R.styleable.TestConfig, new String[] { "bag tlh" });
 
         config = makeClassicConfig();
         config.setProperty(Properties.LANGUAGE, "tgl");
@@ -1276,8 +1374,9 @@ public class ConfigTest extends AndroidTestCase {
         }
 
         assertEquals(0, tlLocales.size());
-        assertEquals(2, filLocales.size());
+        assertEquals(3, filLocales.size());
         assertTrue(filLocales.contains("fil"));
         assertTrue(filLocales.contains("fil-PH"));
+        assertTrue(filLocales.contains("fil-SA"));
     }
 }

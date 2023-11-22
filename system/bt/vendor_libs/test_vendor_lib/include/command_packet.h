@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "base/macros.h"
-#include "vendor_libs/test_vendor_lib/include/packet.h"
+#include "packet.h"
 
 namespace test_vendor_lib {
 
@@ -42,8 +42,14 @@ namespace test_vendor_lib {
 // in size.
 class CommandPacket : public Packet {
  public:
-  CommandPacket();
+  explicit CommandPacket(std::vector<uint8_t> header);
+  explicit CommandPacket(uint16_t opcode);
+  CommandPacket(std::vector<uint8_t> header, std::vector<uint8_t> payload);
 
+  CommandPacket(const CommandPacket&) = default;
+  CommandPacket& operator=(const CommandPacket&) = default;
+  CommandPacket(CommandPacket&&) = default;
+  CommandPacket& operator=(CommandPacket&&) = default;
   virtual ~CommandPacket() override = default;
 
   // Returns the command opcode as defined in stack/include/hcidefs.h.
@@ -68,13 +74,8 @@ class CommandPacket : public Packet {
   // within an opcode group field. The upper 6 bits will be zero filled.
   uint16_t GetOCF() const;
 
-  // Size in octets of a command packet header, which consists of a 2 octet
-  // opcode and a 1 octet payload size.
-  static const size_t kCommandHeaderSize = 3;
-
- private:
-  // Disallow any copies of the singleton to be made.
-  DISALLOW_COPY_AND_ASSIGN(CommandPacket);
+  // Size of a command packet header, which consists of a 2 octet opcode
+  static const size_t kCommandHeaderSize = 2;
 };
 
 }  // namespace test_vendor_lib

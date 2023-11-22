@@ -108,7 +108,7 @@ public class SpecialCharSequenceMgr {
             || handleRegulatoryInfoDisplay(context, dialString)
             || handlePinEntry(context, dialString, pukInputActivity)
             || handleAdnEntry(context, dialString)
-            || handleSecretCode(context, dialString)) {
+            || handleSecretCode(dialString)) {
             return true;
         }
 
@@ -143,24 +143,21 @@ public class SpecialCharSequenceMgr {
     }
 
     /**
-     * Handles secret codes to launch arbitrary activities in the form of *#*#<code>#*#*.
-     * If a secret code is encountered an Intent is started with the android_secret_code://<code>
-     * URI.
+     * Handles secret codes to launch arbitrary receivers in the form of *#*#<code>#*#*.
+     * If a secret code is encountered, an broadcast intent is sent with the
+     * android_secret_code://<code> URI.
      *
-     * @param context the context to use
      * @param input the text to check for a secret code in
-     * @return true if a secret code was encountered
+     * @return true if a secret code was encountered and intent is sent out
      */
-    static private boolean handleSecretCode(Context context, String input) {
+    static private boolean handleSecretCode(String input) {
         // Secret codes are in the form *#*#<code>#*#*
         int len = input.length();
         if (len > 8 && input.startsWith("*#*#") && input.endsWith("#*#*")) {
-            Intent intent = new Intent(TelephonyIntents.SECRET_CODE_ACTION,
-                    Uri.parse("android_secret_code://" + input.substring(4, len - 4)));
-            context.sendBroadcast(intent);
+            final Phone phone = PhoneGlobals.getPhone();
+            phone.sendDialerSpecialCode(input.substring(4, len - 4));
             return true;
         }
-
         return false;
     }
 

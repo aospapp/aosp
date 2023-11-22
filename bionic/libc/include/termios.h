@@ -35,24 +35,25 @@
 
 __BEGIN_DECLS
 
-#if __ANDROID_API__ >= 21
-speed_t cfgetispeed(const struct termios*);
-speed_t cfgetospeed(const struct termios*);
-void cfmakeraw(struct termios*);
-int cfsetispeed(struct termios*, speed_t);
-int cfsetospeed(struct termios*, speed_t);
-int cfsetspeed(struct termios*, speed_t);
-int tcdrain(int);
-int tcflow(int, int);
-int tcflush(int, int);
-int tcgetattr(int, struct termios*);
-pid_t tcgetsid(int);
-int tcsendbreak(int, int);
-int tcsetattr(int, int, const struct termios*);
-#else
-#include <android/legacy_termios_inlines.h>
+#if __ANDROID_API__ >= __ANDROID_API_L__
+// Implemented as static inlines before 21.
+speed_t cfgetispeed(const struct termios*) __INTRODUCED_IN(21);
+speed_t cfgetospeed(const struct termios*) __INTRODUCED_IN(21);
+void cfmakeraw(struct termios*) __INTRODUCED_IN(21);
+int cfsetspeed(struct termios*, speed_t) __INTRODUCED_IN(21);
+int cfsetispeed(struct termios*, speed_t) __INTRODUCED_IN(21);
+int cfsetospeed(struct termios*, speed_t) __INTRODUCED_IN(21);
+int tcdrain(int) __INTRODUCED_IN(21);
+int tcflow(int, int) __INTRODUCED_IN(21);
+int tcflush(int, int) __INTRODUCED_IN(21);
+int tcgetattr(int, struct termios*) __INTRODUCED_IN(21);
+pid_t tcgetsid(int) __INTRODUCED_IN(21);
+int tcsendbreak(int, int) __INTRODUCED_IN(21);
+int tcsetattr(int, int, const struct termios*) __INTRODUCED_IN(21);
 #endif
 
 __END_DECLS
+
+#include <android/legacy_termios_inlines.h>
 
 #endif /* _TERMIOS_H_ */

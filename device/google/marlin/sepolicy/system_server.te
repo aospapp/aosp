@@ -1,44 +1,41 @@
 # in addition to ioctl commands granted to domain allow system_server to use:
 allowxperm system_server self:udp_socket ioctl priv_sock_ioctls;
-allowxperm system_server self:socket ioctl msm_sock_ipc_ioctls;
 
-# Grant access to Qualcomm MSM Interface (QMI) radio sockets
-qmux_socket(system_server)
+# At a minimum, used for GPS (b/32290392)
+allow system_server self:socket ioctl; # create already in core policy
+allowxperm system_server self:socket ioctl msm_sock_ipc_ioctls;
 
 # /dev/uhid
 allow system_server uhid_device:chr_file rw_file_perms;
 
-# talk to perfd
-allow system_server perfd_data_file:dir search;
-allow system_server perfd_data_file:sock_file write;
-allow system_server perfd:unix_stream_socket connectto;
-
-allow system_server location:unix_stream_socket connectto;
-allow system_server location_data_file:sock_file write;
-
+# TODO(b/36613917): Remove this once system_server no longer communicates with netmgrd over sockets.
+typeattribute netmgrd socket_between_core_and_vendor_violators;
 allow system_server netmgrd_socket:dir search;
 unix_socket_connect(system_server, netmgrd, netmgrd)
 
-# talk to peripheral manager
-allow system_server per_mgr_service:service_manager find;
-binder_call(system_server, per_mgr)
+binder_call(system_server, hal_camera_default)
+binder_call(system_server, location)
 
 # files in /sys
 r_dir_file(system_server, sysfs_type)
 
-# write to files owned by location daemon
-allow system_server location_data_file:dir create_dir_perms;
-allow system_server location_data_file:{ file fifo_file } create_file_perms;
-
-# read sensor calibration data
-allow system_server persist_file:dir search;
-allow system_server persist_file:file r_file_perms;
-set_prop(system_server, sensors_prop)
-
 # interact with thermal_config
-allow system_server thermal-engine:unix_stream_socket connectto;
-allow system_server thermal_socket:sock_file write;
+set_prop(system_server, thermal_prop)
+
+# rpm
+r_dir_file(system_server, debugfs_rpm)
+
+# /vendor/usr/keylayout
+r_dir_file(system_server, idc_file)
+# /vendor/usr/idc
+r_dir_file(system_server, keylayout_file)
+
+# kgsl
+allow system_server debugfs_kgsl:file { open read getattr };
 
 userdebug_or_eng(`
   allow system_server diag_device:chr_file rw_file_perms;
 ')
+
+# allow system server to set sched fifo for sensor hal main thread to achieve right performance
+allow system_server hal_sensors_default:process setsched;

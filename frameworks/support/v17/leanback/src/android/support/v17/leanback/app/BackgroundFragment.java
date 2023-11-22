@@ -13,14 +13,17 @@
  */
 package android.support.v17.leanback.app;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Fragment;
+import android.support.annotation.RestrictTo;
 
 /**
  * Fragment used by the background manager.
  * @hide
  */
-public final class BackgroundFragment extends Fragment implements
-        BackgroundManager.FragmentStateQueriable {
+@RestrictTo(LIBRARY_GROUP)
+public final class BackgroundFragment extends Fragment {
     private BackgroundManager mBackgroundManager;
 
     void setBackgroundManager(BackgroundManager backgroundManager) {
@@ -51,6 +54,14 @@ public final class BackgroundFragment extends Fragment implements
         if (mBackgroundManager != null) {
             mBackgroundManager.onResume();
         }
+    }
+
+    @Override
+    public void onStop() {
+        if (mBackgroundManager != null) {
+            mBackgroundManager.onStop();
+        }
+        super.onStop();
     }
 
     @Override

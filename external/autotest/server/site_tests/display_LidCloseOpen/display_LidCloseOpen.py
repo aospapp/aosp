@@ -28,6 +28,8 @@ class display_LidCloseOpen(test.test):
     WAIT_TIME_LID_TRANSITION = 5
     # Time to allow display port plug transition to take effect
     WAIT_TIME_PLUG_TRANSITION = 5
+    # Some boards do not play well with servo - crosbug.com/p/27591
+    INCOMPATIBLE_SERVO_BOARDS = ['daisy', 'falco']
 
 
     def close_lid(self):
@@ -101,6 +103,13 @@ class display_LidCloseOpen(test.test):
         # Check for chromebook type devices
         if not host.get_board_type() == 'CHROMEBOOK':
             raise error.TestNAError('DUT is not Chromebook. Test Skipped')
+
+        # Check for incompatible with servo chromebooks
+        board_name = host.get_board().split(':')[1]
+        if board_name in self.INCOMPATIBLE_SERVO_BOARDS:
+            raise error.TestNAError(
+                    'DUT is incompatible with servo. Skipping test.')
+
         self.host = host
         self.test_mirrored = test_mirrored
         self.errors = list()
@@ -113,7 +122,7 @@ class display_LidCloseOpen(test.test):
         display_facade = factory.create_display_facade()
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
         for chameleon_port in finder.iterate_all_ports():

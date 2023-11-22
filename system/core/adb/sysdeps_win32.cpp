@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -110,62 +111,6 @@ void handle_deleter::operator()(HANDLE h) {
 /**************************************************************************/
 /**************************************************************************/
 /*****                                                                *****/
-/*****      replaces libs/cutils/load_file.c                          *****/
-/*****                                                                *****/
-/**************************************************************************/
-/**************************************************************************/
-
-void *load_file(const char *fn, unsigned *_sz)
-{
-    HANDLE    file;
-    char     *data;
-    DWORD     file_size;
-
-    std::wstring fn_wide;
-    if (!android::base::UTF8ToWide(fn, &fn_wide))
-        return NULL;
-
-    file = CreateFileW( fn_wide.c_str(),
-                        GENERIC_READ,
-                        FILE_SHARE_READ,
-                        NULL,
-                        OPEN_EXISTING,
-                        0,
-                        NULL );
-
-    if (file == INVALID_HANDLE_VALUE)
-        return NULL;
-
-    file_size = GetFileSize( file, NULL );
-    data      = NULL;
-
-    if (file_size > 0) {
-        data = (char*) malloc( file_size + 1 );
-        if (data == NULL) {
-            D("load_file: could not allocate %ld bytes", file_size );
-            file_size = 0;
-        } else {
-            DWORD  out_bytes;
-
-            if ( !ReadFile( file, data, file_size, &out_bytes, NULL ) ||
-                 out_bytes != file_size )
-            {
-                D("load_file: could not read %ld bytes from '%s'", file_size, fn);
-                free(data);
-                data      = NULL;
-                file_size = 0;
-            }
-        }
-    }
-    CloseHandle( file );
-
-    *_sz = (unsigned) file_size;
-    return  data;
-}
-
-/**************************************************************************/
-/**************************************************************************/
-/*****                                                                *****/
 /*****    common file descriptor handling                             *****/
 /*****                                                                *****/
 /**************************************************************************/
@@ -181,10 +126,7 @@ typedef struct FHRec_
         SOCKET      socket;
     } u;
 
-    int       mask;
-
     char  name[32];
-
 } FHRec;
 
 #define  fh_handle  u.handle
@@ -193,7 +135,7 @@ typedef struct FHRec_
 #define  WIN32_FH_BASE    2048
 #define  WIN32_MAX_FHS    2048
 
-static adb_mutex_t   _win32_lock;
+static  std::mutex&  _win32_lock = *new std::mutex();
 static  FHRec        _win32_fhs[ WIN32_MAX_FHS ];
 static  int          _win32_fh_next;  // where to start search for free FHRec
 
@@ -238,27 +180,24 @@ _fh_alloc( FHClass  clazz )
 {
     FH   f = NULL;
 
-    adb_mutex_lock( &_win32_lock );
+    std::lock_guard<std::mutex> lock(_win32_lock);
 
     for (int i = _win32_fh_next; i < WIN32_MAX_FHS; ++i) {
         if (_win32_fhs[i].clazz == NULL) {
             f = &_win32_fhs[i];
             _win32_fh_next = i + 1;
-            goto Exit;
+            f->clazz = clazz;
+            f->used = 1;
+            f->eof = 0;
+            f->name[0] = '\0';
+            clazz->_fh_init(f);
+            return f;
         }
     }
-    D( "_fh_alloc: no more free file descriptors" );
-    errno = EMFILE;   // Too many open files
-Exit:
-    if (f) {
-        f->clazz   = clazz;
-        f->used    = 1;
-        f->eof     = 0;
-        f->name[0] = '\0';
-        clazz->_fh_init(f);
-    }
-    adb_mutex_unlock( &_win32_lock );
-    return f;
+
+    D("_fh_alloc: no more free file descriptors");
+    errno = EMFILE;  // Too many open files
+    return nullptr;
 }
 
 
@@ -267,7 +206,7 @@ _fh_close( FH   f )
 {
     // Use lock so that closing only happens once and so that _fh_alloc can't
     // allocate a FH that we're in the middle of closing.
-    adb_mutex_lock(&_win32_lock);
+    std::lock_guard<std::mutex> lock(_win32_lock);
 
     int offset = f - _win32_fhs;
     if (_win32_fh_next > offset) {
@@ -281,7 +220,6 @@ _fh_close( FH   f )
         f->used    = 0;
         f->clazz   = NULL;
     }
-    adb_mutex_unlock(&_win32_lock);
     return 0;
 }
 
@@ -536,81 +474,6 @@ int  adb_close(int  fd)
     return 0;
 }
 
-// Overrides strerror() to handle error codes not supported by the Windows C
-// Runtime (MSVCRT.DLL).
-char* adb_strerror(int err) {
-    // sysdeps.h defines strerror to adb_strerror, but in this function, we
-    // want to call the real C Runtime strerror().
-#pragma push_macro("strerror")
-#undef strerror
-    const int saved_err = errno;      // Save because we overwrite it later.
-
-    // Lookup the string for an unknown error.
-    char* errmsg = strerror(-1);
-    const std::string unknown_error = (errmsg == nullptr) ? "" : errmsg;
-
-    // Lookup the string for this error to see if the C Runtime has it.
-    errmsg = strerror(err);
-    if (errmsg != nullptr && unknown_error != errmsg) {
-        // The CRT returned an error message and it is different than the error
-        // message for an unknown error, so it is probably valid, so use it.
-    } else {
-        // Check if we have a string for this error code.
-        const char* custom_msg = nullptr;
-        switch (err) {
-#pragma push_macro("ERR")
-#undef ERR
-#define ERR(errnum, desc) case errnum: custom_msg = desc; break
-            // These error strings are from AOSP bionic/libc/include/sys/_errdefs.h.
-            // Note that these cannot be longer than 94 characters because we
-            // pass this to _strerror() which has that requirement.
-            ERR(ECONNRESET,    "Connection reset by peer");
-            ERR(EHOSTUNREACH,  "No route to host");
-            ERR(ENETDOWN,      "Network is down");
-            ERR(ENETRESET,     "Network dropped connection because of reset");
-            ERR(ENOBUFS,       "No buffer space available");
-            ERR(ENOPROTOOPT,   "Protocol not available");
-            ERR(ENOTCONN,      "Transport endpoint is not connected");
-            ERR(ENOTSOCK,      "Socket operation on non-socket");
-            ERR(EOPNOTSUPP,    "Operation not supported on transport endpoint");
-#pragma pop_macro("ERR")
-        }
-
-        if (custom_msg != nullptr) {
-            // Use _strerror() to write our string into the writable per-thread
-            // buffer used by strerror()/_strerror(). _strerror() appends the
-            // msg for the current value of errno, so set errno to a consistent
-            // value for every call so that our code-path is always the same.
-            errno = 0;
-            errmsg = _strerror(custom_msg);
-            const size_t custom_msg_len = strlen(custom_msg);
-            // Just in case _strerror() returned a read-only string, check if
-            // the returned string starts with our custom message because that
-            // implies that the string is not read-only.
-            if ((errmsg != nullptr) &&
-                !strncmp(custom_msg, errmsg, custom_msg_len)) {
-                // _strerror() puts other text after our custom message, so
-                // remove that by terminating after our message.
-                errmsg[custom_msg_len] = '\0';
-            } else {
-                // For some reason nullptr was returned or a pointer to a
-                // read-only string was returned, so fallback to whatever
-                // strerror() can muster (probably "Unknown error" or some
-                // generic CRT error string).
-                errmsg = strerror(err);
-            }
-        } else {
-            // We don't have a custom message, so use whatever strerror(err)
-            // returned earlier.
-        }
-    }
-
-    errno = saved_err;  // restore
-
-    return errmsg;
-#pragma pop_macro("strerror")
-}
-
 /**************************************************************************/
 /**************************************************************************/
 /*****                                                                *****/
@@ -624,7 +487,7 @@ char* adb_strerror(int err) {
 static void _socket_set_errno( const DWORD err ) {
     // Because the Windows C Runtime (MSVCRT.DLL) strerror() does not support a
     // lot of POSIX and socket error codes, some of the resulting error codes
-    // are mapped to strings by adb_strerror() above.
+    // are mapped to strings by adb_strerror().
     switch ( err ) {
     case 0:              errno = 0; break;
     // Don't map WSAEINTR since that is only for Winsock 1.1 which we don't use.
@@ -711,7 +574,6 @@ extern int adb_poll(adb_pollfd* fds, size_t nfds, int timeout) {
 
 static void _fh_socket_init(FH f) {
     f->fh_socket = INVALID_SOCKET;
-    f->mask      = 0;
 }
 
 static int _fh_socket_close( FH  f ) {
@@ -732,7 +594,6 @@ static int _fh_socket_close( FH  f ) {
         }
         f->fh_socket = INVALID_SOCKET;
     }
-    f->mask = 0;
     return 0;
 }
 
@@ -1008,7 +869,7 @@ int network_connect(const std::string& host, int port, int type, int timeout, st
         _socket_set_errno(err);
         return -1;
     }
-    std::unique_ptr<struct addrinfo, decltype(freeaddrinfo)*> addrinfo(addrinfo_ptr, freeaddrinfo);
+    std::unique_ptr<struct addrinfo, decltype(&freeaddrinfo)> addrinfo(addrinfo_ptr, freeaddrinfo);
     addrinfo_ptr = nullptr;
 
     // TODO: Try all the addresses if there's more than one? This just uses
@@ -1045,6 +906,12 @@ int network_connect(const std::string& host, int port, int type, int timeout, st
       fd);
     f.release();
     return fd;
+}
+
+int  adb_register_socket(SOCKET s) {
+    FH f = _fh_alloc( &_fh_socket_class );
+    f->fh_socket = s;
+    return _fh_to_int(f);
 }
 
 #undef accept
@@ -1117,7 +984,7 @@ int adb_getsockname(int fd, struct sockaddr* sockaddr, socklen_t* optlen) {
         return -1;
     }
 
-    int result = getsockname(fh->fh_socket, sockaddr, optlen);
+    int result = (getsockname)(fh->fh_socket, sockaddr, optlen);
     if (result == SOCKET_ERROR) {
         const DWORD err = WSAGetLastError();
         D("adb_getsockname: setsockopt on fd %d failed: %s\n", fd,
@@ -1126,6 +993,24 @@ int adb_getsockname(int fd, struct sockaddr* sockaddr, socklen_t* optlen) {
         result = -1;
     }
     return result;
+}
+
+int adb_socket_get_local_port(int fd) {
+    sockaddr_storage addr_storage;
+    socklen_t addr_len = sizeof(addr_storage);
+
+    if (adb_getsockname(fd, reinterpret_cast<sockaddr*>(&addr_storage), &addr_len) < 0) {
+        D("adb_socket_get_local_port: adb_getsockname failed: %s", strerror(errno));
+        return -1;
+    }
+
+    if (!(addr_storage.ss_family == AF_INET || addr_storage.ss_family == AF_INET6)) {
+        D("adb_socket_get_local_port: unknown address family received: %d", addr_storage.ss_family);
+        errno = ECONNABORTED;
+        return -1;
+    }
+
+    return ntohs(reinterpret_cast<sockaddr_in*>(&addr_storage)->sin_port);
 }
 
 int  adb_shutdown(int  fd)
@@ -1154,10 +1039,13 @@ int adb_socketpair(int sv[2]) {
     int server = -1;
     int client = -1;
     int accepted = -1;
-    sockaddr_storage addr_storage;
-    socklen_t addr_len = sizeof(addr_storage);
-    sockaddr_in* addr = nullptr;
+    int local_port = -1;
     std::string error;
+
+    struct sockaddr_storage peer_addr = {};
+    struct sockaddr_storage client_addr = {};
+    socklen_t peer_socklen = sizeof(peer_addr);
+    socklen_t client_socklen = sizeof(client_addr);
 
     server = network_loopback_server(0, SOCK_STREAM, &error);
     if (server < 0) {
@@ -1165,31 +1053,45 @@ int adb_socketpair(int sv[2]) {
         goto fail;
     }
 
-    if (adb_getsockname(server, reinterpret_cast<sockaddr*>(&addr_storage), &addr_len) < 0) {
-        D("adb_socketpair: adb_getsockname failed: %s", strerror(errno));
+    local_port = adb_socket_get_local_port(server);
+    if (local_port < 0) {
+        D("adb_socketpair: failed to get server port number: %s", error.c_str());
         goto fail;
     }
+    D("adb_socketpair: bound on port %d", local_port);
 
-    if (addr_storage.ss_family != AF_INET) {
-        D("adb_socketpair: unknown address family received: %d", addr_storage.ss_family);
-        errno = ECONNABORTED;
-        goto fail;
-    }
-
-    addr = reinterpret_cast<sockaddr_in*>(&addr_storage);
-    D("adb_socketpair: bound on port %d", ntohs(addr->sin_port));
-    client = network_loopback_client(ntohs(addr->sin_port), SOCK_STREAM, &error);
+    client = network_loopback_client(local_port, SOCK_STREAM, &error);
     if (client < 0) {
         D("adb_socketpair: failed to connect client: %s", error.c_str());
         goto fail;
     }
 
-    accepted = adb_socket_accept(server, nullptr, nullptr);
+    // Make sure that the peer that connected to us and the client are the same.
+    accepted = adb_socket_accept(server, reinterpret_cast<sockaddr*>(&peer_addr), &peer_socklen);
     if (accepted < 0) {
         D("adb_socketpair: failed to accept: %s", strerror(errno));
         goto fail;
     }
+
+    if (adb_getsockname(client, reinterpret_cast<sockaddr*>(&client_addr), &client_socklen) != 0) {
+        D("adb_socketpair: failed to getpeername: %s", strerror(errno));
+        goto fail;
+    }
+
+    if (peer_socklen != client_socklen) {
+        D("adb_socketpair: client and peer sockaddrs have different lengths");
+        errno = EIO;
+        goto fail;
+    }
+
+    if (memcmp(&peer_addr, &client_addr, peer_socklen) != 0) {
+        D("adb_socketpair: client and peer sockaddrs don't match");
+        errno = EIO;
+        goto fail;
+    }
+
     adb_close(server);
+
     sv[0] = client;
     sv[1] = accepted;
     return 0;
@@ -1212,18 +1114,22 @@ bool set_file_block_mode(int fd, bool block) {
 
     if (!fh || !fh->used) {
         errno = EBADF;
+        D("Setting nonblocking on bad file descriptor %d", fd);
         return false;
     }
 
     if (fh->clazz == &_fh_socket_class) {
         u_long x = !block;
         if (ioctlsocket(fh->u.socket, FIONBIO, &x) != 0) {
-            _socket_set_errno(WSAGetLastError());
+            int error = WSAGetLastError();
+            _socket_set_errno(error);
+            D("Setting %d nonblocking failed (%d)", fd, error);
             return false;
         }
         return true;
     } else {
         errno = ENOTSOCK;
+        D("Setting nonblocking on non-socket %d", fd);
         return false;
     }
 }
@@ -1253,17 +1159,6 @@ bool set_tcp_keepalive(int fd, int interval_sec) {
     }
 
     return true;
-}
-
-static adb_mutex_t g_console_output_buffer_lock;
-
-void
-adb_sysdeps_init( void )
-{
-#define  ADB_MUTEX(x)  InitializeCriticalSection( & x );
-#include "mutex_list.h"
-    InitializeCriticalSection( &_win32_lock );
-    InitializeCriticalSection( &g_console_output_buffer_lock );
 }
 
 /**************************************************************************/
@@ -2458,12 +2353,13 @@ size_t ParseCompleteUTF8(const char* const first, const char* const last,
 // Bytes that have not yet been output to the console because they are incomplete UTF-8 sequences.
 // Note that we use only one buffer even though stderr and stdout are logically separate streams.
 // This matches the behavior of Linux.
-// Protected by g_console_output_buffer_lock.
-static auto& g_console_output_buffer = *new std::vector<char>();
 
 // Internal helper function to write UTF-8 bytes to a console. Returns -1 on error.
 static int _console_write_utf8(const char* const buf, const size_t buf_size, FILE* stream,
                                HANDLE console) {
+    static std::mutex& console_output_buffer_lock = *new std::mutex();
+    static auto& console_output_buffer = *new std::vector<char>();
+
     const int saved_errno = errno;
     std::vector<char> combined_buffer;
 
@@ -2471,24 +2367,25 @@ static int _console_write_utf8(const char* const buf, const size_t buf_size, FIL
     const char* utf8;
     size_t utf8_size;
 
-    adb_mutex_lock(&g_console_output_buffer_lock);
-    if (g_console_output_buffer.empty()) {
-        // If g_console_output_buffer doesn't have a buffered up incomplete UTF-8 sequence (the
-        // common case with plain ASCII), parse buf directly.
-        utf8 = buf;
-        utf8_size = internal::ParseCompleteUTF8(buf, buf + buf_size, &g_console_output_buffer);
-    } else {
-        // If g_console_output_buffer has a buffered up incomplete UTF-8 sequence, move it to
-        // combined_buffer (and effectively clear g_console_output_buffer) and append buf to
-        // combined_buffer, then parse it all together.
-        combined_buffer.swap(g_console_output_buffer);
-        combined_buffer.insert(combined_buffer.end(), buf, buf + buf_size);
+    {
+        std::lock_guard<std::mutex> lock(console_output_buffer_lock);
+        if (console_output_buffer.empty()) {
+            // If console_output_buffer doesn't have a buffered up incomplete UTF-8 sequence (the
+            // common case with plain ASCII), parse buf directly.
+            utf8 = buf;
+            utf8_size = internal::ParseCompleteUTF8(buf, buf + buf_size, &console_output_buffer);
+        } else {
+            // If console_output_buffer has a buffered up incomplete UTF-8 sequence, move it to
+            // combined_buffer (and effectively clear console_output_buffer) and append buf to
+            // combined_buffer, then parse it all together.
+            combined_buffer.swap(console_output_buffer);
+            combined_buffer.insert(combined_buffer.end(), buf, buf + buf_size);
 
-        utf8 = combined_buffer.data();
-        utf8_size = internal::ParseCompleteUTF8(utf8, utf8 + combined_buffer.size(),
-                                                &g_console_output_buffer);
+            utf8 = combined_buffer.data();
+            utf8_size = internal::ParseCompleteUTF8(utf8, utf8 + combined_buffer.size(),
+                                                    &console_output_buffer);
+        }
     }
-    adb_mutex_unlock(&g_console_output_buffer_lock);
 
     std::wstring utf16;
 

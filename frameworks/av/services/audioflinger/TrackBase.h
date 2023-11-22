@@ -62,10 +62,11 @@ public:
                                 size_t frameCount,
                                 void *buffer,
                                 audio_session_t sessionId,
-                                int uid,
+                                uid_t uid,
                                 bool isOut,
                                 alloc_type alloc = ALLOC_CBLK,
-                                track_type type = TYPE_DEFAULT);
+                                track_type type = TYPE_DEFAULT,
+                                audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE);
     virtual             ~TrackBase();
     virtual status_t    initCheck() const;
 
@@ -75,7 +76,8 @@ public:
             sp<IMemory> getCblk() const { return mCblkMemory; }
             audio_track_cblk_t* cblk() const { return mCblk; }
             audio_session_t sessionId() const { return mSessionId; }
-            int         uid() const { return mUid; }
+            uid_t       uid() const { return mUid; }
+            audio_port_handle_t portId() const { return mPortId; }
     virtual status_t    setSyncEvent(const sp<SyncEvent>& event);
 
             sp<IMemory> getBuffers() const { return mBufferMemory; }
@@ -84,6 +86,10 @@ public:
             bool        isOutputTrack() const { return (mType == TYPE_OUTPUT); }
             bool        isPatchTrack() const { return (mType == TYPE_PATCH); }
             bool        isExternalTrack() const { return !isOutputTrack() && !isPatchTrack(); }
+
+    virtual void        invalidate() { mIsInvalid = true; }
+            bool        isInvalid() const { return mIsInvalid; }
+
 
 protected:
                         TrackBase(const TrackBase&);
@@ -153,16 +159,18 @@ protected:
                                     // openRecord(), and then adjusted as needed
 
     const audio_session_t mSessionId;
-    int                 mUid;
+    uid_t               mUid;
     Vector < sp<SyncEvent> >mSyncEvents;
     const bool          mIsOut;
-    ServerProxy*        mServerProxy;
+    sp<ServerProxy>     mServerProxy;
     const int           mId;
     sp<NBAIO_Sink>      mTeeSink;
     sp<NBAIO_Source>    mTeeSource;
     bool                mTerminated;
     track_type          mType;      // must be one of TYPE_DEFAULT, TYPE_OUTPUT, TYPE_PATCH ...
     audio_io_handle_t   mThreadIoHandle; // I/O handle of the thread the track is attached to
+    audio_port_handle_t mPortId; // unique ID for this track used by audio policy
+    bool                mIsInvalid; // non-resettable latch, set by invalidate()
 };
 
 // PatchProxyBufferProvider interface is implemented by PatchTrack and PatchRecord.

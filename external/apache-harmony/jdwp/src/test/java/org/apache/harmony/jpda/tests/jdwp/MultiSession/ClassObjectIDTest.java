@@ -27,7 +27,6 @@ package org.apache.harmony.jpda.tests.jdwp.MultiSession;
 
 import org.apache.harmony.jpda.tests.framework.TestOptions;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -40,6 +39,7 @@ public class ClassObjectIDTest extends JDWPSyncTestCase {
 
     //private String METHOD_NAME = "printWord";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.MultiSession.MultiSessionDebuggee";
     }
@@ -89,6 +89,7 @@ public class ClassObjectIDTest extends JDWPSyncTestCase {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 
+    @Override
     protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {

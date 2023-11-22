@@ -16,7 +16,10 @@
 
 package android.graphics.drawable.shapes.cts;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -27,20 +30,27 @@ import android.graphics.Paint.Style;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.shapes.RectShape;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class RectShapeTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RectShapeTest {
     private static final int TEST_WIDTH  = 100;
     private static final int TEST_HEIGHT = 200;
 
     private static final int TEST_COLOR_1 = 0xFF00FF00;
     private static final int TEST_COLOR_2 = 0xFFFF0000;
 
+    @Test
     public void testConstructor() {
         new RectShape();
     }
 
-    private void assertDrawSuccessfully(Bitmap bitmap, int width, int height, int color) {
+    private void verifyDrawSuccessfully(Bitmap bitmap, int width, int height, int color) {
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
                 assertEquals(color, bitmap.getPixel(i, j));
@@ -48,7 +58,7 @@ public class RectShapeTest extends TestCase {
         }
     }
 
-    @SmallTest
+    @Test
     public void testDraw() {
         RectShape rectShape = new RectShape();
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Config.ARGB_8888);
@@ -59,45 +69,45 @@ public class RectShapeTest extends TestCase {
         rectShape.resize(TEST_WIDTH, TEST_HEIGHT);
 
         rectShape.draw(canvas, paint);
-        assertDrawSuccessfully(bitmap, TEST_WIDTH, TEST_HEIGHT, TEST_COLOR_1);
+        verifyDrawSuccessfully(bitmap, TEST_WIDTH, TEST_HEIGHT, TEST_COLOR_1);
 
         paint.setColor(TEST_COLOR_2);
         rectShape.draw(canvas, paint);
-        assertDrawSuccessfully(bitmap, TEST_WIDTH, TEST_HEIGHT, TEST_COLOR_2);
+        verifyDrawSuccessfully(bitmap, TEST_WIDTH, TEST_HEIGHT, TEST_COLOR_2);
     }
 
-    @SmallTest
+    @Test
     public void testClone() throws CloneNotSupportedException {
         RectShape rectShape = new RectShape();
         rectShape.resize(100f, 200f);
         RectShape clonedShape = rectShape.clone();
-        assertEquals(100f, rectShape.getWidth());
-        assertEquals(200f, rectShape.getHeight());
+        assertEquals(100f, rectShape.getWidth(), 0.0f);
+        assertEquals(200f, rectShape.getHeight(), 0.0f);
 
         assertNotSame(rectShape, clonedShape);
-        assertEquals(rectShape.getWidth(), clonedShape.getWidth());
-        assertEquals(rectShape.getHeight(), clonedShape.getHeight());
+        assertEquals(rectShape.getWidth(), clonedShape.getWidth(), 0.0f);
+        assertEquals(rectShape.getHeight(), clonedShape.getHeight(), 0.0f);
     }
 
-    @SmallTest
+    @Test
     public void testRect() {
         MyRectShape mockRectShape = new MyRectShape();
         RectShape rectShape = mockRectShape;
         RectF rect = mockRectShape.myRect();
-        assertEquals(0.0f, rect.left);
-        assertEquals(0.0f, rect.top);
-        assertEquals(0.0f, rect.right);
-        assertEquals(0.0f, rect.bottom);
+        assertEquals(0.0f, rect.left, 0.0f);
+        assertEquals(0.0f, rect.top, 0.0f);
+        assertEquals(0.0f, rect.right, 0.0f);
+        assertEquals(0.0f, rect.bottom, 0.0f);
 
         rectShape.resize(TEST_WIDTH, TEST_HEIGHT);
         rect = mockRectShape.myRect();
-        assertEquals(0.0f, rect.left);
-        assertEquals(0.0f, rect.top);
-        assertEquals((float) TEST_WIDTH, rect.right);
-        assertEquals((float) TEST_HEIGHT, rect.bottom);
+        assertEquals(0.0f, rect.left, 0.0f);
+        assertEquals(0.0f, rect.top, 0.0f);
+        assertEquals((float) TEST_WIDTH, rect.right, 0.0f);
+        assertEquals((float) TEST_HEIGHT, rect.bottom, 0.0f);
     }
 
-    @SmallTest
+    @Test
     public void testGetOutline() {
         Outline outline = new Outline();
         Rect rect = new Rect();
@@ -113,7 +123,7 @@ public class RectShapeTest extends TestCase {
         shape.resize(100, 100);
         shape.getOutline(outline);
         assertFalse(outline.isEmpty());
-        assertEquals(0.0f, outline.getRadius());
+        assertEquals(0.0f, outline.getRadius(), 0.0f);
         assertTrue(outline.getRect(rect));
         assertEquals(0, rect.left);
         assertEquals(0, rect.top);

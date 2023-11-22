@@ -19,7 +19,6 @@ package com.android.compatibility.common.util;
 import org.xmlpull.v1.XmlSerializer;
 
 import java.io.IOException;
-import java.util.List;
 
 //TODO(stuartscott): Delete file for v2, ReportLog can serialize itself.
 /**

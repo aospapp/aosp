@@ -41,17 +41,18 @@ import android.telecom.CallAudioState;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.DisconnectCause;
+import android.telecom.Log;
 import android.telecom.ParcelableCall;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.support.test.filters.FlakyTest;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import com.android.internal.telecom.IInCallAdapter;
 import com.android.internal.telephony.CallerInfo;
-import com.android.server.telecom.Log;
 
 import com.google.common.base.Predicate;
 
@@ -122,7 +123,7 @@ public class BasicCallTests extends TelecomSystemTest {
         telecomManager.acceptRingingCall();
 
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answer(ids.mConnectionId);
+                .answer(eq(ids.mConnectionId), any());
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
 
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
@@ -150,7 +151,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // Answer video API should be called
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_BIDIRECTIONAL));
+                .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_BIDIRECTIONAL), any());
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
 
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
@@ -177,7 +178,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // The generic answer method on the ConnectionService is used to answer audio-only calls.
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answer(eq(ids.mConnectionId));
+                .answer(eq(ids.mConnectionId), any());
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
 
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
@@ -205,7 +206,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // Answer video API should be called
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_BIDIRECTIONAL));
+                .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_BIDIRECTIONAL), any());
         mConnectionServiceFixtureA.sendSetActive(ids.mConnectionId);
         mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
     }
@@ -235,6 +236,38 @@ public class BasicCallTests extends TelecomSystemTest {
                 mInCallServiceFixtureX.getCall(ids.mCallId).getState());
         assertEquals(Call.STATE_DISCONNECTED,
                 mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+    }
+
+    @LargeTest
+    public void testIncomingEmergencyCallback() throws Exception {
+        // Make an outgoing emergency call
+        String phoneNumber = "650-555-1212";
+        IdPair ids = startAndMakeDialingEmergencyCall(phoneNumber,
+                mPhoneAccountE0.getAccountHandle(), mConnectionServiceFixtureA);
+        mInCallServiceFixtureX.mInCallAdapter.disconnectCall(ids.mCallId);
+        mConnectionServiceFixtureA.sendSetDisconnected(ids.mConnectionId, DisconnectCause.LOCAL);
+
+        // Incoming call should be marked as a potential emergency callback
+        Bundle extras = new Bundle();
+        extras.putParcelable(
+                TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
+                Uri.fromParts(PhoneAccount.SCHEME_TEL, phoneNumber, null));
+        mTelecomSystem.getTelecomServiceImpl().getBinder()
+                .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
+
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
+        ArgumentCaptor<ConnectionRequest> connectionRequestCaptor
+            = ArgumentCaptor.forClass(ConnectionRequest.class);
+        verify(mConnectionServiceFixtureA.getTestDouble())
+                .createConnection(any(PhoneAccountHandle.class), anyString(),
+                        connectionRequestCaptor.capture(), eq(true), eq(false), any());
+
+        assert(connectionRequestCaptor.getValue().getExtras().containsKey(
+            android.telecom.Call.EXTRA_LAST_EMERGENCY_CALLBACK_TIME_MILLIS));
+        assertTrue(connectionRequestCaptor.getValue().getExtras().getLong(
+            android.telecom.Call.EXTRA_LAST_EMERGENCY_CALLBACK_TIME_MILLIS, 0) > 0);
+        assert(connectionRequestCaptor.getValue().getExtras().containsKey(
+            TelecomManager.EXTRA_INCOMING_CALL_ADDRESS));
     }
 
     @LargeTest
@@ -276,8 +309,9 @@ public class BasicCallTests extends TelecomSystemTest {
         waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         verify(mConnectionServiceFixtureA.getTestDouble())
                 .createConnection(any(PhoneAccountHandle.class), anyString(),
-                        any(ConnectionRequest.class), eq(true), eq(false));
+                        any(ConnectionRequest.class), eq(true), eq(false), any());
 
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         assertEquals(1, mCallerInfoAsyncQueryFactoryFixture.mRequests.size());
         for (CallerInfoAsyncQueryFactoryFixture.Request request :
                 mCallerInfoAsyncQueryFactoryFixture.mRequests) {
@@ -314,10 +348,12 @@ public class BasicCallTests extends TelecomSystemTest {
         mTelecomSystem.getTelecomServiceImpl().getBinder()
                 .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
 
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         verify(mConnectionServiceFixtureA.getTestDouble())
                 .createConnection(any(PhoneAccountHandle.class), anyString(),
-                        any(ConnectionRequest.class), eq(true), eq(false));
+                        any(ConnectionRequest.class), eq(true), eq(false), any());
 
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         // Never reply to the caller info lookup.
         assertEquals(1, mCallerInfoAsyncQueryFactoryFixture.mRequests.size());
 
@@ -357,10 +393,12 @@ public class BasicCallTests extends TelecomSystemTest {
         mTelecomSystem.getTelecomServiceImpl().getBinder()
                 .addNewIncomingCall(mPhoneAccountA0.getAccountHandle(), extras);
 
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         verify(mConnectionServiceFixtureA.getTestDouble())
                 .createConnection(any(PhoneAccountHandle.class), anyString(),
-                        any(ConnectionRequest.class), eq(true), eq(false));
+                        any(ConnectionRequest.class), eq(true), eq(false), any());
 
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
         assertEquals(1, mCallerInfoAsyncQueryFactoryFixture.mRequests.size());
         for (CallerInfoAsyncQueryFactoryFixture.Request request :
                 mCallerInfoAsyncQueryFactoryFixture.mRequests) {
@@ -462,7 +500,7 @@ public class BasicCallTests extends TelecomSystemTest {
         IdPair incoming = startAndMakeActiveIncomingCall("650-555-2323",
                 mPhoneAccountA0.getAccountHandle(), mConnectionServiceFixtureA);
         verify(mConnectionServiceFixtureA.getTestDouble())
-                .hold(outgoing.mConnectionId);
+                .hold(eq(outgoing.mConnectionId), any());
         mConnectionServiceFixtureA.mConnectionById.get(outgoing.mConnectionId).state =
                 Connection.STATE_HOLDING;
         mConnectionServiceFixtureA.sendSetOnHold(outgoing.mConnectionId);
@@ -590,12 +628,13 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // Attempt to pull the call and verify the API call makes it through
         mInCallServiceFixtureX.mInCallAdapter.pullExternalCall(ids.mCallId);
-        verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT).never())
-                .pullExternalCall(ids.mCallId);
+        Thread.sleep(TEST_TIMEOUT);
+        verify(mConnectionServiceFixtureA.getTestDouble(), never())
+                .pullExternalCall(eq(ids.mCallId), any());
     }
 
     /**
-     * Tests the {@link Connection#sendConnectionEvent(String)} API.
+     * Tests the {@link Connection#sendConnectionEvent(String, Bundle)} API.
      *
      * @throws Exception
      */
@@ -610,7 +649,7 @@ public class BasicCallTests extends TelecomSystemTest {
     }
 
     /**
-     * Tests the {@link Connection#sendConnectionEvent(String)} API.
+     * Tests the {@link Connection#sendConnectionEvent(String, Bundle)} API.
      *
      * @throws Exception
      */
@@ -643,7 +682,7 @@ public class BasicCallTests extends TelecomSystemTest {
 
         mInCallServiceFixtureX.mInCallAdapter.sendCallEvent(ids.mCallId, TEST_EVENT, null);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .sendCallEvent(ids.mConnectionId, TEST_EVENT, null);
+                .sendCallEvent(eq(ids.mConnectionId), eq(TEST_EVENT), isNull(Bundle.class), any());
     }
 
     /**
@@ -665,7 +704,7 @@ public class BasicCallTests extends TelecomSystemTest {
                 testBundle);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
                 .sendCallEvent(eq(ids.mConnectionId), eq(TEST_EVENT),
-                        bundleArgumentCaptor.capture());
+                        bundleArgumentCaptor.capture(), any());
         assert (bundleArgumentCaptor.getValue().containsKey(TEST_BUNDLE_KEY));
     }
 
@@ -762,7 +801,7 @@ public class BasicCallTests extends TelecomSystemTest {
         // Attempt to pull the call and verify the API call makes it through
         mInCallServiceFixtureX.mInCallAdapter.pullExternalCall(ids.mCallId);
         verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT))
-                .pullExternalCall(ids.mConnectionId);
+                .pullExternalCall(eq(ids.mConnectionId), any());
     }
 
     /**
@@ -785,38 +824,9 @@ public class BasicCallTests extends TelecomSystemTest {
 
         // Attempt to pull the call and verify the API call makes it through
         mInCallServiceFixtureX.mInCallAdapter.pullExternalCall(ids.mCallId);
-        verify(mConnectionServiceFixtureA.getTestDouble(), timeout(TEST_TIMEOUT).never())
-                .pullExternalCall(ids.mConnectionId);
-    }
-
-    public void testMergeFailedAndNotifyInCallUi() throws Exception {
-        IdPair testCall1 = startAndMakeActiveOutgoingCall(
-                "650-555-1212",
-                mPhoneAccountA0.getAccountHandle(),
-                mConnectionServiceFixtureA);
-        IdPair testCall2 = startAndMakeActiveOutgoingCall(
-                "650-555-1213",
-                mPhoneAccountA0.getAccountHandle(),
-                mConnectionServiceFixtureA);
-
-        assertEquals(Call.STATE_ACTIVE,
-                mInCallServiceFixtureX.getCall(testCall1.mCallId).getState());
-        assertEquals(Call.STATE_ACTIVE,
-                mInCallServiceFixtureX.getCall(testCall2.mCallId).getState());
-        assertEquals(Call.STATE_ACTIVE,
-                mInCallServiceFixtureY.getCall(testCall1.mCallId).getState());
-        assertEquals(Call.STATE_ACTIVE,
-                mInCallServiceFixtureY.getCall(testCall2.mCallId).getState());
-
-        // Conference will not occur and instead will send setConferenceMergeFailed
-        ((ConnectionServiceFixture.FakeConnection)
-                mConnectionServiceFixtureA.mLatestConnection).setIsConferenceCreated(false);
-        mInCallServiceFixtureX.getInCallAdapter().conference(testCall2.mCallId, testCall1.mCallId);
-
-        verify(mInCallServiceFixtureX.getTestDouble(), timeout(TEST_TIMEOUT)).onConnectionEvent(
-                eq(testCall2.mCallId), eq(Connection.EVENT_CALL_MERGE_FAILED), any(Bundle.class));
-        verify(mInCallServiceFixtureY.getTestDouble(), timeout(TEST_TIMEOUT)).onConnectionEvent(
-                eq(testCall2.mCallId), eq(Connection.EVENT_CALL_MERGE_FAILED), any(Bundle.class));
+        Thread.sleep(TEST_TIMEOUT);
+        verify(mConnectionServiceFixtureA.getTestDouble(), never())
+                .pullExternalCall(eq(ids.mConnectionId), any());
     }
 
     @LargeTest
@@ -837,5 +847,48 @@ public class BasicCallTests extends TelecomSystemTest {
         assertEquals(Call.STATE_ACTIVE, mInCallServiceFixtureY.getCall(newIds.mCallId).getState());
         assertEquals(mInCallServiceFixtureX.getCall(ids.mCallId).getAccountHandle(),
                 mPhoneAccountE1.getAccountHandle());
+    }
+
+    /**
+     * Test scenario where the user starts an outgoing video call with no selected PhoneAccount, and
+     * then subsequently selects a PhoneAccount which supports video calling.
+     * @throws Exception
+     */
+    @LargeTest
+    public void testOutgoingCallSelectPhoneAccountVideo() throws Exception {
+        startOutgoingPhoneCallPendingCreateConnection("650-555-1212",
+                null, mConnectionServiceFixtureA,
+                Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+        assert(call.isVideoCallingSupported());
+        assertEquals(VideoProfile.STATE_BIDIRECTIONAL, call.getVideoState());
+
+        // Change the phone account to one which supports video calling.
+        call.setTargetPhoneAccount(mPhoneAccountA1.getAccountHandle());
+        assert(call.isVideoCallingSupported());
+        assertEquals(VideoProfile.STATE_BIDIRECTIONAL, call.getVideoState());
+    }
+
+    /**
+     * Test scenario where the user starts an outgoing video call with no selected PhoneAccount, and
+     * then subsequently selects a PhoneAccount which does not support video calling.
+     * @throws Exception
+     */
+    @FlakyTest
+    @LargeTest
+    public void testOutgoingCallSelectPhoneAccountNoVideo() throws Exception {
+        startOutgoingPhoneCallPendingCreateConnection("650-555-1212",
+                null, mConnectionServiceFixtureA,
+                Process.myUserHandle(), VideoProfile.STATE_BIDIRECTIONAL);
+        com.android.server.telecom.Call call = mTelecomSystem.getCallsManager().getCalls()
+                .iterator().next();
+        assert(call.isVideoCallingSupported());
+        assertEquals(VideoProfile.STATE_BIDIRECTIONAL, call.getVideoState());
+
+        // Change the phone account to one which does not support video calling.
+        call.setTargetPhoneAccount(mPhoneAccountA2.getAccountHandle());
+        assert(!call.isVideoCallingSupported());
+        assertEquals(VideoProfile.STATE_AUDIO_ONLY, call.getVideoState());
     }
 }

@@ -19,6 +19,10 @@ package com.android.tv.ui;
 import android.content.Context;
 import android.media.tv.TvView;
 import android.util.AttributeSet;
+import android.view.SurfaceView;
+import android.view.View;
+
+import com.android.tv.experiments.Experiments;
 
 /**
  * A TvView class for application layer when multiple windows are being used in the app.
@@ -45,5 +49,14 @@ public class AppLayerTvView extends TvView {
     @Override
     public boolean hasWindowFocus() {
         return true;
+    }
+
+    @Override
+    public void onViewAdded(View child) {
+        if (child instanceof SurfaceView) {
+            // Note: See b/29118070 for detail.
+            ((SurfaceView) child).setSecure(!Experiments.ENABLE_DEVELOPER_FEATURES.get());
+        }
+        super.onViewAdded(child);
     }
 }

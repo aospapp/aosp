@@ -1,5 +1,5 @@
 on post-fs-data
-    mkdir /data/misc/trunksd 0700 system system
+    mkdir /data/misc/trunksd 0700 trunks trunks
 
 service trunksd /system/bin/trunksd --simulator
     class late_start

@@ -37,7 +37,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	libutils \
 	liblog \
-	libmedia \
+	libaudioclient \
 	libstagefright_amrnb_common
 
 LOCAL_STATIC_LIBRARIES := libgsm libstagefright_amrnbdec libstagefright_amrnbenc
@@ -50,8 +50,7 @@ LOCAL_C_INCLUDES += \
 	frameworks/av/media/libstagefright/codecs/amrnb/enc/include \
 	frameworks/av/media/libstagefright/codecs/amrnb/enc/src \
 	frameworks/av/media/libstagefright/codecs/amrnb/dec/include \
-	frameworks/av/media/libstagefright/codecs/amrnb/dec/src \
-	$(call include-path-for, audio-effects)
+	frameworks/av/media/libstagefright/codecs/amrnb/dec/src
 
 # getInput() is deprecated but we want to continue to track the usage of it elsewhere
 LOCAL_CFLAGS += -fvisibility=hidden -Wall -Wextra -Wno-deprecated-declarations -Werror

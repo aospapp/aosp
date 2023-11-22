@@ -30,35 +30,38 @@ package com.android.bluetooth.a2dp;
 
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothCodecConfig;
+import android.bluetooth.BluetoothCodecStatus;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
-import android.bluetooth.IBluetooth;
 import android.content.Context;
+import android.content.Intent;
+import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
 import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
-import android.content.Intent;
-import android.os.Message;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.os.ParcelUuid;
 import android.util.Log;
+
+import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 final class A2dpStateMachine extends StateMachine {
     private static final boolean DBG = false;
+    private static final String TAG = "A2dpStateMachine";
 
     static final int CONNECT = 1;
     static final int DISCONNECT = 2;
@@ -75,6 +78,7 @@ final class A2dpStateMachine extends StateMachine {
     private final AudioManager mAudioManager;
     private IntentBroadcastHandler mIntentBroadcastHandler;
     private final WakeLock mWakeLock;
+    private BluetoothCodecConfig[] mCodecConfigPriorities;
 
     private static final int MSG_CONNECTION_STATE_CHANGED = 0;
 
@@ -105,6 +109,12 @@ final class A2dpStateMachine extends StateMachine {
     private BluetoothDevice mIncomingDevice = null;
     private BluetoothDevice mPlayingA2dpDevice = null;
 
+    private BluetoothCodecStatus mCodecStatus = null;
+    private int mA2dpSourceCodecPrioritySbc = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+    private int mA2dpSourceCodecPriorityAac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+    private int mA2dpSourceCodecPriorityAptx = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+    private int mA2dpSourceCodecPriorityAptxHd = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+    private int mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
 
     static {
         classInitNative();
@@ -115,8 +125,9 @@ final class A2dpStateMachine extends StateMachine {
         mService = svc;
         mContext = context;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mCodecConfigPriorities = assignCodecConfigPriorities();
 
-        initNative();
+        initNative(mCodecConfigPriorities);
 
         mDisconnected = new Disconnected();
         mPending = new Pending();
@@ -137,10 +148,105 @@ final class A2dpStateMachine extends StateMachine {
     }
 
     static A2dpStateMachine make(A2dpService svc, Context context) {
-        Log.d("A2dpStateMachine", "make");
+        Log.d(TAG, "make");
         A2dpStateMachine a2dpSm = new A2dpStateMachine(svc, context);
         a2dpSm.start();
         return a2dpSm;
+    }
+
+    // Assign the A2DP Source codec config priorities
+    private BluetoothCodecConfig[] assignCodecConfigPriorities() {
+        Resources resources = mContext.getResources();
+        if (resources == null) {
+            return null;
+        }
+
+        int value;
+        try {
+            value = resources.getInteger(R.integer.a2dp_source_codec_priority_sbc);
+        } catch (NotFoundException e) {
+            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+        }
+        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED)
+                && (value < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+            mA2dpSourceCodecPrioritySbc = value;
+        }
+
+        try {
+            value = resources.getInteger(R.integer.a2dp_source_codec_priority_aac);
+        } catch (NotFoundException e) {
+            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+        }
+        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED)
+                && (value < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+            mA2dpSourceCodecPriorityAac = value;
+        }
+
+        try {
+            value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx);
+        } catch (NotFoundException e) {
+            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+        }
+        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED)
+                && (value < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+            mA2dpSourceCodecPriorityAptx = value;
+        }
+
+        try {
+            value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_hd);
+        } catch (NotFoundException e) {
+            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+        }
+        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED)
+                && (value < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+            mA2dpSourceCodecPriorityAptxHd = value;
+        }
+
+        try {
+            value = resources.getInteger(R.integer.a2dp_source_codec_priority_ldac);
+        } catch (NotFoundException e) {
+            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+        }
+        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED)
+                && (value < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+            mA2dpSourceCodecPriorityLdac = value;
+        }
+
+        BluetoothCodecConfig codecConfig;
+        BluetoothCodecConfig[] codecConfigArray =
+                new BluetoothCodecConfig[BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX];
+        codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC,
+                mA2dpSourceCodecPrioritySbc, BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig.CHANNEL_MODE_NONE,
+                0 /* codecSpecific1 */, 0 /* codecSpecific2 */, 0 /* codecSpecific3 */,
+                0 /* codecSpecific4 */);
+        codecConfigArray[0] = codecConfig;
+        codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_AAC,
+                mA2dpSourceCodecPriorityAac, BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig.CHANNEL_MODE_NONE,
+                0 /* codecSpecific1 */, 0 /* codecSpecific2 */, 0 /* codecSpecific3 */,
+                0 /* codecSpecific4 */);
+        codecConfigArray[1] = codecConfig;
+        codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX,
+                mA2dpSourceCodecPriorityAptx, BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig.CHANNEL_MODE_NONE,
+                0 /* codecSpecific1 */, 0 /* codecSpecific2 */, 0 /* codecSpecific3 */,
+                0 /* codecSpecific4 */);
+        codecConfigArray[2] = codecConfig;
+        codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_HD,
+                mA2dpSourceCodecPriorityAptxHd, BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig.CHANNEL_MODE_NONE,
+                0 /* codecSpecific1 */, 0 /* codecSpecific2 */, 0 /* codecSpecific3 */,
+                0 /* codecSpecific4 */);
+        codecConfigArray[3] = codecConfig;
+        codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC,
+                mA2dpSourceCodecPriorityLdac, BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig.CHANNEL_MODE_NONE,
+                0 /* codecSpecific1 */, 0 /* codecSpecific2 */, 0 /* codecSpecific3 */,
+                0 /* codecSpecific4 */);
+        codecConfigArray[4] = codecConfig;
+
+        return codecConfigArray;
     }
 
     public void doQuit() {
@@ -161,14 +267,22 @@ final class A2dpStateMachine extends StateMachine {
         @Override
         public void enter() {
             log("Enter Disconnected: " + getCurrentMessage().what);
+            if (mCurrentDevice != null || mTargetDevice != null || mIncomingDevice != null) {
+                loge("ERROR: enter() inconsistent state in Disconnected: current = "
+                        + mCurrentDevice + " target = " + mTargetDevice + " incoming = "
+                        + mIncomingDevice);
+            }
         }
 
         @Override
         public boolean processMessage(Message message) {
             log("Disconnected process message: " + message.what);
             if (mCurrentDevice != null || mTargetDevice != null  || mIncomingDevice != null) {
-                loge("ERROR: current, target, or mIncomingDevice not null in Disconnected");
-                return NOT_HANDLED;
+                loge("ERROR: not null state in Disconnected: current = " + mCurrentDevice
+                        + " target = " + mTargetDevice + " incoming = " + mIncomingDevice);
+                mCurrentDevice = null;
+                mTargetDevice = null;
+                mIncomingDevice = null;
             }
 
             boolean retValue = HANDLED;
@@ -236,12 +350,6 @@ final class A2dpStateMachine extends StateMachine {
                     //reject the connection and stay in Disconnected state itself
                     logi("Incoming A2DP rejected");
                     disconnectA2dpNative(getByteAddress(device));
-                    // the other profile connection should be initiated
-                    AdapterService adapterService = AdapterService.getAdapterService();
-                    if (adapterService != null) {
-                        adapterService.connectOtherProfile(device,
-                                                           AdapterService.PROFILE_CONN_REJECTED);
-                    }
                 }
                 break;
             case CONNECTION_STATE_CONNECTED:
@@ -258,12 +366,6 @@ final class A2dpStateMachine extends StateMachine {
                     //reject the connection and stay in Disconnected state itself
                     logi("Incoming A2DP rejected");
                     disconnectA2dpNative(getByteAddress(device));
-                    // the other profile connection should be initiated
-                    AdapterService adapterService = AdapterService.getAdapterService();
-                    if (adapterService != null) {
-                        adapterService.connectOtherProfile(device,
-                                                           AdapterService.PROFILE_CONN_REJECTED);
-                    }
                 }
                 break;
             case CONNECTION_STATE_DISCONNECTING:
@@ -280,6 +382,10 @@ final class A2dpStateMachine extends StateMachine {
         @Override
         public void enter() {
             log("Enter Pending: " + getCurrentMessage().what);
+            if (mTargetDevice != null && mIncomingDevice != null) {
+                loge("ERROR: enter() inconsistent state in Pending: current = " + mCurrentDevice
+                        + " target = " + mTargetDevice + " incoming = " + mIncomingDevice);
+            }
         }
 
         @Override
@@ -486,6 +592,11 @@ final class A2dpStateMachine extends StateMachine {
             removeDeferredMessages(CONNECT);
 
             log("Enter Connected: " + getCurrentMessage().what);
+            if (mTargetDevice != null || mIncomingDevice != null) {
+                loge("ERROR: enter() inconsistent state in Connected: current = " + mCurrentDevice
+                        + " target = " + mTargetDevice + " incoming = " + mIncomingDevice);
+            }
+
             // Upon connected, the audio starts out as stopped
             broadcastAudioState(mCurrentDevice, BluetoothA2dp.STATE_NOT_PLAYING,
                                 BluetoothA2dp.STATE_PLAYING);
@@ -535,7 +646,9 @@ final class A2dpStateMachine extends StateMachine {
                                        BluetoothProfile.STATE_DISCONNECTED);
                         break;
                     }
-                    transitionTo(mPending);
+                    synchronized (A2dpStateMachine.this) {
+                        transitionTo(mPending);
+                    }
                 }
                     break;
                 case STACK_EVENT:
@@ -650,7 +763,7 @@ final class A2dpStateMachine extends StateMachine {
 
     List<BluetoothDevice> getConnectedDevices() {
         List<BluetoothDevice> devices = new ArrayList<BluetoothDevice>();
-        synchronized(this) {
+        synchronized (this) {
             if (getCurrentState() == mConnected) {
                 devices.add(mCurrentDevice);
             }
@@ -659,12 +772,94 @@ final class A2dpStateMachine extends StateMachine {
     }
 
     boolean isPlaying(BluetoothDevice device) {
-        synchronized(this) {
+        synchronized (this) {
             if (device.equals(mPlayingA2dpDevice)) {
                 return true;
             }
         }
         return false;
+    }
+
+    BluetoothCodecStatus getCodecStatus() {
+        synchronized (this) {
+            return mCodecStatus;
+        }
+    }
+
+    private void onCodecConfigChanged(BluetoothCodecConfig newCodecConfig,
+            BluetoothCodecConfig[] codecsLocalCapabilities,
+            BluetoothCodecConfig[] codecsSelectableCapabilities) {
+        BluetoothCodecConfig prevCodecConfig = null;
+        synchronized (this) {
+            if (mCodecStatus != null) {
+                prevCodecConfig = mCodecStatus.getCodecConfig();
+            }
+            mCodecStatus = new BluetoothCodecStatus(
+                    newCodecConfig, codecsLocalCapabilities, codecsSelectableCapabilities);
+        }
+
+        Intent intent = new Intent(BluetoothA2dp.ACTION_CODEC_CONFIG_CHANGED);
+        intent.putExtra(BluetoothCodecStatus.EXTRA_CODEC_STATUS, mCodecStatus);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+
+        log("A2DP Codec Config: " + prevCodecConfig + "->" + newCodecConfig);
+        for (BluetoothCodecConfig codecConfig : codecsLocalCapabilities) {
+            log("A2DP Codec Local Capability: " + codecConfig);
+        }
+        for (BluetoothCodecConfig codecConfig : codecsSelectableCapabilities) {
+            log("A2DP Codec Selectable Capability: " + codecConfig);
+        }
+
+        // Inform the Audio Service about the codec configuration change,
+        // so the Audio Service can reset accordingly the audio feeding
+        // parameters in the Audio HAL to the Bluetooth stack.
+        if (!newCodecConfig.sameAudioFeedingParameters(prevCodecConfig) && (mCurrentDevice != null)
+                && (getCurrentState() == mConnected)) {
+            // Add the device only if it is currently connected
+            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mCurrentDevice);
+            mAudioManager.handleBluetoothA2dpDeviceConfigChange(mCurrentDevice);
+        }
+        mContext.sendBroadcast(intent, A2dpService.BLUETOOTH_PERM);
+    }
+
+    void setCodecConfigPreference(BluetoothCodecConfig codecConfig) {
+        BluetoothCodecConfig[] codecConfigArray = new BluetoothCodecConfig[1];
+        codecConfigArray[0] = codecConfig;
+        setCodecConfigPreferenceNative(codecConfigArray);
+    }
+
+    void enableOptionalCodecs() {
+        BluetoothCodecConfig[] codecConfigArray = assignCodecConfigPriorities();
+        if (codecConfigArray == null) {
+            return;
+        }
+
+        // Set the mandatory codec's priority to default, and remove the rest
+        for (int i = 0; i < codecConfigArray.length; i++) {
+            BluetoothCodecConfig codecConfig = codecConfigArray[i];
+            if (!codecConfig.isMandatoryCodec()) {
+                codecConfigArray[i] = null;
+            }
+        }
+
+        setCodecConfigPreferenceNative(codecConfigArray);
+    }
+
+    void disableOptionalCodecs() {
+        BluetoothCodecConfig[] codecConfigArray = assignCodecConfigPriorities();
+        if (codecConfigArray == null) {
+            return;
+        }
+        // Set the mandatory codec's priority to highest, and ignore the rest
+        for (int i = 0; i < codecConfigArray.length; i++) {
+            BluetoothCodecConfig codecConfig = codecConfigArray[i];
+            if (codecConfig.isMandatoryCodec()) {
+                codecConfig.setCodecPriority(BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST);
+            } else {
+                codecConfigArray[i] = null;
+            }
+        }
+        setCodecConfigPreferenceNative(codecConfigArray);
     }
 
     boolean okToConnect(BluetoothDevice device) {
@@ -711,17 +906,12 @@ final class A2dpStateMachine extends StateMachine {
 
     // This method does not check for error conditon (newState == prevState)
     private void broadcastConnectionState(BluetoothDevice device, int newState, int prevState) {
-
-        int delay = mAudioManager.setBluetoothA2dpDeviceConnectionState(device, newState,
-                BluetoothProfile.A2DP);
+        mAudioManager.setBluetoothA2dpDeviceConnectionState(
+                device, newState, BluetoothProfile.A2DP);
 
         mWakeLock.acquire();
-        mIntentBroadcastHandler.sendMessageDelayed(mIntentBroadcastHandler.obtainMessage(
-                                                        MSG_CONNECTION_STATE_CHANGED,
-                                                        prevState,
-                                                        newState,
-                                                        device),
-                                                        delay);
+        mIntentBroadcastHandler.sendMessage(mIntentBroadcastHandler.obtainMessage(
+                MSG_CONNECTION_STATE_CHANGED, prevState, newState, device));
     }
 
     private void broadcastAudioState(BluetoothDevice device, int state, int prevState) {
@@ -773,10 +963,10 @@ final class A2dpStateMachine extends StateMachine {
             intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, prevState);
             intent.putExtra(BluetoothProfile.EXTRA_STATE, state);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+            intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
+                    | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
             mContext.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
             log("Connection state " + device + ": " + prevState + "->" + state);
-            mService.notifyProfileConnectionStateChanged(device, BluetoothProfile.A2DP, state, prevState);
         }
 
         @Override
@@ -817,8 +1007,9 @@ final class A2dpStateMachine extends StateMachine {
     final static int AUDIO_STATE_STARTED = 2;
 
     private native static void classInitNative();
-    private native void initNative();
+    private native void initNative(BluetoothCodecConfig[] codecConfigPriorites);
     private native void cleanupNative();
     private native boolean connectA2dpNative(byte[] address);
     private native boolean disconnectA2dpNative(byte[] address);
+    private native boolean setCodecConfigPreferenceNative(BluetoothCodecConfig[] codecConfigArray);
 }

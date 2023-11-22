@@ -47,8 +47,7 @@ icu4j_test_resource_dirs := \
 
 # For each data *.jar file, define a corresponding icu4j-* target.
 icu4j_data_jars := \
-    $(shell find $(LOCAL_PATH)/main/shared/data -name "*.jar" \
-    | sed "s,^$(LOCAL_PATH)/\(.*/\(.*\)\.jar\)$$,icu4j-\2:\1,")
+    $(foreach j,$(call all-named-files-under,*.jar,main/shared/data),icu4j-$(basename $(notdir $(j))):$(j))
 
 include $(CLEAR_VARS)
 LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := $(icu4j_data_jars)
@@ -62,7 +61,6 @@ include $(BUILD_MULTI_PREBUILT)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_resource_dirs)
-LOCAL_DONT_DELETE_JAR_DIRS := true
 LOCAL_MODULE := icu4j
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -75,7 +73,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_resource_dirs)
 LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icudata-host icu4j-icutzdata-host
-LOCAL_DONT_DELETE_JAR_DIRS := true
 LOCAL_MODULE := icu4j-host
 include $(BUILD_HOST_JAVA_LIBRARY)
 
@@ -84,7 +81,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_resource_dirs)
 LOCAL_STATIC_JAVA_LIBRARIES := icu4j-icudata-host icu4j-icutzdata-host
-LOCAL_DONT_DELETE_JAR_DIRS := true
 LOCAL_MODULE := icu4j-hostdex
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif  # HOST_OS == linux
@@ -93,8 +89,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_test_resource_dirs)
 LOCAL_STATIC_JAVA_LIBRARIES := icu4j-testdata
-LOCAL_DONT_DELETE_JAR_DIRS := true
-LOCAL_JAVA_LIBRARIES := icu4j
+LOCAL_JAVA_LIBRARIES := icu4j junit junit-params
 LOCAL_MODULE := icu4j-tests
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -112,8 +107,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_test_resource_dirs)
 LOCAL_STATIC_JAVA_LIBRARIES := icu4j-testdata-host
-LOCAL_DONT_DELETE_JAR_DIRS := true
-LOCAL_JAVA_LIBRARIES := icu4j-host
+LOCAL_JAVA_LIBRARIES := icu4j-host junit-host junit-params-host
 LOCAL_MODULE := icu4j-tests-host
 include $(BUILD_HOST_JAVA_LIBRARY)
 
@@ -126,8 +120,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(icu4j_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(icu4j_test_resource_dirs)
 LOCAL_STATIC_JAVA_LIBRARIES := icu4j-testdata-host
-LOCAL_DONT_DELETE_JAR_DIRS := true
-LOCAL_JAVA_LIBRARIES := icu4j-hostdex
+LOCAL_JAVA_LIBRARIES := icu4j-hostdex junit-hostdex junit-params-hostdex
 LOCAL_MODULE := icu4j-tests-hostdex
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 

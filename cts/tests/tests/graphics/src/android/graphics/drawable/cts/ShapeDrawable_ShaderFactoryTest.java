@@ -16,11 +16,31 @@
 
 package android.graphics.drawable.cts;
 
-import junit.framework.TestCase;
-import android.graphics.drawable.ShapeDrawable;
+import static org.junit.Assert.assertNull;
 
-public class ShapeDrawable_ShaderFactoryTest extends TestCase {
+import android.graphics.Shader;
+import android.graphics.drawable.ShapeDrawable.ShaderFactory;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ShapeDrawable_ShaderFactoryTest {
+    @Test
     public void testResize() {
-        // resize is an abstract function.
+        // This is an abstract function, but coverage
+        // complains if we don't call it.
+        ShaderFactory impl = new ShaderFactoryImpl();
+        assertNull(impl.resize(0, 0));
+    }
+
+    private class ShaderFactoryImpl extends ShaderFactory {
+        @Override
+        public Shader resize(int width, int height) {
+            return null;
+        }
     }
 }

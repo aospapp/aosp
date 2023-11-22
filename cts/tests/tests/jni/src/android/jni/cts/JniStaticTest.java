@@ -42,6 +42,13 @@ public class JniStaticTest extends JniTestCase {
         }
     }
 
+    public void test_linker_namespaces_classloaders() throws Exception {
+        String error = LinkerNamespacesHelper.runClassLoaderNamespaces();
+        if (error != null) {
+            fail(error);
+        }
+    }
+
     /**
      * Test that accessing classes true JNI works as expected. b/19382130
      */

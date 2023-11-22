@@ -19,6 +19,9 @@
 
 #include "Network.h"
 
+namespace android {
+namespace net {
+
 class DummyNetwork : public Network {
 public:
     static const char* INTERFACE_NAME;
@@ -30,5 +33,8 @@ private:
     int addInterface(const std::string& interface) override WARN_UNUSED_RESULT;
     int removeInterface(const std::string& interface) override WARN_UNUSED_RESULT;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_DUMMY_NETWORK_H

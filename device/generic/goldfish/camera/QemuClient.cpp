@@ -32,6 +32,10 @@
 #define LOGQ(...)   (void(0))
 
 #endif  // LOG_QUERIES
+
+#define QEMU_PIPE_DEBUG  LOGQ
+#include "qemu_pipe.h"
+
 namespace android {
 
 /****************************************************************************
@@ -224,11 +228,12 @@ status_t QemuClient::connectClient(const char* param)
     if (param == NULL || *param == '\0') {
         /* No parameters: connect to the factory service. */
         char pipe_name[512];
-        snprintf(pipe_name, sizeof(pipe_name), "qemud:%s", mCameraServiceName);
+        snprintf(pipe_name, sizeof(pipe_name), "qemud:%s",
+                 mCameraServiceName);
         mPipeFD = qemu_pipe_open(pipe_name);
     } else {
         /* One extra char ':' that separates service name and parameters + six
-         * characters for 'qemud:'. This is required by qemu pipe protocol. */
+         * characters for 'pipe:qemud:'. This is required by pipe protocol. */
         char* connection_str = new char[strlen(mCameraServiceName) +
                                         strlen(param) + 8];
         sprintf(connection_str, "qemud:%s:%s", mCameraServiceName, param);
@@ -262,11 +267,7 @@ status_t QemuClient::sendMessage(const void* data, size_t data_size)
         return EINVAL;
     }
 
-    /* Note that we don't use here qemud_client_send, since with qemu pipes we
-     * don't need to provide payload size prior to payload when we're writing to
-     * the pipe. So, we can use simple write, and qemu pipe will take care of the
-     * rest, calling the receiving end with the number of bytes transferred. */
-    const size_t written = qemud_fd_write(mPipeFD, data, data_size);
+    const size_t written = TEMP_FAILURE_RETRY(write(mPipeFD, data, data_size));
     if (written == data_size) {
         return NO_ERROR;
     } else {
@@ -292,7 +293,7 @@ status_t QemuClient::receiveMessage(void** data, size_t* data_size)
      * value. Note also, that the string doesn't contain zero-terminator. */
     size_t payload_size;
     char payload_size_str[9];
-    int rd_res = qemud_fd_read(mPipeFD, payload_size_str, 8);
+    int rd_res = TEMP_FAILURE_RETRY(read(mPipeFD, payload_size_str, 8));
     if (rd_res != 8) {
         ALOGE("%s: Unable to obtain payload size: %s",
              __FUNCTION__, strerror(errno));
@@ -315,7 +316,7 @@ status_t QemuClient::receiveMessage(void** data, size_t* data_size)
              __FUNCTION__, payload_size);
         return ENOMEM;
     }
-    rd_res = qemud_fd_read(mPipeFD, *data, payload_size);
+    rd_res = TEMP_FAILURE_RETRY(read(mPipeFD, *data, payload_size));
     if (static_cast<size_t>(rd_res) == payload_size) {
         *data_size = payload_size;
         return NO_ERROR;

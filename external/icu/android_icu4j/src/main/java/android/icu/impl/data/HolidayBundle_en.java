@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2005, International Business Machines Corporation and    *
@@ -27,6 +29,7 @@ public class HolidayBundle_en extends ListResourceBundle {
         {   "", ""  },      // Can't be empty!
     };
 
+    @Override
     public synchronized Object[][] getContents() { return fContents; }
 
 }

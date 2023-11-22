@@ -19,7 +19,6 @@ package com.android.phone;
 import com.android.internal.telephony.CallManager;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.phone.CallGatewayManager.RawGatewayInfo;
 import com.android.phone.Constants.CallStatusCode;
 
@@ -224,14 +223,6 @@ public class CallController extends Handler {
               || Intent.ACTION_CALL_PRIVILEGED.equals(action))) {
             Log.wtf(TAG, "placeCall: unexpected intent action " + action);
             throw new IllegalArgumentException("Unexpected action: " + action);
-        }
-
-        // Check to see if this is an OTASP call (the "activation" call
-        // used to provision CDMA devices), and if so, do some
-        // OTASP-specific setup.
-        Phone phone = mApp.mCM.getDefaultPhone();
-        if (TelephonyCapabilities.supportsOtasp(phone)) {
-            checkForOtaspCall(intent);
         }
 
         CallStatusCode status = placeCallInternal(intent);
@@ -669,28 +660,6 @@ public class CallController extends Handler {
         }
         mApp.startActivity(intent);
     }
-
-    /**
-     * Checks the current outgoing call to see if it's an OTASP call (the
-     * "activation" call used to provision CDMA devices).  If so, do any
-     * necessary OTASP-specific setup before actually placing the call.
-     */
-    private void checkForOtaspCall(Intent intent) {
-        if (OtaUtils.isOtaspCallIntent(intent)) {
-            Log.i(TAG, "checkForOtaspCall: handling OTASP intent! " + intent);
-
-            // ("OTASP-specific setup" basically means creating and initializing
-            // the OtaUtils instance.  Note that this setup needs to be here in
-            // the CallController.placeCall() sequence, *not* in
-            // OtaUtils.startInteractiveOtasp(), since it's also possible to
-            // start an OTASP call by manually dialing "*228" (in which case
-            // OtaUtils.startInteractiveOtasp() never gets run at all.)
-            OtaUtils.setupOtaspCall(intent);
-        } else {
-            if (DBG) log("checkForOtaspCall: not an OTASP call.");
-        }
-    }
-
 
     //
     // Debugging

@@ -16,12 +16,32 @@ from datetime import timedelta
 
 import common
 from autotest_lib.client.common_lib import time_utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.client.common_lib import utils
 from autotest_lib.site_utils import gmail_lib
 from autotest_lib.site_utils import host_history
 from autotest_lib.site_utils import host_history_utils
 from autotest_lib.site_utils import host_label_utils
 
+try:
+    from chromite.lib import metrics
+    from chromite.lib import ts_mon_config
+except ImportError:
+    metrics = utils.metrics_mock
+    ts_mon_config = utils.metrics_mock
+
+
+_MACHINE_UTILIZATION_RATE_HOURLY = metrics.Float(
+        'chromeos/autotest/host/machine_utilization_rate/hourly')
+_MACHINE_AVAILABILITY_RATE_HOURLY = metrics.Float(
+        'chromeos/autotest/host/machine_availability_rate/hourly')
+_MACHINE_IDLE_RATE_HOURLY = metrics.Float(
+        'chromeos/autotest/host/machine_idle_rate/hourly')
+_MACHINE_UTILIZATION_RATE_DAILY = metrics.Float(
+        'chromeos/autotest/host/machine_utilization_rate/daily')
+_MACHINE_AVAILABILITY_RATE_DAILY = metrics.Float(
+        'chromeos/autotest/host/machine_availability_rate/daily')
+_MACHINE_IDLE_RATE_DAILY = metrics.Float(
+        'chromeos/autotest/host/machine_idle_rate/daily')
 
 def report_stats(board, pool, start_time, end_time, span):
     """Report machine stats for given board, pool and time period.
@@ -79,14 +99,16 @@ def report_stats(board, pool, start_time, end_time, span):
         print 'Machine utilization rate  = %-4.2f%%' % (100*mur)
         print 'Machine availability rate = %-4.2f%%' % (100*mar)
 
-    autotest_stats.Gauge('machine_utilization_rate').send('%s_hours.%s.%s' %
-                                                          (span, board, pool),
-                                                          mur)
-    autotest_stats.Gauge('machine_availability_rate').send('%s_hours.%s.%s' %
-                                                           (span, board, pool),
-                                                           mar)
-    autotest_stats.Gauge('machine_idle_rate').send('%s_hours.%s.%s' %
-                                                   (span, board, pool), mir)
+    fields = {'board': board,
+              'pool': pool}
+    if span == 1:
+        _MACHINE_UTILIZATION_RATE_HOURLY.set(mur, fields=fields)
+        _MACHINE_AVAILABILITY_RATE_HOURLY.set(mar, fields=fields)
+        _MACHINE_IDLE_RATE_HOURLY.set(mir, fields=fields)
+    elif span == 24:
+        _MACHINE_UTILIZATION_RATE_DAILY.set(mur, fields=fields)
+        _MACHINE_AVAILABILITY_RATE_DAILY.set(mar, fields=fields)
+        _MACHINE_IDLE_RATE_DAILY.set(mir, fields=fields)
 
 
 def main():
@@ -117,6 +139,8 @@ def main():
     print ('Collecting host stats from %s to %s...' %
            (time_utils.epoch_time_to_date_string(start_time),
             time_utils.epoch_time_to_date_string(end_time)))
+
+    ts_mon_config.SetupTsMonGlobalState('collect_host_stats')
 
     errors = []
     if not boards:

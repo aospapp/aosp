@@ -42,7 +42,7 @@ inline size_t min(size_t a, size_t b) {
 
 class HmacCleanup {
   public:
-    HmacCleanup(HMAC_CTX* ctx) : ctx_(ctx) {}
+    explicit HmacCleanup(HMAC_CTX* ctx) : ctx_(ctx) {}
     ~HmacCleanup() { HMAC_CTX_cleanup(ctx_); }
 
   private:

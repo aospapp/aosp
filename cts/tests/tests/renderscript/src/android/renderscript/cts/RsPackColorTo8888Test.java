@@ -32,6 +32,12 @@ public class RsPackColorTo8888Test extends RSBaseCompute {
     }
 
     @Override
+    protected void tearDown() throws Exception {
+        script_f32.destroy();
+        super.tearDown();
+    }
+
+    @Override
     public void forEach(int testId, Allocation mIn, Allocation mOut) throws RSRuntimeException {
         switch (testId) {
         case 0:
@@ -90,6 +96,9 @@ public class RsPackColorTo8888Test extends RSBaseCompute {
                 assertEquals(refArray[i+j] & 0xff, outArray[i+j] & 0xff);
             }
         }
+
+        mAllocationIn.destroy();
+        mAllocationOut.destroy();
     }
 
     private void float4input(long seed, int testId) {
@@ -117,6 +126,9 @@ public class RsPackColorTo8888Test extends RSBaseCompute {
                 assertEquals(refArray[i+j] & 0xff, outArray[i+j] & 0xff);
             }
         }
+
+        mAllocationIn.destroy();
+        mAllocationOut.destroy();
     }
 
     private byte[] rs_PackColorTo8888(Float3 color) {

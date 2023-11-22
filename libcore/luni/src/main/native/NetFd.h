@@ -17,6 +17,8 @@
 #ifndef NET_FD_H_included
 #define NET_FD_H_included
 
+#include "JNIHelp.h"
+
 /**
  * Wraps access to the int inside a java.io.FileDescriptor, taking care of throwing exceptions.
  */

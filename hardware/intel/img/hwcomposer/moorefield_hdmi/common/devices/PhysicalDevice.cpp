@@ -125,6 +125,10 @@ bool PhysicalDevice::commit(hwc_display_contents_1_t *display, IDisplayContext *
     if (!display || !context || !mLayerList || mBlank) {
         return true;
     }
+
+    /* Sync the arguments of Frame Buffer Target layer updated in SurfaceFlinger. */
+    mLayerList->updateFBT(display);
+
     return context->commitContents(display, mLayerList);
 }
 

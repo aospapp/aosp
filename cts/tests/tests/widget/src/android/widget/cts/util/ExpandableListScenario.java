@@ -54,7 +54,10 @@ public abstract class ExpandableListScenario extends ListScenario {
 
     @Override
     protected void setAdapter(ListView listView) {
-        ((ExpandableListView) listView).setAdapter(mAdapter = createAdapter());
+        mAdapter = createAdapter();
+        if (mAdapter != null) {
+            ((ExpandableListView) listView).setAdapter(mAdapter);
+        }
     }
 
     protected ExpandableListAdapter createAdapter() {
@@ -91,7 +94,7 @@ public abstract class ExpandableListScenario extends ListScenario {
         /**
          * Sets the number of children per group.
          *
-         * @param numChildrenPerGroup The number of children per group.
+         * @param numChildren The number of children per group.
          */
         public ExpandableParams setNumChildren(int[] numChildren) {
             mNumChildren = numChildren;
@@ -275,6 +278,10 @@ public abstract class ExpandableListScenario extends ListScenario {
      * @return A group index with the requirements.
      */
     public int findGroupWithNumChildren(int numChildren, boolean atLeastOneChild) {
+        if (mAdapter == null) {
+            return -1;
+        }
+
         final ExpandableListAdapter adapter = mAdapter;
 
         for (int i = adapter.getGroupCount() - 1; i >= 0; i--) {
@@ -290,10 +297,6 @@ public abstract class ExpandableListScenario extends ListScenario {
 
     public List<MyGroup> getGroups() {
         return mGroups;
-    }
-
-    public ExpandableListAdapter getAdapter() {
-        return mAdapter;
     }
 
     /**
@@ -348,10 +351,10 @@ public abstract class ExpandableListScenario extends ListScenario {
     }
 
     public static class MyGroup {
-        private static long mNextId = 1000;
+        private static long sNextId = 1000;
 
         String name;
-        long id = mNextId++;
+        long id = sNextId++;
         List<MyChild> children;
 
         public MyGroup(int numChildren) {

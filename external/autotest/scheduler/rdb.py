@@ -12,7 +12,6 @@ import common
 from django.core import exceptions as django_exceptions
 from django.db.models import fields
 from django.db.models import Q
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.frontend.afe import models
 from autotest_lib.scheduler import rdb_cache_manager
 from autotest_lib.scheduler import rdb_hosts
@@ -20,10 +19,14 @@ from autotest_lib.scheduler import rdb_requests
 from autotest_lib.scheduler import rdb_utils
 from autotest_lib.server import utils
 
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
-_timer = autotest_stats.Timer(rdb_utils.RDB_STATS_KEY)
+
+_rdb_timer_name = 'chromeos/autotest/scheduler/rdb/durations/%s'
 _is_master = not utils.is_shard()
-
 
 # Qeury managers: Provide a layer of abstraction over the database by
 # encapsulating common query patterns used by the rdb.
@@ -247,7 +250,7 @@ class AvailableHostRequestHandler(BaseHostRequestHandler):
         self.request_accountant = None
 
 
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator(_rdb_timer_name % 'lease_hosts')
     def lease_hosts(self, hosts):
         """Leases a list of hosts.
 
@@ -379,7 +382,7 @@ class AvailableHostRequestHandler(BaseHostRequestHandler):
         return hosts[attempt_lease_hosts:]
 
 
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator(_rdb_timer_name % 'batch_acquire_hosts')
     def batch_acquire_hosts(self, host_requests):
         """Acquire hosts for a list of requests.
 
@@ -414,13 +417,9 @@ class AvailableHostRequestHandler(BaseHostRequestHandler):
         logging.debug('Host acquisition stats: distinct requests: %s, leased '
                       'hosts: %s, unsatisfied requests: %s', distinct_requests,
                       self.leased_hosts_count, self.unsatisfied_requests)
-        autotest_stats.Gauge(rdb_utils.RDB_STATS_KEY).send(
-                'leased_hosts', self.leased_hosts_count)
-        autotest_stats.Gauge(rdb_utils.RDB_STATS_KEY).send(
-                'unsatisfied_requests', self.unsatisfied_requests)
 
 
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator(_rdb_timer_name % 'batch_validate_hosts')
     def batch_validate_hosts(self, requests):
         """Validate requests with hosts.
 

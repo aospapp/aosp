@@ -16,8 +16,8 @@
 
 package com.android.tv.tests;
 
+import android.support.test.filters.MediumTest;
 import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
 
 import com.android.tv.TvActivity;
 

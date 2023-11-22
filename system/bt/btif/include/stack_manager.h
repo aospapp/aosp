@@ -31,7 +31,8 @@ typedef struct {
   bool (*get_stack_is_running)(void);
 } stack_manager_t;
 
-const stack_manager_t *stack_manager_get_interface();
+const stack_manager_t* stack_manager_get_interface();
 
-// TODO(zachoverflow): remove this terrible hack once the startup sequence is more sane
-future_t *stack_manager_get_hack_future();
+// TODO(zachoverflow): remove this terrible hack once the startup sequence is
+// more sane
+future_t* stack_manager_get_hack_future();

@@ -6,15 +6,15 @@
 
 import logging
 import os
+import threading
 import time
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
-from autotest_lib.client.cros.chameleon import chameleon_port_finder
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioBasicHDMI(audio_test.AudioTest):
@@ -27,6 +27,10 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
     version = 2
     DELAY_BEFORE_PLAYBACK = 2
     DELAY_AFTER_PLAYBACK = 2
+    CONNECT_TIMEOUT_SEC = 30
+    SUSPEND_SEC = 15
+    WAIT_TO_REBIND_SEC = 15
+    WEB_PLAYBACK_SEC = 15
 
     def cleanup(self):
         """Restore the CPU scaling governor mode."""
@@ -42,22 +46,66 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
                       'original_mode: %s', self._original_mode)
 
 
-    def run_once(self, host):
-        edid_path = os.path.join(self.bindir,
-                                 'test_data/edids/HDMI_DELL_U2410.txt')
+    def playback_and_suspend(self, audio_facade, while_playback):
+        """ Does playback and suspend-resume.
+
+        @param audio_facade: audio facade to check nodes.
+        @param while_playback: whether to play when suspending.
+        """
+        if while_playback:
+            logging.info('Playing audio served on the web...')
+            web_file = audio_test_data.HEADPHONE_10MIN_TEST_FILE
+            file_url = getattr(web_file, 'url', None)
+            browser_facade = self.factory.create_browser_facade()
+            tab_descriptor = browser_facade.new_tab(file_url)
+            time.sleep(self.WEB_PLAYBACK_SEC)
+        logging.info('Suspending...')
+        boot_id = self.host.get_boot_id()
+        self.host.suspend(suspend_time=self.SUSPEND_SEC)
+        self.host.test_wait_for_resume(boot_id, self.CONNECT_TIMEOUT_SEC)
+        logging.info('Resumed and back online.')
+        time.sleep(self.WAIT_TO_REBIND_SEC)
+
+        # Stop audio playback by closing the browser tab.
+        if while_playback:
+            browser_facade.close_tab(tab_descriptor)
+        audio_test_utils.check_audio_nodes(audio_facade,
+                                        (['HDMI'], None))
+
+
+    def run_once(self, host, suspend=False, while_playback=False):
+        """Running basic HDMI audio tests.
+
+        @param host: device under test host
+        @param suspend: whether to suspend
+        @param while_playback: whether to suspend while audio playback
+
+        """
         golden_file = audio_test_data.SWEEP_TEST_FILE
+        self.host = host
 
         # Dump audio diagnostics data for debugging.
         chameleon_board = host.chameleon
-        factory = self.create_remote_facade_factory(host)
+        self.factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
 
-        self._system_facade = factory.create_system_facade()
+        # For DUTs with permanently connected audio jack cable
+        # connecting HDMI won't switch automatically the node. Adding
+        # audio_jack_plugged flag to select HDMI node after binding.
+        audio_facade = self.factory.create_audio_facade()
+        output_nodes, _ = audio_facade.get_selected_node_types()
+        audio_jack_plugged = False
+        if output_nodes == ['HEADPHONE']:
+            audio_jack_plugged = True
+            logging.debug('Found audio jack plugged!')
+
+        self._system_facade = self.factory.create_system_facade()
         self.set_high_performance_mode()
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
 
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
-                factory, host)
+                self.factory, host)
 
         source = widget_factory.create_widget(
             chameleon_audio_ids.CrosIds.HDMI)
@@ -65,59 +113,45 @@ class audio_AudioBasicHDMI(audio_test.AudioTest):
             chameleon_audio_ids.ChameleonIds.HDMI)
         binder = widget_factory.create_binder(source, recorder)
 
-        display_facade = factory.create_display_facade()
-        finder = chameleon_port_finder.ChameleonVideoInputFinder(
-                chameleon_board, display_facade)
-        hdmi_port = finder.find_port('HDMI')
-        if not hdmi_port:
-            raise error.TestFail(
-                    'Can not find HDMI port, perhaps HDMI is not connected?')
-        with hdmi_port.use_edid_file(edid_path):
+        with chameleon_audio_helper.bind_widgets(binder):
+            audio_test_utils.dump_cros_audio_logs(
+                    host, audio_facade, self.resultsdir, 'after_binding')
 
-            # TODO(cychiang) remove this when issue crbug.com/450101 is fixed.
-            audio_test_utils.correction_plug_unplug_for_audio(host, hdmi_port)
+            # HDMI node needs to be selected, when audio jack is plugged
+            if audio_jack_plugged:
+                audio_facade.set_chrome_active_node_type('HDMI', None)
+            audio_test_utils.check_audio_nodes(audio_facade,
+                                               (['HDMI'], None))
 
-            with chameleon_audio_helper.bind_widgets(binder):
-                audio_facade = factory.create_audio_facade()
+            # Suspend after playing audio (if directed) and resume
+            # before the HDMI audio test.
+            if suspend:
+                self.playback_and_suspend(audio_facade, while_playback)
 
-                audio_test_utils.dump_cros_audio_logs(
-                        host, audio_facade, self.resultsdir, 'after_binding')
+            source.set_playback_data(golden_file)
 
-                output_nodes, _ = audio_facade.get_selected_node_types()
-                if output_nodes != ['HDMI']:
-                    raise error.TestFail(
-                            '%s rather than HDMI is selected on Cros device' %
-                                    output_nodes)
+            logging.info('Start recording from Chameleon.')
+            recorder.start_recording()
 
-                # Transfer the data to Cros device first because it takes
-                # several seconds.
-                source.set_playback_data(golden_file)
+            time.sleep(self.DELAY_BEFORE_PLAYBACK)
 
-                logging.info('Start recording from Chameleon.')
-                recorder.start_recording()
+            logging.info('Start playing %s on Cros device',
+                         golden_file.path)
+            source.start_playback(blocking=True)
 
-                time.sleep(self.DELAY_BEFORE_PLAYBACK)
+            logging.info('Stopped playing %s on Cros device',
+                         golden_file.path)
+            time.sleep(self.DELAY_AFTER_PLAYBACK)
 
-                logging.info('Start playing %s on Cros device',
-                             golden_file.path)
-                source.start_playback(blocking=True)
+            audio_test_utils.dump_cros_audio_logs(
+                    host, audio_facade, self.resultsdir, 'after_recording')
 
-                logging.info('Stopped playing %s on Cros device',
-                             golden_file.path)
-                time.sleep(self.DELAY_AFTER_PLAYBACK)
-
-                audio_test_utils.dump_cros_audio_logs(
-                        host, audio_facade, self.resultsdir, 'after_recording')
-
-                recorder.stop_recording()
-                logging.info('Stopped recording from Chameleon.')
-                recorder.read_recorded_binary()
+            recorder.stop_recording()
+            logging.info('Stopped recording from Chameleon.')
+            recorder.read_recorded_binary()
 
             recorded_file = os.path.join(self.resultsdir, "recorded.raw")
             logging.info('Saving recorded data to %s', recorded_file)
             recorder.save_file(recorded_file)
 
-            if not chameleon_audio_helper.compare_recorded_result(
-                    golden_file, recorder, 'correlation'):
-                raise error.TestFail(
-                        'Recorded file does not match playback file')
+            audio_test_utils.compare_recorded_correlation(golden_file, recorder)

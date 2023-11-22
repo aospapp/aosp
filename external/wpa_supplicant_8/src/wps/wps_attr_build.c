@@ -20,10 +20,10 @@
 
 int wps_build_public_key(struct wps_data *wps, struct wpabuf *msg)
 {
-	struct wpabuf *pubkey;
+	struct wpabuf *pubkey = NULL;
 
 	wpa_printf(MSG_DEBUG, "WPS:  * Public Key");
-	wpabuf_free(wps->dh_privkey);
+	wpabuf_clear_free(wps->dh_privkey);
 	wps->dh_privkey = NULL;
 	if (wps->dev_pw_id != DEV_PW_DEFAULT && wps->wps->dh_privkey &&
 	    wps->wps->dh_ctx) {
@@ -413,7 +413,8 @@ int wps_build_oob_dev_pw(struct wpabuf *msg, u16 dev_pw_id,
 		   dev_pw_id);
 	addr[0] = wpabuf_head(pubkey);
 	hash_len = wpabuf_len(pubkey);
-	sha256_vector(1, addr, &hash_len, pubkey_hash);
+	if (sha256_vector(1, addr, &hash_len, pubkey_hash) < 0)
+		return -1;
 #ifdef CONFIG_WPS_TESTING
 	if (wps_corrupt_pkhash) {
 		wpa_hexdump(MSG_DEBUG, "WPS: Real Public Key Hash",

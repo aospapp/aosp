@@ -17,12 +17,13 @@ package com.android.tv.menu;
 
 import android.media.tv.TvTrackInfo;
 import android.os.SystemClock;
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
 
 import com.android.tv.BaseMainActivityTestCase;
 import com.android.tv.MainActivity;
 import com.android.tv.customization.CustomAction;
 import com.android.tv.testing.Constants;
+import com.android.tv.testing.Utils;
 import com.android.tv.testing.testinput.ChannelStateData;
 import com.android.tv.testing.testinput.TvTestInputConstants;
 
@@ -47,11 +48,16 @@ public class TvOptionsRowAdapterTest extends BaseMainActivityTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mTvOptionsRowAdapter = new TvOptionsRowAdapter(mActivity,
-                Collections.<CustomAction>emptyList());
+        mTvOptionsRowAdapter = new TvOptionsRowAdapter(mActivity, Collections.emptyList());
         tuneToChannel(TvTestInputConstants.CH_1_DEFAULT_DONT_MODIFY);
         waitUntilAudioTracksHaveSize(1);
-        mTvOptionsRowAdapter.update();
+        // update should be called on the main thread to avoid the multi-thread problem.
+        Utils.runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                mTvOptionsRowAdapter.update();
+            }
+        });
     }
 
     public void testUpdateAudioAction_2tracks() {

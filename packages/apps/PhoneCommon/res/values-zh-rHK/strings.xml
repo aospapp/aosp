@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"無"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"不明鈴聲"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"所有可用線路都正在使用。若要撥打電話，請解除連結此裝置或其他裝置上的其中一個通話。"</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"流動數據已停用，因此通話結束。"</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"已達到流動數據上限，因此通話結束。"</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"已達到數據上限。通話結束。"</string>
 </resources>

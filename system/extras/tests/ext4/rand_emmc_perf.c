@@ -51,8 +51,8 @@ static void print_stats(struct stats *stats_buf, int stats_count,
 {
     int i;
     struct timeval t;
-    struct timeval sum = { 0 };
-    struct timeval max = { 0 };
+    struct timeval sum = { 0, 0 };
+    struct timeval max = { 0, 0 };
     long long total_usecs;
     long long avg_usecs;
     long long max_usecs;
@@ -217,6 +217,7 @@ int main(int argc, char *argv[])
             break;
 
           case 'f':
+            free(full_stats_file);
             full_stats_file = strdup(optarg);
             if (full_stats_file == NULL) {
                 fprintf(stderr, "Cannot get full stats filename\n");
@@ -258,6 +259,7 @@ int main(int argc, char *argv[])
     } else {
         perf_test(fd, write_mode, max_blocks);
     }
+    free(full_stats_file);
 
     exit(0);
 }

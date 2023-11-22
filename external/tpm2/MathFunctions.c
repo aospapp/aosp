@@ -7,6 +7,9 @@
 
 #include <string.h>
 
+#include "CryptoEngine.h"
+
+#ifndef EMBEDDED_MODE
 #include "OsslCryptoEngine.h"
 //
 //
@@ -325,6 +328,7 @@ Done:
    BN_CTX_free(context);
     return retVal;
 }
+#endif // ! EMBEDDED_MODE
 //
 //
 //         _math__uComp()
@@ -432,6 +436,7 @@ _math__Comp(
 //      CRYPT_PARAMETER                   number to exponentiate is larger than the modulus
 //      CRYPT_UNDERFLOW                   result will not fit into the provided buffer
 //
+#ifndef EMBEDDED_MODE
 LIB_EXPORT CRYPT_RESULT
 _math__ModExp(
    UINT32               cSize,                 //   IN: size of the result
@@ -528,3 +533,4 @@ _math__IsPrime(
        BN_clear_free(p);
    return (isPrime == 1);
 }
+#endif // ! EMBEDDED_MODE

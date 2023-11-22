@@ -22,6 +22,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -32,8 +33,8 @@ import java.util.Arrays;
 import java.util.List;
 
 public class LocalSearchProvider extends ContentProvider {
-    private static final boolean DEBUG = false;
     private static final String TAG = "LocalSearchProvider";
+    private static final boolean DEBUG = false;
 
     public static final int PROGRESS_PERCENTAGE_HIDE = -1;
 
@@ -76,10 +77,13 @@ public class LocalSearchProvider extends ContentProvider {
             Log.d(TAG, "query(" + uri + ", " + Arrays.toString(projection) + ", " + selection + ", "
                     + Arrays.toString(selectionArgs) + ", " + sortOrder + ")");
         }
+        long time = SystemClock.elapsedRealtime();
         SearchInterface search;
         if (PermissionUtils.hasAccessAllEpg(getContext())) {
+            if (DEBUG) Log.d(TAG, "Performing TV Provider search.");
             search = new TvProviderSearch(getContext());
         } else {
+            if (DEBUG) Log.d(TAG, "Performing Data Manager search.");
             search = new DataManagerSearch(getContext());
         }
         String query = uri.getLastPathSegment();
@@ -95,7 +99,9 @@ public class LocalSearchProvider extends ContentProvider {
         if (!TextUtils.isEmpty(query)) {
             results.addAll(search.search(query, limit, action));
         }
-        return createSuggestionsCursor(results);
+        Cursor c = createSuggestionsCursor(results);
+        if (DEBUG) Log.d(TAG, "Elapsed time: " + (SystemClock.elapsedRealtime() - time) + "(msec)");
+        return c;
     }
 
     private Cursor createSuggestionsCursor(List<SearchResult> results) {

@@ -24,6 +24,10 @@ def parse_options():
                       default=None,
                       help='File into which to write collected test info.'\
                            '  Defaults to stdout.')
+    parser.add_option('-e', '--extra_autotest_dirs',
+                      dest='extra_autotest_dirs', default=None,
+                      help="A list of directories under which to search for "
+                           "extra Autotest tests. Defaults to None.")
     options, _ = parser.parse_args()
     return options
 

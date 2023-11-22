@@ -16,139 +16,585 @@
 
 package com.android.tv.dvr.ui;
 
+import android.content.Context;
+import android.media.tv.TvInputManager.TvInputCallback;
 import android.os.Bundle;
-import android.support.annotation.IntDef;
+import android.os.Handler;
 import android.support.v17.leanback.app.BrowseFragment;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.ClassPresenterSelector;
 import android.support.v17.leanback.widget.HeaderItem;
 import android.support.v17.leanback.widget.ListRow;
 import android.support.v17.leanback.widget.ListRowPresenter;
-import android.support.v17.leanback.widget.ObjectAdapter;
+import android.support.v17.leanback.widget.Presenter;
+import android.support.v17.leanback.widget.TitleViewAdapter;
+import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.tv.ApplicationSingletons;
 import com.android.tv.R;
 import com.android.tv.TvApplication;
-import com.android.tv.common.recording.RecordedProgram;
+import com.android.tv.data.GenreItems;
 import com.android.tv.dvr.DvrDataManager;
+import com.android.tv.dvr.DvrDataManager.OnDvrScheduleLoadFinishedListener;
+import com.android.tv.dvr.DvrDataManager.OnRecordedProgramLoadFinishedListener;
+import com.android.tv.dvr.DvrDataManager.RecordedProgramListener;
+import com.android.tv.dvr.DvrDataManager.ScheduledRecordingListener;
+import com.android.tv.dvr.DvrDataManager.SeriesRecordingListener;
+import com.android.tv.dvr.DvrScheduleManager;
+import com.android.tv.dvr.RecordedProgram;
 import com.android.tv.dvr.ScheduledRecording;
+import com.android.tv.dvr.SeriesRecording;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * {@link BrowseFragment} for DVR functions.
  */
-public class DvrBrowseFragment extends BrowseFragment {
+public class DvrBrowseFragment extends BrowseFragment implements
+        RecordedProgramListener, ScheduledRecordingListener, SeriesRecordingListener,
+        OnDvrScheduleLoadFinishedListener, OnRecordedProgramLoadFinishedListener {
     private static final String TAG = "DvrBrowseFragment";
     private static final boolean DEBUG = false;
 
-    private ScheduledRecordingsAdapter mRecordingsInProgressAdapter;
-    private ScheduledRecordingsAdapter mRecordingsNotStatedAdapter;
-    private RecordedProgramsAdapter mRecordedProgramsAdapter;
+    private static final int MAX_RECENT_ITEM_COUNT = 10;
+    private static final int MAX_SCHEDULED_ITEM_COUNT = 4;
 
-    @IntDef({DVR_CURRENT_RECORDINGS, DVR_SCHEDULED_RECORDINGS, DVR_RECORDED_PROGRAMS, DVR_SETTINGS})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface DVR_HEADERS_MODE {}
-    public static final int DVR_CURRENT_RECORDINGS = 0;
-    public static final int DVR_SCHEDULED_RECORDINGS = 1;
-    public static final int DVR_RECORDED_PROGRAMS = 2;
-    public static final int DVR_SETTINGS = 3;
-
-    private static final LinkedHashMap<Integer, Integer> sHeaders =
-            new LinkedHashMap<Integer, Integer>() {{
-        put(DVR_CURRENT_RECORDINGS, R.string.dvr_main_current_recordings);
-        put(DVR_SCHEDULED_RECORDINGS, R.string.dvr_main_scheduled_recordings);
-        put(DVR_RECORDED_PROGRAMS, R.string.dvr_main_recorded_programs);
-        /* put(DVR_SETTINGS, R.string.dvr_main_settings); */ // TODO: Temporarily remove it for DP.
-    }};
-
+    private RecordedProgramAdapter mRecentAdapter;
+    private ScheduleAdapter mScheduleAdapter;
+    private SeriesAdapter mSeriesAdapter;
+    private RecordedProgramAdapter[] mGenreAdapters =
+            new RecordedProgramAdapter[GenreItems.getGenreCount() + 1];
+    private ListRow mRecentRow;
+    private ListRow mSeriesRow;
+    private ListRow[] mGenreRows = new ListRow[GenreItems.getGenreCount() + 1];
+    private List<String> mGenreLabels;
     private DvrDataManager mDvrDataManager;
+    private DvrScheduleManager mDvrScheudleManager;
     private ArrayObjectAdapter mRowsAdapter;
+    private ClassPresenterSelector mPresenterSelector;
+    private final HashMap<String, RecordedProgram> mSeriesId2LatestProgram = new HashMap<>();
+    private final Handler mHandler = new Handler();
+
+    private final Comparator<Object> RECORDED_PROGRAM_COMPARATOR = new Comparator<Object>() {
+        @Override
+        public int compare(Object lhs, Object rhs) {
+            if (lhs instanceof SeriesRecording) {
+                lhs = mSeriesId2LatestProgram.get(((SeriesRecording) lhs).getSeriesId());
+            }
+            if (rhs instanceof SeriesRecording) {
+                rhs = mSeriesId2LatestProgram.get(((SeriesRecording) rhs).getSeriesId());
+            }
+            if (lhs instanceof RecordedProgram) {
+                if (rhs instanceof RecordedProgram) {
+                    return RecordedProgram.START_TIME_THEN_ID_COMPARATOR.reversed()
+                            .compare((RecordedProgram) lhs, (RecordedProgram) rhs);
+                } else {
+                    return -1;
+                }
+            } else if (rhs instanceof RecordedProgram) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    };
+
+    private final Comparator<Object> SCHEDULE_COMPARATOR = new Comparator<Object>() {
+        @Override
+        public int compare(Object lhs, Object rhs) {
+            if (lhs instanceof ScheduledRecording) {
+                if (rhs instanceof ScheduledRecording) {
+                    return ScheduledRecording.START_TIME_THEN_PRIORITY_THEN_ID_COMPARATOR
+                            .compare((ScheduledRecording) lhs, (ScheduledRecording) rhs);
+                } else {
+                    return -1;
+                }
+            } else if (rhs instanceof ScheduledRecording) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+    };
+
+    private final DvrScheduleManager.OnConflictStateChangeListener mOnConflictStateChangeListener =
+            new DvrScheduleManager.OnConflictStateChangeListener() {
+        @Override
+        public void onConflictStateChange(boolean conflict, ScheduledRecording... schedules) {
+            if (mScheduleAdapter != null) {
+                for (ScheduledRecording schedule : schedules) {
+                    onScheduledRecordingStatusChanged(schedule);
+                }
+            }
+        }
+    };
+
+    private final Runnable mUpdateRowsRunnable = new Runnable() {
+        @Override
+        public void run() {
+            updateRows();
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
-        mDvrDataManager = TvApplication.getSingletons(getContext()).getDvrDataManager();
+        Context context = getContext();
+        ApplicationSingletons singletons = TvApplication.getSingletons(context);
+        mDvrDataManager = singletons.getDvrDataManager();
+        mDvrScheudleManager = singletons.getDvrScheduleManager();
+        mPresenterSelector = new ClassPresenterSelector()
+                .addClassPresenter(ScheduledRecording.class,
+                        new ScheduledRecordingPresenter(context))
+                .addClassPresenter(RecordedProgram.class, new RecordedProgramPresenter(context))
+                .addClassPresenter(SeriesRecording.class, new SeriesRecordingPresenter(context))
+                .addClassPresenter(FullScheduleCardHolder.class, new FullSchedulesCardPresenter());
+        mGenreLabels = new ArrayList<>(Arrays.asList(GenreItems.getLabels(context)));
+        mGenreLabels.add(getString(R.string.dvr_main_others));
         setupUiElements();
         setupAdapters();
-        mRecordingsInProgressAdapter.start();
-        mRecordingsNotStatedAdapter.start();
-        mRecordedProgramsAdapter.start();
-        initRows();
+        mDvrScheudleManager.addOnConflictStateChangeListener(mOnConflictStateChangeListener);
         prepareEntranceTransition();
-        startEntranceTransition();
-    }
-
-    @Override
-    public void onStart() {
-        if (DEBUG) Log.d(TAG, "onStart");
-        super.onStart();
-        // TODO: It's a workaround for a bug that a progress bar isn't hidden.
-        // We need to remove it later.
-        getProgressBarManager().disableProgressBar();
+        if (mDvrDataManager.isInitialized()) {
+            startEntranceTransition();
+        } else {
+            if (!mDvrDataManager.isDvrScheduleLoadFinished()) {
+                mDvrDataManager.addDvrScheduleLoadFinishedListener(this);
+            }
+            if (!mDvrDataManager.isRecordedProgramLoadFinished()) {
+                mDvrDataManager.addRecordedProgramLoadFinishedListener(this);
+            }
+        }
     }
 
     @Override
     public void onDestroy() {
         if (DEBUG) Log.d(TAG, "onDestroy");
-        mRecordingsInProgressAdapter.stop();
-        mRecordingsNotStatedAdapter.stop();
-        mRecordedProgramsAdapter.stop();
+        mHandler.removeCallbacks(mUpdateRowsRunnable);
+        mDvrScheudleManager.removeOnConflictStateChangeListener(mOnConflictStateChangeListener);
+        mDvrDataManager.removeRecordedProgramListener(this);
+        mDvrDataManager.removeScheduledRecordingListener(this);
+        mDvrDataManager.removeSeriesRecordingListener(this);
+        mDvrDataManager.removeDvrScheduleLoadFinishedListener(this);
+        mDvrDataManager.removeRecordedProgramLoadFinishedListener(this);
+        mRowsAdapter.clear();
+        mSeriesId2LatestProgram.clear();
+        for (Presenter presenter : mPresenterSelector.getPresenters()) {
+            if (presenter instanceof DvrItemPresenter) {
+                ((DvrItemPresenter) presenter).unbindAllViewHolders();
+            }
+        }
         super.onDestroy();
     }
 
+    @Override
+    public void onDvrScheduleLoadFinished() {
+        List<ScheduledRecording> scheduledRecordings = mDvrDataManager.getAllScheduledRecordings();
+        onScheduledRecordingAdded(ScheduledRecording.toArray(scheduledRecordings));
+        List<SeriesRecording> seriesRecordings = mDvrDataManager.getSeriesRecordings();
+        onSeriesRecordingAdded(SeriesRecording.toArray(seriesRecordings));
+        if (mDvrDataManager.isInitialized()) {
+            startEntranceTransition();
+        }
+        mDvrDataManager.removeDvrScheduleLoadFinishedListener(this);
+    }
+
+    @Override
+    public void onRecordedProgramLoadFinished() {
+        for (RecordedProgram recordedProgram : mDvrDataManager.getRecordedPrograms()) {
+            handleRecordedProgramAdded(recordedProgram, true);
+        }
+        updateRows();
+        if (mDvrDataManager.isInitialized()) {
+            startEntranceTransition();
+        }
+        mDvrDataManager.removeRecordedProgramLoadFinishedListener(this);
+    }
+
+    @Override
+    public void onRecordedProgramsAdded(RecordedProgram... recordedPrograms) {
+        for (RecordedProgram recordedProgram : recordedPrograms) {
+            handleRecordedProgramAdded(recordedProgram, true);
+        }
+        postUpdateRows();
+    }
+
+    @Override
+    public void onRecordedProgramsChanged(RecordedProgram... recordedPrograms) {
+        for (RecordedProgram recordedProgram : recordedPrograms) {
+            handleRecordedProgramChanged(recordedProgram);
+        }
+        postUpdateRows();
+    }
+
+    @Override
+    public void onRecordedProgramsRemoved(RecordedProgram... recordedPrograms) {
+        for (RecordedProgram recordedProgram : recordedPrograms) {
+            handleRecordedProgramRemoved(recordedProgram);
+        }
+        postUpdateRows();
+    }
+
+    // No need to call updateRows() during ScheduledRecordings' change because
+    // the row for ScheduledRecordings is always displayed.
+    @Override
+    public void onScheduledRecordingAdded(ScheduledRecording... scheduledRecordings) {
+        for (ScheduledRecording scheduleRecording : scheduledRecordings) {
+            if (needToShowScheduledRecording(scheduleRecording)) {
+                mScheduleAdapter.add(scheduleRecording);
+            }
+        }
+    }
+
+    @Override
+    public void onScheduledRecordingRemoved(ScheduledRecording... scheduledRecordings) {
+        for (ScheduledRecording scheduleRecording : scheduledRecordings) {
+            mScheduleAdapter.remove(scheduleRecording);
+        }
+    }
+
+    @Override
+    public void onScheduledRecordingStatusChanged(ScheduledRecording... scheduledRecordings) {
+        for (ScheduledRecording scheduleRecording : scheduledRecordings) {
+            if (needToShowScheduledRecording(scheduleRecording)) {
+                mScheduleAdapter.change(scheduleRecording);
+            } else {
+                mScheduleAdapter.removeWithId(scheduleRecording);
+            }
+        }
+    }
+
+    @Override
+    public void onSeriesRecordingAdded(SeriesRecording... seriesRecordings) {
+        handleSeriesRecordingsAdded(Arrays.asList(seriesRecordings));
+        postUpdateRows();
+    }
+
+    @Override
+    public void onSeriesRecordingRemoved(SeriesRecording... seriesRecordings) {
+        handleSeriesRecordingsRemoved(Arrays.asList(seriesRecordings));
+        postUpdateRows();
+    }
+
+    @Override
+    public void onSeriesRecordingChanged(SeriesRecording... seriesRecordings) {
+        handleSeriesRecordingsChanged(Arrays.asList(seriesRecordings));
+        postUpdateRows();
+    }
+
+    // Workaround of b/29108300
+    @Override
+    public void showTitle(int flags) {
+        flags &= ~TitleViewAdapter.SEARCH_VIEW_VISIBLE;
+        super.showTitle(flags);
+    }
+
     private void setupUiElements() {
+        setBadgeDrawable(getActivity().getDrawable(R.drawable.ic_dvr_badge));
         setHeadersState(HEADERS_ENABLED);
         setHeadersTransitionOnBackEnabled(false);
+        setBrandColor(getResources().getColor(R.color.program_guide_side_panel_background, null));
     }
 
     private void setupAdapters() {
+        mRecentAdapter = new RecordedProgramAdapter(MAX_RECENT_ITEM_COUNT);
+        mScheduleAdapter = new ScheduleAdapter(MAX_SCHEDULED_ITEM_COUNT);
+        mSeriesAdapter = new SeriesAdapter();
+        for (int i = 0; i < mGenreAdapters.length; i++) {
+            mGenreAdapters[i] = new RecordedProgramAdapter();
+        }
+        // Schedule Recordings.
+        List<ScheduledRecording> schedules = mDvrDataManager.getAllScheduledRecordings();
+        onScheduledRecordingAdded(ScheduledRecording.toArray(schedules));
+        mScheduleAdapter.addExtraItem(FullScheduleCardHolder.FULL_SCHEDULE_CARD_HOLDER);
+        // Recorded Programs.
+        for (RecordedProgram recordedProgram : mDvrDataManager.getRecordedPrograms()) {
+            handleRecordedProgramAdded(recordedProgram, false);
+        }
+        // Series Recordings. Series recordings should be added after recorded programs, because
+        // we build series recordings' latest program information while adding recorded programs.
+        List<SeriesRecording> recordings = mDvrDataManager.getSeriesRecordings();
+        handleSeriesRecordingsAdded(recordings);
         mRowsAdapter = new ArrayObjectAdapter(new ListRowPresenter());
+        mRecentRow = new ListRow(new HeaderItem(
+                getString(R.string.dvr_main_recent)), mRecentAdapter);
+        mRowsAdapter.add(new ListRow(new HeaderItem(
+                getString(R.string.dvr_main_scheduled)), mScheduleAdapter));
+        mSeriesRow = new ListRow(new HeaderItem(
+                getString(R.string.dvr_main_series)), mSeriesAdapter);
+        updateRows();
+        mDvrDataManager.addRecordedProgramListener(this);
+        mDvrDataManager.addScheduledRecordingListener(this);
+        mDvrDataManager.addSeriesRecordingListener(this);
         setAdapter(mRowsAdapter);
-        ClassPresenterSelector presenterSelector = new ClassPresenterSelector();
-        EmptyItemPresenter emptyItemPresenter = new EmptyItemPresenter(this);
-        ScheduledRecordingPresenter scheduledRecordingPresenter = new ScheduledRecordingPresenter(
-                getContext());
-        RecordedProgramPresenter recordedProgramPresenter = new RecordedProgramPresenter(
-                getContext());
-        presenterSelector.addClassPresenter(ScheduledRecording.class, scheduledRecordingPresenter);
-        presenterSelector.addClassPresenter(RecordedProgram.class, recordedProgramPresenter);
-        presenterSelector.addClassPresenter(EmptyHolder.class, emptyItemPresenter);
-        mRecordingsInProgressAdapter = new ScheduledRecordingsAdapter(mDvrDataManager,
-                ScheduledRecording.STATE_RECORDING_IN_PROGRESS, presenterSelector);
-        mRecordingsNotStatedAdapter = new ScheduledRecordingsAdapter(mDvrDataManager,
-                ScheduledRecording.STATE_RECORDING_NOT_STARTED, presenterSelector);
-        mRecordedProgramsAdapter = new RecordedProgramsAdapter(mDvrDataManager, presenterSelector);
     }
 
-    private void initRows() {
-        mRowsAdapter.clear();
-        for (@DVR_HEADERS_MODE int i : sHeaders.keySet()) {
-            HeaderItem gridHeader = new HeaderItem(i, getContext().getString(sHeaders.get(i)));
-            ObjectAdapter gridRowAdapter = null;
-            switch (i) {
-                case DVR_CURRENT_RECORDINGS: {
-                    gridRowAdapter = mRecordingsInProgressAdapter;
-                    break;
+    private void handleRecordedProgramAdded(RecordedProgram recordedProgram,
+            boolean updateSeriesRecording) {
+        mRecentAdapter.add(recordedProgram);
+        String seriesId = recordedProgram.getSeriesId();
+        SeriesRecording seriesRecording = null;
+        if (seriesId != null) {
+            seriesRecording = mDvrDataManager.getSeriesRecording(seriesId);
+            RecordedProgram latestProgram = mSeriesId2LatestProgram.get(seriesId);
+            if (latestProgram == null || RecordedProgram.START_TIME_THEN_ID_COMPARATOR
+                    .compare(latestProgram, recordedProgram) < 0) {
+                mSeriesId2LatestProgram.put(seriesId, recordedProgram);
+                if (updateSeriesRecording && seriesRecording != null) {
+                    onSeriesRecordingChanged(seriesRecording);
                 }
-                case DVR_SCHEDULED_RECORDINGS: {
-                    gridRowAdapter = mRecordingsNotStatedAdapter;
-                }
-                    break;
-                case DVR_RECORDED_PROGRAMS: {
-                    gridRowAdapter = mRecordedProgramsAdapter;
-                }
-                    break;
-                case DVR_SETTINGS:
-                    gridRowAdapter = new ArrayObjectAdapter(new EmptyItemPresenter(this));
-                    // TODO: provide setup rows.
-                    break;
             }
-            if (gridRowAdapter != null) {
-                mRowsAdapter.add(new ListRow(gridHeader, gridRowAdapter));
+        }
+        if (seriesRecording == null) {
+            for (RecordedProgramAdapter adapter
+                    : getGenreAdapters(recordedProgram.getCanonicalGenres())) {
+                adapter.add(recordedProgram);
+            }
+        }
+    }
+
+    private void handleRecordedProgramRemoved(RecordedProgram recordedProgram) {
+        mRecentAdapter.remove(recordedProgram);
+        String seriesId = recordedProgram.getSeriesId();
+        if (seriesId != null) {
+            SeriesRecording seriesRecording = mDvrDataManager.getSeriesRecording(seriesId);
+            RecordedProgram latestProgram =
+                    mSeriesId2LatestProgram.get(recordedProgram.getSeriesId());
+            if (latestProgram != null && latestProgram.getId() == recordedProgram.getId()) {
+                if (seriesRecording != null) {
+                    updateLatestRecordedProgram(seriesRecording);
+                    onSeriesRecordingChanged(seriesRecording);
+                }
+            }
+        }
+        for (RecordedProgramAdapter adapter
+                : getGenreAdapters(recordedProgram.getCanonicalGenres())) {
+            adapter.remove(recordedProgram);
+        }
+    }
+
+    private void handleRecordedProgramChanged(RecordedProgram recordedProgram) {
+        mRecentAdapter.change(recordedProgram);
+        String seriesId = recordedProgram.getSeriesId();
+        SeriesRecording seriesRecording = null;
+        if (seriesId != null) {
+            seriesRecording = mDvrDataManager.getSeriesRecording(seriesId);
+            RecordedProgram latestProgram = mSeriesId2LatestProgram.get(seriesId);
+            if (latestProgram == null || RecordedProgram.START_TIME_THEN_ID_COMPARATOR
+                    .compare(latestProgram, recordedProgram) <= 0) {
+                mSeriesId2LatestProgram.put(seriesId, recordedProgram);
+                if (seriesRecording != null) {
+                    onSeriesRecordingChanged(seriesRecording);
+                }
+            } else if (latestProgram.getId() == recordedProgram.getId()) {
+                if (seriesRecording != null) {
+                    updateLatestRecordedProgram(seriesRecording);
+                    onSeriesRecordingChanged(seriesRecording);
+                }
+            }
+        }
+        if (seriesRecording == null) {
+            updateGenreAdapters(getGenreAdapters(
+                    recordedProgram.getCanonicalGenres()), recordedProgram);
+        } else {
+            updateGenreAdapters(new ArrayList<>(), recordedProgram);
+        }
+    }
+
+    private void handleSeriesRecordingsAdded(List<SeriesRecording> seriesRecordings) {
+        for (SeriesRecording seriesRecording : seriesRecordings) {
+            mSeriesAdapter.add(seriesRecording);
+            if (mSeriesId2LatestProgram.get(seriesRecording.getSeriesId()) != null) {
+                for (RecordedProgramAdapter adapter
+                        : getGenreAdapters(seriesRecording.getCanonicalGenreIds())) {
+                    adapter.add(seriesRecording);
+                }
+            }
+        }
+    }
+
+    private void handleSeriesRecordingsRemoved(List<SeriesRecording> seriesRecordings) {
+        for (SeriesRecording seriesRecording : seriesRecordings) {
+            mSeriesAdapter.remove(seriesRecording);
+            for (RecordedProgramAdapter adapter
+                    : getGenreAdapters(seriesRecording.getCanonicalGenreIds())) {
+                adapter.remove(seriesRecording);
+            }
+        }
+    }
+
+    private void handleSeriesRecordingsChanged(List<SeriesRecording> seriesRecordings) {
+        for (SeriesRecording seriesRecording : seriesRecordings) {
+            mSeriesAdapter.change(seriesRecording);
+            if (mSeriesId2LatestProgram.get(seriesRecording.getSeriesId()) != null) {
+                updateGenreAdapters(getGenreAdapters(
+                        seriesRecording.getCanonicalGenreIds()), seriesRecording);
+            } else {
+                // Remove series recording from all genre rows if it has no recorded program
+                updateGenreAdapters(new ArrayList<>(), seriesRecording);
+            }
+        }
+    }
+
+    private List<RecordedProgramAdapter> getGenreAdapters(String[] genres) {
+        List<RecordedProgramAdapter> result = new ArrayList<>();
+        if (genres == null || genres.length == 0) {
+            result.add(mGenreAdapters[mGenreAdapters.length - 1]);
+        } else {
+            for (String genre : genres) {
+                int genreId = GenreItems.getId(genre);
+                if(genreId >= mGenreAdapters.length) {
+                    Log.d(TAG, "Wrong Genre ID: " + genreId);
+                } else {
+                    result.add(mGenreAdapters[genreId]);
+                }
+            }
+        }
+        return result;
+    }
+
+    private List<RecordedProgramAdapter> getGenreAdapters(int[] genreIds) {
+        List<RecordedProgramAdapter> result = new ArrayList<>();
+        if (genreIds == null || genreIds.length == 0) {
+            result.add(mGenreAdapters[mGenreAdapters.length - 1]);
+        } else {
+            for (int genreId : genreIds) {
+                if(genreId >= mGenreAdapters.length) {
+                    Log.d(TAG, "Wrong Genre ID: " + genreId);
+                } else {
+                    result.add(mGenreAdapters[genreId]);
+                }
+            }
+        }
+        return result;
+    }
+
+    private void updateGenreAdapters(List<RecordedProgramAdapter> adapters, Object r) {
+        for (RecordedProgramAdapter adapter : mGenreAdapters) {
+            if (adapters.contains(adapter)) {
+                adapter.change(r);
+            } else {
+                adapter.remove(r);
+            }
+        }
+    }
+
+    private void postUpdateRows() {
+        mHandler.removeCallbacks(mUpdateRowsRunnable);
+        mHandler.post(mUpdateRowsRunnable);
+    }
+
+    private void updateRows() {
+        int visibleRowsCount = 1;  // Schedule's Row will never be empty
+        if (mRecentAdapter.isEmpty()) {
+            mRowsAdapter.remove(mRecentRow);
+        } else {
+            if (mRowsAdapter.indexOf(mRecentRow) < 0) {
+                mRowsAdapter.add(0, mRecentRow);
+            }
+            visibleRowsCount++;
+        }
+        if (mSeriesAdapter.isEmpty()) {
+            mRowsAdapter.remove(mSeriesRow);
+        } else {
+            if (mRowsAdapter.indexOf(mSeriesRow) < 0) {
+                mRowsAdapter.add(visibleRowsCount, mSeriesRow);
+            }
+            visibleRowsCount++;
+        }
+        for (int i = 0; i < mGenreAdapters.length; i++) {
+            RecordedProgramAdapter adapter = mGenreAdapters[i];
+            if (adapter != null) {
+                if (adapter.isEmpty()) {
+                    mRowsAdapter.remove(mGenreRows[i]);
+                } else {
+                    if (mGenreRows[i] == null || mRowsAdapter.indexOf(mGenreRows[i]) < 0) {
+                        mGenreRows[i] = new ListRow(new HeaderItem(mGenreLabels.get(i)), adapter);
+                        mRowsAdapter.add(visibleRowsCount, mGenreRows[i]);
+                    }
+                    visibleRowsCount++;
+                }
+            }
+        }
+    }
+
+    private boolean needToShowScheduledRecording(ScheduledRecording recording) {
+        int state = recording.getState();
+        return state == ScheduledRecording.STATE_RECORDING_IN_PROGRESS
+                || state == ScheduledRecording.STATE_RECORDING_NOT_STARTED;
+    }
+
+    private void updateLatestRecordedProgram(SeriesRecording seriesRecording) {
+        RecordedProgram latestProgram = null;
+        for (RecordedProgram program :
+                mDvrDataManager.getRecordedPrograms(seriesRecording.getId())) {
+            if (latestProgram == null || RecordedProgram
+                    .START_TIME_THEN_ID_COMPARATOR.compare(latestProgram, program) < 0) {
+                latestProgram = program;
+            }
+        }
+        mSeriesId2LatestProgram.put(seriesRecording.getSeriesId(), latestProgram);
+    }
+
+    private class ScheduleAdapter extends SortedArrayAdapter<Object> {
+        ScheduleAdapter(int maxItemCount) {
+            super(mPresenterSelector, SCHEDULE_COMPARATOR, maxItemCount);
+        }
+
+        @Override
+        public long getId(Object item) {
+            if (item instanceof ScheduledRecording) {
+                return ((ScheduledRecording) item).getId();
+            } else {
+                return -1;
+            }
+        }
+    }
+
+    private class SeriesAdapter extends SortedArrayAdapter<SeriesRecording> {
+        SeriesAdapter() {
+            super(mPresenterSelector, new Comparator<SeriesRecording>() {
+                @Override
+                public int compare(SeriesRecording lhs, SeriesRecording rhs) {
+                    if (lhs.isStopped() && !rhs.isStopped()) {
+                        return 1;
+                    } else if (!lhs.isStopped() && rhs.isStopped()) {
+                        return -1;
+                    }
+                    return SeriesRecording.PRIORITY_COMPARATOR.compare(lhs, rhs);
+                }
+            });
+        }
+
+        @Override
+        public long getId(SeriesRecording item) {
+            return item.getId();
+        }
+    }
+
+    private class RecordedProgramAdapter extends SortedArrayAdapter<Object> {
+        RecordedProgramAdapter() {
+            this(Integer.MAX_VALUE);
+        }
+
+        RecordedProgramAdapter(int maxItemCount) {
+            super(mPresenterSelector, RECORDED_PROGRAM_COMPARATOR, maxItemCount);
+        }
+
+        @Override
+        public long getId(Object item) {
+            if (item instanceof SeriesRecording) {
+                return ((SeriesRecording) item).getId();
+            } else if (item instanceof RecordedProgram) {
+                return ((RecordedProgram) item).getId();
+            } else {
+                return -1;
             }
         }
     }

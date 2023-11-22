@@ -153,10 +153,13 @@ Adding a system call usually involves:
      the appropriate POSIX header file in libc/include/ includes the
      relevant file or files.
   4. Add function declarations to the appropriate header file.
-  5. Add at least basic tests. Even a test that deliberately supplies
+  5. Add the function name to the correct section in libc/libc.map.txt and
+     run `./libc/tools/genversion-scripts.py`.
+  6. Add at least basic tests. Even a test that deliberately supplies
      an invalid argument helps check that we're generating the right symbol
-     and have the right declaration in the header file. (And strace(1) can
-     confirm that the correct system call is being made.)
+     and have the right declaration in the header file, and that you correctly
+     updated the maps in step 5. (You can use strace(1) to confirm that the
+     correct system call is being made.)
 
 
 Updating kernel header files
@@ -197,9 +200,8 @@ The tests are all built from the tests/ directory.
 
 ### Device tests
 
-    $ mma
-    $ adb remount
-    $ adb sync
+    $ mma # In $ANDROID_ROOT/bionic.
+    $ adb root && adb remount && adb sync
     $ adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests32
     $ adb shell \
         /data/nativetest/bionic-unit-tests-static/bionic-unit-tests-static32
@@ -208,23 +210,54 @@ The tests are all built from the tests/ directory.
     $ adb shell \
         /data/nativetest64/bionic-unit-tests-static/bionic-unit-tests-static64
 
+Note that we use our own custom gtest runner that offers a superset of the
+options documented at
+<https://github.com/google/googletest/blob/master/googletest/docs/AdvancedGuide.md#running-test-programs-advanced-options>,
+in particular for test isolation and parallelism (both on by default).
+
+### Device tests via CTS
+
+Most of the unit tests are executed by CTS. By default, CTS runs as
+a non-root user, so the unit tests must also pass when not run as root.
+Some tests cannot do any useful work unless run as root. In this case,
+the test should check `getuid() == 0` and do nothing otherwise (typically
+we log in this case to prevent accidents!). Obviously, if the test can be
+rewritten to not require root, that's an even better solution.
+
+Currently, the list of bionic CTS tests is generated at build time by
+running a host version of the test executable and dumping the list of
+all tests. In order for this to continue to work, all architectures must
+have the same number of tests, and the host version of the executable
+must also have the same number of tests.
+
+Running the gtests directly is orders of magnitude faster than using CTS,
+but in cases where you really have to run CTS:
+
+    $ make cts # In $ANDROID_ROOT.
+    $ adb unroot # Because real CTS doesn't run as root.
+    # This will sync any *test* changes, but not *code* changes:
+    $ cts-tradefed \
+        run singleCommand cts --skip-preconditions -m CtsBionicTestCases
+
 ### Host tests
 
 The host tests require that you have `lunch`ed either an x86 or x86_64 target.
+Note that due to ABI limitations (specifically, the size of pthread_mutex_t),
+32-bit bionic requires PIDs less than 65536. To enforce this, set /proc/sys/kernel/pid_max
+to 65536.
 
-    $ mma
-    $ mm bionic-unit-tests-run-on-host32
-    $ mm bionic-unit-tests-run-on-host64  # For 64-bit *targets* only.
+    $ ./tests/run-on-host.sh 32
+    $ ./tests/run-on-host.sh 64   # For x86_64-bit *targets* only.
+
+You can supply gtest flags as extra arguments to this script.
 
 ### Against glibc
 
 As a way to check that our tests do in fact test the correct behavior (and not
 just the behavior we think is correct), it is possible to run the tests against
-the host's glibc. The executables are already in your path.
+the host's glibc.
 
-    $ mma
-    $ bionic-unit-tests-glibc32
-    $ bionic-unit-tests-glibc64
+    $ ./tests/run-on-host.sh glibc
 
 
 Gathering test coverage
@@ -259,6 +292,25 @@ First, build and run the host tests as usual (see above).
     $ genhtml -o covreport coverage.info # or lcov --list coverage.info
 
 The coverage report is now available at `covreport/index.html`.
+
+
+Running the benchmarks
+----------------------
+
+### Device benchmarks
+
+    $ mma
+    $ adb remount
+    $ adb sync
+    $ adb shell /data/nativetest/bionic-benchmarks/bionic-benchmarks
+    $ adb shell /data/nativetest64/bionic-benchmarks/bionic-benchmarks
+
+You can use `--benchmark_filter=getpid` to just run benchmarks with "getpid"
+in their name.
+
+### Host benchmarks
+
+See the "Host tests" section of "Running the tests" above.
 
 
 Attaching GDB to the tests

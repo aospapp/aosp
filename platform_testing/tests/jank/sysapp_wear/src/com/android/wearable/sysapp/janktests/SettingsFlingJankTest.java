@@ -21,12 +21,12 @@ import android.os.SystemClock;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
 import android.support.test.jank.JankTestBase;
+import android.support.test.jank.WindowAnimationFrameStatsMonitor;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
-
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -34,15 +34,13 @@ import java.util.concurrent.TimeoutException;
  */
 public class SettingsFlingJankTest extends JankTestBase {
 
-    private UiDevice mDevice;
-    private SysAppTestHelper mHelper;
-
     // Settings app resources
     private static final String CLOCK_SETTINGS_PACKAGE =
-        "com.google.android.apps.wearable.settings";
-
+            "com.google.android.apps.wearable.settings";
     private static final String CLOCK_SETTINGS_ACTIVITY =
-        "com.google.android.clockwork.settings.MainSettingsActivity";
+            "com.google.android.clockwork.settings.MainSettingsActivity";
+    private UiDevice mDevice;
+    private SysAppTestHelper mHelper;
 
     /*
      * (non-Javadoc)
@@ -64,20 +62,25 @@ public class SettingsFlingJankTest extends JankTestBase {
 
     /**
      * Test the jank by flinging in settings screen.
-     * @throws TimeoutException
-     *
      */
     @JankTest(beforeTest = "openSettingsApp", afterTest = "goBackHome",
-        expectedFrames = SysAppTestHelper.EXPECTED_FRAMES)
+            expectedFrames = SysAppTestHelper.EXPECTED_FRAMES)
     @GfxMonitor(processName = CLOCK_SETTINGS_PACKAGE)
     public void testSettingsApp() throws TimeoutException {
-          UiObject2 listViewContents = mDevice.wait(Until.findObject(
-              By.res("android", "list")),
-              SysAppTestHelper.SHORT_TIMEOUT);
-          for (int i = 0; i < 3; i++) {
-              listViewContents.fling(Direction.DOWN, SysAppTestHelper.FLING_SPEED);
-              listViewContents.fling(Direction.UP, SysAppTestHelper.FLING_SPEED);
-         }
+        UiObject2 listViewContents = mDevice.wait(Until.findObject(
+                By.res("android", "list")),
+                SysAppTestHelper.SHORT_TIMEOUT);
+        for (int i = 0; i < 3; i++) {
+            listViewContents.fling(Direction.DOWN, SysAppTestHelper.FLING_SPEED);
+            listViewContents.fling(Direction.UP, SysAppTestHelper.FLING_SPEED);
+        }
+    }
+
+    @JankTest(beforeLoop = "openSettingsApp", afterTest = "goBackHome",
+            expectedFrames = SysAppTestHelper.EXPECTED_FRAMES_SWIPERIGHT_TO_DISMISS_TEST)
+    @WindowAnimationFrameStatsMonitor
+    public void testSwipeRightToDismissApp() {
+        mHelper.swipeRight();
     }
 
     // Ensuring that we head back to the first screen before launching the app again

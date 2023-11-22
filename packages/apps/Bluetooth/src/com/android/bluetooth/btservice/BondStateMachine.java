@@ -23,14 +23,17 @@ import android.bluetooth.BluetoothDevice;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.hid.HidService;
 import com.android.bluetooth.hfp.HeadsetService;
+import com.android.bluetooth.a2dpsink.A2dpSinkService;
+import com.android.bluetooth.hfpclient.HeadsetClientService;
+import com.android.bluetooth.pbapclient.PbapClientService;
 
 import android.bluetooth.OobData;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Message;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.internal.util.State;
@@ -164,7 +167,6 @@ final class BondStateMachine extends StateMachine {
 
         @Override
         public boolean processMessage(Message msg) {
-
             BluetoothDevice dev = (BluetoothDevice)msg.obj;
             DeviceProperties devProp = mRemoteDevices.getDeviceProperties(dev);
             boolean result = false;
@@ -174,8 +176,6 @@ final class BondStateMachine extends StateMachine {
                  deferMessage(msg);
                  return true;
              }
-
-            Intent intent = new Intent(BluetoothDevice.ACTION_PAIRING_REQUEST);
 
             switch (msg.what) {
                 case CREATE_BOND:
@@ -324,6 +324,8 @@ final class BondStateMachine extends StateMachine {
         }
         intent.putExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, variant);
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        // Workaround for Android Auto until pre-accepting pairing requests is added.
+        intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
         mAdapterService.sendOrderedBroadcast(intent, mAdapterService.BLUETOOTH_ADMIN_PERM);
     }
 
@@ -446,13 +448,22 @@ final class BondStateMachine extends StateMachine {
         HidService hidService = HidService.getHidService();
         A2dpService a2dpService = A2dpService.getA2dpService();
         HeadsetService headsetService = HeadsetService.getHeadsetService();
+        HeadsetClientService headsetClientService = HeadsetClientService.getHeadsetClientService();
+        A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
+        PbapClientService pbapClientService = PbapClientService.getPbapClientService();
 
         if (hidService != null)
-            hidService.setPriority(device,BluetoothProfile.PRIORITY_UNDEFINED);
-        if(a2dpService != null)
-            a2dpService.setPriority(device,BluetoothProfile.PRIORITY_UNDEFINED);
-        if(headsetService != null)
-            headsetService.setPriority(device,BluetoothProfile.PRIORITY_UNDEFINED);
+            hidService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+        if (a2dpService != null)
+            a2dpService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+        if (headsetService != null)
+            headsetService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+        if (headsetClientService != null)
+            headsetClientService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+        if (a2dpSinkService != null)
+            a2dpSinkService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
+        if (pbapClientService != null)
+            pbapClientService.setPriority(device, BluetoothProfile.PRIORITY_UNDEFINED);
 
         // Clear Absolute Volume black list
         if(a2dpService != null)

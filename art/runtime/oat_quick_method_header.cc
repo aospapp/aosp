@@ -17,18 +17,19 @@
 #include "oat_quick_method_header.h"
 
 #include "art_method.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 
 namespace art {
 
-OatQuickMethodHeader::OatQuickMethodHeader(
-    uint32_t vmap_table_offset,
-    uint32_t frame_size_in_bytes,
-    uint32_t core_spill_mask,
-    uint32_t fp_spill_mask,
-    uint32_t code_size)
+OatQuickMethodHeader::OatQuickMethodHeader(uint32_t vmap_table_offset,
+                                           uint32_t method_info_offset,
+                                           uint32_t frame_size_in_bytes,
+                                           uint32_t core_spill_mask,
+                                           uint32_t fp_spill_mask,
+                                           uint32_t code_size)
     : vmap_table_offset_(vmap_table_offset),
+      method_info_offset_(method_info_offset),
       frame_info_(frame_size_in_bytes, core_spill_mask, fp_spill_mask),
       code_size_(code_size) {}
 
@@ -44,7 +45,7 @@ uint32_t OatQuickMethodHeader::ToDexPc(ArtMethod* method,
     CodeInfoEncoding encoding = code_info.ExtractEncoding();
     StackMap stack_map = code_info.GetStackMapForNativePcOffset(sought_offset, encoding);
     if (stack_map.IsValid()) {
-      return stack_map.GetDexPc(encoding.stack_map_encoding);
+      return stack_map.GetDexPc(encoding.stack_map.encoding);
     }
   } else {
     DCHECK(method->IsNative());
@@ -56,7 +57,7 @@ uint32_t OatQuickMethodHeader::ToDexPc(ArtMethod* method,
            << reinterpret_cast<void*>(sought_offset)
            << "(PC " << reinterpret_cast<void*>(pc) << ", entry_point=" << entry_point
            << " current entry_point=" << method->GetEntryPointFromQuickCompiledCode()
-           << ") in " << PrettyMethod(method);
+           << ") in " << method->PrettyMethod();
   }
   return DexFile::kDexNoIndex;
 }
@@ -80,12 +81,12 @@ uintptr_t OatQuickMethodHeader::ToNativeQuickPc(ArtMethod* method,
                                    : code_info.GetStackMapForDexPc(dex_pc, encoding);
   if (stack_map.IsValid()) {
     return reinterpret_cast<uintptr_t>(entry_point) +
-           stack_map.GetNativePcOffset(encoding.stack_map_encoding);
+           stack_map.GetNativePcOffset(encoding.stack_map.encoding, kRuntimeISA);
   }
   if (abort_on_failure) {
     ScopedObjectAccess soa(Thread::Current());
     LOG(FATAL) << "Failed to find native offset for dex pc 0x" << std::hex << dex_pc
-               << " in " << PrettyMethod(method);
+               << " in " << method->PrettyMethod();
   }
   return UINTPTR_MAX;
 }

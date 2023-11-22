@@ -43,7 +43,7 @@ LOCAL_SRC_FILES := libvncserver/auth.c \
                    common/vncauth.c \
                    test/bmp.c
 
-LOCAL_STATIC_LIBRARIES := libz libpng libjpeg_static libssl_static
+LOCAL_STATIC_LIBRARIES := libz libpng libjpeg libssl
 LOCAL_CFLAGS := -D__ANDROID__ -DHAVE_LIBSSL -DWITH_WEBSOCKETS
 
 #LOCAL_SDK_VERSION := 14

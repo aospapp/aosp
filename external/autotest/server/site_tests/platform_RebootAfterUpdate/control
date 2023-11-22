@@ -11,7 +11,6 @@ TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:experimental"
-SUITE = "experimental"
 
 DOC = """
 This test checks the behavior of reboot after update. It specifically tests

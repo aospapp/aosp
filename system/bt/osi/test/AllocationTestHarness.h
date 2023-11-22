@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 
 class AllocationTestHarness : public ::testing::Test {
-  protected:
-    virtual void SetUp();
-    virtual void TearDown();
+ protected:
+  virtual void SetUp();
+  virtual void TearDown();
 };

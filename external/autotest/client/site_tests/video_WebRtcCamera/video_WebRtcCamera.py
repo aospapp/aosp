@@ -13,22 +13,19 @@ from autotest_lib.client.common_lib.cros import chrome
 
 EXTRA_BROWSER_ARGS = ['--use-fake-ui-for-media-stream']
 
-# Statistics from the loopback.html page.
-TEST_PROGRESS = 'testProgress'
+# Variables from the getusermedia.html page.
+IS_TEST_DONE = 'isTestDone'
 
-# Polling timeout
-TIMEOUT = 240
+# Polling timeout.
+SEVERAL_MINUTES_IN_SECS = 240
 
-# max number of allowed blackframes or frozen frames
-BLACK_FRAMES_THRESHOLD = 10
-FROZEN_FRAMES_THRESHOLD = 10
 
 class video_WebRtcCamera(test.test):
-    """Local Peer connection test with webcam at 720p."""
+    """Local getUserMedia test with webcam at VGA (and 720p, if supported)."""
     version = 1
 
-    def start_loopback(self, cr):
-        """Opens WebRTC loopback page.
+    def start_getusermedia(self, cr):
+        """Opens the test page.
 
         @param cr: Autotest Chrome instance.
         """
@@ -36,7 +33,7 @@ class video_WebRtcCamera(test.test):
 
         self.tab = cr.browser.tabs[0]
         self.tab.Navigate(cr.browser.platform.http_server.UrlOf(
-                os.path.join(self.bindir, 'loopback.html')))
+                os.path.join(self.bindir, 'getusermedia.html')))
         self.tab.WaitForDocumentReadyStateToBeComplete()
 
 
@@ -64,82 +61,73 @@ class video_WebRtcCamera(test.test):
                 'either VGA or 720p in lsusb output: %s' % usb_devices)
 
 
-    def is_test_completed(self):
-        """Checks if WebRTC peerconnection test is done.
+    def wait_test_completed(self, timeout_secs):
+        """Waits until the test is done.
 
-        @returns True if test complete, False otherwise.
+        @param timeout_secs Max time to wait in seconds.
 
+        @raises TestError on timeout, or javascript eval fails.
         """
-        def test_done():
-          """Check the testProgress variable in HTML page."""
+        def _test_done():
+            is_test_done = self.tab.EvaluateJavaScript(IS_TEST_DONE)
+            return is_test_done == 1
 
-          # Wait for test completion on web page.
-          test_progress = self.tab.EvaluateJavaScript(TEST_PROGRESS)
-          return test_progress == 1
-
-        try:
-            utils.poll_for_condition(
-                    test_done, timeout=TIMEOUT,
-                    exception=error.TestError(
-                        'Cannot find testProgress value.'),
-                    sleep_interval=1)
-        except error.TestError:
-            partial_results = self.tab.EvaluateJavaScript('getResults()')
-            logging.info('Here are the partial results so far: %s',
-                         partial_results)
-            return False
-        else:
-            return True
-
+        utils.poll_for_condition(
+            _test_done, timeout=timeout_secs, sleep_interval=1,
+            desc=('getusermedia.html:reportTestDone did not run. Test did not '
+                  'complete successfully.'))
 
     def run_once(self):
-        """Runs the video_WebRtcPeerConnectionWithCamera test."""
+        """Runs the test."""
         self.board = utils.get_current_board()
-        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS) as cr:
-            # Open WebRTC loopback page and start the loopback.
-            self.start_loopback(cr)
-            if not self.check_loopback_result():
-                raise error.TestFail('Failed webrtc camera test')
+        with chrome.Chrome(extra_browser_args=EXTRA_BROWSER_ARGS,
+                           init_network_controller=True) as cr:
+            self.start_getusermedia(cr)
+            self.print_perf_results()
 
 
-    def check_loopback_result(self):
-        """Get the WebRTC Camera results."""
-        if not self.is_test_completed():
-            logging.error('loopback.html did not complete')
-            return False
+    def print_perf_results(self):
+        """Prints the perf results unless there was an error.
+
+        @returns the empty string if perf results were printed, otherwise
+                 a description of the error that occured.
+        """
+        self.wait_test_completed(SEVERAL_MINUTES_IN_SECS)
         try:
             results = self.tab.EvaluateJavaScript('getResults()')
-        except:
-            logging.error('Cannot retrieve results from loopback.html page')
-            return False
+        except Exception as e:
+            raise error.TestFail('Failed to get getusermedia.html results', e)
         logging.info('Results: %s', results)
-        for resolution in results:
-            item = results[resolution]
-            if (item['cameraErrors'] and resolution == '1280,720'
-                    and self.webcam_supports_720p()):
-                logging.error('Camera error: %s', item['cameraErrors'])
-                return False
-            if not item['frameStats']:
-                output_resolution = re.sub(',', 'x', resolution)
-                logging.error('Frame Stats is empty for resolution: %s',
-                              output_resolution)
-                return False
 
-            if item['frameStats']['numBlackFrames'] > BLACK_FRAMES_THRESHOLD:
-                logging.error('BlackFrames threshold overreach: '
-                              'got %s > %s allowed',
-                              item['frameStats']['numBlackFrames'],
-                              BLACK_FRAMES_THRESHOLD)
-                return False
-            if item['frameStats']['numFrozenFrames'] > FROZEN_FRAMES_THRESHOLD:
-                logging.error('FrozenFrames threshold overreach: '
-                              'got %s > %s allowed',
-                              item['frameStats']['numFrozenFrames'],
-                              FROZEN_FRAMES_THRESHOLD)
-                return False
-            if item['frameStats']['numFrames'] == 0:
-                logging.error('%s Frames were found',
-                              item['frameStats']['numFrames'])
-                return False
+        errors = []
+        for width_height, data in results.iteritems():
+            resolution = re.sub(',', 'x', width_height)
+            if data['cameraErrors']:
+                if (resolution == '1280x720' and
+                        not self.webcam_supports_720p()):
+                    logging.info('Accepting 720p failure since device webcam '
+                                 'does not support 720p')
+                    continue
 
-        return True
+                # Else we had a VGA failure or a legit 720p failure.
+                errors.append('Camera error: %s for resolution '
+                            '%s.' % (data['cameraErrors'], resolution))
+                continue
+            if not data['frameStats']:
+                errors.append('Frame Stats is empty '
+                              'for resolution: %s' % resolution)
+                continue
+            self.output_perf_value(
+                    description='black_frames_%s' % resolution,
+                    value=data['frameStats']['numBlackFrames'],
+                    units='frames', higher_is_better=False)
+            self.output_perf_value(
+                    description='frozen_frames_%s' % resolution,
+                    value=data['frameStats']['numFrozenFrames'],
+                    units='frames', higher_is_better=False)
+            self.output_perf_value(
+                    description='total_num_frames_%s' % resolution,
+                    value=data['frameStats']['numFrames'],
+                    units='frames', higher_is_better=True)
+        if errors:
+            raise error.TestFail('Found errors: %s' % ', '.join(errors))

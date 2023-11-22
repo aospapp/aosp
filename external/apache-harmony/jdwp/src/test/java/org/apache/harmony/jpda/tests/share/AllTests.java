@@ -90,6 +90,7 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.BreakpointMultipleTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.BreakpointOnCatchTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.BreakpointTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ClassPrepare002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.ClassPrepareTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedEvents002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.Events.CombinedEvents003Test.class);
@@ -163,6 +164,8 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValues003Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValues004Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValues005Test.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValues006Test.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValues007Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.GetValuesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.InstancesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.InterfacesTest.class);
@@ -175,6 +178,8 @@ public class AllTests {
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.SourceDebugExtensionTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.SourceFileTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.StatusTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.SyntheticFieldsTest.class);
+    suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.ReferenceType.SyntheticMethodsTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.StackFrame.GetValues002Test.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.StackFrame.GetValuesTest.class);
     suite.addTestSuite(org.apache.harmony.jpda.tests.jdwp.StackFrame.PopFrames002Test.class);

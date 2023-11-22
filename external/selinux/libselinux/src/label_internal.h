@@ -16,6 +16,11 @@
 #include "dso.h"
 #include "sha1.h"
 
+#if defined(ANDROID) || defined(__APPLE__)
+// Android and Mac do not have fgets_unlocked()
+#define fgets_unlocked(buf, size, fp) fgets(buf, size, fp)
+#endif
+
 /*
  * Installed backends
  */
@@ -32,6 +37,9 @@ int selabel_db_init(struct selabel_handle *rec,
 			    const struct selinux_opt *opts,
 			    unsigned nopts) hidden;
 int selabel_property_init(struct selabel_handle *rec,
+			    const struct selinux_opt *opts,
+			    unsigned nopts) hidden;
+int selabel_service_init(struct selabel_handle *rec,
 			    const struct selinux_opt *opts,
 			    unsigned nopts) hidden;
 
@@ -100,10 +108,12 @@ struct selabel_handle {
 	void *data;
 
 	/*
-	 * The main spec file used. Note for file contexts the local and/or
+	 * The main spec file(s) used. Note for file contexts the local and/or
 	 * homedirs could also have been used to resolve a context.
 	 */
-	char *spec_file;
+	size_t spec_files_len;
+	char **spec_files;
+
 
 	/* substitution support */
 	struct selabel_sub *dist_subs;
@@ -124,7 +134,7 @@ selabel_validate(struct selabel_handle *rec,
  */
 extern int myprintf_compat;
 extern void __attribute__ ((format(printf, 1, 2)))
-(*myprintf) (const char *fmt, ...);
+(*myprintf) (const char *fmt, ...) hidden;
 
 #define COMPAT_LOG(type, fmt...) if (myprintf_compat)	  \
 		myprintf(fmt);				  \
@@ -140,6 +150,6 @@ compat_validate(struct selabel_handle *rec,
  * The read_spec_entries function may be used to
  * replace sscanf to read entries from spec files.
  */
-extern int read_spec_entries(char *line_buf, int num_args, ...);
+extern int read_spec_entries(char *line_buf, const char **errbuf, int num_args, ...);
 
 #endif				/* _SELABEL_INTERNAL_H_ */

@@ -18,8 +18,8 @@
 #include "rsAnimation.h"
 
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 void Animation::serialize(Context *rsc, OStream *stream) const {
 }
@@ -116,9 +116,6 @@ Animation * Animation::create(Context *rsc,
 /////////////////////////////////////////
 //
 
-namespace android {
-namespace renderscript {
-
 RsAnimation rsi_AnimationCreate(Context *rsc,
                                 const float *inValues,
                                 const float *outValues,
@@ -133,8 +130,5 @@ RsAnimation rsi_AnimationCreate(Context *rsc,
     }
     return (RsAnimation)a;
 }
-
-
-}
-}
-
+} // namespace renderscript
+} // namespace android

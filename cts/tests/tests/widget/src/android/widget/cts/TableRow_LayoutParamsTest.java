@@ -16,15 +16,16 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import org.xmlpull.v1.XmlPullParser;
-
-import android.content.Context;
+import android.app.Activity;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -34,26 +35,33 @@ import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.cts.util.XmlUtils;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
 /**
  * Test {@link TableRow.LayoutParams}.
  */
-public class TableRow_LayoutParamsTest
-        extends ActivityInstrumentationTestCase2<TableCtsActivity> {
-    Context mTargetContext;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TableRow_LayoutParamsTest {
+    private Activity mActivity;
 
-    public TableRow_LayoutParamsTest() {
-        super("android.widget.cts", TableCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<TableCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TableCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mTargetContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
-        new TableRow.LayoutParams(mTargetContext, null);
+        new TableRow.LayoutParams(mActivity, null);
 
         TableRow.LayoutParams layoutParams = new TableRow.LayoutParams(200, 300);
         assertEquals(200, layoutParams.width);
@@ -65,7 +73,7 @@ public class TableRow_LayoutParamsTest
         layoutParams = new TableRow.LayoutParams(200, 300, 1.2f);
         assertEquals(200, layoutParams.width);
         assertEquals(300, layoutParams.height);
-        assertEquals(1.2f, layoutParams.weight);
+        assertEquals(1.2f, layoutParams.weight, 0.0f);
         assertEquals(-1, layoutParams.column);
         assertEquals(1, layoutParams.span);
         MarginLayoutParams oldMarginParams = layoutParams;
@@ -90,17 +98,15 @@ public class TableRow_LayoutParamsTest
         assertEquals(0, layoutParams.column);
         assertEquals(0, layoutParams.span);
 
-        TableCtsActivity activity = getActivity();
-        activity.setContentView(R.layout.table_layout_2);
+        mActivity.setContentView(R.layout.table_layout_2);
         int idTable = R.id.table2;
-        TableLayout tableLayout = (TableLayout) activity.findViewById(idTable);
-        View vVitural1 = ((TableRow) tableLayout.getChildAt(0)).getVirtualChildAt(1);
-        layoutParams = (TableRow.LayoutParams) vVitural1.getLayoutParams();
+        TableLayout tableLayout = (TableLayout) mActivity.findViewById(idTable);
+        View vVirtual1 = ((TableRow) tableLayout.getChildAt(0)).getVirtualChildAt(1);
+        layoutParams = (TableRow.LayoutParams) vVirtual1.getLayoutParams();
         assertEquals(1, layoutParams.column);
-        View vVitural2 = ((TableRow) tableLayout.getChildAt(0)).getVirtualChildAt(2);
-        layoutParams = (TableRow.LayoutParams) vVitural2.getLayoutParams();
+        View vVirtual2 = ((TableRow) tableLayout.getChildAt(0)).getVirtualChildAt(2);
+        layoutParams = (TableRow.LayoutParams) vVirtual2.getLayoutParams();
         assertEquals(2, layoutParams.span);
-
     }
 
     /**
@@ -109,6 +115,7 @@ public class TableRow_LayoutParamsTest
      * setBaseAttributes(android.content.res.TypedArray, int, int)}
      * .
      */
+    @Test
     public void testSetBaseAttributes() {
         MockTableRow_LayoutParams mockLayoutParams = new MockTableRow_LayoutParams(200, 300);
         assertEquals(200, mockLayoutParams.width);
@@ -116,7 +123,7 @@ public class TableRow_LayoutParamsTest
 
         // base_attr_pixel: layout_width = 400px, layout_height = 600px
         AttributeSet attrs = getAttrs("base_attr_pixel");
-        TypedArray a = mTargetContext.obtainStyledAttributes(attrs,
+        TypedArray a = mActivity.obtainStyledAttributes(attrs,
                 android.R.styleable.ViewGroup_Layout);
 
         mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_width,
@@ -132,7 +139,7 @@ public class TableRow_LayoutParamsTest
         a.recycle();
         // base_attr_fillwrap: layout_width = "match_parent", layout_height = "wrap_content"
         attrs = getAttrs("base_attr_fillwrap");
-        a = mTargetContext.obtainStyledAttributes(attrs, android.R.styleable.ViewGroup_Layout);
+        a = mActivity.obtainStyledAttributes(attrs, android.R.styleable.ViewGroup_Layout);
 
         mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_width,
                 android.R.styleable.ViewGroup_Layout_layout_height);
@@ -147,7 +154,7 @@ public class TableRow_LayoutParamsTest
         a.recycle();
         // base_attr_noheight: layout_width = 600px, no layout_height.
         attrs = getAttrs("base_attr_noheight");
-        a = mTargetContext.obtainStyledAttributes(attrs, android.R.styleable.ViewGroup_Layout);
+        a = mActivity.obtainStyledAttributes(attrs, android.R.styleable.ViewGroup_Layout);
 
         mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_width,
                 android.R.styleable.ViewGroup_Layout_layout_height);
@@ -186,7 +193,7 @@ public class TableRow_LayoutParamsTest
         XmlResourceParser parser = null;
         AttributeSet attrs = null;
         try {
-            parser = mTargetContext.getResources().getXml(R.xml.base_attributes);
+            parser = mActivity.getResources().getXml(R.xml.base_attributes);
 
             int type;
             while ((type = parser.next()) != XmlPullParser.END_DOCUMENT

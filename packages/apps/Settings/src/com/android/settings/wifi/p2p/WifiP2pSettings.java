@@ -51,7 +51,7 @@ import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
 
@@ -491,8 +491,23 @@ public class WifiP2pSettings extends SettingsPreferenceFragment
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.WIFI_P2P;
+    }
+
+    @Override
+    public int getDialogMetricsCategory(int dialogId) {
+        switch (dialogId) {
+            case DIALOG_DISCONNECT:
+                return MetricsEvent.DIALOG_WIFI_P2P_DISCONNECT;
+            case DIALOG_CANCEL_CONNECT:
+                return MetricsEvent.DIALOG_WIFI_P2P_CANCEL_CONNECT;
+            case DIALOG_RENAME:
+                return MetricsEvent.DIALOG_WIFI_P2P_RENAME;
+            case DIALOG_DELETE_GROUP:
+                return MetricsEvent.DIALOG_WIFI_P2P_DELETE_GROUP;
+        }
+        return 0;
     }
 
     @Override

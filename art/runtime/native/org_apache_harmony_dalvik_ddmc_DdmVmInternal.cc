@@ -20,10 +20,9 @@
 #include "base/mutex.h"
 #include "debugger.h"
 #include "jni_internal.h"
-#include "scoped_fast_native_object_access.h"
+#include "scoped_fast_native_object_access-inl.h"
 #include "ScopedLocalRef.h"
 #include "ScopedPrimitiveArray.h"
-#include "stack.h"
 #include "thread_list.h"
 
 namespace art {
@@ -166,11 +165,11 @@ static void DdmVmInternal_threadNotify(JNIEnv*, jclass, jboolean enable) {
 
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(DdmVmInternal, enableRecentAllocations, "(Z)V"),
-  NATIVE_METHOD(DdmVmInternal, getRecentAllocations, "!()[B"),
-  NATIVE_METHOD(DdmVmInternal, getRecentAllocationStatus, "!()Z"),
+  FAST_NATIVE_METHOD(DdmVmInternal, getRecentAllocations, "()[B"),
+  FAST_NATIVE_METHOD(DdmVmInternal, getRecentAllocationStatus, "()Z"),
   NATIVE_METHOD(DdmVmInternal, getStackTraceById, "(I)[Ljava/lang/StackTraceElement;"),
   NATIVE_METHOD(DdmVmInternal, getThreadStats, "()[B"),
-  NATIVE_METHOD(DdmVmInternal, heapInfoNotify, "!(I)Z"),
+  FAST_NATIVE_METHOD(DdmVmInternal, heapInfoNotify, "(I)Z"),
   NATIVE_METHOD(DdmVmInternal, heapSegmentNotify, "(IIZ)Z"),
   NATIVE_METHOD(DdmVmInternal, threadNotify, "(Z)V"),
 };

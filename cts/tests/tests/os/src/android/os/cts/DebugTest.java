@@ -15,18 +15,20 @@
  */
 package android.os.cts;
 
+import android.content.Context;
+import android.os.Debug;
+import android.test.AndroidTestCase;
+
+import com.android.compatibility.common.util.TestThread;
+
+import dalvik.system.VMDebug;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.Map;
-
-import android.content.Context;
-import android.cts.util.TestThread;
-import android.os.Debug;
-import android.test.AndroidTestCase;
-import dalvik.system.VMDebug;
 
 public class DebugTest extends AndroidTestCase {
     private static final Logger Log = Logger.getLogger(DebugTest.class.getName());

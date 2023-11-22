@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2015, International Business Machines Corporation and    *
@@ -126,7 +128,7 @@ public final class Utility {
         return true;
     }
 
-    /** 
+    /**
      * Convenience utility to compare two int[]s.
      * @param len the length to compare.
      * The start indices and start+len must be valid.
@@ -175,20 +177,29 @@ public final class Utility {
     }
 
     /**
+     * Trivial reference equality.
+     * This method should help document that we really want == not equals(),
+     * and to have a single place to suppress warnings from static analysis tools.
+     */
+    public static final boolean sameObjects(Object a, Object b) {
+        return a == b;
+    }
+
+    /**
      * Convenience utility. Does null checks on objects, then calls equals.
      */
     public final static boolean objectEquals(Object a, Object b) {
-        return a == null ? 
-                b == null ? true : false : 
+        return a == null ?
+                b == null ? true : false :
                     b == null ? false : a.equals(b);
     }
-    
+
     /**
      * Convenience utility. Does null checks on objects, then calls compare.
      */
     public static <T extends Comparable<T>> int checkCompare(T a, T b) {
-        return a == null ? 
-                b == null ? 0 : -1 : 
+        return a == null ?
+                b == null ? 0 : -1 :
                     b == null ? 1 : a.compareTo(b);
       }
 
@@ -198,7 +209,7 @@ public final class Utility {
     public static int checkHash(Object a) {
         return a == null ? 0 : a.hashCode();
       }
-    
+
     /**
      * The ESCAPE character is used during run-length encoding.  It signals
      * a run of identical chars.
@@ -362,8 +373,8 @@ public final class Utility {
             }
         }
         else {
-            if (length == (int) ESCAPE) {
-                if (value == (int) ESCAPE) {
+            if (length == ESCAPE) {
+                if (value == ESCAPE) {
                     appendInt(buffer, ESCAPE);
                 }
                 appendInt(buffer, value);
@@ -390,22 +401,26 @@ public final class Utility {
      */
     private static final <T extends Appendable> void encodeRun(T buffer, short value, int length) {
         try {
+            char valueChar = (char) value;
             if (length < 4) {
                 for (int j=0; j<length; ++j) {
-                    if (value == (int) ESCAPE)
+                    if (valueChar == ESCAPE) {
                         buffer.append(ESCAPE);
-                    buffer.append((char) value);
+                    }
+                    buffer.append(valueChar);
                 }
             }
             else {
-                if (length == (int) ESCAPE) {
-                    if (value == (int) ESCAPE) buffer.append(ESCAPE);
-                    buffer.append((char) value);
+                if (length == ESCAPE) {
+                    if (valueChar == ESCAPE) {
+                        buffer.append(ESCAPE);
+                    }
+                    buffer.append(valueChar);
                     --length;
                 }
                 buffer.append(ESCAPE);
                 buffer.append((char) length);
-                buffer.append((char) value); // Don't need to escape this value
+                buffer.append(valueChar); // Don't need to escape this value
             }
         } catch (IOException e) {
             throw new IllegalIcuArgumentException(e);
@@ -425,7 +440,7 @@ public final class Utility {
             }
         }
         else {
-            if (length == ESCAPE_BYTE) {
+            if ((byte)length == ESCAPE_BYTE) {
                 if (value == ESCAPE_BYTE) appendEncodedByte(buffer, ESCAPE_BYTE, state);
                 appendEncodedByte(buffer, value, state);
                 --length;
@@ -448,7 +463,7 @@ public final class Utility {
             byte[] state) {
         try {
             if (state[0] != 0) {
-                char c = (char) ((state[1] << 8) | (((int) value) & 0xFF));
+                char c = (char) ((state[1] << 8) | ((value) & 0xFF));
                 buffer.append(c);
                 state[0] = 0;
             }
@@ -497,14 +512,14 @@ public final class Utility {
         return array;
     }
     static final int getInt(String s, int i) {
-        return (((int) s.charAt(2*i)) << 16) | (int) s.charAt(2*i+1);
+        return ((s.charAt(2*i)) << 16) | s.charAt(2*i+1);
     }
 
     /**
      * Construct an array of shorts from a run-length encoded string.
      */
     static public final short[] RLEStringToShortArray(String s) {
-        int length = (((int) s.charAt(0)) << 16) | ((int) s.charAt(1));
+        int length = ((s.charAt(0)) << 16) | (s.charAt(1));
         short[] array = new short[length];
         int ai = 0;
         for (int i=2; i<s.length(); ++i) {
@@ -514,7 +529,7 @@ public final class Utility {
                 if (c == ESCAPE) {
                     array[ai++] = (short) c;
                 } else {
-                    int runLength = (int) c;
+                    int runLength = c;
                     short runValue = (short) s.charAt(++i);
                     for (int j=0; j<runLength; ++j) array[ai++] = runValue;
                 }
@@ -534,7 +549,7 @@ public final class Utility {
      * Construct an array of shorts from a run-length encoded string.
      */
     static public final char[] RLEStringToCharArray(String s) {
-        int length = (((int) s.charAt(0)) << 16) | ((int) s.charAt(1));
+        int length = ((s.charAt(0)) << 16) | (s.charAt(1));
         char[] array = new char[length];
         int ai = 0;
         for (int i=2; i<s.length(); ++i) {
@@ -544,7 +559,7 @@ public final class Utility {
                 if (c == ESCAPE) {
                     array[ai++] = c;
                 } else {
-                    int runLength = (int) c;
+                    int runLength = c;
                     char runValue = s.charAt(++i);
                     for (int j=0; j<runLength; ++j) array[ai++] = runValue;
                 }
@@ -564,7 +579,7 @@ public final class Utility {
      * Construct an array of bytes from a run-length encoded string.
      */
     static public final byte[] RLEStringToByteArray(String s) {
-        int length = (((int) s.charAt(0)) << 16) | ((int) s.charAt(1));
+        int length = ((s.charAt(0)) << 16) | (s.charAt(1));
         byte[] array = new byte[length];
         boolean nextChar = true;
         char c = 0;
@@ -1032,7 +1047,7 @@ public final class Utility {
      */
     public static <S extends CharSequence> String hex(S s, int width, S separator) {
         return hex(s, width, separator, true, new StringBuilder()).toString();
-    }   
+    }
 
     /**
      * Split a string into pieces based on the given divider character
@@ -1675,7 +1690,7 @@ public final class Utility {
         target += MAGIC_UNSIGNED;
         if (source < target) {
             return -1;
-        } 
+        }
         else if (source > target) {
             return 1;
         }
@@ -1728,7 +1743,7 @@ public final class Utility {
     }
     /**
      * Utility method to take a int[] containing codepoints and return
-     * a string representation with code units. 
+     * a string representation with code units.
      */
     public static String valueOf(int[]source){
         // TODO: Investigate why this method is not on UTF16 class
@@ -1754,7 +1769,7 @@ public final class Utility {
         }
         return result.toString();
     }
-    
+
     public static String[] splitString(String src, String target) {
         return src.split("\\Q" + target + "\\E");
     }
@@ -1776,7 +1791,7 @@ public final class Utility {
     public static String fromHex(String string, int minLength, String separator) {
         return fromHex(string, minLength, Pattern.compile(separator != null ? separator : "\\s+"));
     }
-    
+
     /**
      * Parse a list of hex numbers and return a string
      * @param string String of hex numbers.

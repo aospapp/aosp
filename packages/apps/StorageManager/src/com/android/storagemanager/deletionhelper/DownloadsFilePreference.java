@@ -19,30 +19,28 @@ package com.android.storagemanager.deletionhelper;
 import android.content.Context;
 import android.support.v7.preference.Preference;
 import android.text.format.DateUtils;
-import android.text.format.Formatter;
-import android.webkit.MimeTypeMap;
-import com.android.storagemanager.R;
-import com.android.storagemanager.utils.IconUtils;
+
+import com.android.storagemanager.utils.IconProvider;
 
 import java.io.File;
 
 /**
- * DownloadsFilePreference is a preference representing a file in the Downloads folder
- * with a checkbox that represents if the file should be deleted.
+ * DownloadsFilePreference is a preference representing a file in the Downloads folder with a
+ * checkbox that represents if the file should be deleted.
  */
-public class DownloadsFilePreference extends NestedCheckboxPreference {
+public class DownloadsFilePreference extends NestedDeletionPreference {
     private File mFile;
 
-    public DownloadsFilePreference(Context context, File file) {
+    public DownloadsFilePreference(Context context, File file, IconProvider iconProvider) {
         super(context);
         mFile = file;
         setKey(mFile.getPath());
         setTitle(file.getName());
-        setSummary(context.getString(R.string.deletion_helper_downloads_file_summary,
-                Formatter.formatFileSize(getContext(), file.length()),
-                DateUtils.formatDateTime(context,
-                        mFile.lastModified(),DateUtils.FORMAT_SHOW_DATE)));
-        setIcon(context.getContentResolver().getTypeDrawable(getMimeType()));
+        setItemSize(file.length());
+        setSummary(
+                DateUtils.formatDateTime(
+                        context, mFile.lastModified(), DateUtils.FORMAT_SHOW_DATE));
+        setIcon(iconProvider.loadMimeIcon(IconProvider.getMimeType(mFile)));
 
         // We turn off persistence because we need the file preferences to reset their check when
         // you return to the view.
@@ -60,27 +58,20 @@ public class DownloadsFilePreference extends NestedCheckboxPreference {
         }
 
         if (other instanceof DownloadsFilePreference) {
-            DownloadsFilePreference preference = (DownloadsFilePreference) other;
-            return Long.compare(preference.getFile().length(), getFile().length());
+            File otherFile = ((DownloadsFilePreference) other).getFile();
+            File file = getFile();
+            // Note: The order is reversed in this comparison because we want the value to be less
+            // than 0 if we're bigger. Long.compare returns less than 0 if first < second.
+            int comparison = Long.compare(otherFile.length(), file.length());
+            if (comparison == 0) {
+                comparison = file.compareTo(otherFile);
+            }
+            return comparison;
         } else {
             // If a non-DownloadsFilePreference appears, consider ourselves to be greater.
             // This means if a non-DownloadsFilePreference sneaks into a DownloadsPreferenceGroup
             // then the DownloadsFilePreference will appear higher.
             return 1;
         }
-    }
-
-    private String getMimeType() {
-        String name = getFile().getName();
-        final int lastDot = name.lastIndexOf('.');
-        if (lastDot >= 0) {
-            final String extension = name.substring(lastDot + 1);
-            final String mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(
-                    extension.toLowerCase());
-            if (mimeType != null) {
-                return mimeType;
-            }
-        }
-        return "application/octet-stream";
     }
 }

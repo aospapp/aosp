@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"ሰርዝ"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"የተገላቢጦሽ ተግባሮችን አሳይ"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"የተገላቢጦሽ ተግባሮችን ደብቅ"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"ምንም ቀመር የለም"</string>
+    <string name="desc_result" msgid="1794073190203126821">"ምንም ውጤት የለም"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"ቁጥሮች እና መሠረታዊ ክወናዎች"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"የላቁ ክወናዎች"</string>
     <string name="error_nan" msgid="5674077944929888710">"ቁጥር አይደለም"</string>
     <string name="error_syntax" msgid="4786987111228645602">"መጥፎ የሒሳብ ሐረግ"</string>
     <string name="error_aborted" msgid="3402238176316342537">"ተቋርጧል"</string>
     <string name="error_overflow" msgid="7800547394563434764">"የትየለሌ?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"በ0 ማካፈል አይቻልም"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"ፅሁፍ ተቀድቷል"</string>
-    <string name="cancelled" msgid="1618889609742874632">"ማስላት ተሰርዟል"</string>
-    <string name="timeout" msgid="802690170415591535">"ጊዜው ቆሟል። እሴቱ የትየሌለ ወይም ያልተገለጸ ሊሆን ይችላል።"</string>
+    <string name="cancelled" msgid="2207323593183640994">"ማስላት ተሰርዟል።"</string>
+    <string name="timeout" msgid="5461892570729418573">"እሴቱ የትየሌለ ወይም ያልተገለጸ ሊሆን ይችላል።"</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"ረጅም የመጠበቂያ ጊዜ ይጠቀሙ"</string>
     <string name="dismiss" msgid="7872443888515066216">"አሰናብት"</string>
     <string name="exact" msgid="2597237880041789948">"(ትክክለኛ)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"በሚመሩ አኃዞች መልስ"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"እንደ ክፍልፋይ መልስ"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"የክፍት ምንጭ ፍቃዶች"</string>
+    <string name="menu_history" msgid="9006222701220105452">"ታሪክ"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"አጽዳ"</string>
+    <string name="title_history" msgid="7820912156315181539">"ታሪክ"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"ወደ ላይ ያስሱ"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"ጊዜ አልቋል"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"ታሪክ እና ማህደረ ትውስታ ይጽዳ?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"የአሁኑ አገላለጽ"</string>
+    <string name="no_history" msgid="4331262030447527188">"ምንም ታሪክ የለም"</string>
 </resources>

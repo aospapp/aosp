@@ -16,7 +16,7 @@
 
 package android.video.cts;
 
-import android.cts.util.MediaUtils;
+import com.android.compatibility.common.util.MediaUtils;
 
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;

@@ -35,11 +35,11 @@ import java.util.HashMap;
  * display a view for the currently focused list item below the rendered
  * list. This view is known as a hover card.
  *
- * <h3>Selection animation</h3>
- * ListRowPresenter disables {@link RowPresenter}'s default dimming effect and draws
- * a dim overlay on each view individually.  A subclass may override and disable
- * {@link #isUsingDefaultListSelectEffect()} and write its own dim effect in
- * {@link #onSelectLevelChanged(RowPresenter.ViewHolder)}.
+ * <h3>Row selection animation</h3>
+ * ListRowPresenter disables {@link RowPresenter}'s default full row dimming effect and draws
+ * a dim overlay on each child individually.  A subclass may disable the overlay on each child
+ * by overriding {@link #isUsingDefaultListSelectEffect()} to return false and write its own child
+ * dim effect in {@link #applySelectLevelToChild(ViewHolder, View)}.
  *
  * <h3>Shadow</h3>
  * ListRowPresenter applies a default shadow to each child view.  Call
@@ -122,6 +122,21 @@ public class ListRowPresenter extends RowPresenter {
             }
             return ibvh.getViewHolder();
         }
+
+        @Override
+        public Presenter.ViewHolder getSelectedItemViewHolder() {
+            return getItemViewHolder(getSelectedPosition());
+        }
+
+        @Override
+        public Object getSelectedItem() {
+            ItemBridgeAdapter.ViewHolder ibvh = (ItemBridgeAdapter.ViewHolder) mGridView
+                    .findViewHolderForAdapterPosition(getSelectedPosition());
+            if (ibvh == null) {
+                return null;
+            }
+            return ibvh.getItem();
+        }
     }
 
     /**
@@ -132,7 +147,7 @@ public class ListRowPresenter extends RowPresenter {
 
         private int mItemPosition;
         private boolean mSmoothScroll = true;
-        private Presenter.ViewHolderTask mItemTask;
+        Presenter.ViewHolderTask mItemTask;
 
         public SelectItemViewHolderTask(int itemPosition) {
             setItemPosition(itemPosition);
@@ -255,10 +270,7 @@ public class ListRowPresenter extends RowPresenter {
 
         @Override
         public void onAttachedToWindow(ItemBridgeAdapter.ViewHolder viewHolder) {
-            if (mShadowOverlayHelper != null && mShadowOverlayHelper.needsOverlay()) {
-                int dimmedColor = mRowViewHolder.mColorDimmer.getPaint().getColor();
-                mShadowOverlayHelper.setOverlayColor(viewHolder.itemView, dimmedColor);
-            }
+            applySelectLevelToChild(mRowViewHolder, viewHolder.itemView);
             mRowViewHolder.syncActivatedStatus(viewHolder.itemView);
         }
 
@@ -280,7 +292,7 @@ public class ListRowPresenter extends RowPresenter {
     private boolean mRoundedCornersEnabled = true;
     private boolean mKeepChildForeground = true;
     private HashMap<Presenter, Integer> mRecycledPoolSize = new HashMap<Presenter, Integer>();
-    private ShadowOverlayHelper mShadowOverlayHelper;
+    ShadowOverlayHelper mShadowOverlayHelper;
     private ItemBridgeAdapter.Wrapper mShadowOverlayWrapper;
 
     private static int sSelectedRowTopPadding;
@@ -425,7 +437,7 @@ public class ListRowPresenter extends RowPresenter {
         FocusHighlightHelper.setupBrowseItemFocusHighlight(rowViewHolder.mItemBridgeAdapter,
                 mFocusZoomFactor, mUseFocusDimmer);
         rowViewHolder.mGridView.setFocusDrawingOrderEnabled(mShadowOverlayHelper.getShadowType()
-                == ShadowOverlayHelper.SHADOW_STATIC);
+                != ShadowOverlayHelper.SHADOW_DYNAMIC);
         rowViewHolder.mGridView.setOnChildSelectedListener(
                 new OnChildSelectedListener() {
             @Override
@@ -435,16 +447,13 @@ public class ListRowPresenter extends RowPresenter {
         });
         rowViewHolder.mGridView.setOnUnhandledKeyListener(
                 new BaseGridView.OnUnhandledKeyListener() {
-            @Override
-            public boolean onUnhandledKey(KeyEvent event) {
-                if (rowViewHolder.getOnKeyListener() != null &&
-                        rowViewHolder.getOnKeyListener().onKey(
-                                rowViewHolder.view, event.getKeyCode(), event)) {
-                    return true;
+                @Override
+                public boolean onUnhandledKey(KeyEvent event) {
+                    return rowViewHolder.getOnKeyListener() != null
+                            && rowViewHolder.getOnKeyListener().onKey(
+                                    rowViewHolder.view, event.getKeyCode(), event);
                 }
-                return false;
-            }
-        });
+            });
         rowViewHolder.mGridView.setNumRows(mNumRows);
     }
 
@@ -484,7 +493,7 @@ public class ListRowPresenter extends RowPresenter {
     /*
      * Perform operations when a child of horizontal grid view is selected.
      */
-    private void selectChildView(ViewHolder rowViewHolder, View view, boolean fireEvent) {
+    void selectChildView(ViewHolder rowViewHolder, View view, boolean fireEvent) {
         if (view != null) {
             if (rowViewHolder.mSelected) {
                 ItemBridgeAdapter.ViewHolder ibh = (ItemBridgeAdapter.ViewHolder)
@@ -538,10 +547,10 @@ public class ListRowPresenter extends RowPresenter {
         if (vh.isExpanded()) {
             int headerSpaceUnderBaseline = getSpaceUnderBaseline(vh);
             if (DEBUG) Log.v(TAG, "headerSpaceUnderBaseline " + headerSpaceUnderBaseline);
-            paddingTop = (vh.isSelected() ? sExpandedSelectedRowTopPadding : vh.mPaddingTop) -
-                    headerSpaceUnderBaseline;
-            paddingBottom = mHoverCardPresenterSelector == null ?
-                    sExpandedRowNoHovercardBottomPadding : vh.mPaddingBottom;
+            paddingTop = (vh.isSelected() ? sExpandedSelectedRowTopPadding : vh.mPaddingTop)
+                    - headerSpaceUnderBaseline;
+            paddingBottom = mHoverCardPresenterSelector == null
+                    ? sExpandedRowNoHovercardBottomPadding : vh.mPaddingBottom;
         } else if (vh.isSelected()) {
             paddingTop = sSelectedRowTopPadding - vh.mPaddingBottom;
             paddingBottom = sSelectedRowTopPadding;
@@ -669,7 +678,8 @@ public class ListRowPresenter extends RowPresenter {
     /**
      * Returns true so that default select effect is applied to each individual
      * child of {@link HorizontalGridView}.  Subclass may return false to disable
-     * the default implementation.
+     * the default implementation and implement {@link #applySelectLevelToChild(ViewHolder, View)}.
+     * @see #applySelectLevelToChild(ViewHolder, View)
      * @see #onSelectLevelChanged(RowPresenter.ViewHolder)
      */
     public boolean isUsingDefaultListSelectEffect() {
@@ -677,9 +687,9 @@ public class ListRowPresenter extends RowPresenter {
     }
 
     /**
-     * Returns true if SDK >= 18, where default shadow
-     * is applied to each individual child of {@link HorizontalGridView}.
-     * Subclass may return false to disable.
+     * Default implementation returns true if SDK version >= 21, shadow (either static or z-order
+     * based) will be applied to each individual child of {@link HorizontalGridView}.
+     * Subclass may return false to disable default implementation of shadow and provide its own.
      */
     public boolean isUsingDefaultShadow() {
         return ShadowOverlayHelper.supportsShadow();
@@ -769,29 +779,49 @@ public class ListRowPresenter extends RowPresenter {
     }
 
     /**
-     * Applies select level to header and draw a default color dim over each child
+     * Applies select level to header and draws a default color dim over each child
      * of {@link HorizontalGridView}.
      * <p>
-     * Subclass may override this method.  A subclass
-     * needs to call super.onSelectLevelChanged() for applying header select level
-     * and optionally applying a default select level to each child view of
-     * {@link HorizontalGridView} if {@link #isUsingDefaultListSelectEffect()}
-     * is true.  Subclass may override {@link #isUsingDefaultListSelectEffect()} to return
-     * false and deal with the individual item select level by itself.
+     * Subclass may override this method and starts with calling super if it has views to apply
+     * select effect other than header and HorizontalGridView.
+     * To override the default color dim over each child of {@link HorizontalGridView},
+     * app should override {@link #isUsingDefaultListSelectEffect()} to
+     * return false and override {@link #applySelectLevelToChild(ViewHolder, View)}.
      * </p>
+     * @see #isUsingDefaultListSelectEffect()
+     * @see RowPresenter.ViewHolder#getSelectLevel()
+     * @see #applySelectLevelToChild(ViewHolder, View)
      */
     @Override
     protected void onSelectLevelChanged(RowPresenter.ViewHolder holder) {
         super.onSelectLevelChanged(holder);
+        ViewHolder vh = (ViewHolder) holder;
+        for (int i = 0, count = vh.mGridView.getChildCount(); i < count; i++) {
+            applySelectLevelToChild(vh, vh.mGridView.getChildAt(i));
+        }
+    }
+
+    /**
+     * Applies select level to a child.  Default implementation draws a default color
+     * dim over each child of {@link HorizontalGridView}. This method is called on all children in
+     * {@link #onSelectLevelChanged(RowPresenter.ViewHolder)} and when a child is attached to
+     * {@link HorizontalGridView}.
+     * <p>
+     * Subclass may disable the default implementation by override
+     * {@link #isUsingDefaultListSelectEffect()} to return false and deal with the individual item
+     * select level by itself.
+     * </p>
+     * @param rowViewHolder The ViewHolder of the Row
+     * @param childView The child of {@link HorizontalGridView} to apply select level.
+     *
+     * @see #isUsingDefaultListSelectEffect()
+     * @see RowPresenter.ViewHolder#getSelectLevel()
+     * @see #onSelectLevelChanged(RowPresenter.ViewHolder)
+     */
+    protected void applySelectLevelToChild(ViewHolder rowViewHolder, View childView) {
         if (mShadowOverlayHelper != null && mShadowOverlayHelper.needsOverlay()) {
-            ViewHolder vh = (ViewHolder) holder;
-            int dimmedColor = vh.mColorDimmer.getPaint().getColor();
-            for (int i = 0, count = vh.mGridView.getChildCount(); i < count; i++) {
-                mShadowOverlayHelper.setOverlayColor(vh.mGridView.getChildAt(i), dimmedColor);
-            }
-            if (vh.mGridView.getFadingLeftEdge()) {
-                vh.mGridView.invalidate();
-            }
+            int dimmedColor = rowViewHolder.mColorDimmer.getPaint().getColor();
+            mShadowOverlayHelper.setOverlayColor(childView, dimmedColor);
         }
     }
 

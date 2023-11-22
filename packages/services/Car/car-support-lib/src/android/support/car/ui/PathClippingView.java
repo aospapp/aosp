@@ -19,6 +19,7 @@ import android.graphics.Path;
 
 /**
  * Interface for a view that can apply a clip given to it in the form of a {@link android.graphics.Path}.
+ * @hide
  */
 public interface PathClippingView {
     /**

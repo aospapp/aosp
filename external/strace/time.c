@@ -33,7 +33,7 @@
 #include <sys/timex.h>
 
 static void
-print_timezone(struct tcb *tcp, const long addr)
+print_timezone(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	struct timezone tz;
 
@@ -167,11 +167,11 @@ SYS_FUNC(osf_setitimer)
 #include "xlat/adjtimex_state.h"
 
 static int
-do_adjtimex(struct tcb *tcp, long addr)
+do_adjtimex(struct tcb *const tcp, const kernel_ulong_t addr)
 {
 	if (print_timex(tcp, addr))
 		return 0;
-	tcp->auxstr = xlookup(adjtimex_state, tcp->u_rval);
+	tcp->auxstr = xlookup(adjtimex_state, (kernel_ulong_t) tcp->u_rval);
 	if (tcp->auxstr)
 		return RVAL_STR;
 	return 0;
@@ -303,18 +303,6 @@ SYS_FUNC(timer_gettime)
 
 #include "xlat/timerfdflags.h"
 
-SYS_FUNC(timerfd)
-{
-	tprintf("%ld, ", tcp->u_arg[0]);
-	printclockname(tcp->u_arg[0]);
-	tprints(", ");
-	printflags(timerfdflags, tcp->u_arg[2], "TFD_???");
-	tprints(", ");
-	print_itimerspec(tcp, tcp->u_arg[3]);
-
-	return RVAL_DECODED | RVAL_FD;
-}
-
 SYS_FUNC(timerfd_create)
 {
 	printclockname(tcp->u_arg[0]);
@@ -326,15 +314,17 @@ SYS_FUNC(timerfd_create)
 
 SYS_FUNC(timerfd_settime)
 {
-	printfd(tcp, tcp->u_arg[0]);
-	tprints(", ");
-	printflags(timerfdflags, tcp->u_arg[1], "TFD_???");
-	tprints(", ");
-	print_itimerspec(tcp, tcp->u_arg[2]);
-	tprints(", ");
-	print_itimerspec(tcp, tcp->u_arg[3]);
-
-	return RVAL_DECODED;
+	if (entering(tcp)) {
+		printfd(tcp, tcp->u_arg[0]);
+		tprints(", ");
+		printflags(timerfdflags, tcp->u_arg[1], "TFD_???");
+		tprints(", ");
+		print_itimerspec(tcp, tcp->u_arg[2]);
+		tprints(", ");
+	} else {
+		print_itimerspec(tcp, tcp->u_arg[3]);
+	}
+	return 0;
 }
 
 SYS_FUNC(timerfd_gettime)

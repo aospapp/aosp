@@ -17,7 +17,7 @@
 
 package com.android.spare_parts;
 
-import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -187,7 +187,7 @@ public class SpareParts extends PreferenceActivity
     public void writeFontSizePreference(Object objValue) {
         try {
             mCurConfig.fontScale = Float.parseFloat(objValue.toString());
-            ActivityManagerNative.getDefault().updateConfiguration(mCurConfig);
+            ActivityManager.getService().updateConfiguration(mCurConfig);
         } catch (RemoteException e) {
         }
     }
@@ -226,7 +226,7 @@ public class SpareParts extends PreferenceActivity
     public void readFontSizePreference(ListPreference pref) {
         try {
             mCurConfig.updateFrom(
-                ActivityManagerNative.getDefault().getConfiguration());
+                ActivityManager.getService().getConfiguration());
         } catch (RemoteException e) {
         }
         pref.setValueIndex(floatToIndex(mCurConfig.fontScale,

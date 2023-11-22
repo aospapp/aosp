@@ -28,11 +28,11 @@ SUBS=system/core \
 	external/gtest \
 	system/security/softkeymaster \
 	system/security/keystore
-GTEST=$(BASE)/external/gtest
+GTEST=$(BASE)/external/googletest/googletest
 
 INCLUDES=$(foreach dir,$(SUBS),-I $(BASE)/$(dir)/include) \
 	-I $(BASE)/libnativehelper/include/nativehelper \
-	-I $(GTEST) -Iinclude -I$(BASE)/../boringssl/include
+	-I $(GTEST)/include -isystem $(GTEST) -Iinclude -I$(BASE)/../boringssl/include
 
 ifdef FORCE_32_BIT
 ARCH_FLAGS = -m32

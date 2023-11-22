@@ -27,6 +27,9 @@ L_CFLAGS += -DANDROID_LOG_NAME=\"hostapd\"
 # Disable unused parameter warnings
 L_CFLAGS += -Wno-unused-parameter
 
+# Disable macro redefined warnings
+L_CFLAGS += -Wno-macro-redefined
+
 # Set Android extended P2P functionality
 L_CFLAGS += -DANDROID_P2P
 
@@ -37,6 +40,9 @@ endif
 # Use Android specific directory for control interface sockets
 L_CFLAGS += -DCONFIG_CTRL_IFACE_CLIENT_DIR=\"/data/misc/wifi/sockets\"
 L_CFLAGS += -DCONFIG_CTRL_IFACE_DIR=\"/data/system/hostapd\"
+
+# Use Android specific directory for hostapd_cli command completion history
+L_CFLAGS += -DCONFIG_HOSTAPD_CLI_HISTORY_DIR=\"/data/misc/wifi\"
 
 # To force sizeof(enum) = 4
 ifeq ($(TARGET_ARCH),arm)
@@ -96,6 +102,8 @@ OBJS += src/ap/pmksa_cache_auth.c
 OBJS += src/ap/ieee802_11_shared.c
 OBJS += src/ap/beacon.c
 OBJS += src/ap/bss_load.c
+OBJS += src/ap/neighbor_db.c
+OBJS += src/ap/rrm.c
 OBJS_d =
 OBJS_p =
 LIBS =
@@ -146,7 +154,6 @@ OBJS += src/common/wpa_common.c
 OBJS += src/common/hw_features_common.c
 
 OBJS += src/eapol_auth/eapol_auth_sm.c
-
 
 ifndef CONFIG_NO_DUMP_STATE
 # define HOSTAPD_DUMP_STATE to include support for dumping internal state
@@ -242,7 +249,7 @@ NEED_AES_OMAC1=y
 endif
 
 ifdef CONFIG_IEEE80211R
-L_CFLAGS += -DCONFIG_IEEE80211R
+L_CFLAGS += -DCONFIG_IEEE80211R -DCONFIG_IEEE80211R_AP
 OBJS += src/ap/wpa_auth_ft.c
 NEED_SHA256=y
 NEED_AES_OMAC1=y
@@ -256,6 +263,13 @@ NEED_ECC=y
 NEED_DH_GROUPS=y
 endif
 
+ifdef CONFIG_FILS
+L_CFLAGS += -DCONFIG_FILS
+OBJS += src/ap/fils_hlp.c
+NEED_SHA384=y
+NEED_AES_SIV=y
+endif
+
 ifdef CONFIG_WNM
 L_CFLAGS += -DCONFIG_WNM
 OBJS += src/ap/wnm_ap.c
@@ -267,6 +281,10 @@ endif
 
 ifdef CONFIG_IEEE80211AC
 L_CFLAGS += -DCONFIG_IEEE80211AC
+endif
+
+ifdef CONFIG_IEEE80211AX
+L_CFLAGS += -DCONFIG_IEEE80211AX
 endif
 
 ifdef CONFIG_MBO
@@ -735,6 +753,9 @@ ifneq ($(CONFIG_TLS), openssl)
 AESOBJS += src/crypto/aes-cbc.c
 endif
 endif
+ifdef NEED_AES_SIV
+AESOBJS += src/crypto/aes-siv.c
+endif
 ifdef NEED_AES_DEC
 ifdef CONFIG_INTERNAL_AES
 AESOBJS += src/crypto/aes-internal-dec.c
@@ -821,6 +842,9 @@ endif
 endif
 ifdef NEED_SHA384
 L_CFLAGS += -DCONFIG_SHA384
+ifneq ($(CONFIG_TLS), openssl)
+OBJS += src/crypto/sha384.c
+endif
 OBJS += src/crypto/sha384-prf.c
 endif
 
@@ -895,6 +919,10 @@ ifdef CONFIG_IEEE80211AC
 OBJS += src/ap/ieee802_11_vht.c
 endif
 
+ifdef CONFIG_IEEE80211AX
+OBJS += src/ap/ieee802_11_he.c
+endif
+
 ifdef CONFIG_P2P_MANAGER
 L_CFLAGS += -DCONFIG_P2P_MANAGER
 OBJS += src/ap/p2p_hostapd.c
@@ -933,6 +961,10 @@ ifdef CONFIG_NO_STDOUT_DEBUG
 L_CFLAGS += -DCONFIG_NO_STDOUT_DEBUG
 endif
 
+ifdef CONFIG_DEBUG_SYSLOG
+L_CFLAGS += -DCONFIG_DEBUG_SYSLOG
+endif
+
 ifdef CONFIG_DEBUG_LINUX_TRACING
 L_CFLAGS += -DCONFIG_DEBUG_LINUX_TRACING
 endif
@@ -945,7 +977,10 @@ ifdef CONFIG_ANDROID_LOG
 L_CFLAGS += -DCONFIG_ANDROID_LOG
 endif
 
-OBJS_c = hostapd_cli.c src/common/wpa_ctrl.c src/utils/os_$(CONFIG_OS).c
+OBJS_c = hostapd_cli.c
+OBJS_c += src/common/wpa_ctrl.c
+OBJS_c += src/utils/os_$(CONFIG_OS).c
+OBJS_c += src/common/cli.c
 OBJS_c += src/utils/eloop.c
 OBJS_c += src/utils/common.c
 ifdef CONFIG_WPA_TRACE
@@ -963,6 +998,7 @@ endif
 include $(CLEAR_VARS)
 LOCAL_MODULE := hostapd_cli
 LOCAL_MODULE_TAGS := debug
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := libc libcutils liblog
 LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_SRC_FILES := $(OBJS_c)
@@ -973,6 +1009,7 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_MODULE := hostapd
 LOCAL_MODULE_TAGS := optional
+LOCAL_PROPRIETARY_MODULE := true
 ifdef CONFIG_DRIVER_CUSTOM
 LOCAL_STATIC_LIBRARIES := libCustomWifi
 endif
@@ -990,6 +1027,7 @@ endif
 LOCAL_CFLAGS := $(L_CFLAGS)
 LOCAL_SRC_FILES := $(OBJS)
 LOCAL_C_INCLUDES := $(INCLUDES)
+LOCAL_INIT_RC := hostapd.android.rc
 include $(BUILD_EXECUTABLE)
 
 endif # ifeq ($(WPA_BUILD_HOSTAPD),true)

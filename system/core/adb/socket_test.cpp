@@ -22,6 +22,7 @@
 #include <limits>
 #include <queue>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <unistd.h>
@@ -31,6 +32,7 @@
 #include "fdevent_test.h"
 #include "socket.h"
 #include "sysdeps.h"
+#include "sysdeps/chrono.h"
 
 struct ThreadArg {
     int first_read_fd;
@@ -43,6 +45,8 @@ class LocalSocketTest : public FdeventTest {};
 static void FdEventThreadFunc(void*) {
     fdevent_loop();
 }
+
+constexpr auto SLEEP_FOR_FDEVENT = 100ms;
 
 TEST_F(LocalSocketTest, smoke) {
     // Join two socketpairs with a chain of intermediate socketpairs.
@@ -99,7 +103,8 @@ TEST_F(LocalSocketTest, smoke) {
     ASSERT_EQ(0, adb_close(last[1]));
 
     // Wait until the local sockets are closed.
-    adb_sleep_ms(100);
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
     TerminateThread(thread);
 }
 
@@ -151,12 +156,13 @@ TEST_F(LocalSocketTest, close_socket_with_packet) {
     ASSERT_TRUE(adb_thread_create(reinterpret_cast<void (*)(void*)>(CloseWithPacketThreadFunc),
                                   &arg, &thread));
     // Wait until the fdevent_loop() starts.
-    adb_sleep_ms(100);
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
     ASSERT_EQ(0, adb_close(cause_close_fd[0]));
-    adb_sleep_ms(100);
-    EXPECT_EQ(2u, fdevent_installed_count());
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    EXPECT_EQ(1u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
     ASSERT_EQ(0, adb_close(socket_fd[0]));
-
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
     TerminateThread(thread);
 }
 
@@ -175,10 +181,10 @@ TEST_F(LocalSocketTest, read_from_closing_socket) {
     ASSERT_TRUE(adb_thread_create(reinterpret_cast<void (*)(void*)>(CloseWithPacketThreadFunc),
                                   &arg, &thread));
     // Wait until the fdevent_loop() starts.
-    adb_sleep_ms(100);
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
     ASSERT_EQ(0, adb_close(cause_close_fd[0]));
-    adb_sleep_ms(100);
-    EXPECT_EQ(2u, fdevent_installed_count());
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    EXPECT_EQ(1u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
 
     // Verify if we can read successfully.
     std::vector<char> buf(arg.bytes_written);
@@ -186,6 +192,8 @@ TEST_F(LocalSocketTest, read_from_closing_socket) {
     ASSERT_EQ(true, ReadFdExactly(socket_fd[0], buf.data(), buf.size()));
     ASSERT_EQ(0, adb_close(socket_fd[0]));
 
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
     TerminateThread(thread);
 }
 
@@ -208,10 +216,12 @@ TEST_F(LocalSocketTest, write_error_when_having_packets) {
                                   &arg, &thread));
 
     // Wait until the fdevent_loop() starts.
-    adb_sleep_ms(100);
-    EXPECT_EQ(3u, fdevent_installed_count());
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    EXPECT_EQ(2u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
     ASSERT_EQ(0, adb_close(socket_fd[0]));
 
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
     TerminateThread(thread);
 }
 
@@ -221,7 +231,7 @@ static void ClientThreadFunc() {
     std::string error;
     int fd = network_loopback_client(5038, SOCK_STREAM, &error);
     ASSERT_GE(fd, 0) << error;
-    adb_sleep_ms(200);
+    std::this_thread::sleep_for(200ms);
     ASSERT_EQ(0, adb_close(fd));
 }
 
@@ -246,10 +256,7 @@ TEST_F(LocalSocketTest, close_socket_in_CLOSE_WAIT_state) {
     ASSERT_TRUE(adb_thread_create(reinterpret_cast<void (*)(void*)>(ClientThreadFunc), nullptr,
                                   &client_thread));
 
-    struct sockaddr addr;
-    socklen_t alen;
-    alen = sizeof(addr);
-    int accept_fd = adb_socket_accept(listen_fd, &addr, &alen);
+    int accept_fd = adb_socket_accept(listen_fd, nullptr, nullptr);
     ASSERT_GE(accept_fd, 0);
     CloseRdHupSocketArg arg;
     arg.socket_fd = accept_fd;
@@ -260,12 +267,14 @@ TEST_F(LocalSocketTest, close_socket_in_CLOSE_WAIT_state) {
                                   &arg, &thread));
 
     // Wait until the fdevent_loop() starts.
-    adb_sleep_ms(100);
-    EXPECT_EQ(2u, fdevent_installed_count());
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    EXPECT_EQ(1u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
 
     // Wait until the client closes its socket.
     ASSERT_TRUE(adb_thread_join(client_thread));
 
+    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
     TerminateThread(thread);
 }
 
@@ -275,8 +284,8 @@ TEST_F(LocalSocketTest, close_socket_in_CLOSE_WAIT_state) {
 
 // Checks that skip_host_serial(serial) returns a pointer to the part of |serial| which matches
 // |expected|, otherwise logs the failure to gtest.
-void VerifySkipHostSerial(const std::string& serial, const char* expected) {
-    const char* result = internal::skip_host_serial(serial.c_str());
+void VerifySkipHostSerial(std::string serial, const char* expected) {
+    char* result = internal::skip_host_serial(&serial[0]);
     if (expected == nullptr) {
         EXPECT_EQ(nullptr, result);
     } else {
@@ -300,6 +309,17 @@ TEST(socket_test, test_skip_host_serial) {
         // Don't register a port unless it's all numbers and ends with ':'.
         VerifySkipHostSerial(protocol + "foo:123", ":123");
         VerifySkipHostSerial(protocol + "foo:123bar:baz", ":123bar:baz");
+
+        VerifySkipHostSerial(protocol + "100.100.100.100:5555:foo", ":foo");
+        VerifySkipHostSerial(protocol + "[0123:4567:89ab:CDEF:0:9:a:f]:5555:foo", ":foo");
+        VerifySkipHostSerial(protocol + "[::1]:5555:foo", ":foo");
+
+        // If we can't find both [] then treat it as a normal serial with [ in it.
+        VerifySkipHostSerial(protocol + "[0123:foo", ":foo");
+
+        // Don't be fooled by random IPv6 addresses in the command string.
+        VerifySkipHostSerial(protocol + "foo:ping [0123:4567:89ab:CDEF:0:9:a:f]:5555",
+                             ":ping [0123:4567:89ab:CDEF:0:9:a:f]:5555");
     }
 }
 

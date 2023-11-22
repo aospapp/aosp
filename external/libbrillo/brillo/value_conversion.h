@@ -73,7 +73,7 @@ bool FromValue(const base::Value& in_value, std::vector<T, Alloc>* out_value) {
     return false;
   out_value->clear();
   out_value->reserve(list->GetSize());
-  for (const base::Value* item : *list) {
+  for (const auto& item : *list) {
     T value{};
     if (!FromValue(*item, &value))
       return false;
@@ -118,9 +118,8 @@ std::unique_ptr<base::Value> ToValue(
 template <typename T, typename Alloc>
 std::unique_ptr<base::Value> ToValue(const std::vector<T, Alloc>& list) {
   std::unique_ptr<base::ListValue> result{new base::ListValue};
-  for (const auto& value : list) {
-    result->Append(ToValue(value).release());
-  }
+  for (const auto& value : list)
+    result->Append(ToValue(value));
   return std::move(result);
 }
 
@@ -128,9 +127,8 @@ template <typename T, typename Pred, typename Alloc>
 std::unique_ptr<base::Value> ToValue(
     const std::map<std::string, T, Pred, Alloc>& dictionary) {
   std::unique_ptr<base::DictionaryValue> result{new base::DictionaryValue};
-  for (const auto& pair : dictionary) {
-    result->Set(pair.first, ToValue(pair.second).release());
-  }
+  for (const auto& pair : dictionary)
+    result->Set(pair.first, ToValue(pair.second));
   return std::move(result);
 }
 

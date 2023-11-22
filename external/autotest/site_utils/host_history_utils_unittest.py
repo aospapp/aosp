@@ -1,11 +1,12 @@
+#!/usr/bin/python
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import collections
+import unittest
 
 import common
-from autotest_lib.client.common_lib.test_utils import unittest
 from autotest_lib.site_utils import host_history_utils
 
 class HostHistoryUtilsTests(unittest.TestCase):

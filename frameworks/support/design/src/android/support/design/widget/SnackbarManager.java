@@ -27,7 +27,7 @@ import java.lang.ref.WeakReference;
  */
 class SnackbarManager {
 
-    private static final int MSG_TIMEOUT = 0;
+    static final int MSG_TIMEOUT = 0;
 
     private static final int SHORT_DURATION_MS = 1500;
     private static final int LONG_DURATION_MS = 2750;
@@ -137,17 +137,19 @@ class SnackbarManager {
         }
     }
 
-    public void cancelTimeout(Callback callback) {
+    public void pauseTimeout(Callback callback) {
         synchronized (mLock) {
-            if (isCurrentSnackbarLocked(callback)) {
+            if (isCurrentSnackbarLocked(callback) && !mCurrentSnackbar.paused) {
+                mCurrentSnackbar.paused = true;
                 mHandler.removeCallbacksAndMessages(mCurrentSnackbar);
             }
         }
     }
 
-    public void restoreTimeout(Callback callback) {
+    public void restoreTimeoutIfPaused(Callback callback) {
         synchronized (mLock) {
-            if (isCurrentSnackbarLocked(callback)) {
+            if (isCurrentSnackbarLocked(callback) && mCurrentSnackbar.paused) {
+                mCurrentSnackbar.paused = false;
                 scheduleTimeoutLocked(mCurrentSnackbar);
             }
         }
@@ -166,8 +168,9 @@ class SnackbarManager {
     }
 
     private static class SnackbarRecord {
-        private final WeakReference<Callback> callback;
-        private int duration;
+        final WeakReference<Callback> callback;
+        int duration;
+        boolean paused;
 
         SnackbarRecord(int duration, Callback callback) {
             this.callback = new WeakReference<>(callback);
@@ -229,7 +232,7 @@ class SnackbarManager {
         mHandler.sendMessageDelayed(Message.obtain(mHandler, MSG_TIMEOUT, r), durationMs);
     }
 
-    private void handleTimeout(SnackbarRecord record) {
+    void handleTimeout(SnackbarRecord record) {
         synchronized (mLock) {
             if (mCurrentSnackbar == record || mNextSnackbar == record) {
                 cancelSnackbarLocked(record, Snackbar.Callback.DISMISS_EVENT_TIMEOUT);

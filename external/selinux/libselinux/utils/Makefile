@@ -1,49 +1,71 @@
 # Installation directories.
 PREFIX ?= $(DESTDIR)/usr
 LIBDIR ?= $(PREFIX)/lib
-USRBINDIR ?= $(PREFIX)/sbin
-SBINDIR ?= $(DESTDIR)/sbin
+USRSBINDIR ?= $(PREFIX)/sbin
+INCLUDEDIR ?= $(PREFIX)/include
+
+OS ?= $(shell uname)
+
+ifeq ($(shell $(CC) -v 2>&1 | grep "clang"),)
+COMPILER ?= gcc
+else
+COMPILER ?= clang
+endif
 
 MAX_STACK_SIZE=8192
 CFLAGS ?= -O -Wall -W -Wundef -Wformat-y2k -Wformat-security -Winit-self -Wmissing-include-dirs \
           -Wunused -Wunknown-pragmas -Wstrict-aliasing -Wshadow -Wpointer-arith \
-          -Wbad-function-cast -Wcast-align -Wwrite-strings -Wlogical-op -Waggregate-return \
+          -Wbad-function-cast -Wcast-align -Wwrite-strings -Waggregate-return \
           -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes \
           -Wmissing-declarations -Wmissing-noreturn -Wmissing-format-attribute \
           -Wredundant-decls -Wnested-externs -Winline -Winvalid-pch -Wvolatile-register-var \
-          -Wdisabled-optimization -Wbuiltin-macro-redefined -Wpacked-bitfield-compat \
-          -Wsync-nand -Wattributes -Wcoverage-mismatch -Wmultichar -Wcpp \
+          -Wdisabled-optimization -Wbuiltin-macro-redefined \
+          -Wattributes -Wmultichar \
           -Wdeprecated-declarations -Wdiv-by-zero -Wdouble-promotion -Wendif-labels -Wextra \
-          -Wformat-contains-nul -Wformat-extra-args -Wformat-zero-length -Wformat=2 -Wmultichar \
-          -Wnormalized=nfc -Woverflow -Wpointer-to-int-cast -Wpragmas -Wsuggest-attribute=const \
-          -Wsuggest-attribute=noreturn -Wsuggest-attribute=pure -Wtrampolines \
-          -Wno-missing-field-initializers -Wno-sign-compare -Wjump-misses-init \
+          -Wformat-extra-args -Wformat-zero-length -Wformat=2 -Wmultichar \
+          -Woverflow -Wpointer-to-int-cast -Wpragmas \
+          -Wno-missing-field-initializers -Wno-sign-compare \
           -Wno-format-nonliteral -Wframe-larger-than=$(MAX_STACK_SIZE) -Wp,-D_FORTIFY_SOURCE=2 \
           -fstack-protector-all --param=ssp-buffer-size=4 -fexceptions \
           -fasynchronous-unwind-tables -fdiagnostics-show-option -funit-at-a-time \
-          -fipa-pure-const -Wno-suggest-attribute=pure -Wno-suggest-attribute=const \
           -Werror -Wno-aggregate-return -Wno-redundant-decls
-override CFLAGS += -I../include -D_GNU_SOURCE $(EMFLAGS)
+
+LD_SONAME_FLAGS=-soname,$(LIBSO),-z,defs,-z,relro
+
+ifeq ($(COMPILER), gcc)
+CFLAGS += -fipa-pure-const -Wpacked-bitfield-compat -Wsync-nand -Wcoverage-mismatch \
+	-Wcpp -Wformat-contains-nul -Wnormalized=nfc -Wsuggest-attribute=const \
+	-Wsuggest-attribute=noreturn -Wsuggest-attribute=pure -Wtrampolines -Wjump-misses-init \
+	-Wno-suggest-attribute=pure -Wno-suggest-attribute=const
+endif
+
+ifeq ($(OS), Darwin)
+override CFLAGS += -I/opt/local/include -I../../libsepol/include
+override LDFLAGS += -L../../libsepol/src -undefined dynamic_lookup
+endif
+
+override CFLAGS += -I../include -I$(INCLUDEDIR) -D_GNU_SOURCE $(DISABLE_FLAGS) $(PCRE_CFLAGS)
 LDLIBS += -L../src -lselinux -L$(LIBDIR)
+PCRE_LDFLAGS ?= -lpcre
 
+ifeq ($(ANDROID_HOST),y)
+TARGETS=sefcontext_compile
+else
 TARGETS=$(patsubst %.c,%,$(wildcard *.c))
-
-sefcontext_compile: LDLIBS += -lpcre ../src/libselinux.a -lsepol
-
-ifeq ($(DISABLE_AVC),y)
-	UNUSED_TARGETS+=compute_av compute_create compute_member compute_relabel
 endif
-ifeq ($(DISABLE_BOOL),y)
-	UNUSED_TARGETS+=getsebool togglesebool
-endif
-TARGETS:= $(filter-out $(UNUSED_TARGETS), $(TARGETS))
+
+sefcontext_compile: LDLIBS += $(PCRE_LDFLAGS) ../src/libselinux.a -lsepol
+
+sefcontext_compile: sefcontext_compile.o ../src/regex.o
+
+selinux_restorecon: LDLIBS += -lsepol
 
 all: $(TARGETS)
 
 install: all
-	-mkdir -p $(USRBINDIR)
-	install -m 755 $(TARGETS) $(USRBINDIR)
-	-mkdir -p $(SBINDIR)
+	-mkdir -p $(USRSBINDIR)
+	install -m 755 $(TARGETS) $(USRSBINDIR)
+
 clean:
 	rm -f $(TARGETS) *.o *~
 

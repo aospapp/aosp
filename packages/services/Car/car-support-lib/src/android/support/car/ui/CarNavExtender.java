@@ -61,6 +61,7 @@ import java.lang.annotation.RetentionPolicy;
  * <p>CarNavExtender fields can be accessed on an existing notification by using the
  * {@code CarNavExtender(Notification)} constructor,
  * and then using the {@code get} methods to access values.
+ * @hide
  */
 public class CarNavExtender implements NotificationCompat.Extender {
     /** This value must remain unchanged for compatibility. **/

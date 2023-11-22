@@ -20,10 +20,10 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-#include <gui/IGraphicBufferProducer.h>
-#include <gui/BufferQueue.h>
+#include <gui/BufferQueueDefs.h>
 #include <gui/ConsumerBase.h>
 
+#include <ui/FenceTime.h>
 #include <ui/GraphicBuffer.h>
 
 #include <utils/String8.h>
@@ -146,6 +146,10 @@ public:
     // documented by the source.
     int64_t getTimestamp();
 
+    // getDataSpace retrieves the DataSpace associated with the texture image
+    // set by the most recent call to updateTexImage.
+    android_dataspace getCurrentDataSpace();
+
     // getFrameNumber retrieves the frame number associated with the texture
     // image set by the most recent call to updateTexImage.
     //
@@ -168,7 +172,9 @@ public:
     void setFilteringEnabled(bool enabled);
 
     // getCurrentBuffer returns the buffer associated with the current image.
-    sp<GraphicBuffer> getCurrentBuffer() const;
+    // When outSlot is not nullptr, the current buffer slot index is also
+    // returned.
+    sp<GraphicBuffer> getCurrentBuffer(int* outSlot = nullptr) const;
 
     // getCurrentTextureTarget returns the texture target of the current
     // texture as returned by updateTexImage().
@@ -186,6 +192,10 @@ public:
     // getCurrentFence returns the fence indicating when the current buffer is
     // ready to be read from.
     sp<Fence> getCurrentFence() const;
+
+    // getCurrentFence returns the FenceTime indicating when the current
+    // buffer is ready to be read from.
+    std::shared_ptr<FenceTime> getCurrentFenceTime() const;
 
     // doGLFenceWait inserts a wait command into the OpenGL ES command stream
     // to ensure that it is safe for future OpenGL ES commands to access the
@@ -250,7 +260,7 @@ protected:
     // mEglSlots array in addition to the ConsumerBase.
     virtual status_t releaseBufferLocked(int slot,
             const sp<GraphicBuffer> graphicBuffer,
-            EGLDisplay display, EGLSyncKHR eglFence);
+            EGLDisplay display, EGLSyncKHR eglFence) override;
 
     status_t releaseBufferLocked(int slot,
             const sp<GraphicBuffer> graphicBuffer, EGLSyncKHR eglFence) {
@@ -398,6 +408,9 @@ private:
     // mCurrentFence is the fence received from BufferQueue in updateTexImage.
     sp<Fence> mCurrentFence;
 
+    // The FenceTime wrapper around mCurrentFence.
+    std::shared_ptr<FenceTime> mCurrentFenceTime{FenceTime::NO_FENCE};
+
     // mCurrentTransformMatrix is the transform matrix for the current texture.
     // It gets computed by computeTransformMatrix each time updateTexImage is
     // called.
@@ -406,6 +419,10 @@ private:
     // mCurrentTimestamp is the timestamp for the current texture. It
     // gets set each time updateTexImage is called.
     int64_t mCurrentTimestamp;
+
+    // mCurrentDataSpace is the dataspace for the current texture. It
+    // gets set each time updateTexImage is called.
+    android_dataspace mCurrentDataSpace;
 
     // mCurrentFrameNumber is the frame counter for the current texture.
     // It gets set each time updateTexImage is called.
@@ -472,7 +489,7 @@ private:
     // slot that has not yet been used. The buffer allocated to a slot will also
     // be replaced if the requested buffer usage or geometry differs from that
     // of the buffer allocated to a slot.
-    EglSlot mEglSlots[BufferQueue::NUM_BUFFER_SLOTS];
+    EglSlot mEglSlots[BufferQueueDefs::NUM_BUFFER_SLOTS];
 
     // mCurrentTexture is the buffer slot index of the buffer that is currently
     // bound to the OpenGL texture. It is initialized to INVALID_BUFFER_SLOT,

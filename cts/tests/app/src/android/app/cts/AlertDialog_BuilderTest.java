@@ -29,7 +29,6 @@ import android.content.DialogInterface.OnDismissListener;
 import android.content.DialogInterface.OnKeyListener;
 import android.content.DialogInterface.OnMultiChoiceClickListener;
 import android.content.res.TypedArray;
-import android.cts.util.PollingCheck;
 import android.graphics.drawable.Drawable;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -42,6 +41,8 @@ import android.widget.Button;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import org.mockito.ArgumentCaptor;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import static org.mockito.Mockito.*;
 

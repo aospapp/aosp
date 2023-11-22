@@ -20,9 +20,12 @@ import android.content.Context;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.Preference.OnPreferenceChangeListener;
 import android.support.v7.preference.CheckBoxPreference;
+import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 
-import com.android.storagemanager.deletionhelper.DeletionType;
+import android.view.View;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import com.android.storagemanager.R;
 
 /**
@@ -34,6 +37,10 @@ public abstract class DeletionPreference extends CheckBoxPreference implements
     private long mFreeableBytes;
     private int mFreeableItems;
     private DeletionType mDeletionService;
+    private TextView mSummary;
+    private View mWidget;
+    private ProgressBar mProgressBar;
+    private boolean mLoaded;
 
     public DeletionPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -44,10 +51,11 @@ public abstract class DeletionPreference extends CheckBoxPreference implements
 
     /**
      * Returns the number of bytes which can be cleared by the deletion service.
+     *
      * @return The number of bytes.
      */
-    public long getFreeableBytes() {
-        return isChecked() ? mFreeableBytes : 0;
+    public long getFreeableBytes(boolean countUnchecked) {
+        return (isChecked() || countUnchecked) ? mFreeableBytes : 0;
     }
 
     /**
@@ -81,19 +89,44 @@ public abstract class DeletionPreference extends CheckBoxPreference implements
     public void onFreeableChanged(int numItems, long freeableBytes) {
         mFreeableItems = numItems;
         mFreeableBytes = freeableBytes;
+        mLoaded = true;
+        if (mDeletionService != null) {
+            setEnabled(!mDeletionService.isEmpty());
+        }
+        if (!isEnabled()) {
+            setChecked(false);
+        }
+        if (mWidget != null) {
+            mWidget.setVisibility(View.VISIBLE);
+        }
+        if (mProgressBar != null) {
+            mProgressBar.setVisibility(View.GONE);
+        }
         maybeUpdateListener();
+    }
+
+    @Override
+    public void onBindViewHolder(PreferenceViewHolder holder) {
+        super.onBindViewHolder(holder);
+        mSummary = (TextView) holder.findViewById(android.R.id.summary);
+        mProgressBar = (ProgressBar) holder.findViewById(R.id.progress_bar);
+        mProgressBar.setVisibility(mLoaded ? View.GONE : View.VISIBLE);
+        mWidget = holder.findViewById(android.R.id.widget_frame);
+        mWidget.setVisibility(mLoaded ? View.VISIBLE : View.GONE);
     }
 
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         setChecked((boolean) newValue);
+        mSummary.setActivated((boolean) newValue);
         maybeUpdateListener();
         return true;
     }
 
     private void maybeUpdateListener() {
         if (mListener != null) {
-            mListener.onFreeableChanged(mFreeableItems, getFreeableBytes());
+            mListener.onFreeableChanged(
+                    mFreeableItems, getFreeableBytes(DeletionHelperSettings.COUNT_CHECKED_ONLY));
         }
     }
 }

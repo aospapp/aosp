@@ -18,7 +18,9 @@
 -->
 
 <resources>
+    <!-- cannot set this to true because O-CTS is testing the keyguard b/37465076
     <bool name="def_lockscreen_disabled">true</bool>
+    -->
 
     <!-- Allow users to use both the on-screen keyboard, as well as a real
          keyboard -->

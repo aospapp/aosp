@@ -9,13 +9,13 @@ import unittest
 from telemetry import decorators
 from telemetry.internal.backends.chrome_inspector import inspector_websocket
 from telemetry.internal.backends.chrome_inspector import websocket
-from telemetry.testing import simple_mock
+from telemetry.testing import fakes
 
 
 class FakeSocket(object):
   """A fake websocket that allows test to send random data."""
-  def __init__(self, mock_timer):
-    self._mock_timer = mock_timer
+  def __init__(self, fake_timer):
+    self._fake_timer = fake_timer
     self._responses = []
     self._timeout = None
 
@@ -33,12 +33,12 @@ class FakeSocket(object):
       raise Exception('No more recorded responses.')
 
     response, time = self._responses.pop(0)
-    current_time = self._mock_timer.time()
+    current_time = self._fake_timer.time()
     if self._timeout is not None and time - current_time > self._timeout:
-      self._mock_timer.SetTime(current_time + self._timeout + 1)
+      self._fake_timer.SetTime(current_time + self._timeout + 1)
       raise websocket.WebSocketTimeoutException()
 
-    self._mock_timer.SetTime(time)
+    self._fake_timer.SetTime(time)
     if isinstance(response, Exception):
       raise response
     return response
@@ -54,15 +54,15 @@ def _DoNothingHandler(elapsed_time):
 class InspectorWebsocketUnittest(unittest.TestCase):
 
   def setUp(self):
-    self._mock_timer = simple_mock.MockTimer()
+    self._fake_timer = fakes.FakeTimer()
 
   def tearDown(self):
-    self._mock_timer.Restore()
+    self._fake_timer.Restore()
 
   @decorators.Disabled('chromeos', 'mac')  # crbug.com/483212, crbug.com/498950
   def testDispatchNotification(self):
     inspector = inspector_websocket.InspectorWebsocket()
-    fake_socket = FakeSocket(self._mock_timer)
+    fake_socket = FakeSocket(self._fake_timer)
     # pylint: disable=protected-access
     inspector._socket = fake_socket
 
@@ -72,14 +72,14 @@ class InspectorWebsocketUnittest(unittest.TestCase):
 
     inspector.RegisterDomain('Test', OnTestEvent)
     fake_socket.AddResponse('{"method": "Test.foo"}', 5)
-    inspector.DispatchNotifications()
+    inspector.DispatchNotifications(10)
     self.assertEqual(1, len(results))
     self.assertEqual('Test.foo', results[0]['method'])
 
   @decorators.Disabled('chromeos')  # crbug.com/483212
   def testDispatchNotificationTimedOut(self):
     inspector = inspector_websocket.InspectorWebsocket()
-    fake_socket = FakeSocket(self._mock_timer)
+    fake_socket = FakeSocket(self._fake_timer)
     # pylint: disable=protected-access
     inspector._socket = fake_socket
 
@@ -97,7 +97,7 @@ class InspectorWebsocketUnittest(unittest.TestCase):
   @decorators.Disabled('chromeos')  # crbug.com/483212
   def testUnregisterDomain(self):
     inspector = inspector_websocket.InspectorWebsocket()
-    fake_socket = FakeSocket(self._mock_timer)
+    fake_socket = FakeSocket(self._fake_timer)
     # pylint: disable=protected-access
     inspector._socket = fake_socket
 
@@ -112,10 +112,10 @@ class InspectorWebsocketUnittest(unittest.TestCase):
     fake_socket.AddResponse('{"method": "Test.foo"}', 5)
     fake_socket.AddResponse('{"method": "Test2.foo"}', 10)
 
-    inspector.DispatchNotifications()
+    inspector.DispatchNotifications(10)
     self.assertEqual(0, len(results))
 
-    inspector.DispatchNotifications()
+    inspector.DispatchNotifications(10)
     self.assertEqual(1, len(results))
     self.assertEqual('Test2.foo', results[0]['method'])
 
@@ -127,7 +127,7 @@ class InspectorWebsocketUnittest(unittest.TestCase):
 
   def testAsyncRequest(self):
     inspector = inspector_websocket.InspectorWebsocket()
-    fake_socket = FakeSocket(self._mock_timer)
+    fake_socket = FakeSocket(self._fake_timer)
     # pylint: disable=protected-access
     inspector._socket = fake_socket
     response_count = [0]
@@ -147,22 +147,22 @@ class InspectorWebsocketUnittest(unittest.TestCase):
     request2 = {'method': 'Test.foo'}
     inspector.AsyncRequest(request2, callback1)
     fake_socket.AddResponse('{"id": 5555555, "result": {}}', 1)
-    inspector.DispatchNotifications()
+    inspector.DispatchNotifications(10)
     self.assertEqual(0, response_count[0])
     fake_socket.AddResponse(
         '{"id": %d, "result": {"data": "response2"}}' % request2['id'], 1)
     fake_socket.AddResponse(
         '{"id": %d, "result": {"data": "response1"}}' % request1['id'], 2)
-    inspector.DispatchNotifications()
-    inspector.DispatchNotifications()
+    inspector.DispatchNotifications(10)
+    inspector.DispatchNotifications(10)
     self.assertEqual(2, response_count[0])
     fake_socket.AddResponse('{"id": 6666666, "result": {}}', 1)
-    inspector.DispatchNotifications()
+    inspector.DispatchNotifications(10)
     self.assertEqual(2, response_count[0])
 
   def testEAGAIN(self):
     inspector = inspector_websocket.InspectorWebsocket()
-    fake_socket = FakeSocket(self._mock_timer)
+    fake_socket = FakeSocket(self._fake_timer)
     # pylint: disable=protected-access
     inspector._socket = fake_socket
 
@@ -170,16 +170,17 @@ class InspectorWebsocketUnittest(unittest.TestCase):
     fake_socket.AddResponse(error, 4)
     fake_socket.AddResponse('{"asdf": "qwer"}', 5)
 
-    result = inspector._Receive()
+    result = inspector._Receive(10)
     self.assertEqual(result, {"asdf" : "qwer"})
 
   def testSocketErrorOtherThanEAGAIN(self):
     inspector = inspector_websocket.InspectorWebsocket()
-    fake_socket = FakeSocket(self._mock_timer)
+    fake_socket = FakeSocket(self._fake_timer)
     # pylint: disable=protected-access
     inspector._socket = fake_socket
 
     error = socket.error(errno.EPIPE, "error string")
     fake_socket.AddResponse(error, 4)
 
-    self.assertRaises(socket.error, inspector._Receive)
+    with self.assertRaises(socket.error):
+      inspector._Receive(10)

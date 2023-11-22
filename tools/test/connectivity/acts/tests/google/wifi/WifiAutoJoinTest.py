@@ -17,40 +17,35 @@
 import time
 
 from acts import asserts
-from acts.base_test import BaseTestClass
-from acts.test_utils.wifi.wifi_test_utils import wifi_forget_network
-from acts.test_utils.wifi.wifi_test_utils import wifi_test_device_init
-from acts.test_utils.wifi.wifi_test_utils import WifiEnums
-from acts.test_utils.wifi.wifi_test_utils import start_wifi_connection_scan
-from acts.test_utils.wifi.wifi_test_utils import check_internet_connection
-from acts.test_utils.wifi.wifi_test_utils import track_connection
+from acts import base_test
+from acts.test_utils.wifi import wifi_constants
+from acts.test_utils.wifi import wifi_test_utils as wutils
 
+WifiEnums = wutils.WifiEnums
 NETWORK_ID_ERROR = "Network don't have ID"
 NETWORK_ERROR = "Device is not connected to reference network"
 
-class WifiAutoJoinTest(BaseTestClass):
 
+class WifiAutoJoinTest(base_test.BaseTestClass):
     def __init__(self, controllers):
-        BaseTestClass.__init__(self, controllers)
-        self.tests = (
-            "test_autojoin_out_of_range",
-            "test_autojoin_Ap1_2g",
-            "test_autojoin_Ap1_2gto5g",
-            "test_autojoin_in_AP1_5gto2g",
-            "test_autojoin_swtich_AP1toAp2",
-            "test_autojoin_Ap2_2gto5g",
-            "test_autojoin_Ap2_5gto2g",
-            "test_autojoin_out_of_range",
-            "test_autojoin_Ap2_2g",
-            "test_autojoin_Ap2_2gto5g",
-            "test_autojoin_in_Ap2_5gto2g",
-            "test_autojoin_swtich_AP2toAp1",
-            "test_autojoin_Ap1_2gto5g",
-            "test_autojoin_Ap1_5gto2g",
-            "test_autojoin_swtich_to_blacklist_AP",
-            "test_autojoin_in_blacklist_AP",
-            "test_autojoin_back_from_blacklist_AP",
-            )
+        base_test.BaseTestClass.__init__(self, controllers)
+        self.tests = ("test_autojoin_out_of_range",
+                      "test_autojoin_Ap1_2g",
+                      "test_autojoin_Ap1_2gto5g",
+                      "test_autojoin_in_AP1_5gto2g",
+                      "test_autojoin_swtich_AP1toAp2",
+                      "test_autojoin_Ap2_2gto5g",
+                      "test_autojoin_Ap2_5gto2g",
+                      "test_autojoin_out_of_range",
+                      "test_autojoin_Ap2_2g",
+                      "test_autojoin_Ap2_2gto5g",
+                      "test_autojoin_in_Ap2_5gto2g",
+                      "test_autojoin_swtich_AP2toAp1",
+                      "test_autojoin_Ap1_2gto5g",
+                      "test_autojoin_Ap1_5gto2g",
+                      "test_autojoin_swtich_to_blacklist_AP",
+                      "test_autojoin_in_blacklist_AP",
+                      "test_autojoin_back_from_blacklist_AP", )
 
     def setup_class(self):
         """It will setup the required dependencies from config file and configure
@@ -62,27 +57,30 @@ class WifiAutoJoinTest(BaseTestClass):
             True if successfully configured the requirements for testing.
         """
         self.dut = self.android_devices[0]
-        wifi_test_device_init(self.dut)
+        wutils.wifi_test_device_init(self.dut)
         req_params = ("reference_networks", "other_network", "atten_val",
-                      "ping_addr", "max_bugreports" )
+                      "ping_addr", "max_bugreports")
         self.unpack_userparams(req_params)
         self.log.debug("Connect networks :: {}".format(self.other_network))
         configured_networks = self.dut.droid.wifiGetConfiguredNetworks()
         self.log.debug("Configured networks :: {}".format(configured_networks))
         count_confnet = 0
         result = False
-        if self.reference_networks[0]['2g']['ssid'] == self.reference_networks[0]['5g']['ssid']:
+        if self.reference_networks[0]['2g']['ssid'] == self.reference_networks[
+                0]['5g']['ssid']:
             self.ref_ssid_count = 1
         else:
-            self.ref_ssid_count = 2 # Different SSID for 2g and 5g
+            self.ref_ssid_count = 2  # Different SSID for 2g and 5g
         for confnet in configured_networks:
-            if confnet[WifiEnums.SSID_KEY] == self.reference_networks[0]['2g']['ssid']:
+            if confnet[WifiEnums.SSID_KEY] == self.reference_networks[0]['2g'][
+                    'ssid']:
                 count_confnet += 1
-            elif confnet[WifiEnums.SSID_KEY] == self.reference_networks[0]['5g']['ssid']:
+            elif confnet[WifiEnums.SSID_KEY] == self.reference_networks[0][
+                    '5g']['ssid']:
                 count_confnet += 1
         self.log.info("count_confnet {}".format(count_confnet))
         if count_confnet == self.ref_ssid_count:
-            return True
+            return
         else:
             self.log.info("Configured networks for testing")
             self.attenuators[0].set_atten(0)
@@ -92,27 +90,32 @@ class WifiAutoJoinTest(BaseTestClass):
             self.dut.droid.wakeLockAcquireBright()
             self.dut.droid.wakeUpNow()
             try:
-                self.dut.droid.wifiPriorityConnect(self.reference_networks[0]['2g'])
-                connect_result = self.dut.ed.pop_event("WifiManagerPriorityConnectOnSuccess", 1)
+                self.dut.droid.wifiConnectByConfig(self.reference_networks[0][
+                    '2g'])
+                connect_result = self.dut.ed.pop_event(
+                    wifi_constants.CONNECT_BY_CONFIG_SUCCESS, 1)
                 self.log.info(connect_result)
                 time.sleep(wait_time)
-                if self.ref_ssid_count == 2: #add 5g network as well
-                    self.dut.droid.wifiPriorityConnect(self.reference_networks[0]['5g'])
-                    connect_result = self.dut.ed.pop_event("WifiManagerPriorityConnectOnSuccess", 1)
+                if self.ref_ssid_count == 2:  #add 5g network as well
+                    self.dut.droid.wifiConnectByConfig(self.reference_networks[
+                        0]['5g'])
+                    connect_result = self.dut.ed.pop_event(
+                        wifi_constants.CONNECT_BY_CONFIG_SUCCESS, 1)
                     self.log.info(connect_result)
                     time.sleep(wait_time)
-                self.dut.droid.wifiPriorityConnect(self.other_network)
-                connect_result = self.dut.ed.pop_event("WifiManagerPriorityConnectOnSuccess")
+                self.dut.droid.wifiConnectByConfig(self.other_network)
+                connect_result = self.dut.ed.pop_event(
+                    wifi_constants.CONNECT_BY_CONFIG_SUCCESS)
                 self.log.info(connect_result)
-                track_connection(self.dut, self.other_network["ssid"], 1)
-                wifi_forget_network(self.dut, self.other_network["ssid"])
+                wutils.track_connection(self.dut, self.other_network["ssid"], 1)
+                wutils.wifi_forget_network(self.dut, self.other_network["ssid"])
                 time.sleep(wait_time)
                 current_network = self.dut.droid.wifiGetConnectionInfo()
                 self.log.info("Current network: {}".format(current_network))
-                asserts.assert_true('network_id' in current_network, NETWORK_ID_ERROR)
-                asserts.assert_true(current_network['network_id'] >= 0, NETWORK_ERROR)
-                self.ip_address = self.dut.droid.wifiGetConfigFile();
-                self.log.info("IP info: {}".format(self.ip_address))
+                asserts.assert_true('network_id' in current_network,
+                                    NETWORK_ID_ERROR)
+                asserts.assert_true(current_network['network_id'] >= 0,
+                                    NETWORK_ERROR)
             finally:
                 self.dut.droid.wifiLockRelease()
                 self.dut.droid.goToSleepNow()
@@ -124,7 +127,7 @@ class WifiAutoJoinTest(BaseTestClass):
         Returns:
             True if connection to given network happen, else return False.
         """
-        time.sleep(40) #time for connection state to be updated
+        time.sleep(40)  #time for connection state to be updated
         self.log.info("Check network for {}".format(network_bssid))
         current_network = self.dut.droid.wifiGetConnectionInfo()
         self.log.debug("Current network:  {}".format(current_network))
@@ -148,12 +151,14 @@ class WifiAutoJoinTest(BaseTestClass):
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
         try:
-            asserts.assert_true(self.check_connection(bssid),
-                    "Device is not connected to required bssid {}".format(bssid))
-            time.sleep(10) #wait for connection to be active
-            asserts.assert_true(check_internet_connection(self.dut, self.ping_addr),
-                             "Error, No Internet connection for current bssid {}".
-                             format(bssid))
+            asserts.assert_true(
+                self.check_connection(bssid),
+                "Device is not connected to required bssid {}".format(bssid))
+            time.sleep(10)  #wait for connection to be active
+            asserts.assert_true(
+                wutils.validate_connection(self.dut, self.ping_addr),
+                "Error, No Internet connection for current bssid {}".format(
+                    bssid))
         finally:
             self.dut.droid.wifiLockRelease()
             self.dut.droid.goToSleepNow()
@@ -165,6 +170,7 @@ class WifiAutoJoinTest(BaseTestClass):
         self.dut.cat_adb_log(test_name, begin_time)
 
     """ Tests Begin """
+
     def test_autojoin_Ap1_2g(self):
         """Test wifi auto join functionality move in range of AP1.
 
@@ -173,19 +179,21 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Ap1_2g"]
+        att0, att1, att2 = self.atten_val["Ap1_2g"]
         variance = 5
-        attenuations = ([att0+variance*2, att1, att2], [att0+variance, att1, att2],
-                        [att0, att1, att2], [att0-variance, att1, att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_Ap1_2g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
+        attenuations = ([att0 + variance * 2, att1, att2],
+                        [att0 + variance, att1, att2], [att0, att1, att2],
+                        [att0 - variance, att1, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_Ap1_2g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[0]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_Ap1_2g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[0]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed,
+            "Number of test_autojoin_Ap1_2g failed {}".format(len(failed)))
 
     def test_autojoin_Ap1_2gto5g(self):
         """Test wifi auto join functionality move to high range.
@@ -195,20 +203,20 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Ap1_2gto5g"]
+        att0, att1, att2 = self.atten_val["Ap1_2gto5g"]
         variance = 5
-        attenuations = ([att0+variance*2, att1, att2], [att0+variance, att1, att2],
-                        [att0, att1, att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_Ap1_2gto5g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0 + variance * 2, att1, att2],
+                        [att0 + variance, att1, att2], [att0, att1, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_Ap1_2gto5g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[0]["5g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_Ap1_2gto5g failed {}".
-                         format(len(failed)))
-
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[0]["5g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed,
+            "Number of test_autojoin_Ap1_2gto5g failed {}".format(len(failed)))
 
     def test_autojoin_in_AP1_5gto2g(self):
         """Test wifi auto join functionality move to low range toward AP2.
@@ -218,19 +226,21 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["In_AP1_5gto2g"]
+        att0, att1, att2 = self.atten_val["In_AP1_5gto2g"]
         variance = 5
-        attenuations = ([att0-variance, att1+variance, att2], [att0, att1, att2],
-                        [att0+variance, att1-variance, att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_in_AP1_5gto2g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0 - variance, att1 + variance, att2],
+                        [att0, att1, att2],
+                        [att0 + variance, att1 - variance, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_in_AP1_5gto2g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[0]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_in_AP1_5gto2g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[0]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed, "Number of test_autojoin_in_AP1_5gto2g failed {}".format(
+                len(failed)))
 
     def test_autojoin_swtich_AP1toAp2(self):
         """Test wifi auto join functionality move from low range of AP1 to better
@@ -241,19 +251,21 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Swtich_AP1toAp2"]
+        att0, att1, att2 = self.atten_val["Swtich_AP1toAp2"]
         variance = 5
-        attenuations = ([att0-variance, att1+variance, att2], [att0, att1, att2],
-                        [att0+variance, att1-variance, att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_swtich_AP1toAp2_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0 - variance, att1 + variance, att2],
+                        [att0, att1, att2],
+                        [att0 + variance, att1 - variance, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_swtich_AP1toAp2_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[1]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_swtich_AP1toAp2 failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[1]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed, "Number of test_autojoin_swtich_AP1toAp2 failed {}".format(
+                len(failed)))
 
     def test_autojoin_Ap2_2gto5g(self):
         """Test wifi auto join functionality move to high range of AP2.
@@ -263,19 +275,20 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Ap2_2gto5g"]
+        att0, att1, att2 = self.atten_val["Ap2_2gto5g"]
         variance = 5
-        attenuations = ([att0-variance, att1+variance*2, att2],
-                        [att0, att1+variance, att2], [att0, att1, att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_Ap2_2gto5g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
+        attenuations = ([att0 - variance, att1 + variance * 2, att2],
+                        [att0, att1 + variance, att2], [att0, att1, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_Ap2_2gto5g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[1]["5g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_Ap2_2gto5g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[1]["5g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed,
+            "Number of test_autojoin_Ap2_2gto5g failed {}".format(len(failed)))
 
     def test_autojoin_Ap2_5gto2g(self):
         """Test wifi auto join functionality move to low range of AP2.
@@ -284,19 +297,20 @@ class WifiAutoJoinTest(BaseTestClass):
          2. Wake up the device.
          3. Check that device is connected to right BSSID and maintain stable.
         """
-        att0,att1,att2 =  self.atten_val["Ap2_5gto2g"]
+        att0, att1, att2 = self.atten_val["Ap2_5gto2g"]
         variance = 5
-        attenuations = ([att0, att1-variance, att2], [att0, att1, att2],
-                        [att0, att1+variance, att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_Ap2_5gto2g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
+        attenuations = ([att0, att1 - variance, att2], [att0, att1, att2],
+                        [att0, att1 + variance, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_Ap2_5gto2g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[1]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_Ap2_5gto2g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[1]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed,
+            "Number of test_autojoin_Ap2_5gto2g failed {}".format(len(failed)))
 
     def test_autojoin_out_of_range(self):
         """Test wifi auto join functionality move to low range.
@@ -312,15 +326,16 @@ class WifiAutoJoinTest(BaseTestClass):
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
         try:
-            start_wifi_connection_scan(self.dut)
+            wutils.start_wifi_connection_scan(self.dut)
             wifi_results = self.dut.droid.wifiGetScanResults()
             self.log.debug("Scan result {}".format(wifi_results))
             time.sleep(20)
             current_network = self.dut.droid.wifiGetConnectionInfo()
             self.log.info("Current network: {}".format(current_network))
-            asserts.assert_true(('network_id' in current_network and
-                              current_network['network_id'] == -1),
-                             "Device is connected to network {}".format(current_network))
+            asserts.assert_true(
+                ('network_id' in current_network and
+                 current_network['network_id'] == -1),
+                "Device is connected to network {}".format(current_network))
         finally:
             self.dut.droid.wifiLockRelease()
             self.dut.droid.goToSleepNow()
@@ -333,20 +348,21 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Ap2_2g"]
+        att0, att1, att2 = self.atten_val["Ap2_2g"]
         variance = 5
-        attenuations = ([att0,att1+variance*2,att2],
-                        [att0,att1+variance,att2],[att0,att1,att2],
-                        [att0,att1-variance,att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_Ap2_2g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0, att1 + variance * 2, att2],
+                        [att0, att1 + variance, att2], [att0, att1, att2],
+                        [att0, att1 - variance, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_Ap2_2g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[1]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_Ap2_2g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[1]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed,
+            "Number of test_autojoin_Ap2_2g failed {}".format(len(failed)))
 
     def test_autojoin_in_Ap2_5gto2g(self):
         """Test wifi auto join functionality move to medium range of Ap2 and
@@ -357,19 +373,20 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["In_Ap2_5gto2g"]
+        att0, att1, att2 = self.atten_val["In_Ap2_5gto2g"]
         variance = 5
-        attenuations = ([att0,att1-variance,att2],[att0,att1,att2],
-                        [att0,att1+variance,att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_in_Ap2_5gto2g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0, att1 - variance, att2], [att0, att1, att2],
+                        [att0, att1 + variance, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_in_Ap2_5gto2g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[1]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_in_Ap2_5gto2g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[1]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed, "Number of test_autojoin_in_Ap2_5gto2g failed {}".format(
+                len(failed)))
 
     def test_autojoin_swtich_AP2toAp1(self):
         """Test wifi auto join functionality move from low range of AP2 to better
@@ -380,19 +397,21 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Swtich_AP2toAp1"]
+        att0, att1, att2 = self.atten_val["Swtich_AP2toAp1"]
         variance = 5
-        attenuations = ([att0+variance,att1-variance,att2],[att0,att1,att2],
-                        [att0-variance,att1+variance,att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_swtich_AP2toAp1_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0 + variance, att1 - variance, att2],
+                        [att0, att1, att2],
+                        [att0 - variance, att1 + variance, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_swtich_AP2toAp1_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[0]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_swtich_AP2toAp1 failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[0]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed, "Number of test_autojoin_swtich_AP2toAp1 failed {}".format(
+                len(failed)))
 
     def test_autojoin_Ap1_5gto2g(self):
         """Test wifi auto join functionality move to medium range of AP1.
@@ -402,19 +421,20 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to right BSSID and maintain stable
             connection to BSSID in range.
         """
-        att0,att1,att2 =  self.atten_val["Ap1_5gto2g"]
+        att0, att1, att2 = self.atten_val["Ap1_5gto2g"]
         variance = 5
-        attenuations = ([att0,att1,att2], [att0+variance,att1,att2],
-                        [att0+variance*2,att1,att2])
-        name_func = lambda att_value, bssid : ("test_autojoin_Ap1_5gto2g_AP1_{}_AP2"
-                     "_{}_AP3_{}").format(att_value[0], att_value[1],att_value[2])
+        attenuations = ([att0, att1, att2], [att0 + variance, att1, att2],
+                        [att0 + variance * 2, att1, att2])
+        name_func = lambda att_value, bssid: ("test_autojoin_Ap1_5gto2g_AP1_{}_AP2"
+                                              "_{}_AP3_{}").format(att_value[0], att_value[1], att_value[2])
         failed = self.run_generated_testcases(
-                        self.set_attn_and_validate_connection,
-                        attenuations,
-                        args = (self.reference_networks[0]["2g"]['bssid'],),
-                        name_func = name_func)
-        asserts.assert_true(not failed, "Number of test_autojoin_Ap1_5gto2g failed {}".
-                         format(len(failed)))
+            self.set_attn_and_validate_connection,
+            attenuations,
+            args=(self.reference_networks[0]["2g"]['bssid'], ),
+            name_func=name_func)
+        asserts.assert_false(
+            failed,
+            "Number of test_autojoin_Ap1_5gto2g failed {}".format(len(failed)))
 
     def test_autojoin_swtich_to_blacklist_AP(self):
         """Test wifi auto join functionality in medium range of blacklist BSSID.
@@ -424,8 +444,9 @@ class WifiAutoJoinTest(BaseTestClass):
          3. Check that device is connected to AP1 BSSID and maintain stable
             connection to BSSID.
         """
-        self.set_attn_and_validate_connection(self.atten_val["Swtich_to_blacklist"],
-                                              self.reference_networks[0]["2g"]['bssid'])
+        self.set_attn_and_validate_connection(
+            self.atten_val["Swtich_to_blacklist"],
+            self.reference_networks[0]["2g"]['bssid'])
 
     def test_autojoin_in_blacklist_AP(self):
         """Test wifi auto join functionality in high range of blacklist BSSID.
@@ -441,16 +462,17 @@ class WifiAutoJoinTest(BaseTestClass):
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
         try:
-            start_wifi_connection_scan(self.dut)
+            wutils.start_wifi_connection_scan(self.dut)
             wifi_results = self.dut.droid.wifiGetScanResults()
             self.log.debug("Scan result {}".format(wifi_results))
             time.sleep(20)
             current_network = self.dut.droid.wifiGetConnectionInfo()
             self.log.info("Current network: {}".format(current_network))
-            asserts.assert_true(('network_id' in current_network and
-                              current_network['network_id'] == -1),
-                             "Device is still connected to blacklisted network {}".
-                             format(current_network))
+            asserts.assert_true(
+                ('network_id' in current_network and
+                 current_network['network_id'] == -1),
+                "Device is still connected to blacklisted network {}".format(
+                    current_network))
         finally:
             self.dut.droid.wifiLockRelease()
             self.dut.droid.goToSleepNow()
@@ -462,8 +484,8 @@ class WifiAutoJoinTest(BaseTestClass):
          2. Wake up the device.
          3. Check that device is disconnected form all AP.
         """
-        self.set_attn_and_validate_connection(self.atten_val["Back_from_blacklist"],
-                                              self.reference_networks[0]["2g"]['bssid'])
+        self.set_attn_and_validate_connection(
+            self.atten_val["Back_from_blacklist"],
+            self.reference_networks[0]["2g"]['bssid'])
+
     """ Tests End """
-if __name__ == "__main__":
-    pass

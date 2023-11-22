@@ -56,8 +56,9 @@ bool WriteExtents(const string& part_path,
       break;
     TEST_AND_RETURN_FALSE(
         fseek(fp.get(), extent.start_block() * block_size, SEEK_SET) == 0);
-    uint64_t to_write = std::min(extent.num_blocks() * block_size,
-                                 data.size() - offset);
+    uint64_t to_write =
+        std::min(static_cast<uint64_t>(extent.num_blocks()) * block_size,
+                 static_cast<uint64_t>(data.size()) - offset);
     TEST_AND_RETURN_FALSE(
         fwrite(data.data() + offset, 1, to_write, fp.get()) == to_write);
     offset += extent.num_blocks() * block_size;
@@ -701,6 +702,13 @@ TEST_F(DeltaDiffUtilsTest, ShuffledBlocksAreTracked) {
   EXPECT_EQ(ExtentForRange(0, permutation.size()), aop.op.dst_extents(0));
 
   EXPECT_EQ(0, blob_size_);
+}
+
+TEST_F(DeltaDiffUtilsTest, IsExtFilesystemTest) {
+  EXPECT_TRUE(diff_utils::IsExtFilesystem(
+      test_utils::GetBuildArtifactsPath("gen/disk_ext2_1k.img")));
+  EXPECT_TRUE(diff_utils::IsExtFilesystem(
+      test_utils::GetBuildArtifactsPath("gen/disk_ext2_4k.img")));
 }
 
 }  // namespace chromeos_update_engine

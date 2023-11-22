@@ -18,14 +18,14 @@ namespace brillo {
 namespace dbus_utils {
 
 TEST(DBusParamWriter, Append_NoArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   DBusParamWriter::Append(&writer);
   EXPECT_EQ("", message->GetSignature());
 }
 
 TEST(DBusParamWriter, Append_OneArg) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   DBusParamWriter::Append(&writer, int32_t{2});
   EXPECT_EQ("i", message->GetSignature());
@@ -49,7 +49,7 @@ TEST(DBusParamWriter, Append_OneArg) {
 }
 
 TEST(DBusParamWriter, Append_ManyArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   DBusParamWriter::Append(&writer, int32_t{9}, Any{7.5}, true);
   EXPECT_EQ("ivb", message->GetSignature());
@@ -69,14 +69,14 @@ TEST(DBusParamWriter, Append_ManyArgs) {
 }
 
 TEST(DBusParamWriter, AppendDBusOutParams_NoArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   DBusParamWriter::AppendDBusOutParams(&writer);
   EXPECT_EQ("", message->GetSignature());
 }
 
 TEST(DBusParamWriter, AppendDBusOutParams_OneArg) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   int32_t int_value_in{5};
   std::string string_value_in{"bar"};
@@ -104,7 +104,7 @@ TEST(DBusParamWriter, AppendDBusOutParams_OneArg) {
 }
 
 TEST(DBusParamWriter, AppendDBusOutParams_ManyArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   int32_t int_value_in{8};
   Any variant_value_in{8.5};
@@ -128,14 +128,14 @@ TEST(DBusParamWriter, AppendDBusOutParams_ManyArgs) {
 }
 
 TEST(DBusParamWriter, AppendDBusOutParams_Mixed_NoArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   DBusParamWriter::AppendDBusOutParams(&writer, 3, 5);
   EXPECT_EQ("", message->GetSignature());
 }
 
 TEST(DBusParamWriter, AppendDBusOutParams_Mixed_OneArg) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   int32_t int_value_in{5};
   std::string str_value_in{"bar"};
@@ -163,7 +163,7 @@ TEST(DBusParamWriter, AppendDBusOutParams_Mixed_OneArg) {
 }
 
 TEST(DBusParamWriter, AppendDBusOutParams_Mixed_ManyArgs) {
-  std::unique_ptr<Response> message(Response::CreateEmpty().release());
+  std::unique_ptr<Response> message = Response::CreateEmpty();
   MessageWriter writer(message.get());
   int32_t int_value_in{8};
   Any variant_value_in{7.5};

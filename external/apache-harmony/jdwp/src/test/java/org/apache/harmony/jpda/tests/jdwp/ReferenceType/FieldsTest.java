@@ -42,6 +42,7 @@ public class FieldsTest extends JDWPSyncTestCase {
     static final String thisCommandName = "ReferenceType.Fields command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ReferenceType/FieldsDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ReferenceType.FieldsDebuggee";
     }

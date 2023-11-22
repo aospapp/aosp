@@ -18,8 +18,8 @@ package com.google.doclava;
 
 import com.google.clearsilver.jsilver.data.Data;
 
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ParamTagInfo extends ParsedTagInfo {
   public static final ParamTagInfo[] EMPTY_ARRAY = new ParamTagInfo[0];
@@ -33,9 +33,16 @@ public class ParamTagInfo extends ParsedTagInfo {
   private boolean mIsTypeParameter;
   private String mParameterComment;
   private String mParameterName;
+  private TagInfo[] mAuxTags;
 
   ParamTagInfo(String name, String kind, String text, ContainerInfo base, SourcePositionInfo sp) {
+      this(name, kind, text, base, sp, null);
+  }
+
+  ParamTagInfo(String name, String kind, String text, ContainerInfo base, SourcePositionInfo sp,
+      TagInfo[] auxTags) {
     super(name, kind, text, base, sp);
+    mAuxTags = auxTags;
 
     Matcher m = PATTERN.matcher(text);
     if (m.matches()) {
@@ -72,12 +79,17 @@ public class ParamTagInfo extends ParsedTagInfo {
     return mParameterName;
   }
 
+  public TagInfo[] auxTags() {
+    return mAuxTags;
+  }
+
   @Override
   public void makeHDF(Data data, String base) {
     data.setValue(base + ".name", parameterName());
     data.setValue(base + ".kind", kind());
     data.setValue(base + ".isTypeParameter", isTypeParameter() ? "1" : "0");
     TagInfo.makeHDF(data, base + ".comment", commentTags());
+    TagInfo.makeHDF(data, base + ".commentAux", auxTags());
   }
 
   public static void makeHDF(Data data, String base, ParamTagInfo[] tags) {

@@ -5,8 +5,7 @@
 AUTHOR = 'pstew, wiley, quiche'
 NAME = 'network_VPNConnect.l2tpipsec_cert'
 PURPOSE = 'Verify shill correctly authenticates to an L2TP/IPSec Cert VPN'
-ATTRIBUTES = "suite:bvt-perbuild, suite:network_nightly"
-SUITE = 'bvt-perbuild, network_nightly'
+ATTRIBUTES = "suite:bvt-perbuild, suite:network_nightly, suite:toolchain-tests"
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

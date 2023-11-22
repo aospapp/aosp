@@ -42,6 +42,7 @@ public class JDWPClassTypeTestCase extends JDWPSyncTestCase {
      * testcases in this test.
      * @return full name of debuggee class.
      */
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ClassType.ClassTypeDebuggee";
     }
@@ -98,6 +99,7 @@ public class JDWPClassTypeTestCase extends JDWPSyncTestCase {
             this.modBits = modBits;
         }
 
+        @Override
         public String toString() {
             return "fieldID=" + fieldID + "; name='" + name + "'; signature='" + signature
             + "'; modbits=" + modBits;

@@ -17,6 +17,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.accounts.cts">
+    <uses-sdk android:minSdkVersion="1"
+          android:targetSdkVersion="26"/>
 
     <!-- Don't need GET_ACCOUNTS because share a Uid with the relevant
          authenticators -->
@@ -35,6 +37,8 @@
 
         <activity android:name="android.accounts.cts.AccountRemovalDummyActivity" >
         </activity>
+
+        <activity android:name="android.accounts.cts.AccountAuthenticatorDummyActivity" />
 
         <service android:name="MockAccountService" android:exported="true"
                  android:process="android.accounts.cts">

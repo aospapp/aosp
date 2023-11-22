@@ -16,7 +16,7 @@
 
 package org.apache.harmony.luni.tests.java.net;
 
-import junit.framework.TestCase;
+import libcore.junit.util.ResourceLeakageDetector.DisableResourceLeakageDetection;
 import tests.support.Support_Configuration;
 import tests.support.Support_TestWebData;
 import tests.support.Support_TestWebServer;
@@ -27,29 +27,21 @@ import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FilePermission;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.net.CacheRequest;
-import java.net.CacheResponse;
 import java.net.FileNameMap;
 import java.net.HttpURLConnection;
 import java.net.JarURLConnection;
 import java.net.MalformedURLException;
-import java.net.ResponseCache;
-import java.net.SocketPermission;
 import java.net.SocketTimeoutException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
 import java.net.UnknownServiceException;
-import java.security.Permission;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -58,8 +50,14 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class URLConnectionTest extends TestCase {
+public class URLConnectionTest extends TestCaseWithRules {
+    //@Rule
+    //public TestRule guardRule = ResourceLeakageDetector.getRule();
 
     private static final String testString = "Hello World";
 
@@ -68,8 +66,6 @@ public class URLConnectionTest extends TestCase {
     private URL fileURL;
 
     private JarURLConnection jarURLCon;
-
-    private URLConnection gifURLCon;
 
     /**
      * {@link java.net.URLConnection#addRequestProperty(String, String)}
@@ -235,7 +231,6 @@ public class URLConnectionTest extends TestCase {
         fileURLCon = fileURL.openConnection();
 
         jarURLCon = openJarURLConnection();
-        gifURLCon = openGifURLConnection();
     }
 
     @Override
@@ -296,11 +291,11 @@ public class URLConnectionTest extends TestCase {
 
         // post a request
         connection.setDoOutput(true);
-        OutputStreamWriter writer
-                = new OutputStreamWriter(connection.getOutputStream());
+        OutputStreamWriter writer = new OutputStreamWriter(connection.getOutputStream());
         writer.write("hello");
         writer.flush();
         assertEquals(200, connection.getResponseCode());
+        connection.disconnect();
 
         // validate the request by asking the server what was received
         Map<String, String> headers = server.pathToRequest().get(path).getHeaders();
@@ -372,10 +367,11 @@ public class URLConnectionTest extends TestCase {
         URL url = new URL("http://a/b/c/?y");
         URLConnection fakeCon = url.openConnection();
         try {
-        fakeCon.getContent();
+            fakeCon.getContent();
         } catch (IOException e) {
             //ok
         }
+        ((HttpURLConnection) fakeCon).disconnect();
 
         ((HttpURLConnection) uc).disconnect();
         try {
@@ -445,10 +441,24 @@ public class URLConnectionTest extends TestCase {
         assertEquals(Support_TestWebData.test1.length, uc.getContentLength());
         assertEquals(Support_TestWebData.test2.length, uc2.getContentLength());
 
-        assertTrue(jarURLCon.getContentLength() > 0);
+        URLConnection gifURLCon = openGifURLConnection();
         assertTrue(gifURLCon.getContentLength() > 0);
-
+        gifURLCon.getInputStream().close();
         fileURLCon.getInputStream().close();
+    }
+
+    /**
+     * {@link java.net.URLConnection#getContentLength()}
+     */
+    @DisableResourceLeakageDetection(
+            why = "URLConnection has no mechanism for releasing resources owned by the connection."
+                    + " HttpURLConnection provides a disconnect() method but "
+                    + " JarURLConnection does not and does not provide access to the underlying"
+                    + " URLConnection that it uses to access the JAR.",
+            bug = "bad API design"
+    )
+    public void test_getContentLength_leaky() throws Exception {
+        assertTrue(jarURLCon.getContentLength() > 0);
     }
 
     public void test_getContentType() throws Exception {
@@ -530,7 +540,8 @@ public class URLConnectionTest extends TestCase {
         uc2.connect();
         try {
             uc2.getInputStream();
-        } catch (Throwable expected) {
+            fail();
+        } catch (IOException expected) {
         }
     }
 
@@ -1144,20 +1155,38 @@ public class URLConnectionTest extends TestCase {
             // correct
         }
         assertEquals(100, uc.getReadTimeout());
+    }
+
+    public void test_setReadTimeoutI_SocketTimeoutException() throws Exception {
+        // Create another Support_TestWebServer but with a time delay, so that we can ensure that
+        // subsequent read() of shorter timeout period will definitely fail.
+        Support_TestWebServer localServer = new Support_TestWebServer();
+        localServer.setDelay(10 /* responseDelayMillis */);
+        final int localPort = localServer.initServer();
+
+        // "/test2" will cause the server to return an 8k binary file but only after 10ms delay.
+        URLConnection uc = new URL("http", "localhost", localPort, "test2").openConnection();
 
         byte[] ba = new byte[600];
 
-        uc2.setReadTimeout(5);
-        uc2.setDoInput(true);
-        uc2.connect();
+        uc.setReadTimeout(1);
+        uc.setDoInput(true);
+        uc.connect();
 
         try {
-        ((InputStream) uc2.getInputStream()).read(ba, 0, 600);
+            // Either of the getInputStream() or the read(...) call can time out.
+            try (InputStream inputStream = uc.getInputStream()) {
+                inputStream.read(ba, 0, 600);
+            }
+            fail("SocketTimeoutException expected");
         } catch (SocketTimeoutException e) {
             //ok
-        } catch ( UnknownServiceException e) {
-            fail(""+e.getMessage());
+        } catch (UnknownServiceException e) {
+            fail("" + e.getMessage());
         }
+
+        localServer.close();
+        ((HttpURLConnection) uc).disconnect();
     }
 
     /**

@@ -1,5 +1,0 @@
-# Enable new networking controls.
-policycap network_peer_controls;
-
-# Enable open permission check.
-policycap open_perms;

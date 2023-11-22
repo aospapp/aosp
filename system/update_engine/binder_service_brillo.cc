@@ -118,6 +118,22 @@ Status BinderUpdateEngineBrilloService::GetChannel(bool get_current_channel,
   return ret;
 }
 
+Status BinderUpdateEngineBrilloService::SetCohortHint(
+    const String16& in_cohort_hint) {
+  return CallCommonHandler(&UpdateEngineService::SetCohortHint,
+                           NormalString(in_cohort_hint));
+}
+
+Status BinderUpdateEngineBrilloService::GetCohortHint(
+    String16* out_cohort_hint) {
+  string cohort_hint;
+  auto ret =
+      CallCommonHandler(&UpdateEngineService::GetCohortHint, &cohort_hint);
+
+  *out_cohort_hint = String16(cohort_hint.c_str());
+  return ret;
+}
+
 Status BinderUpdateEngineBrilloService::SetP2PUpdatePermission(bool enabled) {
   return CallCommonHandler(&UpdateEngineService::SetP2PUpdatePermission,
                            enabled);
@@ -192,12 +208,15 @@ Status BinderUpdateEngineBrilloService::GetLastAttemptError(
                            out_last_attempt_error);
 }
 
+Status BinderUpdateEngineBrilloService::GetEolStatus(int* out_eol_status) {
+  return CallCommonHandler(&UpdateEngineService::GetEolStatus, out_eol_status);
+}
+
 void BinderUpdateEngineBrilloService::UnregisterStatusCallback(
     IUpdateEngineStatusCallback* callback) {
   auto it = callbacks_.begin();
-
-  for (; it != callbacks_.end() && it->get() != callback; it++)
-    ;
+  while (it != callbacks_.end() && it->get() != callback)
+    it++;
 
   if (it == callbacks_.end()) {
     LOG(ERROR) << "Got death notification for unknown callback.";

@@ -20,6 +20,8 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include "wifi_hal.h"
+#include "vendor_definitions.h"
+#include "nan_cert.h"
 
 class NanCommand : public WifiVendorCommand
 {
@@ -78,6 +80,8 @@ private:
     void getNanReceivePostConnectivityCapabilityVal(
         const u8* pInValue,
         NanReceivePostConnectivityCapability *pRxCapab);
+    void getNanReceiveSdeaCtrlParams(const u8* pInValue,
+        NanSdeaCtrlParams *pPeerSdeaParams);
     int getNanReceivePostDiscoveryVal(const u8 *pInValue,
                                       u32 length,
                                       NanReceivePostDiscovery *pRxDisc);
@@ -87,8 +91,18 @@ private:
                                      NanFurtherAvailabilityChannel *pFac);
     void handleNanStatsResponse(NanStatsType stats_type,
                                 char* rspBuf,
-                                NanStatsResponse *pRsp);
+                                NanStatsResponse *pRsp,
+                                u32 message_len);
 
+    //Function which unparses the data and calls the NotifyResponse
+    int handleNdpResponse(NanResponseType ndpCmdtyp, struct nlattr **tb_vendor);
+    int handleNdpIndication(u32 ndpCmdType, struct nlattr **tb_vendor);
+    int getNdpRequest(struct nlattr **tb_vendor, NanDataPathRequestInd *event);
+    int getNdpConfirm(struct nlattr **tb_vendor, NanDataPathConfirmInd *event);
+    int getNdpEnd(struct nlattr **tb_vendor, NanDataPathEndInd *event);
+    int getNanTransmitFollowupInd(NanTransmitFollowupInd *event);
+    int getNanRangeRequestReceivedInd(NanRangeRequestInd *event);
+    int getNanRangeReportInd(NanRangeReportInd *event);
 public:
     NanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     static NanCommand* instance(wifi_handle handle);
@@ -117,6 +131,17 @@ public:
     int putNanBeaconSdfPayload(transaction_id id, const NanBeaconSdfPayloadRequest *pReq);
     int getNanStaParameter(wifi_interface_handle iface, NanStaParameter *pRsp);
     int putNanCapabilities(transaction_id id);
+    int putNanDebugCommand(NanDebugParams debug, int debug_msg_length);
+
+    /* Functions for NAN error translation
+       For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,
+       NanDisabledInd, NanTransmitFollowupInd:
+       function to translate firmware specific errors
+       to generic freamework error along with the error string
+    */
+    void NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
+                             u32 valueRcvd,
+                             void *pRsp);
 };
 #endif /* __WIFI_HAL_NAN_COMMAND_H__ */
 

@@ -43,6 +43,16 @@
             <meta-data android:name="android.accessibilityservice"
                        android:resource="@xml/vibrating_accessibilityservice" />
         </service>
+
+        <service android:name=".SpeakingAndVibratingAccessibilityService"
+                 android:label="@string/title_speaking_and_vibrating_accessibility_service"
+                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice"
+                       android:resource="@xml/speaking_and_vibrating_accessibilityservice" />
+        </service>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

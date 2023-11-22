@@ -80,11 +80,16 @@ public:
      **************************************************************************/
 
 public:
-    /* Gets current preview fame into provided buffer.
-     * We override this method in order to provide preview frames cached in this
-     * object.
-     */
-    status_t getCurrentPreviewFrame(void* buffer);
+
+    /* Copy the current frame to |buffer| */
+    status_t getCurrentFrame(void* buffer, uint32_t pixelFormat) override;
+
+    /* Copy the current preview frame to |buffer| */
+    status_t getCurrentPreviewFrame(void* buffer) override;
+
+    /* Get a pointer to the current frame, lock it first using FrameLock in
+     * EmulatedCameraDevice class */
+    const void* getCurrentFrame() override;
 
     /***************************************************************************
      * Worker thread management overrides.
@@ -93,8 +98,11 @@ public:
      **************************************************************************/
 
 protected:
-    /* Implementation of the worker thread routine. */
-    bool inWorkerThread();
+    /* Implementation of the frame production routine. */
+    bool produceFrame(void* buffer) override;
+
+    void* getPrimaryBuffer() override;
+    void* getSecondaryBuffer() override;
 
     /***************************************************************************
      * Qemu camera device data members
@@ -109,11 +117,20 @@ private:
     String8             mDeviceName;
 
     /* Current preview framebuffer. */
-    uint32_t*           mPreviewFrame;
+    std::vector<uint32_t> mPreviewFrames[2];
 
-    /* Emulated FPS (frames per second).
-     * We will emulate 50 FPS. */
-    static const int    mEmulatedFPS = 50;
+    /* Since the Qemu camera needs to keep track of two buffers per frame we
+     * use a pair here. One frame is the camera frame and the other is the
+     * preview frame. These are in different formats and instead of converting
+     * them in the guest it's more efficient to have the host provide the same
+     * frame in two different formats. The first buffer in the pair is the raw
+     * frame and the second buffer is the RGB encoded frame. The downside of
+     * this is that we need to override the getCurrentFrame and
+     * getCurrentPreviewFrame methods to extract the correct buffer from this
+     * pair. */
+    using FrameBufferPair = std::pair<uint8_t*, uint32_t*>;
+    FrameBufferPair     mFrameBufferPairs[2];
+
 };
 
 }; /* namespace android */

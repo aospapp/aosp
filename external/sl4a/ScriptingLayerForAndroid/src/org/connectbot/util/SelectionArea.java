@@ -20,7 +20,6 @@ package org.connectbot.util;
 import de.mud.terminal.VDUBuffer;
 
 /**
- * @author Kenny Root
  * Keep track of a selection area for the terminal copying mechanism.
  * If the orientation is flipped one way, swap the bottom and top or
  * left and right to keep it in the correct orientation.

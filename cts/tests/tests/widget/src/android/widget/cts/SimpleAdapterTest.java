@@ -16,16 +16,29 @@
 
 package android.widget.cts;
 
-import android.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.content.res.Resources.Theme;
-import android.cts.util.WidgetTestUtils;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
@@ -33,7 +46,12 @@ import android.widget.LinearLayout;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.TwoLineListItem;
-import android.widget.SimpleAdapter.ViewBinder;
+
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,12 +60,14 @@ import java.util.Map;
 /**
  * Test {@link SimpleAdapter}.
  */
-public class SimpleAdapterTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class SimpleAdapterTest {
     private static final int DEFAULT_ROW_COUNT = 20;
 
     private static final int DEFAULT_COLUMN_COUNT = 2;
 
-    private static final int[] VIEWS_TO = new int[] { R.id.text1 };
+    private static final int[] VIEWS_TO = new int[] { android.R.id.text1 };
 
     private static final String[] COLUMNS_FROM = new String[] { "column1" };
 
@@ -86,53 +106,54 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
 
     private LayoutInflater mInflater;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
         mInflater = (LayoutInflater) mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         mAdapterHost = (LinearLayout) mInflater.inflate(
-                android.widget.cts.R.layout.cursoradapter_host, null);
+                R.layout.cursoradapter_host, null);
 
         // new the SimpleAdapter instance
         mSimpleAdapter = new SimpleAdapter(mContext,
                 createTestList(DEFAULT_COLUMN_COUNT, DEFAULT_ROW_COUNT),
-                R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
+                android.R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
     }
 
+    @Test
     public void testConstructor() {
         new SimpleAdapter(mContext, createTestList(DEFAULT_COLUMN_COUNT, DEFAULT_ROW_COUNT),
-                R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
+                android.R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
     }
 
+    @Test
     public void testGetCount() {
         mSimpleAdapter = new SimpleAdapter(mContext,
                 createTestList(DEFAULT_COLUMN_COUNT, DEFAULT_ROW_COUNT),
-                R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
+                android.R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
         assertEquals(20, mSimpleAdapter.getCount());
 
         mSimpleAdapter = new SimpleAdapter(mContext, createTestList(DEFAULT_COLUMN_COUNT, 10),
-                R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
+                android.R.layout.simple_list_item_1, COLUMNS_FROM, VIEWS_TO);
         assertEquals(10, mSimpleAdapter.getCount());
     }
 
+    @Test
     public void testGetItem() {
         assertEquals("01", ((Map<?, ?>) mSimpleAdapter.getItem(0)).get("column1"));
         assertEquals("191", ((Map<?, ?>) mSimpleAdapter.getItem(19)).get("column1"));
-
-        try {
-            mSimpleAdapter.getItem(-1);
-            fail("Should throw IndexOutOfBoundsException if index is negative");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mSimpleAdapter.getItem(20);
-            fail("Should throw IndexOutOfBoundsException if index is beyond the list's size");
-        } catch (IndexOutOfBoundsException e) {
-        }
     }
 
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetItemIndexTooLow() {
+        mSimpleAdapter.getItem(-1);
+    }
+
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetItemIndexTooHigh() {
+        mSimpleAdapter.getItem(20);
+    }
+
+    @Test
     public void testGetItemId() {
         assertEquals(0, mSimpleAdapter.getItemId(0));
 
@@ -144,6 +165,8 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         assertEquals(20, mSimpleAdapter.getItemId(20));
     }
 
+    @UiThreadTest
+    @Test
     public void testGetView() {
         // use the layout passed in to constructor
         View result = mSimpleAdapter.getView(0, null, mAdapterHost);
@@ -165,45 +188,50 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         result = mSimpleAdapter.getView(10, convertView, null);
         assertEquals("101", ((TextView) result).getText().toString());
 
-        // the binder takes care of binding, the param ViewGroup is never readed
-        MockViewBinder binder = new MockViewBinder(true);
+        // the binder takes care of binding, the param ViewGroup is never read
+        SimpleAdapter.ViewBinder binder = mock(SimpleAdapter.ViewBinder.class);
+        doReturn(true).when(binder).setViewValue(any(View.class), any(Object.class), anyString());
         mSimpleAdapter.setViewBinder(binder);
-        binder.reset();
         mSimpleAdapter.getView(0, null, mAdapterHost);
-        assertTrue(binder.hasCalledSetViewValue());
+        verify(binder, times(1)).setViewValue(any(View.class), eq("01"), anyString());
 
         // binder try binding but fail
-        binder = new MockViewBinder(false);
-        mSimpleAdapter.setViewBinder(binder);
-        binder.reset();
+        doReturn(false).when(binder).setViewValue(any(View.class), any(Object.class), anyString());
+        reset(binder);
         result = mSimpleAdapter.getView(0, null, mAdapterHost);
-        assertTrue(binder.hasCalledSetViewValue());
+        verify(binder, times(1)).setViewValue(any(View.class), eq("01"), anyString());
         assertEquals("01", ((TextView) result).getText().toString());
-
-        try {
-            mSimpleAdapter.getView(-1, convertView, null);
-            fail("Should throw IndexOutOfBoundsException if index is negative");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mSimpleAdapter.getView(20, convertView, null);
-            fail("Should throw IndexOutOfBoundsException if index is beyond the list's size");
-        } catch (IndexOutOfBoundsException e) {
-        }
     }
 
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetViewIndexTooLow() {
+        View result = mSimpleAdapter.getView(0, null, mAdapterHost);
+        mSimpleAdapter.getView(-1, result, null);
+    }
+
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetViewIndexTooHigh() {
+        View result = mSimpleAdapter.getView(0, null, mAdapterHost);
+        mSimpleAdapter.getView(20, result, null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testSetDropDownViewResource() {
-        mSimpleAdapter.setDropDownViewResource(R.layout.simple_list_item_2);
+        mSimpleAdapter.setDropDownViewResource(android.R.layout.simple_list_item_2);
         View result = mSimpleAdapter.getDropDownView(0, null, mAdapterHost);
         assertTrue(result instanceof TwoLineListItem);
-        assertEquals("01", ((TextView) result.findViewById(R.id.text1)).getText().toString());
+        assertEquals("01",
+                ((TextView) result.findViewById(android.R.id.text1)).getText().toString());
 
         result = mSimpleAdapter.getDropDownView(19, null, mAdapterHost);
         assertTrue(result instanceof TwoLineListItem);
-        assertEquals("191", ((TextView) result.findViewById(R.id.text1)).getText().toString());
+        assertEquals("191",
+                ((TextView) result.findViewById(android.R.id.text1)).getText().toString());
 
-        mSimpleAdapter.setDropDownViewResource(R.layout.simple_list_item_1);
+        mSimpleAdapter.setDropDownViewResource(android.R.layout.simple_list_item_1);
         result = mSimpleAdapter.getDropDownView(0, null, mAdapterHost);
         assertTrue(result instanceof TextView);
         assertEquals("01", ((TextView) result).getText().toString());
@@ -213,6 +241,8 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         assertEquals("191", ((TextView) result).getText().toString());
     }
 
+    @UiThreadTest
+    @Test
     public void testGetDropDownView() {
         View result = mSimpleAdapter.getDropDownView(0, null, mAdapterHost);
         assertTrue(result instanceof TextView);
@@ -233,51 +263,55 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         result = mSimpleAdapter.getDropDownView(10, convertView, null);
         assertEquals("101", ((TextView) result).getText().toString());
 
-        // the binder takes care of binding, the param ViewGroup is never readed
-        MockViewBinder binder = new MockViewBinder(true);
+        // the binder takes care of binding, the param ViewGroup is never read
+        SimpleAdapter.ViewBinder binder = mock(SimpleAdapter.ViewBinder.class);
+        doReturn(true).when(binder).setViewValue(any(View.class), any(Object.class), anyString());
         mSimpleAdapter.setViewBinder(binder);
-        binder.reset();
         mSimpleAdapter.getDropDownView(19, null, mAdapterHost);
-        assertTrue(binder.hasCalledSetViewValue());
+        verify(binder, times(1)).setViewValue(any(View.class), eq("191"), anyString());
 
         // binder try binding but fail
-        binder = new MockViewBinder(false);
-        mSimpleAdapter.setViewBinder(binder);
-        binder.reset();
+        doReturn(false).when(binder).setViewValue(any(View.class), any(Object.class), anyString());
+        reset(binder);
         result = mSimpleAdapter.getDropDownView(19, null, mAdapterHost);
-        assertTrue(binder.hasCalledSetViewValue());
-        assertEquals("191", ((TextView)result).getText().toString());
-
-        try {
-            mSimpleAdapter.getDropDownView(-1, convertView, null);
-            fail("Should throw IndexOutOfBoundsException if index is negative");
-        } catch (IndexOutOfBoundsException e) {
-        }
-
-        try {
-            mSimpleAdapter.getDropDownView(20, convertView, null);
-            fail("Should throw IndexOutOfBoundsException if index is beyond the list's size");
-        } catch (IndexOutOfBoundsException e) {
-        }
+        verify(binder, times(1)).setViewValue(any(View.class), eq("191"), anyString());
+        assertEquals("191", ((TextView) result).getText().toString());
     }
 
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetDropDownViewIndexTooLow() {
+        View result = mSimpleAdapter.getDropDownView(0, null, mAdapterHost);
+        mSimpleAdapter.getDropDownView(-1, result, null);
+    }
+
+    @UiThreadTest
+    @Test(expected=IndexOutOfBoundsException.class)
+    public void testGetDropDownViewIndexTooHigh() {
+        View result = mSimpleAdapter.getDropDownView(0, null, mAdapterHost);
+        mSimpleAdapter.getDropDownView(20, result, null);
+    }
+
+    @Test
     public void testAccessDropDownViewTheme() {
         Theme theme = mContext.getResources().newTheme();
         mSimpleAdapter.setDropDownViewTheme(theme);
         assertSame(theme, mSimpleAdapter.getDropDownViewTheme());
     }
 
+    @Test
     public void testAccessViewBinder() {
         // no binder default
         assertNull(mSimpleAdapter.getViewBinder());
 
         // binder takes care of binding
-        MockViewBinder binder = new MockViewBinder(true);
+        SimpleAdapter.ViewBinder binder = mock(SimpleAdapter.ViewBinder.class);
+        doReturn(true).when(binder).setViewValue(any(View.class), any(Object.class), anyString());
         mSimpleAdapter.setViewBinder(binder);
         assertSame(binder, mSimpleAdapter.getViewBinder());
 
         // binder try binding but fail
-        binder = new MockViewBinder(false);
+        doReturn(false).when(binder).setViewValue(any(View.class), any(Object.class), anyString());
         mSimpleAdapter.setViewBinder(binder);
         assertSame(binder, mSimpleAdapter.getViewBinder());
 
@@ -285,13 +319,13 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         assertNull(mSimpleAdapter.getViewBinder());
     }
 
+    @Test
     public void testSetViewImage() {
         // String represents resId
         ImageView view = new ImageView(mContext);
         assertNull(view.getDrawable());
-        mSimpleAdapter.setViewImage(view, String.valueOf(android.widget.cts.R.drawable.scenery));
-        BitmapDrawable d = (BitmapDrawable) mContext.getResources().getDrawable(
-                android.widget.cts.R.drawable.scenery);
+        mSimpleAdapter.setViewImage(view, String.valueOf(R.drawable.scenery));
+        BitmapDrawable d = (BitmapDrawable) mContext.getDrawable(R.drawable.scenery);
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) view.getDrawable()).getBitmap());
 
@@ -314,9 +348,8 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         // resId
         view = new ImageView(mContext);
         assertNull(view.getDrawable());
-        mSimpleAdapter.setViewImage(view, android.widget.cts.R.drawable.scenery);
-        d = (BitmapDrawable) mContext.getResources()
-                .getDrawable(android.widget.cts.R.drawable.scenery);
+        mSimpleAdapter.setViewImage(view, R.drawable.scenery);
+        d = (BitmapDrawable) mContext.getDrawable(R.drawable.scenery);
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) view.getDrawable()).getBitmap());
 
@@ -331,17 +364,19 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         assertNull(view.getDrawable());
         try {
             mSimpleAdapter.setViewImage(view, SimpleCursorAdapterTest.createTestImage(mContext,
-                    "testimage", android.widget.cts.R.raw.testimage));
+                    "testimage", R.raw.testimage));
             assertNotNull(view.getDrawable());
             Bitmap actualBitmap = ((BitmapDrawable) view.getDrawable()).getBitmap();
-            Bitmap testBitmap = WidgetTestUtils.getUnscaledAndDitheredBitmap(mContext.getResources(),
-                    android.widget.cts.R.raw.testimage, actualBitmap.getConfig());
+            Bitmap testBitmap = WidgetTestUtils.getUnscaledAndDitheredBitmap(
+                    mContext.getResources(), R.raw.testimage, actualBitmap.getConfig());
             WidgetTestUtils.assertEquals(testBitmap, actualBitmap);
         } finally {
             SimpleCursorAdapterTest.destroyTestImage(mContext,"testimage");
         }
     }
 
+    @UiThreadTest
+    @Test
     public void testSetViewText() {
         TextView view = new TextView(mContext);
         mSimpleAdapter.setViewText(view, "expected");
@@ -352,6 +387,7 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testGetFilter() {
         assertNotNull(mSimpleAdapter.getFilter());
     }
@@ -367,14 +403,14 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
      *         column1=>21} }
      */
     private ArrayList<HashMap<String, String>> createTestList(int colCount, int rowCount) {
-        ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>();
+        ArrayList<HashMap<String, String>> list = new ArrayList<>();
         String[] columns = new String[colCount];
         for (int i = 0; i < colCount; i++) {
             columns[i] = "column" + i;
         }
 
         for (int i = 0; i < rowCount; i++) {
-            HashMap<String, String> row = new HashMap<String, String>();
+            HashMap<String, String> row = new HashMap<>();
             for (int j = 0; j < colCount; j++) {
                 row.put(columns[j], "" + i + "" + j);
             }
@@ -382,28 +418,5 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
         }
 
         return list;
-    }
-
-    private class MockViewBinder implements ViewBinder {
-        private boolean mExpectedResult;
-
-        private boolean mHasCalledSetViewValue;
-
-        public MockViewBinder(boolean expectedResult) {
-            mExpectedResult = expectedResult;
-        }
-
-        public void reset(){
-            mHasCalledSetViewValue = false;
-        }
-
-        public boolean hasCalledSetViewValue() {
-            return mHasCalledSetViewValue;
-        }
-
-        public boolean setViewValue(View view, Object data, String textRepresentation) {
-            mHasCalledSetViewValue = true;
-            return mExpectedResult;
-        }
     }
 }

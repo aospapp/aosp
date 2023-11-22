@@ -167,7 +167,7 @@ getParam(char *driver, char *param)
  * for Solaris versions that do not support the ioctl() in getParam().
  * Ugly, but only called once (for each sotype).
  *
- * As an optimisation, we make a guess using the default values for Solaris
+ * As an optimization, we make a guess using the default values for Solaris
  * assuming they haven't been modified with ndd.
  */
 
@@ -215,22 +215,7 @@ static int findMaxBuf(int fd, int opt, int sotype) {
 #endif
 
 #ifdef __linux__
-static int kernelV22 = 0;
 static int vinit = 0;
-
-int kernelIsV22 () {
-    if (!vinit) {
-        struct utsname sysinfo;
-        if (uname(&sysinfo) == 0) {
-            sysinfo.release[3] = '\0';
-            if (strcmp(sysinfo.release, "2.2") == 0) {
-                kernelV22 = JNI_TRUE;
-            }
-        }
-        vinit = 1;
-    }
-    return kernelV22;
-}
 
 static int kernelV24 = 0;
 static int vinit24 = 0;
@@ -251,17 +236,11 @@ int kernelIsV24 () {
 
 int getScopeID (struct sockaddr *him) {
     struct sockaddr_in6 *hext = (struct sockaddr_in6 *)him;
-    if (kernelIsV22()) {
-        return 0;
-    }
     return hext->sin6_scope_id;
 }
 
 int cmpScopeID (unsigned int scope, struct sockaddr *him) {
     struct sockaddr_in6 *hext = (struct sockaddr_in6 *)him;
-    if (kernelIsV22()) {
-        return 1;       /* scope is ignored for comparison in 2.2 kernel */
-    }
     return hext->sin6_scope_id == scope;
 }
 
@@ -521,7 +500,9 @@ NET_AllocSockaddr(struct sockaddr **him, int *len) {
         }
 }
 
-#if defined(__linux__) && defined(AF_INET6)
+#if 0
+// Android-changed: Stripped out unused code. http://b/33250070
+// #if defined(__linux__) && defined(AF_INET6)
 
 
 /* following code creates a list of addresses from the kernel
@@ -793,8 +774,7 @@ NET_InetAddressToSockaddr(JNIEnv *env, jobject iaObj, int port, struct sockaddr 
                 caddr[15] = (address & 0xff);
             }
         } else {
-            ipaddress = (*env)->GetObjectField(env, iaObj, ia6_ipaddressID);
-            (*env)->GetByteArrayRegion(env, ipaddress, 0, 16, caddr);
+            getInet6Address_ipaddress(env, iaObj, (char *)caddr);
         }
         memset((char *)him6, 0, sizeof(struct sockaddr_in6));
         him6->sin6_port = htons(port);
@@ -812,7 +792,7 @@ NET_InetAddressToSockaddr(JNIEnv *env, jobject iaObj, int port, struct sockaddr 
         // was constructed with a specific scope_id or NetworkInterface).
         if (family != IPv4) {
             if (ia6_scopeidID) {
-                int scope_id = (int)(*env)->GetIntField(env, iaObj, ia6_scopeidID);
+                int scope_id = getInet6Address_scopeid(env, iaObj);
                 if (scope_id > 0) {
                     him6->sin6_scope_id = scope_id;
                 }
@@ -933,12 +913,10 @@ NET_MapSocketOption(jint cmd, int *level, int *optname) {
 
     int i;
 
-    /*
-     * Different multicast options if IPv6 is enabled
-     */
 #ifdef AF_INET6
     if (ipv6_available()) {
         switch (cmd) {
+            // Different multicast options if IPv6 is enabled
             case java_net_SocketOptions_IP_MULTICAST_IF:
             case java_net_SocketOptions_IP_MULTICAST_IF2:
                 *level = IPPROTO_IPV6;
@@ -949,6 +927,13 @@ NET_MapSocketOption(jint cmd, int *level, int *optname) {
                 *level = IPPROTO_IPV6;
                 *optname = IPV6_MULTICAST_LOOP;
                 return 0;
+#if (defined(__solaris__) || defined(MACOSX))
+            // Map IP_TOS request to IPV6_TCLASS
+            case java_net_SocketOptions_IP_TOS:
+                *level = IPPROTO_IPV6;
+                *optname = IPV6_TCLASS;
+                return 0;
+#endif
         }
     }
 #endif
@@ -970,10 +955,7 @@ NET_MapSocketOption(jint cmd, int *level, int *optname) {
 
 /*
  * Wrapper for getsockopt system routine - does any necessary
- * pre/post processing to deal with OS specific oddies :-
- *
- * IP_TOS is a no-op with IPv6 sockets as it's setup when
- * the connection is established.
+ * pre/post processing to deal with OS specific oddities :-
  *
  * On Linux the SO_SNDBUF/SO_RCVBUF values must be post-processed
  * to compensate for an incorrect value returned by the kernel.
@@ -983,21 +965,6 @@ NET_GetSockOpt(int fd, int level, int opt, void *result,
                int *len)
 {
     int rv;
-
-#ifdef AF_INET6
-    if ((level == IPPROTO_IP) && (opt == IP_TOS)) {
-        if (ipv6_available()) {
-
-            /*
-             * For IPv6 socket option implemented at Java-level
-             * so return -1.
-             */
-            int *tc = (int *)result;
-            *tc = -1;
-            return 0;
-        }
-    }
-#endif
 
 #ifdef __solaris__
     rv = getsockopt(fd, level, opt, result, len);
@@ -1049,8 +1016,7 @@ NET_GetSockOpt(int fd, int level, int opt, void *result,
  *
  * For IP_TOS socket option need to mask off bits as this
  * aren't automatically masked by the kernel and results in
- * an error. In addition IP_TOS is a noop with IPv6 as it
- * should be setup as connection time.
+ * an error.
  */
 int
 NET_SetSockOpt(int fd, int level, int  opt, const void *arg,
@@ -1076,41 +1042,46 @@ NET_SetSockOpt(int fd, int level, int  opt, const void *arg,
 #else
     static long maxsockbuf = -1;
 #endif
-
-    int addopt;
-    struct linger *ling;
 #endif
 
     /*
      * IPPROTO/IP_TOS :-
-     * 1. IPv6 on Solaris/Mac OS: no-op and will be set
-     *    in flowinfo field when connecting TCP socket,
-     *    or sending UDP packet.
+     * 1. IPv6 on Solaris/Mac OS:
+     *    Set the TOS OR Traffic Class value to cater for
+     *    IPv6 and IPv4 scenarios.
      * 2. IPv6 on Linux: By default Linux ignores flowinfo
      *    field so enable IPV6_FLOWINFO_SEND so that flowinfo
-     *    will be examined.
+     *    will be examined. We also set the IPv4 TOS option in this case.
      * 3. IPv4: set socket option based on ToS and Precedence
      *    fields (otherwise get invalid argument)
      */
     if (level == IPPROTO_IP && opt == IP_TOS) {
         int *iptos;
 
-#if defined(AF_INET6) && (defined(__solaris__) || defined(MACOSX))
-        if (ipv6_available()) {
-            return 0;
-        }
-#endif
-
 #if defined(AF_INET6) && defined(__linux__)
         if (ipv6_available()) {
             int optval = 1;
-            return setsockopt(fd, IPPROTO_IPV6, IPV6_FLOWINFO_SEND,
-                              (void *)&optval, sizeof(optval));
+            if (setsockopt(fd, IPPROTO_IPV6, IPV6_FLOWINFO_SEND,
+                           (void *)&optval, sizeof(optval)) < 0) {
+                return -1;
+            }
+           /*
+            * Let's also set the IPV6_TCLASS flag.
+            * Linux appears to allow both IP_TOS and IPV6_TCLASS to be set
+            * This helps in mixed environments where IPv4 and IPv6 sockets
+            * are connecting.
+            */
+           if (setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS,
+                           arg, len) < 0) {
+                return -1;
+            }
         }
 #endif
 
         iptos = (int *)arg;
-        *iptos &= (IPTOS_TOS_MASK | IPTOS_PREC_MASK);
+        // Android-changed: This is out-dated RFC 1349 scheme. Modern Linux uses
+        // Diffsev/ECN, and this mask is no longer relavant.
+        // *iptos &= (IPTOS_TOS_MASK | IPTOS_PREC_MASK);
     }
 
     /*
@@ -1175,7 +1146,7 @@ NET_SetSockOpt(int fd, int level, int  opt, const void *arg,
      * On Linux the receive buffer is used for both socket
      * structures and the the packet payload. The implication
      * is that if SO_RCVBUF is too small then small packets
-     * must be discard.
+     * must be discarded.
      */
 #ifdef __linux__
     if (level == SOL_SOCKET && opt == SO_RCVBUF) {
@@ -1244,8 +1215,7 @@ NET_SetSockOpt(int fd, int level, int  opt, const void *arg,
         }
 
         if (sotype == SOCK_DGRAM) {
-            addopt = SO_REUSEPORT;
-            setsockopt(fd, level, addopt, arg, len);
+            setsockopt(fd, level, SO_REUSEPORT, arg, len);
         }
     }
 
@@ -1358,7 +1328,7 @@ NET_Bind(int fd, struct sockaddr *him, int len)
  * NET_WAIT_READ, NET_WAIT_WRITE & NET_WAIT_CONNECT.
  *
  * The function will return when either the socket is ready for one
- * of the specified operation or the timeout expired.
+ * of the specified operations or the timeout expired.
  *
  * It returns the time left from the timeout (possibly 0), or -1 if it expired.
  */
@@ -1430,9 +1400,12 @@ NET_Wait(JNIEnv *env, jint fd, jint flags, jint timeout)
     return timeout;
 }
 
+#if 0
+// Stripped out unused code.
 // http://b/27301951
 __attribute__((destructor))
 static void netUtilCleanUp() {
     if (loRoutes != 0) free(loRoutes);
     if (localifs != 0) free(localifs);
 }
+#endif

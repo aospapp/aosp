@@ -23,6 +23,7 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Context;
 import android.content.cts.util.XmlUtils;
+import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
@@ -30,6 +31,9 @@ import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
+import android.graphics.Typeface;
+import android.graphics.drawable.AdaptiveIconDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.LocaleList;
@@ -288,6 +292,10 @@ public class ResourcesTest extends AndroidTestCase {
         // app_icon_size is 48px, as defined in cts/tests/res/values/resources_test.xml
         final int size = mResources.getDimensionPixelSize(R.dimen.app_icon_size);
         assertEquals(48, size);
+        assertEquals(1, mResources.getDimensionPixelSize(R.dimen.pos_dimen_149));
+        assertEquals(2, mResources.getDimensionPixelSize(R.dimen.pos_dimen_151));
+        assertEquals(-1, mResources.getDimensionPixelSize(R.dimen.neg_dimen_149));
+        assertEquals(-2, mResources.getDimensionPixelSize(R.dimen.neg_dimen_151));
     }
 
     public void testGetDrawable() {
@@ -318,6 +326,40 @@ public class ResourcesTest extends AndroidTestCase {
 
         final Drawable hdpi = mResources.getDrawableForDensity(
                 R.drawable.density_test, DisplayMetrics.DENSITY_HIGH);
+        assertEquals(100, hdpi.getIntrinsicWidth());
+    }
+
+    public void testGetDrawableForDensityWithZeroDensityIsSameAsGetDrawable() {
+        final Drawable defaultDrawable = mResources.getDrawable(R.drawable.density_test, null);
+        assertNotNull(defaultDrawable);
+
+        final Drawable densityDrawable = mResources.getDrawableForDensity(R.drawable.density_test,
+                0 /*density*/, null);
+        assertNotNull(densityDrawable);
+
+        assertEquals(defaultDrawable.getIntrinsicWidth(), densityDrawable.getIntrinsicWidth());
+    }
+
+    private Drawable extractForegroundFromAdaptiveIconDrawable(int id, int density) {
+        final Drawable drawable = mResources.getDrawableForDensity(id, density, null);
+        assertTrue(drawable instanceof AdaptiveIconDrawable);
+        return ((AdaptiveIconDrawable) drawable).getForeground();
+    }
+
+    public void testGetDrawableForDensityWithAdaptiveIconDrawable() {
+        final Drawable ldpi = extractForegroundFromAdaptiveIconDrawable(R.drawable.adaptive_icon,
+                DisplayMetrics.DENSITY_LOW);
+        assertNotNull(ldpi);
+        assertEquals(300, ldpi.getIntrinsicWidth());
+
+        final Drawable mdpi = extractForegroundFromAdaptiveIconDrawable(R.drawable.adaptive_icon,
+                DisplayMetrics.DENSITY_MEDIUM);
+        assertNotNull(mdpi);
+        assertEquals(200, mdpi.getIntrinsicWidth());
+
+        final Drawable hdpi = extractForegroundFromAdaptiveIconDrawable(R.drawable.adaptive_icon,
+                DisplayMetrics.DENSITY_HIGH);
+        assertNotNull(hdpi);
         assertEquals(100, hdpi.getIntrinsicWidth());
     }
 
@@ -403,6 +445,19 @@ public class ResourcesTest extends AndroidTestCase {
         mResources.getValueForDensity(R.string.density_string,
                 DisplayMetrics.DENSITY_HIGH, tv, false);
         assertEquals("hdpi", tv.coerceToString());
+    }
+
+    public void testGetValueForDensityWithZeroDensityIsSameAsGetValue() {
+        final TypedValue defaultTv = new TypedValue();
+        mResources.getValue(R.string.density_string, defaultTv, false);
+
+        final TypedValue densityTv = new TypedValue();
+        mResources.getValueForDensity(R.string.density_string, 0 /*density*/, densityTv, false);
+
+        assertEquals(defaultTv.assetCookie, densityTv.assetCookie);
+        assertEquals(defaultTv.data, densityTv.data);
+        assertEquals(defaultTv.type, densityTv.type);
+        assertEquals(defaultTv.string, densityTv.string);
     }
 
     public void testGetAssets() {
@@ -532,6 +587,15 @@ public class ResourcesTest extends AndroidTestCase {
         cs = res.getQuantityText(R.plurals.plurals_test, 500);
         assertEquals("Some Czech dogs", cs.toString());
 
+    }
+
+    public void testChangingConfiguration() {
+        ColorDrawable dr1 = (ColorDrawable) mResources.getDrawable(R.color.varies_uimode);
+        assertEquals(ActivityInfo.CONFIG_UI_MODE, dr1.getChangingConfigurations());
+
+        // Test again with a drawable obtained from the cache.
+        ColorDrawable dr2 = (ColorDrawable) mResources.getDrawable(R.color.varies_uimode);
+        assertEquals(ActivityInfo.CONFIG_UI_MODE, dr2.getChangingConfigurations());
     }
 
     private Resources resourcesForLanguage(final String lang) {
@@ -690,5 +754,117 @@ public class ResourcesTest extends AndroidTestCase {
                 0, readCount);
 
         is.close();
+    }
+
+    public void testGetFont_invalidResourceId() {
+        try {
+            mResources.getFont(-1);
+            fail("Font resource -1 should not be found.");
+        } catch (NotFoundException e) {
+            //expected
+        }
+    }
+
+    public void testGetFont_fontFile() {
+        Typeface font = mResources.getFont(R.font.sample_regular_font);
+
+        assertNotNull(font);
+        assertNotSame(Typeface.DEFAULT, font);
+    }
+
+    public void testGetFont_xmlFile() {
+        Typeface font = mResources.getFont(R.font.samplexmlfont);
+
+        assertNotNull(font);
+        assertNotSame(Typeface.DEFAULT, font);
+    }
+
+    public void testGetFont_invalidXmlFile() {
+        try {
+            assertNull(mResources.getFont(R.font.invalid_xmlfamily));
+        } catch (NotFoundException e) {
+            // pass
+        }
+
+        try {
+            assertNull(mResources.getFont(R.font.invalid_xmlempty));
+        } catch (NotFoundException e) {
+            // pass
+        }
+    }
+
+    public void testGetFont_invalidFontFiles() {
+        try {
+            mResources.getFont(R.font.invalid_xmlfont);
+            fail();
+        } catch (RuntimeException e) {
+            // pass
+        }
+
+        try {
+            mResources.getFont(R.font.invalid_font);
+            fail();
+        } catch (RuntimeException e) {
+            // pass
+        }
+
+        try {
+            mResources.getFont(R.font.invalid_xmlfont_contains_invalid_font_file);
+            fail();
+        } catch (RuntimeException e) {
+            // pass
+        }
+
+        try {
+            mResources.getFont(R.font.invalid_xmlfont_nosource);
+            fail();
+        } catch (RuntimeException e) {
+            // pass
+        }
+
+    }
+
+    public void testGetFont_brokenFontFiles() {
+        try {
+            mResources.getFont(R.font.brokenfont);
+            fail();
+        } catch (RuntimeException e) {
+            // pass
+        }
+
+        try {
+            mResources.getFont(R.font.broken_xmlfont);
+            fail();
+        } catch (RuntimeException e) {
+            // pass
+        }
+    }
+
+    public void testGetFont_fontFileIsCached() {
+        Typeface font = mResources.getFont(R.font.sample_regular_font);
+        Typeface font2 = mResources.getFont(R.font.sample_regular_font);
+
+        assertEquals(font, font2);
+    }
+
+    public void testGetFont_xmlFileIsCached() {
+        Typeface font = mResources.getFont(R.font.samplexmlfont);
+        Typeface font2 = mResources.getFont(R.font.samplexmlfont);
+
+        assertEquals(font, font2);
+    }
+
+    public void testGetFont_resolveByFontTable() {
+        assertEquals(Typeface.NORMAL, mResources.getFont(R.font.sample_regular_font).getStyle());
+        assertEquals(Typeface.BOLD, mResources.getFont(R.font.sample_bold_font).getStyle());
+        assertEquals(Typeface.ITALIC, mResources.getFont(R.font.sample_italic_font).getStyle());
+        assertEquals(Typeface.BOLD_ITALIC,
+                mResources.getFont(R.font.sample_bolditalic_font).getStyle());
+
+        assertEquals(Typeface.NORMAL, mResources.getFont(R.font.sample_regular_family).getStyle());
+        assertEquals(Typeface.BOLD, mResources.getFont(R.font.sample_bold_family).getStyle());
+        assertEquals(Typeface.ITALIC, mResources.getFont(R.font.sample_italic_family).getStyle());
+        assertEquals(Typeface.BOLD_ITALIC,
+                mResources.getFont(R.font.sample_bolditalic_family).getStyle());
     }
 }

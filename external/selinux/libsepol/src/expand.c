@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "debug.h"
 #include "private.h"
@@ -1384,10 +1385,12 @@ static int copy_role_trans(expand_state_t * state, role_trans_rule_t * rules)
 static int expand_filename_trans(expand_state_t *state, filename_trans_rule_t *rules)
 {
 	unsigned int i, j;
-	filename_trans_t *new_trans, *cur_trans;
+	filename_trans_t key, *new_trans;
+	filename_trans_datum_t *otype;
 	filename_trans_rule_t *cur_rule;
 	ebitmap_t stypes, ttypes;
 	ebitmap_node_t *snode, *tnode;
+	int rc;
 
 	cur_rule = rules;
 	while (cur_rule) {
@@ -1417,40 +1420,32 @@ static int expand_filename_trans(expand_state_t *state, filename_trans_rule_t *r
 				if (!ebitmap_node_get_bit(tnode, j))
 					continue;
 
-				cur_trans = state->out->filename_trans;
-				while (cur_trans) {
-					if ((cur_trans->stype == i + 1) &&
-					    (cur_trans->ttype == j + 1) &&
-					    (cur_trans->tclass == cur_rule->tclass) &&
-					    (!strcmp(cur_trans->name, cur_rule->name))) {
-						/* duplicate rule, who cares */
-						if (cur_trans->otype == mapped_otype)
-							break;
+				key.stype = i + 1;
+				key.ttype = j + 1;
+				key.tclass = cur_rule->tclass;
+				key.name = cur_rule->name;
+				otype = hashtab_search(state->out->filename_trans,
+						       (hashtab_key_t) &key);
+				if (otype) {
+					/* duplicate rule, ignore */
+					if (otype->otype == mapped_otype)
+						continue;
 
-						ERR(state->handle, "Conflicting name-based type_transition %s %s:%s \"%s\":  %s vs %s",
-						    state->out->p_type_val_to_name[i],
-						    state->out->p_type_val_to_name[j],
-						    state->out->p_class_val_to_name[cur_trans->tclass - 1],
-						    cur_trans->name,
-						    state->out->p_type_val_to_name[cur_trans->otype - 1],
-						    state->out->p_type_val_to_name[mapped_otype - 1]);
-
-						return -1;
-					}
-					cur_trans = cur_trans->next;
+					ERR(state->handle, "Conflicting name-based type_transition %s %s:%s \"%s\":  %s vs %s",
+					    state->out->p_type_val_to_name[i],
+					    state->out->p_type_val_to_name[j],
+					    state->out->p_class_val_to_name[cur_rule->tclass - 1],
+					    cur_rule->name,
+					    state->out->p_type_val_to_name[otype->otype - 1],
+					    state->out->p_type_val_to_name[mapped_otype - 1]);
+					return -1;
 				}
-				/* duplicate rule, who cares */
-				if (cur_trans)
-					continue;
 
-				new_trans = malloc(sizeof(*new_trans));
+				new_trans = calloc(1, sizeof(*new_trans));
 				if (!new_trans) {
 					ERR(state->handle, "Out of memory!");
 					return -1;
 				}
-				memset(new_trans, 0, sizeof(*new_trans));
-				new_trans->next = state->out->filename_trans;
-				state->out->filename_trans = new_trans;
 
 				new_trans->name = strdup(cur_rule->name);
 				if (!new_trans->name) {
@@ -1460,7 +1455,21 @@ static int expand_filename_trans(expand_state_t *state, filename_trans_rule_t *r
 				new_trans->stype = i + 1;
 				new_trans->ttype = j + 1;
 				new_trans->tclass = cur_rule->tclass;
-				new_trans->otype = mapped_otype;
+
+				otype = calloc(1, sizeof(*otype));
+				if (!otype) {
+					ERR(state->handle, "Out of memory!");
+					return -1;
+				}
+				otype->otype = mapped_otype;
+
+				rc = hashtab_insert(state->out->filename_trans,
+						    (hashtab_key_t)new_trans,
+						    otype);
+				if (rc) {
+					ERR(state->handle, "Out of memory!");
+					return -1;
+				}
 			}
 		}
 
@@ -1476,63 +1485,67 @@ static int exp_rangetr_helper(uint32_t stype, uint32_t ttype, uint32_t tclass,
 			      mls_semantic_range_t * trange,
 			      expand_state_t * state)
 {
-	range_trans_t *rt, *check_rt = state->out->range_tr;
-	mls_range_t exp_range;
+	range_trans_t *rt = NULL, key;
+	mls_range_t *r, *exp_range = NULL;
 	int rc = -1;
 
-	if (mls_semantic_range_expand(trange, &exp_range, state->out,
+	exp_range = calloc(1, sizeof(*exp_range));
+	if (!exp_range) {
+		ERR(state->handle, "Out of memory!");
+		return -1;
+	}
+
+	if (mls_semantic_range_expand(trange, exp_range, state->out,
 				      state->handle))
-		goto out;
+		goto err;
 
 	/* check for duplicates/conflicts */
-	while (check_rt) {
-		if ((check_rt->source_type == stype) &&
-		    (check_rt->target_type == ttype) &&
-		    (check_rt->target_class == tclass)) {
-			if (mls_range_eq(&check_rt->target_range, &exp_range)) {
-				/* duplicate */
-				break;
-			} else {
-				/* conflict */
-				ERR(state->handle,
-				    "Conflicting range trans rule %s %s : %s",
-				    state->out->p_type_val_to_name[stype - 1],
-				    state->out->p_type_val_to_name[ttype - 1],
-				    state->out->p_class_val_to_name[tclass -
-								    1]);
-				goto out;
-			}
+	key.source_type = stype;
+	key.target_type = ttype;
+	key.target_class = tclass;
+	r = hashtab_search(state->out->range_tr, (hashtab_key_t) &key);
+	if (r) {
+		if (mls_range_eq(r, exp_range)) {
+			/* duplicate, ignore */
+			mls_range_destroy(exp_range);
+			free(exp_range);
+			return 0;
 		}
-		check_rt = check_rt->next;
-	}
-	if (check_rt) {
-		/* this is a dup - skip */
-		rc = 0;
-		goto out;
+
+		/* conflict */
+		ERR(state->handle,
+		    "Conflicting range trans rule %s %s : %s",
+		    state->out->p_type_val_to_name[stype - 1],
+		    state->out->p_type_val_to_name[ttype - 1],
+		    state->out->p_class_val_to_name[tclass - 1]);
+		goto err;
 	}
 
-	rt = (range_trans_t *) calloc(1, sizeof(range_trans_t));
+	rt = calloc(1, sizeof(*rt));
 	if (!rt) {
 		ERR(state->handle, "Out of memory!");
-		goto out;
+		goto err;
 	}
-
-	rt->next = state->out->range_tr;
-	state->out->range_tr = rt;
-
 	rt->source_type = stype;
 	rt->target_type = ttype;
 	rt->target_class = tclass;
-	if (mls_range_cpy(&rt->target_range, &exp_range)) {
+
+	rc = hashtab_insert(state->out->range_tr, (hashtab_key_t) rt,
+			    exp_range);
+	if (rc) {
 		ERR(state->handle, "Out of memory!");
-		goto out;
+		goto err;
+
 	}
 
-	rc = 0;
-
-      out:
-	mls_range_destroy(&exp_range);
-	return rc;
+	return 0;
+err:
+	free(rt);
+	if (exp_range) {
+		mls_range_destroy(exp_range);
+		free(exp_range);
+	}
+	return -1;
 }
 
 static int expand_range_trans(expand_state_t * state,
@@ -1640,6 +1653,11 @@ static avtab_ptr_t find_avtab_node(sepol_handle_t * handle,
 
 	if (!node) {
 		memset(&avdatum, 0, sizeof avdatum);
+		/*
+		 * AUDITDENY, aka DONTAUDIT, are &= assigned, versus |= for
+		 * others. Initialize the data accordingly.
+		 */
+		avdatum.data = key->specified == AVTAB_AUDITDENY ? ~0 : 0;
 		/* this is used to get the node - insertion is actually unique */
 		node = avtab_insert_nonunique(avtab, key, &avdatum);
 		if (!node) {
@@ -1663,6 +1681,12 @@ static avtab_ptr_t find_avtab_node(sepol_handle_t * handle,
 	return node;
 }
 
+static uint32_t avrule_to_avtab_spec(uint32_t specification)
+{
+	return (specification == AVRULE_DONTAUDIT) ?
+		AVTAB_AUDITDENY : specification;
+}
+
 #define EXPAND_RULE_SUCCESS   1
 #define EXPAND_RULE_CONFLICT  0
 #define EXPAND_RULE_ERROR    -1
@@ -1679,26 +1703,22 @@ static int expand_terule_helper(sepol_handle_t * handle,
 	avtab_ptr_t node;
 	class_perm_node_t *cur;
 	int conflict;
-	uint32_t oldtype = 0, spec = 0;
+	uint32_t oldtype = 0;
 
-	if (specified & AVRULE_TRANSITION) {
-		spec = AVTAB_TRANSITION;
-	} else if (specified & AVRULE_MEMBER) {
-		spec = AVTAB_MEMBER;
-	} else if (specified & AVRULE_CHANGE) {
-		spec = AVTAB_CHANGE;
-	} else {
-		assert(0);	/* unreachable */
+	if (!(specified & (AVRULE_TRANSITION|AVRULE_MEMBER|AVRULE_CHANGE))) {
+		ERR(handle, "Invalid specification: %"PRIu32"\n", specified);
+		return EXPAND_RULE_ERROR;
 	}
+
+	avkey.specified = avrule_to_avtab_spec(specified);
+	avkey.source_type = stype + 1;
+	avkey.target_type = ttype + 1;
 
 	cur = perms;
 	while (cur) {
 		uint32_t remapped_data =
 		    typemap ? typemap[cur->data - 1] : cur->data;
-		avkey.source_type = stype + 1;
-		avkey.target_type = ttype + 1;
 		avkey.target_class = cur->tclass;
-		avkey.specified = spec;
 
 		conflict = 0;
 		/* check to see if the expanded TE already exists --
@@ -1760,20 +1780,47 @@ static int expand_terule_helper(sepol_handle_t * handle,
 		}
 
 		avdatump = &node->datum;
-		if (specified & AVRULE_TRANSITION) {
-			avdatump->data = remapped_data;
-		} else if (specified & AVRULE_MEMBER) {
-			avdatump->data = remapped_data;
-		} else if (specified & AVRULE_CHANGE) {
-			avdatump->data = remapped_data;
-		} else {
-			assert(0);	/* should never occur */
-		}
+		avdatump->data = remapped_data;
 
 		cur = cur->next;
 	}
 
 	return EXPAND_RULE_SUCCESS;
+}
+
+/* 0 for success -1 indicates failure */
+static int allocate_xperms(sepol_handle_t * handle, avtab_datum_t * avdatump,
+			   av_extended_perms_t * extended_perms)
+{
+	unsigned int i;
+
+	avtab_extended_perms_t *xperms = avdatump->xperms;
+	if (!xperms) {
+		xperms = (avtab_extended_perms_t *)
+			calloc(1, sizeof(avtab_extended_perms_t));
+		if (!xperms) {
+			ERR(handle, "Out of memory!");
+			return -1;
+		}
+		avdatump->xperms = xperms;
+	}
+
+	switch (extended_perms->specified) {
+	case AVRULE_XPERMS_IOCTLFUNCTION:
+		xperms->specified = AVTAB_XPERMS_IOCTLFUNCTION;
+		break;
+	case AVRULE_XPERMS_IOCTLDRIVER:
+		xperms->specified = AVTAB_XPERMS_IOCTLDRIVER;
+		break;
+	default:
+		return -1;
+	}
+
+	xperms->driver = extended_perms->driver;
+	for (i = 0; i < ARRAY_SIZE(xperms->perms); i++)
+		xperms->perms[i] |= extended_perms->perms[i];
+
+	return 0;
 }
 
 static int expand_avrule_helper(sepol_handle_t * handle,
@@ -1785,44 +1832,21 @@ static int expand_avrule_helper(sepol_handle_t * handle,
 {
 	avtab_key_t avkey;
 	avtab_datum_t *avdatump;
-	avtab_extended_perms_t *xperms;
 	avtab_ptr_t node;
 	class_perm_node_t *cur;
-	uint32_t spec = 0;
-	unsigned int i;
 
-	if (specified & AVRULE_ALLOWED) {
-		spec = AVTAB_ALLOWED;
-	} else if (specified & AVRULE_AUDITALLOW) {
-		spec = AVTAB_AUDITALLOW;
-	} else if (specified & AVRULE_AUDITDENY) {
-		spec = AVTAB_AUDITDENY;
-	} else if (specified & AVRULE_DONTAUDIT) {
-		if (handle && handle->disable_dontaudit)
+	/* bail early if dontaudit's are disabled and it's a dontaudit rule */
+	if ((specified & (AVRULE_DONTAUDIT|AVRULE_XPERMS_DONTAUDIT))
+	     && handle && handle->disable_dontaudit)
 			return EXPAND_RULE_SUCCESS;
-		spec = AVTAB_AUDITDENY;
-	} else if (specified & AVRULE_NEVERALLOW) {
-		spec = AVTAB_NEVERALLOW;
-	} else if (specified & AVRULE_XPERMS_ALLOWED) {
-		spec = AVTAB_XPERMS_ALLOWED;
-	} else if (specified & AVRULE_XPERMS_AUDITALLOW) {
-		spec = AVTAB_XPERMS_AUDITALLOW;
-	} else if (specified & AVRULE_XPERMS_DONTAUDIT) {
-		if (handle && handle->disable_dontaudit)
-			return EXPAND_RULE_SUCCESS;
-		spec = AVTAB_XPERMS_DONTAUDIT;
-	} else if (specified & AVRULE_XPERMS_NEVERALLOW) {
-		spec = AVTAB_XPERMS_NEVERALLOW;
-	} else {
-		assert(0);	/* unreachable */
-	}
+
+	avkey.source_type = stype + 1;
+	avkey.target_type = ttype + 1;
+	avkey.specified = avrule_to_avtab_spec(specified);
 
 	cur = perms;
 	while (cur) {
-		avkey.source_type = stype + 1;
-		avkey.target_type = ttype + 1;
 		avkey.target_class = cur->tclass;
-		avkey.specified = spec;
 
 		node = find_avtab_node(handle, avtab, &avkey, cond, extended_perms);
 		if (!node)
@@ -1834,13 +1858,16 @@ static int expand_avrule_helper(sepol_handle_t * handle,
 		}
 
 		avdatump = &node->datum;
-		if (specified & AVRULE_ALLOWED) {
+		switch (specified) {
+		case AVRULE_ALLOWED:
+		case AVRULE_AUDITALLOW:
+		case AVRULE_NEVERALLOW:
 			avdatump->data |= cur->data;
-		} else if (specified & AVRULE_AUDITALLOW) {
-			avdatump->data |= cur->data;
-		} else if (specified & AVRULE_NEVERALLOW) {
-			avdatump->data |= cur->data;
-		} else if (specified & AVRULE_AUDITDENY) {
+			break;
+		case AVRULE_DONTAUDIT:
+			avdatump->data &= ~cur->data;
+			break;
+		case AVRULE_AUDITDENY:
 			/* Since a '0' in an auditdeny mask represents
 			 * a permission we do NOT want to audit
 			 * (dontaudit), we use the '&' operand to
@@ -1849,28 +1876,17 @@ static int expand_avrule_helper(sepol_handle_t * handle,
 			 * auditallow cases).
 			 */
 			avdatump->data &= cur->data;
-		} else if (specified & AVRULE_DONTAUDIT) {
-			if (avdatump->data)
-				avdatump->data &= ~cur->data;
-			else
-				avdatump->data = ~cur->data;
-		} else if (specified & AVRULE_XPERMS) {
-			if (!avdatump->xperms) {
-				xperms = (avtab_extended_perms_t *)
-					calloc(1, sizeof(avtab_extended_perms_t));
-				if (!xperms) {
-					ERR(handle, "Out of memory!");
-					return -1;
-				}
-				node->datum.xperms = xperms;
-			}
-			node->datum.xperms->specified = extended_perms->specified;
-			node->datum.xperms->driver = extended_perms->driver;
-
-			for (i = 0; i < ARRAY_SIZE(xperms->perms); i++)
-				node->datum.xperms->perms[i] |= extended_perms->perms[i];
-		} else {
-			assert(0);	/* should never occur */
+			break;
+		case AVRULE_XPERMS_ALLOWED:
+		case AVRULE_XPERMS_AUDITALLOW:
+		case AVRULE_XPERMS_DONTAUDIT:
+		case AVRULE_XPERMS_NEVERALLOW:
+			if (allocate_xperms(handle, avdatump, extended_perms))
+				return EXPAND_RULE_ERROR;
+			break;
+		default:
+			ERR(handle, "Unknown specification: %"PRIu32"\n", specified);
+			return EXPAND_RULE_ERROR;
 		}
 
 		cur = cur->next;
@@ -2420,7 +2436,7 @@ int role_set_expand(role_set_t * x, ebitmap_t * r, policydb_t * out, policydb_t 
 	ebitmap_init(r);
 
 	if (x->flags & ROLE_STAR) {
-		for (i = 0; i < p->p_roles.nprim++; i++)
+		for (i = 0; i < p->p_roles.nprim; i++)
 			if (ebitmap_set_bit(r, i, 1))
 				return -1;
 		return 0;
@@ -2497,6 +2513,7 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 	unsigned int i;
 	ebitmap_t types, neg_types;
 	ebitmap_node_t *tnode;
+	int rc =-1;
 
 	ebitmap_init(&types);
 	ebitmap_init(t);
@@ -2505,17 +2522,29 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 		/* First go through the types and OR all the attributes to types */
 		ebitmap_for_each_bit(&set->types, tnode, i) {
 			if (ebitmap_node_get_bit(tnode, i)) {
+
+				/*
+				 * invalid policies might have more types set in the ebitmap than
+				 * what's available in the type_val_to_struct mapping
+				 */
+				if (i > p->p_types.nprim - 1)
+					goto err_types;
+
+				if (!p->type_val_to_struct[i]) {
+					goto err_types;
+				}
+
 				if (p->type_val_to_struct[i]->flavor ==
 				    TYPE_ATTRIB) {
 					if (ebitmap_union
 					    (&types,
 					     &p->type_val_to_struct[i]->
 					     types)) {
-						return -1;
+						goto err_types;
 					}
 				} else {
 					if (ebitmap_set_bit(&types, i, 1)) {
-						return -1;
+						goto err_types;
 					}
 				}
 			}
@@ -2523,7 +2552,7 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 	} else {
 		/* No expansion of attributes, just copy the set as is. */
 		if (ebitmap_cpy(&types, &set->types))
-			return -1;
+			goto err_types;
 	}
 
 	/* Now do the same thing for negset */
@@ -2535,11 +2564,11 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 				if (ebitmap_union
 				    (&neg_types,
 				     &p->type_val_to_struct[i]->types)) {
-					return -1;
+					goto err_neg;
 				}
 			} else {
 				if (ebitmap_set_bit(&neg_types, i, 1)) {
-					return -1;
+					goto err_neg;
 				}
 			}
 		}
@@ -2554,7 +2583,7 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 			    p->type_val_to_struct[i]->flavor == TYPE_ATTRIB)
 				continue;
 			if (ebitmap_set_bit(t, i, 1))
-				return -1;
+				goto err_neg;
 		}
 		goto out;
 	}
@@ -2563,7 +2592,7 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 		if (ebitmap_node_get_bit(tnode, i)
 		    && (!ebitmap_get_bit(&neg_types, i)))
 			if (ebitmap_set_bit(t, i, 1))
-				return -1;
+				goto err_neg;
 	}
 
 	if (set->flags & TYPE_COMP) {
@@ -2575,20 +2604,23 @@ int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 			}
 			if (ebitmap_get_bit(t, i)) {
 				if (ebitmap_set_bit(t, i, 0))
-					return -1;
+					goto err_neg;
 			} else {
 				if (ebitmap_set_bit(t, i, 1))
-					return -1;
+					goto err_neg;
 			}
 		}
 	}
 
-      out:
+	  out:
+	rc = 0;
 
-	ebitmap_destroy(&types);
+	  err_neg:
 	ebitmap_destroy(&neg_types);
+	  err_types:
+	ebitmap_destroy(&types);
 
-	return 0;
+	return rc;
 }
 
 static int copy_neverallow(policydb_t * dest_pol, uint32_t * typemap,

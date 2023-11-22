@@ -117,5 +117,49 @@ TEST_F(EndToEndTest, IPingResponderCpp) {
   CheckFileContents(options->DependencyFilePath(), kExpectedCppDepsOutput);
 }
 
+TEST_F(EndToEndTest, StringConstantsInCpp) {
+  using namespace ::android::aidl::test_data::string_constants;
+
+  const string input_path = CanonicalNameToPath(kCanonicalName, ".aidl");
+  const string output_file = kCppOutputPath;
+  const size_t argc = 4;
+  const char* cmdline[argc + 1] = {
+      "aidl-cpp", input_path.c_str(), kGenHeaderDir,
+      output_file.c_str(), nullptr
+  };
+  auto options = CppOptions::Parse(argc, cmdline);
+
+  // Set up input paths.
+  io_delegate_.SetFileContents(input_path, kInterfaceDefinition);
+
+  // Check that we parse and generate code correctly.
+  EXPECT_EQ(android::aidl::compile_aidl_to_cpp(*options, io_delegate_), 0);
+  CheckFileContents(output_file, kExpectedCppOutput);
+  CheckFileContents(kGenInterfaceHeaderPath, kExpectedIHeaderOutput);
+}
+
+TEST_F(EndToEndTest, StringConstantsInJava) {
+  using namespace ::android::aidl::test_data::string_constants;
+
+  const string input_path = CanonicalNameToPath(kCanonicalName, ".aidl");
+  const string output_file = kJavaOutputPath;
+  const size_t argc = 4;
+  const char* cmdline[argc + 1] = {
+    "aidl",
+    "-b",
+    input_path.c_str(),
+    output_file.c_str(),
+    nullptr,
+};
+  auto options = JavaOptions::Parse(argc, cmdline);
+
+  // Load up our fake file system with data.
+  io_delegate_.SetFileContents(input_path, kInterfaceDefinition);
+
+  // Check that we parse correctly.
+  EXPECT_EQ(android::aidl::compile_aidl_to_java(*options, io_delegate_), 0);
+  CheckFileContents(kJavaOutputPath, kExpectedJavaOutput);
+}
+
 }  // namespace android
 }  // namespace aidl

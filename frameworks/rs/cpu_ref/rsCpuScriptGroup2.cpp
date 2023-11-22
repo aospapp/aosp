@@ -11,7 +11,7 @@
 #include <vector>
 
 #ifndef RS_COMPATIBILITY_LIB
-#include "bcc/Config/Config.h"
+#include "bcc/Config.h"
 #endif
 
 #include "cpu_ref/rsCpuCore.h"
@@ -72,7 +72,6 @@ void groupRoot(const RsExpandKernelDriverInfo *kinfo, uint32_t xstart,
             ptr += out->mHal.drvState.lod[0].stride * kinfo->current.y;
         }
 
-        rsAssert(kinfo->outLen <= 1);
         mutable_kinfo->outPtr[0] = const_cast<uint8_t*>(ptr);
 
         // The implementation of an intrinsic relies on kinfo->usr being
@@ -181,7 +180,8 @@ CpuScriptGroup2Impl::CpuScriptGroup2Impl(RsdCpuReferenceImpl *cpuRefImpl,
             mBatches.push_back(batch);
             std::stringstream ss;
             ss << "Batch" << ++i;
-            batch = new Batch(this, ss.str().c_str());
+            std::string batchStr(ss.str());
+            batch = new Batch(this, batchStr.c_str());
         }
 
         batch->mClosures.push_back(cc);
@@ -230,7 +230,7 @@ string getCoreLibPath(Context* context, string* coreLibRelaxedPath) {
 
     // If we're debugging, use the debug library.
     if (context->getContextType() == RS_CONTEXT_TYPE_DEBUG) {
-        return SYSLIBPATH"/libclcore_debug.bc";
+        return SYSLIBPATH_BC"/libclcore_debug.bc";
     }
 
     // Check for a platform specific library
@@ -240,14 +240,14 @@ string getCoreLibPath(Context* context, string* coreLibRelaxedPath) {
     // for all reduced precision scripts.
     // ARMv8 does not use NEON, as ASIMD can be used with all precision
     // levels.
-    *coreLibRelaxedPath = SYSLIBPATH"/libclcore_neon.bc";
+    *coreLibRelaxedPath = SYSLIBPATH_BC"/libclcore_neon.bc";
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
     // x86 devices will use an optimized library.
-    return SYSLIBPATH"/libclcore_x86.bc";
+    return SYSLIBPATH_BC"/libclcore_x86.bc";
 #else
-    return SYSLIBPATH"/libclcore.bc";
+    return SYSLIBPATH_BC"/libclcore.bc";
 #endif
 }
 
@@ -330,9 +330,59 @@ void generateSourceSlot(RsdCpuReferenceImpl* ctxt,
 
 }  // anonymous namespace
 
+// This function is used by the debugger to inspect ScriptGroup
+// compilations.
+//
+// "__attribute__((noinline))" and "__asm__" are used to prevent the
+// function call from being eliminated as a no-op (see the "noinline"
+// attribute in gcc documentation).
+//
+// "__attribute__((weak))" is used to prevent callers from recognizing
+// that this is guaranteed to be the function definition, recognizing
+// that certain arguments are unused, and optimizing away the passing
+// of those arguments (see the LLVM optimization
+// DeadArgumentElimination).  Theoretically, the compiler could get
+// aggressive enough with link-time optimization that even marking the
+// entry point as a weak definition wouldn't solve the problem.
+//
+extern __attribute__((noinline)) __attribute__((weak))
+void debugHintScriptGroup2(const char* groupName,
+                           const uint32_t groupNameSize,
+                           const ExpandFuncTy* kernel,
+                           const uint32_t kernelCount) {
+    ALOGV("group name: %d:%s\n", groupNameSize, groupName);
+    for (uint32_t i=0; i < kernelCount; ++i) {
+        const char* f1 = (const char*)(kernel[i]);
+        __asm__ __volatile__("");
+        ALOGV("  closure: %p\n", (const void*)f1);
+    }
+    // do nothing, this is just a hook point for the debugger.
+    return;
+}
+
 void CpuScriptGroup2Impl::compile(const char* cacheDir) {
 #ifndef RS_COMPATIBILITY_LIB
     if (mGroup->mClosures.size() < 2) {
+        return;
+    }
+
+    const int optLevel = getCpuRefImpl()->getContext()->getOptLevel();
+    if (optLevel == 0) {
+        std::vector<ExpandFuncTy> kernels;
+        for (const Batch* b : mBatches)
+            for (const CPUClosure* c : b->mClosures)
+                kernels.push_back(c->mFunc);
+
+        if (kernels.size()) {
+            // pass this information on to the debugger via a hint function.
+            debugHintScriptGroup2(mGroup->mName,
+                                  strlen(mGroup->mName),
+                                  kernels.data(),
+                                  kernels.size());
+        }
+
+        // skip script group compilation forcing the driver to use the fallback
+        // execution path which currently has better support for debugging.
         return;
     }
 
@@ -391,8 +441,6 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
     const string& coreLibPath = getCoreLibPath(getCpuRefImpl()->getContext(),
                                                &coreLibRelaxedPath);
 
-    int optLevel = getCpuRefImpl()->getContext()->getOptLevel();
-
     vector<const char*> arguments;
     bool emitGlobalInfo = getCpuRefImpl()->getEmbedGlobalInfo();
     bool emitGlobalInfoSkipConstant = getCpuRefImpl()->getEmbedGlobalInfoSkipConstant();
@@ -416,7 +464,7 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
 
     std::stringstream ss;
     ss << std::hex << checksum;
-    const char* checksumStr = ss.str().c_str();
+    std::string checksumStr(ss.str());
 
     //===--------------------------------------------------------------------===//
     // Try to load a shared lib from code cache matching filename and checksum
@@ -425,8 +473,13 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
     bool alreadyLoaded = false;
     std::string cloneName;
 
-    mScriptObj = SharedLibraryUtils::loadSharedLibrary(cacheDir, resName, nullptr,
-                                                       &alreadyLoaded);
+    const bool useRSDebugContext =
+            (mCpuRefImpl->getContext()->getContextType() == RS_CONTEXT_TYPE_DEBUG);
+    const bool reuse = !is_force_recompile() && !useRSDebugContext;
+    if (reuse) {
+        mScriptObj = SharedLibraryUtils::loadSharedLibrary(cacheDir, resName, nullptr,
+                                                           &alreadyLoaded);
+    }
     if (mScriptObj != nullptr) {
         // A shared library named resName is found in code cache directory
         // cacheDir, and loaded with the handle stored in mScriptObj.
@@ -450,7 +503,7 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
 
             cloneName.append(resName);
             cloneName.append("#");
-            cloneName.append(SharedLibraryUtils::getRandomString(6).string());
+            cloneName.append(SharedLibraryUtils::getRandomString(6).c_str());
 
             // The last element in arguments is the output filename.
             arguments.pop_back();
@@ -466,7 +519,7 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
     //===--------------------------------------------------------------------===//
 
     arguments.push_back("-build-checksum");
-    arguments.push_back(checksumStr);
+    arguments.push_back(checksumStr.c_str());
     arguments.push_back(nullptr);
 
     bool compiled = rsuExecuteCommand(RsdCpuScriptImpl::BCC_EXE_PATH,
@@ -480,8 +533,11 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
     // Create and load the shared lib
     //===--------------------------------------------------------------------===//
 
+    std::string SOPath;
+
     if (!SharedLibraryUtils::createSharedLibrary(
-            getCpuRefImpl()->getContext()->getDriverName(), cacheDir, resName)) {
+            getCpuRefImpl()->getContext()->getDriverName(), cacheDir, resName,
+            reuse, &SOPath)) {
         ALOGE("Failed to link object file '%s'", resName);
         unlink(objFilePath.c_str());
         return;
@@ -489,7 +545,11 @@ void CpuScriptGroup2Impl::compile(const char* cacheDir) {
 
     unlink(objFilePath.c_str());
 
-    mScriptObj = SharedLibraryUtils::loadSharedLibrary(cacheDir, resName);
+    if (reuse) {
+        mScriptObj = SharedLibraryUtils::loadSharedLibrary(cacheDir, resName);
+    } else {
+        mScriptObj = SharedLibraryUtils::loadAndDeleteSharedLibrary(SOPath.c_str());
+    }
     if (mScriptObj == nullptr) {
         ALOGE("Unable to load '%s'", resName);
         return;

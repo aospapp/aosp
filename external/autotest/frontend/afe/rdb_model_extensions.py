@@ -133,11 +133,11 @@ class ModelValidators(object):
 
         This method returns the names of all fields that the client can provide
         a value for during host creation. The fields not included in this list
-        are those that we can leave blank, such as synch_id. Specifying non
-        null values for such fields only makes sense as an update to the host.
+        are those that we can leave blank. Specifying non-null values for such
+        fields only makes sense as an update to the host.
 
         @return A list of basic fields.
-            Eg: set([hostname, locked, leased, synch_id, status, invalid,
+            Eg: set([hostname, locked, leased, status, invalid,
                      protection, lock_time, dirty])
         """
         return [field.name for field in cls._meta.fields
@@ -173,7 +173,6 @@ class AbstractHostModel(dbmodels.Model, ModelValidators):
     their representation on the client side.
 
     Internal fields:
-        synch_id: currently unused
         status: string describing status of host
         invalid: true if the host has been deleted
         protection: indicates what can be done to this host during repair
@@ -185,6 +184,7 @@ class AbstractHostModel(dbmodels.Model, ModelValidators):
     hostname = dbmodels.CharField(max_length=255, unique=True)
     locked = dbmodels.BooleanField(default=False)
     leased = dbmodels.BooleanField(default=True)
+    # TODO(ayatane): This is needed until synch_id is removed from Host._fields
     synch_id = dbmodels.IntegerField(blank=True, null=True,
                                      editable=settings.FULL_ADMIN)
     status = dbmodels.CharField(max_length=255, default=Status.READY,

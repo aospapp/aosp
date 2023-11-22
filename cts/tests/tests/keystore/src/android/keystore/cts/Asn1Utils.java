@@ -30,6 +30,8 @@ import com.android.org.bouncycastle.asn1.ASN1Set;
 import com.android.org.bouncycastle.asn1.DEROctetString;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.lang.String;
 import java.math.BigInteger;
 import java.security.cert.CertificateParsingException;
 import java.util.Date;
@@ -66,6 +68,15 @@ public class Asn1Utils {
         }
         ASN1OctetString derOctectString = (ASN1OctetString) asn1Encodable;
         return derOctectString.getOctets();
+    }
+
+    public static ASN1Encodable getAsn1EncodableFromBytes(byte[] bytes)
+            throws CertificateParsingException {
+        try (ASN1InputStream asn1InputStream = new ASN1InputStream(bytes)) {
+            return asn1InputStream.readObject();
+        } catch (IOException e) {
+            throw new CertificateParsingException("Failed to parse Encodable", e);
+        }
     }
 
     public static ASN1Sequence getAsn1SequenceFromBytes(byte[] bytes)
@@ -107,6 +118,17 @@ public class Asn1Utils {
             builder.add(getIntegerFromAsn1((ASN1Integer) e.nextElement()));
         }
         return builder.build();
+    }
+
+    public static String getStringFromAsn1OctetStreamAssumingUTF8(ASN1Encodable encodable)
+            throws CertificateParsingException, UnsupportedEncodingException {
+        if (!(encodable instanceof ASN1OctetString)) {
+            throw new CertificateParsingException(
+                    "Expected octet string, found " + encodable.getClass().getName());
+        }
+
+        ASN1OctetString octetString = (ASN1OctetString) encodable;
+        return new String(octetString.getOctets(), "UTF-8");
     }
 
     public static Date getDateFromAsn1(ASN1Primitive value) throws CertificateParsingException {

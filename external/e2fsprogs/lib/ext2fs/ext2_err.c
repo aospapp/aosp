@@ -8,7 +8,7 @@
 #define N_(a) a
 
 static const char * const text[] = {
-	N_(	"EXT2FS Library version 1.42.9"),
+	N_(	"EXT2FS Library version android-7.0.0_r21-1236-gc1b7d19"),
 	N_(	"Wrong magic number for ext2_filsys structure"),
 	N_(	"Wrong magic number for badblocks_list structure"),
 	N_(	"Wrong magic number for badblocks_iterate structure"),
@@ -164,6 +164,28 @@ static const char * const text[] = {
 	N_(	"Unknown checksum algorithm"),
 	N_(	"MMP block checksum does not match MMP block"),
 	N_(	"Ext2 file already exists"),
+	N_(	"Block bitmap checksum does not match bitmap"),
+	N_(	"Cannot iterate data blocks of an inode containing inline data"),
+	N_(	"Extended attribute has an invalid name length"),
+	N_(	"Extended attribute has an invalid value length"),
+	N_(	"Extended attribute has an incorrect hash"),
+	N_(	"Extended attribute block has a bad header"),
+	N_(	"Extended attribute key not found"),
+	N_(	"Insufficient space to store extended attribute data"),
+	N_(	"Filesystem is missing ext_attr or inline_data feature"),
+	N_(	"Inode doesn't have inline data"),
+	N_(	"No block for an inode with inline data"),
+	N_(	"No free space in inline data"),
+	N_(	"Wrong magic number for extended attribute structure"),
+	N_(	"Inode seems to contain garbage"),
+	N_(	"Extended attribute has an invalid value offset"),
+	N_(	"Journal flags inconsistent"),
+	N_(	"Undo file corrupt"),
+	N_(	"Wrong undo file for this filesystem"),
+	N_(	"File system is corrupted"),
+	N_(	"Bad CRC detected in file system"),
+	N_(	"The journal superblock is corrupt"),
+	N_(	"Inode is corrupted"),
     0
 };
 
@@ -178,7 +200,7 @@ struct et_list {
 };
 extern struct et_list *_et_list;
 
-const struct error_table et_ext2_error_table = { text, 2133571328L, 156 };
+const struct error_table et_ext2_error_table = { text, 2133571328L, 178 };
 
 static struct et_list link = { 0, 0 };
 

@@ -13,8 +13,10 @@ from autotest_lib.client.bin import utils
 _PIN = '0000'
 _SEARCH_TIMEOUT = 30.0
 _PAIRING_TIMEOUT = 5.0
-_CONNECT_TIMEOUT = 15.0
-
+_SLEEP_AFTER_DISCONNECT = 20.0
+# When device is busy, a trial may take more than 15 seconds.
+# Set the timeout to 90 seconds so device can take more trials to reconnect.
+_CONNECT_TIMEOUT = 90.0
 
 class ChameleonBluetoothAudioError(Exception):
     """Error in this module."""
@@ -71,6 +73,7 @@ def connect_bluetooth_module_full_flow(bt_adapter, target_mac_address,
         raise ChameleonBluetoothAudioError(
                 'Failed to let Cros device disconnect from bluetooth module %s' %
                 target_mac_address)
+    time.sleep(_SLEEP_AFTER_DISCONNECT)
 
     # Connects to bluetooth module.
     connect_bluetooth_module(bt_adapter, target_mac_address)
@@ -93,6 +96,7 @@ def connect_bluetooth_module(bt_adapter, target_mac_address,
 
     """
     def _connect_device():
+        logging.info('Try to connect to device')
         success = bt_adapter.connect_device(target_mac_address)
         if not success:
             logging.debug('Can not connect device, retry in 1 second.')
@@ -128,7 +132,7 @@ def pair_legacy_bluetooth_module(bt_adapter, target_mac_address, pin=_PIN,
     # Pairs the bluetooth adapter with bluetooth module.
     for trial in xrange(retries):
         if bt_adapter.pair_legacy_device(
-            target_mac_address, pin, pairing_timeout):
+            target_mac_address, pin, False, pairing_timeout):
                 logging.debug('Pairing to %s succeeded', target_mac_address)
                 return
         elif trial == retries - 1:

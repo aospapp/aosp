@@ -20,25 +20,27 @@ class display_HotPlugAtBoot(test.test):
     DUT behavior response to different configuration of hot-plug during boot.
     """
     version = 1
-    PLUG_CONFIGS = [
+    PLUG_DEFAULT_CONFIG = [
         # (plugged_before_boot, plugged_after_boot)
-        (False, True),
-        (True, True),
-        (True, False),
+        (True,True)
     ]
     # Allowed timeout for reboot.
     REBOOT_TIMEOUT = 30
 
-    def run_once(self, host, test_mirrored=False):
+    def run_once(self, host, test_mirrored=False, plug_status=None):
+        if test_mirrored and not host.get_board_type() == 'CHROMEBOOK':
+            raise error.TestNAError('DUT is not Chromebook. Test Skipped')
+
         factory = remote_facade_factory.RemoteFacadeFactory(host)
         display_facade = factory.create_display_facade()
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, display_facade)
 
         errors = []
+        is_display_failure = False
         for chameleon_port in finder.iterate_all_ports():
             screen_test = chameleon_screen_test.ChameleonScreenTest(
                     chameleon_port, display_facade, self.outputdir)
@@ -56,10 +58,13 @@ class display_HotPlugAtBoot(test.test):
             logging.info('See the display on DUT: %s %r',
                     expected_connector, resolution)
 
-            for plugged_before_boot, plugged_after_boot in self.PLUG_CONFIGS:
+            if plug_status is None:
+                plug_status = self.PLUG_DEFAULT_CONFIG
+
+            for (plugged_before_boot, plugged_after_boot) in plug_status:
                 logging.info('TESTING THE CASE: %s > reboot > %s',
-                             'plug' if plugged_before_boot else 'unplug',
-                             'plug' if plugged_after_boot else 'unplug')
+                             'PLUG' if plugged_before_boot else 'UNPLUG',
+                             'PLUG' if plugged_after_boot else 'UNPLUG')
                 boot_id = host.get_boot_id()
                 chameleon_port.set_plug(plugged_before_boot)
 
@@ -75,6 +80,7 @@ class display_HotPlugAtBoot(test.test):
                 if screen_test.check_external_display_connected(
                         expected_connector if plugged_after_boot else False,
                         errors):
+                    is_display_failure = True
                     # Skip the following test if an unexpected display detected.
                     continue
 
@@ -84,13 +90,18 @@ class display_HotPlugAtBoot(test.test):
                         error_message = 'Error: not rebooted to mirrored mode'
                         errors.append(error_message)
                         logging.error(error_message)
+                        is_display_failure = True
                         # Sets mirrored status for next test
                         logging.info('Set mirrored: %s', True)
                         display_facade.set_mirrored(True)
                         continue
 
-                    screen_test.test_screen_with_image(
-                            resolution, test_mirrored, errors)
+                    if screen_test.test_screen_with_image(
+                            resolution, test_mirrored, errors):
+                        is_display_failure = True
 
         if errors:
-            raise error.TestFail('; '.join(set(errors)))
+            if is_display_failure:
+                raise error.TestFail('; '.join(set(errors)))
+            else:
+                raise error.TestError('; '.join(set(errors)))

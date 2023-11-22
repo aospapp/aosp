@@ -1013,14 +1013,14 @@ static int check_android_listeners(fd_set *set) {
                     set_servers(params);
                     check_servers();
                 } else {
-                    my_syslog(LOG_ERR, _("Malformatted msg '%s'"), current_cmd);
+                    my_syslog(LOG_ERR, _("Misformatted msg '%s'"), current_cmd);
                     retcode = -1;
                 }
             } else if (!strcmp(cmd, "update_ifaces")) {
                 if (params != NULL) {
                     set_interfaces(params);
                 } else {
-                    my_syslog(LOG_ERR, _("Malformatted msg '%s'"), current_cmd);
+                    my_syslog(LOG_ERR, _("Misformatted msg '%s'"), current_cmd);
                     retcode = -1;
                 }
             } else {

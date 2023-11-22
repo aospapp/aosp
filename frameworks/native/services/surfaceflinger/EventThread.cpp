@@ -21,7 +21,6 @@
 
 #include <cutils/compiler.h>
 
-#include <gui/BitTube.h>
 #include <gui/IDisplayEventConnection.h>
 #include <gui/DisplayEventReceiver.h>
 
@@ -44,13 +43,14 @@ static void vsyncOffCallback(union sigval val) {
     return;
 }
 
-EventThread::EventThread(const sp<VSyncSource>& src, SurfaceFlinger& flinger)
+EventThread::EventThread(const sp<VSyncSource>& src, SurfaceFlinger& flinger, bool interceptVSyncs)
     : mVSyncSource(src),
       mFlinger(flinger),
       mUseSoftwareVSync(false),
       mVsyncEnabled(false),
       mDebugVsyncEnabled(false),
-      mVsyncHintSent(false) {
+      mVsyncHintSent(false),
+      mInterceptVSyncs(interceptVSyncs) {
 
     for (int32_t i=0 ; i<DisplayDevice::NUM_BUILTIN_DISPLAY_TYPES ; i++) {
         mVSyncEvent[i].header.type = DisplayEventReceiver::DISPLAY_EVENT_VSYNC;
@@ -226,6 +226,9 @@ Vector< sp<EventThread::Connection> > EventThread::waitForEvent(
             timestamp = mVSyncEvent[i].header.timestamp;
             if (timestamp) {
                 // we have a vsync event to dispatch
+                if (mInterceptVSyncs) {
+                    mFlinger.mInterceptor.saveVSyncEvent(timestamp);
+                }
                 *event = mVSyncEvent[i];
                 mVSyncEvent[i].header.timestamp = 0;
                 vsyncCount = mVSyncEvent[i].vsync.count;
@@ -385,7 +388,7 @@ void EventThread::dump(String8& result) const {
 
 EventThread::Connection::Connection(
         const sp<EventThread>& eventThread)
-    : count(-1), mEventThread(eventThread), mChannel(new BitTube())
+    : count(-1), mEventThread(eventThread), mChannel(gui::BitTube::DefaultSize)
 {
 }
 
@@ -399,12 +402,14 @@ void EventThread::Connection::onFirstRef() {
     mEventThread->registerDisplayEventConnection(this);
 }
 
-sp<BitTube> EventThread::Connection::getDataChannel() const {
-    return mChannel;
+status_t EventThread::Connection::stealReceiveChannel(gui::BitTube* outChannel) {
+    outChannel->setReceiveFd(mChannel.moveReceiveFd());
+    return NO_ERROR;
 }
 
-void EventThread::Connection::setVsyncRate(uint32_t count) {
+status_t EventThread::Connection::setVsyncRate(uint32_t count) {
     mEventThread->setVsyncRate(count, this);
+    return NO_ERROR;
 }
 
 void EventThread::Connection::requestNextVsync() {
@@ -413,7 +418,7 @@ void EventThread::Connection::requestNextVsync() {
 
 status_t EventThread::Connection::postEvent(
         const DisplayEventReceiver::Event& event) {
-    ssize_t size = DisplayEventReceiver::sendEvents(mChannel, &event, 1);
+    ssize_t size = DisplayEventReceiver::sendEvents(&mChannel, &event, 1);
     return size < 0 ? status_t(size) : status_t(NO_ERROR);
 }
 

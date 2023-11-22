@@ -51,6 +51,6 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(snakeyaml_src_files)
 LOCAL_MODULE := snakeyaml-hostdex
 include $(LOCAL_PATH)/ApplyAndroidPatches.mk
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
 
 # TODO: Consider adding tests.

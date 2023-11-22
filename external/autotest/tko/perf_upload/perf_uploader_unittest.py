@@ -78,69 +78,6 @@ class test_aggregate_iterations(unittest.TestCase):
                     tko_models.perf_value_iteration(iter_num, iter_data))
 
 
-    def test_one_iteration(self):
-        """Tests that data for 1 iteration is aggregated properly."""
-        result = perf_uploader._aggregate_iterations([self._perf_values[0]])
-        self.assertEqual(len(result), 3, msg='Expected results for 3 metrics.')
-        key = [('metric1', None), ('metric2', 'graph1'), ('metric2', 'graph2')]
-        self.assertTrue(
-            all([x in result for x in key]),
-            msg='Parsed metrics not as expected.')
-        msg = 'Perf values for metric not aggregated properly.'
-        self.assertEqual(result[('metric1', None)]['value'], [1], msg=msg)
-        self.assertEqual(result[('metric2', 'graph1')]['value'], [10], msg=msg)
-        self.assertEqual(result[('metric2', 'graph2')]['value'], [100], msg=msg)
-        msg = 'Standard deviation values not retained properly.'
-        self.assertEqual(result[('metric1', None)]['stddev'], 0.0, msg=msg)
-        self.assertEqual(result[('metric2', 'graph1')]['stddev'], 0.0, msg=msg)
-        self.assertEqual(result[('metric2', 'graph2')]['stddev'], 1.7, msg=msg)
-
-
-    def test_two_iterations(self):
-        """Tests that data for 2 iterations is aggregated properly."""
-        result = perf_uploader._aggregate_iterations(self._perf_values)
-        self.assertEqual(len(result), 3, msg='Expected results for 3 metrics.')
-        key = [('metric1', None), ('metric2', 'graph1'), ('metric2', 'graph2')]
-        self.assertTrue(
-            all([x in result for x in key]),
-            msg='Parsed metrics not as expected.')
-        msg = 'Perf values for metric not aggregated properly.'
-        self.assertEqual(result[('metric1', None)]['value'], [1, 2], msg=msg)
-        self.assertEqual(result[('metric2', 'graph1')]['value'], [10, 20],
-                         msg=msg)
-        self.assertEqual(result[('metric2', 'graph2')]['value'], [100, 200],
-                         msg=msg)
-
-
-class test_compute_avg_stddev(unittest.TestCase):
-    """Tests for the compute_avg_stddev function."""
-
-    def setUp(self):
-        """Sets up for each test case."""
-        self._perf_values = {
-            'metric1': {'value': [10, 20, 30], 'stddev': 0.0},
-            'metric2': {'value': [2.0, 3.0, 4.0], 'stddev': 0.0},
-            'metric3': {'value': [1], 'stddev': 1.7},
-        }
-
-
-    def test_avg_stddev(self):
-        """Tests that averages and standard deviations are computed properly."""
-        perf_uploader._compute_avg_stddev(self._perf_values)
-        result = self._perf_values  # The input dictionary itself is modified.
-        self.assertEqual(len(result), 3, msg='Expected results for 3 metrics.')
-        self.assertTrue(
-            all([x in result for x in ['metric1', 'metric2', 'metric3']]),
-            msg='Parsed metrics not as expected.')
-        msg = 'Average value not computed properly.'
-        self.assertEqual(result['metric1']['value'], 20, msg=msg)
-        self.assertEqual(result['metric2']['value'], 3.0, msg=msg)
-        self.assertEqual(result['metric3']['value'], 1, msg=msg)
-        msg = 'Standard deviation value not computed properly.'
-        self.assertEqual(result['metric1']['stddev'], 10.0, msg=msg)
-        self.assertEqual(result['metric2']['stddev'], 1.0, msg=msg)
-        self.assertEqual(result['metric3']['stddev'], 1.7, msg=msg)
-
 
 class test_json_config_file_sanity(unittest.TestCase):
     """Sanity tests for the JSON-formatted presentation config file."""
@@ -301,27 +238,41 @@ class test_get_version_numbers(unittest.TestCase):
                   'CHROMEOS_RELEASE_VERSION': '5678.9.0r1',
               })
 
+    def test_with_valid_release_milestone(self):
+      """Checks the version numbers used when data is formatted as expected."""
+      self.assertEqual(
+              ('54.5678.9.0', '34.5.678.9'),
+              perf_uploader._get_version_numbers(
+                  {
+                      'CHROME_VERSION': '34.5.678.9',
+                      'CHROMEOS_RELEASE_VERSION': '5678.9.0',
+                      'CHROMEOS_RELEASE_CHROME_MILESTONE': '54',
+                  }))
+
 
 class test_format_for_upload(unittest.TestCase):
     """Tests for the format_for_upload function."""
 
     _PERF_DATA = {
-        ('metric1', 'graph_name'): {
-            'value': 2.7,
-            'stddev': 0.2,
-            'units': 'msec',
-            'graph': 'graph_name',
-            'higher_is_better': False,
-        },
-        ('metric2', None): {
-            'value': 101.35,
-            'stddev': 5.78,
-            'units': 'frames_per_sec',
-            'graph': None,
-            'higher_is_better': True,
+     "charts": {
+            "metric1": {
+                "summary": {
+                    "improvement_direction": "down",
+                    "type": "scalar",
+                    "units": "msec",
+                    "value": 2.7,
+                }
+            },
+            "metric2": {
+                "summary": {
+                    "improvement_direction": "up",
+                    "type": "scalar",
+                    "units": "frames_per_sec",
+                    "value": 101.35,
+                }
+            }
         },
     }
-
     _PRESENT_INFO = {
         'master_name': 'new_master_name',
         'test_name': 'new_test_name',
@@ -345,88 +296,57 @@ class test_format_for_upload(unittest.TestCase):
         actual = json.loads(actual_result)
         expected = json.loads(expected_result)
 
+        def ordered(obj):
+            if isinstance(obj, dict):
+               return sorted((k, ordered(v)) for k, v in obj.items())
+            if isinstance(obj, list):
+               return sorted(ordered(x) for x in obj)
+            else:
+               return obj
         fail_msg = 'Unexpected result string: %s' % actual_result
-        self.assertEqual(len(actual), len(expected), msg=fail_msg)
-        # Make sure the dictionaries in 'expected' are in the same order
-        # as the dictionaries in 'actual' before comparing their values.
-        actual = sorted(actual, key=lambda x: x['test'])
-        expected = sorted(expected, key=lambda x: x['test'])
-        # Now compare the results.
-        for idx in xrange(len(actual)):
-            keys_actual = set(actual[idx].keys())
-            keys_expected = set(expected[idx].keys())
-            self.assertEqual(len(keys_actual), len(keys_expected),
-                             msg=fail_msg)
-            self.assertTrue(all([key in keys_actual for key in keys_expected]),
-                            msg=fail_msg)
-
-            self.assertEqual(
-                    actual[idx]['supplemental_columns']['r_cros_version'],
-                    expected[idx]['supplemental_columns']['r_cros_version'],
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['supplemental_columns']['r_chrome_version'],
-                    expected[idx]['supplemental_columns']['r_chrome_version'],
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['supplemental_columns']['a_default_rev'],
-                    expected[idx]['supplemental_columns']['a_default_rev'],
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['supplemental_columns']['a_hardware_identifier'],
-                    expected[idx]['supplemental_columns']['a_hardware_identifier'],
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['supplemental_columns']['a_hardware_hostname'],
-                    expected[idx]['supplemental_columns']['a_hardware_hostname'],
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['bot'], expected[idx]['bot'], msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['revision'], expected[idx]['revision'], msg=fail_msg)
-            self.assertAlmostEqual(
-                    actual[idx]['value'], expected[idx]['value'], 4,
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['units'], expected[idx]['units'], msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['master'], expected[idx]['master'],
-                    msg=fail_msg)
-            self.assertAlmostEqual(
-                    actual[idx]['error'], expected[idx]['error'], 4,
-                    msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['test'], expected[idx]['test'], msg=fail_msg)
-            self.assertEqual(
-                    actual[idx]['higher_is_better'],
-                    expected[idx]['higher_is_better'], msg=fail_msg)
+        self.assertEqual(ordered(expected), ordered(actual), msg=fail_msg)
 
 
     def test_format_for_upload(self):
         """Verifies format_for_upload generates correct json data."""
         result = perf_uploader._format_for_upload(
                 'platform', '25.1200.0.0', '25.10.1000.0', 'WINKY E2A-F2K-Q35',
-                'i7', 'test_machine', self._perf_data, self._PRESENT_INFO)
+                'i7', 'test_machine', self._perf_data, self._PRESENT_INFO,
+                '52926644-username/hostname')
         expected_result_string = (
-                '[{"supplemental_columns": {"r_cros_version": "25.1200.0.0", '
-                '"a_default_rev" : "r_chrome_version",'
-                '"a_hardware_identifier" : "WINKY E2A-F2K-Q35",'
-                '"a_hardware_hostname" : "test_machine",'
-                '"r_chrome_version": "25.10.1000.0"}, "bot": "cros-platform-i7", '
-                '"higher_is_better": false, "value": 2.7, '
-                '"revision": 10000000120000000, '
-                '"units": "msec", "master": "new_master_name", '
-                '"error": 0.2, "test": "new_test_name/graph_name/metric1"}, '
-                '{"supplemental_columns": {"r_cros_version": "25.1200.0.0", '
-                '"a_default_rev" : "r_chrome_version",'
-                '"a_hardware_identifier" : "WINKY E2A-F2K-Q35",'
-                '"a_hardware_hostname" : "test_machine",'
-                '"r_chrome_version": "25.10.1000.0"}, "bot": "cros-platform-i7", '
-                '"higher_is_better": true, "value": 101.35, '
-                '"revision": 10000000120000000, '
-                '"units": "frames_per_sec", "master": "new_master_name", '
-                '"error": 5.78, "test": "new_test_name/metric2"}]')
-
+          '{"versions":  {'
+             '"cros_version": "25.1200.0.0",'
+             '"chrome_version": "25.10.1000.0"'
+          '},'
+          '"point_id": 10000000120000000,'
+          '"bot": "cros-platform-i7",'
+          '"chart_data": {'
+             '"charts": {'
+               '"metric2": {'
+                 '"summary": {'
+                   '"units": "frames_per_sec",'
+                   '"type": "scalar",'
+                   '"value": 101.35,'
+                   '"improvement_direction": "up"'
+                 '}'
+               '},'
+               '"metric1": {'
+                 '"summary": {'
+                 '"units": "msec",'
+                 '"type": "scalar",'
+                 '"value": 2.7,'
+                 '"improvement_direction": "down"}'
+               '}'
+             '}'
+          '},'
+          '"master": "new_master_name",'
+          '"supplemental": {'
+             '"hardware_identifier": "WINKY E2A-F2K-Q35",'
+             '"jobname": "52926644-username/hostname",'
+             '"hardware_hostname": "test_machine",'
+             '"default_rev": "r_cros_version",'
+             '"variant_name": "i7"}'
+           '}')
         self._verify_result_string(result['data'], expected_result_string)
 
 

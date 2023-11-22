@@ -30,6 +30,8 @@
 #include <media/Metadata.h>
 #include <media/stagefright/foundation/ABase.h>
 
+#include <android/hardware/media/omx/1.0/IOmx.h>
+
 #include <system/audio.h>
 
 namespace android {
@@ -69,13 +71,14 @@ private:
 class MediaPlayerService : public BnMediaPlayerService
 {
     class Client;
+    typedef ::android::hardware::media::omx::V1_0::IOmx IOmx;
 
     class AudioOutput : public MediaPlayerBase::AudioSink
     {
         class CallbackData;
 
      public:
-                                AudioOutput(audio_session_t sessionId, int uid, int pid,
+                                AudioOutput(audio_session_t sessionId, uid_t uid, int pid,
                                         const audio_attributes_t * attr);
         virtual                 ~AudioOutput();
 
@@ -129,6 +132,11 @@ class MediaPlayerService : public BnMediaPlayerService
         virtual status_t        setParameters(const String8& keyValuePairs);
         virtual String8         getParameters(const String8& keys);
 
+        virtual VolumeShaper::Status applyVolumeShaper(
+                                        const sp<VolumeShaper::Configuration>& configuration,
+                                        const sp<VolumeShaper::Operation>& operation) override;
+        virtual sp<VolumeShaper::State> getVolumeShaperState(int id) override;
+
     private:
         static void             setMinBufferCount();
         static void             CallbackWrapper(
@@ -152,11 +160,12 @@ class MediaPlayerService : public BnMediaPlayerService
         float                   mMsecsPerFrame;
         size_t                  mFrameSize;
         audio_session_t         mSessionId;
-        int                     mUid;
+        uid_t                   mUid;
         int                     mPid;
         float                   mSendLevel;
         int                     mAuxEffectId;
         audio_output_flags_t    mFlags;
+        sp<VolumeHandler>       mVolumeHandler;
         mutable Mutex           mLock;
 
         // static variables below not protected by mutex
@@ -169,7 +178,7 @@ class MediaPlayerService : public BnMediaPlayerService
         class CallbackData {
             friend AudioOutput;
         public:
-            CallbackData(AudioOutput *cookie) {
+            explicit CallbackData(AudioOutput *cookie) {
                 mData = cookie;
                 mSwitching = false;
             }
@@ -212,7 +221,7 @@ public:
 
     // IMediaPlayerService interface
     virtual sp<IMediaRecorder>  createMediaRecorder(const String16 &opPackageName);
-    void    removeMediaRecorderClient(wp<MediaRecorderClient> client);
+    void    removeMediaRecorderClient(const wp<MediaRecorderClient>& client);
     virtual sp<IMediaMetadataRetriever> createMetadataRetriever();
 
     virtual sp<IMediaPlayer>    create(const sp<IMediaPlayerClient>& client,
@@ -226,7 +235,7 @@ public:
             const sp<IRemoteDisplayClient>& client, const String8& iface);
     virtual status_t            dump(int fd, const Vector<String16>& args);
 
-            void                removeClient(wp<Client> client);
+            void                removeClient(const wp<Client>& client);
             bool                hasClient(wp<Client> client);
 
     enum {
@@ -237,57 +246,71 @@ public:
         CAMERA_PROCESS_DEATH = 4
     };
 
-    // For battery usage tracking purpose
-    struct BatteryUsageInfo {
-        // how many streams are being played by one UID
-        int     refCount;
-        // a temp variable to store the duration(ms) of audio codecs
-        // when we start a audio codec, we minus the system time from audioLastTime
-        // when we pause it, we add the system time back to the audioLastTime
-        // so after the pause, audioLastTime = pause time - start time
-        // if multiple audio streams are played (or recorded), then audioLastTime
-        // = the total playing time of all the streams
-        int32_t audioLastTime;
-        // when all the audio streams are being paused, we assign audioLastTime to
-        // this variable, so this value could be provided to the battery app
-        // in the next pullBatteryData call
-        int32_t audioTotalTime;
-
-        int32_t videoLastTime;
-        int32_t videoTotalTime;
-    };
-    KeyedVector<int, BatteryUsageInfo>    mBatteryData;
-
-    enum {
-        SPEAKER,
-        OTHER_AUDIO_DEVICE,
-        SPEAKER_AND_OTHER,
-        NUM_AUDIO_DEVICES
-    };
-
-    struct BatteryAudioFlingerUsageInfo {
-        int refCount; // how many audio streams are being played
-        int deviceOn[NUM_AUDIO_DEVICES]; // whether the device is currently used
-        int32_t lastTime[NUM_AUDIO_DEVICES]; // in ms
-        // totalTime[]: total time of audio output devices usage
-        int32_t totalTime[NUM_AUDIO_DEVICES]; // in ms
-    };
-
-    // This varialble is used to record the usage of audio output device
-    // for battery app
-    BatteryAudioFlingerUsageInfo mBatteryAudio;
-
     // Collect info of the codec usage from media player and media recorder
     virtual void                addBatteryData(uint32_t params);
     // API for the Battery app to pull the data of codecs usage
     virtual status_t            pullBatteryData(Parcel* reply);
 private:
+    struct BatteryTracker {
+        BatteryTracker();
+        // Collect info of the codec usage from media player and media recorder
+        void addBatteryData(uint32_t params);
+        // API for the Battery app to pull the data of codecs usage
+        status_t pullBatteryData(Parcel* reply);
+
+    private:
+        // For battery usage tracking purpose
+        struct BatteryUsageInfo {
+            // how many streams are being played by one UID
+            int     refCount;
+            // a temp variable to store the duration(ms) of audio codecs
+            // when we start a audio codec, we minus the system time from audioLastTime
+            // when we pause it, we add the system time back to the audioLastTime
+            // so after the pause, audioLastTime = pause time - start time
+            // if multiple audio streams are played (or recorded), then audioLastTime
+            // = the total playing time of all the streams
+            int32_t audioLastTime;
+            // when all the audio streams are being paused, we assign audioLastTime to
+            // this variable, so this value could be provided to the battery app
+            // in the next pullBatteryData call
+            int32_t audioTotalTime;
+
+            int32_t videoLastTime;
+            int32_t videoTotalTime;
+        };
+        KeyedVector<int, BatteryUsageInfo>    mBatteryData;
+
+        enum {
+            SPEAKER,
+            OTHER_AUDIO_DEVICE,
+            SPEAKER_AND_OTHER,
+            NUM_AUDIO_DEVICES
+        };
+
+        struct BatteryAudioFlingerUsageInfo {
+            int refCount; // how many audio streams are being played
+            int deviceOn[NUM_AUDIO_DEVICES]; // whether the device is currently used
+            int32_t lastTime[NUM_AUDIO_DEVICES]; // in ms
+            // totalTime[]: total time of audio output devices usage
+            int32_t totalTime[NUM_AUDIO_DEVICES]; // in ms
+        };
+
+        // This varialble is used to record the usage of audio output device
+        // for battery app
+        BatteryAudioFlingerUsageInfo mBatteryAudio;
+
+        mutable Mutex mLock;
+    };
+    BatteryTracker mBatteryTracker;
 
     class Client : public BnMediaPlayer {
         // IMediaPlayer interface
         virtual void            disconnect();
         virtual status_t        setVideoSurfaceTexture(
                                         const sp<IGraphicBufferProducer>& bufferProducer);
+        virtual status_t        setBufferingSettings(const BufferingSettings& buffering) override;
+        virtual status_t        getDefaultBufferingSettings(
+                                        BufferingSettings* buffering /* nonnull */) override;
         virtual status_t        prepareAsync();
         virtual status_t        start();
         virtual status_t        stop();
@@ -298,7 +321,9 @@ private:
         virtual status_t        setSyncSettings(const AVSyncSettings& rate, float videoFpsHint);
         virtual status_t        getSyncSettings(AVSyncSettings* rate /* nonnull */,
                                                 float* videoFps /* nonnull */);
-        virtual status_t        seekTo(int msec);
+        virtual status_t        seekTo(
+                int msec,
+                MediaPlayerSeekMode mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC);
         virtual status_t        getCurrentPosition(int* msec);
         virtual status_t        getDuration(int* msec);
         virtual status_t        reset();
@@ -317,6 +342,11 @@ private:
         virtual status_t        setRetransmitEndpoint(const struct sockaddr_in* endpoint);
         virtual status_t        getRetransmitEndpoint(struct sockaddr_in* endpoint);
         virtual status_t        setNextPlayer(const sp<IMediaPlayer>& player);
+
+        virtual VolumeShaper::Status applyVolumeShaper(
+                                        const sp<VolumeShaper::Configuration>& configuration,
+                                        const sp<VolumeShaper::Operation>& operation) override;
+        virtual sp<VolumeShaper::State> getVolumeShaperState(int id) override;
 
         sp<MediaPlayerBase>     createPlayer(player_type playerType);
 
@@ -342,23 +372,39 @@ private:
         virtual status_t        dump(int fd, const Vector<String16>& args);
 
                 audio_session_t getAudioSessionId() { return mAudioSessionId; }
+        // Modular DRM
+        virtual status_t prepareDrm(const uint8_t uuid[16], const Vector<uint8_t>& drmSessionId);
+        virtual status_t releaseDrm();
 
     private:
-        class ServiceDeathNotifier: public IBinder::DeathRecipient
+        class ServiceDeathNotifier:
+                public IBinder::DeathRecipient,
+                public ::android::hardware::hidl_death_recipient
         {
         public:
             ServiceDeathNotifier(
                     const sp<IBinder>& service,
                     const sp<MediaPlayerBase>& listener,
                     int which);
+            ServiceDeathNotifier(
+                    const sp<IOmx>& omx,
+                    const sp<MediaPlayerBase>& listener,
+                    int which);
             virtual ~ServiceDeathNotifier();
             virtual void binderDied(const wp<IBinder>& who);
+            virtual void serviceDied(
+                    uint64_t cookie,
+                    const wp<::android::hidl::base::V1_0::IBase>& who);
+            void unlinkToDeath();
 
         private:
             int mWhich;
             sp<IBinder> mService;
+            sp<IOmx> mOmx;
             wp<MediaPlayerBase> mListener;
         };
+
+        void clearDeathNotifiers();
 
         friend class MediaPlayerService;
                                 Client( const sp<MediaPlayerService>& service,
@@ -402,7 +448,7 @@ private:
                     int32_t                     mConnId;
                     audio_session_t             mAudioSessionId;
                     audio_attributes_t *        mAudioAttributes;
-                    uid_t                       mUID;
+                    uid_t                       mUid;
                     sp<ANativeWindow>           mConnectedWindow;
                     sp<IBinder>                 mConnectedWindowBinder;
                     struct sockaddr_in          mRetransmitEndpoint;
@@ -419,8 +465,8 @@ private:
         // getMetadata clears this set.
         media::Metadata::Filter mMetadataUpdated;  // protected by mLock
 
-        sp<IBinder::DeathRecipient> mExtractorDeathListener;
-        sp<IBinder::DeathRecipient> mCodecDeathListener;
+        sp<ServiceDeathNotifier> mExtractorDeathListener;
+        sp<ServiceDeathNotifier> mCodecDeathListener;
 #if CALLBACK_ANTAGONIZER
                     Antagonizer*                mAntagonizer;
 #endif

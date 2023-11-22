@@ -128,16 +128,18 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 			return -1;
 		}
 
+		// we do not need ion_hnd once we have shared_fd
+		if (0 != ion_free(m->ion_client, ion_hnd))
+		{
+			AWAR("ion_free( %d ) failed", m->ion_client);
+		}
+		ion_hnd = ION_INVALID_HANDLE;
+
 		cpu_ptr = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, shared_fd, 0);
 
 		if (MAP_FAILED == cpu_ptr)
 		{
 			AERR("ion_map( %d ) failed", m->ion_client);
-
-			if (0 != ion_free(m->ion_client, ion_hnd))
-			{
-				AERR("ion_free( %d ) failed", m->ion_client);
-			}
 
 			close(shared_fd);
 			return -1;
@@ -148,7 +150,6 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 		if (NULL != hnd)
 		{
 			hnd->share_fd = shared_fd;
-			hnd->ion_hnd = ion_hnd;
 			*pHandle = hnd;
 			return 0;
 		}
@@ -163,13 +164,6 @@ static int gralloc_alloc_buffer(alloc_device_t *dev, size_t size, int usage, buf
 		if (0 != ret)
 		{
 			AERR("munmap failed for base:%p size: %lu", cpu_ptr, (unsigned long)size);
-		}
-
-		ret = ion_free(m->ion_client, ion_hnd);
-
-		if (0 != ret)
-		{
-			AERR("ion_free( %d ) failed", m->ion_client);
 		}
 
 		return -1;
@@ -306,9 +300,10 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t *dev, size_t size, in
 		vaddr = (void *)((uintptr_t)vaddr + bufferSize);
 	}
 
+	int fbdev_fd = m->framebuffer->shallow_fbdev_fd;
 	// The entire framebuffer memory is already mapped, now create a buffer object for parts of this memory
 	private_handle_t *hnd = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, usage, size, vaddr,
-	        0, dup(m->framebuffer->fd), (uintptr_t)vaddr - (uintptr_t) m->framebuffer->base);
+	        0, fbdev_fd, (uintptr_t)vaddr - (uintptr_t) m->framebuffer->base);
 #if GRALLOC_ARM_UMP_MODULE
 	hnd->ump_id = m->framebuffer->ump_id;
 
@@ -330,13 +325,19 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t *dev, size_t size, in
 #ifdef FBIOGET_DMABUF
 		struct fb_dmabuf_export fb_dma_buf;
 
-		if (ioctl(m->framebuffer->fd, FBIOGET_DMABUF, &fb_dma_buf) == 0)
+		if (ioctl(fbdev_fd, FBIOGET_DMABUF, &fb_dma_buf) == 0)
 		{
 			AINF("framebuffer accessed with dma buf (fd 0x%x)\n", (int)fb_dma_buf.fd);
 			hnd->share_fd = fb_dma_buf.fd;
 		}
 
 #endif
+	}
+
+	// correct numFds/numInts when there is no dmabuf fd
+	if (hnd->share_fd < 0) {
+		hnd->numFds--;
+		hnd->numInts++;
 	}
 #endif
 
@@ -518,7 +519,6 @@ static int alloc_device_free(alloc_device_t *dev, buffer_handle_t handle)
 		const size_t bufferSize = m->finfo.line_length * m->info.yres;
 		int index = ((uintptr_t)hnd->base - (uintptr_t)m->framebuffer->base) / bufferSize;
 		m->bufferMask &= ~(1 << index);
-		close(hnd->fd);
 
 #if GRALLOC_ARM_UMP_MODULE
 
@@ -559,11 +559,6 @@ static int alloc_device_free(alloc_device_t *dev, buffer_handle_t handle)
 		}
 
 		close(hnd->share_fd);
-
-		if (0 != ion_free(m->ion_client, hnd->ion_hnd))
-		{
-			AERR("Failed to ion_free( ion_client: %d ion_hnd: %p )", m->ion_client, (void *)(uintptr_t)hnd->ion_hnd);
-		}
 
 		memset((void *)hnd, 0, sizeof(*hnd));
 #else

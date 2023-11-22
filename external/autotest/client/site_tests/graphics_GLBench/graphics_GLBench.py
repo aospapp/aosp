@@ -35,17 +35,19 @@ class graphics_GLBench(test.test):
       'texture_reuse_rgba_teximage2d',
       'texture_reuse_rgba_texsubimage2d',
       'context_glsimple',
-      'swap_glsimple', ])
+      'swap_glsimple',
+  ])
 
   blacklist = ''
 
   unit_higher_is_better = {
-    'mpixels_sec': True,
-    'mtexel_sec': True,
-    'mtri_sec': True,
-    'mvtx_sec': True,
-    'us': False,
-    '1280x768_fps': True }
+      'mpixels_sec': True,
+      'mtexel_sec': True,
+      'mtri_sec': True,
+      'mvtx_sec': True,
+      'us': False,
+      '1280x768_fps': True
+  }
 
   GSC = None
 
@@ -64,8 +66,8 @@ class graphics_GLBench(test.test):
     if self.GSC:
       keyvals = self.GSC.get_memory_keyvals()
       for key, val in keyvals.iteritems():
-        self.output_perf_value(description=key, value=val,
-                               units='bytes', higher_is_better=False)
+        self.output_perf_value(
+            description=key, value=val, units='bytes', higher_is_better=False)
       self.GSC.finalize()
       self.write_perf_keyval(keyvals)
 
@@ -76,8 +78,11 @@ class graphics_GLBench(test.test):
     """
     temperature = utils.get_temperature_input_max()
     logging.info('%s = %f degree Celsius', keyname, temperature)
-    self.output_perf_value(description=keyname, value=temperature,
-                           units='Celsius', higher_is_better=False)
+    self.output_perf_value(
+        description=keyname,
+        value=temperature,
+        units='Celsius',
+        higher_is_better=False)
 
   def report_temperature_critical(self, keyname):
     """Report temperature at which we will see throttling with given keyname.
@@ -86,8 +91,11 @@ class graphics_GLBench(test.test):
     """
     temperature = utils.get_temperature_critical()
     logging.info('%s = %f degree Celsius', keyname, temperature)
-    self.output_perf_value(description=keyname, value=temperature,
-                           units='Celsius', higher_is_better=False)
+    self.output_perf_value(
+        description=keyname,
+        value=temperature,
+        units='Celsius',
+        higher_is_better=False)
 
   def is_no_checksum_test(self, testname):
     """Check if given test requires no screenshot checksum.
@@ -129,17 +137,15 @@ class graphics_GLBench(test.test):
       options += ' -hasty'
 
     cmd = '%s %s' % (exefile, options)
-    if not utils.is_freon():
-      cmd = 'X :1 vt1 & sleep 1; chvt 1 && DISPLAY=:1 ' + cmd
     summary = None
     try:
       if hasty:
         # On BVT the test will not monitor thermals so we will not verify its
         # correct status using PerfControl
         summary = utils.run(cmd,
-                            stderr_is_expected = False,
-                            stdout_tee = utils.TEE_TO_LOGS,
-                            stderr_tee = utils.TEE_TO_LOGS).stdout
+                            stderr_is_expected=False,
+                            stdout_tee=utils.TEE_TO_LOGS,
+                            stderr_tee=utils.TEE_TO_LOGS).stdout
       else:
         self.report_temperature_critical('temperature_critical')
         self.report_temperature('temperature_1_start')
@@ -147,21 +153,20 @@ class graphics_GLBench(test.test):
         # behavior more consistent.
         with perf.PerfControl() as pc:
           if not pc.verify_is_valid():
-            raise error.TestError(pc.get_error_reason())
+            raise error.TestFail('Failed: %s' % pc.get_error_reason())
           self.report_temperature('temperature_2_before_test')
 
           # Run the test. If it gets the CPU too hot pc should notice.
           summary = utils.run(cmd,
-                              stderr_is_expected = False,
-                              stdout_tee = utils.TEE_TO_LOGS,
-                              stderr_tee = utils.TEE_TO_LOGS).stdout
+                              stderr_is_expected=False,
+                              stdout_tee=utils.TEE_TO_LOGS,
+                              stderr_tee=utils.TEE_TO_LOGS).stdout
           if not pc.verify_is_valid():
-            raise error.TestError(pc.get_error_reason())
-    finally:
-      if not utils.is_freon():
-        # Just sending SIGTERM to X is not enough; we must wait for it to
-        # really die before we start a new X server (ie start ui).
-        utils.ensure_processes_are_dead_by_name('^X$')
+            raise error.TestFail('Failed: %s' % pc.get_error_reason())
+    except error.CmdError:
+      raise error.TestFail('Failed: CmdError running %s' % cmd)
+    except error.CmdTimeoutError:
+      raise error.TestFail('Failed: CmdTimeout running %s' % cmd)
 
     # Write a copy of stdout to help debug failures.
     results_path = os.path.join(self.outputdir, 'summary.txt')
@@ -179,7 +184,7 @@ class graphics_GLBench(test.test):
     results = summary.splitlines()
     if not results:
       f.close()
-      raise error.TestFail('No output from test. Check /tmp/' +
+      raise error.TestFail('Failed: No output from test. Check /tmp/' +
                            'test_that_latest/graphics_GLBench/summary.txt' +
                            ' for details.')
 
@@ -209,21 +214,28 @@ class graphics_GLBench(test.test):
 
       higher = self.unit_higher_is_better.get(unit)
       if higher is None:
-        raise error.TestFail('Unknown test unit "%s" for %s' % (unit, testname))
+        raise error.TestFail('Failed: Unknown test unit "%s" for %s' %
+                             (unit, testname))
 
       if not hasty:
         # Prepend unit to test name to maintain backwards compatibility with
         # existing per data.
         perf_value_name = '%s_%s' % (unit, testname)
-        self.output_perf_value(description=perf_value_name, value=testrating,
-                               units=unit, higher_is_better=higher,
-                               graph=perf_value_name)
+        self.output_perf_value(
+            description=perf_value_name,
+            value=testrating,
+            units=unit,
+            higher_is_better=higher,
+            graph=perf_value_name)
         # Add extra value to the graph distinguishing different boards.
         variant = utils.get_board_with_frequency_and_memory()
         desc = '%s-%s' % (perf_value_name, variant)
-        self.output_perf_value(description=desc, value=testrating,
-                               units=unit, higher_is_better=higher,
-                               graph=perf_value_name)
+        self.output_perf_value(
+            description=desc,
+            value=testrating,
+            units=unit,
+            higher_is_better=higher,
+            graph=perf_value_name)
 
       # Classify result image.
       if testrating == -1.0:
@@ -273,10 +285,11 @@ class graphics_GLBench(test.test):
                    self.reference_images_file)
       logging.info('Please verify that the output images are correct '
                    'and if so copy them to the reference directory.')
-      raise error.TestFail('Some images are not matching their '
+      raise error.TestFail('Failed: Some images are not matching their '
                            'references. Check /tmp/'
                            'test_that_latest/graphics_GLBench/summary.txt'
                            ' for details.')
 
     if not test_ended_normal:
-      raise error.TestFail('No end marker. Presumed crash/missing images.')
+      raise error.TestFail(
+          'Failed: No end marker. Presumed crash/missing images.')

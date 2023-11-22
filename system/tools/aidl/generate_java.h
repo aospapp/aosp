@@ -44,7 +44,7 @@ class VariableFactory {
   using Variable = ::android::aidl::java::Variable;
   using Type = ::android::aidl::java::Type;
 
-  VariableFactory(const std::string& base); // base must be short
+  explicit VariableFactory(const std::string& base); // base must be short
   Variable* Get(const Type* type);
   Variable* Get(int index);
 

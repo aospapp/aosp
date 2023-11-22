@@ -5,7 +5,6 @@
 AUTHOR = 'arakhov@chromium.org'
 NAME = 'bluetooth_SDP_ServiceSearchAttributeRequest'
 ATTRIBUTES = "suite:bluetooth, suite:bluetooth_qualification"
-SUITE = 'bluetooth,bluetooth_qualification'
 TIME = 'SHORT'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'Server'

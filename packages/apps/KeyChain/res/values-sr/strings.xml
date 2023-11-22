@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Апликација %s је захтевала сертификат. Ако одаберете сертификат, дозволићете апликацији да сада и убудуће користи овај идентитет приликом комуникације са серверима."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Апликација је идентификовала сервер који је упутио захтев као %s, али би приступ сертификату требало да јој одобрите само ако сматрате да је поуздана."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Можете да инсталирате сертификате из PKCS#12 датотеке са екстензијом %1$s или %2$s који се налази у спољној меморији."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Инсталирај"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Дозволи"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Инсталирај сертификат"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Изабери"</string>
     <string name="deny_button" msgid="3766539809121892584">"Одбиј"</string>
 </resources>

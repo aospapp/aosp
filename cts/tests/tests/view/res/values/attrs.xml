@@ -129,7 +129,6 @@
     <attr name="themeType" format="integer"/>
     <!-- Theme reference used to override parent theme. -->
     <attr name="themeOverrideAttr" format="reference"/>
-
     <!-- Drawable theming attributes -->
     <attr name="themeBoolean" />
     <attr name="themeColor" />
@@ -142,4 +141,6 @@
     <attr name="themeGravity" />
     <attr name="themeTileMode" />
     <attr name="themeAngle" />
+    <!-- Used by LayoutInflaterTest to specify layout from ?attr. -->
+    <attr name="includeLayout" format="reference" />
 </resources>

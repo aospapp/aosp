@@ -1,5 +1,7 @@
 # -*- icu-dependencies -*-
-# Copyright (C) 2011-2015, International Business Machines
+# Copyright (C) 2016 and later: Unicode, Inc. and others.
+# License & terms of use: http://www.unicode.org/copyright.html
+# Copyright (C) 2011-2016, International Business Machines
 # Corporation and others. All Rights Reserved.
 #
 # file name: dependencies.txt
@@ -43,7 +45,7 @@ group: c_strings
     __rawmemchr __memcpy_chk __memmove_chk __memset_chk
 
 group: c_string_formatting
-    atoi atol strtod strtol strtoul
+    atoi atol strtod strtod_l strtol strtoul
     sprintf
     # Additional symbols in an optimized build.
     __sprintf_chk
@@ -65,7 +67,7 @@ group: pthread
 
 group: system_locale
     getenv
-    nl_langinfo setlocale
+    nl_langinfo setlocale newlocale freelocale
     gettimeofday localtime_r tzname tzset __timezone
 
 group: stdio_input
@@ -145,12 +147,14 @@ library: common
     uiter
     ucasemap ucasemap_titlecase_brkiter script_runs
     uprops ubidi_props ucase uscript uscript_props
-    ubidi ushape
+    ubidi ushape ubiditransform
     listformatter
     resourcebundle service_registration resbund_cnv ures_cnv icudataver ucat
     loclikely
+    currency
+    locale_display_names2
     conversion converter_selector ucnv_set ucnvdisp
-    messagepattern simplepatternformatter
+    messagepattern simpleformatter
     icu_utility icu_utility_with_props
     ustr_wcs
     unifiedcache
@@ -400,8 +404,8 @@ group: messagepattern  # for MessageFormat and tools
   deps
     patternprops platform
 
-group: simplepatternformatter
-    simplepatternformatter.o
+group: simpleformatter
+    simpleformatter.o
   deps
     platform
 
@@ -420,6 +424,11 @@ group: ubidi
   deps
     ubidi_props
     uchar  # for doWriteReverse() which uses IS_COMBINING(u_charType(c))
+
+group: ubiditransform
+    ubiditransform.o
+  deps
+    ubidi ushape
 
 group: ubidi_props
     ubidi_props.o
@@ -525,7 +534,7 @@ group: service_registration
 group: listformatter
     listformatter.o ulistformatter.o
   deps
-    resourcebundle simplepatternformatter
+    resourcebundle simpleformatter
 
 group: ucat  # message-catalog-like API
     ucat.o
@@ -533,9 +542,20 @@ group: ucat  # message-catalog-like API
     resourcebundle
 
 group: locale_display_names
-    locdispnames.o
+    locdispnames.o  # Locale.getDisplayName()
   deps
     locresdata
+
+group: locale_display_names2
+    locdspnm.o  # class LocaleDisplayNames
+  deps
+    resourcebundle currency simpleformatter unistr_titlecase_brkiter uchar
+
+group: currency
+    ucurr.o
+  deps
+    loclikely resourcebundle ulist ustring_case_locale
+    stdlib_qsort  # for ucurr.o (which does not use ICU's uarrsort.o)
 
 group: icudataver  # u_getDataVersion()
     icudataver.o
@@ -756,6 +776,7 @@ library: i18n
   deps
     region localedata genderinfo charset_detector spoof_detection
     alphabetic_index collation collation_builder string_search
+    dayperiodrules
     formatting formattable_cnv regex regex_cnv translit
     universal_time_scale
     uclean_i18n
@@ -787,8 +808,7 @@ group: charset_detector
     uclean_i18n
 
 group: spoof_detection
-    uspoof.o uspoof_build.o uspoof_conf.o uspoof_impl.o uspoof_wsconf.o
-    identifier_info.o scriptset.o
+    uspoof.o uspoof_build.o uspoof_conf.o uspoof_impl.o scriptset.o
   deps
     uniset_props regex unorm uscript
 
@@ -826,12 +846,13 @@ group: string_search
   deps
     breakiterator collation
 
+group: dayperiodrules
+    dayperiodrules.o
+  deps
+    resourcebundle uclean_i18n
+
 group: formatting
     # TODO: Try to subdivide this ball of wax.
-    # locale_display_names2
-    locdspnm.o
-    # currency
-    ucurr.o
     # currencyformat
     curramt.o currfmt.o currpinf.o currunit.o
     # decimalformat
@@ -863,12 +884,11 @@ group: formatting
     choicfmt.o msgfmt.o plurfmt.o selfmt.o umsg.o
   deps
     digitlist formattable format
-    pluralrules
+    dayperiodrules pluralrules
     collation collation_builder  # for rbnf
     common
     floating_point  # sqrt() for astro.o
     trigonometry  # for astro.o
-    stdlib_qsort  # for ucurr.o (which does not use ICU's uarrsort.o)
     sharedbreakiterator # for reldatefmt.o
     uclean_i18n
 
@@ -880,7 +900,7 @@ group: sharedbreakiterator
 group: digitlist
     digitlst.o decContext.o decNumber.o visibledigits.o
   deps
-    platform
+    uclean_i18n
 
 group: formattable
     fmtable.o

@@ -3,12 +3,19 @@
 
 import re, os, sys, traceback, time, glob, tempfile
 import logging
+
+import common
 from autotest_lib.server import installable_object, prebuild, utils
 from autotest_lib.client.common_lib import base_job, error, autotemp
-from autotest_lib.client.common_lib import base_packages, packages
+from autotest_lib.client.common_lib import packages
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils as client_utils
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = client_utils.metrics_mock
+
 
 AUTOTEST_SVN = 'svn://test.kernel.org/autotest/trunk/client'
 AUTOTEST_HTTP = 'http://test.kernel.org/svn/autotest/trunk/client'
@@ -111,7 +118,7 @@ class BaseAutotest(installable_object.InstallableObject):
                 host.run('test -w %s' % utils.sh_escape(path))
                 logging.debug('Found existing autodir at %s', path)
                 return path
-            except error.AutoservRunError:
+            except error.GenericHostRunError:
                 logging.debug('%s does not exist on %s', autotest_binary,
                               host.hostname)
         raise AutodirNotFoundError
@@ -146,10 +153,9 @@ class BaseAutotest(installable_object.InstallableObject):
                 return path
             except error.AutoservRunError:
                 logging.debug('Failed to create %s', path)
-        metadata = {'_type': 'AutoservInstallError',
-                    'hostname': host.hostname}
-        autotest_stats.Counter('AutoservInstallError',
-                               metadata=metadata).increment()
+        metrics.Counter(
+            'chromeos/autotest/errors/no_autotest_install_path').increment(
+                fields={'dut_host_name': host.hostname})
         raise error.AutoservInstallError(
                 'Unable to find a place to install Autotest; tried %s' %
                 ', '.join(client_autodir_paths))
@@ -267,7 +273,7 @@ class BaseAutotest(installable_object.InstallableObject):
             # Delete the package checksum file to force dut updating local
             # packages.
             command = ('rm -f "%s"' %
-                       (os.path.join(autodir, base_packages.CHECKSUM_FILE)))
+                       (os.path.join(autodir, packages.CHECKSUM_FILE)))
             host.run(command)
 
         # try to install from file or directory
@@ -360,6 +366,8 @@ class BaseAutotest(installable_object.InstallableObject):
                 the control file.
         """
         host = self._get_host_and_setup(host, use_packaging=use_packaging)
+        logging.debug('Autotest job starts on remote host: %s',
+                      host.hostname)
         results_dir = os.path.abspath(results_dir)
 
         if client_disconnect_timeout is None:
@@ -456,6 +464,23 @@ class BaseAutotest(installable_object.InstallableObject):
                 client_disconnect_timeout=client_disconnect_timeout)
 
 
+    @classmethod
+    def _check_client_test_result(cls, host, test_name):
+        """
+        Check result of client test.
+        Autotest will store results in the file name status.
+        We check that second to last line in that file begins with 'END GOOD'
+
+        @raises TestFail: If client test does not pass.
+        """
+        client_result_dir = '%s/results/default' % host.autodir
+        command = 'tail -2 %s/status | head -1' % client_result_dir
+        status = host.run(command).stdout.strip()
+        logging.info(status)
+        if status[:8] != 'END GOOD':
+            raise error.TestFail('%s client test did not pass.' % test_name)
+
+
     def run_timed_test(self, test_name, results_dir='.', host=None,
                        timeout=None, parallel_flag=False, background=False,
                        client_disconnect_timeout=None, *args, **dargs):
@@ -473,6 +498,9 @@ class BaseAutotest(installable_object.InstallableObject):
         self.run(control, results_dir, host, timeout=timeout,
                  parallel_flag=parallel_flag, background=background,
                  client_disconnect_timeout=client_disconnect_timeout)
+
+        if dargs.get('check_client_result', False):
+            self._check_client_test_result(host, test_name)
 
 
     def run_test(self, test_name, results_dir='.', host=None,
@@ -915,6 +943,8 @@ class _BaseRun(object):
                            "client on %s: %s\n") % (self.host.hostname, last)
                     raise error.AutotestRunError(msg)
         finally:
+            logging.debug('Autotest job finishes running. Below is the '
+                          'post-processing operations.')
             logger.close()
             if not self.background:
                 collector.collect_client_job_results()
@@ -926,6 +956,8 @@ class _BaseRun(object):
                 self.host.job.remove_client_log(hostname, remote_results,
                                                 local_results)
                 job_record_context.restore()
+
+            logging.debug('Autotest job finishes.')
 
         # should only get here if we timed out
         assert timeout
@@ -957,14 +989,14 @@ class log_collector(object):
             pass
 
         # Copy all dirs in default to results_dir
-        timer = autotest_stats.Timer('collect_client_job_results')
-        timer.start()
         try:
-            self.host.get_file(self.client_results_dir + '/',
-                               self.server_results_dir, preserve_symlinks=True)
-
-            # Only report time used for successful get_file calls.
-            timer.stop();
+            with metrics.SecondsTimer(
+                    'chromeos/autotest/job/log_collection_duration',
+                    fields={'dut_host_name': self.host.hostname}):
+                self.host.get_file(
+                        self.client_results_dir + '/',
+                        self.server_results_dir,
+                        preserve_symlinks=True)
         except Exception:
             # well, don't stop running just because we couldn't get logs
             e_msg = "Unexpected error copying test result logs, continuing ..."

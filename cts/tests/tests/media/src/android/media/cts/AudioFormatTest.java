@@ -16,9 +16,10 @@
 
 package android.media.cts;
 
-import android.cts.util.CtsAndroidTestCase;
 import android.media.AudioFormat;
 import android.os.Parcel;
+
+import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 public class AudioFormatTest extends CtsAndroidTestCase {
 

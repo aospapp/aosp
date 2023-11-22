@@ -28,6 +28,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "common.h"
 #include "device.h"
 #include "ui.h"
@@ -40,9 +42,9 @@
 
 class FuguUI : public ScreenRecoveryUI {
   public:
-    void Init() override {
+    bool Init(const std::string& locale) override {
         SetupDisplayMode();
-        ScreenRecoveryUI::Init();
+        return ScreenRecoveryUI::Init(locale);
     }
 
     void SetupDisplayMode() {

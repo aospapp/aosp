@@ -1,4 +1,4 @@
-page.title=Jack (Java Android Compiler Kit)
+page.title=Compiling with Jack
 @jd:body
 
 <!--
@@ -27,7 +27,7 @@ page.title=Jack (Java Android Compiler Kit)
 
 <h2 id=the_jack_toolchain>The Jack toolchain</h2>
 
-<p>Jack (Java Android Compiler Kit) is a new Android toolchain that compiles Java
+<p>Jack is a new Android toolchain that compiles Java
 source into Android dex bytecode.  It replaces the previous Android toolchain,
 which consists of multiple tools, such as javac, ProGuard, jarjar, and dx.</p>
 
@@ -35,7 +35,7 @@ which consists of multiple tools, such as javac, ProGuard, jarjar, and dx.</p>
 
 <ul>
   <li> <strong>Completely open source</strong><br>
-Available in AOSP; partners are welcome to contribute.
+Available in AOSP; users are welcome to contribute.
   <li> <strong>Speeds compilation time</strong><br>
 
 Jack has specific supports to reduce compilation time: pre-dexing, incremental
@@ -50,7 +50,8 @@ Code Coverage with JaCoCo</a> and <a href="https://developer.android.com/preview
 Java 8 Language Features</a> for details.</p>
 
 <img src="{@docRoot}images/jack-overview.png" height="75%" width="75%" alt="Jack overview" />
-<p class="img-caption"><strong>Figure 1. </strong>Jack (Java Android Compiler Kit)</p>
+<p class="img-caption"><strong>Figure 1. </strong>Jack overview</p>
+
 
 <h2 id=the_jack_library_format>The .jack library format</h2>
 
@@ -60,7 +61,7 @@ for the library, allowing for faster compilation (pre-dex).</p>
 <img src="{@docRoot}images/jack-library-file.png" height="75%" width="75%" alt="Jack library file contents" />
 <p class="img-caption"><strong>Figure 2. </strong>Jack library file contents</p>
 
-<h2 id=jack_intermediate_library_linker_jill>Jack Intermediate Library Linker (Jill)</h2>
+<h2 id=jill>Jill</h2>
 
 <p>The Jill tool translates the existing .jar libraries into the new library
 format, as shown below.</p>
@@ -184,7 +185,7 @@ available at <a href="http://b.android.com">http://b.android.com</a>,  with the 
 setting one variable, as follows:</p>
 
 <pre class=prettyprint>
-$ export ANDROID_JACK_EXTRA_ARGS= "--verbose debug --sanity-checks on -D
+$ export ANDROID_JACK_EXTRA_ARGS="--verbose debug --sanity-checks on -D
 sched.runner=single-threaded"
 </pre>
 
@@ -215,8 +216,8 @@ described below.</p>
 
 <h3 id=predexing>Predexing </h3>
 
-<p>When generating a JACK library file, the .dex of the library is generated and
-stored inside the .jack library file as a pre-dex.  When compiling, JACK reuses
+<p>When generating a Jack library file, the .dex of the library is generated and
+stored inside the .jack library file as a pre-dex.  When compiling, Jack reuses
 the pre-dex from each library.</p>
 
 <p>All libraries are pre-dexed.</p>
@@ -227,7 +228,7 @@ the pre-dex from each library.</p>
 <h4 id=limitations>Limitations</h4>
 
 
-<p>Currently, JACK does not reuse the library pre-dex if
+<p>Currently, Jack does not reuse the library pre-dex if
 shrinking/obfuscation/repackaging is used in the compilation.</p>
 
 <h3 id=incremental_compilation>Incremental compilation</h3>
@@ -260,7 +261,7 @@ are not built, use <code>mma</code> to build them, and after that you can use th
 
 <h3 id=shrinking_and_obfuscation>Shrinking and Obfuscation</h3>
 
-<p>JACK has shrinking and obfuscation support and uses proguard configuration
+<p>Jack has shrinking and obfuscation support and uses proguard configuration
 files to enable shrinking and obfuscation features. Here are the supported and
 ignored options:</p>
 
@@ -350,9 +351,9 @@ ignored options:</p>
 
 <h3 id=repackaging>Repackaging</h3>
 
-<p>JACK uses jarjar configuration files to do the repackaging.</p>
+<p>Jack uses jarjar configuration files to do the repackaging.</p>
 
-<p class="note"><strong>Note:</strong> JACK is compatible with "rule" rule types, but is not compatible with "zap" or
+<p class="note"><strong>Note:</strong> Jack is compatible with "rule" rule types, but is not compatible with "zap" or
 "keep" rule types. If you need "zap" or "keep" rule types please file a feature
 request with a description of how you use the feature in your app.</p>
 

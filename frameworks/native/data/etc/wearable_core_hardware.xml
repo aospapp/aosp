@@ -21,9 +21,13 @@
      Wearable devices include watches, glasses, backpacks, and sweaters.
 -->
 <permissions>
+    <!-- This is Android and fully CTS compatible.  Basically this is for CTS tests to use. -->
+    <feature name="android.software.cts" />
+
     <feature name="android.hardware.location" />
     <!-- devices supporting compass/magnitometer sensor must include
 	 android.hardware.sensor.compass.xml -->
+    <feature name="android.hardware.sensor.gyroscope" />
     <feature name="android.hardware.sensor.accelerometer" />
     <feature name="android.hardware.bluetooth" />
     <feature name="android.hardware.touchscreen" />
@@ -34,6 +38,9 @@
 
     <!-- device administration -->
     <feature name="android.software.device_admin" />
+
+    <!-- input management and third-party input method editors -->
+    <feature name="android.software.input_methods" />
 
     <!-- devices with GPS must include device/google/clockwork/gps.xml -->
     <!-- devices with an autofocus camera and/or flash must include either

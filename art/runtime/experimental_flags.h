@@ -26,11 +26,12 @@ struct ExperimentalFlags {
   // The actual flag values.
   enum {
     kNone           = 0x0000,
-    kLambdas        = 0x0001,
+    kMethodHandles  = 0x0004,  // 0b00000100
   };
 
   constexpr ExperimentalFlags() : value_(0x0000) {}
-  constexpr ExperimentalFlags(decltype(kNone) t) : value_(static_cast<uint32_t>(t)) {}
+  constexpr ExperimentalFlags(decltype(kNone) t)  // NOLINT, implicit
+      : value_(static_cast<uint32_t>(t)) {}
 
   constexpr operator decltype(kNone)() const {
     return static_cast<decltype(kNone)>(value_);
@@ -64,8 +65,8 @@ struct ExperimentalFlags {
 
 inline std::ostream& operator<<(std::ostream& stream, const ExperimentalFlags& e) {
   bool started = false;
-  if (e & ExperimentalFlags::kLambdas) {
-    stream << (started ? "|" : "") << "kLambdas";
+  if (e & ExperimentalFlags::kMethodHandles) {
+    stream << (started ? "|" : "") << "kMethodHandles";
     started = true;
   }
   if (!started) {

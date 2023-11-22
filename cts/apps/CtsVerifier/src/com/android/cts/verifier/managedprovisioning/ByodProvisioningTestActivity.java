@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
@@ -44,14 +45,14 @@ public class ByodProvisioningTestActivity extends PassFailButtons.TestListActivi
                         R.string.provisioning_tests_byod_custom_color,
                         R.string.provisioning_tests_byod_custom_color_info,
                         new ButtonInfo(R.string.go_button_text, colorIntent)));
-        Uri logoUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName()
-                + "/" + R.drawable.icon);
-        Intent imageIntent = new Intent(this, ProvisioningStartingActivity.class)
-                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_LOGO_URI, logoUri);
         adapter.add(Utils.createInteractiveTestItem(this, "BYOD_CustomImage",
                         R.string.provisioning_tests_byod_custom_image,
                         R.string.provisioning_tests_byod_custom_image_info,
-                        new ButtonInfo(R.string.go_button_text, imageIntent)));
+                        new ButtonInfo(R.string.go_button_text, getTestLogoIntent())));
+        adapter.add(Utils.createInteractiveTestItem(this, "BYOD_CustomTerms",
+                R.string.provisioning_tests_byod_custom_terms,
+                R.string.provisioning_tests_byod_custom_terms_instructions,
+                new ButtonInfo(R.string.go_button_text, getTestTermsIntent())));
 
         setTestListAdapter(adapter);
     }
@@ -76,9 +77,42 @@ public class ByodProvisioningTestActivity extends PassFailButtons.TestListActivi
             provisioningIntent.putExtras(getIntent().getExtras());
             provisioningIntent.putExtra(
                     DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME,
-                    new ComponentName(this, DeviceAdminTestReceiver.class.getName()));
+                    new ComponentName(this, DeviceAdminTestReceiver.class));
             startActivityForResult(provisioningIntent, 0);
             finish();
         }
+    }
+
+    private Intent getTestTermsIntent() {
+        Bundle bundle = new Bundle();
+        bundle.putString(DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_HEADER,
+                getString(R.string.provisioning_tests_byod_custom_term_header1));
+        bundle.putParcelable(DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_CONTENT,
+                getResourceUri(R.raw.company_terms_content));
+
+        return new Intent(this, ProvisioningStartingActivity.class)
+                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS,
+                        new Bundle[] { bundle });
+    }
+
+    /**
+     * Create intent with uri and wiping the work profile immediately after provisioning
+     */
+    private Intent getTestLogoIntent() {
+        PersistableBundle bundle = new PersistableBundle();
+        bundle.putBoolean(DeviceAdminTestReceiver.KEY_BUNDLE_WIPE_IMMEDIATELY, true);
+        return new Intent(this, ProvisioningStartingActivity.class)
+                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_LOGO_URI,
+                        getResourceUri(R.drawable.icon))
+                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION, true)
+                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, bundle);
+    }
+
+    private Uri getResourceUri(int resId) {
+        return new Uri.Builder().scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                .authority(getPackageName())
+                .appendPath(getResources().getResourceTypeName(resId))
+                .appendPath(getResources().getResourceEntryName(resId))
+                .build();
     }
 }

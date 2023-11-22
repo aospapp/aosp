@@ -225,7 +225,7 @@ class display_Tearing(test.test):
         self._test_tab_descriptor = None
         chameleon_board = host.chameleon
 
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
         finder = chameleon_port_finder.ChameleonVideoInputFinder(
                 chameleon_board, self._display_facade)
 

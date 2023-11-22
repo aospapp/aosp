@@ -24,6 +24,7 @@
 
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
+#include <base/files/scoped_temp_dir.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
@@ -49,6 +50,7 @@ namespace chromeos_update_engine {
 
 using std::string;
 using std::vector;
+using test_utils::GetBuildArtifactsPath;
 using test_utils::System;
 using test_utils::kRandomString;
 using testing::_;
@@ -65,13 +67,6 @@ const char kBogusMetadataSignature1[] =
     "BmMGGk82mvgzic7ApcoURbCGey1b3Mwne/hPZ/bb9CIyky8Og9IfFMdL2uAweOIR"
     "fjoTeLYZpt+WN65Vu7jJ0cQN8e1y+2yka5112wpRf/LLtPgiAjEZnsoYpLUd7CoV"
     "pLRtClp97kN2+tXGNBQqkA==";
-
-#ifdef __ANDROID__
-const char kZlibFingerprintPath[] =
-    "/data/nativetest/update_engine_unittests/zlib_fingerprint";
-#else
-const char kZlibFingerprintPath[] = "/etc/zlib_fingerprint";
-#endif  // __ANDROID__
 
 // Different options that determine what we should fill into the
 // install_plan.metadata_signature to simulate the contents received in the
@@ -90,6 +85,60 @@ const uint8_t kXzCompressedData[] = {
     0x01, 0x00, 0x00, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x11, 0x01,
     0xad, 0xa6, 0x58, 0x04, 0x06, 0x72, 0x9e, 0x7a, 0x01, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x59, 0x5a,
+};
+
+// Gzipped 'abc', generated with:
+// echo -n abc | minigzip | hexdump -v -e '"    " 12/1 "0x%02x, " "\n"'
+const uint8_t kSourceGzippedData[] = {
+    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x4b, 0x4c,
+    0x4a, 0x06, 0x00, 0xc2, 0x41, 0x24, 0x35, 0x03, 0x00, 0x00, 0x00,
+};
+
+// Gzipped 'def', generated with:
+// echo -n def | minigzip | hexdump -v -e '"    " 12/1 "0x%02x, " "\n"'
+const uint8_t kTargetGzippedData[] = {
+    0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x4b, 0x49,
+    0x4d, 0x03, 0x00, 0x61, 0xe1, 0xc4, 0x0c, 0x03, 0x00, 0x00, 0x00,
+};
+
+// Imgdiff data, generated with:
+// echo -n abc | minigzip > abc && truncate -s 4096 abc
+// echo -n def | minigzip > def && truncate -s 4096 def
+// imgdiff abc def patch && hexdump -v -e '"    " 12/1 "0x%02x, " "\n"' patch
+const uint8_t kImgdiffData[] = {
+    0x49, 0x4d, 0x47, 0x44, 0x49, 0x46, 0x46, 0x32, 0x03, 0x00, 0x00, 0x00,
+    0x03, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x1f, 0x8b, 0x08, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x02, 0x00, 0x00, 0x00, 0x0a, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x7a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0xf1, 0xff,
+    0xff, 0xff, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf1, 0x0f,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x42, 0x53, 0x44, 0x49, 0x46, 0x46, 0x34, 0x30, 0x2a, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x42, 0x5a,
+    0x68, 0x39, 0x31, 0x41, 0x59, 0x26, 0x53, 0x59, 0xc3, 0xc8, 0xfb, 0x1f,
+    0x00, 0x00, 0x01, 0x40, 0x00, 0x5c, 0x00, 0x20, 0x00, 0x30, 0xcd, 0x34,
+    0x12, 0x34, 0x54, 0x60, 0x5c, 0xce, 0x2e, 0xe4, 0x8a, 0x70, 0xa1, 0x21,
+    0x87, 0x91, 0xf6, 0x3e, 0x42, 0x5a, 0x68, 0x39, 0x17, 0x72, 0x45, 0x38,
+    0x50, 0x90, 0x00, 0x00, 0x00, 0x00, 0x42, 0x5a, 0x68, 0x39, 0x31, 0x41,
+    0x59, 0x26, 0x53, 0x59, 0x42, 0x3c, 0xb0, 0xf9, 0x00, 0x00, 0x00, 0x01,
+    0x00, 0x07, 0x00, 0x20, 0x00, 0x21, 0x98, 0x19, 0x84, 0x61, 0x77, 0x24,
+    0x53, 0x85, 0x09, 0x04, 0x23, 0xcb, 0x0f, 0x90, 0x42, 0x53, 0x44, 0x49,
+    0x46, 0x46, 0x34, 0x30, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x35, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf1, 0x0f, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x42, 0x5a, 0x68, 0x39, 0x31, 0x41, 0x59, 0x26,
+    0x53, 0x59, 0x6f, 0x02, 0x77, 0xf3, 0x00, 0x00, 0x07, 0x40, 0x41, 0xe0,
+    0x10, 0xc0, 0x00, 0x00, 0x02, 0x20, 0x00, 0x20, 0x00, 0x21, 0x29, 0xa3,
+    0x10, 0x86, 0x03, 0x84, 0x04, 0xae, 0x5f, 0x17, 0x72, 0x45, 0x38, 0x50,
+    0x90, 0x6f, 0x02, 0x77, 0xf3, 0x42, 0x5a, 0x68, 0x39, 0x31, 0x41, 0x59,
+    0x26, 0x53, 0x59, 0x71, 0x62, 0xbd, 0xa7, 0x00, 0x00, 0x20, 0x40, 0x32,
+    0xc0, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x80, 0x00, 0x48, 0x20, 0x00,
+    0x30, 0xc0, 0x02, 0xa5, 0x19, 0xa5, 0x92, 0x6f, 0xc2, 0x5d, 0xac, 0x0e,
+    0x17, 0x72, 0x45, 0x38, 0x50, 0x90, 0x71, 0x62, 0xbd, 0xa7, 0x42, 0x5a,
+    0x68, 0x39, 0x17, 0x72, 0x45, 0x38, 0x50, 0x90, 0x00, 0x00, 0x00, 0x00,
 };
 
 }  // namespace
@@ -166,9 +215,10 @@ class DeltaPerformerTest : public ::testing::Test {
     string payload_path;
     EXPECT_TRUE(utils::MakeTempFile("Payload-XXXXXX", &payload_path, nullptr));
     ScopedPathUnlinker payload_unlinker(payload_path);
-    EXPECT_TRUE(payload.WritePayload(payload_path, blob_path,
-        sign_payload ? kUnittestPrivateKeyPath : "",
-        &install_plan_.metadata_size));
+    string private_key =
+        sign_payload ? GetBuildArtifactsPath(kUnittestPrivateKeyPath) : "";
+    EXPECT_TRUE(payload.WritePayload(
+        payload_path, blob_path, private_key, &install_plan_.metadata_size));
 
     brillo::Blob payload_data;
     EXPECT_TRUE(utils::ReadFile(payload_path, &payload_data));
@@ -257,7 +307,6 @@ class DeltaPerformerTest : public ::testing::Test {
   void DoMetadataSignatureTest(MetadataSignatureTest metadata_signature_test,
                                bool sign_payload,
                                bool hash_checks_mandatory) {
-
     // Loads the payload and parses the manifest.
     brillo::Blob payload = GeneratePayload(brillo::Blob(),
         vector<AnnotatedOperation>(), sign_payload,
@@ -292,7 +341,7 @@ class DeltaPerformerTest : public ::testing::Test {
         ASSERT_TRUE(PayloadSigner::GetMetadataSignature(
             payload.data(),
             install_plan_.metadata_size,
-            kUnittestPrivateKeyPath,
+            GetBuildArtifactsPath(kUnittestPrivateKeyPath),
             &install_plan_.metadata_signature));
         EXPECT_FALSE(install_plan_.metadata_signature.empty());
         expected_result = DeltaPerformer::kMetadataParseSuccess;
@@ -308,8 +357,9 @@ class DeltaPerformerTest : public ::testing::Test {
 
     // Use the public key corresponding to the private key used above to
     // sign the metadata.
-    EXPECT_TRUE(utils::FileExists(kUnittestPublicKeyPath));
-    performer_.set_public_key_path(kUnittestPublicKeyPath);
+    string public_key_path = GetBuildArtifactsPath(kUnittestPublicKeyPath);
+    EXPECT_TRUE(utils::FileExists(public_key_path.c_str()));
+    performer_.set_public_key_path(public_key_path);
 
     // Init actual_error with an invalid value so that we make sure
     // ParsePayloadMetadata properly populates it in all cases.
@@ -482,6 +532,33 @@ TEST_F(DeltaPerformerTest, SourceCopyOperationTest) {
                                expected_data.size()));
 
   EXPECT_EQ(expected_data, ApplyPayload(payload_data, source_path, true));
+}
+
+TEST_F(DeltaPerformerTest, ImgdiffOperationTest) {
+  brillo::Blob imgdiff_data(std::begin(kImgdiffData), std::end(kImgdiffData));
+
+  AnnotatedOperation aop;
+  *(aop.op.add_src_extents()) = ExtentForRange(0, 1);
+  *(aop.op.add_dst_extents()) = ExtentForRange(0, 1);
+  aop.op.set_data_offset(0);
+  aop.op.set_data_length(imgdiff_data.size());
+  aop.op.set_type(InstallOperation::IMGDIFF);
+
+  brillo::Blob payload_data = GeneratePayload(imgdiff_data, {aop}, false);
+
+  string source_path;
+  EXPECT_TRUE(utils::MakeTempFile("Source-XXXXXX", &source_path, nullptr));
+  ScopedPathUnlinker path_unlinker(source_path);
+  brillo::Blob source_data(std::begin(kSourceGzippedData),
+                           std::end(kSourceGzippedData));
+  source_data.resize(4096);  // block size
+  EXPECT_TRUE(utils::WriteFile(
+      source_path.c_str(), source_data.data(), source_data.size()));
+
+  brillo::Blob target_data(std::begin(kTargetGzippedData),
+                           std::end(kTargetGzippedData));
+  target_data.resize(4096);  // block size
+  EXPECT_EQ(target_data, ApplyPayload(payload_data, source_path, true));
 }
 
 TEST_F(DeltaPerformerTest, SourceHashMismatchTest) {
@@ -672,10 +749,10 @@ TEST_F(DeltaPerformerTest, BrilloVerifyMetadataSignatureTest) {
   performer_.major_payload_version_ = kBrilloMajorPayloadVersion;
   performer_.metadata_size_ = install_plan_.metadata_size;
   uint64_t signature_length;
-  EXPECT_TRUE(PayloadSigner::SignatureBlobLength({kUnittestPrivateKeyPath},
-                                                 &signature_length));
+  EXPECT_TRUE(PayloadSigner::SignatureBlobLength(
+      {GetBuildArtifactsPath(kUnittestPrivateKeyPath)}, &signature_length));
   performer_.metadata_signature_size_ = signature_length;
-  performer_.set_public_key_path(kUnittestPublicKeyPath);
+  performer_.set_public_key_path(GetBuildArtifactsPath(kUnittestPublicKeyPath));
   EXPECT_EQ(ErrorCode::kSuccess,
             performer_.ValidateMetadataSignature(payload_data));
 }
@@ -749,11 +826,10 @@ TEST_F(DeltaPerformerTest, UsePublicKeyFromResponse) {
   //  a. it's not an official build; and
   //  b. there is no key in the root filesystem.
 
-  string temp_dir;
-  EXPECT_TRUE(utils::MakeTempDirectory("PublicKeyFromResponseTests.XXXXXX",
-                                       &temp_dir));
-  string non_existing_file = temp_dir + "/non-existing";
-  string existing_file = temp_dir + "/existing";
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  string non_existing_file = temp_dir.path().Append("non-existing").value();
+  string existing_file = temp_dir.path().Append("existing").value();
   EXPECT_EQ(0, System(base::StringPrintf("touch %s", existing_file.c_str())));
 
   // Non-official build, non-existing public-key, key in response -> true
@@ -800,8 +876,6 @@ TEST_F(DeltaPerformerTest, UsePublicKeyFromResponse) {
   performer_.public_key_path_ = non_existing_file;
   install_plan_.public_key_rsa = "not-valid-base64";
   EXPECT_FALSE(performer_.GetPublicKeyFromResponse(&key_path));
-
-  EXPECT_TRUE(base::DeleteFile(base::FilePath(temp_dir), true));
 }
 
 TEST_F(DeltaPerformerTest, ConfVersionsMatch) {
@@ -809,7 +883,7 @@ TEST_F(DeltaPerformerTest, ConfVersionsMatch) {
   // image match the supported delta versions in the update engine.
   uint32_t minor_version;
   brillo::KeyValueStore store;
-  EXPECT_TRUE(store.Load(base::FilePath("update_engine.conf")));
+  EXPECT_TRUE(store.Load(GetBuildArtifactsPath().Append("update_engine.conf")));
   EXPECT_TRUE(utils::GetMinorVersion(store, &minor_version));
   EXPECT_EQ(DeltaPerformer::kSupportedMinorPayloadVersion, minor_version);
 
@@ -825,6 +899,12 @@ TEST_F(DeltaPerformerTest, ConfVersionsMatch) {
 // kCompatibleZlibFingerprint.
 TEST_F(DeltaPerformerTest, ZlibFingerprintMatch) {
   string fingerprint;
+#ifdef __ANDROID__
+  const std::string kZlibFingerprintPath =
+      test_utils::GetBuildArtifactsPath("zlib_fingerprint");
+#else
+  const std::string kZlibFingerprintPath = "/etc/zlib_fingerprint";
+#endif  // __ANDROID__
   EXPECT_TRUE(base::ReadFileToString(base::FilePath(kZlibFingerprintPath),
                                      &fingerprint));
   EXPECT_TRUE(utils::IsZlibCompatible(fingerprint));

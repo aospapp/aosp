@@ -21,6 +21,7 @@ import android.os.Bundle;
 
 /**
  * Class that the CarMenu communicates with to fetch the contents of the CarMenu
+ * @hide
  */
 public abstract class CarMenuCallbacks {
     /**

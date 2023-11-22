@@ -6,7 +6,7 @@ import logging, os, time
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import chrome, enrollment
+from autotest_lib.client.common_lib.cros import chrome, enrollment, cfm_util
 
 TIMEOUT = 20
 
@@ -14,26 +14,11 @@ class enterprise_RemoraRequisition(test.test):
     """Enroll as a Remora device."""
     version = 1
 
-    _HANGOUTS_EXT_ID = 'acdafoiapclbpdkhnighhilgampkglpc'
-
-    def _WaitForHangouts(self, browser):
-        def _HangoutExtContexts():
-            try:
-                ext_contexts = browser.extensions.GetByExtensionId(
-                        self._HANGOUTS_EXT_ID)
-                if len(ext_contexts) > 1:
-                    return ext_contexts
-            except (KeyError, chrome.Error):
-                pass
-            return []
-        return utils.poll_for_condition(
-                _HangoutExtContexts,
-                exception=error.TestFail('Hangouts app failed to launch'),
-                timeout=30,
-                sleep_interval=1)
+    _HANGOUTS_EXT_ID = 'ikfcpmgefdpheiiomgmhlmmkihchmdlj'
 
     def _CheckHangoutsExtensionContexts(self, browser):
-        ext_contexts = self._WaitForHangouts(browser)
+        ext_contexts = cfm_util.wait_for_kiosk_ext(
+                browser, self._HANGOUTS_EXT_ID)
         ext_urls = set([context.EvaluateJavaScript('location.href;')
                        for context in ext_contexts])
         expected_urls = set(
@@ -53,7 +38,8 @@ class enterprise_RemoraRequisition(test.test):
             logging.warn('No credentials found - exiting test.')
             return
 
-        with chrome.Chrome(auto_login=False) as cr:
+        with chrome.Chrome(auto_login=False,
+                           disable_gaia_services=False) as cr:
             enrollment.RemoraEnrollment(cr.browser, user_id, password)
             # Timeout to allow for the device to stablize and go back to the
             # login screen before proceeding.

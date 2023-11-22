@@ -19,26 +19,42 @@
 
 #include "arch/instruction_set.h"
 #include "base/arena_allocator.h"
+#include "base/enums.h"
 #include "cfi_test.h"
 #include "gtest/gtest.h"
 #include "jni/quick/calling_convention.h"
 #include "utils/assembler.h"
+#include "utils/jni_macro_assembler.h"
 
 #include "jni/jni_cfi_test_expected.inc"
 
 namespace art {
 
 // Run the tests only on host.
-#ifndef __ANDROID__
+#ifndef ART_TARGET_ANDROID
 
 class JNICFITest : public CFITest {
  public:
   // Enable this flag to generate the expected outputs.
   static constexpr bool kGenerateExpected = false;
 
-  void TestImpl(InstructionSet isa, const char* isa_str,
+  void TestImpl(InstructionSet isa,
+                const char* isa_str,
                 const std::vector<uint8_t>& expected_asm,
                 const std::vector<uint8_t>& expected_cfi) {
+    if (Is64BitInstructionSet(isa)) {
+      TestImplSized<PointerSize::k64>(isa, isa_str, expected_asm, expected_cfi);
+    } else {
+      TestImplSized<PointerSize::k32>(isa, isa_str, expected_asm, expected_cfi);
+    }
+  }
+
+ private:
+  template <PointerSize kPointerSize>
+  void TestImplSized(InstructionSet isa,
+                     const char* isa_str,
+                     const std::vector<uint8_t>& expected_asm,
+                     const std::vector<uint8_t>& expected_cfi) {
     // Description of simple method.
     const bool is_static = true;
     const bool is_synchronized = false;
@@ -48,14 +64,20 @@ class JNICFITest : public CFITest {
     ArenaAllocator arena(&pool);
 
     std::unique_ptr<JniCallingConvention> jni_conv(
-        JniCallingConvention::Create(&arena, is_static, is_synchronized, shorty, isa));
+        JniCallingConvention::Create(&arena,
+                                     is_static,
+                                     is_synchronized,
+                                     /*is_critical_native*/false,
+                                     shorty,
+                                     isa));
     std::unique_ptr<ManagedRuntimeCallingConvention> mr_conv(
         ManagedRuntimeCallingConvention::Create(&arena, is_static, is_synchronized, shorty, isa));
     const int frame_size(jni_conv->FrameSize());
-    const std::vector<ManagedRegister>& callee_save_regs = jni_conv->CalleeSaveRegisters();
+    ArrayRef<const ManagedRegister> callee_save_regs = jni_conv->CalleeSaveRegisters();
 
     // Assemble the method.
-    std::unique_ptr<Assembler> jni_asm(Assembler::Create(&arena, isa));
+    std::unique_ptr<JNIMacroAssembler<kPointerSize>> jni_asm(
+        JNIMacroAssembler<kPointerSize>::Create(&arena, isa));
     jni_asm->cfi().SetEnabled(true);
     jni_asm->BuildFrame(frame_size, mr_conv->MethodRegister(),
                         callee_save_regs, mr_conv->EntrySpills());
@@ -87,13 +109,25 @@ class JNICFITest : public CFITest {
     TestImpl(isa, #isa, expected_asm, expected_cfi); \
   }
 
+#ifdef ART_ENABLE_CODEGEN_arm
 TEST_ISA(kThumb2)
+#endif
+#ifdef ART_ENABLE_CODEGEN_arm64
 TEST_ISA(kArm64)
+#endif
+#ifdef ART_ENABLE_CODEGEN_x86
 TEST_ISA(kX86)
+#endif
+#ifdef ART_ENABLE_CODEGEN_x86_64
 TEST_ISA(kX86_64)
+#endif
+#ifdef ART_ENABLE_CODEGEN_mips
 TEST_ISA(kMips)
+#endif
+#ifdef ART_ENABLE_CODEGEN_mips64
 TEST_ISA(kMips64)
+#endif
 
-#endif  // __ANDROID__
+#endif  // ART_TARGET_ANDROID
 
 }  // namespace art

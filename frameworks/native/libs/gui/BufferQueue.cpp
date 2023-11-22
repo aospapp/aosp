@@ -31,6 +31,13 @@ BufferQueue::ProxyConsumerListener::ProxyConsumerListener(
 
 BufferQueue::ProxyConsumerListener::~ProxyConsumerListener() {}
 
+void BufferQueue::ProxyConsumerListener::onDisconnect() {
+    sp<ConsumerListener> listener(mConsumerListener.promote());
+    if (listener != NULL) {
+        listener->onDisconnect();
+    }
+}
+
 void BufferQueue::ProxyConsumerListener::onFrameAvailable(
         const BufferItem& item) {
     sp<ConsumerListener> listener(mConsumerListener.promote());
@@ -61,28 +68,28 @@ void BufferQueue::ProxyConsumerListener::onSidebandStreamChanged() {
     }
 }
 
-bool BufferQueue::ProxyConsumerListener::getFrameTimestamps(
-        uint64_t frameNumber, FrameTimestamps* outTimestamps) const {
+void BufferQueue::ProxyConsumerListener::addAndGetFrameTimestamps(
+        const NewFrameEventsEntry* newTimestamps,
+        FrameEventHistoryDelta* outDelta) {
     sp<ConsumerListener> listener(mConsumerListener.promote());
-    if (listener != NULL) {
-        return listener->getFrameTimestamps(frameNumber, outTimestamps);
+    if (listener != nullptr) {
+        listener->addAndGetFrameTimestamps(newTimestamps, outDelta);
     }
-    return false;
 }
 
 void BufferQueue::createBufferQueue(sp<IGraphicBufferProducer>* outProducer,
         sp<IGraphicBufferConsumer>* outConsumer,
-        const sp<IGraphicBufferAlloc>& allocator) {
+        bool consumerIsSurfaceFlinger) {
     LOG_ALWAYS_FATAL_IF(outProducer == NULL,
             "BufferQueue: outProducer must not be NULL");
     LOG_ALWAYS_FATAL_IF(outConsumer == NULL,
             "BufferQueue: outConsumer must not be NULL");
 
-    sp<BufferQueueCore> core(new BufferQueueCore(allocator));
+    sp<BufferQueueCore> core(new BufferQueueCore());
     LOG_ALWAYS_FATAL_IF(core == NULL,
             "BufferQueue: failed to create BufferQueueCore");
 
-    sp<IGraphicBufferProducer> producer(new BufferQueueProducer(core));
+    sp<IGraphicBufferProducer> producer(new BufferQueueProducer(core, consumerIsSurfaceFlinger));
     LOG_ALWAYS_FATAL_IF(producer == NULL,
             "BufferQueue: failed to create BufferQueueProducer");
 

@@ -15,8 +15,6 @@
   <project path="autotest/site_utils/devserver"
            name="chromiumos/platform/dev-util" />
 
-  <project remote="cros-internal" path="autotest/site_utils/autotest_tools"
-           name="chromeos/autotest-tools" />
   <project remote="cros-internal" path="autotest/site_utils/autotest_private"
            name="chromeos/autotest-private" />
 

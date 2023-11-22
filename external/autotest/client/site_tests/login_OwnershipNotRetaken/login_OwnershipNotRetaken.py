@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject, hashlib, os
+import gobject, hashlib, logging, os
 from dbus.mainloop.glib import DBusGMainLoop
 
-from autotest_lib.client.bin import test
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome, session_manager
 from autotest_lib.client.cros import constants, cryptohome, ownership
@@ -30,6 +30,13 @@ class login_OwnershipNotRetaken(test.test):
 
 
     def run_once(self):
+        # TODO(apronin): crbug.com/618392. This test flakes on these boards.
+        boards_to_skip = ['tricky', 'peach_pit', 'falco']
+        board = utils.get_current_board()
+        if board in boards_to_skip:
+            logging.info("Skipping test run on %s.", board)
+            return
+
         listener = session_manager.OwnershipSignalListener(gobject.MainLoop())
         listener.listen_for_new_key_and_policy()
         # Sign in. Sign out happens automatically when cr goes out of scope.

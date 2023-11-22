@@ -16,10 +16,13 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-import android.view.cts.util.XmlUtils;
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -28,50 +31,52 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.XmlResourceParser;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.util.Xml;
+import android.view.ContextThemeWrapper;
 import android.view.Gravity;
 import android.view.InflateException;
 import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
 import android.view.LayoutInflater.Factory;
 import android.view.LayoutInflater.Filter;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.cts.util.XmlUtils;
 import android.widget.LinearLayout;
 
-public class LayoutInflaterTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LayoutInflaterTest {
     private LayoutInflater mLayoutInflater;
 
-    @SuppressWarnings("hiding")
     private Context mContext;
 
-    private final Factory mFactory = new Factory() {
-        @Override
-        public View onCreateView(String name, Context context, AttributeSet attrs) {
-            return null;
-        }
-    };
+    private final Factory mFactory = (String name, Context context, AttributeSet attrs) -> null;
+
     private boolean isOnLoadClass;
-    private final Filter mFilter = new Filter() {
-        @SuppressWarnings({ "unchecked", "rawtypes" })
-        @Override
-        public boolean onLoadClass(Class clazz) {
-            isOnLoadClass = true;
-            return true;
-        }
 
+    private final Filter mFilter = (Class clazz) -> {
+        isOnLoadClass = true;
+        return true;
     };
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getContext();
-        mLayoutInflater = (LayoutInflater) mContext
-                .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mLayoutInflater = (LayoutInflater) mContext.getSystemService(
+                Context.LAYOUT_INFLATER_SERVICE);
     }
 
+    @Test
     public void testFrom() {
         mLayoutInflater = null;
         mLayoutInflater = LayoutInflater.from(mContext);
@@ -85,12 +90,13 @@ public class LayoutInflaterTest extends AndroidTestCase {
         assertNotNull(layoutInflater);
     }
 
+    @Test
     public void testAccessLayoutInflaterProperties() {
         mLayoutInflater.setFilter(mFilter);
         assertSame(mFilter, mLayoutInflater.getFilter());
         mLayoutInflater.setFactory(mFactory);
         assertSame(mFactory, mLayoutInflater.getFactory());
-        mLayoutInflater=new MockLayoutInflater(mContext);
+        mLayoutInflater = new MockLayoutInflater(mContext);
         assertSame(mContext, mLayoutInflater.getContext());
     }
 
@@ -131,14 +137,13 @@ public class LayoutInflaterTest extends AndroidTestCase {
         return attrs;
     }
 
+    @Test
     public void testCreateView() {
-
         AttributeSet attrs = getAttrs();
         isOnLoadClass = false;
         View view = null;
         try {
-            view = mLayoutInflater
-                    .createView("testthrow", "com.android", attrs);
+            view = mLayoutInflater.createView("testthrow", "com.android", attrs);
             fail("should throw exception");
         } catch (InflateException e) {
         } catch (ClassNotFoundException e) {
@@ -148,13 +153,9 @@ public class LayoutInflaterTest extends AndroidTestCase {
         mLayoutInflater = null;
         mLayoutInflater = LayoutInflater.from(mContext);
         isOnLoadClass = false;
-        mLayoutInflater.setFilter(new Filter() {
-            @SuppressWarnings({ "unchecked", "rawtypes" })
-            @Override
-            public boolean onLoadClass(Class clazz) {
-                isOnLoadClass = true;
-                return false;
-            }
+        mLayoutInflater.setFilter((Class clazz) -> {
+            isOnLoadClass = true;
+            return false;
         });
         try {
             view = mLayoutInflater.createView("MockActivity",
@@ -208,162 +209,151 @@ public class LayoutInflaterTest extends AndroidTestCase {
         }
     }
 
+    @Test(expected=Resources.NotFoundException.class)
+    public void testInflateInvalidId() {
+        mLayoutInflater.inflate(-1, null);
+    }
+
+    @Test
     public void testInflate() {
         View view = mLayoutInflater.inflate(
                 android.view.cts.R.layout.inflater_layout, null);
         assertNotNull(view);
-        view = null;
-        try {
-            view = mLayoutInflater.inflate(-1, null);
-            fail("should throw exception");
-        } catch (Resources.NotFoundException e) {
-        }
-        LinearLayout mLayout;
-        mLayout = new LinearLayout(mContext);
-        mLayout.setOrientation(LinearLayout.VERTICAL);
-        mLayout.setHorizontalGravity(Gravity.LEFT);
-        mLayout.setLayoutParams(new ViewGroup.LayoutParams(
+
+        LinearLayout linearLayout = new LinearLayout(mContext);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.setHorizontalGravity(Gravity.LEFT);
+        linearLayout.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        assertEquals(0, mLayout.getChildCount());
+        assertEquals(0, linearLayout.getChildCount());
         view = mLayoutInflater.inflate(R.layout.inflater_layout,
-                mLayout);
+                linearLayout);
         assertNotNull(view);
-        assertEquals(1, mLayout.getChildCount());
+        assertEquals(1, linearLayout.getChildCount());
     }
 
-    public void testInflate2() {
+    @Test(expected=Resources.NotFoundException.class)
+    public void testInflateAttachToRootInvalidId() {
+        mLayoutInflater.inflate(-1, null, false);
+    }
+
+    @Test
+    public void testInflateAttachToRoot() {
         View view = mLayoutInflater.inflate(
                 R.layout.inflater_layout, null, false);
         assertNotNull(view);
-        view = null;
-        try {
-            view = mLayoutInflater.inflate(-1, null, false);
-            fail("should throw exception");
-        } catch (Resources.NotFoundException e) {
 
-        }
-        LinearLayout mLayout;
-        mLayout = new LinearLayout(mContext);
-        mLayout.setOrientation(LinearLayout.VERTICAL);
-        mLayout.setHorizontalGravity(Gravity.LEFT);
-        mLayout.setLayoutParams(new ViewGroup.LayoutParams(
+        LinearLayout linearLayout = new LinearLayout(mContext);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.setHorizontalGravity(Gravity.LEFT);
+        linearLayout.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        assertEquals(0, mLayout.getChildCount());
+        assertEquals(0, linearLayout.getChildCount());
         view = mLayoutInflater.inflate(R.layout.inflater_layout,
-                mLayout, false);
+                linearLayout, false);
         assertNotNull(view);
-        assertEquals(0, mLayout.getChildCount());
+        assertEquals(0, linearLayout.getChildCount());
 
-        view = null;
         view = mLayoutInflater.inflate(R.layout.inflater_layout,
-                mLayout, true);
+                linearLayout, true);
         assertNotNull(view);
-        assertEquals(1, mLayout.getChildCount());
+        assertEquals(1, linearLayout.getChildCount());
     }
 
-    public void testInflate3() {
-        XmlResourceParser parser = getContext().getResources().getLayout(
-                R.layout.inflater_layout);
+    @Test(expected=NullPointerException.class)
+    public void testInflateParserNullParser() {
+        mLayoutInflater.inflate(null, null);
+    }
+
+    @Test
+    public void testInflateParser() {
+        XmlResourceParser parser = mContext.getResources().getLayout(R.layout.inflater_layout);
         View view = mLayoutInflater.inflate(parser, null);
         assertNotNull(view);
-        view = null;
-        try {
-            view = mLayoutInflater.inflate(null, null);
-            fail("should throw exception");
-        } catch (NullPointerException e) {
-        }
-        LinearLayout mLayout;
-        mLayout = new LinearLayout(mContext);
-        mLayout.setOrientation(LinearLayout.VERTICAL);
-        mLayout.setHorizontalGravity(Gravity.LEFT);
-        mLayout.setLayoutParams(new ViewGroup.LayoutParams(
+
+        LinearLayout linearLayout = new LinearLayout(mContext);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.setHorizontalGravity(Gravity.LEFT);
+        linearLayout.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        assertEquals(0, mLayout.getChildCount());
+        assertEquals(0, linearLayout.getChildCount());
 
         try {
-            view = mLayoutInflater.inflate(parser, mLayout);
+            mLayoutInflater.inflate(parser, linearLayout);
             fail("should throw exception");
         } catch (NullPointerException e) {
         }
-        parser = getContext().getResources().getLayout(
-                R.layout.inflater_layout);
-        view = mLayoutInflater.inflate(parser, mLayout);
-        assertNotNull(view);
-        assertEquals(1, mLayout.getChildCount());
-        parser = getContext().getResources().getLayout(
-                R.layout.inflater_layout);
-        view = mLayoutInflater.inflate(parser, mLayout);
-        assertNotNull(view);
-        assertEquals(2, mLayout.getChildCount());
 
-        parser = null;
-        view = null;
+        parser = mContext.getResources().getLayout(R.layout.inflater_layout);
+        view = mLayoutInflater.inflate(parser, linearLayout);
+        assertNotNull(view);
+        assertEquals(1, linearLayout.getChildCount());
+        parser = mContext.getResources().getLayout(R.layout.inflater_layout);
+        view = mLayoutInflater.inflate(parser, linearLayout);
+        assertNotNull(view);
+        assertEquals(2, linearLayout.getChildCount());
+
         parser = getParser();
-
-        view = mLayoutInflater.inflate(parser, mLayout);
+        view = mLayoutInflater.inflate(parser, linearLayout);
         assertNotNull(view);
-        assertEquals(3, mLayout.getChildCount());
+        assertEquals(3, linearLayout.getChildCount());
     }
 
-    public void testInflate4() {
-        XmlResourceParser parser = getContext().getResources().getLayout(
-                R.layout.inflater_layout);
+    @Test(expected=NullPointerException.class)
+    public void testInflateParserAttachToRootNullParser() {
+        mLayoutInflater.inflate(null, null, false);
+    }
+
+    @Test
+    public void testInflateParserAttachToRoot() {
+        XmlResourceParser parser = mContext.getResources().getLayout(R.layout.inflater_layout);
         View view = mLayoutInflater.inflate(parser, null, false);
         assertNotNull(view);
-        view = null;
-        try {
-            view = mLayoutInflater.inflate(null, null, false);
-            fail("should throw exception");
-        } catch (NullPointerException e) {
-        }
-        LinearLayout mLayout;
-        mLayout = new LinearLayout(mContext);
-        mLayout.setOrientation(LinearLayout.VERTICAL);
-        mLayout.setHorizontalGravity(Gravity.LEFT);
-        mLayout.setLayoutParams(new ViewGroup.LayoutParams(
+
+        LinearLayout linearLayout = new LinearLayout(mContext);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.setHorizontalGravity(Gravity.LEFT);
+        linearLayout.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
-        assertEquals(0, mLayout.getChildCount());
+        assertEquals(0, linearLayout.getChildCount());
 
         try {
-            view = mLayoutInflater.inflate(parser, mLayout, false);
+            mLayoutInflater.inflate(parser, linearLayout, false);
             fail("should throw exception");
         } catch (NullPointerException e) {
         }
-        parser = getContext().getResources().getLayout(
-                R.layout.inflater_layout);
-        view = mLayoutInflater.inflate(parser, mLayout, false);
-        assertNull(view.getParent());
-        assertNotNull(view);
-        assertEquals(0, mLayout.getChildCount());
-        parser = getContext().getResources().getLayout(
-                R.layout.inflater_layout);
-        assertEquals(0, mLayout.getChildCount());
-        view = mLayoutInflater.inflate(parser, mLayout, true);
-        assertNotNull(view);
-        assertNull(view.getParent());
-        assertEquals(1, mLayout.getChildCount());
 
-        parser = null;
+        parser = mContext.getResources().getLayout(R.layout.inflater_layout);
+        view = mLayoutInflater.inflate(parser, linearLayout, false);
+        assertNull(view.getParent());
+        assertNotNull(view);
+        assertEquals(0, linearLayout.getChildCount());
+        parser = mContext.getResources().getLayout(R.layout.inflater_layout);
+        assertEquals(0, linearLayout.getChildCount());
+        view = mLayoutInflater.inflate(parser, linearLayout, true);
+        assertNotNull(view);
+        assertNull(view.getParent());
+        assertEquals(1, linearLayout.getChildCount());
+
         parser = getParser();
         try {
-            view = mLayoutInflater.inflate(parser, mLayout, false);
+            mLayoutInflater.inflate(parser, linearLayout, false);
             fail("should throw exception");
         } catch (InflateException e) {
         }
 
-        parser = null;
-        view = null;
         parser = getParser();
 
-        view = mLayoutInflater.inflate(parser, mLayout, true);
+        view = mLayoutInflater.inflate(parser, linearLayout, true);
         assertNotNull(view);
-        assertEquals(2, mLayout.getChildCount());
+        assertEquals(2, linearLayout.getChildCount());
     }
 
+    @Test
     public void testOverrideTheme() {
         View container = mLayoutInflater.inflate(R.layout.inflater_override_theme_layout, null);
         verifyThemeType(container, "view_outer", R.id.view_outer, 1);
@@ -383,6 +373,7 @@ public class LayoutInflaterTest extends AndroidTestCase {
         assertEquals(tag + " has themeType " + type, type, outValue.data);
     }
 
+    @Test
     public void testInflateTags() {
         final View view = mLayoutInflater.inflate(
                 android.view.cts.R.layout.inflater_layout_tags, null);
@@ -403,6 +394,22 @@ public class LayoutInflaterTest extends AndroidTestCase {
         final Context targetContext = target.getContext();
         final CharSequence expectedValue = targetContext.getString(valueResId);
         assertEquals(tagId + " has tag " + expectedValue, expectedValue, tag);
+    }
+
+    @Test
+    public void testInclude() {
+        final Context themedContext = new ContextThemeWrapper(mContext, R.style.Test_Theme);
+        final LayoutInflater inflater = LayoutInflater.from(themedContext);
+
+        final View container = inflater.inflate(R.layout.inflater_layout_include, null);
+        assertNotNull(container.findViewById(R.id.include_layout_explicit));
+        assertNotNull(container.findViewById(R.id.include_layout_from_attr));
+    }
+
+    @Test(expected = InflateException.class)
+    public void testIncludeMissingAttr() {
+        final View container = mLayoutInflater.inflate(R.layout.inflater_layout_include, null);
+        assertNotNull(container.findViewById(R.id.include_layout_from_attr));
     }
 
     static class MockLayoutInflater extends LayoutInflater {

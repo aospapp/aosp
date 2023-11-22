@@ -25,6 +25,7 @@
 #include "NuPlayerSource.h"
 
 #include <media/ICrypto.h>
+#include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
@@ -75,7 +76,7 @@ void NuPlayer::DecoderPassThrough::onConfigure(const sp<AMessage> &format) {
     // format is different.
     status_t err = mRenderer->openAudioSink(
             format, true /* offloadOnly */, hasVideo,
-            AUDIO_OUTPUT_FLAG_NONE /* flags */, NULL /* isOffloaded */);
+            AUDIO_OUTPUT_FLAG_NONE /* flags */, NULL /* isOffloaded */, mSource->isStreaming());
     if (err != OK) {
         handleError(err);
     }
@@ -90,11 +91,6 @@ void NuPlayer::DecoderPassThrough::onSetRenderer(
     // renderer can't be changed during offloading
     ALOGW_IF(renderer != mRenderer,
             "ignoring request to change renderer");
-}
-
-void NuPlayer::DecoderPassThrough::onGetInputBuffers(
-        Vector<sp<ABuffer> > * /* dstBuffers */) {
-    ALOGE("onGetInputBuffers() called unexpectedly");
 }
 
 bool NuPlayer::DecoderPassThrough::isStaleReply(const sp<AMessage> &msg) {
@@ -298,6 +294,9 @@ void NuPlayer::DecoderPassThrough::onInputBufferFetched(
             return;
         }
 
+        if (streamErr != ERROR_END_OF_STREAM) {
+            handleError(streamErr);
+        }
         mReachedEOS = true;
         if (mRenderer != NULL) {
             mRenderer->queueEOS(true /* audio */, ERROR_END_OF_STREAM);
@@ -319,10 +318,9 @@ void NuPlayer::DecoderPassThrough::onInputBufferFetched(
     int32_t bufferSize = buffer->size();
     mCachedBytes += bufferSize;
 
+    int64_t timeUs = 0;
+    CHECK(buffer->meta()->findInt64("timeUs", &timeUs));
     if (mSkipRenderingUntilMediaTimeUs >= 0) {
-        int64_t timeUs = 0;
-        CHECK(buffer->meta()->findInt64("timeUs", &timeUs));
-
         if (timeUs < mSkipRenderingUntilMediaTimeUs) {
             ALOGV("[%s] dropping buffer at time %lld as requested.",
                      mComponentName.c_str(), (long long)timeUs);
@@ -343,7 +341,10 @@ void NuPlayer::DecoderPassThrough::onInputBufferFetched(
     reply->setInt32("generation", mBufferGeneration);
     reply->setInt32("size", bufferSize);
 
-    mRenderer->queueBuffer(true /* audio */, buffer, reply);
+    sp<MediaCodecBuffer> mcBuffer = new MediaCodecBuffer(nullptr, buffer);
+    mcBuffer->meta()->setInt64("timeUs", timeUs);
+
+    mRenderer->queueBuffer(true /* audio */, mcBuffer, reply);
 
     ++mPendingBuffersToDrain;
     ALOGV("onInputBufferFilled: #ToDrain = %zu, cachedBytes = %zu",

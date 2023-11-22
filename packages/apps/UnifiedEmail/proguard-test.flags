@@ -29,10 +29,6 @@
   public static boolean updateMessageFields(...);
 }
 
--keep class com.android.mail.utils.Utils {
-  public static android.text.Spanned insertStringWithStyle(...);
-}
-
 -keepclasseswithmembers class * {
   *** findProviderForDomain(...);
 }

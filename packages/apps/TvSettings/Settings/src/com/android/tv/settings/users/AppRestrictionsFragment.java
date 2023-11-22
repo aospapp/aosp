@@ -79,10 +79,10 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
 
     private static final Drawable BLANK_DRAWABLE = new ColorDrawable(Color.TRANSPARENT);
 
-    protected PackageManager mPackageManager;
-    protected UserManager mUserManager;
-    protected IPackageManager mIPm;
-    protected UserHandle mUser;
+    private PackageManager mPackageManager;
+    private UserManager mUserManager;
+    private IPackageManager mIPm;
+    private UserHandle mUser;
     private PackageInfo mSysPackageInfo;
 
     private AppRestrictionsHelper mHelper;
@@ -94,15 +94,15 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
     private static final String DELIMITER = ";";
 
     /** Key for extra passed in from calling fragment for the userId of the user being edited */
-    public static final String EXTRA_USER_ID = "user_id";
+    private static final String EXTRA_USER_ID = "user_id";
 
     /** Key for extra passed in from calling fragment to indicate if this is a newly created user */
-    public static final String EXTRA_NEW_USER = "new_user";
+    private static final String EXTRA_NEW_USER = "new_user";
 
     private boolean mFirstTime = true;
     private boolean mNewUser;
     private boolean mAppListChanged;
-    protected boolean mRestrictedProfile;
+    private boolean mRestrictedProfile;
 
     private static final int CUSTOM_REQUEST_CODE_START = 1000;
     private int mCustomRequestCode = CUSTOM_REQUEST_CODE_START;
@@ -132,7 +132,7 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
         }
     };
 
-    static class AppRestrictionsPreference extends PreferenceGroup {
+    private static class AppRestrictionsPreference extends PreferenceGroup {
         private final Listener mListener = new Listener();
         private ArrayList<RestrictionEntry> mRestrictions;
         private boolean mImmutable;
@@ -334,7 +334,7 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
         }
     }
 
-    protected PreferenceGroup getAppPreferenceGroup() {
+    private PreferenceGroup getAppPreferenceGroup() {
         return getPreferenceScreen();
     }
 
@@ -404,7 +404,7 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
             PackageInfo pi = null;
             try {
                 pi = mIPm.getPackageInfo(packageName,
-                        PackageManager.MATCH_UNINSTALLED_PACKAGES
+                        PackageManager.MATCH_ANY_USER
                                 | PackageManager.GET_SIGNATURES, userId);
             } catch (RemoteException e) {
                 // Ignore
@@ -607,6 +607,7 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
                                 listPref.setSummary(readable);
                                 break;
                             case RestrictionEntry.TYPE_MULTI_SELECT:
+                                // noinspection unchecked
                                 Set<String> set = (Set<String>) newValue;
                                 String [] selectedValues = new String[set.size()];
                                 set.toArray(selectedValues);
@@ -644,7 +645,7 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
                 null, Activity.RESULT_OK, null, null);
     }
 
-    class RestrictionsResultReceiver extends BroadcastReceiver {
+    private class RestrictionsResultReceiver extends BroadcastReceiver {
 
         private static final String CUSTOM_RESTRICTIONS_INTENT = Intent.EXTRA_RESTRICTIONS_INTENT;
         private final String mPackageName;
@@ -677,6 +678,8 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
                 p.setTitle(R.string.restricted_profile_customize_restrictions);
                 p.setIntent(restrictionsIntent);
                 mPreference.addPreference(p);
+            } else {
+                Log.e(TAG, "No restrictions returned from " + mPackageName);
             }
         }
     }
@@ -802,7 +805,7 @@ public class AppRestrictionsFragment extends LeanbackPreferenceFragment implemen
      * @param checkUser The user to check the existence of.
      * @return UserInfo of the user or null for non-existent user.
      */
-    public static UserInfo getExistingUser(UserManager userManager, UserHandle checkUser) {
+    private static UserInfo getExistingUser(UserManager userManager, UserHandle checkUser) {
         final List<UserInfo> users = userManager.getUsers(true /* excludeDying */);
         final int checkUserId = checkUser.getIdentifier();
         for (UserInfo user : users) {

@@ -43,17 +43,24 @@ short) continuous test framework.</p>
   <li>Launch the CTS console by running the <em>cts-tradefed</em> script from
     the folder where the CTS package has been unzipped, e.g.
     <code>$ ./android-cts/tools/cts-tradefed</code>
-  <li>You may start the default test plan (containing all of the test packages) by
-    appending: <code>run cts --plan CTS</code> (or just <code>run cts</code> for v2).
-    This kicks off all the CTS tests required for compatibility.
-    Enter <code>list plans</code> to see a list of test plans in the repository.
-    Enter <code>list packages</code> to see a list of test packages in the repository.
-    See the CTS command
-    reference or type help for a complete list of supported commands.
-  <li>Alternately, you may run the CTS plan of your choosing from the command line
+  <li>Start the default test plan (contains all test packages) by appending: <code>run
+    cts --plan CTS</code> . This kicks off all CTS tests required for compatibility.
+      <ul>
+        <li>For CTS v1 (Android 6.0 and earlier), enter <code>list plans</code> to view a list of
+          test plans in the repository or <code>list package</code>s to view a list of
+          test packages in the repository.
+        <li>For CTS v2 (Android 7.0 and later), enter <code>list modules</code> to
+          see a list of test modules.
+      </ul>
+  </li>
+  <li>Alternately, run the CTS plan of your choosing from the command line
     using: <code>cts-tradefed run cts --plan
       <plan_name>
       </code>
+<p class="note"><strong>Note:</strong> When running Android 6.0 (Marshmallow)
+CTS only, we recommend you use the <code>--skip-preconditions</code> option to
+skip the experimental pre-conditions feature that may cause issues for when
+executing CTS tests.</p>
   <li>View test progress and results reported on the console.
   <li>If your device is Android 5.0 or later and declares support for an ARM and a
     x86 ABI, you should run both the ARM and x86 CTS packages.
@@ -114,7 +121,7 @@ various uses.</p>
       <td>Run the specified test plan</td>
     </tr>
     <tr>
-      <td><code>-- package/-p &lt;test_package_name&gt;  [--package/-p &lt;test_package2&gt;...]</code></td>
+      <td><code>--package/-p &lt;test_package_name&gt;  [--package/-p &lt;test_package2&gt;...]</code></td>
       <td>Run the specified test packages</td>
     </tr>
     <tr>
@@ -290,8 +297,20 @@ various uses.</p>
       <td>Run CTS on the specific device.</td>
     </tr>
     <tr>
-      <td><code>--abi 32|64</code></td>
-      <td>Forces the test to run on the given ABI. By default CTS runs a test once for each ABI the device supports.</td>
+      <td><code>--include-filter &lt;module_name&gt;  [--include-filter &lt;module2&gt;...]</code></td>
+      <td>Run only with the specified modules.</td>
+    </tr>
+    <tr>
+      <td><code>--exclude-filter &lt;module_name&gt;  [--exclude-filter &lt;module2&gt;...]</code></td>
+      <td>Exclude the specified modules from the run.</td>
+    </tr>
+    <tr>
+      <td><code>--log-level-display/-l &lt;log_level&gt;</code></td>
+      <td>Run with the minimum specified log level displayed to STDOUT. Valid values: [VERBOSE, DEBUG, INFO, WARN, ERROR, ASSERT].</td>
+    </tr>
+    <tr>
+      <td><code>--abi &lt;abi_name&gt;</code></td>
+      <td>Force the test to run on the given ABI, 32 or 64. By default CTS runs a test once for each ABI the device supports.</td>
     </tr>
     <tr>
       <td><code>--logcat</code>, <code>--bugreport</code>, and <code>--screenshoot-on-failure</code></td>

@@ -15,14 +15,13 @@ This test will fail if:
   - If X extensions don't include DAMAGE and Composite
 """
 ATTRIBUTES = "suite:bvt-cq, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:hwqual"
-SUITE = 'bvt-cq, graphics_per-day, graphics, graphics_system, hwqual'
 TIME='SHORT'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "graphics"
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include <ui/PixelFormat.h>
-
 #include <system/window.h>
 
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <sched.h>
 
-#include <cutils/properties.h>
-
+#define EGL_EGLEXT_PROTOTYPES
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <GLES2/gl2.h>
@@ -41,10 +40,7 @@
 #include "rsdVertexArray.h"
 #include "rsdFrameBufferObj.h"
 
-#include <gui/Surface.h>
-
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Context;
 
 static int32_t gGLContextCount = 0;
 
@@ -213,12 +209,6 @@ void getConfigData(const Context *rsc,
         configAttribsPtr += 2;
     }
 
-    if (rsc->mDev->mForceSW) {
-        configAttribsPtr[0] = EGL_CONFIG_CAVEAT;
-        configAttribsPtr[1] = EGL_SLOW_CONFIG;
-        configAttribsPtr += 2;
-    }
-
     if (numSamples > 1) {
         configAttribsPtr[0] = EGL_SAMPLE_BUFFERS;
         configAttribsPtr[1] = 1;
@@ -231,7 +221,7 @@ void getConfigData(const Context *rsc,
     rsAssert(configAttribsPtr < (configAttribs + configAttribsLen));
 }
 
-bool rsdGLInit(const Context *rsc) {
+int32_t rsdGLInit(const Context *rsc) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
     dc->gl.egl.numConfigs = -1;
@@ -320,7 +310,7 @@ bool rsdGLInit(const Context *rsc) {
     if (dc->gl.egl.context == EGL_NO_CONTEXT) {
         ALOGE("%p, eglCreateContext returned EGL_NO_CONTEXT", rsc);
         rsc->setWatchdogGL(nullptr, 0, nullptr);
-        return false;
+        return -1;
     }
     gGLContextCount++;
 
@@ -333,7 +323,7 @@ bool rsdGLInit(const Context *rsc) {
         ALOGE("eglCreatePbufferSurface returned EGL_NO_SURFACE");
         rsdGLShutdown(rsc);
         rsc->setWatchdogGL(nullptr, 0, nullptr);
-        return false;
+        return -1;
     }
 
     rsc->setWatchdogGL("eglMakeCurrent", __LINE__, __FILE__);
@@ -344,7 +334,7 @@ bool rsdGLInit(const Context *rsc) {
         checkEglError("eglMakeCurrent", ret);
         rsdGLShutdown(rsc);
         rsc->setWatchdogGL(nullptr, 0, nullptr);
-        return false;
+        return -1;
     }
 
     dc->gl.gl.version = glGetString(GL_VERSION);
@@ -372,7 +362,7 @@ bool rsdGLInit(const Context *rsc) {
         ALOGE("Error, OpenGL ES Lite not supported");
         rsdGLShutdown(rsc);
         rsc->setWatchdogGL(nullptr, 0, nullptr);
-        return false;
+        return -1;
     } else {
         sscanf(verptr, " %i.%i", &dc->gl.gl.majorVersion, &dc->gl.gl.minorVersion);
     }
@@ -410,9 +400,25 @@ bool rsdGLInit(const Context *rsc) {
     dc->gl.currentFrameBuffer = nullptr;
     dc->mHasGraphics = true;
 
+    int syncFd = -1;
+    // Create a EGL sync object.
+    EGLSyncKHR sync = eglCreateSyncKHR(dc->gl.egl.display, EGL_SYNC_NATIVE_FENCE_ANDROID, NULL);
+    if (sync != EGL_NO_SYNC_KHR) {
+        // native fence fd will not be populated until flush() is done.
+        glFlush();
+        // Convert the EGL sync object to a file descriptor.
+        syncFd = eglDupNativeFenceFDANDROID(dc->gl.egl.display, sync);
+        if (syncFd == EGL_NO_NATIVE_FENCE_FD_ANDROID) {
+            ALOGW("Failed to dup sync khr object");
+            syncFd = -1;
+        }
+        // The sync object is no longer needed once we have the file descriptor.
+        eglDestroySyncKHR(dc->gl.egl.display, sync);
+    }
+
     ALOGV("%p initGLThread end", rsc);
     rsc->setWatchdogGL(nullptr, 0, nullptr);
-    return true;
+    return syncFd;
 }
 
 

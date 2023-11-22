@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"删除"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"显示反函数"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"隐藏反函数"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"无任何公式"</string>
+    <string name="desc_result" msgid="1794073190203126821">"没有任何结果"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"数字和基本操作"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"高级操作"</string>
     <string name="error_nan" msgid="5674077944929888710">"不是数字"</string>
     <string name="error_syntax" msgid="4786987111228645602">"表达式错误"</string>
     <string name="error_aborted" msgid="3402238176316342537">"已中止"</string>
     <string name="error_overflow" msgid="7800547394563434764">"无限值？"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"不能除以 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"文本已复制"</string>
-    <string name="cancelled" msgid="1618889609742874632">"计算已取消"</string>
-    <string name="timeout" msgid="802690170415591535">"已超时。可能是无限值或未定义的值。"</string>
+    <string name="cancelled" msgid="2207323593183640994">"计算已取消。"</string>
+    <string name="timeout" msgid="5461892570729418573">"您可能使用了无限值或未定义的值。"</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"延长超时时间"</string>
     <string name="dismiss" msgid="7872443888515066216">"关闭"</string>
     <string name="exact" msgid="2597237880041789948">"（精确）"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"在结果中显示前导数"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"以分数形式显示结果"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"开放源代码许可"</string>
+    <string name="menu_history" msgid="9006222701220105452">"历史记录"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"清除"</string>
+    <string name="title_history" msgid="7820912156315181539">"历史记录"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"转到上一层级"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"超时"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"要清除历史记录和存储内容吗？"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"目前的表达式"</string>
+    <string name="no_history" msgid="4331262030447527188">"没有历史记录"</string>
 </resources>

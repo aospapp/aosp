@@ -5,10 +5,10 @@
 #ifndef LIBBRILLO_POLICY_LIBPOLICY_H_
 #define LIBBRILLO_POLICY_LIBPOLICY_H_
 
+#include <memory>
 #include <string>
 
 #include <base/macros.h>
-#include <base/memory/scoped_ptr.h>
 
 #pragma GCC visibility push(default)
 
@@ -38,7 +38,7 @@ class PolicyProvider {
   virtual const DevicePolicy& GetDevicePolicy() const;
 
  private:
-  scoped_ptr<DevicePolicy> device_policy_;
+  std::unique_ptr<DevicePolicy> device_policy_;
   bool device_policy_is_loaded_;
 
   DISALLOW_COPY_AND_ASSIGN(PolicyProvider);

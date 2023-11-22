@@ -18,8 +18,9 @@ from telemetry.timeline import process as process_module
 from telemetry.timeline import slice as slice_module
 from telemetry.timeline import surface_flinger_importer
 from telemetry.timeline import tab_id_importer
-from telemetry.timeline import trace_data as trace_data_module
 from telemetry.timeline import trace_event_importer
+from tracing.trace_data import trace_data as trace_data_module
+
 
 # Register importers for data
 
@@ -153,8 +154,6 @@ class TimelineModel(event_container.TimelineEventContainer):
     for importer in importers:
       # TODO: catch exceptions here and add it to error list
       importer.ImportEvents()
-    for record in trace_data.metadata_records:
-      self.metadata.append(record)
     self.FinalizeImport(shift_world_to_zero, importers)
 
   def FinalizeImport(self, shift_world_to_zero=False, importers=None):

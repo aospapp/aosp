@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"WLAN"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Erkennungsfunktion immer verfügbar"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Der Standortdienst von Google und andere Apps sollen auch bei deaktiviertem WLAN nach Netzwerken suchen."</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Der Standortdienst von Google und andere Apps sollen auch bei deaktiviertem WLAN nach Netzwerken suchen"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"WLAN"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Bildschirmschoner"</string>
     <string name="device_display" msgid="101455384386372747">"Display"</string>
@@ -62,28 +62,30 @@
     <string name="apps_system" msgid="2499191125802829425">"System-Apps"</string>
     <string name="apps_running" msgid="6430310491739956228">"Aktive Apps"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Zubehör hinzufügen"</string>
-    <string name="accessory_state_pairing" msgid="7501989679637780963">"Pairing…"</string>
+    <string name="accessory_state_pairing" msgid="7501989679637780963">"Kopplung…"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Verbinden…"</string>
-    <string name="accessory_state_error" msgid="4529815543328841909">"Pairing konnte nicht durchgeführt werden."</string>
+    <string name="accessory_state_error" msgid="4529815543328841909">"Koppeln nicht möglich"</string>
     <string name="accessory_state_canceled" msgid="4419328837733619447">"Abgebrochen"</string>
-    <string name="accessory_state_paired" msgid="1959238931866401476">"Pairing erfolgreich"</string>
+    <string name="accessory_state_paired" msgid="1959238931866401476">"Kopplung abgeschlossen"</string>
     <string name="accessory_options" msgid="4799658564005710297">"Zubehör"</string>
-    <string name="accessory_unpair" msgid="8242725516604465355">"Pairing aufheben"</string>
+    <string name="accessory_unpair" msgid="8242725516604465355">"Entkoppeln"</string>
     <string name="accessory_battery" msgid="7021788232835772126">"Akku: <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
-    <string name="accessory_unpairing" msgid="7568241162181184667">"Pairing des Geräts wird aufgehoben..."</string>
+    <string name="accessory_unpairing" msgid="7568241162181184667">"Gerät wird entkoppelt..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Verbunden"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Namen ändern"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Neuen Namen für dieses Zubehör eingeben"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Suche nach Zubehör…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Ihre Bluetooth-Geräte müssen sich im Pairing-Modus befinden, damit Sie das Pairing durchführen können."</string>
-    <string name="accessories_autopair_msg" msgid="8618829246837821752">"Ein Gerät wurde gefunden. Das Pairing wird in <xliff:g id="COUNTDOWN">%1$s</xliff:g> Sekunden automatisch durchgeführt."</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Ihre Bluetooth-Geräte müssen sich im Kopplungsmodus befinden, damit Sie die Kopplung durchführen können."</string>
+    <string name="accessories_autopair_msg" msgid="8618829246837821752">"Ein Gerät wurde gefunden. Die Kopplung wird in <xliff:g id="COUNTDOWN">%1$s</xliff:g> Sekunden automatisch durchgeführt."</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"Diese Aktion wird nicht unterstützt."</string>
-    <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Bluetooth-Pairing-Anfrage"</string>
-    <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Für das Pairing muss &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; den Schlüssel &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt; anzeigen."</string>
-    <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"Von: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Pairing mit diesem Gerät durchführen?"</string>
-    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Zum Pairing mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Tippen Sie Folgendes ein: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;. Drücken Sie anschließend die Eingabetaste."</string>
-    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Zum Pairing mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Geben Sie die PIN des Geräts ein:"</string>
-    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Zum Pairing mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Geben Sie den erforderlichen Schlüssel des Geräts ein:"</string>
+    <string name="bluetooth_pairing_request" msgid="4523088117471287665">"Bluetooth-Kopplungsanfrage"</string>
+    <string name="bluetooth_confirm_passkey_msg" msgid="7031117992819855434">"Zur Kopplung muss &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; den Schlüssel &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt; anzeigen."</string>
+    <string name="bluetooth_incoming_pairing_msg" msgid="8234127565393932499">"Von: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Mit diesem Gerät koppeln?"</string>
+    <string name="bluetooth_display_passkey_pin_msg" msgid="8951451728250058901">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt;&lt;br&gt;Tippen Sie Folgendes ein: &lt;b&gt;<xliff:g id="PASSKEY">%2$s</xliff:g>&lt;/b&gt;. Drücken Sie anschließend die Eingabetaste."</string>
+    <string name="bluetooth_enter_pin_msg" msgid="7443458826667686394">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Geben Sie die PIN des Geräts ein:"</string>
+    <string name="bluetooth_enter_passkey_msg" msgid="7980787196089653577">"Zum Koppeln mit: &lt;b&gt;<xliff:g id="DEVICE_NAME">%1$s</xliff:g>&lt;/b&gt; &lt;br&gt;Geben Sie den erforderlichen Schlüssel des Geräts ein:"</string>
     <string name="bluetooth_pin_values_hint" msgid="2319900367581543300">"In der Regel 0000 oder 1234"</string>
-    <string name="bluetooth_pair" msgid="7836818609620478122">"Pairing durchführen"</string>
+    <string name="bluetooth_pair" msgid="7836818609620478122">"Koppeln"</string>
     <string name="bluetooth_cancel" msgid="4152153558528588479">"Abbrechen"</string>
     <string name="system_cast" msgid="6421567823845207156">"Google Cast"</string>
     <string name="system_date_time" msgid="8898457978560618950">"Datum &amp; Uhrzeit"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Tastatur"</string>
     <string name="system_home" msgid="2858989138172296012">"Startbildschirm"</string>
     <string name="system_search" msgid="2837264654143247611">"Suche"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Sicherheit &amp; Einschränkungen"</string>
     <string name="system_speech" msgid="8128688499687306982">"Spracherkennung"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Eingänge"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Entwickleroptionen"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Keine"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Nutzung &amp; Diagnose"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Anleitungen"</string>
     <string name="about_system_update" msgid="7282772247661356586">"System aktualisieren"</string>
     <string name="about_preference" msgid="4131396784531360434">"Info"</string>
     <string name="device_name" msgid="2670488158531273028">"Gerätename"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Anzeigeoptionen"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurieren"</string>
     <string name="captions_language" msgid="2835554055388996343">"Sprache"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Standard"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Textgröße"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Untertitelstil"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Benutzerdefinierte Optionen"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Maßstab Übergangsanimation"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Maßstab für Animatorzeit"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Strikter Modus aktiviert"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"CPU-Auslastung anzeigen"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"GPU-Rendering für Profil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Tracing aktivieren"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Aktionen nicht speichern"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Niedrig nach hoch: blau, grün, hellrot, rot"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Ganze Fensteroberfläche blinkt bei Aktualisierung."</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Bei längeren Aktionen im Hauptthread Bildschirm aufblinken lassen"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Bildschirm-Overlay mit aktueller CPU-Auslastung"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Rendering-Zeit in adb shell dumpsys gfxinfo messen"</string>
     <string name="action_on_title" msgid="6852389884236870765">"An"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Aus"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Beenden erzwingen"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Das Beenden der App zu erzwingen, kann zu unerwünschtem Verhalten führen."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Deinstallieren"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Möchten Sie diese App deinstallieren?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Updates deinstallieren"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Alle Updates für diese Android-System-App werden deinstalliert."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Deaktivieren"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Cache leeren"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Benachrichtigungen"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Berechtigungen"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"App nicht verfügbar"</string>
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Abbrechen"</string>
     <string name="settings_on" msgid="6892236264945435013">"An"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Alle personenbezogenen Daten und heruntergeladenen Apps löschen? Dieser Vorgang kann nicht rückgängig gemacht werden."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Alles löschen"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Namen für <xliff:g id="DEVICEMODEL">%1$s</xliff:g> auswählen"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Anhand des Namens erkennen Sie <xliff:g id="DEVICEMODEL">%1$s</xliff:g> leichter wieder, wenn Sie mit anderen Geräten darauf zugreifen, zum Beispiel mit Ihrem Smartphone, Tablet oder Computer."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Gib <xliff:g id="DEVICEMODEL">%1$s</xliff:g> einen Namen, damit du das Gerät identifizieren kannst, wenn du streamst oder wenn du von anderen Geräten eine Verbindung herstellen möchtest."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Wohnzimmer"</item>
-    <item msgid="3722089849939477581">"Heimkino"</item>
-    <item msgid="6108590585438763574">"Familienzimmer"</item>
-    <item msgid="2581035245390468625">"Esszimmer"</item>
-    <item msgid="3127487827308695324">"Arbeitszimmer"</item>
-    <item msgid="6172018430592195063">"Schlafzimmer"</item>
-    <item msgid="8120010459866284578">"Küche"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Fernseher im Wohnzimmer"</item>
+    <item msgid="8122798759665439456">"Fernseher im Familienzimmer"</item>
+    <item msgid="1389347662738182100">"Fernseher im Gästezimmer"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Benutzerdefinierten Namen eingeben…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Benutzerdefinierten Namen eingeben…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> umbenennen"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> heißt momentan \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\"."</string>
     <string name="change_setting" msgid="2047402388786162246">"Ändern"</string>
@@ -657,10 +657,13 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"App-Berechtigungen"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> von <xliff:g id="COUNT_1">%d</xliff:g> Apps sind berechtigt."</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Bluetooth-Berechtigungsanfrage"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Android-Sicherheitspatch-Ebene"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Stand der Sicherheitsupdates"</string>
     <string name="choose_application" msgid="5662960665577780353">"App wählen"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Experimentell)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Im abgesicherten Modus starten"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Möchten Sie im abgesicherten Modus starten?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Dadurch werden alle installierten Apps von Drittanbietern deaktiviert. Diese werden jedoch nach einem weiteren Neustart wiederhergestellt."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Fehlerbericht wird aufgenommen"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Verfügbare Bildschirmtastaturen"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Tastaturen verwalten"</string>
 </resources>

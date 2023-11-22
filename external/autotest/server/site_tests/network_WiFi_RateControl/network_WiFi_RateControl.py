@@ -141,7 +141,7 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
         for i, ap_config in enumerate([get_config(1), get_config(157)]):
             # Set up the router and associate the client with it.
             self.context.configure(ap_config)
-            self.context.router.start_capture(
+            self.context.capture_host.start_capture(
                     ap_config.frequency,
                     ht_type=ap_config.ht_packet_capture_mode,
                     snaplen=self.TEST_SNAPLEN)
@@ -152,7 +152,7 @@ class network_WiFi_RateControl(wifi_cell_test_base.WiFiCellTestBase):
                                               self.context.router,
                                               netperf_config) as runner:
                 runner.run()
-            results = self.context.router.stop_capture()
+            results = self.context.capture_host.stop_capture()
             if len(results) != 1:
                 raise error.TestError('Expected to generate one packet '
                                       'capture but got %d instead.' %

@@ -236,7 +236,10 @@ class BASE_EXPORT ProcessMetrics {
 // Returns 0 if it can't compute the commit charge.
 BASE_EXPORT size_t GetSystemCommitCharge();
 
-// Returns the number of bytes in a memory page.
+// Returns the number of bytes in a memory page. Do not use this to compute
+// the number of pages in a block of memory for calling mincore(). On some
+// platforms, e.g. iOS, mincore() uses a different page size from what is
+// returned by GetPageSize().
 BASE_EXPORT size_t GetPageSize();
 
 #if defined(OS_POSIX)
@@ -261,12 +264,21 @@ BASE_EXPORT void SetFdLimit(unsigned int max_descriptors);
 // Linux/Android/Chrome OS. Shmem/slab/gem_objects/gem_size are Chrome OS only.
 struct BASE_EXPORT SystemMemoryInfoKB {
   SystemMemoryInfoKB();
+  SystemMemoryInfoKB(const SystemMemoryInfoKB& other);
 
   // Serializes the platform specific fields to value.
-  scoped_ptr<Value> ToValue() const;
+  std::unique_ptr<Value> ToValue() const;
 
   int total;
   int free;
+
+#if defined(OS_LINUX)
+  // This provides an estimate of available memory as described here:
+  // https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0ae398fc54ea69ff85ec700722c9da773
+  // NOTE: this is ONLY valid in kernels 3.14 and up.  Its value will always
+  // be 0 in earlier kernel versions.
+  int available;
+#endif
 
 #if !defined(OS_MACOSX)
   int swap_total;
@@ -336,9 +348,10 @@ BASE_EXPORT bool ParseProcVmstat(const std::string& input,
 // Data from /proc/diskstats about system-wide disk I/O.
 struct BASE_EXPORT SystemDiskInfo {
   SystemDiskInfo();
+  SystemDiskInfo(const SystemDiskInfo& other);
 
   // Serializes the platform specific fields to value.
-  scoped_ptr<Value> ToValue() const;
+  std::unique_ptr<Value> ToValue() const;
 
   uint64_t reads;
   uint64_t reads_merged;
@@ -375,7 +388,7 @@ struct BASE_EXPORT SwapInfo {
   }
 
   // Serializes the platform specific fields to value.
-  scoped_ptr<Value> ToValue() const;
+  std::unique_ptr<Value> ToValue() const;
 
   uint64_t num_reads;
   uint64_t num_writes;
@@ -399,7 +412,7 @@ class SystemMetrics {
   static SystemMetrics Sample();
 
   // Serializes the system metrics to value.
-  scoped_ptr<Value> ToValue() const;
+  std::unique_ptr<Value> ToValue() const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(SystemMetricsTest, SystemMetrics);

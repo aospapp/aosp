@@ -149,11 +149,13 @@ public class CameraManagerTest extends AndroidTestCase {
             assertNotNull("Can't get lens facing info", lensFacing);
             if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
                 assertTrue("System doesn't have front camera feature",
-                        mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT) ||
-                        mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL));
+                        mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT));
             } else if (lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
                 assertTrue("System doesn't have back camera feature",
                         mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA));
+            } else if (lensFacing == CameraCharacteristics.LENS_FACING_EXTERNAL) {
+                assertTrue("System doesn't have external camera feature",
+                        mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL));
             } else {
                 fail("Unknown camera lens facing " + lensFacing.toString());
             }
@@ -166,10 +168,11 @@ public class CameraManagerTest extends AndroidTestCase {
         assertTrue("Missing system feature: FEATURE_CAMERA_ANY",
                ids.length == 0
             || mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY));
-        assertTrue("Missing system feature: FEATURE_CAMERA or FEATURE_CAMERA_FRONT",
+        assertTrue("Missing system feature: FEATURE_CAMERA, FEATURE_CAMERA_FRONT or FEATURE_CAMERA_EXTERNAL",
                ids.length == 0
             || mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)
-            || mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT));
+            || mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
+            || mPackageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL));
     }
 
     // Test: that properties can be queried from each device, without exceptions.

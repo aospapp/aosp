@@ -51,7 +51,7 @@ class AudioSfDecoder : public GenericPlayer
 {
 public:
 
-    AudioSfDecoder(const AudioPlayback_Parameters* params);
+    explicit AudioSfDecoder(const AudioPlayback_Parameters* params);
     virtual ~AudioSfDecoder();
 
     virtual void preDestroy();

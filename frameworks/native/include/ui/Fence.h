@@ -18,18 +18,14 @@
 #define ANDROID_FENCE_H
 
 #include <stdint.h>
-#include <sys/types.h>
 
-#include <ui/ANativeObjectBase.h>
-#include <ui/PixelFormat.h>
-#include <ui/Rect.h>
 #include <utils/Flattenable.h>
-#include <utils/String8.h>
+#include <utils/RefBase.h>
 #include <utils/Timers.h>
 
-struct ANativeWindowBuffer;
-
 namespace android {
+
+class String8;
 
 // ===========================================================================
 // Fence
@@ -40,6 +36,11 @@ class Fence
 {
 public:
     static const sp<Fence> NO_FENCE;
+    static constexpr nsecs_t SIGNAL_TIME_PENDING = INT64_MAX;
+    static constexpr nsecs_t SIGNAL_TIME_INVALID = -1;
+    static inline bool isValidTimestamp(nsecs_t time) {
+        return time >= 0 && time < INT64_MAX;
+    }
 
     // TIMEOUT_NEVER may be passed to the wait method to indicate that it
     // should wait indefinitely for the fence to signal.
@@ -53,7 +54,13 @@ public:
     // Construct a new Fence object to manage a given fence file descriptor.
     // When the new Fence object is destructed the file descriptor will be
     // closed.
-    Fence(int fenceFd);
+    explicit Fence(int fenceFd);
+
+    // Not copyable or movable.
+    Fence(const Fence& rhs) = delete;
+    Fence& operator=(const Fence& rhs) = delete;
+    Fence(Fence&& rhs) = delete;
+    Fence& operator=(Fence&& rhs) = delete;
 
     // Check whether the Fence has an open fence file descriptor. Most Fence
     // methods treat an invalid file descriptor just like a valid fence that
@@ -79,6 +86,9 @@ public:
     // becomes signaled when both f1 and f2 are signaled (even if f1 or f2 is
     // destroyed before it becomes signaled).  The name argument specifies the
     // human-readable name to associated with the new Fence object.
+    static sp<Fence> merge(const char* name, const sp<Fence>& f1,
+            const sp<Fence>& f2);
+
     static sp<Fence> merge(const String8& name, const sp<Fence>& f1,
             const sp<Fence>& f2);
 
@@ -89,9 +99,33 @@ public:
 
     // getSignalTime returns the system monotonic clock time at which the
     // fence transitioned to the signaled state.  If the fence is not signaled
-    // then INT64_MAX is returned.  If the fence is invalid or if an error
-    // occurs then -1 is returned.
+    // then SIGNAL_TIME_PENDING is returned.  If the fence is invalid or if an
+    // error occurs then SIGNAL_TIME_INVALID is returned.
     nsecs_t getSignalTime() const;
+
+    enum class Status {
+        Invalid,     // Fence is invalid
+        Unsignaled,  // Fence is valid but has not yet signaled
+        Signaled,    // Fence is valid and has signaled
+    };
+
+    // getStatus() returns whether the fence has signaled yet. Prefer this to
+    // getSignalTime() or wait() if all you care about is whether the fence has
+    // signaled.
+    inline Status getStatus() {
+        // The sync_wait call underlying wait() has been measured to be
+        // significantly faster than the sync_fence_info call underlying
+        // getSignalTime(), which might otherwise appear to be the more obvious
+        // way to check whether a fence has signaled.
+        switch (wait(0)) {
+            case NO_ERROR:
+                return Status::Signaled;
+            case -ETIME:
+                return Status::Unsignaled;
+            default:
+                return Status::Invalid;
+        }
+    }
 
     // Flattenable interface
     size_t getFlattenedSize() const;
@@ -103,11 +137,6 @@ private:
     // Only allow instantiation using ref counting.
     friend class LightRefBase<Fence>;
     ~Fence();
-
-    // Disallow copying
-    Fence(const Fence& rhs);
-    Fence& operator = (const Fence& rhs);
-    const Fence& operator = (const Fence& rhs) const;
 
     int mFenceFd;
 };

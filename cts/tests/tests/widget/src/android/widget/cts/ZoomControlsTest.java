@@ -16,27 +16,37 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.widget.ZoomControls;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test {@link ZoomControls}.
  */
-public class ZoomControlsTest extends InstrumentationTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ZoomControlsTest {
     private Context mContext;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getContext();
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         new ZoomControls(mContext);
 
@@ -44,29 +54,25 @@ public class ZoomControlsTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetOnZoomInClickListener() {
         ZoomControls zoomControls = new ZoomControls(mContext);
 
         // normal parameters
-        final MockOnClickListener clickListener = new MockOnClickListener();
+        final View.OnClickListener clickListener = (View view) -> {};
         zoomControls.setOnZoomInClickListener(clickListener);
 
         // exceptional parameters
         zoomControls.setOnZoomInClickListener(null);
     }
 
-    private class MockOnClickListener implements OnClickListener {
-        public void onClick(View v) {
-            // ignore
-        }
-    }
-
     @UiThreadTest
+    @Test
     public void testSetOnZoomOutClickListener() {
         ZoomControls zoomControls = new ZoomControls(mContext);
 
         // normal parameters
-        final MockOnClickListener clickListener = new MockOnClickListener();
+        final View.OnClickListener clickListener = (View view) -> {};
         zoomControls.setOnZoomOutClickListener(clickListener);
 
         // exceptional parameters
@@ -74,6 +80,7 @@ public class ZoomControlsTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetZoomSpeed() {
         ZoomControls zoomControls = new ZoomControls(mContext);
 
@@ -82,11 +89,8 @@ public class ZoomControlsTest extends InstrumentationTestCase {
         // TODO: how to check?
     }
 
-    public void testOnTouchEvent() {
-        // onTouchEvent() is implementation details, do NOT test
-    }
-
     @UiThreadTest
+    @Test
     public void testShowAndHide() {
         final ZoomControls zoomControls = new ZoomControls(mContext);
         assertEquals(View.VISIBLE, zoomControls.getVisibility());
@@ -99,6 +103,7 @@ public class ZoomControlsTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetIsZoomInEnabled() {
         ZoomControls zoomControls = new ZoomControls(mContext);
         zoomControls.setIsZoomInEnabled(false);
@@ -106,6 +111,7 @@ public class ZoomControlsTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testSetIsZoomOutEnabled() {
         ZoomControls zoomControls = new ZoomControls(mContext);
         zoomControls.setIsZoomOutEnabled(false);
@@ -113,6 +119,7 @@ public class ZoomControlsTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testHasFocus() {
         ZoomControls zoomControls = new ZoomControls(mContext);
         assertFalse(zoomControls.hasFocus());

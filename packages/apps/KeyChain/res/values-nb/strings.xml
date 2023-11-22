@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Appen %s etterspør sertifikat. Når du velger et sertifikat, kommer appen til å bruke denne identiteten overfor tjenere nå og i fremtiden."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Appen har identifisert tjeneren som etterspør informasjon, som %s, men du må bare gi appen adgang til sertifikatet dersom du anser den som pålitelig."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Du kan installere sertifikater fra en PKCS#12-fil med %1$s eller %2$s-utvidelse lagret på ekstern lagring."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Installer"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Tillat"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Installer sertifikat"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Velg"</string>
     <string name="deny_button" msgid="3766539809121892584">"Avslå"</string>
 </resources>

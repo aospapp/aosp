@@ -5,7 +5,6 @@
 AUTHOR = 'wiley, zqiu, pstew'
 NAME = 'wifi_correctness_cros_core'
 PURPOSE = 'Verify basic WiFi functionality.'
-CRITERIA = 'All tests with SUITE=wifi_correctness_cros_core must pass.'
 
 TIME = 'SHORT'
 TEST_CATEGORY = 'General'

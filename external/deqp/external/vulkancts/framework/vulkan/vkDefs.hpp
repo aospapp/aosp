@@ -93,15 +93,7 @@ private:
 
 #include "vkBasicTypes.inl"
 
-enum { VK_QUEUE_FAMILY_IGNORED		= 0xffffffff	};
-enum { VK_NO_ATTACHMENT				= 0xffffffff	};
-
-enum
-{
-	VK_FALSE		= 0,
-	VK_TRUE			= 1,
-	VK_WHOLE_SIZE	= (~0ULL),
-};
+#define VK_CORE_FORMAT_LAST		((vk::VkFormat)(vk::VK_FORMAT_ASTC_12x12_SRGB_BLOCK+1))
 
 namespace wsi
 {

@@ -49,7 +49,7 @@ AString getProfilingVersionString() {
 static const int kMaxInstances = 32;
 
 // TODO: move MediaCodecInfo to C++. Until then, some temp methods to parse out info.
-static bool getMeasureSize(sp<MediaCodecInfo::Capabilities> caps, int32_t *width, int32_t *height) {
+static bool getMeasureSize(const sp<MediaCodecInfo::Capabilities> &caps, int32_t *width, int32_t *height) {
     AString sizeRange;
     if (!caps->getDetails()->findString("size-range", &sizeRange)) {
         return false;
@@ -72,7 +72,7 @@ static bool getMeasureSize(sp<MediaCodecInfo::Capabilities> caps, int32_t *width
     return (*width > 0) && (*height > 0);
 }
 
-static void getMeasureBitrate(sp<MediaCodecInfo::Capabilities> caps, int32_t *bitrate) {
+static void getMeasureBitrate(const sp<MediaCodecInfo::Capabilities> &caps, int32_t *bitrate) {
     // Until have native MediaCodecInfo, we cannot get bitrates based on profile/levels.
     // We use 200000 as default value for our measurement.
     *bitrate = 200000;
@@ -90,7 +90,7 @@ static void getMeasureBitrate(sp<MediaCodecInfo::Capabilities> caps, int32_t *bi
 }
 
 static sp<AMessage> getMeasureFormat(
-        bool isEncoder, AString mime, sp<MediaCodecInfo::Capabilities> caps) {
+        bool isEncoder, const AString &mime, const sp<MediaCodecInfo::Capabilities> &caps) {
     sp<AMessage> format = new AMessage();
     format->setString("mime", mime);
 
@@ -127,63 +127,8 @@ static sp<AMessage> getMeasureFormat(
     return format;
 }
 
-static size_t doProfileEncoderInputBuffers(
-        AString name, AString mime, sp<MediaCodecInfo::Capabilities> caps) {
-    ALOGV("doProfileEncoderInputBuffers: name %s, mime %s", name.c_str(), mime.c_str());
-
-    sp<AMessage> format = getMeasureFormat(true /* isEncoder */, mime, caps);
-    if (format == NULL) {
-        return 0;
-    }
-
-    format->setInt32("color-format", OMX_COLOR_FormatAndroidOpaque);
-    ALOGV("doProfileEncoderInputBuffers: format %s", format->debugString().c_str());
-
-    status_t err = OK;
-    sp<ALooper> looper = new ALooper;
-    looper->setName("MediaCodec_looper");
-    looper->start(
-            false /* runOnCallingThread */, false /* canCallJava */, ANDROID_PRIORITY_AUDIO);
-
-    sp<MediaCodec> codec = MediaCodec::CreateByComponentName(looper, name.c_str(), &err);
-    if (err != OK) {
-        ALOGE("Failed to create codec: %s", name.c_str());
-        return 0;
-    }
-
-    err = codec->configure(format, NULL, NULL, MediaCodec::CONFIGURE_FLAG_ENCODE);
-    if (err != OK) {
-        ALOGE("Failed to configure codec: %s with mime: %s", name.c_str(), mime.c_str());
-        codec->release();
-        return 0;
-    }
-
-    sp<IGraphicBufferProducer> bufferProducer;
-    err = codec->createInputSurface(&bufferProducer);
-    if (err != OK) {
-        ALOGE("Failed to create surface: %s with mime: %s", name.c_str(), mime.c_str());
-        codec->release();
-        return 0;
-    }
-
-    int minUndequeued = 0;
-    err = bufferProducer->query(
-            NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS, &minUndequeued);
-    if (err != OK) {
-        ALOGE("Failed to query NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS");
-        minUndequeued = 0;
-    }
-
-    err = codec->release();
-    if (err != OK) {
-        ALOGW("Failed to release codec: %s with mime: %s", name.c_str(), mime.c_str());
-    }
-
-    return minUndequeued;
-}
-
 static size_t doProfileCodecs(
-        bool isEncoder, AString name, AString mime, sp<MediaCodecInfo::Capabilities> caps) {
+        bool isEncoder, const AString &name, const AString &mime, const sp<MediaCodecInfo::Capabilities> &caps) {
     sp<AMessage> format = getMeasureFormat(isEncoder, mime, caps);
     if (format == NULL) {
         return 0;
@@ -276,7 +221,6 @@ void profileCodecs(
         bool forceToMeasure) {
     KeyedVector<AString, sp<MediaCodecInfo::Capabilities>> codecsNeedMeasure;
     AString supportMultipleSecureCodecs = "true";
-    size_t maxEncoderInputBuffers = 0;
     for (size_t i = 0; i < infos.size(); ++i) {
         const sp<MediaCodecInfo> info = infos[i];
         AString name = info->getCodecName();
@@ -319,25 +263,13 @@ void profileCodecs(
                         supportMultipleSecureCodecs = "false";
                     }
                 }
-                if (info->isEncoder() && mimes[i].startsWith("video/")) {
-                    size_t encoderInputBuffers =
-                        doProfileEncoderInputBuffers(name, mimes[i], caps);
-                    if (encoderInputBuffers > maxEncoderInputBuffers) {
-                        maxEncoderInputBuffers = encoderInputBuffers;
-                    }
-                }
             }
         }
-    }
-    if (maxEncoderInputBuffers > 0) {
-        char tmp[32];
-        sprintf(tmp, "%zu", maxEncoderInputBuffers);
-        global_results->add(kMaxEncoderInputBuffers, tmp);
     }
     global_results->add(kPolicySupportsMultipleSecureCodecs, supportMultipleSecureCodecs);
 }
 
-static AString globalResultsToXml(const CodecSettings& results) {
+static AString globalResultsToXml(const CodecSettings &results) {
     AString ret;
     for (size_t i = 0; i < results.size(); ++i) {
         AString setting = AStringPrintf(
@@ -349,7 +281,7 @@ static AString globalResultsToXml(const CodecSettings& results) {
     return ret;
 }
 
-static AString codecResultsToXml(const KeyedVector<AString, CodecSettings>& results) {
+static AString codecResultsToXml(const KeyedVector<AString, CodecSettings> &results) {
     AString ret;
     for (size_t i = 0; i < results.size(); ++i) {
         AString name;
@@ -362,7 +294,7 @@ static AString codecResultsToXml(const KeyedVector<AString, CodecSettings>& resu
                               name.c_str(),
                               mime.c_str());
         ret.append(codec);
-        CodecSettings settings = results.valueAt(i);
+        const CodecSettings &settings = results.valueAt(i);
         for (size_t i = 0; i < settings.size(); ++i) {
             // WARNING: we assume all the settings are "Limit". Currently we have only one type
             // of setting in this case, which is "max-supported-instances".
@@ -379,9 +311,9 @@ static AString codecResultsToXml(const KeyedVector<AString, CodecSettings>& resu
 
 void exportResultsToXML(
         const char *fileName,
-        const CodecSettings& global_results,
-        const KeyedVector<AString, CodecSettings>& encoder_results,
-        const KeyedVector<AString, CodecSettings>& decoder_results) {
+        const CodecSettings &global_results,
+        const KeyedVector<AString, CodecSettings> &encoder_results,
+        const KeyedVector<AString, CodecSettings> &decoder_results) {
     if (global_results.size() == 0 && encoder_results.size() == 0 && decoder_results.size() == 0) {
         return;
     }

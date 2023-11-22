@@ -92,7 +92,7 @@ public:
         T* operator->() { return p; }
 
     protected:
-        iterator(const List* list_) : list(list_) {}
+        explicit iterator(const List* list_) : list(list_) {}
         iterator(const List* list_, LinkedBuffer* buffer_, T* p_) :
             p(p_), buffer(buffer_), list(list_) {}
 

@@ -67,6 +67,35 @@ class DevServerGetterTest(mox.MoxTestBase):
                           self._CONTENTS)
 
 
+    def testGetSuiteInfo(self):
+        """
+        Should successfully list control files' path and contents from the
+        dev server.
+        """
+        file_contents = {f:self._CONTENTS for f in self._FILES}
+        self.dev_server.list_suite_controls(
+                self._BUILD,
+                suite_name='').AndReturn(file_contents)
+        self.mox.ReplayAll()
+        suite_info = self.getter.get_suite_info()
+        for k in suite_info.keys():
+            self.assertEquals(suite_info[k], file_contents[k])
+        self.assertEquals(sorted(self.getter._files), sorted(self._FILES))
+
+
+    def testListSuiteControlisFail(self):
+        """
+        Should fail to list all control file's contents from the dev server.
+        """
+        self.dev_server.list_suite_controls(
+                self._BUILD,
+                suite_name='').AndRaise(self._403)
+        self.mox.ReplayAll()
+        self.assertRaises(error.SuiteControlFileException,
+                          self.getter.get_suite_info,
+                          '')
+
+
     def testGetControlFileFail(self):
         """Should fail to get a control file from the dev server."""
         path = self._FILES[0]

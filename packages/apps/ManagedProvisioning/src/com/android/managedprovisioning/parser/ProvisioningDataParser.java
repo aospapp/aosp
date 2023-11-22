@@ -16,9 +16,7 @@
 
 package com.android.managedprovisioning.parser;
 
-import android.content.Context;
 import android.content.Intent;
-
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
@@ -27,6 +25,6 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  */
 public interface ProvisioningDataParser {
     /** Parses the provisioning data from provisioning intent. */
-    ProvisioningParams parse(Intent provisioningIntent, Context context)
+    ProvisioningParams parse(Intent provisioningIntent)
             throws IllegalProvisioningArgumentException;
 }

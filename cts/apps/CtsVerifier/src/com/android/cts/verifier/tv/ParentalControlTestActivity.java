@@ -16,21 +16,16 @@
 
 package com.android.cts.verifier.tv;
 
-import com.android.cts.verifier.R;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.database.Cursor;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputManager;
-import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.R;
 
 /**
  * Tests for verifying TV app behavior on parental control.
@@ -47,8 +42,10 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
     private View mBlockTvMaItem;
     private View mVerifyReceiveBroadcast2Item;
     private View mBlockUnblockItem;
-    private View mParantalControlsSwitchYesItem;
-    private View mParantalControlsSwitchNoItem;
+    private View mParentalControlsSwitchYesItem;
+    private View mParentalControlsSwitchNoItem;
+    private View mSupportThirdPartyInputYesItem;
+    private View mSupportThirdPartyInputNoItem;
 
     private Intent mTvAppIntent = null;
 
@@ -56,9 +53,20 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
     public void onClick(View v) {
         final View postTarget = getPostTarget();
 
-        if (containsButton(mParantalControlsSwitchYesItem, v)) {
-            setPassState(mParantalControlsSwitchYesItem, true);
-            setButtonEnabled(mParantalControlsSwitchNoItem, false);
+        if (containsButton(mSupportThirdPartyInputYesItem, v)) {
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            setButtonEnabled(mParentalControlsSwitchYesItem, true);
+            setButtonEnabled(mParentalControlsSwitchNoItem, true);
+            return;
+        } else if (containsButton(mSupportThirdPartyInputNoItem, v)){
+            setPassState(mSupportThirdPartyInputYesItem, true);
+            setButtonEnabled(mSupportThirdPartyInputNoItem, false);
+            getPassButton().setEnabled(true);
+            return;
+        } else if (containsButton(mParentalControlsSwitchYesItem, v)) {
+            setPassState(mParentalControlsSwitchYesItem, true);
+            setButtonEnabled(mParentalControlsSwitchNoItem, false);
             mTurnOnParentalControlItem.setVisibility(View.VISIBLE);
             mVerifyReceiveBroadcast1Item.setVisibility(View.VISIBLE);
             mBlockTvMaItem.setVisibility(View.VISIBLE);
@@ -66,9 +74,9 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
             mBlockUnblockItem.setVisibility(View.VISIBLE);
             setButtonEnabled(mTurnOnParentalControlItem, true);
             return;
-        } else if (containsButton(mParantalControlsSwitchNoItem, v)){
-            setPassState(mParantalControlsSwitchYesItem, true);
-            setButtonEnabled(mParantalControlsSwitchNoItem, false);
+        } else if (containsButton(mParentalControlsSwitchNoItem, v)){
+            setPassState(mParentalControlsSwitchYesItem, true);
+            setButtonEnabled(mParentalControlsSwitchNoItem, false);
             mBlockTvMaItem.setVisibility(View.VISIBLE);
             mVerifyReceiveBroadcast2Item.setVisibility(View.VISIBLE);
             mBlockUnblockItem.setVisibility(View.VISIBLE);
@@ -149,13 +157,16 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
 
     @Override
     protected void createTestItems() {
-        mParantalControlsSwitchYesItem = createUserItem(
+        mSupportThirdPartyInputYesItem = createUserItem(
+                R.string.tv_input_discover_test_third_party_tif_input_support,
+                R.string.tv_yes, this);
+        setButtonEnabled(mSupportThirdPartyInputYesItem, true);
+        mSupportThirdPartyInputNoItem = createButtonItem(R.string.tv_no, this);
+        setButtonEnabled(mSupportThirdPartyInputNoItem, true);
+        mParentalControlsSwitchYesItem = createUserItem(
                 R.string.tv_parental_control_test_check_parental_controls_switch,
-                R.string.tv_parental_control_turn_off_enabled, this);
-        setButtonEnabled(mParantalControlsSwitchYesItem, true);
-        mParantalControlsSwitchNoItem = createButtonItem(
-                R.string.tv_parental_control_turn_off_disabled, this);
-        setButtonEnabled(mParantalControlsSwitchNoItem, true);
+                R.string.tv_yes, this);
+        mParentalControlsSwitchNoItem = createButtonItem(R.string.tv_no, this);
         mTurnOnParentalControlItem = createUserItem(
                 R.string.tv_parental_control_test_turn_on_parental_control,
                 R.string.tv_launch_tv_app, this);

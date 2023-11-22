@@ -617,6 +617,42 @@ public class LogManagerTest extends TestCase {
         mockManager.removePropertyChangeListener(null);
     }
 
+    public void testLoggerLevelInitialized_explicit() throws SecurityException, IOException {
+        // mock LogManager
+        mockManager.readConfiguration(EnvironmentHelper.PropertiesToInputStream(props));
+        assertNotNull(mockManager.getProperty("handlers"));
+
+        // Before the Android O (and before the openJdk8) the logger level
+        // value was  unconditionally overwritten by a value taken from properties.
+        // Starting from Android O, the value is only set from properties if it wasn't
+        // initialized before.
+        Logger foo = new MockLogger(FOO, null);
+        assertNull(foo.getLevel());
+        assertEquals(0, foo.getHandlers().length);
+        // Explicit set before the .addLogger
+        foo.setLevel(Level.ALL);
+        foo.addHandler(new ConsoleHandler());
+        assertTrue(mockManager.addLogger(foo));
+        assertEquals(Level.ALL, foo.getLevel());
+    }
+
+    public void testLoggerLevelInitialized() throws SecurityException, IOException {
+        // mock LogManager
+        mockManager.readConfiguration(EnvironmentHelper.PropertiesToInputStream(props));
+        assertNotNull(mockManager.getProperty("handlers"));
+
+        // Before the Android O (and before the openJdk8) the logger level
+        // value was  unconditionally overwritten by a value taken from properties.
+        // Starting from Android O, the value is only set from properties if it wasn't
+        // initialized before.
+        Logger foo = new MockLogger(FOO, null);
+        assertNull(foo.getLevel());
+        assertEquals(0, foo.getHandlers().length);
+        foo.addHandler(new ConsoleHandler());
+        assertTrue(mockManager.addLogger(foo));
+        assertEquals(Level.WARNING, foo.getLevel());
+    }
+
     public void testReset() throws SecurityException, IOException {
         // mock LogManager
         mockManager.readConfiguration(EnvironmentHelper.PropertiesToInputStream(props));
@@ -624,7 +660,6 @@ public class LogManagerTest extends TestCase {
         Logger foo = new MockLogger(FOO, null);
         assertNull(foo.getLevel());
         assertEquals(0, foo.getHandlers().length);
-        foo.setLevel(Level.ALL);
         foo.addHandler(new ConsoleHandler());
         assertTrue(mockManager.addLogger(foo));
         assertEquals(Level.WARNING, foo.getLevel());

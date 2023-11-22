@@ -16,17 +16,21 @@
 
 package android.util.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-/**
- * 
- * Test Log
- *
- */
-public class LogTest extends AndroidTestCase{
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LogTest {
     private static final String TAG = "LogTest";
 
+    @Test
     public void testLogOperations() {
         final String msg = "Test Log operations.";
         Exception tr = null;

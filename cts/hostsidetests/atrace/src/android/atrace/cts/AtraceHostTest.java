@@ -16,10 +16,11 @@
 
 package android.atrace.cts;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
@@ -102,7 +103,7 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
                         /*details*/ m.group(6));
                 return;
             }
-            System.err.println("line doesn't match: " + line);
+            CLog.i("line doesn't match: " + line);
         }
 
         private static void parse(Reader reader, FtraceEntryCallback callback) throws Exception {
@@ -201,7 +202,8 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
             getDevice().uninstallPackage(TEST_PKG);
 
             // install the test app
-            File testAppFile = MigrationHelper.getTestFile(mCtsBuild, TEST_APK);
+            CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+            File testAppFile = buildHelper.getTestFile(TEST_APK);
             String installResult = getDevice().installPackage(testAppFile, false);
             assertNull(
                     String.format("failed to install atrace test app. Reason: %s", installResult),
@@ -213,7 +215,7 @@ public class AtraceHostTest extends DeviceTestCase implements IBuildReceiver {
             getDevice().executeShellCommand("atrace --async_stop " + atraceArgs);
             getDevice().executeShellCommand("atrace --async_start " + atraceArgs);
             getDevice().executeShellCommand("am start " + TEST_PKG);
-            getDevice().executeShellCommand("sleep 1");
+            getDevice().executeShellCommand("sleep 5");
             atraceOutput = getDevice().executeShellCommand("atrace --async_stop " + atraceArgs);
         } finally {
             assertNotNull("unable to capture atrace output", atraceOutput);

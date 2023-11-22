@@ -39,6 +39,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -242,7 +243,7 @@ public class CreateConnectionProcessorTest extends TelecomTestCase {
         // Put in a regular phone account to be sure it doesn't call that
         PhoneAccountHandle pAHandle = getNewTargetPhoneAccountHandle("tel_acct");
         when(mMockAccountRegistrar.getOutgoingPhoneAccountForSchemeOfCurrentUser(
-                any(String.class))).thenReturn(pAHandle);
+                nullable(String.class))).thenReturn(pAHandle);
         // Include a normal Connection Manager to be sure it doesn't call that
         PhoneAccount callManagerPA = getNewConnectionManagerPhoneAccount("cm_acct", 0);
         // Include a connection Manager for the user with the capability to make calls

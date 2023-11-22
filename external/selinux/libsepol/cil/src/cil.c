@@ -53,19 +53,19 @@
 #include "dso.h"
 
 #ifndef DISABLE_SYMVER
-asm(".symver cil_build_policydb_pdb,        cil_build_policydb@");
+asm(".symver cil_build_policydb_pdb,        cil_build_policydb@LIBSEPOL_1.0");
 asm(".symver cil_build_policydb_create_pdb, cil_build_policydb@@LIBSEPOL_1.1");
 
-asm(".symver cil_compile_pdb,   cil_compile@");
+asm(".symver cil_compile_pdb,   cil_compile@LIBSEPOL_1.0");
 asm(".symver cil_compile_nopdb, cil_compile@@LIBSEPOL_1.1");
 
-asm(".symver cil_userprefixes_to_string_pdb,   cil_userprefixes_to_string@");
+asm(".symver cil_userprefixes_to_string_pdb,   cil_userprefixes_to_string@LIBSEPOL_1.0");
 asm(".symver cil_userprefixes_to_string_nopdb, cil_userprefixes_to_string@@LIBSEPOL_1.1");
 
-asm(".symver cil_selinuxusers_to_string_pdb,   cil_selinuxusers_to_string@");
+asm(".symver cil_selinuxusers_to_string_pdb,   cil_selinuxusers_to_string@LIBSEPOL_1.0");
 asm(".symver cil_selinuxusers_to_string_nopdb, cil_selinuxusers_to_string@@LIBSEPOL_1.1");
 
-asm(".symver cil_filecons_to_string_pdb,   cil_filecons_to_string@");
+asm(".symver cil_filecons_to_string_pdb,   cil_filecons_to_string@LIBSEPOL_1.0");
 asm(".symver cil_filecons_to_string_nopdb, cil_filecons_to_string@@LIBSEPOL_1.1");
 #endif
 
@@ -108,6 +108,7 @@ static void cil_init_keys(void)
 	CIL_KEY_STAR = cil_strpool_add("*");
 	CIL_KEY_UDP = cil_strpool_add("udp");
 	CIL_KEY_TCP = cil_strpool_add("tcp");
+	CIL_KEY_DCCP = cil_strpool_add("dccp");
 	CIL_KEY_AUDITALLOW = cil_strpool_add("auditallow");
 	CIL_KEY_TUNABLEIF = cil_strpool_add("tunableif");
 	CIL_KEY_ALLOW = cil_strpool_add("allow");
@@ -232,6 +233,9 @@ static void cil_init_keys(void)
 	CIL_KEY_PERMISSIONX = cil_strpool_add("permissionx");
 	CIL_KEY_IOCTL = cil_strpool_add("ioctl");
 	CIL_KEY_UNORDERED = cil_strpool_add("unordered");
+	CIL_KEY_SRC_INFO = cil_strpool_add("<src_info>");
+	CIL_KEY_SRC_CIL = cil_strpool_add("<src_cil>");
+	CIL_KEY_SRC_HLL = cil_strpool_add("<src_hll>");
 }
 
 void cil_db_init(struct cil_db **db)
@@ -278,6 +282,8 @@ void cil_db_init(struct cil_db **db)
 
 	(*db)->disable_dontaudit = CIL_FALSE;
 	(*db)->disable_neverallow = CIL_FALSE;
+	(*db)->attrs_expand_generated = CIL_FALSE;
+	(*db)->attrs_expand_size = 1;
 	(*db)->preserve_tunables = CIL_FALSE;
 	(*db)->handle_unknown = -1;
 	(*db)->mls = -1;
@@ -455,6 +461,12 @@ int cil_build_policydb_create_pdb(cil_db_t *db, sepol_policydb_t **sepol_db)
 
 exit:
 	return rc;
+}
+
+void cil_write_policy_conf(FILE *out, struct cil_db *db)
+{
+	cil_log(CIL_INFO, "Writing policy.conf file\n");
+	cil_gen_policy(out, db);
 }
 
 void cil_destroy_data(void **data, enum cil_flavor flavor)
@@ -756,6 +768,9 @@ void cil_destroy_data(void **data, enum cil_flavor flavor)
 	case CIL_MLS:
 		cil_destroy_mls(*data);
 		break;
+	case CIL_SRC_INFO:
+		cil_destroy_src_info(*data);
+		break;
 	case CIL_OP:
 	case CIL_CONS_OPERAND:
 		break;
@@ -763,8 +778,8 @@ void cil_destroy_data(void **data, enum cil_flavor flavor)
 		cil_log(CIL_INFO, "Unknown data flavor: %d\n", flavor);
 		break;
 	}
-	
-	*data = NULL;		
+
+	*data = NULL;
 }
 
 int cil_flavor_to_symtab_index(enum cil_flavor flavor, enum cil_sym_index *sym_index)
@@ -1108,6 +1123,8 @@ const char * cil_node_to_string(struct cil_tree_node *node)
 		return CIL_KEY_HANDLEUNKNOWN;
 	case CIL_MLS:
 		return CIL_KEY_MLS;
+	case CIL_SRC_INFO:
+		return CIL_KEY_SRC_INFO;
 	case CIL_ALL:
 		return CIL_KEY_ALL;
 	case CIL_RANGE:
@@ -1612,6 +1629,16 @@ void cil_set_disable_neverallow(struct cil_db *db, int disable_neverallow)
 	db->disable_neverallow = disable_neverallow;
 }
 
+void cil_set_attrs_expand_generated(struct cil_db *db, int attrs_expand_generated)
+{
+	db->attrs_expand_generated = attrs_expand_generated;
+}
+
+void cil_set_attrs_expand_size(struct cil_db *db, unsigned attrs_expand_size)
+{
+	db->attrs_expand_size = attrs_expand_size;
+}
+
 void cil_set_preserve_tunables(struct cil_db *db, int preserve_tunables)
 {
 	db->preserve_tunables = preserve_tunables;
@@ -1755,8 +1782,7 @@ int cil_get_symtab(struct cil_tree_node *ast_node, symtab_t **symtab, enum cil_s
 	return SEPOL_OK;
 
 exit:
-	cil_log(CIL_ERR, "Failed to get symtab from node at line %d of %s\n",
-			ast_node->line, ast_node->path);
+	cil_tree_log(ast_node, CIL_ERR, "Failed to get symtab from node");
 	return SEPOL_ERR;	
 }
 
@@ -2552,4 +2578,11 @@ void cil_mls_init(struct cil_mls **mls)
 {
 	*mls = cil_malloc(sizeof(**mls));
 	(*mls)->value = 0;
+}
+
+void cil_src_info_init(struct cil_src_info **info)
+{
+	*info = cil_malloc(sizeof(**info));
+	(*info)->is_cil = 0;
+	(*info)->path = NULL;
 }

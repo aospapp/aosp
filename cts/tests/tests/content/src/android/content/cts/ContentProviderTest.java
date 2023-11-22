@@ -226,6 +226,11 @@ public class ContentProviderTest extends AndroidTestCase {
         // cannot trigger this callback reliably
     }
 
+    public void testRefresh_DefaultImplReturnsFalse() {
+        MockContentProvider provider = new MockContentProvider();
+        assertFalse(provider.refresh(null, null, null));
+    }
+
     public void testGetIContentProvider() {
         MockContentProvider mockContentProvider = new MockContentProvider();
 

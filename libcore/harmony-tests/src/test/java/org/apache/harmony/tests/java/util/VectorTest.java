@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.Vector;
@@ -850,6 +851,15 @@ public class VectorTest extends junit.framework.TestCase {
         }
     }
 
+    // http://b/30974375
+    public void test_listIterator_addAndPrevious() {
+        ListIterator<String> it = new Vector<String>().listIterator();
+        assertFalse(it.hasNext());
+        it.add("value");
+        assertEquals("value", it.previous());
+        assertTrue(it.hasNext());
+    }
+
     /**
      * java.util.Vector#remove(int)
      */
@@ -1447,6 +1457,7 @@ public class VectorTest extends junit.framework.TestCase {
         SpliteratorTester.runOrderedTests(list);
         SpliteratorTester.runSizedTests(list, 16 /* expected size */);
         SpliteratorTester.runSubSizedTests(list, 16 /* expected size */);
+        SpliteratorTester.assertSupportsTrySplit(list);
     }
 
     public void test_spliterator_CME() throws Exception {

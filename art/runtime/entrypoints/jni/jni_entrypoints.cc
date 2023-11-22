@@ -17,18 +17,19 @@
 #include "art_method-inl.h"
 #include "base/logging.h"
 #include "entrypoints/entrypoint_utils.h"
+#include "java_vm_ext.h"
 #include "mirror/object-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 
 namespace art {
 
 // Used by the JNI dlsym stub to find the native method to invoke if none is registered.
 #if defined(__arm__) || defined(__aarch64__)
-extern "C" void* artFindNativeMethod() {
+extern "C" const void* artFindNativeMethod() {
   Thread* self = Thread::Current();
 #else
-extern "C" void* artFindNativeMethod(Thread* self) {
+extern "C" const void* artFindNativeMethod(Thread* self) {
   DCHECK_EQ(self, Thread::Current());
 #endif
   Locks::mutator_lock_->AssertNotHeld(self);  // We come here as Native.
@@ -45,8 +46,7 @@ extern "C" void* artFindNativeMethod(Thread* self) {
     return nullptr;
   } else {
     // Register so that future calls don't come here
-    method->RegisterNative(native_code, false);
-    return native_code;
+    return method->RegisterNative(native_code, false);
   }
 }
 

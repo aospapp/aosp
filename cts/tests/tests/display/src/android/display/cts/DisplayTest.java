@@ -16,6 +16,8 @@
 
 package android.display.cts;
 
+import org.junit.Rule;
+
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Presentation;
@@ -32,6 +34,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.Presubmit;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.rule.ActivityTestRule;
 import android.test.InstrumentationTestCase;
 import android.util.DisplayMetrics;
 import android.view.Display;
@@ -61,6 +65,7 @@ public class DisplayTest extends InstrumentationTestCase {
             (float)(SECONDARY_DISPLAY_DPI + 1) / DisplayMetrics.DENSITY_DEFAULT;
     // Matches com.android.internal.R.string.display_manager_overlay_display_name.
     private static final String OVERLAY_DISPLAY_NAME_PREFIX = "Overlay #";
+    private static final String OVERLAY_DISPLAY_TYPE = "type OVERLAY";
 
     private DisplayManager mDisplayManager;
     private WindowManager mWindowManager;
@@ -70,6 +75,11 @@ public class DisplayTest extends InstrumentationTestCase {
     private TestPresentation mPresentation;
 
     private Activity mScreenOnActivity;
+
+    @Rule
+    public ActivityTestRule<DisplayTestActivity> mDisplayTestActivity =
+            new ActivityTestRule<>(DisplayTestActivity.class,
+                    false /* initialTouchMode */, false /* launchActivity */);
 
     @Override
     protected void setUp() throws Exception {
@@ -115,15 +125,15 @@ public class DisplayTest extends InstrumentationTestCase {
         }
     }
 
-    private boolean isSecondarySize(Display display) {
-        final Point p = new Point();
-        display.getSize(p);
-        return p.x == SECONDARY_DISPLAY_WIDTH && p.y == SECONDARY_DISPLAY_HEIGHT;
+    /** Check if the display is an overlay display, created by this test. */
+    private boolean isSecondaryDisplay(Display display) {
+        return display.toString().contains(OVERLAY_DISPLAY_TYPE);
     }
 
+    /** Get the overlay display, created by this test. */
     private Display getSecondaryDisplay(Display[] displays) {
         for (Display display : displays) {
-            if (isSecondarySize(display)) {
+            if (isSecondaryDisplay(display)) {
                 return display;
             }
         }
@@ -143,7 +153,7 @@ public class DisplayTest extends InstrumentationTestCase {
             if (display.getDisplayId() == Display.DEFAULT_DISPLAY) {
                 hasDefaultDisplay = true;
             }
-            if (isSecondarySize(display)) {
+            if (isSecondaryDisplay(display)) {
                 hasSecondaryDisplay = true;
             }
         }
@@ -172,6 +182,7 @@ public class DisplayTest extends InstrumentationTestCase {
         assertFalse(cap.getDesiredMaxLuminance() < -1.0f);
         assertFalse(cap.getDesiredMinLuminance() < -1.0f);
         assertFalse(cap.getDesiredMaxAverageLuminance() < -1.0f);
+        assertFalse(display.isHdr());
     }
 
     /**
@@ -204,13 +215,29 @@ public class DisplayTest extends InstrumentationTestCase {
         assertTrue(0 < display.getRefreshRate());
 
         assertTrue(display.getName().contains(OVERLAY_DISPLAY_NAME_PREFIX));
+
+        assertFalse(display.isWideColorGamut());
     }
 
     /**
      * Test that the getMetrics method fills in correct values.
      */
     public void testGetMetrics() {
-        Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
+        testGetMetrics(mDisplayManager);
+    }
+
+    /**
+     * Tests getting metrics from the Activity context.
+     */
+    public void testActivityContextGetMetrics() {
+        final Activity activity = launchActivity(mDisplayTestActivity);
+        final DisplayManager dm =
+                (DisplayManager) activity.getSystemService(Context.DISPLAY_SERVICE);
+        testGetMetrics(dm);
+    }
+
+    public void testGetMetrics(DisplayManager manager) {
+        Display display = getSecondaryDisplay(manager.getDisplays());
 
         Point outSize = new Point();
         display.getSize(outSize);
@@ -231,22 +258,6 @@ public class DisplayTest extends InstrumentationTestCase {
         assertEquals(SECONDARY_DISPLAY_DPI, outMetrics.densityDpi);
         assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.xdpi);
         assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.ydpi);
-    }
-
-    /**
-     * Test that the getCurrentSizeRange method returns correct values.
-     */
-    public void testGetCurrentSizeRange() {
-        Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
-
-        Point smallest = new Point();
-        Point largest = new Point();
-        display.getCurrentSizeRange(smallest, largest);
-
-        assertEquals(SECONDARY_DISPLAY_WIDTH, smallest.x);
-        assertEquals(SECONDARY_DISPLAY_HEIGHT, smallest.y);
-        assertEquals(SECONDARY_DISPLAY_WIDTH, largest.x);
-        assertEquals(SECONDARY_DISPLAY_HEIGHT, largest.y);
     }
 
     /**
@@ -354,7 +365,7 @@ public class DisplayTest extends InstrumentationTestCase {
 
             WindowManager.LayoutParams params = getWindow().getAttributes();
             params.preferredDisplayModeId = mModeId;
-            params.type = WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+            params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
             params.setTitle("CtsTestPresentation");
             getWindow().setAttributes(params);
         }
@@ -368,5 +379,11 @@ public class DisplayTest extends InstrumentationTestCase {
         getInstrumentation().addMonitor(monitor);
         launchActivity(targetPackage, clazz, null);
         return monitor.waitForActivity();
+    }
+
+    private Activity launchActivity(ActivityTestRule activityRule) {
+        final Activity activity = activityRule.launchActivity(null);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        return activity;
     }
 }

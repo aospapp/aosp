@@ -26,8 +26,12 @@
 #include "rsdMeshObj.h"
 #include "rsdGL.h"
 
-using namespace android;
-using namespace android::renderscript;
+#include <string>
+
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::Element;
+using android::renderscript::Mesh;
 
 RsdMeshObj::RsdMeshObj(const Context *rsc, const Mesh *rsMesh) {
     mRSMesh = rsMesh;
@@ -112,9 +116,9 @@ bool RsdMeshObj::init(const Context *rsc) {
             mAttribs[userNum].type = rsdTypeToGLType(f->mHal.state.dataType);
             mAttribs[userNum].normalized = f->mHal.state.dataType != RS_TYPE_FLOAT_32;
             mAttribs[userNum].stride = stride;
-            String8 tmp(RS_SHADER_ATTR);
+            std::string tmp(RS_SHADER_ATTR);
             tmp.append(elem->mHal.state.fieldNames[fieldI]);
-            mAttribs[userNum].name = tmp.string();
+            mAttribs[userNum].name = tmp;
 
             // Remember which allocation this attribute came from
             mAttribAllocationIndex[userNum] = ct;

@@ -38,24 +38,24 @@ class KCode (private val s : String? = null){
             while (indentCache.size <= n) {
                 indentCache.add("");
             }
-            indentCache[n] = s
+            indentCache.set(n, s)
             return s
         }
     }
 
     fun isNull(kcode : KCode?) = kcode == null || (kcode.nodes.isEmpty() && (kcode.s == null || kcode.s.trim() == ""))
 
-    fun tab(vararg codes : KCode?) : KCode {
+    public fun tab(vararg codes : KCode?) : KCode {
         codes.forEach { tab(it) }
         return this
     }
 
-    fun tab(codes : Collection<KCode?> ) : KCode {
+    public fun tab(codes : Collection<KCode?> ) : KCode {
         codes.forEach { tab(it) }
         return this
     }
 
-    infix fun tab(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
+    fun tab(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
         val c = KCode(s)
         if (init != null) {
             c.init()
@@ -80,12 +80,24 @@ class KCode (private val s : String? = null){
         return this
     }
 
-    infix fun nl(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
+    fun nl(s : String?, init : (KCode.() -> Unit)? = null) : KCode {
         val c = KCode(s)
         if (init != null) {
             c.init()
         }
         return nl(c)
+    }
+
+    fun block(s : String, init : (KCode.() -> Unit)? = null) : KCode {
+        val c = KCode()
+        if (init != null) {
+            c.init()
+        }
+        return nl(s) {
+            app(" {")
+            tab(c)
+            nl("}")
+        }
     }
 
     fun app(glue : String = "", c : KCode?) : KCode {
@@ -125,9 +137,13 @@ class KCode (private val s : String? = null){
                 val childTab = n + (if(it.sameLine) 0 else 1)
                 if (addedChild || newlineFirstNode) {
                     sb.append(lineSeparator)
-                    sb.append("${indent(childTab)}")
                 }
-                it.toS(childTab, sb)
+                if (!isNull(it)) { // avoid spaces for empty lines
+                    if (it.s != null && it.s.trim() != "") {
+                        sb.append("${indent(childTab)}")
+                    }
+                    it.toS(childTab, sb)
+                }
                 addedChild = true
             }
         } }

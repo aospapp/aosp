@@ -90,7 +90,7 @@ public class FadeAndShortSlide extends Visibility {
     private Visibility mFade = new Fade();
 
     // TODO: Consider using TransitionPropagation.
-    private int[] mParentIdsForDelay;
+    private final int[] mParentIdsForDelay;
     private int mDistance = DEFAULT_DISTANCE;
 
     public FadeAndShortSlide() {

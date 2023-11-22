@@ -30,14 +30,15 @@ config FIND
     -group GROUP    belongs to group GROUP    -nogroup    group ID not known
     -perm  [-/]MODE permissions (-=min /=any) -prune      ignore contents of dir
     -size  N[c]     512 byte blocks (c=bytes) -xdev       only this filesystem
-    -links N        hardlink count            -atime N    accessed N days ago
-    -ctime N        created N days ago        -mtime N    modified N days ago
+    -links N        hardlink count            -atime N[u] accessed N units ago
+    -ctime N[u]     created N units ago       -mtime N[u] modified N units ago
     -newer FILE     newer mtime than FILE     -mindepth # at least # dirs down
     -depth          ignore contents of dir    -maxdepth # at most # dirs down
     -inum  N        inode number N            -empty      empty files and dirs
     -type [bcdflps] (block, char, dir, file, symlink, pipe, socket)
 
-    Numbers N may be prefixed by a - (less than) or + (greater than):
+    Numbers N may be prefixed by a - (less than) or + (greater than). Units for
+    -Xtime are d (days, default), h (hours), m (minutes), or s (seconds).
 
     Combine matches with:
     !, -a, -o, ( )    not, and, or, group expressions
@@ -295,7 +296,7 @@ static int do_find(struct dirtree *new)
       if (check) not = !not;
       continue;
     // Mostly ignore NOP argument
-    } else if (!strcmp(s, "a") || !strcmp(s, "and")) {
+    } else if (!strcmp(s, "a") || !strcmp(s, "and") || !strcmp(s, "noleaf")) {
       if (not) goto error;
 
     } else if (!strcmp(s, "print") || !strcmp("print0", s)) {
@@ -303,9 +304,9 @@ static int do_find(struct dirtree *new)
       if (check) do_print(new, s[5] ? 0 : '\n');
 
     } else if (!strcmp(s, "nouser")) {
-      if (check) if (getpwuid(new->st.st_uid)) test = 0;
+      if (check) if (bufgetpwuid(new->st.st_uid)) test = 0;
     } else if (!strcmp(s, "nogroup")) {
-      if (check) if (getgrgid(new->st.st_gid)) test = 0;
+      if (check) if (bufgetgrgid(new->st.st_gid)) test = 0;
     } else if (!strcmp(s, "prune")) {
       if (check && S_ISDIR(new->st.st_mode) && !TT.depth) recurse = 0;
 
@@ -320,20 +321,16 @@ static int do_find(struct dirtree *new)
         // Handle path expansion and case flattening
         if (new && s[i] == 'p') name = path = dirtree_path(new, 0);
         if (i) {
-          if (check || !new) {
-            if (name) name = strlower(name);
-            if (!new) {
-              dlist_add(&TT.argdata, name);
-              free(path);
-            } else arg = ((struct double_list *)llist_pop(&argdata))->data;
-          }
+          if ((check || !new) && name) name = strlower(name);
+          if (!new) dlist_add(&TT.argdata, name);
+          else arg = ((struct double_list *)llist_pop(&argdata))->data;
         }
 
         if (check) {
           test = !fnmatch(arg, name, FNM_PATHNAME*(s[i] == 'p'));
-          free(path);
           if (i) free(name);
         }
+        free(path);
       } else if (!strcmp(s, "perm")) {
         if (check) {
           char *m = ss[1];
@@ -354,15 +351,23 @@ static int do_find(struct dirtree *new)
           if ((new->st.st_mode & S_IFMT) != types[i]) test = 0;
         }
 
-      } else if (!strcmp(s, "atime")) {
-        if (check)
-          test = compare_numsign(TT.now - new->st.st_atime, 86400, ss[1]);
-      } else if (!strcmp(s, "ctime")) {
-        if (check)
-          test = compare_numsign(TT.now - new->st.st_ctime, 86400, ss[1]);
-      } else if (!strcmp(s, "mtime")) {
-        if (check)
-          test = compare_numsign(TT.now - new->st.st_mtime, 86400, ss[1]);
+      } else if (strchr("acm", *s)
+        && (!strcmp(s+1, "time") || !strcmp(s+1, "min")))
+      {
+        if (check) {
+          char *copy = ss[1];
+          time_t thyme = (int []){new->st.st_atime, new->st.st_ctime,
+                                  new->st.st_mtime}[stridx("acm", *s)];
+          int len = strlen(copy), uu, units = (s[1]=='m') ? 60 : 86400;
+
+          if (len && -1!=(uu = stridx("dhms",tolower(copy[len-1])))) {
+            copy = xstrdup(copy);
+            copy[--len] = 0;
+            units = (int []){86400, 3600, 60, 1}[uu];
+          }
+          test = compare_numsign(TT.now - thyme, units, copy);
+          if (copy != ss[1]) free(copy);
+        }
       } else if (!strcmp(s, "size")) {
         if (check)
           test = compare_numsign(new->st.st_size, 512, ss[1]);
@@ -402,8 +407,8 @@ static int do_find(struct dirtree *new)
             udl = xmalloc(sizeof(*udl));
             dlist_add_nomalloc(&TT.argdata, (void *)udl);
 
-            if (*s == 'u') udl->u.uid = xgetpwnamid(ss[1])->pw_uid;
-            else if (*s == 'g') udl->u.gid = xgetgrnamid(ss[1])->gr_gid;
+            if (*s == 'u') udl->u.uid = xgetuid(ss[1]);
+            else if (*s == 'g') udl->u.gid = xgetgid(ss[1]);
             else {
               struct stat st;
 
@@ -458,7 +463,7 @@ static int do_find(struct dirtree *new)
           ss += len;
           aa->arglen = len;
           aa->dir = !!strchr(s, 'd');
-          if (TT.topdir == -1) TT.topdir = xopen(".", 0);
+          if (TT.topdir == -1) TT.topdir = xopenro(".");
 
         // collect names and execute commands
         } else {
@@ -556,7 +561,7 @@ void find_main(void)
 
   // Loop through paths
   for (i = 0; i < len; i++)
-    dirtree_handle_callback(dirtree_start(ss[i], toys.optflags&(FLAG_H|FLAG_L)),
+    dirtree_flagread(ss[i], DIRTREE_SYMFOLLOW*!!(toys.optflags&(FLAG_H|FLAG_L)),
       do_find);
 
   execdir(0, 1);

@@ -14,40 +14,20 @@
  * limitations under the License.
  */
 
+/*
+ * USAGE NOTE: Only include this header when _implementing_ a particular
+ * effect. When access to UUID and properties is enough, include the
+ * corresponding header from system/audio_effects/, which doesn't include
+ * hardware/audio_effect.h.
+ *
+ * Only code that immediately calls into HAL or implements an effect
+ * can import hardware/audio_effect.h.
+ */
+
 #ifndef ANDROID_EFFECT_DOWNMIX_H_
 #define ANDROID_EFFECT_DOWNMIX_H_
 
 #include <hardware/audio_effect.h>
-
-#if __cplusplus
-extern "C" {
-#endif
-
-#define EFFECT_UIID_DOWNMIX__ { 0x381e49cc, 0xa858, 0x4aa2, 0x87f6, \
-                              { 0xe8, 0x38, 0x8e, 0x76, 0x01, 0xb2 } }
-static const effect_uuid_t EFFECT_UIID_DOWNMIX_ = EFFECT_UIID_DOWNMIX__;
-const effect_uuid_t * const EFFECT_UIID_DOWNMIX = &EFFECT_UIID_DOWNMIX_;
-
-
-/* enumerated parameter settings for downmix effect */
-typedef enum {
-    DOWNMIX_PARAM_TYPE
-} downmix_params_t;
-
-
-typedef enum {
-    DOWNMIX_TYPE_INVALID                 = -1,
-    // throw away the extra channels
-    DOWNMIX_TYPE_STRIP                   = 0,
-    // mix the extra channels with FL/FR
-    DOWNMIX_TYPE_FOLD                    = 1,
-    DOWNMIX_TYPE_CNT,
-    DOWNMIX_TYPE_LAST = DOWNMIX_TYPE_CNT - 1
-} downmix_type_t;
-
-#if __cplusplus
-}  // extern "C"
-#endif
-
+#include <system/audio_effects/effect_downmix.h>
 
 #endif /*ANDROID_EFFECT_DOWNMIX_H_*/

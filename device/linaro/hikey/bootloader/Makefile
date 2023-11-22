@@ -5,6 +5,12 @@ ATF_DIR=$(ANDROID_BUILD_TOP)/device/linaro/bootloader/arm-trusted-firmware
 PRODUCT_OUT?=out/target/product/hikey
 DIST_DIR?=$(ANDROID_BUILD_TOP)/out/dist
 
+ifdef DEBUG
+	TARGET = DEBUG
+else
+	TARGET = RELEASE
+endif
+
 all: $(DIST_DIR)/fip.bin $(DIST_DIR)/l-loader.bin
 
 $(DIST_DIR)/fip.bin:
@@ -19,11 +25,15 @@ $(DIST_DIR)/fip.bin:
 	mkdir -p $(DIST_DIR) && \
 	mkdir -p $(ANDROID_BUILD_TOP)/$(PRODUCT_OUT)/obj/uefi && \
 	ln -sf $(ANDROID_BUILD_TOP)/$(PRODUCT_OUT)/obj/uefi $(EDK2_DIR)/Build/HiKey && \
-	$(UEFI_TOOLS_DIR)/uefi-build.sh -b RELEASE -D EDK2_OUT_DIR=$(ANDROID_BUILD_TOP)/$(PRODUCT_OUT)/obj/uefi -a $(ATF_DIR) hikey && \
-	cp $(EDK2_DIR)/Build/HiKey/RELEASE_GCC49/FV/fip.bin $(DIST_DIR)/
+	$(UEFI_TOOLS_DIR)/uefi-build.sh -b $(TARGET) -D EDK2_OUT_DIR=$(ANDROID_BUILD_TOP)/$(PRODUCT_OUT)/obj/uefi -a $(ATF_DIR) hikey && \
+	cp $(EDK2_DIR)/Build/HiKey/$(TARGET)_GCC49/FV/fip.bin $(DIST_DIR)/
 
 $(DIST_DIR)/l-loader.bin: $(DIST_DIR)/fip.bin
 	cd $(ANDROID_BUILD_TOP)/device/linaro/hikey/l-loader && \
-	ln -sf $(EDK2_DIR)/Build/HiKey/RELEASE_GCC49/FV//bl1.bin && \
+	ln -sf $(EDK2_DIR)/Build/HiKey/$(TARGET)_GCC49/FV//bl1.bin && \
 	make CROSS_COMPILE=arm-linux-androideabi- l-loader.bin && \
 	mv l-loader.bin $(DIST_DIR)/
+
+clean:
+	rm -rf $(DIST_DIR)/fip.bin $(DIST_DIR)/l-loader.bin
+

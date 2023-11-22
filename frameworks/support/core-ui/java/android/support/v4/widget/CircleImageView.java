@@ -24,7 +24,9 @@ import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewCompat;
+import android.view.View;
 import android.view.animation.Animation;
 import android.widget.ImageView;
 
@@ -32,8 +34,6 @@ import android.widget.ImageView;
  * Private class created to work around issues with AnimationListeners being
  * called before the animation is actually complete and support shadows on older
  * platforms.
- *
- * @hide
  */
 class CircleImageView extends ImageView {
 
@@ -46,7 +46,7 @@ class CircleImageView extends ImageView {
     private static final int SHADOW_ELEVATION = 4;
 
     private Animation.AnimationListener mListener;
-    private int mShadowRadius;
+    int mShadowRadius;
 
     CircleImageView(Context context, int color) {
         super(context);
@@ -63,7 +63,7 @@ class CircleImageView extends ImageView {
         } else {
             OvalShape oval = new OvalShadow(mShadowRadius);
             circle = new ShapeDrawable(oval);
-            ViewCompat.setLayerType(this, ViewCompat.LAYER_TYPE_SOFTWARE, circle.getPaint());
+            setLayerType(View.LAYER_TYPE_SOFTWARE, circle.getPaint());
             circle.getPaint().setShadowLayer(mShadowRadius, shadowXOffset, shadowYOffset,
                     KEY_SHADOW_COLOR);
             final int padding = mShadowRadius;
@@ -71,7 +71,7 @@ class CircleImageView extends ImageView {
             setPadding(padding, padding, padding, padding);
         }
         circle.getPaint().setColor(color);
-        setBackgroundDrawable(circle);
+        ViewCompat.setBackground(this, circle);
     }
 
     private boolean elevationSupported() {
@@ -113,7 +113,7 @@ class CircleImageView extends ImageView {
      * @param colorRes Id of a color resource.
      */
     public void setBackgroundColorRes(int colorRes) {
-        setBackgroundColor(getContext().getResources().getColor(colorRes));
+        setBackgroundColor(ContextCompat.getColor(getContext(), colorRes));
     }
 
     @Override

@@ -99,11 +99,12 @@ void DrmListener::notify(DrmPlugin::EventType eventType, int extra, const Parcel
             break;
         default:
             ALOGE("Invalid event DrmPlugin::EventType %d, ignored", (int)eventType);
-            return;
+            goto cleanup;
     }
 
     (*mListener)(mObj, &sessionId, ndkEventType, extra, data, dataSize);
 
+ cleanup:
     delete [] sessionId.ptr;
     delete [] data;
 }
@@ -171,7 +172,8 @@ static sp<IDrm> CreateDrmFromUUID(const AMediaUUID uuid) {
         return NULL;
     }
 
-    status_t err = drm->createPlugin(uuid);
+    String8 nullPackageName;
+    status_t err = drm->createPlugin(uuid, nullPackageName);
 
     if (err != OK) {
         return NULL;
@@ -221,8 +223,7 @@ media_status_t AMediaDrm_setOnEventListener(AMediaDrm *mObj, AMediaDrmEventListe
 
 
 static bool findId(AMediaDrm *mObj, const AMediaDrmByteArray &id, List<idvec_t>::iterator &iter) {
-    iter = mObj->mIds.begin();
-    while (iter != mObj->mIds.end()) {
+    for (iter = mObj->mIds.begin(); iter != mObj->mIds.end(); ++iter) {
         if (iter->array() == id.ptr && iter->size() == id.length) {
             return true;
         }

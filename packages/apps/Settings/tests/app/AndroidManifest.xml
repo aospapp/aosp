@@ -22,6 +22,9 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.UPDATE_APP_OPS_STATS" />
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -51,9 +54,9 @@
         </activity>
     </application>
 
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.settings"
-        android:label="Settings App Tests">
+        android:label="Settings Test Cases">
     </instrumentation>
 
     <instrumentation android:name="SettingsLaunchPerformance"

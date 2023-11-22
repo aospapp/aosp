@@ -15,37 +15,35 @@
  */
 package com.android.car;
 
-import android.car.test.CarTestManager;
+import android.car.Car;
 import android.car.test.ICarTest;
 import android.content.Context;
+import android.os.IBinder;
+import android.os.RemoteException;
 import android.util.Log;
 
-import com.android.car.hal.VehicleHal;
-import com.android.car.vehiclenetwork.IVehicleNetworkHalMock;
-import com.android.car.vehiclenetwork.VehicleNetwork;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropConfigs;
-import com.android.car.vehiclenetwork.VehiclePropValueParcelable;
-
 import java.io.PrintWriter;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Service to allow testing / mocking vehicle HAL.
  * This service uses Vehicle HAL APIs directly (one exception) as vehicle HAL mocking anyway
  * requires accessing that level directly.
  */
-public class CarTestService extends ICarTest.Stub implements CarServiceBase {
+class CarTestService extends ICarTest.Stub implements CarServiceBase {
+
+    private static final String TAG = CarTestService.class.getSimpleName();
 
     private final Context mContext;
-    private final VehicleNetwork mVehicleNetwork;
     private final ICarImpl mICarImpl;
-    private boolean mInMocking = false;
-    private int mMockingFlags = 0;
-    private Exception mException = null;
 
-    public CarTestService(Context context, ICarImpl carImpl) {
+    private final Map<IBinder, TokenDeathRecipient> mTokens = new HashMap<>();
+
+    CarTestService(Context context, ICarImpl carImpl) {
         mContext = context;
         mICarImpl = carImpl;
-        mVehicleNetwork = VehicleHal.getInstance().getVehicleNetwork();
     }
 
     @Override
@@ -63,82 +61,59 @@ public class CarTestService extends ICarTest.Stub implements CarServiceBase {
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*CarTestService*");
-        writer.println(" mInMocking" + mInMocking);
+        writer.println(" mTokens:" + Arrays.toString(mTokens.entrySet().toArray()));
     }
 
     @Override
-    public void injectEvent(VehiclePropValueParcelable value) {
-        ICarImpl.assertVehicleHalMockPermission(mContext);
-        mVehicleNetwork.injectEvent(value.value);
-    }
+    public void stopCarService(IBinder token) throws RemoteException {
+        Log.d(TAG, "stopCarService, token: " + token);
+        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
 
-    @Override
-    public void startMocking(final IVehicleNetworkHalMock mock, final int flags) {
-        ICarImpl.assertVehicleHalMockPermission(mContext);
-        CarServiceUtils.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    mVehicleNetwork.startMocking(mock);
-                    VehicleHal.getInstance().startMocking();
-                    mICarImpl.startMocking();
-                    synchronized (this) {
-                        mInMocking = true;
-                        mMockingFlags = flags;
-                        mException = null;
-                    }
-                } catch (Exception e) {
-                    Log.w(CarLog.TAG_TEST, "startMocking failed", e);
-                    synchronized (this) {
-                        mException = e;
-                    }
-                }
-                Log.i(CarLog.TAG_TEST, "start vehicle HAL mocking, flags:0x" +
-                        Integer.toHexString(flags));
-            }
-        });
         synchronized (this) {
-            if (mException != null) {
-                throw new IllegalStateException(mException);
+            if (mTokens.containsKey(token)) {
+                Log.w(TAG, "Calling stopCarService twice with the same token.");
+                return;
+            }
+
+            TokenDeathRecipient deathRecipient = new TokenDeathRecipient(token);
+            mTokens.put(token, deathRecipient);
+            token.linkToDeath(deathRecipient, 0);
+
+            if (mTokens.size() == 1) {
+                mICarImpl.release();
             }
         }
     }
 
     @Override
-    public void stopMocking(final IVehicleNetworkHalMock mock) {
-        ICarImpl.assertVehicleHalMockPermission(mContext);
-        CarServiceUtils.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    mVehicleNetwork.stopMocking(mock);
-                    VehicleHal.getInstance().stopMocking();
-                    mICarImpl.stopMocking();
-                    synchronized (this) {
-                        mInMocking = false;
-                        mMockingFlags = 0;
-                        mException = null;
-                    }
-                    Log.i(CarLog.TAG_TEST, "stop vehicle HAL mocking");
-                } catch (Exception e) {
-                    Log.w(CarLog.TAG_TEST, "stopMocking failed", e);
-                }
-            }
-        });
+    public void startCarService(IBinder token) throws RemoteException {
+        Log.d(TAG, "startCarService, token: " + token);
+        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_TEST_SERVICE);
+        releaseToken(token);
     }
 
-    @Override
-    public boolean isPropertySupported(int property) {
-        VehiclePropConfigs configs = VehicleHal.getInstance().getVehicleNetwork().listProperties(
-                property);
-        return configs != null;
+    private synchronized void releaseToken(IBinder token) {
+        Log.d(TAG, "releaseToken, token: " + token);
+        DeathRecipient deathRecipient = mTokens.remove(token);
+        if (deathRecipient != null) {
+            token.unlinkToDeath(deathRecipient, 0);
+        }
+
+        if (mTokens.size() == 0) {
+            mICarImpl.init();
+        }
     }
 
-    public synchronized boolean isInMocking() {
-        return mInMocking;
-    }
+    private class TokenDeathRecipient implements DeathRecipient {
+        private final IBinder mToken;
 
-    public synchronized boolean shouldDoRealShutdownInMocking() {
-        return (mMockingFlags & CarTestManager.FLAG_MOCKING_REAL_SHUTDOWN) != 0;
+        TokenDeathRecipient(IBinder token) throws RemoteException {
+            mToken = token;
+        }
+
+        @Override
+        public void binderDied() {
+            releaseToken(mToken);
+        }
     }
 }

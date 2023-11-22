@@ -22,6 +22,7 @@ LOCAL_CLANG := false
 
 LOCAL_MODULE                  := gralloc.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_RELATIVE_PATH    := hw
+LOCAL_PROPRIETARY_MODULE      := true
 LOCAL_MODULE_TAGS             := optional
 LOCAL_C_INCLUDES              := $(common_includes) $(kernel_includes)
 LOCAL_SHARED_LIBRARIES        := $(common_libs) libmemalloc libqdMetaData
@@ -31,6 +32,13 @@ LOCAL_ADDITIONAL_DEPENDENCIES := $(common_deps) $(kernel_deps)
 LOCAL_SRC_FILES               := gpu.cpp gralloc.cpp framebuffer.cpp mapper.cpp
 LOCAL_COPY_HEADERS_TO         := $(common_header_export_path)
 LOCAL_COPY_HEADERS            := gralloc_priv.h gr.h
+
+LOCAL_STATIC_LIBRARIES        := libgralloc1-adapter
+LOCAL_SHARED_LIBRARIES        += libsync
+
+ifeq ($(TARGET_USES_GRALLOC1_ADAPTER), true)
+LOCAL_CFLAGS += -DADVERTISE_GRALLOC1
+endif
 
 include $(BUILD_SHARED_LIBRARY)
 

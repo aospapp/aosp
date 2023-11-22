@@ -19,9 +19,12 @@
 #include <ostream>
 #include <sstream>
 
-#include "base/logging.h"
-#include "base/stringprintf.h"
-#include "thread.h"
+#include "android-base/logging.h"
+#include "android-base/stringprintf.h"
+
+#include "base/bit_utils.h"
+
+using android::base::StringPrintf;
 
 namespace art {
 namespace mips {
@@ -40,6 +43,7 @@ struct MipsInstruction {
 static const uint32_t kOpcodeShift = 26;
 
 static const uint32_t kCop1 = (17 << kOpcodeShift);
+static const uint32_t kMsa = (30 << kOpcodeShift);  // MSA major opcode.
 
 static const uint32_t kITypeMask = (0x3f << kOpcodeShift);
 static const uint32_t kJTypeMask = (0x3f << kOpcodeShift);
@@ -48,6 +52,8 @@ static const uint32_t kSpecial0Mask = (0x3f << kOpcodeShift);
 static const uint32_t kSpecial2Mask = (0x3f << kOpcodeShift);
 static const uint32_t kSpecial3Mask = (0x3f << kOpcodeShift);
 static const uint32_t kFpMask = kRTypeMask;
+static const uint32_t kMsaMask = kRTypeMask;
+static const uint32_t kMsaSpecialMask = (0x3f << kOpcodeShift);
 
 static const MipsInstruction gMipsInstructions[] = {
   // "sll r0, r0, 0" is the canonical "nop", used in delay slots.
@@ -136,6 +142,8 @@ static const MipsInstruction gMipsInstructions[] = {
   { kSpecial0Mask | (0x1f << 16) | 0x7ff, (0x01 << 6) | 0x11, "clo", "DS" },
   { kSpecial0Mask | (0x1f << 16) | 0x7ff, (0x01 << 6) | 0x12, "dclz", "DS" },
   { kSpecial0Mask | (0x1f << 16) | 0x7ff, (0x01 << 6) | 0x13, "dclo", "DS" },
+  { kSpecial0Mask | 0x73f, 0x05, "lsa", "DSTj" },
+  { kSpecial0Mask | 0x73f, 0x15, "dlsa", "DSTj" },
   // TODO: sdbbp
 
   // SPECIAL2
@@ -153,6 +161,7 @@ static const MipsInstruction gMipsInstructions[] = {
   { kSpecial3Mask | 0x3f, (31 << kOpcodeShift), "ext", "TSAZ", },
   { kSpecial3Mask | 0x3f, (31 << kOpcodeShift) | 3, "dext", "TSAZ", },
   { kSpecial3Mask | 0x3f, (31 << kOpcodeShift) | 4, "ins", "TSAz", },
+  { kSpecial3Mask | 0x3f, (31 << kOpcodeShift) | 6, "dinsu", "TSFz", },
   { kSpecial3Mask | (0x1f << 21) | (0x1f << 6) | 0x3f,
     (31 << kOpcodeShift) | (16 << 6) | 32,
     "seb",
@@ -217,8 +226,8 @@ static const MipsInstruction gMipsInstructions[] = {
   { kITypeMask, 12 << kOpcodeShift, "andi", "TSi", },
   { kITypeMask, 13 << kOpcodeShift, "ori", "TSi", },
   { kITypeMask, 14 << kOpcodeShift, "xori", "TSi", },
-  { kITypeMask | (0x1f << 21), 15 << kOpcodeShift, "lui", "TI", },
-  { kITypeMask, 15 << kOpcodeShift, "aui", "TSI", },
+  { kITypeMask | (0x1f << 21), 15 << kOpcodeShift, "lui", "Ti", },
+  { kITypeMask, 15 << kOpcodeShift, "aui", "TSi", },
 
   { kITypeMask | (0x3e3 << 16), (17 << kOpcodeShift) | (8 << 21), "bc1f", "cB" },
   { kITypeMask | (0x3e3 << 16), (17 << kOpcodeShift) | (8 << 21) | (1 << 16), "bc1t", "cB" },
@@ -330,8 +339,12 @@ static const MipsInstruction gMipsInstructions[] = {
   { kITypeMask, 55u << kOpcodeShift, "ld", "TO", },
   { kITypeMask, 56u << kOpcodeShift, "sc", "TO", },
   { kITypeMask, 57u << kOpcodeShift, "swc1", "tO", },
+  { kJTypeMask, 58u << kOpcodeShift, "balc", "P" },
   { kITypeMask | (0x1f << 16), (59u << kOpcodeShift) | (30 << 16), "auipc", "Si" },
   { kITypeMask | (0x3 << 19), (59u << kOpcodeShift) | (0 << 19), "addiupc", "Sp" },
+  { kITypeMask | (0x3 << 19), (59u << kOpcodeShift) | (1 << 19), "lwpc", "So" },
+  { kITypeMask | (0x3 << 19), (59u << kOpcodeShift) | (2 << 19), "lwupc", "So" },
+  { kITypeMask | (0x7 << 18), (59u << kOpcodeShift) | (6 << 18), "ldpc", "S0" },
   { kITypeMask, 61u << kOpcodeShift, "sdc1", "tO", },
   { kITypeMask | (0x1f << 21), 62u << kOpcodeShift, "jialc", "Ti" },
   { kITypeMask | (1 << 21), (62u << kOpcodeShift) | (1 << 21), "bnezc", "Sb" },  // TODO: de-dup?
@@ -384,6 +397,12 @@ static const MipsInstruction gMipsInstructions[] = {
   { kFpMask | (0x21f << 16), kCop1 | (0x200 << 16) | 13, "trunc.w", "fad" },
   { kFpMask | (0x21f << 16), kCop1 | (0x200 << 16) | 14, "ceil.w", "fad" },
   { kFpMask | (0x21f << 16), kCop1 | (0x200 << 16) | 15, "floor.w", "fad" },
+  { kFpMask | (0x201 << 16), kCop1 | (0x200 << 16) | 17, "movf", "fadc" },
+  { kFpMask | (0x201 << 16), kCop1 | (0x201 << 16) | 17, "movt", "fadc" },
+  { kFpMask | (0x10 << 21), kCop1 | (0x10 << 21) | 18, "movz", "fadT" },
+  { kFpMask | (0x10 << 21), kCop1 | (0x10 << 21) | 19, "movn", "fadT" },
+  { kFpMask | (0x10 << 21), kCop1 | (0x10 << 21) | 20, "seleqz", "fadt" },
+  { kFpMask | (0x10 << 21), kCop1 | (0x10 << 21) | 23, "selnez", "fadt" },
   { kFpMask | (0x21f << 16), kCop1 | (0x200 << 16) | 26, "rint", "fad" },
   { kFpMask | (0x21f << 16), kCop1 | (0x200 << 16) | 27, "class", "fad" },
   { kFpMask | (0x21f << 16), kCop1 | (0x200 << 16) | 32, "cvt.s", "fad" },
@@ -401,6 +420,37 @@ static const MipsInstruction gMipsInstructions[] = {
   { kFpMask, kCop1 | 0x10, "sel", "fadt" },
   { kFpMask, kCop1 | 0x1e, "max", "fadt" },
   { kFpMask, kCop1 | 0x1c, "min", "fadt" },
+
+  // MSA instructions.
+  { kMsaMask | (0x1f << 21), kMsa | (0x0 << 21) | 0x1e, "and.v", "kmn" },
+  { kMsaMask | (0x1f << 21), kMsa | (0x1 << 21) | 0x1e, "or.v", "kmn" },
+  { kMsaMask | (0x1f << 21), kMsa | (0x2 << 21) | 0x1e, "nor.v", "kmn" },
+  { kMsaMask | (0x1f << 21), kMsa | (0x3 << 21) | 0x1e, "xor.v", "kmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x0 << 23) | 0xe, "addv", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x1 << 23) | 0xe, "subv", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x0 << 23) | 0x12, "mulv", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x4 << 23) | 0x12, "div_s", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x5 << 23) | 0x12, "div_u", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x6 << 23) | 0x12, "mod_s", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x7 << 23) | 0x12, "mod_u", "Vkmn" },
+  { kMsaMask | (0xf << 22), kMsa | (0x0 << 22) | 0x1b, "fadd", "Ukmn" },
+  { kMsaMask | (0xf << 22), kMsa | (0x1 << 22) | 0x1b, "fsub", "Ukmn" },
+  { kMsaMask | (0xf << 22), kMsa | (0x2 << 22) | 0x1b, "fmul", "Ukmn" },
+  { kMsaMask | (0xf << 22), kMsa | (0x3 << 22) | 0x1b, "fdiv", "Ukmn" },
+  { kMsaMask | (0x1ff << 17), kMsa | (0x19e << 17) | 0x1e, "ffint_s", "ukm" },
+  { kMsaMask | (0x1ff << 17), kMsa | (0x19c << 17) | 0x1e, "ftint_s", "ukm" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x0 << 23) | 0xd, "sll", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x1 << 23) | 0xd, "sra", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x2 << 23) | 0xd, "srl", "Vkmn" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x0 << 23) | 0x9, "slli", "kmW" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x1 << 23) | 0x9, "srai", "kmW" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x2 << 23) | 0x9, "srli", "kmW" },
+  { kMsaMask | (0x3ff << 16), kMsa | (0xbe << 16) | 0x19, "move.v", "km" },
+  { kMsaMask | (0xf << 22), kMsa | (0x1 << 22) | 0x19, "splati", "kX" },
+  { kMsaMask | (0xff << 18), kMsa | (0xc0 << 18) | 0x1e, "fill", "vkD" },
+  { kMsaMask | (0x7 << 23), kMsa | (0x6 << 23) | 0x7, "ldi", "kx" },
+  { kMsaSpecialMask | (0xf << 2), kMsa | (0x8 << 2), "ld", "kw" },
+  { kMsaSpecialMask | (0xf << 2), kMsa | (0x9 << 2), "st", "kw" },
 };
 
 static uint32_t ReadU32(const uint8_t* ptr) {
@@ -459,6 +509,7 @@ size_t DisassemblerMips::Dump(std::ostream& os, const uint8_t* instr_ptr) {
           case 'D': args << 'r' << rd; break;
           case 'd': args << 'f' << rd; break;
           case 'a': args << 'f' << sa; break;
+          case 'F': args << (sa + 32); break;  // dinsu position.
           case 'f':  // Floating point "fmt".
             {
               size_t fmt = (instruction >> 21) & 0x7;  // TODO: other fmts?
@@ -472,11 +523,11 @@ size_t DisassemblerMips::Dump(std::ostream& os, const uint8_t* instr_ptr) {
               }
               continue;  // No ", ".
             }
-          case 'I':  // Upper 16-bit immediate.
-            args << reinterpret_cast<void*>((instruction & 0xffff) << 16);
-            break;
           case 'i':  // Sign-extended lower 16-bit immediate.
             args << static_cast<int16_t>(instruction & 0xffff);
+            break;
+          case 'j':  // sa value for lsa/dlsa.
+            args << (sa + 1);
             break;
           case 'L':  // Jump label.
             {
@@ -499,15 +550,28 @@ size_t DisassemblerMips::Dump(std::ostream& os, const uint8_t* instr_ptr) {
               args << StringPrintf("%+d(r%d)", offset, rs);
               if (rs == 17) {
                 args << "  ; ";
-                if (is64bit_) {
-                  Thread::DumpThreadOffset<8>(args, offset);
-                } else {
-                  Thread::DumpThreadOffset<4>(args, offset);
-                }
+                GetDisassemblerOptions()->thread_offset_name_function_(args, offset);
               }
             }
             break;
-          case 'P':  // 26-bit offset in bc.
+          case 'o':  // 19-bit offset in lwpc and lwupc.
+            {
+              int32_t offset = (instruction & 0x7ffff) - ((instruction & 0x40000) << 1);
+              offset <<= 2;
+              args << FormatInstructionPointer(instr_ptr + offset);
+              args << StringPrintf("  ; %+d", offset);
+            }
+            break;
+          case '0':  // 18-bit offset in ldpc.
+            {
+              int32_t offset = (instruction & 0x3ffff) - ((instruction & 0x20000) << 1);
+              offset <<= 3;
+              uintptr_t ptr = RoundDown(reinterpret_cast<uintptr_t>(instr_ptr), 8);
+              args << FormatInstructionPointer(reinterpret_cast<const uint8_t*>(ptr + offset));
+              args << StringPrintf("  ; %+d", offset);
+            }
+            break;
+          case 'P':  // 26-bit offset in bc and balc.
             {
               int32_t offset = (instruction & 0x3ffffff) - ((instruction & 0x2000000) << 1);
               offset <<= 2;
@@ -528,7 +592,126 @@ size_t DisassemblerMips::Dump(std::ostream& os, const uint8_t* instr_ptr) {
           case 'T': args << 'r' << rt; break;
           case 't': args << 'f' << rt; break;
           case 'Z': args << (rd + 1); break;  // sz ([d]ext size).
-          case 'z': args << (rd - sa + 1); break;  // sz ([d]ins size).
+          case 'z': args << (rd - sa + 1); break;  // sz ([d]ins, dinsu size).
+          case 'k': args << 'w' << sa; break;
+          case 'm': args << 'w' << rd; break;
+          case 'n': args << 'w' << rt; break;
+          case 'U':  // MSA 1-bit df (word/doubleword), position 21.
+            {
+              int32_t df = (instruction >> 21) & 0x1;
+              switch (df) {
+                case 0: opcode += ".w"; break;
+                case 1: opcode += ".d"; break;
+              }
+              continue;  // No ", ".
+            }
+          case 'u':  // MSA 1-bit df (word/doubleword), position 16.
+            {
+              int32_t df = (instruction >> 16) & 0x1;
+              switch (df) {
+                case 0: opcode += ".w"; break;
+                case 1: opcode += ".d"; break;
+              }
+              continue;  // No ", ".
+            }
+          case 'V':  // MSA 2-bit df, position 21.
+            {
+              int32_t df = (instruction >> 21) & 0x3;
+              switch (df) {
+                case 0: opcode += ".b"; break;
+                case 1: opcode += ".h"; break;
+                case 2: opcode += ".w"; break;
+                case 3: opcode += ".d"; break;
+              }
+              continue;  // No ", ".
+            }
+          case 'v':  // MSA 2-bit df, position 16.
+            {
+              int32_t df = (instruction >> 16) & 0x3;
+              switch (df) {
+                case 0: opcode += ".b"; break;
+                case 1: opcode += ".h"; break;
+                case 2: opcode += ".w"; break;
+                case 3: opcode += ".d"; break;
+              }
+              continue;  // No ", ".
+            }
+          case 'W':  // MSA df/m.
+            {
+              int32_t df_m = (instruction >> 16) & 0x7f;
+              if ((df_m & (0x1 << 6)) == 0) {
+                opcode += ".d";
+                args << (df_m & 0x3f);
+                break;
+              }
+              if ((df_m & (0x1 << 5)) == 0) {
+                opcode += ".w";
+                args << (df_m & 0x1f);
+                break;
+              }
+              if ((df_m & (0x1 << 4)) == 0) {
+                opcode += ".h";
+                args << (df_m & 0xf);
+                break;
+              }
+              if ((df_m & (0x1 << 3)) == 0) {
+                opcode += ".b";
+                args << (df_m & 0x7);
+              }
+              break;
+            }
+          case 'w':  // MSA +x(rs).
+            {
+              int32_t df = instruction & 0x3;
+              int32_t s10 = (instruction >> 16) & 0x3ff;
+              s10 -= (s10 & 0x200) << 1;  // Sign-extend s10.
+              switch (df) {
+                case 0: opcode += ".b"; break;
+                case 1: opcode += ".h"; break;
+                case 2: opcode += ".w"; break;
+                case 3: opcode += ".d"; break;
+              }
+              args << StringPrintf("%+d(r%d)", s10 << df, rd);
+              break;
+            }
+          case 'X':  // MSA df/n - ws[x].
+            {
+              int32_t df_n = (instruction >> 16) & 0x3f;
+              if ((df_n & (0x3 << 4)) == 0) {
+                opcode += ".b";
+                args << 'w' << rd << '[' << (df_n & 0xf) << ']';
+                break;
+              }
+              if ((df_n & (0x3 << 3)) == 0) {
+                opcode += ".h";
+                args << 'w' << rd << '[' << (df_n & 0x7) << ']';
+                break;
+              }
+              if ((df_n & (0x3 << 2)) == 0) {
+                opcode += ".w";
+                args << 'w' << rd << '[' << (df_n & 0x3) << ']';
+                break;
+              }
+              if ((df_n & (0x3 << 1)) == 0) {
+                opcode += ".d";
+                args << 'w' << rd << '[' << (df_n & 0x1) << ']';
+              }
+              break;
+            }
+          case 'x':  // MSA i10.
+            {
+              int32_t df = (instruction >> 21) & 0x3;
+              int32_t i10 = (instruction >> 11) & 0x3ff;
+              i10 -= (i10 & 0x200) << 1;  // Sign-extend i10.
+              switch (df) {
+                case 0: opcode += ".b"; break;
+                case 1: opcode += ".h"; break;
+                case 2: opcode += ".w"; break;
+                case 3: opcode += ".d"; break;
+              }
+              args << i10;
+              break;
+            }
         }
         if (*(args_fmt + 1)) {
           args << ", ";
@@ -544,10 +727,8 @@ size_t DisassemblerMips::Dump(std::ostream& os, const uint8_t* instr_ptr) {
   //     jic    reg, imm
   //   pc-relative +/- 2GB branch and link:
   //     auipc  reg, imm
-  //     daddiu reg, reg, imm
-  //     jialc  reg, 0
-  if (((op == 0x36 && rs == 0 && rt != 0) ||  // jic
-       (op == 0x19 && rs == rt && rt != 0)) &&  // daddiu
+  //     jialc  reg, imm
+  if (((op == 0x36 || op == 0x3E) && rs == 0 && rt != 0) &&  // ji[al]c
       last_ptr_ && (intptr_t)instr_ptr - (intptr_t)last_ptr_ == 4 &&
       (last_instr_ & 0xFC1F0000) == 0xEC1E0000 &&  // auipc
       ((last_instr_ >> 21) & 0x1F) == rt) {
@@ -555,9 +736,9 @@ size_t DisassemblerMips::Dump(std::ostream& os, const uint8_t* instr_ptr) {
     offset -= (offset & 0x8000) << 1;
     offset -= 4;
     if (op == 0x36) {
-      args << "  ; b ";
+      args << "  ; bc ";
     } else {
-      args << "  ; move r" << rt << ", ";
+      args << "  ; balc ";
     }
     args << FormatInstructionPointer(instr_ptr + (int32_t)offset);
     args << StringPrintf("  ; %+d", (int32_t)offset);

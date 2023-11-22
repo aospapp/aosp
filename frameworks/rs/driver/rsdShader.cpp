@@ -26,8 +26,12 @@
 #include "rsdShader.h"
 #include "rsdShaderCache.h"
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Allocation;
+using android::renderscript::Context;
+using android::renderscript::Element;
+using android::renderscript::Program;
+using android::renderscript::Sampler;
+using android::renderscript::rsMin;
 
 RsdShader::RsdShader(const Program *p, uint32_t type,
                      const char * shaderText, size_t shaderLength,
@@ -41,13 +45,13 @@ RsdShader::RsdShader(const Program *p, uint32_t type,
     init(textureNames, textureNamesCount, textureNamesLength);
 
     for(size_t i=0; i < textureNamesCount; i++) {
-        mTextureNames.push(String8(textureNames[i], textureNamesLength[i]));
+        mTextureNames.push_back(std::string(textureNames[i], textureNamesLength[i]));
     }
 }
 
 RsdShader::~RsdShader() {
     for (uint32_t i = 0; i < mStateBasedShaders.size(); i ++) {
-        StateBasedKey *state = mStateBasedShaders.itemAt(i);
+        StateBasedKey *state = mStateBasedShaders.at(i);
         if (state->mShaderID) {
             glDeleteShader(state->mShaderID);
         }
@@ -76,7 +80,7 @@ RsdShader::StateBasedKey *RsdShader::getExistingState() {
     RsdShader::StateBasedKey *returnKey = nullptr;
 
     for (uint32_t i = 0; i < mStateBasedShaders.size(); i ++) {
-        returnKey = mStateBasedShaders.itemAt(i);
+        returnKey = mStateBasedShaders.at(i);
 
         for (uint32_t ct = 0; ct < mRSProgram->mHal.state.texturesCount; ct ++) {
             uint32_t texType = 0;
@@ -108,7 +112,7 @@ uint32_t RsdShader::getStateBasedShaderID(const Context *rsc) {
     // We have not created a shader for this particular state yet
     state = new StateBasedKey(mTextureCount);
     mCurrentState = state;
-    mStateBasedShaders.add(state);
+    mStateBasedShaders.push_back(state);
     createShader();
     loadShader(rsc);
     return mCurrentState->mShaderID;

@@ -28,9 +28,25 @@
 
 /* perm_labels associcated with keystore_key SELinux class verbs. */
 const char* perm_labels[] = {
-    "get_state", "get",      "insert",    "delete",    "exist",    "list",
-    "reset",     "password", "lock",      "unlock",    "is_empty", "sign",
-    "verify",    "grant",    "duplicate", "clear_uid", "add_auth", "user_changed",
+    "get_state",
+    "get",
+    "insert",
+    "delete",
+    "exist",
+    "list",
+    "reset",
+    "password",
+    "lock",
+    "unlock",
+    "is_empty",
+    "sign",
+    "verify",
+    "grant",
+    "duplicate",
+    "clear_uid",
+    "add_auth",
+    "user_changed",
+    "gen_unique_id",
 };
 
 struct user_euid {
@@ -40,6 +56,7 @@ struct user_euid {
 
 user_euid user_euids[] = {
     {AID_VPN, AID_SYSTEM}, {AID_WIFI, AID_SYSTEM}, {AID_ROOT, AID_SYSTEM},
+    {AID_WIFI, AID_KEYSTORE}, {AID_KEYSTORE, AID_WIFI}
 };
 
 struct user_perm {
@@ -54,8 +71,9 @@ static user_perm user_perms[] = {
     {AID_ROOT, static_cast<perm_t>(P_GET)},
 };
 
-static const perm_t DEFAULT_PERMS = static_cast<perm_t>(P_GET_STATE | P_GET | P_INSERT | P_DELETE |
-                                                        P_EXIST | P_LIST | P_SIGN | P_VERIFY);
+static const perm_t DEFAULT_PERMS = static_cast<perm_t>(
+    P_GET_STATE | P_GET | P_INSERT | P_DELETE | P_EXIST | P_LIST | P_SIGN | P_VERIFY |
+    P_GEN_UNIQUE_ID /* Only privileged apps can do this, but enforcement is done by SELinux */);
 
 struct audit_data {
     pid_t pid;
@@ -84,32 +102,22 @@ static int audit_callback(void* data, security_class_t /* cls */, char* buf, siz
 }
 
 static char* tctx;
-static int ks_is_selinux_enabled;
 
 int configure_selinux() {
-    ks_is_selinux_enabled = is_selinux_enabled();
-    if (ks_is_selinux_enabled) {
-        union selinux_callback cb;
-        cb.func_audit = audit_callback;
-        selinux_set_callback(SELINUX_CB_AUDIT, cb);
-        cb.func_log = selinux_log_callback;
-        selinux_set_callback(SELINUX_CB_LOG, cb);
-        if (getcon(&tctx) != 0) {
-            ALOGE("SELinux: Could not acquire target context. Aborting keystore.\n");
-            return -1;
-        }
-    } else {
-        ALOGI("SELinux: Keystore SELinux is disabled.\n");
+    union selinux_callback cb;
+    cb.func_audit = audit_callback;
+    selinux_set_callback(SELINUX_CB_AUDIT, cb);
+    cb.func_log = selinux_log_callback;
+    selinux_set_callback(SELINUX_CB_LOG, cb);
+    if (getcon(&tctx) != 0) {
+        ALOGE("SELinux: Could not acquire target context. Aborting keystore.\n");
+        return -1;
     }
 
     return 0;
 }
 
 static bool keystore_selinux_check_access(uid_t uid, perm_t perm, pid_t spid) {
-    if (!ks_is_selinux_enabled) {
-        return true;
-    }
-
     audit_data ad;
     char* sctx = NULL;
     const char* selinux_class = "keystore_key";

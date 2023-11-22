@@ -703,9 +703,9 @@ WD_16_HT_4_LOOP:
 
 SKIP_AU1_MASK_VAL_WD_16_HT_4:
     LDRB        r11,[r5,#2]                 @pu1_avail[2]
+    CMP         r11,#0
     SUBEQ       r8,r0,r1                    @pu1_src - src_strd
 
-    CMP         r11,#0
     MOVNE       r8,r3
     VLD1.8      D12,[r0]!                   @pu1_cur_row = vld1q_u8(pu1_src)
     VLD1.8      D13,[r0]                    @pu1_cur_row = vld1q_u8(pu1_src)
@@ -851,6 +851,10 @@ SRC_LEFT_LOOP_WD_16_HT_4:
 
     SUBS        r6,r6,#16                   @Decrement the wd loop count by 16
     BLE         RE_ASSINING_LOOP            @Jump to re-assigning loop
+    LDR         r7,[sp,#0x114]              @Loads wd
+    LDR         r0,[sp,#0x02]               @Loads *pu1_src
+    SUB         r7,r7,r6
+    ADD         r0,r0,r7
     BGT         WD_16_HT_4_LOOP             @If not equal jump to width_loop
 
 WIDTH_RESIDUE:

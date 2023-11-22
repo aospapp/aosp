@@ -152,7 +152,7 @@ public class SimpleReaderActivity extends PassFailButtons.Activity implements Re
                 });
             }
         } catch (IOException e) {
-            sb.insert(0, "Test failed. IOException (did you keep the devices in range?)\n\n.");
+            sb.insert(0, "Error while reading: (did you keep the devices in range?)\nPlease try again\n.");
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {

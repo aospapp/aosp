@@ -29,6 +29,7 @@
 
 #include "android_keymaster_test_utils.h"
 #include "attestation_record.h"
+#include "hmac_key.h"
 #include "keymaster0_engine.h"
 #include "openssl_utils.h"
 
@@ -84,7 +85,8 @@ class TestKeymasterEnforcement : public KeymasterEnforcement {
 class TestKeymasterContext : public SoftKeymasterContext {
   public:
     TestKeymasterContext() {}
-    TestKeymasterContext(const string& root_of_trust) : SoftKeymasterContext(root_of_trust) {}
+    explicit TestKeymasterContext(const string& root_of_trust)
+        : SoftKeymasterContext(root_of_trust) {}
 
     KeymasterEnforcement* enforcement_policy() override { return &test_policy_; }
 
@@ -112,18 +114,19 @@ class SoftKeymasterTestInstanceCreator : public Keymaster2TestInstanceCreator {
     int keymaster0_calls() const override { return 0; }
     bool is_keymaster1_hw() const override { return false; }
     KeymasterContext* keymaster_context() const override { return context_; }
+    string name() const override { return "Soft Keymaster2"; }
 
   private:
     mutable TestKeymasterContext* context_;
 };
 
 /**
- * Test instance creator that builds keymaster1 instances which wrap a faked hardware keymaster0
+ * Test instance creator that builds keymaster2 instances which wrap a faked hardware keymaster0
  * instance, with or without EC support.
  */
 class Keymaster0AdapterTestInstanceCreator : public Keymaster2TestInstanceCreator {
   public:
-    Keymaster0AdapterTestInstanceCreator(bool support_ec) : support_ec_(support_ec) {}
+    explicit Keymaster0AdapterTestInstanceCreator(bool support_ec) : support_ec_(support_ec) {}
 
     keymaster2_device_t* CreateDevice() const {
         std::cerr << "Creating keymaster0-backed device (with ec: " << std::boolalpha << support_ec_
@@ -166,6 +169,10 @@ class Keymaster0AdapterTestInstanceCreator : public Keymaster2TestInstanceCreato
     int keymaster0_calls() const override { return counting_keymaster0_device_->count(); }
     bool is_keymaster1_hw() const override { return false; }
     KeymasterContext* keymaster_context() const override { return context_; }
+    string name() const override {
+        return string("Wrapped fake keymaster0 ") + (support_ec_ ? "with" : "without") +
+               " EC support";
+    }
 
   private:
     mutable TestKeymasterContext* context_;
@@ -177,7 +184,7 @@ class Keymaster0AdapterTestInstanceCreator : public Keymaster2TestInstanceCreato
  * Test instance creator that builds a SoftKeymasterDevice which wraps a fake hardware keymaster1
  * instance, with minimal digest support.
  */
-class Sha256OnlyKeymaster2TestInstanceCreator : public Keymaster2TestInstanceCreator {
+class Sha256OnlyKeymaster1TestInstanceCreator : public Keymaster2TestInstanceCreator {
     keymaster2_device_t* CreateDevice() const {
         std::cerr << "Creating keymaster1-backed device that supports only SHA256";
 
@@ -202,6 +209,42 @@ class Sha256OnlyKeymaster2TestInstanceCreator : public Keymaster2TestInstanceCre
     int minimal_digest_set() const override { return true; }
     bool is_keymaster1_hw() const override { return true; }
     KeymasterContext* keymaster_context() const override { return context_; }
+    string name() const override { return "Wrapped fake keymaster1 w/minimal digests"; }
+
+  private:
+    mutable TestKeymasterContext* context_;
+};
+
+/**
+ * Test instance creator that builds a SoftKeymasterDevice which wraps a fake hardware keymaster1
+ * instance, with full digest support
+ */
+class Keymaster1TestInstanceCreator : public Keymaster2TestInstanceCreator {
+    keymaster2_device_t* CreateDevice() const {
+        std::cerr << "Creating keymaster1-backed device";
+
+        // fake_device doesn't leak because device (below) takes ownership of it.
+        keymaster1_device_t* fake_device =
+            (new SoftKeymasterDevice(new TestKeymasterContext("PseudoHW")))->keymaster_device();
+
+        // device doesn't leak; it's cleaned up by device->keymaster_device()->common.close().
+        context_ = new TestKeymasterContext;
+        SoftKeymasterDevice* device = new SoftKeymasterDevice(context_);
+        device->SetHardwareDevice(fake_device);
+
+        AuthorizationSet version_info(AuthorizationSetBuilder()
+                                          .Authorization(TAG_OS_VERSION, kOsVersion)
+                                          .Authorization(TAG_OS_PATCHLEVEL, kOsPatchLevel));
+        device->keymaster2_device()->configure(device->keymaster2_device(), &version_info);
+        return device->keymaster2_device();
+    }
+
+    bool algorithm_in_km0_hardware(keymaster_algorithm_t) const override { return false; }
+    int keymaster0_calls() const override { return 0; }
+    int minimal_digest_set() const override { return false; }
+    bool is_keymaster1_hw() const override { return true; }
+    KeymasterContext* keymaster_context() const override { return context_; }
+    string name() const override { return "Wrapped fake keymaster1 w/full digests"; }
 
   private:
     mutable TestKeymasterContext* context_;
@@ -211,7 +254,8 @@ static auto test_params = testing::Values(
     InstanceCreatorPtr(new SoftKeymasterTestInstanceCreator),
     InstanceCreatorPtr(new Keymaster0AdapterTestInstanceCreator(true /* support_ec */)),
     InstanceCreatorPtr(new Keymaster0AdapterTestInstanceCreator(false /* support_ec */)),
-    InstanceCreatorPtr(new Sha256OnlyKeymaster2TestInstanceCreator));
+    InstanceCreatorPtr(new Keymaster1TestInstanceCreator),
+    InstanceCreatorPtr(new Sha256OnlyKeymaster1TestInstanceCreator));
 
 class NewKeyGeneration : public Keymaster2Test {
   protected:
@@ -368,6 +412,26 @@ TEST_P(NewKeyGeneration, HmacSha256) {
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
 
+TEST_P(NewKeyGeneration, CheckKeySizes) {
+    for (size_t key_size = 0; key_size <= kMaxHmacKeyLengthBits + 10; ++key_size) {
+        if (key_size < kMinHmacKeyLengthBits || key_size > kMaxHmacKeyLengthBits ||
+            key_size % 8 != 0) {
+            EXPECT_EQ(KM_ERROR_UNSUPPORTED_KEY_SIZE,
+                      GenerateKey(AuthorizationSetBuilder()
+                                      .HmacKey(key_size)
+                                      .Digest(KM_DIGEST_SHA_2_256)
+                                      .Authorization(TAG_MIN_MAC_LENGTH, 256)))
+                << "HMAC key size " << key_size << " invalid.";
+        } else {
+            EXPECT_EQ(KM_ERROR_OK, GenerateKey(AuthorizationSetBuilder()
+                                                   .HmacKey(key_size)
+                                                   .Digest(KM_DIGEST_SHA_2_256)
+                                                   .Authorization(TAG_MIN_MAC_LENGTH, 256)));
+        }
+    }
+    EXPECT_EQ(0, GetParam()->keymaster0_calls());
+}
+
 TEST_P(NewKeyGeneration, HmacMultipleDigests) {
     ASSERT_EQ(KM_ERROR_UNSUPPORTED_DIGEST,
               GenerateKey(AuthorizationSetBuilder()
@@ -521,10 +585,8 @@ TEST_P(SigningOperationsTest, RsaPkcs1NoDigestTooLarge) {
     begin_params.push_back(TAG_PADDING, KM_PAD_RSA_PKCS1_1_5_SIGN);
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_SIGN, begin_params));
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
     string signature;
-    EXPECT_EQ(KM_ERROR_INVALID_INPUT_LENGTH, FinishOperation(&signature));
+    EXPECT_EQ(KM_ERROR_INVALID_INPUT_LENGTH, FinishOperation(message, "", &signature));
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
         EXPECT_EQ(2, GetParam()->keymaster0_calls());
@@ -757,10 +819,6 @@ TEST_P(SigningOperationsTest, AesEcbSign) {
 }
 
 TEST_P(SigningOperationsTest, HmacSha1Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate other digests for HMAC.
-        return;
-
     GenerateKey(AuthorizationSetBuilder()
                     .HmacKey(128)
                     .Digest(KM_DIGEST_SHA1)
@@ -774,10 +832,6 @@ TEST_P(SigningOperationsTest, HmacSha1Success) {
 }
 
 TEST_P(SigningOperationsTest, HmacSha224Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate other digests for HMAC.
-        return;
-
     ASSERT_EQ(KM_ERROR_OK, GenerateKey(AuthorizationSetBuilder()
                                            .HmacKey(128)
                                            .Digest(KM_DIGEST_SHA_2_224)
@@ -791,10 +845,6 @@ TEST_P(SigningOperationsTest, HmacSha224Success) {
 }
 
 TEST_P(SigningOperationsTest, HmacSha256Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate other digests for HMAC.
-        return;
-
     ASSERT_EQ(KM_ERROR_OK, GenerateKey(AuthorizationSetBuilder()
                                            .HmacKey(128)
                                            .Digest(KM_DIGEST_SHA_2_256)
@@ -808,10 +858,6 @@ TEST_P(SigningOperationsTest, HmacSha256Success) {
 }
 
 TEST_P(SigningOperationsTest, HmacSha384Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate other digests for HMAC.
-        return;
-
     ASSERT_EQ(KM_ERROR_OK, GenerateKey(AuthorizationSetBuilder()
                                            .HmacKey(128)
                                            .Digest(KM_DIGEST_SHA_2_384)
@@ -826,10 +872,6 @@ TEST_P(SigningOperationsTest, HmacSha384Success) {
 }
 
 TEST_P(SigningOperationsTest, HmacSha512Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate other digests for HMAC.
-        return;
-
     ASSERT_EQ(KM_ERROR_OK, GenerateKey(AuthorizationSetBuilder()
                                            .HmacKey(128)
                                            .Digest(KM_DIGEST_SHA_2_512)
@@ -852,84 +894,6 @@ TEST_P(SigningOperationsTest, HmacLengthInKey) {
     string signature;
     MacMessage(message, &signature, 160);
     ASSERT_EQ(20U, signature.size());
-
-    EXPECT_EQ(0, GetParam()->keymaster0_calls());
-}
-
-TEST_P(SigningOperationsTest, HmacRfc4231TestCase1) {
-    uint8_t key_data[] = {
-        0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
-        0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
-    };
-    string message = "Hi There";
-    uint8_t sha_224_expected[] = {
-        0x89, 0x6f, 0xb1, 0x12, 0x8a, 0xbb, 0xdf, 0x19, 0x68, 0x32, 0x10, 0x7c, 0xd4, 0x9d,
-        0xf3, 0x3f, 0x47, 0xb4, 0xb1, 0x16, 0x99, 0x12, 0xba, 0x4f, 0x53, 0x68, 0x4b, 0x22,
-    };
-    uint8_t sha_256_expected[] = {
-        0xb0, 0x34, 0x4c, 0x61, 0xd8, 0xdb, 0x38, 0x53, 0x5c, 0xa8, 0xaf,
-        0xce, 0xaf, 0x0b, 0xf1, 0x2b, 0x88, 0x1d, 0xc2, 0x00, 0xc9, 0x83,
-        0x3d, 0xa7, 0x26, 0xe9, 0x37, 0x6c, 0x2e, 0x32, 0xcf, 0xf7,
-    };
-    uint8_t sha_384_expected[] = {
-        0xaf, 0xd0, 0x39, 0x44, 0xd8, 0x48, 0x95, 0x62, 0x6b, 0x08, 0x25, 0xf4,
-        0xab, 0x46, 0x90, 0x7f, 0x15, 0xf9, 0xda, 0xdb, 0xe4, 0x10, 0x1e, 0xc6,
-        0x82, 0xaa, 0x03, 0x4c, 0x7c, 0xeb, 0xc5, 0x9c, 0xfa, 0xea, 0x9e, 0xa9,
-        0x07, 0x6e, 0xde, 0x7f, 0x4a, 0xf1, 0x52, 0xe8, 0xb2, 0xfa, 0x9c, 0xb6,
-    };
-    uint8_t sha_512_expected[] = {
-        0x87, 0xaa, 0x7c, 0xde, 0xa5, 0xef, 0x61, 0x9d, 0x4f, 0xf0, 0xb4, 0x24, 0x1a,
-        0x1d, 0x6c, 0xb0, 0x23, 0x79, 0xf4, 0xe2, 0xce, 0x4e, 0xc2, 0x78, 0x7a, 0xd0,
-        0xb3, 0x05, 0x45, 0xe1, 0x7c, 0xde, 0xda, 0xa8, 0x33, 0xb7, 0xd6, 0xb8, 0xa7,
-        0x02, 0x03, 0x8b, 0x27, 0x4e, 0xae, 0xa3, 0xf4, 0xe4, 0xbe, 0x9d, 0x91, 0x4e,
-        0xeb, 0x61, 0xf1, 0x70, 0x2e, 0x69, 0x6c, 0x20, 0x3a, 0x12, 0x68, 0x54,
-    };
-
-    string key = make_string(key_data);
-
-    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
-
-    EXPECT_EQ(0, GetParam()->keymaster0_calls());
-}
-
-TEST_P(SigningOperationsTest, HmacRfc4231TestCase2) {
-    string key = "Jefe";
-    string message = "what do ya want for nothing?";
-    uint8_t sha_224_expected[] = {
-        0xa3, 0x0e, 0x01, 0x09, 0x8b, 0xc6, 0xdb, 0xbf, 0x45, 0x69, 0x0f, 0x3a, 0x7e, 0x9e,
-        0x6d, 0x0f, 0x8b, 0xbe, 0xa2, 0xa3, 0x9e, 0x61, 0x48, 0x00, 0x8f, 0xd0, 0x5e, 0x44,
-    };
-    uint8_t sha_256_expected[] = {
-        0x5b, 0xdc, 0xc1, 0x46, 0xbf, 0x60, 0x75, 0x4e, 0x6a, 0x04, 0x24,
-        0x26, 0x08, 0x95, 0x75, 0xc7, 0x5a, 0x00, 0x3f, 0x08, 0x9d, 0x27,
-        0x39, 0x83, 0x9d, 0xec, 0x58, 0xb9, 0x64, 0xec, 0x38, 0x43,
-    };
-    uint8_t sha_384_expected[] = {
-        0xaf, 0x45, 0xd2, 0xe3, 0x76, 0x48, 0x40, 0x31, 0x61, 0x7f, 0x78, 0xd2,
-        0xb5, 0x8a, 0x6b, 0x1b, 0x9c, 0x7e, 0xf4, 0x64, 0xf5, 0xa0, 0x1b, 0x47,
-        0xe4, 0x2e, 0xc3, 0x73, 0x63, 0x22, 0x44, 0x5e, 0x8e, 0x22, 0x40, 0xca,
-        0x5e, 0x69, 0xe2, 0xc7, 0x8b, 0x32, 0x39, 0xec, 0xfa, 0xb2, 0x16, 0x49,
-    };
-    uint8_t sha_512_expected[] = {
-        0x16, 0x4b, 0x7a, 0x7b, 0xfc, 0xf8, 0x19, 0xe2, 0xe3, 0x95, 0xfb, 0xe7, 0x3b,
-        0x56, 0xe0, 0xa3, 0x87, 0xbd, 0x64, 0x22, 0x2e, 0x83, 0x1f, 0xd6, 0x10, 0x27,
-        0x0c, 0xd7, 0xea, 0x25, 0x05, 0x54, 0x97, 0x58, 0xbf, 0x75, 0xc0, 0x5a, 0x99,
-        0x4a, 0x6d, 0x03, 0x4f, 0x65, 0xf8, 0xf0, 0xe6, 0xfd, 0xca, 0xea, 0xb1, 0xa3,
-        0x4d, 0x4a, 0x6b, 0x4b, 0x63, 0x6e, 0x07, 0x0a, 0x38, 0xbc, 0xe7, 0x37,
-    };
-
-    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -960,13 +924,10 @@ TEST_P(SigningOperationsTest, HmacRfc4231TestCase3) {
         0xbe, 0xe8, 0x94, 0x26, 0x74, 0x27, 0x88, 0x59, 0xe1, 0x32, 0x92, 0xfb,
     };
 
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
     CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -1001,13 +962,10 @@ TEST_P(SigningOperationsTest, HmacRfc4231TestCase4) {
         0x12, 0x0c, 0x4f, 0x2d, 0xe2, 0xad, 0xeb, 0xeb, 0x10, 0xa2, 0x98, 0xdd,
     };
 
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
     CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -1033,12 +991,10 @@ TEST_P(SigningOperationsTest, HmacRfc4231TestCase5) {
         0x1d, 0x41, 0x79, 0xbc, 0x89, 0x1d, 0x87, 0xa6,
     };
 
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
     CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -1070,12 +1026,10 @@ TEST_P(SigningOperationsTest, HmacRfc4231TestCase6) {
         0xf6, 0x3f, 0x0a, 0xec, 0x8b, 0x91, 0x5a, 0x98, 0x5d, 0x78, 0x65, 0x98,
     };
 
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
     CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -1109,12 +1063,10 @@ TEST_P(SigningOperationsTest, HmacRfc4231TestCase7) {
         0x6d, 0xe0, 0x44, 0x60, 0x65, 0xc9, 0x74, 0x40, 0xfa, 0x8c, 0x6a, 0x58,
     };
 
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
     CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_256, make_string(sha_256_expected));
-    if (!GetParam()->minimal_digest_set()) {
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_224, make_string(sha_224_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
-        CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
-    }
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_384, make_string(sha_384_expected));
+    CheckHmacTestVector(key, message, KM_DIGEST_SHA_2_512, make_string(sha_512_expected));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -1233,10 +1185,7 @@ TEST_P(VerificationOperationsTest, RsaPssSha256CorruptSignature) {
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(message, signature, &result));
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
         EXPECT_EQ(4, GetParam()->keymaster0_calls());
@@ -1259,10 +1208,7 @@ TEST_P(VerificationOperationsTest, RsaPssSha256CorruptInput) {
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(message, signature, &result));
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
         EXPECT_EQ(4, GetParam()->keymaster0_calls());
@@ -1333,10 +1279,7 @@ TEST_P(VerificationOperationsTest, RsaPkcs1Sha256CorruptSignature) {
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(message, signature, &result));
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
         EXPECT_EQ(4, GetParam()->keymaster0_calls());
@@ -1359,10 +1302,7 @@ TEST_P(VerificationOperationsTest, RsaPkcs1Sha256CorruptInput) {
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(message, signature, &result));
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
         EXPECT_EQ(4, GetParam()->keymaster0_calls());
@@ -1520,10 +1460,7 @@ TEST_P(VerificationOperationsTest, EcdsaSha256Success) {
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(message, signature, &result));
 }
 
 TEST_P(VerificationOperationsTest, EcdsaSha224Success) {
@@ -1544,10 +1481,7 @@ TEST_P(VerificationOperationsTest, EcdsaSha224Success) {
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
 
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_VERIFICATION_FAILED, FinishOperation(message, signature, &result));
 }
 
 TEST_P(VerificationOperationsTest, EcdsaAllDigestsAndKeySizes) {
@@ -1579,10 +1513,6 @@ TEST_P(VerificationOperationsTest, EcdsaAllDigestsAndKeySizes) {
 }
 
 TEST_P(VerificationOperationsTest, HmacSha1Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate missing digests for HMAC.
-        return;
-
     GenerateKey(AuthorizationSetBuilder()
                     .HmacKey(128)
                     .Digest(KM_DIGEST_SHA1)
@@ -1596,10 +1526,6 @@ TEST_P(VerificationOperationsTest, HmacSha1Success) {
 }
 
 TEST_P(VerificationOperationsTest, HmacSha224Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate missing digests for HMAC.
-        return;
-
     GenerateKey(AuthorizationSetBuilder()
                     .HmacKey(128)
                     .Digest(KM_DIGEST_SHA_2_224)
@@ -1644,18 +1570,12 @@ TEST_P(VerificationOperationsTest, HmacSha256TooShortMac) {
     AuthorizationSet begin_params(client_params());
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_VERIFY, begin_params));
     string result;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(KM_ERROR_INVALID_MAC_LENGTH, FinishOperation(signature, &result));
+    EXPECT_EQ(KM_ERROR_INVALID_MAC_LENGTH, FinishOperation(message, signature, &result));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
 
 TEST_P(VerificationOperationsTest, HmacSha384Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate missing digests for HMAC.
-        return;
-
     GenerateKey(AuthorizationSetBuilder()
                     .HmacKey(128)
                     .Digest(KM_DIGEST_SHA_2_384)
@@ -1669,10 +1589,6 @@ TEST_P(VerificationOperationsTest, HmacSha384Success) {
 }
 
 TEST_P(VerificationOperationsTest, HmacSha512Success) {
-    if (GetParam()->minimal_digest_set())
-        // Can't emulate missing digests for HMAC.
-        return;
-
     GenerateKey(AuthorizationSetBuilder()
                     .HmacKey(128)
                     .Digest(KM_DIGEST_SHA_2_512)
@@ -2033,8 +1949,7 @@ TEST_P(EncryptionOperationsTest, RsaNoPaddingLargerThanModulus) {
     BN_bn2bin(rsa->n, modulus_buf.get());
     message = string(reinterpret_cast<const char*>(modulus_buf.get()), modulus_len);
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_ENCRYPT, begin_params));
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &result, &input_consumed));
-    EXPECT_EQ(KM_ERROR_OK, FinishOperation(&result));
+    EXPECT_EQ(KM_ERROR_OK, FinishOperation(message, "", &result));
 
     if (GetParam()->algorithm_in_km0_hardware(KM_ALGORITHM_RSA))
         EXPECT_EQ(4, GetParam()->keymaster0_calls());
@@ -2425,10 +2340,7 @@ TEST_P(EncryptionOperationsTest, AesEcbNoPaddingWrongInputSize) {
     begin_params.push_back(TAG_PADDING, KM_PAD_NONE);
     EXPECT_EQ(KM_ERROR_OK, BeginOperation(KM_PURPOSE_ENCRYPT, begin_params));
     string ciphertext;
-    size_t input_consumed;
-    EXPECT_EQ(KM_ERROR_OK, UpdateOperation(message, &ciphertext, &input_consumed));
-    EXPECT_EQ(message.size(), input_consumed);
-    EXPECT_EQ(KM_ERROR_INVALID_INPUT_LENGTH, FinishOperation(&ciphertext));
+    EXPECT_EQ(KM_ERROR_INVALID_INPUT_LENGTH, FinishOperation(message, "", &ciphertext));
 
     EXPECT_EQ(0, GetParam()->keymaster0_calls());
 }
@@ -3602,6 +3514,9 @@ static bool verify_attestation_record(const string& challenge,
     att_tee_enforced.Sort();
     expected_tee_enforced.Sort();
     EXPECT_EQ(expected_tee_enforced, att_tee_enforced);
+
+    delete[] att_challenge.data;
+    delete[] att_unique_id.data;
 
     return true;
 }

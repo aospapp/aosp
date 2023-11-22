@@ -20,8 +20,9 @@
 #include "art_method-inl.h"
 #include "class_linker-inl.h"
 #include "common_runtime_test.h"
+#include "dex_file.h"
 #include "mirror/array-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
@@ -33,8 +34,8 @@ class TransactionTest : public CommonRuntimeTest {
     jobject jclass_loader = LoadDex("Transaction");
     StackHandleScope<2> hs(soa.Self());
     Handle<mirror::ClassLoader> class_loader(
-        hs.NewHandle(soa.Decode<mirror::ClassLoader*>(jclass_loader)));
-    ASSERT_TRUE(class_loader.Get() != nullptr);
+        hs.NewHandle(soa.Decode<mirror::ClassLoader>(jclass_loader)));
+    ASSERT_TRUE(class_loader != nullptr);
 
     // Load and initialize java.lang.ExceptionInInitializerError and the exception class used
     // to abort transaction so they can be thrown during class initialization if the transaction
@@ -42,26 +43,26 @@ class TransactionTest : public CommonRuntimeTest {
     MutableHandle<mirror::Class> h_klass(
         hs.NewHandle(class_linker_->FindSystemClass(soa.Self(),
                                                     "Ljava/lang/ExceptionInInitializerError;")));
-    ASSERT_TRUE(h_klass.Get() != nullptr);
+    ASSERT_TRUE(h_klass != nullptr);
     class_linker_->EnsureInitialized(soa.Self(), h_klass, true, true);
     ASSERT_TRUE(h_klass->IsInitialized());
 
     h_klass.Assign(class_linker_->FindSystemClass(soa.Self(),
                                                   Transaction::kAbortExceptionSignature));
-    ASSERT_TRUE(h_klass.Get() != nullptr);
+    ASSERT_TRUE(h_klass != nullptr);
     class_linker_->EnsureInitialized(soa.Self(), h_klass, true, true);
     ASSERT_TRUE(h_klass->IsInitialized());
 
     // Load and verify utility class.
     h_klass.Assign(class_linker_->FindClass(soa.Self(), "LTransaction$AbortHelperClass;",
                                             class_loader));
-    ASSERT_TRUE(h_klass.Get() != nullptr);
+    ASSERT_TRUE(h_klass != nullptr);
     class_linker_->VerifyClass(soa.Self(), h_klass);
     ASSERT_TRUE(h_klass->IsVerified());
 
     // Load and verify tested class.
     h_klass.Assign(class_linker_->FindClass(soa.Self(), tested_class_signature, class_loader));
-    ASSERT_TRUE(h_klass.Get() != nullptr);
+    ASSERT_TRUE(h_klass != nullptr);
     class_linker_->VerifyClass(soa.Self(), h_klass);
     ASSERT_TRUE(h_klass->IsVerified());
 
@@ -94,12 +95,12 @@ TEST_F(TransactionTest, Object_class) {
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
 
   Transaction transaction;
   Runtime::Current()->EnterTransactionMode(&transaction);
   Handle<mirror::Object> h_obj(hs.NewHandle(h_klass->AllocObject(soa.Self())));
-  ASSERT_TRUE(h_obj.Get() != nullptr);
+  ASSERT_TRUE(h_obj != nullptr);
   ASSERT_EQ(h_obj->GetClass(), h_klass.Get());
   Runtime::Current()->ExitTransactionMode();
 
@@ -114,9 +115,9 @@ TEST_F(TransactionTest, Object_monitor) {
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
   Handle<mirror::Object> h_obj(hs.NewHandle(h_klass->AllocObject(soa.Self())));
-  ASSERT_TRUE(h_obj.Get() != nullptr);
+  ASSERT_TRUE(h_obj != nullptr);
   ASSERT_EQ(h_obj->GetClass(), h_klass.Get());
 
   // Lock object's monitor outside the transaction.
@@ -143,7 +144,7 @@ TEST_F(TransactionTest, Array_length) {
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/Object;")));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
 
   constexpr int32_t kArraySize = 2;
 
@@ -156,7 +157,7 @@ TEST_F(TransactionTest, Array_length) {
           mirror::Array::Alloc<true>(soa.Self(), h_klass.Get(), kArraySize,
                                      h_klass->GetComponentSizeShift(),
                                      Runtime::Current()->GetHeap()->GetCurrentAllocator())));
-  ASSERT_TRUE(h_obj.Get() != nullptr);
+  ASSERT_TRUE(h_obj != nullptr);
   ASSERT_EQ(h_obj->GetClass(), h_klass.Get());
   Runtime::Current()->ExitTransactionMode();
 
@@ -170,12 +171,12 @@ TEST_F(TransactionTest, StaticFieldsTest) {
   ScopedObjectAccess soa(Thread::Current());
   StackHandleScope<4> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(LoadDex("Transaction"))));
-  ASSERT_TRUE(class_loader.Get() != nullptr);
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("Transaction"))));
+  ASSERT_TRUE(class_loader != nullptr);
 
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindClass(soa.Self(), "LStaticFieldsTest;", class_loader)));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
   bool success = class_linker_->EnsureInitialized(soa.Self(), h_klass, true, true);
   ASSERT_TRUE(success);
   ASSERT_TRUE(h_klass->IsInitialized());
@@ -231,9 +232,9 @@ TEST_F(TransactionTest, StaticFieldsTest) {
   // Create a java.lang.Object instance to set objectField.
   Handle<mirror::Class> object_klass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
-  ASSERT_TRUE(object_klass.Get() != nullptr);
+  ASSERT_TRUE(object_klass != nullptr);
   Handle<mirror::Object> h_obj(hs.NewHandle(h_klass->AllocObject(soa.Self())));
-  ASSERT_TRUE(h_obj.Get() != nullptr);
+  ASSERT_TRUE(h_obj != nullptr);
   ASSERT_EQ(h_obj->GetClass(), h_klass.Get());
 
   // Modify fields inside transaction then rollback changes.
@@ -268,12 +269,12 @@ TEST_F(TransactionTest, InstanceFieldsTest) {
   ScopedObjectAccess soa(Thread::Current());
   StackHandleScope<5> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(LoadDex("Transaction"))));
-  ASSERT_TRUE(class_loader.Get() != nullptr);
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("Transaction"))));
+  ASSERT_TRUE(class_loader != nullptr);
 
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindClass(soa.Self(), "LInstanceFieldsTest;", class_loader)));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
   bool success = class_linker_->EnsureInitialized(soa.Self(), h_klass, true, true);
   ASSERT_TRUE(success);
   ASSERT_TRUE(h_klass->IsInitialized());
@@ -281,7 +282,7 @@ TEST_F(TransactionTest, InstanceFieldsTest) {
 
   // Allocate an InstanceFieldTest object.
   Handle<mirror::Object> h_instance(hs.NewHandle(h_klass->AllocObject(soa.Self())));
-  ASSERT_TRUE(h_instance.Get() != nullptr);
+  ASSERT_TRUE(h_instance != nullptr);
 
   // Lookup fields.
   ArtField* booleanField = h_klass->FindDeclaredInstanceField("booleanField", "Z");
@@ -333,9 +334,9 @@ TEST_F(TransactionTest, InstanceFieldsTest) {
   // Create a java.lang.Object instance to set objectField.
   Handle<mirror::Class> object_klass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
-  ASSERT_TRUE(object_klass.Get() != nullptr);
+  ASSERT_TRUE(object_klass != nullptr);
   Handle<mirror::Object> h_obj(hs.NewHandle(h_klass->AllocObject(soa.Self())));
-  ASSERT_TRUE(h_obj.Get() != nullptr);
+  ASSERT_TRUE(h_obj != nullptr);
   ASSERT_EQ(h_obj->GetClass(), h_klass.Get());
 
   // Modify fields inside transaction then rollback changes.
@@ -370,12 +371,12 @@ TEST_F(TransactionTest, StaticArrayFieldsTest) {
   ScopedObjectAccess soa(Thread::Current());
   StackHandleScope<4> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(LoadDex("Transaction"))));
-  ASSERT_TRUE(class_loader.Get() != nullptr);
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("Transaction"))));
+  ASSERT_TRUE(class_loader != nullptr);
 
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindClass(soa.Self(), "LStaticArrayFieldsTest;", class_loader)));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
   bool success = class_linker_->EnsureInitialized(soa.Self(), h_klass, true, true);
   ASSERT_TRUE(success);
   ASSERT_TRUE(h_klass->IsInitialized());
@@ -450,9 +451,9 @@ TEST_F(TransactionTest, StaticArrayFieldsTest) {
   // Create a java.lang.Object instance to set objectField.
   Handle<mirror::Class> object_klass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "Ljava/lang/Object;")));
-  ASSERT_TRUE(object_klass.Get() != nullptr);
+  ASSERT_TRUE(object_klass != nullptr);
   Handle<mirror::Object> h_obj(hs.NewHandle(h_klass->AllocObject(soa.Self())));
-  ASSERT_TRUE(h_obj.Get() != nullptr);
+  ASSERT_TRUE(h_obj != nullptr);
   ASSERT_EQ(h_obj->GetClass(), h_klass.Get());
 
   // Modify fields inside transaction then rollback changes.
@@ -482,18 +483,67 @@ TEST_F(TransactionTest, StaticArrayFieldsTest) {
   EXPECT_EQ(objectArray->GetWithoutChecks(0), nullptr);
 }
 
+// Tests rolling back interned strings and resolved strings.
+TEST_F(TransactionTest, ResolveString) {
+  ScopedObjectAccess soa(Thread::Current());
+  StackHandleScope<3> hs(soa.Self());
+  Handle<mirror::ClassLoader> class_loader(
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("Transaction"))));
+  ASSERT_TRUE(class_loader != nullptr);
+
+  Handle<mirror::Class> h_klass(
+      hs.NewHandle(class_linker_->FindClass(soa.Self(), "LTransaction$ResolveString;",
+                                            class_loader)));
+  ASSERT_TRUE(h_klass != nullptr);
+
+  Handle<mirror::DexCache> h_dex_cache(hs.NewHandle(h_klass->GetDexCache()));
+  ASSERT_TRUE(h_dex_cache != nullptr);
+  const DexFile* const dex_file = h_dex_cache->GetDexFile();
+  ASSERT_TRUE(dex_file != nullptr);
+
+  // Go search the dex file to find the string id of our string.
+  static const char* kResolvedString = "ResolvedString";
+  const DexFile::StringId* string_id = dex_file->FindStringId(kResolvedString);
+  ASSERT_TRUE(string_id != nullptr);
+  dex::StringIndex string_idx = dex_file->GetIndexForStringId(*string_id);
+  ASSERT_TRUE(string_idx.IsValid());
+  // String should only get resolved by the initializer.
+  EXPECT_TRUE(class_linker_->LookupString(*dex_file, string_idx, h_dex_cache.Get()) == nullptr);
+  EXPECT_TRUE(h_dex_cache->GetResolvedString(string_idx) == nullptr);
+  // Do the transaction, then roll back.
+  Transaction transaction;
+  Runtime::Current()->EnterTransactionMode(&transaction);
+  bool success = class_linker_->EnsureInitialized(soa.Self(), h_klass, true, true);
+  ASSERT_TRUE(success);
+  ASSERT_TRUE(h_klass->IsInitialized());
+  // Make sure the string got resolved by the transaction.
+  {
+    mirror::String* s = class_linker_->LookupString(*dex_file, string_idx, h_dex_cache.Get());
+    ASSERT_TRUE(s != nullptr);
+    EXPECT_STREQ(s->ToModifiedUtf8().c_str(), kResolvedString);
+    EXPECT_EQ(s, h_dex_cache->GetResolvedString(string_idx));
+  }
+  Runtime::Current()->ExitTransactionMode();
+  transaction.Rollback();
+  // Check that the string did not stay resolved.
+  EXPECT_TRUE(class_linker_->LookupString(*dex_file, string_idx, h_dex_cache.Get()) == nullptr);
+  EXPECT_TRUE(h_dex_cache->GetResolvedString(string_idx) == nullptr);
+  ASSERT_FALSE(h_klass->IsInitialized());
+  ASSERT_FALSE(soa.Self()->IsExceptionPending());
+}
+
 // Tests successful class initialization without class initializer.
 TEST_F(TransactionTest, EmptyClass) {
   ScopedObjectAccess soa(Thread::Current());
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(LoadDex("Transaction"))));
-  ASSERT_TRUE(class_loader.Get() != nullptr);
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("Transaction"))));
+  ASSERT_TRUE(class_loader != nullptr);
 
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindClass(soa.Self(), "LTransaction$EmptyStatic;",
                                             class_loader)));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
   class_linker_->VerifyClass(soa.Self(), h_klass);
   ASSERT_TRUE(h_klass->IsVerified());
 
@@ -511,13 +561,13 @@ TEST_F(TransactionTest, StaticFieldClass) {
   ScopedObjectAccess soa(Thread::Current());
   StackHandleScope<2> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(LoadDex("Transaction"))));
-  ASSERT_TRUE(class_loader.Get() != nullptr);
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("Transaction"))));
+  ASSERT_TRUE(class_loader != nullptr);
 
   Handle<mirror::Class> h_klass(
       hs.NewHandle(class_linker_->FindClass(soa.Self(), "LTransaction$StaticFieldClass;",
                                             class_loader)));
-  ASSERT_TRUE(h_klass.Get() != nullptr);
+  ASSERT_TRUE(h_klass != nullptr);
   class_linker_->VerifyClass(soa.Self(), h_klass);
   ASSERT_TRUE(h_klass->IsVerified());
 

@@ -6,7 +6,6 @@
 
 """Unit tests for site_utils/board_enumerator.py."""
 
-import logging
 import mox
 import unittest
 
@@ -40,7 +39,7 @@ class BoardEnumeratorTest(mox.MoxTestBase):
         self.afe.get_labels(name__startswith=self.prefix).AndReturn(
             map(lambda p: self._CreateMockLabel(self.prefix+p), labels))
         self.mox.ReplayAll()
-        self.assertEquals(labels, self.enumerator.Enumerate())
+        self.assertEquals(set(labels), set(self.enumerator.Enumerate()))
 
 
     def testEnumerateNoBoards(self):

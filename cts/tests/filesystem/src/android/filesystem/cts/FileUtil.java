@@ -17,7 +17,6 @@
 package android.filesystem.cts;
 
 import android.content.Context;
-import android.cts.util.SystemUtil;
 import android.util.Log;
 
 import com.android.compatibility.common.util.DeviceReportLog;
@@ -27,6 +26,7 @@ import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -41,6 +41,8 @@ public class FileUtil {
     private static final String TAG = "FileUtil";
     private static final Random mRandom = new Random(0);
     private static long mFileId = 0;
+
+    public static final int BUFFER_SIZE = 10 * 1024 * 1024;
     /**
      * create array with different data per each call
      *
@@ -140,14 +142,14 @@ public class FileUtil {
      */
     public static File createNewFilledFile(Context context, String dirName, long length)
             throws IOException {
-        final int BUFFER_SIZE = 10 * 1024 * 1024;
         File file = createNewFile(context, dirName);
         FileOutputStream out = new FileOutputStream(file);
         byte[] data = generateRandomData(BUFFER_SIZE);
         long written = 0;
         while (written < length) {
-            out.write(data);
-            written += BUFFER_SIZE;
+            int toWrite = (int) Math.min(BUFFER_SIZE, length - written);
+            out.write(data, 0, toWrite);
+            written += toWrite;
         }
         out.flush();
         out.close();

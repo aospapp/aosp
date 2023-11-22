@@ -1322,6 +1322,25 @@ public class X500PrincipalTest extends TestCase {
         new X500Principal(dn);
     }
 
+    /**
+     * Change rev/d1c04dac850d upstream addresses the case of the string CN=prefix\<>suffix.
+     *
+     * Before said change, the string can be used to construct an X500Principal, although according
+     * to RFC2253 is not possible. Also, characters after '<' are ignored. We have tests documenting
+     * that we allow such strings, like testIllegalInputName_07, so we modified the change as to
+     * allow the string. We check that the characters after '<' are not ignored.
+     *
+     * Note: the string CN=prefix\<>suffix in the test is escaped as CN=prefix\\<>suffix
+     */
+    public void testSemiIllegalInputName_15() {
+        String dn = "CN=prefix\\<>suffix";
+
+        X500Principal principal = new X500Principal(dn);
+        assertEquals("CN=\"prefix<>suffix\"", principal.getName(X500Principal.RFC1779));
+        assertEquals("CN=prefix\\<\\>suffix", principal.getName(X500Principal.RFC2253));
+        assertEquals("cn=prefix\\<\\>suffix", principal.getName(X500Principal.CANONICAL));
+    }
+
     public void testInitClause() {
         try {
             byte[] mess = { 0x30, 0x18, 0x31, 0x0A, 0x30, 0x08, 0x06, 0x03,

@@ -17,15 +17,17 @@ Goobuntu 12.04.
 """
 
 
-import socket
 import subprocess
 
-import common
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.server import site_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = site_utils.metrics_mock
 
 
-STATS_KEY = 'hung_processes.%s' % socket.gethostname().replace('.', '_')
-
+PROGRAM_TO_CHECK_SET = set(['gsutil', 'autoserv'])
 
 def check_proc(prog, max_elapsed_sec):
     """Check the number of long-running processes for a given program.
@@ -41,12 +43,20 @@ def check_proc(prog, max_elapsed_sec):
     cmd = ('ps -eo etimes,args | grep "%s" | awk \'{if($1 > %d) print $0}\' | '
            'wc -l' % (prog, max_elapsed_sec))
     count = int(subprocess.check_output(cmd, shell = True))
-    autotest_stats.Gauge(STATS_KEY).send(prog, count)
+
+    if prog not in PROGRAM_TO_CHECK_SET:
+        prog = 'unknown'
+
+    metrics.Gauge('chromeos/autotest/hung_processes').set(
+            count, fields={'program': prog}
+    )
 
 
 def main():
-    for p in ('gsutil', 'autoserv'):
-        check_proc(p, 86400)
+    """Main script. """
+    with site_utils.SetupTsMonGlobalState('check_hung_proc', short_lived=True):
+        for p in PROGRAM_TO_CHECK_SET:
+            check_proc(p, 86400)
 
 
 if __name__ == '__main__':

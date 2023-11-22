@@ -18,14 +18,14 @@
 
 #pragma once
 
-#include <stdbool.h>
 #include <hardware/bluetooth.h>
+#include <stdbool.h>
 
 // Set the Bluetooth OS callouts to |callouts|.
 // This function should be called when native kernel wakelocks are not used
 // directly. If this function is not called, or |callouts| is NULL, then native
 // kernel wakelocks will be used.
-void wakelock_set_os_callouts(bt_os_callouts_t *callouts);
+void wakelock_set_os_callouts(bt_os_callouts_t* callouts);
 
 // Acquire the Bluetooth wakelock.
 // The function is thread safe.
@@ -47,7 +47,7 @@ void wakelock_cleanup(void);
 // This is not guaranteed to have any effect after an alarm has been
 // set with alarm_set.
 // If |lock_path| or |unlock_path| are NULL, that path is not changed.
-void wakelock_set_paths(const char *lock_path, const char *unlock_path);
+void wakelock_set_paths(const char* lock_path, const char* unlock_path);
 
 // Dump wakelock-related debug info to the |fd| file descriptor.
 // The caller is responsible for closing the |fd|.

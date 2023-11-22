@@ -7,7 +7,6 @@ NAME = 'network_WiFi_RoamSuspendTimeout.wpa'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:wifi_flaky"
-SUITE = 'wifi_flaky'
 DEPENDENCIES = 'wificell'
 
 DOC = """

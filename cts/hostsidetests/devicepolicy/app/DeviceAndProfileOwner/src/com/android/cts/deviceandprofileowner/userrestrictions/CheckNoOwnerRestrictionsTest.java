@@ -24,7 +24,8 @@ import android.test.AndroidTestCase;
  */
 public class CheckNoOwnerRestrictionsTest extends AndroidTestCase {
     public void testNoOwnerRestrictions() {
-        assertFalse(mContext.getSystemService(UserManager.class).hasUserRestriction(
+        assertFalse("DISALLOW_UNMUTE_MICROPHONE is still set",
+                mContext.getSystemService(UserManager.class).hasUserRestriction(
                 UserManager.DISALLOW_UNMUTE_MICROPHONE));
     }
 }

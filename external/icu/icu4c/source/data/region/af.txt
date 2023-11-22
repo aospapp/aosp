@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/main/af.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 af{
     Countries{
         001{"Wêreld"}
@@ -46,7 +40,6 @@ af{
         AI{"Anguilla"}
         AL{"Albanië"}
         AM{"Armenië"}
-        AN{"Nederlands-Antille"}
         AO{"Angola"}
         AQ{"Antarktika"}
         AR{"Argentinië"}
@@ -96,7 +89,7 @@ af{
         CW{"Curaçao"}
         CX{"Kerseiland"}
         CY{"Siprus"}
-        CZ{"Tjeggiese Republiek"}
+        CZ{"Tjeggië"}
         DE{"Duitsland"}
         DG{"Diego Garcia"}
         DJ{"Djiboeti"}
@@ -115,7 +108,7 @@ af{
         EU{"Europese Unie"}
         FI{"Finland"}
         FJ{"Fidji"}
-        FK{"Falklandeilande"}
+        FK{"Falklandeilande (Malvinas)"}
         FM{"Mikronesië"}
         FO{"Faroëreilande"}
         FR{"Frankryk"}
@@ -188,7 +181,7 @@ af{
         MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshalleilande"}
-        MK{"Macedonië"}
+        MK{"Macedonië (VJRM)"}
         ML{"Mali"}
         MM{"Mianmar (Birma)"}
         MN{"Mongolië"}
@@ -279,6 +272,7 @@ af{
         UA{"Oekraïne"}
         UG{"Uganda"}
         UM{"VS klein omliggende eilande"}
+        UN{"verenigde nasies"}
         US{"Verenigde State van Amerika"}
         UY{"Uruguay"}
         UZ{"Oesbekistan"}
@@ -301,13 +295,13 @@ af{
     }
     Countries%short{
         GB{"VK"}
+        UN{"VN"}
         US{"VSA"}
     }
     Countries%variant{
         CD{"Kongo (DRK)"}
         CG{"Kongo (Republiek die)"}
-        FK{"Falklandeilande (Malvinas)"}
-        MK{"Macedonië (VJRM)"}
+        CZ{"Tjeggiese Republiek"}
     }
-    Version{"2.1.19.94"}
+    Version{"2.1.29.44"}
 }

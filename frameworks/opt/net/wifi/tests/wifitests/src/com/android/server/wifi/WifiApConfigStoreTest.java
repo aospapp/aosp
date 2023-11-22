@@ -49,6 +49,9 @@ public class WifiApConfigStoreTest {
     private static final String TEST_DEFAULT_2G_CHANNEL_LIST = "1,2,3,4,5,6";
     private static final String TEST_DEFAULT_AP_SSID = "TestAP";
     private static final String TEST_CONFIGURED_AP_SSID = "ConfiguredAP";
+    private static final String TEST_DEFAULT_HOTSPOT_SSID = "TestShare";
+    private static final int RAND_SSID_INT_MIN = 1000;
+    private static final int RAND_SSID_INT_MAX = 9999;
 
     @Mock Context mContext;
     @Mock BackupManagerProxy mBackupManagerProxy;
@@ -67,6 +70,8 @@ public class WifiApConfigStoreTest {
                             TEST_DEFAULT_2G_CHANNEL_LIST);
         resources.setString(R.string.wifi_tether_configure_ssid_default,
                             TEST_DEFAULT_AP_SSID);
+        resources.setString(R.string.wifi_localhotspot_configure_ssid_default,
+                            TEST_DEFAULT_HOTSPOT_SSID);
         when(mContext.getResources()).thenReturn(resources);
     }
 
@@ -105,8 +110,12 @@ public class WifiApConfigStoreTest {
         assertEquals(config1.apChannel, config2.apChannel);
     }
 
-    private void verifyDefaultApConfig(WifiConfiguration config) {
-        assertEquals(TEST_DEFAULT_AP_SSID, config.SSID);
+    private void verifyDefaultApConfig(WifiConfiguration config, String expectedSsid) {
+        String[] splitSsid = config.SSID.split("_");
+        assertEquals(2, splitSsid.length);
+        assertEquals(expectedSsid, splitSsid[0]);
+        int randomPortion = Integer.parseInt(splitSsid[1]);
+        assertTrue(randomPortion >= RAND_SSID_INT_MIN && randomPortion <= RAND_SSID_INT_MAX);
         assertTrue(config.allowedKeyManagement.get(KeyMgmt.WPA2_PSK));
     }
 
@@ -118,7 +127,7 @@ public class WifiApConfigStoreTest {
     public void initWithDefaultConfiguration() throws Exception {
         WifiApConfigStore store = new WifiApConfigStore(
                 mContext, mBackupManagerProxy, mApConfigFile.getPath());
-        verifyDefaultApConfig(store.getApConfiguration());
+        verifyDefaultApConfig(store.getApConfiguration(), TEST_DEFAULT_AP_SSID);
     }
 
     /**
@@ -159,7 +168,7 @@ public class WifiApConfigStoreTest {
         verifyApConfig(expectedConfig, store.getApConfiguration());
 
         store.setApConfiguration(null);
-        verifyDefaultApConfig(store.getApConfiguration());
+        verifyDefaultApConfig(store.getApConfiguration(), TEST_DEFAULT_AP_SSID);
         verify(mBackupManagerProxy).notifyDataChanged();
     }
 
@@ -171,7 +180,7 @@ public class WifiApConfigStoreTest {
         /* Initialize WifiApConfigStore with default configuration. */
         WifiApConfigStore store = new WifiApConfigStore(
                 mContext, mBackupManagerProxy, mApConfigFile.getPath());
-        verifyDefaultApConfig(store.getApConfiguration());
+        verifyDefaultApConfig(store.getApConfiguration(), TEST_DEFAULT_AP_SSID);
 
         /* Update with a valid configuration. */
         WifiConfiguration expectedConfig = setupApConfig(
@@ -183,5 +192,17 @@ public class WifiApConfigStoreTest {
         store.setApConfiguration(expectedConfig);
         verifyApConfig(expectedConfig, store.getApConfiguration());
         verify(mBackupManagerProxy).notifyDataChanged();
+    }
+
+    /**
+     * Verify a proper local only hotspot config is generated when called properly with the valid
+     * context.
+     */
+    @Test
+    public void generateLocalOnlyHotspotConfigIsValid() {
+        WifiConfiguration config = WifiApConfigStore.generateLocalOnlyHotspotConfig(mContext);
+        verifyDefaultApConfig(config, TEST_DEFAULT_HOTSPOT_SSID);
+        // The LOHS config should also have a specific network id set - check that as well.
+        assertEquals(WifiConfiguration.LOCAL_ONLY_NETWORK_ID, config.networkId);
     }
 }

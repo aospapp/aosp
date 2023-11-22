@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- package name must be unique so suffix with "tests" so package loader doesn't ignore us -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.bluetooth.tests">
+          package="com.android.bluetooth.tests"
+          android:sharedUserId="android.uid.bluetooth">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE" />
@@ -64,7 +65,7 @@
     the package of com.android.bluetooth.  To run the tests use the command:
     "adb shell am instrument -w com.android.bluetooth.tests/android.test.InstrumentationTestRunner"
     -->
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.bluetooth"
                      android:label="Tests for com.android.bluetooth"/>
 </manifest>

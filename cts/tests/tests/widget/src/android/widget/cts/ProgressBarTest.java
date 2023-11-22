@@ -16,532 +16,564 @@
 
 package android.widget.cts;
 
-import android.content.res.ColorStateList;
-import android.graphics.Color;
-import android.graphics.PorterDuff;
-import android.view.LayoutInflater;
-
-import android.widget.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
-import android.graphics.ColorFilter;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
-import android.test.InstrumentationTestCase;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.ProgressBar;
+import android.widget.cts.util.TestUtils;
 
-public class ProgressBarTest extends InstrumentationTestCase {
-    // The target context.
-    private Context mContext;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ProgressBarTest {
+    private ProgressBarCtsActivity mActivity;
+    private ProgressBar mProgressBar;
+    private ProgressBar mProgressBarHorizontal;
+
+    @Rule
+    public ActivityTestRule<ProgressBarCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ProgressBarCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mProgressBar = (ProgressBar) mActivity.findViewById(R.id.progress);
+        mProgressBarHorizontal = (ProgressBar) mActivity.findViewById(R.id.progress_horizontal);
     }
 
+    @Test
     public void testConstructor() {
-        new ProgressBar(mContext);
+        new ProgressBar(mActivity);
 
-        new ProgressBar(mContext, null);
+        new ProgressBar(mActivity, null);
 
-        new ProgressBar(mContext, null, android.R.attr.progressBarStyle);
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyle);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleHorizontal);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleInverse);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleLarge);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleLargeInverse);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleSmall);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleSmallInverse);
+
+        new ProgressBar(mActivity, null, android.R.attr.progressBarStyleSmallTitle);
+
+        new ProgressBar(mActivity, null, 0, android.R.style.Widget_DeviceDefault_Light_ProgressBar);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Horizontal);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Inverse);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Large);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Large_Inverse);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Small);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Small_Inverse);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_DeviceDefault_Light_ProgressBar_Small_Title);
+
+        new ProgressBar(mActivity, null, 0, android.R.style.Widget_Material_Light_ProgressBar);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Horizontal);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Inverse);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Large);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Large_Inverse);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Small);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Small_Inverse);
+
+        new ProgressBar(mActivity, null, 0,
+                android.R.style.Widget_Material_Light_ProgressBar_Small_Title);
     }
 
+    @UiThreadTest
+    @Test
     public void testSetIndeterminate() {
-        ProgressBar progressBar = new ProgressBar(mContext);
-        assertTrue(progressBar.isIndeterminate());
+        assertTrue(mProgressBar.isIndeterminate());
 
-        progressBar.setIndeterminate(true);
-        assertTrue(progressBar.isIndeterminate());
+        mProgressBar.setIndeterminate(true);
+        assertTrue(mProgressBar.isIndeterminate());
 
-        progressBar.setIndeterminate(false);
+        mProgressBar.setIndeterminate(false);
         // because default is Indeterminate only progressBar, can't change the status
-        assertTrue(progressBar.isIndeterminate());
+        assertTrue(mProgressBar.isIndeterminate());
 
-        progressBar = new ProgressBar(mContext, null, android.R.attr.progressBarStyleHorizontal);
-        assertFalse(progressBar.isIndeterminate());
+        assertFalse(mProgressBarHorizontal.isIndeterminate());
 
-        progressBar.setIndeterminate(true);
-        assertTrue(progressBar.isIndeterminate());
+        mProgressBarHorizontal.setIndeterminate(true);
+        assertTrue(mProgressBarHorizontal.isIndeterminate());
 
-        progressBar.setIndeterminate(false);
-        assertFalse(progressBar.isIndeterminate());
+        mProgressBarHorizontal.setIndeterminate(false);
+        assertFalse(mProgressBarHorizontal.isIndeterminate());
     }
 
-    public void testAccessIndeterminateDrawable() {
-        ProgressBar progressBar = new ProgressBar(mContext);
+    @UiThreadTest
+    @Test
+    public void testQueryAnimationState() {
+        assertTrue(mProgressBar.isAnimating());
+        assertFalse(mProgressBarHorizontal.isAnimating());
 
+        mProgressBarHorizontal.setIndeterminate(true);
+        assertTrue(mProgressBarHorizontal.isAnimating());
+
+        mProgressBarHorizontal.setIndeterminate(false);
+        assertFalse(mProgressBarHorizontal.isAnimating());
+
+        mProgressBar.setVisibility(View.GONE);
+        assertFalse(mProgressBar.isAnimating());
+        mProgressBar.setVisibility(View.INVISIBLE);
+        assertFalse(mProgressBar.isAnimating());
+        mProgressBar.setVisibility(View.VISIBLE);
+        assertTrue(mProgressBar.isAnimating());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAccessIndeterminateDrawable() {
         // set IndeterminateDrawable
         // normal value
-        MockDrawable mockDrawable = new MockDrawable();
-        progressBar.setIndeterminateDrawable(mockDrawable);
-        assertSame(mockDrawable, progressBar.getIndeterminateDrawable());
-        assertFalse(mockDrawable.hasCalledDraw());
-        progressBar.draw(new Canvas());
-        assertTrue(mockDrawable.hasCalledDraw());
+        Drawable mockProgressDrawable = spy(new ColorDrawable(Color.YELLOW));
+        mProgressBar.setIndeterminateDrawable(mockProgressDrawable);
+        assertSame(mockProgressDrawable, mProgressBar.getIndeterminateDrawable());
+        verify(mockProgressDrawable, never()).draw(any(Canvas.class));
+        mProgressBar.draw(new Canvas());
+        verify(mockProgressDrawable, atLeastOnce()).draw(any(Canvas.class));
 
         // exceptional value
-        progressBar.setIndeterminateDrawable(null);
-        assertNull(progressBar.getIndeterminateDrawable());
+        mProgressBar.setIndeterminateDrawable(null);
+        assertNull(mProgressBar.getIndeterminateDrawable());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessProgressDrawable() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-
         // set ProgressDrawable
         // normal value
-        MockDrawable mockDrawable = new MockDrawable();
-        progressBar.setProgressDrawable(mockDrawable);
-        assertSame(mockDrawable, progressBar.getProgressDrawable());
-        assertFalse(mockDrawable.hasCalledDraw());
-        progressBar.draw(new Canvas());
-        assertTrue(mockDrawable.hasCalledDraw());
+        Drawable mockProgressDrawable = spy(new ColorDrawable(Color.BLUE));
+        mProgressBarHorizontal.setProgressDrawable(mockProgressDrawable);
+        assertSame(mockProgressDrawable, mProgressBarHorizontal.getProgressDrawable());
+        verify(mockProgressDrawable, never()).draw(any(Canvas.class));
+        mProgressBarHorizontal.draw(new Canvas());
+        verify(mockProgressDrawable, atLeastOnce()).draw(any(Canvas.class));
 
         // exceptional value
-        progressBar.setProgressDrawable(null);
-        assertNull(progressBar.getProgressDrawable());
+        mProgressBarHorizontal.setProgressDrawable(null);
+        assertNull(mProgressBarHorizontal.getProgressDrawable());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessProgress() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-        assertEquals(0, progressBar.getProgress());
+        assertEquals(0, mProgressBarHorizontal.getProgress());
 
-        final int maxProgress = progressBar.getMax();
+        final int maxProgress = mProgressBarHorizontal.getMax();
         // set Progress
         // normal value
-        progressBar.setProgress(maxProgress >> 1);
-        assertEquals(maxProgress >> 1, progressBar.getProgress());
+        mProgressBarHorizontal.setProgress(maxProgress >> 1);
+        assertEquals(maxProgress >> 1, mProgressBarHorizontal.getProgress());
 
         // exceptional values
-        progressBar.setProgress(-1);
-        assertEquals(0, progressBar.getProgress());
+        mProgressBarHorizontal.setProgress(-1);
+        assertEquals(0, mProgressBarHorizontal.getProgress());
 
-        progressBar.setProgress(maxProgress + 1);
-        assertEquals(maxProgress, progressBar.getProgress());
+        mProgressBarHorizontal.setProgress(maxProgress + 1);
+        assertEquals(maxProgress, mProgressBarHorizontal.getProgress());
 
-        progressBar.setProgress(Integer.MAX_VALUE);
-        assertEquals(maxProgress, progressBar.getProgress());
+        mProgressBarHorizontal.setProgress(Integer.MAX_VALUE);
+        assertEquals(maxProgress, mProgressBarHorizontal.getProgress());
+
+        mProgressBarHorizontal.setProgress(0, true);
+        assertEquals(0, mProgressBarHorizontal.getProgress());
 
         // when in indeterminate mode
-        progressBar.setIndeterminate(true);
-        progressBar.setProgress(maxProgress >> 1);
-        assertEquals(0, progressBar.getProgress());
+        mProgressBarHorizontal.setIndeterminate(true);
+        mProgressBarHorizontal.setProgress(maxProgress >> 1);
+        assertEquals(0, mProgressBarHorizontal.getProgress());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessSecondaryProgress() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-        assertEquals(0, progressBar.getSecondaryProgress());
+        assertEquals(0, mProgressBarHorizontal.getSecondaryProgress());
 
-        final int maxProgress = progressBar.getMax();
+        final int maxProgress = mProgressBarHorizontal.getMax();
         // set SecondaryProgress
         // normal value
-        progressBar.setSecondaryProgress(maxProgress >> 1);
-        assertEquals(maxProgress >> 1, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setSecondaryProgress(maxProgress >> 1);
+        assertEquals(maxProgress >> 1, mProgressBarHorizontal.getSecondaryProgress());
 
         // exceptional value
-        progressBar.setSecondaryProgress(-1);
-        assertEquals(0, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setSecondaryProgress(-1);
+        assertEquals(0, mProgressBarHorizontal.getSecondaryProgress());
 
-        progressBar.setSecondaryProgress(maxProgress + 1);
-        assertEquals(maxProgress, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setSecondaryProgress(maxProgress + 1);
+        assertEquals(maxProgress, mProgressBarHorizontal.getSecondaryProgress());
 
-        progressBar.setSecondaryProgress(Integer.MAX_VALUE);
-        assertEquals(maxProgress, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setSecondaryProgress(Integer.MAX_VALUE);
+        assertEquals(maxProgress, mProgressBarHorizontal.getSecondaryProgress());
 
         // when in indeterminate mode
-        progressBar.setIndeterminate(true);
-        progressBar.setSecondaryProgress(maxProgress >> 1);
-        assertEquals(0, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setIndeterminate(true);
+        mProgressBarHorizontal.setSecondaryProgress(maxProgress >> 1);
+        assertEquals(0, mProgressBarHorizontal.getSecondaryProgress());
     }
 
+    @UiThreadTest
+    @Test
     public void testIncrementProgressBy() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-
         // normal value
         int increment = 1;
-        int oldProgress = progressBar.getProgress();
-        progressBar.incrementProgressBy(increment);
-        assertEquals(oldProgress + increment, progressBar.getProgress());
+        int oldProgress = mProgressBarHorizontal.getProgress();
+        mProgressBarHorizontal.incrementProgressBy(increment);
+        assertEquals(oldProgress + increment, mProgressBarHorizontal.getProgress());
 
-        increment = progressBar.getMax() >> 1;
-        oldProgress = progressBar.getProgress();
-        progressBar.incrementProgressBy(increment);
-        assertEquals(oldProgress + increment, progressBar.getProgress());
+        increment = mProgressBarHorizontal.getMax() >> 1;
+        oldProgress = mProgressBarHorizontal.getProgress();
+        mProgressBarHorizontal.incrementProgressBy(increment);
+        assertEquals(oldProgress + increment, mProgressBarHorizontal.getProgress());
 
         // exceptional values
-        progressBar.setProgress(0);
-        progressBar.incrementProgressBy(Integer.MAX_VALUE);
-        assertEquals(progressBar.getMax(), progressBar.getProgress());
+        mProgressBarHorizontal.setProgress(0);
+        mProgressBarHorizontal.incrementProgressBy(Integer.MAX_VALUE);
+        assertEquals(mProgressBarHorizontal.getMax(), mProgressBarHorizontal.getProgress());
 
-        progressBar.setProgress(0);
-        progressBar.incrementProgressBy(Integer.MIN_VALUE);
-        assertEquals(0, progressBar.getProgress());
+        mProgressBarHorizontal.setProgress(0);
+        mProgressBarHorizontal.incrementProgressBy(Integer.MIN_VALUE);
+        assertEquals(0, mProgressBarHorizontal.getProgress());
     }
 
+    @UiThreadTest
+    @Test
     public void testIncrementSecondaryProgressBy() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-
         // normal value
         int increment = 1;
-        int oldSecondaryProgress = progressBar.getSecondaryProgress();
-        progressBar.incrementSecondaryProgressBy(increment);
-        assertEquals(oldSecondaryProgress + increment, progressBar.getSecondaryProgress());
+        int oldSecondaryProgress = mProgressBarHorizontal.getSecondaryProgress();
+        mProgressBarHorizontal.incrementSecondaryProgressBy(increment);
+        assertEquals(oldSecondaryProgress + increment,
+                mProgressBarHorizontal.getSecondaryProgress());
 
-        increment = progressBar.getMax() >> 1;
-        oldSecondaryProgress = progressBar.getSecondaryProgress();
-        progressBar.incrementSecondaryProgressBy(increment);
-        assertEquals(oldSecondaryProgress + increment, progressBar.getSecondaryProgress());
+        increment = mProgressBarHorizontal.getMax() >> 1;
+        oldSecondaryProgress = mProgressBarHorizontal.getSecondaryProgress();
+        mProgressBarHorizontal.incrementSecondaryProgressBy(increment);
+        assertEquals(oldSecondaryProgress + increment,
+                mProgressBarHorizontal.getSecondaryProgress());
 
         // exceptional values
-        progressBar.setSecondaryProgress(0);
-        progressBar.incrementSecondaryProgressBy(Integer.MAX_VALUE);
-        assertEquals(progressBar.getMax(), progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setSecondaryProgress(0);
+        mProgressBarHorizontal.incrementSecondaryProgressBy(Integer.MAX_VALUE);
+        assertEquals(mProgressBarHorizontal.getMax(),
+                mProgressBarHorizontal.getSecondaryProgress());
 
-        progressBar.setSecondaryProgress(0);
-        progressBar.incrementSecondaryProgressBy(Integer.MIN_VALUE);
-        assertEquals(0, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.setSecondaryProgress(0);
+        mProgressBarHorizontal.incrementSecondaryProgressBy(Integer.MIN_VALUE);
+        assertEquals(0, mProgressBarHorizontal.getSecondaryProgress());
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessInterpolator() {
-        ProgressBar progressBar = new ProgressBar(mContext);
-
         // default should be LinearInterpolator
-        assertTrue(progressBar.getInterpolator() instanceof LinearInterpolator);
+        assertTrue(mProgressBar.getInterpolator() instanceof LinearInterpolator);
 
-        // normal value
-        Interpolator i = new AccelerateDecelerateInterpolator();
-        progressBar.setInterpolator(i);
-        assertEquals(i, progressBar.getInterpolator());
+        Interpolator interpolator = new AccelerateDecelerateInterpolator();
+        mProgressBar.setInterpolator(interpolator);
+        assertEquals(interpolator, mProgressBar.getInterpolator());
+
+        mProgressBar.setInterpolator(mActivity, android.R.anim.accelerate_interpolator);
+        assertTrue(mProgressBar.getInterpolator() instanceof AccelerateInterpolator);
     }
 
+    @UiThreadTest
+    @Test
     public void testSetVisibility() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-
         // set visibility
         // normal value
         int visibility = View.VISIBLE;
-        progressBar.setVisibility(visibility);
-        assertEquals(visibility, progressBar.getVisibility());
+        mProgressBarHorizontal.setVisibility(visibility);
+        assertEquals(visibility, mProgressBarHorizontal.getVisibility());
 
         visibility = View.GONE;
-        progressBar.setVisibility(visibility);
-        assertEquals(visibility, progressBar.getVisibility());
+        mProgressBarHorizontal.setVisibility(visibility);
+        assertEquals(visibility, mProgressBarHorizontal.getVisibility());
 
         // exceptional value
         visibility = 0xfffffff5; // -11
         int mask = 0x0000000C; // View.VISIBILITY_MASK
-        int expected = (progressBar.getVisibility() & ~mask) | (visibility & mask);
-        progressBar.setVisibility(visibility);
-        assertEquals(expected, progressBar.getVisibility());
+        int expected = (mProgressBarHorizontal.getVisibility() & ~mask) | (visibility & mask);
+        mProgressBarHorizontal.setVisibility(visibility);
+        assertEquals(expected, mProgressBarHorizontal.getVisibility());
 
         visibility = 0x7fffffff; // Integer.MAX_VALUE;
-        expected = (progressBar.getVisibility() & ~mask) | (visibility & mask);
-        progressBar.setVisibility(Integer.MAX_VALUE);
-        assertEquals(expected, progressBar.getVisibility());
+        expected = (mProgressBarHorizontal.getVisibility() & ~mask) | (visibility & mask);
+        mProgressBarHorizontal.setVisibility(Integer.MAX_VALUE);
+        assertEquals(expected, mProgressBarHorizontal.getVisibility());
     }
 
+    @UiThreadTest
+    @Test
     public void testInvalidateDrawable() {
-        MockProgressBar mockProgressBar = new MockProgressBar(mContext);
+        ProgressBar mockProgressBar = spy(new ProgressBar(mActivity));
 
-        MockDrawable mockDrawable1 = new MockDrawable();
-        MockDrawable mockDrawable2 = new MockDrawable();
+        Drawable mockDrawable1 = spy(new ColorDrawable(Color.RED));
+        Drawable mockDrawable2 = spy(new ColorDrawable(Color.GREEN));
         mockProgressBar.setBackgroundDrawable(mockDrawable1);
 
         mockProgressBar.invalidateDrawable(mockDrawable1);
-        assertTrue(mockProgressBar.hasCalledInvalidate());
+        verify(mockProgressBar, atLeastOnce()).invalidate(anyInt(), anyInt(), anyInt(), anyInt());
 
-        mockProgressBar.reset();
+        reset(mockProgressBar);
         mockProgressBar.invalidateDrawable(mockDrawable2);
-        assertFalse(mockProgressBar.hasCalledInvalidate());
+        verify(mockProgressBar, never()).invalidate(anyInt(), anyInt(), anyInt(), anyInt());
 
         mockProgressBar.setIndeterminateDrawable(mockDrawable1);
         mockProgressBar.setProgressDrawable(mockDrawable2);
     }
 
+    @UiThreadTest
+    @Test
     public void testPostInvalidate() {
-        MockProgressBar mockProgressBar = new MockProgressBar(mContext);
-        mockProgressBar.postInvalidate();
+        mProgressBarHorizontal.postInvalidate();
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessMax() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
-
         // set Progress
         int progress = 10;
-        progressBar.setProgress(progress);
+        mProgressBarHorizontal.setProgress(progress);
 
         // normal value
         int max = progress + 1;
-        progressBar.setMax(max);
-        assertEquals(max, progressBar.getMax());
-        assertEquals(progress, progressBar.getProgress());
+        mProgressBarHorizontal.setMax(max);
+        assertEquals(max, mProgressBarHorizontal.getMax());
+        assertEquals(progress, mProgressBarHorizontal.getProgress());
 
         max = progress - 1;
-        progressBar.setMax(max);
-        assertEquals(max, progressBar.getMax());
-        assertEquals(max, progressBar.getProgress());
+        mProgressBarHorizontal.setMax(max);
+        assertEquals(max, mProgressBarHorizontal.getMax());
+        assertEquals(max, mProgressBarHorizontal.getProgress());
 
         // exceptional values
-        progressBar.setMax(-1);
-        assertEquals(0, progressBar.getMax());
-        assertEquals(0, progressBar.getProgress());
+        mProgressBarHorizontal.setMax(-1);
+        assertEquals(0, mProgressBarHorizontal.getMax());
+        assertEquals(0, mProgressBarHorizontal.getProgress());
 
-        progressBar.setMax(Integer.MAX_VALUE);
-        assertEquals(Integer.MAX_VALUE, progressBar.getMax());
-        assertEquals(0, progressBar.getProgress());
+        mProgressBarHorizontal.setMax(Integer.MAX_VALUE);
+        assertEquals(Integer.MAX_VALUE, mProgressBarHorizontal.getMax());
+        assertEquals(0, mProgressBarHorizontal.getProgress());
     }
 
-    public void testOnDraw() {
-        // Do not test, it's controlled by View. Implementation details
-    }
-
+    @UiThreadTest
+    @Test
     public void testProgressTint() {
-        LayoutInflater inflater = LayoutInflater.from(mContext);
-        View layout = inflater.inflate(R.layout.progressbar_layout, null);
-        ProgressBar inflatedView = (ProgressBar) layout.findViewById(R.id.progress_tint);
+        ProgressBar tintedProgressBar = (ProgressBar) mActivity.findViewById(R.id.progress_tint);
 
         assertEquals("Progress tint inflated correctly",
-                Color.WHITE, inflatedView.getProgressTintList().getDefaultColor());
+                Color.WHITE, tintedProgressBar.getProgressTintList().getDefaultColor());
         assertEquals("Progress tint mode inflated correctly",
-                PorterDuff.Mode.SRC_OVER, inflatedView.getProgressTintMode());
+                PorterDuff.Mode.SRC_OVER, tintedProgressBar.getProgressTintMode());
 
         assertEquals("Progress background tint inflated correctly",
-                Color.WHITE, inflatedView.getProgressBackgroundTintList().getDefaultColor());
+                Color.WHITE, tintedProgressBar.getProgressBackgroundTintList().getDefaultColor());
         assertEquals("Progress background tint mode inflated correctly",
-                PorterDuff.Mode.SRC_OVER, inflatedView.getProgressBackgroundTintMode());
+                PorterDuff.Mode.SRC_OVER, tintedProgressBar.getProgressBackgroundTintMode());
 
         assertEquals("Secondary progress tint inflated correctly",
-                Color.WHITE, inflatedView.getSecondaryProgressTintList().getDefaultColor());
+                Color.WHITE, tintedProgressBar.getSecondaryProgressTintList().getDefaultColor());
         assertEquals("Secondary progress tint mode inflated correctly",
-                PorterDuff.Mode.SRC_OVER, inflatedView.getSecondaryProgressTintMode());
+                PorterDuff.Mode.SRC_OVER, tintedProgressBar.getSecondaryProgressTintMode());
 
-        MockDrawable progress = new MockDrawable();
-        ProgressBar view = new ProgressBar(mContext);
+        Drawable mockProgressDrawable = spy(new ColorDrawable(Color.BLACK));
 
-        view.setProgressDrawable(progress);
-        assertFalse("No progress tint applied by default", progress.hasCalledSetTint());
+        mProgressBar.setProgressDrawable(mockProgressDrawable);
+        // No progress tint applied by default
+        verify(mockProgressDrawable, never()).setTintList(any(ColorStateList.class));
 
-        view.setProgressBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
-        assertFalse("Progress background tint not applied when layer missing",
-                progress.hasCalledSetTint());
+        mProgressBar.setProgressBackgroundTintList(ColorStateList.valueOf(Color.WHITE));
+        // Progress background tint not applied when layer missing
+        verify(mockProgressDrawable, never()).setTintList(any(ColorStateList.class));
 
-        view.setSecondaryProgressTintList(ColorStateList.valueOf(Color.WHITE));
-        assertFalse("Secondary progress tint not applied when layer missing",
-                progress.hasCalledSetTint());
+        mProgressBar.setSecondaryProgressTintList(ColorStateList.valueOf(Color.WHITE));
+        // Secondary progress tint not applied when layer missing
+        verify(mockProgressDrawable, never()).setTintList(any(ColorStateList.class));
 
-        view.setProgressTintList(ColorStateList.valueOf(Color.WHITE));
-        assertTrue("Progress tint applied when setProgressTintList() called after setProgress()",
-                progress.hasCalledSetTint());
+        mProgressBar.setProgressTintList(ColorStateList.valueOf(Color.WHITE));
+        // Progress tint applied when setProgressTintList() called after setProgress()
+        verify(mockProgressDrawable, times(1)).setTintList(TestUtils.colorStateListOf(Color.WHITE));
 
-        progress.reset();
-        view.setProgressDrawable(null);
-        view.setProgressDrawable(progress);
-        assertTrue("Progress tint applied when setProgressTintList() called before setProgress()",
-                progress.hasCalledSetTint());
+        mProgressBar.setProgressBackgroundTintMode(PorterDuff.Mode.DST_OVER);
+        assertEquals(PorterDuff.Mode.DST_OVER, mProgressBar.getProgressBackgroundTintMode());
+
+        mProgressBar.setSecondaryProgressTintMode(PorterDuff.Mode.DST_IN);
+        assertEquals(PorterDuff.Mode.DST_IN, mProgressBar.getSecondaryProgressTintMode());
+
+        mProgressBar.setProgressTintMode(PorterDuff.Mode.DST_ATOP);
+        assertEquals(PorterDuff.Mode.DST_ATOP, mProgressBar.getProgressTintMode());
+
+        reset(mockProgressDrawable);
+        mProgressBar.setProgressDrawable(null);
+        mProgressBar.setProgressDrawable(mockProgressDrawable);
+        // Progress tint applied when setProgressTintList() called before setProgress()
+        verify(mockProgressDrawable, times(1)).setTintList(TestUtils.colorStateListOf(Color.WHITE));
     }
 
+    @UiThreadTest
+    @Test
     public void testIndeterminateTint() {
-        LayoutInflater inflater = LayoutInflater.from(mContext);
-        View layout = inflater.inflate(R.layout.progressbar_layout, null);
-        ProgressBar inflatedView = (ProgressBar) layout.findViewById(R.id.indeterminate_tint);
+        ProgressBar tintedProgressBar =
+                (ProgressBar) mActivity.findViewById(R.id.indeterminate_tint);
 
         assertEquals("Indeterminate tint inflated correctly",
-                Color.WHITE, inflatedView.getIndeterminateTintList().getDefaultColor());
+                Color.WHITE, tintedProgressBar.getIndeterminateTintList().getDefaultColor());
         assertEquals("Indeterminate tint mode inflated correctly",
-                PorterDuff.Mode.SRC_OVER, inflatedView.getIndeterminateTintMode());
+                PorterDuff.Mode.SRC_OVER, tintedProgressBar.getIndeterminateTintMode());
 
-        MockDrawable indeterminate = new MockDrawable();
-        ProgressBar view = new ProgressBar(mContext);
+        Drawable mockIndeterminateDrawable = spy(new ColorDrawable(Color.MAGENTA));
 
-        view.setIndeterminateDrawable(indeterminate);
-        assertFalse("No indeterminate tint applied by default", indeterminate.hasCalledSetTint());
+        mProgressBar.setIndeterminateDrawable(mockIndeterminateDrawable);
+        // No indeterminate tint applied by default
+        verify(mockIndeterminateDrawable, never()).setTintList(any(ColorStateList.class));
 
-        view.setIndeterminateTintList(ColorStateList.valueOf(Color.WHITE));
-        assertTrue("Indeterminate tint applied when setIndeterminateTintList() called after "
-                + "setIndeterminate()", indeterminate.hasCalledSetTint());
+        mProgressBar.setIndeterminateTintList(ColorStateList.valueOf(Color.RED));
+        // Indeterminate tint applied when setIndeterminateTintList() called after
+        // setIndeterminate()
+        verify(mockIndeterminateDrawable, times(1)).setTintList(
+                TestUtils.colorStateListOf(Color.RED));
 
-        indeterminate.reset();
-        view.setIndeterminateDrawable(null);
-        view.setIndeterminateDrawable(indeterminate);
-        assertTrue("Indeterminate tint applied when setIndeterminateTintList() called before "
-                + "setIndeterminate()", indeterminate.hasCalledSetTint());
+        mProgressBar.setIndeterminateTintMode(PorterDuff.Mode.LIGHTEN);
+        assertEquals(PorterDuff.Mode.LIGHTEN, mProgressBar.getIndeterminateTintMode());
+
+        reset(mockIndeterminateDrawable);
+        mProgressBar.setIndeterminateDrawable(null);
+        mProgressBar.setIndeterminateDrawable(mockIndeterminateDrawable);
+        // Indeterminate tint applied when setIndeterminateTintList() called before
+        // setIndeterminate()
+        verify(mockIndeterminateDrawable, times(1)).setTintList(
+                TestUtils.colorStateListOf(Color.RED));
     }
 
-    private class MockDrawable extends Drawable {
-        private boolean mCalledDraw = false;
-        private boolean mCalledSetTint = false;
-
-        @Override
-        public void draw(Canvas canvas) {
-            mCalledDraw = true;
-        }
-
-        @Override
-        public int getOpacity() {
-            return 0;
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter cf) {
-        }
-
-        @Override
-        public void setTintList(ColorStateList tint) {
-            super.setTintList(tint);
-            mCalledSetTint = true;
-        }
-
-        public boolean hasCalledSetTint() {
-            return mCalledSetTint;
-        }
-
-        public boolean hasCalledDraw() {
-            return mCalledDraw;
-        }
-
-        public void reset() {
-            mCalledDraw = false;
-            mCalledSetTint = false;
-        }
-
-    }
-
-    public void testOnMeasure() {
-        // onMeasure() is implementation details, do NOT test
-    }
-
-    public void testOnSizeChange() {
-        // onSizeChanged() is implementation details, do NOT test
-    }
-
+    @UiThreadTest
+    @Test
     public void testVerifyDrawable() {
-        MockProgressBar mockProgressBar = new MockProgressBar(mContext);
-        assertTrue(mockProgressBar.verifyDrawable(null));
+        MockProgressBar mockProgressBar =
+                (MockProgressBar) mActivity.findViewById(R.id.progress_custom);
 
-        Drawable d1 = mContext.getResources().getDrawable(R.drawable.blue);
-        Drawable d2 = mContext.getResources().getDrawable(R.drawable.red);
-        Drawable d3 = mContext.getResources().getDrawable(R.drawable.yellow);
+        Drawable d1 = mActivity.getDrawable(R.drawable.blue);
+        Drawable d2 = mActivity.getDrawable(R.drawable.red);
+        Drawable d3 = mActivity.getDrawable(R.drawable.yellow);
 
         mockProgressBar.setBackgroundDrawable(d1);
-        assertTrue(mockProgressBar.verifyDrawable(null));
         assertTrue(mockProgressBar.verifyDrawable(d1));
         assertFalse(mockProgressBar.verifyDrawable(d2));
         assertFalse(mockProgressBar.verifyDrawable(d3));
 
         mockProgressBar.setIndeterminateDrawable(d2);
-        assertTrue(mockProgressBar.verifyDrawable(null));
         assertTrue(mockProgressBar.verifyDrawable(d1));
         assertTrue(mockProgressBar.verifyDrawable(d2));
         assertFalse(mockProgressBar.verifyDrawable(d3));
 
         mockProgressBar.setProgressDrawable(d3);
-        assertFalse(mockProgressBar.verifyDrawable(null));
         assertTrue(mockProgressBar.verifyDrawable(d1));
         assertTrue(mockProgressBar.verifyDrawable(d2));
         assertTrue(mockProgressBar.verifyDrawable(d3));
     }
 
-    public void testDrawableStateChanged() {
-        // drawableStateChanged() is implementation details, do NOT test
-    }
-
+    @UiThreadTest
+    @Test
     public void testOnSaveAndRestoreInstanceState() {
-        ProgressBar progressBar = new ProgressBar(mContext, null,
-                android.R.attr.progressBarStyleHorizontal);
         int oldProgress = 1;
-        int oldSecondaryProgress = progressBar.getMax() - 1;
-        progressBar.setProgress(oldProgress);
-        progressBar.setSecondaryProgress(oldSecondaryProgress);
-        assertEquals(oldProgress, progressBar.getProgress());
-        assertEquals(oldSecondaryProgress, progressBar.getSecondaryProgress());
+        int oldSecondaryProgress = mProgressBarHorizontal.getMax() - 1;
+        mProgressBarHorizontal.setProgress(oldProgress);
+        mProgressBarHorizontal.setSecondaryProgress(oldSecondaryProgress);
+        assertEquals(oldProgress, mProgressBarHorizontal.getProgress());
+        assertEquals(oldSecondaryProgress, mProgressBarHorizontal.getSecondaryProgress());
 
-        Parcelable state = progressBar.onSaveInstanceState();
+        Parcelable state = mProgressBarHorizontal.onSaveInstanceState();
 
         int newProgress = 2;
-        int newSecondaryProgress = progressBar.getMax() - 2;
-        progressBar.setProgress(newProgress);
-        progressBar.setSecondaryProgress(newSecondaryProgress);
-        assertEquals(newProgress, progressBar.getProgress());
-        assertEquals(newSecondaryProgress, progressBar.getSecondaryProgress());
+        int newSecondaryProgress = mProgressBarHorizontal.getMax() - 2;
+        mProgressBarHorizontal.setProgress(newProgress);
+        mProgressBarHorizontal.setSecondaryProgress(newSecondaryProgress);
+        assertEquals(newProgress, mProgressBarHorizontal.getProgress());
+        assertEquals(newSecondaryProgress, mProgressBarHorizontal.getSecondaryProgress());
 
-        progressBar.onRestoreInstanceState(state);
-        assertEquals(oldProgress, progressBar.getProgress());
-        assertEquals(oldSecondaryProgress, progressBar.getSecondaryProgress());
+        mProgressBarHorizontal.onRestoreInstanceState(state);
+        assertEquals(oldProgress, mProgressBarHorizontal.getProgress());
+        assertEquals(oldSecondaryProgress, mProgressBarHorizontal.getSecondaryProgress());
     }
 
     /*
      * Mock class for ProgressBar to test protected methods
      */
-    private class MockProgressBar extends ProgressBar {
-        private boolean mCalledInvalidate = false;
-
-        /**
-         * @param context
-         */
+    public static class MockProgressBar extends ProgressBar {
         public MockProgressBar(Context context) {
             super(context);
+        }
+
+        public MockProgressBar(Context context, AttributeSet attrs) {
+            super(context, attrs);
         }
 
         @Override
         protected boolean verifyDrawable(Drawable who) {
             return super.verifyDrawable(who);
-        }
-
-        @Override
-        protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-            super.onSizeChanged(w, h, oldw, oldh);
-        }
-
-        @Override
-        protected synchronized void onMeasure(int widthMeasureSpec,
-                int heightMeasureSpec) {
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        }
-
-        @Override
-        protected synchronized void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-        }
-
-        @Override
-        protected void drawableStateChanged() {
-            super.drawableStateChanged();
-        }
-
-        public void invalidate(int l, int t, int r, int b) {
-            mCalledInvalidate = true;
-            super.invalidate(l, t, r, b);
-        }
-
-        public void invalidate() {
-            mCalledInvalidate = true;
-            super.invalidate();
-        }
-
-        public boolean hasCalledInvalidate() {
-            return mCalledInvalidate;
-        }
-
-        public void reset() {
-            mCalledInvalidate = false;
         }
     }
 }

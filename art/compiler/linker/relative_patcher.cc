@@ -22,6 +22,12 @@
 #ifdef ART_ENABLE_CODEGEN_arm64
 #include "linker/arm64/relative_patcher_arm64.h"
 #endif
+#ifdef ART_ENABLE_CODEGEN_mips
+#include "linker/mips/relative_patcher_mips.h"
+#endif
+#ifdef ART_ENABLE_CODEGEN_mips64
+#include "linker/mips64/relative_patcher_mips64.h"
+#endif
 #ifdef ART_ENABLE_CODEGEN_x86
 #include "linker/x86/relative_patcher_x86.h"
 #endif
@@ -69,6 +75,12 @@ std::unique_ptr<RelativePatcher> RelativePatcher::Create(
       LOG(FATAL) << "Unexpected relative dex cache array patch.";
     }
 
+    void PatchBakerReadBarrierBranch(std::vector<uint8_t>* code ATTRIBUTE_UNUSED,
+                                     const LinkerPatch& patch ATTRIBUTE_UNUSED,
+                                     uint32_t patch_offset ATTRIBUTE_UNUSED) {
+      LOG(FATAL) << "Unexpected baker read barrier branch patch.";
+    }
+
    private:
     DISALLOW_COPY_AND_ASSIGN(RelativePatcherNone);
   };
@@ -95,6 +107,15 @@ std::unique_ptr<RelativePatcher> RelativePatcher::Create(
       return std::unique_ptr<RelativePatcher>(
           new Arm64RelativePatcher(provider, features->AsArm64InstructionSetFeatures()));
 #endif
+#ifdef ART_ENABLE_CODEGEN_mips
+    case kMips:
+      return std::unique_ptr<RelativePatcher>(
+          new MipsRelativePatcher(features->AsMipsInstructionSetFeatures()));
+#endif
+#ifdef ART_ENABLE_CODEGEN_mips64
+    case kMips64:
+      return std::unique_ptr<RelativePatcher>(new Mips64RelativePatcher());
+#endif
     default:
       return std::unique_ptr<RelativePatcher>(new RelativePatcherNone);
   }
@@ -112,7 +133,7 @@ bool RelativePatcher::WriteCodeAlignment(OutputStream* out, uint32_t aligned_cod
   return true;
 }
 
-bool RelativePatcher::WriteRelCallThunk(OutputStream* out, const ArrayRef<const uint8_t>& thunk) {
+bool RelativePatcher::WriteThunk(OutputStream* out, const ArrayRef<const uint8_t>& thunk) {
   if (UNLIKELY(!out->WriteFully(thunk.data(), thunk.size()))) {
     return false;
   }

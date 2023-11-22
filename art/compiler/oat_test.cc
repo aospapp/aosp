@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
+#include "android-base/stringprintf.h"
+
 #include "arch/instruction_set_features.h"
 #include "art_method-inl.h"
+#include "base/enums.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
 #include "common_compiler_test.h"
 #include "compiled_method.h"
 #include "compiler.h"
 #include "debug/method_debug_info.h"
-#include "dex/quick/dex_file_to_method_inliner_map.h"
 #include "dex/quick_compiler_callbacks.h"
 #include "dex/verification_results.h"
 #include "driver/compiler_driver.h"
@@ -30,6 +32,8 @@
 #include "elf_writer.h"
 #include "elf_writer_quick.h"
 #include "entrypoints/quick/quick_entrypoints.h"
+#include "linker/buffered_output_stream.h"
+#include "linker/file_output_stream.h"
 #include "linker/multi_oat_relative_patcher.h"
 #include "linker/vector_output_stream.h"
 #include "mirror/class-inl.h"
@@ -37,7 +41,7 @@
 #include "mirror/object_array-inl.h"
 #include "oat_file-inl.h"
 #include "oat_writer.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "utils/test_dex_file_builder.h"
 
 namespace art {
@@ -46,7 +50,7 @@ NO_RETURN static void Usage(const char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   std::string error;
-  StringAppendV(&error, fmt, ap);
+  android::base::StringAppendV(&error, fmt, ap);
   LOG(FATAL) << error;
   va_end(ap);
   UNREACHABLE();
@@ -59,20 +63,20 @@ class OatTest : public CommonCompilerTest {
   void CheckMethod(ArtMethod* method,
                    const OatFile::OatMethod& oat_method,
                    const DexFile& dex_file)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     const CompiledMethod* compiled_method =
         compiler_driver_->GetCompiledMethod(MethodReference(&dex_file,
                                                             method->GetDexMethodIndex()));
 
     if (compiled_method == nullptr) {
-      EXPECT_TRUE(oat_method.GetQuickCode() == nullptr) << PrettyMethod(method) << " "
+      EXPECT_TRUE(oat_method.GetQuickCode() == nullptr) << method->PrettyMethod() << " "
                                                         << oat_method.GetQuickCode();
       EXPECT_EQ(oat_method.GetFrameSizeInBytes(), 0U);
       EXPECT_EQ(oat_method.GetCoreSpillMask(), 0U);
       EXPECT_EQ(oat_method.GetFpSpillMask(), 0U);
     } else {
       const void* quick_oat_code = oat_method.GetQuickCode();
-      EXPECT_TRUE(quick_oat_code != nullptr) << PrettyMethod(method);
+      EXPECT_TRUE(quick_oat_code != nullptr) << method->PrettyMethod();
       EXPECT_EQ(oat_method.GetFrameSizeInBytes(), compiled_method->GetFrameSizeInBytes());
       EXPECT_EQ(oat_method.GetCoreSpillMask(), compiled_method->GetCoreSpillMask());
       EXPECT_EQ(oat_method.GetFpSpillMask(), compiled_method->GetFpSpillMask());
@@ -82,7 +86,7 @@ class OatTest : public CommonCompilerTest {
       EXPECT_FALSE(quick_code.empty());
       size_t code_size = quick_code.size() * sizeof(quick_code[0]);
       EXPECT_EQ(0, memcmp(quick_oat_code, &quick_code[0], code_size))
-          << PrettyMethod(method) << " " << code_size;
+          << method->PrettyMethod() << " " << code_size;
       CHECK_EQ(0, memcmp(quick_oat_code, &quick_code[0], code_size));
     }
   }
@@ -92,27 +96,22 @@ class OatTest : public CommonCompilerTest {
                      const std::vector<std::string>& compiler_options,
                      /*out*/std::string* error_msg) {
     ASSERT_TRUE(error_msg != nullptr);
-    insn_features_.reset(InstructionSetFeatures::FromVariant(insn_set, "default", error_msg));
+    insn_features_ = InstructionSetFeatures::FromVariant(insn_set, "default", error_msg);
     ASSERT_TRUE(insn_features_ != nullptr) << error_msg;
     compiler_options_.reset(new CompilerOptions);
     for (const std::string& option : compiler_options) {
       compiler_options_->ParseCompilerOption(option, Usage);
     }
     verification_results_.reset(new VerificationResults(compiler_options_.get()));
-    method_inliner_map_.reset(new DexFileToMethodInlinerMap);
     callbacks_.reset(new QuickCompilerCallbacks(verification_results_.get(),
-                                                method_inliner_map_.get(),
                                                 CompilerCallbacks::CallbackMode::kCompileApp));
     Runtime::Current()->SetCompilerCallbacks(callbacks_.get());
     timer_.reset(new CumulativeLogger("Compilation times"));
     compiler_driver_.reset(new CompilerDriver(compiler_options_.get(),
                                               verification_results_.get(),
-                                              method_inliner_map_.get(),
                                               compiler_kind,
                                               insn_set,
                                               insn_features_.get(),
-                                              /* boot_image */ false,
-                                              /* app_image */ false,
                                               /* image_classes */ nullptr,
                                               /* compiled_classes */ nullptr,
                                               /* compiled_methods */ nullptr,
@@ -124,12 +123,15 @@ class OatTest : public CommonCompilerTest {
                                               /* profile_compilation_info */ nullptr));
   }
 
-  bool WriteElf(File* file,
+  bool WriteElf(File* vdex_file,
+                File* oat_file,
                 const std::vector<const DexFile*>& dex_files,
                 SafeMap<std::string, std::string>& key_value_store,
                 bool verify) {
     TimingLogger timings("WriteElf", false, false);
-    OatWriter oat_writer(/*compiling_boot_image*/false, &timings);
+    OatWriter oat_writer(/*compiling_boot_image*/false,
+                         &timings,
+                         /*profile_compilation_info*/nullptr);
     for (const DexFile* dex_file : dex_files) {
       ArrayRef<const uint8_t> raw_dex_file(
           reinterpret_cast<const uint8_t*>(&dex_file->GetHeader()),
@@ -140,37 +142,43 @@ class OatTest : public CommonCompilerTest {
         return false;
       }
     }
-    return DoWriteElf(file, oat_writer, key_value_store, verify);
+    return DoWriteElf(vdex_file, oat_file, oat_writer, key_value_store, verify);
   }
 
-  bool WriteElf(File* file,
+  bool WriteElf(File* vdex_file,
+                File* oat_file,
                 const std::vector<const char*>& dex_filenames,
                 SafeMap<std::string, std::string>& key_value_store,
-                bool verify) {
+                bool verify,
+                ProfileCompilationInfo* profile_compilation_info) {
     TimingLogger timings("WriteElf", false, false);
-    OatWriter oat_writer(/*compiling_boot_image*/false, &timings);
+    OatWriter oat_writer(/*compiling_boot_image*/false, &timings, profile_compilation_info);
     for (const char* dex_filename : dex_filenames) {
       if (!oat_writer.AddDexFileSource(dex_filename, dex_filename)) {
         return false;
       }
     }
-    return DoWriteElf(file, oat_writer, key_value_store, verify);
+    return DoWriteElf(vdex_file, oat_file, oat_writer, key_value_store, verify);
   }
 
-  bool WriteElf(File* file,
-                ScopedFd&& zip_fd,
+  bool WriteElf(File* vdex_file,
+                File* oat_file,
+                File&& zip_fd,
                 const char* location,
                 SafeMap<std::string, std::string>& key_value_store,
                 bool verify) {
     TimingLogger timings("WriteElf", false, false);
-    OatWriter oat_writer(/*compiling_boot_image*/false, &timings);
+    OatWriter oat_writer(/*compiling_boot_image*/false,
+                         &timings,
+                         /*profile_compilation_info*/nullptr);
     if (!oat_writer.AddZippedDexFilesSource(std::move(zip_fd), location)) {
       return false;
     }
-    return DoWriteElf(file, oat_writer, key_value_store, verify);
+    return DoWriteElf(vdex_file, oat_file, oat_writer, key_value_store, verify);
   }
 
-  bool DoWriteElf(File* file,
+  bool DoWriteElf(File* vdex_file,
+                  File* oat_file,
                   OatWriter& oat_writer,
                   SafeMap<std::string, std::string>& key_value_store,
                   bool verify) {
@@ -178,21 +186,23 @@ class OatTest : public CommonCompilerTest {
         compiler_driver_->GetInstructionSet(),
         compiler_driver_->GetInstructionSetFeatures(),
         &compiler_driver_->GetCompilerOptions(),
-        file);
+        oat_file);
     elf_writer->Start();
-    OutputStream* rodata = elf_writer->StartRoData();
+    OutputStream* oat_rodata = elf_writer->StartRoData();
     std::unique_ptr<MemMap> opened_dex_files_map;
     std::vector<std::unique_ptr<const DexFile>> opened_dex_files;
-    if (!oat_writer.WriteAndOpenDexFiles(rodata,
-                                         file,
+    if (!oat_writer.WriteAndOpenDexFiles(kIsVdexEnabled ? vdex_file : oat_file,
+                                         oat_rodata,
                                          compiler_driver_->GetInstructionSet(),
                                          compiler_driver_->GetInstructionSetFeatures(),
                                          &key_value_store,
                                          verify,
+                                         /* update_input_vdex */ false,
                                          &opened_dex_files_map,
                                          &opened_dex_files)) {
       return false;
     }
+
     Runtime* runtime = Runtime::Current();
     ClassLinker* const class_linker = runtime->GetClassLinker();
     std::vector<const DexFile*> dex_files;
@@ -203,15 +213,30 @@ class OatTest : public CommonCompilerTest {
     }
     linker::MultiOatRelativePatcher patcher(compiler_driver_->GetInstructionSet(),
                                             instruction_set_features_.get());
-    oat_writer.PrepareLayout(compiler_driver_.get(), nullptr, dex_files, &patcher);
+    oat_writer.Initialize(compiler_driver_.get(), nullptr, dex_files);
+    oat_writer.PrepareLayout(&patcher);
     size_t rodata_size = oat_writer.GetOatHeader().GetExecutableOffset();
-    size_t text_size = oat_writer.GetSize() - rodata_size;
-    elf_writer->SetLoadedSectionSizes(rodata_size, text_size, oat_writer.GetBssSize());
+    size_t text_size = oat_writer.GetOatSize() - rodata_size;
+    elf_writer->PrepareDynamicSection(rodata_size,
+                                      text_size,
+                                      oat_writer.GetBssSize(),
+                                      oat_writer.GetBssRootsOffset());
 
-    if (!oat_writer.WriteRodata(rodata)) {
+    if (kIsVdexEnabled) {
+      std::unique_ptr<BufferedOutputStream> vdex_out(
+            MakeUnique<BufferedOutputStream>(MakeUnique<FileOutputStream>(vdex_file)));
+      if (!oat_writer.WriteVerifierDeps(vdex_out.get(), nullptr)) {
+        return false;
+      }
+      if (!oat_writer.WriteChecksumsAndVdexHeader(vdex_out.get())) {
+        return false;
+      }
+    }
+
+    if (!oat_writer.WriteRodata(oat_rodata)) {
       return false;
     }
-    elf_writer->EndRoData(rodata);
+    elf_writer->EndRoData(oat_rodata);
 
     OutputStream* text = elf_writer->StartText();
     if (!oat_writer.WriteCode(text)) {
@@ -225,16 +250,27 @@ class OatTest : public CommonCompilerTest {
 
     elf_writer->WriteDynamicSection();
     elf_writer->WriteDebugInfo(oat_writer.GetMethodDebugInfo());
-    elf_writer->WritePatchLocations(oat_writer.GetAbsolutePatchLocations());
 
-    return elf_writer->End();
+    if (!elf_writer->End()) {
+      return false;
+    }
+
+    opened_dex_files_maps_.emplace_back(std::move(opened_dex_files_map));
+    for (std::unique_ptr<const DexFile>& dex_file : opened_dex_files) {
+      opened_dex_files_.emplace_back(dex_file.release());
+    }
+    return true;
   }
 
-  void TestDexFileInput(bool verify, bool low_4gb);
+  void TestDexFileInput(bool verify, bool low_4gb, bool use_profile);
   void TestZipFileInput(bool verify);
+  void TestZipFileInputWithEmptyDex();
 
   std::unique_ptr<const InstructionSetFeatures> insn_features_;
   std::unique_ptr<QuickCompilerCallbacks> callbacks_;
+
+  std::vector<std::unique_ptr<MemMap>> opened_dex_files_maps_;
+  std::vector<std::unique_ptr<const DexFile>> opened_dex_files_;
 };
 
 class ZipBuilder {
@@ -362,20 +398,26 @@ TEST_F(OatTest, WriteRead) {
   if (kCompile) {
     TimingLogger timings2("OatTest::WriteRead", false, false);
     compiler_driver_->SetDexFilesForOatFile(class_linker->GetBootClassPath());
-    compiler_driver_->CompileAll(class_loader, class_linker->GetBootClassPath(), &timings2);
+    compiler_driver_->CompileAll(
+        class_loader, class_linker->GetBootClassPath(), /* verifier_deps */ nullptr, &timings2);
   }
 
-  ScratchFile tmp;
+  ScratchFile tmp_oat, tmp_vdex(tmp_oat, ".vdex");
   SafeMap<std::string, std::string> key_value_store;
   key_value_store.Put(OatHeader::kImageLocationKey, "lue.art");
-  bool success = WriteElf(tmp.GetFile(), class_linker->GetBootClassPath(), key_value_store, false);
+  bool success = WriteElf(tmp_vdex.GetFile(),
+                          tmp_oat.GetFile(),
+                          class_linker->GetBootClassPath(),
+                          key_value_store,
+                          false);
   ASSERT_TRUE(success);
 
   if (kCompile) {  // OatWriter strips the code, regenerate to compare
-    compiler_driver_->CompileAll(class_loader, class_linker->GetBootClassPath(), &timings);
+    compiler_driver_->CompileAll(
+        class_loader, class_linker->GetBootClassPath(), /* verifier_deps */ nullptr, &timings);
   }
-  std::unique_ptr<OatFile> oat_file(OatFile::Open(tmp.GetFilename(),
-                                                  tmp.GetFilename(),
+  std::unique_ptr<OatFile> oat_file(OatFile::Open(tmp_oat.GetFilename(),
+                                                  tmp_oat.GetFilename(),
                                                   nullptr,
                                                   nullptr,
                                                   false,
@@ -443,8 +485,9 @@ TEST_F(OatTest, OatHeaderSizeCheck) {
   // it is time to update OatHeader::kOatVersion
   EXPECT_EQ(72U, sizeof(OatHeader));
   EXPECT_EQ(4U, sizeof(OatMethodOffsets));
-  EXPECT_EQ(20U, sizeof(OatQuickMethodHeader));
-  EXPECT_EQ(132 * GetInstructionSetPointerSize(kRuntimeISA), sizeof(QuickEntryPoints));
+  EXPECT_EQ(24U, sizeof(OatQuickMethodHeader));
+  EXPECT_EQ(161 * static_cast<size_t>(GetInstructionSetPointerSize(kRuntimeISA)),
+            sizeof(QuickEntryPoints));
 }
 
 TEST_F(OatTest, OatHeaderIsValid) {
@@ -476,7 +519,7 @@ TEST_F(OatTest, EmptyTextSection) {
   if (insn_set == kArm) insn_set = kThumb2;
   std::string error_msg;
   std::vector<std::string> compiler_options;
-  compiler_options.push_back("--compiler-filter=verify-at-runtime");
+  compiler_options.push_back("--compiler-filter=extract");
   SetupCompiler(compiler_kind, insn_set, compiler_options, /*out*/ &error_msg);
 
   jobject class_loader;
@@ -491,19 +534,20 @@ TEST_F(OatTest, EmptyTextSection) {
   ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
   for (const DexFile* dex_file : dex_files) {
     ScopedObjectAccess soa(Thread::Current());
-    class_linker->RegisterDexFile(*dex_file, soa.Decode<mirror::ClassLoader*>(class_loader));
+    class_linker->RegisterDexFile(*dex_file,
+                                  soa.Decode<mirror::ClassLoader>(class_loader).Ptr());
   }
   compiler_driver_->SetDexFilesForOatFile(dex_files);
-  compiler_driver_->CompileAll(class_loader, dex_files, &timings);
+  compiler_driver_->CompileAll(class_loader, dex_files, /* verifier_deps */ nullptr, &timings);
 
-  ScratchFile tmp;
+  ScratchFile tmp_oat, tmp_vdex(tmp_oat, ".vdex");
   SafeMap<std::string, std::string> key_value_store;
   key_value_store.Put(OatHeader::kImageLocationKey, "test.art");
-  bool success = WriteElf(tmp.GetFile(), dex_files, key_value_store, false);
+  bool success = WriteElf(tmp_vdex.GetFile(), tmp_oat.GetFile(), dex_files, key_value_store, false);
   ASSERT_TRUE(success);
 
-  std::unique_ptr<OatFile> oat_file(OatFile::Open(tmp.GetFilename(),
-                                                  tmp.GetFilename(),
+  std::unique_ptr<OatFile> oat_file(OatFile::Open(tmp_oat.GetFilename(),
+                                                  tmp_oat.GetFilename(),
                                                   nullptr,
                                                   nullptr,
                                                   false,
@@ -511,7 +555,8 @@ TEST_F(OatTest, EmptyTextSection) {
                                                   nullptr,
                                                   &error_msg));
   ASSERT_TRUE(oat_file != nullptr);
-  EXPECT_LT(static_cast<size_t>(oat_file->Size()), static_cast<size_t>(tmp.GetFile()->GetLength()));
+  EXPECT_LT(static_cast<size_t>(oat_file->Size()),
+            static_cast<size_t>(tmp_oat.GetFile()->GetLength()));
 }
 
 static void MaybeModifyDexFileToFail(bool verify, std::unique_ptr<const DexFile>& data) {
@@ -522,7 +567,7 @@ static void MaybeModifyDexFileToFail(bool verify, std::unique_ptr<const DexFile>
   }
 }
 
-void OatTest::TestDexFileInput(bool verify, bool low_4gb) {
+void OatTest::TestDexFileInput(bool verify, bool low_4gb, bool use_profile) {
   TimingLogger timings("OatTest::DexFileInput", false, false);
 
   std::vector<const char*> input_filenames;
@@ -557,10 +602,17 @@ void OatTest::TestDexFileInput(bool verify, bool low_4gb) {
   ASSERT_TRUE(success);
   input_filenames.push_back(dex_file2.GetFilename().c_str());
 
-  ScratchFile oat_file;
+  ScratchFile oat_file, vdex_file(oat_file, ".vdex");
   SafeMap<std::string, std::string> key_value_store;
   key_value_store.Put(OatHeader::kImageLocationKey, "test.art");
-  success = WriteElf(oat_file.GetFile(), input_filenames, key_value_store, verify);
+  std::unique_ptr<ProfileCompilationInfo>
+      profile_compilation_info(use_profile ? new ProfileCompilationInfo() : nullptr);
+  success = WriteElf(vdex_file.GetFile(),
+                     oat_file.GetFile(),
+                     input_filenames,
+                     key_value_store,
+                     verify,
+                     profile_compilation_info.get());
 
   // In verify mode, we expect failure.
   if (verify) {
@@ -604,15 +656,19 @@ void OatTest::TestDexFileInput(bool verify, bool low_4gb) {
 }
 
 TEST_F(OatTest, DexFileInputCheckOutput) {
-  TestDexFileInput(false, /*low_4gb*/false);
+  TestDexFileInput(/*verify*/false, /*low_4gb*/false, /*use_profile*/false);
 }
 
 TEST_F(OatTest, DexFileInputCheckOutputLow4GB) {
-  TestDexFileInput(false, /*low_4gb*/true);
+  TestDexFileInput(/*verify*/false, /*low_4gb*/true, /*use_profile*/false);
 }
 
 TEST_F(OatTest, DexFileInputCheckVerifier) {
-  TestDexFileInput(true, /*low_4gb*/false);
+  TestDexFileInput(/*verify*/true, /*low_4gb*/false, /*use_profile*/false);
+}
+
+TEST_F(OatTest, DexFileFailsVerifierWithLayout) {
+  TestDexFileInput(/*verify*/true, /*low_4gb*/false, /*use_profile*/true);
 }
 
 void OatTest::TestZipFileInput(bool verify) {
@@ -666,8 +722,9 @@ void OatTest::TestZipFileInput(bool verify) {
     // Test using the AddDexFileSource() interface with the zip file.
     std::vector<const char*> input_filenames { zip_file.GetFilename().c_str() };  // NOLINT [readability/braces] [4]
 
-    ScratchFile oat_file;
-    success = WriteElf(oat_file.GetFile(), input_filenames, key_value_store, verify);
+    ScratchFile oat_file, vdex_file(oat_file, ".vdex");
+    success = WriteElf(vdex_file.GetFile(), oat_file.GetFile(), input_filenames,
+                       key_value_store, verify, /*profile_compilation_info*/nullptr);
 
     if (verify) {
       ASSERT_FALSE(success);
@@ -708,11 +765,12 @@ void OatTest::TestZipFileInput(bool verify) {
 
   {
     // Test using the AddZipDexFileSource() interface with the zip file handle.
-    ScopedFd zip_fd(dup(zip_file.GetFd()));
-    ASSERT_NE(-1, zip_fd.get());
+    File zip_fd(dup(zip_file.GetFd()), /* check_usage */ false);
+    ASSERT_NE(-1, zip_fd.Fd());
 
-    ScratchFile oat_file;
-    success = WriteElf(oat_file.GetFile(),
+    ScratchFile oat_file, vdex_file(oat_file, ".vdex");
+    success = WriteElf(vdex_file.GetFile(),
+                       oat_file.GetFile(),
                        std::move(zip_fd),
                        zip_file.GetFilename().c_str(),
                        key_value_store,
@@ -761,6 +819,28 @@ TEST_F(OatTest, ZipFileInputCheckOutput) {
 
 TEST_F(OatTest, ZipFileInputCheckVerifier) {
   TestZipFileInput(true);
+}
+
+void OatTest::TestZipFileInputWithEmptyDex() {
+  ScratchFile zip_file;
+  ZipBuilder zip_builder(zip_file.GetFile());
+  bool success = zip_builder.AddFile("classes.dex", nullptr, 0);
+  ASSERT_TRUE(success);
+  success = zip_builder.Finish();
+  ASSERT_TRUE(success) << strerror(errno);
+
+  SafeMap<std::string, std::string> key_value_store;
+  key_value_store.Put(OatHeader::kImageLocationKey, "test.art");
+  std::vector<const char*> input_filenames { zip_file.GetFilename().c_str() };  // NOLINT [readability/braces] [4]
+  ScratchFile oat_file, vdex_file(oat_file, ".vdex");
+  std::unique_ptr<ProfileCompilationInfo> profile_compilation_info(new ProfileCompilationInfo());
+  success = WriteElf(vdex_file.GetFile(), oat_file.GetFile(), input_filenames,
+                     key_value_store, /*verify*/false, profile_compilation_info.get());
+  ASSERT_FALSE(success);
+}
+
+TEST_F(OatTest, ZipFileInputWithEmptyDex) {
+  TestZipFileInputWithEmptyDex();
 }
 
 TEST_F(OatTest, UpdateChecksum) {

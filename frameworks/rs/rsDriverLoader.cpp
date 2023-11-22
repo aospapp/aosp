@@ -21,9 +21,8 @@
 
 #include "rsgApiStructs.h"
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
 #include "rsMesh.h"
-#include <gui/DisplayEventReceiver.h>
 #endif
 
 #include <sys/types.h>
@@ -36,19 +35,12 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB) && \
-        defined(__ANDROID__)
-#include <cutils/properties.h>
-#endif
-
 #ifdef RS_COMPATIBILITY_LIB
 #include "rsCompatibilityLib.h"
 #endif
 
-using namespace android;
-using namespace android::renderscript;
-
-
+namespace android {
+namespace renderscript {
 
 typedef bool (*HalQueryVersion)(uint32_t *version_major, uint32_t *version_minor);
 typedef bool (*HalQueryHal)(android::renderscript::RsHalInitEnums entry, void **fnPtr);
@@ -232,27 +224,30 @@ error:
 
 
 
-bool Context::loadDriver(bool forceDefault) {
+bool Context::loadDriver(bool forceDefault, bool forceRSoV) {
     bool loadDefault = true;
 
     // Provide a mechanism for dropping in a different RS driver.
 #ifndef RS_COMPATIBILITY_LIB
-#ifdef OVERRIDE_RS_DRIVER
-#define XSTR(S) #S
-#define STR(S) XSTR(S)
-#define OVERRIDE_RS_DRIVER_STRING STR(OVERRIDE_RS_DRIVER)
 
-    if (!forceDefault) {
-        if (loadRuntime(OVERRIDE_RS_DRIVER_STRING)) {
-            ALOGV("Successfully loaded runtime: %s", OVERRIDE_RS_DRIVER_STRING);
+    if (forceRSoV) {
+        // If the property is set to use the RSoV driver, load it and fall back
+        // to the vendor driver or the CPU reference driver if it does not load.
+        if (loadRuntime("libRSDriver_RSoV.so")) {
+            ALOGV("Successfully loaded the RSoV driver!");
+            return true;
+        }
+        ALOGE("Failed to load the RSoV driver!");
+    }
+
+    if (!forceDefault && mVendorDriverName != nullptr) {
+        if (loadRuntime(mVendorDriverName)) {
+            ALOGV("Successfully loaded runtime: %s", mVendorDriverName);
             loadDefault = false;
         } else {
-            ALOGE("Failed to load runtime %s, loading default", OVERRIDE_RS_DRIVER_STRING);
+            ALOGE("Failed to load runtime %s, loading default", mVendorDriverName);
         }
     }
-#undef XSTR
-#undef STR
-#endif  // OVERRIDE_RS_DRIVER
 
     if (loadDefault) {
         if (!loadRuntime("libRSDriver.so")) {
@@ -272,3 +267,6 @@ bool Context::loadDriver(bool forceDefault) {
 
     return true;
 }
+
+} // namespace renderscript
+} // namespace android

@@ -23,25 +23,25 @@
 #include "hardware/bt_av.h"
 #include "hardware/bt_gatt_types.h"
 
-const char *BtAvConnectionStateText(const btav_connection_state_t state);
+const char* BtAvConnectionStateText(const btav_connection_state_t state);
 
-const char *BtAvAudioStateText(const btav_audio_state_t state);
+const char* BtAvAudioStateText(const btav_audio_state_t state);
 
-const char *BtTransportText(const btgatt_transport_t t);
+const char* BtTransportText(const btgatt_transport_t t);
 
-const char *BtStateText(const bt_state_t state);
+const char* BtStateText(const bt_state_t state);
 
-const char *BtDiscoveryStateText(const bt_discovery_state_t);
+const char* BtDiscoveryStateText(const bt_discovery_state_t);
 
-const char *BtScanModeText(const bt_scan_mode_t mode);
+const char* BtScanModeText(const bt_scan_mode_t mode);
 
-const char *BtStatusText(const bt_status_t status);
+const char* BtStatusText(const bt_status_t status);
 
-const char *BtPropertyText(const bt_property_type_t prop);
+const char* BtPropertyText(const bt_property_type_t prop);
 
-const char *BtEventText(const bt_cb_thread_evt evt);
+const char* BtEventText(const bt_cb_thread_evt evt);
 
-const char *BtAclText(const bt_acl_state_t state);
+const char* BtAclText(const bt_acl_state_t state);
 
 // TODO(icoolidge): Address object.
-std::string BtAddrString(const bt_bdaddr_t *addr);
+std::string BtAddrString(const bt_bdaddr_t* addr);

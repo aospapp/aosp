@@ -16,53 +16,72 @@
 
 package android.text.style.cts;
 
-import android.text.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.drawable.Drawable;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Html;
 import android.text.Layout;
 import android.text.Spanned;
 import android.text.StaticLayout;
 import android.text.TextPaint;
+import android.text.cts.R;
 import android.text.style.DrawableMarginSpan;
 
-public class DrawableMarginSpanTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DrawableMarginSpanTest {
+    private Context mContext;
+    private Drawable mDrawable;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mDrawable = mContext.getDrawable(R.drawable.scenery);
+    }
+
+    @Test
     public void testConstructor() {
-        Drawable d = mContext.getResources().getDrawable(R.drawable.pass);
+        Drawable d = mContext.getDrawable(R.drawable.pass);
 
         new DrawableMarginSpan(d);
         new DrawableMarginSpan(d, 1);
         new DrawableMarginSpan(null, -1);
     }
 
+    @Test
     public void testGetLeadingMargin() {
-        Drawable drawable = mContext.getResources().getDrawable(R.drawable.scenery);
-
-        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(drawable, 1);
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 1);
         int leadingMargin1 = drawableMarginSpan.getLeadingMargin(true);
 
-        drawableMarginSpan = new DrawableMarginSpan(drawable, 10);
+        drawableMarginSpan = new DrawableMarginSpan(mDrawable, 10);
         int leadingMargin2 = drawableMarginSpan.getLeadingMargin(true);
 
         assertTrue(leadingMargin2 > leadingMargin1);
     }
 
+    @Test
     public void testDrawLeadingMargin() {
-        Drawable drawable = mContext.getResources().getDrawable(R.drawable.scenery);
-        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(drawable, 0);
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 0);
 
-        assertEquals(0, drawable.getBounds().top);
-        assertEquals(0, drawable.getBounds().bottom);
-        assertEquals(0, drawable.getBounds().left);
-        assertEquals(0, drawable.getBounds().right);
+        assertEquals(0, mDrawable.getBounds().top);
+        assertEquals(0, mDrawable.getBounds().bottom);
+        assertEquals(0, mDrawable.getBounds().left);
+        assertEquals(0, mDrawable.getBounds().right);
 
         Canvas canvas = new Canvas();
         Spanned text = Html.fromHtml("<b>hello</b>");
-        TextPaint paint= new TextPaint();
+        TextPaint paint = new TextPaint();
         Layout layout = new StaticLayout("cts test.", paint, 200,
                 Layout.Alignment.ALIGN_NORMAL, 1, 0, true);
 
@@ -71,31 +90,32 @@ public class DrawableMarginSpanTest extends AndroidTestCase {
                 0, 0, text, 0, 0, true, layout);
 
         // 0 means the top location
-        assertEquals(0, drawable.getBounds().top);
-        assertEquals(0 + drawable.getIntrinsicHeight(), drawable.getBounds().bottom);
-        assertEquals(x, drawable.getBounds().left);
-        assertEquals(x + drawable.getIntrinsicWidth(), drawable.getBounds().right);
-
-        try {
-            drawableMarginSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0,
-                    null, 0, 0, false, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
-
-        try {
-            drawableMarginSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0,
-                    "cts test.", 0, 0, false, null);
-            fail("When try to use a String as the text, should throw ClassCastException.");
-        } catch (ClassCastException e) {
-            // expected, test success.
-        }
+        assertEquals(0, mDrawable.getBounds().top);
+        assertEquals(mDrawable.getIntrinsicHeight(), mDrawable.getBounds().bottom);
+        assertEquals(x, mDrawable.getBounds().left);
+        assertEquals(x + mDrawable.getIntrinsicWidth(), mDrawable.getBounds().right);
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testDrawLeadingMarginNull() {
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 0);
+
+        drawableMarginSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0,
+                null, 0, 0, false, null);
+    }
+
+    @Test(expected=ClassCastException.class)
+    public void testDrawLeadingMarginString() {
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 0);
+
+        // When try to use a String as the text, should throw ClassCastException
+        drawableMarginSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0,
+                "cts test.", 0, 0, false, null);
+    }
+
+    @Test
     public void testChooseHeight() {
-        Drawable drawable = mContext.getResources().getDrawable(R.drawable.scenery);
-        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(drawable, 0);
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 0);
 
         Spanned text = Html.fromHtml("cts test.");
         FontMetricsInt fm = new FontMetricsInt();
@@ -115,19 +135,21 @@ public class DrawableMarginSpanTest extends AndroidTestCase {
         assertTrue(fm.descent > 0);
         assertEquals(0, fm.leading);
         assertEquals(0, fm.top);
+    }
 
-        try {
-            drawableMarginSpan.chooseHeight(null, 0, 0, 0, 0, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+    @Test(expected=NullPointerException.class)
+    public void testChooseHeightNull() {
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 0);
 
-        try {
-            drawableMarginSpan.chooseHeight("cts test.", 0, 0, 0, 0, null);
-            fail("When try to use a String as the text, should throw ClassCastException.");
-        } catch (ClassCastException e) {
-            // expected, test success.
-        }
+        drawableMarginSpan.chooseHeight(null, 0, 0, 0, 0, null);
+    }
+
+
+    @Test(expected=ClassCastException.class)
+    public void testChooseHeightString() {
+        DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 0);
+
+        // When try to use a String as the text, should throw ClassCastException
+        drawableMarginSpan.chooseHeight("cts test.", 0, 0, 0, 0, null);
     }
 }

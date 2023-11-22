@@ -77,19 +77,34 @@ bool SimpleSoftOMXComponent::isSetParameterAllowed(
     switch (index) {
         case OMX_IndexParamPortDefinition:
         {
-            portIndex = ((OMX_PARAM_PORTDEFINITIONTYPE *)params)->nPortIndex;
+            const OMX_PARAM_PORTDEFINITIONTYPE *portDefs =
+                    (const OMX_PARAM_PORTDEFINITIONTYPE *) params;
+            if (!isValidOMXParam(portDefs)) {
+                return false;
+            }
+            portIndex = portDefs->nPortIndex;
             break;
         }
 
         case OMX_IndexParamAudioPcm:
         {
-            portIndex = ((OMX_AUDIO_PARAM_PCMMODETYPE *)params)->nPortIndex;
+            const OMX_AUDIO_PARAM_PCMMODETYPE *pcmMode =
+                    (const OMX_AUDIO_PARAM_PCMMODETYPE *) params;
+            if (!isValidOMXParam(pcmMode)) {
+                return false;
+            }
+            portIndex = pcmMode->nPortIndex;
             break;
         }
 
         case OMX_IndexParamAudioAac:
         {
-            portIndex = ((OMX_AUDIO_PARAM_AACPROFILETYPE *)params)->nPortIndex;
+            const OMX_AUDIO_PARAM_AACPROFILETYPE *aacMode =
+                    (const OMX_AUDIO_PARAM_AACPROFILETYPE *) params;
+            if (!isValidOMXParam(aacMode)) {
+                return false;
+            }
+            portIndex = aacMode->nPortIndex;
             break;
         }
 
@@ -426,7 +441,19 @@ void SimpleSoftOMXComponent::onSendCommand(
 }
 
 void SimpleSoftOMXComponent::onChangeState(OMX_STATETYPE state) {
+    ALOGV("%p requesting change from %d to %d", this, mState, state);
     // We shouldn't be in a state transition already.
+
+    if (mState == OMX_StateLoaded
+            && mTargetState == OMX_StateIdle
+            && state == OMX_StateLoaded) {
+        // OMX specifically allows "canceling" a state transition from loaded
+        // to idle. Pretend we made it to idle, and go back to loaded
+        ALOGV("load->idle canceled");
+        mState = mTargetState = OMX_StateIdle;
+        state = OMX_StateLoaded;
+    }
+
     CHECK_EQ((int)mState, (int)mTargetState);
 
     switch (mState) {
@@ -606,6 +633,7 @@ void SimpleSoftOMXComponent::checkTransitions() {
         }
 
         if (transitionComplete) {
+            ALOGV("state transition from %d to %d complete", mState, mTargetState);
             mState = mTargetState;
 
             if (mState == OMX_StateLoaded) {
@@ -613,6 +641,8 @@ void SimpleSoftOMXComponent::checkTransitions() {
             }
 
             notify(OMX_EventCmdComplete, OMX_CommandStateSet, mState, NULL);
+        } else {
+            ALOGV("state transition from %d to %d not yet complete", mState, mTargetState);
         }
     }
 

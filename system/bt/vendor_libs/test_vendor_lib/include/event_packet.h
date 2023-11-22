@@ -18,27 +18,17 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "base/logging.h"
-#include "vendor_libs/test_vendor_lib/include/packet.h"
+#include "bt_address.h"
+#include "packet.h"
 
 namespace test_vendor_lib {
 
-// The following is specified in the Bluetooth Core Specification Version 4.2,
-// Volume 2, Part E, Section 5.4.4 (page 477). Event Packets begin with a 2
-// octet header formatted as follows:
-// - Event code: 1 octet
-// - Payload size (in octets): 1 octet
-// The header is followed by the payload, which contains event specific
-// parameters and has a maximum size of 255 octets. Valid event codes are
-// listed in stack/include/hcidefs.h. They can range from 0x00 to 0xFF, with
-// 0xFF reserved for vendor specific debug events. Note the payload size
-// describes the total size of the event parameters and not the number of
-// parameters. The event parameters contained in the payload will be an integer
-// number of octets in size. Each flavor of event packet is created via a static
-// factory function that takes the event type-specific parameters and returns an
-// initialized event packet from that data.
+// Event Packets are specified in the Bluetooth Core Specification Version 4.2,
+// Volume 2, Part E, Section 5.4.4
 class EventPacket : public Packet {
  public:
   virtual ~EventPacket() override = default;
@@ -47,114 +37,121 @@ class EventPacket : public Packet {
 
   // Static functions for creating event packets:
 
-  // Creates and returns a command complete event packet. See the Bluetooth
-  // Core Specification Version 4.2, Volume 2, Part E, Section 7.7.14 (page 861)
-  // for more information about the command complete event.
-  // Event Parameters:
-  //   |num_hci_command_packets|
-  //     Indicates the number of HCI command packets the host can send to the
-  //     controller. If |num_hci_command_packets| is 0, the controller would
-  //     like to stop receiving commands from the host (to indicate
-  //     readiness again, the controller sends a command complete event with
-  //     |command_opcode| to 0x0000 (no op) and |num_hci_command_packets| > 1).
-  //   |command_opcode|
-  //     The opcode of the command that caused this event.
-  //   |return_parameters|
-  //     Contains any event specific parameters that should
-  //     be sent to the host.
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.1
+  static std::unique_ptr<EventPacket> CreateInquiryCompleteEvent(
+      uint8_t status);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.14
+  // This should only be used for testing to send non-standard packets
+  // Most code should use the more specific functions that follow
   static std::unique_ptr<EventPacket> CreateCommandCompleteEvent(
-      uint8_t num_hci_command_packets, uint16_t command_opcode,
+      uint16_t command_opcode,
       const std::vector<uint8_t>& event_return_parameters);
 
-  // Creates and returns a command complete event packet. See the Bluetooth
-  // Core Specification Version 4.2, Volume 2, Part E, Section 7.7.15 (page 862)
-  // for more information about the command complete event.
-  // Event Parameters:
-  //   Status
-  //     0x00: Command currently in pending.
-  //     0x01-0xFF: Command failed.
-  //   |num_hci_command_packets|
-  //     Indicates the number of HCI command packets the host can send to the
-  //     controller. If |num_hci_command_packets| is 0, the controller would
-  //     like to stop receiving commands from the host (to indicate
-  //     readiness again, the controller sends a command complete event with
-  //     |command_opcode| to 0x0000 (no op) and |num_hci_command_packets| > 1).
-  //   |command_opcode|
-  //     The opcode of the command that caused this event.
+  static std::unique_ptr<EventPacket> CreateCommandCompleteOnlyStatusEvent(
+      uint16_t command_opcode, uint8_t status);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.15
   static std::unique_ptr<EventPacket> CreateCommandStatusEvent(
-      uint8_t status, uint8_t num_hci_command_packets, uint16_t command_opcode);
+      uint8_t status, uint16_t command_opcode);
 
-  // Creates and returns an inquiry result event packet. See the Bluetooth
-  // Core Specification Version 4.2, Volume 2, Part E, Section 7.7.2 (page 844)
-  // for more information about the command complete event.
-  // Event Parameters:
-  //   Num Responses (1 octet)
-  //     0xXX: Number of responses from the inquiry.
-  //   Bd Addresses (6 octets * Num Responses)
-  //     0xXXXXXXXXXXX: Bd Address for each device which responded.
-  //   Page Scan Repetition Mode (1 octet * Num Responses)
-  //     0x00: R0
-  //     0x01: R1
-  //     0x02: R2
-  //     0x03-0xFF: Reserved.
-  //   Reserved 1 (1 octet * Num Responses)
-  //     Originally Page Scan Period Mode parameter. No longer in use.
-  //   Reserved 2 (1 octet * Num Responses)
-  //     Originally Page Scan Mode parameter. No longer in use.
-  //   Class of Device (3 octet * Num Responses)
-  //     0xXXXXXX: Class of device.
-  //   Clock Offset (2 octet * Num Responses)
-  //     Bits 14-0: Bits 16-2 of CLKNslave-CLK.
-  //     Bits 15: Reserved.
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.3.12
+  static std::unique_ptr<EventPacket> CreateCommandCompleteReadLocalName(
+      uint8_t status, const std::string& local_name);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.1
+  static std::unique_ptr<EventPacket>
+  CreateCommandCompleteReadLocalVersionInformation(uint8_t status,
+                                                   uint8_t hci_version,
+                                                   uint16_t hci_revision,
+                                                   uint8_t lmp_pal_version,
+                                                   uint16_t manufacturer_name,
+                                                   uint16_t lmp_pal_subversion);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.2
+  static std::unique_ptr<EventPacket>
+  CreateCommandCompleteReadLocalSupportedCommands(
+      uint8_t status, const std::vector<uint8_t>& supported_commands);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.4
+  static std::unique_ptr<EventPacket>
+  CreateCommandCompleteReadLocalExtendedFeatures(
+      uint8_t status, uint8_t page_number, uint8_t maximum_page_number,
+      uint64_t extended_lmp_features);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.5
+  static std::unique_ptr<EventPacket> CreateCommandCompleteReadBufferSize(
+      uint8_t status, uint16_t hc_acl_data_packet_length,
+      uint8_t hc_synchronous_data_packet_length,
+      uint16_t hc_total_num_acl_data_packets,
+      uint16_t hc_total_synchronous_data_packets);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.6
+  static std::unique_ptr<EventPacket> CreateCommandCompleteReadBdAddr(
+      uint8_t status, const BtAddress& bt_address);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.4.8
+  static std::unique_ptr<EventPacket>
+  CreateCommandCompleteReadLocalSupportedCodecs(
+      uint8_t status, const std::vector<uint8_t>& supported_codecs,
+      const std::vector<uint32_t>& vendor_specific_codecs);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.2
+  enum PageScanRepetitionMode {
+    kR0 = 0,
+    kR1 = 1,
+    kR2 = 2,
+  };
+
   static std::unique_ptr<EventPacket> CreateInquiryResultEvent(
-      uint8_t num_responses, const std::vector<uint8_t>& bd_addresses,
-      const std::vector<uint8_t>& page_scan_repetition_mode,
-      const std::vector<uint8_t>& page_scan_period_mode,
-      const std::vector<uint8_t>& page_scan_mode,
-      const std::vector<uint8_t>& class_of_device,
-      const std::vector<uint8_t>& clock_offset);
+      const BtAddress& bt_address,
+      const PageScanRepetitionMode page_scan_repetition_mode,
+      uint32_t class_of_device, uint16_t clock_offset);
 
-  // Creates and returns an inquiry result event packet. See the Bluetooth
-  // Core Specification Version 4.2, Volume 2, Part E, Section 7.7.38 (page 896)
-  // for more information about the command complete event.
-  // Event Parameters:
-  //   Num Responses (1 octet)
-  //     0x01: Always contains a single response.
-  //   Bd Addresses (6 octets * Num Responses)
-  //     0xXXXXXXXXXXX: Bd Address for each device which responded.
-  //   Page Scan Repetition Mode (1 octet * Num Responses)
-  //     0x00: R0
-  //     0x01: R1
-  //     0x02: R2
-  //     0x03-0xFF: Reserved.
-  //   Reserved 1 (1 octet * Num Responses)
-  //     Originally Page Scan Period Mode parameter. No longer in use.
-  //   Class of Device (3 octet * Num Responses)
-  //     0xXXXXXX: Class of device.
-  //   Clock Offset (2 octet * Num Responses)
-  //     Bits 14-0: Bits 16-2 of CLKNslave-CLK.
-  //     Bits 15: Reserved.
-  //   RSSI (1 octet)
-  //     0xXX: Ranges from -127 to +20. Units are dBm.
-  //  Extended Inquiry Response (240 octets)
-  //    Defined in Volumne 2, Part C, Section 8. Also see the Supplement to the
-  //    Bluetooth Core Specificiation for data type definitions and formats.
+  void AddInquiryResult(const BtAddress& bt_address,
+                        const PageScanRepetitionMode page_scan_repetition_mode,
+                        uint32_t class_of_device, uint16_t clock_offset);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.7.38
   static std::unique_ptr<EventPacket> CreateExtendedInquiryResultEvent(
-      const std::vector<uint8_t>& bd_address,
-      const std::vector<uint8_t>& page_scan_repetition_mode,
-      const std::vector<uint8_t>& page_scan_period_mode,
-      const std::vector<uint8_t>& class_of_device,
-      const std::vector<uint8_t>& clock_offset,
-      const std::vector<uint8_t>& rssi,
+      const BtAddress& bt_address,
+      const PageScanRepetitionMode page_scan_repetition_mode,
+      uint32_t class_of_device, uint16_t clock_offset, uint8_t rssi,
       const std::vector<uint8_t>& extended_inquiry_response);
 
-  // Size in octets of a data packet header, which consists of a 1 octet
-  // event code and a 1 octet payload size.
-  static const size_t kEventHeaderSize = 2;
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.2
+  static std::unique_ptr<EventPacket> CreateCommandCompleteLeReadBufferSize(
+      uint8_t status, uint16_t hc_le_data_packet_length,
+      uint8_t hc_total_num_le_data_packets);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.3
+  static std::unique_ptr<EventPacket>
+  CreateCommandCompleteLeReadLocalSupportedFeatures(uint8_t status,
+                                                    uint64_t le_features);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.14
+  static std::unique_ptr<EventPacket> CreateCommandCompleteLeReadWhiteListSize(
+      uint8_t status, uint8_t white_list_size);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.23
+  static std::unique_ptr<EventPacket> CreateCommandCompleteLeRand(
+      uint8_t status, uint64_t random_val);
+
+  // Bluetooth Core Specification Version 4.2, Volume 2, Part E, Section 7.8.27
+  static std::unique_ptr<EventPacket>
+  CreateCommandCompleteLeReadSupportedStates(uint8_t status,
+                                             uint64_t le_states);
+
+  // Vendor-specific commands (see hcidefs.h)
+
+  static std::unique_ptr<EventPacket> CreateCommandCompleteLeVendorCap(
+      uint8_t status, const std::vector<uint8_t>& vendor_cap);
+
+  // Size of a data packet header, which consists of a 1 octet event code
+  static const size_t kEventHeaderSize = 1;
 
  private:
-  // Takes in the event parameters in |payload|. These parameters vary by event
-  // and are detailed in the Bluetooth Core Specification.
+  explicit EventPacket(uint8_t event_code);
   EventPacket(uint8_t event_code, const std::vector<uint8_t>& payload);
 };
 

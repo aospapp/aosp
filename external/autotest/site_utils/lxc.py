@@ -31,18 +31,23 @@ import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.common_lib.cros.graphite import autotest_es
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.server import utils as server_utils
 from autotest_lib.site_utils import lxc_config
 from autotest_lib.site_utils import lxc_utils
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = utils.metrics_mock
 
 
 config = global_config.global_config
 
 # Name of the base container.
-BASE = 'base'
+BASE = config.get_config_value('AUTOSERV', 'container_base_name')
 # Naming convention of test container, e.g., test_300_1422862512_2424, where:
 # 300:        The test job ID.
 # 1422862512: The tick when container is created.
@@ -61,8 +66,11 @@ MOUNT_FMT = ('lxc.mount.entry = %(source)s %(destination)s none '
              'bind%(readonly)s 0 0')
 SSP_ENABLED = config.get_config_value('AUTOSERV', 'enable_ssp_container',
                                       type=bool, default=True)
-# url to the base container.
-CONTAINER_BASE_URL = config.get_config_value('AUTOSERV', 'container_base')
+# url to the folder stores base container.
+CONTAINER_BASE_FOLDER_URL = config.get_config_value('AUTOSERV',
+                                                    'container_base_folder_url')
+CONTAINER_BASE_URL_FMT = '%s/%%s.tar.xz' % CONTAINER_BASE_FOLDER_URL
+CONTAINER_BASE_URL = CONTAINER_BASE_URL_FMT % BASE
 # Default directory used to store LXC containers.
 DEFAULT_CONTAINER_PATH = config.get_config_value('AUTOSERV', 'container_path')
 
@@ -103,11 +111,11 @@ CONTAINER_CREATE_METADB_TYPE = 'container_create'
 CONTAINER_CREATE_RETRY_METADB_TYPE = 'container_create_retry'
 CONTAINER_RUN_TEST_METADB_TYPE = 'container_run_test'
 
-STATS_KEY = 'lxc.%s' % socket.gethostname().replace('.', '_')
-timer = autotest_stats.Timer(STATS_KEY)
-# Timer used inside container should not include the hostname, as that will
-# create individual timer for each container.
-container_timer = autotest_stats.Timer('lxc')
+# The container's hostname MUST start with `test_`. DHCP server in MobLab uses
+# that prefix to determine the lease time.
+CONTAINER_UTSNAME_FORMAT = 'test_%s'
+
+STATS_KEY = 'chromeos/autotest/lxc'
 
 
 def _get_container_info_moblab(container_path, **filters):
@@ -183,7 +191,10 @@ def get_container_info(container_path, **filters):
     output = utils.run(cmd).stdout
     info_collection = []
 
-    for line in output.splitlines()[2:]:
+    for line in output.splitlines()[1:]:
+        # Only LXC 1.x has the second line of '-' as a separator.
+        if line.startswith('------'):
+            continue
         info_collection.append(dict(zip(ATTRIBUTES, line.split())))
     if filters:
         filtered_collection = []
@@ -262,7 +273,17 @@ def download_extract(url, target, extract_dir):
     @param target: Path of the file to save to.
     @param extract_dir: Directory to extract the content of the file to.
     """
-    utils.run('sudo wget --timeout=300 -nv %s -O %s' % (url, target))
+    remote_url = dev_server.DevServer.get_server_url(url)
+    # TODO(xixuan): Better to only ssh to devservers in lab, and continue using
+    # wget for ganeti devservers.
+    if remote_url in dev_server.ImageServerBase.servers():
+        tmp_file = '/tmp/%s' % os.path.basename(target)
+        dev_server.ImageServerBase.download_file(url, tmp_file, timeout=300)
+        utils.run('sudo mv %s %s' % (tmp_file, target))
+    else:
+        utils.run('sudo wget --timeout=300 -nv %s -O %s' % (url, target),
+                  stderr_tee=utils.TEE_TO_LOGS)
+
     utils.run('sudo tar -xvf %s -C %s' % (target, extract_dir))
 
 
@@ -291,17 +312,31 @@ def install_package_precheck(packages):
                      'skipped.', packages)
         return False
 
+    if not utils.is_in_container():
+        raise error.ContainerError('Package installation is only supported '
+                                   'when test is running inside container.')
+
     return True
 
 
-@container_timer.decorate
+@metrics.SecondsTimerDecorator('%s/install_packages_duration' % STATS_KEY)
 @retry.retry(error.CmdError, timeout_min=30)
-def install_packages(packages=[], python_packages=[]):
+def install_packages(packages=[], python_packages=[], force_latest=False):
     """Install the given package inside container.
+
+    !!! WARNING !!!
+    This call may introduce several minutes of delay in test run. The best way
+    to avoid such delay is to update the base container used for the test run.
+    File a bug for infra deputy to update the base container with the new
+    package a test requires.
 
     @param packages: A list of names of the packages to install.
     @param python_packages: A list of names of the python packages to install
                             using pip.
+    @param force_latest: True to force to install the latest version of the
+                         package. Default to False, which means skip installing
+                         the package if it's installed already, even with an old
+                         version.
 
     @raise error.ContainerError: If package is attempted to be installed outside
                                  a container.
@@ -311,9 +346,16 @@ def install_packages(packages=[], python_packages=[]):
     if not install_package_precheck(packages or python_packages):
         return
 
-    if not utils.is_in_container():
-        raise error.ContainerError('Package installation is only supported '
-                                   'when test is running inside container.')
+    # If force_latest is False, only install packages that are not already
+    # installed.
+    if not force_latest:
+        packages = [p for p in packages if not utils.is_package_installed(p)]
+        python_packages = [p for p in python_packages
+                           if not utils.is_python_package_installed(p)]
+        if not packages and not python_packages:
+            logging.debug('All packages are installed already, skip reinstall.')
+            return
+
     # Always run apt-get update before installing any container. The base
     # container may have outdated cache.
     utils.run('sudo apt-get update')
@@ -338,7 +380,6 @@ def install_packages(packages=[], python_packages=[]):
         logging.debug('Python packages are installed: %s.', python_packages)
 
 
-@container_timer.decorate
 @retry.retry(error.CmdError, timeout_min=20)
 def install_package(package):
     """Install the given package inside container.
@@ -358,7 +399,6 @@ def install_package(package):
     install_packages(packages=[package])
 
 
-@container_timer.decorate
 @retry.retry(error.CmdError, timeout_min=20)
 def install_python_package(package):
     """Install the given python package inside container using pip.
@@ -503,7 +543,7 @@ class Container(object):
             return False
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator('%s/container_start_duration' % STATS_KEY)
     def start(self, wait_for_network=True):
         """Start the container.
 
@@ -531,7 +571,7 @@ class Container(object):
                           time.time() - start_time)
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator('%s/container_stop_duration' % STATS_KEY)
     def stop(self):
         """Stop the container.
 
@@ -547,7 +587,7 @@ class Container(object):
                             output))
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator('%s/container_destroy_duration' % STATS_KEY)
     def destroy(self, force=True):
         """Destroy the container.
 
@@ -583,10 +623,10 @@ class Container(object):
         utils.run(APPEND_CMD_FMT % {'content': mount, 'file': config_file})
 
 
-    def verify_autotest_setup(self, job_id):
+    def verify_autotest_setup(self, job_folder):
         """Verify autotest code is set up properly in the container.
 
-        @param job_id: ID of the job, used to format job result folder.
+        @param job_folder: Name of the job result folder.
 
         @raise ContainerError: If autotest code is not set up properly.
         """
@@ -599,7 +639,7 @@ class Container(object):
                                               'site-packages')
         directories_to_check = [
                 (lxc_config.CONTAINER_AUTOTEST_DIR, 3),
-                (RESULT_DIR_FMT % job_id, 0),
+                (RESULT_DIR_FMT % job_folder, 0),
                 (site_packages_path, 3)]
         for directory, count in directories_to_check:
             result = self.attach_run(command=(COUNT_FILE_CMD %
@@ -608,6 +648,13 @@ class Container(object):
             if int(result) < count:
                 raise error.ContainerError('%s is not properly set up.' %
                                            directory)
+        # lxc-attach and run command does not run in shell, thus .bashrc is not
+        # loaded. Following command creates a symlink in /usr/bin/ for gsutil
+        # if it's installed.
+        # TODO(dshi): Remove this code after lab container is updated with
+        # gsutil installed in /usr/bin/
+        self.attach_run('test -f /root/gsutil/gsutil && '
+                        'ln -s /root/gsutil/gsutil /usr/bin/gsutil || true')
 
 
     def modify_import_order(self):
@@ -701,7 +748,7 @@ class ContainerBucket(object):
             container.destroy()
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator('%s/create_from_base_duration' % STATS_KEY)
     def create_from_base(self, name, disable_snapshot_clone=False,
                          force_cleanup=False):
         """Create a container from the base container.
@@ -804,7 +851,8 @@ class ContainerBucket(object):
         for path in path_to_cleanup:
             if os.path.exists(path):
                 utils.run('sudo rm -rf "%s"' % path)
-        download_extract(CONTAINER_BASE_URL, tar_path, self.container_path)
+        container_url = CONTAINER_BASE_URL_FMT % name
+        download_extract(container_url, tar_path, self.container_path)
         # Remove the downloaded container tar file.
         utils.run('sudo rm "%s"' % tar_path)
         # Set proper file permission.
@@ -819,10 +867,11 @@ class ContainerBucket(object):
                   (self.container_path, config_path))
 
 
-    @timer.decorate
+    @metrics.SecondsTimerDecorator('%s/setup_test_duration' % STATS_KEY)
     @cleanup_if_fail()
     def setup_test(self, name, job_id, server_package_url, result_path,
-                   control=None, skip_cleanup=False):
+                   control=None, skip_cleanup=False, job_folder=None,
+                   dut_name=None):
         """Setup test container for the test job to run.
 
         The setup includes:
@@ -843,7 +892,9 @@ class ContainerBucket(object):
                         set to None.
         @param skip_cleanup: Set to True to skip cleanup, used to troubleshoot
                              container failures.
-
+        @param job_folder: Folder name of the job, e.g., 123-debug_user.
+        @param dut_name: Name of the dut to run test, used as the hostname of
+                         the container. Default is None.
         @return: A Container object for the test container.
 
         @raise ContainerError: If container does not exist, or not running.
@@ -855,8 +906,34 @@ class ContainerBucket(object):
                                        result_path)
         result_path = os.path.abspath(result_path)
 
+        # Save control file to result_path temporarily. The reason is that the
+        # control file in drone_tmp folder can be deleted during scheduler
+        # restart. For test not using SSP, the window between test starts and
+        # control file being picked up by the test is very small (< 2 seconds).
+        # However, for tests using SSP, it takes around 1 minute before the
+        # container is setup. If scheduler is restarted during that period, the
+        # control file will be deleted, and the test will fail.
+        if control:
+            control_file_name = os.path.basename(control)
+            safe_control = os.path.join(result_path, control_file_name)
+            utils.run('cp %s %s' % (control, safe_control))
+
         # Create test container from the base container.
         container = self.create_from_base(name)
+
+        # Update the hostname of the test container to be `dut_name`.
+        # Some TradeFed tests use hostname in test results, which is used to
+        # group test results in dashboard. The default container name is set to
+        # be the name of the folder, which is unique (as it is composed of job
+        # id and timestamp. For better result view, the container's hostname is
+        # set to be a string containing the dut hostname.
+        if dut_name:
+            config_file = os.path.join(container.container_path, name, 'config')
+            lxc_utsname_setting = (
+                    'lxc.utsname = ' +
+                    CONTAINER_UTSNAME_FORMAT % dut_name.replace('.', '_'))
+            utils.run(APPEND_CMD_FMT % {'content': lxc_utsname_setting,
+                                        'file': config_file})
 
         # Deploy server side package
         usr_local_path = os.path.join(container.rootfs, 'usr', 'local')
@@ -875,8 +952,9 @@ class ContainerBucket(object):
             container_drone_temp = os.path.join(autotest_path, 'drone_tmp')
             utils.run('sudo mkdir -p %s'% container_drone_temp)
             container_control_file = os.path.join(
-                    container_drone_temp, os.path.basename(control))
-            utils.run('sudo cp %s %s' % (control, container_control_file))
+                    container_drone_temp, control_file_name)
+            # Move the control file stored in the result folder to container.
+            utils.run('sudo mv %s %s' % (safe_control, container_control_file))
 
         if IS_MOBLAB:
             site_packages_path = MOBLAB_SITE_PACKAGES
@@ -893,9 +971,12 @@ class ContainerBucket(object):
                                        'puppylab'),
                           True),
                          (result_path,
-                          os.path.join(RESULT_DIR_FMT % job_id),
+                          os.path.join(RESULT_DIR_FMT % job_folder),
                           False),
                         ]
+        for mount_config in deploy_config_manager.mount_configs:
+            mount_entries.append((mount_config.source, mount_config.target,
+                                  mount_config.readonly))
         # Update container config to mount directories.
         for source, destination, readonly in mount_entries:
             container.mount_dir(source, destination, readonly)
@@ -911,7 +992,7 @@ class ContainerBucket(object):
 
         container.modify_import_order()
 
-        container.verify_autotest_setup(job_id)
+        container.verify_autotest_setup(job_folder)
 
         autotest_es.post(use_http=True,
                          type_str=CONTAINER_CREATE_METADB_TYPE,
@@ -940,6 +1021,9 @@ def parse_options():
                         default=False,
                         help=('Force to delete existing containers and rebuild '
                               'base containers.'))
+    parser.add_argument('-n', '--name', type=str,
+                        help='Name of the base container.',
+                        default=BASE)
     options = parser.parse_args()
     if not options.setup and not options.force_delete:
         raise argparse.ArgumentError(
@@ -961,7 +1045,7 @@ def main():
     options = parse_options()
     bucket = ContainerBucket(container_path=options.path)
     if options.setup:
-        bucket.setup_base(force_delete=options.force_delete)
+        bucket.setup_base(name=options.name, force_delete=options.force_delete)
     elif options.force_delete:
         bucket.destroy_all()
 

@@ -37,11 +37,11 @@ public class PatternTest extends TestCase {
             "(a|b)*(a|b)*A(a|b)*lice.*",
             "(a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)(a|b|c|d|e|f|g|h|"
                     + "i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)*(1|2|3|4|5|6|7|8|9|0)*|while|for|struct|if|do",
-// BEGIN android-changed
+// BEGIN Android-changed
 // We don't have canonical equivalence.
 //            "x(?c)y", "x(?cc)y"
 //            "x(?:c)y"
-// END android-changed
+// END Android-changed
 
     };
 
@@ -336,7 +336,7 @@ public class PatternTest extends TestCase {
         assertFalse(mat.matches());
     }
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // The flags() method should only return those flags that were explicitly
 // passed during the compilation. The JDK also accepts the ones implicitly
 // contained in the pattern, but ICU doesn't do this.
@@ -379,7 +379,7 @@ public class PatternTest extends TestCase {
 //        pat = Pattern.compile("(?is)abc");
 //        assertEquals(pat.flags(), Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 //    }
-//END android-removed
+//END Android-removed
 
     /*
      * Check default flags when they are not specified in pattern. Based on RI
@@ -482,13 +482,13 @@ public class PatternTest extends TestCase {
             }
         }
         // Regression for HARMONY-1365
-// BEGIN android-changed
+// BEGIN Android-changed
 // Original regex contained some illegal stuff. Changed it slightly,
 // while maintaining the wicked character of this "mother of all
 // regexes".
 //        String pattern = "(?![^\\<C\\f\\0146\\0270\\}&&[|\\02-\\x3E\\}|X-\\|]]{7,}+)[|\\\\\\x98\\<\\?\\u4FCFr\\,\\0025\\}\\004|\\0025-\\052\061]|(?<![|\\01-\\u829E])|(?<!\\p{Alpha})|^|(?-s:[^\\x15\\\\\\x24F\\a\\,\\a\\u97D8[\\x38\\a[\\0224-\\0306[^\\0020-\\u6A57]]]]??)(?uxix:[^|\\{\\[\\0367\\t\\e\\x8C\\{\\[\\074c\\]V[|b\\fu\\r\\0175\\<\\07f\\066s[^D-\\x5D]]])(?xx:^{5,}+)(?uuu)(?=^\\D)|(?!\\G)(?>\\G*?)(?![^|\\]\\070\\ne\\{\\t\\[\\053\\?\\\\\\x51\\a\\075\\0023-\\[&&[|\\022-\\xEA\\00-\\u41C2&&[^|a-\\xCC&&[^\\037\\uECB3\\u3D9A\\x31\\|\\<b\\0206\\uF2EC\\01m\\,\\ak\\a\\03&&\\p{Punct}]]]])(?-dxs:[|\\06-\\07|\\e-\\x63&&[|Tp\\u18A3\\00\\|\\xE4\\05\\061\\015\\0116C|\\r\\{\\}\\006\\xEA\\0367\\xC4\\01\\0042\\0267\\xBB\\01T\\}\\0100\\?[|\\[-\\u459B|\\x23\\x91\\rF\\0376[|\\?-\\x94\\0113-\\\\\\s]]]]{6}?)(?<=[^\\t-\\x42H\\04\\f\\03\\0172\\?i\\u97B6\\e\\f\\uDAC2])(?=\\B*+)(?>[^\\016\\r\\{\\,\\uA29D\\034\\02[\\02-\\[|\\t\\056\\uF599\\x62\\e\\<\\032\\uF0AC\\0026\\0205Q\\|\\\\\\06\\0164[|\\057-\\u7A98&&[\\061-g|\\|\\0276\\n\\042\\011\\e\\xE8\\x64B\\04\\u6D0EDW^\\p{Lower}]]]]?)(?<=[^\\n\\\\\\t\\u8E13\\,\\0114\\u656E\\xA5\\]&&[\\03-\\026|\\uF39D\\01\\{i\\u3BC2\\u14FE]])(?<=[^|\\uAE62\\054H\\|\\}&&^\\p{Space}])(?sxx)(?<=[\\f\\006\\a\\r\\xB4]*+)|(?x-xd:^{5}+)()";
         String pattern = "(?![^\\<C\\f\\0146\\0270\\}&&[|\\02-\\x3E\\}|X-\\|]]{7,}+)[|\\\\\\x98\\<\\?\\u4FCFr\\,\\0025\\}\\004|\\0025-\\052\061]|(?<![|\\01-\\u829E])|(?<!\\p{Alpha})|^|(?-s:[^\\x15\\\\\\x24F\\a\\,\\a\\u97D8[\\x38\\a[\\0224-\\0306[^\\0020-\\u6A57]]]]??)(?uxix:[^|\\{\\[\\0367\\t\\e\\x8C\\{\\[\\074c\\]V[|b\\fu\\r\\0175\\<\\07f\\066s[^D-\\x5D]]])(?xx:^{5,}+)(?uuu)(?=^\\D)|(?!\\G)(?>\\.*?)(?![^|\\]\\070\\ne\\{\\t\\[\\053\\?\\\\\\x51\\a\\075\\0023-\\[&&[|\\022-\\xEA\\00-\\u41C2&&[^|a-\\xCC&&[^\\037\\uECB3\\u3D9A\\x31\\|\\<b\\0206\\uF2EC\\01m\\,\\ak\\a\\03&&\\p{Punct}]]]])(?-dxs:[|\\06-\\07|\\e-\\x63&&[|Tp\\u18A3\\00\\|\\xE4\\05\\061\\015\\0116C|\\r\\{\\}\\006\\xEA\\0367\\xC4\\01\\0042\\0267\\xBB\\01T\\}\\0100\\?[|\\[-\\u459B|\\x23\\x91\\rF\\0376[|\\?-\\x94\\0113-\\\\\\s]]]]{6}?)(?<=[^\\t-\\x42H\\04\\f\\03\\0172\\?i\\u97B6\\e\\f\\uDAC2])(?=\\.*+)(?>[^\\016\\r\\{\\,\\uA29D\\034\\02[\\02-\\[|\\t\\056\\uF599\\x62\\e\\<\\032\\uF0AC\\0026\\0205Q\\|\\\\\\06\\0164[|\\057-\\u7A98&&[\\061-g|\\|\\0276\\n\\042\\011\\e\\xE8\\x64B\\04\\u6D0EDW^\\p{Lower}]]]]?)(?<=[^\\n\\\\\\t\\u8E13\\,\\0114\\u656E\\xA5\\]&&[\\03-\\026|\\uF39D\\01\\{i\\u3BC2\\u14FE]])(?<=[^|\\uAE62\\054H\\|\\}&&^\\p{Space}])(?sxx)(?<=[\\f\\006\\a\\r\\xB4]{1,5})|(?x-xd:^{5}+)()";
-// END android-changed
+// END Android-changed
         assertNotNull(Pattern.compile(pattern));
     }
 
@@ -560,7 +560,7 @@ public class PatternTest extends TestCase {
         assertEquals("45", m.group(4));
     }
 
-// BEGIN android-changed
+// BEGIN Android-changed
 // Removed one pattern that is buggy on the JDK. We don't want to duplicate that.
     public void testCompileRanges() {
         String[] correctTestPatterns = { "[^]*abb]*", /* "[^a-d[^m-p]]*abb", */
@@ -616,7 +616,7 @@ public class PatternTest extends TestCase {
                     pat, inp));
         }
     }
- // END android-changed
+ // END Android-changed
 
     public void testZeroSymbols() {
         assertTrue(Pattern.matches("[\0]*abb", "\0\0\0\0\0\0abb"));
@@ -891,14 +891,14 @@ public class PatternTest extends TestCase {
         pat = Pattern.compile("(?>aa|a)aabb");
         assertFalse(pat.matcher("aaabb").matches());
 
-// BEGIN android-removed
+// BEGIN Android-removed
 // Questionable constructs that ICU doesn't support.
 //        // quantifiers over look ahead
 //        pat = Pattern.compile(".*(?<=abc)*\\.log$");
 //        assertTrue(pat.matcher("cde.log").matches());
 //        pat = Pattern.compile(".*(?<=abc)+\\.log$");
 //        assertFalse(pat.matcher("cde.log").matches());
-// END android-removed
+// END Android-removed
 
     }
 
@@ -1208,12 +1208,12 @@ public class PatternTest extends TestCase {
         String testString = "abcd\uD8D3\uDFFC";
         Pattern pat = Pattern.compile(patString);
         Matcher mat = pat.matcher(testString);
-// BEGIN android-changed
+// BEGIN Android-changed
 // This one really doesn't make sense, as the above is a corrupt surrogate.
 // Even if it's matched by the JDK, it's more of a bug than of a behavior one
 // might want to duplicate.
 //        assertFalse(mat.find());
-// END android-changed
+// END Android-changed
 
         testString = "abcd\uD8D3abc";
         mat = pat.matcher(testString);

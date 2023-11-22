@@ -1,5 +1,5 @@
 # permissions for /system/bin/fwtool
-type fwtool, domain, domain_deprecated;
+type fwtool, domain, device_domain_deprecated;
 type fwtool_exec, exec_type, file_type;
 
 init_daemon_domain(fwtool)

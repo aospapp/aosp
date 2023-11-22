@@ -7,7 +7,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm) \
 	$(call include-path-for, audio-utils)
 
 LOCAL_SRC_FILES:= \
@@ -36,9 +35,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
-
 LOCAL_SRC_FILES:= \
 	slesTestPlayFdPath.cpp
 
@@ -62,7 +58,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm) \
 	$(call include-path-for, audio-utils)
 
 LOCAL_SRC_FILES:= \
@@ -93,9 +88,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
-
 LOCAL_SRC_FILES:= \
 	slesTestSawtoothBufferQueue.cpp
 
@@ -119,9 +111,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
-
 LOCAL_SRC_FILES:= \
 	slesTestEqFdPath.cpp
 
@@ -143,9 +132,6 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
 
 LOCAL_SRC_FILES:= \
 	slesTestEqOutputPath.cpp
@@ -169,9 +155,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
-
 LOCAL_SRC_FILES:= \
 	slesTestBassBoostPath.cpp
 
@@ -193,9 +176,6 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
 
 LOCAL_SRC_FILES:= \
 	slesTestVirtualizerPath.cpp
@@ -219,9 +199,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
-
 LOCAL_SRC_FILES:= \
 	slesTestEffectCapabilities.cpp
 
@@ -243,9 +220,6 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
 
 LOCAL_SRC_FILES:= \
 	slesTestSendToPresetReverb.cpp
@@ -269,9 +243,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
-
 LOCAL_SRC_FILES:= \
 	slesTestDecodeToBuffQueue.cpp
 
@@ -294,9 +265,6 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
 
 LOCAL_SRC_FILES:= \
 	slesTestDecodeAac.cpp
@@ -325,9 +293,6 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_C_INCLUDES:= \
-	$(call include-path-for, wilhelm)
 
 LOCAL_SRC_FILES:= \
 	xaVideoDecoderCapabilities.cpp

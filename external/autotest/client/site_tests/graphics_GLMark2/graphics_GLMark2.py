@@ -52,8 +52,11 @@ class graphics_GLMark2(test.test):
         if self.GSC:
             keyvals = self.GSC.get_memory_keyvals()
             for key, val in keyvals.iteritems():
-                self.output_perf_value(description=key, value=val,
-                                       units='bytes', higher_is_better=False)
+                self.output_perf_value(
+                    description=key,
+                    value=val,
+                    units='bytes',
+                    higher_is_better=False)
             self.GSC.finalize()
             self.write_perf_keyval(keyvals)
 
@@ -64,7 +67,7 @@ class graphics_GLMark2(test.test):
 
         glmark2 = os.path.join(self.autodir, 'deps/glmark2/glmark2')
         if not os.path.exists(glmark2):
-            raise error.TestFail('Could not find test binary. Setup error.')
+            raise error.TestFail('Failed: Could not find test binary.')
 
         glmark2_data = os.path.join(self.autodir, 'deps/glmark2/data')
 
@@ -77,8 +80,6 @@ class graphics_GLMark2(test.test):
         else:
             options.append('-b :duration=2')
         cmd = glmark2 + ' ' + ' '.join(options)
-        if not utils.is_freon():
-            cmd = 'X :1 vt1 & sleep 1; chvt 1 && DISPLAY=:1 ' + cmd
 
         if os.environ.get('CROS_FACTORY'):
             from autotest_lib.client.cros import factory_setup_modules
@@ -90,24 +91,26 @@ class graphics_GLMark2(test.test):
         if not hasty:
             if not utils.wait_for_idle_cpu(60.0, 0.1):
                 if not utils.wait_for_idle_cpu(20.0, 0.2):
-                    raise error.TestFail('Could not get idle CPU.')
+                    raise error.TestFail('Failed: Could not get idle CPU.')
             if not utils.wait_for_cool_machine():
-                raise error.TestFail('Could not get cold machine.')
+                raise error.TestFail('Failed: Could not get cold machine.')
 
+        # In this test we are manually handling stderr, so expected=True.
+        # Strangely autotest takes CmdError/CmdTimeoutError as warning only.
         try:
             result = utils.run(cmd,
-                               stderr_is_expected=False,
+                               stderr_is_expected=True,
                                stdout_tee=utils.TEE_TO_LOGS,
                                stderr_tee=utils.TEE_TO_LOGS)
-        finally:
-            # Just sending SIGTERM to X is not enough; we must wait for it to
-            # really die before we start a new X server (ie start ui).
-            if not utils.is_freon():
-                utils.ensure_processes_are_dead_by_name('^X$')
+        except error.CmdError:
+            raise error.TestFail('Failed: CmdError running %s' % cmd)
+        except error.CmdTimeoutError:
+            raise error.TestFail('Failed: CmdTimeout running %s' % cmd)
 
         logging.info(result)
         for line in result.stderr.splitlines():
             if line.startswith('Error:'):
+                # Line already starts with 'Error: ", not need to prepend.
                 raise error.TestFail(line)
 
         # Numbers in hasty mode are not as reliable, so don't send them to
@@ -121,12 +124,14 @@ class graphics_GLMark2(test.test):
                 if match:
                     test = '%s.%s' % (match.group('scene'),
                                       match.group('options'))
-                    test = test.translate(description_table,
-                                          description_delete)
+                    test = test.translate(description_table, description_delete)
                     frame_time = match.group('frametime')
                     keyvals[test] = frame_time
-                    self.output_perf_value(description=test, value=frame_time,
-                                           units='ms', higher_is_better=False)
+                    self.output_perf_value(
+                        description=test,
+                        value=frame_time,
+                        units='ms',
+                        higher_is_better=False)
                 else:
                     # glmark2 output the final performance score as:
                     #  glmark2 Score: 530
@@ -134,7 +139,7 @@ class graphics_GLMark2(test.test):
                     if match:
                         score = int(match[0])
             if score is None:
-                raise error.TestFail('Unable to read benchmark score')
+                raise error.TestFail('Failed: Unable to read benchmark score')
             # Output numbers for plotting by harness.
             logging.info('GLMark2 score: %d', score)
             if os.environ.get('CROS_FACTORY'):
@@ -143,9 +148,13 @@ class graphics_GLMark2(test.test):
                 EventLog('graphics_GLMark2').Log('glmark2_score', score=score)
             keyvals['glmark2_score'] = score
             self.write_perf_keyval(keyvals)
-            self.output_perf_value(description='Score', value=score,
-                                   units='score', higher_is_better=True)
+            self.output_perf_value(
+                description='Score',
+                value=score,
+                units='score',
+                higher_is_better=True)
 
             if min_score is not None and score < min_score:
-                raise error.TestFail('Benchmark score %d < %d (minimum score '
-                                     'requirement)' % (score, min_score))
+                raise error.TestFail(
+                    'Failed: Benchmark score %d < %d (minimum score '
+                    'requirement)' % (score, min_score))

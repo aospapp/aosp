@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import java.lang.reflect.Field;
 import java.util.Map;
 
 public class Main implements Runnable {
@@ -29,7 +30,47 @@ public class Main implements Runnable {
         for (Thread t : threads) {
             t.join();
         }
+        // Do this test after the other part to leave some time for the heap task daemon to start
+        // up.
+        test_getStackTraces();
         System.out.println("Finishing");
+    }
+
+    static Thread getHeapTaskDaemon() throws Exception {
+        Field f = ThreadGroup.class.getDeclaredField("systemThreadGroup");
+        f.setAccessible(true);
+        ThreadGroup systemThreadGroup = (ThreadGroup) f.get(null);
+
+        while (true) {
+            int activeCount = systemThreadGroup.activeCount();
+            Thread[] array = new Thread[activeCount];
+            systemThreadGroup.enumerate(array);
+            for (Thread thread : array) {
+               if (thread.getName().equals("HeapTaskDaemon") &&
+                   thread.getState() != Thread.State.NEW) {
+                  return thread;
+                }
+            }
+            // Yield to eventually get the daemon started.
+            Thread.sleep(10);
+        }
+    }
+
+    static void test_getStackTraces() throws Exception {
+        Thread heapDaemon = getHeapTaskDaemon();
+
+        // Force a GC to ensure the daemon truly started.
+        Runtime.getRuntime().gc();
+        // Check all the current threads for positive IDs.
+        Map<Thread, StackTraceElement[]> map = Thread.getAllStackTraces();
+        for (Map.Entry<Thread, StackTraceElement[]> pair : map.entrySet()) {
+            Thread thread = pair.getKey();
+            // Expect empty stack trace since we do not support suspending the GC thread for
+            // obtaining stack traces. See b/28261069.
+            if (thread == heapDaemon) {
+                System.out.println(thread.getName() + " depth " + pair.getValue().length); 
+            }
+        }
     }
 
     public void test_getId() {

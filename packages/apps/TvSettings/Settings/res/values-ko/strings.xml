@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"이더넷"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Wi‑Fi 항상 검색"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Wi‑Fi가 꺼진 경우에도 Google 위치 서비스 및 기타 앱이 네트워크를 검색하도록 합니다."</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Wi-Fi가 껴져 있을 때에도 Google의 위치 서비스 및 기타 앱이 네트워크를 스캔하도록 합니다."</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"화면 보호기"</string>
     <string name="device_display" msgid="101455384386372747">"디스플레이"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"배터리 <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"기기 페어링 해제 중…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"연결됨"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"이름 변경"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"이 액세서리의 새 이름 입력"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"액세서리 검색 중…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"블루투스 기기를 페어링하기 전에 페어링 모드인지 확인하세요."</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"기기가 발견되었습니다. <xliff:g id="COUNTDOWN">%1$s</xliff:g>초 후에 자동으로 페어링됩니다."</string>
@@ -89,8 +91,9 @@
     <string name="system_date_time" msgid="8898457978560618950">"날짜 및 시간"</string>
     <string name="system_language" msgid="2337138146114609247">"언어"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"키보드"</string>
-    <string name="system_home" msgid="2858989138172296012">"메인 스크린"</string>
+    <string name="system_home" msgid="2858989138172296012">"홈 화면"</string>
     <string name="system_search" msgid="2837264654143247611">"검색"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"보안 및 제한"</string>
     <string name="system_speech" msgid="8128688499687306982">"음성"</string>
     <string name="system_inputs" msgid="2413907183796651102">"입력"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"개발자 옵션"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"없음"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"사용 및 진단"</string>
+    <string name="tutorials" msgid="3731493987558093244">"가이드"</string>
     <string name="about_system_update" msgid="7282772247661356586">"시스템 업데이트"</string>
     <string name="about_preference" msgid="4131396784531360434">"정보"</string>
     <string name="device_name" msgid="2670488158531273028">"기기 이름"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"표시 옵션"</string>
     <string name="captions_configure" msgid="5537548915977371014">"설정"</string>
     <string name="captions_language" msgid="2835554055388996343">"언어"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"기본값"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"텍스트 크기"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"캡션 스타일"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"맞춤 옵션"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"전환 애니메이션 배율"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"애니메이터 길이 배율"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"엄격 모드 사용"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"CPU 사용량 표시"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"GPU 렌더링 프로파일"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"추적 사용"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"활동 보관 안함"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"오버드로가 많은 순으로: 파란색, 녹색, 옅은 빨간색, 빨간색"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"업데이트할 때 전체 창 표면  깜박이기"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"앱이 기본 스레드에서 오래 작업하면 화면 깜박이기"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"현재 CPU 사용량을 나타내는 화면 오버레이"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"adb shell dumpsys gfxinfo에서 렌더링 시간 측정"</string>
     <string name="action_on_title" msgid="6852389884236870765">"사용"</string>
     <string name="action_off_title" msgid="3157728958166559966">"사용 안함"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"강제 종료"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"강제로 앱을 종료하면 예기치 않은 오류가 발생할 수 있습니다."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"제거"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"이 앱을 제거하시겠습니까?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"업데이트 제거"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"이 Android 시스템 앱에 대한 모든 업데이트가 제거됩니다."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"사용 중지"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"캐시 삭제"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"알림"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"권한"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"사용할 수 없는 애플리케이션"</string>
     <string name="settings_ok" msgid="3321630456511355983">"확인"</string>
     <string name="settings_cancel" msgid="304280412158061225">"취소"</string>
     <string name="settings_on" msgid="6892236264945435013">"사용"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"개인정보와 다운로드한 앱을 모두 삭제하시겠습니까? 이 작업은 취소할 수 없습니다."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"모두 지우기"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g>에 사용할 이름 선택"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"이름이 있으면 스마트폰, 태블릿, 컴퓨터 등 다른 기기에서 액세스할 때 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>을(를) 식별하는 데 도움이 됩니다."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"다른 기기에서 이 기기로 전송하거나 연결할 때 식별할 수 있도록 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>에 이름을 지정해 주세요."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"거실"</item>
-    <item msgid="3722089849939477581">"미디어룸"</item>
-    <item msgid="6108590585438763574">"안방"</item>
-    <item msgid="2581035245390468625">"다이닝룸"</item>
-    <item msgid="3127487827308695324">"나만의 공간"</item>
-    <item msgid="6172018430592195063">"침실"</item>
-    <item msgid="8120010459866284578">"주방"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"거실 TV"</item>
+    <item msgid="8122798759665439456">"안방 TV"</item>
+    <item msgid="1389347662738182100">"침실 TV"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"맞춤 이름 입력..."</string>
+    <string name="custom_room" msgid="8655516733933892458">"맞춤 이름 입력..."</string>
     <string name="device_rename_title" msgid="2629557295786267185">"이 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>의 이름 바꾸기"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"이 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>의 이름은 현재 \'<xliff:g id="DEVICENAME">%2$s</xliff:g>\'입니다."</string>
     <string name="change_setting" msgid="2047402388786162246">"변경"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"안전 모드로 재부팅"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"안전 모드로 재부팅하시겠습니까?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"그러면 설치한 모든 제3자 애플리케이션을 사용할 수 없게 됩니다. 재부팅을 반복하면 애플리케이션이 복원됩니다."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"버그 신고 캡처 중"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"사용 가능한 가상 키보드"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"키보드 관리"</string>
 </resources>

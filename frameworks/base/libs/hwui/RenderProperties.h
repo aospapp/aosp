@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef RENDERNODEPROPERTIES_H
-#define RENDERNODEPROPERTIES_H
+
+#pragma once
 
 #include "Caches.h"
 #include "DeviceInfo.h"
@@ -22,11 +22,12 @@
 #include "RevealClip.h"
 #include "Outline.h"
 #include "utils/MathUtils.h"
+#include "utils/PaintUtils.h"
 
+#include <SkBlendMode.h>
 #include <SkCamera.h>
 #include <SkMatrix.h>
 #include <SkRegion.h>
-#include <SkXfermode.h>
 
 #include <algorithm>
 #include <stddef.h>
@@ -34,6 +35,7 @@
 #include <cutils/compiler.h>
 #include <androidfw/ResourceTypes.h>
 #include <utils/Log.h>
+#include <ostream>
 
 class SkBitmap;
 class SkColorFilter;
@@ -47,7 +49,7 @@ class RenderNode;
 class RenderProperties;
 
 // The __VA_ARGS__ will be executed if a & b are not equal
-#define RP_SET(a, b, ...) (a != b ? (a = b, ##__VA_ARGS__, true) : false)
+#define RP_SET(a, b, ...) ((a) != (b) ? ((a) = (b), ##__VA_ARGS__, true) : false)
 #define RP_SET_AND_DIRTY(a, b) RP_SET(a, b, mPrimitiveFields.mMatrixOrPivotDirty = true)
 
 // Keep in sync with View.java:LAYER_TYPE_*
@@ -91,11 +93,11 @@ public:
         return mAlpha;
     }
 
-    bool setXferMode(SkXfermode::Mode mode) {
+    bool setXferMode(SkBlendMode mode) {
         return RP_SET(mMode, mode);
     }
 
-    SkXfermode::Mode xferMode() const {
+    SkBlendMode xferMode() const {
         return mMode;
     }
 
@@ -131,7 +133,7 @@ private:
     // Whether or not that Layer's content is opaque, doesn't include alpha
     bool mOpaque;
     uint8_t mAlpha;
-    SkXfermode::Mode mMode;
+    SkBlendMode mMode;
     SkColorFilter* mColorFilter = nullptr;
 };
 
@@ -573,7 +575,7 @@ public:
         return mPrimitiveFields.mProjectBackwards;
     }
 
-    void debugOutputProperties(const int level) const;
+    void debugOutputProperties(std::ostream& output, const int level) const;
 
     void updateMatrix();
 
@@ -678,5 +680,3 @@ private:
 
 } /* namespace uirenderer */
 } /* namespace android */
-
-#endif /* RENDERNODEPROPERTIES_H */

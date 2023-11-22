@@ -22,11 +22,15 @@
 
 #include <hb.h>
 
-namespace android {
+namespace minikin {
 
-// Due to the limits in font fallback score calculation, we can't use anything more than 17
+// Due to the limits in font fallback score calculation, we can't use anything more than 12
 // languages.
-const size_t FONT_LANGUAGES_LIMIT = 17;
+const size_t FONT_LANGUAGES_LIMIT = 12;
+
+// The language or region code is encoded to 15 bits.
+const uint16_t INVALID_CODE = 0x7fff;
+
 class FontLanguages;
 
 // FontLanguage is a compact representation of a BCP 47 language tag. It
@@ -34,22 +38,37 @@ class FontLanguages;
 // font rendering.
 struct FontLanguage {
 public:
+    enum EmojiStyle : uint8_t {
+        EMSTYLE_EMPTY = 0,
+        EMSTYLE_DEFAULT = 1,
+        EMSTYLE_EMOJI = 2,
+        EMSTYLE_TEXT = 3,
+    };
     // Default constructor creates the unsupported language.
-    FontLanguage() : mScript(0ul), mLanguage(0ul), mSubScriptBits(0ul) {}
+    FontLanguage()
+            : mScript(0ul),
+            mLanguage(INVALID_CODE),
+            mRegion(INVALID_CODE),
+            mHbLanguage(HB_LANGUAGE_INVALID),
+            mSubScriptBits(0ul),
+            mEmojiStyle(EMSTYLE_EMPTY) {}
 
     // Parse from string
     FontLanguage(const char* buf, size_t length);
 
     bool operator==(const FontLanguage other) const {
-        return !isUnsupported() && isEqualScript(other) && mLanguage == other.mLanguage;
+        return !isUnsupported() && isEqualScript(other) && mLanguage == other.mLanguage &&
+                mRegion == other.mRegion && mEmojiStyle == other.mEmojiStyle;
     }
 
     bool operator!=(const FontLanguage other) const {
         return !(*this == other);
     }
 
-    bool isUnsupported() const { return mLanguage == 0ul; }
-    bool hasEmojiFlag() const { return mSubScriptBits & kEmojiFlag; }
+    bool isUnsupported() const { return mLanguage == INVALID_CODE; }
+    EmojiStyle getEmojiStyle() const { return mEmojiStyle; }
+    hb_language_t getHbLanguage() const { return mHbLanguage; }
+
 
     bool isEqualScript(const FontLanguage& other) const;
 
@@ -64,7 +83,10 @@ public:
     // 0 = no match, 1 = script match, 2 = script and primary language match.
     int calcScoreFor(const FontLanguages& supported) const;
 
-    uint64_t getIdentifier() const { return (uint64_t)mScript << 32 | (uint64_t)mLanguage; }
+    uint64_t getIdentifier() const {
+        return ((uint64_t)mLanguage << 49) | ((uint64_t)mScript << 17) | ((uint64_t)mRegion << 2) |
+                mEmojiStyle;
+    }
 
 private:
     friend class FontLanguages;  // for FontLanguages constructor
@@ -73,22 +95,32 @@ private:
     uint32_t mScript;
 
     // ISO 639-1 or ISO 639-2 compliant language code.
-    // The two or three letter language code is packed into 32 bit integer.
+    // The two- or three-letter language code is packed into a 15 bit integer.
     // mLanguage = 0 means the FontLanguage is unsupported.
-    uint32_t mLanguage;
+    uint16_t mLanguage;
 
-    // For faster comparing, use 8 bits for specific scripts.
+    // ISO 3166-1 or UN M.49 compliant region code. The two-letter or three-digit region code is
+    // packed into a 15 bit integer.
+    uint16_t mRegion;
+
+    // The language to be passed HarfBuzz shaper.
+    hb_language_t mHbLanguage;
+
+    // For faster comparing, use 7 bits for specific scripts.
     static const uint8_t kBopomofoFlag = 1u;
-    static const uint8_t kEmojiFlag = 1u << 1;
-    static const uint8_t kHanFlag = 1u << 2;
-    static const uint8_t kHangulFlag = 1u << 3;
-    static const uint8_t kHiraganaFlag = 1u << 4;
-    static const uint8_t kKatakanaFlag = 1u << 5;
-    static const uint8_t kSimplifiedChineseFlag = 1u << 6;
-    static const uint8_t kTraditionalChineseFlag = 1u << 7;
+    static const uint8_t kHanFlag = 1u << 1;
+    static const uint8_t kHangulFlag = 1u << 2;
+    static const uint8_t kHiraganaFlag = 1u << 3;
+    static const uint8_t kKatakanaFlag = 1u << 4;
+    static const uint8_t kSimplifiedChineseFlag = 1u << 5;
+    static const uint8_t kTraditionalChineseFlag = 1u << 6;
     uint8_t mSubScriptBits;
 
+    EmojiStyle mEmojiStyle;
+
     static uint8_t scriptToSubScriptBits(uint32_t script);
+
+    static EmojiStyle resolveEmojiStyle(const char* buf, size_t length, uint32_t script);
 
     // Returns true if the provide subscript bits has the requested subscript bits.
     // Note that this function returns false if the requested subscript bits are empty.
@@ -98,7 +130,7 @@ private:
 // An immutable list of languages.
 class FontLanguages {
 public:
-    FontLanguages(std::vector<FontLanguage>&& languages);
+    explicit FontLanguages(std::vector<FontLanguage>&& languages);
     FontLanguages() : mUnionOfSubScriptBits(0), mIsAllTheSameLanguage(false) {}
     FontLanguages(FontLanguages&&) = default;
 
@@ -121,6 +153,6 @@ private:
     void operator=(const FontLanguages&) = delete;
 };
 
-}  // namespace android
+}  // namespace minikin
 
 #endif  // MINIKIN_FONT_LANGUAGE_H

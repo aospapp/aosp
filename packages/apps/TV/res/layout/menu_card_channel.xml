@@ -72,31 +72,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/channel_card_meta_background">
-
-        <TextView android:id="@+id/channel_title_focused"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/card_meta_layout_height"
-            android:paddingStart="@dimen/card_meta_padding_start"
-            android:paddingEnd="@dimen/card_meta_padding_end"
-            android:paddingTop="@dimen/card_meta_padding_top"
-            android:ellipsize="end"
-            android:fontFamily="@string/condensed_font"
-            android:maxLines="2"
-            android:textColor="@color/card_meta_text_color"
-            android:textSize="12sp" />
-
-        <TextView android:id="@+id/channel_title_unfocused"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/card_meta_layout_height"
-            android:paddingStart="@dimen/card_meta_padding_start"
-            android:paddingEnd="@dimen/card_meta_padding_end"
-            android:paddingTop="@dimen/card_meta_padding_top"
-            android:ellipsize="end"
-            android:fontFamily="@string/condensed_font"
-            android:singleLine="true"
-            android:textColor="@color/card_meta_text_color"
-            android:textSize="12sp" />
-
+        <include layout="@layout/menu_card_text" />
     </FrameLayout>
 
 </com.android.tv.menu.ChannelCardView>

@@ -16,21 +16,21 @@
 
 package android.support.transition;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.support.transition.test.R;
-import android.support.v4.app.FragmentActivity;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 
-public class TransitionActivity extends FragmentActivity {
+public class TransitionActivity extends Activity {
 
-    private FrameLayout mRoot;
+    private LinearLayout mRoot;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_transition);
-        mRoot = (FrameLayout) findViewById(R.id.root);
+        mRoot = findViewById(R.id.root);
     }
 
     ViewGroup getRoot() {

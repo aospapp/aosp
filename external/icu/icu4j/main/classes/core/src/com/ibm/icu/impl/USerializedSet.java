@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  *   Copyright (C) 2002-2010, International Business Machines
@@ -32,8 +34,7 @@ public final class USerializedSet {
 
         length=src[srcStart++];
         
-        
-        if((length&0x8000) >0) {
+        if ((length&0x8000) != 0) {
             /* there are supplementary values */
             length&=0x7fff;
             if(src.length<(srcStart+1+length)) {

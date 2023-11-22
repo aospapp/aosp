@@ -18,6 +18,10 @@ package vogar.target.junit3;
 
 import junit.framework.TestCase;
 
+/**
+ * A test case that contains multiple tests that will timeout which is used to verify behavior of
+ * timeout that occurs while running tests within a single class.
+ */
 public class LongTest2 extends TestCase {
     public LongTest2(String name) {
         super(name);
@@ -25,8 +29,8 @@ public class LongTest2 extends TestCase {
 
     private void sleep() {
         try {
-            Thread.sleep(1 * 1000 / 4);
-        } catch (InterruptedException e) {
+            Thread.sleep(1000 / 4);
+        } catch (InterruptedException ignored) {
         }
     }
 

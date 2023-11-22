@@ -18,11 +18,14 @@ package com.android.performanceLaunch;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Trace;
 
 public class EmptyActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "onCreate");
         super.onCreate(savedInstanceState);
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
     }
 }

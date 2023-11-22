@@ -87,7 +87,7 @@ public class FlashlightTest extends Camera2AndroidTestCase {
                     times(1)).onTorchModeChanged(id, true);
             verify(torchListener, timeout(TORCH_TIMEOUT_MS).
                     times(1)).onTorchModeChanged(anyString(), eq(true));
-            verify(torchListener, timeout(TORCH_TIMEOUT_MS).never()).
+            verify(torchListener, after(TORCH_TIMEOUT_MS).never()).
                     onTorchModeUnavailable(anyString());
 
             mCameraManager.unregisterTorchCallback(torchListener);
@@ -142,9 +142,9 @@ public class FlashlightTest extends Camera2AndroidTestCase {
         verify(torchListener, timeout(TORCH_TIMEOUT_MS).
                 times(NUM_REGISTERS * mFlashCameraIdList.size())).
                 onTorchModeChanged(anyString(), eq(false));
-        verify(torchListener, timeout(TORCH_TIMEOUT_MS).never()).
+        verify(torchListener, after(TORCH_TIMEOUT_MS).never()).
                 onTorchModeChanged(anyString(), eq(true));
-        verify(torchListener, timeout(TORCH_TIMEOUT_MS).never()).
+        verify(torchListener, after(TORCH_TIMEOUT_MS).never()).
                 onTorchModeUnavailable(anyString());
 
         // verify passing a null handler will raise IllegalArgumentException

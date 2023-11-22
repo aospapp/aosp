@@ -17,7 +17,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner junit legacy-android-test
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
@@ -40,6 +40,8 @@ include $(BUILD_CTS_PACKAGE)
 # DefaultManifestAttributesTest can be used as a base class for other
 # CTS tests, so drop it into a library that other tests can use.
 include $(CLEAR_VARS)
+
+LOCAL_STATIC_JAVA_LIBRARIES := junit legacy-android-test
 
 LOCAL_SRC_FILES := src/android/dpi/cts/DefaultManifestAttributesTest.java
 

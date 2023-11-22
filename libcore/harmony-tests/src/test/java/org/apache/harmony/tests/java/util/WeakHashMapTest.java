@@ -310,14 +310,20 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         long startTime = System.currentTimeMillis();
         // We use a busy wait loop here since we cannot know when the ReferenceQueue
         // daemon will enqueue the cleared references on their internal reference
-        // queues. The current timeout is 5 seconds.
+        // queues.
+        // The timeout after which the reference should be cleared. This test used to
+        // be flaky when it was set to 5 seconds. Daemons.MAX_FINALIZE_NANOS is
+        // currently 10 seconds so that seems like the correct value.
+        // We allow an extra 500msec buffer to minimize races between finalizer,
+        // keySet.size() evaluation and time check.
+        long timeout = 10000 + 500;
         do {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
             }
         } while (keySet.size() != 99 &&
-                 System.currentTimeMillis() - startTime < 5000);
+                 System.currentTimeMillis() - startTime < timeout);
 
         assertEquals("Incorrect number of keys returned after gc,", 99, keySet.size());
     }
@@ -539,6 +545,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         assertTrue(keys.spliterator().hasCharacteristics(Spliterator.DISTINCT));
 
         SpliteratorTester.runDistinctTests(keys);
+        SpliteratorTester.assertSupportsTrySplit(keys);
     }
 
     public void test_spliterator_valueSet() {
@@ -602,6 +609,7 @@ public class WeakHashMapTest extends junit.framework.TestCase {
         assertTrue(values.spliterator().hasCharacteristics(Spliterator.DISTINCT));
 
         SpliteratorTester.runDistinctTests(values);
+        SpliteratorTester.assertSupportsTrySplit(values);
     }
 
     /**

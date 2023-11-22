@@ -36,8 +36,6 @@ public final class Constants {
             .setVideoFrameRate(50).build();
     public static final TvTrackInfo SVGA_VIDEO_TRACK = new TvTrackInfo.Builder(
             TvTrackInfo.TYPE_VIDEO, "SVGA Video").setVideoHeight(600).setVideoWidth(800).build();
-    public static final TvTrackInfo GENERIC_VIDEO_TRACK = new TvTrackInfo.Builder(
-            TvTrackInfo.TYPE_VIDEO, "Generic Video").build();
 
     private Constants() {
     }

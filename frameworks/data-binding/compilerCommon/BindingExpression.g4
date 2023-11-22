@@ -26,16 +26,31 @@
 grammar BindingExpression;
 
 bindingSyntax
-    :   expression defaults?
+    :   expression defaults? # RootExpr
+    |   lambdaExpression # RootLambda
     ;
 
 defaults
     :   ',' 'default' '=' constantValue
     ;
+
 constantValue
     :   literal
     |   ResourceReference
     |   identifier
+    ;
+
+lambdaExpression
+    :   args=lambdaParameters '->' expr=expression
+    ;
+
+lambdaParameters
+    :   Identifier # SingleLambdaParameter
+    |   '(' params=inferredFormalParameterList? ')' #LambdaParameterList
+    ;
+
+inferredFormalParameterList
+    :   Identifier (',' Identifier)*
     ;
 
 expression
@@ -43,11 +58,13 @@ expression
 // this isn't allowed yet.
 //    |   THIS                                            # Primary
     |   literal                                         # Primary
+    |   VoidLiteral                                     # Primary
     |   identifier                                      # Primary
     |   classExtraction                                 # Primary
     |   resources                                       # Resource
 //    |   typeArguments (explicitGenericInvocationSuffix | 'this' arguments) # GenericCall
     |   expression '.' Identifier                       # DotOp
+    |   expression '::' Identifier                      # FunctionRef
 //    |   expression '.' 'this'                           # ThisReference
 //    |   expression '.' explicitGenericInvocation        # ExplicitGenericInvocationOp
     |   expression '[' expression ']'                   # BracketOp
@@ -76,7 +93,6 @@ THIS
 
 classExtraction
     :   type '.' 'class'
-    |   'void' '.' 'class'
     ;
 
 expressionList
@@ -98,6 +114,12 @@ javaLiteral
     |   BooleanLiteral
     |   NullLiteral
     |   CharacterLiteral
+    ;
+
+VoidLiteral
+    :   'Void'
+    |   'void'
+    |   '¯\\_(ツ)_/¯'
     ;
 
 stringLiteral

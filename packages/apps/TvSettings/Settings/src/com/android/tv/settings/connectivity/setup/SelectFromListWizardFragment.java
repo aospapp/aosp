@@ -20,23 +20,27 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v17.leanback.widget.FacetProvider;
+import android.support.v17.leanback.widget.ItemAlignmentFacet;
+import android.support.v17.leanback.widget.ItemAlignmentFacet.ItemAlignmentDef;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v7.util.SortedList;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.util.SortedListAdapterCallback;
+import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver.OnPreDrawListener;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.AdapterView;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -200,11 +204,12 @@ public class SelectFromListWizardFragment extends Fragment {
             if (o instanceof ListItem) {
                 ListItem li = (ListItem) o;
                 if (mScanResult == null && li.mScanResult == null) {
-                    return mName.equals(li.mName);
+                    return TextUtils.equals(mName, li.mName);
                 }
-                return (mScanResult != null && li.mScanResult != null && mName.equals(li.mName) &&
-                        WifiSecurity.getSecurity(mScanResult)
-                        == WifiSecurity.getSecurity(li.mScanResult));
+                return (mScanResult != null && li.mScanResult != null
+                        && TextUtils.equals(mName, li.mName)
+                        && WifiSecurity.getSecurity(mScanResult)
+                                == WifiSecurity.getSecurity(li.mScanResult));
             }
             return false;
         }
@@ -251,7 +256,8 @@ public class SelectFromListWizardFragment extends Fragment {
         public void onFocus(ListItem item);
     }
 
-    private static class ListItemViewHolder extends RecyclerView.ViewHolder {
+    private static class ListItemViewHolder extends RecyclerView.ViewHolder implements
+            FacetProvider {
         public ListItemViewHolder(View v) {
             super(v);
         }
@@ -275,6 +281,27 @@ public class SelectFromListWizardFragment extends Fragment {
             if (item.hasIconLevel()) {
                 icon.setImageLevel(item.getIconLevel());
             }
+        }
+
+        // Provide a customized ItemAlignmentFacet so that the mean line of textView is matched.
+        // Here We use mean line of the textview to work as the baseline to be matched with
+        // guidance title baseline.
+        @Override
+        public Object getFacet(Class facet) {
+            if (facet.equals(ItemAlignmentFacet.class)) {
+                ItemAlignmentFacet.ItemAlignmentDef alignedDef =
+                        new ItemAlignmentFacet.ItemAlignmentDef();
+                alignedDef.setItemAlignmentViewId(R.id.list_item_text);
+                alignedDef.setAlignedToTextViewBaseline(false);
+                alignedDef.setItemAlignmentOffset(0);
+                alignedDef.setItemAlignmentOffsetWithPadding(true);
+                // 50 refers to 50 percent, which refers to mid position of textView.
+                alignedDef.setItemAlignmentOffsetPercent(50);
+                ItemAlignmentFacet f = new ItemAlignmentFacet();
+                f.setAlignmentDefs(new ItemAlignmentDef[] {alignedDef});
+                return f;
+            }
+            return null;
         }
     }
 
@@ -407,7 +434,7 @@ public class SelectFromListWizardFragment extends Fragment {
         SortedList<ListItem> items = ((VerticalListAdapter) mListView.getAdapter()).getItems();
         for (int i = 0; i < items.size(); i++) {
             ListItem item = (ListItem) items.get(i);
-            if (lastSelectionName.equals(item.getName())) {
+            if (TextUtils.equals(lastSelectionName, item.getName())) {
                 mListView.setSelectedPosition(i);
                 break;
             }
@@ -449,6 +476,14 @@ public class SelectFromListWizardFragment extends Fragment {
         ((VerticalListAdapter) mListView.getAdapter()).updateItems(listElements);
     }
 
+    private static float getKeyLinePercent(Context context) {
+        TypedArray ta = context.getTheme().obtainStyledAttributes(
+                R.styleable.LeanbackGuidedStepTheme);
+        float percent = ta.getFloat(R.styleable.LeanbackGuidedStepTheme_guidedStepKeyline, 40);
+        ta.recycle();
+        return percent;
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
         Resources resources = getContext().getResources();
@@ -462,9 +497,8 @@ public class SelectFromListWizardFragment extends Fragment {
 
         final ViewGroup actionArea = (ViewGroup) mMainView.findViewById(R.id.action);
 
-        TextView titleText = (TextView) content.findViewById(R.id.title_text);
-        TextView descriptionText = (TextView) content.findViewById(R.id.description_text);
-
+        TextView titleText = (TextView) content.findViewById(R.id.guidance_title);
+        TextView descriptionText = (TextView) content.findViewById(R.id.guidance_description);
         Bundle args = getArguments();
         String title = args.getString(EXTRA_TITLE);
         String description = args.getString(EXTRA_DESCRIPTION);
@@ -496,9 +530,8 @@ public class SelectFromListWizardFragment extends Fragment {
 
         mListView =
                 (VerticalGridView) inflater.inflate(R.layout.setup_list_view, actionArea, false);
-        mListView.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_BOTH_EDGE);
-        mListView.setWindowAlignmentOffsetPercent(
-                resources.getFloat(R.dimen.setup_scroll_list_window_offset_percent));
+
+        SelectFromListWizardFragment.align(mListView, getActivity());
 
         actionArea.addView(mListView);
         ActionListener actionListener = new ActionListener() {
@@ -526,6 +559,20 @@ public class SelectFromListWizardFragment extends Fragment {
             updateSelected(lastSelection.getName());
         }
         return mMainView;
+    }
+
+    private static void align(VerticalGridView listView, Activity activity) {
+        Context context = listView.getContext();
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        float keyLinePercent = getKeyLinePercent(context);
+        activity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+
+        listView.setItemSpacing(activity.getResources()
+                .getDimensionPixelSize(R.dimen.setup_list_item_margin));
+        // Make the keyline of the page match with the mean line(roughly) of the first list item.
+        listView.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_HIGH_EDGE);
+        listView.setWindowAlignmentOffset(0);
+        listView.setWindowAlignmentOffsetPercent(keyLinePercent);
     }
 
     @Override

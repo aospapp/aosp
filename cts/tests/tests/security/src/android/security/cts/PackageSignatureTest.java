@@ -22,6 +22,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.Signature;
 import android.content.res.Resources.NotFoundException;
 import android.platform.test.annotations.RestrictedBuildTest;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@SecurityTest
 public class PackageSignatureTest extends AndroidTestCase {
 
     private static final String TAG = PackageSignatureTest.class.getSimpleName();
@@ -93,9 +95,6 @@ public class PackageSignatureTest extends AndroidTestCase {
 
             // APK for an activity that collects information printed in the CTS report header
             "android.tests.devicesetup",
-
-            // APK for the Android core tests runner used only during CTS
-            "android.core.tests.runner",
 
             // Wifi test utility used by Tradefed...
             "com.android.tradefed.utils.wifi",

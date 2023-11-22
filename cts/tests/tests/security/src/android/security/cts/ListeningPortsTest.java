@@ -17,6 +17,7 @@
 package android.security.cts;
 
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import junit.framework.AssertionFailedError;
@@ -39,6 +40,7 @@ import java.util.regex.Pattern;
  * into computer systems remotely, and minimizing the number of open ports
  * is considered a security best practice.
  */
+@SecurityTest
 public class ListeningPortsTest extends AndroidTestCase {
     private static final String TAG = "ListeningPortsTest";
 

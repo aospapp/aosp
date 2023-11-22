@@ -18,7 +18,6 @@ package android.view.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.cts.R;
 
 public class ViewStubCtsActivity extends Activity {
     @Override

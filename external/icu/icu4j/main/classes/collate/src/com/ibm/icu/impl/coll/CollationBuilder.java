@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2013-2015, International Business Machines
@@ -28,6 +30,7 @@ public final class CollationBuilder extends CollationRuleParser.Sink {
     private static final boolean DEBUG = false;
     private static final class BundleImporter implements CollationRuleParser.Importer {
         BundleImporter() {}
+        @Override
         public String getRules(String localeID, String collationType) {
             return CollationLoader.loadRules(new ULocale(localeID), collationType);
         }
@@ -431,7 +434,7 @@ public final class CollationBuilder extends CollationRuleParser.Sink {
     }
 
     /** Implements CollationRuleParser.Sink. */
-    // Java 6: @Override
+    @Override
     void addRelation(int strength, CharSequence prefix, CharSequence str, CharSequence extension) {
         String nfdPrefix;
         if(prefix.length() == 0) {
@@ -585,7 +588,7 @@ public final class CollationBuilder extends CollationRuleParser.Sink {
         int start = 0;
         int limit = length;
         for (;;) {
-            int i = (start + limit) / 2;
+            int i = (int)(((long)start + (long)limit) / 2);
             long node = nodes[rootPrimaryIndexes[i]];
             long nodePrimary = node >>> 32;  // weight32FromNode(node)
             if (p == nodePrimary) {
@@ -1320,6 +1323,7 @@ public final class CollationBuilder extends CollationRuleParser.Sink {
         CEFinalizer(long[] ces) {
             finalCEs = ces;
         }
+        @Override
         public long modifyCE32(int ce32) {
             assert(!Collation.isSpecialCE32(ce32));
             if(CollationBuilder.isTempCE32(ce32)) {
@@ -1329,6 +1333,7 @@ public final class CollationBuilder extends CollationRuleParser.Sink {
                 return Collation.NO_CE;
             }
         }
+        @Override
         public long modifyCE(long ce) {
             if(CollationBuilder.isTempCE(ce)) {
                 // retain case bits

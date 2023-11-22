@@ -97,9 +97,9 @@ enum class ClipMode {
 };
 
 struct ClipBase {
-    ClipBase(ClipMode mode)
+    explicit ClipBase(ClipMode mode)
             : mode(mode) {}
-    ClipBase(const Rect& rect)
+    explicit ClipBase(const Rect& rect)
             : mode(ClipMode::Rectangle)
             , rect(rect) {}
     const ClipMode mode;
@@ -112,19 +112,19 @@ struct ClipBase {
 };
 
 struct ClipRect : ClipBase {
-    ClipRect(const Rect& rect)
+    explicit ClipRect(const Rect& rect)
             : ClipBase(rect) {}
 };
 
 struct ClipRectList : ClipBase {
-    ClipRectList(const RectangleList& rectList)
+    explicit ClipRectList(const RectangleList& rectList)
             : ClipBase(ClipMode::RectangleList)
             , rectList(rectList) {}
     RectangleList rectList;
 };
 
 struct ClipRegion : ClipBase {
-    ClipRegion(const SkRegion& region)
+    explicit ClipRegion(const SkRegion& region)
             : ClipBase(ClipMode::Region)
             , region(region) {}
     ClipRegion()
@@ -146,7 +146,6 @@ public:
     void setClip(float left, float top, float right, float bottom);
     void clipRectWithTransform(const Rect& r, const mat4* transform,
             SkRegion::Op op);
-    void clipRegion(const SkRegion& region, SkRegion::Op op);
     void clipPathWithTransform(const SkPath& path, const mat4* transform,
             SkRegion::Op op);
 
@@ -195,6 +194,7 @@ private:
     void regionModeClipRectWithTransform(const Rect& r, const mat4* transform,
             SkRegion::Op op);
 
+    void clipRegion(const SkRegion& region, SkRegion::Op op);
     void ensureClipRegion();
     void onClipRegionUpdated();
 

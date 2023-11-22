@@ -34,6 +34,7 @@ public class FieldsDebuggee extends SyncDebuggee {
     String stringField;
     Object objectField;
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("--> Debuggee: FieldsDebuggee...");

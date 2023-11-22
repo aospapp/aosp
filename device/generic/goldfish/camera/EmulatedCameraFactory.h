@@ -127,7 +127,7 @@ public:
     /* Gets qemu camera orientation. */
     int getQemuCameraOrientation() {
         /* TODO: Have a boot property that controls that. */
-        return 270;
+        return 90;
     }
 
     /* Gets number of emulated cameras.
@@ -155,6 +155,9 @@ private:
      * array.
      */
     void createQemuCameras();
+
+    /* Waits till qemu-props has done setup, timeout after 500ms */
+    void waitForQemuSfFakeCameraPropertyAvailable();
 
     /* Checks if fake camera emulation is on for the camera facing back. */
     bool isBackFakeCameraEmulationOn();

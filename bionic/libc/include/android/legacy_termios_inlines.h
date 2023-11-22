@@ -29,10 +29,13 @@
 #ifndef _ANDROID_LEGACY_TERMIOS_INLINES_H_
 #define _ANDROID_LEGACY_TERMIOS_INLINES_H_
 
-#include <linux/termios.h>
 #include <sys/cdefs.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+
+#include <linux/termios.h>
+
+#if __ANDROID_API__ < __ANDROID_API_L__
 
 __BEGIN_DECLS
 
@@ -88,6 +91,19 @@ static __inline void cfmakeraw(struct termios *s) {
   s->c_cflag |= CS8;
 }
 
+static __inline int cfsetspeed(struct termios* s, speed_t speed) {
+  // TODO: check 'speed' is valid.
+  s->c_cflag = (s->c_cflag & ~CBAUD) | (speed & CBAUD);
+  return 0;
+}
+
+static __inline int tcdrain(int fd) {
+  // A non-zero argument to TCSBRK means "don't send a break".
+  // The drain is a side-effect of the ioctl!
+  return ioctl(fd, TCSBRK, __BIONIC_CAST(static_cast, unsigned long, 1));
+}
+
 __END_DECLS
 
+#endif
 #endif /* _ANDROID_LEGACY_TERMIOS_INLINES_H_ */

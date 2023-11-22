@@ -40,9 +40,10 @@ public class GetValuesDebuggee extends SyncDebuggee {
     GetValuesDebuggee[] objectArrayField;
     Thread threadField;
     ThreadGroup threadGroupField;
-    Class classField;
+    Class<?> classField;
     ClassLoader classLoaderField;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: GetValuesDebuggee: START");
         getValuesDebuggeeObject = new GetValuesDebuggee();

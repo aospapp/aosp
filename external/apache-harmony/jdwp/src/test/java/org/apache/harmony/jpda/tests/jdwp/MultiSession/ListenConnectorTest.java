@@ -29,7 +29,6 @@ import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -38,6 +37,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  */
 public class ListenConnectorTest extends JDWPSyncTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.MultiSession.ConnectorKindDebuggee";
     }
@@ -45,6 +45,7 @@ public class ListenConnectorTest extends JDWPSyncTestCase {
     /**
      * Sets kind of connection: listen kind.
      */
+    @Override
     protected void beforeConnectionSetUp() {
         settings.setListenConnectorKind();
         logWriter.println("LISTEN connector kind");

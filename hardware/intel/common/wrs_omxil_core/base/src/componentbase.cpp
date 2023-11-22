@@ -29,6 +29,7 @@
 #include <queue.h>
 #include <workqueue.h>
 #include <OMX_IndexExt.h>
+#include <OMX_IntelVideoExt.h>
 #include <HardwareAPI.h>
 
 //#define LOG_NDEBUG 0
@@ -588,6 +589,11 @@ OMX_ERRORTYPE ComponentBase::CBaseSetParameter(
             if(p->format.video.eColorFormat == OMX_COLOR_FormatUnused)
                 p->nBufferSize = p->format.video.nFrameWidth * p->format.video.nFrameHeight *3/2;
         }
+
+        if ((p->format.video.eColorFormat == OMX_COLOR_FormatUnused) ||
+                (p->format.video.eColorFormat == OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar) ||
+                (p->format.video.eColorFormat == OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar_Tiled))
+            p->format.video.eColorFormat = GetOutputColorFormat(p->format.video.nFrameWidth);
 
         ret = port->SetPortDefinition(p, false);
         if (ret != OMX_ErrorNone) {
@@ -1779,7 +1785,7 @@ OMX_ERRORTYPE ComponentBase::SetWorkingRole(const OMX_STRING role)
     }
 
     LOGE("%s: cannot find %s role\n", GetName(), role);
-    return OMX_ErrorBadParameter;
+    return OMX_ErrorUnsupportedSetting;
 }
 
 /* apply a working role for a component having multiple roles */
@@ -1886,6 +1892,12 @@ OMX_ERRORTYPE ComponentBase::FreePorts(void)
     }
 
     return OMX_ErrorNone;
+}
+
+OMX_COLOR_FORMATTYPE ComponentBase::GetOutputColorFormat(int width)
+{
+    LOGD("%s: width = %d", __func__, width);
+    return OMX_INTEL_COLOR_FormatYUV420PackedSemiPlanar;
 }
 
 /* buffer processing */

@@ -1,4 +1,4 @@
-type cnd, domain, domain_deprecated;
+type cnd, domain, device_domain_deprecated;
 type cnd_exec, exec_type, file_type;
 
 # Started by init
@@ -11,6 +11,7 @@ userdebug_or_eng(`
 allow cnd self:capability { setuid setgid net_raw };
 
 allow cnd self:socket create_socket_perms;
+allowxperm cnd self:socket ioctl msm_sock_ipc_ioctls;
 allow cnd self:udp_socket create_socket_perms;
 
 allow cnd sysfs_msm_subsys:dir r_dir_perms;

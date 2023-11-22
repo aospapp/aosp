@@ -23,10 +23,6 @@
 #include <gui/IGraphicBufferProducer.h>
 #include <gui/IConsumerListener.h>
 
-// These are only required to keep other parts of the framework with incomplete
-// dependencies building successfully
-#include <gui/IGraphicBufferAlloc.h>
-
 namespace android {
 
 class BufferQueue {
@@ -60,14 +56,16 @@ public:
     // weak references.
     class ProxyConsumerListener : public BnConsumerListener {
     public:
-        ProxyConsumerListener(const wp<ConsumerListener>& consumerListener);
+        explicit ProxyConsumerListener(const wp<ConsumerListener>& consumerListener);
         virtual ~ProxyConsumerListener();
-        virtual void onFrameAvailable(const BufferItem& item) override;
-        virtual void onFrameReplaced(const BufferItem& item) override;
-        virtual void onBuffersReleased() override;
-        virtual void onSidebandStreamChanged() override;
-        virtual bool getFrameTimestamps(uint64_t frameNumber,
-                FrameTimestamps* outTimestamps) const override;
+        void onDisconnect() override;
+        void onFrameAvailable(const BufferItem& item) override;
+        void onFrameReplaced(const BufferItem& item) override;
+        void onBuffersReleased() override;
+        void onSidebandStreamChanged() override;
+        void addAndGetFrameTimestamps(
+                const NewFrameEventsEntry* newTimestamps,
+                FrameEventHistoryDelta* outDelta) override;
     private:
         // mConsumerListener is a weak reference to the IConsumerListener.  This is
         // the raison d'etre of ProxyConsumerListener.
@@ -79,10 +77,9 @@ public:
     // needed gralloc buffers.
     static void createBufferQueue(sp<IGraphicBufferProducer>* outProducer,
             sp<IGraphicBufferConsumer>* outConsumer,
-            const sp<IGraphicBufferAlloc>& allocator = NULL);
+            bool consumerIsSurfaceFlinger = false);
 
-private:
-    BufferQueue(); // Create through createBufferQueue
+    BufferQueue() = delete; // Create through createBufferQueue
 };
 
 // ----------------------------------------------------------------------------

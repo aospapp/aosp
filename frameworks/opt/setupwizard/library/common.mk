@@ -12,8 +12,15 @@
 #   include frameworks/opt/setupwizard/library/common.mk
 #
 
-LOCAL_RESOURCE_DIR += \
-    $(call my-dir)/main/res \
-    $(call my-dir)/platform/res
-LOCAL_AAPT_FLAGS += --auto-add-overlay --extra-packages com.android.setupwizardlib
-LOCAL_STATIC_JAVA_LIBRARIES += setup-wizard-lib
+# Path to directory of setup wizard lib (e.g. frameworks/opt/setupwizard/library)
+suwlib_path := $(dir $(lastword $(MAKEFILE_LIST)))
+
+ifneq ($(LOCAL_USE_AAPT2),true)
+  LOCAL_RESOURCE_DIR += \
+      $(suwlib_path)/main/res \
+      $(suwlib_path)/platform/res
+  LOCAL_AAPT_FLAGS += --auto-add-overlay --extra-packages com.android.setupwizardlib
+  LOCAL_STATIC_JAVA_LIBRARIES += setup-wizard-lib
+else # LOCAL_USE_AAPT2 := true
+  LOCAL_STATIC_ANDROID_LIBRARIES += setup-wizard-lib
+endif # LOCAL_USE_AAPT2

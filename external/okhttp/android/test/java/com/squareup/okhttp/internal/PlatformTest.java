@@ -24,19 +24,25 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
-
 import javax.net.ssl.HandshakeCompletedListener;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
-
-import okio.ByteString;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for {@link Platform}.
@@ -76,6 +82,44 @@ public class PlatformTest {
     openSslSocket.alpnProtocols = selectedProtocol.getBytes(StandardCharsets.UTF_8);
     assertEquals(selectedProtocol, platform.getSelectedProtocol(openSslSocket));
   }
+
+  @Test public void rootTrustIndex_notNull_viaSocketFactory() throws Exception {
+    Platform platform = new Platform();
+    SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+    sslContext.init(null, new TrustManager[] { TRUST_NO_ONE_TRUST_MANAGER }, new SecureRandom());
+    SSLSocketFactory socketFactory = sslContext.getSocketFactory();
+    X509TrustManager trustManager = platform.trustManager(socketFactory);
+    assertNotNull(platform.trustRootIndex(trustManager));
+  }
+
+  @Test public void rootTrustIndex_notNull() throws Exception {
+    Platform platform = new Platform();
+    assertNotNull(platform.trustRootIndex(TRUST_NO_ONE_TRUST_MANAGER));
+  }
+
+  @Test public void trustManager() throws Exception {
+    Platform platform = new Platform();
+    SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+    sslContext.init(null, new TrustManager[] { TRUST_NO_ONE_TRUST_MANAGER }, new SecureRandom());
+    SSLSocketFactory socketFactory = sslContext.getSocketFactory();
+    X509TrustManager trustManager = platform.trustManager(socketFactory);
+    assertEquals(TRUST_NO_ONE_TRUST_MANAGER, trustManager);
+  }
+
+  private static final X509TrustManager TRUST_NO_ONE_TRUST_MANAGER = new X509TrustManager() {
+    @Override public void checkClientTrusted(X509Certificate[] chain, String authType)
+            throws CertificateException {
+      throw new CertificateException();
+    }
+
+    @Override public void checkServerTrusted(X509Certificate[] chain, String authType) {
+      throw new AssertionError();
+    }
+
+    @Override public X509Certificate[] getAcceptedIssuers() {
+      return new X509Certificate[0];
+    }
+  };
 
   private static class FullOpenSSLSocketImpl extends OpenSSLSocketImpl {
     private boolean useSessionTickets;

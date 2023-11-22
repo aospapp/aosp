@@ -32,7 +32,8 @@ import com.google.polo.pairing.message.PoloMessage;
 import com.google.polo.pairing.message.SecretAckMessage;
 import com.google.polo.pairing.message.SecretMessage;
 import com.google.polo.wire.PoloWireInterface;
-import com.google.polo.wire.protobuf.PoloProto.OuterMessage;
+import com.google.polo.wire.protobuf.nano.PoloProto;
+import com.google.polo.wire.protobuf.nano.PoloProto.OuterMessage;
 import com.google.protobuf.nano.MessageNano;
 
 import java.io.IOException;

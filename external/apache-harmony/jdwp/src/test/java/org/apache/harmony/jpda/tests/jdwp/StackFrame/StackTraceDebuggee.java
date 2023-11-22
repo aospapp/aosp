@@ -34,6 +34,7 @@ public class StackTraceDebuggee extends SyncDebuggee {
         runDebuggee(StackTraceDebuggee.class);
     }
 
+    @Override
     public void run() {
         String currentThreadName = Thread.currentThread().getName();
         synchronizer.sendMessage(currentThreadName);

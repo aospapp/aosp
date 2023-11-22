@@ -51,6 +51,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"
+            android:labelFor="@+id/suw_items_switch"
             android:textAlignment="viewStart"
             tools:ignore="UnusedAttribute" />
 
@@ -68,8 +69,9 @@
 
     <android.support.v7.widget.SwitchCompat
         android:id="@+id/suw_items_switch"
+        style="@style/SuwSwitchStyle"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_gravity="center_vertical" />
 
 </LinearLayout>

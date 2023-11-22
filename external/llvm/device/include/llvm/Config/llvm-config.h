@@ -90,10 +90,10 @@
 #define LLVM_VERSION_MINOR 8
 
 /* Patch version of the LLVM API */
-#define LLVM_VERSION_PATCH 256229
+#define LLVM_VERSION_PATCH 275480
 
 /* LLVM version string */
-#define LLVM_VERSION_STRING "3.8.256229"
+#define LLVM_VERSION_STRING "3.8.275480"
 
 #include "llvm/Config/llvm-platform-config.h"
 

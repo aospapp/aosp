@@ -1,6 +1,6 @@
 <html>
 <body>
-    <video id='video' name='media' height="480" width="854" controls>
+    <video id='video' name='media' height="480" width="854">
         <source src='' type='video'>
     </video>
     <br>
@@ -9,6 +9,7 @@ Current time (seconds): <span id='videoCurTime'>0</span>
 
 <script type="text/javascript">
 var can_play = false;
+var script_ready = false;
 var finished_seeking = false;
 var error_status = false;
 
@@ -71,5 +72,10 @@ function currentTime()  {
 function errorDetected() {
   return error_status;
 }
+
+function setControls() {
+    video.setAttribute("controls","true");
+}
+script_ready = true;
 </script>
 </html>

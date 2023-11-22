@@ -47,7 +47,9 @@ static void dump(const char *name, uint64_t value, const uint8_t *data,
 
         for (size_t m = 0; m < bytes_per_line; ++m) {
             if (n + m < size) {
-                sprintf(&hex[m * 3], "%02x ", data[n + m]);
+                ptrdiff_t offset = &hex[m * 3] - hex;
+                snprintf(hex + offset, sizeof(hex) - offset, "%02x ",
+                         data[n + m]);
 
                 if (isprint(data[n + m])) {
                     prn[m] = data[n + m];

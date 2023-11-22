@@ -16,13 +16,17 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.cts.migration.MigrationHelper;
-import com.android.ddmlib.Log.LogLevel;
+import android.platform.test.annotations.RequiresDevice;
+
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Set of tests for use cases that apply to profile and device owner.
@@ -51,16 +55,18 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     private static final String SIMPLE_PRE_M_APP_PKG = "com.android.cts.launcherapps.simplepremapp";
     private static final String SIMPLE_PRE_M_APP_APK = "CtsSimplePreMApp.apk";
 
-    private static final String APP_RESTRICTIONS_MANAGING_APP_PKG
-            = "com.android.cts.apprestrictions.managingapp";
-    private static final String APP_RESTRICTIONS_MANAGING_APP_APK
-            = "CtsAppRestrictionsManagingApp.apk";
     private static final String APP_RESTRICTIONS_TARGET_APP_PKG
             = "com.android.cts.apprestrictions.targetapp";
     private static final String APP_RESTRICTIONS_TARGET_APP_APK = "CtsAppRestrictionsTargetApp.apk";
 
     private static final String CERT_INSTALLER_PKG = "com.android.cts.certinstaller";
     private static final String CERT_INSTALLER_APK = "CtsCertInstallerApp.apk";
+
+    private static final String DELEGATE_APP_PKG = "com.android.cts.delegate";
+    private static final String DELEGATE_APP_APK = "CtsDelegateApp.apk";
+    private static final String DELEGATION_CERT_INSTALL = "delegation-cert-install";
+    private static final String DELEGATION_APP_RESTRICTIONS = "delegation-app-restrictions";
+    private static final String DELEGATION_BLOCK_UNINSTALL = "delegation-block-uninstall";
 
     private static final String TEST_APP_APK = "CtsSimpleApp.apk";
     private static final String TEST_APP_PKG = "com.android.cts.launcherapps.simpleapp";
@@ -76,17 +82,28 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     private static final String VPN_APP_PKG = "com.android.cts.vpnfirewall";
     private static final String VPN_APP_APK = "CtsVpnFirewallApp.apk";
 
-    private static final String COMMAND_ADD_USER_RESTRICTION = "add-restriction";
-    private static final String COMMAND_CLEAR_USER_RESTRICTION = "clear-restriction";
     private static final String COMMAND_BLOCK_ACCOUNT_TYPE = "block-accounttype";
     private static final String COMMAND_UNBLOCK_ACCOUNT_TYPE = "unblock-accounttype";
 
     private static final String DISALLOW_MODIFY_ACCOUNTS = "no_modify_accounts";
+    private static final String DISALLOW_REMOVE_USER = "no_remove_user";
     private static final String ACCOUNT_TYPE
             = "com.android.cts.devicepolicy.accountmanagement.account.type";
 
     private static final String CUSTOMIZATION_APP_PKG = "com.android.cts.customizationapp";
     private static final String CUSTOMIZATION_APP_APK = "CtsCustomizationApp.apk";
+
+    private static final String AUTOFILL_APP_PKG = "com.android.cts.devicepolicy.autofillapp";
+    private static final String AUTOFILL_APP_APK = "CtsDevicePolicyAutofillApp.apk";
+
+    protected static final String ASSIST_APP_PKG = "com.android.cts.devicepolicy.assistapp";
+    protected static final String ASSIST_APP_APK = "CtsDevicePolicyAssistApp.apk";
+
+    private static final String ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES
+            = "enabled_notification_policy_access_packages";
+
+    protected static final String ASSIST_INTERACTION_SERVICE =
+            ASSIST_APP_PKG + "/.MyInteractionService";
 
     // ID of the user all tests are run as. For device owner this will be the primary user, for
     // profile owner it is the user id of the created profile.
@@ -98,14 +115,16 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
             getDevice().uninstallPackage(PERMISSIONS_APP_PKG);
             getDevice().uninstallPackage(SIMPLE_PRE_M_APP_PKG);
-            getDevice().uninstallPackage(APP_RESTRICTIONS_MANAGING_APP_PKG);
             getDevice().uninstallPackage(APP_RESTRICTIONS_TARGET_APP_PKG);
             getDevice().uninstallPackage(CERT_INSTALLER_PKG);
+            getDevice().uninstallPackage(DELEGATE_APP_PKG);
             getDevice().uninstallPackage(ACCOUNT_MANAGEMENT_PKG);
             getDevice().uninstallPackage(VPN_APP_PKG);
             getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
             getDevice().uninstallPackage(INTENT_SENDER_PKG);
             getDevice().uninstallPackage(CUSTOMIZATION_APP_PKG);
+            getDevice().uninstallPackage(AUTOFILL_APP_APK);
+            getDevice().uninstallPackage(TEST_APP_PKG);
 
             // Press the HOME key to close any alart dialog that may be shown.
             getDevice().executeShellCommand("input keyevent 3");
@@ -113,11 +132,11 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         super.tearDown();
     }
 
-    public void testResetPassword() throws Exception {
+    public void testCaCertManagement() throws Exception {
         if (!mHasFeature) {
             return;
         }
-        executeDeviceTestClass(".ResetPasswordTest");
+        executeDeviceTestClass(".CaCertManagementTest");
     }
 
     public void testApplicationRestrictions() throws Exception {
@@ -125,18 +144,19 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             return;
         }
 
-        installAppAsUser(APP_RESTRICTIONS_MANAGING_APP_APK, mUserId);
+        installAppAsUser(DELEGATE_APP_APK, mUserId);
         installAppAsUser(APP_RESTRICTIONS_TARGET_APP_APK, mUserId);
 
         try {
             // Only the DPC can manage app restrictions by default.
             executeDeviceTestClass(".ApplicationRestrictionsTest");
-            executeAppRestrictionsManagingPackageTest("testCannotManageAppRestrictions");
+            executeAppRestrictionsManagingPackageTest("testCannotAccessApis");
 
-            // Letting the APP_RESTRICTIONS_MANAGING_APP_PKG manage app restrictions too.
-            changeApplicationRestrictionsManagingPackage(APP_RESTRICTIONS_MANAGING_APP_PKG);
-            executeAppRestrictionsManagingPackageTest("testCanManageAppRestrictions");
-            executeAppRestrictionsManagingPackageTest("testSettingComponentNameThrowsException");
+            // Letting the DELEGATE_APP_PKG manage app restrictions too.
+            changeApplicationRestrictionsManagingPackage(DELEGATE_APP_PKG);
+            executeAppRestrictionsManagingPackageTest("testCanAccessApis");
+            runDeviceTestsAsUser(DELEGATE_APP_PKG, ".GeneralDelegateTest",
+                    "testSettingAdminComponentNameThrowsException", mUserId);
 
             // The DPC should still be able to manage app restrictions normally.
             executeDeviceTestClass(".ApplicationRestrictionsTest");
@@ -144,21 +164,66 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             // The app shouldn't be able to manage app restrictions for other users.
             int parentUserId = getPrimaryUser();
             if (parentUserId != mUserId) {
-                installAppAsUser(APP_RESTRICTIONS_MANAGING_APP_APK, parentUserId);
+                installAppAsUser(DELEGATE_APP_APK, parentUserId);
                 installAppAsUser(APP_RESTRICTIONS_TARGET_APP_APK, parentUserId);
-                assertTrue(runDeviceTestsAsUser(
-                        APP_RESTRICTIONS_MANAGING_APP_PKG, ".ApplicationRestrictionsManagerTest",
-                        "testCannotManageAppRestrictions", parentUserId));
+                runDeviceTestsAsUser(DELEGATE_APP_PKG, ".AppRestrictionsDelegateTest",
+                        "testCannotAccessApis", parentUserId);
             }
 
-            // Revoking the permission for APP_RESTRICTIONS_MANAGING_APP_PKG to manage restrictions.
+            // Revoking the permission for DELEGAYE_APP_PKG to manage restrictions.
             changeApplicationRestrictionsManagingPackage(null);
-            executeAppRestrictionsManagingPackageTest("testCannotManageAppRestrictions");
+            executeAppRestrictionsManagingPackageTest("testCannotAccessApis");
 
             // The DPC should still be able to manage app restrictions normally.
             executeDeviceTestClass(".ApplicationRestrictionsTest");
         } finally {
             changeApplicationRestrictionsManagingPackage(null);
+        }
+    }
+
+    public void testDelegation() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        final String delegationTests[] = {
+            ".AppRestrictionsDelegateTest",
+            ".CertInstallDelegateTest",
+            ".BlockUninstallDelegateTest"
+        };
+
+        // Set a device lockscreen password (precondition for installing private key pairs).
+        changeUserCredential("1234", null, mPrimaryUserId);
+
+        // Install relevant apps.
+        installAppAsUser(DELEGATE_APP_APK, mUserId);
+        installAppAsUser(TEST_APP_APK, mUserId);
+        installAppAsUser(APP_RESTRICTIONS_TARGET_APP_APK, mUserId);
+
+        try {
+            // APIs are not accessible by default.
+            executeDelegationTests(delegationTests, false /* negative result */);
+
+            // Granting the appropriate delegation scopes makes APIs accessible.
+            setDelegatedScopes(DELEGATE_APP_PKG, Arrays.asList(
+                    DELEGATION_APP_RESTRICTIONS,
+                    DELEGATION_CERT_INSTALL,
+                    DELEGATION_BLOCK_UNINSTALL));
+            runDeviceTestsAsUser(DELEGATE_APP_PKG, ".GeneralDelegateTest", mUserId);
+            executeDelegationTests(delegationTests, true /* positive result */);
+
+            // APIs are not accessible after revoking delegations.
+            setDelegatedScopes(DELEGATE_APP_PKG, null);
+            executeDelegationTests(delegationTests, false /* negative result */);
+
+            // Additional delegation tests.
+            executeDeviceTestClass(".DelegationTest");
+
+        } finally {
+            // Clear lockscreen password previously set for installing private key pairs (DO only).
+            changeUserCredential(null, "1234", mPrimaryUserId);
+            // Remove any remaining delegations.
+            setDelegatedScopes(DELEGATE_APP_PKG, null);
         }
     }
 
@@ -170,6 +235,15 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantState");
     }
 
+    /**
+     * Require a device for tests that use the network stack. Headless Androids running in
+     * data centres might need their network rules un-tampered-with in order to keep the ADB / VNC
+     * connection alive.
+     *
+     * This is only a problem on device owner / profile owner running on USER_SYSTEM, because
+     * network rules for this user will affect UID 0.
+     */
+    @RequiresDevice
     public void testAlwaysOnVpn() throws Exception {
         if (!mHasFeature) {
             return;
@@ -178,6 +252,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestClass(".AlwaysOnVpnTest");
     }
 
+    @RequiresDevice
     public void testAlwaysOnVpnLockDown() throws Exception {
         if (!mHasFeature) {
             return;
@@ -193,6 +268,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         }
     }
 
+    @RequiresDevice
     public void testAlwaysOnVpnPackageUninstalled() throws Exception {
         if (!mHasFeature) {
             return;
@@ -288,11 +364,24 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         // We need to ensure that the policy is deactivated for the device owner case, so making
         // sure the second test is run even if the first one fails
         try {
-            executeDeviceTestMethod(".ScreenCaptureDisabledTest",
-                    "testSetScreenCaptureDisabled_true");
+            setScreenCaptureDisabled(mUserId, true);
         } finally {
-            executeDeviceTestMethod(".ScreenCaptureDisabledTest",
-                    "testSetScreenCaptureDisabled_false");
+            setScreenCaptureDisabled(mUserId, false);
+        }
+    }
+
+    public void testScreenCaptureDisabled_assist() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        try {
+            // Install and enable assistant, notice that profile can't have assistant.
+            installAppAsUser(ASSIST_APP_APK, mPrimaryUserId);
+            setVoiceInteractionService(ASSIST_INTERACTION_SERVICE);
+            setScreenCaptureDisabled_assist(mUserId, true /* disabled */);
+        } finally {
+            setScreenCaptureDisabled_assist(mUserId, false /* disabled */);
+            clearVoiceInteractionService();
         }
     }
 
@@ -300,7 +389,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
-        installAppAsUser(APP_RESTRICTIONS_MANAGING_APP_APK, mUserId);
         executeDeviceTestClass(".SupportMessageTest");
     }
 
@@ -328,13 +416,11 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
         installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
         try {
-            changeUserRestrictionForUser(DISALLOW_MODIFY_ACCOUNTS, COMMAND_ADD_USER_RESTRICTION,
-                    mUserId);
+            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, true, mUserId);
             executeAccountTest("testAddAccount_blocked");
         } finally {
             // Ensure we clear the user restriction
-            changeUserRestrictionForUser(DISALLOW_MODIFY_ACCOUNTS, COMMAND_CLEAR_USER_RESTRICTION,
-                    mUserId);
+            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, false, mUserId);
         }
         executeAccountTest("testAddAccount_allowed");
     }
@@ -346,13 +432,11 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
         installAppAsUser(ACCOUNT_MANAGEMENT_APK, mUserId);
         try {
-            changeUserRestrictionForUser(DISALLOW_MODIFY_ACCOUNTS, COMMAND_ADD_USER_RESTRICTION,
-                    mUserId);
+            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, true, mUserId);
             executeAccountTest("testRemoveAccount_blocked");
         } finally {
             // Ensure we clear the user restriction
-            changeUserRestrictionForUser(DISALLOW_MODIFY_ACCOUNTS, COMMAND_CLEAR_USER_RESTRICTION,
-                    mUserId);
+            changeUserRestrictionOrFail(DISALLOW_MODIFY_ACCOUNTS, false, mUserId);
         }
         executeAccountTest("testRemoveAccount_allowed");
     }
@@ -401,15 +485,13 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         try {
             // Set a non-empty device lockscreen password, which is a precondition for installing
             // private key pairs.
-            assertTrue("Set lockscreen password failed", runDeviceTestsAsUser(DEVICE_ADMIN_PKG,
-                    ".ResetPasswordHelper", "testSetPassword", mUserId));
-            assertTrue("DelegatedCertInstaller failed", runDeviceTestsAsUser(DEVICE_ADMIN_PKG,
-                    ".DelegatedCertInstallerTest", mUserId));
+            changeUserCredential("1234", null, mUserId);
+
+            runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".DelegatedCertInstallerTest", mUserId);
         } finally {
             if (!isManagedProfile) {
                 // Skip managed profile as dpm doesn't allow clear password
-                assertTrue("Clear lockscreen password failed", runDeviceTestsAsUser(DEVICE_ADMIN_PKG,
-                        ".ResetPasswordHelper", "testClearPassword", mUserId));
+                changeUserCredential(null, "1234", mUserId);
             }
         }
     }
@@ -425,13 +507,11 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
         installAppAsUser(CUSTOMIZATION_APP_APK, mUserId);
         try {
-            changeUserRestrictionForUser(DISALLOW_SET_WALLPAPER, COMMAND_ADD_USER_RESTRICTION,
-                    mUserId);
-            assertTrue(runDeviceTestsAsUser(CUSTOMIZATION_APP_PKG, ".CustomizationTest",
-                "testSetWallpaper_disallowed", mUserId));
+            changeUserRestrictionOrFail(DISALLOW_SET_WALLPAPER, true, mUserId);
+            runDeviceTestsAsUser(CUSTOMIZATION_APP_PKG, ".CustomizationTest",
+                "testSetWallpaper_disallowed", mUserId);
         } finally {
-            changeUserRestrictionForUser(DISALLOW_SET_WALLPAPER, COMMAND_CLEAR_USER_RESTRICTION,
-                    mUserId);
+            changeUserRestrictionOrFail(DISALLOW_SET_WALLPAPER, false, mUserId);
         }
     }
 
@@ -453,66 +533,67 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
                 "testDisallowSetUserIcon_allowed");
     }
 
+    public void testDisallowAutofill_allowed() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        installAppAsUser(AUTOFILL_APP_APK, mUserId);
+
+        executeDeviceTestMethod(".AutofillRestrictionsTest",
+                "testDisallowAutofill_allowed");
+    }
+
     public void testPackageInstallUserRestrictions() throws Exception {
         if (!mHasFeature) {
             return;
         }
+        boolean mIsWatch = hasDeviceFeature("android.hardware.type.watch");
+        if (mIsWatch) {
+            return;
+        }
         // UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES
         final String DISALLOW_INSTALL_UNKNOWN_SOURCES = "no_install_unknown_sources";
-        final String UNKNOWN_SOURCES_SETTING = "install_non_market_apps";
         final String PACKAGE_VERIFIER_USER_CONSENT_SETTING = "package_verifier_user_consent";
         final String PACKAGE_VERIFIER_ENABLE_SETTING = "package_verifier_enable";
         final String SECURE_SETTING_CATEGORY = "secure";
         final String GLOBAL_SETTING_CATEGORY = "global";
-        final File apk = MigrationHelper.getTestFile(mCtsBuild, TEST_APP_APK);
-        String unknownSourceSetting = null;
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        final File apk = buildHelper.getTestFile(TEST_APP_APK);
         String packageVerifierEnableSetting = null;
         String packageVerifierUserConsentSetting = null;
         try {
             // Install the test and prepare the test apk.
             installAppAsUser(PACKAGE_INSTALLER_APK, mUserId);
             assertTrue(getDevice().pushFile(apk, TEST_APP_LOCATION + apk.getName()));
+            setInstallPackageAppOps(PACKAGE_INSTALLER_PKG, true, mUserId);
 
             // Add restrictions and test if we can install the apk.
             getDevice().uninstallPackage(TEST_APP_PKG);
-            changeUserRestrictionForUser(DISALLOW_INSTALL_UNKNOWN_SOURCES,
-                    COMMAND_ADD_USER_RESTRICTION, mUserId);
-            assertTrue(runDeviceTestsAsUser(PACKAGE_INSTALLER_PKG, ".ManualPackageInstallTest",
-                    "testManualInstallBlocked", mUserId));
+            changeUserRestrictionOrFail(DISALLOW_INSTALL_UNKNOWN_SOURCES, true, mUserId);
+            runDeviceTestsAsUser(PACKAGE_INSTALLER_PKG, ".ManualPackageInstallTest",
+                    "testManualInstallBlocked", mUserId);
 
             // Clear restrictions and test if we can install the apk.
-            changeUserRestrictionForUser(DISALLOW_INSTALL_UNKNOWN_SOURCES,
-                    COMMAND_CLEAR_USER_RESTRICTION, mUserId);
+            changeUserRestrictionOrFail(DISALLOW_INSTALL_UNKNOWN_SOURCES, false, mUserId);
 
-            // Enable Unknown sources in Settings.
-            unknownSourceSetting =
-                    getSettings(SECURE_SETTING_CATEGORY, UNKNOWN_SOURCES_SETTING, mUserId);
+            // Disable verifier.
             packageVerifierUserConsentSetting = getSettings(SECURE_SETTING_CATEGORY,
                     PACKAGE_VERIFIER_USER_CONSENT_SETTING, mUserId);
             packageVerifierEnableSetting = getSettings(GLOBAL_SETTING_CATEGORY,
                     PACKAGE_VERIFIER_ENABLE_SETTING, mUserId);
 
-            putSettings(SECURE_SETTING_CATEGORY, UNKNOWN_SOURCES_SETTING, "1", mUserId);
             putSettings(SECURE_SETTING_CATEGORY, PACKAGE_VERIFIER_USER_CONSENT_SETTING, "-1",
                     mUserId);
             putSettings(GLOBAL_SETTING_CATEGORY, PACKAGE_VERIFIER_ENABLE_SETTING, "0", mUserId);
-            assertEquals("1",
-                    getSettings(SECURE_SETTING_CATEGORY, UNKNOWN_SOURCES_SETTING, mUserId));
-            assertEquals("-1", getSettings(SECURE_SETTING_CATEGORY,
-                    PACKAGE_VERIFIER_USER_CONSENT_SETTING, mUserId));
-            assertEquals("0", getSettings(GLOBAL_SETTING_CATEGORY,
-                    PACKAGE_VERIFIER_ENABLE_SETTING, mUserId));
-            assertTrue(runDeviceTestsAsUser(PACKAGE_INSTALLER_PKG, ".ManualPackageInstallTest",
-                    "testManualInstallSucceeded", mUserId));
+            // Skip verifying above setting values as some of them may be overrided.
+            runDeviceTestsAsUser(PACKAGE_INSTALLER_PKG, ".ManualPackageInstallTest",
+                    "testManualInstallSucceeded", mUserId);
         } finally {
+            setInstallPackageAppOps(PACKAGE_INSTALLER_PKG, false, mUserId);
             String command = "rm " + TEST_APP_LOCATION + apk.getName();
             getDevice().executeShellCommand(command);
             getDevice().uninstallPackage(TEST_APP_PKG);
-            getDevice().uninstallPackage(PACKAGE_INSTALLER_APK);
-            if (unknownSourceSetting != null) {
-                putSettings(SECURE_SETTING_CATEGORY, UNKNOWN_SOURCES_SETTING, unknownSourceSetting,
-                        mUserId);
-            }
+            getDevice().uninstallPackage(PACKAGE_INSTALLER_PKG);
             if (packageVerifierEnableSetting != null) {
                 putSettings(GLOBAL_SETTING_CATEGORY, PACKAGE_VERIFIER_ENABLE_SETTING,
                         packageVerifierEnableSetting, mUserId);
@@ -528,7 +609,13 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
-        executeDeviceTestClass(".AudioRestrictionTest");
+        // This package may need to toggle zen mode for this test, so allow it to do so.
+        allowNotificationPolicyAccess(DEVICE_ADMIN_PKG, mUserId);
+        try {
+            executeDeviceTestClass(".AudioRestrictionTest");
+        } finally {
+            disallowNotificationPolicyAccess(DEVICE_ADMIN_PKG, mUserId);
+        }
     }
 
     public void testSuspendPackage() throws Exception {
@@ -556,12 +643,73 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         executeDeviceTestClass(".TrustAgentInfoTest");
     }
 
+    public void testCannotRemoveUserIfRestrictionSet() throws Exception {
+        // Outside of the primary user, setting DISALLOW_REMOVE_USER would not work.
+        if (!mHasFeature || !canCreateAdditionalUsers(1) || mUserId != getPrimaryUser()) {
+            return;
+        }
+        final int userId = createUser();
+        try {
+            changeUserRestrictionOrFail(DISALLOW_REMOVE_USER, true, mUserId);
+            assertFalse(getDevice().removeUser(userId));
+        } finally {
+            changeUserRestrictionOrFail(DISALLOW_REMOVE_USER, false, mUserId);
+            assertTrue(getDevice().removeUser(userId));
+        }
+    }
+
+    public void testCannotEnableOrDisableDeviceOwnerOrProfileOwner() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        // Try to disable a component in device owner/ profile owner.
+        String result = disableComponentOrPackage(
+                mUserId, DEVICE_ADMIN_PKG + "/.SetPolicyActivity");
+        assertTrue("Should throw SecurityException",
+                result.contains("java.lang.SecurityException"));
+        // Try to disable the device owner/ profile owner package.
+        result = disableComponentOrPackage(mUserId, DEVICE_ADMIN_PKG);
+        assertTrue("Should throw SecurityException",
+                result.contains("java.lang.SecurityException"));
+        // Try to enable a component in device owner/ profile owner.
+        result = enableComponentOrPackage(
+                mUserId, DEVICE_ADMIN_PKG + "/.SetPolicyActivity");
+        assertTrue("Should throw SecurityException",
+                result.contains("java.lang.SecurityException"));
+        // Try to enable the device owner/ profile owner package.
+        result = enableComponentOrPackage(mUserId, DEVICE_ADMIN_PKG);
+        assertTrue("Should throw SecurityException",
+                result.contains("java.lang.SecurityException"));
+
+    }
+
+    public void testRequiredStrongAuthTimeout() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceTestClass(".RequiredStrongAuthTimeoutTest");
+    }
+
+    public void testCreateAdminSupportIntent() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceTestClass(".PolicyTransparencyTest");
+    }
+
+    public void testResetPasswordWithToken() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceTestMethod(".ResetPasswordWithTokenTest", "testResetPasswordWithToken");
+    }
+
     protected void executeDeviceTestClass(String className) throws Exception {
-        assertTrue(runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, mUserId));
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, mUserId);
     }
 
     protected void executeDeviceTestMethod(String className, String testName) throws Exception {
-        assertTrue(runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, testName, mUserId));
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, testName, mUserId);
     }
 
     private void installAppPermissionAppAsUser()
@@ -570,13 +718,13 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     private void executeSuspendPackageTestMethod(String testName) throws Exception {
-        assertTrue(runDeviceTestsAsUser(INTENT_SENDER_PKG, ".SuspendPackageTest",
-                testName, mUserId));
+        runDeviceTestsAsUser(INTENT_SENDER_PKG, ".SuspendPackageTest",
+                testName, mUserId);
     }
 
     private void executeAccountTest(String testName) throws DeviceNotAvailableException {
-        assertTrue(runDeviceTestsAsUser(ACCOUNT_MANAGEMENT_PKG, ".AccountManagementTest",
-                testName, mUserId));
+        runDeviceTestsAsUser(ACCOUNT_MANAGEMENT_PKG, ".AccountManagementTest",
+                testName, mUserId);
         // Send a home intent to dismiss an error dialog.
         String command = "am start -a android.intent.action.MAIN"
                 + " -c android.intent.category.HOME";
@@ -584,37 +732,157 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     private void executeAppRestrictionsManagingPackageTest(String testName) throws Exception {
-        assertTrue(runDeviceTestsAsUser(APP_RESTRICTIONS_MANAGING_APP_PKG,
-                ".ApplicationRestrictionsManagerTest", testName, mUserId));
+        runDeviceTestsAsUser(DELEGATE_APP_PKG,
+                ".AppRestrictionsDelegateTest", testName, mUserId);
     }
 
-    private void changeUserRestrictionForUser(String key, String command, int userId)
+    private void executeDelegationTests(String[] delegationTests, boolean positive)
+            throws Exception {
+        for (String delegationTestClass : delegationTests) {
+            runDeviceTestsAsUser(DELEGATE_APP_PKG, delegationTestClass,
+                positive ? "testCanAccessApis" : "testCannotAccessApis", mUserId);
+        }
+    }
+
+    private void changeUserRestrictionOrFail(String key, boolean value, int userId)
             throws DeviceNotAvailableException {
-        changePolicy(command, "--es extra-restriction-key " + key, userId);
+        changeUserRestrictionOrFail(key, value, userId, DEVICE_ADMIN_PKG);
     }
 
     private void changeAccountManagement(String command, String accountType, int userId)
             throws DeviceNotAvailableException {
-        changePolicy(command, "--es extra-account-type " + accountType, userId);
+        changePolicyOrFail(command, "--es extra-account-type " + accountType, userId);
     }
 
     private void changeApplicationRestrictionsManagingPackage(String packageName)
             throws DeviceNotAvailableException {
         String packageNameExtra = (packageName != null)
                 ? "--es extra-package-name " + packageName : "";
-        changePolicy("set-app-restrictions-manager", packageNameExtra, mUserId);
+        changePolicyOrFail("set-app-restrictions-manager", packageNameExtra, mUserId);
     }
 
-    private void changePolicy(String command, String extras, int userId)
+    private void setDelegatedScopes(String packageName, List<String> scopes)
             throws DeviceNotAvailableException {
-        String adbCommand = "am start -W --user " + userId
-                + " -c android.intent.category.DEFAULT "
-                + " --es extra-command " + command
-                + " " + extras
-                + " " + DEVICE_ADMIN_PKG + "/.SetPolicyActivity";
-        String commandOutput = getDevice().executeShellCommand(adbCommand);
-        CLog.d("Output for command " + adbCommand + ": " + commandOutput);
-        assertTrue("Command was expected to succeed " + commandOutput,
-                commandOutput.contains("Status: ok"));
+        final String packageNameExtra = "--es extra-package-name " + packageName;
+        String scopesExtra = "";
+        if (scopes != null && scopes.size() > 0) {
+            scopesExtra = "--esa extra-scopes-list " + scopes.get(0);
+            for (int i = 1; i < scopes.size(); ++i) {
+                scopesExtra += "," + scopes.get(i);
+            }
+        }
+        final String extras = packageNameExtra + " " + scopesExtra;
+
+        changePolicyOrFail("set-delegated-scopes", extras, mUserId);
+    }
+
+    private void setInstallPackageAppOps(String packageName, boolean allowed, int userId)
+            throws DeviceNotAvailableException {
+        String command = "appops set --user " + userId + " " + packageName + " " +
+                "REQUEST_INSTALL_PACKAGES "
+                + (allowed ? "allow" : "default");
+        CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
+    }
+
+    private void changePolicyOrFail(String command, String extras, int userId)
+            throws DeviceNotAvailableException {
+        changePolicyOrFail(command, extras, userId, DEVICE_ADMIN_PKG);
+    }
+
+    /**
+     * Start SimpleActivity synchronously in a particular user.
+     */
+    protected void startSimpleActivityAsUser(int userId) throws Exception {
+        installAppAsUser(TEST_APP_APK, userId);
+        wakeupAndDismissKeyguard();
+        String command = "am start -W --user " + userId + " " + TEST_APP_PKG + "/"
+                + TEST_APP_PKG + ".SimpleActivity";
+        getDevice().executeShellCommand(command);
+    }
+
+    protected void setScreenCaptureDisabled(int userId, boolean disabled) throws Exception {
+        String testMethodName = disabled
+                ? "testSetScreenCaptureDisabled_true"
+                : "testSetScreenCaptureDisabled_false";
+        executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
+        startSimpleActivityAsUser(userId);
+        testMethodName = disabled
+                ? "testScreenCaptureImpossible"
+                : "testScreenCapturePossible";
+        executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
+    }
+
+    protected void setScreenCaptureDisabled_assist(int userId, boolean disabled) throws Exception {
+        // Set the policy.
+        String testMethodName = disabled
+                ? "testSetScreenCaptureDisabled_true"
+                : "testSetScreenCaptureDisabled_false";
+        executeDeviceTestMethod(".ScreenCaptureDisabledTest", testMethodName);
+        // Make sure the foreground activity is from the target user.
+        startSimpleActivityAsUser(userId);
+        // Check whether the VoiceInteractionService can retrieve the screenshot.
+        testMethodName = disabled
+                ? "testScreenCaptureImpossible_assist"
+                : "testScreenCapturePossible_assist";
+        installAppAsUser(DEVICE_ADMIN_APK, mPrimaryUserId);
+        runDeviceTestsAsUser(
+                DEVICE_ADMIN_PKG,
+                ".AssistScreenCaptureDisabledTest",
+                testMethodName,
+                mPrimaryUserId);
+    }
+
+    /**
+     * Allows packageName to manage notification policy configuration, which
+     * includes toggling zen mode.
+     */
+    private void allowNotificationPolicyAccess(String packageName, int userId)
+            throws DeviceNotAvailableException {
+        List<String> enabledPackages = getEnabledNotificationPolicyPackages(userId);
+        if (!enabledPackages.contains(packageName)) {
+            enabledPackages.add(packageName);
+            setEnabledNotificationPolicyPackages(enabledPackages, userId);
+        }
+    }
+
+    /**
+     * Disallows packageName to manage notification policy configuration, which
+     * includes toggling zen mode.
+     */
+    private void disallowNotificationPolicyAccess(String packageName, int userId)
+            throws DeviceNotAvailableException {
+        List<String> enabledPackages = getEnabledNotificationPolicyPackages(userId);
+        if (enabledPackages.contains(packageName)) {
+            enabledPackages.remove(packageName);
+            setEnabledNotificationPolicyPackages(enabledPackages, userId);
+        }
+    }
+
+    private void setEnabledNotificationPolicyPackages(List<String> packages, int userId)
+            throws DeviceNotAvailableException {
+        getDevice().setSetting(userId, "secure", ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES,
+                String.join(":", packages));
+    }
+
+    private List<String> getEnabledNotificationPolicyPackages(int userId)
+            throws DeviceNotAvailableException {
+        String settingValue = getDevice().getSetting(userId, "secure",
+                ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES);
+        if (settingValue == null) {
+            return new ArrayList<String>();
+        }
+        return new ArrayList<String>(Arrays.asList(settingValue.split(":|\n")));
+    }
+
+    protected void setVoiceInteractionService(String componentName)
+            throws DeviceNotAvailableException {
+        getDevice().setSetting(
+                mPrimaryUserId, "secure", "voice_interaction_service", componentName);
+        getDevice().setSetting(mPrimaryUserId, "secure", "assist_structure_enabled", "1");
+        getDevice().setSetting(mPrimaryUserId, "secure", "assist_screenshot_enabled", "1");
+    }
+
+    protected void clearVoiceInteractionService() throws DeviceNotAvailableException {
+        getDevice().executeShellCommand("settings delete secure voice_interaction_service");
     }
 }

@@ -8,7 +8,7 @@ import os
 import time
 
 from autotest_lib.client.bin import test
-from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.cros.networking import shill_context
 from autotest_lib.client.cros.networking import shill_proxy
 
@@ -37,6 +37,14 @@ class network_DefaultProfileCreation(test.test):
 
     def run_once(self):
         """Test main loop."""
+        # TODO: Remove the following block once the bug(crbug.com/594336)
+        # is fixed.
+        boards_to_skip = ['cyan-cheets']
+        dut_board = utils.get_current_board()
+        if dut_board in boards_to_skip:
+            logging.info("Skipping test run on this board.")
+            return
+
         with shill_context.stopped_shill():
             try:
                 os.remove(self.DEFAULT_PROFILE_PATH)

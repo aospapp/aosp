@@ -125,7 +125,6 @@ Closure::Closure(Context* context, const ScriptInvokeID* invokeID,
 
 Closure::~Closure() {
     for (const auto& p : mArgDeps) {
-        auto map = p.second;
         delete p.second;
     }
 

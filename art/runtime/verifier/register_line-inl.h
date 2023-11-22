@@ -131,7 +131,7 @@ inline bool RegisterLine::VerifyRegisterType(MethodVerifier* verifier, uint32_t 
                                              const RegType& check_type) {
   // Verify the src register type against the check type refining the type of the register
   const RegType& src_type = GetRegisterType(verifier, vsrc);
-  if (UNLIKELY(!check_type.IsAssignableFrom(src_type))) {
+  if (UNLIKELY(!check_type.IsAssignableFrom(src_type, verifier))) {
     enum VerifyError fail_type;
     if (!check_type.IsNonZeroReferenceTypes() || !src_type.IsNonZeroReferenceTypes()) {
       // Hard fail if one of the types is primitive, since they are concretely known.
@@ -168,8 +168,7 @@ inline void RegisterLine::VerifyMonitorStackEmpty(MethodVerifier* verifier) cons
     verifier->Fail(VERIFY_ERROR_LOCKING);
     if (kDumpLockFailures) {
       VLOG(verifier) << "expected empty monitor stack in "
-                     << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                     *verifier->GetMethodReference().dex_file);
+                     << verifier->GetMethodReference().PrettyMethod();
     }
   }
 }

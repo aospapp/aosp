@@ -24,6 +24,8 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
+import android.opengl.EGL14;
+import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
@@ -32,6 +34,7 @@ import android.util.Log;
 import java.lang.reflect.Field;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.HashSet;
@@ -50,10 +53,11 @@ public final class GlesStubActivity extends Activity {
     private int mVersion = -1;
     private GraphicsDeviceInfo mGraphicsDeviceInfo;
     private CountDownLatch mDone = new CountDownLatch(1);
-    private HashSet<String> mOpenGlExtensions = new HashSet<String>();
-    private HashSet<String> mFormats = new HashSet<String>();
-    private HashMap<String, Object> mImplVariables = new HashMap<String, Object>();
-    private HashSet<String> mDynamicArrayVariables = new HashSet<String>();
+    private HashSet<String> mOpenGlExtensions = new HashSet<>();
+    private HashSet<String> mEglExtensions = new HashSet<>();
+    private HashSet<String> mFormats = new HashSet<>();
+    private HashMap<String, Object> mImplVariables = new HashMap<>();
+    private HashSet<String> mDynamicArrayVariables = new HashSet<>();
     private String mGraphicsVendor;
     private String mGraphicsRenderer;
 
@@ -124,6 +128,15 @@ public final class GlesStubActivity extends Activity {
 
     void addOpenGlExtension(String openGlExtension) {
         mOpenGlExtensions.add(openGlExtension);
+    }
+
+    List<String> getEglExtensions() {
+        return new ArrayList<>(mEglExtensions);
+    }
+
+    void addEglExtensions(String[] eglExtensions) {
+        // NOTE: We may end up here multiple times, using set to avoid dupes.
+        mEglExtensions.addAll(Arrays.asList(eglExtensions));
     }
 
     List<String> getCompressedTextureFormats() {
@@ -204,7 +217,13 @@ public final class GlesStubActivity extends Activity {
 
         static protected int[] getIntValues(int fieldId, int count) throws IllegalAccessException{
             int[] resultInts = new int[count];
-            GLES20.glGetIntegerv(fieldId, resultInts, 0);
+            // The JNI wrapper layer has a piece of code that defines
+            // the expected array length. It defaults to 1 and looks
+            // like it's missing GLES3 variables. So, we won't be
+            // querying if the array has zero lenght.
+            if (count > 0) {
+                GLES20.glGetIntegerv(fieldId, resultInts, 0);
+            }
             return resultInts;
         }
     }
@@ -318,7 +337,7 @@ public final class GlesStubActivity extends Activity {
         }
     }
 
-	// NOTE: Changes to the types of the variables will carry over to
+    // NOTE: Changes to the types of the variables will carry over to
     // GraphicsDeviceInfo proto via GraphicsDeviceInfo. See
     // go/edi-userguide for details.
     static ImplementationVariable[] GLES2_IMPLEMENTATION_VARIABLES = {
@@ -423,6 +442,8 @@ public final class GlesStubActivity extends Activity {
             }
             scanner.close();
 
+            collectEglExtensions(mParent);
+
             mDone.countDown();
         }
 
@@ -439,6 +460,23 @@ public final class GlesStubActivity extends Activity {
                 boolean dynamicArray = variables[i] instanceof DynamicIntVectorValue;
                 mParent.addImplementationVariable(name, value, dynamicArray);
             }
+        }
+
+        private static void collectEglExtensions(GlesStubActivity collector) {
+            EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+            if (display == EGL14.EGL_NO_DISPLAY) {
+                Log.e(LOG_TAG, "Failed to init EGL default display: 0x" +
+                        Integer.toHexString(EGL14.eglGetError()));
+                return;
+            }
+            String extensions = EGL14.eglQueryString(display, EGL14.EGL_EXTENSIONS);
+            int error = EGL14.eglGetError();
+            if (error != EGL14.EGL_SUCCESS) {
+                Log.e(LOG_TAG, "Failed to query extension string: 0x" + Integer.toHexString(error));
+                return;
+            }
+            // Fingers crossed for no extra white space in the extension string.
+            collector.addEglExtensions(extensions.split(" "));
         }
     }
 }

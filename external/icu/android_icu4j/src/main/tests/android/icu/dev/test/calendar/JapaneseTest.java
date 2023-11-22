@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2010, International Business Machines Corporation and    *
@@ -12,6 +14,8 @@ import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.impl.LocaleUtility;
 import android.icu.text.DateFormat;
 import android.icu.text.SimpleDateFormat;
@@ -19,133 +23,129 @@ import android.icu.util.Calendar;
 import android.icu.util.JapaneseCalendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Tests for the <code>JapaneseCalendar</code> class.
  */
-@RunWith(IcuTestFmwkRunner.class)
-public class JapaneseTest extends CalendarTest {
-    public static void main(String args[]) throws Exception {
-        new JapaneseTest().run(args);
-    }
-
+public class JapaneseTest extends CalendarTestFmwk {
+    
+    @Test
     public void TestCoverage() {
-    {
-        // new JapaneseCalendar(TimeZone)
-        JapaneseCalendar cal = new JapaneseCalendar(TimeZone.getDefault());
-        if(cal == null){
-            errln("could not create JapaneseCalendar with TimeZone");
+        {
+            // new JapaneseCalendar(TimeZone)
+            JapaneseCalendar cal = new JapaneseCalendar(TimeZone.getDefault());
+            if(cal == null){
+                errln("could not create JapaneseCalendar with TimeZone");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(ULocale)
-        JapaneseCalendar cal = new JapaneseCalendar(ULocale.getDefault());
-        if(cal == null){
-            errln("could not create JapaneseCalendar with ULocale");
+        {
+            // new JapaneseCalendar(ULocale)
+            JapaneseCalendar cal = new JapaneseCalendar(ULocale.getDefault());
+            if(cal == null){
+                errln("could not create JapaneseCalendar with ULocale");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(TimeZone, ULocale)
-        JapaneseCalendar cal = new JapaneseCalendar(TimeZone.getDefault(), ULocale.getDefault());
-        if(cal == null){
-            errln("could not create JapaneseCalendar with TimeZone ULocale");
+        {
+            // new JapaneseCalendar(TimeZone, ULocale)
+            JapaneseCalendar cal = new JapaneseCalendar(TimeZone.getDefault(), ULocale.getDefault());
+            if(cal == null){
+                errln("could not create JapaneseCalendar with TimeZone ULocale");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(Locale)
-        JapaneseCalendar cal = new JapaneseCalendar(Locale.getDefault());
-        if(cal == null){
-            errln("could not create JapaneseCalendar with Locale");
+        {
+            // new JapaneseCalendar(Locale)
+            JapaneseCalendar cal = new JapaneseCalendar(Locale.getDefault());
+            if(cal == null){
+                errln("could not create JapaneseCalendar with Locale");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(TimeZone, Locale)
-        JapaneseCalendar cal = new JapaneseCalendar(TimeZone.getDefault(), Locale.getDefault());
-        if(cal == null){
-            errln("could not create JapaneseCalendar with TimeZone Locale");
+        {
+            // new JapaneseCalendar(TimeZone, Locale)
+            JapaneseCalendar cal = new JapaneseCalendar(TimeZone.getDefault(), Locale.getDefault());
+            if(cal == null){
+                errln("could not create JapaneseCalendar with TimeZone Locale");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(Date)
-        JapaneseCalendar cal = new JapaneseCalendar(new Date());
-        if(cal == null){
-            errln("could not create JapaneseCalendar with Date");
+        {
+            // new JapaneseCalendar(Date)
+            JapaneseCalendar cal = new JapaneseCalendar(new Date());
+            if(cal == null){
+                errln("could not create JapaneseCalendar with Date");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(int year, int month, int date)
-        JapaneseCalendar cal = new JapaneseCalendar(1868, Calendar.JANUARY, 1);
-        if(cal == null){
-            errln("could not create JapaneseCalendar with year,month,date");
+        {
+            // new JapaneseCalendar(int year, int month, int date)
+            JapaneseCalendar cal = new JapaneseCalendar(1868, Calendar.JANUARY, 1);
+            if(cal == null){
+                errln("could not create JapaneseCalendar with year,month,date");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(int era, int year, int month, int date)
-        JapaneseCalendar cal = new JapaneseCalendar(JapaneseCalendar.MEIJI, 43, Calendar.JANUARY, 1);
-        if(cal == null){
-            errln("could not create JapaneseCalendar with era,year,month,date");
+        {
+            // new JapaneseCalendar(int era, int year, int month, int date)
+            JapaneseCalendar cal = new JapaneseCalendar(JapaneseCalendar.MEIJI, 43, Calendar.JANUARY, 1);
+            if(cal == null){
+                errln("could not create JapaneseCalendar with era,year,month,date");
+            }
         }
-    }
 
-    {
-        // new JapaneseCalendar(int year, int month, int date, int hour, int minute, int second)
-        JapaneseCalendar cal = new JapaneseCalendar(1868, Calendar.JANUARY, 1, 1, 1, 1);
-        if(cal == null){
-            errln("could not create JapaneseCalendar with year,month,date,hour,min,second");
+        {
+            // new JapaneseCalendar(int year, int month, int date, int hour, int minute, int second)
+            JapaneseCalendar cal = new JapaneseCalendar(1868, Calendar.JANUARY, 1, 1, 1, 1);
+            if(cal == null){
+                errln("could not create JapaneseCalendar with year,month,date,hour,min,second");
+            }
         }
-    }
 
-    {
-        // limits
-        JapaneseCalendar cal = new JapaneseCalendar();
-        DateFormat fmt = cal.getDateTimeFormat(DateFormat.FULL, DateFormat.FULL, Locale.ENGLISH);
+        {
+            // limits
+            JapaneseCalendar cal = new JapaneseCalendar();
+            DateFormat fmt = cal.getDateTimeFormat(DateFormat.FULL, DateFormat.FULL, Locale.ENGLISH);
 
-        cal.set(Calendar.ERA, JapaneseCalendar.MEIJI);
-        logln("date: " + cal.getTime());
-        logln("min era: " + cal.getMinimum(Calendar.ERA));
-        logln("min year: " + cal.getMinimum(Calendar.YEAR));
-        cal.set(Calendar.YEAR, cal.getActualMaximum(Calendar.YEAR));
-        logln("date: " + fmt.format(cal.getTime()));
-        cal.add(Calendar.YEAR, 1);
-        logln("date: " + fmt.format(cal.getTime()));
-    }
+            cal.set(Calendar.ERA, JapaneseCalendar.MEIJI);
+            logln("date: " + cal.getTime());
+            logln("min era: " + cal.getMinimum(Calendar.ERA));
+            logln("min year: " + cal.getMinimum(Calendar.YEAR));
+            cal.set(Calendar.YEAR, cal.getActualMaximum(Calendar.YEAR));
+            logln("date: " + fmt.format(cal.getTime()));
+            cal.add(Calendar.YEAR, 1);
+            logln("date: " + fmt.format(cal.getTime()));
+        }
 
-    {
-        // data
-        JapaneseCalendar cal = new JapaneseCalendar(1868, Calendar.JANUARY, 1);
-        Date time = cal.getTime();
+        {
+            // data
+            JapaneseCalendar cal = new JapaneseCalendar(1868, Calendar.JANUARY, 1);
+            Date time = cal.getTime();
 
-        String[] calendarLocales = {
-        "en", "ja_JP"
-        };
+            String[] calendarLocales = {
+                    "en", "ja_JP"
+            };
 
-        String[] formatLocales = {
-        "en", "ja"
-        };
-        for (int i = 0; i < calendarLocales.length; ++i) {
-            String calLocName = calendarLocales[i];
-            Locale calLocale = LocaleUtility.getLocaleFromName(calLocName);
-            cal = new JapaneseCalendar(calLocale);
+            String[] formatLocales = {
+                    "en", "ja"
+            };
+            for (int i = 0; i < calendarLocales.length; ++i) {
+                String calLocName = calendarLocales[i];
+                Locale calLocale = LocaleUtility.getLocaleFromName(calLocName);
+                cal = new JapaneseCalendar(calLocale);
 
-            for (int j = 0; j < formatLocales.length; ++j) {
-                String locName = formatLocales[j];
-                Locale formatLocale = LocaleUtility.getLocaleFromName(locName);
-                DateFormat format = DateFormat.getDateTimeInstance(cal, DateFormat.FULL, DateFormat.FULL, formatLocale);
-                logln(calLocName + "/" + locName + " --> " + format.format(time));
+                for (int j = 0; j < formatLocales.length; ++j) {
+                    String locName = formatLocales[j];
+                    Locale formatLocale = LocaleUtility.getLocaleFromName(locName);
+                    DateFormat format = DateFormat.getDateTimeInstance(cal, DateFormat.FULL, DateFormat.FULL, formatLocale);
+                    logln(calLocName + "/" + locName + " --> " + format.format(time));
+                }
             }
         }
     }
-    }
     
+    @Test
     public void Test3860()
     {
         ULocale loc = new ULocale("ja_JP@calendar=japanese");
@@ -204,6 +204,7 @@ public class JapaneseTest extends CalendarTest {
         }
     }
 
+    @Test
     public void Test5345parse() {
         // Test parse with incomplete information
         DateFormat fmt2= DateFormat.getDateInstance(); //DateFormat.LONG, Locale.US);
@@ -275,7 +276,8 @@ public class JapaneseTest extends CalendarTest {
             }
         }
     }
-
+    
+    @Test
     public void Test5345calendar() {
         logln("** testIncompleteCalendar()");
         // Test calendar with incomplete information
@@ -332,7 +334,7 @@ public class JapaneseTest extends CalendarTest {
 
     }
 
-    
+    @Test
     public void TestJapaneseYear3282() {
         Calendar c = Calendar.getInstance(ULocale.ENGLISH);
         c.set(2003,Calendar.SEPTEMBER,25);
@@ -367,6 +369,7 @@ public class JapaneseTest extends CalendarTest {
     /**
      * Test limits of the Japanese calendar
      */
+    @Test
     public void TestLimits() {
         Calendar cal = Calendar.getInstance();
         cal.set(1988, Calendar.DECEMBER, 1);

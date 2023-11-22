@@ -15,31 +15,23 @@
  */
 package com.android.car.test;
 
-import android.car.test.VehicleHalEmulator.VehicleHalPropertyHandler;
-import android.content.Context;
-import android.hardware.display.DisplayManager;
-import android.os.Handler;
-import android.os.Looper;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerBootupReason;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerSetState;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerState;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateConfigFlag;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateIndex;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateShutdownParam;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.os.SystemClock;
 import android.test.suitebuilder.annotation.MediumTest;
-import android.util.Log;
-import android.view.Display;
 
-import com.android.car.vehiclenetwork.VehicleNetworkConsts;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleApPowerBootupReason;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleApPowerSetState;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleApPowerState;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleApPowerStateConfigFlag;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleApPowerStateIndex;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleApPowerStateShutdownParam;
-import com.android.car.vehiclenetwork.VehiclePropConfigUtil;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePermissionModel;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropAccess;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropChangeMode;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleValueType;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
-import com.android.car.vehiclenetwork.VehiclePropValueUtil;
+import com.google.android.collect.Lists;
 
+import com.android.car.vehiclehal.VehiclePropValueBuilder;
+import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
+
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -47,81 +39,40 @@ import java.util.concurrent.TimeUnit;
 @MediumTest
 public class CarPowerManagementTest extends MockedCarTestBase {
 
-    private static final long TIMEOUT_MS = 3000;
-    private static final String TAG = CarPowerManagementTest.class.getSimpleName();
-
     private final PowerStatePropertyHandler mPowerStateHandler = new PowerStatePropertyHandler();
-    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
-    private final DisplayStateListener mDisplayListener = new DisplayStateListener();
-    private DisplayManager mDisplayManager;
-
-    @Override
-    protected synchronized void setUp() throws Exception {
-        super.setUp();
-        mDisplayManager = (DisplayManager) getContext().getSystemService(Context.DISPLAY_SERVICE);
-        mDisplayManager.registerDisplayListener(mDisplayListener, mMainHandler);
-    }
-
-    @Override
-    protected synchronized void tearDown() throws Exception {
-        super.tearDown();
-        mDisplayManager.unregisterDisplayListener(mDisplayListener);
-    }
 
     private void setupPowerPropertyAndStart(boolean allowSleep) {
-        getVehicleHalEmulator().addProperty(
-                VehiclePropConfigUtil.getBuilder(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_AP_POWER_STATE,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ_WRITE,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_ON_CHANGE,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_INT32_VEC2,
-                        VehiclePermissionModel.VEHICLE_PERMISSION_SYSTEM_APP_ONLY,
-                        allowSleep ?
-                                VehicleApPowerStateConfigFlag.VEHICLE_AP_POWER_STATE_CONFIG_ENABLE_DEEP_SLEEP_FLAG
-                                : 0
-                            /*configFlags*/,
-                        0 /*sampleRateMax*/, 0 /*sampleRateMin*/).build(),
-                mPowerStateHandler);
-        getVehicleHalEmulator().addStaticProperty(
-                VehiclePropConfigUtil.getBuilder(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_AP_POWER_BOOTUP_REASON,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_STATIC,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_INT32,
-                        VehiclePermissionModel.VEHICLE_PERMISSION_SYSTEM_APP_ONLY,
-                        0 /*configFlags*/, 0 /*sampleRateMax*/, 0 /*sampleRateMin*/).build(),
-                VehiclePropValueUtil.createIntValue(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_AP_POWER_BOOTUP_REASON,
-                        VehicleApPowerBootupReason.VEHICLE_AP_POWER_BOOTUP_REASON_USER_POWER_ON,
-                        0));
-        getVehicleHalEmulator().start();
+        addProperty(VehicleProperty.AP_POWER_STATE, mPowerStateHandler)
+                .setConfigArray(Lists.newArrayList(
+                        allowSleep ? VehicleApPowerStateConfigFlag.ENABLE_DEEP_SLEEP_FLAG : 0));
+
+        addStaticProperty(VehicleProperty.AP_POWER_BOOTUP_REASON,
+                VehiclePropValueBuilder.newBuilder(VehicleProperty.AP_POWER_BOOTUP_REASON)
+                        .addIntValue(VehicleApPowerBootupReason.USER_POWER_ON)
+                        .build());
+
+        reinitializeMockedHal();
     }
 
     public void testImmediateShutdown() throws Exception {
         setupPowerPropertyAndStart(true);
         assertBootComplete();
         mPowerStateHandler.sendPowerState(
-                VehicleApPowerState.VEHICLE_AP_POWER_STATE_SHUTDOWN_PREPARE,
-                VehicleApPowerStateShutdownParam.VEHICLE_AP_POWER_SHUTDOWN_PARAM_SHUTDOWN_IMMEDIATELY);
-        mPowerStateHandler.waitForStateSetAndGetAll(TIMEOUT_MS,
-                VehicleApPowerSetState.VEHICLE_AP_POWER_SET_SHUTDOWN_START);
-        mPowerStateHandler.sendPowerState(
-                VehicleApPowerState.VEHICLE_AP_POWER_STATE_ON_FULL,
-                0);
+                VehicleApPowerState.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY);
+        mPowerStateHandler.waitForStateSetAndGetAll(DEFAULT_WAIT_TIMEOUT_MS,
+                VehicleApPowerSetState.SHUTDOWN_START);
+        mPowerStateHandler.sendPowerState(VehicleApPowerState.ON_FULL, 0);
     }
 
     public void testDisplayOnOff() throws Exception {
         setupPowerPropertyAndStart(true);
         assertBootComplete();
         for (int i = 0; i < 2; i++) {
-            mPowerStateHandler.sendPowerState(
-                    VehicleApPowerState.VEHICLE_AP_POWER_STATE_ON_DISP_OFF,
-                    0);
-            mDisplayListener.waitForDisplayState(false, TIMEOUT_MS);
-            mPowerStateHandler.sendPowerState(
-                    VehicleApPowerState.VEHICLE_AP_POWER_STATE_ON_FULL,
-                    0);
-            mDisplayListener.waitForDisplayState(true, TIMEOUT_MS);
+            mPowerStateHandler.sendPowerState(VehicleApPowerState.ON_DISP_OFF, 0);
+            waitForFakeDisplayState(false);
+            mPowerStateHandler.sendPowerState(VehicleApPowerState.ON_FULL, 0);
+            waitForFakeDisplayState(true);
         }
     }
 
@@ -129,41 +80,36 @@ public class CarPowerManagementTest extends MockedCarTestBase {
     public void testSleepEntry() throws Exception {
         assertBootComplete();
         mPowerStateHandler.sendPowerState(
-                VehicleApPowerState.VEHICLE_AP_POWER_STATE_SHUTDOWN_PREPARE,
-                VehicleApPowerStateShutdownParam.VEHICLE_AP_POWER_SHUTDOWN_PARAM_CAN_SLEEP);
-        assertResponse(VehicleApPowerSetState.VEHICLE_AP_POWER_SET_DEEP_SLEEP_ENTRY, 0);
-        assertResponse(VehicleApPowerSetState.VEHICLE_AP_POWER_SET_DEEP_SLEEP_EXIT, 0);
+                VehicleApPowerState.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP);
+        assertResponse(VehicleApPowerSetState.DEEP_SLEEP_ENTRY, 0);
+        assertResponse(VehicleApPowerSetState.DEEP_SLEEP_EXIT, 0);
         mPowerStateHandler.sendPowerState(
-                VehicleApPowerState.VEHICLE_AP_POWER_STATE_ON_FULL,
+                VehicleApPowerState.ON_FULL,
                 0);
     }*/
 
     private void assertResponse(int expectedResponseState, int expectedResponseParam)
             throws Exception {
-        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(TIMEOUT_MS,
-                expectedResponseState);
+        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
+                DEFAULT_WAIT_TIMEOUT_MS, expectedResponseState);
         int[] last = setEvents.getLast();
         assertEquals(expectedResponseState, last[0]);
         assertEquals(expectedResponseParam, last[1]);
     }
 
     private void assertBootComplete() throws Exception {
-        mPowerStateHandler.waitForSubscription(TIMEOUT_MS);
-        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(TIMEOUT_MS,
-                VehicleApPowerSetState.VEHICLE_AP_POWER_SET_BOOT_COMPLETE);
+        mPowerStateHandler.waitForSubscription(DEFAULT_WAIT_TIMEOUT_MS);
+        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
+                DEFAULT_WAIT_TIMEOUT_MS, VehicleApPowerSetState.BOOT_COMPLETE);
         int[] first = setEvents.getFirst();
-        assertEquals(VehicleApPowerSetState.VEHICLE_AP_POWER_SET_BOOT_COMPLETE, first[0]);
+        assertEquals(VehicleApPowerSetState.BOOT_COMPLETE, first[0]);
         assertEquals(0, first[1]);
-    }
-
-    private synchronized boolean isMainDisplayOn() {
-        Display disp = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
-        return disp.getState() == Display.STATE_ON;
     }
 
     private class PowerStatePropertyHandler implements VehicleHalPropertyHandler {
 
-        private int mPowerState = VehicleApPowerState.VEHICLE_AP_POWER_STATE_ON_FULL;
+        private int mPowerState = VehicleApPowerState.ON_FULL;
         private int mPowerParam = 0;
 
         private final Semaphore mSubscriptionWaitSemaphore = new Semaphore(0);
@@ -172,27 +118,26 @@ public class CarPowerManagementTest extends MockedCarTestBase {
 
         @Override
         public void onPropertySet(VehiclePropValue value) {
+            ArrayList<Integer> v = value.value.int32Values;
             synchronized (this) {
                 mSetStates.add(new int[] {
-                        value.getInt32Values(
-                                VehicleApPowerStateIndex.VEHICLE_AP_POWER_STATE_INDEX_STATE),
-                        value.getInt32Values(
-                                VehicleApPowerStateIndex.VEHICLE_AP_POWER_STATE_INDEX_ADDITIONAL)
-                                });
+                        v.get(VehicleApPowerStateIndex.STATE),
+                        v.get(VehicleApPowerStateIndex.ADDITIONAL)
+                });
             }
             mSetWaitSemaphore.release();
         }
 
         @Override
         public synchronized VehiclePropValue onPropertyGet(VehiclePropValue value) {
-            int[] values = { mPowerState, mPowerParam };
-            return VehiclePropValueUtil.createIntVectorValue(
-                    VehicleNetworkConsts.VEHICLE_PROPERTY_AP_POWER_STATE, values,
-                    SystemClock.elapsedRealtimeNanos());
+            return VehiclePropValueBuilder.newBuilder(VehicleProperty.AP_POWER_STATE)
+                    .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                    .addIntValue(mPowerState, mPowerParam)
+                    .build();
         }
 
         @Override
-        public void onPropertySubscribe(int property, float sampleRate, int zones) {
+        public void onPropertySubscribe(int property, int zones, float sampleRate) {
             mSubscriptionWaitSemaphore.release();
         }
 
@@ -235,43 +180,11 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         }
 
         private void sendPowerState(int state, int param) {
-            int[] values = { state, param };
-            getVehicleHalEmulator().injectEvent(
-                    VehiclePropValueUtil.createIntVectorValue(
-                            VehicleNetworkConsts.VEHICLE_PROPERTY_AP_POWER_STATE, values,
-                            SystemClock.elapsedRealtimeNanos()));
-        }
-    }
-
-    private class DisplayStateListener implements DisplayManager.DisplayListener {
-
-        private final Semaphore mDisplayWait = new Semaphore(0);
-
-        private void waitForDisplayState(boolean expectedState, long timeoutMs) throws Exception {
-            while (isMainDisplayOn() != expectedState) {
-                if (!mDisplayWait.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS)) {
-                    fail("waitForDisplayState timeout, expected:" + expectedState);
-                }
-            }
-        }
-
-        @Override
-        public void onDisplayAdded(int displayId) {
-            // not used
-        }
-
-        @Override
-        public void onDisplayChanged(int displayId) {
-            Log.i(TAG, "onDisplayChanged, id:" + displayId + " main display on:" +
-                    isMainDisplayOn());
-            if (displayId == Display.DEFAULT_DISPLAY) {
-                mDisplayWait.release();
-            }
-        }
-
-        @Override
-        public void onDisplayRemoved(int displayId) {
-            // not used
+            getMockedVehicleHal().injectEvent(
+                    VehiclePropValueBuilder.newBuilder(VehicleProperty.AP_POWER_STATE)
+                            .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                            .addIntValue(state, param)
+                            .build());
         }
     }
 }

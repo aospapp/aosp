@@ -742,24 +742,36 @@ VAStatus psb_CreateSurfaces2(
     unsigned int initalized_info_flag = 1;
     VASurfaceAttribExternalBuffers  *pExternalBufDesc = NULL;
     PsbSurfaceAttributeTPI attribute_tpi;
+    attribute_tpi.buffers = NULL;
+    bool attribute_tpi_buffersAlloced = false;
 
     CHECK_INVALID_PARAM(num_surfaces <= 0);
     CHECK_SURFACE(surface_list);
 
     if ((attrib_list != NULL) && (num_attribs > 0)) {
         for (i = 0; i < num_attribs; i++, attrib_list++) {
-            if (!attrib_list)
+            if (!attrib_list) {
+                if(attribute_tpi.buffers != NULL)
+                    free(attribute_tpi.buffers);
                 return VA_STATUS_ERROR_INVALID_PARAMETER;
+            }
             switch (attrib_list->type) {
             case VASurfaceAttribExternalBufferDescriptor:
                 {
                     pExternalBufDesc = (VASurfaceAttribExternalBuffers *)attrib_list->value.value.p;
                     if (pExternalBufDesc == NULL) {
+                        if(attribute_tpi.buffers != NULL)
+                            free(attribute_tpi.buffers);
                         drv_debug_msg(VIDEO_DEBUG_ERROR, "Invalid VASurfaceAttribExternalBuffers.\n");
                         return VA_STATUS_ERROR_INVALID_PARAMETER;
                     }
                     attribute_tpi.type = memory_type;
+                    if (attribute_tpi_buffersAlloced == true && attribute_tpi.buffers != NULL) {
+                        free(attribute_tpi.buffers);
+                        attribute_tpi.buffers = NULL;
+                    }
                     attribute_tpi.buffers = malloc(sizeof(long) * pExternalBufDesc->num_buffers);
+                    attribute_tpi_buffersAlloced = true;
                     attribute_tpi.width = pExternalBufDesc->width;
                     attribute_tpi.height = pExternalBufDesc->height;
                     attribute_tpi.count = pExternalBufDesc->num_buffers;
@@ -800,6 +812,8 @@ VAStatus psb_CreateSurfaces2(
                             memory_type = VAExternalMemoryNULL;
                             break;
                         default:
+                            if (attribute_tpi.buffers != NULL)
+                                free(attribute_tpi.buffers);
                             drv_debug_msg(VIDEO_DEBUG_ERROR, "Unsupported memory type.\n");
                             return VA_STATUS_ERROR_INVALID_PARAMETER;
 
@@ -820,6 +834,8 @@ VAStatus psb_CreateSurfaces2(
                 }
                 break;
             default:
+                if (attribute_tpi.buffers != NULL)
+                    free(attribute_tpi.buffers);
                 drv_debug_msg(VIDEO_DEBUG_ERROR, "Unsupported attribute.\n");
                 return VA_STATUS_ERROR_INVALID_PARAMETER;
             }
@@ -1263,89 +1279,126 @@ VAStatus psb_CreateContext(
     }
 
     for (i = 0; i < cmdbuf_num; i++) {
-        void  *cmdbuf = NULL;
 #ifndef BAYTRAIL
         if (encode) { /* Topaz encode context */
 #ifdef PSBVIDEO_MRFL
-            if (IS_MRFL(obj_context->driver_data))
-                cmdbuf = calloc(1, sizeof(struct tng_cmdbuf_s));
+            if (IS_MRFL(obj_context->driver_data)) {
+                obj_context->tng_cmdbuf_list[i] = calloc(1, sizeof(struct tng_cmdbuf_s));
+                if (NULL == obj_context->tng_cmdbuf_list[i]) {
+                    vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #endif
 #ifdef PSBVIDEO_MFLD
-            if (IS_MFLD(obj_context->driver_data))
-                cmdbuf = calloc(1, sizeof(struct pnw_cmdbuf_s));
+            if (IS_MFLD(obj_context->driver_data)) {
+                obj_context->pnw_cmdbuf_list[i] = calloc(1, sizeof(struct pnw_cmdbuf_s));
+                if (NULL == obj_context->pnw_cmdbuf_list[i]) {
+                    vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #endif
         } else if (proc) { /* VSP VPP context */
             /* VED two pass rotation under VPP API */
-            if (driver_data->ved_vpp)
-                cmdbuf =  calloc(1, sizeof(struct psb_cmdbuf_s));
+            if (driver_data->ved_vpp) {
+                obj_context->cmdbuf_list[i] = calloc(1, sizeof(struct psb_cmdbuf_s));
+                if (NULL == obj_context->cmdbuf_list[i]) {
+                    vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #ifdef PSBVIDEO_MRFL_VPP
-            else if (IS_MRFL(obj_context->driver_data))
-                cmdbuf = calloc(1, sizeof(struct vsp_cmdbuf_s));
+            else if (IS_MRFL(obj_context->driver_data)) {
+                obj_context->vsp_cmdbuf_list[i] = calloc(1, sizeof(struct vsp_cmdbuf_s));
+                if (NULL == obj_context->vsp_cmdbuf_list[i]) {
+                    vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #endif
-        } else /* MSVDX decode context */
+        } else /* MSVDX decode context */ {
 #endif
-            cmdbuf =  calloc(1, sizeof(struct psb_cmdbuf_s));
-
-        if (NULL == cmdbuf) {
-            vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
-            DEBUG_FAILURE;
-            break;
+            obj_context->cmdbuf_list[i] = calloc(1, sizeof(struct psb_cmdbuf_s));
+            if (NULL == obj_context->cmdbuf_list[i]) {
+                vaStatus = VA_STATUS_ERROR_ALLOCATION_FAILED;
+                DEBUG_FAILURE;
+                break;
+            }
         }
 
 #ifndef BAYTRAIL
         if (encode) { /* Topaz encode context */
 
 #ifdef PSBVIDEO_MRFL
-            if (IS_MRFL(obj_context->driver_data))
-                vaStatus = tng_cmdbuf_create(obj_context, driver_data, (tng_cmdbuf_p)cmdbuf);
+            if (IS_MRFL(obj_context->driver_data)) {
+                vaStatus = tng_cmdbuf_create(obj_context, driver_data, (tng_cmdbuf_p)obj_context->tng_cmdbuf_list[i]);
+                if (VA_STATUS_SUCCESS != vaStatus) {
+                    free(obj_context->tng_cmdbuf_list[i]);
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #endif
 #ifdef PSBVIDEO_MFLD
-            if (IS_MFLD(obj_context->driver_data))
-                vaStatus = pnw_cmdbuf_create(obj_context, driver_data, (pnw_cmdbuf_p)cmdbuf);
+            if (IS_MFLD(obj_context->driver_data)) {
+                vaStatus = pnw_cmdbuf_create(obj_context, driver_data, (pnw_cmdbuf_p)obj_context->pnw_cmdbuf_list[i]);
+                if (VA_STATUS_SUCCESS != vaStatus) {
+                    free(obj_context->pnw_cmdbuf_list[i]);
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #endif
         } else if (proc) { /* VSP VPP context */
-            if (driver_data->ved_vpp)
-                vaStatus = psb_cmdbuf_create(obj_context, driver_data, (psb_cmdbuf_p)cmdbuf);
+            if (driver_data->ved_vpp) {
+                vaStatus = psb_cmdbuf_create(obj_context, driver_data, (psb_cmdbuf_p)obj_context->cmdbuf_list[i]);
+                if (VA_STATUS_SUCCESS != vaStatus) {
+                    free(obj_context->cmdbuf_list[i]);
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #ifdef PSBVIDEO_MRFL_VPP
-            else if (IS_MRFL(obj_context->driver_data))
-                vaStatus = vsp_cmdbuf_create(obj_context, driver_data, (vsp_cmdbuf_p)cmdbuf);
+            else if (IS_MRFL(obj_context->driver_data)) {
+                vaStatus = vsp_cmdbuf_create(obj_context, driver_data, (vsp_cmdbuf_p)obj_context->vsp_cmdbuf_list[i]);
+                if (VA_STATUS_SUCCESS != vaStatus) {
+                    free(obj_context->vsp_cmdbuf_list[i]);
+                    DEBUG_FAILURE;
+                    break;
+                }
+            }
 #endif
-        } else /* MSVDX decode context */
+        } else /* MSVDX decode context */ {
 #endif
-            vaStatus = psb_cmdbuf_create(obj_context, driver_data, (psb_cmdbuf_p)cmdbuf);
-
-        if (VA_STATUS_SUCCESS != vaStatus) {
-            free(cmdbuf);
-            DEBUG_FAILURE;
-            break;
+            vaStatus = psb_cmdbuf_create(obj_context, driver_data, (psb_cmdbuf_p)obj_context->cmdbuf_list[i]);
+            if (VA_STATUS_SUCCESS != vaStatus) {
+                free(obj_context->cmdbuf_list[i]);
+                DEBUG_FAILURE;
+                break;
+            }
         }
 
 #ifndef BAYTRAIL
         if (encode) { /* Topaz encode context */
             if (i >= LNC_MAX_CMDBUFS_ENCODE) {
-                free(cmdbuf);
+#ifdef PSBVIDEO_MRFL
+                tng_cmdbuf_destroy((tng_cmdbuf_p)obj_context->tng_cmdbuf_list[i]);
+                free(obj_context->tng_cmdbuf_list[i]);
+#endif
+#ifdef PSBVIDEO_MFLD
+                pnw_cmdbuf_destroy((pnw_cmdbuf_p)obj_context->pnw_cmdbuf_list[i]);
+                free(obj_context->pnw_cmdbuf_list[i]);
+#endif
                 DEBUG_FAILURE;
                 break;
             }
-
-#ifdef PSBVIDEO_MRFL
-            if (IS_MRFL(obj_context->driver_data))
-                obj_context->tng_cmdbuf_list[i] = (tng_cmdbuf_p)cmdbuf;
+        }
 #endif
-#ifdef PSBVIDEO_MFLD
-            if (IS_MFLD(obj_context->driver_data))
-                obj_context->pnw_cmdbuf_list[i] = (pnw_cmdbuf_p)cmdbuf;
-#endif
-        } else if (proc) { /* VSP VPP context */
-            if (driver_data->ved_vpp)
-                obj_context->cmdbuf_list[i] = (psb_cmdbuf_p)cmdbuf;
-#ifdef PSBVIDEO_MRFL_VPP
-            else if (IS_MRFL(obj_context->driver_data))
-                obj_context->vsp_cmdbuf_list[i] = (vsp_cmdbuf_p)cmdbuf;
-#endif
-        } else /* MSVDX decode context */
-#endif
-            obj_context->cmdbuf_list[i] = (psb_cmdbuf_p)cmdbuf;
     }
 
     obj_context->cmdbuf_current = -1;
@@ -1443,9 +1496,15 @@ VAStatus psb_CreateContext(
 
     if (obj_config->profile == VAProfileVC1Simple ||
         obj_config->profile == VAProfileVC1Main ||
-        obj_config->profile == VAProfileVC1Advanced) {
+        obj_config->profile == VAProfileVC1Advanced ||
+        obj_config->profile == VAProfileH264Baseline ||
+        obj_config->profile == VAProfileH264Main ||
+        obj_config->profile == VAProfileH264High ||
+        obj_config->profile == VAProfileVP8Version0_3) {
         uint64_t width_in_mb = ((driver_data->render_rect.x + driver_data->render_rect.width + 15) / 16);
+        uint64_t height_in_mb = ((driver_data->render_rect.y + driver_data->render_rect.height + 15) / 16);
         obj_context->ctp_type |= (width_in_mb << 32);
+        obj_context->ctp_type |= (height_in_mb << 48);
     }
 
     /* add ctx_num to save vp8 enc context num to support dual vp8 encoding */
@@ -2147,6 +2206,12 @@ VAStatus psb_BeginPicture(
         }
     }
 
+    if ((driver_data->protected & VA_RT_FORMAT_PROTECTED) &&
+		    !(obj_context->ctp_type & VA_RT_FORMAT_PROTECTED)) {
+	    obj_context->ctp_type |= VA_RT_FORMAT_PROTECTED;
+	    psb_update_context(driver_data, obj_context->ctp_type);
+    }
+
     /* if the surface is decode render target, and in displaying */
     if (obj_config &&
         (obj_config->entrypoint != VAEntrypointEncSlice) &&
@@ -2756,6 +2821,8 @@ VAStatus psb_QuerySurfaceAttributes(VADriverContextP ctx,
 
     if (i > *num_attribs) {
         *num_attribs = i;
+        if (attribs != NULL)
+            free(attribs);
         return VA_STATUS_ERROR_MAX_NUM_EXCEEDED;
     }
 

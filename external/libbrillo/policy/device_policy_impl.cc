@@ -389,6 +389,39 @@ bool DevicePolicyImpl::GetAuP2PEnabled(bool* au_p2p_enabled) const {
   return true;
 }
 
+bool DevicePolicyImpl::GetAllowKioskAppControlChromeVersion(
+      bool* allow_kiosk_app_control_chrome_version) const {
+  if (!device_policy_.has_allow_kiosk_app_control_chrome_version())
+    return false;
+
+  const enterprise_management::AllowKioskAppControlChromeVersionProto& proto =
+      device_policy_.allow_kiosk_app_control_chrome_version();
+
+  if (!proto.has_allow_kiosk_app_control_chrome_version())
+    return false;
+
+  *allow_kiosk_app_control_chrome_version =
+      proto.allow_kiosk_app_control_chrome_version();
+  return true;
+}
+
+bool DevicePolicyImpl::GetUsbDetachableWhitelist(
+    std::vector<UsbDeviceId>* usb_whitelist) const {
+  if (!device_policy_.has_usb_detachable_whitelist())
+    return false;
+  const enterprise_management::UsbDetachableWhitelistProto& proto =
+      device_policy_.usb_detachable_whitelist();
+  usb_whitelist->clear();
+  for (int i = 0; i < proto.id_size(); i++) {
+    const ::enterprise_management::UsbDeviceIdProto& id = proto.id(i);
+    UsbDeviceId dev_id;
+    dev_id.vendor_id = id.has_vendor_id() ? id.vendor_id() : 0;
+    dev_id.product_id = id.has_product_id() ? id.product_id() : 0;
+    usb_whitelist->push_back(dev_id);
+  }
+  return true;
+}
+
 bool DevicePolicyImpl::VerifyPolicyFiles() {
   // Both the policy and its signature have to exist.
   if (!base::PathExists(policy_path_) || !base::PathExists(keyfile_path_)) {

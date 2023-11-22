@@ -28,7 +28,6 @@ import java.util.ArrayList;
 public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
     public static final String TAG ="BluetoothOppHandoverReceiver";
     private static final boolean D = Constants.DEBUG;
-    private static final boolean V = Constants.VERBOSE;
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -36,15 +35,14 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
 
         if (action.equals(Constants.ACTION_HANDOVER_SEND) ||
                action.equals(Constants.ACTION_HANDOVER_SEND_MULTIPLE)) {
-
-            BluetoothDevice device =
-                    (BluetoothDevice)intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            final BluetoothDevice device =
+                    (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
             if (device == null) {
                 if (D) Log.d(TAG, "No device attached to handover intent.");
                 return;
             }
 
-            String mimeType = intent.getType();
+            final String mimeType = intent.getType();
             ArrayList<Uri> uris = new ArrayList<Uri>();
             if (action.equals(Constants.ACTION_HANDOVER_SEND)) {
                 Uri stream = (Uri)intent.getParcelableExtra(Intent.EXTRA_STREAM);
@@ -54,13 +52,14 @@ public class BluetoothOppHandoverReceiver extends BroadcastReceiver {
             }
 
             if (mimeType != null && uris != null && !uris.isEmpty()) {
-                final String finalType = mimeType;
+                final Context finalContext = context;
                 final ArrayList<Uri> finalUris = uris;
                 Thread t = new Thread(new Runnable() {
                     public void run() {
-                        BluetoothOppManager.getInstance(context).saveSendingFileInfo(finalType,
-                            finalUris, true);
-                        BluetoothOppManager.getInstance(context).startTransfer(device);
+                        BluetoothOppManager.getInstance(finalContext)
+                                .saveSendingFileInfo(mimeType, finalUris, true /* isHandover */,
+                                        true /* fromExternal */);
+                        BluetoothOppManager.getInstance(finalContext).startTransfer(device);
                     }
                 });
                 t.start();

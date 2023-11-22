@@ -15,8 +15,15 @@
  */
 package android.os.cts;
 
-import junit.framework.TestCase;
 import android.os.Environment;
+import android.system.Os;
+import android.system.StructStatVfs;
+
+import junit.framework.TestCase;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 
 public class EnvironmentTest extends TestCase {
     public void testEnvironment() {
@@ -37,5 +44,50 @@ public class EnvironmentTest extends TestCase {
     public void testNoTmpDir() {
         assertNull("environment variable TMPDIR should not be set",
                 System.getenv("TMPDIR"));
+    }
+
+    /**
+     * Verify that all writable block filesystems are mounted "noatime" to avoid
+     * unnecessary flash churn.
+     */
+    public void testNoAtime() throws Exception {
+        try (BufferedReader br = new BufferedReader(new FileReader("/proc/mounts"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                final String[] fields = line.split(" ");
+                final String source = fields[0];
+                final String options = fields[3];
+
+                if (source.startsWith("/dev/block/") && !options.startsWith("ro,")
+                        && !options.contains("noatime")) {
+                    fail("Found device mounted at " + source + " without 'noatime' option, "
+                            + "which can cause unnecessary flash churn; please update your fstab.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Verify that all writable block filesystems are mounted with "resgid" to
+     * mitigate disk-full trouble.
+     */
+    public void testSaneInodes() throws Exception {
+        final File file = Environment.getDataDirectory();
+        final StructStatVfs stat = Os.statvfs(file.getAbsolutePath());
+
+        // By default ext4 creates one inode per 16KiB; we're okay with a much
+        // wider range, but we want to make sure the device isn't going totally
+        // crazy; too few inodes can result in system instability, and too many
+        // inodes can result in wasted space.
+        final long size = stat.f_blocks * stat.f_frsize;
+        final long minInodes = size / 32768;
+        final long maxInodes = size / 8192;
+
+        if (stat.f_files >= minInodes && stat.f_files <= maxInodes) {
+            // Sweet, sounds great!
+        } else {
+            fail("Number of inodes " + stat.f_files + " not within sane range for partition of "
+                    + size + " bytes; expected [" + minInodes + "," + maxInodes + "]");
+        }
     }
 }

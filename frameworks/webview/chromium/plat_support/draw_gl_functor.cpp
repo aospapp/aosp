@@ -31,7 +31,7 @@
 #include <utils/Log.h>
 
 #define NELEM(x) ((int) (sizeof(x) / sizeof((x)[0])))
-#define COMPILE_ASSERT(expr, err) static const char err[(expr) ? 1 : -1] = "";
+#define COMPILE_ASSERT(expr, err) static const char (err)[(expr) ? 1 : -1] = "";
 
 namespace android {
 namespace {
@@ -40,7 +40,7 @@ AwDrawGLFunction* g_aw_drawgl_function = NULL;
 
 class DrawGLFunctor : public Functor {
  public:
-  DrawGLFunctor(jlong view_context) : view_context_(view_context) {}
+  explicit DrawGLFunctor(jlong view_context) : view_context_(view_context) {}
   virtual ~DrawGLFunctor() {}
 
   // Functor

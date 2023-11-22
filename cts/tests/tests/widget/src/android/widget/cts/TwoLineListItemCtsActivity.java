@@ -16,11 +16,10 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
 import android.widget.TwoLineListItem;
+import android.widget.cts.R;
 
 /**
  * Stub activity for testing {@link TwoLineListItem}

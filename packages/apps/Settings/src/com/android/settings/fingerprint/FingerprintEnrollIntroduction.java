@@ -26,12 +26,15 @@ import android.os.UserManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.ChooseLockGeneric;
 import com.android.settings.ChooseLockSettingsHelper;
 import com.android.settings.R;
+import com.android.settings.Utils;
 import com.android.settingslib.HelpUtils;
+import com.android.settingslib.RestrictedLockUtils;
 import com.android.setupwizardlib.span.LinkSpan;
 
 /**
@@ -48,18 +51,56 @@ public class FingerprintEnrollIntroduction extends FingerprintEnrollBase
 
     private UserManager mUserManager;
     private boolean mHasPassword;
+    private boolean mFingerprintUnlockDisabledByAdmin;
+    private TextView mErrorText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.fingerprint_enroll_introduction);
-        setHeaderText(R.string.security_settings_fingerprint_enroll_introduction_title);
+        mFingerprintUnlockDisabledByAdmin = RestrictedLockUtils.checkIfKeyguardFeaturesDisabled(
+                this, DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT, mUserId) != null;
 
-        final Button cancelButton = (Button) findViewById(R.id.fingerprint_cancel_button);
+        setContentView(R.layout.fingerprint_enroll_introduction);
+        if (mFingerprintUnlockDisabledByAdmin) {
+            setHeaderText(R.string
+                    .security_settings_fingerprint_enroll_introduction_title_unlock_disabled);
+        } else {
+            setHeaderText(R.string.security_settings_fingerprint_enroll_introduction_title);
+        }
+
+        Button cancelButton = (Button) findViewById(R.id.fingerprint_cancel_button);
         cancelButton.setOnClickListener(this);
+
+        mErrorText = (TextView) findViewById(R.id.error_text);
 
         mUserManager = UserManager.get(this);
         updatePasswordQuality();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        final FingerprintManager fingerprintManager = Utils.getFingerprintManagerOrNull(this);
+        int errorMsg = 0;
+        if (fingerprintManager != null) {
+            final int max = getResources().getInteger(
+                    com.android.internal.R.integer.config_fingerprintMaxTemplatesPerUser);
+            final int numEnrolledFingerprints =
+                    fingerprintManager.getEnrolledFingerprints(mUserId).size();
+            if (numEnrolledFingerprints >= max) {
+                errorMsg = R.string.fingerprint_intro_error_max;
+            }
+        } else {
+            errorMsg = R.string.fingerprint_intro_error_unknown;
+        }
+        if (errorMsg == 0) {
+            mErrorText.setText(null);
+            getNextButton().setVisibility(View.VISIBLE);
+        } else {
+            mErrorText.setText(errorMsg);
+            getNextButton().setVisibility(View.GONE);
+        }
     }
 
     private void updatePasswordQuality() {
@@ -86,7 +127,7 @@ public class FingerprintEnrollIntroduction extends FingerprintEnrollBase
 
     private void launchChooseLock() {
         Intent intent = getChooseLockIntent();
-        long challenge = getSystemService(FingerprintManager.class).preEnroll();
+        long challenge = Utils.getFingerprintManagerOrNull(this).preEnroll();
         intent.putExtra(ChooseLockGeneric.ChooseLockGenericFragment.MINIMUM_QUALITY_KEY,
                 DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
         intent.putExtra(ChooseLockGeneric.ChooseLockGenericFragment.HIDE_DISABLED_PREFS, true);
@@ -152,12 +193,23 @@ public class FingerprintEnrollIntroduction extends FingerprintEnrollBase
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.FINGERPRINT_ENROLL_INTRO;
     }
 
     protected void onCancelButtonClick() {
         finish();
+    }
+
+    @Override
+    protected void initViews() {
+        super.initViews();
+
+        TextView description = (TextView) findViewById(R.id.description_text);
+        if (mFingerprintUnlockDisabledByAdmin) {
+            description.setText(R.string
+                    .security_settings_fingerprint_enroll_introduction_message_unlock_disabled);
+        }
     }
 
     @Override

@@ -19,10 +19,14 @@
 #include <stdio.h>
 #include <memory>
 
+#include "android-base/strings.h"
+
 #include "class_linker-inl.h"
 #include "common_runtime_test.h"
-#include "dex_file.h"
-#include "scoped_thread_state_change.h"
+#include "dex_file-inl.h"
+#include "scoped_thread_state_change-inl.h"
+#include "utils.h"
+#include "verifier_enums.h"
 
 namespace art {
 namespace verifier {
@@ -30,24 +34,27 @@ namespace verifier {
 class MethodVerifierTest : public CommonRuntimeTest {
  protected:
   void VerifyClass(const std::string& descriptor)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     ASSERT_TRUE(descriptor != nullptr);
     Thread* self = Thread::Current();
     mirror::Class* klass = class_linker_->FindSystemClass(self, descriptor.c_str());
 
     // Verify the class
     std::string error_msg;
-    MethodVerifier::FailureKind failure = MethodVerifier::VerifyClass(self,
-                                                                      klass,
-                                                                      nullptr,
-                                                                      true,
-                                                                      LogSeverity::WARNING,
-                                                                      &error_msg);
-    ASSERT_TRUE(failure == MethodVerifier::kNoFailure) << error_msg;
+    FailureKind failure = MethodVerifier::VerifyClass(
+        self, klass, nullptr, true, HardFailLogMode::kLogWarning, &error_msg);
+
+    if (android::base::StartsWith(descriptor, "Ljava/lang/invoke")) {
+      ASSERT_TRUE(failure == FailureKind::kSoftFailure ||
+                  failure == FailureKind::kNoFailure) << error_msg;
+
+    } else {
+      ASSERT_TRUE(failure == FailureKind::kNoFailure) << error_msg;
+    }
   }
 
   void VerifyDexFile(const DexFile& dex)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     // Verify all the classes defined in this file
     for (size_t i = 0; i < dex.NumClassDefs(); i++) {
       const DexFile::ClassDef& class_def = dex.GetClassDef(i);

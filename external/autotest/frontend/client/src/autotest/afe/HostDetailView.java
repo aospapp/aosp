@@ -161,7 +161,6 @@ public class HostDetailView extends DetailView implements DataCallback, TableAct
 
     private Button lockButton = new Button();
     private Button reverifyButton = new Button("Reverify");
-    private Button reinstallButton = new Button("Reinstall");
     private Button repairButton = new Button("Repair");
     private CheckBox showSpecialTasks = new CheckBox();
     private DatetimeSegmentFilter startedTimeFilter = new DatetimeSegmentFilter();
@@ -422,15 +421,6 @@ public class HostDetailView extends DetailView implements DataCallback, TableAct
             }
         });
         addWidget(reverifyButton, "view_host_reverify_button");
-
-        reinstallButton.addClickHandler(new ClickHandler() {
-            public void onClick(ClickEvent event) {
-                JSONArray array = new JSONArray();
-                array.set(0, new JSONString(hostname));
-                AfeUtils.scheduleReinstall(array, hostname, jobCreateListener);
-            }
-        });
-        addWidget(reinstallButton, "view_host_reinstall_button");
 
         repairButton.addClickHandler(new ClickHandler() {
             public void onClick(ClickEvent event) {

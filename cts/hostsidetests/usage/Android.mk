@@ -21,7 +21,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsAppUsageHostTestCases
 
-LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
+LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed
 
 LOCAL_CTS_TEST_PACKAGE := android.host.app.usage
 

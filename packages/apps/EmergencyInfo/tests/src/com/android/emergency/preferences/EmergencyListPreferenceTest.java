@@ -58,7 +58,7 @@ public class EmergencyListPreferenceTest
                 }
             });
         } catch (Throwable throwable) {
-            fail("Should not throw exception");
+            fail("Should not throw exception: " + throwable.getMessage());
         }
     }
 

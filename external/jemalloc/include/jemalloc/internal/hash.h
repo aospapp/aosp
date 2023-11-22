@@ -53,9 +53,7 @@ hash_get_block_32(const uint32_t *p, int i)
 	if (unlikely((uintptr_t)p & (sizeof(uint32_t)-1)) != 0) {
 		uint32_t ret;
 
-		/* ANDROID change */
-		memcpy(&ret, (uint8_t*)(p+i), sizeof(uint32_t));
-		/* End ANDROID change */
+		memcpy(&ret, (uint8_t *)(p + i), sizeof(uint32_t));
 		return (ret);
 	}
 
@@ -70,9 +68,7 @@ hash_get_block_64(const uint64_t *p, int i)
 	if (unlikely((uintptr_t)p & (sizeof(uint64_t)-1)) != 0) {
 		uint64_t ret;
 
-		/* ANDROID change */
-		memcpy(&ret, (uint8_t*)(p+i), sizeof(uint64_t));
-		/* End ANDROID change */
+		memcpy(&ret, (uint8_t *)(p + i), sizeof(uint64_t));
 		return (ret);
 	}
 

@@ -29,6 +29,8 @@ import android.opengl.GLES20;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -59,6 +61,8 @@ import java.nio.ByteBuffer;
  * The test puts up a series of colored screens, expecting to see all of them, and in order.
  * Any black screens that appear before or after are ignored.
  */
+@SmallTest
+@RequiresDevice
 public class EncodeVirtualDisplayTest extends AndroidTestCase {
     private static final String TAG = "EncodeVirtualTest";
     private static final boolean VERBOSE = false;           // lots of logging

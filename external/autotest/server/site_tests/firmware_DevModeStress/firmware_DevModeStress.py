@@ -2,9 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-#from threading import Timer
 import logging
-import time
 
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -41,9 +39,10 @@ class firmware_DevModeStress(FirmwareTest):
                                 'devsw_boot': '1',
                                 'mainfw_type': 'developer',
                                 }))
-            self.switcher.mode_aware_reboot(
-                    'custom',
-                    lambda:self.suspend_as_reboot(self.wake_by_power_button))
+            self.suspend()
+            self.switcher.wait_for_client_offline()
+            self.servo.power_normal_press()
+            self.switcher.wait_for_client()
 
         logging.info("Complete, final check for dev mode.")
         self.check_state((self.checkers.crossystem_checker, {

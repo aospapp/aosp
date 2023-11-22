@@ -19,6 +19,7 @@
 
 #include "base/mutex.h"  // For Locks::mutator_lock_.
 #include "globals.h"
+#include "obj_ptr.h"
 
 namespace art {
 namespace mirror {
@@ -33,13 +34,16 @@ class Object;
 template<bool kPoisonReferences, class MirrorType>
 class MANAGED ObjectReference {
  public:
-  MirrorType* AsMirrorPtr() const SHARED_REQUIRES(Locks::mutator_lock_) {
+  MirrorType* AsMirrorPtr() const REQUIRES_SHARED(Locks::mutator_lock_) {
     return UnCompress();
   }
 
-  void Assign(MirrorType* other) SHARED_REQUIRES(Locks::mutator_lock_) {
+  void Assign(MirrorType* other) REQUIRES_SHARED(Locks::mutator_lock_) {
     reference_ = Compress(other);
   }
+
+  void Assign(ObjPtr<MirrorType> ptr)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void Clear() {
     reference_ = 0;
@@ -55,19 +59,19 @@ class MANAGED ObjectReference {
   }
 
  protected:
-  ObjectReference<kPoisonReferences, MirrorType>(MirrorType* mirror_ptr)
-      SHARED_REQUIRES(Locks::mutator_lock_)
+  explicit ObjectReference(MirrorType* mirror_ptr)
+      REQUIRES_SHARED(Locks::mutator_lock_)
       : reference_(Compress(mirror_ptr)) {
   }
 
   // Compress reference to its bit representation.
-  static uint32_t Compress(MirrorType* mirror_ptr) SHARED_REQUIRES(Locks::mutator_lock_) {
+  static uint32_t Compress(MirrorType* mirror_ptr) REQUIRES_SHARED(Locks::mutator_lock_) {
     uintptr_t as_bits = reinterpret_cast<uintptr_t>(mirror_ptr);
     return static_cast<uint32_t>(kPoisonReferences ? -as_bits : as_bits);
   }
 
   // Uncompress an encoded reference from its bit representation.
-  MirrorType* UnCompress() const SHARED_REQUIRES(Locks::mutator_lock_) {
+  MirrorType* UnCompress() const REQUIRES_SHARED(Locks::mutator_lock_) {
     uintptr_t as_bits = kPoisonReferences ? -reference_ : reference_;
     return reinterpret_cast<MirrorType*>(as_bits);
   }
@@ -83,28 +87,38 @@ template<class MirrorType>
 class MANAGED HeapReference : public ObjectReference<kPoisonHeapReferences, MirrorType> {
  public:
   static HeapReference<MirrorType> FromMirrorPtr(MirrorType* mirror_ptr)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     return HeapReference<MirrorType>(mirror_ptr);
   }
+
+  static HeapReference<MirrorType> FromObjPtr(ObjPtr<MirrorType> ptr)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  bool CasWeakRelaxed(MirrorType* old_ptr, MirrorType* new_ptr)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
  private:
-  HeapReference<MirrorType>(MirrorType* mirror_ptr) SHARED_REQUIRES(Locks::mutator_lock_)
+  explicit HeapReference(MirrorType* mirror_ptr) REQUIRES_SHARED(Locks::mutator_lock_)
       : ObjectReference<kPoisonHeapReferences, MirrorType>(mirror_ptr) {}
 };
+
+static_assert(sizeof(mirror::HeapReference<mirror::Object>) == kHeapReferenceSize,
+              "heap reference size does not match");
 
 // Standard compressed reference used in the runtime. Used for StackReference and GC roots.
 template<class MirrorType>
 class MANAGED CompressedReference : public mirror::ObjectReference<false, MirrorType> {
  public:
-  CompressedReference<MirrorType>() SHARED_REQUIRES(Locks::mutator_lock_)
+  CompressedReference<MirrorType>() REQUIRES_SHARED(Locks::mutator_lock_)
       : mirror::ObjectReference<false, MirrorType>(nullptr) {}
 
   static CompressedReference<MirrorType> FromMirrorPtr(MirrorType* p)
-      SHARED_REQUIRES(Locks::mutator_lock_) {
+      REQUIRES_SHARED(Locks::mutator_lock_) {
     return CompressedReference<MirrorType>(p);
   }
 
  private:
-  CompressedReference<MirrorType>(MirrorType* p) SHARED_REQUIRES(Locks::mutator_lock_)
+  explicit CompressedReference(MirrorType* p) REQUIRES_SHARED(Locks::mutator_lock_)
       : mirror::ObjectReference<false, MirrorType>(p) {}
 };
 

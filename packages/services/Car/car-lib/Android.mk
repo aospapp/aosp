@@ -24,7 +24,25 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := android.car
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
+ifneq ($(TARGET_USES_CAR_FUTURE_FEATURES),true)
+#TODO need a tool to generate proguard rule to drop all items under @FutureFeature
+#LOCAL_PROGUARD_ENABLED := custom
+#LOCAL_PROGUARD_FLAG_FILES := proguard_drop_future.flags
+endif
+
+car_lib_sources := $(call all-java-files-under, src)
+ifeq ($(TARGET_USES_CAR_FUTURE_FEATURES),true)
+car_lib_sources += $(call all-java-files-under, src_feature_future)
+else
+car_lib_sources += $(call all-java-files-under, src_feature_current)
+endif
+car_lib_sources += $(call all-Iaidl-files-under, src)
+
+LOCAL_SRC_FILES := $(car_lib_sources)
+
+ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
+LOCAL_EMMA_INSTRUMENT := true
+endif
 
 include $(BUILD_JAVA_LIBRARY)
 
@@ -41,5 +59,18 @@ car_module_java_libraries := framework
 car_module_include_systemapi := true
 car_module_java_packages := android.car*
 include $(CAR_API_CHECK)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := android.car7
+LOCAL_SRC_FILES := $(car_lib_sources)
+LOCAL_JAVA_LANGUAGE_VERSION := 1.7
+
+ifeq ($(EMMA_INSTRUMENT_FRAMEWORK),true)
+LOCAL_EMMA_INSTRUMENT := true
+endif
+
+include $(BUILD_JAVA_LIBRARY)
+$(call dist-for-goals,dist_files,$(full_classes_jar):$(LOCAL_MODULE).jar)
 
 endif #TARGET_BUILD_PDK

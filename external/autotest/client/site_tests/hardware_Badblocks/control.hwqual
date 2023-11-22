@@ -8,7 +8,6 @@ PURPOSE = 'Check for unusable blocks in unmounted partition in SSD storage.'
 TIME = 'LENGTHY'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:ssdqual"
-SUITE = 'ssdqual'
 
 DOC = """
 This test checks for unusable blocks in an unmounted partition of SSD by

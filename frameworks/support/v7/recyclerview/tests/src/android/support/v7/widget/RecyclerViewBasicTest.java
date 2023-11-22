@@ -16,37 +16,48 @@
 
 package android.support.v7.widget;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.app.Instrumentation;
 import android.content.Context;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.util.AttributeSet;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Interpolator;
+import android.view.animation.LinearInterpolator;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import static org.junit.Assert.*;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class RecyclerViewBasicTest {
 
     RecyclerView mRecyclerView;
-
 
     @Before
     public void setUp() throws Exception {
@@ -309,7 +320,6 @@ public class RecyclerViewBasicTest {
         layout();
     }
 
-
     @Test
     public void dontSaveChildrenState() throws InterruptedException {
         MockLayoutManager mlm = new MockLayoutManager() {
@@ -341,6 +351,142 @@ public class RecyclerViewBasicTest {
         mRecyclerView.saveHierarchyState(container);
         assertEquals("children's save state method should not be called", 0,
                 loggingView.getOnSavedInstanceCnt());
+    }
+
+    @Test
+    public void smoothScrollWithCustomInterpolator() {
+        mRecyclerView.setLayoutManager(new MockLayoutManager());
+        mRecyclerView.setAdapter(new MockAdapter(20));
+        Interpolator interpolator = new LinearInterpolator();
+        mRecyclerView.smoothScrollBy(0, 100, interpolator);
+        assertSame(interpolator, mRecyclerView.mViewFlinger.mInterpolator);
+
+        mRecyclerView.smoothScrollBy(0, -100);
+        assertSame(RecyclerView.sQuinticInterpolator, mRecyclerView.mViewFlinger.mInterpolator);
+    }
+
+    @Test
+    public void prefetchChangesCacheSize() {
+        mRecyclerView.setAdapter(new MockAdapter(20));
+        MockLayoutManager mlm = new MockLayoutManager() {
+            @Override
+            public void collectAdjacentPrefetchPositions(int dx, int dy, RecyclerView.State state,
+                    RecyclerView.LayoutManager.LayoutPrefetchRegistry prefetchManager) {
+                prefetchManager.addPosition(0, 0);
+                prefetchManager.addPosition(1, 0);
+                prefetchManager.addPosition(2, 0);
+            }
+        };
+
+        RecyclerView.Recycler recycler = mRecyclerView.mRecycler;
+        assertEquals(RecyclerView.Recycler.DEFAULT_CACHE_SIZE, recycler.mViewCacheMax);
+        mRecyclerView.setLayoutManager(mlm);
+        assertEquals(RecyclerView.Recycler.DEFAULT_CACHE_SIZE, recycler.mViewCacheMax);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            // layout, so prefetches can occur
+            mRecyclerView.measure(View.MeasureSpec.EXACTLY | 100, View.MeasureSpec.EXACTLY | 100);
+            mRecyclerView.layout(0, 0, 100, 100);
+
+            // prefetch gets 3 items, so expands cache by 3
+            mRecyclerView.mPrefetchRegistry.collectPrefetchPositionsFromView(mRecyclerView, false);
+            assertEquals(3, mRecyclerView.mPrefetchRegistry.mCount);
+            assertEquals(RecyclerView.Recycler.DEFAULT_CACHE_SIZE + 3, recycler.mViewCacheMax);
+
+            // Reset to default by removing layout
+            mRecyclerView.setLayoutManager(null);
+            assertEquals(RecyclerView.Recycler.DEFAULT_CACHE_SIZE, recycler.mViewCacheMax);
+
+            // And restore by restoring layout
+            mRecyclerView.setLayoutManager(mlm);
+            assertEquals(RecyclerView.Recycler.DEFAULT_CACHE_SIZE + 3, recycler.mViewCacheMax);
+        }
+    }
+
+    @Test
+    public void getNanoTime() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            // check that it looks vaguely time-ish
+            long time = mRecyclerView.getNanoTime();
+            assertNotEquals(0, time);
+            assertNotEquals(time, mRecyclerView.getNanoTime());
+        } else {
+            // expect to avoid cost of system.nanoTime on older platforms that don't do prefetch
+            assertEquals(0, mRecyclerView.getNanoTime());
+        }
+    }
+
+    @Test
+    public void findNestedRecyclerView() {
+        RecyclerView recyclerView = new RecyclerView(getContext());
+        assertEquals(recyclerView, RecyclerView.findNestedRecyclerView(recyclerView));
+
+        ViewGroup parent = new FrameLayout(getContext());
+        assertEquals(null, RecyclerView.findNestedRecyclerView(parent));
+        parent.addView(recyclerView);
+        assertEquals(recyclerView, RecyclerView.findNestedRecyclerView(parent));
+
+        ViewGroup grandParent = new FrameLayout(getContext());
+        assertEquals(null, RecyclerView.findNestedRecyclerView(grandParent));
+        grandParent.addView(parent);
+        assertEquals(recyclerView, RecyclerView.findNestedRecyclerView(grandParent));
+    }
+
+    @Test
+    public void clearNestedRecyclerViewIfNotNested() {
+        RecyclerView recyclerView = new RecyclerView(getContext());
+        ViewGroup parent = new FrameLayout(getContext());
+        parent.addView(recyclerView);
+        ViewGroup grandParent = new FrameLayout(getContext());
+        grandParent.addView(parent);
+
+        // verify trivial noop case
+        RecyclerView.ViewHolder holder = new RecyclerView.ViewHolder(recyclerView) {};
+        holder.mNestedRecyclerView = new WeakReference<>(recyclerView);
+        RecyclerView.clearNestedRecyclerViewIfNotNested(holder);
+        assertEquals(recyclerView, holder.mNestedRecyclerView.get());
+
+        // verify clear case
+        holder = new RecyclerView.ViewHolder(new View(getContext())) {};
+        holder.mNestedRecyclerView = new WeakReference<>(recyclerView);
+        RecyclerView.clearNestedRecyclerViewIfNotNested(holder);
+        assertNull(holder.mNestedRecyclerView);
+
+        // verify more deeply nested case
+        holder = new RecyclerView.ViewHolder(grandParent) {};
+        holder.mNestedRecyclerView = new WeakReference<>(recyclerView);
+        RecyclerView.clearNestedRecyclerViewIfNotNested(holder);
+        assertEquals(recyclerView, holder.mNestedRecyclerView.get());
+    }
+
+    @Test
+    public void toStringContainsClasses() {
+        RecyclerView recyclerView = new RecyclerView(getContext());
+        recyclerView.setAdapter(new MockAdapter(10));
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+
+        String string = recyclerView.toString();
+        assertTrue("must contain RV class", string.contains(RecyclerView.class.getName()));
+        assertTrue("must contain Adapter class", string.contains(MockAdapter.class.getName()));
+        assertTrue("must contain LM class", string.contains(LinearLayoutManager.class.getName()));
+        assertTrue("must contain ctx class", string.contains(getContext().getClass().getName()));
+    }
+
+    @Test
+    public void exceptionContainsClasses() {
+        RecyclerView recyclerView = new RecyclerView(getContext());
+        recyclerView.setAdapter(new MockAdapter(10));
+
+        try {
+            recyclerView.generateDefaultLayoutParams();
+            fail("exception expected");
+        } catch (IllegalStateException e) {
+            String message = e.getMessage();
+            assertTrue("must contain RV class",
+                    message.contains(RecyclerView.class.getName()));
+            assertTrue("must contain Adapter class",
+                    message.contains(MockAdapter.class.getName()));
+        }
     }
 
     static class MockLayoutManager extends RecyclerView.LayoutManager {

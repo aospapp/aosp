@@ -8,6 +8,7 @@
 #include "include/v8-platform.h"
 #include "src/base/macros.h"
 #include "src/cancelable-task.h"
+#include "src/globals.h"
 
 namespace v8 {
 namespace internal {
@@ -79,7 +80,7 @@ class Heap;
 // now_ms is the current time,
 // t' is t if the current event is not a GC event and is now_ms otherwise,
 // long_delay_ms, short_delay_ms, and watchdog_delay_ms are constants.
-class MemoryReducer {
+class V8_EXPORT_PRIVATE MemoryReducer {
  public:
   enum Action { kDone, kWait, kRun };
 
@@ -96,7 +97,7 @@ class MemoryReducer {
     double last_gc_time_ms;
   };
 
-  enum EventType { kTimer, kMarkCompact, kContextDisposed };
+  enum EventType { kTimer, kMarkCompact, kPossibleGarbage };
 
   struct Event {
     EventType type;
@@ -113,7 +114,7 @@ class MemoryReducer {
         js_calls_sample_time_ms_(0.0) {}
   // Callbacks.
   void NotifyMarkCompact(const Event& event);
-  void NotifyContextDisposed(const Event& event);
+  void NotifyPossibleGarbage(const Event& event);
   void NotifyBackgroundIdleNotification(const Event& event);
   // The step function that computes the next state from the current state and
   // the incoming event.
@@ -147,9 +148,6 @@ class MemoryReducer {
   void NotifyTimer(const Event& event);
 
   static bool WatchdogGC(const State& state, const Event& event);
-
-  // Returns the rate of JS calls initiated from the API.
-  double SampleAndGetJsCallsPerMs(double time_ms);
 
   Heap* heap_;
   State state_;

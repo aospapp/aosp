@@ -25,6 +25,7 @@
 #include <utils/Timers.h>
 
 #include <binder/IInterface.h>
+#include <gui/ISurfaceComposer.h>
 
 // ----------------------------------------------------------------------------
 
@@ -32,16 +33,25 @@ namespace android {
 
 // ----------------------------------------------------------------------------
 
-class BitTube;
 class IDisplayEventConnection;
 
-// ----------------------------------------------------------------------------
+namespace gui {
+class BitTube;
+} // namespace gui
 
+static inline constexpr uint32_t fourcc(char c1, char c2, char c3, char c4) {
+    return static_cast<uint32_t>(c1) << 24 |
+        static_cast<uint32_t>(c2) << 16 |
+        static_cast<uint32_t>(c3) << 8 |
+        static_cast<uint32_t>(c4);
+}
+
+// ----------------------------------------------------------------------------
 class DisplayEventReceiver {
 public:
     enum {
-        DISPLAY_EVENT_VSYNC = 'vsyn',
-        DISPLAY_EVENT_HOTPLUG = 'plug'
+        DISPLAY_EVENT_VSYNC = fourcc('v', 's', 'y', 'n'),
+        DISPLAY_EVENT_HOTPLUG = fourcc('p', 'l', 'u', 'g'),
     };
 
     struct Event {
@@ -74,7 +84,8 @@ public:
      * or requestNextVsync to receive them.
      * Other events start being delivered immediately.
      */
-    DisplayEventReceiver();
+    DisplayEventReceiver(
+            ISurfaceComposer::VsyncSource vsyncSource = ISurfaceComposer::eVsyncSourceApp);
 
     /*
      * ~DisplayEventReceiver severs the connection with SurfaceFlinger, new events
@@ -102,15 +113,13 @@ public:
      * should be destroyed and getEvents() shouldn't be called again.
      */
     ssize_t getEvents(Event* events, size_t count);
-    static ssize_t getEvents(const sp<BitTube>& dataChannel,
-            Event* events, size_t count);
+    static ssize_t getEvents(gui::BitTube* dataChannel, Event* events, size_t count);
 
     /*
      * sendEvents write events to the queue and returns how many events were
      * written.
      */
-    static ssize_t sendEvents(const sp<BitTube>& dataChannel,
-            Event const* events, size_t count);
+    static ssize_t sendEvents(gui::BitTube* dataChannel, Event const* events, size_t count);
 
     /*
      * setVsyncRate() sets the Event::VSync delivery rate. A value of
@@ -128,7 +137,7 @@ public:
 
 private:
     sp<IDisplayEventConnection> mEventConnection;
-    sp<BitTube> mDataChannel;
+    std::unique_ptr<gui::BitTube> mDataChannel;
 };
 
 // ----------------------------------------------------------------------------

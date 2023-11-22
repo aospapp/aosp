@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"hapus"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"tampilkan fungsi balikan"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"semunyikan fungsi balikan"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Tidak ada formula"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Tidak ada hasil"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Angka dan operasi dasar"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Operasi lanjutan"</string>
     <string name="error_nan" msgid="5674077944929888710">"Bukan angka"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Pernyataan salah"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Dibatalkan"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Tak terhingga?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Tak bisa dengan 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Teks disalin"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Komputasi dibatalkan"</string>
-    <string name="timeout" msgid="802690170415591535">"Waktu habis. Nilai mungkin tidak terbatas atau tidak ditentukan."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Komputasi dibatalkan."</string>
+    <string name="timeout" msgid="5461892570729418573">"Nilai mungkin tidak terbatas atau tidak ditentukan."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Gunakan waktu tunggu yang lebih lama"</string>
     <string name="dismiss" msgid="7872443888515066216">"Tutup"</string>
     <string name="exact" msgid="2597237880041789948">"(persis)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Jawab dengan digit depan"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Jawab sebagai pecahan"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Lisensi sumber terbuka"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Riwayat"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Hapus"</string>
+    <string name="title_history" msgid="7820912156315181539">"Riwayat"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Navigasi naik"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Waktu habis"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Hapus riwayat dan memori?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Ekspresi Saat Ini"</string>
+    <string name="no_history" msgid="4331262030447527188">"Tidak Ada Riwayat"</string>
 </resources>

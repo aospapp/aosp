@@ -27,6 +27,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".LoaderActivity"/>
+        <activity android:name=".NewIntentActivity" android:launchMode="singleInstance" />
+        <activity android:name=".NonConfigOnStopActivity"/>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

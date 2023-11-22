@@ -18,7 +18,8 @@
 #define ANDROID_HWUI_PIXEL_BUFFER_H
 
 #include <GLES3/gl3.h>
-#include <cutils/log.h>
+
+#include <log/log.h>
 
 namespace android {
 namespace uirenderer {
@@ -97,12 +98,6 @@ public:
     AccessMode getAccessMode() const {
         return mAccessMode;
     }
-
-    /**
-     * Returns the currently mapped pointer. Returns NULL if the buffer
-     * is not mapped.
-     */
-    virtual uint8_t* getMappedPointer() const = 0;
 
     /**
      * Upload the specified rectangle of this pixel buffer as a
@@ -199,8 +194,7 @@ protected:
     /**
      * Unmaps this buffer, if needed. After the buffer is unmapped,
      * the pointer previously returned by map() becomes invalid and
-     * should not be used. After calling this method, getMappedPointer()
-     * will always return NULL.
+     * should not be used.
      */
     virtual void unmap() = 0;
 

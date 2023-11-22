@@ -102,39 +102,56 @@
                 android:textSize="@dimen/play_controls_rec_time_text_size"
                 android:fontFamily="@string/font" />
 
-            <LinearLayout
+            <RelativeLayout
                 android:id="@+id/play_control_bar"
-                android:orientation="horizontal"
-                android:layout_width="wrap_content"
-                android:layout_height="@dimen/play_controls_button_height"
-                android:layout_gravity="center">
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/play_controls_button_height">
 
-                <com.android.tv.menu.PlayControlsButton
-                    android:id="@+id/jump_previous"
-                    android:layout_width="@dimen/play_controls_button_width"
-                    android:layout_height="match_parent" />
-                <com.android.tv.menu.PlayControlsButton
-                    android:id="@+id/rewind"
-                    android:layout_width="@dimen/play_controls_button_width"
-                    android:layout_height="match_parent"
-                    android:layout_marginStart="@dimen/play_controls_button_start_margin" />
                 <com.android.tv.menu.PlayControlsButton
                     android:id="@+id/play_pause"
                     android:layout_width="@dimen/play_controls_button_width"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="@dimen/play_controls_button_start_margin" />
+                    android:layout_marginLeft="@dimen/play_controls_button_normal_margin"
+                    android:layout_marginRight="@dimen/play_controls_button_normal_margin"
+                    android:layout_centerHorizontal="true" />
+                <com.android.tv.menu.PlayControlsButton
+                    android:id="@+id/rewind"
+                    android:layout_width="@dimen/play_controls_button_width"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="@dimen/play_controls_button_normal_margin"
+                    android:layout_marginRight="@dimen/play_controls_button_normal_margin"
+                    android:layout_toLeftOf="@id/play_pause" />
+                <com.android.tv.menu.PlayControlsButton
+                    android:id="@+id/jump_previous"
+                    android:layout_width="@dimen/play_controls_button_width"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="@dimen/play_controls_button_normal_margin"
+                    android:layout_marginRight="@dimen/play_controls_button_normal_margin"
+                    android:layout_toLeftOf="@id/rewind" />
                 <com.android.tv.menu.PlayControlsButton
                     android:id="@+id/fast_forward"
                     android:layout_width="@dimen/play_controls_button_width"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="@dimen/play_controls_button_start_margin" />
+                    android:layout_marginLeft="@dimen/play_controls_button_normal_margin"
+                    android:layout_marginRight="@dimen/play_controls_button_normal_margin"
+                    android:layout_toRightOf="@id/play_pause" />
                 <com.android.tv.menu.PlayControlsButton
                     android:id="@+id/jump_next"
                     android:layout_width="@dimen/play_controls_button_width"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="@dimen/play_controls_button_start_margin" />
+                    android:layout_marginLeft="@dimen/play_controls_button_normal_margin"
+                    android:layout_marginRight="@dimen/play_controls_button_normal_margin"
+                    android:layout_toRightOf="@id/fast_forward" />
+                <com.android.tv.menu.PlayControlsButton
+                    android:id="@+id/record"
+                    android:layout_width="@dimen/play_controls_button_width"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="@dimen/play_controls_button_normal_margin"
+                    android:layout_marginRight="@dimen/play_controls_button_normal_margin"
+                    android:layout_toRightOf="@id/jump_next"
+                    android:visibility="gone" />
 
-            </LinearLayout>
+            </RelativeLayout>
 
             <TextView
                 android:id="@+id/unavailable_text"

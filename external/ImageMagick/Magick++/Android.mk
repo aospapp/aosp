@@ -44,7 +44,7 @@ LOCAL_SRC_FILES := lib/Blob.cpp\
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/.. \
     $(LOCAL_PATH)/lib
 
-LOCAL_CFLAGS += -DHAVE_CONFIG_H
+LOCAL_CFLAGS += -DHAVE_CONFIG_H -Wno-deprecated-register
 
 LOCAL_CPPFLAGS += -fexceptions
 

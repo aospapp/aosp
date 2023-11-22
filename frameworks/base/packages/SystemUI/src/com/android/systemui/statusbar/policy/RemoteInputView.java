@@ -38,6 +38,7 @@ import android.view.View;
 import android.view.ViewAnimationUtils;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -49,12 +50,13 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto;
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.systemui.Interpolators;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.ExpandableView;
 import com.android.systemui.statusbar.NotificationData;
 import com.android.systemui.statusbar.RemoteInputController;
+import com.android.systemui.statusbar.notification.NotificationViewWrapper;
 import com.android.systemui.statusbar.stack.ScrollContainer;
 import com.android.systemui.statusbar.stack.StackStateAnimator;
 
@@ -67,6 +69,8 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
 
     // A marker object that let's us easily find views of this class.
     public static final Object VIEW_TAG = new Object();
+
+    public final Object mToken = new Object();
 
     private RemoteEditText mEditText;
     private ImageButton mSendButton;
@@ -86,6 +90,9 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     private int mRevealCy;
     private int mRevealR;
 
+    private boolean mResetting;
+    private NotificationViewWrapper mWrapper;
+
     public RemoteInputView(Context context, AttributeSet attrs) {
         super(context, attrs);
     }
@@ -94,9 +101,9 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     protected void onFinishInflate() {
         super.onFinishInflate();
 
-        mProgressBar = (ProgressBar) findViewById(R.id.remote_input_progress);
+        mProgressBar = findViewById(R.id.remote_input_progress);
 
-        mSendButton = (ImageButton) findViewById(R.id.remote_input_send);
+        mSendButton = findViewById(R.id.remote_input_send);
         mSendButton.setOnClickListener(this);
 
         mEditText = (RemoteEditText) getChildAt(0);
@@ -137,8 +144,8 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         mSendButton.setVisibility(INVISIBLE);
         mProgressBar.setVisibility(VISIBLE);
         mEntry.remoteInputText = mEditText.getText();
-        mController.addSpinning(mEntry.key);
-        mController.removeRemoteInput(mEntry);
+        mController.addSpinning(mEntry.key, mToken);
+        mController.removeRemoteInput(mEntry, mToken);
         mEditText.mShowImeOnInputConnection = false;
         mController.remoteInputSent(mEntry);
 
@@ -190,7 +197,7 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     }
 
     private void onDefocus(boolean animate) {
-        mController.removeRemoteInput(mEntry);
+        mController.removeRemoteInput(mEntry, mToken);
         mEntry.remoteInputText = mEditText.getText();
 
         // During removal, we get reattached and lose focus. Not hiding in that
@@ -205,11 +212,17 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
                     @Override
                     public void onAnimationEnd(Animator animation) {
                         setVisibility(INVISIBLE);
+                        if (mWrapper != null) {
+                            mWrapper.setRemoteInputVisible(false);
+                        }
                     }
                 });
                 reveal.start();
             } else {
                 setVisibility(INVISIBLE);
+                if (mWrapper != null) {
+                    mWrapper.setRemoteInputVisible(false);
+                }
             }
         }
         MetricsLogger.action(mContext, MetricsProto.MetricsEvent.ACTION_REMOTE_INPUT_CLOSE,
@@ -229,11 +242,11 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        if (mEntry.row.isChangingPosition()) {
+        if (mEntry.row.isChangingPosition() || isTemporarilyDetached()) {
             return;
         }
-        mController.removeRemoteInput(mEntry);
-        mController.removeSpinning(mEntry.key);
+        mController.removeRemoteInput(mEntry, mToken);
+        mController.removeSpinning(mEntry.key, mToken);
     }
 
     public void setPendingIntent(PendingIntent pendingIntent) {
@@ -262,7 +275,10 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
                 mEntry.notification.getPackageName());
 
         setVisibility(VISIBLE);
-        mController.addRemoteInput(mEntry);
+        if (mWrapper != null) {
+            mWrapper.setRemoteInputVisible(true);
+        }
+        mController.addRemoteInput(mEntry, mToken);
         mEditText.setInnerFocusable(true);
         mEditText.mShowImeOnInputConnection = true;
         mEditText.setText(mEntry.remoteInputText);
@@ -278,16 +294,35 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
             // Update came in after we sent the reply, time to reset.
             reset();
         }
+
+        if (isActive() && mWrapper != null) {
+            mWrapper.setRemoteInputVisible(true);
+        }
     }
 
     private void reset() {
+        mResetting = true;
+
         mEditText.getText().clear();
         mEditText.setEnabled(true);
         mSendButton.setVisibility(VISIBLE);
         mProgressBar.setVisibility(INVISIBLE);
-        mController.removeSpinning(mEntry.key);
+        mController.removeSpinning(mEntry.key, mToken);
         updateSendButton();
         onDefocus(false /* animate */);
+
+        mResetting = false;
+    }
+
+    @Override
+    public boolean onRequestSendAccessibilityEvent(View child, AccessibilityEvent event) {
+        if (mResetting && child == mEditText) {
+            // Suppress text events if it happens during resetting. Ideally this would be
+            // suppressed by the text view not being shown, but that doesn't work here because it
+            // needs to stay visible for the animation.
+            return false;
+        }
+        return super.onRequestSendAccessibilityEvent(child, event);
     }
 
     private void updateSendButton() {
@@ -414,6 +449,28 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         mRevealR = r;
     }
 
+    @Override
+    public void dispatchStartTemporaryDetach() {
+        super.dispatchStartTemporaryDetach();
+        // Detach the EditText temporarily such that it doesn't get onDetachedFromWindow and
+        // won't lose IME focus.
+        detachViewFromParent(mEditText);
+    }
+
+    @Override
+    public void dispatchFinishTemporaryDetach() {
+        if (isAttachedToWindow()) {
+            attachViewToParent(mEditText, 0, mEditText.getLayoutParams());
+        } else {
+            removeDetachedView(mEditText, false /* animate */);
+        }
+        super.dispatchFinishTemporaryDetach();
+    }
+
+    public void setWrapper(NotificationViewWrapper wrapper) {
+        mWrapper = wrapper;
+    }
+
     /**
      * An EditText that changes appearance based on whether it's focusable and becomes
      * un-focusable whenever the user navigates away from it or it becomes invisible.
@@ -430,7 +487,15 @@ public class RemoteInputView extends LinearLayout implements View.OnClickListene
         }
 
         private void defocusIfNeeded(boolean animate) {
-            if (mRemoteInputView != null && mRemoteInputView.mEntry.row.isChangingPosition()) {
+            if (mRemoteInputView != null && mRemoteInputView.mEntry.row.isChangingPosition()
+                    || isTemporarilyDetached()) {
+                if (isTemporarilyDetached()) {
+                    // We might get reattached but then the other one of HUN / expanded might steal
+                    // our focus, so we'll need to save our text here.
+                    if (mRemoteInputView != null) {
+                        mRemoteInputView.mEntry.remoteInputText = getText();
+                    }
+                }
                 return;
             }
             if (isFocusable() && isEnabled()) {

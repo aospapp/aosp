@@ -16,6 +16,9 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -25,21 +28,28 @@ import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Contacts;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.QuickContactBadge;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class QuickContactBadgeTest extends InstrumentationTestCase {
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class QuickContactBadgeTest {
     @UiThreadTest
+    @Test
     public void testPrioritizedMimetype() throws InterruptedException {
         final String plainMimeType = "text/plain";
         final Uri nonExistentContactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, 0);
         final CountDownLatch latch = new CountDownLatch(1);
-        final Context context = new ContextWrapper(getInstrumentation().getContext()) {
+        final Context context = new ContextWrapper(InstrumentationRegistry.getTargetContext()) {
             @Override
             public void startActivity(Intent intent) {
                 testCallback(intent);

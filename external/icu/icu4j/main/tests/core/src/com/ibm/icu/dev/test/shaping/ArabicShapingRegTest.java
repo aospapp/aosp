@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2001-2012, International Business Machines
@@ -7,7 +9,10 @@
 
 package com.ibm.icu.dev.test.shaping;
 
+import java.lang.reflect.Method;
 import java.util.MissingResourceException;
+
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.text.ArabicShaping;
@@ -290,24 +295,30 @@ public class ArabicShapingRegTest extends TestFmwk {
                           "\ufe8f\u0655\ufeae\u0655\ufecb\u0020"),
         
         TestData.standard(tashkeelShaddaRTL,
-                                 ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_BEGIN |ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,
-                                  "\u0020\ufeb7\ufe7d\ufee4\ufeb2"),
-       TestData.standard(tashkeelShaddaRTL,                                                                                           
-                                 ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_END|ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,                          
-                                  "\ufeb7\ufe7d\ufee4\ufeb2\u0020"),  
-       TestData.standard(tashkeelShaddaRTL,                                                                                                                      
-                                ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_RESIZE|ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,                           
-                                 "\ufeb7\ufe7d\ufee4\ufeb2"),  
-                                 
-       TestData.standard(tashkeelShaddaLTR,                                                                                                                     
-                                ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_BEGIN |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR , 
-                                 "\u0020\ufeb2\ufee4\ufe7d\ufeb7"), 
-       TestData.standard(tashkeelShaddaLTR,                                                                                                                     
-                                ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_END |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR , 
-                                 "\ufeb2\ufee4\ufe7d\ufeb7\u0020"), 
-       TestData.standard(tashkeelShaddaLTR,                                                                                                                     
-                                ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_RESIZE |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR , 
-                                "\ufeb2\ufee4\ufe7d\ufeb7"),
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_BEGIN |ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,
+                          "\u0020\ufeb7\ufe7d\ufee4\ufeb2"),
+        TestData.standard(tashkeelShaddaRTL,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_END|ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,
+                          "\ufeb7\ufe7d\ufee4\ufeb2\u0020"),
+        TestData.standard(tashkeelShaddaRTL,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_RESIZE|ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,
+                          "\ufeb7\ufe7d\ufee4\ufeb2"),
+        TestData.standard(tashkeelShaddaRTL,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_REPLACE_BY_TATWEEL|ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,
+                          "\ufeb7\ufe7d\ufee4\u0640\ufeb2"),
+
+        TestData.standard(tashkeelShaddaLTR,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_BEGIN |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR ,
+                          "\u0020\ufeb2\ufee4\ufe7d\ufeb7"),
+        TestData.standard(tashkeelShaddaLTR,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_END |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR ,
+                          "\ufeb2\ufee4\ufe7d\ufeb7\u0020"),
+        TestData.standard(tashkeelShaddaLTR,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_RESIZE |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR ,
+                          "\ufeb2\ufee4\ufe7d\ufeb7"),
+        TestData.standard(tashkeelShaddaLTR,
+                          ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_REPLACE_BY_TATWEEL |ArabicShaping.TEXT_DIRECTION_VISUAL_LTR ,
+                          "\ufeb2\u0640\ufee4\ufe7d\ufeb7"),
 
         TestData.standard(ArMathSym,
                           ArabicShaping.LETTERS_SHAPE|ArabicShaping.TASHKEEL_BEGIN |ArabicShaping.TEXT_DIRECTION_VISUAL_RTL ,
@@ -454,6 +465,7 @@ public class ArabicShapingRegTest extends TestFmwk {
                        IllegalArgumentException.class),
     };
 
+    @Test
     public void TestStandard() {
         for (int i = 0; i < standardTests.length; ++i) {
             TestData test = standardTests[i];
@@ -483,6 +495,7 @@ public class ArabicShapingRegTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestPreflight() {
         for (int i = 0; i < preflightTests.length; ++i) {
             TestData test = preflightTests[i];
@@ -510,6 +523,7 @@ public class ArabicShapingRegTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestError() {
         for (int i = 0; i < errorTests.length; ++i) {
             TestData test = errorTests[i];
@@ -538,6 +552,7 @@ public class ArabicShapingRegTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestEquals()
     {
         ArabicShaping as1 = new ArabicShaping(LETTERS_SHAPE | TEXT_DIRECTION_VISUAL_LTR | LENGTH_FIXED_SPACES_NEAR);
@@ -557,8 +572,9 @@ public class ArabicShapingRegTest extends TestFmwk {
         }
     }
 
-    public void reportTestFailure(int index, TestData test, ArabicShaping shaper, String result, Exception error) {
-        if (noData() && error != null && error instanceof MissingResourceException ) {
+    // TODO(junit): remove this and convert callers to parameterized tests
+    private void reportTestFailure(int index, TestData test, ArabicShaping shaper, String result, Exception error) {
+        if (error != null && error instanceof MissingResourceException ) {
             warnln(error.getMessage());
         }
 
@@ -614,19 +630,11 @@ public class ArabicShapingRegTest extends TestFmwk {
         return buf.toString();
     }
 
-    public static void main(String[] args) {
-        try {
-            new ArabicShapingRegTest().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
-    }
-    
     /* Tests the method
      *      public int shape(char[] source, int sourceStart, int sourceLength,
      *      char[] dest, int destStart, int destSize) throws ArabicShapingException)
      */
+    @Test
     public void TestShape(){
         // Tests when
         //      if (sourceStart < 0 || sourceLength < 0 || sourceStart + sourceLength > source.length)
@@ -737,6 +745,53 @@ public class ArabicShapingRegTest extends TestFmwk {
                         "an option value of " + invalid_Tashkeel[i]);
             } catch (Exception e) {}
         }
+    }
+
+    @Test
+    public void TestCoverage() {
+        ArabicShaping shp = new ArabicShaping(LETTERS_SHAPE | TEXT_DIRECTION_VISUAL_LTR | LENGTH_FIXED_SPACES_NEAR);
+
+        // Test ArabicShaping#toString();
+        assertEquals("ArabicShaping#toString() failed.",
+                shp.toString(),
+                "com.ibm.icu.text.ArabicShaping@d[LamAlef spaces at near, visual, shape letters," +
+                        " no digit shaping, standard Arabic-Indic digits]");
+
+        // Test ArabicShaping#hashCode()
+        assertEquals("ArabicShaping#hashCode() failed.", shp.hashCode(), 13);
+    }
+
+    private boolean getStaticCharacterHelperFunctionValue(String methodName, char testValue) throws Exception {
+        Method m = ArabicShaping.class.getDeclaredMethod(methodName, Character.TYPE);
+        m.setAccessible(true);
+        Object returnValue = m.invoke(null, testValue);
+
+        if (Integer.class.isInstance(returnValue)) {
+            return (Integer)returnValue == 1;
+        }
+        return (Boolean)returnValue;
+    }
+
+    @Test
+    public void TestHelperFunctions() throws Exception {
+        // Test private static helper functions that are used internally:
+
+        // ArabicShaping.isSeenTailFamilyChar(char)
+        assertTrue("ArabicShaping.isSeenTailFamilyChar(char) failed.",
+                getStaticCharacterHelperFunctionValue("isSeenTailFamilyChar", (char)0xfeb1));
+
+        // ArabicShaping.isAlefMaksouraChar(char)
+        assertTrue("ArabicShaping.isAlefMaksouraChar(char) failed.",
+                getStaticCharacterHelperFunctionValue("isAlefMaksouraChar", (char)0xfeef));
+
+        // ArabicShaping.isTailChar(char)
+        assertTrue("ArabicShaping.isTailChar(char) failed.",
+                getStaticCharacterHelperFunctionValue("isTailChar", (char)0x200B));
+
+        // ArabicShaping.isYehHamzaChar(char)
+        assertTrue("ArabicShaping.isYehHamzaChar(char) failed.",
+                getStaticCharacterHelperFunctionValue("isYehHamzaChar", (char)0xfe89));
+
     }
 }
 

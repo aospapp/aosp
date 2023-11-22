@@ -464,17 +464,14 @@ VAStatus vaInitialize (
     if ((VA_STATUS_SUCCESS == vaStatus) &&
         driver_name_env && (geteuid() == getuid())) {
         /* Don't allow setuid apps to use LIBVA_DRIVER_NAME */
-        if (driver_name) /* memory is allocated in va_getDriverName */
-            free(driver_name);
-        
-        driver_name = strdup(driver_name_env);
+        driver_name = "pvr";
         vaStatus = VA_STATUS_SUCCESS;
         va_infoMessage("User requested driver '%s'\n", driver_name);
     }
 
     if ((VA_STATUS_SUCCESS == vaStatus) && (driver_name != NULL)) {
         vaStatus = va_openDriver(dpy, driver_name);
-        va_infoMessage("va_openDriver() returns %d\n", vaStatus);
+        va_infoMessage("va_openDriver() returns %d, driver_name = %s\n", vaStatus, driver_name);
 
         *major_version = VA_MAJOR_VERSION;
         *minor_version = VA_MINOR_VERSION;
@@ -482,9 +479,6 @@ VAStatus vaInitialize (
         va_errorMessage("va_getDriverName() failed with %s,driver_name=%s\n",
                         vaErrorStr(vaStatus), driver_name);
 
-    if (driver_name)
-        free(driver_name);
-    
     VA_TRACE_LOG(va_TraceInitialize, dpy, major_version, minor_version);
 
     return vaStatus;

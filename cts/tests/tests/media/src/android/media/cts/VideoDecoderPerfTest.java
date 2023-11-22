@@ -21,16 +21,17 @@ import android.media.cts.R;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.cts.util.MediaPerfUtils;
-import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Surface;
 
 import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.MediaPerfUtils;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
@@ -60,7 +61,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     private static final boolean OTHER = false;
 
     private static final int MAX_SIZE_SAMPLES_IN_MEMORY_BYTES = 12 << 20;  // 12MB
-    LinkedList<ByteBuffer> mSamplesInMemory = new LinkedList<ByteBuffer>();
+    // each sample contains the buffer and the PTS offset from the frame index
+    LinkedList<Pair<ByteBuffer, Double>> mSamplesInMemory = new LinkedList<Pair<ByteBuffer, Double>>();
     private MediaFormat mDecInputFormat;
     private MediaFormat mDecOutputFormat;
     private int mBitrate;
@@ -117,6 +119,16 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         int trackIndex = extractor.getSampleTrackIndex();
         MediaFormat format = extractor.getTrackFormat(trackIndex);
         String mime = format.getString(MediaFormat.KEY_MIME);
+
+        // use frame rate to calculate PTS offset used for PTS scaling
+        double frameRate = 0.; // default - 0 is used for using zero PTS offset
+        if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
+            frameRate = format.getInteger(MediaFormat.KEY_FRAME_RATE);
+        } else if (!mime.equals(MediaFormat.MIMETYPE_VIDEO_VP8)
+                && !mime.equals(MediaFormat.MIMETYPE_VIDEO_VP9)) {
+            fail("need framerate info for video file");
+        }
+
         ByteBuffer[] codecInputBuffers;
         ByteBuffer[] codecOutputBuffers;
 
@@ -125,14 +137,25 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
             ByteBuffer tmpBuf = ByteBuffer.allocate(w * h * 3 / 2);
             int sampleSize = 0;
             int index = 0;
+            long firstPTS = 0;
+            double presentationOffset = 0.;
             while ((sampleSize = extractor.readSampleData(tmpBuf, 0 /* offset */)) > 0) {
                 if (totalMemory + sampleSize > MAX_SIZE_SAMPLES_IN_MEMORY_BYTES) {
                     break;
                 }
+                if (mSamplesInMemory.size() == 0) {
+                    firstPTS = extractor.getSampleTime();
+                }
                 ByteBuffer copied = ByteBuffer.allocate(sampleSize);
                 copied.put(tmpBuf);
-                mSamplesInMemory.addLast(copied);
+                if (frameRate > 0.) {
+                    // presentation offset is an offset from the frame index
+                    presentationOffset =
+                        (extractor.getSampleTime() - firstPTS) * frameRate / 1e6 - index;
+                }
+                mSamplesInMemory.addLast(Pair.create(copied, presentationOffset));
                 totalMemory += sampleSize;
+                ++index;
                 extractor.advance();
             }
             Log.d(TAG, mSamplesInMemory.size() + " samples in memory for " +
@@ -149,7 +172,7 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
         MediaCodec codec = MediaCodec.createByCodecName(name);
         VideoCapabilities cap = codec.getCodecInfo().getCapabilitiesForType(mime).getVideoCapabilities();
-        int frameRate = cap.getSupportedFrameRatesFor(w, h).getUpper().intValue();
+        frameRate = cap.getSupportedFrameRatesFor(w, h).getUpper();
         codec.configure(format, surface, null /* crypto */, 0 /* flags */);
         codec.start();
         codecInputBuffers = codec.getInputBuffers();
@@ -174,13 +197,14 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
                 if (inputBufIndex >= 0) {
                     ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
-                    ByteBuffer sample =
+                    // sample contains the buffer and the PTS offset normalized to frame index
+                    Pair<ByteBuffer, Double> sample =
                             mSamplesInMemory.get(sampleIndex++ % mSamplesInMemory.size());
-                    sample.rewind();
-                    int sampleSize = sample.remaining();
-                    dstBuf.put(sample);
-                    // use 120fps to compute pts
-                    long presentationTimeUs = inputNum * 1000000L / frameRate;
+                    sample.first.rewind();
+                    int sampleSize = sample.first.remaining();
+                    dstBuf.put(sample.first);
+                    // use max supported framerate to compute pts
+                    long presentationTimeUs = (long)((inputNum + sample.second) * 1e6 / frameRate);
 
                     long elapsed = System.currentTimeMillis() - start;
                     sawInputEOS = ((++inputNum == TOTAL_FRAMES)

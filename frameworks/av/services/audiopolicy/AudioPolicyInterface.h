@@ -21,8 +21,6 @@
 #include <media/AudioPolicy.h>
 #include <utils/String8.h>
 
-#include <hardware/audio_policy.h>
-
 namespace android {
 
 // ----------------------------------------------------------------------------
@@ -67,6 +65,16 @@ public:
         API_INPUT_TELEPHONY_RX, // used for capture from telephony RX path
     } input_type_t;
 
+   enum {
+        API_INPUT_CONCURRENCY_NONE = 0,
+        API_INPUT_CONCURRENCY_CALL = (1 << 0),      // Concurrency with a call
+        API_INPUT_CONCURRENCY_CAPTURE = (1 << 1),   // Concurrency with another capture
+
+        API_INPUT_CONCURRENCY_ALL = (API_INPUT_CONCURRENCY_CALL | API_INPUT_CONCURRENCY_CAPTURE),
+   };
+
+   typedef uint32_t concurrency_type__mask_t;
+
 public:
     virtual ~AudioPolicyInterface() {}
     //
@@ -81,6 +89,10 @@ public:
     // retrieve a device connection status
     virtual audio_policy_dev_state_t getDeviceConnectionState(audio_devices_t device,
                                                                           const char *device_address) = 0;
+    // indicate a change in device configuration
+    virtual status_t handleDeviceConfigChange(audio_devices_t device,
+                                              const char *device_address,
+                                              const char *device_name) = 0;
     // indicate a change in phone state. Valid phones states are defined by audio_mode_t
     virtual void setPhoneState(audio_mode_t state) = 0;
     // force using a specific device category for the specified usage
@@ -108,12 +120,10 @@ public:
                                         audio_session_t session,
                                         audio_stream_type_t *stream,
                                         uid_t uid,
-                                        uint32_t samplingRate,
-                                        audio_format_t format,
-                                        audio_channel_mask_t channelMask,
+                                        const audio_config_t *config,
                                         audio_output_flags_t flags,
                                         int selectedDeviceId,
-                                        const audio_offload_info_t *offloadInfo) = 0;
+                                        audio_port_handle_t *portId) = 0;
     // indicates to the audio policy manager that the output starts being used by corresponding stream.
     virtual status_t startOutput(audio_io_handle_t output,
                                  audio_stream_type_t stream,
@@ -132,15 +142,15 @@ public:
                                      audio_io_handle_t *input,
                                      audio_session_t session,
                                      uid_t uid,
-                                     uint32_t samplingRate,
-                                     audio_format_t format,
-                                     audio_channel_mask_t channelMask,
+                                     const audio_config_base_t *config,
                                      audio_input_flags_t flags,
                                      audio_port_handle_t selectedDeviceId,
-                                     input_type_t *inputType) = 0;
+                                     input_type_t *inputType,
+                                     audio_port_handle_t *portId) = 0;
     // indicates to the audio policy manager that the input starts being used.
     virtual status_t startInput(audio_io_handle_t input,
-                                audio_session_t session) = 0;
+                                audio_session_t session,
+                                concurrency_type__mask_t *concurrency) = 0;
     // indicates to the audio policy manager that the input stops being used.
     virtual status_t stopInput(audio_io_handle_t input,
                                audio_session_t session) = 0;
@@ -220,14 +230,14 @@ public:
 
     virtual status_t releaseSoundTriggerSession(audio_session_t session) = 0;
 
-    virtual status_t registerPolicyMixes(Vector<AudioMix> mixes) = 0;
+    virtual status_t registerPolicyMixes(const Vector<AudioMix>& mixes) = 0;
     virtual status_t unregisterPolicyMixes(Vector<AudioMix> mixes) = 0;
 
     virtual status_t startAudioSource(const struct audio_port_config *source,
                                       const audio_attributes_t *attributes,
-                                      audio_io_handle_t *handle,
+                                      audio_patch_handle_t *handle,
                                       uid_t uid) = 0;
-    virtual status_t stopAudioSource(audio_io_handle_t handle) = 0;
+    virtual status_t stopAudioSource(audio_patch_handle_t handle) = 0;
 
     virtual status_t setMasterMono(bool mono) = 0;
     virtual status_t getMasterMono(bool *mono) = 0;

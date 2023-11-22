@@ -92,7 +92,7 @@ mv_buf_t* ihevcd_mv_mgr_get_poc(buf_mgr_t *ps_mv_buf_mgr, UWORD32 abs_poc)
 
 WORD32 ihevcd_ref_list(codec_t *ps_codec, pps_t *ps_pps, sps_t *ps_sps, slice_header_t *ps_slice_hdr)
 {
-    WORD32 i;
+    WORD32 i, j;
     WORD32 st_rps_idx;
     WORD32 num_neg_pics, num_pos_pics;
     WORD8 *pi1_used;
@@ -503,11 +503,11 @@ WORD32 ihevcd_ref_list(codec_t *ps_codec, pps_t *ps_pps, sps_t *ps_sps, slice_he
 
             /* Find buffer id of the MV bank corresponding to the buffer being freed (Buffer with POC of u4_abs_poc) */
             ps_mv_buf = (mv_buf_t *)ps_codec->ps_mv_buf;
-            for(i = 0; i < BUF_MGR_MAX_CNT; i++)
+            for(j = 0; j < ps_codec->i4_max_dpb_size; j++)
             {
                 if(ps_mv_buf && ps_mv_buf->i4_abs_poc == ps_pic_buf->i4_abs_poc)
                 {
-                    ihevc_buf_mgr_release((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, i, BUF_MGR_REF);
+                    ihevc_buf_mgr_release((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, j, BUF_MGR_REF);
                     break;
                 }
                 ps_mv_buf++;

@@ -80,8 +80,7 @@ class Pkcs11KeyStore : public KeyStore {
 
   // Gets a slot for the given |username| if |is_user_specific| or the system
   // slot otherwise. Returns false if no appropriate slot is found.
-  bool GetUserSlot(const std::string& username,
-                   CK_SLOT_ID_PTR slot);
+  bool GetUserSlot(const std::string& username, CK_SLOT_ID_PTR slot);
 
   // Enumerates all PKCS #11 objects associated with keys.  The |callback| is
   // called once for each object.

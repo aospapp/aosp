@@ -26,7 +26,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.os.BatteryStatsHelper;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
@@ -37,6 +37,7 @@ import com.android.settingslib.graph.UsageView;
 public class BatteryHistoryDetail extends SettingsPreferenceFragment {
     public static final String EXTRA_STATS = "stats";
     public static final String EXTRA_BROADCAST = "broadcast";
+    public static final String BATTERY_HISTORY_FILE = "tmp_bat_history.bin";
 
     private BatteryStats mStats;
     private Intent mBatteryBroadcast;
@@ -119,7 +120,7 @@ public class BatteryHistoryDetail extends SettingsPreferenceFragment {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.FUELGAUGE_BATTERY_HISTORY_DETAIL;
     }
 }

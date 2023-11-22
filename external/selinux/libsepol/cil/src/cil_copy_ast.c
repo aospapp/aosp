@@ -789,7 +789,7 @@ void cil_copy_fill_permissionx(struct cil_db *db, struct cil_permissionx *orig, 
 	cil_copy_expr(db, orig->expr_str, &new->expr_str);
 }
 
-int cil_copy_avrule(__attribute__((unused)) struct cil_db *db, void *data, void **copy, __attribute__((unused)) symtab_t *symtab)
+int cil_copy_avrule(struct cil_db *db, void *data, void **copy, __attribute__((unused)) symtab_t *symtab)
 {
 	struct cil_avrule *orig = data;
 	struct cil_avrule *new = NULL;
@@ -1666,6 +1666,21 @@ int cil_copy_bounds(__attribute__((unused)) struct cil_db *db, void *data, void 
 	return SEPOL_OK;
 }
 
+int cil_copy_src_info(__attribute__((unused)) struct cil_db *db, void *data, void **copy, __attribute__((unused)) symtab_t *symtab)
+{
+	struct cil_src_info *orig = data;
+	struct cil_src_info *new = NULL;
+
+	cil_src_info_init(&new);
+
+	new->is_cil = orig->is_cil;
+	new->path = orig->path;
+
+	*copy = new;
+
+	return SEPOL_OK;
+}
+
 int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) uint32_t *finished, void *extra_args)
 {
 	int rc = SEPOL_ERR;
@@ -1942,6 +1957,9 @@ int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) u
 	case CIL_MLS:
 		copy_func = &cil_copy_mls;
 		break;
+	case CIL_SRC_INFO:
+		copy_func = &cil_copy_src_info;
+		break;
 	default:
 		goto exit;
 	}
@@ -1964,11 +1982,19 @@ int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) u
 
 		new->parent = parent;
 		new->line = orig->line;
-		new->path = orig->path;
+		new->hll_line = orig->hll_line;
 		new->flavor = orig->flavor;
 		new->data = data;
 
 		if (orig->flavor >= CIL_MIN_DECLARATIVE) {
+			/* Check the flavor of data if was found in the destination symtab */
+			if (DATUM(data)->nodes->head && FLAVOR(data) != orig->flavor) {
+				cil_tree_log(orig, CIL_ERR, "Incompatible flavor when trying to copy %s", DATUM(data)->name);
+				cil_tree_log(NODE(data), CIL_ERR, "Note: conflicting declaration");
+				new->flavor = FLAVOR(data);
+				rc = SEPOL_ERR;
+				goto exit;
+			}
 			rc = cil_symtab_insert(symtab, ((struct cil_symtab_datum*)orig->data)->name, ((struct cil_symtab_datum*)data), new);
 
 			namespace = new;
@@ -1985,8 +2011,8 @@ int __cil_copy_node_helper(struct cil_tree_node *orig, __attribute__((unused)) u
 						param = item->data;
 						if (param->flavor == new->flavor) {
 							if (param->str == ((struct cil_symtab_datum*)new->data)->name) {
-								cil_log(CIL_ERR, "%s %s shadows a macro parameter (%s line:%d)\n", cil_node_to_string(new), ((struct cil_symtab_datum*)orig->data)->name, orig->path, orig->line);
-								cil_log(CIL_ERR, "Note: macro declaration (%s line:%d)\n", namespace->path, namespace->line);
+								cil_tree_log(orig, CIL_ERR, "%s %s shadows a macro parameter", cil_node_to_string(new), ((struct cil_symtab_datum*)orig->data)->name);
+								cil_tree_log(namespace, CIL_ERR, "Note: macro declaration");
 								rc = SEPOL_ERR;
 								goto exit;
 							}

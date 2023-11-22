@@ -16,17 +16,21 @@
 
 package android.graphics.cts;
 
-import android.graphics.Outline;
-import android.graphics.Path;
-import android.graphics.Rect;
-import android.test.suitebuilder.annotation.SmallTest;
-import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.graphics.Outline;
+import android.graphics.Path;
+import android.graphics.Rect;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @SmallTest
+@RunWith(AndroidJUnit4.class)
 public class OutlineTest {
     @Test
     public void testDefaults() {
@@ -37,6 +41,20 @@ public class OutlineTest {
         Rect outRect = new Rect();
         assertFalse(outline.getRect(outRect));
         assertTrue(outline.getRadius() < 0);
+    }
+
+    @Test
+    public void testCopyConstructor() {
+        Outline orig = new Outline();
+        orig.setAlpha(0.5f);
+        orig.setRect(10, 10, 20, 20);
+
+        Outline copy = new Outline(orig);
+        assertEquals(0.5f, copy.getAlpha(), 0.0f);
+
+        Rect copyRect = new Rect();
+        copy.getRect(copyRect);
+        assertEquals(new Rect(10, 10, 20, 20), copyRect);
     }
 
     @Test
@@ -57,6 +75,21 @@ public class OutlineTest {
         assertEquals(4f, outline.getAlpha(), 0.0f);
         outline.setAlpha(-30f);
         assertEquals(-30f, outline.getAlpha(), 0.0f);
+    }
+
+    @Test
+    public void testSet() {
+        Outline orig = new Outline();
+        orig.setAlpha(0.5f);
+        orig.setRect(10, 10, 20, 20);
+
+        Outline copy = new Outline();
+        copy.set(orig);
+        assertEquals(0.5f, copy.getAlpha(), 0.0f);
+
+        Rect copyRect = new Rect();
+        copy.getRect(copyRect);
+        assertEquals(new Rect(10, 10, 20, 20), copyRect);
     }
 
     @Test
@@ -132,6 +165,11 @@ public class OutlineTest {
         assertFalse(outline.isEmpty());
 
         outline.setOval(0, 0, 50, 50); // same x & y radii, so round rect
+        assertTrue(outline.getRect(outRect)); // is round rect, so works
+        assertTrue(outline.canClip()); // is round rect, so works
+        assertFalse(outline.isEmpty());
+
+        outline.setOval(new Rect(0, 0, 50, 50)); // same x & y radii, so round rect
         assertTrue(outline.getRect(outRect)); // is round rect, so works
         assertTrue(outline.canClip()); // is round rect, so works
         assertFalse(outline.isEmpty());

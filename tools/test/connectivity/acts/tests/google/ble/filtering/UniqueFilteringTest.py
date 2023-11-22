@@ -19,15 +19,18 @@ FilteringTest.
 """
 
 import concurrent
+import json
 import pprint
 import time
 
 from queue import Empty
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.BleEnum import AdvertiseSettingsAdvertiseMode
 from acts.test_utils.bt.BleEnum import ScanSettingsScanMode
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import generate_ble_scan_objects
+from acts.test_utils.bt.bt_test_utils import adv_succ
 from acts.test_utils.bt.bt_test_utils import batch_scan_result
 from acts.test_utils.bt.bt_test_utils import scan_result
 
@@ -64,10 +67,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return event['data']['Result']['deviceInfo']['address']
 
     def blescan_verify_onbatchscanresult_event_handler(
-            self,
-            event,
-            system_time_nanos=None,
-            report_delay_nanos=None):
+            self, event, system_time_nanos=None, report_delay_nanos=None):
         test_result = True
         self.log.debug("Verifying onBatchScanResult event")
         self.log.debug(pprint.pformat(event))
@@ -84,6 +84,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='c3764358-cd65-451c-9a2d-4bfb6cf98f48')
     def test_scan_flush_pending_scan_results(self):
         """Test LE scan api flush pending results.
 
@@ -136,6 +137,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='4b358654-db69-4b51-98ec-7599aee2db10')
     def test_scan_trigger_on_batch_scan_results(self):
         """Test triggering batch scan results.
 
@@ -192,6 +194,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='94dbe8b2-9e7f-4da4-973e-5162b84a7ce0')
     def test_scan_flush_results_without_on_batch_scan_results_triggered(self):
         """Test that doesn't expect a batch scan result.
 
@@ -240,6 +243,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='5856882e-3d82-4a6f-b110-389086b0ac41')
     def test_scan_non_existent_name_filter(self):
         """Test non-existent name filter.
 
@@ -291,6 +295,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='0a54c50b-d4ef-4d8c-8328-775781aab2c7')
     def test_scan_advertisement_with_device_service_uuid_filter_expect_no_events(
             self):
         """Test scan filtering against an advertisement with no data.
@@ -350,6 +355,7 @@ class UniqueFilteringTest(BluetoothBaseTest):
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='aefbc70c-ea46-4a63-a627-6fcceb72ac9e')
     def test_scan_filtering_multiple_advertisements_manufacturer_data(self):
         """Test scan filtering against multiple varying advertisements.
 
@@ -358,15 +364,15 @@ class UniqueFilteringTest(BluetoothBaseTest):
         the full manufacturer data in the second advertisement.
 
         Steps:
-        1. Setup up an advertisement with manufacturer data "1,2,3".
+        1. Setup up an advertisement with manufacturer data [1,2,3].
         2. Setup a second advertisement with manufacturer data
-        "1,2,3,4,5,6,7,8".
+        [1,2,3,4,5,6,7,8].
         3. Start advertising on each advertisement.
-        4. Create a scan filter that includes manufacturer data "1,2,3".
+        4. Create a scan filter that includes manufacturer data [1,2,3].
 
         Expected Result:
         TBD. Right now Shamu finds only the first advertisement with
-        manufacturer data "1,2,3".
+        manufacturer data [1,2,3].
 
         Returns:
           Pass if True
@@ -378,13 +384,13 @@ class UniqueFilteringTest(BluetoothBaseTest):
         test_result = True
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
             AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
-        self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(117, "1,2,3")
+        self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(117, [1, 2, 3])
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
             AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
-        self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(117,
-                                                            "1,2,3,4,5,6,7,8")
+        self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(
+            117, [1, 2, 3, 4, 5, 6, 7, 8])
         advertise_callback1, advertise_data1, advertise_settings1 = (
             generate_ble_advertise_objects(self.adv_ad.droid))
         self.adv_ad.droid.bleStartBleAdvertising(
@@ -397,14 +403,15 @@ class UniqueFilteringTest(BluetoothBaseTest):
             ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
         scan_settings = self.scn_ad.droid.bleBuildScanSetting()
         scan_callback = self.scn_ad.droid.bleGenScanCallback()
-        self.scn_ad.droid.bleSetScanFilterManufacturerData(117, "1,2,3",
-                                                           "127,127,127")
+        self.scn_ad.droid.bleSetScanFilterManufacturerData(117, [1, 2, 3],
+                                                           [127, 127, 127])
         self.scn_ad.droid.bleBuildScanFilter(filter_list)
         self.scn_ad.droid.bleStartBleScan(filter_list, scan_settings,
                                           scan_callback)
         return test_result
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='cdbeeb8e-895e-4d11-9e42-7b89ff6917ce')
     def test_scan_filter_device_address(self):
         """Test scan filtering of a device address.
 
@@ -469,3 +476,155 @@ class UniqueFilteringTest(BluetoothBaseTest):
         self.scn_ad.droid.bleStopBleScan(scan_callback2)
         self.adv_ad.droid.bleStopBleAdvertising(advertise_callback)
         return test_result
+
+    @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='a4921d7b-cdd5-4d52-834c-f4bb85a9e2e8')
+    def test_filter_simulated_ibeacon(self):
+        """Test scan filtering of a simulated ibeacon.
+
+        This test will setup one Android device as an ibeacon and
+        a second Android device will be used to test filtering of
+        the manufacturer data for 60 seconds.
+
+        Steps:
+        1. Start an advertisement with manufacturer id set to 0x004c
+        2. Start a generic scanner.
+        3. Find the advertisement and extract the mac address.
+        4. Stop the first scanner.
+        5. Create a new scanner with scan filter with a mac address filter of
+        what was found in step 3.
+        6. Start the scanner.
+
+        Expected Result:
+        Verify that the advertisement was found in the second scan instance.
+
+        Returns:
+          Pass if True
+          Fail if False
+
+        TAGS: LE, Advertising, Filtering, Scanning
+        Priority: 1
+        """
+        manufacturer_id = 0x4c
+        self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(manufacturer_id,
+                                                            [0x01])
+        self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
+            AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.value)
+        advertise_callback, advertise_data, advertise_settings = (
+            generate_ble_advertise_objects(self.adv_ad.droid))
+        self.adv_ad.droid.bleStartBleAdvertising(
+            advertise_callback, advertise_data, advertise_settings)
+        expected_event = adv_succ.format(advertise_callback)
+        try:
+            self.adv_ad.ed.pop_event(expected_event)
+        except Empty:
+            self.log.info("Failed to start advertisement.")
+            return False
+
+        self.scn_ad.droid.bleSetScanSettingsScanMode(
+            ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+        self.scn_ad.droid.bleSetScanFilterManufacturerData(manufacturer_id,
+                                                           [0x01])
+        filter_list = self.scn_ad.droid.bleGenFilterList()
+        scan_settings = self.scn_ad.droid.bleBuildScanSetting()
+        scan_filter = self.scn_ad.droid.bleBuildScanFilter(filter_list)
+        scan_callback = self.scn_ad.droid.bleGenScanCallback()
+        self.scn_ad.droid.bleStartBleScan(filter_list, scan_settings,
+                                          scan_callback)
+        # continuously scan for 60 seconds
+        scan_time = 60
+        end_time = time.time() + scan_time
+        expected_event_name = scan_result.format(scan_callback)
+        event = None
+        while time.time() < end_time:
+            try:
+                event = self.scn_ad.ed.pop_event(expected_event_name,
+                                                 self.default_timeout)
+                found_manufacturer_id = json.loads(event['data']['Result'][
+                    'manufacturerIdList'])
+                if found_manufacturer_id[0] != manufacturer_id:
+                    self.log.error(
+                        "Manufacturer id mismatch. Found {}, Expected {}".
+                        format(found_manufacturer_id, manufacturer_id))
+                    return False
+            except Empty:
+                self.log.error("Unable to find ibeacon advertisement.")
+                return False
+        self.scn_ad.droid.bleStopBleScan(scan_callback)
+        self.adv_ad.droid.bleStopBleAdvertising(advertise_callback)
+        return True
+
+    @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='a70a276d-7990-4754-8899-792b586ecce6')
+    def test_filter_manufacturer_id_bounds(self):
+        """Test scan filtering of lower and upper bounds of allowed manu data
+
+        This test will setup one Android device as an advertiser and the
+        second as the scanner and test the upper and lower bounds of
+        manufacturer data filtering
+
+        Steps:
+        1. Start an advertisement with manufacturer id set to 0x004c
+        2. Start a generic scanner.
+        3. Find the advertisement and extract the mac address.
+        4. Stop the first scanner.
+        5. Create a new scanner with scan filter with a mac address filter of
+        what was found in step 3.
+        6. Start the scanner.
+
+        Expected Result:
+        Verify that the advertisement was found in the second scan instance.
+
+        Returns:
+          Pass if True
+          Fail if False
+
+        TAGS: LE, Advertising, Filtering, Scanning
+        Priority: 1
+        """
+        manufacturer_id_list = [0, 1, 65534, 65535]
+        for manufacturer_id in manufacturer_id_list:
+            self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(
+                manufacturer_id, [0x01])
+            self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
+                AdvertiseSettingsAdvertiseMode.ADVERTISE_MODE_LOW_LATENCY.
+                value)
+            advertise_callback, advertise_data, advertise_settings = (
+                generate_ble_advertise_objects(self.adv_ad.droid))
+            self.adv_ad.droid.bleStartBleAdvertising(
+                advertise_callback, advertise_data, advertise_settings)
+            expected_event = adv_succ.format(advertise_callback)
+            try:
+                self.adv_ad.ed.pop_event(expected_event)
+            except Empty:
+                self.log.info("Failed to start advertisement.")
+                return False
+
+            self.scn_ad.droid.bleSetScanSettingsScanMode(
+                ScanSettingsScanMode.SCAN_MODE_LOW_LATENCY.value)
+            self.scn_ad.droid.bleSetScanFilterManufacturerData(manufacturer_id,
+                                                               [0x01])
+            filter_list = self.scn_ad.droid.bleGenFilterList()
+            scan_settings = self.scn_ad.droid.bleBuildScanSetting()
+            scan_filter = self.scn_ad.droid.bleBuildScanFilter(filter_list)
+            scan_callback = self.scn_ad.droid.bleGenScanCallback()
+            self.scn_ad.droid.bleStartBleScan(filter_list, scan_settings,
+                                              scan_callback)
+            expected_event_name = scan_result.format(scan_callback)
+            event = None
+            try:
+                event = self.scn_ad.ed.pop_event(expected_event_name,
+                                                 self.default_timeout)
+            except Empty:
+                self.log.error("Unable to find beacon advertisement.")
+                return False
+            found_manufacturer_id = json.loads(event['data']['Result'][
+                'manufacturerIdList'])
+            if found_manufacturer_id[0] != manufacturer_id:
+                self.log.error(
+                    "Manufacturer id mismatch. Found {}, Expected {}".format(
+                        found_manufacturer_id, manufacturer_id))
+                return False
+            self.scn_ad.droid.bleStopBleScan(scan_callback)
+            self.adv_ad.droid.bleStopBleAdvertising(advertise_callback)
+        return True

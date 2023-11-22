@@ -94,6 +94,23 @@ public class LaunchClip extends RSBaseCompute {
         mScript.set_passfail(mAPassFail);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mAPassFail != null) {
+            mAPassFail.destroy();
+        }
+        if (mAin != null) {
+            mAin.destroy();
+        }
+        if (mAout != null) {
+            mAout.destroy();
+        }
+        if (mScript != null) {
+            mScript.destroy();
+        }
+        super.tearDown();
+    }
+
     private void verifyCell(int x, int y, int z, int[] a, Script.LaunchOptions sc) {
         int expected = 0x80000000;
         boolean inRange = true;

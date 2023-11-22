@@ -16,9 +16,12 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    tools:ignore="UnusedResources">
+    <!-- Ignore UnusedResources: can be used by clients -->
 
     <FrameLayout
         android:id="@+id/suw_layout_content"

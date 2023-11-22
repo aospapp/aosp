@@ -10,7 +10,7 @@ AUDIO_PLATFORM := $(TARGET_BOARD_PLATFORM)
 ifneq ($(filter msm8960,$(TARGET_BOARD_PLATFORM)),)
   LOCAL_CFLAGS += -DMAX_TARGET_SPECIFIC_CHANNEL_CNT="2"
 endif
-ifneq ($(filter msm8974 msm8226 msm8084 msm8992 msm8994 msm8996,$(TARGET_BOARD_PLATFORM)),)
+ifneq ($(filter msm8974 msm8226 msm8084 msm8992 msm8994 msm8996 msm8998,$(TARGET_BOARD_PLATFORM)),)
   # B-family platform uses msm8974 code base
   AUDIO_PLATFORM = msm8974
 ifneq ($(filter msm8974,$(TARGET_BOARD_PLATFORM)),)
@@ -41,6 +41,12 @@ ifneq ($(filter msm8996,$(TARGET_BOARD_PLATFORM)),)
   LOCAL_CFLAGS += -DKPI_OPTIMIZE_ENABLED
   MULTIPLE_HW_VARIANTS_ENABLED := true
 endif
+ifneq ($(filter msm8998,$(TARGET_BOARD_PLATFORM)),)
+  LOCAL_CFLAGS := -DPLATFORM_MSM8998
+  LOCAL_CFLAGS += -DMAX_TARGET_SPECIFIC_CHANNEL_CNT="4"
+  LOCAL_CFLAGS += -DKPI_OPTIMIZE_ENABLED
+  MULTIPLE_HW_VARIANTS_ENABLED := true
+endif
 endif
 
 ifneq ($(filter msm8916 msm8909 msm8952,$(TARGET_BOARD_PLATFORM)),)
@@ -60,6 +66,7 @@ LOCAL_SRC_FILES := \
 	platform_info.c \
 	audio_extn/ext_speaker.c \
 	audio_extn/audio_extn.c \
+	audio_extn/utils.c \
 	$(AUDIO_PLATFORM)/platform.c
 
 ifdef MULTIPLE_HW_VARIANTS_ENABLED
@@ -67,7 +74,13 @@ ifdef MULTIPLE_HW_VARIANTS_ENABLED
   LOCAL_SRC_FILES +=  $(AUDIO_PLATFORM)/hw_info.c
 endif
 
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_USB_TUNNEL)),true)
+    LOCAL_CFLAGS += -DUSB_TUNNEL_ENABLED
+    LOCAL_SRC_FILES += audio_extn/usb.c
+endif
+
 LOCAL_SHARED_LIBRARIES := \
+	libaudioutils \
 	liblog \
 	libcutils \
 	libtinyalsa \
@@ -85,6 +98,12 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/audio_extn \
 	$(LOCAL_PATH)/voice_extn \
 	external/expat/lib
+
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_SMART_PA_TFA_98XX)),true)
+    LOCAL_SHARED_LIBRARIES += libexTfa98xx
+    LOCAL_CFLAGS += -DSMART_PA_TFA_98XX_SUPPORTED
+    LOCAL_SRC_FILES += audio_extn/tfa_98xx.c
+endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_MULTI_VOICE_SESSIONS)),true)
     LOCAL_CFLAGS += -DMULTI_VOICE_SESSION_ENABLED
@@ -109,6 +128,10 @@ ifeq ($(strip $(BOARD_SUPPORTS_SOUND_TRIGGER)),true)
     LOCAL_CFLAGS += -DSOUND_TRIGGER_PLATFORM_NAME=$(TARGET_BOARD_PLATFORM)
     LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/sound_trigger
     LOCAL_SRC_FILES += audio_extn/soundtrigger.c
+ifneq ($(filter msm8996,$(TARGET_BOARD_PLATFORM)),)
+LOCAL_HEADER_LIBRARIES := sound_trigger.primary_headers
+endif
+
 endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_SPKR_PROTECTION)),true)
@@ -121,7 +144,7 @@ ifeq ($(strip $(AUDIO_FEATURE_ENABLED_DSM_FEEDBACK)),true)
     LOCAL_SRC_FILES += audio_extn/dsm_feedback.c
 endif
 
-ifneq ($(filter msm8992 msm8994 msm8996,$(TARGET_BOARD_PLATFORM)),)
+ifneq ($(filter msm8992 msm8994 msm8996 msm8998,$(TARGET_BOARD_PLATFORM)),)
   # push codec/mad calibration to HW dep node
   # applicable to msm8992/8994 or newer platforms
   LOCAL_CFLAGS += -DHWDEP_CAL_ENABLED
@@ -138,6 +161,12 @@ LOCAL_MODULE := audio.primary.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_MODULE_TAGS := optional
+
+LOCAL_MODULE_OWNER := qcom
+
+LOCAL_PROPRIETARY_MODULE := true
+
+LOCAL_CFLAGS += -Werror
 
 include $(BUILD_SHARED_LIBRARY)
 

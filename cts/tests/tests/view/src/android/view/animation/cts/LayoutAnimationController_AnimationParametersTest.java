@@ -16,12 +16,17 @@
 
 package android.view.animation.cts;
 
-
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.animation.LayoutAnimationController;
 
-public class LayoutAnimationController_AnimationParametersTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LayoutAnimationController_AnimationParametersTest {
+    @Test
     public void testConstructor() {
         new LayoutAnimationController.AnimationParameters();
     }

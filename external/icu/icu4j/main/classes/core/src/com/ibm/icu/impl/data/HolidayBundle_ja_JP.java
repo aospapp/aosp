@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -20,5 +22,6 @@ public class HolidayBundle_ja_JP extends ListResourceBundle {
     static private final Object[][] fContents = {
         {   "holidays",         fHolidays   },
     };
+    @Override
     public synchronized Object[][] getContents() { return fContents; }
 }

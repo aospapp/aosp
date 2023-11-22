@@ -69,9 +69,11 @@ class verity_image(object):
         # so if we initially fail, try again and attempt to gather details
         # on who else is using the device.
         fuser = utils.system_output('fuser -v %s' % (device),
-                                    retain_output=True)
+                                    retain_output=True,
+                                    ignore_status=True)
         lsblk = utils.system_output('lsblk %s' % (device),
-                                    retain_output=True)
+                                    retain_output=True,
+                                    ignore_status=True)
         time.sleep(1)
         if utils.system(cmd, ignore_status=True) == 0:
             return

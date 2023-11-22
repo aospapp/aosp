@@ -9,9 +9,8 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 JOB_RETRIES = 2
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 BUG_TEMPLATE = {
-    "labels": ["Cr-OS-Kernel"]
+    "components": ["OS>Kernel"]
 }
 
 DOC = """

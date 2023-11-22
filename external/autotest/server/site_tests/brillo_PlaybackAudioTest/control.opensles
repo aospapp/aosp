@@ -5,14 +5,13 @@
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server.brillo.feedback import client_factory
 
-
 AUTHOR = 'garnold, ralphnathan'
 NAME = 'brillo_OpenSLESPlaybackAudioTest'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:brillo-audio'
-SUITE = 'brillo-audio'
+DEPENDENCIES = 'loopback-dongle'
 
 DOC = """
 Tests audio playback using OpenSL ES on a Brillo device.

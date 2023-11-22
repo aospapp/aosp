@@ -26,14 +26,9 @@ using trunks::TPM_RC_SUCCESS;
 
 namespace tpm_manager {
 
-Tpm2StatusImpl::Tpm2StatusImpl()
-  : default_trunks_factory_(new trunks::TrunksFactoryImpl()),
-    trunks_factory_(default_trunks_factory_.get()),
-    trunks_tpm_state_(trunks_factory_->GetTpmState()) {}
-
-Tpm2StatusImpl::Tpm2StatusImpl(trunks::TrunksFactory* factory)
-  : trunks_factory_(factory),
-    trunks_tpm_state_(trunks_factory_->GetTpmState()) {}
+Tpm2StatusImpl::Tpm2StatusImpl(const trunks::TrunksFactory& factory)
+    : trunks_factory_(factory),
+      trunks_tpm_state_(trunks_factory_.GetTpmState()) {}
 
 bool Tpm2StatusImpl::IsTpmEnabled() {
   if (!initialized_) {

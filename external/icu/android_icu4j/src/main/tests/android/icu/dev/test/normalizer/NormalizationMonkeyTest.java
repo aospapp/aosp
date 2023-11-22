@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2004, International Business Machines Corporation and    *
@@ -10,15 +12,14 @@ package android.icu.dev.test.normalizer;
 
 import java.util.Random;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UCharacterCategory;
 import android.icu.text.Normalizer;
 import android.icu.text.UTF16;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class NormalizationMonkeyTest extends TestFmwk {
     int loopCount = 100;
     int maxCharCount = 20;
@@ -32,10 +33,7 @@ public class NormalizationMonkeyTest extends TestFmwk {
     public NormalizationMonkeyTest() {
     }
     
-    public static void main(String[] args) throws Exception {
-        new NormalizationMonkeyTest().run(args);
-    }
-    
+    @Test
     public void TestNormalize() {
         if (unicode_NFD == null) {
             try {
@@ -45,12 +43,7 @@ public class NormalizationMonkeyTest extends TestFmwk {
                 unicode_NFKC = new UnicodeNormalizer(UnicodeNormalizer.KC, true);
             }
             catch (Exception e) {
-                String msg = "Normalization tests could not be run: " + e.getMessage();
-                if (isModularBuild()) {
-                    warnln(msg);
-                } else {
-                    errln(msg);
-                }
+                errln("Normalization tests could not be run: " + e.getMessage());
             }
         }
         int i = 0;

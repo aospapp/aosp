@@ -28,7 +28,7 @@
 #include "tasklist.h"
 
 template<typename Func>
-static bool ScanPidsInDir(std::string name, Func f) {
+static bool ScanPidsInDir(const std::string& name, Func f) {
   std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(name.c_str()), closedir);
   if (!dir) {
     return false;

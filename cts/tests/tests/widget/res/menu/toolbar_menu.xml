@@ -17,6 +17,8 @@
     <item android:id="@+id/action_highlight"
           android:title="@string/popup_menu_highlight"
           android:icon="@drawable/ic_highlight"
+          android:contentDescription="@string/popup_menu_highlight_description"
+          android:tooltipText="@string/popup_menu_highlight_tooltip"
           android:showAsAction="always" />
     <item android:id="@+id/action_edit"
           android:title="@string/popup_menu_edit"
@@ -33,6 +35,7 @@
     <item android:id="@+id/action_share"
           android:title="@string/popup_menu_share"
           android:icon="@drawable/ic_share"
+          android:alphabeticShortcut="s"
           android:showAsAction="never">
         <menu>
             <item android:id="@+id/action_share_email"

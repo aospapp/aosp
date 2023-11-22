@@ -16,6 +16,7 @@
 */
 
 #define LOG_TAG "IRadio"
+//#define LOG_NDEBUG 0
 #include <utils/Log.h>
 #include <utils/Errors.h>
 #include <binder/IMemory.h>
@@ -23,7 +24,7 @@
 #include <radio/IRadioService.h>
 #include <radio/IRadioClient.h>
 #include <system/radio.h>
-#include <system/radio_metadata.h>
+#include <system/RadioMetadataWrapper.h>
 
 namespace android {
 
@@ -44,7 +45,7 @@ enum {
 class BpRadio: public BpInterface<IRadio>
 {
 public:
-    BpRadio(const sp<IBinder>& impl)
+    explicit BpRadio(const sp<IBinder>& impl)
         : BpInterface<IRadio>(impl)
     {
     }
@@ -112,7 +113,7 @@ public:
         if (status == NO_ERROR) {
             status = (status_t)reply.readInt32();
             if (status == NO_ERROR) {
-                int muteread = reply.readInt32();
+                int32_t muteread = reply.readInt32();
                 *mute = muteread != 0;
             }
         }
@@ -145,12 +146,12 @@ public:
         return status;
     }
 
-    virtual status_t tune(unsigned int channel, unsigned int subChannel)
+    virtual status_t tune(uint32_t channel, uint32_t subChannel)
     {
         Parcel data, reply;
         data.writeInterfaceToken(IRadio::getInterfaceDescriptor());
-        data.writeInt32(channel);
-        data.writeInt32(subChannel);
+        data.writeUint32(channel);
+        data.writeUint32(subChannel);
         status_t status = remote()->transact(TUNE, data, &reply);
         if (status == NO_ERROR) {
             status = (status_t)reply.readInt32();
@@ -172,7 +173,7 @@ public:
     virtual status_t getProgramInformation(struct radio_program_info *info)
     {
         Parcel data, reply;
-        if (info == NULL) {
+        if (info == nullptr || info->metadata == nullptr) {
             return BAD_VALUE;
         }
         radio_metadata_t *metadata = info->metadata;
@@ -182,22 +183,19 @@ public:
             status = (status_t)reply.readInt32();
             if (status == NO_ERROR) {
                 reply.read(info, sizeof(struct radio_program_info));
+                // restore local metadata pointer
                 info->metadata = metadata;
-                if (metadata == NULL) {
-                    return status;
+
+                uint32_t metadataSize = reply.readUint32();
+                if (metadataSize != 0) {
+                    radio_metadata_t *newMetadata = (radio_metadata_t *)malloc(metadataSize);
+                    if (newMetadata == NULL) {
+                        return NO_MEMORY;
+                    }
+                    reply.read(newMetadata, metadataSize);
+                    status = radio_metadata_add_metadata(&info->metadata, newMetadata);
+                    free(newMetadata);
                 }
-                size_t size = (size_t)reply.readInt32();
-                if (size == 0) {
-                    return status;
-                }
-                metadata =
-                    (radio_metadata_t *)calloc(size / sizeof(unsigned int), sizeof(unsigned int));
-                if (metadata == NULL) {
-                    return NO_MEMORY;
-                }
-                reply.read(metadata, size);
-                status = radio_metadata_add_metadata(&info->metadata, metadata);
-                free(metadata);
             }
         }
         return status;
@@ -288,8 +286,8 @@ status_t BnRadio::onTransact(
         }
         case TUNE: {
             CHECK_INTERFACE(IRadio, data, reply);
-            unsigned int channel = (unsigned int)data.readInt32();
-            unsigned int subChannel = (unsigned int)data.readInt32();
+            uint32_t channel = data.readUint32();
+            uint32_t subChannel = data.readUint32();
             status_t status = tune(channel, subChannel);
             reply->writeInt32(status);
             return NO_ERROR;
@@ -303,25 +301,20 @@ status_t BnRadio::onTransact(
         case GET_PROGRAM_INFORMATION: {
             CHECK_INTERFACE(IRadio, data, reply);
             struct radio_program_info info;
+            RadioMetadataWrapper metadataWrapper(&info.metadata);
 
-            status_t status = radio_metadata_allocate(&info.metadata, 0, 0);
-            if (status != NO_ERROR) {
-                return status;
-            }
-            status = getProgramInformation(&info);
+            status_t status = getProgramInformation(&info);
             reply->writeInt32(status);
             if (status == NO_ERROR) {
                 reply->write(&info, sizeof(struct radio_program_info));
-                int count = radio_metadata_get_count(info.metadata);
-                if (count > 0) {
+                if (radio_metadata_get_count(info.metadata) > 0) {
                     size_t size = radio_metadata_get_size(info.metadata);
-                    reply->writeInt32(size);
+                    reply->writeUint32((uint32_t)size);
                     reply->write(info.metadata, size);
                 } else {
-                    reply->writeInt32(0);
+                    reply->writeUint32(0);
                 }
             }
-            radio_metadata_deallocate(info.metadata);
             return NO_ERROR;
         }
         case HAS_CONTROL: {

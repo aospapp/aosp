@@ -23,14 +23,9 @@
 
 #include "../cpu_ref/rsd_cpu.h"
 
-#ifndef RS_SERVER
 #include <GLES/gl.h>
 #include <GLES2/gl2.h>
-#endif
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
-#include "gui/GLConsumer.h"
-#endif
 
 class RsdFrameBufferObj;
 struct ANativeWindow;
@@ -50,25 +45,28 @@ struct DrvAllocation {
     // Is this a legal structure to be used as an FBO render target
     uint32_t renderTargetID;
 
-#ifndef RS_COMPATIBILITY_LIB
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     GLenum glTarget;
     GLenum glType;
     GLenum glFormat;
-
-    ANativeWindowBuffer *wndBuffer;
-    android::GLConsumer *surfaceTexture;
 #else
     int glTarget;
     int glType;
     int glFormat;
+#endif
 
+#if !defined(RS_COMPATIBILITY_LIB)
+    ANativeWindowBuffer *wndBuffer;
+#else
     ANativeWindow_Buffer *wndBuffer;
 #endif
 
     bool useUserProvidedPtr;
     bool uploadDeferred;
 
+#if !defined(RS_VENDOR_LIB) && !defined(RS_COMPATIBILITY_LIB)
     RsdFrameBufferObj * readBackFBO;
+#endif
     ANativeWindow *wnd;
     ANativeWindow *wndSurface;
 };

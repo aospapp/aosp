@@ -1,4 +1,4 @@
-/dev/ttyMFD0                            0660   bluetooth  net_bt_stack
+/dev/ttyMFD0                            0660   bluetooth  bluetooth
 
 # Android sync framework sw driver
 /dev/dri/card0                          0666   system     system

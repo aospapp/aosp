@@ -12,4 +12,12 @@
     <color name="snsr_warning">#75540C</color>
     <color name="snsr_information_background">#D0D2F6</color>
     <color name="snsr_information">#41576B</color>
+
+    <!-- 6DoF test colors -->
+    <item name="textPrimary" type="color">#FFFFFF</item>
+    <item name="primary" type="color">#43A047</item>
+    <item name="primaryPressed" type="color">#81C784</item>
+    <color name="backgroundGrey">#303030</color>
+    <color name="textSecondary">#B3FFFFFF</color>
+    <color name="yellow">#C0FFFF00</color>
 </resources>

@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2012 The Android Open Source Project
  *
@@ -27,7 +26,7 @@ protected:
     void onDraw(int loops, SkCanvas* canvas) override {
         canvas->clear(SK_ColorBLACK);
 
-        SkISize size = canvas->getDeviceSize();
+        SkISize size = canvas->getBaseLayerSize();
 
         int offX = (size.width() - kWindowSize) / kNumStepsX;
         int offY = (size.height() - kWindowSize) / kNumStepsY;

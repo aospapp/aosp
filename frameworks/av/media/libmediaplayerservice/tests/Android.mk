@@ -14,13 +14,14 @@ LOCAL_SHARED_LIBRARIES := \
 	libmediaplayerservice \
 	libmediadrm \
 	libutils \
+	android.hidl.base@1.0 \
+	android.hardware.drm@1.0 \
 
 LOCAL_C_INCLUDES := \
 	frameworks/av/include \
 	frameworks/av/media/libmediaplayerservice \
 
 LOCAL_CFLAGS += -Werror -Wall
-LOCAL_CLANG := true
 
 LOCAL_32_BIT_ONLY := true
 

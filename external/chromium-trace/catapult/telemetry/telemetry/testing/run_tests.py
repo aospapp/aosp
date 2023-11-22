@@ -1,7 +1,10 @@
 # Copyright 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+import fnmatch
 import logging
+import os
 import sys
 
 from telemetry.core import util
@@ -17,7 +20,8 @@ from telemetry.internal.util import ps_util
 from telemetry.testing import browser_test_case
 from telemetry.testing import options_for_unittests
 
-from catapult_base import xvfb
+from py_utils import cloud_storage
+from py_utils import xvfb
 
 import typ
 
@@ -43,6 +47,9 @@ class RunTestsCommand(command_line.OptparseCommand):
   def AddCommandLineArgs(cls, parser, _):
     parser.add_option('--start-xvfb', action='store_true',
                       default=False, help='Start Xvfb display if needed.')
+    parser.add_option('--disable-cloud-storage-io', action='store_true',
+                      default=False, help=('Disable cloud storage IO when '
+                                           'tests are run in parallel.'))
     parser.add_option('--repeat-count', type='int', default=1,
                       help='Repeats each a provided number of times.')
     parser.add_option('--no-browser', action='store_true', default=False,
@@ -54,10 +61,14 @@ class RunTestsCommand(command_line.OptparseCommand):
     parser.add_option('--exact-test-filter', action='store_true', default=False,
                       help='Treat test filter as exact matches (default is '
                            'substring matches).')
-    parser.add_option('--client-config', dest='client_config', default=None)
+    parser.add_option('--client-config', dest='client_configs',
+                      action='append', default=[])
     parser.add_option('--disable-logging-config', action='store_true',
                       default=False, help='Configure logging (default on)')
-
+    parser.add_option('--skip', metavar='glob', default=[],
+                      action='append', help=(
+                          'Globs of test names to skip (defaults to '
+                          '%(default)s).'))
     typ.ArgumentParser.add_option_group(parser,
                                         "Options for running the tests",
                                         running=True,
@@ -78,6 +89,10 @@ class RunTestsCommand(command_line.OptparseCommand):
 
     if args.start_xvfb and xvfb.ShouldStartXvfb():
       cls.xvfb_process = xvfb.StartXvfb()
+      # Work around Mesa issues on Linux. See
+      # https://github.com/catapult-project/catapult/issues/3074
+      args.browser_options.AppendExtraBrowserArgs('--disable-gpu')
+
     try:
       possible_browser = browser_finder.FindBrowser(args)
     except browser_finder_exceptions.BrowserFinderException, ex:
@@ -99,7 +114,7 @@ class RunTestsCommand(command_line.OptparseCommand):
     try:
       # Must initialize the DependencyManager before calling
       # browser_finder.FindBrowser(args)
-      binary_manager.InitDependencyManager(options.client_config)
+      binary_manager.InitDependencyManager(options.client_configs)
       cls.ProcessCommandLineArgs(parser, options, None)
 
       obj = cls()
@@ -121,6 +136,13 @@ class RunTestsCommand(command_line.OptparseCommand):
     else:
       possible_browser = browser_finder.FindBrowser(args)
       platform = possible_browser.platform
+
+    fetch_reference_chrome_binary = False
+    # Fetch all binaries needed by telemetry before we run the benchmark.
+    if possible_browser and possible_browser.browser_type == 'reference':
+      fetch_reference_chrome_binary = True
+    binary_manager.FetchBinaryDependencies(
+        platform, args.client_configs, fetch_reference_chrome_binary)
 
     # Telemetry seems to overload the system if we run one test per core,
     # so we scale things back a fair amount. Many of the telemetry tests
@@ -144,6 +166,7 @@ class RunTestsCommand(command_line.OptparseCommand):
     else:
       runner.args.jobs = max(int(args.jobs) // 2, 1)
 
+    runner.args.skip = args.skip
     runner.args.metadata = args.metadata
     runner.args.passthrough = args.passthrough
     runner.args.path = args.path
@@ -154,6 +177,8 @@ class RunTestsCommand(command_line.OptparseCommand):
     runner.args.write_full_results_to = args.write_full_results_to
     runner.args.write_trace_to = args.write_trace_to
     runner.args.list_only = args.list_only
+    runner.args.shard_index = args.shard_index
+    runner.args.total_shards = args.total_shards
 
     runner.args.path.append(util.GetUnittestDataDir())
 
@@ -174,10 +199,18 @@ class RunTestsCommand(command_line.OptparseCommand):
     return ret
 
 
+def _SkipMatch(name, skipGlobs):
+  return any(fnmatch.fnmatch(name, glob) for glob in skipGlobs)
+
+
 def GetClassifier(args, possible_browser):
 
   def ClassifyTestWithoutBrowser(test_set, test):
     name = test.id()
+    if _SkipMatch(name, args.skip):
+      test_set.tests_to_skip.append(
+          typ.TestInput(name, 'skipped because matched --skip'))
+      return
     if (not args.positional_args
         or _MatchesSelectedTest(name, args.positional_args,
                                   args.exact_test_filter)):
@@ -192,6 +225,10 @@ def GetClassifier(args, possible_browser):
 
   def ClassifyTestWithBrowser(test_set, test):
     name = test.id()
+    if _SkipMatch(name, args.skip):
+      test_set.tests_to_skip.append(
+          typ.TestInput(name, 'skipped because matched --skip'))
+      return
     if (not args.positional_args
         or _MatchesSelectedTest(name, args.positional_args,
                                 args.exact_test_filter)):
@@ -223,25 +260,34 @@ def _MatchesSelectedTest(name, selected_tests, selected_tests_are_exact):
 
 def _SetUpProcess(child, context): # pylint: disable=unused-argument
   ps_util.EnableListingStrayProcessesUponExitHook()
+  # Make sure that we don't invokes cloud storage I/Os when we run the tests in
+  # parallel.
+  # TODO(nednguyen): always do this once telemetry tests in Chromium is updated
+  # to prefetch files.
+  # (https://github.com/catapult-project/catapult/issues/2192)
+  args = context
+  if args.disable_cloud_storage_io:
+    os.environ[cloud_storage.DISABLE_CLOUD_STORAGE_IO] = '1'
   if binary_manager.NeedsInit():
     # Typ doesn't keep the DependencyManager initialization in the child
     # processes.
-    binary_manager.InitDependencyManager(context.client_config)
-  args = context
+    binary_manager.InitDependencyManager(context.client_configs)
   # We need to reset the handlers in case some other parts of telemetry already
   # set it to make this work.
   if not args.disable_logging_config:
     logging.getLogger().handlers = []
     logging.basicConfig(
         level=logging.INFO,
-        format='(%(levelname)s) %(asctime)s %(module)s.%(funcName)s:%(lineno)d'
-              '  %(message)s')
-  if args.device and args.device == 'android':
+        format='(%(levelname)s) %(asctime)s pid=%(process)d'
+               '  %(module)s.%(funcName)s:%(lineno)d'
+               '  %(message)s')
+  if args.remote_platform_options.device == 'android':
     android_devices = android_device.FindAllAvailableDevices(args)
     if not android_devices:
       raise RuntimeError("No Android device found")
     android_devices.sort(key=lambda device: device.name)
-    args.device = android_devices[child.worker_num-1].guid
+    args.remote_platform_options.device = (
+        android_devices[child.worker_num-1].guid)
   options_for_unittests.Push(args)
 
 

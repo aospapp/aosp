@@ -61,7 +61,10 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
         logging.info("Corrupt kernel A and B.")
         self.check_state((self.check_root_part_on_non_recovery, 'a'))
         self.faft_client.kernel.corrupt_sig(('a', 'b'))
-        self.switcher.mode_aware_reboot()
+        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        if not dev_mode:
+            self.switcher.bypass_rec_mode()
+        self.switcher.wait_for_client()
 
         logging.info("Expected recovery boot and restore the OS image.")
         self.check_state((self.checkers.crossystem_checker, {

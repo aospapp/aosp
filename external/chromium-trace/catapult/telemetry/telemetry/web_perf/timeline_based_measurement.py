@@ -7,11 +7,11 @@ from collections import defaultdict
 
 from tracing.metrics import metric_runner
 
+from telemetry.timeline import chrome_trace_category_filter
 from telemetry.timeline import model as model_module
-from telemetry.timeline import tracing_category_filter
 from telemetry.timeline import tracing_config
 from telemetry.value import trace
-from telemetry.value import translate_common_values
+from telemetry.value import common_value_helpers
 from telemetry.web_perf.metrics import timeline_based_metric
 from telemetry.web_perf.metrics import blob_timeline
 from telemetry.web_perf.metrics import jitter_timeline
@@ -19,8 +19,6 @@ from telemetry.web_perf.metrics import webrtc_rendering_timeline
 from telemetry.web_perf.metrics import gpu_timeline
 from telemetry.web_perf.metrics import indexeddb_timeline
 from telemetry.web_perf.metrics import layout
-from telemetry.web_perf.metrics import memory_timeline
-from telemetry.web_perf.metrics import responsiveness_metric
 from telemetry.web_perf.metrics import smoothness
 from telemetry.web_perf.metrics import text_selection
 from telemetry.web_perf import smooth_gesture_util
@@ -31,14 +29,14 @@ from telemetry.web_perf import timeline_interaction_record as tir_module
 # timeline. But, depending on the amount of instrumentation that is enabled,
 # overhead increases. The user of the measurement must therefore chose between
 # a few levels of instrumentation.
-NO_OVERHEAD_LEVEL = 'no-overhead'
-MINIMAL_OVERHEAD_LEVEL = 'minimal-overhead'
+LOW_OVERHEAD_LEVEL = 'low-overhead'
+DEFAULT_OVERHEAD_LEVEL = 'default-overhead'
 DEBUG_OVERHEAD_LEVEL = 'debug-overhead'
 
 ALL_OVERHEAD_LEVELS = [
-  NO_OVERHEAD_LEVEL,
-  MINIMAL_OVERHEAD_LEVEL,
-  DEBUG_OVERHEAD_LEVEL
+  LOW_OVERHEAD_LEVEL,
+  DEFAULT_OVERHEAD_LEVEL,
+  DEBUG_OVERHEAD_LEVEL,
 ]
 
 
@@ -47,12 +45,10 @@ def _GetAllLegacyTimelineBasedMetrics():
   # all TimelineBasedMetrics class in web_perf/metrics/ folder.
   # This cannot be done until crbug.com/460208 is fixed.
   return (smoothness.SmoothnessMetric(),
-          responsiveness_metric.ResponsivenessMetric(),
           layout.LayoutMetric(),
           gpu_timeline.GPUTimelineMetric(),
           blob_timeline.BlobTimelineMetric(),
           jitter_timeline.JitterTimelineMetric(),
-          memory_timeline.MemoryTimelineMetric(),
           text_selection.TextSelectionMetric(),
           indexeddb_timeline.IndexedDBTimelineMetric(),
           webrtc_rendering_timeline.WebRtcRenderingTimelineMetric())
@@ -89,9 +85,6 @@ class _TBMResultWrapper(ResultsWrapperInterface):
     if value.tir_label:
       assert value.tir_label == self._tir_label
     else:
-      logging.warning(
-          'TimelineBasedMetric should create the interaction record label '
-          'for %r values.' % value.name)
       value.tir_label = self._tir_label
     self._results.AddValue(value)
 
@@ -161,73 +154,80 @@ class Options(object):
 
   By default, all the timeline based metrics in telemetry/web_perf/metrics are
   used (see _GetAllLegacyTimelineBasedMetrics above).
-  To customize your metric needs, use SetTimelineBasedMetric().
+  To customize your metric needs, use SetTimelineBasedMetrics().
   """
 
-  def __init__(self, overhead_level=NO_OVERHEAD_LEVEL):
+  def __init__(self, overhead_level=LOW_OVERHEAD_LEVEL):
     """As the amount of instrumentation increases, so does the overhead.
     The user of the measurement chooses the overhead level that is appropriate,
     and the tracing is filtered accordingly.
 
-    overhead_level: Can either be a custom TracingCategoryFilter object or
-        one of NO_OVERHEAD_LEVEL, MINIMAL_OVERHEAD_LEVEL or
+    overhead_level: Can either be a custom ChromeTraceCategoryFilter object or
+        one of LOW_OVERHEAD_LEVEL, DEFAULT_OVERHEAD_LEVEL or
         DEBUG_OVERHEAD_LEVEL.
     """
     self._config = tracing_config.TracingConfig()
     self._config.enable_chrome_trace = True
-    self._config.enable_platform_display_trace = True
+    self._config.enable_platform_display_trace = False
 
     if isinstance(overhead_level,
-                  tracing_category_filter.TracingCategoryFilter):
-      self._config.SetTracingCategoryFilter(overhead_level)
+                  chrome_trace_category_filter.ChromeTraceCategoryFilter):
+      self._config.chrome_trace_config.SetCategoryFilter(overhead_level)
     elif overhead_level in ALL_OVERHEAD_LEVELS:
-      if overhead_level == NO_OVERHEAD_LEVEL:
-        self._config.SetNoOverheadFilter()
-      elif overhead_level == MINIMAL_OVERHEAD_LEVEL:
-        self._config.SetMinimalOverheadFilter()
+      if overhead_level == LOW_OVERHEAD_LEVEL:
+        self._config.chrome_trace_config.SetLowOverheadFilter()
+      elif overhead_level == DEFAULT_OVERHEAD_LEVEL:
+        self._config.chrome_trace_config.SetDefaultOverheadFilter()
       else:
-        self._config.SetDebugOverheadFilter()
+        self._config.chrome_trace_config.SetDebugOverheadFilter()
     else:
-      raise Exception("Overhead level must be a TracingCategoryFilter object"
-                      " or valid overhead level string."
-                      " Given overhead level: %s" % overhead_level)
+      raise Exception("Overhead level must be a ChromeTraceCategoryFilter "
+                      "object or valid overhead level string. Given overhead "
+                      "level: %s" % overhead_level)
 
-    self._timeline_based_metric = None
-    self._legacy_timeline_based_metrics = _GetAllLegacyTimelineBasedMetrics()
+    self._timeline_based_metrics = None
+    self._legacy_timeline_based_metrics = []
 
 
   def ExtendTraceCategoryFilter(self, filters):
+    category_filter = self._config.chrome_trace_config.category_filter
     for new_category_filter in filters:
-      self._config.tracing_category_filter.AddIncludedCategory(
-          new_category_filter)
+      category_filter.AddIncludedCategory(new_category_filter)
 
   @property
   def category_filter(self):
-    return self._config.tracing_category_filter
+    return self._config.chrome_trace_config.category_filter
 
   @property
   def config(self):
     return self._config
 
-  def SetTimelineBasedMetric(self, metric):
-    """Sets the new-style (TBMv2) metric to run.
+  def AddTimelineBasedMetric(self, metric):
+    assert isinstance(metric, basestring)
+    if self._timeline_based_metrics is None:
+      self._timeline_based_metrics = []
+    self._timeline_based_metrics.append(metric)
 
-    Metrics are assumed to live in //tracing/tracing/metrics, so the path
-    should be relative to that. For example, to specify sample_metric.html,
-    you would pass 'sample_metric.html'.
+  def SetTimelineBasedMetrics(self, metrics):
+    """Sets the new-style (TBMv2) metrics to run.
+
+    Metrics are assumed to live in //tracing/tracing/metrics, so the path you
+    pass in should be relative to that. For example, to specify
+    sample_metric.html, you should pass in ['sample_metric.html'].
 
     Args:
-      metric: A string metric path under //tracing/tracing/metrics.
+      metrics: A list of strings giving metric paths under
+          //tracing/tracing/metrics.
     """
-    assert isinstance(metric, basestring)
-    self._legacy_timeline_based_metrics = None
-    self._timeline_based_metric = metric
+    assert isinstance(metrics, list)
+    for metric in metrics:
+      assert isinstance(metric, basestring)
+    self._timeline_based_metrics = metrics
 
-  def GetTimelineBasedMetric(self):
-    return self._timeline_based_metric
+  def GetTimelineBasedMetrics(self):
+    return self._timeline_based_metrics
 
   def SetLegacyTimelineBasedMetrics(self, metrics):
-    assert self._timeline_based_metric == None
     assert isinstance(metrics, collections.Iterable)
     for m in metrics:
       assert isinstance(m, timeline_based_metric.TimelineBasedMetric)
@@ -274,45 +274,65 @@ class TimelineBasedMeasurement(story_test.StoryTest):
     """Configure and start tracing."""
     if not platform.tracing_controller.IsChromeTracingSupported():
       raise Exception('Not supported')
+    if self._tbm_options.config.enable_chrome_trace:
+      # Always enable 'blink.console' category for:
+      # 1) Backward compat of chrome clock sync (crbug.com/646925)
+      # 2) Allows users to add trace event through javascript.
+      # Note that blink.console is extremely low-overhead, so this doesn't
+      # affect the tracing overhead budget much.
+      chrome_config = self._tbm_options.config.chrome_trace_config
+      chrome_config.category_filter.AddIncludedCategory('blink.console')
     platform.tracing_controller.StartTracing(self._tbm_options.config)
 
   def Measure(self, platform, results):
     """Collect all possible metrics and added them to results."""
+    platform.tracing_controller.telemetry_info = results.telemetry_info
     trace_result = platform.tracing_controller.StopTracing()
     trace_value = trace.TraceValue(results.current_page, trace_result)
     results.AddValue(trace_value)
 
-    if self._tbm_options.GetTimelineBasedMetric():
-      self._ComputeTimelineBasedMetric(results, trace_value)
-    else:
-      assert self._tbm_options.GetLegacyTimelineBasedMetrics()
-      self._ComputeLegacyTimelineBasedMetrics(results, trace_result)
-
+    try:
+      if self._tbm_options.GetTimelineBasedMetrics():
+        assert not self._tbm_options.GetLegacyTimelineBasedMetrics(), (
+            'Specifying both TBMv1 and TBMv2 metrics is not allowed.')
+        self._ComputeTimelineBasedMetrics(results, trace_value)
+      else:
+        # Run all TBMv1 metrics if no other metric is specified
+        # (legacy behavior)
+        if not self._tbm_options.GetLegacyTimelineBasedMetrics():
+          logging.warn('Please specify the TBMv1 metrics you are interested in '
+                       'explicitly. This implicit functionality will be removed'
+                       ' on July 17, 2016.')
+          self._tbm_options.SetLegacyTimelineBasedMetrics(
+              _GetAllLegacyTimelineBasedMetrics())
+        self._ComputeLegacyTimelineBasedMetrics(results, trace_result)
+    finally:
+      trace_result.CleanUpAllTraces()
 
   def DidRunStory(self, platform):
     """Clean up after running the story."""
     if platform.tracing_controller.is_tracing_running:
       platform.tracing_controller.StopTracing()
 
-  def _ComputeTimelineBasedMetric(self, results, trace_value):
-    metric = self._tbm_options.GetTimelineBasedMetric()
+  def _ComputeTimelineBasedMetrics(self, results, trace_value):
+    metrics = self._tbm_options.GetTimelineBasedMetrics()
     extra_import_options = {
       'trackDetailedModelStats': True
     }
 
     mre_result = metric_runner.RunMetric(
-        trace_value.filename, metric, extra_import_options)
+        trace_value.filename, metrics, extra_import_options)
     page = results.current_page
 
     failure_dicts = mre_result.failures
     for d in failure_dicts:
       results.AddValue(
-          translate_common_values.TranslateMreFailure(d, page))
+          common_value_helpers.TranslateMreFailure(d, page))
 
-    value_dicts = mre_result.pairs.get('values', [])
-    for d in value_dicts:
-      results.AddValue(
-          translate_common_values.TranslateScalarValue(d, page))
+    results.value_set.extend(mre_result.pairs.get('histograms', []))
+
+    for d in mre_result.pairs.get('scalars', []):
+      results.AddValue(common_value_helpers.TranslateScalarValue(d, page))
 
   def _ComputeLegacyTimelineBasedMetrics(self, results, trace_result):
     model = model_module.TimelineModel(trace_result)

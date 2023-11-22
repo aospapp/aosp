@@ -22,6 +22,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
+import android.os.Handler;
 import android.view.View;
 
 import com.android.tv.R;
@@ -42,6 +43,7 @@ public class SideFragmentManager {
     private final Animator mShowAnimator;
     private final Animator mHideAnimator;
 
+    private final Handler mHandler = new Handler();
     private final Runnable mHideAllRunnable = new Runnable() {
         @Override
         public void run() {
@@ -154,6 +156,7 @@ public class SideFragmentManager {
     }
 
     private void hideAllInternal() {
+        mHandler.removeCallbacksAndMessages(null);
         if (mFragmentCount == 0) {
             return;
         }
@@ -192,8 +195,8 @@ public class SideFragmentManager {
      * stack. If you want to empty the back stack, call {@link #hideAll}.
      */
     public void hideSidePanel(boolean withAnimation) {
+        mHandler.removeCallbacks(mHideAllRunnable);
         if (withAnimation) {
-            mPanel.removeCallbacks(mHideAllRunnable);
             Animator hideAnimator =
                     AnimatorInflater.loadAnimator(mActivity, R.animator.side_panel_exit);
             hideAnimator.setTarget(mPanel);
@@ -213,9 +216,12 @@ public class SideFragmentManager {
         return mPanel.getVisibility() == View.VISIBLE;
     }
 
+    /**
+     * Resets the timer for hiding side fragment.
+     */
     public void scheduleHideAll() {
-        mPanel.removeCallbacks(mHideAllRunnable);
-        mPanel.postDelayed(mHideAllRunnable, mShowDurationMillis);
+        mHandler.removeCallbacks(mHideAllRunnable);
+        mHandler.postDelayed(mHideAllRunnable, mShowDurationMillis);
     }
 
     /**

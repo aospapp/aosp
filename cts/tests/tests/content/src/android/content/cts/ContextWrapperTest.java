@@ -29,7 +29,6 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.cts.util.PollingCheck;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteCursorDriver;
 import android.database.sqlite.SQLiteDatabase;
@@ -44,6 +43,8 @@ import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
 import android.view.WindowManager;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.File;
 import java.io.IOException;

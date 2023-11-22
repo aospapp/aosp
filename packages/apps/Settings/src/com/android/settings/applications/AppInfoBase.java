@@ -22,8 +22,10 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -35,9 +37,12 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settings.SettingsActivity;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.Utils;
+import com.android.settings.core.instrumentation.InstrumentedDialogFragment;
+import com.android.settings.overlay.FeatureFactory;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
@@ -58,6 +63,7 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
     protected EnforcedAdmin mAppsControlDisallowedAdmin;
     protected boolean mAppsControlDisallowedBySystem;
 
+    protected ApplicationFeatureProvider mApplicationFeatureProvider;
     protected ApplicationsState mState;
     protected ApplicationsState.Session mSession;
     protected ApplicationsState.AppEntry mAppEntry;
@@ -74,22 +80,25 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
     protected static final int DLG_BASE = 0;
 
     protected boolean mFinishing;
+    protected boolean mListeningToPackageRemove;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mFinishing = false;
-
-        mState = ApplicationsState.getInstance(getActivity().getApplication());
+        final Activity activity = getActivity();
+        mApplicationFeatureProvider = FeatureFactory.getFactory(activity)
+                .getApplicationFeatureProvider(activity);
+        mState = ApplicationsState.getInstance(activity.getApplication());
         mSession = mState.newSession(this);
-        Context context = getActivity();
-        mDpm = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        mUserManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
-        mPm = context.getPackageManager();
+        mDpm = (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        mUserManager = (UserManager) activity.getSystemService(Context.USER_SERVICE);
+        mPm = activity.getPackageManager();
         IBinder b = ServiceManager.getService(Context.USB_SERVICE);
         mUsbManager = IUsbManager.Stub.asInterface(b);
 
         retrieveAppEntry();
+        startListeningToPackageRemove();
     }
 
     @Override
@@ -114,6 +123,7 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
 
     @Override
     public void onDestroy() {
+        stopListeningToPackageRemove();
         mSession.release();
         super.onDestroy();
     }
@@ -134,8 +144,8 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
             // Get application info again to refresh changed properties of application
             try {
                 mPackageInfo = mPm.getPackageInfo(mAppEntry.info.packageName,
-                        PackageManager.GET_DISABLED_COMPONENTS |
-                        PackageManager.GET_UNINSTALLED_PACKAGES |
+                        PackageManager.MATCH_DISABLED_COMPONENTS |
+                        PackageManager.MATCH_ANY_USER |
                         PackageManager.GET_SIGNATURES |
                         PackageManager.GET_PERMISSIONS);
             } catch (NameNotFoundException e) {
@@ -208,27 +218,35 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
     }
 
     public static void startAppInfoFragment(Class<?> fragment, int titleRes,
-            String pkg, int uid, Fragment source, int request) {
-        startAppInfoFragment(fragment, titleRes, pkg, uid, source.getActivity(), request);
+            String pkg, int uid, Fragment source, int request, int sourceMetricsCategory) {
+        startAppInfoFragment(fragment, titleRes, pkg, uid, source.getActivity(), request,
+                sourceMetricsCategory);
     }
 
     public static void startAppInfoFragment(Class<?> fragment, int titleRes,
-            String pkg, int uid, Activity source, int request) {
+            String pkg, int uid, Activity source, int request, int sourceMetricsCategory) {
         Bundle args = new Bundle();
         args.putString(AppInfoBase.ARG_PACKAGE_NAME, pkg);
         args.putInt(AppInfoBase.ARG_PACKAGE_UID, uid);
 
         Intent intent = Utils.onBuildStartFragmentIntent(source, fragment.getName(),
-                args, null, titleRes, null, false);
+                args, null, titleRes, null, false, sourceMetricsCategory);
         source.startActivityForResultAsUser(intent, request,
                 new UserHandle(UserHandle.getUserId(uid)));
     }
 
-    public static class MyAlertDialogFragment extends DialogFragment {
+    public static class MyAlertDialogFragment extends InstrumentedDialogFragment {
+
+        private static final String ARG_ID = "id";
+
+        @Override
+        public int getMetricsCategory() {
+            return MetricsProto.MetricsEvent.DIALOG_APP_INFO_ACTION;
+        }
 
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
-            int id = getArguments().getInt("id");
+            int id = getArguments().getInt(ARG_ID);
             int errorCode = getArguments().getInt("moveError");
             Dialog dialog = ((AppInfoBase) getTargetFragment()).createDialog(id, errorCode);
             if (dialog == null) {
@@ -240,10 +258,43 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
         public static MyAlertDialogFragment newInstance(int id, int errorCode) {
             MyAlertDialogFragment dialogFragment = new MyAlertDialogFragment();
             Bundle args = new Bundle();
-            args.putInt("id", id);
+            args.putInt(ARG_ID, id);
             args.putInt("moveError", errorCode);
             dialogFragment.setArguments(args);
             return dialogFragment;
         }
     }
+
+    protected void startListeningToPackageRemove() {
+        if (mListeningToPackageRemove) {
+            return;
+        }
+        mListeningToPackageRemove = true;
+        final IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
+        filter.addDataScheme("package");
+        getContext().registerReceiver(mPackageRemovedReceiver, filter);
+    }
+
+    protected void stopListeningToPackageRemove() {
+        if (!mListeningToPackageRemove) {
+            return;
+        }
+        mListeningToPackageRemove = false;
+        getContext().unregisterReceiver(mPackageRemovedReceiver);
+    }
+
+    protected void onPackageRemoved() {
+        getActivity().finishAndRemoveTask();
+    }
+
+    protected final BroadcastReceiver mPackageRemovedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String packageName = intent.getData().getSchemeSpecificPart();
+            if (!mFinishing && mAppEntry.info.packageName.equals(packageName)) {
+                onPackageRemoved();
+            }
+        }
+    };
+
 }

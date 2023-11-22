@@ -85,6 +85,18 @@ class TRUNKS_EXPORT TpmState {
   // LockoutAuth can be used again.
   virtual uint32_t GetLockoutRecovery() = 0;
 
+  // Returns the maximum size, in bytes, of an NV index data area.
+  virtual uint32_t GetMaxNVSize() = 0;
+
+  // Gets the |value| of any |property|. |value| may be NULL. Returns false if
+  // a value is not available for the property.
+  virtual bool GetTpmProperty(TPM_PT property, uint32_t* value) = 0;
+
+  // Gets |algorithm| |properties|. |properties| may be NULL. Returns false if
+  // properties are not available for the algorithm.
+  virtual bool GetAlgorithmProperties(TPM_ALG_ID algorithm,
+                                      TPMA_ALGORITHM* properties) = 0;
+
  private:
   DISALLOW_COPY_AND_ASSIGN(TpmState);
 };

@@ -26,7 +26,29 @@ TEST_TYPE='client'
 RETRIES = 5
 REQUIRE_SSP = False
 ATTRIBUTES = "suite:smoke, suite:bvt"
+SUITE = "suite-listed-only-in-suite-line"
 """
+
+
+class ControlDataTestCase(unittest.TestCase):
+    def setUp(self):
+        self._required_vars = control_data.REQUIRED_VARS
+        control_data.REQUIRED_VARS = set()
+
+
+    def tearDown(self):
+        control_data.REQUIRED_VARS = self._required_vars
+
+
+    def test_suite_tag_parts(self):
+        cd = ControlData({'suite': 'foo,bar'}, 'filename')
+        self.assertEqual(set(cd.suite_tag_parts), {'foo', 'bar'})
+
+
+    def test_suite_tag_parts_empty_for_non_suite(self):
+        cd = ControlData({}, 'filename')
+        self.assertEqual(cd.suite_tag_parts, [])
+
 
 
 class ParseControlTest(unittest.TestCase):
@@ -57,6 +79,8 @@ class ParseControlTest(unittest.TestCase):
         self.assertEquals(cd.require_ssp, False)
         self.assertEquals(cd.attributes,
                           set(["suite:smoke","suite:bvt","subsystem:default"]))
+        self.assertEquals(cd.suite,
+                          "bvt,smoke,suite-listed-only-in-suite-line")
 
 
 class ParseControlFileBugTemplate(unittest.TestCase):

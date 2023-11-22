@@ -4,6 +4,7 @@
 
 import collections, logging, numpy, os, tempfile, time
 from autotest_lib.client.bin import utils, test
+from autotest_lib.client.common_lib import base_utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import file_utils
 from autotest_lib.client.common_lib.cros import chrome
@@ -15,6 +16,7 @@ from autotest_lib.client.cros import power_rapl, power_status, power_utils
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.audio import audio_helper
 from autotest_lib.client.cros.networking import wifi_proxy
+from telemetry.core import exceptions
 
 params_dict = {
     'test_time_ms': '_mseconds',
@@ -25,7 +27,6 @@ params_dict = {
     'scroll_by_pixels': '_scroll_by_pixels',
     'tasks': '_tasks',
 }
-
 
 class power_LoadTest(test.test):
     """test class"""
@@ -41,9 +42,9 @@ class power_LoadTest(test.test):
                  scroll_loop='false', scroll_interval_ms='10000',
                  scroll_by_pixels='600', test_low_batt_p=3,
                  verbose=True, force_wifi=False, wifi_ap='', wifi_sec='none',
-                 wifi_pw='', wifi_timeout=60, tasks='', kblight_percent=10,
+                 wifi_pw='', wifi_timeout=60, tasks='',
                  volume_level=10, mic_gain=10, low_batt_margin_p=2,
-                 ac_ok=False, log_mem_bandwidth=False):
+                 ac_ok=False, log_mem_bandwidth=False, gaia_login=True):
         """
         percent_initial_charge_min: min battery charge at start of test
         check_network: check that Ethernet interface is not running
@@ -61,13 +62,13 @@ class power_LoadTest(test.test):
         wifi_sec: the type of security for the wifi ap
         wifi_pw: password for the wifi ap
         wifi_timeout: The timeout for wifi configuration
-        kblight_percent: percent brightness of keyboard backlight
         volume_level: percent audio volume level
         mic_gain: percent audio microphone gain level
         low_batt_margin_p: percent low battery margin to be added to
             sys_low_batt_p to guarantee test completes prior to powerd shutdown
         ac_ok: boolean to allow running on AC
         log_mem_bandwidth: boolean to log memory bandwidth during the test
+        gaia_login: boolean of whether real GAIA login should be attempted.
         """
         self._backlight = None
         self._services = None
@@ -86,20 +87,25 @@ class power_LoadTest(test.test):
         self._scroll_interval_ms = scroll_interval_ms
         self._scroll_by_pixels = scroll_by_pixels
         self._tmp_keyvals = {}
-        self._power_status = power_status.get_status()
-        self._tmp_keyvals['b_on_ac'] = self._power_status.on_ac()
+        self._power_status = None
         self._force_wifi = force_wifi
         self._testServer = None
         self._tasks = tasks.replace(' ','')
         self._backchannel = None
         self._shill_proxy = None
-        self._kblight_percent = kblight_percent
         self._volume_level = volume_level
         self._mic_gain = mic_gain
         self._ac_ok = ac_ok
         self._log_mem_bandwidth = log_mem_bandwidth
         self._wait_time = 60
         self._stats = collections.defaultdict(list)
+        self._gaia_login = gaia_login
+
+        if not power_utils.has_battery():
+            rsp = "Device designed without battery. Skipping test."
+            raise error.TestNAError(rsp)
+        self._power_status = power_status.get_status()
+        self._tmp_keyvals['b_on_ac'] = self._power_status.on_ac()
 
         with tempfile.NamedTemporaryFile() as pltp:
             file_utils.download_file(self._pltp_url, pltp.name)
@@ -188,8 +194,23 @@ class power_LoadTest(test.test):
         self._statomatic = power_status.StatoMatic()
 
         self._power_status.refresh()
-        (self._sys_low_batt_p, self._sys_low_batt_s) = \
-            self._get_sys_low_batt_values()
+        help_output = utils.system_output('check_powerd_config --help')
+        if 'low_battery_shutdown' in help_output:
+          logging.info('Have low_battery_shutdown option')
+          self._sys_low_batt_p = float(utils.system_output(
+                  'check_powerd_config --low_battery_shutdown_percent'))
+          self._sys_low_batt_s = int(utils.system_output(
+                  'check_powerd_config --low_battery_shutdown_time'))
+        else:
+          # TODO(dchan) Once M57 in stable, remove this option and function.
+          logging.info('No low_battery_shutdown option')
+          (self._sys_low_batt_p, self._sys_low_batt_s) = \
+              self._get_sys_low_batt_values_from_log()
+
+        if self._sys_low_batt_p and self._sys_low_batt_s:
+            raise error.TestError(
+                    "Low battery percent and seconds are non-zero.")
+
         min_low_batt_p = min(self._sys_low_batt_p + low_batt_margin_p, 100)
         if self._sys_low_batt_p and (min_low_batt_p > self._test_low_batt_p):
             logging.warning("test low battery threshold is below system " +
@@ -200,19 +221,19 @@ class power_LoadTest(test.test):
         self._ah_charge_start = self._power_status.battery[0].charge_now
         self._wh_energy_start = self._power_status.battery[0].energy
 
+
     def run_once(self):
         t0 = time.time()
 
-        # record the PSR counter
-        psr_t0 = self._get_psr_counter()
+        # record the PSR related info.
+        psr = power_utils.DisplayPanelSelfRefresh(init_time=t0)
 
         try:
-            kblight = power_utils.KbdBacklight()
-            kblight.set(self._kblight_percent)
-            self._tmp_keyvals['percent_kbd_backlight'] = kblight.get()
+            self._keyboard_backlight = power_utils.KbdBacklight()
+            self._set_keyboard_backlight_level()
         except power_utils.KbdBacklightException as e:
             logging.info("Assuming no keyboard backlight due to :: %s", str(e))
-            kblight = None
+            self._keyboard_backlight = None
 
         measurements = \
             [power_status.SystemPower(self._power_status.battery_path)]
@@ -228,10 +249,24 @@ class power_LoadTest(test.test):
             self._mlog.start()
 
         ext_path = os.path.join(os.path.dirname(__file__), 'extension')
-        self._browser = chrome.Chrome(extension_paths=[ext_path],
-                                gaia_login=True,
-                                username=self._username,
-                                password=self._password)
+        self._tmp_keyvals['username'] = self._username
+        try:
+            self._browser = chrome.Chrome(extension_paths=[ext_path],
+                                          gaia_login=self._gaia_login,
+                                          username=self._username,
+                                          password=self._password)
+        except exceptions.LoginException:
+            # already failed guest login
+            if not self._gaia_login:
+                raise
+            self._gaia_login = False
+            logging.warn("Unable to use GAIA acct %s.  Using GUEST instead.\n",
+                         self._username)
+            self._browser = chrome.Chrome(extension_paths=[ext_path],
+                                          gaia_login=self._gaia_login)
+        if not self._gaia_login:
+            self._tmp_keyvals['username'] = 'GUEST'
+
         extension = self._browser.get_extension(ext_path)
         for k in params_dict:
             if getattr(self, params_dict[k]) is not '':
@@ -248,18 +283,36 @@ class power_LoadTest(test.test):
             # the power test extension will report its status here
             latch = self._testServer.add_wait_url('/status')
 
+            # this starts a thread in the server that listens to log
+            # information from the script
+            script_logging = self._testServer.add_wait_url(url='/log')
+
+            # dump any log entry that comes from the script into
+            # the debug log
+            self._testServer.add_url_handler(url='/log',\
+                handler_func=(lambda handler, forms, loop_counter=i:\
+                    _extension_log_handler(handler, forms, loop_counter)))
+
+            pagelt_tracking = self._testServer.add_wait_url(url='/pagelt')
+
+            self._testServer.add_url_handler(url='/pagelt',\
+                handler_func=(lambda handler, forms, tracker=self, loop_counter=i:\
+                    _extension_page_load_info_handler(handler, forms, loop_counter, self)))
+
             # reset backlight level since powerd might've modified it
             # based on ambient light
             self._set_backlight_level()
             self._set_lightbar_level()
-            if kblight:
-                kblight.set(self._kblight_percent)
+            if self._keyboard_backlight:
+                self._set_keyboard_backlight_level()
             audio_helper.set_volume_levels(self._volume_level,
                                            self._mic_gain)
 
             low_battery = self._do_wait(self._verbose, self._loop_time,
                                         latch)
 
+            script_logging.set();
+            pagelt_tracking.set();
             self._plog.checkpoint('loop%d' % (i), start_time)
             self._tlog.checkpoint('loop%d' % (i), start_time)
             if self._verbose:
@@ -269,11 +322,11 @@ class power_LoadTest(test.test):
                 logging.info('Exiting due to low battery')
                 break
 
+        # done with logging from the script, so we can collect that thread
         t1 = time.time()
+        psr.refresh()
         self._tmp_keyvals['minutes_battery_life_tested'] = (t1 - t0) / 60
-        if psr_t0:
-            self._tmp_keyvals['psr_residency'] = \
-                (self._get_psr_counter() - psr_t0) / (10 * (t1 - t0))
+        self._tmp_keyvals.update(psr.get_keyvals())
 
 
     def postprocess_iteration(self):
@@ -347,7 +400,7 @@ class power_LoadTest(test.test):
         keyvals['wh_energy_powerlogger'] = \
                              self._energy_use_from_powerlogger(keyvals)
 
-        if keyvals['ah_charge_used'] > 0:
+        if keyvals['ah_charge_used'] > 0 and not self._power_status.on_ac():
             # For full runs, we should use charge to scale for battery life,
             # since the voltage swing is accounted for.
             # For short runs, energy will be a better estimate.
@@ -372,9 +425,21 @@ class power_LoadTest(test.test):
                                         keyvals['minutes_battery_life_tested']
             keyvals['w_energy_rate'] = keyvals['wh_energy_used'] * 60 / \
                                        keyvals['minutes_battery_life_tested']
-            self.output_perf_value(description='minutes_battery_life',
-                                   value=keyvals['minutes_battery_life'],
-                                   units='minutes')
+            if self._gaia_login:
+                self.output_perf_value(description='minutes_battery_life',
+                                       value=keyvals['minutes_battery_life'],
+                                       units='minutes')
+
+        if not self._gaia_login:
+            keyvals = dict(map(lambda (key, value):
+                               ('INVALID_' + str(key), value), keyvals.items()))
+        else:
+            for key, value in keyvals.iteritems():
+                if key.startswith('percent_cpuidle') and \
+                   key.endswith('C0_time'):
+                    self.output_perf_value(description=key,
+                                       value=value,
+                                        units='percent')
 
         self.write_perf_keyval(keyvals)
         self._plog.save_results(self.resultsdir)
@@ -411,6 +476,10 @@ class power_LoadTest(test.test):
             elapsed_time += self._wait_time
 
             self._power_status.refresh()
+
+            if not self._ac_ok and self._power_status.on_ac():
+                raise error.TestError('Running on AC power now.')
+
             charge_now = self._power_status.battery[0].charge_now
             energy_rate = self._power_status.battery[0].energy_rate
             voltage_now = self._power_status.battery[0].voltage_now
@@ -469,7 +538,7 @@ class power_LoadTest(test.test):
             self._tmp_keyvals['level_lightbar_current'] = level
 
 
-    def _get_sys_low_batt_values(self):
+    def _get_sys_low_batt_values_from_log(self):
         """Determine the low battery values for device and return.
 
         2012/11/01: power manager (powerd.cc) parses parameters in filesystem
@@ -494,32 +563,25 @@ class power_LoadTest(test.test):
         line = utils.system_output(cmd)
         secs = float(line.split(split_re)[1].split()[0])
         percent = float(line.split(split_re)[2].split()[0])
-        if secs and percent:
-            raise error.TestError("Low battery percent and seconds " +
-                                  "are non-zero.")
         return (percent, secs)
 
 
-    def _get_psr_counter(self):
-        """Get the current value of the system PSR counter.
-        This counts the number of milliseconds the system has resided in PSR.
-
-        Returns:
-          count: amount of time PSR has been active since boot in ms, or
-              None if the performance counter can't be read
-
+    def _has_light_sensor(self):
         """
-        psr_status_file = '/sys/kernel/debug/dri/0/i915_edp_psr_status'
-        try:
-            count = utils.get_field(utils.read_file(psr_status_file),
-                                    0,
-                                    linestart='Performance_Counter:')
-        except IOError:
-            logging.info("Can't find or read PSR status file")
-            return None
+        Determine if there is a light sensor on the board.
 
-        logging.debug("PSR performance counter: %s", count)
-        return int(count) if count else None
+        @returns True if this host has a light sensor or
+                 False if it does not.
+        """
+        # If the command exits with a failure status,
+        # we do not have a light sensor
+        cmd = 'check_powerd_config --ambient_light_sensor'
+        result = base_utils.run(cmd, ignore_status=True)
+        if result.exit_status:
+            logging.debug('Ambient light sensor not present')
+            return False
+        logging.debug('Ambient light sensor present')
+        return True
 
 
     def _is_network_iface_running(self, name):
@@ -565,3 +627,125 @@ class power_LoadTest(test.test):
             energy_wh += keyval[duration_key] * keyval[avg_power_key] / 3600
             loop += 1
         return energy_wh
+
+
+    def _has_hover_detection(self):
+        """
+        Checks if hover is detected by the device.
+
+        Returns:
+            Returns True if the hover detection support is enabled.
+            Else returns false.
+        """
+
+        cmd = 'check_powerd_config --hover_detection'
+        result = base_utils.run(cmd, ignore_status=True)
+        if result.exit_status:
+            logging.debug('Hover not present')
+            return False
+        logging.debug('Hover present')
+        return True
+
+
+    def _set_keyboard_backlight_level(self):
+        """
+        Sets keyboard backlight based on light sensor and hover.
+        These values are based on UMA as mentioned in
+        https://bugs.chromium.org/p/chromium/issues/detail?id=603233#c10
+
+        ALS  | hover | keyboard backlight level
+        ---------------------------------------
+        No   | No    | default
+        ---------------------------------------
+        Yes  | No    | 40% of default
+        --------------------------------------
+        No   | Yes   | System with this configuration does not exist
+        --------------------------------------
+        Yes  | Yes   | 30% of default
+        --------------------------------------
+
+        Here default is no Ambient Light Sensor, no hover,
+        default always-on brightness level.
+        """
+
+        default_level = self._keyboard_backlight.get_default_level()
+        level_to_set = default_level
+        has_light_sensor = self._has_light_sensor()
+        has_hover = self._has_hover_detection()
+        # TODO(ravisadineni):if (crbug: 603233) becomes default
+        # change this to reflect it.
+        if has_light_sensor and has_hover:
+            level_to_set = (30 * default_level) / 100
+        elif has_light_sensor:
+            level_to_set = (40 * default_level) / 100
+        elif has_hover:
+            logging.warn('Device has hover but no light sensor')
+
+        logging.info('Setting keyboard backlight to %d', level_to_set)
+        self._keyboard_backlight.set_level(level_to_set)
+        self._tmp_keyvals['percent_kbd_backlight'] = \
+            self._keyboard_backlight.get_percent()
+
+def _extension_log_handler(handler, form, loop_number):
+    """
+    We use the httpd library to allow us to log whatever we
+    want from the extension JS script into the log files.
+
+    This method is provided to the server as a handler for
+    all requests that come for the log url in the testServer
+
+    unused parameter, because httpd passes the server itself
+    into the handler.
+    """
+    if form:
+        for field in form.keys():
+            logging.debug("[extension] @ loop_%d %s", loop_number,
+            form[field].value)
+            # we don't want to add url information to our keyvals.
+            # httpd adds them automatically so we remove them again
+            del handler.server._form_entries[field]
+
+def _extension_page_load_info_handler(handler, form, loop_number, tracker):
+    stats_ids = ['mean', 'min', 'max', 'std']
+    time_measurements = []
+    sorted_pagelt = []
+    #show up to this number of slow page-loads
+    num_slow_page_loads = 5;
+
+    if not form:
+        logging.debug("no page load information returned")
+        return;
+
+    for field in form.keys():
+        url = field[str.find(field, "http"):]
+        load_time = int(form[field].value)
+
+        time_measurements.append(load_time)
+        sorted_pagelt.append((url, load_time))
+
+        logging.debug("[extension] @ loop_%d url: %s load time: %d ms",
+            loop_number, url, load_time)
+        # we don't want to add url information to our keyvals.
+        # httpd adds them automatically so we remove them again
+        del handler.server._form_entries[field]
+
+    time_measurements = numpy.array(time_measurements)
+    stats_vals = [time_measurements.mean(), time_measurements.min(),
+    time_measurements.max(),time_measurements.std()]
+
+    key_base = 'ext_ms_page_load_time_'
+    for i in range(len(stats_ids)):
+        key = key_base + stats_ids[i]
+        if key in tracker._tmp_keyvals:
+            tracker._tmp_keyvals[key] += "_%.2f" % stats_vals[i]
+        else:
+            tracker._tmp_keyvals[key] = "%.2f" % stats_vals[i]
+
+
+    sorted_pagelt.sort(key=lambda item: item[1], reverse=True)
+
+    message = "The %d slowest page-load-times are:\n" % (num_slow_page_loads)
+    for url, msecs in sorted_pagelt[:num_slow_page_loads]:
+        message += "\t%s w/ %d ms" % (url, msecs)
+
+    logging.debug("%s\n", message)

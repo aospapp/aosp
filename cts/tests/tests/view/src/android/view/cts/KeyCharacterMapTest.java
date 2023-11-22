@@ -16,25 +16,37 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 import android.view.KeyCharacterMap;
-import android.view.KeyEvent;
 import android.view.KeyCharacterMap.KeyData;
+import android.view.KeyEvent;
 
-public class KeyCharacterMapTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class KeyCharacterMapTest {
 
     private KeyCharacterMap mKeyCharacterMap;
     private final char[] chars = {'A', 'B', 'C'};
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         mKeyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
     }
 
-    public void testIsPrintingKey() throws Exception {
+    @Test
+    public void testIsPrintingKey() {
 
         assertFalse(mKeyCharacterMap.isPrintingKey(KeyEvent.KEYCODE_UNKNOWN));
         assertFalse(mKeyCharacterMap.isPrintingKey(KeyEvent.KEYCODE_SOFT_LEFT));
@@ -251,13 +263,15 @@ public class KeyCharacterMapTest extends AndroidTestCase {
         assertFalse(mKeyCharacterMap.isPrintingKey(KeyEvent.KEYCODE_PROG_BLUE));
     }
 
-    public void testLoad() throws Exception {
+    @Test
+    public void testLoad() {
         mKeyCharacterMap = null;
         mKeyCharacterMap = KeyCharacterMap.load(KeyCharacterMap.BUILT_IN_KEYBOARD);
         assertNotNull(mKeyCharacterMap);
     }
 
-    public void testGetNumber() throws Exception {
+    @Test
+    public void testGetNumber() {
         assertEquals('0', mKeyCharacterMap.getNumber(KeyEvent.KEYCODE_0));
         assertEquals('1', mKeyCharacterMap.getNumber(KeyEvent.KEYCODE_1));
         assertEquals('2', mKeyCharacterMap.getNumber(KeyEvent.KEYCODE_2));
@@ -272,13 +286,13 @@ public class KeyCharacterMapTest extends AndroidTestCase {
         assertEquals('#', mKeyCharacterMap.getNumber(KeyEvent.KEYCODE_POUND));
     }
 
-    public void testGetMatch1() throws Exception {
-        try {
-            mKeyCharacterMap.getMatch(KeyEvent.KEYCODE_0, null);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetMatchNull() {
+        mKeyCharacterMap.getMatch(KeyEvent.KEYCODE_0, null);
+    }
 
+    @Test
+    public void testGetMatch() {
         assertEquals('\0', mKeyCharacterMap.getMatch(getCharacterKeyCode('E'), chars));
         assertEquals('A', mKeyCharacterMap.getMatch(getCharacterKeyCode('A'), chars));
         assertEquals('B', mKeyCharacterMap.getMatch(getCharacterKeyCode('B'), chars));
@@ -291,12 +305,13 @@ public class KeyCharacterMapTest extends AndroidTestCase {
         return events[0].getKeyCode();
     }
 
-    public void testGetMatch2() throws Exception {
-        try {
-            mKeyCharacterMap.getMatch(KeyEvent.KEYCODE_0, null, 1);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetMatchMetaStateNull() {
+        mKeyCharacterMap.getMatch(KeyEvent.KEYCODE_0, null, 1);
+    }
+
+    @Test
+    public void testGetMatchMetaState() {
         assertEquals('\0', mKeyCharacterMap.getMatch(1000, chars, 2));
         assertEquals('\0', mKeyCharacterMap.getMatch(10000, chars, 2));
         assertEquals('\0', mKeyCharacterMap.getMatch(getCharacterKeyCode('E'), chars));
@@ -304,16 +319,18 @@ public class KeyCharacterMapTest extends AndroidTestCase {
         assertEquals('B', mKeyCharacterMap.getMatch(getCharacterKeyCode('B'), chars));
     }
 
-    public void testGetKeyboardType() throws Exception {
+    @Test
+    public void testGetKeyboardType() {
         mKeyCharacterMap.getKeyboardType();
     }
 
+    @Test(expected=IllegalArgumentException.class)
+    public void testGetEventsNull() {
+        mKeyCharacterMap.getEvents(null);
+    }
+
+    @Test
     public void testGetEvents() {
-        try {
-            mKeyCharacterMap.getEvents(null);
-            fail("should throw exception");
-        } catch (Exception e) {
-        }
         CharSequence mCharSequence = "TestMessage123";
         int len = mCharSequence.length();
         char[] charsArray = new char[len];
@@ -321,7 +338,8 @@ public class KeyCharacterMapTest extends AndroidTestCase {
         mKeyCharacterMap.getEvents(charsArray);
     }
 
-    public void testGetKeyData() throws Exception {
+    @Test
+    public void testGetKeyData() {
         KeyData result = new KeyData();
         result.meta = new char[2];
         try {

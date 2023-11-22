@@ -7,7 +7,7 @@ AUTHOR = "The Chromium OS Authors,chromeos-kernel-test@google.com"
 TIME = "LONG"
 # TODO (jimishs) - crbug.com/354547.
 # Uncomment the suite line below once the test can be properly ran in the lab.
-#SUITE = "kernel_weekly_regression"
+#ATTRIBUTES = "suite:kernel_weekly_regression"
 TEST_CATEGORY = "FUNCTIONAL"
 TEST_CLASS = "KERNEL"
 TEST_TYPE = "CLIENT"

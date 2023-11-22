@@ -1,10 +1,7 @@
 package android.support.v17.leanback.app;
 
-import android.support.v17.leanback.widget.ArrayObjectAdapter;
-import android.support.v17.leanback.widget.CursorObjectAdapter;
 import android.support.v17.leanback.widget.ObjectAdapter;
 import android.support.v17.leanback.widget.Row;
-import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
 
 /**
  * Wrapper class for {@link ObjectAdapter} used by {@link BrowseFragment} to initialize
@@ -24,7 +21,7 @@ class ListRowDataAdapter extends ObjectAdapter {
     public static final int ON_CHANGED = 16;
 
     private final ObjectAdapter mAdapter;
-    private int mLastVisibleRowIndex;
+    int mLastVisibleRowIndex;
 
     public ListRowDataAdapter(ObjectAdapter adapter) {
         super(adapter.getPresenterSelector());
@@ -43,7 +40,8 @@ class ListRowDataAdapter extends ObjectAdapter {
         }
     }
 
-    private void initialize() {
+    void initialize() {
+        mLastVisibleRowIndex = -1;
         int i = mAdapter.size() - 1;
         while (i >= 0) {
             Row item = (Row) mAdapter.get(i);
@@ -65,7 +63,7 @@ class ListRowDataAdapter extends ObjectAdapter {
         return mAdapter.get(index);
     }
 
-    private void doNotify(int eventType, int positionStart, int itemCount) {
+    void doNotify(int eventType, int positionStart, int itemCount) {
         switch (eventType) {
             case ON_ITEM_RANGE_CHANGED:
                 notifyItemRangeChanged(positionStart, itemCount);
@@ -78,12 +76,16 @@ class ListRowDataAdapter extends ObjectAdapter {
                 break;
             case ON_CHANGED:
                 notifyChanged();
+                break;
             default:
                 throw new IllegalArgumentException("Invalid event type " + eventType);
         }
     }
 
     private class SimpleDataObserver extends DataObserver {
+
+        SimpleDataObserver() {
+        }
 
         @Override
         public void onItemRangeChanged(int positionStart, int itemCount) {
@@ -122,7 +124,7 @@ class ListRowDataAdapter extends ObjectAdapter {
             int totalItems = lastVisibleRowIndex - mLastVisibleRowIndex;
             if (totalItems > 0) {
                 onEventFired(ON_ITEM_RANGE_REMOVED,
-                        Math.min(lastVisibleRowIndex + 1, positionStart),
+                        Math.min(mLastVisibleRowIndex + 1, positionStart),
                         totalItems);
             }
         }
@@ -147,6 +149,9 @@ class ListRowDataAdapter extends ObjectAdapter {
      * only to the final data, we call notifyChange().
      */
     private class QueueBasedDataObserver extends DataObserver {
+
+        QueueBasedDataObserver() {
+        }
 
         @Override
         public void onChanged() {

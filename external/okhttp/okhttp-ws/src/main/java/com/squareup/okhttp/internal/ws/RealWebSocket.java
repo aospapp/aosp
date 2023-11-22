@@ -15,6 +15,9 @@
  */
 package com.squareup.okhttp.internal.ws;
 
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.ResponseBody;
 import com.squareup.okhttp.internal.NamedRunnable;
 import com.squareup.okhttp.ws.WebSocket;
 import com.squareup.okhttp.ws.WebSocketListener;
@@ -22,14 +25,17 @@ import java.io.IOException;
 import java.net.ProtocolException;
 import java.util.Random;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import okio.Buffer;
 import okio.BufferedSink;
 import okio.BufferedSource;
+import okio.Okio;
 
+import static com.squareup.okhttp.internal.ws.WebSocketProtocol.OPCODE_BINARY;
+import static com.squareup.okhttp.internal.ws.WebSocketProtocol.OPCODE_TEXT;
 import static com.squareup.okhttp.internal.ws.WebSocketReader.FrameCallback;
 
 public abstract class RealWebSocket implements WebSocket {
-  /** A close code which indicates that the peer encountered a protocol exception. */
   private static final int CLOSE_PROTOCOL_EXCEPTION = 1002;
 
   private final WebSocketWriter writer;
@@ -38,10 +44,13 @@ public abstract class RealWebSocket implements WebSocket {
 
   /** True after calling {@link #close(int, String)}. No writes are allowed afterward. */
   private volatile boolean writerSentClose;
+  /** True after {@link IOException}. {@link #close(int, String)} becomes only valid call. */
+  private boolean writerWantsClose;
   /** True after a close frame was read by the reader. No frames will follow it. */
-  private volatile boolean readerSentClose;
-  /** Lock required to negotiate closing the connection. */
-  private final Object closeLock = new Object();
+  private boolean readerSentClose;
+
+  /** True after calling {@link #close()} to free connection resources. */
+  private final AtomicBoolean connectionClosed = new AtomicBoolean();
 
   public RealWebSocket(boolean isClient, BufferedSource source, BufferedSink sink, Random random,
       final Executor replyExecutor, final WebSocketListener listener, final String url) {
@@ -49,8 +58,8 @@ public abstract class RealWebSocket implements WebSocket {
 
     writer = new WebSocketWriter(isClient, sink, random);
     reader = new WebSocketReader(isClient, source, new FrameCallback() {
-      @Override public void onMessage(BufferedSource source, PayloadType type) throws IOException {
-        listener.onMessage(source, type);
+      @Override public void onMessage(ResponseBody message) throws IOException {
+        listener.onMessage(message);
       }
 
       @Override public void onPing(final Buffer buffer) {
@@ -69,17 +78,10 @@ public abstract class RealWebSocket implements WebSocket {
       }
 
       @Override public void onClose(final int code, final String reason) {
-        final boolean writeCloseResponse;
-        synchronized (closeLock) {
-          readerSentClose = true;
-
-          // If the writer has not indicated a desire to close we will write a close response.
-          writeCloseResponse = !writerSentClose;
-        }
-
+        readerSentClose = true;
         replyExecutor.execute(new NamedRunnable("OkHttp %s WebSocket Close Reply", url) {
           @Override protected void execute() {
-            peerClose(code, reason, writeCloseResponse);
+            peerClose(code, reason);
           }
         });
       }
@@ -100,57 +102,96 @@ public abstract class RealWebSocket implements WebSocket {
     }
   }
 
-  @Override public BufferedSink newMessageSink(PayloadType type) {
+  @Override public void sendMessage(RequestBody message) throws IOException {
+    if (message == null) throw new NullPointerException("message == null");
     if (writerSentClose) throw new IllegalStateException("closed");
-    return writer.newMessageSink(type);
-  }
+    if (writerWantsClose) throw new IllegalStateException("must call close()");
 
-  @Override public void sendMessage(PayloadType type, Buffer payload) throws IOException {
-    if (writerSentClose) throw new IllegalStateException("closed");
-    writer.sendMessage(type, payload);
+    MediaType contentType = message.contentType();
+    if (contentType == null) {
+      throw new IllegalArgumentException(
+          "Message content type was null. Must use WebSocket.TEXT or WebSocket.BINARY.");
+    }
+    String contentSubtype = contentType.subtype();
+
+    int formatOpcode;
+    if (WebSocket.TEXT.subtype().equals(contentSubtype)) {
+      formatOpcode = OPCODE_TEXT;
+    } else if (WebSocket.BINARY.subtype().equals(contentSubtype)) {
+      formatOpcode = OPCODE_BINARY;
+    } else {
+      throw new IllegalArgumentException("Unknown message content type: "
+          + contentType.type() + "/" + contentType.subtype() // Omit any implicitly added charset.
+          + ". Must use WebSocket.TEXT or WebSocket.BINARY.");
+    }
+
+    BufferedSink sink = Okio.buffer(writer.newMessageSink(formatOpcode));
+    try {
+      message.writeTo(sink);
+      sink.close();
+    } catch (IOException e) {
+      writerWantsClose = true;
+      throw e;
+    }
   }
 
   @Override public void sendPing(Buffer payload) throws IOException {
     if (writerSentClose) throw new IllegalStateException("closed");
-    writer.writePing(payload);
+    if (writerWantsClose) throw new IllegalStateException("must call close()");
+
+    try {
+      writer.writePing(payload);
+    } catch (IOException e) {
+      writerWantsClose = true;
+      throw e;
+    }
   }
 
   /** Send an unsolicited pong with the specified payload. */
   public void sendPong(Buffer payload) throws IOException {
     if (writerSentClose) throw new IllegalStateException("closed");
-    writer.writePong(payload);
+    if (writerWantsClose) throw new IllegalStateException("must call close()");
+
+    try {
+      writer.writePong(payload);
+    } catch (IOException e) {
+      writerWantsClose = true;
+      throw e;
+    }
   }
 
   @Override public void close(int code, String reason) throws IOException {
     if (writerSentClose) throw new IllegalStateException("closed");
+    writerSentClose = true;
 
-    boolean closeConnection;
-    synchronized (closeLock) {
-      writerSentClose = true;
-
-      // If the reader has also indicated a desire to close we will close the connection.
-      closeConnection = readerSentClose;
-    }
-
-    writer.writeClose(code, reason);
-
-    if (closeConnection) {
-      closeConnection();
+    try {
+      writer.writeClose(code, reason);
+    } catch (IOException e) {
+      if (connectionClosed.compareAndSet(false, true)) {
+        // Try to close the connection without masking the original exception.
+        try {
+          close();
+        } catch (IOException ignored) {
+        }
+      }
+      throw e;
     }
   }
 
   /** Replies and closes this web socket when a close frame is read from the peer. */
-  private void peerClose(int code, String reason, boolean writeCloseResponse) {
-    if (writeCloseResponse) {
+  private void peerClose(int code, String reason) {
+    if (!writerSentClose) {
       try {
         writer.writeClose(code, reason);
       } catch (IOException ignored) {
       }
     }
 
-    try {
-      closeConnection();
-    } catch (IOException ignored) {
+    if (connectionClosed.compareAndSet(false, true)) {
+      try {
+        close();
+      } catch (IOException ignored) {
+      }
     }
 
     listener.onClose(code, reason);
@@ -158,32 +199,24 @@ public abstract class RealWebSocket implements WebSocket {
 
   /** Called on the reader thread when an error occurs. */
   private void readerErrorClose(IOException e) {
-    boolean writeCloseResponse;
-    synchronized (closeLock) {
-      readerSentClose = true;
-
-      // If the writer has not closed we will close the connection.
-      writeCloseResponse = !writerSentClose;
-    }
-
-    if (writeCloseResponse) {
-      if (e instanceof ProtocolException) {
-        // For protocol exceptions, try to inform the server of such.
-        try {
-          writer.writeClose(CLOSE_PROTOCOL_EXCEPTION, null);
-        } catch (IOException ignored) {
-        }
+    // For protocol exceptions, try to inform the server of such.
+    if (!writerSentClose && e instanceof ProtocolException) {
+      try {
+        writer.writeClose(CLOSE_PROTOCOL_EXCEPTION, null);
+      } catch (IOException ignored) {
       }
     }
 
-    try {
-      closeConnection();
-    } catch (IOException ignored) {
+    if (connectionClosed.compareAndSet(false, true)) {
+      try {
+        close();
+      } catch (IOException ignored) {
+      }
     }
 
     listener.onFailure(e, null);
   }
 
-  /** Perform any tear-down work on the connection (close the socket, recycle, etc.). */
-  protected abstract void closeConnection() throws IOException;
+  /** Perform any tear-down work (close the connection, shutdown executors). */
+  protected abstract void close() throws IOException;
 }

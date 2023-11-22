@@ -28,6 +28,8 @@ def map_gpu_name(mesa_name):
         'Bay Trail': 'baytrail',
         'Broadwell': 'broadwell',
         'Cherryview': 'braswell',
+        'Cherrytrail': 'braswell',
+        'Braswell': 'braswell',
         'Skylake': 'skylake',
         'Broxton': 'broxton',
         'Kabylake': 'kabylake'

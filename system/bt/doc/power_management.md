@@ -21,7 +21,7 @@ The events fired to drive the state machine at the time of this writing are:
   - `BTA_SYS_SCO_OPEN`
   - `BTA_SYS_SCO_CLOSE`
 
-Each of these correspond to a function name in `bta/sys/bta_sys_conn.c`, which
+Each of these correspond to a function name in `bta/sys/bta_sys_conn.cc`, which
 are called by each profile definition in `bta/$PROFILE`.
 
 The PM code makes calls into the BTM module to set various power
@@ -43,7 +43,7 @@ states it wants ACTIVE, the power management code will change to ACTIVE.
 
 The tables that determine which power levels are acceptable for which profiles
 and what actions to take for the above events are defined in the
-`bta/dm/bta_dm_cfg.c` file, as `bta_dm_pm_cfg`, `bta_dm_pm_spec`, and
+`bta/dm/bta_dm_cfg.cc` file, as `bta_dm_pm_cfg`, `bta_dm_pm_spec`, and
 `bta_dm_ssr_spec`.
 
 During a lookup attempt, the code iterates over the `bta_dm_pm_cfg` array,
@@ -75,7 +75,7 @@ additional description:
 
 ### Initialization
 
-`bta_dm_pm.c`'s `bta_dm_init_pm` function calls out to register
+`bta_dm_pm.cc`'s `bta_dm_init_pm` function calls out to register
 `bta_dm_pm_cback` with the bta sys module for incoming power management events,
 and also registers `bta_dm_pm_btm_cback` with the btm module to handle responses
 and timeouts of HCI requests (via `bta_dm_pm_btm_status`).
@@ -83,17 +83,17 @@ and timeouts of HCI requests (via `bta_dm_pm_btm_status`).
 At this point, the power managment code is basically done until the first set of
 events come in through `bta_dm_pm_cback`.
 
-Throughout the `bta_dm_pm.c` file, connections whose power management states are
+Throughout the `bta_dm_pm.cc` file, connections whose power management states are
 managed are tracked in a global array called `bta_dm_conn_srvcs`. Unfortunately,
 while this variable is declared as an extern in the `bta_dm_int.h` file, it only
-seems to be used in the `bta_dm_act.c` file, and only for reinitialization.
+seems to be used in the `bta_dm_act.cc` file, and only for reinitialization.
 
 ### Event flow
 
 #### Events fired from SYS
 
   1. An event is fired from one of the methods mentioned above in
-     `bta/sys/bta_sys_conn.c`
+     `bta/sys/bta_sys_conn.cc`
   2. The `bta_dm_pm_cback` function is called.
      - The power mode config is looked up in the `bta_dm_pm_cfg` table. If none
        are found for the given profile ID and app ID, the function simply

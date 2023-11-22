@@ -115,9 +115,16 @@ struct Parameters {
         int32_t height;
     };
 
+    struct FpsRange {
+        int32_t low;
+        int32_t high;
+    };
+
     int32_t exposureCompensation;
     bool autoExposureLock;
+    bool autoExposureLockAvailable;
     bool autoWhiteBalanceLock;
+    bool autoWhiteBalanceLockAvailable;
 
     // 3A region types, for use with ANDROID_CONTROL_MAX_REGIONS
     enum region_t {
@@ -130,6 +137,7 @@ struct Parameters {
     Vector<Area> meteringAreas;
 
     int zoom;
+    bool zoomAvailable;
 
     int videoWidth, videoHeight, videoFormat;
     android_dataspace videoDataSpace;
@@ -165,6 +173,8 @@ struct Parameters {
     // Whether the jpeg stream is slower than 30FPS and can slow down preview.
     // When slowJpegMode is true, allowZslMode must be false to avoid slowing down preview.
     bool slowJpegMode;
+    // Whether ZSL reprocess is supported by the device.
+    bool isZslReprocessPresent;
 
     // Overall camera state
     enum State {
@@ -191,6 +201,10 @@ struct Parameters {
     static const CONSTEXPR float ASPECT_RATIO_TOLERANCE = 0.001;
     // Threshold for slow jpeg mode
     static const int64_t kSlowJpegModeThreshold = 33400000LL; // 33.4 ms
+    // Margin for checking FPS
+    static const int32_t FPS_MARGIN = 1;
+    // Max FPS for default parameters
+    static const int32_t MAX_DEFAULT_FPS = 30;
 
     // Full static camera info, object owned by someone else, such as
     // Camera2Device.
@@ -390,6 +404,15 @@ private:
     // return -1 if input jpeg size cannot be found in supported size list
     int64_t getJpegStreamMinFrameDurationNs(Parameters::Size size);
 
+    // Helper function to get minimum frame duration for a size/format combination
+    // return -1 if input size/format combination cannot be found.
+    int64_t getMinFrameDurationNs(Parameters::Size size, int format);
+
+    // Helper function to check if a given fps is supported by all the sizes with
+    // the same format.
+    // return true if the device doesn't support min frame duration metadata tag.
+    bool isFpsSupported(const Vector<Size> &size, int format, int32_t fps);
+
     // Helper function to get non-duplicated available output formats
     SortedVector<int32_t> getAvailableOutputFormats();
     // Helper function to get available output jpeg sizes
@@ -412,7 +435,7 @@ class SharedParameters {
     template<typename S, typename P>
     class BaseLock {
       public:
-        BaseLock(S &p):
+        explicit BaseLock(S &p):
                 mParameters(p.mParameters),
                 mSharedParameters(p) {
             mSharedParameters.mLock.lock();

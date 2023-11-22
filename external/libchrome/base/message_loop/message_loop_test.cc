@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
+#include "base/single_thread_task_runner.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
 
@@ -91,37 +92,37 @@ void RecordRunTimeFunc(Time* run_time, int* quit_counter) {
 }  // namespace
 
 void RunTest_PostTask(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
   // Add tests to message loop
   scoped_refptr<Foo> foo(new Foo());
   std::string a("a"), b("b"), c("c"), d("d");
-  MessageLoop::current()->PostTask(FROM_HERE, Bind(
-      &Foo::Test0, foo.get()));
-  MessageLoop::current()->PostTask(FROM_HERE, Bind(
-    &Foo::Test1ConstRef, foo.get(), a));
-  MessageLoop::current()->PostTask(FROM_HERE, Bind(
-      &Foo::Test1Ptr, foo.get(), &b));
-  MessageLoop::current()->PostTask(FROM_HERE, Bind(
-      &Foo::Test1Int, foo.get(), 100));
-  MessageLoop::current()->PostTask(FROM_HERE, Bind(
-      &Foo::Test2Ptr, foo.get(), &a, &c));
-  MessageLoop::current()->PostTask(FROM_HERE, Bind(
-      &Foo::Test2Mixed, foo.get(), a, &d));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&Foo::Test0, foo.get()));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&Foo::Test1ConstRef, foo.get(), a));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&Foo::Test1Ptr, foo.get(), &b));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&Foo::Test1Int, foo.get(), 100));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&Foo::Test2Ptr, foo.get(), &a, &c));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&Foo::Test2Mixed, foo.get(), a, &d));
   // After all tests, post a message that will shut down the message loop
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE,
       Bind(&MessageLoop::QuitWhenIdle, Unretained(MessageLoop::current())));
 
   // Now kick things off
-  MessageLoop::current()->Run();
+  RunLoop().Run();
 
   EXPECT_EQ(foo->test_count(), 105);
   EXPECT_EQ(foo->result(), "abacad");
 }
 
 void RunTest_PostDelayedTask_Basic(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   // Test that PostDelayedTask results in a delayed task.
@@ -131,12 +132,11 @@ void RunTest_PostDelayedTask_Basic(MessagePumpFactory factory) {
   int num_tasks = 1;
   Time run_time;
 
-  loop.PostDelayedTask(
-      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time, &num_tasks),
-      kDelay);
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time, &num_tasks), kDelay);
 
   Time time_before_run = Time::Now();
-  loop.Run();
+  RunLoop().Run();
   Time time_after_run = Time::Now();
 
   EXPECT_EQ(0, num_tasks);
@@ -144,32 +144,30 @@ void RunTest_PostDelayedTask_Basic(MessagePumpFactory factory) {
 }
 
 void RunTest_PostDelayedTask_InDelayOrder(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   // Test that two tasks with different delays run in the right order.
   int num_tasks = 2;
   Time run_time1, run_time2;
 
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time1, &num_tasks),
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time1, &num_tasks),
       TimeDelta::FromMilliseconds(200));
   // If we get a large pause in execution (due to a context switch) here, this
   // test could fail.
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time2, &num_tasks),
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time2, &num_tasks),
       TimeDelta::FromMilliseconds(10));
 
-  loop.Run();
+  RunLoop().Run();
   EXPECT_EQ(0, num_tasks);
 
   EXPECT_TRUE(run_time2 < run_time1);
 }
 
 void RunTest_PostDelayedTask_InPostOrder(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   // Test that two tasks with the same delay run in the order in which they
@@ -185,21 +183,19 @@ void RunTest_PostDelayedTask_InPostOrder(MessagePumpFactory factory) {
   int num_tasks = 2;
   Time run_time1, run_time2;
 
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time1, &num_tasks), kDelay);
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time2, &num_tasks), kDelay);
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time1, &num_tasks), kDelay);
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time2, &num_tasks), kDelay);
 
-  loop.Run();
+  RunLoop().Run();
   EXPECT_EQ(0, num_tasks);
 
   EXPECT_TRUE(run_time1 < run_time2);
 }
 
 void RunTest_PostDelayedTask_InPostOrder_2(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   // Test that a delayed task still runs after a normal tasks even if the
@@ -210,14 +206,13 @@ void RunTest_PostDelayedTask_InPostOrder_2(MessagePumpFactory factory) {
   int num_tasks = 2;
   Time run_time;
 
-  loop.PostTask(FROM_HERE, Bind(&SlowFunc, kPause, &num_tasks));
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time, &num_tasks),
+  loop.task_runner()->PostTask(FROM_HERE, Bind(&SlowFunc, kPause, &num_tasks));
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time, &num_tasks),
       TimeDelta::FromMilliseconds(10));
 
   Time time_before_run = Time::Now();
-  loop.Run();
+  RunLoop().Run();
   Time time_after_run = Time::Now();
 
   EXPECT_EQ(0, num_tasks);
@@ -226,7 +221,7 @@ void RunTest_PostDelayedTask_InPostOrder_2(MessagePumpFactory factory) {
 }
 
 void RunTest_PostDelayedTask_InPostOrder_3(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   // Test that a delayed task still runs after a pile of normal tasks.  The key
@@ -240,21 +235,21 @@ void RunTest_PostDelayedTask_InPostOrder_3(MessagePumpFactory factory) {
 
   // Clutter the ML with tasks.
   for (int i = 1; i < num_tasks; ++i)
-    loop.PostTask(FROM_HERE,
-                  Bind(&RecordRunTimeFunc, &run_time1, &num_tasks));
+    loop.task_runner()->PostTask(
+        FROM_HERE, Bind(&RecordRunTimeFunc, &run_time1, &num_tasks));
 
-  loop.PostDelayedTask(
+  loop.task_runner()->PostDelayedTask(
       FROM_HERE, Bind(&RecordRunTimeFunc, &run_time2, &num_tasks),
       TimeDelta::FromMilliseconds(1));
 
-  loop.Run();
+  RunLoop().Run();
   EXPECT_EQ(0, num_tasks);
 
   EXPECT_TRUE(run_time2 > run_time1);
 }
 
 void RunTest_PostDelayedTask_SharedTimer(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   // Test that the interval of the timer, used to run the next delayed task, is
@@ -265,18 +260,16 @@ void RunTest_PostDelayedTask_SharedTimer(MessagePumpFactory factory) {
   int num_tasks = 1;
   Time run_time1, run_time2;
 
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time1, &num_tasks),
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time1, &num_tasks),
       TimeDelta::FromSeconds(1000));
-  loop.PostDelayedTask(
-      FROM_HERE,
-      Bind(&RecordRunTimeFunc, &run_time2, &num_tasks),
+  loop.task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&RecordRunTimeFunc, &run_time2, &num_tasks),
       TimeDelta::FromMilliseconds(10));
 
   Time start_time = Time::Now();
 
-  loop.Run();
+  RunLoop().Run();
   EXPECT_EQ(0, num_tasks);
 
   // Ensure that we ran in far less time than the slower timer.
@@ -309,7 +302,7 @@ class RecordDeletionProbe : public RefCounted<RecordDeletionProbe> {
   ~RecordDeletionProbe() {
     *was_deleted_ = true;
     if (post_on_delete_.get())
-      MessageLoop::current()->PostTask(
+      MessageLoop::current()->task_runner()->PostTask(
           FROM_HERE, Bind(&RecordDeletionProbe::Run, post_on_delete_.get()));
   }
 
@@ -321,15 +314,15 @@ void RunTest_EnsureDeletion(MessagePumpFactory factory) {
   bool a_was_deleted = false;
   bool b_was_deleted = false;
   {
-    scoped_ptr<MessagePump> pump(factory());
+    std::unique_ptr<MessagePump> pump(factory());
     MessageLoop loop(std::move(pump));
-    loop.PostTask(
+    loop.task_runner()->PostTask(
         FROM_HERE, Bind(&RecordDeletionProbe::Run,
-                              new RecordDeletionProbe(NULL, &a_was_deleted)));
+                        new RecordDeletionProbe(NULL, &a_was_deleted)));
     // TODO(ajwong): Do we really need 1000ms here?
-    loop.PostDelayedTask(
+    loop.task_runner()->PostDelayedTask(
         FROM_HERE, Bind(&RecordDeletionProbe::Run,
-                              new RecordDeletionProbe(NULL, &b_was_deleted)),
+                        new RecordDeletionProbe(NULL, &b_was_deleted)),
         TimeDelta::FromMilliseconds(1000));
   }
   EXPECT_TRUE(a_was_deleted);
@@ -341,14 +334,14 @@ void RunTest_EnsureDeletion_Chain(MessagePumpFactory factory) {
   bool b_was_deleted = false;
   bool c_was_deleted = false;
   {
-    scoped_ptr<MessagePump> pump(factory());
+    std::unique_ptr<MessagePump> pump(factory());
     MessageLoop loop(std::move(pump));
     // The scoped_refptr for each of the below is held either by the chained
     // RecordDeletionProbe, or the bound RecordDeletionProbe::Run() callback.
     RecordDeletionProbe* a = new RecordDeletionProbe(NULL, &a_was_deleted);
     RecordDeletionProbe* b = new RecordDeletionProbe(a, &b_was_deleted);
     RecordDeletionProbe* c = new RecordDeletionProbe(b, &c_was_deleted);
-    loop.PostTask(FROM_HERE, Bind(&RecordDeletionProbe::Run, c));
+    loop.task_runner()->PostTask(FROM_HERE, Bind(&RecordDeletionProbe::Run, c));
   }
   EXPECT_TRUE(a_was_deleted);
   EXPECT_TRUE(b_was_deleted);
@@ -358,24 +351,86 @@ void RunTest_EnsureDeletion_Chain(MessagePumpFactory factory) {
 void NestingFunc(int* depth) {
   if (*depth > 0) {
     *depth -= 1;
-    MessageLoop::current()->PostTask(FROM_HERE,
-                                     Bind(&NestingFunc, depth));
+    MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                    Bind(&NestingFunc, depth));
 
     MessageLoop::current()->SetNestableTasksAllowed(true);
-    MessageLoop::current()->Run();
+    RunLoop().Run();
   }
   MessageLoop::current()->QuitWhenIdle();
 }
 
 void RunTest_Nesting(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   int depth = 100;
-  MessageLoop::current()->PostTask(FROM_HERE,
-                                   Bind(&NestingFunc, &depth));
-  MessageLoop::current()->Run();
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&NestingFunc, &depth));
+  RunLoop().Run();
   EXPECT_EQ(depth, 0);
+}
+
+// A NestingObserver that tracks the number of nested message loop starts it
+// has seen.
+class TestNestingObserver : public MessageLoop::NestingObserver {
+ public:
+  TestNestingObserver() {}
+  ~TestNestingObserver() override {}
+
+  int begin_nested_loop_count() const { return begin_nested_loop_count_; }
+
+  // MessageLoop::NestingObserver:
+  void OnBeginNestedMessageLoop() override { begin_nested_loop_count_++; }
+
+ private:
+  int begin_nested_loop_count_ = 0;
+
+  DISALLOW_COPY_AND_ASSIGN(TestNestingObserver);
+};
+
+void ExpectOneBeginNestedLoop(TestNestingObserver* observer) {
+  EXPECT_EQ(1, observer->begin_nested_loop_count());
+}
+
+// Starts a nested message loop.
+void RunNestedLoop(TestNestingObserver* observer,
+                   const Closure& quit_outer_loop) {
+  // The nested loop hasn't started yet.
+  EXPECT_EQ(0, observer->begin_nested_loop_count());
+
+  MessageLoop::ScopedNestableTaskAllower allow(MessageLoop::current());
+  RunLoop nested_loop;
+  // Verify that by the time the first task is run the observer has seen the
+  // message loop begin.
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&ExpectOneBeginNestedLoop, observer));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  nested_loop.QuitClosure());
+  nested_loop.Run();
+
+  // Quitting message loops doesn't change the begin count.
+  EXPECT_EQ(1, observer->begin_nested_loop_count());
+
+  quit_outer_loop.Run();
+}
+
+// Tests that a NestingObserver is notified when a nested message loop begins.
+void RunTest_NestingObserver(MessagePumpFactory factory) {
+  std::unique_ptr<MessagePump> pump(factory());
+  MessageLoop outer_loop(std::move(pump));
+
+  // Observe the outer loop for nested message loops beginning.
+  TestNestingObserver nesting_observer;
+  outer_loop.AddNestingObserver(&nesting_observer);
+
+  // Post a task that runs a nested message loop.
+  outer_loop.task_runner()->PostTask(FROM_HERE,
+                                     Bind(&RunNestedLoop, &nesting_observer,
+                                          outer_loop.QuitWhenIdleClosure()));
+  RunLoop().Run();
+
+  outer_loop.RemoveNestingObserver(&nesting_observer);
 }
 
 enum TaskType {
@@ -463,7 +518,7 @@ void RecursiveFunc(TaskList* order, int cookie, int depth,
   if (depth > 0) {
     if (is_reentrant)
       MessageLoop::current()->SetNestableTasksAllowed(true);
-    MessageLoop::current()->PostTask(
+    MessageLoop::current()->task_runner()->PostTask(
         FROM_HERE,
         Bind(&RecursiveFunc, order, cookie, depth - 1, is_reentrant));
   }
@@ -476,22 +531,19 @@ void QuitFunc(TaskList* order, int cookie) {
   order->RecordEnd(QUITMESSAGELOOP, cookie);
 }
 void RunTest_RecursiveDenial1(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   EXPECT_TRUE(MessageLoop::current()->NestableTasksAllowed());
   TaskList order;
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      Bind(&RecursiveFunc, &order, 1, 2, false));
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      Bind(&RecursiveFunc, &order, 2, 2, false));
-  MessageLoop::current()->PostTask(
-      FROM_HERE,
-      Bind(&QuitFunc, &order, 3));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&RecursiveFunc, &order, 1, 2, false));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&RecursiveFunc, &order, 2, 2, false));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&QuitFunc, &order, 3));
 
-  MessageLoop::current()->Run();
+  RunLoop().Run();
 
   // FIFO order.
   ASSERT_EQ(14U, order.Size());
@@ -523,25 +575,21 @@ void OrderedFunc(TaskList* order, int cookie) {
 }
 
 void RunTest_RecursiveDenial3(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   EXPECT_TRUE(MessageLoop::current()->NestableTasksAllowed());
   TaskList order;
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&RecursiveSlowFunc, &order, 1, 2, false));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&RecursiveSlowFunc, &order, 2, 2, false));
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      Bind(&OrderedFunc, &order, 3),
-      TimeDelta::FromMilliseconds(5));
-  MessageLoop::current()->PostDelayedTask(
-      FROM_HERE,
-      Bind(&QuitFunc, &order, 4),
-      TimeDelta::FromMilliseconds(5));
+  MessageLoop::current()->task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&OrderedFunc, &order, 3), TimeDelta::FromMilliseconds(5));
+  MessageLoop::current()->task_runner()->PostDelayedTask(
+      FROM_HERE, Bind(&QuitFunc, &order, 4), TimeDelta::FromMilliseconds(5));
 
-  MessageLoop::current()->Run();
+  RunLoop().Run();
 
   // FIFO order.
   ASSERT_EQ(16U, order.Size());
@@ -564,18 +612,18 @@ void RunTest_RecursiveDenial3(MessagePumpFactory factory) {
 }
 
 void RunTest_RecursiveSupport1(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&RecursiveFunc, &order, 1, 2, true));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&RecursiveFunc, &order, 2, 2, true));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&QuitFunc, &order, 3));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&QuitFunc, &order, 3));
 
-  MessageLoop::current()->Run();
+  RunLoop().Run();
 
   // FIFO order.
   ASSERT_EQ(14U, order.Size());
@@ -597,19 +645,20 @@ void RunTest_RecursiveSupport1(MessagePumpFactory factory) {
 
 // Tests that non nestable tasks run in FIFO if there are no nested loops.
 void RunTest_NonNestableWithNoNesting(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
 
-  MessageLoop::current()->PostNonNestableTask(
+  MessageLoop::current()->task_runner()->PostNonNestableTask(
       FROM_HERE,
       Bind(&OrderedFunc, &order, 1));
-  MessageLoop::current()->PostTask(FROM_HERE,
-                                   Bind(&OrderedFunc, &order, 2));
-  MessageLoop::current()->PostTask(FROM_HERE,
-                                   Bind(&QuitFunc, &order, 3));
-  MessageLoop::current()->Run();
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE,
+      Bind(&OrderedFunc, &order, 2));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&QuitFunc, &order, 3));
+  RunLoop().Run();
 
   // FIFO order.
   ASSERT_EQ(6U, order.Size());
@@ -637,45 +686,32 @@ void SleepFunc(TaskList* order, int cookie, TimeDelta delay) {
 }
 
 // Tests that non nestable tasks don't run when there's code in the call stack.
-void RunTest_NonNestableInNestedLoop(MessagePumpFactory factory,
-                                     bool use_delayed) {
-  scoped_ptr<MessagePump> pump(factory());
+void RunTest_NonNestableInNestedLoop(MessagePumpFactory factory) {
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
 
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE,
       Bind(&FuncThatPumps, &order, 1));
-  if (use_delayed) {
-    MessageLoop::current()->PostNonNestableDelayedTask(
-        FROM_HERE,
-        Bind(&OrderedFunc, &order, 2),
-        TimeDelta::FromMilliseconds(1));
-  } else {
-    MessageLoop::current()->PostNonNestableTask(
-        FROM_HERE,
-        Bind(&OrderedFunc, &order, 2));
-  }
-  MessageLoop::current()->PostTask(FROM_HERE,
-                                   Bind(&OrderedFunc, &order, 3));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostNonNestableTask(
+      FROM_HERE,
+      Bind(&OrderedFunc, &order, 2));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE,
+      Bind(&OrderedFunc, &order, 3));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE,
       Bind(&SleepFunc, &order, 4, TimeDelta::FromMilliseconds(50)));
-  MessageLoop::current()->PostTask(FROM_HERE,
-                                   Bind(&OrderedFunc, &order, 5));
-  if (use_delayed) {
-    MessageLoop::current()->PostNonNestableDelayedTask(
-        FROM_HERE,
-        Bind(&QuitFunc, &order, 6),
-        TimeDelta::FromMilliseconds(2));
-  } else {
-    MessageLoop::current()->PostNonNestableTask(
-        FROM_HERE,
-        Bind(&QuitFunc, &order, 6));
-  }
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE,
+      Bind(&OrderedFunc, &order, 5));
+  MessageLoop::current()->task_runner()->PostNonNestableTask(
+      FROM_HERE,
+      Bind(&QuitFunc, &order, 6));
 
-  MessageLoop::current()->Run();
+  RunLoop().Run();
 
   // FIFO order.
   ASSERT_EQ(12U, order.Size());
@@ -707,27 +743,27 @@ void FuncThatQuitsNow() {
 }
 // Tests RunLoopQuit only quits the corresponding MessageLoop::Run.
 void RunTest_QuitNow(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
 
   RunLoop run_loop;
 
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 1, Unretained(&run_loop)));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 1, Unretained(&run_loop)));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 2));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&FuncThatQuitsNow));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&FuncThatQuitsNow));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 3));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&FuncThatQuitsNow));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&OrderedFunc, &order, 4)); // never runs
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&FuncThatQuitsNow));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&OrderedFunc, &order, 4));  // never runs
 
-  MessageLoop::current()->Run();
+  RunLoop().Run();
 
   ASSERT_EQ(6U, order.Size());
   int task_index = 0;
@@ -742,7 +778,7 @@ void RunTest_QuitNow(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit only quits the corresponding MessageLoop::Run.
 void RunTest_RunLoopQuitTop(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
@@ -750,13 +786,13 @@ void RunTest_RunLoopQuitTop(MessagePumpFactory factory) {
   RunLoop outer_run_loop;
   RunLoop nested_run_loop;
 
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 1, Unretained(&nested_run_loop)));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, outer_run_loop.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 1, Unretained(&nested_run_loop)));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  outer_run_loop.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 2));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, nested_run_loop.QuitClosure());
 
   outer_run_loop.Run();
@@ -772,7 +808,7 @@ void RunTest_RunLoopQuitTop(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit only quits the corresponding MessageLoop::Run.
 void RunTest_RunLoopQuitNested(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
@@ -780,14 +816,14 @@ void RunTest_RunLoopQuitNested(MessagePumpFactory factory) {
   RunLoop outer_run_loop;
   RunLoop nested_run_loop;
 
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 1, Unretained(&nested_run_loop)));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 1, Unretained(&nested_run_loop)));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, nested_run_loop.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 2));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, outer_run_loop.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  outer_run_loop.QuitClosure());
 
   outer_run_loop.Run();
 
@@ -802,7 +838,7 @@ void RunTest_RunLoopQuitNested(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit only quits the corresponding MessageLoop::Run.
 void RunTest_RunLoopQuitBogus(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
@@ -811,15 +847,15 @@ void RunTest_RunLoopQuitBogus(MessagePumpFactory factory) {
   RunLoop nested_run_loop;
   RunLoop bogus_run_loop;
 
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 1, Unretained(&nested_run_loop)));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, bogus_run_loop.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 1, Unretained(&nested_run_loop)));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  bogus_run_loop.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 2));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, outer_run_loop.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  outer_run_loop.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, nested_run_loop.QuitClosure());
 
   outer_run_loop.Run();
@@ -835,7 +871,7 @@ void RunTest_RunLoopQuitBogus(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit only quits the corresponding MessageLoop::Run.
 void RunTest_RunLoopQuitDeep(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
@@ -846,35 +882,35 @@ void RunTest_RunLoopQuitDeep(MessagePumpFactory factory) {
   RunLoop nested_loop3;
   RunLoop nested_loop4;
 
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 1, Unretained(&nested_loop1)));
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 2, Unretained(&nested_loop2)));
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 3, Unretained(&nested_loop3)));
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 4, Unretained(&nested_loop4)));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 1, Unretained(&nested_loop1)));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 2, Unretained(&nested_loop2)));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 3, Unretained(&nested_loop3)));
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 4, Unretained(&nested_loop4)));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 5));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, outer_run_loop.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  outer_run_loop.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 6));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, nested_loop1.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  nested_loop1.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 7));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, nested_loop2.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  nested_loop2.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 8));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, nested_loop3.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  nested_loop3.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 9));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, nested_loop4.QuitClosure());
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  nested_loop4.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 10));
 
   outer_run_loop.Run();
@@ -904,7 +940,7 @@ void RunTest_RunLoopQuitDeep(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit works before RunWithID.
 void RunTest_RunLoopQuitOrderBefore(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
@@ -913,10 +949,10 @@ void RunTest_RunLoopQuitOrderBefore(MessagePumpFactory factory) {
 
   run_loop.Quit();
 
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&OrderedFunc, &order, 1)); // never runs
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&FuncThatQuitsNow)); // never runs
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&OrderedFunc, &order, 1));  // never runs
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatQuitsNow));  // never runs
 
   run_loop.Run();
 
@@ -925,21 +961,21 @@ void RunTest_RunLoopQuitOrderBefore(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit works during RunWithID.
 void RunTest_RunLoopQuitOrderDuring(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
 
   RunLoop run_loop;
 
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 1));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, run_loop.QuitClosure());
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&OrderedFunc, &order, 2)); // never runs
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&FuncThatQuitsNow)); // never runs
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  run_loop.QuitClosure());
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&OrderedFunc, &order, 2));  // never runs
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatQuitsNow));  // never runs
 
   run_loop.Run();
 
@@ -952,27 +988,27 @@ void RunTest_RunLoopQuitOrderDuring(MessagePumpFactory factory) {
 
 // Tests RunLoopQuit works after RunWithID.
 void RunTest_RunLoopQuitOrderAfter(MessagePumpFactory factory) {
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
 
   TaskList order;
 
   RunLoop run_loop;
 
-  MessageLoop::current()->PostTask(FROM_HERE,
-      Bind(&FuncThatRuns, &order, 1, Unretained(&run_loop)));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, Bind(&FuncThatRuns, &order, 1, Unretained(&run_loop)));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 2));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&FuncThatQuitsNow));
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&FuncThatQuitsNow));
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 3));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, run_loop.QuitClosure()); // has no affect
-  MessageLoop::current()->PostTask(
+  MessageLoop::current()->task_runner()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());  // has no affect
+  MessageLoop::current()->task_runner()->PostTask(
       FROM_HERE, Bind(&OrderedFunc, &order, 4));
-  MessageLoop::current()->PostTask(
-      FROM_HERE, Bind(&FuncThatQuitsNow));
+  MessageLoop::current()->task_runner()->PostTask(FROM_HERE,
+                                                  Bind(&FuncThatQuitsNow));
 
   RunLoop outer_run_loop;
   outer_run_loop.Run();
@@ -992,9 +1028,8 @@ void RunTest_RunLoopQuitOrderAfter(MessagePumpFactory factory) {
 
 void PostNTasksThenQuit(int posts_remaining) {
   if (posts_remaining > 1) {
-    MessageLoop::current()->PostTask(
-        FROM_HERE,
-        Bind(&PostNTasksThenQuit, posts_remaining - 1));
+    MessageLoop::current()->task_runner()->PostTask(
+        FROM_HERE, Bind(&PostNTasksThenQuit, posts_remaining - 1));
   } else {
     MessageLoop::current()->QuitWhenIdle();
   }
@@ -1010,10 +1045,10 @@ void PostNTasksThenQuit(int posts_remaining) {
 // times to reproduce the bug.
 void RunTest_RecursivePosts(MessagePumpFactory factory) {
   const int kNumTimes = 1 << 17;
-  scoped_ptr<MessagePump> pump(factory());
+  std::unique_ptr<MessagePump> pump(factory());
   MessageLoop loop(std::move(pump));
-  loop.PostTask(FROM_HERE, Bind(&PostNTasksThenQuit, kNumTimes));
-  loop.Run();
+  loop.task_runner()->PostTask(FROM_HERE, Bind(&PostNTasksThenQuit, kNumTimes));
+  RunLoop().Run();
 }
 
 }  // namespace test

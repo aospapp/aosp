@@ -68,9 +68,13 @@ class SpaceBitmap {
     return static_cast<T>(index * kAlignment * kBitsPerIntPtrT);
   }
 
+  ALWAYS_INLINE static constexpr uintptr_t OffsetBitIndex(uintptr_t offset) {
+    return (offset / kAlignment) % kBitsPerIntPtrT;
+  }
+
   // Bits are packed in the obvious way.
   static constexpr uintptr_t OffsetToMask(uintptr_t offset) {
-    return (static_cast<size_t>(1)) << ((offset / kAlignment) % kBitsPerIntPtrT);
+    return static_cast<size_t>(1) << OffsetBitIndex(offset);
   }
 
   bool Set(const mirror::Object* obj) ALWAYS_INLINE {
@@ -86,6 +90,9 @@ class SpaceBitmap {
 
   // Fill the bitmap with zeroes.  Returns the bitmap's memory to the system as a side-effect.
   void Clear();
+
+  // Clear a covered by the bitmap using madvise if possible.
+  void ClearRange(const mirror::Object* begin, const mirror::Object* end);
 
   bool Test(const mirror::Object* obj) const;
 
@@ -123,7 +130,7 @@ class SpaceBitmap {
 
   // Visit the live objects in the range [visit_begin, visit_end).
   // TODO: Use lock annotations when clang is fixed.
-  // REQUIRES(Locks::heap_bitmap_lock_) SHARED_REQUIRES(Locks::mutator_lock_);
+  // REQUIRES(Locks::heap_bitmap_lock_) REQUIRES_SHARED(Locks::mutator_lock_);
   template <typename Visitor>
   void VisitMarkedRange(uintptr_t visit_begin, uintptr_t visit_end, const Visitor& visitor) const
       NO_THREAD_SAFETY_ANALYSIS;
@@ -131,12 +138,7 @@ class SpaceBitmap {
   // Visits set bits in address order.  The callback is not permitted to change the bitmap bits or
   // max during the traversal.
   void Walk(ObjectCallback* callback, void* arg)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_);
-
-  // Visits set bits with an in order traversal.  The callback is not permitted to change the bitmap
-  // bits or max during the traversal.
-  void InOrderWalk(ObjectCallback* callback, void* arg)
-      SHARED_REQUIRES(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+      REQUIRES_SHARED(Locks::heap_bitmap_lock_);
 
   // Walk through the bitmaps in increasing address order, and find the object pointers that
   // correspond to garbage objects.  Call <callback> zero or more times with lists of these object
@@ -147,7 +149,7 @@ class SpaceBitmap {
   void CopyFrom(SpaceBitmap* source_bitmap);
 
   // Starting address of our internal storage.
-  uintptr_t* Begin() {
+  Atomic<uintptr_t>* Begin() {
     return bitmap_begin_;
   }
 
@@ -202,20 +204,11 @@ class SpaceBitmap {
   template<bool kSetBit>
   bool Modify(const mirror::Object* obj);
 
-  // For an unvisited object, visit it then all its children found via fields.
-  static void WalkFieldsInOrder(SpaceBitmap* visited, ObjectCallback* callback, mirror::Object* obj,
-                                void* arg) SHARED_REQUIRES(Locks::mutator_lock_);
-  // Walk instance fields of the given Class. Separate function to allow recursion on the super
-  // class.
-  static void WalkInstanceFields(SpaceBitmap<kAlignment>* visited, ObjectCallback* callback,
-                                 mirror::Object* obj, mirror::Class* klass, void* arg)
-      SHARED_REQUIRES(Locks::mutator_lock_);
-
   // Backing storage for bitmap.
   std::unique_ptr<MemMap> mem_map_;
 
   // This bitmap itself, word sized for efficiency in scanning.
-  uintptr_t* const bitmap_begin_;
+  Atomic<uintptr_t>* const bitmap_begin_;
 
   // Size of this bitmap.
   size_t bitmap_size_;

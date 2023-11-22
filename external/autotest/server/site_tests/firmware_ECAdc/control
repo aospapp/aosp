@@ -12,6 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+DEPENDENCIES = "ec:cros"
 
 DOC = """
 This is a stress test for EC ADC. We keep polling EC internal temperature

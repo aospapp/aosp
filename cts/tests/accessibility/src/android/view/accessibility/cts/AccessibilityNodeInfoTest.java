@@ -20,6 +20,7 @@ import android.graphics.Rect;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -27,6 +28,7 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.view.accessibility.cts.R;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -34,14 +36,20 @@ import java.util.List;
  */
 public class AccessibilityNodeInfoTest extends AndroidTestCase {
 
-    /** The number of properties of the {@link AccessibilityNodeInfo} class. */
-    private static final int NON_STATIC_FIELD_COUNT = 31;
+    /** The number of properties of the {@link AccessibilityNodeInfo} class that are marshalled. */
+    private static final int NUM_MARSHALLED_PROPERTIES = 33;
+
+    /**
+     * The number of properties that are purposely not marshalled
+     * mOriginalText - Used when resolving clickable spans; intentionally not parceled
+     */
+    private static final int NUM_NONMARSHALLED_PROPERTIES = 1;
 
     @SmallTest
     public void testMarshaling() throws Exception {
         // no new fields, so we are testing marshaling of all such
         AccessibilityRecordTest.assertNoNewNonStaticFieldsAdded(AccessibilityNodeInfo.class,
-                NON_STATIC_FIELD_COUNT);
+                NUM_MARSHALLED_PROPERTIES + NUM_NONMARSHALLED_PROPERTIES);
 
         // fully populate the node info to marshal
         AccessibilityNodeInfo sentInfo = AccessibilityNodeInfo.obtain(new View(getContext()));
@@ -163,6 +171,28 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
     }
 
     /**
+     * While CharSequence is immutable, some classes implementing it are mutable. Make sure they
+     * can't change the object by changing the objects backing CharSequence
+     */
+    @SmallTest
+    public void testChangeTextAfterSetting_shouldNotAffectInfo() {
+        final String originalText = "Cassowaries";
+        final String newText = "Hornbill";
+        AccessibilityNodeInfo info = AccessibilityNodeInfo.obtain();
+        StringBuffer updatingString = new StringBuffer(originalText);
+        info.setText(updatingString);
+        info.setError(updatingString);
+        info.setContentDescription(updatingString);
+
+        updatingString.delete(0, updatingString.length());
+        updatingString.append(newText);
+
+        assertTrue(TextUtils.equals(originalText, info.getText()));
+        assertTrue(TextUtils.equals(originalText, info.getError()));
+        assertTrue(TextUtils.equals(originalText, info.getContentDescription()));
+    }
+
+    /**
      * Fully populates the {@link AccessibilityNodeInfo} to marshal.
      *
      * @param info The node info to populate.
@@ -178,6 +208,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setContentDescription("content description");
         info.setPackageName("foo.bar.baz");
         info.setText("text");
+        info.setHintText("hint");
         info.setCheckable(true);
         info.setChecked(true);
         info.setClickable(true);
@@ -200,6 +231,8 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         info.setLabelFor(new View(getContext()));
         info.setViewIdResourceName("foo.bar:id/baz");
         info.setDrawingOrder(5);
+        info.setAvailableExtraData(
+                Arrays.asList(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
     }
 
     /**
@@ -224,6 +257,8 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertEquals("packageName has incorrect value", expectedInfo.getPackageName(),
                 receivedInfo.getPackageName());
         assertEquals("text has incorrect value", expectedInfo.getText(), receivedInfo.getText());
+        assertEquals("Hint text has incorrect value",
+                expectedInfo.getHintText(), receivedInfo.getHintText());
         assertSame("checkable has incorrect value", expectedInfo.isCheckable(),
                 receivedInfo.isCheckable());
         assertSame("checked has incorrect value", expectedInfo.isChecked(),
@@ -267,6 +302,8 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
                 receivedInfo.getViewIdResourceName());
         assertEquals("drawing order has incorrect value", expectedInfo.getDrawingOrder(),
                 receivedInfo.getDrawingOrder());
+        assertEquals("Extra data flags have incorrect value", expectedInfo.getAvailableExtraData(),
+                receivedInfo.getAvailableExtraData());
     }
 
     /**
@@ -284,6 +321,7 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
         assertNull("contentDescription not properly recycled", info.getContentDescription());
         assertNull("packageName not properly recycled", info.getPackageName());
         assertNull("text not properly recycled", info.getText());
+        assertNull("Hint text not properly recycled", info.getHintText());
         assertFalse("checkable not properly recycled", info.isCheckable());
         assertFalse("checked not properly recycled", info.isChecked());
         assertFalse("clickable not properly recycled", info.isClickable());
@@ -303,5 +341,6 @@ public class AccessibilityNodeInfoTest extends AndroidTestCase {
                 info.getMovementGranularities());
         assertNull("viewId not properly recycled", info.getViewIdResourceName());
         assertEquals(0, info.getDrawingOrder());
+        assertTrue(info.getAvailableExtraData().isEmpty());
     }
 }

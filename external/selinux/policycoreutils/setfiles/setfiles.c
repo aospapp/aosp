@@ -5,7 +5,6 @@
 #include <ctype.h>
 #include <regex.h>
 #include <sys/vfs.h>
-#define __USE_XOPEN_EXTENDED 1	/* nftw */
 #include <libgen.h>
 #ifdef USE_AUDIT
 #include <libaudit.h>
@@ -15,13 +14,12 @@
 #endif
 #endif
 
-
-/* cmdline opts*/
-
-static char *policyfile = NULL;
-static int warn_no_match = 0;
-static int null_terminated = 0;
+static char *policyfile;
+static int warn_no_match;
+static int null_terminated;
+static int request_digest;
 static struct restore_opts r_opts;
+static int nerr;
 
 #define STAT_BLOCK_SIZE 1
 
@@ -45,21 +43,19 @@ void usage(const char *const name)
 {
 	if (iamrestorecon) {
 		fprintf(stderr,
-			"usage:  %s [-iFnprRv0] [-e excludedir] pathname...\n"
-			"usage:  %s [-iFnprRv0] [-e excludedir] -f filename\n",
+			"usage:  %s [-iIDFmnprRv0] [-e excludedir] pathname...\n"
+			"usage:  %s [-iIDFmnprRv0] [-e excludedir] -f filename\n",
 			name, name);
 	} else {
 		fprintf(stderr,
-			"usage:  %s [-dilnpqvFW] [-e excludedir] [-r alt_root_path] spec_file pathname...\n"
-			"usage:  %s [-dilnpqvFW] [-e excludedir] [-r alt_root_path] spec_file -f filename\n"
-			"usage:  %s -s [-dilnpqvFW] spec_file\n"
+			"usage:  %s [-diIDlmnpqvFW] [-e excludedir] [-r alt_root_path] spec_file pathname...\n"
+			"usage:  %s [-diIDlmnpqvFW] [-e excludedir] [-r alt_root_path] spec_file -f filename\n"
+			"usage:  %s -s [-diIDlmnpqvFW] spec_file\n"
 			"usage:  %s -c policyfile spec_file\n",
 			name, name, name, name);
 	}
 	exit(-1);
 }
-
-static int nerr = 0;
 
 void inc_err(void)
 {
@@ -70,24 +66,21 @@ void inc_err(void)
 	}
 }
 
-
-
 void set_rootpath(const char *arg)
 {
-	int len;
-
-	r_opts.rootpath = strdup(arg);
-	if (NULL == r_opts.rootpath) {
-		fprintf(stderr, "%s:  insufficient memory for r_opts.rootpath\n",
-			r_opts.progname);
+	if (strlen(arg) == 1 && strncmp(arg, "/", 1) == 0) {
+		fprintf(stderr, "%s:  invalid alt_rootpath: %s\n",
+			r_opts.progname, arg);
 		exit(-1);
 	}
 
-	/* trim trailing /, if present */
-	len = strlen(r_opts.rootpath);
-	while (len && ('/' == r_opts.rootpath[len - 1]))
-		r_opts.rootpath[--len] = 0;
-	r_opts.rootpathlen = len;
+	r_opts.rootpath = strdup(arg);
+	if (!r_opts.rootpath) {
+		fprintf(stderr,
+			"%s:  insufficient memory for r_opts.rootpath\n",
+			r_opts.progname);
+		exit(-1);
+	}
 }
 
 int canoncon(char **contextp)
@@ -113,7 +106,7 @@ int canoncon(char **contextp)
 
 #ifndef USE_AUDIT
 static void maybe_audit_mass_relabel(int mass_relabel __attribute__((unused)),
-				     int mass_relabel_errs __attribute__((unused)))
+				int mass_relabel_errs __attribute__((unused)))
 {
 #else
 static void maybe_audit_mass_relabel(int mass_relabel, int mass_relabel_errs)
@@ -132,14 +125,30 @@ static void maybe_audit_mass_relabel(int mass_relabel, int mass_relabel_errs)
 	}
 
 	rc = audit_log_user_message(audit_fd, AUDIT_FS_RELABEL,
-				    "op=mass relabel", NULL, NULL, NULL, !mass_relabel_errs);
+				    "op=mass relabel",
+				    NULL, NULL, NULL, !mass_relabel_errs);
 	if (rc <= 0) {
 		fprintf(stderr, "Error sending audit message: %s.\n",
 			strerror(errno));
-		/* exit(-1); -- don't exit atm. as fix for eff_cap isn't in most kernels */
+		/* exit(-1); -- don't exit atm. as fix for eff_cap isn't
+		 * in most kernels.
+		 */
 	}
 	audit_close(audit_fd);
 #endif
+}
+
+static int __attribute__ ((format(printf, 2, 3)))
+log_callback(int type, const char *fmt, ...)
+{
+	int rc;
+	FILE *out = (type == SELINUX_INFO) ? stdout : stderr;
+	va_list ap;
+	fprintf(out, "%s: ", r_opts.progname);
+	va_start(ap, fmt);
+	rc = vfprintf(out, fmt, ap);
+	va_end(ap);
+	return rc;
 }
 
 int main(int argc, char **argv)
@@ -150,30 +159,21 @@ int main(int argc, char **argv)
 	int use_input_file = 0;
 	char *buf = NULL;
 	size_t buf_len;
-	int recurse; /* Recursive descent. */
 	const char *base;
-	int mass_relabel = 0, errors = 0;
-	const char *ropts = "e:f:hilno:pqrsvFRW0";
-	const char *sopts = "c:de:f:hilno:pqr:svFR:W0";
+	int errors = 0;
+	const char *ropts = "e:f:hiIDlmno:pqrsvFRW0";
+	const char *sopts = "c:de:f:hiIDlmno:pqr:svFR:W0";
 	const char *opts;
-	
-	memset(&r_opts, 0, sizeof(r_opts));
+	union selinux_callback cb;
 
 	/* Initialize variables */
-	r_opts.progress = 0;
-	r_opts.count = 0;
-	r_opts.nfile = 0;
-	r_opts.debug = 0;
-	r_opts.change = 1;
-	r_opts.verbose = 0;
-	r_opts.logging = 0;
-	r_opts.rootpath = NULL;
-	r_opts.rootpathlen = 0;
-	r_opts.outfile = NULL;
-	r_opts.force = 0;
-	r_opts.hard_links = 1;
-
+	memset(&r_opts, 0, sizeof(r_opts));
 	altpath = NULL;
+	null_terminated = 0;
+	warn_no_match = 0;
+	request_digest = 0;
+	policyfile = NULL;
+	nerr = 0;
 
 	r_opts.progname = strdup(argv[0]);
 	if (!r_opts.progname) {
@@ -181,54 +181,57 @@ int main(int argc, char **argv)
 		exit(-1);
 	}
 	base = basename(r_opts.progname);
-	
+
 	if (!strcmp(base, SETFILES)) {
-		/* 
-		 * setfiles:  
+		/*
+		 * setfiles:
 		 * Recursive descent,
-		 * Does not expand paths via realpath, 
-		 * Aborts on errors during the file tree walk, 
+		 * Does not expand paths via realpath,
+		 * Aborts on errors during the file tree walk,
 		 * Try to track inode associations for conflict detection,
-		 * Does not follow mounts,
-		 * Validates all file contexts at init time. 
+		 * Does not follow mounts (sets SELINUX_RESTORECON_XDEV),
+		 * Validates all file contexts at init time.
 		 */
 		iamrestorecon = 0;
-		recurse = 1;
-		r_opts.expand_realpath = 0;
-		r_opts.abort_on_error = 1;
-		r_opts.add_assoc = 1;
-		r_opts.fts_flags = FTS_PHYSICAL | FTS_XDEV;
+		r_opts.recurse = SELINUX_RESTORECON_RECURSE;
+		r_opts.userealpath = 0; /* SELINUX_RESTORECON_REALPATH */
+		r_opts.abort_on_error = SELINUX_RESTORECON_ABORT_ON_ERROR;
+		r_opts.add_assoc = SELINUX_RESTORECON_ADD_ASSOC;
+		/* FTS_PHYSICAL and FTS_NOCHDIR are always set by selinux_restorecon(3) */
+		r_opts.xdev = SELINUX_RESTORECON_XDEV;
+		r_opts.ignore_mounts = 0; /* SELINUX_RESTORECON_IGNORE_MOUNTS */
 		ctx_validate = 1;
 		opts = sopts;
 	} else {
 		/*
-		 * restorecon:  
+		 * restorecon:
 		 * No recursive descent unless -r/-R,
-		 * Expands paths via realpath, 
+		 * Expands paths via realpath,
 		 * Do not abort on errors during the file tree walk,
 		 * Do not try to track inode associations for conflict detection,
 		 * Follows mounts,
-		 * Does lazy validation of contexts upon use. 
+		 * Does lazy validation of contexts upon use.
 		 */
-		if (strcmp(base, RESTORECON) && !r_opts.quiet) 
-			printf("Executed with an unrecognized name (%s), defaulting to %s behavior.\n", base, RESTORECON);
+		if (strcmp(base, RESTORECON))
+			fprintf(stderr, "Executed with unrecognized name (%s), defaulting to %s behavior.\n",
+				base, RESTORECON);
+
 		iamrestorecon = 1;
-		recurse = 0;
-		r_opts.expand_realpath = 1;
+		r_opts.recurse = 0;
+		r_opts.userealpath = SELINUX_RESTORECON_REALPATH;
 		r_opts.abort_on_error = 0;
 		r_opts.add_assoc = 0;
-		r_opts.fts_flags = FTS_PHYSICAL;
+		r_opts.xdev = 0;
+		r_opts.ignore_mounts = 0;
 		ctx_validate = 0;
 		opts = ropts;
 
 		/* restorecon only:  silent exit if no SELinux.
-		   Allows unconditional execution by scripts. */
+		 * Allows unconditional execution by scripts.
+		 */
 		if (is_selinux_enabled() <= 0)
 			exit(0);
 	}
-
-	/* This must happen before getopt. */
-	r_opts.nfile = exclude_non_seclabel_mounts();
 
 	/* Process any options. */
 	while ((opt = getopt(argc, argv, opts)) > 0) {
@@ -252,8 +255,8 @@ int main(int argc, char **argv)
 				__fsetlocking(policystream,
 					      FSETLOCKING_BYCALLER);
 
-				if (sepol_set_policydb_from_file(policystream) <
-				    0) {
+				if (sepol_set_policydb_from_file(policystream)
+									< 0) {
 					fprintf(stderr,
 						"Error reading policy %s: %s\n",
 						policyfile, strerror(errno));
@@ -262,65 +265,82 @@ int main(int argc, char **argv)
 				fclose(policystream);
 
 				ctx_validate = 1;
-
 				break;
 			}
 		case 'e':
-			remove_exclude(optarg);
 			if (lstat(optarg, &sb) < 0 && errno != EACCES) {
 				fprintf(stderr, "Can't stat exclude path \"%s\", %s - ignoring.\n",
 					optarg, strerror(errno));
 				break;
 			}
-			if (add_exclude(optarg))
-				exit(-1);
+			add_exclude(optarg);
 			break;
 		case 'f':
 			use_input_file = 1;
 			input_filename = optarg;
-			break;			
+			break;
 		case 'd':
 			if (iamrestorecon)
 				usage(argv[0]);
 			r_opts.debug = 1;
+			r_opts.log_matches =
+					   SELINUX_RESTORECON_LOG_MATCHES;
 			break;
 		case 'i':
-			r_opts.ignore_enoent = 1;
+			r_opts.ignore_noent =
+					   SELINUX_RESTORECON_IGNORE_NOENTRY;
+			break;
+		case 'I': /* Force label check by ignoring directory digest. */
+			r_opts.ignore_digest =
+					   SELINUX_RESTORECON_IGNORE_DIGEST;
+			request_digest = 1;
+			break;
+		case 'D': /*
+			   * Request file_contexts digest in selabel_open
+			   * This will effectively enable usage of the
+			   * security.restorecon_last extended attribute.
+			   */
+			request_digest = 1;
 			break;
 		case 'l':
-			r_opts.logging = 1;
+			r_opts.syslog_changes =
+					   SELINUX_RESTORECON_SYSLOG_CHANGES;
 			break;
 		case 'F':
-			r_opts.force = 1;
+			r_opts.set_specctx =
+					   SELINUX_RESTORECON_SET_SPECFILE_CTX;
+			break;
+		case 'm':
+			r_opts.ignore_mounts =
+					   SELINUX_RESTORECON_IGNORE_MOUNTS;
 			break;
 		case 'n':
-			r_opts.change = 0;
+			r_opts.nochange = SELINUX_RESTORECON_NOCHANGE;
 			break;
-		case 'o':
-			if (strcmp(optarg, "-") == 0) {
-				r_opts.outfile = stdout;
-				break;
-			}
-
-			r_opts.outfile = fopen(optarg, "w");
-			if (!r_opts.outfile) {
-				fprintf(stderr, "Error opening %s: %s\n",
-					optarg, strerror(errno));
-
-				usage(argv[0]);
-			}
-			__fsetlocking(r_opts.outfile, FSETLOCKING_BYCALLER);
+		case 'o': /* Deprecated */
+			fprintf(stderr, "%s: -o option no longer supported\n",
+				r_opts.progname);
 			break;
 		case 'q':
-			r_opts.quiet = 1;
+			/* Deprecated - Was only used to say whether print
+			 * filespec_eval() params. Now uses verbose flag.
+			 */
 			break;
 		case 'R':
 		case 'r':
 			if (iamrestorecon) {
-				recurse = 1;
+				r_opts.recurse = SELINUX_RESTORECON_RECURSE;
 				break;
 			}
-			if (NULL != r_opts.rootpath) {
+
+			if (lstat(optarg, &sb) < 0 && errno != EACCES) {
+				fprintf(stderr,
+					"Can't stat alt_root_path \"%s\", %s\n",
+					optarg, strerror(errno));
+				exit(-1);
+			}
+
+			if (r_opts.rootpath) {
 				fprintf(stderr,
 					"%s: only one -r can be specified\n",
 					argv[0]);
@@ -337,9 +357,9 @@ int main(int argc, char **argv)
 			if (r_opts.progress) {
 				fprintf(stderr,
 					"Progress and Verbose mutually exclusive\n");
-				exit(-1);
+				usage(argv[0]);
 			}
-			r_opts.verbose++;
+			r_opts.verbose = SELINUX_RESTORECON_VERBOSE;
 			break;
 		case 'p':
 			if (r_opts.verbose) {
@@ -347,10 +367,10 @@ int main(int argc, char **argv)
 					"Progress and Verbose mutually exclusive\n");
 				usage(argv[0]);
 			}
-			r_opts.progress++;
+			r_opts.progress = SELINUX_RESTORECON_PROGRESS;
 			break;
 		case 'W':
-			warn_no_match = 1;
+			warn_no_match = 1; /* Print selabel_stats() */
 			break;
 		case '0':
 			null_terminated = 1;
@@ -362,12 +382,12 @@ int main(int argc, char **argv)
 	}
 
 	for (i = optind; i < argc; i++) {
-		if (!strcmp(argv[i], "/")) {
-			mass_relabel = 1;
-			if (r_opts.progress)
-				r_opts.progress++;
-		}
+		if (!strcmp(argv[i], "/"))
+			r_opts.mass_relabel = SELINUX_RESTORECON_MASS_RELABEL;
 	}
+
+	cb.func_log = log_callback;
+	selinux_set_callback(SELINUX_CB_LOG, cb);
 
 	if (!iamrestorecon) {
 		if (policyfile) {
@@ -384,10 +404,11 @@ int main(int argc, char **argv)
 		}
 
 		/* Use our own invalid context checking function so that
-		   we can support either checking against the active policy or
-		   checking against a binary policy file. */
-		selinux_set_callback(SELINUX_CB_VALIDATE,
-				     (union selinux_callback)&canoncon);
+		 * we can support either checking against the active policy or
+		 * checking against a binary policy file.
+		 */
+		cb.func_validate = canoncon;
+		selinux_set_callback(SELINUX_CB_VALIDATE, cb);
 
 		if (stat(argv[optind], &sb) < 0) {
 			perror(argv[optind]);
@@ -404,22 +425,27 @@ int main(int argc, char **argv)
 	} else if (argc == 1)
 		usage(argv[0]);
 
-	/* Load the file contexts configuration and check it. */
+	/* Set selabel_open options. */
 	r_opts.selabel_opt_validate = (ctx_validate ? (char *)1 : NULL);
+	r_opts.selabel_opt_digest = (request_digest ? (char *)1 : NULL);
 	r_opts.selabel_opt_path = altpath;
 
 	if (nerr)
 		exit(-1);
 
 	restore_init(&r_opts);
+
 	if (use_input_file) {
 		FILE *f = stdin;
 		ssize_t len;
 		int delim;
+
 		if (strcmp(input_filename, "-") != 0)
 			f = fopen(input_filename, "r");
+
 		if (f == NULL) {
-			fprintf(stderr, "Unable to open %s: %s\n", input_filename,
+			fprintf(stderr, "Unable to open %s: %s\n",
+				input_filename,
 				strerror(errno));
 			usage(argv[0]);
 		}
@@ -429,17 +455,17 @@ int main(int argc, char **argv)
 		while ((len = getdelim(&buf, &buf_len, delim, f)) > 0) {
 			buf[len - 1] = 0;
 			if (!strcmp(buf, "/"))
-				mass_relabel = 1;
-			errors |= process_glob(buf, recurse) < 0;
+				r_opts.mass_relabel = SELINUX_RESTORECON_MASS_RELABEL;
+			errors |= process_glob(buf, &r_opts) < 0;
 		}
 		if (strcmp(input_filename, "-") != 0)
 			fclose(f);
 	} else {
 		for (i = optind; i < argc; i++)
-			errors |= process_glob(argv[i], recurse) < 0;
+			errors |= process_glob(argv[i], &r_opts) < 0;
 	}
-	
-	maybe_audit_mass_relabel(mass_relabel, errors);
+
+	maybe_audit_mass_relabel(r_opts.mass_relabel, errors);
 
 	if (warn_no_match)
 		selabel_stats(r_opts.hnd);
@@ -447,10 +473,8 @@ int main(int argc, char **argv)
 	selabel_close(r_opts.hnd);
 	restore_finish();
 
-	if (r_opts.outfile)
-		fclose(r_opts.outfile);
+	if (r_opts.progress)
+		fprintf(stdout, "\n");
 
-	if (r_opts.progress && r_opts.count >= STAR_COUNT)
-		printf("\n");
-	exit(errors ? -1: 0);
+	exit(errors ? -1 : 0);
 }

@@ -25,7 +25,6 @@ import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 
 /**
- * @author kenny
  *
  */
 public class VolumePreference extends DialogPreference implements OnSeekBarChangeListener {

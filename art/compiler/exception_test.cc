@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "base/arena_allocator.h"
+#include "base/enums.h"
 #include "class_linker.h"
 #include "common_runtime_test.h"
 #include "dex_file.h"
@@ -29,8 +30,8 @@
 #include "mirror/stack_trace_element.h"
 #include "oat_quick_method_header.h"
 #include "optimizing/stack_map_stream.h"
-#include "runtime.h"
-#include "scoped_thread_state_change.h"
+#include "runtime-inl.h"
+#include "scoped_thread_state_change-inl.h"
 #include "handle_scope-inl.h"
 #include "thread.h"
 
@@ -44,7 +45,7 @@ class ExceptionTest : public CommonRuntimeTest {
     ScopedObjectAccess soa(Thread::Current());
     StackHandleScope<2> hs(soa.Self());
     Handle<mirror::ClassLoader> class_loader(
-        hs.NewHandle(soa.Decode<mirror::ClassLoader*>(LoadDex("ExceptionHandle"))));
+        hs.NewHandle(soa.Decode<mirror::ClassLoader>(LoadDex("ExceptionHandle"))));
     my_klass_ = class_linker_->FindClass(soa.Self(), "LExceptionHandle;", class_loader);
     ASSERT_TRUE(my_klass_ != nullptr);
     Handle<mirror::Class> klass(hs.NewHandle(my_klass_));
@@ -60,7 +61,7 @@ class ExceptionTest : public CommonRuntimeTest {
 
     ArenaPool pool;
     ArenaAllocator allocator(&pool);
-    StackMapStream stack_maps(&allocator);
+    StackMapStream stack_maps(&allocator, kRuntimeISA);
     stack_maps.BeginStackMapEntry(/* dex_pc */ 3u,
                                   /* native_pc_offset */ 3u,
                                   /* register_mask */ 0u,
@@ -73,8 +74,8 @@ class ExceptionTest : public CommonRuntimeTest {
 
     fake_header_code_and_maps_.resize(stack_maps_offset + fake_code_.size());
     MemoryRegion stack_maps_region(&fake_header_code_and_maps_[0], stack_maps_size);
-    stack_maps.FillIn(stack_maps_region);
-    OatQuickMethodHeader method_header(stack_maps_offset, 4 * sizeof(void*), 0u, 0u, code_size);
+    stack_maps.FillInCodeInfo(stack_maps_region);
+    OatQuickMethodHeader method_header(stack_maps_offset, 0u, 4 * sizeof(void*), 0u, 0u, code_size);
     memcpy(&fake_header_code_and_maps_[stack_maps_size], &method_header, sizeof(method_header));
     std::copy(fake_code_.begin(),
               fake_code_.end(),
@@ -100,11 +101,11 @@ class ExceptionTest : public CommonRuntimeTest {
       CHECK_ALIGNED(stack_maps_offset, 2);
     }
 
-    method_f_ = my_klass_->FindVirtualMethod("f", "()I", sizeof(void*));
+    method_f_ = my_klass_->FindVirtualMethod("f", "()I", kRuntimePointerSize);
     ASSERT_TRUE(method_f_ != nullptr);
     method_f_->SetEntryPointFromQuickCompiledCode(code_ptr);
 
-    method_g_ = my_klass_->FindVirtualMethod("g", "(I)V", sizeof(void*));
+    method_g_ = my_klass_->FindVirtualMethod("g", "(I)V", kRuntimePointerSize);
     ASSERT_TRUE(method_g_ != nullptr);
     method_g_->SetEntryPointFromQuickCompiledCode(code_ptr);
   }
@@ -169,7 +170,7 @@ TEST_F(ExceptionTest, StackTraceElement) {
   Runtime* r = Runtime::Current();
   r->SetInstructionSet(kRuntimeISA);
   ArtMethod* save_method = r->CreateCalleeSaveMethod();
-  r->SetCalleeSaveMethod(save_method, Runtime::kSaveAll);
+  r->SetCalleeSaveMethod(save_method, Runtime::kSaveAllCalleeSaves);
   QuickMethodFrameInfo frame_info = r->GetRuntimeMethodFrameInfo(save_method);
 
   ASSERT_EQ(kStackAlignment, 16U);
@@ -218,7 +219,7 @@ TEST_F(ExceptionTest, StackTraceElement) {
   ASSERT_TRUE(internal != nullptr);
   jobjectArray ste_array = Thread::InternalStackTraceToStackTraceElementArray(soa, internal);
   ASSERT_TRUE(ste_array != nullptr);
-  auto* trace_array = soa.Decode<mirror::ObjectArray<mirror::StackTraceElement>*>(ste_array);
+  auto trace_array = soa.Decode<mirror::ObjectArray<mirror::StackTraceElement>>(ste_array);
 
   ASSERT_TRUE(trace_array != nullptr);
   ASSERT_TRUE(trace_array->Get(0) != nullptr);

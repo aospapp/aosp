@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <libgen.h>
+
 #include <memory>
 
 #include <android-base/file.h>
@@ -33,7 +35,7 @@
 
 static std::string testdata_dir;
 
-#if defined(IN_CTS_TEST)
+#if defined(__ANDROID__)
 static const std::string testdata_section = ".testzipdata";
 
 static bool ExtractTestDataFromElfSection() {
@@ -42,8 +44,10 @@ static bool ExtractTestDataFromElfSection() {
     return false;
   }
   std::string content;
-  if (!ReadSectionFromElfFile("/proc/self/exe", testdata_section, &content)) {
-    LOG(ERROR) << "failed to read section " << testdata_section;
+  ElfStatus result = ReadSectionFromElfFile("/proc/self/exe", testdata_section, &content);
+  if (result != ElfStatus::NO_ERROR) {
+    LOG(ERROR) << "failed to read section " << testdata_section
+               << ": " << result;
     return false;
   }
   TemporaryFile tmp_file;
@@ -95,49 +99,72 @@ static bool ExtractTestDataFromElfSection() {
   return true;
 }
 
-#if defined(__ANDROID__)
-class SavedPerfHardenProperty {
+class ScopedEnablingPerf {
  public:
-  SavedPerfHardenProperty() {
+  ScopedEnablingPerf() {
+    memset(prop_value_, '\0', sizeof(prop_value_));
     __system_property_get("security.perf_harden", prop_value_);
-    if (!android::base::ReadFileToString("/proc/sys/kernel/perf_event_paranoid",
-                                    &paranoid_value_)) {
-      PLOG(ERROR) << "failed to read /proc/sys/kernel/perf_event_paranoid";
-    }
+    SetProp("0");
   }
 
-  ~SavedPerfHardenProperty() {
+  ~ScopedEnablingPerf() {
     if (strlen(prop_value_) != 0) {
-      if (__system_property_set("security.perf_harden", prop_value_) != 0) {
-        PLOG(ERROR) << "failed to set security.perf_harden";
-        return;
-      }
-      // Sleep one second to wait for security.perf_harden changing
-      // /proc/sys/kernel/perf_event_paranoid.
-      sleep(1);
-      std::string paranoid_value;
-      if (!android::base::ReadFileToString("/proc/sys/kernel/perf_event_paranoid",
-                                           &paranoid_value)) {
-        PLOG(ERROR) << "failed to read /proc/sys/kernel/perf_event_paranoid";
-        return;
-      }
-      if (paranoid_value_ != paranoid_value) {
-        LOG(ERROR) << "failed to restore /proc/sys/kernel/perf_event_paranoid";
-      }
+      SetProp(prop_value_);
     }
   }
 
  private:
+  void SetProp(const char* value) {
+    __system_property_set("security.perf_harden", value);
+    // Sleep one second to wait for security.perf_harden changing
+    // /proc/sys/kernel/perf_event_paranoid.
+    sleep(1);
+  }
+
   char prop_value_[PROP_VALUE_MAX];
-  std::string paranoid_value_;
 };
+
+static bool TestInAppContext(int argc, char** argv) {
+  // Use run-as to move the test executable to the data directory of debuggable app
+  // 'com.android.simpleperf', and run it.
+  std::string exe_path;
+  if (!android::base::Readlink("/proc/self/exe", &exe_path)) {
+    PLOG(ERROR) << "readlink failed";
+    return false;
+  }
+  std::string copy_cmd = android::base::StringPrintf("run-as com.android.simpleperf cp %s .",
+                                                     exe_path.c_str());
+  if (system(copy_cmd.c_str()) == -1) {
+    PLOG(ERROR) << "system(" << copy_cmd << ") failed";
+    return false;
+  }
+  std::string arg_str;
+  arg_str += basename(argv[0]);
+  for (int i = 1; i < argc; ++i) {
+    arg_str.push_back(' ');
+    arg_str += argv[i];
+  }
+  std::string test_cmd = android::base::StringPrintf("run-as com.android.simpleperf ./%s",
+                                                     arg_str.c_str());
+  test_cmd += " --in-app-context";
+  if (system(test_cmd.c_str()) == -1) {
+    PLOG(ERROR) << "system(" << test_cmd << ") failed";
+    return false;
+  }
+  return true;
+}
+
 #endif  // defined(__ANDROID__)
-#endif  // defined(IN_CTS_TEST)
 
 int main(int argc, char** argv) {
-  InitLogging(argv, android::base::StderrLogger);
-  testing::InitGoogleTest(&argc, argv);
+  android::base::InitLogging(argv, android::base::StderrLogger);
   android::base::LogSeverity log_severity = android::base::WARNING;
+  bool need_app_context __attribute__((unused)) = false;
+  bool in_app_context __attribute__((unused)) = false;
+
+#if defined(RUN_IN_APP_CONTEXT)
+  need_app_context = true;
+#endif
 
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "-t") == 0 && i + 1 < argc) {
@@ -154,28 +181,41 @@ int main(int argc, char** argv) {
         LOG(ERROR) << "Missing argument for --log option.\n";
         return 1;
       }
+    } else if (strcmp(argv[i], "--in-app-context") == 0) {
+      in_app_context = true;
     }
   }
   android::base::ScopedLogSeverity severity(log_severity);
 
-#if defined(IN_CTS_TEST)
+#if defined(__ANDROID__)
+  std::unique_ptr<ScopedEnablingPerf> scoped_enabling_perf;
+  if (!in_app_context) {
+    // A cts test PerfEventParanoidTest.java is testing if
+    // /proc/sys/kernel/perf_event_paranoid is 3, so restore perf_harden
+    // value after current test to not break that test.
+    scoped_enabling_perf.reset(new ScopedEnablingPerf);
+  }
+
+  if (need_app_context && !in_app_context) {
+    return TestInAppContext(argc, argv) ? 0 : 1;
+  }
+
   std::unique_ptr<TemporaryDir> tmp_dir;
   if (!::testing::GTEST_FLAG(list_tests) && testdata_dir.empty()) {
-    tmp_dir.reset(new TemporaryDir);
-    testdata_dir = std::string(tmp_dir->path) + "/";
-    if (!ExtractTestDataFromElfSection()) {
-      LOG(ERROR) << "failed to extract test data from elf section";
-      return 1;
+    testdata_dir = std::string(dirname(argv[0])) + "/testdata";
+    if (!IsDir(testdata_dir)) {
+      tmp_dir.reset(new TemporaryDir);
+      testdata_dir = std::string(tmp_dir->path) + "/";
+      if (!ExtractTestDataFromElfSection()) {
+        LOG(ERROR) << "failed to extract test data from elf section";
+        return 1;
+      }
     }
   }
 
-#if defined(__ANDROID__)
-  // A cts test PerfEventParanoidTest.java is testing if
-  // /proc/sys/kernel/perf_event_paranoid is 3, so restore perf_harden
-  // value after current test to not break that test.
-  SavedPerfHardenProperty saved_perf_harden;
 #endif
-#endif
+
+  testing::InitGoogleTest(&argc, argv);
   if (!::testing::GTEST_FLAG(list_tests) && testdata_dir.empty()) {
     printf("Usage: %s -t <testdata_dir>\n", argv[0]);
     return 1;

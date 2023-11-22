@@ -68,7 +68,8 @@ public class StopDebuggee extends SyncDebuggee {
     public static NullPointerException exception = new NullPointerException(); 
     
     static Object waitForStart = new Object();
-    
+
+    @Override
     public void run() {
         logWriter.println("StopDebuggee: started");
         DebuggeeThread thrd = new DebuggeeThread(TESTED_THREAD,
@@ -93,7 +94,7 @@ public class StopDebuggee extends SyncDebuggee {
         logWriter.println("StopDebuggee: finishing...");
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -105,6 +106,7 @@ public class StopDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
             logWriter.println(getName() +  ": started");
             synchronized(waitForStart){

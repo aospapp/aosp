@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,7 +31,7 @@ import java.security.CodeSigner;
 import java.util.*;
 import java.util.jar.*;
 
-import sun.misc.BASE64Decoder;
+import java.util.Base64;
 
 import sun.security.jca.Providers;
 
@@ -63,7 +63,6 @@ public class ManifestEntryVerifier {
     /** the manifest hashes for the digests in use */
     ArrayList<byte[]> manifestHashes;
 
-    private BASE64Decoder decoder = null;
     private String name = null;
     private Manifest man;
 
@@ -81,7 +80,6 @@ public class ManifestEntryVerifier {
         createdDigests = new HashMap<String, MessageDigest>(11);
         digests = new ArrayList<MessageDigest>();
         manifestHashes = new ArrayList<byte[]>();
-        decoder = new BASE64Decoder();
         this.man = man;
     }
 
@@ -147,7 +145,7 @@ public class ManifestEntryVerifier {
                     digest.reset();
                     digests.add(digest);
                     manifestHashes.add(
-                                decoder.decodeBuffer((String)se.getValue()));
+                                Base64.getMimeDecoder().decode((String)se.getValue()));
                 }
             }
         }

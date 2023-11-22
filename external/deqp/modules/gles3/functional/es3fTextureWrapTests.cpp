@@ -54,6 +54,7 @@ using std::string;
 using tcu::Sampler;
 using namespace glu;
 using namespace gls::TextureTestUtil;
+using namespace glu::TextureTestUtil;
 
 //! Checks whether any ASTC version (LDR, HDR, full) is supported.
 static inline bool isASTCSupported (const glu::ContextInfo& contextInfo)
@@ -389,7 +390,7 @@ void TextureWrapTests::init (void)
 	};
 
 #define FOR_EACH(ITERATOR, ARRAY, BODY)	\
-	for (int ITERATOR = 0; ITERATOR < DE_LENGTH_OF_ARRAY(ARRAY); ITERATOR++)	\
+	for (int (ITERATOR) = 0; (ITERATOR) < DE_LENGTH_OF_ARRAY(ARRAY); (ITERATOR)++)	\
 		BODY
 
 	// RGBA8 cases.

@@ -1,3 +1,4 @@
+// CHECKSTYLE:OFF Generated code
 /* This file is auto-generated from BrowseTestFragment.java.  DO NOT MODIFY. */
 
 /*
@@ -15,6 +16,13 @@
  */
 package android.support.v17.leanback.app;
 
+import static android.support.v17.leanback.app.BrowseSupportFragmentTestActivity.EXTRA_HEADERS_STATE;
+import static android.support.v17.leanback.app.BrowseSupportFragmentTestActivity.EXTRA_LOAD_DATA_DELAY;
+import static android.support.v17.leanback.app.BrowseSupportFragmentTestActivity.EXTRA_NUM_ROWS;
+import static android.support.v17.leanback.app.BrowseSupportFragmentTestActivity.EXTRA_REPEAT_PER_ROW;
+import static android.support.v17.leanback.app.BrowseSupportFragmentTestActivity.EXTRA_SET_ADAPTER_AFTER_DATA_LOAD;
+import static android.support.v17.leanback.app.BrowseSupportFragmentTestActivity.EXTRA_TEST_ENTRANCE_TRANSITION;
+
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
@@ -30,9 +38,6 @@ import android.support.v17.leanback.widget.VerticalGridView;
 import android.util.Log;
 import android.view.View;
 
-/**
- * @hide from javadoc
- */
 public class BrowseTestSupportFragment extends BrowseSupportFragment {
     private static final String TAG = "BrowseTestSupportFragment";
 
@@ -40,11 +45,7 @@ public class BrowseTestSupportFragment extends BrowseSupportFragment {
     final static int DEFAULT_REPEAT_PER_ROW = 20;
     final static long DEFAULT_LOAD_DATA_DELAY = 2000;
     final static boolean DEFAULT_TEST_ENTRANCE_TRANSITION = true;
-
-    static int NUM_ROWS = DEFAULT_NUM_ROWS;
-    static int REPEAT_PER_ROW = DEFAULT_REPEAT_PER_ROW;
-    static long LOAD_DATA_DELAY = DEFAULT_LOAD_DATA_DELAY;
-    static boolean TEST_ENTRANCE_TRANSITION = DEFAULT_TEST_ENTRANCE_TRANSITION;
+    final static boolean DEFAULT_SET_ADAPTER_AFTER_DATA_LOAD = false;
 
     private ArrayObjectAdapter mRowsAdapter;
 
@@ -52,13 +53,35 @@ public class BrowseTestSupportFragment extends BrowseSupportFragment {
     // a card presenter for all rows using that presenter.
     final static StringPresenter sCardPresenter = new StringPresenter();
 
+    int NUM_ROWS;
+    int REPEAT_PER_ROW;
+    boolean mEntranceTransitionStarted;
+    boolean mEntranceTransitionEnded;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
+        Bundle arguments = getArguments();
+        NUM_ROWS = arguments.getInt(EXTRA_NUM_ROWS, BrowseTestSupportFragment.DEFAULT_NUM_ROWS);
+        REPEAT_PER_ROW = arguments.getInt(EXTRA_REPEAT_PER_ROW,
+                DEFAULT_REPEAT_PER_ROW);
+        long LOAD_DATA_DELAY = arguments.getLong(EXTRA_LOAD_DATA_DELAY,
+                DEFAULT_LOAD_DATA_DELAY);
+        boolean TEST_ENTRANCE_TRANSITION = arguments.getBoolean(
+                EXTRA_TEST_ENTRANCE_TRANSITION,
+                DEFAULT_TEST_ENTRANCE_TRANSITION);
+        final boolean SET_ADAPTER_AFTER_DATA_LOAD = arguments.getBoolean(
+                EXTRA_SET_ADAPTER_AFTER_DATA_LOAD,
+                DEFAULT_SET_ADAPTER_AFTER_DATA_LOAD);
+
+        if (!SET_ADAPTER_AFTER_DATA_LOAD) {
+            setupRows();
+        }
+
         setTitle("BrowseTestSupportFragment");
-        setHeadersState(HEADERS_ENABLED);
+        setHeadersState(arguments.getInt(EXTRA_HEADERS_STATE, HEADERS_ENABLED));
 
         setOnSearchClickedListener(new View.OnClickListener() {
             @Override
@@ -67,13 +90,14 @@ public class BrowseTestSupportFragment extends BrowseSupportFragment {
             }
         });
 
-        setupRows();
         setOnItemViewClickedListener(new ItemViewClickedListener());
         setOnItemViewSelectedListener(new OnItemViewSelectedListener() {
             @Override
             public void onItemSelected(Presenter.ViewHolder itemViewHolder, Object item,
                     RowPresenter.ViewHolder rowViewHolder, Row row) {
-                Log.i(TAG, "onItemSelected: " + item + " row " + row);
+                Log.i(TAG, "onItemSelected: " + item + " row " + row.getHeaderItem().getName()
+                        + " " + rowViewHolder
+                        + " " + ((ListRowPresenter.ViewHolder) rowViewHolder).getGridView());
             }
         });
         if (TEST_ENTRANCE_TRANSITION) {
@@ -86,6 +110,12 @@ public class BrowseTestSupportFragment extends BrowseSupportFragment {
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
+                if (getActivity() == null || getActivity().isDestroyed()) {
+                    return;
+                }
+                if (SET_ADAPTER_AFTER_DATA_LOAD) {
+                    setupRows();
+                }
                 loadData();
                 startEntranceTransition();
             }
@@ -100,23 +130,35 @@ public class BrowseTestSupportFragment extends BrowseSupportFragment {
         setAdapter(mRowsAdapter);
     }
 
+    @Override
+    protected void onEntranceTransitionStart() {
+        super.onEntranceTransitionStart();
+        mEntranceTransitionStarted = true;
+    }
+
+    @Override
+    protected void onEntranceTransitionEnd() {
+        super.onEntranceTransitionEnd();
+        mEntranceTransitionEnded = true;
+    }
+
     private void loadData() {
         for (int i = 0; i < NUM_ROWS; ++i) {
             ArrayObjectAdapter listRowAdapter = new ArrayObjectAdapter(sCardPresenter);
+            int index = 0;
             for (int j = 0; j < REPEAT_PER_ROW; ++j) {
-                listRowAdapter.add("Hello world");
-                listRowAdapter.add("This is a test");
-                listRowAdapter.add("Android TV");
-                listRowAdapter.add("Leanback");
-                listRowAdapter.add("Hello world");
-                listRowAdapter.add("Android TV");
-                listRowAdapter.add("Leanback");
-                listRowAdapter.add("GuidedStepFragment");
+                listRowAdapter.add("Hello world-" + (index++));
+                listRowAdapter.add("This is a test-" + (index++));
+                listRowAdapter.add("Android TV-" + (index++));
+                listRowAdapter.add("Leanback-" + (index++));
+                listRowAdapter.add("Hello world-" + (index++));
+                listRowAdapter.add("Android TV-" + (index++));
+                listRowAdapter.add("Leanback-" + (index++));
+                listRowAdapter.add("GuidedStepSupportFragment-" + (index++));
             }
             HeaderItem header = new HeaderItem(i, "Row " + i);
             mRowsAdapter.add(new ListRow(header, listRowAdapter));
         }
-
     }
 
     private final class ItemViewClickedListener implements OnItemViewClickedListener {

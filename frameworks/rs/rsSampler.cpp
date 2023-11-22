@@ -18,9 +18,8 @@
 #include "rsSampler.h"
 #include "rs.h"
 
-using namespace android;
-using namespace android::renderscript;
-
+namespace android {
+namespace renderscript {
 
 Sampler::Sampler(Context *rsc) : ObjectBase(rsc) {
     // Should not get called.
@@ -49,9 +48,10 @@ Sampler::~Sampler() {
 }
 
 void Sampler::preDestroy() const {
-    for (uint32_t ct = 0; ct < mRSC->mStateSampler.mAllSamplers.size(); ct++) {
-        if (mRSC->mStateSampler.mAllSamplers[ct] == this) {
-            mRSC->mStateSampler.mAllSamplers.removeAt(ct);
+    auto& allSamplers = mRSC->mStateSampler.mAllSamplers;
+    for (uint32_t ct = 0; ct < allSamplers.size(); ct++) {
+        if (allSamplers[ct] == this) {
+            allSamplers.erase(allSamplers.begin() + ct);
             break;
         }
     }
@@ -113,7 +113,7 @@ ObjectBaseRef<Sampler> Sampler::getSampler(Context *rsc,
 #endif
 
     ObjectBase::asyncLock();
-    rsc->mStateSampler.mAllSamplers.push(s);
+    rsc->mStateSampler.mAllSamplers.push_back(s);
     ObjectBase::asyncUnlock();
 
     return returnRef;
@@ -129,9 +129,6 @@ void Sampler::operator delete(void* ptr) {
 
 ////////////////////////////////
 
-namespace android {
-namespace renderscript {
-
 RsSampler rsi_SamplerCreate(Context * rsc,
                             RsSamplerValue magFilter,
                             RsSamplerValue minFilter,
@@ -145,4 +142,5 @@ RsSampler rsi_SamplerCreate(Context * rsc,
     return s.get();
 }
 
-}}
+} // namespace renderscript
+} // namespace android

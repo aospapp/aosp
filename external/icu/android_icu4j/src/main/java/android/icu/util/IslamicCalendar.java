@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 1996-2015, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -22,7 +24,7 @@ import android.icu.util.ULocale.Category;
  * is used as the civil calendar in most of the Arab world and the
  * liturgical calendar of the Islamic faith worldwide.  This calendar
  * is also known as the "Hijri" calendar, since it starts at the time
- * of Mohammed's emigration (or "hijra") to Medinah on Thursday, 
+ * of Mohammed's emigration (or "hijra") to Medinah on Thursday,
  * July 15, 622 AD (Julian).
  * <p>
  * The Islamic calendar is strictly lunar, and thus an Islamic year of twelve
@@ -45,8 +47,8 @@ import android.icu.util.ULocale.Category;
  * This is the default behavior of a newly-created <code>IslamicCalendar</code>
  * object.
  * <p>
- * The Islamic <em>religious</em> calendar and Saudi Arabia's <em>Umm al-Qura</em> 
- * calendar, however, are based on the <em>observation</em> of the crescent moon.  
+ * The Islamic <em>religious</em> calendar and Saudi Arabia's <em>Umm al-Qura</em>
+ * calendar, however, are based on the <em>observation</em> of the crescent moon.
  * It is thus affected by the position at which the
  * observations are made, seasonal variations in the time of sunset, the
  * eccentricities of the moon's orbit, and even the weather at the observation
@@ -62,16 +64,16 @@ import android.icu.util.ULocale.Category;
  * calculations.  At present, the approximations used in this class are fairly
  * simplistic; they will be improved in later versions of the code.
  * <p>
- * Like the Islamic religious calendar, <em>Umm al-Qura</em> is also based 
+ * Like the Islamic religious calendar, <em>Umm al-Qura</em> is also based
  * on the sighting method of the crescent moon but is standardized by Saudi Arabia.
- * <p>  
+ * <p>
  * The fixed-cycle <em>civil</em> calendar is used.
  * <p>
  * This class should not be subclassed.</p>
  * <p>
- * IslamicCalendar usually should be instantiated using 
+ * IslamicCalendar usually should be instantiated using
  * {@link android.icu.util.Calendar#getInstance(ULocale)} passing in a <code>ULocale</code>
- * with the tag <code>"@calendar=islamic"</code> or <code>"@calendar=islamic-civil"</code> 
+ * with the tag <code>"@calendar=islamic"</code> or <code>"@calendar=islamic-civil"</code>
  * or <code>"@calendar=islamic-umalqura"</code>.</p>
  *
  * @see android.icu.util.GregorianCalendar
@@ -87,64 +89,64 @@ public class IslamicCalendar extends Calendar {
     //-------------------------------------------------------------------------
     // Constants...
     //-------------------------------------------------------------------------
-    
+
     /**
-     * Constant for Muharram, the 1st month of the Islamic year. 
+     * Constant for Muharram, the 1st month of the Islamic year.
      */
     public static final int MUHARRAM = 0;
 
     /**
-     * Constant for Safar, the 2nd month of the Islamic year. 
+     * Constant for Safar, the 2nd month of the Islamic year.
      */
     public static final int SAFAR = 1;
 
     /**
-     * Constant for Rabi' al-awwal (or Rabi' I), the 3rd month of the Islamic year. 
+     * Constant for Rabi' al-awwal (or Rabi' I), the 3rd month of the Islamic year.
      */
     public static final int RABI_1 = 2;
 
     /**
-     * Constant for Rabi' al-thani or (Rabi' II), the 4th month of the Islamic year. 
+     * Constant for Rabi' al-thani or (Rabi' II), the 4th month of the Islamic year.
      */
     public static final int RABI_2 = 3;
 
     /**
-     * Constant for Jumada al-awwal or (Jumada I), the 5th month of the Islamic year. 
+     * Constant for Jumada al-awwal or (Jumada I), the 5th month of the Islamic year.
      */
     public static final int JUMADA_1 = 4;
 
     /**
-     * Constant for Jumada al-thani or (Jumada II), the 6th month of the Islamic year. 
+     * Constant for Jumada al-thani or (Jumada II), the 6th month of the Islamic year.
      */
     public static final int JUMADA_2 = 5;
 
     /**
-     * Constant for Rajab, the 7th month of the Islamic year. 
+     * Constant for Rajab, the 7th month of the Islamic year.
      */
     public static final int RAJAB = 6;
 
     /**
-     * Constant for Sha'ban, the 8th month of the Islamic year. 
+     * Constant for Sha'ban, the 8th month of the Islamic year.
      */
     public static final int SHABAN = 7;
 
     /**
-     * Constant for Ramadan, the 9th month of the Islamic year. 
+     * Constant for Ramadan, the 9th month of the Islamic year.
      */
     public static final int RAMADAN = 8;
 
     /**
-     * Constant for Shawwal, the 10th month of the Islamic year. 
+     * Constant for Shawwal, the 10th month of the Islamic year.
      */
     public static final int SHAWWAL = 9;
 
     /**
-     * Constant for Dhu al-Qi'dah, the 11th month of the Islamic year. 
+     * Constant for Dhu al-Qi'dah, the 11th month of the Islamic year.
      */
     public static final int DHU_AL_QIDAH = 10;
 
     /**
-     * Constant for Dhu al-Hijjah, the 12th month of the Islamic year. 
+     * Constant for Dhu al-Hijjah, the 12th month of the Islamic year.
      */
     public static final int DHU_AL_HIJJAH = 11;
 
@@ -297,12 +299,13 @@ public class IslamicCalendar extends Calendar {
      *
      * @param beCivil   <code>true</code> to use the civil calendar,
      *                  <code>false</code> to use the astronomical calendar.
+     * @apiNote <strong>Discouraged:</strong> ICU 57 use setCalculationType(CalculationType) instead
      * @hide unsupported on Android
      */
     public void setCivil(boolean beCivil)
     {
         civil = beCivil;
-        
+
         if (beCivil && cType != CalculationType.ISLAMIC_CIVIL) {
             // The fields of the calendar will become invalid, because the calendar
             // rules are different
@@ -319,13 +322,13 @@ public class IslamicCalendar extends Calendar {
             setTimeInMillis(m);
         }
     }
-    
+
     /**
      * Returns <code>true</code> if this object is using the fixed-cycle civil
      * calendar, or <code>false</code> if using the religious, astronomical
      * calendar.
+     * @apiNote <strong>Discouraged:</strong> ICU 57 use getCalculationType() instead
      * @hide unsupported on Android
-     * 
      */
     public boolean isCivil() {
         if(cType == CalculationType.ISLAMIC_CIVIL) {
@@ -333,7 +336,7 @@ public class IslamicCalendar extends Calendar {
         }
         return false;
     }
-    
+
     //-------------------------------------------------------------------------
     // Minimum / Maximum access functions
     //-------------------------------------------------------------------------
@@ -367,9 +370,9 @@ public class IslamicCalendar extends Calendar {
         {/*                                   */}, // JULIAN_DAY
         {/*                                   */}, // MILLISECONDS_IN_DAY
     };
-    
+
     /*
-     * bit map array where a bit turned on represents a month with 30 days. 
+     * bit map array where a bit turned on represents a month with 30 days.
      */
     private static final int[] UMALQURA_MONTHLENGTH = {
     //* 1300 -1302 */ "1010 1010 1010", "1101 0101 0100", "1110 1100 1001",
@@ -480,6 +483,7 @@ public class IslamicCalendar extends Calendar {
 
     /**
      */
+    @Override
     protected int handleGetLimit(int field, int limitType) {
         return LIMITS[field][limitType];
     }
@@ -548,7 +552,7 @@ public class IslamicCalendar extends Calendar {
     {
         return (14 + 11 * year) % 30 < 11;
     }
-    
+
     /**
      * Return the day # on which the given year starts.  Days are counted
      * from the Hijri epoch, origin 0.
@@ -564,7 +568,7 @@ public class IslamicCalendar extends Calendar {
         } else if(cType == CalculationType.ISLAMIC_UMALQURA){
             year -= UMALQURA_YEAR_START;
             // rounded least-squares fit of the dates previously calculated from UMALQURA_MONTHLENGTH iteration
-            int yrStartLinearEstimate = (int)((354.36720 * (double)year) + 460322.05 + 0.5);
+            int yrStartLinearEstimate = (int)((354.36720 * year) + 460322.05 + 0.5);
             // need a slight correction to some
             ys = yrStartLinearEstimate + UMALQURA_YEAR_START_ESTIMATE_FIX[year];
         }
@@ -600,7 +604,7 @@ public class IslamicCalendar extends Calendar {
 
         return ms;
     }
-    
+
     /**
      * Find the day number on which a particular month of the true/lunar
      * Islamic calendar starts.
@@ -616,7 +620,7 @@ public class IslamicCalendar extends Calendar {
         if (start == CalendarCache.EMPTY)
         {
             // Make a guess at when the month started, using the average length
-            long origin = HIJRA_MILLIS 
+            long origin = HIJRA_MILLIS
                         + (long)Math.floor(month * CalendarAstronomer.SYNODIC_MONTH) * ONE_DAY;
 
             double age = moonAge(origin);
@@ -637,7 +641,7 @@ public class IslamicCalendar extends Calendar {
             }
 
             start = (origin - HIJRA_MILLIS) / ONE_DAY + 1;
-            
+
             cache.put(month, start);
         }
         return start;
@@ -646,7 +650,7 @@ public class IslamicCalendar extends Calendar {
     /**
      * Return the "age" of the moon at the given time; this is the difference
      * in ecliptic latitude between the moon and the sun.  This method simply
-     * calls CalendarAstronomer.moonAge, converts to degrees, 
+     * calls CalendarAstronomer.moonAge, converts to degrees,
      * and adjusts the resultto be in the range [-180, 180].
      *
      * @param time  The time at which the moon's age is desired,
@@ -655,7 +659,7 @@ public class IslamicCalendar extends Calendar {
     static final double moonAge(long time)
     {
         double age = 0;
-        
+
         synchronized(astro) {
             astro.setTime(time);
             age = astro.getMoonAge();
@@ -672,12 +676,12 @@ public class IslamicCalendar extends Calendar {
     //-------------------------------------------------------------------------
     // Internal data....
     //
-    
+
     // And an Astronomer object for the moon age calculations
     private static CalendarAstronomer astro = new CalendarAstronomer();
-    
+
     private static CalendarCache cache = new CalendarCache();
-    
+
     /**
      * <code>true</code> if this object uses the fixed-cycle Islamic civil calendar,
      * and <code>false</code> if it approximates the true religious calendar using
@@ -686,10 +690,10 @@ public class IslamicCalendar extends Calendar {
      * @serial
      */
     private boolean civil = true;
-    
+
     /**
      * determines the type of calculation to use for this instance
-     * 
+     *
      * @serial
      */
     private CalculationType cType = CalculationType.ISLAMIC_CIVIL;
@@ -704,27 +708,32 @@ public class IslamicCalendar extends Calendar {
      * @param extendedYear  The hijri year
      * @param month The hijri month, 0-based
      */
+    @Override
     protected int handleGetMonthLength(int extendedYear, int month) {
 
-        int length = 0;
-        
+        int length;
+
         if (cType == CalculationType.ISLAMIC_CIVIL
                 || cType == CalculationType.ISLAMIC_TBLA
                 || (cType == CalculationType.ISLAMIC_UMALQURA && (extendedYear < UMALQURA_YEAR_START  || extendedYear > UMALQURA_YEAR_END) )) {
             length = 29 + (month+1) % 2;
             if (month == DHU_AL_HIJJAH && civilLeapYear(extendedYear)) {
                 length++;
-            } 
-        } else if (cType == CalculationType.ISLAMIC) {
+            }
+        }
+        else if (cType == CalculationType.ISLAMIC) {
             month = 12*(extendedYear-1) + month;
             length = (int)( trueMonthStart(month+1) - trueMonthStart(month) );
-        }else if (cType == CalculationType.ISLAMIC_UMALQURA){            
+        }
+        else { // cType == CalculationType.ISLAMIC_UMALQURA should be true at this point and not null.
             int idx = (extendedYear - UMALQURA_YEAR_START);     // calculate year offset into bit map array
-            int mask = (0x01 << (11 - month));                  // set mask for bit corresponding to month            
-            if((UMALQURA_MONTHLENGTH[idx] & mask) == 0 )    
+            int mask = (0x01 << (11 - month));                  // set mask for bit corresponding to month
+            if((UMALQURA_MONTHLENGTH[idx] & mask) == 0 ) {
                 length = 29;
-            else
+            }
+            else {
                 length = 30;
+            }
         }
         return length;
     }
@@ -732,8 +741,9 @@ public class IslamicCalendar extends Calendar {
     /**
      * Return the number of days in the given Islamic year
      */
+    @Override
     protected int handleGetYearLength(int extendedYear) {
-        int length =0; 
+        int length =0;
         if (cType == CalculationType.ISLAMIC_CIVIL
                 || cType == CalculationType.ISLAMIC_TBLA
                 || (cType == CalculationType.ISLAMIC_UMALQURA && (extendedYear < UMALQURA_YEAR_START  || extendedYear > UMALQURA_YEAR_END) )) {
@@ -748,7 +758,7 @@ public class IslamicCalendar extends Calendar {
 
         return length;
     }
-    
+
     //-------------------------------------------------------------------------
     // Functions for converting from field values to milliseconds....
     //-------------------------------------------------------------------------
@@ -760,9 +770,10 @@ public class IslamicCalendar extends Calendar {
     // Hence the -1
     /**
      */
+    @Override
     protected int handleComputeMonthStart(int eyear, int month, boolean useMonth) {
         return (int)(monthStart(eyear, month) + ((cType ==  CalculationType.ISLAMIC_TBLA)? ASTRONOMICAL_EPOC: CIVIL_EPOC) - 1);
-    }    
+    }
 
     //-------------------------------------------------------------------------
     // Functions for converting from milliseconds to field values
@@ -770,6 +781,7 @@ public class IslamicCalendar extends Calendar {
 
     /**
      */
+    @Override
     protected int handleGetExtendedYear() {
         int year;
         if (newerField(EXTENDED_YEAR, YEAR) == EXTENDED_YEAR) {
@@ -790,11 +802,12 @@ public class IslamicCalendar extends Calendar {
      * <li>DAY_OF_MONTH
      * <li>DAY_OF_YEAR
      * <li>EXTENDED_YEAR</ul>
-     * 
+     *
      * The DAY_OF_WEEK and DOW_LOCAL fields are already set when this
      * method is called. The getGregorianXxx() methods return Gregorian
      * calendar equivalents for the given Julian day.
      */
+    @Override
     protected void handleComputeFields(int julianDay) {
         int year =0, month=0, dayOfMonth=0, dayOfYear=0;
         long monthStart;
@@ -838,14 +851,14 @@ public class IslamicCalendar extends Calendar {
             } else {
                 int y =UMALQURA_YEAR_START-1, m =0;
                 long d = 1;
-                while(d > 0) { 
-                    y++; 
+                while(d > 0) {
+                    y++;
                     d = days - yearStart(y) +1;
                     if(d == handleGetYearLength(y)) {
                         m=11;
                         break;
                     } else if(d < handleGetYearLength(y) ) {
-                        int monthLen = handleGetMonthLength(y, m); 
+                        int monthLen = handleGetMonthLength(y, m);
                         m=0;
                         while(d > monthLen) {
                             d -= monthLen;
@@ -860,21 +873,21 @@ public class IslamicCalendar extends Calendar {
             }
         }
 
-       
+
         dayOfMonth = (int)(days - monthStart(year, month)) + 1;
 
         // Now figure out the day of the year.
         dayOfYear = (int)(days - monthStart(year, 0) + 1);
-        
+
 
         internalSet(ERA, 0);
         internalSet(YEAR, year);
         internalSet(EXTENDED_YEAR, year);
         internalSet(MONTH, month);
         internalSet(DAY_OF_MONTH, dayOfMonth);
-        internalSet(DAY_OF_YEAR, dayOfYear);       
-    }    
-    
+        internalSet(DAY_OF_YEAR, dayOfYear);
+    }
+
     /**
      *  enumeration of available calendar calculation types
      */
@@ -908,15 +921,15 @@ public class IslamicCalendar extends Calendar {
             return bcpType;
         }
     };
-    
+
     /**
      * sets the calculation type for this calendar.
      */
     public void setCalculationType(CalculationType type) {
         cType = type;
-        
+
         // ensure civil property is up-to-date
-        if(cType == CalculationType.ISLAMIC_CIVIL) 
+        if(cType == CalculationType.ISLAMIC_CIVIL)
             civil = true;
         else
             civil = false;
@@ -934,22 +947,23 @@ public class IslamicCalendar extends Calendar {
      */
     private void setCalcTypeForLocale(ULocale locale) {
         String localeCalType = CalendarUtil.getCalendarType(locale);
-        if("islamic-civil".equals(localeCalType)) 
+        if("islamic-civil".equals(localeCalType))
             setCalculationType(CalculationType.ISLAMIC_CIVIL);
-        else if("islamic-umalqura".equals(localeCalType)) 
+        else if("islamic-umalqura".equals(localeCalType))
             setCalculationType(CalculationType.ISLAMIC_UMALQURA);
-        else if("islamic-tbla".equals(localeCalType)) 
+        else if("islamic-tbla".equals(localeCalType))
             setCalculationType(CalculationType.ISLAMIC_TBLA);
         else if(localeCalType.startsWith("islamic"))
-            setCalculationType(CalculationType.ISLAMIC);       // needs to be last so it's always the default if it's islamic-something-unhandled  
-        else 
+            setCalculationType(CalculationType.ISLAMIC);       // needs to be last so it's always the default if it's islamic-something-unhandled
+        else
             setCalculationType(CalculationType.ISLAMIC_CIVIL); // default for any non-islamic calendar locale
     }
 
-    
+
     /**
      * {@inheritDoc}
      */
+    @Override
     public String getType() {
         if (cType == null) {
             // TODO: getType() is called during Islamic calendar
@@ -960,20 +974,19 @@ public class IslamicCalendar extends Calendar {
         return cType.bcpType();
     }
 
-    private void readObject(ObjectInputStream in) throws IOException,ClassNotFoundException 
-    {
-            in.defaultReadObject();
-            
-            if(cType != CalculationType.ISLAMIC_CIVIL)
-                return;     // we've serialized something new, nothing else to do
-            
-            // new calculation type is civil (default) but civil is false. This will only happen
-            // when deserializing a non-civil calender so need to adjust new CalculationType to match 
-            // serialized form
-            if(!civil)
-                cType = CalculationType.ISLAMIC;  
+    private void readObject(ObjectInputStream in) throws IOException,ClassNotFoundException {
+        in.defaultReadObject();
+
+        if (cType == null) {
+            // The serialized data was created by an ICU version before CalculationType
+            // was introduced.
+            cType = civil ? CalculationType.ISLAMIC_CIVIL : CalculationType.ISLAMIC;
+        } else {
+            // Make sure 'civil' is consistent with CalculationType
+            civil = (cType == CalculationType.ISLAMIC_CIVIL);
+        }
     }
-    
+
     /*
     private static CalendarFactory factory;
     public static CalendarFactory factory() {

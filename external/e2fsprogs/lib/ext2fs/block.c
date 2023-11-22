@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -342,6 +343,13 @@ errcode_t ext2fs_block_iterate3(ext2_filsys fs,
 	ctx.errcode = ext2fs_read_inode(fs, ino, &inode);
 	if (ctx.errcode)
 		return ctx.errcode;
+
+	/*
+	 * An inode with inline data has no blocks over which to
+	 * iterate, so return an error code indicating this fact.
+	 */
+	if (inode.i_flags & EXT4_INLINE_DATA_FL)
+		return EXT2_ET_INLINE_DATA_CANT_ITERATE;
 
 	/*
 	 * Check to see if we need to limit large files

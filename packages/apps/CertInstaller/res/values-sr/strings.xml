@@ -59,7 +59,7 @@
     <string name="wifi_installing_label" msgid="8387393993627129025">"Инсталира се"</string>
     <string name="wifi_cancel_label" msgid="1328748037608392134">"Откажи"</string>
     <string name="wifi_dismiss_label" msgid="1916684434873972698">"Одбаци"</string>
-    <string name="wifi_no_config" msgid="1835743123288916755">"Ниједно"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"Ништа"</string>
     <string name="wifi_config_text" msgid="8259587306773310314">"Назив: %1$s\nПуно име домена: %2$s\nКонзорцијуми за роминг: %3$s\nИменована област: %4$s\nМетод потврде аутентичности: EAP-%5$s\n"</string>
     <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Корисничко име: %s\n"</string>
     <string name="wifi_tls_config_text" msgid="9062328536640168510">"Сертификат клијента:\n%1$s\nКључ: %2$s\n"</string>

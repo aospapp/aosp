@@ -18,13 +18,10 @@ package com.android.tv.settings.dialog.old;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
-import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
@@ -40,9 +37,6 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.widget.BitmapDownloader;
-import com.android.tv.settings.widget.BitmapDownloader.BitmapCallback;
-import com.android.tv.settings.widget.BitmapWorkerOptions;
 import com.android.tv.settings.widget.ScrollAdapter;
 import com.android.tv.settings.widget.ScrollAdapterBase;
 import com.android.tv.settings.widget.ScrollAdapterView;
@@ -317,35 +311,8 @@ public class ActionAdapter extends BaseAdapter implements ScrollAdapter,
             indicatorView.setImageDrawable(indicator);
             indicatorView.setVisibility(View.VISIBLE);
         } else {
-            Uri iconUri = action.getIconUri();
-            if (iconUri != null) {
-                indicatorView.setVisibility(View.INVISIBLE);
-
-                BitmapDownloader.getInstance(mContext).getBitmap(new BitmapWorkerOptions.Builder(
-                        mContext).resource(iconUri)
-                        .width(indicatorView.getLayoutParams().width).build(),
-                        new BitmapCallback() {
-                            @Override
-                            public void onBitmapRetrieved(Bitmap bitmap) {
-                                if (bitmap != null) {
-                                    indicatorView.setVisibility(View.VISIBLE);
-                                    indicatorView.setImageBitmap(bitmap);
-                                    fadeIn(indicatorView);
-                                }
-                            }
-                        });
-            } else {
-                indicatorView.setVisibility(View.GONE);
-            }
+            indicatorView.setVisibility(View.GONE);
         }
-    }
-
-    private void fadeIn(View v) {
-        v.setAlpha(0f);
-        ObjectAnimator alphaAnimator = ObjectAnimator.ofFloat(v, "alpha", 1f);
-        alphaAnimator.setDuration(mContext.getResources().getInteger(
-                android.R.integer.config_mediumAnimTime));
-        alphaAnimator.start();
     }
 
     private void setAlpha(View view, boolean shouldAnimate, float alpha) {

@@ -30,7 +30,11 @@
 #define IIO_MAX_BUFF_SIZE 4096
 #define INT32_CHAR_LEN 12
 
-#define IIO_MAX_DEVICE_NAME_LENGTH (strlen(IIO_DIR) + IIO_MAX_NAME_LENGTH)
+/*
+ * Use sizeof(...) - 1 instead of strlen because clang FORTIFY makes strlen
+ * non-constant.
+ */
+#define IIO_MAX_DEVICE_NAME_LENGTH (sizeof(IIO_DIR) - 1 + IIO_MAX_NAME_LENGTH)
 
 #define CROS_EC_MAX_SAMPLING_PERIOD ((1 << 16) - 2)
 

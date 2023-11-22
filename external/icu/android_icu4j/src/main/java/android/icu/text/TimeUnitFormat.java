@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  **************************************************************************
  * Copyright (C) 2008-2014, Google, International Business Machines
@@ -21,6 +23,7 @@ import java.util.TreeMap;
 
 import android.icu.impl.ICUData;
 import android.icu.impl.ICUResourceBundle;
+import android.icu.impl.UResource;
 import android.icu.util.Measure;
 import android.icu.util.TimeUnit;
 import android.icu.util.TimeUnitAmount;
@@ -33,7 +36,7 @@ import android.icu.util.UResourceBundle;
  * Format or parse a TimeUnitAmount, using plural rules for the units where available.
  *
  * <P>
- * Code Sample: 
+ * Code Sample:
  * <pre>
  *   // create a time unit instance.
  *   // only SECOND, MINUTE, HOUR, DAY, WEEK, MONTH, and YEAR are supported
@@ -50,7 +53,7 @@ import android.icu.util.UResourceBundle;
  *   try {
  *       // parse a string into time unit amount
  *       TimeUnitAmount result = (TimeUnitAmount) format.parseObject(formatted);
- *       // result should equal to source 
+ *       // result should equal to source
  *   } catch (ParseException e) {
  *   }
  * </pre>
@@ -66,41 +69,41 @@ import android.icu.util.UResourceBundle;
 public class TimeUnitFormat extends MeasureFormat {
 
     /**
-     * Constant for full name style format. 
+     * Constant for full name style format.
      * For example, the full name for "hour" in English is "hour" or "hours".
      * @deprecated ICU 53 see {@link MeasureFormat.FormatWidth}
      */
     @Deprecated
     public static final int FULL_NAME = 0;
     /**
-     * Constant for abbreviated name style format. 
+     * Constant for abbreviated name style format.
      * For example, the abbreviated name for "hour" in English is "hr" or "hrs".
      * @deprecated ICU 53 see {@link MeasureFormat.FormatWidth}
      */
     @Deprecated
     public static final int ABBREVIATED_NAME = 1;
-    
+
     private static final int TOTAL_STYLES = 2;
 
     private static final long serialVersionUID = -3707773153184971529L;
-  
+
     // These fields are supposed to be the same as the fields in mf. They
     // are here for serialization backward compatibility and to support parsing.
     private NumberFormat format;
     private ULocale locale;
     private int style;
-     
+
     // We use this field in lieu of the super class because the super class
     // is immutable while this class is mutable. The contents of the super class
     // is an empty shell. Every public method of the super class is overridden to
     // delegate to this field. Each time this object mutates, it replaces this field with
     // a new immutable instance.
     private transient MeasureFormat mf;
-    
+
     private transient Map<TimeUnit, Map<String, Object[]>> timeUnitToCountToPatterns;
     private transient PluralRules pluralRules;
     private transient boolean isReady;
-    
+
     private static final String DEFAULT_PATTERN_FOR_SECOND = "{0} s";
     private static final String DEFAULT_PATTERN_FOR_MINUTE = "{0} min";
     private static final String DEFAULT_PATTERN_FOR_HOUR = "{0} h";
@@ -110,7 +113,7 @@ public class TimeUnitFormat extends MeasureFormat {
     private static final String DEFAULT_PATTERN_FOR_YEAR = "{0} y";
 
     /**
-     * Create empty format using full name style, for example, "hours". 
+     * Create empty format using full name style, for example, "hours".
      * Use setLocale and/or setFormat to modify.
      * @deprecated ICU 53 use {@link MeasureFormat} instead.
      */
@@ -157,13 +160,13 @@ public class TimeUnitFormat extends MeasureFormat {
         mf = MeasureFormat.getInstance(
                 locale, style == FULL_NAME ? FormatWidth.WIDE : FormatWidth.SHORT);
         this.style = style;
-        
+
         // Needed for getLocale(ULocale.VALID_LOCALE)
         setLocale(locale, locale);
         this.locale = locale;
         isReady = false;
     }
-    
+
     private TimeUnitFormat(ULocale locale, int style, NumberFormat numberFormat) {
         this(locale, style);
         if (numberFormat != null) {
@@ -190,7 +193,7 @@ public class TimeUnitFormat extends MeasureFormat {
     public TimeUnitFormat setLocale(ULocale locale) {
         if (locale != this.locale){
             mf = mf.withLocale(locale);
-            
+
             // Needed for getLocale(ULocale.VALID_LOCALE)
             setLocale(locale, locale);
             this.locale = locale;
@@ -198,7 +201,7 @@ public class TimeUnitFormat extends MeasureFormat {
         }
         return this;
     }
-    
+
     /**
      * Set the locale used for formatting or parsing.
      * @param locale   locale of this time unit formatter.
@@ -209,7 +212,7 @@ public class TimeUnitFormat extends MeasureFormat {
     public TimeUnitFormat setLocale(Locale locale) {
         return setLocale(ULocale.forLocale(locale));
     }
-    
+
     /**
      * Set the format used for formatting or parsing. Passing null is equivalent to passing
      * {@link NumberFormat#getNumberInstance(ULocale)}.
@@ -248,7 +251,7 @@ public class TimeUnitFormat extends MeasureFormat {
             FieldPosition pos) {
         return mf.format(obj, toAppendTo, pos);
     }
-    
+
     /**
      * Parse a TimeUnitAmount.
      * @see java.text.Format#parseObject(java.lang.String, java.text.ParsePosition)
@@ -341,7 +344,7 @@ public class TimeUnitFormat extends MeasureFormat {
             return new TimeUnitAmount(resultNumber, resultTimeUnit);
         }
     }
-    
+
     private void setup() {
         if (locale == null) {
             if (format != null) {
@@ -362,18 +365,37 @@ public class TimeUnitFormat extends MeasureFormat {
         setup("unitsShort/duration", timeUnitToCountToPatterns, ABBREVIATED_NAME, pluralKeywords);
         isReady = true;
     }
-    
-    private void setup(String resourceKey, Map<TimeUnit, Map<String, Object[]>> timeUnitToCountToPatterns, int style,
-            Set<String> pluralKeywords) {
-        // fill timeUnitToCountToPatterns from resource file
-        try {
-            ICUResourceBundle resource = (ICUResourceBundle) UResourceBundle.getBundleInstance(
-                    ICUData.ICU_UNIT_BASE_NAME, locale);
-            ICUResourceBundle unitsRes = resource.getWithFallback(resourceKey);
-            int size = unitsRes.getSize();
-            for (int index = 0; index < size; ++index) {
-                String timeUnitName = unitsRes.get(index).getKey();
+
+    private static final class TimeUnitFormatSetupSink extends UResource.Sink {
+        Map<TimeUnit, Map<String, Object[]>> timeUnitToCountToPatterns;
+        int style;
+        Set<String> pluralKeywords;
+        ULocale locale;
+        boolean beenHere;
+
+        TimeUnitFormatSetupSink(Map<TimeUnit, Map<String, Object[]>> timeUnitToCountToPatterns,
+                int style, Set<String> pluralKeywords, ULocale locale) {
+            this.timeUnitToCountToPatterns = timeUnitToCountToPatterns;
+            this.style = style;
+            this.pluralKeywords = pluralKeywords;
+            this.locale = locale;
+            this.beenHere = false;
+        }
+
+        @Override
+        public void put(UResource.Key key, UResource.Value value, boolean noFallback) {
+            // Skip all put() calls except the first one -- discard all fallback data.
+            if (beenHere) {
+                return;
+            } else {
+                beenHere = true;
+            }
+            
+            UResource.Table units = value.getTable();
+            for (int i = 0; units.getKeyAndValue(i, key, value); ++i) {
+                String timeUnitName = key.toString();
                 TimeUnit timeUnit = null;
+
                 if (timeUnitName.equals("year")) {
                     timeUnit = TimeUnit.YEAR;
                 } else if (timeUnitName.equals("month")) {
@@ -391,19 +413,18 @@ public class TimeUnitFormat extends MeasureFormat {
                 } else {
                     continue;
                 }
-                ICUResourceBundle oneUnitRes = unitsRes.getWithFallback(timeUnitName);
-                int count = oneUnitRes.getSize();
+
                 Map<String, Object[]> countToPatterns = timeUnitToCountToPatterns.get(timeUnit);
                 if (countToPatterns == null) {
                     countToPatterns = new TreeMap<String, Object[]>();
                     timeUnitToCountToPatterns.put(timeUnit, countToPatterns);
                 }
-                for (int pluralIndex = 0; pluralIndex < count; ++pluralIndex) {
-                    String pluralCount = oneUnitRes.get(pluralIndex).getKey();
+
+                UResource.Table countsToPatternTable = value.getTable();
+                for (int j = 0; countsToPatternTable.getKeyAndValue(j, key, value); ++j) {
+                    String pluralCount = key.toString();
                     if (!pluralKeywords.contains(pluralCount))
                         continue;
-                    String pattern = oneUnitRes.get(pluralIndex).getString();
-                    final MessageFormat messageFormat = new MessageFormat(pattern, locale);
                     // save both full name and abbreviated name in one table
                     // is good space-wise, but it degrades performance,
                     // since it needs to check whether the needed space
@@ -413,9 +434,27 @@ public class TimeUnitFormat extends MeasureFormat {
                         pair = new Object[2];
                         countToPatterns.put(pluralCount, pair);
                     }
-                    pair[style] = messageFormat;
+                    if (pair[style] == null) {
+                        String pattern = value.getString();
+                        final MessageFormat messageFormat = new MessageFormat(pattern, locale);
+                        pair[style] = messageFormat;
+                    }
                 }
             }
+        }
+    }
+
+    private void setup(String resourceKey, Map<TimeUnit, Map<String, Object[]>> timeUnitToCountToPatterns, int style,
+            Set<String> pluralKeywords) {
+        // fill timeUnitToCountToPatterns from resource file
+        try {
+
+            ICUResourceBundle resource = (ICUResourceBundle) UResourceBundle.getBundleInstance(
+                    ICUData.ICU_UNIT_BASE_NAME, locale);
+
+            TimeUnitFormatSetupSink sink = new TimeUnitFormatSetupSink(
+                    timeUnitToCountToPatterns, style, pluralKeywords, locale);
+            resource.getAllItemsWithFallback(resourceKey, sink);
         } catch (MissingResourceException e) {
         }
         // there should be patterns for each plural rule in each time unit.
@@ -492,7 +531,7 @@ public class TimeUnitFormat extends MeasureFormat {
         // then search the units resource fallback from the current level to root
         if (parentLocale == null && resourceKey.equals("unitsShort")) {
             searchInTree("units", styl, timeUnit, srcPluralCount, searchPluralCount, countToPatterns);
-            if (countToPatterns != null && countToPatterns.get(srcPluralCount) != null
+            if (countToPatterns.get(srcPluralCount) != null
                     && countToPatterns.get(srcPluralCount)[styl] != null) {
                 return;
             }
@@ -528,11 +567,11 @@ public class TimeUnitFormat extends MeasureFormat {
             searchInTree(resourceKey, styl, timeUnit, srcPluralCount, "other", countToPatterns);
         }
     }
-    
+
     // boilerplate code to make TimeUnitFormat otherwise follow the contract of
     // MeasureFormat
 
-    
+
     /**
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
@@ -543,7 +582,7 @@ public class TimeUnitFormat extends MeasureFormat {
             StringBuilder appendTo, FieldPosition fieldPosition, Measure... measures) {
         return mf.formatMeasures(appendTo, fieldPosition, measures);
     }
-    
+
     /**
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
@@ -553,7 +592,7 @@ public class TimeUnitFormat extends MeasureFormat {
     public MeasureFormat.FormatWidth getWidth() {
         return mf.getWidth();
     }
-    
+
     /**
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
@@ -563,7 +602,7 @@ public class TimeUnitFormat extends MeasureFormat {
     public NumberFormat getNumberFormat() {
         return mf.getNumberFormat();
     }
-    
+
     /**
      * @deprecated This API is ICU internal only.
      * @hide draft / provisional / internal are hidden on Android
@@ -576,13 +615,13 @@ public class TimeUnitFormat extends MeasureFormat {
         return result;
     }
     // End boilerplate.
-    
+
     // Serialization
-    
+
     private Object writeReplace() throws ObjectStreamException {
         return mf.toTimeUnitProxy();
     }
-    
+
     // Preserve backward serialize backward compatibility.
     private Object readResolve() throws ObjectStreamException {
         return new TimeUnitFormat(locale, style, format);

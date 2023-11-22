@@ -26,6 +26,7 @@ import android.widget.FrameLayout;
  * FrameLayout that enables the user to set a Path that the view will be clipped to
  *
  * From GoogleSearch/com.google.android.shared.ui/CircularClipAnimation
+ * @hide
  */
 public class ClippableFrameLayout extends FrameLayout implements PathClippingView {
     private Path mClipPath;

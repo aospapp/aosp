@@ -16,6 +16,21 @@
 
 package com.android.internal.telephony.dataconnection;
 
+import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_ADDRESS;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_DNS;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_GATEWAY;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_IFNAME;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_PCSCF_ADDRESS;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.net.LinkProperties;
 import android.os.AsyncResult;
 import android.os.Handler;
@@ -38,15 +53,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-
 public class DcControllerTest extends TelephonyTest {
 
     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT = 1;
@@ -60,6 +66,7 @@ public class DcControllerTest extends TelephonyTest {
     UpdateLinkPropertyResult mResult;
 
     private DcController mDcc;
+    private DcControllerTestHandler mDcControllerTestHandler;
 
     private class DcControllerTestHandler extends HandlerThread {
 
@@ -100,12 +107,14 @@ public class DcControllerTest extends TelephonyTest {
         mResult = new UpdateLinkPropertyResult(lp);
         doReturn(mResult).when(mDc).updateLinkProperty(any(DataCallResponse.class));
 
-        new DcControllerTestHandler(TAG).start();
+        mDcControllerTestHandler = new DcControllerTestHandler(TAG);
+        mDcControllerTestHandler.start();
         waitUntilReady();
     }
 
     @After
     public void tearDown() throws Exception {
+        mDcControllerTestHandler.quit();
         super.tearDown();
     }
 
@@ -114,8 +123,9 @@ public class DcControllerTest extends TelephonyTest {
     public void testDataDormant() {
         assertEquals("DccDefaultState", getCurrentState().getName());
         ArrayList<DataCallResponse> l = new ArrayList<DataCallResponse>();
-        DataCallResponse dcResponse = DcTrackerTest.createDataCallResponse();
-        dcResponse.active = DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT;
+        DataCallResponse dcResponse = new DataCallResponse(0, -1, 1,
+                DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT, "IP", FAKE_IFNAME,
+                FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
         l.add(dcResponse);
 
         mDc.mCid = 1;

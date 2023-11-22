@@ -20,10 +20,10 @@
 
 #include <inttypes.h>
 
-#include <gui/IGraphicBufferConsumer.h>
 #include <gui/IGraphicBufferProducer.h>
 #include <gui/Surface.h>
 #include <media/ICrypto.h>
+#include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/ALooper.h>
@@ -35,7 +35,6 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/MediaSource.h>
 #include <media/stagefright/MetaData.h>
-#include <media/stagefright/PersistentSurface.h>
 #include <media/stagefright/Utils.h>
 
 namespace android {
@@ -47,7 +46,7 @@ const int32_t kDefaultVideoEncoderDataSpace = HAL_DATASPACE_V0_BT709;
 const int kStopTimeoutUs = 300000; // allow 1 sec for shutting down encoder
 
 struct MediaCodecSource::Puller : public AHandler {
-    Puller(const sp<MediaSource> &source);
+    explicit Puller(const sp<MediaSource> &source);
 
     void interruptSource();
     status_t start(const sp<MetaData> &meta, const sp<AMessage> &notify);
@@ -325,10 +324,10 @@ sp<MediaCodecSource> MediaCodecSource::Create(
         const sp<ALooper> &looper,
         const sp<AMessage> &format,
         const sp<MediaSource> &source,
-        const sp<IGraphicBufferConsumer> &consumer,
+        const sp<PersistentSurface> &persistentSurface,
         uint32_t flags) {
-    sp<MediaCodecSource> mediaSource =
-            new MediaCodecSource(looper, format, source, consumer, flags);
+    sp<MediaCodecSource> mediaSource = new MediaCodecSource(
+            looper, format, source, persistentSurface, flags);
 
     if (mediaSource->init() == OK) {
         return mediaSource;
@@ -364,8 +363,20 @@ status_t MediaCodecSource::stop() {
     return postSynchronouslyAndReturnError(msg);
 }
 
-status_t MediaCodecSource::pause() {
-    (new AMessage(kWhatPause, mReflector))->post();
+
+status_t MediaCodecSource::setStopStimeUs(int64_t stopTimeUs) {
+    if (!(mFlags & FLAG_USE_SURFACE_INPUT)) {
+        return OK;
+    }
+    sp<AMessage> msg = new AMessage(kWhatSetStopTimeOffset, mReflector);
+    msg->setInt64("stop-time-us", stopTimeUs);
+    return postSynchronouslyAndReturnError(msg);
+}
+
+status_t MediaCodecSource::pause(MetaData* params) {
+    sp<AMessage> msg = new AMessage(kWhatPause, mReflector);
+    msg->setObject("meta", params);
+    msg->post();
     return OK;
 }
 
@@ -404,7 +415,7 @@ MediaCodecSource::MediaCodecSource(
         const sp<ALooper> &looper,
         const sp<AMessage> &outputFormat,
         const sp<MediaSource> &source,
-        const sp<IGraphicBufferConsumer> &consumer,
+        const sp<PersistentSurface> &persistentSurface,
         uint32_t flags)
     : mLooper(looper),
       mOutputFormat(outputFormat),
@@ -417,7 +428,7 @@ MediaCodecSource::MediaCodecSource(
       mSetEncoderFormat(false),
       mEncoderFormat(0),
       mEncoderDataSpace(0),
-      mGraphicBufferConsumer(consumer),
+      mPersistentSurface(persistentSurface),
       mInputBufferTimeOffsetUs(0),
       mFirstSampleSystemTimeUs(-1ll),
       mPausePending(false),
@@ -514,12 +525,11 @@ status_t MediaCodecSource::initEncoder() {
     if (mFlags & FLAG_USE_SURFACE_INPUT) {
         CHECK(mIsVideo);
 
-        if (mGraphicBufferConsumer != NULL) {
+        if (mPersistentSurface != NULL) {
             // When using persistent surface, we are only interested in the
             // consumer, but have to use PersistentSurface as a wrapper to
             // pass consumer over messages (similar to BufferProducerWrapper)
-            err = mEncoder->setInputSurface(
-                    new PersistentSurface(NULL, mGraphicBufferConsumer));
+            err = mEncoder->setInputSurface(mPersistentSurface);
         } else {
             err = mEncoder->createInputSurface(&mGraphicBufferProducer);
         }
@@ -626,22 +636,13 @@ void MediaCodecSource::signalEOS(status_t err) {
     }
 }
 
-void MediaCodecSource::suspend() {
-    CHECK(mFlags & FLAG_USE_SURFACE_INPUT);
-    if (mEncoder != NULL) {
-        sp<AMessage> params = new AMessage;
-        params->setInt32("drop-input-frames", true);
-        mEncoder->setParameters(params);
-    }
-}
-
-void MediaCodecSource::resume(int64_t skipFramesBeforeUs) {
+void MediaCodecSource::resume(int64_t resumeStartTimeUs) {
     CHECK(mFlags & FLAG_USE_SURFACE_INPUT);
     if (mEncoder != NULL) {
         sp<AMessage> params = new AMessage;
         params->setInt32("drop-input-frames", false);
-        if (skipFramesBeforeUs > 0) {
-            params->setInt64("skip-frames-before", skipFramesBeforeUs);
+        if (resumeStartTimeUs > 0) {
+            params->setInt64("drop-start-time-us", resumeStartTimeUs);
         }
         mEncoder->setParameters(params);
     }
@@ -663,7 +664,7 @@ status_t MediaCodecSource::feedEncoderInputBuffers() {
                 mFirstSampleSystemTimeUs = systemTime() / 1000;
                 if (mPausePending) {
                     mPausePending = false;
-                    onPause();
+                    onPause(mFirstSampleSystemTimeUs);
                     mbuf->release();
                     mAvailEncoderInputIndices.push_back(bufferIndex);
                     return OK;
@@ -689,9 +690,11 @@ status_t MediaCodecSource::feedEncoderInputBuffers() {
 #endif // DEBUG_DRIFT_TIME
             }
 
-            sp<ABuffer> inbuf;
+            sp<MediaCodecBuffer> inbuf;
             status_t err = mEncoder->getInputBuffer(bufferIndex, &inbuf);
-            if (err != OK || inbuf == NULL) {
+
+            if (err != OK || inbuf == NULL || inbuf->data() == NULL
+                    || mbuf->data() == NULL || mbuf->size() == 0) {
                 mbuf->release();
                 signalEOS();
                 break;
@@ -728,6 +731,10 @@ status_t MediaCodecSource::onStart(MetaData *params) {
         ALOGE("Failed to start while we're stopping");
         return INVALID_OPERATION;
     }
+    int64_t startTimeUs;
+    if (params == NULL || !params->findInt64(kKeyTime, &startTimeUs)) {
+        startTimeUs = -1ll;
+    }
 
     if (mStarted) {
         ALOGI("MediaCodecSource (%s) resuming", mIsVideo ? "video" : "audio");
@@ -739,7 +746,7 @@ status_t MediaCodecSource::onStart(MetaData *params) {
             mEncoder->requestIDRFrame();
         }
         if (mFlags & FLAG_USE_SURFACE_INPUT) {
-            resume();
+            resume(startTimeUs);
         } else {
             CHECK(mPuller != NULL);
             mPuller->resume();
@@ -752,11 +759,14 @@ status_t MediaCodecSource::onStart(MetaData *params) {
     status_t err = OK;
 
     if (mFlags & FLAG_USE_SURFACE_INPUT) {
-        int64_t startTimeUs;
-        if (!params || !params->findInt64(kKeyTime, &startTimeUs)) {
-            startTimeUs = -1ll;
+        if (mEncoder != NULL) {
+            sp<AMessage> params = new AMessage;
+            params->setInt32("drop-input-frames", false);
+            if (startTimeUs >= 0) {
+                params->setInt64("skip-frames-before", startTimeUs);
+            }
+            mEncoder->setParameters(params);
         }
-        resume(startTimeUs);
     } else {
         CHECK(mPuller != NULL);
         sp<MetaData> meta = params;
@@ -781,9 +791,12 @@ status_t MediaCodecSource::onStart(MetaData *params) {
     return OK;
 }
 
-void MediaCodecSource::onPause() {
-    if (mFlags & FLAG_USE_SURFACE_INPUT) {
-        suspend();
+void MediaCodecSource::onPause(int64_t pauseStartTimeUs) {
+    if ((mFlags & FLAG_USE_SURFACE_INPUT) && (mEncoder != NULL)) {
+        sp<AMessage> params = new AMessage;
+        params->setInt32("drop-input-frames", true);
+        params->setInt64("drop-start-time-us", pauseStartTimeUs);
+        mEncoder->setParameters(params);
     } else {
         CHECK(mPuller != NULL);
         mPuller->pause();
@@ -851,14 +864,16 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
                 break;
             }
 
-            sp<ABuffer> outbuf;
+            sp<MediaCodecBuffer> outbuf;
             status_t err = mEncoder->getOutputBuffer(index, &outbuf);
-            if (err != OK || outbuf == NULL) {
+            if (err != OK || outbuf == NULL || outbuf->data() == NULL
+                || outbuf->size() == 0) {
                 signalEOS();
                 break;
             }
 
             MediaBuffer *mbuf = new MediaBuffer(outbuf->size());
+            mbuf->setObserver(this);
             mbuf->add_ref();
 
             if (!(flags & MediaCodec::BUFFER_FLAG_CODECCONFIG)) {
@@ -869,7 +884,7 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
                             mFirstSampleSystemTimeUs = systemTime() / 1000;
                             if (mPausePending) {
                                 mPausePending = false;
-                                onPause();
+                                onPause(mFirstSampleSystemTimeUs);
                                 mbuf->release();
                                 break;
                             }
@@ -905,13 +920,13 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
                 }
                 mbuf->meta_data()->setInt64(kKeyTime, timeUs);
             } else {
+                mbuf->meta_data()->setInt64(kKeyTime, 0ll);
                 mbuf->meta_data()->setInt32(kKeyIsCodecConfig, true);
             }
             if (flags & MediaCodec::BUFFER_FLAG_SYNCFRAME) {
                 mbuf->meta_data()->setInt32(kKeyIsSyncFrame, true);
             }
             memcpy(mbuf->data(), outbuf->data(), outbuf->size());
-            mbuf->setObserver(this);
 
             {
                 Mutexed<Output>::Locked output(mOutput);
@@ -925,6 +940,10 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
             CHECK(msg->findInt32("err", &err));
             ALOGE("Encoder (%s) reported error : 0x%x",
                     mIsVideo ? "video" : "audio", err);
+            if (!(mFlags & FLAG_USE_SURFACE_INPUT)) {
+                mStopping = true;
+                mPuller->stop();
+            }
             signalEOS();
        }
        break;
@@ -998,6 +1017,7 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
             ALOGV("source (%s) stopped", mIsVideo ? "video" : "audio");
         }
         signalEOS();
+        break;
     }
 
     case kWhatPause:
@@ -1005,7 +1025,14 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
         if (mFirstSampleSystemTimeUs < 0) {
             mPausePending = true;
         } else {
-            onPause();
+            sp<RefBase> obj;
+            CHECK(msg->findObject("meta", &obj));
+            MetaData *params = static_cast<MetaData *>(obj.get());
+            int64_t pauseStartTimeUs = -1;
+            if (params == NULL || !params->findInt64(kKeyTime, &pauseStartTimeUs)) {
+                pauseStartTimeUs = -1ll;
+            }
+            onPause(pauseStartTimeUs);
         }
         break;
     }
@@ -1017,9 +1044,29 @@ void MediaCodecSource::onMessageReceived(const sp<AMessage> &msg) {
         CHECK(msg->findInt64("time-offset-us", &mInputBufferTimeOffsetUs));
 
         // Propagate the timestamp offset to GraphicBufferSource.
-        if (mIsVideo) {
+        if (mFlags & FLAG_USE_SURFACE_INPUT) {
             sp<AMessage> params = new AMessage;
             params->setInt64("time-offset-us", mInputBufferTimeOffsetUs);
+            err = mEncoder->setParameters(params);
+        }
+
+        sp<AMessage> response = new AMessage;
+        response->setInt32("err", err);
+        response->postReply(replyID);
+        break;
+    }
+    case kWhatSetStopTimeOffset:
+    {
+        sp<AReplyToken> replyID;
+        CHECK(msg->senderAwaitsResponse(&replyID));
+        status_t err = OK;
+        int64_t stopTimeUs;
+        CHECK(msg->findInt64("stop-time-us", &stopTimeUs));
+
+        // Propagate the timestamp offset to GraphicBufferSource.
+        if (mFlags & FLAG_USE_SURFACE_INPUT) {
+            sp<AMessage> params = new AMessage;
+            params->setInt64("stop-time-us", stopTimeUs);
             err = mEncoder->setParameters(params);
         }
 

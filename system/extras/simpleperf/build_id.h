@@ -23,6 +23,10 @@
 
 constexpr size_t BUILD_ID_SIZE = 20;
 
+// Shared libraries can have a section called .note.gnu.build-id, containing
+// a ~20 bytes unique id. Build id is used to compare if two shared libraries
+// are actually the same. BuildId class is the representation of build id in
+// memory.
 class BuildId {
  public:
   static size_t Size() {

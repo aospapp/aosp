@@ -26,12 +26,13 @@ from autotest_lib.server.cros import provision
 from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 _BUG_TEMPLATE = {
-    'labels': ['OS-Chrome', 'Type-Bug', 'Cr-OS-Kernel-Power'],
+    'labels': ['OS-Chrome', 'Type-Bug'],
+    'components': ['OS>Kernel>Power'],
     'owner': '',
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['dbasehore@chromium.org', 'msheets@chromium.org',
+    'cc': ['dbasehore@chromium.org', 'hennessywill@chromium.org',
            'tbroch@chromium.org']
 }
 

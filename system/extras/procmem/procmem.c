@@ -50,12 +50,12 @@ int main(int argc, char *argv[]) {
     /* maps and such */
     pm_map_t **maps; size_t num_maps;
 
-    struct map_info **mis;
+    struct map_info **mis = NULL;
     struct map_info *mi;
 
     /* pagemap information */
     uint64_t *pagemap; size_t num_pages;
-    unsigned long address; uint64_t mapentry;
+    uint64_t mapentry;
     uint64_t count, flags;
 
     /* totals */
@@ -190,7 +190,6 @@ int main(int argc, char *argv[]) {
         mi->shared_clean = mi->shared_dirty = mi->private_clean = mi->private_dirty = 0;
 
         for (j = 0; j < num_pages; j++) {
-            address = pm_map_start(mi->map) + j * ker->pagesize;
             mapentry = pagemap[j];
 
             if (PM_PAGEMAP_PRESENT(mapentry) && !PM_PAGEMAP_SWAPPED(mapentry)) {
@@ -207,14 +206,14 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "error getting flags for frame.\n");
                 }
 
-                if ((ws != WS_ONLY) || (flags & PM_PAGE_REFERENCED)) {
+                if ((ws != WS_ONLY) || (flags & KPF_REFERENCED)) {
                     if (count > 1) {
-                        if (flags & PM_PAGE_DIRTY)
+                        if (flags & KPF_DIRTY)
                             mi->shared_dirty++;
                         else
                             mi->shared_clean++;
                     } else {
-                        if (flags & PM_PAGE_DIRTY)
+                        if (flags & KPF_DIRTY)
                             mi->private_dirty++;
                         else
                             mi->private_clean++;
@@ -298,6 +297,7 @@ int main(int argc, char *argv[]) {
         );
     }
 
+    free(mis);
     return 0;
 }
 

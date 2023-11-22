@@ -16,7 +16,8 @@
 
 package android.support.v4.text;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.os.Build;
+import android.support.test.filters.SmallTest;
 
 import junit.framework.TestCase;
 
@@ -26,6 +27,11 @@ import java.util.Locale;
 public class IcuCompatTest extends TestCase {
     public void testMaximizeAndGetScript() {
         assertEquals("Latn", ICUCompat.maximizeAndGetScript(new Locale("en", "US")));
-        assertEquals("Visp", ICUCompat.maximizeAndGetScript(Locale.forLanguageTag("en-Visp-US")));
+
+        // Script tags were added to java.util.Locale only on API 21.
+        if (Build.VERSION.SDK_INT >= 21) {
+            assertEquals(
+                    "Visp", ICUCompat.maximizeAndGetScript(Locale.forLanguageTag("en-Visp-US")));
+        }
     }
 }

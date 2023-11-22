@@ -60,9 +60,9 @@ public class ViewInfoActivityTest extends ActivityInstrumentationTestCase2<ViewI
         super.setUp();
         mPersonalCard = (LinearLayout)  getActivity().findViewById(R.id.name_and_dob_linear_layout);
         mPersonalCardLargeItem = (TextView)  getActivity().findViewById(R.id.personal_card_large);
-        mViewFlipper = (ViewFlipper)  getActivity().findViewById(R.id.view_flipper);
+        mViewFlipper = (ViewFlipper) getActivity().findViewById(R.id.view_flipper);
         mNoInfoIndex = mViewFlipper
-                .indexOfChild(getActivity().findViewById(R.id.no_info_text_view));
+                .indexOfChild(getActivity().findViewById(R.id.no_info));
         mTabsIndex = mViewFlipper.indexOfChild(getActivity().findViewById(R.id.tabs));
 
         PreferenceManager.getDefaultSharedPreferences(getActivity()).edit().clear().commit();
@@ -98,7 +98,7 @@ public class ViewInfoActivityTest extends ActivityInstrumentationTestCase2<ViewI
         assertEquals(0, mFragments.size());
         assertEquals(View.GONE, getActivity().getTabLayout().getVisibility());
         assertEquals(View.VISIBLE,
-                getActivity().findViewById(R.id.no_info_text_view).getVisibility());
+                getActivity().findViewById(R.id.no_info).getVisibility());
         assertEquals(mNoInfoIndex, mViewFlipper.getDisplayedChild());
         assertEquals(View.VISIBLE, mPersonalCardLargeItem.getVisibility());
         assertEquals(name, mPersonalCardLargeItem.getText());
@@ -182,8 +182,7 @@ public class ViewInfoActivityTest extends ActivityInstrumentationTestCase2<ViewI
                 getInstrumentation().addMonitor(EditInfoActivity.class.getName(),
                         null /* result */, false /* block */);
 
-        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
-        getInstrumentation().invokeMenuActionSync(activity, R.id.action_edit, 0 /* flags */);
+        activity.getMenu().performIdentifierAction(R.id.action_edit, 0 /* flags */);
 
         EditInfoActivity editInfoActivity = (EditInfoActivity)
                 getInstrumentation().waitForMonitorWithTimeout(activityMonitor, 1000 /* timeOut */);
@@ -229,3 +228,4 @@ public class ViewInfoActivityTest extends ActivityInstrumentationTestCase2<ViewI
         getInstrumentation().waitForIdleSync();
     }
 }
+

@@ -21,8 +21,8 @@
 #include "rsgApiFuncDecl.h"
 #include "rsFifo.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 extern "C" RsDevice rsDeviceCreate() {
     Device * d = new Device();
@@ -44,3 +44,6 @@ extern "C" void rsDeviceSetConfig(RsDevice dev, RsDeviceParam p, int32_t value) 
     }
     rsAssert(0);
 }
+
+} // namespace renderscript
+} // namespace android

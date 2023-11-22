@@ -14,42 +14,87 @@
   ~ limitations under the License
   -->
 
-<merge
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tv="http://schemas.android.com/apk/res/com.android.tv"
-        android:layout_width="@dimen/dvr_card_layout_width"
-        android:layout_height="@dimen/dvr_card_layout_height">
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tv="http://schemas.android.com/apk/res/com.android.tv"
+    android:layout_width="@dimen/dvr_card_layout_width"
+    android:layout_height="wrap_content">
 
-    <ImageView
-            android:id="@+id/image"
-            android:layout_width="@dimen/dvr_card_image_layout_width"
-            android:layout_height="@dimen/dvr_card_image_layout_height"
-            android:layout_gravity="center_horizontal"
-            android:layout_margin="2dp"
-            android:gravity="center"
-            tv:layout_viewType="main"/>
+    <FrameLayout
+        android:layout_width="@dimen/dvr_card_image_layout_width"
+        android:layout_height="@dimen/dvr_card_image_layout_height"
+        android:layout_margin="2dp">
 
-    <LinearLayout
-            android:orientation="vertical"
-            android:id="@+id/info_area"
+        <ImageView android:id="@+id/image"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            tv:layout_viewType="info">
+            android:layout_gravity="center_horizontal"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null"
+            tv:layout_viewType="main" />
 
-        <TextView
-                android:id="@+id/title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="2dp"
-                android:gravity="center"
-                android:textAppearance="?android:attr/textAppearanceMedium"/>
+        <ProgressBar android:id="@+id/recording_progress"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/dvr_card_progress_height"
+            android:mirrorForRtl="false"
+            android:progressTint="@color/play_controls_progress_bar_watched"
+            android:progressDrawable="@drawable/progress_horizontal"
+            android:indeterminate="false"
+            android:visibility="gone"
+            android:max="100"
+            android:layout_gravity="bottom" />
 
-        <TextView
-                android:id="@+id/content"
-                android:layout_width="match_parent"
+        <FrameLayout android:id="@+id/affiliated_icon_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/card_image_gradient"
+            android:visibility="invisible">
+
+            <ImageView android:id="@+id/affiliated_icon"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="2dp"
-                android:gravity="center"
-                android:textAppearance="?android:attr/textAppearanceMedium"/>
+                android:layout_gravity="bottom|right"
+                android:layout_margin="12dp" />
+
+        </FrameLayout>
+    </FrameLayout>
+
+    <LinearLayout android:id="@+id/info_area"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="11dp"
+        android:paddingEnd="11dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp"
+        android:background="@color/dvr_card_info"
+        tv:layout_viewType="info">
+
+        <TextView android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="1dp"
+            android:gravity="start"
+            style="@style/dvr_card_view_title_text"
+            tv:layout_viewType="main"/>
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" >
+
+            <TextView android:id="@+id/content_major"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="start"
+                style="@style/dvr_card_view_content_text" />
+
+            <TextView android:id="@+id/content_minor"
+                android:layout_alignParentEnd="true"
+                android:layout_toEndOf="@+id/content_major"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                style="@style/dvr_card_view_content_text" />
+        </RelativeLayout>
     </LinearLayout>
 </merge>

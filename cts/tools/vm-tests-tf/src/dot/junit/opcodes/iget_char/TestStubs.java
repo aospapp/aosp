@@ -19,6 +19,6 @@ package dot.junit.opcodes.iget_char;
 public class TestStubs {
     // used by testVFE4
     private char TestStubField = 50;
-    // ussed by testVFE15
+    // ussed by testVFE15 and testVFE35
     protected char TestStubProtectedField = 50;
 }

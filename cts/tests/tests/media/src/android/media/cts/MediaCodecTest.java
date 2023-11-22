@@ -19,7 +19,6 @@ package android.media.cts;
 import android.media.cts.R;
 
 import android.content.res.AssetFileDescriptor;
-import android.cts.util.MediaUtils;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
@@ -27,6 +26,8 @@ import android.media.MediaCodec.CryptoInfo;
 import android.media.MediaCodec.CryptoInfo.Pattern;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.media.MediaCrypto;
+import android.media.MediaDrm;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -34,14 +35,20 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.PersistableBundle;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,6 +63,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Blender Foundation / www.bigbuckbunny.org, and are licensed under the Creative Commons
  * Attribution 3.0 License at http://creativecommons.org/licenses/by/3.0/us/.
  */
+@SmallTest
+@RequiresDevice
 public class MediaCodecTest extends AndroidTestCase {
     private static final String TAG = "MediaCodecTest";
     private static final boolean VERBOSE = false;           // lots of logging
@@ -81,6 +90,13 @@ public class MediaCodecTest extends AndroidTestCase {
     private boolean mVideoEncoderHadError = false;
     private boolean mAudioEncoderHadError = false;
     private volatile boolean mVideoEncodingOngoing = false;
+
+    private static final int INPUT_RESOURCE_ID =
+            R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+
+    // The test should fail if the decoder never produces output frames for the input.
+    // Time out decoding, as we have no way to query whether the decoder will produce output.
+    private static final int DECODING_TIMEOUT_MS = 10000;
 
     /**
      * Tests:
@@ -143,6 +159,8 @@ public class MediaCodecTest extends AndroidTestCase {
                     + " found for mimeType= " + mimeType);
             return false;
         }
+
+        final boolean isVideoEncoder = isEncoder && mimeType.startsWith("video/");
 
         // create codec (enter Initialized State)
         MediaCodec codec;
@@ -238,13 +256,33 @@ public class MediaCodecTest extends AndroidTestCase {
                 fail("createInputSurface should not work on a decoder");
             }
         } catch (IllegalStateException e) { // expected for decoder and audio encoder
-            if (isEncoder && format.getString(MediaFormat.KEY_MIME).startsWith("video/")) {
+            if (isVideoEncoder) {
                 throw e;
             }
         }
 
+        // test getInputBuffers before start()
+        try {
+            ByteBuffer[] buffers = codec.getInputBuffers();
+            fail("getInputBuffers called before start() should throw exception");
+        } catch (IllegalStateException e) { // expected
+        }
+
         // start codec (enter Executing state)
         codec.start();
+
+        // test getInputBuffers after start()
+        try {
+            ByteBuffer[] buffers = codec.getInputBuffers();
+            if (buffers == null) {
+                fail("getInputBuffers called after start() should not return null");
+            }
+            if (isVideoEncoder && buffers.length > 0) {
+                fail("getInputBuffers returned non-zero length array with input surface");
+            }
+        } catch (IllegalStateException e) {
+            fail("getInputBuffers called after start() shouldn't throw exception");
+        }
 
         // test a few commands
         try {
@@ -521,6 +559,103 @@ public class MediaCodecTest extends AndroidTestCase {
         callbackThread.join();
     }
 
+    public void testAsyncFlushAndReset() throws Exception, InterruptedException {
+        testAsyncReset(false /* testStop */);
+    }
+
+    public void testAsyncStopAndReset() throws Exception, InterruptedException {
+        testAsyncReset(true /* testStop */);
+    }
+
+    private void testAsyncReset(boolean testStop) throws Exception, InterruptedException {
+        // Test video and audio 10x each
+        for (int i = 0; i < 10; i++) {
+            testAsyncReset(false /* audio */, (i % 2) == 0 /* swap */, testStop);
+        }
+        for (int i = 0; i < 10; i++) {
+            testAsyncReset(true /* audio */, (i % 2) == 0 /* swap */, testStop);
+        }
+    }
+
+    /*
+     * This method simulates a race between flush (or stop) and reset() called from
+     * two threads. Neither call should get stuck. This should be run multiple rounds.
+     */
+    private void testAsyncReset(boolean audio, boolean swap, final boolean testStop)
+            throws Exception, InterruptedException {
+        String mimeTypePrefix  = audio ? "audio/" : "video/";
+        final MediaExtractor mediaExtractor = getMediaExtractorForMimeType(
+                INPUT_RESOURCE_ID, mimeTypePrefix);
+        MediaFormat mediaFormat = mediaExtractor.getTrackFormat(
+                mediaExtractor.getSampleTrackIndex());
+        if (!MediaUtils.checkDecoderForFormat(mediaFormat)) {
+            return; // skip
+        }
+
+        OutputSurface outputSurface = audio ? null : new OutputSurface(1, 1);
+        final Surface surface = outputSurface == null ? null : outputSurface.getSurface();
+
+        String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
+        final MediaCodec mediaCodec = MediaCodec.createDecoderByType(mimeType);
+
+        try {
+            mediaCodec.configure(mediaFormat, surface, null /* crypto */, 0 /* flags */);
+
+            mediaCodec.start();
+
+            assertTrue(runDecodeTillFirstOutput(mediaCodec, mediaExtractor));
+
+            Thread flushingThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (testStop) {
+                            mediaCodec.stop();
+                        } else {
+                            mediaCodec.flush();
+                        }
+                    } catch (IllegalStateException e) {
+                        // This is okay, since we're simulating a race between flush and reset.
+                        // If reset executed first, flush could fail.
+                    }
+                }
+            });
+
+            Thread resettingThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    mediaCodec.reset();
+                }
+            });
+
+            // start flushing (or stopping) and resetting in two threads
+            if (swap) {
+                flushingThread.start();
+                resettingThread.start();
+            } else {
+                resettingThread.start();
+                flushingThread.start();
+            }
+
+            // wait for at most 5 sec, and check if the thread exits properly
+            flushingThread.join(5000);
+            assertFalse(flushingThread.isAlive());
+
+            resettingThread.join(5000);
+            assertFalse(resettingThread.isAlive());
+        } finally {
+            if (mediaCodec != null) {
+                mediaCodec.release();
+            }
+            if (mediaExtractor != null) {
+                mediaExtractor.release();
+            }
+            if (outputSurface != null) {
+                outputSurface.release();
+            }
+        }
+    }
+
     private static class FlushThread extends Thread {
         final MediaCodec mEncoder;
         final CountDownLatch mBuffersExhausted;
@@ -691,7 +826,6 @@ public class MediaCodecTest extends AndroidTestCase {
             // dequeue buffers until not available
             int index = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC);
             while (index >= 0) {
-                feedMoreFrames = true;
                 indices.add(index);
                 index = encoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC_SHORT);
             }
@@ -785,6 +919,21 @@ public class MediaCodecTest extends AndroidTestCase {
                 // good
             }
 
+            PersistableBundle metrics = encoder.getMetrics();
+            if (metrics == null) {
+                fail("getMetrics() returns null");
+            } else if (metrics.isEmpty()) {
+                fail("getMetrics() returns empty results");
+            }
+            int encoding = metrics.getInt(MediaCodec.MetricsConstants.ENCODER, -1);
+            if (encoding != 1) {
+                fail("getMetrics() returns bad encoder value " + encoding);
+            }
+            String theCodec = metrics.getString(MediaCodec.MetricsConstants.CODEC, null);
+            if (theCodec == null) {
+                fail("getMetrics() returns null codec value ");
+            }
+
         } finally {
             if (encoder != null) {
                 encoder.stop();
@@ -839,6 +988,22 @@ public class MediaCodecTest extends AndroidTestCase {
             } catch (IllegalStateException ise) {
                 // good
             }
+
+            PersistableBundle metrics = encoder.getMetrics();
+            if (metrics == null) {
+                fail("getMetrics() returns null");
+            } else if (metrics.isEmpty()) {
+                fail("getMetrics() returns empty results");
+            }
+            int encoding = metrics.getInt(MediaCodec.MetricsConstants.ENCODER, -1);
+            if (encoding != 1) {
+                fail("getMetrics() returns bad encoder value " + encoding);
+            }
+            String theCodec = metrics.getString(MediaCodec.MetricsConstants.CODEC, null);
+            if (theCodec == null) {
+                fail("getMetrics() returns null codec value ");
+            }
+
         } finally {
             if (encoder != null) {
                 encoder.stop();
@@ -856,13 +1021,6 @@ public class MediaCodecTest extends AndroidTestCase {
     }
 
     private void testDecodeAfterFlush(final boolean audio) throws InterruptedException {
-        final int INPUT_RESOURCE_ID =
-                R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
-
-        // The test should fail if the decoder never produces output frames for the input.
-        // Time out decoding, as we have no way to query whether the decoder will produce output.
-        final int DECODING_TIMEOUT_MS = 10000;
-
         final AtomicBoolean completed = new AtomicBoolean(false);
         Thread decodingThread = new Thread(new Runnable() {
             @Override
@@ -892,16 +1050,63 @@ public class MediaCodecTest extends AndroidTestCase {
                         throw new RuntimeException("decoder does not generate non-empty output.");
                     }
 
+                    PersistableBundle metrics = mediaCodec.getMetrics();
+                    if (metrics == null) {
+                        fail("getMetrics() returns null");
+                    } else if (metrics.isEmpty()) {
+                        fail("getMetrics() returns empty results");
+                    }
+                    int encoder = metrics.getInt(MediaCodec.MetricsConstants.ENCODER, -1);
+                    if (encoder != 0) {
+                        fail("getMetrics() returns bad encoder value " + encoder);
+                    }
+                    String theCodec = metrics.getString(MediaCodec.MetricsConstants.CODEC, null);
+                    if (theCodec == null) {
+                        fail("getMetrics() returns null codec value ");
+                    }
+
+
                     // simulate application flush.
                     mediaExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                     mediaCodec.flush();
 
                     completed.set(runDecodeTillFirstOutput(mediaCodec, mediaExtractor));
+                    metrics = mediaCodec.getMetrics();
+                    if (metrics == null) {
+                        fail("getMetrics() returns null");
+                    } else if (metrics.isEmpty()) {
+                        fail("getMetrics() returns empty results");
+                    }
+                    int encoding = metrics.getInt(MediaCodec.MetricsConstants.ENCODER, -1);
+                    if (encoding != 0) {
+                        fail("getMetrics() returns bad encoder value " + encoding);
+                    }
+                    String theCodec2 = metrics.getString(MediaCodec.MetricsConstants.CODEC, null);
+                    if (theCodec2 == null) {
+                        fail("getMetrics() returns null codec value ");
+                    }
+
                 } catch (IOException e) {
                     throw new RuntimeException("error setting up decoding", e);
                 } finally {
                     if (mediaCodec != null) {
                         mediaCodec.stop();
+
+                        PersistableBundle metrics = mediaCodec.getMetrics();
+                        if (metrics == null) {
+                            fail("getMetrics() returns null");
+                        } else if (metrics.isEmpty()) {
+                            fail("getMetrics() returns empty results");
+                        }
+                        int encoder = metrics.getInt(MediaCodec.MetricsConstants.ENCODER, -1);
+                        if (encoder != 0) {
+                            fail("getMetrics() returns bad encoder value " + encoder);
+                        }
+                        String theCodec = metrics.getString(MediaCodec.MetricsConstants.CODEC, null);
+                        if (theCodec == null) {
+                            fail("getMetrics() returns null codec value ");
+                        }
+
                         mediaCodec.release();
                     }
                     if (mediaExtractor != null) {
@@ -960,6 +1165,18 @@ public class MediaCodecTest extends AndroidTestCase {
                 continue;
             }
             assertTrue("Wrong output buffer index", outputBufferIndex >= 0);
+
+            PersistableBundle metrics = mediaCodec.getMetrics();
+            Log.d(TAG, "getMetrics after first buffer metrics says: " + metrics);
+
+            int encoder = metrics.getInt(MediaCodec.MetricsConstants.ENCODER, -1);
+            if (encoder != 0) {
+                fail("getMetrics() returns bad encoder value " + encoder);
+            }
+            String theCodec = metrics.getString(MediaCodec.MetricsConstants.CODEC, null);
+            if (theCodec == null) {
+                fail("getMetrics() returns null codec value ");
+            }
 
             mediaCodec.releaseOutputBuffer(outputBufferIndex, false /* render */);
             boolean eos = (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
@@ -1520,7 +1737,7 @@ public class MediaCodecTest extends AndroidTestCase {
             if (!encoder && info.isEncoder()) {
                 continue;
             }
-            
+
             for (String type : info.getSupportedTypes()) {
                 if (type.equalsIgnoreCase(mimeType)) {
                     return true;
@@ -1528,5 +1745,54 @@ public class MediaCodecTest extends AndroidTestCase {
             }
         }
         return false;
+    }
+
+    private static final UUID CLEARKEY_SCHEME_UUID =
+            new UUID(0x1077efecc0b24d02L, 0xace33c1e52e2fb4bL);
+
+    /**
+     * Tests:
+     * <br> queueSecureInputBuffer() with erroneous input throws CryptoException
+     * <br> getInputBuffer() after the failed queueSecureInputBuffer() succeeds.
+     */
+    public void testCryptoError() throws Exception {
+        MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
+        byte[] sessionId = drm.openSession();
+        MediaCrypto crypto = new MediaCrypto(CLEARKEY_SCHEME_UUID, new byte[0]);
+        MediaCodec codec = MediaCodec.createDecoderByType(MIME_TYPE);
+
+        try {
+            crypto.setMediaDrmSession(sessionId);
+
+            MediaCodec.CryptoInfo cryptoInfo = new MediaCodec.CryptoInfo();
+            MediaFormat format = createMediaFormat();
+
+            codec.configure(format, null, crypto, 0);
+            codec.start();
+            int index = codec.dequeueInputBuffer(-1);
+            assertTrue(index >= 0);
+            ByteBuffer buffer = codec.getInputBuffer(index);
+            cryptoInfo.set(
+                    1,
+                    new int[] { 0 },
+                    new int[] { buffer.capacity() },
+                    new byte[16],
+                    new byte[16],
+                    // Trying to decrypt encrypted data in unencrypted mode
+                    MediaCodec.CRYPTO_MODE_UNENCRYPTED);
+            try {
+                codec.queueSecureInputBuffer(index, 0, cryptoInfo, 0, 0);
+                fail("queueSecureInputBuffer should fail when trying to decrypt " +
+                        "encrypted data in unencrypted mode.");
+            } catch (MediaCodec.CryptoException e) {
+                // expected
+            }
+            buffer = codec.getInputBuffer(index);
+            codec.stop();
+        } finally {
+            codec.release();
+            crypto.release();
+            drm.closeSession(sessionId);
+        }
     }
 }

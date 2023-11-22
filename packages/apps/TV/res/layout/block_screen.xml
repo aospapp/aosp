@@ -21,7 +21,7 @@
     android:layout_height="match_parent"
     android:gravity="center"
     android:visibility="gone"
-    android:background="@android:color/black" >
+    android:background="@android:color/black">
     <!-- This layout is used for the animation -->
     <LinearLayout
         android:id="@+id/block_screen_container"
@@ -61,7 +61,7 @@
             android:gravity="center"
             android:fontFamily="@string/font"
             android:textSize="@dimen/tvview_block_text_size"
-            android:lineSpacingExtra="4sp"
+            android:lineSpacingExtra="@dimen/tvview_block_line_spacing_extra"
             android:textColor="@color/tvview_block_text_color" />
     </LinearLayout>
 </com.android.tv.ui.BlockScreenView>

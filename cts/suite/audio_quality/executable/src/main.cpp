@@ -18,7 +18,7 @@
 
 #include <utils/String8.h>
 
-#include <UniquePtr.h>
+#include <memory>
 
 #include "GenericFactory.h"
 #include "Log.h"
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    UniquePtr<CleanupStatics> staticStuffs(new CleanupStatics());
+    std::unique_ptr<CleanupStatics> staticStuffs(new CleanupStatics());
     if (Settings::Instance() == NULL) {
         fprintf(stderr, "caanot create Settings");
         return 1;
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     Settings::Instance()->addSetting(Settings::EDEVICE_INFO, deviceInfo);
 
     ModelBuilder modelBuilder;
-    UniquePtr<TaskGeneric> topTask(modelBuilder.parseTestDescriptionXml(xmlFile));
+    std::unique_ptr<TaskGeneric> topTask(modelBuilder.parseTestDescriptionXml(xmlFile));
     if (topTask.get() == NULL) {
         LOGE("Parsing of %x failed", xmlFile.string());
         return 1;

@@ -1,4 +1,4 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -8,8 +8,7 @@ AUTHOR = "Chrome OS Team"
 NAME = "firmware_FAFTSetup"
 PURPOSE = "Servo based diagnose of FAFT hardware setup"
 CRITERIA = "This test will fail if FAFT hardware is not set up correctly."
-ATTRIBUTES = "suite:faft, suite:faft_bios, suite:faft_lab, suite:faft_lv2, suite:faft_normal, suite:faft_bios_ec3po"
-SUITE = "faft,faft_bios,faft_normal,faft_lv2,faft_lab,faft_bios_ec3po"
+ATTRIBUTES = "suite:faft, suite:faft_bios, suite:faft_bios_au_1, suite:faft_bios_au_2, suite:faft_bios_au_3, suite:faft_lab, suite:faft_lv2, suite:faft_normal, suite:faft_bios_ec3po, suite:faft_bios_tot, suite:faft_setup"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"

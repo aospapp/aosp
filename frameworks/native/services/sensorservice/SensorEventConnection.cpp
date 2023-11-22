@@ -17,11 +17,13 @@
 #include <sys/socket.h>
 #include <utils/threads.h>
 
-#include <gui/SensorEventQueue.h>
+#include <sensor/SensorEventQueue.h>
 
 #include "vec.h"
 #include "SensorEventConnection.h"
 #include "SensorDevice.h"
+
+#define UNUSED(x) (void)(x)
 
 namespace android {
 
@@ -206,7 +208,7 @@ void SensorService::SensorEventConnection::incrementPendingFlushCount(int32_t ha
 status_t SensorService::SensorEventConnection::sendEvents(
         sensors_event_t const* buffer, size_t numEvents,
         sensors_event_t* scratch,
-        SensorEventConnection const * const * mapFlushEventsToConnections) {
+        wp<const SensorEventConnection> const * mapFlushEventsToConnections) {
     // filter out events not for this connection
     int count = 0;
     Mutex::Autolock _l(mConnectionLock);
@@ -234,7 +236,7 @@ status_t SensorService::SensorEventConnection::sendEvents(
             FlushInfo& flushInfo = mSensorInfo.editValueAt(index);
             // Check if there is a pending flush_complete event for this sensor on this connection.
             if (buffer[i].type == SENSOR_TYPE_META_DATA && flushInfo.mFirstFlushPending == true &&
-                    this == mapFlushEventsToConnections[i]) {
+                    mapFlushEventsToConnections[i] == this) {
                 flushInfo.mFirstFlushPending = false;
                 ALOGD_IF(DEBUG_CONNECTIONS, "First flush event for sensor==%d ",
                         buffer[i].meta_data.sensor);
@@ -255,7 +257,7 @@ status_t SensorService::SensorEventConnection::sendEvents(
                 // from the same sensor_handle AND the current connection is mapped to the
                 // corresponding flush_complete_event.
                 if (buffer[i].type == SENSOR_TYPE_META_DATA) {
-                    if (this == mapFlushEventsToConnections[i]) {
+                    if (mapFlushEventsToConnections[i] == this) {
                         scratch[count++] = buffer[i];
                     }
                     ++i;
@@ -522,6 +524,13 @@ status_t SensorService::SensorEventConnection::setEventRate(
 
 status_t  SensorService::SensorEventConnection::flush() {
     return  mService->flushSensor(this, mOpPackageName);
+}
+
+int32_t SensorService::SensorEventConnection::configureChannel(int handle, int rateLevel) {
+    // SensorEventConnection does not support configureChannel, parameters not used
+    UNUSED(handle);
+    UNUSED(rateLevel);
+    return INVALID_OPERATION;
 }
 
 int SensorService::SensorEventConnection::handleEvent(int fd, int events, void* /*data*/) {

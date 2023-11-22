@@ -16,6 +16,9 @@
 
 package android.graphics.drawable.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -23,14 +26,22 @@ import android.graphics.ColorFilter;
 import android.graphics.Picture;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.PictureDrawable;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PictureDrawableTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PictureDrawableTest {
+    @Test
     public void testConstructor() {
         assertNull((new PictureDrawable(null)).getPicture());
         assertNotNull((new PictureDrawable(new Picture())).getPicture());
     }
 
+    @Test
     public void testDraw() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
 
@@ -57,6 +68,7 @@ public class PictureDrawableTest extends AndroidTestCase {
         assertEquals(0xff0a0c0b, destBitmap.getPixel(10, 10));
     }
 
+    @Test
     public void testGetIntrinsicSize() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
         // Test with null Picture object
@@ -71,16 +83,19 @@ public class PictureDrawableTest extends AndroidTestCase {
         assertEquals(101, pictureDrawable.getIntrinsicHeight());
     }
 
+    @Test
     public void testGetOpacity() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
         assertEquals(PixelFormat.TRANSLUCENT, pictureDrawable.getOpacity());
     }
 
+    @Test
     public void testSetAlpha() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
         pictureDrawable.setAlpha(0);
     }
 
+    @Test
     public void testSetColorFilter() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
 
@@ -88,16 +103,19 @@ public class PictureDrawableTest extends AndroidTestCase {
         pictureDrawable.setColorFilter(colorFilter);
     }
 
+    @Test
     public void testSetDither() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
         pictureDrawable.setDither(true);
     }
 
+    @Test
     public void testSetFilterBitmap() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
         pictureDrawable.setFilterBitmap(true);
     }
 
+    @Test
     public void testAccessPicture() {
         PictureDrawable pictureDrawable = new PictureDrawable(null);
         assertNull(pictureDrawable.getPicture());

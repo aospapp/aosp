@@ -1,7 +1,9 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  * @(#)TimeZone.java    1.51 00/01/19
  *
- * Copyright (C) 1996-2012, International Business Machines
+ * Copyright (C) 1996-2016, International Business Machines
  * Corporation and others.  All Rights Reserved.
  */
 
@@ -90,7 +92,7 @@ import com.ibm.icu.util.ULocale.Category;
  * @see          Calendar
  * @see          GregorianCalendar
  * @see          SimpleTimeZone
- * @author       Mark Davis, David Goldsmith, Chen-Lieh Huang, Alan Liu
+ * @author       Mark Davis, Deborah Goldsmith, Chen-Lieh Huang, Alan Liu
  * @stable ICU 2.0
  */
 public class TimeZone implements Serializable, Cloneable, Freezable<TimeZone> {

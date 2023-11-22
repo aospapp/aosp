@@ -16,14 +16,21 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.style.LeadingMarginSpan;
 import android.text.style.LeadingMarginSpan.Standard;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class LeadingMarginSpan_StandardTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class LeadingMarginSpan_StandardTest {
+    @Test
     public void testConstructor() {
         new Standard(1, 2);
         new Standard(3);
@@ -41,6 +48,7 @@ public class LeadingMarginSpan_StandardTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetLeadingMargin() {
         int first = 4;
         int rest = 5;
@@ -54,21 +62,25 @@ public class LeadingMarginSpan_StandardTest extends TestCase {
         assertEquals(-1, standard.getLeadingMargin(false));
     }
 
+    @Test
     public void testDrawLeadingMargin() {
         Standard standard = new LeadingMarginSpan.Standard(10);
         standard.drawLeadingMargin(null, null, 0, 0, 0, 0, 0, null, 0, 0, false, null);
     }
 
+    @Test
     public void testDescribeContents() {
         Standard standard = new Standard(1);
         standard.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         Standard standard = new Standard(1);
         standard.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

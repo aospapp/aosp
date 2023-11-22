@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if modem manager state differs from shill state.
 """
 ATTRIBUTES = "suite:network3g_pseudomodem"
-SUITE = "network3g_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

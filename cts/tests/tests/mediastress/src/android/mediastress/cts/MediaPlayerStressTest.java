@@ -16,10 +16,13 @@
 
 package android.mediastress.cts;
 
+import com.android.compatibility.common.util.DynamicConfigDeviceSide;
+import com.android.compatibility.common.util.MediaUtils;
+
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Intent;
-import android.cts.util.MediaUtils;
+import android.media.MediaFormat;
 import android.media.MediaRecorder.AudioEncoder;
 import android.media.MediaRecorder.VideoEncoder;
 import android.os.Environment;
@@ -30,6 +33,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.Writer;
+import java.util.ArrayList;
+import java.util.List;
 
 import android.test.InstrumentationTestCase;
 
@@ -42,6 +47,7 @@ abstract class MediaPlayerStressTest extends InstrumentationTestCase {
     protected static final int REPEAT_NUMBER_FOR_LONG_CLIPS = 1;
     protected static final int REPEAT_NUMBER_FOR_REPEATED_PLAYBACK = 20;
     private static final String TAG = "MediaPlayerStressTest";
+    private static final String MODULE_NAME = "CtsMediaStressTestCases";
 
     /**
      * provides full path name of video clip for the given media number
@@ -96,6 +102,48 @@ abstract class MediaPlayerStressTest extends InstrumentationTestCase {
         mTotalMetaDataUpdate += CodecTest.mMediaInfoMetdataUpdateCount;
     }
 
+    private static MediaFormat parseTrackFormat(String trackFormatString) {
+        MediaFormat format = new MediaFormat();
+        format.setString(MediaFormat.KEY_MIME, "");
+
+        for (String entry : trackFormatString.split(",")) {
+            String[] kv = entry.split("=");
+            if (kv.length < 2) {
+                continue;
+            }
+
+            String k = kv[0];
+            String v = kv[1];
+            try {
+                format.setInteger(k, Integer.parseInt(v));
+            } catch(NumberFormatException e) {
+                format.setString(k, v);
+            }
+        }
+
+        return format;
+    }
+
+    private List<MediaFormat> getClipFormats(String mediaName) throws Exception {
+        List<MediaFormat> mediaFormats = new ArrayList<MediaFormat>();
+        DynamicConfigDeviceSide config = new DynamicConfigDeviceSide(MODULE_NAME);
+        String[] components = mediaName.split(VIDEO_TOP_DIR);
+        String key = mediaNameToKey(components[components.length -1]);
+        List<String> mediaFormatStrings = config.getValues(key);
+        for (String mediaFormatString : mediaFormatStrings) {
+            String[] trackFormatStrings = mediaFormatString.split(";");
+            for (String trackFormatString : trackFormatStrings) {
+                MediaFormat format = parseTrackFormat(trackFormatString);
+                mediaFormats.add(format);
+            }
+        }
+        return mediaFormats;
+    }
+
+    private String mediaNameToKey(String mediaName) {
+        return mediaName.replaceAll("[\\./]", "_").toLowerCase();
+    }
+
     /**
      * runs video playback test for the given mediaNumber
      * @param mediaNumber number of media to be used for playback.
@@ -106,8 +154,12 @@ abstract class MediaPlayerStressTest extends InstrumentationTestCase {
     protected void doTestVideoPlayback(int mediaNumber, int repeatCounter) throws Exception {
         Instrumentation inst = getInstrumentation();
         String mediaName = getFullVideoClipName(mediaNumber);
-        if (!MediaUtils.checkCodecsForPath(inst.getTargetContext(), mediaName)) {
-            return;  // not supported, message is already logged
+        for (MediaFormat format: getClipFormats(mediaName)) {
+            if (!MediaUtils.checkDecoderForFormat(format)) {
+                Log.i(TAG, "skipping " + this.getClass().getSimpleName()
+                    + " test clip " + mediaName + " format " + format);
+                return;  // not supported
+            }
         }
 
         File playbackOutput = new File(WorkDir.getTopDir(), "PlaybackTestResult.txt");

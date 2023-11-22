@@ -28,12 +28,16 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
 import android.support.annotation.VisibleForTesting;
+import android.support.v4.os.BuildCompat;
 import android.support.v7.view.SupportActionModeWrapper;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.Window;
 
+@RequiresApi(14)
 class AppCompatDelegateImplV14 extends AppCompatDelegateImplV11 {
 
     private static final String KEY_LOCAL_NIGHT_MODE = "appcompat:local_night_mode";
@@ -205,15 +209,22 @@ class AppCompatDelegateImplV14 extends AppCompatDelegateImplV11 {
                 if (DEBUG) {
                     Log.d(TAG, "applyNightMode() | Night mode changed, updating configuration");
                 }
-                final Configuration newConf = new Configuration(conf);
-                newConf.uiMode = newNightMode
-                        | (newConf.uiMode & ~Configuration.UI_MODE_NIGHT_MASK);
-                res.updateConfiguration(newConf, null);
+                final Configuration config = new Configuration(conf);
+                final DisplayMetrics metrics = res.getDisplayMetrics();
+
+                // Update the UI Mode to reflect the new night mode
+                config.uiMode = newNightMode | (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK);
+                res.updateConfiguration(config, metrics);
+
+                // We may need to flush the Resources' drawable cache due to framework bugs.
+                if (!BuildCompat.isAtLeastO()) {
+                    ResourcesFlusher.flush(res);
+                }
             }
             return true;
         } else {
             if (DEBUG) {
-                Log.d(TAG, "applyNightMode() | Night mode has not changed. Skipping");
+                Log.d(TAG, "applyNightMode() | Skipping. Night mode has not changed: " + mode);
             }
         }
         return false;
@@ -233,7 +244,7 @@ class AppCompatDelegateImplV14 extends AppCompatDelegateImplV11 {
 
     private boolean shouldRecreateOnNightModeChange() {
         if (mApplyDayNightCalled && mContext instanceof Activity) {
-            // If we've already appliedDayNight() (via setTheme), we need to check if the
+            // If we've already applyDayNight() (via setTheme), we need to check if the
             // Activity has configChanges set to handle uiMode changes
             final PackageManager pm = mContext.getPackageManager();
             try {
@@ -303,6 +314,7 @@ class AppCompatDelegateImplV14 extends AppCompatDelegateImplV11 {
 
         @ApplyableNightMode
         final int getApplyableNightMode() {
+            mIsNight = mTwilightManager.isNight();
             return mIsNight ? MODE_NIGHT_YES : MODE_NIGHT_NO;
         }
 
@@ -318,7 +330,7 @@ class AppCompatDelegateImplV14 extends AppCompatDelegateImplV11 {
             cleanup();
 
             // If we're set to AUTO, we register a receiver to be notified on time changes. The
-            // system only send the tick out every minute, but that's enough fidelity for our use
+            // system only sends the tick out every minute, but that's enough fidelity for our use
             // case
             if (mAutoTimeChangeReceiver == null) {
                 mAutoTimeChangeReceiver = new BroadcastReceiver() {

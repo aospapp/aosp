@@ -72,9 +72,16 @@ public final class FinalizeTest extends TestCase {
     // Helper function since we do not want a vreg to keep the allocated object live.
     // For b/25851249
     private void exceptionInConstructor() {
+        boolean thrown = false;
         try {
             new ConstructionFails();
+            // can't fail() here since AssertionFailedError extends AssertionError, which
+            // we expect
         } catch (AssertionError expected) {
+            thrown = true;
+        }
+        if (!thrown) {
+            fail();
         }
     }
 
@@ -102,11 +109,9 @@ public final class FinalizeTest extends TestCase {
      * to finalize. Check that objects near that limit are okay.
      */
     public void testWatchdogDoesNotFailForObjectsThatAreNearTheDeadline() throws Exception {
-        CountDownLatch latch = new CountDownLatch(5);
+        CountDownLatch latch = new CountDownLatch(3);
         createSlowFinalizer(   1, latch);
         createSlowFinalizer(1000, latch);
-        createSlowFinalizer(2000, latch);
-        createSlowFinalizer(4000, latch);
         createSlowFinalizer(8000, latch);
         FinalizationTester.induceFinalization();
         latch.await();

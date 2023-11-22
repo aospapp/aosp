@@ -16,26 +16,25 @@
 
 package io.appium.droiddriver.runner;
 
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
+
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.TYPE;
-
 /**
- * This annotation indicates that its target needs
- * {@link android.app.UiAutomation}. It is effectively equivalent to
- * {@code @MinSdkVersion(Build.VERSION_CODES.JELLY_BEAN_MR2)}, just more
+ * This annotation indicates that its target needs {@link android.app.UiAutomation}. It is
+ * effectively equivalent to {@code @MinSdkVersion(Build.VERSION_CODES.JELLY_BEAN_MR2)}, just more
  * explicit.
- * <p>
- * As any annotations, it is useful only if it is processed by tools.
- * {@link TestRunner} filters out tests with this annotation if the current
- * device has SDK version below 18 (JELLY_BEAN_MR2).
+ *
+ * <p>As any annotations, it is useful only if it is processed by tools.
+ *
+ * @deprecated Use android.support.test.filters.SdkSuppress instead.
  */
 @Inherited
 @Target({TYPE, METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface UseUiAutomation {
-}
+@Deprecated
+public @interface UseUiAutomation {}

@@ -16,16 +16,15 @@
 
 #include "intrinsics.h"
 
-#include "art_method.h"
+#include "art_field-inl.h"
+#include "art_method-inl.h"
 #include "class_linker.h"
-#include "dex/quick/dex_file_method_inliner.h"
-#include "dex/quick/dex_file_to_method_inliner_map.h"
 #include "driver/compiler_driver.h"
+#include "driver/compiler_options.h"
 #include "invoke_type.h"
 #include "mirror/dex_cache-inl.h"
 #include "nodes.h"
-#include "quick/inline_method_analyser.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "thread-inl.h"
 #include "utils.h"
 
@@ -36,7 +35,7 @@ static inline InvokeType GetIntrinsicInvokeType(Intrinsics i) {
   switch (i) {
     case Intrinsics::kNone:
       return kInterface;  // Non-sensical for intrinsic.
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
     case Intrinsics::k ## Name: \
       return IsStatic;
 #include "intrinsics_list.h"
@@ -52,7 +51,7 @@ static inline IntrinsicNeedsEnvironmentOrCache NeedsEnvironmentOrCache(Intrinsic
   switch (i) {
     case Intrinsics::kNone:
       return kNeedsEnvironmentOrCache;  // Non-sensical for intrinsic.
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
     case Intrinsics::k ## Name: \
       return NeedsEnvironmentOrCache;
 #include "intrinsics_list.h"
@@ -68,7 +67,7 @@ static inline IntrinsicSideEffects GetSideEffects(Intrinsics i) {
   switch (i) {
     case Intrinsics::kNone:
       return kAllSideEffects;
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
     case Intrinsics::k ## Name: \
       return SideEffects;
 #include "intrinsics_list.h"
@@ -84,7 +83,7 @@ static inline IntrinsicExceptions GetExceptions(Intrinsics i) {
   switch (i) {
     case Intrinsics::kNone:
       return kCanThrow;
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
     case Intrinsics::k ## Name: \
       return Exceptions;
 #include "intrinsics_list.h"
@@ -95,432 +94,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
   return kCanThrow;
 }
 
-static Primitive::Type GetType(uint64_t data, bool is_op_size) {
-  if (is_op_size) {
-    switch (static_cast<OpSize>(data)) {
-      case kSignedByte:
-        return Primitive::kPrimByte;
-      case kSignedHalf:
-        return Primitive::kPrimShort;
-      case k32:
-        return Primitive::kPrimInt;
-      case k64:
-        return Primitive::kPrimLong;
-      default:
-        LOG(FATAL) << "Unknown/unsupported op size " << data;
-        UNREACHABLE();
-    }
-  } else {
-    if ((data & kIntrinsicFlagIsLong) != 0) {
-      return Primitive::kPrimLong;
-    }
-    if ((data & kIntrinsicFlagIsObject) != 0) {
-      return Primitive::kPrimNot;
-    }
-    return Primitive::kPrimInt;
-  }
-}
-
-static Intrinsics GetIntrinsic(InlineMethod method) {
-  switch (method.opcode) {
-    // Floating-point conversions.
-    case kIntrinsicDoubleCvt:
-      return ((method.d.data & kIntrinsicFlagToFloatingPoint) == 0) ?
-          Intrinsics::kDoubleDoubleToRawLongBits : Intrinsics::kDoubleLongBitsToDouble;
-    case kIntrinsicFloatCvt:
-      return ((method.d.data & kIntrinsicFlagToFloatingPoint) == 0) ?
-          Intrinsics::kFloatFloatToRawIntBits : Intrinsics::kFloatIntBitsToFloat;
-    case kIntrinsicFloat2Int:
-      return Intrinsics::kFloatFloatToIntBits;
-    case kIntrinsicDouble2Long:
-      return Intrinsics::kDoubleDoubleToLongBits;
-
-    // Floating-point tests.
-    case kIntrinsicFloatIsInfinite:
-      return Intrinsics::kFloatIsInfinite;
-    case kIntrinsicDoubleIsInfinite:
-      return Intrinsics::kDoubleIsInfinite;
-    case kIntrinsicFloatIsNaN:
-      return Intrinsics::kFloatIsNaN;
-    case kIntrinsicDoubleIsNaN:
-      return Intrinsics::kDoubleIsNaN;
-
-    // Bit manipulations.
-    case kIntrinsicReverseBits:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerReverse;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongReverse;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicReverseBytes:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimShort:
-          return Intrinsics::kShortReverseBytes;
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerReverseBytes;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongReverseBytes;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicRotateRight:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerRotateRight;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongRotateRight;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicRotateLeft:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerRotateLeft;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongRotateLeft;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-
-    // Misc data processing.
-    case kIntrinsicBitCount:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerBitCount;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongBitCount;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicCompare:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerCompare;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongCompare;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicHighestOneBit:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerHighestOneBit;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongHighestOneBit;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicLowestOneBit:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerLowestOneBit;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongLowestOneBit;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicNumberOfLeadingZeros:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerNumberOfLeadingZeros;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongNumberOfLeadingZeros;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicNumberOfTrailingZeros:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerNumberOfTrailingZeros;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongNumberOfTrailingZeros;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicSignum:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimInt:
-          return Intrinsics::kIntegerSignum;
-        case Primitive::kPrimLong:
-          return Intrinsics::kLongSignum;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-
-    // Abs.
-    case kIntrinsicAbsDouble:
-      return Intrinsics::kMathAbsDouble;
-    case kIntrinsicAbsFloat:
-      return Intrinsics::kMathAbsFloat;
-    case kIntrinsicAbsInt:
-      return Intrinsics::kMathAbsInt;
-    case kIntrinsicAbsLong:
-      return Intrinsics::kMathAbsLong;
-
-    // Min/max.
-    case kIntrinsicMinMaxDouble:
-      return ((method.d.data & kIntrinsicFlagMin) == 0) ?
-          Intrinsics::kMathMaxDoubleDouble : Intrinsics::kMathMinDoubleDouble;
-    case kIntrinsicMinMaxFloat:
-      return ((method.d.data & kIntrinsicFlagMin) == 0) ?
-          Intrinsics::kMathMaxFloatFloat : Intrinsics::kMathMinFloatFloat;
-    case kIntrinsicMinMaxInt:
-      return ((method.d.data & kIntrinsicFlagMin) == 0) ?
-          Intrinsics::kMathMaxIntInt : Intrinsics::kMathMinIntInt;
-    case kIntrinsicMinMaxLong:
-      return ((method.d.data & kIntrinsicFlagMin) == 0) ?
-          Intrinsics::kMathMaxLongLong : Intrinsics::kMathMinLongLong;
-
-    // More math builtins.
-    case kIntrinsicCos:
-      return Intrinsics::kMathCos;
-    case kIntrinsicSin:
-      return Intrinsics::kMathSin;
-    case kIntrinsicAcos:
-      return Intrinsics::kMathAcos;
-    case kIntrinsicAsin:
-      return Intrinsics::kMathAsin;
-    case kIntrinsicAtan:
-      return Intrinsics::kMathAtan;
-    case kIntrinsicAtan2:
-      return Intrinsics::kMathAtan2;
-    case kIntrinsicCbrt:
-      return Intrinsics::kMathCbrt;
-    case kIntrinsicCosh:
-      return Intrinsics::kMathCosh;
-    case kIntrinsicExp:
-      return Intrinsics::kMathExp;
-    case kIntrinsicExpm1:
-      return Intrinsics::kMathExpm1;
-    case kIntrinsicHypot:
-      return Intrinsics::kMathHypot;
-    case kIntrinsicLog:
-      return Intrinsics::kMathLog;
-    case kIntrinsicLog10:
-      return Intrinsics::kMathLog10;
-    case kIntrinsicNextAfter:
-      return Intrinsics::kMathNextAfter;
-    case kIntrinsicSinh:
-      return Intrinsics::kMathSinh;
-    case kIntrinsicTan:
-      return Intrinsics::kMathTan;
-    case kIntrinsicTanh:
-      return Intrinsics::kMathTanh;
-
-    // Misc math.
-    case kIntrinsicSqrt:
-      return Intrinsics::kMathSqrt;
-    case kIntrinsicCeil:
-      return Intrinsics::kMathCeil;
-    case kIntrinsicFloor:
-      return Intrinsics::kMathFloor;
-    case kIntrinsicRint:
-      return Intrinsics::kMathRint;
-    case kIntrinsicRoundDouble:
-      return Intrinsics::kMathRoundDouble;
-    case kIntrinsicRoundFloat:
-      return Intrinsics::kMathRoundFloat;
-
-    // System.arraycopy.
-    case kIntrinsicSystemArrayCopyCharArray:
-      return Intrinsics::kSystemArrayCopyChar;
-
-    case kIntrinsicSystemArrayCopy:
-      return Intrinsics::kSystemArrayCopy;
-
-    // Thread.currentThread.
-    case kIntrinsicCurrentThread:
-      return Intrinsics::kThreadCurrentThread;
-
-    // Memory.peek.
-    case kIntrinsicPeek:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimByte:
-          return Intrinsics::kMemoryPeekByte;
-        case Primitive::kPrimShort:
-          return Intrinsics::kMemoryPeekShortNative;
-        case Primitive::kPrimInt:
-          return Intrinsics::kMemoryPeekIntNative;
-        case Primitive::kPrimLong:
-          return Intrinsics::kMemoryPeekLongNative;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-
-    // Memory.poke.
-    case kIntrinsicPoke:
-      switch (GetType(method.d.data, true)) {
-        case Primitive::kPrimByte:
-          return Intrinsics::kMemoryPokeByte;
-        case Primitive::kPrimShort:
-          return Intrinsics::kMemoryPokeShortNative;
-        case Primitive::kPrimInt:
-          return Intrinsics::kMemoryPokeIntNative;
-        case Primitive::kPrimLong:
-          return Intrinsics::kMemoryPokeLongNative;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-
-    // String.
-    case kIntrinsicCharAt:
-      return Intrinsics::kStringCharAt;
-    case kIntrinsicCompareTo:
-      return Intrinsics::kStringCompareTo;
-    case kIntrinsicEquals:
-      return Intrinsics::kStringEquals;
-    case kIntrinsicGetCharsNoCheck:
-      return Intrinsics::kStringGetCharsNoCheck;
-    case kIntrinsicIsEmptyOrLength:
-      // The inliner can handle these two cases - and this is the preferred approach
-      // since after inlining the call is no longer visible (as opposed to waiting
-      // until codegen to handle intrinsic).
-      return Intrinsics::kNone;
-    case kIntrinsicIndexOf:
-      return ((method.d.data & kIntrinsicFlagBase0) == 0) ?
-          Intrinsics::kStringIndexOfAfter : Intrinsics::kStringIndexOf;
-    case kIntrinsicNewStringFromBytes:
-      return Intrinsics::kStringNewStringFromBytes;
-    case kIntrinsicNewStringFromChars:
-      return Intrinsics::kStringNewStringFromChars;
-    case kIntrinsicNewStringFromString:
-      return Intrinsics::kStringNewStringFromString;
-
-    case kIntrinsicCas:
-      switch (GetType(method.d.data, false)) {
-        case Primitive::kPrimNot:
-          return Intrinsics::kUnsafeCASObject;
-        case Primitive::kPrimInt:
-          return Intrinsics::kUnsafeCASInt;
-        case Primitive::kPrimLong:
-          return Intrinsics::kUnsafeCASLong;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    case kIntrinsicUnsafeGet: {
-      const bool is_volatile = (method.d.data & kIntrinsicFlagIsVolatile);
-      switch (GetType(method.d.data, false)) {
-        case Primitive::kPrimInt:
-          return is_volatile ? Intrinsics::kUnsafeGetVolatile : Intrinsics::kUnsafeGet;
-        case Primitive::kPrimLong:
-          return is_volatile ? Intrinsics::kUnsafeGetLongVolatile : Intrinsics::kUnsafeGetLong;
-        case Primitive::kPrimNot:
-          return is_volatile ? Intrinsics::kUnsafeGetObjectVolatile : Intrinsics::kUnsafeGetObject;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-    }
-    case kIntrinsicUnsafePut: {
-      enum Sync { kNoSync, kVolatile, kOrdered };
-      const Sync sync =
-          ((method.d.data & kIntrinsicFlagIsVolatile) != 0) ? kVolatile :
-          ((method.d.data & kIntrinsicFlagIsOrdered) != 0)  ? kOrdered :
-                                                              kNoSync;
-      switch (GetType(method.d.data, false)) {
-        case Primitive::kPrimInt:
-          switch (sync) {
-            case kNoSync:
-              return Intrinsics::kUnsafePut;
-            case kVolatile:
-              return Intrinsics::kUnsafePutVolatile;
-            case kOrdered:
-              return Intrinsics::kUnsafePutOrdered;
-          }
-          break;
-        case Primitive::kPrimLong:
-          switch (sync) {
-            case kNoSync:
-              return Intrinsics::kUnsafePutLong;
-            case kVolatile:
-              return Intrinsics::kUnsafePutLongVolatile;
-            case kOrdered:
-              return Intrinsics::kUnsafePutLongOrdered;
-          }
-          break;
-        case Primitive::kPrimNot:
-          switch (sync) {
-            case kNoSync:
-              return Intrinsics::kUnsafePutObject;
-            case kVolatile:
-              return Intrinsics::kUnsafePutObjectVolatile;
-            case kOrdered:
-              return Intrinsics::kUnsafePutObjectOrdered;
-          }
-          break;
-        default:
-          LOG(FATAL) << "Unknown/unsupported op size " << method.d.data;
-          UNREACHABLE();
-      }
-      break;
-    }
-
-    // 1.8.
-    case kIntrinsicUnsafeGetAndAddInt:
-      return Intrinsics::kUnsafeGetAndAddInt;
-    case kIntrinsicUnsafeGetAndAddLong:
-      return Intrinsics::kUnsafeGetAndAddLong;
-    case kIntrinsicUnsafeGetAndSetInt:
-      return Intrinsics::kUnsafeGetAndSetInt;
-    case kIntrinsicUnsafeGetAndSetLong:
-      return Intrinsics::kUnsafeGetAndSetLong;
-    case kIntrinsicUnsafeGetAndSetObject:
-      return Intrinsics::kUnsafeGetAndSetObject;
-    case kIntrinsicUnsafeLoadFence:
-      return Intrinsics::kUnsafeLoadFence;
-    case kIntrinsicUnsafeStoreFence:
-      return Intrinsics::kUnsafeStoreFence;
-    case kIntrinsicUnsafeFullFence:
-      return Intrinsics::kUnsafeFullFence;
-
-    // Virtual cases.
-
-    case kIntrinsicReferenceGetReferent:
-      return Intrinsics::kReferenceGetReferent;
-
-    // Quick inliner cases. Remove after refactoring. They are here so that we can use the
-    // compiler to warn on missing cases.
-
-    case kInlineOpNop:
-    case kInlineOpReturnArg:
-    case kInlineOpNonWideConst:
-    case kInlineOpIGet:
-    case kInlineOpIPut:
-    case kInlineOpConstructor:
-      return Intrinsics::kNone;
-
-    // String init cases, not intrinsics.
-
-    case kInlineStringInit:
-      return Intrinsics::kNone;
-
-    // No default case to make the compiler warn on missing cases.
-  }
-  return Intrinsics::kNone;
-}
-
-static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke, const DexFile& dex_file) {
-  // The DexFileMethodInliner should have checked whether the methods are agreeing with
-  // what we expect, i.e., static methods are called as such. Add another check here for
-  // our expectations:
-  //
+static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke) {
   // Whenever the intrinsic is marked as static, report an error if we find an InvokeVirtual.
   //
   // Whenever the intrinsic is marked as direct and we find an InvokeVirtual, a devirtualization
@@ -534,9 +108,7 @@ static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke, const DexFile
   // inline. If the precise type is known, however, the instruction will be sharpened to an
   // InvokeStaticOrDirect.
   InvokeType intrinsic_type = GetIntrinsicInvokeType(intrinsic);
-  InvokeType invoke_type = invoke->IsInvokeStaticOrDirect() ?
-      invoke->AsInvokeStaticOrDirect()->GetOptimizedInvokeType() :
-      invoke->IsInvokeVirtual() ? kVirtual : kSuper;
+  InvokeType invoke_type = invoke->GetInvokeType();
   switch (intrinsic_type) {
     case kStatic:
       return (invoke_type == kStatic);
@@ -546,13 +118,9 @@ static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke, const DexFile
         return true;
       }
       if (invoke_type == kVirtual) {
-        ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+        ArtMethod* art_method = invoke->GetResolvedMethod();
         ScopedObjectAccess soa(Thread::Current());
-        ArtMethod* art_method =
-            class_linker->FindDexCache(soa.Self(), dex_file)->GetResolvedMethod(
-                invoke->GetDexMethodIndex(), class_linker->GetImagePointerSize());
-        return art_method != nullptr &&
-            (art_method->IsFinal() || art_method->GetDeclaringClass()->IsFinal());
+        return (art_method->IsFinal() || art_method->GetDeclaringClass()->IsFinal());
       }
       return false;
 
@@ -565,35 +133,28 @@ static bool CheckInvokeType(Intrinsics intrinsic, HInvoke* invoke, const DexFile
   }
 }
 
-// TODO: Refactor DexFileMethodInliner and have something nicer than InlineMethod.
 void IntrinsicsRecognizer::Run() {
-  for (HReversePostOrderIterator it(*graph_); !it.Done(); it.Advance()) {
-    HBasicBlock* block = it.Current();
+  ScopedObjectAccess soa(Thread::Current());
+  for (HBasicBlock* block : graph_->GetReversePostOrder()) {
     for (HInstructionIterator inst_it(block->GetInstructions()); !inst_it.Done();
          inst_it.Advance()) {
       HInstruction* inst = inst_it.Current();
       if (inst->IsInvoke()) {
         HInvoke* invoke = inst->AsInvoke();
-        InlineMethod method;
-        const DexFile& dex_file = invoke->GetDexFile();
-        DexFileMethodInliner* inliner = driver_->GetMethodInlinerMap()->GetMethodInliner(&dex_file);
-        DCHECK(inliner != nullptr);
-        if (inliner->IsIntrinsic(invoke->GetDexMethodIndex(), &method)) {
-          Intrinsics intrinsic = GetIntrinsic(method);
-
-          if (intrinsic != Intrinsics::kNone) {
-            if (!CheckInvokeType(intrinsic, invoke, dex_file)) {
-              LOG(WARNING) << "Found an intrinsic with unexpected invoke type: "
-                  << intrinsic << " for "
-                  << PrettyMethod(invoke->GetDexMethodIndex(), invoke->GetDexFile())
-                  << invoke->DebugName();
-            } else {
-              invoke->SetIntrinsic(intrinsic,
-                                   NeedsEnvironmentOrCache(intrinsic),
-                                   GetSideEffects(intrinsic),
-                                   GetExceptions(intrinsic));
-              MaybeRecordStat(MethodCompilationStat::kIntrinsicRecognized);
-            }
+        ArtMethod* art_method = invoke->GetResolvedMethod();
+        if (art_method != nullptr && art_method->IsIntrinsic()) {
+          Intrinsics intrinsic = static_cast<Intrinsics>(art_method->GetIntrinsic());
+          if (!CheckInvokeType(intrinsic, invoke)) {
+            LOG(WARNING) << "Found an intrinsic with unexpected invoke type: "
+                << intrinsic << " for "
+                << art_method->PrettyMethod()
+                << invoke->DebugName();
+          } else {
+            invoke->SetIntrinsic(intrinsic,
+                                 NeedsEnvironmentOrCache(intrinsic),
+                                 GetSideEffects(intrinsic),
+                                 GetExceptions(intrinsic));
+            MaybeRecordStat(MethodCompilationStat::kIntrinsicRecognized);
           }
         }
       }
@@ -606,7 +167,7 @@ std::ostream& operator<<(std::ostream& os, const Intrinsics& intrinsic) {
     case Intrinsics::kNone:
       os << "None";
       break;
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
     case Intrinsics::k ## Name: \
       os << # Name; \
       break;
@@ -617,6 +178,114 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 #undef OPTIMIZING_INTRINSICS
   }
   return os;
+}
+
+void IntrinsicVisitor::ComputeIntegerValueOfLocations(HInvoke* invoke,
+                                                      CodeGenerator* codegen,
+                                                      Location return_location,
+                                                      Location first_argument_location) {
+  if (Runtime::Current()->IsAotCompiler()) {
+    if (codegen->GetCompilerOptions().IsBootImage() ||
+        codegen->GetCompilerOptions().GetCompilePic()) {
+      // TODO(ngeoffray): Support boot image compilation.
+      return;
+    }
+  }
+
+  IntegerValueOfInfo info = ComputeIntegerValueOfInfo();
+
+  // Most common case is that we have found all we needed (classes are initialized
+  // and in the boot image). Bail if not.
+  if (info.integer_cache == nullptr ||
+      info.integer == nullptr ||
+      info.cache == nullptr ||
+      info.value_offset == 0 ||
+      // low and high cannot be 0, per the spec.
+      info.low == 0 ||
+      info.high == 0) {
+    LOG(INFO) << "Integer.valueOf will not be optimized";
+    return;
+  }
+
+  // The intrinsic will call if it needs to allocate a j.l.Integer.
+  LocationSummary* locations = new (invoke->GetBlock()->GetGraph()->GetArena()) LocationSummary(
+      invoke, LocationSummary::kCallOnMainOnly, kIntrinsified);
+  if (!invoke->InputAt(0)->IsConstant()) {
+    locations->SetInAt(0, Location::RequiresRegister());
+  }
+  locations->AddTemp(first_argument_location);
+  locations->SetOut(return_location);
+}
+
+IntrinsicVisitor::IntegerValueOfInfo IntrinsicVisitor::ComputeIntegerValueOfInfo() {
+  // Note that we could cache all of the data looked up here. but there's no good
+  // location for it. We don't want to add it to WellKnownClasses, to avoid creating global
+  // jni values. Adding it as state to the compiler singleton seems like wrong
+  // separation of concerns.
+  // The need for this data should be pretty rare though.
+
+  // The most common case is that the classes are in the boot image and initialized,
+  // which is easy to generate code for. We bail if not.
+  Thread* self = Thread::Current();
+  ScopedObjectAccess soa(self);
+  Runtime* runtime = Runtime::Current();
+  ClassLinker* class_linker = runtime->GetClassLinker();
+  gc::Heap* heap = runtime->GetHeap();
+  IntegerValueOfInfo info;
+  info.integer_cache = class_linker->FindSystemClass(self, "Ljava/lang/Integer$IntegerCache;");
+  if (info.integer_cache == nullptr) {
+    self->ClearException();
+    return info;
+  }
+  if (!heap->ObjectIsInBootImageSpace(info.integer_cache) || !info.integer_cache->IsInitialized()) {
+    // Optimization only works if the class is initialized and in the boot image.
+    return info;
+  }
+  info.integer = class_linker->FindSystemClass(self, "Ljava/lang/Integer;");
+  if (info.integer == nullptr) {
+    self->ClearException();
+    return info;
+  }
+  if (!heap->ObjectIsInBootImageSpace(info.integer) || !info.integer->IsInitialized()) {
+    // Optimization only works if the class is initialized and in the boot image.
+    return info;
+  }
+
+  ArtField* field = info.integer_cache->FindDeclaredStaticField("cache", "[Ljava/lang/Integer;");
+  if (field == nullptr) {
+    return info;
+  }
+  info.cache = static_cast<mirror::ObjectArray<mirror::Object>*>(
+      field->GetObject(info.integer_cache).Ptr());
+  if (info.cache == nullptr) {
+    return info;
+  }
+
+  if (!heap->ObjectIsInBootImageSpace(info.cache)) {
+    // Optimization only works if the object is in the boot image.
+    return info;
+  }
+
+  field = info.integer->FindDeclaredInstanceField("value", "I");
+  if (field == nullptr) {
+    return info;
+  }
+  info.value_offset = field->GetOffset().Int32Value();
+
+  field = info.integer_cache->FindDeclaredStaticField("low", "I");
+  if (field == nullptr) {
+    return info;
+  }
+  info.low = field->GetInt(info.integer_cache);
+
+  field = info.integer_cache->FindDeclaredStaticField("high", "I");
+  if (field == nullptr) {
+    return info;
+  }
+  info.high = field->GetInt(info.integer_cache);
+
+  DCHECK_EQ(info.cache->GetLength(), info.high - info.low + 1);
+  return info;
 }
 
 }  // namespace art

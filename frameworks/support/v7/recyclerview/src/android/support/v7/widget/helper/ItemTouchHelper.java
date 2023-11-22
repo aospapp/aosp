@@ -16,18 +16,14 @@
 
 package android.support.v7.widget.helper;
 
+import android.animation.Animator;
+import android.animation.ValueAnimator;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.os.Build;
 import android.support.annotation.Nullable;
-import android.support.v4.animation.AnimatorCompatHelper;
-import android.support.v4.animation.AnimatorListenerCompat;
-import android.support.v4.animation.AnimatorUpdateListenerCompat;
-import android.support.v4.animation.ValueAnimatorCompat;
 import android.support.v4.view.GestureDetectorCompat;
-import android.support.v4.view.MotionEventCompat;
-import android.support.v4.view.VelocityTrackerCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.recyclerview.R;
 import android.support.v7.widget.LinearLayoutManager;
@@ -62,16 +58,13 @@ import java.util.List;
  * {@link ItemTouchHelper.Callback} class or implementing {@link ItemTouchHelper.ViewDropHandler}
  * interface in your LayoutManager.
  * <p>
- * By default, ItemTouchHelper moves the items' translateX/Y properties to reposition them. On
- * platforms older than Honeycomb, ItemTouchHelper uses canvas translations and View's visibility
- * property to move items in response to touch events. You can customize these behaviors by
- * overriding {@link Callback#onChildDraw(Canvas, RecyclerView, ViewHolder, float, float, int,
- * boolean)}
+ * By default, ItemTouchHelper moves the items' translateX/Y properties to reposition them. You can
+ * customize these behaviors by overriding {@link Callback#onChildDraw(Canvas, RecyclerView,
+ * ViewHolder, float, float, int, boolean)}
  * or {@link Callback#onChildDrawOver(Canvas, RecyclerView, ViewHolder, float, float, int,
  * boolean)}.
  * <p/>
- * Most of the time, you only need to override <code>onChildDraw</code> but due to limitations of
- * platform prior to Honeycomb, you may need to implement <code>onChildDrawOver</code> as well.
+ * Most of the time you only need to override <code>onChildDraw</code>.
  */
 public class ItemTouchHelper extends RecyclerView.ItemDecoration
         implements RecyclerView.OnChildAttachStateChangeListener {
@@ -142,19 +135,19 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      */
     public static final int ANIMATION_TYPE_DRAG = 1 << 3;
 
-    private static final String TAG = "ItemTouchHelper";
+    static final String TAG = "ItemTouchHelper";
 
-    private static final boolean DEBUG = false;
+    static final boolean DEBUG = false;
 
-    private static final int ACTIVE_POINTER_ID_NONE = -1;
+    static final int ACTIVE_POINTER_ID_NONE = -1;
 
-    private static final int DIRECTION_FLAG_COUNT = 8;
+    static final int DIRECTION_FLAG_COUNT = 8;
 
     private static final int ACTION_MODE_IDLE_MASK = (1 << DIRECTION_FLAG_COUNT) - 1;
 
-    private static final int ACTION_MODE_SWIPE_MASK = ACTION_MODE_IDLE_MASK << DIRECTION_FLAG_COUNT;
+    static final int ACTION_MODE_SWIPE_MASK = ACTION_MODE_IDLE_MASK << DIRECTION_FLAG_COUNT;
 
-    private static final int ACTION_MODE_DRAG_MASK = ACTION_MODE_SWIPE_MASK << DIRECTION_FLAG_COUNT;
+    static final int ACTION_MODE_DRAG_MASK = ACTION_MODE_SWIPE_MASK << DIRECTION_FLAG_COUNT;
 
     /**
      * The unit we are using to track velocity
@@ -245,13 +238,13 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
 
     private int mSlop;
 
-    private RecyclerView mRecyclerView;
+    RecyclerView mRecyclerView;
 
     /**
      * When user drags a view to the edge, we start scrolling the LayoutManager as long as View
      * is partially out of bounds.
      */
-    private final Runnable mScrollRunnable = new Runnable() {
+    final Runnable mScrollRunnable = new Runnable() {
         @Override
         public void run() {
             if (mSelected != null && scrollIfNecessary()) {
@@ -267,7 +260,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
     /**
      * Used for detecting fling swipe
      */
-    private VelocityTracker mVelocityTracker;
+    VelocityTracker mVelocityTracker;
 
     //re-used list for selecting a swap target
     private List<ViewHolder> mSwapTargets;
@@ -285,29 +278,28 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      * until view reaches its final position (end of recover animation), we keep a reference so
      * that it can be drawn above other children.
      */
-    private View mOverdrawChild = null;
+    View mOverdrawChild = null;
 
     /**
      * We cache the position of the overdraw child to avoid recalculating it each time child
      * position callback is called. This value is invalidated whenever a child is attached or
      * detached.
      */
-    private int mOverdrawChildPosition = -1;
+    int mOverdrawChildPosition = -1;
 
     /**
      * Used to detect long press.
      */
-    private GestureDetectorCompat mGestureDetector;
+    GestureDetectorCompat mGestureDetector;
 
-    private final OnItemTouchListener mOnItemTouchListener
-            = new OnItemTouchListener() {
+    private final OnItemTouchListener mOnItemTouchListener = new OnItemTouchListener() {
         @Override
         public boolean onInterceptTouchEvent(RecyclerView recyclerView, MotionEvent event) {
             mGestureDetector.onTouchEvent(event);
             if (DEBUG) {
                 Log.d(TAG, "intercept: x:" + event.getX() + ",y:" + event.getY() + ", " + event);
             }
-            final int action = MotionEventCompat.getActionMasked(event);
+            final int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_DOWN) {
                 mActivePointerId = event.getPointerId(0);
                 mInitialTouchX = event.getX();
@@ -359,7 +351,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             if (mActivePointerId == ACTIVE_POINTER_ID_NONE) {
                 return;
             }
-            final int action = MotionEventCompat.getActionMasked(event);
+            final int action = event.getActionMasked();
             final int activePointerIndex = event.findPointerIndex(mActivePointerId);
             if (activePointerIndex >= 0) {
                 checkSelectForSwipe(action, event, activePointerIndex);
@@ -390,7 +382,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
                     mActivePointerId = ACTIVE_POINTER_ID_NONE;
                     break;
                 case MotionEvent.ACTION_POINTER_UP: {
-                    final int pointerIndex = MotionEventCompat.getActionIndex(event);
+                    final int pointerIndex = event.getActionIndex();
                     final int pointerId = event.getPointerId(pointerIndex);
                     if (pointerId == mActivePointerId) {
                         // This was our active pointer going up. Choose a new
@@ -437,10 +429,10 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
     }
 
     private static boolean hitTest(View child, float x, float y, float left, float top) {
-        return x >= left &&
-                x <= left + child.getWidth() &&
-                y >= top &&
-                y <= top + child.getHeight();
+        return x >= left
+                && x <= left + child.getWidth()
+                && y >= top
+                && y <= top + child.getHeight();
     }
 
     /**
@@ -507,12 +499,12 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         if ((mSelectedFlags & (LEFT | RIGHT)) != 0) {
             outPosition[0] = mSelectedStartX + mDx - mSelected.itemView.getLeft();
         } else {
-            outPosition[0] = ViewCompat.getTranslationX(mSelected.itemView);
+            outPosition[0] = mSelected.itemView.getTranslationX();
         }
         if ((mSelectedFlags & (UP | DOWN)) != 0) {
             outPosition[1] = mSelectedStartY + mDy - mSelected.itemView.getTop();
         } else {
-            outPosition[1] = ViewCompat.getTranslationY(mSelected.itemView);
+            outPosition[1] = mSelected.itemView.getTranslationY();
         }
     }
 
@@ -549,7 +541,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      *                    current action
      * @param actionState The type of action
      */
-    private void select(ViewHolder selected, int actionState) {
+    void select(ViewHolder selected, int actionState) {
         if (selected == mSelected && actionState == mActionState) {
             return;
         }
@@ -609,7 +601,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
                         prevActionState, currentTranslateX, currentTranslateY,
                         targetTranslateX, targetTranslateY) {
                     @Override
-                    public void onAnimationEnd(ValueAnimatorCompat animation) {
+                    public void onAnimationEnd(Animator animation) {
                         super.onAnimationEnd(animation);
                         if (this.mOverridden) {
                             return;
@@ -669,14 +661,14 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         mRecyclerView.invalidate();
     }
 
-    private void postDispatchSwipe(final RecoverAnimation anim, final int swipeDir) {
+    void postDispatchSwipe(final RecoverAnimation anim, final int swipeDir) {
         // wait until animations are complete.
         mRecyclerView.post(new Runnable() {
             @Override
             public void run() {
-                if (mRecyclerView != null && mRecyclerView.isAttachedToWindow() &&
-                        !anim.mOverridden &&
-                        anim.mViewHolder.getAdapterPosition() != RecyclerView.NO_POSITION) {
+                if (mRecyclerView != null && mRecyclerView.isAttachedToWindow()
+                        && !anim.mOverridden
+                        && anim.mViewHolder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                     final RecyclerView.ItemAnimator animator = mRecyclerView.getItemAnimator();
                     // if animator is running or we have other active recover animations, we try
                     // not to call onSwiped because DefaultItemAnimator is not good at merging
@@ -692,7 +684,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         });
     }
 
-    private boolean hasRunningRecoverAnim() {
+    boolean hasRunningRecoverAnim() {
         final int size = mRecoverAnimations.size();
         for (int i = 0; i < size; i++) {
             if (!mRecoverAnimations.get(i).mEnded) {
@@ -705,7 +697,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
     /**
      * If user drags the view to the edge, trigger a scroll if necessary.
      */
-    private boolean scrollIfNecessary() {
+    boolean scrollIfNecessary() {
         if (mSelected == null) {
             mDragScrollStartTimeInMs = Long.MIN_VALUE;
             return false;
@@ -740,8 +732,8 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             if (mDy < 0 && topDiff < 0) {
                 scrollY = topDiff;
             } else if (mDy > 0) {
-                final int bottomDiff = curY + mSelected.itemView.getHeight() + mTmpRect.bottom -
-                        (mRecyclerView.getHeight() - mRecyclerView.getPaddingBottom());
+                final int bottomDiff = curY + mSelected.itemView.getHeight() + mTmpRect.bottom
+                        - (mRecyclerView.getHeight() - mRecyclerView.getPaddingBottom());
                 if (bottomDiff > 0) {
                     scrollY = bottomDiff;
                 }
@@ -788,7 +780,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         for (int i = 0; i < childCount; i++) {
             View other = lm.getChildAt(i);
             if (other == viewHolder.itemView) {
-                continue;//myself!
+                continue; //myself!
             }
             if (other.getBottom() < top || other.getTop() > bottom
                     || other.getRight() < left || other.getLeft() > right) {
@@ -820,7 +812,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
     /**
      * Checks if we should swap w/ another view holder.
      */
-    private void moveIfNecessary(ViewHolder viewHolder) {
+    void moveIfNecessary(ViewHolder viewHolder) {
         if (mRecyclerView.isLayoutRequested()) {
             return;
         }
@@ -880,7 +872,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
     /**
      * Returns the animation type or 0 if cannot be found.
      */
-    private int endRecoverAnimation(ViewHolder viewHolder, boolean override) {
+    int endRecoverAnimation(ViewHolder viewHolder, boolean override) {
         final int recoverAnimSize = mRecoverAnimations.size();
         for (int i = recoverAnimSize - 1; i >= 0; i--) {
             final RecoverAnimation anim = mRecoverAnimations.get(i);
@@ -902,7 +894,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         outRect.setEmpty();
     }
 
-    private void obtainVelocityTracker() {
+    void obtainVelocityTracker() {
         if (mVelocityTracker != null) {
             mVelocityTracker.recycle();
         }
@@ -945,7 +937,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
     /**
      * Checks whether we should select a View for swiping.
      */
-    private boolean checkSelectForSwipe(int action, MotionEvent motionEvent, int pointerIndex) {
+    boolean checkSelectForSwipe(int action, MotionEvent motionEvent, int pointerIndex) {
         if (mSelected != null || action != MotionEvent.ACTION_MOVE
                 || mActionState == ACTION_STATE_DRAG || !mCallback.isItemViewSwipeEnabled()) {
             return false;
@@ -1003,7 +995,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         return true;
     }
 
-    private View findChildView(MotionEvent event) {
+    View findChildView(MotionEvent event) {
         // first check elevated views, if none, then call RV
         final float x = event.getX();
         final float y = event.getY();
@@ -1044,7 +1036,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      * <pre>
      *     viewHolder.dragButton.setOnTouchListener(new View.OnTouchListener() {
      *         public boolean onTouch(View v, MotionEvent event) {
-     *             if (MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
+     *             if (MotionEvent.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
      *                 mItemTouchHelper.startDrag(viewHolder);
      *             }
      *             return false;
@@ -1059,7 +1051,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      */
     public void startDrag(ViewHolder viewHolder) {
         if (!mCallback.hasDragFlag(mRecyclerView, viewHolder)) {
-            Log.e(TAG, "Start drag has been called but swiping is not enabled");
+            Log.e(TAG, "Start drag has been called but dragging is not enabled");
             return;
         }
         if (viewHolder.itemView.getParent() != mRecyclerView) {
@@ -1093,7 +1085,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      * <pre>
      *     viewHolder.dragButton.setOnTouchListener(new View.OnTouchListener() {
      *         public boolean onTouch(View v, MotionEvent event) {
-     *             if (MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
+     *             if (MotionEvent.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
      *                 mItemTouchHelper.startSwipe(viewHolder);
      *             }
      *             return false;
@@ -1106,7 +1098,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      */
     public void startSwipe(ViewHolder viewHolder) {
         if (!mCallback.hasSwipeFlag(mRecyclerView, viewHolder)) {
-            Log.e(TAG, "Start swipe has been called but dragging is not enabled");
+            Log.e(TAG, "Start swipe has been called but swiping is not enabled");
             return;
         }
         if (viewHolder.itemView.getParent() != mRecyclerView) {
@@ -1119,7 +1111,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         select(viewHolder, ACTION_STATE_SWIPE);
     }
 
-    private RecoverAnimation findAnimation(MotionEvent event) {
+    RecoverAnimation findAnimation(MotionEvent event) {
         if (mRecoverAnimations.isEmpty()) {
             return null;
         }
@@ -1133,7 +1125,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         return null;
     }
 
-    private void updateDxDy(MotionEvent ev, int directionFlags, int pointerIndex) {
+    void updateDxDy(MotionEvent ev, int directionFlags, int pointerIndex) {
         final float x = ev.getX(pointerIndex);
         final float y = ev.getY(pointerIndex);
 
@@ -1206,15 +1198,13 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             if (mVelocityTracker != null && mActivePointerId > -1) {
                 mVelocityTracker.computeCurrentVelocity(PIXELS_PER_SECOND,
                         mCallback.getSwipeVelocityThreshold(mMaxSwipeVelocity));
-                final float xVelocity = VelocityTrackerCompat
-                        .getXVelocity(mVelocityTracker, mActivePointerId);
-                final float yVelocity = VelocityTrackerCompat
-                        .getYVelocity(mVelocityTracker, mActivePointerId);
+                final float xVelocity = mVelocityTracker.getXVelocity(mActivePointerId);
+                final float yVelocity = mVelocityTracker.getYVelocity(mActivePointerId);
                 final int velDirFlag = xVelocity > 0f ? RIGHT : LEFT;
                 final float absXVelocity = Math.abs(xVelocity);
-                if ((velDirFlag & flags) != 0 && dirFlag == velDirFlag &&
-                        absXVelocity >= mCallback.getSwipeEscapeVelocity(mSwipeEscapeVelocity) &&
-                        absXVelocity > Math.abs(yVelocity)) {
+                if ((velDirFlag & flags) != 0 && dirFlag == velDirFlag
+                        && absXVelocity >= mCallback.getSwipeEscapeVelocity(mSwipeEscapeVelocity)
+                        && absXVelocity > Math.abs(yVelocity)) {
                     return velDirFlag;
                 }
             }
@@ -1235,15 +1225,13 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             if (mVelocityTracker != null && mActivePointerId > -1) {
                 mVelocityTracker.computeCurrentVelocity(PIXELS_PER_SECOND,
                         mCallback.getSwipeVelocityThreshold(mMaxSwipeVelocity));
-                final float xVelocity = VelocityTrackerCompat
-                        .getXVelocity(mVelocityTracker, mActivePointerId);
-                final float yVelocity = VelocityTrackerCompat
-                        .getYVelocity(mVelocityTracker, mActivePointerId);
+                final float xVelocity = mVelocityTracker.getXVelocity(mActivePointerId);
+                final float yVelocity = mVelocityTracker.getYVelocity(mActivePointerId);
                 final int velDirFlag = yVelocity > 0f ? DOWN : UP;
                 final float absYVelocity = Math.abs(yVelocity);
-                if ((velDirFlag & flags) != 0 && velDirFlag == dirFlag &&
-                        absYVelocity >= mCallback.getSwipeEscapeVelocity(mSwipeEscapeVelocity) &&
-                        absYVelocity > Math.abs(xVelocity)) {
+                if ((velDirFlag & flags) != 0 && velDirFlag == dirFlag
+                        && absYVelocity >= mCallback.getSwipeEscapeVelocity(mSwipeEscapeVelocity)
+                        && absYVelocity > Math.abs(xVelocity)) {
                     return velDirFlag;
                 }
             }
@@ -1259,7 +1247,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
 
     private void addChildDrawingOrderCallback() {
         if (Build.VERSION.SDK_INT >= 21) {
-            return;// we use elevation on Lollipop
+            return; // we use elevation on Lollipop
         }
         if (mChildDrawingOrderCallback == null) {
             mChildDrawingOrderCallback = new RecyclerView.ChildDrawingOrderCallback() {
@@ -1283,7 +1271,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         mRecyclerView.setChildDrawingOrderCallback(mChildDrawingOrderCallback);
     }
 
-    private void removeChildDrawingOrderCallbackIfNecessary(View view) {
+    void removeChildDrawingOrderCallbackIfNecessary(View view) {
         if (view == mOverdrawChild) {
             mOverdrawChild = null;
             // only remove if we've added
@@ -1297,7 +1285,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
      * An interface which can be implemented by LayoutManager for better integration with
      * {@link ItemTouchHelper}.
      */
-    public static interface ViewDropHandler {
+    public interface ViewDropHandler {
 
         /**
          * Called by the {@link ItemTouchHelper} after a View is dropped over another View.
@@ -1318,7 +1306,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
          * @param y      The <code>top</code> offset of the View that is being dragged. This value
          *               includes the movement caused by the user.
          */
-        public void prepareForDrop(View view, View target, int x, int y);
+        void prepareForDrop(View view, View target, int x, int y);
     }
 
     /**
@@ -1358,15 +1346,15 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
 
         public static final int DEFAULT_SWIPE_ANIMATION_DURATION = 250;
 
-        static final int RELATIVE_DIR_FLAGS = START | END |
-                ((START | END) << DIRECTION_FLAG_COUNT) |
-                ((START | END) << (2 * DIRECTION_FLAG_COUNT));
+        static final int RELATIVE_DIR_FLAGS = START | END
+                | ((START | END) << DIRECTION_FLAG_COUNT)
+                | ((START | END) << (2 * DIRECTION_FLAG_COUNT));
 
         private static final ItemTouchUIUtil sUICallback;
 
-        private static final int ABS_HORIZONTAL_DIR_FLAGS = LEFT | RIGHT |
-                ((LEFT | RIGHT) << DIRECTION_FLAG_COUNT) |
-                ((LEFT | RIGHT) << (2 * DIRECTION_FLAG_COUNT));
+        private static final int ABS_HORIZONTAL_DIR_FLAGS = LEFT | RIGHT
+                | ((LEFT | RIGHT) << DIRECTION_FLAG_COUNT)
+                | ((LEFT | RIGHT) << (2 * DIRECTION_FLAG_COUNT));
 
         private static final Interpolator sDragScrollInterpolator = new Interpolator() {
             @Override
@@ -1392,11 +1380,9 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
 
         static {
             if (Build.VERSION.SDK_INT >= 21) {
-                sUICallback = new ItemTouchUIUtilImpl.Lollipop();
-            } else if (Build.VERSION.SDK_INT >= 11) {
-                sUICallback = new ItemTouchUIUtilImpl.Honeycomb();
+                sUICallback = new ItemTouchUIUtilImpl.Api21Impl();
             } else {
-                sUICallback = new ItemTouchUIUtilImpl.Gingerbread();
+                sUICallback = new ItemTouchUIUtilImpl.BaseImpl();
             }
         }
 
@@ -1458,7 +1444,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         public static int convertToRelativeDirection(int flags, int layoutDirection) {
             int masked = flags & ABS_HORIZONTAL_DIR_FLAGS;
             if (masked == 0) {
-                return flags;// does not have any abs flags, good.
+                return flags; // does not have any abs flags, good.
             }
             flags &= ~masked; //remove left / right.
             if (layoutDirection == ViewCompat.LAYOUT_DIRECTION_LTR) {
@@ -1486,9 +1472,9 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
          * @return Returns an integer composed of the given drag and swipe flags.
          */
         public static int makeMovementFlags(int dragFlags, int swipeFlags) {
-            return makeFlag(ACTION_STATE_IDLE, swipeFlags | dragFlags) |
-                    makeFlag(ACTION_STATE_SWIPE, swipeFlags) | makeFlag(ACTION_STATE_DRAG,
-                    dragFlags);
+            return makeFlag(ACTION_STATE_IDLE, swipeFlags | dragFlags)
+                    | makeFlag(ACTION_STATE_SWIPE, swipeFlags)
+                    | makeFlag(ACTION_STATE_DRAG, dragFlags);
         }
 
         /**
@@ -1547,7 +1533,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         public int convertToAbsoluteDirection(int flags, int layoutDirection) {
             int masked = flags & RELATIVE_DIR_FLAGS;
             if (masked == 0) {
-                return flags;// does not have any relative flags, good.
+                return flags; // does not have any relative flags, good.
             }
             flags &= ~masked; //remove start / end
             if (layoutDirection == ViewCompat.LAYOUT_DIRECTION_LTR) {
@@ -1569,12 +1555,12 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             return convertToAbsoluteDirection(flags, ViewCompat.getLayoutDirection(recyclerView));
         }
 
-        private boolean hasDragFlag(RecyclerView recyclerView, ViewHolder viewHolder) {
+        boolean hasDragFlag(RecyclerView recyclerView, ViewHolder viewHolder) {
             final int flags = getAbsoluteMovementFlags(recyclerView, viewHolder);
             return (flags & ACTION_MODE_DRAG_MASK) != 0;
         }
 
-        private boolean hasSwipeFlag(RecyclerView recyclerView,
+        boolean hasSwipeFlag(RecyclerView recyclerView,
                 ViewHolder viewHolder) {
             final int flags = getAbsoluteMovementFlags(recyclerView, viewHolder);
             return (flags & ACTION_MODE_SWIPE_MASK) != 0;
@@ -1940,7 +1926,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             }
         }
 
-        private void onDraw(Canvas c, RecyclerView parent, ViewHolder selected,
+        void onDraw(Canvas c, RecyclerView parent, ViewHolder selected,
                 List<ItemTouchHelper.RecoverAnimation> recoverAnimationList,
                 int actionState, float dX, float dY) {
             final int recoverAnimSize = recoverAnimationList.size();
@@ -1959,7 +1945,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             }
         }
 
-        private void onDrawOver(Canvas c, RecyclerView parent, ViewHolder selected,
+        void onDrawOver(Canvas c, RecyclerView parent, ViewHolder selected,
                 List<ItemTouchHelper.RecoverAnimation> recoverAnimationList,
                 int actionState, float dX, float dY) {
             final int recoverAnimSize = recoverAnimationList.size();
@@ -2134,8 +2120,8 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             final int direction = (int) Math.signum(viewSizeOutOfBounds);
             // might be negative if other direction
             float outOfBoundsRatio = Math.min(1f, 1f * absOutOfBounds / viewSize);
-            final int cappedScroll = (int) (direction * maxScroll *
-                    sDragViewScrollCapInterpolator.getInterpolation(outOfBoundsRatio));
+            final int cappedScroll = (int) (direction * maxScroll
+                    * sDragViewScrollCapInterpolator.getInterpolation(outOfBoundsRatio));
             final float timeRatio;
             if (msSinceStartScroll > DRAG_SCROLL_ACCELERATION_LIMIT_TIME_MS) {
                 timeRatio = 1f;
@@ -2256,6 +2242,9 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
 
     private class ItemTouchHelperGestureListener extends GestureDetector.SimpleOnGestureListener {
 
+        ItemTouchHelperGestureListener() {
+        }
+
         @Override
         public boolean onDown(MotionEvent e) {
             return true;
@@ -2294,7 +2283,7 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         }
     }
 
-    private class RecoverAnimation implements AnimatorListenerCompat {
+    private static class RecoverAnimation implements Animator.AnimatorListener {
 
         final float mStartDx;
 
@@ -2308,9 +2297,9 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
 
         final int mActionState;
 
-        private final ValueAnimatorCompat mValueAnimator;
+        private final ValueAnimator mValueAnimator;
 
-        private final int mAnimationType;
+        final int mAnimationType;
 
         public boolean mIsPendingCleanup;
 
@@ -2322,11 +2311,11 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         // instantly.
         boolean mOverridden = false;
 
-        private boolean mEnded = false;
+        boolean mEnded = false;
 
         private float mFraction;
 
-        public RecoverAnimation(ViewHolder viewHolder, int animationType,
+        RecoverAnimation(ViewHolder viewHolder, int animationType,
                 int actionState, float startDx, float startDy, float targetX, float targetY) {
             mActionState = actionState;
             mAnimationType = animationType;
@@ -2335,11 +2324,11 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
             mStartDy = startDy;
             mTargetX = targetX;
             mTargetY = targetY;
-            mValueAnimator = AnimatorCompatHelper.emptyValueAnimator();
+            mValueAnimator = ValueAnimator.ofFloat(0f, 1f);
             mValueAnimator.addUpdateListener(
-                    new AnimatorUpdateListenerCompat() {
+                    new ValueAnimator.AnimatorUpdateListener() {
                         @Override
-                        public void onAnimationUpdate(ValueAnimatorCompat animation) {
+                        public void onAnimationUpdate(ValueAnimator animation) {
                             setFraction(animation.getAnimatedFraction());
                         }
                     });
@@ -2371,24 +2360,24 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
          */
         public void update() {
             if (mStartDx == mTargetX) {
-                mX = ViewCompat.getTranslationX(mViewHolder.itemView);
+                mX = mViewHolder.itemView.getTranslationX();
             } else {
                 mX = mStartDx + mFraction * (mTargetX - mStartDx);
             }
             if (mStartDy == mTargetY) {
-                mY = ViewCompat.getTranslationY(mViewHolder.itemView);
+                mY = mViewHolder.itemView.getTranslationY();
             } else {
                 mY = mStartDy + mFraction * (mTargetY - mStartDy);
             }
         }
 
         @Override
-        public void onAnimationStart(ValueAnimatorCompat animation) {
+        public void onAnimationStart(Animator animation) {
 
         }
 
         @Override
-        public void onAnimationEnd(ValueAnimatorCompat animation) {
+        public void onAnimationEnd(Animator animation) {
             if (!mEnded) {
                 mViewHolder.setIsRecyclable(true);
             }
@@ -2396,12 +2385,12 @@ public class ItemTouchHelper extends RecyclerView.ItemDecoration
         }
 
         @Override
-        public void onAnimationCancel(ValueAnimatorCompat animation) {
+        public void onAnimationCancel(Animator animation) {
             setFraction(1f); //make sure we recover the view's state.
         }
 
         @Override
-        public void onAnimationRepeat(ValueAnimatorCompat animation) {
+        public void onAnimationRepeat(Animator animation) {
 
         }
     }

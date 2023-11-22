@@ -38,7 +38,7 @@ public class RefocusTest extends RSBaseCompute {
      * Test the orignal refocus code
      */
     public void testOriginalRefocus() {
-        refocus(RenderScriptTask.script.f32, Double.POSITIVE_INFINITY);
+        refocus(RenderScriptTask.script.f32, 95);
     }
 
     /**

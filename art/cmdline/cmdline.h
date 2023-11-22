@@ -24,10 +24,12 @@
 #include <iostream>
 #include <string>
 
-#include "runtime.h"
+#include "android-base/stringprintf.h"
+
+#include "base/logging.h"
 #include "base/stringpiece.h"
 #include "noop_compiler_callbacks.h"
-#include "base/logging.h"
+#include "runtime.h"
 
 #if !defined(NDEBUG)
 #define DBG_LOG LOG(INFO)
@@ -197,7 +199,7 @@ struct CmdlineArgs {
         "      Example: --boot-image=/system/framework/boot.art\n"
         "               (specifies /system/framework/<arch>/boot.art as the image file)\n"
         "\n";
-    usage += StringPrintf(  // Optional.
+    usage += android::base::StringPrintf(  // Optional.
         "  --instruction-set=(arm|arm64|mips|mips64|x86|x86_64): for locating the image\n"
         "      file based on the image location set.\n"
         "      Example: --instruction-set=x86\n"
@@ -234,7 +236,7 @@ struct CmdlineArgs {
     // Checks for --boot-image location.
     {
       std::string boot_image_location = boot_image_location_;
-      size_t file_name_idx = boot_image_location.rfind("/");
+      size_t file_name_idx = boot_image_location.rfind('/');
       if (file_name_idx == std::string::npos) {  // Prevent a InsertIsaDirectory check failure.
         *error_msg = "Boot image location must have a / in it";
         return false;
@@ -244,7 +246,7 @@ struct CmdlineArgs {
       // This prevents a common error "Could not create an image space..." when initing the Runtime.
       if (file_name_idx != std::string::npos) {
         std::string no_file_name = boot_image_location.substr(0, file_name_idx);
-        size_t ancestor_dirs_idx = no_file_name.rfind("/");
+        size_t ancestor_dirs_idx = no_file_name.rfind('/');
 
         std::string parent_dir_name;
         if (ancestor_dirs_idx != std::string::npos) {
@@ -264,8 +266,8 @@ struct CmdlineArgs {
       // Check that the boot image location points to a valid file name.
       std::string file_name;
       if (!LocationToFilename(boot_image_location, instruction_set_, &file_name)) {
-        *error_msg = StringPrintf("No corresponding file for location '%s' exists",
-                                  file_name.c_str());
+        *error_msg = android::base::StringPrintf("No corresponding file for location '%s' exists",
+                                                 boot_image_location.c_str());
         return false;
       }
 
@@ -293,7 +295,7 @@ struct CmdlineArgs {
 template <typename Args = CmdlineArgs>
 struct CmdlineMain {
   int Main(int argc, char** argv) {
-    InitLogging(argv);
+    InitLogging(argv, Runtime::Aborter);
     std::unique_ptr<Args> args = std::unique_ptr<Args>(CreateArguments());
     args_ = args.get();
 
